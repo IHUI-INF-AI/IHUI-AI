@@ -77,12 +77,14 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 from app.core.image_preparation import (
     detail_limits as _image_detail_limits,
+)
+from app.core.image_preparation import (
     load_data_url_for_prompt as _load_data_url_for_prompt,
 )
+from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
 from .session_store import ItemBase, SessionStore
@@ -426,6 +428,10 @@ class EngineThread:
     # 线程元数据(2026-09-20 批 47,对标 codex ThreadMetadataPatch):自由 KV,
     # thread/metadata patch 更新;store 持久化同字段(merge=False 整写)
     metadata: dict[str, Any] = field(default_factory=dict)
+    # 下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update):turn.settings
+    # 写入,下一轮 _run_prompt_turn 在 frozen_context 刷新后 merge 进去并清空(一次性
+    # 消费);实现"下轮生效、不拒绝 running"。键空间与 frozen_context 一致。
+    pending_turn_settings: dict[str, Any] | None = None
     # token 预算(2026-09-18 第三批,对标 Codex TokenBudget/RolloutBudget):
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
@@ -1530,6 +1536,13 @@ class AgentEngine:
             "thread.turns.list": self._handle_thread_turns_list,
             "thread.read": self._handle_thread_read,
             "thread.metadata": self._handle_thread_metadata,
+            "memory.status": self._handle_memory_status,
+            "memory.reset": self._handle_memory_reset,
+            "thread.settings": self._handle_thread_settings,
+            "turn.settings": self._handle_turn_settings,
+            "thread.loaded.list": self._handle_thread_loaded_list,
+            "thread.unsubscribe": self._handle_thread_unsubscribe,
+            "model.list": self._handle_models_list,
             "agent.exec": self._handle_agent_exec,
             "tools.list": self._handle_tools_list,
             "tools.register": self._handle_tools_register,
@@ -2128,6 +2141,15 @@ class AgentEngine:
         # Turn Context 冻结:非 checkpoint 路径每轮刷新快照(客户端在轮间改配置,
         # 新一轮用新值;轮内 interrupt→resume 走 _handle_thread_resume 的冻结副本)
         thread.frozen_context = self._freeze_context(thread)
+        # 下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update):
+        # pending_turn_settings 非空 → merge 进本轮冻结快照并清空(一次性消费,
+        # 不进 agent_loop_v2;键空间与 frozen_context 一致,如 model/permission_mode)。
+        if thread.pending_turn_settings:
+            thread.frozen_context = {
+                **thread.frozen_context,
+                **thread.pending_turn_settings,
+            }
+            thread.pending_turn_settings = None
         # 环境快照事件(2026-09-18 第二批,对标 Codex EnvironmentSnapshot/环境上下文):
         # 客户端每轮可感知 cwd/workspace/生成参数,排查"模型看到了什么环境"不再靠猜。
         with contextlib.suppress(Exception):
@@ -3380,6 +3402,191 @@ class AgentEngine:
             "metadata": thread.metadata,
             "persisted": persisted,
         }
+
+    async def _handle_memory_status(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """记忆面状态查询(2026-09-20 批 49,对标 codex memory/status)。
+
+        经 memory_facade 只读聚合 meta_learner lessons 状态;facade 异常
+        已内部降级为 {"error": ...},不炸引擎。
+        """
+        from .memory_facade import memory_status
+
+        return {"status": memory_status()}
+
+    async def _handle_memory_reset(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """记忆面重置(2026-09-20 批 49,对标 codex memory/reset)。
+
+        双确认语义:confirm 缺省 False → 只返回确认提示不动数据;显式
+        confirm=true 才清空(facade 层同样兜底)。
+        """
+        from .memory_facade import memory_reset
+
+        confirm = bool(params.get("confirm", False))
+        return {"result": memory_reset(confirm=confirm)}
+
+    async def _handle_thread_settings(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """线程配置热更(2026-09-20 批 48,对标 codex thread/settings/update)。
+
+        running → THREAD_BUSY(配置冻结底座决定轮间热更语义:本轮用冻结副本,
+        改了也不生效,故直接拒绝而非悄悄忽略)。校验类型后更新 EngineThread
+        对应字段(model_params 合并,其余直接赋值);返回生效键 + 更新后快照,
+        并发 thread.settings.updated。settings 缺失/非对象 → INVALID_PARAMS。
+        """
+        thread = self._require_thread(params)
+        if thread.status == "running":
+            raise JsonRpcError(THREAD_BUSY, f"线程正在执行中: {thread.thread_id}")
+        settings = params.get("settings")
+        if not isinstance(settings, dict):
+            raise JsonRpcError(INVALID_PARAMS, "settings 须为对象")
+        # 先统一校验,避免中途非法导致部分字段生效
+        model = settings.get("model")
+        if model is not None and (not isinstance(model, str) or not model):
+            raise JsonRpcError(INVALID_PARAMS, "model 须为非空字符串")
+        max_iterations = settings.get("maxIterations")
+        if max_iterations is not None and (
+            not isinstance(max_iterations, int)
+            or isinstance(max_iterations, bool)
+            or max_iterations <= 0
+        ):
+            raise JsonRpcError(INVALID_PARAMS, "maxIterations 须为正整数")
+        token_budget = settings.get("tokenBudget")
+        if token_budget is not None and (
+            not isinstance(token_budget, int)
+            or isinstance(token_budget, bool)
+            or token_budget <= 0
+        ):
+            raise JsonRpcError(INVALID_PARAMS, "tokenBudget 须为正整数")
+        auto_compact = settings.get("autoCompact")
+        if auto_compact is not None and not isinstance(auto_compact, bool):
+            raise JsonRpcError(INVALID_PARAMS, "autoCompact 须为布尔")
+        auto_compact_threshold = settings.get("autoCompactThreshold")
+        if auto_compact_threshold is not None and (
+            not isinstance(auto_compact_threshold, int)
+            or isinstance(auto_compact_threshold, bool)
+            or auto_compact_threshold <= 0
+        ):
+            raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为正整数")
+        permission_mode = settings.get("permissionMode")
+        if permission_mode is not None and (
+            not isinstance(permission_mode, str) or not permission_mode
+        ):
+            raise JsonRpcError(INVALID_PARAMS, "permissionMode 须为非空字符串")
+        model_params = settings.get("modelParams")
+        if model_params is not None and not isinstance(model_params, dict):
+            raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")
+        # 统一赋值(校验已全过)
+        applied: list[str] = []
+        if model is not None:
+            thread.model = model
+            applied.append("model")
+        if max_iterations is not None:
+            thread.max_iterations = max_iterations
+            applied.append("maxIterations")
+        if token_budget is not None:
+            thread.token_budget = token_budget
+            applied.append("tokenBudget")
+        if auto_compact is not None:
+            thread.auto_compact = auto_compact
+            applied.append("autoCompact")
+        if auto_compact_threshold is not None:
+            thread.auto_compact_threshold = auto_compact_threshold
+            applied.append("autoCompactThreshold")
+        if permission_mode is not None:
+            thread.permission_mode = permission_mode
+            applied.append("permissionMode")
+        if model_params is not None:
+            thread.model_params = {**thread.model_params, **model_params}
+            applied.append("modelParams")
+        thread.touch()
+        await self._emit_engine_event(
+            thread,
+            emit,
+            "thread.settings.updated",
+            {"settings": settings, "applied": applied},
+        )
+        return {
+            "threadId": thread.thread_id,
+            "applied": applied,
+            "settings": {
+                "model": thread.model,
+                "maxIterations": thread.max_iterations,
+                "tokenBudget": thread.token_budget,
+                "autoCompact": thread.auto_compact,
+                "autoCompactThreshold": thread.auto_compact_threshold,
+                "permissionMode": thread.permission_mode,
+                "modelParams": thread.model_params,
+            },
+        }
+
+    async def _handle_turn_settings(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """下轮一次性配置(2026-09-20 批 48,对标 codex turn/settings/update)。
+
+        与 thread.settings 不同:**不**拒绝 running——写入 thread.pending_turn_settings
+        (含任意 frozen_context 键),下一轮 _run_prompt_turn 在 frozen_context 刷新后
+        merge 进去并清空(一次性消费,语义 effectiveFrom="next_turn")。发
+        turn.settings.updated。settings 缺失/非对象 → INVALID_PARAMS。
+        """
+        thread = self._require_thread(params)
+        settings = params.get("settings")
+        if not isinstance(settings, dict) or not settings:
+            raise JsonRpcError(INVALID_PARAMS, "settings 须为非空对象")
+        base = thread.pending_turn_settings or {}
+        thread.pending_turn_settings = {**base, **settings}
+        thread.touch()
+        await self._emit_engine_event(
+            thread,
+            emit,
+            "turn.settings.updated",
+            {"settings": settings, "effectiveFrom": "next_turn"},
+        )
+        return {
+            "threadId": thread.thread_id,
+            "applied": sorted(settings.keys()),
+            "effectiveFrom": "next_turn",
+        }
+
+    async def _handle_thread_loaded_list(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """内存活跃线程清单(2026-09-20 批 48,对标 codex thread/loaded/list)。
+
+        仅列进程内 self._threads 的活跃线程(不依赖持久化 store);返回 threadId/
+        status/prompts 摘要 + 总数。
+        """
+        threads = [
+            {
+                "threadId": t.thread_id,
+                "status": t.status,
+                "prompts": t.prompts,
+            }
+            for t in self._threads.values()
+        ]
+        return {"threads": threads, "total": len(threads)}
+
+    async def _handle_thread_unsubscribe(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """断开当次承载连接的事件推送(2026-09-20 批 48,对标 codex thread/unsubscribe)。
+
+        把 thread.emit 置 None(后续引擎自产事件不再经此连接出站);返回 unsubscribed
+        并立刻用当次 emit 参数发 thread.unsubscribed(因 thread.emit 刚清,须用传入
+        的 emit 而非 thread.emit)。线程须存在(_require_thread)。
+        """
+        thread = self._require_thread(params)
+        thread.emit = None
+        thread.touch()
+        await self._emit_engine_event(
+            thread, emit, "thread.unsubscribed", {"threadId": thread.thread_id}
+        )
+        return {"threadId": thread.thread_id, "unsubscribed": True}
 
     def _serialize_item(self, item: ItemBase) -> dict[str, Any]:
         """item → 可传输 dict(body_payload 展开 + type/seq + 信封)。
