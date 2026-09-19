@@ -69,6 +69,9 @@ class PoolTool:
     collision: bool = False
     collision_group: str | None = None  # 冲突所在 name 组(冲突时非空)
     sources: list[str] = field(default_factory=list)  # merge_manifest 合并时含多 server
+    # 批 39 接线:MCP 工具注解(dict,tools/list annotations 原样;None = 未提供)。
+    # 经 _collect_raw 提取、_entry 下发,供 ToolDefinition 包装层转 MCP 注解审批判定。
+    annotations: dict[str, Any] | None = None
 
 
 @dataclass
@@ -98,6 +101,8 @@ class _RawTool:
     schema: dict[str, Any]
     server_name: str
     priority: int
+    # 批 39 接线:注解随原始工具缓存(归一化不改写注解)
+    annotations: dict[str, Any] | None = None
 
 
 class MCPSuperToolAggregator:
@@ -147,7 +152,14 @@ class MCPSuperToolAggregator:
                 rt.schema, description=rt.description, stats=norm_stats
             )
             normalized.append(
-                _RawTool(rt.name, rt.description, schema, rt.server_name, rt.priority)
+                _RawTool(
+                    rt.name,
+                    rt.description,
+                    schema,
+                    rt.server_name,
+                    rt.priority,
+                    rt.annotations,
+                )
             )
 
         by_name: dict[str, list[_RawTool]] = {}
@@ -336,6 +348,7 @@ class MCPSuperToolAggregator:
                         schema=self._tool_schema(tool),
                         server_name=server,
                         priority=src.priority,
+                        annotations=self._tool_annotations(tool),
                     )
                 )
         return raw
@@ -350,6 +363,7 @@ class MCPSuperToolAggregator:
                     "name": rt.name,
                     "description": rt.description,
                     "inputSchema": rt.schema,
+                    **({"annotations": rt.annotations} if rt.annotations else {}),
                 }
             )
             # 记录并复用该 server 的优先级(schema 已归一化,可安全回灌)
@@ -380,6 +394,15 @@ class MCPSuperToolAggregator:
         if isinstance(tool, dict):
             return tool.get("inputSchema") or tool.get("input_schema") or {}
         return dict(getattr(tool, "input_schema", None) or {})
+
+    @staticmethod
+    def _tool_annotations(tool: Any) -> dict[str, Any] | None:
+        """提取工具注解(dict 原样 / MCPClientTool.annotations 属性;无则 None)。"""
+        if isinstance(tool, dict):
+            ann = tool.get("annotations")
+            return dict(ann) if isinstance(ann, dict) and ann else None
+        ann = getattr(tool, "annotations", None)
+        return dict(ann) if isinstance(ann, dict) and ann else None
 
     @staticmethod
     def _order_group(group: list[_RawTool]) -> list[_RawTool]:
@@ -492,4 +515,5 @@ class MCPSuperToolAggregator:
             collision=collision,
             collision_group=collision_group,
             sources=sources if sources is not None else [rt.server_name],
+            annotations=rt.annotations,
         )
