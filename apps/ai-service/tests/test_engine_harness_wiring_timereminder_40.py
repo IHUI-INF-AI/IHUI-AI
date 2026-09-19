@@ -291,3 +291,76 @@ def test_loop_without_time_provider_zero_change():
         loop.run([{"role": "user", "content": "hi"}])
     )
     assert result.success is True
+def test_rollout_budget_wiring_fragment_and_throttle():
+    """rollout_budget 接线:usage 归一化记账 + 阈值提醒投递 + 同级别只投一次。"""
+    from app.core.rollout_budget import (
+        ROLLOUT_BUDGET_CLOSE_TAG,
+        ROLLOUT_BUDGET_OPEN_TAG,
+        RolloutBudget,
+        RolloutBudgetConfig,
+        build_rollout_budget_fragment,
+        normalize_rollout_usage,
+    )
+
+    # 归一化:OpenAI 风格 usage → 统一字段
+    u = normalize_rollout_usage(
+        {
+            "prompt_tokens": 5000,
+            "completion_tokens": 7000,
+            "prompt_tokens_details": {"cached_tokens": 1000},
+        }
+    )
+    assert u["input_tokens"] == 5000 and u["output_tokens"] == 7000
+    assert u["cached_input_tokens"] == 1000
+    assert normalize_rollout_usage(None) == {}
+    assert normalize_rollout_usage({"junk": 1}) == {}
+
+    # 片段形态:developer、标记、文案
+    frag = build_rollout_budget_fragment(1800)
+    assert frag["role"] == "developer"
+    text = frag["content"][0]["text"]
+    assert text.startswith(ROLLOUT_BUDGET_OPEN_TAG) and text.endswith(ROLLOUT_BUDGET_CLOSE_TAG)
+    assert "1800 weighted tokens left" in text
+
+    # 状态机:阈值(10000, 2000)两档,同级别同窗口只投一次
+    rb = RolloutBudget()
+    rb.configure(
+        RolloutBudgetConfig(limit_tokens=100000, reminder_at_remaining_tokens=(10000, 2000))
+    )
+    # 用掉 92k → 剩 8k → 越过 10000 档 → 1 级提醒
+    rb.record_usage({"input_tokens": 92000})
+    rem1 = rb.pending_reminder("t", "w")
+    assert rem1 is not None and rem1.remaining_tokens == 8000
+    rb.mark_reminder_delivered("t", "w", rem1)
+    # 未再越档 → 无新提醒
+    assert rb.pending_reminder("t", "w") is None
+    # 再用 7k → 剩 1k → 越过 2000 档 → 2 级提醒
+    rb.record_usage({"input_tokens": 7000})
+    rem2 = rb.pending_reminder("t", "w")
+    assert rem2 is not None and rem2.remaining_tokens == 1000
+
+
+def test_rollout_budget_disabled_zero_change():
+    """未设置 AGENT_ROLLOUT_BUDGET_TOKENS:循环内零行为变化(monkeypatch env)。"""
+    import asyncio
+
+    from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition, _rollout_budget_limit_from_env
+
+    async def llm_complete_fn(messages, tools_schema, **kwargs):
+        texts = " ".join(
+            str(m.get("content", "")) for m in messages if isinstance(m, dict)
+        )
+        assert "rollout_budget" not in texts
+        return {"content": "ok", "tool_calls": None}
+
+    assert _rollout_budget_limit_from_env() == 0
+    loop = AgentLoopV2(
+        llm_complete_fn=llm_complete_fn,
+        tools=[],
+        enable_checkpoint=False,
+    )
+    result = asyncio.get_event_loop().run_until_complete(
+        loop.run([{"role": "user", "content": "hi"}])
+    )
+    assert result.success is True
+    assert loop._rollout_budget is None
