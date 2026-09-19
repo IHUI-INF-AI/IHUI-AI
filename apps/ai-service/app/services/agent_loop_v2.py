@@ -82,6 +82,10 @@ from .llm_budget_governor import (
 )
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 from .security_config import get_security_config
+from ..core.mcp_tool_approval import (
+    ToolAnnotations as _McpToolAnnotations,
+    requires_mcp_tool_approval as _requires_mcp_tool_approval,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +341,11 @@ class ToolDefinition:
     description: str
     parameters: dict[str, Any]  # JSON Schema
     executor: Callable[..., Any]  # async (args: dict) -> dict
+    # 批 39 接线:外部 MCP 工具注解(对标 MCP 工具审批判定)。
+    # None = 内部工具/注解未知 → 审批门维持既有高危清单语义,零行为变化;
+    # 非 None = 外部 MCP 工具 → auto 模式免审批判定改用 Codex 保守语义
+    # (requires_mcp_tool_approval:未知注解按最坏情况需批,绝不因元数据缺失放行)。
+    mcp_annotations: dict[str, Any] | None = None
 
 
 @dataclass
@@ -3496,6 +3505,37 @@ class AgentLoopV2:
                     "auto 模式:只读工具免审批直接执行",
                 )
             needs_approval = False
+
+        # 批 39 接线:外部 MCP 工具注解审批(auto 模式专属判定,对标 Codex
+        # requires_mcp_tool_approval 保守语义)。仅当工具携带 mcp_annotations
+        # 时生效——内部工具(注解恒 None)行为零变化;非 auto 模式不介入
+        # (default 模式保持回归红线)。判定为需批时不再走只读白名单免审,
+        # 未知注解(destructive/open_world 缺失)按最坏情况需批。
+        if (
+            self._permission_mode == "auto"
+            and needs_approval is False
+            and not gate_approved
+        ):
+            _tool_def = self._tools.get(tc.name)
+            _ann = getattr(_tool_def, "mcp_annotations", None) if _tool_def else None
+            # 显式 is not None:空 dict 注解 = server 声明了注解对象但字段全未知,
+            # 按保守语义同样需批(不能用 truthiness 跳过)。
+            if _ann is not None:
+                try:
+                    _ta = _McpToolAnnotations(
+                        read_only_hint=_ann.get("read_only_hint"),
+                        destructive_hint=_ann.get("destructive_hint"),
+                        open_world_hint=_ann.get("open_world_hint"),
+                    )
+                except Exception:
+                    _ta = _McpToolAnnotations()  # 全未知 → 保守需批
+                if _requires_mcp_tool_approval(_ta):
+                    needs_approval = self._approval_enabled
+                    if needs_approval:
+                        self._decision_hints[tc.id] = (
+                            "mcp_annotations_require_approval",
+                            "auto 模式:MCP 工具注解按保守语义判定需人工审批",
+                        )
 
         # 工具级审批策略覆盖(显式配置 > 模式隐含 > 高危清单,2026-09-18 立):
         # always 强制每次必审(auto 只读免审也被覆盖);never 强制免审(高危清单也放行);
