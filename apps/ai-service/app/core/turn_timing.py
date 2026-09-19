@@ -64,7 +64,7 @@ class TurnProfile:
             + self.after_last_sampling_ms
         )
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, int]:
         return {
             "beforeFirstSamplingMs": self.before_first_sampling_ms,
             "samplingMs": self.sampling_ms,
@@ -100,7 +100,7 @@ class TurnProfileTimingGuard:
     def __enter__(self) -> "TurnProfileTimingGuard":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         if self._active:
             self._timing._end_phase(time.perf_counter(), self._phase)
 
