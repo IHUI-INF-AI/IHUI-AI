@@ -71,7 +71,23 @@
     "codeCountdownSuffix": "秒後重新獲取",
     "getPhoneFail": "獲取手機號碼失敗",
     "loginFailed": "登入失敗,請重試",
-    "wechatOneClick": "微信一鍵登入"
+    "wechatOneClick": "微信一鍵登入",
+    "emailLogin": "郵箱登入",
+    "email": "郵箱",
+    "emailPlaceholder": "請輸入郵箱",
+    "clearHistory": "清空全部",
+    "code": "驗證碼",
+    "sending": "發送中…",
+    "autoLogin": "自動登入",
+    "or": "或",
+    "ssoLoginTitle": "智匯AI網頁授權登入",
+    "noAccount": "沒有帳號?",
+    "registerNow": "立即註冊",
+    "agreePrefix": "我已閱讀並同意",
+    "termsOfService": "《使用者協議》",
+    "and": "和",
+    "privacyPolicy": "《隱私政策》",
+    "agreeRequired": "請先閱讀並同意服務協議和隱私政策"
   },
   "forgot": {
     "title": "找回密碼",
@@ -133,7 +149,8 @@
       "searchPlaceholder": "搜尋課程",
       "search": "搜尋",
       "empty": "暫無課程",
-      "title": "精品課程"
+      "title": "精品課程",
+      "courseCount": "{n} 門課程"
     },
     "ratingTitle": "評價課程",
     "ratingLabels": ["", "很差", "較差", "一般", "不錯", "很好"],
@@ -799,7 +816,13 @@
       "voiceAnswer": "🔊 語音回答",
       "modelDefault": "AI 模型"
     },
-    "success": "分享成功"
+    "success": "分享成功",
+    "text1": "頁面未設定",
+    "text2": "分銷頁未設定",
+    "copy3": "連結已複製,請在瀏覽器開啟",
+    "failed4": "複製失敗,請重試",
+    "text5": "對話頁未設定",
+    "confirm6": "確定刪除此對話?"
   },
   "aiGroup": {
     "title": "智慧體廣場",
@@ -839,7 +862,7 @@
     "inputPlaceholder": "輸入訊息…",
     "filePickFailed": "檔案選擇失敗",
     "imagePickFailed": "圖片選擇失敗",
-    "sending": "傳送中…"
+    "sending": "發送中…"
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1007,7 +1030,8 @@
     "email": "郵箱",
     "scanHint": "掃一掃,查看名片",
     "shareCard": "分享名片",
-    "saveQrcode": "儲存 QR code"
+    "saveQrcode": "儲存 QR code",
+    "title": "電子名片"
   },
   "exam": {
     "tabs": {
@@ -1856,7 +1880,8 @@
       "devNotice": "開發者須知",
       "faqTitle": "相關開發者的一系列問題解答？",
       "copy": "複製",
-      "copySuccess": "已複製"
+      "copySuccess": "已複製",
+      "infoTitle": "開發者資訊"
     },
     "n8nModel": {
       "title": "N8N 模型",
@@ -3201,7 +3226,9 @@
     "d2": "相簿",
     "d3": "本機檔案",
     "d4": "微信檔案",
-    "text1": "已預設自動切換深度思考"
+    "text1": "已預設自動切換深度思考",
+    "p1": "語音輸入中",
+    "p2": "語音輸入"
   },
   "CourseHeader": {
     "text1": "付費項目"
@@ -3587,7 +3614,8 @@
     "text2": "智慧體助手頁未設定",
     "p1": "圖片內容",
     "p2": "影片內容",
-    "p3": "音訊內容"
+    "p3": "音訊內容",
+    "r1": "儲存圖片到相簿"
   },
   "plazaCover": {
     "d1": "什麼是開發者空間?",
@@ -3610,7 +3638,8 @@
     "d3": "深色介面,護眼且省電,適合夜間使用"
   },
   "shareCenterItem": {
-    "text1": "推薦卡片"
+    "text1": "推薦卡片",
+    "z1": "瀏覽"
   },
   "shareInterestTrackModal": {
     "d1": "AI 人工智慧",
@@ -3705,7 +3734,11 @@
   "LessonListItem": {
     "text1": "VIP可看",
     "text2": "VIP可看",
-    "y1": "人已學習"
+    "y1": "人已學習",
+    "z1": "人已學習",
+    "z2": "人已學習",
+    "p1": "VIP可看",
+    "p2": "付費項目"
   },
   "UserInfoCard": {
     "login1": "一鍵登入",
@@ -3891,7 +3924,8 @@
     "p2": "掃碼即可查看"
   },
   "TagInput": {
-    "p1": "輸入後按回車新增"
+    "p1": "輸入後按回車新增",
+    "p2": "已達上限"
   },
   "VipUpgradeToast": {
     "p1": "升級會員解鎖更多功能"
@@ -3952,5 +3986,24 @@
     "q2": "請在微信小程式中使用微信登入",
     "q3": "微信登入 code 為空",
     "q4": "微信用戶"
+  },
+  "TeamManager": {
+    "p1": "不活躍"
+  },
+  "VerifyCodeModal": {
+    "p2": "重新發送",
+    "p3": "驗證中…"
+  },
+  "VideoInfo": {
+    "p1": "影片詳情"
+  },
+  "VideoPlayer": {
+    "p1": "播放錯誤"
+  },
+  "VoiceInput": {
+    "p1": "錄音啟動失敗"
+  },
+  "shareInformationItem": {
+    "z1": "瀏覽"
   }
 }

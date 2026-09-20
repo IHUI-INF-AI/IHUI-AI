@@ -71,7 +71,23 @@
     "codeCountdownSuffix": "초 후 재요청",
     "getPhoneFail": "전화번호 가져오기 실패",
     "loginFailed": "로그인 실패, 다시 시도해 주세요",
-    "wechatOneClick": "WeChat 원클릭 로그인"
+    "wechatOneClick": "WeChat 원클릭 로그인",
+    "emailLogin": "이메일 로그인",
+    "email": "이메일",
+    "emailPlaceholder": "이메일 입력",
+    "clearHistory": "전체 삭제",
+    "code": "인증번호",
+    "sending": "전송 중…",
+    "autoLogin": "자동 로그인",
+    "or": "또는",
+    "ssoLoginTitle": "IHUI AI 웹 승인 로그인",
+    "noAccount": "계정이 없으신가요?",
+    "registerNow": "지금 회원가입",
+    "agreePrefix": "읽고 동의합니다",
+    "termsOfService": "이용약관",
+    "and": "및",
+    "privacyPolicy": "개인정보 처리방침",
+    "agreeRequired": "먼저 서비스 이용약관과 개인정보 처리방침에 동의하세요"
   },
   "forgot": {
     "step1": "1단계: 휴대폰 인증",
@@ -133,7 +149,8 @@
       "searchPlaceholder": "강의 검색",
       "search": "검색",
       "empty": "강의 없음",
-      "title": "추천 강의"
+      "title": "추천 강의",
+      "courseCount": "{n}개 강의"
     },
     "ratingTitle": "코스 평가",
     "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
@@ -804,7 +821,13 @@
       "voiceAnswer": "🔊 음성 답변",
       "modelDefault": "AI 모델"
     },
-    "success": "공유 성공"
+    "success": "공유 성공",
+    "text1": "페이지 미구성",
+    "text2": "유통 페이지 미구성",
+    "copy3": "링크가 복사되었습니다, 브라우저에서 열어 주세요",
+    "failed4": "복사 실패, 다시 시도해 주세요",
+    "text5": "대화 페이지 미구성",
+    "confirm6": "이 대화를 삭제하시겠습니까?"
   },
   "aiGroup": {
     "title": "에이전트 광장",
@@ -1012,7 +1035,8 @@
     "email": "이메일",
     "scanHint": "스캔하여 명함 보기",
     "shareCard": "명함 공유",
-    "saveQrcode": "QR 코드 저장"
+    "saveQrcode": "QR 코드 저장",
+    "title": "디지털 명함"
   },
   "exam": {
     "tabs": {
@@ -1861,7 +1885,8 @@
       "devNotice": "개발자 공지",
       "faqTitle": "개발자 관련 자주 묻는 질문?",
       "copy": "복사",
-      "copySuccess": "복사됨"
+      "copySuccess": "복사됨",
+      "infoTitle": "개발자 정보"
     },
     "n8nModel": {
       "title": "N8N 모델",
@@ -3262,7 +3287,8 @@
     "d46": "음성 클로닝 효과",
     "p1": "이미지 콘텐츠",
     "p2": "영상 콘텐츠",
-    "p3": "오디오 콘텐츠"
+    "p3": "오디오 콘텐츠",
+    "r1": "앨범에 저장"
   },
   "aiassistant": {
     "text1": "심층 사고 중...",
@@ -3317,7 +3343,9 @@
     "d1": "카메라",
     "d2": "앨범",
     "d3": "로컬 파일",
-    "d4": "위챗 파일"
+    "d4": "위챗 파일",
+    "p1": "음성 입력 중",
+    "p2": "음성 입력"
   },
   "DrawerComponent": {
     "empty1": "대화 기록 없음",
@@ -3338,7 +3366,8 @@
     "mine2": "내 AI 직원"
   },
   "shareCenterItem": {
-    "text1": "추천 카드"
+    "text1": "추천 카드",
+    "z1": "조회"
   },
   "CourseHeader": {
     "text1": "유료 항목"
@@ -3724,7 +3753,11 @@
   "LessonListItem": {
     "text1": "VIP 전용",
     "text2": "VIP 전용",
-    "y1": "명 학습 완료"
+    "y1": "명 학습 완료",
+    "z1": "명 학습 완료",
+    "z2": "명 학습 완료",
+    "p1": "VIP 전용",
+    "p2": "유료 항목"
   },
   "UserInfoCard": {
     "login1": "원탭 로그인",
@@ -3910,7 +3943,8 @@
     "p2": "스캔하여 보기"
   },
   "TagInput": {
-    "p1": "Enter 키로 추가"
+    "p1": "Enter 키로 추가",
+    "p2": "한도에 도달했습니다"
   },
   "VipUpgradeToast": {
     "p1": "회원 업그레이드로 더 많은 기능 해제"
@@ -3971,5 +4005,24 @@
     "q2": "위챗 미니 프로그램에서 위챗 로그인을 사용해 주세요",
     "q3": "위챗 로그인 코드가 비어 있습니다",
     "q4": "위챗 사용자"
+  },
+  "TeamManager": {
+    "p1": "비활성"
+  },
+  "VerifyCodeModal": {
+    "p2": "재전송",
+    "p3": "확인 중…"
+  },
+  "VideoInfo": {
+    "p1": "영상 상세"
+  },
+  "VideoPlayer": {
+    "p1": "재생 오류"
+  },
+  "VoiceInput": {
+    "p1": "녹음 시작 실패"
+  },
+  "shareInformationItem": {
+    "z1": "조회"
   }
 }
