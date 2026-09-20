@@ -66,6 +66,13 @@
 - [x] ✅(2026-09-20) A2 端点数量与 token 解耦:两个名字恒定的入口工具
       `api_endpoints_search` / `api_endpoint_call`(仅接受 `api_` 前缀,防越权捷径)。证据:同文件 `_entry_tools()`
       + `_API_TOOL_INDEX` 侧表;测试 `tests/test_api_tools_bridge.py`。
+- [x] ✅(2026-09-20) A5 实测划出 route A 的真实边界（写文档前先量，不写没验过的话）。
+      桥接以 `x-internal-service-token` + `x-user-id` 代调，但 `apps/api` 仅显式接
+      `checkAuthOrInternalService` 的路由认这套凭据 —— 全仓 `routes/*.ts` 里只有 **4 个文件**引用它。
+      实测对照：`/api/memory` 带令牌 200 / 不带 401（通）；`/api/conversations`、`/api/notifications`、
+      `/api/admin/users` 无论带不带令牌都 401（不通）。所以 A1/A3 的"2027 / 4591 可调用面"是
+      **调用面**指标，真正落地范围受"Agent 全面开放工程"授权层收口约束（该工程的立项前提正是
+      "96% 功能面 `/api/*` 不认机器凭据"，由另一条会话推进，我不越界改 250 个路由的鉴权）。
 - [x] ✅(2026-09-20) B1 复用 agent-control 通道扩 `category='ui'` + `endpoint='web'`(**不另造并行通道**)。
       证据:`packages/types/src/agent-control.ts`(`UiControlActionType` 七动词 + `UiRegistrySnapshot`)、
       `apps/api/src/routes/agent-control.ts`(`CATEGORY_ENDPOINT` 穷举 Record 取代三元硬编码)、
