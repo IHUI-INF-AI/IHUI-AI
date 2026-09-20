@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
 from collections.abc import Callable, Sequence
@@ -49,6 +50,9 @@ __all__ = [
     "prefix_rule",
     "ExecPolicyManager",
     "parse_rule_line",
+    "rules_dir_from_env",
+    "get_or_create_manager",
+    "reset_manager",
 ]
 
 # ---------------------------------------------------------------------------
@@ -1002,4 +1006,47 @@ class ExecPolicyManager:
             except OSError as exc:
                 self._policy = old_policy  # 回滚内存
                 raise OSError(f"追加规则落盘失败,已回滚内存:{exc}") from exc
+
+
+# ---------------------------------------------------------------------------
+# 模块级配置入口(批 53:把规则目录从硬编码改为可配置)
+# ---------------------------------------------------------------------------
+
+_ENV_RULES_DIR = "IHUI_EXEC_POLICY_RULES_DIR"
+
+
+def rules_dir_from_env() -> str | None:
+    """从环境变量读取规则目录。
+
+    读取 ``IHUI_EXEC_POLICY_RULES_DIR``:空字符串或未设置 → 返回 ``None``
+    (调用方据此走纯内存模式,与旧 ``ExecPolicy`` 行为一致);否则返回去空白后的路径。
+    """
+    raw = os.environ.get(_ENV_RULES_DIR)
+    if raw is None:
+        return None
+    stripped = raw.strip()
+    return stripped or None
+
+
+# 批 53:配置化单例(独立于 _default_policy,互不影响;向后兼容旧 evaluate 入口)。
+_manager: ExecPolicyManager | None = None
+
+
+def get_or_create_manager() -> ExecPolicyManager:
+    """返回模块级规则管理器单例(懒加载)。
+
+    首次调用时 rules_dir 取自 :func:`rules_dir_from_env`(``None`` 即纯内存模式);
+    后续调用复用同一实例。``_default_policy`` 单例保持不动,旧 ``evaluate`` 入口不受影响。
+    """
+    global _manager
+    if _manager is None:
+        _manager = ExecPolicyManager(rules_dir_from_env())
+    return _manager
+
+
+def reset_manager() -> None:
+    """重置模块级单例(仅供测试隔离使用,生产路径不调用)。"""
+    global _manager
+    _manager = None
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
