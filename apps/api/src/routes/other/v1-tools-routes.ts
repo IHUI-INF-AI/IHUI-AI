@@ -12,12 +12,18 @@ import { success } from '../../utils/response.js'
 import { dbRead } from '../../db/index.js'
 import { tools } from '@ihui/database'
 import { parsePagination } from './_shared.js'
-import { declareCapability } from '../../utils/capability-guard.js'
+import { requireCapabilityRules } from '../../utils/capability-guard.js'
+import { openCapabilityRules } from '../../config/open-capability-registry.js'
+import { requireOpenCapability } from '../../utils/open-capability-gate.js'
 
 export const v1ToolsRoutes: FastifyPluginAsync = async (server) => {
-  // O3 登记:本族只读工具目录。注意这些端点当前无鉴权且读 request.userId,
-  // 属遗留前端桩(见交付报告发现项),待专项收口为 requireApiKeyAuth + requireCapability。
-  server.addHook('preHandler', declareCapability('tools:read'))
+  // O6 收口(原 O3 仅 declareCapability 登记、不强制):本族只读工具目录。
+  // 人 JWT 通道行为不变(上游 otherRoutes 已 authenticate);机器凭据须持有 tools:read,
+  // path→scope 映射取自开放登记表,本文件不再自持第二份真相。
+  server.addHook(
+    'preHandler',
+    requireOpenCapability(requireCapabilityRules(openCapabilityRules('v1-tools-directory'))),
+  )
 
   // GET /v1/tools/list — 工具列表
   server.get('/v1/tools/list', async (request, reply) => {
