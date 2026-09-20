@@ -37,8 +37,17 @@ from app.services.agent_loop_v2 import (
 
 
 @pytest.fixture(autouse=True)
-def _mock_hook_engine(monkeypatch):
-    """把 agent_loop_v2 模块的 hook_engine 替换为 fake(不真广播/执行 hook)。"""
+def _mock_hook_engine(monkeypatch, tmp_path):
+    """把 agent_loop_v2 模块的 hook_engine 替换为 fake(不真广播/执行 hook)。
+
+    批 52:同时把审批持久层指向 tmp_path 独立 db——本文件的测试断言
+    「每次审批都弹窗」的前持久化语义,若放任默认共享 db,前一次会话
+    批准留下的 session 授权会让测试直接命中持久授权跳过弹窗。
+    (持久化行为本身由 test_tool_approval_persist_52.py 专项覆盖。)
+    """
+    from app.services import approval_persistence as _ap
+
+    _ap.set_db_path(tmp_path / "approval_grants_test.db")
     emitted: list[dict] = []
     emitted_lock = asyncio.Lock()
 
@@ -53,6 +62,7 @@ def _mock_hook_engine(monkeypatch):
     # 返回记录列表,测试内可读
     monkeypatch.setattr(agent_loop_v2, "_approval_registry", {})
     yield {"emitted": emitted}
+    _ap.close()
 
 
 def _last_approval(emitted: list[dict]) -> dict:
