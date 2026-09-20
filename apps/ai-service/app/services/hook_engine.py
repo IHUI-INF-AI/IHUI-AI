@@ -40,7 +40,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -543,7 +543,8 @@ class HookEngine:
     def create_hook(
         self, payload: dict[str, Any], owner_id: str | None = None
     ) -> dict[str, Any]:
-        now = datetime.utcnow().isoformat() + "Z"
+        # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+        now = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         hook: dict[str, Any] = {
             "id": f"hk-{uuid.uuid4().hex[:12]}",
             "name": payload["name"],
@@ -572,7 +573,7 @@ class HookEngine:
         for k in ("name", "description", "event", "condition", "action", "enabled"):
             if k in patch:
                 hook[k] = patch[k]
-        hook["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+        hook["updatedAt"] = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         self._schedule_persist_hooks()
         return hook
 
@@ -596,7 +597,7 @@ class HookEngine:
         if owner_id is not None and hook.get("owner_id") != owner_id:
             return None
         hook["enabled"] = enabled
-        hook["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+        hook["updatedAt"] = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         self._schedule_persist_hooks()
         return hook
 
@@ -959,7 +960,7 @@ class HookEngine:
         try:
             LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
             with LOG_FILE.open("a", encoding="utf-8") as f:
-                line = f"[{datetime.utcnow().isoformat()}Z] event={event} msg={message}\n"
+                line = f"[{datetime.now(UTC).replace(tzinfo=None).isoformat()}Z] event={event} msg={message}\n"
                 f.write(line)
             return f"written {len(message)} chars", None
         except Exception as e:
@@ -1020,7 +1021,7 @@ class HookEngine:
                 "id": f"ntf-{uuid.uuid4().hex[:12]}",
                 "event": event,
                 "message": message,
-                "createdAt": datetime.utcnow().isoformat() + "Z",
+                "createdAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "read": False,
             })
         except Exception as e:
@@ -1097,7 +1098,7 @@ class HookEngine:
             "id": f"hl-{uuid.uuid4().hex[:12]}",
             "hookId": hook_id,
             "event": event,
-            "triggeredAt": datetime.utcnow().isoformat() + "Z",
+            "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
             "success": success,
             "duration": duration,
             "result": result,
@@ -1118,7 +1119,7 @@ class HookEngine:
             "hookId": hook_id,
             "originalPayload": payload,
             "error": error,
-            "failedAt": datetime.utcnow().isoformat() + "Z",
+            "failedAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
             "retryCount": retry_count,
         }
         redis = await self._ensure_redis()
@@ -1285,7 +1286,7 @@ class HookEngine:
 
     def _check_one_health(self, hook: dict[str, Any]) -> dict[str, Any]:
         """单个 Hook 健康检查:24h 成功率 + 平均耗时 + 最后触发 + stale 判定。"""
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         window_start = now.timestamp() - HEALTH_WINDOW_HOURS * 3600
         stale_threshold = now.timestamp() - HEALTH_STALE_DAYS * 86400
 
@@ -1530,7 +1531,7 @@ class HookEngine:
     async def create_ab_test(self, config: dict[str, Any]) -> dict[str, Any]:
         """创建 A/B 测试,存 Redis hash 'hooks:abtest:{id}'。"""
         test_id = f"ab-{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         ab_test: dict[str, Any] = {
             "id": test_id,
             "hook_a_id": config["hook_a_id"],
@@ -1554,7 +1555,7 @@ class HookEngine:
         if ab_test is None:
             return None
         ab_test["status"] = "stopped"
-        ab_test["ended_at"] = datetime.utcnow().isoformat() + "Z"
+        ab_test["ended_at"] = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         await self._persist_ab_test(ab_test)
         logger.info("[hook_engine] 停止 A/B 测试: id=%s", test_id)
         return ab_test

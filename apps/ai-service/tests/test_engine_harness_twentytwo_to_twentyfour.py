@@ -7,19 +7,22 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import threading
 import time
 from pathlib import Path
 
 import pytest
 
+from app.core.feature_flags import (
+    FeatureRegistry,
+    FeatureSpec,
+    env_key_for,
+)
 from app.core.file_watcher import (
     DebouncedWatchReceiver,
     FileWatcherEvent,
     FileWatcherRouter,
     Receiver,
-    Subscription,
     ThrottledWatchReceiver,
 )
 from app.core.message_history import (
@@ -29,12 +32,6 @@ from app.core.message_history import (
     purge_history,
     read_recent,
 )
-from app.core.feature_flags import (
-    FeatureRegistry,
-    FeatureSpec,
-    env_key_for,
-)
-
 
 # =============================================================================
 # 第二十二批 file_watcher
@@ -185,7 +182,7 @@ def test_history_batch_append_atomic_group(tmp_path):
     assert len(out) == 3
     lines = path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 3
-    for line, expect in zip(lines, ["a", "b", "c"]):
+    for line, expect in zip(lines, ["a", "b", "c"], strict=True):
         assert json.loads(line)["text"] == expect
 
 

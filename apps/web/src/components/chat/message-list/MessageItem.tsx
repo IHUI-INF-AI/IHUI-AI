@@ -22,6 +22,8 @@ import {
   ChevronDown,
   CheckCheck,
   Ban,
+  AlertTriangle,
+  Quote,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -66,6 +68,14 @@ import {
   UsageBreakdown,
   ACTION_BTN_CLASS,
 } from './message-item-parts'
+// D21(2026-09-19 立):中间步骤折叠策略 — 自适应(字数/工具数/耗时)+ 用户可配置
+// (auto/collapsed/expanded,localStorage + 事件广播,复用 voice-toolbar 模板)
+import {
+  readFoldPolicyMode,
+  resolveInitialStepsOpen,
+  FOLD_POLICY_EVENT,
+  type FoldPolicyMode,
+} from './fold-policy'
 
 // W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
 // 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
@@ -130,6 +140,9 @@ const MessageItem = React.memo(function MessageItem({
   // 2026-09-12 立:Checkpoint/Rewind 相关文案走 aiChat 命名空间(与 CheckpointRewindPanel 保持一致)
   const tAiChat = useTranslations('aiChat')
   const isUser = m.role === 'user'
+  // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
+  // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
+  const isSystem = m.role === 'system'
   const showTyping = !isUser && m.content === '' && isStreaming
   const streamingThis = !isUser && isStreaming && isLast
   // 2026-09-12 立:Checkpoint 面板按会话维度的 session_id 查询,
@@ -152,8 +165,53 @@ const MessageItem = React.memo(function MessageItem({
   )
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
-  // #17:折叠中间步骤(工具卡 + plan 步骤)默认折叠,展开后显示完整内容
-  const [showSteps, setShowSteps] = React.useState(false)
+  // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
+  // 用户配置 auto(自适应:字数/工具数/耗时)/ collapsed(强制折叠)/ expanded(强制展开,
+  // 参考 Qoder 0.2.1);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
+  // 锁定,策略与配置变更不再覆盖用户选择;FoldPolicyButton 切换配置经事件广播实时同步。
+  const stepsOverrideRef = React.useRef<boolean | null>(null)
+  const [foldPolicyMode, setFoldPolicyMode] = React.useState<FoldPolicyMode>(() =>
+    readFoldPolicyMode(),
+  )
+  // 自适应三维输入:正文字数(正文未到时用 reasoning 字数兜底,覆盖"先想后答"场景)/
+  // 工具调用数/工具耗时求和(BaseToolCall.durationMs)
+  const stepDims = React.useMemo(
+    () => ({
+      contentChars: isUser ? 0 : m.content.length || (m.reasoning?.length ?? 0),
+      toolCallCount: m.toolCalls?.length ?? 0,
+      durationMs: (m.toolCalls ?? []).reduce((sum, tc) => sum + (tc.durationMs ?? 0), 0),
+    }),
+    [isUser, m.content.length, m.reasoning, m.toolCalls],
+  )
+  const [showSteps, setShowStepsState] = React.useState<boolean>(() =>
+    resolveInitialStepsOpen(foldPolicyMode, stepDims),
+  )
+  // 统一 set 入口:任何显式展开/收起都登记 override(含 onOpenChange 的函数式更新)
+  const setShowSteps = React.useCallback((action: boolean | ((prev: boolean) => boolean)) => {
+    if (typeof action === 'function') {
+      setShowStepsState((prev) => {
+        const next = action(prev)
+        stepsOverrideRef.current = next
+        return next
+      })
+    } else {
+      stepsOverrideRef.current = action
+      setShowStepsState(action)
+    }
+  }, [])
+  // D21:监听配置变更事件(FoldPolicyButton 写入 localStorage + 广播)→
+  // 未被用户显式操作过的消息按新策略重解析;操作过的保持用户选择不被覆盖
+  React.useEffect(() => {
+    const sync = () => {
+      const mode = readFoldPolicyMode()
+      setFoldPolicyMode(mode)
+      if (stepsOverrideRef.current === null) {
+        setShowStepsState(resolveInitialStepsOpen(mode, stepDims))
+      }
+    }
+    window.addEventListener(FOLD_POLICY_EVENT, sync)
+    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
+  }, [stepDims])
   // Copy 按钮短暂"已复制"状态(2026-07-28 立),1.5s 后自动隐藏
   const [copied, setCopied] = React.useState(false)
   const copyTimerRef = React.useRef<number | null>(null)
@@ -173,6 +231,12 @@ const MessageItem = React.memo(function MessageItem({
     (m.planSteps?.length ?? 0) +
     (m.terminalTasks?.length ?? 0) +
     (m.subagentActivities?.length ?? 0)
+
+  // D21:hover 预览文本(2026-09-19 立):折叠态悬停时轻量呈现最后一段中间步骤摘要
+  // (工具名优先,plan 步骤标题次之),免点击展开即可感知内容(对标 Trae 折叠摘要体验)
+  const lastToolCall = m.toolCalls?.[m.toolCalls.length - 1]
+  const lastStepPreview =
+    lastToolCall?.toolName ?? m.planSteps?.[m.planSteps.length - 1]?.step ?? ''
 
   // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
   // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
@@ -511,12 +575,60 @@ const MessageItem = React.memo(function MessageItem({
     onMessageHover?.(m.id, null)
   }, [onMessageHover, m.id])
 
+  // D22(2026-09-19 立,对标 Qoder 0.2.x):圈选 AI 回复入上下文 —
+  // selectionchange 监听(仅 assistant 非 error 消息):选区锚点落在本消息内容区内且非空时,
+  // 记录选中文本并在消息尾部浮现「引用选中」按钮;点击经 ihui:add-text-reference 事件
+  // 投递到 MessageInput(监听方调 useMessageReferences.addTextReference 入引用 chips),
+  // 同时清除原生选区。setState 同值时 React 自动 bail out,selectionchange 高频触发无渲染开销。
+  const contentAreaRef = React.useRef<HTMLDivElement>(null)
+  const [selectionText, setSelectionText] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (isUser || isSystem || m.error) return
+    const onSelectionChange = () => {
+      const sel = window.getSelection()
+      const anchor = sel?.anchorNode ?? null
+      if (!sel || sel.isCollapsed || !anchor || !contentAreaRef.current?.contains(anchor)) {
+        setSelectionText(null)
+        return
+      }
+      const text = sel.toString().trim()
+      setSelectionText(text || null)
+    }
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => document.removeEventListener('selectionchange', onSelectionChange)
+  }, [isUser, isSystem, m.error])
+  const handleQuoteSelection = React.useCallback(() => {
+    if (!selectionText) return
+    window.dispatchEvent(
+      new CustomEvent('ihui:add-text-reference', { detail: { text: selectionText } }),
+    )
+    window.getSelection()?.removeAllRanges()
+    setSelectionText(null)
+    toast.success(t('quoteSelectionAdded'))
+  }, [selectionText, t])
+
   // 时间戳移到按钮区内部，这里不再常驻计算
 
   // Copy 按钮 a11y label(优先用 i18n,缺失回退英文)
   const copyLabel = t('copy') === 'copy' ? '复制' : t('copy')
   if (copyLabel === 'copy') {
     console.warn('[i18n] Missing translation for key: chat.message.copy')
+  }
+
+  // D22(2026-09-19 立):system 角色独立渲染分支 — 居中灰字只读提示条。
+  // 注意:此 early return 位于组件全部 hooks 之后,符合 Rules of Hooks;
+  // system 条目不提供 Reply/重试等任何操作(防上下文注入通道,请求侧已同步拒绝)。
+  if (isSystem) {
+    return (
+      <div
+        className="mx-auto my-1 max-w-[80%] rounded-md bg-muted/60 px-3 py-1.5 text-center text-xs text-muted-foreground"
+        data-message-id={m.id}
+        data-role="system"
+        data-testid={`message-system-${m.id}`}
+      >
+        <span className="whitespace-pre-wrap break-words">{m.content}</span>
+      </div>
+    )
   }
 
   return (
@@ -545,9 +657,7 @@ const MessageItem = React.memo(function MessageItem({
         className={cn(
           isUser
             ? 'relative max-w-[85%] rounded-lg rounded-br-sm bg-muted px-4 py-2.5 text-foreground'
-            : m.error
-              ? 'w-full text-destructive'
-              : 'w-full text-left',
+            : 'w-full text-left',
         )}
       >
         {showTyping ? (
@@ -556,11 +666,39 @@ const MessageItem = React.memo(function MessageItem({
           <div className="animate-in fade-in-0 duration-(--duration-unified) ease-unified fill-mode-both">
             <TypingIndicator reasoning={m.reasoning} toolCalls={m.toolCalls} />
           </div>
+        ) : m.error ? (
+          // D22(2026-09-19 立):error 独立消息类型渲染 — 红色边框错误卡片(替代原纯红文本),
+          // 头部警示图标 + 独立标题,正文纯文本(剥离 shared 层附加的 ⚠ 前缀),
+          // 重试按钮内聚卡片底部(原气泡外置 retry 按钮随本次改造移除)。
+          <div
+            className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5"
+            data-testid={`message-error-card-${m.id}`}
+          >
+            <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="text-xs font-medium">{t('errorCardTitle')}</span>
+            </div>
+            <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
+              {m.content.replace(/^⚠\s*/, '')}
+            </p>
+            <div className="px-3 pb-2 pt-0.5">
+              <button
+                type="button"
+                onClick={handleRetry}
+                data-testid={`message-retry-${m.id}`}
+                className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <RefreshCw className="h-3 w-3" aria-hidden />
+                <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
+              </button>
+            </div>
+          </div>
         ) : isUser ? (
           // 2026-08-02:用户消息字号同步调整 14px → 15px(text-[15px]),与 AI 消息对齐
           <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{m.content}</p>
         ) : (
           <div
+            ref={contentAreaRef}
             className={cn(
               'space-y-0 animate-in fade-in-0 duration-(--duration-unified) ease-unified fill-mode-both',
               // 2026-08-02:内容可见性切换(Eye/EyeOff)— 折叠时限高,仅显示前几行
@@ -585,16 +723,21 @@ const MessageItem = React.memo(function MessageItem({
               />
             )}
             {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                默认折叠,点击"查看 N 个中间步骤"展开后显示完整内容
-                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount) */}
+                初始态由折叠策略驱动(D21,2026-09-19 立),点击"查看 N 个中间步骤"展开后显示完整内容
+                2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount)
+                D21:key={foldPolicyMode} — 配置变更时重挂载,动画状态与新初始态一致 */}
             {stepSectionsCount > 0 && (
               <Collapsible
                 open={showSteps}
                 onOpenChange={setShowSteps}
-                className="rounded-lg border bg-muted/50"
+                key={foldPolicyMode}
+                className="group/steps rounded-lg border bg-muted/50"
                 data-testid={`message-steps-collapsible-${m.id}`}
               >
-                <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50">
+                <CollapsibleTrigger
+                  title={t('stepsHoverPreview')}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50 focus-visible:group-hover/steps:bg-accent/50"
+                >
                   <ChevronDown
                     className={cn(
                       'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
@@ -606,6 +749,15 @@ const MessageItem = React.memo(function MessageItem({
                       count: stepSectionsCount,
                     })}
                   </span>
+                  {/* D21:hover 预览:折叠态悬停折叠条时在行尾轻量展示末段摘要 */}
+                  {!showSteps && lastStepPreview !== '' && (
+                    <span
+                      aria-hidden="true"
+                      className="hidden max-w-[40%] truncate text-xs text-muted-foreground group-hover/steps:inline"
+                    >
+                      {lastStepPreview}
+                    </span>
+                  )}
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="space-y-2 px-3 pb-3">
@@ -1107,23 +1259,21 @@ const MessageItem = React.memo(function MessageItem({
         </div>
       )}
 
-      {/* 错误重试按钮(2026-07-28 立,深度对标 AI 工作台):m.error 时在气泡下方显示,
-            用户可一键重新生成该消息,不必手动从历史拷贝内容重新粘贴。 */}
-      {m.error && (
+      {/* D22(2026-09-19 立):圈选 AI 回复入上下文 — 选中本消息文本后在尾部浮现
+            「引用选中」按钮,点击把选中文本投递到输入区引用 chips(useMessageReferences)。
+            置于操作按钮区之前,与 hover 操作栏解耦(选区操作时鼠标不在 hover 态也能点到)。 */}
+      {!isUser && !m.error && selectionText && (
         <button
           type="button"
-          onClick={handleRetry}
-          data-testid={`message-retry-${m.id}`}
-          className={cn(
-            'mt-0 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5',
-            'text-[11px] text-muted-foreground transition-colors',
-            'hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-          )}
+          onClick={handleQuoteSelection}
+          data-testid={`message-quote-selection-${m.id}`}
+          className="mt-0.5 inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
-          <RefreshCw className="h-3 w-3" aria-hidden />
-          <span>{t('retry') === 'retry' ? 'Retry' : t('retry')}</span>
+          <Quote className="h-3 w-3" aria-hidden />
+          <span>{t('quoteSelection')}</span>
         </button>
       )}
+
       {/* 2026-08-02:社区发布对话框(Megaphone 按钮触发)— 原项目 publishToCommunity */}
       {!isUser && (
         <CommunityPublishDialog

@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from app.core.stream_events import is_contextual_user_message_content, parse_turn_item
 
@@ -48,7 +48,7 @@ EVENT_TURN_ABORTED = "turn_aborted"
 EVENT_THREAD_ROLLED_BACK = "thread_rolled_back"
 
 
-def _event_type(rollout_item: dict[str, Any]) -> Optional[str]:
+def _event_type(rollout_item: dict[str, Any]) -> str | None:
     event = rollout_item.get("event")
     if isinstance(event, dict):
         kind = event.get("type")
@@ -155,11 +155,7 @@ def fork_turn_positions_in_rollout(items: list[dict[str, Any]]) -> list[int]:
                 rollback_positions.append(idx)
             if _is_real_user_message_boundary(item) or _is_trigger_turn_boundary(item):
                 fork_positions.append(idx)
-        elif kind == ROLLOUT_INTER_AGENT:
-            rollback_positions.append(idx)
-            if rollout_item.get("trigger_turn"):
-                fork_positions.append(idx)
-        elif kind == ROLLOUT_INTER_AGENT_META:
+        elif kind in (ROLLOUT_INTER_AGENT, ROLLOUT_INTER_AGENT_META):
             rollback_positions.append(idx)
             if rollout_item.get("trigger_turn"):
                 fork_positions.append(idx)
@@ -168,7 +164,7 @@ def fork_turn_positions_in_rollout(items: list[dict[str, Any]]) -> list[int]:
             n = num_turns if isinstance(num_turns, int) and num_turns > 0 else 0
             if n == 0:
                 continue
-            rollback_start_idx: Optional[int]
+            rollback_start_idx: int | None
             if len(rollback_positions) >= n:
                 rollback_start_idx = rollback_positions[len(rollback_positions) - n]
             else:
@@ -182,7 +178,7 @@ def fork_turn_positions_in_rollout(items: list[dict[str, Any]]) -> list[int]:
 
 def truncate_rollout_after_turn_id(items: list[dict[str, Any]], last_turn_id: str) -> list[dict[str, Any]]:
     """保留到指定已完结回合为止的前缀;回合须显式 TurnStarted 且非进行中,否则 ValueError。"""
-    started_idx: Optional[int] = None
+    started_idx: int | None = None
     for idx, rollout_item in enumerate(items):
         if (
             rollout_item.get("type") == ROLLOUT_EVENT_MSG
@@ -214,7 +210,7 @@ def truncate_rollout_after_turn_id(items: list[dict[str, Any]], last_turn_id: st
 
 def truncate_rollout_before_turn_id(items: list[dict[str, Any]], before_turn_id: str) -> list[dict[str, Any]]:
     """在指定显式 TurnStarted 之前截断;无该边界或已被回滚移除则 ValueError。"""
-    cut_index: Optional[int] = None
+    cut_index: int | None = None
     for idx, rollout_item in enumerate(items):
         if (
             rollout_item.get("type") == ROLLOUT_EVENT_MSG
@@ -257,9 +253,9 @@ def truncate_rollout_to_last_n_fork_turns(items: list[dict[str, Any]], n_from_en
 @dataclass
 class SnapshotTurnState:
     ends_mid_turn: bool
-    active_turn_id: Optional[str] = None
-    active_turn_started_at: Optional[int] = None
-    active_turn_start_index: Optional[int] = None
+    active_turn_id: str | None = None
+    active_turn_started_at: int | None = None
+    active_turn_start_index: int | None = None
 
 
 def _history_items(history: dict[str, Any]) -> list[dict[str, Any]]:
@@ -273,9 +269,9 @@ def _history_items(history: dict[str, Any]) -> list[dict[str, Any]]:
 def snapshot_turn_state(history: dict[str, Any]) -> SnapshotTurnState:
     """等价快照判定:显式未完结 TurnStarted → 进行中;否则看最后用户消息后有无回合终结事件。"""
     items = _history_items(history)
-    active_idx: Optional[int] = None
-    active_id: Optional[str] = None
-    started_at: Optional[int] = None
+    active_idx: int | None = None
+    active_id: str | None = None
+    started_at: int | None = None
     for idx, rollout_item in enumerate(items):
         if (
             rollout_item.get("type") == ROLLOUT_EVENT_MSG
@@ -332,15 +328,15 @@ def truncate_before_nth_user_message(
     return truncate_rollout_before_nth_user_message_from_start(items, n)
 
 
-def _interrupted_turn_history_marker(marker: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+def _interrupted_turn_history_marker(marker: dict[str, Any] | None) -> dict[str, Any] | None:
     return marker if isinstance(marker, dict) else None
 
 
 def append_interrupted_boundary(
     history: dict[str, Any],
-    turn_id: Optional[str],
-    started_at: Optional[int],
-    interrupted_marker: Optional[dict[str, Any]] = None,
+    turn_id: str | None,
+    started_at: int | None,
+    interrupted_marker: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """向分叉快照追加与实时中断路径一致的持久化 TurnAborted 边界(+可选 marker 项)。"""
     items = _history_items(history)
@@ -365,7 +361,7 @@ def append_interrupted_boundary(
 def fork_history_from_snapshot(
     snapshot: dict[str, Any],
     history: dict[str, Any],
-    interrupted_marker: Optional[dict[str, Any]] = None,
+    interrupted_marker: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Codex fork_history_from_snapshot:truncate_before_nth_user_message / interrupted 两路。"""
     snapshot_state = snapshot_turn_state(history)

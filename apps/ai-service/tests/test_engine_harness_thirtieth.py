@@ -10,12 +10,9 @@ import pytest
 
 from app.core.hook_runtime import (
     HookKind,
-    HookOutcome,
     HookRuntime,
 )
 from app.core.startup_prewarm import (
-    PrewarmResolution,
-    StartupPrewarmHandle,
     start_startup_prewarm,
 )
 

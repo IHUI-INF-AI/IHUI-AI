@@ -195,6 +195,8 @@ export * from './endpoints/user'
 export * from './endpoints/vip'
 export * from './endpoints/wallet'
 export * from './endpoints/workspace'
+// 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)
+export * from './endpoints/conversation-import'
 
 // 架构迁移审计 P2 v2 补开发:5 个新端点共享封装(private-letters / wrong-questions / mail / auth-codes / exam-marking)
 export * from './endpoints/auth-codes'

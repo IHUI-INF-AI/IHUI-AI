@@ -27,16 +27,17 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Optional
+from enum import StrEnum
+from typing import Any
 
 DEFAULT_HOOK_TIMEOUT_SECS = 10.0
 
 HookFunc = Callable[[dict[str, Any]], Any]
 
 
-class HookKind(str, Enum):
+class HookKind(StrEnum):
     """生命周期挂载点(对标 SessionStart/UserPromptSubmit/PreToolUse/Pre·PostCompact/Stop)。"""
 
     SESSION_START = "session_start"
@@ -53,7 +54,7 @@ class HookRunEvent:
     kind: str
     status: str  # "ok" | "error" | "timeout"
     duration_ms: int
-    error: Optional[str] = None
+    error: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -70,9 +71,9 @@ class HookOutcome:
     """一次钩子运行的聚合结果(对标 HookRuntimeOutcome)。"""
 
     should_stop: bool = False
-    stop_reason: Optional[str] = None
+    stop_reason: str | None = None
     additional_contexts: list[str] = field(default_factory=list)
-    denial_reason: Optional[str] = None  # PRE_TOOL_USE:非 None 即拒绝
+    denial_reason: str | None = None  # PRE_TOOL_USE:非 None 即拒绝
     events: list[HookRunEvent] = field(default_factory=list)
 
     def events_as_dicts(self) -> list[dict[str, Any]]:
@@ -101,7 +102,7 @@ class HookRuntime:
         kind: HookKind,
         func: HookFunc,
         *,
-        name: Optional[str] = None,
+        name: str | None = None,
         timeout: float = DEFAULT_HOOK_TIMEOUT_SECS,
     ) -> None:
         """注册钩子;同点多钩子按注册顺序执行(上下文注入顺序确定)。"""
@@ -114,7 +115,7 @@ class HookRuntime:
         return [r.name for r in self._hooks[kind]]
 
     # ------------------------------------------------------------------
-    async def run(self, kind: HookKind, payload: Optional[dict[str, Any]] = None) -> HookOutcome:
+    async def run(self, kind: HookKind, payload: dict[str, Any] | None = None) -> HookOutcome:
         """运行某点全部钩子并聚合(失败隔离 + 事件审计)。"""
         outcome = HookOutcome()
         regs = self._hooks[kind]
@@ -140,7 +141,7 @@ class HookRuntime:
                 HookRunEvent(name=reg.name, kind=reg.kind.value, status="ok", duration_ms=duration_ms),
                 result,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration_ms = int((time.perf_counter() - started) * 1000)
             return (
                 HookRunEvent(

@@ -13,7 +13,8 @@
  *      (LOW_BALANCE_NOTIFY_COOLDOWN_MS 默认 86400000)。
  *    - 余额判定:tokenBalance 为 0 或 (costBalanceCents >= 0 且 < 阈值) 视为不足。
  *      阈值默认 1000 分(¥10),env LOW_BALANCE_NOTIFY_THRESHOLD_CENTS 可调。
- *    - 收件人:查 users 表邮箱(单邮箱;多邮箱扩展留 TODO)。
+ *    - 收件人:users.email 主邮箱 + user_emails 附加邮箱合并去重(主邮箱优先;
+ *      user_emails 查询失败降级仅主邮箱)。
  *
  * 设计原则:db/邮件异常一律 catch 后 log.warn + return false,绝不抛出。
  */
@@ -21,7 +22,7 @@
 import nodemailer from 'nodemailer'
 import { eq } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { users } from '@ihui/database'
+import { users, userEmails } from '@ihui/database'
 import { logger } from '../utils/logger.js'
 
 // =============================================================================
@@ -166,8 +167,8 @@ export interface CheckAndNotifyLowBalanceParams {
  * 内只发一次(默认 24h)。
  * 余额判定:tokenBalance 为 0 或 (costBalanceCents >= 0 且 < 阈值) 视为不足
  * (-1 无限额度 costBalanceCents 不参与判定)。
- * 收件人:查 users 表邮箱。当前仅支持单邮箱;多邮箱扩展 TODO(遍历 users.emails 或
- * 关联邮箱表后批量发送)。
+ * 收件人:users.email 主邮箱 + user_emails 附加邮箱合并去重(主邮箱优先;
+ * user_emails 查询失败时降级仅主邮箱发送)。
  *
  * 全部异常 catch 后 log.warn + return false,绝不抛出(不影响主调用链路)。
  */
@@ -189,15 +190,34 @@ export async function checkAndNotifyLowBalance(
     (costBalanceCents >= 0 && costBalanceCents < LOW_BALANCE_NOTIFY_THRESHOLD_CENTS)
   if (!isLow) return false
 
-  // 3. 查收件人邮箱(users 表)
-  let email: string | null = null
+  // 3. 查收件人邮箱:users.email 主邮箱 + user_emails 附加邮箱,合并去重(主邮箱优先)
+  const emails: string[] = []
   try {
     const rows = await dbRead
       .select({ email: users.email })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1)
-    email = rows[0]?.email ?? null
+    const primary = rows[0]?.email ?? null
+    if (primary) emails.push(primary)
+    // 附加邮箱(user_emails):查询失败降级仅主邮箱,不阻断通知
+    try {
+      const extraRows = await dbRead
+        .select({ email: userEmails.email })
+        .from(userEmails)
+        .where(eq(userEmails.userId, userId))
+      for (const row of extraRows) {
+        if (typeof row.email === 'string' && row.email.length > 0 && !emails.includes(row.email)) {
+          emails.push(row.email)
+        }
+      }
+    } catch (err) {
+      logger.warn('[mail-notify] 查询附加邮箱失败,降级仅主邮箱', {
+        userId,
+        keyName,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   } catch (err) {
     logger.warn('[mail-notify] 查询用户邮箱失败,跳过余额不足通知', {
       userId,
@@ -207,16 +227,15 @@ export async function checkAndNotifyLowBalance(
     return false
   }
 
-  if (!email) {
+  if (emails.length === 0) {
     logger.warn('[mail-notify] 用户无邮箱,跳过余额不足通知', { userId, keyName })
     return false
   }
 
-  // 4. 记录冷却(先标记,避免并发重复发送) + 发信
-  // TODO: 多邮箱扩展 —— 若用户有多个邮箱,遍历后分别发送
+  // 4. 记录冷却(先标记,避免并发重复发送) + 发信(全部收件人合并为一封邮件)
   lastNotifiedAtByUser.set(userId, now)
   return sendLowBalanceMail({
-    to: [email],
+    to: emails,
     keyName,
     tokenBalance,
     costBalanceCents,

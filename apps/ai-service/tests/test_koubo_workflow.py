@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -202,8 +202,9 @@ class TestTrace:
     def test_returns_dict_with_required_fields(self):
         t = _trace("hot_scan", 1000.0, 1000.5)
         assert t["node"] == "hot_scan"
-        assert t["start"] == datetime.utcfromtimestamp(1000.0).isoformat() + "Z"
-        assert t["end"] == datetime.utcfromtimestamp(1000.5).isoformat() + "Z"
+        # 等价替代弃用的 utcfromtimestamp()（naive UTC 语义不变，2026-09-19 技术债清理）
+        assert t["start"] == datetime.fromtimestamp(1000.0, tz=UTC).replace(tzinfo=None).isoformat() + "Z"
+        assert t["end"] == datetime.fromtimestamp(1000.5, tz=UTC).replace(tzinfo=None).isoformat() + "Z"
         assert t["duration_ms"] == 500.0
         assert t["status"] == "ok"
 

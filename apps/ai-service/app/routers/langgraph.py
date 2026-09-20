@@ -157,6 +157,10 @@ async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
 
     实际执行由 GET/POST /{runId}/stream 完成:stream 端点按 threadId 命中
     canvas 注册表后用已注册图驱动 SSE(nodeId 与 dag.nodes[].id 对齐)。
+
+    D26:构建时挂接 AsyncPostgresSaver,启用 canvas HITL(human-review 节点
+    的 interrupt() 生效);checkpointer 不可用时降级为无 checkpointer 图
+    (canvas 仍可执行,仅 interrupt 暂停不生效)。
     """
     errors = validate_canvas_dag(req.dag)
     if errors:
@@ -164,7 +168,14 @@ async def post_canvas_run(req: CanvasRunRequest) -> dict[str, Any]:
 
     thread_id = req.thread_id or uuid4().hex
     try:
-        graph = build_canvas_graph(req.dag)
+        checkpointer: Any | None = await _manager().get_saver()
+    except Exception as e:
+        checkpointer = None
+        logger.warning(
+            "canvas checkpointer 获取失败,降级为无中断图 thread=%s: %s", thread_id, e
+        )
+    try:
+        graph = build_canvas_graph(req.dag, checkpointer=checkpointer)
     except Exception as e:
         logger.warning("canvas 图构建失败 thread=%s: %s", thread_id, e)
         raise HTTPException(status_code=400, detail=f"canvas 图构建失败: {e}") from None
@@ -236,10 +247,12 @@ async def post_resume(req: ResumeRequest) -> dict[str, Any]:
             resume_value=req.resume_value,
             action=req.action,
         )
-        graph = _ensure_graph()
+        graph, _ = _resolve_stream_graph(req.thread_id, None)
         if graph is not None:
             # graph 已注册:尝试用 Command(resume=...) 触发一次 ainvoke 以推进执行
-            # (非流式;流式恢复走 /stream?input=null)
+            # (非流式;流式恢复走 /stream?input=null)。
+            # D26:图解析走 _resolve_stream_graph(canvas 注册表优先),修复 canvas
+            # 会话 resume 打错到默认图的问题。
             try:
                 # 软依赖 langgraph.types.Command
                 from langgraph.types import Command
@@ -285,7 +298,9 @@ async def get_state(thread_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(e)) from None
 
     graph_state: dict[str, Any] | None = None
-    graph = _ensure_graph()
+    # D26:图解析走 _resolve_stream_graph(canvas 注册表优先),修复 canvas
+    # 会话 state 查询打错到默认图的问题。
+    graph, _ = _resolve_stream_graph(thread_id, None)
     if graph is not None:
         try:
             graph_state = await manager.get_graph_state(graph, thread_id)

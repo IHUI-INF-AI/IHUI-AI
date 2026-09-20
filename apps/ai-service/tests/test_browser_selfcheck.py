@@ -15,10 +15,7 @@ mock 掉 playwright 同步核心(_sync_capture)与视觉 LLM(_vision_analyze),
 
 from __future__ import annotations
 
-import asyncio
 import time
-
-import pytest
 
 from app.tools import browser_selfcheck as bs
 

@@ -107,7 +107,11 @@ def _spawn_dummy():
             stdout=asyncio.subprocess.PIPE,
         )
 
-    return asyncio.get_event_loop().run_until_complete(_go())
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(_go())
+    finally:
+        loop.close()
 
 
 @pytest.mark.asyncio

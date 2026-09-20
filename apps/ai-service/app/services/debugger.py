@@ -182,7 +182,7 @@ class DapClient:
             raise RuntimeError("debug adapter stdin 不可用")
         stdin.write(data)
         await stdin.drain()
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         fut: asyncio.Future[Any] = loop.create_future()
         self._pending[seq] = fut
         try:
@@ -363,7 +363,7 @@ class DebugSessionManager:
 
     def _new_stopped_waiter(self, session: DebugSession) -> asyncio.Future[dict[str, Any]]:
         """创建新的 stopped 事件等待器(continue/step 前调用)。"""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         session._stopped_waiter = loop.create_future()
         return session._stopped_waiter
 

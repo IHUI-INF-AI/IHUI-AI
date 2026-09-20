@@ -16,11 +16,16 @@
  * 判定逻辑一律在后端,前端不做二次猜测 —— 保证 8 端口径一致。
  */
 
-import type { ModelUsageCategory, ModelTier } from '@ihui/types'
+import type {
+  ModelCapabilities,
+  ModelCapabilityKey,
+  ModelUsageCategory,
+  ModelTier,
+} from '@ihui/types'
 
 // 类型定义下沉在 packages/types(依赖方向 types ← api-client ← shared,
 // 放 shared 会让 api-client 循环依赖),此处 re-export 方便各端单点引用。
-export type { ModelUsageCategory, ModelTier }
+export type { ModelUsageCategory, ModelTier, ModelCapabilities, ModelCapabilityKey }
 
 /** 后端未返回分类字段时的兜底档位(老后端 / 降级路径一律按"最新"处理,避免列表空掉) */
 export const DEFAULT_MODEL_TIER: ModelTier = 'latest'

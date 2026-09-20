@@ -20,6 +20,7 @@ const PROVIDERS: Array<{ value: ImageProvider; label: string }> = [
   { value: 'qwen', label: '通义千问' },
   { value: 'doubao', label: '豆包' },
   { value: 'jimeng', label: '即梦' },
+  { value: 'agnes', label: 'Agnes' },
 ]
 
 const SIZES = [

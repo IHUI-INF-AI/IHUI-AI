@@ -604,7 +604,7 @@ def build_v2_compacted_history(
         raise ValueError("prompt_input 与 prompt_input_metadata 长度必须一致")
     envelopes = [
         Envelope(item=item, metadata=meta)
-        for item, meta in zip(prompt_input, prompt_input_metadata)
+        for item, meta in zip(prompt_input, prompt_input_metadata, strict=True)
     ]
     # 分组 → 保留过滤 → flat_map into_items(等价于 Codex 的
     # v2_history_item_groups(...).filter(is_retained).flat_map(into_items))

@@ -236,6 +236,46 @@ export function pickPerCallPrice(
 }
 
 // =============================================================================
+// IP ACL 匹配纯函数(C,2026-09-19 立):精确 / IPv4 前缀通配 / CIDR
+// =============================================================================
+
+/**
+ * 解析 IPv4 点分十进制为 uint32;非法输入(段数不对/段>255/非数字)返回 null。
+ * 仅支持 IPv4(IPv6 地址解析为 null,规则安全跳过不匹配)。
+ */
+export function parseIPv4(ip: string): number | null {
+  const parts = ip.split('.')
+  if (parts.length !== 4) return null
+  let out = 0
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null
+    const v = Number(part)
+    if (v > 255) return null
+    out = out * 256 + v
+  }
+  return out >>> 0
+}
+
+/**
+ * 判断 IPv4 是否落在 CIDR 网段内(如 '192.168.1.0/24')。
+ * prefix=0(如 0.0.0.0/0)恒真;无 '/' / 非法 IP / 非法前缀返回 false(安全跳过该规则)。
+ */
+export function ipInCidr(ip: string, cidr: string): boolean {
+  const slash = cidr.indexOf('/')
+  if (slash === -1) return false
+  const base = parseIPv4(cidr.slice(0, slash))
+  const ipInt = parseIPv4(ip)
+  if (base === null || ipInt === null) return false
+  const prefixStr = cidr.slice(slash + 1)
+  if (!/^\d{1,2}$/.test(prefixStr)) return false
+  const prefix = Number(prefixStr)
+  if (prefix > 32) return false
+  if (prefix === 0) return true
+  const mask = (0xffffffff << (32 - prefix)) >>> 0
+  return (ipInt & mask) === (base & mask)
+}
+
+// =============================================================================
 // 1. checkQuota — 调用前检查 API Key 余额
 // =============================================================================
 
@@ -289,11 +329,13 @@ export async function checkQuota(
 
   // === IP ACL 运行时校验(C,2026-09-16 立):此前 allowedIps 只存取不校验 ===
   // 黑名单优先(命中 403);白名单存在且非空时,不在名单内即拒。
-  // 匹配:精确 IP 或 IPv4 前缀通配('192.168.*');CIDR 匹配留 TODO(需 ip-cidr 依赖)。
+  // 匹配:精确 IP、IPv4 前缀通配('192.168.*')或 CIDR('192.168.1.0/24')(2026-09-19 补 CIDR)。
   const clientIp = options?.clientIp
   if (clientIp) {
     const ipMatches = (rule: string): boolean =>
-      rule === clientIp || (rule.endsWith('.*') && clientIp.startsWith(rule.slice(0, -1)))
+      rule === clientIp ||
+      (rule.endsWith('.*') && clientIp.startsWith(rule.slice(0, -1))) ||
+      ipInCidr(clientIp, rule)
     const blockedList = Array.isArray(row.blockedIps) ? (row.blockedIps as unknown[]) : []
     if (blockedList.some((b) => typeof b === 'string' && ipMatches(b))) {
       return {
