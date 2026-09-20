@@ -4,6 +4,7 @@
 
 """pytest 配置与 fixtures。"""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -14,15 +15,39 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.llm_gateway import VENDOR_ENV_KEYS
-from app.main import app
-from app.middleware.input_sanitizer import RateLimitMiddleware
+# 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
+# 不再模块级 import,改为首次使用时惰性加载:
+#   - 纯单元测试文件所在的 xdist worker 完全免付 6.2s;
+#   - --collect-only / IDE 测试发现同样免付(收集阶段不触发 fixture)。
+# 关键陷阱:app.main 导入时 os.environ.setdefault 同步 .env vendor key
+# (main.py L158/L164-170),而 autouse 的 _isolate_llm_env 先于 client fixture
+# 执行 —— 清空发生在导入之前,会被 setdefault 冲掉。故 _get_app() 导入完成后
+# 必须立即补清一次,保持"测试进程不携带真实 vendor key"的既有语义。
+_app = None
+
+
+def _get_app():
+    """惰性获取全局 ASGI app(首次调用触发 app.main 导入,进程内仅一次)。"""
+    global _app
+    if _app is None:
+        from app.main import app as _imported_app
+
+        _app = _imported_app
+        # 导入后立即补清 setdefault 同步进来的 .env vendor key:
+        # - 若 key 来自 .env(app.main setdefault 添加):pop 即回到缺省态;
+        # - 若 key 是外壳环境原有值:_isolate_llm_env 的 monkeypatch.delenv
+        #   已记录原值,teardown 会照常还原,此处 pop 不破坏该语义。
+        from app.core.llm_gateway import VENDOR_ENV_KEYS
+
+        for _k in VENDOR_ENV_KEYS:
+            os.environ.pop(_k, None)
+    return _app
 
 
 @pytest.fixture
 async def client():
-    """异步 HTTP 测试客户端(httpx + ASGI)。"""
-    transport = ASGITransport(app=app)
+    """异步 HTTP 测试客户端(httpx + ASGI)。首次使用时触发 app.main 惰性导入。"""
+    transport = ASGITransport(app=_get_app())
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
@@ -46,7 +71,16 @@ def _reset_rate_limit_buckets():
     test_middleware.py::TestRateLimitMiddleware 与 test_input_sanitizer.py
     (独立最小 app + monkeypatch RATE_RULES)专项覆盖,不依赖共享桶状态,
     故清空不影响任何限流断言。
+
+    惰性导入语义(2026-09-20):本进程尚未导入 app.main 时,共享 app 与限流桶
+    都不存在,桶必然为空,直接跳过;首次 client 使用触发导入后,桶从零开始,
+    同样满足"每测试前桶为空"的目标。
     """
+    if "app.main" not in sys.modules:
+        yield
+        return
+
+    from app.middleware.input_sanitizer import RateLimitMiddleware
 
     def _next(n):
         for attr in ("other_asgi_app", "middleware_stack", "app"):
@@ -55,7 +89,7 @@ def _reset_rate_limit_buckets():
                 return v
         return None
 
-    node = app
+    node = _get_app()
     while node is not None:
         if isinstance(node, RateLimitMiddleware):
             node._buckets.clear()
@@ -88,7 +122,11 @@ def _isolate_llm_env(monkeypatch, request):
     全局 mock 会把它打回 None 导致 5 个测试失败(assert None is not None)。
     标记 real_key_pool 的测试保留真实 select_key(内部自备 mock pool)。
     """
-    # 清空 os.environ 里的 vendor key(app.main 启动时同步过)
+    # 清空 os.environ 里的 vendor key(app.main 启动时同步过;若本进程尚未
+    # 导入 app.main,这里也会顺带完成 llm_gateway 的轻量导入并清掉外壳环境
+    # 可能存在的同名 key —— 权威列表单一来源不因惰性化而漂移)
+    from app.core.llm_gateway import VENDOR_ENV_KEYS
+
     for k in VENDOR_ENV_KEYS:
         monkeypatch.delenv(k, raising=False)
 
@@ -271,6 +309,33 @@ def _isolate_vector_memory(monkeypatch):
     _force_memory_mode()
     yield
     _force_memory_mode()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_approval_persistence(monkeypatch, tmp_path):
+    """隔离审批持久层:全局把 approval_grants.db 重定向到临时目录(每测试独立)。
+
+    2026-09-20 修复(测试自毒化):test_engine_harness_policies::
+    test_policy_always_forces_approval_for_low_risk_tool 走真实
+    _request_approval 链路,其成功路径的批准落盘(agent_loop_v2 L3377
+    _ap.grant("session", key, "mcp_tool"))会把 web_search 授权写入真实
+    data/approval_grants.db;下次运行(含新进程)入口持久层预查命中
+    'session' → 免弹窗直接执行 → 不发 tool.approval 事件 → 断言
+    "未找到 tool.approval 事件" 失败(2026-09-20 全量第二轮实证,磁盘残留
+    ('session','web_search\\x1f{"q": "x"}','mcp_tool') 即首次通过时自落盘)。
+
+    单元测试不依赖跨进程磁盘授权状态:统一重定向到 tmp_path,彻底隔离。
+    自带 set_db_path(tmp_path) 隔离的测试(test_approval_persistence_51 /
+    test_tool_approval_persist_52 / test_network_approval_52 等)用例级覆盖
+    依然生效(用例晚于本 autouse fixture 执行);teardown close + monkeypatch
+    还原 _DB_PATH,连接惰性重建,不影响真实运行时路径。
+    """
+    from app.services import approval_persistence as _apm
+
+    _apm.close()  # 关闭可能已打开的真实路径连接,强制按新路径惰性重建
+    monkeypatch.setattr(_apm, "_DB_PATH", tmp_path / "approval_grants.db")
+    yield
+    _apm.close()  # 关闭指向 tmp 的连接;_DB_PATH 由 monkeypatch 还原为默认
 
 
 # =============================================================================

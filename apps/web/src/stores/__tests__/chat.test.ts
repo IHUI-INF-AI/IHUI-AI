@@ -328,5 +328,114 @@ describe('useChatStore', () => {
       expect(useChatStore.getState().pendingDiffComments[0]?.toolCallId).toBe('tc-9')
     })
   })
+
+  // ============ D22 引用回复 + 网页搜索开关(2026-09-19 立)============
+
+  describe('D22 quotedMessage / webSearchEnabled', () => {
+    beforeEach(() => {
+      useChatStore.setState({ quotedMessage: null, webSearchEnabled: false })
+    })
+
+    it('setQuotedMessage 设置引用目标(null 语义为清除,输入区 chip 数据源)', () => {
+      const q = { id: 'msg-1', role: 'assistant' as const, content: '被引用的回答' }
+      useChatStore.getState().setQuotedMessage(q)
+      expect(useChatStore.getState().quotedMessage).toEqual(q)
+      useChatStore.getState().setQuotedMessage(null)
+      expect(useChatStore.getState().quotedMessage).toBeNull()
+    })
+
+    it('setWebSearchEnabled 切换开关并回写 localStorage(用户偏好跨刷新保留)', () => {
+      useChatStore.getState().setWebSearchEnabled(true)
+      expect(useChatStore.getState().webSearchEnabled).toBe(true)
+      expect(localStorage.getItem('ihui_web_search_enabled')).toBe('1')
+      useChatStore.getState().setWebSearchEnabled(false)
+      expect(useChatStore.getState().webSearchEnabled).toBe(false)
+      expect(localStorage.getItem('ihui_web_search_enabled')).toBe('0')
+    })
+  })
+
+  // ============ D28 /side 快速侧问队列(2026-09-20 立,按会话分桶)============
+
+  describe('D28 /side 侧问队列(sideQueueByConversation)', () => {
+    beforeEach(() => {
+      useChatStore.setState({ sideQueueByConversation: {} })
+    })
+
+    it('enqueueSideQuestion 追加条目(text trim,id/createdAt 自动生成)', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '  什么是量子纠缠?  ')
+      const bucket = useChatStore.getState().sideQueueByConversation['conv-1']
+      expect(bucket).toHaveLength(1)
+      expect(bucket?.[0]?.text).toBe('什么是量子纠缠?')
+      expect(bucket?.[0]?.id.length).toBeGreaterThan(0)
+      expect(bucket?.[0]?.createdAt).toBeGreaterThan(0)
+    })
+
+    it('enqueueSideQuestion 多条追加保持 FIFO 顺序', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '第一条')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '第二条')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '第三条')
+      const texts = useChatStore.getState().sideQueueByConversation['conv-1']?.map((q) => q.text)
+      expect(texts).toEqual(['第一条', '第二条', '第三条'])
+    })
+
+    it('enqueueSideQuestion 空正文 / 空会话 id 均不入队(不建桶)', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '   ')
+      useChatStore.getState().enqueueSideQuestion('', '有正文但无会话')
+      expect(useChatStore.getState().sideQueueByConversation).toEqual({})
+    })
+
+    it('不同会话分桶互不影响(切会话不丢队列)', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', 'A 会话侧问')
+      useChatStore.getState().enqueueSideQuestion('conv-2', 'B 会话侧问')
+      const map = useChatStore.getState().sideQueueByConversation
+      expect(map['conv-1']?.[0]?.text).toBe('A 会话侧问')
+      expect(map['conv-2']?.[0]?.text).toBe('B 会话侧问')
+    })
+
+    it('removeSideQuestion 按 id 删除且其余保留', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', 'q1')
+      useChatStore.getState().enqueueSideQuestion('conv-1', 'q2')
+      const target = useChatStore.getState().sideQueueByConversation['conv-1']?.[0]
+      expect(target).toBeDefined()
+      useChatStore.getState().removeSideQuestion('conv-1', target!.id)
+      const bucket = useChatStore.getState().sideQueueByConversation['conv-1']
+      expect(bucket).toHaveLength(1)
+      expect(bucket?.[0]?.text).toBe('q2')
+    })
+
+    it('removeSideQuestion 删空后整桶删除(不留空数组键)', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', 'q1')
+      const only = useChatStore.getState().sideQueueByConversation['conv-1']?.[0]
+      useChatStore.getState().removeSideQuestion('conv-1', only!.id)
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']).toBeUndefined()
+    })
+
+    it('removeSideQuestion 未知 id 不破坏队列', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', 'q1')
+      useChatStore.getState().removeSideQuestion('conv-1', 'not-exist')
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']).toHaveLength(1)
+    })
+
+    it('shiftSideQuestion 出队队首并返回该条目,剩余队列保持顺序', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '队首问题')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '队尾问题')
+      const head = useChatStore.getState().shiftSideQuestion('conv-1')
+      expect(head?.text).toBe('队首问题')
+      const texts = useChatStore.getState().sideQueueByConversation['conv-1']?.map((q) => q.text)
+      expect(texts).toEqual(['队尾问题'])
+    })
+
+    it('shiftSideQuestion 最后一条出队后删键;空桶再 shift 返回 null', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '唯一一条')
+      const head = useChatStore.getState().shiftSideQuestion('conv-1')
+      expect(head?.text).toBe('唯一一条')
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']).toBeUndefined()
+      expect(useChatStore.getState().shiftSideQuestion('conv-1')).toBeNull()
+    })
+
+    it('shiftSideQuestion 未知会话返回 null', () => {
+      expect(useChatStore.getState().shiftSideQuestion('conv-none')).toBeNull()
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

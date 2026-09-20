@@ -12,6 +12,7 @@ import {
   UserPlus,
   Calendar,
   BookOpen,
+  Users,
   CheckCircle2,
   XCircle,
   ChevronRight,
@@ -111,6 +112,23 @@ interface Term {
   isCurrent: boolean
 }
 
+interface RosterItem {
+  enrollmentId: string
+  studentId: string
+  studentName: string
+  studentPhone: string | null
+  classId: string
+  className: string
+  businessLine: string
+  grade: string | null
+  termId: string
+  enrollDate: string
+  totalFee: number
+  paidAmount: number
+  dueAmount: number
+  status: string
+}
+
 /* ─── API helper ─── */
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -120,6 +138,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 /* ─── Constants ─── */
+
+const BUSINESS_LINES = [
+  { value: 'after_school_care', label: '托管' },
+  { value: 'kindergarten', label: '幼儿园' },
+  { value: 'academic', label: '文化课' },
+  { value: 'ai_course', label: 'AI课' },
+  { value: 'other', label: '其他' },
+]
+const BUSINESS_LINE_MAP = new Map(BUSINESS_LINES.map((b) => [b.value, b.label]))
 
 const LEAD_SOURCES = [
   { value: 'wechat', label: '微信' },
@@ -700,6 +727,12 @@ export default function EnrollmentPage() {
   const [enrollClassFilter, setEnrollClassFilter] = React.useState('')
   const [enrollTermFilter, setEnrollTermFilter] = React.useState('')
   const [enrollStatusFilter, setEnrollStatusFilter] = React.useState('')
+  const [rosterBusinessLine, setRosterBusinessLine] = React.useState('')
+  const [rosterClassFilter, setRosterClassFilter] = React.useState('')
+  const [rosterTermFilter, setRosterTermFilter] = React.useState('')
+  const [rosterKeyword, setRosterKeyword] = React.useState('')
+  const [rosterArrearsOnly, setRosterArrearsOnly] = React.useState(false)
+  const [rosterPage, setRosterPage] = React.useState(1)
   const [leadDialogOpen, setLeadDialogOpen] = React.useState(false)
   const [trialDialogOpen, setTrialDialogOpen] = React.useState(false)
   const [enrollDialogOpen, setEnrollDialogOpen] = React.useState(false)
@@ -756,6 +789,34 @@ export default function EnrollmentPage() {
   const leads = (leadQuery.data?.list ?? []).filter((l) => !l.deletedAt)
   const trials = (trialQuery.data?.list ?? []).filter((t) => !t.deletedAt)
   const enrollments = (enrollQuery.data?.list ?? []).filter((e) => !e.deletedAt)
+
+  const rosterQuery = useQuery({
+    queryKey: [
+      'edu-ai-management',
+      'student-roster',
+      rosterBusinessLine,
+      rosterClassFilter,
+      rosterTermFilter,
+      rosterKeyword,
+      rosterArrearsOnly,
+      rosterPage,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (rosterBusinessLine) params.set('businessLine', rosterBusinessLine)
+      if (rosterClassFilter) params.set('classId', rosterClassFilter)
+      if (rosterTermFilter) params.set('termId', rosterTermFilter)
+      if (rosterKeyword) params.set('keyword', rosterKeyword)
+      if (rosterArrearsOnly) params.set('arrearsOnly', '1')
+      params.set('page', String(rosterPage))
+      params.set('pageSize', '20')
+      return api<{ list: RosterItem[]; total: number; page: number; totalPages: number }>(
+        `/api/edu-ai-management/student-roster?${params.toString()}`,
+      )
+    },
+  })
+  const roster = rosterQuery.data?.list ?? []
+  const rosterTotalPages = rosterQuery.data?.totalPages ?? 1
 
   /* ── Mutations ── */
   const invalidate = React.useCallback(() => {
@@ -854,6 +915,10 @@ export default function EnrollmentPage() {
           <TabsTrigger value="enrollments">
             <BookOpen className="mr-1.5 h-4 w-4" />
             报名记录
+          </TabsTrigger>
+          <TabsTrigger value="roster">
+            <Users className="mr-1.5 h-4 w-4" />
+            学生名册
           </TabsTrigger>
         </TabsList>
 
@@ -1288,6 +1353,216 @@ export default function EnrollmentPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ════════════════ Tab 4: Student Roster ════════════════ */}
+        <TabsContent value="roster" className="space-y-4">
+          <Card>
+            <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
+              <Select
+                value={rosterBusinessLine || 'all'}
+                onValueChange={(v) => {
+                  setRosterBusinessLine(v === 'all' ? '' : v)
+                  setRosterPage(1)
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="全部业务线" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部业务线</SelectItem>
+                  {BUSINESS_LINES.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={rosterClassFilter || 'all'}
+                onValueChange={(v) => {
+                  setRosterClassFilter(v === 'all' ? '' : v)
+                  setRosterPage(1)
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="全部班级" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部班级</SelectItem>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={rosterTermFilter || 'all'}
+                onValueChange={(v) => {
+                  setRosterTermFilter(v === 'all' ? '' : v)
+                  setRosterPage(1)
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="全部学期" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部学期</SelectItem>
+                  {terms.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="搜索姓名/电话"
+                value={rosterKeyword}
+                onChange={(e) => {
+                  setRosterKeyword(e.target.value)
+                  setRosterPage(1)
+                }}
+                className="w-40"
+              />
+              <Button
+                size="sm"
+                variant={rosterArrearsOnly ? 'default' : 'outline'}
+                onClick={() => {
+                  setRosterArrearsOnly((v) => !v)
+                  setRosterPage(1)
+                }}
+              >
+                仅看欠费
+              </Button>
+              {rosterQuery.isLoading && (
+                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  加载中...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {rosterQuery.error ? (
+            <Alert variant="danger" description="加载学生名册失败，请稍后重试" />
+          ) : rosterQuery.isLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                加载名册...
+              </CardContent>
+            </Card>
+          ) : roster.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                暂无学生数据
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          电话
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          业务线
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          报名日期
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          总费用
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          已支付
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          欠费
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          状态
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roster.map((r) => (
+                        <tr
+                          key={r.enrollmentId}
+                          className="border-b last:border-0 hover:bg-muted/30"
+                        >
+                          <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {r.studentPhone ?? '-'}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
+                          </td>
+                          <td className="px-4 py-3 text-xs">{r.className}</td>
+                          <td className="px-4 py-3 text-xs">{r.enrollDate}</td>
+                          <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
+                          <td
+                            className={cn(
+                              'px-4 py-3 text-xs font-medium',
+                              r.dueAmount > 0 ? 'text-red-600' : 'text-muted-foreground',
+                            )}
+                          >
+                            {r.dueAmount > 0 ? r.dueAmount.toLocaleString() : '-'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                'text-[10px] text-white',
+                                ENROLLMENT_STATUS_COLOR_MAP.get(r.status) ?? 'bg-gray-500',
+                              )}
+                            >
+                              {ENROLLMENT_STATUS_MAP.get(r.status) ?? r.status}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-muted-foreground">
+                  <span>共 {rosterQuery.data?.total ?? 0} 条</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      disabled={rosterPage <= 1}
+                      onClick={() => setRosterPage((p) => Math.max(1, p - 1))}
+                    >
+                      上一页
+                    </Button>
+                    <span>
+                      {rosterPage} / {rosterTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      disabled={rosterPage >= rosterTotalPages}
+                      onClick={() => setRosterPage((p) => p + 1)}
+                    >
+                      下一页
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
