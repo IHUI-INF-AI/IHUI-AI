@@ -22,11 +22,21 @@ from app.services.mcp_server import (
 
 
 @pytest.fixture(autouse=True)
-def _clean_prefix_rules():
-    """用例前后清空全局前缀规则表,避免跨用例污染。"""
+def _clean_prefix_rules(tmp_path):
+    """用例前后清空全局前缀规则表 + 隔离审批持久层。
+
+    approve_exec_prefix 会双写持久层(always 档):不隔离会把 ('git',) 等
+    授权写到当时的 db(可能是上游测试泄漏的 tmp 路径或真实数据文件),
+    造成跨文件污染。teardown 恢复默认路径(对齐 test_tool_approval_persist_52)。
+    """
+    from app.services import approval_persistence as ap
+
     saved = set(mcp_server._exec_allowed_prefixes)
     mcp_server._exec_allowed_prefixes.clear()
+    ap.set_db_path(tmp_path / "approval_grants.db")
     yield
+    ap.close()
+    ap.set_db_path(ap.DEFAULT_DB_PATH)
     mcp_server._exec_allowed_prefixes.clear()
     mcp_server._exec_allowed_prefixes.update(saved)
 

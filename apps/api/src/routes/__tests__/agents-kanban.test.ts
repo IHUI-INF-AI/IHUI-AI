@@ -14,6 +14,7 @@
  * 6. P0-3 状态映射:cancelled/quota_exceeded/preempted → blocked 列
  * 7. P0-4 团队过滤:默认视图非 admin 仅见所属团队 / :id 越权 404
  * 8. DELETE:P0-2 删除前 releaseTaskLockByTaskId 统一释放
+ * 9. PATCH 改名/改描述(D25 统一任务看板):审计写入 / 至少一项约束 / 404
  *
  * db / 鉴权 / workspace-lock / workspace-lock-heartbeat 均 mock,不连真实 PG 与 Redis。
  */
@@ -717,6 +718,62 @@ describe('Agent Kanban 路由(2-2 工作区锁 + 团队任务板)', () => {
       const res = await app.inject({ method: 'DELETE', url: `/api/agents/kanban/tasks/${ID_A}` })
       expect(res.statusCode).toBe(409)
       expect(heartbeatState.releasedByTaskId).toHaveLength(0)
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────
+  // 10. PATCH 改名/改描述(D25 统一任务看板;不广播 SSE)
+  // ───────────────────────────────────────────────────────────
+  describe('PATCH /api/agents/kanban/tasks/:id(D25 改名)', () => {
+    it('成功改名:set 含 name + updatedBy 审计,响应透传更新行', async () => {
+      store.pushUpdate([makeRow({ name: '新名' })])
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/agents/kanban/tasks/${ID_A}`,
+        payload: { name: '新名' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.name).toBe('新名')
+      const set = store.updateSets[0] as Record<string, unknown>
+      expect(set.name).toBe('新名')
+      expect(set.updatedBy).toBe('user-1')
+      expect(set.updatedAt).toBeInstanceOf(Date)
+      expect(set).not.toHaveProperty('description') // 未传不写
+    })
+
+    it('仅改 description:name 不写,status 等字段不受影响', async () => {
+      store.pushUpdate([makeRow({ description: '新描述' })])
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/agents/kanban/tasks/${ID_A}`,
+        payload: { description: '新描述' },
+      })
+      expect(res.statusCode).toBe(200)
+      const set = store.updateSets[0] as Record<string, unknown>
+      expect(set.description).toBe('新描述')
+      expect(set).not.toHaveProperty('name')
+      expect(set).not.toHaveProperty('status')
+    })
+
+    it('body 空(至少一项约束)→ 400', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/agents/kanban/tasks/${ID_A}`,
+        payload: {},
+      })
+      expect(res.statusCode).toBe(400)
+      expect(store.updateSets).toHaveLength(0)
+    })
+
+    it('任务不存在 → 404', async () => {
+      store.pushUpdate([])
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/api/agents/kanban/tasks/${ID_A}`,
+        payload: { name: 'x' },
+      })
+      expect(res.statusCode).toBe(404)
+      expect(res.json().message).toBe('任务不存在')
     })
   })
 })

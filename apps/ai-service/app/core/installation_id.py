@@ -19,9 +19,8 @@ from __future__ import annotations
 
 import os
 import uuid
-from typing import Any
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 INSTALLATION_ID_FILENAME = "installation_id"
 
@@ -86,7 +85,7 @@ def resolve_installation_id(base_dir: Path, filename: str = INSTALLATION_ID_FILE
             _unlock_file(f)
 
 
-_cached_id: Optional[str] = None
+_cached_id: str | None = None
 
 
 def resolve_installation_id_cached(base_dir: Path) -> str:

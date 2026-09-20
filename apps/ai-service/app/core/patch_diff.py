@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import difflib
 from dataclasses import dataclass
-from typing import Optional
 
 from app.core.apply_patch import UpdateFileChunk, derive_new_contents_from_chunks
 

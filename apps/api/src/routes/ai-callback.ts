@@ -20,6 +20,29 @@ import { config } from '../config/index.js'
  * - POST /api/ai/callback — 接收回调,入队,立即返回 202 Accepted
  * - 内部服务间调用,无需 JWT 鉴权(由网络隔离 + 后续可加 shared secret)
  */
+// D24(2026-09-19 立):工具调用/终端任务持久化 —— 回调 body 可选数组 schema。
+// looseObject:ai-service 侧字段会随协议演进增加,这里只校验关键字段,
+// 其余透传落库(恢复/回放时前端按 BaseToolCall/TerminalTask 消费)。
+const persistedToolCallSchema = z.looseObject({
+  id: z.string(),
+  toolName: z.string(),
+  status: z.string().optional(),
+  isError: z.boolean().optional(),
+  iteration: z.number().optional(),
+  durationMs: z.number().optional(),
+})
+
+const persistedTerminalTaskSchema = z.looseObject({
+  id: z.string(),
+  command: z.string(),
+  status: z.string().optional(),
+  output: z.string().optional(),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  durationMs: z.number().optional(),
+  exitCode: z.number().optional(),
+})
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -27,6 +50,9 @@ const callbackSchema = z.object({
   provider: z.string().optional(),
   usage: z.unknown().optional(),
   stub: z.boolean().optional(),
+  // D24(2026-09-19 立):工具调用与终端任务持久化通道(无工具调用时不携带)
+  toolCalls: z.array(persistedToolCallSchema).optional(),
+  terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -69,7 +95,17 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      const { content, reasoning, model, provider, usage, stub, metadata } = parsed.data
+      const {
+        content,
+        reasoning,
+        model,
+        provider,
+        usage,
+        stub,
+        toolCalls,
+        terminalTasks,
+        metadata,
+      } = parsed.data
       const conversationId = metadata?.conversationId
       const messageId = metadata?.messageId
       const userId = metadata?.userId
@@ -113,7 +149,16 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             completionTokens: usageObj?.completion_tokens,
             // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
             idempotencyKey: `${conversationId}:${messageId ?? ''}`,
-            metadata: { model, usage, stub },
+            // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
+            // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
+            // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
+            metadata: {
+              model,
+              usage,
+              stub,
+              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
+            },
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
         }

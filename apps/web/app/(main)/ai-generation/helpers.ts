@@ -28,6 +28,9 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
   {
     auto: [
       { value: 'text', labelKey: 'tabText' },
+      { value: 'agnes-chat', labelKey: 'tabAgnes' },
+      { value: 'x5m5x-chat', labelKey: 'tabX5m5x' },
+      { value: 'x5m5x-subscribe', labelKey: 'tabX5m5xSubscribe' },
       { value: 'code', labelKey: 'tabCode' },
     ],
     image: [
@@ -35,6 +38,8 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
       { value: 'qwen', labelKey: 'tabQwen' },
       { value: 'doubao', labelKey: 'tabDoubao' },
       { value: 'jimeng', labelKey: 'tabJimeng' },
+      { value: 'agnes', labelKey: 'tabAgnes' },
+      { value: 'x5m5x', labelKey: 'tabX5m5x' },
       { value: 'edit', labelKey: 'tabEdit' },
     ],
     video: [
@@ -43,6 +48,7 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
       { value: 'qwen', labelKey: 'tabQwen' },
       { value: 'one-click', labelKey: 'tabOneClick' },
       { value: 'sora2', labelKey: 'tabSora2' },
+      { value: 'agnes', labelKey: 'tabAgnes' },
     ],
     music: [
       { value: 'generic', labelKey: 'tabGeneric' },

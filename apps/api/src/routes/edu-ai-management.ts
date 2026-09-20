@@ -17,6 +17,7 @@ import {
   sql,
   inArray,
   ne,
+  ilike,
   type SQL,
 } from 'drizzle-orm'
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
@@ -44,6 +45,7 @@ import {
   eduTuitionFee,
   eduPaymentRecord,
   eduRefundRecord,
+  eduFeeReminder,
   users,
   roles,
   userRoles,
@@ -52,7 +54,15 @@ import {
 // admin(users.roleId >= 1)在 requirePermission 内自动豁免,行为不变;
 // 持有 teacher 角色的普通用户(roleId=0)经 RBAC 表校验后可访问教务管理端点
 import { requirePermission, requireAnyPermission } from '../plugins/require-permission.js'
+import { checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { createNotification } from '../db/notification-queries.js'
+import {
+  isSubscribeMessageConfigured,
+  getWechatMiniOpenId,
+  buildFeeReminderData,
+  sendSubscribeMessage,
+} from '../services/wechat-subscribe-message.js'
 
 // 2026-08-30 教师角色 RBAC 接入:教务管理统一权限点(preHandler 工厂,模块级复用)
 // 注:包装为无 this 参数签名,便于在 handler 内直接 await 调用(实现为箭头函数,不依赖 this)
@@ -648,6 +658,48 @@ const createPaymentRecordSchema = z.object({
 const paymentRecordSummaryQuerySchema = z.object({
   classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
   termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
+})
+
+// =============================================================================
+// 24. 学生名册 + 催费 (业务线/欠费聚合,2026-09-19)
+// =============================================================================
+
+/** 业务线枚举:与 edu_class.business_line 对齐 */
+const BUSINESS_LINES = [
+  'after_school_care',
+  'kindergarten',
+  'academic',
+  'ai_course',
+  'other',
+] as const
+const businessLineSchema = z.enum(BUSINESS_LINES)
+
+const studentRosterQuerySchema = z.object({
+  businessLine: z.transform(emptyToUndefined).pipe(businessLineSchema.optional()),
+  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
+  termId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
+  keyword: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
+  arrearsOnly: z.transform(emptyToUndefined).pipe(z.enum(['1', 'true']).optional()),
+})
+
+const feeReminderListQuerySchema = z.object({
+  studentId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
+  classId: z.transform(emptyToUndefined).pipe(z.string().uuid().optional()),
+  channel: z.transform(emptyToUndefined).pipe(z.string().max(30).optional()),
+})
+
+/** 单发催费:锚定报名记录(欠费定义 = totalFee - paidAmount),快照欠费金额 */
+const createFeeReminderSchema = z.object({
+  enrollmentId: z.string().uuid(),
+  channel: z.enum(['in_app', 'sms', 'wechat']).default('in_app'),
+  message: z.string().max(500).optional(),
+})
+
+/** 批量催费:勾选欠费名单(报名记录)一次发送,上限 100 */
+const batchFeeReminderSchema = z.object({
+  enrollmentIds: z.array(z.string().uuid()).min(1).max(100),
+  channel: z.enum(['in_app', 'sms', 'wechat']).default('in_app'),
+  message: z.string().max(500).optional(),
 })
 
 // =============================================================================
@@ -4599,6 +4651,346 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       })
       .filter((w) => w.weak)
     return reply.send(success({ studentId: idParsed.data.id, weaknesses }))
+  })
+
+  // ===========================================================================
+  // 24. 学生名册 + 催费 (业务线/欠费聚合,2026-09-19)
+  // 欠费定义沿用 /payment-record/summary 先例:enrollment.totalFee > paidAmount。
+  // 催费动作落 edu_fee_reminder 留痕(欠费快照 dueAmount),站内信必达;
+  // channel=wechat 走小程序订阅消息真实外发(尽力而为,需用户已订阅授权),sms 仍为意图标记。
+  // ===========================================================================
+
+  /** 催费默认文案 */
+  function defaultReminderMessage(studentName: string, dueAmount: number): string {
+    return `【学费催缴】${studentName} 同学本学期尚有学费 ${dueAmount} 元未缴清,请尽快完成缴费。如有疑问请联系机构老师。`
+  }
+
+  /**
+   * 微信小程序订阅消息尽力外发(仅 channel=wechat 时调用)。
+   * 失败不抛错,返回失败原因供响应体透出;站内信兜底始终执行。
+   */
+  async function trySendWechatReminder(
+    studentId: string,
+    studentName: string,
+    dueAmount: number,
+  ): Promise<{ sent: boolean; reason?: string }> {
+    if (!isSubscribeMessageConfigured()) return { sent: false, reason: 'not_configured' }
+    try {
+      const openId = await getWechatMiniOpenId(studentId)
+      if (!openId) return { sent: false, reason: 'no_openid' }
+      const res = await sendSubscribeMessage(
+        openId,
+        buildFeeReminderData(studentName, dueAmount),
+        '/pkg-user/bill/index',
+      )
+      return res.ok ? { sent: true } : { sent: false, reason: `wx_${res.errcode ?? 'unknown'}` }
+    } catch {
+      return { sent: false, reason: 'send_exception' }
+    }
+  }
+
+  // 学生名册:报名 × 学生 × 班级聚合,支持业务线/班级/学期/关键词/仅欠费筛选
+  server.get('/student-roster', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = studentRosterQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
+    const conds: SQL[] = [isNull(eduEnrollment.deletedAt)]
+    if (parsed.data.businessLine) conds.push(eq(eduClass.businessLine, parsed.data.businessLine))
+    if (parsed.data.classId) conds.push(eq(eduEnrollment.classId, parsed.data.classId))
+    if (parsed.data.termId) conds.push(eq(eduEnrollment.termId, parsed.data.termId))
+    if (parsed.data.arrearsOnly)
+      conds.push(sql`${eduEnrollment.totalFee} > ${eduEnrollment.paidAmount}`)
+    if (parsed.data.keyword) {
+      const kw = `%${parsed.data.keyword}%`
+      const kwCond = or(ilike(users.nickname, kw), ilike(users.phone, kw))
+      if (kwCond) conds.push(kwCond)
+    }
+    const where = and(...conds)
+
+    const baseQuery = db
+      .select({ enrollmentId: eduEnrollment.id })
+      .from(eduEnrollment)
+      .innerJoin(eduClass, eq(eduEnrollment.classId, eduClass.id))
+      .innerJoin(users, eq(eduEnrollment.studentId, users.id))
+      .where(where)
+      .as('roster_base')
+
+    const [totalResult] = await db.select({ count: count() }).from(baseQuery)
+    const total = Number(totalResult?.count ?? 0)
+    const totalPages = Math.ceil(total / pageSize)
+    const list = await db
+      .select({
+        enrollmentId: eduEnrollment.id,
+        studentId: users.id,
+        studentName: users.nickname,
+        studentPhone: users.phone,
+        classId: eduClass.id,
+        className: eduClass.name,
+        businessLine: eduClass.businessLine,
+        grade: eduClass.grade,
+        termId: eduEnrollment.termId,
+        enrollDate: eduEnrollment.enrollDate,
+        totalFee: eduEnrollment.totalFee,
+        paidAmount: eduEnrollment.paidAmount,
+        dueAmount: sql<number>`${eduEnrollment.totalFee} - ${eduEnrollment.paidAmount}`,
+        status: eduEnrollment.status,
+      })
+      .from(eduEnrollment)
+      .innerJoin(eduClass, eq(eduEnrollment.classId, eduClass.id))
+      .innerJoin(users, eq(eduEnrollment.studentId, users.id))
+      .where(where)
+      .orderBy(desc(eduEnrollment.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize)
+    return reply.send(success({ list, total, page, pageSize, totalPages }))
+  })
+
+  // 单发催费
+  server.post('/fee-reminder', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = createFeeReminderSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [enrollment] = await db
+      .select()
+      .from(eduEnrollment)
+      .where(and(eq(eduEnrollment.id, parsed.data.enrollmentId), isNull(eduEnrollment.deletedAt)))
+      .limit(1)
+    if (!enrollment) return reply.status(404).send(error(404, '报名记录不存在'))
+    const dueAmount = Math.max(enrollment.totalFee - enrollment.paidAmount, 0)
+    if (dueAmount <= 0) return reply.status(400).send(error(400, '该报名无欠费,无需催缴'))
+
+    const [student] = await db
+      .select({ nickname: users.nickname })
+      .from(users)
+      .where(eq(users.id, enrollment.studentId))
+      .limit(1)
+    const message =
+      parsed.data.message ?? defaultReminderMessage(student?.nickname ?? '同学', dueAmount)
+
+    const [row] = await db
+      .insert(eduFeeReminder)
+      .values({
+        studentId: enrollment.studentId,
+        enrollmentId: enrollment.id,
+        classId: enrollment.classId,
+        dueAmount,
+        channel: parsed.data.channel,
+        status: 'sent',
+        message,
+        operatorId: request.userId,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '催费记录创建失败'))
+
+    // 微信订阅消息真实外发(仅 channel=wechat,尽力而为;失败不影响站内信兜底)
+    let wxSent = false
+    let wxFailReason: string | undefined
+    if (parsed.data.channel === 'wechat') {
+      const wx = await trySendWechatReminder(
+        enrollment.studentId,
+        student?.nickname ?? '同学',
+        dueAmount,
+      )
+      wxSent = wx.sent
+      wxFailReason = wx.reason
+    }
+
+    // 站内信必达:sms/wechat 亦同步发一条站内通知兜底
+    try {
+      await createNotification({
+        userId: enrollment.studentId,
+        type: 'edu_fee_reminder',
+        title: '学费催缴通知',
+        content: message,
+        data: {
+          reminderId: row.id,
+          enrollmentId: enrollment.id,
+          dueAmount,
+          channel: parsed.data.channel,
+        },
+      })
+    } catch (_err) {
+      // 通知失败不回滚催费留痕,仅标记发送失败
+      const [failed] = await db
+        .update(eduFeeReminder)
+        .set({ status: 'failed', updatedAt: new Date() })
+        .where(eq(eduFeeReminder.id, row.id))
+        .returning()
+      return reply
+        .status(201)
+        .send(success({ reminder: failed, notified: false, wxSent, wxFailReason }))
+    }
+    return reply.status(201).send(success({ reminder: row, notified: true, wxSent, wxFailReason }))
+  })
+
+  // 批量催费:勾选欠费名单(报名记录)一次发送
+  server.post('/fee-reminder/batch', async (request, reply) => {
+    await requireEduManage(request, reply)
+    if (reply.sent) return
+    const parsed = batchFeeReminderSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const enrollments = await db
+      .select()
+      .from(eduEnrollment)
+      .where(
+        and(inArray(eduEnrollment.id, parsed.data.enrollmentIds), isNull(eduEnrollment.deletedAt)),
+      )
+    const enrollmentMap = new Map(enrollments.map((e) => [e.id, e]))
+    const skipped: Array<{ enrollmentId: string; reason: string }> = []
+    const dueList = parsed.data.enrollmentIds
+      .map((id) => {
+        const enrollment = enrollmentMap.get(id)
+        if (!enrollment) {
+          skipped.push({ enrollmentId: id, reason: 'not_found' })
+          return null
+        }
+        const dueAmount = Math.max(enrollment.totalFee - enrollment.paidAmount, 0)
+        if (dueAmount <= 0) {
+          skipped.push({ enrollmentId: id, reason: 'no_arrears' })
+          return null
+        }
+        return { enrollment, dueAmount }
+      })
+      .filter(
+        (v): v is { enrollment: (typeof enrollments)[number]; dueAmount: number } => v !== null,
+      )
+    if (dueList.length === 0) return reply.send(success({ sent: 0, skipped }))
+
+    // 批量补学生昵称(默认文案用)
+    const studentIds = [...new Set(dueList.map((d) => d.enrollment.studentId))]
+    const students = await db
+      .select({ id: users.id, nickname: users.nickname })
+      .from(users)
+      .where(inArray(users.id, studentIds))
+    const nameMap = new Map(students.map((s) => [s.id, s.nickname]))
+
+    const values = dueList.map(({ enrollment, dueAmount }) => {
+      const studentName = nameMap.get(enrollment.studentId) ?? '同学'
+      return {
+        studentId: enrollment.studentId,
+        enrollmentId: enrollment.id,
+        classId: enrollment.classId,
+        dueAmount,
+        channel: parsed.data.channel,
+        status: 'sent',
+        message: parsed.data.message ?? defaultReminderMessage(studentName, dueAmount),
+        operatorId: request.userId,
+      }
+    })
+    const rows = await db.insert(eduFeeReminder).values(values).returning()
+
+    // 逐条发送:微信订阅消息尽力外发(仅 channel=wechat) + 站内信必达;失败条目标记 failed,不中断其余发送
+    let notified = 0
+    let wxSentCount = 0
+    for (const row of rows) {
+      if (row.channel === 'wechat') {
+        const wx = await trySendWechatReminder(
+          row.studentId,
+          nameMap.get(row.studentId) ?? '同学',
+          row.dueAmount,
+        )
+        if (wx.sent) wxSentCount += 1
+      }
+      try {
+        await createNotification({
+          userId: row.studentId,
+          type: 'edu_fee_reminder',
+          title: '学费催缴通知',
+          content: row.message ?? '',
+          data: {
+            reminderId: row.id,
+            enrollmentId: row.enrollmentId,
+            dueAmount: row.dueAmount,
+            channel: row.channel,
+          },
+        })
+        notified += 1
+      } catch (_err) {
+        await db
+          .update(eduFeeReminder)
+          .set({ status: 'failed', updatedAt: new Date() })
+          .where(eq(eduFeeReminder.id, row.id))
+      }
+    }
+    return reply
+      .status(201)
+      .send(success({ sent: notified, total: rows.length, wxSent: wxSentCount, skipped }))
+  })
+
+  // 催费记录列表
+  server.get('/fee-reminder', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = feeReminderListQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
+    const conds: SQL[] = []
+    if (parsed.data.studentId) conds.push(eq(eduFeeReminder.studentId, parsed.data.studentId))
+    if (parsed.data.classId) conds.push(eq(eduFeeReminder.classId, parsed.data.classId))
+    if (parsed.data.channel) conds.push(eq(eduFeeReminder.channel, parsed.data.channel))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const result = await paginate(
+      eduFeeReminder,
+      where,
+      desc(eduFeeReminder.createdAt),
+      page,
+      pageSize,
+    )
+    return reply.send(success(result))
+  })
+
+  // 25. 我的学费账单(小程序家长端,2026-09-19)
+  // 学员登录后自查:我的报名(应缴/已缴/欠费) + 最近缴费记录。非管理端权限。
+  // 2026-09-19:改用混合鉴权 —— JWT(学员自查)优先,失败降级 internal service token
+  // (AI 对话链 edu_my_bills 工具经此端点查真实聊天用户的账单)。
+  server.get('/my-bills', async (request, reply) => {
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    const enrollments = await db
+      .select({
+        id: eduEnrollment.id,
+        classId: eduEnrollment.classId,
+        className: eduClass.name,
+        termId: eduEnrollment.termId,
+        termName: eduTerm.name,
+        businessLine: eduClass.businessLine,
+        status: eduEnrollment.status,
+        totalFee: eduEnrollment.totalFee,
+        paidAmount: eduEnrollment.paidAmount,
+        createdAt: eduEnrollment.createdAt,
+      })
+      .from(eduEnrollment)
+      .innerJoin(eduClass, eq(eduEnrollment.classId, eduClass.id))
+      .innerJoin(eduTerm, eq(eduClass.termId, eduTerm.id))
+      .where(and(eq(eduEnrollment.studentId, userId), isNull(eduEnrollment.deletedAt)))
+      .orderBy(desc(eduEnrollment.createdAt))
+      .limit(50)
+    const payments = await db
+      .select({
+        id: eduPaymentRecord.id,
+        enrollmentClassId: eduPaymentRecord.classId,
+        amount: eduPaymentRecord.amount,
+        paymentDate: eduPaymentRecord.paymentDate,
+        paymentMethod: eduPaymentRecord.paymentMethod,
+        status: eduPaymentRecord.status,
+        receiptNo: eduPaymentRecord.receiptNo,
+        remark: eduPaymentRecord.remark,
+        createdAt: eduPaymentRecord.createdAt,
+      })
+      .from(eduPaymentRecord)
+      .where(and(eq(eduPaymentRecord.studentId, userId), isNull(eduPaymentRecord.deletedAt)))
+      .orderBy(desc(eduPaymentRecord.createdAt))
+      .limit(20)
+    return reply.send(success({ enrollments, payments }))
   })
 }
 

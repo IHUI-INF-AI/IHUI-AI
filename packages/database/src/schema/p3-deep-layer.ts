@@ -24,6 +24,7 @@ import {
   varchar,
   text,
   real,
+  integer,
   timestamp,
   jsonb,
   index,
@@ -146,12 +147,44 @@ export const langgraphWrites = pgTable(
   }),
 )
 
+/**
+ * Agent loop checkpoints 表(agent_checkpoints)。
+ *
+ * agent_loop_v2 主链路 checkpoint 持久层(D26 双轨收敛:主链路 checkpoint 从
+ * 「内存+Redis」升级为「内存 LRU + Redis 缓存 + PG 持久」三层,复用 langgraph
+ * 双表的「Drizzle 定义 + Python 裸 SQL CRUD」协作模式)。
+ * - checkpoint_id: uuid4 hex(主键,UPSERT 幂等保险)
+ * - session_id:    agent loop 会话 id(索引反查 latest)
+ * - status:        running / paused / completed / failed / cancelled / budget_exceeded
+ * - iteration:     保存时的迭代轮次
+ * - payload:       完整 AgentLoopCheckpoint dict(messages/tool_state/metadata 全量)
+ * - expires_at:    TTL 过期时间(cleanup_expired 直接 DELETE)
+ */
+export const agentCheckpoints = pgTable(
+  'agent_checkpoints',
+  {
+    checkpointId: varchar('checkpoint_id', { length: 64 }).primaryKey(),
+    sessionId: varchar('session_id', { length: 100 }).notNull(),
+    status: varchar('status', { length: 20 }).notNull(),
+    iteration: integer('iteration').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => ({
+    sessionIdx: index('agent_checkpoints_session_idx').on(t.sessionId),
+    expiresIdx: index('agent_checkpoints_expires_idx').on(t.expiresAt),
+  }),
+)
+
 export type KnowledgePoint = typeof knowledgePoints.$inferSelect
 export type NewKnowledgePoint = typeof knowledgePoints.$inferInsert
 export type LanggraphCheckpoint = typeof langgraphCheckpoints.$inferSelect
 export type NewLanggraphCheckpoint = typeof langgraphCheckpoints.$inferInsert
 export type LanggraphWrite = typeof langgraphWrites.$inferSelect
 export type NewLanggraphWrite = typeof langgraphWrites.$inferInsert
+export type AgentCheckpoint = typeof agentCheckpoints.$inferSelect
+export type NewAgentCheckpoint = typeof agentCheckpoints.$inferInsert
 
 export const aiGeneratedQuestion = pgTable(
   'ai_generated_question',

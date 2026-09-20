@@ -61,7 +61,6 @@ class TestCollectCandidates:
         assert [Path(p).name for p in cands] == ["AGENTS.md", "AGENTS.override.md"]
 
     def test_cwd_outside_root_only_cwd_layer(self, tmp_path):
-        import shutil
         # 两个互为兄弟的树:rootA(有 .git + AGENTS.md)与 cwdB(独立)
         root_a = tmp_path / "rootA"
         _mk_tree(root_a, {".git/HEAD": "", "AGENTS.md": "root-doc"})

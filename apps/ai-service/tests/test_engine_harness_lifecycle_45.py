@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """批 45 测试(自动生成,勿手改) — thread.name/thread.delete/queue 管理面。
 
 生成器: .ihui-agent/tmp/gen_test_45.py
@@ -11,12 +10,11 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 
 from app.services.agent_engine import (
-    AgentEngine,
     INVALID_PARAMS,
     THREAD_BUSY,
+    AgentEngine,
 )
 from app.services.session_store import SessionStore, UserMessageItem
 

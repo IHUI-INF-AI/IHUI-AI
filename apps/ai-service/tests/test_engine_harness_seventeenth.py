@@ -11,9 +11,7 @@
 另含安全闸门:cap_to_dict 不得把表头字段下发给客户端(/llm/models 会返回)。
 """
 
-import os
 
-import pytest
 
 from app.core.provider_caps import (
     ProviderCap,

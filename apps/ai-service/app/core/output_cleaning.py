@@ -53,7 +53,6 @@ def fuzzy_score(pattern: str, text: str) -> int | None:
     score = 0
     ti = 0
     prev_hit = -2
-    n = len(t)
     for pc in p:
         # 从当前位置向后找该字符
         idx = t.find(pc, ti)

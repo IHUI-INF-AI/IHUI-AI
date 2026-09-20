@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from ..core.config import settings
@@ -249,7 +249,8 @@ class ArtifactsStore:
             "title": artifact.get("title", ""),
             "content": artifact.get("content", ""),
             "metadata": artifact.get("metadata") or {},
-            "created_at": datetime.utcnow().isoformat(),
+            # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+            "created_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
             "tool_name": artifact.get("tool_name"),
         }
 

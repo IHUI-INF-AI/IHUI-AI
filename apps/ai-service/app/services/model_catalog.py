@@ -27,6 +27,11 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
 3. **fim** —— 是否适合做 FIM 代码补全(`is_fim_model`),供补全档位选型用;
    不进入 ModelUsageCategory 枚举,不影响默认展示/折叠语义。
 
+2026-09-19 D23 追加(对标 Codex/Trae/Qoder/WorkBuddy 模型能力矩阵):
+4. **capabilities** —— 语义能力四布尔 `{vision, reasoning, tools, fim}`,
+   名字规则派生 + 显式预设覆盖,随 /llm/models 透出,供前端选择器
+   徽章展示与按能力过滤(auto 路由后续消费同一事实源)。
+
 判定优先级(先具体后通用,避免误判)
 ----------------------------------
 1. 用途分类:rerank → embedding → tts → asr → image → video → guard → ocr → vision → chat
@@ -79,6 +84,7 @@ __all__ = [
     "annotate_models",
     "is_fim_model",
     "pick_fim_model",
+    "derive_capabilities",
 ]
 
 # ---------------------------------------------------------------------------
@@ -194,6 +200,78 @@ _FIM_MODEL_RULES: tuple[str, ...] = (
     r"deepseek[\w.-]*coder",
     r"\bfim\b",
 )
+
+
+# ---------------------------------------------------------------------------
+# 语义能力派生规则(2026-09-19 D23 立,对标 Codex/Trae/Qoder/WorkBuddy 模型能力矩阵)
+#
+# 与 category(用途)/ tier(代次)/ fim(补全)正交的第三组布尔:模型"会不会什么"。
+# 产出 `capabilities: {vision, reasoning, tools, fim}`,随 /llm/models 透出,
+# 供前端模型选择器徽章展示与按能力过滤(auto 路由/多模态路由后续消费同一事实源)。
+#
+# 判定口径(确定性,全部基于模型名 + 已派生的 category/tier,不做运行时探测):
+# - vision:   category 已判 VISION,或名字命中"现代多模态对话家族"提示规则
+#             (2026 年主流旗舰 chat 模型绝大多数原生带视觉输入,宁可宽不可漏)
+# - reasoning:名字命中推理系规则(o 系 / thinking / reasoner / qwq / deepseek-r* /
+#             gpt-5+/gpt-6),或"对话类 + latest 代次"(2026 当代旗舰全部具备推理档)
+# - tools:    对话类且非 legacy(工具调用是当代对话模型基线能力,过时代次不承诺)
+# - fim:      复用 is_fim_model
+# 每一项均可被模型条目显式 `capabilities` 预设(同键布尔)覆盖 —— 显式声明 > 名字派生。
+# ---------------------------------------------------------------------------
+_CAPABILITY_KEYS: frozenset[str] = frozenset({"vision", "reasoning", "tools", "fim"})
+
+_VISION_HINT_RULES: tuple[str, ...] = (
+    r"gpt-4o|gpt-5|gpt-6|chatgpt-4o",
+    r"claude-(?:3|4|5|opus|sonnet|haiku)",
+    r"gemini-[1-9]",
+    r"glm-4v|glm-5|glm-6",
+    r"qwen[\w.-]*vl|qwen\d(?:\.\d+)?-(?:max|plus|omni|turbo)|qwen-vl",
+    r"grok-4|grok-5|grok-vision",
+    r"llama-4|llama-5|llama-?vision",
+    r"step-3|step-4|step-1v",
+    r"doubao-[\w.-]*vision|doubao-2|doubao-3|seed-2|seed-3",
+    r"hunyuan-(?:t1|t2|hy\d|vision|turbo|standard)",
+    r"ernie-4\.5|ernie-5|ernie-[\w.-]*vision",
+    r"kimi-k[2-9]|moonshot-[\w.-]*vision",
+    r"minimax-m\d|abab[6-9]",
+    r"pixtral|llava|internvl|minicpm-v|deepseek-vl",
+    r"magistral|mistral-(?:medium|large)",
+    r"omni",
+)
+
+_REASONING_NAME_RULES: tuple[str, ...] = (
+    r"(?:^|[-/_.])o[134](?:-mini|-preview|-pro|-high|-low)?$",
+    r"thinking",
+    r"reason(?:ing|er)",
+    r"qwq",
+    r"magistral",
+    r"deepseek-r\d",
+    r"gpt-5|gpt-6",
+)
+
+
+def derive_capabilities(
+    model_id: str,
+    *,
+    category: ModelCategory,
+    tier: ModelTier,
+) -> dict[str, bool]:
+    """按模型名与已派生的 category/tier 推导语义能力四布尔(纯函数,无 I/O)。
+
+    注意:`tier` 必须传入**终态**代次(annotate_models 的代次比较在第二趟
+    会把同系列旧版本压成 legacy),因此本函数只在第二趟之后调用。
+    """
+    name = _normalize(model_id)
+    vision_hint = any(re.search(p, name) for p in _VISION_HINT_RULES)
+    reasoning_hint = any(re.search(p, name) for p in _REASONING_NAME_RULES)
+    conversational = category in CONVERSATIONAL_CATEGORIES
+    return {
+        "vision": category is ModelCategory.VISION or (conversational and vision_hint),
+        "reasoning": conversational
+        and (reasoning_hint or tier is ModelTier.LATEST),
+        "tools": conversational and tier is not ModelTier.LEGACY,
+        "fim": is_fim_model(model_id),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -628,10 +706,13 @@ def annotate_models(
 ) -> list[dict[str, Any]]:
     """批量分类:给每个模型 dict 原地附加 category / model_tier / family 字段。
 
-    两趟处理:
+    三趟处理:
     - 第一趟:单模型分类(用途 + 白名单 + 时间窗 + 变体)
     - 第二趟:按 family 分组做**代次比较** —— 同系列里主版本低于最高的压到 legacy,
       同主版本低次版本的压到 standard。这样新模型上线时旧代次自动降级,无需改白名单。
+    - 第三趟:语义能力派生(2026-09-19 D23)—— 附加 `capabilities` 四布尔
+      (vision/reasoning/tools/fim),必须在代次比较之后(依赖终态 model_tier);
+      模型条目显式 `capabilities` 预设(同键布尔)优先于名字派生。
 
     **预设档位优先**:若模型 dict 里已带 `model_tier`(如 `default_models.json`
     手工标注的兜底主力模型),则保留预设值,不被引擎覆盖。
@@ -698,6 +779,24 @@ def annotate_models(
                 model["classify_reason"] = (
                     f"minor-behind ({cls.family} {cls.generation} < {'.'.join(map(str, max_ver))})"
                 )
+
+    # ---- 第三趟:语义能力派生(2026-09-19 D23,对标四竞品模型能力矩阵) ----
+    # 必须在代次比较之后:reasoning/tools 依赖**终态** model_tier(旧代次会被压成 legacy)。
+    for m in models:
+        model_id = str(m.get("id") or m.get("model") or "")
+        try:
+            cat = ModelCategory(str(m.get("category") or ModelCategory.CHAT.value))
+            tier = ModelTier(str(m.get("model_tier") or ModelTier.STANDARD.value))
+        except ValueError:
+            cat, tier = ModelCategory.CHAT, ModelTier.STANDARD
+        caps = derive_capabilities(model_id, category=cat, tier=tier)
+        # 显式预设覆盖:default_models.json / DB metadata 中同键布尔优先于名字派生
+        preset_caps = m.get("capabilities")
+        if isinstance(preset_caps, dict):
+            for key, val in preset_caps.items():
+                if key in _CAPABILITY_KEYS and isinstance(val, bool):
+                    caps[key] = val
+        m["capabilities"] = caps
 
     return models
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
