@@ -28,3 +28,11 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
 !macroend
+
+; 完成态接管(R76):Section 落盘收尾 = instfiles 进入完成态的确切时刻
+; (LEAVE 回调要到用户点击"继续"才跑,完成态处理挂 LEAVE 全是死代码 —— r74/r76 实锤)。
+; 原生 1/2 挂外层 HWNDPARENT,BN_CLICKED 由 NSIS 核心 proc 原生路由(id=1→Next 推进,
+; id=2→Cancel),把二者就地品牌化后点击直达核心,绕开"内层品牌按钮吞 WM_COMMAND"死结。
+!macro NSIS_HOOK_POSTINSTALL
+  !insertmacro IHUI_INST_DONE_THEME
+!macroend

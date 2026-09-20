@@ -14,6 +14,7 @@
 """
 
 from app.core.stream_events import (
+    StreamTextBuffer,
     aggregate_content_text,
     completed_item_defers_mailbox_delivery_to_next_turn,
     denoise_assistant_text,
@@ -33,7 +34,6 @@ from app.core.stream_events import (
     strip_citations,
     strip_hidden_assistant_markup,
     strip_proposed_plan_blocks,
-    StreamTextBuffer,
 )
 
 

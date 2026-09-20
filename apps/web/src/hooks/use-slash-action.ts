@@ -125,6 +125,9 @@ export function useSlashAction(
     () => ({
       goal: '/goal ',
       loop: '/loop ',
+      // D28 /side 快速侧问(2026-09-20 立):选中后填充命令前缀,用户继续输入问题后
+      // Enter 发送,由 use-message-send.ts submit 拦截分流(空闲即答 / 流中入队)
+      side: '/side ',
       summary: t('cmdSummary'),
       translate: t('cmdTranslate'),
       explain: t('cmdExplain'),

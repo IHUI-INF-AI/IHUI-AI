@@ -381,6 +381,16 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
           type="button"
           onClick={() => handleSelect(item)}
           aria-current={active ? 'true' : undefined}
+          // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):会话行可拖拽,
+          // dataTransfer 携带会话 JSON,输入框 handleDropWithConversation 消费
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(
+              'application/x-ihui-conversation',
+              JSON.stringify({ id: item.id, title: item.title }),
+            )
+            e.dataTransfer.effectAllowed = 'copy'
+          }}
           className={cn(
             'relative block w-full rounded-sm px-2.5 py-1.5 pr-7 text-left transition-colors',
             'before:absolute before:inset-x-2 before:inset-y-0 before:rounded-sm before:transition-colors',

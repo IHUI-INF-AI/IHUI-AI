@@ -11,6 +11,7 @@ import {
   FileText,
   GitBranch,
   Hammer,
+  MessageCircle,
   Repeat,
   Search,
   Shield,
@@ -121,6 +122,19 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         icon: <GitBranch className="h-4 w-4" />,
         hasArgs: true,
         argsTitle: t('slashCmd.commitArgTitle'),
+      },
+      // 💬 /side 快速侧问(D28,2026-09-20 立,对标 Cursor /btw):
+      // /side <问题> — 流式空闲时立即补答;流式期间入会话级侧问队列(zustand 持久化),
+      // 流结束后自动逐条补答。前端 use-message-send.ts submit 拦截 + message-input.tsx
+      // 流结束 effect 补答,回答以 sidechat 消息入本地流,不入主线历史
+      {
+        id: 'side',
+        label: '/side',
+        description: t('slashCmd.side'),
+        usage: '/side <问题>',
+        kind: 'template' as const,
+        category: 'goal' as const,
+        icon: <MessageCircle className="h-4 w-4" />,
       },
       // ⚡ 模式切换(2026-07-25 立,对标 主流 AI IDE SOLO Plan 模式):切换 plan/act 模式
       {
