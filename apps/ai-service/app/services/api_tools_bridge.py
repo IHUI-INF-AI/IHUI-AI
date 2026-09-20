@@ -40,6 +40,7 @@ import httpx
 
 from .mcp_server import (
     MCPTool,
+    _TOOL_HANDLERS,
     mcp_server,
     register_external_tool,
     unregister_external_tool_by_prefix,
@@ -164,8 +165,16 @@ def _sanitize_tool_name(raw: str) -> str:
     return full[:64]
 
 
-def _iter_operations(spec: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]]:
-    """展开 spec 为 (METHOD, path, operation) 三元组;正则排除 + API_TOOLS_MAX 截断。"""
+def _iter_operations(
+    spec: dict[str, Any], methods: set[str] | None = None, cap: bool = True
+) -> list[tuple[str, str, dict[str, Any]]]:
+    """展开 spec 为 (METHOD, path, operation) 三元组;正则排除 + 方法过滤 + 数量上限。
+
+    methods 过滤必须在 API_TOOLS_MAX 截断**之前**:实测本项目 OpenAPI 有 4471 个
+    operation,先截断再按方法过滤会让 read 模式只拿到"前 300 个里恰好是 GET 的"极少数,
+    绝大多数只读端点被静默丢弃。cap=False 供侧表索引用(全量覆盖,注册上限只约束
+    进入工具表的条数,不约束可调用面)。
+    """
     patterns = _exclude_patterns()
     ops: list[tuple[str, str, dict[str, Any]]] = []
     for path, item in (spec.get("paths") or {}).items():
@@ -174,12 +183,21 @@ def _iter_operations(spec: dict[str, Any]) -> list[tuple[str, str, dict[str, Any
         if any(p.search(str(path)) for p in patterns):
             continue
         for method in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+            if methods is not None and method not in methods:
+                continue
             op = item.get(method.lower())
             if isinstance(op, dict):
                 ops.append((method, str(path), op))
+    if not cap:
+        return ops
     max_n = _tools_max()
     if len(ops) > max_n:
-        logger.warning("[api_bridge] 端点数 %d 超过 API_TOOLS_MAX=%d,已截断", len(ops), max_n)
+        logger.warning(
+            "[api_bridge] 候选端点 %d 超过 API_TOOLS_MAX=%d,已截断(未注册部分仍可经"
+            " api_endpoint_call 按 name 调用)",
+            len(ops),
+            max_n,
+        )
         ops = ops[:max_n]
     return ops
 
@@ -351,7 +369,7 @@ def make_api_handler(
 # (llm.py agent tool loop)又要求前端显式列出工具名。这两个名字恒定的入口让
 # 模型用"先搜后调"两步抵达任意端点,schema 成本与端点数解耦。
 
-def _search_endpoint_tools(args: dict[str, Any]) -> dict[str, Any]:
+async def _search_endpoint_tools(args: dict[str, Any]) -> dict[str, Any]:
     """api_endpoints_search:按关键词在已注册 API 工具侧表里搜端点(只读)。"""
     query = str(args.get("query") or "").strip().lower()
     method = str(args.get("method") or "").strip().upper()
@@ -397,19 +415,38 @@ async def _call_endpoint_tool(args: dict[str, Any]) -> dict[str, Any]:
         arguments = {}
     if not isinstance(arguments, dict):
         return {"ok": False, "errorCode": "INVALID_ARGS", "error": "arguments 必须是对象"}
-    if not name.startswith("api_") or name not in _API_TOOL_INDEX:
+    entry = _API_TOOL_INDEX.get(name) if name.startswith("api_") else None
+    if entry is None:
         return {
             "ok": False,
             "errorCode": "UNKNOWN_API_TOOL",
             "error": f"未注册的 API 工具: {name}(先用 api_endpoints_search 取准确 name)",
         }
-    result = await mcp_server.call_tool(
-        name,
-        arguments,
-        user_role=int(args.get("__user_role") or 0),
-        user_id=str(args.get("__user_id") or "") or None,
-        session_id=str(args.get("__session_id") or "") or None,
-    )
+    user_id = str(args.get("__user_id") or "")
+    session_id = str(args.get("__session_id") or "")
+    try:
+        user_role = int(args.get("__user_role") or 0)
+    except (TypeError, ValueError):
+        user_role = 0
+    if name in _TOOL_HANDLERS:
+        # 已注册端点走 call_tool,复用全局超时/输出截断/权限矩阵
+        result = await mcp_server.call_tool(
+            name,
+            arguments,
+            user_role=user_role,
+            user_id=user_id or None,
+            session_id=session_id or None,
+        )
+        return {"tool": name, **result}
+    # 未注册(API_TOOLS_MAX 截断掉的长尾端点)按侧表元数据即时建 handler 调用:
+    # 注册上限只约束"进工具表的条数",不削弱可调用面,否则 4471 端点只覆盖 300 个。
+    # 写操作 role 闸门在 handler 内部,两条路径同一条码。
+    merged: dict[str, Any] = dict(arguments)
+    # 身份字段以注入值为准,禁止模型在 arguments 里伪造
+    merged["__user_id"] = user_id
+    merged["__user_role"] = user_role
+    merged["__session_id"] = session_id
+    result = await make_api_handler(entry["method"], entry["path"])(merged)
     return {"tool": name, **result}
 
 
@@ -489,23 +526,26 @@ async def setup_api_tools_bridge() -> int:
     methods = {"GET"} if mode != "all" else {"GET", "POST", "PUT", "PATCH", "DELETE"}
     try:
         spec = await fetch_openapi_spec()
-        count = 0
-        for m, p, op in _iter_operations(spec):
-            if m not in methods:
-                continue
-            tool = _operation_to_tool(m, p, op)
-            if register_external_tool(tool, make_api_handler(m, p)):
-                _API_TOOL_INDEX[tool.name] = {
+        # 侧表覆盖全量端点(含被上限截断的长尾),工具表只注册前 API_TOOLS_MAX 个;
+        # 同名(operationId 折叠后碰撞)按先到为准,与 register_external_tool 幂等语义一致
+        for m, p, op in _iter_operations(spec, methods, cap=False):
+            key = _sanitize_tool_name(str(op.get("operationId") or f"{m}_{p}"))
+            if key not in _API_TOOL_INDEX:
+                _API_TOOL_INDEX[key] = {
                     "method": m,
                     "path": p,
                     "summary": str(op.get("summary") or "")[:120],
                 }
+        count = 0
+        for m, p, op in _iter_operations(spec, methods):
+            tool = _operation_to_tool(m, p, op)
+            if register_external_tool(tool, make_api_handler(m, p)):
                 count += 1
         for tool, handler in _entry_tools():
             if register_external_tool(tool, handler):
                 count += 1
         logger.info(
-            "[api_bridge] API 全量操控桥接注册完成: mode=%s, 端点 %d 个 + 入口工具, 共 %d",
+            "[api_bridge] API 全量操控桥接注册完成: mode=%s, 可调用端点 %d 个, 已注册工具 %d",
             mode,
             len(_API_TOOL_INDEX),
             count,
