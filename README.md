@@ -776,7 +776,10 @@ A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后�
 | 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                                                                         | `conversation.py`                      |
 | 开关   | `API_TOOLS_MODE=off\|read\|all`(**默认 all**：放开的是可见面，授权仍走上面的 role 闸门；多租户公开部署可设 `read` 只让 AI 读)、`UI_ACTION_TOOLS=false` / `APP_UI_TOOLS=false` 可独立关闭 web 族与移动两族；密钥缺失 fail-closed | `apps/ai-service/.env.example`         |
 
-### 真机验证中发现并修掉的两个可用性问题(2026-09-20)
+### 真机 / 端到端验证中发现并修掉的问题(2026-09-20 ~ 09-21)
+
+前两条是"直打 `/api/agent-control` 就能发现"的可用性问题；后三条**只有走一遍真实聊天
+round-trip 才暴露** —— 这正是要验这类功能必须从对话框打进来的原因。
 
 - **元素上限挤掉表单字段**:应用外壳(侧栏/顶栏/AI 任务面板)常驻 200+ 可交互元素,按 DOM 顺序截断到 80
   会把页面真正的输入框整批挤出去,`describe` 回清单里没有可填字段。改为按优先级择优:表单字段
@@ -786,6 +789,39 @@ A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后�
   于是 `describe` 与紧随其后的 `fill` 会落到不同页面——元素 id 是该页私有映射,必然 `SELECTOR_NOT_FOUND`。
   改为应答携带 `instanceId`、后续动作经 `targetInstanceId` 钉回它刚看过的那一页(钉定端掉线则回落择优,
   且绝不跨用户钉定)。
+- **③ 聊天主链调 `/execute` 被 CSRF 钩子拦成 403**：桥接原先只发
+  `Authorization: Bearer <内部密钥>`(`/execute` 只认这个)，而 `apps/api/src/plugins/csrf.ts` 的
+  豁免判据是"请求带自定义头"(`x-internal-service-token` 存在即视为非浏览器表单)。只发 Bearer
+  ⇒ **整条 UI 桥 100% 不可用**。此前从未被发现，是因为直打 `/execute` 用用户 JWT 时顺带带上了
+  `auth_token` cookie，绕过了该钩子。现两个头都发(与 `api_tools_bridge` 口径一致)，并有
+  `test_call_sends_internal_service_token_for_csrf_exempt` 钉住。
+- **④ 页面被重载后每条后续动作都白等 20s**：重载会生成新 `instanceId`，旧实例却还能在
+  `ENDPOINT_TTL_MS=5min` 内留在 api 注册表里"活着"；钉定原先只校验"存在 + 同类 + 同用户"，
+  于是把动作推到一条已死的 socket 上，表现为看不出根因的 `TIMEOUT`。现改为**钉定还要验活性**——
+  比同用户同类最新端落后 ≥ 一个保活周期(60s)即回落择优；两个标签页都在心跳时(落后不足一个周期)
+  **仍钉住**，多标签页语义不退化。ai-service 侧同时把 `TIMEOUT` 纳入清钉条件，立刻自愈。
+- **⑤ 工具卡片把整个聊天页打崩**：无参工具(`web_ui_describe` / `web_ui_read`)的 toolCall 落库后
+  `args` 字段整体缺失，而 `tool-call-card.tsx` 的 `pickStr` / `extractUrl` 在 message-list 的渲染
+  路径上直接索引它 → `Cannot read properties of undefined (reading 'path')`，Next 错误边界接管成
+  "应用发生严重错误"。也就是说 **AI 成功操控页面之后，用户回到聊天页就看到白屏**。现已在两个入口
+  归一 `args`，并加 `apps/web/tests/tool-call-card.test.ts` 四条回归。
+
+### 端到端实证:对话框里说一句话，页面真的动了(2026-09-21)
+
+真实浏览器登录后在对话框输入「导航到模型市场页面」，用 fetch 探针抓到的请求体与 SSE 回执：
+
+```
+body.agentTools = [web_ui_describe, web_ui_read, web_ui_navigate, web_ui_click,
+                   web_ui_fill, web_ui_submit, web_ui_invoke]      ← 客户端意图闸门生效
+SSE: tool-call-start → tool-result(web_ui_describe) → tool-call-start
+     → tool-result { toolName: web_ui_navigate, args: {path: "/capability-market"},
+                     result: {ok: true, durationMs: 718} } → plan_updated → done
+location.pathname: "/" → "/capability-market"，页面 h1 = "能力市场"     ← 端侧真的执行了
+```
+
+即：`uiControlToolsFor` 带上本端整族工具 → `llm.py` 进了 tool loop → 模型按"先探后动"先
+`describe` 再 `navigate` → api 经 WS 推给用户浏览器 → 前端注册表执行并 `/result` 回传(718ms)→
+模型拿到 `ok:true`。全程无 403、无 20s 超时。三条上面的缺陷都是这一次跑动才撞出来的。
 
 ### 可达面 ≠ 授权面（重要边界）
 
