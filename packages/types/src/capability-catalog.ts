@@ -55,6 +55,15 @@ export const CAPABILITY_DOMAINS = [
 export type CapabilityDomain = (typeof CAPABILITY_DOMAINS)[number]
 
 /**
+ * 能力归属服务 —— 决定该条目的端点应出现在哪一份契约产物里。
+ * - `api`(缺省):apps/api(Fastify)注册,必须能在 `apps/api/openapi.json` 找到。
+ * - `ai-service`:apps/ai-service(FastAPI)注册,**不会**出现在 apps/api 的契约里。
+ *   `scripts/openapi-check.mjs` 的跨服务比对据此跳过这些条目 —— 这是归属不同,不是漂移。
+ */
+export const CAPABILITY_HOSTS = ['api', 'ai-service'] as const
+export type CapabilityHost = (typeof CAPABILITY_HOSTS)[number]
+
+/**
  * 运行期数据访问模式。compute 上下文里访问非白名单业务表必须抛错,
  * 这是 dataClass 从「文档约定」变成「机械可证」的落点。
  */
@@ -125,8 +134,19 @@ export interface CapabilityEntry {
   idempotencyRequired: boolean
   /** 人类可读说明(进文档与控制台) */
   description: string
-  /** 归属端点模式(Fastify 注册前缀已展开) */
+  /**
+   * 归属端点模式(Fastify 注册前缀已展开)。
+   * 允许为空数组:表示该 scope 目前只有 MCP 工具面、没有对外 HTTP 端点
+   * (参见 `billing:read` —— 不实声明一律删除,不得保留"看着像有"的路径)。
+   */
   routes: readonly string[]
+  /**
+   * 该条目由哪个服务提供。**缺省视为 `'api'`**(apps/api Fastify),此时不必显式写,
+   * 产物 JSON 里也不会多出 `host` 字段。显式标 `'ai-service'` 的条目走 apps/ai-service
+   * (FastAPI),不会出现在 `apps/api/openapi.json` 里 —— `scripts/openapi-check.mjs`
+   * 与 `apps/api/scripts/export-openapi.ts` 都据此跳过(归属不同,不是契约漂移)。
+   */
+  host?: CapabilityHost
   /** 该能力同时以 MCP 工具形态暴露时的工具名清单 */
   tools?: readonly string[]
 }
@@ -411,6 +431,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '作为 MCP server 被外部 agent 长连接接入',
+    // 三条端点全部由 apps/ai-service 提供,apps/api 契约里没有:
+    //   POST /api/mcp                      ← app/routers/mcp_official.py:587(main.py:698 挂 /api)
+    //   POST /api/mcp/export/streamable    ← app/services/mcp_export.py:15(ENABLE_MCP_EXPORT 时挂载)
+    //   GET  /api/mcp/export/sse           ← app/services/mcp_export.py:13
+    host: 'ai-service',
     routes: ['POST /api/mcp', 'POST /api/mcp/export/streamable', 'GET /api/mcp/export/sse'],
   }),
   // ===== Memory =====
@@ -538,7 +563,12 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '自身余额/账单读取',
-    routes: ['GET /v1/billing/balance', 'GET /v1/billing/invoices'],
+    // O8b(2026-09-21)删除不实声明:`GET /v1/billing/balance`、`GET /v1/billing/invoices`
+    // 在 apps/api/src/routes/** 无任何注册点(/v1 面未落地计费端点,真实余额面是
+    // apps/api 的 /api/token/balance、/api/wallet/balance 与 /api/*/invoices —— 均属
+    // 用户态平台面,不是本 scope 的对外端点)。scope 与 tools 保留(闸口与 MCP 工具仍引用),
+    // 端点待真实开放后再登记。
+    routes: [],
     tools: ['token6688_balance', 'token6688_model_info'],
   }),
   // ===== Assistants / Threads / Runs =====
@@ -562,7 +592,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: true,
     description: 'Assistants 协议:创建/更新/删除自有助手',
-    routes: ['POST /v1/assistants', 'PATCH /v1/assistants/:id', 'DELETE /v1/assistants/:id'],
+    // 更新走 POST(见 routes/v1-assistants.ts「修改 Assistant(部分字段更新)」),本仓未注册 PATCH。
+    routes: ['POST /v1/assistants', 'POST /v1/assistants/:id', 'DELETE /v1/assistants/:id'],
   }),
   c({
     scope: 'threads:read',
@@ -595,7 +626,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: 'Run 与 Step 状态查询',
-    routes: ['GET /v1/threads/:id/runs/:runId', 'GET /v1/threads/:id/runs/:runId/steps/:stepId'],
+    routes: [
+      'GET /v1/threads/:id/runs/:runId',
+      'GET /v1/threads/:id/runs/:runId/steps',
+      'GET /v1/run-refs/:ref',
+    ],
   }),
   c({
     scope: 'runs:write',
@@ -605,12 +640,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     billable: true,
     thirdPartyEligible: true,
     idempotencyRequired: true,
-    description: 'Run 创建/取消/中断回复',
-    routes: [
-      'POST /v1/threads/:id/runs',
-      'POST /v1/threads/:id/runs/:runId/cancel',
-      'POST /v1/threads/:id/runs/:runId/submit',
-    ],
+    description: 'Run 创建(取消/中断回复端点尚未实现)',
+    // O8b(2026-09-21)删除不实声明:`POST /v1/threads/:id/runs/:runId/cancel`、
+    // `.../submit` 在 routes/v1-assistants.ts 无注册点(该文件只有 runs 的
+    // GET/POST 列表、创建、按 id 改 metadata 与 steps 列表)。
+    routes: ['POST /v1/threads/:id/runs'],
   }),
   c({
     scope: 'batches:read',
@@ -621,7 +655,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '批任务清单与状态',
-    routes: ['GET /v1/batches', 'GET /v1/batches/:id'],
+    // 真实注册面是单数 `/v1/batch*`(routes/v1-batches.ts),列表接口才是复数 `/v1/batches`。
+    routes: ['GET /v1/batches', 'GET /v1/batch/:id'],
   }),
   c({
     scope: 'batches:write',
@@ -632,7 +667,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: true,
     description: '批任务创建/取消(批量模型调用,费用放大风险)',
-    routes: ['POST /v1/batches', 'POST /v1/batches/:id/cancel'],
+    // 真实注册面是单数 `/v1/batch*`(routes/v1-batches.ts)。
+    routes: ['POST /v1/batch', 'POST /v1/batch/:id/cancel'],
   }),
   c({
     scope: 'responses:write',
@@ -654,6 +690,10 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '实时语音/多模态长连接(占用并发槽)',
+    // WS 声明:OpenAPI 3.0 不描述 WebSocket,`apps/api/openapi.json` 里必然没有对应项。
+    // 真实注册点 apps/api/src/routes/v1-realtime.ts:742(`server.get('/v1/realtime',
+    // { websocket: true, ... })`)。判据侧的豁免与导出器同源:
+    // apps/api/scripts/export-openapi.ts `unmatchedRouteIsExpected()` + scripts/openapi-check.mjs。
     routes: ['WS /v1/realtime'],
   }),
   c({
@@ -727,6 +767,8 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '沙箱内执行命令;开放前提=强制 docker --network=none 后端 + 管理员显式签发',
+    // POST /api/sandbox/run ← app/routers/sandbox_exec.py:47(prefix /sandbox)+ :73(main.py:843 挂 /api)
+    host: 'ai-service',
     routes: ['POST /api/sandbox/run'],
     tools: ['run_command', 'run_in_background', 'bg_task_status'],
   }),
@@ -739,7 +781,14 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '浏览器自动化(可触达外部站点与真实账号)',
-    routes: ['POST /api/browser-hub/*'],
+    // O8b(2026-09-21)路径修正 + 归属修正:`/api/browser-hub` 两端都不存在。
+    // 真实面是 apps/ai-service 的 browser_hub —— app/routers/browser_hub.py:46 的
+    // router prefix 是 `/browser`(不是 `/browser-hub`),经 app/main.py:737 挂在 `/api`
+    // 下 ⇒ 实际 `/api/browser/sessions*`(POST /sessions、/sessions/{id}/navigate 等)。
+    // 注意:apps/api 契约里另有 `/api/browser/probe|screenshot`(服务端渲染截图面),
+    // 与本 scope 的 browser_* 工具面无关,不得混用。
+    host: 'ai-service',
+    routes: ['POST /api/browser/*'],
     tools: [
       'browser_navigate',
       'browser_click',
@@ -768,6 +817,9 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '本机 GUI 控制(键鼠/剪贴板)—— 永不开放给外部 key',
+    // POST /api/computer-use/* ← app/routers/computer_use.py:56(prefix /computer-use,
+    // 8 个 @router.post)+ app/main.py:819 挂 /api
+    host: 'ai-service',
     routes: ['POST /api/computer-use/*'],
     tools: [
       'computer_screenshot_screen',
@@ -792,7 +844,12 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: 'URL 抓取(SSRF 面,必须过出口白名单)',
-    routes: ['POST /api/web/fetch'],
+    // O8b(2026-09-21)删除不实声明:`POST /api/web/fetch` 两端源码里都不存在路由
+    // (apps/api/src/routes/** 无 /api/web/* 注册点;ai-service 只有
+    // app/routers/web_tools.py:49 `POST /api/web-tools/call` —— 按 tool 名分发的统一
+    // 入口,不是本 scope 的 REST 端点)。抓取能力当前只以 MCP 工具形态存在。
+    // scope 与 tools 保留(闸口与 MCP 工具仍引用),真实 REST 端点落地后再登记。
+    routes: [],
     tools: ['fetch_url', 'fetch_readable', 'extract_web', 'screenshot_url'],
   }),
   c({
@@ -804,7 +861,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '联网搜索与整站爬取(资源密集)',
-    routes: ['POST /api/web/search', 'POST /api/web/crawl'],
+    // O8b(2026-09-21)删除不实声明:`POST /api/web/search`、`POST /api/web/crawl` 两端
+    // 均无注册点。真实面是 ai-service 的工具分发口 `app/routers/tools.py:49`
+    // `POST /api/tools/search-web`(整站爬取 map_site/crawl_site 当前只有 MCP 工具形态,
+    // 无 HTTP 端点)。scope 与 tools 保留,REST 面落地后再登记。
+    routes: [],
     tools: ['web_search', 'search_web', 'map_site', 'crawl_site'],
   }),
   // ===== 开发者治理面 =====
@@ -832,6 +893,9 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '外部连接器/MCP server 清单与能力',
+    // GET /api/connectors      ← app/routers/connectors.py:29(prefix /connectors)+ :107(@router.get(""))
+    // GET /api/mcp/external/servers ← app/routers/mcp.py:346(main.py:697 挂 /api)
+    host: 'ai-service',
     routes: ['GET /api/connectors', 'GET /api/mcp/external/servers'],
   }),
   c({
@@ -843,7 +907,12 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: true,
     description: '注册/启停外部 MCP server —— 等于注入可执行工具,不对第三方 key 开放',
-    routes: ['POST /api/mcp/external/servers', 'POST /api/mcp/external/connect'],
+    // POST /api/mcp/external/servers             ← app/routers/mcp.py:362
+    // POST /api/mcp/external/servers/{name}/connect ← app/routers/mcp.py:426
+    // O8b(2026-09-21)路径修正:原声明 `POST /api/mcp/external/connect` 是臆写的短形式,
+    // 两端源码里都不存在(ai-service 的 connect 路由带 {name} 段)。
+    host: 'ai-service',
+    routes: ['POST /api/mcp/external/servers', 'POST /api/mcp/external/servers/{name}/connect'],
   }),
   c({
     scope: 'skills:read',
@@ -866,7 +935,14 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: true,
     description: '安装/启停技能(注入 agent 行为)',
-    routes: ['POST /api/skills/install', 'POST /api/skills/:id/enable'],
+    // O8b(2026-09-21)删除不实声明:`POST /api/skills/install` 两端均无注册点 ——
+    // ai-service 的 `/install` 是 MCP store(`app/routers/mcp.py:547 POST /api/mcp/store/install`),
+    // 属 tools/mcp 面而非技能面。启停面**确实存在**但是**人 JWT 专用**
+    // (`apps/api/src/routes/skills.ts:915 POST /api/skills/:name/enable` 走 checkAuth,
+    // 不挂能力闸),而 `routes` 字段的语义是"该能力的对外端点";本 scope 又已是
+    // thirdPartyEligible=false ⇒ 机器凭据永远拿不到。登记它只会让契约与文档
+    // 声称一个机器侧根本调不到的端点,故按"暂无对外端点"处理。
+    routes: [],
   }),
   c({
     scope: 'edu:read',
@@ -943,7 +1019,11 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: false,
     idempotencyRequired: false,
     description: '平台内部运维能力(直连数据库/git 写/定时任务/PR 审查)—— 机器凭据永不放行',
-    routes: ['POST /api/ops/*'],
+    // O8b(2026-09-21)删除不实声明:`POST /api/ops/*` 两端均无 `/api/ops` 前缀的路由
+    // (apps/api 无 ops 路由文件;ai-service 的同类能力按面分散在 pr_review.py /
+    // self_healing.py 等各自前缀下,不存在统一 `/api/ops` 入口)。本 scope 只以
+    // MCP 工具形态存在,且 dataClass=platform ⇒ 机器凭据一律 403,登记为空端点不影响闸口。
+    routes: [],
     tools: [
       'db_query',
       'git_operations',
@@ -1059,6 +1139,8 @@ export interface CapabilityManifest {
     idempotencyRequired: boolean
     description: string
     routes: readonly string[]
+    /** 缺省即 `'api'`;生成器只在源码显式声明时写出该键,避免 62 条噪声。 */
+    host?: CapabilityHost
     tools: readonly string[]
     rate: RateProfile
   }>
@@ -1090,7 +1172,7 @@ export function buildManifest(
   version: string,
   generatedAt = new Date().toISOString(),
 ): CapabilityManifest {
-  const capabilities = [...INDEX.values()].map((e) => ({
+  const capabilities = [...INDEX.values()].map((e): CapabilityManifest['capabilities'][number] => ({
     scope: e.scope as string,
     domain: e.domain as string,
     dataClass: effectiveDataClass(e),
@@ -1100,6 +1182,9 @@ export function buildManifest(
     idempotencyRequired: e.idempotencyRequired,
     description: e.description,
     routes: e.routes,
+    // 键位固定放在 routes 之后 / tools 之前,且仅在显式声明时写出 —— 保证
+    // `export-capabilities.ts --check` 的 JSON.stringify 逐字节幂等。
+    ...(e.host === undefined ? {} : { host: e.host }),
     tools: e.tools ?? [],
     rate: RATE_PROFILES[e.risk],
   }))

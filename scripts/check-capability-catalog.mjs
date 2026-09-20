@@ -302,6 +302,10 @@ function parseCatalogEntries(tsSource) {
       thirdPartyEligible: obj.thirdPartyEligible !== false,
       idempotencyRequired: obj.idempotencyRequired === true,
       description: asString(obj.description) ?? '',
+      // 归属服务:缺省 'api'。[D] 反向核据此跳过 apps/ai-service 提供的条目 —— 本脚本
+      // 是**文本解析** TS 目录(不是 import 它),少解析一个字段就等于判据看不见该字段,
+      // 曾把 10 条 ai-service 端点全报成"文档腐化"。
+      host: asString(obj.host) ?? 'api',
       routes: (Array.isArray(obj.routes) ? obj.routes : []).filter((r) => typeof r === 'string'),
       tools: (Array.isArray(obj.tools) ? obj.tools : []).filter((t) => typeof t === 'string'),
     })
@@ -732,6 +736,13 @@ function evaluate({ entries, rateProfiles, artifact, artifactError, routeFiles, 
   if (registry) {
     for (const entry of entries) {
       for (const declared of entry.routes) {
+        // `host: 'ai-service'` 的条目由 apps/ai-service(FastAPI)注册,在本仓库 apps/api
+        // 源码里**当然**找不到注册点 —— 那是归属不同,不是文档腐化。判据与
+        // scripts/openapi-check.mjs、apps/api/scripts/export-openapi.ts 的 host 跳过同源。
+        if (entry.host === 'ai-service') {
+          stats.declaredRoutes += 1
+          continue
+        }
         const parsed = parseDeclaredRoute(declared)
         if (!parsed) { warnings.push({ check: 'D', code: 'ROUTE_FORMAT', message: `${entry.scope}: routes 字段格式应为 "METHOD /path",实际「${declared}」` }); continue }
         stats.declaredRoutes += 1
