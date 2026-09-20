@@ -3629,8 +3629,16 @@ class AgentLoopV2:
             # P0-B(2026-09-18):循环内中断信号优先传播——gather(return_exceptions=True)
             # 会把 _LoopInterrupted 当普通异常吞掉转 ToolResult,导致并行工具批内
             # 用户取消/暂停失效;命中即整体上抛,交 _run_loop 走优雅中断链路。
-            for item in gathered_raw:
+            # 批 54(对标 codex parallel.rs):上抛前为批内异常项发 plan.step aborted
+            # 事件;被取消工具的结构化中止回复由 _execute_single 的 CancelledError
+            # 分支产出,历史成对性由批 53 normalize_history 兜底。
+            for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
                 if isinstance(item, _LoopInterrupted):
+                    with contextlib.suppress(Exception):
+                        await self._events.emit_plan_step(
+                            self._session_id or "", idx, tc.name, "aborted",
+                            reason="turn_interrupted",
+                        )
                     raise item
             results: list[ToolResult] = []
             for idx, (tc, item) in enumerate(zip(tool_calls, gathered_raw, strict=False)):
@@ -4125,6 +4133,35 @@ class AgentLoopV2:
                     )
                 except _LoopInterrupted:
                     raise
+                except asyncio.CancelledError:
+                    # 批 54(对标 codex parallel.rs AbortedToolOutput):并行批内
+                    # 回合中断会取消其余在途任务(见 _execute_tools 中断分支)。
+                    # 被取消的工具不抛 CancelledError,而是产出结构化中止回复
+                    # (含运行秒数),保证历史里每个 tool_call 都有回复且模型下轮
+                    # 能看到"哪些工具被中止、跑了多久"。
+                    secs = max(0.1, (time.time() - start))
+                    abort_msg = f"[tool aborted] 工具被回合中断,已运行 {secs:.1f} 秒"
+                    logger.info("工具 %s 被回合中断: %s", tc.name, abort_msg)
+                    with contextlib.suppress(Exception):
+                        await self._events.emit(
+                            "tool.aborted",
+                            {
+                                "session_id": self._session_id,
+                                "tool": tc.name,
+                                "call_id": tc.id,
+                                "ran_seconds": round(secs, 1),
+                                "reason": "turn_interrupted",
+                            },
+                        )
+                    return ToolResult(
+                        tool_call_id=tc.id,
+                        name=tc.name,
+                        result=None,
+                        error=abort_msg,
+                        duration_ms=secs * 1000,
+                        retry_count=retry_count,
+                        error_type="aborted",
+                    )
                 except TimeoutError:
                     error_msg = f"工具执行超时({self.tool_timeout}s)"
                     error_type = "timeout"
