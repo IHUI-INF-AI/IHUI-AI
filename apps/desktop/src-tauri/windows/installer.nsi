@@ -482,17 +482,20 @@ FunctionEnd
 {{/each}}
 
 Function .onInit
-  ${GetOptions} $CMDLINE "/P" $PassiveMode
+  ; GetOptions 是"任意 / 后前缀匹配",$CMDLINE 含 exe 全路径,正斜杠路径里
+  ; 的 /ns(如 Git Bash 启动)会误匹配 /NS → 先 GetParameters 剥掉 exe 路径。
+  ${GetParameters} $R9
+  ${GetOptions} $R9 "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
   ${EndIf}
 
-  ${GetOptions} $CMDLINE "/NS" $NoShortcutMode
+  ${GetOptions} $R9 "/NS" $NoShortcutMode
   ${IfNot} ${Errors}
     StrCpy $NoShortcutMode 1
   ${EndIf}
 
-  ${GetOptions} $CMDLINE "/UPDATE" $UpdateMode
+  ${GetOptions} $R9 "/UPDATE" $UpdateMode
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
   ${EndIf}
@@ -751,9 +754,11 @@ Function .onInstSuccess
   ; GUI installer has a toggle for the user to (re)start the app
   ${If} $PassiveMode = 1
   ${OrIf} ${Silent}
-    ${GetOptions} $CMDLINE "/R" $R0
+    ; 同 .onInit:GetParameters 剥 exe 路径,防正斜杠路径 /r /args 前缀误匹配
+    ${GetParameters} $R9
+    ${GetOptions} $R9 "/R" $R0
     ${IfNot} ${Errors}
-      ${GetOptions} $CMDLINE "/ARGS" $R0
+      ${GetOptions} $R9 "/ARGS" $R0
       nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
     ${EndIf}
   ${EndIf}
@@ -768,12 +773,14 @@ Function un.onInit
 
   !insertmacro MUI_UNGETLANGUAGE
 
-  ${GetOptions} $CMDLINE "/P" $PassiveMode
+  ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配
+  ${GetParameters} $R9
+  ${GetOptions} $R9 "/P" $PassiveMode
   ${IfNot} ${Errors}
     StrCpy $PassiveMode 1
   ${EndIf}
 
-  ${GetOptions} $CMDLINE "/UPDATE" $UpdateMode
+  ${GetOptions} $R9 "/UPDATE" $UpdateMode
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
   ${EndIf}
