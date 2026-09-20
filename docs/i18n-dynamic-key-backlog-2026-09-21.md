@@ -32,9 +32,17 @@
 1. **词典侧**:语义确实不存在(如 `activities.status.*`、`nav.group.*`、`modelType.*` 整节点缺失)
    → 在该端词典里**建成真嵌套对象**并补 5 语言。**禁止**写成扁平含点键(`"status.upcoming": "…"`),
    那正是 2026-09-21 已根治并上了 blocking 守门的那一类。
-2. **代码侧**:词典里已有等价物,只是命名不一致(实测样例:`feedback` 下代码请求 `type_bug` /
-   `status_pending`,词典里是 `typeBug` / `statusPending`)→ **改代码里的映射值**,
-   不要在词典里造同义重复键(会造成两份真相)。
+2. **代码侧**:词典里已有等价物,只是代码键名写法不一致 —— 实测有**三种不同形态**,别当成一条规则:
+   - **下划线 ↔ 驼峰**:词典有 `feedback.typeBug` / `statusPending`,代码请求 `type_bug` / `status_pending`。
+     这类只命中 `feedback` 5 条(且必须走"下划线→驼峰"这条规则,压点规则救不了它)。
+   - **多写一层前缀**(本档案唯一已被批量消灭的形态,mobile-rn 6 处):代码写
+     `coupon.tab_available` / `profileEdit.gender_male` / `ranking.range_weekly` / `liveList.tab_all`,
+     而词典里就是同命名空间下的 plain 驼峰叶键 `coupon.available`(未使用)/ `profileEdit.genderMale`(男)/
+     `ranking.weekly`(周榜)/ `liveList.all`(全部)。改代码指向既有键即可,**零新增文案**
+     (commit `43b3daf9b6`,12 条替换目标逐条验证五语齐全)。
+     ⚠️ 别顺手"压平"所有形似项:`ranking.range_allTime` 对应的是 `ranking.total`(总榜 / All-time),
+     按字面压成 `ranking.allTime` 会新造一个不存在的键 —— **每条都要实查五语**。
+   修复时**禁止**在词典里再造一份 snake_case 重复键(两份真相,后续必然漂移)。
 
 改词典的端必须同步重生成该端签入的压缩产物:`pnpm --filter @ihui/miniapp-taro gen:i18n`
 (miniapp-taro),否则 `i18n-compressed.test` 会红。
