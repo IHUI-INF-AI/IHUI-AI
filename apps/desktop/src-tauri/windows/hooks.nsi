@@ -7,15 +7,17 @@
 ;   因此 ihui-ui.nsi 里的 Page custom / 宏 / 函数定义先于模板展开,
 ;   欢迎页/目录页/安装页/完成页/重装页主题与 .onInit 开屏动画在此接线。
 ;
-; 资产路径:ihui-assets-path.nsh 由 scripts/desktop-installer-assets.mjs
-; 生成(!define IHUI_ASSETROOT 绝对路径),勿手工编辑。
-;
-; ⚠️ 必须用绝对路径 include:NSIS 的相对 !include 按 makensis 主脚本目录解析,
-; 而 Tauri bundler 把模板编译到 target\release\nsis\<arch>\ 临时目录,
-; 相对路径会落空(hooks.nsi 本身由模板以绝对路径 include,不受影响)。
-; 仓库迁移/换机后同步更新下面两行(与 ihui-assets-path.nsh 一起)。
-!include "G:\IHUI-AI\apps\desktop\src-tauri\windows\ihui-assets-path.nsh"
-!include "G:\IHUI-AI\apps\desktop\src-tauri\windows\ihui-ui.nsi"
+; 资产路径:构建机无关解析(2026-09-20 CI 实证修复)。
+; NSIS 3 的 ${__FILEDIR__} 在被绝对路径 include 的文件内返回本文件所在目录的绝对路径
+; (真机实验:DIR=[G:\tmp-probe\...] 精确命中),因此无需烧死任何绝对路径 ——
+; 仓库迁移/换机/CI(runner 为 D:\a\IHUI-AI\IHUI-AI)均零改动。
+; 相对 !include 按 makensis 主脚本目录(target\release\nsis\<arch>)解析,此处不可用。
+!define IHUI_WIN_DIR "${__FILEDIR__}"
+; IHUI_ASSETROOT 派生自 hooks.nsi 自身目录(= src-tauri/windows),构建机无关。
+; ihui-assets-path.nsh 仅保留防御性 !ifndef 断言(ihui-ui.nsi 编译期校验用),不再烧路径。
+!define IHUI_ASSETROOT "${IHUI_WIN_DIR}\installer-assets"
+!include "${IHUI_WIN_DIR}\ihui-assets-path.nsh"
+!include "${IHUI_WIN_DIR}\ihui-ui.nsi"
 
 ; 文件复制前确保 $INSTDIR 存在(向导"选择安装位置"页用户改过的路径同样覆盖)。
 ; 正常路径下 NSIS 会由 SetOutPath 自动建目录,这里显式创建以便路径被占用/异常时更早暴露。
