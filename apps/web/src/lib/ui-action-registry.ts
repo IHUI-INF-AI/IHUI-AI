@@ -203,6 +203,24 @@ function collectInteractive(): HTMLElement[] {
   )
 }
 
+/**
+ * 元素入选 MAX_ELEMENTS 上限时的优先级(数值小者先入选)。
+ *
+ * 实测应用外壳(侧栏 / 顶栏 / AI 任务面板)常驻 200+ 可交互元素,按 DOM 顺序截断会把
+ * 页面真正的表单字段整批挤出去 —— describe 回清单里没有输入框,AI 就无从下手
+ * (2026-09-20 真机复现:/wallet/recharge 的"充值数量"落在 80 名之外)。
+ * 故表单字段永远优先保留,正文区按钮次之,外壳导航最后。
+ */
+const SHELL_SELECTOR = 'nav,header,aside,[role="navigation"],[role="complementary"],[role="banner"]'
+const FIELD_KINDS = new Set(['input', 'textarea', 'select', 'combobox', 'checkbox'])
+
+function elementPriority(el: HTMLElement, kind: string): number {
+  if (FIELD_KINDS.has(kind)) return 0
+  const inShell = !!el.closest(SHELL_SELECTOR)
+  if (!inShell && kind === 'button') return 1
+  return inShell ? 3 : 2
+}
+
 function commandTarget(action: CommandAction): string {
   switch (action.type) {
     case 'navigate':
@@ -303,17 +321,36 @@ export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistr
 
   const elements: UiElementDescriptor[] = []
   let suppressed = allForms.length - includedForms.length
-  for (const el of Array.from(document.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR))) {
-    if (!isVisibleElement(el)) continue
-    if (isSensitiveField(el)) {
-      suppressed++
-      continue
+
+  // 先全量收集候选,再按优先级择优入表(截断规则见 elementPriority 注释)。
+  // 刻意不复用 collectInteractive():它已剔除敏感字段,而快照要把它们计入 suppressed,
+  // 让 AI 知道"这里被安全策略挡住了 N 个",而不是静默消失。
+  interface Candidate {
+    el: HTMLElement
+    kind: string
+    priority: number
+    order: number
+  }
+  const candidates: Candidate[] = []
+  let order = 0
+  if (typeof document !== 'undefined') {
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR))) {
+      if (!isVisibleElement(el)) continue
+      if (isSensitiveField(el)) {
+        suppressed++
+        continue
+      }
+      const kind = elementKind(el)
+      candidates.push({ el, kind, priority: elementPriority(el, kind), order: order++ })
     }
-    if (elements.length >= MAX_ELEMENTS) {
-      suppressed++
-      continue
-    }
-    const kind = elementKind(el)
+  }
+  const selected = [...candidates]
+    .sort((a, b) => a.priority - b.priority || a.order - b.order)
+    .slice(0, MAX_ELEMENTS)
+    .sort((a, b) => a.order - b.order)
+  suppressed += candidates.length - selected.length
+
+  for (const { el, kind } of selected) {
     const owner = el.closest('form')
     const ownerForm = owner ? formIds.get(owner as HTMLFormElement) : undefined
     const descriptor: UiElementDescriptor = {
