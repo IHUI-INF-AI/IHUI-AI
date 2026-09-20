@@ -2449,6 +2449,7 @@
     "commitFailed": "가져오기 실패: {error}",
     "errorNoSource": "먼저 대화 소스를 선택해 주세요",
     "fileTooLarge": "파일이 20MB 제한을 초과했습니다. 분할한 후 다시 시도해 주세요",
+    "errorFileType": "지원하지 않는 파일 형식입니다. 해당 도구의 내보내기 파일을 선택해 주세요",
     "historyTitle": "가져오기 기록",
     "historyEmpty": "가져오기 기록이 없습니다",
     "historyFailed": "가져오기 기록을 불러오지 못했습니다: {error}",

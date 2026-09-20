@@ -172,7 +172,7 @@ describe('来源与参数解析', () => {
 });
 
 describe('commit 请求体构建与上传预校验', () => {
-  it('过滤空正文消息,截断 title/model,透传 createdAt', () => {
+  it('过滤空正文消息,截断 title,但不透传外部 model', () => {
     const payload = buildCommitPayload(
       {
         title: `  ${'标'.repeat(300)}  `,
@@ -191,7 +191,8 @@ describe('commit 请求体构建与上传预校验', () => {
     expect(payload?.source).toBe('claude_code');
     expect(payload?.fileName).toBe('session.jsonl');
     expect(payload?.title).toHaveLength(255);
-    expect(payload?.model).toHaveLength(64);
+    // model 不进 commit:该列会直接进 LLM 网关,外部工具模型 id 未必在用户目录内
+    expect(payload?.model).toBeUndefined();
     expect(payload?.createdAt).toBe('2026-09-20T00:00:00.000Z');
     expect(payload?.messages).toHaveLength(2);
     expect(payload?.messages[0]).toEqual({
