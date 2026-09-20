@@ -8,6 +8,8 @@ import type { AgentActionErrorCode, AppUiActionType, AppUiSnapshot } from '@ihui
 import { themeStore } from '../context/ThemeContext'
 import { RN_UI_ROUTES, type RnUiRouteEntry } from '../constants/ui-routes.generated'
 import { navigationRef } from '../navigation/navigation-ref'
+import { requestLocaleChange } from '../i18n'
+import type { Locale } from '@ihui/i18n/types'
 
 /**
  * AI 对话操控 RN 端的执行注册表(2026-09-21 立,与 web / 小程序端同一条 agent-control 链路)。
@@ -274,7 +276,33 @@ const THEME_COMMANDS: readonly RnInvokeCommand[] = [
 ]
 
 /** invoke 的全部可调用命令(外观 + 导航) */
-const SAFE_COMMANDS: readonly RnInvokeCommand[] = [...THEME_COMMANDS, ...TAB_COMMANDS]
+const LOCALE_COMMANDS: readonly RnInvokeCommand[] = (
+  [
+    ['zh-CN', '简体中文'],
+    ['en', '英文'],
+    ['ja', '日文'],
+    ['ko', '韩文'],
+    ['zh-TW', '繁体中文'],
+  ] as const
+).map(([locale, label]) => ({
+  id: `locale:${locale}`,
+  label: `切换到${label}界面`,
+  group: 'locale',
+  run: () => {
+    // 走 Provider 注册的 setter(会 setState 真重渲染);只写 storage 会造成"报成功但界面没动"
+    // 的假成功,所以拿不到 setter 就抛错,由 executeInvoke 如实转成 EXECUTION_FAILED。
+    if (!requestLocaleChange(locale as Locale)) {
+      throw new Error('I18nProvider 未挂载,无法切换界面文案(不谎报成功)')
+    }
+    return { locale }
+  },
+}))
+
+const SAFE_COMMANDS: readonly RnInvokeCommand[] = [
+  ...THEME_COMMANDS,
+  ...TAB_COMMANDS,
+  ...LOCALE_COMMANDS,
+]
 
 const INVOKE_BY_ID: ReadonlyMap<string, RnInvokeCommand> = new Map(
   SAFE_COMMANDS.map((cmd) => [cmd.id, cmd]),
