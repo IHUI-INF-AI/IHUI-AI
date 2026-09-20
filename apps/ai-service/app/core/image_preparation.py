@@ -374,4 +374,47 @@ def prepare_response_items(
     if not emit_resize_notice:
         notices = []
     return out, metadata, notices
+
+
+# ----------------------------------------------------------------------
+# 通知片段(developer 角色,对标 Codex core/src/context/image_resize_notice.rs)
+# ----------------------------------------------------------------------
+def build_image_resize_notice_fragment(
+    notices: list[ResizedImage],
+    *,
+    source: str = "tool output",
+) -> dict[str, Any] | None:
+    """把一批图像缩放通知渲染为 developer 消息片段(对标 image_resize_notice.rs)。
+
+    对标 codex ``ImageResizeNotice::body`` / ``type_markers``:role=developer、
+    标记 ``<image_resize_notice>`` / ``</image_resize_notice>``、逐图正文
+    "Image N of M in the preceding <source> was resized from WxH to WxH pixels."
+    以换行连接并整体以空行包裹(与 codex ``format!("\\n{notices}\\n")`` 同形)。
+
+    Args:
+        notices: ``prepare_response_items`` 产出的 ``ResizedImage`` 列表;
+            空列表表示无可告知的缩放,返回 ``None``(调用方无需 append,零差异)。
+        source: 来源描述,取 ``"user message"`` 或 ``"tool output"``
+            (对齐 codex ``ImageResizeNoticeSource`` 枚举语义)。
+
+    Returns:
+        OpenAI 格式 developer 消息 dict(``content`` 为含单 ``input_text`` 的列表),
+        无通知时返回 ``None``。
+    """
+    if not notices:
+        return None
+    lines = [
+        (
+            f"Image {n.image_number} of {n.image_count} in the preceding {source} "
+            f"was resized from {n.source_width}x{n.source_height} "
+            f"to {n.prepared_width}x{n.prepared_height} pixels."
+        )
+        for n in notices
+    ]
+    body = "\n" + "\n".join(lines) + "\n"
+    text = f"<image_resize_notice>{body}</image_resize_notice>"
+    return {
+        "role": "developer",
+        "content": [{"type": "input_text", "text": text}],
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
