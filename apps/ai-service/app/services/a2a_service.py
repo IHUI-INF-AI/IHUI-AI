@@ -4,14 +4,18 @@
 
 """A2A(Agent-to-Agent)任务队列服务。
 
-⚠️ 架构诚实声明(2026-07-09 Phase 4 审计):
-当前实现是"带 Redis 持久化的本地异步任务队列",不是完整的 A2A 协议。
-- ✅ 已实现:Redis 持久化(agents + tasks)、内存热缓存、重启恢复、异步执行(LangGraph / agent_executor)
+⚠️ 架构诚实声明(2026-07-09 Phase 4 审计,O11 2026-09-20 更新):
+当前实现是"带 Redis 持久化 + A2A 发现文档的本地异步任务队列",不是完整的 A2A 协议。
+- ✅ 已实现:Redis 持久化(agents + tasks)、内存热缓存、重启恢复、异步执行(agent_executor)
 - ✅ 已实现:agent 注册接口(endpoint 字段持久化)
 - ✅ 已实现:跨服务 HTTP 派发(_execute_task 按 agent.endpoint 发 HTTP 请求,失败 fallback 到本地执行)
-- ❌ 未实现:真正的 Agent-to-Agent 通信协议
-
-未来要落地完整 A2A:在现有 HTTP 派发基础上补充 Agent-to-Agent 通信协议(能力发现、任务状态回调等)。
+- ✅ 已实现(O11):**能力发现** —— agent-card 由 app/services/agent_card.py 构建,
+  GET /.well-known/agent.json 匿名可抓;skills 逐项对应真实注册的工具
+- ✅ 已实现(O11):**任务归属收权** —— owner = principal.sub,跨归属读取 403
+  (裁决函数 `can_access_task`)
+- ❌ 未实现:A2A 标准报文(JSON-RPC / HTTP+JSON transcodding)—— 现有任务是自研
+  REST 形状,该偏差已在 agent-card 的 capabilities.extensions[] 中如实声明
+- ❌ 未实现:流式(SSE)与 push 回调(notification)、任务状态历史数组
 
 Redis 降级策略:Redis 不可用时静默退化为纯内存模式(重启即丢),
 2026-07-09 Phase 4 改进:降级时打 warning 日志(不再完全静默),便于运维感知。
@@ -27,8 +31,12 @@ from typing import Any
 
 from ..core.config import settings
 from .agent_loop import agent_executor
+from .capability_gate import Principal
 
 logger = logging.getLogger(__name__)
+
+# 管理员角色门槛(与 apps/api preHandler 的 roleId >= 1 口径一致):管理员可跨归属查任务
+ADMIN_ROLE = 1
 
 
 class A2ATask:
@@ -40,6 +48,7 @@ class A2ATask:
         name: str,
         agent_id: str,
         input_data: dict[str, Any] | None = None,
+        owner_id: str | None = None,
     ) -> None:
         self.id = task_id
         self.name = name
@@ -50,9 +59,16 @@ class A2ATask:
         self.error: str | None = None
         self.created_at = datetime.now(UTC)
         self.updated_at = datetime.now(UTC)
+        # 调用者归属(O11 收权:principal.sub,无身份的本机开发回退主体为 None)。
+        # **不进 to_dict()** —— 既有 API 响应形状逐字段冻结,归属只走持久化通道。
+        self.owner_id = owner_id
 
     def to_dict(self) -> dict[str, Any]:
-        """序列化为字典(用于 API 响应和 Redis 持久化)。"""
+        """序列化为字典(用于 API 响应)。
+
+        ⚠️ 键集合是对外契约(POST /a2a/tasks 与历史客户端都在消费),
+        新增字段一律不得进这里,持久化用的扩展字段见 `to_storage_dict()`。
+        """
         return {
             "id": self.id,
             "name": self.name,
@@ -65,14 +81,41 @@ class A2ATask:
             "updated_at": self.updated_at.isoformat(),
         }
 
+    def to_storage_dict(self) -> dict[str, Any]:
+        """Redis 持久化用:响应形状 + 归属字段(owner_id)。"""
+        return {**self.to_dict(), "owner_id": self.owner_id}
+
+    def status_dict(self) -> dict[str, Any]:
+        """状态视图(GET /a2a/tasks/{id}/status 的响应体,键集合冻结)。"""
+        return {
+            "id": self.id,
+            "status": self.status,
+            "agent_id": self.agent_id,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+        }
+
+    def result_dict(self) -> dict[str, Any]:
+        """结果视图(GET /a2a/tasks/{id}/result 的响应体,键集合冻结)。"""
+        return {
+            "id": self.id,
+            "status": self.status,
+            "result": self.result,
+            "error": self.error,
+        }
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "A2ATask":
-        """从字典反序列化(从 Redis 恢复)。"""
+        """从字典反序列化(从 Redis 恢复)。
+
+        兼容迁移前的历史行:无 `owner_id` 键 → 归属为空(按无主任务裁决)。
+        """
         task = cls(
             task_id=data["id"],
             name=data["name"],
             agent_id=data["agent_id"],
             input_data=data.get("input"),
+            owner_id=cls._read_owner_id(data),
         )
         task.status = data.get("status", "pending")
         task.result = data.get("result")
@@ -80,6 +123,29 @@ class A2ATask:
         task.created_at = datetime.fromisoformat(data["created_at"])
         task.updated_at = datetime.fromisoformat(data["updated_at"])
         return task
+
+    @staticmethod
+    def _read_owner_id(data: dict[str, Any]) -> str | None:
+        """容错读取归属:非字符串(脏数据)一律按无主处理。"""
+        raw = data.get("owner_id")
+        return raw if isinstance(raw, str) and raw else None
+
+
+def can_access_task(task: A2ATask, principal: Principal | None) -> bool:
+    """任务归属裁决(纯函数,无 I/O)。
+
+    - 管理员(role >= ADMIN_ROLE):全量可读(运维排障口径,与 apps/api 一致);
+    - 有主任务:`principal.sub` 必须与 `task.owner_id` **严格相等**;
+    - 无主任务(本机开发回退主体 / 收权前写入的 Redis 历史行):只有同样无身份的
+      开发态主体可读 —— 任何带身份的调用方一律拒绝(fail-closed,不做"无主即可读")。
+    """
+    if principal is None:
+        return False
+    if principal.role >= ADMIN_ROLE:
+        return True
+    if task.owner_id is None:
+        return principal.sub is None and principal.kind == "dev-anonymous"
+    return principal.sub == task.owner_id
 
 
 class A2AAgent:
@@ -185,14 +251,14 @@ class A2AServer:
             logger.warning(f"persist agent failed: {e}", exc_info=True)
 
     async def _persist_task(self, task: A2ATask) -> None:
-        """持久化 task 到 Redis。"""
+        """持久化 task 到 Redis(用 to_storage_dict:含归属字段,响应形状不变)。"""
         redis = await self._get_redis()
         if not redis:
             return
         try:
             await redis.set(
                 self.REDIS_TASK_KEY_PREFIX + task.id,
-                json.dumps(task.to_dict()),
+                json.dumps(task.to_storage_dict()),
                 ex=86400 * 7,  # 7 天过期
             )
             await redis.zadd(self.REDIS_TASK_INDEX_KEY, {task.id: task.created_at.timestamp()})
@@ -269,14 +335,16 @@ class A2AServer:
         name: str,
         agent_id: str,
         input_data: dict[str, Any] | None = None,
+        owner_id: str | None = None,
     ) -> A2ATask:
         """发送任务,创建 pending 任务并异步执行。
 
         使用 uuid4 生成 task_id 避免高并发冲突。
         异步执行不阻塞返回,客户端轮询 get_task_status 直到 completed。
+        `owner_id` 为调用者归属(principal.sub),仅入持久化、不进响应体。
         """
         task_id = f"task-{uuid.uuid4().hex}"
-        task = A2ATask(task_id, name, agent_id, input_data)
+        task = A2ATask(task_id, name, agent_id, input_data, owner_id=owner_id)
         self._tasks[task_id] = task
         self._spawn_task(self._persist_task(task))
         # 异步执行(不阻塞 send_task 返回)
@@ -367,25 +435,14 @@ class A2AServer:
         task = await self.get_task(task_id)
         if not task:
             return None
-        return {
-            "id": task.id,
-            "status": task.status,
-            "agent_id": task.agent_id,
-            "created_at": task.created_at.isoformat(),
-            "updated_at": task.updated_at.isoformat(),
-        }
+        return task.status_dict()
 
     async def get_task_result(self, task_id: str) -> dict[str, Any] | None:
         """获取任务结果(返回字典,不存在返回 None)。"""
         task = await self.get_task(task_id)
         if not task:
             return None
-        return {
-            "id": task.id,
-            "status": task.status,
-            "result": task.result,
-            "error": task.error,
-        }
+        return task.result_dict()
 
     def list_tasks(self) -> list[A2ATask]:
         """列出所有任务(内存缓存中的)。"""
