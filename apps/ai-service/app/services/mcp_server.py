@@ -2969,15 +2969,35 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
                         "error": "action=webhook 时 webhook_url 必填",
                     }
                 else:
-                    webhook_payload = arguments.get("webhook_payload", arguments)
-                    async with httpx.AsyncClient(timeout=15.0) as client:
-                        wresp = await client.post(webhook_url, json=webhook_payload)
+                    # 批 52b:webhook 出站走网络审批门(fail-closed;SSRF 硬防线
+                    # 由内网地址不可达兜底,此处补审批语义层)
+                    _net_ok = True
+                    try:
+                        from .network_approval import evaluate_network_access
+
+                        _net_ok = (
+                            evaluate_network_access(
+                                webhook_url, reason="tool:webhook"
+                            )
+                            != "deny"
+                        )
+                    except Exception:  # noqa: BLE001 - 门故障不改变现有行为
+                        _net_ok = True
+                    if not _net_ok:
                         execution_result = {
-                            "ok": wresp.status_code < 400,
-                            "status_code": wresp.status_code,
-                            "response": wresp.text[:500],
+                            "ok": False, "errorCode": "NETWORK_APPROVAL_DENIED",
+                            "error": "webhook 目标未获网络审批授权",
                         }
-                        executed = wresp.status_code < 400
+                    else:
+                        webhook_payload = arguments.get("webhook_payload", arguments)
+                        async with httpx.AsyncClient(timeout=15.0) as client:
+                            wresp = await client.post(webhook_url, json=webhook_payload)
+                            execution_result = {
+                                "ok": wresp.status_code < 400,
+                                "status_code": wresp.status_code,
+                                "response": wresp.text[:500],
+                            }
+                            executed = wresp.status_code < 400
             else:
                 execution_result = {
                     "ok": False, "errorCode": "INVALID_PARAMS",
@@ -3586,6 +3606,23 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": reason, "errorCode": "SSRF_BLOCKED",
             "message": f"SSRF 校验失败: {reason}",
         }
+
+    # 批 52b:网络审批门(对标 codex ApprovalAction::NetworkAccess)。
+    # SSRF 硬防线在前(不可被审批放行);审批门在后,持久授权命中免弹窗,
+    # 未授权默认拒绝(fail-closed),requester 未注入时不改变现有行为。
+    try:
+        from .network_approval import evaluate_network_access
+
+        verdict = evaluate_network_access(url, reason="tool:fetch_url")
+        if verdict == "deny":
+            return {
+                "tool": "fetch_url", "ok": False, "url": url,
+                "error": "网络访问未授权(审批拒绝/无审批通道)",
+                "errorCode": "NETWORK_APPROVAL_DENIED",
+                "message": "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)",
+            }
+    except Exception:  # noqa: BLE001 - 审批门自身故障不改变现有放行行为(向后兼容)
+        pass
 
     try:
         import httpx
