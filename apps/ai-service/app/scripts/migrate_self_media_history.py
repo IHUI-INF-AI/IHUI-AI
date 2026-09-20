@@ -21,7 +21,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,7 +45,8 @@ def _parse_date(s: str) -> str:
             return d.replace(hour=12, minute=0, second=0).isoformat() + "Z"
         except ValueError:
             continue
-    return datetime.utcnow().isoformat() + "Z"
+    # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+    return datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
 
 
 def _load_published(path: Path) -> list[dict[str, Any]]:

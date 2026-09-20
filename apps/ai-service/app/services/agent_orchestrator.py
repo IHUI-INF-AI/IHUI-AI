@@ -27,7 +27,7 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from ..core.llm_gateway import llm_gateway
@@ -1461,7 +1461,8 @@ class AgentOrchestrator:
                 - {"phase": "output_ready", "output_preview": str} — 最终输出就绪
         """
         start = time.monotonic()
-        sid = session_id or f"agent-{agent.name}-{int(datetime.utcnow().timestamp())}"
+        # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+        sid = session_id or f"agent-{agent.name}-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
         used_model = model_override or agent.model
         stub = False
         tool_calls: list[dict[str, Any]] = []

@@ -65,7 +65,10 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => ({
   _resetLockHeartbeats: vi.fn(),
 }))
 
-import { subagentDispatchService } from '../src/services/subagent-dispatch-service'
+import {
+  aggregateDeliverables,
+  subagentDispatchService,
+} from '../src/services/subagent-dispatch-service'
 
 const service = subagentDispatchService as unknown as {
   _createAgentTask: (
@@ -76,6 +79,8 @@ const service = subagentDispatchService as unknown as {
     agentTaskId?: string
     dispatch: { status: string; result?: string }
     completedAt?: number
+    /** D27:ai-service 编排原始结果(completed 时供交付清单聚合,with_communication/DAG 场景为空) */
+    orchestration?: unknown
   }) => Promise<void>
 }
 
@@ -211,12 +216,172 @@ describe('_syncAgentTask(终态轨迹写回)', () => {
     expect(setArg.status).toBe('cancelled')
   })
 
+  it('D27:completed + orchestration → result 合并既有键并追加 deliverables(不破坏 output/steps)', async () => {
+    // mockSelectResult 用 Once:单次返回带 result 的 taskRow,之后回落默认 [](不污染其他用例)
+    mockSelectResult.mockResolvedValueOnce([
+      { result: { foo: 'bar', output: '旧输出' }, teamId: 'team-1' },
+    ])
+    await service._syncAgentTask({
+      agentTaskId: 'task-9',
+      dispatch: { status: 'completed', result: '新输出' },
+      orchestration: {
+        final_output: '编排摘要',
+        steps: [
+          {
+            tool_calls: [
+              { id: 'call-1', name: 'write_file', args: { path: 'a.ts', content: 'l1\nl2' } },
+            ],
+          },
+        ],
+      },
+    })
+    const setArg = mockSet.mock.calls[0]![0] as Record<string, unknown>
+    const result = setArg.result as Record<string, unknown>
+    expect(result.foo).toBe('bar') // 既有 result 键保留
+    expect(result.output).toBe('新输出') // output 覆盖为新值
+    expect(Array.isArray(result.steps)).toBe(true) // steps 保留
+    const deliverables = result.deliverables as {
+      filesChanged: Array<{
+        path: string
+        kind: string
+        stepIds: string[]
+        additions: number
+        deletions: number
+      }>
+      outputSummary: string
+    }
+    expect(deliverables.filesChanged).toEqual([
+      { path: 'a.ts', kind: 'add', stepIds: ['call-1'], additions: 2, deletions: 0 },
+    ])
+    expect(deliverables.outputSummary).toBe('编排摘要')
+  })
+
+  it('D27:completed 无 orchestration(with_communication/DAG 场景) → result 不含 deliverables 键', async () => {
+    await service._syncAgentTask({
+      agentTaskId: 'task-10',
+      dispatch: { status: 'completed', result: '多轮输出' },
+    })
+    const setArg = mockSet.mock.calls[0]![0] as Record<string, unknown>
+    expect('deliverables' in (setArg.result as Record<string, unknown>)).toBe(false)
+    expect((setArg.result as Record<string, unknown>).output).toBe('多轮输出')
+  })
+
+  it('D27:completed + orchestration 但聚合为空 → result 不含 deliverables 键', async () => {
+    await service._syncAgentTask({
+      agentTaskId: 'task-11',
+      dispatch: { status: 'completed', result: '' },
+      orchestration: { final_output: '', steps: [] },
+    })
+    const setArg = mockSet.mock.calls[0]![0] as Record<string, unknown>
+    expect('deliverables' in (setArg.result as Record<string, unknown>)).toBe(false)
+  })
+
   it('db 抛错:静默不 rethrow,记 warn', async () => {
     mockWhere.mockRejectedValueOnce(new Error('db down'))
     await expect(
       service._syncAgentTask({ agentTaskId: 'task-5', dispatch: { status: 'completed' } }),
     ).resolves.toBeUndefined()
     expect(mockLoggerWarn).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('aggregateDeliverables(D27 交付清单聚合)', () => {
+  type Orch = Parameters<typeof aggregateDeliverables>[0]
+
+  it('空编排(无步骤/无工具/无输出)返回 null', () => {
+    expect(aggregateDeliverables({} as unknown as Orch)).toBeNull()
+    expect(aggregateDeliverables({ final_output: '', steps: [] } as unknown as Orch)).toBeNull()
+  })
+
+  it('写文件类工具映射:kind 映射/同路径合并增删行累加/lenient 参数/OpenAI 风格 arguments', () => {
+    const d = aggregateDeliverables({
+      final_output: 'x'.repeat(600),
+      steps: [
+        {
+          agent: 'coder',
+          status: 'completed',
+          tool_calls: [
+            // write_file:add,content 计 3 行 → additions 3
+            { id: 'call-1', name: 'write_file', args: { path: 'a.ts', content: 'l1\nl2\nl3' } },
+            // edit_file:update,old 1 行 new 2 行 → additions 1(同路径合并进 a.ts,kind 取最后一次)
+            {
+              id: 'call-2',
+              name: 'edit_file',
+              args: { path: 'a.ts', old_string: 'l1', new_string: 'l1\nl9' },
+            },
+            // delete_file:delete,file_path 别名,无文本参数 → 增删 0
+            { id: 'call-3', name: 'delete_file', args: { file_path: 'b.ts' } },
+            // OpenAI 风格:function.name + function.arguments(JSON 字符串自动解析)
+            {
+              id: 'call-4',
+              function: {
+                name: 'create_file',
+                arguments: JSON.stringify({ path: 'c.ts', text: 'x' }),
+              },
+            },
+          ],
+        },
+      ],
+    } as unknown as Orch)
+    expect(d).not.toBeNull()
+    expect(d!.filesChanged).toEqual([
+      { path: 'a.ts', kind: 'update', stepIds: ['call-1', 'call-2'], additions: 4, deletions: 0 },
+      { path: 'b.ts', kind: 'delete', stepIds: ['call-3'], additions: 0, deletions: 0 },
+      { path: 'c.ts', kind: 'add', stepIds: ['call-4'], additions: 1, deletions: 0 },
+    ])
+    expect(d!.toolsSummary).toEqual({
+      total: 4,
+      byTool: { write_file: 1, edit_file: 1, delete_file: 1, create_file: 1 },
+    })
+    expect(d!.outputSummary).toBe('x'.repeat(500)) // final_output 截断前 500 字
+    expect(new Date(d!.generatedAt).toString()).not.toBe('Invalid Date')
+  })
+
+  it('citations 四源映射:mcp 前缀/双下划线优先,wiki/skill 带 url,memory 无 url,同源去重', () => {
+    const d = aggregateDeliverables({
+      final_output: 'done',
+      steps: [
+        {
+          tool_calls: [
+            { id: 'c1', name: 'wiki_search', args: { title: '部署指南' } },
+            { id: 'c2', name: 'mcp:github__search', args: { query: 'repo' } },
+            { id: 'c3', name: 'memory_get', args: { key: 'k1' } },
+            { id: 'c4', name: 'skill_run', args: { name: 'pdf' } },
+            // 双下划线 → mcp;参数无 label 字段 → 回落 callId
+            { id: 'c5', name: 'x__y_tool', args: {} },
+            // 与 c1 完全同源 → 去重
+            { id: 'c6', name: 'wiki_search', args: { title: '部署指南' } },
+          ],
+        },
+      ],
+    } as unknown as Orch)
+    expect(d!.citations).toEqual([
+      { source: 'wiki', label: '部署指南', url: '/repo-wiki' },
+      { source: 'mcp', label: 'repo', url: '/mcp-projects' },
+      { source: 'memory', label: 'k1' },
+      { source: 'skill', label: 'pdf', url: '/skills' },
+      { source: 'mcp', label: 'c5', url: '/mcp-projects' },
+    ])
+  })
+
+  it('上限裁剪:citations ≤20,filesChanged ≤100,toolsSummary.total 不受裁剪影响', () => {
+    const citationCalls = Array.from({ length: 30 }, (_, i) => ({
+      id: `w-${i}`,
+      name: 'wiki_search',
+      args: { title: `页-${i}` },
+    }))
+    const fileCalls = Array.from({ length: 105 }, (_, i) => ({
+      id: `f-${i}`,
+      name: 'write_file',
+      args: { path: `f${i}.ts`, content: 'x' },
+    }))
+    const d = aggregateDeliverables({
+      final_output: 'out',
+      steps: [{ tool_calls: [...citationCalls, ...fileCalls] }],
+    } as unknown as Orch)
+    expect(d!.citations).toHaveLength(20)
+    expect(d!.filesChanged).toHaveLength(100)
+    expect(d!.toolsSummary.total).toBe(135)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

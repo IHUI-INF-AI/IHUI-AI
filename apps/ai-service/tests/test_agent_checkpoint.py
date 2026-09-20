@@ -7,19 +7,25 @@
 测试覆盖:
 - AgentCheckpointManager 基本存取/查询/删除/LRU/TTL/清理(15 个核心用例)
 - AgentLoopV2 checkpoint 集成:run 自动 checkpoint / pause / cancel / resume / 异常保存 / 失败不阻塞
+- PG 持久层(D26 三层存储:内存 -> redis -> PG,psycopg 软依赖 fake 驱动)
 
-所有测试用内存模式(redis_url=None),不依赖外部 Redis。
+所有测试用内存模式(redis_url=None),不依赖外部 Redis;PG 路径用 fake pool,不依赖真实 PG。
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import time
+from datetime import datetime
 
 import pytest
 
+import app.services.agent_checkpoint as agent_checkpoint_module
 from app.services.agent_checkpoint import (
     AgentCheckpointManager,
+    AgentLoopCheckpoint,
     _reset_global_manager_for_test,
     get_agent_checkpoint_manager,
 )
@@ -55,6 +61,87 @@ def _weather_tool() -> ToolDefinition:
         description="查天气",
         parameters={"type": "object", "properties": {"city": {"type": "string"}}},
         executor=_weather_executor,
+    )
+
+
+# =============================================================================
+# PG 持久层 fake 基建(D26:psycopg AsyncConnectionPool 最小 fake)
+# =============================================================================
+
+
+class _FakeCursor:
+    """psycopg cursor 最小 fake(fetchone / rowcount)。"""
+
+    def __init__(self, rows: list | None = None):
+        self._rows = rows or []
+        self.rowcount = 0
+
+    async def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+
+class _FakeConn:
+    """psycopg 异步连接最小 fake(记录 execute 调用,可注入行集/异常)。"""
+
+    def __init__(self, rows: list | None = None, error: Exception | None = None):
+        self.executed: list[tuple[str, tuple]] = []
+        self._rows = rows or []
+        self._error = error
+
+    async def execute(self, sql: str, *params):
+        if self._error is not None:
+            raise self._error
+        self.executed.append((sql, params))
+        return _FakeCursor(self._rows)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class _FakePool:
+    """psycopg AsyncConnectionPool 最小 fake(connection() 返回预置 conn)。"""
+
+    def __init__(self, conn: _FakeConn):
+        self._conn = conn
+        self.closed = False
+
+    def connection(self):
+        return self._conn
+
+    async def close(self):
+        self.closed = True
+
+
+def _pg_payload(**overrides) -> dict:
+    """构造 agent_checkpoints.payload 全量 dict(对齐 AgentLoopCheckpoint.to_dict)。"""
+    base = {
+        "checkpoint_id": "cp-pg-1",
+        "session_id": "s-pg",
+        "iteration": 2,
+        "messages": [{"role": "user", "content": "hi"}],
+        "tool_state": {},
+        "status": "paused",
+        "created_at": time.time() - 10,
+        "expires_at": time.time() + 3600,
+        "metadata": {"k": "v"},
+    }
+    base.update(overrides)
+    return base
+
+
+def _pg_row_from_payload(payload: dict) -> tuple:
+    """构造 psycopg tuple 行(列序对齐 _SELECT_*_SQL:4 号位 payload)。"""
+    return (
+        payload["checkpoint_id"],
+        payload["session_id"],
+        payload["status"],
+        payload["iteration"],
+        payload,
+        payload["created_at"],
+        payload["expires_at"],
     )
 
 
@@ -754,4 +841,210 @@ async def test_checkpoint_messages_isolation_on_resume():
     cp_after = await mgr.load_checkpoint(cid)
     assert cp_after is not None
     assert len(cp_after.messages) == original_len
+
+
+# =============================================================================
+# 29. PG 持久层(D26 三层存储:内存 -> redis -> PG)
+# =============================================================================
+
+
+async def test_pg_disabled_without_psycopg(caplog, monkeypatch):
+    """db_url 有值但 psycopg 不可用 → PG 持久层降级关闭 + warning。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", False)
+    with caplog.at_level(logging.WARNING):
+        mgr = _make_manager(db_url="postgresql://fake")
+    assert mgr._use_pg is False
+    assert any("psycopg 未安装" in r.getMessage() for r in caplog.records)
+
+
+async def test_pg_save_checkpoint_upserts(monkeypatch):
+    """D26:save_checkpoint 同步 UPSERT 到 PG(payload JSON + timestamptz 参数)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn()
+    mgr._pool = _FakePool(conn)
+    mgr._table_ready = True  # 跳过建表(独立用例覆盖)
+
+    cid = await mgr.save_checkpoint("s-pg", 3, _sample_messages(), {"k": "v"}, "paused")
+
+    assert len(conn.executed) == 1
+    sql, params = conn.executed[0]
+    assert "INSERT INTO agent_checkpoints" in sql
+    assert "ON CONFLICT (checkpoint_id) DO UPDATE" in sql
+    assert params[0] == cid
+    assert params[1] == "s-pg"
+    assert params[2] == "paused"
+    assert params[3] == 3
+    payload = json.loads(params[4])
+    assert payload["checkpoint_id"] == cid
+    assert payload["tool_state"] == {"k": "v"}
+    # timestamptz 参数为带时区 ISO 字符串
+    assert datetime.fromisoformat(params[5]).tzinfo is not None
+    assert datetime.fromisoformat(params[6]).tzinfo is not None
+
+
+async def test_pg_save_failure_degrades(monkeypatch, caplog):
+    """PG 写入异常 → warning 降级,checkpoint 仍返回 id(内存已存)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pool = _FakePool(_FakeConn(error=RuntimeError("pg down")))
+    mgr._table_ready = True
+
+    with caplog.at_level(logging.WARNING):
+        cid = await mgr.save_checkpoint("s-pg", 1, _sample_messages(), {}, "running")
+    assert len(cid) == 32
+    assert any("PG 写入失败" in r.getMessage() for r in caplog.records)
+    # 内存中仍可读(降级不丢)
+    cp = await mgr.load_checkpoint(cid)
+    assert cp is not None
+
+
+async def test_pg_ensure_table_idempotent(monkeypatch):
+    """_ensure_table 首次执行 3 条 DDL,重复调用短路。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn()
+    mgr._pool = _FakePool(conn)
+
+    await mgr._ensure_table()
+    assert mgr._table_ready is True
+    assert len(conn.executed) == 3
+    assert all("IF NOT EXISTS" in sql for sql, _ in conn.executed)
+
+    executed_after_first = len(conn.executed)
+    await mgr._ensure_table()  # 短路,不再执行 DDL
+    assert len(conn.executed) == executed_after_first
+
+
+async def test_pg_load_fallback_backfills_memory(monkeypatch):
+    """内存 miss → PG 兜底查命中 → 返回并回填内存缓存(二次读走内存)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    payload = _pg_payload()
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn(rows=[_pg_row_from_payload(payload)])
+    mgr._pool = _FakePool(conn)
+    mgr._table_ready = True
+
+    cp = await mgr.load_checkpoint("cp-pg-1")
+    assert cp is not None
+    assert cp.checkpoint_id == "cp-pg-1"
+    assert cp.session_id == "s-pg"
+    assert cp.iteration == 2
+    assert cp.status == "paused"
+    assert cp.metadata == {"k": "v"}
+    assert len(conn.executed) == 1
+    # 回填后二次读走内存,不再查 PG
+    cp_again = await mgr.load_checkpoint("cp-pg-1")
+    assert cp_again is cp
+    assert len(conn.executed) == 1
+
+
+async def test_pg_load_expired_row_returns_none(monkeypatch):
+    """PG 行已过期 → 返回 None(清理留给 cleanup_expired)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    payload = _pg_payload(expires_at=time.time() - 1)
+    mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pool = _FakePool(_FakeConn(rows=[_pg_row_from_payload(payload)]))
+    mgr._table_ready = True
+
+    assert await mgr.load_checkpoint("cp-pg-1") is None
+
+
+async def test_pg_load_failure_degrades(monkeypatch):
+    """PG 查询异常 → 返回 None 降级,不阻塞调用方。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    mgr._pool = _FakePool(_FakeConn(error=RuntimeError("pg down")))
+    mgr._table_ready = True
+
+    assert await mgr.load_checkpoint("cp-pg-1") is None
+
+
+async def test_pg_load_latest_by_session(monkeypatch):
+    """内存索引 miss → PG 按 session 查最新(ORDER BY created_at DESC LIMIT 1)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    payload = _pg_payload()
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn(rows=[_pg_row_from_payload(payload)])
+    mgr._pool = _FakePool(conn)
+    mgr._table_ready = True
+
+    cp = await mgr.load_latest_by_session("s-pg")
+    assert cp is not None
+    assert cp.checkpoint_id == "cp-pg-1"
+    sql, params = conn.executed[0]
+    assert "ORDER BY created_at DESC LIMIT 1" in sql
+    assert params == ("s-pg",)
+    # 回填内存索引
+    assert mgr._session_index["s-pg"] == "cp-pg-1"
+
+
+async def test_pg_delete_executes(monkeypatch):
+    """delete_checkpoint 同步删除 PG 行(尽力,失败不阻塞)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn()
+    mgr._pool = _FakePool(conn)
+    mgr._table_ready = True
+    cid = await mgr.save_checkpoint("s-pg", 1, _sample_messages(), {}, "running")
+
+    deleted = await mgr.delete_checkpoint(cid)
+    assert deleted is True
+    sql, params = next(e for e in conn.executed if e[0].startswith("DELETE"))
+    assert params == (cid,)
+
+
+async def test_pg_cleanup_expired_executes(monkeypatch):
+    """cleanup_expired 同步清理 PG 过期行(expires_at <= now)。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    conn = _FakeConn()
+    mgr._pool = _FakePool(conn)
+    mgr._table_ready = True
+    # 塞一个已过期 checkpoint 到内存
+    mgr._checkpoints["exp-1"] = AgentLoopCheckpoint(
+        checkpoint_id="exp-1",
+        session_id="s-exp",
+        iteration=1,
+        messages=[],
+        tool_state={},
+        status="running",
+        created_at=time.time() - 100,
+        expires_at=time.time() - 50,
+    )
+
+    cleaned = await mgr.cleanup_expired()
+    assert cleaned == 1
+    sql, params = conn.executed[0]
+    assert sql.startswith("DELETE FROM agent_checkpoints WHERE expires_at")
+    assert datetime.fromisoformat(params[0]).tzinfo is not None
+
+
+async def test_close_closes_pg_pool(monkeypatch):
+    """close() 关闭 PG 连接池并置空。"""
+    monkeypatch.setattr(agent_checkpoint_module, "_PSYCOPG_AVAILABLE", True)
+    mgr = _make_manager(db_url="postgresql://fake")
+    pool = _FakePool(_FakeConn())
+    mgr._pool = pool
+
+    await mgr.close()
+    assert pool.closed is True
+    assert mgr._pool is None
+
+
+async def test_singleton_reads_settings_database_url(monkeypatch):
+    """D26:全局单例 db_url 来自 settings.database_url(空串禁用 PG)。"""
+    from app.core.config import settings
+
+    _reset_global_manager_for_test()
+    monkeypatch.setattr(settings, "database_url", "postgresql://singleton-test")
+    mgr = get_agent_checkpoint_manager()
+    assert mgr._db_url == "postgresql://singleton-test"
+    # 空串 → db_url=None(PG 持久层禁用)
+    _reset_global_manager_for_test()
+    monkeypatch.setattr(settings, "database_url", "")
+    mgr2 = get_agent_checkpoint_manager()
+    assert mgr2._db_url is None
+    assert mgr2._use_pg is False
+    _reset_global_manager_for_test()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
