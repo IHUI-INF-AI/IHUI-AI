@@ -53,6 +53,11 @@ _TOOL_PREFIX = "web_ui_"
 _DEFAULT_TIMEOUT_S = 20.0
 _MIN_TIMEOUT_S = 1.0
 
+# userId → 应答过的标签页实例 ID(2026-09-20 多标签页路由)。
+# describe 返回的元素 id 只在**那一页**的映射里有意义;不钉回同一页,紧随其后的
+# fill/click 会被 api 投给"最后心跳"的另一个标签页 → SELECTOR_NOT_FOUND。
+_PINNED_INSTANCE: dict[str, str] = {}
+
 
 def _timeout_seconds() -> float:
     """等待前端回传结果的超时秒数(env UI_ACTION_TIMEOUT,默认 20,下限 1s)。"""
@@ -106,6 +111,9 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
     session_id = str(args.get("__session_id") or "").strip()
     if session_id:
         request["sessionId"] = session_id
+    pinned = _PINNED_INSTANCE.get(user_id)
+    if pinned:
+        request["targetInstanceId"] = pinned
     started = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=timeout_s + 10.0) as client:
@@ -138,9 +146,15 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
     result = data.get("data")
     if isinstance(result, dict):
         out["result"] = result
+        answered = str(result.get("instanceId") or "").strip()
+        if answered:
+            _PINNED_INSTANCE[user_id] = answered
     if not out["ok"]:
         out["error"] = str(data.get("error") or "前端执行失败")
         out["errorCode"] = data.get("errorCode") or "EXECUTION_FAILED"
+        # 钉定的标签页已经关掉/掉线:清掉,下一条命令回落"最近活跃端"重新探测
+        if out["errorCode"] == "TARGET_NOT_CONNECTED":
+            _PINNED_INSTANCE.pop(user_id, None)
     return out
 
 
