@@ -431,6 +431,38 @@ function hasKey(msg, ns, key) {
   return key in nsObj
 }
 
+// ─── 动态(模板/拼接)键的静态前缀可达性 ─────────────────────
+// t(`lane.${x}`) 这类"点分隔"动态键,前面 extractKeysByVar 只看字面量 t('a.b'),
+// 完全覆盖不到 —— 2026-09-20 en/ko 那 44 处"UI 直接显示 lane.architect / event.tool.before"
+// 就是这么漏掉的(键被写成扁平含点键,前缀根本不是对象)。规则:点分隔的静态前缀
+// 必须在**每种语言**里都是对象节点(只查前缀,不猜动态段的取值,避免误报)。
+// 2026-09-21 实测全仓 apps/web + packages/ui-react + packages/app 共 76 处点分隔动态键,
+// 扣除注释里的历史说明后违规 0,故可直接 blocking。
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+}
+
+function extractDynamicPrefixes(src, varName) {
+  const esc = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const prefixes = new Set()
+  // t(`a.b.${x}`) / t.rich(`a.${x}`) —— 只取以 "." 收尾的静态头部(点分隔型)
+  const reTpl = new RegExp(`\\b${esc}(?:\\.(?:rich|raw|format|has))?\\(\\s*\`([^\`$]*)\\\$\{`, 'g')
+  let m
+  while ((m = reTpl.exec(src)) !== null) {
+    const before = m[1]
+    if (before.endsWith('.')) prefixes.add(before.replace(/\.$/, ''))
+  }
+  // t('a.b.' + x)
+  const reCat = new RegExp(
+    `\\b${esc}(?:\\.(?:rich|raw|format|has))?\\(\\s*(['"])([^'"]*\\.)\\1\\s*\\+`,
+    'g',
+  )
+  while ((m = reCat.exec(src)) !== null) prefixes.add(m[2].replace(/\.$/, ''))
+  return [...prefixes]
+}
+
+const dynamicPrefixIssues = []
+
 const messages = loadMessages()
 const langNames = Object.keys(messages).sort()
 
@@ -716,7 +748,31 @@ for (const file of sourceFiles) {
     }
   }
 
-  if (usedKeys.length === 0) continue
+  // 动态(模板/拼接)键的静态前缀可达性:与字面量键彼此独立,故放在 usedKeys 早退之前
+  const srcNoComment = stripComments(src)
+  let fileHasDynamicFindings = false
+  for (const { varName } of nsPairs) {
+    for (const prefix of extractDynamicPrefixes(srcNoComment, varName)) {
+      const nsSet = varNsMap.get(varName)
+      const langsMissing = []
+      for (const [lang, msg] of Object.entries(messages)) {
+        const ok = [...nsSet].some((ns) => {
+          const node = ns ? getNested(msg, `${ns}.${prefix}`) : getNested(msg, prefix)
+          return node && typeof node === 'object' && !Array.isArray(node)
+        })
+        if (!ok) langsMissing.push(lang)
+      }
+      if (langsMissing.length > 0) {
+        fileHasDynamicFindings = true
+        const shown = [...nsSet].map((ns) => (ns ? `${ns}.${prefix}` : prefix)).join(' / ')
+        dynamicPrefixIssues.push(
+          `${relative(REPO_ROOT, file)} | ${varName}(\`${prefix}.\${…}\`) 静态前缀 "${shown}" 在 ${langsMissing.join(', ')} 不是对象节点`,
+        )
+      }
+    }
+  }
+
+  if (usedKeys.length === 0 && !fileHasDynamicFindings) continue
   checkedFiles++
   checkedKeys += usedKeys.length
 
@@ -982,11 +1038,26 @@ if (dupKeyIssues.length > 0) {
   console.log('')
 }
 
+if (dynamicPrefixIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
+  )
+  for (const line of dynamicPrefixIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dynamicPrefixIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dynamicPrefixIssues.length - 20} 处${C.reset}`)
+  }
+  console.log(
+    `${C.yellow}修复方法: 在各语言消息表把 prefix 建成对象("prefix": { "a": … }),或像既有页面那样改成静态映射表消除拼接${C.reset}`,
+  )
+  console.log('')
+}
+
 const shouldBlock =
   parityIssues.length > 0 ||
   missingKeyIssues.length > 0 ||
   dottedKeyIssues.length > 0 ||
-  dupKeyIssues.length > 0
+  dupKeyIssues.length > 0 ||
+  dynamicPrefixIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -1015,7 +1086,9 @@ if (shouldBlock) {
           ? '缺失键问题'
           : dottedKeyIssues.length > 0
             ? '含点键问题'
-            : '同层重复 key 问题'
+            : dupKeyIssues.length > 0
+              ? '同层重复 key 问题'
+              : '动态键前缀不可达问题'
     },拒绝提交/CI失败!${C.reset}`,
   )
   console.log(`${C.yellow}修复方法:${C.reset}`)
