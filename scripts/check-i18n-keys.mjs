@@ -854,7 +854,8 @@ if (existsSync(MESSAGES_DIR)) {
     const walkDotted = (node, prefix) => {
       for (const [k, v] of Object.entries(node)) {
         if (k.includes('.')) dottedKeyIssues.push(`${entry}: "${k}" (at ${prefix || '<root>'})`)
-        if (v && typeof v === 'object' && !Array.isArray(v)) walkDotted(v, prefix ? `${prefix}.${k}` : k)
+        if (v && typeof v === 'object' && !Array.isArray(v))
+          walkDotted(v, prefix ? `${prefix}.${k}` : k)
       }
     }
     walkDotted(raw, '')
@@ -873,7 +874,8 @@ if (dottedKeyIssues.length > 0) {
   console.log('')
 }
 
-const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0 || dottedKeyIssues.length > 0
+const shouldBlock =
+  parityIssues.length > 0 || missingKeyIssues.length > 0 || dottedKeyIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
