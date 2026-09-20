@@ -9861,7 +9861,7 @@
     "commitFailed": "導入失敗:{error}",
     "committing": "導入中...({done}/{total})",
     "conversationUntitled": "未命名會話",
-    "desc": "將 Claude Code / Codex / Cursor / Aider 等外部工具的會話記錄導入為平台會話,導入完成後可在側欄直接查看",
+    "desc": "將 Claude Code / Codex / Cursor / Aider 等外部工具的會話記錄導入為平臺會話,導入完成後可在側欄直接查看",
     "deselectAll": "全不選",
     "dragDrop": "拖拽導出文件到此處,或點擊選擇",
     "errorNoFile": "請先選擇導出文件",
