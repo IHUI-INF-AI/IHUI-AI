@@ -119,28 +119,28 @@
 
 ### P0 立即执行（安全收敛，开放前置）
 
-- [ ] O1 `/api/mcp` 移出 `PUBLIC_PATHS` + 强制机器凭据 + 工具级 scope 声明（~90 工具逐条映射 catalog，未声明即拒）+ `mcp_export` 与 `_TOOLS` 打通 + `validate_request_host` 接线 + `X-Internal-Auth` 真实校验（ai-service 侧）
+- [x] ✅(2026-09-20) O1 `/api/mcp` 移出 `PUBLIC_PATHS` + 强制机器凭据 + 工具级 scope 声明（~90 工具逐条映射 catalog，未声明即拒）+ `mcp_export` 与 `_TOOLS` 打通 + `validate_request_host` 接线 + `X-Internal-Auth` 真实校验（ai-service 侧）
 - [x] ✅(2026-09-20) O2 API Key 配额强制：`rateLimit5h/1d/7d` + `blockedIps` 接入 `api-key-auth.ts`；per-model RPM/TPM 列落地 migration；Redis 异常 fail-open→fail-close（可配）；IPv6 CIDR；`key + secret` 双因子；默认权限集去 `chat:write`；`'*'` 通配需显式签发且不覆盖 platform 域
 - [x] ✅(2026-09-20) O3 `/v1` 全端点族补 `requireCapability`（assistants/threads/batches/responses/mcp-gateway/midjourney/rerank-moderations/protocol-*/realtime/shared）+ `v1-codebase-search`/`v1-apply-diff` 从 JWT-only 改为认 API Key
-- [ ] O4 数据闸机械层：`plugins/principal.ts` + `utils/scoped-guard.ts` + `dbMode` 守卫 + `rls-context` 移到鉴权后阶段并改非超级用户连接 + `idor-guard` 由 catalog 驱动接线（现为 0 调用点）
-- [ ] O5 `/v1` nginx 独立 `limit_req` + 审计归因（`audit*.ts`/`api-logger.ts` 补 `apiKeyId` + 端点 + 脱敏参数摘要）+ `llm_call_logs` prompt 原文留存策略（按 key 可关 + TTL）
+- [x] ✅(2026-09-20) O4 数据闸机械层：`plugins/principal.ts` + `utils/scoped-guard.ts` + `dbMode` 守卫 + `rls-context` 移到鉴权后阶段并改非超级用户连接 + `idor-guard` 由 catalog 驱动接线（现为 0 调用点）
+- [x] ✅(2026-09-20) O5 `/v1` nginx 独立 `limit_req` + 审计归因（`audit*.ts`/`api-logger.ts` 补 `apiKeyId` + 端点 + 脱敏参数摘要）+ `llm_call_logs` prompt 原文留存策略（按 key 可关 + TTL）
 
 ### P1 深度打磨（全域开放 + 标准协议）
 
-- [ ] O6 能力开放注册表：`authenticateApiKeyOrJwt` + catalog 驱动的 `/api/*` 逐步开放（默认拒绝，逐条登记 data-class）
-- [ ] O7 OAuth 2.1 提供方补齐：`/.well-known/oauth-authorization-server` + OIDC discovery、RFC 7591 DCR、`client_credentials` M2M grant、授权码链路 PKCE 强制接线（现路由未读 codeChallenge）、`/oauth/introspect` + `/oauth/revoke` + refresh rotation
-- [ ] O8 OpenAPI 产物入仓（`apps/api/openapi.json`）+ Zod schema 覆盖率门禁真正生效（`openapi-check.mjs` 现恒 exit 0）+ `capabilities.json` 导出 + `pnpm capabilities:export`
-- [ ] O9 MCP server 完整化：协议版本协商、`resources/read`、batching、`outputSchema`、streamable HTTP 正式挂载、per-key 限流、工具 list_changed 广播
-- [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范
-- [ ] O11 A2A 标准化：`/.well-known/agent.json` agent-card（现 `routers/a2a.py` 为自研协议）
-- [ ] O12 CLI/ACP 对外凭据形态：`ihui serve` / `acp` 支持 API Key（现只认人 JWT）
+- [x] ✅(2026-09-20) O6 能力开放注册表：`authenticateApiKeyOrJwt` + catalog 驱动的 `/api/*` 逐步开放（默认拒绝，逐条登记 data-class）
+- [x] ✅(2026-09-20) O7 OAuth 2.1 提供方补齐：`/.well-known/oauth-authorization-server` + OIDC discovery、RFC 7591 DCR、`client_credentials` M2M grant、授权码链路 PKCE 强制接线（现路由未读 codeChallenge）、`/oauth/introspect` + `/oauth/revoke` + refresh rotation
+- [ ] O8 OpenAPI 产物入仓（`apps/api/openapi.json`）+ Zod schema 覆盖率门禁真正生效（`openapi-check.mjs` 现恒 exit 0）+ `capabilities.json` 导出 + `pnpm capabilities:export`  ⏳(产物导出+真判据已入库(2017344db0);余 112 security 声明与 23 条目录腐化清零后升 blocking)
+- [x] ✅(2026-09-20) O9 MCP server 完整化：协议版本协商、`resources/read`、batching、`outputSchema`、streamable HTTP 正式挂载、per-key 限流、工具 list_changed 广播
+- [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)
+- [x] ✅(2026-09-20) O11 A2A 标准化：`/.well-known/agent.json` agent-card（现 `routers/a2a.py` 为自研协议）
+- [x] ✅(2026-09-20) O12 CLI/ACP 对外凭据形态：`ihui serve` / `acp` 支持 API Key（现只认人 JWT）
 
 ### P2 广度产品化（生态）
 
-- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛
+- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛  ⏳(迁移与角色在途)
 - [ ] O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyPI/Go/Maven + install 脚本校验 + `@ihui/api-client` 去 `private`
-- [ ] O15 web 开发者控制台：能力目录浏览 / 申请 scope / 用量与熔断面板
-- [ ] O16 治理：docs/developer 补权限模型 + data-class + 速率表 + 错误码 + 滥用政策/DMCA；share token 不再全权继承
+- [ ] O15 web 开发者控制台：能力目录浏览 / 申请 scope / 用量与熔断面板  ⏳(控制台在途)
+- [x] ✅(2026-09-20) O16 治理：docs/developer 补权限模型 + data-class + 速率表 + 错误码 + 滥用政策/DMCA；share token 不再全权继承
 - [ ] O17 验证：新增 agent 接入 E2E（外部 OpenAI SDK / MCP 客户端 / OAuth DCR 三通道自助跑通）+ 匿名调用回归为 0 + 配额打满 429 断言
 
 ### 验收硬性指标
