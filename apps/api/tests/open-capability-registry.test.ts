@@ -124,27 +124,30 @@ describe('findOpenCapability 默认拒绝', () => {
     }
   })
 
-  it('通配前缀只放开登记过的方法:同路径换方法即拒', () => {
+  it('同路径换方法即拒(表里只开了 GET,方法不因枚举而放宽)', () => {
     // tools / content / customer_service 三个只读族都是 GET-only
     expect(findOpenCapability('POST', '/api/v1/tools/list')?.scope).toBeUndefined()
     expect(findOpenCapability('DELETE', '/api/v1/customer_service/ticket/9')).toBeUndefined()
+    expect(findOpenCapability('DELETE', '/api/v1/customer_service/ticket/9/replies')).toBeUndefined()
     expect(findOpenCapability('DELETE', '/api/skills')).toBeUndefined()
   })
 
-  it('写条目不被同族只读通配吞掉(优先级按字面量长度)', () => {
+  it('写条目与同族只读条目各按精确/参数化路径命中(通配已废弃,不存在吞并问题)', () => {
     expect(findOpenCapability('GET', '/api/v1/customer_service/ticket/t-1/close')?.scope).toBe(
       'messages:write',
     )
-    expect(findOpenCapability('GET', '/api/v1/customer_service/tickets')?.scope).toBe(
+    expect(findOpenCapability('GET', '/api/v1/customer_service/ticket')?.scope).toBe(
       'messages:read',
     )
+    // 未登记的同族路径(如复数 tickets,现实无此注册点)不再被前缀继承放行
+    expect(findOpenCapability('GET', '/api/v1/customer_service/tickets')).toBeUndefined()
   })
 
   it('/v1 协议面不经本表(避免与 capability-guard 就地闸口抢判定)', () => {
     expect(findOpenCapability('POST', '/v1/chat/completions')).toBeUndefined()
   })
 
-  it('close 是写操作,必须优先于只读 catch-all 命中 messages:write', () => {
+  it('close 是写操作,单独成条命中 messages:write(只读族逐条枚举,不会覆盖 close 路径)', () => {
     const hit = findOpenCapability('GET', '/api/v1/customer_service/ticket/42/close')
     expect(hit?.scope).toBe('messages:write')
     expect(hit?.key).toBe('v1-customer-service-close')
@@ -187,7 +190,7 @@ describe('openCapabilityRules 派生规则表', () => {
       expect(registry, `${method} ${path} 应命中登记表`).toBeDefined()
       expect(probe(method, path), `${method} ${path}`).toBe(registry?.scope)
     }
-    // 写端点必须落在 messages:write,不能被同族只读通配吃掉
+    // 写端点必须落在 messages:write(精确/参数化路径逐条命中,无通配兜底)
     expect(probe('GET', '/api/v1/customer_service/ticket/42/close')).toBe('messages:write')
     // 两处判定对未登记前缀一致拒绝
     expect(probe('GET', '/api/v1/widgets/anything')).toBeUndefined()
