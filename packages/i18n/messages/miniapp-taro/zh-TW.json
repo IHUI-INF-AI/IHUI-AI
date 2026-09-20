@@ -58,6 +58,7 @@
     "brand": "智匯 AI",
     "phoneLogin": "手機號登入",
     "passwordLogin": "密碼登入",
+    "phone": "手機號",
     "phonePlaceholder": "請輸入手機號",
     "phoneInvalid": "手機號格式不正確",
     "codePlaceholder": "請輸入驗證碼",

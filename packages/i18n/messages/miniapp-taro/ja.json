@@ -58,6 +58,7 @@
     "brand": "IHUI AI",
     "phoneLogin": "電話番号ログイン",
     "passwordLogin": "パスワードログイン",
+    "phone": "電話番号",
     "phonePlaceholder": "電話番号を入力",
     "phoneInvalid": "電話番号の形式が正しくありません",
     "codePlaceholder": "認証コードを入力",
