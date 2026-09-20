@@ -15,6 +15,7 @@ import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
+import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
 import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { toast } from '@/components/common'
@@ -112,6 +113,9 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useDesktopDeepLink()
   // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
   useAgentControl()
+  // Web 端 UI 控制桥:上报 endpoint:'web' 能力 + 消费 agent.action(category:'ui')指令,
+  // 让 AI 经 web_ui_* 工具操作本站页面(Tauri 端 no-op,让位 useAgentControl)
+  useUiControlBridge()
   // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
   // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
   useNativePushRegister()

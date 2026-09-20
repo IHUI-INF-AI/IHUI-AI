@@ -13,8 +13,12 @@ import {
   findGenerationTemplates,
 } from '../../db/content-generation-queries.js'
 import { parsePagination } from './_shared.js'
+import { declareCapability } from '../../utils/capability-guard.js'
 
 export const v1ContentRoutes: FastifyPluginAsync = async (server) => {
+  // O3 登记:内容生成模板/历史(用户态遗留桩,同上待收口)
+  server.addHook('preHandler', declareCapability('user:read'))
+
   // GET /v1/content/create — 返回内容生成模板列表(供前端选择)
   server.get('/v1/content/create', async (_request, reply) => {
     const list = await findGenerationTemplates()

@@ -126,11 +126,8 @@ import type {
   V1UsageResponse,
   V1VendorUsageResponse,
 } from '@ihui/types'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
@@ -520,11 +517,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -559,11 +552,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -634,11 +623,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -697,11 +682,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -804,11 +785,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -846,11 +823,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -899,11 +872,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -941,11 +910,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -995,11 +960,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1068,11 +1029,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1138,11 +1095,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = knowledgeGraphExtractSchema.safeParse(request.body)
@@ -1196,11 +1149,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       return forwardAiService(reply, '/api/v1/build', jsonInit(request.body ?? {}))
@@ -1225,11 +1174,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/v1/data', { method: 'GET' }, (data) => {
@@ -1273,11 +1218,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('knowledge:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('knowledge:write'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/v1/data', { method: 'DELETE' })
@@ -1302,7 +1243,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/tools', { method: 'GET' }, (data) => {
@@ -1359,7 +1300,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = toolCallSchema.safeParse(request.body)
@@ -1402,7 +1343,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/resources', { method: 'GET' }, (data) => {
@@ -1448,7 +1389,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { uri } = request.params as { uri: string }
@@ -1476,7 +1417,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/prompts', { method: 'GET' }, (data) => {
@@ -1541,7 +1482,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = promptInvokeSchema.safeParse(request.body)
@@ -1591,7 +1532,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/skills', { method: 'GET' }, (data) => {
@@ -1638,7 +1579,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/mcp/slash-commands', { method: 'GET' }, (data) => {
@@ -1678,7 +1619,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       return forwardAiService(reply, '/api/mcp/slash-commands', jsonInit(request.body ?? {}))
@@ -1715,7 +1656,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = samplingSchema.safeParse(request.body)
@@ -1753,7 +1694,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/personas', { method: 'GET' }, (data) => {
@@ -1799,7 +1740,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { name } = request.params as { name: string }
@@ -1828,7 +1769,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = searchCodebaseSchema.safeParse(request.body)
@@ -1860,7 +1801,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = searchWebSchema.safeParse(request.body)
@@ -1892,7 +1833,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = analyzeCodeSchema.safeParse(request.body)
@@ -1934,7 +1875,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('tools:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('tools:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = screenshotSchema.safeParse(request.body)
@@ -1982,11 +1923,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = saveMemorySchema.safeParse(request.body)
@@ -2028,7 +1965,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const qs = new URLSearchParams(request.query as Record<string, string>)
@@ -2083,7 +2020,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = memorySearchSchema.safeParse(request.body)
@@ -2124,11 +2061,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = memoryDreamSchema.safeParse(request.body)
@@ -2178,11 +2111,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('memory:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = forgetMemorySchema.safeParse(request.body)
@@ -2216,7 +2145,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/working', { method: 'GET' }, (data) => {
@@ -2254,7 +2183,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/episodic', { method: 'GET' }, (data) => {
@@ -2297,7 +2226,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('memory:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('memory:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       return forwardAiService(reply, '/api/memory/procedural', { method: 'GET' }, (data) => {
@@ -2358,11 +2287,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('messages:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('messages:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = publishMessageSchema.safeParse(request.body)
@@ -2413,11 +2338,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('messages:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('messages:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = subscribeMessageSchema.safeParse(request.body)
@@ -2459,11 +2380,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('messages:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('messages:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -2512,11 +2429,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('messages:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('messages:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -2576,7 +2489,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2623,7 +2536,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2655,7 +2568,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2693,7 +2606,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2761,7 +2674,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2814,7 +2727,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2853,7 +2766,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2901,7 +2814,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('user:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('user:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -2969,11 +2882,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workspace:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workspace:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3040,11 +2949,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workspace:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workspace:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3114,11 +3019,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workflows:read'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workflows:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3181,11 +3082,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workflows:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workflows:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3233,11 +3130,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workflows:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workflows:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3271,11 +3164,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('workflows:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('workflows:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -3311,7 +3200,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('stats:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('stats:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -3402,7 +3291,7 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('stats:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('stats:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey

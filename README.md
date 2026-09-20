@@ -697,6 +697,61 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ---
 
+## 🤖 AI 全量操控桥接(2026-09-20 立,AI 自主操控本程序全部内容)
+
+> 目标:用户在 AI 对话框里说"帮我打开设置页 / 把充值金额填成 100 并提交 / 查一下所有订单",
+> AI 能**自主分析并真的操作**我们自己的程序,而不只是回答问题。
+> 实现位置:`apps/ai-service/app/services/{api_tools_bridge,ui_action_bridge}.py` +
+> `apps/api/src/routes/agent-control.ts` + `apps/web/src/{lib/ui-action-registry.ts,hooks/use-ui-control-bridge.ts}`
+
+三条互补路线，全部复用既有链路，不新增鉴权体系：
+
+| 路线                           | 机制                                                                                        | 覆盖面                                                                    | 关键实现                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表      | 后端全部 HTTP 能力(默认 read 模式实测注册 120 个 GET 端点工具)            | `api_tools_bridge.spec_to_tools()` + `make_api_handler()`   |
+| **B. 前端 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果 | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用 | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts` |
+| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                          | 任意 UI(含第三方站点)，无需改造                                           | 既有 agent-control 通道，本次仅扩 category 枚举             |
+
+端点数量可达数百，完整 schema 全塞进一次对话不现实；A 路线因此提供两个**名字恒定**的入口工具，
+让模型"先搜后调"，token 成本与端点数解耦：
+
+- `api_endpoints_search(query, method?, limit?)` → 返回候选 `name` / method / path / 摘要
+- `api_endpoint_call(name, arguments)` → 转发到对应端点工具(**仅接受 `api_` 前缀**，
+  否则等于把 `run_command` 这类高危工具暴露给一个字符串参数，是越权捷径)
+
+对话侧自动路由:`apps/ai-service/app/services/conversation.py` 的 `_app_control_intent_tools()`
+按强信号正则识别"操控本站"意图(打开页面 / 点击按钮 / 填表单 / 提交 / 切模式 / 调接口)，
+命中即无条件并入 tool loop 工具集，并自动补齐依赖(`web_ui_click` 必带 `web_ui_describe`，
+`api_*` 入口成对注入)，不依赖 LLM 意图分类的质量。
+
+### 安全闸门(不做 bypass 式全量放开)
+
+| 层     | 闸门                                                                                                                                                                       | 落点                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 身份   | 所有桥接调用必须带 `__user_id`，经 `X-Internal-Service-Token` + `X-user-id` 代调，api 侧校验用户存在且活跃                                                                 | `internal-service-token.ts`            |
+| 权限   | 写端点(POST/PUT/PATCH/DELETE)需 `__user_role >= 1`，且 api 侧 RBAC 二次兜底                                                                                                | `api_tools_bridge.make_api_handler`    |
+| 越权面 | OpenAPI 的 header/cookie 型参数一律不暴露给 LLM，防越权头注入；路径参数强制 URL 编码，防路径穿越                                                                           | 同上                                   |
+| 多租户 | `category='ui'` 指令按 userId 过滤端点，只会推给该用户自己的浏览器                                                                                                         | `agent-control.findEndpointByCategory` |
+| 破坏性 | 前端硬拦截:密码/验证码/secret 类字段拒填(`PERMISSION_DENIED`)，删除/注销/提现/支付类目标拒绝点击提交(`DESTRUCTIVE_BLOCKED`)，导航仅放行站内路由白名单(`ROUTE_NOT_ALLOWED`) | `ui-action-registry.ts`                |
+| 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                    | `conversation.py`                      |
+| 开关   | `API_TOOLS_MODE=off\|read\|all`(默认 read)、`UI_ACTION_TOOLS=false` 可独立关闭；密钥缺失 fail-closed                                                                       | `apps/ai-service/.env.example`         |
+
+### 配置项
+
+| 变量                    | 默认                             | 说明                                    |
+| ----------------------- | -------------------------------- | --------------------------------------- |
+| `API_TOOLS_MODE`        | `read`                           | off 不注册 / read 仅 GET / all 含写操作 |
+| `API_TOOLS_MAX`         | `300`                            | 注册端点工具数量上限                    |
+| `API_TOOLS_EXCLUDE`     | `^/docs,^/ws,^/internal,^/debug` | 逗号分隔正则，命中的路径不注册          |
+| `API_INTERNAL_BASE_URL` | 空(沿用 `API_SERVICE_URL`)       | 覆盖 apps/api 基地址                    |
+| `UI_ACTION_TOOLS`       | `true`                           | 是否注册 `web_ui_*` 七工具              |
+| `UI_ACTION_TIMEOUT`     | `20`                             | 等待前端回传执行结果的秒数              |
+
+> 端类型说明:路线 B 仅 web 端(依赖 DOM)，属 AGENTS.md §9 平台独占豁免;
+> desktop/extension 侧的 `computer_*` / `browser_*` 通道保持原语义不变。
+
+---
+
 ## 🧭 全局顶栏 GlobalTopBar + Plus 弹窗(2026-07-30 立,平台独占 web-only)
 
 > 实现位置:`apps/web/src/components/layout/GlobalTopBar.tsx`(新建) + `apps/web/src/components/layout/MainShell.tsx`(精简) + `apps/web/src/components/layout/GlobalShell.tsx`(挂载) + `apps/web/src/components/layout/TagsView.tsx`(搜索按钮 + 标签左缘对齐) + `apps/web/src/components/layout/index.ts`(re-export)
@@ -777,6 +832,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                                                                                                                                                                                                                                             | 工作流、工具、智能体协同一体化                                  |
 | **自研 CLI**         | 50 命令 + 36 工具 + ACP Server,对标 Claude Code                                                                                                                                                                                                                                                               | 命令行原生 AI 编程体验                                          |
 | **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本                                       |
+| **会话历史无缝导入** | Claude Code(JSONL + ai-title 标题 + 工具调用骨架)+ Codex CLI(rollout JSONL,权威源优先)+ Cursor(composer JSON / state.vscdb SQLite)+ Aider(chat history Markdown / record JSON)四源导出文件解析后保留原始时间戳,落库即出现在聊天侧栏;入库边界自动密钥脱敏 + 体积收口。两个落点:web `/settings/import` 上传,或 CLI `ihui import sessions discover / parse / commit / history`(可扫本机 `~/.claude/projects`、`~/.codex/sessions`) | 换工具不丢历史,迁入即用 |
 | **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗 + 键盘导航 + 5s 切换撤销                                                                                                                                                                                      | 决策者级风险控制 + Codex CLI safety guard                       |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                                                                                                                                                                                                                                         | 金融级数据保护                                                  |
 | **可观测性**         | Prometheus + Grafana(**3 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                   | 全链路指标 / 日志 / 追踪 / 告警                                 |
@@ -2146,6 +2202,23 @@ pnpm turbo build typecheck lint test
 ```
 
 **认证:** JWT HS256 + token-family 旋转 + refresh 黑名单,access token 7 天有效期,所有端点通过 `@ihui/auth` 共享包统一签发/验证。
+
+### Agent 开放能力(能力目录单一事实源,2026-09-20 立)
+
+第三方 AI Agent 通过**机器凭据**调用本项目能力,能力面由 `packages/types/src/capability-catalog.ts` 一处声明、三处消费(API 闸口 / MCP 门禁 / 文档产物)。
+
+| 要素     | 落点                                                                              | 说明                                                                              |
+| -------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 凭据     | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                         | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧           |
+| 授权     | `apps/api/src/utils/capability-guard.ts`                                          | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)         |
+| 数据边界 | `CapabilityEntry.dataClass`                                                       | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`     |
+| MCP 接入 | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*` | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                     |
+| 产物     | `packages/types/generated/capabilities.json`                                      | `pnpm capabilities:export` 生成;`--check` 防漂移                                  |
+| 协议兼容 | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)      | 官方 SDK 可直接指向本项目                                                         |
+| 限流     | `RATE_PROFILES`(按 risk)+ key 级 5h/1d/7d 窗口 + nginx `limit_req`                | 限流后端不可用时 billable 能力 fail-closed(503)                                   |
+| 不开放   | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                    | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send` |
+
+详见 [docs/developer/capabilities.md](./docs/developer/capabilities.md)。
 
 ### WebSocket 端点(12 个)
 
