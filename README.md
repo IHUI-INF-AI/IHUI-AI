@@ -736,6 +736,17 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                    | `conversation.py`                      |
 | 开关   | `API_TOOLS_MODE=off\|read\|all`(默认 read)、`UI_ACTION_TOOLS=false` 可独立关闭；密钥缺失 fail-closed                                                                       | `apps/ai-service/.env.example`         |
 
+### 真机验证中发现并修掉的两个可用性问题(2026-09-20)
+
+- **元素上限挤掉表单字段**:应用外壳(侧栏/顶栏/AI 任务面板)常驻 200+ 可交互元素,按 DOM 顺序截断到 80
+  会把页面真正的输入框整批挤出去,`describe` 回清单里没有可填字段。改为按优先级择优:表单字段
+  (input/select/textarea/combobox/checkbox) → 正文区按钮 → 其他 → 外壳导航;入选集仍按 DOM 顺序
+  回排以保持 id 稳定。
+- **多标签页命令散射**:同一用户开多个应用标签页时都会上报 `endpoint='web'`,api 原先只挑"最后心跳那个",
+  于是 `describe` 与紧随其后的 `fill` 会落到不同页面——元素 id 是该页私有映射,必然 `SELECTOR_NOT_FOUND`。
+  改为应答携带 `instanceId`、后续动作经 `targetInstanceId` 钉回它刚看过的那一页(钉定端掉线则回落择优,
+  且绝不跨用户钉定)。
+
 ### 配置项
 
 | 变量                    | 默认                             | 说明                                                                         |

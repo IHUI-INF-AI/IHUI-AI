@@ -47,7 +47,9 @@ class _Resp:
 def _clean(monkeypatch: pytest.MonkeyPatch) -> Any:
     # settings.agent_control_internal_secret 有非空默认值,env 覆盖不生效,直替函数
     monkeypatch.setattr(ub, "_get_agent_control_secret", lambda: "ui-test-secret")
+    ub._PINNED_INSTANCE.clear()
     yield
+    ub._PINNED_INSTANCE.clear()
     ub.unregister_external_tool_by_prefix("web_ui_")
 
 
@@ -222,6 +224,44 @@ async def test_non_dict_data_is_tolerated(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
     out = await ub._ui_call("read", {"__user_id": _USER})
     assert out["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# 多标签页路由:describe 之后必须钉回同一页
+# ---------------------------------------------------------------------------
+
+async def test_instance_pin_threads_target_instance_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        calls.append(dict(kwargs.get("json") or {}))
+        return _Resp(
+            payload={"code": 0, "data": {"success": True, "data": {"instanceId": "web-abc", "registry": {}}}}
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    await ub._ui_call("describe", {"__user_id": _USER})
+    assert ub._PINNED_INSTANCE[_USER] == "web-abc"
+    assert "targetInstanceId" not in calls[0]  # 首条无从钉定
+
+    await ub._ui_call("fill", {"__user_id": _USER, "target": "el:input#7", "value": 1})
+    assert calls[1]["targetInstanceId"] == "web-abc"  # 后续动作钉回同一标签页
+
+
+async def test_pin_cleared_when_target_gone(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        return _Resp(
+            payload={
+                "code": 0,
+                "data": {"success": False, "errorCode": "TARGET_NOT_CONNECTED", "error": "Web 前端未连接"},
+            }
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    ub._PINNED_INSTANCE[_USER] = "web-dead"
+    out = await ub._ui_call("read", {"__user_id": _USER})
+    assert out["errorCode"] == "TARGET_NOT_CONNECTED"
+    assert _USER not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
 
 
 # ---------------------------------------------------------------------------
