@@ -1982,6 +1982,13 @@
       "when": 1789956000000,
       "tag": "20260921100000_developer_api_keys_per_model_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1789966800000,
+      "tag": "20260921130000_llm_call_logs_raw_retention",
+      "breakpoints": true
     }
   ]
 }
