@@ -497,7 +497,6 @@ export function UnifiedTaskDashboard() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="h-7 w-7"
                     disabled={renameTask.isPending || !editDraft.trim()}
                     onClick={() => submitRename(row)}
                     data-testid="unified-rename-confirm"
@@ -508,12 +507,7 @@ export function UnifiedTaskDashboard() {
                       <Check className="h-3.5 w-3.5" />
                     )}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setEditingKey(null)}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setEditingKey(null)}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -700,7 +694,6 @@ export function UnifiedTaskDashboard() {
               <Button
                 variant="outline"
                 size="icon"
-                className="h-7 w-7"
                 onClick={() => setMentionPickerOpen((o) => !o)}
                 data-testid="unified-mention-btn"
               >
