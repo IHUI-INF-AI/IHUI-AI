@@ -2449,6 +2449,7 @@
     "commitFailed": "Import failed: {error}",
     "errorNoSource": "Choose a conversation source first",
     "fileTooLarge": "File exceeds the 20MB limit. Split it and try again.",
+    "errorFileType": "Unsupported file type. Pick the export file for this source.",
     "historyTitle": "Import history",
     "historyEmpty": "No imports yet",
     "historyFailed": "Failed to load import history: {error}",
