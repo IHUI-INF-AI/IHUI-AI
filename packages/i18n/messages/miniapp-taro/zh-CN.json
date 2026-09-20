@@ -58,6 +58,7 @@
     "brand": "智汇 AI",
     "phoneLogin": "手机号登录",
     "passwordLogin": "密码登录",
+    "phone": "手机号",
     "phonePlaceholder": "请输入手机号",
     "phoneInvalid": "手机号格式不正确",
     "codePlaceholder": "请输入验证码",
