@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -194,9 +194,10 @@ class LLMUsageService:
 
     def get_quota_info(self, user_id: str) -> dict[str, Any]:
         """获取用户配额信息。"""
-        # 本月用量
-        now = datetime.now()
-        month_start = datetime(now.year, now.month, 1).timestamp()
+        # 本月用量(月初按 UTC 计算,与 time.time() 记录的 UTC epoch 对齐;
+        # 原 naive datetime.now() 在东八区下月初窗口会偏早 8 小时 —— 2026-09-20 时区语义修复)
+        now_utc = datetime.now(UTC)
+        month_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=UTC).timestamp()
         month_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= month_start]
         used_tokens = sum(r.input_tokens + r.output_tokens for r in month_records)
         quota_limit = self._quota_limit

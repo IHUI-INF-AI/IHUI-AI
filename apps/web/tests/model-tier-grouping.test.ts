@@ -16,14 +16,20 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { groupByCategory, splitByTier, type ModelOption } from '@/components/chat/model-tier-utils'
+import {
+  filterByCapabilities,
+  groupByCategory,
+  splitByTier,
+  type ModelOption,
+} from '@/components/chat/model-tier-utils'
 
 function opt(
   value: string,
   category?: ModelOption['category'],
   tier?: ModelOption['tier'],
+  capabilities?: ModelOption['capabilities'],
 ): ModelOption {
-  return { value, label: value, category, tier }
+  return { value, label: value, category, tier, capabilities }
 }
 
 describe('splitByTier — 默认区 vs 历史模型折叠区', () => {
@@ -100,6 +106,40 @@ describe('groupByCategory — 历史模型区按用途分组', () => {
 
   it('空输入返回空分组', () => {
     expect(groupByCategory([])).toEqual([])
+  })
+})
+
+describe('filterByCapabilities — 历史区能力过滤(2026-09-19 D23 立)', () => {
+  it('required 空集 = 不过滤,原样返回', () => {
+    const list = [opt('a', 'chat', 'legacy'), opt('b', 'embedding', 'legacy')]
+    expect(filterByCapabilities(list, [])).toBe(list)
+  })
+
+  it('capabilities 缺失(老后端/降级数据)= 未知,激活过滤也不误藏', () => {
+    const list = [opt('old-backend', 'chat', 'legacy')]
+    expect(filterByCapabilities(list, ['vision'])).toHaveLength(1)
+  })
+
+  it('单键过滤:仅 capabilities[key] === true 保留,键缺失按 false', () => {
+    const list = [
+      opt('vision-model', 'vision', 'legacy', { vision: true }),
+      opt('text-model', 'chat', 'legacy', { vision: false }),
+      opt('half-model', 'chat', 'legacy', {}),
+    ]
+    expect(filterByCapabilities(list, ['vision']).map((m) => m.value)).toEqual(['vision-model'])
+  })
+
+  it('多键 AND:全部激活能力满足才保留', () => {
+    const list = [
+      opt('both', 'chat', 'legacy', { vision: true, fim: true }),
+      opt('only-vision', 'chat', 'legacy', { vision: true, fim: false }),
+    ]
+    expect(filterByCapabilities(list, ['vision', 'fim']).map((m) => m.value)).toEqual(['both'])
+  })
+
+  it('非布尔值按 false 处理而非崩溃', () => {
+    const list = [opt('weird', 'chat', 'legacy', { vision: 'yes' as unknown as true })]
+    expect(filterByCapabilities(list, ['vision'])).toHaveLength(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

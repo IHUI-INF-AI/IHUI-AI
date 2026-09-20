@@ -45,12 +45,18 @@ export interface PendingQuestionPayload {
  *  - pendingQuestion: 非空表示该 assistant 消息触发了提问且未回答
  *  - answeredQuestionId: 标记该提问已被回答(与 pendingQuestion: null 同时设置)
  *  - questionId + isAnswer: user 消息标记,表示这是对某提问的回答
+ *  - toolCalls/terminalTasks: D24(2026-09-19 立)工具调用与终端任务持久化数组
+ *    (ai-service 回调 → ai-callback 入队 → worker 落库),恢复会话/回放/审计时还原
  *  - 其他 key(model/usage/stub 等)由 ai-callback-worker 写入,保持向后兼容 */
 export interface ChatMessageMetadata {
   pendingQuestion?: PendingQuestionPayload | null
   answeredQuestionId?: string
   questionId?: string
   isAnswer?: boolean
+  /** D24:工具调用持久化数组(结构与 @ihui/types BaseToolCall 对齐,跨包松耦合用 Record) */
+  toolCalls?: Array<Record<string, unknown>>
+  /** D24:终端任务持久化数组(结构与 @ihui/types TerminalTask 对齐) */
+  terminalTasks?: Array<Record<string, unknown>>
   [key: string]: unknown
 }
 

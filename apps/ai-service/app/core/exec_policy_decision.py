@@ -28,17 +28,16 @@ PowerShell 来源命令用其 PS 专用检测,对应 Codex CommandOrigin 分派)
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     ALLOW = "allow"
     PROMPT = "prompt"
     FORBIDDEN = "forbidden"
 
 
-class AskForApproval(str, Enum):
+class AskForApproval(StrEnum):
     """审批策略(对标 AskForApproval;granular 用独立实例承载)。"""
 
     NEVER = "never"
@@ -55,13 +54,13 @@ class GranularApproval:
     sandbox_approval: bool = True
 
 
-class SandboxKind(str, Enum):
+class SandboxKind(StrEnum):
     UNRESTRICTED = "unrestricted"
     EXTERNAL_SANDBOX = "external_sandbox"
     RESTRICTED = "restricted"
 
 
-class CommandOrigin(str, Enum):
+class CommandOrigin(StrEnum):
     """命令来源(决定危险命令检测走通用还是 PowerShell 专用启发式)。"""
 
     GENERIC = "generic"
@@ -125,7 +124,7 @@ def prompt_is_rejected_by_policy(
     approval_policy: AskForApproval,
     prompt_is_rule: bool,
     granular: GranularApproval = GranularApproval(),
-) -> Optional[str]:
+) -> str | None:
     """审批策略是否禁止把当前提示呈现给用户;返回拒绝原因或 None。
 
     ``prompt_is_rule`` 区分"策略规则触发的提示"与"沙箱/越权提示",

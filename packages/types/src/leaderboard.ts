@@ -24,8 +24,11 @@ export type LlmSubcategory =
   | 'reasoning' // 推理思考
   | 'agent' // Agent 智能体(LLM 类)
 
-/** 能力雷达图 5 维评分(0-100) */
-export interface ModelCapabilities {
+/** 能力雷达图 5 维评分(0-100)。
+ *  2026-09-19 由 ModelCapabilities 改名 LeaderboardCapabilities:
+ *  与 model-catalog.ts 的布尔型 ModelCapabilities(D23 能力四键)同名冲突,
+ *  两者语义无关(本接口是排行榜评分,后者是模型目录能力标志)。 */
+export interface LeaderboardCapabilities {
   coding: number
   math: number
   reasoning: number
@@ -55,7 +58,7 @@ export interface LeaderboardEntry {
   outputPrice: string | null
   releaseDate: string | null
   highlight: string | null
-  capabilities: ModelCapabilities | null
+  capabilities: LeaderboardCapabilities | null
   license: string
   isOverall: boolean
   sortOrder: number

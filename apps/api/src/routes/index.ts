@@ -69,6 +69,7 @@ import aiPricingRoutes from './ai-pricing.js'
 import { developerPortalRoutes } from './developer-portal.js'
 import { agentsRoutes } from './agents.js'
 import { agentsKanbanRoutes } from './agents-kanban.js'
+import { taskMessagesRoutes } from './task-messages.js'
 import { oauthKeysRoutes } from './oauth-keys.js'
 import { plazaRoutes } from './plaza.js'
 import { shareFirstRoutes } from './share-first.js'
@@ -243,6 +244,8 @@ import { userLlmConfigRoutes } from './user-llm-configs.js'
 // 用户级 LLM 平台配置 v2(2026-07-22 立,1:N provider-model,与 v1 并存)
 import { userLlmConfigV2Routes } from './user-llm-configs-v2.js'
 import { cliImportRoutes } from './cli-import.js'
+// 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用,2026-09-20 新增)
+import { conversationImportRoutes } from './conversation-import.js'
 // 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
 import { selfMediaRoutes } from './self-media-routes.js'
 // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
@@ -588,6 +591,8 @@ export function registerRoutes(server: FastifyInstance) {
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
   server.register(agentsKanbanRoutes, { prefix: '/api' })
+  // D25 统一任务看板:任务消息(@任务引用跨任务发消息)
+  server.register(taskMessagesRoutes, { prefix: '/api' })
   // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
   server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
@@ -929,6 +934,9 @@ export function registerRoutes(server: FastifyInstance) {
   // CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
   // 端点:/api/user/cli-import/{sources,parse-file,parse-payload,commit,preview/:id,history}
   server.register(cliImportRoutes, { prefix: '/api/user' })
+  // 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用)
+  // 端点:/api/user/conversation-import/{parse,commit,history}
+  server.register(conversationImportRoutes, { prefix: '/api/user' })
   // 自媒体 skill(公众号文章 + 口播稿,代理到 ai-service,2026-07-20 新增)
   server.register(selfMediaRoutes, { prefix: '/api' })
   // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)

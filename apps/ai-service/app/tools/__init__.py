@@ -9,11 +9,11 @@
 - parse_document: 文档解析工具(document_tools)。
 """
 
+from .browser_selfcheck import capture_screenshot, selfcheck_report
 from .chart_tools import generate_chart
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
-from .browser_selfcheck import capture_screenshot, selfcheck_report
 
 __all__ = [
     "generate_chart",

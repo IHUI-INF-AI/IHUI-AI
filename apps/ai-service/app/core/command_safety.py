@@ -369,6 +369,11 @@ def _args_have_url(args: list[str]) -> bool:
     return any(_looks_like_url(a) for a in args)
 
 
+# strip 的多字符参数是「字符集合」语义(从两端逐字符剥离),并非剥离子串;
+# 提取为常量以明确意图(空格/单双引号/圆括号/制表与换行控制符/分号)。
+_URL_EDGE_CHARS = " '\"( \t\r\n;)"
+
+
 def _looks_like_url(token: str) -> bool:
     lowered = token.lower()
     urlish = token
@@ -377,7 +382,7 @@ def _looks_like_url(token: str) -> bool:
         if pos >= 0:
             urlish = token[pos:]
             break
-    candidate = urlish.strip(" '\"( \t\r\n;)")
+    candidate = urlish.strip(_URL_EDGE_CHARS)
     try:
         parsed = urlparse(candidate)
     except ValueError:

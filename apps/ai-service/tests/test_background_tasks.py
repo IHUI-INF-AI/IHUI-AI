@@ -23,9 +23,9 @@ from app.services.background_tasks import (
 
 async def _wait_terminal(task_id: str, timeout: float = 2.0) -> dict:
     """轮询任务直到进入终态(成功/失败/超时),返回最终状态字典。"""
-    deadline = asyncio.get_event_loop().time() + timeout
+    deadline = asyncio.get_running_loop().time() + timeout
     terminal = (TaskState.SUCCEEDED.value, TaskState.FAILED.value, TaskState.TIMEOUT.value)
-    while asyncio.get_event_loop().time() < deadline:
+    while asyncio.get_running_loop().time() < deadline:
         status = await background_task_manager.get_status(task_id)
         assert status is not None, f"任务丢失: {task_id}"
         if status["state"] in terminal:

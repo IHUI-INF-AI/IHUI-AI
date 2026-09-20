@@ -151,7 +151,7 @@ class NetworkApprovalRequest:
     reason: str | None = None
 
     @classmethod
-    def from_url(cls, url: str, *, reason: str | None = None) -> "NetworkApprovalRequest":
+    def from_url(cls, url: str, *, reason: str | None = None) -> NetworkApprovalRequest:
         """从 URL / 裸 host 构造请求;解析失败抛 ``ValueError``。"""
         host, port, scheme = _parse_target(url, protocol="https")
         return cls(target=url, host=host, port=port, protocol=scheme, reason=reason)
@@ -179,7 +179,7 @@ class NetworkApprovalGate:
     def __init__(
         self,
         *,
-        requester: Callable[["NetworkApprovalRequest"], bool | None] | None = None,
+        requester: Callable[[NetworkApprovalRequest], bool | None] | None = None,
         ttl_seconds: int | None = 3600,
     ) -> None:
         self._requester = requester
@@ -244,7 +244,7 @@ _default_gate = NetworkApprovalGate()
 
 
 def set_requester(
-    fn: Callable[["NetworkApprovalRequest"], bool | None] | None,
+    fn: Callable[[NetworkApprovalRequest], bool | None] | None,
 ) -> None:
     """设置默认网络审批门的 requester(全局单例)。
 
@@ -265,7 +265,7 @@ def set_db_path(path: str | None = None) -> None:
 def configure(
     *,
     db_path: str | None = None,
-    requester: Callable[["NetworkApprovalRequest"], bool | None] | None = None,
+    requester: Callable[[NetworkApprovalRequest], bool | None] | None = None,
 ) -> None:
     """一次性配置(路径 + 审批人)。"""
     if db_path is not None:

@@ -28,6 +28,7 @@ from app.services.model_catalog import (
     ModelTier,
     annotate_models,
     classify_model,
+    derive_capabilities,
     is_fim_model,
     pick_fim_model,
 )
@@ -351,4 +352,103 @@ def test_pick_fim_model_skips_malformed_elements() -> None:
     assert pick_fim_model(models, "auto") == "starcoder2-15b"
     # 全是畸形元素 → None,且不抛异常
     assert pick_fim_model([None, {"fim": True}, {"id": "z", "fim": 1}], "auto") is None
+
+
+# ---------------------------------------------------------------------------
+# D23(2026-09-19):语义能力派生 capabilities{vision, reasoning, tools, fim}
+# ---------------------------------------------------------------------------
+
+
+def test_derive_capabilities_vision_by_category_and_name_hint() -> None:
+    """category=VISION 直接判 vision;chat 类模型名字命中多模态家族提示同样判 vision。"""
+    caps = derive_capabilities("some-vl-model", category=ModelCategory.VISION, tier=ModelTier.LATEST)
+    assert caps["vision"] is True
+    caps = derive_capabilities("gpt-5", category=ModelCategory.CHAT, tier=ModelTier.LATEST)
+    assert caps["vision"] is True
+    caps = derive_capabilities("qwen3.7-max", category=ModelCategory.CHAT, tier=ModelTier.STANDARD)
+    assert caps["vision"] is True
+    # 非多模态家族的 standard 对话模型 → vision False
+    caps = derive_capabilities("some-legacy-chat", category=ModelCategory.CHAT, tier=ModelTier.STANDARD)
+    assert caps["vision"] is False
+
+
+def test_derive_capabilities_reasoning_by_name_and_latest_fallback() -> None:
+    """推理系名字(o 系/thinking/reasoner/qwq/deepseek-r*/gpt-5+)命中;
+    无命中的 latest 对话模型按"当代旗舰默认具备推理档"兜底;legacy 不兜底。"""
+    for mid in ("o4-mini", "qwq-32b", "deepseek-r2", "glm-5-thinking", "gpt-6"):
+        caps = derive_capabilities(mid, category=ModelCategory.CHAT, tier=ModelTier.STANDARD)
+        assert caps["reasoning"] is True, mid
+    caps = derive_capabilities("some-chat-std", category=ModelCategory.CHAT, tier=ModelTier.STANDARD)
+    assert caps["reasoning"] is False
+    caps = derive_capabilities("some-chat-latest", category=ModelCategory.CHAT, tier=ModelTier.LATEST)
+    assert caps["reasoning"] is True
+    caps = derive_capabilities("some-chat-legacy", category=ModelCategory.CHAT, tier=ModelTier.LEGACY)
+    assert caps["reasoning"] is False
+
+
+def test_derive_capabilities_tools_non_conversational_or_legacy_false() -> None:
+    """tools = 对话类且非 legacy;嵌入/图像等非对话用途一律 False。"""
+    caps = derive_capabilities("deepseek-v4-pro", category=ModelCategory.CHAT, tier=ModelTier.LATEST)
+    assert caps["tools"] is True
+    caps = derive_capabilities("old-chat", category=ModelCategory.CHAT, tier=ModelTier.LEGACY)
+    assert caps["tools"] is False
+    caps = derive_capabilities("bge-m3", category=ModelCategory.EMBEDDING, tier=ModelTier.LEGACY)
+    assert caps["tools"] is False
+    caps = derive_capabilities("flux-pro", category=ModelCategory.IMAGE, tier=ModelTier.STANDARD)
+    assert caps["tools"] is False
+
+
+def test_derive_capabilities_fim_passthrough() -> None:
+    caps = derive_capabilities("codestral-latest", category=ModelCategory.CHAT, tier=ModelTier.LATEST)
+    assert caps["fim"] is True
+    caps = derive_capabilities("gpt-4o", category=ModelCategory.CHAT, tier=ModelTier.LATEST)
+    assert caps["fim"] is False
+
+
+def test_annotate_models_attaches_capabilities_after_tier_downgrade() -> None:
+    """capabilities 在**代次比较之后**派生:同系列旧版本被压成 legacy 后 tools 必须 False。"""
+    models = [
+        _mk("gpt-5.6"),
+        _mk("gpt-5.1"),
+    ]
+    annotate_models(models)
+    by_id = {m["id"]: m for m in models}
+    # gpt-5.1 次版本偏低 → standard;gpt-5.6 是系列最高 → latest
+    assert by_id["gpt-5.1"]["model_tier"] == ModelTier.STANDARD.value
+    caps_old = by_id["gpt-5.1"]["capabilities"]
+    caps_new = by_id["gpt-5.6"]["capabilities"]
+    assert caps_new["reasoning"] is True
+    assert caps_new["tools"] is True
+    # gpt-5.1 仍是 standard(非 legacy)→ tools True,但 reasoning 走名字兜底为 False
+    assert caps_old["tools"] is True
+    assert set(caps_old) == {"vision", "reasoning", "tools", "fim"}
+
+
+def test_annotate_models_legacy_model_tools_false() -> None:
+    """legacy 对话模型(被代次比较压级)→ tools False;latest 旗舰 tools True。"""
+    models = [
+        _mk("gpt-5.6"),
+        _mk("gpt-4"),
+    ]
+    annotate_models(models)
+    by_id = {m["id"]: m for m in models}
+    assert by_id["gpt-4"]["model_tier"] == ModelTier.LEGACY.value
+    assert by_id["gpt-4"]["capabilities"]["tools"] is False
+    assert by_id["gpt-5.6"]["capabilities"]["tools"] is True
+
+
+def test_annotate_models_explicit_capabilities_preset_wins() -> None:
+    """模型条目显式 capabilities(同键布尔)优先于名字派生 —— 显式声明 > 派生。"""
+    models = [_mk("gpt-5.6", capabilities={"vision": False, "tools": False})]
+    annotate_models(models)
+    caps = models[0]["capabilities"]
+    assert caps["vision"] is False
+    assert caps["tools"] is False
+    # 未显式声明的键仍走派生
+    assert caps["reasoning"] is True
+    # 非布尔值/未知键被忽略(不进结果,也不崩)
+    models = [_mk("gpt-5.6", capabilities={"vision": "yes", "bogus": True})]
+    annotate_models(models)
+    assert models[0]["capabilities"]["vision"] is True
+    assert "bogus" not in models[0]["capabilities"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
