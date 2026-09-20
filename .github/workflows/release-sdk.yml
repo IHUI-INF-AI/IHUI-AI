@@ -5,14 +5,15 @@
 name: Release SDK
 
 # 4 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
-# 触发:push tag v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
+# 触发:push tag sdk-v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
+#   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 # 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'sdk-v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -82,8 +83,13 @@ jobs:
             exit 1
           fi
 
-          # 去除前缀 v → 版本号
-          VERSION="${TAG#v}"
+          # 去前缀 sdk-v / v → 版本号(tag 触发与 dispatch 触发都兼容)
+          VERSION="$(printf '%s' "$TAG" | sed -E 's/^sdk-v//; s/^v//')"
+          # 版本号必须是 semver,否则后续 npm/pypi/maven 会拿到垃圾版本污染注册表
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
+            echo "❌ tag $TAG 解析出的版本号 '$VERSION' 不是合法 semver(期望 sdk-v1.2.3)"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "is_tag=true" >> "$GITHUB_OUTPUT"
@@ -105,7 +111,12 @@ jobs:
   npm-publish:
     name: Publish to npm
     needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'npm')
+    # 门控:tag 触发(push sdk-v*)必跑;workflow_dispatch 按 language 选择。
+    # 旧写法 `dry_run == 'true' || language == 'all' || ...` 在 push 事件下三个条件
+    # 全为 false(language 是 dispatch 专属入参)→ 真发布永远被跳过,只 green 不发布。
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'npm')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -130,34 +141,50 @@ jobs:
       - name: Build SDK (tsc → dist/)
         run: pnpm --filter @ihui/sdk build
 
-      - name: Strip workspace deps & set version
+      - name: Set publish version
         working-directory: packages/sdk
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          # 用 node 改写 package.json(原子操作)
+          # package.json 本身已是"可发布形态"(入口指 dist / files 白名单 / 无 workspace 依赖 /
+          # publishConfig.registry 锁定 npmjs.org),CI 只需对齐 tag 里的版本号。
+          # 过去在这里顺手重写 main/types/exports 并剥 @ihui/* 依赖,是因为仓库里那份不可安装;
+          # 现在把修复前移到仓库,本地 `npm pack` 与 CI 产物就完全一致了。
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
           node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = process.argv[1];
-            // 删除 workspace 依赖(类型已在 dist/*.d.ts 中,运行时无需)
-            pkg.dependencies = Object.fromEntries(
-              Object.entries(pkg.dependencies || {}).filter(([k]) => !k.startsWith('@ihui/'))
-            );
-            // 重写入口指向 dist/
-            pkg.main = './dist/index.js';
-            pkg.module = './dist/index.js';
-            pkg.types = './dist/index.d.ts';
-            pkg.exports = {
-              '.': {
-                types: './dist/index.d.ts',
-                import: './dist/index.js',
-                require: './dist/index.js',
-              },
-            };
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-            console.log('✅ Patched package.json for npm publish');
-          " "$VERSION"
+            const p = require('./package.json');
+            const errs = [];
+            if (p.private) errs.push('private=true 会直接拒绝发布');
+            if (!p.license) errs.push('缺少 license(Apache-2.0 发行必须声明)');
+            if (!p.publishConfig?.registry?.includes('registry.npmjs.org'))
+              errs.push('publishConfig.registry 未锁定 npmjs.org —— 仓库根 .npmrc 指向 npmmirror,项目级配置优先级更高,漏了这一条会把包推给第三方镜像');
+            for (const [f, v] of Object.entries({ main: p.main, types: p.types }))
+              if (String(v).includes('/src/')) errs.push(\`\${f}=\${v} 指向 src,外部装了用不了\`);
+            for (const [d, s] of Object.entries(p.dependencies || {}))
+              if (d.startsWith('@ihui/') || String(s).startsWith('workspace:'))
+                errs.push(\`dependencies 含未发布内部包 \${d}@\${s},消费者 npm i 必 404\`);
+            if (!Array.isArray(p.files) || !p.files.includes('dist'))
+              errs.push('files 白名单缺失/不含 dist,会打进 src/其他语言 SDK/.turbo 日志等噪音');
+            if (errs.length) { console.error('❌ 发布前置校验失败:\n  - ' + errs.join('\n  - ')); process.exit(1); }
+            console.log(\`✅ \${p.name}@\${p.version} 发布前置校验通过\`);
+          "
+
+      - name: Inspect tarball (fail on junk / missing license)
+        working-directory: packages/sdk
+        shell: bash
+        run: |
+          # 真发布前把 tarball 清单摊开:杜绝源码 / 其他语言 SDK / 构建产物噪音与任何密钥外流
+          npm pack --dry-run --json > /tmp/sdk-pack.json 2>/tmp/sdk-pack.err || { cat /tmp/sdk-pack.err; exit 1; }
+          node -e "
+            const e = JSON.parse(require('fs').readFileSync('/tmp/sdk-pack.json','utf8'))[0];
+            const paths = e.files.map((f) => f.path);
+            const junk = paths.filter((p) => /^(src|java|go|dotnet|python|tests|\.turbo)\//.test(p) || /tsbuildinfo|(^|\/)\.env|node_modules/.test(p));
+            console.log(\`  files=\${paths.length} tarball=\${(e.size/1024).toFixed(1)}KB unpacked=\${(e.unpackedSize/1024/1024).toFixed(2)}MB\`);
+            if (junk.length) { console.error('❌ tarball 混入不该有的条目:', junk.slice(0, 10)); process.exit(1); }
+            for (const need of ['LICENSE', 'NOTICE', 'dist/index.js', 'dist/index.d.ts'])
+              if (!paths.includes(need)) { console.error('❌ tarball 缺少', need); process.exit(1); }
+            console.log('✅ tarball 干净且自包含(dist + LICENSE + NOTICE)');
+          "
 
       - name: Publish to npm (OIDC trusted publishing)
         if: needs.extract.outputs.dry_run == 'false'
@@ -166,6 +193,12 @@ jobs:
           VERSION="${{ needs.extract.outputs.version }}"
           echo "📦 Publishing @ihui/sdk@$VERSION to npm (OIDC)..."
           npm publish --access public --provenance
+          # 回读验证:registry 拿不到就等于没发布,绝不用"命令没报错"当结论
+          sleep 5
+          PUBLISHED="$(npm view @ihui/sdk version --registry=https://registry.npmjs.org/ 2>/dev/null || echo '')"
+          echo "registry 回读 version=$PUBLISHED (期望 $VERSION)"
+          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败"; exit 1; }
+          echo "✅ @ihui/sdk@$VERSION 已在 npm registry 可见"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # OIDC 失败时回退
 
@@ -189,7 +222,9 @@ jobs:
   pypi-publish:
     name: Publish to PyPI
     needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'pypi')
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'pypi')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -218,16 +253,42 @@ jobs:
       - name: Build wheel + sdist
         working-directory: packages/sdk/python
         run: |
+          # Apache-2.0 第 4 条要求分发副本附带许可证与 NOTICE 全文;
+          # pyproject 的 license-files = ["LICENSE","NOTICE"] 按 glob 取包内文件,
+          # 故构建前从仓库根复制(不提交副本,避免法律文本漂移)。缺文件只 warn 不 fail,
+          # 真发布必须带,所以这里显式校验存在性。
+          cp ../../LICENSE ../../NOTICE .
+          test -s LICENSE && test -s NOTICE || { echo "❌ 未取到 LICENSE / NOTICE"; exit 1; }
           python -m build
           echo "📦 Build artifacts:"
           ls -lh dist/
+          python - <<'PY'
+          import glob, zipfile, sys
+          whl = glob.glob('dist/*.whl')[0]
+          names = zipfile.ZipFile(whl).namelist()
+          have = [n for n in names if 'licenses/' in n]
+          print('  packaged license files:', have)
+          if not any('LICENSE' in n.upper() for n in have) or not any('NOTICE' in n.upper() for n in have):
+              sys.exit('❌ wheel 未附带 LICENSE / NOTICE')
+          PY
 
       - name: Publish to PyPI (OIDC trusted publishing)
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk/python
         run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # 上传前先 twine check:元数据/长描述不合法就不该去打 PyPI 的不可撤销动作
+          python -m twine check dist/*
           echo "📦 Publishing ihui-ai to PyPI (OIDC)..."
-          python -m twine upload dist/*
+          python -m twine upload --non-interactive dist/*
+          # 回读验证:PyPI JSON API 为准(与"命令没报错"无关)
+          sleep 10
+          curl -fsS "https://pypi.org/pypi/ihui-ai/$VERSION/json" -o /tmp/ihui-pypi.json \
+            && node -e "
+                 const j=require('/tmp/ihui-pypi.json');
+                 console.log('✅ PyPI 回读成功:', j.info.name, j.info.version, '| license:', j.info.license_expression || j.info.license);
+               " \
+            || { echo "❌ PyPI 回读失败:ihui-ai@$VERSION 查不到"; exit 1; }
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }} # OIDC 失败时回退
@@ -251,7 +312,9 @@ jobs:
   maven-publish:
     name: Publish to Maven Central
     needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'maven')
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'maven')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -329,7 +392,9 @@ jobs:
   go-publish:
     name: Publish Go module
     needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'go')
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'go')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
