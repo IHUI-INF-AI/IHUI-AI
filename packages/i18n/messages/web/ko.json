@@ -7173,12 +7173,14 @@
       "coordinated": "{count}개 서브 에이전트 조정 완료",
       "defaultName": "서브 에이전트",
       "totalSteps": "(총 {count}단계)",
-      "lane.architect": "아키텍트",
-      "lane.coder": "코더",
-      "lane.debugger": "디버거",
-      "lane.general": "일반",
-      "lane.researcher": "리서처",
-      "lane.reviewer": "리뷰어",
+      "lane": {
+        "architect": "아키텍트",
+        "coder": "코더",
+        "debugger": "디버거",
+        "general": "일반",
+        "researcher": "리서처",
+        "reviewer": "리뷰어"
+      },
       "laneEmpty": "대기 중",
       "viewToggle": "보기 전환",
       "working": "{count}개 서브 에이전트 협업 중"
@@ -8196,15 +8198,23 @@
     "clearLog": "지우기",
     "noEvents": "이벤트 기록 없음",
     "event": {
-      "tool.before": "도구 호출 전",
-      "tool.after": "도구 결과 후",
-      "message.send": "메시지 전송",
-      "message.receive": "메시지 수신",
-      "session.start": "세션 시작",
-      "session.end": "세션 종료",
+      "tool": {
+        "before": "도구 호출 전",
+        "after": "도구 결과 후"
+      },
+      "message": {
+        "send": "메시지 전송",
+        "receive": "메시지 수신"
+      },
+      "session": {
+        "start": "세션 시작",
+        "end": "세션 종료"
+      },
       "error": "오류 발생",
-      "commit.before": "커밋 전",
-      "commit.after": "커밋 후"
+      "commit": {
+        "before": "커밋 전",
+        "after": "커밋 후"
+      }
     },
     "action": {
       "log": "로그 기록",
@@ -8300,15 +8310,23 @@
     "clearLog": "비우기",
     "noLog": "전달 기록이 없습니다",
     "event": {
-      "tool.before": "도구 호출 전",
-      "tool.after": "도구 반환 후",
-      "message.send": "메시지 전송",
-      "message.receive": "메시지 수신",
-      "session.start": "세션 시작",
-      "session.end": "세션 종료",
+      "tool": {
+        "before": "도구 호출 전",
+        "after": "도구 반환 후"
+      },
+      "message": {
+        "send": "메시지 전송",
+        "receive": "메시지 수신"
+      },
+      "session": {
+        "start": "세션 시작",
+        "end": "세션 종료"
+      },
       "error": "오류 발생",
-      "commit.before": "커밋 전",
-      "commit.after": "커밋 후"
+      "commit": {
+        "before": "커밋 전",
+        "after": "커밋 후"
+      }
     },
     "pushPerm": {
       "default": "묻지 않음",
@@ -9043,14 +9061,6 @@
     "modelCapTools": "도구",
     "modelCapFim": "완성",
     "stepsHoverPreview": "마우스를 올려 끝부분 미리 보기, 클릭하여 전체 단계 펼치기",
-    "foldPolicy.title": "중간 단계 접기 정책",
-    "foldPolicy.auto": "적응형",
-    "foldPolicy.autoDesc": "가벼운 질의는 펼치고, 무거운 작업은 글자 수/도구 수/소요 시간으로 자동 접기",
-    "foldPolicy.collapsed": "항상 접기",
-    "foldPolicy.collapsedDesc": "중간 단계는 항상 접고, 막대를 클릭하면 펼치기",
-    "foldPolicy.expanded": "항상 펼치기",
-    "foldPolicy.expandedDesc": "중간 단계를 항상 펼치기 (Qoder 0.2.1 참고)",
-    "foldPolicy.current": "현재: {mode}",
     "modelCategoryAsr": "음성 인식",
     "modelCategoryChat": "대화·추론",
     "modelCategoryEmbedding": "임베딩",
