@@ -562,6 +562,64 @@ def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | 
     return policies.get("*")
 
 
+# 批58(十五):工具审批策略 → codex AskForApproval 档位映射(对标 exec_policy.rs)。
+# ihui 值域 never/on-request/always;未配置等价"按需询问"(ON_REQUEST)。
+_APPROVAL_POLICY_TO_ASK: dict[str, str] = {
+    "never": "never",
+    "on-request": "on_request",
+    "always": "unless_trusted",
+}
+
+
+def _unmatched_command_decision_meta(
+    policies: dict[str, str], tool_name: str
+) -> dict[str, Any]:
+    """危险命令拦截回执的审批决策矩阵(对标 codex render_decision_for_unmatched_command)。
+
+    接线面:命令已命中危险分类器硬门(拦截行为不变),本函数只把"拦截背后的策略
+    语义"结构化进回执——
+    - decision: allow/prompt/forbidden(危险命令恒非 allow);
+    - approval_policy:生效策略档位;
+    - policy_reason:策略层禁止提示时的 codex 原文(如 never 档的 PROMPT_CONFLICT_REASON)。
+
+    任何异常/未知档位 → 返回空 dict(回执与接线前逐零差异),绝不放松拦截。
+    """
+    try:
+        from app.core.exec_policy_decision import (
+            AskForApproval,
+            Decision,
+            GranularApproval,
+            SandboxKind,
+            UnmatchedCommandContext,
+            prompt_is_rejected_by_policy,
+            render_decision_for_unmatched_command,
+        )
+
+        raw = _resolve_approval_policy(dict(policies or {}), tool_name) or ""
+        policy = AskForApproval(
+            _APPROVAL_POLICY_TO_ASK.get(str(raw).strip().lower(), "on_request")
+        )
+        decision = render_decision_for_unmatched_command(
+            True,
+            UnmatchedCommandContext(
+                approval_policy=policy,
+                granular=GranularApproval(),
+                sandbox_kind=SandboxKind.RESTRICTED,
+            ),
+        )
+        meta: dict[str, Any] = {
+            "decision": Decision(decision).value,
+            "approval_policy": policy.value,
+        }
+        if decision is Decision.FORBIDDEN:
+            reason = prompt_is_rejected_by_policy(policy, True)
+            if reason:
+                meta["policy_reason"] = reason
+        return meta
+    except Exception:  # noqa: BLE001 - 决策面失败绝不影响拦截本体
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # 生成参数 / 推理配置 / 负向工具过滤(2026-09-18 第二批,对标 Codex model_reasoning
 # 与 per-app omit_tools_from 配置面):thread.start 可带 modelParams(白名单键 +
@@ -5331,13 +5389,30 @@ class AgentEngine:
             _hit = _dangerous_command_match(_tokens)
             if _hit is not None:
                 label = "强制删除(rm 系 force 旗标)" if _hit == "forced_rm" else "高危操作"
-                return {
-                    "error": (
+                # 批58(十五):把拦截背后的审批决策矩阵结构化进回执(对标 codex
+                # exec_policy.rs render_decision_for_unmatched_command)。决策=
+                # forbidden(never 档:策略层禁提示)时文案升级为"策略禁止",不再
+                # 引导模型走用户确认;决策=prompt 时维持既有"先确认再重试"语义。
+                _decision = _unmatched_command_decision_meta(
+                    thread.approval_policies, "unified_exec"
+                )
+                _forbidden = _decision.get("decision") == "forbidden"
+                if _forbidden:
+                    _reason = _decision.get("policy_reason") or "策略禁止提示用户审批"
+                    _msg = (
+                        f"命令被安全分类器拦截:判定为{label}({_hit}),且当前审批策略"
+                        f"(approval_policy=never)禁止向用户申请放行({_reason})。"
+                        "该命令在本会话内不可执行;若确需执行,请先调整审批策略。"
+                    )
+                else:
+                    _msg = (
                         f"命令被安全分类器拦截:判定为{label}({_hit})。"
                         "如确属用户明确要求的操作,请先向用户复述风险并获得确认,"
                         "再由用户在宿主审批后以等效但明确的方式执行。"
-                    ),
-                    "safety": {"classification": _hit},
+                    )
+                return {
+                    "error": _msg,
+                    "safety": {"classification": _hit, **_decision},
                 }
             _prune_sessions()
             session_id = args.get("sessionId")
