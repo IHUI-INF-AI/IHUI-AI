@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore } from '@/stores/chat'
+import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-intent'
 
 /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
  *  传入 streamChat → api /ai/chat/stream → ai-service /api/llm/complete/stream
@@ -392,73 +393,16 @@ export const WEB_UI_CONTROL_TOOLS = [
 
 export const API_CONTROL_TOOLS = ['api_endpoints_search', 'api_endpoint_call'] as const
 
-/** "操作我们自己的程序/页面"强信号 */
-const UI_CONTROL_KEYWORDS = [
-  '打开',
-  '跳转',
-  '切到',
-  '切换到',
-  '进入',
-  '回到',
-  '导航到',
-  '带我到',
-  '点击',
-  '点一下',
-  '按下',
-  '按一下',
-  '填写',
-  '填入',
-  '填一下',
-  '填成',
-  '输入框',
-  '表单',
-  '下拉框',
-  '提交表单',
-  '保存表单',
-  '这个页面',
-  '当前页面',
-  '页面上',
-  '页面显示',
-  '可操控',
-  '能操作',
-  '操控',
-  '操作这个',
-  '操作我们',
-  '操作本站',
-  '新建会话',
-  '命令面板',
-  '侧边栏',
-  '面板',
-]
-
-/** "要求走后端能力/查业务数据"强信号 */
-const API_CONTROL_KEYWORDS = [
-  '接口',
-  'api',
-  '端点',
-  '后端',
-  '服务端',
-  '列出所有',
-  '查一下所有',
-  '有多少',
-  '统计一下',
-  '用户列表',
-  '订单列表',
-  '后台数据',
-  '调用',
-]
-
-export function uiControlToolsFor(content: string): string[] {
-  if (!content) return []
-  const text = content.toLowerCase()
-  const has = (...kws: string[]) => kws.some((kw) => text.includes(kw))
-  const out = new Set<string>()
-  // 动作类工具依赖 describe 返回的 id/target,故整族一起带(拆细反而会让模型拿不到定位符)
-  if (has(...UI_CONTROL_KEYWORDS)) for (const t of WEB_UI_CONTROL_TOOLS) out.add(t)
-  // search + call 必须成对:只给 search 模型搜到了却调不动
-  if (has(...API_CONTROL_KEYWORDS)) for (const t of API_CONTROL_TOOLS) out.add(t)
-  return [...out]
-}
+/**
+ * 操控本站意图 → 本端工具名(2026-09-21)。
+ *
+ * 判断逻辑与关键词表在 @ihui/shared/utils/app-control-intent:web/desktop/RN/小程序要在同一处
+ * 闸门上做同一个判断,各端复制必然漂移。本端只注入"命中后带哪些名字"。
+ */
+export const uiControlToolsFor = createAppControlToolSelector({
+  ui: WEB_UI_CONTROL_TOOLS,
+  api: API_CONTROL_TOOLS,
+})
 
 export function eduToolsFor(content: string): string[] {
   if (!content) return []

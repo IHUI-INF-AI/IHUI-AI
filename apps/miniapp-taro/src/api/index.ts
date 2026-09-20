@@ -13,6 +13,7 @@ import type { SSEEvent } from '../utils/sse-parse'
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
 // W5:chatStream 传输层收敛到 src/lib/sse.ts(enableChunked + H5 fetch + 断点续传 + 指数退避 + 读超时 + AbortSignal)
 import { streamSSE } from '@/lib/sse'
+import { resolveAgentTools } from '@/lib/ui-control-tools'
 import type {
   FetchModelsResult,
   AgentPermission,
@@ -453,6 +454,9 @@ export const chatStream = async (
     }
   }
 
+  // AI 操控本站(2026-09-21):调用方没显式指定时,按"这一句是不是在要求操作程序"预筛本端工具。
+  const agentTools = resolveAgentTools(options.agentTools, messages)
+
   // W5:请求体(两分支共用,避免字段漂移;对齐 apps/api chatStreamSchema 的 11 个字段)
   const buildBody = () => ({
     messages,
@@ -462,7 +466,7 @@ export const chatStream = async (
     materialContent: options.materialContent,
     contextLimit: options.contextLimit ?? 0,
     workspaceContext: options.workspaceContext,
-    agentTools: options.agentTools,
+    agentTools,
     plan_mode: options.plan_mode,
     tools: options.tools,
     tool_choice: options.tool_choice,
