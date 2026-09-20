@@ -18,10 +18,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
 
-
-def parse_network_decision(value: Optional[str]) -> Optional[str]:
+def parse_network_decision(value: str | None) -> str | None:
     """解析策略决定字符串;仅接受 deny/ask,未知返回 None(安全默认)。"""
     if value == "deny":
         return "deny"
@@ -39,7 +37,7 @@ _REASON_DETAIL = {
 }
 
 
-def denied_network_policy_message(reason: str, host: Optional[str]) -> str:
+def denied_network_policy_message(reason: str, host: str | None) -> str:
     """构造拒绝消息(对标 denied_network_policy_message)。"""
     host_clean = (host or "").strip()
     detail = _REASON_DETAIL.get(reason, "request is blocked by network policy")
@@ -48,7 +46,7 @@ def denied_network_policy_message(reason: str, host: Optional[str]) -> str:
     return f'Network access to "{host_clean}" was blocked: {detail}.'
 
 
-def should_surface_as_ask(payload_decision: Optional[str], is_ask_from_decider: bool) -> bool:
+def should_surface_as_ask(payload_decision: str | None, is_ask_from_decider: bool) -> bool:
     """该 payload 是否应作为"询问用户"上报(仅 decider 主动 ask 才上报)。"""
     return bool(is_ask_from_decider) and parse_network_decision(payload_decision) == "ask"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

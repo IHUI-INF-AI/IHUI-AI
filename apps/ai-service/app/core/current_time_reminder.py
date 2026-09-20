@@ -25,10 +25,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from enum import Enum
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
+from typing import Any
 
 __all__ = [
     "CURRENT_TIME_REMINDER_OPEN_TAG",
@@ -92,7 +93,7 @@ def is_turn_aborted_fragment(text: str) -> bool:
     return text.lstrip().startswith(TURN_ABORTED_OPEN_TAG)
 
 
-class TimeReminderDeliveryMode(str, Enum):
+class TimeReminderDeliveryMode(StrEnum):
     """投递模式(对标 CurrentTimeReminderDeliveryMode)。
 
     - ANY_INFERENCE(默认):interval 到期即在任何推理前投递。
@@ -268,7 +269,7 @@ class CurrentTimeReminderState:
         }
 
     @classmethod
-    def from_snapshot(cls, snap: dict[str, Any] | None) -> "CurrentTimeReminderState":
+    def from_snapshot(cls, snap: dict[str, Any] | None) -> CurrentTimeReminderState:
         if not isinstance(snap, dict):
             return cls()
         last_delivery = snap.get("last_delivery_time")

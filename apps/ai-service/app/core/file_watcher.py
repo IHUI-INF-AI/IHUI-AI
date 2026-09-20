@@ -20,12 +20,11 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import time
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -219,7 +218,7 @@ class DebouncedWatchReceiver:
                 break
             try:
                 event = await asyncio.wait_for(self._rx.recv(), timeout=remaining)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
             if event is None:
                 break

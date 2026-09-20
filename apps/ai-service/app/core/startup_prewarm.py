@@ -26,31 +26,30 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine, Generic, Optional, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 
 @dataclass
-class PrewarmResolution(Generic[T]):
+class PrewarmResolution[T]:
     status: str  # "ready" | "timed_out" | "cancelled" | "unavailable"
-    value: Optional[T] = None
-    prewarm_duration_ms: Optional[int] = None
-    age_at_first_turn_ms: Optional[int] = None
-    error: Optional[str] = None
+    value: T | None = None
+    prewarm_duration_ms: int | None = None
+    age_at_first_turn_ms: int | None = None
+    error: str | None = None
 
     @property
     def ready(self) -> bool:
         return self.status == "ready"
 
 
-class StartupPrewarmHandle(Generic[T]):
+class StartupPrewarmHandle[T]:
     """一个启动预热任务的句柄(对标 SessionStartupPrewarmHandle)。"""
 
     def __init__(
         self,
-        task: "asyncio.Task[Any]",
+        task: asyncio.Task[Any],
         started_at: float,
         timeout: float,
     ) -> None:
@@ -83,7 +82,7 @@ class StartupPrewarmHandle(Generic[T]):
                 prewarm_duration_ms=int((time.perf_counter() - self._started_at) * 1000),
                 age_at_first_turn_ms=age_ms,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._task.cancel()
             return PrewarmResolution(
                 status="timed_out",
@@ -113,8 +112,8 @@ class StartupPrewarmHandle(Generic[T]):
             pass
 
 
-def start_startup_prewarm(
-    factory: Callable[[], "Coroutine[Any, Any, T]"],
+def start_startup_prewarm[T](
+    factory: Callable[[], Coroutine[Any, Any, T]],
     *,
     timeout: float = 10.0,
 ) -> StartupPrewarmHandle[T]:
