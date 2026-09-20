@@ -16,7 +16,9 @@
  * 2. 登记表内端点携带已授予 scope 的 API Key 可达,并正确绑定归属人 + 注入 capability;
  * 3. 登记表外端点携带 API Key 仍 401(默认拒绝,不因带 key 而放行);
  * 4. key 未授予该 scope → 403 SCOPE_REQUIRED / platform 语义由登记表挡在启动期;
- * 5. 人 JWT 通道逐请求不变:不调用 API Key 鉴权、不注入 capability。
+ * 5. 人 JWT 通道逐请求不变:不调用 API Key 鉴权、不注入 capability;
+ * 6. 结构性防线:登记表任何 path 不得含 `*`,已登记族下未枚举的新路径一律不命中
+ *    (默认拒绝不允许前缀继承,见 open-capability-registry 的 compilePath 语义)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
@@ -88,6 +90,9 @@ vi.mock('jose', async (importOriginal) => {
 const { default: Fastify } = await import('fastify')
 const { authenticate } = await import('../src/plugins/auth.js')
 const { openCapabilityGateway } = await import('../src/utils/open-capability-gate.js')
+const { findOpenCapability, openCapabilityEntries } = await import(
+  '../src/config/open-capability-registry.js'
+)
 const { v1ToolsRoutes } = await import('../src/routes/other/v1-tools-routes.js')
 const { v1ContentRoutes } = await import('../src/routes/other/v1-content-routes.js')
 const { v1CustomerServiceRoutes } = await import('../src/routes/other/v1-customer-service-routes.js')
@@ -318,6 +323,27 @@ describe('登记表外端点:携带 API Key 也不放行(默认拒绝)', () => {
     })
     expect(withJwt.statusCode).toBe(200)
     await app.close()
+  })
+})
+
+describe('结构性防线:默认拒绝不允许前缀继承(登记表必须无通配)', () => {
+  it('registry 中任何条目、任何 path 都不得含 "*"(通配语义已整体废弃)', () => {
+    const offenders = openCapabilityEntries().flatMap((entry) =>
+      entry.paths.filter((path) => path.includes('*')).map((path) => `${entry.key}: ${path}`),
+    )
+    expect(offenders).toEqual([])
+  })
+
+  // 在每个已登记族下"新增一个未登记路径"必须判为不命中:同方法不成、跨段更不成。
+  // 与上文 HTTP 级用例('/api/v1/tools/newly-added 带 key 仍 401')互为镜像 ——
+  // 这里钉匹配函数本身,那里钉整条网关链路。
+  it.each([
+    ['GET', '/api/v1/tools/newly-added', 'tools 只读族(GET 同方法,未枚举)'],
+    ['GET', '/api/v1/content/newly-added', 'content 只读族(GET 同方法,未枚举)'],
+    ['GET', '/api/v1/customer_service/tickets', '客服族同前缀复数路径(现实无此注册点)'],
+    ['DELETE', '/api/v1/codebase/repo/7/tags/batch', 'codebase 写族 :repoId 下再嵌套(跨段)'],
+  ] as const)('未登记路径不命中:%s %s(%#)', (method, path, _why) => {
+    expect(findOpenCapability(method, path)).toBeUndefined()
   })
 })
 
