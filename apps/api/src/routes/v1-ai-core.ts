@@ -32,9 +32,16 @@
  * 20. POST   /v1/agents/decompose          — 任务分解(权限: agents:call)
  */
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { db, dbRead } from '../db/index.js'
+// O4b 数据闸接线(2026-09-20):本文件里 `zhs_ai_user_model_chat_config`(用户自有模型
+// 配置,含各家 apiKey)的读写一律改走受控出口 —— 机器凭据(models:write = scoped-write)
+// 的语句必须自带 owner 谓词,否则出口即 403 DATA_SCOPE_DENIED。
+// 例外:GET /v1/user/models 走 `dbRead`(原始出口)。该端点的能力是 models:read,
+// 目录 dataClass=compute → 模式 self-metadata,按设计**不得触达任何业务表**(含本表),
+// 接线会把一个"只返回调用方自有配置"的在用端点打死成恒定 403。正解在目录侧
+// (重定 models:read 的 dataClass,或给"自有行读取"开白名单)—— 不在本次文件范围。
+import { dbRead, dbScoped, dbReadScoped } from '../db/index.js'
 import { zhsAiUserModelChatConfig } from '@ihui/database'
 import type {
   V1EmbeddingsResponse,
@@ -868,7 +875,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       }
       const { name, provider, model, apiKey, baseUrl } = parsed.data as V1CreateUserModelRequest
 
-      const [row] = await db
+      const [row] = await dbScoped
         .insert(zhsAiUserModelChatConfig)
         .values({
           userId,
@@ -948,13 +955,14 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      const [existing] = await dbRead
+      // O4b:owner 谓词进 WHERE —— 他人行在 SQL 层就取不到(不再"先读后比"),
+      // 且这条读语句在受控出口上自带归属证据(models:write = scoped-write)。
+      const [existing] = await dbReadScoped
         .select()
         .from(zhsAiUserModelChatConfig)
-        .where(eq(zhsAiUserModelChatConfig.id, id))
+        .where(and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, 'Model config not found'))
-      if (existing.userId !== userId) return reply.status(403).send(error(403, 'Forbidden'))
 
       const updates: Record<string, unknown> = {}
       if (parsed.data.name !== undefined) updates.name = parsed.data.name
@@ -965,10 +973,15 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
 
       let row = existing
       if (Object.keys(updates).length > 0) {
-        const [updated] = await db
+        const [updated] = await dbScoped
           .update(zhsAiUserModelChatConfig)
           .set(updates)
-          .where(eq(zhsAiUserModelChatConfig.id, id))
+          .where(
+            and(
+              eq(zhsAiUserModelChatConfig.id, id),
+              eq(zhsAiUserModelChatConfig.userId, userId),
+            ),
+          )
           .returning()
         row = updated ?? existing
       }
@@ -1013,15 +1026,22 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (!userId) return
 
       const { id } = request.params as { id: string }
-      const [existing] = await dbRead
-        .select()
+      // O4b:归属由 SQL 谓词证明,不再依赖"先读后比"的应用层判断(读他人行本身即被出口拒绝)。
+      const [existing] = await dbReadScoped
+        .select({ id: zhsAiUserModelChatConfig.id })
         .from(zhsAiUserModelChatConfig)
-        .where(eq(zhsAiUserModelChatConfig.id, id))
+        .where(and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, 'Model config not found'))
-      if (existing.userId !== userId) return reply.status(403).send(error(403, 'Forbidden'))
 
-      await db.delete(zhsAiUserModelChatConfig).where(eq(zhsAiUserModelChatConfig.id, id))
+      await dbScoped
+        .delete(zhsAiUserModelChatConfig)
+        .where(
+          and(
+            eq(zhsAiUserModelChatConfig.id, id),
+            eq(zhsAiUserModelChatConfig.userId, userId),
+          ),
+        )
       return reply.status(204).send()
     },
   )
