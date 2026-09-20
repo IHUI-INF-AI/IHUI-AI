@@ -1491,14 +1491,13 @@ importers:
         version: 5.9.3
 
   packages/sdk:
-    dependencies:
-      '@ihui/types':
-        specifier: workspace:*
-        version: link:../types
     devDependencies:
       '@ihui/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+      '@ihui/types':
+        specifier: workspace:*
+        version: link:../types
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -3864,7 +3863,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@57.0.15':
     resolution: {integrity: sha512-YIE5xgZlkwx6OyjjVq/zAfqtYvczsWLEkOukDJwaZDaMQl8x5/CjoqC/Oe670DFQc5xjqguH6cmZUWHHL7yH3g==}
