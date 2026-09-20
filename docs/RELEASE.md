@@ -6,7 +6,9 @@
 
 # 发布流程
 
-> IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop 手动 tauri build(无自动发布)+ extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk 5 语言包管理器,由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
+> IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop GitHub Release 自动发布 + extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk(npm / PyPI / Maven / Go 4 语言通道,.NET 无通道),由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
+>
+> ⚠️ **"配了流程" ≠ "已发布"**。截至 2026-09-20,npm / PyPI 上的 `@ihui/*` 与 `ihui-ai` **一个都没有**(registry 回读全 404),SDK/CLI 发布所需的 secrets 也未配置。逐条证据见下节[发布状态(实测)](#发布状态实测-2026-09-20逐条带命令回读)。
 
 ---
 
@@ -36,11 +38,38 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | extension | Chrome Web Store | 手动上传 zip | `apps/extension/package.json` + `wxt.config.ts` |
 | mobile-rn | EAS + App Store + Play Store | `eas build` / `eas submit` | `apps/mobile-rn/eas.json` |
 | miniapp-taro | 微信小程序审核 | 微信开发者工具上传 | `apps/miniapp-taro/package.json` |
-| sdk(TS) | npm 包 | `v*` tag → 发布 workflow | `packages/sdk/package.json` |
-| sdk(Python) | PyPI | `v*` tag → 发布 workflow | `packages/sdk/python/pyproject.toml` |
-| sdk(Go) | go get(git tag) | `v*` tag | `packages/sdk/go/go.mod` |
-| sdk(Java) | Maven Central | `v*` tag → 发布 workflow | `packages/sdk/java/pom.xml` |
-| sdk(.NET) | NuGet Gallery | `v*` tag → 发布 workflow | `packages/sdk/dotnet/aizhs.top.csproj` |
+| sdk(TS) | npm 包 | `sdk-v*` tag → `release-sdk.yml` | `packages/sdk/package.json` |
+| sdk(Python) | PyPI | `sdk-v*` tag → `release-sdk.yml` | `packages/sdk/python/pyproject.toml` |
+| sdk(Go) | go get(git tag) | `sdk-v*` tag → `release-sdk.yml`(推 `sdk/v*` 子 tag) | `packages/sdk/go/go.mod` |
+| sdk(Java) | Maven Central | `sdk-v*` tag → `release-sdk.yml` | `packages/sdk/java/pom.xml` |
+| sdk(.NET) | NuGet Gallery | **无 workflow**(仓库内不存在任何 NuGet 发布任务) | `packages/sdk/dotnet/Ihui.AI.csproj` |
+| cli(homebrew) | Homebrew formula | 手动提交 PR | `deploy/homebrew/ihui.rb`(sha256 仍为占位) |
+
+### 发布状态(实测 2026-09-20,逐条带命令回读)
+
+> 本节是"已发布 / 未发布"的**唯一真相源**。历史版本曾把未发布的产物写成已交付,
+> 现全部以下面这些可复现的只读命令为准 —— 命令输出与表格不一致时,以命令为准并回来改表格。
+
+| 产物 | 状态 | 回读命令 | 实测输出 |
+| --- | --- | --- | --- |
+| `@ihui/sdk`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fsdk` | `{"error":"Not found"}`(HTTP 404) |
+| `@ihui/cli`(npm) | ❌ 未发布 | `curl -s https://registry.npmjs.org/@ihui%2Fcli` | `{"error":"Not found"}` |
+| `@ihui/api-client`(npm) | ❌ 未发布(定位为内部包,见下) | `curl -s https://registry.npmjs.org/@ihui%2Fapi-client` | `{"error":"Not found"}` |
+| `ihui-ai`(PyPI) | ❌ 未发布 | `curl -s https://pypi.org/pypi/ihui-ai/json` | `{"message": "Not Found"}`(HTTP 404) |
+| SDK 发布 tag | ❌ 一个都没有 | `git tag -l 'sdk-v*'`(另测 `v*` / `cli-v*`) | 0 行 |
+| npm 发布凭据(本地) | ❌ 无 | `npm token list --registry=https://registry.npmjs.org/` | `npm error 401 Unauthorized` |
+| npm 发布凭据(用户级 .npmrc) | ❌ 无 token | 查 `C:\Users\Administrator\.npmrc` | 仅 registry/prefix/cache 三行,无 `_authToken` |
+| CI 发布 secrets | ❌ 未配置 | `gh secret list` | 仅 DEPLOY_/DESKTOP_/GITEE_/GITCODE_ 共 8 项,**无** NPM_TOKEN / PYPI_TOKEN / MAVEN_* / NUGET_* |
+| OIDC trusted publishing | ❌ 不可用 | npm / PyPI 包页面 | 两个 registry 都要求**先有已发布的包/项目**才能登记 trusted publisher;当前 404 → 无从登记,首次发布必须走 token |
+| desktop GitHub Release | ✅ 已发布(对照项) | `git tag -l 'desktop-v*'` | `desktop-v0.1.42` 等已产出(见 `release-desktop.yml`) |
+
+**结论:`release-sdk.yml` / `release-cli.yml` 的发布链路是"配好了但从未跑通",不是"已交付"。**
+要让 SDK/CLI 真正对外可安装,还差三件事(全部在用户侧,agent 无法代办):
+
+1. 在 npmjs.com 注册 `@ihui` org 并生成 Granular Access Token → 配成 GitHub Secret `NPM_TOKEN`;
+   首次发布后用包页面 "Trusted Publisher" 登记 `IHUI-INF-AI / IHUI-AI / release-sdk.yml`,再摘掉 token。
+2. 在 PyPI 建项目 `ihui-ai` 并配 `PYPI_TOKEN`(名字必须与 workflow 里的 `secrets.PYPI_TOKEN` 一致)。
+3. 决定 `@ihui/*` 内部包(全部 `private:true`)是否随发布 —— 见下方"sdk / cli 依赖闭包"。
 
 ---
 
@@ -75,9 +104,13 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 
 | Tag 模式 | 触发 | 用途 |
 | --- | --- | --- |
-| `v1.2.3` | `build.yml` | 整体版本(web + api + ai-service + sdk)Docker 镜像构建 |
+| `v1.2.3` | `build.yml` + `release-on-tag.yml` | 整体版本(web + api + ai-service + migrate)Docker 镜像构建 + GitHub Release |
 | `cli-v1.0.0` | `release-cli.yml` | CLI 单独发版(npm + 6 二进制) |
-| `sdk-v0.1.0` | sdk 发布 workflow | 5 语言 SDK 同步发版 |
+| `sdk-v0.1.0` | `release-sdk.yml` | SDK 发版(npm / PyPI / Maven / Go **4** 语言,无 NuGet) |
+
+> **2026-09-20 修正**:`release-sdk.yml` 原先挂在裸 `v*` 上,与 `build.yml` / `release-on-tag.yml`
+> 撞同一触发器 —— 打一个 Docker 版本 tag 会连带触发 SDK 发布。已改为 `sdk-v*`,
+> 与 `cli-v*` / `desktop-v*` 前缀约定对齐,同时 `extract` job 现在按 `^sdk-v` 剥前缀并强校验 semver。
 
 ### CHANGELOG 维护
 
@@ -385,17 +418,50 @@ matrix:
 
 二进制上传到 GitHub Release 后,再更新 winget / scoop / homebrew / snap 的 manifest(见 cli 矩阵)。
 
-### sdk(5 语言包管理器)
+### sdk(4 语言包管理器 + 1 语言无发布通道)
 
-| SDK | 仓库 | 发布命令 | 审核 |
-| --- | --- | --- | --- |
-| TS | npm | `pnpm --filter @ihui/sdk publish --access public` | 即时 |
-| Python | PyPI | `python -m build && twine upload dist/*` | 即时 |
-| Go | GitHub(无中心仓库) | git tag(用户 `go get` 拉取) | 即时 |
-| Java | Maven Central | `mvn deploy -P release`(需 GPG + Sonatype 账号) | Sonatype 审核(首次约 2 小时) |
-| .NET | NuGet Gallery | `dotnet pack && dotnet nuget push` | 即时 |
+| SDK | 仓库 | 发布命令(tag 触发后的实际步骤) | 审核 | 当前可发布性 |
+| --- | --- | --- | --- | --- |
+| TS | npm | `pnpm --filter @ihui/sdk build` → `npm publish --access public --provenance` | 即时 | ⚠️ 产物已可安装,缺 `NPM_TOKEN` |
+| Python | PyPI | 复制根 `LICENSE`/`NOTICE` → `python -m build` → `twine check` → `twine upload` | 即时 | ⚠️ 产物已可安装,缺 `PYPI_TOKEN` |
+| Go | GitHub(无中心仓库) | 打 `sdk/v<VERSION>` 子 tag 并推送,proxy.golang.org 自动抓取 | 即时 | ⚠️ 依赖 workflow 有 `git push` 权限 |
+| Java | Maven Central | `mvn -B clean deploy` | Sonatype 审核(首次约 2 小时) | ❌ `pom.xml` 缺 `<licenses>` / `<developers>` / `<scm>` / `<url>`,无 sources/javadoc jar、无 GPG 签名插件,`MAVEN_USERNAME` / `MAVEN_TOKEN` 也未配置 |
+| .NET | NuGet Gallery | **仓库内不存在任何 NuGet workflow / 发布脚本** | — | ❌ 只有 `Ihui.AI.csproj` 元数据,无发布通道 |
 
-> 5 语言 SDK 同步发版,版本号保持一致(见 [SDK.md](./SDK.md) 版本管理)。
+> 旧版本本节写着"5 语言 SDK 同步发版",实际 `release-sdk.yml` 只有 4 个发布 job(npm / pypi / maven / go),
+> `.NET` 从未有过发布通道;并且 4 个 job 的 `if:` 在 `push` tag 事件下恒为 false
+> (`github.event.inputs.language` 是 `workflow_dispatch` 专属入参),即"打了 tag 也只跑 dry-run"。
+> 2026-09-20 已修门控,现在 `push sdk-v*` 会真正进入 publish 分支。
+
+### sdk / cli 依赖闭包(决定"谁能对外发布")
+
+`packages/` 下 16 个包**全部** `private: true` 且 `version: 0.0.0`,入口统一 `main/types → ./src/index.ts`
+(仓库内 8 端按源码消费,靠 `turbo` 的 `dependsOn: ["^build"]` 串起构建)。这带来两条硬结论:
+
+| 包 | 定位 | 处理 |
+| --- | --- | --- |
+| `@ihui/sdk` | 对外唯一 TS 入口 | 已改为可发布形态:`main/types → dist`、`files` 白名单、`license: Apache-2.0`、`publishConfig.registry` 锁 npmjs.org、`@ihui/types` 移到 devDependencies(纯类型引用,发行包不需要) |
+| `@ihui/api-client` | **内部传输层,不对外发布** | 保留 `private: true`。理由:① 它被 8 端经 workspace 直接按源码消费,翻成 `dist` 入口会让 `pnpm dev` 依赖先构建,收益为零;② 对外契约由 `@ihui/sdk` 承担,同时发布两个高度重叠的客户端包只会让使用者困惑;③ 它 `dependencies: { "@ihui/types": "workspace:*" }`,而 `@ihui/types` 是 private —— 去 private 也发不出去。**注意:`build` 脚本(`tsc`)是好的,`packages/api-client/dist` 能正常产出**,只是不用于发布。 |
+| `@ihui/types` | 契约包 | 仍是 `private: true`。`@ihui/sdk` 的 `dist/*.d.ts` 有 13 处 `import type … from '@ihui/types'`,严格消费者(`skipLibCheck: false`)会报 13 个 TS2307 —— 见"SDK 类型面遗留问题" |
+| `@ihui/cli` | 名义上可发布(`private: false` + `publishConfig`),**实际装不上** | 它 `dependencies` 里有 5 个 `workspace:*` 的 private 包(api-client / context-compaction / design-tokens / shared / types)。发出去后 `npm i @ihui/cli` 会 404;即使绕过安装,运行时 `import '@ihui/shared'` 也会因为没打包而崩。要么发布这 5 个包,要么把 CLI 用 bundler 打成单文件(需新增构建依赖)。 |
+
+### SDK 类型面遗留问题(`@ihui/types` 未发布导致 d.ts 解析不到)
+
+实测(2026-09-20,用真实 tarball 装进干净消费者工程):
+
+| 消费者配置 | 结果 |
+| --- | --- |
+| `skipLibCheck: true`(仓库 `tsconfig.base.json` 与社区主流默认) | `tsc --noEmit` **exit 0**,公共 API 类型(`SdkConfig` / `createClient` / `SdkError`)正常;跨包返回类型退化为 `any` |
+| `skipLibCheck: false` | **13 个 `TS2307: Cannot find module '@ihui/types'`**,全部位于发行包 `dist/*.d.ts` 内,消费者自身代码 0 报错 |
+
+两条可选收口路径(都需要仓库级决策,不在本次可改范围内):
+
+1. **发布 `@ihui/types`**(改动最小):去掉 private + 补 `build`/`files`/`exports` + 首版 `0.1.0`,然后 `@ihui/sdk` 把它列回 `dependencies`。需要动 `packages/types/**`。
+2. **打包时内联声明**(不动 types):给 SDK 构建加一步 `.d.ts` bundler(如 `rollup-plugin-dts` / `api-extractor`),把 `@ihui/types` 的 113 个被引用类型卷进单一 `dist/index.d.ts`。需要新增 devDependency + 改 lockfile。
+
+> 禁止把 types 的声明**手抄**进 `packages/sdk/src/types/`:那份契约是活的 —— 实测本次任务期间
+> `packages/types/src/capability-catalog.ts` 正被并行会话改动(未提交),且 `packages/types`
+> 当天仍有提交(`d4331fb39b`,2026-09-20)。复制即漂移,比 `skipLibCheck` 退化更糟。
 
 ---
 
@@ -429,15 +495,20 @@ node scripts/cert-expiry-check.mjs
 | `DEPLOY_USER` | SSH 用户名(默认 `deploy`) |
 | `DEPLOY_SSH_PRIVATE_KEY` | SSH 私钥(用于 `blue-green-deploy.yml` SSH 登录部署) |
 
-其他 Secrets(按需配置):
+其他 Secrets(按需配置)—— **"期望名"一列已按 workflow 实际引用核对,配错名字等于没配**:
 
-| Secret | 用途 |
-| --- | --- |
-| `NPM_TOKEN` | npm publish(`release-cli.yml` + sdk 发布) |
-| `PYPI_API_TOKEN` | PyPI 上传(Python SDK) |
-| `MAVEN_GPG_PRIVATE_KEY` / `MAVEN_GPG_PASSPHRASE` / `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` | Maven Central 上传(Java SDK) |
-| `NUGET_API_KEY` | NuGet 上传(.NET SDK) |
-| `GHCR_TOKEN` | GHCR 镜像推送 |
+| Secret | 被谁引用 | 配置状态(2026-09-20 实测 `gh secret list`) |
+| --- | --- | --- |
+| `NPM_TOKEN` | `release-sdk.yml` npm job + `release-cli.yml` npm job | ❌ 未配置 |
+| `PYPI_TOKEN` | `release-sdk.yml` pypi job(`TWINE_PASSWORD`) | ❌ 未配置 |
+| `MAVEN_USERNAME` / `MAVEN_TOKEN` | `release-sdk.yml` maven job(`~/.m2/settings.xml`) | ❌ 未配置 |
+| `GHCR_TOKEN` | GHCR 镜像推送(多数 job 用自动注入的 `GITHUB_TOKEN`) | ❌ 未配置(通常不需要) |
+
+> **名字纠错**:本文件旧版写着 `PYPI_API_TOKEN` 与 `MAVEN_GPG_PRIVATE_KEY` / `MAVEN_GPG_PASSPHRASE` /
+> `MAVEN_CENTRAL_USERNAME` / `MAVEN_CENTRAL_PASSWORD` / `NUGET_API_KEY` —— 这些名字**没有任何 workflow 引用**。
+> PyPI 真实变量名是 `PYPI_TOKEN`;Maven 真实变量名是 `MAVEN_USERNAME` / `MAVEN_TOKEN`;
+> GPG 签名与 NuGet 发布目前**根本没有实现**(见"sdk(4 语言…)"节)。
+> 配 secret 前先跑 `gh secret list` 与 `grep -o "secrets\.[A-Z_0-9]*" .github/workflows/*.yml` 对齐。
 
 完整 Secrets 文档见 `.github/SECRETS.md`。
 
