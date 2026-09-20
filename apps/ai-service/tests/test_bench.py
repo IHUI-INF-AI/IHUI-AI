@@ -21,11 +21,18 @@ from app.core.llm_gateway import VENDOR_ENV_KEYS
 
 
 def _run_bench(args: list[str]) -> subprocess.CompletedProcess:
-    """以子进程运行 bench,继承当前 python 解释器与 cwd。"""
+    """以子进程运行 bench,继承当前 python 解释器与 cwd。
+
+    编码必须两端钉死 UTF-8:子进程默认按 locale 写、父进程按 locale 读,中文 Windows
+    (cp936)上只要有人带 PYTHONIOENCODING=utf-8 跑测试,读取线程就会 GBK 解码失败并被
+    静默吞掉,表现为难以定位的 `proc.stdout is None`(`'NoneType' has no attribute 'lower'`)。
+    """
     return subprocess.run(
-        [sys.executable, "-m", "bench.run_bench", *args],
+        [sys.executable, "-X", "utf8", "-m", "bench.run_bench", *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=300,
     )
 
