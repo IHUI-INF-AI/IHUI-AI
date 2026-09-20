@@ -51,6 +51,23 @@ const IMPORT_SOURCES: ReadonlyArray<{
   { value: 'aider', labelKey: 'conversationImport.sourceAider', hintKey: 'conversationImport.sourceAiderHint' },
 ]
 
+/**
+ * 各来源可选后缀 —— 必须与 ai-service 路由白名单 + 解析器分派一致,
+ * 否则用户选到一个必被服务端 400 的文件(且无后缀文件名会被直接拒)。
+ */
+const ALLOWED_EXTENSIONS: Record<ConversationImportSource, readonly string[]> = {
+  claude_code: ['.jsonl', '.json'],
+  codex: ['.jsonl', '.json'],
+  cursor: ['.json', '.jsonl', '.vscdb', '.db', '.sqlite'],
+  aider: ['.md', '.json', '.jsonl'],
+}
+
+function hasAllowedName(name: string | undefined, source: ConversationImportSource): boolean {
+  if (!name) return false
+  const lower = name.toLowerCase()
+  return ALLOWED_EXTENSIONS[source].some((ext) => lower.endsWith(ext))
+}
+
 /** 字符串 → 后端来源枚举(穷举收窄,无 cast / 无 any) */
 function toImportSource(value: string): ConversationImportSource | undefined {
   switch (value) {
@@ -117,7 +134,9 @@ export function ConversationImportScreen() {
     const asset = result.assets[0]
     if (!asset) return null
     return {
-      name: asset.name ?? 'conversation-export',
+      // 无 name 时从 uri 末段取真实文件名(带后缀才能过后端白名单校验);
+      // 硬编码 'conversation-export' 这种无后缀名会被服务端以"无后缀"400 拒掉。
+      name: asset.name ?? asset.uri.split(/[/?#]/).filter(Boolean).pop() ?? 'conversation-export',
       uri: asset.uri,
       mimeType: asset.mimeType ?? 'application/octet-stream',
       size: asset.size,
@@ -128,6 +147,11 @@ export function ConversationImportScreen() {
     async (picked: PickedImportFile, sourceValue: string): Promise<ImportParseResult> => {
       const source = toImportSource(sourceValue)
       if (!source) return { ok: false, error: t('conversationImport.errorNoSource') }
+      // 先按来源白名单卡后缀:DocumentPicker 的 type 只能按 MIME 过滤,选到服务端必拒的
+      // 文件时在这里给出可读错误,而不是把请求打到后端换回一个 400。
+      if (!hasAllowedName(picked.name, source)) {
+        return { ok: false, error: t('conversationImport.errorFileType') }
+      }
       if (picked.size !== undefined && picked.size > MAX_IMPORT_FILE_SIZE) {
         return { ok: false, error: t('conversationImport.fileTooLarge') }
       }
@@ -196,12 +220,12 @@ export function ConversationImportScreen() {
           continue
         }
         const title = conv?.title?.trim()
-        const model = conv?.model?.trim()
+        // 不透传 conv.model:该列会直接进 LLM 网关(api chat.ts 的 conversation.model),
+        // 外部工具模型 id 未必在用户目录内,写入会让导入会话首次续聊报错(与 web/CLI 同口径)
         const payload: ConversationImportCommitPayload = {
           source,
           fileName: pickedRef.current?.name,
           title: title ? title.slice(0, 255) : undefined,
-          model: model ? model.slice(0, 64) : undefined,
           createdAt: conv?.sourceCreatedAt ?? conv?.sourceUpdatedAt ?? undefined,
           messages,
         }
