@@ -64,8 +64,16 @@
 - `mypy app --strict`:本任务三文件(api_tools_bridge / ui_action_bridge / conversation)零错误。
 - web:`pnpm --filter @ihui/web typecheck` exit 0;`ui-action-registry` 20 项全绿。
 - api:`agent-control-ui` 12 项全绿。
-- 未收口项:浏览器端真实点击闭环需在已登录会话里跑一次 `web_ui_describe → click` 端到端
-  (本次 dev 浏览器无登录态,`/api/users/me` 401,未取得该证据,故不声称已验证)。
+- 真机闭环(2026-09-20 补,admin 会话 + 活的 api/browser):`/api/agent-control/status` 实测两个
+  `endpoint:'web'` 端点、`uiActions:7`;经后端下发 `category='ui'` 指令真机回执
+  `executedBy:'web'` —— `navigate('/wallet/recharge')` ok、`describe` 回 63 commands/80 elements、
+  `fill(充值数量 0→100)` 成功并 `read` 回读确认为 `"100"`(react-hook-form 受控输入被真实写入)、
+  越权与闸门实测:`/../../etc/passwd` 与 `/sso/login` → `ROUTE_NOT_ALLOWED`,无身份调用 → `PERMISSION_DENIED`,
+  不存在目标 → `SELECTOR_NOT_FOUND`;ai-service 侧 `web_ui_describe` 进程内直调活链路 203–297ms 回传真实注册表。
+- 真机暴露并修掉两个可用性缺陷(表单字段被 80 上限挤掉 → 优先级择优;多标签页命令散射 → `targetInstanceId`
+  钉定应答页):新增回归 web 21 项 / api 13 项 / ai-service ui 18 项全绿,mypy 全仓 0 错误。
+- 仍存限制(未修,需产品决策):同一用户**多个可见窗口**都活跃时仍靠心跳新旧择一;`web` 端点与 pending 均为
+  api 进程内状态,多实例部署下跨实例指令会超时(与既有 computer/browser 链路同限制)。
 
 ---
 
