@@ -21,9 +21,9 @@ export type { RankingItem, RankingRange, RankingScreenProps }
 const RANGES: RankingRange[] = ['weekly', 'monthly', 'allTime']
 
 const RANGE_KEYS: Record<RankingRange, string> = {
-  weekly: 'ranking.range_weekly',
-  monthly: 'ranking.range_monthly',
-  allTime: 'ranking.range_allTime',
+  weekly: 'ranking.weekly',
+  monthly: 'ranking.monthly',
+  allTime: 'ranking.total',
 }
 
 /** 取昵称首字符(用作头像占位文字) */
