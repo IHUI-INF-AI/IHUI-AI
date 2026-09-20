@@ -1017,6 +1017,65 @@ def _compaction_retention_max_agent_tokens_from_env() -> int:
     return value if value >= 0 else MAX_RETAINED_AGENT_MESSAGE_TOKENS
 
 
+def _auto_compact_window_enabled_from_env() -> bool:
+    """自动压缩窗口账本开关(env AGENT_AUTO_COMPACT_WINDOW_ENABLED)。
+
+    对标 codex state/auto_compact_window.rs。默认 off:不持有 AutoCompactWindow
+    实例,usage 记账/prefill 观测/压缩推进与现状逐零差异。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_AUTO_COMPACT_WINDOW_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _build_auto_compact_window_from_env() -> Any | None:
+    """按 env 构造 AutoCompactWindow 实例;开关关闭或构造异常时为 None(零行为变化)。"""
+    if not _auto_compact_window_enabled_from_env():
+        return None
+    try:
+        from app.core.auto_compact_window import AutoCompactWindow
+
+        return AutoCompactWindow()
+    except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+        logger.warning("auto_compact_window 构造失败(降级不启用): %s", e)
+        return None
+
+
+def _world_state_sections_enabled_from_env() -> bool:
+    """世界状态片段开关(env AGENT_WORLD_STATE_SECTIONS_ENABLED)。
+
+    对标 codex model.rs / context_window_guidance.rs / token_budget_context.rs。
+    默认 off:不注入任何 developer 片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_WORLD_STATE_SECTIONS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _additional_context_enabled_from_env() -> bool:
+    """附加上下文存储开关(env AGENT_ADDITIONAL_CONTEXT_ENABLED)。
+
+    对标 codex state/additional_context.rs。默认 off:不持有存储实例、不注入任何
+    片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_ADDITIONAL_CONTEXT_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _build_additional_context_store_from_env() -> Any | None:
+    """按 env 构造 AdditionalContextStore;开关关闭或构造异常时为 None(零行为变化)。"""
+    if not _additional_context_enabled_from_env():
+        return None
+    try:
+        from app.core.additional_context_store import AdditionalContextStore
+
+        return AdditionalContextStore()
+    except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+        logger.warning("additional_context_store 构造失败(降级不启用): %s", e)
+        return None
+
+
 def _resolve_compaction_decision_for(session_id: str | None) -> "CompactionDecision":
     """1-3 灰度决策接入(2026-09-12 立):AGENT_COMPACTION_MODE + CANARY_PERCENT。
 
@@ -1320,6 +1379,16 @@ class AgentLoopV2:
         self._retention_budget_tokens: int = _compaction_retention_budget_tokens_from_env()
         self._retention_image_budget: bool = _compaction_retention_image_budget_from_env()
         self._retention_max_agent_tokens: int = _compaction_retention_max_agent_tokens_from_env()
+        # 批58(接线):自动压缩窗口账本(对标 codex state/auto_compact_window.rs)。
+        # 默认 off → None;usage 记账/prefill 观测/压缩推进与现状逐零差异。
+        self._auto_compact_window: Any | None = _build_auto_compact_window_from_env()
+        # 批58(接线):世界状态片段(对标 codex model.rs 等)。默认 off 不注入片段。
+        self._world_state_sections_enabled: bool = _world_state_sections_enabled_from_env()
+        # 批58(接线):附加上下文存储(对标 codex state/additional_context.rs)。
+        # 默认 off → 无实例、无片段;set_additional_context 在 off 时为空操作。
+        self._additional_context_enabled: bool = _additional_context_enabled_from_env()
+        self._additional_context_store: Any | None = _build_additional_context_store_from_env()
+        self._additional_context_desired: dict[str, Any] = {}
         # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
         # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
         # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
@@ -1563,6 +1632,13 @@ class AgentLoopV2:
                 info["retention_budget"] = retention_meta
             # 批58(十九):压缩成功 → 档位钉扎退役为 Compacted(允许新窗重建请求基线)
             self._retire_effort_pin_on_compaction()
+            # 批58(接线):压缩成功 → auto_compact_window 推进编号(对标 codex advance)。
+            # 窗 id 轮换,新窗重新记账;失败隔离不影响压缩主链路(降级跳过)。
+            if self._auto_compact_window is not None:
+                try:
+                    self._auto_compact_window.advance()
+                except Exception as e:  # noqa: BLE001 - 推进失败隔离
+                    logger.warning("auto_compact_window 推进失败(降级跳过): %s", e)
             self._compaction_events.append(
                 {
                     "iteration": self._current_iteration,
@@ -3051,6 +3127,10 @@ class AgentLoopV2:
                             messages.append(_env_frag)
                     except Exception as e:  # noqa: BLE001 - 环境采集失败隔离
                         logger.warning("environment_context 注入异常(降级跳过): %s", e)
+                # 批58(接线):世界状态片段 + 附加上下文注入(同 environment_context 拼接点)。
+                # 二者各自内部已做开关判定与异常隔离,关闭时零片段、零差异。
+                self._inject_world_state_sections(messages)
+                self._inject_additional_context(messages)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -3123,6 +3203,11 @@ class AgentLoopV2:
                             )
                     except Exception as e:  # noqa: BLE001 - 预算提醒失败隔离
                         logger.warning("rollout_budget 记账/提醒失败(降级跳过): %s", e)
+                # 批58(接线):auto_compact_window prefill 观测(对标 codex
+                # ensure_server_observed_prefill_from_usage)。即便 rollout_budget 未启用,
+                # 只要本开关开启就从本轮 usage 取 input_tokens 喂账本(首次样本恒优先)。
+                # 失败隔离,不阻塞回合。
+                self._observe_auto_compact_prefill(llm_response.get("usage") or {})
 
                 # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
                 # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
@@ -4546,4 +4631,93 @@ class AgentLoopV2:
         except Exception:  # noqa: BLE001 - 查询失败降级为未知
             pass
         return None
+
+    def set_additional_context(self, key: str, value: str, kind: str) -> None:
+        """批58(接线):生产侧写入附加上下文(对标 codex state/additional_context.rs)。
+
+        开关关闭(无存储实例)时为空操作。kind ∈ {"Untrusted","Application"}:
+        Untrusted → 后续每轮注入渲染为 user 角色 + ``<external_{key}>`` 标记;
+        Application → developer 角色、无标记。同值重复写入由 merge 自然去重
+        (不重复产出片段)。非法 kind 仅告警并忽略,不抛异常阻断调用方。
+        """
+        if self._additional_context_store is None:
+            return
+        if kind not in ("Untrusted", "Application"):
+            logger.warning("set_additional_context 非法 kind=%r,已忽略(%s)", kind, key)
+            return
+        from app.core.additional_context_store import AdditionalContextEntry
+
+        self._additional_context_desired[key] = AdditionalContextEntry(kind=kind, value=value)
+
+    def _inject_world_state_sections(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):世界状态片段注入(对标 codex model.rs / context_window_guidance.rs
+        / token_budget_context.rs)。开关关闭时直接返回(与现状逐零差异)。
+
+        注入 developer 片段:剩余 token 预算(始终,取 rollout_budget.tokens_left();
+        未知为 None);上下文窗元数据 ``<context_window>``(仅当 auto_compact_window
+        实例存在时,用真实窗 id,不得伪造)。窗 id 缺失时仅注入上述静态片段,绝不报错。
+        """
+        if not self._world_state_sections_enabled:
+            return
+        try:
+            from app.core.world_state_sections import (
+                TokenBudgetRemainingContext,
+                build_context_window_fragment,
+            )
+
+            # 剩余 token 片段(始终注入,developer 角色)
+            messages.append(
+                TokenBudgetRemainingContext(tokens_left=self._context_tokens_left()).render()
+            )
+            # 上下文窗元数据片段(依赖 auto_compact_window 真实窗 id,缺失则跳过)
+            _acw = getattr(self, "_auto_compact_window", None)
+            if _acw is not None:
+                _ids = _acw.ids
+                messages.append(
+                    build_context_window_fragment(
+                        agent_name=self._session_id or "ihui-agent",
+                        first_window_id=_ids.first_window_id,
+                        previous_window_id=_ids.previous_window_id,
+                        window_id=_ids.window_id,
+                        thread_hint=None,
+                    )
+                )
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("world_state_sections 注入异常(降级跳过): %s", e)
+
+    def _inject_additional_context(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):附加上下文注入(对标 codex state/additional_context.rs)。
+
+        开关关闭或无存储实例时直接返回(零片段)。每轮把生产侧期望的完整映射经
+        merge 取「值变化」片段(Untrusted→user + ``<external_{key}>``;Application→
+        developer 无标记)追加;空映射不产生任何片段;同值重复 merge 不重复产出。
+        """
+        _store = getattr(self, "_additional_context_store", None)
+        if _store is None:
+            return
+        try:
+            _fragments = _store.merge(self._additional_context_desired)
+            for _f in _fragments:
+                messages.append(_f)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("additional_context 注入异常(降级跳过): %s", e)
+
+    def _observe_auto_compact_prefill(self, usage: dict[str, Any]) -> None:
+        """批58(接线):auto_compact_window prefill 观测(对标 codex
+        ensure_server_observed_prefill_from_usage)。把本轮服务端归一的 input_tokens
+        喂给账本(首次样本恒优先)。开关关闭/无实例时不操作;观测失败隔离,不阻塞。
+        """
+        _acw = getattr(self, "_auto_compact_window", None)
+        if _acw is None:
+            return
+        try:
+            from ..core.rollout_budget import normalize_rollout_usage
+
+            _acw_usage = normalize_rollout_usage(usage or {})
+            if _acw_usage:
+                _acw.ensure_server_observed_prefill_from_usage(
+                    int(_acw_usage.get("input_tokens", 0))
+                )
+        except Exception as e:  # noqa: BLE001 - 观测失败隔离
+            logger.warning("auto_compact_window prefill 观测失败(降级跳过): %s", e)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
