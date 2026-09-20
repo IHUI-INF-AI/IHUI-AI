@@ -29,10 +29,35 @@ const permissionsSchema = z
   .array(z.string())
   .refine((arr) => arr.every(isValidApiKeyPermission), '包含非法权限点')
 
+/**
+ * Key 级配额字段(O2 2026-09-21 接入 requireApiKeyAuth 强制链路的可配面)。
+ * POST / PATCH 共用;上限与批量端点(developer-relay-keys-admin)一致。
+ * null = 显式清除该限制,缺省 = 不修改。
+ */
+const keyQuotaSchema = z.object({
+  allowedIps: z.array(z.string().max(64)).max(50).nullable().optional(),
+  blockedIps: z.array(z.string().max(64)).max(50).nullable().optional(),
+  allowedModels: z.array(z.string().max(128)).max(100).nullable().optional(),
+  maxTokensPerReq: z.number().int().min(1).max(10_000_000).nullable().optional(),
+  expiresAt: z.iso.datetime().nullable().optional(),
+  rateLimit5h: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  rateLimit1d: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  rateLimit7d: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  perModelRpmLimit: z
+    .record(z.string().max(128), z.number().int().min(1).max(1_000_000))
+    .nullable()
+    .optional(),
+  perModelTpmLimit: z
+    .record(z.string().max(128), z.number().int().min(1).max(100_000_000))
+    .nullable()
+    .optional(),
+})
+
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
   permissions: permissionsSchema.default([]),
   rateLimit: z.number().int().min(1).max(10000).optional(),
+  ...keyQuotaSchema.shape,
 })
 
 const updateKeySchema = z.object({
@@ -40,7 +65,14 @@ const updateKeySchema = z.object({
   permissions: permissionsSchema.optional(),
   rateLimit: z.number().int().min(1).max(10000).optional(),
   status: z.enum(['active', 'revoked']).optional(),
+  ...keyQuotaSchema.shape,
 })
+
+/** ISO 字符串 → Date;undefined = 不修改,null = 清除(分别透传给 service)。 */
+function toExpiresAt(value: string | null | undefined): Date | null | undefined {
+  if (value === undefined || value === null) return value
+  return new Date(value)
+}
 
 const subscribeBody = z.object({
   pricingId: z.uuid({ error: '无效的套餐 ID' }),
@@ -79,10 +111,10 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const { expiresAt, ...quota } = parsed.data
     const { apiKey, secret } = await apiKeysService.createKey(userId, {
-      name: parsed.data.name,
-      permissions: parsed.data.permissions,
-      rateLimit: parsed.data.rateLimit,
+      ...quota,
+      expiresAt: toExpiresAt(expiresAt),
     })
     // 仅此一次返回完整 secret，后续不再提供
     // 跳过响应脱敏,否则 secret 会被 response-sanitizer 误伤为 '***'
@@ -113,7 +145,11 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const updated = await apiKeysService.updateKey(idParsed.data.id, userId, parsed.data)
+    const { expiresAt, ...patch } = parsed.data
+    const updated = await apiKeysService.updateKey(idParsed.data.id, userId, {
+      ...patch,
+      expiresAt: toExpiresAt(expiresAt),
+    })
     if (!updated) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     return reply.send(success({ apiKey: updated }))
   })
