@@ -44,7 +44,9 @@ export interface UseNotificationReturn {
   setSoundEnabled: (enabled: boolean) => void
 }
 
-const NON_NOTIFICATION_TYPES = ['ai_response', 'chat_message']
+// agent.action 是 AI 控制指令(由 use-ui-control-bridge/use-agent-control 消费),
+// 不是用户通知——弹桌面通知只会造成噪音(desktop 链路同修)
+const NON_NOTIFICATION_TYPES = ['ai_response', 'chat_message', 'agent.action']
 
 type AudioContextCtor = typeof AudioContext
 type WindowWithAudioContext = {
