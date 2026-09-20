@@ -107,6 +107,122 @@ IHUI-AI 在多层级实施了安全防护:
 
 ---
 
+## 机器凭据泄露与吊销(Machine Credential Leak & Revocation)
+
+适用场景:开发者 API Key 的 `secret`、OAuth `client_secret`、或 Webhook 签名密钥
+**已经出现在不该出现的地方**(提交进仓库、贴进日志、被前端回显、第三方工具读到)。
+
+这一节与"报告漏洞"是两件事:上面的 SLA 针对**平台自身缺陷**;这里是**你自己凭据的事故处置**。
+端点清单与存储纪律**只列本仓库内逐个核对过的实现**,每条带 `file:line`。
+
+### 处置渠道(沿用本文件既有渠道,本节不新增渠道)
+
+- 凭据泄露涉及平台侧缺陷(例如脱敏失效、响应回显了他人的 secret):按[报告漏洞](#报告漏洞reporting-a-vulnerability)
+  走 `security@aizhs.top` 或 GitHub 私密报告(`SECURITY.md:28-29`),SLA 同上表。
+- 仅你自己的密钥外泄、只需吊销动作:用下面任一自助端点即可,**无需**发信给维护者。
+
+### 第一步:自助吊销 / 轮换 / 排查(已核对存在的端点)
+
+`apps/api/src/routes/developer.ts` —— 注册前缀 `/api/developer`
+(`apps/api/src/routes/index.ts:736`),全部端点需登录
+(`apps/api/src/routes/developer.ts:98` 的 `requireAuth` preHandler):
+
+| 方法     | 路径                                     | 作用                                             | 落点                                             |
+| -------- | ---------------------------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| `GET`    | `/api/developer/api-keys`                | 列出当前用户全部密钥(排查面:先看有几把在外流通) | `apps/api/src/routes/developer.ts:101`            |
+| `POST`   | `/api/developer/api-keys`                | **创建**新密钥;`secret` 明文仅此一次返回         | `apps/api/src/routes/developer.ts:108`(返回体 `:122`) |
+| `PATCH`  | `/api/developer/api-keys/:id`            | **更新**权限/配额/有效期/状态                    | `apps/api/src/routes/developer.ts:138`            |
+| `DELETE` | `/api/developer/api-keys/:id`            | 删除密钥                                         | `apps/api/src/routes/developer.ts:126`            |
+| `GET`    | `/api/developer/api-keys/:id/usage`      | **用量查询**:调用次数 / 最近使用时间 / 热点端点(判断泄露后被人用了多少) | `apps/api/src/routes/developer.ts:158` |
+
+`apps/api/src/routes/developer/` —— 同前缀 `/api/developer`
+(`index.ts:1189` 分组、`index.ts:1249` Webhook),均 `requireAuth`
+(`developer/api-key-groups.ts:95`;`developer/webhooks.ts:189`):
+
+| 方法     | 路径                                                  | 作用                       | 落点                                        |
+| -------- | ----------------------------------------------------- | -------------------------- | ------------------------------------------- |
+| `GET`    | `/api/developer/api-key-groups`                       | 列出 Key 分组(共享额度池) | `developer/api-key-groups.ts:98`             |
+| `POST`   | `/api/developer/api-key-groups`                       | 创建分组                   | `developer/api-key-groups.ts:118`            |
+| `PATCH`  | `/api/developer/api-key-groups/:id`                   | 更新分组                   | `developer/api-key-groups.ts:231`            |
+| `DELETE` | `/api/developer/api-key-groups/:id`                   | 删除分组                   | `developer/api-key-groups.ts:284`            |
+| `GET`    | `/api/developer/api-key-groups/:id/members`           | 组内成员与子 Key 排行      | `developer/api-key-groups.ts:308`            |
+| `POST`   | `/api/developer/api-key-groups/:id/invite`            | 邀请成员                   | `developer/api-key-groups.ts:336`            |
+| `GET`    | `/api/developer/webhooks/subscriptions`               | 列出 Webhook 订阅          | `developer/webhooks.ts:192`                  |
+| `POST`   | `/api/developer/webhooks/subscriptions`               | 新建订阅(签名密钥在此产生) | `developer/webhooks.ts:203`                  |
+| `PATCH`  | `/api/developer/webhooks/subscriptions/:id`           | 更新订阅                   | `developer/webhooks.ts:226`                  |
+| `DELETE` | `/api/developer/webhooks/subscriptions/:id`           | 删除订阅                   | `developer/webhooks.ts:257`                  |
+| `GET`    | `/api/developer/webhooks/subscriptions/:id/logs`      | 投递日志(判断回调侧泄露) | `developer/webhooks.ts:275`                  |
+
+**一处必须说明的事实**:本小节标题里的 **rotate(轮换)与吊销(revoke)在
+`developer.ts` 和 `developer/` 下并不存在对应端点** —— 这两个文件里最接近的只有
+`PATCH .../api-keys/:id` 改 `status`(`developer.ts:67` 的 `active|revoked` 枚举)与
+`DELETE`(硬删)。真正的轮换/吊销 HTTP 端点在**中转站用户侧路由文件**里,已核对如下
+(注册前缀 `/api`,`index.ts:1154`):
+
+| 方法   | 路径                                     | 作用                                                     | 落点                                                  |
+| ------ | ---------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
+| `POST` | `/api/developer/relay/keys/:id/reset`    | **轮换** secret(`rotateSecret`),新 secret 仅返回一次   | `apps/api/src/routes/developer-relay.ts:252`(服务调用 `:258`) |
+| `POST` | `/api/developer/relay/keys/:id/revoke`   | **吊销**(`revokeKey`),单向迁移到 `status='revoked'`,幂等 | `apps/api/src/routes/developer-relay.ts:273`(服务调用 `:279`) |
+| `GET`  | `/api/developer/relay/keys`              | 列出中转站 Key(含余额)                                 | `apps/api/src/routes/developer-relay.ts:150`           |
+| `GET`  | `/api/developer/relay/usage`             | **用量查询**(聚合)                                     | `apps/api/src/routes/developer-relay.ts:289`           |
+| `GET`  | `/api/developer/relay/logs`              | 调用日志明细                                             | `apps/api/src/routes/developer-relay.ts:382`           |
+
+兼容路由另有一处:`POST /api/developer/keys/:id/reset`
+(`apps/api/src/routes/other/developer-routes.ts:62`,经 `other/index.ts:60` +
+`routes/index.ts:997` 挂载)。吊销的语义说明见
+`apps/api/src/routes/developer-relay.ts:270-272`:吊销后配额校验
+(`status !== 'active'`)立即拒绝,但 `llm_call_logs` 的关联记录**保留**(审计不随凭据消失)。
+底层服务函数:`apps/api/src/services/developer-api-keys-service.ts:304`(`revokeKey`)、
+`:328`(`rotateSecret`)。
+
+### 第二步:既有纪律(为什么"泄露"通常不等于"库已泄密")
+
+以下四条是仓库里已实现的机制,决定了泄露事件的**影响半径**:
+
+- **开发者 API Key secret 以 sha256 摘要存储**,不是明文:
+  `apps/api/src/utils/api-key-hash.ts:23-25`(`sha256:<64 hex>`)。
+  明文只在**创建 / 轮换那一次**出现在响应里
+  (`apps/api/src/routes/developer.ts:122`、`developer-relay.ts:260-262`)。
+  选型理由与"高熵随机串故用 sha256 而非 bcrypt"见
+  `apps/api/src/utils/api-key-hash.ts:8-12`;校验走**恒定时间**比较以防时序侧信道
+  (`apps/api/src/utils/api-key-hash.ts:43-48`)。
+  Key 的公开标识 `ihui_<24 hex>` 与 secret `sk_<32 hex>` 的分工见
+  `apps/api/src/utils/api-key-hash.ts:55-59`。
+- **日志侧脱敏**:`apps/api/src/plugins/log-sanitizer.ts:55` 在 `onRequest` 阶段
+  用 Proxy 包装 `request.log`(`:25-33`),各日志级别入参先递归脱敏再落盘,
+  因此把带凭据的对象交给 `logger` 不会写出明文。
+- **响应侧脱敏**:`apps/api/src/plugins/response-sanitizer.ts:26-35` 定义敏感字段名集合
+  (`password` / `phone` / `idcard` / `bankcard` / `email` / `token` / `secret` / `apikey`),
+  子串包含 + 大小写不敏感匹配(`:19-20`),命中即掩码(`:47,:91`)。
+  计量字段 `prompt_tokens` / `completion_tokens` / `total_tokens` 因含 `token` 子串
+  被列入 `SAFE_KEYS` 白名单豁免(`:41-45`)。
+  唯一显式放行口是 `request.skipResponseSanitization`(`:458`),仅用于上面
+  "新 secret 必须明文返回一次"的场景 —— 这是"明文只出现一次"的前提,不是脱敏失效。
+- **`oauth_apps` 的 secret 同样不以明文为真相**:列为
+  `client_secret` + `client_secret_hash`
+  (`packages/database/src/schema/oauth.ts:34,41`)。**注意**:schema 注释把该摘要描述为
+  bcrypt(cost=12)(`packages/database/src/schema/oauth.ts:36-39`),但新注册 / DCR
+  路径实际写的是 **HMAC-SHA256 + 每客户端随机 salt** 的 `v1hmac$<salt>$<digest>` 形态
+  (`packages/auth/src/oauth2.ts:634,644-650`);bcrypt `$2*` / argon2 `$argon2*` 仅作为
+  **存量摘要**被识别并交由 apps/api 侧 verifier 校验
+  (`packages/auth/src/oauth2.ts:680,694-697`;`apps/api/src/routes/auth-extended.ts:209-211,233`)。
+  做事故通报时请按"摘要不可逆投"表述,**不要**照抄"bcrypt"这一句。
+- **审计不读凭据原文**:`apps/api/src/plugins/audit-logger.ts:251` 明确只取身份字段,
+  **绝不**读 `request.apiKey.key`(落库即等同密钥泄露)。
+
+### 你应当预期到的边界(不粉饰)
+
+- **不存在**集中式"泄露事件上报"端点:仓库内只有面向 IP 信誉的
+  `POST /api/security/report`(见 `docs/developer/compliance.md` 第 2 节),它不产生工单。
+- **不存在**按泄露 secret 反查受影响调用记录的对客端点;`llm_call_logs` 的
+  `apiKeyId` / `clientIp` 归因列保留,但清除器只清正文两列
+  (`apps/api/src/services/audit-log-service.ts:452-454,491`),对外无读回接口。
+- **不存在**凭据泄露的专门 SLA;`SECURITY.md:41-48` 的时限只针对漏洞报告。
+- 自助吊销依赖登录态。若泄露方已同时掌握你的账号口令,请按漏洞报告走
+  `security@aizhs.top`,并要求管理员侧处置。
+
+---
+
 ## 安全更新发布(Security Update Releases)
 
 - **Critical / High**:发布专门的 Patch Release(如 `v0.2.1`),在 GitHub Release 描述中附 Security Advisory 链接

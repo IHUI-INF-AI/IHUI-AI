@@ -61,6 +61,15 @@ curl -X POST http://localhost:8802/v1/chat/completions \
 - [最佳实践](./best-practices.md) — 重试、缓存、流式处理
 - [故障排查](./troubleshooting.md) — 常见问题与调试技巧
 
+### 治理与合规
+
+- [能力目录](./capabilities.md) — 开放能力清单与不开放 scope
+- [数据分级](./data-classes.md) — 数据类别与"只开放功能、不开放数据"
+- [速率与配额](./rate-limits.md) — 限流档位与配额口径
+- [错误码](./error-codes.md) — 结构化错误码清单
+- [滥用政策](./abuse-policy.md) — 红线行为与处置手段
+- [合规口径](./compliance.md) — 受理渠道、数据留存与清除、发现面不泄露内网
+
 ## 核心约定
 
 - **协议** — HTTPS,RESTful(GET/POST/PUT/DELETE)
