@@ -21,7 +21,7 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, TypedDict, cast
 
 logger = logging.getLogger(__name__)
@@ -91,8 +91,9 @@ def _trace_entry(
     """
     entry: dict[str, Any] = {
         "node": node,
-        "start": datetime.utcfromtimestamp(start).isoformat() + "Z",
-        "end": datetime.utcfromtimestamp(end).isoformat() + "Z",
+        # 等价替代弃用的 datetime.utcnow()/utcfromtimestamp()（naive UTC 语义不变，2026-09-19 技术债清理）
+        "start": datetime.fromtimestamp(start, tz=UTC).replace(tzinfo=None).isoformat() + "Z",
+        "end": datetime.fromtimestamp(end, tz=UTC).replace(tzinfo=None).isoformat() + "Z",
         "duration_ms": round((end - start) * 1000, 2),
         "status": status,
     }
@@ -549,7 +550,7 @@ class LangGraphService:
             model: LLM 模型名(为空用默认)。
             user_id: 用户 ID(为空时不加载/保存跨会话记忆,向后兼容)。
         """
-        session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
+        session_id = session_id or f"session-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
 
         if self._available and self._graph:
             return await self._run_with_graph(goal, session_id, model, user_id)
@@ -916,7 +917,7 @@ class LangGraphService:
           图事件被映射为与手动路径一致的 SSE 事件序列。
         - 图执行失败(异常)时降级为手动状态机(保留原逻辑作为 fallback)。
         """
-        session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
+        session_id = session_id or f"session-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
         if self._available and self._graph:
             try:
                 async for event in self._stream_with_graph(

@@ -4,7 +4,9 @@
 
 # 批 40 实战接线测试 — 当前时间提醒节流状态机 + TurnAborted 中断指导注入
 # (对标 codex-rs session/time_reminder.rs + context/turn_aborted.rs + event_mapping.rs)
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from datetime import UTC, datetime, timedelta
 
@@ -345,7 +347,10 @@ def test_rollout_budget_disabled_zero_change():
     """未设置 AGENT_ROLLOUT_BUDGET_TOKENS:循环内零行为变化(monkeypatch env)。"""
     import asyncio
 
-    from app.services.agent_loop_v2 import AgentLoopV2, ToolDefinition, _rollout_budget_limit_from_env
+    from app.services.agent_loop_v2 import (
+        AgentLoopV2,
+        _rollout_budget_limit_from_env,
+    )
 
     async def llm_complete_fn(messages, tools_schema, **kwargs):
         texts = " ".join(

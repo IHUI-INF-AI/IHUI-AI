@@ -173,7 +173,7 @@ def open_export_lines(path: Path) -> Iterator[str]:
         try:
             gz_path = path.with_name(path.name + ".gz")
             if path.is_file():
-                with open(path, "r", encoding="utf-8", errors="replace") as fin:
+                with open(path, encoding="utf-8", errors="replace") as fin:
                     for line in fin:
                         yield line.rstrip("\r\n")
                 return
