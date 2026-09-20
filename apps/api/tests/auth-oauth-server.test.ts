@@ -98,18 +98,23 @@ const {
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
-vi.mock('@ihui/auth', () => ({
-  verifyAccessToken: mockVerifyAccessToken,
-  signAccessToken: mockSignAccessToken,
-  signRefreshToken: mockSignRefreshToken,
-  createFamilyId: mockCreateFamilyId,
-  // buildTokenPair 内部使用这两个常量(2026-08-01 补齐,缺 export 会抛 viest 错误)
-  ACCESS_TOKEN_TTL_SECONDS: 900,
-  REFRESH_TOKEN_TTL_SECONDS: 2592000,
-  isOidcConfigured: () => false,
-  isDiscordConfigured: () => false,
-  isTelegramConfigured: () => false,
-}))
+vi.mock('@ihui/auth', async (importOriginal) => {
+  // O7 之后 auth-extended.ts 从 @ihui/auth 多引了 11 个符号(evaluatePkce /
+  // extractClientCredentials / verifyClientSecret / isPublicClientApp / …),
+  // 逐条手写白名单的形式每次加依赖都会漏一条 → handler 里抛 TypeError → 全部 500。
+  // 改成"保留真实实现 + 只替身化 4 个需要断言的函数",依赖增量不再影响本套件。
+  const actual = (await importOriginal<Record<string, unknown>>()) as Record<string, unknown>
+  return {
+    ...actual,
+    verifyAccessToken: mockVerifyAccessToken,
+    signAccessToken: mockSignAccessToken,
+    signRefreshToken: mockSignRefreshToken,
+    createFamilyId: mockCreateFamilyId,
+    isOidcConfigured: () => false,
+    isDiscordConfigured: () => false,
+    isTelegramConfigured: () => false,
+  }
+})
 
 vi.mock('../src/config/index.js', () => ({
   config: {
