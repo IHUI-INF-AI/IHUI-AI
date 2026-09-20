@@ -365,7 +365,14 @@ function ChartArtifactBlock({
 }
 
 /** 从 args 中提取字符串字段(兼容 camelCase / snake_case 多种命名) */
-function pickStr(args: Record<string, unknown>, keys: string[]): string {
+/**
+ * args 可能整体缺失:无参工具(如 `web_ui_describe` / `web_ui_read`)的 toolCall 落库后
+ * args 字段会被丢掉,前端再 `args[k]` 就是 `Cannot read properties of undefined` —— 它发生在
+ * message-list 的渲染路径上,会把整个聊天页打成"应用发生严重错误"(2026-09-21 实测)。
+ * 因此一律在入口归一,而不是让每个调用方去记这个坑。
+ */
+function pickStr(args: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!args) return ''
   for (const k of keys) {
     const v = args[k]
     if (typeof v === 'string') return v
@@ -377,7 +384,7 @@ function pickStr(args: Record<string, unknown>, keys: string[]): string {
  *  导出供 message-list.tsx 在绑定 onApply 回调时构造 diffInfo 用 */
 export function deriveDiffInfo(
   toolName: string,
-  args: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
 ): InlineDiffInfo | null {
   const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
 
@@ -406,15 +413,14 @@ export function deriveDiffInfo(
 /** 从 args/result 中提取 URL */
 function extractUrl(
   toolName: string,
-  args: Record<string, unknown>,
+  args: Record<string, unknown> | undefined,
   result?: unknown,
 ): string | null {
+  // 同 pickStr:无参工具的 args 可能是 undefined
+  const a = args ?? {}
   // args 中常见字段:url / href / link / target
   const fromArgs =
-    (args.url as string) ||
-    (args.href as string) ||
-    (args.link as string) ||
-    (args.target as string)
+    (a.url as string) || (a.href as string) || (a.link as string) || (a.target as string)
   if (typeof fromArgs === 'string' && /^https?:\/\//i.test(fromArgs)) return fromArgs
 
   // result 中提取(可能是字符串或对象)

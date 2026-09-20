@@ -166,7 +166,11 @@ interface TaroInvokeCommand {
   id: string
   label: string
   group: string
-  run: () => Record<string, unknown>
+  /**
+   * 同步命令(主题)直接返回数据;要等平台 API 落定(switchTab / pageScrollTo)的返回 Promise,
+   * 由 executeInvoke 统一 await —— 否则 rejection 逃不出 try/catch,会把失败报成成功。
+   */
+  run: () => Record<string, unknown> | Promise<Record<string, unknown>>
 }
 
 const THEME_COMMANDS: readonly TaroInvokeCommand[] = [
@@ -190,19 +194,80 @@ const THEME_COMMANDS: readonly TaroInvokeCommand[] = [
   },
 ]
 
+/**
+ * tabBar 切换命令(2026-09-21 扩)。
+ *
+ * 为什么"navigate 已经能到 tab 页"还要单独登记一份:用户说的是"切到 AI agent 那个 tab",
+ * 模型得先 describe 拿 routes、自己判 tab、自己保证不带 query —— 每一步都可能错。
+ * 这里把"五个常驻 tab"钉成五个语义命令,幂等(switchTab 到当前 tab 是空操作)、可逆、零副作用。
+ * path 必须回查 app.config.ts 生成的白名单:页面哪天不再是 tab,命令自动从清单里消失,
+ * 不给模型一个会失败的"可调用面"。
+ */
+const TAB_COMMAND_SPECS: readonly { id: string; label: string; path: string }[] = [
+  { id: 'tab:home', label: '切到「智汇社区」首页 tab', path: '/pages/index/index' },
+  { id: 'tab:agent', label: '切到「AI agent」tab', path: '/pages/community/index' },
+  { id: 'tab:square', label: '切到「广场」tab', path: '/pages/plaza/index/index' },
+  { id: 'tab:mine', label: '切到「我的」tab', path: '/pages/user/index' },
+  { id: 'tab:share', label: '切到「分享星球」tab', path: '/pages/share/index' },
+]
+
+const TAB_COMMANDS: readonly TaroInvokeCommand[] = TAB_COMMAND_SPECS.flatMap((spec) => {
+  const route = ROUTE_BY_PATH.get(spec.path)
+  if (!route?.tab) return []
+  return [
+    {
+      id: spec.id,
+      label: spec.label,
+      group: 'navigation',
+      // switchTab 不收 query(微信硬约束),故只给 url,不拼参数
+      run: async () => {
+        await Taro.switchTab({ url: route.path })
+        return { navigatedTo: route.path, title: route.title, via: 'switchTab' }
+      },
+    },
+  ]
+})
+
+/**
+ * 页面级命令:滚回顶部。小程序没有 DOM 可枚举,scroll 是 invoke 独有的能力 ——
+ * 效果只作用于当前页面(描述里写明),重复执行不叠加。
+ */
+const PAGE_COMMANDS: readonly TaroInvokeCommand[] = [
+  {
+    id: 'page:top',
+    label: '把当前页面滚动到顶部',
+    group: 'page',
+    run: async () => {
+      await Taro.pageScrollTo({ scrollTop: 0, duration: 200 })
+      return { scrolledTo: 'top' }
+    },
+  },
+]
+
+/** invoke 的全部可调用命令(不止主题:外观 + 导航 + 页面三类) */
+const INVOKE_COMMANDS: readonly TaroInvokeCommand[] = [
+  ...THEME_COMMANDS,
+  ...TAB_COMMANDS,
+  ...PAGE_COMMANDS,
+]
+
 const INVOKE_BY_ID: ReadonlyMap<string, TaroInvokeCommand> = new Map(
-  THEME_COMMANDS.map((cmd) => [cmd.id, cmd]),
+  INVOKE_COMMANDS.map((cmd) => [cmd.id, cmd]),
 )
 
 /*
- * 白名单为什么只有这三项(刻意做小,而不是"能调的都放上"):
- * - 语言切换:src/i18n/index.tsx 的 setLocale 只存在于 I18nProvider 的 React state 里,
- *   模块级调用不改 Provider 会造成"storage 变了、界面没变"的假成功,注册表也拿不到
- *   Provider 引用 → 不进白名单。AI 需要改语言时用 navigate('/pages/setting/language')
- *   把人送到设置页由用户自己点。
+ * 白名单边界(刻意做小,而不是"能调的都放上"):
+ * - 只收"模块级就真能生效"的能力。主题走 setThemePreference(内部同步原生导航栏/tabBar
+ *   配色并 eventCenter 广播)、tab 走 Taro.switchTab、滚动走 Taro.pageScrollTo —— 三者都是
+ *   全局 API,调用后界面确实变了,不存在假成功。
+ * - 语言切换:**不进白名单**。src/i18n/index.tsx 的 setLocale 只存在于 I18nProvider 的
+ *   React state 里(模块级只有被 Provider 回写的 currentLocale),注册表拿不到 Provider 引用,
+ *   模块级改 storage 会造成"storage 变了、界面没变"的假成功 → 不进白名单。AI 需要改语言时用
+ *   navigate('/pages/setting/language') 把人送到设置页由用户自己点。
  * - 退出登录:**永不暴露**。clearAuth() 一触发即销毁当前会话且不可逆,而 AI 幻觉的
  *   成本由用户承担(要重新走一遍微信授权),收益为零。describe 的 commands 里也不出现它。
- * - 缓存清理 / 反馈提交 / 支付:同理,均为不可逆或花钱动作,一律不列入。
+ * - 缓存清理 / 反馈提交 / 支付 / 下单 / 分享:同理,均为不可逆、花钱或对外发声动作,一律不列入。
+ * - 打开弹窗类:重复调用会叠层,不满足幂等,亦不列入。
  */
 
 /* ────────────────────────── describe / read / navigate / invoke ────────────────────────── */
@@ -226,7 +291,7 @@ export function buildTaroUiSnapshot(): AppUiSnapshot {
       requiresParams: route.requiresParams,
       tab: route.tab,
     })),
-    commands: THEME_COMMANDS.map(({ id, label, group }) => ({ id, label, group })),
+    commands: INVOKE_COMMANDS.map(({ id, label, group }) => ({ id, label, group })),
     authed: isAuthed?.() ?? false,
   }
   return snapshot
@@ -315,15 +380,16 @@ async function executeInvoke(params: Record<string, unknown>): Promise<TaroUiAct
   if (!command) {
     return fail(
       'UNSUPPORTED_ACTION',
-      `命令不在白名单内: ${name || '(空)'};可用:${THEME_COMMANDS.map((c) => c.id).join(', ')}`,
+      `命令不在白名单内: ${name || '(空)'};可用:${INVOKE_COMMANDS.map((c) => c.id).join(', ')}`,
     )
   }
   const args = params.args
   const hasArgs = !!args && typeof args === 'object' && Object.keys(args).length > 0
   try {
+    const result = await command.run()
     return {
       ok: true,
-      data: { invoked: command.id, ...command.run(), ...(hasArgs ? { argsIgnored: true } : {}) },
+      data: { invoked: command.id, ...result, ...(hasArgs ? { argsIgnored: true } : {}) },
     }
   } catch (err) {
     return fail('EXECUTION_FAILED', `${command.id} 执行失败:${describeError(err)}`)

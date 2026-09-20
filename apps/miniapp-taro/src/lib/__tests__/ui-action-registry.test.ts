@@ -18,8 +18,10 @@ interface MockRouter {
 
 const mocks = vi.hoisted(() => ({
   navigateTo: vi.fn(() => Promise.resolve({})),
-  switchTab: vi.fn(() => Promise.resolve({})),
+  // switchTab / pageScrollTo 带形参类型:断言时才能从 mock.calls 读出实参
+  switchTab: vi.fn((arg: { url: string }) => Promise.resolve(arg)),
   reLaunch: vi.fn(() => Promise.resolve({})),
+  pageScrollTo: vi.fn((arg: { scrollTop: number; duration: number }) => Promise.resolve(arg)),
   // 页面栈:栈顶 = 带 query 的分包页,专门验证 read/describe 的取值与打码
   stack: [] as unknown[],
   // 页面栈为空时的回落来源(Taro.getCurrentInstance().router),由用例按需注入
@@ -32,6 +34,7 @@ vi.mock('@tarojs/taro', () => {
     navigateTo: mocks.navigateTo,
     switchTab: mocks.switchTab,
     reLaunch: mocks.reLaunch,
+    pageScrollTo: mocks.pageScrollTo,
     getCurrentPages: () => mocks.stack,
     getCurrentInstance: (): { router?: MockRouter } => ({ router: mocks.router }),
     eventCenter: { trigger: vi.fn(), on: vi.fn(), off: vi.fn() },
@@ -249,7 +252,7 @@ describe('read —— 当前页路由 + navigationBarTitleText 标题', () => {
   })
 })
 
-describe('invoke —— 白名单只有主题,退出登录永不暴露', () => {
+describe('invoke —— 白名单 = 外观 + tab 导航 + 页面命令,破坏性动作永不暴露', () => {
   it('theme:light/dark/auto 分别调 setThemePreference', async () => {
     for (const [id, preference] of [
       ['theme:light', 'light'],
@@ -269,11 +272,63 @@ describe('invoke —— 白名单只有主题,退出登录永不暴露', () => {
     expect(mocks.setThemePreference).toHaveBeenCalledTimes(1)
   })
 
+  it('每个 tab 命令都走 switchTab 且 url 不带 query(navigateTo 打 tab 页必然失败)', async () => {
+    const tabCommands = ['tab:home', 'tab:agent', 'tab:square', 'tab:mine', 'tab:share']
+    for (const id of tabCommands) {
+      mocks.switchTab.mockClear()
+      mocks.navigateTo.mockClear()
+      mocks.reLaunch.mockClear()
+      const result = await executeTaroUiAction('invoke', { name: id })
+      expect(result.ok, id).toBe(true)
+      expect(mocks.switchTab, id).toHaveBeenCalledTimes(1)
+      expect(mocks.navigateTo, id).not.toHaveBeenCalled()
+      expect(mocks.reLaunch, id).not.toHaveBeenCalled()
+      const lastCall = mocks.switchTab.mock.calls.at(0)
+      expect(lastCall, `${id} 未触发 switchTab`).toBeDefined()
+      const url = lastCall?.[0].url ?? ''
+      expect(url.startsWith('/'), id).toBe(true)
+      expect(url.includes('?'), id).toBe(false)
+      // 命令必须落在真 tab 页上:app.config.ts 一变(不再是 tab)这里就会红
+      const route = TARO_UI_ROUTES.find((item) => item.path === url)
+      expect(route?.tab, `${id} → ${url} 不是 tab 页`).toBe(true)
+      expect(result.data?.invoked).toBe(id)
+      expect(result.data?.via).toBe('switchTab')
+    }
+  })
+
+  it('tab 命令幂等:连续两次切同一 tab 只是重复 switchTab,不叠页面栈', async () => {
+    await executeTaroUiAction('invoke', { name: 'tab:mine' })
+    await executeTaroUiAction('invoke', { name: 'tab:mine' })
+    expect(mocks.switchTab).toHaveBeenCalledTimes(2)
+    expect(mocks.navigateTo).not.toHaveBeenCalled()
+  })
+
+  it('page:top 调 Taro.pageScrollTo 滚回顶部', async () => {
+    const result = await executeTaroUiAction('invoke', { name: 'page:top' })
+    expect(result.ok).toBe(true)
+    expect(mocks.pageScrollTo).toHaveBeenCalledWith(expect.objectContaining({ scrollTop: 0 }))
+    expect(result.data?.scrolledTo).toBe('top')
+  })
+
+  it('平台 API 失败必须如实回执 EXECUTION_FAILED(await 生效,不得报假成功)', async () => {
+    mocks.switchTab.mockRejectedValueOnce({ errMsg: 'switchTab:fail can not find page' })
+    const result = await executeTaroUiAction('invoke', { name: 'tab:square' })
+    expect(result.ok).toBe(false)
+    expect(result.errorCode).toBe('EXECUTION_FAILED')
+    expect(result.error).toContain('switchTab:fail can not find page')
+
+    mocks.pageScrollTo.mockRejectedValueOnce({ errMsg: 'pageScrollTo:fail' })
+    const scrolled = await executeTaroUiAction('invoke', { name: 'page:top' })
+    expect(scrolled.errorCode).toBe('EXECUTION_FAILED')
+  })
+
   it('不在白名单 → UNSUPPORTED_ACTION,且回执列出可用项', async () => {
     const result = await executeTaroUiAction('invoke', { name: 'cache:clear' })
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe('UNSUPPORTED_ACTION')
     expect(result.error).toContain('theme:light')
+    expect(result.error).toContain('tab:home')
+    expect(result.error).toContain('page:top')
   })
 
   it('退出登录 / 注销 / 清缓存一类不可逆命令一律不可调用', async () => {
@@ -286,15 +341,34 @@ describe('invoke —— 白名单只有主题,退出登录永不暴露', () => {
       'cache:clear',
       'pay:confirm',
       'withdraw',
+      'lang:en',
+      'locale:en',
+      'language:switch',
     ]) {
       const result = await executeTaroUiAction('invoke', { name })
       expect(result.errorCode, name).toBe('UNSUPPORTED_ACTION')
     }
+    // 语言切换刻意不进白名单(setLocale 只在 I18nProvider 内生效,模块级调用是假成功)
+    expect(mocks.setThemePreference).not.toHaveBeenCalled()
   })
 
-  it('describe 的 commands 里也不得出现登出/注销语义', () => {
+  it('describe 的 commands 与实际可调用集合一致,且不含登出/注销语义', () => {
     const snapshot = buildTaroUiSnapshot()
-    expect(snapshot.commands.map((c) => c.id)).toEqual(['theme:light', 'theme:dark', 'theme:auto'])
+    expect(snapshot.commands.map((c) => c.id)).toEqual([
+      'theme:light',
+      'theme:dark',
+      'theme:auto',
+      'tab:home',
+      'tab:agent',
+      'tab:square',
+      'tab:mine',
+      'tab:share',
+      'page:top',
+    ])
+    for (const command of snapshot.commands) {
+      expect(command.label, command.id).toBeTruthy()
+      expect(['appearance', 'navigation', 'page'], command.id).toContain(command.group)
+    }
     const json = JSON.stringify(snapshot.commands).toLowerCase()
     expect(json).not.toMatch(/logout|sign-?out|注销|退出登录|cancel-account/)
   })
