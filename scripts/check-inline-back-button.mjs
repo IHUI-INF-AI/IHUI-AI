@@ -54,7 +54,7 @@ function isCommentLine(line) {
 }
 
 function scanStaged() {
-  const out = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8', cwd: ROOT })
+  const out = execSync('git diff --cached --name-only --diff-filter=ACMR', { encoding: 'utf8', cwd: ROOT, windowsHide: true })
   return out.split('\n').filter((f) => f.startsWith(TARGET_DIR) && /\.(ts|tsx|mjs|js)$/.test(f))
 }
 

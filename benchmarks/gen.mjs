@@ -40,7 +40,7 @@ for (const c of candidates) {
   if (c.includes('/') || c.includes('\\\\')) {
     if (existsSync(c)) { py = c; break; }
   } else {
-    const probe = spawnSync(c, ['--version'], { encoding: 'utf8' });
+    const probe = spawnSync(c, ['--version'], { encoding: 'utf8', windowsHide: true });
     if (probe.status === 0) { py = c; break; }
   }
 }
@@ -51,7 +51,7 @@ if (!py) {
 const code = [
 ${lines.map((l) => "  '" + l.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "',").join('\n')}
 ].join('\\n');
-const r = spawnSync(py, ['-c', code], { encoding: 'utf8', cwd: process.cwd() });
+const r = spawnSync(py, ['-c', code], { encoding: 'utf8', cwd: process.cwd(), windowsHide: true });
 if (r.status !== 0) {
   console.error(r.stdout || ''); console.error(r.stderr || '');
   process.exit(1);
@@ -486,7 +486,7 @@ const src = readFileSync(testFile, 'utf8');
 const assertCount = (src.match(/assert\\./g) || []).length;
 assert.ok(assertCount >= 6, '至少 6 条断言, 实际 ' + assertCount);
 assert.ok(src.includes('node:assert'), '必须使用 node:assert');
-const r = spawnSync('node', ['utils.test.mjs'], { encoding: 'utf8', cwd: process.cwd() });
+const r = spawnSync('node', ['utils.test.mjs'], { encoding: 'utf8', cwd: process.cwd(), windowsHide: true });
 assert.equal(r.status, 0, 'node utils.test.mjs 必须通过:\\n' + (r.stderr || ''));
 console.log('PASS');
 `,

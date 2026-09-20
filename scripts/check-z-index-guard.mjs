@@ -54,6 +54,7 @@ if (isStaged) {
     const staged = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     const files = staged.split('\n').filter(Boolean)
     const relevant = files.some(

@@ -133,6 +133,7 @@ async function main() {
         cwd: PROJECT_ROOT,
         stdio: 'inherit',
         env: process.env,
+        windowsHide: true,
       },
     )
     child.on('exit', (code) => {

@@ -94,7 +94,10 @@ writeFileSync(outFile, lines.join('\n'), 'utf8')
 // 统一改为复用仓库水印工具(单一事实源),幂等:重复生成不产生 diff。
 const watermarkScript = resolve(repoRoot, 'scripts/watermark.mjs')
 try {
-  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], { stdio: 'inherit' })
+  execFileSync(process.execPath, [watermarkScript, 'inject', outFile], {
+    stdio: 'inherit',
+    windowsHide: true, // 防 Windows 弹可见控制台窗口
+  })
 } catch (e) {
   console.error(
     `[gen:i18n] ❌ 溯源水印注入失败,产物将导致 check-watermark-coverage 红: ${e.message || e}`,

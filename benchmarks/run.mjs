@@ -46,7 +46,7 @@ function resolveCmd() {
 
 // ---- 在临时目录执行 verify.mjs ----
 function runVerify(taskDir, workDir) {
-  const r = spawnSync('node', [join(taskDir, 'verify.mjs')], { cwd: workDir, encoding: 'utf8', timeout: 60000 });
+  const r = spawnSync('node', [join(taskDir, 'verify.mjs')], { cwd: workDir, encoding: 'utf8', timeout: 60000, windowsHide: true });
   return { pass: r.status === 0, output: (r.stdout || '') + (r.stderr || '') };
 }
 
@@ -89,7 +89,7 @@ async function run(ids) {
   if (!benchPwd) { console.error('[LOGIN] 缺少 BENCH_ADMIN_PASSWORD'); process.exit(1); }
   const loginExe = cmd[0];
   const loginArgs = [...cmd.slice(1), 'login', '-a', 'admin', '-p', benchPwd];
-  const loginR = spawnSync(loginExe, loginArgs, { encoding: 'utf8', timeout: 30000 });
+  const loginR = spawnSync(loginExe, loginArgs, { encoding: 'utf8', timeout: 30000, windowsHide: true });
   if (loginR.status !== 0) console.error('[LOGIN] 失败:\n' + (loginR.stderr || loginR.stdout || '').split('\n').slice(0, 5).join('\n'));
   else console.log('[LOGIN] admin token 刷新成功');
   // 任务间隔 + 失败重试: provider(如 stepfun)对连续快速请求限速,全量跑时表现为批量 ~10s 快速失败。
@@ -116,6 +116,7 @@ async function run(ids) {
           encoding: 'utf8',
           timeout: timeoutMs,
           env: { ...process.env, IHUI_YOLO: '1' },
+          windowsHide: true,
         },
       );
       agentExit = r.status;

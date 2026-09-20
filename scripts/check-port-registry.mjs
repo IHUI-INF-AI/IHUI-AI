@@ -170,7 +170,7 @@ function main() {
   if (scanAll) {
     // 全项目扫描(仅 git tracked 文件)
     try {
-      const output = execSync('git ls-files', { encoding: 'utf-8' })
+      const output = execSync('git ls-files', { encoding: 'utf-8', windowsHide: true })
       files = output.trim().split('\n').filter(Boolean)
     } catch {
       console.log('⚠️  无法获取 git tracked 文件列表')

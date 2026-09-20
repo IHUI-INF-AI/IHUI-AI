@@ -762,7 +762,7 @@ class SandboxExecutor {
           execFile(
             binary,
             tokens.slice(1),
-            { cwd, env, timeout, maxBuffer: 1024 * 1024, shell: false },
+            { cwd, env, timeout, maxBuffer: 1024 * 1024, shell: false, windowsHide: true },
             (err, out, errOut) => {
               if (err) {
                 ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
@@ -833,7 +833,7 @@ class ComputerUseService {
     }
     const { stdout } = await execAsync(
       'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::PrimaryScreen.Bounds',
-      { shell: 'pwsh.exe', timeout: 5000 },
+      { shell: 'pwsh.exe', timeout: 5000, windowsHide: true },
     )
     return { image: '', width: 1920, height: 1080, raw: stdout }
   }
@@ -849,7 +849,7 @@ class ComputerUseService {
     const btn = params.button ?? 'left'
     await execAsync(
       `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${params.x},${params.y})`,
-      { shell: 'pwsh.exe', timeout: 5000 },
+      { shell: 'pwsh.exe', timeout: 5000, windowsHide: true },
     )
     void btn
   }
@@ -873,7 +873,7 @@ class ComputerUseService {
           '-Command',
           `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait([System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String('${encoded}')))`,
         ],
-        { timeout: 10000 },
+        { timeout: 10000, windowsHide: true },
         (err) => (err ? reject(err) : resolve()),
       )
     })
@@ -898,7 +898,7 @@ class ComputerUseService {
           '-Command',
           `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escapedKey}')`,
         ],
-        { timeout: 5000 },
+        { timeout: 5000, windowsHide: true },
         (err) => (err ? reject(err) : resolve()),
       )
     })
@@ -2525,6 +2525,7 @@ class GitHubClient {
       const { stdout } = await execAsync('git remote get-url origin', {
         cwd: workspacePath,
         timeout: 5000,
+        windowsHide: true,
       })
       return this.parseRemote(stdout.trim())
     } catch {
