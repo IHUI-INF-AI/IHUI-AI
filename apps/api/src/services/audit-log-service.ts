@@ -19,11 +19,12 @@
  * canonicalJSON:递归排序对象 key,确保 metadata 序列化稳定,
  * 避免 JSONB 读取后 key 顺序变化导致 hash 误报。
  */
-import { sql } from 'drizzle-orm'
+import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { hmacSHA256, secureRandomBytes } from '../utils/crypto-extra.js'
 import { db } from '../db/index.js'
+import { llmCallLogs } from '@ihui/database'
 import {
   selectAuditLogs,
   selectAuditLogChain,
@@ -329,4 +330,203 @@ export async function getAuditLogStats(filters: AuditLogFilters): Promise<AuditL
   ])
   return { total, byAction, byUser }
 }
+
+// =============================================================================
+// llm_call_logs 原文留存治理(O5,2026-09-21)
+// =============================================================================
+//
+// 为什么放在本 service:本批允许改动的文件清单里没有 services/llm-call-log-retention.ts,
+// 也不允许新建该文件;而"原文留存多久 / 到期清除"与审计留痕同属数据治理面,
+// 与本文件的定位(审计与留痕的不可篡改 + 生命周期)一致。后续若拆独立文件,
+// 只需整段搬移,导出的 4 个符号签名不变。
+//
+// 口径:
+//  - 计费/统计只看 token 计数列(llm_call_logs.prompt_tokens 等),清除原文不影响任何聚合;
+//  - 站内会话与开放面**都不在审计日志里落 prompt 正文**(见 plugins/audit-logger.ts 的形状摘要);
+//  - 这里治理的是 llm_call_logs 表本身存的那两份原文。
+//  - 默认 30 天而非 0:保留失败复现能力(排障要看真实请求),同时把"永久留存"收敛为"有期限"。
+//    要彻底不落原文,设 LLM_CALL_LOG_RAW_RETENTION_DAYS=0,或把具体 key id 写进
+//    LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS(该 key 的全部行按下限 0 天立即清除)。
+
+/** 全局默认留存天数(与迁移 20260921130000 的注释口径一致)。 */
+export const DEFAULT_RAW_RETENTION_DAYS = 30
+
+/** 单批清除行数上限:避免一次 UPDATE 锁住过多行、把计费写入挤出去。 */
+const DEFAULT_PURGE_BATCH = 500
+
+/** 生效的留存策略(已由 env 解析、钳制)。 */
+export interface RawRetentionPolicy {
+  /** 未显式指定 raw_retention_days 的行使用的天数(>=0;0 = 不留存原文)。 */
+  defaultDays: number
+  /** 按 key 关闭原文留存的 key id 列表(命中即视为 0 天)。`all=true` 时忽略列表。 */
+  disabledApiKeyIds: string[]
+  /** LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS='*' → 对所有行关闭原文留存。 */
+  all: boolean
+}
+
+/** 解析一个非负整数 env 值;非法/缺失回落到 fallback。 */
+function parseNonNegativeInt(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw.trim() === '') return fallback
+  const n = Number(raw)
+  if (!Number.isFinite(n) || n < 0) {
+    logger.warn('[audit-log-service] 非法留存天数,已回落默认', { raw, fallback })
+    return fallback
+  }
+  return Math.floor(n)
+}
+
+/**
+ * 从环境变量解析原文留存策略(纯函数,便于单测;不读 config 是为了不改 config/index.ts)。
+ * - LLM_CALL_LOG_RAW_RETENTION_DAYS:全局默认天数,缺省 30
+ * - LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS:逗号分隔 key id;`*` 表示全量关闭
+ */
+export function resolveRawRetentionPolicy(
+  env: NodeJS.ProcessEnv = process.env,
+): RawRetentionPolicy {
+  const disabled = (env.LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  const all = disabled.includes('*')
+  const defaultDays = all ? 0 : parseNonNegativeInt(env.LLM_CALL_LOG_RAW_RETENTION_DAYS, DEFAULT_RAW_RETENTION_DAYS)
+  return {
+    defaultDays,
+    disabledApiKeyIds: all ? [] : disabled,
+    all,
+  }
+}
+
+/** 单行生效天数(行内显式覆盖优先于全局默认)。 */
+export function effectiveRetentionDays(
+  row: { rawRetentionDays: number | null },
+  policy: RawRetentionPolicy,
+): number {
+  if (policy.all) return 0
+  return row.rawRetentionDays ?? policy.defaultDays
+}
+
+/** 写入口的原文列取值(O5,2026-09-21 收尾补:留存关闭时**根本不写原文**)。 */
+export interface RawTextColumns {
+  /** 写入 prompt 列的原文(关闭留存时为空串 —— 该列 NOT NULL,不允许写 NULL 破坏旧读端) */
+  prompt: string
+  /** 写入 response 列的原文(关闭留存时置 NULL,与清除器口径一致) */
+  response: string | null
+  /** 本行原文是否留存(=false 时上面两列即无正文;清除器也因此跳过本行) */
+  rawRetained: boolean
+}
+
+/**
+ * 判定一次计费写入应落到 llm_call_logs 原文列的内容。
+ *
+ * 为什么要写在入口侧:环境变量把某把 key(或 '*')关掉原文留存后,若只靠
+ * 定时清除器,新行会带着正文存活到下一个批次 —— 对明确要求不留正文的 key,
+ * 这段窗口就是违背承诺。入口侧判定让"关闭"从"迟到清除"变成"永不落盘"。
+ *
+ * - 关闭时 prompt 落空串(列 NOT NULL,旧读端 SELECT 路径不变,读到空即无原文),
+ *   response 落 NULL(与 purgeExpiredLlmCallLogRawText 的置空口径一致);
+ * - token 计数、成本、apiKeyId 等归因/计费列与本法无关,调用方照常写。
+ */
+export function buildRawTextColumns(
+  input: { apiKeyId: string | null; prompt: string; response: string | null },
+  policy: RawRetentionPolicy = resolveRawRetentionPolicy(),
+): RawTextColumns {
+  const disabled =
+    policy.all || (input.apiKeyId !== null && policy.disabledApiKeyIds.includes(input.apiKeyId))
+  if (disabled) return { prompt: '', response: null, rawRetained: false }
+  return { prompt: input.prompt, response: input.response, rawRetained: true }
+}
+
+/** 清除结果。 */
+export interface PurgeRawResult {
+  /** 本次被清除原文的行数 */
+  purged: number
+  /** 使用的策略(回显便于审计日志留痕) */
+  policy: RawRetentionPolicy
+  /** 是否可能还有到期行(达到 batch 上限时为 true,调用方应继续下一批) */
+  hasMore: boolean
+}
+
+/**
+ * 清除到期(或按 key 关闭留存)的 llm_call_logs 原文。
+ *
+ * 语义:
+ *  - 只动 prompt / response 两列原文;token 计数、成本、状态、apiKeyId 等**全部保留**
+ *    → 计费与"哪把 key 调了哪个模型"的归因不受影响;
+ *  - prompt 是 NOT NULL 列,清成空串(不改列的空约束,旧行照旧可读);response 直接置 NULL;
+ *  - 置 raw_retained=false + raw_purged_at=now() → 幂等,重复执行 0 行受影响;
+ *  - FOR UPDATE SKIP LOCKED + LIMIT:与在线计费写入互不阻塞,单批规模可控。
+ *
+ * ✅ 调度接线(2026-09-21 收尾补齐):plugins/scheduler.ts 已注册每日任务
+ *    'llm-call-log-purge-daily'(workers/scheduler-worker.ts 调
+ *    purgeAllExpiredLlmCallLogRawText(),循环至 hasMore=false)。
+ *    写入口侧的"按 key 关闭"见 buildRawTextColumns(),在
+ *    services/relay-billing-service.ts 的 recordCall 落库前生效。
+ *
+ * @param opts.batch 单批行数上限(默认 500)
+ * @param opts.policy 覆盖 env 解析结果(单测/手工运维用)
+ */
+export async function purgeExpiredLlmCallLogRawText(
+  opts: { batch?: number; policy?: RawRetentionPolicy } = {},
+): Promise<PurgeRawResult> {
+  const policy = opts.policy ?? resolveRawRetentionPolicy()
+  const batch = opts.batch && opts.batch > 0 ? opts.batch : DEFAULT_PURGE_BATCH
+
+  // 到期判定:行内 raw_retention_days 优先,NULL 落全局默认。
+  // 注意 raw_retention_days=0 时 cutoff = now(),同事务刚插入的行(created_at = now())
+  // 本轮不命中,下一轮清除 —— 可接受,避免"写入即看不到自己那行"的边界。
+  const expired = sql`${llmCallLogs.createdAt} < now() - COALESCE(${llmCallLogs.rawRetentionDays}, ${policy.defaultDays})::int * interval '1 day'`
+  const scopes: SQL[] = [expired]
+  if (policy.all) {
+    // 全量关闭:任意行都视为到期
+    scopes.push(sql`true`)
+  } else if (policy.disabledApiKeyIds.length > 0) {
+    scopes.push(inArray(llmCallLogs.apiKeyId, policy.disabledApiKeyIds))
+  }
+  const scopeCond = scopes.length === 1 ? (scopes[0] as SQL) : (or(...scopes) as SQL)
+  const where = and(eq(llmCallLogs.rawRetained, true), scopeCond)
+
+  try {
+    const raw = await db.execute(sql`
+      UPDATE ${llmCallLogs}
+         SET prompt = '', response = NULL, raw_retained = false, raw_purged_at = now()
+       WHERE id IN (
+         SELECT id FROM ${llmCallLogs}
+          WHERE ${where}
+          ORDER BY created_at
+          LIMIT ${batch}
+          FOR UPDATE SKIP LOCKED
+       )
+      RETURNING id
+    `)
+    const purged = toRows(raw).length
+    return { purged, policy, hasMore: purged >= batch }
+  } catch (e) {
+    // 表未建 / 权限不足 / 迁移未跑:与 recordAuditLog 同口径 —— 降级告警,不抛出打断调用方定时任务
+    logger.warn('[audit-log-service] purgeExpiredLlmCallLogRawText failed', {
+      error: (e as Error).message,
+    })
+    return { purged: 0, policy, hasMore: false }
+  }
+}
+
+/**
+ * 循环清除直到无到期行(定时任务入口)。
+ * 上限 maxRounds 防止表规模异常时把定时任务钉死;剩余量在下一轮调度继续。
+ */
+export async function purgeAllExpiredLlmCallLogRawText(
+  opts: { batch?: number; maxRounds?: number; policy?: RawRetentionPolicy } = {},
+): Promise<PurgeRawResult> {
+  const maxRounds = opts.maxRounds ?? 200
+  const policy = opts.policy ?? resolveRawRetentionPolicy()
+  let purged = 0
+  let hasMore = false
+  for (let i = 0; i < maxRounds; i++) {
+    const r = await purgeExpiredLlmCallLogRawText({ batch: opts.batch, policy })
+    purged += r.purged
+    hasMore = r.hasMore
+    if (!hasMore) break
+  }
+  return { purged, policy, hasMore }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
