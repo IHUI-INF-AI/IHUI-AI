@@ -145,6 +145,7 @@ if (isStaged) {
     const staged = execSync('git diff --cached --name-only', {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     const stagedFiles = staged.split('\n').filter(Boolean)
     const stagedI18nDirs = new Set()

@@ -37,6 +37,7 @@ function main() {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 30000,
+      windowsHide: true,
     })
     distTags = JSON.parse(out)
   } catch (err) {

@@ -66,6 +66,7 @@ function getFilesToCheck() {
       const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
         cwd: ROOT,
         encoding: 'utf-8',
+        windowsHide: true,
       })
       return output
         .trim()
@@ -88,6 +89,7 @@ function getFilesToCheck() {
     const output = execSync('git ls-files apps/api/src/routes/', {
       cwd: ROOT,
       encoding: 'utf-8',
+      windowsHide: true,
     })
     return output
       .trim()
