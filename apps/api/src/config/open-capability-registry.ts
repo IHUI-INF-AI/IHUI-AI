@@ -55,7 +55,9 @@ interface OpenCapabilityDeclaration {
   methods: readonly string[]
   /**
    * 完整 URL 路径模式(Fastify 注册前缀已展开,不含 query)。
-   * `:param` 段按单段通配匹配,末段 `*` 按跨段通配匹配。
+   * 匹配语义是**精确匹配 + 显式参数段**:`:name` 占位恰好一个非空、不含 `/` 的段;
+   * 禁止 `*` / `**` / 前缀通配(构建期直接抛错)—— 默认拒绝不允许前缀继承,
+   * 新增端点必须显式补进 `paths` 才可对机器凭据开放。
    */
   paths: readonly string[]
   scope: OpenableCapabilityScope
@@ -78,25 +80,33 @@ export interface OpenCapabilityGrant {
 
 const DECLARATIONS = {
   // ===== 遗留 /api/v1 前端桩(O3 已登记 scope,O6 在此收口为强制 + 机器通道)=====
-  // 族内用 `/*` 前缀通配 + 方法收窄:该族新增**同方法**端点会随之开放(继承只读 scope),
-  // 但跨方法(POST/DELETE…)与跨前缀一律默认拒绝;写语义端点必须单独成条、
-  // 排在只读条目之前(见 openCapabilityRules / findOpenCapability 的长度降序匹配)。
+  // 默认拒绝不允许前缀继承:族内路径一律**逐条枚举**(与 routes/** 的真实注册点一一对应),
+  // 同前缀下新增端点不会因为"落在族内"被顺手开放 —— 必须显式补条目。
+  // 写语义端点单独成条(如 close),方法收窄到实际注册的方法。
   'v1-tools-directory': {
     description: '工具目录:列表 / 分类 / 上传配置(只读,全站已发布工具)',
     methods: ['GET'],
-    paths: ['/api/v1/tools/*'],
+    paths: ['/api/v1/tools/list', '/api/v1/tools/categories', '/api/v1/tools/upload'],
     scope: 'tools:read',
   },
   'v1-content-catalog': {
     description: '内容生成:模板列表 + 当前用户生成历史',
     methods: ['GET'],
-    paths: ['/api/v1/content/*'],
+    paths: ['/api/v1/content/create', '/api/v1/content/list'],
     scope: 'user:read',
   },
   'v1-customer-service-read': {
     description: '客服:消息列表 / 未读数 / 工单与回复 / 评级 / FAQ',
     methods: ['GET'],
-    paths: ['/api/v1/customer_service/*'],
+    paths: [
+      '/api/v1/customer_service/messages',
+      '/api/v1/customer_service/messages/read',
+      '/api/v1/customer_service/ticket',
+      '/api/v1/customer_service/ticket/:id',
+      '/api/v1/customer_service/ticket/:id/replies',
+      '/api/v1/customer_service/ticket/:id/rate',
+      '/api/v1/customer_service/faqs',
+    ],
     scope: 'messages:read',
   },
   'v1-customer-service-close': {
@@ -114,11 +124,16 @@ const DECLARATIONS = {
     scope: 'codebase:read',
   },
   'codebase-write': {
-    // `/repo/*` 是本表唯一的通配条目:仓库维度删除端点族(repoId 后可带子路径),
-    // 且方法收敛到 DELETE —— 同前缀下的 GET/POST 不会被放行。
+    // 仓库维度端点逐条枚举(v1-codebase-search.ts 的 DELETE /repo/:repoId 与
+    // /repo/:repoId/files)—— `:repoId` 只占一个非空段,repoId 下再嵌套的
+    // 未登记路径(如 /repo/7/tags/batch)不再被前缀通配顺手放行。
     description: '代码库切片批量写入与按仓库删除',
     methods: ['POST', 'DELETE'],
-    paths: ['/api/v1/codebase/index', '/api/v1/codebase/repo/*'],
+    paths: [
+      '/api/v1/codebase/index',
+      '/api/v1/codebase/repo/:repoId',
+      '/api/v1/codebase/repo/:repoId/files',
+    ],
     scope: 'codebase:write',
   },
   // ===== 用户自有资产面(scoped-*,强制 owner 过滤,owner = key 归属人)=====
@@ -153,15 +168,17 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** `:param` → 单段通配;末段 `*` → 跨段通配;其余按字面量。 */
+/** 合法参数段:冒号开头 + 标识符,整段占位(`:id` / `:repoId`);不允许出现在段中间。 */
+const PARAM_SEGMENT = /^:[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * 编译路径模式为**锚定精确 + 单段参数**正则:`:param` 段匹配一个非空、不含 `/` 的段;
+ * 其余按字面量。不支持任何通配(`*` 在 buildRegistry 构建期即被拒绝,不会到这里)。
+ */
 function compilePath(pattern: string): RegExp {
   const source = pattern
     .split('/')
-    .map((segment) => {
-      if (segment.startsWith(':')) return '[^/]+'
-      if (segment === '*') return '.*'
-      return escapeRegExp(segment)
-    })
+    .map((segment) => (PARAM_SEGMENT.test(segment) ? '[^/]+' : escapeRegExp(segment)))
     .join('/')
   return new RegExp(`^${source}$`)
 }
@@ -199,6 +216,18 @@ function buildRegistry(): OpenCapabilityEntry[] {
     if (paths.some((p) => !p.startsWith('/api/'))) {
       throw new Error(`[open-capability-registry] ${key}: 本表只管 /api/* 业务面,/v1 协议面由能力目录就地闸口负责`)
     }
+    // 结构性防线:通配一律拒绝(默认拒绝不允许前缀继承,新端点必须逐条显式登记)。
+    if (paths.some((p) => p.includes('*'))) {
+      throw new Error(`[open-capability-registry] ${key}: paths 不得含 "*" —— 请逐条枚举精确路径/参数化路径`)
+    }
+    for (const p of paths) {
+      const badSegment = p.split('/').find((s) => s.includes(':') && !PARAM_SEGMENT.test(s))
+      if (badSegment !== undefined) {
+        throw new Error(
+          `[open-capability-registry] ${key}: ${p} 的参数段 "${badSegment}" 非法(须为 ":name" 且独占整段)`,
+        )
+      }
+    }
     const capability = assertScopeOpenable(declaration.scope, key)
     return {
       ...declaration,
@@ -227,7 +256,7 @@ function buildRegistry(): OpenCapabilityEntry[] {
 }
 
 /**
- * 匹配优先级:字面量更长的路径模式先试,通配条目(`…/repo/*`)最后兜底。
+ * 匹配优先级:字面量更长的路径模式先试(参数段按字面 `:name` 计长,排序只为确定性)。
  * 两处判定(findOpenCapability 与派生的 requireCapabilityRules 规则表)必须
  * 给出同一个 scope,否则"根级闸放行、端点级闸按另一 scope 判定"就会错位。
  */
@@ -302,7 +331,7 @@ export function openCapabilityRules(...keys: OpenCapabilityKey[]): CapabilityRul
     }))
   })
   // `requireCapabilityRules` 取**首个**命中规则,故按字面量长度降序排列:
-  // 更长(更具体)的路径模式先匹配,通配条目(`/api/v1/codebase/repo/*`)最后兜底。
+  // 更长(更具体)的路径模式先匹配,保证判定确定性。
   // 与 findOpenCapability 的优先级保持一致 —— 两处判定必须给出同一个 scope。
   return rules.sort((a, b) => b.pattern.source.length - a.pattern.source.length)
 }
