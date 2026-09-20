@@ -839,15 +839,106 @@ if (wipMissingKeyIssues.length > 0) {
   console.log('')
 }
 // next-intl/use-intl 按 "." 路径解析消息,字面含点 key(如 "foldPolicy.title")永远不可达:
-// 渲染时走 MISSING_MESSAGE 兜底,UI 上直接回显键名本身。2026-09-21 实测 web 语言包曾有 84 个
+// 渲染时走 MISSING_MESSAGE 兜底,UI 上直接回显键名本身。2026-09-20 实测 web 语言包曾有 84 个
 // 这类 key,其中 en/ko 各 22 个(subAgentFeed.lane.*、agentHooks.event.*、integrations.event.*)
 // 在开发者面板里真的显示成了 "event.tool.before" 这样的原始键名。含点 key 必须改成嵌套结构。
 const dottedKeyIssues = []
+// 同层重复 key:JSON.parse 静默保留最后一个值(AGENTS.md §18 禁止但此前无闸门)。
+// 同日实测:把含点键改成嵌套时,若同层已有真身嵌套块,就会造出重复 key —— 5 个 web
+// 语言包各中一处,而 flatten 式 parity 检查按"路径集合"比对,完全看不出值被谁覆盖。
+const dupKeyIssues = []
+function findDuplicateKeys(text) {
+  const dups = []
+  let i = 0
+  let line = 1
+  const ws = () => {
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\n') {
+        line += 1
+        i += 1
+      } else if (c === ' ' || c === '\t' || c === '\r') i += 1
+      else break
+    }
+  }
+  const str = () => {
+    i += 1 // 跳过开引号
+    let s = ''
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\\') {
+        s += text[i + 1]
+        i += 2
+        continue
+      }
+      if (c === '"') {
+        i += 1
+        return s
+      }
+      if (c === '\n') line += 1
+      s += c
+      i += 1
+    }
+    throw new Error('未闭合字符串')
+  }
+  const arr = () => {
+    i += 1
+    let depth = 1
+    while (i < text.length && depth > 0) {
+      const c = text[i]
+      if (c === '[') depth += 1
+      else if (c === ']') depth -= 1
+      else if (c === '"') {
+        str()
+        continue
+      } else if (c === '\n') line += 1
+      i += 1
+    }
+    i += 1
+  }
+  const val = (path) => {
+    ws()
+    if (text[i] === '{') obj(path)
+    else if (text[i] === '[') arr()
+    else if (text[i] === '"') str()
+    else while (i < text.length && ',}]'.indexOf(text[i]) === -1) i += 1
+  }
+  function obj(path) {
+    i += 1 // 跳过 {
+    const seen = new Map()
+    for (;;) {
+      ws()
+      if (text[i] === '}') {
+        i += 1
+        return
+      }
+      if (text[i] === ',') {
+        i += 1
+        continue
+      }
+      if (i >= text.length) return
+      const atLine = line
+      const k = str()
+      ws()
+      if (text[i] === ':') i += 1
+      if (seen.has(k)) dups.push(`${path || '<root>'}.${k} @L${atLine}(首次 @L${seen.get(k)})`)
+      seen.set(k, atLine)
+      val(path ? `${path}.${k}` : k)
+    }
+  }
+  ws()
+  obj('')
+  return dups
+}
+
 if (existsSync(MESSAGES_DIR)) {
   for (const entry of readdirSync(MESSAGES_DIR).filter((f) => f.endsWith('.json'))) {
+    const file = join(MESSAGES_DIR, entry)
     let raw
+    let text
     try {
-      raw = readMessageJson(join(MESSAGES_DIR, entry))
+      raw = readMessageJson(file)
+      text = readFileSync(file, 'utf8')
     } catch {
       continue
     }
@@ -859,6 +950,11 @@ if (existsSync(MESSAGES_DIR)) {
       }
     }
     walkDotted(raw, '')
+    try {
+      for (const d of findDuplicateKeys(text)) dupKeyIssues.push(`${entry}: ${d}`)
+    } catch {
+      // 词法解析失败(异常格式)不臆断,交由既有 JSON.parse 通路兜底
+    }
   }
 }
 
@@ -874,8 +970,23 @@ if (dottedKeyIssues.length > 0) {
   console.log('')
 }
 
+if (dupKeyIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
+  )
+  for (const line of dupKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dupKeyIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dupKeyIssues.length - 20} 处${C.reset}`)
+  }
+  console.log(`${C.yellow}修复方法: 合并同名 key,或改成分支里的不同键名${C.reset}`)
+  console.log('')
+}
+
 const shouldBlock =
-  parityIssues.length > 0 || missingKeyIssues.length > 0 || dottedKeyIssues.length > 0
+  parityIssues.length > 0 ||
+  missingKeyIssues.length > 0 ||
+  dottedKeyIssues.length > 0 ||
+  dupKeyIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -902,7 +1013,9 @@ if (shouldBlock) {
         ? 'parity 问题'
         : missingKeyIssues.length > 0
           ? '缺失键问题'
-          : '含点键问题'
+          : dottedKeyIssues.length > 0
+            ? '含点键问题'
+            : '同层重复 key 问题'
     },拒绝提交/CI失败!${C.reset}`,
   )
   console.log(`${C.yellow}修复方法:${C.reset}`)
