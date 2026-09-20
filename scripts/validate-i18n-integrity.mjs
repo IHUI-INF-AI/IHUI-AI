@@ -44,6 +44,7 @@ function getStagedFiles() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     return output.split('\n').filter(Boolean)
   } catch {
@@ -62,6 +63,7 @@ function countStagedLines(relPath) {
     const content = execSync(`git show :${relPath}`, {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     return countLines(content)
   } catch {
@@ -81,6 +83,7 @@ function countHeadLines(relPath) {
     const content = execSync(`git show HEAD:${relPath}`, {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     return countLines(content)
   } catch {

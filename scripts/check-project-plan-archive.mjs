@@ -87,6 +87,7 @@ function main() {
       oldContent = execSync(`git show HEAD:${FILE}`, {
         encoding: 'utf8',
         cwd: ROOT,
+        windowsHide: true,
       })
     } catch {
       // HEAD 无此文件(首次创建),视为无删除
@@ -99,6 +100,7 @@ function main() {
         newContent = execSync(`git show :0:${FILE}`, {
           encoding: 'utf8',
           cwd: ROOT,
+          windowsHide: true,
         })
       } catch {
         // 取 index 失败,降级用 working tree
@@ -108,6 +110,7 @@ function main() {
         diffText = execSync(`git diff --cached -- ${FILE}`, {
           encoding: 'utf8',
           cwd: ROOT,
+          windowsHide: true,
         })
       } catch {
         diffText = ''
@@ -119,6 +122,7 @@ function main() {
         diffText = execSync(`git diff -- ${FILE}`, {
           encoding: 'utf8',
           cwd: ROOT,
+          windowsHide: true,
         })
       } catch {
         diffText = ''
