@@ -132,7 +132,17 @@ async def _ui_call(
             response = await client.post(
                 _execute_url(),
                 json=request,
-                headers={"Authorization": f"Bearer {secret}"},
+                # Bearer = /execute 的鉴权凭据;x-internal-service-token 是**必须**的第二个头 ——
+                # apps/api 的 CSRF 钩子只对"带自定义头/非浏览器表单"的请求放行(见
+                # apps/api/src/plugins/csrf.ts:`x-internal-service-token` 存在即豁免),
+                # 只发 Bearer 会被拦成 403「CSRF 令牌缺失或无效」。这条**只有真实聊天
+                # round-trip 才能暴露**(直打 /execute 用用户 JWT 会顺带带 auth_token cookie 而绕过),
+                # 2026-09-21 端到端实证时就是被它挡住的。x-user-id 与 api_tools_bridge 口径一致。
+                headers={
+                    "Authorization": f"Bearer {secret}",
+                    "x-internal-service-token": secret,
+                    "x-user-id": user_id,
+                },
             )
             response.raise_for_status()
             payload = response.json()
@@ -164,8 +174,11 @@ async def _ui_call(
     if not out["ok"]:
         out["error"] = str(data.get("error") or "前端执行失败")
         out["errorCode"] = data.get("errorCode") or "EXECUTION_FAILED"
-        # 钉定的页面已经关掉/掉线:清掉,下一条命令回落"最近活跃端"重新探测
-        if out["errorCode"] == "TARGET_NOT_CONNECTED":
+        # 钉定的页面已关掉/掉线:清掉,下一条命令回落"最近活跃端"重新探测。
+        # TIMEOUT 也要清 —— 页面重载后旧 instance 在 api 注册表里还能存活到 5min TTL,
+        # 推过去没人应答就是走满超时的这一形态(api 侧已加活性判据,但清掉钉定能立刻自愈,
+        # 不必等那个周期越过保活容差)。
+        if out["errorCode"] in ("TARGET_NOT_CONNECTED", "TIMEOUT"):
             _PINNED_INSTANCE.pop((user_id, category), None)
     return out
 
