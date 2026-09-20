@@ -35,6 +35,13 @@ export default defineConfig({
         __dirname,
         'tests/__mocks__/ihui-shared-utils-date-utils.ts',
       ),
+      // 纯逻辑模块,直接指向真实源码而非 mock:这条链路的全部价值就是"关键词判定四端同源",
+      // 一旦给它写 mock,测的就是 mock。其余 @ihui/shared 子路径必须 mock(依赖 DOM/RN API),
+      // 故不能照此办理。 Metro 侧同样按子路径 exports 解析(见 src/hooks/use-websocket.ts)。
+      '@ihui/shared/utils/app-control-intent': resolve(
+        __dirname,
+        '../../packages/shared/src/utils/app-control-intent.ts',
+      ),
       '@ihui/shared/utils': resolve(__dirname, 'tests/__mocks__/ihui-shared-utils.ts'),
       '@ihui/shared/hooks': resolve(__dirname, 'tests/__mocks__/ihui-shared-hooks.ts'),
       '@ihui/shared/stores': resolve(__dirname, 'tests/__mocks__/ihui-shared-stores.ts'),
