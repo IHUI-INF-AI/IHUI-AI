@@ -109,7 +109,7 @@ def test_register_ui_action_tools_idempotent() -> None:
 
     assert ub.register_ui_action_tools() == 7
     names = {t.name for t in mcp_server.list_tools()}
-    assert _EXPECTED_TOOLS <= names
+    assert _EXPECTED_TOOLS.issubset(names)
     # 幂等:同名不覆盖,第二次注册返回 0(stdio bridge 同一约定)
     assert ub.register_ui_action_tools() == 0
 
@@ -156,6 +156,22 @@ async def test_call_request_shape(captured: list[dict[str, Any]]) -> None:
     assert body["requestId"].startswith("ui-")
     assert "/api/agent-control/execute" in captured[0]["url"]
     assert captured[0]["headers"]["Authorization"] == "Bearer ui-test-secret"
+
+
+async def test_call_sends_internal_service_token_for_csrf_exempt(
+    captured: list[dict[str, Any]],
+) -> None:
+    """必须同时带 `x-internal-service-token`,否则 apps/api 的 CSRF 钩子把请求拦成 403。
+
+    `Authorization: Bearer` 只是 /execute 的鉴权凭据;CSRF 豁免判定看的是自定义头是否存在
+    (apps/api/src/plugins/csrf.ts)。只发 Bearer 时整条 UI 桥 100% 不可用,而**直打 /execute
+    用用户 JWT 会顺带带上 auth_token cookie 从而绕过该钩子** —— 所以这个缺陷只有真实聊天
+    round-trip 才暴露(2026-09-21 端到端实证时就是被它挡住的)。
+    """
+    await ub._ui_call("describe", {"__user_id": _USER})
+    headers = captured[0]["headers"]
+    assert headers["x-internal-service-token"] == "ui-test-secret"
+    assert headers["x-user-id"] == _USER
 
 
 async def test_call_omits_empty_session(captured: list[dict[str, Any]]) -> None:
@@ -263,6 +279,47 @@ async def test_pin_cleared_when_target_gone(monkeypatch: pytest.MonkeyPatch) -> 
     out = await ub._ui_call("read", {"__user_id": _USER})
     assert out["errorCode"] == "TARGET_NOT_CONNECTED"
     assert (_USER, 'ui') not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
+
+
+async def test_pin_cleared_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TIMEOUT 也必须清钉。
+
+    页面被重载后,旧 instance 在 api 注册表里还能存活到 5min TTL —— 推过去没人应答,
+    表现就是走满超时的 TIMEOUT(2026-09-21 真实聊天 round-trip 复现)。只清
+    TARGET_NOT_CONNECTED 的话,后续每条命令都要白等一次超时。
+    """
+
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        return _Resp(
+            payload={
+                "code": 0,
+                "data": {"success": False, "errorCode": "TIMEOUT", "error": "执行超时(20000 毫秒)"},
+            }
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    ub._PINNED_INSTANCE[(_USER, "ui")] = "web-reloaded"
+    out = await ub._ui_call("read", {"__user_id": _USER})
+    assert out["errorCode"] == "TIMEOUT"
+    assert (_USER, "ui") not in ub._PINNED_INSTANCE
+
+
+async def test_pin_not_cleared_for_ordinary_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """普通执行失败(选择器没找到等)不该清钉 —— 页面还活着,下一条仍要落回同一页。"""
+
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        return _Resp(
+            payload={
+                "code": 0,
+                "data": {"success": False, "errorCode": "SELECTOR_NOT_FOUND", "error": "元素已不在页面上"},
+            }
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    ub._PINNED_INSTANCE[(_USER, "ui")] = "web-live"
+    out = await ub._ui_call("fill", {"__user_id": _USER, "target": "el:input#7", "value": 1})
+    assert out["errorCode"] == "SELECTOR_NOT_FOUND"
+    assert ub._PINNED_INSTANCE[(_USER, "ui")] == "web-live"
 
 
 # ---------------------------------------------------------------------------
