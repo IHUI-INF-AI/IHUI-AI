@@ -125,7 +125,10 @@ class Settings(BaseSettings):
     capability_manifest_path: str = ""
     # MCP_EXPORT_ALLOWED_HOSTS — mcp_export 对外 transport 的 Host 白名单(逗号分隔),
     # 在回环(localhost/127.0.0.1/::1)之外显式放行的域名/IP;为空 = 仅回环。
-    mcp_export_allowed_hosts: str = ""
+    # MCP export(SSE/streamable)对外 Host 白名单(逗号/空格分隔,大小写不敏感)。
+    # 回环始终放行;此处登记生产访问域,避免每次部署手配 env。
+    # 语义:仅精确匹配主机名(端口会被 request_host_of 剥掉),不匹配子域通配。
+    mcp_export_allowed_hosts: str = "aizhs.top www.aizhs.top mcp.aizhs.top"
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
