@@ -30,11 +30,18 @@ from bench.run_golden_e2e import (
 
 
 def _run_e2e(args: list[str]) -> subprocess.CompletedProcess:
-    """以子进程运行黄金 E2E runner,继承当前解释器与 cwd。"""
+    """以子进程运行黄金 E2E runner,继承当前解释器与 cwd。
+
+    与 test_bench._run_bench 同理:两端都钉死 UTF-8,否则中文 Windows(cp936)上
+    带 PYTHONIOENCODING=utf-8 跑测试时,GBK 解码异常被读取线程静默吞掉,
+    表现为 `proc.stdout is None`。
+    """
     return subprocess.run(
-        [sys.executable, "-m", "bench.run_golden_e2e", *args],
+        [sys.executable, "-X", "utf8", "-m", "bench.run_golden_e2e", *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=600,
     )
 
