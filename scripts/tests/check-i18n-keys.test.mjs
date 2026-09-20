@@ -86,7 +86,11 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认模式运行)', () =
   try {
     // 无 messages 目录 → 脚本输出 "messages 文件不存在或不完整,跳过" 并 exit 0
     const r = runScript(['--help'], { cwd: root })
-    assert.equal(r.status, 0, `--help 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `--help 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+    )
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -240,14 +244,15 @@ test('JSON 解析失败: ko.json 损坏(非基准)→ ko 被跳过,parity 不检
   }
 })
 
-// ─── 10. JSON 重复 key(JSON.parse 静默取最后一个值) ─────
-test('JSON 重复 key: JSON.parse 静默取最后一个值(脚本未显式检测重复 key)', () => {
+// ─── 10. JSON 重复 key(AGENTS.md §18 禁止;2026-09-20 起本脚本显式检测) ─────
+test('JSON 重复 key: 同层两个同名 key → exit 1(前值被 JSON.parse 静默遮蔽)', () => {
   const root = createTempProject()
   try {
     const dir = join(root, 'packages', 'i18n', 'messages', 'web')
     mkdirSync(dir, { recursive: true })
     // 手写 JSON 字符串含重复 key(save 出现两次)
-    // JSON.parse 解析后 save = "저장2"(最后一个),与其他语言 parity 一致
+    // JSON.parse 解析后 save = "저장2"(最后一个),flatten 式 parity 看起来"一致",
+    // 但 저장1 已经静默丢失 —— 这正是 §18 禁止重复 key 的原因,故必须显式拦。
     writeFileSync(
       join(dir, 'ko.json'),
       '{"common":{"save":"저장1","save":"저장2","cancel":"취소"},"nav":{"home":"홈"}}',
@@ -256,9 +261,9 @@ test('JSON 重复 key: JSON.parse 静默取最后一个值(脚本未显式检测
       writeFileSync(join(dir, `${lang}.json`), JSON.stringify(PARITY_OK[lang]))
     }
     const r = runScript(['--parity-only'], { cwd: root })
-    // JSON.parse 静默处理重复 key,parity 校验基于解析后的对象 → exit 0
-    // 注:脚本未显式检测重复 key,这是已知行为(AGENTS.md §19 要求手动 Grep 确认)
-    assert.equal(r.status, 0, `重复 key 被 JSON.parse 静默处理,parity OK`)
+    assert.equal(r.status, 1, `同层重复 key 应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /重复 key/, `应报告重复 key 问题,stdout: ${r.stdout}`)
+    assert.match(r.stdout, /common\.save/, `应点名重复键路径,stdout: ${r.stdout}`)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -316,7 +321,11 @@ test('fixture: 完整 5 语言文件(zh-CN/zh-TW/ko/ja/en)嵌套 parity OK', () 
     }
     writeWebMessages(root, msgs)
     const r = runScript(['--parity-only'], { cwd: root })
-    assert.equal(r.status, 0, `完整 5 语言 fixture parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `完整 5 语言 fixture parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
     assert.match(r.stdout, /parity OK/)
     // 验证检查了 5 语言
     assert.match(r.stdout, /5 语言/)
@@ -376,7 +385,11 @@ test('合并: shared 有 common.save,web 无 → 合并后 parity OK', () => {
     // web 模式:shared + web 合并 → common.save + nav.home 都在合并集中
     // 5 语言合并集一致 → parity OK
     const r = runScript(['--parity-only'], { cwd: root })
-    assert.equal(r.status, 0, `shared+web 合并 parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `shared+web 合并 parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -392,7 +405,11 @@ test('--staged: staged messages JSON → 触发 parity 检查', () => {
     execSync('git add packages/i18n/messages/web/', { cwd: root, stdio: 'pipe' })
     const r = runScript(['--staged'], { cwd: root })
     // staged JSON → messagesChanged = true → 跑 parity → exit 0
-    assert.equal(r.status, 0, `staged JSON + parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.equal(
+      r.status,
+      0,
+      `staged JSON + parity OK 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -437,6 +454,141 @@ test('缺失键通关: 补齐消息定义后同源码 → exit 0', () => {
     )
     const r = runScript([], { cwd: root })
     assert.equal(r.status, 0, `补齐消息定义后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 19. 含点键检测(next-intl 按 "." 解析路径,字面含点 key 永不渲染) ───
+// 真实事故:web 语言包 84 个含点键,en/ko 各 22 个在 UI 上回显成原始键名(subAgentFeed.lane.*
+// / agentHooks.event.* / integrations.event.*),而 flatten 式 parity 守门全绿看不出问题。
+test('含点键: 顶层含点 key → exit 1 且提示改写为嵌套', () => {
+  const root = createTempProject()
+  try {
+    const msgs = JSON.parse(JSON.stringify(PARITY_OK))
+    for (const lang of Object.keys(msgs)) {
+      msgs[lang].common['lane.architect'] = 'Architect'
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "const t = useTranslations('common')\nt('lane.architect')\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `含点键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /含点键/, `应报告含点键问题,stdout: ${r.stdout}`)
+    assert.match(r.stdout, /lane\.architect/, `应点名具体键,stdout: ${r.stdout}`)
+    assert.match(r.stdout, /改写为嵌套/, `应给出修复方法,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('含点键: 等价的嵌套结构 → exit 0(不误报)', () => {
+  const root = createTempProject()
+  try {
+    const msgs = JSON.parse(JSON.stringify(PARITY_OK))
+    for (const lang of Object.keys(msgs)) {
+      msgs[lang].common.lane = { architect: 'Architect' }
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "const t = useTranslations('common')\nt('lane.architect')\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `嵌套写法不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 22. 同层重复 key(AGENTS.md §18:JSON.parse 静默保留最后一个,§18 此前无闸门)─────
+// 真实触发场景:给含点键补嵌套时,同层若已有真身嵌套块就会造出重复 key,
+// flatten 式 parity 检查按路径集合比对看不出"前面的值被后面覆盖"。
+test('同层重复 key: 同一对象内两个同名 key → exit 1 并点名路径与行号', () => {
+  const root = createTempProject()
+  try {
+    const dir = join(root, 'packages', 'i18n', 'messages', 'web')
+    mkdirSync(dir, { recursive: true })
+    // 手写原文(不能用 JSON.stringify 生成,它无法产出重复 key)
+    const withDup = {
+      'zh-CN': {
+        common: { save: '保存', cancel: '取消' },
+        nav: { home: '首页' },
+      },
+      'zh-TW': PARITY_OK['zh-TW'],
+      ko: PARITY_OK.ko,
+      ja: PARITY_OK.ja,
+      en: PARITY_OK.en,
+    }
+    for (const [lang, content] of Object.entries(withDup)) {
+      if (lang === 'zh-CN') {
+        writeFileSync(
+          join(dir, 'zh-CN.json'),
+          '{\n  "common": {\n    "save": "保存",\n    "cancel": "取消"\n  },\n  "nav": {\n    "home": "首页",\n    "home": "首頁"\n  }\n}\n',
+        )
+      } else {
+        writeFileSync(join(dir, `${lang}.json`), JSON.stringify(content, null, 2))
+      }
+    }
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'page.tsx'), "const t = useTranslations('nav')\nt('home')\n")
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `同层重复 key 应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /重复 key/, `应报告重复 key 问题,stdout: ${r.stdout}`)
+    assert.match(r.stdout, /nav\.home/, `应点名重复键路径,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('同层重复 key: 不同层的同名 key 不算重复(不误报)', () => {
+  const root = createTempProject()
+  try {
+    // PARITY_OK 里 zh-CN/zh-TW/ja 的 save/cancel 值相同但分层不同;这里显式构造跨层同名
+    const msgs = {}
+    for (const lang of Object.keys(PARITY_OK)) {
+      msgs[lang] = {
+        common: { save: PARITY_OK[lang].common.save, cancel: PARITY_OK[lang].common.cancel },
+        nav: { home: PARITY_OK[lang].nav.home, common: { save: 'sub' } },
+      }
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(join(srcDir, 'page.tsx'), "const t = useTranslations('nav')\nt('home')\n")
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `跨层同名 key 不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('含点键: 深层嵌套内部含点 key 也要检出(递归覆盖)', () => {
+  const root = createTempProject()
+  try {
+    const msgs = JSON.parse(JSON.stringify(PARITY_OK))
+    for (const lang of Object.keys(msgs)) {
+      // 真实事故形态:ai.subAgentFeed 之下再挂含点键
+      msgs[lang].common.deep = { event: { 'tool.before': 'Before tool call' }, list: ['a', 'b'] }
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "const t = useTranslations('common.deep')\nt('event.tool.before')\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `深层含点键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /common\.deep/, `报告应带父路径,stdout: ${r.stdout}`)
+    assert.match(r.stdout, /tool\.before/, `应点名深层含点键,stdout: ${r.stdout}`)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
