@@ -6,6 +6,12 @@ import { createReadWriteDb, type Database } from '@ihui/database'
 import type { FastifyInstance } from 'fastify'
 import { config } from '../config/index.js'
 import { sqlEventBus } from './sql-event-bus.js'
+// O4 数据作用域闸:受控出口 dbScoped()/dbReadScoped() + 只读超级用户探针
+import {
+  configureDataScopeGuard,
+  createScopedDb,
+  createSuperuserProbe,
+} from '../utils/scoped-guard.js'
 // P1 修复:集成 pool-leak-detector,跟踪 postgres.js 连接池中 active/idle 连接,
 // 让 db-keepalive.ts 的 scanLeaks 能检测到长时间未归还的连接泄漏。
 // 此前 pool-leak-detector.ts 完整实现但从未被任何模块调用 checkout/trackConnection,
@@ -51,6 +57,31 @@ export const dbRead: Database = new Proxy(dbWriter, {
 })
 // 原始 postgres.js 客户端，用于连接池指标采样
 export const dbClient = writerClient
+
+// ============================================================================
+// O4 数据作用域闸(2026-09-25 立)—— 受控客户端出口
+//
+// dbScoped()/dbReadScoped() 与 db/dbRead 指向同一连接池(不改任何连接串语义),
+// 唯一差别:每条经它发出的语句先过 utils/scoped-guard.ts 的判据 ——
+// 机器凭据 + 已登记能力(capability)时,compute 只能碰自有运行记录白名单表,
+// scoped-* 必须带 owner 谓词,否则:
+//   403 DATA_ACCESS_DENIED(模式不允许触达该表)/ 403 DATA_SCOPE_DENIED(越过归属边界)/
+//   503 DATA_ISOLATION_UNAVAILABLE(隔离前提不成立,见 assertNonSuperuserForScopedMode)。
+// 未挂 capability 的调用链(存量 /api/* 全部路由)行为逐字节不变。
+//
+// 探针必须走原始 postgres 客户端(而非任何 drizzle 出口),否则会与被包装的
+// prepareQuery 互相递归;探测结果进程内缓存 10 分钟,不给请求增加往返。
+// ============================================================================
+configureDataScopeGuard({
+  // 常量只读 SELECT(无参数、无写、无 SET);形态异常抛错 → 归类为"探测不可用"而非"非超级用户"
+  probeSuperuser: createSuperuserProbe((probeSql) => writerClient.unsafe(probeSql)),
+})
+
+/** 受控写出口:机器凭据可达的写路径必须用它(而非 db)。 */
+export const dbScoped: Database = createScopedDb<Database>(() => db)
+/** 受控读出口:每次解析跟随当前健康读副本(与 dbRead 同一故障转移语义)。 */
+export const dbReadScoped: Database = createScopedDb<Database>(() => dbRead)
+
 // P1 修复:导出 poolLeakDetector 单例,供 admin 路由 / db-keepalive 等模块统一访问
 export { poolLeakDetector }
 
