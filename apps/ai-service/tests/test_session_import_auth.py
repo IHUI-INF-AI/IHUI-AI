@@ -176,9 +176,26 @@ def test_whitelist_has_no_catchall_entry() -> None:
 
 
 def test_effective_whitelist_reflects_settings() -> None:
-    """中间件读到的名单必须等于 settings.jwt_public_paths 解析结果(含 .env 覆盖值)。"""
-    effective = tuple(p.strip() for p in settings.jwt_public_paths.split(",") if p.strip())
-    assert effective == _effective_whitelist(), "判定层名单与生效配置不一致"
+    """判定层名单 = 生效配置解析结果,但**两条边界不由配置决定**(O1/O11 收口):
+    `.env` 里的 `/api/mcp*` 被强制剔除,`/.well-known/agent*.json` 被强制补齐。"""
+    configured = tuple(p.strip() for p in settings.jwt_public_paths.split(",") if p.strip())
+    expected = tuple(p for p in configured if not jwt_auth._is_never_public(p))
+    expected += tuple(p for p in jwt_auth._ALWAYS_PUBLIC if p not in expected)
+    assert expected == _effective_whitelist(), "判定层名单与生效配置(剔不可公开项 + 补发现文档)不一致"
+
+
+def test_mcp_never_anonymous_even_if_configured() -> None:
+    """.env 残留 `/api/mcp` 时必须剔除 —— O1 关掉的匿名后门不允许被配置重开。"""
+    resolved = jwt_auth._resolve_public_paths("/api/health,/api/mcp,/api/mcp/export/sse")
+    assert "/api/health" in resolved
+    assert not any(p.rstrip("/") == "/api/mcp" or p.startswith("/api/mcp/") for p in resolved), resolved
+
+
+def test_wellknown_agent_card_always_anonymous() -> None:
+    """A2A 发现文档恒匿名可读:即便 .env 覆盖后漏掉它,也必须补进名单。"""
+    resolved = jwt_auth._resolve_public_paths("/api/health")
+    for path in jwt_auth._ALWAYS_PUBLIC:
+        assert path in resolved, path
 
 
 # ---------------------------------------------------------------------------
