@@ -23,7 +23,12 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { createHmac } from 'node:crypto'
-import { db } from '../../db/index.js'
+// O4b 数据闸接线(2026-09-20):`webhook_subscriptions`(用户自有订阅,含 secret)
+// 的增删改查全部改走受控出口 —— 机器凭据(webhooks:manage = scoped-write)的语句
+// 必须自带 user_id 归属谓词,否则出口即 403 DATA_SCOPE_DENIED。
+// 仍走原始出口 `db` 的只剩 `webhook_delivery_logs`:该表没有 owner 列(只挂 subscription_id),
+// 归属由上游已受控的订阅查询保证;写自有订阅的投递日志属"调用自身"的记账。
+import { db, dbScoped } from '../../db/index.js'
 import { webhookSubscriptions, webhookDeliveryLogs } from '@ihui/database'
 import { requireAuth } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
@@ -113,11 +118,13 @@ const safeSubscriptionFields = {
 } as const
 
 // =============================================================================
-// 辅助:校验订阅归属权(返回订阅或 403/404)
+// 辅助:取"属于该用户"的订阅(取不到即 404 —— 归属由受控出口的 SQL 谓词证明)
 // =============================================================================
 
 async function getOwnedSubscription(id: string, userId: string) {
-  const [sub] = await db
+  // O4b:归属由 WHERE 里的 user_id 谓词证明 —— 他人订阅行根本不会被取回,
+  // 原先"读出来再比 userId"的写法在受控出口上会被判为越过归属边界(403)。
+  const [sub] = await dbScoped
     .select({
       id: webhookSubscriptions.id,
       userId: webhookSubscriptions.userId,
@@ -126,10 +133,11 @@ async function getOwnedSubscription(id: string, userId: string) {
       enabled: webhookSubscriptions.enabled,
     })
     .from(webhookSubscriptions)
-    .where(eq(webhookSubscriptions.id, id))
+    .where(
+      and(eq(webhookSubscriptions.id, id), eq(webhookSubscriptions.userId, userId)),
+    )
     .limit(1)
   if (!sub) return { error: error(404, '订阅不存在'), sub: null }
-  if (sub.userId !== userId) return { error: error(403, '无权操作此订阅'), sub: null }
   return { error: null, sub }
 }
 
@@ -183,7 +191,7 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /webhooks/subscriptions — 列我的订阅 =====
   server.get('/webhooks/subscriptions', async (request, reply) => {
     const userId = request.userId!
-    const list = await db
+    const list = await dbScoped
       .select(safeSubscriptionFields)
       .from(webhookSubscriptions)
       .where(eq(webhookSubscriptions.userId, userId))
@@ -199,7 +207,7 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const secret = generateWebhookSecret()
-    const [created] = await db
+    const [created] = await dbScoped
       .insert(webhookSubscriptions)
       .values({
         userId,
@@ -235,10 +243,12 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
     if (parsed.data.balanceThresholdCents !== undefined)
       setClause.balanceThresholdCents = parsed.data.balanceThresholdCents
 
-    const [updated] = await db
+    const [updated] = await dbScoped
       .update(webhookSubscriptions)
       .set(setClause)
-      .where(eq(webhookSubscriptions.id, idParsed.data.id))
+      .where(
+        and(eq(webhookSubscriptions.id, idParsed.data.id), eq(webhookSubscriptions.userId, userId)),
+      )
       .returning(safeSubscriptionFields)
     return reply.send(success({ subscription: updated }))
   })
@@ -253,7 +263,11 @@ const developerWebhooksRoutes: FastifyPluginAsync = async (server) => {
     const { error: err, sub } = await getOwnedSubscription(idParsed.data.id, userId)
     if (err || !sub) return reply.status(err!.code).send(err)
 
-    await db.delete(webhookSubscriptions).where(eq(webhookSubscriptions.id, idParsed.data.id))
+    await dbScoped
+      .delete(webhookSubscriptions)
+      .where(
+        and(eq(webhookSubscriptions.id, idParsed.data.id), eq(webhookSubscriptions.userId, userId)),
+      )
     return reply.send(success({ ok: true }))
   })
 
