@@ -44,10 +44,25 @@
 - [x] ✅(2026-09-20) A1 OpenAPI → MCP 工具生成器。证据:`apps/ai-service/app/services/api_tools_bridge.py`
       (`fetch_openapi_spec` TTL300s / `spec_to_tools` / `make_api_handler` 路径参数 URL 编码 + 写操作 role 闸门 +
       header/cookie 参数不暴露);实跑 ai-service 从活的 api 拉 spec(4471 个 operation),read 模式
-      **1982 个只读端点全部可调用**(300 注册为工具 + 长尾经入口工具即时派发)。
+      **2027 个只读端点可调用**(300 注册为工具 + 长尾经入口工具即时派发)。
       过程中修掉两处真实缺陷:① 上一批桥接模块把 `register_external_tool` 当 `mcp_server` 实例方法调用
       (启动必抛 AttributeError,注册从未生效过);② `API_TOOLS_MAX` 原在方法过滤**之前**截断,
       导致 read 模式只拿到 118 个端点(96% 只读面被静默丢弃)。
+- [x] ✅(2026-09-20) A3 调用 URL 按 `spec.servers` 解析挂载前缀(修 route A 的"注册成功但零可用")。
+      实测 apps/api `/docs/json` 的 3686 条 path **全不带前缀**(`/health`、`/conversations`),
+      而 `servers=[{url:"/api"},{url:"/api/v1"}]`;此前直接 base+path,每一次调用都打在
+      `"Route GET:/conversations not found"`(404)上 —— 注册数、上限截断这些指标全绿也掩盖不了,
+      只有真发一次请求才暴露。修复:`api_tools_bridge.resolve_mounted_path()` 由 spec 声明驱动
+      (`/v1/*` 命中次要 server 独有尾段则原样用,否则拼主前缀),侧表另存 `mounted`,
+      长尾派发与注册 handler 均用挂载后路径。回归 `test_resolve_mounted_path_uses_declared_servers`
+      + `test_setup_registers_mounted_paths`。
+- [x] ✅(2026-09-20) A4 `.env` 配置静默失效根治(同一类"看着配了其实没读"陷阱)。
+      `app/core/config.py::_sync_env_file_to_os()` 只把**白名单键**同步进 `os.environ`,而桥接与
+      `mcp_server._edu_internal_headers` 全是 `os.environ.get` 直读 → `AI_CALLBACK_SECRET` 配在 `.env`
+      却不进环境 → 出站请求不带 `x-internal-service-token`,被 apps/api 以 401 "请先登录" 拒;
+      `API_TOOLS_MODE` 同理恒为默认 read(改 `.env` 无效)。已把这 7 个键补进白名单并补注释。
+      本机 `apps/ai-service/.env`(已 gitignore)设 `API_TOOLS_MODE=all`,写端点注册 183 个,
+      role=0 仍 `PERMISSION_DENIED`(双闸门不变)。
 - [x] ✅(2026-09-20) A2 端点数量与 token 解耦:两个名字恒定的入口工具
       `api_endpoints_search` / `api_endpoint_call`(仅接受 `api_` 前缀,防越权捷径)。证据:同文件 `_entry_tools()`
       + `_API_TOOL_INDEX` 侧表;测试 `tests/test_api_tools_bridge.py`。
