@@ -448,6 +448,22 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_store] 启动恢复初始化失败(忽略): %s", e)
 
+    # AI 全量操控桥接(2026-09-20 立):拉取 apps/api OpenAPI 转为 MCP 工具 + 注册前端 UI 动作工具
+    try:
+        from app.services.api_tools_bridge import setup_api_tools_bridge
+
+        _n_api = await setup_api_tools_bridge()
+        logger.info("[api_bridge] 启动注册 API 工具: %d 个", _n_api)
+    except Exception as e:
+        logger.warning("[api_bridge] 启动注册失败(忽略): %s", e)
+    try:
+        from app.services.ui_action_bridge import register_ui_action_tools
+
+        _n_ui = register_ui_action_tools()
+        logger.info("[ui_bridge] 启动注册 UI 桥接工具: %d 个", _n_ui)
+    except Exception as e:
+        logger.warning("[ui_bridge] 启动注册失败(忽略): %s", e)
+
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 

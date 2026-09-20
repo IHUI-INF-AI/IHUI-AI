@@ -1,0 +1,258 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""ui_action_bridge.py(web 前端 UI 动作桥接)单元测试。
+
+覆盖策略:与 api 侧的契约(agent-control category='ui')靠 httpx 层拦截断言请求
+形状与响应归一化,不触达真实 apps/api / 浏览器 / DB / Redis。
+注册进全局工具表的用例按 web_ui_ 前缀清理,防污染同进程其他用例。
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+import pytest
+
+from app.services import ui_action_bridge as ub
+
+_USER = "00000000-0000-4000-8000-00000000000b"
+_EXPECTED_TOOLS = {
+    "web_ui_describe",
+    "web_ui_read",
+    "web_ui_navigate",
+    "web_ui_click",
+    "web_ui_fill",
+    "web_ui_submit",
+    "web_ui_invoke",
+}
+
+
+class _Resp:
+    def __init__(self, payload: Any = None, status_code: int = 200) -> None:
+        self._payload = payload
+        self.status_code = status_code
+        self.text = ""
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> Any:
+        return self._payload
+
+
+@pytest.fixture(autouse=True)
+def _clean(monkeypatch: pytest.MonkeyPatch) -> Any:
+    # settings.agent_control_internal_secret 有非空默认值,env 覆盖不生效,直替函数
+    monkeypatch.setattr(ub, "_get_agent_control_secret", lambda: "ui-test-secret")
+    yield
+    ub.unregister_external_tool_by_prefix("web_ui_")
+
+
+@pytest.fixture
+def captured(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    calls: list[dict[str, Any]] = []
+
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        calls.append({"method": method, "url": str(url), **kwargs})
+        return _Resp(
+            payload={
+                "code": 0,
+                "message": "ok",
+                "data": {"success": True, "data": {"registry": {"page": {"path": "/orders"}}}, "durationMs": 12},
+            }
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    return calls
+
+
+# ---------------------------------------------------------------------------
+# 超时配置
+# ---------------------------------------------------------------------------
+
+def test_timeout_default_and_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("UI_ACTION_TIMEOUT", raising=False)
+    assert ub._timeout_seconds() == 20.0
+    monkeypatch.setenv("UI_ACTION_TIMEOUT", "45")
+    assert ub._timeout_seconds() == 45.0
+    monkeypatch.setenv("UI_ACTION_TIMEOUT", "abc")
+    assert ub._timeout_seconds() == 20.0
+    monkeypatch.setenv("UI_ACTION_TIMEOUT", "0.2")
+    assert ub._timeout_seconds() == ub._MIN_TIMEOUT_S
+
+
+# ---------------------------------------------------------------------------
+# 工具定义
+# ---------------------------------------------------------------------------
+
+def test_ui_tools_names_and_schemas() -> None:
+    tools = {t.name: t for t, _ in ub._ui_tools()}
+    assert set(tools) == _EXPECTED_TOOLS
+    assert tools["web_ui_describe"].input_schema["properties"] == {}
+    assert tools["web_ui_navigate"].input_schema["required"] == ["path"]
+    assert tools["web_ui_click"].input_schema["required"] == ["target"]
+    assert tools["web_ui_fill"].input_schema["required"] == ["target", "value"]
+    assert tools["web_ui_invoke"].input_schema["required"] == ["name"]
+    assert "web_ui_execute" not in tools  # 旧一次性 execute 工具已被七动词取代
+    for name, tool in tools.items():
+        assert tool.description.startswith("[UI桥接]"), name
+
+
+def test_register_ui_action_tools_idempotent() -> None:
+    from app.services.mcp_server import mcp_server
+
+    assert ub.register_ui_action_tools() == 7
+    names = {t.name for t in mcp_server.list_tools()}
+    assert _EXPECTED_TOOLS <= names
+    # 幂等:同名不覆盖,第二次注册返回 0(stdio bridge 同一约定)
+    assert ub.register_ui_action_tools() == 0
+
+
+def test_register_ui_action_tools_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UI_ACTION_TOOLS", "false")
+    assert ub.register_ui_action_tools() == 0
+    assert ub.register_ui_action_tools() == 0
+
+
+# ---------------------------------------------------------------------------
+# 请求形状与身份
+# ---------------------------------------------------------------------------
+
+async def test_call_requires_user_id(captured: list[dict[str, Any]]) -> None:
+    out = await ub._ui_call("describe", {})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PERMISSION_DENIED"
+    assert captured == []
+
+
+async def test_call_fail_closed_without_secret(
+    captured: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ub, "_get_agent_control_secret", lambda: "")
+    out = await ub._ui_call("describe", {"__user_id": _USER})
+    assert out["errorCode"] == "MISSING_SECRET"
+    assert captured == []
+
+
+async def test_call_request_shape(captured: list[dict[str, Any]]) -> None:
+    out = await ub._ui_call(
+        "fill",
+        {"__user_id": _USER, "__user_role": 1, "__session_id": "s9", "target": "金额", "value": 100},
+    )
+    assert out["ok"] is True
+    body = captured[0]["json"]
+    assert body["category"] == "ui"
+    assert body["action"] == "fill"
+    assert body["userId"] == _USER
+    assert body["sessionId"] == "s9"
+    assert body["params"] == {"target": "金额", "value": 100}  # 内部字段不下发到浏览器
+    assert body["timeout"] == 20000
+    assert body["requestId"].startswith("ui-")
+    assert "/api/agent-control/execute" in captured[0]["url"]
+    assert captured[0]["headers"]["Authorization"] == "Bearer ui-test-secret"
+
+
+async def test_call_omits_empty_session(captured: list[dict[str, Any]]) -> None:
+    await ub._ui_call("read", {"__user_id": _USER, "__session_id": "  "})
+    assert "sessionId" not in captured[0]["json"]
+
+
+# ---------------------------------------------------------------------------
+# 响应归一化
+# ---------------------------------------------------------------------------
+
+async def test_success_unwraps_envelope(captured: list[dict[str, Any]]) -> None:
+    out = await ub._ui_call("describe", {"__user_id": _USER})
+    assert out["ok"] is True
+    assert out["tool"] == "web_ui_describe"
+    assert out["result"]["registry"]["page"]["path"] == "/orders"
+    assert "error" not in out
+
+
+async def test_failure_passthrough_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        return _Resp(
+            payload={
+                "code": 0,
+                "data": {
+                    "success": False,
+                    "error": "该操作需用户手动执行",
+                    "errorCode": "DESTRUCTIVE_BLOCKED",
+                    "durationMs": 5,
+                },
+            }
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    out = await ub._ui_call("click", {"__user_id": _USER, "target": "删除账号"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "DESTRUCTIVE_BLOCKED"
+    assert "手动" in out["error"]
+
+
+async def test_timeout_maps_to_error_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def slow(self: Any, method: str, url: str, **kwargs: Any) -> Any:
+        raise httpx.TimeoutException("too slow")
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", slow)
+    out = await ub._ui_call("read", {"__user_id": _USER})
+    assert out["ok"] is False
+    assert out["errorCode"] == "TIMEOUT"
+
+
+async def test_network_error_maps_execution_failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def boom(self: Any, method: str, url: str, **kwargs: Any) -> Any:
+        raise httpx.ConnectError("api down")
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", boom)
+    out = await ub._ui_call("navigate", {"__user_id": _USER, "path": "/orders"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "EXECUTION_FAILED"
+
+
+async def test_non_dict_data_is_tolerated(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        return _Resp(payload={"code": 0, "data": None})
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    out = await ub._ui_call("read", {"__user_id": _USER})
+    assert out["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# handler 装配
+# ---------------------------------------------------------------------------
+
+async def test_handler_binds_action(captured: list[dict[str, Any]]) -> None:
+    handler = ub._make_ui_handler("submit")
+    out = await handler({"__user_id": _USER})
+    assert captured[0]["json"]["action"] == "submit"
+    assert out["tool"] == "web_ui_submit"
+
+
+async def test_registered_handlers_reachable_via_call_tool(
+    captured: list[dict[str, Any]]
+) -> None:
+    """注册后必须能走既有 call_tool 链(权限矩阵/超时/截断全复用)。"""
+    from app.services.mcp_server import mcp_server
+
+    ub.register_ui_action_tools()
+    out = await mcp_server.call_tool("web_ui_read", {}, user_id=_USER)
+    assert out["ok"] is True
+    assert out["tool"] == "web_ui_read"
+
+
+def test_unregister_prefix_removes_tools() -> None:
+    from app.services.mcp_server import mcp_server
+
+    ub.register_ui_action_tools()
+    removed = ub.unregister_external_tool_by_prefix("web_ui_")
+    assert len(removed) == 7
+    names = {t.name for t in mcp_server.list_tools()}
+    assert not (_EXPECTED_TOOLS & names)
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
