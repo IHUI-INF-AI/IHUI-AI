@@ -1172,6 +1172,9 @@ class AgentLoopV2:
         self._time_reminder_state = _CurrentTimeReminderState()
         self._time_provider = time_provider
         self._env_tracker = _EnvironmentStateTracker()
+        # 批 57 接线:Responses 流重试决策状态机(延迟 import 避免循环;行为兼容,
+        # 仅作决策来源统一化,现有 attempt>=llm_retry_max 的 break 仍主导主链路)。
+        self._stream_retry_state: Any = None
         # 批 42:本回合内"用户批准后重执行"的工具调用 id 集合(回填 user_shell 片段)
         self._approved_command_call_ids: set[str] = set()
         # 批 40 接线:rollout_budget 记账 + 阈值提醒(批 26 移植模块首次接线;
@@ -2393,6 +2396,8 @@ class AgentLoopV2:
         True;重试轮次退化为非流式(避免部分产出后重试导致前端增量重复拼接)。
         """
         last_exc: BaseException | None = None
+        # 批 57:每轮 LLM 调用重置重试决策状态机(行为兼容;状态仅在本轮重试内累积)。
+        self._stream_retry_state = None
         # 2026-09-18 第二批:生成参数透传(空 dict 时不加 kwargs,签名与现状逐零差异)
         extra_params: dict[str, Any] = self._model_params or {}
         for attempt in range(self.llm_retry_max + 1):
@@ -2425,6 +2430,39 @@ class AgentLoopV2:
                     agent_loop_llm_retries_total.labels(
                         self._classify_error(e)
                     ).inc()
+                except Exception:
+                    pass
+                # 批 57 接线:Responses 流重试决策状态机统一化(行为兼容,仅作决策来源)。
+                # 现有 attempt>=llm_retry_max 的 break 仍主导主链路;decide 仅补充
+                # exhausted 前置判与 notify 文案,不改动退避数值。状态机统一化第一步。
+                _notify_message: str | None = None
+                try:
+                    from ..core.responses_retry import (
+                        ResponsesStreamRetryState,
+                        decide_stream_retry,
+                    )
+                    _err_type = self._classify_error(e)
+                    _state = (
+                        self._stream_retry_state
+                        if self._stream_retry_state is not None
+                        else ResponsesStreamRetryState()
+                    )
+                    _state, _decision = decide_stream_retry(
+                        _state,
+                        max_retries=self.llm_retry_max,
+                        is_connection_failed=_err_type == "connection",
+                        unbounded_connection_retries_enabled=False,
+                        session_is_internal=False,
+                        provider_is_bedrock=False,
+                        fallback_transport_available=False,
+                        server_retry_delay=None,
+                        websocket_transport=False,
+                        debug_assertions=False,
+                    )
+                    self._stream_retry_state = _state
+                    if _decision.action == "exhausted":
+                        break
+                    _notify_message = _decision.notify_message
                 except Exception:
                     pass
                 backoff = self.llm_retry_backoff * (2**attempt) * (
@@ -4075,6 +4113,23 @@ class AgentLoopV2:
                         duration_ms=(time.time() - start) * 1000,
                         error_type="hook_denied",
                     )
+                # 批 57 接线:P1 用户可见缺口——消费 PRE_TOOL_USE 钩子注入的
+                # 附加上下文(对标 Codex additionalContext / ContextualUserFragment),
+                # 并入模型输入历史。非注入 / 列表为空 = 零行为变化;异常隔离,
+                # 绝不阻塞工具执行主链路。消息形态对齐本文件 developer 片段。
+                try:
+                    if self._messages is not None:
+                        for _ctx in getattr(_hk_outcome, "additional_contexts", None) or []:
+                            _ctx_text = str(_ctx)[:4000]
+                            if _ctx_text:
+                                self._messages.append(
+                                    {
+                                        "role": "developer",
+                                        "content": [{"type": "input_text", "text": _ctx_text}],
+                                    }
+                                )
+                except Exception as e:  # noqa: BLE001 - 上下文注入失败隔离,不阻塞主链路
+                    logger.warning("pre_tool_use 附加上下文注入异常(降级跳过): %s", e)
             except Exception as e:  # noqa: BLE001 - 钩子运行时异常隔离,不阻塞主链路
                 logger.warning("pre_tool_use 钩子运行时异常(降级放行): %s", e)
 
