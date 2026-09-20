@@ -72,6 +72,9 @@
   不存在目标 → `SELECTOR_NOT_FOUND`;ai-service 侧 `web_ui_describe` 进程内直调活链路 203–297ms 回传真实注册表。
 - 真机暴露并修掉两个可用性缺陷(表单字段被 80 上限挤掉 → 优先级择优;多标签页命令散射 → `targetInstanceId`
   钉定应答页):新增回归 web 21 项 / api 13 项 / ai-service ui 18 项全绿,mypy 全仓 0 错误。
+- 钉定路由真机复测通过(同场景修复前必然 SELECTOR_NOT_FOUND):两个 web 端点并存时
+  `describe`(/settings/import)应答带 `instanceId=web-manf2sw7` → `fill(el:textarea#18)` ok 且回执同
+  instanceId → `read` 仍在同页、值回读为写入值,随后复原原值。
 - 仍存限制(未修,需产品决策):同一用户**多个可见窗口**都活跃时仍靠心跳新旧择一;`web` 端点与 pending 均为
   api 进程内状态,多实例部署下跨实例指令会超时(与既有 computer/browser 链路同限制)。
 
