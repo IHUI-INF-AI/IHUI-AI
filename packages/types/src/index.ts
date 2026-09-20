@@ -42,6 +42,7 @@ export * from './ide-workspace'
 
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
 export * from './api-key'
+export * from './capability-catalog'
 
 // /v1/* 对外开放 API 端点请求/响应类型契约(2026-07-22 立,27 权限点 + 97 端点全功能覆盖)
 export * from './v1-endpoints'

@@ -27,6 +27,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 // P0 第二批次(2026-07-31 立):rerank/moderations 计费集成
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
@@ -122,6 +123,12 @@ function getModerationUpstream(): UpstreamConfig | null {
 // 路由插件
 // =============================================================================
 
+// O3 能力闸:rerank / moderations 各自独立 scope(此前只要有 key 即可调用)
+const rerankCapabilityGate = requireCapabilityRules([
+  { methods: ['POST'], pattern: /^\/v1\/rerank$/, scope: 'rerank:write' },
+  { methods: ['POST'], pattern: /^\/v1\/moderations$/, scope: 'moderation:write' },
+])
+
 const v1RerankModerations: FastifyPluginAsync = async (server) => {
   // ===== 1. POST /rerank — Cohere/Jina 兼容重排序 =====
   server.post(
@@ -154,7 +161,7 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
           required: ['model', 'query', 'documents'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, rerankCapabilityGate],
     },
     async (request, reply) => {
       const parsed = rerankSchema.safeParse(request.body)
@@ -254,7 +261,7 @@ const v1RerankModerations: FastifyPluginAsync = async (server) => {
           required: ['input'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, rerankCapabilityGate],
     },
     async (request, reply) => {
       const parsed = moderationsSchema.safeParse(request.body)
