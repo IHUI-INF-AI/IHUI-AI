@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * O7:OAuth 2.0 授权服务器 / OIDC 提供方「元数据 + 公钥 + UserInfo」表面(RFC 8414 / OIDC Discovery)。
  *
@@ -184,7 +188,17 @@ export async function buildAsMetadata(
     scopesSupported,
     oidc: opts.oidc,
     // 与 signIdToken/buildOidcProfileClaims 实际产出的 claims 严格一致
-    claimsSupported: ['sub', 'iss', 'aud', 'exp', 'iat', 'auth_time', 'nonce', 'nickname', 'avatar'],
+    claimsSupported: [
+      'sub',
+      'iss',
+      'aud',
+      'exp',
+      'iat',
+      'auth_time',
+      'nonce',
+      'nickname',
+      'avatar',
+    ],
   })
 }
 
@@ -236,12 +250,17 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     if (!parsed.success) {
       return reply
         .status(400)
-        .send({ error: 'invalid_request', error_description: parsed.error.issues[0]?.message ?? '参数错误' })
+        .send({
+          error: 'invalid_request',
+          error_description: parsed.error.issues[0]?.message ?? '参数错误',
+        })
     }
     const q = parsed.data
     const app = await findOAuthAppByClientId(q.client_id)
     if (!app || app.isActive !== 1) {
-      return reply.status(404).send({ error: 'invalid_client', error_description: '应用不存在或已禁用' })
+      return reply
+        .status(404)
+        .send({ error: 'invalid_client', error_description: '应用不存在或已禁用' })
     }
     const redirectUris = (app.redirectUris as string[]) ?? []
     if (!redirectUris.includes(q.redirect_uri)) {
@@ -257,7 +276,10 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
       return reply.status(302).header('location', url.toString()).send()
     }
     if (q.response_type && q.response_type !== 'code') {
-      return backWithError('unsupported_response_type', `不支持的 response_type: ${q.response_type}`)
+      return backWithError(
+        'unsupported_response_type',
+        `不支持的 response_type: ${q.response_type}`,
+      )
     }
     const { granted, rejected } = resolveGrantedScopes(q.scope, allowedScopesForApp(app))
     if (rejected.length > 0) {
@@ -285,7 +307,13 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
       return reply.status(302).header('location', target.toString()).send()
     }
 
-    const code = generateAuthorizationCode(app.clientId, userId, granted.join(' '), q.redirect_uri, 600)
+    const code = generateAuthorizationCode(
+      app.clientId,
+      userId,
+      granted.join(' '),
+      q.redirect_uri,
+      600,
+    )
     await createOAuthSession({
       code,
       clientId: app.clientId,
@@ -337,9 +365,7 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
 
   server.get('/oauth/jwks', async (_request, reply) => {
     const keys = await getOidcSigningKeys()
-    const jwks = await buildJwks(
-      keys.map((k) => ({ kid: k.kid, publicKeyPem: k.publicKeyPem })),
-    )
+    const jwks = await buildJwks(keys.map((k) => ({ kid: k.kid, publicKeyPem: k.publicKeyPem })))
     return reply
       .header('cache-control', 'public, max-age=300')
       .header('access-control-allow-origin', '*')
@@ -374,13 +400,11 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     const user = await findUserById(info.sub)
     if (!user) return reply.status(404).send({ error: 'invalid_grant' })
     // claims 集合与 discovery.claims_supported 严格一致(不额外漏出 email/phone)
-    return reply
-      .header('cache-control', 'no-store')
-      .send({
-        sub: user.id,
-        nickname: user.nickname ?? undefined,
-        avatar: user.avatar ?? undefined,
-      })
+    return reply.header('cache-control', 'no-store').send({
+      sub: user.id,
+      nickname: user.nickname ?? undefined,
+      avatar: user.avatar ?? undefined,
+    })
   }
 
   server.route({ url: '/oauth/userinfo', method: ['GET', 'POST'], handler: userinfoHandler })
@@ -423,3 +447,4 @@ export async function issueIdToken(params: {
     return null
   }
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
