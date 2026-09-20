@@ -37,7 +37,58 @@
 改词典的端必须同步重生成该端签入的压缩产物:`pnpm --filter @ihui/miniapp-taro gen:i18n`
 (miniapp-taro),否则 `i18n-compressed.test` 会红。
 
-## 按端明细
+## 执行进展与结论修正(2026-09-21 第一轮尝试后)
+
+### 1. 「零新增文案」这条路走不通(已实测穷尽)
+按最保守的确定性规则(只把点分路径压成 camelCase 单段候选,如 `status.upcoming` → `statusUpcoming`)
+对全部 349 条路径逐条查五语合并词典:**0 条命中**。拆解:272 条点分路径压平后仍不存在;
+77 条本身就是单层叶名(压平不变),即词典确实没有这个概念。
+唯一例外是 `feedback` 的 5 条 —— 它们要靠**下划线→驼峰**(`type_bug` → `typeBug`)才命中,
+这属于另一条规则,不在上述保守判定内(且 `admin.menuPermission.status_pending` 连这条也救不了)。
+**结论:剩余项基本都是"词典真缺这个概念",需要按屏补文案,不能靠机械改名糊过去。**
+
+### 2. 一处结论被推翻:mobile-rn 那 17 处是真缺陷,不是"扁平键写法"
+有评审意见认为 `coupon.tab_available` 这类"词典里是扁平 snake_case 叶名,非缺陷"。已逐层证伪:
+
+- `packages/i18n/messages/mobile-rn/zh-CN.json` 顶层含点键 **0 个**,`coupon` 是嵌套对象,
+  其子键为 `subtitle/retry/empty/loadFailed/minSpend/title/validUntil` —— **既无 `available` 也无 `tab_available`**;
+  字面顶层键 `"coupon.tab_available"` 同样不存在。
+- 运行时取值实现 `packages/i18n/src/loader.ts:42` 走 `getValueByPath(messages, key)`,
+  **只做点分下钻,没有"先查扁平字面键"的分支**。
+- 所以 `packages/app/src/features/coupon/CouponScreen.tsx:24` 的 `available: 'coupon.tab_available'`
+  取不到值 → 兜底回显键名。**本档案维持"真缺陷"判定,不得按"非缺陷"关闭。**
+
+### 3. 已实际修掉的(不在上面 118 处内,是同一根因的另一族)
+- miniapp-taro 端 42 个**字面量**缺键已补齐五语(commit `0d5ffc686b`),
+  并顺带修掉两处"把词劈成两半"的拼接(`VerifyCodeModal` / `course 数`)与其源码乱码兜底。
+- 守门侧同根因补盲:`extractHookKeys` 原先只认单名解构 `const { t } = useI18n()`,
+  `const { t, locale, setLocale }` 整文件不匹配、`const tt = useTt()` 完全不认
+  (commit `98913a5862`);修好后该端受检规模从 91 文件 / 970 键 升到 212 文件 / 2665 键。
+
+### 4. 一条"看着像工具 bug"其实是并行事故
+本档案生成后,一个修复批次报告"已提交 `b70a0a957d`",但该 sha **不在 HEAD 链上**;更关键的是
+**内容也不在 HEAD** —— 直接读 HEAD 的 `packages/i18n/messages/mobile-rn/zh-CN.json`,`coupon`
+的子键仍是 `subtitle,retry,empty,loadFailed,minSpend,title,validUntil`,
+`coupon.tab_available` / `income.all` / `messageCenter.tab_all` / `ranking.range_today`
+四键在 zh-CN/en/ko(以及其余语言)里**全部不存在**;`git log -1 -- <该文件>` 又指回更早的
+`d2000e7ac3`(本机多会话并发推进 main、期间有索引层合并与历史改写,sha 与"最后修改该文件的
+commit"两个指标会同时失真)。中途我有一次"键已在"的误判,原因是读的是**工作区文件**,恰好落在
+该批次尚未被并发会话覆盖的时间窗里。
+
+教训:**并行期唯一可靠的判据是"当场读 HEAD 的对象树,内容是否等于预期"**,并且要隔几分钟、
+在有并发提交发生时再读一次;报告里的 sha、`git status` 干净、"我已完成"三条都不能单独作证据。
+本档案的 **mobile-rn 17 处维持未修**。
+
+### 5. 漏 `$` 插值的自查(同族但不同根因)
+`{tt('x','中文')}` 写在模板字符串里(漏 `$`)会把**源码文本原样显示**给用户。
+miniapp-taro 实测抓到 2 处并已修。仓库级复扫**未交付自动化**:`.tsx` 里 JSX 表达式
+`{t('x')}` 与模板内 `{t('x')}` 文本形状相同,正则与手写状态机都会误报(实测 96 命中、
+绝大多数是合法 JSX),而 TypeScript 编译器 API 版扫描在本仓库的 JSX 嵌套模板上仍需进一步
+校准 —— 与其留一个误报率未知的闸,这轮不交付。若要跟进,请用 `ts.forEachChild` +
+`TemplateHead/Middle/Tail/NoSubstitutionTemplateLiteral` 的**字面量段**判定,并先用
+含正反例的 control 文件验收再谈接入。
+
+
 
 
 ### miniapp-taro(15 处)
