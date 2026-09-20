@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import os
 import sqlite3
 import threading
 import time
@@ -35,6 +37,53 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+
+logger = logging.getLogger(__name__)
+
+# ==================== Fork 边界对齐(批58十四,对标 codex thread_rollout_truncation.rs) ====================
+
+_FORK_BOUNDARY_ALIGN_ENV = "IHUI_SESSION_FORK_BOUNDARY_ALIGN"
+
+
+def _fork_boundary_align_enabled() -> bool:
+    """fork 边界对齐开关(env IHUI_SESSION_FORK_BOUNDARY_ALIGN)。
+
+    默认 off:fork 停在调用方给定 seq(与现状逐零差异);on/1/true/yes 时把 fork 点
+    吸附到最近的指令回合边界(防止新 thread 以半截回合开头)。
+    """
+    return os.environ.get(_FORK_BOUNDARY_ALIGN_ENV, "false").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _project_item_for_boundary(item_type: str, payload: str) -> dict[str, Any]:
+    """把会话 item 行投影为 rollout ResponseItem 形态(仅边界判定所需字段)。
+
+    对标 codex rollout 的 ResponseItem::Message 形态:user_message/agent_message
+    投影为 role+content 列表(供 parse_turn_item 识别用户回合);其余 item 类型
+    投影为无 role 的非 message 项(is_user_turn_boundary 恒 False)。
+    """
+    if item_type in ("user_message", "agent_message"):
+        role = "user" if item_type == "user_message" else "assistant"
+        text = ""
+        try:
+            parsed = json.loads(payload) if payload else None
+            if isinstance(parsed, dict):
+                raw = parsed.get("content")
+                text = raw if isinstance(raw, str) else ""
+        except (ValueError, TypeError):
+            text = ""
+        content_type = "input_text" if role == "user" else "output_text"
+        return {
+            "type": "message",
+            "role": role,
+            "content": [{"type": content_type, "text": text}],
+        }
+    return {"type": item_type}
+
 
 # ==================== Item 类型族 ====================
 
@@ -1091,6 +1140,11 @@ class SessionStore:
         source = self.get_thread(thread_id)
         if source is None:
             raise ThreadNotFoundError(thread_id)
+        # 批58(十四):fork 边界对齐(对标 codex fork_turn_positions_in_rollout)——
+        # fork 只能停在指令回合边界上,否则新 thread 历史以半截回合开头(工具调用
+        # 无回复 / assistant 无对应用户指令)。开关默认 off 与现状逐零差异。
+        if _fork_boundary_align_enabled():
+            at_response_id = self._align_fork_boundary(thread_id, at_response_id)
         # 验证 at_response_id 属于该 thread
         with self._lock:
             item_row = self._conn.execute(
@@ -1148,6 +1202,67 @@ class SessionStore:
         return new_thread
 
     # ==================== Rollback(软删除) ====================
+
+    # ==================== Fork 边界对齐(批58十四) ====================
+
+    def _align_fork_boundary(self, thread_id: str, at_response_id: int) -> int:
+        """把 fork 点吸附到 <= at_response_id 的最近指令回合边界。
+
+        对标 codex thread_rollout_truncation.rs `fork_turn_positions_in_rollout`:
+        fork 边界 = 真实用户消息(或 trigger_turn 代理间通信)。本方法把会话 items
+        投影为 rollout 形态后调用该函数,取 <= 目标 seq 的最近边界;找不到边界
+        (如全部为 agent 消息)/投影失败 → 原样返回(绝不阻断 fork,失败静默降级)。
+        """
+        try:
+            from app.core.thread_rollout_truncation import fork_turn_positions_in_rollout
+
+            with self._lock:
+                exists = self._conn.execute(
+                    "SELECT 1 FROM items WHERE thread_id = ? AND seq = ?",
+                    (thread_id, at_response_id),
+                ).fetchone()
+                if exists is None:
+                    # 无效 seq 不吸附(保留原校验路径的报错语义,不掩盖调用方错误)
+                    return at_response_id
+                rows = self._conn.execute(
+                    "SELECT seq, item_type, payload FROM items"
+                    " WHERE thread_id = ? AND seq <= ? ORDER BY seq ASC",
+                    (thread_id, at_response_id),
+                ).fetchall()
+            if not rows:
+                return at_response_id
+            projected: list[dict[str, Any]] = []
+            seq_by_index: list[int] = []
+            for row in rows:
+                seq = _row_opt_int(row, "seq")
+                if seq is None:
+                    continue
+                item_type = _row_str(row, "item_type")
+                projected.append(
+                    {
+                        "type": "response_item",
+                        "item": _project_item_for_boundary(item_type, _row_str(row, "payload")),
+                    }
+                )
+                seq_by_index.append(seq)
+            positions = fork_turn_positions_in_rollout(projected)
+            boundary_seqs = [
+                seq_by_index[p] for p in positions if 0 <= p < len(seq_by_index)
+            ]
+            if not boundary_seqs:
+                return at_response_id
+            aligned = max(boundary_seqs)
+            if aligned != at_response_id:
+                logger.info(
+                    "[session-store] fork 边界吸附: seq %s → %s(回合边界对齐,thread=%s)",
+                    at_response_id,
+                    aligned,
+                    thread_id,
+                )
+            return aligned
+        except Exception as e:  # noqa: BLE001 - 边界对齐失败绝不阻断 fork
+            logger.warning("[session-store] fork 边界对齐失败(用原 seq): %s", e)
+            return at_response_id
 
     def rollback(
         self,
