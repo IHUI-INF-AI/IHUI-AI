@@ -35,10 +35,18 @@
  * 接入:node scripts/guardian-runner.mjs --push-gate(--push-gate 显式启用本检查,
  *       .husky/pre-push 本体不在本改动允许范围内,改由编排/手动走本包装)。
  */
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process' // spawnSync:2026-09-20 超时杀进程树/定向快通道用
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
+// 硬超时上限(2026-09-20 根治推送挂起;定义前置是因为定向快通道也要用同一上限):
+// 事故实证:某次 push 挂起 62 分钟零产出 —— 本脚本原先对 typecheck 子进程既无 timeout
+// 也无 timer kill,只要 typecheck-full 内部卡住(pnpm -r 依赖解析失败 / worktree 各包
+// 缺 node_modules 导致 tsc 静默长耗时 / typecheck.lock 持锁者僵而不退),push 就永远等待。
+// 可调大:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...(大仓全量 tsc 慢于默认值时)。
+const TYPECHECK_TIMEOUT_MIN = Number(process.env.IHUI_TYPECHECK_TIMEOUT_MIN || 20)
+const TYPECHECK_TIMEOUT_MS = TYPECHECK_TIMEOUT_MIN * 60 * 1000
 import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -275,8 +283,90 @@ if (DRY_RUN) {
   console.log(
     `[check-typecheck] scope 降级: ${scopeEnabled ? '启用(全部报错文件均不在本次改动范围时 → 降级为警告 exit 0)' : '不启用(改动范围为空或 git 不可用)——报错将维持原失败行为'}`,
   )
-  console.log('[check-typecheck] 将运行命令: node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)')
+  const _dryFast = scopeEnabled ? resolveFastScopeApp(scopeFiles) : null
+  console.log(`[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`)
   process.exit(0)
+}
+
+// ─── 定向快速通道(2026-09-20 根治推送慢) ───────────────────────────────
+// 痛点:全量门 = pnpm -r 全 workspace + 每次清 .tsbuildinfo,实测 25+ 分钟;而绝大多数
+// push 的改动只落在单一 app 内(如 apps/web),全量跑完才发现「报错都在别人文件里 → 降级放行」,
+// 白等 25 分钟。现增加前置裁剪:改动**全部**落在同一个 apps/<app> 目录内时才走快通道,
+// 对该 app 本身仍是 100% 全量 tsc(不降强度),只是不连带全仓。
+// 保守边界(任一不满足即回退全量,宁慢勿漏):
+//   1. 必须有 scope 判据且非空;2. 不能含根层 scripts/**(守门自身改动必须全量回归);
+//   3. 不能含 packages/**(被依赖层改动会影响下游所有 app,必须全仓);
+//   4. 所有文件前缀必须是同一个 apps/<app>/;5. 该 app 的 package.json 必须有 typecheck 脚本。
+function resolveFastScopeApp(files) {
+  if (!Array.isArray(files) || files.length === 0) return null
+  let app = null
+  for (const raw of files) {
+    const f = String(raw).replace(/\\/g, '/')
+    if (f.startsWith('scripts/') || f.startsWith('.husky/')) return null
+    if (f.startsWith('packages/')) return null
+    const m = f.match(/^apps\/([^/]+)\//)
+    if (!m) return null
+    if (app === null) app = m[1]
+    else if (app !== m[1]) return null
+  }
+  if (!app) return null
+  const pkgPath = resolve(ROOT, 'apps', app, 'package.json')
+  let pkg = null
+  try {
+    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+  } catch {
+    return null
+  }
+  if (!pkg?.scripts?.typecheck) return null
+  return { app, name: pkg.name || app }
+}
+
+const _fast = scopeEnabled ? resolveFastScopeApp(scopeFiles) : null
+if (_fast) {
+  console.log(
+    `[check-typecheck] 🚀 定向快速通道:改动全部位于 apps/${_fast.app} → 仅对该 app 全量 tsc(其余包不参与)`,
+  )
+  console.log(`[check-typecheck] 命令: pnpm --filter ${_fast.name} run typecheck`)
+  // stdio 必须 pipe:inherit 拿不到输出,就无法沿用下述 scope 降级判定。
+  // 降级必要性(不做 = 行为退化):原先全量路径会「报错文件不在本次改动范围内 → 降级放行」,
+  // 若快通道改成直接失败,则他人未提交的类型噪音会阻塞只改单文件的会话推送。
+  const r = spawnSync('pnpm', ['--filter', String(_fast.name), 'run', 'typecheck'], {
+    cwd: ROOT,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: true,
+    windowsHide: true,
+    env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' }, // 防该 app 脚本再套全量门
+    timeout: TYPECHECK_TIMEOUT_MS,
+  })
+  const _fout = String(r.stdout || '')
+  const _ferr = String(r.stderr || '')
+  if (_fout) process.stdout.write(_fout)
+  if (_ferr) process.stderr.write(_ferr)
+  if (r.error && r.error.code === 'ETIMEDOUT') {
+    console.error(
+      `[check-typecheck] ⏰ apps/${_fast.app} 定向 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,终止(非类型结论)`,
+    )
+    process.exit(1)
+  }
+  if (r.status === 0) {
+    console.log(`[check-typecheck] ✅ apps/${_fast.app} 定向 typecheck 通过(exit 0)`)
+    process.exit(0)
+  }
+  // 与全量路径同源的 scope 降级判定(EXTRACT_ERROR_FILES/shouldDegrade 见下方全量分支)
+  const fastErrorFiles = extractErrorFiles(`${_fout}\n${_ferr}`)
+  if (scopeEnabled && fastErrorFiles.length > 0 && shouldDegrade(fastErrorFiles, scopeFiles)) {
+    console.log('')
+    console.log(
+      `ℹ️ apps/${_fast.app} 定向 typecheck 的 ${fastErrorFiles.length} 个报错文件均不在本次改动范围(${scopeLabel},属并行会话噪音),降级为警告`,
+    )
+    for (const f of fastErrorFiles.slice(0, 20)) console.log(`   - ${f}`)
+    console.log('ℹ️ 判定:本次 push 放行(exit 0);报错由其所属会话负责修复')
+    process.exit(0)
+  }
+  console.error(
+    `[check-typecheck] ❌ apps/${_fast.app} 定向 typecheck 失败(exit ${r.status})——报错命中本次改动范围或不满足降级条件,按失败处理`,
+  )
+  process.exit(r.status ?? 1)
 }
 
 console.log(
@@ -289,6 +379,48 @@ const child = spawn(process.execPath, [resolve(__dirname, 'typecheck-full.mjs')]
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
 })
+
+// ─── 硬超时上限(2026-09-20 根治,必须保留) ─────────────────────────────
+// 事故实证:某次 push 挂起 62 分钟无任何产出 —— check-typecheck 的 spawn 无 timeout、
+// 无 timer kill,只要 typecheck-full 内部卡住(pnpm -r 依赖解析失败 / worktree 各包
+// 缺 node_modules 导致 tsc 静默长耗时 / typecheck.lock 持锁者僵而不退),push 就永远
+// 等待,用户侧表现为"推送一小时没动静"。现加硬上限:超时杀进程树并按临时失败退出。
+// 可调大:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...(大仓全量 tsc 慢于默认值时)。
+// 常量 TYPECHECK_TIMEOUT_MIN/MS 见文件 import 区(定向快通道共用同一上限)
+let timedOut = false
+const timeoutTimer = setTimeout(() => {
+  timedOut = true
+  console.error('')
+  console.error(
+    `[check-typecheck] ⏰ 全量 typecheck 超过 ${TYPECHECK_TIMEOUT_MIN} 分钟未完成,已终止(非类型检查结论)`,
+  )
+  console.error('[check-typecheck] 常见挂死根因(按概率排序):')
+  console.error('   1. worktree 各包缺 node_modules —— tsc 解析不到 workspace 依赖而静默长耗时')
+  console.error('      修法(见 skills/ihui-worktree-parallel-dev §2):给 apps/*、packages/* 各包')
+  console.error('      逐个建 node_modules junction 指向主仓同名目录')
+  console.error('   2. .workbuddy/typecheck.lock 被僵死进程持有 —— rm -rf .workbuddy/typecheck.lock')
+  console.error('   3. pnpm -r 进程树递归 —— 复核 scripts/typecheck-full.mjs 的再入守卫 env 是否生效')
+  console.error(
+    '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
+  )
+  console.error('   如需放宽上限:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...')
+  try {
+    // 连带子进程树:pnpm -r 会拉出 tsc/cmd.exe 子孙,单 kill 主进程会留下孤儿继续吃 CPU
+    if (child.pid) {
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+    }
+  } catch {
+    try {
+      child.kill('SIGKILL')
+    } catch {
+      /* 忽略 */
+    }
+  }
+}, TYPECHECK_TIMEOUT_MS)
+timeoutTimer.unref?.()
 child.stdout.on('data', (d) => {
   const s = d.toString()
   out += s
@@ -301,6 +433,14 @@ child.stderr.on('data', (d) => {
 })
 
 child.on('close', (code) => {
+  clearTimeout(timeoutTimer)
+  if (timedOut) {
+    // 超时分支优先于任何退出码判定:超时杀出的 code 无类型语义,不得当真实结论用。
+    // 退出码刻意不用 75(临时失败)——git-push-guard 见 75 会「带 hook 重试」再跑一遍
+    // 全量 typecheck,等于把一次挂死变成两次挂死(20min→40min)。走普通失败(1):
+    // guard 直接降级到 --no-verify 重推,用户侧一次超时即出结论。
+    process.exit(1)
+  }
   if (code === 0) {
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
