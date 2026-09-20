@@ -30,8 +30,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, Optional, Tuple
 
 
 def _empty_obj_dict() -> dict[str, object]:
@@ -157,26 +157,26 @@ class SubAgentSource:
     """子代理来源(对标 protocol.rs:2902 SubAgentSource)。"""
 
     tag: str  # "review" | "compact" | "thread_spawn" | "memory_consolidation" | "other"
-    label: Optional[str] = None  # Other 变体携带的自定义标签
+    label: str | None = None  # Other 变体携带的自定义标签
 
     @staticmethod
-    def review() -> "SubAgentSource":
+    def review() -> SubAgentSource:
         return SubAgentSource("review")
 
     @staticmethod
-    def compact() -> "SubAgentSource":
+    def compact() -> SubAgentSource:
         return SubAgentSource("compact")
 
     @staticmethod
-    def memory_consolidation() -> "SubAgentSource":
+    def memory_consolidation() -> SubAgentSource:
         return SubAgentSource("memory_consolidation")
 
     @staticmethod
-    def thread_spawn() -> "SubAgentSource":
+    def thread_spawn() -> SubAgentSource:
         return SubAgentSource("thread_spawn")
 
     @staticmethod
-    def other(label: str) -> "SubAgentSource":
+    def other(label: str) -> SubAgentSource:
         return SubAgentSource("other", label)
 
     def kind(self) -> str:
@@ -199,40 +199,40 @@ class SessionSource:
     """会话来源(对标 protocol.rs:2820 SessionSource)。"""
 
     tag: str  # cli | vscode | exec | mcp | custom | internal | subagent | unknown
-    internal: Optional[str] = None  # internal 变体携带的 kind 字符串
-    subagent: Optional[SubAgentSource] = None
-    custom: Optional[str] = None
+    internal: str | None = None  # internal 变体携带的 kind 字符串
+    subagent: SubAgentSource | None = None
+    custom: str | None = None
 
     @staticmethod
-    def cli() -> "SessionSource":
+    def cli() -> SessionSource:
         return SessionSource("cli")
 
     @staticmethod
-    def vscode() -> "SessionSource":
+    def vscode() -> SessionSource:
         return SessionSource("vscode")
 
     @staticmethod
-    def exec() -> "SessionSource":
+    def exec() -> SessionSource:
         return SessionSource("exec")
 
     @staticmethod
-    def mcp() -> "SessionSource":
+    def mcp() -> SessionSource:
         return SessionSource("mcp")
 
     @staticmethod
-    def unknown() -> "SessionSource":
+    def unknown() -> SessionSource:
         return SessionSource("unknown")
 
     @staticmethod
-    def from_custom(value: str) -> "SessionSource":
+    def from_custom(value: str) -> SessionSource:
         return SessionSource("custom", custom=value)
 
     @staticmethod
-    def from_internal(kind: str) -> "SessionSource":
+    def from_internal(kind: str) -> SessionSource:
         return SessionSource("internal", internal=kind)
 
     @staticmethod
-    def from_subagent(src: SubAgentSource) -> "SessionSource":
+    def from_subagent(src: SubAgentSource) -> SessionSource:
         return SessionSource("subagent", subagent=src)
 
 
@@ -261,9 +261,9 @@ class CodexResponsesRequestKind:
     """请求种类(对标 responses_metadata.rs:156-177)。"""
 
     tag: str  # "turn" | "prewarm" | "compaction" | "memory"
-    compaction: Optional[CompactionTurnMetadata] = None
+    compaction: CompactionTurnMetadata | None = None
 
-    def metadata(self) -> Tuple[Optional[str], Optional[CompactionTurnMetadata]]:
+    def metadata(self) -> tuple[str | None, CompactionTurnMetadata | None]:
         """对标 CodexResponsesRequestKind::metadata():返回 (request_kind 字符串, 压缩元数据)。"""
         if self.tag == "turn":
             return ("turn", None)
@@ -283,7 +283,7 @@ class CodexResponsesRequestKind:
 # ---------------------------------------------------------------------------
 # subagent header / kind 生成(对标 responses_metadata.rs:435-465)
 # ---------------------------------------------------------------------------
-def subagent_header_value(session_source: SessionSource) -> Optional[str]:
+def subagent_header_value(session_source: SessionSource) -> str | None:
     """返回应写入 x-openai-subagent header 的值;非子代理来源返回 None。"""
     if session_source.tag == "subagent" and session_source.subagent is not None:
         sub = session_source.subagent
@@ -303,7 +303,7 @@ def subagent_header_value(session_source: SessionSource) -> Optional[str]:
     return None
 
 
-def subagent_metadata_kind(session_source: SessionSource) -> Optional[str]:
+def subagent_metadata_kind(session_source: SessionSource) -> str | None:
     """返回 subagent_kind metadata 的值(仅 SubAgent 来源有);其余返回 None。"""
     if session_source.tag == "subagent" and session_source.subagent is not None:
         return session_source.subagent.kind()
@@ -321,21 +321,16 @@ def valid_extra_metadata_key(key: str) -> bool:
     first = chars[0]
     if not first.isascii() or not first.isalpha():
         return False
-    for ch in chars[1:]:
-        if not (ch.isascii() and (ch.isalnum() or ch in ("_", ".", "-"))):
-            return False
-    return True
+    return all(ch.isascii() and (ch.isalnum() or ch in ("_", ".", "-")) for ch in chars[1:])
 
 
-def validate_extra_metadata(extra: Iterable[Tuple[str, str]]) -> None:
+def validate_extra_metadata(extra: Iterable[tuple[str, str]]) -> None:
     """校验 extra metadata;非法时抛 ValueError(消息与 Rust 版一致)。
 
     规则:最多 16 条;键 ≤64 字节且为合法 ASCII 标识符;非向后兼容的保留键被拒;
     值 ≤128 字节。
     """
-    count = 0
-    for key, value in extra:
-        count += 1
+    for count, (key, value) in enumerate(extra, start=1):
         if count > MAX_EXTRA_METADATA_ENTRIES:
             raise ValueError("responses_api_metadata may contain at most 16 entries")
         if (
@@ -352,7 +347,7 @@ def validate_extra_metadata(extra: Iterable[Tuple[str, str]]) -> None:
             raise ValueError("responses_api_metadata values may contain at most 128 bytes")
 
 
-def filter_extra_metadata(extra: Iterable[Tuple[str, str]]) -> dict[str, str]:
+def filter_extra_metadata(extra: Iterable[tuple[str, str]]) -> dict[str, str]:
     """过滤掉所有保留键(app-server 不能覆盖 core 自有字段)。对标 filter_extra_metadata。"""
     result: dict[str, str] = {}
     for key, value in extra:
@@ -391,33 +386,33 @@ class CodexResponsesMetadata:
     session_id: str = ""
     thread_id: str = ""
     window_id: str = ""
-    parent_response_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    turn_id: Optional[str] = None
+    parent_response_id: str | None = None
+    agent_name: str | None = None
+    turn_id: str | None = None
     # routing_hint 在 Rust 中是 Option<HeaderValue>(HTTP 耦合),此处仅占位不用于投影。
-    routing_hint: Optional[str] = None
-    window_number: Optional[int] = None
-    context_window_id: Optional[str] = None
-    request_kind: Optional[CodexResponsesRequestKind] = None
-    forked_from_thread_id: Optional[str] = None
-    forked_from_ordinal_exclusive: Optional[int] = None
-    parent_thread_id: Optional[str] = None
-    parent_turn_id: Optional[str] = None
-    root_turn_id: Optional[str] = None
-    subagent_header: Optional[str] = None
-    subagent_kind: Optional[str] = None
-    thread_source: Optional[str] = None
-    turn_trigger: Optional[str] = None
-    sandbox: Optional[str] = None
-    sandbox_mode: Optional[str] = None
-    auto_review_enabled: Optional[bool] = None
-    node_repl_auto_review_required: Optional[bool] = None
-    node_repl_disabled: Optional[bool] = None
+    routing_hint: str | None = None
+    window_number: int | None = None
+    context_window_id: str | None = None
+    request_kind: CodexResponsesRequestKind | None = None
+    forked_from_thread_id: str | None = None
+    forked_from_ordinal_exclusive: int | None = None
+    parent_thread_id: str | None = None
+    parent_turn_id: str | None = None
+    root_turn_id: str | None = None
+    subagent_header: str | None = None
+    subagent_kind: str | None = None
+    thread_source: str | None = None
+    turn_trigger: str | None = None
+    sandbox: str | None = None
+    sandbox_mode: str | None = None
+    auto_review_enabled: bool | None = None
+    node_repl_auto_review_required: bool | None = None
+    node_repl_disabled: bool | None = None
     workspaces: dict[str, object] = field(default_factory=_empty_obj_dict)
-    tool_namespaces_info: Optional[dict[str, object]] = None
-    turn_started_at_unix_ms: Optional[int] = None
-    history_ingest_requested: Optional[bool] = None
-    analytics_enabled: Optional[bool] = None
+    tool_namespaces_info: dict[str, object] | None = None
+    turn_started_at_unix_ms: int | None = None
+    history_ingest_requested: bool | None = None
+    analytics_enabled: bool | None = None
     extra: dict[str, str] = field(default_factory=_empty_str_dict)
 
     @staticmethod
@@ -426,7 +421,7 @@ class CodexResponsesMetadata:
         session_id: str,
         thread_id: str,
         window_id: str,
-    ) -> "CodexResponsesMetadata":
+    ) -> CodexResponsesMetadata:
         """对标 CodexResponsesMetadata::new()。"""
         return CodexResponsesMetadata(
             installation_id=installation_id,
@@ -543,7 +538,7 @@ class CodexResponsesMetadata:
 
     def _request_kind_metadata(
         self,
-    ) -> Tuple[Optional[str], Optional[CompactionTurnMetadata]]:
+    ) -> tuple[str | None, CompactionTurnMetadata | None]:
         if self.request_kind is None:
             return (None, None)
         return self.request_kind.metadata()
@@ -557,7 +552,7 @@ class ExecutionMetadata:
     """捕获的本次执行配置(对标 ExecutionMetadata),shared by Responses 与 MCP metadata。"""
 
     model: str
-    reasoning_effort: Optional[str]
+    reasoning_effort: str | None
     node_repl_disabled: bool
     auto_review_enabled: bool
     node_repl_auto_review_required: bool

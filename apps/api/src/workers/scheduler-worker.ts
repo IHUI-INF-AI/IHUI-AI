@@ -44,6 +44,7 @@ import {
   drainLlmBacklog,
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
+import { scanAndRemindArrears } from '../services/edu-arrear-remind-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -558,6 +559,26 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             )
             try {
               server.recordJobExecution(name, result.errors.length > 0 ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'edu-arrear-remind-daily': {
+            const result = await scanAndRemindArrears()
+            server.log.info(
+              {
+                scanned: result.scanned,
+                reminded: result.reminded,
+                skippedToday: result.skippedToday,
+                notifyFailed: result.notifyFailed,
+                wxSent: result.wxSent,
+                wxFailed: result.wxFailed,
+              },
+              'edu arrear remind done',
+            )
+            try {
+              server.recordJobExecution(name, result.notifyFailed > 0 ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }

@@ -15,6 +15,7 @@ import type { ReferenceItem } from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { steerChatStream } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import { answerSideQuestion, tryHandleSideSlash } from '@/hooks/use-chat/slash-commands'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 的 WebInputCoreHandle 契约一致。
  * 独立声明(不依赖 message-input.tsx)以避免 hook 反向依赖组件,符合 hooks/ 目录
@@ -272,8 +273,22 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         })
         .join('\n')
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-      const ok = await onSend(finalContent)
+      // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):quotedMessage 非空时把被引用
+      // 消息快照以 markdown 引用块附加到正文(用户/AI 分别标注),发送成功后清除;
+      // 发送失败保留引用,便于用户重试时仍带上下文。
+      const quoted = useChatStore.getState().quotedMessage
+      let contentWithQuote = finalContent
+      if (quoted) {
+        const roleLabel = quoted.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')
+        const quotedBlock = [
+          `> 💬 ${roleLabel}:`,
+          ...quoted.content.split('\n').map((line) => `> ${line}`),
+        ].join('\n')
+        contentWithQuote = contentWithQuote ? `${contentWithQuote}\n\n${quotedBlock}` : quotedBlock
+      }
+      const ok = await onSend(contentWithQuote)
       if (!ok) return false
+      if (quoted) useChatStore.getState().setQuotedMessage(null)
       // 埋点:聊天消息发送成功(web 端)
       track({ name: 'chat_send', category: 'chat', label: 'web' })
       // 释放所有 objectURL
@@ -295,6 +310,48 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     async (overrideValue?: string) => {
       const text = (overrideValue ?? value).trim()
       if (!text) return
+      // D28 /side 输入层统一拦截(2026-09-20 立):置于危险命令检测之前短路处理,
+      // 侧问正文不进高风险检测、不进主线发送、不进 W27 队列。
+      const side = tryHandleSideSlash(text, t)
+      if (side.handled) {
+        if (!side.question) {
+          // 空参数:仅提示用法并清空输入
+          toast.info(t('sideUsage'))
+          setValue('')
+          requestAnimationFrame(() => inputCoreRef.current?.resize())
+          return
+        }
+        if (isStreaming) {
+          // 流式期间:入当前会话侧问队列(按会话分桶存 zustand store,切会话不丢),
+          // 流结束后由 message-input.tsx 的流结束 effect 自动出队补答。
+          // 不进 W27 pendingMessages、不进 doSend、附件引用不消费(保留给后续主消息)。
+          const conversationId = useChatStore.getState().conversationId
+          if (!conversationId) {
+            // 会话未持久化(极罕见的流中状态):保留输入内容,提示后返回
+            toast.error(t('sideNoConversation'))
+            return
+          }
+          useChatStore.getState().enqueueSideQuestion(conversationId, side.question)
+          toast.info(t('sideEnqueued'))
+          setValue('')
+          if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+          requestAnimationFrame(() => inputCoreRef.current?.resize())
+          return
+        }
+        // 非流式:等同 /btw 即答(直调 REST runBestOfN N=1,回答不入主线历史)。
+        // 先清空输入让用户感觉"已发出";失败恢复为 /side <问题> 供重试。
+        setValue('')
+        if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+        requestAnimationFrame(() => inputCoreRef.current?.resize())
+        try {
+          await answerSideQuestion(side.question, t)
+        } catch (e: unknown) {
+          toast.error(t('sideAnswerFailed', { error: e instanceof Error ? e.message : String(e) }))
+          setValue(`/side ${side.question}`)
+          requestAnimationFrame(() => inputCoreRef.current?.resize())
+        }
+        return
+      }
       // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
       // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
