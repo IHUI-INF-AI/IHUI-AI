@@ -238,10 +238,37 @@ describe('executeRnUiAction — invoke', () => {
     }
   })
 
-  it('nav:home 用 Main/HomeMain 嵌套跳转兜住"回首页"的坑', async () => {
-    const res = await executeRnUiAction('invoke', { name: 'nav:home' })
+  it('tab 命令一律走 Main 嵌套参数,且目标在生成清单里确实是 tab 主屏', async () => {
+    const expectedScreens: Record<string, string> = {
+      'tab:home': 'HomeMain',
+      'tab:course': 'CourseMain',
+      'tab:ai': 'AiMain',
+      'tab:live': 'LiveMain',
+      'tab:profile': 'ProfileMain',
+    }
+    for (const [id, screen] of Object.entries(expectedScreens)) {
+      nav.calls = []
+      const res = await executeRnUiAction('invoke', { name: id })
+      expect(res.ok, id).toBe(true)
+      expect(nav.calls, id).toEqual([{ name: 'Main', params: { screen } }])
+      expect((res.data as Record<string, unknown>).navigatedTo, id).toBe(`Main/${screen}`)
+      expect(resolveRoute(screen)?.tab, `${id} → ${screen} 不是 tab 主屏`).toBe(true)
+    }
+  })
+
+  it('tab:home 用 Main/HomeMain 嵌套跳转兜住"回首页"的坑(navigate("Home") 会另开一份栈外首页)', async () => {
+    const res = await executeRnUiAction('invoke', { name: 'tab:home' })
     expect(res.ok).toBe(true)
     expect(nav.calls).toEqual([{ name: 'Main', params: { screen: 'HomeMain' } }])
+  })
+
+  it('导航容器未就绪时 tab 命令如实 EXECUTION_FAILED,不回报假成功', async () => {
+    nav.ready = false
+    const res = await executeRnUiAction('invoke', { name: 'tab:ai' })
+    expect(res.ok).toBe(false)
+    expect(res.errorCode).toBe('EXECUTION_FAILED')
+    expect(res.error).toContain('尚未就绪')
+    expect(nav.calls).toHaveLength(0)
   })
 
   it('破坏性动作一律不在白名单内(退出登录/注销/支付/清缓存)', async () => {
@@ -267,7 +294,28 @@ describe('executeRnUiAction — invoke', () => {
     const described = buildRnUiSnapshot()
       .commands.map((c) => c.id)
       .sort()
-    expect(described).toEqual(['nav:home', 'theme:dark', 'theme:light', 'theme:system'])
+    expect(described).toEqual([
+      'tab:ai',
+      'tab:course',
+      'tab:home',
+      'tab:live',
+      'tab:profile',
+      'theme:dark',
+      'theme:light',
+      'theme:system',
+    ])
+    for (const command of buildRnUiSnapshot().commands) {
+      expect(command.label, command.id).toBeTruthy()
+      expect(['appearance', 'navigation'], command.id).toContain(command.group)
+    }
+  })
+
+  it('语言切换刻意不登记:setLocale 只在 I18nProvider 内生效,模块级调用是假成功', async () => {
+    const ids = buildRnUiSnapshot().commands.map((c) => c.id)
+    for (const name of ['lang:en', 'locale:en', 'language:switch', 'i18n:en', 'locale:set']) {
+      expect(ids).not.toContain(name)
+      expect((await executeRnUiAction('invoke', { name })).errorCode).toBe('UNSUPPORTED_ACTION')
+    }
   })
 })
 

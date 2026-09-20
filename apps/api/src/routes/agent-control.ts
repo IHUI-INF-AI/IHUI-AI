@@ -73,6 +73,12 @@ const _pending = new Map<string, PendingRequest>()
 const ENDPOINT_TTL_MS = 5 * 60 * 1000
 
 /**
+ * 钉定实例的"活性容差":前端每 60s 保活上报一次,落后超过一个周期即视为该页面
+ * 已被重载/关闭留下(注册表要到 5min TTL 才清,中间这段时间它仍然"存在")。
+ */
+const PIN_STALE_GAP_MS = 60 * 1000
+
+/**
  * category → 执行端映射(穷举 Record,新增 category 必须同步登记,
  * 否则 tsc 直接报错)。此前是 `category === 'browser' ? 'extension' : 'desktop'`
  * 三元硬编码,加入第三种 category='ui' 后会把 web 指令误配到 desktop。
@@ -123,7 +129,19 @@ function findEndpointByCategory(
       pinned.capability.endpoint === targetEndpoint &&
       (!userId || pinned.userId === userId)
     ) {
-      return pinned
+      // **必须再验活性**:页面重载/关闭后该 instance 不会再来心跳,但注册表按
+      // ENDPOINT_TTL_MS(5min) 仍留着它 —— 直接返回 pinned 会把每一条后续动作推到
+      // 一条已死的 socket 上,表现为完全看不出根因的 20s TIMEOUT(2026-09-21 真实
+      // 聊天 round-trip 复现:describe 53ms 就回,而钉住旧实例的那次 invoke 走了满超时)。
+      // 判据用"相对落后量"而非绝对时限:活页面每 60s 保活一次,所以落后不足一个保活周期
+      // 就是真活着(多标签页并存时不得降级,否则又回到命令散射的老问题)。
+      let newestSeen = pinned.lastSeen
+      for (const ep of _endpoints.values()) {
+        if (ep.capability.endpoint !== targetEndpoint) continue
+        if (userId && ep.userId !== userId) continue
+        if (ep.lastSeen > newestSeen) newestSeen = ep.lastSeen
+      }
+      if (newestSeen - pinned.lastSeen < PIN_STALE_GAP_MS) return pinned
     }
   }
   let best: RegisteredEndpoint | null = null
