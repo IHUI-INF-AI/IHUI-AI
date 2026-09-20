@@ -8,7 +8,11 @@
 /**
  * Web UI Agent Control Bridge(2026-09-20 立)——镜像 use-agent-control.ts 的 web 版姊妹实现:
  * 上报 endpoint:'web' 能力 + 消费 WS `agent.action`(category:'ui')→ ui-action-registry 执行 →
- * POST /api/agent-control/result 回传。Tauri 下让位 desktop 桥,避免同页两端点抢同一指令。
+ * POST /api/agent-control/result 回传。
+ *
+ * Tauri 桌面端同样启用:桌面端跑的就是这份前端(DOM 同源可用),而 `category:'ui'` 与
+ * use-agent-control 的 `category:'computer'` 是两条不相交的指令通道(api 按 category 择端),
+ * 不构成"同页两端点抢同一指令";每个连接只处理自己 category 的消息。
  */
 import * as React from 'react'
 
@@ -27,7 +31,6 @@ import {
   executeUiAction,
   resetUiControlBridge,
 } from '@/lib/ui-action-registry'
-import { isTauri } from '@/lib/tauri-bridge'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useAuthStore } from '@/stores/auth'
 
@@ -161,9 +164,8 @@ function handleWsMessage(msg: WSNotification): void {
 export function useUiControlBridge(): void {
   const t = useTranslations('commandPalette')
   const navigate = useNavigateWithProgress()
-  const isTauriEnv = isTauri()
   const token = useAuthStore((s) => s.token)
-  const enabled = typeof window !== 'undefined' && !isTauriEnv
+  const enabled = typeof window !== 'undefined'
 
   // navigate/t 随路由切换变化,经 ref 转发避免每次变化重连 WS
   const navigateRef = React.useRef(navigate)
