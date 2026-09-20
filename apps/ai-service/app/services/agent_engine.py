@@ -69,6 +69,7 @@ import json
 import logging
 import os
 import shlex
+import shutil
 import sys
 import time
 import uuid
@@ -447,6 +448,11 @@ class EngineThread:
     # shell 快照(2026-09-18 第四批,对标 Codex shell_snapshot):
     # unified_exec 最近一次会话 cwd,跨轮供模型感知工作目录漂移
     last_shell_cwd: str | None = None
+    # shell 环境快照路径(2026-09-20 批 55 接线,对标 Codex shell_snapshot.rs
+    # 复用语义):thread.start 后台预热捕获,unified_exec 新建 POSIX 会话时
+    # source 注入 + 环境合并;None=尚未就绪/捕获失败(静默降级不阻塞)。
+    shell_snapshot_path: str | None = None
+    shell_snapshot_task: Any | None = None
     # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing):最近一轮起止
     last_turn_timing: dict[str, Any] | None = None
     # 工作区文件监视(2026-09-18 第七批,对标 Codex file-watcher):
@@ -1505,6 +1511,11 @@ class AgentEngine:
         self._elicitation_requests: dict[str, asyncio.Future[Any]] = {}
         # unified_exec 持久 shell 会话(2026-09-18 第四批,对标 Codex unified_exec)
         self._exec_sessions: dict[str, dict[str, Any]] = {}
+        # shell 环境快照缓存(2026-09-20 批 55 接线,对标 Codex
+        # ShellSnapshotCache/environment_selection.rs):session_id → ShellSnapshotFile。
+        # thread.start 后台预热,unified_exec 新建 POSIX 会话时消费;失败静默降级。
+        self._shell_snapshots: dict[str, Any] = {}
+        self._shell_snapshot_tasks: dict[str, asyncio.Task[None]] = {}
         # run_code 常驻代码会话(2026-09-18 第六批,对标 Codex code-mode cell)
         self._code_sessions: dict[str, dict[str, Any]] = {}
         # 工作区文件监视器(2026-09-18 第七批,对标 Codex file-watcher)
@@ -2019,6 +2030,9 @@ class AgentEngine:
         self._persist_thread_created(thread)
         if watch_workspace:
             self._start_workspace_watcher(thread)
+        # shell 快照后台预热(2026-09-20 批 55 接线,对标 ShellSnapshotTask):
+        # unified_exec 首次调用前捕获好用户登录环境;失败静默降级
+        self._start_shell_snapshot_prewarm(thread)
         logger.info("[engine] thread.start %s (model=%s)", thread_id, thread.model)
         return {
             "threadId": thread_id,
@@ -2767,6 +2781,8 @@ class AgentEngine:
         thread.touch()
         # 关闭即摘除工作区监视器(第七批:防僵尸轮询任务泄漏)
         self._stop_workspace_watcher(thread.thread_id)
+        # 清理 shell 快照(批 55:缓存+预热任务+落盘文件)
+        self._drop_shell_snapshot(thread.session_id)
         return {"threadId": thread.thread_id, "status": thread.status, "closed": True}
 
     # ------------------------------------------------------------------
@@ -3116,6 +3132,7 @@ class AgentEngine:
         if runtime is not None:
             self._threads.pop(thread_id, None)
             self._stop_workspace_watcher(thread_id)
+            self._drop_shell_snapshot(runtime.session_id)
             for future in runtime.pending.values():
                 if not future.done():
                     future.cancel()
@@ -3848,6 +3865,7 @@ class AgentEngine:
         if runtime is not None:
             self._stop_workspace_watcher(thread_id)
             if archived:
+                self._drop_shell_snapshot(runtime.session_id)
                 for future in runtime.pending.values():
                     if not future.done():
                         future.cancel()
@@ -4039,6 +4057,80 @@ class AgentEngine:
         task = self._workspace_watchers.pop(thread_id, None)
         if task is not None:
             task.cancel()
+
+    # ------------------------------------------------------------------
+    # shell 环境快照(2026-09-20 批 55 接线,对标 Codex shell_snapshot.rs +
+    # environment_selection.rs 的 ShellSnapshotTask/ShellSnapshotCache)
+    # ------------------------------------------------------------------
+
+    _SNAPSHOT_DIRNAME = "shell-snapshots"
+
+    def _shell_snapshot_dir(self, session_id: str) -> str:
+        """快照存放目录(会话级,系统临时目录下;对标 SNAPSHOT_DIR 语义)。"""
+        import tempfile
+
+        return str(
+            Path(tempfile.gettempdir()) / self._SNAPSHOT_DIRNAME / session_id
+        )
+
+    def _start_shell_snapshot_prewarm(self, thread: EngineThread) -> None:
+        """thread.start 后台预热快照(对标 ShellSnapshotTask::schedule)。
+
+        捕获用户 bash 登录环境(PATH/函数/别名/set -o),成功存入缓存并挂到
+        线程;失败/超时静默降级(None),绝不阻塞开线程。非 POSIX 或 bash
+        不可用时直接跳过(Windows cmd 会话无需快照)。
+        """
+        if os.name == "nt" or shutil.which("bash") is None:
+            return
+        session_id = thread.session_id
+        if session_id in self._shell_snapshots or session_id in self._shell_snapshot_tasks:
+            return
+        workspace = thread.workspace or os.getcwd()
+        snapshot_dir = self._shell_snapshot_dir(session_id)
+
+        async def _prewarm() -> None:
+            try:
+                from app.core.shell_snapshot import capture_shell_snapshot
+
+                try:
+                    snap = await asyncio.to_thread(
+                        capture_shell_snapshot,
+                        "bash",
+                        workspace,
+                        snapshot_dir,
+                        session_id,
+                        dict(os.environ),
+                    )
+                except Exception:  # noqa: BLE001 — 预热永不阻塞主流程
+                    return
+                if snap is not None:
+                    self._shell_snapshots[session_id] = snap
+                    thread.shell_snapshot_path = snap.path
+            finally:
+                # 成败均自清(防异常路径泄漏任务表条目)
+                self._shell_snapshot_tasks.pop(session_id, None)
+
+        task = asyncio.create_task(_prewarm())
+        self._shell_snapshot_tasks[session_id] = task
+
+    def _take_shell_snapshot(self, thread: EngineThread) -> Any:
+        """取出本线程就绪的快照(缓存命中或预热完成后迁移)。"""
+        session_id = thread.session_id
+        snap = self._shell_snapshots.get(session_id)
+        if snap is not None:
+            thread.shell_snapshot_path = getattr(snap, "path", None)
+        return snap
+
+    def _drop_shell_snapshot(self, session_id: str) -> None:
+        """线程关闭时清理快照缓存/预热任务/落盘文件(对标 cleanup_stale_snapshots)。"""
+        from app.core.shell_snapshot import cleanup_stale_snapshots
+
+        task = self._shell_snapshot_tasks.pop(session_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+        self._shell_snapshots.pop(session_id, None)
+        with contextlib.suppress(OSError, Exception):
+            cleanup_stale_snapshots(Path(self._shell_snapshot_dir(session_id)), session_id)
 
     async def _emit_hook(self, event: str, context: dict[str, Any]) -> None:
         """钩子事件统一发射(对标 Codex hooks 分发;总线异常吞掉不影响主流程)。"""
@@ -5038,6 +5130,7 @@ class AgentEngine:
         续写 stdin 并只回传增量输出。会话上限/空闲 TTL/工具级审批策略照常生效。
         """
         from .agent_loop_v2 import ToolDefinition
+        from app.core.shell_snapshot import snapshot_env_for_exec
 
         parameters = {
             "type": "object",
@@ -5177,6 +5270,17 @@ class AgentEngine:
                 cwd if isinstance(cwd, str) and cwd.strip() else thread.workspace
             ) or os.getcwd()
             new_id = f"shx_{uuid.uuid4().hex[:12]}"
+            # shell 环境快照注入(2026-09-20 批 55 接线,对标 Codex
+            # shell_snapshot.rs 复用语义):POSIX 会话 source 快照脚本重建
+            # 用户登录环境(profile 的 PATH/函数/别名/set -o),环境变量经
+            # snapshot_env_for_exec 合并(凭据键默认不还原,防泄入子进程)。
+            snap = self._take_shell_snapshot(thread) if os.name != "nt" else None
+            exec_env = _sanitized_child_env()
+            bootstrap_cmd: str | None = None
+            if snap is not None and Path(snap.path).is_file():
+                with contextlib.suppress(Exception):
+                    exec_env = snapshot_env_for_exec(snap, exec_env)
+                    bootstrap_cmd = f". {shlex.quote(snap.path)}"
             shell_argv = (
                 ["cmd.exe", "/Q", "/K"]
                 if os.name == "nt"
@@ -5189,7 +5293,7 @@ class AgentEngine:
                     stderr=asyncio.subprocess.STDOUT,
                     stdin=asyncio.subprocess.PIPE,
                     cwd=resolved_cwd,
-                    env=_sanitized_child_env(),
+                    env=exec_env,
                 )
                 # OS 级沙箱(第八批):交互 shell 同样收入 Job Object
                 sandbox = _apply_sandbox(proc)
@@ -5210,6 +5314,11 @@ class AgentEngine:
             thread.touch()
             before = len(new_session["buffer"])
             if proc.stdin is not None:
+                # 先 source 快照重建用户环境(批 55),再注入真实命令
+                if bootstrap_cmd:
+                    proc.stdin.write((bootstrap_cmd + "\n").encode("utf-8"))
+                    with contextlib.suppress(Exception):
+                        await proc.stdin.drain()
                 proc.stdin.write((command + "\n").encode("utf-8"))
                 with contextlib.suppress(Exception):
                     await proc.stdin.drain()
