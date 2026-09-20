@@ -97,7 +97,7 @@ const ALLOWED_DOT_DIRS = new Set([
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim()
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
   } catch (e) {
     if (opts.allowFail) return ''
     throw e

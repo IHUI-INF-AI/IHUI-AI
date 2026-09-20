@@ -210,11 +210,13 @@ function main() {
       execSync(`git add PROJECT_PLAN.md .ihui-agent/archive/PROJECT_PLAN_${today}_auto-archive.md`, {
         cwd: ROOT,
         stdio: 'pipe',
+        windowsHide: true,
       })
       const msg = `chore(auto): 归档 ${toArchive.length} 个已完成任务条目至 .ihui-agent/archive/`
       execSync(`git commit --no-verify -m "${msg.replace(/"/g, '\\"')}"`, {
         cwd: ROOT,
         stdio: 'pipe',
+        windowsHide: true,
         env: { ...process.env, IHUI_ARCHIVE_COMMIT: '1' },
       })
       console.log(`${C.green}✅ 归档 commit 已创建(IHUI_ARCHIVE_COMMIT=1 防递归)${C.reset}`)

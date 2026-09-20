@@ -47,7 +47,7 @@ if (process.env.HUSKY_SKIP_WATERMARK_GUARD === '1') {
 }
 
 const run = (cmd, args) =>
-  execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true })
 
 /** watermark.mjs list-uncovered → 载荷损坏 + 残迹 + 未覆盖(相对仓库根, / 分隔) */
 function listUncovered() {
@@ -127,7 +127,7 @@ if (stillMissing.length > 0) {
 
 // 同步暂存区: 否则提交的仍是"未加水印"的旧 index blob(注入只改了工作区)
 try {
-  execFileSync('git', ['add', '--', ...missing], { cwd: REPO_ROOT, stdio: 'pipe' })
+  execFileSync('git', ['add', '--', ...missing], { cwd: REPO_ROOT, stdio: 'pipe', windowsHide: true })
 } catch (e) {
   console.error('[watermark-coverage] ⚠️ git add 同步暂存区失败:', String(e.message || e))
   console.error('     注入已写入工作区, 请手动 `git add` 后重试提交。')

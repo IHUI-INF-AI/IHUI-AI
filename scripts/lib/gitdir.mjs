@@ -50,6 +50,7 @@ export function resolveGitBin() {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 15000,
+        windowsHide: true,
       }).trim()
       _GIT_BIN = c
       _GIT_VERSION = v
@@ -85,6 +86,7 @@ export function resolveWorktree() {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 15000,
+        windowsHide: true,
       }).trim()
       if (top && existsSync(join(top, '.git'))) return normalizePath(top)
     } catch {
@@ -110,6 +112,7 @@ export function resolveGitdir(worktree) {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 15000,
+        windowsHide: true,
       }).trim()
       if (gd) {
         const abs = isAbsolute(gd) ? gd : join(wt, gd)
