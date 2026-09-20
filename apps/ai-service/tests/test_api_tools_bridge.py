@@ -170,6 +170,20 @@ def test_iter_operations_respects_api_tools_max(monkeypatch: pytest.MonkeyPatch)
     assert len(ops) == 2
 
 
+def test_iter_operations_caps_after_method_filter(monkeypatch: pytest.MonkeyPatch) -> None:
+    """上限必须在方法过滤之后(回归:曾在过滤前截断,read/all 模式静默丢端点)。
+
+    排除后 spec 顺序为 [GET /orders, POST /orders, DELETE /orders/{id}, POST /orders/batch];
+    旧实现 max=1 先截断成 [GET /orders] 再筛 POST → 0 条;新实现先筛后截 → 1 条 POST。
+    """
+    monkeypatch.setenv("API_TOOLS_MAX", "1")
+    ops = bridge._iter_operations(_SPEC, {"POST"})
+    assert [m for m, _, _ in ops] == ["POST"]
+    assert ops[0][1] == "/orders"
+    # cap=False 取全量,供侧表覆盖被上限截断的长尾端点
+    assert len(bridge._iter_operations(_SPEC, {"POST"}, cap=False)) == 2
+
+
 def test_spec_to_tools_marks_write_operations() -> None:
     tools = bridge.spec_to_tools(_SPEC)
     by_name = {t.name: t for t in tools}
@@ -272,21 +286,33 @@ def _seed_index() -> None:
     )
 
 
-def test_search_scores_and_filters_method() -> None:
+async def test_search_scores_and_filters_method() -> None:
     _seed_index()
-    out = bridge._search_endpoint_tools({"query": "订单"})
+    out = await bridge._search_endpoint_tools({"query": "订单"})
     assert out["ok"] is True
     # 同分时按 name 升序稳定输出,只断言命中集合不锁顺序
     assert {"api_listorders", "api_createorder"} <= {e["name"] for e in out["endpoints"]}
     assert out["endpoints"][0]["summary"], "命中项应带摘要供模型判断"
-    only_post = bridge._search_endpoint_tools({"query": "订单", "method": "POST"})
+    only_post = await bridge._search_endpoint_tools({"query": "订单", "method": "POST"})
     assert [e["name"] for e in only_post["endpoints"]] == ["api_createorder"]
-    assert bridge._search_endpoint_tools({"query": "zzz-not-exist"})["count"] == 0
+    assert (await bridge._search_endpoint_tools({"query": "zzz-not-exist"}))["count"] == 0
 
 
-def test_search_empty_query_lists_and_clamps_limit() -> None:
+async def test_handler_is_awaitable_via_call_tool() -> None:
+    """回归:search handler 曾写成同步函数,call_tool 会 await 它 → 'dict can't be awaited'。"""
+    from app.services.mcp_server import mcp_server
+
     _seed_index()
-    out = bridge._search_endpoint_tools({"query": "", "limit": 999})
+    for tool, handler in bridge._entry_tools():
+        bridge.register_external_tool(tool, handler)
+    out = await mcp_server.call_tool("api_endpoints_search", {"query": "订单"})
+    assert out["ok"] is True, out
+    assert out["count"] == 2
+
+
+async def test_search_empty_query_lists_and_clamps_limit() -> None:
+    _seed_index()
+    out = await bridge._search_endpoint_tools({"query": "", "limit": 999})
     assert out["count"] == 3
     assert out["total"] == 3
     assert "api_endpoint_call" in out["hint"]
@@ -306,6 +332,11 @@ async def test_call_entry_rejects_non_api_tool(monkeypatch: pytest.MonkeyPatch) 
 
 async def test_call_entry_delegates_with_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     _seed_index()
+    # 已注册工具走 call_tool(复用全局超时/截断/权限矩阵),故先真实注册进 _TOOL_HANDLERS
+    bridge.register_external_tool(
+        bridge.MCPTool(name="api_listorders", description="d", input_schema={}),
+        lambda args: {},
+    )
     seen: dict[str, Any] = {}
 
     async def spy_call_tool(name: str, args: Any, **kw: Any) -> dict[str, Any]:
@@ -378,6 +409,44 @@ async def test_setup_all_mode_registers_writes(monkeypatch: pytest.MonkeyPatch) 
     await bridge.setup_api_tools_bridge()
     names = {t.name for t in bridge.mcp_server.list_tools()}
     assert {"api_createorder", "api_deleteorder"} <= names
+
+
+async def test_long_tail_endpoint_callable_despite_cap(
+    monkeypatch: pytest.MonkeyPatch, captured: list[dict[str, Any]]
+) -> None:
+    """API_TOOLS_MAX 只约束"进工具表的条数",不削弱可调用面(实测 spec 有 4471 端点)。"""
+    monkeypatch.setenv("API_TOOLS_MODE", "all")
+    monkeypatch.setenv("API_TOOLS_MAX", "1")
+
+    async def fake_spec(force: bool = False) -> dict[str, Any]:
+        return _SPEC
+
+    monkeypatch.setattr(bridge, "fetch_openapi_spec", fake_spec)
+    await bridge.setup_api_tools_bridge()
+    names = {t.name for t in bridge.mcp_server.list_tools()}
+    assert "api_listorders" in names
+    assert "api_batchorder" not in names  # 被上限截断,未注册
+    assert "api_batchorder" in bridge._API_TOOL_INDEX  # 侧表仍全量覆盖
+    out = await bridge._call_endpoint_tool(
+        {
+            "name": "api_batchorder",
+            "arguments": {"body": ["a"]},
+            "__user_id": _USER,
+            "__user_role": 1,
+        }
+    )
+    assert out["ok"] is True, out
+    assert captured[-1]["url"].endswith("/orders/batch")
+    # 身份字段以注入值为准:模型在 arguments 里伪造 __user_role 不生效
+    forged = await bridge._call_endpoint_tool(
+        {
+            "name": "api_batchorder",
+            "arguments": {"__user_role": 9, "body": ["a"]},
+            "__user_id": _USER,
+            "__user_role": 0,
+        }
+    )
+    assert forged["errorCode"] == "PERMISSION_DENIED", forged
 
 
 async def test_setup_degrades_when_spec_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
