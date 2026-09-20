@@ -610,6 +610,11 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "apply_patch",
     "run_code",
     "web_search",
+    "new_context",
+    "clock_sleep",
+    "clock_curr_time",
+    "send_message_to_user_async",
+    "request_user_input_async",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -4216,6 +4221,11 @@ class AgentEngine:
             "apply_patch": self._apply_patch_tool,
             "run_code": self._run_code_tool,
             "web_search": self._web_search_tool,
+            "new_context": self._new_context_tool,
+            "clock_sleep": self._clock_sleep_tool,
+            "clock_curr_time": self._clock_curr_time_tool,
+            "send_message_to_user_async": self._send_message_to_user_async_tool,
+            "request_user_input_async": self._request_user_input_async_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -5395,6 +5405,279 @@ class AgentEngine:
                 "受线程工具审批策略约束;会话空闲超时自动回收。"
             ),
             parameters=parameters,
+            executor=_exec,
+        )
+
+    def _new_context_tool(self, thread: EngineThread) -> Any:
+        """new_context:模型主动放弃摘要直接开新上下文窗口(批58,对标 Codex
+        tools/handlers/new_context_window.rs)。设置 loop 标志,压缩走不摘要截断分支。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            thread.touch()
+            loop = thread.loop
+            if loop is not None:
+                # 批58 接线:标记请求开新窗;_maybe_compact_context 见标志跳过摘要压缩
+                with contextlib.suppress(Exception):
+                    setattr(loop, "_new_context_window_requested", True)
+            return {"status": "context_window_requested"}
+
+        return ToolDefinition(
+            name="new_context",
+            description=(
+                "Start a new context window. Does not clear, reset, or otherwise "
+                "affect environment state."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _clock_sleep_tool(self, thread: EngineThread) -> Any:
+        """clock_sleep:模型可调用等待(批58,对标 Codex tools/handlers/sleep.rs);
+        新输入(steer/queue)提前唤醒,返回实际 wall-clock。"""
+        import asyncio as _asyncio
+
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            duration_ms = args.get("duration_ms")
+            if not isinstance(duration_ms, (int, float)) or isinstance(duration_ms, bool):
+                return {"error": "duration_ms must be a number", "slept_ms": 0, "interrupted": False}
+            if not (1 <= duration_ms <= 12 * 60 * 60 * 1000):
+                return {
+                    "error": f"duration_ms must be between 1 and {12 * 60 * 60 * 1000}",
+                    "slept_ms": 0,
+                    "interrupted": False,
+                }
+            loop = thread.loop
+            wake_event: asyncio.Event | None = getattr(
+                loop, "steer_wake_event", None
+            ) if loop is not None else None
+            started = time.monotonic()
+            interrupted = False
+            try:
+                if wake_event is not None:
+                    wake_task = _asyncio.ensure_future(wake_event.wait())
+                    sleep_task = _asyncio.ensure_future(
+                        _asyncio.sleep(duration_ms / 1000.0)
+                    )
+                    done, _pending = await _asyncio.wait(
+                        {wake_task, sleep_task},
+                        return_when=_asyncio.FIRST_COMPLETED,
+                    )
+                    interrupted = wake_task in done and wake_event.is_set()
+                    for t in (wake_task, sleep_task):
+                        if t not in done:
+                            t.cancel()
+                    with contextlib.suppress(Exception):
+                        await _asyncio.wait(
+                            [t for t in (wake_task, sleep_task) if not t.done()],
+                            timeout=1,
+                        )
+                else:
+                    await _asyncio.sleep(duration_ms / 1000.0)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+            slept_ms = round((time.monotonic() - started) * 1000)
+            thread.touch()
+            return {"slept_ms": slept_ms, "interrupted": interrupted}
+
+        return ToolDefinition(
+            name="clock_sleep",
+            description=(
+                "Pause execution for a specified duration. The sleep ends early when "
+                "new input arrives for the active turn. Returns the elapsed "
+                "wall-clock time."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "duration_ms": {
+                        "type": "number",
+                        "description": (
+                            "How long to sleep in milliseconds. Must be between 1 "
+                            f"and {12 * 60 * 60 * 1000}."
+                        ),
+                    }
+                },
+                "required": ["duration_ms"],
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _clock_curr_time_tool(self, thread: EngineThread) -> Any:
+        """clock_curr_time:模型主动查询当前时间(批58,对标 Codex
+        tools/handlers/current_time.rs);输出 "YYYY-MM-DD HH:MM:SS UTC"。"""
+        from datetime import datetime, timezone as _tz
+
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            now = datetime.now(_tz.utc)
+            thread.touch()
+            return {
+                "current_time": now.strftime("%Y-%m-%d %H:%M:%S") + " UTC",
+                "timezone": "UTC",
+            }
+
+        return ToolDefinition(
+            name="clock_curr_time",
+            description="Return the current time in UTC.",
+            parameters={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _send_message_to_user_async_tool(self, thread: EngineThread) -> Any:
+        """send_message_to_user_async:长任务不打断轮次主动告知用户(批58,对标
+        Codex tools/handlers/send_message_to_user_async.rs);立即返回 {"accepted": true},
+        消息经 elicitation 通知通道投递,回复经 thread.enqueue 作为新用户消息到达。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            message = args.get("message")
+            if not isinstance(message, str) or not message.strip():
+                return {"error": "message must not be empty"}
+            thread.touch()
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "user_message_async",
+                        "params": {
+                            "threadId": thread.thread_id,
+                            "message": message.strip(),
+                        },
+                    }
+                )
+            except Exception:
+                logger.warning(
+                    "send_message_to_user_async 通知投递失败(降级,不阻塞轮次)"
+                )
+            return {"accepted": True}
+
+        return ToolDefinition(
+            name="send_message_to_user_async",
+            description=(
+                "Send a concise message that needs the user's attention during "
+                "ongoing work. The tool returns immediately without ending the turn "
+                "or waiting for a reply; any reply arrives asynchronously as a new "
+                "user message. Use this tool to report a critical blocker or a "
+                "finding that may change the task's direction, or to answer a user "
+                "question or status request received while work is still in "
+                "progress. Use clear formatting, such as bolding questions, to make "
+                "requests easy to notice and answer."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "The concise question or update to send to the user.",
+                    }
+                },
+                "required": ["message"],
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _request_user_input_async_tool(self, thread: EngineThread) -> Any:
+        """request_user_input_async:批量非阻塞提问(批58,对标 Codex
+        tools/handlers/request_user_input_async.rs);立即返回,回答异步到达。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            questions = args.get("questions")
+            if not isinstance(questions, list) or not questions:
+                return {"error": "questions must not be empty"}
+            items: list[dict[str, Any]] = []
+            seen_titles: set[str] = set()
+            for q in questions:
+                if not isinstance(q, dict):
+                    return {"error": "each question must be an object"}
+                title = str(q.get("title") or "").strip()
+                if not title:
+                    return {"error": "each question must have a non-empty title"}
+                if title in seen_titles:
+                    return {"error": "question titles must be unique"}
+                seen_titles.add(title)
+                options = q.get("options")
+                entry: dict[str, Any] = {"title": title}
+                if options is not None:
+                    if not isinstance(options, list) or not options:
+                        return {"error": "options must be a non-empty array when present"}
+                    entry["options"] = [str(o) for o in options]
+                items.append(entry)
+            thread.touch()
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "user_input_async",
+                        "params": {"threadId": thread.thread_id, "questions": items},
+                    }
+                )
+            except Exception:
+                logger.warning("request_user_input_async 通知投递失败(降级)")
+            return {"accepted": True, "questions": items}
+
+        return ToolDefinition(
+            name="request_user_input_async",
+            description=(
+                "Ask the user one or more self-contained questions without ending "
+                "the turn; the tool returns immediately and answers arrive "
+                "asynchronously as new user messages."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": (
+                            "One or more self-contained questions to present "
+                            "together, in display order."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {
+                                    "type": "string",
+                                    "description": (
+                                        "The complete question shown to the user, "
+                                        "including any context needed to answer it."
+                                    ),
+                                },
+                                "options": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {"type": "string"},
+                                    "description": (
+                                        "Suggested answers, in display order. Put "
+                                        "the recommended answer first; the first "
+                                        "option is preselected by default."
+                                    ),
+                                },
+                            },
+                            "required": ["title"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["questions"],
+                "additionalProperties": False,
+            },
             executor=_exec,
         )
 
