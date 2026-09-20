@@ -11,26 +11,35 @@
   GET  /api/sso/callback             → OIDC 标准回调(code/state query)
   POST /api/sso/callback             → 手工提交 {provider, code}(测试/CLI 场景)
 
-最小可用边界:exchange_code 成功后仅返回身份 JSON,**不签发本服务 JWT**
-(账号 provisioning / JIT 建号留 TODO P2)。未配置真实 IdP 时明确 501。
+SSO-P2 已实现(2026-09-20):exchange_code 成功后执行 JIT provisioning ——
+subject → 本库 sso_identities 首登即建号(app/services/sso_identity_store.py
+的 find_or_create_identity),并以与 apps/api 共享的 JWT_SECRET 签发 HS256
+access token(claims 严格对齐 app/core/jwt_auth.py 的验证规则,aud=ihui-ai-users)。
+JWT_SECRET 未配置(开发环境)时降级为仅回传身份。未配置真实 IdP 时明确 501。
 """
 
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from typing import Any
 
+import jwt as pyjwt
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
+from app.core.config import settings
 from app.core.sso import (
     SSOConfigError,
     SSOProvider,
+    UserIdentity,
     build_provider,
     new_state,
     parse_callback_params,
 )
+from app.services.sso_identity_store import find_or_create_identity
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +88,49 @@ class CallbackRequest(BaseModel):
     code: str = ""
 
 
+# 签发的 access token 有效期(秒);aud 硬编码对齐 jwt_auth._verify_token 的
+# audience 参数(与 apps/api packages/auth AUDIENCE 一致,防跨服务 token 误用)
+TOKEN_TTL_SECONDS = 3600
+JWT_AUDIENCE = "ihui-ai-users"
+
+
+def _provision_and_sign(identity: UserIdentity) -> dict[str, Any]:
+    """JIT 建号 + 签发 access token(同步 sqlite 调用,异步路由内直接调用)。
+
+    claims 严格对齐 app/core/jwt_auth.py 的验证规则(_verify_token /
+    verify_access_token):HS256 签名;iss=settings.jwt_issuer;
+    aud='ihui-ai-users';type='access'(缺省/非 access 均被拒);
+    sub/userId 均写本地 user_uuid(中间件优先读 sub,兼容读 userId);
+    phone/roleId/familyId 对齐 apps/api issueTokenPair 的 payload 形状。
+    """
+    ident = find_or_create_identity(
+        identity.provider, identity.subject, identity.email, identity.name
+    )
+    user_uuid = str(ident["user_uuid"])
+    now = int(time.time())
+    claims: dict[str, Any] = {
+        "sub": user_uuid,
+        "userId": user_uuid,
+        "phone": "",
+        "familyId": user_uuid,
+        "roleId": 0,
+        "type": "access",
+        "iat": now,
+        "exp": now + TOKEN_TTL_SECONDS,
+        "jti": uuid.uuid4().hex,
+        "iss": settings.jwt_issuer,
+        "aud": JWT_AUDIENCE,
+    }
+    token = pyjwt.encode(claims, settings.jwt_secret, algorithm="HS256")
+    return {
+        "user": {"id": user_uuid, "created": bool(ident["created"])},
+        "access_token": token,
+        "token_type": "Bearer",
+        "expires_in": TOKEN_TTL_SECONDS,
+        "provisioned": True,
+    }
+
+
 async def _do_exchange(provider_name: str, code: str) -> dict[str, Any]:
     p = _find_provider(provider_name)
     try:
@@ -87,18 +139,28 @@ async def _do_exchange(provider_name: str, code: str) -> dict[str, Any]:
         raise HTTPException(status_code=501, detail=str(e)) from e
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=f"IdP 交互失败: {e}") from e
-    # TODO(SSO-P2): subject → 本库用户映射(JIT provisioning)+ 签发 JWT
-    # (与 apps/api 共享 JWT_SECRET 的 issueTokenPair 链路)。当前仅回传身份。
-    return {
-        "code": 0,
-        "message": "ok",
-        "data": {
-            "subject": identity.subject,
-            "email": identity.email,
-            "name": identity.name,
-            "provider": identity.provider,
-        },
+    data: dict[str, Any] = {
+        "subject": identity.subject,
+        "email": identity.email,
+        "name": identity.name,
+        "provider": identity.provider,
     }
+    if not settings.jwt_secret:
+        # 未配置 JWT_SECRET(开发环境,对齐 jwt_auth 的跳过判定):不建号不签发,
+        # 仅回传身份 —— 与生产 fail-closed 的语义区分开,绝不 500。
+        data["provisioned"] = False
+        data["message"] = "JWT_SECRET 未配置，仅回传身份（未建号/未签发）"
+        return {"code": 0, "message": "ok", "data": data}
+    try:
+        # SSO-P2: JIT provisioning(首登建号)+ 与 apps/api 共享密钥的 HS256 签发。
+        # find_or_create_identity 为同步 sqlite 调用,项目惯例允许在 async 路由直调
+        # (参照 approval_persistence);任何失败降级为仅回传身份,不让回调 500。
+        data.update(_provision_and_sign(identity))
+    except Exception as e:  # noqa: BLE001 - JIT/签发失败必须降级,不阻塞登录回调
+        logger.warning("sso JIT provisioning/签发失败(降级仅回传身份): %s", e)
+        data["provisioned"] = False
+        data["message"] = "JIT 建号/JWT 签发失败，仅回传身份"
+    return {"code": 0, "message": "ok", "data": data}
 
 
 @router.get("/callback")

@@ -36,6 +36,23 @@ const dashscopeAgentBody = z.object({
   messages: z.array(z.unknown()).max(100).optional(),
 })
 
+// Agnes 文生图:官方推荐 size 档位(1K/2K/3K/4K) + ratio 宽高比(1:1/16:9/9:16 等) + n 出图数量
+const agnesImageBody = z.object({
+  prompt: z.string().optional(),
+  model: z.string().optional(),
+  size: z.string().optional(),
+  ratio: z.string().optional(),
+  n: z.number().int().min(1).max(10).optional(),
+})
+
+// 极速 API 生图:OpenAI images 协议(gpt-image-2 系列,返回 b64_json 内联,2026-09-20 实测)
+const x5m5xImageBody = z.object({
+  prompt: z.string().optional(),
+  model: z.string().optional(),
+  size: z.string().optional(),
+  n: z.number().optional(),
+})
+
 const doubaoImageEditBody = z.object({
   prompt: z.string().optional(),
   image: z.string().optional(),
@@ -246,6 +263,250 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const task = createTask(request.userId!, 'dashscope', 'image', data)
       recordUsage(request.userId!, 'dashscope')
       return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
+    },
+  )
+
+  server.post(
+    '/agnes/chat',
+    {
+      schema: buildSchema({
+        summary: 'Agnes AI 对话补全',
+        description:
+          '代理调用 Agnes /v1/chat/completions(OpenAI 协议),支持模型: ' +
+          'agnes-2.5-flash(默认,快)/ agnes-2.5-pro(旗舰)/ agnes-2.0-flash / agnes-3.0-flash',
+        tags: ['AI', 'Agnes'],
+        body: chatBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+      const data = await callVendor(
+        'agnes',
+        'https://apihub.agnes-ai.com/v1/chat/completions',
+        reply,
+        { method: 'POST', body: JSON.stringify(body) },
+      )
+      if (data === null) return
+      recordUsage(request.userId!, 'agnes')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
+      return reply.send(success(data))
+    },
+  )
+
+  server.post(
+    '/agnes/image',
+    {
+      schema: buildSchema({
+        summary: 'Agnes AI 文生图',
+        description:
+          '代理调用 Agnes /v1/images/generations 同步文生图接口(OpenAI images 协议),' +
+          '支持模型: agnes-image-2.5-flash(最新,默认,2026-09-20 实测)/ agnes-image-2.1-flash / agnes-image-2.0-flash;' +
+          'size 推荐 1K/2K/3K/4K 档位,配合 ratio(1:1/16:9/9:16/4:3/3:4/3:2/2:3/21:9)',
+        tags: ['AI', 'Agnes'],
+        body: agnesImageBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = agnesImageBody.parse(request.body)
+      // Agnes 同步出图约 40-50s,timeout 90s 防误断(与 ai-service 侧一致)
+      const data = await callVendor(
+        'agnes',
+        'https://apihub.agnes-ai.com/v1/images/generations',
+        reply,
+        { method: 'POST', body: JSON.stringify(body) },
+        90_000,
+      )
+      if (data === null) return
+      // 部分上游失败时仍返回 200 + body.error,需检查
+      const errObj = (data as { error?: { message?: string } | string }).error
+      if (errObj) {
+        const msg = typeof errObj === 'string' ? errObj : errObj.message || JSON.stringify(errObj)
+        return reply.status(502).send(error(502, `Agnes 生图失败: ${msg.slice(0, 300)}`))
+      }
+      // 同步接口:任务创建后直接落终态 succeeded,前端复用 /tasks/:taskId 轮询模式
+      const task = createTask(request.userId!, 'agnes', 'image', data)
+      task.status = 'succeeded'
+      recordUsage(request.userId!, 'agnes')
+      return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
+    },
+  )
+
+  server.get(
+    '/agnes/models',
+    {
+      schema: buildSchema({
+        summary: 'Agnes AI 模型列表',
+        description:
+          '代理调用 Agnes /v1/models 接口动态获取官方全量模型(2026-09-20 实测 12 个:agnes-2.5 系列/agnes-image 系列/agnes-video 系列)',
+        tags: ['AI', 'Agnes'],
+      }),
+    },
+    async (_request, reply) => {
+      const data = await callVendor('agnes', 'https://apihub.agnes-ai.com/v1/models', reply, {
+        method: 'GET',
+      })
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
+
+  // 极速 API(x5m5x 中转站)— 2 端点
+  server.post(
+    '/x5m5x/chat',
+    {
+      schema: buildSchema({
+        summary: '极速 API 对话补全',
+        description:
+          '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,按量 key),支持模型: ' +
+          'deepseek-v4-flash-0731 / glm-5.3 / gpt-5.6 / gpt-5.5 / qwen3.8-flash / qwen3.8-max / ' +
+          'grok-4.6 / claude-opus-5 / gemini-3.6 / kimi 等 41 个(2026-09-20 实测)',
+        tags: ['AI', '极速API'],
+        body: chatBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/chat/completions', reply, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      if (data === null) return
+      recordUsage(request.userId!, 'x5m5x')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
+      return reply.send(success(data))
+    },
+  )
+
+  server.get(
+    '/x5m5x/models',
+    {
+      schema: buildSchema({
+        summary: '极速 API 模型列表(按量 key)',
+        description:
+          '代理调用 x5m5x /v1/models 接口动态获取官方全量模型(2026-09-20 实测 41 个 LLM)',
+        tags: ['AI', '极速API'],
+      }),
+    },
+    async (_request, reply) => {
+      const data = await callVendor('x5m5x', 'https://api.x5m5x.com/v1/models', reply, {
+        method: 'GET',
+      })
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
+
+  server.post(
+    '/x5m5x/image',
+    {
+      schema: buildSchema({
+        summary: '极速 API 文生图',
+        description:
+          '代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),' +
+          '支持模型: gpt-image-2(默认,2026-09-20 实测出图)/ gpt-image-2.5-flare / gpt-image-2.5-sunburst / gpt-image-2.5;' +
+          '返回 b64_json 内联数据(非 URL),前端需转 data URI 展示',
+        tags: ['AI', '极速API'],
+        body: x5m5xImageBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = x5m5xImageBody.parse(request.body)
+      const payload = {
+        prompt: body.prompt ?? '',
+        model: body.model ?? 'gpt-image-2',
+        size: body.size ?? '1024x1024',
+        ...(body.n ? { n: body.n } : {}),
+      }
+      // 生图同步出图,timeout 120s 防误断(b64 内联数据传输较慢)
+      const data = await callVendor(
+        'x5m5xImage',
+        'https://api.x5m5x.com/v1/images/generations',
+        reply,
+        { method: 'POST', body: JSON.stringify(payload) },
+        120_000,
+      )
+      if (data === null) return
+      // 部分上游失败时仍返回 200 + body.error,需检查
+      const errObj = (data as { error?: { message?: string } | string }).error
+      if (errObj) {
+        const msg = typeof errObj === 'string' ? errObj : errObj.message || JSON.stringify(errObj)
+        return reply.status(502).send(error(502, `极速 API 生图失败: ${msg.slice(0, 300)}`))
+      }
+      // 同步接口:任务创建后直接落终态 succeeded,前端复用 /tasks/:taskId 轮询模式
+      const task = createTask(request.userId!, 'x5m5xImage', 'image', data)
+      task.status = 'succeeded'
+      recordUsage(request.userId!, 'x5m5xImage')
+      return reply.send(success({ taskId: task.taskId, status: task.status, raw: data }))
+    },
+  )
+
+  server.get(
+    '/x5m5x-image/models',
+    {
+      schema: buildSchema({
+        summary: '极速 API 模型列表(生图 key)',
+        description:
+          '代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2 系列)',
+        tags: ['AI', '极速API'],
+      }),
+    },
+    async (_request, reply) => {
+      const data = await callVendor('x5m5xImage', 'https://api.x5m5x.com/v1/models', reply, {
+        method: 'GET',
+      })
+      if (data === null) return
+      return reply.send(success(data))
+    },
+  )
+
+  // 极速 API 订阅 key — Auto-Model 专属端点
+  server.post(
+    '/x5m5x-subscribe/chat',
+    {
+      schema: buildSchema({
+        summary: '极速 API 订阅 key 对话补全',
+        description:
+          '代理调用 x5m5x /v1/chat/completions(OpenAI 协议,订阅 key),专供 11 个 Auto-Model: ' +
+          'glm-5.3 / deepseek-v4-flash-0731 / gpt-5.6 / grok-4.6 / glm-5.3-flash / MiniMax-M2.7 / ' +
+          'qwen3.8-flash / qwen3.8-max / gpt-6-astra / deepseek-v4.1-flash / glm-5.3-flashx',
+        tags: ['AI', '极速API'],
+        body: chatBody,
+      }),
+    },
+    async (request, reply) => {
+      const body = chatBody.parse(request.body)
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
+      const data = await callVendor(
+        'x5m5xSubscribe',
+        'https://api.x5m5x.com/v1/chat/completions',
+        reply,
+        { method: 'POST', body: JSON.stringify(body) },
+      )
+      if (data === null) return
+      recordUsage(request.userId!, 'x5m5xSubscribe')
+      await chargePointsForCall(request, body.model ?? '', data, request.id)
+      return reply.send(success(data))
+    },
+  )
+
+  server.get(
+    '/x5m5x-subscribe/models',
+    {
+      schema: buildSchema({
+        summary: '极速 API 模型列表(订阅 key)',
+        description:
+          '代理调用 x5m5x /v1/models 接口(订阅 key 鉴权)动态获取官方全量模型(含 11 个 Auto-Model)',
+        tags: ['AI', '极速API'],
+      }),
+    },
+    async (_request, reply) => {
+      const data = await callVendor('x5m5xSubscribe', 'https://api.x5m5x.com/v1/models', reply, {
+        method: 'GET',
+      })
+      if (data === null) return
+      return reply.send(success(data))
     },
   )
 

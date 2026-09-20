@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -52,7 +52,8 @@ def engine() -> HookEngine:
 @pytest.fixture
 def log_engine(engine: HookEngine) -> HookEngine:
     """预置 3 条日志的 engine(供 list_logs / get_stats / health_check 测试)。"""
-    now = datetime.utcnow()
+    # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+    now = datetime.now(UTC).replace(tzinfo=None)
     base = now - timedelta(minutes=10)
     for i, (succ, dur) in enumerate([(True, 100), (False, 200), (True, 50)]):
         ts = (base + timedelta(seconds=i * 30)).isoformat() + "Z"
@@ -399,7 +400,7 @@ class TestLogs:
     def test_list_logs_by_hook(self, log_engine):
         log_engine._logs.append({
             "id": "hl-other", "hookId": "hk-2", "event": "error",
-            "triggeredAt": datetime.utcnow().isoformat() + "Z",
+            "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
             "success": True, "duration": 10, "result": "", "error": None,
             "inputPayload": {}, "replay": False, "skipped": False,
         })
@@ -444,7 +445,7 @@ class TestLogs:
         for i in range(MAX_LOGS + 10):
             engine._logs.append({
                 "id": f"hl-{i}", "hookId": "hk-1", "event": "error",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": True, "duration": 1, "result": "", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
@@ -935,7 +936,7 @@ class TestReplay:
         # 手动写一条日志
         engine._logs.append({
             "id": "hl-replay1", "hookId": created["id"], "event": "error",
-            "triggeredAt": datetime.utcnow().isoformat() + "Z",
+            "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
             "success": True, "duration": 10, "result": "ok", "error": None,
             "inputPayload": {"event": "error"}, "replay": False, "skipped": False,
         })
@@ -958,7 +959,7 @@ class TestReplay:
         for i in range(3):
             engine._logs.append({
                 "id": f"hl-r{i}", "hookId": created["id"], "event": "error",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": True, "duration": 5, "result": "ok", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
@@ -972,8 +973,8 @@ class TestReplay:
             "name": "t", "event": "error",
             "action": {"type": "log", "config": {"message": "r"}},
         })
-        old_ts = (datetime.utcnow() - timedelta(hours=2)).isoformat() + "Z"
-        new_ts = datetime.utcnow().isoformat() + "Z"
+        old_ts = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)).isoformat() + "Z"
+        new_ts = datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z"
         engine._logs.append({
             "id": "hl-old", "hookId": created["id"], "event": "error",
             "triggeredAt": old_ts, "success": True, "duration": 5,
@@ -987,7 +988,7 @@ class TestReplay:
             "replay": False, "skipped": False,
         })
         # 只 replay 1 小时内的
-        cutoff = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+        cutoff = (datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)).isoformat() + "Z"
         results = await engine.replay_all(created["id"], since=cutoff)
         assert len(results) == 1
         assert results[0]["replay"] is True
@@ -1018,7 +1019,7 @@ class TestHealthCheck:
         for i in range(20):
             log_engine._logs.append({
                 "id": f"hl-ok{i}", "hookId": "hk-1", "event": "tool.before",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": True, "duration": 10, "result": "ok", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
@@ -1037,7 +1038,7 @@ class TestHealthCheck:
         for i in range(20):
             engine._logs.append({
                 "id": f"hl-ok{i}", "hookId": created["id"], "event": "error",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": True, "duration": 10, "result": "ok", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
@@ -1053,14 +1054,14 @@ class TestHealthCheck:
         for i in range(2):
             engine._logs.append({
                 "id": f"hl-ok{i}", "hookId": created["id"], "event": "error",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": True, "duration": 10, "result": "ok", "error": None,
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
         for i in range(8):
             engine._logs.append({
                 "id": f"hl-fail{i}", "hookId": created["id"], "event": "error",
-                "triggeredAt": datetime.utcnow().isoformat() + "Z",
+                "triggeredAt": datetime.now(UTC).replace(tzinfo=None).isoformat() + "Z",
                 "success": False, "duration": 10, "result": None, "error": "e",
                 "inputPayload": {}, "replay": False, "skipped": False,
             })
@@ -1071,7 +1072,7 @@ class TestHealthCheck:
     def test_stale_hook(self, engine):
         """超过 30 天未触发 → stale。"""
         created = engine.create_hook({"name": "h", "event": "error", "action": {"type": "log"}})
-        old_ts = (datetime.utcnow() - timedelta(days=35)).isoformat() + "Z"
+        old_ts = (datetime.now(UTC).replace(tzinfo=None) - timedelta(days=35)).isoformat() + "Z"
         engine._logs.append({
             "id": "hl-old", "hookId": created["id"], "event": "error",
             "triggeredAt": old_ts, "success": True, "duration": 10,

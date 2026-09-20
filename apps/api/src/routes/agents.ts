@@ -10,6 +10,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
+import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
 import {
@@ -156,6 +157,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   const clientIdParam = z.object({ clientId: z.string() })
   const idParam = z.object({ id: z.string() })
   const needTaskIdParam = z.object({ id: z.coerce.number() })
+  // D27:会话级交付清单(deliverables)代理端点的路径参数
+  const sessionIdParam = z.object({ sessionId: z.string().min(1) })
 
   // -------------------------------------------------------------------------
   // agents CRUD
@@ -2218,5 +2221,60 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   })
+
+  // -------------------------------------------------------------------------
+  // D27:任务完成交付清单(deliverables)会话级代理端点
+  // -------------------------------------------------------------------------
+
+  // GET /v1/ai/agents/sessions/:sessionId/deliverables —— 代理 ai-service 的
+  // GET /api/agents/sessions/{session_id}/deliverables,统一包装为
+  // { code:0, message:'success', data:{ sessionId, deliverables } };
+  // ai-service 不可达 → 503;deliverables 为 null(任务未完成/无数据)时原样透传。
+  // 认证:本路径不在插件级 preHandler 白名单内,自动走 checkAuth JWT 鉴权。
+  server.get(
+    '/v1/ai/agents/sessions/:sessionId/deliverables',
+    {
+      schema: {
+        description: 'D27:获取任务完成交付清单(代理 ai-service,需登录;ai-service 不可达返回 503)',
+        params: {
+          type: 'object',
+          properties: { sessionId: { type: 'string' } },
+          required: ['sessionId'],
+        },
+        response: {
+          // additionalProperties:true —— 空对象 schema 会被 fast-json-stringify 裁剪成 {}
+          200: { type: 'object', additionalProperties: true },
+          400: { type: 'object', additionalProperties: true },
+          503: { type: 'object', additionalProperties: true },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = sessionIdParam.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, 'sessionId 参数错误'))
+      }
+      const { sessionId } = parsed.data
+      try {
+        const resp = await aiServiceSystemFetch(
+          `/api/agents/sessions/${encodeURIComponent(sessionId)}/deliverables`,
+          { method: 'GET' },
+        )
+        if (!resp.ok) {
+          const txt = await resp.text().catch(() => '')
+          return reply
+            .status(503)
+            .send(error(503, `AI service unavailable (${resp.status}): ${txt.slice(0, 200)}`))
+        }
+        const data = (await resp.json()) as { session_id?: unknown; deliverables?: unknown }
+        const upstreamSessionId = typeof data.session_id === 'string' ? data.session_id : ''
+        return reply.send(
+          success({ sessionId: upstreamSessionId, deliverables: data.deliverables ?? null }),
+        )
+      } catch (e) {
+        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+      }
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -282,7 +282,7 @@ async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
 
     失败抛异常,由调用方 try/except 返回错误响应。
     """
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     # 2026-09-05:改用 screenshot_service 的专属单线程 executor——browser 单例有
     # greenlet 线程亲和性,默认多线程池跨线程触碰会报 "Cannot switch to a different thread"
     return await loop.run_in_executor(

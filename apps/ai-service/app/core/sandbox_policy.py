@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
 
 PROTECTED_METADATA_GIT_PATH_NAME = ".git"
 PROTECTED_METADATA_AGENTS_PATH_NAME = ".agents"
@@ -58,11 +57,11 @@ class SandboxPolicy:
     exclude_slash_tmp: bool = False
 
     @classmethod
-    def new_read_only_policy(cls) -> "SandboxPolicy":
+    def new_read_only_policy(cls) -> SandboxPolicy:
         return cls(variant=POLICY_READ_ONLY, network_access=False)
 
     @classmethod
-    def new_workspace_write_policy(cls) -> "SandboxPolicy":
+    def new_workspace_write_policy(cls) -> SandboxPolicy:
         return cls(
             variant=POLICY_WORKSPACE_WRITE,
             writable_roots=(),
@@ -82,7 +81,7 @@ class SandboxPolicy:
             return True
         return self.network_access
 
-    def get_writable_roots_with_cwd(self, cwd: str) -> list["WritableRoot"]:
+    def get_writable_roots_with_cwd(self, cwd: str) -> list[WritableRoot]:
         """按 cwd 定制的可写根列表;非 WorkspaceWrite 变体一律空(无沙箱写入根语义)。"""
         if self.variant != POLICY_WORKSPACE_WRITE:
             return []
@@ -122,9 +121,7 @@ class WritableRoot:
         for subpath in self.read_only_subpaths:
             if _is_subpath(normalized, os.path.normpath(subpath)):
                 return False
-        if self._path_contains_protected_metadata_name(normalized):
-            return False
-        return True
+        return not self._path_contains_protected_metadata_name(normalized)
 
     def _path_contains_protected_metadata_name(self, path: str) -> bool:
         root_norm = os.path.normpath(self.root)
@@ -147,17 +144,17 @@ def _is_subpath(path: str, base: str) -> bool:
 def is_git_pointer_file(path: str) -> bool:
     """worktree/submodule 的 .git 是内容为 `gitdir: <path>` 的指针文件。"""
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+        with open(path, encoding="utf-8", errors="replace") as fh:
             first_line = fh.readline().strip()
     except OSError:
         return False
     return first_line.startswith("gitdir:")
 
 
-def resolve_gitdir_from_file(pointer_file: str) -> Optional[str]:
+def resolve_gitdir_from_file(pointer_file: str) -> str | None:
     """从 .git 指针文件解析 gitdir 路径(相对路径按指针所在目录解析)。"""
     try:
-        with open(pointer_file, "r", encoding="utf-8", errors="replace") as fh:
+        with open(pointer_file, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 line = line.strip()
                 if line.startswith("gitdir:"):

@@ -13,15 +13,12 @@
 
 from __future__ import annotations
 
-import importlib
-
 import pytest
 
 
 @pytest.fixture()
 def mcp(monkeypatch, tmp_path):
     """独立 db 路径 + 重新导入 mcp_server 与持久层(隔离全局单例)。"""
-    import sys
     from pathlib import Path
 
     monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1]))
@@ -30,13 +27,24 @@ def mcp(monkeypatch, tmp_path):
     ap.set_db_path(tmp_path / "grants.db")
     yield ap
     ap.close()
+    # 恢复默认路径:close 只关连接,不重置路径;泄漏会使后续测试的
+    # grant/check 落到本文件的 tmp db(tmp 目录在本次 pytest 运行内仍存在)
+    ap.set_db_path(ap.DEFAULT_DB_PATH)
 
 
 def _fresh_mcp():
-    """重新加载 mcp_server 模块(拿到干净的全局内存表)。"""
+    """清空审批内存表得到干净状态。
+
+    注:不能用 importlib.reload —— reload 会原地覆盖模块 __dict__,
+    使其他测试文件在 collection 时绑定的 _PR_DIFF_CACHE/_ARTIFACTS_CACHE
+    等模块级全局失效(全量跑时的顺序性污染)。清空两张内存表 +
+    fixture 的 tmp db 隔离即可等效"干净全局"。
+    """
     from app.services import mcp_server
 
-    return importlib.reload(mcp_server)
+    mcp_server._exec_approved_commands.clear()
+    mcp_server._exec_allowed_prefixes.clear()
+    return mcp_server
 
 
 def test_once_grant_persists_to_always_scope(mcp):

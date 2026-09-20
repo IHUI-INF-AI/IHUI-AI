@@ -8,9 +8,7 @@
 全部为离线纯函数,不触达服务端 API / 文件系统 / 鉴权。
 """
 
-from typing import Any, Optional
 
-import pytest
 
 from app.core.mcp_openai_file import (
     AccessibleConnectorsCache,
@@ -22,6 +20,9 @@ from app.core.mcp_openai_file import (
     Requirements,
     ToolSuggestDiscoverable,
     UploadedFile,
+    _AppConfig,
+    _AppsConfig,
+    _LinkConfig,
     accessible_connectors_for_app_list,
     build_accessible_connectors_cache_key,
     build_uploaded_payload,
@@ -37,12 +38,6 @@ from app.core.mcp_openai_file import (
     with_app_plugin_sources,
 )
 from app.core.mcp_openai_file import DisabledTool as _DisabledTool
-from app.core.mcp_openai_file import (
-    _AppsConfig,
-    _AppConfig,
-    _LinkConfig,
-)
-
 
 # ===========================================================================
 # 一、文件名推断
@@ -158,10 +153,10 @@ class _FakeUploader:
     """伪上传器:记录调用并返回确定性 UploadedFile。"""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, Optional[int], str]] = []
+        self.calls: list[tuple[str, int | None, str]] = []
 
     async def __call__(
-        self, field_name: str, index: Optional[int], file_path: str
+        self, field_name: str, index: int | None, file_path: str
     ) -> UploadedFile:
         self.calls.append((field_name, index, file_path))
         return UploadedFile(

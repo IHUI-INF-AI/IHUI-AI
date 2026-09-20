@@ -23,9 +23,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
-import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 ZERO_OID = "0" * 40
 DEV_NULL = "/dev/null"
@@ -62,10 +60,10 @@ class FileChange:
     kind: str
     path: str
     content: str = ""
-    overwritten_content: Optional[str] = None
-    old_content: Optional[str] = None
-    move_path: Optional[str] = None
-    overwritten_move_content: Optional[str] = None
+    overwritten_content: str | None = None
+    old_content: str | None = None
+    move_path: str | None = None
+    overwritten_move_content: str | None = None
 
 
 @dataclass
@@ -86,15 +84,15 @@ def git_blob_oid(content: str) -> str:
 class TurnDiffTracker:
     """回合净 diff 状态机(线程兼容:由调用方保证单线程使用,同 Codex)。"""
 
-    def __init__(self, display_roots: Optional[dict[str, str]] = None) -> None:
+    def __init__(self, display_roots: dict[str, str] | None = None) -> None:
         self._valid = True
         self._display_roots: dict[str, str] = dict(display_roots or {})
         self._baseline: dict[TrackedPath, TrackedContent] = {}
         self._current: dict[TrackedPath, TrackedContent] = {}
         self._origin_by_current: dict[TrackedPath, TrackedPath] = {}
         self._next_revision = 0
-        self._rendered_cache: dict[tuple[TrackedPath, Optional[int], TrackedPath, Optional[int]], Optional[str]] = {}
-        self._unified_diff: Optional[str] = None
+        self._rendered_cache: dict[tuple[TrackedPath, int | None, TrackedPath, int | None], str | None] = {}
+        self._unified_diff: str | None = None
 
     # ------------------------------------------------------------------
     def track_delta(self, delta: PatchDelta) -> None:
@@ -116,7 +114,7 @@ class TurnDiffTracker:
     def valid(self) -> bool:
         return self._valid
 
-    def get_unified_diff(self) -> Optional[str]:
+    def get_unified_diff(self) -> str | None:
         return self._unified_diff
 
     def has_unified_diff(self) -> bool:
@@ -200,7 +198,7 @@ class TurnDiffTracker:
         )
 
         previous = self._rendered_cache
-        rendered_cache: dict[tuple[TrackedPath, Optional[int], TrackedPath, Optional[int]], Optional[str]] = {}
+        rendered_cache: dict[tuple[TrackedPath, int | None, TrackedPath, int | None], str | None] = {}
         aggregated: list[str] = []
         for path in paths:
             if path in handled or path in paired_destinations:
@@ -241,10 +239,10 @@ class TurnDiffTracker:
     def _render_diff(
         self,
         left_path: TrackedPath,
-        left_content: Optional[str],
+        left_content: str | None,
         right_path: TrackedPath,
-        right_content: Optional[str],
-    ) -> Optional[str]:
+        right_content: str | None,
+    ) -> str | None:
         if left_content == right_content:
             return None
         left_display = self._display_path(left_path).replace("\\", "/")

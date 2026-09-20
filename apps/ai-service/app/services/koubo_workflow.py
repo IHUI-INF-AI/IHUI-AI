@@ -27,7 +27,7 @@ import os
 import sys
 import time
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -70,8 +70,9 @@ class KouboState(TypedDict, total=False):
 def _trace(node: str, start: float, end: float, status: str = "ok", **meta: Any) -> dict[str, Any]:
     return {
         "node": node,
-        "start": datetime.utcfromtimestamp(start).isoformat() + "Z",
-        "end": datetime.utcfromtimestamp(end).isoformat() + "Z",
+        # 等价替代弃用的 utcfromtimestamp()（naive UTC 语义不变，2026-09-19 技术债清理）
+        "start": datetime.fromtimestamp(start, tz=UTC).replace(tzinfo=None).isoformat() + "Z",
+        "end": datetime.fromtimestamp(end, tz=UTC).replace(tzinfo=None).isoformat() + "Z",
         "duration_ms": round((end - start) * 1000, 2),
         "status": status,
         **meta,
