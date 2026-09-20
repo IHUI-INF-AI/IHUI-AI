@@ -1041,6 +1041,17 @@ def _build_auto_compact_window_from_env() -> Any | None:
         return None
 
 
+def _tool_call_trace_enabled_from_env() -> bool:
+    """工具调用追踪开关(env AGENT_TOOL_CALL_TRACE_ENABLED)。
+
+    对标 codex tools/call_trace.rs。默认 off:不发任何 trace 里程碑
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_TOOL_CALL_TRACE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
 def _world_state_sections_enabled_from_env() -> bool:
     """世界状态片段开关(env AGENT_WORLD_STATE_SECTIONS_ENABLED)。
 
@@ -1382,6 +1393,23 @@ class AgentLoopV2:
         # 批58(接线):自动压缩窗口账本(对标 codex state/auto_compact_window.rs)。
         # 默认 off → None;usage 记账/prefill 观测/压缩推进与现状逐零差异。
         self._auto_compact_window: Any | None = _build_auto_compact_window_from_env()
+        # 批58(接线):工具调用追踪(对标 codex tools/call_trace.rs)。
+        # 默认 off:不发任何 trace 里程碑事件,与现状逐零差异。
+        self._tool_call_trace_enabled: bool = _tool_call_trace_enabled_from_env()
+        # 批58(接线):本轮已执行工具调用记录器(对标 codex executed_tool_calls.rs)。
+        # 默认 off:不记录、不回灌,与现状逐零差异。on 时 per-turn 生命周期
+        # (run 入口 reset,单轮内 accumulate,回灌条目经 request metadata 透传)。
+        self._executed_tool_calls_enabled: bool = os.environ.get(
+            "AGENT_EXECUTED_TOOL_CALLS_ENABLED", "false"
+        ).strip().lower() in ("on", "1", "true", "yes")
+        self._executed_tool_calls: Any | None = None
+        if self._executed_tool_calls_enabled:
+            try:
+                from app.core.executed_tool_calls import ExecutedToolCalls
+
+                self._executed_tool_calls = ExecutedToolCalls()
+            except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+                logger.warning("executed_tool_calls 构造失败(降级不启用): %s", e)
         # 批58(接线):世界状态片段(对标 codex model.rs 等)。默认 off 不注入片段。
         self._world_state_sections_enabled: bool = _world_state_sections_enabled_from_env()
         # 批58(接线):附加上下文存储(对标 codex state/additional_context.rs)。
@@ -1482,6 +1510,13 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 批58(接线):executed_tool_calls per-turn 生命周期——新轮次清空
+        # (对标 codex 对齐 per-turn 语义);off/None 零副作用,异常隔离。
+        if self._executed_tool_calls is not None:
+            try:
+                self._executed_tool_calls.reset()
+            except Exception as e:  # noqa: BLE001 - 重置失败降级跳过
+                logger.debug("executed_tool_calls.reset 失败(降级跳过): %s", e)
         # 批 44:steer 队列跨 run 清空(running 时才可 steer,run 间不应残留)
         self._pending_steers = []
         # 1-5:rollback 证据引用的 checkpoint id 跨 run 不复用
@@ -2704,6 +2739,20 @@ class AgentLoopV2:
         )
         if _pinned_effort is not None:
             extra_params = {**extra_params, "reasoning_effort": _pinned_effort}
+        if self._executed_tool_calls is not None:
+            # 批58(接线):executed_tool_calls 回灌(对标 codex
+            # request_metadata.rs internal_chat_message_metadata_passthrough)。
+            # 空条目不注入(与现状逐零差异);非空经保留键透传,消费侧按
+            # build_request_metadata 形态解析。异常隔离不阻塞请求。
+            try:
+                from app.core.executed_tool_calls import build_request_metadata
+
+                _etcb = self._executed_tool_calls.bound_for_prompt(64)
+                _etcm = build_request_metadata(_etcb) if _etcb else None
+                if _etcm is not None:
+                    extra_params = {**extra_params, "executed_tool_calls_metadata": _etcm}
+            except Exception as e:  # noqa: BLE001 - 回灌失败降级跳过
+                logger.debug("executed_tool_calls 回灌失败(降级跳过): %s", e)
         for attempt in range(self.llm_retry_max + 1):
             try:
                 on_chunk: Callable[[str], Awaitable[None]] | None = None
@@ -3963,6 +4012,15 @@ class AgentLoopV2:
 
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
+        # 批58(接线):记录本轮模型尝试过的工具调用(对标 codex
+        # executed_tool_calls.rs)。幂等(同 call_id 只记一次);off/None 零副作用;
+        # 异常隔离不阻塞执行。回灌在下一次 LLM 请求的 metadata 里透出。
+        if self._executed_tool_calls is not None:
+            for _tc in tool_calls:
+                try:
+                    self._executed_tool_calls.record(_tc.id, _tc.name)
+                except Exception as e:  # noqa: BLE001 - 记录失败降级跳过
+                    logger.debug("executed_tool_calls.record 失败(降级跳过): %s", e)
         # P0-5(2026-09-13):plan.step 事件——本批每工具执行前发 started、录制后发
         # completed(成对);拦截/审批路径不发 blocked(由 tool.after/error 承载)。
         # decision/reason 取结果可见路径推导(_derive_step_decision),auto 免审批
@@ -4395,6 +4453,20 @@ class AgentLoopV2:
             )
 
         tool = self._tools.get(tc.name)
+        if self._tool_call_trace_enabled:
+            # 批58(接线):trace 里程碑 received(对标 codex tools/call_trace.rs)。
+            # 仅含标识符与工具名,绝不含参数或输出(红线);异常隔离不阻塞执行。
+            try:
+                from app.core.tool_call_trace import received as _trace_received
+
+                _trace_received(
+                    self._session_id or "",
+                    tc.name,
+                    tc.id,
+                    source="direct",
+                )
+            except Exception as e:  # noqa: BLE001 - trace 失败降级跳过
+                logger.debug("tool_call received trace 失败(降级跳过): %s", e)
         if not tool:
             return ToolResult(
                 tool_call_id=tc.id,
@@ -4492,6 +4564,22 @@ class AgentLoopV2:
                     )
                     if tr_override is not None:
                         return tr_override
+                    if self._tool_call_trace_enabled:
+                        # 批58(接线):trace 里程碑 result_ready(仅标识符,无参数/输出)。
+                        try:
+                            from app.core.tool_call_trace import (
+                                result_ready as _trace_result_ready,
+                            )
+
+                            _trace_result_ready(
+                                self._session_id or "",
+                                None,
+                                tc.name,
+                                tc.id,
+                                source="direct",
+                            )
+                        except Exception as e:  # noqa: BLE001 - trace 失败降级跳过
+                            logger.debug("tool_result_ready trace 失败(降级跳过): %s", e)
                     return ToolResult(
                         tool_call_id=tc.id,
                         name=tc.name,
