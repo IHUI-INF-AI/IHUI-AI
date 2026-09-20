@@ -32,7 +32,10 @@ import {
  * 因此**持久化归因以 audit_logs_chain / audit_logs 的 JSONB 为准**(见 plugins/audit-logger.ts);
  * 本表做的是流量/耗时/错误口径,已按"key 归属人"补齐 userId 维度,使网关流量不再是一排 null。
  * 开放面的 4xx/5xx(401/403/429 这类安全事件)额外打一条结构化 stdout 日志,
- * 走 plugins/log-sanitizer.ts 的同一脱敏链路,让 ELK/pino 侧能直接按 apiKeyId 检索。
+ * 让 ELK/pino 侧能直接按 apiKeyId 检索。注意:该行走模块级 logger,不经过
+ * log-sanitizer 插件的 request.log Proxy 链 —— 其字段集本身即归因安全:只有
+ * id / 脱敏路径 / 状态码 / 耗时 / ip,不含凭据原文与任何请求正文(见
+ * audit-logger.ts 的 buildRequestAttribution)。
  *
  * 批量写入策略(#18 修复):
  * - 内存缓冲,满 API_LOG_BATCH_SIZE(默认 100)或每 API_LOG_FLUSH_INTERVAL_MS(默认 5000ms)批量 flush

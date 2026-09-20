@@ -53,6 +53,8 @@ import { normalizeModelId } from '@ihui/shared'
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
 // API Key 分组(2026-08-01 立,组池余额检查/扣减)
 import { getKeyGroup } from './api-key-group-service.js'
+// O5 原文留存(2026-09-21):写入口侧的"按 key 关闭原文留存"判定,纯函数、无副作用。
+import { buildRawTextColumns } from './audit-log-service.js'
 import { apiKeyGroups } from '@ihui/database'
 
 // =============================================================================
@@ -1109,6 +1111,14 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     input.response && input.response.length > 5000
       ? input.response.slice(0, 5000) + '...[truncated]'
       : (input.response ?? '')
+  // O5 原文留存(2026-09-21):全局默认 30 天到期清除;按 key 关闭留存时**本行不落原文**
+  // (prompt 落空串/ response 落 NULL),而不是等清除器迟到抹掉 —— 对承诺不留正文的 key,
+  // 写入即不留,窗口为零。归因/计费列(token 数、成本、apiKeyId)不受影响。
+  const rawCols = buildRawTextColumns({
+    apiKeyId: input.apiKeyId ?? null,
+    prompt: truncatedPrompt,
+    response: truncatedResponse,
+  })
 
   const metadata: Record<string, unknown> = {
     multiplier,
@@ -1150,8 +1160,10 @@ async function recordCallInternal(input: RecordCallInput): Promise<RecordCallRes
     .values({
       userId: input.userId,
       model: normalizedModelId,
-      prompt: truncatedPrompt,
-      response: truncatedResponse,
+      prompt: rawCols.prompt,
+      response: rawCols.response,
+      // 原文是否仍在表内:入口侧关闭留存时为 false(本行从未写过原文)
+      rawRetained: rawCols.rawRetained,
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
       totalTokens: input.totalTokens,
