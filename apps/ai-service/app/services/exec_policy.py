@@ -47,6 +47,8 @@ __all__ = [
     "parse_powershell",
     "parse_posix",
     "prefix_rule",
+    "ExecPolicyManager",
+    "parse_rule_line",
 ]
 
 # ---------------------------------------------------------------------------
@@ -839,4 +841,165 @@ def evaluate(command: str, shell: str = "auto", cwd: str | None = None) -> Polic
     """
     resolved = _detect_shell(command) if shell.strip().lower() == "auto" else shell
     return _default_policy.evaluate(command, resolved)
+
+
+# ---------------------------------------------------------------------------
+# 规则文件目录加载 / 热更新管理器(对标 codex ExecPolicyManager)
+# ---------------------------------------------------------------------------
+
+import asyncio
+from pathlib import Path
+
+_RULE_FILE_GLOB = "*.rules"
+_DEFAULT_RULE_FILE = "default.rules"
+
+
+def parse_rule_line(line: str) -> PrefixRule:
+    """解析单行规则文本为 :class:`PrefixRule`(供目录加载与测试复用)。
+
+    格式: ``<DECISION>|<pattern tokens 空格分隔>``,例如
+    ``DENY|sudo rm`` / ``PROMPT|git push`` / ``ALLOW|npm run``。
+    ``<DECISION>`` 大小写不敏感(自动小写后映射到 :class:`Decision`)。
+    非法行(缺 ``|`` 分隔符、决策非法、空 pattern)抛 ``ValueError``。
+    """
+    if "|" not in line:
+        raise ValueError("规则缺少 '|' 分隔符(decision|pattern)")
+    decision_str, _, pattern_str = line.partition("|")
+    decision_str = decision_str.strip()
+    if not decision_str:
+        raise ValueError("决策字段为空")
+    try:
+        decision = Decision(decision_str.lower())
+    except ValueError as exc:
+        raise ValueError(
+            f"非法决策 '{decision_str}'(应为 allow/prompt/deny)"
+        ) from exc
+    pattern = tuple(tok for tok in pattern_str.split() if tok)
+    if not pattern:
+        raise ValueError("规则 pattern 为空(需至少一个 token)")
+    return PrefixRule(pattern, decision, source="rules-file")
+
+
+def _format_rule_line(rule: PrefixRule) -> str:
+    """将规则序列化回单行文本(供落盘追加,决策用大写以对齐 codex 风格)。"""
+    return f"{rule.decision.name}|{' '.join(rule.pattern)}"
+
+
+def _read_rules_dir(rules_dir: Path) -> tuple[list[PrefixRule], list[str]]:
+    """同步扫描目录,返回 (解析出的规则, 警告列表)。
+
+    对标 codex ``collect_policy_files``:仅取 ``*.rules`` 普通文件,按**文件名排序**
+    保证多层叠加的确定性(低到高优先);注释(``#`` 开头)与空行跳过;解析失败的行
+    进入警告列表而不中断。
+    """
+    rules: list[PrefixRule] = []
+    warnings: list[str] = []
+    for path in sorted(rules_dir.glob(_RULE_FILE_GLOB)):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            warnings.append(f"{path.name}: 读取失败: {exc}")
+            continue
+        for raw in text.splitlines():
+            stripped = raw.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            try:
+                rules.append(parse_rule_line(stripped))
+            except ValueError as exc:
+                warnings.append(f"{path.name}: {stripped!r}: {exc}")
+    return rules, warnings
+
+
+def _append_rule_line(target: Path, rule: PrefixRule) -> None:
+    """将规则行追加到落盘文件(保证行分隔正确,Windows 下用 ``\\n``)。"""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    line = _format_rule_line(rule) + "\n"
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    target.write_text(existing + line, encoding="utf-8", newline="\n")
+
+
+class ExecPolicyManager:
+    """规则文件目录加载 + 运行中热更新的策略管理器(对标 codex ExecPolicyManager)。
+
+    - ``rules_dir=None`` 时为纯内存模式,不触碰任何文件(向后兼容旧 ``ExecPolicy``)。
+    - 指定 ``rules_dir`` 时构造即 ``load()``,并支持运行中 ``append_rule`` 热更新。
+
+    并发模型对标 codex:codex 用 ``ArcSwap<Policy>`` + ``Semaphore(1)`` 更新锁,读者
+    ``current()`` 无锁取快照;这里用 ``asyncio.Lock``(等价 ``Semaphore(1)``)串行化
+    ``load``/``append_rule``,并以**引用替换** ``self._policy`` 完成原子切换——
+    CPython GIL 下对象引用赋值本身即原子操作,语义等价于 ``ArcSwap::store(Arc::new(..))``,
+    读者 ``current()`` 取到的是旧或新完整快照,不会看到半构造状态。
+    """
+
+    def __init__(
+        self,
+        rules_dir: str | Path | None = None,
+        *,
+        include_defaults: bool = True,
+    ) -> None:
+        self._rules_dir: Path | None = Path(rules_dir) if rules_dir is not None else None
+        self._include_defaults = include_defaults
+        self._warnings: list[str] = []
+        self._lock = asyncio.Lock()
+        # 初始快照:无论内存/文件模式都先持有一个合法 ExecPolicy
+        self._policy = ExecPolicy(include_defaults=include_defaults)
+        if self._rules_dir is not None:
+            # 构造即加载(同步扫描,对标 codex 启动时装载规则目录)
+            self._reload()
+
+    @property
+    def warnings(self) -> list[str]:
+        """最近一次 ``load`` 的解析警告列表。"""
+        return self._warnings
+
+    def current(self) -> ExecPolicy:
+        """返回当前策略快照(对标 codex ``current()`` 取 ArcSwap 快照)。"""
+        return self._policy
+
+    def _reload(self) -> None:
+        """同步执行目录扫描并原子替换策略(被 ``load`` 与 ``__init__`` 复用)。"""
+        rules: list[PrefixRule] = []
+        warnings: list[str] = []
+        if self._rules_dir is not None:
+            rules, warnings = _read_rules_dir(self._rules_dir)
+        self._warnings = warnings
+        # 引用替换即原子切换(对标 ArcSwap::store);读者 current() 取到旧或新快照,
+        # 不会看到半构造状态。
+        self._policy = ExecPolicy(rules, include_defaults=self._include_defaults)
+
+    async def load(self) -> None:
+        """重新扫描目录并热更新策略(可在运行中多次调用,对标 codex 重载规则目录)。"""
+        async with self._lock:
+            await asyncio.to_thread(self._reload)
+
+    async def append_rule(
+        self, rule: PrefixRule, *, file_name: str = _DEFAULT_RULE_FILE
+    ) -> None:
+        """运行中追加规则(对标 codex AppendRule)。
+
+        先内存替换(新 ExecPolicy = 旧规则 + 新规则),再落盘追加到
+        ``rules_dir/file_name``;落盘失败时回滚内存并抛错。
+        """
+        async with self._lock:
+            old_policy = self._policy
+            new_policy = ExecPolicy(
+                tuple(old_policy.rules) + (rule,),
+                include_defaults=False,
+            )
+            # 1) 内存先替换(对标 codex 先 store 再返回)
+            self._policy = new_policy
+            if self._rules_dir is None:
+                return  # 纯内存模式:不落盘
+            # 2) 落盘(失败回滚内存并抛错)
+            target = self._rules_dir / file_name
+            try:
+                await asyncio.to_thread(_append_rule_line, target, rule)
+            except OSError as exc:
+                self._policy = old_policy  # 回滚内存
+                raise OSError(f"追加规则落盘失败,已回滚内存:{exc}") from exc
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
