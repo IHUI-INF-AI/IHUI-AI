@@ -30,15 +30,46 @@ import {
 } from '@ihui/types'
 import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 
+/**
+ * Key 级配额字段(创建/更新通用)。
+ * O2 2026-09-21:此前只有批量端点能设窗口限额,单个 Key 的 PATCH 面缺失;
+ * 现与鉴权主链路(requireApiKeyAuth 强制的 5h/1d/7d + 黑名单 + per-model 限流)对齐可配。
+ * 语义:undefined = 不修改(仅更新时),null = 清空该限制。
+ */
+export interface KeyQuotaFields {
+  /** IP 黑名单(jsonb 字符串数组,null = 无),命中优先于白名单 → 403 */
+  blockedIps?: string[] | null
+  /** 5 小时滚动窗口最大请求数(null = 不限) */
+  rateLimit5h?: number | null
+  /** 每日(UTC+8 自然日)最大请求数(null = 不限) */
+  rateLimit1d?: number | null
+  /** 每周(UTC+8 周一~周日)最大请求数(null = 不限) */
+  rateLimit7d?: number | null
+  /** 单模型 RPM 上限映射(jsonb {"gpt-4o": 60},null = 不限) */
+  perModelRpmLimit?: Record<string, number> | null
+  /** 单模型 TPM 上限映射(jsonb {"gpt-4o": 100000},null = 不限) */
+  perModelTpmLimit?: Record<string, number> | null
+}
+
+/** KeyQuotaFields 中可写库的列名(updateKey 按 undefined 逐字段挑)。 */
+const KEY_QUOTA_FIELDS = [
+  'blockedIps',
+  'rateLimit5h',
+  'rateLimit1d',
+  'rateLimit7d',
+  'perModelRpmLimit',
+  'perModelTpmLimit',
+] as const satisfies readonly (keyof KeyQuotaFields)[]
+
 /** 创建 API Key 入参。permissions 接受 unknown(防御性过滤后再写入)。 */
-export interface CreateKeyInput {
+export interface CreateKeyInput extends KeyQuotaFields {
   name: string
   permissions?: unknown
   rateLimit?: number
   // --- P0-7 安全粒度字段(2026-07-31 立)---
   /** 过期时间(null = 永不过期) */
   expiresAt?: Date | null
-  /** IP 白名单(null/空 = 不限制),支持 CIDR */
+  /** IP 白名单(null/空 = 不限制),支持 CIDR / IPv6 */
   allowedIps?: string[] | null
   /** 模型白名单(null/空 = 不限制),支持通配符 gpt-4* */
   allowedModels?: string[] | null
@@ -47,7 +78,7 @@ export interface CreateKeyInput {
 }
 
 /** 更新 API Key 入参。 */
-export interface UpdateKeyPatch {
+export interface UpdateKeyPatch extends KeyQuotaFields {
   name?: string
   permissions?: unknown
   rateLimit?: number
@@ -97,6 +128,13 @@ export async function createKey(
       allowedIps: input.allowedIps ?? null,
       allowedModels: input.allowedModels ?? null,
       maxTokensPerReq: input.maxTokensPerReq ?? null,
+      // Key 级配额(O2 2026-09-21):undefined → null = 不限,存量行为不变
+      blockedIps: input.blockedIps ?? null,
+      rateLimit5h: input.rateLimit5h ?? null,
+      rateLimit1d: input.rateLimit1d ?? null,
+      rateLimit7d: input.rateLimit7d ?? null,
+      perModelRpmLimit: input.perModelRpmLimit ?? null,
+      perModelTpmLimit: input.perModelTpmLimit ?? null,
     })
     .returning()
   if (!record) throw new Error('创建 API 密钥失败')
@@ -133,6 +171,9 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       rateLimit5h: developerApiKeys.rateLimit5h,
       rateLimit1d: developerApiKeys.rateLimit1d,
       rateLimit7d: developerApiKeys.rateLimit7d,
+      // per-model 限流列(2026-09-21,O2 落地,保证 SafeApiKey 类型完整)
+      perModelRpmLimit: developerApiKeys.perModelRpmLimit,
+      perModelTpmLimit: developerApiKeys.perModelTpmLimit,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
@@ -183,6 +224,10 @@ export async function updateKey(
   if (patch.allowedIps !== undefined) setData.allowedIps = patch.allowedIps
   if (patch.allowedModels !== undefined) setData.allowedModels = patch.allowedModels
   if (patch.maxTokensPerReq !== undefined) setData.maxTokensPerReq = patch.maxTokensPerReq
+  // Key 级配额(黑名单 / 5h·1d·7d 窗口 / per-model RPM·TPM):同上语义
+  for (const field of KEY_QUOTA_FIELDS) {
+    if (patch[field] !== undefined) setData[field] = patch[field]
+  }
 
   const [updated] = await db
     .update(developerApiKeys)

@@ -75,6 +75,11 @@ export const developerApiKeys = pgTable(
     rateLimit1d: integer('rate_limit_1d'),
     /** 每周(UTC+8 周一~周日)最大请求数(null = 不限) */
     rateLimit7d: integer('rate_limit_7d'),
+    // --- per-model 限流列(2026-09-21 立,O2:此前代码自述"字段未落地"导致限流恒跳过)---
+    /** 单模型 RPM 上限映射(jsonb {"gpt-4o": 60},null/缺 key = 该模型不限) */
+    perModelRpmLimit: jsonb('per_model_rpm_limit').$type<Record<string, number> | null>(),
+    /** 单模型 TPM 上限映射(jsonb {"gpt-4o": 100000},null/缺 key = 该模型不限) */
+    perModelTpmLimit: jsonb('per_model_tpm_limit').$type<Record<string, number> | null>(),
     // --- 多租户关联字段(对标 New API,API Key 可关联到 tenant 实现组织级配额池)---
     /** 关联的租户 ID(nullable,不关联则为个人 Key),onDelete set null 避免删租户时级联删 Key */
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),

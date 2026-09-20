@@ -194,6 +194,16 @@ const envSchema = z.object({
   // 与历史完全一致);redis=回放帧旁路复制 + 会话元数据跨副本可见 + abort 跨副本广播
   // (连接绑定层 raw/controller 永远留在本进程,Redis 只共享可序列化状态)
   SSE_REGISTRY_BACKEND: z.enum(['memory', 'redis']).default('memory'),
+
+  // ===== O2 开发者 API Key 配额强制与凭据形态(2026-09-21 立)=====
+  // 限流后端(Redis/DB 计数)不可用时的降级形态:
+  // - close(默认):billable / M2M(/v1 等能力目录登记)端点返回 503 RATE_BACKEND_UNAVAILABLE,
+  //   纯只读低危端点仍放行 —— 判据来自 @ihui/types capability-catalog 的 risk/billable,不硬编码路由名。
+  // - open:维持历史 fail-open 行为(全部放行,仅告警)。
+  API_KEY_RATE_LIMIT_FAIL_MODE: z.enum(['close', 'open']).default('close'),
+  // 双因子凭据:requireApiKeyAuth 主链路默认必须携带 X-Api-Secret(缺失 → 401 SECRET_REQUIRED)。
+  // 置 false 恢复历史"不带即跳过"行为(过渡期/存量纯 key 客户端)。
+  API_KEY_REQUIRE_SECRET: booleanFromString(true),
 })
 
 const parsed = envSchema.safeParse(process.env)
