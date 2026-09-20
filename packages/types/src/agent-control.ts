@@ -299,6 +299,15 @@ export interface AgentActionRequest {
   userId?: string
   /** 会话 ID */
   sessionId?: string
+  /**
+   * 指定执行端实例(2026-09-20 立,web 多标签页路由)。
+   *
+   * 同一用户可能开多个 app 标签页(都上报 endpoint='web'),不指定时 api 只能挑
+   * "最后心跳那个",于是 web_ui_describe 与紧随其后的 web_ui_fill 会落到不同标签页 ——
+   * describe 返回的元素 id 是**该页自己的映射**,换页执行必然 SELECTOR_NOT_FOUND。
+   * 故 describe/read 应答里回传 instanceId,后续动作按它钉回同一个页面。
+   */
+  targetInstanceId?: string
   /** 超时 ms,默认 30000 */
   timeout?: number
 }
@@ -338,6 +347,8 @@ export interface AgentActionResponse {
     window?: { title: string; appName: string; bounds: [number, number, number, number] }
     /** 剪贴板内容 */
     clipboard?: string
+    /** 应答端实例 ID(web 桥用于把后续动作钉回同一标签页) */
+    instanceId?: string
     /** 自定义数据 */
     [key: string]: unknown
   }

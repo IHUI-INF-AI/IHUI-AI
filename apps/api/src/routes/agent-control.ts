@@ -102,13 +102,26 @@ function cleanupStaleEndpoints(): void {
   }
 }
 
-/** 根据 category 找到最近活跃的端 */
+/** 根据 category 找到最近活跃的端(可选按实例 ID 钉定) */
 function findEndpointByCategory(
   category: AgentActionRequest['category'],
   userId?: string,
+  targetInstanceId?: string,
 ): RegisteredEndpoint | null {
   cleanupStaleEndpoints()
   const targetEndpoint = CATEGORY_ENDPOINT[category]
+  // 显式钉定实例:describe 与后续动作必须落在同一个页面(元素 id 是该页私有映射)。
+  // 钉定失败(该端已断开/不属此用户)时不报错,回落"最近活跃端",由前端回执说明。
+  if (targetInstanceId) {
+    const pinned = _endpoints.get(targetInstanceId)
+    if (
+      pinned &&
+      pinned.capability.endpoint === targetEndpoint &&
+      (!userId || pinned.userId === userId)
+    ) {
+      return pinned
+    }
+  }
   let best: RegisteredEndpoint | null = null
   for (const ep of _endpoints.values()) {
     if (ep.capability.endpoint !== targetEndpoint) continue
@@ -144,6 +157,7 @@ const executeSchema = z.object({
   toolCallId: z.string().optional(),
   userId: z.string().optional(),
   sessionId: z.string().optional(),
+  targetInstanceId: z.string().min(1).max(100).optional(),
   timeout: z.number().int().min(1000).max(120000).default(30000),
 })
 
@@ -213,7 +227,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     const req = result.data as AgentActionRequest
 
     // 找到对应类型的端(带 userId 过滤,2026-08-16 多用户隔离)
-    const ep = findEndpointByCategory(req.category, req.userId)
+    const ep = findEndpointByCategory(req.category, req.userId, req.targetInstanceId)
     if (!ep) {
       const response: AgentActionResponse = {
         requestId: req.requestId,
