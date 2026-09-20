@@ -719,6 +719,12 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - `api_endpoint_call(name, arguments)` → 转发到对应端点工具(**仅接受 `api_` 前缀**，
   否则等于把 `run_command` 这类高危工具暴露给一个字符串参数，是越权捷径)
 
+> ⚠️ 聊天主链还有一道**客户端闸门**：`llm.py` 的 tool loop 只在请求带 `agentTools` 时才进，
+> 而 web 的 `mergeAgentTools()` 为保住打字机流式在"未选插件/未开网页搜索"时刻意返回空。
+> 因此 `apps/web/src/hooks/use-chat/tool-config.ts::uiControlToolsFor(content)` 按强信号
+> （打开 / 点击 / 填写 / 查后台…）判定"用户在要求操作本站"时才把 `web_ui_*` / `api_*` 带上，
+> 普通问答仍不带。RN 与小程序各自只带本端族名（`mobile_ui_*` / `taro_ui_*`）。
+
 对话侧自动路由:`apps/ai-service/app/services/conversation.py` 的 `_app_control_intent_tools()`
 按强信号正则识别"操控本站"意图(打开页面 / 点击按钮 / 填表单 / 提交 / 切模式 / 调接口)，
 命中即无条件并入 tool loop 工具集，并自动补齐依赖(`web_ui_click` 必带 `web_ui_describe`，
@@ -754,6 +760,15 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
 `/api/conversations`、`/api/notifications`、`/api/admin/users` 一律 401。因此下表数字说的是
 **调用面**（能生成并发起多少次调用），真正能落地的范围受"Agent 全面开放工程"授权层收口进度约束；
 未授权端点会如实返回 401，由模型按 `_UI_RENDER_PROMPT` 转述失败，而不是编造成功。
+
+### 对外导出面：刻意不登记（不是遗漏）
+
+`web_ui_*` / `mobile_ui_*` / `taro_ui_*` / `api_endpoints_search` / `api_endpoint_call` **没有**登记进
+能力目录 `toolScopeMap`，因此它们在 MCP 对外导出面（`ENABLE_MCP_EXPORT`）上**既不声明也可调用被拒**
+（`mcp_export` 的 fail-safe 语义：未登记 → 不对外声明）。这是有意的：这些工具的动作发生在
+**用户自己的设备**上（遥控其浏览器/App/小程序），让第三方 API Key 具备这种能力需要单独的
+产品与授权决策，不该由一次功能开发顺手登记进去。站内聊天主链（`llm.py`，带真实用户身份与 role）
+不受影响，正常使用。若将来要对外开，须逐项决定 scope 与数据类别，而不是加前缀通配。
 
 ### 配置项
 
@@ -2147,6 +2162,8 @@ node scripts/install-console-window-hook.mjs --remove   # 卸载并恢复原 NOD
 ```
 
 钩子文件落在**仓库外**的稳定目录(默认 `<TEMP 上级>/ihui-node-hooks`,可用 `IHUI_NODE_HOOKS_DIR` 覆盖),经用户环境变量 `NODE_OPTIONS=--import=file:///...` 生效;显式传 `windowsHide: false` 的调用一律尊重。安装后需重启 IDE / 终端,其新派生的进程才会静默。
+
+为防止以后新写的脚本再次漏参,仓库设有机制守门:`scripts/check-no-visible-spawn.mjs`(pre-commit blocking 第 52 项)会用括号配平提取派生调用,首参可确认为控制台程序(git / node / pnpm / cmd / pwsh 等)而 options 缺 `windowsHide` 时直接拦截。手动审计:`node scripts/check-no-visible-spawn.mjs`,逻辑自检:`--self-test`。
 
 ### 一键启动(Docker)
 
