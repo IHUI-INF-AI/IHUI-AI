@@ -25,7 +25,9 @@
 - [x] ✅(2026-09-20) **验证**:`check-i18n-keys` 1434 文件 / 15462 键 / 5 语言 parity OK;`check-i18n-broken-en` 0 破碎英文;`check-i18n-namespace-passing` 609 文件 OK;`check-cli-i18n-parity` 5 locales × 12 键 OK;自研 dup 键检测 5 文件 0;含点键 walk 探针(与 `validateMessagesSegment` 同语义)HEAD 84 → 工作区 0;`createTranslator` 前后对比 = 原本在渲染的 8 条 foldPolicy 文案逐字未变、44 处(22×2 语言)回退键名转真文案、MISSING_MESSAGE 22 → 0;web vitest 全量 138 文件 / 1922 用例绿;ai-service `mypy --strict` 526 文件 Success(排除法确认残留 hook 失败与本次改动无关)。**范围判定**:§9 = 单端文案 + 守门脚本(i18n 数据面,`packages/i18n` 五语齐改、无跨端样式/契约变化),desktop 随 web 壳自动覆盖,其余端不涉及;i18n 五语 parity 由守门保证;§21 README 豁免(纯 bug 修复,不改变对外能力清单)。
 - [x] ✅(2026-09-21) **另记收口**:① `login.phone` 缺失键已补(见下条 D29);② 水印缺口 7 个中 5 个已注进 commit `23648e9f43`(逐文件词法确认 diff 仅横幅/零宽行),剩 `apps/api/scripts/export-openapi.ts` 与 `docs/developer/data-classes.md` 混有他人在途真实改动(207 行 / 57 行),**不捎带**,交归属会话。⚠️ 该 commit 因 lint-staged 对 `oauth-*.ts` 做了纯换行重排(prettier 契约保语义)而多出格式行,`pnpm --filter @ihui/api typecheck` 复验 exit 0 无实质变更。
 - [x] ✅(2026-09-21) **同类缺陷远未穷尽 —— 实测 118 处 / 349 条路径,已出档案**:根治含点键过程中发现更要紧的一层:`t(`status.${x}`)` 被重构成 `t(STATUS_KEY[x])` 的"静态映射表"写法**并没有修好问题**,映射表的值仍是点分路径,use-intl 照旧按 `.` 拆段下钻,取不到值时默认 `getMessageFallback` **把完整键路径当文案返回**(UI 直接显示 `activities.status.upcoming`)。静态可达性判定(解析常量表值 + 模板静态前缀 + `??` 兜底字面量)实测:**web 86 处 · miniapp-taro 15 处 · mobile-rn 17 处,54 个命名空间**。完整清单(文件:行 + 命名空间 + 键路径 + 调用点表达式 + 两类修复口径 + 明确未覆盖的盲区)已提交 `docs/i18n-dynamic-key-backlog-2026-09-21.md`,每条可脱离脚本复核。**注意区分两类**:词典确无该语义→建真嵌套;词典已有 `typeBug` 而代码请求 `type_bug`→**改代码映射值**,不得造 snake_case 重复键(两份真相)。我尝试过先把该维度做成 blocking 工具,自评误报率过高(启发式收 571 处 vs 确证 118)后**主动废弃未交付** —— 宁可不交付也不交付误导性的闸。
-- [ ] **P0(2026-09-21 新立)清掉上述 118 处动态键不可达**:按档案"按命名空间分片表"认领,分端并行;词典侧改动必须五语齐补 + `pnpm --filter @ihui/miniapp-taro gen:i18n` 重生成签入产物;清零后再把"常量映射表值可达性"接进 `check-i18n-keys` blocking(现状:含点键 / 同层重复 key / 模板键静态前缀 三条已 blocking,commit `1e0de236af`+`271273fdd8`+`6b33b71bbc`)。
+- [x] ✅(2026-09-21) **D30 miniapp-taro 端 i18n 补盲 + 42 个字面量缺键补齐**:守门 `extractHookKeys` 原先只认单名解构 `const { t } = useI18n()`(`{` 后必须紧跟 `t|tt` 且立刻 `}`),`const { t, locale, setLocale } = useI18n()` **整文件不匹配**、`const tt = useTt()` / `tf` / `tx` **完全不认** → 该端只校验到 91 文件 / 970 键。补盲后 **212 文件 / 2665 键**,查出并补齐 42 个真缺键 ×5 语言(commit `0d5ffc686b`,HEAD 内容已逐项复核:`login.email` 五语齐、`course.list.courseCount` 含 `{n}` 占位符、孤儿碎片键 `VerifyCodeModal.p1`/`courseList.p1` 五语全清);同批修掉两处**源码 UTF-8/GBK 往返乱码兜底**(`'VIP鍙湅'`/`'浠樿垂椤圭洰'`,因键缺失曾直接把乱码显示给用户,乱码里还夹 `U+E21C` 私用区字符导致精确匹配工具静默漏过)与两处**把词劈成两半**的拼接(`"…后重{tt('p1','发')}"`、`"个课{tt('p1','程')}"` → 改整句 ICU 参数,复用既有 `shared/auth.resendCode` 与 `course.list.courseCount`,不新造键);`en/ko/ja` 的协议名去掉中文书名号《》、`zh-TW` 4 处按同文件邻居对齐用字。压缩产物 `remote-locales.gen.ts` 已 `gen:i18n` 重生成(自带水印),`i18n-compressed.test` 7/7、端内 i18n 测试 29/29、守门测试 35/35,6 个 target 全绿。
+- [ ] **P0(2026-09-21 更新)剩余 118 处动态键不可达**:web 86 · mobile-rn 17 · miniapp-taro 15(明细见 `docs/i18n-dynamic-key-backlog-2026-09-21.md`)。本轮已把"能不能机械修"这条路**穷尽并证伪**:按最保守规则(点分路径压成 camelCase 单段)对 349 条唯一路径逐条查五语合并词典,**命中 0**(272 条压平后仍不存在、77 条本就是单层叶名即词典真无此概念);唯一例外是 `feedback` 5 条需另走"下划线→驼峰"规则(`type_bug`→`typeBug`,已实证 `typeBug` 五语齐而 `type_bug` 不存在)。**结论:余下都是"词典缺这个概念",要按屏补文案,不能靠机械改名糊过去**。认领方式:照档案"按命名空间分片表"(54 个)切互斥文件清单并行。
+- [ ] **本轮未落地、需重做的两批(已核实为"丢",不是"待办")**:① web / mobile-rn 的键名对齐批次 —— 报告改了 4 个文件,回读发现 3 个文件的改动既不在工作区也不在 HEAD,剩 1 个与他人 WIP 混在同一文件不可独立提交;② mobile-rn 5 个缺键 + 3 处代码修复批次 —— 报告的 sha 不在 HEAD 链上,且 HEAD 里那四个键确实不存在(`coupon` 子键仍为 `subtitle,retry,empty,loadFailed,minSpend,title,validUntil`)。两次"看起来已交付"都源于**读工作区/采信报告 sha**,正确判据见档案第 4 节。
 - [x] ✅(2026-09-21) **D29 小程序端 i18n 修复**:`login.phone` 五语补齐(commit `a261c189`)+ 同 commit 修 `login.tsx:574` 键位错置(紧邻 `forgotPassword`、下方是密码框却引用 `login.phone`,若不改,补键反而把「手机号」渲染到密码框上)+ 重生成压缩语言包产物使 `i18n-compressed.test` 7/7 绿。
 
 ---
@@ -243,6 +245,50 @@
 - [x] ✅(2026-09-20) D1 配置面与文档:`apps/ai-service/.env.example` 六个开关
       (`API_TOOLS_MODE`/`API_TOOLS_MAX`/`API_TOOLS_EXCLUDE`/`API_INTERNAL_BASE_URL`/`UI_ACTION_TOOLS`/`UI_ACTION_TIMEOUT`)
       + README「🤖 AI 全量操控桥接」章节(§21 同 commit)。
+- [x] ✅(2026-09-21) E1 **聊天主链端到端实证**(此前所有证据都是直打 `/api/agent-control`,从未穿过对话框):
+      真实浏览器登录 + fetch 探针抓请求体,输入「导航到模型市场页面」→
+      `body.agentTools` 带齐七个 `web_ui_*`(证明 `uiControlToolsFor` 在真浏览器里生效)→
+      SSE 依次 `tool-call-start`/`tool-result`(先 `web_ui_describe` 再
+      `web_ui_navigate {path:"/capability-market"}`,`ok:true`,`durationMs:718`)→
+      `location.pathname` 由 `/` 变 `/capability-market`,页面 `h1="能力市场"`。
+      这一跑连撞三条静默缺陷(E2/E3/E4),**全部是指标全绿也掩盖不了的**。
+- [x] ✅(2026-09-21) E2 CSRF 403 根治(桥接出站少发一个头 ⇒ 整条 UI 桥 100% 不可用):
+      `/execute` 只认 `Authorization: Bearer`,但 `apps/api/src/plugins/csrf.ts` 的豁免判据是
+      "带自定义头(`x-internal-service-token` 存在)"。只发 Bearer 一律 403「CSRF 令牌缺失或无效」。
+      为什么一直没暴露:直打 `/execute` 用的是用户 JWT,顺带带 `auth_token` cookie → 走 CSRF 的
+      cookie 豁免分支。现 `ui_action_bridge` 与 `api_tools_bridge` 口径一致(Bearer + 内部令牌 + x-user-id),
+      新增 `test_call_sends_internal_service_token_for_csrf_exempt` 钉住。
+- [x] ✅(2026-09-21) E3 陈旧钉定实例导致每条后续动作走满 20s 超时:页面重载 → 新 instanceId,
+      旧实例在 `ENDPOINT_TTL_MS=5min` 内仍在注册表里 ⇒ `findEndpointByCategory` 的钉定分支
+      (只校验存在/同类/同用户)把动作推给死 socket ⇒ 表现为无根因的 `TIMEOUT`。
+      修法:`agent-control.ts` 钉定分支加**活性判据** —— 与同用户同类最新端心跳相差 ≥ `PIN_STALE_GAP_MS`
+      (60s = 前端保活周期)即回落择优;差值在一个周期内(两个标签页都活着)**必须仍钉住**,
+      否则退回"命令散射"老问题。ai-service 侧把 `TIMEOUT` 一并纳入清钉条件(立刻自愈)。
+      证据:`agent-control-ui.test.ts` 新增 ⑯(两态:落后 90s 回落 / 落后 30s 仍钉)16 项全绿,
+      原 ⑧ 多标签页钉定用例不回归;Python `test_pin_cleared_on_timeout` +
+      `test_pin_not_cleared_for_ordinary_failure`(普通失败不得清钉)25 项全绿。
+- [x] ✅(2026-09-21) E4 无参工具把聊天页打崩(§17 级 UI 事故):`web_ui_describe`/`web_ui_read`
+      的 toolCall 落库后 `args` 整体缺失,`apps/web/src/components/ai/tool-call-card.tsx` 的
+      `pickStr`/`extractUrl` 在 message-list 渲染路径上直接索引 `args[k]` →
+      `TypeError: Cannot read properties of undefined (reading 'path')` → Next 错误边界接管,
+      页面显示"应用发生严重错误"。即 **AI 成功操控之后用户回来看到白屏**。
+      修法:两个入口把 `args` 归一(`| undefined` + `if (!args)`/`?? {}`),不改调用方;
+      新增 `apps/web/tests/tool-call-card.test.ts` 4 项(含"正常 edit_file 路径不被削弱")。
+      这不是桥接专属 bug —— **任何无参工具**都会触发,`api_get_metrics` 这类同理。
+- [x] ✅(2026-09-21) E5 跨端工具名一致性机械审计(不靠肉眼):脚本比对 ai-service 真实注册面
+      (`register_ui_action_tools()` + `register_app_ui_tools()` 后取 `mcp_server.list_tools()`)与三端
+      TS 声明清单做双向差集 —— `web_ui_*` 7/7、`taro_ui_*` 4/4、`mobile_ui_*` 4/4、api 入口 2/2,
+      **差集全空,未发现任何不匹配**(差一个字母就是静默死代码,故必须机械核)。
+- [x] ✅(2026-09-21) E6 移动端 `invoke` 命令面扩容(无 DOM 端 `invoke` 就是全部操作面):
+      小程序 3 → 9(五个 tab 切换 `Taro.switchTab` + `page:top` `Taro.pageScrollTo` + 主题三档),
+      `THEME_COMMANDS` 更名 `INVOKE_COMMANDS`;RN 4 → 8(五个 Main tab 切换,词表与小程序对齐为
+      `tab:*`;并补 `requireNavigationReady()` 防容器未就绪时的假成功)。
+      **刻意放弃**的候选及理由:语言/locale 切换(两端 `setLocale` 只活在 I18nProvider 的 React
+      state,模块级调用会造成"storage 变了界面没变"的假成功,根治要动共享层)、RN 返回上一级
+      (重复执行连弹多级,不幂等)、回顶部/开抽屉(需逐屏 ref 或组件内 state)、弹窗类(叠层)。
+      小程序 `run` 改为可返回 Promise 并统一 `await`,否则 `switchTab` 的 rejection 会被报成成功。
+      证据:miniapp `src/lib/__tests__` 70 项全绿、RN 三个文件 53 项全绿,两端 typecheck/lint exit 0。
+      未验证:微信真机 `switchTab` 实际换 tab、`pageScrollTo` 真滚动、expo 端 `Main` 嵌套跳转。
 
 ### 验证证据(2026-09-20)
 

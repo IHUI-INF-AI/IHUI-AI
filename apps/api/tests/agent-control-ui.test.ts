@@ -343,6 +343,42 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     )
   })
 
+  it('⑯ 钉定实例被"页面重载"留下(心跳落后超一个保活周期)时回落最新端,不再走满超时', async () => {
+    // 回归 2026-09-21 真实聊天 round-trip:模型 describe 拿到 instance 后页面被重载,旧实例
+    // 在 5min TTL 内仍"注册着",于是每一条后续动作都被推到已死的 socket 上 → 20s TIMEOUT。
+    __test__.endpoints.clear()
+    await reportCapability(
+      {
+        endpoint: 'web',
+        instanceId: 'web-old',
+        uiActions: [...ALL_UI_ACTIONS],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    await reportCapability(
+      {
+        endpoint: 'web',
+        instanceId: 'web-new',
+        uiActions: [...ALL_UI_ACTIONS],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    const stale = __test__.endpoints.get('web-old')
+    expect(stale).toBeTruthy()
+    // 旧页面不再心跳:把它的心跳推到容差之外(前端保活周期 60s)
+    stale!.lastSeen = Date.now() - 90_000
+    expect(__test__.findEndpointByCategory('ui', USER_A, 'web-old')?.capability.instanceId).toBe(
+      'web-new',
+    )
+    // 两个标签页都活着(落后在一个保活周期内)时必须仍然钉住 —— 多标签页语义不得退化
+    stale!.lastSeen = Date.now() - 30_000
+    expect(__test__.findEndpointByCategory('ui', USER_A, 'web-old')?.capability.instanceId).toBe(
+      'web-old',
+    )
+  })
+
   it('⑨ executedBy=web 的结果回传能与 pending 配对并 resolve', async () => {
     await reportCapability(
       { endpoint: 'web', instanceId: 'web-a', uiActions: [...ALL_UI_ACTIONS] },
