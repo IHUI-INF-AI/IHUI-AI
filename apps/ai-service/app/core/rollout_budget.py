@@ -243,6 +243,25 @@ def normalize_rollout_usage(usage: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def build_token_budget_remaining_fragment(tokens_left: int | None) -> dict[str, Any]:
+    """构造上下文窗口剩余 token 提示片段(批57,对标 codex TokenBudgetRemainingContext)。
+
+    developer 角色、无标记(空标记对)、无标记包裹——codex 源码
+    TokenBudgetRemainingContext.type_markers() = ("", ""),即裸文本 developer 消息:
+    - Some(n): "You have {n} tokens left in this context window."
+    - None:    "You have unknown tokens left in this context window."
+    """
+    if tokens_left is None:
+        body = "You have unknown tokens left in this context window."
+    else:
+        body = f"You have {max(0, int(tokens_left))} tokens left in this context window."
+    return {
+        "type": "message",
+        "role": "developer",
+        "content": [{"type": "input_text", "text": body}],
+    }
+
+
 def build_rollout_budget_fragment(remaining_tokens: int) -> dict[str, Any]:
     """构造预算提醒片段(对标 RolloutBudgetContext → ResponseItem)。
 
