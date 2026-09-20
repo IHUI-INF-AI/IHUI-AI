@@ -1975,6 +1975,13 @@
       "when": 1789886400000,
       "tag": "20260920170000_agent_checkpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 283,
+      "version": "7",
+      "when": 1789956000000,
+      "tag": "20260921100000_developer_api_keys_per_model_limits",
+      "breakpoints": true
     }
   ]
 }
