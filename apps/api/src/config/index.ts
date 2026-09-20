@@ -204,6 +204,38 @@ const envSchema = z.object({
   // 双因子凭据:requireApiKeyAuth 主链路默认必须携带 X-Api-Secret(缺失 → 401 SECRET_REQUIRED)。
   // 置 false 恢复历史"不带即跳过"行为(过渡期/存量纯 key 客户端)。
   API_KEY_REQUIRE_SECRET: booleanFromString(true),
+
+  // ===== O7 OAuth 2.1 / OIDC 授权服务器(2026-09-21 立)=====
+  // 对外可达的规范 issuer。优先级见 utils/oauth-as.ts resolveIssuer():
+  //   PUBLIC_BASE_URL > OAUTH_ISSUER > env.BASE_URL > x-forwarded-proto + host
+  // 两者都留空时才会退化到请求头推导 —— 发现文档里的 issuer 一旦被推导错,
+  // 第三方 AS 客户端会缓存错误的端点表,故显式配置其一为生产硬要求。
+  PUBLIC_BASE_URL: z.string().default(''),
+  OAUTH_ISSUER: z.string().default(''),
+  // 授权码链路 PKCE 灰度开关(与 packages/auth pkcePolicyFromEnv() 读的是同一个 env)。
+  // 默认 false 的理由(破坏面):不带 code_challenge 的存量授权请求今天被静默降级为
+  // plain 比对并正常发 token;硬默认 true 会让这些存量客户端在 **authorize 阶段**
+  // 就直接 400(而非换 token 时失败),等于对未升级客户端全线断服。
+  // 灰度期由本开关兜住:false 时只强制"带了 challenge 就必须校验 verifier"(不可豁免,
+  // 见 evaluatePkce),true 时连未带 challenge 的机密客户端也拒。
+  // 公开客户端 / DCR 注册的现代客户端不受本开关影响,永远强制 PKCE。
+  OAUTH_REQUIRE_PKCE: booleanFromString(false),
+  // 是否允许公开客户端(token_endpoint_auth_method=none → client_secret 落 '!public' 哨兵)
+  // 在 token 端点不携带 secret。默认 false = 失败关闭:未显式开启前,公开客户端形态
+  // 一律按 invalid_client 拒绝,避免"无 secret 即匿名可换 token"的默认放行面。
+  // ⚠️ 打开它必须与 PKCE 判定在同一步骤内完成(evaluatePkce 对公开客户端无条件强制),
+  //    分两步写会出现"空 secret 先被 sha256/HMAC 校验和判失败"的假阴性,永远排不掉。
+  OAUTH_ALLOW_PUBLIC_WITHOUT_SECRET: booleanFromString(false),
+  // error_uri 白名单域名(逗号分隔)。RFC 6749 §5.2 的 error_uri 会被客户端渲染成可点
+  // 链接,任何来自请求参数的值都能投毒 → 只允许本清单内的 host,且只走 https。
+  // 留空 = 只允许 issuer 自身 host(见 utils/oauth-as.ts isSafeExternalUrl)。
+  OAUTH_ERROR_URI_HOSTS: z.string().default(''),
+  // 错误文档基址(可选,如 https://aizhs.top/docs/oauth-errors)。设置后 RFC 错误体会带
+  // `error_uri#<error>`;该地址仍必须通过 OAUTH_ERROR_URI_HOSTS 白名单,否则字段被丢弃
+  // —— 白名单是"是否出这个字段"的唯一判据,配置本身不构成豁免。
+  OAUTH_ERROR_URI_BASE: z.string().default(''),
+  // M2M(client_credentials)access token TTL 上限;实际签发取 min(请求 scope 集, 该值)
+  OAUTH_M2M_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
 })
 
 const parsed = envSchema.safeParse(process.env)

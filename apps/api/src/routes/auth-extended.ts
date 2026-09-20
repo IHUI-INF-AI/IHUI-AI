@@ -25,6 +25,19 @@ import {
   isTelegramConfigured,
   buildOidcAuthorizationUrl,
   generateTelegramAuthToken,
+  // O7(2026-09-21):OAuth 2.1 AS 补齐 —— PKCE 唯一真相源 + 客户端凭证校验
+  evaluatePkce,
+  extractClientCredentials,
+  isPublicClientApp,
+  isModernOAuthClientApp,
+  pkcePolicyFromEnv,
+  resolveGrantedScopes,
+  validatePkceChallenge,
+  verifyClientSecret,
+  isRefreshTokenReused,
+  isRefreshTokenExpired,
+  signM2MAccessToken,
+  type OAuth2Client,
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -65,6 +78,7 @@ import {
   saveRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
+  revokeRefreshTokenFamily,
 } from '../db/queries.js'
 import {
   findOAuthAppByClientId,
@@ -145,7 +159,8 @@ import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 // 已移除(2026-07-22),改为前端内嵌各厂商官方扫码 SDK(微信 WxLogin / 企业微信 wwLogin /
 // 钉钉 DTFrameLogin / 飞书 QRLogin),扫码成功后走标准 OAuth callback:POST /api/auth/:platform/callback
 
-async function buildTokenPair(
+/** 签发 access+refresh 双 token 并落库(O7 起 export:根级 /oauth/token 复用同一签发口径)。 */
+export async function buildTokenPair(
   user: {
     id: string
     phone: string | null
@@ -179,6 +194,266 @@ async function buildTokenPair(
     refreshToken,
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
     refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
+  }
+}
+
+// ============================================================
+// O7:OAuth2.1 / OIDC 授权服务器共用 helper(2026-09-21 立)
+// ============================================================
+// 所有"授权码换 token / 客户端凭证校验"的入口都必须走这里,避免再出现
+// "某个 token 端点忘了校验 PKCE"这类逐个端点漏接的安全断层。
+
+/** oauth_apps 行类型(findOAuthAppByClientId 的返回,去掉 undefined)。 */
+export type OAuthAppRow = NonNullable<Awaited<ReturnType<typeof findOAuthAppByClientId>>>
+
+/** bcrypt($2*)/argon2($argon2*) 形态摘要 —— 这两个 KDF 的依赖在 apps/api,故本分支不下沉到 @ihui/auth。 */
+function looksLikeKdfHash(stored: string | null | undefined): stored is string {
+  return typeof stored === 'string' && (stored.startsWith('$2') || stored.startsWith('$argon2'))
+}
+
+/** 把 oauth_apps 行映射为 @ihui/auth 的 OAuth2Client 视图。 */
+export function toOAuth2Client(app: OAuthAppRow): OAuth2Client {
+  return {
+    clientId: app.clientId,
+    clientSecret: app.clientSecret,
+    clientSecretHash: app.clientSecretHash ?? null,
+    redirectUris: Array.isArray(app.redirectUris) ? (app.redirectUris as string[]) : [],
+    scopes: Array.isArray(app.scopes) ? (app.scopes as string[]) : [],
+    name: app.name,
+  }
+}
+
+export type OAuthClientAuth =
+  | { ok: true; app: OAuthAppRow; publicClient: boolean }
+  | { ok: false; status: number; error: string; description: string }
+/**
+ * app 记录与出示的 secret 是否匹配。
+ * 摘要优先(v1hmac / bcrypt / argon2),最后才回退 legacy 明文恒定比较。
+ */
+export async function matchesOAuthAppSecret(
+  app: { clientSecret?: string | null; clientSecretHash?: string | null },
+  presented: string,
+): Promise<boolean> {
+  if (verifyClientSecret(app, presented)) return true
+  const kdfStored = [app.clientSecretHash, app.clientSecret].find(looksLikeKdfHash)
+  return Boolean(kdfStored && (await verifyPassword(presented, kdfStored)))
+}
+
+/**
+ * 客户端认证:支持 client_secret_post(表单/JSON)与 client_secret_basic(Basic),
+ * 公开客户端(token_endpoint_auth_method=none)允许不带 secret。
+ * 不区分"应用不存在"与"secret 错误"(统一 invalid_client + 同一文案),防客户端枚举。
+ */
+export async function authenticateOAuthClient(
+  request: FastifyRequest,
+  body: { client_id?: string | undefined; client_secret?: string | undefined },
+): Promise<OAuthClientAuth> {
+  const presented = extractClientCredentials({
+    authorizationHeader: request.headers.authorization ?? null,
+    body: { client_id: body.client_id, client_secret: body.client_secret },
+  })
+  if (!presented.clientId) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '缺少 client_id' }
+  }
+  const app = await findOAuthAppByClientId(presented.clientId)
+  if (!app || app.isActive !== 1) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '应用凭证错误' }
+  }
+  if (isPublicClientApp(app)) {
+    if (presented.clientSecret) {
+      return {
+        ok: false,
+        status: 401,
+        error: 'invalid_client',
+        description: '公开客户端不得使用 client_secret,必须使用 PKCE',
+      }
+    }
+    return { ok: true, app, publicClient: true }
+  }
+  if (!presented.clientSecret) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '缺少 client_secret' }
+  }
+  if (await matchesOAuthAppSecret(app, presented.clientSecret)) {
+    return { ok: true, app, publicClient: false }
+  }
+  return { ok: false, status: 401, error: 'invalid_client', description: '应用凭证错误' }
+}
+
+export type OAuthPkceGate = { ok: true } | { ok: false; status: number; error: string; description: string }
+
+/**
+ * 授权码链路的 PKCE 闸门(session = oauth_sessions 行)。
+ * 公开客户端 / DCR 注册的现代客户端强制 PKCE;存量机密客户端由 OAUTH_REQUIRE_PKCE 控制。
+ */
+export function gatePkceForSession(params: {
+  session: { codeChallenge: string | null; codeChallengeMethod: string | null }
+  codeVerifier?: string | null
+  app: OAuthAppRow
+  publicClient: boolean
+}): OAuthPkceGate {
+  const result = evaluatePkce({
+    session: params.session,
+    codeVerifier: params.codeVerifier,
+    isPublicClient: params.publicClient,
+    policy: pkcePolicyFromEnv(),
+    requirePkceForClient: isModernOAuthClientApp(params.app),
+  })
+  if (result.ok) return { ok: true }
+  return {
+    ok: false,
+    status: result.error === 'invalid_client' ? 401 : 400,
+    error: result.error,
+    description: result.description,
+  }
+}
+
+/**
+ * authorize 端点侧 PKCE 前置校验(形状 + 公开/现代客户端必须带 challenge)。
+ * @returns 错误描述;null = 通过
+ */
+export function precheckAuthorizePkce(params: {
+  codeChallenge?: string | null
+  codeChallengeMethod?: string | null
+  app: OAuthAppRow
+  publicClient: boolean
+}): string | null {
+  const shapeError = validatePkceChallenge(params.codeChallenge, params.codeChallengeMethod)
+  if (shapeError) return shapeError
+  const policy = pkcePolicyFromEnv()
+  const mustHave =
+    params.publicClient ||
+    isModernOAuthClientApp(params.app) ||
+    policy.requirePkceForConfidentialClients
+  if (mustHave && !params.codeChallenge) {
+    return '该客户端必须使用 PKCE:缺少 code_challenge(RFC 7636 / OAuth 2.1)'
+  }
+  return null
+}
+
+export type RefreshFlowResult =
+  | {
+      ok: true
+      userId: string
+      tokens: {
+        accessToken: string
+        refreshToken: string
+        expiresIn: number
+        refreshExpiresIn: number
+      }
+    }
+  | { ok: false; status: number; message: string }
+
+/**
+ * refresh token 轮转 + 重用检测(RFC 6749 §10.4 / OAuth 2.1 §4.3.1)。
+ *
+ * 关键修正:原各 device、web、pkce 三条 refresh 端点只撤销单条 token,
+ * 重用已吊销 token 时不会撤销同 family 的其他活跃 token —— 攻击者偷到一份
+ * refresh token 可与受害者长期并存。现按 family 撤销(重放即全族失效,
+ * 迫使合法用户重新登录),并把新 token 续在同一 family 上(buildTokenPair 原本
+ * 会改用 user.familyId,导致 family 每次刷新都漂移、重用检测形同虚设)。
+ */
+export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<RefreshFlowResult> {
+  let payload: JWTPayload
+  try {
+    payload = await verifyRefreshToken(rawRefreshToken)
+  } catch {
+    return { ok: false, status: 400, message: 'refresh_token 无效或已过期' }
+  }
+  const stored = await findRefreshToken(rawRefreshToken)
+  if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
+  if (isRefreshTokenReused(stored)) {
+    if (payload.familyId) await revokeRefreshTokenFamily(payload.familyId)
+    return {
+      ok: false,
+      status: 400,
+      message: 'refresh_token 已被重用,该 token family 已全部撤销',
+    }
+  }
+  if (isRefreshTokenExpired(stored))
+    return { ok: false, status: 400, message: 'refresh_token 无效或已过期' }
+  const user = await findUserById(payload.userId)
+  if (!user) return { ok: false, status: 404, message: '用户不存在' }
+  await revokeRefreshToken(rawRefreshToken)
+  const tokens = await buildTokenPair({
+    ...user,
+    familyId: payload.familyId || user.familyId || createFamilyId(),
+  })
+  return { ok: true, userId: user.id, tokens }
+}
+
+export type M2MMintResult =
+  | {
+      ok: true
+      accessToken: string
+      expiresIn: number
+      scope: string
+      clientId: string
+      /** = oauth_apps.owner_uuid,进 token 的 sub */
+      sub: string
+    }
+  | { ok: false; status: number; error: string; description: string }
+
+/**
+ * client_credentials M2M 令牌签发(RFC 6749 §4.4 / OAuth 2.1 §1.3)。
+ *
+ * 绑定关系(供 O4/O6 判 principal.kind):
+ *  - sub   = oauth_apps.owner_uuid(应用归属人,业务侧数据归属锚点)
+ *  - claims = principal_kind:'client' + grant_type:'client_credentials' + client_id + scope
+ *  - roleId 恒为 0:M2M 令牌绝不继承 owner 的管理员角色(权限最小化)
+ *  - 不签发 refresh_token(RFC 6749 §4.4.3:该 grant 不应带 refresh token)
+ *
+ * 拒绝面:公开客户端(无 secret)、无 owner_uuid 的 DCR 自助注册客户端、
+ * 请求了应用未被授予的 scope。
+ */
+export async function mintClientCredentialsToken(
+  app: OAuthAppRow,
+  requestedScope?: string,
+): Promise<M2MMintResult> {
+  if (isPublicClientApp(app)) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'unauthorized_client',
+      description: '公开客户端不得使用 client_credentials(RFC 6749 §4.4.2)',
+    }
+  }
+  if (!app.ownerUuid) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'invalid_client',
+      description: '该客户端未绑定用户(owner_uuid 为空),不可签发 M2M 令牌',
+    }
+  }
+  const appScopes = (app.scopes as string[]) ?? []
+  // 机器对机器只放行"非 profile 类"scope 由能力目录侧决定;这里只做 app scope 白名单收敛
+  const { granted, rejected } = resolveGrantedScopes(requestedScope, appScopes)
+  if (rejected.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'invalid_scope',
+      description: `scope 未被该应用授权: ${rejected.join(' ')}`,
+    }
+  }
+  const accessToken = await signM2MAccessToken({
+    sub: app.ownerUuid,
+    clientId: app.clientId,
+    scopes: granted,
+  })
+  await createAuditLog({
+    event: 'client_credentials_token',
+    clientId: app.clientId,
+    userId: app.ownerUuid,
+    status: 'success',
+  })
+  return {
+    ok: true,
+    accessToken,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    scope: granted.join(' '),
+    clientId: app.clientId,
+    sub: app.ownerUuid,
   }
 }
 
@@ -1163,13 +1438,26 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const redirectUris = (app.redirectUris as string[]) ?? []
     if (!redirectUris.includes(redirect_uri))
       return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    // O7 加固(2026-09-21):requested scope ⊆ app.scopes;PKCE 形状 + 公开/现代客户端强制
+    const { granted, rejected } = resolveGrantedScopes(scope, (app.scopes as string[]) ?? [])
+    if (rejected.length > 0)
+      return reply
+        .status(400)
+        .send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+    const pkceError = precheckAuthorizePkce({
+      codeChallenge: code_challenge,
+      codeChallengeMethod: code_challenge_method,
+      app,
+      publicClient: isPublicClientApp(app),
+    })
+    if (pkceError) return reply.status(400).send(error(400, pkceError))
     const code = generateAuthCode()
     await createOAuthSession({
       code,
       clientId: client_id,
       userId: request.userId!,
       state,
-      scope,
+      scope: scope ?? (granted.length > 0 ? granted.join(' ') : undefined),
       codeChallenge: code_challenge,
       codeChallengeMethod: code_challenge_method,
     })
@@ -1191,35 +1479,107 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const { code, client_id, client_secret, state } = z
+      const parsed = z
         .object({
           code: z.string(),
           client_id: z.string(),
-          client_secret: z.string(),
+          // 公开客户端(PKCE-only)不带 secret:O7 起允许缺省
+          client_secret: z.string().optional(),
           state: z.string().optional(),
+          code_verifier: z.string().optional(),
+          redirect_uri: z.string().optional(),
         })
-        .parse(request.body)
-      const app = await findOAuthAppByClientId(client_id)
-      if (!app || app.clientSecret !== client_secret) {
-        return reply.status(401).send(error(401, '应用凭证错误'))
-      }
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { code, client_id, client_secret, state, code_verifier, redirect_uri } = parsed.data
+      // O7 安全修复(2026-09-21):此端点历史上只比 client_secret + code/state,
+      // 完全不校验 authorize 时存进 oauth_sessions.codeChallenge 的 PKCE challenge
+      // —— 授权码被注入后,攻击者只要再掌握 client 凭证即可换 token。现统一走
+      // authenticateOAuthClient + gatePkceForSession(与根级 /oauth/token 同一真相源)。
+      const client = await authenticateOAuthClient(request, {
+        client_id,
+        client_secret,
+      })
+      if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
       const session = await findSessionByCode(code)
       if (!session || session.isUsed || session.expiresAt < new Date()) {
         return reply.status(400).send(error(400, '授权码无效或已过期'))
       }
+      if (session.clientId !== client_id)
+        return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
       if (state && session.state !== state)
         return reply.status(400).send(error(400, 'state 不匹配'))
+      if (redirect_uri) {
+        // oauth_sessions 未落 redirect_uri 列,故只能退化为"仍在该 app 白名单内"的校验
+        // (补齐为严格一致需要加列,SQL 见 O7 交付说明)。
+        const uris = (client.app.redirectUris as string[]) ?? []
+        if (!uris.includes(redirect_uri))
+          return reply.status(400).send(error(400, 'redirect_uri 与授权时不一致'))
+      }
+      const pkce = gatePkceForSession({
+        session: {
+          codeChallenge: session.codeChallenge ?? null,
+          codeChallengeMethod: session.codeChallengeMethod ?? null,
+        },
+        codeVerifier: code_verifier,
+        app: client.app,
+        publicClient: client.publicClient,
+      })
+      if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
       await markSessionUsed(code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      const { accessToken } = await buildTokenPair(user, reply)
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
       await createAuditLog({
         event: 'token',
         clientId: client_id,
         userId: user.id,
         status: 'success',
       })
-      return reply.send(success({ access_token: accessToken, token_type: 'Bearer' }))
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+          scope: session.scope ?? undefined,
+        }),
+      )
+    },
+  )
+
+  /**
+   * POST /auth/oauth/client-credentials — M2M(RFC 6749 §4.4)在 /api 前缀下的别名端点。
+   * 标准发现链路走根级 `POST /oauth/token`(grant_type=client_credentials);
+   * 本别名仅供存量 /api 内部调用方使用,响应沿用项目 `{code,message,data}` 形状。
+   */
+  server.post(
+    '/auth/oauth/client-credentials',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          client_id: z.string().min(1),
+          client_secret: z.string().min(1),
+          scope: z.string().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const client = await authenticateOAuthClient(request, parsed.data)
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
+      const mint = await mintClientCredentialsToken(client.app, parsed.data.scope)
+      if (!mint.ok) return reply.status(mint.status).send(error(mint.status, mint.description))
+      return reply.send(
+        success({
+          access_token: mint.accessToken,
+          token_type: 'Bearer',
+          expires_in: mint.expiresIn,
+          scope: mint.scope,
+        }),
+      )
     },
   )
 
@@ -1431,31 +1791,22 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     client_id: z.string().optional(),
   })
 
-  // POST /oauth/device/refresh — 刷新设备 token
+  // POST /oauth/device/refresh — 刷新设备 token（O7:统一走 family 重用检测）
   server.post('/oauth/device/refresh', async (request, reply) => {
     const parsed = oauthRefreshSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    try {
-      const payload = await verifyRefreshToken(parsed.data.refresh_token)
-      const stored = await findRefreshToken(parsed.data.refresh_token)
-      if (!stored || stored.revokedAt)
-        return reply.status(400).send(error(400, 'refresh_token 无效'))
-      const user = await findUserById(payload.userId)
-      if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
-      return reply.send(
-        success({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          token_type: 'Bearer',
-          expires_in: expiresIn,
-        }),
-      )
-    } catch {
-      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
-    }
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    await createAuditLog({ event: 'device_refresh', userId: result.userId, status: 'success' })
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
   })
 
   // --- Web 授权流程（POST 版本，与已有 GET /auth/oauth/authorize 互补）---
@@ -1465,6 +1816,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     redirect_uri: z.url(),
     state: z.string().min(1),
     scope: z.string().optional(),
+    code_challenge: z.string().optional(),
+    code_challenge_method: z.string().optional(),
   })
 
   // POST /oauth/web/authorize — Web 授权
@@ -1478,6 +1831,19 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const redirectUris = (app.redirectUris as string[]) ?? []
     if (!redirectUris.includes(parsed.data.redirect_uri))
       return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    // O7:与 GET /auth/oauth/authorize 同规则(scope 收敛 + PKCE 前置校验)
+    const { rejected } = resolveGrantedScopes(parsed.data.scope, (app.scopes as string[]) ?? [])
+    if (rejected.length > 0)
+      return reply
+        .status(400)
+        .send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+    const pkceError = precheckAuthorizePkce({
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
+      app,
+      publicClient: isPublicClientApp(app),
+    })
+    if (pkceError) return reply.status(400).send(error(400, pkceError))
     const code = generateAuthCode()
     await createOAuthSession({
       code,
@@ -1485,6 +1851,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       userId: request.userId!,
       state: parsed.data.state,
       scope: parsed.data.scope,
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
     })
     const sep = parsed.data.redirect_uri.includes('?') ? '&' : '?'
     return reply.send(
@@ -1499,8 +1867,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   const oauthTokenExchangeSchema = z.object({
     code: z.string().min(1),
     client_id: z.string().min(1),
-    client_secret: z.string().min(1),
+    client_secret: z.string().min(1).optional(),
     state: z.string().optional(),
+    code_verifier: z.string().optional(),
   })
 
   // POST /oauth/web/token — Web 换 token
@@ -1508,12 +1877,21 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const parsed = oauthTokenExchangeSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const app = await findOAuthAppByClientId(parsed.data.client_id)
-    if (!app || app.clientSecret !== parsed.data.client_secret)
-      return reply.status(401).send(error(401, '应用凭证错误'))
+    const client = await authenticateOAuthClient(request, parsed.data)
+    if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
+    const pkce = gatePkceForSession({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      app: client.app,
+      publicClient: client.publicClient,
+    })
+    if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
@@ -1534,31 +1912,21 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // POST /oauth/web/refresh — 刷新 Web token
+  // POST /oauth/web/refresh — 刷新 Web token（O7:统一走 family 重用检测）
   server.post('/oauth/web/refresh', async (request, reply) => {
     const parsed = oauthRefreshSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    try {
-      const payload = await verifyRefreshToken(parsed.data.refresh_token)
-      const stored = await findRefreshToken(parsed.data.refresh_token)
-      if (!stored || stored.revokedAt)
-        return reply.status(400).send(error(400, 'refresh_token 无效'))
-      const user = await findUserById(payload.userId)
-      if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
-      return reply.send(
-        success({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          token_type: 'Bearer',
-          expires_in: expiresIn,
-        }),
-      )
-    } catch {
-      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
-    }
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
   })
 
   // --- PKCE 授权流程 ---
@@ -1609,7 +1977,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     code_verifier: z.string().min(1),
   })
 
-  // POST /oauth/pkce/token — PKCE 换 token
+  // POST /oauth/pkce/token — PKCE 换 token(公开客户端专用,不做 client_secret 校验)
   server.post('/oauth/pkce/token', async (request, reply) => {
     const parsed = oauthPkceTokenSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1617,20 +1985,21 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
-    if (!session.codeChallenge || !session.codeChallengeMethod)
-      return reply.status(400).send(error(400, '该授权码非 PKCE 流程'))
     if (session.clientId !== parsed.data.client_id)
       return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
-    // S256: base64url(sha256(code_verifier)) === code_challenge
-    // 使用 timingSafeEqual 防止时序攻击(长度不等直接判失败,避免抛出异常)
-    const { createHash } = await import('node:crypto')
-    const computed = createHash('sha256').update(parsed.data.code_verifier).digest('base64url')
-    const expected = session.codeChallenge
-    if (
-      computed.length !== expected.length ||
-      !timingSafeEqual(Buffer.from(computed), Buffer.from(expected))
-    )
-      return reply.status(400).send(error(400, 'code_verifier 校验失败'))
+    // O7:inline sha256 比对 → 收敛到 evaluatePkce(唯一真相源,公开客户端强制 PKCE,
+    // 并拒绝 S256 之外的 code_challenge_method)
+    const pkce = evaluatePkce({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      isPublicClient: true,
+      policy: pkcePolicyFromEnv(),
+      requirePkceForClient: true,
+    })
+    if (!pkce.ok) return reply.status(400).send(error(400, pkce.description))
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
@@ -1651,31 +2020,21 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // POST /oauth/pkce/refresh — 刷新 PKCE token
+  // POST /oauth/pkce/refresh — 刷新 PKCE token（O7:统一走 family 重用检测）
   server.post('/oauth/pkce/refresh', async (request, reply) => {
     const parsed = oauthRefreshSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    try {
-      const payload = await verifyRefreshToken(parsed.data.refresh_token)
-      const stored = await findRefreshToken(parsed.data.refresh_token)
-      if (!stored || stored.revokedAt)
-        return reply.status(400).send(error(400, 'refresh_token 无效'))
-      const user = await findUserById(payload.userId)
-      if (!user) return reply.status(404).send(error(404, '用户不存在'))
-      await revokeRefreshToken(parsed.data.refresh_token)
-      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
-      return reply.send(
-        success({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          token_type: 'Bearer',
-          expires_in: expiresIn,
-        }),
-      )
-    } catch {
-      return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
-    }
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
   })
 
   // --- JWT 授权 ---
@@ -1763,8 +2122,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
   const oauthAccessTokenSchema = z.object({
     client_id: z.string().min(1),
-    client_secret: z.string().min(1),
+    client_secret: z.string().min(1).optional(),
     code: z.string().min(1),
+    code_verifier: z.string().optional(),
   })
 
   // POST /oauth/access_token — 访问令牌（多路径兼容，同 /auth/oauth/token）
@@ -1772,12 +2132,21 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const parsed = oauthAccessTokenSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const app = await findOAuthAppByClientId(parsed.data.client_id)
-    if (!app || app.clientSecret !== parsed.data.client_secret)
-      return reply.status(401).send(error(401, '应用凭证错误'))
+    const client = await authenticateOAuthClient(request, parsed.data)
+    if (!client.ok) return reply.status(client.status).send(error(client.status, client.description))
     const session = await findSessionByCode(parsed.data.code)
     if (!session || session.isUsed || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
+    const pkce = gatePkceForSession({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      app: client.app,
+      publicClient: client.publicClient,
+    })
+    if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
     await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
@@ -1802,12 +2171,22 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = oauthTokenExchangeSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const app = await findOAuthAppByClientId(parsed.data.client_id)
-      if (!app || app.clientSecret !== parsed.data.client_secret)
-        return reply.status(401).send(error(401, '应用凭证错误'))
+      const client = await authenticateOAuthClient(request, parsed.data)
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
       const session = await findSessionByCode(parsed.data.code)
       if (!session || session.isUsed || session.expiresAt < new Date())
         return reply.status(400).send(error(400, '授权码无效或已过期'))
+      const pkce = gatePkceForSession({
+        session: {
+          codeChallenge: session.codeChallenge ?? null,
+          codeChallengeMethod: session.codeChallengeMethod ?? null,
+        },
+        codeVerifier: parsed.data.code_verifier,
+        app: client.app,
+        publicClient: client.publicClient,
+      })
+      if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
       await markSessionUsed(parsed.data.code)
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
@@ -1826,26 +2205,17 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const parsed = oauthRefreshSchema.safeParse(request.body)
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      try {
-        const payload = await verifyRefreshToken(parsed.data.refresh_token)
-        const stored = await findRefreshToken(parsed.data.refresh_token)
-        if (!stored || stored.revokedAt)
-          return reply.status(400).send(error(400, 'refresh_token 无效'))
-        const user = await findUserById(payload.userId)
-        if (!user) return reply.status(404).send(error(404, '用户不存在'))
-        await revokeRefreshToken(parsed.data.refresh_token)
-        const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
-        return reply.send(
-          success({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            token_type: 'Bearer',
-            expires_in: expiresIn,
-          }),
-        )
-      } catch {
-        return reply.status(400).send(error(400, 'refresh_token 无效或已过期'))
-      }
+      const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+      if (!result.ok)
+        return reply.status(result.status).send(error(result.status, result.message))
+      return reply.send(
+        success({
+          access_token: result.tokens.accessToken,
+          refresh_token: result.tokens.refreshToken,
+          token_type: 'Bearer',
+          expires_in: result.tokens.expiresIn,
+        }),
+      )
     }
     return reply.status(400).send(error(400, '不支持的 grant_type'))
   })

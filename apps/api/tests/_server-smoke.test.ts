@@ -29,6 +29,10 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-4000-8000-000000000002'),
   ACCESS_TOKEN_TTL_SECONDS: 15 * 60,
   REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
+  // O7(2026-09-21)新增:oauth-authorization-server.ts 从 @ihui/auth 取 OPENID_SCOPE
+  // (真实导出于 packages/auth/src/index.ts:15 `export * from './oauth2'`),
+  // 本 mock 未列该键 → 全量装配用例报 "No OPENID_SCOPE export is defined on the mock"。
+  OPENID_SCOPE: 'openid',
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
