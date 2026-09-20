@@ -1554,6 +1554,45 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
         _ap.grant(_ap.SCOPE_ALWAYS, _ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
     except Exception:  # noqa: BLE001
         pass
+    # 批58(接线):exec_policy_amendments 真接线(对标 codex amend.rs
+    # blocking_append_allow_prefix_rule)——on 时把前缀规则同步进 ExecPolicy
+    # 引擎热更新(get_or_create_manager().append_rule:内存替换+落盘 *.rules,
+    # 落盘失败回滚内存并抛错,此处降级为仅内存表生效)与规则文件追加
+    # (append_allow_prefix_rule 直写 rules 文件)。off 时零差异;任何失败
+    # 静默降级,绝不阻断既有放行链路。
+    if os.environ.get("AGENT_EXEC_POLICY_AMENDMENTS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes"
+    ):
+        try:
+            from .exec_policy import PrefixRule as _PR, get_or_create_manager as _gocm
+            from ..core.exec_policy_amendments import (
+                append_allow_prefix_rule as _ea_append,
+            )
+            from .exec_policy import rules_dir_from_env as _rules_dir_env
+
+            _mgr = _gocm()
+            _rule = _PR(pattern=tuple(prefix), decision=RuleDecision.ALLOW, source="amend")
+            # append_rule 是 async(内存替换+异步落盘);approve_exec_prefix 在
+            # 请求上下文中通常已有运行中 loop,直接建后台任务消费;无 loop(同步
+            # 测试/脚本)时退化为 create_new_event_loop 同步跑完。两种路径均
+            # 异常隔离,失败降级仅内存表生效。
+            try:
+                asyncio.get_running_loop()
+                _amend_task = asyncio.get_event_loop().create_task(_mgr.append_rule(_rule))
+                _amend_task.add_done_callback(
+                    lambda t: (
+                        logger.warning("exec_policy 修正案后台追加失败: %s", t.exception())
+                        if not t.cancelled() and t.exception() is not None
+                        else None
+                    )
+                )
+            except RuntimeError:
+                asyncio.run(_mgr.append_rule(_rule))
+            _rd = _rules_dir_env()
+            if _rd:
+                _ea_append(Path(_rd) / "default.rules", list(prefix))
+        except Exception as _amend_exc:  # noqa: BLE001 - 修正案失败降级,不阻断放行
+            logger.warning("exec_policy 前缀修正案追加失败(降级仅内存表): %s", _amend_exc)
     return prefix
 
 
