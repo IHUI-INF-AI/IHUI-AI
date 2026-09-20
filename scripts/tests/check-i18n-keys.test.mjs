@@ -641,6 +641,184 @@ test('动态键: 仅出现在注释里的拼接示例不得报警(去注释回�
   }
 })
 
+// ─── miniapp-taro 端 hook 形态识别(2026-09-21 补盲)─────────────────
+// 背景:extractHookKeys 旧版只匹配"解构且 `{` 后紧跟 t|tt 且立刻 `}`",
+// 于是 `const tt = useTt()`(实测 miniapp-taro 155 文件)和
+// `const { t, tList } = useI18n()`(实测 14 处)整体不匹配 —— 这些文件的
+// 引用键一个都没被查过。useTt 在"值===键"时回退内联简体中文,所以缺键在
+// en/ko/ja/zh-TW 下恒显示简体,是真实用户可见缺陷(非洁癖问题)。
+function writeTaroMessages(root, msgs) {
+  const dir = join(root, 'packages', 'i18n', 'messages', 'miniapp-taro')
+  mkdirSync(dir, { recursive: true })
+  for (const [lang, content] of Object.entries(msgs)) {
+    writeFileSync(join(dir, `${lang}.json`), JSON.stringify(content, null, 2))
+  }
+}
+
+function writeTaroSource(root, name, body) {
+  const dir = join(root, 'apps', 'miniapp-taro', 'src', 'pages', 'login')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, name), body)
+}
+
+// 5 语言 key 集合一致、且只含 login.save / login.title 的基准词典
+const TARO_OK = {
+  'zh-CN': { login: { save: '保存', title: '登录' } },
+  'zh-TW': { login: { save: '儲存', title: '登入' } },
+  ko: { login: { save: '저장', title: '로그인' } },
+  ja: { login: { save: 'ストック', title: 'ログイン' } },
+  en: { login: { save: 'Save', title: 'Login' } },
+}
+
+test('useTt: const tt = useTt() 的缺键必须检出(旧版整文件漏检)', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const { t } = useI18n()\nconst tt = useTt()\n{tt('login.email', '邮箱')}\n{tt('login.save', '保存')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 1, `tt() 引用缺键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /login\.email/, `报告应点名 login.email,stdout: ${r.stdout}`)
+    assert.ok(!/login\.save/.test(r.stdout), '已存在的 login.save 不该被列为缺失')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('useTt: 键齐全时 exit 0(补齐即转绿,不放宽规则)', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const { t } = useI18n()\nconst tt = useTt()\n{tt('login.save', '保存')}\n{tt('login.title', '登录')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 0, `键齐全应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /miniapp-taro/, `应实际扫描 miniapp-taro,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('多键解构: const { t, tList } = useI18n() 的 t() 引用不得漏检', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const { t, tList } = useI18n()\n{t('login.ghost')}\n{tList('login.save')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 1, `多键解构的缺键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /login\.ghost/, `报告应点名 login.ghost,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// 补齐即转绿:同一多键解构文件把 login.ghost 补进 5 语言词典 → exit 0。
+// (与上一条配对,证明"检出"不是靠放宽规则凑出来的红。)
+test('多键解构: 补齐缺失键后 exit 0', () => {
+  const root = createTempProject()
+  try {
+    const msgs = JSON.parse(JSON.stringify(TARO_OK))
+    for (const lang of Object.keys(msgs)) msgs[lang].login.ghost = '幽灵键'
+    writeTaroMessages(root, msgs)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const { t, tList } = useI18n()\n{t('login.ghost')}\n{tList('login.save')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 0, `补齐后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// tf 别名:miniapp-taro 端把 useTt() 的返回值命名为 tt 之外的名字(实测 tf / tx 变体)。
+// 直接赋值形态必须按"任意变量名"识别,否则该文件整体漏检 —— 与 tt 同构的锁死用例。
+test('tf 别名: const tf = useTt() 的缺键必须检出', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const tf = useTt()\n{tf('login.email', '邮箱')}\n{tf('login.save', '保存')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 1, `tf() 引用缺键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /login\.email/, `报告应点名 login.email,stdout: ${r.stdout}`)
+    assert.ok(!/login\.save\b/.test(r.stdout), '已存在的 login.save 不该被列为缺失')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('tf 别名: 键齐全时 exit 0(补齐即转绿,不放宽规则)', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const tf = useTt()\n{tf('login.save', '保存')}\n{tf('login.title', '登录')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 0, `tf() 键齐全应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// 扩视野必须"只扩真翻译函数":useTts 是 text-to-speech,不是翻译 hook。
+// 若被当成 t/tt 绑定,全仓 web 端相关写法会被误扫 → 该用例锁死不误报。
+test('不误报: const tts = useTts() 不得被识别为翻译函数绑定', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const tts = useTts()\n{tts('login.notAKey')}\n{tt('login.save')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 0, `useTts 不应产生缺失键,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.ok(!/login\.notAKey/.test(r.stdout), `useTts 的参数不该被查,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// 扩视野后 miniapp-taro 受检文件从 91 涨到 212,注释里的示例也会被扫到。
+// 真实事故形态:并行会话在源码里写了
+//   // 禁止 "…后重" + tt('p1','发') 这种把词劈成两半的拼接
+// 该 `tt('p1', …)` 是文档注释,不是引用 → 必须先去注释再提键,否则 blocking 规则误拦。
+test('不误报: tt() 仅出现在注释里的示例键不得被检出(去注释回归)', () => {
+  const root = createTempProject()
+  try {
+    writeTaroMessages(root, TARO_OK)
+    writeTaroSource(
+      root,
+      'login.tsx',
+      "const tt = useTt()\n// 禁止劈词拼接 tt('login.ghost', '发')\n/* 块注释里也不查 tt('login.phantom') */\n{tt('login.save', '保存')}\n",
+    )
+    const r = runScript(['--target=miniapp-taro'], { cwd: root })
+    assert.equal(r.status, 0, `注释里的键不该触发缺失,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.ok(!/login\.ghost/.test(r.stdout), `行注释示例不该被检出,stdout: ${r.stdout}`)
+    assert.ok(!/login\.phantom/.test(r.stdout), `块注释示例不该被检出,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('含点键: 深层嵌套内部含点 key 也要检出(递归覆盖)', () => {
   const root = createTempProject()
   try {
