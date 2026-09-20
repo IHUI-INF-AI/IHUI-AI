@@ -4562,9 +4562,18 @@ class AgentEngine:
                 try:
                     from app.core.patch_safety import assess_patch_safety
 
-                    _batch_paths: list[str] = [target_rel]
-                    if new_rel != old_rel and new_rel != "/dev/null":
-                        _batch_paths.append(new_rel)
+                    # 2026-09-20 修复:assess_patch_safety 走 WritableRoot 组件级
+                    # 前缀判定,必须传绝对路径——相对路径 relpath 对绝对根恒为
+                    # ".."或跨盘 ValueError → 恒 reject "outside of the project",
+                    # apply_patch 对非 never 策略整体不可用(批57接线后 21 用例
+                    # 回归)。move 场景 old+new 双路径都进判定集并去重(原实现
+                    # append new_rel 与 target_rel 重复,反而漏掉源路径)。
+                    _batch_paths = [
+                        str((base / _p).resolve())
+                        for _p in dict.fromkeys(
+                            p for p in (old_rel, new_rel) if p and p != "/dev/null"
+                        )
+                    ]
                     _verdict = assess_patch_safety(
                         approval_policy="on_request",
                         patch_paths=_batch_paths,
