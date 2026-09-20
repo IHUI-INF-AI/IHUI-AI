@@ -8936,6 +8936,16 @@
     },
     "fallbackNotice": "백업 모델 {backup}(으)로 전환됨(원본 모델 {primary} 일시 사용 불가)",
     "feedbackRecorded": "피드백이 기록되었습니다",
+    "foldPolicy": {
+      "title": "중간 단계 접기 정책",
+      "current": "현재: {mode}",
+      "auto": "자동",
+      "autoDesc": "글자 수·도구 수·소요 시간으로 자동 판단(가벼운 작업은 펼치고 무거운 작업은 접기)",
+      "collapsed": "접기",
+      "collapsedDesc": "중간 단계를 항상 접습니다",
+      "expanded": "펼치기",
+      "expandedDesc": "중간 단계를 항상 펼칩니다"
+    },
     "gapInterval": "{gap} 간격",
     "generating": "생성 중...",
     "hideReasoning": "추론 숨기기",
