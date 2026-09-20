@@ -2,39 +2,55 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export * from './ai-skill-variables'
-export * from './app-control-intent'
-export * from './async'
-export * from './base64'
-export * from './dangerous-command-detector'
-export * from './date-utils'
-export * from './error-messages'
-export * from './file-helpers'
-export * from './form-styles'
-export * from './format'
-export * from './format-ext'
-// 移动端/小程序端通用格式工具(2026-07-30 立)
-export * from './format-mobile'
-// 跨端图片处理工具(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './image-helpers'
-// 跨端 compact 数字格式化(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/number-format.ts 下沉)
-export * from './number-format'
-// 跨端存储抽象(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
-export * from './storage'
-export * from './jwt-utils'
-export * from './llm-templates'
-export * from './logger'
-export * from './markdown-mermaid-code'
-export * from './mcp-curated'
-export * from './message-search'
-export * from './object'
-export * from './role'
-export * from './search-suggestions'
-export * from './select-class'
-export { parseSSEChunk, type SSEEvent as ParsedSSEEvent } from './sse-parse'
-export * from './status-colors'
-export * from './storage-migration'
-// 跨端 Token 估算工具(2026-08-01 P3-4.2 批次5 立,从 apps/web/src/lib/token-estimate.ts 下沉)
-export * from './token-estimate'
-export * from './vip-utils'
+// 端内只负责注入本端族名:判断逻辑与关键词表在 @ihui/shared/utils/app-control-intent
+import {
+  createAppControlToolSelector,
+  lastUserContent,
+} from '@ihui/shared/utils/app-control-intent'
+
+/**
+ * 小程序端的 UI 操控工具族(2026-09-21 立)。
+ *
+ * 只有四个动作:describe / navigate / read / invoke。**没有 click / fill / submit** ——
+ * 小程序真机是 WXML,没有同源 DOM 可枚举,写入通道得逐个业务组件开,不在本次范围
+ * (与 ai-service `ui_action_bridge._FAMILIES['taro']` 的注册面严格一致)。
+ */
+export const TARO_UI_CONTROL_TOOLS = [
+  'taro_ui_describe',
+  'taro_ui_read',
+  'taro_ui_navigate',
+  'taro_ui_invoke',
+] as const
+
+/** 后端能力入口工具(服务端执行,与端无关,故与 web 端同名) */
+export const API_CONTROL_TOOLS = ['api_endpoints_search', 'api_endpoint_call'] as const
+
+/**
+ * 「操控本站」意图 → 本次请求要带的工具名。
+ *
+ * 为什么必须由客户端决定:`apps/ai-service/app/routers/llm.py` 的 tool loop 入口是
+ * `if req.agent_tools and chat_mode != "ask"` —— 不带 agentTools 就**根本不进工具链**,
+ * 端侧桥接得再完整也是死代码。
+ *
+ * 只产出本端族名:把 `web_ui_*` 发给小程序只会换来 `TARGET_NOT_CONNECTED`,还白烧一轮上下文。
+ */
+export const uiControlToolsFor = createAppControlToolSelector({
+  ui: TARO_UI_CONTROL_TOOLS,
+  api: API_CONTROL_TOOLS,
+})
+
+/**
+ * 请求体里 agentTools 的最终取值(2026-09-21)。
+ *
+ * 单独抽出来是因为它值得被断言:命中不了时必须返回 **undefined** 而不是 []。
+ * `options.agentTools` 显式传入一律优先(调用方可能带自己的工具集,不得被预筛覆盖)。
+ */
+export function resolveAgentTools(
+  explicit: readonly string[] | undefined,
+  messages: ReadonlyArray<{ role: string; content: unknown }>,
+): string[] | undefined {
+  if (explicit) return [...explicit]
+  const auto = uiControlToolsFor(lastUserContent(messages))
+  return auto.length > 0 ? auto : undefined
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

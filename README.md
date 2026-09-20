@@ -185,6 +185,8 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 
 > 完整端口表见 [docs/port-management.md](docs/port-management.md),生产部署/蓝绿/回滚见 [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
 
+> 环境变量 `DATABASE_APP_URL`(可选):非超级用户应用角色 `ihui_app` 的独立连接串,**只服务受控出口**(`dbScoped()`/`dbReadScoped()`),不配置则 `scoped-*` 能力在生产恒 503 `DATA_ISOLATION_UNAVAILABLE`(有意的 fail-closed,第一方链路不受影响)。角色与逐表 GRANT 见迁移 `packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql`,上线顺序见 [docs/developer/data-classes.md](docs/developer/data-classes.md) §3.1。
+
 ### 推荐组合(零成本上线)
 
 | 角色     | 平台           | 免费额度        | 用途                  |
@@ -702,18 +704,20 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 > 目标:用户在 AI 对话框里说"帮我打开设置页 / 把充值金额填成 100 并提交 / 查一下所有订单",
 > AI 能**自主分析并真的操作**我们自己的程序,而不只是回答问题。
 > 实现位置:`apps/ai-service/app/services/{api_tools_bridge,ui_action_bridge}.py` +
-> `apps/api/src/routes/agent-control.ts` + `apps/web/src/{lib/ui-action-registry.ts,hooks/use-ui-control-bridge.ts}`
+> `apps/api/src/routes/agent-control.ts` + 端侧注册表与桥接 hook
+> (`apps/web/src/{lib/ui-action-registry.ts,hooks/use-ui-control-bridge.ts}`、
+> `apps/miniapp-taro/src/{lib/ui-action-registry.ts,lib/ui-control-tools.ts,hooks/use-ui-control-bridge.ts}`)
 
 三条互补路线，全部复用既有链路，不新增鉴权体系：
 
-| 路线                           | 机制                                                                                                                                   | 覆盖面                                                                                                                                                      | 关键实现                                                      |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表                                                 | 后端全部 HTTP 能力(read 模式 **2027 个只读端点可调用**：300 个注册为独立工具，长尾经 `api_endpoint_call` 即时派发；调用 URL 按 `spec.servers` 解析挂载前缀) | `api_tools_bridge.spec_to_tools()` + `resolve_mounted_path()` |
-| **B. 端侧 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果；RN/小程序各四工具走 `app_ui`/`miniapp_ui` | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用（RN、小程序无 DOM，仅 describe/read/navigate/invoke）                             | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts`   |     | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts` |
-| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                                                                     | 任意 UI(含第三方站点)，无需改造                                                                                                                             | 既有 agent-control 通道，本次仅扩 category 枚举               |
+| 路线                           | 机制                                                                                                                                   | 覆盖面                                                                                                                                                                                                     | 关键实现                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表                                                 | 后端全部 HTTP 能力(默认 `all` 模式 **4623 个端点即时可调用**:只读 2042 + 写 2581；其中 302 个常驻工具表 = 300 端点 + 2 入口，长尾经 `api_endpoint_call` 即时派发；调用 URL 按 `spec.servers` 解析挂载前缀) | `api_tools_bridge.spec_to_tools()` + `resolve_mounted_path()`                                                        |
+| **B. 端侧 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果；RN/小程序各四工具走 `app_ui`/`miniapp_ui` | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用（RN、小程序无 DOM，仅 describe/read/navigate/invoke）                                                                            | `ui_action_bridge.py` + `apps/web/src/lib/ui-action-registry.ts` + `apps/miniapp-taro/src/lib/ui-action-registry.ts` |
+| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                                                                     | 任意 UI(含第三方站点)，无需改造                                                                                                                                                                            | 既有 agent-control 通道，本次仅扩 category 枚举                                                                      |
 
-端点数量实测 4471 个 operation，完整 schema 全塞进一次对话不现实；A 路线因此提供两个**名字恒定**的入口工具，
-让模型"先搜后调"，token 成本与端点数解耦：
+端点数量实测 4600+ 个 operation(2026-09-21 现测，会随路由增减漂移)，完整 schema 全塞进一次对话不现实；
+A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后调"，token 成本与端点数解耦：
 
 - `api_endpoints_search(query, method?, limit?)` → 返回候选 `name` / method / path / 摘要
 - `api_endpoint_call(name, arguments)` → 转发到对应端点工具(**仅接受 `api_` 前缀**，
@@ -721,26 +725,52 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 > ⚠️ 聊天主链还有一道**客户端闸门**：`llm.py` 的 tool loop 只在请求带 `agentTools` 时才进，
 > 而 web 的 `mergeAgentTools()` 为保住打字机流式在"未选插件/未开网页搜索"时刻意返回空。
-> 因此 `apps/web/src/hooks/use-chat/tool-config.ts::uiControlToolsFor(content)` 按强信号
-> （打开 / 点击 / 填写 / 查后台…）判定"用户在要求操作本站"时才把 `web_ui_*` / `api_*` 带上，
-> 普通问答仍不带。RN 与小程序各自只带本端族名（`mobile_ui_*` / `taro_ui_*`）。
+> 意图判定收敛到共享层单一事实源 `packages/shared/src/utils/app-control-intent.ts`：
+> `detectAppControlIntent(content)` 判"这句是不是在要求操作本站"(打开 / 点击 / 填写 / 查后台…)，
+> `createAppControlToolSelector({ui, api})` 由**各端注入本端族名**后生成选择器
+> （web `tool-config.ts::uiControlToolsFor` / 小程序 `lib/ui-control-tools.ts::uiControlToolsFor`）。
+> 命中才带工具，普通问答**完全不传该字段**(不是传 `[]`)；各端只带自己族名，
+> 把 `web_ui_*` 发给小程序只会换来 `TARGET_NOT_CONNECTED` 并白烧一轮上下文。
 
 对话侧自动路由:`apps/ai-service/app/services/conversation.py` 的 `_app_control_intent_tools()`
 按强信号正则识别"操控本站"意图(打开页面 / 点击按钮 / 填表单 / 提交 / 切模式 / 调接口)，
 命中即无条件并入 tool loop 工具集，并自动补齐依赖(`web_ui_click` 必带 `web_ui_describe`，
-`api_*` 入口成对注入)，不依赖 LLM 意图分类的质量。
+`api_*` 入口成对注入)，不依赖 LLM 意图分类的质量 —— 这是 REST 链的兜底，与上面的客户端正门同源。
+
+### 各端覆盖形态(2026-09-21)
+
+| 端                   | 通道 category / endpoint             | 动作集                                                      | 说明                                                                                                                                      |
+| -------------------- | ------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| web                  | `ui` / `web`                         | describe / navigate / click / fill / submit / read / invoke | 有同源 DOM，七个动词齐；元素快照按优先级择优，应答带 `instanceId` 供后续钉定                                                              |
+| desktop(Tauri)       | 同 web(复用 `use-ui-control-bridge`) | 同 web                                                      | 桌面壳加载的就是 `apps/web`(`devUrl=8801`)，因此**桥接层已对 Tauri 放开**，无需另写一份                                                   |
+| 小程序(Taro)         | `miniapp_ui` / `miniapp`             | describe / read / navigate / invoke                         | WXML 无同源 DOM，故无 click/fill/submit；导航仅放行 `app.config.ts` 生成的页面白名单，`invoke` 仅放行显式登记的命令，**退出登录永不暴露** |
+| RN(Expo)             | `app_ui` / `rn`                      | describe / read / navigate / invoke                         | 协议与工具族(`mobile_ui_*`)已就绪；端侧桥实现见下一笔提交                                                                                 |
+| 扩展 / 桌面 computer | `browser` / `computer`(既有)         | 鼠标键盘级                                                  | 路线 C 兜底，本次只扩 category 枚举，未改其行为                                                                                           |
+
+小程序两条**代码管不到的部署前置**(缺任一条则链路静默降级为"AI 拿不到小程序端"，不崩不刷屏)：
+
+1. 微信公众平台 → 开发管理 → 服务器域名 → **socket 合法域名**必须包含 API 的 `wss://<host>`，
+   否则真机 `Taro.connectSocket` 直接 fail。
+2. 小程序切后台约 5s 后 JS 线程被挂起，连接必断、timer 必停，api 侧 `ENDPOINT_TTL_MS=5min`
+   后判该端离线。因此 `TARGET_NOT_CONNECTED` 在移动端是**常态**而非故障：桥接层只在
+   `onAppShow` 建连起保活、`onAppHide` 立即停 timer 并主动断连，连接类失败**只记 warn 不弹 toast**。
+
+顺带修掉一处既有缺陷：`apps/miniapp-taro/src/app.tsx` 原先自建通知 WS 时用了默认 urlBuilder
+(内部 `new URL(baseUrl)`)，微信真机 JSCore 不保证有 WHATWG URL 构造器 → 建连从未真正成功过。
+现由桥接层持有**唯一**一条通知连接，并注入不依赖 `URL` 的 urlBuilder，收到的消息仍
+`eventCenter.trigger('wsNotification')` 广播给既有消费者，契约不变。
 
 ### 安全闸门(不做 bypass 式全量放开)
 
-| 层     | 闸门                                                                                                                                                                           | 落点                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| 身份   | 所有桥接调用必须带 `__user_id`，经 `X-Internal-Service-Token` + `X-user-id` 代调，api 侧校验用户存在且活跃                                                                     | `internal-service-token.ts`            |
-| 权限   | 写端点(POST/PUT/PATCH/DELETE)需 `__user_role >= 1`，且 api 侧 RBAC 二次兜底                                                                                                    | `api_tools_bridge.make_api_handler`    |
-| 越权面 | OpenAPI 的 header/cookie 型参数一律不暴露给 LLM，防越权头注入；路径参数强制 URL 编码，防路径穿越                                                                               | 同上                                   |
-| 多租户 | `category='ui'` 指令按 userId 过滤端点，只会推给该用户自己的浏览器                                                                                                             | `agent-control.findEndpointByCategory` |
-| 破坏性 | web 前端硬拦截:密码/验证码/secret 类字段拒填(`PERMISSION_DENIED`)，删除/注销/提现/支付类目标拒绝点击提交(`DESTRUCTIVE_BLOCKED`)，导航仅放行站内路由白名单(`ROUTE_NOT_ALLOWED`) | `ui-action-registry.ts`                |
-| 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                        | `conversation.py`                      |
-| 开关   | `API_TOOLS_MODE=off\|read\|all`(默认 read)、`UI_ACTION_TOOLS=false` 可独立关闭；密钥缺失 fail-closed                                                                           | `apps/ai-service/.env.example`         |
+| 层     | 闸门                                                                                                                                                                                                                            | 落点                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 身份   | 所有桥接调用必须带 `__user_id`，经 `X-Internal-Service-Token` + `X-user-id` 代调，api 侧校验用户存在且活跃                                                                                                                      | `internal-service-token.ts`            |
+| 权限   | 写端点(POST/PUT/PATCH/DELETE)需 `__user_role >= 1`，且 api 侧 RBAC 二次兜底                                                                                                                                                     | `api_tools_bridge.make_api_handler`    |
+| 越权面 | OpenAPI 的 header/cookie 型参数一律不暴露给 LLM，防越权头注入；路径参数强制 URL 编码，防路径穿越                                                                                                                                | 同上                                   |
+| 多租户 | `category='ui'` 指令按 userId 过滤端点，只会推给该用户自己的浏览器                                                                                                                                                              | `agent-control.findEndpointByCategory` |
+| 破坏性 | web 前端硬拦截:密码/验证码/secret 类字段拒填(`PERMISSION_DENIED`)，删除/注销/提现/支付类目标拒绝点击提交(`DESTRUCTIVE_BLOCKED`)，导航仅放行站内路由白名单(`ROUTE_NOT_ALLOWED`)                                                  | `ui-action-registry.ts`                |
+| 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                                                                         | `conversation.py`                      |
+| 开关   | `API_TOOLS_MODE=off\|read\|all`(**默认 all**：放开的是可见面，授权仍走上面的 role 闸门；多租户公开部署可设 `read` 只让 AI 读)、`UI_ACTION_TOOLS=false` / `APP_UI_TOOLS=false` 可独立关闭 web 族与移动两族；密钥缺失 fail-closed | `apps/ai-service/.env.example`         |
 
 ### 真机验证中发现并修掉的两个可用性问题(2026-09-20)
 
