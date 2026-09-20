@@ -33,6 +33,8 @@ export const v1ContentRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /v1/content/list — 当前用户内容生成历史
+  // O4b:数据闸落点在 db/content-generation-queries.ts(findGenerationHistory 走 dbReadScoped,
+  // 机器凭据 user:read = scoped-read 必须带 user_id 谓词);本文件不直接触库。
   server.get('/v1/content/list', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
