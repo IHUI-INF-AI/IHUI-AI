@@ -18,7 +18,8 @@ build_automation_prompt 的 TS 镜像实现保持与本文逻辑一致。
 from __future__ import annotations
 
 import logging
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

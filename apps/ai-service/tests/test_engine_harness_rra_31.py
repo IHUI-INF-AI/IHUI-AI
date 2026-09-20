@@ -2,31 +2,31 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 # app/core 请求装配纯算法测试 — 第三十一批(对标 Codex client.rs build_responses_request 内核)
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import uuid
-import pytest
 
 from app.core.responses_request_assembly import (
-    build_reasoning,
-    create_text_param_for_request,
-    build_stream_options,
-    resolve_verbosity,
-    build_responses_lite_prefix,
-    is_prefixed_id,
-    derive_prefixed_id,
-    responses_lite_namespace,
-    responses_lite_deterministic_id,
-    prepare_response_items,
-    tool_result_metadata_allowed,
-    filter_tool_result_metadata,
-    RequestRouteTelemetry,
-    REASONING_SUMMARY_DELIVERY_SEQUENTIAL_CUTOFF,
-    REASONING_CONTEXT_ALL_TURNS,
     OUTPUT_SCHEMA_FORMAT_NAME,
+    REASONING_CONTEXT_ALL_TURNS,
+    REASONING_SUMMARY_DELIVERY_SEQUENTIAL_CUTOFF,
+    RequestRouteTelemetry,
+    build_reasoning,
+    build_responses_lite_prefix,
+    build_stream_options,
+    create_text_param_for_request,
+    derive_prefixed_id,
+    filter_tool_result_metadata,
+    is_prefixed_id,
+    prepare_response_items,
+    resolve_verbosity,
+    responses_lite_deterministic_id,
+    responses_lite_namespace,
+    tool_result_metadata_allowed,
 )
-
 
 # ---------- is_prefixed_id / derive_prefixed_id ----------
 

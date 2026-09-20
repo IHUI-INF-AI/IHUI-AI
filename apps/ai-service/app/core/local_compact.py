@@ -27,8 +27,7 @@ context/compaction_summary.rs、prompts/src/compact.rs(SUMMARY_PREFIX 模板)。
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from app.core.stream_events import parse_turn_item
 
@@ -45,7 +44,7 @@ COMPACTION_SUMMARY_CONTENT_KIND = "compaction.summary"
 FINAL_ANSWER_PREFIX = "Message Type: FINAL_ANSWER\n"
 
 
-def content_items_to_text(content: list[dict[str, object]]) -> Optional[str]:
+def content_items_to_text(content: list[dict[str, object]]) -> str | None:
     """文本项拼接(\\n 连接,跳过图像/音频与空串);无文本项返 None。"""
     pieces = [
         str(item["text"])
@@ -65,10 +64,10 @@ def is_summary_message(message: str) -> bool:
 class CompactedUserMessage:
     """保留源身份(rollback 关联用);Regenerate 身份时置空 id。"""
 
-    id: Optional[str]
+    id: str | None
     message: str
-    internal_chat_message_metadata_passthrough: Optional[dict[str, object]] = None
-    harness_metadata: Optional[dict[str, object]] = None
+    internal_chat_message_metadata_passthrough: dict[str, object] | None = None
+    harness_metadata: dict[str, object] | None = None
 
 
 def _user_message_text(turn: dict[str, object]) -> str:
@@ -87,8 +86,8 @@ def _user_message_text(turn: dict[str, object]) -> str:
 
 
 def _compacted_user_message(
-    item: dict[str, object], harness_metadata: Optional[dict[str, object]]
-) -> Optional[CompactedUserMessage]:
+    item: dict[str, object], harness_metadata: dict[str, object] | None
+) -> CompactedUserMessage | None:
     turn = parse_turn_item(item)
     if turn is None or turn.get("type") != "user_message":
         return None
@@ -132,8 +131,8 @@ def insert_initial_context_before_last_real_user_or_summary(
 ) -> list[dict[str, object]]:
     """四级插入点规则(Codex 原注释):最后真实用户消息 > 最后用户形态项(摘要)>
     最后 compaction 项 > 追加末尾;FINAL_ANSWER 完成消息不算插入点。返回新列表。"""
-    last_user_or_summary_index: Optional[int] = None
-    last_real_user_index: Optional[int] = None
+    last_user_or_summary_index: int | None = None
+    last_real_user_index: int | None = None
     for i in range(len(compacted_history) - 1, -1, -1):
         envelope = compacted_history[i]
         item = envelope.get("item")
@@ -157,7 +156,7 @@ def insert_initial_context_before_last_real_user_or_summary(
         if not is_summary_message(message):
             last_real_user_index = i
             break
-    last_compaction_index: Optional[int] = None
+    last_compaction_index: int | None = None
     for i in range(len(compacted_history) - 1, -1, -1):
         item = compacted_history[i].get("item")
         if isinstance(item, dict) and item.get("type") in ("compaction", "context_compaction"):

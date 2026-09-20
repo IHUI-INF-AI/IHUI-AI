@@ -32,8 +32,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 DEFAULT_EXEC_COMMAND_TIMEOUT_MS: int = 10_000
 IO_DRAIN_TIMEOUT_MS: int = 2_000
@@ -41,7 +40,7 @@ DEFAULT_OUTPUT_BYTES_CAP: int = 1024 * 1024
 EXEC_OUTPUT_MAX_BYTES: int = DEFAULT_OUTPUT_BYTES_CAP
 
 
-class ExecCapturePolicy(str, Enum):
+class ExecCapturePolicy(StrEnum):
     """输出捕获策略四档(Codex exec.rs 同名枚举)。"""
 
     SHELL_TOOL = "shell_tool"
@@ -49,7 +48,7 @@ class ExecCapturePolicy(str, Enum):
     FULL_BUFFER_WITH_EXPIRATION = "full_buffer_with_expiration"
     SENSITIVE_FULL_BUFFER = "sensitive_full_buffer"
 
-    def retained_bytes_cap(self) -> Optional[int]:
+    def retained_bytes_cap(self) -> int | None:
         """ShellTool 保历史输出上限;其余全缓冲无上限。"""
         return EXEC_OUTPUT_MAX_BYTES if self is ExecCapturePolicy.SHELL_TOOL else None
 
@@ -61,7 +60,7 @@ class ExecCapturePolicy(str, Enum):
         return self is not ExecCapturePolicy.FULL_BUFFER
 
 
-class ExecExpirationOutcome(str, Enum):
+class ExecExpirationOutcome(StrEnum):
     TIMED_OUT = "timed_out"
     CANCELLED = "cancelled"
 
@@ -82,7 +81,7 @@ class CancellationToken:
     async def cancelled(self) -> None:
         await self._event.wait()
 
-    def child_token(self) -> "CancellationToken":
+    def child_token(self) -> CancellationToken:
         """派生子 token:父取消时子随之取消(反向不传播)。"""
         child = CancellationToken()
         if self._event.is_set():
@@ -91,7 +90,7 @@ class CancellationToken:
         self._link(child)
         return child
 
-    def _link(self, child: "CancellationToken") -> None:
+    def _link(self, child: CancellationToken) -> None:
         async def _propagate() -> None:
             await self._event.wait()
             child.cancel()
@@ -126,34 +125,34 @@ class ExecExpiration:
     """过期机制四变体:显式超时 / 默认超时 / 取消令牌 / 超时或取消。timeout_ms 单位毫秒。"""
 
     kind: str
-    timeout_ms: Optional[int] = None
-    cancellation: Optional[CancellationToken] = None
+    timeout_ms: int | None = None
+    cancellation: CancellationToken | None = None
 
     @classmethod
-    def timeout(cls, timeout_ms: int) -> "ExecExpiration":
+    def timeout(cls, timeout_ms: int) -> ExecExpiration:
         return cls(kind="timeout", timeout_ms=timeout_ms)
 
     @classmethod
-    def default_timeout(cls) -> "ExecExpiration":
+    def default_timeout(cls) -> ExecExpiration:
         return cls(kind="default_timeout", timeout_ms=DEFAULT_EXEC_COMMAND_TIMEOUT_MS)
 
     @classmethod
-    def from_cancellation(cls, cancellation: CancellationToken) -> "ExecExpiration":
+    def from_cancellation(cls, cancellation: CancellationToken) -> ExecExpiration:
         return cls(kind="cancellation", cancellation=cancellation)
 
     @classmethod
     def timeout_or_cancellation(
         cls, timeout_ms: int, cancellation: CancellationToken
-    ) -> "ExecExpiration":
+    ) -> ExecExpiration:
         return cls(kind="timeout_or_cancellation", timeout_ms=timeout_ms, cancellation=cancellation)
 
-    def timeout_only_ms(self) -> Optional[int]:
+    def timeout_only_ms(self) -> int | None:
         """Codex timeout_ms(windows cfg)等价:cancellation-only 变体无超时。"""
         if self.kind == "cancellation":
             return None
         return self.timeout_ms
 
-    def with_cancellation(self, cancellation: CancellationToken) -> "ExecExpiration":
+    def with_cancellation(self, cancellation: CancellationToken) -> ExecExpiration:
         """组合新取消令牌:Timeout→TimeoutOrCancellation;已有令牌→cancel_when_either 合并。"""
         if self.kind == "timeout":
             assert self.timeout_ms is not None
@@ -209,11 +208,11 @@ class ExecParams:
     env: dict[str, str] = field(default_factory=dict)
     expiration: ExecExpiration = field(default_factory=ExecExpiration.default_timeout)
     capture_policy: ExecCapturePolicy = ExecCapturePolicy.SHELL_TOOL
-    network: Optional[dict[str, object]] = None
-    network_environment_id: Optional[str] = None
+    network: dict[str, object] | None = None
+    network_environment_id: str | None = None
     sandbox_permissions: str = "none"
-    justification: Optional[str] = None
-    arg0: Optional[str] = None
+    justification: str | None = None
+    arg0: str | None = None
 
 
 @dataclass
@@ -221,7 +220,7 @@ class StreamOutput:
     """Codex StreamOutput<Vec<u8>> 等价,text 为字节串。"""
 
     text: bytes
-    truncated_after_lines: Optional[int] = None
+    truncated_after_lines: int | None = None
 
 
 def append_capped(dst: bytearray, src: bytes, max_bytes: int) -> None:
@@ -236,7 +235,7 @@ def append_capped(dst: bytearray, src: bytes, max_bytes: int) -> None:
 def aggregate_output(
     stdout: StreamOutput,
     stderr: StreamOutput,
-    max_bytes: Optional[int],
+    max_bytes: int | None,
 ) -> StreamOutput:
     """Codex aggregate_output:无上限直接拼接;超上限 stdout 保 1/3、stderr 保 2/3,
     stderr 未用完的配额再平衡给 stdout(各流只取配额内前缀,不重排)。"""
