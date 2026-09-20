@@ -22,14 +22,14 @@
 //   CTA 纯白底黑字(.dark --color-primary/--color-primary-foreground,2026-07-24 用户定稿)
 //   唯一圆角 token:--global-border-radius = 8px(按钮/容器/窗口四角统一 8px)
 //   按钮高度唯一档位(web <Button> size 表):CTA lg = h-10 40px · 输入框 sm = h-8 32px
-//   开关 Switch = h-7 28px(AGENTS.md 圆角守门豁免项,胶囊形合法)
+//   开关 Switch = h-7 28px(与 web <Switch size="lg"> 逐像素对齐,见 switchScene)
 // 渲染管线:SVG(内嵌 icon.png 抠底 logo,系统字体微软雅黑) → sharp → RGB raw → 24bit BMP
 //
 // 用法:
 //   node scripts/desktop-installer-assets.mjs            # 生成资产(输出 BMP + %TEMP% PNG 预览)
 //   node scripts/desktop-installer-assets.mjs --previews # 仅输出 PNG 预览到 %TEMP%,便于人工审阅
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,8 +58,9 @@ const C = {
   primary: '#FFFFFF', // CTA 底(.dark --color-primary 纯白)
   primaryInk: '#000000', // CTA 文字(.dark --color-primary-foreground 纯黑)
   btnStroke: '#525252', // 幽灵按钮/容器描边(.dark --color-border-medium)
-  toggleOffTrack: '#2E2E2E', // 开关 off 轨道
-  toggleOffKnob: '#737373', // 开关 off 圆钮
+  toggleOffTrack: '#2E2E2E', // 开关 off 轨道(旧胶囊方案遗留,已废弃)
+  toggleOffKnob: '#737373', // 开关 off 圆钮(旧胶囊方案遗留,已废弃)
+  accent: '#a3c4d6', // 高级灰蓝(.dark --color-brand-accent,Switch ON 填充)
 };
 // 唯一圆角 token:web --global-border-radius = 8px(AGENTS.md 圆角梯度 rounded-lg)
 const RADIUS = 8;
@@ -118,7 +119,7 @@ function pageChrome(logo) {
 <image href="${logo}" x="64" y="40" width="36" height="36"/>
 <text x="112" y="58" font-family="${FONT}" font-size="15" font-weight="700" fill="${C.ink}">智汇AI</text>
 <text x="112" y="76" font-family="${FONT}" font-size="9" fill="${C.muted}" letter-spacing="2.5">IHUI AI DESKTOP</text>
-<text x="816" y="58" font-family="${FONT}" font-size="10" fill="${C.muted}" letter-spacing="3" text-anchor="end">安装向导 / SETUP</text>
+<text x="760" y="58" font-family="${FONT}" font-size="10" fill="${C.muted}" letter-spacing="3" text-anchor="end">安装向导 / SETUP</text>
 <rect x="64" y="96" width="752" height="1" fill="${C.hairline}"/>
 <rect x="64" y="548" width="752" height="1" fill="${C.hairline}"/>
 <text x="64" y="572" font-family="${FONT}" font-size="11" fill="${C.muted}">© 2026 IHUI AI (智汇AI) · 李春川 · aizhs.top</text>
@@ -216,8 +217,38 @@ function splashScene(frame, logo) {
 </svg>`;
 }
 
+// ---- Switch(与 web @ihui/ui-react <Switch size="lg"> 逐像素对齐) ---------------
+// 唯一权威: packages/ui-react/src/components/switch.tsx(Neo-Brutalist 粗野方块)
+//   轨道 rounded-md 6px · 拇指 rounded-sm 3px · 1.5px foreground 描边
+//   投影 3px 3px 0 foreground(硬阴影,非柔光)
+//   lg 档: 轨道 52×28 · 拇指 20×20 · ON 位移 23px(= 52 - 2×1.5 描边 - 2×3 内边距 - 20)
+//   OFF = background 底 + foreground 拇指 · ON = brand-accent 底 + background 拇指
+//   取值一律走 tokens.css 暗色块(安装器底色即 .dark --color-background #242424)
+// 画布 55×31 = 52×28 + 3px 投影外扩(web 侧阴影落在元素框外,位图必须为它留位)
+// ⚠️ 2026-09-20 用户明令「不允许出现额外的样式」: 旧胶囊+圆钮方案已删除,
+//    任何胶囊/圆钮/自造配色回退一律视为回归。
+function switchScene(on) {
+  const W = 52;
+  const H = 28;
+  const R = 6; // rounded-md
+  const B = 1.5; // border-foreground
+  const T = 20; // thumb h-5 w-5
+  const TR = 3; // rounded-sm
+  const SH = 3; // shadow offset
+  const CW = W + SH;
+  const CH = H + SH;
+  const track = on ? C.accent : C.bg;
+  const thumb = on ? C.bg : C.ink;
+  const tx = on ? 4 + 23 : 4; // 1.5 描边 + 3 内边距 ≈ 4
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
+<rect x="${SH}" y="${SH}" width="${W}" height="${H}" rx="${R}" fill="${C.ink}"/>
+<rect x="${B / 2}" y="${B / 2}" width="${W - B}" height="${H - B}" rx="${R - B / 2}" fill="${track}" stroke="${C.ink}" stroke-width="${B}"/>
+<rect x="${tx}" y="4" width="${T}" height="${T}" rx="${TR}" fill="${thumb}"/>
+</svg>`;
+}
+
 // ---- 按钮(独立小画布) -------------------------------------------------------
-// 圆角唯一 token RADIUS=8;高度唯一档位:CTA/浏览 lg h-10=40,开关 h-7=28(胶囊豁免)
+// 圆角唯一 token RADIUS=8;高度唯一档位:CTA/浏览 lg h-10=40,开关 h-7=28(见 switchScene)
 
 function buttonScene(kind, text, w, h, labelSize) {
   const r = RADIUS;
@@ -246,17 +277,17 @@ function buttonScene(kind, text, w, h, labelSize) {
 <circle cx="${w / 2}" cy="${h / 2}" r="${w / 2 - 1}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
 <text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.muted}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
+    case 'min':
+      // 窗口最小化钮: 与 btn-close 完全同款(同圆同描边同字形档位),仅字形不同。
+      // 用户 2026-09-20 明令「最小化按钮没显示」→ 补齐,样式不得自成一套。
+      return `${common}
+<circle cx="${w / 2}" cy="${h / 2}" r="${w / 2 - 1}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
+<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.muted}" text-anchor="middle">${esc(text)}</text>
+</svg>`;
     case 'toggle-on':
-      // Switch 圆角守门豁免项(AGENTS.md §4):胶囊形容器合法
-      return `${common}
-<rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="${h / 2}" fill="${C.primary}"/>
-<circle cx="${w - h / 2}" cy="${h / 2}" r="${h / 2 - 5}" fill="${C.primaryInk}"/>
-</svg>`;
+      return switchScene(true);
     case 'toggle-off':
-      return `${common}
-<rect x="1" y="1" width="${w - 2}" height="${h - 2}" rx="${h / 2}" fill="${C.toggleOffTrack}" stroke="${C.btnStroke}" stroke-width="1"/>
-<circle cx="${h / 2}" cy="${h / 2}" r="${h / 2 - 5}" fill="${C.toggleOffKnob}"/>
-</svg>`;
+      return switchScene(false);
     default:
       throw new Error(`未知按钮类型:${kind}`);
   }
@@ -291,11 +322,29 @@ function bmpFromRaw(raw /* RGB */, w, h) {
   return buf;
 }
 
+// G: 卷写入偶发 UNKNOWN(ERRNO -4094,杀软/索引器/并发 IO 瞬时占用;2026-09-20 实测
+// 每次运行失败文件不同)→ 原子写 + 退避重试,禁止单文件瞬时占用打断整脚本。
+function writeWithRetry(absPath, buf, tries = 15) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const tmp = `${absPath}.tmp-${process.pid}`;
+      writeFileSync(tmp, buf);
+      renameSync(tmp, absPath);
+      return;
+    } catch (err) {
+      last = err;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150 * (i + 1));
+    }
+  }
+  throw last;
+}
+
 async function render(svg, w, h, bmpPath, pngPath) {
   const img = sharp(Buffer.from(svg)).resize(w, h, { fit: 'fill' });
   if (bmpPath) {
     const raw = await img.clone().flatten({ background: C.bg }).removeAlpha().raw().toBuffer();
-    writeFileSync(bmpPath, bmpFromRaw(raw, w, h));
+    writeWithRetry(bmpPath, bmpFromRaw(raw, w, h));
   }
   if (pngPath) await img.clone().flatten({ background: C.bg }).png().toFile(pngPath);
 }
@@ -306,13 +355,16 @@ const SPLASH_FRAMES = 8;
 // 高度档位对齐 web <Button> size 表:CTA/浏览 lg h-10=40px,开关 h-7=28px(唯一档位,禁 48px 自造值)
 const BUTTONS = [
   ['btn-start', 'primary', '开始安装', 144, 40, 15],
-  ['btn-continue', 'primary', '继续 ›', 140, 40, 15],
+  // btn-continue 统一 144×40:与 CTA 槽(672,500,144,40)同宽,
+  // 消除 140 宽位图居中留 2px 缝(重装页/完成态曾因此漏系统蓝底)
+  ['btn-continue', 'primary', '继续 ›', 144, 40, 15],
   ['btn-finish', 'primary', '完成', 120, 40, 15],
   ['btn-cancel', 'ghost', '取消', 96, 40, 14],
   ['btn-browse', 'browse', '浏览…', 112, 40, 14],
-  ['btn-toggle-on', 'toggle-on', '', 56, 28, 12],
-  ['btn-toggle-off', 'toggle-off', '', 56, 28, 12],
+  ['btn-toggle-on', 'toggle-on', '', 55, 31, 12],
+  ['btn-toggle-off', 'toggle-off', '', 55, 31, 12],
   ['btn-close', 'close', '✕', 36, 36, 12],
+  ['btn-min', 'min', '−', 36, 36, 12],
 ];
 
 // 5 档 DPI 对应 Windows 标准系统缩放(100%/125%/150%/175%/200%);
@@ -360,11 +412,11 @@ for (const scale of SCALES) {
   }
 }
 
-// 生成 ihui-assets-path.nsh:ihui-ui.nsi 编译期据此用 File 指令嵌入资产
-// (Tauri bundler 会把 hooks.nsi 拷到临时目录编译,相对路径会失联,必须绝对路径;
-//  本文件随仓库提交但路径随构建机变化 —— 任何机器构建前先跑本脚本即可。)
+// 生成 ihui-assets-path.nsh:仅保留兼容占位与防御断言。
+// 2026-09-20 起真实路径由 hooks.nsi 以 ${__FILEDIR__} 编译期派生(构建机无关,CI 实证修复:
+// 此前烧死本机 G:\ 绝对路径导致 CI makensis !include 失败),本文件不再包含任何绝对路径。
 if (mode === 'write') {
-  const nsh = `; 由 scripts/desktop-installer-assets.mjs 自动生成,勿手工编辑。\r\n; IHUI 安装器品牌资产根目录(绝对路径,随构建机变化)。\r\n!define IHUI_ASSETROOT "${ASSETS.replaceAll('\\', '\\\\')}"\r\n`;
+  const nsh = `; 由 scripts/desktop-installer-assets.mjs 自动生成,勿手工编辑。\r\n; IHUI_ASSETROOT 由 hooks.nsi 以 ${'$'}{__FILEDIR__} 派生(构建机无关),本文件仅保留\r\n; 兼容占位 —— 若绕过 hooks.nsi 直接 include 本文件也能得到明确错误而非静默失败。\r\n!ifndef IHUI_ASSETROOT\r\n  !error "IHUI_ASSETROOT 未定义:请经 hooks.nsi(先定义 IHUI_WIN_DIR/IHUI_ASSETROOT)include 本文件"\r\n!endif\r\n`;
   writeFileSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-assets-path.nsh'), nsh, 'utf8');
 }
 
