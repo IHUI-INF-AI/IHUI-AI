@@ -1,4 +1,4 @@
-; =====================================================================
+﻿; =====================================================================
 ; IHUI 自定义安装向导 UI 库 (智汇AI · IHUI AI Desktop)
 ; © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 ;
@@ -62,14 +62,48 @@ Var IHUIPB         ; 安装页进度条句柄
 Var IHUIFINMODE    ; instfiles 完成页原地转换守卫(0=安装中 1=已转换)
 Var IHUIRCTA       ; 重装页"继续"CTA 按钮
 Var IHUICLS        ; 页头右上角品牌关闭钮(X)
+Var IHUIMIN        ; 页头右上角品牌最小化钮(−,与关闭钮同款)
+Var IHUIDRAGST     ; 窗口拖拽状态(0=空闲 1=拖拽中)
+Var IHUIDRAGPREV   ; 上一 tick 左键按下态(按下沿检测,避免半途抢拖)
+Var IHUIDRAGOX     ; 拖拽抓取偏移(光标相对窗口左上角,X)
+Var IHUIDRAGOY     ; 拖拽抓取偏移(Y)
+Var IHUIDRAGTMR    ; 拖拽定时器是否在跑(0/1)
 Var IHUINXT        ; 安装页品牌"下一步›"按钮(真 BUTTON+BS_BITMAP,点击转发原生 1)
 Var IHUICNC        ; 安装页品牌"取消"按钮(真 BUTTON+BS_BITMAP,点击转发原生 2)
+Var IHUI_LOGN      ; 打点单调序号(-DIHUI_TRACE 构建用于让文件名字典序==执行序)
 Var IHUIHOST       ; 内层 nsDialogs dialog 句柄(自绘控件宿主)
 Var IHUIDPIW       ; 窗口 DPI(换算中间量)
 Var IHUIR6         ; region 计算临时量(宽-2)
 Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
+
+; =====================================================================
+; 运行期跟踪日志(仅验证期启用: 定义 IHUI_TRACE 才写文件)
+; 用途: 定位「点击品牌按钮后安装器进程直接退出」类竞态 —— 逐函数打点,
+;       日志停在哪个函数即死亡点。发布构建(scripts/release-desktop-local.mjs)
+;       不带 -DIHUI_TRACE,宏体为空,零副作用。
+; 用法: makensis /DIHUI_TRACE=1 installer.nsi
+; =====================================================================
+!ifdef IHUI_TRACE
+; 每个打点写独立文件(一行一文件): NSIS FileOpen "a" 追加模式实测会被句柄复用截断
+; (2026-09-20 r94 实锤: ihui-trace.log 只剩残片),改为一文件一点,用 mtime 排序即得
+; 执行时序,零竞争。
+; 单调序号: 字典序 == 执行序(mtime 在 D: 卷上不可靠,实测出现过顺序倒挂)。
+; ⚠️ IHUI_LOGN 的 Var 声明**不能**放本 !ifdef 内 —— 2026-09-20 实测: 放这里
+;    编译报 6000 unknown variable,运行期文件名原样保留 ${IHUI_LOGN} 字样。
+;    必须放文件头的无条件 Var 区(见 Var IHUICNC 之后)。
+!macro IHUI_LOG MSG
+  IntOp $IHUI_LOGN $IHUI_LOGN + 1
+  FileOpen $8 "D:\caches\Temp\ihui-installer-verify\trace-$IHUI_LOGN-${MSG}.txt" w
+  FileWrite $8 "${MSG}$\r$\n"
+  FileClose $8
+!macroend
+!else
+!macro IHUI_LOG MSG
+!macroend
+!endif
+
 
 ; 主程序名:模板 !define MAINBINARYNAME 在本 include 之后展开,此处需本地兜底
 ; (与 tauri.conf.json productName 一致;改名须同步)
@@ -90,19 +124,25 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 ; (1028/1034..1039/1044/1045/1256 —— 真实安装器常驻可见,sandbox 试验台没有,
 ;  漏隐藏则白条浮在品牌位图之上,真机枚举定位后补充)
 !macro IHUI_HIDE_ALL
+  ; ⚠️ 2026-09-20 修 $0 复用 bug: 旧写法三次 GetDlgItem 覆写同一寄存器后再三次
+  ; MoveWindow,实际只把原生 3(上一步)移出屏幕,原生 1/2 只隐藏不移屏 ——
+  ; 核心任何时候恢复其可见性,灰底原生钮就浮在品牌页面上(完成态尤其致命)。
+  ; 现在逐个取句柄逐个移屏,隐藏+移屏双保险,时序无关。
   GetDlgItem $0 $HWNDPARENT 1
   ShowWindow $0 0
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   GetDlgItem $0 $HWNDPARENT 2
   ShowWindow $0 0
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   GetDlgItem $0 $HWNDPARENT 3
   ShowWindow $0 0
-  ; R67 补强(升级路径实证): 重装页核心显示页面后会重新 ShowWindow 原生按钮,
-  ; 单纯隐藏被复现(vis=True 实锤)—— 一并移出屏幕,双保险时序无关。
-  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
-  GetDlgItem $0 $HWNDPARENT 2
-  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
-  GetDlgItem $0 $HWNDPARENT 3
-  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   StrCpy $0 1006
   ${For} $1 1 10
     GetDlgItem $2 $HWNDPARENT $0
@@ -165,10 +205,19 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0030, p $IHUIFONT, p 0)"
 !macroend
 
-; ---- 页头右上角品牌关闭钮(自定义页专用,IHUI_BTN 同款 STATIC 机制) ----
-; 点击转发 WM_CLOSE 给主窗口(走 NSIS 的正常退出询问/回滚链,与 Alt+F4 等价)。
+; ---- 页头右上角品牌窗口钮(最小化 / 关闭;自定义页专用,IHUI_BTN 同款 STATIC 机制) ----
+; 位置: 关闭 (820,20,36,36) · 最小化 (776,20,36,36) —— 与页头位图右上留白对齐;
+; 位图 kicker「安装向导 / SETUP」已由资产生成器下移到 y=76 避让控件位。
+; ⚠️ 2026-09-20 用户报「关闭按钮按不了 / 最小化按钮没显示」:
+;   ① 关闭旧实现发 WM_CLOSE(0x0010) —— r96 打点实证 NSIS 主窗口 dialog proc
+;      不处理该消息(onClose_entry→afterWMClose 后进程存活、页面不动),
+;      必须改走 WM_SYSCOMMAND/SC_CLOSE(与点系统 X / Alt+F4 同一条原生链路);
+;   ② 最小化钮此前压根不存在 → 现按 btn-close 同款圆钮补一枚 btn-min。
 !macro IHUI_CLOSEBTN
   !insertmacro IHUI_BTN $IHUICLS btn-close.bmp 820 20 36 36 IHUIOnClose
+!macroend
+!macro IHUI_MINBTN
+  !insertmacro IHUI_BTN $IHUIMIN btn-min.bmp 776 20 36 36 IHUIOnMin
 !macroend
 
 ; ---- 页面 Z 序统一重排:背景压底 + 控件提顶 ----
@@ -192,6 +241,77 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   ${EndIf}
   ${If} ${H6} <> 0
     System::Call "user32::SetWindowPos(p ${H6}, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  ${EndIf}
+!macroend
+
+; ---- 原生按钮摆进品牌槽位(点击通路 = NSIS 核心原生路由) ----
+; ⚠️ 为什么不用自建控件伪装: r76-v9 五轮实测收敛结论 —— 新建 BUTTON(id 复用 1/2)
+; 挂外层窗口 BN_CLICKED 核心不推进(r79/r81 焦点环实证),挂内层被核心吞;
+; BS_BITMAP 视觉还会被核心 done 态重置打回文字态。唯一可靠通路是**原生按钮本体**
+; 移到品牌槽位(r76 物理点击实证整页切换),视觉由点击穿透覆盖层承担。
+; 参数: 原生按钮 ID / X / Y / W / H(逻辑像素)
+!macro IHUI_INST_SLOT BTNID X Y W H
+  !insertmacro IHUI_PX $R1 ${X}
+  !insertmacro IHUI_PX $R2 ${Y}
+  !insertmacro IHUI_PX $R3 ${W}
+  !insertmacro IHUI_PX $R4 ${H}
+  GetDlgItem $R5 $HWNDPARENT ${BTNID}
+  ${If} $R5 <> 0
+    System::Call "user32::MoveWindow(p R5, i R1, i R2, i R3, i R4, i 1)"
+    ; 必须显式可见: 隐藏或禁用的窗口会被 WindowFromPoint 直接跳过 → 点击被吞
+    ; (EnableWindow 一律交给核心: 安装中强行启用"下一步"会开出提前推进的口子)
+    ShowWindow $R5 5
+  ${EndIf}
+!macroend
+
+; ---- 品牌位图覆盖层(外层窗口子窗口,STATIC **不置 SS_NOTIFY** = 鼠标穿透) ----
+; 只负责"看起来是品牌按钮": STATIC 未置 SS_NOTIFY 时窗口过程 WM_NCHITTEST
+; 返回 HTTRANSPARENT,事件继续下探 → 落到槽位里的原生钮(核心原生路由)。
+; 刻意不用 WS_EX_LAYERED|WS_EX_TRANSPARENT: r82 实测该组合让点击落点判定飘移。
+; 参数: 句柄变量 / 位图名 / X / Y / W / H(逻辑像素,须与槽位原生钮逐像素等大)
+!macro IHUI_INST_OVERLAY HANDLE NAME X Y W H
+  !insertmacro IHUI_PX $R1 ${X}
+  !insertmacro IHUI_PX $R2 ${Y}
+  !insertmacro IHUI_PX $R3 ${W}
+  !insertmacro IHUI_PX $R4 ${H}
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5000000E, i R1, i R2, i R3, i R4, p $HWNDPARENT, p 0, p 0, p 0) p .s"
+  Pop ${HANDLE}
+  System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0172, p 0, p r0)"
+  System::Call "user32::SetWindowPos(p ${HANDLE}, p 0, i 0, i 0, i 0, i 0, i 0x0043)"
+!macroend
+
+; ---- 内层 #32770 挖洞(把品牌槽位从内层 dialog 里切掉) ----
+; 2026-09-20 结构性修法: 核心 done 态会把内层 dialog 重新提顶(r82 实锤),
+; 于是"把内层压底"的抗争必然输给核心时序 —— 改成**挖洞**: 槽位区域压根不属于
+; 内层 dialog,点击落点与 Z 序彻底解耦,核心怎么提顶都拦不住。
+; 洞区透出的是外层窗口类背景刷(已在 IHUIInstShow/done-theme 置为 #242424),
+; 与位图底色一致 → 视觉无缝。
+; 参数: INCLCTA 1=连 CTA 槽一起挖(完成态) 0=只挖取消槽(安装中)
+!macro IHUI_INST_HOLES INCLCTA
+  System::Call "gdi32::CreateRectRgn(i 0, i 0, i $IHUIWW, i $IHUIWH) p .R1"
+  ; 取消槽: 逻辑 (62,498)-(162,542)
+  !insertmacro IHUI_PX $R2 62
+  !insertmacro IHUI_PX $R3 498
+  !insertmacro IHUI_PX $R4 162
+  !insertmacro IHUI_PX $R5 542
+  System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
+  System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
+  System::Call "gdi32::DeleteObject(p R6)"
+  ${If} ${INCLCTA} = 1
+    ; CTA 槽: 逻辑 (670,498)-(818,542)
+    !insertmacro IHUI_PX $R2 670
+    !insertmacro IHUI_PX $R3 498
+    !insertmacro IHUI_PX $R4 818
+    !insertmacro IHUI_PX $R5 542
+    System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
+    System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
+    System::Call "gdi32::DeleteObject(p R6)"
+  ${EndIf}
+  ; SetWindowRgn 成功后区域归系统所有,不得再 DeleteObject
+  FindWindow $R7 "#32770" "" $HWNDPARENT
+  ${If} $R7 <> 0
+    System::Call "user32::SetWindowRgn(p R7, p R1, i 1)"
   ${EndIf}
 !macroend
 
@@ -246,6 +366,100 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
     System::Call "user32::DestroyWindow(p ${H6})"
   ${EndIf}
 !macroend
+
+; =====================================================================
+; 窗口拖拽(2026-09-20 用户报「鼠标拖拽不了移动不了窗口」)
+; 无边框窗口(无 WS_CAPTION)天然没有可拖区,而 NSIS 无法给主窗口挂自绘
+; WM_NCHITTEST(脚本层拿不到消息循环回调 —— System 插件回调只在 System::Call
+; 执行期间派发,页面模态循环期间根本不会回到脚本)。故采用**定时器轮询**方案:
+;   nsDialogs::CreateTimer 在页面会话内每 25ms 回调一次 IHUIOnDragTick,
+;   检测「左键按下沿 + 落点在品牌拖拽条」→ 记录抓取偏移 → 按住期间用
+;   SetWindowPos 让窗口跟随光标(与真拖拽同感),松键即结束。
+; 拖拽条 = 页头品牌区 逻辑 y∈[0,72) 且排除右上角最小化/关闭钮矩形;
+; 生效范围 = 四个自定义页(welcome / 重装 / dir / finish)。
+; ⚠️ instfiles 原生页无 nsDialogs 内层 dialog → 无定时器,安装进行中的
+;    几秒内暂不支持拖拽(最小化/关闭在该页仍可用,见 IHUIInstShow)。
+; =====================================================================
+!define IHUI_DRAG_H 72      ; 拖拽条高度(逻辑像素)
+!define IHUI_EXCL_L 772     ; 右上角窗口钮排除区(逻辑像素,含 min 776 与 close 820 两枚 36x36)
+!define IHUI_EXCL_R 860
+!define IHUI_EXCL_T 16
+!define IHUI_EXCL_B 60
+
+!macro IHUI_DRAG_START
+  StrCpy $IHUIDRAGST 0
+  StrCpy $IHUIDRAGPREV 0
+  StrCpy $IHUIDRAGTMR 0
+  ${NSD_CreateTimer} IHUIOnDragTick 25
+  StrCpy $IHUIDRAGTMR 1
+!macroend
+
+!macro IHUI_DRAG_STOP
+  ${If} $IHUIDRAGTMR = 1
+    ${NSD_KillTimer} IHUIOnDragTick
+    StrCpy $IHUIDRAGTMR 0
+  ${EndIf}
+  StrCpy $IHUIDRAGST 0
+  StrCpy $IHUIDRAGPREV 0
+!macroend
+
+Function IHUIOnDragTick
+  ; ---- 左键状态(VK_LBUTTON=0x01,取高位) ----
+  System::Call "user32::GetAsyncKeyState(i 1) i .R0"
+  IntOp $R0 $R0 & 0x8000
+  ${If} $R0 = 0
+    StrCpy $IHUIDRAGST 0
+    StrCpy $IHUIDRAGPREV 0
+    Return
+  ${EndIf}
+  ; ---- 光标屏幕坐标 ----
+  System::Call "*(i 0, i 0) p .R1"
+  System::Call "user32::GetCursorPos(p R1)"
+  System::Call "*$R1(i .R2, i .R3)"
+  System::Free $R1
+  ; ---- 已在拖拽: 窗口跟随光标 ----
+  ${If} $IHUIDRAGST = 1
+    IntOp $R0 $R2 - $IHUIDRAGOX
+    IntOp $R1 $R3 - $IHUIDRAGOY
+    System::Call "user32::SetWindowPos(p $HWNDPARENT, p 0, i R0, i R1, i 0, i 0, i 0x0015)"
+    Return
+  ${EndIf}
+  ${If} $IHUIDRAGPREV = 1
+    Return
+  ${EndIf}
+  StrCpy $IHUIDRAGPREV 1
+  ; ---- 按下沿判定: 落点必须在品牌拖拽条内 ----
+  System::Call "*(i 0, i 0, i 0, i 0) p .R4"
+  System::Call "user32::GetWindowRect(p $HWNDPARENT, p R4)"
+  System::Call "*$R4(i .R5, i .R6, i .R7, i .R8)"
+  System::Free $R4
+  IntOp $R0 $R2 - $R5
+  IntOp $R1 $R3 - $R6
+  ${If} $R0 < 0
+  ${OrIf} $R1 < 0
+  ${OrIf} $R0 >= $IHUIWW
+  ${OrIf} $R1 >= $IHUIWH
+    Return
+  ${EndIf}
+  !insertmacro IHUI_PX $R7 ${IHUI_DRAG_H}
+  ${If} $R1 >= $R7
+    Return
+  ${EndIf}
+  !insertmacro IHUI_PX $R4 ${IHUI_EXCL_L}
+  !insertmacro IHUI_PX $R5 ${IHUI_EXCL_R}
+  !insertmacro IHUI_PX $R6 ${IHUI_EXCL_T}
+  !insertmacro IHUI_PX $R7 ${IHUI_EXCL_B}
+  ${If} $R0 >= $R4
+  ${AndIf} $R0 < $R5
+  ${AndIf} $R1 >= $R6
+  ${AndIf} $R1 < $R7
+    Return
+  ${EndIf}
+  StrCpy $IHUIDRAGOX $R0
+  StrCpy $IHUIDRAGOY $R1
+  StrCpy $IHUIDRAGST 1
+  !insertmacro IHUI_LOG "drag_start"
+FunctionEnd
 
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
 !macro IHUI_PICKTIER
@@ -315,9 +529,14 @@ Function IHUIGuiInit
   ; 剥离标题栏/边框/最大最小化框(保留 WS_POPUP 基础上的可见裁剪位)
   System::Call "user32::GetWindowLongW(p $HWNDPARENT, i -16) p .R0"
   IntOp $R0 $R0 & -12869633
-  ; 或上 WS_SYSMENU(0x80000): WS_POPUP 无标题栏时仅提供 Alt+F4 与任务栏
-  ; 「关闭」菜单,不渲染可见标题条 —— 无边框品牌窗口的关闭通路保底。
+  ; 或上 WS_SYSMENU(0x80000) + WS_MINIMIZEBOX(0x20000):
+  ;   WS_SYSMENU —— 无标题栏时仍提供 Alt+F4 与任务栏「关闭」菜单(关闭通路保底);
+  ;   WS_MINIMIZEBOX —— SC_MINIMIZE 被 DefWindowProc 采纳的**必要条件**
+  ;     (上面的掩码连它一起清掉了),缺它则品牌最小化钮发的
+  ;     WM_SYSCOMMAND/SC_MINIMIZE 被静默丢弃(2026-09-20 实锤)。
+  ; 两者都不渲染可见标题条/系统按钮(无 WS_CAPTION),品牌位图仍是唯一视觉。
   IntOp $R0 $R0 | 0x80000
+  IntOp $R0 $R0 | 0x20000
   System::Call "user32::SetWindowLongW(p $HWNDPARENT, i -16, p rR0)"
   ; 窗口 DPI 与资产档位(两段式,见宏注释)
   System::Call "*(i 0, i 0, i 0, i 0) p .R4"
@@ -344,6 +563,7 @@ FunctionEnd
 ;   (插入点 = 模板 .onInit 尾部; 此时 $PassiveMode/$UpdateMode 已就绪)
 ; =====================================================================
 !macro IHUI_INITSPLASH
+  StrCpy $IHUI_LOGN 0   ; 打点序号归零(IntOp 依赖整数,不给初值会按空串参与运算)
   StrCpy $IHUISC 1
   ; 模板变量 → IHUI 别名(本宏展开于 .onInit,晚于模板 Var 声明,引用安全)
   StrCpy $IHUIPassive $PassiveMode
@@ -431,6 +651,7 @@ FunctionEnd
   File "/oname=$PLUGINSDIR\btn-toggle-on.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-toggle-on.bmp"
   File "/oname=$PLUGINSDIR\btn-toggle-off.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-toggle-off.bmp"
   File "/oname=$PLUGINSDIR\btn-close.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-close.bmp"
+  File "/oname=$PLUGINSDIR\btn-min.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-min.bmp"
 !macroend
 
 ; 包装宏:TIERVAR 为运行时变量名($IHUITIER / $IHUIWTIER),按其值选档解压
@@ -455,6 +676,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIWelcomePage
+  !insertmacro IHUI_LOG "welcome_entry"
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
@@ -468,12 +690,18 @@ Function IHUIWelcomePage
   !insertmacro IHUI_BTN $IHUISTART btn-start.bmp 672 500 144 40 IHUIOnNext
   !insertmacro IHUI_BTN $IHUICANCEL btn-cancel.bmp 64 500 96 40 IHUIOnCancel
   !insertmacro IHUI_CLOSEBTN
-  !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL $IHUICLS 0 0 0
+  !insertmacro IHUI_MINBTN
+  !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN 0 0
+  !insertmacro IHUI_DRAG_START
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "welcome_shown"
 FunctionEnd
 
 Function IHUIWelcomeLeave
-  !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG 0 0
+  !insertmacro IHUI_LOG "welcomeLeave_entry"
+  !insertmacro IHUI_DRAG_STOP
+  !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN $IHUIBG 0
+  !insertmacro IHUI_LOG "welcomeLeave_exit"
 FunctionEnd
 
 ; =====================================================================
@@ -481,6 +709,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIDirPage
+  !insertmacro IHUI_LOG "dir_entry"
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
@@ -504,11 +733,15 @@ Function IHUIDirPage
   !insertmacro IHUI_BTN $IHUISTART btn-start.bmp 672 500 144 40 IHUIOnNext
   !insertmacro IHUI_BTN $IHUICANCEL btn-cancel.bmp 64 500 96 40 IHUIOnCancel
   !insertmacro IHUI_CLOSEBTN
-  !insertmacro IHUI_ZORDER $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS 0
+  !insertmacro IHUI_MINBTN
+  !insertmacro IHUI_ZORDER $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN
+  !insertmacro IHUI_DRAG_START
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "dir_shown"
 FunctionEnd
 
 Function IHUIDirLeave
+  !insertmacro IHUI_LOG "dirLeave_entry"
   System::Alloc 1024
   Pop $0
   System::Call "user32::GetWindowTextW(p $IHUIDIR, p r0, i 512)"
@@ -518,7 +751,10 @@ Function IHUIDirLeave
   ${If} $1 != ""
     StrCpy $INSTDIR $1
   ${EndIf}
-  !insertmacro IHUI_DESTROY $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG
+  !insertmacro IHUI_DRAG_STOP
+  !insertmacro IHUI_DESTROY $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN
+  !insertmacro IHUI_DESTROY $IHUIBG 0 0 0 0 0
+  !insertmacro IHUI_LOG "dirLeave_exit"
 FunctionEnd
 
 Function IHUIOnBrowse
@@ -542,6 +778,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIInstShow
+  !insertmacro IHUI_LOG "instShow_entry"
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(instfiles 是原生页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
@@ -608,44 +845,31 @@ Function IHUIInstShow
   ${EndIf}
   System::Call "user32::MoveWindow(p r1, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
   SetCtlColors $1 FAFAFA 242424
+  ; 外层窗口类背景刷 = 品牌黑: 内层挖洞区透出的就是这层,必须与位图底色一致
+  ; (#242424 = .dark --color-background)。安装期就要设,不能等完成态 ——
+  ; 取消槽的洞在整个安装过程中都存在。
+  System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
+  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
   ; 背景位图挂内层 dialog
   System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\instfiles.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
   Pop $IHUIBG
   SetCtlColors $IHUIBG FAFAFA 242424
   SendMessage $IHUIBG 0x0172 0 $0
-  ; ---- 品牌按钮(挂内层 $1,创建于背景之后 → Z 序天然在背景之上) ----
-  ; R67 终版(方案 C): 真 BUTTON + BS_BITMAP(0x0080) + BM_SETIMAGE(0x00F7)
-  ; 贴位图。v3(R66 时代)此结构完成态贴图可靠;v4-v6 改「STATIC 视觉层 +
-  ; BS_OWNERDRAW 热区」三轮全回归白块(热区不自绘→白底 240,240,240,且完成态
-  ; 核心 Z 序重排把视觉层压底、LEAVE 提顶提的是热区本体),弃用。
-  ; 左右蓝缝根治(用户报「左右原生底漏出」): 位图逻辑宽(140) < 按钮逻辑宽(144)
-  ; 时 BS_BITMAP 居中留 2px 缝,焦点框(RGB 0,120,212)从缝里漏出 ——
-  ; SetWindowRgn 内缩 2px(四边)把缝连同焦点框一起裁掉(参考进度条胶囊
-  ; region 成功案例)。region 为客户区物理像素,r4/r5 当前即物理宽高。
-  !insertmacro IHUI_PX $2 672
-  !insertmacro IHUI_PX $3 500
-  !insertmacro IHUI_PX $4 144
-  !insertmacro IHUI_PX $5 40
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p r1, p 1, p 0, p 0) p .s"
-  Pop $IHUINXT
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
-  SendMessage $IHUINXT 0x00F7 0 $0
-  ; region 内缩 2px 裁焦点缝(表达式 System 插件不解析,必须 IntOp 显式算)
-  IntOp $IHUIR6 $4 - 2
-  IntOp $IHUIR7 $5 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, i 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUINXT, p r0, i 1)"
-  !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $4 96
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p r1, p 2, p 0, p 0) p .s"
-  Pop $IHUICNC
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
-  SendMessage $IHUICNC 0x00F7 0 $0
-  IntOp $IHUIR6 $4 - 2
-  IntOp $IHUIR7 $5 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, i 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUICNC, p r0, i 1)"
+  ; ---- 安装进行中的品牌底栏(2026-09-20 v10 结构性重做) ----
+  ; 旧版(R63→v9)在内层 dialog 里自建真 BUTTON(BS_BITMAP)当"继续/取消":
+  ;   · 核心 done 态重置 UI 会把 BS_BITMAP 打回文字态(视觉不可控);
+  ;   · 完成态核心重新提顶内层 dialog → 自建按钮/覆盖层被拦截点击(r82 实锤);
+  ;   · 更糟: 安装进行中那枚「继续 ›」是**死的**,用户点了没反应 →
+  ;     2026-09-20 用户报的「完成按钮点不了」正是它。
+  ; v10 只保留**真取消**: 原生 2 摆进取消槽 + 点击穿透位图皮 + 内层挖洞;
+  ; 「继续/完成」槽位安装中留空(位图该处本就是空底),完成态由
+  ; IHUI_INST_DONE_THEME 接管,绝不再出现"看着能点其实不能点"的死按钮。
+  StrCpy $IHUINXT 0
+  StrCpy $IHUICNC 0
+  !insertmacro IHUI_INST_SLOT 2 64 500 96 40
+  !insertmacro IHUI_INST_OVERLAY $IHUICNC btn-cancel.bmp 64 500 96 40
+  !insertmacro IHUI_INST_HOLES 0
   ; 进度条: 去主题 + 平滑 + 品牌配色(暗色: 轨道 #333333 / 填充纯白)。
   ; 无 BMP 外框,原生进度条整体胶囊圆角化(SetWindowRgn, 圆角 token 8px→h=16 时 r=8 恰为半高):
   ; 轨道垫由 BMP 内衬色区块提供视觉底,进度条本体 y=424 h=16 圆角胶囊。
@@ -667,81 +891,65 @@ Function IHUIInstShow
   System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
   System::Call "user32::InvalidateRect(p r1, p 0, i 1)"
   System::Call "user32::UpdateWindow(p r1)"
+  !insertmacro IHUI_LOG "instShow_exit"
 FunctionEnd
 
 ; =====================================================================
 ; R76 完成态接管(POSTINSTALL hook = Section 落盘收尾,instfiles 进入完成态
 ; 的确切时刻;LEAVE 回调要到用户点击后才跑,详见 hooks.nsi NSIS_HOOK_POSTINSTALL)。
 ;
+; v10 终案(2026-09-20 用户实测报「完成按钮点不了 / 关闭按钮按不了 /
+; 最小化没显示 / 拖不动窗口」后重做) - 演进史(r74-r81 五轮实测收敛):
+;   r76: 原生 1/2 就地品牌化(移位+贴图) → 点击可推进(5.23% 整页切换实证)
+;        但核心在 Section 尾 done 态重置 UI 时把 BS_BITMAP 打回文字态。
+;   v6/v7: 新建品牌 BUTTON 挂外层 HWNDPARENT(id=1/2) → 位图永驻(核心不
+;        重置陌生控件)但 BN_CLICKED 核心不推进(r79 0.16% 焦点环实证)。
+;   v8: 销毁原生钮消 id 冲突 → 仍不推进(r81 焦点环 0.13% 实证)。
+;        结论: 外层 proc 对非模板控件的 WM_COMMAND 不走推进分支。
+;   v9: 原生钮存活+移到品牌位置(点击通路=核心亲儿子,r76 已证 5.23%);
+;        位图由 WS_EX_LAYERED|WS_EX_TRANSPARENT(0x00200020) STATIC 覆盖层
+;        承载 — 整窗点击穿透,鼠标事件直达下层原生钮;覆盖层是陌生控件,
+;        核心 done 态重置永远打不回它的位图。两全其美。
 ; 路由死结(r74 实锤): 品牌按钮挂内层 #32770 → BN_CLICKED 发内层被吞。
-; 原生 1/2 挂外层 HWNDPARENT → BN_CLICKED 由 NSIS 核心 proc 原生路由
-; (id=1→Next 推进 finish 页,id=2→Cancel)。
-;
-; r77/r78 实测两坑(全四轮贴图失败根因):
-;   ①核心在 Section 结束后的 done 态 UI 重设里把原生 1/2 样式打回文字态
-;     (POSTINSTALL 写入的 BS_BITMAP 被回滚,region/位置保留)。
-;   ②内层 dialog 容器不透明盖外层按钮 → 必须整体移屏。
-; v6 终案: 原生 1/2 隐藏但存活(点击目标),新建品牌 BUTTON 挂【外层 HWNDPARENT】
-; (核心不认识陌生控件,不会重置!)。点击新按钮 → SendMessage(原生, BM_CLICK)
-; → 按钮自身把 BN_CLICKED 发给父=外层 → 核心原生推进,零页面自定义路由。
 ; =====================================================================
 !macro IHUI_INST_DONE_THEME
+  !insertmacro IHUI_LOG "doneTheme_entry"
   ; 决定性探针: 宏执行即写标记文件(r76-v6 全白疑云,判定宏是否真跑)
   FileOpen $0 "D:\caches\Temp\ihui-installer-verify\done-theme-ran.txt" w
   FileWrite $0 "IHUI_INST_DONE_THEME executed"
   FileClose $0
-  FindWindow $1 "#32770" "" $HWNDPARENT
-  ; ---- 0) 外层窗口类背景画刷换品牌黑(内层退场后由外层承接底色) ----
-  System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .r9"
-  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p r9)"
-  ; ---- 1) 原生 1/2/3 隐藏但存活(BM_CLICK 载体;探针 r74 实锤移屏后仍可 BM_CLICK) ----
-  GetDlgItem $2 $HWNDPARENT 1
-  ${If} $2 <> 0
-    ShowWindow $2 0
+  ; ---- 0) 外层窗口类背景刷换品牌黑(挖洞区透出的底色;安装期已设,此处兜底) ----
+  System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
+  System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
+  ; ---- 1) 先销毁安装期那枚取消覆盖层(同槽不留双覆盖层) ----
+  !insertmacro IHUI_DESTROY $IHUICNC 0 0 0 0 0
+  StrCpy $IHUICNC 0
+  StrCpy $IHUINXT 0
+  ; ---- 2) 原生 1/2 摆进品牌槽位(点击通路 = 核心原生路由,r76 物理点击实证) ----
+  ; 继续/完成(原生1): 逻辑 672,500 144x40 —— 与 btn-continue.bmp(144x40) 等大
+  !insertmacro IHUI_INST_SLOT 1 672 500 144 40
+  ; 取消(原生2): 逻辑 64,500 96x40 —— 与 btn-cancel.bmp(96x40) 等大
+  !insertmacro IHUI_INST_SLOT 2 64 500 96 40
+  ; 原生 3(上一步): 完成态无意义,移出屏幕
+  GetDlgItem $0 $HWNDPARENT 3
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
   ${EndIf}
-  GetDlgItem $2 $HWNDPARENT 2
-  ${If} $2 <> 0
-    ShowWindow $2 0
+  ; ---- 3) 品牌位图覆盖层(STATIC 无 SS_NOTIFY → 鼠标穿透直达下层原生钮) ----
+  !insertmacro IHUI_INST_OVERLAY $IHUINXT btn-continue.bmp 672 500 144 40
+  !insertmacro IHUI_INST_OVERLAY $IHUICNC btn-cancel.bmp 64 500 96 40
+  ; ---- 4) 内层 dialog 挖洞(CTA+取消两槽) ----
+  ;      Z 序无关: 核心 done 态再提顶内层也盖不住槽位;洞区透外层类背景刷。
+  !insertmacro IHUI_INST_HOLES 1
+  ; ---- 5) 内层压底(二重保险: 万一某系统上 region 挖洞对子窗口命中不生效,
+  ;      压底仍能让槽位里的原生钮处于最上层可点状态) ----
+  FindWindow $0 "#32770" "" $HWNDPARENT
+  ${If} $0 <> 0
+    System::Call "user32::SetWindowPos(p r0, p 1, i 0, i 0, i 0, i 0, i 0x0013)"
   ${EndIf}
-  GetDlgItem $2 $HWNDPARENT 3
-  ${If} $2 <> 0
-    System::Call "user32::MoveWindow(p r2, i -4000, i -4000, i 100, i 24, i 1)"
-  ${EndIf}
-  ; ---- 2) 新建品牌按钮挂外层(核心不重置陌生控件;IHUIInstShow 内层同款结构,
-  ;      唯一差异=父窗口=HWNDPARENT → BN_CLICKED 天然进核心) ----
-  ; 继续: 逻辑 672,500 144x40
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
-  !insertmacro IHUI_PX $3 672
-  !insertmacro IHUI_PX $4 500
-  !insertmacro IHUI_PX $5 144
-  !insertmacro IHUI_PX $6 40
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r3, i r4, i r5, i r6, p $HWNDPARENT, p 1, p 0, p 0) p .s"
-  Pop $IHUINXT
-  System::Call "user32::SendMessageW(p $IHUINXT, i 0x00F7, p 0, p r0)"  ; BM_SETIMAGE
-  IntOp $IHUIR6 $5 - 2
-  IntOp $IHUIR7 $6 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUINXT, p r0, i 1)"
-  ; v7: HWND_TOP(-1) 提顶(v6 无 z 序变更,新钮疑似压底不可见 → 全白帧)
-  System::Call "user32::SetWindowPos(p $IHUINXT, p -1, i 0, i 0, i 0, i 0, i 0x0043)"
-  !insertmacro IHUI_SETFONT $IHUINXT
-  ; 取消: 逻辑 64,500 96x40
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
-  !insertmacro IHUI_PX $3 64
-  !insertmacro IHUI_PX $5 96
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r3, i r4, i r5, i r6, p $HWNDPARENT, p 2, p 0, p 0) p .s"
-  Pop $IHUICNC
-  System::Call "user32::SendMessageW(p $IHUICNC, i 0x00F7, p 0, p r0)"
-  IntOp $IHUIR6 $5 - 2
-  IntOp $IHUIR7 $6 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUICNC, p r0, i 1)"
-  System::Call "user32::SetWindowPos(p $IHUICNC, p -1, i 0, i 0, i 0, i 0, i 0x0043)"
-  !insertmacro IHUI_SETFONT $IHUICNC
-  ; ---- 3) 内层 dialog 保留原位(v7 变更): 其黑底(SetCtlColors 242424)即完成态
-  ; 背景,r76 实证 95.5% 暗覆盖;新品牌钮已提顶于其上。内层若退场外层白底即裸露。
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
+  !insertmacro IHUI_LOG "doneTheme_exit"
 !macroend
 
 ; ⚠️ 完成时刻推进竞态(2026-09-20 R20 实锤): instfiles 完成时核心触发 LEAVE 回调并推进
@@ -749,6 +957,7 @@ FunctionEnd
 ; 推进会被静默破坏 —— R7 起 finish 页从未出现的历史根因。
 ; 对策:LEAVE 一律纯透传(不销毁任何控件),背景/控件的生命周期交由 finish 页接管。
 Function IHUIInstLeave
+  !insertmacro IHUI_LOG "instLeave_entry"
   ; R76 起完成态接管移入 IHUI_INST_DONE_THEME(POSTINSTALL hook,Section 尾触发):
   ; LEAVE 要到用户点击"继续"后才跑,完成态品牌化挂 LEAVE 是死代码 —— r74 探针实锤
   ; (点击内层品牌按钮 MD5 变化但页面不前进)。
@@ -757,6 +966,7 @@ Function IHUIInstLeave
   ; (历史竞态:LEAVE 内 DestroyWindow 子控件会静默破坏推进 —— R7 起 finish 页
   ;  从未出现的历史根因,故一律不销毁任何控件。)
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  !insertmacro IHUI_LOG "instLeave_exit"
 FunctionEnd
 
 ; =====================================================================
@@ -769,20 +979,31 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIFinishPage
+  !insertmacro IHUI_LOG "finishPage_entry"
+  ; 完成页标记: IHUIOnClose 据此把「关闭」语义切成「收尾退出」
+  StrCpy $IHUIFINMODE 1
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
   ${If} ${Silent}
     Abort
   ${EndIf}
+  ; 安装页完成态遗留的两个品牌覆盖层必须显式销毁: 其 CTA 位图(672,500,144x40)
+  ; 与本页「完成」钮槽位重叠,不清掉就压在完成钮上(用户 2026-09-20 报
+  ; 「完成按钮点不了」的直因之一)。销毁后立即置 0,杜绝句柄复用误伤。
+  !insertmacro IHUI_DESTROY $IHUINXT $IHUICNC 0 0 0 0
+  StrCpy $IHUINXT 0
+  StrCpy $IHUICNC 0
   !insertmacro IHUI_HIDE_ALL
   !insertmacro IHUI_PAGE_PRE
   !insertmacro IHUI_PAGEBG finish.bmp
   ; 三个开关行(h-7=28px 胶囊,行 y=396/440/484 与 finish.bmp 烧入标签一一对应):
   ;   行1 完成后立即打开智汇AI(默认开) · 行2 开机自动启动(默认关) · 行3 创建桌面快捷方式(默认开)
-  !insertmacro IHUI_BTN $IHUIOTG btn-toggle-on.bmp 64 396 56 28 IHUIOnToggleOpen
-  !insertmacro IHUI_BTN $IHUIATG btn-toggle-off.bmp 64 440 56 28 IHUIOnToggleAuto
-  !insertmacro IHUI_BTN $IHUISCT btn-toggle-on.bmp 64 484 56 28 IHUIOnToggleSC
+  ; 开关位图 = web <Switch size="lg"> 逐像素复刻(52x28 轨道 + 3px 硬投影 = 55x31
+  ; 画布),与 packages/ui-react switch.tsx 同源,禁止任何额外样式
+  !insertmacro IHUI_BTN $IHUIOTG btn-toggle-on.bmp 64 396 55 31 IHUIOnToggleOpen
+  !insertmacro IHUI_BTN $IHUIATG btn-toggle-off.bmp 64 440 55 31 IHUIOnToggleAuto
+  !insertmacro IHUI_BTN $IHUISCT btn-toggle-on.bmp 64 484 55 31 IHUIOnToggleSC
   StrCpy $IHUIOPEN 1
   StrCpy $IHUIAUTO 0
   StrCpy $IHUISC 1
@@ -793,12 +1014,18 @@ Function IHUIFinishPage
   ${EndIf}
   !insertmacro IHUI_BTN $IHUIFIN btn-finish.bmp 696 500 120 40 IHUIOnFinish
   !insertmacro IHUI_CLOSEBTN
-  !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS 0
+  !insertmacro IHUI_MINBTN
+  !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS $IHUIMIN
+  !insertmacro IHUI_DRAG_START
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "finishPage_shown"
 FunctionEnd
 
 Function IHUIFinishLeave
-  !insertmacro IHUI_DESTROY $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS $IHUIBG
+  StrCpy $IHUIFINMODE 0
+  !insertmacro IHUI_DRAG_STOP
+  !insertmacro IHUI_DESTROY $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS $IHUIMIN
+  !insertmacro IHUI_DESTROY $IHUIBG 0 0 0 0 0
 FunctionEnd
 
 ; ---- 开关点击:翻转状态并换位图(三行共用同一对两态位图) ----
@@ -830,6 +1057,7 @@ FunctionEnd
 ; 开机自启 = HKCU Run 键(用户级,无需提权; 卸载侧 hooks.nsi 同名清理)
 ; 退出用 Quit:3.11 推进链失效,不依赖原生 Next(BM_CLICK 已实测无效)
 Function IHUIOnFinish
+  !insertmacro IHUI_LOG "onFinish_entry"
   ${If} $IHUIOPEN = 1
     Call RunMainBinary
   ${EndIf}
@@ -839,6 +1067,13 @@ Function IHUIOnFinish
   ${If} $IHUISC = 1
     Call CreateOrUpdateDesktopShortcut
   ${EndIf}
+  ; Quit 前必须先停拖拽定时器+销毁自建控件: 定时器消息循环不清空会让 Quit 后
+  ; 进程残留为无窗僵尸(r101 实证 onFinish_quit 打点后进程存活)。
+  !insertmacro IHUI_DRAG_STOP
+  !insertmacro IHUI_DESTROY $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS $IHUIMIN
+  !insertmacro IHUI_DESTROY $IHUIBG 0 0 0 0 0
+  !insertmacro IHUI_DESTROY $IHUINXT $IHUICNC $IHUISTART 0 0 0
+  !insertmacro IHUI_LOG "onFinish_cleanup"
   Quit
 FunctionEnd
 
@@ -846,18 +1081,51 @@ FunctionEnd
 ; 导航回调: 触发原生按钮(BM_CLICK)
 ; =====================================================================
 Function IHUIOnNext
+  !insertmacro IHUI_LOG "onNext_entry"
   GetDlgItem $0 $HWNDPARENT 1
   SendMessage $0 0x00F5 0 0
+  !insertmacro IHUI_LOG "onNext_afterBMClick"
 FunctionEnd
 
 Function IHUIOnCancel
+  !insertmacro IHUI_LOG "onCancel_entry"
   GetDlgItem $0 $HWNDPARENT 2
   SendMessage $0 0x00F5 0 0
+  !insertmacro IHUI_LOG "onCancel_afterBMClick"
 FunctionEnd
 
 Function IHUIOnClose
-  ; 品牌关闭钮 → WM_CLOSE: 与 Alt+F4 同链路(NSIS 内置退出确认逻辑接管)
-  SendMessage $HWNDPARENT 0x0010 0 0
+  !insertmacro IHUI_LOG "onClose_entry"
+  ; 品牌关闭钮。三条链路优先级(2026-09-20 r96/r97 实测收敛):
+  ;  ① 完成页($IHUIFINMODE=1): 关闭语义 = 收尾退出 → 直接复用「完成」钮
+  ;     同一函数(尊重用户三个开关: 自动打开/开机自启/桌面快捷方式),再 Quit。
+  ;  ② 其余页: 对原生取消钮(id=2)发 BM_CLICK —— 这是 NSIS 核心**保证处理**
+  ;     的唯一退出链路(与原生「取消」逐字节等价: 取消确认 → .onUserAbort → Quit)。
+  ;  ③ 兜底: 原生取消钮不存在时,退到 WM_SYSCOMMAND/SC_CLOSE(与系统标题栏 X 同链路)。
+  ; ⚠️ 禁用裸 WM_CLOSE(0x0010): r96 打点实证核心 dialog proc 不处理它
+  ;    (onClose_afterWMClose 后进程存活、页面不动)。
+  ${If} $IHUIFINMODE = 1
+    !insertmacro IHUI_LOG "onClose_finishMode"
+    Call IHUIOnFinish
+    Return
+  ${EndIf}
+  GetDlgItem $0 $HWNDPARENT 2
+  ${If} $0 <> 0
+    !insertmacro IHUI_LOG "onClose_cancelBMClick"
+    SendMessage $0 0x00F5 0 0
+  ${Else}
+    !insertmacro IHUI_LOG "onClose_scCloseFallback"
+    SendMessage $HWNDPARENT 0x0112 0xF060 0
+  ${EndIf}
+  !insertmacro IHUI_LOG "onClose_exit"
+FunctionEnd
+
+Function IHUIOnMin
+  !insertmacro IHUI_LOG "onMin_entry"
+  ; 品牌最小化钮 → WM_SYSCOMMAND/SC_MINIMIZE(0x0112/0xF020)。
+  ; 前提: IHUIGuiInit 已补回 WS_MINIMIZEBOX,否则被 DefWindowProc 静默丢弃。
+  SendMessage $HWNDPARENT 0x0112 0xF020 0
+  !insertmacro IHUI_LOG "onMin_afterSCMin"
 FunctionEnd
 
 ; =====================================================================
@@ -865,6 +1133,7 @@ FunctionEnd
 ; 只读 $R1(标题 label)/$R2/$R3(radio)/$R4(内层 dialog), 不改写。
 ; =====================================================================
 !macro IHUI_REINSTALLTHEME
+  !insertmacro IHUI_LOG "reinstallTheme_entry"
   ; R67(升级路径实证): 先隐藏+移屏原生 1/2/3 与页头控件 —— 此前只建品牌 CTA
   ; 覆盖,原生「上一步」(id=3)探针 vis=True 实锤仍可见/可点(用户报「下一步
   ; 点不了」即点到它),页头 1017/1038 白底也在两侧漏出。
@@ -926,12 +1195,20 @@ FunctionEnd
   ; Z 序:背景压底 + CTA 提顶(必须背景创建后重排,否则 CTA 被盖)
   System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
   System::Call "user32::SetWindowPos(p $IHUIRCTA, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  ; 品牌窗口钮(最小化/关闭)+ 拖拽定时器 —— 与欢迎/目录/完成页完全一致
+  ; (重装页同为 nsDialogs 自定义页,CreateTimer 生效)
+  !insertmacro IHUI_BTN $IHUICLS btn-close.bmp 820 20 36 36 IHUIOnClose
+  !insertmacro IHUI_BTN $IHUIMIN btn-min.bmp 776 20 36 36 IHUIOnMin
+  !insertmacro IHUI_DRAG_START
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
+  !insertmacro IHUI_LOG "reinstallTheme_exit"
 !macroend
 
 ; 重装页 CTA → 触发原生"下一步"(BM_CLICK)
 Function IHUIReinstallNext
+  !insertmacro IHUI_LOG "reinstallNext_entry"
   GetDlgItem $0 $HWNDPARENT 1
   SendMessage $0 0x00F5 0 0
+  !insertmacro IHUI_LOG "reinstallNext_afterBMClick"
 FunctionEnd
