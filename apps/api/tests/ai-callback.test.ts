@@ -193,5 +193,104 @@ describe('AI callback route', () => {
 
     await serverWithQueue2.close()
   })
+
+  // ---------------------------------------------------------------------------
+  // D24(2026-09-19 立):工具调用与终端输出独立持久化 —— toolCalls/terminalTasks
+  // 经 looseObject 校验后并入入队 metadata,worker 浅合并落库到 chat_messages.metadata
+  // ---------------------------------------------------------------------------
+
+  it('POST /api/ai/callback 带 toolCalls/terminalTasks 时并入入队 metadata', async () => {
+    const serverD24 = Fastify({ logger: false })
+    const mockAddD24 = vi.fn().mockResolvedValue({ id: 'job-d24' })
+    serverD24.decorate('aiCallbackQueue', { add: mockAddD24 })
+    await serverD24.register(aiCallbackRoutes)
+    await serverD24.ready()
+
+    const toolCalls = [
+      {
+        id: 'tc-1',
+        toolName: 'run_command',
+        status: 'success',
+        args: { command: 'ls' },
+        result: 'a.txt',
+        iteration: 1,
+        durationMs: 123,
+      },
+    ]
+    const terminalTasks = [
+      { id: 't-1', command: 'ls', status: 'completed', output: 'a.txt', exitCode: 0 },
+    ]
+    const res = await serverD24.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        model: 'stepfun/step-3.7-flash',
+        usage: { total_tokens: 50 },
+        stub: false,
+        toolCalls,
+        terminalTasks,
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-1' },
+      },
+    })
+    expect(res.statusCode).toBe(202)
+    expect(mockAddD24).toHaveBeenCalledWith(
+      'complete',
+      expect.objectContaining({
+        metadata: {
+          model: 'stepfun/step-3.7-flash',
+          usage: { total_tokens: 50 },
+          stub: false,
+          toolCalls,
+          terminalTasks,
+        },
+      }),
+    )
+
+    await serverD24.close()
+  })
+
+  it('POST /api/ai/callback toolCalls/terminalTasks 为空数组时不写入 metadata', async () => {
+    const serverD24Empty = Fastify({ logger: false })
+    const mockAddEmpty = vi.fn().mockResolvedValue({ id: 'job-d24-empty' })
+    serverD24Empty.decorate('aiCallbackQueue', { add: mockAddEmpty })
+    await serverD24Empty.register(aiCallbackRoutes)
+    await serverD24Empty.ready()
+
+    const res = await serverD24Empty.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        toolCalls: [],
+        terminalTasks: [],
+        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+      },
+    })
+    expect(res.statusCode).toBe(202)
+    const jobData = mockAddEmpty.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect(jobData.metadata).not.toHaveProperty('toolCalls')
+    expect(jobData.metadata).not.toHaveProperty('terminalTasks')
+
+    await serverD24Empty.close()
+  })
+
+  it('POST /api/ai/callback toolCalls 元素缺必填 id 时返回 400', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        toolCalls: [{ toolName: 'run_command' /* 缺 id */ }],
+        metadata: { conversationId: 'conv-1', userId: 'user-1' },
+      },
+    })
+    expect(res.statusCode).toBe(400)
+    const body = res.json()
+    expect(body.code).toBe(400)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

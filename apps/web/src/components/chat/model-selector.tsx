@@ -34,9 +34,11 @@ import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/ch
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
 import {
+  filterByCapabilities,
   groupByCategory,
   splitByTier,
   type ModelOption,
+  type ModelCapabilityKey,
   type ModelUsageCategory,
 } from '@/components/chat/model-tier-utils'
 
@@ -287,6 +289,8 @@ function ModelOptionRow({
           />
         )}
         {showCategory && <ModelCategoryBadge category={opt.category} />}
+        {/* 2026-09-19 D23 立:能力徽章(vision/fim,紫色系与用途分类天蓝区分;缺失时整体不显示=未知不标注) */}
+        <ModelCapBadges capabilities={opt.capabilities} />
       </div>
       {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
          2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
@@ -315,6 +319,44 @@ function ModelCategoryBadge({ category }: { category?: ModelUsageCategory }) {
     </span>
   )
 }
+
+/** 能力徽章(2026-09-19 D23 立,紫色系与用途分类天蓝徽章区分)
+ *  只展示区分度高的 vision/fim —— reasoning/tools 在 latest 对话模型上几乎恒真,
+ *  行内常显等于刷屏,它们只参与历史区能力过滤。 */
+const MODEL_CAP_BADGES: Array<{ key: ModelCapabilityKey; labelKey: string }> = [
+  { key: 'vision', labelKey: 'modelCapVision' },
+  { key: 'fim', labelKey: 'modelCapFim' },
+]
+
+function ModelCapBadges({ capabilities }: { capabilities?: ModelOption['capabilities'] }) {
+  const t = useTranslations('chat')
+  if (!capabilities) return null
+  return (
+    <>
+      {MODEL_CAP_BADGES.map(({ key, labelKey }) =>
+        capabilities[key] === true ? (
+          <span
+            key={key}
+            className={cn(
+              'inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+              'bg-violet-500/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+            )}
+          >
+            {t(labelKey)}
+          </span>
+        ) : null,
+      )}
+    </>
+  )
+}
+
+/** 历史模型区能力过滤 chips(2026-09-19 D23 立):与搜索框组合使用,多项 AND */
+const CAP_FILTER_ITEMS: Array<{ key: ModelCapabilityKey; labelKey: string }> = [
+  { key: 'vision', labelKey: 'modelCapVision' },
+  { key: 'reasoning', labelKey: 'modelCapReasoning' },
+  { key: 'tools', labelKey: 'modelCapTools' },
+  { key: 'fim', labelKey: 'modelCapFim' },
+]
 
 /** 按厂商分组模型 */
 function groupByVendor(options: ModelOption[]): Array<[string, ModelOption[]]> {
@@ -645,6 +687,9 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             category: normalizeCategory(m.category),
             tier: normalizeTier(m.model_tier),
             family: m.family,
+            // 2026-09-19 D23 立:语义能力四布尔(后端 derive_capabilities 产出),
+            // 驱动历史模型区"按能力过滤"与行内能力徽章;缺失时按未知处理不误藏
+            capabilities: m.capabilities,
           })
         }
         // 当前选中不在 API 列表时保留(trigger 与列表一致,切换后自然消失)
@@ -697,6 +742,19 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   const { primary, archived } = React.useMemo(() => splitByTier(options), [options])
   const [showHistory, setShowHistory] = React.useState(false)
   const [historyQuery, setHistoryQuery] = React.useState('')
+  // 2026-09-19 D23 立:历史模型区能力过滤(视觉/推理/工具/补全)。
+  // 空集 = 不过滤;多项之间 AND(所有激活能力都为 true 才保留)。
+  const [capFilter, setCapFilter] = React.useState<Set<ModelCapabilityKey>>(() => new Set())
+
+  const toggleCapFilter = React.useCallback((key: ModelCapabilityKey) => {
+    setCapFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
+
   /**
    * 派生展开态:默认列表为空时强制展开历史模型。
    * 后端 model_tier 字段是可选的,老后端 / 缓存数据缺失时若整批被判成非 latest,
@@ -705,16 +763,18 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
    */
   const historyExpanded = showHistory || (primary.length === 0 && archived.length > 0)
 
-  /** 历史模型区:搜索过滤 + 按用途分类分组 */
+  /** 历史模型区:搜索过滤 + 能力过滤 + 按用途分类分组 */
   const archivedGroups = React.useMemo(() => {
     const q = historyQuery.trim().toLowerCase()
-    const filtered = q
+    let filtered = q
       ? archived.filter(
           (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
         )
       : archived
+    // D23:搜索之后再按激活能力过滤(AND 语义),capabilities 缺失的模型不误藏
+    filtered = filterByCapabilities(filtered, Array.from(capFilter))
     return groupByCategory(filtered)
-  }, [archived, historyQuery])
+  }, [archived, historyQuery, capFilter])
 
   const grouped = React.useMemo(() => {
     const all = groupByVendor(primary)
@@ -905,6 +965,32 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                       size="sm"
                       wrapperClassName="w-full"
                     />
+                  </div>
+                  {/* 2026-09-19 D23 立:历史区能力过滤 chips,与搜索框组合使用,多项 AND;
+                      未知 capabilities 的模型不受过滤影响(宁可多显示也不误藏) */}
+                  <div className="flex flex-wrap gap-1 px-2 pb-1.5">
+                    {CAP_FILTER_ITEMS.map(({ key, labelKey }) => {
+                      const on = capFilter.has(key)
+                      return (
+                        <DropdownMenu.Item
+                          key={key}
+                          onSelect={(e) => {
+                            // preventDefault 阻止 Radix 选中后自动关闭菜单
+                            e.preventDefault()
+                            toggleCapFilter(key)
+                          }}
+                          className={cn(
+                            'inline-flex cursor-pointer select-none items-center rounded-sm border px-1.5 py-0.5 text-[11px] font-medium outline-none',
+                            'focus:bg-accent focus:text-accent-foreground',
+                            on
+                              ? 'border-violet-500/40 bg-violet-500/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300'
+                              : 'border-border bg-muted/50 text-muted-foreground',
+                          )}
+                        >
+                          {t(labelKey)}
+                        </DropdownMenu.Item>
+                      )
+                    })}
                   </div>
                   {archivedGroups.length === 0 ? (
                     <div className="px-2 py-3 text-center text-xs text-muted-foreground">

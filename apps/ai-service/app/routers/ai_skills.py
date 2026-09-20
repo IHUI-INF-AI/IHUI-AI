@@ -290,18 +290,16 @@ def _try_screenshot_html(html_content: str) -> str | None:
         result = func(html_content)
         if asyncio.iscoroutine(result):
             try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # 已在事件循环中 → 提交到默认 executor
-                    import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                        future = ex.submit(asyncio.run, func(html_content))
-                        result = future.result(timeout=15)
-                else:
-                    result = loop.run_until_complete(result)
+                asyncio.get_running_loop()
             except RuntimeError:
-                # 无可用 loop,直接 asyncio.run
-                result = asyncio.run(func(html_content))
+                # 无运行中事件循环(协程外调用),直接 asyncio.run
+                result = asyncio.run(result)
+            else:
+                # 已在事件循环中 → 提交到独立线程执行
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    future = ex.submit(asyncio.run, func(html_content))
+                    result = future.result(timeout=15)
         if isinstance(result, str) and result:
             # 已经是 data URL 或 base64
             if result.startswith("data:image/"):

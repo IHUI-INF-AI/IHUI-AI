@@ -41,7 +41,6 @@ Lark 官方文法:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Union
 
 BEGIN_PATCH_MARKER = "*** Begin Patch"
 END_PATCH_MARKER = "*** End Patch"
@@ -66,11 +65,11 @@ class ParseError(ValueError):
         self.line_number = line_number
 
     @classmethod
-    def invalid_patch(cls, message: str) -> "ParseError":
+    def invalid_patch(cls, message: str) -> ParseError:
         return cls(message, kind="invalid_patch")
 
     @classmethod
-    def invalid_hunk(cls, message: str, line_number: int) -> "ParseError":
+    def invalid_hunk(cls, message: str, line_number: int) -> ParseError:
         return cls(message, kind="invalid_hunk", line_number=line_number)
 
 
@@ -88,15 +87,15 @@ class DeleteFileHunk:
 @dataclass
 class UpdateFileHunk:
     path: str
-    move_path: Optional[str] = None
-    chunks: list["UpdateFileChunk"] = field(default_factory=list)
+    move_path: str | None = None
+    chunks: list[UpdateFileChunk] = field(default_factory=list)
 
     def affected_path(self) -> str:
         """受影响路径;重命名 hunk 取 move 目的地。"""
         return self.move_path if self.move_path is not None else self.path
 
 
-Hunk = Union[AddFileHunk, DeleteFileHunk, UpdateFileHunk]
+Hunk = AddFileHunk | DeleteFileHunk | UpdateFileHunk
 
 
 @dataclass
@@ -105,7 +104,7 @@ class UpdateFileChunk:
     双侧同源上下文行索引(PreserveLineEndings 保留原行尾用);is_end_of_file 要求
     old_lines 必须出现在文件末尾(容忍尾换行差异)。"""
 
-    change_context: Optional[str] = None
+    change_context: str | None = None
     old_lines: list[str] = field(default_factory=list)
     new_lines: list[str] = field(default_factory=list)
     context_line_indices: list[tuple[int, int]] = field(default_factory=list)
@@ -121,8 +120,8 @@ class UpdateFileChunk:
 class ApplyPatchArgs:
     hunks: list[Hunk]
     patch: str
-    workdir: Optional[str] = None
-    environment_id: Optional[str] = None
+    workdir: str | None = None
+    environment_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -135,12 +134,12 @@ class StreamingPatchParser:
     def __init__(self) -> None:
         self._line_buffer: list[str] = []
         self._hunks: list[Hunk] = []
-        self._environment_id: Optional[str] = None
+        self._environment_id: str | None = None
         self._mode = "not_started"  # not_started/started_patch/add_file/delete_file/update_file/ended_patch
         self._hunk_line_number = 0
         self.line_number = 0
 
-    def environment_id(self) -> Optional[str]:
+    def environment_id(self) -> str | None:
         return self._environment_id
 
     def hunks(self) -> list[Hunk]:
@@ -340,7 +339,7 @@ class StreamingPatchParser:
 # 边界检查与 parse_patch 入口(对标 parser.rs)
 # ---------------------------------------------------------------------------
 
-def _check_start_and_end_lines_strict(first_line: Optional[str], last_line: Optional[str]) -> None:
+def _check_start_and_end_lines_strict(first_line: str | None, last_line: str | None) -> None:
     first = first_line.strip() if first_line is not None else None
     last = last_line.strip() if last_line is not None else None
     if first is not None and last is not None and first == BEGIN_PATCH_MARKER and last == END_PATCH_MARKER:
@@ -411,7 +410,7 @@ def seek_sequence(
     start: int,
     eof: bool,
     normalize_to_lf: bool = True,
-) -> Optional[int]:
+) -> int | None:
     """四级递降匹配(pattern 行序列在 lines 中的起始索引):精确 → rstrip → trim →
     Unicode 归一。eof 时优先从文件尾起匹配;PreserveLineEndings(normalize_to_lf=False)
     下不越过 start。空 pattern 视为 no-op 命中 start。"""
@@ -451,14 +450,14 @@ Replacement = tuple[int, int, list[str]]
 class SourceFile:
     """逐行保留行尾(LF/CRLF/CR)的源文件模型;首个出现的行尾为插入行首选样式。"""
 
-    def __init__(self, lines: list[tuple[str, Optional[str]]], preferred_ending: str) -> None:
+    def __init__(self, lines: list[tuple[str, str | None]], preferred_ending: str) -> None:
         self._lines = lines  # (text, ending or None)
         self._preferred_ending = preferred_ending
 
     @classmethod
-    def parse(cls, contents: str) -> "SourceFile":
-        lines: list[tuple[str, Optional[str]]] = []
-        preferred: Optional[str] = None
+    def parse(cls, contents: str) -> SourceFile:
+        lines: list[tuple[str, str | None]] = []
+        preferred: str | None = None
         line_start = 0
         cursor = 0
         n = len(contents)
@@ -487,7 +486,7 @@ class SourceFile:
 
     def apply_replacements(self, replacements: list[Replacement]) -> None:
         """按替换表重建;未动行保留原行尾,插入行用首选行尾,末尾行尾补齐(历史行为)。"""
-        new_lines: list[tuple[str, Optional[str]]] = []
+        new_lines: list[tuple[str, str | None]] = []
         source_index = 0
         for start_idx, old_len, new_segment in replacements:
             for line in self._lines[source_index:start_idx]:

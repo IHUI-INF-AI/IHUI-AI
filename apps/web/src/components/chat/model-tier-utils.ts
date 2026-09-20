@@ -19,6 +19,8 @@ import {
   isArchivedModel,
   normalizeCategory,
   normalizeTier,
+  type ModelCapabilities,
+  type ModelCapabilityKey,
   type ModelTier,
   type ModelUsageCategory,
 } from '@ihui/shared'
@@ -52,9 +54,31 @@ export interface ModelOption {
   tier?: ModelTier
   /** 系列名(如 `deepseek-v`),代次比较用,调试可查 */
   family?: string
+  /** 语义能力四布尔(2026-09-19 D23 立,后端 capabilities 透传):驱动能力过滤与徽章 */
+  capabilities?: ModelCapabilities
 }
 
-export type { ModelTier, ModelUsageCategory }
+export type { ModelTier, ModelUsageCategory, ModelCapabilities, ModelCapabilityKey }
+
+/**
+ * 按激活的能力键过滤模型(D23 2026-09-19 立,历史模型区"搜索 + 能力过滤"组合用)。
+ *
+ * 语义(与 splitByTier 的"宁可多显示也不误藏"原则对齐):
+ * - `required` 为空 → 原样返回(不过滤)
+ * - `opt.capabilities` 整体缺失(老后端/降级种子)→ 视为"未知",**保留**,
+ *   避免激活过滤器后列表突然空掉
+ * - 字段存在 → 逐键 `caps[key] === true` 才保留(缺键/非布尔按 false,多键 AND)
+ */
+export function filterByCapabilities(
+  options: ModelOption[],
+  required: ModelCapabilityKey[],
+): ModelOption[] {
+  if (required.length === 0) return options
+  return options.filter((opt) => {
+    if (!opt.capabilities) return true // 未知不误藏
+    return required.every((key) => opt.capabilities?.[key] === true)
+  })
+}
 
 /**
  * 把模型拆成"默认展示"与"历史模型"两区。

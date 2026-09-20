@@ -28,7 +28,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { mergeAgentTools } from './tool-config'
+import { eduToolsFor, mergeAgentTools } from './tool-config'
 import {
   createToolCallHandler,
   createToolSummaryHandler,
@@ -420,7 +420,11 @@ export function createSendAnswer(
         },
         // 2026-08-29 修复:与 sendMessage 对称,仅当用户显式启用插件工具时才携带 agentTools。
         // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
-        ...(mergeAgentTools().length > 0 ? { agentTools: mergeAgentTools() } : {}),
+        // 2026-09-19:消息含教育管理意图(催费/欠费/学费/缴费/退费/账单)时条件携带对应 edu_* 工具
+        ...(() => {
+          const agentTools = [...new Set([...mergeAgentTools(), ...eduToolsFor(answer)])]
+          return agentTools.length > 0 ? { agentTools } : {}
+        })(),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()

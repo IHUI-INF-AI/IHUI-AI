@@ -125,7 +125,7 @@ async def test_terminal_delta_stream_is_redacted(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "_emit_terminal_delta", _fake_emit)
     mcp_server._spawn_terminal_delta(
-        f"printenv", "stdout", f"OPENAI_API_KEY=sk-{_TAIL_A}"
+        "printenv", "stdout", f"OPENAI_API_KEY=sk-{_TAIL_A}"
     )
     await asyncio.sleep(0)
     assert captured, "delta 未被发射"

@@ -271,4 +271,145 @@ def test_result_to_dict_json_serializable():
     )
     d = ConversationService.result_to_dict(result)
     json.dumps(d)  # 不抛异常
+
+
+# =============================================================================
+# 教育管理(edu_*)意图预路由 + 身份透传回归(2026-09-19)
+# =============================================================================
+
+# 追加区块所需依赖(置于文件末尾以不动既有 import 区;E402 在 pyproject 已全局豁免)
+import httpx
+
+from app.core.llm_gateway import llm_gateway
+from app.services.mcp_server import _TOOL_HANDLERS, mcp_server
+
+
+def test_edu_intent_tools_strong_signals():
+    """强信号文本命中对应 edu 工具(欠费 → 查询;发催费 → 写操作)。"""
+    # "欠费"命中只读查询工具 edu_list_arrears
+    assert "edu_list_arrears" in ConversationService._edu_intent_tools("查一下欠费名单")
+    # "发催费"命中写操作 edu_send_fee_reminder(写操作同样进预路由:
+    # LLM 侧二次确认规范 + api 侧 RBAC 兜底权限)
+    assert "edu_send_fee_reminder" in ConversationService._edu_intent_tools("给张三发催费提醒")
+
+
+def test_edu_intent_tools_unrelated_text_empty():
+    """无关文本(无教育业务强信号)不命中任何 edu 工具。"""
+    assert ConversationService._edu_intent_tools("你好") == []
+
+
+@pytest.mark.asyncio
+async def test_chat_edu_identity_passthrough_end_to_end(monkeypatch):
+    """chat() 身份透传端到端:sid → call_tool → args["__user_id"] → httpx 鉴权头。
+
+    验证链路(2026-09-19 教育管理身份透传):
+    sid 复合格式首段经 _resolve_user_id 解析 → _execute_tool_call(user_id=…,
+    session_id=…) → mcp_server.call_tool 收到正确入参并注入 args["__user_id"]
+    → edu handler 经 _edu_api_request 发 HTTP 请求,头里带
+    x-user-id / x-internal-service-token。
+    """
+    sid = "user-e2e-1001:sess-e2e"  # 复合格式,首段可被 _resolve_user_id 解析
+    expect_uid = "user-e2e-1001"
+    # edu 内部鉴权头依赖 AI_CALLBACK_SECRET,显式注入保证确定性
+    monkeypatch.setenv("AI_CALLBACK_SECRET", "test-callback-secret")
+
+    # 1) spy 包一层真实 call_tool:捕获入参且不阻断后续 handler/httpx 链路
+    captured_calls: list[dict] = []
+    real_call_tool = mcp_server.call_tool
+
+    async def spy_call_tool(name, arguments=None, *, user_role=0, user_id=None, session_id=None):
+        captured_calls.append({
+            "name": name,
+            "user_id": user_id,
+            "session_id": session_id,
+        })
+        return await real_call_tool(
+            name, arguments, user_role=user_role, user_id=user_id, session_id=session_id
+        )
+
+    monkeypatch.setattr(mcp_server, "call_tool", spy_call_tool)
+
+    # 2) spy 包一层真实 edu handler:直接断言 call_tool 注入后的 args 身份键
+    real_edu_handler = _TOOL_HANDLERS["edu_list_arrears"]
+    captured_handler_args: list[dict] = []
+
+    async def spy_edu_handler(args):
+        captured_handler_args.append(dict(args))
+        return await real_edu_handler(args)
+
+    monkeypatch.setitem(_TOOL_HANDLERS, "edu_list_arrears", spy_edu_handler)
+
+    # 3) 在 httpx 层拦截,捕获 edu handler 发出的真实请求对象(不发真实网络);
+    #    URL 过滤 edu 前缀,避免画像/记忆注入等其他 httpx 调用混入断言
+    captured_requests: list[dict] = []
+
+    class _FakeEduResponse:
+        status_code = 200
+
+        def json(self):
+            return {"code": 0, "message": "ok", "data": {"list": [], "total": 0}}
+
+    async def fake_httpx_request(self, method, url, **kwargs):
+        captured_requests.append({
+            "method": method,
+            "url": str(url),
+            "headers": dict(kwargs.get("headers") or {}),
+            "params": dict(kwargs.get("params") or {}),
+        })
+        return _FakeEduResponse()
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_httpx_request)
+
+    # 4) stub LLM:意图分类轮(无 tools kwarg)返回空内容 → 走关键词 fallback;
+    #    工具轮第 1 次发起 edu_list_arrears tool_call,工具结果回灌后给最终回复
+    async def fake_complete(messages, model=None, **kwargs):
+        if not kwargs.get("tools"):
+            return {"content": "", "model": "stub", "stub": True}
+        if not any(m.get("role") == "tool" for m in messages):
+            return {
+                "content": "",
+                "model": "stub",
+                "stub": True,
+                "tool_calls": [{
+                    "id": "call_edu_1",
+                    "type": "function",
+                    "function": {
+                        "name": "edu_list_arrears",
+                        "arguments": json.dumps({"page": 1, "pageSize": 10}),
+                    },
+                }],
+            }
+        return {"content": "已为您查询欠费名单", "model": "stub", "stub": True}
+
+    monkeypatch.setattr(llm_gateway, "complete", fake_complete)
+
+    svc = ConversationService()
+    result = await svc.chat(
+        user_input="查一下欠费名单",
+        session_id=sid,
+        max_iterations=3,
+    )
+
+    # 5) call_tool 收到从 sid 解析出的 user_id 与完整 session_id
+    assert captured_calls, "应发生至少一次 mcp_server.call_tool 调用"
+    call = captured_calls[0]
+    assert call["name"] == "edu_list_arrears"
+    assert call["user_id"] == expect_uid
+    assert call["session_id"] == sid
+
+    # 6) call_tool 注入的 __user_id/__session_id 到达 handler(身份注入的直接证据)
+    assert captured_handler_args, "edu handler 应被调用"
+    assert captured_handler_args[0].get("__user_id") == expect_uid
+    assert captured_handler_args[0].get("__session_id") == sid
+
+    # 7) edu handler 发出的 HTTP 请求头携带真实用户身份
+    edu_reqs = [r for r in captured_requests if "edu-ai-management" in r["url"]]
+    assert edu_reqs, "edu handler 应发出 httpx 请求"
+    req = edu_reqs[0]
+    assert "/student-roster" in req["url"]
+    assert req["headers"].get("x-user-id") == expect_uid
+    assert req["headers"].get("x-internal-service-token") == "test-callback-secret"
+    assert req["params"].get("arrearsOnly") == "true"
+    # 工具执行成功(ok=True)并记录进 result.tool_calls
+    assert result.tool_calls and result.tool_calls[0].ok is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

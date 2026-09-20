@@ -26,14 +26,12 @@ shopt/set -o 状态——生成可 source 的快照脚本,供工具执行时重�
 
 from __future__ import annotations
 
-import fnmatch
 import os
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 SNAPSHOT_TIMEOUT_SECS = 15.0
 SNAPSHOT_DIRNAME = "shell-snapshots"
@@ -111,7 +109,7 @@ class ShellSnapshotFile:
         return key in self.credential_keys
 
 
-def parse_snapshot(raw: bytes, parent_env: Optional[dict[str, str]] = None) -> Optional[ShellSnapshotData]:
+def parse_snapshot(raw: bytes, parent_env: dict[str, str] | None = None) -> ShellSnapshotData | None:
     """解析捕获输出:state NUL aliases NUL (KEY=VALUE NUL)*。
 
     容错:缺首段标记返回 None(校验失败语义);env 段缺 NUL 结尾也接受
@@ -186,10 +184,10 @@ def capture_shell_snapshot(
     cwd: str,
     snapshot_dir: str,
     session_id: str,
-    parent_env: Optional[dict[str, str]] = None,
+    parent_env: dict[str, str] | None = None,
     interactive: bool = True,
     timeout: float = SNAPSHOT_TIMEOUT_SECS,
-) -> Optional[ShellSnapshotFile]:
+) -> ShellSnapshotFile | None:
     """捕获→校验→原子落盘;失败返回 None(快照绝不阻塞主流程)。
 
     Args:

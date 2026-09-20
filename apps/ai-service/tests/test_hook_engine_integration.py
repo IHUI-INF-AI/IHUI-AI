@@ -94,6 +94,8 @@ async def test_session_start_end_emitted():
     })
 
     # session.end:_session_id 已生成
+    # D27(2026-09):成功结束时会构建交付清单并经 session.end 下发,
+    # payload 含 deliverables 键,断言用 ANY 占位
     mock_emit.assert_any_call("session.end", {
         "session_id": loop._session_id or "",
         "user_id": "",
@@ -102,6 +104,7 @@ async def test_session_start_end_emitted():
         "total_iterations": 2,
         "total_duration_ms": result.total_duration_ms,
         "trace_id": ANY,
+        "deliverables": ANY,
     })
 
     # 至少 4 次:session.start + tool.before + tool.after + session.end

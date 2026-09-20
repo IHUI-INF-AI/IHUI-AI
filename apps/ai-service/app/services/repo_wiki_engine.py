@@ -22,11 +22,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging as _logging
 import os
 import time
 from typing import Any
-
-import logging as _logging
 
 logger = _logging.getLogger("repo_wiki_engine")
 
@@ -120,7 +119,7 @@ def _cache_file(namespace: str, workspace_path: str) -> str:
 def _load_disk(namespace: str, workspace_path: str) -> dict[str, Any] | None:
     try:
         fp = _cache_file(namespace, workspace_path)
-        with open(fp, "r", encoding="utf-8") as fh:
+        with open(fp, encoding="utf-8") as fh:
             data = json.load(fh)
         if isinstance(data, dict) and isinstance(data.get("files"), dict):
             return data
@@ -235,7 +234,7 @@ async def ensure_wiki(
                 continue
             # 新增/变更:读取内容并(重)生成摘要
             try:
-                with open(abs_path, "r", encoding="utf-8", errors="replace") as fh:
+                with open(abs_path, encoding="utf-8", errors="replace") as fh:
                     content = fh.read()
             except OSError:
                 continue

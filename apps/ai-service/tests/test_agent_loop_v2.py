@@ -452,7 +452,8 @@ def test_build_tools_schema():
     loop = AgentLoopV2(mock_llm, tools, max_iterations=1)
     schema = loop._build_tools_schema()
 
-    assert len(schema) == 2
+    # 批 42:_build_tools_schema 末尾追加内置 get_context_remaining(零参工具)
+    assert len(schema) == 3
     assert schema[0] == {
         "type": "function",
         "function": {
@@ -467,6 +468,14 @@ def test_build_tools_schema():
     }
     assert schema[1]["function"]["name"] == "search"
     assert schema[1]["function"]["parameters"]["properties"]["q"]["type"] == "string"
+    assert schema[2] == {
+        "type": "function",
+        "function": {
+            "name": "get_context_remaining",
+            "description": "Get the remaining tokens in the current context window.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
 
 
 # =============================================================================

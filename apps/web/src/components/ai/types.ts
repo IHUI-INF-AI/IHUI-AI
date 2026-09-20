@@ -20,7 +20,7 @@ export type ModelCategory = 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'o
 export type GenerationType = 'auto' | 'image' | 'video' | '3d' | 'vision' | 'audio' | 'music'
 
 /** 图像服务商 */
-export type ImageProvider = 'qwen' | 'doubao' | 'jimeng'
+export type ImageProvider = 'qwen' | 'doubao' | 'jimeng' | 'agnes'
 
 /** 视频服务商 */
 export type VideoProvider = 'qwen' | 'kling' | 'one-click'

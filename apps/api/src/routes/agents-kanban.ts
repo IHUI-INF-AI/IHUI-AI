@@ -157,6 +157,16 @@ const workspaceLockQuerySchema = z.object({
   workspace: z.string().min(1).max(512),
 })
 
+// D25 统一任务看板:改名/改描述(name 与 description 至少提供其一)
+const renameTaskSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    description: z.string().optional(),
+  })
+  .refine((d) => d.name !== undefined || d.description !== undefined, {
+    message: '至少提供 name 或 description',
+  })
+
 // ---------------------------------------------------------------------------
 // 团队成员校验(2-2 团队任务板):admin(roleId>=1)直接放行,其余须为团队成员
 // ---------------------------------------------------------------------------
@@ -189,8 +199,8 @@ async function getUserVisibleTeamIds(request: FastifyRequest): Promise<string[] 
   return rows.map((r) => r.teamId)
 }
 
-/** P0-4:校验请求者是否有权查看某团队的任务行 */
-async function canViewTaskTeam(
+/** P0-4:校验请求者是否有权查看某团队的任务行(D25 task-messages router 复用) */
+export async function canViewTaskTeam(
   request: FastifyRequest,
   row: { teamId: string | null },
 ): Promise<boolean> {
@@ -527,6 +537,28 @@ export const agentsKanbanRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(response))
     },
   )
+
+  // PATCH /agents/kanban/tasks/:id — 改名/改描述(D25 统一任务看板)
+  // 注:不广播 SSE——AgentSSEEvent type 联合未含 task_updated,改名属低频编辑操作,
+  //     前端改名成功后手动失效 ['agents-kanban'] 缓存即可
+  server.patch('/agents/kanban/tasks/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const body = parseOrThrow(renameTaskSchema, request.body)
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+      updatedBy: request.userId ?? null,
+    }
+    if (body.name !== undefined) updateData.name = body.name
+    if (body.description !== undefined) updateData.description = body.description
+
+    const [updated] = await db
+      .update(agentTasks)
+      .set(updateData)
+      .where(eq(agentTasks.id, id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '任务不存在'))
+    return reply.send(success(toKanbanTask(updated)))
+  })
 
   // DELETE /agents/kanban/tasks/:id — 删除任务(仅 triage/done 可删)
   server.delete(
