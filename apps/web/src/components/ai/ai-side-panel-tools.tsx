@@ -49,6 +49,8 @@ import { MemoryGraphPanel } from '@/components/ai/memory-graph-panel'
 import { AtomicRollbackPanel } from '@/components/ai/atomic-rollback-panel'
 import { WorldsCompare } from '@/components/ai/worlds-compare'
 import { AgentTasksPanel } from '@/components/ai/agent-tasks-panel'
+// D25(2026-09-19 立):统一任务运行时看板(四源聚合+搜索/启动/停止/改名+@任务消息)
+import { UnifiedTaskDashboard } from '@/components/agents/UnifiedTaskDashboard'
 // D6 #2(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
 import { KanbanBoard } from '@/components/agents/KanbanBoard'
 import { GoalCard } from '@/components/ai/goal-card'
@@ -104,6 +106,7 @@ type ToolTabKey =
   | 'atomicrollback'
   | 'worlds'
   | 'agenttasks'
+  | 'unified'
   | 'kanban'
   | 'hooks'
   | 'wiki'
@@ -131,6 +134,7 @@ const TAB_KEYS: ToolTabKey[] = [
   'atomicrollback',
   'worlds',
   'agenttasks',
+  'unified',
   'kanban',
   'hooks',
   'wiki',
@@ -686,6 +690,9 @@ export function AiSidePanelTools() {
       // P3 #44 阶段3 前端宿主(2026-09-17 立):agent 运行任务列表 + 中途插话
       case 'agenttasks':
         return <AgentTasksPanel />
+      // D25(2026-09-19 立):统一任务运行时看板(四源聚合:kanban/后台派单/本地 agentLoop/云端运行)
+      case 'unified':
+        return <UnifiedTaskDashboard />
       // D6 第 2 步(2026-09-19 立):挂载 DB 持久化 + SSE 的 KanbanBoard,作为统一 agent 任务数据层
       case 'kanban':
         return <KanbanBoard />

@@ -27,7 +27,8 @@ import { writeToOutbox } from '../utils/outbox.js'
 import { rechargeToken, deductToken, refundTokenDeduct } from '../db/commission-queries.js'
 import { db } from '../db/index.js'
 import { eq, and, sql } from 'drizzle-orm'
-import { outboxEvents, pointTransactions } from '@ihui/database'
+import { outboxEvents, pointTransactions, eduEnrollment, eduPaymentRecord } from '@ihui/database'
+import { isNull } from 'drizzle-orm'
 import { calculateTopupBonus } from './topup-discount-service.js'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
@@ -89,12 +90,15 @@ export async function completeOrder(
     }
     // B1: token 充值(幂等:rechargeToken 内部 unique 索引拦截重复回调)
     await rechargeIfTokenOrder(updated)
+    // B4: 学费订单(orderType=9)自动入账(幂等:receiptNo=orderNo 查重)
+    await applyEduTuitionOrder(updated)
     // Phase 4: updateOrderStatus 内部已事务同步 eduOrders，无需额外同步
     return { success: true, order: updated }
   }
   if (order.status === 'paid') {
     // 幂等重试:订单已支付,重新尝试 token 充值(unique 索引保证幂等)
     await rechargeIfTokenOrder(order)
+    await applyEduTuitionOrder(order)
     return { success: true, order }
   }
   return { success: false, reason: `订单状态(${order.status})不可完成` }
@@ -131,6 +135,57 @@ async function creditTopupBonus(order: Order): Promise<number> {
   if (bonusCents <= 0) return 0
   await rechargeToken(order.userId, bonusCents, `bonus:${order.orderNo}`, '充值赠送')
   return bonusCents
+}
+
+/**
+ * B4(2026-09-19): 学费在线支付订单(orderType=9)支付成功后自动入账。
+ * 订单 productId = eduEnrollment.id。
+ * 单位换算:orders.amount 为分(微信支付),eduEnrollment/eduPaymentRecord 为元(与 web 缴费登记一致)。
+ * - 幂等:按 receiptNo=orderNo 查重,edu_payment_record 已有该单号则跳过(重复回调/重放安全);
+ * - 校验:productId 必须对应有效报名且 payer(order.userId)为该报名学员,防伪造;
+ * - 累加:edu_enrollment.paidAmount 条件 UPDATE(deleted_at is null),欠费=max(0,totalFee-paid) 自动收敛。
+ * 失败抛出,由调用方(支付回调)触发 paymentIdempotency.fail 释放锁让平台重试。
+ */
+async function applyEduTuitionOrder(order: Order): Promise<void> {
+  if (order.orderType !== 9 || !order.userId || !order.productId) return
+  const existing = await db
+    .select({ id: eduPaymentRecord.id })
+    .from(eduPaymentRecord)
+    .where(and(eq(eduPaymentRecord.receiptNo, order.orderNo), isNull(eduPaymentRecord.deletedAt)))
+    .limit(1)
+  if (existing.length > 0) return
+  const enrollment = await db
+    .select({
+      id: eduEnrollment.id,
+      studentId: eduEnrollment.studentId,
+      classId: eduEnrollment.classId,
+    })
+    .from(eduEnrollment)
+    .where(and(eq(eduEnrollment.id, order.productId), isNull(eduEnrollment.deletedAt)))
+    .limit(1)
+  const enrollmentRow = enrollment[0]
+  if (!enrollmentRow || enrollmentRow.studentId !== order.userId) return
+  const amountYuan = Math.round(order.amount / 100)
+  const today = new Date().toISOString().slice(0, 10)
+  await db.insert(eduPaymentRecord).values({
+    studentId: enrollmentRow.studentId,
+    classId: enrollmentRow.classId,
+    amount: amountYuan,
+    paymentDate: today,
+    paymentMethod: 'wechat',
+    status: 'paid',
+    receiptNo: order.orderNo,
+    remark: `在线支付-学费 ${order.orderNo}`,
+  })
+  await db
+    .update(eduEnrollment)
+    .set({ paidAmount: sql`${eduEnrollment.paidAmount} + ${amountYuan}`, updatedAt: new Date() })
+    .where(and(eq(eduEnrollment.id, enrollmentRow.id), isNull(eduEnrollment.deletedAt)))
+  logger.info('学费订单自动入账完成', {
+    orderNo: order.orderNo,
+    enrollmentId: order.productId,
+    amountYuan,
+  })
 }
 
 /**

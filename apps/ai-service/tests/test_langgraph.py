@@ -22,6 +22,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.routers import langgraph as lg
 from app.routers.langgraph import (
+    CanvasRunRequest,
     InterruptRequest,
     ResumeRequest,
     _ok,
@@ -29,9 +30,15 @@ from app.routers.langgraph import (
     get_history,
     get_registered_graph,
     get_state,
+    post_canvas_run,
     post_interrupt,
     post_resume,
     register_langgraph_graph,
+)
+from app.services.canvas_graph import (
+    get_canvas_graph_entry,
+    register_canvas_graph,
+    remove_canvas_graph,
 )
 from app.services.langgraph_stream import SSEEvent
 
@@ -60,6 +67,15 @@ class _FakeManager:
         self.saved_writes = []
         self.latest_error = None
         self.graph_state_error = None
+        # D26:canvas checkpointer 挂载测试用(可注入失败)
+        self.saver = object()
+        self.saver_error = None
+
+    async def get_saver(self):
+        """D26:模拟 AsyncPostgresSaver 获取(saver_error 注入时抛错)。"""
+        if self.saver_error:
+            raise RuntimeError(self.saver_error)
+        return self.saver
 
     async def get_latest_checkpoint(self, thread_id):
         if self.latest_error:
@@ -92,6 +108,8 @@ class _FakeGraph:
 @pytest.fixture(autouse=True)
 def _reset_graph_and_services(monkeypatch):
     """重置注册表 + mock checkpoint manager 与 trigger/resume 函数。"""
+    from app.services import canvas_graph as canvas_graph_mod
+
     monkeypatch.setattr(lg, "_registered_graph", None)
     manager = _FakeManager()
     monkeypatch.setattr(lg, "_manager", lambda: manager)
@@ -110,6 +128,8 @@ def _reset_graph_and_services(monkeypatch):
 
     monkeypatch.setattr(lg, "trigger_interrupt", _fake_trigger_interrupt)
     monkeypatch.setattr(lg, "resume_from_interrupt", _fake_resume_from_interrupt)
+    # D26:清空 canvas 图注册表,避免用例间泄漏(resume/state 图解析优先级受影响)
+    canvas_graph_mod._canvas_graph_registry.clear()
     return manager
 
 
@@ -179,6 +199,104 @@ def test_sse_format_default_str_for_non_serializable():
     s = _sse_format(evt)
     assert s.startswith("event: done\n")
     assert "object" in s
+
+
+# =============================================================================
+# POST /canvas/run (D26:checkpointer 挂载 + 注册表)
+# =============================================================================
+
+_CANVAS_DAG = {
+    "nodes": [{"id": "n1", "type": "tool", "name": "工具节点"}],
+    "edges": [],
+}
+
+
+async def test_post_canvas_run_success_with_checkpointer(
+    _reset_graph_and_services, monkeypatch
+):
+    """D26:checkpointer 获取成功 → 传入 build_canvas_graph + 注册表命中。"""
+    manager = _reset_graph_and_services
+    captured = {}
+    canvas_graph = _FakeGraph()
+
+    def _fake_build(dag, *, checkpointer=None):
+        captured["dag"] = dag
+        captured["checkpointer"] = checkpointer
+        return canvas_graph
+
+    monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
+    resp = await post_canvas_run(
+        CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-canvas", input="初始输入")
+    )
+    assert resp["code"] == 0
+    assert resp["data"]["runId"] == "t-canvas"
+    # manager.get_saver() 的 saver 被传入构图(HITL interrupt 生效前提)
+    assert captured["checkpointer"] is manager.saver
+    assert captured["dag"] == _CANVAS_DAG
+    # 注册表命中:graph 与初始输入被记录(stream 回填用)
+    entry = get_canvas_graph_entry("t-canvas")
+    assert entry is not None
+    assert entry["graph"] is canvas_graph
+    assert entry["input"] == "初始输入"
+    remove_canvas_graph("t-canvas")
+
+
+async def test_post_canvas_run_saver_error_degrades_to_none(
+    _reset_graph_and_services, monkeypatch
+):
+    """D26:get_saver 失败 → checkpointer=None 降级,仍成功注册(仅 interrupt 不生效)。"""
+    manager = _reset_graph_and_services
+    manager.saver_error = "pg down"
+    captured = {}
+
+    def _fake_build(dag, *, checkpointer=None):
+        captured["checkpointer"] = checkpointer
+        return _FakeGraph()
+
+    monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
+    resp = await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-canvas"))
+    assert resp["code"] == 0
+    assert captured["checkpointer"] is None
+    remove_canvas_graph("t-canvas")
+
+
+async def test_post_canvas_run_generated_thread_id(_reset_graph_and_services, monkeypatch):
+    """缺省 thread_id → 自动生成 32 位 hex,注册表以同 id 命中。"""
+    captured = {}
+
+    def _fake_build(dag, *, checkpointer=None):
+        captured["checkpointer"] = checkpointer
+        return _FakeGraph()
+
+    monkeypatch.setattr(lg, "build_canvas_graph", _fake_build)
+    resp = await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG))
+    run_id = resp["data"]["runId"]
+    assert isinstance(run_id, str) and len(run_id) == 32
+    assert get_canvas_graph_entry(run_id) is not None
+    remove_canvas_graph(run_id)
+
+
+async def test_post_canvas_run_invalid_dag_400(_reset_graph_and_services):
+    """DAG 校验失败 → 400,且不写注册表。"""
+    with pytest.raises(HTTPException) as ei:
+        await post_canvas_run(CanvasRunRequest(dag={"nodes": [], "edges": []}))
+    assert ei.value.status_code == 400
+    assert "dag.nodes" in ei.value.detail
+    assert get_canvas_graph_entry("t-canvas") is None
+
+
+async def test_post_canvas_run_build_failure_400(_reset_graph_and_services, monkeypatch):
+    """build_canvas_graph 抛异常 → 400,且不写注册表。"""
+
+    def _broken_build(dag, *, checkpointer=None):
+        raise RuntimeError("compile boom")
+
+    monkeypatch.setattr(lg, "build_canvas_graph", _broken_build)
+    with pytest.raises(HTTPException) as ei:
+        await post_canvas_run(CanvasRunRequest(dag=_CANVAS_DAG, thread_id="t-bad"))
+    assert ei.value.status_code == 400
+    assert "canvas 图构建失败" in ei.value.detail
+    assert get_canvas_graph_entry("t-bad") is None
 
 
 # =============================================================================
@@ -357,6 +475,67 @@ async def test_get_state_latest_checkpoint_runtime_error_503(_reset_graph_and_se
     with pytest.raises(HTTPException) as ei:
         await get_state("t1")
     assert ei.value.status_code == 503
+
+
+# =============================================================================
+# D26:resume / state 图解析 canvas 注册表优先
+# =============================================================================
+
+
+async def test_post_resume_prefers_canvas_registry_graph(
+    _reset_graph_and_services, monkeypatch
+):
+    """D26:canvas 注册表命中 → resume 打 canvas 图,不打默认注册图(修复点)。"""
+    monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
+    default_graph = _FakeGraph()
+    monkeypatch.setattr(lg, "_registered_graph", default_graph)
+    canvas_graph = _FakeGraph()
+    register_canvas_graph("t-canvas", canvas_graph)
+    try:
+        resp = await post_resume(
+            ResumeRequest(thread_id="t-canvas", interrupt_id="i1", resume_value={"ok": 1})
+        )
+    finally:
+        remove_canvas_graph("t-canvas")
+    cmd = resp["data"]
+    assert cmd["invoked"] is True
+    assert len(canvas_graph.calls) == 1
+    args, kwargs = canvas_graph.calls[0]
+    assert kwargs["config"] == {"configurable": {"thread_id": "t-canvas"}}
+    from langgraph.types import Command
+
+    assert isinstance(args[0], Command)
+    assert args[0].resume == {"ok": 1}
+    # 默认注册图未被误用(D26 修复点)
+    assert default_graph.calls == []
+
+
+async def test_get_state_prefers_canvas_registry_graph(
+    _reset_graph_and_services, monkeypatch
+):
+    """D26:canvas 注册表命中 → get_state 查 canvas 图状态(修复点)。"""
+    manager = _reset_graph_and_services
+    monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
+    default_graph = _FakeGraph()
+    monkeypatch.setattr(lg, "_registered_graph", default_graph)
+    canvas_graph = _FakeGraph()
+    register_canvas_graph("t-canvas", canvas_graph)
+    seen_graphs = []
+    real_get_graph_state = manager.get_graph_state
+
+    async def _spy_get_graph_state(graph, thread_id):
+        seen_graphs.append(graph)
+        return await real_get_graph_state(graph, thread_id)
+
+    manager.get_graph_state = _spy_get_graph_state
+    try:
+        resp = await get_state("t-canvas")
+    finally:
+        remove_canvas_graph("t-canvas")
+    assert resp["code"] == 0
+    assert resp["data"]["graphState"] == {"values": {"x": 1}}
+    # 实际查询的是 canvas 注册表图,而非默认图(D26 修复点)
+    assert seen_graphs == [canvas_graph]
 
 
 # =============================================================================

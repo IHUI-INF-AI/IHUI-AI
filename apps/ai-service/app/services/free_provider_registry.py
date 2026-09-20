@@ -252,7 +252,13 @@ _REGISTRY: list[FreeProvider] = [
         key_env_vars=["AGNES_API_KEY"],
         # 2026-08-02 修复:agnes 是自有模型平台(非 OpenAI 中转),
         # /v1/models 实测支持 agnes-2.5-flash / agnes-2.5-pro 等(不支持 gpt-4o / step-3.7-flash)
-        default_models=["agnes/agnes-2.5-flash", "agnes/agnes-2.5-pro"],
+        # 2026-09-20 补充:追加生图模型(OpenAI images 协议 /v1/images/generations)
+        # 2026-09-20 实测:agnes-image-2.5-flash 已成功出图(data[0].url)
+        default_models=[
+            "agnes/agnes-2.5-flash", "agnes/agnes-2.5-pro",
+            "agnes/agnes-image-2.5-flash", "agnes/agnes-image-2.1-flash",
+            "agnes/agnes-image-2.0-flash",
+        ],
         docs_url="https://agnes-ai.com/docs",
         notes="项目已配置 plan 套餐 key,自有模型平台,支持 agnes-2.5-flash / agnes-2.5-pro",
     ),
