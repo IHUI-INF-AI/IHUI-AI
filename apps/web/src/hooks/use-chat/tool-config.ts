@@ -51,6 +51,18 @@ export const AGENT_TOOLS = [
   'computer_active_window',
   'computer_clipboard_get',
   'computer_clipboard_set',
+  // 7 web UI tools(2026-09-20 立,AI 全量操控本站页面,web 前端桥接执行)
+  'web_ui_describe',
+  'web_ui_navigate',
+  'web_ui_click',
+  'web_ui_fill',
+  'web_ui_submit',
+  'web_ui_read',
+  'web_ui_invoke',
+  // API 桥接入口两件(2026-09-20 立):后端端点工具数百,schema 不进上下文,
+  // 由这两个名字恒定的工具"先搜后调"抵达任意端点
+  'api_endpoints_search',
+  'api_endpoint_call',
 ] as const
 
 /**
