@@ -81,6 +81,28 @@ const LOCALES: Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 let currentLocale: Locale = 'zh-CN'
 
 /**
+ * 组件树外的 locale 切换入口(2026-09-21 立,供 AI 操控桥调用)。
+ *
+ * 为什么不能直接改 `currentLocale`/storage:那只会让**下一次**渲染用到新值,当前界面纹丝不动
+ * —— 对调用方等于"报了成功但用户什么都没看见"的假成功。真正生效必须走 I18nProvider 里那个
+ * `setLocale`(它会 setState 触发整树重渲染),而它在 React 内部。
+ * 所以由 Provider 挂载时把 setter 注册进来、卸载时摘掉;注册表这边只在**确实拿到 setter** 时
+ * 才算成功,否则如实返回失败(不编造)。
+ */
+let localeSetter: ((locale: Locale) => void) | null = null
+
+export function registerLocaleSetter(setter: ((locale: Locale) => void) | null): void {
+  localeSetter = setter
+}
+
+/** 返回 false = 当前没有挂载中的 I18nProvider(冷启竞态/未挂 Provider),调用方须如实报错。 */
+export function requestLocaleChange(locale: Locale): boolean {
+  if (!localeSetter) return false
+  localeSetter(locale)
+  return true
+}
+
+/**
  * 全局 t 函数(供非组件代码使用,如 utils/pay.ts、platform/pay.ts 等)
  * - 组件内优先用 useI18n() 获取响应式 t
  * - utils/platform 等非组件代码用本函数
@@ -117,6 +139,12 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLocaleState(l)
     Taro.setStorageSync(LOCALE_KEY, l)
   }, [])
+
+  // 把真正会重渲染的 setter 暴露给组件树外(AI 操控桥);卸载时摘掉,避免调用到已销毁的 Provider
+  useEffect(() => {
+    registerLocaleSetter(setLocale)
+    return () => registerLocaleSetter(null)
+  }, [setLocale])
 
   const t = useCallback(
     (key: string, params?: Record<string, string | number>) => {

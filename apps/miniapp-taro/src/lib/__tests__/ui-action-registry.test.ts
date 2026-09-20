@@ -27,7 +27,12 @@ const mocks = vi.hoisted(() => ({
   // 页面栈为空时的回落来源(Taro.getCurrentInstance().router),由用例按需注入
   router: undefined as { path: string; params?: Record<string, unknown> } | undefined,
   setThemePreference: vi.fn((preference: string) => (preference === 'auto' ? 'light' : preference)),
+  // I18nProvider 注册的 setter:默认"已挂载",个别用例改 mockReturnValueOnce(false) 验假成功防护
+  requestLocaleChange: vi.fn(() => true),
 }))
+
+// 只暴露注册表用到的那一个符号:整个 @/i18n 模块会拉语言包 JSON + fflate,测试无需
+vi.mock('@/i18n', () => ({ requestLocaleChange: mocks.requestLocaleChange }))
 
 vi.mock('@tarojs/taro', () => {
   const Taro = {
@@ -342,14 +347,43 @@ describe('invoke —— 白名单 = 外观 + tab 导航 + 页面命令,破坏性
       'pay:confirm',
       'withdraw',
       'lang:en',
-      'locale:en',
       'language:switch',
     ]) {
       const result = await executeTaroUiAction('invoke', { name })
       expect(result.errorCode, name).toBe('UNSUPPORTED_ACTION')
     }
-    // 语言切换刻意不进白名单(setLocale 只在 I18nProvider 内生效,模块级调用是假成功)
+    // 只认精确 id:lang:/language: 这类近似写法不得被"顺手兼容"掉
     expect(mocks.setThemePreference).not.toHaveBeenCalled()
+    expect(mocks.requestLocaleChange).not.toHaveBeenCalled()
+  })
+
+  describe('locale:* —— 必须走 Provider 注册的 setter,拿不到就如实失败', () => {
+    it('Provider 已挂载时切换成功,并把目标 locale 回传', async () => {
+      mocks.requestLocaleChange.mockReturnValueOnce(true)
+      const result = await executeTaroUiAction('invoke', { name: 'locale:en' })
+      expect(result.ok).toBe(true)
+      expect(mocks.requestLocaleChange).toHaveBeenCalledWith('en')
+      expect(result.data?.invoked).toBe('locale:en')
+      expect(result.data?.locale).toBe('en')
+    })
+
+    it('Provider 未挂载时返回 EXECUTION_FAILED,绝不报成功(否则就是假成功)', async () => {
+      mocks.requestLocaleChange.mockReturnValueOnce(false)
+      const result = await executeTaroUiAction('invoke', { name: 'locale:ja' })
+      expect(result.ok).toBe(false)
+      expect(result.errorCode).toBe('EXECUTION_FAILED')
+      expect(result.error).toContain('不谎报成功')
+      expect(mocks.requestLocaleChange).toHaveBeenCalledWith('ja')
+    })
+
+    it('五个语言都在白名单内且 id 形如 locale:<码>', async () => {
+      for (const locale of ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']) {
+        mocks.requestLocaleChange.mockReturnValueOnce(true)
+        const result = await executeTaroUiAction('invoke', { name: `locale:${locale}` })
+        expect(result.ok, locale).toBe(true)
+        expect(mocks.requestLocaleChange).toHaveBeenLastCalledWith(locale)
+      }
+    })
   })
 
   it('describe 的 commands 与实际可调用集合一致,且不含登出/注销语义', () => {
@@ -364,10 +398,15 @@ describe('invoke —— 白名单 = 外观 + tab 导航 + 页面命令,破坏性
       'tab:mine',
       'tab:share',
       'page:top',
+      'locale:zh-CN',
+      'locale:en',
+      'locale:ja',
+      'locale:ko',
+      'locale:zh-TW',
     ])
     for (const command of snapshot.commands) {
       expect(command.label, command.id).toBeTruthy()
-      expect(['appearance', 'navigation', 'page'], command.id).toContain(command.group)
+      expect(['appearance', 'navigation', 'page', 'locale'], command.id).toContain(command.group)
     }
     const json = JSON.stringify(snapshot.commands).toLowerCase()
     expect(json).not.toMatch(/logout|sign-?out|注销|退出登录|cancel-account/)
