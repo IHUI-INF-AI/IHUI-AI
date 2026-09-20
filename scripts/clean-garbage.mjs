@@ -113,7 +113,7 @@ async function gitMaintenance(dryRun) {
   if (!dryRun) {
     console.log('[clean-garbage] git gc --prune=now(打包松散对象)...')
     try {
-      execFileSync('git', ['gc', '--prune=now'], { cwd: ROOT, stdio: 'ignore' })
+      execFileSync('git', ['gc', '--prune=now'], { cwd: ROOT, stdio: 'ignore', windowsHide: true })
       results.push('git gc 完成')
     } catch (err) {
       results.push(`git gc 失败: ${err.message.split('\n')[0]}`)

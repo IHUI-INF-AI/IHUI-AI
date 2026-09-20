@@ -18,12 +18,12 @@ const GIT_BIN = (() => {
   return 'git'
 })()
 function runGit(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6 })
+  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   if (r.status !== 0) throw new Error(`git ${args[0]} exit=${r.status}: ${(r.stderr || '').slice(0, 150)}`)
   return (r.stdout || '').trim()
 }
 function runGitSoft(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6 })
+  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
   return (r.stdout || '')
 }
 
