@@ -103,6 +103,7 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import {
@@ -116,6 +117,15 @@ import {
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
+
+/**
+ * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
+ * 族名与本端映射在 `../lib/ui-control-tools`(关键词判定在 @ihui/shared 单一事实源)。
+ *
+ * 为什么必须在这里按需带:`apps/ai-service/app/routers/llm.py` 的 tool loop 只在请求带
+ * 非空 agentTools 时才进入,而本端为保打字机流式,普通问答刻意不带工具(web 端
+ * use-chat/send-message.ts 2026-08-29 同因)。不带 → 端侧桥接在对话里就是死代码。
+ */
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -829,6 +839,10 @@ export default function AiAssistantN8nScreen() {
     }
     apiMessages.push({ role: 'user', content: text })
 
+    // agentTools 闸门:意图判定对象是"本次要发出去的最后一条 user 消息"(即上面的 text,
+    // system 提示词不参与判定,否则提示词里的"打开/进入"等字样会让每次请求都带工具)
+    const agentTools = uiControlToolsFor(text)
+
     // 2026-09-04 吞错修复(Fix B):streamChat 未传 onError 时对流内 error 事件耗尽重试后会 throw(reject,
     // 见 client.ts catch 块)。本屏虽传了 onError,但请求构造/网络层在进入重试循环前抛出的异常仍会 reject,
     // 此前无 try/catch 会导致 unhandled rejection 且 sending 永远不复位。补 try/catch 把错误路由到
@@ -838,6 +852,8 @@ export default function AiAssistantN8nScreen() {
         model: selectedModelId,
         messages: apiMessages,
         agentId,
+        // 不命中意图时连字段都不出现,请求体与改造前逐字节一致(api-client 另有 length>0 守卫)
+        ...(agentTools.length > 0 ? { agentTools } : {}),
         signal: controller.signal,
         // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
         stream: true,
