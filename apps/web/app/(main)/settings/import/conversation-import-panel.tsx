@@ -133,8 +133,9 @@ export function ConversationImportPanel() {
           source: source as ConversationImportSource,
           fileName: file?.name || undefined,
           title: conv.title?.trim() ? conv.title.trim().slice(0, 255) : undefined,
-          // 原会话模型透传(缺省时 api 侧回退默认模型)
-          model: conv.model?.trim() ? conv.model.trim().slice(0, 64) : undefined,
+          // 不透传 conv.model:该列会直接进 LLM 网关(chat.ts 的 conversation.model),
+          // 外部工具模型 id 未必在用户目录内,写入会让导入会话首次续聊报错。留待 /parse
+          // 响应透出的 model 仅作展示用途(类型已在 @ihui/api-client 定义)。
           createdAt: conv.sourceCreatedAt ?? conv.sourceUpdatedAt ?? undefined,
           messages,
         }
