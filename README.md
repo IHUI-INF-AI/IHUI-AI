@@ -706,11 +706,11 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 三条互补路线，全部复用既有链路，不新增鉴权体系：
 
-| 路线                           | 机制                                                                                        | 覆盖面                                                                                                                           | 关键实现                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表      | 后端全部 HTTP 能力(read 模式实测 **1982 个只读端点全部可调用**:300 个注册为独立工具,长尾经 `api_endpoint_call` 按 name 即时派发) | `api_tools_bridge.spec_to_tools()` + `make_api_handler()`   |
-| **B. 前端 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果 | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用                                                        | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts` |
-| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                          | 任意 UI(含第三方站点)，无需改造                                                                                                  | 既有 agent-control 通道，本次仅扩 category 枚举             |
+| 路线                           | 机制                                                                                        | 覆盖面                                                                                                                                                      | 关键实现                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表      | 后端全部 HTTP 能力(read 模式 **2027 个只读端点可调用**：300 个注册为独立工具，长尾经 `api_endpoint_call` 即时派发；调用 URL 按 `spec.servers` 解析挂载前缀) | `api_tools_bridge.spec_to_tools()` + `resolve_mounted_path()` |
+| **B. 前端 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果 | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用                                                                                   | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts`   |
+| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                          | 任意 UI(含第三方站点)，无需改造                                                                                                                             | 既有 agent-control 通道，本次仅扩 category 枚举               |
 
 端点数量实测 4471 个 operation，完整 schema 全塞进一次对话不现实；A 路线因此提供两个**名字恒定**的入口工具，
 让模型"先搜后调"，token 成本与端点数解耦：
@@ -2231,20 +2231,20 @@ pnpm turbo build typecheck lint test
 
 第三方 AI Agent 通过**机器凭据**调用本项目能力,能力面由 `packages/types/src/capability-catalog.ts` 一处声明、三处消费(API 闸口 / MCP 门禁 / 文档产物)。
 
-| 要素     | 落点                                                                              | 说明                                                                              |
-| -------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| 凭据     | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                         | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧           |
-| 授权     | `apps/api/src/utils/capability-guard.ts`                                          | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)         |
-| 数据边界 | `CapabilityEntry.dataClass`                                                       | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`     |
-| MCP 接入 | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*` | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                     |
-| 产物     | `packages/types/generated/capabilities.json`                                      | `pnpm capabilities:export` 生成;`--check` 防漂移                                  |
-| 协议兼容 | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)      | 官方 SDK 可直接指向本项目                                                         |
-| 限流     | `RATE_PROFILES`(按 risk)+ key 级 5h/1d/7d 窗口 + nginx `limit_req`                | 限流后端不可用时 billable 能力 fail-closed(503)                                   |
-| 不开放   | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                    | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send` |
-| OAuth 2.1 提供方 | `/.well-known/oauth-authorization-server`、`/oauth/register`(RFC 7591 DCR)、`/oauth/token`(含 `client_credentials`)、`/oauth/introspect`、`/oauth/revoke` | 授权码链路已真正校验 PKCE(此前形同虚设);discovery 只声明已实现的能力 |
-| A2A 发现 | `/.well-known/agent.json`(+ `agent-card.json` 别名) | `skills[]` 全部由能力目录派生并剔除门禁不放行的 scope，无真实素材的字段宁缺不假报 |
-| 幂等 | `Idempotency-Key`（带则生效，不带行为不变） | `idem:<key\|user>:<scope>:<client key>`；进行中 409、已完成原样重放且不重复计费；Redis 断连有 1s 截止避免 fail-hang |
-| `/api` 面开放 | `apps/api/src/config/open-capability-registry.ts` 逐条登记（精确路径 + `:param`，**无**前缀通配） | 未携带 API Key 时根级闸完全 no-op；族内新增端点不会被"顺手开放" |
+| 要素             | 落点                                                                                                                                                      | 说明                                                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 凭据             | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                 | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧                                             |
+| 授权             | `apps/api/src/utils/capability-guard.ts`                                                                                                                  | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)                                           |
+| 数据边界         | `CapabilityEntry.dataClass`                                                                                                                               | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`                                       |
+| MCP 接入         | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*`                                                                         | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                                                       |
+| 产物             | `packages/types/generated/capabilities.json`                                                                                                              | `pnpm capabilities:export` 生成;`--check` 防漂移                                                                    |
+| 协议兼容         | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)                                                                              | 官方 SDK 可直接指向本项目                                                                                           |
+| 限流             | `RATE_PROFILES`(按 risk)+ key 级 5h/1d/7d 窗口 + nginx `limit_req`                                                                                        | 限流后端不可用时 billable 能力 fail-closed(503)                                                                     |
+| 不开放           | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                                                                                            | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send`                                   |
+| OAuth 2.1 提供方 | `/.well-known/oauth-authorization-server`、`/oauth/register`(RFC 7591 DCR)、`/oauth/token`(含 `client_credentials`)、`/oauth/introspect`、`/oauth/revoke` | 授权码链路已真正校验 PKCE(此前形同虚设);discovery 只声明已实现的能力                                                |
+| A2A 发现         | `/.well-known/agent.json`(+ `agent-card.json` 别名)                                                                                                       | `skills[]` 全部由能力目录派生并剔除门禁不放行的 scope，无真实素材的字段宁缺不假报                                   |
+| 幂等             | `Idempotency-Key`（带则生效，不带行为不变）                                                                                                               | `idem:<key\|user>:<scope>:<client key>`；进行中 409、已完成原样重放且不重复计费；Redis 断连有 1s 截止避免 fail-hang |
+| `/api` 面开放    | `apps/api/src/config/open-capability-registry.ts` 逐条登记（精确路径 + `:param`，**无**前缀通配）                                                         | 未携带 API Key 时根级闸完全 no-op；族内新增端点不会被"顺手开放"                                                     |
 
 治理文档：[capabilities](./docs/developer/capabilities.md) · [data-classes](./docs/developer/data-classes.md) · [rate-limits](./docs/developer/rate-limits.md) · [error-codes](./docs/developer/error-codes.md) · [abuse-policy](./docs/developer/abuse-policy.md) · [compliance](./docs/developer/compliance.md)
 
