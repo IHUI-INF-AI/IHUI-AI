@@ -13,10 +13,10 @@ export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
 const TABS: LiveListTab[] = ['all', 'upcoming', 'ongoing', 'ended']
 
 const TAB_KEYS: Record<LiveListTab, string> = {
-  all: 'liveList.tab_all',
-  upcoming: 'liveList.tab_upcoming',
-  ongoing: 'liveList.tab_ongoing',
-  ended: 'liveList.tab_ended',
+  all: 'liveList.all',
+  upcoming: 'liveList.upcoming',
+  ongoing: 'liveList.ongoing',
+  ended: 'liveList.ended',
 }
 
 /**
