@@ -5,7 +5,9 @@
 """pytest 配置与 fixtures。"""
 
 import os
+import shutil
 import sys
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -47,6 +49,117 @@ try:  # pragma: no cover - 仅 xdist 存在时生效
         _LoadScopeScheduling._ihui_collection_guard = True
 except ImportError:  # pragma: no cover - 未安装 xdist 的环境
     pass
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-20 性能立:per-run 隔离 basetemp,根治并发 pytest 互相毁灭。
+#
+# 缺陷(RUN8 实证,283 errors):pyproject addopts 的 --basetemp 是静态共享目录
+# G:\.pytest_tmp,而 pytest 对显式 basetemp 会在每次启动时 rm_rf 整棵树 ——
+# 多 agent 并行开发下两个 pytest 进程并发是常态,后启动的进程把先启动进程的
+# popen-gwN worker 临时目录中途删光 → FileNotFoundError 洪水 + 大量用例报废,
+# 且并发负载互相污染计时。
+#
+# 修法:controller 进程(无 workerinput)把 basetemp 覆写为独立目录树
+# G:\.pytest_tmp_runs\run-<pid>,每场运行一个专属目录:
+#   - 用户显式传 --basetemp 时尊重其选择,不覆写;
+#   - xdist worker 的 basetemp 由 controller 下发(已是唯一目录 + popen-gwN),
+#     且 worker 侧不再覆写(workerinput 判定);
+#   - --noconftest 调用不加载本文件,仍走 addopts 的静态 G:\.pytest_tmp,
+#     行为不变,但与 .pytest_tmp_runs 分树,其 rm_rf 波及不到本机制的目录;
+#   - 非 Windows(CI Linux)不覆写,走 pytest 默认临时目录;
+#   - 陈旧 run-*(mtime > 24h,崩溃残留)在启动时静默回收。
+# 目录在仓库外(G:\ 根)、与仓库同盘 NVMe,保持 basetemp 迁移的性能收益。
+def pytest_configure(config):
+    if hasattr(config, "workerinput") or sys.platform != "win32":
+        return
+    if any(str(a).startswith("--basetemp") for a in config.invocation_params.args):
+        return
+    runs_root = Path(config.rootpath.anchor) / ".pytest_tmp_runs"
+    # pytest 对显式 basetemp 只做 rm_rf + mkdir(不带 parents),父目录必须自建
+    runs_root.mkdir(parents=True, exist_ok=True)
+    config.option.basetemp = str(runs_root / f"run-{os.getpid()}")
+    try:
+        now = time.time()
+        for stale in runs_root.glob("run-*"):
+            if now - stale.stat().st_mtime > 86400:
+                shutil.rmtree(stale, ignore_errors=True)
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# 2026-09-20 性能立:收集期重排序(重文件优先,LPT 列表调度)。
+#
+# xdist --dist loadfile 按收集顺序把文件装进 FIFO workqueue:worker 干完手头
+# 文件就从队首领下一个(实证 xdist/scheduler/loadscope.py schedule() 按
+# self.collection 顺序建队,_assign_work_unit popitem(last=False))。默认收集
+# 序是字母序,重文件散布中段 → 先干完的 worker 只能领轻文件,个别 worker 背着
+# [重文件 + 后领文件] 的链拖到最后,收尾大量 worker 空转。
+#
+# RUN9 干净实测(20 worker,wall 260.59s)的文件级调度模拟:
+#   字母序 FIFO 执行期 makespan ≈ 160.6s;重文件优先 LPT ≈ 126.0s;
+#   执行期纯下界 sum/20 ≈ 92.5s。126s 恰 = 最重单文件 test_bench_golden.py
+#   的实测总时长 —— LPT 后即触及「最重文件」结构下界(突破它只能拆分该文件,
+#   属 golden 基准语义改动,超出本任务);预期实收 ~35s(仅压缩执行期调度,
+#   启动/收集/导入等固定开销不变)。
+#
+# 权重 = RUN9(2026-09-20)实测的每文件 setup+call+teardown 总和,取 top-40
+# (占执行期 ~72%)。静态快照、容忍漂移:未列文件保持原相对顺序(键 0),新增
+# 重文件最多退化为现状,不会更差。sorted 为稳定排序:输入相同 → 输出相同,
+# 所有 worker 收集结果保持一致(xdist 硬要求);同文件用例的相对顺序不变。
+_TEST_FILE_WEIGHTS = {
+    "tests/test_bench_golden.py": 126.0,
+    "tests/test_publish_adapters_group1.py": 108.3,
+    "tests/test_publish_adapters_group2.py": 108.2,
+    "tests/test_bench.py": 82.4,
+    "tests/test_engine_harness_fourth.py": 76.6,
+    "tests/test_hook_engine.py": 50.1,
+    "tests/test_mcp_server.py": 47.3,
+    "tests/test_golden_e2e.py": 36.8,
+    "tests/test_engine_harness_eighth.py": 32.3,
+    "tests/test_routers.py": 31.1,
+    "tests/test_tool_approval_persist_52.py": 28.5,
+    "tests/test_mcp_export_usage.py": 24.7,
+    "tests/test_business_flow_integration.py": 20.9,
+    "tests/test_deep_engines_routers.py": 20.7,
+    "tests/test_self_healing_llm.py": 19.5,
+    "tests/test_sandbox.py": 19.5,
+    "tests/test_schema_check.py": 19.3,
+    "tests/test_mcp_stdio_bridge.py": 18.0,
+    "tests/test_file_editor_redis.py": 16.2,
+    "tests/test_engine_harness_eleventh.py": 15.3,
+    "tests/test_media_tasks.py": 15.0,
+    "tests/test_os_sandbox.py": 14.9,
+    "tests/test_llm_gateway.py": 14.6,
+    "tests/test_agent_checkpoint.py": 14.6,
+    "tests/test_spec_generator.py": 12.6,
+    "tests/test_run_command_streaming.py": 12.0,
+    "tests/test_agent_runtime_router.py": 11.5,
+    "tests/test_container_runtime.py": 10.9,
+    "tests/test_mcp_streamable_http.py": 10.9,
+    "tests/test_dag_worker_pool_four_layer_defense.py": 10.9,
+    "tests/test_agent_self_heal.py": 10.7,
+    "tests/test_api_v1.py": 9.9,
+    "tests/test_agent_engine_router.py": 9.8,
+    "tests/test_memory_decay.py": 9.5,
+    "tests/test_tool_approval.py": 9.3,
+    "tests/test_hook_engine_integration.py": 9.1,
+    "tests/test_meta_learner.py": 9.0,
+    "tests/test_engine_harness_thirteenth.py": 8.9,
+    "tests/test_fim.py": 8.1,
+    "tests/test_publish_playwright_base.py": 7.7,
+}
+
+
+def pytest_collection_modifyitems(session, config, items):
+    # 调试/复现顺序敏感问题的逃生口:IHUI_NO_LPT_REORDER=1 恢复字母序
+    if os.environ.get("IHUI_NO_LPT_REORDER"):
+        return
+    weights = _TEST_FILE_WEIGHTS
+    items[:] = sorted(
+        items, key=lambda i: -weights.get(i.nodeid.split("::", 1)[0], 0.0)
+    )
 
 # ---------------------------------------------------------------------------
 # 2026-09-20 性能立:pytest tmp_path 默认落系统 TEMP(本机 TMP=D:\caches\Temp,
