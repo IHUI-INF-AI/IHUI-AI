@@ -65,6 +65,31 @@ def _estimate_tokens_len(text: str) -> int:
     return len(text) // 4
 
 
+def _network_denial_message(denial_reason: str | None, url: str) -> str:
+    """批58(十六):网络审批拒绝的用户可读消息(对标 codex network_policy_decision.rs)。
+
+    把审批门的机器原因码(denied / not_allowed / not_allowed_local)翻译为
+    "为什么不能在此处放行"的可读文案,避免模型反复重试同一目标。原因码缺失/
+    翻译失败时回退到原有通用文案(与接线前逐零差异)。
+    """
+    host = ""
+    try:
+        from urllib.parse import urlparse
+
+        raw = (url or "").strip()
+        host = (
+            urlparse(raw if "://" in raw else f"https://{raw}").hostname or ""
+        ).lower()
+    except (ValueError, TypeError):  # pragma: no cover - 解析失败仅影响文案
+        host = ""
+    try:
+        from app.core.network_policy_decision import denied_network_policy_message
+
+        return denied_network_policy_message(str(denial_reason or "denied"), host)
+    except Exception:  # noqa: BLE001 - 文案失败绝不改变拒绝语义
+        return "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)"
+
+
 def _tool_result_token_estimate(obj: object) -> int:
     """递归估算工具结果中所有字符串值的 token 总数(轻量 len//4)。"""
     if isinstance(obj, str):
@@ -2971,22 +2996,24 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
                 else:
                     # 批 52b:webhook 出站走网络审批门(fail-closed;SSRF 硬防线
                     # 由内网地址不可达兜底,此处补审批语义层)
+                    # 批58(十六):拒绝分支带 codex 原因码 + 可读文案。
                     _net_ok = True
+                    _net_denial: str | None = None
                     try:
-                        from .network_approval import evaluate_network_access
+                        from .network_approval import evaluate_network_access_detailed
 
-                        _net_ok = (
-                            evaluate_network_access(
-                                webhook_url, reason="tool:webhook"
-                            )
-                            != "deny"
+                        _net_verdict, _net_denial = evaluate_network_access_detailed(
+                            webhook_url, reason="tool:webhook"
                         )
+                        _net_ok = _net_verdict != "deny"
                     except Exception:  # noqa: BLE001 - 门故障不改变现有行为
                         _net_ok = True
                     if not _net_ok:
                         execution_result = {
                             "ok": False, "errorCode": "NETWORK_APPROVAL_DENIED",
                             "error": "webhook 目标未获网络审批授权",
+                            "detail": _network_denial_message(_net_denial, webhook_url),
+                            "denialReason": _net_denial,
                         }
                     else:
                         webhook_payload = arguments.get("webhook_payload", arguments)
@@ -3610,16 +3637,20 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
     # 批 52b:网络审批门(对标 codex ApprovalAction::NetworkAccess)。
     # SSRF 硬防线在前(不可被审批放行);审批门在后,持久授权命中免弹窗,
     # 未授权默认拒绝(fail-closed),requester 未注入时不改变现有行为。
+    # 批58(十六):拒绝分支附加 codex 原因码 + 可读消息(network_policy_decision)。
     try:
-        from .network_approval import evaluate_network_access
+        from .network_approval import evaluate_network_access_detailed
 
-        verdict = evaluate_network_access(url, reason="tool:fetch_url")
+        verdict, _denial_reason = evaluate_network_access_detailed(
+            url, reason="tool:fetch_url"
+        )
         if verdict == "deny":
             return {
                 "tool": "fetch_url", "ok": False, "url": url,
                 "error": "网络访问未授权(审批拒绝/无审批通道)",
                 "errorCode": "NETWORK_APPROVAL_DENIED",
-                "message": "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)",
+                "message": _network_denial_message(_denial_reason, url),
+                "denialReason": _denial_reason,
             }
     except Exception:  # noqa: BLE001 - 审批门自身故障不改变现有放行行为(向后兼容)
         pass
