@@ -48,7 +48,8 @@ _SCOPES = frozenset({SCOPE_SESSION, SCOPE_ALWAYS})
 KIND_EXEC_PREFIX = "exec_prefix"  # 前缀放行类(对齐 _exec_allowed_prefixes)
 KIND_EXEC_ONCE = "exec_once"      # 一次性放行(对齐 approve_exec_command)
 KIND_MCP_TOOL = "mcp_tool"        # MCP 工具调用(对齐 protocol mcp_approval_meta)
-_KINDS = frozenset({KIND_EXEC_PREFIX, KIND_EXEC_ONCE, KIND_MCP_TOOL})
+KIND_NET = "network"              # 网络访问审批(批 52,对标 codex NetworkAccess;键前缀 net\x1f 区分)
+_KINDS = frozenset({KIND_EXEC_PREFIX, KIND_EXEC_ONCE, KIND_MCP_TOOL, KIND_NET})
 
 # 规范化键用的单元分隔符(与 shlex.join 不同,此处用不可打印分隔符避免 token
 # 内出现空格/引号造成歧义;语义对齐 mcp_server 既有 `_canonical_approval_key`)
@@ -355,6 +356,7 @@ __all__ = [
     "KIND_EXEC_PREFIX",
     "KIND_EXEC_ONCE",
     "KIND_MCP_TOOL",
+    "KIND_NET",
     "set_db_path",
     "normalize_exec_key",
     "grant",
