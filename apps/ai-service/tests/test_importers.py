@@ -211,20 +211,22 @@ def test_codex_prefers_response_items_without_duplicates() -> None:
     ]
 
 
-def test_codex_falls_back_to_event_messages_and_splits_rollouts() -> None:
+def test_codex_falls_back_to_events_and_never_splits_on_meta() -> None:
+    """上游实证:文件中途再出现的 session_meta 是 fork 父线程历史,不得另起会话。"""
     blob = _jsonl(
         [
-            {"type": "session_meta", "payload": {"id": "r1"}},
+            {"type": "session_meta", "payload": {"id": "r2", "timestamp": "2026-09-03T00:00:00Z"}},
             {"type": "event_msg", "payload": {"type": "user_message", "message": "第一轮"}},
             {"type": "event_msg", "payload": {"type": "agent_message", "message": "回答一"}},
-            {"type": "session_meta", "payload": {"id": "r2", "timestamp": "2026-09-03T00:00:00Z"}},
+            {"type": "session_meta", "payload": {"id": "r1-fork-parent"}},
             {"type": "event_msg", "payload": {"type": "user_message", "message": "第二轮"}},
         ]
     )
     parsed, _w, _t = parse_conversation_file("codex", "rollout-2.jsonl", blob)
     convs = parsed["conversations"]
-    assert [c["messages"][0]["content"] for c in convs] == ["第一轮", "第二轮"]
-    assert convs[1]["sourceCreatedAt"] == "2026-09-03T00:00:00Z"
+    assert len(convs) == 1  # 一个文件一条会话
+    assert convs[0]["sourceCreatedAt"] == "2026-09-03T00:00:00Z"  # 首条 meta 为准
+    assert [m["content"] for m in convs[0]["messages"]] == ["第一轮", "回答一", "第二轮"]
 
 
 def test_codex_modern_event_msg_item_completed_and_developer_warning() -> None:
@@ -293,30 +295,125 @@ def _composer() -> dict[str, Any]:
     }
 
 
-def test_cursor_json_infers_roles_and_epoch_ms() -> None:
-    blob = json.dumps({"conversations": [_composer()]}).encode()
-    parsed, _w, _t = parse_conversation_file("cursor", "export.json", blob)
-    conv = parsed["conversations"][0]
-    assert conv["title"] == "Cursor 会话"
-    assert conv["sourceCreatedAt"] == _EPOCH_ISO
-    assert [m["role"] for m in conv["messages"]] == ["user", "assistant"]
-    assert "createdAt" not in conv["messages"][0]  # composer 单条无时间戳,不硬造
-
-
-def test_cursor_vscdb_reads_composer_rows() -> None:
+def _vscdb(kv_rows: list[tuple[str, str]], item_rows: list[tuple[str, str]] | None = None) -> bytes:
+    """构造真实形态的 state.vscdb:cursorDiskKV 存正文,ItemTable 存索引。"""
     conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value BLOB)")
     conn.execute("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB)")
-    conn.execute("CREATE TABLE noop (a TEXT)")
-    conn.execute(
-        "INSERT INTO ItemTable VALUES (?, ?)",
-        ("composerData-c1", ("buffers:" + json.dumps(_composer())).encode()),
-    )
-    conn.execute("INSERT INTO ItemTable VALUES (?, ?)", ("workbench.layout", b'{"a":1}'))
+    conn.executemany("INSERT INTO cursorDiskKV VALUES (?, ?)", [(k, v.encode()) for k, v in kv_rows])
+    conn.executemany("INSERT INTO ItemTable VALUES (?, ?)", [(k, v.encode()) for k, v in item_rows or []])
     blob = conn.serialize()
     conn.close()
+    return blob
 
-    parsed, _w, _t = parse_conversation_file("cursor", "state.vscdb", blob)
-    assert parsed["conversations"][0]["title"] == "Cursor 会话"
+
+MODERN_COMPOSER = json.dumps(
+    {
+        "_v": 3,
+        "composerId": "c1",
+        "name": "重构支付模块",
+        "createdAt": 1_756_800_000_000,
+        "lastUpdatedAt": 1_756_800_300_000,
+        "modelConfig": {"modelModel": "gpt-5.1"},
+        "fullConversationHeadersOnly": [
+            {"bubbleId": "b1", "type": 1},
+            {"bubbleId": "b2", "type": 2},
+            {"bubbleId": "b3", "type": 2},
+            {"bubbleId": "b4", "type": 2},
+        ],
+    }
+)
+BUBBLES = [
+    ('{"_v":3,"bubbleId":"b1","type":1,"text":"帮我重构支付模块","createdAt":"2025-09-02T08:00:05Z"}'),
+    '{"_v":3,"bubbleId":"b2","type":2,"text":"已完成重构","modelInfo":{"modelName":"gpt-5.1-codex"}}',
+    '{"_v":3,"bubbleId":"b3","type":2,"capabilityType":15,"toolFormerData":{"name":"EditFile"}}',
+    '{"_v":3,"bubbleId":"b4","type":2,"text":"占位不该出现","capabilityType":30}',
+]
+
+
+def test_cursor_vscdb_modern_bubble_indirection() -> None:
+    """上游实证:composerData 只有索引,正文在 bubbleId 行,角色是数字 type。"""
+    kv = [("composerData:c1", MODERN_COMPOSER)] + [
+        (f"bubbleId:c1:b{i}", body) for i, body in enumerate(BUBBLES, start=1)
+    ]
+    parsed, warnings, truncated = parse_conversation_file("cursor", "state.vscdb", _vscdb(kv))
+    assert truncated is False and warnings == []
+    conv = parsed["conversations"][0]
+    assert conv["title"] == "重构支付模块"
+    assert conv["model"] == "gpt-5.1"  # composer 级 modelConfig 优先
+    assert conv["sourceCreatedAt"] == _EPOCH_ISO
+    assert conv["sourceUpdatedAt"] == "2025-09-02T08:05:00Z"
+    assert [(m["role"], m["content"]) for m in conv["messages"]] == [
+        ("user", "帮我重构支付模块"),
+        ("assistant", "已完成重构"),
+        ("assistant", "[工具调用] EditFile"),
+    ]
+    assert conv["messages"][0]["createdAt"] == "2025-09-02T08:00:05Z"
+
+
+def test_cursor_vscdb_buffers_prefix_and_index_only_row() -> None:
+    """`buffers:` 前缀与 ItemTable 索引行都要能吃下。"""
+    kv = [("composerData:c2", "buffers:" + json.dumps({
+        "composerId": "c2",
+        "name": "带前缀的会话",
+        "conversation": [{"bubbleId": "x1", "type": 1, "text": "老版内联正文"},
+                          {"bubbleId": "x2", "type": 2, "text": "老版回复"}],
+    }))]
+    item = [("composer.composerHeaders", json.dumps({"allComposers": [{"composerId": "c2"}]}))]
+    parsed, _w, _t = parse_conversation_file("cursor", "state.vscdb", _vscdb(kv, item))
+    conv = parsed["conversations"][0]
+    assert [m["role"] for m in conv["messages"]] == ["user", "assistant"]
+    assert conv["messages"][1]["content"] == "老版回复"
+
+
+def test_cursor_legacy_aichat_chatdata_fallback() -> None:
+    payload = json.dumps({"tabs": [{"bubbles": [
+        {"type": "user", "rawText": "老版提问"},
+        {"type": "ai", "text": "老版回答"},
+    ]}]})
+    parsed, _w, _t = parse_conversation_file(
+        "cursor", "state.vscdb", _vscdb([], [("workbench.panel.aichat.view.aichat.chatdata", payload)])
+    )
+    conv = parsed["conversations"][0]
+    assert [(m["role"], m["content"]) for m in conv["messages"]] == [
+        ("user", "老版提问"),
+        ("assistant", "老版回答"),
+    ]
+
+
+def test_cursor_orphan_bubbles_require_timestamps() -> None:
+    """无索引数组时按 createdAt 排序兜底;缺时间戳则顺序不可靠,不硬给错序。"""
+    with_stamps = [
+        ("composerData:c3", '{"composerId":"c3","name":"孤儿气泡"}'),
+        ("bubbleId:c3:b2", '{"bubbleId":"b2","type":2,"text":"答","createdAt":"2026-01-02T00:00:01Z"}'),
+        ("bubbleId:c3:b1", '{"bubbleId":"b1","type":1,"text":"问","createdAt":"2026-01-02T00:00:00Z"}'),
+    ]
+    parsed, _w, _t = parse_conversation_file("cursor", "state.vscdb", _vscdb(with_stamps))
+    assert [m["content"] for m in parsed["conversations"][0]["messages"]] == ["问", "答"]
+
+    _empty, warnings, _t2 = parse_conversation_file(
+        "cursor",
+        "state.vscdb",
+        _vscdb([
+            ("composerData:c4", '{"composerId":"c4"}'),
+            ("bubbleId:c4:b1", '{"type":1,"text":"没有时间戳"}'),
+        ]),
+    )
+    assert any("未能组装出消息" in w for w in warnings)
+
+
+def test_cursor_agent_transcript_ndjson() -> None:
+    """cursor-agent 走另一套格式:~/.cursor/projects/<cwd>/agent-transcripts/<id>.jsonl。"""
+    lines = [
+        '{"role":"user","message":{"content":[{"type":"text","text":"agent 提问"}]}}',
+        '{"type":"turn_ended","status":"success"}',
+        '{"role":"assistant","message":{"content":[{"type":"tool_use","name":"shell"},'
+        '{"type":"text","text":"agent 回答"}]}}',
+    ]
+    parsed, _w, _t = parse_conversation_file(
+        "cursor", "0f0f0f0f.jsonl", "\n".join(lines).encode("utf-8")
+    )
+    assert [m["content"] for m in parsed["conversations"][0]["messages"]] == ["agent 提问", "agent 回答"]
 
 
 def test_cursor_corrupt_db_degrades_to_warning() -> None:
@@ -326,71 +423,87 @@ def test_cursor_corrupt_db_degrades_to_warning() -> None:
 
 
 def test_cursor_distinguishes_empty_db_from_unrecognized_shape() -> None:
-    """两种空态必须给不同诊断:库里没 composer 记录 vs 有记录但认不出消息列表。"""
-
-    def _db(pairs: list[tuple[str, bytes]]) -> bytes:
-        conn = sqlite3.connect(":memory:")
-        conn.execute("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB)")
-        conn.executemany("INSERT INTO ItemTable VALUES (?, ?)", pairs)
-        blob = conn.serialize()
-        conn.close()
-        return blob
-
-    _no_rows, warnings_a, _t = parse_conversation_file(
-        "cursor", "state.vscdb", _db([("workbench.layout", b'{"a":1}')])
+    """三种空态必须给不同诊断,不能一律报"没找到 composer"。"""
+    _empty, warnings_a, _t = parse_conversation_file(
+        "cursor", "state.vscdb", _vscdb([("workbench.layout", '{"a":1}')])
     )
-    assert any("没有 key 含 composer" in w for w in warnings_a)
+    assert any("没有 composer 记录" in w for w in warnings_a)
 
-    _empty, warnings_b, _t2 = parse_conversation_file(
+    _empty2, warnings_b, _t2 = parse_conversation_file(
         "cursor",
         "state.vscdb",
-        _db([("composerData-c9", b'{"entries":[],"version":3}')]),
+        _vscdb([("composerData:c9", '{"composerId":"c9","fullConversationHeadersOnly":[]}')]),
     )
-    assert any("找到 1 条 composer 记录但未识别出消息列表" in w for w in warnings_b)
+    assert any("未能组装出消息" in w for w in warnings_b)
+
+
+def test_cursor_json_export_still_supported() -> None:
+    blob = json.dumps({"conversations": [_composer()]}).encode()
+    parsed, _w, _t = parse_conversation_file("cursor", "export.json", blob)
+    conv = parsed["conversations"][0]
+    assert conv["title"] == "Cursor 会话"
+    assert conv["sourceCreatedAt"] == _EPOCH_ISO
+    assert [m["role"] for m in conv["messages"]] == ["user", "assistant"]
+    assert "createdAt" not in conv["messages"][0]  # composer 单条无时间戳,不硬造
 
 
 # ---------------------------------------------------------------------------
 # Aider
 # ---------------------------------------------------------------------------
 
-AIDER_MD = """# aider chat started at 2026-09-04 09:30:00
+# 用行数组构造:aider 的 markdown 硬换行是行尾两个空格,写成字面量会撞上 ruff W291
+AIDER_MD = (
+    "\n".join(
+        [
+            "# aider chat started at 2026-09-04 09:30:00",
+            "",
+            "> Aider v0.69.0  ",
+            "> Main model: claude-3-5-sonnet-20241022 with architect edit format  ",
+            "> Editor model: gpt-4o with editor-diff edit format  ",
+            "> Error: Read-only file .ai/tools.md does not exist  ",
+            "> Repo-map: using 1024 tokens  ",
+            "",
+            "#### /add main.py",
+            "#### 帮我改一下 main.py  ",
+            "",
+            "我先看下 main.py。",
+            "",
+            "```python",
+            "> 这行在围栏里,不是用户输入",
+            "```",
+            "",
+            "#### 第二个提问",
+            "",
+            "改动已经完成。",
+            "",
+            "# aider chat started at 2026-09-05 10:00:00",
+            "",
+            "#### 第二段会话的第一句",
+        ]
+    )
+    + "\n"
+)
 
-> /add main.py
-> \x1b[34m帮我改一下 main.py\x1b[0m
 
-#### We'll be using models: gpt-4o (OpenAI API)
-
-我先看下 main.py。
-
-```python
-> 这一行在代码块里,不是用户输入
-```
-
-#### Aider applied edit to main.py
-
-> 第二个提问
-
-改动已经完成。
-
-# aider chat started at 2026-09-05 10:00:00
-
-> 第二个会话的第一句
-"""
-
-
-def test_aider_markdown_blocks_fence_and_model() -> None:
-    parsed, _w, _t = parse_conversation_file("aider", ".aider.chat.history.md", AIDER_MD.encode())
+def test_aider_markdown_user_is_hash_hash_and_echoes_dropped() -> None:
+    """上游实证:#### 才是用户输入,`> ` 是 aider 回显(模型横幅也在其上)。"""
+    parsed, warnings, _t = parse_conversation_file(
+        "aider", ".aider.chat.history.md", AIDER_MD.encode()
+    )
     convs = parsed["conversations"]
     assert len(convs) == 2
     first = convs[0]
-    assert first["model"] == "gpt-4o"
+    assert first["model"] == "claude-3-5-sonnet-20241022"  # 认 Main model,不取 Editor model
     assert first["sourceCreatedAt"] == "2026-09-04T09:30:00Z"
     assert [m["role"] for m in first["messages"]] == ["user", "assistant", "user", "assistant"]
     assert first["messages"][0]["content"] == "/add main.py\n帮我改一下 main.py"
-    assert "\x1b[" not in first["messages"][1]["content"]
-    assert "> 这一行在代码块里,不是用户输入" in first["messages"][1]["content"]
+    assert "> 这行在围栏里,不是用户输入" in first["messages"][1]["content"]
+    assert first["messages"][2]["content"] == "第二个提问"
     assert first["messages"][3]["content"] == "改动已经完成。"
-    assert convs[1]["messages"][0]["content"] == "第二个会话的第一句"
+    assert "Read-only file" not in str(convs)  # aider 的报错横幅绝不能变成会话内容
+    assert not any(ln.endswith("  ") for m in first["messages"] for ln in m["content"].split("\n"))
+    assert any("aider 自身回显" in w for w in warnings)
+    assert convs[1]["messages"][0]["content"] == "第二段会话的第一句"
 
 
 def test_aider_record_json() -> None:
