@@ -40,6 +40,7 @@ import {
   Megaphone,
   Info,
   Plug,
+  FileUp,
   Menu,
 } from 'lucide-react-native'
 
@@ -98,6 +99,8 @@ export default function SettingsScreen() {
     { key: 'AccountCancel', label: t('menu.accountCancel') },
     // 通用设置
     { key: 'CheckUpdate', label: t('menu.checkUpdate') },
+    // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
+    { key: 'ConversationImport', label: t('menu.conversationImport') },
     // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)
     { key: 'SubPackageIndex', label: '更多功能' },
     // 帮助与反馈
@@ -124,6 +127,8 @@ export default function SettingsScreen() {
     { key: 'IdentityVerify', label: '身份认证', icon: IdCard },
     { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
     { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: RefreshCw },
+    // D28 多端同步(2026-09-21):外部会话导入
+    { key: 'ConversationImport', label: t('menu.conversationImport'), icon: FileUp },
     { key: 'SubPackageIndex', label: '更多功能', icon: Package },
     { key: 'Help', label: '帮助中心', icon: HelpCircle },
     { key: 'Feedback', label: t('menu.feedback'), icon: Pencil },
