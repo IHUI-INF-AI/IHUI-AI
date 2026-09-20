@@ -348,6 +348,18 @@ def _sync_env_file_to_os() -> None:
             # FIM 补全专用档位(2026-09-14):routers/fim.py 以 os.environ.get 直读,
             # 不在白名单则 .env 配置静默失效 → 选型恒回退 auto
             "FIM_PREFERRED_MODEL",
+            # 内部服务令牌 + AI 全量操控桥接六键(2026-09-20):api_tools_bridge /
+            # ui_action_bridge / mcp_server._edu_internal_headers 均以 os.environ.get
+            # 直读。AI_CALLBACK_SECRET 不在白名单时 .env 配置静默失效 → 出站请求
+            # 不带 x-internal-service-token,被 apps/api 以 401 "请先登录" 拒掉
+            # (真机实测复现),edu_* 与 api_* 桥接同样断链。
+            "AI_CALLBACK_SECRET",
+            "API_TOOLS_MODE",
+            "API_TOOLS_MAX",
+            "API_TOOLS_EXCLUDE",
+            "API_INTERNAL_BASE_URL",
+            "UI_ACTION_TOOLS",
+            "UI_ACTION_TIMEOUT",
             # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
             # 代理变量,.env 值必须同步进环境才会生效。NO_PROXY 保证国内 Provider
             # 与本机服务直连。

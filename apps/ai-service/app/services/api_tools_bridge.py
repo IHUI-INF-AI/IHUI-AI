@@ -276,6 +276,42 @@ def spec_to_tools(spec: dict[str, Any]) -> list[MCPTool]:
     return [_operation_to_tool(m, p, op) for m, p, op in _iter_operations(spec)]
 
 
+def _server_urls(spec: dict[str, Any]) -> list[str]:
+    """spec.servers 声明的 base URL 列表(OpenAPI 语义:path 是相对 server 的)。"""
+    out: list[str] = []
+    for item in spec.get("servers") or []:
+        if isinstance(item, dict):
+            url = str(item.get("url") or "").strip().rstrip("/")
+            if url:
+                out.append(url)
+    return out
+
+
+def resolve_mounted_path(spec: dict[str, Any], path: str) -> str:
+    """把 spec 里的 path 解析成服务端真实挂载路径。
+
+    实测 apps/api /docs/json 的 3686 条 path **全都不带前缀**(/health、/conversations),
+    而 servers = [{url:"/api"}, {url:"/api/v1"}]。直接 base+path 会让每一次调用都落在
+    不存在的 URL 上(实测 "Route GET:/conversations not found" → 404),即整条 route A
+    看着注册成功、实则零可用 —— 只有真机打一次才发现。
+
+    规则由 spec 自己声明驱动,不写死 /api 或 /v1:
+    - path 命中某个次要 server 独有的尾段(如 /api/v1 的 /v1) ⇒ 它自带挂载点,原样使用;
+    - 否则拼主 server 前缀(/health → /api/health)。
+    """
+    urls = _server_urls(spec)
+    if not urls:
+        return path
+    primary = urls[0]
+    for extra in urls[1:]:
+        tail = extra[len(primary):] if extra.startswith(primary) else extra
+        if tail and (path == tail or path.startswith(tail + "/")):
+            return path
+    if path == primary or path.startswith(primary + "/"):
+        return path  # 已含前缀(spec 生成方式变化时也不重复拼)
+    return f"{primary}{path}"
+
+
 # ---------------------------------------------------------------------------
 # 端点调用 handler
 # ---------------------------------------------------------------------------
@@ -389,7 +425,17 @@ async def _search_endpoint_tools(args: dict[str, Any]) -> dict[str, Any]:
                 continue
         else:
             score = 0
-        scored.append((score, {"name": name, **entry}))
+        scored.append(
+            (
+                score,
+                {
+                    "name": name,
+                    "method": entry["method"],
+                    "path": entry["path"],
+                    "summary": entry["summary"],
+                },
+            )
+        )
     scored.sort(key=lambda item: (-item[0], item[1]["name"]))
     matches = [item[1] for item in scored[:limit]]
     return {
@@ -446,7 +492,9 @@ async def _call_endpoint_tool(args: dict[str, Any]) -> dict[str, Any]:
     merged["__user_id"] = user_id
     merged["__user_role"] = user_role
     merged["__session_id"] = session_id
-    result = await make_api_handler(entry["method"], entry["path"])(merged)
+    # 长尾派发用挂载后路径(侧表条目缺该键时回退原 path,兼容手工造的侧表项)
+    mounted = str(entry.get("mounted") or entry["path"])
+    result = await make_api_handler(entry["method"], mounted)(merged)
     return {"tool": name, **result}
 
 
@@ -534,12 +582,15 @@ async def setup_api_tools_bridge() -> int:
                 _API_TOOL_INDEX[key] = {
                     "method": m,
                     "path": p,
+                    "mounted": resolve_mounted_path(spec, p),
                     "summary": str(op.get("summary") or "")[:120],
                 }
         count = 0
         for m, p, op in _iter_operations(spec, methods):
             tool = _operation_to_tool(m, p, op)
-            if register_external_tool(tool, make_api_handler(m, p)):
+            if register_external_tool(
+                tool, make_api_handler(m, resolve_mounted_path(spec, p))
+            ):
                 count += 1
         for tool, handler in _entry_tools():
             if register_external_tool(tool, handler):
