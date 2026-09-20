@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -18,10 +18,11 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui-react'
+import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
+import { ConversationImportPanel } from './conversation-import-panel'
 import {
   commitImport,
   fetchHistory,
@@ -53,7 +54,45 @@ const CONFLICT_STRATEGY_DESC_KEY: Record<ImportConflictStrategy, string> = {
   clone: 'cloneDesc',
 }
 
-export default function CliImportPage() {
+/**
+ * 数据导入页(双 Tab,2026-09-20 D28 扩展):
+ *   Tab 1「CLI 配置导入」— 原 CliImportPage 逻辑原样保留(CliImportSection)
+ *   Tab 2「会话导入」— 外部工具会话记录导入(ConversationImportPanel)
+ */
+export default function ImportPage() {
+  const cliT = useTranslations('cliImport')
+  const convT = useTranslations('conversationImport')
+
+  return (
+    <Container maxWidth="full" padding={false} className="px-4 flex h-full flex-col py-4">
+      <BackButton />
+      {/* Header */}
+      <header className="space-y-1 shrink-0">
+        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+          <PackagePlus className="h-6 w-6 text-primary" />
+          {convT('pageTitle')}
+        </h1>
+        <p className="text-xs text-muted-foreground">{convT('pageDesc')}</p>
+      </header>
+
+      <Tabs defaultValue="cli" className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="shrink-0">
+          <TabsTrigger value="cli">{cliT('title')}</TabsTrigger>
+          <TabsTrigger value="conversation">{convT('tab')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cli" className="min-h-0 flex-1 overflow-y-auto">
+          <CliImportSection />
+        </TabsContent>
+        <TabsContent value="conversation" className="min-h-0 flex-1 overflow-y-auto">
+          <ConversationImportPanel />
+        </TabsContent>
+      </Tabs>
+    </Container>
+  )
+}
+
+/** Tab 1:CLI 配置导入(原 CliImportPage 内容,逻辑未动) */
+function CliImportSection() {
   const t = useTranslations('cliImport')
   const qc = useQueryClient()
 
@@ -137,259 +176,245 @@ export default function CliImportPage() {
   }
 
   return (
-    <Container maxWidth="full" padding={false} className="px-4 flex h-full flex-col py-4">
-      <BackButton />
-      {/* Header */}
-      <header className="space-y-1 shrink-0">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <PackagePlus className="h-6 w-6 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-xs text-muted-foreground">{t('desc')}</p>
-      </header>
+    <div className="space-y-4">
+      <Alert variant="info" title={t('title')} description={t('desc')} />
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        <Alert variant="info" title={t('title')} description={t('desc')} />
+      {/* Step 1: 选择来源 */}
+      <Card>
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+          <p className="text-sm font-medium">{t('sources')}</p>
+          {sourcesLoading ? (
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              {t('parsing')}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
+              {sources.map((s) => {
+                const active = source === s.source
+                return (
+                  <button
+                    key={s.source}
+                    type="button"
+                    onClick={() => setSource(s.source)}
+                    className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                      active
+                        ? 'border-primary bg-primary/5 text-foreground'
+                        : 'border-border text-muted-foreground hover:bg-accent'
+                    }`}
+                  >
+                    <span className="flex-1 truncate">{t(sourceLabelKey(s.source) as never)}</span>
+                    {active && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Step 1: 选择来源 */}
+      {/* Step 2: 文件上传 */}
+      {source && (
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-            <p className="text-sm font-medium">{t('sources')}</p>
-            {sourcesLoading ? (
-              <div className="flex items-center text-xs text-muted-foreground">
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                {t('parsing')}
+            <p className="text-sm font-medium">{t('upload')}</p>
+            <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
+            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
+              <FileUp className="h-6 w-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">{t('dragDrop')}</span>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            {file && (
+              <p className="text-xs text-muted-foreground">
+                {t('fileSelected', { name: file.name, size: formatSize(file.size) })}
+              </p>
+            )}
+            <form onSubmit={onParse} className="flex items-center gap-2">
+              <Button type="submit" size="sm" disabled={!file || parseMut.isPending}>
+                {parseMut.isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-1.5 h-4 w-4" />
+                )}
+                <span>{parseMut.isPending ? t('parsing') : t('parse')}</span>
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: 解析预览 + 提交 */}
+      {preview && (
+        <Card>
+          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">{t('previewTitle')}</p>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="text-xs text-primary hover:underline"
+              >
+                {selected.size === preview.providers.length ? t('deselectAll') : t('selectAll')}
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('selected', { count: selected.size, total: preview.providers.length })}
+            </p>
+
+            {preview.globalWarnings.length > 0 && (
+              <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
+                {preview.globalWarnings.map((w, i) => (
+                  <p key={i} className="flex items-start gap-1">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>{w}</span>
+                  </p>
+                ))}
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
-                {sources.map((s) => {
-                  const active = source === s.source
+            )}
+
+            <div className="space-y-2">
+              {preview.providers.map((p) => {
+                const checked = selected.has(p.sourceId)
+                return (
+                  <label
+                    key={p.sourceId}
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
+                      checked ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-accent'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSelected(p.sourceId)}
+                      className="mt-0.5 h-3.5 w-3.5"
+                    />
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{p.name}</span>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {p.providerCode}
+                        </span>
+                        {p.isCurrent && (
+                          <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
+                            current
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-muted-foreground">{p.baseUrl || '—'}</p>
+                      {p.warnings.length > 0 && (
+                        <p className="text-amber-600 dark:text-amber-400">
+                          {t('warning')}: {p.warnings.join('; ')}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Conflict strategy */}
+            <div className="space-y-2">
+              <p className="text-xs font-medium">{t('conflictStrategy')}</p>
+              <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
+                {CONFLICT_STRATEGIES.map((s) => {
+                  const active = strategy === s
                   return (
                     <button
-                      key={s.source}
+                      key={s}
                       type="button"
-                      onClick={() => setSource(s.source)}
-                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                      onClick={() => setStrategy(s)}
+                      className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
                         active
-                          ? 'border-primary bg-primary/5 text-foreground'
-                          : 'border-border text-muted-foreground hover:bg-accent'
+                          ? 'outline outline-1 outline-border bg-primary/5'
+                          : 'border-border hover:bg-accent'
                       }`}
                     >
-                      <span className="flex-1 truncate">
-                        {t(sourceLabelKey(s.source) as never)}
-                      </span>
-                      {active && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                      <p className="font-medium">{t(s as never)}</p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        {t((CONFLICT_STRATEGY_DESC_KEY[s] ?? 'unknownDesc') as never)}
+                      </p>
                     </button>
                   )
                 })}
               </div>
-            )}
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => commitMut.mutate()}
+              disabled={selected.size === 0 || commitMut.isPending}
+            >
+              {commitMut.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <PackagePlus className="mr-1.5 h-4 w-4" />
+              )}
+              <span>{commitMut.isPending ? t('committing') : t('commit')}</span>
+            </Button>
           </CardContent>
         </Card>
+      )}
 
-        {/* Step 2: 文件上传 */}
-        {source && (
-          <Card>
-            <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-              <p className="text-sm font-medium">{t('upload')}</p>
-              <p className="text-xs text-muted-foreground">{t('uploadHint')}</p>
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed border-border p-3 text-center transition-colors hover:bg-accent">
-                <FileUp className="h-6 w-6 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t('dragDrop')}</span>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
-                />
-              </label>
-              {file && (
-                <p className="text-xs text-muted-foreground">
-                  {t('fileSelected', { name: file.name, size: formatSize(file.size) })}
-                </p>
-              )}
-              <form onSubmit={onParse} className="flex items-center gap-2">
-                <Button type="submit" size="sm" disabled={!file || parseMut.isPending}>
-                  {parseMut.isPending ? (
-                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-1.5 h-4 w-4" />
-                  )}
-                  <span>{parseMut.isPending ? t('parsing') : t('parse')}</span>
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 3: 解析预览 + 提交 */}
-        {preview && (
-          <Card>
-            <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">{t('previewTitle')}</p>
-                <button
-                  type="button"
-                  onClick={toggleAll}
-                  className="text-xs text-primary hover:underline"
+      {/* History */}
+      <Card>
+        <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <History className="h-4 w-4 text-muted-foreground" />
+            {t('historyTitle')}
+          </p>
+          {historyLoading ? (
+            <div className="flex items-center text-xs text-muted-foreground">
+              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+              {t('parsing')}
+            </div>
+          ) : history.length === 0 ? (
+            <p className="text-xs text-muted-foreground">{t('historyEmpty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((h) => (
+                <div
+                  key={h.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
                 >
-                  {selected.size === preview.providers.length ? t('deselectAll') : t('selectAll')}
-                </button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t('selected', { count: selected.size, total: preview.providers.length })}
-              </p>
-
-              {preview.globalWarnings.length > 0 && (
-                <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 dark:text-amber-400">
-                  {preview.globalWarnings.map((w, i) => (
-                    <p key={i} className="flex items-start gap-1">
-                      <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                      <span>{w}</span>
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                {preview.providers.map((p) => {
-                  const checked = selected.has(p.sourceId)
-                  return (
-                    <label
-                      key={p.sourceId}
-                      className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-xs transition-colors ${
-                        checked ? 'border-primary/40 bg-primary/5' : 'border-border hover:bg-accent'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleSelected(p.sourceId)}
-                        className="mt-0.5 h-3.5 w-3.5"
-                      />
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{p.name}</span>
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {p.providerCode}
-                          </span>
-                          {p.isCurrent && (
-                            <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
-                              current
-                            </span>
-                          )}
-                        </div>
-                        <p className="truncate text-muted-foreground">{p.baseUrl || '—'}</p>
-                        {p.warnings.length > 0 && (
-                          <p className="text-amber-600 dark:text-amber-400">
-                            {t('warning')}: {p.warnings.join('; ')}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  )
-                })}
-              </div>
-
-              {/* Conflict strategy */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium">{t('conflictStrategy')}</p>
-                <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2">
-                  {CONFLICT_STRATEGIES.map((s) => {
-                    const active = strategy === s
-                    return (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setStrategy(s)}
-                        className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
-                          active
-                            ? 'outline outline-1 outline-border bg-primary/5'
-                            : 'border-border hover:bg-accent'
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{t(sourceLabelKey(h.source) as never)}</span>
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] ${
+                          h.status === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : h.status === 'partial'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
                         }`}
                       >
-                        <p className="font-medium">{t(s as never)}</p>
-                        <p className="mt-0.5 text-muted-foreground">
-                          {t((CONFLICT_STRATEGY_DESC_KEY[s] ?? 'unknownDesc') as never)}
-                        </p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <Button
-                size="sm"
-                onClick={() => commitMut.mutate()}
-                disabled={selected.size === 0 || commitMut.isPending}
-              >
-                {commitMut.isPending ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <PackagePlus className="mr-1.5 h-4 w-4" />
-                )}
-                <span>{commitMut.isPending ? t('committing') : t('commit')}</span>
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* History */}
-        <Card>
-          <CardContent className="min-[640px]:p-3 space-y-3 p-3">
-            <p className="flex items-center gap-2 text-sm font-medium">
-              <History className="h-4 w-4 text-muted-foreground" />
-              {t('historyTitle')}
-            </p>
-            {historyLoading ? (
-              <div className="flex items-center text-xs text-muted-foreground">
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                {t('parsing')}
-              </div>
-            ) : history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{t('historyEmpty')}</p>
-            ) : (
-              <div className="space-y-2">
-                {history.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-xs"
-                  >
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{t(sourceLabelKey(h.source) as never)}</span>
-                        <span
-                          className={`rounded px-1.5 py-0.5 text-[10px] ${
-                            h.status === 'success'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : h.status === 'partial'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                : 'bg-red-500/10 text-red-600 dark:text-red-400'
-                          }`}
-                        >
-                          {t(HISTORY_STATUS_KEY[h.status] ?? 'statusUnknown')}
-                        </span>
-                      </div>
-                      <p className="truncate text-muted-foreground">{h.sourcePath}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3 text-[11px] text-muted-foreground">
-                      <span>
-                        {t('historyImported')}: {h.importedCount}
-                      </span>
-                      <span>
-                        {t('historySkipped')}: {h.skippedCount}
-                      </span>
-                      <span>
-                        {t('historyFailed')}: {h.failedCount}
+                        {t(HISTORY_STATUS_KEY[h.status] ?? 'statusUnknown')}
                       </span>
                     </div>
+                    <p className="truncate text-muted-foreground">{h.sourcePath}</p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </Container>
+                  <div className="flex shrink-0 items-center gap-3 text-[11px] text-muted-foreground">
+                    <span>
+                      {t('historyImported')}: {h.importedCount}
+                    </span>
+                    <span>
+                      {t('historySkipped')}: {h.skippedCount}
+                    </span>
+                    <span>
+                      {t('historyFailed')}: {h.failedCount}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

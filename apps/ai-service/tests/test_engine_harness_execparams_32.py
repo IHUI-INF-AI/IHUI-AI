@@ -2,28 +2,30 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 # app/core exec 参数与输出捕获测试 — 第三十二批(对标 Codex exec.rs 纯算法)
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import asyncio
+
 import pytest
 
 from app.core.exec_params import (
     DEFAULT_EXEC_COMMAND_TIMEOUT_MS,
-    IO_DRAIN_TIMEOUT_MS,
-    EXEC_OUTPUT_MAX_BYTES,
     DEFAULT_OUTPUT_BYTES_CAP,
+    EXEC_OUTPUT_MAX_BYTES,
+    IO_DRAIN_TIMEOUT_MS,
+    CancellationToken,
     ExecCapturePolicy,
     ExecExpiration,
     ExecExpirationOutcome,
     ExecParams,
-    CancellationToken,
-    cancel_when_either,
     StreamOutput,
-    append_capped,
     aggregate_output,
+    append_capped,
+    cancel_when_either,
 )
-
 
 # ---------- 常量 ----------
 

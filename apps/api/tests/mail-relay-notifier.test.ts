@@ -10,6 +10,9 @@
  * ③ 余额低于阈值 → 调用 transporter.sendMail 一次且收件人正确
  * ④ 余额充足 → false 不发送
  * ⑤ checkAndNotify 内部 db 异常 → false 不抛
+ * ⑥ 多邮箱合并去重(主邮箱 + 附加邮箱,主邮箱优先)
+ * ⑦ 附加邮箱(user_emails)查询失败 → 降级仅主邮箱
+ * ⑧ 无主邮箱但有附加邮箱 → 仍发送到附加邮箱
  *
  * 测试模式:vi.mock 掉 db / @ihui/database / nodemailer(对齐 api-subscription-service.test.ts)。
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
@@ -50,6 +53,15 @@ function rejectChain(err: Error): { from: ReturnType<typeof vi.fn> } {
   }
 }
 
+// db 异常链:where 阶段 reject(模拟无 limit 的列表查询失败,如 user_emails)
+function rejectAtWhere(err: Error): { from: ReturnType<typeof vi.fn> } {
+  return {
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockRejectedValue(err),
+    }),
+  }
+}
+
 vi.mock('../src/db/index.js', () => ({
   db: { insert: vi.fn(), update: vi.fn(), transaction: vi.fn() },
   dbRead: { select: mockDbReadSelect },
@@ -58,6 +70,7 @@ vi.mock('../src/db/index.js', () => ({
 
 vi.mock('@ihui/database', () => ({
   users: { id: 'id', email: 'email' },
+  userEmails: { userId: 'user_id', email: 'email' },
 }))
 
 vi.mock('nodemailer', () => ({
@@ -172,6 +185,66 @@ describe('mail-relay-notifier', () => {
     })
     expect(res).toBe(false)
     expect(mockSendMail).not.toHaveBeenCalled()
+  })
+
+  // ⑥ 多邮箱合并去重(主邮箱优先)
+  it('⑥ 多邮箱 → 主邮箱 + 附加邮箱合并去重且主邮箱优先', async () => {
+    mockDbReadSelect
+      .mockReturnValueOnce(chain([{ email: 'main@example.com' }]))
+      .mockReturnValueOnce(
+        chain([
+          { email: 'extra2@example.com' },
+          { email: 'main@example.com' }, // 与主邮箱重复,应去重
+          { email: 'extra1@example.com' },
+        ]),
+      )
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-multi',
+      keyId: 'key-multi',
+      keyName: 'key-multi',
+      tokenBalance: 10,
+      costBalanceCents: 500,
+    })
+    expect(res).toBe(true)
+    expect(mockSendMail).toHaveBeenCalledTimes(1)
+    const arg = mockSendMail.mock.calls[0]?.[0]
+    expect(arg?.to).toBe('main@example.com,extra2@example.com,extra1@example.com')
+  })
+
+  // ⑦ 附加邮箱(user_emails)查询失败 → 降级仅主邮箱
+  it('⑦ 附加邮箱查询失败 → 降级仅主邮箱发送', async () => {
+    mockDbReadSelect
+      .mockReturnValueOnce(chain([{ email: 'main@example.com' }]))
+      .mockReturnValueOnce(rejectAtWhere(new Error('user_emails down')))
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-degrade',
+      keyId: 'key-degrade',
+      keyName: 'key-degrade',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    expect(res).toBe(true)
+    expect(mockSendMail).toHaveBeenCalledTimes(1)
+    const arg = mockSendMail.mock.calls[0]?.[0]
+    expect(arg?.to).toBe('main@example.com')
+  })
+
+  // ⑧ 无主邮箱但有附加邮箱 → 仍发送到附加邮箱
+  it('⑧ 无主邮箱但有附加邮箱 → 发送到附加邮箱', async () => {
+    mockDbReadSelect
+      .mockReturnValueOnce(chain([{ email: null }]))
+      .mockReturnValueOnce(chain([{ email: 'extra-only@example.com' }]))
+    const res = await checkAndNotifyLowBalance({
+      userId: 'user-extra-only',
+      keyId: 'key-eo',
+      keyName: 'key-eo',
+      tokenBalance: 0,
+      costBalanceCents: 0,
+    })
+    expect(res).toBe(true)
+    expect(mockSendMail).toHaveBeenCalledTimes(1)
+    const arg = mockSendMail.mock.calls[0]?.[0]
+    expect(arg?.to).toBe('extra-only@example.com')
   })
 })
 

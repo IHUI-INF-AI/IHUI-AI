@@ -25,12 +25,10 @@ exec_policy 规则目录配置化:
 from __future__ import annotations
 
 import asyncio
-import os
 from pathlib import Path
 
 import pytest
 
-import app.services.agent_loop_v2 as agent_loop_v2
 from app.services import approval_persistence
 from app.services import exec_policy as ep
 from app.services.agent_engine import (
@@ -45,7 +43,6 @@ from app.services.agent_loop_v2 import (
     grant_tool_approval_persist,
 )
 from app.services.exec_policy import Decision
-
 
 # =============================================================================
 # 夹具:隔离持久层 db + 重置审批注册表旁路键 + 关掉引擎持久化

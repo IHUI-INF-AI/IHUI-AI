@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """批 46 测试(只读查询面) — thread.search / thread.items.list /
 thread.turns.list / thread.read。
 
@@ -14,12 +13,11 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 
 from app.services.agent_engine import (
-    AgentEngine,
     INVALID_PARAMS,
     THREAD_NOT_FOUND,
+    AgentEngine,
 )
 from app.services.session_store import (
     AgentMessageItem,

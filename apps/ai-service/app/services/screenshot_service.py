@@ -344,7 +344,7 @@ async def take_screenshot(
             "ssrf_blocked": True,
             "error": reason,
         }
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         sync_executor,
         _take_screenshot_sync,
@@ -373,7 +373,7 @@ async def render_to_html(
     if not ok:
         return {"html": "", "title": "", "final_url": url, "status_code": 0,
                 "ssrf_blocked": True, "error": reason}
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         sync_executor,
         _render_html_sync,
@@ -389,7 +389,7 @@ async def probe_can_embed(url: str) -> dict[str, Any]:
     ok, reason = _validate_url_ssrf(url)
     if not ok:
         return {"url": url, "can_embed": False, "ssrf_blocked": True, "error": reason}
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(sync_executor, _probe_can_embed_sync, url)
 
 
