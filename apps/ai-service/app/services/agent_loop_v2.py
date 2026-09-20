@@ -1423,6 +1423,12 @@ class AgentLoopV2:
         enabled, llm_enabled = self._effective_compaction_settings()
         if not enabled or self._compaction_context_limit <= 0:
             return messages
+        # 批 58 接线:new_context 工具请求开新窗时跳过摘要压缩(对标 codex
+        # request_new_context_window 信号——模型主动放弃摘要,直接截断开新窗)。
+        if getattr(self, "_new_context_window_requested", False):
+            self._new_context_window_requested = False
+            logger.info("new_context 请求生效:本轮跳过摘要压缩,直接截断开新窗")
+            return messages
         started = time.perf_counter()
         try:
             if llm_enabled:
