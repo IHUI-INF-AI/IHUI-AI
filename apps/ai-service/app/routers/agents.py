@@ -23,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.sse_buffer import sse_buffer
+from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
     AGENT_SUBSCRIBE_EVENTS,
     HOOK_ERROR,
@@ -779,7 +780,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
     last_event_id = request.headers.get("last-event-id")
 
     async def event_generator() -> AsyncIterator[str]:
-        task_id = f"task-{asyncio.get_event_loop().time()}"
+        task_id = f"task-{asyncio.get_running_loop().time()}"
 
         # 断线重连: 先重放缺失事件
         if last_event_id:
@@ -978,6 +979,16 @@ async def get_session_messages(
     """获取指定会话的消息列表。"""
     messages = await memory_store.get(session_id, limit=limit)
     return {"session_id": session_id, "messages": messages, "count": len(messages)}
+
+
+@router.get("/agents/sessions/{session_id}/deliverables")
+async def get_session_deliverables(session_id: str) -> dict[str, Any]:
+    """D27(2026-09)获取指定会话的任务完成交付清单。
+
+    未命中(任务未成功结束 / 被 LRU 淘汰 / 进程重启)也返回 200,
+    deliverables 为 null,前端按「暂无交付清单」渲染。
+    """
+    return {"session_id": session_id, "deliverables": get_deliverables(session_id)}
 
 
 @router.delete("/agents/sessions/{session_id}")

@@ -75,6 +75,15 @@ vi.mock('../src/services/wechat-pay.js', () => ({
   downloadBill: mockWxDownloadBill,
 }))
 
+// ---------- 微信小程序 openid 反查 mock(2026-09-19:下单支持按 userId 反查兜底,需隔离真实 DB 查询) ----------
+const { mockGetWechatMiniOpenId } = vi.hoisted(() => ({
+  mockGetWechatMiniOpenId: vi.fn().mockResolvedValue(null),
+}))
+
+vi.mock('../src/services/wechat-subscribe-message.js', () => ({
+  getWechatMiniOpenId: mockGetWechatMiniOpenId,
+}))
+
 // ---------- 支付宝 mock ----------
 const {
   mockIsAlipayConfigured,
@@ -228,6 +237,8 @@ describe('payment gateway routes', () => {
     // 默认微信/支付宝未配置(mock 模式)
     mockIsWechatPayConfigured.mockReturnValue(false)
     mockIsAlipayConfigured.mockReturnValue(false)
+    // 默认微信 openid 反查无绑定记录(缺少 openId 且未绑定 → 400)
+    mockGetWechatMiniOpenId.mockResolvedValue(null)
     // 重置 idempotency 默认值
     ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValue({
       status: 'new',
@@ -272,7 +283,7 @@ describe('payment gateway routes', () => {
       expect(res.json().message).toContain('金额必须为正')
     })
 
-    it('缺少 openId 返回 400(Zod 校验)', async () => {
+    it('缺少 openId 且未绑定微信返回 400(openid 反查兜底无结果)', async () => {
       authAs()
       const res = await app.inject({
         method: 'POST',

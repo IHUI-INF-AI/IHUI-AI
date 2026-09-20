@@ -35,7 +35,7 @@ import binascii
 import io
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 PROMPT_IMAGE_PATCH_SIZE = 32
 MAX_DIMENSION = 2048
@@ -113,8 +113,8 @@ class ImagePreparationMetadata:
     prepared_width: int
     prepared_height: int
     effective_detail: str  # "high" | "original"
-    message_role: Optional[str] = None
-    item_id: Optional[str] = None
+    message_role: str | None = None
+    item_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -189,7 +189,7 @@ def prompt_image_output_dimensions_for_limits(
     return max(1, int(width * scale)), max(1, int(height * scale))
 
 
-def detail_limits(detail: Optional[str]) -> tuple[str, ResizeLimits]:
+def detail_limits(detail: str | None) -> tuple[str, ResizeLimits]:
     """detail 档位 → (有效档名, 预算);low 直接拒绝。"""
     if detail == "low":
         raise low_detail_error()
@@ -274,8 +274,8 @@ def load_data_url_for_prompt(image_url: str, limits: ResizeLimits) -> EncodedIma
 
 def resize_image(
     image_url: str,
-    detail: Optional[str] = None,
-) -> tuple[Optional[EncodedImage], str]:
+    detail: str | None = None,
+) -> tuple[EncodedImage | None, str]:
     """单图准备入口(对标 resize_image);返回 (编码结果或 None, 有效档名)。
 
     - 远端 URL → 抛 RemoteUrlUnsupported;

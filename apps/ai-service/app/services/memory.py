@@ -14,7 +14,7 @@ P1-6 修复(2026-08-06):key 增加 user_id 前缀 —— 原 key=`memory:{sessio
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from ..core.config import settings
@@ -75,7 +75,8 @@ class MemoryStore:
             "role": role,
             "content": content,
             "metadata": metadata or {},
-            "timestamp": datetime.utcnow().isoformat(),
+            # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+            "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
         }
         redis = await self._get_redis()
         key = self._key(session_id, user_id)
@@ -297,7 +298,7 @@ class MemorySystem:
         #   - skip 已在 extractor 阶段过滤,这里只剩 replace/merge/latest
         #   - replace/latest:新条目正常写入,metadata 携带 supersededOldId 供下游(DreamService consolidate)清理
         #   - merge:新条目用 LLM 合并后的文本(已在 extractor 替换 item.text),旧条目同样靠 supersededOldId 标记
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).replace(tzinfo=None).isoformat()
         ts = int(time.time() * 1000)
         for idx, item in enumerate(extracted):
             entry_id = f"mem-{user_id}-{ts}-{idx}"

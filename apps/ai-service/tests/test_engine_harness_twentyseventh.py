@@ -284,7 +284,8 @@ class TestRolloutTruncation:
             "assistant:trigger",  # trigger_turn 代理消息
             "user:b",
         ]
-        is_trigger = lambda it: it == "assistant:trigger"
+        def is_trigger(it):
+            return it == "assistant:trigger"
         pos = fork_turn_positions(items, _is_user_msg, is_trigger)
         assert pos == [0, 2, 3]
 
@@ -296,7 +297,8 @@ class TestRolloutTruncation:
             RollbackMarker(num_turns=2),  # 回滚最近 2 个指令回合 → 移除边界 1、2
             "user:c",              # 边界 3
         ]
-        is_trigger = lambda it: it == "assistant:trigger"
+        def is_trigger(it):
+            return it == "assistant:trigger"
         pos = fork_turn_positions(items, _is_user_msg, is_trigger)
         # 边界 0(最早被回滚的指令回合边界)之后的 fork 全部失效;
         # "user:c" 位于下标 4,正常成为新边界

@@ -1190,6 +1190,10 @@ async def test_fetch_url_success(monkeypatch):
     # 绕过 SSRF(真实校验会做 DNS 解析,测试环境不稳定)
     import app.services.screenshot_service as _ss
     monkeypatch.setattr(_ss, "_validate_url_ssrf", lambda url: (True, ""))
+    # 批 52b 网络审批门:测试环境无审批 requester(fail-closed → deny),
+    # 与 test_network_approval_52.py 的隔离惯例一致,此处 stub 为放行。
+    import app.services.network_approval as _na
+    monkeypatch.setattr(_na, "evaluate_network_access", lambda url, reason=None: "allow")
 
     html = (
         "<html><head><title>Test Page</title>"
