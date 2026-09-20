@@ -58,6 +58,7 @@
     "brand": "IHUI AI",
     "phoneLogin": "Phone login",
     "passwordLogin": "Password login",
+    "phone": "Phone",
     "phonePlaceholder": "Enter phone number",
     "phoneInvalid": "Invalid phone number",
     "codePlaceholder": "Enter verification code",

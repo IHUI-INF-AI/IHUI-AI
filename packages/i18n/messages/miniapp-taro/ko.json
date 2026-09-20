@@ -58,6 +58,7 @@
     "brand": "IHUI AI",
     "phoneLogin": "휴대폰 로그인",
     "passwordLogin": "비밀번호 로그인",
+    "phone": "휴대폰",
     "phonePlaceholder": "휴대폰 번호 입력",
     "phoneInvalid": "휴대폰 번호 형식이 올바르지 않습니다",
     "codePlaceholder": "인증번호 입력",
