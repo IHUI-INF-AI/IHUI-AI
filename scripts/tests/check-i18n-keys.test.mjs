@@ -570,6 +570,77 @@ test('同层重复 key: 不同层的同名 key 不算重复(不误报)', () => {
   }
 })
 
+test('动态键: 点分隔前缀在某语言不是对象 → exit 1(今晚 44 处回显键名的那一类)', () => {
+  const root = createTempProject()
+  try {
+    const dir = join(root, 'packages', 'i18n', 'messages', 'web')
+    mkdirSync(dir, { recursive: true })
+    for (const lang of Object.keys(PARITY_OK)) {
+      const msgs = JSON.parse(JSON.stringify(PARITY_OK[lang]))
+      // 4 种语言给正确的嵌套 lane,en 故意只留扁平含点键(即缺陷原貌)
+      if (lang === 'en') msgs.common['lane.architect'] = 'Architect'
+      else msgs.common.lane = { architect: 'A' }
+      writeFileSync(join(dir, `${lang}.json`), JSON.stringify(msgs, null, 2))
+    }
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'feed.tsx'),
+      "const t = useTranslations('common')\n{t(`lane.${k}`)}\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 1, `前缀不可达应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /静态前缀/, `应报告静态前缀问题,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('动态键: 点分隔前缀在五语言都是对象 → exit 0(不误报)', () => {
+  const root = createTempProject()
+  try {
+    const msgs = {}
+    for (const lang of Object.keys(PARITY_OK)) {
+      msgs[lang] = {
+        ...PARITY_OK[lang],
+        common: { ...PARITY_OK[lang].common, lane: { architect: 'A' } },
+      }
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'feed.tsx'),
+      "const t = useTranslations('common')\n{t(`lane.${k}`)}\n{t('lane.architect')}\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `前缀可达不应误报,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// 全仓实测:10 处"疑似违规"全部来自 JSDoc 注释里的历史说明
+// ("i18n 静态映射表 — 用于消除 t(`status.${var}`) 动态拼接"),必须先去注释再判定,
+// 否则这条 blocking 规则会全线误拦。
+test('动态键: 仅出现在注释里的拼接示例不得报警(去注释回归)', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(root, PARITY_OK)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "/** i18n 静态映射表 — 用于消除 `t(`status.${var}`)` 动态拼接 */\nconst t = useTranslations('common')\nt('save')\n",
+    )
+    const r = runScript(['--target=web'], { cwd: root })
+    assert.equal(r.status, 0, `注释里的示例不应触发,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.ok(!/静态前缀/.test(r.stdout), `不应报静态前缀,stdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('含点键: 深层嵌套内部含点 key 也要检出(递归覆盖)', () => {
   const root = createTempProject()
   try {
