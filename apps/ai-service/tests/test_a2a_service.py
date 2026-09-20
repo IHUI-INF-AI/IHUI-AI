@@ -4,13 +4,44 @@
 
 """A2A 服务单元测试。
 
-测试 A2ATask / A2AAgent 序列化反序列化、A2AServer 注册/查询/任务创建。
-不依赖 Redis(降级纯内存模式)。
+测试 A2ATask / A2AAgent 序列化反序列化、A2AServer 注册/查询/任务创建,
+以及 O11 收权新增的任务归属(owner_id)与裁决函数 can_access_task。
+不依赖 Redis(降级纯内存模式 + 用例内 fake redis,绝不连生产 8811)。
 """
+
+import json
 
 import pytest
 
-from app.services.a2a_service import A2AAgent, A2AServer, A2ATask
+from app.services.a2a_service import (
+    ADMIN_ROLE,
+    A2AAgent,
+    A2AServer,
+    A2ATask,
+    can_access_task,
+)
+from app.services.capability_gate import ALL_SCOPES, Principal
+
+TASK_RESPONSE_KEYS = {
+    "id",
+    "name",
+    "agent_id",
+    "input",
+    "status",
+    "result",
+    "error",
+    "created_at",
+    "updated_at",
+}
+
+
+def _principal(
+    sub: str | None = "user-1",
+    *,
+    role: int = 0,
+    kind: str = "jwt",
+) -> Principal:
+    return Principal(kind=kind, sub=sub, role=role, scopes=frozenset({ALL_SCOPES}))
 
 
 class TestA2ATaskSerialization:
@@ -171,4 +202,143 @@ class TestA2AServerMemoryMode:
         server = A2AServer()
         result = await server.get_task_result("nonexistent")
         assert result is None
+
+
+class TestA2ATaskOwnership:
+    """O11 收权:任务归属 owner_id 的持久化与响应形状冻结。"""
+
+    def test_to_dict_shape_is_frozen(self):
+        """向后兼容硬约束:to_dict 键集合 = 收权前的 9 个字段,一个不多一个不少。"""
+        task = A2ATask(task_id="t-1", name="n", agent_id="a", owner_id="user-1")
+        assert set(task.to_dict()) == TASK_RESPONSE_KEYS
+        assert "owner_id" not in task.to_dict()
+
+    def test_storage_dict_adds_only_owner_id(self):
+        """to_storage_dict = 响应形状 + owner_id(唯一允许的持久化扩展)。"""
+        task = A2ATask(task_id="t-1", name="n", agent_id="a", owner_id="user-1")
+        storage = task.to_storage_dict()
+        assert set(storage) == TASK_RESPONSE_KEYS | {"owner_id"}
+        assert storage["owner_id"] == "user-1"
+        # 其余字段逐值一致(不得因持久化通道改动语义)
+        for key in TASK_RESPONSE_KEYS:
+            assert storage[key] == task.to_dict()[key]
+
+    def test_owner_id_round_trip(self):
+        """owner_id 经存储字典往返后保留(Redis 重启恢复不丢归属)。"""
+        task = A2ATask(task_id="t-2", name="n", agent_id="a", owner_id="user-2")
+        restored = A2ATask.from_dict(json.loads(json.dumps(task.to_storage_dict())))
+        assert restored.owner_id == "user-2"
+
+    def test_legacy_row_without_owner_id(self):
+        """收权前的历史 Redis 行(无 owner_id 键)反序列化为无主任务。"""
+        legacy = {
+            "id": "t-3",
+            "name": "n",
+            "agent_id": "a",
+            "input": {},
+            "status": "completed",
+            "result": None,
+            "error": None,
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+        }
+        restored = A2ATask.from_dict(legacy)
+        assert restored.owner_id is None
+        assert restored.status == "completed"
+
+    def test_dirty_owner_id_degrades_to_none(self):
+        """owner_id 是脏数据(非字符串)时按无主处理,不抛异常。"""
+        task = A2ATask.from_dict({**A2ATask("t-4", "n", "a").to_storage_dict(), "owner_id": 123})
+        assert task.owner_id is None
+
+    @pytest.mark.asyncio
+    async def test_persist_task_writes_owner_to_storage(self):
+        """_persist_task 落盘的是 to_storage_dict(含归属),响应字典仍不含归属。"""
+
+        class FakeRedis:
+            def __init__(self) -> None:
+                self.store: dict[str, str] = {}
+
+            async def set(self, key: str, value: str, ex: int | None = None) -> None:
+                self.store[key] = value
+
+            async def zadd(self, key: str, mapping: dict[str, float]) -> None:
+                self.store.setdefault(key, json.dumps(sorted(mapping)))
+
+        fake = FakeRedis()
+        server = A2AServer()
+        server._redis = fake
+        server._redis_available = True
+        task = A2ATask("t-5", "n", "a", owner_id="user-5")
+        await server._persist_task(task)
+
+        payload = json.loads(fake.store[A2AServer.REDIS_TASK_KEY_PREFIX + "t-5"])
+        assert payload["owner_id"] == "user-5"
+        assert set(payload) == TASK_RESPONSE_KEYS | {"owner_id"}
+
+
+class TestA2ATaskViews:
+    """状态/结果视图键集合冻结(旧端点响应形状回归)。"""
+
+    def test_status_dict_keys(self):
+        task = A2ATask("t-1", "n", "a")
+        assert set(task.status_dict()) == {
+            "id",
+            "status",
+            "agent_id",
+            "created_at",
+            "updated_at",
+        }
+
+    def test_result_dict_keys(self):
+        task = A2ATask("t-1", "n", "a")
+        assert set(task.result_dict()) == {"id", "status", "result", "error"}
+
+    @pytest.mark.asyncio
+    async def test_service_views_match_task_helpers(self):
+        """get_task_status / get_task_result 复用视图方法(两处形状不可能漂移)。"""
+        server = A2AServer()
+        server._tasks["t-1"] = A2ATask("t-1", "n", "a", owner_id="user-1")
+        assert await server.get_task_status("t-1") == server._tasks["t-1"].status_dict()
+        assert await server.get_task_result("t-1") == server._tasks["t-1"].result_dict()
+
+
+class TestCanAccessTask:
+    """归属裁决矩阵(纯函数,无 I/O)。"""
+
+    def test_owner_can_read(self):
+        assert can_access_task(A2ATask("t", "n", "a", owner_id="u1"), _principal("u1")) is True
+
+    def test_other_user_is_denied(self):
+        assert can_access_task(A2ATask("t", "n", "a", owner_id="u1"), _principal("u2")) is False
+
+    def test_substring_collision_is_denied(self):
+        """归属比较用严格相等,不得被 'u1' 前缀命中 'u11'。"""
+        assert can_access_task(A2ATask("t", "n", "a", owner_id="u11"), _principal("u1")) is False
+
+    def test_admin_role_can_read_any(self):
+        task = A2ATask("t", "n", "a", owner_id="u1")
+        assert can_access_task(task, _principal("admin", role=ADMIN_ROLE)) is True
+
+    def test_unowned_task_rejects_identified_principal(self):
+        """无主任务 + 带身份调用方 → 拒绝(fail-closed)。"""
+        assert can_access_task(A2ATask("t", "n", "a"), _principal("u1")) is False
+
+    def test_unowned_task_allows_dev_anonymous(self):
+        """无主任务 + 本机开发回退主体(sub=None)→ 放行(本地零摩擦)。"""
+        task = A2ATask("t", "n", "a", owner_id=None)
+        assert can_access_task(task, _principal(None, kind="dev-anonymous")) is True
+
+    def test_owned_task_rejects_dev_anonymous(self):
+        """他人有主任务 + 无身份主体 → 拒绝。"""
+        task = A2ATask("t", "n", "a", owner_id="u1")
+        assert can_access_task(task, _principal(None, kind="dev-anonymous")) is False
+
+    def test_none_principal_is_denied(self):
+        assert can_access_task(A2ATask("t", "n", "a"), None) is False
+
+    def test_internal_machine_principal_uses_sub(self):
+        task = A2ATask("t", "n", "a", owner_id="svc-a")
+        assert can_access_task(task, _principal("svc-a", kind="internal")) is True
+        assert can_access_task(task, _principal("svc-b", kind="internal")) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

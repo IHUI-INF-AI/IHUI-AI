@@ -113,7 +113,10 @@ class Settings(BaseSettings):
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
         "/api/voice/stt,/api/voice/tts,"
-        "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback"
+        "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,"
+        # O11(2026-09-20)A2A 发现文档:标准规定 /.well-known/agent.json 必须可匿名抓取,
+        # 否则严格 A2A 客户端在拿到凭据前无法发现本 agent 能力。卡片内容不含内网主机/密钥。
+        "/.well-known/agent.json,/.well-known/agent-card.json"
     )
     # O1(2026-09-20)MCP 能力门禁配置:
     # IHUI_PRINCIPAL_SECRET — apps/api → ai-service 内网可信头 X-IHUI-Principal 的
