@@ -8,7 +8,6 @@ import Taro, { useLaunch } from '@tarojs/taro'
 import {
   checkLoginStatus,
   getToken,
-  getUserInfo,
   setToken,
   setRefreshToken,
   setUserInfo,
@@ -20,15 +19,10 @@ import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
 import { KEEP_KEYS_ON_CLEAR, IHUI_KEY_PREFIX } from './constants/storage'
-import {
-  createNotificationClient,
-  setBaseUrl,
-  setTransport,
-  setDeviceFingerprintProvider,
-} from '@ihui/api-client'
+import { setBaseUrl, setTransport, setDeviceFingerprintProvider } from '@ihui/api-client'
 import { bindTokenStoreToApiClient } from '@ihui/shared/auth'
 import { createTaroTransport } from './utils/api-client-transport'
-import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
+import { useUiControlBridge } from './hooks/use-ui-control-bridge'
 import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import { initTheme } from './lib/theme'
@@ -224,17 +218,11 @@ function SsoLaunchHandler() {
         }
       }
       checkLoginStatus()
-      const token = getToken()
-      const userInfo = getUserInfo()
-      if (token && userInfo?.uuid) {
-        createNotificationClient(
-          { baseUrl: BASE_URL, tokenProvider: () => getToken() },
-          {
-            onMessage: (msg) => Taro.eventCenter.trigger('wsNotification', msg),
-          },
-          { webSocketFactory: taroWebSocketFactory },
-        ).connect()
-      }
+      // 2026-09-21:通知 WS 改由 useUiControlBridge 统一持有(见下方 UiControlBridgeHandler),
+      // 全端只保留一条连接。原此处 createNotificationClient 用默认 urlBuilder(内部
+      // `new URL(baseUrl)`),微信真机 JSCore 不保证有 WHATWG URL 构造器 → 建连静默失败,
+      // 通知链路从未真正工作过;桥接层注入了不依赖 URL 的 urlBuilder,并继续把收到的
+      // 消息 trigger('wsNotification') 广播给其他消费者,契约不变。
     })()
   })
   return null
@@ -267,6 +255,16 @@ async function consumeSsoCodeFromLaunch(
   }
 }
 
+/**
+ * AI 对话操控小程序端桥接(2026-09-21 立,降级形态)。
+ * 持有唯一的通知 WS + 上报 miniapp 能力 + 消费 agent.action(category='miniapp_ui'),
+ * 前后台切换由 hook 内部处理(小程序切后台 5s 挂起,故必须停 timer + 断连)。
+ */
+function UiControlBridgeHandler() {
+  useUiControlBridge()
+  return null
+}
+
 function App({ children }: PropsWithChildren<unknown>) {
   return (
     <I18nProvider>
@@ -274,6 +272,7 @@ function App({ children }: PropsWithChildren<unknown>) {
       <MemoryWarningHandler />
       <ThemeInitHandler />
       <SsoLaunchHandler />
+      <UiControlBridgeHandler />
       {children}
       <CustomerServiceFloat />
       <FontLoader />
