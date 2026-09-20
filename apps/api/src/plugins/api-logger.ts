@@ -7,14 +7,32 @@ import fp from 'fastify-plugin'
 import { addApiLogsBatch } from '../db/system-queries.js'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+// O5 归因(2026-09-21):复用 audit-logger 的同一套归因口径,不在此另写一份字段提取。
+import {
+  OPEN_SURFACE_PREFIXES,
+  buildRequestAttribution,
+  isOpenSurfacePath,
+} from './audit-logger.js'
 
 /**
- * API 日志中间件：记录 /api 请求到 api_logs 表。
+ * API 日志中间件：记录请求到 api_logs 表。
+ *
+ * 覆盖范围(O5 修正 2026-09-21):此前只匹配 `/api/` 前缀,对外开放面
+ * (/v1/、/v1beta/)整段落在表外 —— 中转站的流量/耗时/错误在 api_logs 里完全不可见。
+ * 现同时覆盖 `/api/` + `/v1/` + `/v1beta/`。
+ *
  * 采样策略：
  * - 2xx 响应：按采样率记录（默认 100%，可用 API_LOG_SAMPLE_RATE 调低）
  * - 4xx/5xx 响应：全量记录（排查问题）
  * - 健康检查/指标端点：不记录
  * - 配置 API_LOG_ENABLED=false 可完全关闭
+ *
+ * 关于 apiKeyId:api_logs 表没有 api_key_id 列(建列需改 packages/database/src/schema/system.ts
+ * 与 db/system-queries.ts 的插入函数,不在本子任务允许改动的文件范围)。
+ * 因此**持久化归因以 audit_logs_chain / audit_logs 的 JSONB 为准**(见 plugins/audit-logger.ts);
+ * 本表做的是流量/耗时/错误口径,已按"key 归属人"补齐 userId 维度,使网关流量不再是一排 null。
+ * 开放面的 4xx/5xx(401/403/429 这类安全事件)额外打一条结构化 stdout 日志,
+ * 走 plugins/log-sanitizer.ts 的同一脱敏链路,让 ELK/pino 侧能直接按 apiKeyId 检索。
  *
  * 批量写入策略(#18 修复):
  * - 内存缓冲,满 API_LOG_BATCH_SIZE(默认 100)或每 API_LOG_FLUSH_INTERVAL_MS(默认 5000ms)批量 flush
@@ -31,6 +49,9 @@ interface BufferedLog {
   userAgent?: string
   error?: string
 }
+
+/** 记录范围前缀:站内会话 API + 对外开放面网关(与 nginx 被限流的前缀一一对应)。 */
+const LOGGED_PREFIXES: readonly string[] = ['/api/', ...OPEN_SURFACE_PREFIXES]
 
 const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   if (!config.API_LOG_ENABLED) return
@@ -73,7 +94,7 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
     const url = request.url.split('?')[0] ?? ''
-    if (!url.startsWith('/api/')) return
+    if (!LOGGED_PREFIXES.some((p) => url.startsWith(p))) return
 
     // 跳过健康检查和指标端点
     if (skipPaths.some((p) => url === p || url.startsWith(p + '/'))) return
@@ -86,7 +107,9 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       if (Math.random() > config.API_LOG_SAMPLE_RATE) return
     }
 
-    const userId = request.userId ?? request.jwtPayload?.userId
+    const attribution = buildRequestAttribution(request, reply, reply.elapsedTime)
+    // 会话用户优先;开放面没有 JWT,则归因到 key 的归属人 —— 否则网关流量的 userId 全为 null
+    const userId = attribution.userId ?? attribution.apiKeyOwnerId ?? undefined
     const userAgent = request.headers['user-agent']
     const error = statusCode >= 400 ? `${method} ${url} -> ${statusCode}` : undefined
 
@@ -100,6 +123,24 @@ const apiLoggerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       userAgent: userAgent ? userAgent.slice(0, 512) : undefined,
       error,
     })
+
+    // 开放面的失败请求(401/403/429 等安全事件)带完整归因打一条 stdout 日志。
+    // 只在开放面 + >=400 时输出,正常流量零额外日志量;字段本身不含任何正文。
+    if (statusCode >= 400 && isOpenSurfacePath(url)) {
+      logger.warn('[api-logger] open-surface request failed', {
+        apiKeyId: attribution.apiKeyId,
+        apiKeyOwnerId: attribution.apiKeyOwnerId,
+        userId: attribution.userId,
+        capabilityScope: attribution.capabilityScope,
+        capabilityDataClass: attribution.capabilityDataClass,
+        method: attribution.method,
+        url: attribution.url,
+        routePattern: attribution.routePattern,
+        statusCode,
+        durationMs: attribution.durationMs,
+        ip: request.ip,
+      })
+    }
 
     // 缓冲满立即 flush(异步,不阻塞响应)
     if (buffer.length >= batchSize) {

@@ -13,6 +13,7 @@ import {
   timestamp,
   index,
   bigint,
+  boolean,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -25,7 +26,12 @@ import { users } from './users.js'
  *  - 失败排查(status='error' + errorMessage 定位上游问题)
  *  - 行为分析(按 prompt/response 文本检索,做合规审计)
  *
- * 注意:完整 prompt/response 可能很长,生产环境可考虑异步归档到 OSS。
+ * 注意:prompt / response 是原文列,自 2026-09-21(O5)起受**留存策略**约束:
+ *  - rawRetentionDays 决定该行原文留几天(NULL → 全局默认 LLM_CALL_LOG_RAW_RETENTION_DAYS=30);
+ *  - 到期由 services/audit-log-service.ts 的 purgeExpiredLlmCallLogRawText() 清成
+ *    prompt='' / response=NULL,并置 rawRetained=false + rawPurgedAt=now();
+ *  - 计费/统计一律只看 token 计数列,不依赖原文,清理后聚合口径不变。
+ * 清除器实现与默认值理由见该 service 的「原文留存治理」段。
  */
 export const llmCallLogs = pgTable(
   'llm_call_logs',
@@ -69,6 +75,24 @@ export const llmCallLogs = pgTable(
     ttftMs: integer('ttft_ms'),
     /** 调用类型(2026-09-13 立):chat(默认)|image|video——多模态计费/审计维度 */
     callType: varchar('call_type', { length: 16 }).default('chat').notNull(),
+    /**
+     * ── O5 原文留存治理(2026-09-21)──
+     * 背景:prompt / response 两列存的是**完整原文**,与"只开放功能、不开放数据"的口径冲突
+     * (见 AGENTS.md 与 .qoder-cn memory「Agent 全面开放工程」)。计费与统计只需要 token 数,
+     * 原文只对"失败复现"有价值 → 从"无限期留存"改为"有期限、可按 key 关闭、可批量清除"。
+     *
+     * 三列全部**新增且向后兼容**:prompt/response 仍是 NOT NULL/可空原样,旧行 raw_retained
+     * 取 DEFAULT true → 旧数据照旧可读,读取方一行代码都不用改。
+     */
+    /**
+     * 本行原文留存天数。NULL = 用全局默认(环境变量 LLM_CALL_LOG_RAW_RETENTION_DAYS,默认 30);
+     * 0 = 本行不留存原文(下一次清除批次即抹掉);写入口可按 key 策略显式置 0。
+     */
+    rawRetentionDays: integer('raw_retention_days'),
+    /** 原文当前是否仍在表内。清除器置 false;写入口亦可显式置 false(表示本就不写原文)。 */
+    rawRetained: boolean('raw_retained').default(true).notNull(),
+    /** 原文被清除的时间;NULL = 尚未清除。保留该列以便回答"这条记录的原文何时按策略消失"。 */
+    rawPurgedAt: timestamp('raw_purged_at', { withTimezone: true }),
   },
   (t) => ({
     userIdx: index('llm_call_logs_user_idx').on(t.userId),
@@ -79,6 +103,9 @@ export const llmCallLogs = pgTable(
     providerIdx: index('llm_call_logs_provider_idx').on(t.providerCode),
     clientIpIdx: index('llm_call_logs_client_ip_idx').on(t.clientIp),
     httpStatusIdx: index('llm_call_logs_http_status_idx').on(t.httpStatus),
+    // 注:留存清除扫描(WHERE raw_retained = true AND created_at < cutoff)
+    // 刻意**不新建索引** —— 复用既有 llm_call_logs_created_at_idx 做范围扫,
+    // 本表是高频写入的计费流水表,再加一条索引只换来写放大,收益不成比例。
   }),
 )
 
