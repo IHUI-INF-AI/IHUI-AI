@@ -2241,6 +2241,12 @@ pnpm turbo build typecheck lint test
 | 协议兼容 | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)      | 官方 SDK 可直接指向本项目                                                         |
 | 限流     | `RATE_PROFILES`(按 risk)+ key 级 5h/1d/7d 窗口 + nginx `limit_req`                | 限流后端不可用时 billable 能力 fail-closed(503)                                   |
 | 不开放   | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                    | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send` |
+| OAuth 2.1 提供方 | `/.well-known/oauth-authorization-server`、`/oauth/register`(RFC 7591 DCR)、`/oauth/token`(含 `client_credentials`)、`/oauth/introspect`、`/oauth/revoke` | 授权码链路已真正校验 PKCE(此前形同虚设);discovery 只声明已实现的能力 |
+| A2A 发现 | `/.well-known/agent.json`(+ `agent-card.json` 别名) | `skills[]` 全部由能力目录派生并剔除门禁不放行的 scope，无真实素材的字段宁缺不假报 |
+| 幂等 | `Idempotency-Key`（带则生效，不带行为不变） | `idem:<key\|user>:<scope>:<client key>`；进行中 409、已完成原样重放且不重复计费；Redis 断连有 1s 截止避免 fail-hang |
+| `/api` 面开放 | `apps/api/src/config/open-capability-registry.ts` 逐条登记（精确路径 + `:param`，**无**前缀通配） | 未携带 API Key 时根级闸完全 no-op；族内新增端点不会被"顺手开放" |
+
+治理文档：[capabilities](./docs/developer/capabilities.md) · [data-classes](./docs/developer/data-classes.md) · [rate-limits](./docs/developer/rate-limits.md) · [error-codes](./docs/developer/error-codes.md) · [abuse-policy](./docs/developer/abuse-policy.md) · [compliance](./docs/developer/compliance.md)
 
 详见 [docs/developer/capabilities.md](./docs/developer/capabilities.md)。
 
