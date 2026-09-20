@@ -12,6 +12,7 @@
 - _shorten_description 边界(空串 / 纯 markdown / 超长 / 正常多行)。
 """
 
+import asyncio
 from typing import Any
 
 import pytest
