@@ -92,6 +92,23 @@ from .session_store import ItemBase, SessionStore
 
 logger = logging.getLogger(__name__)
 
+
+def _make_sandbox_mode_tagger() -> Any:
+    """批57:sandbox_mode 标签工厂(对标 Codex sandbox_tags.rs 诊断面)。
+
+    返回闭包:传入 cwd 返回 policy_tag 字符串;任何异常返回 None(降级不填)。
+    标签仅供诊断/观测,绝不用于授权判定(codex 红线)。
+    """
+
+    def _tag(cwd: str) -> str:
+        from app.core.sandbox_policy import SandboxPolicy
+        from app.core.sandbox_tags import SandboxTags
+
+        policy = SandboxPolicy.new_read_only_policy()
+        return SandboxTags.from_policy(policy, cwd).policy
+
+    return _tag
+
 # ---------------------------------------------------------------------------
 # 协议常量
 # ---------------------------------------------------------------------------
@@ -1721,7 +1738,25 @@ class AgentEngine:
         if store is None:
             return None
         try:
-            turn = store.start_turn(thread.thread_id, metadata={"model": thread.model})
+            turn = store.start_turn(
+                thread.thread_id,
+                metadata={
+                    "model": thread.model,
+                    # 批57(对标 Codex sandbox_tags.rs record_policy_metadata):
+                    # turn 元数据持久化策略强度诊断标签——仅供诊断/观测,
+                    # 绝不用于授权判定。引擎未接平台沙箱后端,标签按只读
+                    # 策略面推导,语义与 codex detached 请求一致。
+                    **(
+                        {
+                            "sandbox_mode": _sandbox_mode_tag(
+                                thread.workspace or ""
+                            )
+                        }
+                        if (_sandbox_mode_tag := _make_sandbox_mode_tagger()) is not None
+                        else {}
+                    ),
+                },
+            )
             from .session_store import UserMessageItem
 
             store.append_item(
@@ -4521,6 +4556,31 @@ class AgentEngine:
                         ),
                         "protected": _first_component,
                     }
+                # 批57(对标 Codex safety.rs assess_patch_safety):审批策略三态
+                # 判定——never 恒放行;其余策略按路径是否全部落在可写根(含 move
+                # 目标)与沙箱可用性决定自动应用/转审批/拒绝。异常隔离降级不阻塞。
+                try:
+                    from app.core.patch_safety import assess_patch_safety
+
+                    _batch_paths: list[str] = [target_rel]
+                    if new_rel != old_rel and new_rel != "/dev/null":
+                        _batch_paths.append(new_rel)
+                    _verdict = assess_patch_safety(
+                        approval_policy="on_request",
+                        patch_paths=_batch_paths,
+                        writable_roots=[str(base)],
+                        cwd=str(base),
+                        sandbox_available=True,
+                    )
+                    if _verdict.outcome == "reject":
+                        return {"error": f"patch rejected: {_verdict.reason or 'outside project'}"}
+                    if _verdict.outcome == "ask_user":
+                        return {
+                            "error": f"patch requires approval: {_verdict.reason or 'outside writable roots'}",
+                            "requires_approval": True,
+                        }
+                except Exception as _ps_err:  # noqa: BLE001 — 判定失败降级放行
+                    logger.debug("patch_safety 判定异常(降级放行): %s", _ps_err)
                 created = section["old_path"].strip() == "/dev/null"
                 deleted = section["new_path"].strip() == "/dev/null"
                 if created:

@@ -1174,7 +1174,7 @@ class AgentLoopV2:
         self._env_tracker = _EnvironmentStateTracker()
         # 批 57 接线:Responses 流重试决策状态机(延迟 import 避免循环;行为兼容,
         # 仅作决策来源统一化,现有 attempt>=llm_retry_max 的 break 仍主导主链路)。
-        self._stream_retry_state = None
+        self._stream_retry_state: Any = None
         # 批 42:本回合内"用户批准后重执行"的工具调用 id 集合(回填 user_shell 片段)
         self._approved_command_call_ids: set[str] = set()
         # 批 40 接线:rollout_budget 记账 + 阈值提醒(批 26 移植模块首次接线;
