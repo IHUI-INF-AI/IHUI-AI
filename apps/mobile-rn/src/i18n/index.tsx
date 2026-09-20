@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { LOCALE_STORAGE_KEY } from '@ihui/shared/constants'
 import { mergeMessages, translate, getValueByPath } from '@ihui/i18n/loader'
 import { DEFAULT_LOCALE, type Locale, type Messages } from '@ihui/i18n/types'
@@ -45,6 +45,26 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
+/**
+ * 组件树外的 locale 切换入口(2026-09-21 立,供 AI 操控桥调用)。
+ *
+ * 不能只写 storage:那要等下一次挂载才读得到,当前界面纹丝不动 —— 对调用方就是"报成功但
+ * 用户什么都没看见"的假成功。真生效必须走 Provider 里那个会 setState 的 setLocale,而它在
+ * React 内部,所以由 Provider 挂载时注册进来、卸载时摘掉;拿不到 setter 时调用方须如实失败。
+ */
+let localeSetter: ((locale: Locale) => void) | null = null
+
+export function registerLocaleSetter(setter: ((locale: Locale) => void) | null): void {
+  localeSetter = setter
+}
+
+/** 返回 false = 没有挂载中的 I18nProvider(冷启竞态 / 未挂 Provider)。 */
+export function requestLocaleChange(locale: Locale): boolean {
+  if (!localeSetter) return false
+  localeSetter(locale)
+  return true
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
 
@@ -70,6 +90,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     await transport.setItem(LOCALE_STORAGE_KEY, next)
     setLocaleState(next)
   }
+
+  // setLocale 每次渲染都是新函数,用 ref 兜住最新实现,注册出去的代理保持稳定(只注册一次)
+  const setLocaleRef = useRef(setLocale)
+  setLocaleRef.current = setLocale
+  useEffect(() => {
+    registerLocaleSetter((l) => {
+      void setLocaleRef.current(l)
+    })
+    return () => registerLocaleSetter(null)
+  }, [])
 
   const t = (key: string, params?: Record<string, string | number>): string => {
     const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key

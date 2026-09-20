@@ -280,15 +280,25 @@
       TS 声明清单做双向差集 —— `web_ui_*` 7/7、`taro_ui_*` 4/4、`mobile_ui_*` 4/4、api 入口 2/2,
       **差集全空,未发现任何不匹配**(差一个字母就是静默死代码,故必须机械核)。
 - [x] ✅(2026-09-21) E6 移动端 `invoke` 命令面扩容(无 DOM 端 `invoke` 就是全部操作面):
-      小程序 3 → 9(五个 tab 切换 `Taro.switchTab` + `page:top` `Taro.pageScrollTo` + 主题三档),
-      `THEME_COMMANDS` 更名 `INVOKE_COMMANDS`;RN 4 → 8(五个 Main tab 切换,词表与小程序对齐为
-      `tab:*`;并补 `requireNavigationReady()` 防容器未就绪时的假成功)。
-      **刻意放弃**的候选及理由:语言/locale 切换(两端 `setLocale` 只活在 I18nProvider 的 React
-      state,模块级调用会造成"storage 变了界面没变"的假成功,根治要动共享层)、RN 返回上一级
-      (重复执行连弹多级,不幂等)、回顶部/开抽屉(需逐屏 ref 或组件内 state)、弹窗类(叠层)。
-      小程序 `run` 改为可返回 Promise 并统一 `await`,否则 `switchTab` 的 rejection 会被报成成功。
-      证据:miniapp `src/lib/__tests__` 70 项全绿、RN 三个文件 53 项全绿,两端 typecheck/lint exit 0。
-      未验证:微信真机 `switchTab` 实际换 tab、`pageScrollTo` 真滚动、expo 端 `Main` 嵌套跳转。
+      小程序 3 → 14(五个 tab 切换 `Taro.switchTab` + `page:top` `Taro.pageScrollTo` + 主题三档 +
+      **五种语言切换**),`THEME_COMMANDS` 更名 `INVOKE_COMMANDS`;RN 4 → 13(五个 Main tab 切换 +
+      语言切换,词表与小程序对齐为 `tab:*` / `locale:*`;并补 `requireNavigationReady()` 防容器
+      未就绪时的假成功)。
+      **语言切换的实现方式是关键**(子代理最初以"模块级 `setLocale` 只写 storage、当前界面不动
+      = 假成功"为由放弃,判断正确但前提可解):改由 `I18nProvider` 挂载时把**真正会 setState 的
+      setter** 注册到模块级(`registerLocaleSetter`),注册表调用 `requestLocaleChange(locale)`,
+      **拿不到 setter 就抛错** → 如实转 `EXECUTION_FAILED`,而不是报成功。小程序侧 setter 用
+      `useCallback` + `useEffect([setLocale])` 注册/摘除;RN 侧 `setLocale` 每次渲染都是新函数,
+      故经 `setLocaleRef` 包一层稳定代理、只注册一次。两端都在 `@/i18n` 层新增,不动 `packages/**`。
+      仍**刻意放弃**的候选:RN 返回上一级(重复执行连弹多级,不幂等)、回顶部/开抽屉(需逐屏 ref
+      或组件内 state)、弹窗类(叠层)。小程序 `run` 改为可返回 Promise 并统一 `await`,否则
+      `switchTab` 的 rejection 会被报成成功。
+      证据:miniapp `src/lib/__tests__` 33 项 / 全端 327 项全绿,typecheck + eslint exit 0;
+      RN 29 项 / 全端 322 项全绿,typecheck + lint exit 0。新增用例覆盖
+      "Provider 已挂载→成功并回传 locale""未挂载→EXECUTION_FAILED 且错误文案含'不谎报成功'"
+      "`lang:en`/`locale:EN`/`locale:set` 等近似 id 一律 UNSUPPORTED_ACTION"。
+      未验证:微信真机 `switchTab` 实际换 tab、`pageScrollTo` 真滚动、语言切换后**整树重渲染**的
+      真实表现、expo 端 `Main` 嵌套跳转。
 
 ### 验证证据(2026-09-20)
 
