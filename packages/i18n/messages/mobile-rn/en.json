@@ -299,7 +299,8 @@
     "chatTools": "AI Chat / Tools",
     "cart": "Cart",
     "circleIndex": "Circles",
-    "topicList": "Topics"
+    "topicList": "Topics",
+    "conversationImport": "Conversation import"
   },
   "error": {
     "network": "Network error, please retry"
@@ -2416,5 +2417,45 @@
       "error": "Failed to load"
     },
     "empty": "No content yet"
+  },
+  "conversationImport": {
+    "pageTitle": "External Conversation Import",
+    "desc": "Import conversation transcripts from external tools such as Claude Code / Codex / Cursor / Aider, then find them in your conversation history",
+    "sourcesTitle": "Choose a conversation source",
+    "sourceClaudeCode": "Claude Code",
+    "sourceClaudeCodeHint": "Typical path: ~/.claude/projects/**/*.jsonl",
+    "sourceCodex": "Codex CLI",
+    "sourceCodexHint": "Typical path: ~/.codex/sessions/**/*.jsonl",
+    "sourceCursor": "Cursor",
+    "sourceCursorHint": "Typical path: exported state.vscdb from a Cursor workspace",
+    "sourceAider": "Aider",
+    "sourceAiderHint": "Typical path: ~/.aider chat history (.md)",
+    "pickFile": "Choose an exported file",
+    "uploadHint": "Text export formats only, up to 20MB per file",
+    "fileSelected": "Selected: {name}",
+    "parsing": "Working...",
+    "parseFailed": "Parse failed: {error}",
+    "parseEmpty": "No conversations found in this file",
+    "previewTitle": "Parse preview",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selected": "Selected {count}/{total}",
+    "messagesCount": "{count} messages",
+    "conversationUntitled": "Untitled conversation",
+    "truncatedWarning": "The file is too large, so only part of the conversations were parsed. Split the export and try again.",
+    "commit": "Import selected",
+    "committing": "Importing... ({done}/{total})",
+    "commitDone": "Import finished: {imported} succeeded, {failed} failed",
+    "commitFailed": "Import failed: {error}",
+    "errorNoSource": "Choose a conversation source first",
+    "fileTooLarge": "File exceeds the 20MB limit. Split it and try again.",
+    "historyTitle": "Import history",
+    "historyEmpty": "No imports yet",
+    "historyFailed": "Failed to load import history: {error}",
+    "historyParsed": "Parsed",
+    "historyImported": "Imported",
+    "statusSuccess": "Success",
+    "statusPartial": "Partial",
+    "statusFailed": "Failed"
   }
 }
