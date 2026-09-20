@@ -71,7 +71,23 @@
     "codeCountdownSuffix": "秒後に再取得",
     "getPhoneFail": "電話番号の取得に失敗しました",
     "loginFailed": "ログインに失敗しました。もう一度お試しください",
-    "wechatOneClick": "WeChatワンタップログイン"
+    "wechatOneClick": "WeChatワンタップログイン",
+    "emailLogin": "メールログイン",
+    "email": "メール",
+    "emailPlaceholder": "メール入力",
+    "clearHistory": "すべて削除",
+    "code": "認証コード",
+    "sending": "送信中…",
+    "autoLogin": "自動ログイン",
+    "or": "または",
+    "ssoLoginTitle": "IHUI AI ウェブ認可ログイン",
+    "noAccount": "アカウントをお持ちでないですか?",
+    "registerNow": "今すぐ登録",
+    "agreePrefix": "読み同意しました",
+    "termsOfService": "利用規約",
+    "and": "および",
+    "privacyPolicy": "プライバシーポリシー",
+    "agreeRequired": "まずサービス利用規約とプライバシーポリシーを読み、同意してください"
   },
   "forgot": {
     "title": "パスワード再設定",
@@ -133,7 +149,8 @@
       "searchPlaceholder": "コースを検索",
       "search": "検索",
       "empty": "コースなし",
-      "title": "おすすめコース"
+      "title": "おすすめコース",
+      "courseCount": "{n} 件のコース"
     },
     "ratingTitle": "コースを評価",
     "ratingLabels": ["", "非常に悪い", "悪い", "普通", "良い", "非常に良い"],
@@ -804,7 +821,13 @@
       "voiceAnswer": "🔊 音声回答",
       "modelDefault": "AIモデル"
     },
-    "success": "共有成功"
+    "success": "共有成功",
+    "text1": "ページ未設定",
+    "text2": "販売ページ未設定",
+    "copy3": "リンクをコピーしました、ブラウザで開いてください",
+    "failed4": "コピー失敗、再試行してください",
+    "text5": "会話ページ未設定",
+    "confirm6": "この会話を削除しますか?"
   },
   "aiGroup": {
     "title": "エージェント広場",
@@ -1012,7 +1035,8 @@
     "email": "メール",
     "scanHint": "スキャンして名刺を見る",
     "shareCard": "名刺を共有",
-    "saveQrcode": "QRコードを保存"
+    "saveQrcode": "QRコードを保存",
+    "title": "デジタル名刺"
   },
   "exam": {
     "tabs": {
@@ -1861,7 +1885,8 @@
       "devNotice": "開発者向けお知らせ",
       "faqTitle": "開発者に関する一連のQ&A?",
       "copy": "コピー",
-      "copySuccess": "コピー済み"
+      "copySuccess": "コピー済み",
+      "infoTitle": "開発者情報"
     },
     "n8nModel": {
       "title": "N8Nモデル",
@@ -3220,7 +3245,9 @@
     "d2": "アルバム",
     "d3": "ローカルファイル",
     "d4": "WeChatファイル",
-    "text1": "深い思考に自動切り替え済み"
+    "text1": "深い思考に自動切り替え済み",
+    "p1": "音声入力中",
+    "p2": "音声入力"
   },
   "CourseHeader": {
     "text1": "有料項目"
@@ -3606,7 +3633,8 @@
     "text2": "エージェントアシスタントページ未設定",
     "p1": "画像コンテンツ",
     "p2": "動画コンテンツ",
-    "p3": "音声コンテンツ"
+    "p3": "音声コンテンツ",
+    "r1": "アルバムに保存"
   },
   "plazaCover": {
     "d1": "開発者スペースとは?",
@@ -3629,7 +3657,8 @@
     "d3": "ダークインターフェース、目に優しく省電力、夜間向き"
   },
   "shareCenterItem": {
-    "text1": "おすすめカード"
+    "text1": "おすすめカード",
+    "z1": "閲覧"
   },
   "shareInterestTrackModal": {
     "d1": "AI 人工知能",
@@ -3724,7 +3753,11 @@
   "LessonListItem": {
     "text1": "VIP限定",
     "text2": "VIP限定",
-    "y1": "人が学習済み"
+    "y1": "人が学習済み",
+    "z1": "人が学習済み",
+    "z2": "人が学習済み",
+    "p1": "VIP限定",
+    "p2": "有料項目"
   },
   "UserInfoCard": {
     "login1": "ワンタップログイン",
@@ -3910,7 +3943,8 @@
     "p2": "スキャンして閲覧"
   },
   "TagInput": {
-    "p1": "Enter で追加"
+    "p1": "Enter で追加",
+    "p2": "上限に達しました"
   },
   "VipUpgradeToast": {
     "p1": "会員にアップグレードして機能を解放"
@@ -3971,5 +4005,24 @@
     "q2": "WeChatミニプログラムでWeChatログインを使用してください",
     "q3": "WeChatログインコードが空です",
     "q4": "WeChatユーザー"
+  },
+  "TeamManager": {
+    "p1": "非アクティブ"
+  },
+  "VerifyCodeModal": {
+    "p2": "再送",
+    "p3": "確認中…"
+  },
+  "VideoInfo": {
+    "p1": "動画詳細"
+  },
+  "VideoPlayer": {
+    "p1": "再生エラー"
+  },
+  "VoiceInput": {
+    "p1": "録音の開始に失敗しました"
+  },
+  "shareInformationItem": {
+    "z1": "閲覧"
   }
 }
