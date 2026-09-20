@@ -6,6 +6,9 @@ import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 
+/** 形态合法的假 JWT:CSRF 豁免只看形态,真伪由路由侧鉴权判定。 */
+const JWT_SHAPED_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1LTEifQ.ZmFrZXNpZw'
+
 // Mock config: csrf 依赖 config.JWT_SECRET 签名
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
@@ -144,7 +147,9 @@ describe('csrf — 双提交 Cookie 模式', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/protected',
-        headers: { authorization: 'Bearer fake-jwt-token' },
+        // 形态必须是真 JWT(三段 base64url):2026-09-21 起 CSRF 只按**形态**豁免,
+        // 乱码头不再当免死金牌(见 isPlausibleBearerCredential)。
+        headers: { authorization: `Bearer ${JWT_SHAPED_TOKEN}` },
       })
       expect(res.statusCode).toBe(200)
     })
@@ -153,9 +158,27 @@ describe('csrf — 双提交 Cookie 模式', () => {
       const res = await server.inject({
         method: 'POST',
         url: '/api/protected',
-        headers: { authorization: 'bearer fake-jwt-token' },
+        headers: { authorization: `bearer ${JWT_SHAPED_TOKEN}` },
       })
       expect(res.statusCode).toBe(200)
+    })
+
+    it('ihui_ 前缀 API Key 也豁免(机器凭据不受浏览器 CSRF 约束)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/protected',
+        headers: { authorization: 'Bearer ihui_abc123' },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('乱码 Bearer 不得换取 CSRF 豁免(O17 实跑抓到的绕过)', async () => {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/protected',
+        headers: { authorization: 'Bearer garbage' },
+      })
+      expect(res.statusCode).toBe(403)
     })
 
     it('公开白名单 /api/auth/ 豁免', async () => {
