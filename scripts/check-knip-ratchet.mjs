@@ -79,6 +79,7 @@ function runKnipJson() {
     maxBuffer: 128 * 1024 * 1024,
     // 保持与本仓库其它守门脚本一致的删除守护豁免(pnpm/knip 内部可能创建临时目录)
     env: { ...process.env, CODEBUDDY_SAFE_DELETE_ENABLED: '0' },
+    windowsHide: true,
   })
   if (result.error) {
     console.error(`[knip-ratchet] ❌ 无法启动 knip:${result.error.message}`)
@@ -148,7 +149,7 @@ const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
 const baseCounts = baseline.counts ?? {}
 
 console.log('[knip-ratchet] 类别             当前    基线    增量')
-let regressions = []
+const regressions = []
 for (const c of CATEGORIES) {
   const cur = counts[c] ?? 0
   const base = baseCounts[c] ?? 0

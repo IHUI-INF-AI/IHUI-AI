@@ -92,7 +92,7 @@ for (const svcName of services) {
   try {
     const isListening = execSync(
       `node -e "const net=require('net');const s=new net.Socket();s.connect(${port},'127.0.0.1',()=>{console.log('in-use');s.end();process.exit(0);});s.on('error',()=>{console.log('free');process.exit(0);});setTimeout(()=>{console.log('timeout');process.exit(0);},3000)"`,
-      { encoding: 'utf-8', stdio: 'pipe' }
+      { encoding: 'utf-8', stdio: 'pipe', windowsHide: true }
     ).trim()
     if (isListening === 'in-use') {
       warnings.push(`[${svcName}] 端口 ${port} 已被占用,确认是否为合法服务进程`)

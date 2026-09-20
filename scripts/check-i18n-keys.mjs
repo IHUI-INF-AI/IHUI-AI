@@ -194,6 +194,7 @@ function readMessageJson(absPath) {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
     })
     return JSON.parse(blob)
   }
@@ -448,6 +449,7 @@ if (isStaged) {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: REPO_ROOT,
+      windowsHide: true,
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(

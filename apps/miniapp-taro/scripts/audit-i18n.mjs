@@ -31,6 +31,7 @@ function loadLocale(dir, file) {
 const files = execSync(`git ls-files "${path.relative(ROOT, SRC).replace(/\\/g, '/')}"`, {
   cwd: ROOT,
   encoding: 'utf-8',
+  windowsHide: true, // 防 Windows 弹可见控制台窗口
 })
   .trim()
   .split('\n')

@@ -76,6 +76,7 @@ function main(): number {
       [join(repoRoot, 'scripts', 'watermark.mjs'), 'inject', outFile],
       {
         stdio: 'pipe',
+        windowsHide: true,
       },
     )
   } catch {
