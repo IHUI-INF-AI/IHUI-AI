@@ -1442,10 +1442,22 @@ def _canonical_approval_key(command: str) -> str:
 
 
 def approve_exec_command(command: str) -> None:
-    """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。"""
+    """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。
+
+    批 51b:双写持久层(always 档,对标 codex PERSIST_ALWAYS)——内存表保持
+    一次性消费语义,持久层只做审计/恢复底账,消费后不删(一次性语义由内存表
+    承担);持久层写失败静默(不阻断放行,内存表已生效)。
+    """
+    key = _canonical_approval_key(command)
     if len(_exec_approved_commands) >= _EXEC_APPROVED_MAX:
         _exec_approved_commands.clear()
-    _exec_approved_commands.add(_canonical_approval_key(command))
+    _exec_approved_commands.add(key)
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.grant(_ap.SCOPE_ALWAYS, key, _ap.KIND_EXEC_ONCE)
+    except Exception:  # noqa: BLE001 - 持久化失败不阻断内存放行
+        pass
 
 
 def _consume_exec_approval(command: str) -> bool:
@@ -1509,13 +1521,22 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
     if len(_exec_allowed_prefixes) >= _EXEC_ALLOWED_PREFIXES_MAX:
         _exec_allowed_prefixes.clear()  # 容量上限:整体清空而非逐条淘汰(与一次性放行同策略)
     _exec_allowed_prefixes.add(prefix)
+    # 批 51b:双写持久层(always 档)。重启后经 _matches_exec_prefix 的
+    # 持久层查询自动恢复;写失败静默(内存表已生效,不阻断放行)。
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.grant(_ap.SCOPE_ALWAYS, _ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
+    except Exception:  # noqa: BLE001
+        pass
     return prefix
 
 
 def _matches_exec_prefix(command: str) -> bool:
-    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效;批 41 起走规范化键)。"""
-    if not _exec_allowed_prefixes:
-        return False
+    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效;批 41 起走规范化键)。
+
+    批 51b:内存表未命中时回源持久层(重启恢复;fail-closed——查询异常视为未命中)。
+    """
     try:
         from ..core.command_canonicalization import canonicalize_command_for_approval
 
@@ -1524,9 +1545,29 @@ def _matches_exec_prefix(command: str) -> bool:
         parts = _command_tokens(command)
     if not parts:
         return False
-    return any(
-        parts[: len(prefix)] == list(prefix) for prefix in _exec_allowed_prefixes
-    )
+    for prefix in _exec_allowed_prefixes:
+        if parts[: len(prefix)] == list(prefix):
+            return True
+    # 批 51b:内存未命中 → 查持久层(重启恢复;fail-closed——查询异常视为未命中)。
+    try:
+        from . import approval_persistence as _ap
+
+        persisted = _ap.check(
+            _ap.normalize_exec_key(parts), _ap.KIND_EXEC_PREFIX
+        )
+        if persisted is not None:
+            return True
+        # 前缀语义:持久层键是"前 N 个 token"的归一串;完整键未命中时再试
+        # 前 1/2 token 的前缀键(与内存表 tokens=2 默认语义对齐)。
+        for n in (2, 1):
+            if n <= len(parts):
+                if _ap.check(
+                    _ap.normalize_exec_key(parts[:n]), _ap.KIND_EXEC_PREFIX
+                ) is not None:
+                    return True
+    except Exception:  # noqa: BLE001 - 持久层异常按未命中处理,绝不放松审批
+        pass
+    return False
 
 
 def list_exec_prefix_rules() -> list[list[str]]:
@@ -1535,10 +1576,19 @@ def list_exec_prefix_rules() -> list[list[str]]:
 
 
 def revoke_exec_prefix(prefix: list[str]) -> bool:
-    """撤销一条前缀放行规则;返回该规则此前是否存在。"""
+    """撤销一条前缀放行规则;返回该规则此前是否存在。
+
+    批 51b:同步撤销持久层对应键(内存前缀 + 归一化键)。
+    """
     key = tuple(prefix)
     existed = key in _exec_allowed_prefixes
     _exec_allowed_prefixes.discard(key)
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.revoke(_ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
+    except Exception:  # noqa: BLE001 - 持久层失败不影响内存撤销
+        pass
     return existed
 
 
@@ -3066,6 +3116,8 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             from ..core.image_preparation import (
                 detail_limits as _vl,
+            )
+            from ..core.image_preparation import (
                 load_data_url_for_prompt as _vload,
             )
 
@@ -7915,6 +7967,241 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== 教育管理(edu_* 2026-09-19):读 8 + 写 6,经 internal token 调 api =====
+    # 权限收敛在 api 侧 RBAC(edu:view 读 / edu:manage 写);不入 _ADMIN_ONLY_TOOLS
+    # (对话链 user_role=0,入名单即断链,同 image_generation 2026-09-08 先例)
+    MCPTool(
+        name="edu_list_students",
+        description=(
+            "教育管理-学员名册检索:按关键词(姓名/手机号)/业务线/班级/学期分页查询报名学员,"
+            "返回 enrollmentId/studentId/studentName/studentPhone/className/totalFee/paidAmount"
+            "/dueAmount(欠费金额,单位元)。用于把学员姓名解析成催费/缴费/退费所需的 ID。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keyword": {"type": "string", "description": "学员姓名或手机号模糊搜索(可选)"},
+                "businessLine": {"type": "string", "enum": ["after_school_care", "kindergarten", "academic", "ai_course", "other"], "description": "业务线过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_arrears",
+        description=(
+            "教育管理-欠费学员名单:只看 totalFee > paidAmount 的报名记录,返回结构同"
+            " edu_list_students(含 dueAmount 欠费金额)。批量催费前先查本名单,再把"
+            " enrollmentId 列表交给 edu_send_fee_reminder_batch。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keyword": {"type": "string", "description": "学员姓名或手机号模糊搜索(可选)"},
+                "businessLine": {"type": "string", "enum": ["after_school_care", "kindergarten", "academic", "ai_course", "other"], "description": "业务线过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_fee_reminders",
+        description="教育管理-催费记录查询:按学员/班级/渠道分页查询历史催费发送记录(含状态与欠费金额快照)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "channel": {"type": "string", "description": "发送渠道过滤 in_app/sms/wechat(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_payment_records",
+        description="教育管理-缴费记录查询:按学员/班级/状态(paid/pending 等)分页查询缴费流水(amount 单位元)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "status": {"type": "string", "description": "缴费状态过滤,如 paid/pending(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_payment_summary",
+        description=(
+            "教育管理-缴费汇总统计:返回 totalIncome(实收总额,元)/paidStudentCount(已缴人数)"
+            "/arrearsCount(欠费人数)/arrearsTotal(欠费总额,元),可按班级/学期过滤。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_refunds",
+        description="教育管理-退费记录查询:按学员/班级/状态分页查询退费单(status: pending 待审批/approved 已通过/rejected 已驳回)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "status": {"type": "string", "description": "状态过滤 pending/approved/rejected(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_tuition_fees",
+        description="教育管理-学费标准查询:按班级/学期分页查询学费标准(feeName/amount 单位元/billingCycle/effectiveDate)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_my_bills",
+        description="教育管理-我的学费账单:查当前聊天用户自己的报名(应缴/已缴/欠费)与最近缴费记录(家长自查,无需管理权限)。",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    MCPTool(
+        name="edu_send_fee_reminder",
+        description=(
+            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达,"
+            "channel=wechat 时尽力发微信订阅消息。enrollmentId 先用 edu_list_students 或"
+            " edu_list_arrears 查得;该报名无欠费会被拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "enrollmentId": {"type": "string", "description": "报名记录 ID(必填)"},
+                "channel": {"type": "string", "enum": ["in_app", "sms", "wechat"], "description": "发送渠道(默认 in_app)"},
+                "message": {"type": "string", "description": "自定义催费文案(可选,留空用默认文案,最长 500 字)"},
+            },
+            "required": ["enrollmentId"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_send_fee_reminder_batch",
+        description=(
+            "教育管理-批量催费(写操作):对多个报名记录(1-100 个)批量发送催缴通知;"
+            "不存在/无欠费的记录自动跳过并返回 skipped 明细。常配 edu_list_arrears 先拉欠费名单再整批发送。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "enrollmentIds": {"type": "array", "items": {"type": "string"}, "description": "报名记录 ID 列表(1-100 个,必填)"},
+                "channel": {"type": "string", "enum": ["in_app", "sms", "wechat"], "description": "发送渠道(默认 in_app)"},
+                "message": {"type": "string", "description": "自定义催费文案(可选,留空用默认文案)"},
+            },
+            "required": ["enrollmentIds"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_create_payment_record",
+        description=(
+            "教育管理-登记缴费(写操作):为学员新增一条缴费记录。amount 单位为元(整数);"
+            "paymentDate 格式 YYYY-MM-DD;paymentMethod 如 现金/微信/支付宝/银行转账;"
+            "status 默认 paid(计入汇总收入),pending 为待确认。studentId/classId 用"
+            " edu_list_students 查得;缺金额/日期/方式时先向用户确认再调用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID(必填)"},
+                "classId": {"type": "string", "description": "班级 ID(必填)"},
+                "amount": {"type": "integer", "description": "缴费金额,单位元(必填)"},
+                "paymentDate": {"type": "string", "description": "缴费日期 YYYY-MM-DD(必填)"},
+                "paymentMethod": {"type": "string", "description": "缴费方式,如 现金/微信/支付宝/银行转账(必填)"},
+                "status": {"type": "string", "description": "状态 paid/pending(默认 paid)"},
+                "receiptNo": {"type": "string", "description": "收据号(可选)"},
+                "remark": {"type": "string", "description": "备注(可选)"},
+            },
+            "required": ["studentId", "classId", "amount", "paymentDate", "paymentMethod"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_create_refund",
+        description=(
+            "教育管理-创建退费申请(写操作):登记退费单(初始 pending),需再用"
+            " edu_approve_refund/edu_reject_refund 审批。amount 单位为元(整数);"
+            "refundDate 格式 YYYY-MM-DD;reason 退费原因必填。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID(必填)"},
+                "classId": {"type": "string", "description": "班级 ID(必填)"},
+                "amount": {"type": "integer", "description": "退费金额,单位元(必填)"},
+                "refundDate": {"type": "string", "description": "退费日期 YYYY-MM-DD(必填)"},
+                "reason": {"type": "string", "description": "退费原因(必填)"},
+                "paymentId": {"type": "string", "description": "关联缴费记录 ID(可选)"},
+                "refundMethod": {"type": "string", "description": "退回方式,如 原路退回/银行转账(可选)"},
+            },
+            "required": ["studentId", "classId", "amount", "refundDate", "reason"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_approve_refund",
+        description=(
+            "教育管理-审批通过退费(写操作):把 pending 状态的退费记录置为 approved;"
+            "refundId 用 edu_list_refunds(status=pending) 查得。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "refundId": {"type": "string", "description": "退费记录 ID(必填)"},
+                "approveRemark": {"type": "string", "description": "审批备注(可选)"},
+            },
+            "required": ["refundId"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_reject_refund",
+        description=(
+            "教育管理-驳回退费(写操作):把 pending 状态的退费记录置为 rejected;"
+            "refundId 用 edu_list_refunds(status=pending) 查得。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "refundId": {"type": "string", "description": "退费记录 ID(必填)"},
+                "approveRemark": {"type": "string", "description": "驳回理由/备注(可选)"},
+            },
+            "required": ["refundId"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -8027,6 +8314,215 @@ async def _tool_get_tool_schema(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "tool": name, "schema": schema}
 
 
+# ---------------------------------------------------------------------------
+# 教育管理工具(edu_* 2026-09-19 立,读 8 + 写 6):经 internal service token
+# 调用 api /api/edu-ai-management/* 端点。权限由 api 侧 RBAC 对真实聊天用户
+# 兜底(edu:view 读 / edu:manage 写);不入 _ADMIN_ONLY_TOOLS(对话链
+# user_role=0,入名单即断链,同 image_generation 2026-09-08 先例)。
+# 身份链路:web 主链 llm.py call_tool(user_id=owner_uuid) 直通 __user_id;
+# conversation 链 _execute_tool_call 传入 _resolve_user_id(sid) 解析结果。
+# ---------------------------------------------------------------------------
+_EDU_API_BASE_URL = os.environ.get("API_SERVICE_URL", "http://localhost:8802").rstrip("/")
+
+
+def _edu_internal_headers(user_id: Any) -> dict[str, str]:
+    """edu 工具调 api 的鉴权头:internal token + 真实用户 ID(契约同 codebase_indexer)。
+
+    api 侧 checkInternalServiceToken 校验 token 并把 X-User-Id 注入 request.userId,
+    随后 requireAnyPermission 的 RBAC 查询对该用户做权限兜底。
+    """
+    uid = str(user_id or "").strip()
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
+    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+        return {}
+    return {"x-internal-service-token": secret, "x-user-id": uid}
+
+
+def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    """从 handler args 挑选非空字段组装参数(过滤 None/空串,丢弃 __ 前缀内部键)。"""
+    params: dict[str, Any] = {}
+    for key in keys:
+        value = args.get(key)
+        if value not in (None, ""):
+            params[key] = value
+    return params
+
+
+def _edu_coerce_amount(body: dict[str, Any]) -> dict[str, Any] | None:
+    """把 amount 归一为整数(元);非法返回错误 dict,None 表示成功。"""
+    if "amount" not in body:
+        return None
+    try:
+        body["amount"] = int(float(body["amount"]))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "amount 必须为数字(单位:元)"}
+    return None
+
+
+async def _edu_api_request(
+    method: str,
+    path: str,
+    *,
+    user_id: Any,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """edu 工具统一 HTTP 出口:调 api 并剥 success() 壳({code,message,data})。
+
+    2xx → {ok: True, **data};非 2xx → {ok: False, error, errorCode}。
+    鉴权头缺失(未配置 AI_CALLBACK_SECRET/无用户身份)时直接返回可读错误,
+    不发请求。
+    """
+    import httpx
+
+    headers = _edu_internal_headers(user_id)
+    if not headers:
+        return {
+            "ok": False,
+            "error": "内部服务凭证未配置(AI_CALLBACK_SECRET)或用户身份缺失,无法调用教育管理接口",
+            "errorCode": "INTERNAL_AUTH_UNAVAILABLE",
+        }
+    url = f"{_EDU_API_BASE_URL}/api/edu-ai-management{path}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.request(method, url, headers=headers, params=params, json=json_body)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"教育管理接口请求失败: {e}", "errorCode": "NETWORK_ERROR"}
+    try:
+        payload = resp.json()
+    except Exception:  # noqa: BLE001
+        payload = {}
+    if resp.status_code < 400:
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if isinstance(data, dict):
+            return {"ok": True, **data}
+        return {"ok": True, "data": data}
+    message = payload.get("message") if isinstance(payload, dict) else None
+    return {
+        "ok": False,
+        "error": str(message) if message else f"教育管理接口返回 HTTP {resp.status_code}",
+        "errorCode": f"HTTP_{resp.status_code}",
+    }
+
+
+async def _tool_edu_list_students(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_students: 学员名册检索(姓名/手机号 → enrollmentId/studentId 解析)。"""
+    params = _edu_query_params(args, ("keyword", "businessLine", "classId", "termId", "page", "pageSize"))
+    return await _edu_api_request("GET", "/student-roster", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_arrears(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_arrears: 欠费学员名单(totalFee > paidAmount)。"""
+    params = _edu_query_params(args, ("keyword", "businessLine", "classId", "termId", "page", "pageSize"))
+    params["arrearsOnly"] = "true"
+    return await _edu_api_request("GET", "/student-roster", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_fee_reminders(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_fee_reminders: 催费发送记录查询。"""
+    params = _edu_query_params(args, ("studentId", "classId", "channel", "page", "pageSize"))
+    return await _edu_api_request("GET", "/fee-reminder", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_payment_records(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_payment_records: 缴费流水查询。"""
+    params = _edu_query_params(args, ("studentId", "classId", "status", "page", "pageSize"))
+    return await _edu_api_request("GET", "/payment-record", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_payment_summary(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_payment_summary: 缴费汇总(实收/已缴人数/欠费人数/欠费总额)。"""
+    params = _edu_query_params(args, ("classId", "termId"))
+    return await _edu_api_request("GET", "/payment-record/summary", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_refunds(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_refunds: 退费记录查询(pending/approved/rejected)。"""
+    params = _edu_query_params(args, ("studentId", "classId", "status", "page", "pageSize"))
+    return await _edu_api_request("GET", "/refund-record", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_tuition_fees(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_tuition_fees: 学费标准查询。"""
+    params = _edu_query_params(args, ("classId", "termId", "page", "pageSize"))
+    return await _edu_api_request("GET", "/tuition-fee", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_my_bills(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_my_bills: 当前聊天用户(家长)自己的报名与最近缴费。"""
+    return await _edu_api_request("GET", "/my-bills", user_id=args.get("__user_id"))
+
+
+async def _tool_edu_send_fee_reminder(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_send_fee_reminder: 单发催费(站内信必达,wechat 渠道尽力外发)。"""
+    body = _edu_query_params(args, ("enrollmentId", "channel", "message"))
+    if "enrollmentId" not in body:
+        return {"ok": False, "error": "enrollmentId 不能为空(可用 edu_list_students/edu_list_arrears 查得)"}
+    return await _edu_api_request("POST", "/fee-reminder", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_send_fee_reminder_batch(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_send_fee_reminder_batch: 批量催费(1-100 条,无欠费/不存在自动跳过)。"""
+    ids = args.get("enrollmentIds")
+    if not isinstance(ids, list) or not ids:
+        return {"ok": False, "error": "enrollmentIds 必须为非空 ID 数组(1-100 个)"}
+    body: dict[str, Any] = {"enrollmentIds": [str(i) for i in ids]}
+    body.update(_edu_query_params(args, ("channel", "message")))
+    return await _edu_api_request("POST", "/fee-reminder/batch", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_create_payment_record(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_create_payment_record: 登记缴费记录(amount 单位元)。"""
+    body = _edu_query_params(
+        args,
+        ("studentId", "classId", "feeId", "amount", "paymentDate", "paymentMethod", "status", "receiptNo", "remark"),
+    )
+    missing = [k for k in ("studentId", "classId", "amount", "paymentDate", "paymentMethod") if k not in body]
+    if missing:
+        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(studentId/classId 可用 edu_list_students 查得)"}
+    err = _edu_coerce_amount(body)
+    if err:
+        return err
+    return await _edu_api_request("POST", "/payment-record", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_create_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_create_refund: 创建退费申请(pending 待审批;amount 单位元)。"""
+    body = _edu_query_params(
+        args,
+        ("studentId", "classId", "paymentId", "amount", "refundDate", "refundMethod", "reason"),
+    )
+    missing = [k for k in ("studentId", "classId", "amount", "refundDate", "reason") if k not in body]
+    if missing:
+        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(studentId/classId 可用 edu_list_students 查得)"}
+    err = _edu_coerce_amount(body)
+    if err:
+        return err
+    return await _edu_api_request("POST", "/refund-record", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_approve_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_approve_refund: 审批通过退费(pending → approved)。"""
+    refund_id = str(args.get("refundId") or "").strip()
+    if not refund_id:
+        return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    body = _edu_query_params(args, ("approveRemark",))
+    return await _edu_api_request(
+        "PUT", f"/refund-record/{refund_id}/approve", user_id=args.get("__user_id"), json_body=body
+    )
+
+
+async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_reject_refund: 驳回退费(pending → rejected)。"""
+    refund_id = str(args.get("refundId") or "").strip()
+    if not refund_id:
+        return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    body = _edu_query_params(args, ("approveRemark",))
+    return await _edu_api_request(
+        "PUT", f"/refund-record/{refund_id}/reject", user_id=args.get("__user_id"), json_body=body
+    )
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -8121,6 +8617,21 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== D11 浏览器自检截图(2026-09)=====
     "browser_selfcheck_screenshot": _tool_browser_selfcheck_screenshot,
     "browser_selfcheck": _tool_browser_selfcheck,
+    # ===== 教育管理(edu_* 2026-09-19,读 8 + 写 6;internal token → api RBAC 兜底)=====
+    "edu_list_students": _tool_edu_list_students,
+    "edu_list_arrears": _tool_edu_list_arrears,
+    "edu_list_fee_reminders": _tool_edu_list_fee_reminders,
+    "edu_list_payment_records": _tool_edu_list_payment_records,
+    "edu_payment_summary": _tool_edu_payment_summary,
+    "edu_list_refunds": _tool_edu_list_refunds,
+    "edu_list_tuition_fees": _tool_edu_list_tuition_fees,
+    "edu_my_bills": _tool_edu_my_bills,
+    "edu_send_fee_reminder": _tool_edu_send_fee_reminder,
+    "edu_send_fee_reminder_batch": _tool_edu_send_fee_reminder_batch,
+    "edu_create_payment_record": _tool_edu_create_payment_record,
+    "edu_create_refund": _tool_edu_create_refund,
+    "edu_approve_refund": _tool_edu_approve_refund,
+    "edu_reject_refund": _tool_edu_reject_refund,
 }
 
 
@@ -8577,7 +9088,8 @@ class SamplingHandler:
                 self._audit_logs.append({
                     "callerTool": caller,
                     "model": used_model,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+                    "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
                     "blocked": False,
                     "context": str(request.get("context", ""))[:200],
                 })
@@ -8592,7 +9104,7 @@ class SamplingHandler:
                 self._audit_logs.append({
                     "callerTool": caller,
                     "model": model or "",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
                     "blocked": True,
                     "blockedReason": "timeout",
                 })
