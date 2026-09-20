@@ -84,7 +84,7 @@
 ### P0 立即执行（安全收敛，开放前置）
 
 - [ ] O1 `/api/mcp` 移出 `PUBLIC_PATHS` + 强制机器凭据 + 工具级 scope 声明（~90 工具逐条映射 catalog，未声明即拒）+ `mcp_export` 与 `_TOOLS` 打通 + `validate_request_host` 接线 + `X-Internal-Auth` 真实校验（ai-service 侧）
-- [ ] O2 API Key 配额强制：`rateLimit5h/1d/7d` + `blockedIps` 接入 `api-key-auth.ts`；per-model RPM/TPM 列落地 migration；Redis 异常 fail-open→fail-close（可配）；IPv6 CIDR；`key + secret` 双因子；默认权限集去 `chat:write`；`'*'` 通配需显式签发且不覆盖 platform 域
+- [x] ✅(2026-09-20) O2 API Key 配额强制：`rateLimit5h/1d/7d` + `blockedIps` 接入 `api-key-auth.ts`；per-model RPM/TPM 列落地 migration；Redis 异常 fail-open→fail-close（可配）；IPv6 CIDR；`key + secret` 双因子；默认权限集去 `chat:write`；`'*'` 通配需显式签发且不覆盖 platform 域
 - [x] ✅(2026-09-20) O3 `/v1` 全端点族补 `requireCapability`（assistants/threads/batches/responses/mcp-gateway/midjourney/rerank-moderations/protocol-*/realtime/shared）+ `v1-codebase-search`/`v1-apply-diff` 从 JWT-only 改为认 API Key
 - [ ] O4 数据闸机械层：`plugins/principal.ts` + `utils/scoped-guard.ts` + `dbMode` 守卫 + `rls-context` 移到鉴权后阶段并改非超级用户连接 + `idor-guard` 由 catalog 驱动接线（现为 0 调用点）
 - [ ] O5 `/v1` nginx 独立 `limit_req` + 审计归因（`audit*.ts`/`api-logger.ts` 补 `apiKeyId` + 端点 + 脱敏参数摘要）+ `llm_call_logs` prompt 原文留存策略（按 key 可关 + TTL）
