@@ -838,7 +838,42 @@ if (wipMissingKeyIssues.length > 0) {
   }
   console.log('')
 }
-const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0
+// next-intl/use-intl 按 "." 路径解析消息,字面含点 key(如 "foldPolicy.title")永远不可达:
+// 渲染时走 MISSING_MESSAGE 兜底,UI 上直接回显键名本身。2026-09-21 实测 web 语言包曾有 84 个
+// 这类 key,其中 en/ko 各 22 个(subAgentFeed.lane.*、agentHooks.event.*、integrations.event.*)
+// 在开发者面板里真的显示成了 "event.tool.before" 这样的原始键名。含点 key 必须改成嵌套结构。
+const dottedKeyIssues = []
+if (existsSync(MESSAGES_DIR)) {
+  for (const entry of readdirSync(MESSAGES_DIR).filter((f) => f.endsWith('.json'))) {
+    let raw
+    try {
+      raw = readMessageJson(join(MESSAGES_DIR, entry))
+    } catch {
+      continue
+    }
+    const walkDotted = (node, prefix) => {
+      for (const [k, v] of Object.entries(node)) {
+        if (k.includes('.')) dottedKeyIssues.push(`${entry}: "${k}" (at ${prefix || '<root>'})`)
+        if (v && typeof v === 'object' && !Array.isArray(v)) walkDotted(v, prefix ? `${prefix}.${k}` : k)
+      }
+    }
+    walkDotted(raw, '')
+  }
+}
+
+if (dottedKeyIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
+  )
+  for (const line of dottedKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dottedKeyIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dottedKeyIssues.length - 20} 个${C.reset}`)
+  }
+  console.log(`${C.yellow}修复方法: 把 "a.b": "x" 改写为嵌套结构 "a": { "b": "x" }${C.reset}`)
+  console.log('')
+}
+
+const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0 || dottedKeyIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -861,7 +896,11 @@ if (shouldBlock) {
   )
   console.log(
     `${C.red}[i18n 键检查] 发现 ${
-      parityIssues.length > 0 ? 'parity 问题' : '缺失键问题'
+      parityIssues.length > 0
+        ? 'parity 问题'
+        : missingKeyIssues.length > 0
+          ? '缺失键问题'
+          : '含点键问题'
     },拒绝提交/CI失败!${C.reset}`,
   )
   console.log(`${C.yellow}修复方法:${C.reset}`)
