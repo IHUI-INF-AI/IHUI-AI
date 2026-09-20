@@ -216,6 +216,25 @@ describe('ConversationImportScreen(RN)', () => {
     expect(screen.queryByText(/PRIVATE-BODY-BETA/)).toBeNull()
   })
 
+  it('选到来源白名单外的文件时本地拦截,不发请求也不误报成功', async () => {
+    rnMocks.getDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        { uri: 'file:///cache/notes.txt', name: 'notes.txt', mimeType: 'text/plain', size: 12 },
+      ],
+    })
+    rnMocks.fetchApi.mockResolvedValue(PARSE_RESULT)
+
+    render(<ConversationImportScreen />)
+    await waitFor(() => expect(rnMocks.getConversationImportHistory).toHaveBeenCalled())
+
+    fireEvent.click(screen.getByText('conversationImport.sourceClaudeCode'))
+    fireEvent.click(screen.getByText('conversationImport.pickFile'))
+
+    await waitFor(() => expect(screen.getByText('conversationImport.errorFileType')).toBeTruthy())
+    expect(rnMocks.fetchApi).not.toHaveBeenCalled()
+  })
+
   it('串行提交:单会话失败不中断,正文空白会话不发请求,完成后重拉历史', async () => {
     mockPickedFile()
     rnMocks.fetchApi.mockResolvedValue(PARSE_RESULT)
@@ -241,7 +260,9 @@ describe('ConversationImportScreen(RN)', () => {
     expect(firstPayload.source).toBe('claude_code')
     expect(firstPayload.fileName).toBe('export.jsonl')
     expect(firstPayload.title).toBe('重构计费模块')
-    expect(firstPayload.model).toBe('claude-sonnet-4-5')
+    // 外部工具的模型 id 不进 model 列 —— 该列会直接进 LLM 网关,陌生 id 会让导入会话
+    // 首次续聊报错(与 web/CLI 同口径)。预览展示模型不受影响。
+    expect(firstPayload.model).toBeUndefined()
     expect(firstPayload.messages).toHaveLength(2)
     // 第二条失败后仍继续处理第三条;第三条无有效消息 → 不发请求
     const secondPayload = commitPayloadAt(1)

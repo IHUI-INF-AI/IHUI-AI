@@ -2449,6 +2449,7 @@
     "commitFailed": "導入失敗:{error}",
     "errorNoSource": "請先選擇會話來源",
     "fileTooLarge": "文件超過 20MB 限制,請拆分後重試",
+    "errorFileType": "所選檔案類型不支援,請選擇該來源的匯出檔案",
     "historyTitle": "導入歷史",
     "historyEmpty": "暫無導入記錄",
     "historyFailed": "載入導入歷史失敗:{error}",

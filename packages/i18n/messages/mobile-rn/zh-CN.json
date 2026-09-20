@@ -2449,6 +2449,7 @@
     "commitFailed": "导入失败:{error}",
     "errorNoSource": "请先选择会话来源",
     "fileTooLarge": "文件超过 20MB 限制,请拆分后重试",
+    "errorFileType": "所选文件类型不支持,请选择该来源的导出文件",
     "historyTitle": "导入历史",
     "historyEmpty": "暂无导入记录",
     "historyFailed": "加载导入历史失败:{error}",
