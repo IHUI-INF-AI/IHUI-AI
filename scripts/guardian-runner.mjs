@@ -1101,14 +1101,17 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- info (2 项) ---
+  // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
-    label: '📋 OpenAPI spec(informational)',
+    label: '📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级)',
     script: 'openapi-check.mjs',
-    args: [],
-    mode: 'info',
+    // --staged:仅当本轮暂存触及 apps/api/src/routes/**、契约产物或能力清单时才判定,
+    // 否则无关提交也要背 3.5MB 产物的比对成本。判据本身见 scripts/openapi-check.mjs。
+    args: ['--staged'],
+    mode: 'blocking',
   },
+  // --- info (1 项) ---
   {
     id: '23',
     label: '📋 staged 文件清单(info)',

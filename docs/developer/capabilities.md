@@ -118,6 +118,9 @@ curl -s -X POST https://<host>/v1/chat/completions \
 ## 7. 变更方式
 
 1. 在 `capability-catalog.ts` 增/改条目（scope 必须先加进 `packages/types/src/api-key.ts` 的枚举）。
-2. `pnpm capabilities:export` 重新生成产物并提交。
-3. `pnpm capabilities:check` 与 `node scripts/check-capability-catalog.mjs` 必须在 CI 绿：端点未登记能力会被硬拦。
+2. 端点由 **apps/ai-service（FastAPI）** 提供时，条目须显式标 `host: 'ai-service'`（缺省即 `'api'`，产物里不会写出该键）。这类条目不会出现在 `apps/api/openapi.json`，契约守门与 security 注入都会据 `host` 跳过并**计数打印**（`[C]` 行的 `ai-service 归属 N`）——归属不同，不是漂移。
+3. `WS` 前缀登记的长连接端点（如 `WS /v1/realtime`）不参与 HTTP 契约比对：OpenAPI 3.0 不描述 WebSocket，同样在 `[C]` 行按 `WS 不进 HTTP 契约 N` 显式计数。新增此类条目必须在注释里给出 `websocket: true` 的注册点行号。
+4. 没有真实 HTTP 面的 scope 一律写 `routes: []` + 注释说明真实面在哪（如 `billing:read`、`ops:execute`、`web:fetch`），**禁止**保留"看着像有"的臆写路径。
+5. `pnpm capabilities:export` 重新生成产物并提交（比对忽略 `generatedAt`，重跑不产生伪漂移）。
+6. `pnpm capabilities:check` 与 `node scripts/check-capability-catalog.mjs` 必须在 CI 绿：端点未登记能力会被硬拦。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
