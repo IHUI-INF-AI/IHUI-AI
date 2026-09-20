@@ -2,16 +2,21 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""OpenAI Codex CLI 会话导出解析器(D28,2026-09-20 立)。
+"""OpenAI Codex CLI 会话导出解析器(D28,2026-09-20 立;同日按真机 rollout 实证修订)。
 
 输入形态:`~/.codex/sessions/<Y/M/D>/rollout-<时间>-<uuid>.jsonl`,或同结构的
-`.json` 数组。逐行 `{timestamp, type, payload}`,关键类型:
+`.json` 数组。逐行 `{timestamp, type, payload}`,真机 18.3 MiB / 5819 行实测到的类型:
 
 - `session_meta` → 一次 rollout 的起点(payload 带 id/timestamp/cwd/cli_version)
 - `turn_context` → 当轮模型(payload.model)
-- `response_item` → 送给模型的真实上下文条目(`message` 是可见对话,`reasoning`
-  / `function_call` / `function_call_output` 是执行过程,不落地)
-- `event_msg` → UI 事件流(`user_message` / `agent_message`)
+- `response_item` → 送给模型的真实上下文条目(`message` 是可见对话;`reasoning` /
+  `function_call` / `function_call_output` 是执行过程,不落地;`role:"developer"`
+  是注入指令,单独计数告警)
+- `event_msg` → UI 事件流。新版正文在 `item_completed` 的 `payload.item`
+  (`type` = `UserMessage` / `AgentMessage`,内容块类型首字母大写 `Text`),
+  `payload.message` 只出现在旧版;`task_complete` 另带 `last_agent_message`。
+  其余 `token_count` / `thread_settings_applied` / `turn_aborted` 等不承载会话文本。
+- `compacted` → 上下文压缩摘要(payload.message 为字符串),按 system 落地
 
 `response_item.message` 与 `event_msg` 描述同一批文本但形态不同,旧版 rollout 只有
 其中一种。因此以 `response_item` 为权威源,该会话一条都没解析出来时才回退
@@ -35,6 +40,12 @@ from .ir import (
 )
 
 __all__ = ["parse"]
+
+# 旧版 event_msg 的直白命名(新版是 item_completed + payload.item)
+_LEGACY_EVENT_ROLES = {"user_message": "user", "agent_message": "assistant"}
+
+# item_completed.payload.item.type → 角色
+_ITEM_ROLES = {"usermessage": "user", "agentmessage": "assistant"}
 
 # Codex 以 user 角色注入的环境/指令上下文,不属于用户输入
 _INJECTED_PREFIXES = (
@@ -66,6 +77,7 @@ def parse(data: bytes, filename: str) -> ParseResult:
 
     drafts: list[_Draft] = []
     current = _Draft()
+    developer_skipped = 0
     for record in records:
         if not isinstance(record, dict):
             continue
@@ -87,19 +99,35 @@ def parse(data: bytes, filename: str) -> ParseResult:
             continue
 
         if rtype == "event_msg" and payload is not None:
-            _append(current.events, payload.get("type"), payload.get("message"), stamp)
+            _collect_event(current.events, payload, stamp)
+            continue
+
+        if rtype == "compacted":
+            # 上下文压缩摘要是理解前文的关键骨架,按 system 落地(真机 rollout 含此类型)
+            summary = payload.get("message") if payload else record.get("message")
+            _push(current.events, "system", summary, stamp)
             continue
 
         if rtype == "response_item" and payload is not None:
             if payload.get("type") == "message":
-                text = _text_of(payload.get("content"))
-                _append(current.transcript, str(payload.get("role")), text, stamp)
+                role = str(payload.get("role") or "")
+                if role == "developer":
+                    developer_skipped += 1
+                    continue
+                _push(current.transcript, role, _text_of(payload.get("content")), stamp)
             continue
 
         if isinstance(record.get("role"), str):
             # 旧版/裸 item 导出:记录本身就是一条 message
-            _append(current.transcript, str(record["role"]), _text_of(record.get("content")), stamp)
+            _push(
+                current.transcript,
+                str(record["role"]),
+                _text_of(record.get("content")),
+                stamp,
+            )
 
+    if developer_skipped:
+        result.warnings.append(f"{developer_skipped} 条 developer 注入指令未纳入导入")
     drafts.append(current)
     result.conversations = [
         _to_conversation(draft) for draft in drafts if draft.transcript or draft.events
@@ -107,13 +135,36 @@ def parse(data: bytes, filename: str) -> ParseResult:
     return result
 
 
-def _append(sink: list[Message], kind: Any, text: Any, stamp: str | None) -> None:
-    """按 event/type 名称映射角色并追加(注入上下文与空正文直接丢弃)。"""
-    if not isinstance(kind, str):
+def _collect_event(sink: list[Message], payload: dict[str, Any], stamp: str | None) -> None:
+    """event_msg 通道取文本。
+
+    真机新版形态是 `item_completed{item:{type:"UserMessage"|"AgentMessage", …}}`,
+    正文在 item.content 的 `Text` 块里;`payload.message` 那种旧命名(以及
+    task_complete.last_agent_message)一并兼容。其余事件(token_count /
+    thread_settings_applied / turn_aborted / item_started / 各类 function_call)
+    不承载会话文本,忽略。
+    """
+    kind = payload.get("type")
+    if kind == "task_complete":
+        _push(sink, "assistant", payload.get("last_agent_message"), stamp)
         return
-    role = {"user_message": "user", "agent_message": "assistant", "response": "assistant"}.get(
-        kind, kind.lower()
-    )
+
+    item = payload.get("item")
+    if kind == "item_completed" and isinstance(item, dict):
+        item_type = str(item.get("type") or "").lower()
+        role = _ITEM_ROLES.get(item_type)
+        if role:
+            body = item.get("content") or item.get("text") or item.get("message")
+            _push(sink, role, body, stamp)
+        return
+
+    body = payload.get("message")
+    if isinstance(body, str):
+        _push(sink, _LEGACY_EVENT_ROLES.get(str(kind), str(kind).lower()), body, stamp)
+
+
+def _push(sink: list[Message], role: str, text: Any, stamp: str | None) -> None:
+    """角色白名单 + 注入上下文过滤 + 空正文丢弃后追加消息。"""
     if role not in VALID_ROLES:
         return
     body = text if isinstance(text, str) else _text_of(text)
@@ -125,14 +176,18 @@ def _append(sink: list[Message], kind: Any, text: Any, stamp: str | None) -> Non
 
 
 def _text_of(content: Any) -> str:
-    """Codex content block 数组 → 纯文本(input_text/output_text/text 三种命名)。"""
+    """Codex content block 数组 → 纯文本。
+
+    块类型命名跨版本不统一(input_text / output_text / text / 首字母大写的 Text),
+    故按"类型名含 text"判定而非枚举白名单。
+    """
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
         return ""
     parts: list[str] = []
     for block in content:
-        if isinstance(block, dict) and block.get("type") in ("input_text", "output_text", "text"):
+        if isinstance(block, dict) and "text" in str(block.get("type") or "").lower():
             text = block.get("text")
             if isinstance(text, str) and text.strip():
                 parts.append(text)
