@@ -21,7 +21,8 @@ import {
 import { cn } from '@/lib/utils'
 
 interface ErrorCode {
-  code: number
+  /** 数字业务码(1000-5999)或机器可读语义码(SCOPE_REQUIRED 等),与后端 errorCode 一致 */
+  code: number | string
   httpStatus: number
   meaning: string
   fix: string
@@ -58,6 +59,45 @@ const ERROR_CODES: ErrorCode[] = [
     httpStatus: 403,
     meaning: 'API Key 不属于该租户',
     fix: '检查 Key 与租户的绑定关系',
+  },
+  // O2(2026-09-21 立):Key 级 5h/1d/7d 窗口超限 —— 1009 已被租户绑定占用,故新码取 1010
+  {
+    code: 1010,
+    httpStatus: 429,
+    meaning: 'Key 级窗口(5h/1d/7d)调用数超限',
+    fix: '按响应 Retry-After 与 X-RateLimit-* 退避重试,或调低窗口内频率',
+  },
+  // O2(2026-09-21 立):凭据形态收紧 + 限流后端 fail-close
+  {
+    code: 'SECRET_REQUIRED',
+    httpStatus: 401,
+    meaning: '缺少 X-Api-Secret 头(默认必须携带)',
+    fix: '携带创建/轮换密钥时一次性返回的 secret;过渡期可由服务端 API_KEY_REQUIRE_SECRET=false 放宽',
+  },
+  {
+    code: 'RATE_BACKEND_UNAVAILABLE',
+    httpStatus: 503,
+    meaning: '限流后端不可用,请求被 fail-close 拒绝',
+    fix: '按 Retry-After(默认 5s)重试;仅计费/高危能力会触发,低危只读降级放行',
+  },
+  // 数据闸(2026-09-21 立):dataClass 从文档约定变成运行期机械判定
+  {
+    code: 'DATA_ACCESS_DENIED',
+    httpStatus: 403,
+    meaning: '该能力的 dataClass 不允许触达此数据表(或表名不可判定)',
+    fix: '对照能力目录的 dataClass:compute 只产运行记录,读业务数据须走 scoped-read',
+  },
+  {
+    code: 'DATA_SCOPE_DENIED',
+    httpStatus: 403,
+    meaning: '语句越过归属边界(缺 owner 谓词或绑定他人资源 ID)',
+    fix: '只查询/写入调用者自有资源,禁止跨 owner/tenant 访问',
+  },
+  {
+    code: 'DATA_ISOLATION_UNAVAILABLE',
+    httpStatus: 503,
+    meaning: '数据隔离前提不成立(连接为超级用户或无法证实非超级用户)',
+    fix: '服务端需以非超级用户连接数据库;联系管理员,勿改客户端重试',
   },
   { code: 2001, httpStatus: 502, meaning: '上游服务不可用', fix: '稍后重试,系统会自动故障切换' },
   { code: 2002, httpStatus: 504, meaning: '上游超时', fix: '降低 max_tokens 或检查网络' },
