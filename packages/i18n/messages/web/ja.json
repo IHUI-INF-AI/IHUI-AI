@@ -8954,6 +8954,16 @@
     },
     "fallbackNotice": "バックアップモデル {backup} に切り替えました(元モデル {primary} は一時的に利用不可)",
     "feedbackRecorded": "フィードバックを記録しました",
+    "foldPolicy": {
+      "title": "中間ステップの折りたたみポリシー",
+      "current": "現在: {mode}",
+      "auto": "自動",
+      "autoDesc": "文字数・ツール数・所要時間で自動判定(軽いタスクは展開、重いタスクは折りたたみ)",
+      "collapsed": "折りたたむ",
+      "collapsedDesc": "中間ステップを常に折りたたむ",
+      "expanded": "展開",
+      "expandedDesc": "中間ステップを常に展開する"
+    },
     "gapInterval": "{gap} 間隔",
     "generating": "...",
     "hideReasoning": "推論過程を非表示",

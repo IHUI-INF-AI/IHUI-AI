@@ -8946,6 +8946,16 @@
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
     "feedbackRecorded": "Feedback recorded",
+    "foldPolicy": {
+      "title": "Intermediate steps folding policy",
+      "current": "Current: {mode}",
+      "auto": "Auto",
+      "autoDesc": "Fold by content length, tool count and duration — light tasks stay expanded, heavy tasks fold",
+      "collapsed": "Fold",
+      "collapsedDesc": "Always collapse intermediate steps",
+      "expanded": "Expand",
+      "expandedDesc": "Always expand intermediate steps"
+    },
     "gapInterval": "{gap} interval",
     "generating": "Generating",
     "hideReasoning": "Hide Reasoning",
