@@ -68,14 +68,15 @@ const SESSION_SOURCE_CONFIG: Record<ConversationImportSource, SessionSourceConfi
   },
   cursor: {
     label: 'Cursor',
-    description: 'Cursor 导出的 chat JSON / state.vscdb',
-    extensions: ['.json', '.vscdb'],
+    description: 'Cursor 导出的 chat JSON / state.vscdb(SQLite) / cursor-agent 转写',
+    // 与 ai-service 路由白名单一致:三种库后缀同义,agent-transcripts 是 .jsonl
+    extensions: ['.json', '.jsonl', '.vscdb', '.db', '.sqlite'],
     roots: () => [path.join(cursorStorageParent(), 'Cursor', 'User', 'globalStorage')],
   },
   aider: {
     label: 'Aider',
     description: 'Aider 写在仓库内的 chat markdown 记录',
-    extensions: ['.md', '.json'],
+    extensions: ['.md', '.json', '.jsonl'],
     roots: () => [process.cwd()],
   },
 };
@@ -335,12 +336,12 @@ export function buildCommitPayload(
     .map((m) => ({ role: m.role, content: m.content, createdAt: m.createdAt }));
   if (messages.length === 0) return null;
   const title = conv.title?.trim();
-  const model = conv.model?.trim();
+  // 不透传 conv.model:该列会直接进 LLM 网关(api chat.ts 的 conversation.model),
+  // 外部工具的模型 id 未必在用户目录内,写入会让导入会话首次续聊报错。预览仍展示模型。
   return {
     source,
     fileName,
     title: title ? title.slice(0, 255) : undefined,
-    model: model ? model.slice(0, 64) : undefined,
     createdAt: conv.sourceCreatedAt ?? conv.sourceUpdatedAt ?? undefined,
     messages,
   };

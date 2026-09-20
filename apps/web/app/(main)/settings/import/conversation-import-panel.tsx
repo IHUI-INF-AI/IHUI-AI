@@ -50,16 +50,17 @@ const IMPORT_SOURCES: Array<{
     accept: '.jsonl,.json',
   },
   {
+    // Cursor 现代版正文在 state.vscdb(SQLite)里,三种库后缀同义;cursor-agent 转写是 .jsonl
     value: 'cursor',
     labelKey: 'sourceCursor',
     hintKey: 'sourceCursorHint',
-    accept: '.json,.vscdb',
+    accept: '.json,.jsonl,.vscdb,.db,.sqlite',
   },
   {
     value: 'aider',
     labelKey: 'sourceAider',
     hintKey: 'sourceAiderHint',
-    accept: '.md,.json',
+    accept: '.md,.json,.jsonl',
   },
 ]
 

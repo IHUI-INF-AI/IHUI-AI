@@ -2449,6 +2449,7 @@
     "commitFailed": "インポート失敗: {error}",
     "errorNoSource": "先に会話ソースを選択してください",
     "fileTooLarge": "ファイルが 20MB の制限を超えています。分割して再試行してください",
+    "errorFileType": "このファイル形式には対応していません。該当ツールのエクスポートファイルを選択してください",
     "historyTitle": "インポート履歴",
     "historyEmpty": "インポート記録はまだありません",
     "historyFailed": "インポート履歴の読み込みに失敗しました: {error}",
