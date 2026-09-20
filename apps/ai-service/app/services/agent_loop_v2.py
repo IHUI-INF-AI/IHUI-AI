@@ -938,6 +938,65 @@ def _compaction_context_limit_from_env() -> int:
         return 0
 
 
+def _compaction_retention_budget_enabled_from_env() -> bool:
+    """保留区逐组预算精修开关(env AGENT_COMPACTION_RETENTION_BUDGET_ENABLED)。
+
+    默认 off:压缩产物保留区原样(与现状逐零差异);on/1/true/yes 时按 token 预算
+    从新到旧逐组纳入保留区、超长 agent 消息截断(对标 codex compact_remote_v2)。
+    """
+    return os.environ.get(
+        "AGENT_COMPACTION_RETENTION_BUDGET_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _compaction_retention_budget_tokens_from_env() -> int:
+    """保留区 token 预算(env AGENT_COMPACTION_RETENTION_BUDGET_TOKENS)。
+
+    未配置 → codex RETAINED_MESSAGE_TOKEN_BUDGET 默认值;非法/负值同样回退默认。
+    """
+    from app.core.compaction_retention import RETAINED_MESSAGE_TOKEN_BUDGET
+
+    try:
+        value = int(
+            os.environ.get(
+                "AGENT_COMPACTION_RETENTION_BUDGET_TOKENS",
+                str(RETAINED_MESSAGE_TOKEN_BUDGET),
+            )
+        )
+    except ValueError:
+        return RETAINED_MESSAGE_TOKEN_BUDGET
+    return value if value > 0 else RETAINED_MESSAGE_TOKEN_BUDGET
+
+
+def _compaction_retention_image_budget_from_env() -> bool:
+    """图片是否计入保留区预算(env AGENT_COMPACTION_RETENTION_IMAGE_BUDGET)。
+
+    默认 off = codex RetainedImageBudget::Disabled(图片不计入保留判定)。
+    """
+    return os.environ.get(
+        "AGENT_COMPACTION_RETENTION_IMAGE_BUDGET", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _compaction_retention_max_agent_tokens_from_env() -> int:
+    """单条 agent 消息 token 上限(env AGENT_COMPACTION_RETENTION_MAX_AGENT_TOKENS)。
+
+    未配置 → codex MAX_RETAINED_AGENT_MESSAGE_TOKENS(10000);0 或负值 → 不截断。
+    """
+    from app.core.compaction_retention import MAX_RETAINED_AGENT_MESSAGE_TOKENS
+
+    try:
+        value = int(
+            os.environ.get(
+                "AGENT_COMPACTION_RETENTION_MAX_AGENT_TOKENS",
+                str(MAX_RETAINED_AGENT_MESSAGE_TOKENS),
+            )
+        )
+    except ValueError:
+        return MAX_RETAINED_AGENT_MESSAGE_TOKENS
+    return value if value >= 0 else MAX_RETAINED_AGENT_MESSAGE_TOKENS
+
+
 def _resolve_compaction_decision_for(session_id: str | None) -> "CompactionDecision":
     """1-3 灰度决策接入(2026-09-12 立):AGENT_COMPACTION_MODE + CANARY_PERCENT。
 
@@ -1232,6 +1291,12 @@ class AgentLoopV2:
             else max(0, int(compaction_context_limit))
         )
         self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 批58(十三):保留区逐组预算精修(对标 codex compact_remote_v2)。默认 off
+        # 与现状逐零差异;三参数与 codex RetainedImageBudget / 单条 agent 消息上限对齐。
+        self._retention_budget_enabled: bool = _compaction_retention_budget_enabled_from_env()
+        self._retention_budget_tokens: int = _compaction_retention_budget_tokens_from_env()
+        self._retention_image_budget: bool = _compaction_retention_image_budget_from_env()
+        self._retention_max_agent_tokens: int = _compaction_retention_max_agent_tokens_from_env()
         # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
         # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
         # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
@@ -1467,6 +1532,12 @@ class AgentLoopV2:
                     "carried": chain_meta.get("carried"),
                 }
                 info["reasoning_retention"] = chain_meta.get("reasoning_retention") or {}
+            # 批58(十三):保留区逐组预算精修 —— 对标 codex compact_remote_v2 保留区语义
+            # (从新到旧逐组纳入预算/图片预算开·关/单条 agent 消息 token 上限)。作用于
+            # 压缩产物的保留区段,前缀(系统+摘要)原位不动。开关默认 off 与现状逐零差异。
+            compressed, retention_meta = self._apply_retention_budget(compressed)
+            if retention_meta.get("applied"):
+                info["retention_budget"] = retention_meta
             self._compaction_events.append(
                 {
                     "iteration": self._current_iteration,
@@ -1475,6 +1546,9 @@ class AgentLoopV2:
                     "removed_count": info.get("removed_count"),
                     "trigger": "llm" if info.get("llm_summary") else "deterministic",
                     "decision_chain_entries": int(chain_meta.get("entries") or 0),
+                    "retention_dropped_groups": int(
+                        retention_meta.get("dropped_groups") or 0
+                    ),
                 }
             )
             # W9#5(2026-09-18):压缩发生即经 hook_engine 发 SSE 通知(此前压缩结果只进
@@ -1511,6 +1585,79 @@ class AgentLoopV2:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
             logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
             return messages
+
+    def _apply_retention_budget(
+        self, compressed: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """批58(十三):压缩保留区逐组预算精修(对标 codex compact_remote_v2)。
+
+        codex 保留区语义:压缩后保留的历史消息按 token 预算**从新到旧逐组**纳入,
+        整组不 fit 即淘汰该组及更旧;图片按 RetainedImageBudget 开关决定是否计入;
+        单条 agent 消息超上限按 token 截断。
+
+        接线面:作用于压缩产物的保留区段(摘要/系统前缀原位不动),纯确定性零 LLM。
+        降级语义:开关关闭(AGENT_COMPACTION_RETENTION_BUDGET_ENABLED 默认 off)/
+        无保留区/预算内无需淘汰/任何异常 → 原样返回,与未接入前逐零差异。
+        保守护栏:预算极小会把保留区整体淘汰时不动产物(宁可保留也不清空活上下文)。
+        """
+        if not self._retention_budget_enabled:
+            return compressed, {"enabled": False}
+        try:
+            from app.core.compaction_retention import truncate_retained_messages
+            from app.core.context_compaction import SUMMARY_MARKER
+
+            prefix_len = 0
+            for msg in compressed:
+                if not isinstance(msg, dict):
+                    break
+                content = msg.get("content")
+                is_summary = isinstance(content, str) and content.startswith(SUMMARY_MARKER)
+                if msg.get("role") == "system" or is_summary:
+                    prefix_len += 1
+                else:
+                    break
+            prefix, retained = compressed[:prefix_len], compressed[prefix_len:]
+            if not retained:
+                return compressed, {"enabled": True, "applied": False, "reason": "no_retained"}
+            new_retained, stats = truncate_retained_messages(
+                retained,
+                max_tokens=self._retention_budget_tokens,
+                image_budget=self._retention_image_budget,
+                max_agent_message_tokens=self._retention_max_agent_tokens,
+            )
+            if not new_retained:
+                # 保守护栏:预算过小导致保留区被整体淘汰 → 不动产物
+                return compressed, {
+                    "enabled": True,
+                    "applied": False,
+                    "reason": "budget_would_drop_all_retained",
+                    "budget_tokens": self._retention_budget_tokens,
+                }
+            dropped_groups = int(stats.get("groups_total", 0)) - int(
+                stats.get("groups_retained", 0)
+            )
+            meta: dict[str, Any] = {
+                "enabled": True,
+                "applied": True,
+                "budget_tokens": self._retention_budget_tokens,
+                "dropped_groups": dropped_groups,
+                "groups_total": int(stats.get("groups_total", 0)),
+                "groups_retained": int(stats.get("groups_retained", 0)),
+                "truncated_messages": int(stats.get("truncated_messages", 0)),
+                "estimated_tokens": int(stats.get("estimated_tokens", 0)),
+            }
+            if dropped_groups or meta["truncated_messages"]:
+                logger.info(
+                    "[agent-loop] 保留区预算精修:淘汰 %s/%s 组,截断 %s 条超长 agent 消息(预算 %s tokens)",
+                    dropped_groups,
+                    meta["groups_total"],
+                    meta["truncated_messages"],
+                    self._retention_budget_tokens,
+                )
+            return [*prefix, *new_retained], meta
+        except Exception as e:  # noqa: BLE001 - 精修失败绝不阻塞压缩主链路
+            logger.warning("[agent-loop] 保留区预算精修失败(降级原产物): %s", e)
+            return compressed, {"enabled": True, "applied": False, "reason": "error"}
 
     def _inject_decision_chain(
         self, compressed: list[dict[str, Any]], source_messages: list[dict[str, Any]]
