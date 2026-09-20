@@ -421,7 +421,8 @@ await registry.runTeardowns()
 
 ```bash
 ihui server --port 7788 --host 127.0.0.1
-# 鉴权:IHUI_AGENT_TOKEN 环境变量(未设则无鉴权,仅本地开发)
+# 鉴权两条通道:IHUI_AGENT_TOKEN(共享 Bearer)或服务端 API Key 透传,详见「机器凭据接入」
+# 两条都未配置则无鉴权,仅本地开发
 ```
 
 ### 配置文件(`src/config/`)
@@ -429,6 +430,7 @@ ihui server --port 7788 --host 127.0.0.1
 | 文件 | 职责 |
 | --- | --- |
 | `cli.ts` | CLI flag 解析 |
+| `credentials.ts` | 机器凭据 vs 人凭据:分类 / 脱敏 / 出站头 / 入站鉴权 / errorCode 归一 |
 | `defaults.ts` | 默认值 |
 | `env.ts` | 环境变量加载(`IHUI_*`) |
 | `merge.ts` | 合并优先级:CLI flag > 环境变量 > `~/.ihui/settings.json` > defaults |
@@ -450,6 +452,141 @@ ihui server --port 7788 --host 127.0.0.1
 | 审计 | `audit.ts` | 操作审计日志查询 |
 | 取消注册 | `cancel-registry.ts` | AbortController 管理 |
 | 流式 chunk | `stream-chunk.ts` | 流式响应 chunk 解析 |
+
+---
+
+## 机器凭据接入(CLI / ACP / serve)
+
+CLI 历史上只认「人凭据」(登录拿到的 JWT)。本节补齐「机器凭据」(服务端签发的 API Key),
+让 CI/CD、其他 Agent、后端服务能以机器身份驱动 `ihui serve` / ACP / `ihui run`,
+而不是借用某个人的登录态。判定与脱敏逻辑集中在 `src/config/credentials.ts`(单一来源)。
+
+### 两类凭据的差别
+
+| 维度 | 人凭据(JWT) | 机器凭据(API Key) |
+| --- | --- | --- |
+| 形态 | `eyJhbGciOi…`(三段 base64url) | `ihui_` 前缀 + 24 位 hex |
+| 获取方式 | `ihui login` / SSO 授权 | 服务端开发者中心签发 |
+| 本地续期 | access 过期自动用 `refreshToken` 换新 | **不续期**(无 `exp` / refresh 语义) |
+| 出站请求头 | `Authorization: Bearer <jwt>` | `Authorization: Bearer ihui_xxx` + `X-Api-Secret: sk_xxx` |
+| 权限模型 | 用户角色 / 会员等级 | 能力目录 scope(与 `packages/types/generated/capabilities.json` 同源) |
+| 存放位置 | `settings.json` 的 `apiKey` | 同一 `apiKey` 字段,由 `credentialKind` 判别 |
+
+### settings.json 的凭据字段
+
+```jsonc
+{
+  // 历史上 ihui login 会把人的 JWT 复制进 apiKey,因此该字段两种凭据都可能出现
+  "apiKey": "ihui_0123456789abcdef0123456789abcdef",
+  // 可选:auto(默认)/ api_key / jwt
+  //   auto = 按值前缀推断 ⇒ 旧 settings.json 无需任何迁移即可正确判定
+  "credentialKind": "auto",
+  // 机器凭据的配套 secret(出站以 X-Api-Secret 携带);人凭据不需要
+  "apiSecret": "sk_xxx",
+  // ihui serve 的入站鉴权配置(可选)
+  "serve": {
+    "machineKeys": [
+      { "key": "ihui_0123…", "secret": "sk_0123…", "scopes": ["chat:write", "chat:read"] }
+    ],
+    "requireApiSecret": true
+  }
+}
+```
+
+兼容性保证:`credentialKind` / `apiSecret` / `serve` 全部可选,老文件读出即等价
+`credentialKind: 'auto'`;`resolveEffectiveConfig()` 的既有字段与优先级(CLI flag >
+settings.json > env > 默认)不变。`token-manager.ts` 在 `apiKey` 为 `ihui_` 前缀时
+**跳过续期**,且落盘守卫拒绝用新 JWT 覆盖机器凭据(按前缀判定,比声明更硬)。
+
+### 配置方式(优先级:CLI flag > settings.json > env)
+
+| 用途 | CLI flag | settings.json | 环境变量 |
+| --- | --- | --- | --- |
+| 机器凭据本体 | `--api-key` | `apiKey` | `IHUI_API_KEY` |
+| 配套 secret | `--api-secret` | `apiSecret` | `IHUI_API_SECRET` |
+| 强制声明种类 | `--credential-kind` | `credentialKind` | `IHUI_CREDENTIAL_KIND` |
+| serve 放行清单 | `--machine-key`(可重复) | `serve.machineKeys` | `IHUI_SERVE_MACHINE_KEYS` |
+| serve 共享 token | `--token` | — | `IHUI_AGENT_TOKEN` |
+| 过渡期放宽 | `--allow-secretless-machine-keys` | `serve.requireApiSecret: false` | `IHUI_SERVE_REQUIRE_API_SECRET=false` |
+
+`IHUI_SERVE_MACHINE_KEYS` / `--machine-key` 的条目格式(多条用 `;` 分隔):
+
+```
+ihui_xxxxxx=sk_yyyyyy=chat:write,chat:read;ihui_zzzzzz=sk_wwwwww=chat:read
+#             ↑ scope 名自带冒号,故字段用 = 分隔而非 :
+```
+
+`--allow-secretless-machine-keys` / `serve.requireApiSecret: false` /
+`IHUI_SERVE_REQUIRE_API_SECRET=false` 是同一个开关,同时放宽出站预检与入站校验两个方向
+(两者同源于服务端 `API_KEY_REQUIRE_SECRET`)——服务端过渡期放宽时,本机一起放宽才自洽。
+
+`ihui run` / `ihui acp` 等命令的出站路径无需额外配置:`src/index.ts` 的 `preAction`
+会装载 `installOutboundCredentialHeaders()`,命中「机器凭据 + 已配 secret + 目标属于本机
+`apiUrl`」时自动补 `X-Api-Secret`;第三方主机不受影响,人凭据(JWT)完全 passthrough。
+
+### ihui serve 入站鉴权(两条通道,任一命中即放行)
+
+| 端点 | 机器凭据所需 scope |
+| --- | --- |
+| `GET /health` | 仅需凭据有效(存活探针) |
+| `POST /message`(SSE) | `chat:write` |
+| `GET /sessions` | `chat:read` |
+| `POST /sessions/:id/resume` | `chat:read` |
+| `WS /ws` | `chat:write` |
+
+```bash
+ihui serve --port 8841 --token "$IHUI_AGENT_TOKEN" \
+  --machine-key "ihui_0123456789abcdef0123456789abcdef=sk_0123456789abcdef01234567=chat:write,chat:read"
+
+# 机器 client 调用
+curl -N http://127.0.0.1:8841/message \
+  -H "Authorization: Bearer ihui_0123456789abcdef0123456789abcdef" \
+  -H "X-Api-Secret: sk_0123456789abcdef01234567" \
+  -H "Content-Type: application/json" \
+  -d '{"text":"列出当前目录的文件"}'
+```
+
+两条通道都未配置时保持「无鉴权」语义(既有本地开发行为不变)。WS 侧继续兼容
+`?token=` query(握手头优先),拒绝时先回一帧 `{type:'error', errorCode, message}`
+再以 `4001`/`4003` 关闭,机器 client 能直接判别原因而不必只看关闭码。
+
+出站凭据与入站凭据刻意分离:serve 主机的对 api 调用始终用**本机解析出的凭据**,
+不接受「把 caller 的 key 转发给 api」——那会把 serve 变成任意 key 的开放代理。
+
+### 错误码(agent 可判别)
+
+凭据缺失 / scope 不足不再是"只有一段人读消息"。HTTP 响应体在既有
+`{ code, message, data }` 之外追加 `errorCode`(+ `requiredScope`);SSE 的
+`event: error` 与 WS 的错误帧同样携带 `errorCode`;`ihui serve --json` 的 NDJSON
+生命周期事件同理。退出码沿用既有语义,不因本节的错误码而改变。
+
+| `errorCode` | 触发条件 | HTTP | NDJSON 事件 |
+| --- | --- | --- | --- |
+| `CREDENTIAL_MISSING` | 未提供任何凭据 | 401 | `warning` / `error` |
+| `CREDENTIAL_INVALID` | 凭据不被接受(token / secret 不匹配) | 401 | — |
+| `SECRET_REQUIRED` | 机器凭据未携带 `X-Api-Secret` | 401 | `warning`(启动预检)/ 响应体 |
+| `SCOPE_REQUIRED` | 凭据缺少该端点所需 scope | 403 | 响应体 / SSE / WS |
+| `M2M_FORBIDDEN` | 该能力不对机器凭据开放(platform 域 / 未登记) | 403 | 响应体 / SSE / WS |
+| `RATE_BACKEND_UNAVAILABLE` | 服务端限流后端不可用(fail-close) | 503 | SSE / WS(由上游错误归一化) |
+
+`classifyAuthError()` 负责把上游错误(`errorCode` 字段 / HTTP status + 消息文本)
+归一化成上表之一;与鉴权无关的错误返回 `undefined`,不硬塞 `errorCode`。
+
+### 预检与脱敏
+
+```bash
+ihui serve --check-credential --json
+# {"type":"credential-check","ok":false,"kind":"api_key","errorCode":"SECRET_REQUIRED",
+#  "message":"机器凭据(ihui_ API Key)缺少 X-Api-Secret:请设置 IHUI_API_SECRET 或 --api-secret",
+#  "maskedToken":"ihui_0***ef (len=37)"}
+# 退出码:0 = 凭据可用,1 = 不可用(沿用既有 0/1/2/130 语义)
+```
+
+卫生纪律:`token` / `secret` 明文**永不**进入日志、`--json` 输出或 HTTP 响应体,
+统一由 `maskSecret()` 输出「前 6 位 + `***` + 后 2 位 + 长度」形态
+(例:`sk_012***67 (len=27)`);长度不足 9 的短值整体遮蔽。能力闸(`setCapabilityGate`)
+由 `ihui serve` 启动时从 `@ihui/types` 动态装载注入,未注入时本地只判 `SCOPE_REQUIRED`,
+`M2M_FORBIDDEN` 交由服务端权威判定。回归测试见 `apps/cli/tests/machine-credentials.test.ts`。
 
 ---
 

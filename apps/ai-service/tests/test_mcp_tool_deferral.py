@@ -122,7 +122,7 @@ async def test_get_tool_schema_unknown(monkeypatch: Any) -> None:
 
 def test_list_changed_bumps_tools_version() -> None:
     before = mcp_official.get_tools_version()
-    r = mcp_official._handle_notification("notifications/tools/list_changed")
+    r = asyncio.run(mcp_official._handle_notification("notifications/tools/list_changed"))
     assert r == {}
     assert mcp_official.get_tools_version() == before + 1
 
@@ -137,7 +137,7 @@ def test_tools_list_includes_tools_version() -> None:
 
 def test_unknown_notification_returns_empty_result() -> None:
     before = mcp_official.get_tools_version()
-    r = mcp_official._handle_notification("notifications/bogus")
+    r = asyncio.run(mcp_official._handle_notification("notifications/bogus"))
     assert r == {}
     # 未知通知不 bump 版本号
     assert mcp_official.get_tools_version() == before

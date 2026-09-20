@@ -24,6 +24,11 @@ import {
   clearSessionConfig,
   DEFAULT_SETTINGS,
 } from '../config/index.js';
+import {
+  asCredentialKindDeclaration,
+  type CredentialKindDeclaration,
+  type ServeSettingsConfig,
+} from '../config/credentials.js';
 
 export interface SandboxSettings {
   /** 沙盒预设 profile,优先级低于显式配置的字段 */
@@ -43,6 +48,24 @@ export interface Settings {
   apiKey?: string;
   /** Refresh Token (30d 有效,access token 过期后自动用它换新,避免用户每 15min 重登录) */
   refreshToken?: string;
+  /**
+   * `apiKey` 字段的凭据种类声明(O12 机器凭据接入)。
+   *
+   * 历史包袱:`ihui login` 会把人的 JWT access token 复制进 `apiKey`,所以该字段
+   * 既可能是 JWT 也可能是服务端 API Key。缺省 / 未设置等价于 `'auto'` —— 按值前缀
+   * 推断(`ihui_` = 机器凭据,`eyJhbGciOi...` = 人凭据),**旧 settings.json 无需迁移**。
+   *   - `'api_key'`:服务端 API Key,不做本地续期、出站必须携带 X-Api-Secret
+   *   - `'jwt'`    :人凭据,access/refresh 自动续期(既有行为不变)
+   */
+  credentialKind?: CredentialKindDeclaration;
+  /**
+   * 机器凭据的配套 secret(`sk_xxx`),出站以 `X-Api-Secret` 头携带。
+   * 服务端 `API_KEY_REQUIRE_SECRET` 默认 true,缺失即 401 SECRET_REQUIRED。
+   * env `IHUI_API_SECRET` / flag `--api-secret`。日志与 `--json` 输出恒脱敏,绝不落明文。
+   */
+  apiSecret?: string;
+  /** `ihui serve` 入站鉴权配置(O12):放行的机器凭据清单与 secret 强制开关 */
+  serve?: ServeSettingsConfig;
   /** 默认模型 ID */
   defaultModel?: string;
   /** 最大工具循环次数 */
@@ -484,6 +507,8 @@ export function isMcpAdvancedEnabled(
 export function resolveEffectiveConfig(args: {
   cliApiUrl?: string;
   cliApiKey?: string;
+  cliApiSecret?: string;
+  cliCredentialKind?: string;
   cliModel?: string;
   cliMaxIterations?: string;
   cliMaxTurns?: string;
@@ -497,6 +522,10 @@ export function resolveEffectiveConfig(args: {
 }): {
   apiUrl: string;
   apiKey: string;
+  /** 机器凭据 secret(仅 api_key 类型出站时携带 X-Api-Secret;禁止明文落日志) */
+  apiSecret: string;
+  /** apiKey 字段的凭据种类(缺省 'auto' = 按前缀推断) */
+  credentialKind: CredentialKindDeclaration;
   model: string;
   maxIterations: number;
   allowDangerous: boolean;
@@ -525,6 +554,21 @@ export function resolveEffectiveConfig(args: {
     settings.apiKey ||
     process.env.IHUI_API_KEY ||
     '';
+
+  // O12 机器凭据:secret 与 kind 走同一优先级链(CLI flag > settings > env)
+  const apiSecret =
+    args.cliApiSecret ||
+    settings.apiSecret ||
+    process.env.IHUI_API_SECRET ||
+    '';
+
+  const credentialKind: CredentialKindDeclaration =
+    asCredentialKindDeclaration(args.cliCredentialKind) ??
+    // settings.json 是用户手写的 JSON,credentialKind 可能不是合法枚举 ⇒ 读时校验,
+    // 非法值不进入判定链(否则会把 api_key 误判成 jwt 或反之)
+    asCredentialKindDeclaration(settings.credentialKind) ??
+    asCredentialKindDeclaration(process.env.IHUI_CREDENTIAL_KIND) ??
+    'auto';
 
   // P0 修复:cliModel === 'default' 时回退到 settings.defaultModel,
   // 避免 --model 默认值 'default' 屏蔽 settings.json 的 defaultModel 配置。
@@ -578,6 +622,8 @@ export function resolveEffectiveConfig(args: {
   return {
     apiUrl,
     apiKey,
+    apiSecret,
+    credentialKind,
     model,
     maxIterations,
     allowDangerous,
@@ -612,6 +658,8 @@ export function resolveEffectiveConfig(args: {
 export function loadSettingsV2(args: {
   cliApiUrl?: string;
   cliApiKey?: string;
+  cliApiSecret?: string;
+  cliCredentialKind?: string;
   cliModel?: string;
   cliMaxIterations?: string;
   cliMaxTurns?: string;
@@ -629,6 +677,10 @@ export function loadSettingsV2(args: {
     const cliOverrides: Record<string, unknown> = {};
     if (args.cliApiUrl) cliOverrides.apiUrl = args.cliApiUrl;
     if (args.cliApiKey) cliOverrides.apiKey = args.cliApiKey;
+    if (args.cliApiSecret) cliOverrides.apiSecret = args.cliApiSecret;
+    // credentialKind 仅在合法枚举内进入 cli 层,非法值忽略(回落 'auto' 前缀推断)
+    const declaredKind = asCredentialKindDeclaration(args.cliCredentialKind);
+    if (declaredKind) cliOverrides.credentialKind = declaredKind;
     // P0 修复:'default' 是 --model 的占位默认值,不是真实模型 ID,不应覆盖 settings.json 的 defaultModel
     if (args.cliModel && args.cliModel !== 'default') cliOverrides.defaultModel = args.cliModel;
     // cliMaxTurns 优先级高于 cliMaxIterations(对齐 resolveEffectiveConfig 语义)
