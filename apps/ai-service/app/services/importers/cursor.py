@@ -86,7 +86,16 @@ def _parse_sqlite(data: bytes) -> ParseResult:
             result.warnings.append(f"会话库过大,仅解析前 {MAX_CONVERSATIONS} 个会话")
             break
     if not result.conversations:
-        result.warnings.append("会话库中没有 key 含 composer 的记录")
+        # 两种空态要分开说:库里根本没 composer 记录 vs 有记录但认不出消息列表
+        if rows:
+            result.warnings.append(
+                f"找到 {len(rows)} 条 composer 记录但未识别出消息列表,"
+                "新版 Cursor 的会话正文可能另存在 bubbleId 记录中"
+            )
+        else:
+            result.warnings.append(
+                "会话库里没有 key 含 composer 的记录,请确认上传的是 Cursor 的 state.vscdb"
+            )
     return result
 
 
