@@ -21,9 +21,9 @@ export type { CouponItem, CouponScreenProps, CouponStatus }
 const TABS: CouponStatus[] = ['available', 'used', 'expired']
 
 const TAB_KEYS: Record<CouponStatus, string> = {
-  available: 'coupon.tab_available',
-  used: 'coupon.tab_used',
-  expired: 'coupon.tab_expired',
+  available: 'coupon.available',
+  used: 'coupon.used',
+  expired: 'coupon.expired',
 }
 
 /**
