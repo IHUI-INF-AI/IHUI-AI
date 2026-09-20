@@ -26,14 +26,25 @@
  * 错误格式:{ code, message } + HTTP 状态码(400/401/403/404/500/502/503)。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
+import { config } from '../config/index.js'
 import { requireCapability, requireCapabilityRules } from '../utils/capability-guard.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+import {
+  CURSOR_KIND,
+  pageOf,
+  readCursorPageRequest,
+  resolveAfter,
+  wantsCursorPageFormat,
+  withNextCursor,
+  type CursorBinding,
+  type PageRequest,
+} from '../utils/cursor-page.js'
 
 // =============================================================================
 // 类型定义(OpenAI Assistants API v2 兼容,inline 定义避免污染 @ihui/types)
@@ -142,13 +153,15 @@ interface RunStep {
   last_error: { code: string; message: string } | null
 }
 
-/** OpenAI 列表响应(cursor 分页) */
-interface ListResponse<T> {
+/** OpenAI 列表响应外壳(游标分页由 utils/cursor-page 产出,这里只描述信封形状) */
+interface ListEnvelope<T> {
   object: 'list'
   data: T[]
   first_id: string | null
   last_id: string | null
   has_more: boolean
+  /** 仅 `page_format=cursor` 时出现;旧模式下这个键根本不在响应里 */
+  next_cursor?: string
 }
 
 // =============================================================================
@@ -237,6 +250,165 @@ const listQuerySchema = z.object({
   after: z.string().optional(),
 })
 
+/**
+ * 列表族分页的对外契约(OpenAPI query 参数)。刻意只声明类型与说明,**不设**
+ * `minimum`/`maximum`/`default`/`enum`:那些约束会由 Ajv 抢先返回 400,把旧模式
+ * `limit=500` 的响应体从 `{code,message}` 换成 Fastify 的 `{statusCode,error}`,
+ * 老客户端看到的字节就变了。边界仍由 `listQuerySchema`(旧)/`clampLimit`(新)把关。
+ * 每次调用返回新对象,避免同一 schema 引用被多路由共享时编译器就地补关键字。
+ */
+function listPageQuerySchema(): Record<string, unknown> {
+  return {
+    type: 'object',
+    properties: {
+      limit: {
+        type: 'string',
+        description: `每页条数(1-${MAX_LIMIT},默认 ${DEFAULT_LIMIT});page_format=cursor 时越界夹紧,省略则越界 400`,
+      },
+      after: {
+        type: 'string',
+        description: '分页锚点:旧模式传上一页 last_id;page_format=cursor 时传 next_cursor 返回的不透明游标',
+      },
+      page_format: {
+        type: 'string',
+        description: "传 'cursor' 启用不透明游标分页,响应追加 next_cursor;省略即既有 limit/after 语义",
+      },
+    },
+  }
+}
+
+// =============================================================================
+// 分页参数解析(O10b:不透明游标与既有 limit/after 并存)
+// =============================================================================
+
+/** 列表分页解析结果:`ok:false` 一律由调用方转 400。 */
+type PageRead =
+  { ok: true; request: PageRequest; cursorMode: boolean } | { ok: false; message: string }
+
+/**
+ * 读一页的分页参数。两条来路刻意分开:
+ * - **默认(旧)**:原样跑 `listQuerySchema`,`limit` 越界照旧 400,响应不加键 ——
+ *   这是回归底线,任何"顺手统一一下"的改动都会改掉老客户端看到的字节。
+ * - **`page_format=cursor`(新)**:走 `readCursorPageRequest`,`limit` 改为夹紧,
+ *   响应末尾追加 `next_cursor`。
+ * 两条路都会把 `after` 交给 `resolveAfter`:游标串必须解得开(解不开宁可 400,
+ * 绝不静默从头再翻一遍),裸 id 则原样透传,与今天完全一致。
+ */
+function readPage(query: Record<string, unknown>, binding: CursorBinding): PageRead {
+  const secret = config.JWT_SECRET
+  if (wantsCursorPageFormat(query)) {
+    const parsed = readCursorPageRequest({
+      query,
+      binding,
+      secret,
+      limits: { def: DEFAULT_LIMIT, max: MAX_LIMIT },
+    })
+    return parsed.ok
+      ? { ok: true, request: parsed.request, cursorMode: true }
+      : { ok: false, message: parsed.message }
+  }
+  const legacy = listQuerySchema.safeParse(query)
+  if (!legacy.success) return { ok: false, message: legacy.error.issues[0]?.message ?? '参数错误' }
+  const after = resolveAfter(legacy.data.after, binding, secret)
+  if (!after.ok) return { ok: false, message: after.message }
+  return {
+    ok: true,
+    request: { limit: legacy.data.limit, afterId: after.afterId },
+    cursorMode: false,
+  }
+}
+
+/**
+ * 一页列表 → OpenAI list 信封(assistants / messages / runs / steps 四条路由共用)。
+ * 键序与改造前逐字一致:object → data → first_id → last_id → has_more;
+ * `next_cursor` 只在游标模式下追加在末尾,旧模式一个键都不加。
+ * 游标模式下锚点找不到(记录已随 TTL 蒸发 / 游标跨列表复用)判 400 —— 宁可让客户端
+ * 从头翻,也不许悄悄把第一页再吐一遍;旧模式保留它既有的"找不到就从头"行为。
+ */
+function listPage<Internal extends { id: string }, Public>(input: {
+  items: readonly Internal[]
+  page: PageRead
+  binding: CursorBinding
+  map: (item: Internal) => Public
+}): { ok: true; body: ListEnvelope<Public> } | { ok: false; message: string } {
+  if (!input.page.ok) return { ok: false, message: input.page.message }
+  const outcome = pageOf(input.items, {
+    request: input.page.request,
+    idOf: (item) => item.id,
+    hasMoreRule: 'beyond-page',
+    cursor: input.page.cursorMode ? { binding: input.binding, secret: config.JWT_SECRET } : null,
+  })
+  if (input.page.cursorMode && outcome.anchor_missing) {
+    return { ok: false, message: 'Invalid or expired cursor' }
+  }
+  return {
+    ok: true,
+    body: withNextCursor(
+      {
+        object: 'list' as const,
+        data: outcome.data.map(input.map),
+        first_id: outcome.first_id,
+        last_id: outcome.last_id,
+        has_more: outcome.has_more,
+      },
+      outcome.next_cursor,
+    ),
+  }
+}
+
+// =============================================================================
+// 对外 run 句柄(O10b:`irun_<ulid>` → 内部 runId)
+// =============================================================================
+
+/** 句柄前缀:与内部 `run_<uuid>` 肉眼可分,第三方拿到它也不需要知道内部 id 形态。 */
+const RUN_REF_PREFIX = 'irun'
+
+/** Crockford base32 字母表(ULID 用,剔除 I/L/O/U 以免手抄歧义)。 */
+const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+
+/** 大端 5 bit 一切:6 字节 → 10 字符,10 字节 → 16 字符(余数左移补齐,同 ULID 规约)。 */
+function encodeCrockford(bytes: Uint8Array): string {
+  let out = ''
+  let buffer = 0
+  let bits = 0
+  for (const byte of bytes) {
+    buffer = (buffer << 8) | byte
+    bits += 8
+    while (bits >= 5) {
+      bits -= 5
+      out += ULID_ALPHABET.charAt((buffer >>> bits) & 31)
+    }
+  }
+  if (bits > 0) out += ULID_ALPHABET.charAt((buffer << (5 - bits)) & 31)
+  return out
+}
+
+/** 标准 ULID:48 bit 毫秒时间戳(可排序)+ 80 bit 随机 = 26 字符。 */
+function newUlid(nowMs: number): string {
+  const time = new Uint8Array(6)
+  let rest = Math.max(0, Math.floor(nowMs))
+  for (let i = 5; i >= 0; i -= 1) {
+    time[i] = rest & 0xff
+    rest = Math.floor(rest / 256)
+  }
+  return encodeCrockford(time) + encodeCrockford(randomBytes(10))
+}
+
+/** 生成对外句柄。 */
+function newRunRef(nowMs: number): string {
+  return `${RUN_REF_PREFIX}_${newUlid(nowMs)}`
+}
+
+/** 句柄 → 内部 runId 的单向映射;TTL 与 run 记录一致(句柄不能比它指的东西活得更久)。 */
+async function storeRunRef(redis: Redis, runRef: string, runId: string): Promise<void> {
+  await redis.set(`run_ref:${runRef}`, runId, 'EX', TTL_SECONDS)
+}
+
+/** 句柄反查内部 runId;不存在(或已随 run 一起过期)返回 null。 */
+async function resolveRunRef(redis: Redis, runRef: string): Promise<string | null> {
+  return await redis.get(`run_ref:${runRef}`)
+}
+
 // =============================================================================
 // Redis 存储辅助函数
 // =============================================================================
@@ -257,13 +429,8 @@ async function getAssistant(redis: Redis, id: string): Promise<Assistant | null>
   return JSON.parse(raw) as Assistant
 }
 
-/** 列出用户助手(按 created_at 升序,cursor 分页) */
-async function listAssistants(
-  redis: Redis,
-  userId: string,
-  limit: number,
-  after: string | undefined,
-): Promise<ListResponse<Assistant>> {
+/** 取用户全部助手(按 created_at 升序);分页交给 utils/cursor-page 的内核 */
+async function collectAssistants(redis: Redis, userId: string): Promise<Assistant[]> {
   const setKey = `assistant:user:${userId}`
   const ids = await redis.smembers(setKey)
   const items: Assistant[] = []
@@ -272,20 +439,7 @@ async function listAssistants(
     if (a) items.push(a)
   }
   items.sort((a, b) => a.created_at - b.created_at)
-  let startIdx = 0
-  if (after) {
-    const idx = items.findIndex((a) => a.id === after)
-    if (idx >= 0) startIdx = idx + 1
-  }
-  const page = items.slice(startIdx, startIdx + limit)
-  const hasMore = startIdx + limit < items.length
-  return {
-    object: 'list',
-    data: page,
-    first_id: page[0]?.id ?? null,
-    last_id: page[page.length - 1]?.id ?? null,
-    has_more: hasMore,
-  }
+  return items
 }
 
 /** 存储线程 */
@@ -320,33 +474,15 @@ async function getMessage(
   return JSON.parse(raw) as ThreadMessage
 }
 
-/** 列出线程消息(按 created_at 升序,cursor 分页) */
-async function listMessages(
-  redis: Redis,
-  threadId: string,
-  limit: number,
-  after: string | undefined,
-): Promise<ListResponse<ThreadMessage>> {
+/** 取线程全部消息(写入顺序);分页交给 utils/cursor-page 的内核 */
+async function collectMessages(redis: Redis, threadId: string): Promise<ThreadMessage[]> {
   const ids = await redis.lrange(`thread:${threadId}:msgs`, 0, -1)
   const items: ThreadMessage[] = []
   for (const id of ids) {
     const m = await getMessage(redis, threadId, id)
     if (m) items.push(m)
   }
-  let startIdx = 0
-  if (after) {
-    const idx = items.findIndex((m) => m.id === after)
-    if (idx >= 0) startIdx = idx + 1
-  }
-  const page = items.slice(startIdx, startIdx + limit)
-  const hasMore = startIdx + limit < items.length
-  return {
-    object: 'list',
-    data: page,
-    first_id: page[0]?.id ?? null,
-    last_id: page[page.length - 1]?.id ?? null,
-    has_more: hasMore,
-  }
+  return items
 }
 
 /** 追加 run 到线程 run 列表 + 存储 run 体 */
@@ -369,33 +505,15 @@ async function getRun(redis: Redis, id: string): Promise<Run | null> {
   return JSON.parse(raw) as Run
 }
 
-/** 列出线程 runs(cursor 分页) */
-async function listRuns(
-  redis: Redis,
-  threadId: string,
-  limit: number,
-  after: string | undefined,
-): Promise<ListResponse<Run>> {
+/** 取线程全部 run(写入顺序);分页交给 utils/cursor-page 的内核 */
+async function collectRuns(redis: Redis, threadId: string): Promise<Run[]> {
   const ids = await redis.lrange(`thread:${threadId}:runs`, 0, -1)
   const items: Run[] = []
   for (const id of ids) {
     const r = await getRun(redis, id)
     if (r) items.push(r)
   }
-  let startIdx = 0
-  if (after) {
-    const idx = items.findIndex((r) => r.id === after)
-    if (idx >= 0) startIdx = idx + 1
-  }
-  const page = items.slice(startIdx, startIdx + limit)
-  const hasMore = startIdx + limit < items.length
-  return {
-    object: 'list',
-    data: page,
-    first_id: page[0]?.id ?? null,
-    last_id: page[page.length - 1]?.id ?? null,
-    has_more: hasMore,
-  }
+  return items
 }
 
 /** 存储 run step */
@@ -406,33 +524,15 @@ async function storeRunStep(redis: Redis, step: RunStep): Promise<void> {
   await redis.expire(listKey, TTL_SECONDS)
 }
 
-/** 列出 run steps */
-async function listRunSteps(
-  redis: Redis,
-  runId: string,
-  limit: number,
-  after: string | undefined,
-): Promise<ListResponse<RunStep>> {
+/** 取 run 全部 step(写入顺序);分页交给 utils/cursor-page 的内核 */
+async function collectRunSteps(redis: Redis, runId: string): Promise<RunStep[]> {
   const ids = await redis.lrange(`run:${runId}:steps`, 0, -1)
   const items: RunStep[] = []
   for (const id of ids) {
     const raw = await redis.get(`run:${runId}:step:${id}`)
     if (raw) items.push(JSON.parse(raw) as RunStep)
   }
-  let startIdx = 0
-  if (after) {
-    const idx = items.findIndex((s) => s.id === after)
-    if (idx >= 0) startIdx = idx + 1
-  }
-  const page = items.slice(startIdx, startIdx + limit)
-  const hasMore = startIdx + limit < items.length
-  return {
-    object: 'list',
-    data: page,
-    first_id: page[0]?.id ?? null,
-    last_id: page[page.length - 1]?.id ?? null,
-    has_more: hasMore,
-  }
+  return items
 }
 
 // =============================================================================
@@ -597,23 +697,29 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /assistants — 助手列表(分页)
+  // GET /assistants — 助手列表(分页:limit/after 旧契约 + page_format=cursor 新契约)
   server.get(
     '/assistants',
-    { preHandler: [requireCapability('assistants:read')] },
+    {
+      schema: {
+        description: '列出助手(limit/after 分页,page_format=cursor 切不透明游标)',
+        tags: ['Assistants'],
+        querystring: listPageQuerySchema(),
+      },
+      preHandler: [requireCapability('assistants:read')],
+    },
     async (request, reply) => {
       const apiKey = request.apiKey
       if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-      const parsed = listQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const binding: CursorBinding = {
+        kind: CURSOR_KIND.assistants,
+        ownerKey: `user:${apiKey.userId}`,
       }
-      const { limit, after } = parsed.data
-      const result = await listAssistants(redis, apiKey.userId, limit, after)
-      return reply.send({
-        ...result,
-        data: result.data.map(toAssistantResponse),
-      })
+      const page = readPage(request.query as Record<string, unknown>, binding)
+      const items = await collectAssistants(redis, apiKey.userId)
+      const result = listPage({ items, page, binding, map: toAssistantResponse })
+      if (!result.ok) return reply.status(400).send(error(400, result.message))
+      return reply.send(result.body)
     },
   )
 
@@ -818,6 +924,13 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // O3 收尾:threads/messages/runs 子族(此前只挂 requireApiKeyAuth,无 scope)
+  //
+  // 注意 addHook 的作用域(Fastify 5 实测,见 lib/route.js:392 在 preReady 里读 this[kHooks]):
+  // 同一个封装上下文里**所有**路由都会被它罩住,与注册顺序无关。所以本文件里那些只写了
+  // `preHandler: [requireCapability(...)]` 的 assistants / threads CRUD 也必须在这张表里有
+  // 自己的条目 —— 否则命中的是"未登记路径默认拒绝"的 403 CAPABILITY_UNREGISTERED,
+  // 文件头声明的 OpenAI 兼容面整体不可用(2026-09-20 修:这一族此前恒 403)。
+  // 每条规则的 scope 与路由自身 requireCapability 的 scope 一字一样,不放宽任何权限。
   server.addHook(
     'preHandler',
     requireCapabilityRules([
@@ -826,6 +939,20 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       { methods: ['POST'], pattern: /^\/v1\/threads\/[^/]+\/runs$/, scope: 'runs:write' },
       { methods: ['POST'], pattern: /^\/v1\/threads\/[^/]+\/messages$/, scope: 'threads:write' },
       { pattern: /^\/v1\/threads\/[^/]+\/messages(\/|$)/, scope: 'threads:read' },
+      { methods: ['GET'], pattern: /^\/v1\/assistants$/, scope: 'assistants:read' },
+      { methods: ['POST'], pattern: /^\/v1\/assistants$/, scope: 'assistants:write' },
+      { methods: ['GET'], pattern: /^\/v1\/assistants\/[^/]+$/, scope: 'assistants:read' },
+      {
+        methods: ['POST', 'DELETE'],
+        pattern: /^\/v1\/assistants\/[^/]+$/,
+        scope: 'assistants:write',
+      },
+      { methods: ['POST'], pattern: /^\/v1\/threads$/, scope: 'threads:write' },
+      { methods: ['GET'], pattern: /^\/v1\/threads\/[^/]+$/, scope: 'threads:read' },
+      { methods: ['POST', 'DELETE'], pattern: /^\/v1\/threads\/[^/]+$/, scope: 'threads:write' },
+      // O10b:对外 run 句柄查询。刻意复用 runs:read —— 它是"读一个 run 的状态"这件事
+      // 唯一的能力声明,换个新 scope 只会让第三方多要一个权限位却拿不到任何新数据。
+      { methods: ['GET'], pattern: /^\/v1\/run-refs\/[^/]+$/, scope: 'runs:read' },
     ]),
   )
 
@@ -847,10 +974,17 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /threads/:threadId/messages — 消息列表(分页)
+  // GET /threads/:threadId/messages — 消息列表(分页,游标绑定到本线程)
   server.get(
     '/threads/:threadId/messages',
-    { preHandler: [requireApiKeyAuth] },
+    {
+      schema: {
+        description: '列出线程消息(写入顺序;limit/after 分页,page_format=cursor 切不透明游标)',
+        tags: ['Messages'],
+        querystring: listPageQuerySchema(),
+      },
+      preHandler: [requireApiKeyAuth],
+    },
     async (request, reply) => {
       const { threadId } = request.params as { threadId: string }
       const apiKey = request.apiKey
@@ -859,13 +993,15 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!thread || thread.userId !== apiKey.userId) {
         return reply.status(404).send(error(404, 'Thread not found'))
       }
-      const parsed = listQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const binding: CursorBinding = {
+        kind: CURSOR_KIND.threadMessages,
+        ownerKey: `user:${apiKey.userId}:thread:${threadId}`,
       }
-      const { limit, after } = parsed.data
-      const result = await listMessages(redis, threadId, limit, after)
-      return reply.send(result)
+      const page = readPage(request.query as Record<string, unknown>, binding)
+      const items = await collectMessages(redis, threadId)
+      const result = listPage({ items, page, binding, map: (m) => m })
+      if (!result.ok) return reply.status(400).send(error(400, result.message))
+      return reply.send(result.body)
     },
   )
 
@@ -939,14 +1075,18 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
         userId: apiKey.userId,
       }
       await storeRun(redis, run)
+      // 对外句柄:紧随 run 落盘写入,即使下面 ai-service 调用失败,句柄也已能查到这条
+      // (状态为 failed 的)run —— 第三方拿到的永远是"能用的地址",不是一串内部 uuid。
+      const runRef = newRunRef(nowMs)
+      await storeRunRef(redis, runRef, runId)
 
-      // 收集线程消息构建 ai-service 请求
-      const msgList = await listMessages(redis, threadId, MAX_LIMIT, undefined)
+      // 收集线程消息构建 ai-service 请求(仍取写入顺序前 MAX_LIMIT 条,与改造前逐字一致)
+      const collected = await collectMessages(redis, threadId)
       const aiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
       if (effectiveInstructions) {
         aiMessages.push({ role: 'system', content: effectiveInstructions })
       }
-      for (const m of msgList.data) {
+      for (const m of collected.slice(0, MAX_LIMIT)) {
         const textValue = m.content[0]?.text.value ?? ''
         aiMessages.push({ role: m.role, content: textValue })
       }
@@ -1057,7 +1197,8 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           console.error('[v1/runs] recordCall FAIL', e?.message || e)
         })
 
-        return reply.send(toRunResponse(completedRun))
+        // 只增字段:`run_ref` 追加在既有字段之后,老客户端按 key 取值,键序与键集都不受影响
+        return reply.send({ ...toRunResponse(completedRun), run_ref: runRef })
       } catch (e) {
         const failedRun: Run = {
           ...run,
@@ -1129,10 +1270,17 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /threads/:threadId/runs — run 列表(分页)
+  // GET /threads/:threadId/runs — run 列表(分页,游标绑定到本线程)
   server.get(
     '/threads/:threadId/runs',
-    { preHandler: [requireApiKeyAuth] },
+    {
+      schema: {
+        description: '列出线程 Run(写入顺序;limit/after 分页,page_format=cursor 切不透明游标)',
+        tags: ['Runs'],
+        querystring: listPageQuerySchema(),
+      },
+      preHandler: [requireApiKeyAuth],
+    },
     async (request, reply) => {
       const { threadId } = request.params as { threadId: string }
       const apiKey = request.apiKey
@@ -1141,16 +1289,15 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!thread || thread.userId !== apiKey.userId) {
         return reply.status(404).send(error(404, 'Thread not found'))
       }
-      const parsed = listQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const binding: CursorBinding = {
+        kind: CURSOR_KIND.threadRuns,
+        ownerKey: `user:${apiKey.userId}:thread:${threadId}`,
       }
-      const { limit, after } = parsed.data
-      const result = await listRuns(redis, threadId, limit, after)
-      return reply.send({
-        ...result,
-        data: result.data.map(toRunResponse),
-      })
+      const page = readPage(request.query as Record<string, unknown>, binding)
+      const items = await collectRuns(redis, threadId)
+      const result = listPage({ items, page, binding, map: toRunResponse })
+      if (!result.ok) return reply.status(400).send(error(400, result.message))
+      return reply.send(result.body)
     },
   )
 
@@ -1161,7 +1308,14 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   // GET /threads/:threadId/runs/:runId/steps — 查询 run 步骤
   server.get(
     '/threads/:threadId/runs/:runId/steps',
-    { preHandler: [requireApiKeyAuth] },
+    {
+      schema: {
+        description: '列出 Run 步骤(limit/after 分页,page_format=cursor 切不透明游标)',
+        tags: ['Run Steps'],
+        querystring: listPageQuerySchema(),
+      },
+      preHandler: [requireApiKeyAuth],
+    },
     async (request, reply) => {
       const { threadId, runId } = request.params as { threadId: string; runId: string }
       const apiKey = request.apiKey
@@ -1174,13 +1328,53 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!run || run.thread_id !== threadId) {
         return reply.status(404).send(error(404, 'Run not found'))
       }
-      const parsed = listQuerySchema.safeParse(request.query)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const binding: CursorBinding = {
+        kind: CURSOR_KIND.runSteps,
+        ownerKey: `user:${apiKey.userId}:thread:${threadId}:run:${runId}`,
       }
-      const { limit, after } = parsed.data
-      const result = await listRunSteps(redis, runId, limit, after)
-      return reply.send(result)
+      const page = readPage(request.query as Record<string, unknown>, binding)
+      const items = await collectRunSteps(redis, runId)
+      const result = listPage({ items, page, binding, map: (s) => s })
+      if (!result.ok) return reply.status(400).send(error(400, result.message))
+      return reply.send(result.body)
+    },
+  )
+
+  // ===========================================================================
+  // 6. Run 句柄(O10b:对外只暴露 irun_<ulid>,内部 runId 不再需要第三方持有)
+  // ===========================================================================
+
+  // GET /run-refs/:ref — 用对外句柄查 run 状态(不必知道 threadId;归属仍按 key 判定)
+  server.get(
+    '/run-refs/:ref',
+    {
+      schema: {
+        description: '用对外句柄 run_ref 查询 Run 状态(等价于按 runId 查询,无需 threadId)',
+        tags: ['Runs'],
+        params: {
+          type: 'object',
+          properties: {
+            ref: { type: 'string', pattern: `^${RUN_REF_PREFIX}_[0-9A-HJKMNP-TV-Z]{26}$` },
+          },
+          required: ['ref'],
+        },
+      },
+      preHandler: [requireApiKeyAuth],
+    },
+    async (request, reply) => {
+      const { ref } = request.params as { ref: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const runId = await resolveRunRef(redis, ref)
+      if (!runId) return reply.status(404).send(error(404, 'Run reference not found'))
+      // 复用既有的 run 读取逻辑(getRun),归属判据也与本文件其余端点同一条:
+      // run.userId 必须等于本 key 的 userId。句柄不属于你时同样回 404 —— 回 403 等于
+      // 告诉对方"这个句柄确实存在",26 字符的 ULID 空间不该靠错误码来收窄。
+      const run = await getRun(redis, runId)
+      if (!run || run.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Run reference not found'))
+      }
+      return reply.send({ ...toRunResponse(run), run_ref: ref })
     },
   )
 }
