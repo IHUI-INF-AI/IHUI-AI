@@ -91,6 +91,10 @@ services:
       - LOG_LEVEL=info
       - CORS_ORIGIN=https://${CUSTOMER_DOMAIN}
       - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+      # O13:受控出口(dbScoped/dbReadScoped)的非超级用户应用角色连接;留空 = 与
+      # DATABASE_URL 同池,开放面 scoped-* 能力会 fail-closed 到 503(角色见迁移
+      # 20260921160000_scoped_app_role_owner_rls.sql,口令在库上 ALTER ROLE 设置)
+      - DATABASE_APP_URL=${DATABASE_APP_URL:-}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d

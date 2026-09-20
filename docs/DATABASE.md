@@ -456,7 +456,7 @@ export default defineConfig({
 | `packages/database/src/rls.ts` | `withTenant(db, tenantId, fn)` + `withBypassRls(db, reason, fn)` |
 | `packages/database/src/tenant-router.ts` | 多租户分库路由(per-tenant DATABASE_URL) |
 | `apps/api/src/plugins/tenant.ts` | 从 header/subdomain 解析 tenantId,装饰 request.tenantId |
-| `apps/api/src/plugins/rls-context.ts` | 每请求设置 PG 会话变量 `app.tenant_id` |
+| `apps/api/src/plugins/rls-context.ts` | 每请求设置 PG 会话变量 `app.user_id` / `app.api_key_id`(另保留旧名 `app.current_user_id` / `app.current_user_role`);**不设** `app.tenant_id`(租户维度已随 0214 退役) |
 | `apps/api/src/plugins/tenant-db-isolation.ts` | per-tenant schema + AsyncLocalStorage 上下文 |
 | `apps/api/src/plugins/tenant-db.ts` | per-tenant DATABASE_URL 物理 分库 |
 | `apps/api/src/utils/idor-guard.ts` | 资源归属租户校验(IDOR 防护) |
@@ -511,6 +511,17 @@ export async function withBypassRls<T>(
 | 0072 `drop_0066_rls_policies.sql` | 撤销 0066 策略(回滚 0066 风险) |
 | 0074 `reapply_tenant_rls.sql` | 重新应用租户 RLS(修复 0072 误撤销) |
 | 0214 `cleanup_legacy_tenant_rls.sql` | 清理 6 表 tenant_id + 24 个 `_tenant_iso_*` 策略 + `safe_tenant_id()` 函数;新增 `_bypass_rls` 策略(FOR ALL)保持 `withBypassRls` 绕过能力;0068 用户级策略不受影响 |
+| `20260921160000_scoped_app_role_owner_rls.sql` | **O13,owner 维度**(不是租户维度):建非超级用户应用角色 `ihui_app`(NOSUPERUSER / NOBYPASSRLS / NOINHERIT,密码不落仓)+ 按开放面真实调用点逐表逐 DML GRANT(4 表)+ 建 4 表 owner 策略(`<表>_owner_<dml>`,`USING (col::text = current_setting('app.user_id', true))`;`messages` 用 `sender_id`/`receiver_id` 组合)。**刻意不 `ENABLE ROW LEVEL SECURITY`** —— 详见下表下方"当前生效面" |
+
+**当前生效面(2026-09-21 核实,别按"策略存在 = 隔离生效"理解)**:
+
+| 层次 | 状态 |
+|------|------|
+| 应用层数据闸 `apps/api/src/utils/scoped-guard.ts` | **生效中**,是今天唯一按 dataClass 挡数据的一层 |
+| 连接角色 | `DATABASE_APP_URL` 配置后,受控出口 `dbScoped()`/`dbReadScoped()` 走 `ihui_app`(非超级用户);未配置则与 `DATABASE_URL` 同池(超级用户)→ scoped-* 能力 fail-closed 到 503 |
+| 表级权限 | 生效:不在 GRANT 清单里的表,`ihui_app` 直接 permission denied |
+| 行级策略 | **已建未启**:`app.user_id` 只写在主池(`plugins/rls-context.ts`),且池化 session 变量与后续语句不保证同一条物理连接(需事务级 `SET LOCAL`,那要改调用点)→ 此刻 ENABLE 就是全量 0 行。激活与回滚:`node packages/database/scripts/owner-rls.mjs enable|disable`(带 catalog 前置断言 + 陌生主体必须 0 行的负向断言,不过就自动回退) |
+| 数据面文档 | 取舍清单(哪些表因无 owner 列 / 未接受控出口而**不**授权)见 [developer/data-classes.md §3.1](./developer/data-classes.md) |
 
 ### 5.5 多租户分库路由
 
