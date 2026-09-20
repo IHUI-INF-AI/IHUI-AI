@@ -35,7 +35,7 @@
 | 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
 | 8807 | CLI(预留) | apps/cli | — | — |
 | 8808 | Extension(预留) | apps/extension | — | — |
-| 8809 | (预留扩展) | — | — | — |
+| 8809 | API 私有验证实例(O17 外部 Agent 接入端到端证明,临时只读探测用;库指向隔离 `ihui_e2e`、Redis 走 db12,不占 `apps/api/.env`) | apps/api | 启动时环境变量 `PORT=8809` | ✅ |
 
 ### 2.2 基础设施(8810-8819)
 
@@ -74,7 +74,7 @@
 | 8841 | CLI Agent Server(HTTP/WS) | apps/cli | `apps/cli/src/commands/serve.ts:24` `--port 8841` | ✅ |
 | 8840/8842-8849 | (蓝绿部署预留) | — | — | — |
 
-**预留空槽说明(2026-07-25 立)**:8806-8809/8819/8822-8829/8831-8839/8840/8842-8849 共 19 个空槽为未来 3 年扩展预留,非当前债务。当前实际占用率 14/33 = 42%,符合 monorepo 中型项目预期。
+**预留空槽说明(2026-07-25 立)**:8806-8808/8819/8822-8829/8831-8839/8840/8842-8849 共 18 个空槽为未来 3 年扩展预留,非当前债务。当前实际占用率 15/33 = 45%,符合 monorepo 中型项目预期。(2026-09-21:8809 由「预留」改派为 O17 API 私有验证实例)
 
 ---
 
