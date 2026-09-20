@@ -288,6 +288,7 @@ let err = ''
 const child = spawn(process.execPath, [resolve(__dirname, 'typecheck-full.mjs')], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
+  windowsHide: true,
 })
 child.stdout.on('data', (d) => {
   const s = d.toString()
