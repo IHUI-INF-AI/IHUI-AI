@@ -945,16 +945,19 @@ class RulesEngine:
 
             from ..core.llm_gateway import llm_gateway
 
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                # 无运行中事件循环(协程外调用),直接 asyncio.run
+                emb = asyncio.run(llm_gateway.embed(pattern[:8000]))
+            else:
+                # 已在事件循环中 → 提交到独立线程执行
                 import concurrent.futures
 
                 with concurrent.futures.ThreadPoolExecutor() as pool:
                     emb = pool.submit(
                         asyncio.run, llm_gateway.embed(pattern[:8000])
                     ).result(timeout=15)
-            else:
-                emb = loop.run_until_complete(llm_gateway.embed(pattern[:8000]))
             if not emb:
                 return []
             # 写缓存(持锁)

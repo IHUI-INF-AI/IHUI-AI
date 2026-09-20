@@ -6,13 +6,21 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap } from 'lucide-react'
+import { Send, Square, Info, Zap, FoldVertical, Check, Globe, MessageCircle, X } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceToolbar } from './voice-toolbar'
+// D21(2026-09-19 立):中间步骤折叠策略配置读写(localStorage + 事件广播)
+import {
+  readFoldPolicyMode,
+  writeFoldPolicyMode,
+  FOLD_POLICY_EVENT,
+  type FoldPolicyMode,
+} from './message-list/fold-policy'
 import { readHandsFree } from '@/components/chat/voice-stream-speaker'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
@@ -52,7 +60,8 @@ import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
 import { toast } from '@/components/common'
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, type SideQueueItem } from '@/stores/chat'
+import { answerSideQuestion } from '@/hooks/use-chat/slash-commands'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { compactConversation, getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
@@ -65,6 +74,85 @@ import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoi
 // 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
 // DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
+
+// D21(2026-09-19 立):折叠策略三选一项 — 竞品默认口径已分化
+// (Trae 默认折叠 vs Qoder 0.2.1 默认展开),故不强制默认,auto 为初始自适应口径。
+const FOLD_POLICY_ITEMS: { mode: FoldPolicyMode; labelKey: string; descKey: string }[] = [
+  { mode: 'auto', labelKey: 'foldPolicy.auto', descKey: 'foldPolicy.autoDesc' },
+  { mode: 'collapsed', labelKey: 'foldPolicy.collapsed', descKey: 'foldPolicy.collapsedDesc' },
+  { mode: 'expanded', labelKey: 'foldPolicy.expanded', descKey: 'foldPolicy.expandedDesc' },
+]
+
+/**
+ * 折叠策略开关(D21):工具栏内联图标按钮 + 下拉三选一(自适应/始终折叠/始终展开)。
+ * 选择写入 localStorage 并广播事件,MessageItem 实时按新策略重解析
+ * (未被用户显式操作过的消息才跟随,操作过的保持用户选择)。
+ */
+export function FoldPolicyButton() {
+  const t = useTranslations('chat')
+  const [mode, setMode] = React.useState<FoldPolicyMode>('auto')
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  React.useEffect(() => {
+    const sync = () => setMode(readFoldPolicyMode())
+    sync()
+    window.addEventListener(FOLD_POLICY_EVENT, sync)
+    return () => window.removeEventListener(FOLD_POLICY_EVENT, sync)
+  }, [])
+  return (
+    <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenu.Trigger asChild>
+        <Tooltip content={t('foldPolicy.title')} side="top">
+          <button
+            type="button"
+            aria-label={t('foldPolicy.title')}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            data-testid="fold-policy-button"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <FoldVertical className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={6}
+          className="z-popover w-64 rounded-lg border bg-card p-1 text-card-foreground shadow-md"
+        >
+          <div
+            className="px-2 py-1.5 text-xs font-medium text-muted-foreground"
+            data-testid="fold-policy-current"
+          >
+            {t('foldPolicy.current', { mode: t(`foldPolicy.${mode}`) })}
+          </div>
+          <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+          {FOLD_POLICY_ITEMS.map((item) => (
+            <DropdownMenu.Item
+              key={item.mode}
+              onSelect={() => writeFoldPolicyMode(item.mode)}
+              className="flex cursor-pointer select-none items-start gap-2 rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground"
+              data-testid={`fold-policy-item-${item.mode}`}
+            >
+              <Check
+                className={cn(
+                  'mt-0.5 h-4 w-4 shrink-0',
+                  mode === item.mode ? 'text-primary' : 'opacity-0',
+                )}
+              />
+              <span className="min-w-0">
+                <span className="block font-medium">{t(item.labelKey)}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {t(item.descKey)}
+                </span>
+              </span>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  )
+}
 
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
@@ -246,16 +334,48 @@ export function MessageInput({
   const [addMenuMode, setAddMenuMode] = React.useState<'menu' | 'prompt' | 'skill' | 'voice'>(
     'menu',
   )
+  // D28 /side 快速侧问(2026-09-20 立):当前会话侧问队列(store 持久化,切会话不丢)
+  const sideQueue = useChatStore((s) =>
+    conversationId ? s.sideQueueByConversation[conversationId] : undefined,
+  )
+  const removeSideQuestion = useChatStore((s) => s.removeSideQuestion)
+  const shiftSideQuestion = useChatStore((s) => s.shiftSideQuestion)
+  // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
+  // 失败仅 toast 提示,不打断主流程
+  const answerWithToast = React.useCallback(
+    (text: string) => {
+      void answerSideQuestion(text, t).catch((error: unknown) => {
+        toast.error(
+          t('sideAnswerFailed', {
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        )
+      })
+    },
+    [t],
+  )
+  // 从当前会话队列出队一条并补答(流结束自动补答 / 「立即补答」共用)
+  const answerCurrentSideQuestion = React.useCallback(() => {
+    if (!conversationId) return
+    const item = shiftSideQuestion(conversationId)
+    if (item) answerWithToast(item.text)
+  }, [conversationId, shiftSideQuestion, answerWithToast])
   // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
+  // D28(2026-09-20):流结束后预备消息优先(W27);无预备消息时补答当前会话队首侧问
+  // (每轮流结束最多补答一条,与 W27 队列同节奏)
   const wasStreamingRef = React.useRef(isStreaming)
   React.useEffect(() => {
     // isStreaming 从 true 变为 false:流式结束,发送队首预备消息
-    if (wasStreamingRef.current && !isStreaming && pendingMessages.length > 0) {
+    if (wasStreamingRef.current && !isStreaming) {
       wasStreamingRef.current = false
-      void sendPendingMessage()
+      if (pendingMessages.length > 0) {
+        void sendPendingMessage()
+      } else if (sideQueue && sideQueue.length > 0) {
+        answerCurrentSideQuestion()
+      }
     }
     wasStreamingRef.current = isStreaming
-  }, [isStreaming, pendingMessages, sendPendingMessage])
+  }, [isStreaming, pendingMessages, sendPendingMessage, sideQueue, answerCurrentSideQuestion])
   // W27(2026-09-14):会话切换时草稿迁移 —— 当前输入写回旧会话 key,载入目标会话草稿
   const valueRef = React.useRef(value)
   React.useEffect(() => {
@@ -287,6 +407,88 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
+  // D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用消息快照 chip + 清除
+  // (store 只暴露 setQuotedMessage,以 setQuotedMessage(null) 充当清除)
+  const quotedMessage = useChatStore((s) => s.quotedMessage)
+  const setQuotedMessage = useChatStore((s) => s.setQuotedMessage)
+  // D22 网页搜索开关:开启后普通问答也携带 web_search 最小工具集(mergeAgentTools 消费)
+  const webSearchEnabled = useChatStore((s) => s.webSearchEnabled)
+  const setWebSearchEnabled = useChatStore((s) => s.setWebSearchEnabled)
+  // D22 圈选 AI 回复入上下文:MessageItem 内选中文本后浮现「引用选中」按钮,
+  // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
+  React.useEffect(() => {
+    const onAddTextRef = (e: Event) => {
+      const text = (e as CustomEvent<{ text?: string }>).detail?.text
+      if (text) addTextReference(text)
+    }
+    window.addEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
+    return () =>
+      window.removeEventListener('ihui:add-text-reference', onAddTextRef as EventListener)
+  }, [addTextReference])
+  // D22 会话拖入输入框引用(2026-09-19 立,对标 Qoder 0.2.x):侧栏会话行 draggable,
+  // dataTransfer 携带 application/x-ihui-conversation JSON;drop 后拉取会话消息
+  // 拼成对话快照文本引用(失败回退用标题),与文件拖拽通道互不影响。
+  const CONVERSATION_DRAG_TYPE = 'application/x-ihui-conversation'
+  const [isConvDragOver, setIsConvDragOver] = React.useState(false)
+  const handleDragOverWithConversation = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (!isStreaming && e.dataTransfer.types.includes(CONVERSATION_DRAG_TYPE)) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+        setIsConvDragOver(true)
+        return
+      }
+      setIsConvDragOver(false)
+      handleDragOver(e)
+    },
+    [isStreaming, handleDragOver],
+  )
+  const handleDragLeaveWithConversation = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (e.currentTarget === e.target) setIsConvDragOver(false)
+      handleDragLeave(e)
+    },
+    [handleDragLeave],
+  )
+  const handleDropWithConversation = React.useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (isStreaming || !e.dataTransfer.types.includes(CONVERSATION_DRAG_TYPE)) {
+        setIsConvDragOver(false)
+        handleDrop(e)
+        return
+      }
+      e.preventDefault()
+      setIsConvDragOver(false)
+      try {
+        const conv = JSON.parse(e.dataTransfer.getData(CONVERSATION_DRAG_TYPE)) as {
+          id: string
+          title?: string
+        }
+        if (!conv?.id) return
+        void (async () => {
+          try {
+            const result = await getMessages(conv.id, { direction: 'initial', pageSize: 50 })
+            const msgs = result.success && result.data ? result.data.messages : []
+            if (msgs.length === 0) throw new Error('empty')
+            // 对话快照:role 标注 + 内容逐条拼接,整体截断 4000 字符防超长
+            const snapshot = msgs
+              .map((m) => `${m.role === 'user' ? '👤' : '🤖'}: ${m.content}`)
+              .join('\n\n')
+              .slice(0, 4000)
+            addTextReference(`【${conv.title ?? '会话'}】\n${snapshot}`)
+            toast.success(t('conversationDragReferenced'))
+          } catch {
+            // 拉取失败回退:仅引用会话标题
+            addTextReference(`【${conv.title ?? '会话'}】`)
+            toast.success(t('conversationDragReferenced'))
+          }
+        })()
+      } catch {
+        // JSON 解析失败静默忽略(非本应用拖拽源)
+      }
+    },
+    [isStreaming, handleDrop, addTextReference, t],
+  )
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
   const canSend = value.trim().length > 0
@@ -550,6 +752,18 @@ export function MessageInput({
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
+  // D28:侧问队列条目「删除」—— 直接移除不回填输入框(与 W27 取消回填行为区分)
+  const handleSideQueueRemove = (id: string) => {
+    if (!conversationId) return
+    removeSideQuestion(conversationId, id)
+  }
+  // D28:侧问「立即补答」(仅非流式渲染)—— 出队该条并立即请求补答
+  const handleSideQueueAnswerNow = (item: SideQueueItem) => {
+    if (!conversationId) return
+    removeSideQuestion(conversationId, item.id)
+    answerWithToast(item.text)
+  }
+
   // #18 流式中输入框保持可输入(2026-07-25 立):流式中 textarea 不再 disabled,用户可输入下一条消息草稿(对标 Cursor/ChatGPT 行为)。
   // 发送按钮已移入 WebInputCore(由 !isStreaming 守门,流式中显示 Stop 按钮)。
   // 流式占位符(2026-07-25 立,2026-07-29 简化):直接读 i18n key,5 语言文件齐备;末尾省略号统一加 "…" 提示持续生成。
@@ -574,6 +788,31 @@ export function MessageInput({
         {selectedToolItems.length > 0 && (
           <div className="mb-2">
             <SelectedToolsPanel tools={selectedToolItems} onRemove={removeSelectedTool} />
+          </div>
+        )}
+        {/* D22 引用回复 chip(2026-09-19 立,对标 Qoder 0.2.x):MessageList 监听
+            ihui:reply-message 后写入 store,此处渲染快照 chip,点击 X 清除 */}
+        {quotedMessage && (
+          <div
+            data-testid="quoted-reply-chip"
+            className="mb-2 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm"
+          >
+            <MessageCircle className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-primary">
+                {quotedMessage.role === 'user' ? t('quotedReplyUser') : t('quotedReplyAssistant')}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{quotedMessage.content}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setQuotedMessage(null)}
+              data-testid="quoted-reply-clear"
+              aria-label={t('cancel')}
+              className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
           </div>
         )}
         {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
@@ -610,6 +849,44 @@ export function MessageInput({
             ))}
           </div>
         )}
+        {/* D28 /side 侧问队列(2026-09-20):流式期间排队的侧问逐条显示,流结束后自动补答
+            队首一条;「立即补答」仅非流式渲染,「删除」直接移除不回填输入框 */}
+        {sideQueue && sideQueue.length > 0 && (
+          <div data-testid="side-queue" className="mb-2 space-y-1">
+            {sideQueue.map((sq) => (
+              <div
+                key={sq.id}
+                data-testid={`side-queue-item-${sq.id}`}
+                className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm"
+              >
+                <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  💬 {t('sideQueued')}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-amber-700 dark:text-amber-300">
+                  {sq.text}
+                </span>
+                {!isStreaming && (
+                  <button
+                    type="button"
+                    data-testid={`side-queue-answer-${sq.id}`}
+                    onClick={() => handleSideQueueAnswerNow(sq)}
+                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {t('sideAnswerNow')}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  data-testid={`side-queue-remove-${sq.id}`}
+                  onClick={() => handleSideQueueRemove(sq.id)}
+                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {t('cancel') ?? '取消'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div ref={inputAreaRef} className="relative">
           <FileMentionPopover
             files={mentionFiles}
@@ -635,13 +912,13 @@ export function MessageInput({
               之前 border-border(89.8% L / 22% L)在亮色下与白底卡片几乎无可见边界,
               暗色下 22% vs 卡片 10% 仅 12% 差距,输入框边界感丢失。*/}
           <div
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            onDragOver={handleDragOverWithConversation}
+            onDragLeave={handleDragLeaveWithConversation}
+            onDrop={handleDropWithConversation}
             className={cn(
               'flex flex-col rounded-xl border bg-card transition-colors focus-within:border-foreground/20',
-              // 互斥的边框逻辑:拖拽 > 高风险 > 默认
-              isDragOver
+              // 互斥的边框逻辑:拖拽(文件或会话) > 高风险 > 默认
+              isDragOver || isConvDragOver
                 ? 'border-primary ring-2 ring-ring/20'
                 : isHighRisk
                   ? 'border-amber-500/50 focus-within:border-amber-500/70 shadow-[0_0_0_1px_rgba(245,158,11,0.08)] animate-pulse-soft'
@@ -649,7 +926,7 @@ export function MessageInput({
             )}
           >
             {/* 拖拽提示遮罩:仅在 isDragOver 时显示 */}
-            {isDragOver && (
+            {(isDragOver || isConvDragOver) && (
               <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-primary/10">
                 <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
@@ -879,6 +1156,28 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
+              {/* D21:中间步骤折叠策略开关(自适应/始终折叠/始终展开),旁挂模式切换器 */}
+              <FoldPolicyButton />
+              {/* D22 网页搜索开关(2026-09-19 立,对标 Qoder 0.2.x):开启后普通问答也携带
+                  web_search 最小工具集(mergeAgentTools 消费),localStorage 持久化跨会话 */}
+              <Tooltip content={t('webSearch')}>
+                <button
+                  type="button"
+                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                  disabled={isStreaming}
+                  aria-pressed={webSearchEnabled}
+                  aria-label={t('webSearch')}
+                  data-testid="web-search-toggle"
+                  className={cn(
+                    'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+                    webSearchEnabled
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Globe className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              </Tooltip>
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />

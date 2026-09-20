@@ -75,7 +75,7 @@ class _CrossProcessLock:
         self._timeout = timeout
         self._fd: Any = None
 
-    def __enter__(self) -> "_CrossProcessLock":
+    def __enter__(self) -> _CrossProcessLock:
         try:
             self._fd = open(self._path, "a+b")
             if os.name == "nt":
@@ -160,7 +160,7 @@ def iter_history(path: Path, *, skip_corrupt: bool = True) -> Iterator[dict[str,
     path = Path(path)
     if not path.exists():
         return
-    with open(path, "r", encoding="utf-8", errors="replace") as fd:
+    with open(path, encoding="utf-8", errors="replace") as fd:
         for line in fd:
             line = line.strip()
             if not line:

@@ -27,9 +27,9 @@ from __future__ import annotations
 import fnmatch
 import os
 import sys
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Iterable, Mapping, Optional
+from enum import StrEnum
 
 CODEX_THREAD_ID_ENV_VAR = "IHUI_THREAD_ID"
 CODEX_SESSION_ID_ENV_VAR = "IHUI_SESSION_ID"
@@ -68,7 +68,7 @@ _WINDOWS_CORE_ENV_VARS: tuple[str, ...] = (
 _WINDOWS_PATHEXT_DEFAULT = ".COM;.EXE;.BAT;.CMD"
 
 
-class ShellEnvironmentPolicyInherit(str, Enum):
+class ShellEnvironmentPolicyInherit(StrEnum):
     """inherit 策略(对标 ShellEnvironmentPolicyInherit)。"""
 
     ALL = "all"
@@ -86,7 +86,7 @@ class EnvironmentVariablePattern:
         self.case_insensitive = case_insensitive
 
     @classmethod
-    def new_case_insensitive(cls, pattern: str) -> "EnvironmentVariablePattern":
+    def new_case_insensitive(cls, pattern: str) -> EnvironmentVariablePattern:
         return cls(pattern, case_insensitive=True)
 
     def matches(self, name: str) -> bool:
@@ -125,7 +125,7 @@ class ShellEnvironmentPolicy:
 def populate_env(
     vars: Iterable[tuple[str, str]],
     policy: ShellEnvironmentPolicy,
-    thread_id: Optional[str] = None,
+    thread_id: str | None = None,
 ) -> dict[str, str]:
     """六步环境构造算法(对标 populate_env,Windows set 覆盖语义含全平台)。"""
     is_windows = sys.platform == "win32"
@@ -177,7 +177,7 @@ def populate_env(
 def create_env_from_vars(
     vars: Iterable[tuple[str, str]],
     policy: ShellEnvironmentPolicy,
-    thread_id: Optional[str] = None,
+    thread_id: str | None = None,
 ) -> dict[str, str]:
     """populate_env + Windows PATHEXT 兜底(对标 create_env_from_vars)。"""
     env_map = populate_env(vars, policy, thread_id)
@@ -187,7 +187,7 @@ def create_env_from_vars(
     return env_map
 
 
-def create_env(policy: ShellEnvironmentPolicy, thread_id: Optional[str] = None) -> dict[str, str]:
+def create_env(policy: ShellEnvironmentPolicy, thread_id: str | None = None) -> dict[str, str]:
     """从当前进程环境构造(对标 create_env)。"""
     return create_env_from_vars(os.environ.items(), policy, thread_id)
 

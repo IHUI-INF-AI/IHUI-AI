@@ -26,6 +26,7 @@ import {
   Ban,
   ShieldCheck,
   TerminalSquare,
+  Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { IconButton } from '@ihui/ui-react'
@@ -48,6 +49,7 @@ import type { PlanStep, PlanStepStatus, AgentToolCall, Subagent } from '@/hooks/
 import {
   formatDuration,
   formatElapsed,
+  FoldableSection,
   FoldableSectionProvider,
 } from './progress-sections/foldable-section'
 import { ThinkingSection } from './progress-sections/thinking-section'
@@ -64,6 +66,8 @@ import { ResourceBudget } from './progress-sections/resource-budget'
 import { flattenToTimelineEvents } from './progress-sections/timeline-tab'
 import { SubAgentTaskTree } from './progress-sections/sub-agent-task-tree'
 import { NextStepsCard } from './progress-sections/next-steps-card'
+// D27(2026-09-20 立):交付审查视图 — 实时交付卡复用核心面板(agents 域组件,无循环依赖)
+import { DeliveryReviewPanel } from '@/components/agents/DeliveryReviewPanel'
 
 /**
  * AgentTaskProgressPane — AI 面板右上角的小 popover(2026-07-29 v18)
@@ -634,6 +638,9 @@ export function AgentTaskProgressPane() {
     terminalDeltas: runtimeTerminalDeltas,
     agentStatus: runtimeAgentStatus,
     lastMessageSend: runtimeLastMessageSend,
+    // D27(2026-09-20 立):session_end wire payload 的 deliverables 二次提取结果
+    // (实时交付卡数据源;事件缺该字段或解析失败为 null)
+    sessionDeliverables: runtimeSessionDeliverables,
   } = useAgentRuntime(open && threadId ? threadId : null)
 
   // v15: 实时计时器 — 仅在 streaming 或 sessionStart 存在时每秒 tick,空闲时停止
@@ -1654,6 +1661,26 @@ export function AgentTaskProgressPane() {
               <span className="shrink-0 font-mono text-[10px] opacity-80">
                 {runtimeSessionEnd.stopReason}
               </span>
+            </div>
+          )}
+
+          {/* D27(2026-09-20 立):实时交付卡 — session_end 成功且携带可解析交付清单时展示。
+              数据直接来自 useAgentRuntime 对 session_end wire payload 的二次提取(无额外
+              fetch);复用 FoldableSection 折叠卡 + DeliveryReviewPanel 三段式渲染,
+              默认折叠,条件不满足时整卡不出现(不出空 DOM)。 */}
+          {runtimeSessionEnd?.success && runtimeSessionDeliverables && (
+            <div className="mx-2" data-testid="pane-runtime-session-deliverables">
+              <FoldableSection
+                title={t('runtimeSessionDeliverables')}
+                summary={t('runtimeSessionDeliverablesSummary', {
+                  n: runtimeSessionDeliverables.filesChanged.length,
+                })}
+                icon={Package}
+                defaultOpen={false}
+                data-testid="pane-runtime-session-deliverables-card"
+              >
+                <DeliveryReviewPanel deliverables={runtimeSessionDeliverables} />
+              </FoldableSection>
             </div>
           )}
 

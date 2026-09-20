@@ -352,6 +352,8 @@ interface DispatchRuntime {
   dagNodeStatus: Map<string, ExtendedDispatchStatus>
   /** agent_tasks 记录 id(subagent dispatch 轨迹持久化关联,2026-08-06 新增) */
   agentTaskId?: string
+  /** ai-service 编排原始结果(D27 交付清单聚合数据源,仅成功分支赋值;DAG/多轮通信无单一编排结果时为 null) */
+  orchestration?: AiOrchestrationResult | null
 }
 
 /** ai-service 返回的 OrchestrationResult 形状(子集,含 token 用量) */
@@ -364,6 +366,8 @@ interface AiOrchestrationResult {
     status?: string
     output?: string
     token_usage?: { prompt?: number; completion?: number; total?: number }
+    /** D27:步骤内工具调用明细(lenient 形状,字段按名取值,兼容各 ai-service 版本) */
+    tool_calls?: Array<Record<string, unknown>>
   }>
   token_usage?: { prompt?: number; completion?: number; total?: number }
   trace?: Array<Record<string, unknown>>
@@ -373,6 +377,170 @@ interface AiServiceResponse {
   code?: number
   message?: string
   data?: AiOrchestrationResult | null
+}
+
+// ---------------------------------------------------------------------------
+// D27 交付清单(deliverables)聚合 — 跨端契约 camelCase 形状钉死,字段不可改名
+// ---------------------------------------------------------------------------
+
+/** 任务完成交付清单(跨端契约:前端直接消费) */
+export interface Deliverables {
+  /** 引用来源(四源:wiki/memory/skill/mcp,去重后上限 20) */
+  citations: Array<{ source: string; label: string; url?: string }>
+  /** 变更文件(写文件类工具聚合,上限 100) */
+  filesChanged: Array<{
+    path: string
+    kind: 'add' | 'delete' | 'update'
+    stepIds: string[]
+    additions: number
+    deletions: number
+  }>
+  /** 工具调用统计 */
+  toolsSummary: { total: number; byTool: Record<string, number> }
+  /** 最终输出摘要(前 500 字) */
+  outputSummary: string
+  /** 生成时间(ISO) */
+  generatedAt: string
+}
+
+/** 写文件类工具名 → filesChanged.kind 映射 */
+const FILE_TOOL_KIND: Readonly<Record<string, 'add' | 'delete' | 'update'>> = {
+  write_file: 'add',
+  create_file: 'add',
+  delete_file: 'delete',
+  edit_file: 'update',
+  file_edit: 'update',
+}
+
+/** 从对象中按候选键取第一个非空字符串值 */
+function firstStringOf(obj: Record<string, unknown>, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const v = obj[key]
+    if (typeof v === 'string' && v.length > 0) return v
+  }
+  return undefined
+}
+
+/** 估算文本行数(空串按 0 行) */
+function countLinesOf(text: string): number {
+  return text.length === 0 ? 0 : text.split('\n').length
+}
+
+/**
+ * 聚合编排结果为交付清单(D27):遍历各 step 的 tool_calls,产出
+ * filesChanged / citations / toolsSummary / outputSummary。
+ * 纯函数无副作用;无任何可聚合内容(工具调用与输出全空)时返回 null。
+ */
+export function aggregateDeliverables(result: AiOrchestrationResult): Deliverables | null {
+  const citations: Deliverables['citations'] = []
+  const seenCitations = new Set<string>()
+  // 同一路径多次操作合并:kind 以最后一次为准,增删行累加,stepIds 去重合并
+  const filesByPath = new Map<string, Deliverables['filesChanged'][number]>()
+  const filesOrder: string[] = []
+  let totalCalls = 0
+  const byTool: Record<string, number> = {}
+
+  for (const [stepIdx, step] of (result.steps ?? []).entries()) {
+    for (const [callIdx, rawCall] of (step.tool_calls ?? []).entries()) {
+      const call = (rawCall ?? {}) as Record<string, unknown>
+      // 工具名:lenient 兼容 name / tool_name / function.name(OpenAI 风格)
+      const fn = call.function as Record<string, unknown> | undefined
+      const toolName =
+        firstStringOf(call, ['name', 'tool_name']) ?? firstStringOf(fn ?? {}, ['name']) ?? 'unknown'
+      totalCalls += 1
+      byTool[toolName] = (byTool[toolName] ?? 0) + 1
+
+      // 参数:lenient 兼容 args / input / function.arguments(JSON 字符串自动解析)
+      let args: Record<string, unknown> = {}
+      const rawArgs = call.args ?? call.input ?? fn?.arguments
+      if (typeof rawArgs === 'string' && rawArgs.length > 0) {
+        try {
+          const parsed: unknown = JSON.parse(rawArgs)
+          if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            args = parsed as Record<string, unknown>
+          }
+        } catch {
+          // 非 JSON 字符串参数 → 按空参数处理
+        }
+      } else if (rawArgs !== null && typeof rawArgs === 'object' && !Array.isArray(rawArgs)) {
+        args = rawArgs as Record<string, unknown>
+      }
+
+      // 调用 id(stepIds 数据源,缺失时按位置合成)
+      const callId = firstStringOf(call, ['id', 'call_id']) ?? `call-${stepIdx + 1}-${callIdx + 1}`
+
+      // ① 写文件类工具 → filesChanged
+      const kind = FILE_TOOL_KIND[toolName]
+      if (kind) {
+        const path = firstStringOf(args, ['path', 'file_path', 'filePath', 'file', 'filename'])
+        if (path) {
+          const oldText = firstStringOf(args, ['oldText', 'old_string'])
+          const newText = firstStringOf(args, ['newText', 'new_string', 'content', 'text'])
+          let additions = 0
+          let deletions = 0
+          // 增删行按新旧文本行数差估算(仅作概览,不做精确 diff)
+          if (oldText !== undefined || newText !== undefined) {
+            const oldLines = oldText !== undefined ? countLinesOf(oldText) : 0
+            const newLines = newText !== undefined ? countLinesOf(newText) : 0
+            additions = Math.max(0, newLines - oldLines)
+            deletions = Math.max(0, oldLines - newLines)
+          }
+          const existed = filesByPath.get(path)
+          if (existed) {
+            existed.kind = kind
+            existed.additions += additions
+            existed.deletions += deletions
+            if (!existed.stepIds.includes(callId)) existed.stepIds.push(callId)
+          } else {
+            filesByPath.set(path, { path, kind, stepIds: [callId], additions, deletions })
+            filesOrder.push(path)
+          }
+        }
+      }
+
+      // ② 引用来源四源映射(mcp 前缀/双下划线优先判定)
+      let source: 'wiki' | 'memory' | 'skill' | 'mcp' | undefined
+      if (toolName.startsWith('mcp:') || toolName.includes('__')) source = 'mcp'
+      else if (toolName.includes('wiki')) source = 'wiki'
+      else if (toolName.includes('memory')) source = 'memory'
+      else if (toolName.includes('skill')) source = 'skill'
+      if (source) {
+        const label =
+          firstStringOf(args, ['title', 'name', 'key', 'slug', 'query', 'page', 'topic']) ?? callId
+        const url =
+          source === 'wiki'
+            ? '/repo-wiki'
+            : source === 'skill'
+              ? '/skills'
+              : source === 'mcp'
+                ? '/mcp-projects'
+                : undefined
+        const dedupKey = `${source}|${label}|${url ?? ''}`
+        if (!seenCitations.has(dedupKey)) {
+          seenCitations.add(dedupKey)
+          citations.push(url ? { source, label, url } : { source, label })
+        }
+      }
+    }
+  }
+
+  const outputSummary = (result.final_output ?? '').slice(0, 500)
+  // 全空(无引用/无文件变更/无工具调用/无输出)→ null
+  if (
+    citations.length === 0 &&
+    filesOrder.length === 0 &&
+    totalCalls === 0 &&
+    outputSummary.length === 0
+  ) {
+    return null
+  }
+  return {
+    citations: citations.slice(0, 20),
+    filesChanged: filesOrder.slice(0, 100).map((p) => filesByPath.get(p)!),
+    toolsSummary: { total: totalCalls, byTool },
+    outputSummary,
+    generatedAt: new Date().toISOString(),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1213,13 +1381,28 @@ class SubagentDispatchService {
       // 清 lockedBy 审计字段 + 广播 workspace_lock_released),防止锁悬挂
       await releaseTaskLockByTaskId(taskId)
       const [taskRow] = await db.select().from(agentTasks).where(eq(agentTasks.id, taskId)).limit(1)
+      // D27(2026-09-20):completed 时聚合交付清单(deliverables)合并进 result ——
+      // 保留既有 result 中的其他键,不破坏 output/steps;deliverables 为 null 时不加该键
+      const deliverables =
+        status === 'completed' && runtime.orchestration
+          ? aggregateDeliverables(runtime.orchestration)
+          : null
+      const existingResult: Record<string, unknown> =
+        taskRow?.result && typeof taskRow.result === 'object' && !Array.isArray(taskRow.result)
+          ? (taskRow.result as Record<string, unknown>)
+          : {}
       await db
         .update(agentTasks)
         .set({
           status: terminalStatus,
           result:
             status === 'completed' && typeof runtime.dispatch.result === 'string'
-              ? { output: runtime.dispatch.result, steps }
+              ? {
+                  ...existingResult,
+                  output: runtime.dispatch.result,
+                  steps,
+                  ...(deliverables ? { deliverables } : {}),
+                }
               : undefined,
           errorMessage:
             (status === 'failed' || status === 'quota_exceeded') &&
@@ -1622,6 +1805,8 @@ class SubagentDispatchService {
         // 成功
         dispatch.status = 'completed'
         dispatch.result = result.finalOutput
+        // D27:缓存编排原始结果,供终态 _syncAgentTask 聚合交付清单(deliverables)落库
+        runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         this._updateStats(runtime)
@@ -1909,6 +2094,8 @@ class SubagentDispatchService {
         })
         dispatch.status = 'completed'
         dispatch.result = result.finalOutput
+        // D27:缓存编排原始结果(with_communication 的 data 恒为 null → 交付清单不加,行为与契约一致)
+        runtime.orchestration = result.data ?? null
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         this._updateStats(runtime)

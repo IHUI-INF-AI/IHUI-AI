@@ -1,19 +1,38 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 批41水印占位
 # 批 41 实战接线测试 — 审批缓存键规范化接线 + 回合 diff 跟踪器接线
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import pytest
 
-from app.core.command_canonicalization import canonicalize_command_for_approval
+
+@pytest.fixture(autouse=True)
+def _isolate_approval_db(tmp_path):
+    """隔离审批持久层。
+
+    本文件测试审批键空间,approve_exec_command/prefix 会双写持久层,
+    且 _matches_exec_prefix 未命中内存表时会回源持久层查询(含前 2/1
+    token 的前缀键)——不隔离会命中其他文件泄漏的授权,断言"未登记 →
+    False"就不稳定。teardown 恢复默认路径(对齐 test_tool_approval_persist_52)。
+    """
+    from app.services import approval_persistence as ap
+
+    ap.set_db_path(tmp_path / "approval_grants.db")
+    yield
+    ap.close()
+    ap.set_db_path(ap.DEFAULT_DB_PATH)
+
 
 
 def test_canonical_key_same_for_shell_wrapped():
     """同一命令不同 shell 包装 → 同一审批键(免二次弹窗)。"""
     from app.services.mcp_server import (
         _canonical_approval_key,
-        approve_exec_command,
         _consume_exec_approval,
+        approve_exec_command,
     )
 
     direct = "git status"
@@ -31,8 +50,8 @@ def test_canonical_key_same_for_shell_wrapped():
 def test_canonical_complex_scripts_not_cross_matched():
     """复杂脚本间不误互相命中(固定前缀形态)。"""
     from app.services.mcp_server import (
-        approve_exec_command,
         _consume_exec_approval,
+        approve_exec_command,
     )
 
     a = "bash -lc 'echo hi && rm -rf /tmp/x'"
@@ -45,8 +64,8 @@ def test_canonical_complex_scripts_not_cross_matched():
 def test_prefix_rule_via_canonical():
     """前缀规则:包装形态登记,直接形态命中(键空间一致)。"""
     from app.services.mcp_server import (
-        approve_exec_prefix,
         _matches_exec_prefix,
+        approve_exec_prefix,
         revoke_exec_prefix,
     )
 
@@ -278,7 +297,6 @@ def test_user_shell_command_fragment():
 
 def test_user_shell_command_wiring_in_loop():
     """批 42:批准的 run_command 执行后,user_shell 片段回填进 messages。"""
-    import asyncio
 
     from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition, ToolResult
 

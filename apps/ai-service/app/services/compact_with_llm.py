@@ -38,6 +38,8 @@ from ..core.context_compaction import (
 )
 from ..core.local_compact import (
     SUMMARY_PREFIX as CODEX_SUMMARY_PREFIX,
+)
+from ..core.local_compact import (
     is_summary_message as codex_is_summary_message,
 )
 from ..core.tunables import (

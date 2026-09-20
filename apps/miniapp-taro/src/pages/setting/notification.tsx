@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
+import { requestPushSubscription } from '@/utils/push-init'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
@@ -59,6 +60,23 @@ export default function NotificationPage() {
   const onDetail = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-user/message/index' })
   }, [])
+
+  // 微信订阅消息授权(一次性授权,消耗后需再次订阅才能收到下一条推送)
+  const onSubscribeWx = useCallback(async () => {
+    const accepted = await requestPushSubscription()
+    if (accepted) {
+      Taro.showToast({
+        title: tt('setting.notification.subscribed', '已开启提醒订阅'),
+        icon: 'success',
+      })
+    } else {
+      logger.info('setting/notification', 'subscribe-rejected', '用户未同意订阅或未配置模板')
+      Taro.showToast({
+        title: tt('setting.notification.subscribeFailed', '未开启订阅,可稍后重试'),
+        icon: 'none',
+      })
+    }
+  }, [tt])
 
   return (
     <ThemeRoot>
@@ -116,6 +134,41 @@ export default function NotificationPage() {
           <View className="rounded-[24rpx] bg-card p-[24rpx]">
             <View
               className="flex items-center justify-between py-[20rpx]"
+              onClick={() => void onSubscribeWx()}
+              hoverClass="opacity-60"
+            >
+              <View className="mr-[16rpx] flex-1">
+                <Text className="text-[28rpx] text-muted-foreground">
+                  {tt('setting.notification.wxSubscribe', '微信催费提醒')}
+                </Text>
+                <Text className="mt-[6rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                  {tt(
+                    'setting.notification.wxSubscribeDesc',
+                    '订阅后可在微信接收学费催缴提醒(每次订阅可收一条)',
+                  )}
+                </Text>
+              </View>
+              {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            </View>
+            <View
+              className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
+              onClick={() => Taro.navigateTo({ url: '/pkg-user/bill/index' })}
+              hoverClass="opacity-60"
+            >
+              <View className="mr-[16rpx] flex-1">
+                <Text className="text-[28rpx] text-muted-foreground">
+                  {tt('setting.notification.myBills', '我的学费账单')}
+                </Text>
+                <Text className="mt-[6rpx] block text-[24rpx] leading-[1.5] text-[color:var(--color-text-tertiary)]">
+                  {tt('setting.notification.myBillsDesc', '查看应缴/已缴/欠费并在线缴费')}
+                </Text>
+              </View>
+              {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
+              <Text className="text-[40rpx] text-[color:var(--color-text-tertiary)]">›</Text>
+            </View>
+            <View
+              className="flex items-center justify-between border-t-[1rpx] border-solid border-[color:var(--color-border)] py-[20rpx]"
               onClick={onDetail}
               hoverClass="opacity-60"
             >

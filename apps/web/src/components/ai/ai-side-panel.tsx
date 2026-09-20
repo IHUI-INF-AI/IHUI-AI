@@ -486,7 +486,12 @@ export function AISidePanel() {
                 role: m.role,
                 content: m.content,
                 createdAt: new Date(m.createdAt).getTime(),
+                model: (m.metadata?.model as string | null | undefined) ?? '',
                 reasoning: m.reasoning,
+                // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)
+                toolCalls: (m.metadata?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
+                terminalTasks: (m.metadata?.terminalTasks ??
+                  undefined) as ChatMessage['terminalTasks'],
               }))
               // 仅当当前仍在该会话、且拉取期间本地未被写入时才更新 store
               // (前者避免覆盖用户已切换到的新会话;后者避免覆盖流式中的在途消息)
@@ -543,7 +548,11 @@ export function AISidePanel() {
             role: m.role,
             content: m.content,
             createdAt: new Date(m.createdAt).getTime(),
+            model: (m.metadata?.model as string | null | undefined) ?? '',
             reasoning: m.reasoning,
+            // D24(2026-09-19 立):恢复工具卡与终端区(metadata 强制落库)
+            toolCalls: (m.metadata?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
+            terminalTasks: (m.metadata?.terminalTasks ?? undefined) as ChatMessage['terminalTasks'],
           }))
           // 拉取期间本地已写入(新建会话后在途的 assistant 消息)时保留本地,
           // 不用远端快照覆盖 —— 否则正文 / plan / terminal 卡片会被整条抹掉。

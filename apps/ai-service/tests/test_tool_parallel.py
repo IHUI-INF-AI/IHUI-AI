@@ -83,7 +83,10 @@ def _make_counting_call_tool(sleep: float = 0.02) -> tuple[dict, object]:
     """
     state: dict = {"active": 0, "max_concurrent": 0, "names": []}
 
-    async def fake_call_tool(name: str, args: dict | None = None) -> dict:
+    # **kwargs 兼容 conversation.py 向 call_tool 透传的 user_id/session_id
+    async def fake_call_tool(
+        name: str, args: dict | None = None, **kwargs: object
+    ) -> dict:
         state["active"] += 1
         state["max_concurrent"] = max(state["max_concurrent"], state["active"])
         state["names"].append(name)
@@ -165,7 +168,9 @@ async def test_conversation_single_tool_failure(monkeypatch):
     state, fake_complete = _make_complete_with_tool_calls(calls)
     monkeypatch.setattr(conv_mod.llm_gateway, "complete", fake_complete)
 
-    async def fake_call_tool(name: str, args: dict | None = None) -> dict:
+    async def fake_call_tool(
+        name: str, args: dict | None = None, **kwargs: object
+    ) -> dict:
         if name == "read_file":
             return {
                 "ok": False, "error": "file not found",
@@ -208,7 +213,9 @@ async def test_retry_idempotent_readonly_tool(monkeypatch):
     monkeypatch.setattr(conv_mod.llm_gateway, "complete", fake_complete)
     counters = {"n": 0}
 
-    async def fake_call_tool(name: str, args: dict | None = None) -> dict:
+    async def fake_call_tool(
+        name: str, args: dict | None = None, **kwargs: object
+    ) -> dict:
         counters["n"] += 1
         if counters["n"] == 1:
             return {"ok": False, "error": "transient timeout"}
@@ -235,7 +242,9 @@ async def test_no_retry_for_write_tools(monkeypatch):
     monkeypatch.setattr(conv_mod.llm_gateway, "complete", fake_complete)
     counters = {"n": 0}
 
-    async def fake_call_tool(name: str, args: dict | None = None) -> dict:
+    async def fake_call_tool(
+        name: str, args: dict | None = None, **kwargs: object
+    ) -> dict:
         counters["n"] += 1
         if name == "write_file":
             return {"ok": False, "error": "permission denied", "tool": name}

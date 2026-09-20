@@ -21,8 +21,8 @@ from app.core.command_canonicalization import (
 from app.core.exec_env import (
     CODEX_SESSION_ID_ENV_VAR,
     CODEX_THREAD_ID_ENV_VAR,
-    EnvironmentVariablePattern,
     NON_INHERITABLE_ENV_VARS,
+    EnvironmentVariablePattern,
     ShellEnvironmentPolicy,
     ShellEnvironmentPolicyInherit,
     create_env_from_vars,
@@ -38,7 +38,6 @@ from app.core.rollout_budget import (
     _non_cached_input,
 )
 from app.core.turn_timing import (
-    TurnProfilePhase,
     TurnTimingState,
     records_turn_ttft_for_message_item,
 )

@@ -16,6 +16,9 @@ declare module 'fastify' {
   interface FastifyRequest {
     userId?: string
     jwtPayload?: JWTPayload
+    /** internal token 鉴权后注入的 legacy 数值角色(来自 users.roleId,由 plugins/internal-service-token.ts 设置)。
+     *  与 jwtPayload.roleId 同源同语义,供 requireAnyPermission 管理员豁免判定,使 AI 对话链与 JWT 链路行为一致。 */
+    internalUserRoleId?: number
     /** API Key 鉴权后注入的上下文(由 plugins/api-key-auth.ts 设置)。与 JWT 鉴权独立。 */
     apiKey?: AuthenticatedApiKey
   }

@@ -20,7 +20,7 @@ from app.core.exec_policy_decision import (
 
 
 def _ctx(**kw):
-    base = dict(approval_policy=AskForApproval.ON_REQUEST)
+    base = {"approval_policy": AskForApproval.ON_REQUEST}
     base.update(kw)
     return UnmatchedCommandContext(**base)
 

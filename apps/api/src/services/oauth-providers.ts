@@ -184,7 +184,8 @@ export async function wechatAppCode2session(code: string): Promise<WechatAppSess
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null
 
-async function getAccessToken(): Promise<string> {
+/** 小程序全局 access_token(内存缓存,提前 200s 过期;供订阅消息等 cgi-bin 接口复用) */
+export async function getAccessToken(): Promise<string> {
   const now = Date.now()
   if (cachedAccessToken && cachedAccessToken.expiresAt > now + 60000) {
     return cachedAccessToken.token
