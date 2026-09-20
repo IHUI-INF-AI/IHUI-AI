@@ -4457,6 +4457,34 @@ class AgentEngine:
                         f"{prepared.source_width}x{prepared.source_height}"
                         f"->{prepared.width}x{prepared.height}"
                     )
+                    # 批 58 接线:缩放事实以 developer 片段回灌历史(对标 codex
+                    # image_resize_notice.rs——模型须知道看到的非原图,防误判细节)。
+                    # tool output 来源;append 进 loop 消息流,异常静默降级。
+                    try:
+                        from app.core.image_preparation import (
+                            ResizedImage,
+                            build_image_resize_notice_fragment,
+                        )
+                        _frag = build_image_resize_notice_fragment(
+                            [
+                                ResizedImage(
+                                    image_number=1,
+                                    image_count=1,
+                                    source_width=prepared.source_width,
+                                    source_height=prepared.source_height,
+                                    prepared_width=prepared.width,
+                                    prepared_height=prepared.height,
+                                )
+                            ],
+                            source="tool output",
+                        )
+                        _loop = thread.loop
+                        if _frag is not None and _loop is not None:
+                            _msgs = getattr(_loop, "_messages", None)
+                            if isinstance(_msgs, list):
+                                _msgs.append(_frag)
+                    except Exception:
+                        pass
             except Exception:
                 prepared_note = ""
             with contextlib.suppress(Exception):
