@@ -29,7 +29,7 @@ import { execSync } from 'node:child_process'
 
 const shSafe = (cmd) => {
   try {
-    return execSync(cmd, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }).trim()
+    return execSync(cmd, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true }).trim()
   } catch {
     return ''
   }

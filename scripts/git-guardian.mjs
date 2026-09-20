@@ -118,6 +118,7 @@ function git(args, allowFail = false) {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 180000,
+      windowsHide: true,
     }).trim()
   } catch (e) {
     if (allowFail) return null
@@ -533,6 +534,7 @@ function main() {
         ['/create', '/tn', TASK_NAME, '/tr', tr, '/sc', 'minute', '/mo', '2', '/f'],
         {
           stdio: 'inherit',
+          windowsHide: true,
         },
       )
       log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检)`)

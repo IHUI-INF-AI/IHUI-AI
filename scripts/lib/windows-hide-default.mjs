@@ -2,69 +2,65 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 运维工具:批量 tag 备份全部未备份悬空 commit(幂等,已备份者跳过)
-// 用法: node scripts/backup-unreachable-commits.mjs
-// 背景: stash 链整体悬空时守门 tree/hash/subject 三路放行失效,
-//       显式 tag 是唯一可靠出口(详见 STATE.md 2026-09-04 守门加固轮).
-// 命名: unreachable-commits-backup/<yyyymmdd-HHMMSS>-<hash12>
-import { execSync, spawnSync } from 'node:child_process'
+// 机器级根治:让 node 所有子进程默认 windowsHide=true,消除"无控制台父进程派生控制台程序 → 弹可见黑窗"。
+// 装载:NODE_OPTIONS=--import=file:///<本文件>,由 scripts/install-console-window-hook.mjs 写入用户环境变量。
+// 约束:本文件被本机每一个 node 进程加载 —— 必须零输出、零抛出、任何异常都不得影响宿主程序原有行为。
+// 用 .mjs 而非 .cjs:.gitignore 第 207 行 `*.cjs` 会把钩子源文件静默忽略,导致它无法入库(其他机器装不上)。
+import { createRequire } from 'node:module'
 
-const GIT_BIN = (() => {
-  const w = execSync('where git', { encoding: 'utf8', windowsHide: true })
-  for (const raw of w.split('\n')) {
-    const p = raw.trim()
-    if (/\\cmd\\git\.exe$/i.test(p)) return p
+// 必须是 CJS 导出对象:builtin 的 ESM facade 在该模块首次被 import 时才从它读取属性,
+// 本文件经 --import 早于业务代码执行,此处的替换才对后续 `import { spawnSync } from 'node:child_process'` 生效。
+const cp = createRequire(import.meta.url)('node:child_process')
+
+// (file, args[]?, options?, callback?) —— 第二槽可能被 args 数组占用
+const TAKES_ARGS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork'])
+// (command, options?, callback?)
+const TAKES_PLAIN = new Set(['exec', 'execSync'])
+const TARGETS = [...TAKES_ARGS, ...TAKES_PLAIN]
+
+const isPlainObject = (v) =>
+  v !== null && typeof v === 'object' && !Array.isArray(v) && typeof v !== 'function'
+
+function injectInto(options) {
+  // 只在调用方未表态时补默认值;显式 windowsHide:false 一律尊重。
+  if (options.windowsHide === undefined) options.windowsHide = true
+  return options
+}
+
+// 归一化参数:定位 options 槽位,缺失则插入 {},存在则补 windowsHide。
+// 原地修改并返回同一个 args 数组;任何判定失败都原样交给原函数处理。
+function normalizeArgs(args, takesArgs) {
+  let cbIndex = -1
+  for (let i = args.length - 1; i >= 0; i--) {
+    if (typeof args[i] === 'function') {
+      cbIndex = i
+      break
+    }
   }
-  return 'git'
-})()
-function runGit(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
-  if (r.status !== 0) throw new Error(`git ${args[0]} exit=${r.status}: ${(r.stderr || '').slice(0, 150)}`)
-  return (r.stdout || '').trim()
-}
-function runGitSoft(args) {
-  const r = spawnSync(GIT_BIN, args, { encoding: 'utf8', maxBuffer: 64e6, windowsHide: true })
-  return (r.stdout || '')
+  let idx = takesArgs ? (Array.isArray(args[1]) ? 2 : 1) : 1
+  if (cbIndex !== -1 && cbIndex < idx) idx = cbIndex
+  if (isPlainObject(args[idx])) injectInto(args[idx])
+  else args.splice(idx, 0, injectInto({}))
+  return args
 }
 
-// ① 现有备份集(lost-commit/* + backup/* 的 peeled commit hash;
-// 不含 unreachable-commits-backup/* 自身——否则本脚本幂等重跑永远 0,无法追赶新悬空)
-const refOut = runGit([
-  'for-each-ref',
-  'refs/tags/lost-commit',
-  'refs/tags/backup',
-  '--format=%(objectname)%09%(*objectname)',
-])
-const backed = new Set()
-for (const l of refOut.split('\n').filter(Boolean)) {
-  const c = l.trim().split('\t')
-  const h = c[1] || c[0]
-  if (/^[0-9a-f]{40}$/.test(h)) backed.add(h)
+function makeWrapper(name, original) {
+  const takesArgs = TAKES_ARGS.has(name)
+  function patched(...args) {
+    try {
+      normalizeArgs(args, takesArgs)
+    } catch {
+      /* 归一化失败 → 原样调用,本 hook 绝不破坏宿主程序 */
+    }
+    return original.apply(this, args)
+  }
+  patched.__ihuiWindowsHidePatch = true
+  return patched
 }
-console.log('backed hashes:', backed.size)
 
-// ② 悬空 commit 全量(fsck 发现任何丢失对象即 exit 1/2,属预期,取 stdout)
-const fsck = runGitSoft(['fsck', '--unreachable', '--no-progress'])
-const unreach = []
-for (const l of fsck.split('\n')) {
-  const m = l.match(/^unreachable commit ([0-9a-f]{40})/)
-  if (m) unreach.push(m[1]) // 守门脚本对 backedUp 命中者已放行,此处全量 tag 化最稳妥
+for (const name of TARGETS) {
+  const original = cp[name]
+  if (typeof original !== 'function' || original.__ihuiWindowsHidePatch) continue
+  cp[name] = makeWrapper(name, original)
 }
-console.log('to backup:', unreach.length)
-
-// ③ 逐个打轻量 tag(git tag 本身很快;幂等:ref 已存在则跳过)
-const existingRefs = new Set(
-  runGit(['for-each-ref', 'refs/tags/unreachable-commits-backup', '--format=%(refname)']).split('\n'),
-)
-const ts = new Date()
-const pad = (n) => String(n).padStart(2, '0')
-const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}`
-let created = 0
-for (const h of unreach) {
-  const name = `unreachable-commits-backup/${stamp}-${h.slice(0, 12)}`
-  if (existingRefs.has(`refs/tags/${name}`)) continue
-  runGit(['tag', name, h])
-  created++
-}
-console.log('tags created:', created)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

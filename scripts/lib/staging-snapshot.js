@@ -71,6 +71,7 @@ function takeStagingSnapshot(options = {}) {
         encoding: 'utf8',
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
       },
     )
     const snapshot = new Set(
@@ -182,6 +183,7 @@ function restoreStaging(initialSnapshot, options = {}) {
         encoding: 'utf8',
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
       },
     )
     const currentStaged = new Set(
@@ -209,6 +211,7 @@ function restoreStaging(initialSnapshot, options = {}) {
     execSync(`git restore --staged ${addedFiles.map((f) => `"${f}"`).join(' ')}`, {
       stdio: ['pipe', 'pipe', 'inherit'],
       cwd,
+      windowsHide: true,
     })
     if (!silent) {
       console.log(
@@ -320,6 +323,7 @@ function auditStagingFiles(options = {}) {
         encoding: 'utf8',
         cwd,
         stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
       },
     )
     stagedFiles = output

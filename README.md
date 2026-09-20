@@ -2127,6 +2127,18 @@ IHUI-AI/
 | Docker     | `24+` + Compose v2 | 可选,推荐用于一键启动                              |
 | Git        | `2.40+`            | `core.autocrlf=false`(项目强制 LF)                 |
 
+#### Windows 开发机:静默化派生进程(可选,推荐)
+
+Windows 下 Node 的 `child_process` 默认 `windowsHide: false`。当 node 脚本由**无控制台的父进程**(后台推送 worker、计划任务、IDE agent 宿主)派生 git / pnpm / cmd 时,Windows 会为其新分配一个**可见控制台窗口** —— 表现为"桌面不停闪黑窗"。项目内派生点已显式补 `windowsHide: true`;若仍被弹窗干扰,可再装一层机器级钩子,让本机**所有** node 进程默认静默:
+
+```bash
+node scripts/install-console-window-hook.mjs --verify   # 巡检,不写盘
+node scripts/install-console-window-hook.mjs --apply    # 安装(落盘前先试跑,不通过即拒绝写入)
+node scripts/install-console-window-hook.mjs --remove   # 卸载并恢复原 NODE_OPTIONS
+```
+
+钩子文件落在**仓库外**的稳定目录(默认 `<TEMP 上级>/ihui-node-hooks`,可用 `IHUI_NODE_HOOKS_DIR` 覆盖),经用户环境变量 `NODE_OPTIONS=--import=file:///...` 生效;显式传 `windowsHide: false` 的调用一律尊重。安装后需重启 IDE / 终端,其新派生的进程才会静默。
+
 ### 一键启动(Docker)
 
 ```bash

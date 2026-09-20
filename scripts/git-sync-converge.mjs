@@ -93,6 +93,7 @@ try {
   execFileSync('node', ['scripts/git-lock.mjs', 'clean'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
     cwd: repoRoot,
   })
 } catch {
@@ -153,6 +154,7 @@ for (let round = 1; round <= maxRounds; round++) {
   execFileSync('node', ['scripts/git-push-guard.mjs'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
     cwd: repoRoot,
   })
 

@@ -87,7 +87,7 @@ const LOCAL_GIT_TIMEOUT_MS = 10_000
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], ...opts }).trim()
+    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
   } catch (e) {
     if (opts.allowFail) return ''
     throw e
@@ -124,6 +124,7 @@ function runGit(args, opts = {}) {
   const r = spawnSync(GIT_BIN, args, {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
+    windowsHide: true,
     ...opts,
   })
   if (r.status !== 0) {
