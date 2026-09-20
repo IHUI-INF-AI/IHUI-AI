@@ -94,6 +94,7 @@ function runGit(args, opts = {}) {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
     timeout: 10_000,
+    windowsHide: true,
     ...opts,
   })
   if (r.status !== 0) {

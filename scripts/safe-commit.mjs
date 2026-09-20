@@ -54,6 +54,7 @@ function run(cmd, opts = {}) {
     return execSync(cmd, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
       ...opts,
     }).trim()
   } catch (e) {
@@ -162,6 +163,7 @@ log('info', 'Step 1/5: git reset HEAD — 清空暂存区(无论谁 staged 的)'
 const resetResult = spawnSync('git', ['reset', 'HEAD'], {
   encoding: 'utf8',
   cwd: repoRoot,
+  windowsHide: true,
 })
 if (resetResult.status !== 0) {
   log('err', `git reset HEAD 失败: ${resetResult.stderr}`)
@@ -175,6 +177,7 @@ log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存�
 const addResult = spawnSync('git', ['add', '-A', '--', ...expectedFiles], {
   encoding: 'utf8',
   cwd: repoRoot,
+  windowsHide: true,
 })
 if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
@@ -265,6 +268,7 @@ let commitResult = spawnSync(
     stdio: 'inherit',
     cwd: repoRoot,
     env: process.env,
+    windowsHide: true,
   },
 )
 
@@ -279,6 +283,7 @@ if (commitResult.status !== 0) {
       stdio: 'inherit',
       cwd: repoRoot,
       env: process.env,
+      windowsHide: true,
     },
   )
   if (commitResult.status === 0) {

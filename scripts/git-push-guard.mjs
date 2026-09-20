@@ -62,6 +62,7 @@ function run(cmd, opts = {}) {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: opts.timeout ?? 120_000,
+      windowsHide: true, // worker 无控制台,git 为控制台程序 → 不带此参数必分配可见黑窗
       ...opts,
     }).trim()
   } catch (e) {
@@ -83,7 +84,11 @@ const skipPush = process.env.HUSKY_SKIP_PUSH === '1'
 // post-commit 已持锁(IHUI_GIT_LOCK_UNIT)时 acquire 会清理;直接调用 push-guard
 // 的场景(agent 手动收尾)无锁保护,在此显式清理 index.lock/ihui-git-write.lock(死 PID)。
 try {
-  execSync('node scripts/git-lock.mjs clean', { stdio: 'inherit', cwd: process.cwd() })
+  execSync('node scripts/git-lock.mjs clean', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    windowsHide: true,
+  })
 } catch {
   /* 清理失败不阻塞 push */
 }
@@ -273,7 +278,12 @@ if (process.argv.includes('--watchdog')) {
     const res = spawnSync(
       process.execPath,
       [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`],
-      { stdio: 'inherit', cwd: process.cwd(), env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' } },
+      {
+        stdio: 'inherit',
+        cwd: process.cwd(),
+        env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' },
+        windowsHide: true,
+      },
     )
     // 退出码 0 不一定代表已同步(guard 在"workerActive"分支也会 exit 0),
     // 以复验的 ls-remote 网络真值为准,未同步则下轮继续。
@@ -608,6 +618,7 @@ let pushResult = spawnSync('git', ['push', 'origin', branch], {
   cwd: repoRoot,
   env: process.env,
   timeout: PUSH_TIMEOUT_MS,
+  windowsHide: true,
 })
 
 // 首次 push 失败时分流(2026-09-18 中断分类):
@@ -627,6 +638,7 @@ if (pushResult.status !== 0) {
       cwd: repoRoot,
       env: process.env,
       timeout: PUSH_TIMEOUT_MS,
+      windowsHide: true,
     })
     if (pushResult.status === 0) {
       log('ok', 'push 门重试通过(真实类型检查结论),推送成功')
@@ -641,6 +653,7 @@ if (pushResult.status !== 0) {
       cwd: repoRoot,
       env: process.env,
       timeout: PUSH_TIMEOUT_MS,
+      windowsHide: true,
     })
 
     if (pushResult.status === 0) {

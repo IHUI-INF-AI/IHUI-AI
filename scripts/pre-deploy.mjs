@@ -80,7 +80,7 @@ function run(cmd, opts = {}) {
   try {
     return {
       ok: true,
-      stdout: execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', ...opts }),
+      stdout: execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe', windowsHide: true, ...opts }),
     }
   } catch (e) {
     return {
