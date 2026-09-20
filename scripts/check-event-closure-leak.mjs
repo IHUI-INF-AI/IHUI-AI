@@ -72,7 +72,7 @@ function getStagedFiles() {
     const out = execFileSync(
       'git',
       ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
-      { encoding: 'utf8', cwd: process.cwd() },
+      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
     )
     return out
       .split('\n')
@@ -89,7 +89,7 @@ function getAllWebFiles() {
     const out = execFileSync(
       'git',
       ['ls-files', 'apps/web/src'],
-      { encoding: 'utf8', cwd: process.cwd() },
+      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true },
     )
     return out
       .split('\n')

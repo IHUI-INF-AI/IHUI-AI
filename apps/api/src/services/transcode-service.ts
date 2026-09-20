@@ -209,7 +209,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   job.progress = 0
 
   return new Promise<TranscodeJob>((resolve, reject) => {
-    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''
@@ -315,7 +315,7 @@ export async function deleteTranscodeJob(jobId: string): Promise<boolean> {
 /** 检查 ffmpeg 是否可用。 */
 export async function isFfmpegAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
-    const child = spawn('ffmpeg', ['-version'], { stdio: 'ignore' })
+    const child = spawn('ffmpeg', ['-version'], { stdio: 'ignore', windowsHide: true })
     child.on('close', (code) => resolve(code === 0))
     child.on('error', () => resolve(false))
   })

@@ -52,6 +52,7 @@ const r = spawnSync(npmExec, args, {
   stdio: 'inherit',
   env: process.env,
   shell: !process.env.npm_execpath,
+  windowsHide: true,
 })
 
 process.exit(r.status ?? 1)

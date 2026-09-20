@@ -51,7 +51,7 @@ const HELP = `
   --install              在 Windows 上注册每30分钟计划任务(需管理员)
   --source               打印当前 img 记录的 A/AAAA 值后退出
 `
-function log(msg) { const line = `[${new Date().toISOString()}] ${msg}`; try { execFileSync('cmd', ['/c', `echo ${line}>> "${LOG}"`], { shell: false }) } catch {} ; console.log(line) }
+function log(msg) { const line = `[${new Date().toISOString()}] ${msg}`; try { execFileSync('cmd', ['/c', `echo ${line}>> "${LOG}"`], { shell: false, windowsHide: true }) } catch {} ; console.log(line) }
 
 function env(name, fallback = '') {
   const v = process.env[name]
@@ -178,7 +178,7 @@ function install() {
   const node = process.execPath
   const script = fileURLToPath(import.meta.url)
   const cmd = `cmd /c ""${node}" "${script}" --run" >> "${LOG}" 2>&1`
-  execFileSync('schtasks', ['/Create', '/F', '/TN', 'IHUI-CFPreferredIP', '/SC', 'MINUTE', '/MO', '30', '/TR', cmd])
+  execFileSync('schtasks', ['/Create', '/F', '/TN', 'IHUI-CFPreferredIP', '/SC', 'MINUTE', '/MO', '30', '/TR', cmd], { windowsHide: true })
   log('已注册计划任务 IHUI-CFPreferredIP (每30分钟)')
 }
 

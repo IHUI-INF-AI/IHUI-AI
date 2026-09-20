@@ -89,7 +89,7 @@ function isActiveGoalBranch(branch) {
  */
 function getWorktreeBranches() {
   try {
-    const raw = execSync('git worktree list --porcelain', { cwd: ROOT, encoding: 'utf8' })
+    const raw = execSync('git worktree list --porcelain', { cwd: ROOT, encoding: 'utf8', windowsHide: true })
     const set = new Set()
     for (const line of raw.split('\n')) {
       const m = line.match(/^branch refs\/heads\/(.+)$/)
@@ -103,7 +103,7 @@ function getWorktreeBranches() {
 
 function listBranches() {
   try {
-    const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8' })
+    const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8', windowsHide: true })
     return raw
       .split('\n')
       .map((line) => line.trim().replace(/^[*+]\s*/, ''))
