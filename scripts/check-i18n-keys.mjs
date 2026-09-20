@@ -655,21 +655,41 @@ function loadFallbackDict(target) {
 const FALLBACK_DICT = isMobileRn || isMiniappTaro ? loadFallbackDict(TARGET) : null
 
 function extractHookKeys(src) {
-  // 匹配 const { t } = useI18n(...) / const { tt } = useAppTheme(...) 解构,取变量名
-  const destructureRe =
-    /const\s*\{\s*(t|tt)(?:\s*:\s*(\w+))?\s*\}\s*=\s*(?:useI18n|useAppTheme)\s*\(/g
+  // 端内翻译函数变量有两大类绑定形态,缺一即整文件漏检(2026-09-21 补盲):
+  //  ① 解构式:const { t } = useI18n() / const { tt } = useAppTheme()
+  //     旧正则把 `{ t }` 写死成"左花括号后紧跟 t|tt 且立刻右花括号",
+  //     于是 const { t, tList } = useI18n()(实测 14 处)整行不匹配 → 这些文件的
+  //     t() 引用一个都没被查过。现改为解析解构内部条目,仅取源键 t / tt,
+  //     支持重命名(const { t: tr } = useI18n());tList 是列表解析器不是翻译函数,不纳入。
+  //  ② 非解构直接赋值:const tt = useTt()(miniapp-taro 带回退翻译 hook,实测 155 文件)
+  //     useTt 签名 (key, zhFallback),词典缺键时回退内联简体中文 → en/ko/ja/zh-TW 下
+  //     恒显示简体,是真实可见缺陷。命名覆盖 useT / useXxxTt;刻意不匹配 useTts
+  //     (text-to-speech),因为 "Tts" 不等于 "Tt",且 useT 分支要求紧跟 "("。
+  // 误报防线:全程只在"去注释后的代码"上跑。扩视野后 miniapp-taro 从 91 个文件涨到
+  //   212 个,注释里的示例(如 `// 禁止 tt('p1','发') 这种劈词拼接`)会被真 tt 绑定扫到,
+  //   把文档注释当成引用键。真实引用一定在代码里,剥注释只会去噪,不会漏检。
+  const code = stripComments(src)
   const varNames = new Set()
   let m
-  while ((m = destructureRe.exec(src)) !== null) {
-    varNames.add(m[2] || m[1])
+  const destructureRe = /const\s*\{([^{}]*)\}\s*=\s*(?:useI18n|useAppTheme)\s*\(/g
+  while ((m = destructureRe.exec(code)) !== null) {
+    for (const raw of m[1].split(',')) {
+      const entry = raw.trim()
+      if (!entry) continue
+      const [sourceKey, localName] = entry.split(':').map((s) => s.trim())
+      if (sourceKey === 't' || sourceKey === 'tt') varNames.add(localName || sourceKey)
+    }
   }
+  const directAssignRe =
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:useT|use[A-Za-z0-9_]*Tt)\s*\(/g
+  while ((m = directAssignRe.exec(code)) !== null) varNames.add(m[1])
   const keys = []
   for (const v of varNames) {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     // key 必须是引号字面量;模板字符串/动态拼接跳过(无法静态判定)
     const re = new RegExp(`\\b${escaped}\\(\\s*['"]([^'"]+)['"]`, 'g')
     let k
-    while ((k = re.exec(src)) !== null) keys.push(k[1])
+    while ((k = re.exec(code)) !== null) keys.push(k[1])
   }
   return [...new Set(keys)]
 }
@@ -709,7 +729,9 @@ for (const file of sourceFiles) {
 
   // 端内模式(mobile-rn/miniapp-taro):用 hook 解构提取 + 合并词典/兜底词典双查
   if (isMobileRn || isMiniappTaro) {
-    const keys = extractHookKeys(src)
+    // 先去注释:注释里举的反例(如 `禁止 "…后重" + tt('p1','发') 这种拼接`)会被
+    // 当成真实调用点提取出 p1,而它本就不是键 —— 注释不参与渲染,不该计入缺失。
+    const keys = extractHookKeys(stripComments(src))
     if (keys.length === 0) continue
     checkedFiles++
     checkedKeys += keys.length
