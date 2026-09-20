@@ -28,9 +28,9 @@ const GENDERS: Array<{ value: Gender; key: 'male' | 'female' | 'secret' }> = [
 ]
 
 const GENDER_KEYS: Record<'male' | 'female' | 'secret', string> = {
-  male: 'profileEdit.gender_male',
-  female: 'profileEdit.gender_female',
-  secret: 'profileEdit.gender_secret',
+  male: 'profileEdit.genderMale',
+  female: 'profileEdit.genderFemale',
+  secret: 'profileEdit.genderSecret',
 }
 
 export function ProfileEditScreen({
