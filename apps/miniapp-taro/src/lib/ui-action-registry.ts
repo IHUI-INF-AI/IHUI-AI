@@ -12,6 +12,7 @@ import {
   type TaroUiRouteEntry,
 } from '@/constants/ui-routes.generated'
 import { setThemePreference } from '@/lib/theme'
+import { requestLocaleChange } from '@/i18n'
 
 /**
  * AI 对话操控小程序端的执行注册表(2026-09-21 立,与 web/RN 端同链路的降级形态)。
@@ -244,11 +245,39 @@ const PAGE_COMMANDS: readonly TaroInvokeCommand[] = [
   },
 ]
 
+/** 与 `src/i18n` 里 `LOCALES` 同一套码值(i18n/index.tsx 硬校验这五个,写错就是静默不切)。 */
+const LOCALE_IDS = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const
+const LOCALE_LABELS: Record<(typeof LOCALE_IDS)[number], string> = {
+  'zh-CN': '简体中文',
+  en: '英文',
+  ja: '日文',
+  ko: '韩文',
+  'zh-TW': '繁体中文',
+}
+
 /** invoke 的全部可调用命令(不止主题:外观 + 导航 + 页面三类) */
+const LOCALE_COMMANDS: readonly TaroInvokeCommand[] = LOCALE_IDS.map(
+  (locale): TaroInvokeCommand => ({
+    id: `locale:${locale}`,
+    label: `切换到${LOCALE_LABELS[locale]}界面`,
+    group: 'locale',
+    run: () => {
+      // 走 Provider 注册进来的 setter(会 setState 真重渲染)。直接写 storage 只会让下一次
+      // 渲染用到新值,当前界面不动 —— 那是"报成功但用户什么都没看见"的假成功,故拿不到
+      // setter 就抛错,由 executeInvoke 如实转成 EXECUTION_FAILED。
+      if (!requestLocaleChange(locale)) {
+        throw new Error('I18nProvider 未挂载,无法切换界面文案(不谎报成功)')
+      }
+      return { locale }
+    },
+  }),
+)
+
 const INVOKE_COMMANDS: readonly TaroInvokeCommand[] = [
   ...THEME_COMMANDS,
   ...TAB_COMMANDS,
   ...PAGE_COMMANDS,
+  ...LOCALE_COMMANDS,
 ]
 
 const INVOKE_BY_ID: ReadonlyMap<string, TaroInvokeCommand> = new Map(

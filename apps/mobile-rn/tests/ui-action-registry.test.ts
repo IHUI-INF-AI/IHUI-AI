@@ -31,6 +31,13 @@ vi.mock('@react-navigation/native', () => ({
   }),
 }))
 
+/** I18nProvider 注册的 locale setter:默认"已挂载",个别用例改返回值验假成功防护 */
+const locale = vi.hoisted(() => ({
+  requestLocaleChange: vi.fn(() => true),
+}))
+
+vi.mock('../src/i18n', () => ({ requestLocaleChange: locale.requestLocaleChange }))
+
 import { themeStore } from '../src/context/ThemeContext'
 import {
   buildRnUiSnapshot,
@@ -295,6 +302,11 @@ describe('executeRnUiAction — invoke', () => {
       .commands.map((c) => c.id)
       .sort()
     expect(described).toEqual([
+      'locale:en',
+      'locale:ja',
+      'locale:ko',
+      'locale:zh-CN',
+      'locale:zh-TW',
       'tab:ai',
       'tab:course',
       'tab:home',
@@ -306,14 +318,47 @@ describe('executeRnUiAction — invoke', () => {
     ])
     for (const command of buildRnUiSnapshot().commands) {
       expect(command.label, command.id).toBeTruthy()
-      expect(['appearance', 'navigation'], command.id).toContain(command.group)
+      expect(['appearance', 'navigation', 'locale'], command.id).toContain(command.group)
     }
   })
 
-  it('语言切换刻意不登记:setLocale 只在 I18nProvider 内生效,模块级调用是假成功', async () => {
+  describe('locale:* —— 必须走 Provider 注册的 setter,拿不到就如实失败', () => {
+    it('Provider 已挂载时切换成功并回传目标 locale', async () => {
+      locale.requestLocaleChange.mockReturnValueOnce(true)
+      const res = await executeRnUiAction('invoke', { name: 'locale:en' })
+      expect(res.ok).toBe(true)
+      expect(locale.requestLocaleChange).toHaveBeenCalledWith('en')
+      expect(res.data?.invoked).toBe('locale:en')
+      expect(res.data?.locale).toBe('en')
+    })
+
+    it('Provider 未挂载时返回 EXECUTION_FAILED,绝不报成功', async () => {
+      locale.requestLocaleChange.mockReturnValueOnce(false)
+      const res = await executeRnUiAction('invoke', { name: 'locale:ko' })
+      expect(res.ok).toBe(false)
+      expect(res.errorCode).toBe('EXECUTION_FAILED')
+      expect(res.error).toContain('不谎报成功')
+      expect(locale.requestLocaleChange).toHaveBeenCalledWith('ko')
+    })
+
+    it('只认精确 id:lang:/language: 一类近似写法不得被顺手兼容', async () => {
+      locale.requestLocaleChange.mockClear()
+      for (const name of ['lang:en', 'language:switch', 'locale:EN', 'locale:fr']) {
+        const res = await executeRnUiAction('invoke', { name })
+        expect(res.errorCode, name).toBe('UNSUPPORTED_ACTION')
+      }
+      expect(locale.requestLocaleChange).not.toHaveBeenCalled()
+    })
+  })
+
+  it('语言切换只认 locale:<码> 一种写法;i18n:/locale:set 一类近似 id 不得被兼容', async () => {
+    // 2026-09-21 变更:语言切换**已**登记为命令。此前判"假成功"而排除,是因为模块级 setLocale
+    // 只写 storage、当前界面不动;现在改走 I18nProvider 挂载时注册的 setter(会 setState),
+    // 拿不到 setter 则如实返回 EXECUTION_FAILED —— 假成功的前提已不成立。
     const ids = buildRnUiSnapshot().commands.map((c) => c.id)
-    for (const name of ['lang:en', 'locale:en', 'language:switch', 'i18n:en', 'locale:set']) {
-      expect(ids).not.toContain(name)
+    expect(ids).toContain('locale:en')
+    for (const name of ['lang:en', 'language:switch', 'i18n:en', 'locale:set', 'locale']) {
+      expect(ids, name).not.toContain(name)
       expect((await executeRnUiAction('invoke', { name })).errorCode).toBe('UNSUPPORTED_ACTION')
     }
   })
