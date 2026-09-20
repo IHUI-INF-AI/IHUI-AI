@@ -25,11 +25,8 @@ import { Writable } from 'node:stream'
 import { eq, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiModelConfigModels } from '@ihui/database'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import { getV1ChatCore } from './v1-public.js'
 import type { V1ChatCompletionResponse } from '@ihui/types'
 import {
@@ -218,7 +215,7 @@ const v1GeminiRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [
         mapGeminiAuth,
         requireApiKeyAuth,
-        requireApiKeyPermission('models:read'),
+        requireCapability('models:read'),
         requireApiKeyQuota(),
       ],
     },
@@ -255,7 +252,7 @@ const v1GeminiRoutes: FastifyPluginAsync = async (server) => {
       preHandler: [
         mapGeminiAuth,
         requireApiKeyAuth,
-        requireApiKeyPermission('chat:write'),
+        requireCapability('chat:write'),
         requireApiKeyQuota(),
       ],
     },

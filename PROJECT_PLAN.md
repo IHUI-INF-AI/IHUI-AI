@@ -12,6 +12,109 @@
 
 ---
 
+## P0 2026-09-20 AI 全量操控桥接（让 AI 自主操控本程序全部内容）
+
+> 背景：用户要求"本项目所有功能/页面/输入框/能力都能通过 AI 对话框自动自主分析调用"。
+> 结论是三条路线组合：A 后端 API 全量工具化 + B 前端 UI 动作注册表 + C 既有 computer/browser 兜底。
+> 平台独占标注（§9）：路线 B 依赖 DOM，仅 web 端（desktop 走 `computer_*`、extension 走 `browser_*`，语义不变）；
+> miniapp-taro / mobile-rn / cli 无浏览器 DOM，不适用同一条注册表面。
+
+### 任务清单
+
+- [x] ✅(2026-09-20) A1 OpenAPI → MCP 工具生成器。证据:`apps/ai-service/app/services/api_tools_bridge.py`
+      (`fetch_openapi_spec` TTL300s / `spec_to_tools` / `make_api_handler` 路径参数 URL 编码 + 写操作 role 闸门 +
+      header/cookie 参数不暴露);实跑 ai-service 注册 120 个 GET 端点工具(`/api/mcp/tools` count=213)。
+- [x] ✅(2026-09-20) A2 端点数量与 token 解耦:两个名字恒定的入口工具
+      `api_endpoints_search` / `api_endpoint_call`(仅接受 `api_` 前缀,防越权捷径)。证据:同文件 `_entry_tools()`
+      + `_API_TOOL_INDEX` 侧表;测试 `tests/test_api_tools_bridge.py`。
+- [x] ✅(2026-09-20) B1 复用 agent-control 通道扩 `category='ui'` + `endpoint='web'`(**不另造并行通道**)。
+      证据:`packages/types/src/agent-control.ts`(`UiControlActionType` 七动词 + `UiRegistrySnapshot`)、
+      `apps/api/src/routes/agent-control.ts`(`CATEGORY_ENDPOINT` 穷举 Record 取代三元硬编码)、
+      `apps/api/tests/agent-control-ui.test.ts`(12 项);E2E 实测 `POST /api/agent-control/execute`
+      (category=ui) → `{errorCode:"TARGET_NOT_CONNECTED", error:"Web 前端未连接"}`。
+- [x] ✅(2026-09-20) B2 前端 UI 动作注册表 + 执行器:全站 879 路由白名单(脚本生成,只用于校验不铺进上下文)、
+      命令面板 23 命令、当前页表单/交互元素动态发现(上限 80/20,超限与敏感项计 `suppressed`),
+      react-hook-form 受控组件用原生 setter + `input`/`change` 事件真实写入。
+      证据:`apps/web/scripts/generate-ui-routes.mjs` → `src/lib/ui-routes.generated.ts`、
+      `src/lib/ui-action-registry.ts`、测试 `src/lib/__tests__/ui-action-registry.test.ts`(20 项)。
+- [x] ✅(2026-09-20) B3 web 桥接 hook(endpoint='web' 能力上报 + 60s 保活 + WS 收 `agent.action` + 结果回传 +
+      requestId 去重 + Tauri 下让位)+ 挂载 `global-hooks-provider`;`agent.action` 加入
+      `NON_NOTIFICATION_TYPES`(修掉 AI 控制指令弹桌面通知的既有噪音)。
+      证据:`apps/web/src/hooks/use-ui-control-bridge.ts`、`use-notification.ts`、`use-chat/tool-config.ts`
+      (AGENT_TOOLS +7 `web_ui_*` +2 `api_*` 入口)。
+- [x] ✅(2026-09-20) B4 ai-service 侧 `web_ui_*` 七工具(describe/read/navigate/click/fill/submit/invoke),
+      走既有 `_get_agent_control_secret` fail-closed 与 call_tool 权限矩阵。
+      证据:`apps/ai-service/app/services/ui_action_bridge.py` + `tests/test_ui_action_bridge.py`。
+- [x] ✅(2026-09-20) C1 对话自动路由:`_app_control_intent_tools()` 强信号正则 + 依赖补全
+      (动作类必带 describe、api 入口成对);负样本把关("查一下用户认证的实现"不误判为调接口)。
+      证据:`apps/ai-service/app/services/conversation.py` + `tests/test_app_control_routing.py`。
+- [x] ✅(2026-09-20) C2 安全闸门收口:密码/验证码/secret 字段拒填、删除/注销/提现/支付类目标
+      `DESTRUCTIVE_BLOCKED` 拒绝执行、导航仅放行白名单、`_UI_RENDER_PROMPT` 禁"未核对即声称已提交"。
+- [x] ✅(2026-09-20) D1 配置面与文档:`apps/ai-service/.env.example` 六个开关
+      (`API_TOOLS_MODE`/`API_TOOLS_MAX`/`API_TOOLS_EXCLUDE`/`API_INTERNAL_BASE_URL`/`UI_ACTION_TOOLS`/`UI_ACTION_TIMEOUT`)
+      + README「🤖 AI 全量操控桥接」章节(§21 同 commit)。
+
+### 验证证据(2026-09-20)
+
+- ai-service 新增测试 69 项全绿;`tests/test_conversation.py` 23 项、`test_mcp_server.py` 172 项回归通过。
+- `mypy app --strict`:本任务三文件(api_tools_bridge / ui_action_bridge / conversation)零错误。
+- web:`pnpm --filter @ihui/web typecheck` exit 0;`ui-action-registry` 20 项全绿。
+- api:`agent-control-ui` 12 项全绿。
+- 未收口项:浏览器端真实点击闭环需在已登录会话里跑一次 `web_ui_describe → click` 端到端
+  (本次 dev 浏览器无登录态,`/api/users/me` 401,未取得该证据,故不声称已验证)。
+
+---
+
+## P0 2026-09-20 Agent 全面开放工程（对外开放「功能」，不开放「数据」）
+
+> 背景：全面分析结论 —— 协议层已就绪（`/v1` 165 端点 + `POST /api/mcp` + CLI/ACP），授权层未就绪（96% 功能面 `/api/*` 不认机器凭据；`/v1` 半数端点族零权限位；RLS 死代码导致「功能/数据」无法切分；`/api/mcp` 匿名可调 ~66 个工具）。
+> 平台独占标注（§9）：改动集中在服务端 + 契约 + 守门脚本；desktop/extension/miniapp-taro/mobile-rn 无外部可调用面，不属本任务范围；web 端仅开发者控制台（能力目录可视化）为同步项。
+
+### 核心设计：开放三闸门 + 能力目录单一事实源
+
+- 契约层：`packages/types/src/capability-catalog.ts`（新）—— 每个 scope 声明 `dataClass`（compute / scoped-read / scoped-write / platform）、`risk`、`billable`、`thirdPartyEligible`、`routes`、`tools`。
+- 闸门1 身份：`request.principal`（API Key / OAuth2 client / 人 JWT 统一形态）。
+- 闸门2 授权：`requireCapability(scope)` 全端点覆盖，未登记端点由 `scripts/check-capability-catalog.mjs` 启动期 + CI 硬拦。
+- 闸门3 数据：`scopedDb(scope, { dbMode })` —— 声明为 `compute` 的能力**运行时禁止访问业务表**；`scoped-*` 强制 owner 过滤。这是「开放功能不开放数据」的机械支点，不再依赖各端点自觉。
+
+### P0 立即执行（安全收敛，开放前置）
+
+- [ ] O1 `/api/mcp` 移出 `PUBLIC_PATHS` + 强制机器凭据 + 工具级 scope 声明（~90 工具逐条映射 catalog，未声明即拒）+ `mcp_export` 与 `_TOOLS` 打通 + `validate_request_host` 接线 + `X-Internal-Auth` 真实校验（ai-service 侧）
+- [ ] O2 API Key 配额强制：`rateLimit5h/1d/7d` + `blockedIps` 接入 `api-key-auth.ts`；per-model RPM/TPM 列落地 migration；Redis 异常 fail-open→fail-close（可配）；IPv6 CIDR；`key + secret` 双因子；默认权限集去 `chat:write`；`'*'` 通配需显式签发且不覆盖 platform 域
+- [x] ✅(2026-09-20) O3 `/v1` 全端点族补 `requireCapability`（assistants/threads/batches/responses/mcp-gateway/midjourney/rerank-moderations/protocol-*/realtime/shared）+ `v1-codebase-search`/`v1-apply-diff` 从 JWT-only 改为认 API Key
+- [ ] O4 数据闸机械层：`plugins/principal.ts` + `utils/scoped-guard.ts` + `dbMode` 守卫 + `rls-context` 移到鉴权后阶段并改非超级用户连接 + `idor-guard` 由 catalog 驱动接线（现为 0 调用点）
+- [ ] O5 `/v1` nginx 独立 `limit_req` + 审计归因（`audit*.ts`/`api-logger.ts` 补 `apiKeyId` + 端点 + 脱敏参数摘要）+ `llm_call_logs` prompt 原文留存策略（按 key 可关 + TTL）
+
+### P1 深度打磨（全域开放 + 标准协议）
+
+- [ ] O6 能力开放注册表：`authenticateApiKeyOrJwt` + catalog 驱动的 `/api/*` 逐步开放（默认拒绝，逐条登记 data-class）
+- [ ] O7 OAuth 2.1 提供方补齐：`/.well-known/oauth-authorization-server` + OIDC discovery、RFC 7591 DCR、`client_credentials` M2M grant、授权码链路 PKCE 强制接线（现路由未读 codeChallenge）、`/oauth/introspect` + `/oauth/revoke` + refresh rotation
+- [ ] O8 OpenAPI 产物入仓（`apps/api/openapi.json`）+ Zod schema 覆盖率门禁真正生效（`openapi-check.mjs` 现恒 exit 0）+ `capabilities.json` 导出 + `pnpm capabilities:export`
+- [ ] O9 MCP server 完整化：协议版本协商、`resources/read`、batching、`outputSchema`、streamable HTTP 正式挂载、per-key 限流、工具 list_changed 广播
+- [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范
+- [ ] O11 A2A 标准化：`/.well-known/agent.json` agent-card（现 `routers/a2a.py` 为自研协议）
+- [ ] O12 CLI/ACP 对外凭据形态：`ihui serve` / `acp` 支持 API Key（现只认人 JWT）
+
+### P2 广度产品化（生态）
+
+- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛
+- [ ] O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyPI/Go/Maven + install 脚本校验 + `@ihui/api-client` 去 `private`
+- [ ] O15 web 开发者控制台：能力目录浏览 / 申请 scope / 用量与熔断面板
+- [ ] O16 治理：docs/developer 补权限模型 + data-class + 速率表 + 错误码 + 滥用政策/DMCA；share token 不再全权继承
+- [ ] O17 验证：新增 agent 接入 E2E（外部 OpenAI SDK / MCP 客户端 / OAuth DCR 三通道自助跑通）+ 匿名调用回归为 0 + 配额打满 429 断言
+
+### 验收硬性指标
+
+1. `POST /api/mcp` 无凭据 → 401（现为匿名放行 66 工具）。
+2. `/v1/*` 全端点 `requireCapability` 覆盖率 100%，`scripts/check-capability-catalog.mjs` exit 0。
+3. 声明为 `compute` 的 scope 对应端点若访问业务表 → 运行时报错（机械可证，非约定）。
+4. `rateLimit5h/1d/7d` / `blockedIps` 在 `/v1` 鉴权链实际生效（测试断言 429/403）。
+5. 审计日志可按 `apiKeyId` 归因查询；新建 key 默认权限不含 `chat:write`。
+6. 外部 agent 走 OpenAI SDK + `Authorization: Bearer ihui_*` 可跑通 ≥30 个能力端点（不只是模型补全）。
+7. `pnpm turbo build typecheck lint test` 全绿 + `mypy --strict` 0 错误 + 本任务自身代码禁用 `--no-verify`。
+
+---
+
 ## P0 2026-09-19 AI 能力二轮深度对标(Codex/Trae/Qoder/WorkBuddy)开发计划(2026-09-19 立,跨端:web + api + ai-service + desktop/miniapp/mobile-rn)
 
 > 依据:`outputs/AI能力深度对标分析报告-2026-09-19.md`(27 项差距 G-1~G-27 逐项明细 + 四产品能力矩阵)。衔接 2026-09-18 W1-W5 补洞,本轮聚焦显示细节/上下文工程/运行形态三层。
