@@ -71,7 +71,23 @@
     "codeCountdownSuffix": "s to resend",
     "getPhoneFail": "Failed to get phone number",
     "loginFailed": "Login failed, please try again",
-    "wechatOneClick": "One-click WeChat Login"
+    "wechatOneClick": "One-click WeChat Login",
+    "emailLogin": "Email login",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
+    "clearHistory": "Clear all",
+    "code": "Verification code",
+    "sending": "Sending…",
+    "autoLogin": "Auto login",
+    "or": "or",
+    "ssoLoginTitle": "IHUI AI Web Authorization Login",
+    "noAccount": "Don't have an account?",
+    "registerNow": "Register now",
+    "agreePrefix": "I have read and agree to",
+    "termsOfService": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "agreeRequired": "Please read and agree to the Terms of Service and Privacy Policy first"
   },
   "forgot": {
     "step1": "Step 1: Verify phone",
@@ -133,7 +149,8 @@
       "searchPlaceholder": "Search courses",
       "search": "Search",
       "empty": "No courses",
-      "title": "Featured Courses"
+      "title": "Featured Courses",
+      "courseCount": "{n} courses"
     },
     "ratingTitle": "Rate Course",
     "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
@@ -804,7 +821,13 @@
       "voiceAnswer": "🔊 Voice answer",
       "modelDefault": "AI Model"
     },
-    "success": "Shared successfully"
+    "success": "Shared successfully",
+    "text1": "Page not configured",
+    "text2": "Distribution page not configured",
+    "copy3": "Link copied, please open in browser",
+    "failed4": "Copy failed, please retry",
+    "text5": "Chat page not configured",
+    "confirm6": "Delete this conversation?"
   },
   "aiGroup": {
     "title": "Agent plaza",
@@ -1012,7 +1035,8 @@
     "email": "Email",
     "scanHint": "Scan to view card",
     "shareCard": "Share card",
-    "saveQrcode": "Save QR code"
+    "saveQrcode": "Save QR code",
+    "title": "Digital business card"
   },
   "exam": {
     "tabs": {
@@ -1867,7 +1891,8 @@
       "devNotice": "Developer Notice",
       "faqTitle": "A series of Q&A for developers?",
       "copy": "Copy",
-      "copySuccess": "Copied"
+      "copySuccess": "Copied",
+      "infoTitle": "Developer info"
     },
     "n8nModel": {
       "title": "N8N model",
@@ -3275,7 +3300,8 @@
     "d46": "Voice Cloning Effect",
     "p1": "Image content",
     "p2": "Video content",
-    "p3": "Audio content"
+    "p3": "Audio content",
+    "r1": "Save image to album"
   },
   "aiassistant": {
     "text1": "Deep thinking...",
@@ -3330,7 +3356,9 @@
     "d1": "Camera",
     "d2": "Album",
     "d3": "Local files",
-    "d4": "WeChat files"
+    "d4": "WeChat files",
+    "p1": "Voice input in progress",
+    "p2": "Voice input"
   },
   "DrawerComponent": {
     "empty1": "No chat history",
@@ -3351,7 +3379,8 @@
     "mine2": "My AI Employees"
   },
   "shareCenterItem": {
-    "text1": "Recommendation Card"
+    "text1": "Recommendation Card",
+    "z1": "views"
   },
   "CourseHeader": {
     "text1": "Paid items"
@@ -3737,7 +3766,11 @@
   "LessonListItem": {
     "text1": "VIP only",
     "text2": "VIP only",
-    "y1": "people learned"
+    "y1": "people learned",
+    "z1": "people learned",
+    "z2": "people learned",
+    "p1": "VIP only",
+    "p2": "Paid items"
   },
   "UserInfoCard": {
     "login1": "One-tap login",
@@ -3923,7 +3956,8 @@
     "p2": "Scan to view"
   },
   "TagInput": {
-    "p1": "Press Enter to add"
+    "p1": "Press Enter to add",
+    "p2": "Limit reached"
   },
   "VipUpgradeToast": {
     "p1": "Upgrade to unlock more features"
@@ -3984,5 +4018,24 @@
     "q2": "Please use WeChat login in the WeChat mini program",
     "q3": "WeChat login code is empty",
     "q4": "WeChat user"
+  },
+  "TeamManager": {
+    "p1": "Inactive"
+  },
+  "VerifyCodeModal": {
+    "p2": "Resend",
+    "p3": "Verifying…"
+  },
+  "VideoInfo": {
+    "p1": "Video details"
+  },
+  "VideoPlayer": {
+    "p1": "Playback error"
+  },
+  "VoiceInput": {
+    "p1": "Failed to start recording"
+  },
+  "shareInformationItem": {
+    "z1": "views"
   }
 }
