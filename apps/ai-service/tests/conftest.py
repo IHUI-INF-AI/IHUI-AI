@@ -97,58 +97,71 @@ def pytest_configure(config):
 # 序是字母序,重文件散布中段 → 先干完的 worker 只能领轻文件,个别 worker 背着
 # [重文件 + 后领文件] 的链拖到最后,收尾大量 worker 空转。
 #
-# RUN9 干净实测(20 worker,wall 260.59s)的文件级调度模拟:
-#   字母序 FIFO 执行期 makespan ≈ 160.6s;重文件优先 LPT ≈ 126.0s;
-#   执行期纯下界 sum/20 ≈ 92.5s。126s 恰 = 最重单文件 test_bench_golden.py
-#   的实测总时长 —— LPT 后即触及「最重文件」结构下界(突破它只能拆分该文件,
-#   属 golden 基准语义改动,超出本任务);预期实收 ~35s(仅压缩执行期调度,
-#   启动/收集/导入等固定开销不变)。
+# RUN 数据(2026-09-20 第二轮全量,durations=0 采集,wall 172.15s)的文件级
+# 调度模拟:执行期总 sum=1369.8s(431 文件),20 worker 下
+#   LPT makespan ≈ 103.4s = 最重单文件 test_publish_adapters_group2.py 的
+#   实测总时长 —— 已触及「最重文件」结构下界(理论纯下界 sum/20 ≈ 68.5s;
+#   再突破只能拆分 group1/group2,该两文件当前有他人在途改动,不越权);
+#   预期实收 = 固定开销(启动/收集/导入)+ ~103s 执行期。
 #
-# 权重 = RUN9(2026-09-20)实测的每文件 setup+call+teardown 总和,取 top-40
-# (占执行期 ~72%)。静态快照、容忍漂移:未列文件保持原相对顺序(键 0),新增
-# 重文件最多退化为现状,不会更差。sorted 为稳定排序:输入相同 → 输出相同,
-# 所有 worker 收集结果保持一致(xdist 硬要求);同文件用例的相对顺序不变。
+# 相对上一轮(RUN9)的关键变化:
+#   - test_bench_golden.py 126.0 → 20.4:bench golden 执行器任务级并发改造
+#     (run_bench.py 线程池,104.91s→19.99s 单用例);
+#   - test_bench.py 82.4 → 60.0:run_bench 条件加载修复 smoke 隔离击穿,
+#     self-healing smoke 不再打真实 API(82.51s 波动值 → 稳定 stub 链路成本,
+#     xdist 单文件实测 durations 总和 ~60.7s;全量采集时打网态 47.5 偏低);
+#   - 其余文件按新实测刷新,表扩到 top-45(占执行期 ~74%)。
+#
+# 权重 = 2026-09-20 第二轮实测的每文件 setup+call+teardown 总和。静态快照、
+# 容忍漂移:未列文件保持原相对顺序(键 0),新增重文件最多退化为现状,不会
+# 更差。sorted 为稳定排序:输入相同 → 输出相同,所有 worker 收集结果保持
+# 一致(xdist 硬要求);同文件用例的相对顺序不变。
 _TEST_FILE_WEIGHTS = {
-    "tests/test_bench_golden.py": 126.0,
-    "tests/test_publish_adapters_group1.py": 108.3,
-    "tests/test_publish_adapters_group2.py": 108.2,
-    "tests/test_bench.py": 82.4,
+    "tests/test_publish_adapters_group2.py": 103.4,
+    "tests/test_publish_adapters_group1.py": 99.6,
     "tests/test_engine_harness_fourth.py": 76.6,
-    "tests/test_hook_engine.py": 50.1,
-    "tests/test_mcp_server.py": 47.3,
-    "tests/test_golden_e2e.py": 36.8,
-    "tests/test_engine_harness_eighth.py": 32.3,
-    "tests/test_routers.py": 31.1,
+    "tests/test_bench.py": 60.0,
+    "tests/test_hook_engine.py": 47.4,
+    "tests/test_mcp_server.py": 42.1,
+    "tests/test_engine_harness_eighth.py": 31.6,
     "tests/test_tool_approval_persist_52.py": 28.5,
-    "tests/test_mcp_export_usage.py": 24.7,
-    "tests/test_business_flow_integration.py": 20.9,
-    "tests/test_deep_engines_routers.py": 20.7,
-    "tests/test_self_healing_llm.py": 19.5,
-    "tests/test_sandbox.py": 19.5,
-    "tests/test_schema_check.py": 19.3,
-    "tests/test_mcp_stdio_bridge.py": 18.0,
+    "tests/test_golden_e2e.py": 26.9,
+    "tests/test_bench_golden.py": 20.4,
+    "tests/test_sandbox.py": 20.2,
+    "tests/test_mcp_export_usage.py": 20.0,
+    "tests/test_native_fc_e2e_real.py": 19.8,
+    "tests/test_routers.py": 18.6,
+    "tests/test_llm_gateway.py": 16.3,
     "tests/test_file_editor_redis.py": 16.2,
     "tests/test_engine_harness_eleventh.py": 15.3,
-    "tests/test_media_tasks.py": 15.0,
-    "tests/test_os_sandbox.py": 14.9,
-    "tests/test_llm_gateway.py": 14.6,
-    "tests/test_agent_checkpoint.py": 14.6,
-    "tests/test_spec_generator.py": 12.6,
-    "tests/test_run_command_streaming.py": 12.0,
-    "tests/test_agent_runtime_router.py": 11.5,
-    "tests/test_container_runtime.py": 10.9,
-    "tests/test_mcp_streamable_http.py": 10.9,
-    "tests/test_dag_worker_pool_four_layer_defense.py": 10.9,
-    "tests/test_agent_self_heal.py": 10.7,
-    "tests/test_api_v1.py": 9.9,
-    "tests/test_agent_engine_router.py": 9.8,
-    "tests/test_memory_decay.py": 9.5,
-    "tests/test_tool_approval.py": 9.3,
-    "tests/test_hook_engine_integration.py": 9.1,
-    "tests/test_meta_learner.py": 9.0,
-    "tests/test_engine_harness_thirteenth.py": 8.9,
-    "tests/test_fim.py": 8.1,
-    "tests/test_publish_playwright_base.py": 7.7,
+    "tests/test_spec_generator.py": 14.6,
+    "tests/test_engine_harness_thirteenth.py": 13.9,
+    "tests/test_agent_checkpoint.py": 13.7,
+    "tests/test_media_tasks.py": 13.5,
+    "tests/test_mcp_stdio_bridge.py": 12.3,
+    "tests/test_dag_worker_pool_four_layer_defense.py": 11.3,
+    "tests/test_mcp_streamable_http.py": 10.0,
+    "tests/test_business_flow_integration.py": 9.9,
+    "tests/test_tool_approval.py": 9.8,
+    "tests/test_hook_engine_integration.py": 9.4,
+    "tests/test_memory_decay.py": 9.4,
+    "tests/test_publish_playwright_base.py": 9.2,
+    "tests/test_os_sandbox.py": 9.0,
+    "tests/test_run_command_streaming.py": 8.5,
+    "tests/test_self_healing_llm.py": 8.4,
+    "tests/test_agent_self_heal.py": 8.4,
+    "tests/test_orchestration_hub.py": 8.4,
+    "tests/test_schema_check.py": 7.9,
+    "tests/test_agent_engine_router.py": 7.4,
+    "tests/test_koubo_workflow.py": 7.4,
+    "tests/test_token6688_provider.py": 7.3,
+    "tests/test_model_sync.py": 7.0,
+    "tests/test_context_engine.py": 6.9,
+    "tests/test_a2a_service.py": 6.7,
+    "tests/test_engine_harness_tenth.py": 6.3,
+    "tests/test_engine_harness_seventh.py": 6.2,
+    "tests/test_api_v1.py": 6.0,
+    "tests/test_telemetry_service.py": 5.9,
 }
 
 
