@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-20T09:24:11.980Z",
+  "generatedAt": "2026-09-20T17:29:05.061Z",
   "dataClasses": ["compute", "scoped-read", "scoped-write", "platform"],
   "risks": ["low", "medium", "high", "critical"],
   "rateProfiles": {
@@ -461,6 +461,7 @@
       "idempotencyRequired": false,
       "description": "作为 MCP server 被外部 agent 长连接接入",
       "routes": ["POST /api/mcp", "POST /api/mcp/export/streamable", "GET /api/mcp/export/sse"],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -669,7 +670,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "自身余额/账单读取",
-      "routes": ["GET /v1/billing/balance", "GET /v1/billing/invoices"],
+      "routes": [],
       "tools": ["token6688_balance", "token6688_model_info"],
       "rate": {
         "rpm": 120,
@@ -707,7 +708,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "Assistants 协议:创建/更新/删除自有助手",
-      "routes": ["POST /v1/assistants", "PATCH /v1/assistants/:id", "DELETE /v1/assistants/:id"],
+      "routes": ["POST /v1/assistants", "POST /v1/assistants/:id", "DELETE /v1/assistants/:id"],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -766,7 +767,8 @@
       "description": "Run 与 Step 状态查询",
       "routes": [
         "GET /v1/threads/:id/runs/:runId",
-        "GET /v1/threads/:id/runs/:runId/steps/:stepId"
+        "GET /v1/threads/:id/runs/:runId/steps",
+        "GET /v1/run-refs/:ref"
       ],
       "tools": [],
       "rate": {
@@ -785,12 +787,8 @@
       "billable": true,
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
-      "description": "Run 创建/取消/中断回复",
-      "routes": [
-        "POST /v1/threads/:id/runs",
-        "POST /v1/threads/:id/runs/:runId/cancel",
-        "POST /v1/threads/:id/runs/:runId/submit"
-      ],
+      "description": "Run 创建(取消/中断回复端点尚未实现)",
+      "routes": ["POST /v1/threads/:id/runs"],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -809,7 +807,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "批任务清单与状态",
-      "routes": ["GET /v1/batches", "GET /v1/batches/:id"],
+      "routes": ["GET /v1/batches", "GET /v1/batch/:id"],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -828,7 +826,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "批任务创建/取消(批量模型调用,费用放大风险)",
-      "routes": ["POST /v1/batches", "POST /v1/batches/:id/cancel"],
+      "routes": ["POST /v1/batch", "POST /v1/batch/:id/cancel"],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -985,6 +983,7 @@
       "idempotencyRequired": false,
       "description": "沙箱内执行命令;开放前提=强制 docker --network=none 后端 + 管理员显式签发",
       "routes": ["POST /api/sandbox/run"],
+      "host": "ai-service",
       "tools": ["run_command", "run_in_background", "bg_task_status"],
       "rate": {
         "rpm": 5,
@@ -1003,7 +1002,8 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "浏览器自动化(可触达外部站点与真实账号)",
-      "routes": ["POST /api/browser-hub/*"],
+      "routes": ["POST /api/browser/*"],
+      "host": "ai-service",
       "tools": [
         "browser_navigate",
         "browser_click",
@@ -1040,6 +1040,7 @@
       "idempotencyRequired": false,
       "description": "本机 GUI 控制(键鼠/剪贴板)—— 永不开放给外部 key",
       "routes": ["POST /api/computer-use/*"],
+      "host": "ai-service",
       "tools": [
         "computer_screenshot_screen",
         "computer_mouse_move",
@@ -1069,7 +1070,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "URL 抓取(SSRF 面,必须过出口白名单)",
-      "routes": ["POST /api/web/fetch"],
+      "routes": [],
       "tools": ["fetch_url", "fetch_readable", "extract_web", "screenshot_url"],
       "rate": {
         "rpm": 30,
@@ -1088,7 +1089,7 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "联网搜索与整站爬取(资源密集)",
-      "routes": ["POST /api/web/search", "POST /api/web/crawl"],
+      "routes": [],
       "tools": ["web_search", "search_web", "map_site", "crawl_site"],
       "rate": {
         "rpm": 120,
@@ -1131,6 +1132,7 @@
       "idempotencyRequired": false,
       "description": "外部连接器/MCP server 清单与能力",
       "routes": ["GET /api/connectors", "GET /api/mcp/external/servers"],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -1149,7 +1151,8 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "注册/启停外部 MCP server —— 等于注入可执行工具,不对第三方 key 开放",
-      "routes": ["POST /api/mcp/external/servers", "POST /api/mcp/external/connect"],
+      "routes": ["POST /api/mcp/external/servers", "POST /api/mcp/external/servers/{name}/connect"],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -1187,7 +1190,7 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "安装/启停技能(注入 agent 行为)",
-      "routes": ["POST /api/skills/install", "POST /api/skills/:id/enable"],
+      "routes": [],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -1301,7 +1304,7 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "平台内部运维能力(直连数据库/git 写/定时任务/PR 审查)—— 机器凭据永不放行",
-      "routes": ["POST /api/ops/*"],
+      "routes": [],
       "tools": [
         "db_query",
         "git_operations",

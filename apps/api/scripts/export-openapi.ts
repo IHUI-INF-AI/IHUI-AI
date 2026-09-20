@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * 从真实 Fastify 启动图导出 OpenAPI 3.0 契约产物 `apps/api/openapi.json`。
  *
@@ -209,29 +213,6 @@ export const Semantics = {}
 `,
 }
 
-/** 需要整体替换的裸包名(值导入即触发重型初始化 / ESM 链接失败)。 */
-const OTEL_API_PKG = '@opentelemetry/api'
-
-/**
- * `@opentelemetry/api` 的桩由**真实 CJS 构建**的导出名动态生成。
- *
- * 手写名单必然漏(该包导出 trace/context/propagation/metrics/diag/SpanStatusCode/
- * TraceFlags/… 二十余项,少一个就在 link 阶段 `does not provide an export named`)。
- * CJS `require` 能拿到完整 key 列表,据此逐名 re-export → 与真实包命名永远同步。
- */
-function buildOtelApiStubSource(): string {
-  const req = createRequire(pathToFileURL(join(apiRoot, 'package.json')).href)
-  const mod = req(OTEL_API_PKG) as Record<string, unknown>
-  const names = Object.keys(mod).filter((k) => /^[A-Za-z_$][\w$]*$/.test(k))
-  const lines = [
-    "import { createRequire as __cr } from 'node:module'",
-    `const __req = __cr(${JSON.stringify(pathToFileURL(join(apiRoot, 'package.json')).href)})`,
-    `const __mod = __req(${JSON.stringify(OTEL_API_PKG)})`,
-    ...names.map((n) => `export const ${n} = __mod[${JSON.stringify(n)}]`),
-  ]
-  return lines.join('\n')
-}
-
 /** 钩子源码:导出顶层 initialize/resolve(Node 要求具名导出,不接受 register({hooks}) 对象形态)。 */
 const HOOKS_SOURCE = `
 let STUB_PACKAGES = new Map()
@@ -299,6 +280,8 @@ interface CapabilityManifest {
     thirdPartyEligible?: boolean
     dataClass?: string
     routes?: string[]
+    /** 归属服务;`ai-service` 的端点不在本契约内,不参与注入/比对。 */
+    host?: string
   }>
 }
 
@@ -306,6 +289,8 @@ interface ScopeRoute {
   method: string
   path: string
   scope: string
+  /** 声明尾部写 `*`(`"POST /api/publish/*"`)—— 整族端点,按前缀匹配。 */
+  prefixMatch: boolean
 }
 
 /** `"POST /v1/agents/:id/call"` → `{ method:'post', path:'/v1/agents/{id}/call' }`。 */
@@ -313,34 +298,49 @@ export function parseCapabilityRoute(entry: string): ScopeRoute | null {
   const m = /^([A-Za-z]+)\s+(\S+)$/.exec(entry.trim())
   if (!m) return null
   const method = m[1].toLowerCase()
-  const path = m[2].startsWith('/') ? m[2] : `/${m[2]}`
-  return { method, path: toOpenApiPath(path), scope: '' }
+  const raw = m[2].startsWith('/') ? m[2] : `/${m[2]}`
+  const prefixMatch = raw.endsWith('/*')
+  const path = prefixMatch ? raw.slice(0, -2) : raw
+  return { method, path: toOpenApiPath(path), scope: '', prefixMatch }
 }
 
-/** Fastify 的 `:param` → OpenAPI 的 `{param}`;尾部裸 `*` → `{path}`(Fastify 5 语法差异兜底)。 */
+/** Fastify 的 `:param` → OpenAPI 的 `{param}`;尾部裸 `*` → `{*}`(与 @fastify/swagger 同形)。 */
 export function toOpenApiPath(p: string): string {
-  return p.replace(/:([A-Za-z0-9_]+)/g, '{$1}')
+  const withBraces = p.replace(/:([A-Za-z0-9_]+)/g, '{$1}')
+  return withBraces.endsWith('/*') ? `${withBraces.slice(0, -2)}/{*}` : withBraces
 }
 
-/** 读取 scope → 端点 映射(单一事实源:packages/types/generated/capabilities.json)。 */
+/**
+ * 读取 scope → 端点 映射(单一事实源:packages/types/generated/capabilities.json)。
+ *
+ * `host: 'ai-service'` 的条目由 apps/ai-service(FastAPI)提供,不可能出现在本契约里,
+ * 因此既不参与 security 注入,也不计入"未命中"清单 —— 归属不同,不是漂移。
+ */
 export function loadScopeRoutes(repoRootDir: string): {
   routes: ScopeRoute[]
   scopes: Array<{ scope: string; description: string }>
+  aiServiceSkipped: string[]
 } {
   const file = join(repoRootDir, CAPABILITIES_REL_PATH)
   const raw = JSON.parse(readFileSync(file, 'utf8')) as CapabilityManifest
   const routes: ScopeRoute[] = []
   const scopes: Array<{ scope: string; description: string }> = []
+  const aiServiceSkipped: string[] = []
   for (const cap of raw.capabilities ?? []) {
     if (!cap.scope) continue
     scopes.push({ scope: cap.scope, description: cap.description ?? cap.scope })
+    const isOtherService = cap.host === AI_SERVICE_HOST
     for (const entry of cap.routes ?? []) {
       const parsed = parseCapabilityRoute(entry)
       if (!parsed) continue
+      if (isOtherService) {
+        aiServiceSkipped.push(`${parsed.method} ${parsed.path}`)
+        continue
+      }
       routes.push({ ...parsed, scope: cap.scope })
     }
   }
-  return { routes, scopes }
+  return { routes, scopes, aiServiceSkipped }
 }
 
 /**
@@ -381,10 +381,42 @@ export function isPublicPath(path: string): boolean {
 
 const HTTP_METHODS = ['get', 'put', 'post', 'patch', 'delete', 'head', 'options', 'trace'] as const
 
-/** 从 `server.ts` 的 swagger 注册里捕获的真实路由表条目。 */
-export interface RealRoute {
-  method: string
-  url: string
+/**
+ * 公开面(对外开放协议面)前缀:这些前缀下的每个 operation 都必须带显式 `security`
+ * 声明 —— 与 `scripts/openapi-check.mjs` 的 GUARDED_PREFIXES 同口径,变更需同步。
+ */
+const GUARDED_PREFIXES = ['/v1/', '/v1beta'] as const
+
+/** 能力条目归属:ai-service 的端点不会出现在本契约里,跨服务比对据此跳过。 */
+const AI_SERVICE_HOST = 'ai-service'
+
+/** `isPublicPath` 之外的公开面 operation:未登记能力目录,但确实要求凭据。 */
+export const UNGOVERNED_SECURITY = [{ BearerAuth: [] }, { ApiKeyAuth: [] }] as const
+
+/** 真实路由存在性探针(`server.hasRoute` 的窄化封装,便于测试注入)。 */
+export type RouteExists = (method: string, path: string) => boolean
+
+/**
+ * OpenAPI 写法 → Fastify 注册写法:`{param}` → `:param`,`{*}` → `*`。
+ * `server.hasRoute` 只认 Fastify 形态(实测 `{threadId}` 恒 false,`:任意名` 恒 true,
+ * 且**参数名无关** —— 路由树按段类型匹配)。
+ */
+export function toFastifyPath(p: string): string {
+  return p.replace(/\{[A-Za-z0-9_]+\}/g, (m) => ':' + m.slice(1, -1)).replace(/\{\*\}/g, '*')
+}
+
+/** 声明的端点模式与契约 path key 是否同形(参数段两侧都视为占位,尾部 `*` 覆盖整族)。 */
+export function pathPatternMatches(
+  declared: string,
+  actual: string,
+  prefixMatch: boolean,
+): boolean {
+  const d = declared.split('/').filter(Boolean)
+  const a = actual.split('/').filter(Boolean)
+  const dyn = (s: string): boolean => s.startsWith(':') || s.startsWith('{') || s === '*'
+  const segEq = (x: string, y: string): boolean => x === y || dyn(x) || dyn(y)
+  if (prefixMatch) return a.length >= d.length && d.every((s, i) => segEq(s, a[i]))
+  return a.length === d.length && d.every((s, i) => segEq(s, a[i]))
 }
 
 /**
@@ -396,11 +428,14 @@ export interface RealRoute {
  * 后果:① 契约里的路径无法直接调用(与 printRoutes/真实 URL 不一致);
  * ② 根级 `/health` 与 `/api/health` 撞同一个 key,后者静默覆盖前者。
  *
- * 解法:导出时用 `onRoute` 钩子抓 Fastify 自己的权威路由表(全路径),再把文档 key
- * 反查回真实路径。存在多候选(即被撞 key 的那类)时取**带前缀**的那个:direct 路由
- * (如 buildServer 里的 `server.get('/health')`)先注册,`registerRoutes` 的
- * `/api/health` 在 ready() 期后注册并覆盖文档条目,所以幸存的语义就是带前缀那条。
- * 绝不凭空造路径 —— 候选全部来自真实路由表。
+ * 解法:拿 Fastify 自己的权威路由表当真相源,把文档 key 反查回真实路径。
+ * 为什么不是 `onRoute` 钩子:`buildServer()` 内部 `await registerPlugins(server)` 会把
+ * avvio 队列就地跑完,路由在导出脚本拿到实例**之前**就已注册(实测钩子捕获 0 条),
+ * 而 server.ts 不允许为导出器让路。改用 `server.hasRoute({method,url})`(在 close 之前
+ * 探测)—— 同样是 Fastify 权威口径,且不依赖钩子时机。
+ * 存在多候选(即被撞 key 的那类)时取**带前缀**的那个:direct 路由(如 buildServer 里的
+ * `server.get('/health')`)先注册,`registerRoutes` 的 `/api/health` 后注册并覆盖文档条目,
+ * 所以幸存的语义就是带前缀那条。绝不凭空造路径 —— 每个候选都由 hasRoute 确认存在。
  */
 export interface RestoreResult {
   renamed: number
@@ -408,39 +443,48 @@ export interface RestoreResult {
   unmatched: string[]
 }
 
-export function restoreRealPaths(doc: JsonObject, realRoutes: RealRoute[]): RestoreResult {
+/**
+ * `restoreRealPaths` 要试的 basePath 清单。
+ *
+ * **不能**只读 `doc.servers`:@fastify/swagger v9 把 `openapi.servers[].url` 当 basePath
+ * 从 paths 里剪掉,并且**不会**把 `servers` 写回 `swagger()` 的产物 —— 于是
+ * `doc.servers` 恒空,还原一步都走不到(实测 2026-09-21:改名 0 条 / 未命中 0 条,
+ * 产物里 `/api/*` 路径为 0,而 `curl 127.0.0.1:8802/api/health` 真实返回 200)。
+ * 与 apps/api/src/server.ts 的 `openapi.servers` 同源 —— 变更需同步
+ * (同本文件 PUBLIC_PREFIXES 的处理方式:server.ts 里是函数内常量,不可 import)。
+ * 长的排前面,保证 `/api/v1/x` 不会被先按 `/api` 前缀误匹配。
+ */
+const SWAGGER_BASE_PATHS = ['/api/v1', '/api'] as const
+
+export function restoreRealPaths(doc: JsonObject, routeExists: RouteExists): RestoreResult {
   const paths = (doc.paths ?? {}) as Record<string, JsonObject>
-  const serverBasePaths = (Array.isArray(doc.servers) ? (doc.servers as JsonObject[]) : [])
+  const docServerPaths = (Array.isArray(doc.servers) ? (doc.servers as JsonObject[]) : [])
     .map((s) => (typeof s?.url === 'string' ? s.url : ''))
     .filter((u) => u.startsWith('/') && u !== '/')
-    .sort((a, b) => b.length - a.length)
+  const serverBasePaths = [...new Set([...docServerPaths, ...SWAGGER_BASE_PATHS])].sort(
+    (a, b) => b.length - a.length,
+  )
 
-  const realPaths = [...new Set(realRoutes.map((r) => r.url))]
-  /** 文档 key → 该 key 可能来自哪些真实路径。 */
-  const candidates = new Map<string, string[]>()
-  for (const p of realPaths) {
-    const add = (k: string): void => {
-      const list = candidates.get(k) ?? []
-      if (!list.includes(p)) list.push(p)
-      candidates.set(k, list)
-    }
-    add(p)
-    for (const base of serverBasePaths) {
-      if (p === base || p.startsWith(`${base}/`)) add(p.slice(base.length) || '/')
-    }
-  }
+  /** basePath + 文档 key(`/` 直接收敛成 basePath 本身)。 */
+  const withBase = (base: string, key: string): string => (key === '/' ? base : `${base}${key}`)
 
   const collisions: string[] = []
   const unmatched: string[] = []
   const renames: Array<[string, string]> = []
   for (const key of Object.keys(paths)) {
-    const list = (candidates.get(key) ?? []).slice().sort((a, b) => b.length - a.length)
-    if (list.length === 0) {
+    const item = paths[key] as JsonObject
+    const methods = HTTP_METHODS.filter((m) => item?.[m] !== undefined)
+    if (methods.length === 0) continue
+    const candidates = [key, ...serverBasePaths.map((b) => withBase(b, key))].filter(
+      (c, i, arr) => arr.indexOf(c) === i,
+    )
+    const hits = candidates.filter((c) => methods.some((m) => routeExists(m, toFastifyPath(c))))
+    if (hits.length === 0) {
       unmatched.push(key)
       continue
     }
-    if (list.length > 1) collisions.push(`${key} → ${list.join(' | ')}`)
-    const target = list.find((p) => p !== key) ?? key
+    if (hits.length > 1) collisions.push(`${key} → ${hits.join(' | ')}`)
+    const target = hits.find((p) => p !== key) ?? key
     if (target !== key) renames.push([key, target])
   }
 
@@ -523,6 +567,8 @@ export function buildSecuritySchemes(
 export interface SecurityInjectionResult {
   injected: number
   publicOps: number
+  /** 公开面(/v1* /v1beta*)里未登记进能力目录、只声明"要凭据"的 operation。 */
+  ungoverned: string[]
   unmatched: string[]
   totalOperations: number
 }
@@ -530,21 +576,34 @@ export interface SecurityInjectionResult {
 /** 就地注入每个 operation 的 `security`;返回统计供日志/门禁核对。 */
 export function injectSecurity(doc: JsonObject, routes: ScopeRoute[]): SecurityInjectionResult {
   const paths = (doc.paths ?? {}) as Record<string, JsonObject>
-  const byRoute = new Map<string, Set<string>>()
-  for (const r of routes) {
-    const key = `${r.method} ${r.path}`
-    if (!byRoute.has(key)) byRoute.set(key, new Set())
-    byRoute.get(key)!.add(r.scope)
+  /**
+   * 声明与契约 key 的匹配一律走 `pathPatternMatches`(参数名无关 + 尾部 `*` 覆盖整族):
+   * 能力目录写 `GET /v1/threads/:id/messages`,Fastify 实注册 `/v1/threads/:threadId/messages`,
+   * 逐字符比对会把已登记的端点误判成"未命中"(O8b 前的假漂移来源之一)。
+   */
+  const scopesOf = (method: string, pathKey: string): string[] => {
+    const found = new Set<string>()
+    for (const r of routes) {
+      if (r.method !== method && !(r.method === 'ws' && method === 'get')) continue
+      if (pathPatternMatches(r.path, pathKey, r.prefixMatch)) found.add(r.scope)
+    }
+    return [...found].sort()
   }
+  const guarded = (pathKey: string): boolean =>
+    pathKey === '/v1' ||
+    pathKey === '/v1beta' ||
+    GUARDED_PREFIXES.some((p) => pathKey.startsWith(p))
+
   let injected = 0
   let publicOps = 0
   let totalOperations = 0
-  const unmatched: string[] = []
+  const ungoverned: string[] = []
   const matched = new Set<string>()
+  /** 能力清单里登记了、但文档中没有任何端点与之同形匹配的条目(= 真实目录腐化)。 */
+  const unmatched: string[] = []
 
   for (const [pathKey, item] of Object.entries(paths)) {
     if (!item || typeof item !== 'object') continue
-    const presentMethods = HTTP_METHODS.filter((m) => (item as JsonObject)[m] !== undefined)
     for (const method of HTTP_METHODS) {
       const op = item[method]
       if (!op || typeof op !== 'object') continue
@@ -554,31 +613,33 @@ export function injectSecurity(doc: JsonObject, routes: ScopeRoute[]): SecurityI
         publicOps += 1
         continue
       }
-      const scopes = byRoute.get(`${method} ${pathKey}`)
-      if (scopes && scopes.size > 0) {
-        const scopeList = [...scopes].sort()
-        ;(op as JsonObject).security = [
-          { BearerAuth: [] },
-          { ApiKeyAuth: [] },
-          { OAuth2: scopeList },
-        ]
+      const scopes = scopesOf(method, pathKey)
+      if (scopes.length > 0) {
+        ;(op as JsonObject).security = [{ BearerAuth: [] }, { ApiKeyAuth: [] }, { OAuth2: scopes }]
         injected += 1
-        matched.add(`${method} ${pathKey}`)
+        for (const r of routes) {
+          if (r.method !== method && !(r.method === 'ws' && method === 'get')) continue
+          if (pathPatternMatches(r.path, pathKey, r.prefixMatch))
+            matched.add(`${r.method} ${r.path}`)
+        }
+      } else if (guarded(pathKey)) {
+        // 公开面上未登记能力目录的端点:仍然要求凭据(/v1* 由 api-key / JWT 闸口把守),
+        // 但没有可声明的 scope。显式写出来 + 计入 `ungoverned` 清单打印,不静默。
+        ;(op as JsonObject).security = UNGOVERNED_SECURITY.map((s) => ({ ...s }))
+        ungoverned.push(`${method} ${pathKey}`)
       }
     }
-    // WS 登记的能力端点在 Fastify 里以单一 GET 注册:path 只有 1 个 operation 时并入
-    for (const [key, scopes] of byRoute) {
-      if (!key.startsWith('ws ') || key.slice(3) !== pathKey) continue
-      if (presentMethods.length !== 1) continue
-      const op = item[presentMethods[0]] as JsonObject
-      const scopeList = [...scopes].sort()
-      op.security = [{ BearerAuth: [] }, { ApiKeyAuth: [] }, { OAuth2: scopeList }]
-      injected += 1
-      matched.add(key)
-    }
   }
-  for (const key of byRoute.keys()) if (!matched.has(key)) unmatched.push(key)
-  return { injected, publicOps, unmatched, totalOperations }
+  for (const r of routes) {
+    const key = `${r.method} ${r.path}`
+    if (!matched.has(key) && !unmatchedRouteIsExpected(r)) unmatched.push(key)
+  }
+  return { injected, publicOps, ungoverned: ungoverned.sort(), unmatched, totalOperations }
+}
+
+/** `WS` 声明落在 OpenAPI 3.0 里必然无对应(HTTP 契约不描述 WS),不算漂移。 */
+function unmatchedRouteIsExpected(r: ScopeRoute): boolean {
+  return r.method === 'ws'
 }
 
 /** 稳定化:paths / operations / components.schemas 排序,消除生成抖动。 */
@@ -707,6 +768,14 @@ export interface ExportResult {
   doc: JsonObject
   coverage: CoverageStats
   security: SecurityInjectionResult
+  /** 被删掉的 Fastify 自动派生 HEAD 操作数。 */
+  autoHeadDropped: number
+  /** `/api` 前缀还原统计(改名 / 多候选 / 未命中)。 */
+  restored: RestoreResult
+  /** 参与本契约比对的能力端点数(不含 ai-service 归属)。 */
+  governedRoutes: number
+  /** 标了 `host: 'ai-service'` 因而**不属于**本契约的端点(归属不同,不是漂移)。 */
+  aiServiceSkipped: string[]
 }
 
 /** 生成最终文档(不含写盘),供测试直接断言。 */
@@ -718,18 +787,10 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
     buildServer: () => Promise<FastifyInstance>
   }
   const server = await buildServer()
-  /**
-   * 真实路由表。onRoute 必须在 ready() 之前挂(registerRoutes 的插件路由都在 ready()
-   * 期才真正注册);已在钩子之前注册的插件路由(如 /metrics、/docs)捕获不到,
-   * 这类路径原样保留,不参与前缀还原。
-   */
-  const realRoutes: RealRoute[] = []
-  server.addHook('onRoute', (routeOptions) => {
-    const methods = Array.isArray(routeOptions.method) ? routeOptions.method : [routeOptions.method]
-    for (const m of methods)
-      realRoutes.push({ method: String(m).toLowerCase(), url: routeOptions.url })
-  })
   let raw: unknown
+  let restored: RestoreResult = { renamed: 0, collisions: [], unmatched: [] }
+  let autoHeadDropped = 0
+  const doc: JsonObject = {}
   try {
     await server.ready()
     if (typeof (server as unknown as { swagger?: () => unknown }).swagger !== 'function') {
@@ -738,17 +799,23 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
       )
     }
     raw = (server as unknown as { swagger: () => unknown }).swagger()
+    Object.assign(doc, JSON.parse(JSON.stringify(raw)) as JsonObject)
+    dropInternalRoutes(doc)
+    autoHeadDropped = dropAutoHeadOperations(doc)
+    /**
+     * 前缀还原必须在 `close()` 之前做 —— 它要靠 `server.hasRoute` 探真实注册路径。
+     * 探针返回 false 只可能是"该 path+method 未注册",绝不会被凭空造出来。
+     */
+    restored = restoreRealPaths(doc, (method, url) =>
+      server.hasRoute({ method: method.toUpperCase(), url }),
+    )
+    normalizeServers(doc)
   } finally {
     await server.close().catch(() => undefined)
   }
-  const doc = JSON.parse(JSON.stringify(raw)) as JsonObject
-  dropInternalRoutes(doc)
-  const autoHeadDropped = dropAutoHeadOperations(doc)
-  const restored = restoreRealPaths(doc, realRoutes)
-  normalizeServers(doc)
 
   const components = { ...(doc.components ?? {}) } as JsonObject
-  const { routes, scopes } = loadScopeRoutes(repoRoot)
+  const { routes, scopes, aiServiceSkipped } = loadScopeRoutes(repoRoot)
   components.securitySchemes = buildSecuritySchemes(scopes)
   doc.components = components
 
@@ -761,7 +828,8 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
     security,
     autoHeadDropped,
     restored,
-    capturedRoutes: realRoutes.length,
+    governedRoutes: routes.length,
+    aiServiceSkipped,
   }
 }
 
@@ -782,12 +850,26 @@ async function run(argv: string[]): Promise<number> {
   const target = outFile ?? join(repoRoot, ARTIFACT_REL_PATH)
   log(`[openapi:export] 启动真实 Fastify 图(不监听端口、不连 PG、不连 Redis)…`)
 
-  const { doc, coverage, security, autoHeadDropped, restored, capturedRoutes } =
-    await generateOpenApiDocument()
+  const { doc, coverage, security, autoHeadDropped, restored } = await generateOpenApiDocument()
   const json = `${JSON.stringify(doc, null, 2)}\n`
   const paths = Object.keys((doc.paths ?? {}) as Record<string, unknown>).length
   if (paths === 0) {
     console.error('[openapi:export] ✗ 生成的 paths 为空,判定失败')
+    return 1
+  }
+  /**
+   * 还原未生效的**签名**就一条:产物里没有任何 `/api/*` 路径(而 `/api/*` 是真实注册的)。
+   * 历史上正是因为 `doc.servers` 恒空(见 SWAGGER_BASE_PATHS 注释)导致这一步静默变成
+   * no-op,产出一份"路径没法直接调用"的契约还全绿。宁可失败也不要静默产出错的契约。
+   */
+  if (
+    restored.renamed === 0 &&
+    !Object.keys((doc.paths ?? {}) as object).some((p) => p.startsWith('/api'))
+  ) {
+    console.error(
+      '[openapi:export] ✗ 前缀还原未生效:0 条改名且产物里没有 /api/* 路径。' +
+        '多半是 basePath 清单与 apps/api/src/server.ts 的 openapi.servers 脱节 —— 检查 SWAGGER_BASE_PATHS。',
+    )
     return 1
   }
   if (toStdout) {
@@ -796,9 +878,7 @@ async function run(argv: string[]): Promise<number> {
     writeFileSync(target, json, 'utf8')
   }
   const bytes = Buffer.byteLength(json, 'utf8')
-  log(
-    `[openapi:export] path ${paths} 个 / operation ${security.totalOperations} 个 / 真实路由表捕获 ${capturedRoutes} 条`,
-  )
+  log(`[openapi:export] path ${paths} 个 / operation ${security.totalOperations} 个`)
   log(
     `[openapi:export] 路径还原:改名 ${restored.renamed} 条,多候选展开 ${restored.collisions.length} 条,未捕获保留 ${restored.unmatched.length} 条;删除自动 HEAD ${autoHeadDropped} 条`,
   )
@@ -867,3 +947,4 @@ if (isDirectRun) {
       process.exit(2)
     })
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
