@@ -211,6 +211,7 @@ async def compact_with_llm(
         keep_recent: int = DEFAULT_KEEP_RECENT,
         compact_instruction: str = DEFAULT_COMPACT_INSTRUCTION,
         prepend_codex_prefix: bool = False,
+        fallback_reason: str = "context_limit",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """上下文超阈值时自动调 LLM 生成语义摘要再压缩。
 
@@ -226,6 +227,10 @@ async def compact_with_llm(
             (app.core.local_compact.SUMMARY_PREFIX,英文),使下游可用
             is_compaction_summary/codex_is_summary_message 识别摘要消息;
             默认 False 保持既有纯中文行为(前缀 tokens 计入摘要预算)
+        fallback_reason: 摘要失败重试事件的原因标签(批58十七,对标 codex
+            CompactionReason 词表:user_requested | context_limit |
+            model_downshift | comp_hash_changed);默认 context_limit(本函数
+            的默认触发源即上下文超限)。仅在摘要异常且触发重试时透出。
 
     Returns:
         (compressed_messages, info),与 compress_messages_if_needed 契约一致:
@@ -239,6 +244,8 @@ async def compact_with_llm(
 
     # 2) 超阈值且存在可压缩 head 时,才尝试 LLM 语义摘要
     custom_summary: str = ""
+    # 批58(十七):模型回退标签(仅在摘要异常且触发重试时非空;未触发 → None)
+    info_model_fallback: dict[str, Any] | None = None
     if context_limit > 0 and original_tokens > trigger_threshold:
         head = _extract_head(messages, keep_recent)
         if head:
@@ -260,9 +267,39 @@ async def compact_with_llm(
                     summary_budget_tokens=summary_budget_tokens,
                 )
             except Exception as e:
-                # LLM 摘要任何异常都不影响主流程 → 降级规则压缩
-                logger.warning("[Compact/LLM] 摘要生成异常,回退规则压缩: %s", e)
+                # 批58(十七):摘要失败先判"是否值得用当前模型重试"(对标 codex
+                # compact_model_fallback.rs should_retry_with_current_model)——
+                # 中止/取消/预算耗尽类错误不重试(既不尊重用户意图也不经济),
+                # 网络抖动/上游 5xx/超时类错误重试一次,避免直接退回质量更低的
+                # 规则压缩。标签走 compact_model_fallback_tags(codex 词表)。
                 custom_summary = ""
+                if should_retry_compact_with_current_model(e):
+                    logger.warning(
+                        "[Compact/LLM] 摘要生成异常,用当前模型重试一次: %s", e
+                    )
+                    try:
+                        custom_summary = await _summarize_head(
+                            head,
+                            llm_complete_fn=llm_complete_fn,
+                            compact_instruction=compact_instruction,
+                            summary_budget_tokens=summary_budget_tokens,
+                        )
+                        fallback_outcome = "succeeded"
+                    except Exception as e2:  # noqa: BLE001 - 重试失败仍降级,不抛出
+                        logger.warning(
+                            "[Compact/LLM] 当前模型重试摘要仍失败,回退规则压缩: %s", e2
+                        )
+                        custom_summary = ""
+                        fallback_outcome = "failed"
+                    info_model_fallback = compact_model_fallback_tags(
+                        fallback_reason, "responses_compaction_v2", fallback_outcome
+                    )
+                else:
+                    logger.warning(
+                        "[Compact/LLM] 摘要生成异常(中止/预算类,不重试),回退规则压缩: %s",
+                        e,
+                    )
+                    info_model_fallback = None
 
         # 3) LLM 摘要成功 → 带 custom_summary 调规则压缩(最高优先级摘要正文)
         if custom_summary:
@@ -315,6 +352,9 @@ async def compact_with_llm(
                     info.get("compressed_tokens", 0),
                     info.get("removed_count", 0),
                 )
+                if info_model_fallback:
+                    # 批58(十七):重试成功也留标签(观测"首次失败→当前模型重试成功"占比)
+                    info["model_fallback"] = info_model_fallback
                 return compressed, info
             # custom_summary 条件下仍无法有效压缩(incompressible 等) →
             # 回退为不传 custom_summary 的规则压缩
@@ -341,6 +381,9 @@ async def compact_with_llm(
             info.get("compressed_tokens", 0),
             info.get("removed_count", 0),
         )
+    # 批58(十七):模型回退标签随 info 透出(降级路径也保留,便于观测回退频率)
+    if info_model_fallback:
+        info["model_fallback"] = info_model_fallback
     return compressed, info
 
 
@@ -364,6 +407,10 @@ def should_retry_compact_with_current_model(error: BaseException | str | None) -
 
     对标 Codex ``should_retry_with_current_model``:中止类错误返回 False,
     其余(网络抖动、上游 5xx、超时等)返回 True。
+
+    批58(十七)修正:标记匹配前把文本的 ``_``/``-``/空白一并归一——真实异常
+    消息多为 ``TurnAborted``/``turn aborted``/``session budget exceeded`` 等混合
+    形态,只去下划线会漏判带空格的中止/预算类错误(误判为可重试,白烧一次调用)。
     """
     if error is None:
         return True
@@ -373,7 +420,9 @@ def should_retry_compact_with_current_model(error: BaseException | str | None) -
         text = f"{type(error).__name__} {error}"
     else:
         text = str(error)
-    lowered = text.replace("_", "").replace("-", "").lower()
+    lowered = (
+        text.replace("_", "").replace("-", "").replace(" ", "").replace("\t", "").lower()
+    )
     return not any(marker in lowered for marker in _NON_RETRYABLE_COMPACT_ERROR_MARKERS)
 
 
