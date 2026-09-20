@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "智汇AI",
-  "version": "0.1.40",
+  "version": "0.1.41",
   "identifier": "com.ihui.desktop",
   "build": {
     "beforeDevCommand": "pnpm --filter @ihui/web dev",
@@ -49,13 +49,22 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["ihui"]
+        "schemes": [
+          "ihui"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "app", "dmg", "deb", "rpm", "appimage"],
+    "targets": [
+      "nsis",
+      "app",
+      "dmg",
+      "deb",
+      "rpm",
+      "appimage"
+    ],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -71,7 +80,10 @@
       "nsis": {
         "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
-        "languages": ["SimpChinese", "English"],
+        "languages": [
+          "SimpChinese",
+          "English"
+        ],
         "compression": "lzma"
       }
     }
