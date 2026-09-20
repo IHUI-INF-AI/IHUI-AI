@@ -28,6 +28,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { eq } from 'drizzle-orm'
 import WebSocket from 'ws'
 import { dbRead } from '../db/index.js'
+import { declareCapability } from '../utils/capability-guard.js'
 import { developerApiKeys } from '@ihui/database'
 
 // ===========================================================================
@@ -738,17 +739,21 @@ function buildUpstreamWsUrl(
  *   server.register(v1RealtimeRoutes)
  */
 export const v1RealtimeRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/v1/realtime', { websocket: true }, (socket: WebSocket, request: FastifyRequest) => {
-    // P1 修复(2026-08-02):加 .catch 防止 handleRealtimeConnection 内部抛错导致
-    // unhandledRejection + socket 未关闭(连接泄漏)。catch 中尝试关闭 socket + log。
-    void handleRealtimeConnection(socket, request).catch((err) => {
-      request.log.error({ err }, 'v1/realtime connection handler failed')
-      try {
-        socket.close(1011, 'Internal server error')
-      } catch {
-        /* socket 已关闭或不可写,忽略 */
-      }
-    })
-  })
+  server.get(
+    '/v1/realtime',
+    { websocket: true, preHandler: [declareCapability('realtime:connect')] },
+    (socket: WebSocket, request: FastifyRequest) => {
+      // P1 修复(2026-08-02):加 .catch 防止 handleRealtimeConnection 内部抛错导致
+      // unhandledRejection + socket 未关闭(连接泄漏)。catch 中尝试关闭 socket + log。
+      void handleRealtimeConnection(socket, request).catch((err) => {
+        request.log.error({ err }, 'v1/realtime connection handler failed')
+        try {
+          socket.close(1011, 'Internal server error')
+        } catch {
+          /* socket 已关闭或不可写,忽略 */
+        }
+      })
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

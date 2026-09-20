@@ -34,6 +34,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { checkQuota, recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 // P0-20b 参数覆盖系统转发层集成(2026-08-01 立):转发前应用 applyParamOps
 import { applyParamOpsToBody } from '../services/relay-param-ops-config.js'
@@ -432,6 +433,11 @@ async function streamResponses(
 // 路由插件
 // =============================================================================
 
+// O3 能力闸:/v1/responses 需 responses:write(计费 + 幂等键登记)
+const responsesCapabilityGate = requireCapabilityRules([
+  { methods: ['POST'], pattern: /^\/v1\/responses(\/|$)/, scope: 'responses:write' },
+])
+
 const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/responses',
@@ -488,7 +494,7 @@ const v1ResponsesRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, responsesCapabilityGate],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = responsesSchema.safeParse(request.body)

@@ -57,11 +57,8 @@ import type {
   V1AgentParallelRequest,
   V1AgentParallelResponse,
 } from '@ihui/types'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 import { getUserId, maskKey, jsonInit, deriveModelCapabilities } from './v1-shared.js'
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
@@ -318,11 +315,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('embeddings:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('embeddings:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = embeddingsSchema.safeParse(request.body)
@@ -415,7 +408,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatVisionSchema.safeParse(request.body)
@@ -494,7 +487,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatMoaSchema.safeParse(request.body)
@@ -584,7 +577,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       try {
@@ -647,11 +640,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('models:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = createMoaPresetSchema.safeParse(request.body)
@@ -694,7 +683,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -747,7 +736,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { vendor } = request.params as { vendor: string }
@@ -805,7 +794,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -867,11 +856,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('models:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -951,11 +936,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('models:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1025,11 +1006,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('models:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('models:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1085,7 +1062,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentExecuteSchema.safeParse(request.body)
@@ -1165,7 +1142,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentExecuteSchema.safeParse(request.body)
@@ -1281,7 +1258,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1337,7 +1314,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1377,7 +1354,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
     },
     async (_request, reply) => {
       try {
@@ -1450,7 +1427,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1513,7 +1490,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentPipelineSchema.safeParse(request.body)
@@ -1605,7 +1582,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = agentParallelSchema.safeParse(request.body)
@@ -1663,7 +1640,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       // 转发到 ai-service /api/v1/ai/agent/decompose(透传 body)
