@@ -85,6 +85,7 @@ from app.core.image_preparation import (
 from app.core.image_preparation import (
     load_data_url_for_prompt as _load_data_url_for_prompt,
 )
+from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
@@ -391,6 +392,33 @@ while True:
 '''
 
 
+# ---------------------------------------------------------------------------
+# 批58 接线 env 开关(默认 off,与现状逐字节等价)
+# ---------------------------------------------------------------------------
+
+
+def _agents_md_state_enabled_from_env() -> bool:
+    """AGENTS.md 状态机增量注入开关(对标 codex context/world_state/agents_md.rs)。
+
+    默认 off:保留原纯字符串拼接注入(逐字节不变);设为 on/1/true/yes 时启用
+    AgentsMdState 状态机,内容变更发 REPLACEMENT、文件删除发 REMOVAL 通知。
+    """
+    return os.environ.get("IHUI_AGENTS_MD_STATE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _turn_token_usage_enabled_from_env() -> bool:
+    """turn token 直方图开关(对标 codex state/turn_token_usage.rs)。
+
+    默认 off:不产生任何新事件(逐字节等价);设为 on/1/true/yes 时按模型分组
+    聚合本轮用量并发出 turn_token_usage 指标事件。
+    """
+    return os.environ.get("IHUI_TURN_TOKEN_USAGE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 @dataclass
 class EngineThread:
     """引擎线程 = 持久会话(对话历史 + 状态机 + 待回填请求)。"""
@@ -454,6 +482,9 @@ class EngineThread:
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
     session_tokens_used: int = 0
+    # AGENTS.md 模型可见状态机(2026-09-20 批58,对标 codex agents_md.rs):
+    # 按 thread 持有,内容变更/删除经 maybe_fragment 增量通知,避免重复注入。
+    agents_md_state: AgentsMdState = field(default_factory=AgentsMdState)
     # 自动压缩(2026-09-18 第四批,对标 Codex compact_token_budget):
     # 每轮结束后估算 token 超阈值即确定性压缩(发 context.compacted, trigger=auto)
     auto_compact: bool = False
@@ -2080,18 +2111,8 @@ class AgentEngine:
                 f"{messages[0]['content']}\n\n[角色模板] {_AGENT_ROLE_TEMPLATES[role]}"
             )
         # 项目文档注入(2026-09-19 第二十八批,对标 Codex agents_md.rs discovery):
-        # workspace 内从项目根(.git 标记)到 cwd 逐层收集 AGENTS.md 拼入 system;
-        # AGENTS.override.md 优先;32KiB 字节预算截断;失败静默降级不阻塞开线程。
+        # 实际注入逻辑见 _inject_agents_md(批58 状态机增量注入开关);thread 构造后调用。
         _agents_workspace = params.get("workspace")
-        if isinstance(_agents_workspace, str) and _agents_workspace.strip():
-            with contextlib.suppress(Exception):
-                from app.core.agents_md import load_project_instructions
-
-                _agents_md = load_project_instructions(_agents_workspace)
-                if not _agents_md.is_empty():
-                    messages[0]["content"] = (
-                        f"{messages[0]['content']}\n\n[项目文档 AGENTS.md]\n{_agents_md.content}"
-                    )
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
@@ -2120,6 +2141,8 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # 项目文档注入(批58 状态机增量注入开关):开关 off 时与原纯字符串拼接逐字节等价。
+        self._inject_agents_md(thread)
         # 固化起始请求的出站通道:workspace watcher 等引擎自产事件在无活动
         # prompt 时也有推送目标(prompt 轮内会被 _run_prompt_turn 刷新)。
         thread.emit = emit
@@ -2617,6 +2640,50 @@ class AgentEngine:
                 await self._emit_engine_event(
                     thread, emit, "turn.usage", dict(payload.get("usage") or {})
                 )
+            # turn_token_usage 直方图(批58,对标 codex state/turn_token_usage.rs):
+            # 开关 on 时按模型分组聚合本轮用量并逐样本发指标事件;off 时不产生
+            # 任何新事件(逐字节等价)。分桶数据取自逐迭代精确 usage,无精确
+            # 分项时只用总量(不伪造分项,与 _turn_usage 同原则)。
+            if _turn_token_usage_enabled_from_env():
+                with contextlib.suppress(Exception):
+                    from app.core.turn_token_usage import TurnTokenUsage
+
+                    ledger = TurnTokenUsage()
+                    for it in getattr(result, "iterations", []) or []:
+                        # iterations 元素双形态:LoopIteration dataclass 或 dict
+                        # (测试替身/历史序列化形态),统一取值。
+                        if isinstance(it, dict):
+                            usage = it.get("usage")
+                            it_model = it.get("model")
+                        else:
+                            usage = getattr(it, "usage", None)
+                            it_model = getattr(it, "model", None)
+                        if not (isinstance(usage, dict) and usage):
+                            continue
+                        model = str(it_model or thread.model or "default")
+                        ledger.record(
+                            model,
+                            telemetry={"model": model},
+                            total_tokens=int(usage.get("total_tokens", 0) or 0),
+                            input_tokens=int(usage.get("input_tokens", 0) or 0),
+                            cached_input_tokens=int(
+                                usage.get("cached_input_tokens", 0)
+                                or usage.get("cached_tokens", 0)
+                                or 0
+                            ),
+                            output_tokens=int(usage.get("output_tokens", 0) or 0),
+                        )
+                    # 无任何精确分项:仅总量一枚样本,挂 fallback telemetry。
+                    fallback = (
+                        {"model": thread.model or "default"} if thread.model else None
+                    )
+                    for sample in ledger.samples(fallback):
+                        await self._emit_engine_event(
+                            thread,
+                            emit,
+                            "turn_token_usage",
+                            sample,
+                        )
             return payload
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -2722,6 +2789,64 @@ class AgentEngine:
         if per_iteration:
             out["perIteration"] = per_iteration
         return out
+
+    def reset_agents_md_state(self, thread: EngineThread) -> None:
+        """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
+        with contextlib.suppress(Exception):
+            thread.agents_md_state.reset()
+
+    def _inject_agents_md(self, thread: EngineThread) -> None:
+        """项目文档 AGENTS.md 注入(2026-09-20 批58,对标 codex agents_md.rs)。
+
+        双模式:
+        - 开关 off(IHUI_AGENTS_MD_STATE_ENABLED 未开启,默认):沿用原纯字符串
+          拼接,与接线前逐字节等价;但注入后同步记录 thread.agents_md_state
+          快照,保证后续升级开关时状态连续。
+        - 开关 on:AgentsMdState 状态机增量注入——首次有内容发普通片段,同内容
+          不再注入,内容变更发 REPLACEMENT 通知,文件删除发 REMOVAL 通知;
+          片段正文原样采用 agents_md_state 产出,不再自拼 [项目文档 AGENTS.md]。
+        失败静默降级不阻塞开线程(与原实现同规格)。
+        """
+        workspace = thread.workspace
+        if not (isinstance(workspace, str) and workspace.strip()):
+            return
+        try:
+            from app.core.agents_md import load_project_instructions
+
+            md = load_project_instructions(workspace)
+            has_text = not md.is_empty()
+            text = md.content if has_text else None
+            if not _agents_md_state_enabled_from_env():
+                # 关闭态:原逻辑逐字节等价(有内容才拼接)。
+                if has_text:
+                    thread.messages[0]["content"] = (
+                        f"{thread.messages[0]['content']}\n\n"
+                        f"[项目文档 AGENTS.md]\n{md.content}"
+                    )
+                    with contextlib.suppress(Exception):
+                        # 记录快照保持状态连续(仅内存,不影响行为)。
+                        thread.agents_md_state.maybe_fragment(workspace, md.content)
+                return
+            # 开启态:状态机决定本轮注入内容。
+            from app.core.agents_md_state import (
+                build_agents_md_fragment,
+                build_agents_md_removal_fragment,
+                build_agents_md_replacement_fragment,
+            )
+
+            frag = thread.agents_md_state.maybe_fragment(workspace, text)
+            if frag is None:
+                return
+            rendered = frag["content"][0]["text"]
+            thread.messages[0]["content"] = (
+                f"{thread.messages[0]['content']}\n\n{rendered}"
+            )
+            # 增量语义已由状态机承载;构建函数仅在需要独立产出片段时使用,
+            # 此处保留引用以防未来需要"片段化注入"(不参与运行时)。
+            _ = (build_agents_md_fragment, build_agents_md_replacement_fragment,
+                 build_agents_md_removal_fragment)
+        except Exception as exc:  # noqa: BLE001 - 降级不阻塞开线程
+            logger.warning("AGENTS.md 注入异常(降级跳过): %s", exc)
 
     async def _handle_thread_interrupt(
         self, params: dict[str, Any], emit: Emitter
