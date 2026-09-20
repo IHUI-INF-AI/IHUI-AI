@@ -991,7 +991,8 @@ def _diagnose_patch_mismatch(
 
     for i in range(0, max(1, len(lines) - n + 1), step):
         window = lines[i : i + n]
-        ratio = sum(_line_similarity(p, w) for p, w in zip(pattern, window)) / n
+        # strict=False:文件尾部采样时 window 可能短于 pattern,保持 zip 截断语义(B905)
+        ratio = sum(_line_similarity(p, w) for p, w in zip(pattern, window, strict=False)) / n
         if ratio > best_ratio:
             best_ratio, best_i = ratio, i
     detail = ""
@@ -1013,10 +1014,12 @@ def _diagnose_patch_mismatch(
     causes: list[str] = []
     near = lines[best_i : best_i + n] if best_i >= 0 else []
     if near and any(
-        p.strip() == a.strip() and p != a for p, a in zip(pattern, near)
+        p.strip() == a.strip() and p != a for p, a in zip(pattern, near, strict=False)
     ):
         causes.append("仅行首/行尾空白不同(缩进或尾随空格被裁剪/多出)")
-    elif near and any(p.rstrip() == a.rstrip() for p, a in zip(pattern, near)):
+    elif near and any(
+        p.rstrip() == a.rstrip() for p, a in zip(pattern, near, strict=False)
+    ):
         causes.append("缩进层级不一致")
     if replacement is not None and _v4a_seek(lines, replacement, 0, False) >= 0:
         causes.append("目标内容已在文件中(可能本次改动早已应用)")
@@ -5624,6 +5627,10 @@ class AgentEngine:
 
         审批 id 由主循环生成(与 threadId 无强绑定),故不要求 threadId;
         找不到/已超时 → ok=False(客户端可安全忽略)。
+
+        批 53:客户端可携 persist 字段选择审批持久层级 ——
+        "session"(本次会话免弹窗) / "always"(永久免弹窗) / 不传或 None(沿用批 52
+        默认 session 落盘,行为不变)。非法值 INVALID_PARAMS。
         """
         approval_id = params.get("approvalId") or params.get("requestId")
         if not isinstance(approval_id, str) or not approval_id:
@@ -5633,8 +5640,19 @@ class AgentEngine:
             raise JsonRpcError(
                 INVALID_PARAMS, "decision 须为 approve/reject(或 allow/deny)"
             )
+        # 批 53:可选 persist 层级(session|always|None),非法值 INVALID_PARAMS
+        persist_raw = params.get("persist")
+        if persist_raw is None:
+            persist: str | None = None
+        else:
+            persist = str(persist_raw).strip().lower()
+            if persist not in ("session", "always"):
+                raise JsonRpcError(INVALID_PARAMS, "persist 须为 session/always")
         normalized = "approve" if decision in ("approve", "allow") else "reject"
-        from .agent_loop_v2 import resolve_approval_response
+        from .agent_loop_v2 import (
+            grant_tool_approval_persist,
+            resolve_approval_response,
+        )
 
         applied = bool(resolve_approval_response(approval_id, normalized))
         # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)
@@ -5642,10 +5660,16 @@ class AgentEngine:
         if perm_future is not None and not perm_future.done():
             perm_future.set_result(normalized)
             applied = True
+        # 批 53:批准且携带合法 persist → 升级落盘指定层级(always/session)
+        persisted: str | None = None
+        if applied and normalized == "approve" and persist is not None:
+            if grant_tool_approval_persist(approval_id, persist):
+                persisted = persist
         return {
             "approvalId": approval_id,
             "decision": normalized,
             "applied": applied,
+            "persisted": persisted,
         }
 
     # ------------------------------------------------------------------
