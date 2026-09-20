@@ -236,6 +236,14 @@ const envSchema = z.object({
   OAUTH_ERROR_URI_BASE: z.string().default(''),
   // M2M(client_credentials)access token TTL 上限;实际签发取 min(请求 scope 集, 该值)
   OAUTH_M2M_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+
+  // ===== O10 开放面幂等重放保护(2026-09-21 立)=====
+  // 带 Idempotency-Key 的写请求,其"进行中"槽位与已缓存结果在同一 Redis 键上共用的存活秒数。
+  // 600s 的依据:覆盖 RATE_PROFILES 里 high 档单次请求最长占用(600_000ms),低于 critical 档,
+  // 再短就会出现"原请求还在跑、锁先过期"从而重复计费。它同时是崩溃兜底 —— 进程中途死掉时
+  // 锁最多滞留本时长即自愈(正常收口路径由 onResponse 主动删键,不等 TTL)。
+  // 只影响"带了 Idempotency-Key 且能力目录 idempotencyRequired=true"的请求,其余不受任何影响。
+  IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
 })
 
 const parsed = envSchema.safeParse(process.env)

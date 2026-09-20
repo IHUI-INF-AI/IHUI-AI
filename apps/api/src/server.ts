@@ -51,6 +51,9 @@ import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
 import { distributedRateLimit } from './plugins/distributed-rate-limit.js'
 import { paymentIdempotency } from './plugins/payment-idempotency.js'
+// O10 开放面通用幂等重放保护(Idempotency-Key + Redis SETNX)。与上面支付域那套是两套
+// 独立机制:支付域 fail-closed 防重复扣款,开放面 fail-open 保可用 —— 判据见插件头注释。
+import { openIdempotency } from './plugins/open-idempotency.js'
 import { cacheResilience } from './plugins/cache-resilience.js'
 import { wsNotifications } from './plugins/ws-notifications.js'
 import { wsAi } from './plugins/ws-ai.js'
@@ -598,5 +601,14 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(networkSegmentPlugin)
   await server.register(mtlsPlugin)
   await server.register(auditLoggerPlugin)
+
+  // O10 开放面幂等重放保护。放在**最后**注册是有原因的,不是随手追加:
+  // ① onRoute 会把 preHandler 追加到各路由自身数组的末尾 —— 它必须在路由注册之前挂上,
+  //    而 registerPlugins 整体跑在 registerRoutes(server) 之前,所以每个路由都吃得到
+  //    (与 rls-context 同一招);
+  // ② 它的 onSend 要拿到"客户端真正收到的那串字节"才能原样重放,所以必须排在
+  //    responseSanitizer / compression 等所有改包体的 onSend 之后 —— 早一步就把脱敏前的
+  //    原文缓存进 Redis 了。挪到前面等于把脱敏结果丢掉,别顺手重排。
+  await server.register(openIdempotency)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
