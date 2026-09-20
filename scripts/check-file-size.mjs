@@ -26,6 +26,7 @@
  *   apps/web/src、apps/web/app,以及任意 apps/<app>/src(若存在)。
  *   扩展名 .ts/.tsx/.js/.jsx。
  *   排除:node_modules/out/dist/build/.next/public/coverage/tests/__tests__/e2e/.ihui-agent。
+ *   生成物豁免:*.generated.* / *.gen.*(行数随数据线性增长,非人工巨型文件,见 GENERATED_NAME_RE)。
  *
  * 用法:
  *   node scripts/check-file-size.mjs --staged       (pre-commit,仅新增超阈值文件阻塞)
@@ -83,6 +84,14 @@ staged 模式:仅 git 新增文件(Added)超阈值才阻塞,不惩罚存量文�
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
+/**
+ * 机器生成的数据表(*.generated.* / *.gen.*)豁免本守门。
+ * 理由:本规则治理的是"人工写出的巨型文件应拆分"(AGENTS.md §4 维护/审阅成本);
+ * 生成产物的行数随数据条数线性增长(如全站路由表 879 行),拆表只会把一次生成器
+ * 输出切成多份互相引用的文件,审阅成本并没有下降。改动必须回到生成脚本,故不经本规则。
+ */
+const GENERATED_NAME_RE = /\.(generated|gen)\.[jt]sx?$/
+
 function countLines(file) {
   try {
     const src = readFileSync(file, 'utf8')
@@ -103,7 +112,7 @@ function collectFiles(dir, result = []) {
     const st = statSync(full)
     if (st.isDirectory()) {
       collectFiles(full, result)
-    } else if (SCAN_EXTS.some((e) => entry.endsWith(e))) {
+    } else if (SCAN_EXTS.some((e) => entry.endsWith(e)) && !GENERATED_NAME_RE.test(entry)) {
       result.push(full)
     }
   }
@@ -138,6 +147,7 @@ function getStagedAddedFiles() {
       .split('\n')
       .filter(Boolean)
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
+      .filter((f) => !GENERATED_NAME_RE.test(f))
       .filter((f) => !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
       .filter((f) => existsSync(f))
