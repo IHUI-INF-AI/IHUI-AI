@@ -234,8 +234,9 @@ def finalize(
 
         if len(messages) > MAX_MESSAGES_PER_CONVERSATION:
             truncated = True
+            # 告警串会原样回前端并落日志,禁止插会话标题等用户正文(隐私外泄),只报序号
             warnings.append(
-                f"会话「{conv.title or '未命名会话'}」消息数超过上限 "
+                f"第 {len(items) + 1} 个会话消息数超过上限 "
                 f"{MAX_MESSAGES_PER_CONVERSATION},已截断"
             )
             messages = messages[:MAX_MESSAGES_PER_CONVERSATION]
