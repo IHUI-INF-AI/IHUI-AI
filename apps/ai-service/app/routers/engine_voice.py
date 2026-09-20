@@ -47,6 +47,52 @@ _MAX_VOICE_SESSIONS = 32
 # 单轮 TTS 文本上限(与 /voice/tts MAX_TEXT_CHARS 对齐的保守值)
 _VOICE_TTS_MAX_CHARS = 3000
 
+# 批58(接线):realtime_context 真接线开关(env ENGINE_VOICE_REALTIME_CONTEXT)。
+# 对标 codex realtime_delegation.rs / realtime_start_instructions.rs:语音会话
+# 是"中介转写委托"链路 —— on 时把 STT 转写经 <realtime_delegation> 片段委托给
+# 引擎,并在首回合注入 <realtime_conversation> start 指令;off 时 transcript
+# 原样进 prompt,与现状逐字节等价。
+_VOICE_REALTIME_CONTEXT_ENABLED = os.environ.get(
+    "ENGINE_VOICE_REALTIME_CONTEXT", "false"
+).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _voice_wrap_delegation(transcript: str, *, first_turn: bool) -> str:
+    """把 STT 转写包成 realtime delegation 文本(off/失败时原样返回)。
+
+    对标 codex:首回合先注入 start 指令片段(告知引擎处于实时会话后端执行者
+    语义),随后 user 角色的 <realtime_delegation> 包裹转写文本。转写上限
+    4KiB(模块常量),超长中段截断由模块 escape_xml_text_bounded 承担。
+    """
+    if not _VOICE_REALTIME_CONTEXT_ENABLED:
+        return transcript
+    try:
+        from app.core.realtime_context import (
+            build_realtime_delegation_fragment,
+            build_realtime_start_instructions_fragment,
+        )
+
+        def _text_of(fragment: dict[str, Any]) -> str:
+            content = fragment.get("content")
+            if isinstance(content, list) and content:
+                first = content[0]
+                if isinstance(first, dict):
+                    return str(first.get("text", ""))
+            return content if isinstance(content, str) else ""
+
+        parts: list[str] = []
+        if first_turn:
+            body = _text_of(build_realtime_start_instructions_fragment())
+            if body:
+                parts.append(body)
+        dbody = _text_of(build_realtime_delegation_fragment(transcript))
+        if dbody:
+            parts.append(dbody)
+        return "\n".join(parts) if parts else transcript
+    except Exception as e:  # noqa: BLE001 - 片段构造失败降级为原文
+        logger.warning("realtime delegation 片段构造失败(降级原文): %s", e)
+        return transcript
+
 
 class VoiceSessionCreate(BaseModel):
     """创建语音会话请求。"""
@@ -166,12 +212,17 @@ async def voice_turn(
             "note": "未检测到语音内容",
         }
     # 2) 引擎线程 prompt(完整 agent 能力面)
+    # 批58(接线):realtime delegation 包裹(对标 codex realtime_delegation.rs)。
+    # off 时 transcript 原样进 prompt(逐字节等价);on 时首回合附 start 指令。
+    prompt_input = _voice_wrap_delegation(
+        transcript, first_turn=int(session.get("turns", 0)) == 0
+    )
     response = await ENGINE.handle_message(
         {
             "jsonrpc": "2.0",
             "id": 2,
             "method": "thread.prompt",
-            "params": {"threadId": session["threadId"], "input": transcript},
+            "params": {"threadId": session["threadId"], "input": prompt_input},
         }
     )
     if response is None or "error" in response:
