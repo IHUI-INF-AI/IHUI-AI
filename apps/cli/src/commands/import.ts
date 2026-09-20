@@ -11,6 +11,8 @@
  *   ihui import commit <source> <file>          解析 + 落库(默认 skip 策略)
  *   ihui import commit <source> <file> --strategy overwrite
  *   ihui import history                         查询导入历史(最近 50 条)
+ *   ihui import sessions <sources|discover|parse|commit|history>
+ *                                               外部历史会话导入(见 import-sessions.ts)
  *
  * 设计:
  * - 通过 @ihui/api-client 的 fetchApi 调用后端 /api/user/cli-import/* 接口
@@ -23,6 +25,7 @@ import chalk from 'chalk';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fetchApi } from '@ihui/api-client';
+import { attachSessionImportCommands } from './import-sessions.js';
 
 const VALID_SOURCES = ['cc-switch', 'codex++', 'claude-cli', 'codex-cli', 'gemini-cli', 'hermes', 'env-file', 'cursor', 'windsurf', 'cline', 'aider', 'qoder', 'qoder-work', 'codex-desktop', 'claude-code-desktop', 'github-copilot', 'amazon-q', 'continue', 'tabnine', 'cody', 'zed', 'antigravity'] as const;
 type Source = (typeof VALID_SOURCES)[number];
@@ -74,7 +77,8 @@ interface HistoryItem {
   importedAt: string;
 }
 
-function formatTime(iso: string): string {
+/** 供 sessions 子命令组复用(import-sessions.ts),避免第二套时间格式化实现 */
+export function formatTime(iso: string): string {
   try {
     return new Date(iso).toLocaleString();
   } catch {
@@ -158,7 +162,10 @@ function printPreview(preview: ImportPreview): void {
 export function registerImportCommand(program: Command): void {
   const importCmd = program
     .command('import')
-    .description('CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)');
+    .description('导入(CLI 供应商配置 / 外部历史会话)');
+
+  // 会话导入子命令组(与下方供应商配置导入并列,实现见 import-sessions.ts)
+  attachSessionImportCommands(importCmd);
 
   importCmd
     .command('sources')
