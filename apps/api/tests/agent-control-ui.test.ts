@@ -305,7 +305,41 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(__test__.findEndpointByCategory('ui')?.capability.instanceId).toBe('web-b')
   })
 
-  it('⑧ executedBy=web 的结果回传能与 pending 配对并 resolve', async () => {
+  it('⑧ 多标签页:targetInstanceId 钉定指定端,不被"最后心跳"端抢走', async () => {
+    await reportCapability(
+      {
+        endpoint: 'web',
+        instanceId: 'web-a',
+        uiActions: [...ALL_UI_ACTIONS],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    // 后注册的 web-b 心跳更新,默认择优会选它
+    await new Promise((r) => setTimeout(r, 5))
+    await reportCapability(
+      {
+        endpoint: 'web',
+        instanceId: 'web-b',
+        uiActions: [...ALL_UI_ACTIONS],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    expect(__test__.findEndpointByCategory('ui', USER_A)?.capability.instanceId).toBe('web-b')
+    // 显式钉定 describe 应答过的那个页(元素 id 是该页私有映射)
+    expect(__test__.findEndpointByCategory('ui', USER_A, 'web-a')?.capability.instanceId).toBe(
+      'web-a',
+    )
+    // 钉定他人端点不生效,回落择优(不得越权)
+    expect(__test__.findEndpointByCategory('ui', USER_B, 'web-a')).toBeNull()
+    // 钉定已断开的实例同样回落,不报错
+    expect(__test__.findEndpointByCategory('ui', USER_A, 'web-dead')?.capability.instanceId).toBe(
+      'web-b',
+    )
+  })
+
+  it('⑨ executedBy=web 的结果回传能与 pending 配对并 resolve', async () => {
     await reportCapability(
       { endpoint: 'web', instanceId: 'web-a', uiActions: [...ALL_UI_ACTIONS] },
       USER_A,
@@ -347,7 +381,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(__test__.pending.size).toBe(0)
   })
 
-  it('⑨ 未知 requestId 回传不被配对;executedBy 非法值 400', async () => {
+  it('⑩ 未知 requestId 回传不被配对;executedBy 非法值 400', async () => {
     const orphan = await reportResult({
       requestId: 'req-unknown',
       success: true,
@@ -365,7 +399,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(bad.statusCode).toBe(400)
   })
 
-  it('⑩ ui 指令超时返回 TIMEOUT 并清理 pending', async () => {
+  it('⑪ ui 指令超时返回 TIMEOUT 并清理 pending', async () => {
     await reportCapability(
       { endpoint: 'web', instanceId: 'web-a', uiActions: [...ALL_UI_ACTIONS] },
       USER_A,
@@ -386,7 +420,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(__test__.pending.size).toBe(0)
   })
 
-  it('⑪ /execute 缺少内部密钥时 fail-closed 返回 401', async () => {
+  it('⑫ /execute 缺少内部密钥时 fail-closed 返回 401', async () => {
     const res = await executeCommand(
       { requestId: 'req-noauth', category: 'ui', action: 'describe' },
       false,
@@ -395,7 +429,7 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('⑫ category=ui 被 executeSchema 接受(非法 category 仍 400)', async () => {
+  it('⑬ category=ui 被 executeSchema 接受(非法 category 仍 400)', async () => {
     const bad = await app.inject({
       method: 'POST',
       url: `${PREFIX}/execute`,
