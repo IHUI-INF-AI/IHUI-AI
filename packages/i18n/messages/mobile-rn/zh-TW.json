@@ -299,7 +299,8 @@
     "spec": "規範模板庫",
     "selfMedia": "自媒體助手",
     "context": "上下文引擎",
-    "pdfTools": "文件轉 Markdown"
+    "pdfTools": "文件轉 Markdown",
+    "conversationImport": "會話導入"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -2416,5 +2417,45 @@
     "uploadFailed": "上傳失敗,請重試",
     "convertFailed": "轉換失敗,請重試",
     "share": "分享"
+  },
+  "conversationImport": {
+    "pageTitle": "外部會話導入",
+    "desc": "將 Claude Code / Codex / Cursor / Aider 等外部工具的會話記錄導入為平臺會話,導入後可在歷史對話列表查看",
+    "sourcesTitle": "選擇會話來源",
+    "sourceClaudeCode": "Claude Code",
+    "sourceClaudeCodeHint": "典型路徑:~/.claude/projects/**/*.jsonl",
+    "sourceCodex": "Codex CLI",
+    "sourceCodexHint": "典型路徑:~/.codex/sessions/**/*.jsonl",
+    "sourceCursor": "Cursor",
+    "sourceCursorHint": "典型路徑:Cursor 工作區 state.vscdb 導出",
+    "sourceAider": "Aider",
+    "sourceAiderHint": "典型路徑:~/.aider/chat 歷史(.md)",
+    "pickFile": "選擇導出文件",
+    "uploadHint": "僅支持文字導出格式,單文件不超過 20MB",
+    "fileSelected": "已選擇:{name}",
+    "parsing": "處理中...",
+    "parseFailed": "解析失敗:{error}",
+    "parseEmpty": "未在文件中解析出任何會話",
+    "previewTitle": "解析預覽",
+    "selectAll": "全選",
+    "deselectAll": "全不選",
+    "selected": "已選 {count}/{total}",
+    "messagesCount": "{count} 條訊息",
+    "conversationUntitled": "未命名會話",
+    "truncatedWarning": "文件過大,僅解析出部分會話,請拆分導出文件後重試",
+    "commit": "導入所選",
+    "committing": "導入中...({done}/{total})",
+    "commitDone": "導入完成:成功 {imported},失敗 {failed}",
+    "commitFailed": "導入失敗:{error}",
+    "errorNoSource": "請先選擇會話來源",
+    "fileTooLarge": "文件超過 20MB 限制,請拆分後重試",
+    "historyTitle": "導入歷史",
+    "historyEmpty": "暫無導入記錄",
+    "historyFailed": "載入導入歷史失敗:{error}",
+    "historyParsed": "解析",
+    "historyImported": "導入",
+    "statusSuccess": "成功",
+    "statusPartial": "部分成功",
+    "statusFailed": "失敗"
   }
 }

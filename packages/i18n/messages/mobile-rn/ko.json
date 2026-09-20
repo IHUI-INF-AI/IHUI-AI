@@ -299,7 +299,8 @@
     "spec": "스펙 템플릿",
     "selfMedia": "셀프미디어",
     "context": "컨텍스트 엔진",
-    "pdfTools": "문서→Markdown"
+    "pdfTools": "문서→Markdown",
+    "conversationImport": "대화 가져오기"
   },
   "error": {
     "network": "네트워크 오류"
@@ -2416,5 +2417,45 @@
     "uploadFailed": "업로드 실패, 다시 시도하세요",
     "convertFailed": "변환 실패, 다시 시도하세요",
     "share": "공유"
+  },
+  "conversationImport": {
+    "pageTitle": "외부 대화 가져오기",
+    "desc": "Claude Code / Codex / Cursor / Aider 등 외부 도구의 대화 기록을 플랫폼 대화로 가져옵니다. 가져온 후에는 대화 기록 목록에서 확인할 수 있습니다",
+    "sourcesTitle": "대화 소스 선택",
+    "sourceClaudeCode": "Claude Code",
+    "sourceClaudeCodeHint": "일반적인 경로: ~/.claude/projects/**/*.jsonl",
+    "sourceCodex": "Codex CLI",
+    "sourceCodexHint": "일반적인 경로: ~/.codex/sessions/**/*.jsonl",
+    "sourceCursor": "Cursor",
+    "sourceCursorHint": "일반적인 경로: Cursor 작업 공간의 state.vscdb 내보내기",
+    "sourceAider": "Aider",
+    "sourceAiderHint": "일반적인 경로: ~/.aider 채팅 기록(.md)",
+    "pickFile": "내보낸 파일 선택",
+    "uploadHint": "텍스트 내보내기 형식만 지원하며 파일당 최대 20MB입니다",
+    "fileSelected": "선택됨: {name}",
+    "parsing": "처리 중...",
+    "parseFailed": "파싱 실패: {error}",
+    "parseEmpty": "파일에서 대화를 찾지 못했습니다",
+    "previewTitle": "파싱 미리보기",
+    "selectAll": "전체 선택",
+    "deselectAll": "전체 선택 해제",
+    "selected": "{count}/{total}개 선택됨",
+    "messagesCount": "메시지 {count}개",
+    "conversationUntitled": "제목 없는 대화",
+    "truncatedWarning": "파일이 너무 커 일부 대화만 파싱되었습니다. 내보내기를 분할한 후 다시 시도해 주세요",
+    "commit": "선택한 항목 가져오기",
+    "committing": "가져오는 중... ({done}/{total})",
+    "commitDone": "가져오기 완료: 성공 {imported}건, 실패 {failed}건",
+    "commitFailed": "가져오기 실패: {error}",
+    "errorNoSource": "먼저 대화 소스를 선택해 주세요",
+    "fileTooLarge": "파일이 20MB 제한을 초과했습니다. 분할한 후 다시 시도해 주세요",
+    "historyTitle": "가져오기 기록",
+    "historyEmpty": "가져오기 기록이 없습니다",
+    "historyFailed": "가져오기 기록을 불러오지 못했습니다: {error}",
+    "historyParsed": "파싱",
+    "historyImported": "가져옴",
+    "statusSuccess": "성공",
+    "statusPartial": "부분 성공",
+    "statusFailed": "실패"
   }
 }

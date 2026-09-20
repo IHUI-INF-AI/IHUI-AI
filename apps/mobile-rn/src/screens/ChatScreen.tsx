@@ -547,6 +547,16 @@ export function ChatScreen() {
     }
   }, [drawerVisible, drawerConversationsLoaded, authUser, loadDrawerConversations])
 
+  // 会话列表失效(2026-09-21,外部会话导入):重新获得焦点即作废懒加载缓存,
+  // 下次打开 Drawer 走既有 loadDrawerConversations 重新拉取,新导入的会话立即可见。
+  // 复用既有 drawerConversationsLoaded 开关,不新造 store / 事件总线。
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setDrawerConversationsLoaded(false)
+    })
+    return unsubscribe
+  }, [navigation])
+
   // ── 发送消息(send-message 事件) ──
   const send = async (overrideText?: string): Promise<void> => {
     // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
