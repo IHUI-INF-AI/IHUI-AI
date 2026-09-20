@@ -36,9 +36,11 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
   // 因此外部第三方 key 恒 403 M2M_FORBIDDEN,web/IDE 的人 JWT 通道行为不变。
   server.addHook('preHandler', async (request, reply) => {
     if (hasApiKeyCredential(request)) {
-      return requireCapabilityRules([
+      // 钩子类型声明了 this: FastifyInstance,解引用调用必须显式绑定实例
+      await requireCapabilityRules([
         { methods: ['POST'], pattern: /^\/api\/v1\/ai\/apply-diff$/, scope: 'diff:apply' },
-      ])(request, reply)
+      ]).call(server, request, reply)
+      return
     }
     try {
       await authenticate(request)
