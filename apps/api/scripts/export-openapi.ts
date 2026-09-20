@@ -62,7 +62,9 @@ function buildDbStubSource(): string {
   const filePath = resolve(apiRoot, 'src', 'db', 'index.ts')
   const src = readFileSync(filePath, 'utf8')
   const names = new Set<string>()
-  for (const m of src.matchAll(/^export\s+(?:declare\s+)?(?:async\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/gm)) {
+  for (const m of src.matchAll(
+    /^export\s+(?:declare\s+)?(?:async\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/gm,
+  )) {
     names.add(m[1])
   }
   // export { a, b as c } / export { x } from '...'
@@ -70,7 +72,10 @@ function buildDbStubSource(): string {
     for (const part of m[1].split(',')) {
       const seg = part.trim()
       if (!seg || seg.startsWith('type ')) continue
-      const asName = seg.split(/\s+as\s+/).pop()?.trim()
+      const asName = seg
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim()
       if (asName && /^[A-Za-z_$][\w$]*$/.test(asName)) names.add(asName)
     }
   }
@@ -318,7 +323,10 @@ export function toOpenApiPath(p: string): string {
 }
 
 /** 读取 scope → 端点 映射(单一事实源:packages/types/generated/capabilities.json)。 */
-export function loadScopeRoutes(repoRootDir: string): { routes: ScopeRoute[]; scopes: Array<{ scope: string; description: string }> } {
+export function loadScopeRoutes(repoRootDir: string): {
+  routes: ScopeRoute[]
+  scopes: Array<{ scope: string; description: string }>
+} {
   const file = join(repoRootDir, CAPABILITIES_REL_PATH)
   const raw = JSON.parse(readFileSync(file, 'utf8')) as CapabilityManifest
   const routes: ScopeRoute[] = []
@@ -536,9 +544,7 @@ export function injectSecurity(doc: JsonObject, routes: ScopeRoute[]): SecurityI
 
   for (const [pathKey, item] of Object.entries(paths)) {
     if (!item || typeof item !== 'object') continue
-    const presentMethods = HTTP_METHODS.filter(
-      (m) => (item as JsonObject)[m] !== undefined,
-    )
+    const presentMethods = HTTP_METHODS.filter((m) => (item as JsonObject)[m] !== undefined)
     for (const method of HTTP_METHODS) {
       const op = item[method]
       if (!op || typeof op !== 'object') continue
@@ -720,7 +726,8 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
   const realRoutes: RealRoute[] = []
   server.addHook('onRoute', (routeOptions) => {
     const methods = Array.isArray(routeOptions.method) ? routeOptions.method : [routeOptions.method]
-    for (const m of methods) realRoutes.push({ method: String(m).toLowerCase(), url: routeOptions.url })
+    for (const m of methods)
+      realRoutes.push({ method: String(m).toLowerCase(), url: routeOptions.url })
   })
   let raw: unknown
   try {
@@ -748,7 +755,14 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
   const security = injectSecurity(doc, routes)
   const stable = stabilizeDocument(doc)
   const coverage = computeCoverage(stable, '/v1')
-  return { doc: stable, coverage, security, autoHeadDropped, restored, capturedRoutes: realRoutes.length }
+  return {
+    doc: stable,
+    coverage,
+    security,
+    autoHeadDropped,
+    restored,
+    capturedRoutes: realRoutes.length,
+  }
 }
 
 async function run(argv: string[]): Promise<number> {
@@ -814,6 +828,7 @@ function injectWatermark(file: string): void {
   try {
     execFileSync(process.execPath, [join(repoRoot, 'scripts', 'watermark.mjs'), 'inject', file], {
       stdio: 'pipe',
+      windowsHide: true,
     })
   } catch {
     console.log('[openapi:export] 提示:产物为 JSON,水印工具按类型跳过(非覆盖范围)')
@@ -838,8 +853,7 @@ export const __test__ = {
 }
 
 // AGENTS.md §22d:CLI 直跑与测试 import 双形态隔离,避免 import 即拉起整个启动图。
-const isDirectRun =
-  !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const isDirectRun = !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
   // 启动图里仍可能有 unref 不掉的定时器(响应缓存 / 保活探针等),跑完必须显式退出,

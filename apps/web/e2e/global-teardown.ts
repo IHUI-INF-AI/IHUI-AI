@@ -38,7 +38,7 @@ function hasConcurrentPlaywright(): boolean {
   try {
     const out = execSync(
       'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'chrome.exe\'\\" | Where-Object { $_.CommandLine -match \'ms-playwright|playwright\' } | Measure-Object | Select-Object -ExpandProperty Count"',
-      { encoding: 'utf8', timeout: 15000 },
+      { encoding: 'utf8', timeout: 15000, windowsHide: true },
     )
     const count = parseInt(out.trim(), 10)
     return !Number.isNaN(count) && count > 0
@@ -70,6 +70,7 @@ export default async function globalTeardown(): Promise<void> {
       stdio: 'inherit',
       env: { ...process.env },
       timeout: 30000,
+      windowsHide: true,
     })
     console.log('[e2e:global-teardown] cleanup 完成,数据库回到只有 admin 状态')
   } catch (err) {
