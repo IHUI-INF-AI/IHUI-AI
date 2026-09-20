@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
 import { decodeJwt } from 'jose'
@@ -11,6 +11,8 @@ import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
 import { getUserStatus } from '../db/usercenter-queries.js'
 import { error } from '../utils/response.js'
+import { hasApiKeyCredential } from '../utils/capability-guard.js'
+import type { OpenCapabilityGrant } from '../config/open-capability-registry.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -21,6 +23,9 @@ declare module 'fastify' {
     internalUserRoleId?: number
     /** API Key 鉴权后注入的上下文(由 plugins/api-key-auth.ts 设置)。与 JWT 鉴权独立。 */
     apiKey?: AuthenticatedApiKey
+    /** O6 开放能力闸的放行凭据(由 utils/open-capability-gate.ts 注入)。
+     *  缺失 = 本请求未走登记表通道,`authenticate()` 保持完全原始的人 JWT 语义。 */
+    openCapability?: OpenCapabilityGrant
   }
 }
 
@@ -40,8 +45,29 @@ declare module '@fastify/jwt' {
  * 改为依赖 auth_token cookie 作为 token 持久化介质。
  * 顺序:Authorization header 优先(显式传 token 的场景),cookie 兜底
  * (浏览器同源请求自动附带,用于页面刷新后无 in-memory token 的场景)
+ *
+ * O6(2026-09-21):函数体首行新增一条**仅在显式打标时才生效**的机器凭据分支 ——
+ * `request.openCapability` 只由 `utils/open-capability-gate.ts` 在「路由命中能力开放
+ * 登记表 + API Key 鉴权通过 + scope 授权通过」后注入。全站存量调用一律形如
+ * `authenticate(request)` 且不带该字段,判定恒为 false,下方 JWT 链路(含 CSRF、
+ * challenge 拒绝、用户状态检查、错误码与消息)逐字节不变。
  */
 export async function authenticate(request: FastifyRequest): Promise<JWTPayload> {
+  const grant = request.openCapability
+  if (grant) {
+    const userId = request.apiKey?.userId ?? request.userId
+    if (!userId) {
+      const err = new Error('Open capability grant missing owning principal')
+      ;(err as Error & { statusCode: number }).statusCode = 401
+      throw err
+    }
+    request.userId = userId
+    // 刻意不写 request.jwtPayload:O4 的 buildPrincipal 以 apiKey 优先归一为机器主体,
+    // 伪造一个 JWT 形态的 payload 反而会让数据闸/审计把机器调用误判成人调用。
+    // roleId 恒 0(最小权限):机器凭据不得借"归属人是管理员"这条路径提权。
+    return { userId, phone: '', familyId: `open-capability:${grant.key}`, roleId: 0 }
+  }
+
   let token: string | null = null
   const header = request.headers.authorization
   if (header && header.startsWith('Bearer ')) {
@@ -134,6 +160,43 @@ export async function checkAuth(request: FastifyRequest, reply: FastifyReply): P
     const message = (e as Error).message || 'Authentication required'
     reply.status(statusCode).send(error(statusCode, message))
     return false
+  }
+}
+
+/**
+ * 人用 JWT 凭据是否存在(Bearer 且非 `ihui_` 前缀,或 auth_token cookie)。
+ *
+ * 用途:开放能力闸据此判定「本请求是不是人」。人凭据在场时**一律优先按人处理**,
+ * 保证浏览器/小程序存量登录态即便额外带了 x-api-key,也不会改走机器通道。
+ */
+export function hasHumanJwtCredential(request: FastifyRequest): boolean {
+  const header = request.headers.authorization
+  if (typeof header === 'string' && header.startsWith('Bearer ') && !header.startsWith('Bearer ihui_')) {
+    return true
+  }
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies?.auth_token
+  return typeof cookieToken === 'string' && cookieToken.length > 0
+}
+
+/**
+ * 双通道 preHandler:机器凭据走调用方注入的能力闸,人凭据走原 `checkAuth`。
+ *
+ * 端点自身已经不需要再写 `hasApiKeyCredential` 分支样板(现仅
+ * `routes/v1-codebase-search.ts` 手抄了一份,后续可切到此工厂)。
+ * 注意:`/api` 面的常规接线用 `utils/open-capability-gate.ts` 的根级
+ * {@link openCapabilityGateway},本工厂留给需要就地声明双通道的端点。
+ *
+ * 行为保证:未携带机器凭据时,与 `checkAuth` 完全一致(含 CSRF、用户状态检查)。
+ */
+export function requireApiKeyOrJwt(
+  apiKeyGate: preHandlerAsyncHookHandler,
+): preHandlerAsyncHookHandler {
+  return async (request, reply) => {
+    if (!request.openCapability && hasApiKeyCredential(request) && !hasHumanJwtCredential(request)) {
+      await apiKeyGate.call(request.server, request, reply)
+      return
+    }
+    await checkAuth(request, reply)
   }
 }
 
