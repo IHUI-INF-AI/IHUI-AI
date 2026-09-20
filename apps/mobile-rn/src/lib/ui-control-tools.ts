@@ -2,48 +2,37 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback } from 'react'
-import type { WSNotification } from '@ihui/api-client'
-import {
-  useNotificationStore as useSharedNotificationStore,
-  type NotificationState,
-} from '@ihui/shared/notifications/notification-store'
-
-export {
-  NotificationProvider,
-  type NotificationEntry,
-  type NotificationState,
-} from '@ihui/shared/notifications/notification-store'
+// 端内只负责注入本端族名:判断逻辑与关键词表在 @ihui/shared/utils/app-control-intent
+import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-intent'
 
 /**
- * agent-control 指令帧不是"给用户看的通知",必须挡在通知面板之外(2026-09-21 立)。
+ * RN 端的 UI 操控工具族(2026-09-21 立)。
  *
- * 共享层的 transformWsNotification 对 data.type 是通用透传(未知类型回落标题"新通知"),
- * 而 api 侧 pushNotification 把 `agent.action` 与普通通知走同一条 /ws/notifications 广播。
- * 不挡的话,AI 每操控一次界面就往用户的通知列表塞一条空壳"新通知",并计入未读红点。
- * packages/shared 不在本端可改范围,故在端内消费入口这一层过滤。
+ * 只有四个动作:describe / navigate / read / invoke。**没有 click / fill / submit** ——
+ * RN 无同源 DOM,那三个动词要成立得让业务组件逐个开放写入通道,不在本次范围
+ * (与 ai-service `ui_action_bridge._FAMILIES['mobile']` 的注册面严格一致)。
  */
-const AGENT_ACTION_TYPE = 'agent.action'
+export const MOBILE_UI_CONTROL_TOOLS = [
+  'mobile_ui_describe',
+  'mobile_ui_read',
+  'mobile_ui_navigate',
+  'mobile_ui_invoke',
+] as const
 
-export function isAgentActionMessage(msg: WSNotification | null): boolean {
-  if (!msg || msg.type !== 'notification') return false
-  const data = (msg as { data?: { type?: unknown } }).data
-  return data?.type === AGENT_ACTION_TYPE
-}
+/** 后端能力入口工具(服务端执行,与端无关,故与 web / 小程序端同名) */
+export const API_CONTROL_TOOLS = ['api_endpoints_search', 'api_endpoint_call'] as const
 
-/** 共享 store 的薄封装:除 addFromWs 过滤指令帧外,其余字段原样透传 */
-export function useNotificationStore(): NotificationState {
-  const store = useSharedNotificationStore()
-  const { addFromWs } = store
-
-  const addFromWsFiltered = useCallback(
-    (msg: WSNotification | null) => {
-      if (isAgentActionMessage(msg)) return
-      addFromWs(msg)
-    },
-    [addFromWs],
-  )
-
-  return { ...store, addFromWs: addFromWsFiltered }
-}
+/**
+ * 「操控本站」意图 → 本次请求要带的工具名。
+ *
+ * 为什么必须在客户端带:`apps/ai-service/app/routers/llm.py` 的 tool loop 入口是
+ * `if req.agent_tools and chat_mode != "ask"` —— 不带就根本不进工具链,端侧桥写得再完整也是死代码。
+ * 而普通问答恒带工具会把首字延迟拖进一整轮 tool 往返(web 端 2026-08-29 为此改成按需携带)。
+ *
+ * 只产出本端族名:api 按 category 一对一择端,把 `web_ui_*` 发给 RN 等于让模型去操控另一台设备。
+ */
+export const uiControlToolsFor = createAppControlToolSelector({
+  ui: MOBILE_UI_CONTROL_TOOLS,
+  api: API_CONTROL_TOOLS,
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

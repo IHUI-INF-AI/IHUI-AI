@@ -9,6 +9,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
+import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
 import NotificationPanel from '../components/NotificationPanel'
 import { LoginScreen } from '../screens/LoginScreen'
@@ -509,6 +510,17 @@ function MainNavigator() {
   )
 }
 
+/**
+ * AI 对话操控本端的挂载点(2026-09-21 立,agent-control 端侧桥接)。
+ *
+ * 只挂在已登录分支:桥接的登录态就是它自己这一份 —— 登出即随分支卸载断连、停保活 timer,
+ * 不留"store 已清但连接还在"的窗口。渲染 null,不参与任何布局。
+ */
+function UiControlBridgeLayer({ token }: { token: string | null }) {
+  useUiControlBridge({ token })
+  return null
+}
+
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -766,6 +778,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="TopicList" component={TopicListScreen} />
             <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
             <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
+            {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局) */}
+            <UiControlBridgeLayer token={token} />
           </>
         ) : (
           <>

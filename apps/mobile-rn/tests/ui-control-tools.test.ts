@@ -2,48 +2,57 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback } from 'react'
-import type { WSNotification } from '@ihui/api-client'
-import {
-  useNotificationStore as useSharedNotificationStore,
-  type NotificationState,
-} from '@ihui/shared/notifications/notification-store'
-
-export {
-  NotificationProvider,
-  type NotificationEntry,
-  type NotificationState,
-} from '@ihui/shared/notifications/notification-store'
-
 /**
- * agent-control 指令帧不是"给用户看的通知",必须挡在通知面板之外(2026-09-21 立)。
+ * RN 端 agentTools 预筛测试(2026-09-21)。
  *
- * 共享层的 transformWsNotification 对 data.type 是通用透传(未知类型回落标题"新通知"),
- * 而 api 侧 pushNotification 把 `agent.action` 与普通通知走同一条 /ws/notifications 广播。
- * 不挡的话,AI 每操控一次界面就往用户的通知列表塞一条空壳"新通知",并计入未读红点。
- * packages/shared 不在本端可改范围,故在端内消费入口这一层过滤。
+ * 这是整个 RN 操控桥的总闸:llm.py 的 tool loop 只在请求带非空 agentTools 时进入。
+ * 名字写错一个字母 = 模型拿不到工具;把 web_ui_* 漏进来 = 端侧只会回 TARGET_NOT_CONNECTED。
  */
-const AGENT_ACTION_TYPE = 'agent.action'
+import { describe, it, expect } from 'vitest'
+import {
+  API_CONTROL_TOOLS,
+  MOBILE_UI_CONTROL_TOOLS,
+  uiControlToolsFor,
+} from '../src/lib/ui-control-tools'
 
-export function isAgentActionMessage(msg: WSNotification | null): boolean {
-  if (!msg || msg.type !== 'notification') return false
-  const data = (msg as { data?: { type?: unknown } }).data
-  return data?.type === AGENT_ACTION_TYPE
-}
+describe('MOBILE_UI_CONTROL_TOOLS 与 ai-service 注册面一致', () => {
+  it('恰好四个动作,且全部 mobile_ui_ 前缀', () => {
+    expect(MOBILE_UI_CONTROL_TOOLS).toHaveLength(4)
+    for (const name of MOBILE_UI_CONTROL_TOOLS) expect(name.startsWith('mobile_ui_')).toBe(true)
+  })
 
-/** 共享 store 的薄封装:除 addFromWs 过滤指令帧外,其余字段原样透传 */
-export function useNotificationStore(): NotificationState {
-  const store = useSharedNotificationStore()
-  const { addFromWs } = store
+  it('不含 click/fill/submit(RN 无同源 DOM,这三动词刻意不暴露)', () => {
+    for (const banned of ['mobile_ui_click', 'mobile_ui_fill', 'mobile_ui_submit']) {
+      expect(MOBILE_UI_CONTROL_TOOLS).not.toContain(banned)
+    }
+  })
 
-  const addFromWsFiltered = useCallback(
-    (msg: WSNotification | null) => {
-      if (isAgentActionMessage(msg)) return
-      addFromWs(msg)
-    },
-    [addFromWs],
-  )
+  it('绝不混入 web_ui_* / taro_ui_*(api 按 category 一对一择端,带错族名等于操控别的设备)', () => {
+    for (const name of uiControlToolsFor('打开钱包页并列出所有用户')) {
+      expect(name.startsWith('web_ui_')).toBe(false)
+      expect(name.startsWith('taro_ui_')).toBe(false)
+    }
+  })
+})
 
-  return { ...store, addFromWs: addFromWsFiltered }
-}
+describe('uiControlToolsFor', () => {
+  it('普通问答不带任何工具(保首字延迟)', () => {
+    expect(uiControlToolsFor('帮我写一封请假邮件')).toEqual([])
+    expect(uiControlToolsFor('')).toEqual([])
+  })
+
+  it('界面意图 → 整族四工具一起带(动作类依赖 describe 返回的命令 id,不能只给一半)', () => {
+    expect(uiControlToolsFor('打开钱包页面')).toEqual([...MOBILE_UI_CONTROL_TOOLS])
+  })
+
+  it('后端意图 → search + call 成对(只给 search 模型搜到了却调不动)', () => {
+    expect(uiControlToolsFor('列出所有订单')).toEqual([...API_CONTROL_TOOLS])
+  })
+
+  it('两类同时命中 → 两组都在且不重复', () => {
+    const got = uiControlToolsFor('打开钱包页,再查一下后端接口')
+    expect(got).toHaveLength(MOBILE_UI_CONTROL_TOOLS.length + API_CONTROL_TOOLS.length)
+    expect(new Set(got).size).toBe(got.length)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
