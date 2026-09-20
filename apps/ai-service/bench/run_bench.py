@@ -31,11 +31,13 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -55,10 +57,53 @@ AI_SERVICE_ROOT = BENCH_ROOT.parent
 # 这里在 argparse 之前按**绝对路径**加载 .env(override=False,不覆盖已注入的
 # 系统环境变量,与 main.py 的 setdefault 策略一致);无 .env 时为 no-op,
 # 不改变 CI(--executor stub/golden)既有行为。
+#
+# 2026-09-20 隔离修复:tests/test_bench.py::test_bench_smoke_self_healing 通过
+# 「子进程 env 清空全部 vendor key + LLM_PROVIDERS、cwd 换临时目录」表达无网
+# 隔离意图,期望 gateway 落 stub 降级、不真实调网;此前的无条件绝对路径
+# load_dotenv 会把 .env 里的 vendor key 回填进已清空的 os.environ,击穿该隔离
+# (self-healing smoke 实打真实 API,单测 82.51s + 网络费用)。改为条件加载:
+# - 标准调用(cwd=ai-service)或环境中本就有 vendor key → 全量加载,与
+#   2026-09-12 版行为一致(loop_v2 真实模式不受影响);
+# - 调用方显式清场(os.environ 无任何 vendor 形态 key 且无 LLM_PROVIDERS)
+#   且 cwd 不在 ai-service(如 smoke 子进程、CI 临时目录)→ 只回填基础设施
+#   变量(REDIS_URL 等,保住 2026-09-12 修复收益),vendor key 与
+#   LLM_PROVIDERS 一律不进 os.environ,尊重调用方的无网隔离。
+# vendor 形态判定用**超集**后缀模式:app.core.llm_gateway.VENDOR_ENV_KEYS 的
+# 全部成员命中(_KEY 覆盖 _API_KEY/_ACCESS_KEY/_SECRET_KEY,另有 _TOKEN、
+# _API_BASE(ollama/kilo/pollinations/ovh keyless)、_KEY_ID(AWS_ACCESS_KEY_ID))。
+# 无关变量被多隔离无副作用(bench 不消费它们);方向上宁可多隔离、不可漏一个。
+# 按约定不在 bench 内复制维护 VENDOR_ENV_KEYS 列表(llm_gateway.py 2026-08-31 注)。
+_VENDOR_KEY_SUFFIX_RE = re.compile(r".*(_API_KEY|_KEY|_TOKEN|_API_BASE|_KEY_ID)$")
+
 try:
+    from dotenv import dotenv_values as _dotenv_values
     from dotenv import load_dotenv as _load_dotenv
 
-    _load_dotenv(AI_SERVICE_ROOT / ".env")
+    _env_file_vals: dict[str, str] = {
+        k: v
+        for k, v in (_dotenv_values(AI_SERVICE_ROOT / ".env") or {}).items()
+        if v is not None
+    }
+
+    _os_env_is_cleared = (
+        "LLM_PROVIDERS" not in os.environ
+        and not any(_VENDOR_KEY_SUFFIX_RE.match(k) for k in os.environ)
+    )
+    _cwd_is_ai_service = Path.cwd().resolve() == AI_SERVICE_ROOT
+
+    if _os_env_is_cleared and not _cwd_is_ai_service:
+        # 显式无网隔离:仅回填基础设施配置(setdefault 语义,不覆盖已有值)
+        for _k, _v in _env_file_vals.items():
+            if (
+                _k != "LLM_PROVIDERS"
+                and not _VENDOR_KEY_SUFFIX_RE.match(_k)
+                and _k not in os.environ
+            ):
+                os.environ[_k] = _v
+    else:
+        # 标准 CLI 或未清场:全量加载(override=False,不覆盖已注入的系统变量)
+        _load_dotenv(AI_SERVICE_ROOT / ".env")
 except Exception:  # noqa: BLE001 - 缺 dotenv 依赖时静默跳过
     pass
 
@@ -302,6 +347,39 @@ def _build_tools(allowed_tools: list[str], workdir: Path) -> list[Any]:
     return tools
 
 
+def _score_golden_task(task: dict[str, Any], base_workdir: Path) -> dict[str, Any]:
+    """golden 执行器单任务:拷贝 fixtures_golden 参考答案 → 直接评分。
+
+    纯同步 + 线程安全(独立 workdir、只读全局、不触碰 os.environ),
+    供 _run_all_golden_parallel 在线程池中并发调用;
+    _run_task 的 golden 分支也委托到这里,保持单一实现。
+    """
+    workdir = base_workdir / f"task_{task['id']}"
+    if workdir.exists():
+        shutil.rmtree(workdir)
+    fixture = GOLDEN_FIXTURES_ROOT / task["fixture"]
+    shutil.copytree(fixture, workdir)
+
+    # 参考答案应让全部检查通过,无需(也不应)跑 agent 循环
+    checks, passed, total = score_task(task, workdir)
+    task_pass = total > 0 and passed == total
+    return {
+        "id": task["id"],
+        "title": task.get("title", ""),
+        "category": task.get("category", ""),
+        "fixture": task.get("fixture", ""),
+        "iterations": 0,
+        "duration_ms": 0.0,
+        "stop_reason": "golden",
+        "self_heal_runs": 0,
+        "checks": checks,
+        "checks_passed": passed,
+        "checks_total": total,
+        "pass": task_pass,
+        "workdir": str(workdir),
+    }
+
+
 async def _run_task(
     task: dict[str, Any],
     executor: str,
@@ -312,38 +390,20 @@ async def _run_task(
 ) -> dict[str, Any]:
     """拷贝 fixture → 临时目录 → 构造 AgentLoopV2 执行 → 评分。
 
-    golden 执行器跳过 agent 循环,直接拷贝 fixtures_golden 参考答案评分。
+    golden 执行器跳过 agent 循环,委托 _score_golden_task 直接评分。
     compaction_enabled/context_limit:1-3 对比模式(--compare-compaction)显式
     控制压缩开关与窗口;默认 None 走 AgentLoopV2 既有 env/灰度决策路径。
     """
     from app.services.agent_loop_v2 import AgentLoopV2
 
+    if executor == "golden":
+        return _score_golden_task(task, base_workdir)
+
     workdir = base_workdir / f"task_{task['id']}"
     if workdir.exists():
         shutil.rmtree(workdir)
-    fixture_root = GOLDEN_FIXTURES_ROOT if executor == "golden" else FIXTURES_ROOT
-    fixture = fixture_root / task["fixture"]
+    fixture = FIXTURES_ROOT / task["fixture"]
     shutil.copytree(fixture, workdir)
-
-    if executor == "golden":
-        # golden:参考答案应让全部检查通过,无需(也不应)跑 agent 循环
-        checks, passed, total = score_task(task, workdir)
-        task_pass = total > 0 and passed == total
-        return {
-            "id": task["id"],
-            "title": task.get("title", ""),
-            "category": task.get("category", ""),
-            "fixture": task.get("fixture", ""),
-            "iterations": 0,
-            "duration_ms": 0.0,
-            "stop_reason": "golden",
-            "self_heal_runs": 0,
-            "checks": checks,
-            "checks_passed": passed,
-            "checks_total": total,
-            "pass": task_pass,
-            "workdir": str(workdir),
-        }
 
     # 工具路径校验依赖 MCP_WORKSPACE_ROOTS;指向本次副本,避免越权访问仓库真实代码
     prev_roots = os.environ.get("MCP_WORKSPACE_ROOTS")
@@ -437,6 +497,64 @@ async def _run_task(
     }
 
 
+def _run_all_golden_parallel(
+    tasks: list[dict[str, Any]],
+    base_workdir: Path,
+) -> list[dict[str, Any]]:
+    """golden 执行器并发执行:任务级线程池(2026-09-20 性能根治)。
+
+    根因:41 任务串行 × 30 次 pytest_pass 检查各自冷启动一个 pytest 子进程
+    (timeout=180s),全量 golden 实测 104.91s。golden 路径任务间零共享状态
+    (独立 workdir、不触碰 os.environ、subprocess.run 线程安全),可安全并发。
+    结果顺序(按任务原始顺序)与逐任务进度打印契约与串行版完全一致;
+    单任务异常兜底沿用 error record 结构。非 golden 执行器不走此路径
+    (agent 循环共享 os.environ 等进程级状态,必须串行)。
+    """
+    max_workers = max(1, min(len(tasks), os.cpu_count() or 4))
+    results: list[dict[str, Any] | None] = [None] * len(tasks)
+    done_count = 0
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_index: dict[Any, int] = {}
+        for i, task in enumerate(tasks):
+            fut = pool.submit(_score_golden_task, task, base_workdir)
+            future_index[fut] = i
+
+        for fut in as_completed(future_index):
+            task = tasks[future_index[fut]]
+            try:
+                rec = fut.result()
+            except Exception as e:  # noqa: BLE001 - 单任务异常不应中断整轮 bench
+                rec = {
+                    "id": task.get("id"),
+                    "title": task.get("title", ""),
+                    "category": task.get("category", ""),
+                    "fixture": task.get("fixture", ""),
+                    "iterations": 0,
+                    "duration_ms": 0.0,
+                    "stop_reason": "error",
+                    "self_heal_runs": 0,
+                    "checks": [],
+                    "checks_passed": 0,
+                    "checks_total": 0,
+                    "pass": False,
+                    "workdir": "",
+                    "error": str(e),
+                }
+            results[future_index[fut]] = rec
+            done_count += 1
+            status = "PASS" if rec["pass"] else "FAIL"
+            print(
+                f"({done_count}/{len(tasks)}) [{rec['id']}] {rec['title']} -> {status} "
+                f"({rec['checks_passed']}/{rec['checks_total']} checks, "
+                f"{rec['iterations']} iters, {rec['duration_ms']}ms)",
+                flush=True,
+            )
+
+    # as_completed 乱序完成,按任务原始顺序重组,保证报告/JSON 结果顺序稳定
+    return [rec for rec in results if rec is not None]
+
+
 async def _run_all(
     tasks: list[dict[str, Any]],
     executor: str,
@@ -445,7 +563,14 @@ async def _run_all(
     compaction_enabled: bool | None = None,
     compaction_context_limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """顺序执行所有(已过滤)任务,逐条打印进度并收集结果。"""
+    """执行所有(已过滤)任务,逐条打印进度并收集结果。
+
+    golden 执行器分流到线程池并发版(golden 任务间零共享状态,可安全并发);
+    其余执行器维持串行——agent 循环路径共享 os.environ 等进程级状态。
+    """
+    if executor == "golden":
+        return _run_all_golden_parallel(tasks, base_workdir)
+
     results: list[dict[str, Any]] = []
     for task in tasks:
         try:
