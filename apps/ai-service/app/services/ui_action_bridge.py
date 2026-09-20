@@ -2,21 +2,21 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""AI 全量操控桥接(2026-09-20 立):web 前端 UI 动作桥接(web_ui_* 七工具)。
+"""AI 全量操控桥接(2026-09-20 立):端侧 UI 动作桥接,三族工具共用一条链路。
 
 复用既有 agent-control 跨端控制协议(与 browser_*/computer_* 同一通道,不另造通道):
-ai-service → POST /api/agent-control/execute(category='ui')→ api 经 WebSocket 推给
-已上报 endpoint='web' 的前端实例 → 前端执行后 POST /api/agent-control/result →
+ai-service → POST /api/agent-control/execute(category=…)→ api 按 category 择端并经 WebSocket
+推给该用户已上线的端 → 端执行后 POST /api/agent-control/result →
 api 用 pending Map 把结果同步回给本工具。
 
-七个工具对应 UiControlActionType 七个动作:
-- web_ui_describe  拉取当前页面可操控清单(导航/命令/表单/交互元素)
-- web_ui_read      读取当前页面可读状态(标题/URL/可见文本/表单当前值)
-- web_ui_navigate  站内路由跳转(前端按 ui-routes 白名单校验)
-- web_ui_click     点击注册表内的按钮/链接/开关
-- web_ui_fill      填写输入框/下拉框
-- web_ui_submit    提交表单
-- web_ui_invoke    调用命令注册表里的命令(含 ChatMode 切换、面板开关)
+三族(web 有 DOM 故七动作;RN / 小程序无 DOM,不含 click/fill/submit):
+- web_ui_*     category='ui'         endpoint='web'      开关 UI_ACTION_TOOLS
+- mobile_ui_*  category='app_ui'     endpoint='rn'       开关 APP_UI_TOOLS
+- taro_ui_*    category='miniapp_ui' endpoint='miniapp'  开关 APP_UI_TOOLS
+
+web 七个动作:describe(可操控清单) / read(页面状态) / navigate(站内跳转) /
+click(点击) / fill(填写) / submit(提交) / invoke(命令,含 ChatMode、面板开关)。
+RN 与小程序各四个:describe / read / navigate / invoke。
 
 安全:
 - 必带 __user_id 代调身份,api 侧按 userId 过滤端点(多用户隔离),缺失即拒
@@ -53,10 +53,12 @@ _TOOL_PREFIX = "web_ui_"
 _DEFAULT_TIMEOUT_S = 20.0
 _MIN_TIMEOUT_S = 1.0
 
-# userId → 应答过的标签页实例 ID(2026-09-20 多标签页路由)。
+# (userId, category) → 应答过的端实例 ID(2026-09-20 多标签页路由)。
 # describe 返回的元素 id 只在**那一页**的映射里有意义;不钉回同一页,紧随其后的
 # fill/click 会被 api 投给"最后心跳"的另一个标签页 → SELECTOR_NOT_FOUND。
-_PINNED_INSTANCE: dict[str, str] = {}
+# 键必须带 category:同一用户可能 web/RN/小程序同时在线,三端各自钉各自的页,
+# 否则会拿 web 的 instanceId 去投 app_ui 指令,api 侧钉定失败静默回落 → 又串端。
+_PINNED_INSTANCE: dict[tuple[str, str], str] = {}
 
 
 def _timeout_seconds() -> float:
@@ -78,11 +80,20 @@ def _execute_url() -> str:
     return f"{settings.api_service_url}/api/agent-control/execute"
 
 
-async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
-    """把一个 ui 动作转发到 api 层 agent-control 并归一化回执。
+async def _ui_call(
+    action: str,
+    args: dict[str, Any],
+    category: str = _CATEGORY,
+    prefix: str = _TOOL_PREFIX,
+) -> dict[str, Any]:
+    """把一个 UI 动作转发到 api 层 agent-control 并归一化回执。
+
+    category/prefix 参数化是因为 web('ui'/web_ui_)、RN('app_ui'/mobile_ui_)、
+    小程序('miniapp_ui'/taro_ui_)三族走的是同一条 agent-control 链路,只有
+    投递类别与工具名前缀不同 —— 共用一份身份剥离、fail-closed、超时与回执归一化逻辑。
 
     params 只带模型给的可见参数:内部注入字段(__user_id/__user_role/__session_id)
-    一律剥离,不下发到浏览器(与 mcp_stdio_bridge 的前缀剥离约定一致)。
+    一律剥离,不下发到端上(与 mcp_stdio_bridge 的前缀剥离约定一致)。
     """
     user_id = str(args.get("__user_id") or "").strip()
     if not user_id:
@@ -102,7 +113,7 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
     timeout_s = _timeout_seconds()
     request: dict[str, Any] = {
         "requestId": f"ui-{uuid.uuid4().hex[:12]}",
-        "category": _CATEGORY,
+        "category": category,
         "action": action,
         "params": params,
         "userId": user_id,
@@ -111,7 +122,7 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
     session_id = str(args.get("__session_id") or "").strip()
     if session_id:
         request["sessionId"] = session_id
-    pinned = _PINNED_INSTANCE.get(user_id)
+    pinned = _PINNED_INSTANCE.get((user_id, category))
     if pinned:
         request["targetInstanceId"] = pinned
     started = time.monotonic()
@@ -139,7 +150,7 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
         data = {}
     out: dict[str, Any] = {
         "ok": bool(data.get("success", False)),
-        "tool": f"{_TOOL_PREFIX}{action}",
+        "tool": f"{prefix}{action}",
         "action": action,
         "durationMs": int((time.monotonic() - started) * 1000),
     }
@@ -148,21 +159,23 @@ async def _ui_call(action: str, args: dict[str, Any]) -> dict[str, Any]:
         out["result"] = result
         answered = str(result.get("instanceId") or "").strip()
         if answered:
-            _PINNED_INSTANCE[user_id] = answered
+            _PINNED_INSTANCE[(user_id, category)] = answered
     if not out["ok"]:
         out["error"] = str(data.get("error") or "前端执行失败")
         out["errorCode"] = data.get("errorCode") or "EXECUTION_FAILED"
-        # 钉定的标签页已经关掉/掉线:清掉,下一条命令回落"最近活跃端"重新探测
+        # 钉定的页面已经关掉/掉线:清掉,下一条命令回落"最近活跃端"重新探测
         if out["errorCode"] == "TARGET_NOT_CONNECTED":
-            _PINNED_INSTANCE.pop(user_id, None)
+            _PINNED_INSTANCE.pop((user_id, category), None)
     return out
 
 
-def _make_ui_handler(action: str) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
-    """生成绑定 action 的 handler(闭包,供 register_external_tool 注入)。"""
+def _make_ui_handler(
+    action: str, category: str = _CATEGORY, prefix: str = _TOOL_PREFIX
+) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
+    """生成绑定 (action, category, prefix) 的 handler(闭包,供 register_external_tool 注入)。"""
 
     async def handler(args: dict[str, Any]) -> dict[str, Any]:
-        return await _ui_call(action, args)
+        return await _ui_call(action, args, category, prefix)
 
     return handler
 
@@ -286,5 +299,99 @@ def register_ui_action_tools() -> int:
             count += 1
     if count:
         logger.info("[ui_bridge] 前端 UI 动作桥接注册完成: %d 个工具", count)
+    return count
+
+
+# ---------------------------------------------------------------------------
+# RN / 微信小程序 工具族(2026-09-21 立,AGENTS.md §9 多端同步)
+# ---------------------------------------------------------------------------
+# 与 web 族共用 _ui_call(身份剥离 / fail-closed / 超时 / 钉定),只有 category、
+# 工具前缀与动作集合不同。RN 与小程序没有 DOM,故**只有四个动作**
+# (describe/navigate/read/invoke):没有 click/fill/submit 不是偷懒 —— 那三个动作
+# 在无 DOM 端必须由业务组件逐个暴露写入通道才成立,不在本次范围。
+
+_FAMILY_RN = "mobile"
+_FAMILY_TARO = "taro"
+
+# family → (category, 工具前缀, 端说明)
+_FAMILIES: dict[str, tuple[str, str, str]] = {
+    _FAMILY_RN: ("app_ui", "mobile_ui_", "React Native App"),
+    _FAMILY_TARO: ("miniapp_ui", "taro_ui_", "微信小程序"),
+}
+
+
+def _app_tools(family: str) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]]:
+    """一个 app 端的四工具定义 + handler(动作集固定为 describe/navigate/read/invoke)。"""
+    category, prefix, label = _FAMILIES[family]
+    offline_hint = (
+        "该端切到后台会挂起导致 TARGET_NOT_CONNECTED,这属常态:"
+        "遇到时提示用户把" + label + "切到前台并保持打开,再重试,不要谎称已完成。"
+    )
+    specs: list[tuple[str, str, dict[str, Any]]] = [
+        (
+            "describe",
+            f"[UI桥接|{label}] 列举{label}可导航到的页面清单(含是否需要参数、是否 tab 页)、"
+            f"可调用命令与当前所在页。返回 {{result:{{registry:{{screen,routes,commands,authed}}}}}};"
+            "authed=false 表示未登录,此时绝大多数页面未挂载,跳转会静默失败。"
+            + offline_hint,
+            {"type": "object", "properties": {}},
+        ),
+        (
+            "read",
+            f"[UI桥接|{label}] 读取当前所在页面(路由名/key/参数键),用于确认导航是否真的到了目标页。"
+            + offline_hint,
+            {"type": "object", "properties": {}},
+        ),
+        (
+            "navigate",
+            f"[UI桥接|{label}] 导航到 web_ui_describe 返回的某个页面。name 必须在白名单内"
+            "否则 ROUTE_NOT_ALLOWED;需要参数的页面必须同时给 args。导航后务必用 "
+            f"{prefix}read 核对。" + offline_hint,
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": f"页面名(来自 {prefix}describe 的 routes)"},
+                    "args": {"type": "object", "description": "路由参数(按页面 requiresParams 提供)"},
+                },
+                "required": ["name"],
+            },
+        ),
+        (
+            "invoke",
+            f"[UI桥接|{label}] 调用一个已注册命令(如主题切换)。name 来自 {prefix}describe 的 "
+            "commands;不在白名单返回 UNSUPPORTED_ACTION。破坏性动作(如退出登录)刻意不暴露。"
+            + offline_hint,
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string", "description": "命令 ID"}},
+                "required": ["name"],
+            },
+        ),
+    ]
+    out: list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]] = []
+    for action, description, input_schema in specs:
+        out.append(
+            (
+                MCPTool(name=f"{prefix}{action}", description=description, input_schema=input_schema),
+                _make_ui_handler(action, category, prefix),
+            )
+        )
+    return out
+
+
+def register_app_ui_tools() -> int:
+    """注册 RN / 小程序 UI 桥接工具(APP_UI_TOOLS=false 时全关并清旧)。"""
+    if os.environ.get("APP_UI_TOOLS", "true").strip().lower() in {"false", "0", "no", "off"}:
+        logger.info("[ui_bridge] APP_UI_TOOLS 关闭,跳过 RN/小程序 UI 桥接注册")
+        for _category, prefix, _label in _FAMILIES.values():
+            unregister_external_tool_by_prefix(prefix)
+        return 0
+    count = 0
+    for family in _FAMILIES:
+        for tool, handler in _app_tools(family):
+            if register_external_tool(tool, handler):
+                count += 1
+    if count:
+        logger.info("[ui_bridge] RN/小程序 UI 动作桥接注册完成: %d 个工具", count)
     return count
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
