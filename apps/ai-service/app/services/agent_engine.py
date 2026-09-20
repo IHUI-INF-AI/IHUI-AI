@@ -86,6 +86,7 @@ from app.core.image_preparation import (
     load_data_url_for_prompt as _load_data_url_for_prompt,
 )
 from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
+from app.core.retained_context import RetainedContext, RetainedUserMessage  # 批58:宿主事实账本(对标 codex retained_context.rs)
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
 
@@ -509,6 +510,10 @@ class EngineThread:
     # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,对标 Codex TurnDiffTracker):
     # 补丁提交时累计净变更,inexact 即整体失效;turn.diff 优先取净 diff
     turn_diff_tracker: Any = None
+    # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+    # 默认 None(off,零行为变化);IHUI_RETAINED_CONTEXT_ENABLED=1 时每轮记录
+    # 已投递用户指令,压缩不过期它们,指令边界回滚才清除。
+    retained_context: RetainedContext | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -2141,6 +2146,15 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+        # off → None(零行为变化);on → 线程持有账本,每轮记录已投递用户指令。
+        if os.environ.get("IHUI_RETAINED_CONTEXT_ENABLED", "false").strip().lower() in (
+            "on", "1", "true", "yes",
+        ):
+            try:
+                thread.retained_context = RetainedContext()
+            except Exception as e:  # noqa: BLE001 - 构造失败降级不启用
+                logger.warning("retained_context 构造失败(降级不启用): %s", e)
         # 项目文档注入(批58 状态机增量注入开关):开关 off 时与原纯字符串拼接逐字节等价。
         self._inject_agents_md(thread)
         # 固化起始请求的出站通道:workspace watcher 等引擎自产事件在无活动
@@ -2273,6 +2287,21 @@ class AgentEngine:
         # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing)
         turn_started_at = time.time()
         thread.last_turn_timing = {"startedAt": turn_started_at}
+        # 批58(接线):retained context 记录(对标 codex retained_context.rs)。
+        # 每轮把已投递用户指令存入宿主账本(模型不可见;压缩不过期,指令边界
+        # 回滚才清除)。off/None/异常均零行为变化,不阻塞回合。
+        if thread.retained_context is not None and text.strip():
+            try:
+                thread.retained_context.record_user_message(
+                    RetainedUserMessage(
+                        turn_id=thread.current_turn_id or str(uuid.uuid4().hex),
+                        message_id=f"{thread.thread_id}:{int(turn_started_at * 1000)}",
+                        text=text,
+                        complete=True,
+                    )
+                )
+            except Exception as e:  # noqa: BLE001 - 记录失败降级跳过
+                logger.warning("retained_context 记录失败(降级跳过): %s", e)
         before_files = await self._workspace_dirty_files(thread)
         # 非 git 工作区兜底:回合前 mtime 快照(第十四批,对标 Codex 在无 git
         # 仓库下仍能给出回合变更清单;上限 2000 项,失败静默降级为空)
@@ -2794,6 +2823,38 @@ class AgentEngine:
         """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
         with contextlib.suppress(Exception):
             thread.agents_md_state.reset()
+
+    def retained_context_entries(self, thread: EngineThread) -> list[dict[str, Any]]:
+        """读线程宿主事实账本的用户指令条目(批58,off/None 返回空;异常隔离)。
+
+        对标 codex retained_context.rs:宿主持有的模型不可见事实,供委托审查
+        与诊断;不经模型上下文暴露,仅服务端/管理面可读。
+        """
+        if thread.retained_context is None:
+            return []
+        try:
+            return [
+                {"message_id": e.value.message_id, "text": e.value.text}
+                for e in thread.retained_context.user_messages
+            ]
+        except Exception:  # noqa: BLE001 - 读取失败降级为空
+            return []
+
+    def rollback_retained_context(
+        self, thread: EngineThread, turn_ids: list[str]
+    ) -> bool:
+        """指令边界回滚:按原用户消息边界清除账本条目(批58,异常隔离)。
+
+        对标 codex retained_context.rs::rollback —— 指令边界回滚(如 queue
+        回退/线程分支)时清除其后的事实;压缩不过期它们。
+        """
+        if thread.retained_context is None:
+            return False
+        try:
+            thread.retained_context.rollback(list(turn_ids), None)
+            return True
+        except Exception:  # noqa: BLE001 - 回滚失败降级
+            return False
 
     def _inject_agents_md(self, thread: EngineThread) -> None:
         """项目文档 AGENTS.md 注入(2026-09-20 批58,对标 codex agents_md.rs)。
