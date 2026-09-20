@@ -19,6 +19,7 @@ import pytest
 
 from app.services.importers import SOURCES, parse_conversation_file
 from app.services.importers.ir import (
+    MAX_CONVERSATION_CONTENT_CHARS,
     MAX_CONVERSATIONS,
     MAX_MESSAGES_PER_CONVERSATION,
     Conversation,
@@ -564,6 +565,19 @@ def test_finalize_truncates_oversized_content() -> None:
     assert len(content) < 300_000
     assert content.endswith("已截断]")
     assert any("已截断" in w for w in warnings)
+
+
+def test_finalize_caps_conversation_volume() -> None:
+    """单会话正文累计超上限必须截断:否则 /commit 会撞 api 侧 Fastify bodyLimit 变 413。"""
+    msgs = [Message("user", "y" * 60_000) for _ in range(50)]  # 合计 3,000,000 字符
+    parsed, warnings, truncated = finalize(
+        ParseResult([Conversation(messages=msgs)]), source="codex"
+    )
+    kept = parsed["conversations"][0]["messages"]
+    assert 0 < len(kept) < len(msgs)
+    assert sum(len(m["content"]) for m in kept) <= MAX_CONVERSATION_CONTENT_CHARS
+    assert truncated is True
+    assert any("10MiB" in w for w in warnings)
 
 
 def test_finalize_falls_back_to_first_user_message_as_title() -> None:

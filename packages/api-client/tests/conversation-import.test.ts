@@ -134,12 +134,14 @@ describe('conversation-import 端点', () => {
     expect(init.headers?.['Content-Type']).toBeUndefined()
   })
 
-  it('4xx 业务错误:不抛错,返回 success=false + message + status', async () => {
+  it('4xx 且响应体是 FastAPI {detail}(ai-service 透传形态):取 detail 而非裸 JSON', async () => {
+    // /parse 的错误由 api 原样透传 ai-service,形态是 {"detail": "..."};
+    // 只认 message 会让调用方把整段 JSON 甩进 toast。
     const transport = vi.fn(async () => ({
       ok: false,
       status: 400,
       headers: { get: () => null },
-      text: async () => JSON.stringify({ message: '文件超过大小限制' }),
+      text: async () => JSON.stringify({ detail: '不支持的文件类型: .txt' }),
       json: async () => ({}),
     })) as unknown as Transport
     setTransport(transport)
@@ -147,10 +149,24 @@ describe('conversation-import 端点', () => {
     const result = await getConversationImportHistory()
 
     expect(result.success).toBe(false)
-    if (!result.success) {
-      expect(result.error).toBe('文件超过大小限制')
-      expect(result.status).toBe(400)
-    }
+    if (!result.success) expect(result.error).toBe('不支持的文件类型: .txt')
+  })
+
+  it('4xx 且 detail 是非字符串(FastAPI 校验数组):不误用,回退原始文本', async () => {
+    const raw = JSON.stringify({ detail: [{ msg: 'required' }] })
+    const transport = vi.fn(async () => ({
+      ok: false,
+      status: 422,
+      headers: { get: () => null },
+      text: async () => raw,
+      json: async () => ({}),
+    })) as unknown as Transport
+    setTransport(transport)
+
+    const result = await getConversationImportHistory()
+
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error).toBe(raw)
   })
 
   it('5xx 服务不可用:抛错后被归一化为 success=false + status', async () => {
