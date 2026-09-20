@@ -8,6 +8,8 @@
  * 映射规则:
  *   - IHUI_API_URL → apiUrl
  *   - IHUI_API_KEY → apiKey
+ *   - IHUI_API_SECRET → apiSecret(机器凭据 X-Api-Secret,O12)
+ *   - IHUI_CREDENTIAL_KIND → credentialKind(auto|api_key|jwt,O12)
  *   - IHUI_DEFAULT_MODEL → defaultModel
  *   - IHUI_MAX_ITERATIONS → maxIterations(数字)
  *   - IHUI_AUDIT_ENABLED → auditEnabled(布尔)
@@ -30,6 +32,9 @@ import { setNestedPath } from './cli.js'
 const ENV_MAPPING: Record<string, { path: string; type: 'string' | 'number' | 'boolean' }> = {
   IHUI_API_URL: { path: 'apiUrl', type: 'string' },
   IHUI_API_KEY: { path: 'apiKey', type: 'string' },
+  // O12 机器凭据:secret 与凭据种类声明(IHUI_SERVE_* 前缀属入站配置,由 serve 直读 env)
+  IHUI_API_SECRET: { path: 'apiSecret', type: 'string' },
+  IHUI_CREDENTIAL_KIND: { path: 'credentialKind', type: 'string' },
   IHUI_DEFAULT_MODEL: { path: 'defaultModel', type: 'string' },
   IHUI_MAX_ITERATIONS: { path: 'maxIterations', type: 'number' },
   IHUI_AUDIT_ENABLED: { path: 'auditEnabled', type: 'boolean' },

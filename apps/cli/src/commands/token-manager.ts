@@ -17,12 +17,15 @@
  *   - 检测 access token 是否过期:JWT payload 解析 exp 字段,提前 30s 视为过期(避免请求中途过期)
  *   - refresh 失败时返回原 token,让上游 API 返回 401,由调用方提示用户重新登录
  *   - 并发去重:多个命令同时调用 ensureFreshAccessToken 时,只触发一次 refresh
+ *   - O12 机器凭据隔离:`apiKey` 为服务端 API Key(ihui_ 前缀)时**不参与续期**
+ *     (它没有 exp / refresh 语义),原样返回;落盘守卫亦拒绝用 JWT 覆盖机器凭据。
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getSettingsPath, loadSettings, type Settings } from './settings.js';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { classifyCredential, isMachineCredential } from '../config/credentials.js';
 
 interface JwtPayload {
   exp?: number;
@@ -67,8 +70,19 @@ export function isAccessTokenExpired(token: string | undefined): boolean {
   return now + EXPIRY_LEAD_TIME_SECONDS >= exp;
 }
 
-/** 持久化新 token 对到 settings.json(保留其他字段)。 */
-function persistTokens(accessToken: string, refreshToken: string): void {
+/**
+ * 持久化新 token 对到 settings.json(保留其他字段)。
+ *
+ * O12 凭据种类显式化:
+ *   - 既有 apiKey 是机器凭据(ihui_ 前缀)时**拒绝覆盖** —— 人的 JWT 不得挤掉机器凭据,
+ *     否则一次意外的续期就会静默改掉 serve/CI 用的机器身份。此处按**前缀**判定而非按
+ *     声明判定:`ihui_` 开头就是服务端 API Key,与 settings 里写了什么无关,保护必须比
+ *     声明更硬。
+ *   - 写入成功时把 `credentialKind` 落为 `'jwt'`(仅当原先未显式声明),
+ *     把"apiKey 里塞的是 JWT"这一历史隐含事实变成显式记录。
+ * 返回是否真正写入(供调用方诊断)。
+ */
+function persistTokens(accessToken: string, refreshToken: string): boolean {
   const settingsPath = getSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -83,9 +97,16 @@ function persistTokens(accessToken: string, refreshToken: string): void {
       // 读文件失败,从头建
     }
   }
+  if (classifyCredential(existing.apiKey) === 'api_key') {
+    return false;
+  }
   existing.apiKey = accessToken;
   existing.refreshToken = refreshToken;
+  if (existing.credentialKind === undefined || existing.credentialKind === 'auto') {
+    existing.credentialKind = 'jwt';
+  }
   fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+  return true;
 }
 
 /** 调用 /api/auth/refresh 换新 token。失败返回 null。 */
@@ -130,6 +151,13 @@ let inflightRefresh: Promise<string | null> | null = null;
 export async function ensureFreshAccessToken(apiUrl: string): Promise<string | null> {
   const settings = loadSettings();
   const accessToken = settings.apiKey;
+
+  // O12:机器凭据(ihui_ API Key)不参与本地续期 —— 它没有 exp / refresh 语义。
+  // 若放任它进入 refresh 分支,会拿"上次登录残留的 refreshToken"去换人的 JWT 并覆盖
+  // apiKey,造成凭据串型(机器身份被人身份悄悄替换)。
+  if (isMachineCredential(accessToken, settings.credentialKind ?? 'auto')) {
+    return accessToken ?? null;
+  }
 
   // 1. access token 未过期,直接返回
   if (accessToken && !isAccessTokenExpired(accessToken)) {

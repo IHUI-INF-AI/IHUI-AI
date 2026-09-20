@@ -9,17 +9,37 @@
  * typecheck 失败。运行时若 ws 包未安装,attachWsBridge 抛出友好错误。
  *
  * 协议:client 发送 JSON {type:'message', text, sessionId?},server 流式推送 AgentEvent,
- * 最终推送 {type:'result', ...} 或 {type:'error', message}。
+ * 最终推送 {type:'result', ...} 或 {type:'error', message, errorCode?}。
+ *
+ * 鉴权(O12 两条通道,与 HTTP 面同一实现):
+ *   1. `Authorization: Bearer <IHUI_AGENT_TOKEN>` 握手头,或既有的 `?token=` query
+ *   2. 服务端 API Key:`Authorization: Bearer ihui_xxx` + `X-Api-Secret: sk_xxx`,
+ *      并按 /ws 端点所需 scope(chat:write)做能力闸
+ *   拒绝时先发一帧 `{type:'error', errorCode, message}` 再关闭,让机器 client 能判别原因,
+ *   而不是只拿到一个 4001 关闭码。
  */
 
 import { createRequire } from 'node:module';
-import type { Server } from 'node:http';
+import type { IncomingHttpHeaders, Server } from 'node:http';
 import type { AgentCore, AgentEvent } from './agent-core.js';
+import {
+  authenticateInbound,
+  classifyAuthError,
+  type InboundAuthContext,
+  type MachineKeyEntry,
+} from '../config/credentials.js';
+import type { ApiKeyPermission } from '@ihui/types';
 
 const dynamicRequire = createRequire(import.meta.url);
 
+/** /ws 只做消息驱动,所需能力与 POST /message 一致。 */
+const WS_REQUIRED_SCOPE: ApiKeyPermission = 'chat:write';
+
 interface WsServerLike {
-  on(event: 'connection', listener: (ws: WsSocketLike, req: { url?: string }) => void): void;
+  on(
+    event: 'connection',
+    listener: (ws: WsSocketLike, req: { url?: string; headers?: IncomingHttpHeaders }) => void,
+  ): void;
   close(callback?: () => void): void;
 }
 
@@ -38,6 +58,10 @@ export interface WsBridgeOptions {
   server: Server;
   path?: string;
   token?: string;
+  /** O12:放行的机器凭据清单 */
+  machineKeys?: MachineKeyEntry[];
+  /** O12:机器凭据是否必须携带 X-Api-Secret,默认 true */
+  requireApiSecret?: boolean;
 }
 
 export interface WsBridgeHandle {
@@ -56,9 +80,19 @@ function loadWsServer(): WsServerCtor | null {
   }
 }
 
+/** 取单值请求头(重复头时 node:http 给数组)。 */
+function headerValue(raw: string | string[] | undefined): string | undefined {
+  if (Array.isArray(raw)) return raw[0];
+  return raw;
+}
+
 export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Promise<WsBridgeHandle> {
   const path = opts.path ?? '/ws';
-  const token = opts.token ?? process.env.IHUI_AGENT_TOKEN;
+  const authCtx: InboundAuthContext = {
+    agentToken: opts.token ?? process.env.IHUI_AGENT_TOKEN,
+    machineKeys: opts.machineKeys ?? [],
+    requireApiSecret: opts.requireApiSecret,
+  };
 
   const WsServer = loadWsServer();
   if (!WsServer) {
@@ -71,12 +105,33 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
   const clients = new Set<WsSocketLike>();
 
   wss.on('connection', (ws, req) => {
-    if (token) {
-      const url = new URL(req.url ?? '', 'http://localhost');
-      if (url.searchParams.get('token') !== token) {
-        ws.close(4001, 'Unauthorized');
-        return;
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const headers = req.headers ?? {};
+    const decision = authenticateInbound(
+      {
+        authorization: headerValue(headers.authorization),
+        apiSecret: headerValue(headers['x-api-secret']),
+        // 既有 client 用 ?token= 传凭据,继续接受(header 优先)
+        queryToken: url.searchParams.get('token') ?? undefined,
+        requiredScope: WS_REQUIRED_SCOPE,
+      },
+      authCtx,
+    );
+    if (!decision.ok) {
+      try {
+        ws.send(
+          JSON.stringify({
+            type: 'error',
+            message: decision.message,
+            errorCode: decision.errorCode,
+            ...(decision.requiredScope ? { requiredScope: decision.requiredScope } : {}),
+          }),
+        );
+      } catch {
+        // 握手后 socket 可能已被对端关闭,关闭码仍携带原因
       }
+      ws.close(decision.status === 403 ? 4003 : 4001, decision.errorCode);
+      return;
     }
     clients.add(ws);
     ws.on('message', (data: Buffer) => {
@@ -118,10 +173,13 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
       }
     } catch (err) {
       if (ws.readyState === 1) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const errorCode = classifyAuthError(err);
         ws.send(
           JSON.stringify({
             type: 'error',
-            message: err instanceof Error ? err.message : String(err),
+            message: msg,
+            ...(errorCode ? { errorCode } : {}),
           }),
         );
       }

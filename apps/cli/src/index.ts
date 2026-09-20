@@ -25,6 +25,10 @@ import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
 import { tryParseJson, isRecord } from './util/json.js';
+import {
+  installOutboundCredentialHeaders,
+  resolveOutboundCredential,
+} from './config/credentials.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
 import { loadSkills, findSkill } from './skills/index.js';
@@ -333,6 +337,16 @@ program.hook('preAction', async () => {
   });
   setBaseUrl(cfg.apiUrl);
   setDeviceFingerprintProvider(cliDeviceFingerprintCollector);
+  // O12 机器凭据:出站必须同时携带 Authorization: Bearer ihui_xxx 与 X-Api-Secret: sk_xxx
+  // (api-client 只负责前者)。人凭据(JWT)在此 passthrough,行为完全不变 ⇒ 零回归。
+  installOutboundCredentialHeaders(
+    resolveOutboundCredential({
+      cliApiKey: cfg.apiKey,
+      cliApiSecret: cfg.apiSecret,
+      cliCredentialKind: cfg.credentialKind,
+    }),
+    cfg.apiUrl,
+  );
   if (cfg.apiKey) {
     if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
       console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量或 settings.json'));
