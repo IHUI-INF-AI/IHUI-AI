@@ -632,11 +632,13 @@ class SpecService {
     // author
     let author = 'Unknown'
     try {
+      // windowsHide: 常驻服务无控制台，Windows 下派生 git 子进程必分配可见控制台，显式隐藏
       const out = execSync('git config user.name', {
         cwd: isAbsolute(root) && root ? root : undefined,
         encoding: 'utf-8',
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'ignore'],
+        windowsHide: true,
       })
       author = out.trim() || 'Unknown'
     } catch {
@@ -1399,6 +1401,7 @@ ${requirementPreview}
             encoding: 'utf-8',
             timeout: 15000,
             stdio: ['pipe', 'pipe', 'ignore'],
+            windowsHide: true,
           },
         )
         commitSha = execSync('git rev-parse HEAD', {
@@ -1406,6 +1409,7 @@ ${requirementPreview}
           encoding: 'utf-8',
           timeout: 5000,
           stdio: ['pipe', 'pipe', 'ignore'],
+          windowsHide: true,
         }).trim()
         stages.push({
           name: 'commit',
