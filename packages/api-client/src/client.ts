@@ -336,6 +336,9 @@ async function fetchOnce<T>(
     try {
       const parsed = JSON.parse(text)
       if (parsed && typeof parsed.message === 'string') message = parsed.message
+      // FastAPI 的错误体是 {detail:"..."}(api 原样透传 ai-service 的 4xx 全属此类);
+      // 只认 message 会让调用方 toast 直接显示整段原始 JSON 文本。
+      else if (parsed && typeof parsed.detail === 'string') message = parsed.detail
       if (parsed && typeof parsed.errorCode === 'string') errorCode = parsed.errorCode
     } catch {
       // 非 JSON 响应,保留 text 作为 message

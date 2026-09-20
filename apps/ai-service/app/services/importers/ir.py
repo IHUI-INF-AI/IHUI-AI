@@ -29,6 +29,7 @@ from typing import Any
 from app.core.output_cleaning import redact_secrets, strip_ansi
 
 __all__ = [
+    "MAX_CONVERSATION_CONTENT_CHARS",
     "MAX_CONTENT_CHARS",
     "MAX_CONVERSATIONS",
     "MAX_MESSAGES_PER_CONVERSATION",
@@ -52,6 +53,10 @@ __all__ = [
 MAX_CONVERSATIONS = 50
 MAX_MESSAGES_PER_CONVERSATION = 2000
 MAX_CONTENT_CHARS = 200_000
+# 单会话正文字符合成上限。路由允许 20MiB 上传,但 api 侧 /commit 走 Fastify 全局 JSON
+# bodyLimit(10MiB);2000 条 × 200k 字符的理论值远超它,大 rollout 会撞 413 且前端只看到
+# "导入失败"。1.5M 字符按 CJK 3 字节 + 转义余量估算约 5MB,稳定落在 10MiB 之内。
+MAX_CONVERSATION_CONTENT_CHARS = 1_500_000
 MAX_TITLE_CHARS = 255
 MAX_MODEL_CHARS = 64
 
@@ -214,8 +219,10 @@ def finalize(
         conversations = conversations[:MAX_CONVERSATIONS]
 
     items: list[dict[str, Any]] = []
+    volume_capped_convs = 0
     for conv in conversations:
         messages: list[dict[str, Any]] = []
+        total_chars = 0
         for msg in conv.messages:
             if msg.role not in VALID_ROLES:
                 dropped_roles += 1
@@ -227,6 +234,10 @@ def finalize(
             if len(content) > MAX_CONTENT_CHARS:
                 trimmed_content += 1
                 content = content[: MAX_CONTENT_CHARS - len(_CONTENT_TAIL)] + _CONTENT_TAIL
+            if total_chars + len(content) > MAX_CONVERSATION_CONTENT_CHARS:
+                volume_capped_convs += 1
+                break
+            total_chars += len(content)
             entry: dict[str, Any] = {"role": msg.role, "content": content}
             if msg.created_at:
                 entry["createdAt"] = msg.created_at
@@ -266,6 +277,12 @@ def finalize(
         warnings.append(f"{dropped_content} 条空内容消息已丢弃")
     if trimmed_content:
         warnings.append(f"{trimmed_content} 条消息正文超过 {MAX_CONTENT_CHARS} 字符,已截断")
+    if volume_capped_convs:
+        truncated = True
+        warnings.append(
+            f"{volume_capped_convs} 个会话正文累计超过 {MAX_CONVERSATION_CONTENT_CHARS} 字符,"
+            "已按上限截断(受 api /commit 请求体 10MiB 限制约束)"
+        )
 
     return {"conversations": items}, warnings, truncated
 
