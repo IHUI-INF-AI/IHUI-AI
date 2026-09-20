@@ -65,11 +65,20 @@ from .agent_checkpoint import (
     AgentLoopCheckpoint,
     get_agent_checkpoint_manager,
 )
+from .agent_deliverables import DeliverablesCollector, save_deliverables
 
 if TYPE_CHECKING:
     from .compaction_canary import CompactionDecision
     from .memory_service import MemoryService
 
+from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTimeReminderState
+from ..core.environment_context import EnvironmentStateTracker as _EnvironmentStateTracker
+from ..core.mcp_tool_approval import (
+    ToolAnnotations as _McpToolAnnotations,
+)
+from ..core.mcp_tool_approval import (
+    requires_mcp_tool_approval as _requires_mcp_tool_approval,
+)
 from .guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_SCAN_BLOCKED,
@@ -80,14 +89,8 @@ from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
 )
-from ..core.current_time_reminder import CurrentTimeReminderState as _CurrentTimeReminderState
-from ..core.environment_context import EnvironmentStateTracker as _EnvironmentStateTracker
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 from .security_config import get_security_config
-from ..core.mcp_tool_approval import (
-    ToolAnnotations as _McpToolAnnotations,
-    requires_mcp_tool_approval as _requires_mcp_tool_approval,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -345,6 +348,37 @@ def resolve_approval_response(approval_id: str, decision: str) -> bool:
     with contextlib.suppress(Exception):
         ev.set()
     return True
+
+
+# 批 52(2026-09-20):工具审批持久键 + 撤销口(对标 codex-rs PERSIST_SESSION /
+# PERSIST_ALWAYS 的审批决策持久层,落盘实现见 approval_persistence.py)。
+def _tool_approval_cache_key(tool_name: str, args: dict[str, Any]) -> str:
+    """工具审批持久键:tool_name + 参数稳定摘要(排序键 json,截断 256)。
+
+    同 tool_name + 同参数 → 同键;参数乱序不影响键(排序键归一)。作
+    approval_persistence 的 cache_key,使「批准一次后同键免弹窗」可跨调用生效。
+    连接符用不可打印单元分隔符 \\x1f,避免 token 内出现空格/引号造成歧义。
+    """
+    try:
+        payload = json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+    except Exception:
+        payload = str(args)
+    if len(payload) > 256:
+        payload = payload[:256]
+    return f"{tool_name}\x1f{payload}"
+
+
+def revoke_tool_approval(tool_name: str, args: dict[str, Any]) -> None:
+    """撤销某工具+参数的持久授权(两 scope 全撤;失败静默)。
+
+    对齐 codex revoke:用户可在前端主动撤销此前持久批准的授权,撤销后同键
+    再次调用恢复人工弹窗。审批持久层异常不影响主链路(静默降级)。
+    """
+    try:
+        from . import approval_persistence as _ap
+        _ap.revoke(_tool_approval_cache_key(tool_name, args), "mcp_tool")
+    except Exception:
+        pass
 
 
 @dataclass
@@ -640,15 +674,21 @@ class AgentEventStream:
         stop_reason: str,
         total_iterations: int,
         total_duration_ms: float,
+        deliverables: dict[str, Any] | None = None,
     ) -> None:
-        await self.emit("session.end", {
+        payload: dict[str, Any] = {
             "session_id": session_id,
             "user_id": user_id,
             "success": success,
             "stop_reason": stop_reason,
             "total_iterations": total_iterations,
             "total_duration_ms": total_duration_ms,
-        })
+        }
+        # D27(2026-09)任务完成交付清单:可选字段,仅成功结束且构建成功时携带
+        # (None 时 wire payload 不含该键,老前端零影响)。
+        if deliverables is not None:
+            payload["deliverables"] = deliverables
+        await self.emit("session.end", payload)
 
     async def message_send(
         self,
@@ -1197,6 +1237,10 @@ class AgentLoopV2:
         # 收敛到 AgentEventStream(fail-open 降级语义统一在层内)。
         self._events: AgentEventStream = AgentEventStream()
 
+        # D27(2026-09)任务完成交付清单:本次 run 的聚合器(citations /
+        # filesChanged / toolsSummary),每次 run 开始时在 _reset_run_state 重置。
+        self._deliverables: DeliverablesCollector = DeliverablesCollector()
+
         # 运行时状态(每次 run() 开始时重置)
         self._messages: list[dict[str, Any]] | None = None
         self._current_iteration: int = 0
@@ -1256,6 +1300,8 @@ class AgentLoopV2:
         # 2-3 自愈集成:每次 run 重置 heal 计数与命令去重集合
         self._self_heal_runs = 0
         self._self_heal_commands = set()
+        # D27:每次 run 重置交付清单聚合器(避免跨 run 残留)
+        self._deliverables = DeliverablesCollector()
         # 可靠性:每次 run 重置 trace_id(2026-09-18 立)——未显式传入时逐 run 生成
         # 新 uuid(一次 run 一个 trace);显式传入的保持不变。随后重新绑定到事件流,
         # 本次 run 的全部事件 payload 自动携带该 trace_id。
@@ -1848,6 +1894,18 @@ class AgentLoopV2:
                 logger.warning(
                     "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
                 )
+        # D27(2026-09)任务完成交付清单:仅成功结束时构建并存储,经 session_end
+        # 的可选 deliverables 字段下发;任何失败降级 warning,不阻塞、不覆盖 result。
+        deliverables_payload: dict[str, Any] | None = None
+        if result.success:
+            try:
+                deliverables_payload = self._deliverables.build(
+                    str(result.final_response or "")[:500]
+                )
+                save_deliverables(self._session_id or "", deliverables_payload)
+            except Exception as e:
+                logger.warning("交付清单构建/存储失败(降级,不阻塞): %s", e)
+                deliverables_payload = None
         # Hook 引擎: session.end(1-5 起经事件流层发射,失败降级不阻塞)
         await self._events.session_end(
             session_id=self._session_id or "",
@@ -1856,6 +1914,7 @@ class AgentLoopV2:
             stop_reason=result.stop_reason,
             total_iterations=len(result.iterations),
             total_duration_ms=result.total_duration_ms,
+            deliverables=deliverables_payload,
         )
         # L5-12(2026-08-12):执行次数指标埋点(按 stop_reason)
         try:
@@ -2106,6 +2165,9 @@ class AgentLoopV2:
                 messages=messages,
                 session_id=self._conversation_id or self._session_id,
             )
+            # D27(2026-09):记忆写回成功 → 交付清单记 memory citation。
+            # save_insights_from_conversation 无 entry id 返回,url 按降级纪律为 None。
+            self._deliverables.record_citation("memory", "对话记忆提炼", None)
         except Exception as e:
             logger.warning("memory_save 失败(user=%s): %s", self._user_id, e)
 
@@ -2211,6 +2273,11 @@ class AgentLoopV2:
                     "finalResult": final_content,
                     "existingSkills": [s.name for s in skill_registry.list_skills()],
                 })
+            )
+            # D27(2026-09):Skill 自进化评估已触发 → 交付清单记 skill citation。
+            # source_url 由异步评估流程决定,此处拿不到,按契约回退 /skills。
+            self._deliverables.record_citation(
+                "skill", (goal[:60].strip() or "Skill 自进化评估"), "/skills"
             )
         except Exception as e:
             logger.warning("Skill 自进化评估启动失败(降级,不阻塞): %s", e)
@@ -3203,7 +3270,26 @@ class AgentLoopV2:
             None = 用户已批准,工具可继续执行;
             "user_rejected" = 用户拒绝(工具不执行);
             "approval_timeout" = 等待超时(默认 60s,工具不执行)。
+
+        批 52 接线:入口先查审批持久层(approval_persistence.check)。命中
+        session/always 授权则免弹窗直接放行(对标 codex PERSIST_SESSION /
+        PERSIST_ALWAYS);用户批准后落盘 session 级授权(下次同键免弹窗)。
+        持久层异常按未命中处理(fail-closed:继续走人工弹窗,绝不静默放行)。
         """
+        # 批 52:先查持久层;命中则免弹窗直接放行。key 同时用于批准后落盘。
+        key = _tool_approval_cache_key(tc.name, tc.args)
+        try:
+            from . import approval_persistence as _ap
+            _persist_hit = _ap.check(key, "mcp_tool")
+        except Exception:
+            _persist_hit = None  # fail-closed:持久层异常 = 继续人工弹窗
+        if _persist_hit in ("always", "session"):
+            self._decision_hints[tc.id] = (
+                "approval_persist_hit",
+                f"持久授权命中: {_persist_hit}",
+            )
+            return None
+
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
         _approval_registry[approval_id] = (ev, None)
@@ -3230,6 +3316,13 @@ class AgentLoopV2:
                 return "approval_timeout"
             _, decision = _approval_registry.get(approval_id, (None, None))
             if decision == "approve":
+                # 批 52:批准后落盘 session 级授权(下次同键免弹窗)。
+                # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None。
+                try:
+                    from . import approval_persistence as _ap
+                    _ap.grant("session", key, "mcp_tool")
+                except Exception:
+                    pass
                 return None
             return "user_rejected"
         finally:
@@ -3496,9 +3589,11 @@ class AgentLoopV2:
                     )
                     results.append(tr)
                     self._maybe_record_step(tc, tr)
+                    self._record_deliverable_step(tc, tr)
                 else:
                     results.append(item)
                     self._maybe_record_step(tc, item)
+                    self._record_deliverable_step(tc, item)
                     tr = item
                 decision, reason = _derive_step_decision(tr)
                 await self._events.emit_plan_step(
@@ -3513,6 +3608,7 @@ class AgentLoopV2:
                 result = await self._execute_single(tc)
                 serial_results.append(result)
                 self._maybe_record_step(tc, result)
+                self._record_deliverable_step(tc, result)
                 decision, reason = _derive_step_decision(result)
                 await self._events.emit_plan_step(
                     self._session_id or "", idx, tc.name, "completed",
@@ -3651,6 +3747,72 @@ class AgentLoopV2:
             )
         except Exception as e:
             logger.warning("agent step 录制失败(降级,不阻塞): %s", e)
+
+    def _record_deliverable_step(self, tc: ToolCall, tr: ToolResult) -> None:
+        """D27(2026-09)任务完成交付清单:每个工具执行后聚合一次(降级纪律)。
+
+        与 _maybe_record_step 分离:录制器未注入时后者提前 return,而交付清单
+        必须无条件聚合。diff 复用 derive_step_evidence(纯函数,重复推导开销
+        可忽略);任何异常仅 warning,绝不阻塞工具执行主链路。
+        """
+        try:
+            diff: dict[str, Any] | None = None
+            if not tr.error:
+                evidence = derive_step_evidence(
+                    tr.name or tc.name, dict(tc.args or {}), tr.result
+                )
+                candidate = evidence.get("diff") if isinstance(evidence, dict) else None
+                diff = candidate if isinstance(candidate, dict) else None
+            self._deliverables.record_tool_call(tc.id, tc.name, dict(tc.args or {}), diff)
+            self._record_deliverable_citation(tc.name, dict(tc.args or {}))
+        except Exception as e:
+            logger.warning("交付清单工具聚合失败(降级,不阻塞): %s", e)
+
+    def _record_deliverable_citation(self, tool_name: str, args: dict[str, Any]) -> None:
+        """D27:按工具名启发式映射 citation(wiki/memory/skill/mcp),拿不到就跳过。
+
+        url 规则(跨端契约):wiki→/repo-wiki;memory→/memory/{entry_id};
+        skill→source_url 否则 /skills;mcp→/mcp-projects。外部 MCP 工具以
+        mcp_server.list_external_tools_injected() 名单判定(懒加载 + 失败降级,
+        视为非 mcp 直接跳过)。
+        """
+        try:
+            name = str(tool_name or "").strip().lower()
+            if not name:
+                return
+            label = self._deliverable_citation_label(name, args)
+            if "wiki" in name:
+                self._deliverables.record_citation("wiki", label, "/repo-wiki")
+            elif "memory" in name:
+                entry_id = args.get("entry_id") or args.get("memory_id") or args.get("id")
+                url = f"/memory/{entry_id}" if entry_id else None
+                self._deliverables.record_citation("memory", label, url)
+            elif "skill" in name:
+                source_url = args.get("source_url") or args.get("sourceUrl")
+                url = str(source_url) if source_url else "/skills"
+                self._deliverables.record_citation("skill", label, url)
+            else:
+                from .mcp_server import list_external_tools_injected
+
+                if name in list_external_tools_injected():
+                    self._deliverables.record_citation("mcp", label, "/mcp-projects")
+        except Exception as e:
+            logger.warning("交付清单 citation 聚合失败(降级,不阻塞): %s", e)
+
+    @staticmethod
+    def _deliverable_citation_label(tool_name: str, args: dict[str, Any]) -> str:
+        """从工具 args 提取人可读 label(常见键优先,兜底工具名,截断 80 字)。"""
+        for key in (
+            "title", "query", "question", "topic", "name",
+            "skill", "path", "file_path", "url", "command",
+        ):
+            val = args.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()[:80]
+        content = args.get("content") or args.get("text")
+        if isinstance(content, str) and content.strip():
+            return content.strip()[:80]
+        return tool_name[:80] or "unknown"
 
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
