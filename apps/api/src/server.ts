@@ -31,6 +31,11 @@ import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
 import { config } from './config/index.js'
 import authPlugin from './plugins/auth.js'
+// O4 数据作用域闸:统一调用主体(principal)必须在 rls-context 之前注册 ——
+// 它挂的 onRequest 钩子用 AsyncLocalStorage.run(store, () => next()) 包住后续整条
+// 生命周期(Fastify onRequest 钩子按注册顺序执行),之后 preHandler/handler 内的
+// dbScoped() 查询才看得见"这次调用是谁 + 命中哪个能力"。
+import principalPlugin from './plugins/principal.js'
 import rlsContextPlugin from './plugins/rls-context.js'
 import auditPlugin from './plugins/audit.js'
 import uploadScannerPlugin from './plugins/upload-scanner.js'
@@ -430,7 +435,13 @@ async function registerPlugins(server: FastifyInstance) {
   // auth 插件：注册 @fastify/jwt + request.userId 装饰器
   await server.register(authPlugin)
 
-  // RLS 上下文：每个请求设置 PG 会话变量供 RLS 策略使用
+  // O4 统一调用主体:把 JWT / API Key / internal token 归一为 request.principal(惰性,
+  // 鉴权完成后读数才有效),并用 AsyncLocalStorage 把主体上下文罩住后续整条生命周期。
+  // 未挂 capability 的请求只多了一个只读视图,零 DB 开销、零行为变化。
+  await server.register(principalPlugin)
+
+  // 请求上下文(RLS 会话变量 + 非超级用户断言):钩子经 onRoute 追加到各路由
+  // preHandler 链末尾,严格晚于鉴权与能力闸;同时覆盖 /v1/*。
   await server.register(rlsContextPlugin)
 
   // 多租户中间件：从 header/subdomain 解析租户, 装饰 request.tenantId
