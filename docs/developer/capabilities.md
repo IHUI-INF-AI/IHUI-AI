@@ -55,6 +55,8 @@ X-Api-Secret: sk_xxxxxxxx                  # 双因子（默认必带，可用 A
 - `POST /api/mcp`（单请求 JSON-RPC）与 export 层（SSE / streamable HTTP）均需凭据：**匿名 tools/call 已关闭**。
 - 逐工具授权：工具名 → 所需 scope 由 `capabilities.json` 的 `toolScopeMap` 裁决；未登记的工具直接 `TOOL_NOT_REGISTERED` 拒绝。
 - 外部 MCP 客户端走 API Key 时请连 `/v1/mcp/*`（apps/api 侧统一鉴权与计费），ai-service 不本地校验 API Key。
+- export 传输层（SSE / streamable）带 Host 白名单防 DNS-rebinding：回环始终放行，非回环主机必须显式登记；
+  代码默认值已含生产域 `aizhs.top / www.aizhs.top / mcp.aizhs.top`，其他部署用 `MCP_EXPORT_ALLOWED_HOSTS` 覆盖。Host 不合法返回 403。
 
 ### 2.3 CLI / ACP（本机或自托管环境）
 
