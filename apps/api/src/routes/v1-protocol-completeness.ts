@@ -29,6 +29,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
 import { error } from '../utils/response.js'
 
@@ -514,6 +515,23 @@ async function upstreamErrorText(resp: Response): Promise<string> {
 // 路由插件
 // =============================================================================
 
+// O3 能力闸:协议补齐族按上游能力归口到既有 scope(MJ→images、翻译→audio、微调→models)
+const protocolCompletenessGate = requireCapabilityRules([
+  {
+    methods: ['POST'],
+    pattern: /^\/v1\/midjourney\/(describe|shorten|blend)$/,
+    scope: 'images:write',
+  },
+  { methods: ['POST'], pattern: /^\/v1\/audio\/translations$/, scope: 'audio:write' },
+  { methods: ['POST'], pattern: /^\/v1\/images\/variations$/, scope: 'images:write' },
+  {
+    methods: ['POST'],
+    pattern: /^\/v1\/fine_tuning\/jobs(\/[^/]+\/cancel)?$/,
+    scope: 'models:write',
+  },
+  { methods: ['GET'], pattern: /^\/v1\/fine_tuning\/jobs/, scope: 'models:read' },
+])
+
 const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. POST /midjourney/describe — 图生 prompt(对接 MJ /mj/submit/describe)=====
   server.post(
@@ -524,7 +542,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Midjourney'],
         consumes: ['multipart/form-data'],
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       if (!mjConfigured()) {
@@ -583,7 +601,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           required: ['prompt'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       if (!mjConfigured()) {
@@ -628,7 +646,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Midjourney'],
         consumes: ['multipart/form-data'],
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       if (!mjConfigured()) {
@@ -684,7 +702,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Audio'],
         consumes: ['multipart/form-data'],
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -778,7 +796,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
         tags: ['Images'],
         consumes: ['multipart/form-data'],
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -871,7 +889,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           required: ['training_file', 'model'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -968,7 +986,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -1027,7 +1045,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           required: ['id'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -1090,7 +1108,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           required: ['id'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)
@@ -1167,7 +1185,7 @@ const v1ProtocolCompletenessRoutes: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, protocolCompletenessGate],
     },
     async (request, reply) => {
       const ctx = getApiKeyContext(request)

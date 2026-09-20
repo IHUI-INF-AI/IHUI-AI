@@ -15,6 +15,57 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+# ---------------------------------------------------------------------------
+# 2026-09-20 xdist loadscope 收尾竞态守卫(防 INTERNALERROR 中止全量跑)。
+#
+# 现象:全量跑至 90%+ 偶发 worker 无声退出 → xdist 重生新 worker →
+# INTERNALERROR> KeyError: <WorkerController gwN>(loadscope.py:275),
+# pytest 直接中止并丢用例(实测一次丢 ~525 例)。xdist 3.8.0 上游未修,
+# 修复 PR #1299 仍在开放中。
+#
+# 机制:worker 猝死后 remove_node 把未完成任务重新入队;重生 worker 先走
+# add_node()(写入 assigned_work[node]={}),稍后才走 add_node_collection()
+# (注册 registered_collections[node])。两者之间若有任何 _reschedule(新worker)
+# 被触发(其他 worker 完成用例 / 又有 worker 死亡 / collectionfinish 的
+# schedule()),_assign_work_unit 查 registered_collections 即 KeyError。
+#
+# 修法:monkeypatch LoadScopeScheduling._reschedule,对尚未注册 collection
+# 的 worker 直接跳过派活;等它注册后 collectionfinish → schedule() 会自然
+# 派活,不丢任务也不饿死。try-import 容错:无 xdist / 串行运行时原样。
+try:  # pragma: no cover - 仅 xdist 存在时生效
+    from xdist.scheduler.loadscope import LoadScopeScheduling as _LoadScopeScheduling
+
+    if not getattr(_LoadScopeScheduling, "_ihui_collection_guard", False):
+        _loadscope_orig_reschedule = _LoadScopeScheduling._reschedule
+
+        def _loadscope_reschedule_with_guard(self, node):
+            if node not in self.registered_collections:
+                return  # collection 未注册,此时派活必 KeyError;等注册后由 schedule() 派
+            return _loadscope_orig_reschedule(self, node)
+
+        _LoadScopeScheduling._reschedule = _loadscope_reschedule_with_guard
+        _LoadScopeScheduling._ihui_collection_guard = True
+except ImportError:  # pragma: no cover - 未安装 xdist 的环境
+    pass
+
+# ---------------------------------------------------------------------------
+# 2026-09-20 性能立:pytest tmp_path 默认落系统 TEMP(本机 TMP=D:\caches\Temp,
+# 位于 7200rpm HDD ST2000DM005),而仓库在 NVMe。全量 20 worker 满载时每用例
+# 在 HDD 上并发创建/写删 SQLite(db + wal + shm,synchronous=FULL 每条 DDL/
+# 事务一次 fsync)→ HDD ~120 IOPS 饱和,setup/call 排队,~25 个跨文件用例各被
+# 拖到 ~84s(py-spy 抓栈实证:多个 worker 同时卡 SessionStore._migrate /
+# journal_mode=WAL pragma)。三连修:
+#   1) addopts 加 --basetemp=../../../.pytest_tmp → 临时文件迁到仓库外、
+#      同盘 NVMe(每次运行被 pytest 清空,专用目录勿存他物);落仓库外是
+#      硬约束:落仓库内会被 find_project_root 向上撞见真实 .git,
+#      "仓库外"场景用例(git baseline/文档根越界)全翻车(RUN5 实证);
+#   2) 此处设 IHUI_SQLITE_SYNCHRONOUS=OFF(session_store.__init__ 读该开关,
+#      生产不设则默认 FULL,崩溃安全契约不变):测试进程无需崩溃持久性,
+#      省掉每次事务的 fsync;
+#   3) session_store 的 journal_mode=WAL 改为条件设置(已是 wal 则跳过),
+#      省掉每次构造 Store 的一次独占锁 pragma。
+os.environ.setdefault("IHUI_SQLITE_SYNCHRONOUS", "OFF")
+
 # 2026-09-20 性能立:app.main 导入税 ~6.2s(LangChain/LiteLLM/Playwright 全链)。
 # 不再模块级 import,改为首次使用时惰性加载:
 #   - 纯单元测试文件所在的 xdist worker 完全免付 6.2s;

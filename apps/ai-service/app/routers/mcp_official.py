@@ -15,8 +15,8 @@ MCP 协议(initialize / tools/list / tools/call / ping)暴露给任意 MCP 客�
 - tools/list → {tools: [{name, description, inputSchema}], toolsVersion}(inputSchema
   直接复用内部 _TOOLS 的 input_schema,toolsVersion 为 ETag 风格版本号)
 - tools/call → {content: [{type: "text", text}], isError: bool}
-- 权限:带 Bearer 时由 JWTAuthMiddleware 注入 request.state.user_id,透传给
-  mcp_server.call_tool;匿名 → user_id=None,高危工具由权限矩阵兜底拒绝(安全默认)。
+- 权限:O1 起强制凭据(IHUI JWT 或内网 X-IHUI-Principal),匿名一律 401;
+  工具级授权由 capability_gate 按能力目录(capabilities.json)逐工具裁决。
 
 设计取舍(2026-09-02 立):本层是**无状态直通**,tools/list 每次实时枚举 _TOOLS,不缓存
 工具副本。故 notifications/tools/list_changed 不"失效缓存",而是自增模块级版本号
@@ -41,6 +41,13 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from ..services.capability_gate import (
+    Principal,
+    PrincipalAuthError,
+    ScopeDeniedError,
+    enforce_tool_access,
+    resolve_principal_from_headers,
+)
 from ..services.mcp_server import _PROMPTS, _RESOURCES, _TOOLS, mcp_server
 
 logger = logging.getLogger(__name__)
@@ -191,7 +198,7 @@ def _handle_prompts_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _handle_tools_call(
-    params: dict[str, Any], *, user_id: str | None
+    params: dict[str, Any], *, principal: Principal
 ) -> dict[str, Any]:
     """tools/call:执行工具,结果包装为 MCP text content。"""
     name = str(params.get("name", "")).strip()
@@ -201,12 +208,19 @@ async def _handle_tools_call(
     if not isinstance(arguments, dict):
         raise ValueError("arguments 必须是对象")
 
-    # 权限透传:匿名 → user_id=None(user_role=0),高危工具由权限矩阵拒绝
+    # 不存在的工具按 MCP 语义回 isError 结果(客户端可自行纠错);
+    # 存在但未登记/ scope 不足才是授权决策,由 enforce_tool_access 抛 403。
+    if not any(t.name == name for t in _TOOLS):
+        text = json.dumps({"ok": False, "error": f"未知工具: {name}"}, ensure_ascii=False)
+        return {"content": [{"type": "text", "text": text}], "isError": True}
+
+    # O1 工具级门禁:scope 由能力目录裁决,未登记/scope 不足直接抛 ScopeDeniedError
+    enforce_tool_access(principal, name)
     result = await mcp_server.call_tool(
         name,
         arguments,
-        user_role=0,
-        user_id=user_id,
+        user_role=principal.role,
+        user_id=principal.sub,
         session_id=None,
     )
     is_error = bool(result.get("ok") is False or result.get("error"))
@@ -237,6 +251,12 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
     - 有 id → 返回 result/error 信封
     - 通知(id 为空) → 返回空 JSON(200)
     """
+    # O1 收权:匿名一律 401。凭据形态 = IHUI JWT 或内网可信头 X-IHUI-Principal(apps/api 签发)
+    try:
+        principal = resolve_principal_from_headers(dict(request.headers))
+    except PrincipalAuthError as e:
+        return JSONResponse(_jsonrpc_error(ERR_INVALID_REQUEST, e.message), status_code=e.http_status)
+
     raw = await request.body()
     try:
         payload = json.loads(raw.decode("utf-8") or "{}")
@@ -269,9 +289,6 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
         err["id"] = msg_id
         return JSONResponse(err, status_code=404)
 
-    # 已认证用户透传(匿名为 None)
-    user_id: str | None = getattr(request.state, "user_id", None)
-
     try:
         if method == "initialize":
             result = _handle_initialize(params)
@@ -286,13 +303,18 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
         elif method == "prompts/get":
             result = _handle_prompts_get(params)
         elif method == "tools/call":
-            result = await _handle_tools_call(params, user_id=user_id)
+            result = await _handle_tools_call(params, principal=principal)
         else:  # pragma: no cover - _dispatch_method 已过滤
             raise ValueError(f"unsupported method: {method}")
     except ValueError as e:
         err = _jsonrpc_error(ERR_INVALID_PARAMS, str(e))
         err["id"] = msg_id
         return JSONResponse(err, status_code=400)
+    except ScopeDeniedError as e:
+        # 403 必须是 HTTP 状态 + JSON-RPC error 双表达:标准 MCP 客户端按 HTTP 码判定授权失败
+        err = _jsonrpc_error(ERR_INTERNAL, e.message, {"errorCode": e.error_code, "requiredScope": e.required_scope})
+        err["id"] = msg_id
+        return JSONResponse(err, status_code=e.http_status)
     except Exception as e:  # noqa: BLE001 - 工具执行异常统一包装为 JSON-RPC 错误
         logger.exception("[mcp_official] tools/call 执行异常: %s", e)
         err = _jsonrpc_error(ERR_INTERNAL, f"Internal error: {e}")

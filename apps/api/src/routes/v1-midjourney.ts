@@ -25,6 +25,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { success, error } from '../utils/response.js'
 import { recordCall } from '../services/relay-billing-service.js'
 
@@ -203,6 +204,14 @@ const taskIdParamSchema = z.object({
 const midjourneyRoutes: FastifyPluginAsync = async (server) => {
   // 共享 API Key 鉴权 preHandler(所有 MJ 路由共享)
   server.addHook('preHandler', requireApiKeyAuth)
+  // O3 能力闸:生成动作→images:write,任务状态查询→generation:write
+  server.addHook(
+    'preHandler',
+    requireCapabilityRules([
+      { methods: ['GET'], pattern: /^\/v1\/midjourney\/tasks\//, scope: 'generation:write' },
+      { methods: ['POST'], pattern: /^\/v1\/midjourney\//, scope: 'images:write' },
+    ]),
+  )
 
   // ===== 1. POST /v1/midjourney/imagine — 文生图提交 =====
   server.post('/v1/midjourney/imagine', async (request, reply) => {

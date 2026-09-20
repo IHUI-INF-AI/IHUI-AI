@@ -3,18 +3,25 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * AI 自动控制路由(2026-07-22 立,跨端:ai-service ↔ api ↔ extension/desktop)
+ * AI 自动控制路由(2026-07-22 立,跨端:ai-service ↔ api ↔ extension/desktop/web)
  *
  * 设计:
- *  - extension/desktop 启动时上报能力(POST /capability)
- *  - ai-service MCP tool 调用 POST /execute,api 通过 WebSocket 推送给 extension/desktop
- *  - extension/desktop 执行后通过 POST /result 回传结果
+ *  - extension/desktop/web 启动时上报能力(POST /capability)
+ *  - ai-service MCP tool 调用 POST /execute,api 通过 WebSocket 推送给对应端
+ *  - extension/desktop/web 执行后通过 POST /result 回传结果
  *  - api 用 pending Map 等待结果,超时 30s
  *
+ * category 与执行端一一对应(见 CATEGORY_ENDPOINT):
+ *  - browser  → extension(外部网页 DOM 操作 + 截图)
+ *  - computer → desktop(操作系统级鼠标键盘/剪贴板)
+ *  - ui       → web(2026-09-20 立,只操控自家应用页面:站内导航 / 按钮点击 / 表单填写 /
+ *               命令面板调用。目标靠前端的 web_ui_describe 返回的 actionId 定位,而非任意
+ *               CSS 选择器或系统级输入,因此无需 OS 权限也不触及第三方站点)
+ *
  * 端点:
- *  - POST   /capability   上报端能力(extension/desktop 启动时调用)
+ *  - POST   /capability   上报端能力(extension/desktop/web 启动时调用)
  *  - POST   /execute      执行控制指令(ai-service 调用)
- *  - POST   /result       回传执行结果(extension/desktop 调用)
+ *  - POST   /result       回传执行结果(extension/desktop/web 调用)
  *  - GET    /status       查询已注册的端(管理/调试用)
  */
 
@@ -42,7 +49,8 @@ function isInternalSecret(authHeader: string | undefined): boolean {
 // 状态:已注册的端 + pending requests
 // ---------------------------------------------------------------------------
 
-interface RegisteredEndpoint {
+// 导出供下方 __test__ 断言用(tsc declaration 阶段要求公共签名可命名)
+export interface RegisteredEndpoint {
   capability: AgentControlCapability
   userId: string
   lastSeen: number
@@ -51,7 +59,7 @@ interface RegisteredEndpoint {
 /** instanceId → RegisteredEndpoint */
 const _endpoints = new Map<string, RegisteredEndpoint>()
 
-interface PendingRequest {
+export interface PendingRequest {
   resolve: (response: AgentActionResponse) => void
   reject: (err: Error) => void
   timer: NodeJS.Timeout
@@ -64,6 +72,27 @@ const _pending = new Map<string, PendingRequest>()
 /** 清理超过 5 分钟未上报的端 */
 const ENDPOINT_TTL_MS = 5 * 60 * 1000
 
+/**
+ * category → 执行端映射(穷举 Record,新增 category 必须同步登记,
+ * 否则 tsc 直接报错)。此前是 `category === 'browser' ? 'extension' : 'desktop'`
+ * 三元硬编码,加入第三种 category='ui' 后会把 web 指令误配到 desktop。
+ */
+const CATEGORY_ENDPOINT: Record<
+  AgentActionRequest['category'],
+  AgentControlCapability['endpoint']
+> = {
+  browser: 'extension',
+  computer: 'desktop',
+  ui: 'web',
+}
+
+/** TARGET_NOT_CONNECTED 回执文案按 category 取(同样避免三元硬编码) */
+const CATEGORY_LABEL: Record<AgentActionRequest['category'], string> = {
+  browser: '浏览器扩展',
+  computer: '桌面端',
+  ui: 'Web 前端',
+}
+
 function cleanupStaleEndpoints(): void {
   const now = Date.now()
   for (const [id, ep] of _endpoints) {
@@ -75,16 +104,16 @@ function cleanupStaleEndpoints(): void {
 
 /** 根据 category 找到最近活跃的端 */
 function findEndpointByCategory(
-  category: 'browser' | 'computer',
+  category: AgentActionRequest['category'],
   userId?: string,
 ): RegisteredEndpoint | null {
   cleanupStaleEndpoints()
-  const targetEndpoint = category === 'browser' ? 'extension' : 'desktop'
+  const targetEndpoint = CATEGORY_ENDPOINT[category]
   let best: RegisteredEndpoint | null = null
   for (const ep of _endpoints.values()) {
     if (ep.capability.endpoint !== targetEndpoint) continue
     // 2026-08-16 修复:多用户隔离——指令带 userId 时只匹配该用户的端点,
-    // 避免同一 api 实例上 LLM 指令被推送到其他用户的 desktop/extension。
+    // 避免同一 api 实例上 LLM 指令被推送到其他用户的 desktop/extension/web。
     if (userId && ep.userId !== userId) continue
     if (!best || ep.lastSeen > best.lastSeen) {
       best = ep
@@ -98,17 +127,18 @@ function findEndpointByCategory(
 // ---------------------------------------------------------------------------
 
 const capabilitySchema = z.object({
-  endpoint: z.enum(['extension', 'desktop']),
+  endpoint: z.enum(['extension', 'desktop', 'web']),
   instanceId: z.string().min(1).max(100),
   browserActions: z.array(z.string()).max(100).optional(),
   computerActions: z.array(z.string()).max(100).optional(),
+  uiActions: z.array(z.string()).max(20).optional(),
   version: z.string().optional(),
   reportedAt: z.string(),
 })
 
 const executeSchema = z.object({
   requestId: z.string().min(1).max(100),
-  category: z.enum(['browser', 'computer']),
+  category: z.enum(['browser', 'computer', 'ui']),
   action: z.string().min(1).max(100),
   params: z.record(z.string(), z.unknown()).default({}),
   toolCallId: z.string().optional(),
@@ -124,7 +154,7 @@ const resultSchema = z.object({
   errorCode: z.string().optional(),
   data: z.record(z.string(), z.unknown()).optional(),
   durationMs: z.number(),
-  executedBy: z.enum(['extension', 'desktop', 'unknown']),
+  executedBy: z.enum(['extension', 'desktop', 'web', 'unknown']),
 })
 
 // ---------------------------------------------------------------------------
@@ -188,7 +218,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       const response: AgentActionResponse = {
         requestId: req.requestId,
         success: false,
-        error: `${req.category === 'browser' ? '浏览器扩展' : '桌面端'}未连接`,
+        error: `${CATEGORY_LABEL[req.category]}未连接`,
         errorCode: 'TARGET_NOT_CONNECTED',
         durationMs: 0,
         executedBy: 'unknown',
@@ -249,7 +279,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // -------------------------------------------------------------------------
-  // POST /result - 回传执行结果(extension/desktop 调用)
+  // POST /result - 回传执行结果(extension/desktop/web 调用)
   // -------------------------------------------------------------------------
   server.post('/result', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
@@ -287,6 +317,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       lastSeen: new Date(ep.lastSeen).toISOString(),
       browserActions: ep.capability.browserActions?.length ?? 0,
       computerActions: ep.capability.computerActions?.length ?? 0,
+      uiActions: ep.capability.uiActions?.length ?? 0,
     }))
 
     return reply.send(
@@ -296,5 +327,17 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   })
+}
+
+/**
+ * 测试面(2026-09-20 立):_endpoints / _pending 是进程内 Map,用例需要
+ * ① 每个用例前复位状态,② 直接断言 category → endpoint 命中结果
+ * (走 HTTP 只能观测 pushNotification 的 userId,分不清同一用户的多个端)。
+ * 只暴露状态引用与纯查询函数,不额外开放写接口。
+ */
+export const __test__ = {
+  endpoints: _endpoints,
+  pending: _pending,
+  findEndpointByCategory,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

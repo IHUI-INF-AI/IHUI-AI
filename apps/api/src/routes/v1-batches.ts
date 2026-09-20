@@ -39,6 +39,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
 import {
   type BatchTaskStatus,
@@ -201,6 +202,18 @@ function toAnthropicBatchResponse(task: AnthropicBatchTask): Record<string, unkn
 // 路由插件
 // =============================================================================
 
+// O3 能力闸:整族 batch 端点必须命中 batches:read/write,未登记路径默认拒绝。
+// 与路由级 requireApiKeyAuth 串联使用(rules 闸复用其注入的 request.apiKey,不重复查库)。
+const batchCapabilityGate = requireCapabilityRules([
+  { methods: ['GET'], pattern: /^\/v1\/batch\/[^/]+\/content$/, scope: 'batches:read' },
+  { methods: ['GET'], pattern: /^\/v1\/batch\/[^/]+$/, scope: 'batches:read' },
+  { methods: ['POST'], pattern: /^\/v1\/batch\/[^/]+\/cancel$/, scope: 'batches:write' },
+  { methods: ['POST'], pattern: /^\/v1\/batch$/, scope: 'batches:write' },
+  { methods: ['GET'], pattern: /^\/v1\/batches$/, scope: 'batches:read' },
+  { methods: ['POST'], pattern: /^\/v1\/messages\/batches$/, scope: 'batches:write' },
+  { pattern: /^\/v1\/messages\/batches(\/|$)/, scope: 'batches:read' },
+])
+
 const v1Batches: FastifyPluginAsync = async (server) => {
   const redis = server.redis
   const queueConnection = server.redisForQueue
@@ -228,7 +241,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
           required: ['input_file_id', 'endpoint'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const parsed = openAICreateBatchSchema.safeParse(request.body)
@@ -279,7 +292,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     '/batch/:id',
     {
       schema: { description: 'OpenAI Batch — 查询任务状态', tags: ['Batch'] },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -296,7 +309,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     '/batch/:id/cancel',
     {
       schema: { description: 'OpenAI Batch — 取消任务', tags: ['Batch'] },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -322,7 +335,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     '/batch/:id/content',
     {
       schema: { description: 'OpenAI Batch — 下载结果(JSONL)', tags: ['Batch'] },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -361,7 +374,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const query = request.query as { limit?: number; after?: string }
@@ -425,7 +438,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
           required: ['requests'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const parsed = anthropicCreateBatchSchema.safeParse(request.body)
@@ -470,7 +483,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     '/messages/batches/:id',
     {
       schema: { description: 'Anthropic Messages Batches — 查询状态', tags: ['Batch'] },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -487,7 +500,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     '/messages/batches/:id/results',
     {
       schema: { description: 'Anthropic Messages Batches — 下载结果(JSONL)', tags: ['Batch'] },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }

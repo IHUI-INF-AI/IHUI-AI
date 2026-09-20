@@ -199,7 +199,14 @@ testpaths = ["tests"]
 # 需要串行(断点调试/复现时序问题)时:pytest -n 0。
 # 注意:不要用 -p no:xdist —— 会连插件一起禁用,addopts 里的 -n/--dist
 # 变成无法识别的参数直接报错(exit 4)。
-addopts = "-n auto --dist loadfile"
+# 2026-09-20 性能立:--basetemp 把 pytest 临时目录(含每用例 tmp SQLite)从
+# 系统 TEMP(本机 D:\caches\Temp 在 HDD 上,满载 fsync 风暴把用例拖到 ~84s,
+# 见 conftest 同日注释)迁到仓库所在 NVMe;且必须落在 git 仓库工作树之外
+# (相对路径自 ai-service 上跳三级 → G:\.pytest_tmp),否则用例里"仓库外"
+# 场景(find_project_root 向上找 .git / git baseline / 文档根越界)会撞上
+# 真实 .git 全部翻车(RUN5 7 个回归实证)。每次运行被 pytest 清空,
+# G:\.pytest_tmp 为专用目录,勿存其他内容。
+addopts = "-n auto --dist loadfile --basetemp=../../../.pytest_tmp"
 # 2026-09-02 立:真网集成测试标记(语雀/飞书等 Connector 真通验证,CI 默认不跑)
 markers = [
     "network: 真实网络调用集成测试(需外网,默认跳过可 --run-network 强制)",

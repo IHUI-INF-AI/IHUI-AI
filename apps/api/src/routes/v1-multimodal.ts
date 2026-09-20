@@ -54,11 +54,8 @@ import type {
   V1GenerationEnqueueResponse,
   V1GenerationStatusResponse,
 } from '@ihui/types'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import type { Redis } from 'ioredis'
 import { error } from '../utils/response.js'
 import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
@@ -647,7 +644,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -700,7 +697,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -755,7 +752,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -811,7 +808,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -875,7 +872,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -933,7 +930,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -983,7 +980,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1038,7 +1035,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('audio:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('audio:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1108,11 +1105,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1298,11 +1291,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1351,11 +1340,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1402,11 +1387,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1453,11 +1434,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1504,11 +1481,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1558,11 +1531,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('videos:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1648,7 +1617,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('videos:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('videos:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1759,11 +1728,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('videos:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('videos:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1829,11 +1794,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('threed:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('threed:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1905,11 +1866,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('generation:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -1972,11 +1929,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('generation:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2035,11 +1988,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('generation:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('generation:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2091,11 +2040,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
@@ -2157,11 +2102,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [
-        requireApiKeyAuth,
-        requireApiKeyPermission('images:write'),
-        requireApiKeyQuota(),
-      ],
+      preHandler: [requireApiKeyAuth, requireCapability('images:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const userId = getUserId(request, reply)
