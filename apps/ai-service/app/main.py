@@ -51,6 +51,7 @@ from app.middleware.trace_context import setup_trace_context_middleware
 from app.routers import (
     a2a,
     agent_runtime,
+    agent_wellknown,
     agents,
     ai_skills,
     artifacts,
@@ -693,6 +694,8 @@ def create_app() -> FastAPI:
     app.include_router(connectors.router, prefix="/api", tags=["connectors"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
+    # O11 A2A 标准化(2026-09-20 立):A2A 发现文档,规范规定为根路径,不带 /api 前缀
+    app.include_router(agent_wellknown.router, tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
