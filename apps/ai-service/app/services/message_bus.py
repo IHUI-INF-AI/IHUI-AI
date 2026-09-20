@@ -26,7 +26,7 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from email.mime.text import MIMEText
 from enum import StrEnum
 from typing import Any
@@ -75,7 +75,8 @@ class Message:
     template_id: str | None = None
     template_vars: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    # 等价替代弃用的 datetime.utcnow()/utcfromtimestamp()（naive UTC 语义不变，2026-09-19 技术债清理）
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 @dataclass
@@ -607,7 +608,7 @@ class MessageBus:
                 message, self._subscriptions.get(channel, {})
             )
             total_attempts += 1
-            last_attempt = datetime.utcnow()
+            last_attempt = datetime.now(UTC).replace(tzinfo=None)
             per_channel_status[channel] = status
             if success:
                 delivered.append(channel)

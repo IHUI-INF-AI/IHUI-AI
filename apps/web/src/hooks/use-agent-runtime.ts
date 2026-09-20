@@ -26,6 +26,10 @@ import type {
   AgentTransientStatusEvent,
   AgentMessageSendEvent,
 } from '@ihui/shared'
+// D27(2026-09-20 立):session_end wire payload 新增可选 deliverables 字段的二次提取。
+// shared 白名单解析会丢弃新字段,故在 handler 层从 raw e.data 提取(不碰 shared)。
+import { extractSessionDeliverables } from '@/types/agent-delivery'
+import type { TaskDeliverables } from '@/types/agent-delivery'
 
 export interface AgentSession {
   id: string
@@ -87,6 +91,9 @@ export interface UseAgentRuntimeReturn {
   agentStatus: AgentTransientStatusEvent | null
   /** P1(2026-09-19):最近一轮 LLM 请求发出通知(message_send) */
   lastMessageSend: AgentMessageSendEvent | null
+  /** D27(2026-09-20 立):session_end wire payload 的 deliverables 二次提取结果
+   *  (单值覆盖,session_end 到达时重设;事件缺该字段或解析失败为 null) */
+  sessionDeliverables: TaskDeliverables | null
   connected: boolean
 }
 
@@ -134,6 +141,10 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
   const [agentStatus, setAgentStatus] = React.useState<AgentTransientStatusEvent | null>(null)
   /** P1(2026-09-19):最近一轮 LLM 请求发出(命名 SSE 事件 message_send,单值覆盖) */
   const [lastMessageSend, setLastMessageSend] = React.useState<AgentMessageSendEvent | null>(null)
+  /** D27(2026-09-20 立):session_end 携带的交付清单(命名 SSE 事件二次提取,单值覆盖) */
+  const [sessionDeliverables, setSessionDeliverables] = React.useState<TaskDeliverables | null>(
+    null,
+  )
   const [connected, setConnected] = React.useState(false)
   const esRef = React.useRef<EventSource | null>(null)
 
@@ -176,6 +187,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setTerminalDeltas([])
       setAgentStatus(null)
       setLastMessageSend(null)
+      setSessionDeliverables(null)
       setConnected(false)
       return
     }
@@ -271,9 +283,12 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     // P1(2026-09-19):session_end 是命名 SSE 事件(hook "session.end"→"session_end"),
     // payload {session_id,user_id,success,stop_reason,total_iterations,total_duration_ms}。
     // t4(2026-09-19):wire 解析迁移至共享 parseSessionEndEvent,此处仅保留单值覆盖。
+    // D27(2026-09-20 立):共享白名单解析会丢弃新增 deliverables 字段,此处对
+    // e.data(raw JSON 字符串)做二次提取,单值覆盖(无该字段/解析失败为 null)。
     es.addEventListener(AGENT_TASK_EVENTS.SESSION_END, (e) => {
       const evt = parseSessionEndEvent(e.data)
       if (evt) setSessionEnd(evt)
+      setSessionDeliverables(extractSessionDeliverables(e.data))
     })
 
     // P1(2026-09-19):permission-mode(hook "permission.mode"→"permission-mode"),
@@ -325,6 +340,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setTerminalDeltas([])
       setAgentStatus(null)
       setLastMessageSend(null)
+      setSessionDeliverables(null)
     }
   }, [agentId])
 
@@ -341,6 +357,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     terminalDeltas,
     agentStatus,
     lastMessageSend,
+    sessionDeliverables,
     connected,
   }
 }

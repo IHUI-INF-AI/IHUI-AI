@@ -451,6 +451,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - 多会话/多 agent 在同一仓库并行工作时,**禁止**任何破坏性 git 操作:`git restore` / `git stash push` / `git clean -f` / `git reset --hard` / `Remove-Item` 删除其他 agent 创建的文件(包括"看着像垃圾"的 `commit_msg.txt` / 临时测试文件 / 调试日志)。
 - commit 阶段**只 add 本任务相关文件**:`git add <file1> <file2>`,**禁止** `git add .` / `git add -A` / `git add -u`。
 - 正确流程:预检(`git status --porcelain`)→ 隔离 add 本任务文件 → 验证 staged 仅含本任务文件。
+- **任务完成必须自动 commit(2026-09-20 用户指令,强制)**:任务/批次完成且验证全绿后,agent **必须立即自动 commit**——不经询问、不等用户确认、禁止以"不擅自 commit"为由把已验证的工作留在未提交状态。push 仍按 §16/§20 执行(用户未要求时不主动 push)。commit 形态仍受本节约束(多 agent 并行必须 safe-commit.mjs;单 agent 直接 add 声明文件;禁止 `git add .` / `-A` / `-u`)。
 - pre-push / pre-commit hook 失败因**其他 agent 引入的代码问题**(schema drift / 其他模块 TS/lint 错误 / 其他 agent 未完成 migration 等,不在本任务范围):**直接用 `--no-verify` 跳过 hook** 完成自己的 commit + push;**禁止**修改其他 agent 代码"帮他们修" / `git reset --hard` / 把"等其他 agent 修复再 push"作为交付结论 / 用 AskUserQuestion 询问用户;自己 commit + push 前只需保证**本任务改动文件** typecheck + lint + build 全绿即可;`--no-verify` 合法场景**仅限**"hook 失败原因是其他 agent 代码",若失败原因是**本任务自己代码**必须修复后正常 commit。
 
 ### 强制使用 safe-commit.mjs(2026-08-06 立,真实事故根治)

@@ -22,7 +22,7 @@ stored_thread_to_initial_history / thread_store_*_error 映射,纯函数部分)�
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 KNOWN_ORIGINATORS: tuple[str, ...] = (
     "codex_work_desktop",
@@ -33,7 +33,7 @@ KNOWN_ORIGINATORS: tuple[str, ...] = (
 )
 
 
-def originator_from_service_name(service_name: Optional[str]) -> Optional[str]:
+def originator_from_service_name(service_name: str | None) -> str | None:
     """metrics service_name 精确命中已知 originator(ASCII 大小写不敏感),返回规范形。"""
     if service_name is None:
         return None
@@ -45,10 +45,10 @@ def originator_from_service_name(service_name: Optional[str]) -> Optional[str]:
 
 
 def effective_originator_value(
-    metrics_service_name: Optional[str],
-    env_originator: Optional[str],
-    persisted_originator: Optional[str],
-    inherited_originator: Optional[str],
+    metrics_service_name: str | None,
+    env_originator: str | None,
+    persisted_originator: str | None,
+    inherited_originator: str | None,
     default_originator: str,
 ) -> str:
     """Codex 五级优先链:metrics 命中 > persisted > inherited > env > default。"""
@@ -67,7 +67,7 @@ class ResumedHistory:
 
     conversation_id: str
     items: list[dict[str, object]] = field(default_factory=list)
-    rollout_path: Optional[str] = None
+    rollout_path: str | None = None
 
 
 def stored_thread_to_initial_history(

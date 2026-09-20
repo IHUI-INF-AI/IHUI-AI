@@ -38,10 +38,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Awaitable, Callable, Optional, Protocol, runtime_checkable
-
+from enum import StrEnum
+from typing import Any, Protocol, runtime_checkable
 
 # ---------------------------------------------------------------------------
 # 常量(对标 codex_api / codex_connectors 模块级常量)
@@ -71,8 +71,8 @@ class UploadedFile:
 
     download_url: str
     file_id: str
-    mime_type: Optional[str] = None
-    file_name: Optional[str] = None
+    mime_type: str | None = None
+    file_name: str | None = None
 
 
 @runtime_checkable
@@ -85,7 +85,7 @@ class Uploader(Protocol):
     """
 
     async def __call__(
-        self, field_name: str, index: Optional[int], file_path: str
+        self, field_name: str, index: int | None, file_path: str
     ) -> UploadedFile:
         """上传单个文件,返回其远端描述。
 
@@ -106,12 +106,12 @@ def _split_path_segments(file_path: str) -> list[str]:
     对标 Rust `PathConvention::path_segments` 的跨平台语义:
     末非空段即文件名候选。
     """
-    return [seg for seg in file_path.replace("\\", "/").split("/")]
+    return file_path.replace("\\", "/").split("/")
 
 
 def infer_upload_file_name(
     file_path: str,
-    split_path_segments: Optional[Callable[[str], list[str]]] = None,
+    split_path_segments: Callable[[str], list[str]] | None = None,
 ) -> str:
     """从文件路径推断上传文件名(纯算法,对标 Rust basename 兜底逻辑)。
 
@@ -142,7 +142,7 @@ def infer_upload_file_name(
 def check_file_size_limit(
     size: int,
     limit_bytes: int = OPENAI_FILE_UPLOAD_LIMIT_BYTES,
-) -> Optional[str]:
+) -> str | None:
     """检查文件是否超过上传上限(纯算法,对标 Rust 大小判定)。
 
     Args:
@@ -200,7 +200,7 @@ async def rewrite_argument_value_for_openai_files(
     field_name: str,
     optional_fields: list[str],
     uploader: Uploader,
-) -> Optional[Any]:
+) -> Any | None:
     """重写单个参数值中的文件引用(纯编排,对标同名 Rust 函数)。
 
     支持两种形状:
@@ -232,10 +232,10 @@ async def rewrite_argument_value_for_openai_files(
 
 
 async def rewrite_mcp_tool_arguments_for_openai_files(
-    arguments: Optional[dict[str, Any]],
-    openai_file_input_fields: Optional[dict[str, list[str]]],
+    arguments: dict[str, Any] | None,
+    openai_file_input_fields: dict[str, list[str]] | None,
     uploader: Uploader,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """重写 MCP 工具参数中的文件输入字段(纯编排,对标同名 Rust 函数)。
 
     对标 Rust 顶层入口:遍历 `openai_file_input_fields` 声明,把对应字段的
@@ -280,7 +280,7 @@ async def rewrite_mcp_tool_arguments_for_openai_files(
 # ===========================================================================
 
 
-class ToolSuggestDiscoverableType(str, Enum):
+class ToolSuggestDiscoverableType(StrEnum):
     """对标 codex_config::types::ToolSuggestDiscoverableType(仅取 Connector 判定所需)。"""
 
     CONNECTOR = "connector"
@@ -342,11 +342,11 @@ class McpToolInfo:
     """对标 codex_mcp::ToolInfo 中和暴露规则相关的字段(纯数据)。"""
 
     server_name: str
-    connector_id: Optional[str] = None
-    connector_name: Optional[str] = None
-    namespace_description: Optional[str] = None
+    connector_id: str | None = None
+    connector_name: str | None = None
+    namespace_description: str | None = None
     plugin_display_names: list[str] = field(default_factory=list)
-    meta: Optional[dict[str, Any]] = None
+    meta: dict[str, Any] | None = None
 
 
 @dataclass
@@ -354,8 +354,8 @@ class AppInfo:
     """对标 codex_connectors::AppInfo(可见连接器记录,纯数据)。"""
 
     id: str
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     plugin_display_names: list[str] = field(default_factory=list)
 
 
@@ -457,7 +457,7 @@ def with_app_plugin_sources(
     return connectors
 
 
-class ApprovalsReviewer(str, Enum):
+class ApprovalsReviewer(StrEnum):
     """审批复核人档位(对标 codex_config::types::ApprovalsReviewer)。
 
     档位:UNSPECIFIED(未指定) / NEVER(永不) / ALWAYS(总是) / AUTO_REVIEW(自动复核)。
@@ -485,7 +485,7 @@ class Requirements:
     # 配置施加的审批档位「上限」(默认 UNSPECIFIED = 不限制,任何档位均可设置)。
     approvals_reviewer: ApprovalsReviewer = ApprovalsReviewer.UNSPECIFIED
 
-    def auto_review_required_for_model(self, model: Optional[str]) -> bool:
+    def auto_review_required_for_model(self, model: str | None) -> bool:
         return model is not None and model in self.auto_review_models
 
     def can_set(self, reviewer: ApprovalsReviewer) -> bool:
@@ -504,29 +504,29 @@ class Requirements:
 
 @dataclass
 class _LinkConfig:
-    approvals_reviewer: Optional[ApprovalsReviewer] = None
+    approvals_reviewer: ApprovalsReviewer | None = None
 
 
 @dataclass
 class _AppConfig:
-    approvals_reviewer: Optional[ApprovalsReviewer] = None
-    links: Optional[dict[str, _LinkConfig]] = None
+    approvals_reviewer: ApprovalsReviewer | None = None
+    links: dict[str, _LinkConfig] | None = None
 
 
 @dataclass
 class _AppsConfig:
     apps: dict[str, _AppConfig] = field(default_factory=dict)
-    default: Optional[_AppConfig] = None
+    default: _AppConfig | None = None
 
 
 def resolve_approvals_reviewer(
     requirements: Requirements,
     default_reviewer: ApprovalsReviewer,
-    model: Optional[str],
-    apps_config: Optional[_AppsConfig],
+    model: str | None,
+    apps_config: _AppsConfig | None,
     server_name: str,
-    connector_id: Optional[str],
-    link_id: Optional[str],
+    connector_id: str | None,
+    link_id: str | None,
 ) -> ApprovalsReviewer:
     """解析最终审批复核人(纯规则,对标 Rust mcp_approvals_reviewer_from_layers)。
 
@@ -552,10 +552,10 @@ def resolve_approvals_reviewer(
     if requirements.auto_review_required_for_model(model):
         return ApprovalsReviewer.AUTO_REVIEW
 
-    app_reviewer: Optional[ApprovalsReviewer] = None
+    app_reviewer: ApprovalsReviewer | None = None
     if server_name == CODEX_APPS_MCP_SERVER_NAME and apps_config is not None:
         app = apps_config.apps.get(connector_id) if connector_id else None
-        link_reviewer: Optional[ApprovalsReviewer] = None
+        link_reviewer: ApprovalsReviewer | None = None
         if (
             link_id is not None
             and app is not None
@@ -587,8 +587,8 @@ class AccessibleConnectorsCacheKey:
     """缓存键(对标 Rust AccessibleConnectorsCacheKey)。"""
 
     chatgpt_base_url: str
-    account_id: Optional[str] = None
-    chatgpt_user_id: Optional[str] = None
+    account_id: str | None = None
+    chatgpt_user_id: str | None = None
     is_workspace_account: bool = False
 
 
@@ -608,11 +608,11 @@ class AccessibleConnectorsCache:
 
     def __init__(self, ttl_seconds: int = CONNECTORS_CACHE_TTL_SECONDS) -> None:
         self._ttl_seconds = ttl_seconds
-        self._entry: Optional[_CachedEntry] = None
+        self._entry: _CachedEntry | None = None
 
     def read(
-        self, key: AccessibleConnectorsCacheKey, now: Optional[float] = None
-    ) -> Optional[list[AppInfo]]:
+        self, key: AccessibleConnectorsCacheKey, now: float | None = None
+    ) -> list[AppInfo] | None:
         now = time.time() if now is None else now
         entry = self._entry
         if entry is None:
@@ -629,7 +629,7 @@ class AccessibleConnectorsCache:
         self,
         key: AccessibleConnectorsCacheKey,
         connectors: list[AppInfo],
-        now: Optional[float] = None,
+        now: float | None = None,
     ) -> None:
         now = time.time() if now is None else now
         self._entry = _CachedEntry(
@@ -641,7 +641,7 @@ class AccessibleConnectorsCache:
 
 def build_accessible_connectors_cache_key(
     chatgpt_base_url: str,
-    auth: Optional[dict[str, Any]] = None,
+    auth: dict[str, Any] | None = None,
 ) -> AccessibleConnectorsCacheKey:
     """从配置 + 鉴权构造缓存键(纯规则,对标 Rust accessible_connectors_cache_key)。
 
