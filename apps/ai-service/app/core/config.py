@@ -93,6 +93,11 @@ class Settings(BaseSettings):
     # 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
+    # 2026-09-20 O1 收权:上面 /api/mcp 匿名豁免**已移除** — 匿名 tools/call 是后门,
+    # 官方 MCP 端点改由 routers/mcp_official.py 的 capability_gate.resolve_principal
+    # 强制凭据(JWT / 内网 X-IHUI-Principal),并在 JWTAuthMiddleware 层同步要求认证。
+    # 注意:运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS;若 .env 仍含 /api/mcp,
+    # 中间件会跳过,但路由层凭据门禁仍会 401(双保险),部署时应同步从 .env 移除。
     # 2026-09-01 新增:/api/artifacts/f/ — Artifact 图表产物静态文件服务。iframe 无法
     # 携带 Authorization header,文件访问端点用 URL 内嵌短期签名 token(30 分钟)鉴权,
     # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
@@ -100,7 +105,6 @@ class Settings(BaseSettings):
     # 平台主动 POST(无 JWT),鉴权靠 X-TokenGo-Signature HMAC 验签(见 routers/video.py)。
     # 2026-09-09 新增:/api/media/tasks/callback — 统一媒体回调(对话内媒体任务自动收尾),
     # 与 video 回调同协议(TOKEN6688_CALLBACK_SECRET + HMAC),必须放行 JWT 否则平台 webhook 401。
-    # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
     jwt_public_paths: str = (
         "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
@@ -108,9 +112,20 @@ class Settings(BaseSettings):
         # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
-        "/api/voice/stt,/api/voice/tts,/api/mcp,"
+        "/api/voice/stt,/api/voice/tts,"
         "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback"
     )
+    # O1(2026-09-20)MCP 能力门禁配置:
+    # IHUI_PRINCIPAL_SECRET — apps/api → ai-service 内网可信头 X-IHUI-Principal 的
+    # HMAC-SHA256 共享密钥;为空回退 AI_CALLBACK_SECRET(两者均空则拒绝内网头)。
+    ihui_principal_secret: str = ""
+    # CAPABILITY_MANIFEST_PATH — 能力清单 capabilities.json 路径覆盖
+    # (默认 packages/types/generated/capabilities.json,由 export-capabilities 脚本产出);
+    # 文件缺失时按 fail-safe 语义处理(外部凭据 tools/call 一律拒绝)。
+    capability_manifest_path: str = ""
+    # MCP_EXPORT_ALLOWED_HOSTS — mcp_export 对外 transport 的 Host 白名单(逗号分隔),
+    # 在回环(localhost/127.0.0.1/::1)之外显式放行的域名/IP;为空 = 仅回环。
+    mcp_export_allowed_hosts: str = ""
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
 
