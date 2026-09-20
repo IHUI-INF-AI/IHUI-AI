@@ -49,6 +49,17 @@
 - [x] ✅(2026-09-20) 补齐 §5b 声称存在但**本机实际缺失**的 `IHUI-AI git-guardian` 计划任务(`git-guardian.mjs --install`,每 2 分钟),实测触发一次即自愈缺失的 `refs/remotes/origin/{HEAD,main}`,`--check` 转健康;注册前已只读确认其对目录形态 `.git` 判定 `pointerOk/gitdirOk/gitUsable = true`,不会触发自愈覆盖
 - [x] ✅(2026-09-20) 另查明两条既有事实:`IHUI-KillGitSelector` 计划任务的 9 天持续时间**已于 2026-08-22 到期**(NextRun 为空),它早已不再"每分钟杀窗";`IHUI_{Web,Api,Ai}_Dev` / `IHUI_Dev_Start` 四个 `.cmd` 任务最后运行停在 2026-08-31,均已停跑,非弹窗来源
 
+### 三轮:本人引入的弹窗回归(诚实记录)+ 根因修复
+
+- [x] ✅(2026-09-20) **回归自查**:二轮为补齐 §5b 缺失的 `IHUI-AI git-guardian` 而跑 `--install`,而该安装器注册的是**直接执行 `node.exe``;计划任务在 InteractiveToken 下执行控制台程序会**显示控制台** → 每 2 分钟闪一扇黑窗。用户随即反馈"又弹了",**这次是本人造成的**。捕获器实证:`node.exe <- svchost.exe <- services.exe`,argv 为 `git-guardian.mjs`,窗口标题 `C:\Program Files\nodejs\node.exe`
+- [x] ✅(2026-09-20) 止血:删除该任务;根因修复:`git-guardian.mjs --install` 改为注册 `wscript.exe "scripts/git-guardian-hidden.vbs"`(与仓库既有 `cleanup-zombie-processes-hidden.vbs` / `kill-git-selector-hidden.vbs` 同一 SW_HIDE 约定)
+- [x] ✅(2026-09-20) 修 `git-guardian-hidden.vbs` 过程中连环踩中并修掉 4 个真实缺陷:① `Environment().Item(缺失键)` 返回 Null,`Len(Null)` 亦 Null → 比较抛 Type mismatch 静默中止(以 `& ""` 归一);② `WshShell.Run` 给裸程序名加引号导致按字面文件名解析失败;③ 二次编辑引入 `Dim cmd` 重复声明使编译中止;④ **`.vbs` 含 UTF-8 中文注释被 ANSI 代码页误解码为伪引号 → 编译期语法错,wscript 弹 "Windows Script Host" 对话框而 `schtasks` 仍报成功**(与 §27 同类),已改全 ASCII 并在文件头写死该约束
+- [x] ✅(2026-09-20) 测量方法纠错:`MainWindowTitle` 归属计数在多人并发机上严重过报(共享同一控制台的每个进程都报同标题,`sh.exe`/`ssh.exe` 标题也显示成 git.exe),改用"控制台类进程新增可见窗口"精确判据;另记一次被 `2>&1 | head` 误导 —— 管道中 `$?` 取的是 `head` 的退出码,验退出码不得经管道
+- [x] ✅(2026-09-20) 注册前预检落地:`--install` 先用 `cscript //nologo` 实跑包装器,非零退出或输出含 error 即**拒绝注册**(实测坏 vbs → exit 1 被拦;修好的 → 注册成功),杜绝再装出空转或弹窗任务
+- [x] ✅(2026-09-20) 端到端复验:跨 135s(覆盖 2 分钟任务周期)守护被自动拉起 **2 次**,**控制台类新增可见窗口 = 0**;`git-guardian.mjs --status` 判 `refsOk = true`
+- [x] ✅(2026-09-20) **推翻本人二轮结论**:实测 Qoder 自带 Electron 运行时内 `process.env.NODE_OPTIONS === undefined`(Electron 主动剥离),故机器级钩子只覆盖独立 `node.exe`,**覆盖不到 IDE 内部的 git 调用**。二轮将其表述为"机器级根治"属过度声明,已在 AGENTS.md §5b 补写此边界,避免后续排查再走弯路
+- [x] ✅(2026-09-20) 规则固化:AGENTS.md 新增「计划任务与 .vbs 的硬约束」5 条(禁直接执行控制台程序 / `.vbs` 必须 ASCII / `Run` 引号规则 / `Environment` Null 惯用法 / Electron 无视 `NODE_OPTIONS`)
+
 > 未采纳(用户明确否决):`credential.helper` 三层叠加(wincred + GCM manager + store)与每分钟 `IHUI-KillGitSelector`
 > 计划任务属另一类弹窗(凭据助手 GUI);用户确认本机只弹黑色命令行窗口,故 git 全局配置与该任务**一律未改动**。
 
