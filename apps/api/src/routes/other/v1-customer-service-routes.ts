@@ -9,7 +9,13 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { eq, and, or, desc, asc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
-import { dbRead } from '../../db/index.js'
+// O4b 数据闸接线(2026-09-20):站内信(messages)是用户态数据,机器凭据
+// (messages:read = scoped-read)只能读"收件人是自己"的行,故走受控读出口 dbReadScoped。
+// FAQ(zhs_faq,全站已发布内容)与工单族(db/customer-service-queries.js)不在本次接线范围:
+// 前者无 owner 列(scoped-read 下必然 403,接线等于打死端点),后者被后台/客服面共用,
+// 需要独立的归属映射(见交付清单)。
+import { dbRead, dbReadScoped } from '../../db/index.js'
+import { configureDataScopeGuard } from '../../utils/scoped-guard.js'
 import { messages, zhsFaq } from '@ihui/database'
 import {
   findTickets,
@@ -22,6 +28,11 @@ import { parsePagination, parseIdParam } from './_shared.js'
 import { requireCapabilityRules } from '../../utils/capability-guard.js'
 import { openCapabilityRules } from '../../config/open-capability-registry.js'
 import { requireOpenCapability } from '../../utils/open-capability-gate.js'
+
+// messages 表没有 user_id 列,归属由会话双方表达(sender_id / receiver_id)。
+// 本族两个读端点都以"收件人 = 调用主体"为过滤条件,故登记 receiver_id 为该表的 owner 列,
+// 让数据闸的 owner 证据判据认得这张表的真实归属形态(判据本身不放宽)。
+configureDataScopeGuard({ ownerColumnByTable: { messages: 'receiver_id' } })
 
 export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
   // O6 收口(原 O3 仅 declareCapability 登记、不强制):客服消息 / 工单(用户态遗留桩)。
@@ -45,14 +56,14 @@ export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
       eq(messages.receiverId, request.userId!),
     )
     const [list, totalRows] = await Promise.all([
-      dbRead
+      dbReadScoped
         .select()
         .from(messages)
         .where(where)
         .orderBy(desc(messages.createdAt))
         .limit(q.pageSize)
         .offset((q.page - 1) * q.pageSize),
-      dbRead
+      dbReadScoped
         .select({ count: sql<number>`count(*)::int` })
         .from(messages)
         .where(where),
@@ -64,7 +75,7 @@ export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /v1/customer_service/messages/read — 未读消息数
   server.get('/v1/customer_service/messages/read', async (request, reply) => {
-    const [row] = await dbRead
+    const [row] = await dbReadScoped
       .select({ count: sql<number>`count(*)::int` })
       .from(messages)
       .where(and(eq(messages.receiverId, request.userId!), eq(messages.isRead, false)))
@@ -132,6 +143,7 @@ export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /v1/customer_service/faqs — FAQ 列表
+  // 全站已发布内容(zhs_faq 无 owner 列),刻意保持原始出口:见文件头说明。
   server.get('/v1/customer_service/faqs', async (request, reply) => {
     const q = parsePagination(request, reply)
     if (!q) return
