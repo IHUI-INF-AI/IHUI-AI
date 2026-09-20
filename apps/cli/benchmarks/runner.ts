@@ -143,7 +143,7 @@ export function resolveShell(): string {
       if (existsSync(c)) return c;
     }
     // PATH 上的 git 反推 Git 安装目录（.../Git/cmd/git.exe -> .../Git/bin/bash.exe）
-    const git = spawnSync('where.exe', ['git'], { encoding: 'utf8' });
+    const git = spawnSync('where.exe', ['git'], { encoding: 'utf8', windowsHide: true });
     for (const line of (git.stdout ?? '').split(/\r?\n/)) {
       const m = /^(.*?)[\\/]cmd[\\/]git\.exe$/i.exec(line.trim());
       if (m) {
@@ -190,6 +190,7 @@ export function verifyTask(ws: string, task: BenchTask): { exitCode: number | nu
     encoding: 'utf8',
     timeout: 120_000,
     env,
+    windowsHide: true,
   });
   if (r.error) {
     return { exitCode: null, outputTail: '', error: String(r.error.message ?? r.error) };
@@ -227,7 +228,13 @@ export function makeCliAgent(): RunAgentFn {
         'agent', prompt, '--json', '--allow-dangerous', '--no-setup', '-w', cliRoot,
       ];
     }
-    const r = spawnSync(cmd, args, { cwd: cliRoot, encoding: 'utf8', timeout: 600_000, maxBuffer: 32 * 1024 * 1024 });
+    const r = spawnSync(cmd, args, {
+      cwd: cliRoot,
+      encoding: 'utf8',
+      timeout: 600_000,
+      maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
+    });
     if (r.error) throw new Error(`CLI agent spawn failed: ${r.error.message}`);
     // NDJSON 事件流：拼接所有 assistant 文本片段作为原始回答
     const chunks: string[] = [];

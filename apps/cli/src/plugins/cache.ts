@@ -82,11 +82,14 @@ function performClone(url: string, target: string, ref?: string, sha?: string): 
   const args = ['clone', '--depth', '1'];
   if (ref) args.push('--branch', ref);
   args.push(url, target);
-  execFileSync(gitBin, args, { stdio: 'pipe' });
+  execFileSync(gitBin, args, { stdio: 'pipe', windowsHide: true });
   if (sha) {
     // 拉取指定 commit 并 checkout(SHA pin)
-    execFileSync(gitBin, ['-C', target, 'fetch', '--depth=1', 'origin', sha], { stdio: 'pipe' });
-    execFileSync(gitBin, ['-C', target, 'checkout', sha], { stdio: 'pipe' });
+    execFileSync(gitBin, ['-C', target, 'fetch', '--depth=1', 'origin', sha], {
+      stdio: 'pipe',
+      windowsHide: true,
+    });
+    execFileSync(gitBin, ['-C', target, 'checkout', sha], { stdio: 'pipe', windowsHide: true });
   }
 }
 
