@@ -35,7 +35,8 @@
 
 > 背景：用户要求"本项目所有功能/页面/输入框/能力都能通过 AI 对话框自动自主分析调用"。
 > 结论是三条路线组合：A 后端 API 全量工具化 + B 前端 UI 动作注册表 + C 既有 computer/browser 兜底。
-> 平台独占标注（§9）：路线 B 依赖 DOM，仅 web 端（desktop 走 `computer_*`、extension 走 `browser_*`，语义不变）；
+> 平台独占标注（§9）：路线 B 覆盖 web + desktop（Tauri webview 跑的就是这份前端，DOM 同源可用；
+> `category:'ui'` 与 desktop 原生 `computer_*`、extension `browser_*` 三条通道按 category 择端，互不抢占）；
 > miniapp-taro / mobile-rn / cli 无浏览器 DOM，不适用同一条注册表面。
 
 ### 任务清单
@@ -68,6 +69,11 @@
 - [x] ✅(2026-09-20) B4 ai-service 侧 `web_ui_*` 七工具(describe/read/navigate/click/fill/submit/invoke),
       走既有 `_get_agent_control_secret` fail-closed 与 call_tool 权限矩阵。
       证据:`apps/ai-service/app/services/ui_action_bridge.py` + `tests/test_ui_action_bridge.py`。
+- [x] ✅(2026-09-20) B5 desktop 端同启 UI 桥(§9 多端同步):此前 hook 以 `isTauri()` 直接 no-op,
+      但桌面端跑的就是这份前端(DOM 同源),且 `category:'ui'` 与 desktop 的 `category:'computer'`
+      是 api 按 category 择端的两条不相交通道,不构成"同页两端点抢同一指令"。取消该 no-op 即让
+      desktop 获得同一套页面操控能力(`API_BASE` 早已按 Tauri 约定取 `NEXT_PUBLIC_API_BASE_URL`)。
+      miniapp-taro / mobile-rn 无同源 DOM,不属本路线。
 - [x] ✅(2026-09-20) C1 对话自动路由:`_app_control_intent_tools()` 强信号正则 + 依赖补全
       (动作类必带 describe、api 入口成对);负样本把关("查一下用户认证的实现"不误判为调接口)。
       证据:`apps/ai-service/app/services/conversation.py` + `tests/test_app_control_routing.py`。
