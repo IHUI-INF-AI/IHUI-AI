@@ -41,7 +41,8 @@ def _jsonl(records: list[dict[str, Any]]) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-def test_claude_code_jsonl_text_and_summary() -> None:
+def test_claude_code_jsonl_ai_title_and_tool_folding() -> None:
+    """真机实证:标题来自 ai-title(非 summary),tool_use 折进正文,tool_result 只计数。"""
     blob = _jsonl(
         [
             {
@@ -61,32 +62,70 @@ def test_claude_code_jsonl_text_and_summary() -> None:
                     "model": "claude-sonnet-4-5",
                     "content": [
                         {"type": "thinking", "thinking": "内部推理不该进会话"},
-                        {"type": "tool_use", "name": "Read", "id": "t1", "input": {}},
+                        {"type": "tool_use", "name": "Read", "id": "t1",
+                         "input": {"file_path": "src/a.py", "limit": 50, "verbose": True}},
                         {"type": "text", "text": "这个函数有个边界问题。"},
                     ],
                 },
             },
             {
+                # 纯 tool_result 的 user 记录:正文不落地,只计入告警
                 "type": "user",
                 "sessionId": "s1",
                 "uuid": "u3",
+                "message": {
+                    "role": "user",
+                    "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "整个文件内容"}],
+                },
+            },
+            {
+                "type": "user",
+                "sessionId": "s1",
+                "uuid": "u4",
                 "isSidechain": True,
                 "message": {"role": "user", "content": "子 agent 分支不该出现"},
             },
-            {"type": "summary", "summary": "函数边界问题排查", "leafUuid": "u2"},
+            {"type": "ai-title", "sessionId": "s1", "aiTitle": "旧标题"},
+            {"type": "ai-title", "sessionId": "s1", "aiTitle": "函数边界问题排查"},
         ]
     )
     parsed, warnings, truncated = parse_conversation_file("claude_code", "s1.jsonl", blob)
-    assert truncated is False and warnings == []
+    assert truncated is False
     convs = parsed["conversations"]
     assert len(convs) == 1
-    assert convs[0]["title"] == "函数边界问题排查"
+    assert convs[0]["title"] == "函数边界问题排查"  # 后者覆盖前者
     assert convs[0]["model"] == "claude-sonnet-4-5"
     assert convs[0]["sourceCreatedAt"] == "2026-09-01T08:00:00Z"
     assert convs[0]["sourceUpdatedAt"] == "2026-09-01T08:00:05Z"
     assert [m["content"] for m in convs[0]["messages"]] == [
         "帮我看下这个函数",
-        "这个函数有个边界问题。",
+        "[工具调用] Read(file_path=src/a.py, limit=50)\n这个函数有个边界问题。",
+    ]
+    assert any("工具输出正文未纳入" in w for w in warnings)
+
+
+def test_claude_code_pure_sidechain_file_still_imports() -> None:
+    """agent-<id>.jsonl 整份都是子 agent 转写:必须按主线导入,不能返回空。"""
+    blob = _jsonl(
+        [
+            {
+                "type": "user",
+                "sessionId": "sub1",
+                "isSidechain": True,
+                "message": {"role": "user", "content": "子任务开始"},
+            },
+            {
+                "type": "assistant",
+                "sessionId": "sub1",
+                "isSidechain": True,
+                "message": {"role": "assistant", "content": "子任务完成"},
+            },
+        ]
+    )
+    parsed, _w, _t = parse_conversation_file("claude_code", "agent-a1b2c3.jsonl", blob)
+    assert [m["content"] for m in parsed["conversations"][0]["messages"]] == [
+        "子任务开始",
+        "子任务完成",
     ]
 
 
@@ -188,6 +227,58 @@ def test_codex_falls_back_to_event_messages_and_splits_rollouts() -> None:
     assert convs[1]["sourceCreatedAt"] == "2026-09-03T00:00:00Z"
 
 
+def test_codex_modern_event_msg_item_completed_and_developer_warning() -> None:
+    """真机新版 rollout:event_msg 走 item_completed + `Text` 块;developer 单独计数告警。"""
+    blob = _jsonl(
+        [
+            {"type": "session_meta", "timestamp": "2026-09-06T10:00:00Z", "payload": {"id": "r9"}},
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "item_completed",
+                    "item": {
+                        "type": "UserMessage",
+                        "content": [{"type": "Text", "text": "新版提问"}],
+                    },
+                },
+            },
+            {
+                "type": "event_msg",
+                "payload": {
+                    "type": "item_completed",
+                    "item": {
+                        "type": "AgentMessage",
+                        "content": [{"type": "Text", "text": "新版回答"}],
+                    },
+                },
+            },
+            {"type": "event_msg", "payload": {"type": "token_count", "info": {"total": 1}}},
+            {
+                "type": "event_msg",
+                "payload": {"type": "task_complete", "last_agent_message": "收尾播报"},
+            },
+            {
+                "type": "response_item",
+                "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "注入指令"}]},
+            },
+            {
+                "type": "compacted",
+                "payload": {"message": "前文摘要:已讨论过 A 与 B"},
+            },
+        ]
+    )
+    parsed, warnings, truncated = parse_conversation_file("codex", "rollout-new.jsonl", blob)
+    assert truncated is False
+    conv = parsed["conversations"][0]  # 无 response_item.message → 回退 event 通道
+    assert [(m["role"], m["content"]) for m in conv["messages"]] == [
+        ("user", "新版提问"),
+        ("assistant", "新版回答"),
+        ("assistant", "收尾播报"),
+        ("system", "前文摘要:已讨论过 A 与 B"),
+    ]
+    assert any("developer 注入指令" in w for w in warnings)
+
+
 # ---------------------------------------------------------------------------
 # Cursor
 # ---------------------------------------------------------------------------
@@ -232,6 +323,30 @@ def test_cursor_corrupt_db_degrades_to_warning() -> None:
     parsed, warnings, _t = parse_conversation_file("cursor", "state.vscdb", b"not a sqlite file")
     assert parsed["conversations"] == []
     assert any("会话库无法读取" in w for w in warnings)
+
+
+def test_cursor_distinguishes_empty_db_from_unrecognized_shape() -> None:
+    """两种空态必须给不同诊断:库里没 composer 记录 vs 有记录但认不出消息列表。"""
+
+    def _db(pairs: list[tuple[str, bytes]]) -> bytes:
+        conn = sqlite3.connect(":memory:")
+        conn.execute("CREATE TABLE ItemTable (key TEXT PRIMARY KEY, value BLOB)")
+        conn.executemany("INSERT INTO ItemTable VALUES (?, ?)", pairs)
+        blob = conn.serialize()
+        conn.close()
+        return blob
+
+    _no_rows, warnings_a, _t = parse_conversation_file(
+        "cursor", "state.vscdb", _db([("workbench.layout", b'{"a":1}')])
+    )
+    assert any("没有 key 含 composer" in w for w in warnings_a)
+
+    _empty, warnings_b, _t2 = parse_conversation_file(
+        "cursor",
+        "state.vscdb",
+        _db([("composerData-c9", b'{"entries":[],"version":3}')]),
+    )
+    assert any("找到 1 条 composer 记录但未识别出消息列表" in w for w in warnings_b)
 
 
 # ---------------------------------------------------------------------------
