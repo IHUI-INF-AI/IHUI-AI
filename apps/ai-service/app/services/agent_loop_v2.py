@@ -938,6 +938,26 @@ def _compaction_context_limit_from_env() -> int:
         return 0
 
 
+def _build_reasoning_effort_pin_from_env() -> Any | None:
+    """构造推理努力档位钉扎(批58十九,对标 codex state/session.rs ReasoningEffortPin)。
+
+    两道门都满足才启用(任一不满足 → None,采样参数与现状逐零差异):
+    ① ``AGENT_REASONING_EFFORT_PIN_ENABLED`` 为真;
+    ② ``AGENT_REASONING_EFFORT_PIN_MODELS`` 配置了非空模型白名单(逗号分隔)。
+    """
+    if os.environ.get(
+        "AGENT_REASONING_EFFORT_PIN_ENABLED", "false"
+    ).strip().lower() not in ("on", "1", "true", "yes"):
+        return None
+    raw_models = os.environ.get("AGENT_REASONING_EFFORT_PIN_MODELS", "")
+    models = frozenset(part.strip() for part in raw_models.split(",") if part.strip())
+    if not models:
+        return None
+    from app.core.reasoning_effort_pin import ReasoningEffortPin
+
+    return ReasoningEffortPin(override_enabled=True, allowed_models=models)
+
+
 def _compaction_retention_budget_enabled_from_env() -> bool:
     """保留区逐组预算精修开关(env AGENT_COMPACTION_RETENTION_BUDGET_ENABLED)。
 
@@ -1291,6 +1311,9 @@ class AgentLoopV2:
             else max(0, int(compaction_context_limit))
         )
         self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs)——开关关闭或
+        # 未配置模型白名单时为 None,采样请求参数与现状逐零差异(不注入覆盖)。
+        self._reasoning_effort_pin: Any | None = _build_reasoning_effort_pin_from_env()
         # 批58(十三):保留区逐组预算精修(对标 codex compact_remote_v2)。默认 off
         # 与现状逐零差异;三参数与 codex RetainedImageBudget / 单条 agent 消息上限对齐。
         self._retention_budget_enabled: bool = _compaction_retention_budget_enabled_from_env()
@@ -1538,6 +1561,8 @@ class AgentLoopV2:
             compressed, retention_meta = self._apply_retention_budget(compressed)
             if retention_meta.get("applied"):
                 info["retention_budget"] = retention_meta
+            # 批58(十九):压缩成功 → 档位钉扎退役为 Compacted(允许新窗重建请求基线)
+            self._retire_effort_pin_on_compaction()
             self._compaction_events.append(
                 {
                     "iteration": self._current_iteration,
@@ -1658,6 +1683,48 @@ class AgentLoopV2:
         except Exception as e:  # noqa: BLE001 - 精修失败绝不阻塞压缩主链路
             logger.warning("[agent-loop] 保留区预算精修失败(降级原产物): %s", e)
             return compressed, {"enabled": True, "applied": False, "reason": "error"}
+
+    def _resolve_effort_for_request(self, selected_effort: Any) -> str | None:
+        """批58(十九):采样请求的推理努力档位解析(对标 codex reasoning_effort_for_request)。
+
+        - 未启用钉扎(None)→ 返回 None(不注入覆盖,参数透传面零差异);
+        - 模型名取 modelParams.model → env AGENT_MODEL_NAME → "default"(单模型场景);
+        - 有效档位由 core.reasoning_effort_pin 的三道门判定(总开关/模型白名单/
+          已知后端模式),未知档位不注入(注入项有界于已知模式);
+        - 采样成功后钉扎粘滞:同窗内后续请求返回既有档位(封顶模型漂移)。
+        """
+        pin = getattr(self, "_reasoning_effort_pin", None)
+        if pin is None:
+            return None
+        model = str(
+            self._model_params.get("model")
+            or os.environ.get("AGENT_MODEL_NAME")
+            or "default"
+        )
+        selected = selected_effort if isinstance(selected_effort, str) else None
+        # 先过"有效档位"三道门:门不满足(模型不在白名单/档位非法/无档位)时既不建立
+        # 钉扎也不注入覆盖——避免把同一非法值重复写回参数面(与现有透传行为零差异)。
+        if pin.effort_for_configuration_update(model, selected) is None:
+            return None
+        from app.core.reasoning_effort_pin import RequestEffortUsage
+
+        resolved = pin.reasoning_effort_for_request(
+            model, selected, RequestEffortUsage.SAMPLING
+        )
+        return resolved if isinstance(resolved, str) else None
+
+    def _retire_effort_pin_on_compaction(self) -> None:
+        """压缩成功 → 退役档位钉扎(对标 codex 压缩落账内联的 ReasoningEffortPin::Compacted)。
+
+        未启用钉扎时为 no-op;异常隔离(退役失败不影响压缩主链路)。
+        """
+        pin = getattr(self, "_reasoning_effort_pin", None)
+        if pin is None:
+            return
+        try:
+            pin.retire_on_compaction()
+        except Exception:  # noqa: BLE001 - 退役失败仅影响档位精度
+            pass
 
     def _inject_decision_chain(
         self, compressed: list[dict[str, Any]], source_messages: list[dict[str, Any]]
@@ -2553,6 +2620,14 @@ class AgentLoopV2:
         self._stream_retry_state = None
         # 2026-09-18 第二批:生成参数透传(空 dict 时不加 kwargs,签名与现状逐零差异)
         extra_params: dict[str, Any] = self._model_params or {}
+        # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs——采样可建立
+        # 钉扎,同一上下文窗内粘滞不变)。开关关闭/模型不在白名单/档位非法 → 不注入,
+        # 与现状逐零差异;压缩成功由 _maybe_compact_context 退役为 Compacted。
+        _pinned_effort = self._resolve_effort_for_request(
+            extra_params.get("reasoning_effort")
+        )
+        if _pinned_effort is not None:
+            extra_params = {**extra_params, "reasoning_effort": _pinned_effort}
         for attempt in range(self.llm_retry_max + 1):
             try:
                 on_chunk: Callable[[str], Awaitable[None]] | None = None
