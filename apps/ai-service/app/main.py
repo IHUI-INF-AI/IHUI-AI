@@ -94,9 +94,6 @@ from app.routers import workflow as workflow_router
 # AI 批改(AI 自动评分练习答案,2026-08-07 立)
 from app.routers.ai_marking import router as ai_marking_router
 
-# 教育食堂采购小票 AI 三轮核对(抽取/交叉核对/仲裁,2026-09-19 立)
-from app.routers.edu_canteen_receipt import router as edu_canteen_receipt_router
-
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
 
@@ -106,6 +103,9 @@ from app.routers.checkpoint_rewind import router as checkpoint_rewind_router
 from app.routers.cloud_runs import router as cloud_runs_router
 from app.routers.computer_use import router as computer_use_router
 from app.routers.context_compaction import router as context_compaction_router
+
+# 教育食堂采购小票 AI 三轮核对(抽取/交叉核对/仲裁,2026-09-19 立)
+from app.routers.edu_canteen_receipt import router as edu_canteen_receipt_router
 from app.routers.langgraph import router as langgraph_router
 from app.routers.legacy import router as legacy_router
 
@@ -847,6 +847,11 @@ def create_app() -> FastAPI:
     from app.routers import engine_voice as engine_voice_router
 
     app.include_router(engine_voice_router.router, prefix="/api", tags=["voice", "agent-engine"])
+
+    # 会话文件导入解析(Claude Code/Codex/Cursor/Aider 导出 → 统一 IR,2026-09-20 立)
+    from app.routers import session_import
+
+    app.include_router(session_import.router, prefix="/api", tags=["session-import"])
 
     # IHUI 作为 MCP Server 对外开放(2026-09-03 立,逆向杀手锏只做客户端的对标产品)
     # 由 ENABLE_MCP_EXPORT 环境变量控制开关,默认关闭(避免影响现有服务,不启动额外 listener)。

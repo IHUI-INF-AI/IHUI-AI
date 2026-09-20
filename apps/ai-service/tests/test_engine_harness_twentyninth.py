@@ -4,7 +4,6 @@
 
 # app/core/image_preparation.py 第二十九批测试(对标 Codex image_preparation_tests.rs + image_tests.rs)。
 
-import base64
 import io
 
 import pytest
@@ -13,18 +12,16 @@ from app.core.image_preparation import (
     HIGH_DETAIL_LIMITS,
     ORIGINAL_DETAIL_LIMITS,
     PROMPT_IMAGE_PATCH_SIZE,
-    ResizedImage,
+    ImagePreparationError,
+    ResizeLimits,
     data_url_from_bytes,
     detail_limits,
     is_data_url,
     is_remote_image_url,
-    load_data_url_for_prompt,
     prepare_response_items,
     prompt_image_dimensions_fit,
     prompt_image_output_dimensions_for_limits,
     resize_image,
-    ImagePreparationError,
-    ResizeLimits,
 )
 
 

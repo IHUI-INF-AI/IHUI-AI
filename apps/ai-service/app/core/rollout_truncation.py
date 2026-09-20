@@ -23,8 +23,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Callable, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ def truncate_before_nth_user_message(
 def fork_turn_positions(
     items: Sequence[object],
     is_user_turn_boundary: Callable[[object], bool],
-    is_trigger_turn: Optional[Callable[[object], bool]] = None,
+    is_trigger_turn: Callable[[object], bool] | None = None,
 ) -> list[int]:
     """fork 回合边界位置(用户消息 + trigger_turn 消息),应用回滚语义。
 
@@ -104,7 +104,7 @@ def truncate_to_last_n_fork_turns(
     items: Sequence[object],
     n_from_end: int,
     is_user_turn_boundary: Callable[[object], bool],
-    is_trigger_turn: Optional[Callable[[object], bool]] = None,
+    is_trigger_turn: Callable[[object], bool] | None = None,
 ) -> list[object]:
     """保留最后 n 个 fork 回合的后缀;n=0 返回空;不足 n 时从首个边界起保留。"""
     if n_from_end == 0:
@@ -127,8 +127,8 @@ def has_prior_user_turns(
 def truncate_after_turn_id(
     items: Sequence[object],
     turn_id: str,
-    turn_started_index: Callable[[object], Optional[str]],
-    turn_status: Optional[Callable[[str], str]] = None,
+    turn_started_index: Callable[[object], str | None],
+    turn_status: Callable[[str], str] | None = None,
 ) -> list[object]:
     """截取到指定已持久化回合结束的后缀(含该回合)。
 
@@ -138,7 +138,7 @@ def truncate_after_turn_id(
     Raises:
         ValueError: turn_id 不存在 / 非规范持久化边界 / 进行中
     """
-    start_idx: Optional[int] = None
+    start_idx: int | None = None
     for idx, item in enumerate(items):
         tid = turn_started_index(item)
         if tid == turn_id:

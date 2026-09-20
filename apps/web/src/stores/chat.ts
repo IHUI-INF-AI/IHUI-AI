@@ -130,6 +130,19 @@ export interface SteerNotice {
 }
 
 /**
+ * D28 快速侧问队列条目(2026-09-20 立,对标 Claude Code /btw 侧聊的「可排队」升级)。
+ * 流式期间输入的 /side 问题先入队暂存,流结束后由 message-input.tsx 逐条出队
+ * 调 answerSideQuestion 补答(直调 REST,回答不入主线历史,同 W24 /btw)。
+ */
+export interface SideQueueItem {
+  id: string
+  /** 用户侧问正文(已 trim) */
+  text: string
+  /** 入队时间戳(Date.now()) */
+  createdAt: number
+}
+
+/**
  * Web 前端 chat store UI 状态消息类型。
  *
  * 继承 @ihui/shared 的 ChatMessage 通用基类(id/role/content/createdAt?/model?/error?/reasoning?/toolCalls?/meta?),
@@ -244,6 +257,29 @@ interface ChatState {
    *  在网关定位 upstream 会话)。流开始由 send-message/send-answer 写入,收尾清空。 */
   streamingAssistantId: string | null
 
+  /** D22 引用回复(2026-09-19 立,对标 Qoder 0.2.x):待引用回复的消息快照。
+   *  MessageItem Reply 按钮 → ihui:reply-message → MessageList 监听写入;
+   *  MessageInput 渲染引用 chip,doSend 发送时把引用摘要注入正文,成功后 clearQuotedMessage。
+   *  不持久化(执行期瞬时态,刷新后需重新点 Reply)。 */
+  quotedMessage: { id: string; role: ChatMessage['role']; content: string } | null
+
+  /** D22 网页搜索 UI 开关(2026-09-19 立):开启后普通问答(未选插件工具)也携带
+   *  web_search 最小工具集,mergeAgentTools() 消费;与 selectedTools 互不替代。
+   *  持久化(用户偏好,跨刷新保留)。 */
+  webSearchEnabled: boolean
+
+  /** D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列。
+   *  流式期间输入的 /side 问题入队当前会话桶,流结束后由 message-input.tsx
+   *  逐条出队补答;非流式时 /side 直接即答不入队。
+   *  按会话分桶:切换会话后其他会话的队列仍保留,切回可继续补答。
+   *  持久化:排队问题跨刷新保留(用户排队后刷新再回来仍可补答),故纳入 partialize。 */
+  sideQueueByConversation: Record<string, SideQueueItem[]>
+
+  /** 设置引用回复目标(null=清除,输入区引用 chip 随之消失) */
+  setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
+  /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
+  setWebSearchEnabled: (v: boolean) => void
+
   setModel: (model: string) => void
   /** 添加单个工具到已选;已存在则忽略 */
   addSelectedTool: (pluginId: string) => void
@@ -349,6 +385,14 @@ interface ChatState {
   removeDiffComment: (id: string) => void
   /** 清空全部待发送 diff 评审意见(注入成功后消费即清,或用户手动清空) */
   clearDiffComments: () => void
+  /** D28 快速侧问(2026-09-20 立):把 /side 问题入队到指定会话桶(队尾,FIFO)。
+   *  conversationId 为空或文本为空时静默忽略;入队前 trim。 */
+  enqueueSideQuestion: (conversationId: string, text: string) => void
+  /** D28 快速侧问:按 id 从指定会话桶删除单条侧问(队列条目「删除」时调用);
+   *  桶删空后移除该键,避免持久化残留空桶。 */
+  removeSideQuestion: (conversationId: string, id: string) => void
+  /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
+  shiftSideQuestion: (conversationId: string) => SideQueueItem | null
   /** 终端实时输出追加(2026-09-18 立):命令执行期间逐块追加 stdout/stderr 增量。
    *  单键累计上限 20000 字符(超出保留尾部),避免长命令把 localStorage/内存撑爆。 */
   appendTerminalOutput: (terminalId: string, text: string) => void
@@ -421,7 +465,7 @@ function genId(): string {
 
 export const useChatStore = create<ChatState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       messages: [],
       // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
       // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
@@ -449,10 +493,18 @@ export const useChatStore = create<ChatState>()(
       // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
       steerNoticesByMessageId: {},
       streamingAssistantId: null,
+      // D22 引用回复(执行期瞬时态,不持久化)
+      quotedMessage: null,
+      // D22 网页搜索开关:SSR 安全惰性读取(服务端恒 false;客户端 store 创建早于组件 hydration,
+      // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
+      webSearchEnabled:
+        typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
       // #21 中断后追加指令继续(2026-09-13 立)
       interruptedMessageId: null,
       // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
       inputHistory: [],
+      // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
+      sideQueueByConversation: {},
 
       // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
       // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
@@ -632,6 +684,17 @@ export const useChatStore = create<ChatState>()(
       clearDraftInput: () => set({ draftInput: null }),
 
       clearDraftAutoSend: () => set({ draftAutoSend: false }),
+
+      // D22 引用回复:写入/清除引用目标(输入区 chip 由 MessageInput 订阅渲染)
+      setQuotedMessage: (q) => set({ quotedMessage: q }),
+
+      // D22 网页搜索开关:同步 localStorage(初始 state 惰性读取的回写路径)
+      setWebSearchEnabled: (v) => {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
+        }
+        set({ webSearchEnabled: v })
+      },
 
       setPendingQuestion: (q) => set({ pendingQuestion: q }),
 
@@ -1029,6 +1092,51 @@ export const useChatStore = create<ChatState>()(
 
       clearDiffComments: () => set({ pendingDiffComments: [] }),
 
+      // D28 快速侧问(2026-09-20 立):按会话分桶的侧问队列三 action。
+      // 流式期间 submit 把 /side 问题入队当前会话桶;流结束后 message-input.tsx
+      // effect 出队逐条补答(answerSideQuestion 直调 REST,回答不入主线历史)。
+      enqueueSideQuestion: (conversationId, text) =>
+        set((s) => {
+          const trimmed = text.trim()
+          if (!conversationId || !trimmed) return s
+          const entry: SideQueueItem = {
+            id: genId(),
+            text: trimmed,
+            createdAt: Date.now(),
+          }
+          const bucket = s.sideQueueByConversation[conversationId] ?? []
+          return {
+            sideQueueByConversation: {
+              ...s.sideQueueByConversation,
+              [conversationId]: [...bucket, entry],
+            },
+          }
+        }),
+
+      removeSideQuestion: (conversationId, id) =>
+        set((s) => {
+          const bucket = s.sideQueueByConversation[conversationId]
+          if (!bucket?.some((q) => q.id === id)) return s
+          const next = bucket.filter((q) => q.id !== id)
+          const nextMap = { ...s.sideQueueByConversation }
+          if (next.length > 0) nextMap[conversationId] = next
+          else delete nextMap[conversationId]
+          return { sideQueueByConversation: nextMap }
+        }),
+
+      shiftSideQuestion: (conversationId) => {
+        const head = get().sideQueueByConversation[conversationId]?.[0]
+        if (!head) return null
+        set((s) => {
+          const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
+          const nextMap = { ...s.sideQueueByConversation }
+          if (next.length > 0) nextMap[conversationId] = next
+          else delete nextMap[conversationId]
+          return { sideQueueByConversation: nextMap }
+        })
+        return head
+      },
+
       // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
       // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
       // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
@@ -1152,6 +1260,13 @@ export const useChatStore = create<ChatState>()(
         // P3 #30(2026-09-16):diff 待发送评审意见持久化 —— 用户评论后刷新/切走再回来仍可发送。
         // 上限 50 条(与 inputHistory 同量级),避免异常累积撑爆 localStorage 配额。
         pendingDiffComments: s.pendingDiffComments.slice(-50),
+        // D28(2026-09-20):侧问队列按会话分桶持久化 —— 流式期间排队的问题刷新后仍保留,
+        // 流结束后自动补答;每桶上限 20 条,防异常累积撑爆 localStorage 配额。
+        sideQueueByConversation: Object.fromEntries(
+          Object.entries(s.sideQueueByConversation).map(([k, v]) => [k, v.slice(-20)]),
+        ),
+        // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
+        webSearchEnabled: s.webSearchEnabled,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
