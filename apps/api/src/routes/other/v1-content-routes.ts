@@ -13,11 +13,18 @@ import {
   findGenerationTemplates,
 } from '../../db/content-generation-queries.js'
 import { parsePagination } from './_shared.js'
-import { declareCapability } from '../../utils/capability-guard.js'
+import { requireCapabilityRules } from '../../utils/capability-guard.js'
+import { openCapabilityRules } from '../../config/open-capability-registry.js'
+import { requireOpenCapability } from '../../utils/open-capability-gate.js'
 
 export const v1ContentRoutes: FastifyPluginAsync = async (server) => {
-  // O3 登记:内容生成模板/历史(用户态遗留桩,同上待收口)
-  server.addHook('preHandler', declareCapability('user:read'))
+  // O6 收口(原 O3 仅 declareCapability 登记、不强制):内容生成模板/历史(用户态遗留桩)。
+  // scope = user:read —— /v1/content/list 按归属人过滤生成历史,不触发模型推理,
+  // 故不取 generation:write(该 scope 是"写生成任务",本族只读)。
+  server.addHook(
+    'preHandler',
+    requireOpenCapability(requireCapabilityRules(openCapabilityRules('v1-content-catalog'))),
+  )
 
   // GET /v1/content/create — 返回内容生成模板列表(供前端选择)
   server.get('/v1/content/create', async (_request, reply) => {
