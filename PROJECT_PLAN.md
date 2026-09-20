@@ -151,6 +151,7 @@
       不带 agentTools 就完全不进工具循环,端侧桥写得再对也是死代码。现状:RN 的 ChatScreen 直接调
       `streamChat(...)` 未传;小程序 `src/api/index.ts:269` 有字段但无调用点赋值。
       做法:各端只带本端族名(不把 web_ui_* 发给小程序 — 那只会换来 TARGET_NOT_CONNECTED 并白烧上下文)。
+      **进度(2026-09-21):小程序侧已闭环(见 B8c),仅剩 RN 侧(见 B9)。**
 - [x] ✅(2026-09-21) B8a web 侧同类缺口先修(实测才发现,不是推演):`mergeAgentTools()` 在
       "未选插件且未开网页搜索"时返回 [](2026-08-29 为保打字机流式所设),于是**普通对话里
       web_ui_* / api_* 根本进不了模型视野** —— 此前所有真机证据都是直打 /api/agent-control 拿的,
@@ -158,6 +159,39 @@
       做强信号预筛(打开/点击/填写/查后台…),命中才带整族,普通问答仍返回 []。
       证据:`apps/web/tests/tool-config.test.ts` 新增 4 项(负样本不带工具、打开→整族含 describe、
       api 成对、无重复),8 项全绿;web typecheck / eslint 0 错。
+- [x] ✅(2026-09-21) B8b 意图判定上收到共享层(§3 共享层优先,防四端复制漂移):新建
+      `packages/shared/src/utils/app-control-intent.ts` —— `detectAppControlIntent()` 只判信号、
+      `createAppControlToolSelector({ui,api})` 由端注入本端族名(工厂 + 依赖注入)、
+      `lastUserContent()` 结构化最小约束兼容各端 message 形状。web 的本地关键词表整段删除改为
+      消费该工厂(命中逻辑逐字相同,只有名字不同)。
+      证据:`packages/shared/tests/utils/app-control-intent.test.ts` 74 项(44 条 ui/api 正样本、
+      15 条负样本、selector 族隔离与复用无残留、`lastUserContent` 非字符串 content 不崩);
+      `@ihui/shared` typecheck exit 0,web typecheck exit 0,web `tool-config` 8 项仍全绿。
+- [x] ✅(2026-09-21) B8c 小程序端 UI 桥落地(§9 多端同步,`category='miniapp_ui'` + `endpoint='miniapp'`):
+      ①`scripts/generate-ui-routes.mjs` 解析 `app.config.ts` 产出 152 条页面白名单(幂等 + 自带水印注入);
+      ②`src/lib/ui-action-registry.ts` 四动作执行器 —— navigate 仅放行白名单(`ROUTE_NOT_ALLOWED`)、
+      invoke 仅放行显式登记命令、**退出登录永不暴露**(clearAuth 不可逆,AI 幻觉一次即把用户踢下线);
+      ③`src/hooks/use-ui-control-bridge.ts` 能力上报 + 60s 保活 + `onAppShow` 建连 / `onAppHide`
+      停 timer 并断连(切后台 5s 挂起,`TARGET_NOT_CONNECTED` 是常态,失败只 warn 不弹 toast);
+      ④B8 小程序侧闭环:`src/lib/ui-control-tools.ts` 注入 `taro_ui_*` 四工具,
+      `src/api/index.ts::buildBody` 经 `resolveAgentTools(options.agentTools, messages)` 兜底 ——
+      不命中留 `undefined`(不是 `[]`,否则 body 里多一个空数组),显式传入一律优先。
+      顺带修一处既有缺陷:`src/app.tsx` 原自建通知 WS 用了默认 urlBuilder(内部 `new URL(baseUrl)`),
+      真机 JSCore 不保证有 WHATWG URL → 通知链路从未真正工作过;现由桥层持有唯一连接并
+      注入不依赖 `URL` 的 builder,仍 `trigger('wsNotification')` 广播,契约不变。
+      证据:miniapp typecheck exit 0;`src/lib/__tests__/` 62 项全绿(registry 26 + bridge 21 +
+      ui-control-tools 11 + sse 8);`i18n-compressed` 7 项绿(重生成 `remote-locales.gen.ts` 消除产物漂移)。
+      **部署前置(代码管不到)**:微信公众平台须把 API 的 `wss://<host>` 加进 socket 合法域名。
+- [x] ✅(2026-09-21) B8d `API_TOOLS_MODE` 默认由 `read` 改 `all`(用户 2026-09-20 明确拍板放开写面)。
+      放开的是**可见面**不是**授权面**:写操作仍过 handler 内 `__user_role>=1`(匿名/普通用户恒 0 →
+      `PERMISSION_DENIED`)+ api 侧各路由 RBAC 两道闸。`read` 保留为多租户公开部署的收紧开关。
+      现测口径(`API_TOOLS_MAX=300`):302 个常驻工具表(300 端点 + 2 入口),侧表可调用面
+      4623 个端点 = 只读 2042 + 写 2581。证据:新增 `test_default_mode_is_all` 钉住默认值
+      (防"沉默回退成 read"),`tests/test_api_tools_bridge.py` 32 项全绿,ruff + mypy --strict 零错。
+- [ ] B9 RN 端 UI 桥(§9 多端同步,`category='app_ui'` + `endpoint='rn'`):协议与 `mobile_ui_*` 四工具
+      已就绪(B6/B7),缺端侧实现 —— 注册表(describe/read/navigate/invoke + 命令白名单)、
+      `use-ui-control-bridge`、`RootNavigator` 挂载、`AiAssistantN8nScreen` 的 agentTools 预筛。
+      约束:本机跑不了 expo,端侧行为只能由单测 + typecheck 证明,**不得声称真机验证**。
 - [x] ✅(2026-09-20) C1 对话自动路由:`_app_control_intent_tools()` 强信号正则 + 依赖补全
       (动作类必带 describe、api 入口成对);负样本把关("查一下用户认证的实现"不误判为调接口)。
       证据:`apps/ai-service/app/services/conversation.py` + `tests/test_app_control_routing.py`。
