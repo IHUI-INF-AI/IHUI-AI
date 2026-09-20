@@ -330,6 +330,41 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 _approval_registry: dict[str, tuple[asyncio.Event, str | None]] = {}
 
 
+# 批 53(2026-09-20):审批 persist 持久键旁路登记(approval_id → cache_key)。
+# _request_approval 造 approval_id 时顺手填,供引擎侧 approval.respond 携带 persist 字段时
+# 按 id 取回 key 落盘 always/session 级授权(批 52 仅写 session);finally 清理防内存泄漏。
+# 与 _approval_registry 同期登记/清理:两者都仅在人工弹窗等待窗口内存在。
+_approval_persist_keys: dict[str, str] = {}
+
+
+def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
+    """按 approval_id 取回已登记的 cache_key 并落盘指定 scope 授权(批 53 persist 通道)。
+
+    引擎侧 approval.respond(decision=approve, persist=...) 在决策落地后调用本函数,
+    将授权升级/落盘到 always 或 session 级(对标 codex PERSIST_SESSION / PERSIST_ALWAYS)。
+
+    Args:
+        approval_id: 审批请求 id(由 _request_approval 生成并登记到 _approval_persist_keys);
+        scope: "session" | "always"(由引擎侧决策层校验后传入,本函数不再做合法性校验)。
+
+    Returns:
+        True=已取回 key 并落盘成功(幂等 INSERT OR IGNORE);
+        False=approval_id 不存在(已超时清理或从未发起),或持久层异常(fail-safe 不阻断主链路)。
+
+    注:持久层异常按失败处理(返回 False),绝不影响主链路审批结果(工具已批准执行)。
+    """
+    key = _approval_persist_keys.get(approval_id)
+    if key is None:
+        return False
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.grant(scope, key, "mcp_tool")
+    except Exception:
+        return False
+    return True
+
+
 def resolve_approval_response(approval_id: str, decision: str) -> bool:
     """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点调用)。
 
@@ -2700,6 +2735,23 @@ class AgentLoopV2:
                             "content": f"[steer] {steer_text}",
                         }
                     )
+                # 批 53:历史健全化(对标 codex context_manager/normalize.rs)——
+                # 压缩前先修历史:删孤儿 tool 回复 + 补缺位 tool 占位(中断/压缩/
+                # 宿主注入后可能产生残缺历史,残缺 assistant(tool_calls)↔tool 配对
+                # 会让部分 LLM API 400)。失败隔离不阻塞回合(健全化属防御性步骤)。
+                try:
+                    from app.core.history_normalization import normalize_history
+
+                    _norm = normalize_history(messages)
+                    if _norm.get("orphans_removed") or _norm.get("placeholders_added"):
+                        logger.info(
+                            "历史健全化生效: orphans_removed=%s, placeholders_added=%s, session=%s",
+                            _norm.get("orphans_removed"),
+                            _norm.get("placeholders_added"),
+                            self._session_id or "",
+                        )
+                except Exception as e:  # noqa: BLE001 - 健全化失败不阻塞主链路
+                    logger.warning("history_normalization 异常(降级跳过): %s", e)
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = await self._maybe_compact_context(messages)
                 # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
@@ -3293,6 +3345,8 @@ class AgentLoopV2:
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
         _approval_registry[approval_id] = (ev, None)
+        # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
+        _approval_persist_keys[approval_id] = key
         try:
             # 参数预览:截断 200 字符(完整 args 不回传 SSE,避免敏感信息全量下发)
             try:
@@ -3328,6 +3382,8 @@ class AgentLoopV2:
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
             _approval_registry.pop(approval_id, None)
+            # 批 53:同步清理 persist 旁路键(与 _approval_registry 同期生命周期)
+            _approval_persist_keys.pop(approval_id, None)
 
     async def _emit_permission_mode_event(self, tool_name: str, decision: str) -> None:
         """模式生效时经事件流层发 `permission.mode` 事件(1-5 拆层后统一入口)。
