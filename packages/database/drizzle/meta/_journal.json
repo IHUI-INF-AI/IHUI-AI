@@ -1989,6 +1989,13 @@
       "when": 1789966800000,
       "tag": "20260921130000_llm_call_logs_raw_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1789977600000,
+      "tag": "20260921160000_scoped_app_role_owner_rls",
+      "breakpoints": true
     }
   ]
 }
