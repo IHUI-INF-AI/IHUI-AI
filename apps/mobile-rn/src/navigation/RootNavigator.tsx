@@ -223,6 +223,8 @@ import { PdfToolsScreen } from '../screens/PdfToolsScreen'
 import { WebPortalScreen } from '../screens/WebPortalScreen'
 import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
 import { SubagentsScreen } from '../screens/SubagentsScreen'
+// D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
+import { ConversationImportScreen } from '../screens/ConversationImportScreen'
 
 /**
  * Vip 弹窗分支类型(对齐 Uniapp vip_info/index.vue onLoad options.type 行 59-75):
@@ -472,6 +474,8 @@ export type RootStackParamList = {
   TopicList: { from?: string; onPickTopic?: (name: string) => void } | undefined
   TopicDetail: { id: string }
   CircleIndex: undefined
+  // D28 多端同步(2026-09-21):外部会话导入入口(设置页 → 会话导入屏)
+  ConversationImport: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -735,6 +739,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
             <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
             <RootStack.Screen name="Subagents" component={SubagentsScreen} />
+            {/* D28 多端同步(2026-09-21):外部会话导入(设置页入口) */}
+            <RootStack.Screen name="ConversationImport" component={ConversationImportScreen} />
             {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
             <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
             <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />

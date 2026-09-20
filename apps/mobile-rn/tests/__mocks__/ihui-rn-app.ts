@@ -56,6 +56,9 @@ export { OrderScreen } from '../../../../packages/app/src/features/order/OrderSc
 export { PaymentScreen } from '../../../../packages/app/src/features/payment/PaymentScreen'
 export { WalletScreen } from '../../../../packages/app/src/features/wallet/WalletScreen'
 export { WithdrawScreen } from '../../../../packages/app/src/features/withdraw/WithdrawScreen'
+// D28 多端同步(2026-09-21):外部会话导入共享屏直连真实实现(与上方 Settings/Order 同款做法),
+// 便于 wrapper 测试覆盖「注入的 picker/parse/commit」与共享 UI 的联动。
+export { ConversationImportScreen } from '../../../../packages/app/src/features/conversation-import/ConversationImportScreen'
 
 // WalletBalance / WalletScreenProps / WithdrawScreenProps re-exported for type compatibility
 export type {
