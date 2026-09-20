@@ -197,7 +197,53 @@ const navigateFn = navigationRef.navigate as (
   params?: Record<string, unknown>,
 ) => void
 
-const SAFE_COMMANDS: readonly RnInvokeCommand[] = [
+/**
+ * 容器未就绪(冷启极早期 / 已登出)时 react-navigation 只会 LogBox 警告而不抛错,
+ * 不自己判就会把"什么都没发生"回报成成功 —— navigate 动作在 executeNavigate 里已有同款判定,
+ * 命令侧必须一致。抛错由 executeInvoke 兜成 EXECUTION_FAILED。
+ */
+function requireNavigationReady(): void {
+  if (!navigationRef.isReady()) {
+    throw new Error('导航容器尚未就绪(App 冷启中或已登出),请稍后重试')
+  }
+}
+
+/**
+ * Main(Bottom Tabs)5 个主屏 → 语义命令(2026-09-21 扩)。
+ *
+ * 为什么"navigate 也能到 tab"还要单独登记:用户说的是"切到课程/回到首页"这类整句意图,
+ * 模型自己走 navigate 得先 describe 拿 routes、认出哪些是 tab、再拼 `Main` 嵌套参数 ——
+ * navigate('Home') 还会在 RootStack 上另开一份栈外的第二首页。这条坑由命令封装兜住。
+ * screen 必须回查生成清单且 tab===true:哪天某个主屏不再是 tab,命令自动消失,
+ * 不给模型一个会失败的"可调用面"。幂等(切到当前 tab 是空操作)、可逆、零网络副作用。
+ */
+const TAB_COMMAND_SPECS: readonly { id: string; label: string; screen: string }[] = [
+  { id: 'tab:home', label: '回到首页 tab', screen: 'HomeMain' },
+  { id: 'tab:course', label: '切到「课程」tab', screen: 'CourseMain' },
+  { id: 'tab:ai', label: '切到「AI 助手」tab', screen: 'AiMain' },
+  { id: 'tab:live', label: '切到「直播」tab', screen: 'LiveMain' },
+  { id: 'tab:profile', label: '切到「我的」tab', screen: 'ProfileMain' },
+]
+
+const TAB_COMMANDS: readonly RnInvokeCommand[] = TAB_COMMAND_SPECS.flatMap((spec) => {
+  const route = ROUTE_BY_NAME.get(spec.screen)
+  if (!route?.tab) return []
+  return [
+    {
+      id: spec.id,
+      label: spec.label,
+      group: 'navigation',
+      run: () => {
+        requireNavigationReady()
+        // tab 子路由不是 RootStack 的直接子节点:state-based 容器要求走 navigate('Main', { screen })
+        navigateFn('Main', { screen: route.name })
+        return { navigatedTo: `Main/${route.name}` }
+      },
+    },
+  ]
+})
+
+const THEME_COMMANDS: readonly RnInvokeCommand[] = [
   {
     id: 'theme:light',
     label: '切换为浅色主题',
@@ -225,32 +271,27 @@ const SAFE_COMMANDS: readonly RnInvokeCommand[] = [
       return { theme: 'system' }
     },
   },
-  {
-    id: 'nav:home',
-    label: '回到首页',
-    group: 'navigation',
-    run: () => {
-      navigateFn('Main', { screen: 'HomeMain' })
-      return { navigatedTo: 'Main/HomeMain' }
-    },
-  },
 ]
+
+/** invoke 的全部可调用命令(外观 + 导航) */
+const SAFE_COMMANDS: readonly RnInvokeCommand[] = [...THEME_COMMANDS, ...TAB_COMMANDS]
 
 const INVOKE_BY_ID: ReadonlyMap<string, RnInvokeCommand> = new Map(
   SAFE_COMMANDS.map((cmd) => [cmd.id, cmd]),
 )
 
 /*
- * 白名单为什么只有这四项(刻意做小,而不是"能调的都放上"):
+ * 白名单边界(刻意做小,而不是"能调的都放上"):
  * - 主题三项:themeStore 是 zustand 全局单例(见 src/context/ThemeContext.tsx 注释:
  *   "zustand 全局 store 不需要 Provider"),模块级 setState 会真的重渲染,不存在假成功。
- * - nav:home:走 navigationRef 容器 ref,是 navigation-ref.ts 已确立的跨树跳转方式。
- *   它与 navigate 动作能力重叠,仍单独登记,因为"回到首页"在 RN 需要嵌套参数
- *   (navigate('Main', { screen: 'HomeMain' })),模型直接 navigate('HomeMain') 也能到,
- *   但 navigate('Home') 会开一个栈外的第二份首页 —— 这个坑由命令封装兜住。
+ * - tab 五项:走 navigationRef 容器 ref,是 navigation-ref.ts 已确立的跨树跳转方式;
+ *   跳转前先 requireNavigationReady(),容器未就绪时如实失败而不是静默假成功。
  * - 语言切换:**不进白名单**。src/i18n/index.tsx 的 setLocale 只活在 I18nProvider 的
  *   React state 里,注册表拿不到 Provider 引用,模块级改 storage 会造成"存了但界面没变"
  *   的假成功。AI 要改语言时用 navigate('Settings') 把人送到设置页自己点。
+ * - 回到顶部 / 打开抽屉:RN 没有全局滚动 API(要逐屏拿 ScrollView ref)、抽屉是
+ *   components/Drawer.tsx 的组件内 state,均非模块级可达 → 不列入。
+ * - 返回上一级:重复执行会连弹多级页面,不幂等,幻觉代价由用户承担 → 不列入。
  * - 退出登录 / 注销账号 / 支付 / 清理缓存:**永不暴露**。AGENTS 与 ai-service 侧
  *   mobile_ui_invoke 的工具描述已声明"破坏性动作刻意不暴露",端侧必须一致 ——
  *   logoutAuth() 一触发即销毁当前会话,AccountCancel/Payment 类页面还会牵连资金,
