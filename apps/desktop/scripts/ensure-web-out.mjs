@@ -106,7 +106,11 @@ function shouldBuild() {
 
 if (shouldBuild()) {
   console.log('[desktop] 检测到前端源码比产物更新 → 重建前端...');
-  execSync('pnpm --filter @ihui/web build:static', { stdio: 'inherit', cwd: desktopRoot });
+  execSync('pnpm --filter @ihui/web build:static', {
+    stdio: 'inherit',
+    cwd: desktopRoot,
+    windowsHide: true, // 防 Windows 弹可见控制台窗口
+  });
 } else {
   console.log('[desktop] 前端产物已最新 → 跳过前端构建,直接打包');
 }
