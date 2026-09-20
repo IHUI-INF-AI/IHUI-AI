@@ -1092,6 +1092,14 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
 - **桌面弹窗防护**(52):check-no-visible-spawn(派生控制台程序漏 `windowsHide` 检测,blocking,AGENTS.md §5b 机器级根治配套,2026-09-20 立;`--self-test` 14 例 + §22c 镜像测试)
 
+### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
+
+- **🚫 计划任务禁止直接执行控制台程序**:InteractiveToken 下 `/tr "node.exe xxx"` 会让 Windows **显示控制台窗口**(每 2 分钟闪一扇黑窗)。一律经 `wscript.exe "<name>-hidden.vbs"` 包装(`objShell.Run(cmd, 0, False)` = SW_HIDE);`-WindowStyle Hidden` 与 `powershell -WindowStyle Hidden` **仍会闪**,不作为豁免手段。现存正例:`git-guardian-hidden.vbs` / `cleanup-zombie-processes-hidden.vbs` / `kill-git-selector-hidden.vbs`。
+- **🅰 `.vbs` 文件必须纯 ASCII**:`cscript`/`wscript` 按 **ANSI(本机 GBK)代码页**解码 `.vbs`,UTF-8 中文注释会被错切成伪引号 → **编译期**语法错 → wscript 弹 "Windows Script Host" 对话框,而 `schtasks` 仍报成功(与 §27 的 PowerShell/ANSI 同类陷阱)。`.vbs` 里**不得写中文注释**,说明一律英文;`git-guardian.mjs --install` 已内置"注册前用 `cscript //nologo` 实跑一次、非零退出即拒绝注册"的预检。
+- **`WshShell.Run` 命令串引号规则**:裸程序名**不能**加引号(`"node.exe" arg` 会按字面文件名解析而失败),仅路径真含空格时才加引号;参数照常加引号。
+- **`WScript.Shell.Environment()("不存在的键")` 返回 Null**,`Len(Null)` 亦为 Null,后续比较抛 "Type mismatch" 并静默中止。读环境变量必须 `& ""` 归一:`raw = shell.Environment("Process").Item("X") & ""`。
+- **Electron 宿主无视 `NODE_OPTIONS`**:实测 Qoder/Trae 自带运行时内 `process.env.NODE_OPTIONS === undefined`(Electron 主动剥离),故机器级 windowsHide 钩子**只覆盖独立 `node.exe`**,覆盖不到 IDE 内部的 git 调用。后者若弹窗,只能关 IDE 自带 git 集成或改其调用方,不要误以为环境变量层能解决。
+
 ### 守门手动触发 / 紧急跳过抽查
 
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
