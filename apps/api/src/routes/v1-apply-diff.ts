@@ -26,12 +26,20 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { hasApiKeyCredential, requireCapabilityRules } from '../utils/capability-guard.js'
 import { success, error } from '../utils/response.js'
 import { fsBridge, permissionManager } from '../services/workspace-ai-service.js'
 
 export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
-  // 鉴权:复用 packages/auth 的 authenticate(同 workspace-ai.ts 模式)
-  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+  // O3 双通道:携带 API Key → 能力闸;否则走原人 JWT 鉴权。
+  // diff:apply 在能力目录标为 thirdPartyEligible=false(直接写磁盘),
+  // 因此外部第三方 key 恒 403 M2M_FORBIDDEN,web/IDE 的人 JWT 通道行为不变。
+  server.addHook('preHandler', async (request, reply) => {
+    if (hasApiKeyCredential(request)) {
+      return requireCapabilityRules([
+        { methods: ['POST'], pattern: /^\/api\/v1\/ai\/apply-diff$/, scope: 'diff:apply' },
+      ])(request, reply)
+    }
     try {
       await authenticate(request)
     } catch (e) {
@@ -39,7 +47,7 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
       const message = (e as Error).message || '操作失败,请稍后重试'
       return reply.status(statusCode).send(error(statusCode, message))
     }
-  }
+  })
 
   // 权限推送函数复用(同 workspace-ai.ts)
   const pushFn =
@@ -75,7 +83,6 @@ export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/v1/ai/apply-diff', async (request, reply) => {
-    await requireAuth(request, reply)
     if (!request.userId) return
 
     const parsed = applyDiffSchema.safeParse(request.body)
