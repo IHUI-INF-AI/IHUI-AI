@@ -45,6 +45,8 @@ import {
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 import { scanAndRemindArrears } from '../services/edu-arrear-remind-service.js'
+// O5(2026-09-21):llm_call_logs 到期原文清除(只清 prompt/response,计费/归因列保留)
+import { purgeAllExpiredLlmCallLogRawText } from '../services/audit-log-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -579,6 +581,21 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             )
             try {
               server.recordJobExecution(name, result.notifyFailed > 0 ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'llm-call-log-purge-daily': {
+            // O5 原文留存:循环清除到期/按 key 关闭的 llm_call_logs 原文直到无到期行。
+            // 函数内部已降级(DB 异常返回 purged=0 不抛出),这里不需要 try。
+            const result = await purgeAllExpiredLlmCallLogRawText()
+            server.log.info(
+              { purged: result.purged, hasMore: result.hasMore, defaultDays: result.policy.defaultDays },
+              'llm_call_logs raw-text purge done',
+            )
+            try {
+              server.recordJobExecution(name, result.hasMore ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }
