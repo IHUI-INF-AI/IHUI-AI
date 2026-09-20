@@ -71,7 +71,23 @@
     "codeCountdownSuffix": "秒后重新获取",
     "getPhoneFail": "获取手机号失败",
     "loginFailed": "登录失败,请重试",
-    "wechatOneClick": "微信一键登录"
+    "wechatOneClick": "微信一键登录",
+    "emailLogin": "邮箱登录",
+    "email": "邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "clearHistory": "清空全部",
+    "code": "验证码",
+    "sending": "发送中…",
+    "autoLogin": "自动登录",
+    "or": "或",
+    "ssoLoginTitle": "智汇AI网页授权登录",
+    "noAccount": "没有账号?",
+    "registerNow": "立即注册",
+    "agreePrefix": "我已阅读并同意",
+    "termsOfService": "《用户协议》",
+    "and": "和",
+    "privacyPolicy": "《隐私政策》",
+    "agreeRequired": "请先阅读并同意服务协议和隐私政策"
   },
   "forgot": {
     "step1": "第一步:验证手机号",
@@ -133,7 +149,8 @@
       "searchPlaceholder": "搜索课程",
       "search": "搜索",
       "empty": "暂无课程",
-      "title": "精品课程"
+      "title": "精品课程",
+      "courseCount": "{n} 门课程"
     },
     "ratingTitle": "评价课程",
     "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
@@ -799,7 +816,13 @@
       "voiceAnswer": "🔊 语音回答",
       "modelDefault": "AI 模型"
     },
-    "success": "分享成功"
+    "success": "分享成功",
+    "text1": "页面未配置",
+    "text2": "分销页未配置",
+    "copy3": "链接已复制,请在浏览器打开",
+    "failed4": "复制失败,请重试",
+    "text5": "对话页未配置",
+    "confirm6": "确定删除此对话?"
   },
   "aiGroup": {
     "title": "智能体广场",
@@ -1007,7 +1030,8 @@
     "email": "邮箱",
     "scanHint": "扫一扫,查看名片",
     "shareCard": "分享名片",
-    "saveQrcode": "保存二维码"
+    "saveQrcode": "保存二维码",
+    "title": "电子名片"
   },
   "exam": {
     "tabs": {
@@ -1856,7 +1880,8 @@
       "devNotice": "开发者须知",
       "faqTitle": "相关开发者的一系列问题解答？",
       "copy": "复制",
-      "copySuccess": "已复制"
+      "copySuccess": "已复制",
+      "infoTitle": "开发者信息"
     },
     "n8nModel": {
       "title": "N8N 模型",
@@ -3243,7 +3268,8 @@
     "d46": "语音克隆效果",
     "p1": "图片内容",
     "p2": "视频内容",
-    "p3": "音频内容"
+    "p3": "音频内容",
+    "r1": "保存图片到相册"
   },
   "aiassistant": {
     "text1": "深度思考中...",
@@ -3298,7 +3324,9 @@
     "d1": "相机",
     "d2": "相册",
     "d3": "本地文件",
-    "d4": "微信文件"
+    "d4": "微信文件",
+    "p1": "语音输入中",
+    "p2": "语音输入"
   },
   "DrawerComponent": {
     "empty1": "暂无历史对话",
@@ -3319,7 +3347,8 @@
     "mine2": "我的AI员工"
   },
   "shareCenterItem": {
-    "text1": "推荐卡片"
+    "text1": "推荐卡片",
+    "z1": "浏览"
   },
   "CourseHeader": {
     "text1": "付费项目"
@@ -3705,7 +3734,11 @@
   "LessonListItem": {
     "text1": "VIP可看",
     "text2": "VIP可看",
-    "y1": "人已学习"
+    "y1": "人已学习",
+    "z1": "人已学习",
+    "z2": "人已学习",
+    "p1": "VIP可看",
+    "p2": "付费项目"
   },
   "UserInfoCard": {
     "login1": "一键登录",
@@ -3891,7 +3924,8 @@
     "p2": "扫码即可查看"
   },
   "TagInput": {
-    "p1": "输入后回车添加"
+    "p1": "输入后回车添加",
+    "p2": "已达上限"
   },
   "VipUpgradeToast": {
     "p1": "升级会员解锁更多功能"
@@ -3952,5 +3986,24 @@
     "q2": "请在微信小程序中使用微信登录",
     "q3": "微信登录 code 为空",
     "q4": "微信用户"
+  },
+  "TeamManager": {
+    "p1": "不活跃"
+  },
+  "VerifyCodeModal": {
+    "p2": "重新发送",
+    "p3": "验证中…"
+  },
+  "VideoInfo": {
+    "p1": "视频详情"
+  },
+  "VideoPlayer": {
+    "p1": "播放错误"
+  },
+  "VoiceInput": {
+    "p1": "录音启动失败"
+  },
+  "shareInformationItem": {
+    "z1": "浏览"
   }
 }
