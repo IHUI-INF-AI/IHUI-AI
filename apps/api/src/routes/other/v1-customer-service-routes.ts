@@ -10,7 +10,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { eq, and, or, desc, asc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { dbRead } from '../../db/index.js'
-import { declareCapability } from '../../utils/capability-guard.js'
 import { messages, zhsFaq } from '@ihui/database'
 import {
   findTickets,
@@ -20,10 +19,22 @@ import {
   transitionTicket,
 } from '../../db/customer-service-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
+import { requireCapabilityRules } from '../../utils/capability-guard.js'
+import { openCapabilityRules } from '../../config/open-capability-registry.js'
+import { requireOpenCapability } from '../../utils/open-capability-gate.js'
 
 export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
-  // O3 登记:客服工单/消息(用户态遗留桩,当前无鉴权,待专项收口)
-  server.addHook('preHandler', declareCapability('messages:read'))
+  // O6 收口(原 O3 仅 declareCapability 登记、不强制):客服消息 / 工单(用户态遗留桩)。
+  // 读端点归 messages:read;ticket/:id/close 是状态流转,单独登记成 messages:write,
+  // 规则表按字面量长度降序匹配,故 close 不会被 catch-all 降级成只读 scope。
+  server.addHook(
+    'preHandler',
+    requireOpenCapability(
+      requireCapabilityRules(
+        openCapabilityRules('v1-customer-service-read', 'v1-customer-service-close'),
+      ),
+    ),
+  )
 
   // GET /v1/customer_service/messages — 当前用户消息列表
   server.get('/v1/customer_service/messages', async (request, reply) => {

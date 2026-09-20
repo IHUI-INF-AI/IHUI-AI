@@ -475,8 +475,15 @@ import relayConversationsRoutes from './relay-conversations.js'
 import channelQuotaAdminRoutes from './admin/channel-quota.js'
 // 移动端运营统计(2026-08-06 立):GET /api/admin/mobile-stats(真实聚合,requireAdmin)
 import mobileStatsRoutes from './admin/mobile-stats.js'
+// O6 能力开放登记表的运行期入口(根级 preHandler,详见 utils/open-capability-gate.ts)
+import { openCapabilityGateway } from '../utils/open-capability-gate.js'
 
 export function registerRoutes(server: FastifyInstance) {
+  // O6(2026-09-21)`/api` 面机器凭据入口闸:仅放行 config/open-capability-registry.ts
+  // 逐条登记过的 (方法, 路径)。未携带 API Key → 本钩子完全 no-op,存量人 JWT 行为不变;
+  // 携带 API Key 但不在登记表 → 不放行,由端点自身 authenticate() 照旧判 401(默认拒绝)。
+  server.addHook('preHandler', openCapabilityGateway)
+
   server.register(healthRoutes, { prefix: '/api' })
   server.register(authRoutes, { prefix: '/api/auth' })
   server.register(usersRoutes, { prefix: '/api/users' })
