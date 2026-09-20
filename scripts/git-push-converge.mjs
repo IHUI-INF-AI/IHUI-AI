@@ -62,7 +62,7 @@ const TIMEOUT_MS = Number(getArg('timeout', '180000'))
 // ─── git 执行(带超时,失败返回 null) ───
 function git(argsArr, { timeout = TIMEOUT_MS } = {}) {
   try {
-    return execFileSync('git', argsArr, { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'] }).trim()
+    return execFileSync('git', argsArr, { encoding: 'utf8', timeout, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
   } catch {
     return null
   }
@@ -114,6 +114,7 @@ function healViaGuard() {
         encoding: 'utf8',
         timeout: 600_000,
         stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
         env: { ...process.env, GUARD_ASYNC: '0', GUARD_WORKER: '' },
       },
     )
