@@ -33,7 +33,7 @@
  * 退出码:0 成功 / 1 生成或写盘失败 / 2 脚本自身异常。
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { register } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -875,6 +875,9 @@ async function run(argv: string[]): Promise<number> {
   if (toStdout) {
     process.stdout.write(json)
   } else {
+    /** `--out` 可以指向尚不存在的目录(CI 里 `.ihui-agent/tmp/` 就是干净的),
+     *  否则 writeFileSync 直接 ENOENT,漂移门禁在 CI 上永远跑不到比对那一步。 */
+    mkdirSync(dirname(target), { recursive: true })
     writeFileSync(target, json, 'utf8')
   }
   const bytes = Buffer.byteLength(json, 'utf8')
