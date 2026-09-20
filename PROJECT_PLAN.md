@@ -181,6 +181,14 @@
       注入不依赖 `URL` 的 builder,仍 `trigger('wsNotification')` 广播,契约不变。
       证据:miniapp typecheck exit 0;`src/lib/__tests__/` 62 项全绿(registry 26 + bridge 21 +
       ui-control-tools 11 + sse 8);`i18n-compressed` 7 项绿(重生成 `remote-locales.gen.ts` 消除产物漂移)。
+      活体核验(直打 8802,真实 admin JWT 走端侧上报所经的同一鉴权通道):
+      `POST /capability{endpoint:'miniapp',taroUiActions:[4]}` → 200 registered;`/status` 回
+      `endpoint=miniapp taroUiActions=4 uiActions=0 appUiActions=0`;跨族择端正确 —— 同一身份投
+      `category='ui'` 与 `'app_ui'` 分别得 `TARGET_NOT_CONNECTED`("Web 前端未连接"/"移动端未连接"),
+      **注册的 miniapp 端一条都没接走**。
+      顺带实测出一条既有限制(web/RN 同适用,非本次引入):端点注册表按 `ENDPOINT_TTL_MS=5min` 留存活,
+      所以"已注册但 socket 实际已断"的端会走满超时返回 `TIMEOUT` 而非快速 `TARGET_NOT_CONNECTED`;
+      桥层的 60s 保活把前台端的误判窗口压到 1 个心跳内,被杀进程最长 5min 内会 TIMEOUT(而非误发到别端)。
       **部署前置(代码管不到)**:微信公众平台须把 API 的 `wss://<host>` 加进 socket 合法域名。
 - [x] ✅(2026-09-21) B8d `API_TOOLS_MODE` 默认由 `read` 改 `all`(用户 2026-09-20 明确拍板放开写面)。
       放开的是**可见面**不是**授权面**:写操作仍过 handler 内 `__user_role>=1`(匿名/普通用户恒 0 →
@@ -255,7 +263,8 @@
 
 ### P2 广度产品化（生态）
 
-- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛  ⏳(迁移与角色在途)
+- [x] ✅(2026-09-21) O13 开放面数据隔离的连接层落地：非超级用户角色 `ihui_app`(`NOSUPERUSER NOBYPASSRLS`)+ **逐表** GRANT(只授 scoped-* 实际触达的 4 张表,无 `ON ALL TABLES`)+ 独立连接串 `DATABASE_APP_URL` → `dbScoped()/dbReadScoped()` 挂应用角色池、探针跟着换目标;未配置时行为与改前逐字节一致并显式告警(fail-closed,宁 503 不假装隔离)。迁移 `20260921160000_scoped_app_role_owner_rls.sql`(已登记 journal idx 285)、`packages/database/scripts/owner-rls.mjs`(status 全程只读)、CI `.github/workflows/db-owner-rls.yml`(临时 PG 真跑迁移并断言 `rolsuper=f` + 未授权表 permission denied)、README + docs/DATABASE.md + 三份 .env 模板 + 两份 docker-compose 同步。**RLS policy 建了但刻意未 ENABLE**(真正挡数据的是应用闸),上线顺序清单见 `docs/developer/data-classes.md` §3.1
+- [ ] O13b `roleId >= 1` 判定收敛(admin 面快速放行改读能力目录/权限位)+ 应用角色连接在部署机上实际启用(运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`),之后才评估 `ENABLE ROW LEVEL SECURITY`
 - [ ] O14 SDK 真正发布（现 0 tag / brew sha256 占位）：npm/PyPI/Go/Maven + install 脚本校验 + `@ihui/api-client` 去 `private`
 - [ ] O15 web 开发者控制台：能力目录浏览 / 申请 scope / 用量与熔断面板  ⏳(控制台在途)
 - [x] ✅(2026-09-20) O16 治理：docs/developer 补权限模型 + data-class + 速率表 + 错误码 + 滥用政策/DMCA；share token 不再全权继承
