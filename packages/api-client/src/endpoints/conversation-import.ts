@@ -59,7 +59,8 @@ export interface ParsedImportConversation {
   sourceCreatedAt?: string
   sourceUpdatedAt?: string
   messages: Array<{
-    role: 'user' | 'assistant'
+    // system 由 ai-service 产出(Codex rollout 的 compacted 压缩摘要按 system 落地)
+    role: 'user' | 'assistant' | 'system'
     content: string
     createdAt?: string
   }>
