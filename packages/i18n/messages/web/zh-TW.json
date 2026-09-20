@@ -8954,6 +8954,16 @@
     },
     "fallbackNotice": "已切換到備用模型 {backup}(原模型 {primary} 暫時不可用)",
     "feedbackRecorded": "已記錄反饋",
+    "foldPolicy": {
+      "title": "中間步驟摺疊策略",
+      "current": "當前: {mode}",
+      "auto": "自適應",
+      "autoDesc": "按字數/工具數/耗時自動判定,輕任務展開、重任務摺疊",
+      "collapsed": "摺疊",
+      "collapsedDesc": "始終摺疊中間步驟",
+      "expanded": "展開",
+      "expandedDesc": "始終展開中間步驟"
+    },
     "gapInterval": "{gap} 間隔",
     "generating": "生成中",
     "hideReasoning": "隱藏推理過程",
