@@ -257,6 +257,38 @@ def _rollout_budget_limit_from_env() -> int:
         return 0
 
 
+def _token_budget_thresholds_from_env() -> tuple[int, ...] | None:
+    """批58(接线):token 预算显式阈值(env AGENT_TOKEN_BUDGET_THRESHOLDS)。
+
+    对标 codex config TokenBudgetConfig.reminder_threshold_tokens + resolve
+    语义:逗号分隔正整数列表(如 "12000,4000")视为显式设置,validate 通过后
+    覆盖 RolloutBudget 默认阈值 (10000, 2000);未配置/非法值返回 None →
+    走现状默认阈值,与接线前逐字节等价。解析/校验失败降级 None 并告警。
+    """
+    raw = os.environ.get("AGENT_TOKEN_BUDGET_THRESHOLDS", "").strip()
+    if not raw:
+        return None
+    try:
+        from app.core.token_budget_config import TokenBudgetConfig
+
+        parts = [p.strip() for p in raw.split(",") if p.strip()]
+        values = [int(p) for p in parts]
+        if not values:
+            return None
+        if any(v <= 0 for v in values):
+            return None
+        # 经 TokenBudgetConfig.validate 走 codex 同款校验(threshold 必须为正;
+        # 模板字段以占位符满足非空校验,不产生实际模板)。
+        TokenBudgetConfig(
+            reminder_threshold_tokens=max(values),
+            reminder_message_template="remaining {remaining} tokens",
+        ).validate()
+        return tuple(sorted(values, reverse=True))
+    except Exception as e:  # noqa: BLE001 - 非法配置降级为默认阈值
+        logger.warning("AGENT_TOKEN_BUDGET_THRESHOLDS 非法(降级默认阈值): %s", e)
+        return None
+
+
 def _agent_budget_pillar_from_env() -> str:
     """Agent 主循环预算支柱(env AGENT_BUDGET_PILLAR)。
 
@@ -1334,11 +1366,19 @@ class AgentLoopV2:
             try:
                 from ..core.rollout_budget import RolloutBudget, RolloutBudgetConfig
 
+                # 批58(接线):token_budget_config 显式阈值(对标 codex
+                # features.token_budget.reminder_threshold_tokens)。未配置/非法
+                # 时保持默认 (10000, 2000),与接线前逐字节等价。
+                _tb_thresholds = _token_budget_thresholds_from_env()
                 _rb = RolloutBudget()
                 _rb.configure(
                     RolloutBudgetConfig(
                         limit_tokens=_rb_limit,
-                        reminder_at_remaining_tokens=(10000, 2000),
+                        reminder_at_remaining_tokens=(
+                            _tb_thresholds
+                            if _tb_thresholds is not None
+                            else (10000, 2000)
+                        ),
                     )
                 )
                 self._rollout_budget = _rb
@@ -1417,6 +1457,14 @@ class AgentLoopV2:
         self._additional_context_enabled: bool = _additional_context_enabled_from_env()
         self._additional_context_store: Any | None = _build_additional_context_store_from_env()
         self._additional_context_desired: dict[str, Any] = {}
+        # 批58(接线):guardian 安全审查策略片段(对标 codex context/guardian_*.rs)。
+        # 默认 off(env AGENT_GUARDIAN_POLICY 非空才启用);注入失败隔离不阻塞回合。
+        self._guardian_policy_text: str = (
+            os.environ.get("AGENT_GUARDIAN_POLICY", "").strip()
+        )
+        self._guardian_review_reminder: bool = os.environ.get(
+            "AGENT_GUARDIAN_REVIEW_REMINDER", "false"
+        ).strip().lower() in ("on", "1", "true", "yes")
         # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
         # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
         # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
@@ -3180,6 +3228,7 @@ class AgentLoopV2:
                 # 二者各自内部已做开关判定与异常隔离,关闭时零片段、零差异。
                 self._inject_world_state_sections(messages)
                 self._inject_additional_context(messages)
+                self._inject_guardian_context(messages)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -4789,6 +4838,32 @@ class AgentLoopV2:
                 messages.append(_f)
         except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
             logger.warning("additional_context 注入异常(降级跳过): %s", e)
+
+    def _inject_guardian_context(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):guardian 安全审查上下文片段(对标 codex context/guardian_*.rs)。
+
+        开关 off(env AGENT_GUARDIAN_POLICY 为空且 reminder 未开)直接返回,与现状
+        逐零差异。on 时追加:guardian_policy 片段(env 提供策略文本,developer 角色);
+        followup_review_reminder 片段(独立开关)。注入失败隔离不阻塞回合。
+        """
+        if not self._guardian_policy_text and not self._guardian_review_reminder:
+            return
+        try:
+            from app.core.guardian_context import (
+                build_guardian_followup_review_reminder_fragment,
+                build_guardian_policy_fragment,
+            )
+
+            if self._guardian_policy_text:
+                _pf = build_guardian_policy_fragment(self._guardian_policy_text)
+                if _pf is not None:
+                    messages.append(_pf)
+            if self._guardian_review_reminder:
+                _rf = build_guardian_followup_review_reminder_fragment()
+                if _rf is not None:
+                    messages.append(_rf)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("guardian_context 注入异常(降级跳过): %s", e)
 
     def _observe_auto_compact_prefill(self, usage: dict[str, Any]) -> None:
         """批58(接线):auto_compact_window prefill 观测(对标 codex
