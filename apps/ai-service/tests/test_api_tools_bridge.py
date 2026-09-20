@@ -449,6 +449,54 @@ async def test_long_tail_endpoint_callable_despite_cap(
     assert forged["errorCode"] == "PERMISSION_DENIED", forged
 
 
+def test_resolve_mounted_path_uses_declared_servers() -> None:
+    """回归:spec path 不带挂载前缀,直接 base+path 会让每次调用 404。"""
+    spec: dict[str, Any] = {
+        "servers": [{"url": "/api"}, {"url": "/api/v1"}],
+        "paths": {},
+    }
+    assert bridge.resolve_mounted_path(spec, "/health") == "/api/health"
+    assert bridge.resolve_mounted_path(spec, "/orders/{orderId}") == "/api/orders/{orderId}"
+    # 次要 server 独有尾段命中的 path 自带挂载点,不得再拼 /api
+    assert bridge.resolve_mounted_path(spec, "/v1/models") == "/v1/models"
+    # 已含前缀 / 无 servers 都不重复拼
+    assert bridge.resolve_mounted_path(spec, "/api/health") == "/api/health"
+    assert bridge.resolve_mounted_path({"paths": {}}, "/health") == "/health"
+
+
+async def test_setup_registers_mounted_paths(
+    _env: None, monkeypatch: pytest.MonkeyPatch, captured: list[dict[str, Any]]
+) -> None:
+    """注册出的 handler 必须打真实挂载路径;侧表保留原 path 供展示、另存 mounted。"""
+    monkeypatch.setenv("API_TOOLS_MODE", "read")
+    spec: dict[str, Any] = {
+        "servers": [{"url": "/api"}, {"url": "/api/v1"}],
+        "paths": {
+            "/conversations": {"get": {"operationId": "listConv", "summary": "会话列表"}},
+            "/v1/models": {"get": {"operationId": "v1Models", "summary": "公开模型清单"}},
+        },
+    }
+
+    async def fake_spec(force: bool = False) -> dict[str, Any]:
+        return spec
+
+    monkeypatch.setattr(bridge, "fetch_openapi_spec", fake_spec)
+    await bridge.setup_api_tools_bridge()
+    assert bridge._API_TOOL_INDEX["api_listconv"]["path"] == "/conversations"
+    assert bridge._API_TOOL_INDEX["api_listconv"]["mounted"] == "/api/conversations"
+    assert bridge._API_TOOL_INDEX["api_v1models"]["mounted"] == "/v1/models"
+
+    from app.services.mcp_server import mcp_server
+
+    await mcp_server.call_tool("api_listconv", {}, user_id=_USER)
+    assert captured[-1]["url"] == "http://api.test:8802/api/conversations"
+    await mcp_server.call_tool("api_v1models", {}, user_id=_USER)
+    assert captured[-1]["url"] == "http://api.test:8802/v1/models"
+    # 搜索回执只给展示用 path,不外泄内部 mounted 字段
+    found = await bridge._search_endpoint_tools({"query": "models"})
+    assert set(found["endpoints"][0]) == {"name", "method", "path", "summary"}
+
+
 async def test_setup_degrades_when_spec_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("API_TOOLS_MODE", "read")
 
