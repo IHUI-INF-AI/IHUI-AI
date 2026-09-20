@@ -91,6 +91,20 @@
 - [x] ✅(2026-09-20) B4 ai-service 侧 `web_ui_*` 七工具(describe/read/navigate/click/fill/submit/invoke),
       走既有 `_get_agent_control_secret` fail-closed 与 call_tool 权限矩阵。
       证据:`apps/ai-service/app/services/ui_action_bridge.py` + `tests/test_ui_action_bridge.py`。
+- [x] ✅(2026-09-21) B6 协议扩三类 UI 通道(`app_ui`→`rn`、`miniapp_ui`→`miniapp`),
+      **保持 category→endpoint 1:1** 所以不产生择端歧义;
+`packages/types` 新增 `AppUiActionType`/`TaroUiActionType`/`AppUiSnapshot`;
+      api 侧 `CATEGORY_ENDPOINT`/`CATEGORY_LABEL`/三个 zod schema/`/status` 计数同步。证据:
+      `apps/api/tests/agent-control-ui.test.ts` ⑭(三端各投各端 + 推送体 category 正确)、
+      ⑮(endpoint=rn 注册与计数、未知 endpoint 仍 400),15 项全绿。
+- [x] ✅(2026-09-21) B7 ai-service 三族工具:`_ui_call` 泛化 (category, prefix) 后注册
+      `web_ui_*`7 + `mobile_ui_*`4 + `taro_ui_*`4。钉定键改为 `(user_id, category)` —— 同一用户
+      web/RN/小程序同时在线时,拿 web 的 instanceId 去投 app_ui 会钉定失败并静默回落,等于又串端。
+      工具描述内写明 `TARGET_NOT_CONNECTED` 在移动/小程序端是常态(切后台挂起),要求模型
+      如实转述而非谎报成功。证据:`tests/test_ui_action_bridge.py` 新增 4 项(族形状、幂等与关闭、
+      跨 category 不串钉、进表可查);实跑注册计数 {web_ui_:7, mobile_ui_:4, taro_ui_:4, api_:302},
+      且 `mobile_ui_navigate` 真机回执「移动端未连接」(证明 ai-service→api 新通道端到端可达);
+      `mypy app --strict` 526 文件 0 错误。
 - [x] ✅(2026-09-20) B5 desktop 端同启 UI 桥(§9 多端同步):此前 hook 以 `isTauri()` 直接 no-op,
       但桌面端跑的就是这份前端(DOM 同源),且 `category:'ui'` 与 desktop 的 `category:'computer'`
       是 api 按 category 择端的两条不相交通道,不构成"同页两端点抢同一指令"。取消该 no-op 即让
