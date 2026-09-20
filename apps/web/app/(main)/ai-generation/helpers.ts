@@ -46,6 +46,7 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
       { value: 'generic', labelKey: 'tabGeneric' },
       { value: 'kling', labelKey: 'tabKling' },
       { value: 'qwen', labelKey: 'tabQwen' },
+      { value: 'jimeng', labelKey: 'tabJimeng' },
       { value: 'one-click', labelKey: 'tabOneClick' },
       { value: 'sora2', labelKey: 'tabSora2' },
       { value: 'agnes', labelKey: 'tabAgnes' },

@@ -249,6 +249,87 @@ _EDU_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     ),
 }
 
+# ---- 2026-09-20 AI 全量操控本站对话自动路由(web_ui_* + api_* 入口)----
+# 强信号正则:用户要求"操控我们这个程序"(而非问答)→ 无条件注入前端 UI 动作工具
+# 或后端 API 入口工具。命中即进 tool loop,不受 LLM 意图分类质量影响。
+_UI_INTENT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    "web_ui_describe": (
+        re.compile(r"(这个|当前|现在)?(页面|界面|后台|前端)(上)?(有|能)(哪些|什么|多少)(可操控|可操作|能操作|按钮|功能|操作|入口)"),
+        re.compile(r"(你能|能不能|可以)(帮我)?(操作|控制|操控|驱动)(这个|咱们|我们|本站)?(程序|应用|系统|页面|前端|后台)"),
+    ),
+    "web_ui_read": (
+        re.compile(r"(看|读|瞧|瞅|检查)(一)?(下)?(我|用户)?(当前|现在|这个|正)?(页面|界面|屏幕)(上|里)?(显示|有|的|存在)?(了|着)?(什么|内容|信息|状态)"),
+        re.compile(r"(我|我们)(现在|当前)在(哪|什么)(页面|路由)|页面(显示|内容)是"),
+    ),
+    "web_ui_navigate": (
+        re.compile(r"(打开|跳转|跳到|切到|切换到|进入|去|回到|导航到|带我到)(一下|下)?(我|你|这个|咱们的)?"
+                   r"(设置|偏好设置|个人中心|我的?订单|钱包|充值|提现|订阅|会员|积分|团队|工作区|知识库|"
+                   r"后台|管理|控制台|会话|聊天|首页|市场|插件|技能|工作流|代理|智能体|文档|报表|数据|"
+                   r"账单|发票|通知|消息|权限|安全|模型配置|网关|API ?Key|回收站|草稿|发布|日历|看板)"),
+        re.compile(r"(打开|跳转到|切到|进入)(这|那)?(个)?(页面|菜单|标签页|栏目)"),
+        re.compile(r"\b(open|go to|navigate to|jump to) (the )?(settings|orders|dashboard|wallet|admin)\b", re.IGNORECASE),
+    ),
+    "web_ui_click": (
+        re.compile(r"(点击|单击|双击|按一?下|按一下|按下|戳)(一下)?(那个?)?"
+                   r"(保存|提交|确认|取消|新建|新增|添加|删除|编辑|搜索|刷新|上传|下载|导出|导入|发布|关闭|展开|收起|启用|禁用|同意|通过)?"
+                   r"(按钮|入口|标签|选项|开关|链接|图标)"),
+        re.compile(r"(帮|给)我(点|按)(一下)?(那个|这个)"),
+        re.compile(r"\bclick( on)? (the )?(save|submit|new|delete|edit|confirm) button\b", re.IGNORECASE),
+    ),
+    "web_ui_fill": (
+        re.compile(r"(填|填写|填入|填上|写|输入|录入|设置|改|修改)(一下|入)?(这个|那个|下面|对应)??"
+                   r"(表单|输入框|文本框|搜索框|用户名|账号|邮箱|手机号|金额|数量|价格|标题|名称|备注|地址|密码|"
+                   r"下拉框|选项|日期|时间|关键字|分类)"),
+        re.compile(r"\b(fill|type|enter) (in )?(the )?(form|field|input|name|amount)\b", re.IGNORECASE),
+        # "把充值金额填成 100" 这类把字句:字段名词在动词之前
+        re.compile(r"把.{0,12}(金额|数量|价格|标题|名称|备注|邮箱|手机号|账号|用户名|关键字|地址|日期|时间|"
+                   r"分类|选项|表单)(填|改成|改为|设为|设置为|填成|输入|写成)"),
+        re.compile(r"(在|往)(这个|当前|下面)?(输入框|表单|搜索框|下拉框)(里|中)?(填|输入|写|选)"),
+    ),
+    "web_ui_submit": (
+        re.compile(r"(提交|保存)(这个|那个|当前|一下)?(表单|页面|填写|内容|修改|草稿)"),
+        re.compile(r"(填好了|录好了|写好了)(,|，)?(就)?(提交|保存)"),
+    ),
+    "web_ui_invoke": (
+        # 模式名与"模式"之间可能有空格("切换到 plan 模式"),\s* 兼容
+        re.compile(r"(切换|换|切)(到|成|为)?\s*(ask|build|plan|review|spec)?\s*(模式)"),
+        re.compile(r"(打开|关闭|收起|展开)(一?下)?(AI ?)?(侧边栏|侧栏|面板|对话框|工作台|命令面板|工作区)"),
+        re.compile(r"新建(一?个)?(会话|对话|任务|窗口)|清空(当前)?会话"),
+    ),
+    "api_endpoints_search": (
+        re.compile(r"(调用|请求|走|查|用)(一下|下)?(后端|服务端|接口|API|api)(接口|端点)?"),
+        re.compile(r"(系统|后台|数据库|平台)里(有|是)(多少|哪些|什么)"),
+        # "用户"必须带业务宾语才算数据查询意图,否则"查一下用户认证的实现"这类
+        # 代码问答会被误路由成后端接口调用
+        re.compile(r"(列出|查一下|统计|看看)(所有|全部|最近的)?(用户(列表|名单|都有|有多少|数据|记录|信息)|订单|文章|商品|交易|工单|评论|团队|席位|模型|供应商|渠道|密钥)"),
+        re.compile(r"\bcall (the )?(api|endpoint)\b", re.IGNORECASE),
+    ),
+}
+
+# api_* 入口是"先搜后调"的一对,任一命中即两个一起注入(否则模型只能搜不能调)。
+_API_ENTRY_TOOLS: tuple[str, ...] = ("api_endpoints_search", "api_endpoint_call")
+# UI 动作类工具依赖 describe 返回的 actionId/target 清单,命中动作即补 describe。
+_UI_ACTION_TOOLS: tuple[str, ...] = (
+    "web_ui_click", "web_ui_fill", "web_ui_submit", "web_ui_invoke", "web_ui_navigate",
+)
+
+# 操控类工具结果呈现规范:注入 system,约束"操作型"工具的成功/失败表述。
+_UI_RENDER_PROMPT = (
+    "本站操控工具(web_ui_* / api_*)使用规范(务必遵守):\n"
+    "- 先探后动:执行 click/fill/submit/invoke 前,若还没有本次会话的 web_ui_describe 结果,"
+    "必须先调 web_ui_describe 拿准确的 target/id,不要凭猜测的元素名操作\n"
+    "- 动作类工具返回 ok=true 只代表前端已执行,不代表业务写入成功(如表单可能校验失败);"
+    "要确认结果就再调 web_ui_read 看页面状态,严禁未确认就声称已保存/已提交\n"
+    "- DESTRUCTIVE_BLOCKED:该目标被前端安全黑名单拦截(删除/注销/提现/支付类),"
+    "如实告知用户需其本人手动操作,严禁反复重试或改走其他路径绕过\n"
+    "- ROUTE_NOT_ALLOWED:目标不在站内路由白名单,给出可用路由,不要硬凑 URL\n"
+    "- TARGET_NOT_CONNECTED:说明用户前端(浏览器页面)未连接,引导其打开应用并保持登录,"
+    "不要转而编造操作结果\n"
+    "- api_endpoint_call 必须先有 api_endpoints_search 的 name;返回 ok=false 时如实转述 "
+    "errorCode/error(权限不足/参数缺失等),严禁编造接口数据\n"
+    "- 一次只推进一个 UI 动作并核对结果,不要连续盲发多个动作"
+)
+
 # 网页工具结果呈现规范:注入 system,让 LLM 把抓取到的正文/链接/结构化结果以可读方式呈现。
 _WEB_RENDER_PROMPT = (
     "网页抓取工具结果呈现规范(务必遵守):\n"
@@ -526,6 +607,16 @@ class ConversationService:
             "edu_create_refund": ["办退费", "申请退费", "发起退费", "登记退费", "给学生退费"],
             "edu_approve_refund": ["批准退费", "同意退费", "通过退费", "审批退费"],
             "edu_reject_refund": ["驳回退费", "拒绝退费", "否决退费"],
+            # 本站操控(2026-09-20 AI 全量操控桥接):intent 判 needs_tool 时的关键词兜底,
+            # 与 _UI_INTENT_PATTERNS 正则预路由互补(正则走"强信号",这里走"弱信号 top3")
+            "web_ui_describe": ["可操控", "能操作什么", "有哪些按钮", "页面能力", "ui describe"],
+            "web_ui_read": ["看看页面", "当前页面", "页面状态", "页面上显示", "read page"],
+            "web_ui_navigate": ["打开页面", "跳转到", "切到", "进入页面", "带我到"],
+            "web_ui_click": ["点击按钮", "按下按钮", "点一下", "click button"],
+            "web_ui_fill": ["填写", "填入", "输入框", "填表单", "fill form", "填一下"],
+            "web_ui_submit": ["提交表单", "保存表单", "提交这个表单", "submit form"],
+            "web_ui_invoke": ["切换模式", "打开面板", "关闭面板", "新建会话", "命令面板"],
+            "api_endpoints_search": ["接口", "端点", "endpoint", "调用api", "后端接口", "api"],
         }
 
     # =========================================================================
@@ -586,6 +677,7 @@ class ConversationService:
             media_tools: list[str] = []
             web_tools: list[str] = []
             edu_tools: list[str] = []
+            app_tools: list[str] = []
             if allowed_tools is not None:
                 tools = self._filter_tools(allowed_tools)
             elif intent.needs_tool and intent.suggested_tools:
@@ -602,16 +694,21 @@ class ConversationService:
                 web_tools = self._web_intent_tools(user_input)
                 # 教育管理自动路由(2026-09-19):催费/欠费/缴费/退费/账单强信号
                 edu_tools = self._edu_intent_tools(user_input)
-                if media_tools or web_tools or edu_tools:
-                    tools = self._filter_tools(media_tools + web_tools + edu_tools)
-            # intent 已选工具时补并媒体/web/edu 预路由命中项(去重),防 LLM 分类漏判
-            if allowed_tools is None and not (media_tools or web_tools or edu_tools):
+                # 本站操控自动路由(2026-09-20):"帮我操作这个程序"类强信号
+                app_tools = self._app_control_intent_tools(user_input)
+                if media_tools or web_tools or edu_tools or app_tools:
+                    tools = self._filter_tools(
+                        media_tools + web_tools + edu_tools + app_tools
+                    )
+            # intent 已选工具时补并媒体/web/edu/操控 预路由命中项(去重),防 LLM 分类漏判
+            if allowed_tools is None and not (media_tools or web_tools or edu_tools or app_tools):
                 media_tools = self._media_intent_tools(user_input)
                 web_tools = self._web_intent_tools(user_input)
                 edu_tools = self._edu_intent_tools(user_input)
+                app_tools = self._app_control_intent_tools(user_input)
                 existing = {t.get("function", {}).get("name") for t in tools}
                 extra = [
-                    m for m in media_tools + web_tools + edu_tools
+                    m for m in media_tools + web_tools + edu_tools + app_tools
                     if m not in existing
                 ]
                 if extra:
@@ -624,6 +721,7 @@ class ConversationService:
                 **({"media_routed": media_tools} if media_tools else {}),
                 **({"web_routed": web_tools} if web_tools else {}),
                 **({"edu_routed": edu_tools} if edu_tools else {}),
+                **({"app_control_routed": app_tools} if app_tools else {}),
             })
 
             # 4. 加载历史上下文
@@ -637,7 +735,8 @@ class ConversationService:
                     "- ok=false:工具执行失败,必须如实告知用户失败原因"
                     "(包括 errorCode/error 字段),"
                     "禁止声称已完成或成功\n"
-                    "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端未连接)、TIMEOUT(执行超时)、"
+                    "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端/Web 前端未连接)、"
+                    "TIMEOUT(执行超时)、"
                     "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
                 )
                 # 媒体工具在场 → 追加 Markdown 渲染规范(图/音/视频对话即所得)
@@ -652,6 +751,10 @@ class ConversationService:
                 _edu_set = set(_EDU_INTENT_PATTERNS)
                 if any(t.get("function", {}).get("name") in _edu_set for t in tools):
                     guidance += "\n\n" + _EDU_RENDER_PROMPT
+                # 本站操控工具在场 → 追加"先探后动 + 未核对不得声称已提交"规范(2026-09-20)
+                _app_set = set(_UI_INTENT_PATTERNS) | set(_API_ENTRY_TOOLS)
+                if any(t.get("function", {}).get("name") in _app_set for t in tools):
+                    guidance += "\n\n" + _UI_RENDER_PROMPT
                 messages.append({"role": "system", "content": guidance})
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
@@ -1143,6 +1246,26 @@ class ConversationService:
         for tool, patterns in _EDU_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):
                 out.append(tool)
+        return out
+
+    @staticmethod
+    def _app_control_intent_tools(text: str) -> list[str]:
+        """本站操控意图预路由(2026-09-20):要求操作我们自己的程序 → UI 动作工具
+        或后端 API 入口工具。
+
+        两处补全(缺一即断链):
+        - 命中任一 UI 动作类工具时补 web_ui_describe —— 动作要靠 describe 返回的
+          id/target 定位,LLM 无从猜出元素标识;
+        - 命中 api_ 入口任一工具时补齐全对 —— 只有 search 会让模型搜到却调不了。
+        """
+        out: list[str] = []
+        for tool, patterns in _UI_INTENT_PATTERNS.items():
+            if any(p.search(text) for p in patterns):
+                out.append(tool)
+        if any(t in out for t in _UI_ACTION_TOOLS) and "web_ui_describe" not in out:
+            out.append("web_ui_describe")
+        if any(t in out for t in _API_ENTRY_TOOLS):
+            out.extend(t for t in _API_ENTRY_TOOLS if t not in out)
         return out
 
     # =========================================================================

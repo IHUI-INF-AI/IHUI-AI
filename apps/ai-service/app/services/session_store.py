@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -525,7 +526,7 @@ class SessionStore:
         db_path: str | Path,
         *,
         busy_timeout_ms: int = 5000,
-        synchronous: str = "FULL",
+        synchronous: str | None = None,
     ) -> None:
         self._path = Path(db_path)
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -537,8 +538,16 @@ class SessionStore:
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.execute(f"PRAGMA busy_timeout={int(busy_timeout_ms)}")
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute(f"PRAGMA synchronous={synchronous}")
+        # 2026-09-20 性能立:WAL 是 db 文件头的持久属性,新库设一次即可;
+        # 已是 wal 的库重复设置需瞬间独占锁,20 worker 满载下每次构造都排队
+        # (py-spy 实证 worker 卡在本 pragma),改为非 wal 才设置。
+        if str(self._conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() != "wal":
+            self._conn.execute("PRAGMA journal_mode=WAL")
+        # 2026-09-20 性能立:未显式传参时读环境开关(测试 conftest 设 OFF 省
+        # 每次事务的 fsync;生产不设该变量 → 默认 FULL,崩溃安全契约不变)。
+        self._conn.execute(
+            f"PRAGMA synchronous={synchronous or os.environ.get('IHUI_SQLITE_SYNCHRONOUS', 'FULL')}"
+        )
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._fts_enabled = False
         self._migrate()

@@ -26,12 +26,20 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { hasApiKeyCredential, requireCapabilityRules } from '../utils/capability-guard.js'
 import { success, error } from '../utils/response.js'
 import { fsBridge, permissionManager } from '../services/workspace-ai-service.js'
 
 export const aiApplyDiffRoutes: FastifyPluginAsync = async (server) => {
+  // O3 双通道:API Key 携带时先过能力闸。diff:apply 在能力目录里标为
+  // thirdPartyEligible=false(直接写磁盘),因此外部 key 一律 403 M2M_FORBIDDEN;
+  // web/IDE 的人 JWT 通道行为不变。
+  const diffGate = requireCapabilityRules([
+    { methods: ['POST'], pattern: /^\/api\/v1\/ai\/apply-diff$/, scope: 'diff:apply' },
+  ])
   // 鉴权:复用 packages/auth 的 authenticate(同 workspace-ai.ts 模式)
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+    if (hasApiKeyCredential(request)) return diffGate(request, reply)
     try {
       await authenticate(request)
     } catch (e) {

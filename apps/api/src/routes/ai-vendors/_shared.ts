@@ -66,27 +66,157 @@ export const imageBody = z.object({
   response_format: z.string().optional(),
   user: z.string().optional(),
 })
+/**
+ * TTS 全厂商官方参数集(全 optional,向后兼容)。
+ * 2026-09-20 扩展:OpenAI/Dashscope(CosyVoice)/Doubao(火山TTS)/Gemini 全参数。
+ */
 export const ttsBody = z.object({
   text: z.string().optional(),
   model: z.string().optional(),
   voice: z.string().optional(),
+  // OpenAI 兼容参数
+  speed: z.number().optional(),
+  response_format: z.string().optional(),
+  // Dashscope CosyVoice 官方参数
+  speech_rate: z.number().optional(),
+  volume: z.number().optional(),
+  pitch_rate: z.number().optional(),
+  rate: z.number().optional(),
+  format: z.string().optional(),
+  sample_rate: z.number().optional(),
+  gain: z.number().optional(),
+  language_type: z.string().optional(),
+  text_type: z.string().optional(),
+  // Doubao 火山 TTS 官方参数
+  emotion: z.string().optional(),
+  emotion_scale: z.number().optional(),
+  enable_emotion: z.boolean().optional(),
+  // Gemini TTS 官方参数
+  languageCode: z.string().optional(),
+  audioEncoding: z.string().optional(),
+  speakingRate: z.number().optional(),
+  pitch: z.number().optional(),
+  effectsProfileId: z.string().optional(),
 })
-export const asrBody = z.object({ audioUrl: z.string().optional(), model: z.string().optional() })
+/**
+ * ASR 全厂商官方参数集(全 optional)。
+ * Dashscope(Paraformer/Gummy)/Gemini(Google STT) 全参数。
+ */
+export const asrBody = z.object({
+  audioUrl: z.string().optional(),
+  audioBase64: z.string().optional(),
+  model: z.string().optional(),
+  // Dashscope Paraformer/Gummy 官方参数
+  audio_format: z.string().optional(),
+  sample_rate: z.number().optional(),
+  language_hints: z.array(z.string()).optional(),
+  vocabulary_id: z.string().optional(),
+  disfluency_removal_enabled: z.boolean().optional(),
+  special_phrases: z.record(z.string(), z.string()).optional(),
+  // Gemini/Google STT 官方参数
+  encoding: z.string().optional(),
+  sampleRateHertz: z.number().optional(),
+  languageCode: z.string().optional(),
+  audioChannelCount: z.number().optional(),
+  enableWordTimeOffsets: z.boolean().optional(),
+})
+/**
+ * 视频生成共用参数集(prompt+model)。
+ * Dashscope(wanx-video)/Doubao(即梦video)/Gemini(Veo) 官方参数全透传。
+ */
 export const promptModelBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
+  // 生成数量(Gemini sampleCount 等)
+  n: z.number().int().min(1).max(10).optional(),
+  // Dashscope/Doubao 视频官方参数
+  size: z.string().optional(),
+  aspect_ratio: z.string().optional(),
+  duration: z.number().optional(),
+  fps: z.number().optional(),
+  resolution: z.string().optional(),
+  prompt_extend: z.boolean().optional(),
+  watermark: z.boolean().optional(),
+  seed: z.number().optional(),
+  imageUrl: z.string().optional(),
+  negativePrompt: z.string().optional(),
+  image: z.string().optional(),
+  camera: z.record(z.string(), z.unknown()).optional(),
+  // 厂商私有参数包透传
+  parameters: z.record(z.string(), z.unknown()).optional(),
 })
-export const textModelBody = z.object({ text: z.string().optional(), model: z.string().optional() })
+/**
+ * 文本/Embedding 共用参数集。
+ * Dashscope(text-embedding)/Gemini(emb-004)/OpenAI 兼容全参数。
+ */
+export const textModelBody = z.object({
+  text: z.string().optional(),
+  model: z.string().optional(),
+  // Dashscope text-embedding 官方参数
+  text_type: z.string().optional(),
+  dimension_type: z.number().optional(),
+  // Gemini text-embedding-004 官方参数
+  task_type: z.string().optional(),
+  output_dimensionality: z.number().optional(),
+  title: z.string().optional(),
+  // OpenAI 兼容参数
+  dimensions: z.number().optional(),
+  encoding_format: z.string().optional(),
+  user: z.string().optional(),
+})
+/**
+ * 多模态对话共用参数集。
+ * Dashscope(qwen-vl/omni)/Gemini(chat) 官方参数全透传。
+ */
 export const multimodalBody = z.object({
   messages: z.array(z.unknown()).max(100).optional(),
   model: z.string().optional(),
+  // Dashscope 多模态官方参数
+  top_k: z.number().optional(),
+  top_p: z.number().optional(),
+  temperature: z.number().optional(),
+  max_tokens: z.number().optional(),
+  seed: z.number().optional(),
+  stream: z.boolean().optional(),
+  result_format: z.string().optional(),
+  incremental_output: z.boolean().optional(),
+  vl_high_resolution_images: z.boolean().optional(),
+  // Gemini 官方参数
+  generationConfig: z.record(z.string(), z.unknown()).optional(),
+  safetySettings: z.array(z.unknown()).optional(),
+  tools: z.array(z.unknown()).optional(),
+  toolConfig: z.record(z.string(), z.unknown()).optional(),
+  systemInstruction: z.unknown().optional(),
 })
-export const promptOnlyBody = z.object({ prompt: z.string().optional() })
+export const promptOnlyBody = z.object({
+  prompt: z.string().optional(),
+  // Suno lyrics 官方参数
+  style: z.string().optional(),
+  title: z.string().optional(),
+  // Volcengine Jimeng v31 官方参数
+  req_key: z.string().optional(),
+  aspect_ratio: z.string().optional(),
+})
+/**
+ * 即梦(Jimeng) 图/视频 官方完整参数集(全 optional,双文件共用:proxy-tools + proxy-extended)。
+ */
 export const jimengBody = z.object({
   prompt: z.string().optional(),
   width: z.number().optional(),
   height: z.number().optional(),
   seed: z.number().optional(),
+  // 即梦/火山官方参数
+  scale: z.number().optional(),
+  req_key: z.string().optional(),
+  watermark: z.boolean().optional(),
+  logo_info: z.record(z.string(), z.unknown()).optional(),
+  aspect_ratio: z.string().optional(),
+  use_pre_llm: z.boolean().optional(),
+  i2v_align: z.boolean().optional(),
+  image_urls: z.array(z.string()).optional(),
+  return_url: z.boolean().optional(),
+  strength: z.number().optional(),
+  generate_mode: z.string().optional(),
 })
 
 export { checkAuth as requireAuth } from '../../plugins/auth.js'
@@ -206,6 +336,61 @@ export const VENDORS: Record<string, VendorConfig> = {
     secretKeyEnv: 'VOLCENGINE_SECRET_KEY',
     baseUrl: 'https://visual.volcengineapi.com',
     authHeader: () => ({}),
+  },
+  // --- OpenAI 兼容厂商(2026-09-20 用户提供的官方 key,统一 Bearer 鉴权) ---
+  openai: {
+    name: 'OpenAI',
+    keyEnv: 'OPENAI_API_KEY',
+    baseUrl: 'https://api.openai.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  deepseek: {
+    name: 'DeepSeek(深度求索)',
+    keyEnv: 'DEEPSEEK_API_KEY',
+    baseUrl: 'https://api.deepseek.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  siliconflow: {
+    name: 'SiliconFlow(硅基流动)',
+    keyEnv: 'SILICONFLOW_API_KEY',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  openrouter: {
+    name: 'OpenRouter(聚合中转)',
+    keyEnv: 'OPENROUTER_API_KEY',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  groq: {
+    name: 'Groq(高速推理)',
+    keyEnv: 'GROQ_API_KEY',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  nvidia: {
+    name: 'NVIDIA(NIM 推理云)',
+    keyEnv: 'NVIDIA_API_KEY',
+    baseUrl: 'https://integrate.api.nvidia.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  step: {
+    name: 'Step(阶跃星辰)',
+    keyEnv: 'STEP_API_KEY',
+    baseUrl: 'https://api.stepfun.com/step_plan/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  mimo: {
+    name: 'MiMo(小米)',
+    keyEnv: 'MIMO_API_KEY',
+    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  zhipu: {
+    name: 'Zhipu(智谱 GLM)',
+    keyEnv: 'ZHIPU_API_KEY',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
 }
 

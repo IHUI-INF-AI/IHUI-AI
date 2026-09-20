@@ -1,5 +1,9 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
 'use client'
 
@@ -260,3 +264,121 @@ export function NumImagesSelect({
     </div>
   )
 }
+
+// ============ 通用高级参数面板(配置驱动,覆盖各厂商官方参数) ============
+
+export interface ParamFieldSpec {
+  key: string
+  label: string
+  type: 'number' | 'text' | 'select' | 'boolean'
+  min?: number
+  max?: number
+  step?: number
+  placeholder?: string
+  options?: ReadonlyArray<{ value: string; label: string }>
+}
+
+export type ParamValues = Record<string, string>
+
+/** 解析为请求体字段:number→数值、boolean→布尔、其余原样;空串/未选跳过 */
+export function parseParamValues(
+  values: ParamValues,
+  fields: ReadonlyArray<ParamFieldSpec>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const f of fields) {
+    const raw = values[f.key]
+    if (raw === undefined || raw === '') continue
+    if (f.type === 'number') {
+      const n = Number(raw)
+      if (Number.isFinite(n)) out[f.key] = n
+    } else if (f.type === 'boolean') {
+      out[f.key] = raw === 'true'
+    } else {
+      out[f.key] = raw
+    }
+  }
+  return out
+}
+
+/** 折叠式参数窗口:支持 number/text/select/boolean 四类控件,各厂商官方参数通用 */
+export function AdvancedParamsPanel({
+  fields,
+  values,
+  onChange,
+  columns = 2,
+}: {
+  fields: ReadonlyArray<ParamFieldSpec>
+  values: ParamValues
+  onChange: (v: ParamValues) => void
+  columns?: 1 | 2
+}) {
+  const t = useTranslations('aiGeneration')
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="justify-between rounded-md px-2 py-1 text-sm transition-colors hover:bg-accent/50">
+        {t('advancedParams')}
+        <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className={`grid gap-3 pt-2 ${columns === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {fields.map((f) => {
+            const v = values[f.key] ?? ''
+            const setValue = (next: string) => onChange({ ...values, [f.key]: next })
+            if (f.type === 'select') {
+              return (
+                <div key={f.key} className="space-y-1">
+                  <Label>{t(f.label)}</Label>
+                  <Select value={v} onValueChange={setValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={f.placeholder} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(f.options ?? []).map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            }
+            if (f.type === 'boolean') {
+              return (
+                <div key={f.key} className="space-y-1">
+                  <Label>{t(f.label)}</Label>
+                  <Select value={v} onValueChange={setValue}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={f.placeholder ?? '-'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">{t('yes')}</SelectItem>
+                      <SelectItem value="false">{t('no')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )
+            }
+            return (
+              <div key={f.key} className="space-y-1">
+                <Label>{t(f.label)}</Label>
+                <Input
+                  type={f.type === 'number' ? 'number' : 'text'}
+                  min={f.min}
+                  max={f.max}
+                  step={f.step}
+                  placeholder={f.placeholder}
+                  value={v}
+                  onChange={(e) => setValue(e.target.value)}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

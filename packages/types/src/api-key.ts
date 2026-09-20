@@ -97,15 +97,90 @@ export const API_KEY_PERMISSIONS = [
   // ===== Stats 类 =====
   /** 使用量统计:GET /v1/usage, GET /v1/usage/:vendor */
   'stats:read',
+  // ===== 2026-09-20 Agent 全面开放工程新增(O0 契约扩展) =====
+  // 与 capability-catalog.ts 一一对应;每个新 scope 必须在目录里登记 dataClass/risk。
+  // ===== Assistants / Threads / Runs 协议族 =====
+  /** 助手读取:GET /v1/assistants, GET /v1/assistants/:id */
+  'assistants:read',
+  /** 助手创建/更新/删除:POST/PATCH/DELETE /v1/assistants/:id */
+  'assistants:write',
+  /** 会话线程读取:GET /v1/threads, GET /v1/threads/:id */
+  'threads:read',
+  /** 会话线程创建/删除:POST /v1/threads, DELETE /v1/threads/:id */
+  'threads:write',
+  /** Run 状态读取:GET /v1/threads/:id/runs/:runId */
+  'runs:read',
+  /** Run 创建/取消/提交:POST /v1/threads/:id/runs */
+  'runs:write',
+  // ===== Batch / Responses 协议族 =====
+  /** 批任务读取:GET /v1/batches, GET /v1/batches/:id */
+  'batches:read',
+  /** 批任务创建/取消:POST /v1/batches */
+  'batches:write',
+  /** Responses 协议补全:POST /v1/responses */
+  'responses:write',
+  // ===== 实时 / 协议扩展 =====
+  /** 实时语音/多模态长连接:WS /v1/realtime */
+  'realtime:connect',
+  /** 重排序:POST /v1/rerank */
+  'rerank:write',
+  /** 内容审核:POST /v1/moderations */
+  'moderation:write',
+  // ===== 代码 / Diff 能力 =====
+  /** 代码库语义检索:POST /api/v1/codebase/search, GET /stats */
+  'codebase:read',
+  /** 代码库索引/删除:POST /api/v1/codebase/index, DELETE /repo/:id */
+  'codebase:write',
+  /** 补丁落盘:POST /api/v1/ai/apply-diff */
+  'diff:apply',
+  // ===== 执行类能力(高危) =====
+  /** 沙箱命令执行:POST /api/sandbox/run(ai-service) */
+  'sandbox:run',
+  /** 浏览器自动化操作:browser_* 工具族 */
+  'browser:operate',
+  /** 本机 GUI 控制:computer_* 工具族(第三方 key 永不授予) */
+  'computer:operate',
+  // ===== Web 能力 =====
+  /** URL 抓取/可读正文提取:fetch_url / fetch_readable / extract_web */
+  'web:fetch',
+  /** 站点地图与多页爬取:web_search / map_site / crawl_site */
+  'search:web',
+  // ===== 平台接入面 =====
+  /** Webhook 订阅管理:/api/developer/webhooks/* */
+  'webhooks:manage',
+  /** 连接器/外部 MCP 读取:/api/connectors/*, /api/mcp/external/* */
+  'connectors:read',
+  /** 连接器/外部 MCP 注册与启停 */
+  'connectors:write',
+  /** 技能(Skill)清单读取 */
+  'skills:read',
+  /** 技能安装/启停/自定义 */
+  'skills:write',
+  /** 教育内容读取:edu_* 只读工具族 */
+  'edu:read',
+  /** 教育内容写入:edu_* 写工具族 */
+  'edu:write',
+  /** 以调用者身份对外发送消息(IM/邮件/站内信) */
+  'im:send',
+  /** 内容发布到第三方社媒(平台运营面) */
+  'publish:operate',
+  /** 自身账单/额度/用量读取:GET /v1/usage, GET /v1/billing/* */
+  'billing:read',
+  /** OAuth 应用与授权管理 */
+  'oauth:manage',
+  /** MCP server 接入(作为协议端点被外部 agent 连接) */
+  'mcp:connect',
 ] as const
 
 /**
- * 新建 API Key 的默认权限集(2026-09-13 立)。
- * 保证 Key 创建后开箱即用:可直接 GET /v1/models + POST /v1/chat/completions。
- * 修复问题:此前新建 Key permissions 为空,调用即 403 "Missing permission: chat:write"。
+ * 新建 API Key 的默认权限集(2026-09-20 收紧)。
+ *
+ * 变更原因(O2):此前默认含 `chat:write`,任何新 key 开箱即可调用付费模型烧余额,
+ * 在「向第三方 Agent 全面开放」的前提下等于把计费闸门交给陌生人。
+ * 现默认仅开放只读元数据(models:read),写能力必须由创建者显式授予。
  * 注意:创建时显式传入合法权限数组将覆盖默认值;updateKey 不受影响(可显式清空)。
  */
-export const DEFAULT_API_KEY_PERMISSIONS = ['chat:write', 'models:read'] as const
+export const DEFAULT_API_KEY_PERMISSIONS = ['models:read'] as const
 
 /** 权限点类型(联合类型,编译期枚举校验)。 */
 export type ApiKeyPermission = (typeof API_KEY_PERMISSIONS)[number]
@@ -209,6 +284,15 @@ export interface AuthenticatedApiKey {
   allowedIps: string[] | null
   allowedModels: string[] | null
   maxTokensPerReq: number | null
+  // --- Key 级限流窗口 + IP 黑名单(2026-09-16/O2 2026-09-21,与 schema 同步)---
+  /** IP 黑名单(jsonb 字符串数组,null = 无黑名单),命中即 403 */
+  blockedIps: string[] | null
+  /** 5 小时窗口最大请求数(null = 不限) */
+  rateLimit5h: number | null
+  /** 每日(UTC+8 自然日)最大请求数(null = 不限) */
+  rateLimit1d: number | null
+  /** 每周(UTC+8 周一~周日)最大请求数(null = 不限) */
+  rateLimit7d: number | null
 }
 
 /** /v1/chat/completions 请求体(OpenAI 兼容格式子集)。 */

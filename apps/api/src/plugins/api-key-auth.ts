@@ -9,39 +9,69 @@
  *
  * 鉴权链路:
  * - 入站 header:优先 `Authorization: Bearer ihui_xxx`,其次 `X-Api-Key: ihui_xxx`
- * - 可选 secret 校验:`X-Api-Secret: sk_xxx`(存在则用 verifySecret 校验,不存在则跳过)
- * - 查 developerApiKeys 表(dbRead 副本),status 必须为 'active'
+ * - secret 校验(O2 2026-09-21 收紧):`X-Api-Secret: sk_xxx` **默认必须携带**
+ *   (env `API_KEY_REQUIRE_SECRET`,默认 true);缺失 → 401 `SECRET_REQUIRED`。
+ *   置 false 回退历史"不带即跳过"行为(过渡期/存量纯 key 客户端)。
+ * - 查 developerApiKeys 表(主库,P1-3),status 必须为 'active'
  * - P0-7 安全粒度检查(2026-07-31 立,在 checkQuota 之前):
  *   - checkExpiresAt:过期 → 401
- *   - checkAllowedIps:IP 不在白名单 → 403
+ *   - checkKeyIpAcl:**黑名单优先**(命中 403)→ 白名单不在名单内(403);
+ *     匹配支持 IPv4 / IPv6 / IPv4-mapped 归一(O2 2026-09-21)
  *   - checkAllowedModels:模型不在白名单 → 403(body 含 model 时检查)
  *   - checkMaxTokensPerReq:max_tokens 超限 → 403(body 含 max_tokens 时预检)
  * - per-user model rate limit(2026-07-31 立,Redis 滑动窗口):
  *   - checkPerModelRateLimit:按 model 维度检查 RPM/TPM,超限 → 429 + Retry-After(code 1007/1008)
- *   - 配置来源:developer_api_keys.perModelRpmLimit / perModelTpmLimit(JSON,字段未落地时跳过)
+ *   - 配置来源:developer_api_keys.per_model_rpm_limit / per_model_tpm_limit
+ *     (jsonb {"gpt-4o": 60},migration 20260921100000 已落地)
+ * - Key 级限流窗口(5h/1d/7d,O2 2026-09-21 接入主链路):
+ *   - checkKeyRateWindows:窗口打满 → 429(code 1009)+ Retry-After + X-RateLimit-*
+ *   - 与 relay 计费链路共用 key-rate-window-service,**不存第二套窗口算法**;
+ *     计数增量仍由 billing.recordCall(model 调用)与本源(非 model 调用)分工,避免双计
+ * - 限流后端(Redis / 计数读源)不可用时(O2 2026-09-21):
+ *   - env `API_KEY_RATE_LIMIT_FAIL_MODE`(默认 'close')
+ *   - close:对 billable / risk≠low 的 scope(判据取 @ihui/types 能力目录,不硬编码路由名)
+ *     返回 503 `RATE_BACKEND_UNAVAILABLE`;低危只读放行(仅告警)
+ *   - open:维持历史 fail-open 行为
  * - 注入 request.apiKey = { id, userId, key, permissions, rateLimit, expiresAt, allowedIps, ... }
  * - lastUsedAt 异步更新,不阻塞响应
  *
  * 导出:
- * - authenticateApiKey(request):核心鉴权函数,失败抛 401/403/429
- * - requireApiKeyAuth:Fastify preHandler 版,失败 reply 401/403/429(429 附 Retry-After)
- * - requireApiKeyPermission(perm):返回 preHandler,校验 permissions 包含 perm,失败 403
+ * - authenticateApiKey(request):核心鉴权函数,失败抛 401/403/429/503
+ * - requireApiKeyAuth:Fastify preHandler 版,失败 reply 401/403/429(Retry-After + X-RateLimit-*)/503
+ * - requireApiKeyPermission(perm):返回 preHandler,校验 permissions 包含 perm,失败 403;
+ *   `'*'` 通配只匹配"已登记且 isM2MAllowed"的 scope(platform 域即使 `'*'` 也拒)
  * - requireApiKeyQuota():返回 preHandler,用 ApiKeyQuota.checkAndConsume,超限 429 + Retry-After
  * - checkExpiresAt / checkAllowedIps / checkAllowedModels / checkMaxTokensPerReq:P0-7 安全检查函数
  * - checkPerModelRateLimit:per-user 单模型 RPM/TPM 限流检查
+ * - isStrictRateRequest / findCatalogEntryForRequest:能力目录判据(fail-close 适用面)
+ * - isScopeThirdPartyEligible:`'*'` 通配覆盖面与 share 收窄共用的能力目录判据
+ * - narrowSharePermissions:share token scope 收窄(源 scopes ∩ thirdPartyEligible)
  */
-import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify'
+import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify'
 import { eq } from 'drizzle-orm'
 import IORedis, { type Redis } from 'ioredis'
 import { db } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
+import {
+  CAPABILITY_CATALOG,
+  getCapability,
+  isM2MAllowed,
+  type CapabilityEntry,
+} from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
 import { ApiKeyQuota } from '../utils/api-key-quota.js'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
 import { checkTpmQuota, recordTpmUsage } from '../services/api-key-tpm-service.js'
 import { getShareByToken } from '../services/api-key-share-service.js'
+import {
+  checkKeyIpAcl,
+  checkKeyRateWindows,
+  incrKeyRateWindows,
+  limitsOf,
+  type KeyWindowType,
+} from '../services/key-rate-window-service.js'
 
 function unauthorized(message: string): Error {
   const err = new Error(message) as Error & { statusCode: number }
@@ -55,27 +85,209 @@ function forbidden(message: string): Error {
   return err
 }
 
+/** 带业务错误码的鉴权异常(requireApiKeyAuth 据此渲染 errorCode / Retry-After / X-RateLimit-*)。 */
+export interface ApiKeyAuthError extends Error {
+  statusCode: number
+  /** HTTP 业务码(401/403/429/503 或与 rateLimited 一致的 10xx) */
+  code?: number
+  /** 机器可读错误码(前端/SDK 判定用),如 SECRET_REQUIRED / RATE_BACKEND_UNAVAILABLE */
+  errorCode?: string
+  /** 429/503 建议重试秒数 */
+  retryAfter?: number
+  /** 附带的响应头(429 的 X-RateLimit-*) */
+  headers?: Record<string, string>
+}
+
+function apiKeyAuthError(
+  statusCode: number,
+  message: string,
+  extra?: Omit<Partial<ApiKeyAuthError>, 'statusCode' | 'message'>,
+): ApiKeyAuthError {
+  const err = new Error(message) as ApiKeyAuthError
+  err.statusCode = statusCode
+  Object.assign(err, extra ?? {})
+  return err
+}
+
+/**
+ * O2 2026-09-21:凭据形态收紧 —— 缺失 X-Api-Secret(401 SECRET_REQUIRED)。
+ * 仅在 `API_KEY_REQUIRE_SECRET=true`(默认)时抛出。
+ */
+function secretRequired(): ApiKeyAuthError {
+  return apiKeyAuthError(401, 'X-Api-Secret header is required', {
+    code: 401,
+    errorCode: 'SECRET_REQUIRED',
+  })
+}
+
+/**
+ * O2 2026-09-21:fail-close —— 限流后端(Redis / 窗口计数读源)不可用,
+ * 且该请求属于 billable / risk≠low 能力时,拒绝而非放行(503)。
+ */
+function rateBackendUnavailable(): ApiKeyAuthError {
+  return apiKeyAuthError(503, 'Rate limit backend unavailable, request rejected (fail-close)', {
+    code: 503,
+    errorCode: 'RATE_BACKEND_UNAVAILABLE',
+    retryAfter: 5,
+  })
+}
+
+/** 限流降级形态:close(默认)= billable/高危不可用即拒;open = 历史 fail-open。 */
+function rateLimitFailMode(): 'close' | 'open' {
+  return config.API_KEY_RATE_LIMIT_FAIL_MODE
+}
+
+/**
+ * 限流后端(Redis / 窗口计数读源)不可用时的统一处置(O2 2026-09-21)。
+ *
+ * - `open` 模式:仅告警放行(历史行为);
+ * - `close` 模式(默认):仅对"收紧面"请求抛 503 —— 判据来自能力目录的
+ *   billable / risk(`isStrictRateRequest`),**不硬编码路由名**;
+ *   低危只读端点仍放行。
+ *
+ * @param scene 记日志用的场景标识(per-model / window / tpm)
+ */
+function enforceRateBackendAvailability(
+  request: FastifyRequest,
+  apiKeyId: string,
+  scene: 'per-model' | 'key-window' | 'tpm',
+  error?: unknown,
+): void {
+  const mode = rateLimitFailMode()
+  const strict = isStrictRateRequest(request, request.capability)
+  if (mode === 'open' || !strict) {
+    logger.warn('Rate limit backend unavailable, failing open', {
+      apiKeyId,
+      scene,
+      failMode: mode,
+      strict,
+      error: error === undefined ? undefined : String(error),
+    })
+    return
+  }
+  logger.error('Rate limit backend unavailable, rejecting (fail-close)', {
+    apiKeyId,
+    scene,
+    url: request.url,
+    error: error === undefined ? undefined : String(error),
+  })
+  throw rateBackendUnavailable()
+}
+
+/**
+ * requireApiKeyAuth 借能力目录判定路由的 scope(窗口强制 + fail-close 判据 + '*' 通配判定)。
+ */
+
+/**
+ * 判定请求是否属于"必须收紧"的范畴(fail-close 503 / 窗口检查适用面):
+ * 1. 路由已由能力闸(requireCapability)注入 request.capability,或调用方传入 entry
+ *    → 按 entry 判(billable 或 risk ≠ low);
+ * 2. 未声明 → 用能力目录 routes 反查(method + path 模式匹配目录登记,不硬编码路由名),
+ *    兜底规则:目录命中 → 按 entry 判;`/v1/*` 未命中目录 → 视为 M2M 收紧面
+ *    (/v1 是对外开放协议面,O2 需求原文即"`/v1/*` 与 billable scope")。
+ */
+export function isStrictRateRequest(
+  request: FastifyRequest,
+  entry: CapabilityEntry | undefined,
+): boolean {
+  const resolved = entry ?? request.capability
+  if (resolved) return resolved.billable || resolved.risk !== 'low'
+  const catalogEntry = findCatalogEntryForRequest(request)
+  if (catalogEntry) return catalogEntry.billable || catalogEntry.risk !== 'low'
+  return request.url.split('?')[0]!.startsWith('/v1/')
+}
+
+/** 能力目录 routes 派发的请求匹配器(懒构建缓存;'WS'/带参/:id/通配均可匹配)。 */
+let catalogRouteMatchers: Array<{ method: string; regex: RegExp; entry: CapabilityEntry }> | null =
+  null
+
+function buildCatalogRouteMatchers(): Array<{ method: string; regex: RegExp; entry: CapabilityEntry }> {
+  if (catalogRouteMatchers) return catalogRouteMatchers
+  const matchers: Array<{ method: string; regex: RegExp; entry: CapabilityEntry }> = []
+  for (const entry of CAPABILITY_CATALOG) {
+    for (const route of entry.routes) {
+      const sp = route.indexOf(' ')
+      if (sp === -1) continue
+      const method = route.slice(0, sp).toUpperCase()
+      const pattern = route.slice(sp + 1)
+      const regex = new RegExp(
+        '^' +
+          pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/:([^/:]+)/g, '[^/]+')
+            .replace(/\/\\\*$/, '(/.*)?') +
+          '$',
+      )
+      matchers.push({ method, regex, entry })
+    }
+  }
+  catalogRouteMatchers = matchers
+  return matchers
+}
+
+/** 按 method + path 在能力目录中反查 entry(未命中返回 undefined)。 */
+export function findCatalogEntryForRequest(request: FastifyRequest): CapabilityEntry | undefined {
+  const path = request.url.split('?')[0] ?? ''
+  // Fastify 路由模式里 params 已解析;直接用原始 path 匹配目录模式即可
+  const method = (request.method ?? '').toUpperCase()
+  for (const m of buildCatalogRouteMatchers()) {
+    if (m.method !== '*' && m.method !== method && !(m.method === 'WS' && method === 'GET')) {
+      continue
+    }
+    if (m.regex.test(path)) return m.entry
+  }
+  return undefined
+}
+
 /**
  * per-user model rate limit 错误(429)。
- * code: 1007 = RPM 超限,1008 = TPM 超限。
+ * code: 1007 = RPM 超限,1008 = TPM 超限,1009 = Key 级窗口(5h/1d/7d)超限。
  * retryAfter: 建议客户端等待的秒数(由 requireApiKeyAuth 写入 Retry-After header)。
  */
 interface PerModelRateLimitError extends Error {
   statusCode: 429
-  code: 1007 | 1008
+  code: 1007 | 1008 | 1009
   retryAfter: number
+  headers?: Record<string, string>
 }
 
 function rateLimited(
   message: string,
-  code: 1007 | 1008,
+  code: 1007 | 1008 | 1009,
   retryAfter: number,
+  headers?: Record<string, string>,
 ): PerModelRateLimitError {
   const err = new Error(message) as PerModelRateLimitError
   err.statusCode = 429
   err.code = code
   err.retryAfter = Math.max(1, Math.ceil(retryAfter))
+  if (headers) err.headers = headers
   return err
+}
+
+/**
+ * O2 2026-09-21:Key 级 5h/1d/7d 窗口打满 → 429(code 1009)。
+ * 附 Retry-After + X-RateLimit-Limit / -Remaining / -Reset / -Window。
+ */
+function keyWindowRateLimited(blocked: {
+  windowType: KeyWindowType
+  limit: number
+  used: number
+  resetsAtMs: number
+}): PerModelRateLimitError {
+  const resetsAtSec = Math.ceil(blocked.resetsAtMs / 1000)
+  const retryAfter = Math.max(1, Math.ceil((blocked.resetsAtMs - Date.now()) / 1000))
+  return rateLimited(
+    `超过 ${blocked.windowType} 窗口请求数限制(${blocked.used}/${blocked.limit})`,
+    1009,
+    retryAfter,
+    {
+      'X-RateLimit-Limit': String(blocked.limit),
+      'X-RateLimit-Remaining': '0',
+      'X-RateLimit-Reset': String(resetsAtSec),
+      'X-RateLimit-Window': blocked.windowType,
+    },
+  )
 }
 
 // ============================================================================
@@ -92,9 +304,10 @@ function getRedisClient(): Redis {
       enableReadyCheck: true,
       lazyConnect: false,
     })
-    // Redis 故障时静默:限流检查降级为 allow(不阻塞合法用户)
+    // 错误事件不在这里降级:ioredis 会自行重连,命令失败由 checkPerModelRateLimit 的
+    // catch 标记 backendUnavailable,再按 API_KEY_RATE_LIMIT_FAIL_MODE 决定放行/503。
     redisClient.on('error', () => {
-      /* silent — checkPerModelRateLimit 内部 catch 后 fail-open */
+      /* silent — 见 checkPerModelRateLimit 返回值 */
     })
   }
   return redisClient
@@ -126,15 +339,21 @@ export interface SecurityCheckResult {
 /**
  * 检查 IP 是否在白名单中。
  * 支持三种匹配模式:
- * - 精确匹配:"192.168.1.1"
- * - 前缀匹配(尾点):"192.168." 匹配 192.168.x.x
- * - CIDR 匹配:"10.0.0.0/24" 匹配 10.0.0.0~10.0.0.255
+ * - 精确匹配:"192.168.1.1" / "2001:db8::1"
+ * - 前缀匹配(尾点或尾冒号):"192.168." 匹配 192.168.x.x;"2001:db8:" 匹配 2001:db8::*
+ * - CIDR 匹配:"10.0.0.0/24"、"2001:db8::/32"(IPv6 前缀上限 128)
+ * IPv4-mapped IPv6("::ffff:10.0.0.1")两侧统一归一为 IPv4 后比较(O2 2026-09-21)。
  */
 export function ipInList(ip: string, allowed: readonly string[]): boolean {
+  const ipNorm = normalizeIp(ip)
   for (const entry of allowed) {
     if (entry === ip) return true
-    // 前缀匹配:以 "." 结尾(如 "192.168.")
-    if (entry.endsWith('.') && ip.startsWith(entry)) return true
+    // 前缀匹配:以 "." 或 ":" 结尾(如 "192.168." / "2001:db8:")
+    if (
+      (entry.endsWith('.') || entry.endsWith(':')) &&
+      (ip.startsWith(entry) || ipNorm.startsWith(entry))
+    )
+      return true
     // CIDR 匹配:含 "/"
     if (entry.includes('/')) {
       const slashIdx = entry.indexOf('/')
@@ -142,34 +361,117 @@ export function ipInList(ip: string, allowed: readonly string[]): boolean {
       const prefix = parseInt(entry.slice(slashIdx + 1), 10)
       if (isCidrMatch(ip, network, prefix)) return true
     }
+    // IPv6 条目的精确匹配(请求方为 ::ffff: 映射形态、条目为纯 IPv4 或反之)
+    if (ipNorm !== ip && normalizeIp(entry) === ipNorm) return true
   }
   return false
 }
 
-/** CIDR 简化匹配:逐字节比较前 prefix 位。仅支持 IPv4。 */
+/** IPv4 → 4 段数字(严格校验,含 IPv4-mapped 剥离)。非法返回 null。 */
+function parseIpv4Octets(s: string): number[] | null {
+  let v4 = s
+  const lower = s.toLowerCase()
+  if (lower.startsWith('::ffff:') && v4.includes('.')) v4 = s.slice(7)
+  const parts = v4.split('.')
+  if (parts.length !== 4) return null
+  const octets: number[] = []
+  for (const p of parts) {
+    if (!/^\d{1,3}$/.test(p)) return null
+    const n = Number(p)
+    if (n > 255) return null
+    octets.push(n)
+  }
+  return octets
+}
+
+/** IPv6 → 8 组 16bit(支持 "::" 零压缩与尾段 IPv4 嵌入)。非法返回 null。 */
+function parseIpv6Groups(s: string): number[] | null {
+  let v6 = s
+  if (v6.includes('.')) {
+    // 尾段 IPv4 嵌入(::ffff:1.2.3.4 等)→ 换成两组 hex
+    const lastColon = v6.lastIndexOf(':')
+    const tail = v6.slice(lastColon + 1)
+    const octets = parseIpv4Octets(tail)
+    if (!octets) return null
+    const hi = ((octets[0]! << 8) | octets[1]!)
+      .toString(16)
+      .padStart(4, '0')
+    const lo = ((octets[2]! << 8) | octets[3]!)
+      .toString(16)
+      .padStart(4, '0')
+    v6 = `${v6.slice(0, lastColon + 1)}${hi}:${lo}`
+    if (v6.endsWith(':0:0') && v6.startsWith('::ffff:')) v6 = v6.slice(0, -4)
+  }
+  const ddIdx = v6.indexOf('::')
+  let head: string[]
+  let tail: string[]
+  if (ddIdx !== -1) {
+    if (v6.indexOf('::', ddIdx + 1) !== -1) return null // 双 "::" 非法
+    head = v6.slice(0, ddIdx) === '' ? [] : v6.slice(0, ddIdx).split(':')
+    tail = v6.slice(ddIdx + 2) === '' ? [] : v6.slice(ddIdx + 2).split(':')
+  } else {
+    head = v6.split(':')
+    tail = []
+  }
+  const parse = (arr: string[]): number[] | null => {
+    const out: number[] = []
+    for (const g of arr) {
+      if (!/^[0-9a-fA-F]{1,4}$/.test(g)) return null
+      out.push(parseInt(g, 16))
+    }
+    return out
+  }
+  const headG = parse(head)
+  const tailG = parse(tail)
+  if (!headG || !tailG) return null
+  if (ddIdx === -1) return headG.length === 8 ? headG : null
+  const fill = 8 - headG.length - tailG.length
+  if (fill < 1) return null
+  return [...headG, ...new Array<number>(fill).fill(0), ...tailG]
+}
+
+/** 任意 IP 的 128-bit 二进制字符串表示(IPv6 原生;IPv4 走 ::ffff: 嵌入映射)。 */
+function ipToBits(s: string): string | null {
+  if (s.includes(':')) {
+    const groups = parseIpv6Groups(s)
+    if (!groups) return null
+    const v4Prefix = groups.slice(0, 6).join(',') === '0,0,0,0,0,65535'
+    if (v4Prefix && parseIpv4Octets(s)) {
+      // ::ffff:a.b.c.d 与纯 IPv4 归一到同一表示
+      return '0'.repeat(80) + '1'.repeat(16) + octetsToBits(parseIpv4Octets(s)!)
+    }
+    return groups.map((g) => g.toString(2).padStart(16, '0')).join('')
+  }
+  const octets = parseIpv4Octets(s)
+  if (!octets) return null
+  return '0'.repeat(80) + '1'.repeat(16) + octetsToBits(octets)
+}
+
+function octetsToBits(octets: number[]): string {
+  return octets.map((o) => o.toString(2).padStart(8, '0')).join('')
+}
+
+/** IPv4-mapped IPv6 归一:"::ffff:10.0.0.1" → "10.0.0.1";其余原样返回。 */
+function normalizeIp(ip: string): string {
+  if (ip.toLowerCase().startsWith('::ffff:') && ip.includes('.')) {
+    const tail = ip.slice(7)
+    return parseIpv4Octets(tail) ? tail : ip
+  }
+  return ip
+}
+
+/**
+ * CIDR 匹配(2026-09-21 O2 升级:IPv4 + IPv6 双栈,含 IPv4-mapped 归一)。
+ * 实现:两侧统一展开为 128-bit 串,按前缀逐位比较。
+ * 保留 P1 修复(2026-08-06)语义:非法前缀(NaN / 超界)一律不匹配,防白名单绕过。
+ */
 function isCidrMatch(ip: string, network: string, prefix: number): boolean {
-  // P1 修复(2026-08-06):parseInt 解析非法前缀(如 "10.0.0.0/xxx")返回 NaN,
-  // 而 NaN 与任何值比较都为 false,原 `prefix < 0 || prefix > 32` 检查会放过 NaN,
-  // 最终 CIDR 匹配返回 true → 白名单被畸形条目绕过,任意 IP 均匹配。
-  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false
-  const ipParts = ip.split('.').map(Number)
-  const netParts = network.split('.').map(Number)
-  if (ipParts.length !== 4 || netParts.length !== 4) return false
-  if (ipParts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false
-  if (netParts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false
-  const fullBytes = Math.floor(prefix / 8)
-  const remainBits = prefix % 8
-  for (let i = 0; i < fullBytes; i++) {
-    if (ipParts[i] !== netParts[i]) return false
-  }
-  if (remainBits > 0 && fullBytes < 4) {
-    const mask = (0xff << (8 - remainBits)) & 0xff
-    const ipByte = ipParts[fullBytes]
-    const netByte = netParts[fullBytes]
-    if (ipByte === undefined || netByte === undefined) return false
-    if ((ipByte & mask) !== (netByte & mask)) return false
-  }
-  return true
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 128) return false
+  const ipBits = ipToBits(ip)
+  const netBits = ipToBits(network)
+  if (ipBits === null || netBits === null) return false
+  if (prefix === 0) return true
+  return ipBits.slice(0, prefix) === netBits.slice(0, prefix)
 }
 
 /**
@@ -251,11 +553,15 @@ export function checkMaxTokensPerReq(
  * 单模型限流检查结果。
  * - allowed=true:通过
  * - allowed=false:超限,retryAfter 为建议等待秒数,reason 标识 RPM 或 TPM 超限
+ * - backendUnavailable=true:Redis 客户端/命令异常,未能完成判定(O2 2026-09-21)。
+ *   本函数不自行决定降级形态 —— allowed 仍为 true 保持向后兼容,
+ *   由调用方按 `API_KEY_RATE_LIMIT_FAIL_MODE` + 能力目录 risk/billable 决定是否 503。
  */
 export interface PerModelRateLimitResult {
   allowed: boolean
   retryAfter?: number
   reason?: 'rpm' | 'tpm'
+  backendUnavailable?: boolean
 }
 
 /** 滑动窗口时长(毫秒,60 秒 = 1 分钟)。 */
@@ -268,7 +574,8 @@ const RATE_LIMIT_WINDOW_MS = 60_000
  * - RPM:用 Redis ZSET 记录窗口内每个请求的时间戳,ZCARD 统计请求数
  * - TPM:用 ZSET(时间戳)+ HASH(token 数)记录窗口内每个请求的 token 数,HVALS 求和
  * - 窗口 60 秒,每次检查先清理过期条目再统计
- * - Redis 故障时 fail-open(返回 allowed),不阻塞合法用户
+ * - Redis 故障时返回 { allowed: true, backendUnavailable: true } —— 是否降级放行由调用方
+ *   按 `API_KEY_RATE_LIMIT_FAIL_MODE`(默认 close)+ 能力目录判据决定(O2 2026-09-21)
  *
  * @param apiKeyId API Key id
  * @param model 模型名(如 'gpt-4o')
@@ -349,8 +656,8 @@ export async function checkPerModelRateLimit(
   try {
     redis = getRedisClient()
   } catch {
-    // Redis 客户端初始化失败 → fail-open
-    return { allowed: true }
+    // Redis 客户端初始化失败 → 标记后端不可用(降级形态由调用方决定)
+    return { allowed: true, backendUnavailable: true }
   }
 
   const now = Date.now()
@@ -396,9 +703,38 @@ export async function checkPerModelRateLimit(
 
     return { allowed: true }
   } catch {
-    // Redis 命令失败 → fail-open(不阻塞合法用户)
-    return { allowed: true }
+    // Redis 命令失败 → 标记后端不可用(不在此处自行降级放行)
+    return { allowed: true, backendUnavailable: true }
   }
+}
+
+/**
+ * scope 是否"能力目录已登记且第三方可申请"(isM2MAllowed)。
+ *
+ * 单一判据,O2 2026-09-21 两处复用:
+ * - `'*'` 通配的覆盖面(requireApiKeyPermission);
+ * - share token 的 scope 收窄(narrowSharePermissions)。
+ * 未登记(目录漂移)与 platform 域 / thirdPartyEligible=false 一律 false。
+ */
+export function isScopeThirdPartyEligible(scope: string): boolean {
+  const entry = getCapability(scope as ApiKeyPermission)
+  if (!entry) return false
+  return isM2MAllowed(entry.scope)
+}
+
+/**
+ * O2 兼容性收窄(2026-09-21):share token 的有效 scopes =
+ * 源 Key scopes ∩ thirdPartyEligible(能力目录判据)。
+ * - 源 Key 的 `'*'` 通配**不得**继承(否则 share 直接拿到全量已登记权限);
+ *   展开为目录内全部 isM2MAllowed 的 scope。
+ * - platform 域 / 未登记 / thirdPartyEligible=false 的 scope 一律剔除。
+ */
+export function narrowSharePermissions(sourcePerms: readonly string[]): ApiKeyPermission[] {
+  const list = Array.isArray(sourcePerms) ? sourcePerms : []
+  if (list.includes('*')) {
+    return CAPABILITY_CATALOG.filter((e) => isM2MAllowed(e.scope)).map((e) => e.scope)
+  }
+  return list.filter((p) => isScopeThirdPartyEligible(p))
 }
 
 /**
@@ -414,6 +750,8 @@ export async function checkPerModelRateLimit(
  * 7. 注入 sourceApiKeyId 作为当前 apiKeyId,继承源 Key 配置
  *
  * 降级安全:getShareByToken 抛异常(DB 不可用)→ 401 拒绝(share 鉴权无法放行)。
+ * 凭据形态:share_ token 是自包含单因子凭据(无独立 secret),
+ *   故 `API_KEY_REQUIRE_SECRET` 双因子要求不适用于本分支(仅约束 ihui_ 主 Key)。
  */
 async function authenticateShareToken(
   request: FastifyRequest,
@@ -446,9 +784,18 @@ async function authenticateShareToken(
   const sourceExpiryCheck = checkExpiresAt(share.sourceKey.expiresAt)
   if (!sourceExpiryCheck.ok) throw unauthorized('Source API key expired')
 
-  // P1-4 修复(2026-08-05):原实现未校验源 Key 的 IP 白名单,
-  // 源 Key 的 IP 约束可被 share token 绕过。与主 Key 鉴权链路保持一致。
-  const ipCheck = checkAllowedIps(share.sourceKey.allowedIps as string[] | null, request.ip)
+  // P1 修复(2026-08-06):原实现未校验源 Key 的 IP 白名单,
+  // 源 Key 的 IP 约束可被 share token 绕过。
+  // O2 升级(2026-09-21):与主链路统一走 checkKeyIpAcl(黑名单优先于白名单,
+  // 支持 IPv6 / IPv4-mapped;单一算法落点,不在两处各写一份)。
+  const ipCheck = checkKeyIpAcl(
+    {
+      blockedIps: share.sourceKey.blockedIps,
+      allowedIps: share.sourceKey.allowedIps,
+      requestIp: request.ip,
+    },
+    ipInList,
+  )
   if (!ipCheck.ok) throw forbidden(ipCheck.reason!)
 
   const body = request.body as Record<string, unknown> | undefined
@@ -468,7 +815,7 @@ async function authenticateShareToken(
   }
 
   // rateLimitRpm / rateLimitTpm:复用 checkPerModelRateLimit(用 share ID 隔离计数,合成 model key)
-  // Redis 故障时 checkPerModelRateLimit 内部 fail-open,不阻塞合法分享请求
+  // Redis 故障时按 API_KEY_RATE_LIMIT_FAIL_MODE 处置(与主链路同一判据)
   // P2-3 修复(2026-08-06):原预估只用 max_tokens(输出上限),低估真实消耗。
   // 增加输入估算:prompt 字符数 / 4(约 4 字符 ≈ 1 token,中文更密),与输出上限求和。
   const bodyAny = body as { messages?: unknown; max_tokens?: number }
@@ -497,18 +844,30 @@ async function authenticateShareToken(
       rlResult.retryAfter ?? 1,
     )
   }
+  if (rlResult.backendUnavailable) {
+    // share token 属第三方对外面,fail-close 判据与主链路一致(能力目录)
+    enforceRateBackendAvailability(request, share.sourceApiKeyId, 'per-model')
+  }
 
   // 注入 sourceApiKeyId 作为当前 apiKeyId,继承源 Key 配置
+  // O2(2026-09-21):permissions 收窄为 源 scopes ∩ thirdPartyEligible,
+  // 不继承 '*'/platform;窗口限额与黑名单不随 share 继承(share 有独立 RPM/TPM)。
   const ctx: AuthenticatedApiKey = {
     id: share.sourceApiKeyId,
     userId: share.sourceKey.userId,
     key: share.sourceKey.key,
-    permissions: share.sourceKey.permissions as ApiKeyPermission[],
+    permissions: narrowSharePermissions(
+      (share.sourceKey.permissions as unknown[] | null) as string[] | null ?? [],
+    ),
     rateLimit: share.sourceKey.rateLimit,
     expiresAt: share.sourceKey.expiresAt,
     allowedIps: (share.sourceKey.allowedIps as string[] | null) ?? null,
     allowedModels: (share.sourceKey.allowedModels as string[] | null) ?? null,
     maxTokensPerReq: share.sourceKey.maxTokensPerReq,
+    blockedIps: (share.sourceKey.blockedIps as string[] | null) ?? null,
+    rateLimit5h: null,
+    rateLimit1d: null,
+    rateLimit7d: null,
   }
   request.apiKey = ctx
 
@@ -545,10 +904,14 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
 
   if (!row || row.status !== 'active') throw unauthorized('Invalid or revoked API key')
 
-  // 可选 secret 校验:带 X-Api-Secret 则校验,不带则跳过(允许仅 key 鉴权的轻量场景)
+  // --- 凭据形态收紧(O2 2026-09-21)---
+  // `API_KEY_REQUIRE_SECRET=true`(默认):X-Api-Secret 必须携带,缺失 → 401 SECRET_REQUIRED。
+  // 置 false 回退历史"不带即跳过"行为(存量纯 key 客户端过渡期)。
   const xSecret = request.headers['x-api-secret']
-  if (typeof xSecret === 'string' && xSecret.length > 0) {
-    if (!verifySecret(xSecret, row.secret)) throw unauthorized('Invalid API key secret')
+  const hasSecret = typeof xSecret === 'string' && xSecret.length > 0
+  if (!hasSecret && config.API_KEY_REQUIRE_SECRET) throw secretRequired()
+  if (hasSecret && !verifySecret(xSecret as string, row.secret)) {
+    throw unauthorized('Invalid API key secret')
   }
 
   // --- P0-7 安全粒度检查(2026-07-31 立,在 checkQuota 之前执行)---
@@ -556,8 +919,12 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   const expiresCheck = checkExpiresAt(row.expiresAt)
   if (!expiresCheck.ok) throw unauthorized(expiresCheck.reason!)
 
-  // 2. IP 白名单:不在白名单 → 403
-  const ipCheck = checkAllowedIps(row.allowedIps as string[] | null, request.ip)
+  // 2. IP ACL:黑名单优先命中 → 403;白名单存在且不在名单内 → 403
+  //    (与 relay 计费链路共用 checkKeyIpAcl,匹配算法支持 IPv4/IPv6/IPv4-mapped)
+  const ipCheck = checkKeyIpAcl(
+    { blockedIps: row.blockedIps, allowedIps: row.allowedIps, requestIp: request.ip },
+    ipInList,
+  )
   if (!ipCheck.ok) throw forbidden(ipCheck.reason!)
 
   // 3. 模型白名单:仅当 body 含 model 字段时检查(hook 模式,不影响非 LLM 端点)
@@ -574,18 +941,12 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   }
 
   // 5. per-user model rate limit 检查(2026-07-31 立,Redis 滑动窗口)
-  //    仅当 body 含 model 且 developer_api_keys 配置了 perModelRpmLimit/perModelTpmLimit 时触发
-  //    后续在 packages/database/src/schema/developer-api-keys.ts 添加字段:
-  //      perModelRpmLimit: jsonb('per_model_rpm_limit')  -- 如 {"gpt-4o": 60}
-  //      perModelTpmLimit: jsonb('per_model_tpm_limit')  -- 如 {"gpt-4o": 100000}
-  //    字段未落地前通过 as 断言读取(undefined/null → 跳过限流,向后兼容)
+  //    仅当 body 含 model 且 developer_api_keys 配置了 per_model_rpm_limit / per_model_tpm_limit
+  //    对应模型条目时触发。两列由 migration 20260921100000 落地(O2 2026-09-21),
+  //    原"字段未落地 → as 断言恒 undefined → 限流恒跳过"死分支已删除,Lua 窗口真正生效。
   if (bodyModel) {
-    const rowWithPerModel = row as typeof row & {
-      perModelRpmLimit?: Record<string, number> | null
-      perModelTpmLimit?: Record<string, number> | null
-    }
-    const rpmLimit = rowWithPerModel.perModelRpmLimit?.[bodyModel]
-    const tpmLimit = rowWithPerModel.perModelTpmLimit?.[bodyModel]
+    const rpmLimit = row.perModelRpmLimit?.[bodyModel]
+    const tpmLimit = row.perModelTpmLimit?.[bodyModel]
     // 预估 token:优先用 body.max_tokens,无则用保守默认值 1000
     const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
     const rlResult = await checkPerModelRateLimit(
@@ -603,6 +964,9 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
           : `超过单模型 RPM 限制(model=${bodyModel})`
       throw rateLimited(msg, code, rlResult.retryAfter ?? 1)
     }
+    if (rlResult.backendUnavailable) {
+      enforceRateBackendAvailability(request, row.id, 'per-model')
+    }
   }
 
   const ctx: AuthenticatedApiKey = {
@@ -616,6 +980,11 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
     allowedIps: (row.allowedIps as string[] | null) ?? null,
     allowedModels: (row.allowedModels as string[] | null) ?? null,
     maxTokensPerReq: row.maxTokensPerReq,
+    // Key 级限流窗口 + IP 黑名单(O2 2026-09-21,与 schema 同步)
+    blockedIps: (row.blockedIps as string[] | null) ?? null,
+    rateLimit5h: row.rateLimit5h,
+    rateLimit1d: row.rateLimit1d,
+    rateLimit7d: row.rateLimit7d,
   }
   request.apiKey = ctx
 
@@ -630,55 +999,85 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
 }
 
 /**
- * Fastify preHandler:强制 API Key 鉴权,失败 reply 401/403/429。
- * 429(per-model rate limit)附 Retry-After header + 业务 code(1007/1008)。
+ * 鉴权通过后的配额强制(O2 2026-09-21 接入主链路)。
+ *
+ * 1. Key 级 5h/1d/7d 窗口 —— 复用 key-rate-window-service 的 checkKeyRateWindows
+ *    (与 relay 计费链路同一套窗口算法,此处不复制第二份实现);打满 → 429(code 1009,
+ *    带 Retry-After + X-RateLimit-*),计数读源异常 → 按 fail 模式处置。
+ * 2. TPM 每分钟 token 窗口 —— checkTpmQuota 超限 → 429;其抛异常(Redis/DB 不可用)
+ *    不再无条件 fail-open,统一走 enforceRateBackendAvailability。
+ *
+ * 三列全 NULL 的存量 Key:checkKeyRateWindows 零查询直接放行,行为完全不变。
  */
-export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, reply) => {
-  try {
-    await authenticateApiKey(request)
-  } catch (e) {
-    const err = e as Error & { statusCode?: number; code?: number; retryAfter?: number }
-    const statusCode = err.statusCode ?? 401
-    // 429 限流:附 Retry-After header + 业务 code
-    if (statusCode === 429 && typeof err.retryAfter === 'number') {
-      return reply
-        .status(429)
-        .header('Retry-After', String(err.retryAfter))
-        .send({
-          code: err.code ?? 429,
-          message: err.message || 'Rate limit exceeded',
-          retryAfter: err.retryAfter,
-        })
-    }
-    return reply
-      .status(statusCode)
-      .send({ code: statusCode, message: err.message || '请提供 API Key 鉴权' })
+async function enforceApiKeyQuotaAfterAuth(
+  request: FastifyRequest,
+  apiKey: AuthenticatedApiKey,
+): Promise<void> {
+  // === 1. Key 级限流窗口(5h/1d/7d)===
+  const windowCheck = await checkKeyRateWindows(
+    apiKey.id,
+    limitsOf(apiKey),
+    new Date(),
+    rateLimitFailMode(),
+  )
+  if (!windowCheck.allowed && windowCheck.blocked) throw keyWindowRateLimited(windowCheck.blocked)
+  if (windowCheck.backendUnavailable) {
+    enforceRateBackendAvailability(request, apiKey.id, 'key-window')
   }
 
-  // === TPM 限流集成(鉴权通过后、请求转发前)===
-  // checkTpmQuota 内部读 developer_api_keys.tpmLimit(migration 20260801010060 新增字段)
-  const apiKey = request.apiKey
-  if (!apiKey) return
+  // === 2. TPM 限流(checkTpmQuota 内部读 developer_api_keys.tpmLimit)===
   const body = request.body as Record<string, unknown> | undefined
   // 预估 token:优先用 body.max_tokens,无则保守默认 1000
   const estimatedTokens = body && typeof body.max_tokens === 'number' ? body.max_tokens : 1000
-
-  // TPM 检查:超限返回 429;service 异常(Redis/DB 不可用)降级放行
   try {
     const tpmResult = await checkTpmQuota(apiKey.id, estimatedTokens)
     if (!tpmResult.allowed) {
       const retryAfter = Math.max(1, Math.ceil((tpmResult.resetAt.getTime() - Date.now()) / 1000))
-      return reply
-        .status(429)
-        .header('Retry-After', String(retryAfter))
-        .send({ code: 429, message: 'TPM limit exceeded', data: null })
+      throw rateLimited('TPM limit exceeded', 1008, retryAfter)
     }
   } catch (err) {
-    logger.warn('TPM quota check failed, failing open', {
-      apiKeyId: apiKey.id,
-      error: String(err),
-    })
+    // 已是本模块产出的限流异常 → 原样上抛;否则视为后端不可用
+    if ((err as ApiKeyAuthError).statusCode === 429) throw err
+    enforceRateBackendAvailability(request, apiKey.id, 'tpm', err)
   }
+}
+
+/** 把鉴权/配额异常渲染为响应(401/403/429/503 + errorCode + Retry-After + X-RateLimit-*)。 */
+function sendApiKeyAuthError(
+  reply: FastifyReply,
+  err: Error & { statusCode?: number; code?: number; retryAfter?: number },
+): FastifyReply {
+  const statusCode = err.statusCode ?? 401
+  const e = err as ApiKeyAuthError
+  const out = reply.status(statusCode)
+  if (typeof e.retryAfter === 'number') out.header('Retry-After', String(e.retryAfter))
+  for (const [k, v] of Object.entries(e.headers ?? {})) out.header(k, v)
+  const payload: Record<string, unknown> = {
+    code: statusCode === 429 ? (e.code ?? 429) : statusCode,
+    message: e.message || '请提供 API Key 鉴权',
+    data: null,
+  }
+  if (e.errorCode) payload.errorCode = e.errorCode
+  if (typeof e.retryAfter === 'number') payload.retryAfter = e.retryAfter
+  return out.send(payload)
+}
+
+/**
+ * Fastify preHandler:强制 API Key 鉴权 + 配额强制。
+ * 失败 reply 401(含 SECRET_REQUIRED)/ 403 / 429(Retry-After + X-RateLimit-*)/ 503
+ * (RATE_BACKEND_UNAVAILABLE,fail-close)。
+ */
+export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, reply) => {
+  let apiKey: AuthenticatedApiKey | undefined
+  try {
+    apiKey = await authenticateApiKey(request)
+    if (apiKey) await enforceApiKeyQuotaAfterAuth(request, apiKey)
+  } catch (e) {
+    return sendApiKeyAuthError(reply, e as Error & { statusCode?: number })
+  }
+
+  if (!apiKey) return
+  const apiKeyId = apiKey.id
 
   // 请求结束后记录实际 token 消耗(若 request 上有 usage 统计)
   reply.raw.on('finish', () => {
@@ -686,9 +1085,16 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
     const totalTokens = usage?.totalTokens
     if (typeof totalTokens === 'number' && totalTokens > 0) {
       // P2 修复(2026-08-02):空 catch 加日志,避免 TPM 记录失败静默丢失(不影响主响应)
-      void recordTpmUsage(apiKey.id, totalTokens).catch((err) => {
-        request.log.warn({ err, apiKeyId: apiKey.id }, 'TPM usage record failed')
+      void recordTpmUsage(apiKeyId, totalTokens).catch((err) => {
+        request.log.warn({ err, apiKeyId }, 'TPM usage record failed')
       })
+    }
+    // === Key 级窗口计数(O2 2026-09-21)===
+    // 带 model 的调用由 relay 计费链路 recordCall 统一 +1(避免双计);
+    // 不经计费的非 model 端点在此补计,2xx 才计数。内部自查限额,全 NULL 零写入。
+    const hasModel = typeof (request.body as { model?: unknown } | undefined)?.model === 'string'
+    if (!hasModel && reply.statusCode < 400) {
+      void incrKeyRateWindows(apiKeyId).catch(() => {})
     }
   })
 }
@@ -697,6 +1103,10 @@ export const requireApiKeyAuth: preHandlerAsyncHookHandler = async (request, rep
  * Fastify preHandler 工厂:校验 request.apiKey.permissions 包含指定权限点。
  * 必须在 requireApiKeyAuth 之后使用(依赖 request.apiKey 已注入)。
  * 失败 reply 403。
+ *
+ * `'*'` 通配语义收窄(O2 2026-09-21):历史行为是"有 '*' 即无限权限"(含 platform
+ * 运营面);现只覆盖**能力目录已登记且 isM2MAllowed** 的 scope ——
+ * platform 域即使 key 持有 `'*'` 也 403,未登记 scope 同拒。
  */
 export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsyncHookHandler {
   return async (request, reply) => {
@@ -710,8 +1120,9 @@ export function requireApiKeyPermission(perm: ApiKeyPermission): preHandlerAsync
       : Array.isArray((perms as { permissions?: string[] })?.permissions)
         ? (perms as { permissions: string[] }).permissions
         : []
-    // 通配符 * 表示拥有所有权限
-    if (!permList.includes(perm) && !permList.includes('*')) {
+    // 通配符 * 表示"全部可对外(M2M)权限",非无限权限(O2 收窄:platform 域即使 '*' 也 403)
+    const coveredByWildcard = permList.includes('*') && isScopeThirdPartyEligible(perm)
+    if (!permList.includes(perm) && !coveredByWildcard) {
       return reply.status(403).send({ code: 403, message: `Missing permission: ${perm}` })
     }
   }

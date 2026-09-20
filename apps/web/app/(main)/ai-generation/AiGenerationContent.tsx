@@ -21,6 +21,7 @@ import { ImageGenX5m5x } from '@/components/ai-generation/image-gen-x5m5x'
 import { ImageEditQwen } from '@/components/ai-generation/image-edit-qwen'
 import { VideoGenKling } from '@/components/ai-generation/video-gen-kling'
 import { VideoGenQwen } from '@/components/ai-generation/video-gen-qwen'
+import { VideoGenJimeng } from '@/components/ai-generation/video-gen-jimeng'
 import { VideoGenOneClick } from '@/components/ai-generation/video-gen-one-click'
 import { VideoGenSora2 } from '@/components/ai-generation/video-gen-sora2'
 import { VideoGenAgnes } from '@/components/ai-generation/video-gen-agnes'
@@ -91,6 +92,8 @@ export function AiGenerationContent({
           return <VideoGenKling />
         case 'qwen':
           return <VideoGenQwen />
+        case 'jimeng':
+          return <VideoGenJimeng />
         case 'one-click':
           return <VideoGenOneClick />
         case 'sora2':

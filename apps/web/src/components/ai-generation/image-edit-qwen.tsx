@@ -14,6 +14,29 @@ import { toast } from '@/components/common'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
+
+// DashScope 图片编辑官方参数(model/negative_prompt/seed/watermark/n)
+const QWEN_EDIT_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  {
+    key: 'model',
+    label: 'model',
+    type: 'select',
+    options: [
+      { value: 'wanx2.1-imageedit', label: 'wanx2.1-imageedit' },
+      { value: 'wanx-x-paintlava', label: 'wanx-x-paintlava' },
+    ],
+  },
+  { key: 'negative_prompt', label: 'negativePrompt', type: 'text', placeholder: '-' },
+  { key: 'seed', label: 'seed', type: 'number', step: 1, placeholder: '-' },
+  { key: 'watermark', label: 'watermark', type: 'boolean', placeholder: '-' },
+  { key: 'n', label: 'numImages', type: 'number', min: 1, max: 4, step: 1, placeholder: '1' },
+]
 
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
@@ -23,9 +46,10 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
   const [prompt, setPrompt] = React.useState('')
   const [imageUrl, setImageUrl] = React.useState('')
   const [maskUrl, setMaskUrl] = React.useState('')
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
 
   const mutation = useMutation({
-    mutationFn: async (payload: { prompt: string; imageUrl: string; maskUrl?: string }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<unknown>('/api/ai/dashscope/image-edit', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -44,9 +68,10 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
       toast.error(t('promptRequired'))
       return
     }
-    const payload: { prompt: string; imageUrl: string; maskUrl?: string } = {
+    const payload: Record<string, unknown> = {
       prompt: prompt.trim(),
       imageUrl: imageUrl.trim(),
+      ...parseParamValues(advanced, QWEN_EDIT_FIELDS),
     }
     if (maskUrl.trim()) payload.maskUrl = maskUrl.trim()
     mutation.mutate(payload)
@@ -88,6 +113,7 @@ export const ImageEditQwen = React.memo(function ImageEditQwen() {
             placeholder={t('imageUrlPlaceholder')}
           />
         </div>
+        <AdvancedParamsPanel fields={QWEN_EDIT_FIELDS} values={advanced} onChange={setAdvanced} />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}

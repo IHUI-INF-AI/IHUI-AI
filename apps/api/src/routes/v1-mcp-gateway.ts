@@ -35,6 +35,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { config } from '../config/index.js'
 import { requireApiKeyAuth, modelInList } from '../plugins/api-key-auth.js'
+import { requireCapabilityRules } from '../utils/capability-guard.js'
 import { recordCall } from '../services/relay-billing-service.js'
 import { success, error } from '../utils/response.js'
 
@@ -157,6 +158,15 @@ function isMcpToolsAllowed(allowedModels: string[] | null): boolean {
 const v1McpGatewayRoutes: FastifyPluginAsync = async (server) => {
   // 所有 /v1/mcp/* 端点统一走 API Key 鉴权
   server.addHook('preHandler', requireApiKeyAuth)
+  // O3 能力闸:此前只要 active key 即可调 tools/call,现按 scope + 工具清单二次授权
+  server.addHook(
+    'preHandler',
+    requireCapabilityRules([
+      { methods: ['GET'], pattern: /^\/v1\/mcp\/tools$/, scope: 'tools:read' },
+      { methods: ['POST'], pattern: /^\/v1\/mcp\/tools\/call$/, scope: 'tools:call' },
+      { methods: ['POST'], pattern: /^\/v1\/mcp\/resources\/read$/, scope: 'tools:read' },
+    ]),
+  )
 
   // ===== 1. GET /v1/mcp/tools — 列出全部 MCP 工具 =====
   server.get('/v1/mcp/tools', async (request, reply) => {
