@@ -11,7 +11,7 @@
  * relay-billing-service 计费,与 /v1/chat/completions 共享同一上游与计费逻辑。
  *
  * 流程:
- * 1. preHandler:requireApiKeyAuth + requireApiKeyPermission('chat:write') + requireApiKeyQuota
+ * 1. preHandler:requireApiKeyAuth + requireCapability('chat:write') + requireApiKeyQuota
  * 2. Zod 校验 Anthropic Messages 请求体
  * 3. checkQuota 预检余额
  * 4. anthropicRequestToOpenAI 转 OpenAI 格式
@@ -26,11 +26,8 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import {
   checkQuota,
   recordCall,
@@ -372,7 +369,7 @@ const v1MessagesRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = anthropicMessagesSchema.safeParse(request.body)

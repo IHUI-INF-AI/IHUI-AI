@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { eq, and, or, desc, asc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { dbRead } from '../../db/index.js'
+import { declareCapability } from '../../utils/capability-guard.js'
 import { messages, zhsFaq } from '@ihui/database'
 import {
   findTickets,
@@ -21,6 +22,9 @@ import {
 import { parsePagination, parseIdParam } from './_shared.js'
 
 export const v1CustomerServiceRoutes: FastifyPluginAsync = async (server) => {
+  // O3 登记:客服工单/消息(用户态遗留桩,当前无鉴权,待专项收口)
+  server.addHook('preHandler', declareCapability('messages:read'))
+
   // GET /v1/customer_service/messages — 当前用户消息列表
   server.get('/v1/customer_service/messages', async (request, reply) => {
     const q = parsePagination(request, reply)
