@@ -747,6 +747,14 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
   改为应答携带 `instanceId`、后续动作经 `targetInstanceId` 钉回它刚看过的那一页(钉定端掉线则回落择优,
   且绝不跨用户钉定)。
 
+### 可达面 ≠ 授权面（重要边界）
+
+route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只有显式接
+`checkAuthOrInternalService` 的路由认这套凭据。实测 `/api/memory` 带令牌 200、不带 401；
+`/api/conversations`、`/api/notifications`、`/api/admin/users` 一律 401。因此下表数字说的是
+**调用面**（能生成并发起多少次调用），真正能落地的范围受"Agent 全面开放工程"授权层收口进度约束；
+未授权端点会如实返回 401，由模型按 `_UI_RENDER_PROMPT` 转述失败，而不是编造成功。
+
 ### 配置项
 
 | 变量                    | 默认                             | 说明                                                                         |
