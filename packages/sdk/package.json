@@ -1,28 +1,63 @@
 {
   "name": "@ihui/sdk",
   "version": "0.1.0",
+  "description": "IHUI AI (智汇AI) 官方 TypeScript SDK — 对话 / 图像 / 音频 / 视频 / 知识库 / 记忆 / Agent 全能力客户端",
+  "keywords": [
+    "ihui",
+    "aizhs",
+    "sdk",
+    "ai",
+    "llm",
+    "openai-compatible",
+    "chat-completion",
+    "agent"
+  ],
+  "license": "Apache-2.0",
   "type": "module",
-  "main": "./src/index.ts",
-  "module": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
-    }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node scripts/prepack.mjs"
   },
-  "dependencies": {
-    "@ihui/types": "workspace:*"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "typescript": "catalog:",
     "@ihui/tsconfig": "workspace:*",
+    "@ihui/types": "workspace:*",
+    "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IHUI-INF-AI/IHUI-AI.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/IHUI-INF-AI/IHUI-AI/issues"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top",
