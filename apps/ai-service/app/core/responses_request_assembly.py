@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 NAMESPACE_OID = uuid.NAMESPACE_OID
 
@@ -64,10 +64,10 @@ def responses_lite_deterministic_id(namespace: uuid.UUID, suffix_id: str, kind: 
 
 
 def build_reasoning(
-    effort_override: Optional[str],
-    model_default_reasoning_level: Optional[str],
+    effort_override: str | None,
+    model_default_reasoning_level: str | None,
     supports_reasoning_summary_parameter: bool,
-    summary_config: Optional[str],
+    summary_config: str | None,
     use_responses_lite: bool,
     resolve_reasoning_effort: Any = None,
 ) -> dict[str, Any]:
@@ -92,10 +92,10 @@ def build_reasoning(
 
 
 def create_text_param_for_request(
-    verbosity: Optional[str],
-    output_schema: Optional[dict[str, Any]],
+    verbosity: str | None,
+    output_schema: dict[str, Any] | None,
     output_schema_strict: bool,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """verbosity 与 output_schema 双空返 None;否则 TextControls(json_schema, strict, codex_output_schema)。"""
     if verbosity is None and output_schema is None:
         return None
@@ -116,7 +116,7 @@ def build_stream_options(
     concurrent_reasoning_summaries_enabled: bool,
     is_openai: bool,
     reasoning_summary_present: bool,
-) -> Optional[dict[str, str]]:
+) -> dict[str, str] | None:
     """仅三条件齐备才发 sequential_cutoff 流选项。"""
     if concurrent_reasoning_summaries_enabled and is_openai and reasoning_summary_present:
         return {"reasoning_summary_delivery": REASONING_SUMMARY_DELIVERY_SEQUENTIAL_CUTOFF}
@@ -125,10 +125,10 @@ def build_stream_options(
 
 def resolve_verbosity(
     model_support_verbosity: bool,
-    model_verbosity: Optional[str],
-    model_default_verbosity: Optional[str],
+    model_verbosity: str | None,
+    model_default_verbosity: str | None,
     model_slug: str,
-) -> tuple[Optional[str], Optional[str]]:
+) -> tuple[str | None, str | None]:
     """Codex verbosity 门控: 模型不支持时忽略用户设置并告警;支持时用户值优先于默认。返回 (verbosity, warning)。"""
     if model_support_verbosity:
         return (model_verbosity if model_verbosity is not None else model_default_verbosity), None
@@ -227,7 +227,7 @@ class RequestRouteTelemetry:
 
     transport: str
     attempt: int = 0
-    fallback_reason: Optional[str] = None
+    fallback_reason: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:

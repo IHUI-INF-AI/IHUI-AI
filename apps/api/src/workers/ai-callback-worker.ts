@@ -5,7 +5,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
 import { createWorker, QUEUE_NAMES, type AICallbackJobData, type Job } from '../plugins/queue.js'
-import { createMessage, updateMessage } from '../db/chat-queries.js'
+import { createMessage, findMessageById, updateMessage } from '../db/chat-queries.js'
 
 /**
  * AI Callback Worker — AI 回调队列消费者。
@@ -44,12 +44,26 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
       if (messageId) {
         // 更新已有的占位 assistant 消息(前端预先创建的场景)
         // 只 catch "消息不存在"的预期错误,DB 错误应 rethrow 触发 BullMQ 重试
+        // D24(2026-09-19 立):metadata 改为浅合并语义。updateMessage 是整体 set
+        // metadata(jsonb 列覆盖写),占位消息可能已带 pendingQuestion/questionId 等
+        // 既有 key(提问链路写入),直接覆盖会丢失;此处读旧值合并,job 内新值优先。
+        // 同一消息的 job 串行消费(BullMQ 同 key 有序),无并发覆盖风险。
+        let prevMeta: Record<string, unknown> | undefined
+        try {
+          const prev = await findMessageById(messageId)
+          if (prev?.metadata && typeof prev.metadata === 'object') {
+            prevMeta = prev.metadata as Record<string, unknown>
+          }
+        } catch {
+          // 读旧值失败不阻塞落库,降级为整体覆盖(与原行为一致)
+        }
+        const mergedMetadata: Record<string, unknown> = { ...(prevMeta ?? {}), ...metadata }
         try {
           savedMessage = await updateMessage(messageId, userId, {
             content,
             reasoning,
             tokens: tokens,
-            metadata,
+            metadata: mergedMetadata,
           })
         } catch (e) {
           // 更新失败(消息不存在或权限不符)时降级创建,其他错误 rethrow 触发重试

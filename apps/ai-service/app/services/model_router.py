@@ -346,8 +346,10 @@ class ModelRouter:
         字段映射:
         - model_id/name: 直接取自 dict(id/name)
         - context_length: 优先 dict.context_length,降级 caps.max_context,兜底 4096
-        - supports_tools / supports_vision: 取自 caps 声明,缺失时给宽松默认
+        - supports_tools / supports_vision: 优先 capabilities 事实源(D23 派生 +
+          显式预设,annotate_models 已随标注写入),缺失/非布尔时回退 caps 声明
           (tools 默认 True 允许工具任务,vision 默认 False,由 category=vision 兜底判定)
+          —— auto 路由与 /llm/models 前端选择器消费同一能力事实源
         - reasoning_power / speed_tps / output_price: 目录无此数据,用保守默认值,
           避免在路由打分中失真(cost 无数据置 0,本地优先排序不受影响)
         """
@@ -357,7 +359,19 @@ class ModelRouter:
                 return None
             caps = m.get("caps") or {}
             context_length = int(m.get("context_length") or caps.get("max_context") or 4096)
-            supports_vision = bool(caps.get("supports_vision", False)) or str(m.get("category")) == "vision"
+            derived = m.get("capabilities")
+            derived_vision = derived.get("vision") if isinstance(derived, dict) else None
+            derived_tools = derived.get("tools") if isinstance(derived, dict) else None
+            supports_vision = (
+                derived_vision
+                if isinstance(derived_vision, bool)
+                else bool(caps.get("supports_vision", False)) or str(m.get("category")) == "vision"
+            )
+            supports_tools = (
+                derived_tools
+                if isinstance(derived_tools, bool)
+                else bool(caps.get("supports_tools", True))
+            )
             return ModelCapability(
                 model_id=mid,
                 name=str(m.get("name") or mid),
@@ -366,7 +380,7 @@ class ModelRouter:
                 speed_tps=60,       # 目录无速度数据,取保守默认
                 input_price=float(m.get("input_price") or 0.0),
                 output_price=0.0,   # 目录无输出价格数据
-                supports_tools=bool(caps.get("supports_tools", True)),
+                supports_tools=supports_tools,
                 supports_vision=supports_vision,
             )
         except (TypeError, ValueError) as e:

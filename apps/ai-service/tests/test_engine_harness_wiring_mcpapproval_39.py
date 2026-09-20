@@ -5,8 +5,6 @@
 # (对标 Codex requires_mcp_tool_approval 在 AgentLoopV2 审批门的强制点)
 from __future__ import annotations
 
-import pytest
-
 from app.services.agent_loop_v2 import AgentLoopV2, ToolCall, ToolDefinition
 from app.services.mcp_tool_aggregator import MCPSuperToolAggregator, ToolSource
 

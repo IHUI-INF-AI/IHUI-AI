@@ -332,13 +332,18 @@ export default function AiChatPage() {
     ) {
       return
     }
+    // D24(2026-09-19 立):恢复映射补 toolCalls/terminalTasks(metadata 持久化数组,
+    // ai-service 回调 → worker 落库),切会话/刷新后工具卡与终端区完整还原;
+    // model 一并从 metadata 恢复(回调写入的生成模型,不再写死空串)。
     const msgs: ChatMessage[] = historyData.data.messages.map((m) => ({
       id: m.id,
       role: m.role,
       content: m.content,
       createdAt: new Date(m.createdAt).getTime(),
-      model: '',
+      model: (m.metadata?.model as string | null | undefined) ?? '',
       reasoning: m.reasoning,
+      toolCalls: (m.metadata?.toolCalls ?? undefined) as ChatMessage['toolCalls'],
+      terminalTasks: (m.metadata?.terminalTasks ?? undefined) as ChatMessage['terminalTasks'],
     }))
     useChatStore.getState().setMessages(msgs)
     // 恢复会话的 model

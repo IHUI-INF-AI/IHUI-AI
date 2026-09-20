@@ -42,6 +42,7 @@ export type ScheduledJobName =
   | 'ai-feed-process'
   | 'ai-feed-drain'
   | 'budget-alert-check'
+  | 'edu-arrear-remind-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -151,6 +152,13 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'budget-alert-check',
     pattern: '*/30 * * * *',
     description: '预算告警扫描（每30分钟,80% warning/100% critical）',
+  },
+  // 教育欠费自动催费:BullMQ pattern 按 UTC 解析,北京时间 09:00 = UTC 01:00。
+  // 幂等防重在 service 内实现(同报名记录当日已有催费记录则跳过)。
+  {
+    name: 'edu-arrear-remind-daily',
+    pattern: '0 1 * * *',
+    description: '教育欠费自动催费提醒（每日北京时间09:00）',
   },
 ]
 

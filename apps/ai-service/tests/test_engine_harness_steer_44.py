@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """批 44 测试(自动生成,勿手改) — turn/steer 运行中转向 + loop 注入点。
 
 生成器: .ihui-agent/tmp/gen_test_44.py
@@ -11,7 +10,6 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import pytest
 
 from app.services.agent_engine import AgentEngine
 from app.services.agent_loop_v2 import AgentLoopV2
@@ -169,7 +167,6 @@ async def test_engine_turn_steer_missing_input(tmp_path):
 
 async def test_engine_run_thread_recovers_leftover_steers(tmp_path):
     """回合结束后未消费的 steer 被回收转 queue(竞态兜底不丢消息)。"""
-    collected: list[str] = []
 
     class _Result:
         success = True

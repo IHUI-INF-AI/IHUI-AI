@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """批 43 测试(自动生成,勿手改) — thread/revert 回合回退 + session_store.revert_thread。
 
 生成器: .ihui-agent/tmp/gen_test_43.py
@@ -13,7 +12,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 
-from app.services.agent_engine import AgentEngine, EngineThread, JsonRpcError, THREAD_BUSY, INVALID_PARAMS
+from app.services.agent_engine import (
+    INVALID_PARAMS,
+    THREAD_BUSY,
+    AgentEngine,
+    EngineThread,
+)
 from app.services.session_store import (
     SessionStore,
     ThreadNotFoundError,
@@ -227,4 +231,4 @@ def test_engine_thread_fork_copies_turn_markers():
 
     names = {f.name for f in dataclasses.fields(EngineThread)}
     assert "turn_markers" in names
-    assert EngineThread.__dataclass_fields__["turn_markers"].default_factory == dict
+    assert EngineThread.__dataclass_fields__["turn_markers"].default_factory is dict

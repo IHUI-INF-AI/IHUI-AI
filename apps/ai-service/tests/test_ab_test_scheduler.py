@@ -557,7 +557,8 @@ class TestIsExpired:
 
     def test_naive_datetime_assumed_utc(self):
         # naive datetime 假设 UTC
-        naive_old = (datetime.utcnow() - timedelta(days=2)).isoformat()
+        # 等价替代弃用的 datetime.utcnow()/utcfromtimestamp()（naive UTC 语义不变，2026-09-19 技术债清理）
+        naive_old = (datetime.now(UTC).replace(tzinfo=None) - timedelta(days=2)).isoformat()
         assert ABTestScheduler._is_expired(naive_old, max_duration_seconds=86400) is True
 
 

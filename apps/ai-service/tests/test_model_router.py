@@ -200,4 +200,93 @@ class TestModelRegistry:
         decision = model_router.route("重构架构")
         assert decision.complexity == TaskComplexity.EXPERT
         assert decision.selected_model == "gpt-4o"
+
+
+class TestCatalogCapabilityMapping:
+    """D23(2026-09-19):_to_capability 消费 capabilities 事实源(auto 路由按能力匹配)。
+
+    事实源 = annotate_models 派生 + 显式预设覆盖,与 /llm/models 前端选择器同源。
+    """
+
+    @staticmethod
+    def _cap(m: dict) -> ModelCapability:
+        cap = ModelRouter._to_capability(m)
+        assert cap is not None
+        return cap
+
+    def test_capabilities_fact_source_wins_over_caps_heuristics(self):
+        """capabilities 显式布尔优先于 caps.supports_* 启发式。"""
+        cap = self._cap({
+            "id": "m1",
+            "category": "vision",
+            "caps": {"supports_vision": True, "supports_tools": True},
+            "capabilities": {"vision": False, "tools": False},
+        })
+        assert cap.supports_vision is False
+        assert cap.supports_tools is False
+
+    def test_capabilities_partial_only_overrides_present_keys(self):
+        """capabilities 只覆盖给出的键,未给出的键回退 caps/category 启发式。"""
+        cap = self._cap({
+            "id": "m2",
+            "category": "chat",
+            "caps": {"supports_vision": True},
+            "capabilities": {"tools": False},
+        })
+        assert cap.supports_vision is True  # 未覆盖 → caps 启发式
+        assert cap.supports_tools is False  # 覆盖生效
+
+    def test_no_capabilities_falls_back_to_caps_heuristics(self):
+        """无 capabilities(annotate 未跑/旧缓存)时行为与旧逻辑一致。"""
+        cap = self._cap({
+            "id": "m3",
+            "category": "vision",
+            "caps": {"supports_vision": False},
+        })
+        assert cap.supports_vision is True  # category=vision 兜底
+        assert cap.supports_tools is True  # 默认 True
+
+    def test_non_bool_capabilities_ignored(self):
+        """capabilities 脏值(非布尔)不采纳,回退启发式,不抛异常。"""
+        cap = self._cap({
+            "id": "m4",
+            "category": "chat",
+            "caps": {"supports_tools": False},
+            "capabilities": {"tools": "yes", "vision": 1},
+        })
+        assert cap.supports_tools is False
+        assert cap.supports_vision is False
+
+    def test_from_catalog_end_to_end_consumes_derived_capabilities(self, monkeypatch):
+        """端到端:annotate_models 派生/预设 capabilities → from_catalog 注册即生效。
+
+        可用性过滤依赖 provider 健康注册表(外部 I/O 态),单测以恒等替换隔离,
+        只验证 标注→可路由→能力映射 链路。
+        """
+        from app.services.model_availability import model_availability
+        from app.services.model_catalog import annotate_models
+
+        monkeypatch.setattr(
+            model_availability,
+            "get_available_models",
+            lambda models: list(models),
+        )
+
+        models = [
+            {"id": "gpt-5.6", "name": "GPT-5.6", "provider": "openai", "context_length": 128000},
+            {
+                "id": "gpt-4-vision-preset",
+                "name": "GPT-4V",
+                "provider": "openai",
+                "model_tier": "latest",  # 预设档位,保证可路由
+                "caps": {"supports_vision": True},
+                "capabilities": {"vision": False},  # 显式预设压过 caps 声明
+            },
+        ]
+        annotate_models(models)
+        router = ModelRouter.from_catalog(models)
+        cap = router.get_model_info("gpt-4-vision-preset")
+        assert cap is not None
+        assert cap.supports_vision is False
+        assert router.get_model_info("gpt-5.6") is not None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
