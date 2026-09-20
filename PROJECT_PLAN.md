@@ -146,12 +146,13 @@
       是 api 按 category 择端的两条不相交通道,不构成"同页两端点抢同一指令"。取消该 no-op 即让
       desktop 获得同一套页面操控能力(`API_BASE` 早已按 Tauri 约定取 `NEXT_PUBLIC_API_BASE_URL`)。
       miniapp-taro / mobile-rn 无同源 DOM,不属本路线。
-- [ ] B8 §9 收尾:RN / 小程序聊天请求各自声明本端工具族(`mobile_ui_*`4 / `taro_ui_*`4)。
+- [x] ✅(2026-09-21) B8 §9 收尾:RN / 小程序聊天请求各自声明本端工具族(`mobile_ui_*`4 / `taro_ui_*`4)。
       根因已核实:`routers/llm.py` 的 tool loop 入口是 `if req.agent_tools and chat_mode != "ask"`;
       不带 agentTools 就完全不进工具循环,端侧桥写得再对也是死代码。现状:RN 的 ChatScreen 直接调
       `streamChat(...)` 未传;小程序 `src/api/index.ts:269` 有字段但无调用点赋值。
       做法:各端只带本端族名(不把 web_ui_* 发给小程序 — 那只会换来 TARGET_NOT_CONNECTED 并白烧上下文)。
-      **进度(2026-09-21):小程序侧已闭环(见 B8c),仅剩 RN 侧(见 B9)。**
+      **闭环情况(2026-09-21):小程序侧见 B8c、RN 侧见 B9(两个真实聊天入口 ChatScreen +
+      AiAssistantN8nScreen 都已接),web 侧见 B8a,共享层单一事实源见 B8b。**
 - [x] ✅(2026-09-21) B8a web 侧同类缺口先修(实测才发现,不是推演):`mergeAgentTools()` 在
       "未选插件且未开网页搜索"时返回 [](2026-08-29 为保打字机流式所设),于是**普通对话里
       web_ui_* / api_* 根本进不了模型视野** —— 此前所有真机证据都是直打 /api/agent-control 拿的,
@@ -196,10 +197,41 @@
       现测口径(`API_TOOLS_MAX=300`):302 个常驻工具表(300 端点 + 2 入口),侧表可调用面
       4623 个端点 = 只读 2042 + 写 2581。证据:新增 `test_default_mode_is_all` 钉住默认值
       (防"沉默回退成 read"),`tests/test_api_tools_bridge.py` 32 项全绿,ruff + mypy --strict 零错。
-- [ ] B9 RN 端 UI 桥(§9 多端同步,`category='app_ui'` + `endpoint='rn'`):协议与 `mobile_ui_*` 四工具
-      已就绪(B6/B7),缺端侧实现 —— 注册表(describe/read/navigate/invoke + 命令白名单)、
-      `use-ui-control-bridge`、`RootNavigator` 挂载、`AiAssistantN8nScreen` 的 agentTools 预筛。
-      约束:本机跑不了 expo,端侧行为只能由单测 + typecheck 证明,**不得声称真机验证**。
+- [x] ✅(2026-09-21) B9 RN 端 UI 桥(§9 多端同步,`category='app_ui'` + `endpoint='rn'`):
+      ①`scripts/generate-ui-routes.mjs` 解析 `RootNavigator` 已登录分支 + `RootStackParamList` +
+      `linking.ts` 的 `:param`,产出 204 条 Screen 白名单(连跑两次产物 sha256 一致,幂等);
+      ②`src/lib/ui-action-registry.ts` 四动作执行器:navigate 仅放行白名单,`invoke` 只登记 4 条
+      显式命令(主题三档 + 回首页),**退出登录/注销/支付/清缓存一律不登记**,路由参数打码额外覆盖
+      `uuid`/`ticket` 且函数值归一为 `[complex]`(RN 参数允许带回调);
+      ③`src/hooks/use-ui-control-bridge.ts` 由 `RootNavigator` 已登录分支挂载(渲染 null),登出即随
+      分支卸载断连停 timer,不留"store 已清但连接还在"的窗口;`src/stores/notification.tsx` 包一层
+      `addFromWs` 过滤 `agent.action`(共享层 `transformWsNotification` 对 `data.type` 通用透传,
+      不挡则 AI 每操控一次就往用户通知列表塞一条空壳"新通知"并计未读红点);
+      ④B8 RN 侧闭环:`src/lib/ui-control-tools.ts` 用共享工厂注入 `mobile_ui_*` + api 入口两个族,
+      **两个真实聊天入口**(`ChatScreen.tsx`、`AiAssistantN8nScreen.tsx`)各自按需带
+      (`...(agentTools.length > 0 ? { agentTools } : {})`,不命中时请求体与改造前逐字节一致)。
+      **协议偏差(与 web/taro 不同处,后续排查必读)**:
+      1. 桥层自带**第二条**通知 WS(与 taro"全端只此一条"相反,与 web 一致)。共享 hook
+         `useNotificationWebSocket` 只暴露 `lastMessage` 单一 state,同批到达的 `describe`+`navigate`
+         会被 React 批处理吞掉一条 → 只能等 api 侧超时。要收敛须给共享 hook 加 `onMessage` 注入(改 `packages/shared`)。
+      2. 无 `AppState` 前后台门控(taro 有):RN 后台由 OS 直接挂起 JS 并回收 socket,`WebSocketClient`
+         自带指数退避重连。代价是后台期间保活停转 → 5min 后被判离线,`TARGET_NOT_CONNECTED` 属常态,只 warn。
+      3. 缺必填参数返回 `EXECUTION_FAILED` 并在 error 里点名缺的键,**不用** `ROUTE_NOT_ALLOWED`
+         (后者会让模型误判"页面不存在"而换页重试)。生成物多带端内字段 `requiredParams: string[]`,
+         协议 `AppUiSnapshot.routes` 仍为 name/requiresParams/tab 三字段(单测锁形状)。
+      4. `url` 字段语义改为"根到叶激活路径"(`Main > HomeMain`)而非 URL —— RN 没有 URL;
+         另加 `data.stack: string[]` 与 `data.canGoBack`。
+      5. screen name 归一化接受 `/Wallet`/`wallet`/`WALLET`(模型按 web 习惯写斜杠是高频情况)。
+      6. 登录态由挂载组件注入 `useUiControlBridge({ token })`,端内不在模块加载期读 SecureStore。
+      7. `gen:ui-routes` 未串进 pretypecheck(与 taro 口径一致,保持独立脚本)。
+      证据:mobile-rn typecheck exit 0、`eslint .` 0 error 0 warning、全端 `vitest run`
+      316 项 / 30 文件全绿(其中本任务 3 个文件 50 项:registry 23 + bridge 20 + ui-control-tools 7)。
+      **未验证声明(本机跑不了 expo)**:仅由单测证明信封字段/instanceId 回传、category+action 双重
+      过滤、requestId 去重、targetInstanceId 让位、60s 保活节奏、start/stop 不并存双连接、失败只 warn、
+      白名单与必填参数报错、四条命令落到 themeStore/navigationRef、参数打码。**需真机**:默认
+      `new URL()` 在 Hermes 上能否解析 `API_BASE_URL`、生产 https 域下 WS 握手(需反代放行
+      `/ws/notifications`)、204 个 Screen 的实际可达性(尤其 `Main` 嵌套 tab 与容器页)、
+      主题切换/回首页的原生表现、切后台后连接被回收的真实时序。
 - [x] ✅(2026-09-20) C1 对话自动路由:`_app_control_intent_tools()` 强信号正则 + 依赖补全
       (动作类必带 describe、api 入口成对);负样本把关("查一下用户认证的实现"不误判为调接口)。
       证据:`apps/ai-service/app/services/conversation.py` + `tests/test_app_control_routing.py`。

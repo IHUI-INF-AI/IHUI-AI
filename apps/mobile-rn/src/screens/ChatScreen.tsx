@@ -138,6 +138,7 @@ import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
@@ -598,9 +599,14 @@ export function ChatScreen() {
     const controller = new AbortController()
     abortRef.current = controller
     const apiMessages = history.map((m) => ({ role: m.role, content: m.content }))
+    // AI 操控本端(2026-09-21):只对"这一句"做意图判定,system/历史不参与 ——
+    // 否则提示词里的"打开/进入"字样会让每次请求都带上工具,打字机流式首字延迟被拖进 tool 往返。
+    const agentTools = uiControlToolsFor(text)
     await streamChat({
       model,
       messages: apiMessages,
+      // 不命中意图时连字段都不出现,请求体与改造前逐字节一致
+      ...(agentTools.length > 0 ? { agentTools } : {}),
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
