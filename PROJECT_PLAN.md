@@ -135,9 +135,16 @@
       miniapp-taro / mobile-rn 无同源 DOM,不属本路线。
 - [ ] B8 §9 收尾:RN / 小程序聊天请求各自声明本端工具族(`mobile_ui_*`4 / `taro_ui_*`4)。
       根因已核实:`routers/llm.py` 的 tool loop 入口是 `if req.agent_tools and chat_mode != "ask"`;
-      不带 agentTools 就完全不进工具循环,端侧桥写得再对也是死代码。现状:web `tool-config.ts` 已含 9 个名字;
-      RN 的 ChatScreen 直接调 `streamChat(...)` 未传;小程序 `src/api/index.ts:269` 有字段但无调用点赋值。
+      不带 agentTools 就完全不进工具循环,端侧桥写得再对也是死代码。现状:RN 的 ChatScreen 直接调
+      `streamChat(...)` 未传;小程序 `src/api/index.ts:269` 有字段但无调用点赋值。
       做法:各端只带本端族名(不把 web_ui_* 发给小程序 — 那只会换来 TARGET_NOT_CONNECTED 并白烧上下文)。
+- [x] ✅(2026-09-21) B8a web 侧同类缺口先修(实测才发现,不是推演):`mergeAgentTools()` 在
+      "未选插件且未开网页搜索"时返回 [](2026-08-29 为保打字机流式所设),于是**普通对话里
+      web_ui_* / api_* 根本进不了模型视野** —— 此前所有真机证据都是直打 /api/agent-control 拿的,
+      聊天主链其实是黑的。修法沿用同文件 `eduToolsFor` 范式:新增 `uiControlToolsFor(content)`
+      做强信号预筛(打开/点击/填写/查后台…),命中才带整族,普通问答仍返回 []。
+      证据:`apps/web/tests/tool-config.test.ts` 新增 4 项(负样本不带工具、打开→整族含 describe、
+      api 成对、无重复),8 项全绿;web typecheck / eslint 0 错。
 - [x] ✅(2026-09-20) C1 对话自动路由:`_app_control_intent_tools()` 强信号正则 + 依赖补全
       (动作类必带 describe、api 入口成对);负样本把关("查一下用户认证的实现"不误判为调接口)。
       证据:`apps/ai-service/app/services/conversation.py` + `tests/test_app_control_routing.py`。
