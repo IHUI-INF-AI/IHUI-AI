@@ -115,6 +115,7 @@ export default defineAppConfig({
         'account-cancel/index',
         'check-in/index',
         'task-center/index',
+        'bill/index',
       ],
     },
     {

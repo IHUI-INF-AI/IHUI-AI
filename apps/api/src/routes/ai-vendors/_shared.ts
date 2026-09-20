@@ -28,15 +28,43 @@ export const aigcRecordsQuery = z.object({
 })
 export const tokenQuery = z.object({ token: z.string().optional() })
 
+/**
+ * OpenAI chat/completions 官方完整参数集(全 optional,透传各厂商兼容端点)。
+ * 2026-09-20 扩展:原仅 messages/model/temperature,现覆盖官方全部采样/惩罚/工具参数。
+ */
 export const chatBody = z.object({
   messages: z.array(z.unknown()).max(100).optional(),
   model: z.string().optional(),
-  temperature: z.number().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  n: z.number().int().min(1).max(10).optional(),
+  max_tokens: z.number().int().min(1).optional(),
+  max_completion_tokens: z.number().int().min(1).optional(),
+  stop: z.union([z.string(), z.array(z.string()).max(4)]).optional(),
+  presence_penalty: z.number().min(-2).max(2).optional(),
+  frequency_penalty: z.number().min(-2).max(2).optional(),
+  seed: z.number().int().optional(),
+  response_format: z.record(z.string(), z.unknown()).optional(),
+  logit_bias: z.record(z.string(), z.number()).optional(),
+  logprobs: z.boolean().optional(),
+  top_logprobs: z.number().int().min(0).max(20).optional(),
+  stream: z.boolean().optional(),
+  user: z.string().optional(),
 })
+
+/**
+ * OpenAI images/generations 官方完整参数集(全 optional)。
+ * 2026-09-20 扩展:补 n/quality/style/response_format/user,支持多图与质量控制。
+ */
 export const imageBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
   size: z.string().optional(),
+  n: z.number().int().min(1).max(10).optional(),
+  quality: z.string().optional(),
+  style: z.string().optional(),
+  response_format: z.string().optional(),
+  user: z.string().optional(),
 })
 export const ttsBody = z.object({
   text: z.string().optional(),
@@ -120,6 +148,30 @@ export const VENDORS: Record<string, VendorConfig> = {
     name: 'Coze(扣子)',
     keyEnv: 'COZE_API_KEY',
     baseUrl: 'https://api.coze.cn',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  agnes: {
+    name: 'Agnes AI(文本/图片/视频)',
+    keyEnv: 'AGNES_API_KEY',
+    baseUrl: 'https://apihub.agnes-ai.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  x5m5x: {
+    name: '极速API(按量/LLM)',
+    keyEnv: 'X5M5X_API_KEY',
+    baseUrl: 'https://api.x5m5x.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  x5m5xImage: {
+    name: '极速API(生图)',
+    keyEnv: 'X5M5X_IMAGE_KEY',
+    baseUrl: 'https://api.x5m5x.com/v1',
+    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
+  },
+  x5m5xSubscribe: {
+    name: '极速API(订阅/Auto-Model)',
+    keyEnv: 'X5M5X_SUBSCRIBE_KEY',
+    baseUrl: 'https://api.x5m5x.com/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   bailian: {

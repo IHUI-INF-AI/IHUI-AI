@@ -16,11 +16,17 @@ import { Model3DGenerator } from '@/components/ai-generation/model-3d-generator'
 import { ImageGenQwen } from '@/components/ai-generation/image-gen-qwen'
 import { ImageGenDoubao } from '@/components/ai-generation/image-gen-doubao'
 import { ImageGenJimeng } from '@/components/ai-generation/image-gen-jimeng'
+import { ImageGenAgnes } from '@/components/ai-generation/image-gen-agnes'
+import { ImageGenX5m5x } from '@/components/ai-generation/image-gen-x5m5x'
 import { ImageEditQwen } from '@/components/ai-generation/image-edit-qwen'
 import { VideoGenKling } from '@/components/ai-generation/video-gen-kling'
 import { VideoGenQwen } from '@/components/ai-generation/video-gen-qwen'
 import { VideoGenOneClick } from '@/components/ai-generation/video-gen-one-click'
 import { VideoGenSora2 } from '@/components/ai-generation/video-gen-sora2'
+import { VideoGenAgnes } from '@/components/ai-generation/video-gen-agnes'
+import { ChatGenAgnes } from '@/components/ai-generation/chat-gen-agnes'
+import { ChatGenX5m5x } from '@/components/ai-generation/chat-gen-x5m5x'
+import { ChatGenX5m5xSubscribe } from '@/components/ai-generation/chat-gen-x5m5x-subscribe'
 import { MusicGenSuno } from '@/components/ai-generation/music-gen-suno'
 import { Model3dGenHunyuan } from '@/components/ai-generation/model-3d-gen-hunyuan'
 
@@ -57,11 +63,11 @@ export function AiGenerationContent({
 }: Props) {
   switch (type) {
     case 'auto':
-      return autoMode === 'code' ? (
-        <CodeGenerator onGenerate={onGenerateCode} />
-      ) : (
-        <TextGenerator onGenerate={onGenerateText} />
-      )
+      if (autoMode === 'code') return <CodeGenerator onGenerate={onGenerateCode} />
+      if (autoMode === 'agnes-chat') return <ChatGenAgnes />
+      if (autoMode === 'x5m5x-chat') return <ChatGenX5m5x />
+      if (autoMode === 'x5m5x-subscribe') return <ChatGenX5m5xSubscribe />
+      return <TextGenerator onGenerate={onGenerateText} />
     case 'image':
       switch (imageMode) {
         case 'qwen':
@@ -70,6 +76,10 @@ export function AiGenerationContent({
           return <ImageGenDoubao />
         case 'jimeng':
           return <ImageGenJimeng />
+        case 'agnes':
+          return <ImageGenAgnes />
+        case 'x5m5x':
+          return <ImageGenX5m5x />
         case 'edit':
           return <ImageEditQwen />
         default:
@@ -85,6 +95,8 @@ export function AiGenerationContent({
           return <VideoGenOneClick />
         case 'sora2':
           return <VideoGenSora2 />
+        case 'agnes':
+          return <VideoGenAgnes />
         default:
           return <VideoGenerator onGenerate={onGenerateVideo} />
       }

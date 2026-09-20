@@ -397,6 +397,56 @@ export async function tryHandleBtwSlash(
   return true
 }
 
+/** D28 快速侧问 · 即答执行器(2026-09-20 立,/btw 的「可排队」升级):
+ * - 对单条侧问执行即答,内部与 tryHandleBtwSlash 完全同构:
+ *   直调 REST runBestOfN(question, 1) 单副本问答,回答以 assistant 消息写入
+ *   本地消息流,携带 meta.sidechat 标记(1) LLM 主线历史构建时过滤
+ *   (send-message.ts buildHistory)(2) 持久化预填充过滤(3) 不调 persistMessageSafe,
+ *   服务端会话历史不含侧问回答;
+ * - badge 用独立 key sideBadge(不复用 btwBadge),便于在消息流中区分 /side 与 /btw 来源;
+ * - 与 /btw 的差异:本函数**不吞错**——失败原样抛给调用方
+ *   (submit 空闲路径恢复输入框供重试 / 流结束补答路径 toast sideAnswerFailed),
+ *   由调用方决定失败兜底;成功后不弹 toast(回答立即可见,入队路径已提示过 sideEnqueued)。
+ * - t: next-intl 'chat' 翻译函数 */
+export async function answerSideQuestion(
+  question: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): Promise<void> {
+  // 单副本直调:不走 LLM chat 流,不写主线历史
+  const d = await runBestOfN(question, 1)
+  const c = d.candidates[0]
+  const answer = c?.content || t('btwNoAnswer')
+  const store = useChatStore.getState()
+  store.addMessage({
+    role: 'assistant',
+    content: `> 💬 **${t('sideBadge')}** · ${question}\n\n${answer}`,
+    model: c?.model ?? store.currentModel,
+    meta: { sidechat: true },
+  })
+}
+
+/** D28 快速侧问 · /side 前缀识别(2026-09-20 立,纯解析无副作用):
+ * - 识别 '/side'、'/side '、'/side\n' 三种前缀形态(与 /btw 前缀判定同构);
+ * - 命中且带参数:返回 { handled: true, question },由调用方(use-message-submit /
+ *   message-input 流结束 effect)按流式/空闲分流(入队暂存 / 即答),本函数不发送不弹提示;
+ * - 命中但空参数:返回 { handled: true, question: null },调用方提示 sideUsage 用法;
+ * - 未命中:返回 { handled: false, question: null },调用方继续走原有命令/发送链路。
+ * - _t: 预留翻译函数(签名与 tryHandleBtwSlash 等兄弟函数保持一致,当前解析无需翻译) */
+export function tryHandleSideSlash(
+  text: string,
+  _t: (key: string, vars?: Record<string, string>) => string,
+): { handled: boolean; question: string | null } {
+  const trimmed = text.trim()
+  if (trimmed !== '/side' && !trimmed.startsWith('/side ') && !trimmed.startsWith('/side\n')) {
+    return { handled: false, question: null }
+  }
+  const rest = trimmed.slice('/side'.length).trim()
+  if (!rest) {
+    return { handled: true, question: null }
+  }
+  return { handled: true, question: rest }
+}
+
 /** W28 Smart Commit(2026-09-14 立,对标 CodeBuddy AI 提交):
  * - /commit [补充说明]:AI 生成提交信息并自动 git add + commit
  * - 流程:commit.before 钩子 → git status 检查变更 → git diff 拿变更内容

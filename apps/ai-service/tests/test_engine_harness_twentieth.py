@@ -207,7 +207,7 @@ def test_corrupted_marker_degrades_to_run(tmp_path):
 
 def test_open_export_lines_gz_direct(tmp_path):
     gz = tmp_path / "s.jsonl.gz"
-    gz.write_bytes(gzip.compress("第 1 行\nline 2\n".encode("utf-8")))
+    gz.write_bytes(gzip.compress("第 1 行\nline 2\n".encode()))
     assert list(open_export_lines(tmp_path / "s.jsonl")) == ["第 1 行", "line 2"]
 
 

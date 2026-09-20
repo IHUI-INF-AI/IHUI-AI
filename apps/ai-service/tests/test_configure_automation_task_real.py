@@ -76,7 +76,10 @@ async def test_execute_dispatch_subagent_calls_dispatch():
 
 async def test_execute_webhook_posts_to_url():
     """execute=True + action=webhook → httpx POST 到 webhook_url,executed 基于 status_code。"""
-    with patch("httpx.AsyncClient", _mock_httpx_client(200, "received")):
+    # 批 52b 网络审批门:测试环境无审批 requester(fail-closed → deny),stub 为放行
+    with patch(
+        "app.services.network_approval.evaluate_network_access", return_value="allow"
+    ), patch("httpx.AsyncClient", _mock_httpx_client(200, "received")):
         out = await _tool_configure_automation_task({
             "task_id": "custom_task", "action": "webhook", "execute": True,
             "webhook_url": "https://hooks.example.com/incoming",
@@ -89,7 +92,9 @@ async def test_execute_webhook_posts_to_url():
 
 async def test_execute_webhook_failure_status():
     """webhook 返回 5xx → executed=False。"""
-    with patch("httpx.AsyncClient", _mock_httpx_client(500, "error")):
+    with patch(
+        "app.services.network_approval.evaluate_network_access", return_value="allow"
+    ), patch("httpx.AsyncClient", _mock_httpx_client(500, "error")):
         out = await _tool_configure_automation_task({
             "task_id": "custom_task", "action": "webhook", "execute": True,
             "webhook_url": "https://hooks.example.com/incoming",

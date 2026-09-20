@@ -60,7 +60,7 @@ export async function checkInternalServiceToken(
 
   // 验证用户存在且活跃(防 X-User-Id 欺骗:internal secret 泄露后不能冒充任意/已注销用户)
   const [user] = await db
-    .select({ id: users.id, status: users.status })
+    .select({ id: users.id, status: users.status, roleId: users.roleId })
     .from(users)
     .where(eq(users.id, requestedUserId))
     .limit(1)
@@ -83,8 +83,10 @@ export async function checkInternalServiceToken(
     return false
   }
 
-  // 注入 userId(已验证存在且活跃)
+  // 注入 userId(已验证存在且活跃) + legacy 数值角色(供权限中间件管理员豁免判定,
+  // 与 JWT 链路 jwtPayload.roleId 同源同语义:AI 对话链管理员无需另建 RBAC 绑定)
   request.userId = user.id
+  request.internalUserRoleId = user.roleId ?? 0
 
   // 审计日志:记录内部服务调用(caller IP + userId + endpoint),便于事后追溯
   request.log.info(

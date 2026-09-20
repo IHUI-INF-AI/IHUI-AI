@@ -143,4 +143,86 @@ export async function fetchMyTeams(): Promise<KanbanTeamOption[]> {
   if (!res.success) throw toKanbanError(res.error, res.status)
   return res.data.teams
 }
+
+// ---------------------------------------------------------------------------
+// D25 统一任务运行时看板:任务改名 / 跨任务消息(@ 任务引用)
+// ---------------------------------------------------------------------------
+
+/** 任务改名/改描述输入(PATCH /agents/kanban/tasks/:id,requireAdmin,至少一项) */
+export interface RenameKanbanTaskInput {
+  name?: string
+  description?: string
+}
+
+/**
+ * 改名/改描述任务(PATCH /agents/kanban/tasks/:id)。
+ * 注意:后端 PATCH 不广播 SSE(无 task_updated 事件),调用方成功后须手动
+ * invalidate ['agents-kanban'] 查询缓存。
+ */
+export async function renameKanbanTask(
+  taskId: string,
+  input: RenameKanbanTaskInput,
+): Promise<KanbanTask> {
+  // data 即更新后的 KanbanTask(api 侧 reply.send(success(toKanbanTask(updated))))
+  const res = await fetchApi<KanbanTask>(`${BASE}/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw toKanbanError(res.error, res.status)
+  return res.data
+}
+
+/** 任务消息中的 @ 任务引用(与 api 侧 mentionSchema / db TaskMention 对齐) */
+export interface TaskMessageMention {
+  type: 'task'
+  taskId: string
+  name?: string
+}
+
+/** 任务消息行(GET/POST /task-messages 行形状,与 task_messages 表一致) */
+export interface TaskMessageRow {
+  id: string
+  taskId: string
+  /** user(用户手输) | agent(编排侧注入) | system(状态迁移留痕) */
+  fromType: string
+  fromId: string | null
+  content: string
+  mentions: TaskMessageMention[]
+  createdBy: string | null
+  /** ISO 时间戳(Fastify JSON 序列化后为字符串) */
+  createdAt: string
+}
+
+/** 任务消息时间线分页结果(messages 已按旧→新排序) */
+export interface TaskMessagePage {
+  taskId: string
+  messages: TaskMessageRow[]
+  hasMore: boolean
+}
+
+/** 拉取任务消息时间线(旧→新,limit 1-200 默认 50) */
+export async function listTaskMessages(
+  taskId: string,
+  limit = 50,
+  offset = 0,
+): Promise<TaskMessagePage> {
+  const params = new URLSearchParams({ taskId, limit: String(limit), offset: String(offset) })
+  const res = await fetchApi<TaskMessagePage>(`/api/task-messages?${params.toString()}`)
+  if (!res.success) throw toKanbanError(res.error, res.status)
+  return res.data
+}
+
+/** 发送任务消息(fromType=user;@ 引用 ≤20,引用不存在 → 400) */
+export async function sendTaskMessage(input: {
+  taskId: string
+  content: string
+  mentions?: TaskMessageMention[]
+}): Promise<TaskMessageRow> {
+  const res = await fetchApi<TaskMessageRow>('/api/task-messages', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+  if (!res.success) throw toKanbanError(res.error, res.status)
+  return res.data
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

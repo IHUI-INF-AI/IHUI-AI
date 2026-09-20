@@ -33,7 +33,6 @@ import base64
 import json
 import logging
 import re
-import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -242,7 +241,7 @@ async def capture_screenshot(
             timeout=CAPTURE_TIMEOUT_S,
         )
         return result
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[browser_selfcheck] capture_screenshot 超时(%ss): %s", CAPTURE_TIMEOUT_S, url)
         return {
             "ok": False,

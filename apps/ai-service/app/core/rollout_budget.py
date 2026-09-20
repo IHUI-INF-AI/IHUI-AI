@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 class RolloutBudgetError(Exception):
@@ -102,7 +102,7 @@ class RolloutBudget:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._state: Optional[_BudgetState] = None
+        self._state: _BudgetState | None = None
         self._configured = False
 
     # ------------------------------------------------------------------
@@ -160,7 +160,7 @@ class RolloutBudget:
         with self._lock:
             return self._state.weighted_tokens_used if self._state else 0.0
 
-    def tokens_left(self) -> Optional[int]:
+    def tokens_left(self) -> int | None:
         """剩余 token(批 42 接线:get_context_remaining 工具消费)。
 
         未配置时返回 None = 未知(对标 codex TokenBudgetRemainingContext::unknown);
@@ -172,7 +172,7 @@ class RolloutBudget:
             remaining = float(self._state.config.limit_tokens) - self._state.weighted_tokens_used
             return max(0, math.floor(remaining))
 
-    def pending_reminder(self, thread_id: str, window_id: str) -> Optional[RolloutBudgetReminder]:
+    def pending_reminder(self, thread_id: str, window_id: str) -> RolloutBudgetReminder | None:
         """取该线程在当前上下文窗口中尚未送达的最高级别提醒。"""
         with self._lock:
             if self._state is None:

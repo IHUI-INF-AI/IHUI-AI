@@ -27,9 +27,8 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
+from dataclasses import dataclass
+from enum import StrEnum
 
 
 def now_unix_timestamp_ms() -> int:
@@ -37,7 +36,7 @@ def now_unix_timestamp_ms() -> int:
     return int(time.time() * 1000)
 
 
-class TurnProfilePhase(str, Enum):
+class TurnProfilePhase(StrEnum):
     """回合阶段(对标 TurnProfilePhase)。"""
 
     SAMPLING = "sampling"
@@ -92,7 +91,7 @@ class TurnProfileTimingGuard:
     守卫退出时不动任何状态。
     """
 
-    def __init__(self, timing: "TurnTimingState", phase: TurnProfilePhase, active: bool) -> None:
+    def __init__(self, timing: TurnTimingState, phase: TurnProfilePhase, active: bool) -> None:
         self._timing = timing
         self._phase = phase
         self._active = active
@@ -101,7 +100,7 @@ class TurnProfileTimingGuard:
     def active(self) -> bool:
         return self._active
 
-    def __enter__(self) -> "TurnProfileTimingGuard":
+    def __enter__(self) -> TurnProfileTimingGuard:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
@@ -119,15 +118,15 @@ class TurnTimingState:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         # ---- 内层状态(state) ----
-        self._started_at: Optional[float] = None  # perf_counter
-        self._started_at_unix_secs: Optional[int] = None
+        self._started_at: float | None = None  # perf_counter
+        self._started_at_unix_secs: int | None = None
         self._item_started_at_ms: dict[str, int] = {}
-        self._first_token_at: Optional[float] = None
-        self._first_message_at: Optional[float] = None
+        self._first_token_at: float | None = None
+        self._first_message_at: float | None = None
         # ---- 画像状态(profile) ----
-        self._profile_started_at: Optional[float] = None
-        self._last_transition_at: Optional[float] = None
-        self._active_phase: Optional[TurnProfilePhase] = None
+        self._profile_started_at: float | None = None
+        self._last_transition_at: float | None = None
+        self._active_phase: TurnProfilePhase | None = None
         self._seen_sampling = False
         self._before_first_sampling = 0.0
         self._sampling = 0.0
@@ -137,12 +136,12 @@ class TurnTimingState:
         self._pending_idle_after_sampling = 0.0
         self._sampling_request_count = 0
         self._sampling_retry_count = 0
-        self._completed_profile: Optional[TurnProfile] = None
+        self._completed_profile: TurnProfile | None = None
 
     # ------------------------------------------------------------------
     # 生命周期
     # ------------------------------------------------------------------
-    def mark_turn_started(self, started_at: Optional[float] = None) -> int:
+    def mark_turn_started(self, started_at: float | None = None) -> int:
         """回合开始;返回开始时刻的 Unix 毫秒(Codex 同名语义)。"""
         perf = started_at if started_at is not None else time.perf_counter()
         unix_ms = now_unix_timestamp_ms()
@@ -168,20 +167,20 @@ class TurnTimingState:
             self._completed_profile = None
         return unix_ms
 
-    def started_at_unix_secs(self) -> Optional[int]:
+    def started_at_unix_secs(self) -> int | None:
         with self._lock:
             return self._started_at_unix_secs
 
     # ------------------------------------------------------------------
     # item 级计时(工具调用等单项耗时)
     # ------------------------------------------------------------------
-    def record_item_started(self, item_id: str, started_at_ms: Optional[int] = None) -> int:
+    def record_item_started(self, item_id: str, started_at_ms: int | None = None) -> int:
         """记录 item 开始时间;重复记录保留首个(Codex entry().or_insert)。"""
         ms = started_at_ms if started_at_ms is not None else now_unix_timestamp_ms()
         with self._lock:
             return self._item_started_at_ms.setdefault(item_id, ms)
 
-    def take_item_started(self, item_id: str) -> Optional[int]:
+    def take_item_started(self, item_id: str) -> int | None:
         """取走并删除 item 开始时间;不存在返回 None。"""
         with self._lock:
             return self._item_started_at_ms.pop(item_id, None)
@@ -189,7 +188,7 @@ class TurnTimingState:
     # ------------------------------------------------------------------
     # TTFT / TTFM
     # ------------------------------------------------------------------
-    def record_turn_ttft(self) -> Optional[int]:
+    def record_turn_ttft(self) -> int | None:
         """记录首个可见输出;重复记录返回 None(不覆盖首值)。"""
         now = time.perf_counter()
         with self._lock:
@@ -198,7 +197,7 @@ class TurnTimingState:
             self._first_token_at = now
             return self._elapsed_ms(self._started_at, now)
 
-    def record_turn_ttfm(self) -> Optional[int]:
+    def record_turn_ttfm(self) -> int | None:
         """记录首条完整助手消息;重复记录返回 None。"""
         now = time.perf_counter()
         with self._lock:
@@ -207,13 +206,13 @@ class TurnTimingState:
             self._first_message_at = now
             return self._elapsed_ms(self._started_at, now)
 
-    def time_to_first_token_ms(self) -> Optional[int]:
+    def time_to_first_token_ms(self) -> int | None:
         with self._lock:
             if self._first_token_at is None or self._started_at is None:
                 return None
             return self._elapsed_ms(self._started_at, self._first_token_at)
 
-    def time_to_first_message_ms(self) -> Optional[int]:
+    def time_to_first_message_ms(self) -> int | None:
         with self._lock:
             if self._first_message_at is None or self._started_at is None:
                 return None
@@ -242,7 +241,7 @@ class TurnTimingState:
         with self._lock:
             return self._complete_locked(now)
 
-    def complete_profile_and_duration_ms(self) -> tuple[Optional[int], Optional[int], TurnProfile]:
+    def complete_profile_and_duration_ms(self) -> tuple[int | None, int | None, TurnProfile]:
         """返回 (completed_at_unix_secs, duration_ms, profile)。"""
         now = time.perf_counter()
         with self._lock:
@@ -356,7 +355,7 @@ def records_turn_ttft_for_reasoning_delta(text: str) -> bool:
     return True
 
 
-def records_turn_ttft_for_message_item(text: Optional[str]) -> bool:
+def records_turn_ttft_for_message_item(text: str | None) -> bool:
     """完整消息 item:仅当助手正文非空才记 TTFT(Codex Message 分支)。"""
     return bool(text)
 

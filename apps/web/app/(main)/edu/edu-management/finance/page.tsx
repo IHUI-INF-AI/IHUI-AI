@@ -16,10 +16,12 @@ import {
   Trash2,
   Wallet,
   TrendingUp,
+  Bell,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { toast } from 'sonner'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
@@ -116,6 +118,64 @@ interface Term {
   endDate: string
   isCurrent: boolean
 }
+
+interface RosterItem {
+  enrollmentId: string
+  studentId: string
+  studentName: string
+  studentPhone: string | null
+  classId: string
+  className: string
+  businessLine: string
+  grade: string | null
+  termId: string
+  enrollDate: string
+  totalFee: number
+  paidAmount: number
+  dueAmount: number
+  status: string
+}
+
+interface FeeReminder {
+  id: string
+  studentId: string
+  enrollmentId: string | null
+  classId: string | null
+  dueAmount: number
+  channel: string
+  status: string
+  message: string | null
+  operatorId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/* ─── Constants (催费) ─── */
+
+const BUSINESS_LINES = [
+  { value: 'after_school_care', label: '托管' },
+  { value: 'kindergarten', label: '幼儿园' },
+  { value: 'academic', label: '文化课' },
+  { value: 'ai_course', label: 'AI课' },
+  { value: 'other', label: '其他' },
+]
+const BUSINESS_LINE_MAP = new Map(BUSINESS_LINES.map((b) => [b.value, b.label]))
+
+const REMINDER_CHANNELS = [
+  { value: 'in_app', label: '站内信' },
+  { value: 'sms', label: '短信' },
+  { value: 'wechat', label: '微信' },
+]
+const REMINDER_CHANNEL_MAP = new Map(REMINDER_CHANNELS.map((c) => [c.value, c.label]))
+
+const REMINDER_STATUS_MAP = new Map([
+  ['sent', '已发送'],
+  ['failed', '发送失败'],
+])
+const REMINDER_STATUS_COLOR_MAP = new Map([
+  ['sent', 'bg-green-500'],
+  ['failed', 'bg-red-500'],
+])
 
 /* ─── API helper ─── */
 
@@ -812,6 +872,14 @@ export default function FinancePage() {
   const [refundDialogOpen, setRefundDialogOpen] = React.useState(false)
   const [approveRefundOpen, setApproveRefundOpen] = React.useState(false)
   const [approvingRefund, setApprovingRefund] = React.useState<RefundRecord | null>(null)
+  const [reminderBusinessLine, setReminderBusinessLine] = React.useState('')
+  const [reminderClassFilter, setReminderClassFilter] = React.useState('')
+  const [reminderRecordChannel, setReminderRecordChannel] = React.useState('')
+  const [reminderSelected, setReminderSelected] = React.useState<Set<string>>(new Set())
+  const [reminderDialogOpen, setReminderDialogOpen] = React.useState(false)
+  const [reminderChannel, setReminderChannel] = React.useState('in_app')
+  const [reminderMessage, setReminderMessage] = React.useState('')
+  const [sendingReminder, setSendingReminder] = React.useState(false)
 
   /* ── Queries ── */
   const { data: termsData } = useQuery({
@@ -864,6 +932,42 @@ export default function FinancePage() {
     queryFn: () => api<{ list: RefundRecord[] }>('/api/edu-ai-management/refund'),
   })
   const refunds = (refundQuery.data?.list ?? []).filter((r) => !r.deletedAt)
+
+  const arrearsQuery = useQuery({
+    queryKey: [
+      'edu-ai-management',
+      'student-roster',
+      'arrears',
+      reminderBusinessLine,
+      reminderClassFilter,
+    ],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      params.set('arrearsOnly', '1')
+      if (reminderBusinessLine) params.set('businessLine', reminderBusinessLine)
+      if (reminderClassFilter) params.set('classId', reminderClassFilter)
+      params.set('page', '1')
+      params.set('pageSize', '100')
+      return api<{ list: RosterItem[]; total: number }>(
+        `/api/edu-ai-management/student-roster?${params.toString()}`,
+      )
+    },
+  })
+  const arrearsList = arrearsQuery.data?.list ?? []
+
+  const reminderRecordsQuery = useQuery({
+    queryKey: ['edu-ai-management', 'fee-reminder', reminderRecordChannel],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (reminderRecordChannel) params.set('channel', reminderRecordChannel)
+      params.set('page', '1')
+      params.set('pageSize', '50')
+      return api<{ list: FeeReminder[]; total: number }>(
+        `/api/edu-ai-management/fee-reminder?${params.toString()}`,
+      )
+    },
+  })
+  const reminderRecords = reminderRecordsQuery.data?.list ?? []
 
   /* ── Mutations ── */
   const invalidate = React.useCallback(() => {
@@ -929,6 +1033,20 @@ export default function FinancePage() {
     onSuccess: invalidate,
   })
 
+  const sendFeeReminder = useMutation({
+    mutationFn: (data: { enrollmentIds: string[]; channel: string; message?: string }) =>
+      api<{
+        sent: number
+        total: number
+        wxSent: number
+        skipped: Array<{ enrollmentId: string; reason: string }>
+      }>('/api/edu-ai-management/fee-reminder/batch', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: invalidate,
+  })
+
   /* ── Handlers ── */
   const handleAddTuition = async (data: TuitionFormData) => {
     await createTuition.mutateAsync(data)
@@ -962,6 +1080,39 @@ export default function FinancePage() {
     await approveRefund.mutateAsync({ id, status, remark })
   }
 
+  const toggleReminderSelect = (id: string) => {
+    setReminderSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSendReminder = async () => {
+    setSendingReminder(true)
+    try {
+      const res = await sendFeeReminder.mutateAsync({
+        enrollmentIds: [...reminderSelected],
+        channel: reminderChannel,
+        ...(reminderMessage.trim() ? { message: reminderMessage.trim() } : {}),
+      })
+      setReminderDialogOpen(false)
+      setReminderSelected(new Set())
+      setReminderMessage('')
+      // 2026-09-19: 展示发送结果,含微信订阅消息实际推送条数(未授权/未订阅的家长会被跳过)
+      const wxPart = reminderChannel === 'wechat' ? `，微信推送 ${res.wxSent} 条` : ''
+      const skippedPart = res.skipped.length > 0 ? `，跳过 ${res.skipped.length} 条` : ''
+      if (res.sent > 0) {
+        toast.success(`催费已发送 ${res.sent} 条${wxPart}${skippedPart}`)
+      } else {
+        toast.warning(`没有成功发送的催费${skippedPart}`)
+      }
+    } finally {
+      setSendingReminder(false)
+    }
+  }
+
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
@@ -984,6 +1135,10 @@ export default function FinancePage() {
           <TabsTrigger value="refunds">
             <TrendingUp className="mr-1.5 h-4 w-4" />
             退费管理
+          </TabsTrigger>
+          <TabsTrigger value="reminders">
+            <Bell className="mr-1.5 h-4 w-4" />
+            催费管理
           </TabsTrigger>
         </TabsList>
 
@@ -1411,6 +1566,297 @@ export default function FinancePage() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ════════════════ Tab 4: Fee Reminders ════════════════ */}
+        <TabsContent value="reminders" className="space-y-4">
+          {/* 欠费名单 */}
+          <Card>
+            <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
+              <Select
+                value={reminderBusinessLine || 'all'}
+                onValueChange={(v) => {
+                  setReminderBusinessLine(v === 'all' ? '' : v)
+                  setReminderSelected(new Set())
+                }}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="全部业务线" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部业务线</SelectItem>
+                  {BUSINESS_LINES.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={reminderClassFilter || 'all'}
+                onValueChange={(v) => {
+                  setReminderClassFilter(v === 'all' ? '' : v)
+                  setReminderSelected(new Set())
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="全部班级" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部班级</SelectItem>
+                  {classes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                disabled={reminderSelected.size === 0}
+                onClick={() => setReminderDialogOpen(true)}
+              >
+                <Bell className="mr-1 h-3.5 w-3.5" />
+                发送催费({reminderSelected.size})
+              </Button>
+              {arrearsQuery.isLoading && (
+                <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  加载中...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {arrearsQuery.error ? (
+            <Alert variant="danger" description="加载欠费名单失败，请稍后重试" />
+          ) : arrearsQuery.isLoading ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                加载欠费名单...
+              </CardContent>
+            </Card>
+          ) : arrearsList.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                暂无欠费学生
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="w-10 px-4 py-3" />
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          学员
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          业务线
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          班级
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          电话
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          总费用
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          已支付
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          欠费
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {arrearsList.map((r) => (
+                        <tr
+                          key={r.enrollmentId}
+                          className="border-b last:border-0 hover:bg-muted/30"
+                        >
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-primary"
+                              checked={reminderSelected.has(r.enrollmentId)}
+                              onChange={() => toggleReminderSelect(r.enrollmentId)}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
+                          <td className="px-4 py-3 text-xs">
+                            {BUSINESS_LINE_MAP.get(r.businessLine) ?? r.businessLine}
+                          </td>
+                          <td className="px-4 py-3 text-xs">{r.className}</td>
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {r.studentPhone ?? '-'}
+                          </td>
+                          <td className="px-4 py-3 text-xs">{r.totalFee.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs">{r.paidAmount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-xs font-medium text-red-600">
+                            {r.dueAmount.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 催费记录 */}
+          <div className="space-y-2">
+            <h2 className="text-sm font-semibold">催费记录</h2>
+            <Card>
+              <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
+                <Select
+                  value={reminderRecordChannel || 'all'}
+                  onValueChange={(v) => setReminderRecordChannel(v === 'all' ? '' : v)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue placeholder="全部通道" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部通道</SelectItem>
+                    {REMINDER_CHANNELS.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {reminderRecordsQuery.isLoading && (
+                  <div className="ml-auto flex items-center text-xs text-muted-foreground">
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    加载中...
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {reminderRecordsQuery.error ? (
+              <Alert variant="danger" description="加载催费记录失败，请稍后重试" />
+            ) : reminderRecords.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                  暂无催费记录
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                            通道
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                            催缴金额
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                            内容
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                            状态
+                          </th>
+                          <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                            时间
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reminderRecords.map((m) => (
+                          <tr key={m.id} className="border-b last:border-0 hover:bg-muted/30">
+                            <td className="px-4 py-3 text-xs">
+                              {REMINDER_CHANNEL_MAP.get(m.channel) ?? m.channel}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-medium">
+                              {m.dueAmount.toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              <TruncatedText value={m.message ?? '-'} className="max-w-[320px]" />
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  'text-[10px] text-white',
+                                  REMINDER_STATUS_COLOR_MAP.get(m.status) ?? 'bg-gray-500',
+                                )}
+                              >
+                                {REMINDER_STATUS_MAP.get(m.status) ?? m.status}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {new Date(m.createdAt).toLocaleString('zh-CN')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 发送催费 Dialog */}
+          <Dialog open={reminderDialogOpen} onOpenChange={setReminderDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>发送催费</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  已选择 {reminderSelected.size}{' '}
+                  条欠费记录，发送后将通过所选通道通知学生（短信/微信通道当前同步发送一条站内信兜底）。
+                </p>
+                <div className="space-y-1.5">
+                  <Label>发送通道</Label>
+                  <Select value={reminderChannel} onValueChange={setReminderChannel}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {REMINDER_CHANNELS.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>
+                          {c.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>自定义文案（可选）</Label>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    placeholder="留空则使用系统默认催缴文案"
+                    value={reminderMessage}
+                    onChange={(e) => setReminderMessage(e.target.value)}
+                    className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setReminderDialogOpen(false)}>
+                  取消
+                </Button>
+                <Button onClick={handleSendReminder} disabled={sendingReminder}>
+                  {sendingReminder && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                  确认发送
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
 

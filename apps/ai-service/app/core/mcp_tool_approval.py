@@ -32,11 +32,10 @@ strict_auto_review(本模块保持纯函数,与 Codex 分层一致)。
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 
-class AppToolApproval(str, Enum):
+class AppToolApproval(StrEnum):
     """工具审批模式(对标 AppToolApproval)。"""
 
     AUTO = "auto"
@@ -49,9 +48,9 @@ class AppToolApproval(str, Enum):
 class ToolAnnotations:
     """MCP 工具注解(缺省 None = 未知,按保守语义处理)。"""
 
-    read_only_hint: Optional[bool] = None
-    destructive_hint: Optional[bool] = None
-    open_world_hint: Optional[bool] = None
+    read_only_hint: bool | None = None
+    destructive_hint: bool | None = None
+    open_world_hint: bool | None = None
 
 
 # 审批选项文案(Codex 常量原文)
@@ -62,7 +61,7 @@ MCP_TOOL_APPROVAL_ACCEPT_AND_REMEMBER = "Allow and don't ask me again"
 MCP_TOOL_APPROVAL_CANCEL = "Cancel"
 
 
-def requires_mcp_tool_approval(annotations: Optional[ToolAnnotations]) -> bool:
+def requires_mcp_tool_approval(annotations: ToolAnnotations | None) -> bool:
     """auto 模式下的注解推断(逐行对应 requires_mcp_tool_approval)。"""
     if annotations is None:
         # 全未知:destructive 缺省按 True、open_world 缺省按 True → 需批
@@ -78,7 +77,7 @@ def requires_mcp_tool_approval(annotations: Optional[ToolAnnotations]) -> bool:
 
 
 def requires_mcp_tool_approval_for_mode(
-    annotations: Optional[ToolAnnotations],
+    annotations: ToolAnnotations | None,
     approval_mode: AppToolApproval,
 ) -> bool:
     """模式 × 注解 → 是否需要审批(逐行对应 requires_mcp_tool_approval_for_mode)。"""
@@ -98,12 +97,12 @@ class McpToolApprovalKey:
 
     server: str
     tool_name: str
-    plugin_id: Optional[str] = None
-    connector_id: Optional[str] = None
-    link_id: Optional[str] = None
+    plugin_id: str | None = None
+    connector_id: str | None = None
+    link_id: str | None = None
 
 
-class ApprovalScope(str, Enum):
+class ApprovalScope(StrEnum):
     ONCE = "once"
     SESSION = "session"
     PERSISTENT = "persistent"
@@ -122,7 +121,7 @@ class McpToolApprovalPromptOptions:
         allow_session_remember: bool,
         allow_persistent_approval: bool,
         tool_call_elicitation_enabled: bool,
-    ) -> "McpToolApprovalPromptOptions":
+    ) -> McpToolApprovalPromptOptions:
         """持久选项受 elicitation 能力门控(Codex 同款 && 语义)。"""
         return cls(
             allow_session_remember=allow_session_remember,

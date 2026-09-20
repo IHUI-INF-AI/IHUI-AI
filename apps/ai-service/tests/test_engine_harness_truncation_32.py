@@ -2,24 +2,24 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 # app/core rollout 截断/分叉测试 — 第三十二批(对标 Codex thread_rollout_truncation.rs)
-import sys, os
+import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
 
 from app.core.thread_rollout_truncation import (
-    user_message_positions_in_rollout,
-    truncate_rollout_before_nth_user_message_from_start,
+    fork_history_from_snapshot,
     fork_turn_positions_in_rollout,
-    truncate_rollout_after_turn_id,
-    truncate_rollout_before_turn_id,
-    truncate_rollout_to_last_n_fork_turns,
+    is_user_turn_boundary,
     snapshot_turn_state,
     truncate_before_nth_user_message,
-    append_interrupted_boundary,
-    fork_history_from_snapshot,
-    is_user_turn_boundary,
-    SnapshotTurnState,
+    truncate_rollout_after_turn_id,
+    truncate_rollout_before_nth_user_message_from_start,
+    truncate_rollout_before_turn_id,
+    truncate_rollout_to_last_n_fork_turns,
+    user_message_positions_in_rollout,
 )
 
 

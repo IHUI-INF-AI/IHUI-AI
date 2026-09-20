@@ -21,7 +21,7 @@ bash -lc 'git status' vs 直接 ['git','status']),审批决策应保持一致—
 from __future__ import annotations
 
 import shlex
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 CANONICAL_BASH_SCRIPT_PREFIX = "__ihui_shell_script__"
 CANONICAL_POWERSHELL_SCRIPT_PREFIX = "__ihui_powershell_script__"
@@ -35,7 +35,7 @@ _COMPOSITE_MARKERS = (
 )
 
 
-def _extract_bash_command(argv: Sequence[str]) -> Optional[tuple[str, str]]:
+def _extract_bash_command(argv: Sequence[str]) -> tuple[str, str] | None:
     """从 argv 提取 (shell_mode, script);形如 bash [-l] -c '<script>'。"""
     if not argv:
         return None
@@ -44,7 +44,7 @@ def _extract_bash_command(argv: Sequence[str]) -> Optional[tuple[str, str]]:
         return None
     rest = argv[1:]
     login = False
-    script: Optional[str] = None
+    script: str | None = None
     i = 0
     while i < len(rest):
         arg = rest[i]
@@ -70,7 +70,7 @@ def _extract_bash_command(argv: Sequence[str]) -> Optional[tuple[str, str]]:
     return ("login" if login else "shell", script)
 
 
-def _extract_powershell_command(argv: Sequence[str]) -> Optional[str]:
+def _extract_powershell_command(argv: Sequence[str]) -> str | None:
     """从 argv 提取 PowerShell -Command 脚本。"""
     if not argv:
         return None
@@ -91,7 +91,7 @@ def _is_plain_single_command(script: str) -> bool:
     return not any(marker in script for marker in _COMPOSITE_MARKERS)
 
 
-def parse_shell_lc_plain_commands(argv: Sequence[str]) -> Optional[list[list[str]]]:
+def parse_shell_lc_plain_commands(argv: Sequence[str]) -> list[list[str]] | None:
     """bash -lc '<纯单命令>' → 词法化后的单条命令 argv 列表。
 
     复合脚本返回 None(调用方走保守规范化);非 shell 包装返回 None。

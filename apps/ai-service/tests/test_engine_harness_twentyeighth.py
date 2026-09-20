@@ -11,7 +11,6 @@ from pathlib import Path
 import pytest
 
 from app.core.shell_snapshot import (
-    ShellSnapshotData,
     bash_snapshot_capture_script,
     capture_shell_snapshot,
     cleanup_stale_snapshots,
@@ -20,7 +19,6 @@ from app.core.shell_snapshot import (
     render_snapshot_script,
     snapshot_env_for_exec,
 )
-
 
 RAW = (
     b"# Snapshot file\n"

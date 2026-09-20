@@ -37,7 +37,8 @@ from __future__ import annotations
 
 import re
 import uuid
-from typing import Any, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # 类型别名:我们侧统一以 dict 表达 Rust 的枚举/结构体
@@ -93,7 +94,7 @@ def strip_hidden_assistant_markup(text: str, plan_mode: bool) -> str:
     return without_citations
 
 
-def parse_memory_citation(citations: list[str]) -> Optional[MemoryCitation]:
+def parse_memory_citation(citations: list[str]) -> MemoryCitation | None:
     """从引用片段中解析记忆引用(精简自 codex_memories_read::citations)。"""
     for citation in citations:
         match = _MEMORY_CITATION_RE.search(citation)
@@ -104,7 +105,7 @@ def parse_memory_citation(citations: list[str]) -> Optional[MemoryCitation]:
 
 def strip_hidden_assistant_markup_and_parse_memory_citation(
     text: str, plan_mode: bool
-) -> tuple[str, Optional[MemoryCitation]]:
+) -> tuple[str, MemoryCitation | None]:
     """去噪并解析记忆引用(对应 Rust 同名函数)。
 
     Returns:
@@ -122,7 +123,7 @@ def strip_hidden_assistant_markup_and_parse_memory_citation(
 # ===========================================================================
 
 
-def raw_assistant_output_text_from_item(item: ResponseItem) -> Optional[str]:
+def raw_assistant_output_text_from_item(item: ResponseItem) -> str | None:
     """从 ResponseItem 抽取助手正文。
 
     仅当 item 为 role=assistant 的 message 时,拼接其 content 中类型为
@@ -139,7 +140,7 @@ def raw_assistant_output_text_from_item(item: ResponseItem) -> Optional[str]:
     return None
 
 
-def last_assistant_message_from_item(item: ResponseItem, plan_mode: bool) -> Optional[str]:
+def last_assistant_message_from_item(item: ResponseItem, plan_mode: bool) -> str | None:
     """返回经去噪后的最后一条助手可见文本(空文本归约为 None)。
 
     对应 Rust `last_assistant_message_from_item(item, plan_mode)`:
@@ -171,9 +172,7 @@ def response_item_may_include_external_context(item: ResponseItem) -> bool:
     item_type = item.get("type")
     if item_type in _EXTERNAL_CONTEXT_TYPES:
         return True
-    if item_type == "function_call_output" and item.get("call_id") is None:
-        return True
-    return False
+    return item_type == "function_call_output" and item.get("call_id") is None
 
 
 def completed_item_defers_mailbox_delivery_to_next_turn(
@@ -196,7 +195,7 @@ def completed_item_defers_mailbox_delivery_to_next_turn(
 # ===========================================================================
 
 
-def response_input_to_response_item(input_item: ResponseInputItem) -> Optional[ResponseItem]:
+def response_input_to_response_item(input_item: ResponseInputItem) -> ResponseItem | None:
     """将 ResponseInputItem 转换为等价 ResponseItem(对应 Rust 同名函数)。"""
     item_type = input_item.get("type")
     if item_type == "function_call_output":
@@ -378,7 +377,7 @@ def _new_id() -> str:
     return uuid.uuid4().hex
 
 
-def parse_user_message(message: list[ContentItem]) -> Optional[UserInput]:
+def parse_user_message(message: list[ContentItem]) -> UserInput | None:
     """解析用户消息 content(对应 Rust `parse_user_message`)。
 
     若消息整体为上下文片段则返回 None;否则将各 content item 映射为 UserInput 列表。
@@ -432,7 +431,7 @@ def parse_user_message(message: list[ContentItem]) -> Optional[UserInput]:
 
 
 def parse_agent_message(
-    item_id: Optional[str], message: list[ContentItem], phase: Optional[str]
+    item_id: str | None, message: list[ContentItem], phase: str | None
 ) -> TurnItem:
     """解析助手消息 content 为 AgentMessage 回合项(对应 Rust `parse_agent_message`)。"""
     content: list[dict[str, Any]] = []
@@ -451,7 +450,7 @@ def parse_agent_message(
     }
 
 
-def web_search_action_detail(action: Optional[dict[str, Any]]) -> str:
+def web_search_action_detail(action: dict[str, Any] | None) -> str:
     """返回 web 搜索查询(精简自 codex web_search::web_search_action_detail)。
 
     原实现依据 WebSearchAction 枚举推导,此处仅取 action 中的 query/type 作为可读摘要。
@@ -472,7 +471,7 @@ def web_search_action_detail(action: Optional[dict[str, Any]]) -> str:
 # ===========================================================================
 
 
-def parse_turn_item(item: ResponseItem) -> Optional[TurnItem]:
+def parse_turn_item(item: ResponseItem) -> TurnItem | None:
     """将 ResponseItem 映射为回合项(用户/助手/推理/工具调用判定)。
 
     对应 Rust `parse_turn_item`:

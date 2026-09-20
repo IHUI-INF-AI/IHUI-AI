@@ -21,8 +21,8 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services import network_approval as na
 from app.services import approval_persistence as ap
+from app.services import network_approval as na
 
 
 @pytest.fixture(autouse=True)
