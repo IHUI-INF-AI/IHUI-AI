@@ -456,6 +456,14 @@ class PytestSubprocessRunner:
             junit_path,
             "-p",
             "no:cacheprovider",
+            # 2026-09-20 修复:子进程继承本仓库 cwd 且 target 指向工作区内文件时,
+            # 会加载 pyproject 的 addopts("-n auto --dist loadfile"),每个自愈
+            # 校验跑都嵌套孵化一整套 xdist worker(实测 ~22 个);超时只杀直接
+            # 子进程,孙子 worker 沦为孤儿,拖垮全量跑后期的进程数与资源。
+            # -n0 借 argparse 后者优先覆盖为串行(单文件校验无需分布式)。
+            # 不用 -p no:xdist:插件被禁后 addopts 里的 -n 会成未知参数直接报错。
+            "-n",
+            "0",
             "-q",
         ]
         try:

@@ -41,6 +41,13 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from ..services.capability_gate import (
+    Principal,
+    PrincipalAuthError,
+    ScopeDeniedError,
+    enforce_tool_access,
+    resolve_principal_from_headers,
+)
 from ..services.mcp_server import _PROMPTS, _RESOURCES, _TOOLS, mcp_server
 
 logger = logging.getLogger(__name__)
@@ -191,7 +198,7 @@ def _handle_prompts_get(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _handle_tools_call(
-    params: dict[str, Any], *, user_id: str | None
+    params: dict[str, Any], *, principal: Principal
 ) -> dict[str, Any]:
     """tools/call:执行工具,结果包装为 MCP text content。"""
     name = str(params.get("name", "")).strip()
@@ -201,12 +208,13 @@ async def _handle_tools_call(
     if not isinstance(arguments, dict):
         raise ValueError("arguments 必须是对象")
 
-    # 权限透传:匿名 → user_id=None(user_role=0),高危工具由权限矩阵拒绝
+    # O1 工具级门禁:scope 由能力目录裁决,未登记/scope 不足直接抛 ScopeDeniedError
+    enforce_tool_access(principal, name)
     result = await mcp_server.call_tool(
         name,
         arguments,
-        user_role=0,
-        user_id=user_id,
+        user_role=principal.role,
+        user_id=principal.sub,
         session_id=None,
     )
     is_error = bool(result.get("ok") is False or result.get("error"))
@@ -237,6 +245,12 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
     - 有 id → 返回 result/error 信封
     - 通知(id 为空) → 返回空 JSON(200)
     """
+    # O1 收权:匿名一律 401。凭据形态 = IHUI JWT 或内网可信头 X-IHUI-Principal(apps/api 签发)
+    try:
+        principal = resolve_principal_from_headers(dict(request.headers))
+    except PrincipalAuthError as e:
+        return JSONResponse(_jsonrpc_error(ERR_INVALID_REQUEST, e.message), status_code=e.http_status)
+
     raw = await request.body()
     try:
         payload = json.loads(raw.decode("utf-8") or "{}")
@@ -269,9 +283,6 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
         err["id"] = msg_id
         return JSONResponse(err, status_code=404)
 
-    # 已认证用户透传(匿名为 None)
-    user_id: str | None = getattr(request.state, "user_id", None)
-
     try:
         if method == "initialize":
             result = _handle_initialize(params)
@@ -286,7 +297,7 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
         elif method == "prompts/get":
             result = _handle_prompts_get(params)
         elif method == "tools/call":
-            result = await _handle_tools_call(params, user_id=user_id)
+            result = await _handle_tools_call(params, principal=principal)
         else:  # pragma: no cover - _dispatch_method 已过滤
             raise ValueError(f"unsupported method: {method}")
     except ValueError as e:

@@ -15,6 +15,7 @@ import {
   callVendor,
   recordUsage,
   createTask,
+  genId,
   chatBody,
   imageBody,
   ttsBody,
@@ -26,14 +27,73 @@ import {
 import { spendPoints } from '../../services/points-service.js'
 import { findUserPoints } from '../../db/gamification-queries.js'
 
+// OpenAI messages → Gemini contents(官方 generateContent 协议转换)
+function toGeminiContents(messages: unknown[] | undefined): unknown[] {
+  if (!messages) return []
+  return messages
+    .filter((m): m is Record<string, unknown> => !!m && typeof m === 'object')
+    .map((m) => {
+      const role = m.role === 'assistant' ? 'model' : 'user'
+      const content = m.content
+      let parts: unknown[]
+      if (typeof content === 'string') {
+        parts = [{ text: content }]
+      } else if (Array.isArray(content)) {
+        parts = content.map((p) => {
+          const part = (p ?? {}) as Record<string, unknown>
+          if (typeof part.text === 'string') return { text: part.text }
+          const imageUrl = (part.image_url as Record<string, unknown> | undefined)?.url
+          if (typeof imageUrl === 'string') {
+            if (imageUrl.startsWith('data:')) {
+              const [meta, data] = imageUrl.split(',', 2)
+              const mimeType = meta?.slice(5).split(';')[0] || 'image/png'
+              return { inline_data: { mime_type: mimeType, data: data ?? '' } }
+            }
+            return { file_data: { file_uri: imageUrl } }
+          }
+          return { text: String(part.text ?? '') }
+        })
+      } else {
+        parts = []
+      }
+      return { role, parts }
+    })
+}
+
+// WxH 尺寸约分为最简比例(imagen aspectRatio)
+function ratioFromSize(size: string): string {
+  const m = /^(\d+)x(\d+)$/.exec(size)
+  if (!m) return size
+  const w = Number(m[1])
+  const h = Number(m[2])
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
+  const g = gcd(w, h) || 1
+  return `${w / g}:${h / g}`
+}
+
+// Dashscope 图片编辑:qwen-image-edit/wanx 官方完整参数
 const dashscopeImageEditBody = z.object({
   prompt: z.string().optional(),
   imageUrl: z.string().optional(),
+  model: z.string().optional(),
+  function: z.string().optional(),
+  style: z.string().optional(),
+  seed: z.number().optional(),
+  watermark: z.boolean().optional(),
+  n: z.number().int().min(1).max(10).optional(),
+  negative_prompt: z.string().optional(),
 })
 
+// Dashscope 百炼智能体:agents/generation 官方完整参数
 const dashscopeAgentBody = z.object({
   agentId: z.string().optional(),
   messages: z.array(z.unknown()).max(100).optional(),
+  stream: z.boolean().optional(),
+  session_id: z.string().optional(),
+  memory_id: z.string().optional(),
+  has_thoughts: z.boolean().optional(),
+  incremental_output: z.boolean().optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
 })
 
 // Agnes 文生图:官方推荐 size 档位(1K/2K/3K/4K) + ratio 宽高比(1:1/16:9/9:16 等) + n 出图数量
@@ -53,12 +113,17 @@ const x5m5xImageBody = z.object({
   n: z.number().optional(),
 })
 
+// Doubao seededit 图片编辑:官方完整参数
 const doubaoImageEditBody = z.object({
   prompt: z.string().optional(),
   image: z.string().optional(),
   model: z.string().optional(),
   size: z.string().optional(),
   strength: z.number().optional(),
+  seed: z.number().optional(),
+  guidance_scale: z.number().optional(),
+  watermark: z.boolean().optional(),
+  response_format: z.string().optional(),
 })
 
 /** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
@@ -155,7 +220,7 @@ function extractTokenUsage(data: unknown): TokenUsage {
  * 调用前余额检查:零成本模型(multiplier=0)豁免;余额<=0 返回 402 引导充值。
  * 返回 false 表示已响应,调用方需 return。
  */
-async function ensurePointsBalance(
+export async function ensurePointsBalance(
   request: FastifyRequest,
   reply: FastifyReply,
   modelId: string,
@@ -180,7 +245,7 @@ async function ensurePointsBalance(
  * 调用后按实际 token 数扣分:零成本豁免;无 token 信息跳过;扣分失败不阻塞响应。
  * 公式:扣分 = ceil((prompt+completion) / 1000 × multiplier × 1 积分基准),向上取整。
  */
-async function chargePointsForCall(
+export async function chargePointsForCall(
   request: FastifyRequest,
   modelId: string,
   data: unknown,
@@ -522,11 +587,27 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = dashscopeImageEditBody.parse(request.body)
+      // 官方 multimodal-generation 格式:model + input + parameters
+      const payload = {
+        model: body.model ?? 'qwen-image-edit',
+        input: {
+          prompt: body.prompt ?? '',
+          ...(body.imageUrl ? { image_url: body.imageUrl } : {}),
+        },
+        parameters: {
+          ...(body.negative_prompt ? { negative_prompt: body.negative_prompt } : {}),
+          ...(body.seed !== undefined ? { seed: body.seed } : {}),
+          ...(body.watermark !== undefined ? { watermark: body.watermark } : {}),
+          ...(body.n ? { n: body.n } : {}),
+          ...(body.function ? { function: body.function } : {}),
+          ...(body.style ? { style: body.style } : {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -546,11 +627,27 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = ttsBody.parse(request.body)
+      // 官方 CosyVoice 格式:model + input.text + parameters
+      const payload = {
+        model: body.model ?? 'cosyvoice-v1',
+        input: { text: body.text ?? '' },
+        parameters: {
+          ...(body.voice ? { voice: body.voice } : {}),
+          ...(body.speech_rate !== undefined ? { speech_rate: body.speech_rate } : {}),
+          ...(body.volume !== undefined ? { volume: body.volume } : {}),
+          ...(body.pitch_rate !== undefined ? { pitch_rate: body.pitch_rate } : {}),
+          ...(body.rate !== undefined ? { rate: body.rate } : {}),
+          ...(body.format ? { format: body.format } : {}),
+          ...(body.sample_rate !== undefined ? { sample_rate: body.sample_rate } : {}),
+          ...(body.language_type ? { language_type: body.language_type } : {}),
+          ...(body.text_type ? { text_type: body.text_type } : {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/text-to-audio',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -570,11 +667,24 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = asrBody.parse(request.body)
+      // 官方 Paraformer 录音文件识别格式:model + input[{file_urls}] + parameters
+      const payload = {
+        model: body.model ?? 'paraformer-v2',
+        input: [{ file_urls: body.audioUrl ? [body.audioUrl] : [] }],
+        parameters: {
+          ...(body.language_hints ? { language_hints: body.language_hints } : {}),
+          ...(body.disfluency_removal_enabled !== undefined
+            ? { disfluency_removal_enabled: body.disfluency_removal_enabled }
+            : {}),
+          ...(body.vocabulary_id ? { vocabulary_id: body.vocabulary_id } : {}),
+          ...(body.special_phrases ? { special_phrases: body.special_phrases } : {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/audio/asr/transcription',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -615,11 +725,32 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = promptModelBody.parse(request.body)
+      // 官方 wanx video-synthesis 格式:model + input{prompt,img_url,negative_prompt} + parameters
+      const payload = {
+        model: body.model ?? 'wanx2.1-t2v-turbo',
+        input: {
+          prompt: body.prompt ?? '',
+          ...(body.imageUrl ? { img_url: body.imageUrl } : {}),
+          ...(body.image ? { img_url: body.image } : {}),
+          ...(body.negativePrompt ? { negative_prompt: body.negativePrompt } : {}),
+        },
+        parameters: {
+          ...(body.size ? { size: body.size } : {}),
+          ...(body.aspect_ratio ? { size: body.aspect_ratio } : {}),
+          ...(body.duration !== undefined ? { duration: body.duration } : {}),
+          ...(body.fps !== undefined ? { fps: body.fps } : {}),
+          ...(body.resolution ? { resolution: body.resolution } : {}),
+          ...(body.prompt_extend !== undefined ? { prompt_extend: body.prompt_extend } : {}),
+          ...(body.watermark !== undefined ? { watermark: body.watermark } : {}),
+          ...(body.seed !== undefined ? { seed: body.seed } : {}),
+          ...(body.parameters ?? {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       const task = createTask(request.userId!, 'dashscope', 'video', data)
@@ -640,11 +771,19 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = textModelBody.parse(request.body)
+      // 官方 compatible-mode /embeddings 格式(OpenAI 协议):model + input + 可选维度参数
+      const payload = {
+        model: body.model ?? 'text-embedding-v4',
+        input: body.text ?? '',
+        ...(body.dimensions !== undefined ? { dimensions: body.dimensions } : {}),
+        ...(body.encoding_format ? { encoding_format: body.encoding_format } : {}),
+        ...(body.user ? { user: body.user } : {}),
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -664,11 +803,31 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = multimodalBody.parse(request.body)
+      // 官方 multimodal-generation 格式:model + input.messages + parameters(采样参数)
+      const payload = {
+        model: body.model ?? 'qwen-vl-max',
+        input: { messages: body.messages ?? [] },
+        parameters: {
+          ...(body.top_k !== undefined ? { top_k: body.top_k } : {}),
+          ...(body.top_p !== undefined ? { top_p: body.top_p } : {}),
+          ...(body.temperature !== undefined ? { temperature: body.temperature } : {}),
+          ...(body.max_tokens !== undefined ? { max_tokens: body.max_tokens } : {}),
+          ...(body.seed !== undefined ? { seed: body.seed } : {}),
+          ...(body.result_format ? { result_format: body.result_format } : {}),
+          ...(body.incremental_output !== undefined
+            ? { incremental_output: body.incremental_output }
+            : {}),
+          ...(body.vl_high_resolution_images !== undefined
+            ? { vl_high_resolution_images: body.vl_high_resolution_images }
+            : {}),
+          ...(body.stream !== undefined ? { stream: body.stream } : {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -688,11 +847,26 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = dashscopeAgentBody.parse(request.body)
+      // 官方百炼 agents/generation 格式:model(agentId) + input.messages + parameters
+      const payload = {
+        ...(body.agentId ? { model: body.agentId } : {}),
+        input: { messages: body.messages ?? [] },
+        parameters: {
+          ...(body.stream !== undefined ? { stream: body.stream } : {}),
+          ...(body.session_id ? { session_id: body.session_id } : {}),
+          ...(body.memory_id ? { memory_id: body.memory_id } : {}),
+          ...(body.has_thoughts !== undefined ? { has_thoughts: body.has_thoughts } : {}),
+          ...(body.incremental_output !== undefined
+            ? { incremental_output: body.incremental_output }
+            : {}),
+          ...(body.parameters ?? {}),
+        },
+      }
       const data = await callVendor(
         'dashscope',
         'https://dashscope.aliyuncs.com/api/v1/services/aigc/agents/generation',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'dashscope')
@@ -772,6 +946,10 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         image: body.image,
         ...(body.size ? { size: body.size } : {}),
         ...(body.strength !== undefined ? { strength: body.strength } : {}),
+        ...(body.seed !== undefined ? { seed: body.seed } : {}),
+        ...(body.guidance_scale !== undefined ? { guidance_scale: body.guidance_scale } : {}),
+        ...(body.watermark !== undefined ? { watermark: body.watermark } : {}),
+        ...(body.response_format ? { response_format: body.response_format } : {}),
       }
       const data = await callVendor(
         'doubao',
@@ -797,13 +975,40 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = ttsBody.parse(request.body)
+      // 官方火山 openspeech TTS 格式:app + user + audio + request 四段结构
+      const payload = {
+        app: {
+          appid: process.env.DOUBAO_TTS_APPID ?? '',
+          token: 'access_token',
+          cluster: process.env.DOUBAO_TTS_CLUSTER ?? 'volcano_tts',
+        },
+        user: { uid: request.userId ?? 'ihui-user' },
+        audio: {
+          voice_type: body.voice ?? body.model ?? 'zh_female_cancan_mars_bigtts',
+          encoding: body.format ?? body.response_format ?? 'mp3',
+          ...(body.speed !== undefined || body.speech_rate !== undefined
+            ? { speed_ratio: body.speed ?? body.speech_rate }
+            : {}),
+          ...(body.volume !== undefined ? { volume_ratio: body.volume } : {}),
+          ...(body.pitch_rate !== undefined ? { pitch_ratio: body.pitch_rate } : {}),
+          ...(body.emotion ? { emotion: body.emotion } : {}),
+          ...(body.enable_emotion !== undefined ? { enable_emotion: body.enable_emotion } : {}),
+          ...(body.emotion_scale !== undefined ? { emotion_scale: body.emotion_scale } : {}),
+        },
+        request: {
+          reqid: genId('tts'),
+          text: body.text ?? '',
+          text_type: body.text_type === 'ssml' ? 'ssml' : 'plain',
+          operation: 'query',
+        },
+      }
       const data = await callVendor(
         'doubao',
         'https://openspeech.bytedance.com/api/v1/tts',
         reply,
         {
           method: 'POST',
-          body: JSON.stringify(body),
+          body: JSON.stringify(payload),
         },
       )
       if (data === null) return
@@ -824,13 +1029,25 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = asrBody.parse(request.body)
+      // 官方火山大模型录音文件识别格式:user + audio + request 三段结构
+      const payload = {
+        user: { uid: request.userId ?? 'ihui-user' },
+        audio: {
+          url: body.audioUrl ?? '',
+          ...(body.audio_format ? { format: body.audio_format } : {}),
+        },
+        request: {
+          model_name: body.model ?? 'bigmodel',
+          ...(body.language_hints ? { language: body.language_hints } : {}),
+        },
+      }
       const data = await callVendor(
         'doubao',
         'https://openspeech.bytedance.com/api/v1/asr',
         reply,
         {
           method: 'POST',
-          body: JSON.stringify(body),
+          body: JSON.stringify(payload),
         },
       )
       if (data === null) return
@@ -872,11 +1089,29 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = promptModelBody.parse(request.body)
+      // 官方方舟 contents/generations/tasks 格式:model + content[](seedance 指令式参数嵌入 prompt)
+      const imageSource = body.imageUrl ?? body.image
+      const directives = [
+        body.resolution ? `--resolution ${body.resolution}` : '',
+        body.duration !== undefined ? `--duration ${body.duration}` : '',
+        body.aspect_ratio ? `--ratio ${body.aspect_ratio}` : '',
+        body.fps !== undefined ? `--fps ${body.fps}` : '',
+        body.seed !== undefined ? `--seed ${body.seed}` : '',
+        body.watermark !== undefined ? `--watermark ${body.watermark}` : '',
+      ].filter(Boolean)
+      const textPart = directives.length ? `${body.prompt ?? ''} ${directives.join(' ')}` : (body.prompt ?? '')
+      const payload = {
+        model: body.model ?? 'doubao-seedance-1-0-pro',
+        content: [
+          { type: 'text', text: textPart },
+          ...(imageSource ? [{ type: 'image_url', image_url: { url: imageSource } }] : []),
+        ],
+      }
       const data = await callVendor(
         'doubao',
         'https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       const task = createTask(request.userId!, 'doubao', 'video', data)
@@ -897,11 +1132,19 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = textModelBody.parse(request.body)
+      // 官方方舟 /embeddings 格式(OpenAI 协议):model + input
+      const payload = {
+        model: body.model ?? 'doubao-embedding',
+        input: body.text ?? '',
+        ...(body.dimensions !== undefined ? { dimensions: body.dimensions } : {}),
+        ...(body.encoding_format ? { encoding_format: body.encoding_format } : {}),
+        ...(body.user ? { user: body.user } : {}),
+      }
       const data = await callVendor(
         'doubao',
         'https://ark.cn-beijing.volces.com/api/v3/embeddings',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'doubao')
@@ -921,11 +1164,22 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = multimodalBody.parse(request.body)
+      // 官方方舟 chat/completions 为 OpenAI 协议:只透传协议内字段,不含 Dashscope 私有 parameters
+      const payload = {
+        model: body.model,
+        messages: body.messages,
+        ...(body.stream !== undefined ? { stream: body.stream } : {}),
+        ...(body.temperature !== undefined ? { temperature: body.temperature } : {}),
+        ...(body.top_p !== undefined ? { top_p: body.top_p } : {}),
+        ...(body.max_tokens !== undefined ? { max_tokens: body.max_tokens } : {}),
+        ...(body.seed !== undefined ? { seed: body.seed } : {}),
+        ...(body.generationConfig ?? {}),
+      }
       const data = await callVendor(
         'doubao',
         'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'doubao')
@@ -948,11 +1202,27 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = multimodalBody.parse(request.body)
       const model = body.model ?? 'gemini-2.0-flash'
       if (!(await ensurePointsBalance(request, reply, model))) return
+      // 官方 generateContent 格式:contents + systemInstruction + generationConfig + safetySettings + tools
+      const genCfg: Record<string, unknown> = { ...(body.generationConfig ?? {}) }
+      if (body.temperature !== undefined) genCfg.temperature = body.temperature
+      if (body.top_p !== undefined) genCfg.topP = body.top_p
+      if (body.max_tokens !== undefined) genCfg.maxOutputTokens = body.max_tokens
+      if (body.seed !== undefined) genCfg.seed = body.seed
+      const payload = {
+        contents: toGeminiContents(body.messages),
+        ...(body.systemInstruction !== undefined
+          ? { systemInstruction: body.systemInstruction }
+          : {}),
+        ...(Object.keys(genCfg).length ? { generationConfig: genCfg } : {}),
+        ...(body.safetySettings ? { safetySettings: body.safetySettings } : {}),
+        ...(body.tools ? { tools: body.tools } : {}),
+        ...(body.toolConfig ? { toolConfig: body.toolConfig } : {}),
+      }
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
@@ -974,6 +1244,9 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = imageBody.parse(request.body)
       const model = body.model ?? 'imagen-3.0-generate-002'
+      // 官方 imagen predict 格式:instances + parameters(sampleCount/aspectRatio)
+      const parameters: Record<string, unknown> = { sampleCount: body.n ?? 1 }
+      if (body.size) parameters.aspectRatio = ratioFromSize(body.size)
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:predict`,
@@ -982,7 +1255,7 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
           method: 'POST',
           body: JSON.stringify({
             instances: [{ prompt: body.prompt }],
-            parameters: { sampleCount: 1 },
+            parameters,
           }),
         },
       )
@@ -1004,17 +1277,30 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = ttsBody.parse(request.body)
+      // 官方 Google Cloud TTS 格式:input + voice + audioConfig(全部官方参数透传)
+      const payload = {
+        input: { text: body.text ?? '' },
+        voice: {
+          languageCode: body.languageCode ?? 'zh-CN',
+          ...(body.voice ? { name: body.voice } : {}),
+        },
+        audioConfig: {
+          audioEncoding: body.audioEncoding ?? body.format ?? 'MP3',
+          ...(body.speakingRate !== undefined || body.speed !== undefined
+            ? { speakingRate: body.speakingRate ?? body.speed }
+            : {}),
+          ...(body.pitch !== undefined ? { pitch: body.pitch } : {}),
+          ...(body.effectsProfileId ? { effectsProfileId: [body.effectsProfileId] } : {}),
+          ...(body.sample_rate !== undefined ? { sampleRateHertz: body.sample_rate } : {}),
+        },
+      }
       const data = await callVendor(
         'gemini',
         'https://texttospeech.googleapis.com/v1/text:synthesize',
         reply,
         {
           method: 'POST',
-          body: JSON.stringify({
-            input: { text: body.text },
-            voice: { languageCode: 'zh-CN', name: body.voice },
-            audioConfig: { audioEncoding: 'MP3' },
-          }),
+          body: JSON.stringify(payload),
         },
       )
       if (data === null) return
@@ -1035,11 +1321,28 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = asrBody.parse(request.body)
+      // 官方 Google STT 格式:config + audio(uri 或 content)
+      const payload = {
+        config: {
+          ...(body.encoding ? { encoding: body.encoding } : {}),
+          ...(body.sampleRateHertz !== undefined
+            ? { sampleRateHertz: body.sampleRateHertz }
+            : {}),
+          languageCode: body.languageCode ?? 'zh-CN',
+          ...(body.audioChannelCount !== undefined
+            ? { audioChannelCount: body.audioChannelCount }
+            : {}),
+          ...(body.enableWordTimeOffsets !== undefined
+            ? { enableWordTimeOffsets: body.enableWordTimeOffsets }
+            : {}),
+        },
+        audio: body.audioUrl ? { uri: body.audioUrl } : body.audioBase64 ? { content: body.audioBase64 } : {},
+      }
       const data = await callVendor(
         'gemini',
         'https://speech.googleapis.com/v1/speech:recognize',
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
@@ -1081,6 +1384,25 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = promptModelBody.parse(request.body)
       const model = body.model ?? 'veo-3.0-generate-preview'
+      // 官方 veo predictLongRunning 格式:instances(prompt/image) + parameters(sampleCount/aspectRatio/durationSeconds 等)
+      const imageSource = body.imageUrl ?? body.image
+      const instance: Record<string, unknown> = { prompt: body.prompt ?? '' }
+      if (imageSource && !imageSource.startsWith('http')) {
+        instance.image = {
+          bytesBase64Encoded: imageSource.replace(/^data:[^,]+,/, ''),
+          mimeType: 'image/png',
+        }
+      }
+      const parameters: Record<string, unknown> = {
+        ...(body.n ? { sampleCount: body.n } : {}),
+        ...(body.aspect_ratio ? { aspectRatio: body.aspect_ratio } : {}),
+        ...(body.size ? { aspectRatio: ratioFromSize(body.size) } : {}),
+        ...(body.negativePrompt ? { negativePrompt: body.negativePrompt } : {}),
+        ...(body.duration !== undefined ? { durationSeconds: body.duration } : {}),
+        ...(body.resolution ? { resolution: body.resolution } : {}),
+        ...(body.seed !== undefined ? { seed: body.seed } : {}),
+        ...(body.parameters ?? {}),
+      }
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:predictLongRunning`,
@@ -1088,8 +1410,8 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
         {
           method: 'POST',
           body: JSON.stringify({
-            instances: [{ prompt: body.prompt }],
-            parameters: { sampleCount: 1 },
+            instances: [instance],
+            parameters,
           }),
         },
       )
@@ -1113,11 +1435,20 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body = textModelBody.parse(request.body)
       const model = body.model ?? 'text-embedding-004'
+      // 官方 embedContent 格式:content + taskType + outputDimensionality + title
+      const payload = {
+        ...(body.task_type ? { taskType: body.task_type } : {}),
+        ...(body.output_dimensionality !== undefined
+          ? { outputDimensionality: body.output_dimensionality }
+          : {}),
+        ...(body.title ? { title: body.title } : {}),
+        content: { parts: [{ text: body.text }] },
+      }
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:embedContent`,
         reply,
-        { method: 'POST', body: JSON.stringify({ content: { parts: [{ text: body.text }] } }) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')
@@ -1139,11 +1470,27 @@ export const llmVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = multimodalBody.parse(request.body)
       const model = body.model ?? 'gemini-2.0-flash'
       if (!(await ensurePointsBalance(request, reply, model))) return
+      // 官方 generateContent 格式:contents + systemInstruction + generationConfig + safetySettings + tools
+      const genCfg: Record<string, unknown> = { ...(body.generationConfig ?? {}) }
+      if (body.temperature !== undefined) genCfg.temperature = body.temperature
+      if (body.top_p !== undefined) genCfg.topP = body.top_p
+      if (body.max_tokens !== undefined) genCfg.maxOutputTokens = body.max_tokens
+      if (body.seed !== undefined) genCfg.seed = body.seed
+      const payload = {
+        contents: toGeminiContents(body.messages),
+        ...(body.systemInstruction !== undefined
+          ? { systemInstruction: body.systemInstruction }
+          : {}),
+        ...(Object.keys(genCfg).length ? { generationConfig: genCfg } : {}),
+        ...(body.safetySettings ? { safetySettings: body.safetySettings } : {}),
+        ...(body.tools ? { tools: body.tools } : {}),
+        ...(body.toolConfig ? { toolConfig: body.toolConfig } : {}),
+      }
       const data = await callVendor(
         'gemini',
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         reply,
-        { method: 'POST', body: JSON.stringify(body) },
+        { method: 'POST', body: JSON.stringify(payload) },
       )
       if (data === null) return
       recordUsage(request.userId!, 'gemini')

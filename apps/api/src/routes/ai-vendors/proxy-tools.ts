@@ -39,9 +39,21 @@ import {
   genId,
 } from './_shared.js'
 
+// 即梦视频官方参数(火山引擎 CVSync2AsyncSubmitTask:req_key/seed/video_quality/duration/aspect_ratio/i2v_align 等)
 const jimengVideoBody = z.object({
   prompt: z.string().min(1),
   model: z.string().default('jimeng_t2v_l30'),
+  seed: z.number().int().min(-1).max(2147483647).nullable().optional(),
+  video_quality: z.string().optional(),
+  duration: z.number().int().optional(),
+  aspect_ratio: z.string().optional(),
+  framespersecond: z.number().int().optional(),
+  watermark: z.boolean().nullable().optional(),
+  i2v_align: z.string().optional(),
+  image_urls: z.array(z.string()).optional(),
+  use_pre_llm: z.boolean().optional(),
+  camera_fixed: z.boolean().optional(),
+  return_url: z.boolean().optional(),
 })
 
 const videoTasksQuery = z.object({
@@ -49,26 +61,61 @@ const videoTasksQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
+// Coze v1/chat 官方参数:bot_id/user_id/additional_messages/conversation_id/auto_save_history/stream/custom_variables/parameters/extra_params
 const cozeChatBody = z.object({
   botId: z.string().optional(),
+  user: z.string().optional(),
   messages: z.array(z.unknown()).max(100).optional(),
+  additionalMessages: z.array(z.unknown()).max(100).optional(),
+  conversationId: z.string().optional(),
+  autoSaveHistory: z.boolean().optional(),
+  stream: z.boolean().optional(),
+  customVariables: z.record(z.string(), z.string()).optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  extraParams: z.record(z.string(), z.unknown()).optional(),
 })
 
+// Coze v1/workflow/run 官方参数:workflow_id/parameters/app_id/ext(JSON字符串)/is_async/bypass_skill
 const cozeWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
   parameters: z.record(z.string(), z.unknown()).optional(),
+  appId: z.string().optional(),
+  ext: z.record(z.string(), z.unknown()).optional(),
+  isAsync: z.boolean().optional(),
+  bypassSkill: z.boolean().optional(),
 })
 
+// 百炼应用(DashScope text-generation)官方参数:input(prompt/session_id/messages/memory/biz_params)+parameters(temperature/top_p/top_k/seed/max_tokens/stop/has_thoughts 等)
 const bailianChatBody = z.object({
   prompt: z.string().optional(),
   appId: z.string().optional(),
   sessionId: z.string().optional(),
   stream: z.boolean().optional(),
+  temperature: z.number().optional(),
+  topP: z.number().optional(),
+  topK: z.number().optional(),
+  maxTokens: z.number().int().optional(),
+  seed: z.number().int().optional(),
+  repetitionPenalty: z.number().optional(),
+  presencePenalty: z.number().optional(),
+  stop: z.union([z.string(), z.array(z.string())]).optional(),
+  hasThoughts: z.boolean().optional(),
+  incrementalOutput: z.boolean().optional(),
+  resultFormat: z.string().optional(),
+  enableThinking: z.boolean().optional(),
+  messages: z.array(z.unknown()).optional(),
+  memory: z.record(z.string(), z.unknown()).optional(),
+  bizParams: z.record(z.string(), z.unknown()).optional(),
 })
 
+// N8N 官方 GET /workflows 查询参数:active/limit/cursor/tags
 const n8nWorkflowsBody = z.object({
   n8nDomain: z.string().optional(),
   apiKey: z.string().optional(),
+  active: z.boolean().optional(),
+  limit: z.number().int().min(1).max(250).optional(),
+  cursor: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 const n8nWorkflowRunBody = z.object({
@@ -96,6 +143,7 @@ const cozeWorkflowChatBody = z.object({
 const klingIdentifyBody = z.object({
   videoId: z.string().optional(),
   videoUrl: z.string().optional(),
+  callbackUrl: z.string().optional(),
 })
 
 const klingTaskCreateBody = z.object({
@@ -103,6 +151,10 @@ const klingTaskCreateBody = z.object({
   faceChoose: z.array(z.record(z.string(), z.unknown())).min(1).max(100),
   externalTaskId: z.string().optional(),
   callbackUrl: z.string().optional(),
+  voiceId: z.string().optional(),
+  voiceSpeed: z.number().optional(),
+  voiceVolume: z.number().optional(),
+  voiceLanguage: z.string().optional(),
 })
 
 const n8nAddAgentDbBody = z.object({
@@ -137,9 +189,21 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = cozeChatBody.parse(request.body)
+      // camelCase → Coze 官方 snake_case 组装
+      const payload: Record<string, unknown> = {}
+      if (body.botId) payload.bot_id = body.botId
+      if (body.user) payload.user_id = body.user
+      const msgs = body.additionalMessages ?? body.messages
+      if (msgs) payload.additional_messages = msgs
+      if (body.conversationId) payload.conversation_id = body.conversationId
+      if (body.autoSaveHistory !== undefined) payload.auto_save_history = body.autoSaveHistory
+      if (body.stream !== undefined) payload.stream = body.stream
+      if (body.customVariables) payload.custom_variables = body.customVariables
+      if (body.parameters) payload.parameters = body.parameters
+      if (body.extraParams) payload.extra_params = body.extraParams
       const data = await callVendor('coze', 'https://api.coze.cn/v1/chat', reply, {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       })
       if (data === null) return
       recordUsage(request.userId!, 'coze')
@@ -228,9 +292,17 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = cozeWorkflowRunBody.parse(request.body)
+      const payload: Record<string, unknown> = {
+        workflow_id: body.workflowId,
+        parameters: body.parameters,
+      }
+      if (body.appId) payload.app_id = body.appId
+      if (body.ext) payload.ext = JSON.stringify(body.ext)
+      if (body.isAsync !== undefined) payload.is_async = body.isAsync
+      if (body.bypassSkill !== undefined) payload.bypass_skill = body.bypassSkill
       const data = await callVendor('coze', 'https://api.coze.cn/v1/workflow/run', reply, {
         method: 'POST',
-        body: JSON.stringify({ workflow_id: body.workflowId, parameters: body.parameters }),
+        body: JSON.stringify(payload),
       })
       if (data === null) return
       recordUsage(request.userId!, 'coze')
@@ -327,10 +399,27 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!appId) return reply.status(400).send(error(400, '百炼应用ID 未配置(BAILIAN_APP_ID)'))
       const input: Record<string, unknown> = { prompt: body.prompt }
       if (body.sessionId) input.session_id = body.sessionId
+      if (body.messages) input.messages = body.messages
+      if (body.memory) input.memory = body.memory
+      if (body.bizParams) input.biz_params = body.bizParams
+      const parameters: Record<string, unknown> = {}
+      if (body.temperature !== undefined) parameters.temperature = body.temperature
+      if (body.topP !== undefined) parameters.top_p = body.topP
+      if (body.topK !== undefined) parameters.top_k = body.topK
+      if (body.maxTokens !== undefined) parameters.max_tokens = body.maxTokens
+      if (body.seed !== undefined) parameters.seed = body.seed
+      if (body.repetitionPenalty !== undefined) parameters.repetition_penalty = body.repetitionPenalty
+      if (body.presencePenalty !== undefined) parameters.presence_penalty = body.presencePenalty
+      if (body.stop !== undefined) parameters.stop = body.stop
+      if (body.hasThoughts !== undefined) parameters.has_thoughts = body.hasThoughts
+      if (body.resultFormat) parameters.result_format = body.resultFormat
+      if (body.enableThinking !== undefined) parameters.enable_thinking = body.enableThinking
+      if (body.stream) parameters.incremental_output = body.incrementalOutput ?? true
+      else if (body.incrementalOutput !== undefined) parameters.incremental_output = body.incrementalOutput
       const payload: Record<string, unknown> = {
         model: appId,
         input,
-        parameters: { incremental_output: true },
+        parameters,
       }
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -577,8 +666,18 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const submitBody: Record<string, unknown> = {
         req_key: body.model,
         prompt: body.prompt,
-        return_url: true,
+        return_url: body.return_url ?? true,
       }
+      if (body.seed !== null && body.seed !== undefined) submitBody.seed = body.seed
+      if (body.video_quality) submitBody.video_quality = body.video_quality
+      if (body.duration !== undefined) submitBody.duration = body.duration
+      if (body.aspect_ratio) submitBody.aspect_ratio = body.aspect_ratio
+      if (body.framespersecond !== undefined) submitBody.framespersecond = body.framespersecond
+      if (body.watermark !== null && body.watermark !== undefined) submitBody.watermark = body.watermark
+      if (body.i2v_align) submitBody.i2v_align = body.i2v_align
+      if (body.image_urls?.length) submitBody.image_urls = body.image_urls
+      if (body.use_pre_llm !== undefined) submitBody.use_pre_llm = body.use_pre_llm
+      if (body.camera_fixed !== undefined) submitBody.camera_fixed = body.camera_fixed
       try {
         const signed = volcengineSign(
           { Action: 'CVSync2AsyncSubmitTask', Version: '2022-08-31' },
@@ -606,6 +705,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
           userUuid: request.userId!,
           status: 'accepted',
           message: body.prompt,
+          result: JSON.stringify({ req_key: body.model }),
         })
         recordUsage(request.userId!, 'jimeng4')
         return reply.send(success({ taskId: row.id, status: 'accepted' }))
@@ -655,10 +755,18 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (task.status !== 'success' && task.status !== 'failed') {
         const keys = requireVendorKeys('jimeng4', reply)
         if (keys) {
+          // 轮询 req_key 必须与提交时一致:优先读取落库的 req_key,缺省 jimeng_t2v_l30
+          let pollReqKey = 'jimeng_t2v_l30'
+          try {
+            const stored = task.result ? (JSON.parse(task.result) as { req_key?: string }) : null
+            if (stored?.req_key) pollReqKey = stored.req_key
+          } catch {
+            /* result 非 JSON 时用默认 */
+          }
           try {
             const signed = volcengineSign(
               { Action: 'CVSync2AsyncGetResult', Version: '2022-08-31' },
-              { req_key: 'jimeng_t2v_l30', task_id: task.taskId },
+              { req_key: pollReqKey, task_id: task.taskId },
               keys.key,
               keys.secret,
             )
@@ -722,9 +830,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = n8nWorkflowsBody.parse(request.body)
       if (!body.n8nDomain || !body.apiKey)
         return reply.status(400).send(error(400, 'n8nDomain 和 apiKey 为必填'))
+      const qs = new URLSearchParams()
+      if (body.active !== undefined) qs.set('active', String(body.active))
+      if (body.limit !== undefined) qs.set('limit', String(body.limit))
+      if (body.cursor) qs.set('cursor', body.cursor)
+      if (body.tags?.length) for (const tag of body.tags) qs.append('tags', tag)
       try {
         const resp = await fetchWithTimeout(
-          `https://${body.n8nDomain}/api/v1/workflows?active=true`,
+          `https://${body.n8nDomain}/api/v1/workflows${qs.size > 0 ? `?${qs}` : ''}`,
           { method: 'GET', headers: { 'X-N8N-API-KEY': body.apiKey } },
           30_000,
         )
@@ -978,7 +1091,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(503)
           .send(error(503, 'Kling 服务未配置(KLING_ACCESS_KEY/KLING_SECRET_KEY)'))
-      const reqBody = body.videoId ? { video_id: body.videoId } : { video_url: body.videoUrl }
+      const reqBody: Record<string, unknown> = body.videoId
+        ? { video_id: body.videoId }
+        : { video_url: body.videoUrl }
+      if (body.callbackUrl) reqBody.callback_url = body.callbackUrl
       try {
         const resp = await fetchWithTimeout(
           `${KLING_BASE_URL}/v1/videos/identify-face`,
@@ -1024,6 +1140,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       }
       if (body.externalTaskId) createBody.external_task_id = body.externalTaskId
       if (body.callbackUrl) createBody.callback_url = body.callbackUrl
+      if (body.voiceId) createBody.voice_id = body.voiceId
+      if (body.voiceSpeed !== undefined) createBody.voice_speed = body.voiceSpeed
+      if (body.voiceVolume !== undefined) createBody.voice_volume = body.voiceVolume
+      if (body.voiceLanguage) createBody.voice_language = body.voiceLanguage
       try {
         const resp = await fetchWithTimeout(
           `${KLING_BASE_URL}/v1/videos/advanced-lip-sync`,

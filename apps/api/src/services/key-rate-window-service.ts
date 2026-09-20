@@ -58,16 +58,22 @@ export function limitsOf(key: {
 export interface KeyWindowCheckResult {
   allowed: boolean
   blocked?: { windowType: KeyWindowType; limit: number; used: number; resetsAtMs: number }
+  /** failMode='close' 且计数读源(DB 副本)异常时为 true(无法确认窗口用量,由调用方决定 503)。 */
+  backendUnavailable?: boolean
 }
 
 /**
  * 校验 Key 的三窗口请求数(仅对配置了限额的窗口生效)。
- * 任何异常(表未迁移等)放行——窗口是附加约束,余额/熔断已兜底。
+ * - failMode='open'(默认,relay 计费路径历史行为):任何异常(表未迁移等)放行——
+ *   窗口是附加约束,余额/熔断已兜底。
+ * - failMode='close'(O2 2026-09-21,requireApiKeyAuth 主链路):异常不再静默放行,
+ *   返回 backendUnavailable=true,由调用方按能力目录判据决定是否 503。
  */
 export async function checkKeyRateWindows(
   apiKeyId: string,
   limits: KeyWindowLimits,
   at: Date = new Date(),
+  failMode: 'open' | 'close' = 'open',
 ): Promise<KeyWindowCheckResult> {
   const configured = ALL_KEY_WINDOWS.filter((w) => (limits[w] ?? 0) > 0)
   if (configured.length === 0) return { allowed: true }
@@ -108,6 +114,7 @@ export async function checkKeyRateWindows(
     }
     return { allowed: true }
   } catch {
+    if (failMode === 'close') return { allowed: true, backendUnavailable: true }
     return { allowed: true }
   }
 }
@@ -161,6 +168,48 @@ export async function incrKeyRateWindows(apiKeyId: string, at: Date = new Date()
 /** Key 行的窗口限额是否全部未配置(用于跳过查询,存量 Key 零开销)。 */
 export function hasAnyWindowLimit(limits: KeyWindowLimits): boolean {
   return (limits['5h'] ?? 0) > 0 || (limits['1d'] ?? 0) > 0 || (limits['7d'] ?? 0) > 0
+}
+
+// ============================================================================
+// Key 级 IP ACL(黑名单优先 + 白名单)——单一算法落点(2026-09-21 立,O2)
+// ============================================================================
+// relay 计费(checkQuota)与鉴权主链路(requireApiKeyAuth)共用本函数,
+// 匹配算法(ipInList,IPv4 + IPv6 + IPv4-mapped 归一)由调用方插件注入,
+// 避免 service ↔ plugin 循环依赖。
+
+export interface IpAclInput {
+  /** 黑名单(jsonb 值,防御性接受任意元素) */
+  blockedIps: unknown
+  /** 白名单(jsonb 值,防御性接受任意元素) */
+  allowedIps: unknown
+  /** 请求方 IP */
+  requestIp: string
+}
+
+export interface IpAclResult {
+  ok: boolean
+  /** 'ip_blocked'(黑名单命中,优先) | 'ip_not_allowed'(不在白名单) */
+  reason?: string
+}
+
+/** 黑名单命中 → 403 优先于白名单;白名单存在且非空时不在名单内 → 拒绝。 */
+export function checkKeyIpAcl(
+  { blockedIps, allowedIps, requestIp }: IpAclInput,
+  matches: (ip: string, list: readonly string[]) => boolean,
+): IpAclResult {
+  const blockedList = Array.isArray(blockedIps)
+    ? (blockedIps as unknown[]).filter((x): x is string => typeof x === 'string')
+    : []
+  if (blockedList.length > 0 && matches(requestIp, blockedList)) {
+    return { ok: false, reason: 'IP 在黑名单' }
+  }
+  const allowedList = Array.isArray(allowedIps)
+    ? (allowedIps as unknown[]).filter((x): x is string => typeof x === 'string')
+    : []
+  if (allowedList.length > 0 && !matches(requestIp, allowedList)) {
+    return { ok: false, reason: 'IP 不在白名单' }
+  }
+  return { ok: true }
 }
 
 // 引用 developerApiKeys 以保留未来直查扩展点(当前 checkQuota 已 select 出限额传入)

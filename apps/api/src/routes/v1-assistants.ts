@@ -29,6 +29,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
+import { requireCapability } from '../utils/capability-guard.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -482,7 +483,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           required: ['model'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('assistants:write')],
     },
     async (request, reply) => {
       const parsed = createAssistantSchema.safeParse(request.body)
@@ -511,7 +512,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // GET /assistants/:id — 查询助手
-  server.get('/assistants/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
+  server.get('/assistants/:id', { preHandler: [requireCapability('assistants:read')] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const apiKey = request.apiKey
     if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
@@ -541,7 +542,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('assistants:write')],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -571,7 +572,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // DELETE /assistants/:id — 删除助手
-  server.delete('/assistants/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
+  server.delete('/assistants/:id', { preHandler: [requireCapability('assistants:write')] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const apiKey = request.apiKey
     if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
@@ -589,7 +590,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   })
 
   // GET /assistants — 助手列表(分页)
-  server.get('/assistants', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
+  server.get('/assistants', { preHandler: [requireCapability('assistants:read')] }, async (request, reply) => {
     const apiKey = request.apiKey
     if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
     const parsed = listQuerySchema.safeParse(request.query)
@@ -629,7 +630,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const parsed = createThreadSchema.safeParse(request.body)
@@ -670,7 +671,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // GET /threads/:id — 查询线程
-  server.get('/threads/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
+  server.get('/threads/:id', { preHandler: [requireCapability('threads:read')] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const apiKey = request.apiKey
     if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
@@ -693,7 +694,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           properties: { metadata: { type: ['object', 'null'] } },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -717,7 +718,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // DELETE /threads/:id — 删除线程
-  server.delete('/threads/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
+  server.delete('/threads/:id', { preHandler: [requireCapability('threads:write')] }, async (request, reply) => {
     const { id } = request.params as { id: string }
     const apiKey = request.apiKey
     if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
@@ -765,7 +766,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           required: ['role', 'content'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const { threadId } = request.params as { threadId: string }

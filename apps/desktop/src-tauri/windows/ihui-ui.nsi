@@ -71,6 +71,28 @@ Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 
+; =====================================================================
+; 运行期跟踪日志(仅验证期启用: 定义 IHUI_TRACE 才写文件)
+; 用途: 定位「点击品牌按钮后安装器进程直接退出」类竞态 —— 逐函数打点,
+;       日志停在哪个函数即死亡点。发布构建(scripts/release-desktop-local.mjs)
+;       不带 -DIHUI_TRACE,宏体为空,零副作用。
+; 用法: makensis /DIHUI_TRACE=1 installer.nsi
+; =====================================================================
+!ifdef IHUI_TRACE
+; 每个打点写独立文件(一行一文件): NSIS FileOpen "a" 追加模式实测会被句柄复用截断
+; (2026-09-20 r94 实锤: ihui-trace.log 只剩残片),改为一文件一点,用 mtime 排序即得
+; 执行时序,零竞争。
+!macro IHUI_LOG MSG
+  FileOpen $8 "D:\caches\Temp\ihui-installer-verify\trace-${MSG}.txt" w
+  FileWrite $8 "${MSG}$\r$\n"
+  FileClose $8
+!macroend
+!else
+!macro IHUI_LOG MSG
+!macroend
+!endif
+
+
 ; 主程序名:模板 !define MAINBINARYNAME 在本 include 之后展开,此处需本地兜底
 ; (与 tauri.conf.json productName 一致;改名须同步)
 !ifndef IHUI_MAINBIN
@@ -455,6 +477,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIWelcomePage
+  !insertmacro IHUI_LOG "welcome_entry"
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
@@ -470,10 +493,13 @@ Function IHUIWelcomePage
   !insertmacro IHUI_CLOSEBTN
   !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL $IHUICLS 0 0 0
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "welcome_shown"
 FunctionEnd
 
 Function IHUIWelcomeLeave
+  !insertmacro IHUI_LOG "welcomeLeave_entry"
   !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG 0 0
+  !insertmacro IHUI_LOG "welcomeLeave_exit"
 FunctionEnd
 
 ; =====================================================================
@@ -481,6 +507,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIDirPage
+  !insertmacro IHUI_LOG "dir_entry"
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
@@ -506,9 +533,11 @@ Function IHUIDirPage
   !insertmacro IHUI_CLOSEBTN
   !insertmacro IHUI_ZORDER $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS 0
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "dir_shown"
 FunctionEnd
 
 Function IHUIDirLeave
+  !insertmacro IHUI_LOG "dirLeave_entry"
   System::Alloc 1024
   Pop $0
   System::Call "user32::GetWindowTextW(p $IHUIDIR, p r0, i 512)"
@@ -519,6 +548,7 @@ Function IHUIDirLeave
     StrCpy $INSTDIR $1
   ${EndIf}
   !insertmacro IHUI_DESTROY $IHUIDIR $IHUIBROWSE $IHUISTART $IHUICANCEL $IHUICLS $IHUIBG
+  !insertmacro IHUI_LOG "dirLeave_exit"
 FunctionEnd
 
 Function IHUIOnBrowse
@@ -542,6 +572,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIInstShow
+  !insertmacro IHUI_LOG "instShow_entry"
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(instfiles 是原生页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
@@ -667,25 +698,28 @@ Function IHUIInstShow
   System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
   System::Call "user32::InvalidateRect(p r1, p 0, i 1)"
   System::Call "user32::UpdateWindow(p r1)"
+  !insertmacro IHUI_LOG "instShow_exit"
 FunctionEnd
 
 ; =====================================================================
 ; R76 完成态接管(POSTINSTALL hook = Section 落盘收尾,instfiles 进入完成态
 ; 的确切时刻;LEAVE 回调要到用户点击后才跑,详见 hooks.nsi NSIS_HOOK_POSTINSTALL)。
 ;
+; v9 终案 - 演进史(r74-r81 五轮实测收敛):
+;   r76: 原生 1/2 就地品牌化(移位+贴图) → 点击可推进(5.23% 整页切换实证)
+;        但核心在 Section 尾 done 态重置 UI 时把 BS_BITMAP 打回文字态。
+;   v6/v7: 新建品牌 BUTTON 挂外层 HWNDPARENT(id=1/2) → 位图永驻(核心不
+;        重置陌生控件)但 BN_CLICKED 核心不推进(r79 0.16% 焦点环实证)。
+;   v8: 销毁原生钮消 id 冲突 → 仍不推进(r81 焦点环 0.13% 实证)。
+;        结论: 外层 proc 对非模板控件的 WM_COMMAND 不走推进分支。
+;   v9: 原生钮存活+移到品牌位置(点击通路=核心亲儿子,r76 已证 5.23%);
+;        位图由 WS_EX_LAYERED|WS_EX_TRANSPARENT(0x00200020) STATIC 覆盖层
+;        承载 — 整窗点击穿透,鼠标事件直达下层原生钮;覆盖层是陌生控件,
+;        核心 done 态重置永远打不回它的位图。两全其美。
 ; 路由死结(r74 实锤): 品牌按钮挂内层 #32770 → BN_CLICKED 发内层被吞。
-; 原生 1/2 挂外层 HWNDPARENT → BN_CLICKED 由 NSIS 核心 proc 原生路由
-; (id=1→Next 推进 finish 页,id=2→Cancel)。
-;
-; r77/r78 实测两坑(全四轮贴图失败根因):
-;   ①核心在 Section 结束后的 done 态 UI 重设里把原生 1/2 样式打回文字态
-;     (POSTINSTALL 写入的 BS_BITMAP 被回滚,region/位置保留)。
-;   ②内层 dialog 容器不透明盖外层按钮 → 必须整体移屏。
-; v6 终案: 原生 1/2 隐藏但存活(点击目标),新建品牌 BUTTON 挂【外层 HWNDPARENT】
-; (核心不认识陌生控件,不会重置!)。点击新按钮 → SendMessage(原生, BM_CLICK)
-; → 按钮自身把 BN_CLICKED 发给父=外层 → 核心原生推进,零页面自定义路由。
 ; =====================================================================
 !macro IHUI_INST_DONE_THEME
+  !insertmacro IHUI_LOG "doneTheme_entry"
   ; 决定性探针: 宏执行即写标记文件(r76-v6 全白疑云,判定宏是否真跑)
   FileOpen $0 "D:\caches\Temp\ihui-installer-verify\done-theme-ran.txt" w
   FileWrite $0 "IHUI_INST_DONE_THEME executed"
@@ -694,54 +728,64 @@ FunctionEnd
   ; ---- 0) 外层窗口类背景画刷换品牌黑(内层退场后由外层承接底色) ----
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .r9"
   System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p r9)"
-  ; ---- 1) 原生 1/2/3 隐藏但存活(BM_CLICK 载体;探针 r74 实锤移屏后仍可 BM_CLICK) ----
+  ; ---- 1) 原生 1/2 存活+移到品牌位置+region 裁边(v9 点击穿透方案:
+  ;      r76 实锤原生钮物理点击可推进(5.23% 整页切换);r81 实锤新建品牌钮
+  ;      BN_CLICKED 核心不推进(焦点环而已)。故回归原生钮通路,原生钮保持
+  ;      可见可点;位图用覆盖层解决,核心 done 态重置打不回覆盖层(陌生控件)) ----
+  ; 继续(原生1): 逻辑 672,500 144x40
+  !insertmacro IHUI_PX $3 672
+  !insertmacro IHUI_PX $4 500
+  !insertmacro IHUI_PX $5 144
+  !insertmacro IHUI_PX $6 40
   GetDlgItem $2 $HWNDPARENT 1
   ${If} $2 <> 0
-    ShowWindow $2 0
+    System::Call "user32::MoveWindow(p r2, i r3, i r4, i r5, i r6, i 1)"
+    System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i 175, i 50, i 8, i 8) p .r0"
+    System::Call "user32::SetWindowRgn(p r2, p r0, i 1)"
   ${EndIf}
+  ; 取消(原生2): 逻辑 64,500 96x40
+  !insertmacro IHUI_PX $3 64
+  !insertmacro IHUI_PX $5 96
   GetDlgItem $2 $HWNDPARENT 2
   ${If} $2 <> 0
-    ShowWindow $2 0
+    System::Call "user32::MoveWindow(p r2, i r3, i r4, i r5, i r6, i 1)"
+    System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i 120, i 50, i 8, i 8) p .r0"
+    System::Call "user32::SetWindowRgn(p r2, p r0, i 1)"
   ${EndIf}
   GetDlgItem $2 $HWNDPARENT 3
   ${If} $2 <> 0
     System::Call "user32::MoveWindow(p r2, i -4000, i -4000, i 100, i 24, i 1)"
   ${EndIf}
-  ; ---- 2) 新建品牌按钮挂外层(核心不重置陌生控件;IHUIInstShow 内层同款结构,
-  ;      唯一差异=父窗口=HWNDPARENT → BN_CLICKED 天然进核心) ----
-  ; 继续: 逻辑 672,500 144x40
+  ; ---- 2) 位图覆盖层: STATIC + WS_EX_LAYERED|WS_EX_TRANSPARENT(0x00200020)
+  ;      整窗点击穿透 → 鼠标直达下层原生钮;位图永驻(核心不重置陌生 STATIC)。
+  ;      覆盖层尺寸=位图原生尺寸(175x50/120x50),原点=原生钮左上,完整盖住裁边钮。
   System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   !insertmacro IHUI_PX $3 672
   !insertmacro IHUI_PX $4 500
-  !insertmacro IHUI_PX $5 144
-  !insertmacro IHUI_PX $6 40
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r3, i r4, i r5, i r6, p $HWNDPARENT, p 1, p 0, p 0) p .s"
+  System::Call "user32::CreateWindowExW(p 0x00200020, w 'STATIC', w '', i 0x5000000E, i r3, i r4, i 175, i 50, p $HWNDPARENT, p 0, p 0, p 0) p .s"
   Pop $IHUINXT
-  System::Call "user32::SendMessageW(p $IHUINXT, i 0x00F7, p 0, p r0)"  ; BM_SETIMAGE
-  IntOp $IHUIR6 $5 - 2
-  IntOp $IHUIR7 $6 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUINXT, p r0, i 1)"
-  ; v7: HWND_TOP(-1) 提顶(v6 无 z 序变更,新钮疑似压底不可见 → 全白帧)
-  System::Call "user32::SetWindowPos(p $IHUINXT, p -1, i 0, i 0, i 0, i 0, i 0x0043)"
-  !insertmacro IHUI_SETFONT $IHUINXT
-  ; 取消: 逻辑 64,500 96x40
+  System::Call "user32::SendMessageW(p $IHUINXT, i 0x0172, p 0, p r0)"  ; STM_SETIMAGE
+  System::Call "user32::SetLayeredWindowAttributes(p $IHUINXT, i 0, i 255, i 2)"  ; LWA_ALPHA 激活分层
+  System::Call "user32::SetWindowPos(p $IHUINXT, p -1, i 0, i 0, i 0, i 0, i 0x0043)"  ; HWND_TOP
   System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   !insertmacro IHUI_PX $3 64
-  !insertmacro IHUI_PX $5 96
-  System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r3, i r4, i r5, i r6, p $HWNDPARENT, p 2, p 0, p 0) p .s"
+  !insertmacro IHUI_PX $4 500
+  System::Call "user32::CreateWindowExW(p 0x00200020, w 'STATIC', w '', i 0x5000000E, i r3, i r4, i 120, i 50, p $HWNDPARENT, p 0, p 0, p 0) p .s"
   Pop $IHUICNC
-  System::Call "user32::SendMessageW(p $IHUICNC, i 0x00F7, p 0, p r0)"
-  IntOp $IHUIR6 $5 - 2
-  IntOp $IHUIR7 $6 - 2
-  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, 8) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUICNC, p r0, i 1)"
+  System::Call "user32::SendMessageW(p $IHUICNC, i 0x0172, p 0, p r0)"
+  System::Call "user32::SetLayeredWindowAttributes(p $IHUICNC, i 0, i 255, i 2)"
   System::Call "user32::SetWindowPos(p $IHUICNC, p -1, i 0, i 0, i 0, i 0, i 0x0043)"
-  !insertmacro IHUI_SETFONT $IHUICNC
-  ; ---- 3) 内层 dialog 保留原位(v7 变更): 其黑底(SetCtlColors 242424)即完成态
-  ; 背景,r76 实证 95.5% 暗覆盖;新品牌钮已提顶于其上。内层若退场外层白底即裸露。
+  ; ---- 3) 内层 #32770 压底(v9b: r82 实锤覆盖层被内层拦截点击 — 点击落点在
+  ;      按钮位图上但 WindowFromPoint 返回内层 STATIC。核心 done 态会重新提顶
+  ;      内层,故必须在 POSTINSTALL 末尾把内层压到 HWND_BOTTOM,让位图覆盖层
+  ;      与原生钮在其上)。内层黑底(SetCtlColors 242424)仍是完成态背景。
+  FindWindow $1 "#32770" "" $HWNDPARENT
+  ${If} $1 <> 0
+    System::Call "user32::SetWindowPos(p r1, p 1, i 0, i 0, i 0, i 0, i 0x0013)"  ; HWND_BOTTOM|NOMOVE|NOSIZE|NOACTIVATE
+  ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
+  !insertmacro IHUI_LOG "doneTheme_exit"
 !macroend
 
 ; ⚠️ 完成时刻推进竞态(2026-09-20 R20 实锤): instfiles 完成时核心触发 LEAVE 回调并推进
@@ -749,6 +793,7 @@ FunctionEnd
 ; 推进会被静默破坏 —— R7 起 finish 页从未出现的历史根因。
 ; 对策:LEAVE 一律纯透传(不销毁任何控件),背景/控件的生命周期交由 finish 页接管。
 Function IHUIInstLeave
+  !insertmacro IHUI_LOG "instLeave_entry"
   ; R76 起完成态接管移入 IHUI_INST_DONE_THEME(POSTINSTALL hook,Section 尾触发):
   ; LEAVE 要到用户点击"继续"后才跑,完成态品牌化挂 LEAVE 是死代码 —— r74 探针实锤
   ; (点击内层品牌按钮 MD5 变化但页面不前进)。
@@ -757,6 +802,7 @@ Function IHUIInstLeave
   ; (历史竞态:LEAVE 内 DestroyWindow 子控件会静默破坏推进 —— R7 起 finish 页
   ;  从未出现的历史根因,故一律不销毁任何控件。)
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  !insertmacro IHUI_LOG "instLeave_exit"
 FunctionEnd
 
 ; =====================================================================
@@ -769,6 +815,7 @@ FunctionEnd
 ; =====================================================================
 
 Function IHUIFinishPage
+  !insertmacro IHUI_LOG "finishPage_entry"
   ${If} $IHUIPassive = 1
     Abort
   ${EndIf}
@@ -795,6 +842,7 @@ Function IHUIFinishPage
   !insertmacro IHUI_CLOSEBTN
   !insertmacro IHUI_ZORDER $IHUIOTG $IHUIATG $IHUISCT $IHUIFIN $IHUICLS 0
   !insertmacro IHUI_PAGE_SHOW
+  !insertmacro IHUI_LOG "finishPage_shown"
 FunctionEnd
 
 Function IHUIFinishLeave
@@ -846,18 +894,24 @@ FunctionEnd
 ; 导航回调: 触发原生按钮(BM_CLICK)
 ; =====================================================================
 Function IHUIOnNext
+  !insertmacro IHUI_LOG "onNext_entry"
   GetDlgItem $0 $HWNDPARENT 1
   SendMessage $0 0x00F5 0 0
+  !insertmacro IHUI_LOG "onNext_afterBMClick"
 FunctionEnd
 
 Function IHUIOnCancel
+  !insertmacro IHUI_LOG "onCancel_entry"
   GetDlgItem $0 $HWNDPARENT 2
   SendMessage $0 0x00F5 0 0
+  !insertmacro IHUI_LOG "onCancel_afterBMClick"
 FunctionEnd
 
 Function IHUIOnClose
+  !insertmacro IHUI_LOG "onClose_entry"
   ; 品牌关闭钮 → WM_CLOSE: 与 Alt+F4 同链路(NSIS 内置退出确认逻辑接管)
   SendMessage $HWNDPARENT 0x0010 0 0
+  !insertmacro IHUI_LOG "onClose_afterWMClose"
 FunctionEnd
 
 ; =====================================================================

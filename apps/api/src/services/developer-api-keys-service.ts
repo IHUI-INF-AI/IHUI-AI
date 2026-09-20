@@ -133,6 +133,9 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       rateLimit5h: developerApiKeys.rateLimit5h,
       rateLimit1d: developerApiKeys.rateLimit1d,
       rateLimit7d: developerApiKeys.rateLimit7d,
+      // per-model 限流列(2026-09-21,O2 落地,保证 SafeApiKey 类型完整)
+      perModelRpmLimit: developerApiKeys.perModelRpmLimit,
+      perModelTpmLimit: developerApiKeys.perModelTpmLimit,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
