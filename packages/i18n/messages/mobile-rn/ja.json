@@ -299,7 +299,8 @@
     "spec": "規範テンプレート",
     "selfMedia": "セルフメディア",
     "context": "コンテキストエンジン",
-    "pdfTools": "ドキュメント→Markdown"
+    "pdfTools": "ドキュメント→Markdown",
+    "conversationImport": "会話インポート"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -2416,5 +2417,45 @@
     "uploadFailed": "アップロードに失敗しました。再試行してください",
     "convertFailed": "変換に失敗しました。再試行してください",
     "share": "共有"
+  },
+  "conversationImport": {
+    "pageTitle": "外部会話インポート",
+    "desc": "Claude Code / Codex / Cursor / Aider などの外部ツールの会話履歴をプラットフォームの会話としてインポートします。インポート後は会話履歴一覧から確認できます",
+    "sourcesTitle": "会話ソースを選択",
+    "sourceClaudeCode": "Claude Code",
+    "sourceClaudeCodeHint": "よくあるパス: ~/.claude/projects/**/*.jsonl",
+    "sourceCodex": "Codex CLI",
+    "sourceCodexHint": "よくあるパス: ~/.codex/sessions/**/*.jsonl",
+    "sourceCursor": "Cursor",
+    "sourceCursorHint": "よくあるパス: Cursor ワークスペースの state.vscdb 書き出し",
+    "sourceAider": "Aider",
+    "sourceAiderHint": "よくあるパス: ~/.aider のチャット履歴(.md)",
+    "pickFile": "書き出しファイルを選択",
+    "uploadHint": "テキスト形式の書き出しのみ対応。1 ファイル 20MB まで",
+    "fileSelected": "選択済み: {name}",
+    "parsing": "処理中...",
+    "parseFailed": "解析失敗: {error}",
+    "parseEmpty": "このファイルから会話を検出できませんでした",
+    "previewTitle": "解析プレビュー",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべて解除",
+    "selected": "選択済み {count}/{total}",
+    "messagesCount": "{count} 件のメッセージ",
+    "conversationUntitled": "無題の会話",
+    "truncatedWarning": "ファイルが大きいため一部の会話のみ解析されました。書き出しを分割して再試行してください",
+    "commit": "選択をインポート",
+    "committing": "インポート中... ({done}/{total})",
+    "commitDone": "インポート完了: 成功 {imported} 件、失敗 {failed} 件",
+    "commitFailed": "インポート失敗: {error}",
+    "errorNoSource": "先に会話ソースを選択してください",
+    "fileTooLarge": "ファイルが 20MB の制限を超えています。分割して再試行してください",
+    "historyTitle": "インポート履歴",
+    "historyEmpty": "インポート記録はまだありません",
+    "historyFailed": "インポート履歴の読み込みに失敗しました: {error}",
+    "historyParsed": "解析",
+    "historyImported": "インポート",
+    "statusSuccess": "成功",
+    "statusPartial": "一部成功",
+    "statusFailed": "失敗"
   }
 }

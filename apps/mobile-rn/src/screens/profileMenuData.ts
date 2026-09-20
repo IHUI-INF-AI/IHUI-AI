@@ -71,6 +71,7 @@ import {
   Compass,
   MessagesSquare,
   Hash,
+  FileUp,
 } from 'lucide-react-native'
 
 type ProfileRoute = keyof RootStackParamList
@@ -253,6 +254,8 @@ export const MENU_SECTIONS: MenuSection[] = [
     items: [
       { key: 'Subscriptions', labelKey: 'menu.subscriptions', icon: Repeat },
       { key: 'Settings', labelKey: 'menu.settings', icon: Settings },
+      // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
+      { key: 'ConversationImport', labelKey: 'menu.conversationImport', icon: FileUp },
       // M4(2026-08-26):复杂后台/营销功能 WebView 承载入口
       { key: 'WebViewPortal', labelKey: 'menu.webPortal', icon: Earth, viaParent: true },
       // M4.1(2026-08-26):Web 功能门户(edu-ai/教务家长/开发者/自媒体等 37 条细分入口)
