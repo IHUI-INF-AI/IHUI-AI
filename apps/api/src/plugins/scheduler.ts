@@ -43,6 +43,7 @@ export type ScheduledJobName =
   | 'ai-feed-drain'
   | 'budget-alert-check'
   | 'edu-arrear-remind-daily'
+  | 'llm-call-log-purge-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -159,6 +160,16 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'edu-arrear-remind-daily',
     pattern: '0 1 * * *',
     description: '教育欠费自动催费提醒（每日北京时间09:00）',
+  },
+  // O5(2026-09-21)llm_call_logs 原文留存:到期(prompt/response)原文批量清除,
+  // 只清原文列,token 计数/成本/归因列一律保留。默认 30 天,可用
+  // LLM_CALL_LOG_RAW_RETENTION_DAYS 调整、LLM_CALL_LOG_RAW_RETENTION_DISABLED_KEY_IDS 按 key 关闭。
+  // 取 04:15 —— 错开 data-archive-daily(04:30)与 alert-check-daily(04:00),
+  // 且早于二者,保证归档任务读到的是已收敛的原文状态。
+  {
+    name: 'llm-call-log-purge-daily',
+    pattern: '15 4 * * *',
+    description: 'llm_call_logs 到期原文清除（每日04:15）',
   },
 ]
 
