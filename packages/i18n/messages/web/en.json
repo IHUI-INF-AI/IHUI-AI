@@ -7173,12 +7173,14 @@
       "coordinated": "Coordinated {count} sub-agents to complete",
       "defaultName": "Sub Agent",
       "totalSteps": "({count} steps total)",
-      "lane.architect": "Architect",
-      "lane.coder": "Coder",
-      "lane.debugger": "Debugger",
-      "lane.general": "General",
-      "lane.researcher": "Researcher",
-      "lane.reviewer": "Reviewer",
+      "lane": {
+        "architect": "Architect",
+        "coder": "Coder",
+        "debugger": "Debugger",
+        "general": "General",
+        "researcher": "Researcher",
+        "reviewer": "Reviewer"
+      },
       "laneEmpty": "Idle",
       "viewToggle": "Toggle view",
       "working": "{count} sub-agents collaborating"
@@ -8206,15 +8208,23 @@
     "clearLog": "Clear",
     "noEvents": "No events recorded",
     "event": {
-      "tool.before": "Before tool call",
-      "tool.after": "After tool result",
-      "message.send": "Message sent",
-      "message.receive": "Message received",
-      "session.start": "Session start",
-      "session.end": "Session end",
+      "tool": {
+        "before": "Before tool call",
+        "after": "After tool result"
+      },
+      "message": {
+        "send": "Message sent",
+        "receive": "Message received"
+      },
+      "session": {
+        "start": "Session start",
+        "end": "Session end"
+      },
       "error": "Error occurred",
-      "commit.before": "Before commit",
-      "commit.after": "After commit"
+      "commit": {
+        "before": "Before commit",
+        "after": "After commit"
+      }
     },
     "action": {
       "log": "Log",
@@ -8310,15 +8320,23 @@
     "clearLog": "Clear",
     "noLog": "No forwarded events yet",
     "event": {
-      "tool.before": "Tool call start",
-      "tool.after": "Tool call done",
-      "message.send": "Message sent",
-      "message.receive": "Message received",
-      "session.start": "Session start",
-      "session.end": "Session end",
+      "tool": {
+        "before": "Tool call start",
+        "after": "Tool call done"
+      },
+      "message": {
+        "send": "Message sent",
+        "receive": "Message received"
+      },
+      "session": {
+        "start": "Session start",
+        "end": "Session end"
+      },
       "error": "Error",
-      "commit.before": "Before commit",
-      "commit.after": "After commit"
+      "commit": {
+        "before": "Before commit",
+        "after": "After commit"
+      }
     },
     "pushPerm": {
       "default": "Not asked",
@@ -9053,14 +9071,6 @@
     "modelCapTools": "Tools",
     "modelCapFim": "FIM",
     "stepsHoverPreview": "Hover to preview the last step; click to expand all",
-    "foldPolicy.title": "Intermediate steps fold policy",
-    "foldPolicy.auto": "Adaptive",
-    "foldPolicy.autoDesc": "Light queries expand; heavy tasks auto-fold by chars/tools/duration",
-    "foldPolicy.collapsed": "Always collapse",
-    "foldPolicy.collapsedDesc": "Keep intermediate steps folded; click the bar to expand",
-    "foldPolicy.expanded": "Always expand",
-    "foldPolicy.expandedDesc": "Keep intermediate steps expanded (inspired by Qoder 0.2.1)",
-    "foldPolicy.current": "Current: {mode}",
     "modelCategoryAsr": "Speech to text",
     "modelCategoryChat": "Chat",
     "modelCategoryEmbedding": "Embedding",
