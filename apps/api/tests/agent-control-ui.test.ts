@@ -48,6 +48,8 @@ interface CapabilityBody {
   browserActions?: string[]
   computerActions?: string[]
   uiActions?: string[]
+  appUiActions?: string[]
+  taroUiActions?: string[]
   version?: string
 }
 
@@ -68,6 +70,8 @@ interface StatusEndpoint {
   browserActions: number
   computerActions: number
   uiActions: number
+  appUiActions: number
+  taroUiActions: number
 }
 
 const INTERNAL_HEADERS = { authorization: `Bearer ${INTERNAL_SECRET}` }
@@ -427,6 +431,76 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     )
     expect(res.statusCode).toBe(401)
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('⑭ 三类 UI 通道各投各端:ui→web / app_ui→rn / miniapp_ui→miniapp,互不抢指令', async () => {
+    const iso = () => new Date().toISOString()
+    await reportCapability(
+      { endpoint: 'web', instanceId: 'web-1', uiActions: [...ALL_UI_ACTIONS], reportedAt: iso() },
+      USER_A,
+    )
+    await reportCapability(
+      {
+        endpoint: 'rn',
+        instanceId: 'rn-1',
+        appUiActions: ['describe', 'navigate', 'read', 'invoke'],
+        reportedAt: iso(),
+      },
+      USER_A,
+    )
+    await reportCapability(
+      {
+        endpoint: 'miniapp',
+        instanceId: 'mp-1',
+        taroUiActions: ['describe', 'navigate', 'read', 'invoke'],
+        reportedAt: iso(),
+      },
+      USER_A,
+    )
+    // 三个 category 必须落在三个不同端点:1:1 映射若写错,指令会被另一端吃掉
+    expect(__test__.findEndpointByCategory('ui', USER_A)?.capability.instanceId).toBe('web-1')
+    expect(__test__.findEndpointByCategory('app_ui', USER_A)?.capability.instanceId).toBe('rn-1')
+    expect(__test__.findEndpointByCategory('miniapp_ui', USER_A)?.capability.instanceId).toBe(
+      'mp-1',
+    )
+    // 无 rn 端应答时超时,且推送内容确实是 app_ui 请求(证明投递方向正确)
+    const res = await executeCommand({
+      requestId: 'req-cat-1',
+      category: 'app_ui',
+      action: 'navigate',
+      params: { name: 'Chat' },
+      userId: USER_A,
+      timeout: 1000,
+    })
+    const body = res.json() as { data?: { success: boolean; errorCode?: string } }
+    expect(body.data?.errorCode).toBe('TIMEOUT')
+    const last = mockPush.mock.calls.at(-1)?.[1] as { type: string; request: { category: string } }
+    expect(last.type).toBe('agent.action')
+    expect(last.request.category).toBe('app_ui')
+  })
+
+  it('⑮ endpoint=rn 能力可注册且 /status 分别计数;未知 endpoint 仍被拒', async () => {
+    const res = await reportCapability(
+      {
+        endpoint: 'rn',
+        instanceId: 'rn-s',
+        appUiActions: ['describe', 'navigate', 'read', 'invoke'],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    expect(res.statusCode).toBe(200)
+    expect(__test__.endpoints.get('rn-s')?.capability.appUiActions).toHaveLength(4)
+    const st = await app.inject({ method: 'GET', url: PREFIX + '/status' })
+    const rows = (st.json() as { data?: { endpoints?: StatusEndpoint[] } }).data?.endpoints ?? []
+    const me = rows.find((r) => r.instanceId === 'rn-s')
+    expect(me?.appUiActions).toBe(4)
+    expect(me?.uiActions).toBe(0)
+    const bad = await reportCapability(
+      { endpoint: 'watch', instanceId: 'bad-1', reportedAt: new Date().toISOString() },
+      USER_A,
+    )
+    expect(bad.statusCode).toBe(400)
   })
 
   it('⑬ category=ui 被 executeSchema 接受(非法 category 仍 400)', async () => {

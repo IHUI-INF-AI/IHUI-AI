@@ -50,7 +50,8 @@ def _clean(monkeypatch: pytest.MonkeyPatch) -> Any:
     ub._PINNED_INSTANCE.clear()
     yield
     ub._PINNED_INSTANCE.clear()
-    ub.unregister_external_tool_by_prefix("web_ui_")
+    for prefix in ("web_ui_", "mobile_ui_", "taro_ui_"):
+        ub.unregister_external_tool_by_prefix(prefix)
 
 
 @pytest.fixture
@@ -241,7 +242,7 @@ async def test_instance_pin_threads_target_instance_id(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
     await ub._ui_call("describe", {"__user_id": _USER})
-    assert ub._PINNED_INSTANCE[_USER] == "web-abc"
+    assert ub._PINNED_INSTANCE[(_USER, 'ui')] == "web-abc"
     assert "targetInstanceId" not in calls[0]  # 首条无从钉定
 
     await ub._ui_call("fill", {"__user_id": _USER, "target": "el:input#7", "value": 1})
@@ -258,10 +259,10 @@ async def test_pin_cleared_when_target_gone(monkeypatch: pytest.MonkeyPatch) -> 
         )
 
     monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
-    ub._PINNED_INSTANCE[_USER] = "web-dead"
+    ub._PINNED_INSTANCE[(_USER, 'ui')] = "web-dead"
     out = await ub._ui_call("read", {"__user_id": _USER})
     assert out["errorCode"] == "TARGET_NOT_CONNECTED"
-    assert _USER not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
+    assert (_USER, 'ui') not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +286,67 @@ async def test_registered_handlers_reachable_via_call_tool(
     out = await mcp_server.call_tool("web_ui_read", {}, user_id=_USER)
     assert out["ok"] is True
     assert out["tool"] == "web_ui_read"
+
+
+_APP_ACTIONS = {"describe", "navigate", "read", "invoke"}
+
+
+def test_app_tool_families_shapes() -> None:
+    """RN / 小程序族各四工具,无 DOM 端刻意不含 click/fill/submit。"""
+    for family, prefix in (("mobile", "mobile_ui_"), ("taro", "taro_ui_")):
+        tools = {t.name: t for t, _ in ub._app_tools(family)}
+        assert set(tools) == {prefix + a for a in _APP_ACTIONS}, family
+        for name, tool in tools.items():
+            assert "[UI桥接|" in tool.description, name
+            assert "TARGET_NOT_CONNECTED" in tool.description, name  # 后台挂起是常态,须告知模型
+        assert tools[prefix + "navigate"].input_schema["required"] == ["name"]
+        assert tools[prefix + "invoke"].input_schema["required"] == ["name"]
+        assert prefix + "click" not in tools and prefix + "fill" not in tools
+
+
+def test_register_app_ui_tools_counts_and_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services.mcp_server import mcp_server
+
+    assert ub.register_app_ui_tools() == 8
+    assert ub.register_app_ui_tools() == 0  # 幂等:同名不覆盖
+    monkeypatch.setenv("APP_UI_TOOLS", "false")
+    # 关闭时既不再注册,也要把已注册的两族撤掉(与 web 族同一语义)
+    assert ub.register_app_ui_tools() == 0
+    names = {t.name for t in mcp_server.list_tools()}
+    assert not {n for n in names if n.startswith(("mobile_ui_", "taro_ui_"))}
+
+
+async def test_pin_is_per_category_so_ends_do_not_cross_steal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """同一用户 web + RN 同时在线:钉定必须按 category 分键,不能串页。"""
+    calls: list[dict[str, Any]] = []
+
+    async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
+        req = dict(kwargs.get("json") or {})
+        calls.append(req)
+        inst = "web-1" if req["category"] == "ui" else "rn-1"
+        return _Resp(payload={"code": 0, "data": {"success": True, "data": {"instanceId": inst}}})
+
+    monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
+    await ub._ui_call("describe", {"__user_id": _USER})  # web 钉 web-1
+    await ub._ui_call("describe", {"__user_id": _USER}, "app_ui", "mobile_ui_")  # RN 钉 rn-1
+    assert ub._PINNED_INSTANCE[(_USER, "ui")] == "web-1"
+    assert ub._PINNED_INSTANCE[(_USER, "app_ui")] == "rn-1"
+    await ub._ui_call("navigate", {"__user_id": _USER, "name": "Chat"}, "app_ui", "mobile_ui_")
+    assert calls[-1]["category"] == "app_ui"
+    assert calls[-1]["targetInstanceId"] == "rn-1"  # 不会带 web 的 instanceId 去投 RN
+    await ub._ui_call("read", {"__user_id": _USER})
+    assert calls[-1]["category"] == "ui"
+    assert calls[-1]["targetInstanceId"] == "web-1"
+
+
+def test_app_families_are_registered_in_tool_table() -> None:
+    from app.services.mcp_server import mcp_server
+
+    ub.register_app_ui_tools()
+    names = {t.name for t in mcp_server.list_tools()}
+    assert {"mobile_ui_describe", "taro_ui_navigate"} <= names
 
 
 def test_unregister_prefix_removes_tools() -> None:

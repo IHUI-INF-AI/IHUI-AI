@@ -181,6 +181,29 @@ export interface ComputerClipboardSetParams {
 // ================== Web UI Control(由 web 前端执行,2026-09-20 立)==================
 
 /**
+ * 移动端(React Native)可控动作类别(2026-09-21 立,§9 多端同步)。
+ *
+ * 与 web 的 UiControlActionType 不相交:RN 没有 DOM,click/fill/submit 不成立,
+ * 只保留"导航到已注册 Screen / 读当前路由 / 调用 setter 型命令 / 列举可去处"四个动作。
+ * 单独占一个 category('app_ui')而非复用 'ui',是因为 api 侧 category→endpoint 是一对一,
+ * 同一用户 web 与 RN 同时在线时必须各投各的端(否则指令会被随机一端吃掉)。
+ */
+export type AppUiActionType = 'describe' | 'navigate' | 'read' | 'invoke'
+
+/** 小程序端(Taro)可控动作:与 RN 同四项,但单独占 category='miniapp_ui'(见上段注释的 1:1 择端约束) */
+export type TaroUiActionType = AppUiActionType
+
+/** RN 端 web_ui_describe 的应答快照:路由清单 + 可调用命令 + 当前路由 */
+export interface AppUiSnapshot {
+  version: 1
+  screen: { name: string; key?: string; params?: Record<string, unknown> }
+  routes: { name: string; requiresParams: boolean; tab: boolean }[]
+  commands: { id: string; label: string; group: string }[]
+  /** 未登录时只挂 3 条 Screen,其余会静默失败 —— 用该字段告诉模型真实可用面 */
+  authed: boolean
+}
+
+/**
  * 本站前端可控动作类别。与 browser_*(外部网页)/ computer_*(操作系统)互补:
  * ui 类动作只作用于**自家应用页面**,靠注册表(actionId)定位而非任意选择器。
  */
@@ -288,9 +311,14 @@ export interface AgentActionRequest {
   /** 唯一请求 ID,用于结果回传配对 */
   requestId: string
   /** 控制类别 */
-  category: 'browser' | 'computer' | 'ui'
+  category: 'browser' | 'computer' | 'ui' | 'app_ui' | 'miniapp_ui'
   /** 具体 action 类型 */
-  action: BrowserControlActionType | ComputerControlActionType | UiControlActionType
+  action:
+    | BrowserControlActionType
+    | ComputerControlActionType
+    | UiControlActionType
+    | AppUiActionType
+    | TaroUiActionType
   /** action 参数(根据 action 类型不同) */
   params: Record<string, unknown>
   /** 来源 MCP tool 调用 ID */
@@ -355,7 +383,7 @@ export interface AgentActionResponse {
   /** 执行耗时 ms */
   durationMs: number
   /** 执行端 */
-  executedBy: 'extension' | 'desktop' | 'web' | 'unknown'
+  executedBy: 'extension' | 'desktop' | 'web' | 'rn' | 'miniapp' | 'unknown'
 }
 
 // ================== Extension/Desktop/Web → API 通道(能力声明)==================
@@ -363,7 +391,7 @@ export interface AgentActionResponse {
 /** 客户端能力声明(extension/desktop/web 启动时上报给 api) */
 export interface AgentControlCapability {
   /** 端类型 */
-  endpoint: 'extension' | 'desktop' | 'web'
+  endpoint: 'extension' | 'desktop' | 'web' | 'rn' | 'miniapp'
   /** 端实例 ID(多端并存时区分) */
   instanceId: string
   /** 支持的 browser action 列表 */
@@ -372,6 +400,10 @@ export interface AgentControlCapability {
   computerActions?: ComputerControlActionType[]
   /** 支持的 web UI action 列表(2026-09-20 立,web 前端上报) */
   uiActions?: UiControlActionType[]
+  /** 支持的 RN 端 action 列表(2026-09-21 立,mobile-rn 上报) */
+  appUiActions?: AppUiActionType[]
+  /** 支持的小程序 action 列表(2026-09-21 立,miniapp-taro 上报) */
+  taroUiActions?: TaroUiActionType[]
   /** 端版本 */
   version?: string
   /** 上报时间 ISO */

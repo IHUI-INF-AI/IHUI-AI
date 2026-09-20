@@ -706,11 +706,11 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 三条互补路线，全部复用既有链路，不新增鉴权体系：
 
-| 路线                           | 机制                                                                                        | 覆盖面                                                                                                                                                      | 关键实现                                                      |
-| ------------------------------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表      | 后端全部 HTTP 能力(read 模式 **2027 个只读端点可调用**：300 个注册为独立工具，长尾经 `api_endpoint_call` 即时派发；调用 URL 按 `spec.servers` 解析挂载前缀) | `api_tools_bridge.spec_to_tools()` + `resolve_mounted_path()` |
-| **B. 前端 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果 | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用                                                                                   | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts`   |
-| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                          | 任意 UI(含第三方站点)，无需改造                                                                                                                             | 既有 agent-control 通道，本次仅扩 category 枚举               |
+| 路线                           | 机制                                                                                                                                   | 覆盖面                                                                                                                                                      | 关键实现                                                      |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **A. API 全量工具化**          | 启动时拉取 `apps/api` 的 OpenAPI spec(`/docs/json`)，逐端点生成 MCP 工具注入自研工具表                                                 | 后端全部 HTTP 能力(read 模式 **2027 个只读端点可调用**：300 个注册为独立工具，长尾经 `api_endpoint_call` 即时派发；调用 URL 按 `spec.servers` 解析挂载前缀) | `api_tools_bridge.spec_to_tools()` + `resolve_mounted_path()` |
+| **B. 端侧 UI 动作桥接**        | `web_ui_*` 七工具经 `agent-control` 通道(category=`ui`)下发到用户浏览器，前端执行后回传结果；RN/小程序各四工具走 `app_ui`/`miniapp_ui` | 站内导航 / 按钮点击 / 表单填写 / 表单提交 / 页面读取 / 命令面板与模式调用（RN、小程序无 DOM，仅 describe/read/navigate/invoke）                             | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts`   |     | `ui_action_bridge.py` + `web/src/lib/ui-action-registry.ts` |
+| **C. Computer / Browser 兜底** | 既有 `computer_*`(桌面) / `browser_*`(扩展) 工具看屏幕像人一样操作                                                                     | 任意 UI(含第三方站点)，无需改造                                                                                                                             | 既有 agent-control 通道，本次仅扩 category 枚举               |
 
 端点数量实测 4471 个 operation，完整 schema 全塞进一次对话不现实；A 路线因此提供两个**名字恒定**的入口工具，
 让模型"先搜后调"，token 成本与端点数解耦：
@@ -726,15 +726,15 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 
 ### 安全闸门(不做 bypass 式全量放开)
 
-| 层     | 闸门                                                                                                                                                                       | 落点                                   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 身份   | 所有桥接调用必须带 `__user_id`，经 `X-Internal-Service-Token` + `X-user-id` 代调，api 侧校验用户存在且活跃                                                                 | `internal-service-token.ts`            |
-| 权限   | 写端点(POST/PUT/PATCH/DELETE)需 `__user_role >= 1`，且 api 侧 RBAC 二次兜底                                                                                                | `api_tools_bridge.make_api_handler`    |
-| 越权面 | OpenAPI 的 header/cookie 型参数一律不暴露给 LLM，防越权头注入；路径参数强制 URL 编码，防路径穿越                                                                           | 同上                                   |
-| 多租户 | `category='ui'` 指令按 userId 过滤端点，只会推给该用户自己的浏览器                                                                                                         | `agent-control.findEndpointByCategory` |
-| 破坏性 | 前端硬拦截:密码/验证码/secret 类字段拒填(`PERMISSION_DENIED`)，删除/注销/提现/支付类目标拒绝点击提交(`DESTRUCTIVE_BLOCKED`)，导航仅放行站内路由白名单(`ROUTE_NOT_ALLOWED`) | `ui-action-registry.ts`                |
-| 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                    | `conversation.py`                      |
-| 开关   | `API_TOOLS_MODE=off\|read\|all`(默认 read)、`UI_ACTION_TOOLS=false` 可独立关闭；密钥缺失 fail-closed                                                                       | `apps/ai-service/.env.example`         |
+| 层     | 闸门                                                                                                                                                                           | 落点                                   |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| 身份   | 所有桥接调用必须带 `__user_id`，经 `X-Internal-Service-Token` + `X-user-id` 代调，api 侧校验用户存在且活跃                                                                     | `internal-service-token.ts`            |
+| 权限   | 写端点(POST/PUT/PATCH/DELETE)需 `__user_role >= 1`，且 api 侧 RBAC 二次兜底                                                                                                    | `api_tools_bridge.make_api_handler`    |
+| 越权面 | OpenAPI 的 header/cookie 型参数一律不暴露给 LLM，防越权头注入；路径参数强制 URL 编码，防路径穿越                                                                               | 同上                                   |
+| 多租户 | `category='ui'` 指令按 userId 过滤端点，只会推给该用户自己的浏览器                                                                                                             | `agent-control.findEndpointByCategory` |
+| 破坏性 | web 前端硬拦截:密码/验证码/secret 类字段拒填(`PERMISSION_DENIED`)，删除/注销/提现/支付类目标拒绝点击提交(`DESTRUCTIVE_BLOCKED`)，导航仅放行站内路由白名单(`ROUTE_NOT_ALLOWED`) | `ui-action-registry.ts`                |
+| 幻觉   | 注入 `_UI_RENDER_PROMPT`:动作 ok=true 只代表前端已执行，必须再 `web_ui_read` 核对，未核对不得声称已提交                                                                        | `conversation.py`                      |
+| 开关   | `API_TOOLS_MODE=off\|read\|all`(默认 read)、`UI_ACTION_TOOLS=false` 可独立关闭；密钥缺失 fail-closed                                                                           | `apps/ai-service/.env.example`         |
 
 ### 真机验证中发现并修掉的两个可用性问题(2026-09-20)
 
@@ -766,9 +766,9 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
 | `UI_ACTION_TOOLS`       | `true`                           | 是否注册 `web_ui_*` 七工具                                                   |
 | `UI_ACTION_TIMEOUT`     | `20`                             | 等待前端回传执行结果的秒数                                                   |
 
-> 端类型说明:路线 B 覆盖 **web + desktop**(桌面端 Tauri 跑的就是这份前端,DOM 同源可用);
-> `category:'ui'` 与 extension 的 `browser_*`、desktop 原生的 `computer_*` 是三条不相交通道，
-> api 按 category 择端，同页并存不冲突。miniapp-taro / mobile-rn 无同源 DOM，不属本路线。
+> 端类型说明:路线 B 覆盖 **web + desktop(同一份前端)**、**mobile-rn(Expo/RN)** 与 **miniapp-taro(微信小程序)**，
+> 三端各自 endpoint/`category`，互不抢指令；RN 与小程序无 DOM，故只有 describe/read/navigate/invoke 四个动作
+> (click/fill/submit 需业务组件逐个暴露写入通道，不在本路线内)。
 
 ---
 
