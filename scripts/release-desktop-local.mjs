@@ -28,7 +28,7 @@ const NO_INSTALL = process.argv.includes('--no-install');
 const NO_PUSH = process.argv.includes('--no-push');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
 
-const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inherit', encoding: 'utf8', ...opts });
+const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inherit', encoding: 'utf8', windowsHide: true, ...opts });
 
 // ── 1. 版本 bump ──
 const conf = JSON.parse(readFileSync(CONF, 'utf8'));
@@ -83,7 +83,7 @@ const giteeTok = existsSync(GITEE_KEY_FILE)
 if (!giteeTok) { console.error('ERROR: 无法获取 gitee.com token(密钥文件与环境变量均无)'); process.exit(1); }
 const gr = spawnSync('python', [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
   stdio: 'inherit',
-  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000,
+  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000, windowsHide: true,
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
 // feed 已改为 release 附件 + 站点快照方案(2026-09-17):
@@ -103,7 +103,7 @@ console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version}
 
 // ── 5. 本机静默自装 ──
 if (!NO_INSTALL) {
-  const running = spawnSync('tasklist', []).stdout?.toString().toLowerCase().includes('ihui-desktop');
+  const running = spawnSync('tasklist', [], { windowsHide: true }).stdout?.toString().toLowerCase().includes('ihui-desktop');
   if (running) {
     console.log('⚠️ 桌面端正在运行,跳过自装(请关闭后重跑或手动安装)');
   } else {

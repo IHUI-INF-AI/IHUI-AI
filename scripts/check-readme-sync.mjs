@@ -65,6 +65,7 @@ function getStagedFiles() {
     const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
       encoding: "utf8",
       cwd: ROOT,
+      windowsHide: true,
     });
     return out.trim().split("\n").filter(Boolean);
   } catch {
@@ -90,7 +91,7 @@ function main() {
   } else {
     // 全量扫描 working tree(非 staged 模式)
     try {
-      const out = execSync("git diff --name-only HEAD", { encoding: "utf8", cwd: ROOT });
+      const out = execSync("git diff --name-only HEAD", { encoding: "utf8", cwd: ROOT, windowsHide: true });
       files = out.trim().split("\n").filter(Boolean);
     } catch {
       files = [];

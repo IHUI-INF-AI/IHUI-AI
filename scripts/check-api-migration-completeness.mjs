@@ -106,6 +106,7 @@ if (stagedMode) {
     const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
       encoding: 'utf-8',
       cwd: ROOT,
+      windowsHide: true,
     })
     stagedFiles = out.split(/\r?\n/).filter((l) => l.trim().length > 0)
   } catch {

@@ -26,6 +26,16 @@
 - [x] ✅(2026-09-20) 端到端复验(注册表值 + 子进程完全不写 `windowsHide`):ESM 具名导入 / 无 options / `execSync`+shell 三例均无弹窗,显式 `false` 一例仍弹(符合预期);回归 `pnpm --version` / `git-lock check` / `git-push-converge` 均正常
 - [x] ✅(2026-09-20) 规则与文档同步:AGENTS.md §5b 新增"🧬 机器级根治 windowsHide 默认值"条目,README「快速开始 → 环境要求」新增 Windows 静默化小节
 
+### 二轮彻底收口(用户追加"毫无遗漏"要求,5 个并行 agent)
+
+- [x] ✅(2026-09-20) 全仓穷举扫描升级为**括号配平提取首参**(行级启发式会漏"目标在下一行"的多行调用),覆盖 `scripts` / `.husky` / `apps` / `packages` / `benchmarks` / `deploy` 共 7666 文件
+- [x] ✅(2026-09-20) 生产代码逐点收口 **95 处 / 49 文件**:scripts 侧 54 处(前半 26 + 后半 28)、守门新暴露 26 处(含 `apps/api` 常驻服务与 `benchmarks` / `deploy`)、`apps/api`+`apps/cli` 15 处、`apps/web`/miniapp/desktop 4 处、e2e 4 处
+- [x] ✅(2026-09-20) 纠正一条长期误解:**`.husky/pre-commit` 实为 node 脚本而非 sh**,其 11 个 node 级派生点经程序化核验**已全部带 `windowsHide`**;7 个钩子均判定"无 node 级可补点"(shell 级派生不存在该参数),此为有效结论而非遗漏
+- [x] ✅(2026-09-20) 新增机制守门 `scripts/check-no-visible-spawn.mjs`(guardian-runner 第 **52** 项,blocking)+ §22c 镜像测试 `scripts/tests/check-no-visible-spawn.test.mjs`(17 例)+ `--self-test` 14 例;开发中自查出并修掉两处自身缺陷:模块级正则 `lastIndex` 跨文件未重置(会漏扫)、Windows 绝对路径含空格被按空格切分(漏报 `C:\Program Files\Git\cmd\git.exe`)
+- [x] ✅(2026-09-20) 最终态:全量扫描**生产代码 0 违规**(测试代码 469 处降为 warn,理由:测试由终端 runner 派生,子进程继承已有控制台不新分配窗口 —— 已写入守门输出与 AGENTS.md 作为显式判断,非静默跳过)
+- [x] ✅(2026-09-20) 补齐 §5b 声称存在但**本机实际缺失**的 `IHUI-AI git-guardian` 计划任务(`git-guardian.mjs --install`,每 2 分钟),实测触发一次即自愈缺失的 `refs/remotes/origin/{HEAD,main}`,`--check` 转健康;注册前已只读确认其对目录形态 `.git` 判定 `pointerOk/gitdirOk/gitUsable = true`,不会触发自愈覆盖
+- [x] ✅(2026-09-20) 另查明两条既有事实:`IHUI-KillGitSelector` 计划任务的 9 天持续时间**已于 2026-08-22 到期**(NextRun 为空),它早已不再"每分钟杀窗";`IHUI_{Web,Api,Ai}_Dev` / `IHUI_Dev_Start` 四个 `.cmd` 任务最后运行停在 2026-08-31,均已停跑,非弹窗来源
+
 > 未采纳(用户明确否决):`credential.helper` 三层叠加(wincred + GCM manager + store)与每分钟 `IHUI-KillGitSelector`
 > 计划任务属另一类弹窗(凭据助手 GUI);用户确认本机只弹黑色命令行窗口,故 git 全局配置与该任务**一律未改动**。
 

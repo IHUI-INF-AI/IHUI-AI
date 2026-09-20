@@ -1077,6 +1077,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 52 (2026-09-20 新增,桌面弹窗复发守门,AGENTS.md §5b「机器级根治 windowsHide 默认值」配套) ---
+  // blocking:派生控制台程序(git/node/pnpm/cmd/pwsh/schtasks…)却漏 windowsHide 的调用点。
+  // 根因:Node v24 该方法默认 false,无控制台父进程(agent GUI 宿主 / detached worker / 计划任务)
+  // 派生时 Windows 必新分配可见控制台 → 用户桌面闪黑窗。此问题历史复发 4 次,改为机制拦截。
+  // 采用"宁漏不误报"策略:仅首参可**肯定**是控制台程序时判违规,避免误阻塞他人提交。
+  {
+    id: '52',
+    label: '🪟 派生弹窗守门(blocking,AGENTS.md §5b windowsHide 默认值配套)',
+    script: 'check-no-visible-spawn.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到派生控制台程序但漏 windowsHide → 无控制台父进程下必弹可见黑窗。',
+      '     修复:在该调用的 options 里加 `windowsHide: true`;',
+      '           无 options 则补 `{ windowsHide: true }`;带 args 数组补在 args 之后;',
+      '           末位是 callback 的把 options 插在 callback 之前。',
+      '     自检:node scripts/check-no-visible-spawn.mjs --self-test',
+      '     全量:node scripts/check-no-visible-spawn.mjs',
+      '     开发机静默兜底:node scripts/install-console-window-hook.mjs --verify',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',
