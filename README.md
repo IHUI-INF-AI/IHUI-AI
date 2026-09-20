@@ -758,8 +758,9 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | `UI_ACTION_TOOLS`       | `true`                           | 是否注册 `web_ui_*` 七工具                                                   |
 | `UI_ACTION_TIMEOUT`     | `20`                             | 等待前端回传执行结果的秒数                                                   |
 
-> 端类型说明:路线 B 仅 web 端(依赖 DOM)，属 AGENTS.md §9 平台独占豁免;
-> desktop/extension 侧的 `computer_*` / `browser_*` 通道保持原语义不变。
+> 端类型说明:路线 B 覆盖 **web + desktop**(桌面端 Tauri 跑的就是这份前端,DOM 同源可用);
+> `category:'ui'` 与 extension 的 `browser_*`、desktop 原生的 `computer_*` 是三条不相交通道，
+> api 按 category 择端，同页并存不冲突。miniapp-taro / mobile-rn 无同源 DOM，不属本路线。
 
 ---
 
