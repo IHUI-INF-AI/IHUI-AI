@@ -35,7 +35,8 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 import httpx
 
@@ -344,7 +345,7 @@ def _app_tools(family: str) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Aw
         ),
         (
             "navigate",
-            f"[UI桥接|{label}] 导航到 web_ui_describe 返回的某个页面。name 必须在白名单内"
+            f"[UI桥接|{label}] 导航到 {prefix}describe 返回的某个页面。name 必须在白名单内"
             "否则 ROUTE_NOT_ALLOWED;需要参数的页面必须同时给 args。导航后务必用 "
             f"{prefix}read 核对。" + offline_hint,
             {

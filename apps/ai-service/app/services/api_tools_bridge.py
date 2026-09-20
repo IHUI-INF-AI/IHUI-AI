@@ -17,7 +17,7 @@ mcp_server 工具注册表 —— LLM 可经既有 call_tool 路径直接调用�
                               响应超 4000 字符截断)
 - api_endpoints_search /      两个名字恒定的入口工具:端点数可达数百,schema 全量
   api_endpoint_call           进上下文不现实,模型"先搜后调"抵达任意端点
-- setup_api_tools_bridge():   按 API_TOOLS_MODE(off|read|all,默认 read)注册
+- setup_api_tools_bridge():   按 API_TOOLS_MODE(off|read|all,默认 all)注册
 - refresh_api_tools_bridge(): 清 spec 缓存后重新拉取并注册
 
 安全:
@@ -33,14 +33,15 @@ import logging
 import os
 import re
 import time
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 from urllib.parse import quote
 
 import httpx
 
 from .mcp_server import (
-    MCPTool,
     _TOOL_HANDLERS,
+    MCPTool,
     mcp_server,
     register_external_tool,
     unregister_external_tool_by_prefix,
@@ -561,11 +562,16 @@ def _entry_tools() -> list[tuple[MCPTool, Any]]:
 async def setup_api_tools_bridge() -> int:
     """按 API_TOOLS_MODE 把 API 端点注册为 MCP 工具,返回注册数量(失败降级返 0)。
 
-    - off:  不注册(并清掉既有 api_ 前缀外部工具)
-    - read: 仅 GET(默认)
-    - all:  GET/POST/PUT/PATCH/DELETE 全量(写操作仍受 __user_role>=1 闸门约束)
+    - off:  不注册(并清掉既有 api_ 前缀工具)
+    - read: 仅 GET —— 多租户公开部署的收紧开关
+    - all:  GET/POST/PUT/PATCH/DELETE 全量(默认)
+
+    默认 all 不等于"任何人都能写":写操作仍受两道闸 —— handler 内 `__user_role>=1`
+    (拿不到身份的匿名调用 role 恒 0,直接 PERMISSION_DENIED),以及 api 侧各路由自己的
+    RBAC。放开的是**可见面**,不是**授权面**;要按用户身份才调得动这一点正是"AI 操控本站"
+    的立项目标。反过来 read-only 只会让"改个配置""新建个会话"这类需求静默失败。
     """
-    mode = os.environ.get("API_TOOLS_MODE", "read").strip().lower()
+    mode = os.environ.get("API_TOOLS_MODE", "all").strip().lower()
     unregister_external_tool_by_prefix("api_")
     _API_TOOL_INDEX.clear()
     if mode == "off":
