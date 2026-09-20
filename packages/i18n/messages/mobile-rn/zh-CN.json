@@ -299,7 +299,8 @@
     "chatTools": "AI 对话 / 工具",
     "cart": "购物车",
     "circleIndex": "圈子广场",
-    "topicList": "话题"
+    "topicList": "话题",
+    "conversationImport": "会话导入"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -2416,5 +2417,45 @@
       "error": "加载失败"
     },
     "empty": "暂无内容"
+  },
+  "conversationImport": {
+    "pageTitle": "外部会话导入",
+    "desc": "将 Claude Code / Codex / Cursor / Aider 等外部工具的会话记录导入为平台会话,导入后可在历史对话列表查看",
+    "sourcesTitle": "选择会话来源",
+    "sourceClaudeCode": "Claude Code",
+    "sourceClaudeCodeHint": "典型路径:~/.claude/projects/**/*.jsonl",
+    "sourceCodex": "Codex CLI",
+    "sourceCodexHint": "典型路径:~/.codex/sessions/**/*.jsonl",
+    "sourceCursor": "Cursor",
+    "sourceCursorHint": "典型路径:Cursor 工作区 state.vscdb 导出",
+    "sourceAider": "Aider",
+    "sourceAiderHint": "典型路径:~/.aider/chat 历史(.md)",
+    "pickFile": "选择导出文件",
+    "uploadHint": "仅支持文本导出格式,单文件不超过 20MB",
+    "fileSelected": "已选择:{name}",
+    "parsing": "处理中...",
+    "parseFailed": "解析失败:{error}",
+    "parseEmpty": "未在文件中解析出任何会话",
+    "previewTitle": "解析预览",
+    "selectAll": "全选",
+    "deselectAll": "全不选",
+    "selected": "已选 {count}/{total}",
+    "messagesCount": "{count} 条消息",
+    "conversationUntitled": "未命名会话",
+    "truncatedWarning": "文件过大,仅解析出部分会话,请拆分导出文件后重试",
+    "commit": "导入所选",
+    "committing": "导入中...({done}/{total})",
+    "commitDone": "导入完成:成功 {imported},失败 {failed}",
+    "commitFailed": "导入失败:{error}",
+    "errorNoSource": "请先选择会话来源",
+    "fileTooLarge": "文件超过 20MB 限制,请拆分后重试",
+    "historyTitle": "导入历史",
+    "historyEmpty": "暂无导入记录",
+    "historyFailed": "加载导入历史失败:{error}",
+    "historyParsed": "解析",
+    "historyImported": "导入",
+    "statusSuccess": "成功",
+    "statusPartial": "部分成功",
+    "statusFailed": "失败"
   }
 }
