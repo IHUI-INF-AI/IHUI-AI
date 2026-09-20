@@ -443,10 +443,23 @@ if (isWorkerMode) {
         // 命令行里含空格路径 → 整体加双引号;嵌入 PS 单引号字符串前转义单引号
         const cmdLine =
           `"${process.execPath}" "${resolve(process.cwd(), 'scripts/git-push-guard.mjs')}" --branch=${branch} --watchdog`
+        // 2026-09-20 弹窗根治(用户反馈"git 上传时总弹 cmd 窗口,应后台静默"):
+        // WMI Win32_Process.Create 默认给新进程分配**可见的新控制台**(node.exe 是
+        // 控制台程序),watchdog 一活 40 分钟 → 每次 commit 后弹一个黑窗且久挂不退。
+        // 修法:传 Win32_ProcessStartup 启动参数,与 worker/watchdog 的 node 层
+        // windowsHide:true 对齐 ——
+        //   CreateFlags = CREATE_NO_WINDOW (0x08000000) → 新进程不分配可见控制台
+        //   ShowWindow  = SW_HIDE (0)                  → 双保险
+        // 派生结果落盘 .workbuddy/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
+        const wdOutFile = resolve(process.cwd(), '.workbuddy/wmi-watchdog-last.txt')
         const wdScript =
-          `Invoke-CimMethod -ClassName Win32_Process -MethodName Create ` +
-          `-Arguments @{CommandLine='${cmdLine.replace(/'/g, "''")}'}` +
-          ` | Out-Null`
+          `try { ` +
+          `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{CreateFlags=[uint32]2147483648; ShowWindow=[uint16]0}; ` +
+          `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create ` +
+          `-Arguments @{CommandLine='${cmdLine.replace(/'/g, "''")}'; ProcessStartupInformation=$s}; ` +
+          `$alive = if ($r.ProcessId) { [bool](Get-Process -Id $r.ProcessId -ErrorAction SilentlyContinue) } else { $false }; ` +
+          `Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("ret=" + $r.ReturnValue + " pid=" + $r.ProcessId + " alive=" + $alive + " ts=" + (Get-Date -Format o)); ` +
+          `} catch { Set-Content -Path '${wdOutFile.replace(/'/g, "''")}' -Value ("error=" + $_.Exception.Message) }`
         const wd = spawn(
           'powershell.exe',
           ['-NoProfile', '-NonInteractive', '-Command', wdScript],
