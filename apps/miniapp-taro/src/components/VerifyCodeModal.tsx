@@ -115,9 +115,11 @@ export default function VerifyCodeModal({
 
   if (!visible) return null
 
+  // 单条带 ICU 参数的完整消息,禁止 "…后重" + tt('p1','发') 这种把词劈成两半的拼接
+  // (en/ko/ja 语法上不可能成立)。复用 shared/auth.resendCode 既有五语译法。
   const sendText =
     countdown > 0
-      ? `${countdown}s 后重{tt('VerifyCodeModal.p1', '发')}`
+      ? tt('auth.resendCode', '{seconds}s 后重发', { seconds: countdown })
       : tt('VerifyCodeModal.p2', '重新发送')
 
   return (
