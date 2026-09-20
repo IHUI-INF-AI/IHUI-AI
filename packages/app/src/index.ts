@@ -132,6 +132,19 @@ export { LecturerDetailScreen } from './features/lecturer-detail/LecturerDetailS
 export { NoteScreen } from './features/note/NoteScreen'
 export { SubscriptionsScreen } from './features/subscriptions/SubscriptionsScreen'
 export { TaskCenterScreen } from './features/task-center/TaskCenterScreen'
+/** D28 多端同步(2026-09-21):外部会话导入共享屏(对应 web 端 /settings/import 的会话导入 Tab) */
+export { ConversationImportScreen } from './features/conversation-import/ConversationImportScreen'
+export type {
+  ConversationImportScreenProps,
+  ConversationImportSourceOption,
+  ConversationImportTFunction,
+  ConversationImportHistoryRow,
+  ConversationImportHistoryStatus,
+  ImportPreviewRow,
+  ImportParseResult,
+  ImportCommitResult,
+  PickedImportFile,
+} from './features/conversation-import/ConversationImportScreen'
 /** 批次 23(2026-07-29):Agent 系深屏(统计/设置/创建/聊天)+ 课程系深屏(列表/详情/筛选/评论) */
 export { AgentStatScreen } from './features/agent-stat/AgentStatScreen'
 export { AgentSettingScreen } from './features/agent-setting/AgentSettingScreen'
