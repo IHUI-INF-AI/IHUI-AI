@@ -30,11 +30,20 @@
 - `ihui.echo / ihui.now_utc / ihui.capabilities` 三个自诊断工具能力目录无映射,
   按"零副作用 + 明确豁免 scope 闸"处理(见 SELF_DIAGNOSTIC_TOOLS),凭据闸不豁免;
 - 进入任一 HTTP transport 前先过 `validate_request_host`(Host 白名单见
-  `settings.mcp_export_allowed_hosts`,失败 403)与 Principal 凭据闸(失败 401),
-  两者都在 `_ExportDispatcher.__call__` 落地。
+  `settings.mcp_export_allowed_hosts`,失败 403)、Principal 凭据闸(失败 401),
+  以及机器凭据通道的**连接级洪泛闸**(失败 429 + Retry-After),三者都在
+  `_ExportDispatcher.__call__` 的 `_guard_entry` 落地;
+- O9 协议完整化(2026-09-21):本层是**有长连接**的一侧,故承担真正的服务端→客户端推送
+  —— `resources/list` + `resources/read`(登记 + scope + 限流)、prompts 注册、
+  tools/call 进度心跳(客户端带 `_meta.progressToken` 时由 SDK 发
+  `notifications/progress`)、`notifications/tools/list_changed` 广播(2026-era 走
+  SubscriptionBus/`subscriptions/listen`,2025-era 走活会话句柄);工具注解逐工具附带,
+  取值只来自能力目录。`outputSchema` 仅由 SDK 从自诊断三件套的返回类型推导(形状可证),
+  内部代理工具结果异构 → 不声明(不虚报 structuredContent 契约)。
 
-能力声明: serverInfo.name=ihui-ai, capabilities.tools=true;
-协议协商由官方 mcp SDK(MCPServer)内部完成,最低兼容 2025-03-26。
+能力声明: serverInfo.name=ihui-ai; tools / resources / prompts 三类方法均已真实现
+(声明由 SDK 按注册的 handler 自动推导,不存在虚报空间)。
+协议协商: 由官方 mcp SDK(MCPServer)完成,最低兼容 2025-03-26。
 协议版本常量复用 app/services/mcp_client.py(见 EXPORT_PROTOCOL_VERSIONS),单源去重。
 
 开关: 环境变量 ENABLE_MCP_EXPORT=true 才挂载(默认关闭,不影响现有服务);
@@ -49,23 +58,36 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
 
 from mcp.server.context import LifespanContextT, RequestT, ServerRequestContext
+from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.context import Context
+from mcp.server.mcpserver.exceptions import ResourceNotFoundError
+from mcp.server.mcpserver.prompts import Prompt
+from mcp.server.mcpserver.prompts.base import PromptArgument
+from mcp.server.session import ServerSession
 from mcp.shared.exceptions import MCPError
+from mcp.shared.subscriptions import ResourceUpdated, ToolsListChanged
 from mcp_types import (
     INVALID_REQUEST,
     CallToolResult,
+    EmptyResult,
     InputRequiredResult,
+    ListResourcesResult,
     ListToolsResult,
     PaginatedRequestParams,
+    Resource,
+    SubscribeRequestParams,
     TextContent,
+    ToolAnnotations,
+    UnsubscribeRequestParams,
 )
 from mcp_types import Tool as MCPTool
+from pydantic import AnyUrl
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -122,6 +144,10 @@ ENDPOINT_STREAMABLE = "/streamable"
 # 环境变量开关(默认关闭,避免影响现有服务;显式 true 才挂载)
 ENABLE_MCP_EXPORT_ENV = "ENABLE_MCP_EXPORT"
 
+# 长任务进度心跳间隔(秒):与带内层 mcp_official 同一口径 —— 只上报真实已耗时,
+# 内部引擎不回传分阶段计数,任何百分比都是编造。
+PROGRESS_HEARTBEAT_INTERVAL_S: Final = 2.0
+
 
 # =========================================================================
 # 工具集定义:三个自诊断工具 + 内部真实工具集的能力闸代理
@@ -152,14 +178,218 @@ def visible_export_tools(principal: _gate.Principal | None = None) -> list[MCPTo
     """tools/list 的代理视图(自诊断三件套由 ToolManager 持有,不含在此)。
 
     传入 principal 时进一步收紧到"该主体实际可调用"的 scope 子集;缺省只按能力目录过滤。
+    ``annotations`` 逐工具附带,取值只来自能力目录(见 ``tool_annotations``)。
     """
     specs = export_proxied_tool_specs()
     if principal is not None:
         specs = [t for t in specs if _gate.check_tool_access(principal, t.name).allowed]
     return [
-        MCPTool(name=t.name, description=t.description, input_schema=dict(t.input_schema))
+        MCPTool(
+            name=t.name,
+            description=t.description,
+            input_schema=dict(t.input_schema),
+            annotations=tool_annotations(t.name),
+        )
         for t in specs
     ]
+
+
+# =========================================================================
+# 工具注解 + 资源视图/读取(O9:与带内层 mcp_official 共用同一批裁决事实)
+# =========================================================================
+
+# 自诊断三件套不在能力目录里(零副作用),但行为可从实现直接证伪/证实,故显式声明注解:
+# 只回显/只取时钟/只读能力目录 —— 不改环境、不碰外部世界、重复调用无副作用。
+_SELF_DIAGNOSTIC_HINTS: Final[dict[str, _gate.ToolAnnotationHints]] = {
+    name: _gate.ToolAnnotationHints(
+        read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
+    )
+    for name in ("ihui.echo", "ihui.now_utc", "ihui.capabilities")
+}
+
+
+def tool_annotations(name: str) -> ToolAnnotations | None:
+    """工具行为注解:优先显式表(自诊断三件套),否则按能力目录推导。
+
+    两者都给不出 → None(不声明),绝不凭空贴 hint。
+    """
+    hints = _SELF_DIAGNOSTIC_HINTS.get(name) or _gate.annotation_hints_for_tool(name)
+    if hints is None:
+        return None
+    wire = hints.as_wire()
+    return ToolAnnotations(
+        read_only_hint=wire.get("readOnlyHint"),
+        destructive_hint=wire.get("destructiveHint"),
+        idempotent_hint=wire.get("idempotentHint"),
+        open_world_hint=wire.get("openWorldHint"),
+    )
+
+
+def _registered_resource(uri: str) -> _internal_mcp.MCPResource | None:
+    """内部资源登记(未在 _RESOURCES 登记的 URI 一律视为不存在)。"""
+    return next((r for r in _internal_mcp._RESOURCES if r.uri == uri), None)
+
+
+def visible_export_resources(principal: _gate.Principal | None = None) -> list[Resource]:
+    """resources/list 视图:登记 + scope 命中(与 read_exported_resource 同源)。"""
+    out: list[Resource] = []
+    for resource in _internal_mcp._RESOURCES:
+        scope = _gate.scope_of_resource(resource.uri)
+        if scope is None:
+            continue
+        if principal is not None and not principal.has_scope(scope):
+            continue
+        out.append(
+            Resource(
+                uri=resource.uri,
+                name=resource.name,
+                title=resource.name,
+                description=resource.description,
+                mime_type=resource.mime_type,
+            )
+        )
+    return out
+
+
+async def read_exported_resource(
+    principal: _gate.Principal, uri: str
+) -> list[ReadResourceContents]:
+    """resources/read 的导出通道:登记校验 → scope 闸 → 限流闸 → 引擎取值。
+
+    资源内容按 JSON 文本返回(内部资源本身就是结构化数据),mime_type 沿用登记表声明。
+    """
+    scope = _gate.scope_of_resource(uri)
+    resource = _registered_resource(uri)
+    if scope is None or resource is None:
+        raise ResourceNotFoundError(f"未登记的资源 URI: {uri}")
+    _gate.enforce_scope(principal, scope, resource_label=f"资源 {uri}")
+    release = _gate.enforce_rate_limit(principal, scope, resource_label=f"资源 {uri}")
+    try:
+        read = await _internal_mcp.mcp_server.read_resource(uri)
+    finally:
+        release()
+    if not isinstance(read, dict) or read.get("ok") is False:
+        error = read.get("error") if isinstance(read, dict) else None
+        raise ResourceNotFoundError(str(error or f"资源 {uri} 读取失败"))
+    content = read.get("content")
+    return [
+        ReadResourceContents(
+            content=json.dumps(content, ensure_ascii=False, default=str),
+            mime_type=resource.mime_type,
+        )
+    ]
+
+
+# =========================================================================
+# 服务端 → 客户端广播(2025-era 走会话句柄,2026-era 走 SDK SubscriptionBus)
+# =========================================================================
+
+
+class _SessionBroadcaster:
+    """记录"最近处理过请求"的 MCP 会话,用于把服务端发起的通知推给 legacy 客户端。
+
+    为什么自己持有会话:官方 SDK 2.x 的变更通知投递口是 ``subscriptions/listen`` +
+    ``SubscriptionBus``(2026-07-28 era);而仍按 2025-03-26 / 2025-06-18 握手的客户端
+    (Claude Desktop / Cursor 的多数版本)期望裸 ``notifications/tools/list_changed``。
+    本登记处在每个入站请求上"顺路"记录会话,推送失败(连接已断)即摘除,不做跨进程
+    共享 —— 多实例部署的跨副本广播需接 Redis 版 SubscriptionBus(见交付报告)。
+    """
+
+    def __init__(self) -> None:
+        self._sessions: set[ServerSession] = set()
+
+    def observe(self, session: ServerSession | None) -> None:
+        if session is not None:
+            self._sessions.add(session)
+
+    async def broadcast(self, send: Callable[[ServerSession], Awaitable[None]]) -> None:
+        for session in list(self._sessions):
+            try:
+                await send(session)
+            except Exception as exc:  # noqa: BLE001 - 断链会话静默摘除,不影响其他订阅者
+                logger.debug("[mcp_export] 会话广播失败,摘除该会话: %s", type(exc).__name__)
+                self._sessions.discard(session)
+
+    def clear(self) -> None:
+        self._sessions.clear()
+
+    def __len__(self) -> int:
+        return len(self._sessions)
+
+
+_session_broadcaster: Final[_SessionBroadcaster] = _SessionBroadcaster()
+
+
+class _ResourceSubscriptions:
+    """legacy(2025-era)客户端的 ``resources/subscribe`` 登记处:uri → 会话集合。
+
+    2026-07-28 era 的客户端不在此登记 —— 它用 ``subscriptions/listen`` 流,由 SDK 的
+    ``SubscriptionBus`` 按 filter 投递(``notify_resource_updated`` 会同时打这两条通道)。
+    推送失败(连接已断)即摘除,不留僵尸订阅。
+    """
+
+    def __init__(self) -> None:
+        self._by_uri: dict[str, set[ServerSession]] = {}
+
+    def add(self, uri: str, session: ServerSession | None) -> None:
+        if session is None:  # pragma: no cover - stdio 之外的 HTTP 一定有会话
+            return
+        self._by_uri.setdefault(uri, set()).add(session)
+
+    def remove(self, uri: str, session: ServerSession | None) -> None:
+        if session is None:
+            return
+        bucket = self._by_uri.get(uri)
+        if bucket is not None:
+            bucket.discard(session)
+            if not bucket:
+                self._by_uri.pop(uri, None)
+
+    async def notify(self, uri: str) -> None:
+        for session in list(self._by_uri.get(uri, ())):
+            try:
+                await session.send_resource_updated(uri)
+            except Exception as exc:  # noqa: BLE001 - 断链会话静默摘除
+                logger.debug("[mcp_export] 资源更新推送失败,摘除订阅: %s", type(exc).__name__)
+                self.remove(uri, session)
+
+    def subscriber_count(self, uri: str) -> int:
+        return len(self._by_uri.get(uri, ()))
+
+    def clear(self) -> None:
+        self._by_uri.clear()
+
+
+_resource_subscriptions: Final[_ResourceSubscriptions] = _ResourceSubscriptions()
+
+
+async def _send_tool_list_changed(session: ServerSession) -> None:
+    """向单个 legacy 会话发裸 ``notifications/tools/list_changed``。"""
+    await session.send_tool_list_changed()
+
+
+async def notify_tools_list_changed(reason: str = "external-tool-change") -> int:
+    """工具集变化的公开入口:自增共享版本号 + 向所有活着的长连接广播 list_changed。
+
+    供"会改变导出工具集"的写路径调用(外部 MCP 工具注册/注销、能力目录热更新)。
+    带内层 ``mcp_official`` 收到客户端 list_changed 上报时走的也是同一个计数器。
+    """
+    return await _gate.refresh_tools_revision(None, reason=reason)
+
+
+async def notify_resource_updated(uri: str, reason: str = "resource-change") -> None:
+    """资源内容变化的投递入口(两条通道:SubscriptionBus + legacy 订阅会话)。
+
+    投递通道是真的,但**生产者尚未接线**:memory / skills / agent 配置的写路径都在
+    本任务允许改动的文件之外(见交付报告的"需主 agent 配合"清单)。写路径埋点
+    ``await notify_resource_updated("memory://current")`` 即完成闭环 —— 未埋点前不要
+    据此认为客户端会收到更新。
+    """
+    logger.debug("[mcp_export] 广播资源变更 uri=%s reason=%s", uri, reason)
+    server = get_mcp_server()
+    publish = getattr(server, "publish_resource_updated", None)
+    if publish is not None:
+        await publish(uri)
 
 
 def _as_http_request(raw_request: object) -> Request | None:
@@ -189,22 +419,46 @@ def principal_for_list(ctx: ServerRequestContext[object, object]) -> _gate.Princ
     return _gate.resolve_principal_from_request(_as_http_request(ctx.request))
 
 
-def _denied_to_mcp_error(denied: _gate.ScopeDeniedError) -> MCPError:
-    """ScopeDeniedError → JSON-RPC 错误。
+def _denied_to_mcp_error(
+    denied: _gate.ScopeDeniedError | _gate.RateLimitExceeded,
+) -> MCPError:
+    """门禁/限流拒绝 → JSON-RPC 错误。
 
-    MCP 带内没有 HTTP 状态位可用,故 403 的语义以 JSON-RPC error 表达,结构化裁决体
-    (errorCode / requiredScope)放 ``data``,与 mcp_official 的 403 体同语义。
+    MCP 带内没有 HTTP 状态位可用,故 403/429 的语义以 JSON-RPC error 表达,结构化裁决体
+    (code / errorCode / requiredScope / retryAfterMs)放 ``data``,与 mcp_official 的
+    同码语义一致(同一 ``to_body()``)。
     """
     return MCPError(code=INVALID_REQUEST, message=denied.message, data=denied.to_body())
+
+
+def _progress_reporter(
+    context: Context[LifespanContextT, RequestT] | None,
+) -> Callable[[float, str], Awaitable[None]] | None:
+    """从 SDK ``Context`` 取进度上报器;拿不到(直调/替身 context)就返回 None。
+
+    SDK 自己处理 ``_meta.progressToken``:客户端没要进度时 ``report_progress`` 是 no-op,
+    所以这里无条件挂心跳不会给不要进度的客户端塞帧。
+    """
+    raw: object = getattr(context, "report_progress", None)
+    if not callable(raw):
+        return None
+
+    async def _report(progress: float, message: str) -> None:
+        # callable(raw) 已把类型收窄成可调用;签名 (progress, total, message) 由 SDK 约定
+        await raw(progress, None, message)
+
+    return _report
 
 
 async def call_exported_tool(
     principal: _gate.Principal, name: str, arguments: dict[str, object]
 ) -> CallToolResult:
-    """tools/call 的导出通道:能力闸 → 内部引擎执行 → MCP ``CallToolResult``。
+    """tools/call 的导出通道:能力闸 → 限流闸 → 内部引擎执行 → MCP ``CallToolResult``。
 
     身份透传:``principal.role / principal.sub`` → ``user_role / user_id``
     (替代历史硬编码 user_role=0)。
+    限流:机器凭据通道按 ``rateProfileOf(scope)`` 的 rpm/burst/concurrent 结算
+    (见 ``capability_gate.MachineKeyRateLimiter``);用户 JWT / 本地开发主体不受此闸。
     """
     decision = _gate.enforce_tool_access(principal, name)  # SCOPE_DENIED → ScopeDeniedError(403)
     if not decision.allowed:  # TOOL_NOT_REGISTERED 等未抛码的拒绝,同样不得放行
@@ -212,13 +466,19 @@ async def call_exported_tool(
             decision.message or f"工具 {name} 未登记能力目录,拒绝导出调用",
             decision.required_scope,
         )
-    result = await _internal_mcp.mcp_server.call_tool(
-        name,
-        dict(arguments),
-        user_role=principal.role,
-        user_id=principal.sub,
-        session_id=None,
-    )
+    release = _gate.enforce_rate_limit(
+        principal, decision.required_scope, resource_label=f"工具 {name}"
+    )  # RATE_LIMITED → RateLimitExceeded(429)
+    try:
+        result = await _internal_mcp.mcp_server.call_tool(
+            name,
+            dict(arguments),
+            user_role=principal.role,
+            user_id=principal.sub,
+            session_id=None,
+        )
+    finally:
+        release()
     is_error = result.get("ok") is False or bool(result.get("error"))
     return CallToolResult(
         content=[TextContent(type="text", text=json.dumps(result, ensure_ascii=False, default=str))],
@@ -230,19 +490,54 @@ class _CapabilityProxyServer(MCPServer):
     """把内部真实工具集代理到 MCP export 面,并强制走能力闸的 MCPServer。
 
     mcp SDK 2.x 取消了 1.x 的 ``@server.list_tools()`` / ``@server.call_tool()`` 装饰器,
-    改由 ``MCPServer`` 上可覆写的 ``call_tool`` 与 lowlevel 的 ``_handle_*`` 处理器承载
-    (``Server(on_list_tools=self._handle_list_tools, on_call_tool=self._handle_call_tool)``
-    在 ``__init__`` 里以**绑定方法**注册,子类覆写照样生效)—— 这就是本版本的等价机制。
-    tools/list 覆写 ``_handle_list_tools`` 而非公开的 ``list_tools``,因为只有前者拿得到
-    请求上下文(``ctx.request``),视图才能按调用方 scope 收紧。
+    改由 ``MCPServer`` 上可覆写的 ``call_tool`` / ``read_resource`` 与 lowlevel 的
+    ``_handle_*`` 处理器承载(``Server(on_list_tools=self._handle_list_tools, ...)`` 在
+    ``__init__`` 里以**绑定方法**注册,子类覆写照样生效)—— 这就是本版本的等价机制。
+    tools/list 与 resources/list 覆写 ``_handle_*`` 而非公开 ``list_*``,因为只有前者拿得到
+    请求上下文(``ctx.request`` / ``ctx.session``),视图与广播才能按调用方收紧/投递。
+
+    O9 补齐的协议面:
+    - tools/list 带 ``annotations``(能力目录推导)+ ``_meta.toolsVersion``(真实变更才动);
+    - resources/list / resources/read:登记 + scope + 限流,未登记 URI 走 SDK 的
+      ``ResourceNotFoundError`` → 带内 -32602;
+    - tools/call:进度心跳(客户端带 ``_meta.progressToken`` 时由 SDK 发
+      ``notifications/progress``,没要进度就是 no-op)+ 机器凭据限流;
+    - ``publish_tools_list_changed``:挂到 capability_gate 的变更监听器上,把版本自增
+      广播到 2026-era 的 ``subscriptions/listen`` 流(SubscriptionBus)与 2025-era 的
+      活会话(裸 ``notifications/tools/list_changed``)。
     """
 
     async def _handle_list_tools(
         self, ctx: ServerRequestContext[object, object], params: PaginatedRequestParams | None
     ) -> ListToolsResult:
         principal = principal_for_list(ctx)
+        # getattr 兜底:context 替身(单测)/无会话的调用点不应因此崩掉真实协议路径
+        _session_broadcaster.observe(getattr(ctx, "session", None))
         base = await super()._handle_list_tools(ctx, params)
-        return ListToolsResult(tools=[*base.tools, *visible_export_tools(principal)])
+        tools = [*base.tools, *visible_export_tools(principal)]
+        # 视图指纹变化(能力目录热更新 / 外部工具增减)才自增版本并广播 —— 幂等,不会每请求都推
+        await _gate.refresh_tools_revision([t.name for t in tools])
+        return ListToolsResult(tools=tools, _meta={"toolsVersion": _gate.tools_revision()})
+
+    async def _handle_list_resources(
+        self, ctx: ServerRequestContext[object, object], params: PaginatedRequestParams | None
+    ) -> ListResourcesResult:
+        principal = principal_for_list(ctx)
+        _session_broadcaster.observe(getattr(ctx, "session", None))
+        return ListResourcesResult(resources=visible_export_resources(principal))
+
+    async def read_resource(
+        self,
+        uri: AnyUrl | str,
+        context: Context[LifespanContextT, RequestT] | None = None,
+    ) -> Iterable[ReadResourceContents] | InputRequiredResult:
+        principal = principal_for_call(context)
+        if context is not None:
+            _session_broadcaster.observe(getattr(context.request_context, "session", None))
+        try:
+            return await read_exported_resource(principal, str(uri))
+        except (_gate.ScopeDeniedError, _gate.RateLimitExceeded) as exc:
+            raise _denied_to_mcp_error(exc) from exc
 
     async def call_tool(
         self,
@@ -251,14 +546,82 @@ class _CapabilityProxyServer(MCPServer):
         context: Context[object, object] | None = None,
     ) -> CallToolResult | InputRequiredResult:
         principal = principal_for_call(context)
+        if context is not None:
+            _session_broadcaster.observe(getattr(context.request_context, "session", None))
         if name in SELF_DIAGNOSTIC_TOOLS:
             # 自诊断三件套:豁免 scope 闸(见 SELF_DIAGNOSTIC_TOOLS),实现仍在
             # ToolManager;凭据闸已在上一行生效,生产环境无凭据照样 401。
             return await super().call_tool(name, arguments, context)
+        reporter = _progress_reporter(context)
         try:
-            return await call_exported_tool(principal, name, arguments)
+            if reporter is None:
+                return await call_exported_tool(principal, name, arguments)
+            return await _gate.await_with_progress_heartbeat(
+                call_exported_tool(principal, name, arguments),
+                reporter,
+                interval_s=PROGRESS_HEARTBEAT_INTERVAL_S,
+                label=f"工具 {name} 执行中",
+            )
+        except (_gate.ScopeDeniedError, _gate.RateLimitExceeded) as exc:
+            raise _denied_to_mcp_error(exc) from exc
+
+    async def publish_tools_list_changed(self) -> None:
+        """capability_gate 的广播监听器:把版本变更推给两条投递通道。"""
+        await self._subscriptions.publish(ToolsListChanged())
+        await _session_broadcaster.broadcast(_send_tool_list_changed)
+
+    async def publish_resource_updated(self, uri: str) -> None:
+        """资源内容变更:2026-era 走 SubscriptionBus,2025-era 走已订阅的活会话。"""
+        await self._subscriptions.publish(ResourceUpdated(uri=str(uri)))
+        await _resource_subscriptions.notify(str(uri))
+
+    def _register_legacy_subscription_handlers(self) -> None:
+        """在 lowlevel Server 上补 ``resources/subscribe`` / ``unsubscribe``。
+
+        SDK 2.x 的 ``MCPServer`` 只挂现代 ``subscriptions/listen``,不挂 2025-era 的订阅
+        方法 —— 而它的 ``get_capabilities`` 恰好按"该 handler 是否注册"决定
+        ``resources.subscribe`` 的声明值。显式注册 = 声明与实现同源(而不是虚报 true)。
+        """
+        low = self._lowlevel_server
+        low.add_request_handler("resources/subscribe", SubscribeRequestParams, self._handle_subscribe)
+        low.add_request_handler(
+            "resources/unsubscribe", UnsubscribeRequestParams, self._handle_unsubscribe
+        )
+
+    async def _handle_subscribe(
+        self, ctx: ServerRequestContext[object, object], params: SubscribeRequestParams
+    ) -> EmptyResult:
+        return await self._transition_subscription(params.uri, ctx, subscribe=True)
+
+    async def _handle_unsubscribe(
+        self, ctx: ServerRequestContext[object, object], params: UnsubscribeRequestParams
+    ) -> EmptyResult:
+        return await self._transition_subscription(params.uri, ctx, subscribe=False)
+
+    async def _transition_subscription(
+        self, uri: AnyUrl | str, ctx: ServerRequestContext[object, object], *, subscribe: bool
+    ) -> EmptyResult:
+        """订阅/退订共同路径:登记校验 → scope 闸(订不动的资源也不许订)→ 改登记表。"""
+        target = str(uri)
+        principal = principal_for_list(ctx)
+        _session_broadcaster.observe(getattr(ctx, "session", None))
+        scope = _gate.scope_of_resource(target)
+        if scope is None or _registered_resource(target) is None:
+            raise MCPError(
+                code=INVALID_REQUEST,
+                message=f"未登记的资源 URI: {target}",
+                data={"errorCode": "RESOURCE_NOT_REGISTERED", "uri": target},
+            )
+        try:
+            _gate.enforce_scope(principal, scope, resource_label=f"订阅资源 {target}")
         except _gate.ScopeDeniedError as exc:
             raise _denied_to_mcp_error(exc) from exc
+        session: ServerSession | None = getattr(ctx, "session", None)
+        if subscribe:
+            _resource_subscriptions.add(target, session)
+        else:
+            _resource_subscriptions.remove(target, session)
+        return EmptyResult()
 
 
 def _build_mcp_server() -> MCPServer:
@@ -281,7 +644,12 @@ def _build_mcp_server() -> MCPServer:
         """原样回显输入文本(连接/MCP 协议链路自检)。"""
         return message
 
-    mcp.add_tool(ihui_echo, name="ihui.echo", description="原样回显输入文本,用于连通/协议自检")
+    mcp.add_tool(
+        ihui_echo,
+        name="ihui.echo",
+        description="原样回显输入文本,用于连通/协议自检",
+        annotations=tool_annotations("ihui.echo"),
+    )
 
     # 2) ihui.now_utc —— 只读工具,返回当前 UTC 时间
     async def ihui_now_utc() -> dict[str, Any]:
@@ -291,7 +659,12 @@ def _build_mcp_server() -> MCPServer:
         iso = datetime.fromtimestamp(now, tz=UTC).isoformat()
         return {"timestamp": now, "iso_utc": iso}
 
-    mcp.add_tool(ihui_now_utc, name="ihui.now_utc", description="返回当前 UTC 时间戳与 ISO 字符串")
+    mcp.add_tool(
+        ihui_now_utc,
+        name="ihui.now_utc",
+        description="返回当前 UTC 时间戳与 ISO 字符串",
+        annotations=tool_annotations("ihui.now_utc"),
+    )
 
     # 3) ihui.capabilities —— 只读业务工具,按能力目录 + 调用方 scope 实时自述导出集
     async def ihui_capabilities(ctx: Context) -> dict[str, Any]:
@@ -300,16 +673,24 @@ def _build_mcp_server() -> MCPServer:
         ``ctx`` 由 SDK 按类型注解注入(非入参schema 的一部分);自述清单与 tools/list
         同源收紧,免得窄 scope 的机器凭据从自诊断工具反查全量能力目录。
         """
-        proxied = [t.name for t in visible_export_tools(principal_for_call(ctx))]
+        principal = principal_for_call(ctx)
+        proxied = [t.name for t in visible_export_tools(principal)]
         return {
             "server": {
                 "name": SERVER_NAME,
                 "version": SERVER_VERSION,
             },
             "protocol_versions_supported": list(SUPPORTED_PROTOCOL_VERSIONS),
-            "capabilities": {"tools": True, "prompts": False, "resources": False},
+            # 如实自述:tools / resources / prompts 三类方法都已真实现(见 _CapabilityProxyServer)
+            "capabilities": {"tools": True, "prompts": True, "resources": True},
+            # 订阅通道两条都通:现代 subscriptions/listen(SubscriptionBus)+ 2025-era
+            # resources/subscribe(会话登记表);资源变更"生产者"仍需写路径埋点(见交付报告)
+            "resourceSubscribe": True,
             "tools": [*sorted(SELF_DIAGNOSTIC_TOOLS), *proxied],
             "tool_count": len(SELF_DIAGNOSTIC_TOOLS) + len(proxied),
+            "resources": [r.uri for r in visible_export_resources(principal)],
+            "prompts": [p.name for p in _internal_mcp._PROMPTS],
+            "toolsVersion": _gate.tools_revision(),
             "transports": ["sse", "streamable-http", "stdio"],
         }
 
@@ -317,9 +698,49 @@ def _build_mcp_server() -> MCPServer:
         ihui_capabilities,
         name="ihui.capabilities",
         description="返回本 MCP 服务器实例的能力与工具清单(只读)",
+        annotations=tool_annotations("ihui.capabilities"),
     )
 
+    # 4) prompts —— 内部提示词模板注册进 SDK,让 prompts/list + prompts/get 真出数据
+    #    (能力声明由此从"虚报"变成"如实声明":方法有实现、有内容)。
+    for spec in _internal_mcp._PROMPTS:
+        mcp.add_prompt(
+            Prompt(
+                name=spec.name,
+                description=spec.description,
+                arguments=[
+                    PromptArgument(
+                        name=str(arg.get("name", "")),
+                        description=str(arg.get("description", "") or ""),
+                        required=bool(arg.get("required", False)),
+                    )
+                    for arg in spec.arguments
+                ],
+                fn=_make_prompt_renderer(spec.name),
+            )
+        )
+
+    # 5) 工具集变更广播:注册到 capability_gate 的共享版本器上(模块重载也幂等)
+    _gate.register_tools_changed_listener(mcp.publish_tools_list_changed)
+
+    # 6) 2025-era 的 resources/subscribe + unsubscribe:显式补挂,使 SDK 派生出的
+    #    capabilities.resources.subscribe 与真实受理的方法同源(不是虚报 true)。
+    mcp._register_legacy_subscription_handlers()
+
     return mcp
+
+
+def _make_prompt_renderer(prompt_name: str) -> Callable[..., str]:
+    """把内部提示词模板包成 SDK Prompt 需要的无副作用渲染函数。"""
+
+    def _render(**arguments: object) -> str:
+        rendered = _internal_mcp.mcp_server.invoke_prompt(
+            prompt_name, {k: v for k, v in arguments.items() if isinstance(v, str)}
+        )
+        return str(rendered.get("prompt", "")) if isinstance(rendered, dict) else ""
+
+    _render.__name__ = f"prompt_{prompt_name}"
+    return _render
 
 
 # 模块级单例(仿 services/memory.py 懒加载模式)
@@ -557,12 +978,13 @@ class _ExportDispatcher:
         receive: Callable[..., Any],
         send: Callable[..., Any],
     ) -> bool:
-        """入口双闸:Host 防 DNS rebinding(拒 → 403)+ Principal 凭据(拒 → 401)。
+        """入口三闸:Host 防 DNS rebinding(拒 → 403)+ Principal 凭据(拒 → 401)
+        + 机器凭据连接级洪泛闸(超配额 → 429,带 ``Retry-After``)。
 
         返回 True 表示已就地回绝(响应已发出),调用方须立即 return。
-        Principal 在此只做**接入鉴权**;工具级 scope 裁决与身份透传发生在带内
-        (``_CapabilityProxyServer.call_tool`` 按本条 JSON-RPC 请求头显式解析),
-        因为 SSE 下 JSON-RPC 由后台任务处理,隐式上下文不可靠。
+        Principal 在此只做**接入鉴权 + 连接洪泛保护**;工具级 scope 裁决、按 scope 限流
+        与身份透传发生在带内(``_CapabilityProxyServer.call_tool`` 按本条 JSON-RPC 请求头
+        显式解析),因为 SSE 下 JSON-RPC 由后台任务处理,隐式上下文不可靠。
         """
         headers = headers_of(scope)
         host = request_host_of(headers)
@@ -578,9 +1000,24 @@ class _ExportDispatcher:
             await resp(scope, receive, send)
             return True
         try:
-            _gate.resolve_principal_from_headers(headers)
+            principal = _gate.resolve_principal_from_headers(headers)
         except _gate.PrincipalAuthError as exc:
             resp = JSONResponse({"code": exc.code, "message": exc.message}, status_code=exc.http_status)
+            await resp(scope, receive, send)
+            return True
+        try:
+            _gate.enforce_transport_rate_limit(principal, resource_label="MCP export 传输入口")
+        except _gate.RateLimitExceeded as exc:
+            resp = JSONResponse(
+                {
+                    "code": exc.code,
+                    "message": exc.message,
+                    "errorCode": exc.error_code,
+                    "retryAfterMs": int(exc.retry_after_s * 1000),
+                },
+                status_code=exc.http_status,
+                headers={"Retry-After": str(max(1, int(exc.retry_after_s) + 1))},
+            )
             await resp(scope, receive, send)
             return True
         return False
