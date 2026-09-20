@@ -1048,6 +1048,35 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 51 (2026-09-20 新增,能力目录登记守门,blocking) ---
+  //   背景:packages/types/src/capability-catalog.ts 是「哪些端点可被机器凭据调用」的
+  //   单一事实源,运行时闸口在 apps/api/src/utils/capability-guard.ts。但"新增对外端点
+  //   必须登记能力"此前只是注释里的约定 —— 本项把它变成机械门禁(防漂移,不是开放 /api/*)。
+  //   四项检查:A 目录↔generated/capabilities.json 一致性;B v1 路由 handler 必须接能力闸;
+  //   C 闸口引用的 scope 必须在目录内,platform/非第三方 scope 不得进 /v1 对第三方的 rules 表;
+  //   D 目录声明了但代码无注册点(warn)。
+  //   --staged(pre-commit)只判定本次暂存的 v1 路由文件;全量模式(不带 --staged)留给 CI,
+  //   人工跑 `node scripts/guardian-runner.mjs` 会走全量,存量未覆盖端点会红 —— 属预期。
+  //   跳过:HUSKY_SKIP_CAPABILITY_CATALOG_GUARD=1 git commit ...
+  {
+    id: '51',
+    label: '🧭 能力目录登记守门(产物一致性 / v1 端点必须接能力闸 / scope 语义)',
+    script: 'check-capability-catalog.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 对外端点未登记能力(或能力目录与产物漂移):',
+      '     1. node scripts/check-capability-catalog.mjs --json   (拿到端点/scope 清单)',
+      '     2. 在 packages/types/src/capability-catalog.ts 登记 scope 与 routes',
+      '     3. pnpm capabilities:export                            (重新生成 capabilities.json)',
+      "     4. 给 handler 接 preHandler: [requireApiKeyAuth, requireCapability('<scope>')],",
+      "        或在路由族上 addHook('preHandler', requireCapabilityRules([...]))",
+      '     5. node scripts/check-capability-catalog.mjs --self-test  (逻辑自检)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (2 项) ---
   {
     id: '10',

@@ -19,6 +19,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { hasApiKeyCredential, requireCapabilityRules } from '../utils/capability-guard.js'
 import { codebaseIndexService } from '../services/codebase-index-service.js'
 import type { ChunkInput } from '../services/codebase-index-service.js'
 
@@ -52,8 +53,17 @@ const indexSchema = z.object({
 })
 
 export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
-  // 所有端点需 JWT 认证
+  // O3 双通道:携带 API Key 时走能力闸(未登记 scope 一律 403),
+  // 否则保持原有人 JWT 鉴权(web 端仍按用户身份调用)。
+  const codebaseGate = requireCapabilityRules([
+    { methods: ['POST'], pattern: /^\/api\/v1\/codebase\/search$/, scope: 'codebase:read' },
+    { methods: ['GET'], pattern: /^\/api\/v1\/codebase\/stats$/, scope: 'codebase:read' },
+    { methods: ['POST'], pattern: /^\/api\/v1\/codebase\/index$/, scope: 'codebase:write' },
+    { methods: ['DELETE'], pattern: /^\/api\/v1\/codebase\/repo\//, scope: 'codebase:write' },
+  ])
+  // 所有端点需认证
   server.addHook('preHandler', async (req, reply) => {
+    if (hasApiKeyCredential(req)) return codebaseGate.call(req.server, req, reply)
     try {
       await authenticate(req)
     } catch (e) {

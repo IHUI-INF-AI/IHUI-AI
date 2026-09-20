@@ -47,11 +47,8 @@ import type {
   V1ChatCompletionResponse,
   V1ModelsResponse,
 } from '@ihui/types'
-import {
-  requireApiKeyAuth,
-  requireApiKeyPermission,
-  requireApiKeyQuota,
-} from '../plugins/api-key-auth.js'
+import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
+import { requireCapability } from '../utils/capability-guard.js'
 import { error, success } from '../utils/response.js'
 // P0-5 中转站计费(2026-07-29 立)
 import {
@@ -911,7 +908,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       // P2 修复:解析分页参数,默认 limit=20,范围 1-100;offset 默认 0
@@ -957,7 +954,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           404: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1011,7 +1008,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('agents:call'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('agents:call'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -1168,7 +1165,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = chatCompletionSchema.safeParse(request.body)
@@ -1237,7 +1234,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           503: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const parsed = completionRequestSchema.safeParse(request.body)
@@ -1810,7 +1807,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('models:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('models:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       // BYOK 平台模式(2026-07-30):鉴权用户额外返回其私有 BYOK 模型
@@ -1851,7 +1848,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           401: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -1904,7 +1901,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('files:write'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('files:write'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
@@ -2074,7 +2071,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           500: errorResponseSchema,
         },
       },
-      preHandler: [requireApiKeyAuth, requireApiKeyPermission('chat:read'), requireApiKeyQuota()],
+      preHandler: [requireApiKeyAuth, requireCapability('chat:read'), requireApiKeyQuota()],
     },
     async (request, reply) => {
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey

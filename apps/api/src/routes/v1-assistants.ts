@@ -29,6 +29,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
+import { requireCapability, requireCapabilityRules } from '../utils/capability-guard.js'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -482,7 +483,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           required: ['model'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('assistants:write')],
     },
     async (request, reply) => {
       const parsed = createAssistantSchema.safeParse(request.body)
@@ -511,16 +512,20 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // GET /assistants/:id — 查询助手
-  server.get('/assistants/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const apiKey = request.apiKey
-    if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-    const assistant = await getAssistant(redis, id)
-    if (!assistant || assistant.userId !== apiKey.userId) {
-      return reply.status(404).send(error(404, 'Assistant not found'))
-    }
-    return reply.send(toAssistantResponse(assistant))
-  })
+  server.get(
+    '/assistants/:id',
+    { preHandler: [requireCapability('assistants:read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const assistant = await getAssistant(redis, id)
+      if (!assistant || assistant.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Assistant not found'))
+      }
+      return reply.send(toAssistantResponse(assistant))
+    },
+  )
 
   // POST /assistants/:id — 修改助手
   server.post(
@@ -541,7 +546,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('assistants:write')],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -571,38 +576,46 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // DELETE /assistants/:id — 删除助手
-  server.delete('/assistants/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const apiKey = request.apiKey
-    if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-    const existing = await getAssistant(redis, id)
-    if (!existing || existing.userId !== apiKey.userId) {
-      return reply.status(404).send(error(404, 'Assistant not found'))
-    }
-    await redis.del(`assistant:${id}`)
-    await redis.srem(`assistant:user:${apiKey.userId}`, id)
-    return reply.send({
-      id,
-      object: 'assistant.deleted',
-      deleted: true,
-    })
-  })
+  server.delete(
+    '/assistants/:id',
+    { preHandler: [requireCapability('assistants:write')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const existing = await getAssistant(redis, id)
+      if (!existing || existing.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Assistant not found'))
+      }
+      await redis.del(`assistant:${id}`)
+      await redis.srem(`assistant:user:${apiKey.userId}`, id)
+      return reply.send({
+        id,
+        object: 'assistant.deleted',
+        deleted: true,
+      })
+    },
+  )
 
   // GET /assistants — 助手列表(分页)
-  server.get('/assistants', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
-    const apiKey = request.apiKey
-    if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-    const parsed = listQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { limit, after } = parsed.data
-    const result = await listAssistants(redis, apiKey.userId, limit, after)
-    return reply.send({
-      ...result,
-      data: result.data.map(toAssistantResponse),
-    })
-  })
+  server.get(
+    '/assistants',
+    { preHandler: [requireCapability('assistants:read')] },
+    async (request, reply) => {
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const parsed = listQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { limit, after } = parsed.data
+      const result = await listAssistants(redis, apiKey.userId, limit, after)
+      return reply.send({
+        ...result,
+        data: result.data.map(toAssistantResponse),
+      })
+    },
+  )
 
   // ===========================================================================
   // 2. Threads CRUD
@@ -629,7 +642,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const parsed = createThreadSchema.safeParse(request.body)
@@ -670,16 +683,20 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // GET /threads/:id — 查询线程
-  server.get('/threads/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const apiKey = request.apiKey
-    if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-    const thread = await getThread(redis, id)
-    if (!thread || thread.userId !== apiKey.userId) {
-      return reply.status(404).send(error(404, 'Thread not found'))
-    }
-    return reply.send(thread)
-  })
+  server.get(
+    '/threads/:id',
+    { preHandler: [requireCapability('threads:read')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const thread = await getThread(redis, id)
+      if (!thread || thread.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Thread not found'))
+      }
+      return reply.send(thread)
+    },
+  )
 
   // POST /threads/:id — 修改线程(更新 metadata)
   server.post(
@@ -693,7 +710,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           properties: { metadata: { type: ['object', 'null'] } },
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
@@ -717,32 +734,36 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
   )
 
   // DELETE /threads/:id — 删除线程
-  server.delete('/threads/:id', { preHandler: [requireApiKeyAuth] }, async (request, reply) => {
-    const { id } = request.params as { id: string }
-    const apiKey = request.apiKey
-    if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
-    const existing = await getThread(redis, id)
-    if (!existing || existing.userId !== apiKey.userId) {
-      return reply.status(404).send(error(404, 'Thread not found'))
-    }
-    await redis.del(`thread:${id}`)
-    // 清理线程下的消息 + run 列表(尽力清理,不阻塞)
-    const msgIds = await redis.lrange(`thread:${id}:msgs`, 0, -1)
-    if (msgIds.length > 0) {
-      await redis.del(msgIds.map((mid) => `thread:${id}:msg:${mid}`))
-      await redis.del(`thread:${id}:msgs`)
-    }
-    const runIds = await redis.lrange(`thread:${id}:runs`, 0, -1)
-    if (runIds.length > 0) {
-      await redis.del(runIds.map((rid) => `run:${rid}`))
-      await redis.del(`thread:${id}:runs`)
-    }
-    return reply.send({
-      id,
-      object: 'thread.deleted',
-      deleted: true,
-    })
-  })
+  server.delete(
+    '/threads/:id',
+    { preHandler: [requireCapability('threads:write')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      const existing = await getThread(redis, id)
+      if (!existing || existing.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Thread not found'))
+      }
+      await redis.del(`thread:${id}`)
+      // 清理线程下的消息 + run 列表(尽力清理,不阻塞)
+      const msgIds = await redis.lrange(`thread:${id}:msgs`, 0, -1)
+      if (msgIds.length > 0) {
+        await redis.del(msgIds.map((mid) => `thread:${id}:msg:${mid}`))
+        await redis.del(`thread:${id}:msgs`)
+      }
+      const runIds = await redis.lrange(`thread:${id}:runs`, 0, -1)
+      if (runIds.length > 0) {
+        await redis.del(runIds.map((rid) => `run:${rid}`))
+        await redis.del(`thread:${id}:runs`)
+      }
+      return reply.send({
+        id,
+        object: 'thread.deleted',
+        deleted: true,
+      })
+    },
+  )
 
   // ===========================================================================
   // 3. Messages CRUD
@@ -765,7 +786,7 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           required: ['role', 'content'],
         },
       },
-      preHandler: [requireApiKeyAuth],
+      preHandler: [requireCapability('threads:write')],
     },
     async (request, reply) => {
       const { threadId } = request.params as { threadId: string }
@@ -794,6 +815,18 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       await storeMessage(redis, threadId, msg)
       return reply.send(msg)
     },
+  )
+
+  // O3 收尾:threads/messages/runs 子族(此前只挂 requireApiKeyAuth,无 scope)
+  server.addHook(
+    'preHandler',
+    requireCapabilityRules([
+      { methods: ['POST'], pattern: /^\/v1\/threads\/[^/]+\/runs\/[^/]+$/, scope: 'runs:write' },
+      { methods: ['GET'], pattern: /^\/v1\/threads\/[^/]+\/runs(\/|$)/, scope: 'runs:read' },
+      { methods: ['POST'], pattern: /^\/v1\/threads\/[^/]+\/runs$/, scope: 'runs:write' },
+      { methods: ['POST'], pattern: /^\/v1\/threads\/[^/]+\/messages$/, scope: 'threads:write' },
+      { pattern: /^\/v1\/threads\/[^/]+\/messages(\/|$)/, scope: 'threads:read' },
+    ]),
   )
 
   // GET /threads/:threadId/messages/:id — 查询单条消息
