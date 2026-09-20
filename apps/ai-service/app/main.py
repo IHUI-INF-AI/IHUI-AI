@@ -458,10 +458,15 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[api_bridge] 启动注册失败(忽略): %s", e)
     try:
-        from app.services.ui_action_bridge import register_ui_action_tools
+        from app.services.ui_action_bridge import (
+            register_app_ui_tools,
+            register_ui_action_tools,
+        )
 
         _n_ui = register_ui_action_tools()
         logger.info("[ui_bridge] 启动注册 UI 桥接工具: %d 个", _n_ui)
+        _n_app = register_app_ui_tools()
+        logger.info("[ui_bridge] 启动注册 RN/小程序 UI 桥接工具: %d 个", _n_app)
     except Exception as e:
         logger.warning("[ui_bridge] 启动注册失败(忽略): %s", e)
 
