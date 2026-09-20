@@ -527,7 +527,34 @@ describe('sessions history', () => {
     expect(out).toContain('codex [partial]');
     expect(out).toContain('解析 3 · 成功 3 · 失败 0');
     expect(out).toContain('模型不存在');
-    expect(out).toContain('共 42 条');
+    // 服务端 total 恒等于本页条数(limit 50),报"共 N 条"会被读成全量已列
+    expect(out).toContain('显示 2 条');
+    expect(out).not.toContain('共 42 条');
+    expect(out).not.toContain('已达服务端 50 条上限');
+  });
+
+  it('满 50 条时明示已达服务端上限', async () => {
+    historyMock.mockResolvedValueOnce({
+      success: true,
+      data: {
+        list: Array.from({ length: 50 }, (_, i) => ({
+          id: `b${i}`,
+          source: 'claude_code' as const,
+          conversationId: `c${i}`,
+          fileName: `s${i}.jsonl`,
+          parsedCount: 1,
+          importedCount: 1,
+          failedCount: 0,
+          status: 'success' as const,
+          errorMessage: null,
+          importedAt: '2026-09-20T00:00:00.000Z',
+        })),
+        total: 50,
+      },
+    });
+    const spy = captureConsole();
+    expect(await runSessionsHistory()).toBe(true);
+    expect(spy.info.join('\n')).toContain('已达服务端 50 条上限');
   });
 
   it('无记录时给出空态文案', async () => {

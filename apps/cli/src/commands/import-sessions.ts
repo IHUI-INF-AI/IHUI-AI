@@ -580,7 +580,10 @@ export async function runSessionsHistory(): Promise<boolean> {
     console.info('');
     return true;
   }
-  console.info(chalk.cyan(`\n会话导入历史(最近 ${list.length} 条 / 共 ${res.data.total} 条):`));
+  // 服务端固定 limit 50 且 total=rows.length,报"共 N 条"会等于已显示条数而误导为全量
+  console.info(
+    chalk.cyan(`\n会话导入历史(按导入时间倒序,显示 ${list.length} 条${list.length >= 50 ? ',已达服务端 50 条上限' : ''}):`),
+  );
   for (const h of list) {
     const statusColor =
       h.status === 'success' ? chalk.green : h.status === 'partial' ? chalk.yellow : chalk.red;
