@@ -16,7 +16,13 @@ vi.mock('@/stores/chat', () => ({
     getState: () => storeState.state,
   },
 }))
-import { AGENT_TOOLS, mergeAgentTools } from '../src/hooks/use-chat/tool-config'
+import {
+  AGENT_TOOLS,
+  API_CONTROL_TOOLS,
+  WEB_UI_CONTROL_TOOLS,
+  mergeAgentTools,
+  uiControlToolsFor,
+} from '../src/hooks/use-chat/tool-config'
 describe('mergeAgentTools — D22 网页搜索开关消费(2026-09-19 立)', () => {
   beforeEach(() => {
     storeState.state.selectedTools = []
@@ -47,4 +53,28 @@ describe('mergeAgentTools — D22 网页搜索开关消费(2026-09-19 立)', () 
     expect(tools).toEqual([...AGENT_TOOLS])
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('uiControlToolsFor — 操控本站意图预筛(2026-09-21 立)', () => {
+  it('普通问答不带任何工具:否则 2026-08-29 的打字机流式修复会被打破', () => {
+    expect(uiControlToolsFor('帮我写一封请假邮件')).toEqual([])
+    expect(uiControlToolsFor('什么是向量数据库')).toEqual([])
+    expect(uiControlToolsFor('')).toEqual([])
+  })
+  it('要求操作页面时整族带上(动作类必须有 describe 的 id/target 才能定位)', () => {
+    const t = uiControlToolsFor('帮我打开设置页面')
+    expect(t).toContain('web_ui_navigate')
+    expect(t).toContain('web_ui_describe')
+    expect(new Set(t)).toEqual(new Set(WEB_UI_CONTROL_TOOLS))
+  })
+  it('填写类意图带 fill 族;查后台数据带 api 成对入口', () => {
+    expect(uiControlToolsFor('把充值金额填成 100')).toContain('web_ui_fill')
+    expect(uiControlToolsFor('查一下所有用户列表')).toEqual([...API_CONTROL_TOOLS])
+    const both = uiControlToolsFor('点击提交按钮,然后列出所有订单列表')
+    expect(both).toEqual(expect.arrayContaining([...WEB_UI_CONTROL_TOOLS, ...API_CONTROL_TOOLS]))
+  })
+  it('返回值无重复(Set 语义)', () => {
+    const t = uiControlToolsFor('打开页面并查接口接口接口')
+    expect(t.length).toBe(new Set(t).size)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
