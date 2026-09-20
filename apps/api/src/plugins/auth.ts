@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
+import type {
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyRequest,
+  FastifyReply,
+  preHandlerAsyncHookHandler,
+} from 'fastify'
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
 import { decodeJwt } from 'jose'
@@ -53,6 +59,26 @@ declare module '@fastify/jwt' {
  * challenge 拒绝、用户状态检查、错误码与消息)逐字节不变。
  */
 export async function authenticate(request: FastifyRequest): Promise<JWTPayload> {
+  try {
+    return await authenticateInner(request)
+  } catch (e) {
+    const err = e as Error & { statusCode?: number }
+    // 已标 statusCode 的是鉴权结论(401/403 + 面向人的文案),原样抛,行为逐字节不变。
+    // 未标的只可能是内部异常(DB / 依赖服务 / 驱动),它的 message 会把 SQL 原文与
+    // 语句里的凭据带进响应体 —— O17 三通道实跑在私有实例上抓到过(缺表 ⇒ 401 回显
+    // SQL)。这里统一收敛成通用文案,原文只进日志:72 处 `statusCode ?? 401` 的双通道
+    // catch 因此一次性安全,不必逐处打补丁。
+    if (typeof err.statusCode !== 'number') {
+      request.log.error({ err }, 'authenticate 内部异常(已脱敏为通用鉴权失败)')
+      const safe = new Error('操作失败,请稍后重试') as Error & { statusCode: number }
+      safe.statusCode = 401
+      throw safe
+    }
+    throw err
+  }
+}
+
+async function authenticateInner(request: FastifyRequest): Promise<JWTPayload> {
   const grant = request.openCapability
   if (grant) {
     const userId = request.apiKey?.userId ?? request.userId
@@ -171,10 +197,15 @@ export async function checkAuth(request: FastifyRequest, reply: FastifyReply): P
  */
 export function hasHumanJwtCredential(request: FastifyRequest): boolean {
   const header = request.headers.authorization
-  if (typeof header === 'string' && header.startsWith('Bearer ') && !header.startsWith('Bearer ihui_')) {
+  if (
+    typeof header === 'string' &&
+    header.startsWith('Bearer ') &&
+    !header.startsWith('Bearer ihui_')
+  ) {
     return true
   }
-  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies?.auth_token
+  const cookieToken = (request as unknown as { cookies?: Record<string, string> }).cookies
+    ?.auth_token
   return typeof cookieToken === 'string' && cookieToken.length > 0
 }
 
@@ -192,7 +223,11 @@ export function requireApiKeyOrJwt(
   apiKeyGate: preHandlerAsyncHookHandler,
 ): preHandlerAsyncHookHandler {
   return async (request, reply) => {
-    if (!request.openCapability && hasApiKeyCredential(request) && !hasHumanJwtCredential(request)) {
+    if (
+      !request.openCapability &&
+      hasApiKeyCredential(request) &&
+      !hasHumanJwtCredential(request)
+    ) {
       await apiKeyGate.call(request.server, request, reply)
       return
     }

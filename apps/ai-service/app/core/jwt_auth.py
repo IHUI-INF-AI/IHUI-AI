@@ -21,7 +21,36 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-PUBLIC_PATHS = tuple(p.strip() for p in settings.jwt_public_paths.split(",") if p.strip())
+# 两条**不由部署配置决定**的边界(2026-09-21 O17 三通道实跑收口):
+#  · /.well-known/* 必须匿名可读 —— A2A / OAuth 发现协议的前提,卡片内容不含内网主机与
+#    密钥。部署机 .env 一旦覆盖 JWT_PUBLIC_PATHS(pydantic-settings 以 .env 为权威值),
+#    代码默认值就被整体替换 ⇒ agent-card 恒 401,严格客户端拿不到凭据前无法发现能力。
+#  · /api/mcp 永远不得公开 —— 它是全部 MCP 工具的 JSON-RPC 入口,O1 已把"匿名可调"定性
+#    为事故,但 .env 里残留的旧条目会**静默**把这个口子重开。强制剔除 + 告警,不给配置
+#    覆盖代码的机会。
+_ALWAYS_PUBLIC: tuple[str, ...] = ("/.well-known/agent.json", "/.well-known/agent-card.json")
+
+
+def _is_never_public(path: str) -> bool:
+    return path.rstrip("/") == "/api/mcp" or path.startswith("/api/mcp/")
+
+
+def _resolve_public_paths(raw: str) -> tuple[str, ...]:
+    configured = [p.strip() for p in raw.split(",") if p.strip()]
+    dropped = [p for p in configured if _is_never_public(p)]
+    if dropped:
+        logger.error(
+            "[security] JWT_PUBLIC_PATHS 含 %s —— 已强制剔除(/api/mcp 不得匿名可达)",
+            ",".join(dropped),
+        )
+    kept = [p for p in configured if not _is_never_public(p)]
+    for path in _ALWAYS_PUBLIC:
+        if path not in kept:
+            kept.append(path)
+    return tuple(kept)
+
+
+PUBLIC_PATHS = _resolve_public_paths(settings.jwt_public_paths)
 
 
 class JWTAuthMiddleware(BaseHTTPMiddleware):
