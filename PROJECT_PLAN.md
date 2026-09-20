@@ -12,6 +12,25 @@
 
 ---
 
+## P0 2026-09-20 Windows 弹 git 黑窗根治(逐点收口 + 机器级默认值)
+
+> 背景:用户反馈"电脑总是弹 git 窗口,我不要让它弹"。现场取证抓到 3 个带可见窗口的 `git push origin main`,
+> 父进程均为 `git-push-guard.mjs --worker`(detached + 文件 fd = 无控制台)。
+
+### 任务清单
+
+- [x] ✅(2026-09-20) 定位根因并实测:Node v24 `child_process` 的 `windowsHide` **默认 `false`**;无控制台父进程派生控制台程序必分配可见控制台。对照实验(同负载仅切换该参数):default → 弹窗 True,hide → False。证据:`.ihui-agent/tmp/git-popup-diag/`(临时现场,收尾清理)
+- [x] ✅(2026-09-20) `scripts/git-push-guard.mjs` 6 处派生点补齐 `windowsHide`(中央 `run()` 助手 + 3 处 `git push` + git-lock clean + watchdog 自愈回喂)。此前只修了 watchdog 的 WMI 派生(同文件 2026-09-20 注释),worker 侧被漏
+- [x] ✅(2026-09-20) 钩子热路径同类缺陷全量收口:`scripts/` + `.husky/` 扫描出 74 处漏参(全仓 ~600 处),按中央助手改法补齐 `check-typecheck` / `safe-commit` / `git-lock` / `lib/gitdir` / `check-commit-loss-guard` / `check-push-sync` / `git-push-converge` / `git-sync-converge` / `guardian-runner` 等
+- [x] ✅(2026-09-20) 机器级根治 `scripts/lib/windows-hide-default.mjs` + `scripts/install-console-window-hook.mjs`(`--verify` / `--apply` / `--remove`):经 HKCU `NODE_OPTIONS=--import=` 让本机所有 node 进程默认 `windowsHide: true`,显式 `false` 尊重;落盘前双试跑不通过即拒绝写入。**必须 `.mjs`**:`.gitignore:207` 的 `*.cjs` 会把源文件静默忽略(§23 同类陷阱),首版即踩中
+- [x] ✅(2026-09-20) 端到端复验(注册表值 + 子进程完全不写 `windowsHide`):ESM 具名导入 / 无 options / `execSync`+shell 三例均无弹窗,显式 `false` 一例仍弹(符合预期);回归 `pnpm --version` / `git-lock check` / `git-push-converge` 均正常
+- [x] ✅(2026-09-20) 规则与文档同步:AGENTS.md §5b 新增"🧬 机器级根治 windowsHide 默认值"条目,README「快速开始 → 环境要求」新增 Windows 静默化小节
+
+> 未采纳(用户明确否决):`credential.helper` 三层叠加(wincred + GCM manager + store)与每分钟 `IHUI-KillGitSelector`
+> 计划任务属另一类弹窗(凭据助手 GUI);用户确认本机只弹黑色命令行窗口,故 git 全局配置与该任务**一律未改动**。
+
+---
+
 ## P0 2026-09-20 AI 全量操控桥接（让 AI 自主操控本程序全部内容）
 
 > 背景：用户要求"本项目所有功能/页面/输入框/能力都能通过 AI 对话框自动自主分析调用"。
