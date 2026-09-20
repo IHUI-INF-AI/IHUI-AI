@@ -84,6 +84,8 @@ const CATEGORY_ENDPOINT: Record<
   browser: 'extension',
   computer: 'desktop',
   ui: 'web',
+  app_ui: 'rn',
+  miniapp_ui: 'miniapp',
 }
 
 /** TARGET_NOT_CONNECTED 回执文案按 category 取(同样避免三元硬编码) */
@@ -91,6 +93,8 @@ const CATEGORY_LABEL: Record<AgentActionRequest['category'], string> = {
   browser: '浏览器扩展',
   computer: '桌面端',
   ui: 'Web 前端',
+  app_ui: '移动端',
+  miniapp_ui: '小程序端',
 }
 
 function cleanupStaleEndpoints(): void {
@@ -140,18 +144,20 @@ function findEndpointByCategory(
 // ---------------------------------------------------------------------------
 
 const capabilitySchema = z.object({
-  endpoint: z.enum(['extension', 'desktop', 'web']),
+  endpoint: z.enum(['extension', 'desktop', 'web', 'rn', 'miniapp']),
   instanceId: z.string().min(1).max(100),
   browserActions: z.array(z.string()).max(100).optional(),
   computerActions: z.array(z.string()).max(100).optional(),
   uiActions: z.array(z.string()).max(20).optional(),
+  appUiActions: z.array(z.string()).max(10).optional(),
+  taroUiActions: z.array(z.string()).max(10).optional(),
   version: z.string().optional(),
   reportedAt: z.string(),
 })
 
 const executeSchema = z.object({
   requestId: z.string().min(1).max(100),
-  category: z.enum(['browser', 'computer', 'ui']),
+  category: z.enum(['browser', 'computer', 'ui', 'app_ui', 'miniapp_ui']),
   action: z.string().min(1).max(100),
   params: z.record(z.string(), z.unknown()).default({}),
   toolCallId: z.string().optional(),
@@ -168,7 +174,7 @@ const resultSchema = z.object({
   errorCode: z.string().optional(),
   data: z.record(z.string(), z.unknown()).optional(),
   durationMs: z.number(),
-  executedBy: z.enum(['extension', 'desktop', 'web', 'unknown']),
+  executedBy: z.enum(['extension', 'desktop', 'web', 'rn', 'miniapp', 'unknown']),
 })
 
 // ---------------------------------------------------------------------------
@@ -332,6 +338,8 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       browserActions: ep.capability.browserActions?.length ?? 0,
       computerActions: ep.capability.computerActions?.length ?? 0,
       uiActions: ep.capability.uiActions?.length ?? 0,
+      appUiActions: ep.capability.appUiActions?.length ?? 0,
+      taroUiActions: ep.capability.taroUiActions?.length ?? 0,
     }))
 
     return reply.send(
