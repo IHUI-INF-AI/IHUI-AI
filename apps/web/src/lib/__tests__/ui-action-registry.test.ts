@@ -222,6 +222,29 @@ describe('快照容量与结构', () => {
     expect(snap.suppressed).toBe(11)
   })
 
+  it('外壳元素挤满时表单字段仍进快照(截断按优先级而非 DOM 顺序)', () => {
+    // 真机复现:应用外壳(侧栏/AI 面板)常驻 200+ 链接按钮,把页面输入框挤出 80 上限,
+    // 导致 describe 回清单里没有可填字段,AI 无从下手
+    let html = '<aside role="complementary">'
+    for (let i = 0; i < 120; i++) html += `<a href="/x${i}" aria-label="侧栏链接${i}">l</a>`
+    html += '</aside>'
+    html +=
+      '<main><label for="amt">充值数量</label>' +
+      '<input id="amt" name="amount" aria-label="充值数量" value="0">' +
+      '<button aria-label="立即充值">go</button></main>'
+    mount(html)
+    const snap = buildUiSnapshot()
+    expect(snap.elements).toHaveLength(80)
+    const labels = snap.elements.map((e) => e.label)
+    expect(labels).toContain('充值数量')
+    expect(labels).toContain('立即充值')
+    expect(snap.elements.map((e) => e.kind)).toContain('input')
+    // 入选集合按 DOM 顺序回排(保持 id 稳定),所以判据是"谁被挤掉":
+    // 122 候选 - 80 上限 = 42 被抑制,且被挤掉的全是外壳链接
+    expect(snap.suppressed).toBe(42)
+    expect(snap.elements.filter((e) => e.label.startsWith('侧栏链接'))).toHaveLength(78)
+  })
+
   it('同节点跨多次 describe 复用同一 id', () => {
     mount('<button aria-label="稳定钮">x</button>')
     const first = buildUiSnapshot().elements[0]!.id

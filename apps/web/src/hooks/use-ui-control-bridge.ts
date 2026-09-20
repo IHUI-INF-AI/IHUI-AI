@@ -139,15 +139,19 @@ function handleWsMessage(msg: WSNotification): void {
   }
   const start = performance.now()
   void executeUiAction(req.action, (req.params ?? {}) as Record<string, unknown>)
-    .then((r): AgentActionResponse => ({
-      requestId: req.requestId,
-      success: r.ok,
-      ...(r.error !== undefined ? { error: r.error } : {}),
-      ...(r.errorCode !== undefined ? { errorCode: r.errorCode } : {}),
-      ...(r.data !== undefined ? { data: r.data } : {}),
-      durationMs: Math.max(0, Math.round(performance.now() - start)),
-      executedBy: 'web',
-    }))
+    .then((r): AgentActionResponse => {
+      const payload = (r.data ?? {}) as Record<string, unknown>
+      return {
+        requestId: req.requestId,
+        success: r.ok,
+        ...(r.error !== undefined ? { error: r.error } : {}),
+        ...(r.errorCode !== undefined ? { errorCode: r.errorCode } : {}),
+        // 每条应答都带自身 instanceId:多标签页下调用方据此把后续动作钉回同一页面
+        data: { ...payload, instanceId: getInstanceId() },
+        durationMs: Math.max(0, Math.round(performance.now() - start)),
+        executedBy: 'web',
+      }
+    })
     .then(reportResult)
     .catch((err) => {
       console.warn('[web-ui] agent-control action failed:', err)
