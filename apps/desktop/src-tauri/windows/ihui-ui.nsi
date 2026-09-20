@@ -62,10 +62,12 @@ Var IHUIPB         ; 安装页进度条句柄
 Var IHUIFINMODE    ; instfiles 完成页原地转换守卫(0=安装中 1=已转换)
 Var IHUIRCTA       ; 重装页"继续"CTA 按钮
 Var IHUICLS        ; 页头右上角品牌关闭钮(X)
-Var IHUINXT        ; 安装页品牌"下一步›"按钮(点击转发原生 1)
-Var IHUICNC        ; 安装页品牌"取消"按钮(点击转发原生 2)
+Var IHUINXT        ; 安装页品牌"下一步›"按钮(真 BUTTON+BS_BITMAP,点击转发原生 1)
+Var IHUICNC        ; 安装页品牌"取消"按钮(真 BUTTON+BS_BITMAP,点击转发原生 2)
 Var IHUIHOST       ; 内层 nsDialogs dialog 句柄(自绘控件宿主)
 Var IHUIDPIW       ; 窗口 DPI(换算中间量)
+Var IHUIR6         ; region 计算临时量(宽-2)
+Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 
@@ -94,6 +96,13 @@ Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
   ShowWindow $0 0
   GetDlgItem $0 $HWNDPARENT 3
   ShowWindow $0 0
+  ; R67 补强(升级路径实证): 重装页核心显示页面后会重新 ShowWindow 原生按钮,
+  ; 单纯隐藏被复现(vis=True 实锤)—— 一并移出屏幕,双保险时序无关。
+  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  GetDlgItem $0 $HWNDPARENT 2
+  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  GetDlgItem $0 $HWNDPARENT 3
+  System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
   StrCpy $0 1006
   ${For} $1 1 10
     GetDlgItem $2 $HWNDPARENT $0
@@ -595,20 +604,37 @@ Function IHUIInstShow
   SetCtlColors $IHUIBG FAFAFA 242424
   SendMessage $IHUIBG 0x0172 0 $0
   ; ---- 品牌按钮(挂内层 $1,创建于背景之后 → Z 序天然在背景之上) ----
+  ; R67 终版(方案 C): 真 BUTTON + BS_BITMAP(0x0080) + BM_SETIMAGE(0x00F7)
+  ; 贴位图。v3(R66 时代)此结构完成态贴图可靠;v4-v6 改「STATIC 视觉层 +
+  ; BS_OWNERDRAW 热区」三轮全回归白块(热区不自绘→白底 240,240,240,且完成态
+  ; 核心 Z 序重排把视觉层压底、LEAVE 提顶提的是热区本体),弃用。
+  ; 左右蓝缝根治(用户报「左右原生底漏出」): 位图逻辑宽(140) < 按钮逻辑宽(144)
+  ; 时 BS_BITMAP 居中留 2px 缝,焦点框(RGB 0,120,212)从缝里漏出 ——
+  ; SetWindowRgn 内缩 2px(四边)把缝连同焦点框一起裁掉(参考进度条胶囊
+  ; region 成功案例)。region 为客户区物理像素,r4/r5 当前即物理宽高。
   !insertmacro IHUI_PX $2 672
   !insertmacro IHUI_PX $3 500
   !insertmacro IHUI_PX $4 144
   !insertmacro IHUI_PX $5 40
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p r1, p 1, p 0, p 0) p .s"
   Pop $IHUINXT
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   SendMessage $IHUINXT 0x00F7 0 $0
+  ; region 内缩 2px 裁焦点缝(表达式 System 插件不解析,必须 IntOp 显式算)
+  IntOp $IHUIR6 $4 - 2
+  IntOp $IHUIR7 $5 - 2
+  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, i 8) p .r0"
+  System::Call "user32::SetWindowRgn(p $IHUINXT, p r0, i 1)"
   !insertmacro IHUI_PX $2 64
   !insertmacro IHUI_PX $4 96
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   System::Call "user32::CreateWindowExW(p 0, w 'BUTTON', w '', i 0x50010080, i r2, i r3, i r4, i r5, p r1, p 2, p 0, p 0) p .s"
   Pop $IHUICNC
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-cancel.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   SendMessage $IHUICNC 0x00F7 0 $0
+  IntOp $IHUIR6 $4 - 2
+  IntOp $IHUIR7 $5 - 2
+  System::Call "gdi32::CreateRoundRectRgn(i 2, i 2, i $IHUIR6, i $IHUIR7, i 8, i 8) p .r0"
+  System::Call "user32::SetWindowRgn(p $IHUICNC, p r0, i 1)"
   ; 进度条: 去主题 + 平滑 + 品牌配色(暗色: 轨道 #333333 / 填充纯白)。
   ; 无 BMP 外框,原生进度条整体胶囊圆角化(SetWindowRgn, 圆角 token 8px→h=16 时 r=8 恰为半高):
   ; 轨道垫由 BMP 内衬色区块提供视觉底,进度条本体 y=424 h=16 圆角胶囊。
@@ -640,7 +666,24 @@ Function IHUIInstLeave
   ; 完成时刻核心会恢复原生控件并重排 Z 序。终裁:品牌按钮重新提顶
   ; (核心会把背景/内层重排上来,不提顶则品牌按钮再次被压底——R57 教训)。
   ; 原生 1/2/3 不动(隐藏态,推进由品牌按钮 ID 路由完成)。
+  ; R67(升级路径实证): 核心完成时会重新 ShowWindow 原生 1/2/3(探针 vis=True
+  ; 实锤,即用户报的「已完成还是白色原生样式」)—— 完成态再把它们移出屏幕。
+  ; 移屏而非销毁:推进路由仍依赖 ID 路由链,控件必须存活。
+  GetDlgItem $0 $HWNDPARENT 1
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
+  GetDlgItem $0 $HWNDPARENT 2
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
+  GetDlgItem $0 $HWNDPARENT 3
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p $0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   StrCpy $IHUIFINMODE 1
+  ; R67 终版(方案 C): 品牌按钮=真 BUTTON+BS_BITMAP,提顶本体即可
+  ; (v4-v6 的分离视觉层结构已废弃,见 IHUIInstShow 注释)。
   ${If} $IHUINXT <> 0
     System::Call "user32::SetWindowPos(p $IHUINXT, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
     ShowWindow $IHUINXT 1
@@ -769,12 +812,19 @@ FunctionEnd
 ; 只读 $R1(标题 label)/$R2/$R3(radio)/$R4(内层 dialog), 不改写。
 ; =====================================================================
 !macro IHUI_REINSTALLTHEME
+  ; R67(升级路径实证): 先隐藏+移屏原生 1/2/3 与页头控件 —— 此前只建品牌 CTA
+  ; 覆盖,原生「上一步」(id=3)探针 vis=True 实锤仍可见/可点(用户报「下一步
+  ; 点不了」即点到它),页头 1017/1038 白底也在两侧漏出。
+  !insertmacro IHUI_HIDE_ALL
   ; 内层 dialog 满幅 + 黑底白字
   System::Call "user32::MoveWindow(p $R4, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
   SetCtlColors $R4 FAFAFA 242424
   ; 标题: 重定位 + 白字黑底
+  ; R67 布局(位图文字带实测): instfiles.bmp 烧入文字带=逻辑 46..66(品牌标题)
+  ; 与 208..244(「INSTALL PROGRESS/正在写入」区),旧位 y=150/200/236 与烧入带
+  ; 交叠成乱行。动态控件整体上移到空白带 66..208: R1=88 radio1=128 radio2=164。
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 150
+  !insertmacro IHUI_PX $3 88
   !insertmacro IHUI_PX $4 752
   !insertmacro IHUI_PX $5 28
   System::Call "user32::MoveWindow(p $R1, i r2, i r3, i r4, i r5, i 1)"
@@ -782,7 +832,7 @@ FunctionEnd
   !insertmacro IHUI_SETFONT $R1
   ; 两个 radio: 重定位 + 白字黑底 + 去主题(经典渲染,字形黑白,避免系统蓝)
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 200
+  !insertmacro IHUI_PX $3 128
   !insertmacro IHUI_PX $4 700
   !insertmacro IHUI_PX $5 26
   System::Call "user32::MoveWindow(p $R2, i r2, i r3, i r4, i r5, i 1)"
@@ -790,24 +840,34 @@ FunctionEnd
   System::Call "uxtheme::SetWindowTheme(p $R2, w ``, w ``)"
   !insertmacro IHUI_SETFONT $R2
   !insertmacro IHUI_PX $2 64
-  !insertmacro IHUI_PX $3 236
+  !insertmacro IHUI_PX $3 164
   System::Call "user32::MoveWindow(p $R3, i r2, i r3, i r4, i r5, i 1)"
   SetCtlColors $R3 FAFAFA 242424
   System::Call "uxtheme::SetWindowTheme(p $R3, w ``, w ``)"
   !insertmacro IHUI_SETFONT $R3
   ; 品牌 CTA「继续 ›」: CreateControl 注册(点击路由生效) + 物理像素重定位
-  ; (lg h-10=40px 档,行基线 y=500)
-  nsDialogs::CreateControl STATIC 0x5400010E 0 676 500 140 40 ""
+  ; (lg h-10=40px 档,行基线 y=500; R67:位图满容器宽度,静态贴图不吃焦点框)
+  nsDialogs::CreateControl STATIC 0x5400010E 0 672 500 144 40 ""
   Pop $IHUIRCTA
   System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
   SendMessage $IHUIRCTA 0x0172 0 $0
-  !insertmacro IHUI_PX $2 676
+  !insertmacro IHUI_PX $2 672
   !insertmacro IHUI_PX $3 500
-  !insertmacro IHUI_PX $4 140
+  !insertmacro IHUI_PX $4 144
   !insertmacro IHUI_PX $5 40
   System::Call "user32::MoveWindow(p $IHUIRCTA, i r2, i r3, i r4, i r5, i 1)"
   ${NSD_OnClick} $IHUIRCTA IHUIReinstallNext
-  ; Z 序:CTA 提顶(重装页无满幅位图,无需压底)
+  ; R67: 满幅 instfiles 位图压底(消灭两侧原生底漏出;位图含完整品牌排版,
+  ; 重装页文字烧在同一版式上,与 welcome/dir 页视觉一致)
+  ; 贴图链用 nsDialogs::CreateControl(IHUI_PAGEBG 同款;CreateWindowExW 裸
+  ; STATIC 贴图在部分页不可靠,v4 实测)
+  nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
+  Pop $IHUIBG
+  System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\instfiles.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  SendMessage $IHUIBG 0x0172 0 $0
+  ; Z 序:背景压底 + CTA 提顶(必须背景创建后重排,否则 CTA 被盖)
+  System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
   System::Call "user32::SetWindowPos(p $IHUIRCTA, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
