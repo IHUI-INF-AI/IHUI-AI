@@ -5318,9 +5318,12 @@ class AgentEngine:
             command = args.get("command")
             if not isinstance(command, str) or not command.strip():
                 return {"error": "unified_exec 需要非空 command"}
-            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety):
-            # 新建会话的首条命令经分类器判定;命中即拦截并回执分级说明,
-            # 模型须向用户明确确认后才允许重试(升级审批,不静默放行)
+            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety;
+            # 批 58 补齐 stdin_approval 语义:续用 sessionId 写 stdin 的命令
+            # 与新会话首条命令同门复查——在跑进程的沙箱不变,但命令本身
+            # 必须逐条过分类器,防借持久会话绕过首条硬门):
+            # 命中即拦截并回执分级说明,模型须向用户明确确认后才允许重试
+            # (升级审批,不静默放行)
             try:
                 _tokens = shlex.split(command)
             except ValueError:
