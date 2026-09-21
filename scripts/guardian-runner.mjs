@@ -1172,6 +1172,29 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 55 (2026-09-21 新增,D54/H16 工具名显示覆盖率收口,blocking) ---
+  // 判据:mcp_server._TOOLS 每个注册工具名都要在 packages/shared 的 TOOL_DISPLAY_KEYS 有映射,
+  //   且该 key 在五语言 messages/shared/*.json 的 taskStatus 里真有值。
+  // 为什么 blocking:界面禁止直显 read_file / browser_click_element 这类英文码名;运行时的
+  //   "回落原展示"兜底恰恰会让新增工具**静默地**带着码名上线,只有静态比对拦得住。
+  {
+    id: '55',
+    label: '🈶 工具名显示覆盖率守门(blocking,D54/H16 界面禁直显英文工具码名)',
+    script: 'check-tool-name-display-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 有注册工具没有本地化功能名,或 taskStatus 里对应键缺某语言文案。',
+      '     修复两步:',
+      "       1) packages/shared/src/chat/tool-display.ts 的 TOOL_DISPLAY_KEYS 补 `工具名: 'toolXxx'`",
+      "       2) packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json 的 taskStatus 补 toolXxx",
+      '     自检:node scripts/check-tool-name-display-coverage.mjs --json',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_NAME_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
