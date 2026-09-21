@@ -36,6 +36,8 @@ from ..middleware.llm_metrics import (
     LLM_TOKEN_COMPACTION_SUCCESS,
     LLM_TOKEN_COMPACTION_TRIGGERED,
     classify_fallback_reason,
+    describe_quota_error,
+    is_quota_exhaustion_error,
 )
 from ..services.tls_stealth import create_stealth_client
 from .config import settings
@@ -274,6 +276,11 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "ihui/": "ihui_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
+    # 小米 MiMo 官方 /v1/models 返回裸名(mimo-v2.5 等,无 vendor 前缀)。缺这条则
+    # _model_to_provider_code 落到默认 'openai',_resolve_from_db 查不到 ai_model_config
+    # 里的 mimo 行 → 列表里能选中但一调用即 LiteLLM "LLM Provider NOT provided" 502。
+    "mimo": "mimo",
+    "mimo-": "mimo",
     "doubao-": "doubao",
     "hunyuan-": "hunyuan",
     "glm-": "zhipu",
@@ -494,12 +501,100 @@ def _normalize_provider_api_base(api_base: str | None) -> str | None:
         return api_base
 
 
-def _model_to_provider_code(model: str) -> str:
+def _explicit_provider_code_of(model: str) -> str:
+    """模型 ID 显式命中的 provider_code;未命中前缀表返回空串。
+
+    额度标记是全局状态,不能把无法归因的模型兜底算到 openai 头上
+    (那会误伤一整家厂商的可用性判定),故与 _model_to_provider_code 的默认值区分。
+    """
     m = model.lower()
     for prefix, code in _PREFIX_TO_PROVIDER_CODE.items():
         if m.startswith(prefix):
             return code
-    return "openai"
+    return ""
+
+
+def _model_to_provider_code(model: str) -> str:
+    return _explicit_provider_code_of(model) or "openai"
+
+
+# ============================================================================
+# 账号额度耗尽 → 跨厂商换通道(2026-09-22 批次 59 立)
+# ============================================================================
+# 判据在 ..middleware.llm_metrics.is_quota_exhaustion_error(状态码 + 额度错误码双条件)。
+# 降级本身走既有 FallbackRouter.complete_with_fallback(唯一一条换通道链路),这里只
+# 为额度这一类补一份"同一模型在其他厂商的可用通道"候选来源。
+
+# 兜底路径不宜无界放大请求数(每次尝试都是真实上游调用)
+_MAX_QUOTA_FAILOVER_CHANNELS = 5
+
+
+def _provider_prefix_for_code(provider_code: str) -> str | None:
+    """provider_code → 模型 ID 前缀(反查 _PREFIX_TO_PROVIDER_CODE + 正查回环校验)。
+
+    只接受带 '/' 的路径前缀("qwen" 这类裸模型名规则不能当前缀用),且拼出的 ID 必须
+    能被 _model_to_provider_code 反解回同一 provider,否则丢弃该候选。
+    """
+    for prefix, code in _PREFIX_TO_PROVIDER_CODE.items():
+        if code != provider_code or not prefix.endswith("/"):
+            continue
+        if _model_to_provider_code(f"{prefix}x") == provider_code:
+            return prefix
+    return None
+
+
+async def _find_quota_alternate_channels(
+    model_id: str,
+    exclude_providers: set[str],
+) -> list[str]:
+    """同一模型在其他厂商的可用通道(额度耗尽时改道用)。
+
+    数据源与 /llm/models 同表(ai_model_config_models JOIN ai_model_config),因此
+    "不充值也能调到 qwen 系"的既有替代通道(openrouter / token6688 / siliconflow …)
+    无需任何新配置即可被复用。DB 不可用时返回空列表 —— 行为等同于未启用该特性。
+    """
+    bare_model = model_id.split("/", 1)[-1] if "/" in model_id else model_id
+    if not bare_model:
+        return []
+    try:
+        pool = await _get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT c.provider_code, m.model_id
+                   FROM ai_model_config_models m
+                   JOIN ai_model_config c ON m.config_id = c.id
+                   WHERE m.enabled = true AND c.enabled = true AND c.owner_uuid IS NULL
+                     AND (m.model_id = $1 OR m.model_id LIKE '%/' || $1)
+                   ORDER BY c.sort_order NULLS LAST, m.id
+                   LIMIT 40""",
+                bare_model,
+            )
+    except Exception as e:
+        logger.warning("[quota-failover] 查询替代通道失败(model=%s): %s", model_id, e)
+        return []
+
+    # 延迟导入避免循环(llm_gateway ↔ model_availability),与 _resolve_auto_model 同源
+    from ..services.model_availability import model_availability
+
+    channels: list[str] = []
+    seen: set[str] = {model_id}
+    for row in rows:
+        provider_code = str(row["provider_code"] or "")
+        if not provider_code or provider_code in exclude_providers:
+            continue
+        if model_availability.is_provider_quota_blocked(provider_code):
+            continue
+        prefix = _provider_prefix_for_code(provider_code)
+        if not prefix:
+            continue
+        candidate = f"{prefix}{str(row['model_id'])}"
+        if candidate in seen or any(candidate.startswith(p) for p in _LOCAL_PREFIXES):
+            continue
+        seen.add(candidate)
+        channels.append(candidate)
+        if len(channels) >= _MAX_QUOTA_FAILOVER_CHANNELS:
+            break
+    return channels
 
 
 # ============================================================================
@@ -1361,6 +1456,26 @@ class LLMGateway:
             real_model = model.split("/", 1)[1] if "/" in model else model
             cfg = settings.get_provider_config("zhipu")
             return cfg.api_key or None, cfg.api_base or "https://open.bigmodel.cn/api/paas/v4", f"openai/{real_model}"
+        # 2026-09-21 同型修复:模型选择器发的是裸 id(/llm/models 的 m.id),而这两家的模型名
+        # 不带 vendor 前缀(qwen-plus / mimo-v2.5),此前落到末尾 openai 默认分支 →
+        # LiteLLM "LLM Provider NOT provided" 502,列表里选得到、一调用即失败。
+        # LLM_PROVIDERS 里这两家只配了 api_key 没配 api_base,故默认值写死在代码里。
+        if m.startswith("qwen"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("qwen")
+            return (
+                cfg.api_key or None,
+                cfg.api_base or "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                f"openai/{real_model}",
+            )
+        if m.startswith("mimo"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("mimo")
+            return (
+                cfg.api_key or None,
+                cfg.api_base or "https://api.xiaomimimo.com/v1",
+                f"openai/{real_model}",
+            )
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)
         if m.startswith("cerebras/"):
             real_model = model.split("/", 1)[1]
@@ -1855,13 +1970,14 @@ class LLMGateway:
                     )
             # FallbackRouter 接入:LLM_ERROR 且未跳过 fallback 时,
             # 自动尝试 fallbacks 配置中的备用 provider(如 stepfun 故障 → agnes 兜底)
+            # 额度耗尽时即使没配静态 fallbacks 也要进(候选由替代通道动态补齐)
             if (
                 err_code == "LLM_ERROR"
                 and not _skip_fallback
-                and fallback_router._configs
+                and (fallback_router._configs or is_quota_exhaustion_error(e))
             ):
                 fb_result = await fallback_router.complete_with_fallback(
-                    trimmed_messages, used_model
+                    trimmed_messages, used_model, primary_error=e
                 )
                 if not fb_result.get("error"):
                     fb_result["fallback_used"] = True
@@ -1894,6 +2010,9 @@ class LLMGateway:
                     ).inc()
                 except Exception as metric_err:
                     logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                if fb_result.get("quota_exhausted"):
+                    # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
+                    safe_msg = f"{safe_msg} | {fb_result.get('error')}"
 
             # P0-1 Combo 多级 fallback 接入(2026-07-30 立,超越 OmniRoute):
             # FallbackRouter 单层 fallback 失败后,若 primary model 在某个 combo 链中,
@@ -2059,13 +2178,13 @@ class LLMGateway:
         兜底不可用 / 全部失败时透传 error 事件(errorCode=LLM_ERROR)。
         """
         error_evt = {"type": "error", "message": error_message, "errorCode": "LLM_ERROR"}
-        if not fallback_router._configs:
+        if not fallback_router._configs and not is_quota_exhaustion_error(error_message):
             yield error_evt
             return
         fb_reason = classify_fallback_reason(Exception(error_message))
         try:
             fb_result = await fallback_router.complete_with_fallback(
-                trimmed_messages, used_model
+                trimmed_messages, used_model, primary_error=error_message
             )
             if not fb_result.get("error"):
                 fb_content = fb_result.get("content", "") or ""
@@ -2102,6 +2221,9 @@ class LLMGateway:
                 }
                 return
             # 所有 fallback 均失败 → 指标埋点 + 透传原 error
+            if fb_result.get("quota_exhausted"):
+                # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
+                error_evt = {**error_evt, "message": f"{error_message} | {fb_result.get('error')}"}
             try:
                 LLM_FALLBACK_TRIGGERED.labels(
                     primary_model=used_model,
@@ -2620,12 +2742,12 @@ class LLMGateway:
                 err_code == "LLM_ERROR"
                 and not accumulated_content
                 and not accumulated_reasoning
-                and fallback_router._configs
+                and (fallback_router._configs or is_quota_exhaustion_error(e))
             ):
                 fb_reason = classify_fallback_reason(e)
                 try:
                     fb_result = await fallback_router.complete_with_fallback(
-                        trimmed_messages, used_model
+                        trimmed_messages, used_model, primary_error=e
                     )
                     if not fb_result.get("error"):
                         # fallback 返回的是完整结果(非流式),拆成 chunk 产出
@@ -2677,6 +2799,9 @@ class LLMGateway:
                         ).inc()
                     except Exception as metric_err:
                         logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                    if fb_result.get("quota_exhausted"):
+                        # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
+                        safe_msg = f"{safe_msg} | {fb_result.get('error')}"
                 except Exception as fb_err:
                     logger.warning("astream fallback 失败: %s", fb_err)
                     # P3-2 指标埋点:fallback 触发 + 失败(fallback_router 自身抛异常)
@@ -2827,7 +2952,11 @@ class FallbackRouter:
         return self._configs.get(provider, {})
 
     async def complete_with_fallback(
-        self, messages: list[dict[str, Any]], primary: str
+        self,
+        messages: list[dict[str, Any]],
+        primary: str,
+        *,
+        primary_error: BaseException | str | None = None,
     ) -> dict[str, Any]:
         """带故障转移的推理。
 
@@ -2843,9 +2972,15 @@ class FallbackRouter:
         - fallback 阶段禁用 LiteLLM 重试(num_retries=0):原 complete() 默认 num_retries=2,
           N 个 fallback provider × 2 次重试 = 2N 次请求,主+fallback 双故障时形成重试放大。
           fallback 是兜底路径,失败应快速返回错误,不重试。
+
+        额度耗尽专用分支(2026-09-22 批次 59):primary_error 被判为账号额度类错误时,
+        把同一模型在其他厂商的可用通道也送进候选,并把"已确认没钱"的厂商记进本请求黑名单
+        —— 欠费是厂商级状态,换 key 或重试同一家都不可能有结果。
         """
         config = self._configs.get(primary, {})
-        fallbacks = config.get("fallbacks", [])
+        candidates: list[str] = [
+            str(p) for p in config.get("fallbacks", []) if isinstance(p, str)
+        ]
 
         # P2 修复:单次请求级 token budget 检查
         # 粗略估算 messages 总字符数,超过 128K 字符(≈32K token)直接拒绝 fallback
@@ -2866,8 +3001,32 @@ class FallbackRouter:
                 ),
             }
 
+        # 延迟导入避免循环(llm_gateway ↔ model_availability)
+        from ..services.model_availability import model_availability
+
+        quota_hit = is_quota_exhaustion_error(primary_error)
+        blocked_providers: set[str] = set()
+        primary_provider = _explicit_provider_code_of(primary)
+        if quota_hit:
+            if primary_provider:
+                blocked_providers.add(primary_provider)
+                await model_availability.mark_provider_quota_exhausted(
+                    primary_provider, describe_quota_error(primary_error)
+                )
+            candidates.extend(
+                await _find_quota_alternate_channels(primary, blocked_providers)
+            )
+            logger.info(
+                "[quota-failover] %s 额度耗尽,替代通道=%s(跳过厂商=%s)",
+                primary, candidates, sorted(blocked_providers) or "-",
+            )
+
         last_error: str | None = None
-        for provider in fallbacks:
+        attempts: list[str] = []
+        for provider in candidates:
+            provider_code = _explicit_provider_code_of(provider)
+            if provider_code and provider_code in blocked_providers:
+                continue
             try:
                 # P2 修复:fallback 阶段 num_retries=0,防止重试放大
                 # 主 provider 已失败,fallback 也失败时重试只是浪费资源,应快速返回错误
@@ -2880,7 +3039,24 @@ class FallbackRouter:
                 last_error = result.get("error_message") or result.get("error")
             except Exception as e:
                 last_error = str(e)
-                continue
+            err_text = str(last_error or "")
+            provider_quota = bool(provider_code) and is_quota_exhaustion_error(err_text)
+            if provider_quota:
+                await model_availability.mark_provider_quota_exhausted(
+                    provider_code, describe_quota_error(err_text)
+                )
+                blocked_providers.add(provider_code)
+            reason = describe_quota_error(err_text) if provider_quota else "其他错误"
+            attempts.append(f"{provider}[{provider_code or '-'}]={reason}")
+
+        if quota_hit:
+            trail = [f"{primary}[{primary_provider or '-'}]={describe_quota_error(primary_error)}"]
+            trail.extend(attempts)
+            return {
+                "content": "",
+                "error": "所有通道均因账号额度耗尽失败: " + "; ".join(trail),
+                "quota_exhausted": True,
+            }
         return {"content": "", "error": f"all fallbacks failed: {last_error}"}
 
 
