@@ -496,7 +496,7 @@
       ai-service `_FAMILIES`/`_ENDPOINT_PREFIX`/`_FAMILY_ACTIONS` 同步;
       ② 端侧(`2b19843e06`):自有 DOM 执行器(fill 走原型原生 value setter,React 受控组件也生效;
       密码字段连快照都不出现;删除/支付/发布 DESTRUCTIVE_BLOCKED 与 web 逐字对齐)、
-      导航白名单 49 条(SidepanelApp 路由表清点,白名单外 ROUTE_NOT_ALLOWED)、
+      导航白名单 50 条(SidepanelApp 路由表清点,含 5 条兼容重定向,白名单外 ROUTE_NOT_ALLOWED)、
       background 按 category 分流经 chrome.runtime 转发 sidepanel 执行(方案 a:一条 WS、一处回执,
       sidepanel 未开如实 TARGET_NOT_CONNECTED)、能力上报 extUiActions、聊天请求按意图携带 ext_ui_*。
       证据:extension typecheck 0 错 + vitest **11 文件 / 139 项全绿**(基线 116);
