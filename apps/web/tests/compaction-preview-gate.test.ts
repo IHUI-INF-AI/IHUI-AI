@@ -3,37 +3,79 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Token 估算工具(web 端 wrapper)。
+ * "正在压缩上下文"预告态门控单元测试(2026-09-21 立)。
  *
- * 2026-08-01 P3-4.2 批次5:前 3 个纯函数下沉到 @ihui/shared/utils/token-estimate,
- * 本文件保留 web 端专属的 estimateChatMessagesTokens(依赖 ChatMessage 类型)。
+ * 回归背景:原实现每次发送无条件点亮 compacting(与是否真的压缩无关),
+ * 且只靠 onResponse 清除 → 响应头之前失败/abort/stop/切会话时灰条全站常驻。
+ * 本文件锁住"门控"这一半:占用率未达后端 DEFAULT_TRIGGER_RATIO 一律不预告。
  */
 
-// re-export shared 层的纯函数(跨端通用)
-export {
-  estimateTokens,
-  estimateMessageTokens,
-  estimateConversationTokens,
-} from '@ihui/shared/utils/token-estimate'
-
-import type { ChatMessage } from '@/stores/chat'
+import { describe, it, expect } from 'vitest'
 import { DEFAULT_TRIGGER_RATIO } from '@ihui/shared/constants'
-import { estimateMessageTokens } from '@ihui/shared/utils/token-estimate'
+import {
+  estimateChatMessagesTokens,
+  isContextAtCompactionThreshold,
+} from '../src/lib/token-estimate'
+import type { ChatMessage } from '../src/stores/chat'
 
-/** 估算 ChatMessage[] 的总 token 数(过滤 error 消息,web 端专属) */
-export function estimateChatMessagesTokens(messages: ChatMessage[]): number {
-  return messages
-    .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
-    .reduce((sum, m) => sum + estimateMessageTokens(m), 0)
+const LONG = '上下文压缩阈值门控回归用例。'.repeat(400)
+
+const msg = (role: ChatMessage['role'], content: string, extra?: { error?: string }): ChatMessage =>
+  ({ role, content, ...(extra ? extra : {}) }) as ChatMessage
+
+/** 造一组消息,返回其估算 token 数(与阈值判据同源,避免用例里写死 token 常量) */
+function corpus(): { messages: ChatMessage[]; tokens: number } {
+  const messages = [
+    msg('user', LONG),
+    msg('assistant', LONG),
+    msg('user', LONG),
+    msg('assistant', LONG),
+  ]
+  return { messages, tokens: estimateChatMessagesTokens(messages) }
 }
 
-/** 本次请求的上下文占用是否已达后端自动压缩阈值(88%,与后端 triggerRatio 同源常量)。
- *  前端"正在压缩上下文"预告态的唯一门控:达不到阈值就不会触发压缩,不该提前喊。 */
-export function isContextAtCompactionThreshold(
-  messages: ChatMessage[],
-  contextLimit: number,
-): boolean {
-  if (contextLimit <= 0) return false
-  return estimateChatMessagesTokens(messages) / contextLimit >= DEFAULT_TRIGGER_RATIO
-}
+describe('isContextAtCompactionThreshold', () => {
+  it('后端触发阈值是 88%(与 @ihui/context-compaction DEFAULT_TRIGGER_RATIO 同源)', () => {
+    expect(DEFAULT_TRIGGER_RATIO).toBe(0.88)
+  })
+
+  it('空上下文永不预告', () => {
+    expect(isContextAtCompactionThreshold([], 128_000)).toBe(false)
+  })
+
+  it('contextLimit 非正数时不预告(无法判定占用率,宁可不显示)', () => {
+    const { messages } = corpus()
+    expect(isContextAtCompactionThreshold(messages, 0)).toBe(false)
+    expect(isContextAtCompactionThreshold(messages, -1)).toBe(false)
+  })
+
+  it('占用率远低于阈值 → false(修复前:每次发送都会显示)', () => {
+    const { messages, tokens } = corpus()
+    expect(tokens).toBeGreaterThan(0)
+    expect(isContextAtCompactionThreshold(messages, tokens * 2)).toBe(false)
+  })
+
+  it('占用率恰好落在阈值 → true', () => {
+    const { messages, tokens } = corpus()
+    expect(
+      isContextAtCompactionThreshold(messages, Math.floor(tokens / DEFAULT_TRIGGER_RATIO)),
+    ).toBe(true)
+  })
+
+  it('占用率超过阈值 → true', () => {
+    const { messages, tokens } = corpus()
+    expect(isContextAtCompactionThreshold(messages, tokens)).toBe(true)
+  })
+
+  it('error 消息不计入占用(与实际发给后端的 history 过滤口径一致)', () => {
+    const { messages, tokens } = corpus()
+    const withErrors = [
+      ...messages,
+      msg('assistant', LONG, { error: 'boom' }),
+      msg('assistant', LONG, { error: 'boom' }),
+    ]
+    expect(estimateChatMessagesTokens(withErrors)).toBe(tokens)
+    expect(isContextAtCompactionThreshold(withErrors, tokens * 2)).toBe(false)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
