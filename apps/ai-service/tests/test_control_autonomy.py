@@ -82,6 +82,7 @@ def test_family_actions_match_registered_tools() -> None:
         "web_ui_": {t.name.removeprefix("web_ui_") for t, _ in ub._ui_tools()},
         "mobile_ui_": {t.name.removeprefix("mobile_ui_") for t, _ in ub._app_tools("mobile")},
         "taro_ui_": {t.name.removeprefix("taro_ui_") for t, _ in ub._app_tools("taro")},
+        "ext_ui_": {t.name.removeprefix("ext_ui_") for t, _ in ub._app_tools("extension")},
     }
     assert set(expected) == set(ca._FAMILY_ACTIONS)
     for prefix, verbs in expected.items():
