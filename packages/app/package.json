@@ -1,0 +1,53 @@
+{
+  "name": "@ihui/rn-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "test": "vitest run --environment jsdom --passWithNoTests"
+  },
+  "dependencies": {
+    "@ihui/design-tokens": "workspace:*",
+    "@ihui/types": "workspace:*",
+    "lucide-react": "^1.37.0",
+    "lucide-react-native": "^1.37.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0 || ^0.86.0"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "@testing-library/react": "^16.0.0",
+    "@types/react": "^19.0.0",
+    "jsdom": "^30.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-native": "^0.86.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "vitest": {
+    "environment": "jsdom",
+    "include": [
+      "src/**/__tests__/**/*.test.{ts,tsx}"
+    ],
+    "globals": false,
+    "testTimeout": 15000,
+    "hookTimeout": 15000
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top",
+  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
+  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+}

@@ -1,0 +1,169 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import { FlatList, Text, TextInput, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AgentMarketScreenProps } from '../../types'
+
+/** Agent 市场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { AgentMarketScreenProps }
+
+export function AgentMarketScreen({
+  t,
+  items,
+  keyword,
+  loading,
+  error,
+  onKeywordChange,
+  onSearch,
+  onPressItem,
+  onBack,
+  colorScheme = 'light',
+}: AgentMarketScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading && items.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.muted}>{t('common.loading')}</Text>
+      </View>
+    )
+  }
+  if (error && items.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.error}>{error}</Text>
+        <TouchableOpacity style={styles.btn} onPress={onBack}>
+          <Text style={styles.btnText}>{t('common.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.container}>
+      <TouchableOpacity onPress={onBack}>
+        <Text style={styles.back}>{t('common.back')}</Text>
+      </TouchableOpacity>
+      <Text style={styles.title}>{t('agentMarket.title')}</Text>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.input}
+          value={keyword}
+          onChangeText={onKeywordChange}
+          placeholder={t('agentMarket.searchPlaceholder')}
+          placeholderTextColor={tk.text.tertiary}
+          onSubmitEditing={onSearch}
+          returnKeyType="search"
+        />
+        <TouchableOpacity style={styles.searchBtn} onPress={onSearch}>
+          <Text style={styles.btnText}>{t('common.search')}</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.muted}>{t('agentMarket.empty')}</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => onPressItem(item.id)} style={styles.card}>
+            <Text style={styles.cardTitle} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={styles.cardDesc} numberOfLines={2}>
+              {item.description}
+            </Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.category}>{item.category}</Text>
+              <Text style={styles.meta}>
+                ★ {item.rating.toFixed(1)} · {item.uses}
+                {t('agentMarket.uses')}
+              </Text>
+              <Text style={styles.price}>
+                {item.isFree ? t('agentMarket.free') : t('agentMarket.paid')}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: tk.surface.bg,
+      paddingHorizontal: 10,
+      paddingTop: 48,
+    },
+    center: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.surface.bg,
+      padding: 16,
+    },
+    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
+    btn: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    btnText: { color: tk.surface.light, fontSize: 16 },
+    back: { fontSize: 16, color: tk.text.secondary },
+    title: {
+      marginTop: 8,
+      marginBottom: 12,
+      fontSize: 24,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    input: {
+      flex: 1,
+      height: 50,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      fontSize: 16,
+      color: tk.text.primary,
+      backgroundColor: tk.surface.muted,
+    },
+    searchBtn: {
+      paddingHorizontal: 14,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    empty: { paddingVertical: 40, alignItems: 'center' },
+    card: {
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      marginBottom: 8,
+    },
+    cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    cardDesc: { marginTop: 8, fontSize: 14, color: tk.text.primary },
+    metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+    category: { marginRight: 8, fontSize: 11, color: tk.brand.DEFAULT },
+    meta: { fontSize: 11, color: tk.text.tertiary },
+    price: { marginLeft: 'auto', fontSize: 14, fontWeight: '600', color: tk.brand.DEFAULT },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

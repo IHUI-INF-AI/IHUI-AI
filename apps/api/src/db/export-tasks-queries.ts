@@ -1,0 +1,62 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, desc, sql } from 'drizzle-orm'
+import { db } from './index.js'
+import { exportTasks, type ExportTask } from '@ihui/database'
+
+/** 创建一个导出任务,初始 status=0(pending)。 */
+export async function createExportTask(userId: string, type: string): Promise<ExportTask> {
+  const rows = await db.insert(exportTasks).values({ userId, type }).returning()
+  const row = rows[0]
+  if (!row) throw new Error('创建导出任务失败')
+  return row
+}
+
+/** 分页查询用户导出任务,按创建时间倒序。 */
+export async function findExportTasks(
+  userId: string,
+  page: number,
+  pageSize: number,
+): Promise<{ list: ExportTask[]; total: number; page: number; pageSize: number }> {
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(exportTasks)
+      .where(eq(exportTasks.userId, userId))
+      .orderBy(desc(exportTasks.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(exportTasks)
+      .where(eq(exportTasks.userId, userId)),
+  ])
+  return { list, total: totalRows[0]?.count ?? 0, page, pageSize }
+}
+
+/** 查询用户最近一条导出任务。 */
+export async function findLatestExportTask(userId: string): Promise<ExportTask | undefined> {
+  const rows = await db
+    .select()
+    .from(exportTasks)
+    .where(eq(exportTasks.userId, userId))
+    .orderBy(desc(exportTasks.createdAt))
+    .limit(1)
+  return rows[0]
+}
+
+/** 标记导出任务为已完成,写入 fileUrl。 */
+export async function completeExportTask(
+  id: string,
+  fileUrl: string,
+): Promise<ExportTask | undefined> {
+  const rows = await db
+    .update(exportTasks)
+    .set({ status: 1, fileUrl, completedAt: new Date() })
+    .where(eq(exportTasks.id, id))
+    .returning()
+  return rows[0]
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,2183 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
+import type { LoginScreenProps, TFunction } from '../../types'
+// LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
+// 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
+// 故直接从源 @ihui/types 导入。
+import type {
+  LoginTab,
+  NationOption,
+  QrLoginConfig,
+  QrLoginStatus,
+  QrPlatformOption,
+  ThirdPartyLoginOption,
+  ThirdPartyPlatform,
+} from '@ihui/types'
+
+type FocusInputProps = ComponentProps<typeof TextInput> & {
+  styles: StyleSet
+  /** 聚焦时追加的差异化样式(排在 inputFocused 之后,用于覆盖通用聚焦边框) */
+  focusedStyle?: ComponentProps<typeof TextInput>['style']
+}
+
+/**
+ * 带聚焦高亮的输入框 — App 原生端默认无聚焦视觉反馈,web 端浏览器默认
+ * outline 已在 mobile-rn 的 web-shell 压掉(避免与边框叠加成双圈),
+ * 这里统一补一圈品牌色聚焦边框(浅色主题=黑,深色=白,随主题反转)。
+ * style 由内部与 styles.input 合并,调用方只需传差异样式(如 codeInput)。
+ */
+function FocusInput({ styles, onFocus, onBlur, style, focusedStyle, ...rest }: FocusInputProps) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <TextInput
+      {...rest}
+      style={[styles.input, style, focused && styles.inputFocused, focused && focusedStyle]}
+      onFocus={(e) => {
+        setFocused(true)
+        onFocus?.(e)
+      }}
+      onBlur={(e) => {
+        setFocused(false)
+        onBlur?.(e)
+      }}
+    />
+  )
+}
+
+/**
+ * 登录共享屏 — RN 端 4-tab 完整版(2026-07-30 重做)。
+ *
+ * 视觉对齐 web ui-react LoginForm + AuthShell:
+ *   - 外壳:居中 flex 1 + 卡片 maxWidth 460 + borderRadius 12 + border + padding 28
+ *   - 阴影:RN shadowColor/Offset/Opacity/Radius + elevation 3(复刻 web box-shadow)
+ *   - 顶部 logo 区:31×31 + "IHUI AI" 水平排列 gap 12,marginBottom 24
+ *   - 4 tab 切换条:flex row 等宽,激活态 bg brand + text onBrandText
+ *   - 输入框:height 40 + borderRadius 6 + border + paddingHorizontal 12 + fontSize 14
+ *   - 主按钮:height 40 + borderRadius 6 + bg brand + fontSize 14 fontWeight 500
+ *   - 错误提示:rgba(220,38,38,*) 红 边框/底/文字(对齐 web ErrorAlert)
+ *   - 协议行:16×16 方形复选框 borderRadius 4 + 嵌套 Text 链接
+ *   - 第三方登录区:3 列 flexWrap,40×40 圆形按钮
+ *   - QR tab:200×200 二维码占位 + 状态文案 + 刷新按钮
+ *
+ * i18n:仅使用 zh-CN.json 已有 key(任务约束禁止新增 key),QR 状态文案 / a11y label 硬编码中文。
+ * 所有新增 props 可选,旧调用方只传 account/password 仍可工作(渲染为单一 password tab)。
+ */
+export type { LoginScreenProps }
+
+// ===== 辅助函数 =====
+
+/** image 专有 style sheet — module 顶层 const,所有子组件可直接引用
+ *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表)
+ *  注:含 tk token 的 fallback 样式已移至组件内联样式(模块顶层无法访问 tk) */
+const imageStyles = StyleSheet.create({
+  thirdPartyIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    // 各平台墨迹在自身 viewBox 内垂直居中,槽位居中后墨迹中心才在同一水平线
+    // (否则大尺寸图标如企微 35 / 飞书 32 相对 28 的图标整体下沉 2026-09-04)
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // 图标网格用大号(2026-09-04:28 → 36,微信按钮内仍用 28 的 thirdPartyIcon)
+  thirdPartyIconLg: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    // 同 thirdPartyIcon:槽位垂直居中,保证不同渲染尺寸的图标顶部/中心线一致
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrImage: {
+    width: 200,
+    height: 200,
+  },
+  qrPlatformIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+  },
+  logoImage: {
+    width: 53,
+    height: 53,
+  },
+})
+
+/** tab key → i18n key 映射(对齐 web login-form.tsx) */
+function tabLabelKey(tab: LoginTab): string {
+  switch (tab) {
+    case 'email':
+      return 'auth.emailLogin'
+    case 'phone':
+      return 'auth.phoneCodeLogin'
+    case 'password':
+      return 'auth.passwordLogin'
+    case 'qr':
+      return 'auth.qrLogin'
+    default:
+      return 'auth.passwordLogin'
+  }
+}
+
+/** QR 状态文案(硬编码中文,避免新增 i18n key 触发 parity 守门) */
+function qrStatusText(status: QrLoginStatus, qrConfig?: QrLoginConfig): string {
+  switch (status) {
+    case 'loading':
+      return '二维码加载中...'
+    case 'waiting':
+      return '请使用微信扫码登录'
+    case 'scanned':
+      return '扫码成功,请在手机上确认'
+    case 'expired':
+      return '二维码已过期'
+    case 'error':
+      return qrConfig?.errorText ?? '二维码加载失败'
+    case 'idle':
+      return '请使用微信扫码登录'
+    default:
+      return '请使用微信扫码登录'
+  }
+}
+
+// ===== 样式集类型(向前引用,createStyles 在文件末尾) =====
+
+type StyleSet = ReturnType<typeof createStyles>
+
+// ===== 子组件 props 类型 =====
+
+interface TabContentBaseProps {
+  t: TFunction
+  styles: StyleSet
+  tk: AppThemeTokens
+  loading: boolean
+  agreed: boolean
+  onAgreedChange: (v: boolean) => void
+  onOpenTerms?: () => void
+  onOpenPrivacy?: () => void
+  showAgreeErr: boolean
+}
+
+interface EmailTabContentProps extends TabContentBaseProps {
+  email: string
+  emailCode: string
+  sending: boolean
+  countdown: number
+  onEmailChange?: (text: string) => void
+  onEmailCodeChange?: (text: string) => void
+  onSendCode?: () => void
+  onLogin: () => void
+  /** 账号登录历史(输入框聚焦时下拉;2026-09-06 邮箱 tab 对齐账号 tab) */
+  loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
+}
+
+interface PhoneTabContentProps extends TabContentBaseProps {
+  phone: string
+  phoneCode: string
+  sending: boolean
+  countdown: number
+  /** 手机号输入框前缀节点(区号展示,如 "+86");不传则输入框独占一行 */
+  phonePrefixNode?: ReactNode
+  /** 区号选择列表(传 nations + phoneHead 则渲染可点击区号选择器,优先级高于 phonePrefixNode) */
+  nations?: NationOption[]
+  /** 当前选中区号(如 '+86') */
+  phoneHead?: string
+  /** 区号列表是否展开 */
+  nationShow?: boolean
+  /** 展开/收起区号列表回调 */
+  onToggleNationShow?: () => void
+  /** 选中区号回调 */
+  onSelectNation?: (nation: NationOption) => void
+  onPhoneChange?: (text: string) => void
+  onPhoneCodeChange?: (text: string) => void
+  onSendCode?: () => void
+  onLogin: () => void
+  /** 运营商一键登录入口节点(可选;传则渲染在主登录按钮下方,未传不渲染) */
+  carrierOneClickEntry?: ReactNode
+  /** 账号登录历史(输入框聚焦时下拉;2026-09-06 手机号 tab 对齐账号 tab) */
+  loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
+}
+
+interface PasswordTabContentProps extends TabContentBaseProps {
+  account: string
+  password: string
+  onAccountChange: (text: string) => void
+  onPasswordChange: (text: string) => void
+  onLogin: () => void
+  showPassword: boolean
+  onToggleShowPassword: () => void
+  onForgotPassword?: () => void
+  // 密码显示/隐藏 图标(可选,对齐 web lucide Eye/EyeOff 视觉)
+  // 类型为 ReactNode 以支持 lucide-react-native 的 <Eye />/<EyeOff /> SVG 组件
+  // (RN <Image source={require('*.svg')} /> 在 Android/Web 不支持 SVG 渲染,会显示损坏)
+  // 不传则 fallback 到 emoji(旧行为,不推荐 — emoji 在 Windows 渲染为损坏图)
+  eyeIconShow?: ReactNode
+  eyeIconHide?: ReactNode
+  // ===== 自动登录 + 历史账号(2026-09-04,对齐 web 自动登录复选框 + 账号历史下拉) =====
+  autoLogin: boolean
+  onAutoLoginChange: (v: boolean) => void
+  /** 账号登录历史(最新在前,最多 5;不传/为空则不显示下拉) */
+  loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
+}
+
+interface QrTabContentProps {
+  styles: StyleSet
+  tk: AppThemeTokens
+  qrConfig?: QrLoginConfig
+  /** 平台切换 tab 列表(传则渲染平台切换;不传则只显示单平台占位) */
+  qrPlatforms?: QrPlatformOption[]
+  /** QR 面板渲染函数(平台注入:mobile-rn 传 WebView 加载 web 端真实二维码) */
+  renderQrPanel?: (platform: ThirdPartyPlatform, refreshKey: number) => ReactNode
+}
+
+interface AgreementRowProps {
+  t: TFunction
+  styles: StyleSet
+  tk: AppThemeTokens
+  agreed: boolean
+  onAgreedChange: (v: boolean) => void
+  onOpenTerms?: () => void
+  onOpenPrivacy?: () => void
+  showAgreeErr: boolean
+  /** 行右侧插槽(2026-09-04:密码 tab 放"自动登录"复选框,利用右侧空白) */
+  rightNode?: ReactNode
+}
+
+interface PrimaryLoginButtonProps {
+  t: TFunction
+  styles: StyleSet
+  loading: boolean
+  onPress: () => void
+}
+
+interface ThirdPartyLoginAreaProps {
+  styles: StyleSet
+  tk: AppThemeTokens
+  options: ThirdPartyLoginOption[]
+  loadingPlatform: ThirdPartyPlatform | null
+  onLogin?: (platform: ThirdPartyPlatform) => void
+}
+
+// ===== 共享子组件 =====
+
+/** 协议同意行 — 16×16 方形复选框 + 嵌套链接 Text(对齐 web AgreementCheckbox inline 模式) */
+function AgreementRow({
+  t,
+  styles,
+  agreed,
+  onAgreedChange,
+  onOpenTerms,
+  onOpenPrivacy,
+  showAgreeErr,
+  rightNode,
+}: AgreementRowProps) {
+  return (
+    <View style={styles.agreementRow}>
+      <View style={styles.agreementRowMain}>
+        <TouchableOpacity
+          style={[
+            styles.checkbox,
+            agreed ? styles.checkboxChecked : styles.checkboxUnchecked,
+            showAgreeErr && !agreed ? styles.checkboxError : null,
+          ]}
+          onPress={() => onAgreedChange(!agreed)}
+          activeOpacity={0.7}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: agreed }}
+          accessibilityLabel="同意协议复选框"
+        >
+          {agreed ? <Text style={styles.checkmark}>✓</Text> : null}
+        </TouchableOpacity>
+        <Text style={styles.agreementText}>
+          {t('auth.agreePrefix')}
+          <Text
+            style={styles.agreementLink}
+            onPress={onOpenTerms}
+            accessibilityRole="link"
+            accessibilityLabel="服务条款"
+          >
+            {t('auth.termsOfService')}
+          </Text>
+          {t('auth.and')}
+          <Text
+            style={styles.agreementLink}
+            onPress={onOpenPrivacy}
+            accessibilityRole="link"
+            accessibilityLabel="隐私政策"
+          >
+            {t('auth.privacyPolicy')}
+          </Text>
+        </Text>
+        {rightNode}
+      </View>
+      {showAgreeErr && !agreed ? (
+        <Text style={styles.agreementErrorText}>{t('auth.agreeRequired')}</Text>
+      ) : null}
+    </View>
+  )
+}
+
+/** 主登录按钮(对齐 web h-10 Button bg-primary) */
+function PrimaryLoginButton({ t, styles, loading, onPress }: PrimaryLoginButtonProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.loginBtn, loading && styles.btnDisabled]}
+      onPress={onPress}
+      disabled={loading}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+    >
+      <Text style={styles.loginBtnText}>{loading ? '登录中...' : t('auth.loginBtn')}</Text>
+    </TouchableOpacity>
+  )
+}
+
+/** 第三方登录区 — 自适应居中网格 + 28×28 圆角图标 + 分隔线(对齐 web ThirdPartyLoginButtons 视觉)
+ * 2026-08-04 优化:删除"第三方登录"标题(冗余,分隔线"或"已足够分隔);
+ * 图标从 44×44 圆形(borderRadius 22,违反圆角守门)改为 28×28 圆角(borderRadius 6,rounded-md);
+ * 网格从固定 4 列百分比改为居中 flexWrap,适配不同平台登录方式数量(2/4/5 个)。 */
+function ThirdPartyLoginArea({
+  styles,
+  tk,
+  options,
+  loadingPlatform,
+  onLogin,
+}: ThirdPartyLoginAreaProps) {
+  // 微信为主推登录方式:独立大按钮(规格对齐主登录按钮),其余平台留在"或"下方图标网格
+  const wechatOpt = options.find((o) => o.platform === 'wechat')
+  const restOptions = options.filter((o) => o.platform !== 'wechat')
+  const renderThirdPartyIcon = (opt: ThirdPartyLoginOption, isLoading: boolean) => {
+    if (isLoading) {
+      return <ActivityIndicator size="small" color={tk.brand.DEFAULT} />
+    }
+    if (opt.iconNode) {
+      /* svg-transformer 组件节点(36×36 大号容器,对齐图标网格) */
+      return <View style={imageStyles.thirdPartyIconLg}>{opt.iconNode}</View>
+    }
+    if (opt.iconSource) {
+      return (
+        <Image source={opt.iconSource} style={imageStyles.thirdPartyIconLg} resizeMode="contain" />
+      )
+    }
+    return (
+      <View
+        style={[
+          {
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: tk.text.tertiary,
+          },
+          !!opt.brandColor && { backgroundColor: opt.brandColor },
+        ]}
+      >
+        <Text
+          style={{
+            color: tk.surface.light,
+            fontSize: 11,
+            fontWeight: '600',
+            lineHeight: 13,
+          }}
+        >
+          {opt.label.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    )
+  }
+
+  return (
+    <View style={styles.thirdPartyArea}>
+      {wechatOpt ? (
+        <WeChatLoginButton
+          styles={styles}
+          tk={tk}
+          opt={wechatOpt}
+          loading={loadingPlatform === 'wechat'}
+          onPress={onLogin}
+        />
+      ) : null}
+      {restOptions.length > 0 ? (
+        <>
+          {/* 分隔线:"或"居中(对齐 web 端 or-divider) */}
+          <View style={styles.thirdPartyDivider}>
+            <View style={styles.thirdPartyDividerLine} />
+            <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+            <View style={styles.thirdPartyDividerLine} />
+          </View>
+          <View style={styles.thirdPartyGrid}>
+            {restOptions.map((opt) => {
+              const disabled = !opt.enabled || opt.forceDisabled === true
+              const isLoading = loadingPlatform === opt.platform
+              return (
+                <TouchableOpacity
+                  key={opt.platform}
+                  style={[styles.thirdPartyBtn, disabled ? styles.thirdPartyBtnDisabled : null]}
+                  onPress={() => !disabled && onLogin?.(opt.platform)}
+                  disabled={disabled}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={opt.label}
+                >
+                  {renderThirdPartyIcon(opt, isLoading)}
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </>
+      ) : null}
+    </View>
+  )
+}
+
+/** 微信主推登录按钮 — 规格对齐主登录按钮(高 50 / 圆角 15 / 微信品牌绿 #07C160),
+ *  图标 + "微信登录"文字,让用户明确微信为主要登录方式(2026-09-04 用户需求) */
+function WeChatLoginButton({
+  styles,
+  tk,
+  opt,
+  loading,
+  onPress,
+}: {
+  styles: StyleSet
+  tk: AppThemeTokens
+  opt: ThirdPartyLoginOption
+  loading: boolean
+  onPress?: (platform: ThirdPartyPlatform) => void
+}) {
+  const disabled = !opt.enabled || opt.forceDisabled === true
+  return (
+    <TouchableOpacity
+      style={[styles.wechatLoginBtn, disabled ? styles.btnDisabled : null]}
+      onPress={() => !disabled && onPress?.('wechat')}
+      disabled={disabled}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel="微信登录"
+    >
+      {loading ? (
+        <ActivityIndicator size="small" color={tk.surface.light} />
+      ) : (
+        <>
+          {opt.iconNode ? (
+            <View style={imageStyles.thirdPartyIcon}>{opt.iconNode}</View>
+          ) : opt.iconSource ? (
+            <Image
+              source={opt.iconSource}
+              style={imageStyles.thirdPartyIcon}
+              resizeMode="contain"
+            />
+          ) : null}
+          <Text style={styles.wechatLoginBtnText}>{'微信登录'}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  )
+}
+
+// ===== 4 个 tab 子组件 =====
+
+/** 历史账号下拉(账号/邮箱/手机号通用;对齐 web AccountHistoryInput:共用列表 + 单条删除 + 清空全部) */
+function HistoryDropdown({
+  t,
+  styles,
+  tk,
+  items,
+  onSelect,
+  onClose,
+  onRemove,
+  onClear,
+}: {
+  t: TFunction
+  styles: StyleSet
+  tk: AppThemeTokens
+  items: string[]
+  onSelect: (value: string) => void
+  onClose: () => void
+  onRemove?: (value: string) => void
+  onClear?: () => void
+}) {
+  return (
+    <View style={styles.historyDropdown}>
+      {items.map((acc) => (
+        <View key={acc} style={styles.historyItem}>
+          <TouchableOpacity
+            style={styles.historyItemMain}
+            onPress={() => {
+              onSelect(acc)
+              onClose()
+            }}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel={`选择历史账号 ${acc}`}
+          >
+            <Text style={styles.historyItemText} numberOfLines={1}>
+              {acc}
+            </Text>
+          </TouchableOpacity>
+          {onRemove ? (
+            <TouchableOpacity
+              style={styles.historyItemDel}
+              onPress={() => {
+                onRemove(acc)
+                if (items.length <= 1) onClose()
+              }}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.removeAccount')}
+            >
+              <X size={14} color={tk.text.tertiary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ))}
+      {onClear ? (
+        <TouchableOpacity
+          style={styles.historyClear}
+          onPress={() => {
+            onClear()
+            onClose()
+          }}
+          activeOpacity={0.6}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.clearHistory')}
+        >
+          <Text style={styles.historyClearText}>{t('auth.clearHistory')}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}
+
+/** 邮箱验证码登录(对齐 web EmailCodeLoginForm) */
+function EmailTabContent({
+  t,
+  styles,
+  tk,
+  email,
+  emailCode,
+  sending,
+  countdown,
+  onEmailChange,
+  onEmailCodeChange,
+  onSendCode,
+  onLogin,
+  loading,
+  agreed,
+  onAgreedChange,
+  onOpenTerms,
+  onOpenPrivacy,
+  showAgreeErr,
+  loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
+}: EmailTabContentProps) {
+  const sendDisabled = !email || sending || countdown > 0
+  // 历史账号下拉(邮箱输入框聚焦时展示;对齐账号 tab)
+  const [emailFocused, setEmailFocused] = useState(false)
+  const emailHistoryFiltered = (loginHistory ?? []).filter((a) => a !== email && a.length > 0)
+  return (
+    <View style={styles.tabContent}>
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('auth.email')}</Text>
+        <View>
+          <FocusInput
+            styles={styles}
+            style={styles.input}
+            value={email}
+            onChangeText={onEmailChange}
+            placeholder={t('auth.emailPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            onFocus={() => setEmailFocused(true)}
+            onBlur={() => setEmailFocused(false)}
+          />
+          {/* 历史账号下拉:邮箱输入框聚焦时展示 */}
+          {emailFocused && emailHistoryFiltered.length > 0 ? (
+            <HistoryDropdown
+              t={t}
+              styles={styles}
+              tk={tk}
+              items={emailHistoryFiltered}
+              onSelect={(acc) => onEmailChange?.(acc)}
+              onClose={() => setEmailFocused(false)}
+              onRemove={onRemoveLoginHistory}
+              onClear={onClearLoginHistory}
+            />
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('auth.code')}</Text>
+        <View style={styles.codeRow}>
+          <FocusInput
+            styles={styles}
+            style={[styles.input, styles.codeInput]}
+            value={emailCode}
+            onChangeText={(text) => onEmailCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
+            placeholder={t('auth.codePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={6}
+            textContentType="oneTimeCode"
+          />
+          <TouchableOpacity
+            style={[styles.sendCodeBtn, sendDisabled && styles.btnDisabled]}
+            onPress={onSendCode}
+            disabled={sendDisabled}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="获取验证码"
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={tk.text.primary} />
+            ) : (
+              <Text style={styles.sendCodeBtnText}>
+                {countdown > 0
+                  ? t('auth.resendCode', { seconds: countdown })
+                  : t('auth.getVerificationCode')}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      <AgreementRow
+        t={t}
+        styles={styles}
+        tk={tk}
+        agreed={agreed}
+        onAgreedChange={onAgreedChange}
+        onOpenTerms={onOpenTerms}
+        onOpenPrivacy={onOpenPrivacy}
+        showAgreeErr={showAgreeErr}
+      />
+      <PrimaryLoginButton t={t} styles={styles} loading={loading} onPress={onLogin} />
+    </View>
+  )
+}
+
+/** 手机验证码登录(对齐 web PhoneCodeLoginForm) */
+function PhoneTabContent({
+  t,
+  styles,
+  tk,
+  phone,
+  phoneCode,
+  sending,
+  countdown,
+  phonePrefixNode,
+  nations,
+  phoneHead,
+  nationShow,
+  onToggleNationShow,
+  onSelectNation,
+  onPhoneChange,
+  onPhoneCodeChange,
+  onSendCode,
+  onLogin,
+  carrierOneClickEntry,
+  loading,
+  agreed,
+  onAgreedChange,
+  onOpenTerms,
+  onOpenPrivacy,
+  showAgreeErr,
+  loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
+}: PhoneTabContentProps) {
+  const sendDisabled = !phone || sending || countdown > 0
+  // 区号前缀框与手机号输入框联动聚焦:输入框聚焦时前缀框同步高亮(2026-09-04)
+  const [phoneFocused, setPhoneFocused] = useState(false)
+  // 历史账号下拉:手机号输入框聚焦时展示(对齐账号 tab)
+  const phoneHistoryFiltered = (loginHistory ?? []).filter((a) => a !== phone && a.length > 0)
+  // 区号选择器模式:传入 nations + phoneHead + onToggleNationShow 时启用(优先级高于 phonePrefixNode)
+  const hasNationSelector = !!nations && !!phoneHead && !!onToggleNationShow
+  return (
+    <View style={styles.tabContent}>
+      {/* 运营商一键登录:零输入成本的首选登录路径,置顶为第一 CTA(对齐主流 App 登录页);
+          未配置通道时 wrapper 不注入节点,整块隐藏走验证码降级 */}
+      {carrierOneClickEntry ? (
+        <>
+          {carrierOneClickEntry}
+          {/* 分隔线:与下方验证码登录表单区分主次(复用第三方登录区"或"分隔样式) */}
+          <View style={styles.thirdPartyDivider}>
+            <View style={styles.thirdPartyDividerLine} />
+            <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+            <View style={styles.thirdPartyDividerLine} />
+          </View>
+        </>
+      ) : null}
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('auth.phone')}</Text>
+        {hasNationSelector ? (
+          <View>
+            <View style={[styles.phoneRow, phoneFocused && styles.phoneRowFocused]}>
+              <Pressable
+                style={styles.areaBox}
+                onPress={onToggleNationShow}
+                accessibilityRole="button"
+                accessibilityLabel="选择区号"
+              >
+                <Text style={styles.areaText}>{phoneHead}</Text>
+                <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
+              </Pressable>
+              <FocusInput
+                styles={styles}
+                style={[styles.input, styles.phoneInputWithArea]}
+                focusedStyle={styles.phoneInputFocused}
+                value={phone}
+                onFocus={() => setPhoneFocused(true)}
+                onBlur={() => setPhoneFocused(false)}
+                onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+                placeholder={t('auth.phonePlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                keyboardType="number-pad"
+                maxLength={11}
+                textContentType="telephoneNumber"
+              />
+            </View>
+            {nationShow ? (
+              <View style={styles.nationBox}>
+                {nations.map((n) => {
+                  const active = n.content === phoneHead
+                  return (
+                    <Pressable
+                      key={n.id}
+                      style={[styles.nationItem, active && styles.nationItemActive]}
+                      onPress={() => onSelectNation?.(n)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${n.title} ${n.content}`}
+                    >
+                      <Text style={[styles.nationTitle, active && styles.nationTitleActive]}>
+                        {n.title}
+                      </Text>
+                      <Text style={[styles.nationCode, active && styles.nationCodeActive]}>
+                        {n.content}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            ) : null}
+            {/* 历史账号下拉:手机号输入框聚焦时展示(对齐账号 tab) */}
+            {phoneFocused && phoneHistoryFiltered.length > 0 ? (
+              <HistoryDropdown
+                t={t}
+                styles={styles}
+                tk={tk}
+                items={phoneHistoryFiltered}
+                onSelect={(acc) => onPhoneChange?.(acc)}
+                onClose={() => setPhoneFocused(false)}
+                onRemove={onRemoveLoginHistory}
+                onClear={onClearLoginHistory}
+              />
+            ) : null}
+          </View>
+        ) : phonePrefixNode ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {phonePrefixNode}
+            <FocusInput
+              styles={styles}
+              style={[styles.input, { flex: 1 }]}
+              value={phone}
+              onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+              placeholder={t('auth.phonePlaceholder')}
+              placeholderTextColor={tk.text.tertiary}
+              keyboardType="number-pad"
+              maxLength={11}
+              textContentType="telephoneNumber"
+            />
+          </View>
+        ) : (
+          <FocusInput
+            styles={styles}
+            style={styles.input}
+            value={phone}
+            onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+            placeholder={t('auth.phonePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={11}
+            textContentType="telephoneNumber"
+          />
+        )}
+      </View>
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('auth.code')}</Text>
+        <View style={styles.codeRow}>
+          <FocusInput
+            styles={styles}
+            style={[styles.input, styles.codeInput]}
+            value={phoneCode}
+            onChangeText={(text) => onPhoneCodeChange?.(text.replace(/\D/g, '').slice(0, 6))}
+            placeholder={t('auth.codePlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            keyboardType="number-pad"
+            maxLength={6}
+            textContentType="oneTimeCode"
+          />
+          <TouchableOpacity
+            style={[styles.sendCodeBtn, sendDisabled && styles.btnDisabled]}
+            onPress={onSendCode}
+            disabled={sendDisabled}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="获取验证码"
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color={tk.text.primary} />
+            ) : (
+              <Text style={styles.sendCodeBtnText}>
+                {countdown > 0
+                  ? t('auth.resendCode', { seconds: countdown })
+                  : t('auth.getVerificationCode')}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      <AgreementRow
+        t={t}
+        styles={styles}
+        tk={tk}
+        agreed={agreed}
+        onAgreedChange={onAgreedChange}
+        onOpenTerms={onOpenTerms}
+        onOpenPrivacy={onOpenPrivacy}
+        showAgreeErr={showAgreeErr}
+      />
+      <PrimaryLoginButton t={t} styles={styles} loading={loading} onPress={onLogin} />
+    </View>
+  )
+}
+
+/** 账号密码登录(对齐 web PasswordLoginForm) */
+function PasswordTabContent({
+  t,
+  styles,
+  tk,
+  account,
+  password,
+  onAccountChange,
+  onPasswordChange,
+  onLogin,
+  loading,
+  showPassword,
+  onToggleShowPassword,
+  eyeIconShow,
+  eyeIconHide,
+  agreed,
+  onAgreedChange,
+  onOpenTerms,
+  onOpenPrivacy,
+  showAgreeErr,
+  onForgotPassword,
+  autoLogin,
+  onAutoLoginChange,
+  loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
+}: PasswordTabContentProps) {
+  // 历史账号下拉(账号输入框聚焦时展示;选中/失焦后收起)
+  const [accountFocused, setAccountFocused] = useState(false)
+  const historyFiltered = (loginHistory ?? []).filter((a) => a !== account && a.length > 0)
+  return (
+    <View style={styles.tabContent}>
+      <View style={styles.field}>
+        <Text style={styles.label}>{t('auth.account')}</Text>
+        <View>
+          <FocusInput
+            styles={styles}
+            style={styles.input}
+            value={account}
+            onChangeText={onAccountChange}
+            placeholder={t('auth.accountPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="username"
+            onFocus={() => setAccountFocused(true)}
+            onBlur={() => setAccountFocused(false)}
+          />
+          {/* 历史账号下拉:绝对定位悬浮在输入框正下方,不挤压布局 */}
+          {accountFocused && historyFiltered.length > 0 ? (
+            <HistoryDropdown
+              t={t}
+              styles={styles}
+              tk={tk}
+              items={historyFiltered}
+              onSelect={(acc) => onAccountChange(acc)}
+              onClose={() => setAccountFocused(false)}
+              onRemove={onRemoveLoginHistory}
+              onClear={onClearLoginHistory}
+            />
+          ) : null}
+        </View>
+      </View>
+      <View style={styles.field}>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{t('auth.password')}</Text>
+          {onForgotPassword ? (
+            <TouchableOpacity
+              onPress={onForgotPassword}
+              activeOpacity={0.7}
+              accessibilityRole="link"
+              accessibilityLabel="忘记密码"
+            >
+              <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={styles.passwordRow}>
+          <FocusInput
+            styles={styles}
+            style={[styles.input, styles.passwordInput]}
+            value={password}
+            onChangeText={onPasswordChange}
+            placeholder={t('auth.passwordPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="password"
+          />
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={onToggleShowPassword}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}
+          >
+            {eyeIconShow || eyeIconHide ? (
+              showPassword ? (
+                eyeIconHide
+              ) : (
+                eyeIconShow
+              )
+            ) : showPassword ? (
+              <EyeOff size={16} color={tk.text.medium} />
+            ) : (
+              <Eye size={16} color={tk.text.medium} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+      <AgreementRow
+        t={t}
+        styles={styles}
+        tk={tk}
+        agreed={agreed}
+        onAgreedChange={onAgreedChange}
+        onOpenTerms={onOpenTerms}
+        onOpenPrivacy={onOpenPrivacy}
+        showAgreeErr={showAgreeErr}
+        rightNode={
+          // 自动登录复选框(对齐 web 密码登录;勾选后登录成功记住凭据 + 下次启动静默登录)
+          <TouchableOpacity
+            style={styles.autoLoginRow}
+            onPress={() => onAutoLoginChange(!autoLogin)}
+            activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: autoLogin }}
+            accessibilityLabel="自动登录"
+          >
+            <View
+              style={[
+                styles.checkbox,
+                autoLogin ? styles.checkboxChecked : styles.checkboxUnchecked,
+              ]}
+            >
+              {autoLogin ? <Text style={styles.checkmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.autoLoginText}>{'自动登录'}</Text>
+          </TouchableOpacity>
+        }
+      />
+      <PrimaryLoginButton t={t} styles={styles} loading={loading} onPress={onLogin} />
+    </View>
+  )
+}
+
+/** 扫码登录(对齐 web QrTab,支持平台切换 tab + 二维码占位 + 打开网页按钮)
+ * 2026-08-04 升级:从简版占位升级为平台切换 tab 设计,对齐 web 端 qr-tab.tsx。
+ * - 传入 qrPlatforms:渲染 4 平台切换 tab(微信/企微/钉钉/飞书)
+ * - 每个平台显示二维码占位(图标 + "请使用XX扫码登录"文案)
+ * - "打开网页"按钮(跳到 web 端完成扫码,RN 端无法直接加载 SDK)
+ * - 未传 qrPlatforms:降级为单平台占位(旧行为) */
+function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTabContentProps) {
+  const [activePlatform, setActivePlatform] = useState<ThirdPartyPlatform | null>(
+    qrPlatforms?.[0]?.key ?? null,
+  )
+  // refreshKey:变化时重新渲染二维码面板(renderQrPanel 注入的 WebView 会重新加载)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const currentPlatform = qrPlatforms?.find((p) => p.key === activePlatform) ?? qrPlatforms?.[0]
+  const status: QrLoginStatus = qrConfig?.status ?? 'idle'
+  const showRefresh = status === 'expired' || status === 'error' || !!renderQrPanel
+  const isLoading = status === 'loading'
+  const qrSource = qrConfig?.qrSource ?? null
+
+  // 有平台列表时用平台名,否则用默认文案
+  const statusText = currentPlatform
+    ? `请使用${currentPlatform.label}扫码登录`
+    : qrStatusText(status, qrConfig)
+
+  // 平台切换 tab 等宽:用 flex: 1 + flexBasis: 0 + minWidth: 0
+  // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
+  // 设置 minWidth: 0 后 flex 子元素严格等分剩余空间,不受内容(图标+文字)影响。
+  // tabCount 用于无障碍标签,不参与宽度计算。
+  const tabCount = qrPlatforms?.length ?? 1
+  void tabCount // 仅用于潜在的无障碍标签,不参与样式计算
+
+  // RN 端打开 web 端扫码页面(Linking)
+  const handleOpenWeb = () => {
+    if (!currentPlatform?.webUrl) return
+    Linking.openURL(currentPlatform.webUrl).catch(() => {})
+  }
+
+  // 有平台列表:渲染平台切换 tab + 二维码占位 + 打开网页按钮
+  if (qrPlatforms && qrPlatforms.length > 0) {
+    return (
+      <View style={styles.qrContainer}>
+        {/* 平台切换 tab(对齐 web 端 qr-tab.tsx) */}
+        <View style={styles.qrPlatformTabBar}>
+          {qrPlatforms.map((p) => {
+            const active = p.key === activePlatform
+            return (
+              <TouchableOpacity
+                key={p.key}
+                style={[styles.qrPlatformTab, active && styles.qrPlatformTabActive]}
+                onPress={() => setActivePlatform(p.key)}
+                activeOpacity={0.7}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={p.label}
+              >
+                {p.iconSource ? (
+                  <Image
+                    source={p.iconSource}
+                    style={imageStyles.qrPlatformIcon}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View
+                    style={[
+                      {
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: tk.text.tertiary,
+                      },
+                      !!p.brandColor && { backgroundColor: p.brandColor },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: tk.surface.light,
+                        fontSize: 9,
+                        fontWeight: '600',
+                        lineHeight: 10,
+                      }}
+                    >
+                      {p.label.charAt(0)}
+                    </Text>
+                  </View>
+                )}
+                <Text
+                  style={[styles.qrPlatformTabText, active && styles.qrPlatformTabTextActive]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+
+        {/* 二维码区域:优先用 renderQrPanel 渲染真实二维码(WebView),否则占位 */}
+        <View style={[styles.qrBox, !renderQrPanel && !qrSource && styles.qrBoxPlaceholder]}>
+          {renderQrPanel && activePlatform ? (
+            renderQrPanel(activePlatform, refreshKey)
+          ) : isLoading ? (
+            <ActivityIndicator size="large" color={tk.brand.DEFAULT} />
+          ) : qrSource ? (
+            <Image source={qrSource} style={imageStyles.qrImage} resizeMode="contain" />
+          ) : (
+            // 占位:二维码图标(用文字模拟,避免新增依赖)
+            <View style={styles.qrPlaceholderIcon}>
+              <QrCode size={56} color={tk.text.tertiary} />
+            </View>
+          )}
+        </View>
+
+        {/* 状态文案 */}
+        <Text style={styles.qrStatusText}>{statusText}</Text>
+
+        {/* 操作行:刷新 + 打开网页 */}
+        <View style={styles.qrActionRow}>
+          {showRefresh ? (
+            <TouchableOpacity
+              style={styles.qrRefreshBtn}
+              onPress={() => {
+                setRefreshKey((k) => k + 1)
+                qrConfig?.onRefresh?.()
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="刷新二维码"
+            >
+              <Text style={styles.qrRefreshText}>{'刷新二维码'}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {currentPlatform?.webUrl ? (
+            <TouchableOpacity
+              style={styles.qrOpenWebBtn}
+              onPress={handleOpenWeb}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="打开网页扫码"
+            >
+              <Text style={styles.qrOpenWebText}>{'打开网页扫码'}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
+  // 无平台列表:降级为单平台占位(旧行为)
+  return (
+    <View style={styles.qrContainer}>
+      <View style={styles.qrBox}>
+        {isLoading ? (
+          <ActivityIndicator size="large" color={tk.brand.DEFAULT} />
+        ) : qrSource ? (
+          <Image source={qrSource} style={imageStyles.qrImage} resizeMode="contain" />
+        ) : (
+          <Text style={styles.qrPlaceholderText}>二维码加载中...</Text>
+        )}
+      </View>
+      <Text style={styles.qrStatusText}>{qrStatusText(status, qrConfig)}</Text>
+      {showRefresh && qrConfig?.onRefresh ? (
+        <TouchableOpacity
+          style={styles.qrRefreshBtn}
+          onPress={qrConfig.onRefresh}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="刷新二维码"
+        >
+          <Text style={styles.qrRefreshText}>{'刷新二维码'}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}
+
+// ===== 主组件 =====
+
+export function LoginScreen(props: LoginScreenProps) {
+  const {
+    t,
+    colorScheme = 'light',
+    logoSource,
+    tabs,
+    defaultTab,
+    account,
+    password,
+    loading,
+    ssoLoading,
+    error,
+    onAccountChange,
+    onPasswordChange,
+    onLogin,
+    onSsoLogin,
+    // email
+    email,
+    emailCode,
+    emailCodeSending,
+    emailCountdown,
+    onEmailChange,
+    onEmailCodeChange,
+    onSendEmailCode,
+    onLoginByEmailCode,
+    // phone
+    phone,
+    phoneCode,
+    phoneCodeSending,
+    phoneCountdown,
+    phonePrefixNode,
+    nations,
+    phoneHead,
+    nationShow,
+    onToggleNationShow,
+    onSelectNation,
+    onPhoneChange,
+    onPhoneCodeChange,
+    onSendPhoneCode,
+    onLoginByPhoneCode,
+    // 运营商一键登录入口(phone tab 内,可选)
+    carrierOneClickEntry,
+    // tab 切换回调
+    onTabChange,
+    // qr
+    qrConfig,
+    qrPlatforms,
+    renderQrPanel,
+    // third party
+    thirdPartyOptions,
+    onThirdPartyLogin,
+    thirdPartyLoadingPlatform,
+    // agreement
+    agreed: agreedProp,
+    onAgreedChange,
+    onOpenTerms,
+    onOpenPrivacy,
+    // forgot + register
+    onForgotPassword,
+    onRegister,
+    // auto login + account history(2026-09-04,对齐 web 密码登录)
+    autoLogin,
+    onAutoLoginChange,
+    loginHistory,
+    onRemoveLoginHistory,
+    onClearLoginHistory,
+    // eye icons
+    eyeIconShow,
+    eyeIconHide,
+    // welcome 图标节点(对齐 web AuthShell welcome.svg)
+    welcomeNode,
+  } = props
+
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk, colorScheme), [tk, colorScheme])
+
+  const tabsList = useMemo<readonly LoginTab[]>(() => tabs ?? ['password'], [tabs])
+  const [activeTab, setActiveTab] = useState<LoginTab>(defaultTab ?? tabsList[0] ?? 'password')
+  const [internalAgreed, setInternalAgreed] = useState(false)
+  const [showAgreeErr, setShowAgreeErr] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  const agreed = agreedProp ?? internalAgreed
+  const disabled = loading || ssoLoading
+  const showTabBar = tabsList.length > 1
+  const isQrTab = activeTab === 'qr'
+
+  const handleAgreedChange = (v: boolean) => {
+    setInternalAgreed(v)
+    onAgreedChange?.(v)
+    if (v) setShowAgreeErr(false)
+  }
+
+  const handleTabChange = (tab: LoginTab) => {
+    setActiveTab(tab)
+    setShowAgreeErr(false)
+  }
+
+  // tab 变化回调(wrapper 注入,可选):初始 defaultTab 也会触发一次,供调用方做"tab 进入时副作业"
+  // (如手机号 tab 进入时用 getRecentPhone() 自动回填最近手机号)。
+  useEffect(() => {
+    onTabChange?.(activeTab)
+  }, [activeTab])
+
+  // 协议校验:未勾选 → 阻止提交 + 显示红色提示(对齐 web inline 模式)
+  const requireAgree = (): boolean => {
+    if (!agreed) {
+      setShowAgreeErr(true)
+      return false
+    }
+    return true
+  }
+
+  const handlePasswordLogin = () => {
+    if (!requireAgree()) return
+    onLogin()
+  }
+
+  const handleEmailLogin = () => {
+    if (!requireAgree()) return
+    onLoginByEmailCode?.()
+  }
+
+  const handlePhoneLogin = () => {
+    if (!requireAgree()) return
+    onLoginByPhoneCode?.()
+  }
+
+  return (
+    <View style={styles.page}>
+      <View style={styles.card}>
+        {/* 顶部 logo 区(对齐 web AuthShell:logo 31×31 + welcome 图 340×52) */}
+        <View style={styles.header}>
+          {logoSource ? (
+            <Image source={logoSource} style={imageStyles.logoImage} resizeMode="contain" />
+          ) : (
+            <View style={styles.logoBox}>
+              <Text style={styles.logoText}>IHUI</Text>
+            </View>
+          )}
+          {welcomeNode ?? <Text style={styles.welcomeText}>IHUI AI</Text>}
+        </View>
+
+        {/* 错误提示(对齐 web ErrorAlert) */}
+        {error ? (
+          <View style={styles.errorAlert}>
+            <AlertTriangle size={14} color={tk.danger.DEFAULT} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* 4 tab 切换条(仅多 tab 时显示,单 tab 默认 password 向后兼容) */}
+        {showTabBar ? (
+          <View style={styles.tabBar}>
+            {tabsList.map((tab) => {
+              const active = tab === activeTab
+              return (
+                <TouchableOpacity
+                  key={tab}
+                  style={[styles.tabItem, active && styles.tabItemActive]}
+                  onPress={() => handleTabChange(tab)}
+                  activeOpacity={0.7}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                    {t(tabLabelKey(tab))}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        ) : null}
+
+        {/* Tab 内容 */}
+        {activeTab === 'email' ? (
+          <EmailTabContent
+            t={t}
+            styles={styles}
+            tk={tk}
+            email={email ?? ''}
+            emailCode={emailCode ?? ''}
+            sending={emailCodeSending ?? false}
+            countdown={emailCountdown ?? 0}
+            onEmailChange={onEmailChange}
+            onEmailCodeChange={onEmailCodeChange}
+            onSendCode={onSendEmailCode}
+            onLogin={handleEmailLogin}
+            loading={loading}
+            loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
+            agreed={agreed}
+            onAgreedChange={handleAgreedChange}
+            onOpenTerms={onOpenTerms}
+            onOpenPrivacy={onOpenPrivacy}
+            showAgreeErr={showAgreeErr}
+          />
+        ) : null}
+
+        {activeTab === 'phone' ? (
+          <PhoneTabContent
+            t={t}
+            styles={styles}
+            tk={tk}
+            phone={phone ?? ''}
+            phoneCode={phoneCode ?? ''}
+            sending={phoneCodeSending ?? false}
+            countdown={phoneCountdown ?? 0}
+            phonePrefixNode={phonePrefixNode}
+            nations={nations}
+            phoneHead={phoneHead}
+            nationShow={nationShow}
+            onToggleNationShow={onToggleNationShow}
+            onSelectNation={onSelectNation}
+            onPhoneChange={onPhoneChange}
+            onPhoneCodeChange={onPhoneCodeChange}
+            onSendCode={onSendPhoneCode}
+            onLogin={handlePhoneLogin}
+            carrierOneClickEntry={carrierOneClickEntry}
+            loading={loading}
+            loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
+            agreed={agreed}
+            onAgreedChange={handleAgreedChange}
+            onOpenTerms={onOpenTerms}
+            onOpenPrivacy={onOpenPrivacy}
+            showAgreeErr={showAgreeErr}
+          />
+        ) : null}
+
+        {activeTab === 'password' ? (
+          <PasswordTabContent
+            t={t}
+            styles={styles}
+            tk={tk}
+            account={account}
+            password={password}
+            onAccountChange={onAccountChange}
+            onPasswordChange={onPasswordChange}
+            onLogin={handlePasswordLogin}
+            loading={loading}
+            showPassword={showPassword}
+            onToggleShowPassword={() => setShowPassword((s) => !s)}
+            eyeIconShow={eyeIconShow}
+            eyeIconHide={eyeIconHide}
+            agreed={agreed}
+            onAgreedChange={handleAgreedChange}
+            onOpenTerms={onOpenTerms}
+            onOpenPrivacy={onOpenPrivacy}
+            showAgreeErr={showAgreeErr}
+            onForgotPassword={onForgotPassword}
+            autoLogin={autoLogin ?? false}
+            onAutoLoginChange={onAutoLoginChange ?? (() => {})}
+            loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
+          />
+        ) : null}
+
+        {activeTab === 'qr' ? (
+          <QrTabContent
+            styles={styles}
+            tk={tk}
+            qrConfig={qrConfig}
+            qrPlatforms={qrPlatforms}
+            renderQrPanel={renderQrPanel}
+          />
+        ) : null}
+
+        {/* 第三方登录区(qr tab 不重复显示) */}
+        {!isQrTab && thirdPartyOptions && thirdPartyOptions.length > 0 ? (
+          <ThirdPartyLoginArea
+            styles={styles}
+            tk={tk}
+            options={thirdPartyOptions}
+            loadingPlatform={thirdPartyLoadingPlatform ?? null}
+            onLogin={onThirdPartyLogin}
+          />
+        ) : null}
+
+        {/* SSO 按钮(对齐 web outline 按钮) */}
+        <TouchableOpacity
+          style={[styles.ssoBtn, disabled && styles.btnDisabled]}
+          onPress={onSsoLogin}
+          disabled={disabled}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <Text style={styles.ssoBtnText}>
+            {ssoLoading ? '打开网页登录...' : '智汇AI网页授权登录'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* 注册链接(卡片底部水平排列) */}
+        {onRegister ? (
+          <View style={styles.registerRow}>
+            <Text style={styles.registerText}>{t('auth.noAccount')}</Text>
+            <TouchableOpacity
+              onPress={onRegister}
+              activeOpacity={0.7}
+              accessibilityRole="link"
+              accessibilityLabel="立即注册"
+            >
+              <Text style={styles.registerLink}>{t('auth.registerNow')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  )
+}
+
+// ===== 样式 =====
+
+function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
+  // 页面/卡片背景:严格随主题(2026-09-04 token 统一后 surface.card 深色即 #1A1A1A,
+  // 对齐 web 端 .dark --color-card = hsl(0 0% 10%);浅色 surface.light 纯白,无需硬编码)
+  const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
+  // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
+  const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
+  // 输入框底色:web Input 为 bg-transparent(透出页面底色),RN 对应用 surface(与页面同底),
+  // 靠边框区分层级,已不再使用 surface.muted 填充(2026-09-06 对齐 web 移除 inputBg)
+  const inputBorder = colorScheme === 'dark' ? tk.border.medium : tk.border.light
+  return StyleSheet.create({
+    page: {
+      flex: 1,
+      backgroundColor: surface,
+      paddingHorizontal: 15,
+      // 垂直居中:内容不足一屏时上下留白均衡,避免底部大片空白(2026-09-04)
+      justifyContent: 'center',
+    },
+    // 移动端登录页应为全屏表单,非 web 端"居中悬浮卡片":无 maxWidth/圆角/边框/阴影
+    card: {
+      width: '100%',
+      paddingVertical: 28,
+      backgroundColor: surface,
+    },
+    // 移动端一行并排(2026-09-04 按 sqlogo 原图 1433×399 等比:logo 高 ≈ 1.24× 文字块高):
+    // header 左右各外扩 10(吃掉页面内边距)→ 可用 350:logo 53 + 欢迎图 287×43 + gap 10 = 350,
+    // 比例对齐原图且整行撑满(2026-09-04 用户反馈"整体再大点")
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      marginHorizontal: -10,
+      marginBottom: 24,
+    },
+    // logoBox fallback:53×53(2026-09-04 sqlogo 原图等比 72→50,再整体放大 50→53,与 logoImage 同步)
+    logoBox: {
+      width: 53,
+      height: 53,
+      borderRadius: 11,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    logoImage: {
+      width: 53,
+      height: 53,
+      borderRadius: 11,
+    },
+    logoText: {
+      color: onBrandText,
+      fontSize: 14,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+    },
+    welcomeText: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: tk.text.primary,
+      letterSpacing: 0.5,
+    },
+    errorAlert: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: withAlpha(tk.danger.DEFAULT, 0.3),
+      backgroundColor: withAlpha(tk.danger.DEFAULT, 0.05),
+      marginBottom: 16,
+    },
+    errorIcon: {
+      color: tk.danger.DEFAULT,
+      fontSize: 14,
+      lineHeight: 18,
+    },
+    errorText: {
+      flex: 1,
+      color: tk.danger.DEFAULT,
+      fontSize: 12,
+      lineHeight: 18,
+    },
+    // ===== Tab 切换条(对齐 web ui-react TabsList:TabsTrigger) =====
+    // web TabsList:h-9 rounded-lg bg-muted p-1;TabsTrigger rounded-md px-3 py-1 text-sm,
+    // 激活 data-[state=active]:bg-white / dark:bg-black text-foreground
+    tabBar: {
+      flexDirection: 'row',
+      gap: 0,
+      marginBottom: 16,
+      padding: 4,
+      borderRadius: 8,
+      backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
+      // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
+      borderWidth: 1,
+      borderColor:
+        colorScheme === 'dark' ? withAlpha(tk.surface.light, 0.08) : withAlpha(tk.gray.black, 0.06),
+    },
+    tabItem: {
+      flex: 1,
+      paddingVertical: 4,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabItemActive: {
+      backgroundColor: colorScheme === 'dark' ? tk.gray.black : tk.surface.light,
+    },
+    tabText: {
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
+      color: tk.text.secondary,
+      // 中文字体度量光学居中
+      transform: [{ translateY: -0.75 }],
+    },
+    tabTextActive: {
+      // 亮=白底黑字 / 暗=黑底白字(对齐 web 截图基准)
+      color: tk.text.primary,
+    },
+    tabContent: {
+      gap: 0,
+    },
+    // ===== 输入框 =====
+    field: {
+      gap: 6,
+      marginBottom: 16,
+    },
+    labelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    // 对齐 web ui-react:Input h-10(40px) rounded-md(6px) text-sm(14px) px-3(12px),
+    // Label text-sm font-medium。web 输入框 bg-transparent(透出页面底色),故 RN 输入框
+    // 背景改用 surface(透出页面底色),聚焦描边对齐 auth-shell.css(亮=黑/暗=白 2px)。
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    input: {
+      height: 40,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      borderRadius: 6,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      color: tk.text.primary,
+      backgroundColor: surface,
+    },
+    inputFocused: {
+      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
+      borderWidth: 2,
+    },
+    codeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    codeInput: {
+      flex: 1,
+    },
+    // ===== 区号选择器(2026-08-20,对齐 uniapp nation-box + ChangePhone 现有模式) =====
+    // 区号拼合行:+86 区号选择与输入框共用一个容器,由容器统一画底色与四边圆角边框,
+    // 两个子元素自身不再带背景/边框,避免接缝处出现 RN-web 合成渲染产生的竖缝伪影(2026-09-06)
+    phoneRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 40,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      borderRadius: 6,
+      backgroundColor: surface,
+      overflow: 'hidden',
+    },
+    phoneRowFocused: {
+      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
+      borderWidth: 2,
+    },
+    areaBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+    },
+    areaText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    areaArrow: {
+      fontSize: 10,
+      color: tk.text.tertiary,
+      marginLeft: 6,
+    },
+    phoneInputWithArea: {
+      flex: 1,
+      // 输入框不参与画框:边框/圆角/底色全部交给容器,照常态也要压掉 input 的通用边框
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    },
+    // 区号拼合行聚焦时输入框保持无边框:高亮统一落在 phoneRow 容器边框上
+    phoneInputFocused: {
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    },
+    // 展开的区号列表:输入行下方 flow 展开(把后续内容下推,同 ChangePhone 模式)
+    nationBox: {
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: 12,
+      backgroundColor: tk.surface.light,
+      overflow: 'hidden',
+    },
+    nationItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 12,
+    },
+    nationItemActive: {
+      backgroundColor: withAlpha(tk.brandAccent.DEFAULT, 0.08),
+    },
+    nationTitle: {
+      fontSize: 15,
+      color: tk.text.primary,
+    },
+    nationTitleActive: {
+      color: tk.brand.DEFAULT,
+      fontWeight: '500',
+    },
+    nationCode: {
+      fontSize: 15,
+      color: tk.text.tertiary,
+    },
+    nationCodeActive: {
+      color: tk.brand.DEFAULT,
+      fontWeight: '500',
+    },
+    sendCodeBtn: {
+      height: 40,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      backgroundColor: surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendCodeBtnText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    // ===== 密码输入 + 眼睛 =====
+    passwordRow: {
+      position: 'relative',
+    },
+    passwordInput: {
+      paddingRight: 40,
+    },
+    eyeBtn: {
+      position: 'absolute',
+      right: 8,
+      top: 0,
+      bottom: 0,
+      width: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    eyeIcon: {
+      fontSize: 16,
+    },
+    forgotLink: {
+      fontSize: 12,
+      color: tk.brand.DEFAULT,
+    },
+    // ===== 协议行 =====
+    agreementRow: {
+      marginBottom: 16,
+    },
+    agreementRowMain: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    checkbox: {
+      width: 16,
+      height: 16,
+      borderRadius: 4,
+      borderWidth: 1,
+      marginTop: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkboxUnchecked: {
+      borderColor: tk.border.light,
+      backgroundColor: surface,
+    },
+    checkboxChecked: {
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    checkboxError: {
+      borderColor: tk.danger.DEFAULT,
+    },
+    checkmark: {
+      color: onBrandText,
+      fontSize: 11,
+      fontWeight: '700',
+      lineHeight: 14,
+    },
+    agreementText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 20,
+      color: tk.text.secondary,
+    },
+    agreementLink: {
+      color: tk.brand.DEFAULT,
+    },
+    agreementErrorText: {
+      fontSize: 12,
+      color: tk.danger.DEFAULT,
+      marginTop: 4,
+    },
+    // ===== 自动登录复选框(协议行右侧)+ 历史账号下拉(2026-09-04) =====
+    autoLoginRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    autoLoginText: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: tk.text.secondary,
+    },
+    // 悬浮在账号输入框正下方,不挤压布局;完整描边 + 阴影区分层级
+    historyDropdown: {
+      position: 'absolute',
+      top: '100%',
+      left: 0,
+      right: 0,
+      zIndex: 20,
+      elevation: 8,
+      marginTop: 4,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      backgroundColor: surface,
+      shadowColor: tk.gray.black,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+    },
+    historyItem: {
+      paddingVertical: 0,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    historyItemMain: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingRight: 12,
+    },
+    historyItemDel: {
+      paddingVertical: 4,
+      paddingLeft: 8,
+    },
+    historyItemText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: tk.text.primary,
+    },
+    historyClear: {
+      borderTopWidth: 1,
+      borderTopColor: inputBorder,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+    },
+    historyClearText: {
+      fontSize: 13,
+      color: tk.text.tertiary,
+    },
+    // ===== 主按钮 =====
+    // CTA 用主题黑白(brand.DEFAULT:亮色纯黑/暗色纯白,2026-09-14 用户定稿,不再用强调色 token),
+    // 与其他通用主按钮同语义;文字取主题反色 onBrandText(黑底白字/白底黑字)
+    loginBtn: {
+      height: 40,
+      borderRadius: 6,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    loginBtnText: {
+      color: onBrandText,
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
+      // 光学居中:中文回退字体度量导致墨迹重心偏下(像素实测 ~0.5-1px + 汉字下重视觉),
+      // 上移 1.5px 校正(2026-09-04 像素级测量)
+      transform: [{ translateY: -1.5 }],
+    },
+    // 微信主推登录按钮:规格对齐主登录按钮,微信品牌绿底白字(图标为黑色描边设计,绿底对比清晰)
+    wechatLoginBtn: {
+      flexDirection: 'row',
+      height: 40,
+      borderRadius: 6,
+      backgroundColor: OAUTH_BRAND_COLORS.wechat,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    wechatLoginBtnText: {
+      color: tk.surface.light,
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
+      // 与 loginBtnText 同一光学居中校正
+      transform: [{ translateY: -1.5 }],
+    },
+    btnDisabled: {
+      opacity: 0.6,
+    },
+    // ===== SSO 按钮(2026-09-04 弱化: slim 38 高 + 次级文字色,不做视觉主推;
+    // marginTop 22 与上方图标网格拉开间距) =====
+    ssoBtn: {
+      height: 38,
+      marginTop: 22,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: surface,
+    },
+    ssoBtnText: {
+      color: tk.text.secondary,
+      fontSize: 13,
+      fontWeight: '400',
+      lineHeight: 18,
+      // 与 loginBtnText 同一光学居中校正(中文字体度量偏下)
+      transform: [{ translateY: -1 }],
+    },
+    // ===== 注册链接 =====
+    registerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      marginTop: 16,
+    },
+    registerText: {
+      fontSize: 14,
+      color: tk.text.secondary,
+    },
+    registerLink: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: tk.brand.DEFAULT,
+    },
+    // ===== 第三方登录区 =====
+    thirdPartyArea: {
+      marginTop: 20,
+    },
+    // "或"分隔线:左右细线 + 中间文字(对齐 web or-divider)
+    thirdPartyDivider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    thirdPartyDividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: tk.border.light,
+    },
+    thirdPartyDividerText: {
+      fontSize: 12,
+      color: tk.text.tertiary,
+      marginHorizontal: 12,
+    },
+    // 2026-08-04:删除 thirdPartyTitle(冗余,分隔线"或"已足够分隔)
+    // 自适应居中网格:不同平台登录方式数量不同(国内安卓4/国内iOS5/国际版2),
+    // 用 justifyContent center + gap 让按钮居中排列,自动换行
+    // 6 平台一行约束:6×50 + 5×12 = 360 < 400 可用宽,不换行
+    thirdPartyGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    // 按钮容器:固定宽度 50(适配 36×36 大图标 + padding),不再用百分比
+    thirdPartyBtn: {
+      width: 50,
+      height: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    thirdPartyBtnDisabled: {
+      opacity: 0.5,
+    },
+    thirdPartyIconText: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: 13,
+      fontWeight: '600',
+      color: tk.text.primary,
+      textAlign: 'center',
+      lineHeight: 34,
+      overflow: 'hidden',
+    },
+    // ===== QR tab =====
+    qrContainer: {
+      alignItems: 'center',
+      paddingVertical: 16,
+      gap: 12,
+    },
+    qrBox: {
+      width: 280,
+      height: 280,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 6,
+      // renderQrPanel 注入时由 iframe/WebView 自己渲染二维码面板(含边框/背景);
+      // 未注入时由 qrBoxPlaceholder 提供 dashed border + 浅灰背景(条件应用)。
+    },
+    // 占位状态专用样式(未注入 renderQrPanel 时应用):dashed border + 浅灰背景
+    qrBoxPlaceholder: {
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+    },
+    qrPlaceholderText: {
+      fontSize: 13,
+      color: tk.text.tertiary,
+    },
+    qrStatusText: {
+      fontSize: 13,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
+    qrRefreshBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: surface,
+    },
+    qrRefreshText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    // ===== QR 平台切换 tab(2026-08-04 新增,对齐 web 端 qr-tab.tsx) =====
+    // web 端:grid grid-cols-4 gap-1.5 rounded-md border bg-muted/40 p-1
+    // RN 端:flexDirection row + 全宽 + 边框 + 浅灰背景 + padding 4
+    // 注意:不用 gap,改用 marginRight 在 tab 间留白(最后一个 tab 不加 marginRight),
+    // 避免 gap 占用宽度导致 width: 25% × 4 + gap × 3 超出 100%
+    qrPlatformTabBar: {
+      flexDirection: 'row',
+      padding: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
+    },
+    // web 端默认态:rounded-[4px] px-2 py-1.5 text-xs text-muted-foreground(无边框无背景)
+    // 用 flex: 1 + flexBasis: 0 + minWidth: 0 强制等宽
+    // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
+    // 设置 minWidth: 0 后 flex 子元素严格等分剩余空间,不受内容(图标+文字)影响
+    qrPlatformTab: {
+      flex: 1,
+      flexBasis: 0,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+      borderRadius: 4,
+      backgroundColor: 'transparent',
+      overflow: 'hidden',
+    },
+    // web 端激活态:bg-card text-foreground shadow-sm(白色卡片背景 + 阴影,非品牌色)
+    qrPlatformTabActive: {
+      backgroundColor: tk.surface.light,
+      // iOS shadow(对齐 web shadow-sm)
+      shadowColor: tk.gray.black,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      // Android elevation
+      elevation: 2,
+    },
+    qrPlatformTabText: {
+      fontSize: 12,
+      color: tk.text.tertiary,
+      flexShrink: 1,
+    },
+    // web 端激活文字:text-foreground font-medium(主文字色,非白色)
+    qrPlatformTabTextActive: {
+      color: tk.text.primary,
+      fontWeight: '500',
+    },
+    // QR 二维码占位图标(无真实二维码时显示)
+    qrPlaceholderIcon: {
+      width: 80,
+      height: 80,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    qrPlaceholderIconText: {
+      fontSize: 56,
+      color: tk.text.tertiary,
+    },
+    // QR 操作行:刷新 + 打开网页
+    qrActionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+    },
+    qrOpenWebBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    qrOpenWebText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: onBrandText,
+    },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

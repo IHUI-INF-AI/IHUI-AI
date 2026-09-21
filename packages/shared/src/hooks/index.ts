@@ -1,0 +1,48 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+export * from './use-debounce'
+export * from './use-countdown'
+export * from './use-mounted'
+export * from './use-clipboard'
+export * from './use-pagination'
+export * from './use-auth'
+export * from './use-agents'
+export * from './use-articles'
+// 死抽象聊天 hook 已删除(2026-09-12),类型迁移至 @ihui/types/chat;
+// 此处保留类型 re-export,兼容既有 `from '@ihui/shared/hooks'` / `from '@ihui/shared'` 导入路径。
+export type {
+  ChatRole,
+  ToolCall,
+  BaseToolCall,
+  ChatMessage,
+  SendMessageParams,
+  ApiChatMessage,
+  StreamRunnerCallbacks,
+  StreamRunnerParams,
+  UseChatOptions,
+  UseChatReturn,
+} from '@ihui/types/chat'
+export * from './use-load-more'
+export * from './use-social-list'
+export * from './use-paginated-list'
+export * from './use-chat'
+
+// 跨端组件共享 hooks(2026-07-28 立,mobile-rn + miniapp-taro 同名组件业务逻辑去重)
+export * from './use-auto-play'
+export * from './use-agent-runtime'
+// 纯 React hooks 下沉(2026-07-29,apps/web → @ihui/shared)
+export * from './use-confirm-dialog'
+export * from './use-form'
+// 跨端共享登录表单(2026-07-29 立,web/RN/Taro 三端登录逻辑去重)
+export * from './use-login-form'
+// 跨端共享注册表单(2026-07-29 立,web/RN/Taro 三端注册逻辑去重)
+export * from './use-register-form'
+// 跨端存储 hook(2026-07-30 立,基于 storage 工厂的 React hook)
+export * from './use-storage'
+// 跨端图片选择 hook(2026-07-30 立,apps/mobile-rn + apps/miniapp-taro 共用)
+export * from './use-image-picker'
+// 跨端下载点击统计 hook(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
+export * from './use-download-track'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

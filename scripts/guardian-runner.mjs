@@ -1,0 +1,1426 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+/**
+ * 守门脚本批量执行器。
+ *
+ * 接收配置数组,单进程顺序执行所有检查,输出汇总。
+ * 将 pre-commit 中 52 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
+ * 降低 commit 耗时,提供统一汇总输出。
+ *
+ * CLI 用法:
+ *   node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
+ *
+ *   --staged      传递 --staged 给所有脚本(pre-commit 模式)
+ *   --timing      打印每个检查的耗时
+ *   --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级,
+ *                 2026-08-31 新增,详见 pushGateChecks 定义处注释)
+ *   --help        打印帮助和检查清单
+ *
+ * 检查模式:
+ *   blocking  失败 → 立即 exit(1),阻塞 commit
+ *   warn      失败 → 打印警告,继续执行(不阻塞 commit)
+ *   info      始终继续,只打印信息
+ */
+import { execSync, execFileSync } from 'node:child_process'
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { createHash } from 'node:crypto'
+
+// === 颜色 ===
+const C = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  reset: '\x1b[0m',
+}
+
+// === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
+
+const checks = [
+  // --- blocking(项数见 --help) ---
+  {
+    id: '1',
+    label: '🔐 API key 泄露',
+    script: 'check-api-key-leak.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '2',
+    label: '🌐 i18n 键完整性',
+    script: 'check-i18n-keys.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-09-21 补应急通道:[2] 与 [2n-web] 同用 check-i18n-keys.mjs,full 模式同样会跑
+    // parity(见脚本 837 行 label 分支),因此与 2n-web 共用同一应急变量 —— 并发会话
+    // 未提交的 i18n WIP 造成的 parity 漂移属"非本 commit 范畴"假阳性。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
+  },
+  {
+    id: '2b',
+    label: '🔍 zh-TW 简体字残留',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW'],
+    mode: 'blocking',
+  },
+  {
+    id: '2c',
+    label: '🔍 ko.json 中文残留',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko'],
+    mode: 'blocking',
+  },
+  {
+    id: '2e',
+    label: '🔍 en.json 破碎英文',
+    script: 'check-i18n-broken-en.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    // --- 2e-dupns (2026-09-08 新增,i18n 重复命名空间/重复键守门,blocking) ---
+    // 背景:JSON 标准对重复键静默 last-wins,写入侧"追加块而非编辑既有块"会静默遮蔽正确翻译。
+    // 已发生两次同款事故:web messages 追加了重复 repoWiki 块(en=zh-TW 值遮蔽英文;ja/ko/zh-CN/zh-TW 尾部重复块)。
+    // JSON.parse/reviver 无法检测(Walk 阶段已去重),必须字符级扫描。
+    id: '2e-dupns',
+    label: '🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)',
+    script: 'check-i18n-duplicate-namespaces.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到 messages JSON 存在重复命名空间/重复键(last-wins 遮蔽风险):',
+      '     1. node scripts/check-i18n-duplicate-namespaces.mjs  (定位文件与行号)',
+      '     2. 保留正确版本块,删除重复块(通常是写入侧误追加的尾部块)',
+      '     3. 重新 commit;禁止以"追加新块"方式修改既有命名空间',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '2f-web',
+    label: '🌐 i18n AI 翻译流水线(blocking)',
+    script: 'i18n-diff.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
+      '     1. node scripts/i18n-diff.mjs          (检测差异,生成 pending 清单)',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
+      '     3. node scripts/i18n-apply.mjs         (应用翻译)',
+      '     4. node scripts/check-i18n-keys.mjs    (验证 parity)',
+      '     5. git add apps/web/messages/{en,ja,ko,zh-TW}.json 重新 commit',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '2f-miniapp-taro',
+    label: '🌐 [miniapp-taro] i18n AI 翻译流水线(blocking)',
+    script: 'i18n-diff.mjs',
+    args: ['--target=miniapp-taro'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:',
+      '     1. node scripts/i18n-diff.mjs --target=miniapp-taro  (检测差异,生成 pending 清单)',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
+      '     3. node scripts/i18n-apply.mjs --target=miniapp-taro  (应用翻译)',
+      '     4. node scripts/i18n-diff.mjs --target=miniapp-taro   (复验 parity,应无 pending)',
+      '     5. git add apps/miniapp-taro/src/i18n/{en,ja,ko,zh-TW}.ts 重新 commit',
+      '',
+    ].join('\n'),
+  },
+  // --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
+  // 检测"useTranslations('xxx') 限定命名空间 + 把 t 传给 @ihui/ui-react 共享登录组件"bug 模式
+  // 背景:LoginFormContent.tsx 曾用 useTranslations('auth') 限定命名空间后把 t 传给共享 LoginForm,
+  //   共享组件内部调用 t('auth.emailLogin') 长 key 路径,实际查找 auth.auth.emailLogin 失败,
+  //   导致弹窗内全部显示 key 名。已修复(改用 useTranslations() 无命名空间),本守门防复发。
+  // 检测目标:apps/web/src/ 下所有 .tsx(8 个共享登录组件:LoginForm/EmailCodeLoginForm/
+  //   PhoneCodeLoginForm/PasswordLoginForm/AgreementCheckbox/AgreementNoticeDialog/
+  //   ThirdPartyLoginButtons/QrTab)
+  // 升级 blocking 评估:1 周观察期(2026-08-03)若无误报 → 改 mode: 'blocking'
+  {
+    id: '2g-web',
+    label: '🔍 i18n 命名空间传递(web→共享组件)',
+    script: 'check-i18n-namespace-passing.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '3',
+    label: '🗄️ schema drift',
+    script: 'check-db-schema-drift.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '4',
+    label: '📦 packages 陈旧 dist',
+    script: 'check-stale-dist.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '4b',
+    label: '🔤 dist UTF-8 BOM',
+    script: 'check-dist-encoding.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '4c',
+    label: '🔤 api-client UTF-8 完整性',
+    script: 'check-api-client-utf8.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '6',
+    label: '🛡️ skipResponseSanitization',
+    script: 'check-sanitizer-bypass.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '7',
+    label: '📦 依赖碎片化',
+    script: 'check-dedupe.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '8',
+    label: '🔗 前端↔后端路由一致性',
+    script: 'check-api-routes.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11',
+    label: '⭕ 容器圆角违规',
+    script: 'check-rounded-full.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11b',
+    label: '📐 圆角溢出(父 rounded + 子 bg 贴边)',
+    script: 'check-rounded-overflow.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '11c',
+    label: '🏷️  选中态描边定稿防回退(禁纯黑/纯白,全站)',
+    script: 'check-tagsview-visual.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11d',
+    label: '🚫 分割线违规(divide-y / divide-x)',
+    script: 'check-no-divider.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11h',
+    label: '🚫 UI 图标位 emoji 违规(icon 字段/渲染位)',
+    script: 'check-no-emoji-icons.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11e',
+    label: '📏 单文件行数上限 (仅拦新增)',
+    script: 'check-file-size.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11f',
+    label: '🚫 原生 alert/confirm/prompt 弹窗',
+    script: 'check-no-native-dialog.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '11g',
+    label: '🚫 mask-image 渐变遮罩',
+    script: 'check-no-mask-image.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '12',
+    label: '📋 交付报告一致性',
+    script: 'check-delivery-report-consistency.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '13c',
+    label: '🗂️  PROJECT_PLAN.md 已完成任务防误删',
+    script: 'check-project-plan-archive.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '15',
+    label: '📊 迁移完整性(7 大类 29 子项)',
+    script: 'check-api-migration-completeness.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '17',
+    label: '🎨 CSS 颜色 token 嵌套',
+    script: 'check-input-border-var.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '18',
+    label: '🖱️  原生 title tooltip 违规',
+    script: 'check-native-title-tooltip.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '20',
+    label: '🎯 Tailwind class 冲突',
+    script: 'check-tailwind-class-conflict.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '24a',
+    label: '📏 侧边栏宽度一致性',
+    script: 'check-sidebar-width-consistency.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '25',
+    label: '🧹 项目外路径违规(blocking)',
+    script: 'check-workspace-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '26',
+    label: '🛡️  项目父目录污染巡查(blocking)',
+    script: 'check-parent-pollution.mjs',
+    args: [],
+    mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门惯例对齐,此前遗漏):
+    // 本项巡查"项目父目录及其非项目子目录"的运行时产物,与 staged 内容无关 ——
+    // 只要工作环境里存在**其他会话/其他任务**正在使用的项目外临时文件,本次提交即被
+    // 阻塞(实测 2026-09-21 09:5x:G:\tmp-probe 下有并发会话 2 分钟前才创建的审计脚本,
+    // 而官方清理工具 pnpm hygiene:parent:clean 会直接删掉对方正在使用的文件)。
+    // 应急放行:HUSKY_SKIP_PARENT_POLLUTION=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_PARENT_POLLUTION',
+  },
+  {
+    id: '27',
+    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归)',
+    script: 'check-z-index-guard.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
+    id: '28',
+    label: '🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发)',
+    script: 'check-overlay-zindex.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 fixed inset-0 全屏遮罩用了 z-50/z-40/z-30 等低数字 Tailwind 类(值 < 100),',
+      '     低于 AISidePanel 的 z-sticky=990,会被压在下面 = AI 面板露在遮罩之上。',
+      '     修复:把 z-50 改为 z-modal(=2000, 引用 --z-modal CSS 变量)。',
+      '     透明点击捕获层(无 bg-black)不在本守门范围。',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '29',
+    label: '🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线)',
+    script: 'check-push-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 本地有未 push 的 commit,本次 commit 已阻止。',
+      '     post-commit 钩子(git-push-guard.mjs)本应自动 push,但可能因以下原因失败:',
+      '       - HUSKY_SKIP_PUSH=1 跳过 / push 网络失败 / 凭据失效',
+      '       - agent 用 --no-verify 跳过所有钩子',
+      '       - pre-push typecheck 阻塞 / RunCommand 工具失联',
+      '',
+      '  修复方法(任选其一):',
+      '     ① 自动 push: node scripts/git-push-guard.mjs',
+      '     ② 手动 push: git push origin main',
+      '     ③ 紧急跳过(不推荐): HUSKY_SKIP_PUSH_SYNC=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '30',
+    label: '🛡️ i18n 文件完整性(防 prettier 截断事故复发)',
+    script: 'validate-i18n-integrity.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 staged 的 i18n JSON 文件行数异常减少(>50% 且 >100 行),',
+      '     通常是 lint-staged 的 prettier --write 解析大 JSON 失败导致截断事故。',
+      '     修复:git restore --staged --worktree <file> 后重新编辑/格式化。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 12 项(2026-07-25 升级 commit 丢失防护为 blocking,id 改 30a 避免与 30 冲突) ---
+  // 2026-09-12 补注:本机宿主会清理 gitdir 下 depth>=2 的嵌套 ref 目录
+  //   (refs/remotes/<remote>/、refs/tags/<ns>/) → 该守门会因"仅远端 tag"抖动性阻塞。
+  //   守护 IHUI-GIT-GUARD 已内建离线自愈(见 git-guardian.mjs healRefs);
+  //   手工触发:node scripts/git-refs-heal.mjs [--refresh-remote]
+  {
+    id: '30a',
+    label:
+      '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
+    script: 'check-commit-loss-guard.mjs',
+    args: ['--blocking', '--filter-stash'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 若上表是"仅远端 tag"或 origin 变 [gone],通常是宿主清理嵌套 ref 导致的抖动,',
+      '     并非真的丢 commit。处理(离线即可恢复):',
+      '       node scripts/git-refs-heal.mjs                  # 按清单重建 + 固化进 packed-refs',
+      '       node scripts/git-refs-heal.mjs --refresh-remote # 联网从 origin 校准(需 http_proxy)',
+      '     守护 IHUI-GIT-GUARD 每 10s 巡检,会自动修 —— 也可等它自动恢复。',
+      '     机制说明:AGENTS.md §5b「嵌套 ref 存续」。',
+      '',
+    ].join('\n'),
+  },
+  // --- 30c (2026-09-15 新增,陈旧副本守门,2026-09-14 338 快照事故配套) ---
+  // blocking:338 快照曾夹带 2026-09-13 生产关键工作的整体回退(计费/4 迁移/
+  //   守门脚本),typecheck/守门全绿也发现不了(删功能不报错、测试也被删)。
+  //   根因:staged 区被并行会话塞入陈旧副本(blob = 基线祖先的历史版本)。
+  //   本守门对 staged 的 M 文件做 blob 祖先检测、对红旗路径删除(迁移/测试/守门脚本)拦截。
+  // 跳过方法:HUSKY_SKIP_STALE_COPY=1 git commit ...
+  {
+    id: '30c',
+    label:
+      '🛡️  陈旧副本守门(blocking,2026-09-14 338 快照事故配套,防 staged 区夹带历史版本回退)',
+    script: 'check-stale-copy.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  // --- 30b (2026-09-08 新增,stash 滞留源码改动守门,AGENTS.md §12d 配套) ---
+  // blocking:stash 是黑盒,滞留的已完成工作在并行合流下必然造成"功能被回滚"假象
+  //   (2026-09-08 实证:压缩入口整合 3 文件 + IM 聊天室重写 775 行双双滞留丢失误判)。
+  //   ≥48h 含源码改动且无 backup/stash-* 或 lost-commit/* tag 备份 → 阻塞 commit。
+  // 跳过方法:HUSKY_SKIP_STALE_STASH_CHECK=1 git commit ...
+  {
+    id: '30b',
+    label: '🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联)',
+    script: 'check-stale-stashes.mjs',
+    args: ['--blocking'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 存在滞留 ≥48h 的 stash 含源码改动且未做零损失备份,',
+      '     处置二选一:A. git stash apply "stash@{n}" → 验证 → commit 落地 → drop;',
+      '                B. git tag backup/stash-<slug>-<sha7> "stash@{n}" 后 drop(内容永不丢)。',
+      '     跳过(应急):HUSKY_SKIP_STALE_STASH_CHECK=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 16c (2026-08-18 新增,staged-typecheck 源/测镜像漂移防御,AGENTS.md §22b 配套) ---
+  // blocking:scripts/check-staged-typecheck.mjs 的核心过滤函数
+  //   (filterTscOutputForStagedFiles / getOriginalInclude / normalizePath)
+  //   未导出,测试靠镜像常量复制函数体,易漂移。指纹比对守卫源/测同步。
+  // id 选 16c(续 16 / 16b staged-typecheck 系列),放在 30a 之后(逻辑上紧贴 §22b 守门簇)。
+  // 跳过方法:HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC=1 git commit ...
+  {
+    id: '16c',
+    label: '🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务)',
+    script: 'check-staged-typecheck-mirror-sync.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  // --- 45 (2026-08-19 新增,C 盘路径硬编码扫描守门,AGENTS.md §26 配套) ---
+  // warn-only:§26 C 盘防护已配置 11 个环境变量永久指向 D 盘,但 agent 偶尔会在
+  //   写代码时把 `C:\temp\xxx` / `C:\Users\*\AppData\Local\Temp\xxx` 硬编码进源文件,
+  //   绕过环境变量直接落 C 盘。本守门在 pre-commit 阶段拦 staged 区 .ts/.tsx/.js/
+  //   .mjs/.cjs/.py/.ps1/.sh 中的硬编码写入路径(8 种正则 + 4 项排除),违规 exit 1。
+  // warn-only 起步理由:脚本刚建,先观察一周误报率,后续可升级 blocking。
+  // 跳过方法:HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...
+  // id 说明:任务原话无特定 id 要求,§26 是新章节,选下一个可用编号 '45'(44 已被
+  //   check-root-dir-clean.mjs 占用)。插入位置:16c 之后(逻辑上紧贴 staged
+  //   系列守门簇,与 staging area 扫描同源)。
+  {
+    id: '45',
+    label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
+    script: 'check-c-drive-paths.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 staged 文件中检测到硬编码 C 盘写入路径(如 C:\\temp\\ / C:\\Users\\*\\AppData\\Local\\Temp\\)。',
+      '     修复:用 os.tmpdir() (Node) 或 $env:TEMP (PowerShell) 替代,自动走 D 盘;',
+      '           用户配置目录用工具自带配置 (pnpm config / npm config / pip config);',
+      '           系统日志写 $env:TEMP (已指向 D 盘)。',
+      '     唯一例外:apps/desktop/src-tauri/ 内部 API (已自动排除)。',
+      '     跳过方法 (应急):HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
+  // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
+  //   但 mypy 检查只在 pnpm typecheck:full 手工运行,无 pre-commit 守门。
+  //   typecheck:full 可能被 --no-verify 跳过 → mypy errors 回退。本守门在 staged
+  //   涉及 apps/ai-service/**/*.py 时触发 mypy 检查,0 errors 才通过。
+  // 失败含义:staged 的 Python 代码引入类型错误,需修复后重新 commit。
+  // id 说明:任务原话要求 id '31',但 '31' 已被 verify-auth-shell.mjs 占用
+  //   (同日 2026-07-26 新增),'34' 也被 check-ts-ignore.mjs 占用,故用下一个可用
+  //   编号 '35'。插入位置:30a 之后、2d(warn-only 区)之前(blocking 区末尾)。
+  {
+    id: '35',
+    label: '🐍 mypy 类型检查(防 ai-service Python 类型回退)',
+    script: 'check-mypy.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/ai-service 的 Python 代码有 mypy 类型错误,',
+      '     修复:cd apps/ai-service && mypy app --ignore-missing-imports',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MYPY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
+  // blocking:Taro 4 + Tailwind v3 不兼容 v4 @theme 语法,app.css 由 sync-design-tokens.mjs
+  //   自动生成 :root/.dark 块。若手动编辑 app.css 或 tokens.css 改后未运行 sync 脚本,
+  //   会导致 miniapp-taro 视觉与 web 端不一致。本守门在 pre-commit 校验,发现漂移阻塞 commit。
+  // 失败含义:app.css 的 --color-* 变量与 tokens.css 不一致,需运行:
+  //   pnpm --filter @ihui/miniapp-taro sync-tokens 重新同步后重新 commit。
+  {
+    id: '36',
+    label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移)',
+    script: 'check-miniapp-tokens-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/miniapp-taro/src/app.css 的 --color-* 变量与 packages/design-tokens/src/styles/tokens.css 不一致,',
+      '     修复:pnpm --filter @ihui/miniapp-taro sync-tokens',
+      '     然后重新 git add apps/miniapp-taro/src/app.css 并 commit',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '37',
+    label: '🎨 [web] design-tokens 同步(防 globals.css 漂移)',
+    script: 'check-web-tokens-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/web/app/globals.css 未 @import tokens.css 或顶层手抄 :root/.dark 变量,',
+      '     修复:确认 globals.css 含 @import "../../../packages/design-tokens/src/styles/tokens.css";',
+      '     删除顶层 :root/.dark 块中与 tokens.css @theme 重复的变量',
+      '',
+    ].join('\n'),
+  },
+  // --- 38 (2026-07-28 新增,solito 幽灵依赖回归守门,防 P0 优化被回退) ---
+  // blocking:本仓库刚完成 P0 级优化移除 solito 幽灵依赖(commit f8c9a6630c),
+  //   solito 0 真实运行时调用,packages/app 改用纯 props 注入式跨端共享组件。
+  //   若其他 agent 误把 solito 重新引入,会导致依赖树复杂度回升 + packages/app 耦合回升。
+  //   本守门检测 package.json / pnpm-workspace.yaml / patches/ / packages/app 源码 中的 solito 残留。
+  // 失败含义:有人重新引入 solito 依赖,需移除后重新 commit。
+  {
+    id: '38',
+    label: '🛡️  solito 幽灵依赖回归守门(blocking,防 P0 优化被回退)',
+    script: 'check-solito-residue.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到 solito 依赖被重新引入,本仓库已于 2026-07-28 移除 solito(commit f8c9a6630c)。',
+      '     packages/app 已改用纯 props 注入式跨端共享组件(无外部导航库依赖)。',
+      '     修复:从 package.json 删除 solito 依赖,从 pnpm-workspace.yaml 删除 *solito* hoist,',
+      '     删除 patches/solito@*.patch,删除 packages/app 源码中 import from "solito/..." 语句。',
+      '',
+    ].join('\n'),
+  },
+  // --- 39 (2026-07-29 新增,mobile-rn screen 迁移完整性守门,防独立实现回升) ---
+  // blocking:P3-3.3 "独立 screen 实现清零" 目标完成,153 个 .tsx 中 151 个迁移到
+  //   @ihui/rn-app 共享层,仅 2 个豁免(DebugScreen/DevEnterScreen)。若不接 pre-commit
+  //   守门,后续新增 screen 漏迁移会导致独立实现回升、维护成本系数恶化。
+  // 检测逻辑:扫描 apps/mobile-rn/src/screens/*.tsx,检查是否 import from '@ihui/rn-app',
+  //   未导入且不在白名单(Debug/DevEnter/SharedDemo/profileMenuData)→ blocking 阻塞 commit。
+  // --staged 模式:仅检查 staged 的 screen 文件(性能优化,pre-commit 用)。
+  // 失败含义:有人新增 mobile-rn screen 但未迁移到共享层,需迁移或登记白名单后重新 commit。
+  {
+    id: '39',
+    label: '📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升)',
+    script: 'check-rn-app-migration.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 发现 mobile-rn screen 未迁移到 @ihui/rn-app 共享层。',
+      '     P3-3.3 目标要求所有 screen(除白名单豁免)必须 import from "@ihui/rn-app"。',
+      '     修复(二选一):',
+      '       A. 迁移到共享层:packages/app/src/features/<feature>/ 创建共享组件 + wrapper 改造',
+      '       B. 若确属 RN 端独占,在 scripts/check-rn-app-migration.mjs WHITELIST 登记并附理由',
+      '     详见 scripts/check-rn-app-migration.mjs --help',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '40',
+    label: '🔗 共享层重复检测(blocking,防端内重新实现 shared hook/util)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 发现端内(apps/*)独立实现了 packages/shared 已提供的 hook/util。',
+      '     AGENTS.md §3 "共享层优先" 要求:能共用的一定共用,禁止端内重新实现。',
+      '     修复:',
+      '       A. 删除端内实现,改为 import { xxx } from "@ihui/shared"',
+      '       B. 若确属平台特有(依赖 DOM/RN/Taro API),在脚本 whitelist 登记并附理由',
+      '     详见: node scripts/check-shared-layer-duplication.mjs',
+      '',
+    ].join('\n'),
+  },
+  // --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
+  // blocking:仓库曾积累 12 个分支(本地 6 + 远程 7 + 1 upstream),教训:分支不是"工作单元",
+  //   是"协作单元"——单 agent 单任务无需分支,直接 main 提交即可。
+  // 本守门检测 git branch -a 中除 main / origin/main / upstream/main 外的分支;
+  // goal/ 前缀 + .ihui-agent/goal-runtime/STATE.md 标注 active 的 goal 模式临时分支豁免。
+  // 失败含义:检测到非法分支,需删除或标注豁免后重新 commit。
+  {
+    id: '41',
+    label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
+    script: 'check-single-branch.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 AGENTS.md §9b:除 main 外禁止创建任何分支,所有改动统一往 main 合并。',
+      '     修复:git branch -d <已合并分支> / git branch -D <未合并分支>(先 tag 备份)',
+      '     或 git push origin --delete <远程分支>',
+      '     goal/ 临时分支需在 .ihui-agent/goal-runtime/STATE.md 标注 active 才豁免',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '2d',
+    label: '🔍 ja.json 中文残留(warn-only)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja'],
+    mode: 'warn',
+  },
+  {
+    id: '2f-ext',
+    label: '🌐 [extension] i18n 键完整性(warn-only)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=extension'],
+    mode: 'warn',
+  },
+  {
+    id: '2f-shared',
+    label: '🌐 [shared] i18n 键完整性(blocking,零变更验证通过)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2g-ext',
+    label: '🔍 [extension] zh-TW 简体字残留(warn-only)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=extension'],
+    mode: 'warn',
+  },
+  {
+    id: '2h-ext',
+    label: '🔍 [extension] ko.json 中文残留(warn-only)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=extension'],
+    mode: 'warn',
+  },
+  {
+    id: '2i-ext',
+    label: '🔍 [extension] en.json 破碎英文(warn-only)',
+    script: 'check-i18n-broken-en.mjs',
+    args: ['--target=extension'],
+    mode: 'warn',
+  },
+  // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
+  // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
+  // shared/{en,ja,ko,zh-TW}.json 当前可能为 19 行,后续阶段同步到 505 行
+  {
+    id: '2j-shared',
+    label: '🔍 [shared] zh-TW 简体字残留(blocking)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['zh-TW', '--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2k-shared',
+    label: '🔍 [shared] ko.json 中文残留(blocking)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ko', '--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2l-shared',
+    label: '🔍 [shared] ja.json 中文残留(warn-only)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja', '--target=shared'],
+    mode: 'warn',
+  },
+  {
+    id: '2m-shared',
+    label: '🔍 [shared] en.json 破碎英文(blocking)',
+    script: 'check-i18n-broken-en.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2f-shared-diff',
+    label: '🌐 [shared] i18n AI 翻译流水线(blocking)',
+    script: 'i18n-diff.mjs',
+    args: ['--target=shared'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
+      '     1. node scripts/i18n-diff.mjs --target=shared  (检测差异,生成 pending 清单)',
+      '     2. AI agent 翻译 → .ihui-agent/tmp/i18n-translations.json',
+      '     3. node scripts/i18n-apply.mjs --target=shared  (应用翻译)',
+      '     4. node scripts/check-i18n-keys.mjs --target=shared  (验证 parity)',
+      '     5. git add packages/i18n/messages/shared/{en,ja,ko,zh-TW}.json 重新 commit',
+      '',
+    ].join('\n'),
+  },
+  // --- 2n-web (2026-07-26 新增,web 端 5 语言 i18n parity 强制校验, warn-only 起步 1 周后升级 blocking) ---
+  // 与 item 2 区别:item 2 现有逻辑仅在 staged messages 改动时跑 parity,源码改动不触发
+  // (避免每次 commit 都跑 parity 影响性能);本项强制每次 commit 都跑 5 语言 parity
+  // (只做 parity,不扫源文件,耗时 < 100ms),防止"i18n JSON 没动但 parity 漂移漏检"。
+  // 触发场景:有人手动编辑 zh-TW.json 误删键/合并冲突/三方工具破坏 JSON,
+  //          item 2 检测不到但下次 commit 会因 parity 漂移阻塞主流程,
+  //          提前到本次 commit 给出 warn 提示,降低主流程阻塞概率。
+  // 升级 blocking 时间表:2026-08-02 (1 周后) 评估,期间观察误报率 → 改 mode: 'blocking'。
+  // 2026-08-02 升级 blocking ✅(提前至 2026-07-26 收口,1 周观察期无误报)
+  // --parity-only 标志作用:跳过源文件扫描 + 强制跑 parity(即使 staged 无 messages 改动)。
+  // 任务原话"第 32 项"已被 32-web/32-miniapp-taro/32-mobile-rn/32-extension(同日 2026-07-26 死 key 扫描)占用,
+  //   2n-web 延续 2* i18n 系列命名,与 item 2 同源。
+  {
+    id: '2n-web',
+    label: '🌐 [web] 5 语言 i18n parity 强制校验 (blocking,2026-08-02 升级,兜底 item 2 漏检场景)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--parity-only'],
+    mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门的 HUSKY_SKIP_* 惯例对齐,此前遗漏):
+    // 本项 --parity-only 是"每次 commit 都跑全量 parity",且 parity 漂移**没有** WIP 降级
+    // 通道(check-i18n-keys.mjs 的 wipMissingKeyIssues 只覆盖 missing key,不覆盖 parity)。
+    // 后果:只要工作区存在"并发会话新增 zh-CN 键、4 语言尚未补齐"的未提交 WIP,
+    // --- 即使本次提交完全不含 packages/i18n/** --- 全仓 commit 一律被阻塞(实测 2026-09-21)。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
+  },
+  // --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
+  // mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描内置 5 语言 JSON 加载做隐式校验)。
+  // ⚠️ 已知限制(2026-07-28 验证):check-i18n-keys.mjs 当前 MESSAGES_DIR 分支只识别
+  //   web/extension/shared/cli 四种 target,mobile-rn 会 fall through 到默认 web 分支,
+  //   实际检查的是 packages/i18n/messages/web/ 而非 mobile-rn/。
+  //   要让本守门真正生效,需在 check-i18n-keys.mjs 增加 mobile-rn 分支(类似 cli 分支),
+  //   当前为占位项,warn-only 不阻塞 commit。修复后此项才有实际防护意义。
+  // 升级 blocking 评估:待 check-i18n-keys.mjs 补 mobile-rn 分支后再评估。
+  {
+    id: '2f-mobile-rn',
+    label: '🌐 mobile-rn i18n parity 守门(warn-only 起步,2026-07-28 立)',
+    script: 'check-i18n-keys.mjs',
+    args: ['--target=mobile-rn', '--parity-only'],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
+      '     修复:node scripts/check-i18n-keys.mjs --target=mobile-rn 查看详情,',
+      '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
+      '     1 周后(2026-08-04)评估升级 blocking。',
+      '',
+    ].join('\n'),
+  },
+  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门) ---
+  // check-cli-i18n-parity.mjs 是独立脚本(校验 packages/i18n/messages/cli/*.json),
+  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(59 keys/5 locales),
+  // 风险低,warn-only 起步,后续按需升级 blocking。
+  {
+    id: '2f-cli',
+    label: '🌐 cli i18n parity 守门(warn-only,2026-07-28 立)',
+    script: 'check-cli-i18n-parity.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 cli 端 5 语言 i18n key 集合不一致。',
+      '     修复:node scripts/check-cli-i18n-parity.mjs 查看详情,',
+      '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
+      '     cli 端 i18n 体量小(63 行),warn-only 起步,后续按需升级 blocking。',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 2026-07-26 升级 blocking:11 天观察期(2026-07-15 引入)零误报,
+    // 当前 3344 路由 / 2180 safeParse / 0 silent-ignore;AGENTS.md §5 强制 Zod 校验,
+    // silent-ignore 是明确反模式,误报风险低。任务候选之一,符合"所有 parse 已加 safeParse"条件。
+    id: '9',
+    label: '🔍 safeParse 静默忽略(blocking,2026-07-26 升级)',
+    script: 'check-safe-parse.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 Fastify 路由存在 safeParse 静默忽略反模式(result.success === false 不返回/不日志)。',
+      '     修复:对 parse 失败明确返回 400 + 错误信息,或记日志后返回,禁止 silent-ignore。',
+      '     详见 AGENTS.md §5 后端约束(Zod 校验请求参数)。',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '13b',
+    label: '📐 PROJECT_PLAN.md 体积(warn-only)',
+    script: 'check-project-plan-size.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '19',
+    label: '⚠️  staged 污染预警(warn-only)',
+    script: 'check-staged-pollution.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '21',
+    label: '🌐 多端同步开发守门(warn-only)',
+    script: 'check-multi-end-sync.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '22',
+    label: '📖 README 同步守门(warn-only)',
+    script: 'check-readme-sync.mjs',
+    args: [],
+    mode: 'warn',
+  },
+  {
+    id: '24b',
+    label: '🔌 端口注册表守门(warn-only,monorepo-wide 全量)',
+    script: 'check-port-registry.mjs',
+    // 2026-08-19 立:从仅 staged 升级为 --all monorepo-wide 全量静态规则
+    // (端口注册表是项目级契约,不应只检查本次 commit 改动,
+    //  否则历史遗留非 88xx 端口会持续漏检)
+    args: ['--all'],
+    mode: 'warn',
+  },
+
+  // --- 31 (2026-07-26 新增,2026-08-19 删除) ---
+  // ID 31 verify-auth-shell 已废弃(迁移 shim,实际检查由 verify-shared-auth.mjs 11 项接管)
+  // 删除理由:verify-shared-auth.mjs 已在 §22 SOP 阶段成为 shared/auth 真实守门入口,
+  //   原 verify-auth-shell.mjs 只是兼容 shim,2026-08-19 完成迁移后无任何 caller 依赖,
+  //   删 file + guardian-runner 注册项,守卫器序列号顺延(2026-08-19 节点)
+  //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
+
+
+  // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
+  // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
+  //   包已修复导出,@ts-ignore 是无效历史遗留。warn 级别原因:@ts-ignore 有时是合理压制
+  //   (如第三方库类型缺陷),不强制阻塞 commit,只提醒开发者审视。
+  // 跳过白名单:e2e/ 目录(@playwright/test 类型解析场景)、node_modules/ / dist/ / .next/ / build/。
+  // 失败含义:staged 文件中新增 @ts-ignore / @ts-nocheck 注释,需审视是否真的需要。
+  // id 说明:任务原话"第 31 项"但 id '31' 已被 AuthShell 占用(同日 2026-07-26 新增),
+  //   故用 id '34'(33 LLM provider 之后的下一个可用编号)。
+  {
+    id: '34',
+    label: '🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发)',
+    script: 'check-ts-ignore.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 @ts-ignore 是类型安全压制,本仓库刚清理 215 处历史遗留',
+      '     请审视是否真的需要,或改用 e2e/tsconfig.json 独立配置',
+      '     跳过白名单:e2e/ / node_modules/ / dist/ / .next/ / build/',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 33 (2026-07-26 新增,LLM provider 字典化阶段 3 主体 blocking 守门) ---
+  // blocking:阶段 3 主体已落地(2026-07-26),扁平字段已从 config.py 删除,
+  //   LLM_PROVIDERS JSON 是唯一配置源,守门必须 blocking 防止 .env 配置错误导致运行时崩。
+  //   详见 docs/llm-provider-stage3-changelog.md §3.2 步骤 3.4。
+  // 校验 apps/ai-service/.env 的 LLM_PROVIDERS 字段是否符合
+  //   ProviderConfig schema(apps/ai-service/app/core/provider_config.py),
+  //   提前发现 JSON 格式错 / 字段类型错 / 未知 provider,避免运行时 Pydantic ValidationError。
+  // 校验规则(7 条):JSON 解析 / 顶层对象 / 31 个 provider 白名单 / 字段类型 / 未知字段 / 空值 / 重复。
+  // 失败含义:用户 .env 中 LLM_PROVIDERS JSON 字段不符合 schema,ai-service 启动后会运行时崩。
+  // 已有依赖:scripts/check-llm-provider-schema.mjs(2026-07-26),3 退出码(0/1/2)。
+  // 注意:LLM_PROVIDERS 为空是合法的(降级 stub 模式),info 不阻塞。
+  {
+    id: '33',
+    label: '🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地)',
+    script: 'check-llm-provider-schema.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/ai-service/.env 的 LLM_PROVIDERS 字段不符合 ProviderConfig schema。',
+      '     常见错误:JSON 解析失败 / 字段类型错(api_key 必须是字符串、enabled 必须是布尔值) / 未知 provider。',
+      '     修复方法:',
+      '       ① 跑迁移脚本生成标准 JSON: node scripts/migrate-llm-providers.mjs --input apps/ai-service/.env --output apps/ai-service/.env.migrated --apply --backup',
+      '       ② 用 --strict 模式定位具体错误: node scripts/check-llm-provider-schema.mjs --strict --json',
+      '     详见 docs/llm-provider-stage3-changelog.md §4 用户升级指南',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
+  // blocking:apps/web/src/components/chat/model-selector.tsx 原实现 onMouseLeave 内
+  //   setTimeout 闭包访问已失效的 e.currentTarget(React 17+ SyntheticEvent 在 handler
+  //   返回后 currentTarget 置 null),导致 popover 常驻显示。本守门禁止在 setTimeout /
+  //   setInterval / requestAnimationFrame / requestIdleCallback / queueMicrotask 的
+  //   回调闭包内访问 e.currentTarget / e.target / e.preventDefault / e.stopPropagation
+  //   等 React SyntheticEvent 属性/方法。
+  // 失败含义:在异步回调闭包内访问了 React 事件对象属性,会在 React 17+ 下产生不可预测的
+  //   行为(如 setPopoverAnchor 永远不进关闭分支)。需将 event 属性在同步阶段缓存到变量,
+  //   或用 useRef 管理 DOM 元素。
+  {
+    id: '42',
+    label: '🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发)',
+    script: 'check-event-closure-leak.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 在异步回调闭包内访问了 React SyntheticEvent 属性(如 e.currentTarget)。',
+      '     React 17+ 在 handler 返回后 currentTarget 置 null,异步闭包内访问永远为 null。',
+      '     修复:在 handler 同步阶段 const el = e.currentTarget 缓存到闭包变量,',
+      '     或用 useRef 管理 DOM 元素(anchorRef.current 替代 e.currentTarget)。',
+      '     参考:apps/web/src/components/chat/model-selector.tsx MemberDiscountSection',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 44 (2026-08-15 新增,根目录整洁守门,AGENTS.md「根目录整洁铁律」配套) ---
+  // blocking:一级目录只允许白名单内条目(配置 + 标准文档 + 项目强制文档 + 固定目录),
+  //   任何新文件/新目录/新隐藏文件落地根目录都会触发,阻断 commit,逼你清理或显式加白名单。
+  //   背景:根目录曾散落 debug.log / page_*.html / cookies.txt / 过时 start-dev.ps1 /
+  //   browser_test_output 等 10+ 临时产物,2026-08-15 整理后立此守门防回潮。
+  //   白名单维护在 scripts/check-root-dir-clean.mjs 内(4 组 Set),新增合法条目需显式审批。
+  {
+    id: '44',
+    label: '🧹 根目录整洁守门(一级目录白名单)',
+    script: 'check-root-dir-clean.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 一级目录存在白名单外条目,已阻断 commit。',
+      '     处置(二选一):',
+      '       ① 临时/垃圾产物 → 删除,或移入 tmp/ 或 logs/',
+      '       ② 合法新增(新配置/新文档/新目录) → 加入 scripts/check-root-dir-clean.mjs 白名单后重新 commit',
+      '     白名单四组:ALLOWED_FILES / ALLOWED_DIRS / ALLOWED_HIDDEN_FILES / ALLOWED_HIDDEN_DIRS。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 46 (2026-09-09 新增,统一返回键防私接守门) ---
+  // blocking:顶栏统一返回键(搜索右侧/加号左侧,动画拉出)是全站返回行为唯一渲染点,
+  //   页面私写 router.back()/history.back() 会绕过顶栏(动画/降级/页内 onBack 优先级全部失效),
+  //   重演"各页面各写各的返回键"散乱态。页面需要返回键 = 声明而非实现:
+  //   二级及以上子页面由 TopBarBackAutoRegister 自动声明(零代码),
+  //   页内视图级返回用 useTopBarBack(config),指定降级路由用 <BackButton fallbackHref />。
+  //   id 45 已被 check-c-drive-paths.mjs(warn-only)占用,顺延取 46。
+  // 跳过方法:HUSKY_SKIP_INLINE_BACK_GUARD=1 git commit ...
+  {
+    id: '46',
+    label: '🔙 统一返回键防私接守门(禁页面私写 router.back/history.back)',
+    script: 'check-inline-back-button.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 页面私接了 router.back()/history.back(),绕过顶栏统一返回键。',
+      '     修复方式(声明而非实现):',
+      '       ① 二级及以上子页面:零代码,TopBarBackAutoRegister 已自动声明;',
+      '       ② 页内视图级返回(详情→列表):useTopBarBack(selected ? { onBack: () => setX(null) } : null);',
+      '       ③ 指定降级路由:<BackButton fallbackHref="/parent" />。',
+      '     唯一豁免:apps/web/src/components/layout/GlobalTopBar.tsx(统一返回键本体)。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- watermark coverage (blocking, 2026-09-10 立; 2026-09-12 升级**自愈式**) ---
+  //   历史事故 ①: 新增文件未注入溯源水印 -> 本地提交通过、CI `Provenance watermark check` 红。
+  //   历史事故 ②: 生成器/sed 等文本级改写把已跟踪文件的水印弄丢/弄坏 -> 门禁**恒红**,
+  //   而旧版工具无法复现自己强制的版式, 只能靠 HUSKY_SKIP_WATERMARK_GUARD=1 绕过提交。
+  //   2026-09-12: 门禁自带自愈 —— 检出缺口后自动 clean+inject 并 git add 回暂存区,
+  //   "未加水印的文件进入提交"在结构上不再可能。CI 仍用 `watermark.mjs verify` 严格判定。
+  //   只看 git 已跟踪文件(含本次新 git add, 与 CI 检出范围一致, 本地未跟踪构建产物不计入)。
+  //   纯判定(不改文件, 审计用): node scripts/check-watermark-coverage.mjs --no-fix
+  //   跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...(紧急; 正常流程不再需要)
+  {
+    id: '47',
+    label: '💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)',
+    script: 'check-watermark-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 已有跟踪文件缺失/损坏溯源水印,且自动补齐未能达标(通常 = 缺口 > 200 个, 或类型不可注入)。',
+      '     CI 会因 Provenance watermark check 失败,请先修复。',
+      '     手动修复: node scripts/watermark.mjs inject <file>',
+      '     列出全部缺口: node scripts/watermark.mjs list-uncovered',
+      '     排查批量改写来源(文本级 sed/prettier/生成器)后整体重注入: node scripts/watermark.mjs inject',
+      '',
+    ].join('\n'),
+  },
+
+  // --- workflow step order (blocking, 2026-09-10 立) ---
+  //   历史事故: mobile-apk / mobile-ios workflow 里 setup-node(cache: pnpm) 排在 pnpm/action-setup
+  //   之前 -> setup-node 找不到 pnpm -> "Unable to locate executable file: pnpm" 永久失败。
+  //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
+  {
+    id: '48',
+    label: '🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后)',
+    script: 'check-workflow-step-order.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 workflow 里 actions/setup-node 用了 cache: pnpm,但 pnpm/action-setup 排在它后面。',
+      '     修复: 把 pnpm/action-setup 步骤移到 actions/setup-node 之前。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 49 (2026-09-13 新增,迁移记账守门,blocking) ---
+  //   背景: drizzle-kit migrate 按 `Number(DB.created_at) < entry.when` 判定是否应用。
+  //   仓库 journal 的 when 一度是合成时间戳(等差 +86400000,止于 1721513600000),而库内
+  //   created_at 是真实时间(1788717703662)→ 判据恒假 → migrate 每轮空转、一条也不应用,
+  //   且无任何守门 → 静默数周。修复后 journal 与库双射对齐(254 ↔ 254,when 集合完全相同)。
+  //   本项校验: journal↔.sql 双向一一对应、tag 唯一、when 严格递增且唯一;idx 断号仅告警
+  //   (drizzle 按 tag 配对 SQL、按 when 排序,idx 只是元数据)。
+  //   库内双射(B6~B8)需数据库连接,故不在 pre-commit 跑;用 pnpm migration:check:db 手工校验。
+  //   跳过方法(应急): HUSKY_SKIP_MIGRATION_BOOKKEEPING=1 git commit ...
+  {
+    id: '49',
+    label: '🧾 迁移记账守门(journal ↔ .sql 一一对应 / when 单调唯一)',
+    script: 'check-migration-bookkeeping.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 packages/database/drizzle 的 journal 与 .sql 记账结构漂移:',
+      '     1. node scripts/check-migration-bookkeeping.mjs        (离线诊断)',
+      '     2. node scripts/check-migration-bookkeeping.mjs --db   (对照库内 drizzle.__drizzle_migrations)',
+      '     常见成因: 迁移文件被文本级改写导致命名/内容漂移;手工增删 journal 条目未同步 .sql。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 50 (2026-09-15 新增,next-env.d.ts 构建污染守门,AGENTS.md「.next-* 变体永不提交」配套) ---
+  // blocking:ihui-deploy.ps1 用 IHUI_BUILD_DIST=.next-staging 做零停机交换时,next build 改写被跟踪的
+  //   next-env.d.ts 为引用 .next-staging,残留污染源码树。pre-commit 阶段仅当该文件被 git add 才判定
+  //   (铁律本就不提交它,避免本地构建脏文件误伤),发现 .next-* 变体引用即阻塞。
+  //   修复: git checkout -- apps/web/next-env.d.ts  (部署脚本已在 swap 后自动还原)。
+  //   跳过: HUSKY_SKIP_NEXT_ENV_DIST=1 git commit ...
+  {
+    id: '50',
+    label: '🛡️ next-env.d.ts 构建污染守门(禁 .next-* 变体引用)',
+    script: 'check-next-env-dist.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 apps/web/next-env.d.ts 引用了 .next-* 变体(.next-staging/.next-static 等),',
+      '     这是 next build 在 IHUI_BUILD_DIST 覆盖 distDir 时的副作用残留。',
+      '     修复: git checkout -- apps/web/next-env.d.ts',
+      '     部署脚本 ihui-deploy.ps1 已在 staging→.next 交换后自动还原,本地误改请手动还原。',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 51 (2026-09-20 新增,能力目录登记守门,blocking) ---
+  //   背景:packages/types/src/capability-catalog.ts 是「哪些端点可被机器凭据调用」的
+  //   单一事实源,运行时闸口在 apps/api/src/utils/capability-guard.ts。但"新增对外端点
+  //   必须登记能力"此前只是注释里的约定 —— 本项把它变成机械门禁(防漂移,不是开放 /api/*)。
+  //   四项检查:A 目录↔generated/capabilities.json 一致性;B v1 路由 handler 必须接能力闸;
+  //   C 闸口引用的 scope 必须在目录内,platform/非第三方 scope 不得进 /v1 对第三方的 rules 表;
+  //   D 目录声明了但代码无注册点(warn)。
+  //   --staged(pre-commit)只判定本次暂存的 v1 路由文件;全量模式(不带 --staged)留给 CI,
+  //   人工跑 `node scripts/guardian-runner.mjs` 会走全量,存量未覆盖端点会红 —— 属预期。
+  //   跳过:HUSKY_SKIP_CAPABILITY_CATALOG_GUARD=1 git commit ...
+  {
+    id: '51',
+    label: '🧭 能力目录登记守门(产物一致性 / v1 端点必须接能力闸 / scope 语义)',
+    script: 'check-capability-catalog.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 对外端点未登记能力(或能力目录与产物漂移):',
+      '     1. node scripts/check-capability-catalog.mjs --json   (拿到端点/scope 清单)',
+      '     2. 在 packages/types/src/capability-catalog.ts 登记 scope 与 routes',
+      '     3. pnpm capabilities:export                            (重新生成 capabilities.json)',
+      "     4. 给 handler 接 preHandler: [requireApiKeyAuth, requireCapability('<scope>')],",
+      "        或在路由族上 addHook('preHandler', requireCapabilityRules([...]))",
+      '     5. node scripts/check-capability-catalog.mjs --self-test  (逻辑自检)',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 52 (2026-09-20 新增,桌面弹窗复发守门,AGENTS.md §5b「机器级根治 windowsHide 默认值」配套) ---
+  // blocking:派生控制台程序(git/node/pnpm/cmd/pwsh/schtasks…)却漏 windowsHide 的调用点。
+  // 根因:Node v24 该方法默认 false,无控制台父进程(agent GUI 宿主 / detached worker / 计划任务)
+  // 派生时 Windows 必新分配可见控制台 → 用户桌面闪黑窗。此问题历史复发 4 次,改为机制拦截。
+  // 采用"宁漏不误报"策略:仅首参可**肯定**是控制台程序时判违规,避免误阻塞他人提交。
+  {
+    id: '52',
+    label: '🪟 派生弹窗守门(blocking,AGENTS.md §5b windowsHide 默认值配套)',
+    script: 'check-no-visible-spawn.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到派生控制台程序但漏 windowsHide → 无控制台父进程下必弹可见黑窗。',
+      '     修复:在该调用的 options 里加 `windowsHide: true`;',
+      '           无 options 则补 `{ windowsHide: true }`;带 args 数组补在 args 之后;',
+      '           末位是 callback 的把 options 插在 callback 之前。',
+      '     自检:node scripts/check-no-visible-spawn.mjs --self-test',
+      '     全量:node scripts/check-no-visible-spawn.mjs',
+      '     开发机静默兜底:node scripts/install-console-window-hook.mjs --verify',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 53 (2026-09-21 新增,O13b admin 面特权判定收敛守门,warn 级起步) ---
+  // warn-only 理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记(文件级
+  //   count 上限),白名单口径与 --staged 判据需先观察一轮误报率(动态拼出的判定、
+  //   注释行计数偏差等);存量清零或稳定一周后再升 blocking。
+  // 判据:裸 roleId 数值比较(集中封装 plugins/require-permission.ts 之外)条数只减
+  //   不增;本地重定义 requireAdmin 禁止回升;capability-catalog dataClass=platform
+  //   条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。详见脚本头注释与
+  //   docs/developer/admin-permission-mapping.md。
+  // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
+  {
+    id: '53',
+    label: '🛡️  admin 面特权判定一致性(warn-only,O13b roleId>=1 收敛)',
+    script: 'check-admin-gate-consistency.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
+      '     修复:preHandler 统一走 plugins/require-permission.ts 的 requirePermission / requireAnyPermission /',
+      '           requireAdmin;能力面 scope 的机器可见性以 capability-catalog 的 thirdPartyEligible 为准。',
+      '     自检:node scripts/check-admin-gate-consistency.mjs --self-test',
+      '     全量:node scripts/check-admin-gate-consistency.mjs',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
+  // 背景:同日两次功能丢失 —— 并行会话执行 git checkout/reset,把另一会话**已验证但
+  //   尚未 commit** 的工作树改动整体还原(一次要重做,一次连带丢失两条常驻防漂移测试)。
+  //   stash 侧已有 30b 兜住,「留在工作树里没提交」这一整类此前无任何机制覆盖。
+  // warn-only 理由:共享工作树里并行会话常态存在超龄未提交改动(实测本仓当前 21 个,
+  //   最老 21 天),一上来 blocking 会把别人未完成的工作变成我的提交阻塞;先观察一轮,
+  //   等并行会话收敛后再评估升级。判据/阈值见 scripts/check-uncommitted-age.mjs 头注释。
+  {
+    id: '54',
+    label: '⏳ 未提交源码改动年龄守门(warn-only,B14 防工作树改动被并行 checkout 抹掉)',
+    script: 'check-uncommitted-age.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 有源码改动停留在未提交状态超过阈值(默认 45 分钟)。工作树不是暂存区:',
+      '     任何一次并行的 git checkout / reset / clean 都会把它整体抹掉且不留痕迹。',
+      '     处置:node scripts/safe-commit.mjs -m "<本次改动说明>" -- <file>(改完即提交)',
+      '           或按 AGENTS.md §12d 用 git worktree 隔离并行开发。',
+      '     自检:node scripts/check-uncommitted-age.mjs --self-test',
+      '     全量:node scripts/check-uncommitted-age.mjs --json',
+      '     调阈值:IHUI_UNCOMMITTED_AGE_MIN=<分钟> 或 --threshold-min <分钟>',
+      '',
+    ].join('\n'),
+  },
+
+  // --- blocking (OpenAPI 契约) ---
+  {
+    id: '10',
+    label: '📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级)',
+    script: 'openapi-check.mjs',
+    // --staged:仅当本轮暂存触及 apps/api/src/routes/**、契约产物或能力清单时才判定,
+    // 否则无关提交也要背 3.5MB 产物的比对成本。判据本身见 scripts/openapi-check.mjs。
+    args: ['--staged'],
+    mode: 'blocking',
+  },
+  // --- info (1 项) ---
+  {
+    id: '23',
+    label: '📋 staged 文件清单(info)',
+    script: 'check-staged-files.mjs',
+    args: [],
+    mode: 'info',
+  },
+]
+
+// === push 门检查集(2026-08-31 新增) ===
+// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
+// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
+// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
+// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
+const pushGateChecks = [
+  {
+    id: 'T1',
+    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
+    script: 'check-typecheck.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+]
+
+// === CLI 解析 ===
+
+const cliArgs = process.argv.slice(2)
+const passStaged = cliArgs.includes('--staged')
+const showTiming = cliArgs.includes('--timing')
+const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
+const pushGate = cliArgs.includes('--push-gate')
+
+// --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
+const effectiveChecks = pushGate ? pushGateChecks : checks
+
+// === Help ===
+
+if (showHelp) {
+  const blocking = effectiveChecks.filter((c) => c.mode === 'blocking')
+  const warn = effectiveChecks.filter((c) => c.mode === 'warn')
+  const info = effectiveChecks.filter((c) => c.mode === 'info')
+  console.log(`
+guardian-runner.mjs — 守门脚本批量执行器
+
+用法:
+  node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
+
+选项:
+  --staged      传递 --staged 给所有脚本(pre-commit 模式)
+  --timing      打印每个检查的耗时
+  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
+  --help        打印此帮助
+
+检查清单(${effectiveChecks.length} 项):
+  blocking (${blocking.length} 项): ${blocking.map((c) => c.id).join(', ')}
+  warn     (${warn.length} 项): ${warn.map((c) => c.id).join(', ')}
+  info     (${info.length} 项): ${info.map((c) => c.id).join(', ')}
+
+执行逻辑:
+  blocking 失败 → 立即 exit(1),阻塞 commit
+  warn     失败 → 打印警告,继续执行
+  info     →    始终继续,只打印信息
+`)
+  process.exit(0)
+}
+
+// === 执行 ===
+
+// ─── push-gate 结果缓存(2026-09-18 立,"已推完还在等"根治第二刀) ───
+// 背景:pre-push 钩子是仓库级——同一批 commit 推 N 个仓就清缓存全量 tsc+mypy N 遍,
+//      单遍数分钟,多会话收尾动辄干等 8-13 分钟。而同一 HEAD 的代码内容完全相同,
+//      短窗口内重复跑门是纯浪费。
+// 策略(2026-09-18 晚二次根治):**内容指纹**为键,不再按 HEAD sha——
+//      typecheck 实际消费的是工作区(apps/+packages/ 的 HEAD 子树 + 脏改动),
+//      合并提交/文档提交虽推进 HEAD 但类型相关内容不变,按 sha 键控必 miss,
+//      导致每轮收敛都重跑 270s 全量门(实测收敛 3 轮 = 13 分钟)。
+//      指纹 = HEAD:apps 树 hash + HEAD:packages 树 hash + 脏文件清单及内容 hash。
+//      只缓存"全部通过"结果;指纹一变立即失效。
+// 跳过:HUSKY_SKIP_PUSHGATE_CACHE=1(需要强制重跑全量门时使用)。
+const PUSHGATE_CACHE_TTL_MS = 10 * 60 * 1000
+const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
+
+function readPushGateCache() {
+  try {
+    return JSON.parse(readFileSync(pushGateCacheFile, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
+function computeGateFingerprint() {
+  try {
+    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], { encoding: 'utf8', windowsHide: true }).trim()
+    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
+    const statusRaw = execFileSync('git', ['status', '--porcelain', '-z', '--', 'apps', 'packages'], {
+      encoding: 'utf8',
+        windowsHide: true,
+      })
+    const h = createHash('sha1')
+    h.update(trees)
+    h.update(statusRaw)
+    const tokens = statusRaw.split('\0').filter(Boolean)
+    for (let i = 0; i < tokens.length && i < 400; i++) {
+      const tok = tokens[i]
+      if (tok.length <= 3 || tok[2] !== ' ') continue
+      const xy = tok.slice(0, 2)
+      try {
+        h.update(readFileSync(resolve(process.cwd(), tok.slice(3))))
+      } catch {
+        /* 删除态/瞬时不可读文件跳过,不影响指纹整体有效性 */
+      }
+      if (xy.includes('R') || xy.includes('C')) i++ // 跳过 rename 的 old path 段
+    }
+    return h.digest('hex')
+  } catch {
+    return null
+  }
+}
+
+if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGATE_CACHE !== '1') {
+  const cache = readPushGateCache()
+  const fp = computeGateFingerprint()
+  if (
+    cache &&
+    cache.passed === true &&
+    cache.fp &&
+    cache.fp === fp &&
+    Date.now() - cache.ts < PUSHGATE_CACHE_TTL_MS
+  ) {
+    const ageMin = ((Date.now() - cache.ts) / 60000).toFixed(1)
+    console.log(
+      `${C.green}⚡ [push-gate] 命中缓存:类型相关内容指纹 ${String(fp).slice(0, 11)} 于 ${ageMin} 分钟前已通过全量门,跳过重复 typecheck${C.reset}`,
+    )
+    console.log(`${C.dim}   (内容一致复用结果;强制重跑:HUSKY_SKIP_PUSHGATE_CACHE=1)${C.reset}`)
+    process.exit(0)
+  }
+}
+
+let passed = 0
+let warned = 0
+let failed = 0
+let skipped = 0
+const startTime = Date.now()
+
+for (const check of effectiveChecks) {
+  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
+  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
+  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
+  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
+  if (check.skipEnv && process.env[check.skipEnv] === '1') {
+    skipped++
+    console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
+  const cmdArgs = [...check.args]
+  if (passStaged) cmdArgs.push('--staged')
+  const cmd = `node scripts/${check.script}${cmdArgs.length > 0 ? ' ' + cmdArgs.join(' ') : ''}`
+
+  console.log(`[${check.id}] ${check.label}...`)
+  const checkStart = Date.now()
+
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+    passed++
+    if (showTiming) {
+      console.log(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
+    }
+  } catch (e) {
+    const elapsed = Date.now() - checkStart
+    // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
+    // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
+    if (check.mode === 'blocking' && e && e.status === 75) {
+      console.error(`⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`)
+      process.exit(75)
+    }
+    // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
+    // stdio:inherit 已把 stderr/stdout 透传给上游,无需额外 silent-skip 检测。
+    // (执行 stdio:inherit 后,子进程任何 stdout/stderr 都会立即打印,
+    //  silent-skip 仅在 stdio:pipe 但未读 stdout 的场景才可能发生,本 runner 不存在该风险)
+    if (check.mode === 'blocking') {
+      failed++
+      if (check.onFailHint) {
+        console.log(check.onFailHint)
+      }
+      console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
+      // 打印汇总后退出
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+      console.error('')
+      console.error(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
+      console.error(`  总检查数: ${passed + warned + failed + (effectiveChecks.length - passed - warned - failed)}`)
+      console.error(`  ${C.green}通过: ${passed}${C.reset}`)
+      console.error(`  ${C.yellow}警告: ${warned}${C.reset}`)
+      console.error(`  ${C.red}失败: ${failed}${C.reset}`)
+      console.error(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+      console.error(`  总耗时: ${totalTime}s`)
+      process.exit(1)
+    } else if (check.mode === 'warn') {
+      warned++
+      console.warn(`${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`)
+      if (showTiming) {
+        console.log(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+      }
+    } else {
+      // info 模式:失败不计数,视为通过
+      passed++
+      if (showTiming) {
+        console.log(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
+      }
+    }
+  }
+}
+
+// === 汇总 ===
+
+const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+console.log('')
+console.log(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
+console.log(`  总检查数: ${effectiveChecks.length}`)
+console.log(`  ${C.green}通过: ${passed}${C.reset}`)
+console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
+console.log(`  ${C.red}失败: ${failed}${C.reset}`)
+console.log(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+console.log(`  总耗时: ${totalTime}s`)
+
+// push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用,见执行段注释)
+if (pushGate && failed === 0) {
+  try {
+    mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
+    writeFileSync(
+      pushGateCacheFile,
+      JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),
+    )
+    console.log(`${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`)
+  } catch {
+    /* 缓存写失败不影响放行 */
+  }
+}
+
+process.exit(0)
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

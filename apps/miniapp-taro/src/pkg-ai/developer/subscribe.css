@@ -1,0 +1,271 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 60rpx;
+}
+
+/* ===== 开发者头部 ===== */
+.dev-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding: 32rpx 28rpx;
+  margin: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.dev-avatar-wrap {
+  flex-shrink: 0;
+}
+.dev-avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+}
+.dev-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dev-avatar-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dev-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.dev-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.dev-bio {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.dev-sub-btn {
+  align-self: flex-start;
+  margin-top: 8rpx;
+  padding: 0 28rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  background: var(--color-primary);
+  border-radius: var(--radius-sm);
+  border: none;
+}
+.dev-sub-btn::after {
+  border: none;
+}
+.dev-sub-btn[disabled] {
+  opacity: 0.6;
+  color: var(--color-foreground);
+}
+.dev-sub-btn-active {
+  background: var(--color-card);
+  color: var(--color-muted-foreground);
+  border: 2rpx solid var(--color-border);
+}
+
+/* ===== 订阅统计 ===== */
+.dev-stats {
+  display: flex;
+  margin: 0 24rpx;
+  padding: 24rpx 0;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.dev-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+.dev-stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dev-stat-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 通用区块 ===== */
+.dev-section {
+  margin: 24rpx;
+}
+.dev-section-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 16rpx;
+}
+
+/* ===== 模型列表 ===== */
+.dev-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.dev-model-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.dev-model-left {
+  flex-shrink: 0;
+}
+.dev-model-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+}
+.dev-model-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.dev-model-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.dev-model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+.dev-model-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.dev-model-uses {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.dev-model-desc {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-model-btn {
+  flex-shrink: 0;
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: var(--color-border);
+  border: 2rpx solid var(--color-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* ===== 通知设置 ===== */
+.dev-notify-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 16rpx;
+}
+.dev-notify-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 动态/公告 ===== */
+.dev-post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.dev-post-card {
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.dev-post-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.dev-post-content {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.dev-post-time {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 联系开发者 / 状态文案 ===== */
+.dev-contact-btn {
+  margin: 24rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  font-size: 30rpx;
+  color: var(--color-foreground);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  border: none;
+}
+.dev-contact-btn::after {
+  border: none;
+}
+.dev-empty {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 60rpx 0;
+}
+.dev-loading {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
