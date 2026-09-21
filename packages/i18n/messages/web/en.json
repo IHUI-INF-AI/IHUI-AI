@@ -375,7 +375,13 @@
     "rulesLabel": "Rules",
     "subtitle": "Join activities and earn rewards",
     "title": "Activities",
-    "viewDetail": "View Details"
+    "viewDetail": "View Details",
+    "status": {
+      "active": "Active",
+      "ended": "Ended",
+      "unknown": "Unknown",
+      "upcoming": "Upcoming"
+    }
   },
   "admin": {
     "aboutUs": {
@@ -849,6 +855,7 @@
       "types": {
         "info": "Info",
         "maintenance": "Maintenance",
+        "unknown": "Unknown",
         "update": "Update",
         "warning": "Warning"
       },
@@ -1358,7 +1365,13 @@
           "statTotal": "Total",
           "subtitle": "View answer records and scores",
           "title": "Answer Card",
-          "totalItems": "{count} items"
+          "totalItems": "{count} items",
+          "status": {
+            "graded": "Graded",
+            "pending": "In Progress",
+            "submitted": "Submitted",
+            "unknown": "Unknown"
+          }
         },
         "online": {
           "answerPlaceholder": "Enter your solution",
@@ -2167,7 +2180,13 @@
           "subtitle": "View all exam records and scores",
           "title": "Exam Records",
           "totalItems": "{count} items in total",
-          "unknownPaper": "Unknown paper"
+          "unknownPaper": "Unknown paper",
+          "status": {
+            "graded": "Graded",
+            "pending": "In Progress",
+            "submitted": "Submitted",
+            "unknown": "Unknown"
+          }
         }
       },
       "finance": {
@@ -2246,12 +2265,18 @@
             "issued": "Issued",
             "pending": "Pending",
             "processing": "Processing",
-            "rejected": "Rejected"
+            "rejected": "Rejected",
+            "unknown": "Unknown"
           },
           "statusLabel": "Status",
           "subtitle": "Review and issue student invoice applications",
           "title": "Invoice Management",
-          "totalItems": "{count} items in total"
+          "totalItems": "{count} items in total",
+          "type": {
+            "company": "Company",
+            "personal": "Personal",
+            "unknown": "Unknown"
+          }
         },
         "statistics": {
           "avgOrderAmount": "Avg Order Amount",
@@ -5529,7 +5554,14 @@
       "statusAll": "All",
       "subtitle": "Review user withdrawal requests",
       "title": "Withdrawals",
-      "total": "Total {total}"
+      "total": "Total {total}",
+      "status": {
+        "approved": "Approved",
+        "paid": "Paid",
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "unknown": "Unknown"
+      }
     },
     "workflows": {
       "actions": "Actions",
@@ -6584,6 +6616,7 @@
       "noTeam": "No team",
       "priority": "Priority",
       "team": "Team",
+      "unknown": "Unknown",
       "workspace": "Workspace",
       "agentIdRequired": "Please select an agent",
       "workspacePlaceholder": "Leave empty for the default workspace"
@@ -6801,7 +6834,8 @@
       "offline": "Offline",
       "pending": "Pending",
       "published": "Published",
-      "rejected": "Rejected"
+      "rejected": "Rejected",
+      "unknown": "Unknown"
     },
     "subtitle": "Manage agents you created",
     "title": "My Agents"
@@ -6810,7 +6844,15 @@
     "back": "Back",
     "loading": "Loading...",
     "subtitle": "Agent usage data overview",
-    "title": "Agent Statistics"
+    "title": "Agent Statistics",
+    "stat": {
+      "avgRating": "Avg Rating",
+      "pending": "Pending Review",
+      "published": "Published",
+      "totalAgents": "Total Agents",
+      "totalCalls": "Total Calls",
+      "totalUsers": "Active Users"
+    }
   },
   "agreement": {
     "effectiveDate": "Effective Date",
@@ -8094,7 +8136,17 @@
           "id": "ID",
           "name": "Site Name"
         },
-        "title": "AI World Site Management"
+        "title": "AI World Site Management",
+        "iconLabels": {
+          "briefcase": "Office",
+          "code": "Code",
+          "graduation": "Education",
+          "megaphone": "Marketing",
+          "message": "Chat",
+          "music": "Music",
+          "palette": "Art",
+          "video": "Video"
+        }
       }
     },
     "title": "AI World"
@@ -8380,7 +8432,14 @@
     "prev": "Previous",
     "publishedAt": "Published",
     "subtitle": "Stay up to date with the latest news and maintenance",
-    "title": "Announcements"
+    "title": "Announcements",
+    "types": {
+      "info": "Info",
+      "maintenance": "Maintenance",
+      "unknown": "Unknown",
+      "update": "Update",
+      "warning": "Warning"
+    }
   },
   "answerArea": {
     "audio": {
@@ -9156,7 +9215,8 @@
         "popover": "Popover",
         "shift-tab": "Shift+Tab",
         "slash": "Slash",
-        "confirm-dialog": "Confirm dialog"
+        "confirm-dialog": "Confirm dialog",
+        "unknown": "Unknown"
       },
       "historyStatsTitle": "Total usage",
       "historyTitle": "Permission mode history",
@@ -9945,117 +10005,214 @@
     "commands": {
       "agent": {
         "description": "Manage and dispatch AI agents",
-        "keywords": ["agent", "bot", "dispatch"],
+        "keywords": [
+          "agent",
+          "bot",
+          "dispatch"
+        ],
         "label": "AI Agents"
       },
       "browser": {
         "description": "Browse the web inside the workspace",
-        "keywords": ["browser", "web", "preview"],
+        "keywords": [
+          "browser",
+          "web",
+          "preview"
+        ],
         "label": "Built-in Browser"
       },
       "capabilityMarket": {
         "description": "Discover and install capability packs",
-        "keywords": ["capability", "market", "pack", "install"],
+        "keywords": [
+          "capability",
+          "market",
+          "pack",
+          "install"
+        ],
         "label": "Capability Market"
       },
       "codeChanges": {
         "description": "Review workspace code changes",
-        "keywords": ["changes", "diff", "git", "code"],
+        "keywords": [
+          "changes",
+          "diff",
+          "git",
+          "code"
+        ],
         "label": "Code Changes"
       },
       "connectors": {
         "description": "Manage external service connections",
-        "keywords": ["connector", "integration", "service"],
+        "keywords": [
+          "connector",
+          "integration",
+          "service"
+        ],
         "label": "Connectors"
       },
       "document": {
         "description": "Edit workspace documents",
-        "keywords": ["document", "docs", "edit"],
+        "keywords": [
+          "document",
+          "docs",
+          "edit"
+        ],
         "label": "Documents"
       },
       "editor": {
         "description": "Open the code editor",
-        "keywords": ["editor", "code", "monaco"],
+        "keywords": [
+          "editor",
+          "code",
+          "monaco"
+        ],
         "label": "Editor"
       },
       "mcp": {
         "description": "Manage MCP servers and tools",
-        "keywords": ["mcp", "server", "tools"],
+        "keywords": [
+          "mcp",
+          "server",
+          "tools"
+        ],
         "label": "MCP Manager"
       },
       "mcpStore": {
         "description": "Browse and install MCP services",
-        "keywords": ["mcp", "store", "market", "install"],
+        "keywords": [
+          "mcp",
+          "store",
+          "market",
+          "install"
+        ],
         "label": "MCP Store"
       },
       "modeAsk": {
         "description": "Switch to Ask mode with tools disabled",
-        "keywords": ["ask", "question", "mode"],
+        "keywords": [
+          "ask",
+          "question",
+          "mode"
+        ],
         "label": "Ask mode"
       },
       "modeBuild": {
         "description": "Let the AI build and modify directly",
-        "keywords": ["build", "mode", "generate"],
+        "keywords": [
+          "build",
+          "mode",
+          "generate"
+        ],
         "label": "Build Mode"
       },
       "modePlan": {
         "description": "Plan first, then execute",
-        "keywords": ["plan", "mode", "todo"],
+        "keywords": [
+          "plan",
+          "mode",
+          "todo"
+        ],
         "label": "Plan Mode"
       },
       "modeReview": {
         "description": "Review and assess existing code",
-        "keywords": ["review", "mode", "audit"],
+        "keywords": [
+          "review",
+          "mode",
+          "audit"
+        ],
         "label": "Review Mode"
       },
       "modeSpec": {
         "description": "Generate implementations from specs",
-        "keywords": ["spec", "mode", "generate"],
+        "keywords": [
+          "spec",
+          "mode",
+          "generate"
+        ],
         "label": "Spec Mode"
       },
       "skill": {
         "description": "Manage and invoke AI skills",
-        "keywords": ["skill", "ability", "plugin"],
+        "keywords": [
+          "skill",
+          "ability",
+          "plugin"
+        ],
         "label": "Skills"
       },
       "terminal": {
         "description": "Open the integrated terminal",
-        "keywords": ["terminal", "shell", "console"],
+        "keywords": [
+          "terminal",
+          "shell",
+          "console"
+        ],
         "label": "Terminal"
       },
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       },
       "skillsMarket": {
         "description": "Browse and install self-evolving skills",
-        "keywords": ["skill", "market", "plugin"],
+        "keywords": [
+          "skill",
+          "market",
+          "plugin"
+        ],
         "label": "Skill Market"
       }
     },
@@ -10293,7 +10450,12 @@
       "signedAt": "Signed At"
     },
     "planName": "Monthly Subscription",
-    "title": "Contract Management"
+    "title": "Contract Management",
+    "status": {
+      "active": "Active",
+      "pending": "Pending",
+      "unknown": "Unknown"
+    }
   },
   "course": {
     "chapters": {
@@ -10355,6 +10517,7 @@
       "hour": "Hour",
       "day": "Day",
       "month": "Month",
+      "unknown": "Unknown",
       "weekday": "Weekday"
     },
     "mode": {
@@ -10410,7 +10573,20 @@
       "totalProjects": "Total Projects",
       "totalUsers": "Total Users",
       "userGrowth": "User Growth",
-      "userGrowthHint": "New users in last 14 days"
+      "userGrowthHint": "New users in last 14 days",
+      "fileTypes": {
+        "document": "Documents",
+        "image": "Images",
+        "other": "Other",
+        "unknown": "Unknown",
+        "video": "Videos"
+      },
+      "projectStatus": {
+        "active": "Active",
+        "archived": "Archived",
+        "completed": "Completed",
+        "unknown": "Unknown"
+      }
     }
   },
   "deliveryReview": {
@@ -10856,7 +11032,17 @@
     "subtitle": "View billing records and payment methods",
     "title": "Bills",
     "toastContactSupport": "Please contact customer service to add",
-    "toastInvoiceGenerating": "Invoice is being generated, please wait"
+    "toastInvoiceGenerating": "Invoice is being generated, please wait",
+    "payType": {
+      "alipay": "Alipay",
+      "card": "Bank Card",
+      "wechat": "WeChat Pay"
+    },
+    "status": {
+      "failed": "Failed",
+      "paid": "Paid",
+      "pending": "Pending"
+    }
   },
   "developerHomePage": {
     "currentPlan": "Current Plan",
@@ -10982,7 +11168,13 @@
     "releasedAt": "Released {date}",
     "subtitle": "View API version status and deprecation schedule",
     "sunsetTime": "Sunset time:",
-    "title": "API Version Management"
+    "title": "API Version Management",
+    "status": {
+      "beta": "Beta",
+      "deprecated": "Deprecated",
+      "stable": "Stable",
+      "sunset": "Sunset"
+    }
   },
   "dict": {
     "addItem": "Add Item",
@@ -12111,25 +12303,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -12263,19 +12467,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -12856,7 +13072,17 @@
   "follows": {
     "loading": "Loading...",
     "subtitle": "Manage people you follow",
-    "title": "Following"
+    "title": "Following",
+    "tabs": {
+      "followers": "Followers",
+      "following": "Following",
+      "unknown": "Unknown"
+    },
+    "empty": {
+      "followers": "No followers yet",
+      "following": "Not following anyone yet",
+      "unknown": "No Data"
+    }
   },
   "footer": {
     "aboutUs": "About Us",
@@ -13519,7 +13745,12 @@
     "rewardValue": "Inviter +{inviter} / Invitee +{invitee} points",
     "subtitle": "Invite friends and both of you earn rewards",
     "title": "Invitations",
-    "user": "User"
+    "user": "User",
+    "status": {
+      "expired": "Expired",
+      "unused": "Active",
+      "used": "Used"
+    }
   },
   "kbArticleForm": {
     "articleInfo": "Article info",
@@ -13671,7 +13902,8 @@
       "title": "Learning Topics",
       "type": {
         "lesson": {
-          "label": "Course Topic"
+          "label": "Course Topic",
+          "tip": "A curated course collection by operations, free to learn."
         },
         "premium": {
           "label": "Premium Topic"
@@ -13710,7 +13942,10 @@
     "errorFallback": "Load failed",
     "loading": "Loading...",
     "status": {
+      "failApproval": "Failed",
       "notSubmitted": "Not Submitted",
+      "passApproval": "Passed",
+      "submitted": "Submitted",
       "unknown": "Unknown"
     },
     "submitBtn": {
@@ -14775,6 +15010,9 @@
     "empty": "No sign-up records",
     "loading": "Loading...",
     "status": {
+      "attended": "Attended",
+      "canceled": "Canceled",
+      "pending": "Pending",
       "unknown": "Unknown"
     },
     "title": "My Exam Sign-ups",
@@ -14787,7 +15025,20 @@
     "privacyTitle": "Privacy Settings",
     "saveBtn": "Save Settings",
     "saved": "Saved",
-    "title": "Member Settings"
+    "title": "Member Settings",
+    "notif": {
+      "newsletter": "Subscribe to newsletter",
+      "orderUpdates": "Order status updates",
+      "points": "Points change reminders",
+      "promotions": "Promotions and offers",
+      "unknown": "Unknown"
+    },
+    "privacy": {
+      "allowInvites": "Allow others to invite me",
+      "showActivity": "Show recent activity",
+      "showProfile": "Public profile page",
+      "unknown": "Unknown"
+    }
   },
   "memberSubscriptionPage": {
     "autoRenew": "Auto Renew",
@@ -14800,7 +15051,12 @@
     "subscribeNow": "Subscribe Now",
     "subscriptionAmount": "Subscription Amount",
     "subtitle": "Manage your subscription, renew or cancel",
-    "title": "Subscription Management"
+    "title": "Subscription Management",
+    "status": {
+      "active": "Active",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    }
   },
   "members": {
     "allLevels": "All Levels",
@@ -14829,7 +15085,15 @@
     "empty": "No messages",
     "loading": "Loading...",
     "noData": "No messages",
-    "title": "Messages"
+    "title": "Messages",
+    "tab": {
+      "comment": "Comments",
+      "favorite": "Favorites",
+      "follow": "Followers",
+      "like": "Likes",
+      "notice": "Notifications",
+      "unknown": "Unknown"
+    }
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -14859,7 +15123,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "relay": {
@@ -15701,7 +15973,15 @@
     "generate": "Generate Music",
     "genreLabel": "Genre",
     "placeholder": "Describe the music to generate...",
-    "title": "Music Generation"
+    "title": "Music Generation",
+    "genre": {
+      "classical": "Classical",
+      "electronic": "Electronic",
+      "jazz": "Jazz",
+      "pop": "Pop",
+      "rock": "Rock",
+      "unknown": "Unknown"
+    }
   },
   "myArticles": {
     "create": "Write Article",
@@ -16668,8 +16948,12 @@
       "decisions": "Joint Decisions"
     },
     "telemetry": {
+      "degraded": "Degraded",
+      "healthy": "Healthy",
       "pillarHealth": "Pillar Health",
-      "recentTraces": "Recent Traces"
+      "recentTraces": "Recent Traces",
+      "unhealthy": "Unhealthy",
+      "unknown": "Unknown"
     },
     "title": "Orchestration Hub",
     "unavailable": "Orchestration hub unavailable"
@@ -16687,7 +16971,8 @@
       "cancelled": "Cancelled",
       "paid": "Paid",
       "pending": "Pending",
-      "refunded": "Refunded"
+      "refunded": "Refunded",
+      "unknown": "Unknown"
     },
     "statusLabel": "Status",
     "subtitle": "View course and membership card orders",
@@ -16697,7 +16982,8 @@
     "type": {
       "all": "All",
       "card": "Card",
-      "course": "Course"
+      "course": "Course",
+      "unknown": "Unknown"
     }
   },
   "overview": {
@@ -16867,6 +17153,9 @@
           "Email support"
         ],
         "name": "Pro"
+      },
+      "unknown": {
+        "name": "Unknown Plan"
       }
     },
     "popular": "Popular",
@@ -17896,6 +18185,7 @@
     "range": {
       "month": "Monthly",
       "total": "All Time",
+      "unknown": "Unknown",
       "week": "Weekly"
     },
     "subtitle": "View user points and activity rankings",
@@ -18115,7 +18405,13 @@
     "empty": "No security events",
     "loading": "Loading...",
     "subtitle": "View account security-related events (masked)",
-    "title": "Security audit"
+    "title": "Security audit",
+    "type": {
+      "login": "Login record",
+      "other": "Other",
+      "permission": "Permission change",
+      "sensitive": "Sensitive operation"
+    }
   },
   "selfMedia": {
     "automation": "Automation",
@@ -19234,11 +19530,19 @@
     "subtitle": "Manage your subscriptions",
     "tabs": {
       "all": "All",
+      "category": "Category",
       "project": "Projects",
       "tag": "Tags",
+      "unknown": "Unknown",
       "user": "Users"
     },
-    "title": "Subscriptions"
+    "title": "Subscriptions",
+    "types": {
+      "category": "Category",
+      "project": "Project",
+      "tag": "Tag",
+      "user": "User"
+    }
   },
   "supportNewTicketForm": {
     "cancel": "Cancel",
@@ -19251,7 +19555,13 @@
     "priorityLabel": "Priority",
     "submit": "Submit Ticket",
     "titleLabel": "Title",
-    "titlePlaceholder": "Briefly describe your issue"
+    "titlePlaceholder": "Briefly describe your issue",
+    "priority": {
+      "high": "High",
+      "low": "Low",
+      "medium": "Medium",
+      "urgent": "Urgent"
+    }
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -19301,7 +19611,14 @@
     "target": "Target",
     "title": "Task Receiver",
     "wsConnected": "WS Connected",
-    "wsDisconnected": "WS Disconnected"
+    "wsDisconnected": "WS Disconnected",
+    "status": {
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending": "Pending",
+      "running": "Running"
+    }
   },
   "tasksLog": {
     "confirmClean": "Are you sure you want to clean all task logs?",
@@ -19391,7 +19708,17 @@
     "tabInvitations": "Invitations",
     "tabMembers": "Members",
     "tabSettings": "Settings",
-    "title": "Teams"
+    "title": "Teams",
+    "status": {
+      "accepted": "Accepted",
+      "expired": "Expired",
+      "pending": "Pending"
+    },
+    "roles": {
+      "admin": "Admin",
+      "member": "Member",
+      "owner": "Owner"
+    }
   },
   "terminalPanel": {
     "aiDiagnoseTitle": "AI Diagnosis",
@@ -19514,7 +19841,20 @@
     "serviceRating": "Service Rating",
     "statusPrefix": "Status: ",
     "submitRating": "Submit Rating",
-    "userRole": "Me"
+    "userRole": "Me",
+    "priority": {
+      "high": "High",
+      "low": "Low",
+      "medium": "Medium",
+      "urgent": "Urgent"
+    },
+    "status": {
+      "closed": "Closed",
+      "open": "In Progress",
+      "pending": "Pending",
+      "rejected": "Rejected",
+      "resolved": "Resolved"
+    }
   },
   "title": "Admin Dashboard",
   "tokenValue": {
@@ -19553,7 +19893,8 @@
     "mode": {
       "bookmarks": "By Bookmarks",
       "every": "Every Page",
-      "range": "By Range"
+      "range": "By Range",
+      "unknown": "Unknown"
     },
     "modeLabel": "Split Mode",
     "rangesLabel": "Page ranges (comma-separated, e.g. 1-3,5,7-10)",
@@ -19911,7 +20252,13 @@
     "generate": "Generate Video",
     "placeholder": "Describe the video to generate...",
     "providerLabel": "Provider",
-    "title": "Video Generation"
+    "title": "Video Generation",
+    "provider": {
+      "kling": "Kling",
+      "one-click": "One-Click",
+      "qwen": "Qwen",
+      "unknown": "Unknown"
+    }
   },
   "videoTasksPage": {
     "createdAt": "Created at",
@@ -20337,7 +20684,17 @@
         "queue": "{count} more requests in queue",
         "title": "Permission Required",
         "tool": "Tool",
-        "workspace": "Workspace"
+        "workspace": "Workspace",
+        "toolNames": {
+          "fsDelete": "Delete File",
+          "fsEdit": "Edit File",
+          "fsGlob": "Find Files",
+          "fsGrep": "Search Content",
+          "fsRead": "Read File",
+          "fsRun": "Run Command",
+          "fsWrite": "Write File",
+          "unknown": "Unknown"
+        }
       },
       "builtin": "Built-in",
       "bypassWarning": "Full access permission allows AI to perform any operation including deleting files and executing arbitrary commands. Use only in fully trusted private projects.",
