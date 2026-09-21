@@ -52,12 +52,13 @@ const PUBLIC_PREFIXES = [
   '/api/sms-proxy/',
   // OAuth2 token 端点（RFC 6749）
   '/api/oauth/',
-  // O7 RFC 7591 动态客户端注册:标准第三方客户端在拿到 client_id 之前**不可能**持有
-  // 本站 CSRF cookie,而 discovery 就把它作为 registration_endpoint 暴露出去。
-  // 2026-09-21 O17 三通道实跑:该端点原被 CSRF 拦成 403 ⇒ OAuth 通道整体走不通
-  // (注册不了就拿不到 token)。此前它"能通"只是因为假 Bearer 触发了下面的 Bearer 豁免,
-  // 那是绕过而不是设计。端点自身有 schema 校验 + 洪泛闸 + 回调地址白名单兜底。
-  '/oauth/register',
+  // O7 RFC 7591 动态注册 + OAuth 2.1 token/introspect/revoke:这些是**机器接口**,凭
+  // client_id/secret 自证,与浏览器 cookie 会话无关 ⇒ CSRF 在此没有防护对象(防线是
+  // grant/凭据校验 + 洪泛闸)。2026-09-21 O17 三通道实跑:先只放开了 `/oauth/register`,
+  // 结果 discovery 指出的 `POST /oauth/token` 仍被 403 拦死 ⇒ client_credentials 换不到
+  // token,OAuth 通道照样走不通。故整族放开;此前它"能通"只是因为假 Bearer 触发了下面的
+  // Bearer 豁免,那是绕过而不是设计。
+  '/oauth/',
   // /.well-known/* 发现文档(OAuth/OIDC/A2A 均要求匿名可读)
   '/.well-known/',
   // 服务回调（HMAC/共享密钥，无 JWT）
