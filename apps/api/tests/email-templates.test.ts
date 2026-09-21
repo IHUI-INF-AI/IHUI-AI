@@ -14,6 +14,10 @@ import {
   renderLowBalanceEmail,
   renderNoticeEmail,
   renderPaymentReceiptEmail,
+  renderRefundResultEmail,
+  renderWithdrawalResultEmail,
+  renderRedeemSuccessEmail,
+  renderVipExpireEmail,
   BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
@@ -321,6 +325,166 @@ describe('email-templates — 支付成功收据', () => {
     expect(r.html).not.toContain('<script>')
     expect(r.html).toContain('&lt;script&gt;')
     expect(r.html).toContain('—')
+  })
+})
+
+describe('email-templates — 退款结果通知', () => {
+  it('completed 品牌绿 + 退款成功标记 + 订单按钮', () => {
+    const r = renderRefundResultEmail({
+      userName: '李总',
+      orderNo: 'IH20260921001',
+      refundAmountYuan: '365.00',
+      status: 'completed',
+      finishedAt: '2026-09-21 14:00:00',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.subject).toContain('退款成功')
+    expect(r.subject).toContain('IH20260921001')
+    expect(r.html).toContain('¥365.00')
+    expect(r.html).toContain('[ 退款成功 ]')
+    expect(r.html).toContain('href="https://aizhs.top/orders"')
+    expect(r.html).toContain('#B4FF00')
+    expect(r.html).not.toContain('#FF3B2F')
+    expect(r.text).toContain('¥365.00')
+  })
+
+  it('rejected/failed 信号红 + 原因注入 + ghost 按钮', () => {
+    const r = renderRefundResultEmail({
+      orderNo: 'X1',
+      refundAmountYuan: '9.90',
+      status: 'rejected',
+      reason: '超过退款期限',
+      finishedAt: 't',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.subject).toContain('退款未通过')
+    expect(r.html).toContain('#FF3B2F')
+    expect(r.html).toContain('[ 退款未通过 ]')
+    expect(r.html).toContain('超过退款期限')
+  })
+
+  it('恶意原因被转义(XSS 防护)', () => {
+    const r = renderRefundResultEmail({
+      orderNo: 'X',
+      refundAmountYuan: '0.01',
+      status: 'failed',
+      reason: '<script>alert(1)</script>',
+      finishedAt: 't',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('email-templates — 提现结果通知', () => {
+  it('approved 品牌绿:到账/手续费/方式/状态齐备,按钮指向提现记录页', () => {
+    const r = renderWithdrawalResultEmail({
+      userName: '李总',
+      amountYuan: '980.00',
+      feeYuan: '20.00',
+      method: 'wechat',
+      status: 'approved',
+      processedAt: '2026-09-21 15:00:00',
+      withdrawUrl: 'https://aizhs.top/wallet/withdraw/records',
+    })
+    expect(r.subject).toContain('提现审核通过')
+    expect(r.html).toContain('¥980.00')
+    expect(r.html).toContain('¥20.00')
+    expect(r.html).toContain('[ 打款处理中 / PROCESSING ]')
+    expect(r.html).toContain('href="https://aizhs.top/wallet/withdraw/records"')
+    expect(r.html).toContain('#B4FF00')
+    expect(r.text).toContain('¥980.00')
+  })
+
+  it('rejected 信号红 + 驳回原因 + 余额退回文案', () => {
+    const r = renderWithdrawalResultEmail({
+      amountYuan: '50.00',
+      feeYuan: '1.00',
+      method: 'alipay',
+      status: 'rejected',
+      rejectReason: '收款账户信息异常',
+      processedAt: 't',
+      withdrawUrl: 'https://aizhs.top/wallet/withdraw/records',
+    })
+    expect(r.subject).toContain('被驳回')
+    expect(r.html).toContain('#FF3B2F')
+    expect(r.html).toContain('[ 已驳回 / REJECTED ]')
+    expect(r.html).toContain('收款账户信息异常')
+    expect(r.html).toContain('原路退回您的可用余额')
+  })
+
+  it('恶意驳回原因被转义(XSS 防护)', () => {
+    const r = renderWithdrawalResultEmail({
+      amountYuan: '1.00',
+      feeYuan: '0.00',
+      method: 'wechat',
+      status: 'rejected',
+      rejectReason: '<img src=x onerror=alert(1)>',
+      processedAt: 't',
+      withdrawUrl: 'https://aizhs.top/wallet/withdraw/records',
+    })
+    expect(r.html).not.toContain('<img src=x')
+    expect(r.html).toContain('&lt;img src=x')
+  })
+})
+
+describe('email-templates — 兑换码成功通知', () => {
+  it('码/到账/余额齐备 + 按钮指向 API Key 页', () => {
+    const r = renderRedeemSuccessEmail({
+      userName: '李总',
+      code: 'IHUI-ABCD-EFGH-JKLM',
+      tokenAmount: 1000,
+      newTokenBalance: 1500,
+      keysUrl: 'https://aizhs.top/models/keys',
+    })
+    expect(r.subject).toContain('+1000')
+    expect(r.html).toContain('IHUI-ABCD-EFGH-JKLM')
+    expect(r.html).toContain('+1000')
+    expect(r.html).toContain('1500')
+    expect(r.html).toContain('[ 兑换成功 / OK ]')
+    expect(r.html).toContain('href="https://aizhs.top/models/keys"')
+    expect(r.text).toContain('+1000')
+  })
+
+  it('无限额度(-1)渲染为 ∞;恶意码被转义', () => {
+    const r = renderRedeemSuccessEmail({
+      code: '<script>alert(1)</script>',
+      tokenAmount: 1,
+      newTokenBalance: -1,
+      keysUrl: 'https://aizhs.top/models/keys',
+    })
+    expect(r.html).toContain('∞ 无限')
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('email-templates — VIP 过期通知', () => {
+  it('信号红警示 + 到期时间 + 续费按钮指向 /vip', () => {
+    const r = renderVipExpireEmail({
+      userName: '李总',
+      expiredAt: '2026-09-20 23:59:59',
+      renewUrl: 'https://aizhs.top/vip',
+    })
+    expect(r.subject).toContain('VIP 会员已到期')
+    expect(r.html).toContain('#FF3B2F')
+    expect(r.html).toContain('[ 已失效 / EXPIRED ]')
+    expect(r.html).toContain('2026-09-20 23:59:59')
+    expect(r.html).toContain('href="https://aizhs.top/vip"')
+    expect(r.html).toContain('立即续费')
+    expect(r.text).toContain('https://aizhs.top/vip')
+  })
+
+  it('传入套餐名时展示且被转义(XSS 防护)', () => {
+    const r = renderVipExpireEmail({
+      vipName: '<script>alert(1)</script> 尊享版',
+      expiredAt: 't',
+      renewUrl: 'https://aizhs.top/vip',
+    })
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+    expect(r.html).toContain('尊享版')
   })
 })
 
