@@ -1,5 +1,11 @@
 {
   "taskStatus": {
+    "toolReadFileActivity": "{state, select, running {正在讀取檔案} completed {已讀取檔案} other {讀取檔案}}",
+    "toolEditFileActivity": "{state, select, running {正在編輯檔案} completed {已編輯檔案} other {編輯檔案}}",
+    "toolWriteFileActivity": "{state, select, running {正在寫入檔案} completed {已寫入檔案} other {寫入檔案}}",
+    "toolSearchCodebaseActivity": "{state, select, running {正在搜尋程式碼庫} completed {已搜尋程式碼庫} other {搜尋程式碼庫}}",
+    "toolWebSearchActivity": "{state, select, running {正在搜尋網頁} completed {已搜尋網頁} other {搜尋網頁}}",
+    "toolParseDocumentActivity": "{state, select, running {正在解析文件} completed {已解析文件} other {解析文件}}",
     "toolReadFile": "讀取檔案內容",
     "toolEditFile": "編輯檔案",
     "toolWriteFile": "寫入檔案",
