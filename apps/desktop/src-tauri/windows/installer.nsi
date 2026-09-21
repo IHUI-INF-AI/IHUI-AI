@@ -878,10 +878,11 @@ Section Uninstall
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
   ${EndIf}
 
-  ; Delete app data if the checkbox is selected
-  ; and if not updating
-  ${If} $DeleteAppDataCheckboxState = 1
-  ${AndIf} $UpdateMode <> 1
+  ; IHUI 2026-09-21 根治:凡真实卸载(非更新模式)一律清理「安装位置/语言」持久化键。
+  ; 上游仅在勾选「删除应用数据」时清理,/S 静默卸载不勾选 → 键残留,重装时
+  ; RestorePreviousInstallLocation 会把全新安装拉回旧目录
+  ; (0.1.42 本机实测:静默重装被拉回测试目录而非默认目录)。
+  ${If} $UpdateMode <> 1
     ; Clear the install location $INSTDIR from registry
     DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty SHCTX "${MANUKEY}"
@@ -890,7 +891,12 @@ Section Uninstall
     DeleteRegValue HKCU "${MANUPRODUCTKEY}" "Installer Language"
     DeleteRegKey /ifempty HKCU "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty HKCU "${MANUKEY}"
+  ${EndIf}
 
+  ; Delete app data if the checkbox is selected
+  ; and if not updating
+  ${If} $DeleteAppDataCheckboxState = 1
+  ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
     RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
@@ -908,6 +914,15 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
+  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有
+  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时
+  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回
+  ; 旧目录,应落默认目录(D:\智汇AI / D:\IHUI AI)。
+  ClearErrors
+  ReadRegStr $4 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+    Return
+  ${EndIf}
   ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
