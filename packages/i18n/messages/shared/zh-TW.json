@@ -1,4 +1,19 @@
 {
+  "taskStatus": {
+    "activityMcp": "呼叫 {mcp} MCP",
+    "activityPlugin": "呼叫 {plugin} 外掛",
+    "activityPlanning": "規劃進度",
+    "activityRunning": "執行中",
+    "activitySubagent": "子代理 {name}",
+    "activityTerminal": "執行終端機命令",
+    "activityTool": "呼叫 {tool}",
+    "collapseDetail": "收合任務明細",
+    "expandDetail": "展開任務明細",
+    "filesChanged": "{n} 個檔案已修改",
+    "idle": "閒置",
+    "steps": "步驟 {current}/{total}",
+    "waiting": "等待任務開始"
+  },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",
     "barChart": "柱狀圖",

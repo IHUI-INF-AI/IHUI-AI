@@ -39,6 +39,13 @@ import {
 } from './ui-tool-cards.js';
 import { StructuredPlanStore } from '../plan/structured.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
+import {
+  asPlanUpdateSink,
+  createTaskStatusLine,
+  planStepsFromTodos,
+  toolActivityLabel,
+  type TaskStatusLine,
+} from './task-status-line.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
@@ -219,6 +226,8 @@ export interface ReplOptions {
 
 interface ReplState {
   opts: ReplOptions;
+  /** 实时任务状态行(plan_updated / 工具事件驱动,TTY 下渲染在输出流) */
+  statusLine: TaskStatusLine;
   history: ChatMessage[];
   session: Session | null;
   checkpoints: CheckpointManager | null;
@@ -570,6 +579,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
 
   const state: ReplState = {
     opts,
+    statusLine: createTaskStatusLine(),
     history: opts.history ?? [],
     session: opts.sessionId ? null : createSession(opts.workspacePath, opts.modelId),
     checkpoints: null,
@@ -2155,6 +2165,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
 
+    // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
+    state.statusLine.beginTurn();
     const result = await runToolLoop({
       modelId: state.opts.modelId,
       messages,
@@ -2162,6 +2174,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       maxIterations: state.opts.maxIterations,
       sessionId: state.session?.id ?? state.opts.sessionId,
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
+      // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
+      onPlanUpdate: asPlanUpdateSink(state.statusLine),
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,
@@ -2258,6 +2272,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         // 启动工具运行 spinner(显示在卡片下方)
         currentToolSpinner = createToolSpinner(name, argDisplay);
         currentToolSpinner.start();
+        // 状态行:记录工具调用(供共享层折叠文件变更)+ "此刻在做什么"
+        state.statusLine.recordToolCall({ toolName: name, args });
+        state.statusLine.setCurrentActivity(toolActivityLabel(name));
       },
       onToolResult: (name, success, output) => {
         // 停止工具运行 spinner
@@ -2287,8 +2304,13 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         // W10 todo 常驻渲染:todo_write 成功后即时刷新勾选列表
         if (name === 'todo_write' && success) {
           const todoCtx = state.ctx ?? { workspacePath: state.opts.workspacePath };
-          for (const line of renderTodoChecklist(readTodoList(todoCtx))) console.info(line);
+          const todos = readTodoList(todoCtx);
+          for (const line of renderTodoChecklist(todos)) console.info(line);
+          // 状态行同步:todo 清单是该端现成的步骤来源
+          state.statusLine.setSteps(planStepsFromTodos(todos));
         }
+        // 状态行:回填工具结果(决定 +x/-y 是否可信)并刷新输出
+        state.statusLine.recordToolResult(name, success, output);
       },
       onError: (err) => {
         // 错误卡片化:╭─ ERROR ╮ 边框 + 红色高亮
@@ -2358,6 +2380,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     for (const line of cardLines) console.error(line);
     throw err;
   } finally {
+    // 状态行落终态:中止 → interrupted,其余由状态行按步骤/结果自行判定
+    const aborted = state.abortController?.signal.aborted ?? false;
+    state.statusLine.endTurn(aborted ? 'interrupted' : undefined);
     // P2-2 确保无论成功/失败/中止都清理 abort 状态,避免泄漏到下次 sendToAgent
     state.agentRunning = false;
     state.abortController = null;

@@ -1,4 +1,19 @@
 {
+  "taskStatus": {
+    "activityMcp": "{mcp} MCP 호출",
+    "activityPlugin": "{plugin} 플러그인 호출",
+    "activityPlanning": "계획 수립 중",
+    "activityRunning": "실행 중",
+    "activitySubagent": "서브 에이전트 {name}",
+    "activityTerminal": "터미널 명령 실행",
+    "activityTool": "{tool} 호출",
+    "collapseDetail": "작업 세부 정보 접기",
+    "expandDetail": "작업 세부 정보 펼치기",
+    "filesChanged": "{n}개 파일 수정됨",
+    "idle": "대기",
+    "steps": "단계 {current}/{total}",
+    "waiting": "작업 시작을 기다리는 중"
+  },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/동영상/파일)",
     "barChart": "막대 차트",

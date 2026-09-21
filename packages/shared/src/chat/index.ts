@@ -4,3 +4,5 @@
 
 // 对话渲染模型 barrel(W6 立;web / extension / mobile-rn 共用纯函数出口)
 export * from './render-model'
+// 任务进度状态条派生层(跨端单一真相源:纯函数,无平台依赖)
+export * from './task-status'
