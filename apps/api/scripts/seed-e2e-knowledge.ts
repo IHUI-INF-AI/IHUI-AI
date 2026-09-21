@@ -22,9 +22,16 @@ import { db } from '../src/db/index.js'
 import { knowledgeBase } from '@ihui/database'
 import { eq } from 'drizzle-orm'
 
-// 生产库防呆(与 seed-test-users 同规则):E2E 种子禁止写入 ihui_dev
+// 生产库防呆(与 seed-test-users 同规则):E2E 种子禁止写入名为 ihui_dev 的库。
+// 判据取「库名」而非整串——本机开发库 ihui 的口令前缀恰为 ihui_dev_,整串匹配会误杀。
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
-if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
+let prodDbNameMatched: boolean
+try {
+  prodDbNameMatched = new URL(DATABASE_URL).pathname.replace(/^\//, '') === 'ihui_dev'
+} catch {
+  prodDbNameMatched = DATABASE_URL.includes('ihui_dev')
+}
+if (prodDbNameMatched && process.env.CI !== 'true') {
   console.error(
     '[seed-e2e-knowledge] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
