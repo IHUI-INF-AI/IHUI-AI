@@ -20,15 +20,20 @@
  *  - 机密客户端只存 v1hmac 摘要(明文列同值占位,不可匹配)→ 无需新列。
  *  - grant_types / token_endpoint_auth_method 不落库(无列),由上述两列推导,
  *    因此可选增强 SQL 见交付说明(要精确回显注册期原值才需要加列)。
- *  - owner_uuid 为 NULL:匿名 DCR 注册的客户端不能走 client_credentials(见 mint 侧校验),
- *    需后续由用户认领(claim)后才能拿到 owner 绑定的能力。
+ *    2026-09-21 O17b-④ 收口:注册**响应**按客户端声明的 auth method 原样回显(RFC 7591 §3.2.1),
+ *    因为 AS 对机密客户端同时接受 basic 与 post(见 extractClientCredentials 读 header 也读 body);
+ *    GET/DELETE 读回时没有列可依据,只能回推导默认值 basic —— 那是"一定可用"的取值,
+ *    但**不等于**注册期原值。要逐字段忠实回显必须加 `token_endpoint_auth_method` 列。
+ *  - owner_uuid 为 NULL:匿名 DCR 注册的客户端不能走 client_credentials(mint 侧要求
+ *    sub = owner_uuid,见 plugins/principal.ts「机器凭据不得脱离归属用户持有数据」)。
+ *    2026-09-21 O17b-④:该结论从"注册成功、换令牌恒 400"改为**注册时即显式拒绝**,
+ *    不再静默受理一个永远用不上的 grant。需 M2M 请由登录用户经开发者后台建应用。
  */
 import { and, eq } from 'drizzle-orm'
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import {
   PUBLIC_CLIENT_SECRET,
-  buildOAuthErrorBody,
   extractClientCredentials,
   generateClientId,
   generateClientSecret,
@@ -40,6 +45,11 @@ import {
   validateRegistrationRedirectUris,
   type OAuthErrorCode,
 } from '@ihui/auth'
+// 错误体统一走 utils/oauth-as 的本地实现(带数字 `code`),不再用 @ihui/auth 的两参版:
+// 根级 AS 表面(/oauth/token、/oauth/introspect、/oauth/revoke)回 `{error,code,error_description}`,
+// 注册面若只回 `{error,error_description}` 就成了"一半一半",第三方客户端库按 code 判
+// 成功/失败的分支会失效。文档口径见 utils/oauth-as.ts:135 与 oauth-tokens.ts 文件头。
+import { buildOAuthErrorBody } from '../utils/oauth-as.js'
 import { db } from '../db/index.js'
 import { oauthApps } from '@ihui/database'
 import { createAuditLog, findOAuthAppByClientId, listActiveScopeMeta } from '../db/oauth-queries.js'
@@ -78,7 +88,7 @@ function deny(
   return reply
     .status(status)
     .header('cache-control', 'no-store')
-    .send(buildOAuthErrorBody(error, description))
+    .send(buildOAuthErrorBody(error, status, description))
 }
 
 /**
@@ -102,16 +112,29 @@ async function authorizeClientManagement(
 }
 
 /** oauth_apps 行 → RFC 7591 §3.2 客户端元数据响应(绝不含 secret)。 */
-function toClientResponse(app: OAuthAppRow, includeSecretOnce?: string) {
+function toClientResponse(app: OAuthAppRow, includeSecretOnce?: string, registeredAuthMethod?: string) {
   const publicClient = isPublicClientApp(app)
-  const grants = publicClient
-    ? ['authorization_code', 'refresh_token']
-    : ['authorization_code', 'refresh_token', 'client_credentials']
+  // grant 回显同理不能用"机密客户端"一概而论:client_credentials 只有在应用绑定了
+  // 归属用户时才真能签发(mint 侧硬要求 sub = owner_uuid)。owner_uuid 为空的行**不
+  // 回显**这个 grant —— 否则注册面又变成"承诺了一个换不到令牌的授权类型"。
+  const grants =
+    !publicClient && app.ownerUuid
+      ? ['authorization_code', 'refresh_token', 'client_credentials']
+      : ['authorization_code', 'refresh_token']
+  // 机密客户端的 token_endpoint_auth_method 没有列可存(见文件头「存储说明」):
+  // - 注册响应回显客户端声明的值 —— 前提是该值 AS 真能用(`extractClientCredentials`
+  //   既读 Authorization 头也读表单 body,basic 与 post 同等有效),回显不是空头承诺;
+  // - GET/DELETE 没有注册期上下文,回推导默认值 basic(一定可用,但不是原值)。
+  const authMethod = publicClient
+    ? 'none'
+    : registeredAuthMethod === 'client_secret_post'
+      ? 'client_secret_post'
+      : 'client_secret_basic'
   const body: Record<string, unknown> = {
     client_id: app.clientId,
     client_id_issued_at: Math.floor(app.createdAt.getTime() / 1000),
     redirect_uris: Array.isArray(app.redirectUris) ? app.redirectUris : [],
-    token_endpoint_auth_method: publicClient ? 'none' : 'client_secret_basic',
+    token_endpoint_auth_method: authMethod,
     grant_types: grants,
     response_types: ['code'],
     client_name: app.name,
@@ -196,6 +219,19 @@ export const oauthRegisterRoutes: FastifyPluginAsync = async (server) => {
       if (publicClient && (meta.grant_types ?? []).includes('client_credentials')) {
         return deny(reply, 'invalid_client_metadata', '公开客户端不得使用 client_credentials')
       }
+      // O17b-④ 真因收口(2026-09-21):本端点 inserted 的 owner_uuid 恒为 null,而
+      // `mintClientCredentialsToken` 要求 sub = owner_uuid(平台数据归属不变量:机器凭据
+      // 不得脱离归属用户持有数据,见 plugins/principal.ts)。此前 DCR **静默受理**
+      // `grant_types:["client_credentials"]`,注册 201 成功、换令牌恒 400 invalid_client
+      // —— 报错点离病因三跳远。现按要求"不许静默接受"在注册时就拒,并给出可用路径。
+      if (grants.includes('client_credentials')) {
+        return deny(
+          reply,
+          'invalid_client_metadata',
+          '动态注册(匿名、无 owner_uuid)不得声明 client_credentials:M2M 令牌必须以归属用户为 sub。' +
+            '需要机器凭据请由登录用户经 POST /api/auth/oauth/apps/create 创建应用;第三方连接器请只声明 authorization_code',
+        )
+      }
 
       // scope 必须落在 oauth_scope_meta 活跃集内(不发放不存在的 scope)
       const requested = normalizeScopes(meta.scope)
@@ -228,7 +264,7 @@ export const oauthRegisterRoutes: FastifyPluginAsync = async (server) => {
         return reply
           .status(200)
           .header('cache-control', 'no-store')
-          .send(toClientResponse(duplicate))
+          .send(toClientResponse(duplicate, undefined, meta.token_endpoint_auth_method))
       }
 
       const clientSecret = publicClient ? PUBLIC_CLIENT_SECRET : generateClientSecret()
@@ -278,7 +314,7 @@ export const oauthRegisterRoutes: FastifyPluginAsync = async (server) => {
         .header('cache-control', 'no-store')
         .header('pragma', 'no-cache')
         .send({
-          ...toClientResponse(app, publicClient ? undefined : clientSecret),
+          ...toClientResponse(app, publicClient ? undefined : clientSecret, meta.token_endpoint_auth_method),
           ...(meta.contacts?.length ? { contacts: meta.contacts } : {}),
         })
     },

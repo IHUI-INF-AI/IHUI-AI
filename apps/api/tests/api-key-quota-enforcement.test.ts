@@ -871,4 +871,78 @@ describe('O2-7 share token 不继承源 Key 的 * 与 platform scope', () => {
     expect(err.message).toBe('Source API key expired')
   })
 })
+
+// ============================================================================
+// 8. 废弃字段 rateLimit 的语义锁定 + 生效旋钮在第 N+1 次请求 429(2026-09-21)
+//    背景:实跑用 rateLimit:1 连打 GET /v1/models 两次都 200,排查确认
+//    `developer_api_keys.rate_limit` 在鉴权/配额链上零读取点(仅
+//    v1-knowledge-tools 小时/天配额展示兜底),已在 routes/developer.ts 正式废弃。
+// ============================================================================
+describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列给出', () => {
+  /** 模拟"请求打完 → 窗口计数 +1"的读源形态(真实链路由 incrKeyRateWindows 写库)。 */
+  function seedWindowUsage(w: keyof typeof WINDOW_COLUMN, used: number): void {
+    fixture.state.windowRows = [
+      { windowType: w, windowStart: getKeyWindowStart(w), requestCount: used },
+    ]
+  }
+
+  it('rateLimit:1 且三窗口 NULL:连打 3 次 GET /v1/models 全放行(死配置锁定)', async () => {
+    // 三窗口全 NULL → checkKeyRateWindows 直接放行且**不发起**计数查询;
+    // 让读源一被查询就抛,反证 rateLimit 没有任何"按分钟计数"的读取点。
+    fixture.state.keyRow = fakeKeyRow({ rateLimit: 1 })
+    fixture.state.windowReadThrows = true
+
+    for (let i = 1; i <= 3; i++) {
+      const res = makeReply()
+      const request = makeRequest({ method: 'GET', url: '/v1/models' })
+      await requireApiKeyAuth(request, res.reply, vi.fn())
+      expect(res.status, `第 ${i} 次请求不应被限流`).toBeUndefined()
+      expect(request.apiKey?.rateLimit).toBe(1) // 仅注入,不判定
+    }
+  })
+
+  it('替代旋钮 rateLimit5h:1 → 第 2 次请求 429 + Retry-After + 业务码 1010', async () => {
+    fixture.state.keyRow = keyRowWithWindow('5h', 1)
+
+    // 第 1 次:窗口用量 0 < 1 → 放行
+    fixture.state.windowRows = []
+    const first = makeReply()
+    const firstRequest = makeRequest({ method: 'GET', url: '/v1/models' })
+    await requireApiKeyAuth(firstRequest, first.reply, vi.fn())
+    expect(first.status).toBeUndefined()
+    expect(firstRequest.apiKey?.id).toBe('key-1')
+
+    // 第 1 次结束后计数落 1(reply finish 的 incrKeyRateWindows)
+    seedWindowUsage('5h', 1)
+
+    // 第 2 次:used(1) >= limit(1) → 429
+    const second = makeReply()
+    await requireApiKeyAuth(
+      makeRequest({ method: 'GET', url: '/v1/models' }),
+      second.reply,
+      vi.fn(),
+    )
+    expect(second.status).toBe(429)
+    expect(second.payload?.code).toBe(1010)
+    expect(Number(second.headers['Retry-After'])).toBeGreaterThan(0)
+    expect(second.headers['X-RateLimit-Limit']).toBe('1')
+    expect(second.headers['X-RateLimit-Remaining']).toBe('0')
+    expect(second.headers['X-RateLimit-Window']).toBe('5h')
+  })
+
+  it('perModelRpmLimit 才是"每分钟"旋钮:打满 → 429 code 1007(非 1010)', async () => {
+    fixture.state.keyRow = fakeKeyRow({ rateLimit: 1, perModelRpmLimit: { 'gpt-test': 1 } })
+    // Redis eval 返回 [allowed=0, retryAfter=7]
+    fixture.state.redisEvalResult = [0, 7]
+    const res = makeReply()
+    await requireApiKeyAuth(
+      makeRequest({ method: 'POST', body: { model: 'gpt-test' } }),
+      res.reply,
+      vi.fn(),
+    )
+    expect(res.status).toBe(429)
+    expect(res.payload?.code).toBe(1007)
+    expect(Number(res.headers['Retry-After'])).toBe(7)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
