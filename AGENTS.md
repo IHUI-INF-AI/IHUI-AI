@@ -155,6 +155,20 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
 - 拖拽手柄用双层 div 结构(外层命中区 + 内层可见细线),**禁止** `before:` 伪元素方案。
 
+### 浮动弹层内边距规范(2026-09-21 立,起因:context-usage-ring 弹层漏 padding 内容贴边)
+
+新建弹层/浮层必须按内容类型对齐以下四档,**禁止自创中间值**:
+
+| 类型 | 判定特征 | 容器内边距 | 参考实现 |
+|---|---|---|---|
+| 内容面板 | role=dialog,含标题/表单/信息块(permission、通知、设置卡) | `p-3` | permission-mode-popover、permission-history-panel、context-usage-ring |
+| 菜单/选项列表 | role=menu / select 列表,纯按钮项 | `p-1` | Select、TagsView 右键菜单、canvas-overlay |
+| 轻提示/徽标 | tooltip、角标、状态胶囊 | `px-2 py-1`(mini 用 `px-1.5 py-0.5`) | ByokIncomeChart、activity-bar |
+| 复合面板 | 输入行+列表的 overflow-hidden 面板(mention、selector、终端 overlay) | 外层零 padding,**行级自带** `px-3 py-*` | file-mention-popover、context-selector-popover |
+
+- 反例存档:自定义 portal 弹层从 Radix 迁出时最易漏搬 `p-3`(PopoverContent 自带),新建 portal 容器必须显式写内边距档位。
+- 同族组件必须同档:同一直弹层家族(如 permission 系列)不允许 p-2/p-3 混用。
+
 ### 跨端样式同步铁律(强制)
 
 - web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。

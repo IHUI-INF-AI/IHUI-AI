@@ -211,7 +211,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
         role="tooltip"
         className="pointer-events-none absolute bottom-full left-1/2 z-popover mb-2 -translate-x-1/2 scale-95 opacity-0 transition-all duration-200 group-hover/qr:scale-100 group-hover/qr:opacity-100"
       >
-        <div className="rounded-md border bg-popover p-2 shadow-lg">
+        <div className="rounded-md border bg-popover p-3 shadow-lg">
           <div className="h-[240px] w-[240px] overflow-hidden rounded-sm bg-zinc-900 p-3">
             <Image
               src={qr.src}

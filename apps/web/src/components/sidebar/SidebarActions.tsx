@@ -171,7 +171,7 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
         align="end"
         gap={8}
         role="menu"
-        className="flex w-36 flex-col gap-px rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-36 flex-col gap-px rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {LANGUAGES.map((lang) => (
           <button
