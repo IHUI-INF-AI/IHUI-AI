@@ -13,6 +13,7 @@ import {
   renderSystemAlertEmail,
   renderLowBalanceEmail,
   renderNoticeEmail,
+  renderPaymentReceiptEmail,
   BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
@@ -281,6 +282,45 @@ describe('email-templates — 通用系统通知', () => {
     expect(r.html).not.toContain('<script>')
     expect(r.html).toContain('&lt;script&gt;')
     expect(r.html).not.toContain('undefined')
+  })
+})
+
+describe('email-templates — 支付成功收据', () => {
+  it('订单号/商品/金额/状态/按钮齐备,品牌绿 PAID 标记', () => {
+    const r = renderPaymentReceiptEmail({
+      userName: '李总',
+      orderNo: 'IH20260921001',
+      productTitle: 'VIP 年卡',
+      quantity: 1,
+      amountYuan: '365.00',
+      payType: 'wechat',
+      paidAt: '2026-09-21 12:00:00',
+      subscriptionUrl: 'https://aizhs.top/user/subscription',
+    })
+    expect(r.subject).toContain('IH20260921001')
+    expect(r.html).toContain('IH20260921001')
+    expect(r.html).toContain('VIP 年卡')
+    expect(r.html).toContain('¥365.00')
+    expect(r.html).toContain('[ 已支付 / PAID ]')
+    expect(r.html).toContain('href="https://aizhs.top/user/subscription"')
+    expect(r.html).toContain('#B4FF00')
+    expect(r.text).toContain('¥365.00')
+  })
+
+  it('数量 >1 显示 ×N;恶意商品名被转义', () => {
+    const r = renderPaymentReceiptEmail({
+      orderNo: 'X',
+      productTitle: '<script>alert(1)</script>',
+      quantity: 3,
+      amountYuan: '1.00',
+      payType: '',
+      paidAt: 't',
+      subscriptionUrl: 'https://aizhs.top/user/subscription',
+    })
+    expect(r.html).toContain('×3')
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+    expect(r.html).toContain('—')
   })
 })
 

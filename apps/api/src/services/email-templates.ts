@@ -579,4 +579,60 @@ export function renderNoticeEmail(input: NoticeEmailInput): DispatchEmail {
     text: input.content,
   }
 }
+
+/** 支付成功收据输入(amountYuan 由调用方按 numeric(10,2) 元格式传入) */
+export interface PaymentReceiptEmailInput {
+  userName?: string
+  orderNo: string
+  productTitle: string
+  quantity: number
+  amountYuan: string
+  payType: string
+  paidAt: string
+  /** 订单/订阅落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  subscriptionUrl: string
+}
+
+/** 渲染支付成功收据(品牌绿喜庆版式 + Impact 金额大字) */
+export function renderPaymentReceiptEmail(input: PaymentReceiptEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const productValue = `${escapeHtml(input.productTitle)}${input.quantity > 1 ? ` <span style="color:#8A8A85;">×${input.quantity}</span>` : ''}`
+  const body = `
+    ${para('您的订单已支付成功,权益将即时到账。以下为您的电子收据,请留存:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('ORDER_NO', escapeHtml(input.orderNo), t.accent, { right: true, valueStyle: mono }),
+          cell('PAID_AT', escapeHtml(input.paidAt), t.accent, { valueStyle: mono }),
+        ]),
+        metaRow([
+          `<td colspan="2" style="border-top:1px dashed ${t.accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">PRODUCT</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;">${productValue}</div></td>`,
+          cell('AMOUNT', `¥${escapeHtml(input.amountYuan)}`, t.accent, { valueStyle: impact }),
+        ]),
+        metaRow([
+          cell('PAY_TYPE', escapeHtml(input.payType || '—'), t.accent, { right: true }),
+          cell(
+            'STATUS',
+            `<span style="color:${t.accent};">[ 已支付 / PAID ]</span>`,
+            t.accent,
+            {},
+          ),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: `【智汇AI】支付成功收据 · 订单 ${input.orderNo}`,
+    html: renderDispatchEmail({
+      tag: 'BILLING // RECEIPT',
+      title: '支付成功',
+      bodyHtml: body,
+      button: { href: input.subscriptionUrl, label: '查看我的订阅 →' },
+      footNote: '本收据由系统自动派发,可作为支付凭证留存;如遇资产未到账,请通过下方创始人直联联系我们处理。',
+    }),
+    text: `您的订单已支付成功。订单号 ${input.orderNo};商品 ${input.productTitle}${input.quantity > 1 ? ` ×${input.quantity}` : ''};金额 ¥${input.amountYuan};支付方式 ${input.payType};时间 ${input.paidAt}。查看:${input.subscriptionUrl}`,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
