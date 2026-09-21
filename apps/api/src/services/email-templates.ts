@@ -910,4 +910,158 @@ export function renderVipExpireEmail(input: VipExpireEmailInput): DispatchEmail 
     text: `您的 VIP 会员已于 ${input.expiredAt} 到期失效。续费立即恢复特权:${input.renewUrl}`,
   }
 }
+
+/** 发票结果通知输入(amountYuan 由调用方按 分→元 换算传入;收件人=用户指定收票邮箱) */
+export interface InvoiceResultEmailInput {
+  userName?: string
+  invoiceType: 'plain' | 'vat_special'
+  /** 发票抬头 */
+  title: string
+  amountYuan: string
+  orderNo: string
+  status: 'issued' | 'rejected'
+  invoiceNo?: string
+  invoiceUrl?: string
+  reason?: string
+  finishedAt: string
+  /** 订单列表落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  ordersUrl: string
+}
+
+const INVOICE_TYPE_LABEL: Record<InvoiceResultEmailInput['invoiceType'], string> = {
+  plain: '电子普通发票',
+  vat_special: '增值税专用发票',
+}
+
+/** 渲染发票结果通知(issued 品牌绿+发票号/下载,rejected 信号红+原因) */
+export function renderInvoiceResultEmail(input: InvoiceResultEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const ok = input.status === 'issued'
+  const accent = ok ? t.accent : t.danger
+  const tone = ok ? 'accent' : 'danger'
+  const statusText = ok ? '开具完成' : '未通过'
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const rows: string[] = [
+    metaRow([
+      cell('TYPE', escapeHtml(INVOICE_TYPE_LABEL[input.invoiceType]), accent, {
+        right: true,
+        valueStyle: mono,
+      }),
+      cell('AMOUNT', `¥${escapeHtml(input.amountYuan)}`, accent, { valueStyle: impact }),
+    ]),
+    metaRow([
+      cell('TITLE', escapeHtml(input.title), accent, { right: true, top: true }),
+      cell(
+        'STATUS',
+        `<span style="color:${accent};">[ ${statusText} ]</span>`,
+        accent,
+        { top: true },
+      ),
+    ]),
+  ]
+  if (ok && input.invoiceNo) {
+    rows.push(
+      metaRow([
+        cell('INVOICE_NO', escapeHtml(input.invoiceNo), accent, {
+          right: true,
+          top: true,
+          valueStyle: mono,
+        }),
+        cell('ORDER_NO', escapeHtml(input.orderNo), accent, { top: true, valueStyle: mono }),
+      ]),
+    )
+  }
+  if (input.reason) {
+    rows.push(
+      metaRow([
+        `<td colspan="2" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">REASON</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:18px;line-height:1.8;color:${t.ink};margin-top:7px;">${escapeHtml(input.reason)}</div></td>`,
+      ]),
+    )
+  }
+  const body = `
+    ${para(
+      ok
+        ? '您申请的发票已开具完成,请及时查收下载:'
+        : '很抱歉,您的开票申请未能通过,可修正后重新提交:',
+    )}
+    ${metaGrid(rows, accent)}`
+  const button = ok && input.invoiceUrl
+    ? { href: input.invoiceUrl, label: '下载发票 →', kind: 'accent' as const }
+    : { href: input.ordersUrl, label: '查看我的订单 →', kind: (ok ? 'accent' : 'ghost') as 'accent' | 'ghost' }
+  return {
+    subject: ok
+      ? `【智汇AI】发票已开具 · ${INVOICE_TYPE_LABEL[input.invoiceType]}`
+      : '【智汇AI】开票申请未通过',
+    html: renderDispatchEmail({
+      tag: ok ? 'BILLING // INVOICE_ISSUED' : 'BILLING // INVOICE_REJECTED',
+      title: ok ? '发票开具完成' : '开票申请未通过',
+      bodyHtml: body,
+      button,
+      tone,
+      footNote: ok
+        ? '电子发票与纸质发票具有同等法律效力;如未收到或信息有误请通过下方创始人直联联系我们。'
+        : '请核对抬头与税号信息后重新提交;如有疑问请通过下方创始人直联联系我们。',
+    }),
+    text: `${ok ? '发票已开具' : '开票申请未通过'}:${INVOICE_TYPE_LABEL[input.invoiceType]},抬头 ${input.title},金额 ¥${input.amountYuan}${
+      ok && input.invoiceNo ? `,发票号 ${input.invoiceNo}` : ''
+    }${input.reason ? `,原因:${input.reason}` : ''}。查看订单:${input.ordersUrl}`,
+  }
+}
+
+/** 钱包充值 API Key 通知输入(newTokenBalance 为 -1 时表示无限额度;costYuan=钱包扣款 分→元) */
+export interface WalletRechargeEmailInput {
+  userName?: string
+  keyName: string
+  costYuan: string
+  creditTokens: number
+  newTokenBalance: number
+  /** API Key 落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  keysUrl: string
+}
+
+/** 渲染钱包充值 API Key 成功通知(品牌绿,钱包扣款 + Key 到账) */
+export function renderWalletRechargeEmail(input: WalletRechargeEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const balanceText =
+    input.newTokenBalance === -1 ? '∞ 无限' : escapeHtml(String(input.newTokenBalance))
+  const body = `
+    ${para('钱包扣款成功,额度已实时到账 API Key:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('KEY', escapeHtml(input.keyName), t.accent, { right: true, valueStyle: mono }),
+          cell('CREDIT', `+${input.creditTokens}`, t.accent, { valueStyle: impact }),
+        ]),
+        metaRow([
+          cell('COST', `¥${escapeHtml(input.costYuan)}`, t.accent, {
+            right: true,
+            top: true,
+          }),
+          cell(
+            'BALANCE',
+            balanceText,
+            t.accent,
+            { top: true, valueStyle: mono },
+          ),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: `【智汇AI】充值成功,额度 +${input.creditTokens} 已到账`,
+    html: renderDispatchEmail({
+      tag: 'BILLING // WALLET_RECHARGE_OK',
+      title: '充值到账成功',
+      bodyHtml: body,
+      button: { href: input.keysUrl, label: '查看我的 API Key →' },
+      footNote: '额度实时生效,可直接用于模型调用;如未到账请通过下方创始人直联联系我们。',
+    }),
+    text: `API Key「${input.keyName}」充值成功:钱包扣款 ¥${input.costYuan},额度 +${input.creditTokens},当前余额 ${
+      input.newTokenBalance === -1 ? '无限' : input.newTokenBalance
+    }。查看:${input.keysUrl}`,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
