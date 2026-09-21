@@ -46,7 +46,15 @@ const PROCESSED_IDS_MAX = 100
 const VERSION = '1.0.0'
 const LOG_TAG = '[rn-ui]'
 
-const APP_UI_ACTIONS: readonly AppUiActionType[] = ['describe', 'navigate', 'read', 'invoke']
+const APP_UI_ACTIONS: readonly AppUiActionType[] = [
+  'describe',
+  'navigate',
+  'read',
+  'invoke',
+  'click',
+  'fill',
+  'submit',
+]
 
 /**
  * 实例 ID:每次冷启一个新值,故意不做持久化 ——
