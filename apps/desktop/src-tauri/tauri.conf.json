@@ -16,7 +16,7 @@
         "label": "main",
         "title": "智汇AI",
         "url": "https://aizhs.top/agents",
-        "width": 1800,
+        "width": 2700,
         "height": 900,
         "minWidth": 1100,
         "minHeight": 720,
@@ -49,22 +49,13 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "ihui"
-        ]
+        "schemes": ["ihui"]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "nsis",
-      "app",
-      "dmg",
-      "deb",
-      "rpm",
-      "appimage"
-    ],
+    "targets": ["nsis", "app", "dmg", "deb", "rpm", "appimage"],
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
@@ -80,10 +71,7 @@
       "nsis": {
         "template": "windows/installer.nsi",
         "installerHooks": "windows/hooks.nsi",
-        "languages": [
-          "SimpChinese",
-          "English"
-        ],
+        "languages": ["SimpChinese", "English"],
         "compression": "lzma"
       }
     }
