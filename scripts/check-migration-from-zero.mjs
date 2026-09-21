@@ -56,6 +56,17 @@ const DEFAULT_PG_CLIENT_DIR = 'C:/Program Files/PostgreSQL/17/bin'
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
+ * 运行期自管表(2026-09-21 owner 定夺,表级豁免仅此清单,新增必须同行注明原因):
+ * rag_chunks 由迁移 20260919090000 的条件 DO 块(仅当库内已有 pgvector 扩展才执行)与
+ * ai-service pgvector_store.py 的运行期 CREATE TABLE IF NOT EXISTS 共同管理,列型为
+ * **无界 vector**(≠ knowledge-rag.ts 的 vector1536),刻意不进 drizzle schema——
+ * 若声明进 schema,下一次 drizzle-kit generate 会产出无守卫的 CREATE TABLE rag_chunks,
+ * 在无 pgvector 的部署环境从"静默跳过"变成硬失败。与 KNOWN_SCHEMA_HOLES 的
+ * "多表一律不豁免"不变式不冲突:那条不变式保护的是 **drizzle 托管表**不被 schema 遗忘,
+ * 本表从未被 drizzle 托管;若未来该表收回 drizzle 管理,必须先从此清单删除。
+ */
+const RUNTIME_MANAGED_TABLES = new Set(['rag_chunks'])
+/**
  * 已定性并挂起的既有漂移(2026-09-21 首跑实测):这些列由手写迁移创建、drizzle schema 未声明。
  * 与 0110 洞同族("迁移链 ≠ schema"),但补 schema 声明 / 补迁移属业务侧决策,不属本门职责,
  * 故先建基线让门**可采纳**(今日绿),本门只挡**新增**漂移。
@@ -133,7 +144,8 @@ function diffIdentifierSets(expected, actual) {
   }
   const extra = []
   for (const [key, have] of act) {
-    if (!exp.has(key) && !IGNORED_MIGRATED_TABLES.has(have.toLowerCase())) extra.push(have)
+    if (!exp.has(key) && !IGNORED_MIGRATED_TABLES.has(have.toLowerCase()) && !RUNTIME_MANAGED_TABLES.has(have.toLowerCase()))
+      extra.push(have)
   }
   return { missing: missing.sort(), extra: extra.sort(), caseDrift }
 }
@@ -207,7 +219,8 @@ function errorFrom(result, password) {
 }
 
 /**
- * 用既有漂移基线豁免 diff 的**多列(extra)**方向,其余(缺表/多表/缺列/大小写漂移)一律不豁免。
+ * 用既有漂移基线豁免 diff 的**多列(extra)**方向,其余(缺表/多表/缺列/大小写漂移)一律不豁免;
+ * 表级唯一例外是 diffIdentifierSets 内置的 RUNTIME_MANAGED_TABLES(运行期自管,非 drizzle 托管)。
  * 返回 { diff, stale }:stale = 基线里已不再命中的条目(说明洞被补上了,必须删条目)。
  */
 function pruneKnownHoles(diff, baseline = KNOWN_SCHEMA_HOLES) {
@@ -613,10 +626,15 @@ async function main() {
     const diffDb = migrateDbGood ? migrateDb : replayDb
     const actual = loadActualSchema(url, password, diffDb)
     const rawDiff = diffSchemaMaps(expected, actual)
+    const rawTablesExtra = rawDiff.tables.extra.length
     const { diff, stale } = pruneKnownHoles(rawDiff)
     if (diff.isEmpty()) {
-      const exempted = rawDiff.columns.length - diff.columns.length
-      const note = exempted > 0 ? `(${exempted} 处命中 KNOWN_SCHEMA_HOLES 既有基线)` : ''
+      const exemptedCols = rawDiff.columns.length - diff.columns.length
+      const exemptedTables = rawTablesExtra - diff.tables.extra.length
+      const bits = []
+      if (exemptedCols > 0) bits.push(`${exemptedCols} 处命中 KNOWN_SCHEMA_HOLES 既有基线`)
+      if (exemptedTables > 0) bits.push(`${exemptedTables} 张命中 RUNTIME_MANAGED_TABLES 运行期自管豁免`)
+      const note = bits.length > 0 ? `(${bits.join(';')})` : ''
       console.log(`  ${C.green}✓${C.reset} ③ schema diff(对照 ${diffDb}):表集合 + 列集合双向为空${note}`)
     } else {
       exitCode = 1
@@ -663,6 +681,7 @@ export const __test__ = {
   diffSchemaMaps,
   pruneKnownHoles,
   KNOWN_SCHEMA_HOLES,
+  RUNTIME_MANAGED_TABLES,
   firstErrorLine,
   errorFrom,
   formatReplayFailures,
