@@ -17,6 +17,7 @@ import {
   SkipForward,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { humanizeToolText } from '@ihui/shared/chat'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import { Tooltip as FeedbackTooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
@@ -98,6 +99,8 @@ export function PlanStepsCard({
   isStreaming = false,
 }: PlanStepsCardProps) {
   const t = useTranslations('chat')
+  // 步骤标题可能含英文工具码名前缀(如 "read_file: path"),渲染为本地化功能名
+  const tStatus = useTranslations('taskStatus')
   const rootTestId = testId ?? 'plan-steps-card'
 
   // streaming 中有 in_progress 步骤时自动展开(用户可手动折叠)
@@ -125,12 +128,14 @@ export function PlanStepsCard({
   } else {
     const currentStep = steps.find((s) => s.status === 'in_progress')
     if (currentStep) {
-      summary = `${t('plan.statusInProgress')}:${currentStep.step}`
+      summary = `${t('plan.statusInProgress')}:${humanizeToolText(currentStep.step, tStatus)}`
     } else if (doneCount === steps.length) {
       summary = t('plan.summaryAllDone')
     } else {
       const lastStep = steps[steps.length - 1]
-      summary = lastStep ? `${t('plan.statusPending')}:${lastStep.step}` : undefined
+      summary = lastStep
+        ? `${t('plan.statusPending')}:${humanizeToolText(lastStep.step, tStatus)}`
+        : undefined
     }
   }
 
@@ -163,6 +168,7 @@ export function PlanStepsCard({
           rootTestId={rootTestId}
           progressPct={progressPct}
           className="mb-1.5"
+          translate={tStatus}
         />
 
         <ol
@@ -206,6 +212,7 @@ interface SegmentedProgressBarProps {
   rootTestId: string
   progressPct: number
   className?: string
+  translate: (key: string) => string
 }
 
 function SegmentedProgressBar({
@@ -213,6 +220,7 @@ function SegmentedProgressBar({
   rootTestId,
   progressPct,
   className,
+  translate,
 }: SegmentedProgressBarProps) {
   const t = useTranslations('chat')
   return (
@@ -263,7 +271,7 @@ function SegmentedProgressBar({
                     )}
                     aria-hidden
                   />
-                  <span className="font-medium">{s.step}</span>
+                  <span className="font-medium">{humanizeToolText(s.step, translate)}</span>
                 </div>
                 <div className="text-muted-foreground/80">
                   {statusLabel}

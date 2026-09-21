@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { toolDisplayKey } from '@ihui/shared/chat'
 import { InlineDiffCard } from './inline-diff-card'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
@@ -825,6 +826,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
+  // 工具卡标题禁止直显英文工具码名:映射命中的内置工具显示本地化功能名
+  const tStatus = useTranslations('taskStatus')
+  const toolDisplayKeyResult = toolDisplayKey(toolName)
   const config = STATUS_CONFIG[status]
   const StatusIcon = config.icon
 
@@ -917,7 +921,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
         />
         <StatusIcon className={cn('h-3 w-3 shrink-0', config.className)} />
         <span className="flex-1 truncate text-[11px] font-medium text-foreground/80">
-          {toolName}
+          {toolDisplayKeyResult ? tStatus(toolDisplayKeyResult) : toolName}
         </span>
         {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
           - builtin: 不显示徽章(默认,避免噪音)
