@@ -20,29 +20,19 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
 import LineIcon from '@/components/LineIcon'
-import { humanizeToolText, toolDisplayKey } from '@ihui/shared/chat'
 import type { ToolCallView, PlanStepView, TerminalTaskView } from '@/pkg-ai/ai/cards/types'
+import {
+  formatToolMetric,
+  localizeToolText,
+  toolDelta,
+  toolRowTitle,
+  viewToolCall,
+} from '@/pkg-ai/ai/cards/tool-line'
+import type { ToolSubjectKind } from '@ihui/shared/chat'
 import './ai-cards.css'
 
-/** taro t 的键在 taskStatus 命名空间下,toolDisplayKey 返回裸键,此处统一加前缀 */
-const toDisplayKey = (key: string): string => `taskStatus.${key}`
-
-/** 工具调用名展示:内置工具 → i18n 功能名;插件/MCP 动态名回落原名 */
-function toolDisplayName(
-  name: string,
-  t: (k: string, params?: Record<string, string | number>) => string,
-): string {
-  const key = toolDisplayKey(name)
-  return key ? t(toDisplayKey(key)) : name
-}
-
-/** 自由文本(计划步骤标题/说明)内的英文工具码名 → i18n 功能名 */
-function localizeToolText(
-  text: string,
-  t: (k: string, params?: Record<string, string | number>) => string,
-): string {
-  return humanizeToolText(text, (k) => t(toDisplayKey(k)))
-}
+/** 对象等宽档:与 web stream-ui 的 STREAM_SUBJECT_MONO 同判据(路径 / URL / 命令用等宽体) */
+const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set(['path', 'url', 'command'])
 
 /** 耗时格式化(ms / s,单位非中文,无需 i18n) */
 function formatDuration(ms?: number): string {
@@ -128,6 +118,11 @@ export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
                 ? 'ai.cards.status.failed'
                 : 'ai.cards.status.done'
           const srcKey = sourceLabelKey(c.serverSource)
+          // 一行话的素材来自共享层:功能名 + 对象 + 结果度量 + 写类 ± 行数(端内不再自行挖 args/result)
+          const view = viewToolCall(c)
+          const metric = formatToolMetric(view.metricKind, view.metricValue, t)
+          const delta = view.writesFile ? toolDelta(view, t) : { added: null, removed: null }
+          const elapsed = formatDuration(c.durationMs)
           return (
             <View className={`ai-card-tool-item${c.status === 'error' ? ' error' : ''}`} key={key}>
               <View className="ai-card-tool-icon">
@@ -145,7 +140,18 @@ export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
               </View>
               <View className="ai-card-tool-body">
                 <View className="ai-card-tool-row">
-                  <Text className="ai-card-tool-name">{toolDisplayName(c.name, t)}</Text>
+                  <Text className="ai-card-tool-name">{toolRowTitle(c, t)}</Text>
+                  {view.subject ? (
+                    <Text
+                      className={`ai-card-tool-subject${
+                        MONO_SUBJECT_KINDS.has(view.subjectKind) ? ' mono' : ''
+                      }`}
+                    >
+                      {view.subject}
+                    </Text>
+                  ) : (
+                    <View className="ai-card-tool-subject-spacer" />
+                  )}
                   {srcKey ? <Text className="ai-card-tool-source">{t(srcKey)}</Text> : null}
                 </View>
                 <View className="ai-card-tool-row">
@@ -154,9 +160,18 @@ export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
                   >
                     {t(labelKey)}
                   </Text>
-                  {formatDuration(c.durationMs) ? (
-                    <Text className="ai-card-tool-duration">{formatDuration(c.durationMs)}</Text>
+                  {metric ? <Text className="ai-card-tool-metric">{metric}</Text> : null}
+                  {delta.added || delta.removed ? (
+                    <Text className="ai-card-tool-lines">
+                      {delta.added ? (
+                        <Text className="ai-card-tool-lines-added">{delta.added}</Text>
+                      ) : null}
+                      {delta.removed ? (
+                        <Text className="ai-card-tool-lines-removed">{delta.removed}</Text>
+                      ) : null}
+                    </Text>
                   ) : null}
+                  {elapsed ? <Text className="ai-card-tool-duration">{elapsed}</Text> : null}
                 </View>
               </View>
             </View>

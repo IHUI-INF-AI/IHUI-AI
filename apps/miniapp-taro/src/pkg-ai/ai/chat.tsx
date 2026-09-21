@@ -39,6 +39,7 @@ import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import TaskStatusBar from './task-status-bar'
 import type { AICardsData } from './cards/types'
+import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
@@ -467,6 +468,7 @@ export default function ChatPage() {
           // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
           {
             onToolCallStart: (evt) => {
+              const startedAt = Date.now()
               upsertCard((c) => ({
                 ...c,
                 toolCalls: [
@@ -476,26 +478,54 @@ export default function ChatPage() {
                     name: evt.toolName,
                     status: 'running',
                     serverSource: evt.serverSource,
+                    // 入参一并落卡:共享层 describeToolCall 靠它取"对象"
+                    args: evt.args,
+                    startedAt,
                   },
                 ],
               }))
-              pushStreamActivity(t('ai.stream.toolCall', { name: evt.toolName }))
+              pushStreamActivity(
+                toolActivityText(
+                  { id: evt.toolCallId, name: evt.toolName, status: 'running', args: evt.args },
+                  t,
+                ),
+              )
             },
             onToolResult: (evt) => {
+              // result / isError 只存在于 tool-result 变体,先收窄再取(另一变体不给结果)
+              const resultEvent = evt.type === 'tool-result' ? evt : null
+              const isError = resultEvent?.isError === true
+              const status = isError ? 'error' : 'done'
               upsertCard((c) => ({
                 ...c,
                 toolCalls: c.toolCalls.map((x) =>
                   x.id === evt.toolCallId
                     ? {
                         ...x,
-                        // isError 只在 tool-result 变体上存在,收窄后取值
-                        status: evt.type === 'tool-result' && evt.isError ? 'error' : 'done',
-                        isError: evt.type === 'tool-result' ? evt.isError : x.isError,
+                        status,
+                        // result 是结果度量(行数 / 命中数)与写类工具 ± 行数的唯一数据源
+                        args: evt.args ?? x.args,
+                        result: resultEvent?.result ?? x.result,
+                        isError,
+                        durationMs:
+                          typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
                       }
                     : x,
                 ),
               }))
-              pushStreamActivity(t('ai.stream.toolResult', { name: evt.toolName }))
+              pushStreamActivity(
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status,
+                    args: evt.args,
+                    result: resultEvent?.result,
+                  },
+                  t,
+                  { withMetric: true },
+                ),
+              )
             },
             onSubagentSpawn: (evt) =>
               pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
@@ -506,7 +536,12 @@ export default function ChatPage() {
             onToolSummary: (evt) =>
               pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
             onToolDelegate: (evt) =>
-              pushStreamActivity(t('ai.stream.toolCall', { name: evt.tool_name })),
+              pushStreamActivity(
+                toolActivityText(
+                  { id: '', name: evt.tool_name, status: 'running', args: evt.args },
+                  t,
+                ),
+              ),
             onPlanUpdate: (evt) => {
               upsertCard((c) => ({
                 ...c,
