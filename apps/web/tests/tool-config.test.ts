@@ -20,6 +20,7 @@ import {
   AGENT_TOOLS,
   API_CONTROL_TOOLS,
   WEB_UI_CONTROL_TOOLS,
+  fileToolsFor,
   mergeAgentTools,
   uiControlToolsFor,
 } from '../src/hooks/use-chat/tool-config'
@@ -78,3 +79,30 @@ describe('uiControlToolsFor — 操控本站意图预筛(2026-09-21 立)', () =>
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('fileToolsFor - 文件意图条件携带(2026-09-21,用户实测 read_file 不可达后补)', () => {
+  it('明确要求读文件 → 携带只读族(用户实测失败的原句必须命中)', () => {
+    const out = fileToolsFor(
+      '请调用 read_file 工具读取 packages/types/package.json,然后只回答 exports 有几个键。',
+    )
+    expect(out).toEqual(expect.arrayContaining(['read_file', 'list_files']))
+    expect(out).not.toContain('write_file')
+  })
+  it('文件路径/扩展名出现即命中(用户不会总说"读取文件")', () => {
+    expect(fileToolsFor('看看 apps/web/src/components/ai/task-status-bar.tsx 写了什么')).toContain(
+      'read_file',
+    )
+    expect(fileToolsFor('分析一下 package.json 的依赖')).toContain('read_file')
+    expect(fileToolsFor('读一下 README.md')).toContain('read_file')
+  })
+  it('明确修改动词 → 额外携带写族', () => {
+    const out = fileToolsFor('修复 send-message.ts 里的类型错误')
+    expect(out).toContain('edit_file')
+    expect(out).toContain('write_file')
+  })
+  it('纯闲聊/纯问答 → 不携带(保打字机流式,不付 tool loop 开销)', () => {
+    expect(fileToolsFor('你好')).toEqual([])
+    expect(fileToolsFor('帮我写一首关于春天的诗')).toEqual([])
+    expect(fileToolsFor('')).toEqual([])
+  })
+})
