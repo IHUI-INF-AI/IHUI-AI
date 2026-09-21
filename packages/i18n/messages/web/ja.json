@@ -9858,10 +9858,7 @@
     "voiceHandsFreeOn": "連続会話オン（話して送信）",
     "voiceHandsFreeOff": "連続会話オフ",
     "voicePlayback": "再生",
-    "voiceHandsFree": "ハンズフリー",
-    "locator": {
-      "title": "会話ロケーター"
-    }
+    "voiceHandsFree": "ハンズフリー"
   },
   "chatHistory": {
     "backToHistory": "にる",
