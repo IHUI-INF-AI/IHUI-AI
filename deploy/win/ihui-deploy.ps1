@@ -85,6 +85,8 @@ function Ok    { param([string]$m) Log "OK    $m" }
 #    (邮件兜底优先 SMTP(如腾讯企业邮,收件无"代发"标注),未配置时回落 Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
 #    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
 $SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
+# 迁移失败告警去重状态(2026-09-21 加):同一签名 12h 内只推一次,避免每轮循环刷爆 3 条/天配额
+$MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
 $NotifyEmailTo = '502319984@qq.com'
 function Get-SctSendKey {
     if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
@@ -308,6 +310,17 @@ function Build-Web {
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" install
         if ($LASTEXITCODE -ne 0) { Fail "pnpm install 失败(exit $LASTEXITCODE)" }
     }
+    # ── workspace 包 dist 重建(2026-09-21 加,实测):packages/*/dist 不入库(gitignored),
+    #    生产机 dist 永远停留在某次手工构建。api-client 新增 patrol 端点、ui-react 新增
+    #    icon-2xs 档位后,next build 仍解析 09-14 的旧 dist → "Export updatePatrolTask
+    #    doesn't exist in target module" 连续 4 轮构建失败 → 部署停滞(web 滞留旧版本)。
+    #    web 经 dist 消费的 6 个 workspace 包在此逐个重建(依赖序,幂等,单包失败即中止并
+    #    定位到包);未来 web 新增 dist 型 workspace 依赖时须同步加入此清单。
+    foreach ($pkg in @('@ihui/types','@ihui/shared','@ihui/design-tokens','@ihui/auth','@ihui/api-client','@ihui/ui-react')) {
+        Log "重建 $pkg dist ..."
+        & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
+        if ($LASTEXITCODE -ne 0) { Fail "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
+    }
     # 2026-09-07 可靠性加固(实测):Tailwind v4 展开成 ~271KB 单行 CSS,Next 前端 CSS
     # 管线(lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性
     # "Parsing CSS failed / Unexpected token Delim('\u{1a}')" 中断构建;成功可达但概率失败。
@@ -522,6 +535,21 @@ function Invoke-Diagnose {
         } else { DiagLog ("  {0}: 不存在" -f (Split-Path $lf -Leaf)) }
     }
 
+    # ── [7b] DB 迁移是否落后(2026-09-21 加:迁移静默失败两天的直接后果就是这个没人看) ──
+    DiagLog "── [7b] DB 迁移落后 ──"
+    try {
+        $apiEnvP = Join-Path $Root 'apps\api\.env'
+        if ((Test-Path $apiEnvP) -and -not $env:DATABASE_URL) {
+            Get-Content $apiEnvP | ForEach-Object {
+                if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"', "'") }
+            }
+        }
+        $pd = Get-PendingMigrationCount
+        if ($null -eq $pd) { DiagLog "  · 无法判定(journal 或 psql/DATABASE_URL 不可用) —— 不代表没问题,请手查 drizzle.__drizzle_migrations 行数 vs _journal.json entries" }
+        elseif ($pd -gt 0) { DiagLog ("  · ❌ 生产库落后 {0} 个迁移:代码已合并但表/列不存在,依赖它的接口会 500/503。逐文件零写复现:BEGIN;<迁移文件>;ROLLBACK" -f $pd) }
+        else { DiagLog "  · ✓ 迁移已全部落地(journal 与库内记录一致)" }
+    } catch { DiagLog ("  · 判定异常:" + $_.Exception.Message) }
+
     # ── [8] 判读提示 ──
     DiagLog "── [8] 判读提示 ──"
     if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先确认这些是本地修改还是产物目录再处理。" -f $script:diagDirty) }
@@ -545,6 +573,64 @@ if ($rollbackOnly) { try { Do-Rollback; exit 0 } finally { Release-DeployLock } 
 
 # ── DB 迁移(2026-09-13 加):幂等,每轮执行;drizzle journal 保证仅 pending 迁移实际跑 ──
 # 失败只告警不中止部署(数据库连接失败不应阻断 web 发布;计费修复依赖本步,失败会有监控/验证兜底)
+#
+# 2026-09-21 加固(实测教训):上面那句"失败会有监控兜底"是假的 —— 迁移自 09-19 起连续 exit 1,
+# 循环每轮只留一行 WARN 就继续发布,两天无人发现,8 个迁移全被 drizzle 的单事务一起回滚。
+# 现在:① 每轮把"journal 条数 vs 库里已记录条数"的差额打进日志(可 grep MIG);
+#      ② 失败时按签名去重推送(12h 内同一签名只推一次,不刷爆 3 条/天配额);
+#      ③ 本轮标 degraded,收尾再显式提示一次。仍**不改退出码**(NSSM/包装器语义未知,不冒险)。
+function Get-PsqlExe {
+    foreach ($c in @('D:\DevEnv\runtimes\pgsql\bin\psql.exe')) { if (Test-Path $c) { return $c } }
+    $g = Get-Command psql.exe -ErrorAction SilentlyContinue
+    if ($g) { return $g.Source }
+    return $null
+}
+
+function Get-PendingMigrationCount {
+    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0
+    $total = 0
+    try {
+        $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
+        if (-not (Test-Path $jp)) { return $null }
+        $total = (@((Get-Content $jp -Raw | ConvertFrom-Json).entries)).Count
+        if ($total -lt 1) { return $null }
+    } catch { return $null }
+    try {
+        $psql = Get-PsqlExe
+        if (-not $psql -or -not $env:DATABASE_URL) { return $null }
+        $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
+        if ($raw -notmatch '^\d+$') { return $null }
+        $d = $total - ([int]$raw)
+        if ($d -lt 0) { $d = 0 }
+        return $d
+    } catch { return $null }
+}
+
+function Note-MigrateFailure {
+    param([string]$reason, [string]$pendingTxt)
+    $script:DbMigrateDegraded = $true
+    $sig = "$reason|$pendingTxt"
+    $prevSig = ''; $prevTs = [datetime]::MinValue
+    try {
+        if (Test-Path $MigAlertStateFile) {
+            $st = Get-Content $MigAlertStateFile -Raw | ConvertFrom-Json
+            $prevSig = [string]$st.sig
+            try { $prevTs = [datetime]$st.ts } catch { $prevTs = [datetime]::MinValue }
+        }
+    } catch {}
+    $ageH = ((Get-Date) - $prevTs).TotalHours
+    if ($prevSig -eq $sig -and $ageH -lt 12) {
+        Log ("MIG   同一签名告警 {0:N1}h 内已推过,跳过(签名={1})" -f $ageH, $sig)
+        return
+    }
+    try {
+        Set-Content -Path $MigAlertStateFile -Value (@{ sig = $sig; ts = (Get-Date).ToString('o') } | ConvertTo-Json -Compress) -NoNewline
+    } catch {}
+    try {
+        Invoke-FailNotify -m "DB 迁移未落地(原因:$reason;仍待应用 $pendingTxt)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
+    } catch { Log "MIG   告警推送异常: $_" }
+}
+
 function Invoke-DbMigrate {
     Log "DB 迁移检查(packages/database db:migrate)"
     $apiEnv = "$Root\apps\api\.env"
@@ -557,11 +643,22 @@ function Invoke-DbMigrate {
     try {
         $migOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String
         $migOut | Write-Host
-        if ($LASTEXITCODE -eq 0) { Ok "db:migrate 完成(exit 0)" }
+        $pend = Get-PendingMigrationCount
+        $pendTxt = if ($null -eq $pend) { '未知' } else { "$pend 个" }
+        Log "MIG   待应用迁移=$pendTxt(journal vs drizzle.__drizzle_migrations)"
+        if ($LASTEXITCODE -eq 0) {
+            if ($pend -gt 0) {
+                Log "WARN  db:migrate exit 0 但仍落后 $pend 个迁移 —— 属于「跑过但没应用完」,需人工核查"
+                Note-MigrateFailure -reason "exit 0 但仍有待应用" -pendingTxt $pendTxt
+            } else {
+                Ok "db:migrate 完成(exit 0)"
+            }
+        }
         else {
             # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
             $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
             Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查;线索: $bad"
+            Note-MigrateFailure -reason "exit $LASTEXITCODE" -pendingTxt $pendTxt
         }
     } finally { Pop-Location }
 }
@@ -763,4 +860,7 @@ Set-BuildMarker
 Write-Host ""
 Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
 Release-DeployLock
+if ($script:DbMigrateDegraded) {
+    Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
