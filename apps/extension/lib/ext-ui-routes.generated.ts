@@ -2,54 +2,67 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 端内只负责注入本端族名:判断逻辑与关键词表在 @ihui/shared/utils/app-control-intent
-import {
-  createAppControlToolSelector,
-  lastUserContent,
-} from '@ihui/shared/utils/app-control-intent'
-
 /**
- * 扩展自有界面的 UI 操控工具族(2026-09-21 立,第五族 `ext_ui`)。
+ * ext_ui navigate 路由白名单(生成常量,非手写维护)。
  *
- * 为什么要有第五族:`browser` category 已被"通过 content script 操控外部网页"占用,且 api 侧
- * `CATEGORY_ENDPOINT` 是 **1:1 择端** —— 扩展面板(chrome-extension:// 页面,content script 进不去)
- * 若也挂在 `browser` 上,同一 category 就出现两类执行面,指令会被随机一侧吃掉。故单开
- * `category='ext_ui'`(endpoint 仍是 `extension`),一个扩展注册一次、两族动作各走各的。
+ * 来源:`apps/extension/entrypoints/sidepanel/SidepanelApp.tsx` 的 `<Route path=...>` 清单
+ * (MemoryRouter 路由表,含末尾 5 条兼容重定向路由,不含 `*` 通配)。
+ * 生成时间:2026-09-21;共 50 条。SidepanelApp 路由表变更时需重新清点并同步本文件。
  *
- * 七个动作与 web 同形:sidepanel/popup 是**真实同源 DOM**,不需要像 RN / 小程序那样靠控件注册表
- * 交出写通道 —— 元素定位靠 `document` 查询,这也是它与另两端的根本差别。
- * (与 ai-service `ui_action_bridge._FAMILIES['extension']` 的注册面严格一致,漂移由
- *  `tests/test_ui_action_bridge.py::test_client_tool_lists_match_registered_surface` 双向钉住)
+ * 用途:`lib/ui-action-registry.ts` 的 ext_ui_navigate 白名单校验 —— 白名单外一律
+ * ROUTE_NOT_ALLOWED,与 web 端 `ui-route-index.ts` 的站内白名单语义对齐。
  */
-export const EXT_UI_CONTROL_TOOLS = [
-  'ext_ui_describe',
-  'ext_ui_read',
-  'ext_ui_navigate',
-  'ext_ui_invoke',
-  'ext_ui_click',
-  'ext_ui_fill',
-  'ext_ui_submit',
-] as const
-
-/** 后端能力入口工具(服务端执行,与端无关,故与 web / RN / 小程序端同名) */
-export const API_CONTROL_TOOLS = ['api_endpoints_search', 'api_endpoint_call'] as const
-
-/**
- * 「操控本站」意图 → 本次请求要带的工具名。
- *
- * 必须带:`apps/ai-service/app/routers/llm.py` 的 tool loop 入口是
- * `if req.agent_tools and chat_mode != "ask"` —— 不带就根本不进工具链,端侧桥写得再完整也是死代码。
- * 只产出本端族名:把 `web_ui_*` 发给扩展等于让模型去操控另一台设备。
- */
-export const uiControlToolsFor = createAppControlToolSelector({
-  ui: EXT_UI_CONTROL_TOOLS,
-  api: API_CONTROL_TOOLS,
-})
-
-/** 聊天请求组装处调用:命中操控意图才带工具(普通问答保持流式首字延迟) */
-export function toolsForChatRequest(content: string): string[] {
-  // 2026-09-21 修复:typecheck 阻塞 —— lastUserContent 的入参是消息数组(见 miniapp-taro 同名文件),
-  // 此处误传字符串;包装为单条 user 消息,语义不变(只看当前这一句)
-  return uiControlToolsFor(lastUserContent([{ role: 'user', content }]))
-}
+export const EXT_UI_ROUTES: readonly string[] = [
+  '/',
+  '/chat',
+  '/chat/history',
+  '/chat/favorites',
+  '/chat/templates',
+  '/vocabulary',
+  '/courses',
+  '/ai',
+  '/ai/agents',
+  '/ai/agents/:id',
+  '/ai/skills',
+  '/ai/image-gen',
+  '/ai/memory',
+  '/ai/news',
+  '/ai/models',
+  '/content',
+  '/content/articles',
+  '/content/news',
+  '/content/announcements',
+  '/content/search',
+  '/content/plaza',
+  '/content/circles',
+  '/content/topics',
+  '/content/asks',
+  '/me',
+  '/me/dashboard',
+  '/me/notifications',
+  '/me/messages',
+  '/me/favorites',
+  '/me/following',
+  '/me/fans',
+  '/me/points',
+  '/me/vip',
+  '/me/member',
+  '/me/distribution',
+  '/me/invitations',
+  '/me/profile',
+  '/me/wallet',
+  '/me/orders',
+  '/settings',
+  '/settings/about',
+  '/settings/contact',
+  '/settings/help',
+  '/settings/agreement',
+  '/settings/pricing',
+  // 兼容重定向路由(SidepanelApp 中 element 为 <Navigate to=...>)
+  '/agents',
+  '/agents/:id',
+  '/profile',
+  '/wallet',
+  '/orders',
+]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
