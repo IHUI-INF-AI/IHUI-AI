@@ -174,6 +174,7 @@ export function SidebarHeader({
             width={36}
             height={36}
             draggable={false}
+            data-tauri-drag-region
             className="h-9 w-9 select-none object-contain"
           />
         </button>
@@ -241,6 +242,7 @@ export function SidebarHeader({
       >
         <ThemeLogo
           clickable
+          dragRegion
           width={80}
           height={26}
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
