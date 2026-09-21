@@ -166,7 +166,8 @@ function Send-EmailNotify {
         $key = Get-ResendApiKey
         if (-not $key) { Log "MAIL  跳过邮件兜底:SMTP 与 RESEND_API_KEY 均未配置"; return $false }
         $payload = @{ from = '智汇AI官方 <IHUI-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
-        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        # 2026-09-21 根治:此前只读了 key 却没带 Authorization,Resend 恒 401,邮件兜底通道形同虚设
+        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -Headers @{ Authorization = "Bearer $key" } -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Log "MAIL  邮件告警已发送至 $NotifyEmailTo (Resend)"
         return $true
     } catch {
@@ -700,6 +701,30 @@ function Get-PendingMigrationCount {
     } catch { return $null }
 }
 
+function Test-MigrateOrphans {
+    # 孤儿迁移记录检测(2026-09-21 加,实测教训):DB 里出现 created_at > journal 最大 when 的
+    # 记录(如孤儿行 created_at=1790006400000 未来时间戳)时,drizzle 按「created_at desc limit 1」
+    # 与 folderMillis 比较会判定全部迁移已应用 → 假成功、pending 永久清不掉。
+    # 返回 $true=有孤儿(已打日志,由调用方决定是否告警);$false=无;$null=判不了。
+    try {
+        $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
+        if (-not (Test-Path $jp)) { return $null }
+        $jMax = [long](@((Get-Content $jp -Raw | ConvertFrom-Json).entries) | Select-Object -Last 1 | ForEach-Object { $_.when })
+    } catch { return $null }
+    try {
+        $psql = Get-PsqlExe
+        if (-not $psql -or -not $env:DATABASE_URL) { return $null }
+        $raw = ((& $psql $env:DATABASE_URL -At -c "select coalesce(max(created_at),0) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
+        if ($raw -notmatch '^\d+$') { return $null }
+        $dbMax = [long]$raw
+        if ($dbMax -gt $jMax) {
+            Log "WARN  孤儿迁移记录:DB max created_at=$dbMax > journal 最大 when=$jMax —— drizzle 会判定全部已应用(假成功),需人工删孤儿行"
+            return $true
+        }
+        return $false
+    } catch { return $null }
+}
+
 function Note-MigrateFailure {
     param([string]$reason, [string]$pendingTxt)
     $script:DbMigrateDegraded = $true
@@ -740,6 +765,10 @@ function Invoke-DbMigrate {
         $pend = Get-PendingMigrationCount
         $pendTxt = if ($null -eq $pend) { '未知' } else { "$pend 个" }
         Log "MIG   待应用迁移=$pendTxt(journal vs drizzle.__drizzle_migrations)"
+        # 孤儿记录检测(2026-09-21 加):有孤儿时 pending 永远清不掉且 migrate 假成功,必须显式告警
+        if (Test-MigrateOrphans) {
+            Note-MigrateFailure -reason "孤儿迁移记录(DB max created_at 超过 journal 最大 when)" -pendingTxt $pendTxt
+        }
         if ($LASTEXITCODE -eq 0) {
             if ($pend -gt 0) {
                 Log "WARN  db:migrate exit 0 但仍落后 $pend 个迁移 —— 属于「跑过但没应用完」,需人工核查"
