@@ -2703,7 +2703,7 @@ class LLMGateway:
 
         stub 模式下返回确定性哈希向量(便于测试,无语义意义)。
         """
-        used_model = model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+        used_model = model or getattr(settings, "embedding_model", "text-embedding-3-small")
 
         if self._is_stub_mode():
             import hashlib
