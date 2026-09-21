@@ -326,7 +326,9 @@ class MemorySystem:
             # 生成 embedding 并写入向量存储
             try:
                 embedding = await self._vector_store.embed(item["text"])
-                await self._vector_store.add_entry(entry_id, entry, embedding)
+                await self._vector_store.add_entry(
+                    entry_id, entry, embedding, user_id=user_id
+                )
             except Exception as e:
                 logger.warning("memory.add_with_extraction embed 失败: %s", e, exc_info=True)  # embedding 失败不阻塞,记忆仍写入 API
             # 写入 API(跨端同步)
