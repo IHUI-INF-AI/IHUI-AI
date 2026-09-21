@@ -37,12 +37,13 @@ _ENDPOINT_PREFIX: dict[str, str] = {
     "miniapp": "taro_ui_",
 }
 
-# 各族支持的动词。web 有同源 DOM 七动词齐;RN / 小程序无 DOM,只有四个 ——
-# 给它 click/fill 等于给它一个必然失败的工具。
+# 各族支持的动词,须与 app/services/ui_action_bridge.py 的 _FAMILIES 动作集同形。
+# 三族都是七动词:RN / 小程序没有 DOM,click/fill 由端内控件注册表承接 ——
+# 组件没交出写入通道时端上如实回 UNSUPPORTED_ACTION,而不是这里预先发一个必然失败的工具
+# (2026-09-21 补齐:此前只给四动词,导致端上注册好的输入框永远到不了模型手上)。
 _FAMILY_ACTIONS: dict[str, frozenset[str]] = {
-    "web_ui_": frozenset({"describe", "read", "navigate", "click", "fill", "submit", "invoke"}),
-    "mobile_ui_": frozenset({"describe", "read", "navigate", "invoke"}),
-    "taro_ui_": frozenset({"describe", "read", "navigate", "invoke"}),
+    prefix: frozenset({"describe", "read", "navigate", "click", "fill", "submit", "invoke"})
+    for prefix in ("web_ui_", "mobile_ui_", "taro_ui_")
 }
 
 _API_ENTRY_TOOLS: tuple[str, ...] = ("api_endpoints_search", "api_endpoint_call")
@@ -274,4 +275,6 @@ async def augment_agent_tools(
 def clear_cache_for_tests() -> None:
     """测试用:清进程内在线端缓存。"""
     _online_cache.clear()
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

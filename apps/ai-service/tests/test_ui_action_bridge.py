@@ -64,7 +64,11 @@ def captured(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             payload={
                 "code": 0,
                 "message": "ok",
-                "data": {"success": True, "data": {"registry": {"page": {"path": "/orders"}}}, "durationMs": 12},
+                "data": {
+                    "success": True,
+                    "data": {"registry": {"page": {"path": "/orders"}}},
+                    "durationMs": 12,
+                },
             }
         )
 
@@ -75,6 +79,7 @@ def captured(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # 超时配置
 # ---------------------------------------------------------------------------
+
 
 def test_timeout_default_and_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("UI_ACTION_TIMEOUT", raising=False)
@@ -90,6 +95,7 @@ def test_timeout_default_and_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---------------------------------------------------------------------------
 # 工具定义
 # ---------------------------------------------------------------------------
+
 
 def test_ui_tools_names_and_schemas() -> None:
     tools = {t.name: t for t, _ in ub._ui_tools()}
@@ -128,6 +134,7 @@ def test_register_ui_action_tools_disabled(monkeypatch: pytest.MonkeyPatch) -> N
 # 请求形状与身份
 # ---------------------------------------------------------------------------
 
+
 async def test_call_requires_user_id(captured: list[dict[str, Any]]) -> None:
     out = await ub._ui_call("describe", {})
     assert out["ok"] is False
@@ -147,7 +154,13 @@ async def test_call_fail_closed_without_secret(
 async def test_call_request_shape(captured: list[dict[str, Any]]) -> None:
     out = await ub._ui_call(
         "fill",
-        {"__user_id": _USER, "__user_role": 1, "__session_id": "s9", "target": "金额", "value": 100},
+        {
+            "__user_id": _USER,
+            "__user_role": 1,
+            "__session_id": "s9",
+            "target": "金额",
+            "value": 100,
+        },
     )
     assert out["ok"] is True
     body = captured[0]["json"]
@@ -186,6 +199,7 @@ async def test_call_omits_empty_session(captured: list[dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # 响应归一化
 # ---------------------------------------------------------------------------
+
 
 async def test_success_unwraps_envelope(captured: list[dict[str, Any]]) -> None:
     out = await ub._ui_call("describe", {"__user_id": _USER})
@@ -251,18 +265,22 @@ async def test_non_dict_data_is_tolerated(monkeypatch: pytest.MonkeyPatch) -> No
 # 多标签页路由:describe 之后必须钉回同一页
 # ---------------------------------------------------------------------------
 
+
 async def test_instance_pin_threads_target_instance_id(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[dict[str, Any]] = []
 
     async def fake_request(self: Any, method: str, url: str, **kwargs: Any) -> _Resp:
         calls.append(dict(kwargs.get("json") or {}))
         return _Resp(
-            payload={"code": 0, "data": {"success": True, "data": {"instanceId": "web-abc", "registry": {}}}}
+            payload={
+                "code": 0,
+                "data": {"success": True, "data": {"instanceId": "web-abc", "registry": {}}},
+            }
         )
 
     monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
     await ub._ui_call("describe", {"__user_id": _USER})
-    assert ub._PINNED_INSTANCE[(_USER, 'ui')] == "web-abc"
+    assert ub._PINNED_INSTANCE[(_USER, "ui")] == "web-abc"
     assert "targetInstanceId" not in calls[0]  # 首条无从钉定
 
     await ub._ui_call("fill", {"__user_id": _USER, "target": "el:input#7", "value": 1})
@@ -274,15 +292,19 @@ async def test_pin_cleared_when_target_gone(monkeypatch: pytest.MonkeyPatch) -> 
         return _Resp(
             payload={
                 "code": 0,
-                "data": {"success": False, "errorCode": "TARGET_NOT_CONNECTED", "error": "Web 前端未连接"},
+                "data": {
+                    "success": False,
+                    "errorCode": "TARGET_NOT_CONNECTED",
+                    "error": "Web 前端未连接",
+                },
             }
         )
 
     monkeypatch.setattr(httpx.AsyncClient, "request", fake_request)
-    ub._PINNED_INSTANCE[(_USER, 'ui')] = "web-dead"
+    ub._PINNED_INSTANCE[(_USER, "ui")] = "web-dead"
     out = await ub._ui_call("read", {"__user_id": _USER})
     assert out["errorCode"] == "TARGET_NOT_CONNECTED"
-    assert (_USER, 'ui') not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
+    assert (_USER, "ui") not in ub._PINNED_INSTANCE  # 掉线的页不再钉,下一条重新探测
 
 
 async def test_pin_cleared_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -315,7 +337,11 @@ async def test_pin_not_cleared_for_ordinary_failure(monkeypatch: pytest.MonkeyPa
         return _Resp(
             payload={
                 "code": 0,
-                "data": {"success": False, "errorCode": "SELECTOR_NOT_FOUND", "error": "元素已不在页面上"},
+                "data": {
+                    "success": False,
+                    "errorCode": "SELECTOR_NOT_FOUND",
+                    "error": "元素已不在页面上",
+                },
             }
         )
 
@@ -330,6 +356,7 @@ async def test_pin_not_cleared_for_ordinary_failure(monkeypatch: pytest.MonkeyPa
 # handler 装配
 # ---------------------------------------------------------------------------
 
+
 async def test_handler_binds_action(captured: list[dict[str, Any]]) -> None:
     handler = ub._make_ui_handler("submit")
     out = await handler({"__user_id": _USER})
@@ -337,9 +364,7 @@ async def test_handler_binds_action(captured: list[dict[str, Any]]) -> None:
     assert out["tool"] == "web_ui_submit"
 
 
-async def test_registered_handlers_reachable_via_call_tool(
-    captured: list[dict[str, Any]]
-) -> None:
+async def test_registered_handlers_reachable_via_call_tool(captured: list[dict[str, Any]]) -> None:
     """注册后必须能走既有 call_tool 链(权限矩阵/超时/截断全复用)。"""
     from app.services.mcp_server import mcp_server
 
@@ -349,11 +374,11 @@ async def test_registered_handlers_reachable_via_call_tool(
     assert out["tool"] == "web_ui_read"
 
 
-_APP_ACTIONS = {"describe", "navigate", "read", "invoke"}
+_APP_ACTIONS = {"describe", "navigate", "read", "invoke", "click", "fill", "submit"}
 
 
 def test_app_tool_families_shapes() -> None:
-    """RN / 小程序族各四工具,无 DOM 端刻意不含 click/fill/submit。"""
+    """RN / 小程序族各七工具:无 DOM 端靠控件注册表承接 click/fill/submit,不是砍掉能力。"""
     for family, prefix in (("mobile", "mobile_ui_"), ("taro", "taro_ui_")):
         tools = {t.name: t for t, _ in ub._app_tools(family)}
         assert set(tools) == {prefix + a for a in _APP_ACTIONS}, family
@@ -362,13 +387,31 @@ def test_app_tool_families_shapes() -> None:
             assert "TARGET_NOT_CONNECTED" in tool.description, name  # 后台挂起是常态,须告知模型
         assert tools[prefix + "navigate"].input_schema["required"] == ["name"]
         assert tools[prefix + "invoke"].input_schema["required"] == ["name"]
-        assert prefix + "click" not in tools and prefix + "fill" not in tools
+        assert tools[prefix + "fill"].input_schema["required"] == ["target", "value"]
+        # 定位来源必须在描述里讲清楚,否则模型只能猜 id
+        for verb in ("click", "fill", "submit"):
+            assert "registry.elements" in tools[prefix + verb].description, verb
+        # 不承诺成功:如实失败是这些工具的存在前提
+        assert "UNSUPPORTED_ACTION" in tools[prefix + "fill"].description
+
+
+def test_app_family_action_set_matches_autonomy_gate() -> None:
+    """工具族注册的动作集必须与控制闸 _FAMILY_ACTIONS 双向一致。
+
+    单向校验会漏掉"注册了但闸不放行"这一侧 —— 那正是 2026-09-21 端侧注册表接好却
+    到不了模型手上的成因。
+    """
+    from app.services.control_autonomy import _FAMILY_ACTIONS
+
+    for family, prefix in (("mobile", "mobile_ui_"), ("taro", "taro_ui_")):
+        registered = {t.name.replace(prefix, "") for t, _ in ub._app_tools(family)}
+        assert registered == set(_FAMILY_ACTIONS[prefix]), family
 
 
 def test_register_app_ui_tools_counts_and_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.services.mcp_server import mcp_server
 
-    assert ub.register_app_ui_tools() == 8
+    assert ub.register_app_ui_tools() == 14
     assert ub.register_app_ui_tools() == 0  # 幂等:同名不覆盖
     monkeypatch.setenv("APP_UI_TOOLS", "false")
     # 关闭时既不再注册,也要把已注册的两族撤掉(与 web 族同一语义)
@@ -418,4 +461,6 @@ def test_unregister_prefix_removes_tools() -> None:
     assert len(removed) == 7
     names = {t.name for t in mcp_server.list_tools()}
     assert not (_EXPECTED_TOOLS & names)
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
