@@ -1086,7 +1086,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
-- **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
+- **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth + mobile-rn/useNotificationStore(后二者均为 re-export wrapper + 平台 adapter,属 §3 允许形态;守门的 re-export 判定只看 export 那一行有无 `from`,函数型 wrapper 必须显式登记))
 - **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
 - (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
 - **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
