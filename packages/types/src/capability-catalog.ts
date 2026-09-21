@@ -630,6 +630,9 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
       'GET /v1/threads/:id/runs/:runId',
       'GET /v1/threads/:id/runs/:runId/steps',
       'GET /v1/run-refs/:ref',
+      // O10c:第三方自带业务键反查。同一件事(读一个 run 的状态)不换权限位,
+      // 归属由 Redis 键名 `run_ext:<userId>:<external_id>` 收口。
+      'GET /v1/threads/runs/by-external-id/:externalId',
     ],
   }),
   c({
