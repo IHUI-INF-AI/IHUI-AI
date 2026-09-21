@@ -1,0 +1,12 @@
+{
+  "budgetAlert": {
+    "subject": {
+      "warning": "【警告】AI 预算接近上限",
+      "critical": "【严重】AI 预算已超额"
+    },
+    "body": {
+      "warning": "您的 AI 用量已接近预算上限,请关注:\n• 今日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 本月成本: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n为避免服务被中断,建议及时调整用量或联系管理员提升额度。",
+      "critical": "您的 AI 用量已达预算上限,可能影响后续调用:\n• 今日 Token: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• 本月成本: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\n请立即调整用量或联系管理员提升额度,否则超额部分可能被限制或停服。"
+    }
+  }
+}

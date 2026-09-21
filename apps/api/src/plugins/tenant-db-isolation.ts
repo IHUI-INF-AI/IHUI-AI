@@ -1,0 +1,101 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
+import fp from 'fastify-plugin'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import { sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { normalizeHeaderStrict } from '../utils/http-normalize.js'
+
+// 租户上下文（AsyncLocalStorage 等价于 Python ContextVar）
+interface TenantContext {
+  tenantId: string | null
+  schema: string
+}
+
+const tenantALS = new AsyncLocalStorage<TenantContext>()
+
+// LRU 缓存：租户 ID → schema 名（避免重复查询）
+const schemaCache = new Map<string, string>()
+const MAX_CACHE_SIZE = 1000
+
+// 合法 schema 名正则（小写字母/下划线开头，后跟小写字母/数字/下划线）
+const SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]*$/
+
+function getTenantSchema(tenantId: string): string {
+  // 从缓存获取
+  const cached = schemaCache.get(tenantId)
+  if (cached) return cached
+
+  // 生成 schema 名（tenant_id 转换为合法 schema 名：仅保留 [a-z0-9_]，小写化）
+  const sanitized = tenantId
+    .replace(/[^a-zA-Z0-9_]/g, '_')
+    .slice(0, 50)
+    .toLowerCase()
+  const schema = `tenant_${sanitized}`
+  // 防御性校验：最终 schema 必须匹配合法 identifier 正则，否则拒绝（防止 sql.raw(schema) 注入）
+  if (!SCHEMA_NAME_RE.test(schema)) {
+    const err = new Error(`Invalid tenant schema: ${schema}`) as Error & { statusCode: number }
+    err.statusCode = 400
+    throw err
+  }
+
+  // LRU 淘汰
+  if (schemaCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = schemaCache.keys().next().value
+    if (oldestKey) schemaCache.delete(oldestKey)
+  }
+  schemaCache.set(tenantId, schema)
+  return schema
+}
+
+/** 在租户上下文中执行操作（自动设置 search_path） */
+export async function withTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+  const schema = getTenantSchema(tenantId)
+  return tenantALS.run({ tenantId, schema }, async () => {
+    // 设置 search_path
+    await db.execute(sql`SET LOCAL search_path TO ${sql.raw(schema)}, public`)
+    try {
+      return await fn()
+    } finally {
+      // 恢复 search_path
+      await db.execute(sql`SET LOCAL search_path TO public`)
+    }
+  })
+}
+
+/** 获取当前租户上下文 */
+export function getCurrentTenant(): TenantContext | undefined {
+  return tenantALS.getStore()
+}
+
+const tenantDbIsolationPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // onRequest: 从 header 获取 tenant_id，设置上下文（归一化 + 字符集校验，与 tenant.ts 一致）
+  server.addHook('onRequest', async (request: FastifyRequest) => {
+    const tenantId = normalizeHeaderStrict(request.headers['x-tenant-id'])
+    if (tenantId) {
+      request.tenantDbContext = { tenantId, schema: getTenantSchema(tenantId) }
+    }
+  })
+
+  server.decorate('withTenant', withTenant)
+  server.decorate('getCurrentTenant', getCurrentTenant)
+}
+
+export const tenantDbIsolation = fp(tenantDbIsolationPlugin, {
+  name: 'tenant-db-isolation',
+  fastify: '5.x',
+})
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    withTenant: typeof withTenant
+    getCurrentTenant: typeof getCurrentTenant
+  }
+  interface FastifyRequest {
+    tenantDbContext?: TenantContext
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

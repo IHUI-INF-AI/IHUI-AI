@@ -1,0 +1,41 @@
+#!/bin/sh
+# ════════════════════════════════════════════════════════════════
+# stash-guard(reference-transaction hook):全面禁止创建 git stash
+# (2026-09-18 立,AGENTS.md §12d "改动进 stash 不生效"事故终极根治)
+#
+# 原理:git 无 pre-stash hook,但 refs/stash 的写入走引用事务;
+#       本 hook 在 prepared 阶段 exit 1,即可让 git stash push 等
+#       创建操作在 git 层面直接失败(--no-verify 也无法绕过)。
+#
+# 只拦"新建",不拦"清理"(drop/pop/clear):
+#   - 删除最后一条(new = 0000)→ 放行
+#   - drop/pop 收尾时 refs/stash 移动到既有旧条目(new 值已在
+#     refs/stash reflog 中)→ 放行
+#   - 人工放行:IHUI_ALLOW_STASH=1(仅限存量清理,须先按 §12d
+#     零损失流程 tag 备份,并在会话报告声明放行原因)
+#
+# 实现约束:只用 sh 内建 + git 命令,不依赖 grep/sed 等
+# coreutils(Windows 下 hook 进程 PATH 不保证含 Git usr/bin)。
+# ════════════════════════════════════════════════════════════════
+[ "$1" = "prepared" ] || exit 0
+[ "${IHUI_ALLOW_STASH:-0}" = "1" ] && exit 0
+
+ZERO=0000000000000000000000000000000000000000
+while read -r _old _new ref; do
+  [ "$ref" = "refs/stash" ] || continue
+  [ "$_new" = "$ZERO" ] && continue
+  # new 指向 stash reflog 中既有条目 = drop/pop 的收尾,放行
+  known=0
+  for entry in $(git reflog show refs/stash --format='%H' 2>/dev/null); do
+    [ "$entry" = "$_new" ] && { known=1; break; }
+  done
+  [ "$known" = "1" ] && continue
+  {
+    printf '\n'
+    printf '✋ stash-guard:已拦截 git stash —— 本项目禁止把改动放进 stash(AGENTS.md §12d)\n'
+    printf '   推了就是要生效:改动必须直接 commit(safe-commit.mjs)或用 worktree 隔离(§12d)\n'
+    printf '   清理存量 stash 属例外:IHUI_ALLOW_STASH=1 git stash drop|clear(先 tag 零损失备份)\n'
+  } >&2
+  exit 1
+done
+exit 0

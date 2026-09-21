@@ -1,0 +1,263 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+export {
+  fetchApi,
+  fetchAiServiceJson,
+  fetchRaw,
+  fetchText,
+  setTokenProvider,
+  setDeviceFingerprintProvider,
+  getDeviceFingerprintProvider,
+  setBaseUrl,
+  setStreamBaseUrl,
+  getStreamBaseUrl,
+  getToken,
+  streamChat,
+  parseStreamLine,
+  parseStreamLineReasoning,
+  parseFallbackEvent,
+  extractAgentId,
+  getSSEErrorInfo,
+  formatSSEError,
+  mergeAbortSignals,
+  postToolResult,
+  // 2026-08-14 补充 re-export:401 自动续期全局单例,web useAuthBootstrap 复用
+  // (并行改动 use-auth-bootstrap.ts 依赖它;client.ts 已实现,入口遗漏导致编译失败)
+  refreshAccessTokenOnce,
+  isAbortError,
+} from './client'
+export type {
+  TokenProvider,
+  DeviceFingerprintProvider,
+  StreamChatOptions,
+  SSEErrorInfo,
+  SSEErrorSeverity,
+  FormattedSSEError,
+  FetchApiOptions,
+  ToolCallEvent,
+  ToolSummaryEvent,
+  FallbackEvent,
+  ToolDelegateEvent,
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+  CitationsEvent,
+  TerminalDeltaEvent,
+  UsageEvent,
+  // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
+  BudgetEvent,
+} from './client'
+// AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
+export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
+export { ApiError, isNotFound, isErrorCode } from './api-error'
+export { setTransport, getTransport } from './transport'
+export type { Transport, TransportResponse, TransportInit } from './transport'
+
+// 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
+export {
+  DEFAULT_CONTEXT_CAPACITY,
+  getModelContextCapacity,
+  formatTokenCount,
+} from './model-context-capacity'
+
+export { CircuitBreaker, CircuitOpenError, serverPreset, clientPreset } from './circuit-breaker'
+export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker'
+export { eduApi, buildQs } from './utils'
+export type { PageData, PageQuery } from './utils'
+
+// WebSocket 跨端客户端(框架无关,各端写薄包装层)
+export {
+  WebSocketClient,
+  createNotificationClient,
+  buildNotificationWsUrl,
+  fetchWsTicket,
+  isWSNotification,
+} from './ws-client'
+export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } from './ws-client'
+
+// 通知类型 re-export(各端统一从 @ihui/api-client 导入,无需单独依赖 @ihui/types)
+export type {
+  WSNotification,
+  AIResponseNotification,
+  NotificationItem,
+  MessageItem,
+  UnreadCount,
+  CustomerServiceSession,
+  CustomerServiceMessage,
+} from '@ihui/types'
+export { isAIResponse } from '@ihui/types'
+
+export * from './endpoints/admin'
+export * from './endpoints/admin-auth'
+export * from './endpoints/admin-business'
+export * from './endpoints/admin-content'
+export * from './endpoints/admin-member'
+export * from './endpoints/admin-monitor'
+export * from './endpoints/admin-system'
+// P1-2.2a: SaaS 部署层管理后台 API 端点
+export * from './endpoints/admin-tenants'
+export * from './endpoints/agent'
+export * from './endpoints/agent-runtime'
+// Agent 会话 Token 用量(2026-09-07 工作线 A)
+export * from './endpoints/agent-usage'
+// AI 模型定价查询(W4 成本真网计价,2026-09-12)
+export * from './endpoints/ai-pricing'
+// Deep Research 深度研究(2026-09-07 工作线 B)
+export * from './endpoints/research'
+export * from './endpoints/ai'
+export * from './endpoints/ai-media'
+export * from './endpoints/auth'
+export * from './endpoints/banner'
+export * from './endpoints/business'
+export * from './endpoints/category'
+export * from './endpoints/chat'
+export * from './endpoints/community'
+// 中文连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
+export * from './endpoints/connectors'
+export * from './endpoints/course'
+export * from './endpoints/crew'
+export * from './endpoints/developer'
+// 浏览器降级端点(2026-07-22 立,P1 WorkPanel iframe 降级)
+export * from './endpoints/browser'
+// Browser Hub CDP 端点(2026-07-31 立,P0 WorkPanel CDP 完整 Chrome 升级)
+export * from './endpoints/browser-hub'
+export {
+  type CommissionOverview,
+  type InviteInfo,
+  type InvitedUser,
+  type CommissionRecord,
+  type CommissionWithdrawRecord,
+  type CommissionRanking,
+  type DayMonthSummary,
+  getOverview,
+  getInviteInfo,
+  getInvitedUsers,
+  getCommissionList,
+  getWithdrawList,
+  requestWithdraw,
+  getDayMonthSummary,
+  // 分销团队(2026-08-21 建,TeamScreen/TeamDetailScreen 真实链路)
+  type TeamStats,
+  type TeamMemberItem,
+  type TeamMemberDetail,
+  getTeamStats,
+  getTeamMembers,
+  getTeamMemberDetail,
+} from './endpoints/distribution'
+// 下载量统计 API(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
+export * from './endpoints/downloads'
+// 设备推送令牌 API(2026-09-06 立,mobile-cap 推送链路,跨端共享)
+export * from './endpoints/devices'
+// 挣钱中心仪表盘 API(2026-07-31 立,P0 挣钱核心,跨端共享)
+export * from './endpoints/earnings'
+export * from './endpoints/edu'
+export * from './endpoints/exam'
+// 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
+export * from './endpoints/files'
+// 商品端点(2026-09-04 立,GET /goods/select 购物车分页,mobile-rn CartScreen 跨端共享)
+export * from './endpoints/goods'
+export * from './endpoints/learn'
+export * from './endpoints/live'
+export * from './endpoints/llm'
+// IDE LSP 四核心端点(2026-09-10 补转出:CodeEditor 直连 LSP,入口遗漏导致构建失败)
+export * from './endpoints/lsp'
+export * from './endpoints/knowledge-rag'
+export * from './endpoints/member'
+export * from './endpoints/misc'
+// MCP 商店端点(2026-09-01 立,directory/register/external-servers)
+export * from './endpoints/mcp'
+// Artifact 预览端点(2026-09-01 立,对话生成图表 iframe 渲染)
+export * from './endpoints/artifacts'
+// Agent Plan Mode 端点(2026-09-02 立,计划模式确认 UI 后端契约)
+export * from './endpoints/agent-plan'
+// Best-of-N 同任务多副本自动择优端点(2026-09-07 立)
+export * from './endpoints/best-of-n'
+// Self-healing 验证自愈引擎端点(2026-09-11 立,2-3 产品化 web 驾驶舱接线)
+export * from './endpoints/self-healing'
+export * from './endpoints/notification'
+export * from './endpoints/order'
+export * from './endpoints/payment'
+// 插件市场 API(2026-07-22 立,跨端共享)
+export * from './endpoints/plugin'
+export * from './endpoints/resource'
+export * from './endpoints/share'
+export * from './endpoints/social'
+export * from './endpoints/srs'
+export * from './endpoints/study'
+export * from './endpoints/subscription'
+export * from './endpoints/system'
+export * from './endpoints/voice-stt'
+export * from './endpoints/teacher'
+export * from './endpoints/token'
+export * from './endpoints/user'
+export * from './endpoints/vip'
+export * from './endpoints/wallet'
+export * from './endpoints/workspace'
+// 外部会话导入端点(2026-09-20 立,D28,web /settings/import 页跨端共享)
+export * from './endpoints/conversation-import'
+
+// 架构迁移审计 P2 v2 补开发:5 个新端点共享封装(private-letters / wrong-questions / mail / auth-codes / exam-marking)
+export * from './endpoints/auth-codes'
+export * from './endpoints/chat-skills'
+// AI Skills TOP 19 个 skill 端点(2026-07-23 新增,跨端共享)
+export * from './endpoints/skills-market'
+export * from './endpoints/ai-skills'
+export * from './endpoints/exam-marking'
+export * from './endpoints/mail'
+export * from './endpoints/private-letters'
+export * from './endpoints/wrong-questions'
+// Explicit re-exports to resolve naming conflicts between modules.
+// 同名函数签名/用途不同,显式指定主来源以消除 export * 歧义(TS2308)。
+// 仍可通过子路径 @ihui/api-client/endpoints/<name> 访问任一模块的同名导出。
+export { getRanking } from './endpoints/business'
+export { getMessages, sendMessage } from './endpoints/chat'
+export { getCategories } from './endpoints/system'
+export { getUserStatistics } from './endpoints/user'
+export { getAuthRole, updateAuthRole } from './endpoints/admin-system'
+export { getToolGenMeta, postToolGen } from './endpoints/admin-tool-gen'
+export type {
+  GenType,
+  GenField,
+  GenInput,
+  GenResult,
+  GenTypeMeta,
+  GenMetaResponse,
+} from './endpoints/admin-tool-gen'
+
+// 旧架构 edu-web 公开 API 端点(2026-07-22 立)
+// 覆盖 audit 清单中 carousels/agreements/announcements/points/search 公开端点
+// 旧函数名通过 apps/web/src/lib/legacy-edu-api.ts 桥接
+export * from './endpoints/legacy-public'
+
+// 多平台一键发布(账号 + 任务 + 扫码登录,2026-07-30 新增)
+export * from './endpoints/publish'
+
+// Coze 平台 API 端点(2026-07-27 立,PAT 直连 Coze 官方 API,跨端共享)
+export * from './endpoints/coze'
+
+// IM 渠道管理 API 端点(2026-07-31 立,P0 admin/im-channels 16 平台管理配套)
+export * from './endpoints/im-channel'
+
+// 子智能体(Subagent)派单 + Swarm 拓扑端点(2026-08-26 立,移动端原生化配套)
+export * from './endpoints/subagents'
+
+// 自媒体助手(技能列表/调用 + 记录,2026-09-05 新增,M3 web→mobile 对齐)
+export * from './endpoints/self-media'
+
+// 规范(Spec)生成器模板端点(2026-09-05 新增,M3 web→mobile 对齐)
+export * from './endpoints/spec'
+
+// 上下文引擎只读端点(压缩统计 + 提及检索,2026-09-05 新增,M3 web→mobile 对齐)
+export * from './endpoints/context-mentions'
+
+// Repo Wiki 端点(代码仓库→知识库文档,2026-09-07 新增)
+export * from './endpoints/repo-wiki'
+// Knowledge Card 端点(仓库级任务经验卡,2026-09-10 新增,2-1 项目知识引擎)
+export * from './endpoints/knowledge-card'
+export * from './endpoints/team-memory'
+
+// 用户侧 Agent 定时自动化端点(2026-09-07 新增)
+export * from './endpoints/automations'
+export * from './endpoints/patrol'
