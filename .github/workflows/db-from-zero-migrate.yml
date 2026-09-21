@@ -1,0 +1,104 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# O18(2026-09-21):空库重放整条 drizzle 迁移链 —— 机械化防线。
+#
+# 为什么需要这个 job:0110_skills_tombstone.sql 曾用裸 `ADD COLUMN`,而该列早被前面的
+# 建表迁移带出;从空库重放在 110/285 处抛 42701,`drizzle-kit migrate` 只 exit 1、**不打原因**。
+# dev 库靠历史增量长出来(push / 逐条 apply),所以这类洞在本地永远不会暴露,而任何全新部署
+# (含 deploy/saas 客户模板)拿到的是残缺 schema。本 job 每次迁移/schema 变更都从空库重跑一遍。
+#
+# 与 db-owner-rls.yml / test-real-db.yml 的分工:那两个 job 只跑 `drizzle-kit migrate`(权威
+# 单点),失败时只知道"链断了"不知道"断在哪一个";本 job 额外做逐迁移重放(报 tag + 错误首行)
+# 与迁移后库 ↔ drizzle 元数据的表/列双向 diff,并把一次性临时库必定清理。
+#
+# 风格对齐:pgvector service container(全量迁移含 vector 列)+ checkout + node 22 + pnpm +
+# 健康检查 + `pnpm --filter @ihui/database build`(脚本以 dist/schema 为元数据真相,CI 现建)。
+
+name: DB Migrate From Zero (O18)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/src/schema/**'
+      - 'scripts/check-migration-from-zero.mjs'
+      - '.github/workflows/db-from-zero-migrate.yml'
+  pull_request:
+    paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/src/schema/**'
+      - 'scripts/check-migration-from-zero.mjs'
+      - '.github/workflows/db-from-zero-migrate.yml'
+  schedule:
+    # 每天 03:17 UTC 兜底:即使无人改迁移,也能在发布前发现"链被别处带坏"
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+# Security: least-privilege GITHUB_TOKEN (CWE-250).
+permissions:
+  contents: read
+
+jobs:
+  migrate-from-zero:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # 与 test-real-db.yml / db-owner-rls.yml 同款:全量迁移含 vector 列,postgres:17 镜像不带扩展
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ihui_fz_base
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # 指向一次性 job 容器里的基库;脚本自己 CREATE/DROP ihui_fz_<8hex> 临时库。
+      # 口令只在本 ephemeral runner 内存在(CI 服务容器),绝不复用生产口令、绝不打印。
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ihui_fz_base
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build database package
+        run: pnpm --filter @ihui/database build
+
+      - name: Install postgres client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # 脚本自带四步:① 一次性空库逐迁移重放(失败报 tag + 错误首行)② 另一个空库跑权威
+      # drizzle-kit migrate ③ 迁移后库 ↔ schema 表/列双向 diff ④ finally 必定 DROP 临时库。
+      # 判据:迁移链 100% 应用 **且** diff 为空 ⇒ exit 0。
+      - name: Check migrations replay from zero
+        run: node scripts/check-migration-from-zero.mjs
+
+      # 兜底卫生检查:脚本异常路径(被 kill / 超时)若漏掉 DROP,这里把残留临时库清掉,
+      # 不让一次红变成下一次的干扰源。
+      - name: Sweep leftover temp databases (always)
+        if: always()
+        run: |
+          for db in $(psql "$DATABASE_URL" -Atc "SELECT datname FROM pg_database WHERE datname LIKE 'ihui_fz_%'"); do
+            echo "dropping leftover temp db: $db"
+            psql "$DATABASE_URL" -c "DROP DATABASE IF EXISTS \"$db\" WITH (FORCE)"
+          done
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

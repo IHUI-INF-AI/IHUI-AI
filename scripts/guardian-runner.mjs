@@ -59,6 +59,11 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-21 补应急通道:[2] 与 [2n-web] 同用 check-i18n-keys.mjs,full 模式同样会跑
+    // parity(见脚本 837 行 label 分支),因此与 2n-web 共用同一应急变量 —— 并发会话
+    // 未提交的 i18n WIP 造成的 parity 漂移属"非本 commit 范畴"假阳性。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
   {
     id: '2b',
@@ -317,6 +322,13 @@ const checks = [
     script: 'check-parent-pollution.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门惯例对齐,此前遗漏):
+    // 本项巡查"项目父目录及其非项目子目录"的运行时产物,与 staged 内容无关 ——
+    // 只要工作环境里存在**其他会话/其他任务**正在使用的项目外临时文件,本次提交即被
+    // 阻塞(实测 2026-09-21 09:5x:G:\tmp-probe 下有并发会话 2 分钟前才创建的审计脚本,
+    // 而官方清理工具 pnpm hygiene:parent:clean 会直接删掉对方正在使用的文件)。
+    // 应急放行:HUSKY_SKIP_PARENT_POLLUTION=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_PARENT_POLLUTION',
   },
   {
     id: '27',
@@ -722,6 +734,13 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--parity-only'],
     mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门的 HUSKY_SKIP_* 惯例对齐,此前遗漏):
+    // 本项 --parity-only 是"每次 commit 都跑全量 parity",且 parity 漂移**没有** WIP 降级
+    // 通道(check-i18n-keys.mjs 的 wipMissingKeyIssues 只覆盖 missing key,不覆盖 parity)。
+    // 后果:只要工作区存在"并发会话新增 zh-CN 键、4 语言尚未补齐"的未提交 WIP,
+    // --- 即使本次提交完全不含 packages/i18n/** --- 全仓 commit 一律被阻塞(实测 2026-09-21)。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
   // --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
   // mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描内置 5 语言 JSON 加载做隐式校验)。
@@ -1101,6 +1120,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 53 (2026-09-21 新增,O13b admin 面特权判定收敛守门,warn 级起步) ---
+  // warn-only 理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记(文件级
+  //   count 上限),白名单口径与 --staged 判据需先观察一轮误报率(动态拼出的判定、
+  //   注释行计数偏差等);存量清零或稳定一周后再升 blocking。
+  // 判据:裸 roleId 数值比较(集中封装 plugins/require-permission.ts 之外)条数只减
+  //   不增;本地重定义 requireAdmin 禁止回升;capability-catalog dataClass=platform
+  //   条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。详见脚本头注释与
+  //   docs/developer/admin-permission-mapping.md。
+  // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
+  {
+    id: '53',
+    label: '🛡️  admin 面特权判定一致性(warn-only,O13b roleId>=1 收敛)',
+    script: 'check-admin-gate-consistency.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
+      '     修复:preHandler 统一走 plugins/require-permission.ts 的 requirePermission / requireAnyPermission /',
+      '           requireAdmin;能力面 scope 的机器可见性以 capability-catalog 的 thirdPartyEligible 为准。',
+      '     自检:node scripts/check-admin-gate-consistency.mjs --self-test',
+      '     全量:node scripts/check-admin-gate-consistency.mjs',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1254,9 +1299,19 @@ if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGA
 let passed = 0
 let warned = 0
 let failed = 0
+let skipped = 0
 const startTime = Date.now()
 
 for (const check of effectiveChecks) {
+  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
+  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
+  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
+  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
+  if (check.skipEnv && process.env[check.skipEnv] === '1') {
+    skipped++
+    console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
   const cmd = `node scripts/${check.script}${cmdArgs.length > 0 ? ' ' + cmdArgs.join(' ') : ''}`
@@ -1296,6 +1351,7 @@ for (const check of effectiveChecks) {
       console.error(`  ${C.green}通过: ${passed}${C.reset}`)
       console.error(`  ${C.yellow}警告: ${warned}${C.reset}`)
       console.error(`  ${C.red}失败: ${failed}${C.reset}`)
+      console.error(`  ${C.dim}跳过: ${skipped}${C.reset}`)
       console.error(`  总耗时: ${totalTime}s`)
       process.exit(1)
     } else if (check.mode === 'warn') {
@@ -1323,6 +1379,7 @@ console.log(`  总检查数: ${effectiveChecks.length}`)
 console.log(`  ${C.green}通过: ${passed}${C.reset}`)
 console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
 console.log(`  ${C.red}失败: ${failed}${C.reset}`)
+console.log(`  ${C.dim}跳过: ${skipped}${C.reset}`)
 console.log(`  总耗时: ${totalTime}s`)
 
 // push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用,见执行段注释)
