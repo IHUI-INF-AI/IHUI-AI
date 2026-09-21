@@ -159,7 +159,6 @@ const mockChatStore = vi.hoisted(() => {
       subAgentActivities: [] as unknown[],
       conversationId: null as string | null,
       userScrolledUp: false,
-      userScrolledToTop: false,
       // 2026-09-18 补齐:真实 store 新增 memoryUpdateNotices(记忆更新提示,按 messageId
       // 聚合),MessageItem 以叶子选择器订阅 `s.memoryUpdateNotices.find(...)`;
       // 假 store 缺该字段会直接 TypeError,导致本文件 34 项全红。
@@ -193,10 +192,6 @@ vi.mock('@/stores/chat', () => {
     state.userScrolledUp = up
     notify()
   }
-  const setUserScrolledToTop = (top: boolean) => {
-    state.userScrolledToTop = top
-    notify()
-  }
   const setState = (partial: Record<string, unknown>) => {
     Object.assign(state, partial)
     notify()
@@ -213,7 +208,6 @@ vi.mock('@/stores/chat', () => {
     },
   )
   state.setUserScrolledUp = setUserScrolledUp
-  state.setUserScrolledToTop = setUserScrolledToTop
   return { useChatStore }
 })
 
@@ -369,7 +363,6 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
     }
     // 重置 chat store mock 状态(避免前一个测试把 userScrolledUp 置为 true 后泄漏)
     mockChatStore.state.userScrolledUp = false
-    mockChatStore.state.userScrolledToTop = false
     progressJumpStoreState.pendingJumpToMessage = null
     progressJumpStoreState.highlightedMessageId = null
     progressJumpStoreState.hoveredMessageId = null
