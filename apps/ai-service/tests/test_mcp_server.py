@@ -1192,8 +1192,14 @@ async def test_fetch_url_success(monkeypatch):
     monkeypatch.setattr(_ss, "_validate_url_ssrf", lambda url: (True, ""))
     # 批 52b 网络审批门:测试环境无审批 requester(fail-closed → deny),
     # 与 test_network_approval_52.py 的隔离惯例一致,此处 stub 为放行。
+    # 2026-09-21 修正陈旧桩:批58(十六)后生产侧已改为调用带原因码的
+    # evaluate_network_access_detailed(返回 (verdict, denial_reason)),
+    # 此处若继续 stub 旧名 evaluate_network_access,桩不生效 → fail-closed 拒绝
+    # → 本条用例恒红(且放行路径实际零覆盖)。桩必须与生产调用的是同一个 API。
     import app.services.network_approval as _na
-    monkeypatch.setattr(_na, "evaluate_network_access", lambda url, reason=None: "allow")
+    monkeypatch.setattr(
+        _na, "evaluate_network_access_detailed", lambda url, reason=None: ("allow", None)
+    )
 
     html = (
         "<html><head><title>Test Page</title>"
