@@ -42,6 +42,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
+import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
@@ -52,6 +53,7 @@ import {
 import { loadBrowserWorkspaceContext } from './workspace'
 import { eduToolsFor, fileToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
 import {
+  clearCompactionPreview,
   createToolCallHandler,
   createToolSummaryHandler,
   createUsageHandler,
@@ -550,11 +552,14 @@ export function createSendMessage(
       })
     }
     try {
-      // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
-      useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
-
       // 2026-08-16 立:强制传 contextLimit,后端根据该值判断是否触发 88% 自动压缩。
       const resolvedContextLimit = getModelContextCapacity(effectiveModel)
+      // 2026-09-21 修复:"正在压缩上下文"预告必须与后端触发口径一致。原实现每次发送无条件
+      // 点亮 compacting(与是否压缩无关),且仅靠 onResponse 清除 —— 请求在响应头之前
+      // 失败/被 abort 时永久常驻。现在:① 占用率未达 88% 阈值不显示;② finally 兜底回收。
+      if (isContextAtCompactionThreshold(store.messages, resolvedContextLimit)) {
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+      }
       logger.debug(
         '[Compaction] sendMessage contextLimit=',
         resolvedContextLimit,
@@ -733,10 +738,7 @@ export function createSendMessage(
         // 2026-08-16 立:收到响应后立即清除压缩中状态(无论是否触发压缩)
         onResponse: () => {
           clearTimeout(timeout15sId)
-          const status = useChatStore.getState().compactionStatus
-          if (status?.phase === 'compacting') {
-            useChatStore.getState().setCompactionStatus(null)
-          }
+          clearCompactionPreview()
         },
         onUsage: (usage) => {
           // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
@@ -1090,6 +1092,9 @@ export function createSendMessage(
       // 或把新会话正在跑的 agent 流误标完成。batcher 为流私有,无需守卫。
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
+        // 2026-09-21 修复:兜底回收"压缩中"预告态。onResponse 之前失败(HTTP 4xx/5xx throw)、
+        // 超时 abort、主动 stop 都不会触发 onResponse,不清则灰条全站常驻(状态在全局 store)。
+        clearCompactionPreview()
         useChatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
         // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。
