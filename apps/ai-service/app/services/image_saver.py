@@ -38,8 +38,16 @@ _FORBIDDEN_PARTS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
 }
 
-# 支持的图片格式
+# 支持的图片格式(指输入格式:data URI / base64 载荷的 MIME 子类型)
 _ALLOWED_FORMATS = {"png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"}
+
+# save_path 落盘后缀白名单(2026-09-21 补):与线上 image_generation 工具
+# (mcp_server._IMAGE_EXTENSIONS)保持一致 —— 后者是唯一权威源。
+# 背景:本模块的 validate_save_path 原先只做白名单根 + 禁止目录两重校验,
+# 缺少后缀防线;若日后按"去重"把它换进线上路径,会静默削掉这道防线。
+# 故此处补齐,并由 tests/test_save_path_guard_parity_58.py 守住两处常量不漂移。
+# 注意:与 _ALLOWED_FORMATS 是两条不同的轴(输入格式 vs 落盘后缀),勿混用。
+_SAVE_PATH_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 
 # URL 下载大小上限(10MB)
 _MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024
@@ -109,6 +117,11 @@ def validate_save_path(save_path: str) -> tuple[bool, str]:
         for part in rel.parts:
             if part in _FORBIDDEN_PARTS:
                 return False, f"路径包含禁止目录: {part}"
+        # 后缀白名单(放在禁止目录之后,保持既有 reason 语义不变)
+        if p.suffix.lower() not in _SAVE_PATH_EXTENSIONS:
+            return False, (
+                f"路径后缀不在白名单内(允许: {', '.join(_SAVE_PATH_EXTENSIONS)})"
+            )
         return True, str(p)
 
     return False, "路径不在白名单内(允许 .data/ 或 app/skills/content_engine/output/)"
