@@ -17,6 +17,7 @@ import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
+import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
 import { TaskStatusBar } from '../components/TaskStatusBar'
@@ -126,6 +127,9 @@ export default function ChatPage() {
       messages: next
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
+      // 2026-09-21 第五族 ext_ui:命中"操控本站"意图才带工具名(llm.py 的 tool loop
+      // 入口是 `if req.agent_tools and chat_mode != "ask"`,不带就不进工具链)
+      agentTools: toolsForChatRequest(text),
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
