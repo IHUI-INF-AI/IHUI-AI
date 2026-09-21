@@ -5,7 +5,8 @@
 
 // Button 高度/宽度覆盖守门(2026-09-07 立,AGENTS.md §4「Button 高度档位守门」配套)
 // 规则:<Button> 禁止 className h-* / w-* 覆盖尺寸,必须用 size 档位
-//       (xs/sm/default/lg/icon-xs/icon-sm/icon,定义见 packages/ui-react/src/components/button.tsx)
+//       (xs/sm/default/lg/icon-2xs/icon-xs/icon-sm/icon;档位清单从
+//        packages/ui-react/src/components/button.tsx 的 size 表动态解析,勿硬编码)
 // 同时校验 size 值合法性(防拼写错误静默回退 default 档)。
 // 豁免:原生 <button> 自绘(IDE 面板等 24px 紧凑档为有意设计)、Input/SelectTrigger/Skeleton、
 //       Button 上的 h-5/h-6(24px/20px 紧凑档,存量 45 处表格行/侧栏密集场景,与原生紧凑档同哲学)、
@@ -33,7 +34,34 @@ const ROOTS = [
   }
 })
 const EXCLUDE_FILE = 'packages/ui-react/src/components/button.tsx' // size 档位定义文件
-const VALID_SIZES = new Set(['xs', 'sm', 'default', 'lg', 'icon-xs', 'icon-sm', 'icon'])
+
+/**
+ * 档位白名单:从 button.tsx 的 size 表动态解析(2026-09-21 起,此前为硬编码)。
+ *
+ * 背景:原为 `new Set(['xs','sm','default','lg','icon-xs','icon-sm','icon'])`。
+ * 2026-09-21 按 AGENTS.md §4「需要新高度先在 size 表立档」新增 icon-2xs 档位后,
+ * 守门立即把合法用法误报成「不在档位表」—— 文档 / 实现 / 守门三处手抄同一份清单,
+ * 必然漂移。改为单一事实源(button.tsx):立档后守门自动生效,无需再改三处。
+ * 兜底:解析失败(文件缺失/结构变更)时回退静态表,保证守门不静默失效。
+ */
+const FALLBACK_SIZES = ['xs', 'sm', 'default', 'lg', 'icon-2xs', 'icon-xs', 'icon-sm', 'icon']
+function loadValidSizes() {
+  try {
+    const src = readFileSync(path.join(ROOT, EXCLUDE_FILE), 'utf8')
+    const m = /size:\s*\{/.exec(src)
+    if (!m) return new Set(FALLBACK_SIZES)
+    const tail = src.slice(m.index + m[0].length)
+    const end = tail.indexOf('defaultVariants')
+    const body = (end > 0 ? tail.slice(0, end) : tail)
+      .replace(/\/\/[^\n]*/g, '') // 去行注释(注释中的 `key:` 形态会污染键名解析)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+    const names = [...body.matchAll(/^\s*'?([A-Za-z][A-Za-z0-9_-]*)'?\s*:/gm)].map((x) => x[1])
+    return names.length > 0 ? new Set(names) : new Set(FALLBACK_SIZES)
+  } catch {
+    return new Set(FALLBACK_SIZES)
+  }
+}
+const VALID_SIZES = loadValidSizes()
 const SIZE_TOKEN_RE = /^(h|w)-(7|8|9|10|11|12|\[.+\])$/ // h-7 / h-[36px] 等;h-5/h-6(24px/20px 紧凑档)豁免
 const BAD_SIZE_RE = /^(h|w)-/ // h-*/w-* 类(SIZE_TOKEN_RE 已排除紧凑档)
 
@@ -132,7 +160,7 @@ if (violations.length) {
     console.error(`  ${v.file}:${v.line}  →  ${v.bad.join(', ')}`)
   }
   console.error(
-    '\n修复:改用 size 档位(xs/sm/default/lg/icon-xs/icon-sm/icon),需要新高度先在 button.tsx size 表立档。',
+    `\n修复:改用 size 档位(${[...VALID_SIZES].join('/')}),需要新高度先在 button.tsx size 表立档。`,
   )
   console.error('规则详见 AGENTS.md §4「Button 高度档位守门」。紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1')
   process.exit(1)

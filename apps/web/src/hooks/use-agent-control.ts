@@ -44,11 +44,17 @@ import {
   screenshotScreen,
 } from '@/lib/tauri-bridge'
 import { useAuthStore } from '@/stores/auth'
+import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
 // ===== Constants =====
 
-/** Tauri 下 api-client detectApiBaseUrl 的取值一致;WS 需要显式 baseUrl。 */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
+/**
+ * 通知 WS 基址(必须绝对地址:api-client 内部 new URL() 解析,空串会抛错)。
+ * 收口于 lib/api-base-url.ts(2026-09-21):桌面端是薄壳 —— 主窗口加载线上
+ * https://aizhs.top/agents,WS 必须同源线上;旧逻辑回退 127.0.0.1:8802 会让
+ * 桌面端通知通道连用户本机 dev 后端(连不上或打到本地库)。
+ */
+const API_BASE = resolveWsApiBaseUrl()
 const CAPABILITY_INTERVAL_MS = 60_000
 const VERSION = '1.0.0'
 const PROCESSED_IDS_MAX = 100
