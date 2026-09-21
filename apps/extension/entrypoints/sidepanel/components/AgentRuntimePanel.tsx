@@ -7,7 +7,7 @@ import { executeAgentRuntimeStream, sendToolApprovalResponse } from '@ihui/api-c
 import { parsePlanText, type RenderPlanStep } from '@ihui/shared'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-import { PlanStepsView } from './MessageContent'
+import { PlanStepsView, makeToolTranslate, toolDisplayName } from './MessageContent'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
 
@@ -200,7 +200,9 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             </div>
             <div className="text-xs text-muted-foreground">
               {t('agent.tool') + ': '}
-              {permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
+              {/* 界面禁止直显英文工具码名:已登记的内置工具显示本地化功能名 */}
+              {toolDisplayName(permission.toolName, makeToolTranslate(t))} ·{' '}
+              {t('agent.level') + ':'}
               {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}
               {permission.mode}
             </div>
