@@ -403,6 +403,71 @@
       `test_ui_action_bridge.py` 25 项同步 describe 的 `input_schema`(query/limit)。
       未验证:真浏览器里模型实际使用 query 的命中率与新控件回执字节数(主 agent 端口被并发会话
       反复打断),需下轮真机复测。
+- [x] ✅(2026-09-21) B12 RN 端非敏感输入框接入控件注册表(**已接入 17 处 / 待接 0 处 / 有意不注册 8 处**):
+      新建 `apps/mobile-rn/src/lib/use-ui-text-field.ts` 零视觉 footprint 登记钩子(函数体内交出该
+      TextInput 背后 state 的 setter,渲染树一个字节不变 —— 本机无 iOS/Android 模拟器,换组件方案
+      无法回归,故走登记钩子)。接入 12 文件 17 个登记点:`ModelConfigDialog`(4)、`ProfileScreen`(1)、
+      `N8nModelScreen`(2)、`ChatScreen`(2)、`InputArea`(1)、`TopicListScreen`(1)、
+      `KnowledgeRagScreen`(1)、`ImageGenCreateScreen`(1)、`ArticleDetailScreen`(1)、
+      `SingleTypeBar`(1)、`ModelPickerList`(1)、`BottomActionBar`(1);
+      **不注册 8 处及依据**:① `VerifyCodeModal:180`(accessibilityLabel「验证码输入」+ value=fullCode,
+      验证码);②③ `LoginPopUp:392`(placeholder「请输入用户名」)、`LoginPopUp:429`
+      (「请输入电话号码」+ keyboardType phone-pad,登录凭据);④⑤ `ProfileScreen:829/840`
+      (邮箱/手机号,`editable={false}` 只读、组件根本没有 setter,注册只能靠编造写入通道);
+      ⑥ `ModelConfigDialog:393` 与 ⑦ `InputArea:525`(都在 `.map()` 回调里渲染,规则不允许在循环中
+      调 hook,零 JSX 改动前提下无解);⑧ 计数字径正名:任务书按 25 处统计,实际源码里
+      `<TextInput>` 元素共 24 个(`VerifyCodeModal` 只有 1 个,另一处是 `useRef<TextInput>` 类型标注)。
+      另:钩子刻意让 `setValue` 可选 —— 交不出 setter 的框入表但 `writable:false`,fill 如实回
+      `UNSUPPORTED_ACTION`,与注册表"绝不回了 ok 而界面没动"同源。
+      **已知交互(注册表地盘,未擅自改)**:`ModelConfigDialog` 的「Max Tokens」标签命中注册表
+      `SENSITIVE_TEXT_RE` 的 `token` 判据 → `register` 返回 null,该框对 AI 不可见(实际入表 3/4)。
+      判据把模型参数 `max tokens` 误当密钥,属注册表侧待议(本任务禁改 `ui-field-registry.ts`)。
+      证据:新增 `tests/use-ui-text-field.test.ts` 11 项全绿(真证据链:挂载 → `snapshotFields`
+      见 `writable:true` → `setValueOnField` → 读回 rerender 后 DOM 的 value + 父 state 双证 →
+      卸载后旧 id `SELECTOR_NOT_FOUND`;secure/password 在快照里根本不出现;只读框入表但 fill 失败);
+      mobile-rn `tsc --noEmit` 0 错、`eslint` 0 违规、全端 `vitest run` 33 文件 362 项全绿。
+      **实测接入量(单测证据)**:`InputArea` 真组件挂载后 `snapshotFields()` 可见 1 个
+      `kind:input`、`label` 取 placeholder、`writable:true` 的控件。逐屏数字 = 该屏登记的登记点数,
+      全端登记点位共 17(新增)+ 1(`@ihui/ui-native` Input 组件类别,沿用既有接入)。
+
+- [x] ✅(2026-09-21) E11 无 DOM 端的输入框真正可填(端内控件注册表 + ui-native 交出写通道):
+      ① `apps/{mobile-rn,miniapp-taro}/src/lib/ui-field-registry.ts` —— 控件挂载时登记,**id 序号单调且
+      永不复用**(按下标定位会让卸载后的下一次 fill 打到别的控件上,比失败更糟);60 条上限超出记
+      `suppressed` 而非静默丢;密码/验证码/token/secret 连快照都不出现,删除/注销/支付/提现/分享/发布
+      类一律拒绝入表(误触即不可逆,收益为零);
+      ② `packages/ui-native/{input,button}.tsx` + `field-host.ts` —— 下层包不得反向依赖 app,故宿主经
+      globalThis 约定键递出 `{register}`,组件用局部结构类型读取,拿不到宿主返回 `null` 照常渲染。
+      **受控 `Input` 不再一律判不可写**:父组件给了 `onChangeText` 才可写(那正是键盘输入的同一条 path),
+      没给才 `writable:false` + 如实 `UNSUPPORTED_ACTION`;上一版"受控=不可写"过度保守,把 RN 端唯一
+      在用的输入框(`AgentRuntimePanel`)关在门外 —— 属能力缺失而非安全收益;
+      ③ 两端 `describe` 附 `elements`/`suppressed`(空数组也如实返回,模型据此知道"这屏就是没控件"),
+      `click/fill/submit` 经注册表执行;两端桥层入站动词表同步扩到 7 —— **它同时是丢弃过滤器**,
+      不扩就会把新动词在桥层悄悄丢掉(这就是端到端断链点);
+      ④ 判据跨端对齐:两端各修一处 `token` 误判(计量语境 `Max Tokens` 曾被当凭据吞掉 ⇒ 少一个可填项),
+      小程序侧补词表漏掉的中文"密码/令牌"。
+      证据:RN typecheck 0 错 + **363 项全绿**;小程序 typecheck 0 错 + **359 项全绿**;
+      ai-service **47 项**全绿(含双向防漂移断言);提交 `aea6ef9f92`。
+- [x] ✅(2026-09-21) B13 逐屏采纳(替代本条原先登记的"下一轮才能可写"):小程序 15 文件交出写通道
+      (`89d4e179c2`)、RN 17/24 处可填(`f3052d8162`),两端各含**采纳防漂移断言**(删一行 `useUiField`
+      或塞 no-op 都会红)。凭据屏 7 个文件按不可逆代价**刻意不接**;发布/退款类只交字段不交 submit。
+- [x] ✅(2026-09-21) B14 未提交工作年龄守门 `scripts/check-uncommitted-age.mjs`(guardian 第 54 项
+      warn-only,`46a942db13`):今天两次功能丢失都不是代码写错,而是**已验证却停在未提交**的改动被并行
+      会话一次 `git checkout`/reset 整体还原且不留痕迹。判据 = 源码扩展名的工作树改动年龄 > 45 分钟即点名
+      (默认 warn,`--strict` 才红);首跑即摊出 21 个超龄文件(最老 21 天)。
+- [ ] B15 本目标下**仍未闭环**的两件事(不写作已完成,各自给出解阻判据):
+      ① **移动两端运行时端到端实证**:至今只有 web 那条真链路(`llm.py` 工具循环 → `web_ui_describe` →
+      `web_ui_navigate` 真跳转、DOM 回读为证)。RN/小程序侧证据止于单测 + 类型 + 构建,
+      本机无 iOS/Android 模拟器与微信开发者工具 ⇒ 判据是"在真机/模拟器上,从对话框说一句 →
+      该端那个输入框里真的出现文字",做成之前不得声称移动端已真机验证。
+      ② **扩展自有界面(sidepanel 44 页 / 51 处控件)不在操控面内**:它需要**第五族** `ext_ui` +
+      `CATEGORY_ENDPOINT` 新增 `ext_ui→extension`,因为 `browser→extension` 已被"操控外部网页"占用
+      (复用会让同一 category 出现两个候选端,api 侧 1:1 择端语义即破)。现测 `apps/extension/lib/agent-control.ts`
+      的 DOM 执行器只跑在 content script(外部页面),`chrome-extension://` 页面自身脚本进不去。
+      解阻前置:这是一次协议扩面(动 types + api 映射 + ai-service 族 + 端内桥 + 三条防漂移断言),
+      且若走"抽公共 DOM 注册表给 web 与扩展共用"(§3 共享层优先)要动 `apps/web/src/lib/ui-action-registry.ts`
+      806 行主线 —— 需 owner 明确批准该协议扩面,并选在 web 侧无并行改动的窗口执行。
+      ③ 顺带记一处 api 余量:`appUiActions`/`taroUiActions` 的 zod 上限是 `max(10)`,现用 7 ⇒ 只剩 3 个余量,
+      下次扩动词若撞上会**整条 capability 上报 400 静默失联**(web 侧同类字段是 `max(20)`)。
 
 ### 验证证据(2026-09-20)
 
