@@ -6,11 +6,17 @@ import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
-import { toolDisplayKey } from '@ihui/shared/chat'
+import { describeToolCall } from '@ihui/shared/chat'
+import { StreamRow, useLiveElapsed } from '@/components/chat/stream/stream-ui'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
 
-/** 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
- *  依赖 message.toolCalls 中 status==='running' 的工具,让"正在调用工具 X"走 5 语言翻译。 */
+/**
+ * 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
+ *
+ * 2026-09-21 接入活动行基元:等待态本身就是"最新一行活动",必须与消息流里的工具行同一套
+ * 视觉语言(图标 + 功能名 + 对象 + 实时耗时),而不是孤零零一句灰字。
+ * 依赖 message.toolCalls 中 status==='running' 的工具,让"正在调用 X"走 5 语言翻译。
+ */
 export function TypingIndicator({
   reasoning,
   toolCalls,
@@ -19,25 +25,42 @@ export function TypingIndicator({
   toolCalls?: ChatMessage['toolCalls']
 }) {
   const t = useTranslations('ai.toolCall')
-  const tStatus = useTranslations('taskStatus')
+  const tStream = useTranslations('taskStatus')
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
+  const liveMs = useLiveElapsed(runningTool !== undefined, null)
 
-  let label: string
   if (runningTool) {
-    // 工具码名 → 功能名(映射不到的插件/MCP 动态名回落原展示)
-    const displayKey = toolDisplayKey(runningTool.toolName)
-    label = displayKey ? tStatus(displayKey) : t('callingTool', { name: runningTool.toolName })
-  } else if (reasoning && reasoning.length > 0) {
-    const preview = reasoning.length > 40 ? `${reasoning.slice(0, 40)}…` : reasoning
-    label = t('thinking', { preview })
-  } else {
-    label = t('waitingResponse')
+    const view = describeToolCall({
+      toolName: runningTool.toolName,
+      args: runningTool.args,
+      status: runningTool.status,
+    })
+    return (
+      <StreamRow
+        status="running"
+        title={view.nameKey ? tStream(view.nameKey) : t('callingTool', { name: view.codeName })}
+        subject={view.subject}
+        subjectKind={view.subjectKind}
+        elapsedMs={liveMs}
+        className="text-shimmer"
+        testId="typing-indicator"
+      />
+    )
   }
 
+  const preview =
+    reasoning && reasoning.length > 0
+      ? reasoning.length > 40
+        ? `${reasoning.slice(0, 40)}…`
+        : reasoning
+      : ''
+
   return (
-    <div className="flex items-center gap-2 py-1">
+    <div className="flex items-center gap-2 py-1" data-testid="typing-indicator">
       {/* 2026-08-29:文字光线扫描动效(.text-shimmer),流式等待态视觉反馈 */}
-      <span className="text-shimmer text-xs font-medium">{label}</span>
+      <span className="text-shimmer text-xs font-medium">
+        {preview ? t('thinking', { preview }) : t('waitingResponse')}
+      </span>
     </div>
   )
 }
@@ -135,6 +158,7 @@ export function MessageUsageBadge({
   messageId: string
 }) {
   const t = useTranslations('chat')
+  const tm = useTranslations('ai.message.metrics')
   const price = useModelPriceCny(model)
   if (typeof usage !== 'object' || usage === null) return null
   const u = usage as Record<string, unknown>
@@ -151,7 +175,7 @@ export function MessageUsageBadge({
         aria-label={t('messageUsage.ariaLabel')}
         data-testid={`message-usage-${messageId}`}
       >
-        · {formatCompactTokens(total)} tok
+        · {formatCompactTokens(total)} {tm('tokens')}
         {totalCost !== null && <span> · ¥{totalCost.toFixed(4)}</span>}
       </span>
     </Tooltip>

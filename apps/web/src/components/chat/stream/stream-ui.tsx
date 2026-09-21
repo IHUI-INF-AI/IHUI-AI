@@ -12,6 +12,7 @@ import { Check, ChevronRight, CircleDashed, Loader2, Minus, X } from 'lucide-rea
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/components/ai/progress-sections/foldable-section'
+import type { PlanStepStatus } from '@ihui/types/ai'
 import type { ToolMetricKind, ToolSubjectKind } from '@ihui/shared/chat'
 
 /**
@@ -70,6 +71,13 @@ export interface StreamRowProps {
   status: StreamStatus
   /** 功能名(本地化后的动宾短语,如"读取文件内容");禁止传英文工具码名 */
   title: string
+  /**
+   * `action`(默认):title 是短动词短语,主体留给 subject 撑满一行。
+   * `primary`:title 本身就是这一行的主体(计划步骤、清单项那种整句话),占满剩余宽度。
+   */
+  titleMode?: 'action' | 'primary'
+  /** 行首序号/缩进前缀(如"1."),放在状态图标之后 */
+  leading?: React.ReactNode
   /** 操作对象(文件路径 / 检索词 / URL / 命令),等宽显示并单行截断 */
   subject?: string
   subjectKind?: ToolSubjectKind
@@ -91,6 +99,8 @@ export interface StreamRowProps {
   /** 行级附加标签(插件/MCP 来源等),统一中性配色 */
   tags?: string[]
   ariaLabel?: string
+  /** 键盘导航锚点:agent-task-progress-pane 用 [data-section-header] 收集可聚焦区段头 */
+  sectionHeader?: boolean
   className?: string
   testId?: string
 }
@@ -102,6 +112,8 @@ export interface StreamRowProps {
 export function StreamRow({
   status,
   title,
+  titleMode = 'action',
+  leading,
   subject,
   subjectKind = 'none',
   meta,
@@ -115,35 +127,42 @@ export function StreamRow({
   expanded,
   tags,
   ariaLabel,
+  sectionHeader,
   className,
   testId,
 }: StreamRowProps) {
   const interactive = typeof onClick === 'function'
+  const primary = titleMode === 'primary'
   const inner = (
     <>
       <StreamStatusIcon status={status} />
-      <span className="shrink-0 max-w-[45%] truncate text-foreground/80">{title}</span>
+      {leading !== undefined && leading !== null && leading !== '' && (
+        <span className="shrink-0 tabular-nums text-muted-foreground/60">{leading}</span>
+      )}
+      <span
+        className={cn(
+          'truncate text-foreground/80',
+          primary ? 'min-w-0 flex-1' : 'shrink-0 max-w-[45%]',
+        )}
+      >
+        {title}
+      </span>
       {subject ? (
         <span
+          data-stream-subject="true"
           className={cn(
-            'min-w-0 flex-1 truncate',
-            STREAM_SUBJECT_MONO.test(subjectKind)
-              ? 'font-mono text-foreground/55'
-              : 'text-foreground/55',
+            'min-w-0 truncate text-foreground/55',
+            primary ? 'shrink-0 max-w-[40%]' : 'flex-1',
+            STREAM_SUBJECT_MONO.test(subjectKind) && 'font-mono',
           )}
         >
           {subject}
         </span>
-      ) : (
+      ) : !primary ? (
         <span className="min-w-0 flex-1" />
-      )}
+      ) : null}
       {tags?.map((tag) => (
-        <span
-          key={tag}
-          className="shrink-0 rounded-sm bg-muted/70 px-1 py-px text-[11px] leading-none text-muted-foreground"
-        >
-          {tag}
-        </span>
+        <StreamTag key={tag}>{tag}</StreamTag>
       ))}
       {meta !== undefined && meta !== null && meta !== '' && (
         <span className="shrink-0 text-muted-foreground/70">{meta}</span>
@@ -171,10 +190,19 @@ export function StreamRow({
     </>
   )
 
+  // 未开始/已跳过的行整行弱化:状态差异靠"重量"表达,不靠多种字号与彩色边框
+  const dimmed = status === 'pending' || status === 'skipped'
+
   if (!interactive) {
     return (
       <div
-        className={cn('group/stream-row', STREAM_ROW_CLASS, 'gap-1.5', className)}
+        className={cn(
+          'group/stream-row',
+          STREAM_ROW_CLASS,
+          'gap-1.5',
+          dimmed && 'opacity-60',
+          className,
+        )}
         data-testid={testId}
         data-stream-status={status}
       >
@@ -192,11 +220,13 @@ export function StreamRow({
         'group/stream-row rounded-sm px-1 text-left transition-colors',
         'hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
         STREAM_ROW_CLASS,
+        dimmed && 'opacity-60',
         className,
       )}
       data-testid={testId}
       data-stream-status={status}
       data-stream-expanded={expanded ? 'true' : 'false'}
+      {...(sectionHeader ? { 'data-section-header': 'true' } : {})}
     >
       {inner}
     </button>
@@ -287,6 +317,8 @@ export interface StreamGroupProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
+  /** 组头右侧的轻量控件(视图切换等)。放在触发器**外面**,避免按钮套按钮 */
+  headerExtra?: React.ReactNode
   className?: string
   testId?: string
   ariaLabel?: string
@@ -306,6 +338,7 @@ export function StreamGroup({
   open,
   onOpenChange,
   children,
+  headerExtra,
   className,
   testId,
   ariaLabel,
@@ -326,43 +359,46 @@ export function StreamGroup({
           open ? 'top-6 bottom-1 bg-border/70' : 'h-0 opacity-0',
         )}
       />
-      <button
-        type="button"
-        onClick={() => onOpenChange(!open)}
-        aria-expanded={open}
-        aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
-        className={cn(
-          STREAM_ROW_CLASS,
-          'rounded-sm px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
-        )}
-        data-stream-group-trigger="true"
-      >
-        <StreamStatusIcon status={active ? 'running' : 'success'} />
-        <span className="min-w-0 flex-1 truncate">
-          {headline || (active ? t('statusRunning') : t('stepCount', { n: stepCount }))}
-        </span>
-        {!active && stepCount > 0 && (
-          <span className="shrink-0 tabular-nums text-muted-foreground/60">
-            {t('stepCount', { n: stepCount })}
-          </span>
-        )}
-        {live !== null && live > 0 && (
-          <span
-            className="shrink-0 tabular-nums text-muted-foreground/60"
-            data-testid={`${testId ?? 'stream'}-elapsed`}
-          >
-            {t('workedFor', { time: formatDuration(live) })}
-          </span>
-        )}
-        <ChevronRight
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onOpenChange(!open)}
+          aria-expanded={open}
+          aria-label={ariaLabel ?? (open ? t('collapseSteps') : t('expandSteps'))}
           className={cn(
-            ICON_CLASS,
-            'shrink-0 text-muted-foreground/40 transition-transform',
-            open && 'rotate-90',
+            STREAM_ROW_CLASS,
+            'min-w-0 flex-1 rounded-sm px-1 text-left text-muted-foreground transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
           )}
-          aria-hidden
-        />
-      </button>
+          data-stream-group-trigger="true"
+        >
+          <StreamStatusIcon status={active ? 'running' : 'success'} />
+          <span className="min-w-0 flex-1 truncate">
+            {headline || (active ? t('statusRunning') : t('stepCount', { n: stepCount }))}
+          </span>
+          {!active && stepCount > 0 && (
+            <span className="shrink-0 tabular-nums text-muted-foreground/60">
+              {t('stepCount', { n: stepCount })}
+            </span>
+          )}
+          {live !== null && live > 0 && (
+            <span
+              className="shrink-0 tabular-nums text-muted-foreground/60"
+              data-testid={`${testId ?? 'stream'}-elapsed`}
+            >
+              {t('workedFor', { time: formatDuration(live) })}
+            </span>
+          )}
+          <ChevronRight
+            className={cn(
+              ICON_CLASS,
+              'shrink-0 text-muted-foreground/40 transition-transform',
+              open && 'rotate-90',
+            )}
+            aria-hidden
+          />
+        </button>
+        {headerExtra}
+      </div>
       {open && <div className="pt-0.5">{children}</div>}
     </div>
   )
@@ -393,18 +429,27 @@ export function StreamLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-[11px] font-medium text-muted-foreground/70">{children}</p>
 }
 
-/** 明细里的等宽输出块:统一 24px 行高、200px 最大高度后滚动 */
+/** 明细里的等宽输出块:限高 200px 后滚动;流式输出时 autoScrollToBottom 保证贴底 */
 export function StreamCode({
   text,
   className,
   testId,
+  autoScrollToBottom = false,
 }: {
   text: string
   className?: string
   testId?: string
+  autoScrollToBottom?: boolean
 }) {
+  const ref = React.useRef<HTMLPreElement>(null)
+  React.useEffect(() => {
+    if (!autoScrollToBottom) return
+    const el = ref.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [text, autoScrollToBottom])
   return (
     <pre
+      ref={ref}
       className={cn(
         'max-h-[200px] overflow-auto whitespace-pre-wrap break-all rounded-sm bg-background/60 p-1.5 font-mono text-xs leading-relaxed text-foreground/75',
         className,
@@ -416,20 +461,24 @@ export function StreamCode({
   )
 }
 
-/** 中性信息徽章(来源/轮次/重试/状态等),禁止再各写一套彩色底 */
+/** 中性信息徽章(来源/轮次/重试/状态/计数),数字档按 §4 确定性居中模板 */
 export function StreamTag({
   children,
   tone = 'neutral',
+  strong = false,
   testId,
 }: {
   children: React.ReactNode
   tone?: 'neutral' | 'success' | 'running' | 'danger'
+  /** 数字计数徽章(待办数/步数/±行数)用 true:加粗 + 等宽,保证位数变化不抖 */
+  strong?: boolean
   testId?: string
 }) {
   return (
     <span
       className={cn(
-        'shrink-0 rounded-sm px-1 py-px text-[11px] leading-none tabular-nums',
+        'inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm px-1 text-[11px] leading-none tabular-nums',
+        strong && 'font-semibold',
         tone === 'danger' && 'bg-red-500/10 text-red-600 dark:text-red-400',
         tone === 'success' && 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
         tone === 'running' && 'bg-primary/10 text-primary',
@@ -440,5 +489,33 @@ export function StreamTag({
       {children}
     </span>
   )
+}
+
+/** StreamStatus → taskStatus 里的状态词键(全消息流唯一口径,各端不得再各写一份映射) */
+const STATUS_LABEL_KEY: Record<StreamStatus, string> = {
+  // 待开始态复用已有键 stepPending,不另立同义的 statusPending
+  pending: 'stepPending',
+  running: 'statusRunning',
+  success: 'statusSuccess',
+  error: 'statusFailed',
+  skipped: 'statusSkipped',
+}
+
+/** 状态词本地化助手:组件里凡是要把状态写成文字(含 aria-label)都走它 */
+export function useStreamStatusLabel(): (status: StreamStatus) => string {
+  const t = useTranslations('taskStatus')
+  return React.useCallback((status: StreamStatus) => t(STATUS_LABEL_KEY[status]), [t])
+}
+
+/** plan_updated 步骤状态 → 活动行状态;error=true 与显式 failed 归一为 error */
+export function planStepStreamStatus(step: {
+  status: PlanStepStatus
+  error?: boolean
+}): StreamStatus {
+  if (step.error === true || step.status === 'failed') return 'error'
+  if (step.status === 'in_progress') return 'running'
+  if (step.status === 'completed') return 'success'
+  if (step.status === 'skipped') return 'skipped'
+  return 'pending'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

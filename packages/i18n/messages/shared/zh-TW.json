@@ -96,7 +96,13 @@
     "errorLabel": "錯誤",
     "toolCallCount": "{n} 次工具呼叫",
     "showMore": "顯示更多",
-    "noOutput": "無回傳內容"
+    "noOutput": "無回傳內容",
+    "stepPending": "待開始",
+    "phaseThinking": "思考中",
+    "phaseActing": "執行動作",
+    "phaseReflecting": "復盤校驗",
+    "phaseOutputReady": "整理輸出",
+    "exitCode": "退出碼 {n}"
   },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",
