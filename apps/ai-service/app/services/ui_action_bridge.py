@@ -207,9 +207,26 @@ def _ui_tools() -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict
         (
             "describe",
             "[UI桥接] 列出用户当前浏览器页面可操控的内容:站内导航、命令面板命令、"
-            "表单字段、可点击元素。返回 {result:{registry:{page,commands,forms,elements}}},"
-            "registry.elements[].id 即 click/fill 的 target。执行 UI 动作前先调用本工具。",
-            {"type": "object", "properties": {}},
+            "表单字段、可点击元素(含上传位 kind=file、富文本 kind=richtext、"
+            "代码编辑器 kind=code)。返回 {result:{registry:{page,commands,forms,elements,routes}}}。"
+            "registry.elements[].id 即 click/fill 的 target。"
+            "registry.routes 是全站路由摘要 {total,navigable,groups:[{prefix,count}]}——"
+            "**不含完整路径**。要跳到摘要之外的页面时严禁猜路径:传 query=关键词"
+            "(如 'wallet'、'agent 规则') 再调一次本工具,matches[].path 即合法目标,"
+            "随后用 web_ui_navigate 跳转。执行 UI 动作前先调用本工具。",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        **str_prop,
+                        "description": "可选:全站路由检索词(关键词/路径片段),命中 top≤40 条于 routes.matches",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "可选:检索命中上限,默认且封顶 40",
+                    },
+                },
+            },
         ),
         (
             "read",
@@ -241,9 +258,11 @@ def _ui_tools() -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict
         ),
         (
             "fill",
-            "[UI桥接] 填写用户页面上的输入框/文本域/下拉框(含 react-hook-form 受控组件)。"
-            "密码与验证码字段会被拦截(PERMISSION_DENIED)。填写后通常需配合 "
-            "web_ui_click(提交按钮)或 web_ui_submit 才会真正提交。",
+            "[UI桥接] 填写用户页面上的输入框/文本域/下拉框(含 react-hook-form 受控组件)、"
+            "contenteditable 富文本(kind=richtext)与 Monaco 代码编辑器(kind=code,仅当能取到"
+            "editor 实例)。密码与验证码字段会被拦截(PERMISSION_DENIED);文件上传位"
+            "(kind=file)因浏览器安全策略无法代填,同样返回 PERMISSION_DENIED,请引导用户手动选择。"
+            "填写后通常需配合 web_ui_click(提交按钮)或 web_ui_submit 才会真正提交。",
             {
                 "type": "object",
                 "properties": {
