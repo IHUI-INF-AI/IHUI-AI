@@ -60,16 +60,8 @@
   ② `.github/workflows/db-from-zero-migrate.yml` 收尾步骤连着 `ihui_fz_base` 又 DROP 它自己
   → `cannot drop the currently open database` + exit 1,使**门体全绿也被判红**(今天 main 那条红即此);
   改为连维护库 `postgres`、跳过基库、清理失败只告警。
-- [ ] **留给 O18 门 owner 的决策(我不擅自改其不变式)**:该门还有一个**真实**发现 —— 迁移后库比 TS schema
-  多一张 `rag_chunks`。它由 `20260919090000`(带 pgvector 条件判断的 DO 块)与 ai-service
-  `pgvector_store.py` 运行时 `CREATE TABLE IF NOT EXISTS` 共同自管,Drizzle 侧无映射(且该列是**无界 `vector`**,
-  不是 `knowledge-rag.ts` 里那个 `vector1536`)。两条路各有代价:补 TS 声明会让下一次 `drizzle-kit generate`
-  产出 `CREATE TABLE rag_chunks`,在无 pgvector 扩展的环境上从"静默跳过"变成硬失败;不补则要为"多表"开豁免,
-  与脚本注释"多表一律不豁免"的原设计冲突。二选一需 owner 定。
-- [ ] **另一条与迁移无关但同轮发现、正在阻塞生产的问题**:`next build` 因
-  `apps/web/src/components/patrol/patrol-form-dialog.tsx:33` 引用的 `updatePatrolTask` 不存在连续 4 次失败,
-  部署脚本按设计"保持当前在线版本" → **web 侧当天合入的内容没上线**。属他人 in-flight 代码,按 AGENTS.md §12
-  我不代为修改,需该功能 owner 补导出或改引用。
+- [x] ✅(2026-09-21) **rag_chunks 漂移已按 owner 决策收口**:`scripts/check-migration-from-zero.mjs` 新增 `RUNTIME_MANAGED_TABLES = { rag_chunks }` 表级豁免(注释载明理由:该表由迁移 20260919090000 的条件 DO 块 + ai-service `pgvector_store.py` 运行期 `CREATE TABLE IF NOT EXISTS` 共同自管,列型为无界 `vector`,刻意不进 drizzle schema——声明进 schema 会让 `drizzle-kit generate` 产出无守卫 CREATE TABLE,在无 pgvector 环境从静默跳过变硬失败)。与 KNOWN_SCHEMA_HOLES「多表一律不豁免」不变式不冲突:那条保护的是 **drizzle 托管表**不被 schema 遗忘,本表从未被 drizzle 托管。镜像测试 +1 用例(16/16 绿),本地实跑 285/285 重放 + diff 空 = PASS(豁免只在有 pgvector 的环境命中)
+- [x] ✅(2026-09-21) **patrol 构建断链已根治并上线**(根因修正:`updatePatrolTask` 在 `packages/api-client/src/endpoints/patrol.ts:120` 一直存在,真正根因是生产机 `packages/*/dist` 不入库、停留在 09-14,api-client 新增 patrol 端点后 next build 解析旧 dist 报 "Export updatePatrolTask doesn't exist")。修复 = 部署脚本 `Build-Web` 前按拓扑序重建 6 个 dist 型 workspace 包(实测 shared 须排在 api-client 后);生产实测 2026-09-21 03:19 UTC 构建成功、`next start` 换新,`IHUI_BUILD_SHA=9bd7c8af35` 且此后 4 个 commit 均不触 web 路径(Get-BuildStale 正确跳过),`/`、`/patrol`、`/login` 三路径 200
 
 ## P0 2026-09-20 Windows 弹 git 黑窗根治(逐点收口 + 机器级默认值)
 
@@ -367,6 +359,31 @@
       "每轮先让模型判断要不要用工具",代价即上述首字延迟 —— 已留给 `CONTROL_AUTONOMY=always`。
       过程教训:本轮两次"没生效"都是我打到**并发会话抢同一 8803 端口的陈旧实例**(kill 时
       `netstat | head -1` 取到的是别人 0.0.0.0 那行的 PID),改私有端口后一次即通过。
+- [x] ✅(2026-09-21) E10 移动两族动词 4 → 7(把"所有输入框"真正接到移动端):
+      协议层一次性扩到位,端侧实现并行进行中(B10/B11 另两笔):
+      ① `packages/types`: `AppUiActionType`/`TaroUiActionType` 补 `click|fill|submit`,新增
+      `AppUiElement{...,writable?,pressable?}`,`AppUiSnapshot` 加 `elements`/`suppressed`;
+      ② ai-service `_FAMILIES` 改为携带各族动词表(`_APP_ACTIONS` 七项),按族裁工具注册;
+      ③ 三端客户端清单同步 7 项;④ **两个桥接层的动词表同时是入站过滤器** ——
+      `APP_UI_ACTIONS`/`TARO_UI_ACTIONS` 不扩到 7,注册表实现了也会被桥层丢弃(这就是端到端断链点);
+      ⑤ `CONTROL_AUTONOMY` 的 `_FAMILY_ACTIONS` 同步。
+      新增两条**常驻防漂移断言**取代此前的临时审计脚本:`test_client_tool_lists_match_registered_surface`
+      (Python 直接解析三端 TS 清单与注册面做双向差集)、`test_family_actions_match_registered_tools`
+      (族表必须等于真实注册面)。之所以必须常驻:上一轮的审计是一次性脚本,**我这次扩族它当场就过期了**。
+      另修 REST/v1 链一处自留口子:`_app_control_intent_tools` 原先**无条件**注入 `web_ui_*`,
+      而该链的 `session_id` 常解析不出 user_id(`_resolve_user_id` 是保守解析)—— UI 桥与 `api_*`
+      都靠 `__user_id` 定位身份,结果就是给外部 API Key 调用方一族**必然失败**的工具
+      (白烧上下文 + 换一次 PERMISSION_DENIED)。现无身份 ⇒ 一个都不给;主链的"按在线端注入"仍归
+      `control_autonomy`。
+      授权面同期重量(不改别人地盘,只把话说准):认机器凭据的仍是 **5 个路由文件**且逐路由 opt-in、
+      **无中央开关**;抽样 12 个代表性端点 **只有 1/12 返回 200**(还是公开的 articles),
+      `/api/conversations`、`/api/notifications`、`/api/agents`、`/api/user/profile` 等一律 401
+      ⇒ `API_TOOLS_MODE=all` 放开的是 4683 次**可发起**调用,不是数据可达性。放开它属
+      Agent 开放工程(O13/O19 在推进),不在本桥接改动范围。
+      证据:ai-service 100 项全绿(routing 31 含新增身份门 4 项、ui_action_bridge 26 含跨语言防漂移、
+      control_autonomy 20、conversation)、ruff + mypy --strict 零错;
+      RN 桥层 28 项(新增"click/fill/submit 必须放行到注册表")、taro 桥层 31 项;
+      api typecheck exit 0、`@ihui/types` build exit 0。
 - [x] ✅(2026-09-21) E8 web 侧覆盖面扩容(补齐"所有页面 + 所有输入框"里最硬的两块):
       ① **全站路由可检索**:新增 `apps/web/src/lib/ui-route-index.ts`,describe 支持可选
       `query`/`limit` —— 冷回执只暴露摘要 `{total:880, navigable:779, groups≤25 桶}`,
