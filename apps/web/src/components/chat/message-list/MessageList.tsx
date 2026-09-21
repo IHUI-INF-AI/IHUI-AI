@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowDown, ArrowUp, Loader2 } from 'lucide-react'
+import { ArrowDown, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 import type { ChatMessage } from '@/stores/chat'
@@ -122,8 +122,6 @@ export function MessageList({
     handleScroll,
     handleJumpToLatest,
     userScrolledUp,
-    userScrolledToTop,
-    setUserScrolledToTop,
     focusedIndex,
     isFarFromTop,
     isFarFromBottom,
@@ -417,21 +415,6 @@ export function MessageList({
         currentIndex={searchCurrentIndex}
         onNavigate={handleSearchNavigate}
       />
-      {userScrolledToTop && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            const el = containerRef.current
-            if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
-            setUserScrolledToTop(false)
-          }}
-          data-testid="message-list-jump-top"
-          aria-label={t('jumpToTop') === 'jumpToTop' ? 'Jump to top' : t('jumpToTop')}
-          className="pointer-events-auto absolute top-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
-        >
-          <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      )}
       {inlinePanelNode}
       {/* #18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问 */}
       <QueryThumbRail messages={messages} />
