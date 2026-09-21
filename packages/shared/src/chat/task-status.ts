@@ -53,7 +53,9 @@ export function fileBasename(path: string): string {
 }
 
 function countLines(text: string): number {
-  return text ? text.split('\n').length : 0
+  if (!text) return 0
+  // 文件末尾换行不构成额外一行,否则 "+4 行" 会把 3 行文件报成 4 行
+  return (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n').length
 }
 
 function extractDiffText(result: unknown): string {
@@ -73,6 +75,33 @@ export interface FileChangeStat {
 }
 
 /**
+ * 单个工具调用的文件增删统计;非写类工具或取不到路径时返回 null。
+ * 供 computeFileChanges 与跨端"工具行"展示共用,避免两套行数口径。
+ * 拿不到行数时仍产出条目(added/removed = -1),否则"改了哪些文件"的计数会被低估。
+ */
+export function fileChangeForCall(
+  toolName: string,
+  args: Record<string, unknown> | undefined,
+  result: unknown,
+): FileChangeStat | null {
+  if (!FILE_WRITE_TOOLS.has(toolName)) return null
+  const path = pickFilePath(args)
+  if (!path) return null
+  const name = fileBasename(path)
+  const newContent = readStringArg(args, NEW_CONTENT_KEYS)
+  const oldContent = readStringArg(args, OLD_CONTENT_KEYS)
+  if (newContent !== '' || oldContent !== '') {
+    return { path, name, added: countLines(newContent), removed: countLines(oldContent) }
+  }
+  const diff = extractDiffText(result)
+  // 排除 +++ / --- 文件头,只数真实增删行
+  const added = diff ? (diff.match(/^\+(?!\+\+)/gm) ?? []).length : 0
+  const removed = diff ? (diff.match(/^-(?!--)/gm) ?? []).length : 0
+  if (added + removed > 0) return { path, name, added, removed }
+  return { path, name, added: -1, removed: -1 }
+}
+
+/**
  * 从工具调用列表折叠出"本轮改了哪些文件、各多少行"。
  * 同一文件多次写入只保留首次命中(与消息级时间顺序一致)。
  */
@@ -81,32 +110,11 @@ export function computeFileChanges(toolCalls: readonly ToolCall[] | undefined): 
   if (!toolCalls) return out
   const seen = new Set<string>()
   for (const call of toolCalls) {
-    if (!FILE_WRITE_TOOLS.has(call.toolName)) continue
     if (call.status !== 'success' || call.error) continue
-    const path = pickFilePath(call.args)
-    if (!path || seen.has(path)) continue
-    seen.add(path)
-
-    const newContent = readStringArg(call.args, NEW_CONTENT_KEYS)
-    const oldContent = readStringArg(call.args, OLD_CONTENT_KEYS)
-    let added = -1
-    let removed = -1
-    if (newContent !== '' || oldContent !== '') {
-      added = countLines(newContent)
-      removed = countLines(oldContent)
-    } else {
-      const diff = extractDiffText(call.result)
-      if (diff) {
-        // 排除 +++ / --- 文件头,只数真实增删行
-        const diffAdded = (diff.match(/^\+(?!\+\+)/gm) ?? []).length
-        const diffRemoved = (diff.match(/^-(?!--)/gm) ?? []).length
-        if (diffAdded + diffRemoved > 0) {
-          added = diffAdded
-          removed = diffRemoved
-        }
-      }
-    }
-    out.push({ path, name: fileBasename(path), added, removed })
+    const change = fileChangeForCall(call.toolName, call.args, call.result)
+    if (!change || seen.has(change.path)) continue
+    seen.add(change.path)
+    out.push(change)
   }
   return out
 }
