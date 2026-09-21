@@ -7227,7 +7227,9 @@
       },
       "laneEmpty": "Idle",
       "viewToggle": "Toggle view",
-      "working": "{count} sub-agents collaborating"
+      "working": "{count} sub-agents collaborating",
+      "viewCanvas": "Canvas view",
+      "viewFeed": "List view"
     },
     "swarmMonitor": {
       "agentStatus": "Agent Status",
@@ -8918,7 +8920,10 @@
       "title": "Changes in this turn",
       "revert": "Revert this turn",
       "noCheckpoints": "No checkpoint available",
-      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone."
+      "revertConfirm": "This will restore the conversation and files to before this AI reply. All {count} file changes will be reverted. This cannot be undone.",
+      "changedFile": "Modified file",
+      "createdFile": "Created file",
+      "deletedFile": "Deleted file"
     },
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
@@ -9117,6 +9122,7 @@
       "shareCardUser": "User"
     },
     "fallbackNotice": "Switched to backup model {backup} (primary model {primary} temporarily unavailable)",
+    "fallbackNoticeQuota": "This answer was written by {backup}. The provider account behind {primary} ran out of quota, so the platform routed to an equivalent model in the same family.",
     "feedbackRecorded": "Feedback recorded",
     "foldPolicy": {
       "title": "Intermediate steps folding policy",
@@ -9445,6 +9451,8 @@
       "submit": "Submit Answer",
       "title": "AI needs your answer"
     },
+    "quotaExhaustedNotice": "The API account behind this model has used up its provider quota, and the platform already tried every other channel without success. This is not a problem with your own account. Please try again later, or switch to a model marked as free.",
+    "quotaExhaustedTitle": "Provider account quota used up",
     "realIntegratedTooltip": "Integrated: ai-service backend has the corresponding MCP tool, LLM can actually call it",
     "reconnectAttempt": "Attempt {n}, retrying in {ms}ms",
     "reconnecting": "Reconnecting",
