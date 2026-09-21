@@ -136,6 +136,25 @@ describe('TaskStatusBar - 空态门槛', () => {
     expect(bar().getAttribute('data-kind')).toBe('running')
     expect(screen.getByText('规划进度')).toBeTruthy()
   })
+
+  it('普通对话(非 agent 线程)流式 → 标题为"执行中",不得显示空闲态文案"等待任务开始"', () => {
+    // 模拟普通对话:chat 流式开启,agent 线程完全空闲
+    chat.isStreaming = true
+    progress.isStreaming = false
+    progress.currentTask = { kind: 'idle', label: '' }
+    render(<TaskStatusBar />)
+    expect(bar().getAttribute('data-kind')).toBe('running')
+    expect(screen.getByText('执行中')).toBeTruthy()
+    expect(screen.queryByText('等待任务开始')).toBeNull()
+  })
+
+  it('无步骤流式 → 不渲染步骤计数,不得出现"空闲"矛盾文案', () => {
+    progress.isStreaming = true
+    progress.currentTask = { kind: 'idle', label: '' }
+    render(<TaskStatusBar />)
+    expect(screen.queryByText('空闲')).toBeNull()
+    expect(screen.queryByText(/步骤 \d+\/\d+/)).toBeNull()
+  })
 })
 
 describe('TaskStatusBar - 数值与文案', () => {
