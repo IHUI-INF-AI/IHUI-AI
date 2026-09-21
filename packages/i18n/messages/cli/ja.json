@@ -3,7 +3,7 @@
     "notFound": "{target} が見つかりません"
   },
   "cli": {
-    "sessionResumed": "最近のセッションを復元: {id} ({count} 件の履歴)",
+    "sessionResumed": "最近のセッションを復元: {id} ({count, plural, =0 {履歴なし} other {# 件の履歴}})",
     "sessionResumedWithId": "セッションを復元: {id} ({count} 件の履歴)",
     "noSessions": "履歴セッションはありません",
     "errorPathIsDir": "パスはディレクトリです、ファイルではありません: {path}",
