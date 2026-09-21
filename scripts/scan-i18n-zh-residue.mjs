@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 通用 i18n 中文残留守门工具。
  * 替代 scan-zh-tw-simp.mjs (zh-TW) 与 scan-ko-zh-residue.mjs (ko) 两个专用脚本，
@@ -66,8 +65,12 @@ const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/
 // 这些值含汉字但非"中文残留",应跳过检测。
 // 典型场景:extension 端语言选择器显示 "简体中文/繁體中文/日本語" 等本名。
 const LANGUAGE_AUTOGLOSSONYMS = new Set([
-  '简体中文', '繁體中文', '繁体中文', '中文',
-  '日本語', '日本语',
+  '简体中文',
+  '繁體中文',
+  '繁体中文',
+  '中文',
+  '日本語',
+  '日本语',
 ])
 
 // 品牌名白名单(从 scripts/brand-glossary.json 的 brands 段加载)
@@ -106,8 +109,14 @@ function parseArgs(argv) {
       isReadme = true
     } else if (arg.startsWith('--target=')) {
       const val = arg.split('=')[1]
-      if (val === 'web' || val === 'extension' || val === 'shared') {
-        target = val
+      // 未知 target 以前会被静默丢掉 → 变成"扫 web",还打印"web/xx.json 无中文残留",
+      // 让人以为已经校验过 mobile-rn / miniapp-taro(2026-09-21 两个会话先后踩到)。
+      // 现在:支持全部语言包目录,未知值直接报错退出。
+      const ALLOWED = ['web', 'extension', 'shared', 'miniapp-taro', 'mobile-rn', 'cli', 'api']
+      if (ALLOWED.includes(val)) target = val
+      else {
+        console.error(`未知 --target=${val};可选:${ALLOWED.join(' | ')}(不再静默回落到 web)`)
+        process.exit(2)
       }
     } else if (arg.startsWith('--')) {
       // 忽略未知 flag，避免误判
@@ -260,7 +269,9 @@ function main() {
   const { locale, isStaged, isReadme, target } = parseArgs(process.argv.slice(2))
 
   if (!locale) {
-    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]')
+    console.error(
+      '用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]',
+    )
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
     console.error('  --readme: 扫描根目录 README.<locale>.md')
     console.error('  --target: web (默认) | extension | shared')
@@ -273,16 +284,16 @@ function main() {
   if (isReadme) {
     relPath = `README.${locale}.md`
     fileLabel = `README.${locale}.md`
-  } else if (target === 'extension') {
-    relPath = `packages/i18n/messages/extension/${locale}.json`
-    fileLabel = `extension/${locale}.json`
-  } else if (target === 'shared') {
-    relPath = `packages/i18n/messages/shared/${locale}.json`
-    fileLabel = `shared/${locale}.json`
-  } else {
+  } else if (target === 'web') {
     // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
     relPath = `packages/i18n/messages/web/${locale}.json`
     fileLabel = `web/${locale}.json`
+  } else {
+    // 其余端(shared / extension / miniapp-taro / mobile-rn / cli / api)同构:
+    // packages/i18n/messages/<target>/<locale>.json。以前只有 3 个 target 有分支,
+    // 传 miniapp-taro / mobile-rn 会静默落到 web 路径并报"无残留"。
+    relPath = `packages/i18n/messages/${target}/${locale}.json`
+    fileLabel = `${target}/${locale}.json`
   }
   const file = path.resolve(relPath)
 
