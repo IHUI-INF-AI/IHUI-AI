@@ -29,6 +29,7 @@ import type { FastifyInstance } from 'fastify'
 import { db } from '../db/index.js'
 import { aiBudgets, aiCostRecords, notifications, users } from '@ihui/database'
 import { sendEmail } from './email-service.js'
+import { renderSystemAlertEmail } from './email-templates.js'
 
 // ---------------------------------------------------------------------------
 // 常量
@@ -389,11 +390,18 @@ async function dispatchAlert(server: FastifyInstance, payload: AlertPayload): Pr
     })
     if (payload.email) {
       try {
+        const rendered = renderSystemAlertEmail({
+          severity: payload.severity,
+          source: 'BUDGET_ALERT',
+          time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+          title,
+          message: content,
+        })
         await sendEmail({
           to: payload.email,
-          subject: title,
-          html: `<h2>${title}</h2><pre>${content}</pre>`,
-          text: content,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
         })
       } catch (err) {
         server.log.warn({ err, userId: payload.userId }, 'budget alert email fallback failed')
