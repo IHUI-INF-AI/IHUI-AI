@@ -882,7 +882,14 @@
 - [x] ✅(2026-09-21) **D80 待自证定档完成**,四条判定全部出结论(报告 §14,逐条带我方代码文件:行):①**G-96 撤销**——`permission-mode-popover.tsx:76,88-100` 已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句 + `risk` 分级,我方**不缺失**;②**G-92 收窄为两态**——权限切换失败我方 `:231-242` 已有 toast **且带撤销动作(强于 Qoder 纯提示,属反超点,禁止"补齐"成弱版本)**,仍缺的是**模型切换失败**(grep 零命中)与**停止生成失败**(`use-chat` 仅 `isAbortError` 静默 return);③**G-95 重定义**——我方 `skill-library.tsx:257 tpl-polish` 是"插入润色模板",对手是"对草稿**就地改写 + 失败保稿**",差距按后者表述;④**G-110 转正**——`grep 'orchestration|workflow' apps/web/src/components/chat/` = **0**,工作流未内联进消息流;但 `MessageItem.tsx:37,920` 已内联渲染 `ArtifactCanvas`,证明"流内业务对象"通道已打通 → 属**增量**非新建
 - [ ] **D82 就地润色与失败保稿(G-95 重定义后)**:输入框草稿的一键润色(**改写当前内容**而非插入模板)+ 失败时**明确保留原稿**(`暂时无法润色提示词，草稿已保留。` 同族语义)+ 需要重启生效时的保稿提示。**复用**现有模板/命令基建,不新建提示词栈。**验收**:润色成功替换草稿 / 失败保留原稿 / 二次失败仍可重试 三用例
 - **D81 追加第 ⑦ 项(G-110 转正后)**:活动条目内**渲染 workflow**(步骤/泳道摘要 + 点击进全屏画布),落点复用 `ArtifactCanvas` 已验证的流内业务对象通道(`MessageItem.tsx:920` 同位),**禁止**新建第二套内联渲染栈
-- **H24 证伪判据纪律(本轮新增)**:凡差距条目写"我方缺失",登记时**必须同时给出一条可执行的证伪判据**(grep 命令或 `文件:行` 反证),否则不得入账——本轮 4 条自证里 **2 条是我方已有**(G-96 幻影、G-92 三连中之一连),不写判据就会直接产出错误任务
+- **H24 证伪判据纪律(本轮新增)**:凡差距条目写"我方缺失",登记时**必须同时给出一条可执行的证伪判据**(grep 命令或 `文件:行` 反证),否则不得入账——本轮 4 条自证里 **2 条是我方已有**(G-96 幻影、G-92 三连中之一连),不写判据就会直接产出错误任务。**H24 执行细则(第 13 轮补)**:证伪判据必须是**实际跑过并贴出结果**的命令,且要**覆盖多个可能落点目录**——对竞品的断言我逐条复现了,对**我方自身**"没有 X"的断言反而更易错(搜不到常常只是路径或命名猜错)。
+
+#### B4i 第 13 轮反向审计:对已登记断言的 3 条修正(报告 §15,判据均实测)
+
+- **D36 修正(撤销一半)**:草稿持久化**我方已实现且按会话隔离**——`message-input.tsx:125-133`(`chat:draft:{id}`,注释标 W26/27 2026-09-14)+ `stores/chat.ts:204,207,300-302`(`draftInput`/`draftAutoSend` 消费后置空)。**本任务范围缩为仅剩**:跨会话**输入历史上翻(↑↑ / prompt-history)**,判据 `grep 'ArrowUp|promptHistory|historyIndex'` 在 `message-input.tsx` 与 `use-message-send.ts` = **0 命中**。验收随之改为"历史上下翻 + 会话隔离 + 粘贴附件随行保留"
+- **D41 修正(降级为接线问题)**:Office 预览器**我方已存在**——`apps/web/src/components/media/FilePreview.tsx:27` 已把 `doc/docx/xls/xlsx/ppt/pptx` 归为 `'office'`,同目录有 `UnifiedViewer.tsx`。真正缺口:消息流内**没有调起它的入口**(`grep 'FilePreview|UnifiedViewer' components/chat components/ai` = 0)。故 D41 从"实现 Office 预览"改写为"**把产物卡接到既有预览器 + 补细粒度层级(pptx 讲者备注/xlsx sheet 选区/pdf 页码)**",**禁止**新建第二个预览器(共享层优先)
+- **D55 修正(改口径,避免重复实现)**:决策/理由展示**我方面板里已有**——`agent-task-progress-pane.tsx:557-559` 渲染 `step.decision ?? step.reason`、`agent-runtime-panel.tsx:38,173` 渲染 `permissionDecision`。差距精确表述为"**缺的是每条工具活动卡内联那一份,不是决策视图本身**";实现须**复用**既有字段与渲染组件,禁止新建第二套决策 UI(与 §12d 撞车风险)
+- 抽验确认无误的 3 条:D59(api-client 无 `queuePosition|queuedTurns|estimatedWait` = 0)、D63(全仓无 `reviewOnCommit|review_on_commit` = 0)、D44(抽样 `memory_context` 前端 0 命中)——**判据一并留档**,后续实现者不必重复验证
 
 ### 本轮(第四轮)交付状态
 
