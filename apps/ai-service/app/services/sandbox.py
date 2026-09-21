@@ -27,6 +27,76 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+def _exec_shell_detect_enabled_from_env() -> bool:
+    """批58 接线(对标 codex shell_detect.rs):经 shell_detect 派生执行 argv。
+
+    默认 off:走现状 create_subprocess_shell(逐字节等价);设为 on/1/true/yes 时
+    经 detect_shell_type + derive_exec_args 派生显式 argv,避免隐式 shell 差异。
+    """
+    return os.environ.get("EXEC_SHELL_DETECT_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _exec_capture_policy_enabled_from_env() -> bool:
+    """批58 接线(对标 codex exec.rs):输出捕获策略档位。
+
+    默认 off:输出原样返回(逐字节等价);设为 on/1/true/yes 时按
+    EXEC_CAPTURE_POLICY(默认 shell_tool)档位对 stdout/stderr 施加保留上限。
+    """
+    return os.environ.get("EXEC_CAPTURE_POLICY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _derive_windows_exec_args(command: str) -> list[str] | None:
+    """Windows 下经 shell_detect 派生显式执行 argv;off 或派生失败返回 None。
+
+    返回 None 时调用方回落 create_subprocess_shell,保证 off 路径与现状逐字节等价;
+    任何异常均降级返回 None(绝不阻塞命令执行)。
+    """
+    if not _exec_shell_detect_enabled_from_env():
+        return None
+    try:
+        from app.core.shell_detect import (
+            ShellType,
+            derive_exec_args,
+            detect_shell_type,
+            find_shell,
+        )
+
+        shell_path = find_shell(ShellType.Cmd) or os.environ.get("COMSPEC") or "cmd.exe"
+        shell_type = detect_shell_type(shell_path)
+        argv = derive_exec_args(shell_type, shell_path, command)
+        return argv if argv else None
+    except Exception as e:  # noqa: BLE001 - 派生失败降级回落现状
+        logger.warning("shell_detect 派生失败(回落 create_subprocess_shell): %s", e)
+        return None
+
+
+def _apply_exec_capture_policy(stdout: str, stderr: str) -> tuple[str, str]:
+    """按 ExecCapturePolicy 档位对输出施加保留上限(仅 on 时调用)。
+
+    未配置上限或档位无上限时原样返回;异常降级原样返回(绝不吞掉输出)。
+    """
+    try:
+        from app.core.exec_params import ExecCapturePolicy
+
+        raw = os.environ.get("EXEC_CAPTURE_POLICY", ExecCapturePolicy.SHELL_TOOL.value)
+        policy = ExecCapturePolicy(raw.strip())
+        cap = policy.retained_bytes_cap()
+        if cap is None:
+            return stdout, stderr
+        if len(stdout) > cap:
+            stdout = stdout[:cap] + "\n…[输出已按捕获策略截断]"
+        if len(stderr) > cap:
+            stderr = stderr[:cap] + "\n…[输出已按捕获策略截断]"
+        return stdout, stderr
+    except Exception as e:  # noqa: BLE001 - 策略应用失败降级原样返回
+        logger.warning("输出捕获策略应用失败(降级原样返回): %s", e)
+        return stdout, stderr
+
+
 class SandboxError(Exception):
     """沙箱安全异常(灾难性命令拦截,2026-07-22 立)。"""
 
@@ -218,13 +288,25 @@ class SandboxExecutor:
             full_env = {**os.environ, **env} if env else None
             if sys.platform == "win32":
                 # Windows: shell 内置命令需用 shell 执行
-                proc = await asyncio.create_subprocess_shell(
-                    command,
-                    cwd=workdir,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    env=full_env,
-                )
+                # 批 58:EXEC_SHELL_DETECT_ENABLED on 时经 shell_detect 派生 argv(cmd.exe /c),
+                # 行为等价于 create_subprocess_shell;off 或派生失败走现状,逐字节等价。
+                derived = _derive_windows_exec_args(command)
+                if derived is not None:
+                    proc = await asyncio.create_subprocess_exec(
+                        *derived,
+                        cwd=workdir,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=full_env,
+                    )
+                else:
+                    proc = await asyncio.create_subprocess_shell(
+                        command,
+                        cwd=workdir,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
+                        env=full_env,
+                    )
             else:
                 # Unix: 用 exec 避免 shell 注入(参数已通过白黑名单过滤)
                 args = shlex.split(command)
@@ -251,6 +333,9 @@ class SandboxExecutor:
                 )
             stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
             stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
+            # 批58:EXEC_CAPTURE_POLICY_ENABLED on 时按档位施加输出保留上限
+            if _exec_capture_policy_enabled_from_env():
+                stdout, stderr = _apply_exec_capture_policy(stdout, stderr)
             return SandboxResult(
                 exit_code=proc.returncode if proc.returncode is not None else 0,
                 stdout=stdout,
