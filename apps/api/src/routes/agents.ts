@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
-import { checkAuth } from '../plugins/auth.js'
+import { authenticate, checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
@@ -88,6 +88,38 @@ function toInt(v: string | undefined): number | undefined {
 }
 
 // =============================================================================
+// 市场公开视图(2026-09-21):游客可浏览市场列表/分类/已发布详情
+// 兑现 2026-08-12 "/agents/stats 公开,与 /agents 列表一致" 的本意 —— 此前列表实际一直 401。
+// 游客视图双约束(handler 内强制,不在鉴权层):
+//   1. 只见已发布(published)数据;2. 响应经 sanitizePublicAgent 脱敏。
+// =============================================================================
+
+/** 游客不可见的敏感/内部字段:提示词全文、Coze bot 配置、工作区/备注等 */
+const PUBLIC_AGENT_OMIT_KEYS = [
+  'agentVersion',
+  'agentPrompt',
+  'agentModel',
+  'agentTemperature',
+  'agentMaxTokens',
+  'agentVariables',
+  'botId',
+  'botIdStr',
+  'botName',
+  'publishChannel',
+  'cozeAccountId',
+  'workspaceId',
+  'remark',
+  'suggestedQuestions',
+] as const
+
+/** 剥离游客不可见字段,其余原样保留(展示字段 name/desc/avatar/cover/price/统计数等) */
+export function sanitizePublicAgent<T extends Record<string, unknown>>(row: T): T {
+  const copy = { ...row }
+  for (const k of PUBLIC_AGENT_OMIT_KEYS) delete copy[k]
+  return copy
+}
+
+// =============================================================================
 // Zod schemas（M-63 补建端点）
 // =============================================================================
 
@@ -148,6 +180,25 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (url === '/api/agents/stats') {
       return
     }
+    // 2026-09-21:市场浏览公开化 —— 列表 /agents(/list)、分类 /categories/list、
+    // 详情 /agents/:agentId 的 GET 对游客开放(桌面端/首页未登录点进市场不再 401)。
+    // 有有效登录态则照常注入 userId(完整视图);无凭据/凭据失效则静默按游客处理,
+    // 由各 handler 强制"仅 published + sanitizePublicAgent 脱敏"。
+    // 注意:/agents/my 命中详情正则但 handler 自带未登录 401,行为不变。
+    const isMarketPublicGet =
+      request.method === 'GET' &&
+      (url === '/api/agents' ||
+        url === '/api/agents/list' ||
+        url === '/api/categories/list' ||
+        /^\/api\/agents\/[^/]+$/.test(url))
+    if (isMarketPublicGet) {
+      try {
+        await authenticate(request)
+      } catch {
+        // 游客视图:不发送响应、不注入 userId,handler 按游客约束返回公开数据
+      }
+      return
+    }
     if (!(await checkAuth(request, reply))) return
   })
 
@@ -178,14 +229,20 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         keyword: z.string().optional(),
       })
       .parse(request.query)
+    // 游客视图(2026-09-21 市场公开化):强制仅 published,忽略自定义 status/userId 过滤,
+    // 并对响应脱敏。登录用户行为不变。
+    const isGuest = !request.userId
     const result = await listAgents({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
-      status: q.status,
+      status: isGuest ? 'published' : q.status,
       categoryId: q.categoryId,
-      userId: q.userId,
+      userId: isGuest ? undefined : q.userId,
       keyword: q.keyword,
     })
+    if (isGuest) {
+      return reply.send(success({ ...result, list: result.list.map(sanitizePublicAgent) }))
+    }
     return reply.send(success(result))
   }
   server.get('/agents', handleListAgents)
@@ -248,7 +305,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
     const detail = await getAgentDetail(agentId)
-    if (!detail) return reply.status(404).send(error(404, '智能体不存在'))
+    // 游客视图(2026-09-21 市场公开化):仅已发布可见,响应脱敏(不含 prompt/bot 配置)
+    if (!detail?.agent) return reply.status(404).send(error(404, '智能体不存在'))
+    if (!request.userId) {
+      if (detail.agent.status !== 'published')
+        return reply.status(404).send(error(404, '智能体不存在'))
+      return reply.send(success(sanitizePublicAgent(detail.agent)))
+    }
     return reply.send(success(detail.agent))
   })
 
