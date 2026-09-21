@@ -21,6 +21,9 @@ export {
   extractAgentId,
   getSSEErrorInfo,
   formatSSEError,
+  // 厂商账号额度耗尽稳定码 + 同族等效替换 reason(2026-09-22 批次 60 前端配套)
+  PROVIDER_QUOTA_EXHAUSTED,
+  FALLBACK_REASON_QUOTA_EQUIVALENT,
   mergeAbortSignals,
   postToolResult,
   // 2026-08-14 补充 re-export:401 自动续期全局单例,web useAuthBootstrap 复用
