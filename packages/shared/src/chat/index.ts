@@ -6,3 +6,5 @@
 export * from './render-model'
 // 任务进度状态条派生层(跨端单一真相源:纯函数,无平台依赖)
 export * from './task-status'
+// 工具码名 → i18n 键展示映射(界面禁止直显英文工具码名)
+export * from './tool-display'

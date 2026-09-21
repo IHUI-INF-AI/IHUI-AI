@@ -12,6 +12,7 @@ import {
   computeFileChanges,
   computeFileChangesFromDiff,
   deriveTaskStatusBar,
+  toolDisplayKey,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
@@ -139,6 +140,11 @@ export function TaskStatusBar() {
     if (!isStreaming) return ''
     switch (currentTask.kind) {
       case 'tool':
+        // 界面禁止直显英文工具码名:优先用工具功能名(如 read_file → "读取文件内容")
+        if (currentTask.toolName) {
+          const displayKey = toolDisplayKey(currentTask.toolName)
+          if (displayKey) return t(displayKey)
+        }
         if (currentTask.mcpName) return t('activityMcp', { mcp: currentTask.mcpName })
         if (currentTask.pluginName) return t('activityPlugin', { plugin: currentTask.pluginName })
         return t('activityTool', { tool: currentTask.toolName ?? '' })
