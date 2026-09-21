@@ -70,7 +70,9 @@ def _timeout_seconds() -> float:
     try:
         return max(_MIN_TIMEOUT_S, float(raw))
     except ValueError:
-        logger.warning("[ui_bridge] UI_ACTION_TIMEOUT 非数值(%s),回退默认 %.0fs", raw, _DEFAULT_TIMEOUT_S)
+        logger.warning(
+            "[ui_bridge] UI_ACTION_TIMEOUT 非数值(%s),回退默认 %.0fs", raw, _DEFAULT_TIMEOUT_S
+        )
         return _DEFAULT_TIMEOUT_S
 
 
@@ -338,35 +340,46 @@ def register_ui_action_tools() -> int:
 # ---------------------------------------------------------------------------
 # RN / 微信小程序 工具族(2026-09-21 立,AGENTS.md §9 多端同步)
 # ---------------------------------------------------------------------------
-# 与 web 族共用 _ui_call(身份剥离 / fail-closed / 超时 / 钉定),只有 category、
-# 工具前缀与动作集合不同。RN 与小程序没有 DOM,故**只有四个动作**
-# (describe/navigate/read/invoke):没有 click/fill/submit 不是偷懒 —— 那三个动作
-# 在无 DOM 端必须由业务组件逐个暴露写入通道才成立,不在本次范围。
+# 与 web 族共用 _ui_call(身份剥离 / fail-closed / 超时 / 钉定),只有 category、工具前缀与
+# 动作集合不同。动作集与 web 同为七个 —— 但定位机理不同:web 靠 DOM 查询,无 DOM 端只能由
+# 业务组件在挂载时把 onPress / 写入通道交给端内控件注册表(mobile-rn 的 ui-field-registry、
+# miniapp-taro 的 ui-field-registry)。注册表里没有对应控件、或组件没交出通道,端上就如实回
+# UNSUPPORTED_ACTION。宁可失败,也不能"回了 ok 而界面没动"。
 
 _FAMILY_RN = "mobile"
 _FAMILY_TARO = "taro"
 
-# family → (category, 工具前缀, 端说明)
-_FAMILIES: dict[str, tuple[str, str, str]] = {
-    _FAMILY_RN: ("app_ui", "mobile_ui_", "React Native App"),
-    _FAMILY_TARO: ("miniapp_ui", "taro_ui_", "微信小程序"),
+# 与 packages/types 的 AppUiActionType 一一对应
+_APP_ACTIONS = ("describe", "navigate", "read", "invoke", "click", "fill", "submit")
+
+# family → (category, 工具前缀, 端说明, 动作集合)
+_FAMILIES: dict[str, tuple[str, str, str, tuple[str, ...]]] = {
+    _FAMILY_RN: ("app_ui", "mobile_ui_", "React Native App", _APP_ACTIONS),
+    _FAMILY_TARO: ("miniapp_ui", "taro_ui_", "微信小程序", _APP_ACTIONS),
 }
 
 
-def _app_tools(family: str) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]]:
-    """一个 app 端的四工具定义 + handler(动作集固定为 describe/navigate/read/invoke)。"""
-    category, prefix, label = _FAMILIES[family]
+def _app_tools(
+    family: str,
+) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]]:
+    """一个 app 端的工具定义 + handler(动作集取自 _FAMILIES[family],与端内白名单一致)。"""
+    category, prefix, label, actions = _FAMILIES[family]
     offline_hint = (
         "该端切到后台会挂起导致 TARGET_NOT_CONNECTED,这属常态:"
         "遇到时提示用户把" + label + "切到前台并保持打开,再重试,不要谎称已完成。"
+    )
+    _field_desc = (
+        f"目标取自 {prefix}describe 返回的 registry.elements[].id(也可用可见标签文本精确匹配)。"
     )
     specs: list[tuple[str, str, dict[str, Any]]] = [
         (
             "describe",
             f"[UI桥接|{label}] 列举{label}可导航到的页面清单(含是否需要参数、是否 tab 页)、"
-            f"可调用命令与当前所在页。返回 {{result:{{registry:{{screen,routes,commands,authed}}}}}};"
-            "authed=false 表示未登录,此时绝大多数页面未挂载,跳转会静默失败。"
-            + offline_hint,
+            f"可调用命令、当前屏上可操控的控件与当前所在页。"
+            "返回 {result:{registry:{screen,routes,commands,elements,suppressed,authed}}};"
+            "elements[] 是 fill/click/submit 的定位来源(writable=false 的填不了,"
+            "pressable=false 的点不了,别硬试);authed=false 表示未登录,此时绝大多数页面未挂载,"
+            "跳转会静默失败。" + offline_hint,
             {"type": "object", "properties": {}},
         ),
         (
@@ -383,8 +396,14 @@ def _app_tools(family: str) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Aw
             {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": f"页面名(来自 {prefix}describe 的 routes)"},
-                    "args": {"type": "object", "description": "路由参数(按页面 requiresParams 提供)"},
+                    "name": {
+                        "type": "string",
+                        "description": f"页面名(来自 {prefix}describe 的 routes)",
+                    },
+                    "args": {
+                        "type": "object",
+                        "description": "路由参数(按页面 requiresParams 提供)",
+                    },
                 },
                 "required": ["name"],
             },
@@ -400,12 +419,58 @@ def _app_tools(family: str) -> list[tuple[MCPTool, Callable[[dict[str, Any]], Aw
                 "required": ["name"],
             },
         ),
+        (
+            "click",
+            f"[UI桥接|{label}] 触发当前屏上的一个按钮/可点控件。"
+            + _field_desc
+            + "组件没交出 onPress 的控件不入表,会返回 UNSUPPORTED_ACTION;"
+            "删除/支付/提现/注销类控件被刻意屏蔽(误触即不可逆),不要重试,交回用户手动完成。"
+            + offline_hint,
+            {
+                "type": "object",
+                "properties": {"target": {"type": "string", "description": _field_desc}},
+                "required": ["target"],
+            },
+        ),
+        (
+            "fill",
+            f"[UI桥接|{label}] 填写当前屏上的输入框。"
+            + _field_desc
+            + "只有 writable=true 的控件可填:受控输入必须由父组件交出 onChangeText,"
+            "否则如实 UNSUPPORTED_ACTION(不会假装成功)。密码/验证码框连 describe 都不出现。"
+            "填写生效与否以返回的 valueAfter 为准(受控控件的值要等父组件回流才变)。" + offline_hint,
+            {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": _field_desc},
+                    "value": {"type": "string", "description": "要写入的文本"},
+                },
+                "required": ["target", "value"],
+            },
+        ),
+        (
+            "submit",
+            f"[UI桥接|{label}] 提交当前屏上注册过的表单。"
+            + _field_desc
+            + "没有表单注册过会如实返回 UNSUPPORTED_ACTION,不会退化成「随便点一个按钮」。"
+            + offline_hint,
+            {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "表单 id 或标签,可省略"}
+                },
+            },
+        ),
     ]
     out: list[tuple[MCPTool, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]]] = []
     for action, description, input_schema in specs:
+        if action not in actions:
+            continue
         out.append(
             (
-                MCPTool(name=f"{prefix}{action}", description=description, input_schema=input_schema),
+                MCPTool(
+                    name=f"{prefix}{action}", description=description, input_schema=input_schema
+                ),
                 _make_ui_handler(action, category, prefix),
             )
         )
@@ -416,7 +481,7 @@ def register_app_ui_tools() -> int:
     """注册 RN / 小程序 UI 桥接工具(APP_UI_TOOLS=false 时全关并清旧)。"""
     if os.environ.get("APP_UI_TOOLS", "true").strip().lower() in {"false", "0", "no", "off"}:
         logger.info("[ui_bridge] APP_UI_TOOLS 关闭,跳过 RN/小程序 UI 桥接注册")
-        for _category, prefix, _label in _FAMILIES.values():
+        for _category, prefix, _label, _actions in _FAMILIES.values():
             unregister_external_tool_by_prefix(prefix)
         return 0
     count = 0
@@ -427,4 +492,6 @@ def register_app_ui_tools() -> int:
     if count:
         logger.info("[ui_bridge] RN/小程序 UI 动作桥接注册完成: %d 个工具", count)
     return count
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
