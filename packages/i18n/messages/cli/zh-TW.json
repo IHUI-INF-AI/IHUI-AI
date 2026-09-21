@@ -3,7 +3,7 @@
     "notFound": "找不到 {target}"
   },
   "cli": {
-    "sessionResumed": "恢復最近工作階段: {id} ({count} 則紀錄)",
+    "sessionResumed": "恢復最近工作階段: {id} ({count, plural, =0 {尚無紀錄} other {{count} 則紀錄}})",
     "sessionResumedWithId": "恢復工作階段: {id} ({count} 則紀錄)",
     "noSessions": "暫無歷史工作階段",
     "errorPathIsDir": "路徑是目錄,不是檔案: {path}",
