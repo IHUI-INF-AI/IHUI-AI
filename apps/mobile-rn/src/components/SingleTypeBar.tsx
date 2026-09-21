@@ -29,6 +29,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { useUiTextField } from '../lib/use-ui-text-field'
 
 export interface SingleTypeBarItem {
   id: string
@@ -87,6 +88,12 @@ export function SingleTypeBar({
 }: SingleTypeBarProps): React.JSX.Element {
   const [customizeVisible, setCustomizeVisible] = useState(false)
   const [customizeName, setCustomizeName] = useState('')
+  useUiTextField({
+    label: '请输入种类',
+    value: customizeName,
+    setValue: setCustomizeName,
+    maxLength: 4,
+  })
 
   const selectedIdSet = new Set<string>(selectedIds ?? [])
   const allActive = isSingleSelect ? selectedId === '' : (selectedIds?.length ?? 0) === 0

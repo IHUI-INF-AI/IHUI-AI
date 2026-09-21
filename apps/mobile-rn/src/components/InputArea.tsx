@@ -48,6 +48,7 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   FileText,
@@ -264,6 +265,13 @@ export function InputArea({
   collapseButtonLabel,
 }: InputAreaProps) {
   const insets = useSafeAreaInsets()
+  useUiTextField({
+    label: placeholder ?? '',
+    value,
+    setValue: onChangeText,
+    multiline: true,
+    maxLength,
+  })
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
