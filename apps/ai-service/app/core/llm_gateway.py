@@ -399,6 +399,101 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
 }
 
 
+def _llm_responses_headers_enabled_from_env() -> bool:
+    """Responses 模型级 header 注入开关(批58 接线,对标 codex responses_headers.rs)。
+
+    默认 off:请求头与接线前逐字节一致;设为 on/1/true/yes 时于 call_kwargs 装配末尾
+    经 build_responses_headers 追加 beta 特性头 / turn-state sticky 头。
+    """
+    return os.environ.get("LLM_RESPONSES_HEADERS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _llm_responses_assembly_enabled_from_env() -> bool:
+    """Responses 请求装配开关(批58 接线,对标 codex responses_request_assembly.rs)。
+
+    默认 off:不追加 stream_options(逐字节一致);设为 on/1/true/yes 时于流式
+    装配处经 build_stream_options 追加推理摘要投递选项(三条件齐备才产出)。
+    """
+    return os.environ.get("LLM_RESPONSES_ASSEMBLY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _llm_provider_config_enabled_from_env() -> bool:
+    """provider 强类型配置归一开关(批58 接线)。
+
+    默认 off:api_base 原样透传(逐字节一致);设为 on/1/true/yes 时经
+    ProviderConfig 校验并去掉 api_base 末尾斜杠(避免拼接出 //v1 双斜杠)。
+    """
+    return os.environ.get("LLM_PROVIDER_CONFIG_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _apply_responses_headers(call_kwargs: dict[str, Any]) -> None:
+    """批58:把 build_responses_headers 产出的头并入 call_kwargs['extra_headers']。
+
+    与 apply_provider_headers 一样合并在调用方 kwargs 之后,避免被整体覆盖;
+    任何异常均降级跳过,绝不改变既有头、绝不阻塞请求。
+    """
+    try:
+        from app.core.responses_headers import build_responses_headers
+
+        beta_raw = os.environ.get("LLM_CODEX_BETA_FEATURES", "")
+        beta_features = [s.strip() for s in beta_raw.split(",") if s.strip()]
+        turn_state = os.environ.get("LLM_CODEX_TURN_STATE", "").strip() or None
+        extra = build_responses_headers(beta_features=beta_features, turn_state=turn_state)
+        if not extra:
+            return
+        merged = dict(call_kwargs.get("extra_headers") or {})
+        merged.update(extra)
+        call_kwargs["extra_headers"] = merged
+    except Exception as e:  # noqa: BLE001 - 头注入失败降级跳过
+        logger.warning("responses_headers 注入失败(降级跳过): %s", e)
+
+
+def _apply_responses_stream_options(call_kwargs: dict[str, Any]) -> None:
+    """批58:流式装配处追加 build_stream_options 产出的流选项。
+
+    仅在三个条件(并发推理摘要开关开启 + OpenAI 系 + 存在推理摘要)齐备时才产出
+    非空值;未产出时不写键(逐字节等价)。异常降级跳过。
+    """
+    try:
+        from app.core.responses_request_assembly import build_stream_options
+
+        model = str(call_kwargs.get("model") or "")
+        is_openai = (not model.startswith("anthropic/")) and "gemini/" not in model
+        opts = build_stream_options(
+            concurrent_reasoning_summaries_enabled=os.environ.get(
+                "LLM_CONCURRENT_REASONING_SUMMARIES", "false"
+            ).strip().lower()
+            in ("on", "1", "true", "yes"),
+            is_openai=is_openai,
+            reasoning_summary_present=bool(call_kwargs.get("reasoning_effort")),
+        )
+        if opts:
+            call_kwargs["stream_options"] = opts
+    except Exception as e:  # noqa: BLE001 - 流选项注入失败降级跳过
+        logger.warning("responses stream_options 注入失败(降级跳过): %s", e)
+
+
+def _normalize_provider_api_base(api_base: str | None) -> str | None:
+    """批58:经 ProviderConfig 强类型校验归一门禁 api_base(去末尾斜杠)。
+
+    off 由调用方保证不进入此函数;校验失败时返回原值(降级,绝不改坏地址)。
+    """
+    try:
+        from app.core.provider_config import ProviderConfig
+
+        cfg = ProviderConfig(api_base=api_base)
+        return cfg.api_base
+    except Exception as e:  # noqa: BLE001 - 校验失败降级返回原值
+        logger.warning("provider_config 归一失败(降级返回原值): %s", e)
+        return api_base
+
+
 def _model_to_provider_code(model: str) -> str:
     m = model.lower()
     for prefix, code in _PREFIX_TO_PROVIDER_CODE.items():
@@ -1331,6 +1426,11 @@ class LLMGateway:
         cfg = settings.get_provider_config("openai")
         return cfg.api_key or None, cfg.api_base or None, model
 
+# ============================================================================
+# 批 58:provider_config 强类型配置接线(env LLM_PROVIDER_CONFIG_ENABLED,默认 off)
+# ============================================================================
+
+
     async def _get_provider(
         self,
         model: str,
@@ -1357,6 +1457,9 @@ class LLMGateway:
             api_key, api_base, _, _ = await self._resolve(model, owner_uuid)
         if not api_key:
             return None
+        # 批 58:on 时用 ProviderConfig 强类型校验归一 api_base(去末尾斜杠);off 原样透传
+        if _llm_provider_config_enabled_from_env():
+            api_base = _normalize_provider_api_base(api_base)
         try:
             # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
             from ..providers import get_provider as _get_native_provider
@@ -1639,6 +1742,9 @@ class LLMGateway:
             # 表头必须在调用方 kwargs 合并之后再合,否则会被调用方的
             # extra_headers 整个覆盖掉(env_headers 的值只存在于服务端环境变量)
             apply_provider_headers(call_kwargs, provider_code)
+            # 批58:Responses 模型级 header 注入(默认 off,on 时才追加)
+            if _llm_responses_headers_enabled_from_env():
+                _apply_responses_headers(call_kwargs)
             # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
@@ -2253,8 +2359,18 @@ class LLMGateway:
             if api_key and api_key not in ("no-key-required", "free"):
                 call_kwargs["api_key"] = api_key
             if api_base:
-                call_kwargs["api_base"] = api_base
+                # 批58:LLM_PROVIDER_CONFIG_ENABLED on 时经强类型配置归一(去末尾斜杠)
+                call_kwargs["api_base"] = (
+                    _normalize_provider_api_base(api_base)
+                    if _llm_provider_config_enabled_from_env()
+                    else api_base
+                )
             call_kwargs.update(kwargs)
+            # 批58:Responses header 注入 + 流式装配流选项(默认 off,on 时才追加)
+            if _llm_responses_headers_enabled_from_env():
+                _apply_responses_headers(call_kwargs)
+            if _llm_responses_assembly_enabled_from_env():
+                _apply_responses_stream_options(call_kwargs)
             # 按 capability 过滤不支持的参数(stream_usage/tools/response_format/temperature)
             filter_call_kwargs(call_kwargs, provider_code, used_model)
             # P3-3(2026-07-30):openrouter/ 前缀请求临时设置专用代理
