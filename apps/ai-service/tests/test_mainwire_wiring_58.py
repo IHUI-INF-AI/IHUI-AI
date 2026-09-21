@@ -46,8 +46,28 @@ def _make_loop(**kwargs: Any) -> AgentLoopV2:
     return AgentLoopV2(**base)
 
 
+_LOOP: asyncio.AbstractEventLoop | None = None
+
+
 def _run(coro: Any) -> Any:
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # 顺序耦合修复(单独跑通过 / 全量跑 RuntimeError):同套件内任一 pytest-asyncio
+    # 用例 teardown 会 asyncio.set_event_loop(None),此后本文件同步用例再调已废弃的
+    # asyncio.get_event_loop() 即抛 "There is no current event loop in thread
+    # 'MainThread'"。改为自建并复用**同一个**模块级循环——test_retained_* 在同一用例内
+    # 三次驱动同一 AgentEngine/thread 状态,必须共享循环(不能用 asyncio.run 逐次新建)。
+    global _LOOP
+    if _LOOP is None or _LOOP.is_closed():
+        _LOOP = asyncio.new_event_loop()
+    return _LOOP.run_until_complete(coro)
+
+
+def teardown_module() -> None:
+    """关闭模块级循环,避免泄漏给后续文件。"""
+    global _LOOP
+    if _LOOP is not None and not _LOOP.is_closed():
+        _LOOP.close()
+    _LOOP = None
+
 
 
 def _capture_messages(loop: AgentLoopV2, **kwargs: Any) -> list[dict[str, Any]]:
@@ -176,7 +196,7 @@ def test_retained_off_no_ledger(monkeypatch):
         return L()
 
     engine = AgentEngine(loop_factory=noop_factory)
-    resp = asyncio.get_event_loop().run_until_complete(
+    resp = _run(
         engine.handle_message({"jsonrpc": "2.0", "id": 1, "method": "thread.start", "params": {}})
     )
     tid = resp["result"]["threadId"]
@@ -208,7 +228,7 @@ def test_retained_on_records_prompts(monkeypatch):
         return L()
 
     engine = AgentEngine(loop_factory=fake_loop_factory)
-    resp = asyncio.get_event_loop().run_until_complete(
+    resp = _run(
         engine.handle_message({"jsonrpc": "2.0", "id": 1, "method": "thread.start", "params": {}})
     )
     tid = resp["result"]["threadId"]
@@ -218,7 +238,7 @@ def test_retained_on_records_prompts(monkeypatch):
     async def no_emit(p):
         return None
 
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         engine._run_prompt_turn(thread, "remember this instruction", no_emit)
     )
     entries = engine.retained_context_entries(thread)
@@ -226,7 +246,7 @@ def test_retained_on_records_prompts(monkeypatch):
     assert entries[0]["text"] == "remember this instruction"
 
     # 空文本不记录
-    asyncio.get_event_loop().run_until_complete(
+    _run(
         engine._run_prompt_turn(thread, "   ", no_emit)
     )
     assert len(engine.retained_context_entries(thread)) == 1
@@ -245,7 +265,7 @@ def test_retained_rollback(monkeypatch):
         return L()
 
     engine = AgentEngine(loop_factory=noop_factory)
-    resp = asyncio.get_event_loop().run_until_complete(
+    resp = _run(
         engine.handle_message({"jsonrpc": "2.0", "id": 1, "method": "thread.start", "params": {}})
     )
     tid = resp["result"]["threadId"]
