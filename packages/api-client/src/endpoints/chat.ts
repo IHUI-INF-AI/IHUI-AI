@@ -57,6 +57,10 @@ export interface ChatMessageMetadata {
   toolCalls?: Array<Record<string, unknown>>
   /** D24:终端任务持久化数组(结构与 @ihui/types TerminalTask 对齐) */
   terminalTasks?: Array<Record<string, unknown>>
+  /** planSteps(2026-09-21 立):计划快照持久化数组(结构与 @ihui/types PlanStep 对齐)。
+   *  来源:ai-service plan_updated 同源快照 → /api/ai/callback → worker 浅合并落库;
+   *  消费:web 历史水合映射回 message.planSteps(缺失 = 老消息,安静降级) */
+  planSteps?: Array<Record<string, unknown>>
   [key: string]: unknown
 }
 
