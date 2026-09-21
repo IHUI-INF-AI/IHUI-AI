@@ -973,6 +973,8 @@
 
 - **D83 / D81① 首批落地(2026-09-22 第 27 轮)**:双时态措辞**机制**已在共享层跑通 —— 新增 `packages/shared/src/chat/tool-activity.ts`:`toolActivityKey()`(活动键 = 功能名键 + `Activity`)+ `describeToolActivity({toolName,state,translate})`,**退回链钉死为"活动键 ICU → 中性功能名 → 原始码名"**,并内置 `looksLikeUnrenderedIcu()` 防线:某端引擎没渲染 ICU 时**宁可退回中性名也绝不把 `{state, select, …}` 吐到界面**(这条正是守门 59 拦的事故在运行时的第二层保险)。键约定 `taskStatus.toolXActivity = {state, select, running {…} completed {…} other {…}}`(一语义一键,H28 口径)。**首批六工具 × 五语言已入库**:read/edit/write/searchCodebase/webSearch/parseDocument,措辞与各家既有中性名的术语一致(zh-TW 用「檔案」、ja 用 て形/た形 + 「中」、ko 用 는 중/했습니다)。测试 `packages/shared/src/chat/__tests__/tool-activity.test.ts` 10 例(含"回显键名退回"、"ICU 未渲染退回"、"未登记工具退码名"、以及**逐语言断言 running≠completed 且无语法残迹**)。验证:`packages/shared` tsc 0 错 + eslint 0 问题 + 10/10 用例;跑 `pnpm gen:i18n` 同步小程序离线包后,i18n parity 15746 键 OK、`tool-display-resolvable` 3094 项 OK、`tool-name-coverage` 86/86、守门 58 覆盖 54,668 条文案 0 误伤、守门 59 现报"含 ICU 键 40 个"(原 10,+30 = 6 键 × 5 语言,数得上)。**剩余(机械活,非设计问题)**:其余 ~85 个功能名的 `*Activity` 键待补;`toolActivityKeyList()` 已给出期望清单可直接当覆盖率分母,建议下一步把它做成守门(与 55/56 同族)以断言"新增工具不补双时态即红"。UI 接线(把 `describeToolActivity` 接进 `MessageItem`/`tool-call-card`/cli TUI)属 B2,须与 D34 的 item 级时间戳一并做,否则活动条只有动词没有耗时。
 
+- **D83 覆盖率闸已落地(2026-09-22 第 29 轮)**:`scripts/check-tool-activity-coverage.mjs`(guardian 第 **60** 项 blocking)两类判定——① **键形**:凡 `taskStatus.*Activity` 必须五语言齐,且值是含 `running{}/completed{}/other{}` 三支的 ICU select(半套措辞比不补更糟:某语言会恒显示"正在…"或整条空白),一律红;② **覆盖率 ratchet**:`scripts/data/tool-activity-coverage.json` 的 `floor=6`,只挡回落不挡增长,逐批补时上调 floor 并在提交说明写数量变化。`--scaffold` 输出待补清单(现 **85/91 待补**);`--self-test` 7 例覆盖三类必红与"未配置不算形错"必绿。抽取到的功能名数 **91** 与守门 56 报的"91 个工具功能名"互相印证(同一事实源)。UI 接线属 B2,须与 D34 的 item 级时间戳同批,否则活动条只有动词没有耗时。
+
 ### 本轮(第四轮)交付状态
 
 
