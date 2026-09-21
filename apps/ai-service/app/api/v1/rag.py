@@ -22,9 +22,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
+from ...core.jwt_auth import resolve_request_user_id
 from ...services.rag import rag_service
 
 router = APIRouter()
@@ -81,7 +82,7 @@ async def rag_query(req: RAGQueryRequest) -> dict[str, Any]:
 
 
 @router.post("/rag/documents")
-async def rag_add_document(req: RAGDocumentRequest) -> dict[str, Any]:
+async def rag_add_document(req: RAGDocumentRequest, request: Request) -> dict[str, Any]:
     """向 RAG 知识库添加文档。"""
     try:
         await rag_service.add_document(
@@ -89,6 +90,7 @@ async def rag_add_document(req: RAGDocumentRequest) -> dict[str, Any]:
             content=req.content,
             role=req.role,
             metadata=req.metadata,
+            user_id=resolve_request_user_id(request),
         )
         return {
             "code": 0,
