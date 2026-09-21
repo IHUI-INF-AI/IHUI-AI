@@ -24,6 +24,7 @@ import { eq } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { users, userEmails } from '@ihui/database'
 import { logger } from '../utils/logger.js'
+import { renderLowBalanceEmail } from './email-templates.js'
 
 // =============================================================================
 // 常量与配置
@@ -97,45 +98,24 @@ export async function sendLowBalanceMail(params: SendLowBalanceMailParams): Prom
       auth: { user, pass },
     })
 
-    const subject = '【智汇AI】您的 API Key 余额不足，请及时充值'
-    const yuan = (params.costBalanceCents / 100).toFixed(2)
-    const thresholdYuan = (params.thresholdCents / 100).toFixed(2)
     const purchaseUrl = `${PURCHASE_BASE_URL}/purchase`
 
-    const text = [
-      `尊敬的用户${params.userName ? `（${params.userName}）` : ''}：`,
-      '',
-      `您的 API Key「${params.keyName}」当前余额已不足，为避免调用中断请尽快充值。`,
-      '',
-      '当前余额：',
-      `  · Token 余额：${params.tokenBalance}`,
-      `  · 金额余额：¥${yuan}（${params.costBalanceCents} 分，阈值 ¥${thresholdYuan}）`,
-      '',
-      `立即充值：${purchaseUrl}`,
-      '',
-      '— 智汇AI 团队',
-    ].join('\n')
-
-    const html = [
-      '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6">',
-      `  <p>尊敬的用户${params.userName ? `（${params.userName}）` : ''}：</p>`,
-      `  <p>您的 API Key <strong>「${params.keyName}」</strong> 当前余额已不足，为避免调用中断请尽快充值。</p>`,
-      '  <p>当前余额：</p>',
-      '  <ul>',
-      `    <li>Token 余额：${params.tokenBalance}</li>`,
-      `    <li>金额余额：¥${yuan}（${params.costBalanceCents} 分，阈值 ¥${thresholdYuan}）</li>`,
-      '  </ul>',
-      `  <p><a href="${purchaseUrl}">立即充值</a></p>`,
-      '  <p>— 智汇AI 团队</p>',
-      '</div>',
-    ].join('\n')
+    // 「智汇通报」品牌模板(与事务邮件同一设计语言)
+    const rendered = renderLowBalanceEmail({
+      userName: params.userName,
+      keyName: params.keyName,
+      tokenBalance: params.tokenBalance,
+      costBalanceCents: params.costBalanceCents,
+      thresholdCents: params.thresholdCents,
+      purchaseUrl,
+    })
 
     await transporter.sendMail({
       from,
       to: recipients.join(','),
-      subject,
-      text,
-      html,
+      subject: rendered.subject,
+      text: rendered.text,
+      html: rendered.html,
     })
     return true
   } catch (err) {
