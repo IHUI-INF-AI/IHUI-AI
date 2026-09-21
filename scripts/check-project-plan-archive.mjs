@@ -56,7 +56,9 @@ const C = {
 function extractCompletedTaskHeadings(content) {
   if (!content) return []
   return content
-    .split('\n')
+    // HEAD blob 是 LF、本机 worktree 是 CRLF(§26/gitattributes 归一化只在写库时发生)。
+    // 不剥 \r 的话同一标题在两侧字符串不等,全量模式会把"21 条已完成"整批误报成被删除。
+    .split(/\r?\n/)
     .filter((line) => line.startsWith('### '))
     .filter((line) => line.includes('已完成') || line.includes('✅'))
 }
