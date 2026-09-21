@@ -4068,7 +4068,8 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
     """图片 provider 自动切换链(2026-09-08 全模态自动切换,对标 video 编排)。
 
     顺序:env `IMAGE_PROVIDER`(逗号分隔,顺序即优先级)缺省
-    token6688 → stepfun → agnes → kling → jimeng,仅保留凭据已配置的。
+    token6688 → agnes → kling → jimeng,仅保留凭据已配置的。
+    (2026-09-21 移除 stepfun:官方 /v1/models 无文生图模型,原硬编码 step-1v-8k 不在售,生图必失败)
     显式指定 provider 时:已配置 → 提到链首(用户意图优先);未配置 → 保持自动链
     (与 video_generation 显式 provider 未配置时降级全链的行为一致)。
     """
@@ -4079,7 +4080,7 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
             if name == "token6688":
                 cfg = settings.get_provider_config("token6688")
                 return bool(cfg.api_key or os.environ.get("TOKEN6688_API_KEY", ""))
-            if name in ("stepfun", "agnes"):
+            if name == "agnes":
                 return bool(settings.get_provider_config(name).api_key)
             if name == "kling":
                 from ..providers import KlingProvider
@@ -4095,9 +4096,9 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
 
     raw = os.environ.get("IMAGE_PROVIDER", "").strip()
     order = [p.strip() for p in raw.split(",") if p.strip()] or [
-        "token6688", "stepfun", "agnes", "kling", "jimeng",
+        "token6688", "agnes", "kling", "jimeng",
     ]
-    chain = [n for n in order if n in ("token6688", "stepfun", "agnes", "kling", "jimeng") and _has_creds(n)]
+    chain = [n for n in order if n in ("token6688", "agnes", "kling", "jimeng") and _has_creds(n)]
     if explicit:
         if explicit in chain:
             chain = [explicit] + [n for n in chain if n != explicit]
@@ -4124,11 +4125,9 @@ async def _image_generate_once(
             api_base += "/v1"
         api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
         model = os.environ.get("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
-    elif provider == "stepfun":
-        cfg = settings.get_provider_config("stepfun")
-        api_key = cfg.api_key
-        api_base = cfg.api_base or "https://api.stepfun.com/step_plan/v1"
-        model = "step-1v-8k"
+        # 2026-09-21:官方 gpt-image-2.5 系列参数表无 size(官方用 aspect_ratio/resolution),
+        # 旧版固定注入 size 会被提交前校验拦截,不再发送
+        payload: dict[str, Any] = {"prompt": prompt, "model": model, "n": 1}
     elif provider == "agnes":
         cfg = settings.get_provider_config("agnes")
         api_key = cfg.api_key
@@ -4141,6 +4140,7 @@ async def _image_generate_once(
             str(arguments.get("model") or "").strip()
             or os.environ.get("AGNES_IMAGE_MODEL", "agnes-image-2.5-flash")
         )
+        payload = {"prompt": prompt, "model": model, "size": size, "n": 1}
     else:
         # kling/jimeng 走 providers 包原生真实适配器(可灵 JWT / 即梦 Ark Bearer)
         return await _tool_image_generation_native(prompt, provider, size, save_path, arguments)
@@ -4164,8 +4164,6 @@ async def _image_generate_once(
             if _meta.get("max_prompt_chars"):
                 _ps["_max_prompt_chars"] = _meta["max_prompt_chars"]
             _chk: dict[str, Any] = {}
-            if size:
-                _chk["size"] = size
             _issues = _t6688_catalog.validate_generation_params(
                 _ps, _chk, prompt=str(prompt), linkages=_meta.get("linkages"),
             )
@@ -4195,7 +4193,7 @@ async def _image_generate_once(
         async with httpx.AsyncClient(timeout=90.0) as client:
             resp = await client.post(
                 endpoint,
-                json={"prompt": prompt, "model": model, "size": size, "n": 1},
+                json=payload,
                 headers={"Authorization": f"Bearer {api_key}"},
             )
         if resp.status_code >= 400:
@@ -4260,7 +4258,7 @@ async def _image_generate_once(
 
         return {
             "tool": "image_generation", "ok": True, "prompt": prompt,
-            "image_url": image_url, "size": size,
+            "image_url": image_url, "size": payload.get("size"),
             "provider": provider, "model": model,
             "saved_path": saved_path, "file_size_bytes": file_size_bytes,
             "created_at": datetime.now(UTC).isoformat(),
@@ -4280,7 +4278,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """image_generation: 生成图片(多 provider 统一编排 + 运行时自动故障转移)。
 
     2026-09-08 全模态自动切换升级:
-    - provider 链:IMAGE_PROVIDER env(缺省 token6688 → stepfun → agnes → kling → jimeng),
+    - provider 链:IMAGE_PROVIDER env(缺省 token6688 → agnes → kling → jimeng),
       仅保留凭据已配置的;首选失败自动换下一家(含 401/402/429/5xx/超时),全失败才报错
     - 显式 provider 已配置 → 提到链首;未配置 → 自动链兜底(兼容旧降级语义)
     - 返回带 failover_attempts(每次尝试的 provider/errorCode 摘要),对话侧可如实转述
@@ -4288,8 +4286,6 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """
     prompt = arguments.get("prompt", "")
     size = arguments.get("size", "1024x1024")
-    quality = arguments.get("quality", "standard")
-    style = arguments.get("style", "natural")
     provider = arguments.get("provider")  # None=自动:按链逐家尝试
     save_path = arguments.get("save_path")
 
@@ -4299,7 +4295,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "saved_path": None,
         }
-    _ALLOWED = ("token6688", "stepfun", "agnes", "kling", "jimeng")
+    _ALLOWED = ("token6688", "agnes", "kling", "jimeng")
     if provider is not None and provider not in _ALLOWED:
         return {
             "tool": "image_generation", "ok": False,
@@ -4325,7 +4321,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "provider": provider or "auto", "saved_path": None,
             "errorCode": "PROVIDER_NOT_CONFIGURED",
             "message": "未配置任何图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 "
-                       "token6688 / stepfun / agnes 的 api_key,或 KLING_*/ARK_* 凭据",
+                       "token6688 / agnes 的 api_key,或 KLING_*/ARK_* 凭据",
         }
 
     attempts: list[dict[str, str]] = []
@@ -4334,8 +4330,6 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if result.get("ok"):
             if attempts:
                 result["failover_attempts"] = attempts
-            result.setdefault("quality", quality)
-            result.setdefault("style", style)
             return result
         attempts.append({
             "provider": name,
@@ -7426,7 +7420,7 @@ _TOOLS: list[MCPTool] = [
         name="image_generation",
         description=(
             "生成图片,返回图片 URL 或 base64 data URI。多 provider 统一编排 + 运行时自动故障转移:"
-            "token6688(聚合网关单 key 全模态,默认首选)→ stepfun → agnes → kling(可灵 Kolors)→ "
+            "token6688(聚合网关单 key 全模态,默认首选)→ agnes → kling(可灵 Kolors)→ "
             "jimeng(即梦),按 IMAGE_PROVIDER env 或已配置凭据自动排序,首选失败(401/402/429/5xx/超时)"
             "自动换下一家,返回带 failover_attempts 明细。"
             "2026-07-24 升级:支持 save_path 落地文件系统(b64_json 解码或 URL 下载),"
@@ -7439,23 +7433,14 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "图片描述(必填)"},
                 "size": {
                     "type": "string",
-                    "description": "图片尺寸(默认 1024x1024)",
+                    "description": "图片尺寸(默认 1024x1024;token6688 gpt-image-2.5 系列"
+                                   "不支持该参数,官方用 aspect_ratio)",
                     "default": "1024x1024",
-                },
-                "quality": {
-                    "type": "string",
-                    "enum": ["standard", "hd"],
-                    "default": "standard",
-                },
-                "style": {
-                    "type": "string",
-                    "enum": ["natural", "vivid"],
-                    "default": "natural",
                 },
                 "provider": {
                     "type": "string",
-                    "enum": ["stepfun", "agnes", "token6688", "kling", "jimeng"],
-                    "default": "stepfun",
+                    "enum": ["token6688", "agnes", "kling", "jimeng"],
+                    "default": "token6688",
                 },
                 "model": {
                     "type": "string",
