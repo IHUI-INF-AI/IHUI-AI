@@ -181,17 +181,40 @@ export interface ComputerClipboardSetParams {
 // ================== Web UI Control(由 web 前端执行,2026-09-20 立)==================
 
 /**
- * 移动端(React Native)可控动作类别(2026-09-21 立,§9 多端同步)。
+ * 移动端(React Native)可控动作类别(2026-09-21 立,同日补齐 click/fill/submit)。
  *
- * 与 web 的 UiControlActionType 不相交:RN 没有 DOM,click/fill/submit 不成立,
- * 只保留"导航到已注册 Screen / 读当前路由 / 调用 setter 型命令 / 列举可去处"四个动作。
+ * 七个动词与 web 同形,但**定位方式完全不同**:web 靠 DOM 查询,RN 渲染原生视图没有 DOM,
+ * click/fill 只能靠组件在挂载时把 onPress / 写入通道交给端内控件注册表
+ * (apps/mobile-rn/src/lib/ui-field-registry.ts)。注册表里没有对应控件、或组件没交出通道,
+ * 就如实返回 UNSUPPORTED_ACTION —— 不存在"回了 ok 而界面没动"。
  * 单独占一个 category('app_ui')而非复用 'ui',是因为 api 侧 category→endpoint 是一对一,
  * 同一用户 web 与 RN 同时在线时必须各投各的端(否则指令会被随机一端吃掉)。
  */
-export type AppUiActionType = 'describe' | 'navigate' | 'read' | 'invoke'
+export type AppUiActionType =
+  'describe' | 'navigate' | 'read' | 'invoke' | 'click' | 'fill' | 'submit'
 
-/** 小程序端(Taro)可控动作:与 RN 同四项,但单独占 category='miniapp_ui'(见上段注释的 1:1 择端约束) */
+/** 小程序端(Taro)可控动作:与 RN 同七项,但单独占 category='miniapp_ui'(见上段注释的 1:1 择端约束) */
 export type TaroUiActionType = AppUiActionType
+
+/**
+ * 无 DOM 端describe 交出的**控件**条目(与 web 的 elements 同形,便于模型同一套用法)。
+ * 只有真正挂载并交出通道的控件才会出现在这里;敏感框(密码/验证码)根本不入表。
+ */
+export interface AppUiElement {
+  /** 稳定 id(如 'fld:input#3'),单调递增且永不复用 —— 卸载后重填会如实报未找到 */
+  id: string
+  kind: 'input' | 'button' | 'form'
+  label: string
+  value?: string
+  /** 约束提示,如 'multiline' / 'maxLength=50' / 'keyboardType=numeric' */
+  constraint?: string
+  group?: string
+  disabled?: boolean
+  /** fill 是否可用:组件没交出合法写入 path 时为 false */
+  writable?: boolean
+  /** click 是否可用:没挂 onPress 时为 false */
+  pressable?: boolean
+}
 
 /** RN 端 web_ui_describe 的应答快照:路由清单 + 可调用命令 + 当前路由 */
 export interface AppUiSnapshot {
@@ -201,6 +224,10 @@ export interface AppUiSnapshot {
   commands: { id: string; label: string; group: string }[]
   /** 未登录时只挂 3 条 Screen,其余会静默失败 —— 用该字段告诉模型真实可用面 */
   authed: boolean
+  /** 当前屏上可操控的控件(输入框/按钮/表单);没挂注册表的旧端缺省不返回 */
+  elements?: AppUiElement[]
+  /** 超出快照上限被挤掉的控件数:让模型知道"还有,只是没列出来",而不是以为页面就这么大 */
+  suppressed?: number
 }
 
 /**
