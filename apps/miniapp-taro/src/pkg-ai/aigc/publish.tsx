@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Input, Textarea, Button, Image, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -43,6 +44,30 @@ export default function AigcPublish() {
   const [fileList, setFileList] = useState<UpFile[]>(params.fileList)
   const [uploading, setUploading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // AI 操控通道(2026-09-21):作品发布的三个文本字段(标题/简介/提示词)交出各自 setter。
+  // 发布动作本身对外且不可撤回 → 不注册 onPress / submit,由用户自己点。
+  useUiField({
+    kind: 'input',
+    label: t('aigc.publish.titleLabel'),
+    placeholder: t('aigc.publish.titlePlaceholder'),
+    maxLength: 50,
+    readValue: () => title,
+    setValue: setTitle,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: t('aigc.publish.descLabel'),
+    placeholder: t('aigc.publish.descPlaceholder'),
+    readValue: () => desc,
+    setValue: setDesc,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: t('aigc.publish.promptLabel'),
+    placeholder: t('aigc.publish.promptPlaceholder'),
+    readValue: () => prompt,
+    setValue: setPrompt,
+  })
 
   const coverUrl = useMemo(() => {
     const img = fileList.find((f) => f.type === 'image')

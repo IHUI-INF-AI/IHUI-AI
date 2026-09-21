@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Button, Textarea, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { submitFeedback } from '@/api'
 import { uploadPictures } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -26,6 +27,23 @@ export default function Feedback() {
   )
   const [content, setContent] = useState('')
   const [contact, setContact] = useState('')
+  // AI 操控通道(2026-09-21):反馈正文与联系方式都是普通业务输入,交出组件已绑定的 setter;
+  // 提交按钮(发送对外)不注册,由用户自己点。
+  useUiField({
+    kind: 'textarea',
+    label: tt('feedback.content', '内容'),
+    placeholder: tt('feedback.contentPlaceholder', '请输入反馈详情'),
+    maxLength: MAX_CONTENT,
+    readValue: () => content,
+    setValue: setContent,
+  })
+  useUiField({
+    kind: 'input',
+    label: tt('feedback.contact', '联系方式'),
+    placeholder: tt('feedback.contactPlaceholder', '请输入联系方式(选填)'),
+    readValue: () => contact,
+    setValue: setContact,
+  })
   const [activeType, setActiveType] = useState('suggestion')
   const [images, setImages] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
