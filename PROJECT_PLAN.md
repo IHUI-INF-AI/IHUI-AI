@@ -27,8 +27,44 @@
 ### 验证证据(2026-09-21)
 - [x] `pnpm openapi:check-drift` → ✅ OpenAPI 契约与代码一致(path 3780 / operation 4765)
 - [x] `apps/api` `vitest run tests/o10b-run-ref-and-cursor.test.ts` → 40 passed(回捞前 1 failed)
-- [x] mimo 官方 `/v1/models` 与 `/chat/completions` 实连 200;DashScope 新 key `/models` 200
+- [x] mimo 官方 `/v1/models` 实连 200(模型清单可读);DashScope 新 key `/models` 200 / 260 模型。**更正**:2026-09-21 二轮实测两家**聊天调用**都卡在账号余额 — DashScope `400 Arrearage`、MiMo `402 Insufficient account balance`,不再是 401/404 类配置错
 - [x] api / web `tsc --noEmit` 本任务文件 0 错误(唯一残留报错在其他会话在飞的 `agent-control.ts` `ext_ui`,不属本任务范围)
+
+### 二轮:额度感知改道 + 端上运行时取证 + 遗留项归属重判(2026-09-21 追加,3 个并行代理)
+
+- **额度感知自动改道(提交 `4489d01a01`)**:`is_quota_exhaustion_error` 用"状态码 + 额度错误码"双条件
+  (402 单独成立;400/429 必须同时命中 `Arrearage`/`InsufficientBalance`/`insufficient_quota`/`quota exceeded`/
+  `余额不足`/`欠费`;401/403/404/408/5xx 一律不算,避免把参数错、上下文超长误判成没钱),接进唯一既有的
+  `FallbackRouter.complete_with_fallback` 链路(complete / astream / `_astream_fallback_events` 三处只多传
+  `primary_error`),闸门从 `fallback_router._configs` 放宽为 `configs or is_quota_exhaustion_error` ——
+  否则 qwen 没配静态 fallbacks 时根本进不了改道链路。欠费厂商写进既有 `_health`(DOWN + PAYMENT_REQUIRED,
+  TTL = 既有 5 分钟探测周期),**充值后自动恢复**,无新增持久化状态;错误只回 `模型[厂商]=错误码`,不透传原始响应体。
+- **两处"照文档猜"被真实数据推翻并修正**:① 测试里标注"实测响应"的 DashScope 文案其实虚构,已换成直连抓回的
+  原始响应体,并补 `in good standing` / `overdue-payment` 两个 marker(经中转层常只剩文案、丢掉 `code` 字段);
+  ② 选择器发的是**裸模型 id**,而 `_PREFIX_TO_PROVIDER_CODE` 缺 mimo、`_resolve_provider` 前缀链缺 qwen/mimo 分支
+  (与 2026-08-13 修 `deepseek-`/`glm-` 同型)→ 两家"列表里选得到、一调用即 LiteLLM Provider NOT provided 502"。
+  补齐后真实链路实测:`qwen-plus` → 真欠费 + 归因 `qwen-plus[qwen]=in good standing`;`mimo-v2.5` → 上游 402 +
+  归因 `mimo-v2.5[mimo]=http_402`;`openrouter/qwen/qwen3-30b-a3b` → **HTTP 200 真实补全**(不充值也能用 qwen 系模型的正解)。
+- **mimo 配置行凭据配对修复(生产数据写入,已备份可回滚)**:`ai_model_config` id=29 的 `base_url` 已是公网
+  `api.xiaomimimo.com/v1`,但库里存的仍是算力计划域名专用的 `tp-c7***51`(公网只认 `sk-`)→ 一路 401。
+  用 apps/api 同一套 `encryptField`(AES-256-GCM)把 `.env` 里那把 `sk-cz***up` 写回并回读校验一致;
+  旧密文备份在 `.ihui-agent/env-backup/mimo-row-29-*.json`。实测改前 401 / 改后 402(鉴权已通过,只剩余额)。
+- **端上运行时取证(item 3)**:浏览器 8801 → Next 反代 → ai-service `/api/llm/models` HTTP 200,
+  选择器 DOM 实际渲染出 `Mimo V2.5 / Pro / Tts / Voiceclone / Voicedesign / mimo-v2.5-free`;顺带查出
+  mimo 落在"历史模型"区而非默认列表的根因(`CURATED_LATEST` 缺小米条目 → `unclassified-default` → tier=standard),
+  已补条目 + 防回潮用例(提交 `fc1d42b082`,私有端口实例实测 tier 转 `latest`,取证后按 PID 精确关停)。
+- **遗留项归属重判(item 4,推翻本会话一处旧结论)**:用 `git worktree add --detach` 到纯 HEAD 做基线对照,
+  34 例 pytest 失败**两侧逐条相同** → 不是"并行会话在途改动"(此前归因错误)。分类:C 类 30 例 = pytest-asyncio
+  teardown `set_event_loop(None)` 与后续裸 `get_event_loop()` 的跨文件污染(mainwire 已修,7 红 → 0);
+  B 类 4 例 = `agent_loop_v2.py` 读 `_executed_tool_calls` 而测试手工装配漏设(文件在他人脏清单内,只登记未动);
+  另 20 例 = **我删 stepfun 欠的账**(生图测试按真实语义重写,20 红 → 55 绿,零用例删除)。
+- **门禁口径修复 2 处**:`watermark.mjs verify` 改按 `git ls-files` 判定(本机原报"23363/25367 + 30 损坏 + 1974 未覆盖"
+  全在未跟踪的 `.ihui-agent/**`,CI 干净树恒绿 → 纯本机假红),并用 `clean`→`inject` 反向证明真损坏照样 exit 1(`93c44557df`);
+  PROJECT_PLAN 归档守卫 13c 全量模式的 CRLF 假红(`011ab402b8`)。
+- **未闭环(需要钱,不是代码)**:阿里云百炼与小米 MiMo 两个账号都是**余额/欠费**状态。代码侧已做到:
+  额度类错误一定自动改道、改不到同名通道时点名归因;不充值走 qwen 系模型的可用通道实测为 openrouter(54 行)/
+  token6688(9)/cloudflare_workers_ai(4)/groq(1)/siliconflow(2)/opencode_zen(2)/siliconcloud(1)。
+  另:`mimo-v2.5-free` 这个 id 在公网端点回 `Unsupported model`(免费别名不在该 endpoint 售卖面)。
 
 ---
 
