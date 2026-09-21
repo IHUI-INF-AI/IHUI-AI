@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "top.aizhs.app",
+      "sha256_cert_fingerprints": [
+        "7A:4E:D2:BC:E4:86:47:52:9C:0E:0F:AF:A1:87:7F:83:11:18:19:EC:0C:5C:22:4E:E5:29:C9:B8:DD:3B:A0:15"
+      ]
+    }
+  }
+]

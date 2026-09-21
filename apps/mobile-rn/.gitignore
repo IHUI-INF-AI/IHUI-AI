@@ -1,0 +1,14 @@
+# Expo prebuild 生成的原生目录(EAS Build 时重新生成)
+/android
+/ios
+
+# Expo
+/.expo
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# IDE
+.idea
+.vscode

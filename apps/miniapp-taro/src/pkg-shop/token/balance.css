@@ -1,0 +1,180 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/*
+ * 样式对齐 RN 端 TokenValueScreen(apps/mobile-rn/src/screens/TokenValueScreen.tsx
+ * → packages/app/src/features/token-value/TokenValueScreen.tsx + StudyBar)。
+ * 换算规则:RN raw 数字 M(dp) → M*2 rpx;颜色 rnLightTokens → 语义 CSS 变量:
+ *   surface.bg → --color-background   surface.card → --color-card
+ *   brand.DEFAULT → --color-primary   text.primary → --color-foreground
+ *   text.secondary → --color-muted-foreground   text.tertiary → --color-text-tertiary
+ *   border.light → --color-border     brandAccent.DEFAULT → --color-brand-accent
+ * 暗色修正:RN balanceCard/StudyBar 用 surface.light 作文字/激活底,暗色下不可读,
+ *   按语义 token 改用 --color-primary-foreground / --color-muted(报告已注明)。
+ */
+
+.token-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-background);
+  /* 对齐 RN contentContainer paddingBottom 32 (dp→rpx 1:2) */
+  padding-bottom: 64rpx;
+}
+
+/* ===== 顶部余额卡片(对齐 RN balanceCard: 品牌色底 + 对比字) ===== */
+.balance-card {
+  margin: 20rpx;
+  /* 对齐 RN padding 14 / borderRadius 12 (dp→rpx 1:2) */
+  padding: 28rpx;
+  background: var(--color-primary);
+  border-radius: 24rpx;
+}
+.balance-label {
+  display: block;
+  /* 对齐 RN balanceLabel fontSize 14 (dp→rpx 1:2);暗色用 primary-foreground 保证对比度 */
+  font-size: 28rpx;
+  color: var(--color-primary-foreground);
+}
+.balance-value {
+  display: block;
+  /* 对齐 RN balanceValue marginTop 8 / fontSize 32 / fontWeight 700 (dp→rpx 1:2) */
+  margin-top: 16rpx;
+  font-size: 64rpx;
+  font-weight: 700;
+  color: var(--color-primary-foreground);
+}
+
+/* ===== 功能按钮组(智能体消耗 / 大模型消耗,对齐 RN tabRow 形态) ===== */
+.func-bar {
+  display: flex;
+  align-items: center;
+  /* 对齐 RN tabRow gap 8 + marginBottom 12 (dp→rpx 1:2) */
+  gap: 16rpx;
+  padding: 40rpx 20rpx 24rpx;
+  box-sizing: border-box;
+}
+.func-btn {
+  /* 对齐 RN tabItem paddingH 14 / height 30 / borderRadius 12 (dp→rpx 1:2) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60rpx;
+  padding: 0 28rpx;
+  border-radius: 24rpx;
+  box-sizing: border-box;
+  background: var(--color-card);
+  text-align: center;
+}
+.func-btn Text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+.func-btn.active {
+  /* 对齐 RN tabItemActive brand 底;暗色文字用 primary-foreground 保证对比度 */
+  background: var(--color-primary);
+}
+.func-btn.active Text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+}
+
+/* ===== 时间区间 Tab(对齐 RN wrapper StudyBar: 分段容器 + 等宽 Tab) ===== */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  /* 对齐 RN StudyBar wrapper marginBottom 9 + studyBarWrap paddingHorizontal 32 (dp→rpx 1:2) */
+  margin: 0 32rpx 18rpx;
+  padding: 4rpx;
+  border-radius: 16rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  box-sizing: border-box;
+}
+.tab-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 52rpx;
+  margin: 0 6rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  /* 对齐 RN tabTextActive fontSize 16 (dp→rpx 1:2) */
+  font-size: 32rpx;
+  color: var(--color-text-tertiary);
+}
+.tab-item.active {
+  /* RN tabActive 用 surface.light,亮色与容器同色、暗色不可读;
+     按语义修正为 muted 底,保证明暗两态激活态可辨(报告已注明) */
+  background: var(--color-muted);
+  color: var(--color-foreground);
+  font-weight: 700;
+}
+
+/* ===== 记录列表(对齐 RN recordItem + ItemSeparator) ===== */
+.records-section {
+  margin: 24rpx 20rpx 0;
+}
+.record-item {
+  /* 对齐 RN recordItem padding 14 / borderRadius 16 / border 1 (dp→rpx 1:2) */
+  padding: 28rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 2rpx solid var(--color-border);
+  border-radius: 32rpx;
+  margin-bottom: 24rpx;
+  background: var(--color-card);
+  box-sizing: border-box;
+}
+.record-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  /* 对齐 RN recordTime marginTop 8 (dp→rpx 1:2) */
+  margin-top: 16rpx;
+}
+.record-title {
+  display: block;
+  /* 对齐 RN recordTitle fontSize 14 / fontWeight 600 (dp→rpx 1:2) */
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.record-time {
+  /* 对齐 RN recordTime fontSize 11 (dp→rpx 1:2) */
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+.record-count {
+  /* 对齐 RN amountRed(brandAccent)/ amount fontSize 16 / fontWeight 700 (dp→rpx 1:2) */
+  font-size: 32rpx;
+  color: var(--color-brand-accent-deep);
+  font-weight: 700;
+}
+
+.load-more {
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+.empty-text {
+  display: block;
+  text-align: center;
+  /* 对齐 RN empty paddingVertical 32 / fontSize 14 (dp→rpx 1:2) */
+  padding: 64rpx 0;
+  font-size: 28rpx;
+  color: var(--color-text-tertiary);
+}
+/* ⁠​ */
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -1,0 +1,90 @@
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+name: Golden E2E Regression
+
+# =============================================================================
+# 黄金 E2E 每周回归(PROJECT_PLAN 0-2 / H1)
+#
+# 跑 apps/ai-service/bench/run_golden_e2e.py(golden executor,跳过 agent 循环
+# 直评 fixtures_golden 参考答案,无真实 LLM / 网络 / API key 依赖):
+# - golden 直评(检查器全过)+ review 断言(step evidence / decision 完整)
+#   + checkpoint 断言(save → list → restore → 回滚恢复文件状态);
+# - --min-pass-rate 门槛退出码 1 阻塞(门禁语义与 run_bench 一致)。
+#
+# 触发:每周一 03:00 北京时间(UTC 周日 19:00)定时 + workflow_dispatch 手动。
+# runner 的 pytest 单测(tests/test_golden_e2e.py)已由 ci-monorepo 的
+# test-python job 覆盖,本 workflow 只跑独立回归 runner 本体。
+# =============================================================================
+
+on:
+  schedule:
+    - cron: '0 19 * * 0' # UTC 周日 19:00 = 北京周一 03:00
+  workflow_dispatch:
+    inputs:
+      min-pass-rate:
+        description: 'CI 门禁最低通过率(0.0~1.0)'
+        required: false
+        default: '0.9'
+      tasks:
+        description: '逗号分隔的任务 id 列表(留空跑全部任务)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: golden-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  golden-e2e:
+    name: 黄金 E2E 回归(golden executor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        working-directory: apps/ai-service
+        run: uv pip install --system -e ".[dev]"
+
+      - name: 运行黄金 E2E runner
+        working-directory: apps/ai-service
+        env:
+          # 定时触发无 inputs,回退默认门禁 0.9(PROJECT_PLAN H1:通过率 ≥90%)
+          MIN_PASS_RATE: ${{ inputs.min-pass-rate || '0.9' }}
+          TASKS: ${{ inputs.tasks || '' }}
+        run: |
+          args=(--all --min-pass-rate "$MIN_PASS_RATE" --report golden_e2e_report.json)
+          if [ -n "$TASKS" ]; then
+            args=(--tasks "$TASKS" --min-pass-rate "$MIN_PASS_RATE" --report golden_e2e_report.json)
+          fi
+          python -m bench.run_golden_e2e "${args[@]}"
+
+      - name: 上传 JSON 报告 artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-e2e-report
+          path: apps/ai-service/golden_e2e_report.json
+          if-no-files-found: warn
+          retention-days: 30
+# ⁠​‌​​‌​​‌‍‍​‌​‌​‌​‌‍‍​‌​‌​‌‌​‌‍‍​‌‌​‌​‌‍‍​‌​‌​‌​‍‍​‌‌​‌‌​‍‍​‌​‌​‌​‌‍‍​‌‌​​​‌‌​‌​‍‍​‌​‌​‌​‌‍‍​‌​‌​‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​‌‍‍​‌​‌​‌‌​‍‍​‌​‌​‌‌‌​‍‍​‌​‌​‌‌​‍‍​‌​​‌​‌‍‍​‌​‌​‌‌‌​‍‍​‌​‌​​​‍‍​‌​‌​‌‌​‍‍​‌‌​‌​‌‍‍​‌​​‌‌​‌‍‍​‌​‌​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​‌​‌​‌‍‍​‌​‌​‌​‌‍‍​‌​‌​‌‌​‍‍​‌​‌​‌‌​‍‍​‌​​‌​‌‍‍​‌‌​‌​‌‍‍​‌​‌​‌‌​‍‍​‌‌​‌​​‌‍‍​‌​​‌​​‌‍‍​‌​‌​‌‌​‌‍‍​‌​‌​‌​‌‍‍​‌‌​‌​‌‌​‍‍​‌​‌​‌‌​‌‍‍​‌​‌​‌‌​‌‍‍​‌​‌‌​‌​‌‍‍​‌‌​‌​‌​‌‍‍​‌​​‌‌​‍‍​‌​‌​‌‌‌​‍‍​‌​‌​‌‌​‍‍​‌​‌​‌‌​‌‍‍​‌​‌​‌‌​‌‍‍​‌​​‌​‍‍​‌​​‌‍‍‍​‌‍‍‍
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

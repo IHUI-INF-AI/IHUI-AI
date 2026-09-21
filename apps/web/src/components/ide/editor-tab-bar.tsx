@@ -1,0 +1,296 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { getFileColor, getFileIcon } from './file-icons'
+import { X, Circle, Pin, Copy, XCircle, Files } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { EditorTab } from '@ihui/types'
+
+interface ContextMenuState {
+  x: number
+  y: number
+  tabId: string
+}
+
+/** 根据文件名长度计算 tab 宽度(80–200px),中文按 2 字宽计算 */
+function calcTabWidth(filename: string): number {
+  const charWidth = [...filename].reduce((s, ch) => s + (ch.charCodeAt(0) > 127 ? 14 : 7), 0)
+  return Math.max(80, Math.min(200, charWidth + 48))
+}
+
+export function EditorTabBar() {
+  const { openTabs, activeTabId, setActiveTab, closeTab } = useIDEWorkspace()
+  const t = useTranslations('ide')
+  // pin 状态:从 store 的 isPinned 初始化,本地维护(zustand 未暴露 togglePin action)
+  const [pinnedIds, setPinnedIds] = React.useState<Set<string>>(
+    () => new Set(openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id)),
+  )
+  // 本地维护 tab 顺序(支持拖拽重排),store 增删时同步
+  const [order, setOrder] = React.useState<string[]>(() => openTabs.map((tab) => tab.id))
+  const [dragId, setDragId] = React.useState<string | null>(null)
+  const [overId, setOverId] = React.useState<string | null>(null)
+  const [menu, setMenu] = React.useState<ContextMenuState | null>(null)
+
+  // 同步 store 中 tab 增删到本地 order / pinnedIds
+  React.useEffect(() => {
+    setOrder((prev) => {
+      const current = openTabs.map((tab) => tab.id)
+      const kept = prev.filter((id) => current.includes(id))
+      const added = current.filter((id) => !kept.includes(id))
+      return [...kept, ...added]
+    })
+    setPinnedIds((prev) => {
+      const ids = new Set(openTabs.map((tab) => tab.id))
+      const next = new Set<string>()
+      prev.forEach((id) => {
+        if (ids.has(id)) next.add(id)
+      })
+      return next
+    })
+  }, [openTabs])
+
+  // 排序:pinned 优先(左侧),然后按 order
+  const sortedTabs = React.useMemo(() => {
+    const byId = new Map(openTabs.map((tab) => [tab.id, tab]))
+    return order
+      .map((id) => byId.get(id))
+      .filter((tab): tab is EditorTab => Boolean(tab))
+      .sort((a, b) => {
+        const ap = pinnedIds.has(a.id) ? 0 : 1
+        const bp = pinnedIds.has(b.id) ? 0 : 1
+        return ap - bp
+      })
+  }, [openTabs, order, pinnedIds])
+
+  // 右键菜单关闭:点击外部 / Escape
+  React.useEffect(() => {
+    if (!menu) return
+    const click = () => setMenu(null)
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null)
+    }
+    window.addEventListener('click', click)
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('click', click)
+      window.removeEventListener('keydown', key)
+    }
+  }, [menu])
+
+  if (openTabs.length === 0) return null
+
+  const togglePin = (id: string) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const closeOthers = (id: string) => {
+    sortedTabs
+      .filter((tab) => tab.id !== id && !pinnedIds.has(tab.id))
+      .forEach((tab) => closeTab(tab.id))
+  }
+  const closeAll = () => {
+    sortedTabs.filter((tab) => !pinnedIds.has(tab.id)).forEach((tab) => closeTab(tab.id))
+  }
+  const copyPath = async (tab: EditorTab) => {
+    try {
+      await navigator.clipboard.writeText(tab.path)
+    } catch {
+      /* 剪贴板不可用时静默忽略 */
+    }
+  }
+
+  const handleDragStart = (id: string) => () => setDragId(id)
+  const handleDragOver = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault()
+    if (overId !== id) setOverId(id)
+  }
+  const handleDrop = (id: string) => (e: React.DragEvent) => {
+    e.preventDefault()
+    if (dragId && dragId !== id) {
+      setOrder((prev) => {
+        const from = prev.indexOf(dragId)
+        const to = prev.indexOf(id)
+        if (from === -1 || to === -1) return prev
+        const next = [...prev]
+        next.splice(from, 1)
+        next.splice(to, 0, dragId)
+        return next
+      })
+    }
+    setDragId(null)
+    setOverId(null)
+  }
+  const handleDragEnd = () => {
+    setDragId(null)
+    setOverId(null)
+  }
+
+  // 2026-07-28 修复(边界态空容器):原来用 IIFE 内部 `if (!tab) return null` 兜底,
+  // 但外层 `{menu && (...)}` 仍会渲染容器 div,导致右键菜单打开时如果该 tab 被其他动作
+  // 关闭(X 按钮 / 快捷键 / store 同步),tab 已不在 openTabs → 容器 div 存在但无内容。
+  // 修复:把 find 提到外层,只有当 menu 和 tab 都存在时才渲染容器(与 inner 条件对齐)。
+  const menuTab = menu ? openTabs.find((item) => item.id === menu.tabId) : null
+  const isMenuPinned = menuTab ? pinnedIds.has(menuTab.id) : false
+  return (
+    <div className="relative flex h-8 shrink-0 items-stretch overflow-x-auto bg-muted/20">
+      {sortedTabs.map((tab) => {
+        const Icon = getFileIcon(tab.filename)
+        const isActive = activeTabId === tab.id
+        const isPinned = pinnedIds.has(tab.id)
+        return (
+          <div
+            key={tab.id}
+            role="button"
+            tabIndex={0}
+            draggable
+            onDragStart={handleDragStart(tab.id)}
+            onDragOver={handleDragOver(tab.id)}
+            onDrop={handleDrop(tab.id)}
+            onDragEnd={handleDragEnd}
+            onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveTab(tab.id)
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setMenu({ x: e.clientX, y: e.clientY, tabId: tab.id })
+            }}
+            style={{ width: `${calcTabWidth(tab.filename)}px` }}
+            className={cn(
+              'group relative flex shrink-0 cursor-pointer items-center gap-1.5 px-3 text-xs transition-colors',
+              isActive
+                ? 'bg-background text-foreground'
+                : 'text-muted-foreground hover:bg-muted/40',
+              // 拖拽视觉反馈增强(2026-07-31 对标 VSCode):drop 目标左右边框高亮
+              overId === tab.id &&
+                dragId &&
+                dragId !== tab.id &&
+                'bg-muted/60 ring-1 ring-inset ring-foreground/20',
+              dragId === tab.id && 'opacity-50',
+            )}
+          >
+            {isPinned ? (
+              <Pin className="h-3 w-3 shrink-0 text-muted-foreground" />
+            ) : (
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(tab.filename))} />
+            )}
+            <span className="min-w-0 flex-1 truncate">{tab.filename}</span>
+            {/* pinned tab 也支持 hover 关闭按钮(2026-07-31 对标 VSCode):pinned 且无 dirty 时显示 X */}
+            {tab.isDirty ? (
+              <Circle className="h-2 w-2 shrink-0 fill-current opacity-60" />
+            ) : (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeTab(tab.id)
+                }}
+                className="rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                aria-label={t('editorTabBar.closeTab')}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            {/* active 指示线(2026-07-31 对标 VSCode):h-0.5=2px,符合 IDE 标签页指示线规范 */}
+            {isActive && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+          </div>
+        )
+      })}
+      {menu && menuTab && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 右键菜单遮罩点击外部关闭;键盘用户通过 Escape/菜单项提供等价交互
+        <div
+          className="fixed z-popover min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
+          style={{
+            // 视口 clamp:右键菜单 5 项约 170px 高,防止贴近屏幕边缘时溢出
+            left: Math.min(menu.x, window.innerWidth - 176),
+            top: Math.min(menu.y, window.innerHeight - 180),
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+        >
+          <MenuItem
+            icon={Pin}
+            onClick={() => {
+              togglePin(menuTab.id)
+              setMenu(null)
+            }}
+          >
+            {isMenuPinned ? t('editorTabBar.unpin') : t('editorTabBar.pin')}
+          </MenuItem>
+          <MenuItem
+            icon={X}
+            onClick={() => {
+              closeTab(menuTab.id)
+              setMenu(null)
+            }}
+          >
+            {t('editorTabBar.close')}
+          </MenuItem>
+          <MenuItem
+            icon={XCircle}
+            onClick={() => {
+              closeOthers(menuTab.id)
+              setMenu(null)
+            }}
+          >
+            {t('editorTabBar.closeOthers')}
+          </MenuItem>
+          <MenuItem
+            icon={Files}
+            onClick={() => {
+              closeAll()
+              setMenu(null)
+            }}
+          >
+            {t('editorTabBar.closeAll')}
+          </MenuItem>
+          <MenuItem
+            icon={Copy}
+            onClick={() => {
+              void copyPath(menuTab)
+              setMenu(null)
+            }}
+          >
+            {t('editorTabBar.copyPath')}
+          </MenuItem>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MenuItem({
+  children,
+  onClick,
+  icon: Icon,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  icon: typeof X
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <span>{children}</span>
+    </button>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

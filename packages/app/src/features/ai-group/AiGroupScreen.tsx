@@ -1,0 +1,403 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useMemo } from 'react'
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
+
+/** AI 群组共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+export type { AiGroupItem, AiGroupScreenProps, AiGroupTab }
+
+const TABS: { id: AiGroupTab; labelKey: string }[] = [
+  { id: 'mine', labelKey: 'aiGroup.tabMine' },
+  { id: 'discover', labelKey: 'aiGroup.tabDiscover' },
+]
+
+export function AiGroupScreen({
+  t,
+  items,
+  tab,
+  selectedItem,
+  loading,
+  refreshing,
+  error,
+  onTabChange,
+  onPressItem,
+  onBackToList,
+  onEnterChat,
+  onRefresh,
+  onRetry,
+  keyword,
+  onKeywordChange,
+  colorScheme = 'light',
+}: AiGroupScreenProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createStyles(tk), [tk])
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator color={tk.text.secondary} />
+      </View>
+    )
+  }
+
+  if (error && items.length === 0) {
+    return (
+      <View style={[styles.container, styles.center, { padding: 16 }]}>
+        <Text style={[styles.emptyText, { marginBottom: 12 }]}>{error}</Text>
+        <TouchableOpacity style={styles.enterMiniBtn} onPress={onRetry} activeOpacity={0.85}>
+          <Text style={styles.enterMiniText}>{t('common.retry')}</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  if (selectedItem) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.detailHead}>
+          <TouchableOpacity onPress={onBackToList} hitSlop={8}>
+            <Text style={styles.backText}>{t('aiGroup.back')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.detailTitle} numberOfLines={1}>
+            {selectedItem.name}
+          </Text>
+        </View>
+        <ScrollView
+          style={styles.detailBody}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        >
+          <Text style={styles.detailDesc}>{selectedItem.desc}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.metaText}>
+              {t('aiGroup.metaActive', { time: selectedItem.lastActive })}
+            </Text>
+            <Text style={styles.metaText}>
+              {t('aiGroup.metaMessages', { count: selectedItem.messages })}
+            </Text>
+          </View>
+
+          <Text style={styles.sectionTitle}>
+            {t('aiGroup.detailMembers', { count: selectedItem.members.length })}
+          </Text>
+          {selectedItem.members.map((m) => (
+            <View key={m.id} style={styles.memberItem}>
+              <View style={styles.memberAvatar}>
+                <Text style={styles.memberAvatarText}>{m.name.charAt(0)}</Text>
+              </View>
+              <View style={styles.memberMain}>
+                <Text style={styles.memberName}>{m.name}</Text>
+                <Text style={styles.memberRole}>{t('aiGroup.memberRole', { role: m.role })}</Text>
+              </View>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>{m.role}</Text>
+              </View>
+            </View>
+          ))}
+
+          <Text style={styles.sectionTitle}>{t('aiGroup.detailRecent')}</Text>
+          <View style={styles.previewBubble}>
+            <Text style={styles.previewName}>{selectedItem.members[0]?.name}</Text>
+            <Text style={styles.previewText}>{t('aiGroup.previewHello')}</Text>
+          </View>
+          <View style={styles.previewBubbleMine}>
+            <Text style={styles.previewTextMine}>{t('aiGroup.previewMine')}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.enterBtn}
+            onPress={() => onEnterChat(selectedItem)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.enterBtnText}>{t('aiGroup.detailEnter')}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    )
+  }
+
+  // 搜索过滤(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」:名称/描述关键字过滤)
+  const kw = keyword?.trim().toLowerCase() ?? ''
+  const list = (tab === 'mine' ? items : items.slice().reverse()).filter(
+    (g) => !kw || g.name.toLowerCase().includes(kw) || g.desc.toLowerCase().includes(kw),
+  )
+  const enterLabel = tab === 'mine' ? t('aiGroup.enterMine') : t('aiGroup.enterDiscover')
+
+  const renderItem = ({ item }: { item: AiGroupItem }) => (
+    <TouchableOpacity style={styles.card} onPress={() => onPressItem(item)} activeOpacity={0.85}>
+      <View style={styles.cardHead}>
+        <View style={styles.cardIcon}>
+          <Text style={styles.cardIconText}>{item.name.charAt(0)}</Text>
+        </View>
+        <View style={styles.cardMain}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <View style={styles.tagBadge}>
+              <Text style={styles.tagText}>{item.tag}</Text>
+            </View>
+          </View>
+          <Text style={styles.desc} numberOfLines={2}>
+            {item.desc}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.cardFoot}>
+        <View style={styles.memberPreview}>
+          {item.members.slice(0, 3).map((m, i) => (
+            <View key={m.id} style={[styles.miniAvatar, { marginLeft: i === 0 ? 0 : -6 }]}>
+              <Text style={styles.miniAvatarText}>{m.name.charAt(0)}</Text>
+            </View>
+          ))}
+          {item.members.length > 3 ? (
+            <Text style={styles.moreText}>+{item.members.length - 3}</Text>
+          ) : null}
+        </View>
+        <Text style={styles.footMeta}>
+          {t('aiGroup.cardMembers', { count: item.members.length, messages: item.messages })}
+        </Text>
+        <View style={styles.enterMiniBtn}>
+          <Text style={styles.enterMiniText}>{enterLabel}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  )
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>{t('aiGroup.title')}</Text>
+        <Text style={styles.headerSub}>{t('aiGroup.subtitle')}</Text>
+      </View>
+
+      <View style={styles.tabRow}>
+        {TABS.map((it) => {
+          const active = tab === it.id
+          return (
+            <TouchableOpacity
+              key={it.id}
+              style={[styles.tabItem, active && styles.tabItemActive]}
+              onPress={() => onTabChange(it.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t(it.labelKey)}</Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+
+      {/* 搜索框(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;未注入回调则不渲染) */}
+      {onKeywordChange ? (
+        <View style={styles.searchRow}>
+          <TextInput
+            value={keyword ?? ''}
+            onChangeText={onKeywordChange}
+            placeholder={t('aiGroup.searchPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+        </View>
+      ) : null}
+
+      <FlatList
+        data={list}
+        keyExtractor={(i) => i.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>{t('aiGroup.empty')}</Text>
+          </View>
+        }
+        renderItem={renderItem}
+      />
+    </View>
+  )
+}
+
+function createStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: tk.surface.light },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    header: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 8 },
+    headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    tabRow: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      padding: 4,
+      borderRadius: 10,
+      backgroundColor: tk.surface.card,
+    },
+    searchRow: { marginHorizontal: 16, marginTop: 10 },
+    searchInput: {
+      height: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      color: tk.text.primary,
+    },
+    tabItem: {
+      flex: 1,
+      height: 34,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabItemActive: { backgroundColor: tk.surface.light },
+    tabText: { fontSize: 14, color: tk.text.secondary },
+    tabTextActive: { color: tk.text.primary, fontWeight: '600' },
+    empty: { alignItems: 'center', paddingVertical: 48 },
+    emptyText: { fontSize: 14, color: tk.text.tertiary },
+    card: {
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+    },
+    cardHead: { flexDirection: 'row' },
+    cardIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    cardIconText: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    cardMain: { flex: 1 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    name: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    tagBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: tk.surface.muted,
+    },
+    tagText: { fontSize: 11, color: tk.text.primary },
+    desc: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 18 },
+    cardFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 8 },
+    memberPreview: { flexDirection: 'row', alignItems: 'center' },
+    miniAvatar: {
+      width: 22,
+      height: 22,
+      borderRadius: 12,
+      backgroundColor: tk.border.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: tk.surface.light,
+    },
+    miniAvatarText: { fontSize: 10, fontWeight: '600', color: tk.text.secondary },
+    moreText: { marginLeft: 8, fontSize: 11, color: tk.text.tertiary },
+    footMeta: { fontSize: 11, color: tk.text.tertiary },
+    enterMiniBtn: {
+      marginLeft: 'auto',
+      paddingHorizontal: 12,
+      height: 28,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    enterMiniText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    detailHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 12,
+      borderBottomColor: tk.border.light,
+      borderBottomWidth: 1,
+    },
+    backText: { fontSize: 16, color: tk.text.primary, marginRight: 12 },
+    detailTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    detailBody: { flex: 1 },
+    detailDesc: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
+    metaRow: { flexDirection: 'row', gap: 16, marginTop: 8 },
+    metaText: { fontSize: 11, color: tk.text.tertiary },
+    sectionTitle: {
+      marginTop: 20,
+      marginBottom: 10,
+      fontSize: 14,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    memberItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
+      paddingHorizontal: 12,
+      marginBottom: 8,
+    },
+    memberAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: tk.surface.muted,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    memberAvatarText: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    memberMain: { flex: 1 },
+    memberName: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
+    memberRole: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
+    roleBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: tk.surface.muted,
+    },
+    roleBadgeText: { fontSize: 11, color: tk.text.primary },
+    previewBubble: {
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: tk.surface.card,
+      marginBottom: 8,
+    },
+    previewName: { fontSize: 11, color: tk.text.primary, fontWeight: '600', marginBottom: 8 },
+    previewText: { fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    previewBubbleMine: {
+      padding: 10,
+      borderRadius: 10,
+      backgroundColor: tk.brand.DEFAULT,
+      alignSelf: 'flex-end',
+      maxWidth: '80%',
+      marginBottom: 8,
+    },
+    previewTextMine: { fontSize: 14, color: tk.surface.light, lineHeight: 18 },
+    enterBtn: {
+      marginTop: 16,
+      height: 44,
+      borderRadius: 12,
+      backgroundColor: tk.brand.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    enterBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

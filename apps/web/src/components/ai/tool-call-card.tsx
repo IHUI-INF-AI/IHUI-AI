@@ -1,0 +1,1136 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import {
+  ChevronRight,
+  Loader2,
+  Check,
+  AlertCircle,
+  ExternalLink,
+  Copy,
+  BarChart3,
+  Ban,
+} from 'lucide-react'
+import { getArtifactToken } from '@ihui/api-client'
+import { fetchApi } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { Tooltip } from '@/components/feedback'
+import { useClipboard } from '@/hooks/use-clipboard'
+import { useWorkPanelStore } from '@/stores/work-panel'
+import { InlineDiffCard } from './inline-diff-card'
+import type { InlineDiffInfo } from './types'
+import type { DiffApplyStatus } from '@/stores/chat'
+
+interface ToolCallCardProps {
+  toolName: string
+  args: Record<string, unknown>
+  result?: unknown
+  status: 'running' | 'success' | 'error' | 'cancelled'
+  duration?: number
+  error?: string
+  /** 多轮 tool loop 轮次(>1 时显示"第N轮"徽章) */
+  iteration?: number
+  /** edit_file/write_file 关联的 Inline Diff 信息(显式传入优先;否则从 args 推导) */
+  diffInfo?: InlineDiffInfo
+  /** Inline Diff Apply 工作流状态 */
+  applyStatus?: DiffApplyStatus
+  /** Apply 失败时的错误信息 */
+  applyError?: string
+  /** Accept 回调(由父组件绑定 messageId + toolCallId) */
+  onApply?: () => void
+  /** Reject 回调(由父组件绑定 messageId + toolCallId) */
+  onReject?: () => void
+  /** W5(2026-09-18 立):hunk 级部分应用回调,入参为已接受 hunk 重组后的最终内容 */
+  onApplyPartial?: (newContent: string) => Promise<void>
+  /** 后端重复调用检测命中时标记(渲染"已跳过"徽章) */
+  repeated?: boolean
+  /** P3 #30(2026-09-16 立):工具调用 id,随 diff 评审意见记录便于回溯哪次改动 */
+  toolCallId?: string
+  /** 工具瞬时失败自动重试次数(L5-8,>0 时显示"重试N次"徽章) */
+  retryCount?: number
+  /** 失败错误分类(L5-8:timeout/connection/http_5xx/http_4xx/unknown,错误时显示徽章) */
+  errorType?: string
+  /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
+  imageUrl?: string
+  /** music_generation 工具返回的音频 URL(优先于 result 渲染,渲染 <audio> 播放器) */
+  audioUrl?: string
+  /** video_generation 工具返回的视频 URL(优先于 result 渲染,渲染 <video> 播放器) */
+  videoUrl?: string
+  /** 异步长任务 task_id(2026-09-09 立):媒体工具提交成功但产物未就绪时,渲染"任务进行中" */
+  taskId?: string
+  /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
+  summaryData?: {
+    plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
+    sources?: Array<{ type: string; ref: string; accessed_at?: string }>
+    artifacts?: Array<{ type: string; path: string; created_at?: string }>
+    tool_calls_summary?: { total: number; by_tool: Record<string, number> }
+  }
+  /** 2026-07-31 立,AI 对话可视化深度接入:工具来源标识
+   *  - builtin: 内置工具(read_file/edit_file 等核心工具集)
+   *  - plugin: 插件工具(browser_xxx/computer_xxx 等 PLUGIN_ID_TO_TOOLS 映射)
+   *  - mcp: MCP server 注册的外部工具(serverId/serverName 必填) */
+  serverSource?: 'builtin' | 'plugin' | 'mcp'
+  /** MCP server ID(serverSource='mcp' 时显示,如 'context7' / 'filesystem' / 'github') */
+  serverId?: string
+  /** MCP server 显示名(serverSource='mcp' 时显示,如 'Context7 MCP') */
+  serverName?: string
+}
+
+const STATUS_CONFIG = {
+  running: { icon: Loader2, className: 'animate-spin text-primary', labelKey: 'statusRunning' },
+  success: { icon: Check, className: 'text-green-500', labelKey: 'statusSuccess' },
+  error: { icon: AlertCircle, className: 'text-red-500', labelKey: 'statusFailed' },
+  // #23 撤回未执行工具卡(2026-09-13 立):cancelled=流中断时未执行的 running 工具,渲染"已撤回"
+  cancelled: { icon: Ban, className: 'text-muted-foreground', labelKey: 'statusRevoked' },
+} as const
+
+/** 2026-09-01 立,工具调用过程流式可视化:耗时格式化
+ *  <1s 显示毫秒整数(如 "520ms"),>=1s 显示秒一位小数(如 "2.3s") */
+export function formatToolDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+/** 浏览器类工具名(命中则视为 URL 相关,可触发 WorkPanel) */
+const BROWSER_TOOL_NAMES = new Set([
+  'browser_navigate',
+  'browser_click',
+  'browser_extract',
+  'browser_screenshot',
+  'web_search',
+  'fetch-url',
+  'fetch_url',
+  'web_fetch',
+])
+
+/** edit_file / write_file 工具名命中即渲染 InlineDiffCard */
+const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
+
+/** image_generation / image_edit 工具名命中即渲染 <img>(2026-09-09 改图产物同走图片渲染) */
+const IMAGE_TOOL_NAMES = new Set(['image_generation', 'image_edit'])
+
+/** music_generation / voice_tts 工具名命中即渲染 <audio> 播放器(token6688/edge-tts,2026-09-08) */
+const AUDIO_TOOL_NAMES = new Set(['music_generation', 'voice_tts'])
+
+/** video_generation 工具名命中即渲染 <video> 播放器(token6688,2026-09-08) */
+const VIDEO_TOOL_NAMES = new Set(['video_generation'])
+
+/** summarize_artifacts 工具名命中即渲染聚合视图 */
+const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
+
+/** 引用溯源标签展示上限(防止 hits 过多时刷屏) */
+const MAX_CITATIONS = 8
+
+/** 从工具结果中提取引用溯源列表(citations)。
+ *  兼容两种后端结构:
+ *   1) 结果对象顶层直接含 citations: string[](如 MCP 工具返回结构化对象)
+ *   2) 结果对象含 hits: Array<{ citations?: string[] }>(knowledge_lookup 聚合格式)
+ *  result 为字符串时先尝试 JSON.parse,失败视为无引用。
+ *  返回去重保序后的非空字符串列表(无引用返回空数组,不影响现有渲染)。 */
+function extractCitations(result: unknown): string[] {
+  let data: unknown = result
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result)
+    } catch {
+      return []
+    }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return []
+
+  const obj = data as Record<string, unknown>
+  const out: string[] = []
+
+  // 顶层 citations
+  if (Array.isArray(obj.citations)) {
+    for (const c of obj.citations) {
+      if (typeof c === 'string' && c.trim()) out.push(c.trim())
+    }
+  }
+
+  // hits 数组逐项收集 citations(knowledge_lookup 聚合格式)
+  if (Array.isArray(obj.hits)) {
+    for (const hit of obj.hits) {
+      if (!hit || typeof hit !== 'object' || Array.isArray(hit)) continue
+      const citations = (hit as Record<string, unknown>).citations
+      if (!Array.isArray(citations)) continue
+      for (const c of citations) {
+        if (typeof c === 'string' && c.trim()) out.push(c.trim())
+      }
+    }
+  }
+
+  return Array.from(new Set(out)).slice(0, MAX_CITATIONS)
+}
+
+/** 提取图表 Artifact 路径(generate_chart 等返回本地 .html 产物)。
+ *  仅接受以 .html 结尾的 file_path(单文件 ECharts HTML)。
+ *  P1-1(2026-09-01):优先读取 relative_path(相对项目根,如 tmp/charts/xxx.html),
+ *  用于换取签名 token 走 iframe 预览;仅在命中白名单目录前缀且 .html 时返回。
+ *  返回 { filePath, fileName, relativePath? },不匹配时返回 null。 */
+function extractChartArtifact(
+  result: unknown,
+): { filePath: string; fileName: string; relativePath?: string } | null {
+  let data: unknown = result
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result)
+    } catch {
+      return null
+    }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+
+  const obj = data as Record<string, unknown>
+  const filePath = obj.file_path
+  if (typeof filePath !== 'string' || !filePath.trim()) return null
+  if (!filePath.trim().toLowerCase().endsWith('.html')) return null
+
+  const fileName = filePath.trim().split(/[\\/]/).pop() || filePath.trim()
+
+  // P1-1:relative_path 仅在白名单目录(tmp/charts、tmp/artifacts)内才可用,
+  // 后端签名 token 对白名单外相对路径返回 400,前端直接降级为路径卡片。
+  const rawRelative = obj.relative_path
+  let relativePath: string | undefined
+  if (typeof rawRelative === 'string' && rawRelative.trim().toLowerCase().endsWith('.html')) {
+    const norm = rawRelative.trim().replace(/\\/g, '/')
+    if (norm.startsWith('tmp/charts/') || norm.startsWith('tmp/artifacts/')) {
+      relativePath = norm
+    }
+  }
+
+  return { filePath: filePath.trim(), fileName, relativePath }
+}
+
+/** W13(2026-09-13 立):从引用文本中提取首个 http(s) URL。
+ *  knowledge_lookup 等后端 citations 是纯字符串(如 "知识卡片: 标题 https://..."),
+ *  提取后该条渲染为可点击外链(target=_blank + rel),无 URL 时维持纯文本 chip。 */
+const CITATION_URL_RE = /https?:\/\/[^\s<>"')\]]+/
+
+/** 引用溯源标签组:展示 knowledge_lookup 等返回的图谱实体/关系来源 */
+function CitationsBlock({ citations }: { citations: string[] }) {
+  const t = useTranslations('ai.toolCall')
+  if (citations.length === 0) return null
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('citationsTitle')}
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {citations.map((c) => {
+          const url = c.match(CITATION_URL_RE)?.[0]
+          const chipCls =
+            'rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400'
+          return url ? (
+            <Tooltip content={url}>
+              <a
+                key={c}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="tool-call-citation"
+                className={cn(chipCls, 'cursor-pointer transition-colors hover:bg-amber-500/20')}
+              >
+                {c}
+              </a>
+            </Tooltip>
+          ) : (
+            <span key={c} data-testid="tool-call-citation" className={chipCls}>
+              {c}
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** 图表 Artifact 路径卡片:文件名 + 路径(一键复制)+ 打开说明,引导用户本机浏览器打开。
+ *  iframe 预览不可用(无 relative_path / 换 token 失败)时的降级视图(P1-1)。 */
+function ArtifactPathCard({
+  filePath,
+  fileName,
+  failed,
+}: {
+  filePath: string
+  fileName: string
+  /** 换 token 失败:提示改用复制路径兜底 */
+  failed?: boolean
+}) {
+  const t = useTranslations('ai.toolCall')
+  const { copy, copied } = useClipboard()
+
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('chartGenerated')}
+      </p>
+      <div className="rounded-sm border border-border/40 bg-muted/30 p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-foreground/80">
+            <BarChart3 className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span className="truncate">{fileName}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void copy(filePath)}
+            data-testid="tool-call-copy-path"
+            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+          >
+            {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+            <span>{copied ? t('pathCopied') : t('copyPath')}</span>
+          </button>
+        </div>
+        <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">
+          <span className="mr-1 text-muted-foreground/50">{t('filePathLabel')}:</span>
+          {filePath}
+        </p>
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground/60">
+          {failed ? t('chartPreviewFailed') : t('chartPreviewHint')}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** 图表 Artifact 卡片:P1-1(2026-09-01)起支持在聊天卡片内直接 iframe 预览。
+ *  挂载时用 relative_path 换取 30 分钟签名访问 token(签发端点走 JWT 保护),
+ *  iframe 以 sandbox="allow-scripts" 加载产物(禁 allow-same-origin,防越权读任意文件)。
+ *  无 relative_path / 换 token 失败 → 降级为 ArtifactPathCard(复制路径 + 本机打开)。 */
+function ChartArtifactBlock({
+  filePath,
+  fileName,
+  relativePath,
+}: {
+  filePath: string
+  fileName: string
+  relativePath?: string
+}) {
+  const t = useTranslations('ai.toolCall')
+  const [iframeSrc, setIframeSrc] = React.useState<string | null>(null)
+  const [previewFailed, setPreviewFailed] = React.useState(false)
+  const [tokenLoading, setTokenLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!relativePath) return
+    let cancelled = false
+    setTokenLoading(true)
+    setPreviewFailed(false)
+    void getArtifactToken(relativePath).then((res) => {
+      if (cancelled) return
+      setTokenLoading(false)
+      if (res.success && res.data?.url) {
+        setIframeSrc(res.data.url)
+      } else {
+        // 未登录(token 端点 401)/ 相对路径被拒(400)→ 降级为路径卡片
+        setPreviewFailed(true)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [relativePath])
+
+  // 无相对路径 / 换 token 失败:降级为纯路径卡片
+  if (!relativePath || previewFailed) {
+    return <ArtifactPathCard filePath={filePath} fileName={fileName} failed={previewFailed} />
+  }
+
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('chartGenerated')}
+      </p>
+      <div className="overflow-hidden rounded-sm border border-border/40 bg-white">
+        {tokenLoading || !iframeSrc ? (
+          <div className="flex h-[280px] w-full items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <iframe
+            src={iframeSrc}
+            title={fileName}
+            sandbox="allow-scripts"
+            className="h-[280px] w-full"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** 从 args 中提取字符串字段(兼容 camelCase / snake_case 多种命名) */
+/**
+ * args 可能整体缺失:无参工具(如 `web_ui_describe` / `web_ui_read`)的 toolCall 落库后
+ * args 字段会被丢掉,前端再 `args[k]` 就是 `Cannot read properties of undefined` —— 它发生在
+ * message-list 的渲染路径上,会把整个聊天页打成"应用发生严重错误"(2026-09-21 实测)。
+ * 因此一律在入口归一,而不是让每个调用方去记这个坑。
+ */
+function pickStr(args: Record<string, unknown> | undefined, keys: string[]): string {
+  if (!args) return ''
+  for (const k of keys) {
+    const v = args[k]
+    if (typeof v === 'string') return v
+  }
+  return ''
+}
+
+/** 从 tool args 推导 InlineDiffInfo(edit_file/write_file 专用)
+ *  导出供 message-list.tsx 在绑定 onApply 回调时构造 diffInfo 用 */
+export function deriveDiffInfo(
+  toolName: string,
+  args: Record<string, unknown> | undefined,
+): InlineDiffInfo | null {
+  const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
+
+  if (toolName === 'edit_file') {
+    const oldContent = pickStr(args, ['oldText', 'old_text', 'oldContent', 'old_content'])
+    const newContent = pickStr(args, ['newText', 'new_text', 'newContent', 'new_content'])
+    if (!oldContent && !newContent) return null
+    return { file_path: filePath, old_content: oldContent, new_content: newContent }
+  }
+
+  if (toolName === 'write_file') {
+    const content = pickStr(args, ['content', 'fileContent', 'file_content', 'text'])
+    if (!content) return null
+    // write_file 无旧内容(新建或全量覆盖),old_content 留空 → diff 全绿色新增
+    return {
+      file_path: filePath,
+      old_content: '',
+      new_content: content,
+      is_new_file: true,
+    }
+  }
+
+  return null
+}
+
+/** 从 args/result 中提取 URL */
+function extractUrl(
+  toolName: string,
+  args: Record<string, unknown> | undefined,
+  result?: unknown,
+): string | null {
+  // 同 pickStr:无参工具的 args 可能是 undefined
+  const a = args ?? {}
+  // args 中常见字段:url / href / link / target
+  const fromArgs =
+    (a.url as string) || (a.href as string) || (a.link as string) || (a.target as string)
+  if (typeof fromArgs === 'string' && /^https?:\/\//i.test(fromArgs)) return fromArgs
+
+  // result 中提取(可能是字符串或对象)
+  if (typeof result === 'string') {
+    // 从结果文本中匹配第一个 URL
+    const match = result.match(/https?:\/\/[^\s"'<>]+/i)
+    if (match) return match[0]
+  } else if (result && typeof result === 'object') {
+    const obj = result as Record<string, unknown>
+    const fromResult = (obj.url as string) || (obj.href as string) || (obj.link as string)
+    if (typeof fromResult === 'string' && /^https?:\/\//i.test(fromResult)) return fromResult
+  }
+
+  // web_search 工具可能返回多个结果,提取第一个 URL
+  if (toolName === 'web_search' && Array.isArray(result)) {
+    const first = result.find((r) => {
+      if (typeof r === 'object' && r !== null) {
+        const u = (r as Record<string, unknown>).url
+        return typeof u === 'string' && /^https?:\/\//i.test(u)
+      }
+      return false
+    })
+    if (first) return (first as Record<string, unknown>).url as string
+  }
+
+  return null
+}
+
+/** image_generation 工具结果渲染:图片预览 + 提示词 + 新窗口打开链接 */
+function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
+  const [loaded, setLoaded] = React.useState(false)
+  const [errored, setErrored] = React.useState(false)
+
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
+        {!loaded && !errored && (
+          <div className="flex h-48 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {errored && (
+          <div className="flex h-48 items-center justify-center text-xs text-red-500">
+            {t('imageLoadFailed')}
+          </div>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element -- next/image 不适用动态远程图片,降级用 img */}
+        <img
+          src={imageUrl}
+          alt={prompt || t('imageAltDefault')}
+          className={cn(
+            'w-full object-contain transition-opacity',
+            loaded ? 'opacity-100' : 'opacity-0',
+            errored && 'hidden',
+          )}
+          onLoad={() => setLoaded(true)}
+          onError={() => setErrored(true)}
+        />
+      </div>
+      <a
+        href={imageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>{t('openInNewWindow')}</span>
+      </a>
+    </div>
+  )
+}
+
+/** music_generation 工具结果渲染:音频播放器 + 提示词 + 新窗口打开链接 */
+function AudioResultBlock({ audioUrl, prompt }: { audioUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <audio
+        controls
+        src={audioUrl}
+        preload="metadata"
+        className="w-full"
+        data-testid="tool-media-audio"
+      >
+        {/* AI 生成音频无字幕轨,空 track 满足 jsx-a11y/media-has-caption */}
+        <track kind="captions" />
+      </audio>
+      <a
+        href={audioUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>{t('openInNewWindow')}</span>
+      </a>
+    </div>
+  )
+}
+
+/** video_generation 工具结果渲染:视频播放器 + 提示词 + 新窗口打开链接 */
+function VideoResultBlock({ videoUrl, prompt }: { videoUrl: string; prompt?: string }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">{t('prompt')}</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <video
+        controls
+        src={videoUrl}
+        preload="metadata"
+        className="w-full rounded-md border border-border bg-muted/30"
+        data-testid="tool-media-video"
+      >
+        {/* AI 生成视频无字幕轨,空 track 满足 jsx-a11y/media-has-caption */}
+        <track kind="captions" />
+      </video>
+      <a
+        href={videoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>{t('openInNewWindow')}</span>
+      </a>
+    </div>
+  )
+}
+
+/* ==================== 长任务自动轮询取件(2026-09-09 立) ====================
+ * 媒体工具(video/music/tts/image)提交成功、有 task_id 但产物未就绪时,
+ * 卡片自动轮询 GET /api/media/tasks/{task_id}(带鉴权 fetchApi,后端在途任务
+ * 会实时向 token6688 探测),任务 succeeded 且有公网产物 URL 后自动切换为
+ * 产物渲染,无需用户再次提问取件。轮询间隔 10s,上限 36 次(≈6 分钟),
+ * 期间保留手动"刷新状态"按钮兜底。 */
+const MEDIA_POLL_INTERVAL_MS = 10_000
+const MEDIA_POLL_MAX = 36
+
+interface MediaTaskRow {
+  status?: string
+  result?: {
+    image_url?: string | null
+    audio_url?: string | null
+    video_url?: string | null
+  }
+}
+
+type MediaPollStatus = 'idle' | 'checking' | 'succeeded' | 'failed' | 'stopped'
+
+function useMediaTaskPolling(
+  taskId: string | undefined,
+  enabled: boolean,
+): {
+  polled: MediaTaskRow['result'] | null
+  pollStatus: MediaPollStatus
+  checkedAt: number | null
+  refreshNow: () => void
+} {
+  const [polled, setPolled] = React.useState<MediaTaskRow['result'] | null>(null)
+  const [pollStatus, setPollStatus] = React.useState<MediaPollStatus>('idle')
+  const [checkedAt, setCheckedAt] = React.useState<number | null>(null)
+  const doneRef = React.useRef(false)
+
+  const stopPolling = React.useCallback(() => {
+    doneRef.current = true
+  }, [])
+
+  const pollOnce = React.useCallback(async () => {
+    if (doneRef.current || !taskId) return
+    try {
+      const res = await fetchApi<{ ok: boolean; data: MediaTaskRow }>(
+        `/media/tasks/${encodeURIComponent(taskId)}`,
+        { timeoutMs: 10_000 },
+      )
+      if (!res.success) return
+      const row = res.data?.data
+      if (!row) return
+      setCheckedAt(Date.now())
+      if (row.status === 'succeeded') {
+        const urls = row.result ?? {}
+        if (urls.video_url || urls.audio_url || urls.image_url) {
+          setPolled(urls)
+          setPollStatus('succeeded')
+          stopPolling()
+          return
+        }
+      }
+      if (row.status === 'failed' || row.status === 'cancelled') {
+        setPollStatus('failed')
+        stopPolling()
+        return
+      }
+      setPollStatus('idle')
+    } catch {
+      // 网络瞬断/401 等忽略,下一轮重试
+    }
+  }, [taskId, stopPolling])
+
+  React.useEffect(() => {
+    if (!enabled || !taskId) return
+    doneRef.current = false
+    setPolled(null)
+    setPollStatus('checking')
+    void pollOnce()
+    const intervalId = window.setInterval(() => {
+      if (doneRef.current) {
+        window.clearInterval(intervalId)
+        return
+      }
+      void pollOnce()
+    }, MEDIA_POLL_INTERVAL_MS)
+    // 达到最大轮询次数仍无结果:停止自动轮询,保留手动刷新兜底
+    const timeoutId = window.setTimeout(() => {
+      if (!doneRef.current) {
+        doneRef.current = true
+        setPollStatus('stopped')
+      }
+    }, MEDIA_POLL_INTERVAL_MS * MEDIA_POLL_MAX)
+    return () => {
+      window.clearInterval(intervalId)
+      window.clearTimeout(timeoutId)
+    }
+  }, [enabled, taskId, pollOnce])
+
+  const refreshNow = React.useCallback(() => {
+    if (!taskId) return
+    doneRef.current = false
+    setPollStatus('checking')
+    void pollOnce()
+  }, [taskId, pollOnce])
+
+  return { polled, pollStatus, checkedAt, refreshNow }
+}
+
+/** 长任务进行中渲染(2026-09-09 立):媒体工具提交成功、有 task_id 但产物未就绪。
+ *  视频/音乐官方耗时数分钟级,对话内仅提交返回 task_id;卡片自动轮询取件,
+ *  并保留手动"刷新状态"按钮兜底。 */
+function PendingTaskBlock({
+  taskId,
+  toolName,
+  pollStatus,
+  checkedAt,
+  onRefresh,
+}: {
+  taskId: string
+  toolName: string
+  pollStatus: MediaPollStatus
+  checkedAt: number | null
+  onRefresh: () => void
+}) {
+  const checking = pollStatus === 'checking'
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 text-xs">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+        <span className="font-medium text-muted-foreground">任务进行中</span>
+        {checkedAt && (
+          <span className="text-[10px] text-muted-foreground/50">
+            已自动检查{checking ? '中' : '过'}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {toolName} 已提交,task_id 已记录;生成完成后会自动取件展示。
+      </p>
+      <div className="flex items-center gap-1.5">
+        <code className="block min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {taskId}
+        </code>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={checking}
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 px-1.5 py-0.5 text-[10px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {checking ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" />
+              检查中
+            </>
+          ) : (
+            '刷新状态'
+          )}
+        </button>
+      </div>
+      {pollStatus === 'stopped' && (
+        <p className="text-[10px] text-muted-foreground/60">
+          长时间未完成,已停止自动刷新;可点击"刷新状态"继续检查。
+        </p>
+      )}
+      {pollStatus === 'failed' && (
+        <p className="text-[10px] text-amber-600">任务已失败/取消,可换个提示词重新生成。</p>
+      )}
+    </div>
+  )
+}
+
+/** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
+function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
+  const t = useTranslations('ai.toolCall')
+  return (
+    <div className="space-y-3">
+      {data.plans && data.plans.length > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">
+            {t('plan', { count: data.plans.length })}
+          </p>
+          <ul className="space-y-1 text-xs">
+            {data.plans.map((p, i) => (
+              <li key={p.id || i} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
+                    p.status === 'completed'
+                      ? 'bg-green-500/10 text-green-600'
+                      : p.status === 'in_progress'
+                        ? 'bg-blue-500/10 text-blue-600'
+                        : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {p.status}
+                </span>
+                <span className="break-words">{p.title}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {data.sources && data.sources.length > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">
+            {t('reference', { count: data.sources.length })}
+          </p>
+          <ul className="space-y-0.5 text-xs">
+            {data.sources.slice(0, 5).map((s, i) => (
+              <li key={i} className="truncate font-mono text-muted-foreground">
+                <span className="mr-1 rounded-sm bg-muted px-1 py-0.5 text-[10px]">{s.type}</span>
+                {s.ref}
+              </li>
+            ))}
+            {data.sources.length > 5 && (
+              <li className="text-[10px] text-muted-foreground">
+                {t('moreItems', { count: data.sources.length - 5 })}
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+      {data.tool_calls_summary && data.tool_calls_summary.total > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">
+            {t('toolCallStats', { count: data.tool_calls_summary.total })}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(data.tool_calls_summary.by_tool).map(([tool, count]) => (
+              <span
+                key={tool}
+                className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums"
+              >
+                {tool} × {count}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const ToolCallCard = React.memo(function ToolCallCard({
+  toolName,
+  args,
+  result,
+  status,
+  duration,
+  error,
+  iteration,
+  diffInfo: diffInfoProp,
+  applyStatus,
+  applyError,
+  repeated,
+  retryCount,
+  errorType,
+  imageUrl,
+  audioUrl,
+  videoUrl,
+  taskId,
+  summaryData,
+  serverSource,
+  serverId,
+  serverName,
+  onApply,
+  onReject,
+  onApplyPartial,
+  toolCallId,
+}: ToolCallCardProps) {
+  const [expanded, setExpanded] = React.useState(false)
+  const t = useTranslations('ai.toolCall')
+  const config = STATUS_CONFIG[status]
+  const StatusIcon = config.icon
+
+  // 2026-09-01 立,工具调用过程流式可视化:running 状态实时耗时 tick。
+  // tool-call-start 到达后卡片即挂载,间隔 250ms 自增一次,让用户看到"执行中"的实时进度;
+  // status 变为 success/error 后清理定时器,由后端计算出的 durationMs(duration prop)接管显示。
+  const [elapsedMs, setElapsedMs] = React.useState(0)
+  React.useEffect(() => {
+    if (status !== 'running') return
+    setElapsedMs(0)
+    const id = window.setInterval(() => setElapsedMs((v) => v + 250), 250)
+    return () => window.clearInterval(id)
+  }, [status])
+
+  // 提取 URL(P2 联动 WorkPanel)
+  const extractedUrl = React.useMemo(
+    () => extractUrl(toolName, args, result),
+    [toolName, args, result],
+  )
+  const isBrowserTool = BROWSER_TOOL_NAMES.has(toolName)
+  const canOpenInWorkPanel = !!extractedUrl && status === 'success'
+
+  // edit_file/write_file:优先用显式 diffInfo prop,否则从 args 推导
+  const diffInfo = React.useMemo<InlineDiffInfo | null>(() => {
+    if (diffInfoProp) return diffInfoProp
+    if (DIFF_TOOL_NAMES.has(toolName)) return deriveDiffInfo(toolName, args)
+    return null
+  }, [diffInfoProp, toolName, args])
+
+  // edit_file/write_file 且有 diffInfo:展开时渲染 InlineDiffCard 替代 <pre>
+  const showInlineDiff = !!diffInfo
+
+  // image_generation / music_generation / video_generation / summarize_artifacts:优先于 result 渲染专用视图
+  const isImageTool = IMAGE_TOOL_NAMES.has(toolName)
+  const isAudioTool = AUDIO_TOOL_NAMES.has(toolName)
+  const isVideoTool = VIDEO_TOOL_NAMES.has(toolName)
+  const isSummaryTool = SUMMARY_TOOL_NAMES.has(toolName)
+  const showImage = isImageTool && !!imageUrl
+  const showAudio = isAudioTool && !!audioUrl
+  const showVideo = isVideoTool && !!videoUrl
+  const showSummary = isSummaryTool && !!summaryData
+  // 2026-09-09 长任务进行中:媒体工具提交成功、已有 task_id 但产物未就绪
+  // (视频/音乐 p90 55~75 分钟与 1~5 分钟,对话内仅提交返回 task_id)
+  const showPendingTask =
+    !!taskId &&
+    status === 'success' &&
+    (isImageTool || isAudioTool || isVideoTool) &&
+    !showImage &&
+    !showAudio &&
+    !showVideo
+
+  // 长任务自动轮询取件(2026-09-09):产物未就绪时后台轮询 /api/media/tasks/{task_id},
+  // succeeded 且有公网 URL 后自动切换为产物渲染,无需用户再次提问
+  // 2026-09-09 修复:补取 checkedAt(此前未解构,下方 PendingTaskBlock 恒传 null,
+  // "已自动检查过"提示永不显示),并透传给进行中卡片
+  const {
+    polled,
+    pollStatus: pollStatusForPending,
+    checkedAt,
+    refreshNow,
+  } = useMediaTaskPolling(showPendingTask ? taskId : undefined, showPendingTask)
+  const polledImageUrl = showPendingTask ? polled?.image_url || undefined : undefined
+  const polledAudioUrl = showPendingTask ? polled?.audio_url || undefined : undefined
+  const polledVideoUrl = showPendingTask ? polled?.video_url || undefined : undefined
+
+  // 引用溯源 + 图表 Artifact:从 result 中解析(knowledge_lookup / generate_chart)
+  // 不依赖 toolName 判断,纯字段驱动,保证任何携带 citations/file_path 的工具都兼容
+  const citations = React.useMemo(() => extractCitations(result), [result])
+  const chartArtifact = React.useMemo(() => extractChartArtifact(result), [result])
+  // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
+  const showChartArtifact = !!chartArtifact && status === 'success'
+
+  const handleOpenInWorkPanel = React.useCallback(() => {
+    if (!extractedUrl) return
+    useWorkPanelStore.getState().openPanel({ url: extractedUrl, source: 'ai-tool' })
+  }, [extractedUrl])
+
+  return (
+    <div className="overflow-hidden rounded-sm border border-border/30 bg-card/50">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors hover:bg-accent/30"
+      >
+        <ChevronRight
+          className={cn(
+            'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
+            expanded && 'rotate-90',
+          )}
+        />
+        <StatusIcon className={cn('h-3 w-3 shrink-0', config.className)} />
+        <span className="flex-1 truncate text-[11px] font-medium text-foreground/80">
+          {toolName}
+        </span>
+        {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
+          - builtin: 不显示徽章(默认,避免噪音)
+          - plugin: 紫底徽章 "插件"
+          - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
+          让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
+        {serverSource === 'plugin' && (
+          <Tooltip content={`插件工具${serverName ? ` · ${serverName}` : ''}`}>
+            <span
+              aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
+              data-testid={`tool-call-source-plugin-${toolName}`}
+              className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400"
+            >
+              {serverName ?? '插件'}
+            </span>
+          </Tooltip>
+        )}
+        {serverSource === 'mcp' && (
+          <Tooltip
+            content={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
+          >
+            <span
+              aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
+              data-testid={`tool-call-source-mcp-${toolName}`}
+              className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400"
+            >
+              MCP{serverName ? ` · ${serverName}` : ''}
+            </span>
+          </Tooltip>
+        )}
+        {iteration !== undefined && iteration > 1 && (
+          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70">
+            第{iteration}轮
+          </span>
+        )}
+        {repeated && (
+          <span
+            aria-label="LLM 试图重复调用同参数工具,被去重机制跳过"
+            className="shrink-0 rounded-sm border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground/70"
+          >
+            已跳过
+          </span>
+        )}
+        {retryCount !== undefined && retryCount > 0 && (
+          <span
+            aria-label={t('retryBadgeAria', { count: retryCount })}
+            className="shrink-0 rounded-sm border border-border/50 bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600"
+          >
+            {t('retryBadge', { count: retryCount })}
+          </span>
+        )}
+        {status === 'error' && errorType && (
+          <span
+            className={cn(
+              'shrink-0 rounded-sm border border-border/50 px-1 py-0.5 text-[9px]',
+              errorType === 'timeout' && 'bg-amber-500/10 text-amber-600',
+              errorType === 'http_4xx' && 'bg-amber-500/10 text-amber-600',
+              (errorType === 'connection' || errorType === 'http_5xx') &&
+                'bg-red-500/10 text-red-600',
+              errorType === 'cancelled' && 'bg-muted/40 text-muted-foreground',
+              !['timeout', 'http_4xx', 'connection', 'http_5xx', 'cancelled'].includes(errorType) &&
+                'bg-muted/40 text-muted-foreground',
+            )}
+          >
+            {errorType}
+          </span>
+        )}
+        {status === 'running' ? (
+          // 流式可视化:执行中显示实时自增耗时(替代静态"执行中"标签,秒表实时反馈)
+          <span
+            aria-label={`工具已执行 ${formatToolDuration(elapsedMs)}`}
+            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
+          >
+            {formatToolDuration(elapsedMs)}
+          </span>
+        ) : duration !== undefined ? (
+          // 已返回:显示后端计算的真实耗时(tool-result 到达时前端补算)
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+            {formatToolDuration(duration)}
+          </span>
+        ) : null}
+        <span className={cn('shrink-0 text-[10px]', config.className)}>{t(config.labelKey)}</span>
+      </button>
+      {expanded && (
+        <div className="space-y-1.5 bg-muted/20 px-2 pb-1.5 pt-1 text-[11px]">
+          {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
+          {showInlineDiff && diffInfo && (
+            <InlineDiffCard
+              diffInfo={diffInfo}
+              applyStatus={applyStatus}
+              applyError={applyError}
+              onApply={onApply}
+              onReject={onReject}
+              onApplyPartial={onApplyPartial}
+              toolCallId={toolCallId}
+            />
+          )}
+          {/* image_generation:渲染生成的图片(优先于 result) */}
+          {showImage && imageUrl && (
+            <ImageResultBlock
+              imageUrl={imageUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
+          {/* music_generation:渲染音频播放器(优先于 result) */}
+          {showAudio && audioUrl && (
+            <AudioResultBlock
+              audioUrl={audioUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
+          {/* video_generation:渲染视频播放器(优先于 result) */}
+          {showVideo && videoUrl && (
+            <VideoResultBlock
+              videoUrl={videoUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
+          {/* summarize_artifacts:渲染聚合视图(优先于 result) */}
+          {showSummary && summaryData && <SummaryResultBlock data={summaryData} />}
+          {/* 长任务进行中:媒体工具已提交、task_id 已记录、产物未就绪。
+              自动轮询取件:轮询到公网产物 URL 后自动切换为对应播放器渲染 */}
+          {showPendingTask &&
+            taskId &&
+            (polledVideoUrl ? (
+              <VideoResultBlock
+                videoUrl={polledVideoUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : polledAudioUrl ? (
+              <AudioResultBlock
+                audioUrl={polledAudioUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : polledImageUrl ? (
+              <ImageResultBlock
+                imageUrl={polledImageUrl}
+                prompt={pickStr(args, ['prompt', 'description'])}
+              />
+            ) : (
+              <PendingTaskBlock
+                taskId={taskId}
+                toolName={toolName}
+                pollStatus={pollStatusForPending}
+                checkedAt={checkedAt}
+                onRefresh={refreshNow}
+              />
+            ))}
+          {/* 非 diff/image/audio/video/summary/pending 工具时显示原始 args/result */}
+          {!showInlineDiff &&
+            !showImage &&
+            !showAudio &&
+            !showVideo &&
+            !showSummary &&
+            !showPendingTask && (
+              <>
+                {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
+                {citations.length > 0 && <CitationsBlock citations={citations} />}
+                {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
+                {showChartArtifact && chartArtifact ? (
+                  <ChartArtifactBlock
+                    filePath={chartArtifact.filePath}
+                    fileName={chartArtifact.fileName}
+                    relativePath={chartArtifact.relativePath}
+                  />
+                ) : (
+                  <>
+                    <div>
+                      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+                        参数
+                      </p>
+                      <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
+                        {JSON.stringify(args, null, 2)}
+                      </pre>
+                    </div>
+                    {error && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
+                        <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
+                          {error}
+                        </pre>
+                      </div>
+                    )}
+                    {result !== undefined && (
+                      <div>
+                        <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+                          结果
+                        </p>
+                        <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
+                          {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          {/* P2 联动:成功执行 + 含 URL → "在工作展示区打开" 按钮 */}
+          {canOpenInWorkPanel && (
+            <button
+              type="button"
+              onClick={handleOpenInWorkPanel}
+              className="inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span>在工作展示区打开{isBrowserTool ? '' : '(URL)'}</span>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
+
+export default ToolCallCard
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

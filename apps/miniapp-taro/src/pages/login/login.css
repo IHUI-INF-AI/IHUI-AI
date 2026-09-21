@@ -1,0 +1,525 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* ===== 登录页(2026-09-08 对齐 RN SharedLoginScreen 视觉)
+ * 浅色平铺背景,无背景图;3 tab(邮箱/手机/密码)分段控件;
+ * 微信主推按钮 + "或" 分隔 + 图标网格;SSO 轮廓按钮;注册行。
+ * 所有颜色走 design-tokens(CSS 变量),禁止硬编码。
+ */
+
+.container-ali {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-card);
+}
+
+/* ===== 页面主体(对齐 RN page:paddingHorizontal + 垂直居中) ===== */
+.login-page {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  /* H5 桌面宽屏下收窄为 App 式表单列,避免内容横跨全屏(手机端自然适配,不受影响) */
+  max-width: 460px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 30rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* ===== 顶部 logo + 品牌(对齐 RN header:logo 53px + 文字行,logo 直接落在页面上)
+ * page 用 justify-content: center 垂直居中,header 不加顶部外边距以免破坏均衡留白。 */
+.login-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 20rpx;
+  margin-bottom: 48rpx;
+}
+
+.login-logo-box {
+  width: 106rpx;
+  height: 106rpx;
+  border-radius: 22rpx;
+  /* RN 端 logo 直接呈现,无品牌色底板(对齐 SharedLoginScreen logoImage) */
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.login-logo {
+  width: 106rpx;
+  height: 106rpx;
+}
+
+.login-welcome {
+  font-size: 44rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 内联错误提示(对齐 RN errorAlert:红边框 + 红字) ===== */
+.login-error-alert {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid var(--color-danger);
+  background-color: var(--color-muted);
+  margin-bottom: 24rpx;
+}
+
+.login-error-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-top: 4rpx;
+  flex-shrink: 0;
+}
+
+.login-error-text {
+  flex: 1;
+  font-size: 24rpx;
+  line-height: 36rpx;
+  color: var(--color-danger);
+}
+
+/* ===== 3 tab 分段控件(对齐 RN tabBar:padding 4 + 圆角 + muted 底) ===== */
+.login-tabbar {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 28rpx;
+  padding: 6rpx;
+  border-radius: 16rpx;
+  background-color: var(--color-muted);
+  border: 1rpx solid var(--color-border);
+}
+
+.login-tab {
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+  /* 标签单行展示,防"手机号登录"在激活态折行(对齐 RN tabText 单行) */
+  white-space: nowrap;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.login-tab-active {
+  background-color: var(--color-card);
+  color: var(--color-foreground);
+}
+
+.login-tab-text-active {
+  color: var(--color-foreground);
+}
+
+/* ===== tab 内容 ===== */
+.login-tabcontent {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 字段(对齐 RN field:label 在上) ===== */
+.login-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 28rpx;
+  position: relative;
+}
+
+.login-label-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.login-label {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+
+.login-label-row .login-label {
+  margin-bottom: 0;
+}
+
+/* ===== 输入框(对齐 RN input:高 40 / 圆角 6 / 边框) ===== */
+.login-input {
+  height: 80rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  background-color: transparent;
+  box-sizing: border-box;
+}
+
+/* ===== 区号拼合行(对齐 RN phoneRow:容器统一画框) ===== */
+.login-phone-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 80rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  overflow: hidden;
+  background-color: transparent;
+}
+
+.login-phone-row-focused {
+  border-color: var(--color-foreground);
+}
+
+.login-phone-input {
+  flex: 1;
+  border: none;
+  height: 100%;
+  padding: 0 24rpx;
+}
+
+.login-phone-row .login-input {
+  border: none;
+  border-radius: 0;
+}
+
+/* ===== 验证码行(输入框 + 发送按钮) ===== */
+.login-coderow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.login-code-input {
+  flex: 1;
+}
+
+.login-sendcode {
+  height: 80rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.login-sendcode-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 密码输入 + 眼睛 ===== */
+.login-password-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-password-input {
+  width: 100%;
+  padding-right: 80rpx;
+}
+
+/* ===== 忘记密码 ===== */
+.login-forgot {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 协议行(对齐 RN agreementRow:16×16 checkbox + 链接) ===== */
+.login-agreement {
+  margin-bottom: 28rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.login-agreement-main {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.lm-contract-checkbox {
+  align-self: flex-start;
+}
+
+.custom-checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 8rpx;
+  margin-top: 4rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-card);
+  flex-shrink: 0;
+}
+
+.custom-checkbox-checked {
+  border-color: var(--color-foreground);
+  background-color: var(--color-foreground);
+}
+
+.custom-checkbox-error {
+  border-color: var(--color-danger);
+}
+
+.custom-checkmark {
+  color: var(--color-card);
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.login-agreement-text {
+  flex: 1;
+  font-size: 24rpx;
+  line-height: 40rpx;
+  color: var(--color-muted-foreground);
+}
+
+.textItem {
+  color: var(--color-foreground);
+}
+
+.login-agreement-right {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  margin-top: 4rpx;
+}
+
+.login-agreement-error {
+  font-size: 24rpx;
+  color: var(--color-danger);
+  margin-top: 8rpx;
+}
+
+/* ===== 自动登录(密码 tab 协议行右侧,对齐 RN autoLoginRow) ===== */
+.login-autologin {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.login-autologin .custom-checkbox {
+  width: 28rpx;
+  height: 28rpx;
+  margin-top: 0;
+}
+
+.login-autologin-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底圆角,亮色纯黑/暗色纯白) ===== */
+.login-primary-btn {
+  height: 80rpx;
+  border-radius: 12rpx;
+  background-color: var(--color-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8rpx;
+}
+
+.login-primary-btn-text {
+  /* brand 底配主题反色文字(黑底白字/白底黑字) */
+  color: var(--color-primary-foreground);
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.login-btn-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 第三方登录区(对齐 RN thirdPartyArea) ===== */
+.login-thirdparty {
+  margin-top: 40rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 微信主推按钮(对齐 RN wechatLoginBtn:绿底白字) */
+.login-wechat-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
+  height: 80rpx;
+  border-radius: 12rpx;
+  background: var(--color-miniapp-green);
+  color: var(--color-miniapp-green-foreground);
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.login-wechat-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* "或"分隔线(对齐 RN thirdPartyDivider) */
+.login-divider {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 32rpx 0;
+}
+
+.login-divider-line {
+  flex: 1;
+  height: 1rpx;
+  background-color: var(--color-border);
+}
+
+.login-divider-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin: 0 20rpx;
+}
+
+/* 图标网格(对齐 RN thirdPartyGrid:flexWrap 居中) */
+.login-oauth-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20rpx;
+}
+
+.login-oauth-btn {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-oauth-icon {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 12rpx;
+}
+
+.login-oauth-label {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== SSO 按钮(弱化轮廓,对齐 RN ssoBtn:slim 38) ===== */
+.login-sso-btn {
+  height: 68rpx;
+  margin-top: 36rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid var(--color-border);
+  background-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 注册链接(对齐 RN registerRow) ===== */
+.login-register-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 28rpx;
+  padding-bottom: 40rpx;
+}
+
+.login-register-text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+.login-register-link {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+/* ===== 历史账号下拉(对齐 RN historyDropdown:悬浮在输入框下方) ===== */
+.login-history-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-top: 8rpx;
+  border-radius: 14rpx;
+  border: 1rpx solid var(--color-border);
+  background-color: var(--color-card);
+  box-shadow: 0 8rpx 24rpx var(--color-black-12);
+}
+
+.login-history-item {
+  padding: 0 20rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.login-history-item-main {
+  flex: 1;
+  padding: 18rpx 12rpx 18rpx 0;
+  font-size: 28rpx;
+  line-height: 40rpx;
+  color: var(--color-foreground);
+}
+
+.login-history-item-del {
+  padding: 8rpx 0 8rpx 12rpx;
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
+
+.login-history-clear {
+  border-top: 1rpx solid var(--color-border);
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

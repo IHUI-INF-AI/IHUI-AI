@@ -1,0 +1,107 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { SearchScreen as SharedSearchScreen, type SearchScreenItem } from '@ihui/rn-app'
+import { fetchApi } from '@ihui/api-client'
+import { SearchInput } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/**
+ * mobile-rn 搜索页(2026-07-30 接入 SearchInput;2026-09-16 统一收敛至 @ihui/rn-app 共享实现)
+ *
+ * shell 层职责:
+ * - 顶部挂载共享 SearchInput(快捷搜索栏,带清除按钮 + 聚焦态)
+ * - 下方复用 @ihui/rn-app.SharedSearchScreen(结果列表 / loading / 错误)
+ * - onSubmit 同步触发 SharedSearchScreen 的搜索逻辑
+ */
+export function SearchScreen() {
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
+  const [keyword, setKeyword] = useState('')
+  const [results, setResults] = useState<SearchScreenItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [searched, setSearched] = useState(false)
+
+  const runSearch = useCallback(
+    async (kw: string) => {
+      const trimmed = kw.trim()
+      if (!trimmed) return
+      setLoading(true)
+      setError('')
+      setSearched(true)
+      const res = await fetchApi<SearchScreenItem[]>(
+        `/api/search?keyword=${encodeURIComponent(trimmed)}`,
+      )
+      setLoading(false)
+      if (res.success) setResults(res.data ?? [])
+      else setError(res.error || t('search.failed'))
+    },
+    [t],
+  )
+
+  const onSearch = useCallback(() => {
+    void runSearch(keyword)
+  }, [keyword, runSearch])
+
+  const onPressItem = (item: SearchScreenItem) => {
+    if (item.type === 'course') navigation.navigate('CourseDetail', { id: item.id })
+    else if (item.type === 'article') navigation.navigate('ArticleDetail', { id: item.id })
+    else if (item.type === 'post') navigation.navigate('PostDetail', { id: item.id })
+    else if (item.type === 'note') navigation.navigate('NoteDetail', { id: item.id })
+    else if (item.type === 'agent') navigation.navigate('AgentDetail', { id: item.id })
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.searchBar}>
+        <SearchInput
+          value={keyword}
+          onChangeText={setKeyword}
+          placeholder={t('search.placeholder')}
+          onSubmit={onSearch}
+          colorScheme={resolvedTheme}
+        />
+      </View>
+      <View style={styles.body}>
+        <SharedSearchScreen
+          t={t}
+          keyword={keyword}
+          results={results}
+          loading={loading}
+          error={error}
+          searched={searched}
+          onKeywordChange={setKeyword}
+          onSearch={onSearch}
+          onPressItem={onPressItem}
+          onBack={() => navigation.goBack()}
+        />
+      </View>
+    </View>
+  )
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  searchBar: {
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
+  },
+  body: {
+    flex: 1,
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

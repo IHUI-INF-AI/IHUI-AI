@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "WX_APP_APPID": "wx85fa429a9331b5c8",
+        "EXPO_PUBLIC_API_BASE_URL": "https://aizhs.top",
+        "EXPO_PUBLIC_WEB_URL": "https://aizhs.top"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

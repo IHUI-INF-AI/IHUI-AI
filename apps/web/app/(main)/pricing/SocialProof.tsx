@@ -1,0 +1,55 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { Users, Activity, Zap, Building2 } from 'lucide-react'
+import { AnimatedNumber } from '@/components/common'
+import { Card, CardContent } from '@ihui/ui-react'
+
+interface Metric {
+  icon: React.ComponentType<{ className?: string }>
+  value: number
+  decimals?: number
+  suffix?: string
+  labelKey: string
+}
+
+const METRICS: Metric[] = [
+  { icon: Users, value: 12847, labelKey: 'socialProof.registered' },
+  { icon: Activity, value: 3294, labelKey: 'socialProof.monthlyActive' },
+  { icon: Zap, value: 5.2, decimals: 1, suffix: 'M', labelKey: 'socialProof.apiCalls' },
+  { icon: Building2, value: 87, labelKey: 'socialProof.enterprise' },
+]
+
+export function SocialProof(): React.JSX.Element {
+  const t = useTranslations('pricingPage')
+
+  return (
+    <section className="mx-auto mt-14 max-w-5xl text-center">
+      <h2 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
+        {t('socialProof.title')}
+      </h2>
+      <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground min-[768px]:text-base">
+        {t('socialProof.subtitle')}
+      </p>
+      <div className="mt-8 grid grid-cols-2 gap-4 min-[1024px]:grid-cols-4">
+        {METRICS.map(({ icon: Icon, value, decimals, suffix, labelKey }) => (
+          <Card key={labelKey} className="border-border">
+            <CardContent className="min-[640px]:p-3 flex flex-col items-center gap-2 p-3">
+              <Icon className="h-5 w-5 text-primary" />
+              <div className="text-2xl font-bold tracking-tight text-foreground min-[768px]:text-3xl">
+                <AnimatedNumber value={value} decimals={decimals ?? 0} suffix={suffix ?? ''} />
+              </div>
+              <div className="text-xs text-muted-foreground min-[768px]:text-sm">{t(labelKey)}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

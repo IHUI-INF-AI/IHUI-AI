@@ -1,0 +1,168 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { TrendingUp, Building2, Calendar, ArrowUp, ArrowDown } from 'lucide-react'
+import { Card, CardContent, SearchInput } from '@ihui/ui-react'
+import { Badge } from '@/components/data'
+import { getFormatters } from '@/lib/date-utils'
+import type { AiFundingItem } from '@/lib/ai-news-api'
+import { EmptyState } from './EmptyState'
+import { parseNumeric } from './text-utils'
+
+interface Props {
+  items: AiFundingItem[]
+}
+
+type SortField = 'date' | 'amount'
+type SortDir = 'asc' | 'desc'
+
+/**
+ * i18n 静态映射表 — 用于消除 `t(`funding.sortBy${field.charAt(0).toUpperCase() + field.slice(1)}`)` 动态拼接
+ * field ∈ 'date' | 'amount',首字母大写后为 'Date' | 'Amount',最终 key 为 'funding.sortByDate' | 'funding.sortByAmount'
+ */
+const SORT_BY_LABEL_KEY: Record<SortField, string> = {
+  date: 'funding.sortByDate',
+  amount: 'funding.sortByAmount',
+}
+
+export function FundingSection({ items }: Props) {
+  const t = useTranslations('aiNews')
+  const locale = React.useMemo(() => {
+    if (typeof document === 'undefined') return 'zh-CN'
+    return document.documentElement.lang || 'zh-CN'
+  }, [])
+  const fmt = React.useMemo(() => getFormatters(locale), [locale])
+
+  const [query, setQuery] = React.useState('')
+  const [sortField, setSortField] = React.useState<SortField>('date')
+  const [sortDir, setSortDir] = React.useState<SortDir>('desc')
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const list = items.filter((it) => {
+      if (!q) return true
+      return (
+        it.title.toLowerCase().includes(q) ||
+        it.summary.toLowerCase().includes(q) ||
+        it.source.toLowerCase().includes(q)
+      )
+    })
+    const dir = sortDir === 'asc' ? 1 : -1
+    list.sort((a, b) => {
+      if (sortField === 'date') {
+        return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir
+      }
+      return ((parseNumeric(a.amount) ?? 0) - (parseNumeric(b.amount) ?? 0)) * dir
+    })
+    return list
+  }, [items, query, sortField, sortDir])
+
+  function toggleSort(field: SortField) {
+    if (field === sortField) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
+  }
+
+  if (items.length === 0) {
+    return (
+      <section aria-label={t('funding.label')}>
+        <EmptyState icon={<TrendingUp className="h-6 w-6" />} message={t('funding.empty')} />
+      </section>
+    )
+  }
+
+  return (
+    <section
+      aria-label={t('funding.label')}
+      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+    >
+      <div className="flex flex-row items-center justify-between gap-3 p-3 pb-3">
+        <div className="space-y-1">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            {t('funding.title')}
+          </h2>
+          <p className="text-xs text-muted-foreground">{t('funding.subtitle')}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2 px-4 pb-3">
+        <SearchInput
+          size="sm"
+          clearable
+          clearAriaLabel="clear"
+          wrapperClassName="w-full"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('funding.searchPlaceholder')}
+        />
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="text-[10px] text-muted-foreground/70">{t('funding.sortLabel')}:</span>
+          {(['date', 'amount'] as const).map((field) => (
+            <button
+              key={field}
+              type="button"
+              onClick={() => toggleSort(field)}
+              className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                sortField === field
+                  ? 'bg-foreground text-background'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {t(SORT_BY_LABEL_KEY[field] ?? 'funding.sortByDate')}
+              {sortField === field ? (
+                sortDir === 'asc' ? (
+                  <ArrowUp className="h-2 w-2" />
+                ) : (
+                  <ArrowDown className="h-2 w-2" />
+                )
+              ) : null}
+            </button>
+          ))}
+          <span className="ml-auto text-[10px] text-muted-foreground/80">
+            {t('funding.resultCount', { count: filtered.length, total: items.length })}
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 p-3 pt-3 min-[768px]:grid-cols-3">
+        {filtered.length === 0 ? (
+          <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-3 text-center text-xs text-muted-foreground">
+            {t('funding.empty')}
+          </div>
+        ) : null}
+        {filtered.map((item) => (
+          <Card
+            key={item.id}
+            className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <CardContent className="min-[640px]:p-3 space-y-2 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Badge variant="success">{item.amount}</Badge>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  {fmt.dateOnlyFormatter.format(new Date(item.date))}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold leading-tight">{item.title}</h3>
+              <p className="line-clamp-3 text-xs text-muted-foreground">{item.summary}</p>
+              <div className="flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+                <Building2 className="h-3 w-3" />
+                {item.source}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

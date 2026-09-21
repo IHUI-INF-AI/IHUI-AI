@@ -1,0 +1,69 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# IHUI AI CLI — Docker 镜像 (多阶段构建)
+# 构建: docker build -f deploy/docker/Dockerfile.cli -t ghcr.io/ihui/ai-cli:latest .
+# 运行: docker run --rm -v "$(pwd):/workspace" ghcr.io/ihui/ai-cli
+
+# ---------- Stage 1: builder ----------
+# 供应链安全:当前用 tag pinning(node:22-alpine),生产部署前应改为 digest pinning:
+#   docker pull node:22-alpine
+#   docker inspect --format='{{index .RepoDigests 0}}' node:22-alpine
+#   替换下面 FROM 行为:FROM node:22-alpine@sha256:<digest>
+FROM node:22-alpine AS builder
+
+WORKDIR /build
+
+# 安装 pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# 复制 workspace 配置
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+
+# 复制 packages 和 cli 源码(分层利用缓存)
+COPY packages/ ./packages/
+COPY apps/cli/ ./apps/cli/
+
+# 构建依赖包 + CLI
+RUN pnpm install --frozen-lockfile --filter @ihui/cli... \
+    && pnpm --filter @ihui/cli build
+
+# ---------- Stage 2: runner ----------
+# 供应链安全:同 builder 阶段,生产部署前应改为 digest pinning(见顶部注释)
+FROM node:22-alpine AS runner
+
+LABEL org.opencontainers.image.title="IHUI AI CLI" \
+      org.opencontainers.image.description="IHUI AI Coding Agent CLI" \
+      org.opencontainers.image.source="https://github.com/IHUI-INF-AI/IHUI-AI" \
+      org.opencontainers.image.licenses="MIT"
+
+# 安装最小运行时依赖(git 用于代码操作)
+RUN apk add --no-cache git ca-certificates tzdata \
+    && addgroup -g 1001 -S ihui \
+    && adduser -u 1001 -S ihui -G ihui
+
+# 复制构建产物
+COPY --from=builder /build/apps/cli/dist /app/dist
+COPY --from=builder /build/apps/cli/package.json /app/package.json
+COPY --from=builder /build/node_modules /app/node_modules
+COPY --from=builder /build/packages /app/packages
+
+WORKDIR /app
+
+# 创建 node_modules 软链(workspace 依赖)
+RUN cd /app && ln -sf /app/node_modules ./node_modules
+
+# 工作目录(用户挂载点)
+RUN mkdir -p /workspace && chown -R ihui:ihui /workspace /app
+
+USER ihui
+
+ENV NODE_ENV=production \
+    NODE_PATH=/app/node_modules
+
+WORKDIR /workspace
+
+ENTRYPOINT ["node", "/app/dist/index.js"]
+CMD ["--help"]
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

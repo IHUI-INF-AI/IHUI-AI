@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "ignorePatterns": [
+    {
+      "method": "GET",
+      "pathPattern": "^/api/admin/courses/:param$",
+      "reason": "分析器 crudRe 展开遗漏 GET basePath/:id:registerCrud 工厂(apps/api/src/routes/admin/_shared.ts:254)实际注册了 server.get(`${basePath}/:id`) getById 详情路由,后端有 GET /api/admin/courses/:id,非真实 404。"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "^/api/favorites/check/aiworld$",
+      "reason": "分析器 params.id 误报:前端实际调用 /api/favorites/check/aiworld/${params.id}(PageClient.tsx:66),分析器把 params.id 误判为 query string builder 导致路径归一化丢失 :param;后端有 GET /api/favorites/check/:resourceType/:resourceId(social.ts:480)匹配,非真实 404。"
+    },
+    {
+      "method": "DELETE",
+      "pathPattern": "^/api/favorites/aiworld$",
+      "reason": "分析器 params.id 误报:前端实际调用 /api/favorites/aiworld/${params.id}(PageClient.tsx:77),归一化丢失 :param;后端有 DELETE /api/favorites/:resourceType/:resourceId(social.ts:401)匹配,非真实 404。"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import { useTranslations } from 'next-intl'
+import { Check, Edit, Trash2 } from 'lucide-react'
+import { Button } from '@ihui/ui-react'
+import { DataTable, type Column, Badge } from '@/components/data'
+import type { DemandRow } from './types'
+
+interface DemandAuditTableProps {
+  list: DemandRow[]
+  isLoading: boolean
+  page: number
+  total: number
+  onPageChange: (p: number) => void
+  onApproval: (row: DemandRow) => void
+  onEdit: (row: DemandRow) => void
+  onDelete: (id: string) => void
+}
+
+export function DemandAuditTable({
+  list,
+  isLoading,
+  page,
+  total,
+  onPageChange,
+  onApproval,
+  onEdit,
+  onDelete,
+}: DemandAuditTableProps) {
+  const t = useTranslations('admin.demandAudit')
+  const columns: Column<DemandRow>[] = [
+    {
+      key: 'agentName',
+      title: t('colAgentName'),
+      render: (d) => <span className="font-medium">{d.agentName || '-'}</span>,
+    },
+    {
+      key: 'startName',
+      title: t('colStartName'),
+      render: (d) => <span className="text-muted-foreground">{d.startName || '-'}</span>,
+    },
+    {
+      key: 'desc',
+      title: t('colDesc'),
+      render: (d) => <span className="text-muted-foreground">{(d.desc || '-').slice(0, 30)}</span>,
+    },
+    {
+      key: 'examineTime',
+      title: t('colExamineTime'),
+      render: (d) => <span className="text-muted-foreground">{d.examineTime || '-'}</span>,
+    },
+    {
+      key: 'status',
+      title: t('colStatus'),
+      render: (d) => (
+        <Badge
+          variant={
+            d.status === 'approved' ? 'success' : d.status === 'rejected' ? 'danger' : 'warning'
+          }
+        >
+          {d.status === 'approved'
+            ? t('statusApproved')
+            : d.status === 'rejected'
+              ? t('statusRejected')
+              : t('statusPending')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      title: t('colActions'),
+      align: 'right',
+      render: (d) => (
+        <div className="flex flex-nowrap justify-end gap-1">
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onApproval(d)}>
+            <Check className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('approveBtn')}</span>
+          </Button>
+          <Button size="sm" variant="ghost" className="shrink-0" onClick={() => onEdit(d)}>
+            <Edit className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">{t('edit')}</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="shrink-0 text-destructive"
+            onClick={() => {
+              if (confirm(t('deleteConfirm'))) onDelete(d.id)
+            }}
+          >
+            <Trash2 className="h-4 w-4 shrink-0" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <DataTable
+      columns={columns}
+      data={list}
+      rowKey={(d) => d.id}
+      loading={isLoading}
+      pagination={{ page, pageSize: 20, total }}
+      onPageChange={onPageChange}
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

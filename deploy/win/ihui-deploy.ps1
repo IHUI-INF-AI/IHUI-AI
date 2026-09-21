@@ -1,0 +1,987 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# =============================================================================
+# IHUI 原生 Windows 部署 + 健康门禁 + 回滚脚本
+# 适用: aizhs.top 生产机(原生 Windows, NSSM 服务, Cloudflare Tunnel)
+# 由本机定时任务轮询 origin/main 触发;也可手动执行。
+#
+# 行为(每个阶段失败即中止,不切流):
+#   1. git fetch origin main + 以 FETCH_HEAD 计算本地落后提交数(不用被宿主吞掉的 origin/main ref)
+#   2. 落后>0 才继续;git merge --ff-only FETCH_HEAD(禁 force,不动他人未提交改动)
+#   3. 备份当前 web 构建产物(.next → .rollback)
+#   4. 重建 web(next build);api/ai-service 跑源码(tsx/uvicorn)无需独立构建
+#   5. 重启 NSSM 服务(走非活跃逻辑,健康全过才保留)
+#   6. 健康门禁:web 200 + /api/health ok + LLM 网关可达;未过则回滚
+#   7. 回滚:恢复 .rollback 构建 + 重启服务
+#
+# 用例:
+#   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -dryrun
+#   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -diagnose
+#   powershell -ExecutionPolicy Bypass -File deploy\win\ihui-deploy.ps1 -deployLatest
+# =============================================================================
+param(
+    [switch]$dryrun,          # 只 fetch + 报告差距,不部署
+    [switch]$diagnose,        # 只读诊断:仓库状态/网络/服务/锁/日志/线上一致性,不做任何构建或迁移
+    [switch]$deployLatest,    # 忽略是否落后,强制部署到当前 origin/main
+    [switch]$rollbackOnly,    # 仅用上次 .rollback 恢复
+    [switch]$force            # 跳过健康门禁直接切流(谨慎)
+)
+
+# 全局路径与约束
+$ErrorActionPreference = 'Stop'
+$Root       = 'D:\IHUI-AI'
+$WebDir     = "$Root\apps\web"
+$ApiDir     = "$Root\apps\api"
+$AiDir      = "$Root\apps\ai-service"
+$BackupDir  = 'D:\DevEnv\backups\deploy'
+$ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
+$PublicWeb  = 'https://aizhs.top'
+$ApiHealth  = "$PublicWeb/api/health"
+# ai-service 健康端点(2026-09-14 ai-service 重启步骤引入;直连本机端口,无 JWT)
+$AiServiceHealth = "http://127.0.0.1:8803/health"
+
+# ── 工具链 PATH(2026-09-13 加,实测):服务/SYSTEM 上下文的 PATH 不含 node/pnpm,
+#    否则 `pnpm run db:migrate`(以及 pnpm build)会报 '"node"' 不是内部或外部命令
+#    (09:23 由 IHUI-DEPLOYLOOP 服务实测复现)。与 deploy\prod-bundle\svc\run-api.ps1
+#    的 PATH 前置保持一致;额外补 WindowsPowerShell\v1.0(web prebuild 的 sync-downloads
+#    链会调 powershell.exe)以及 pnpm 自带的 node_modules\.bin。
+foreach ($p in @('D:\DevEnv\runtimes\node','D:\DevEnv\tools\npm-global','C:\windows\System32\WindowsPowerShell\v1.0')) {
+    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) { $env:PATH = "$p;$env:PATH" }
+}
+
+# ── 并发锁(2026-09-07 加固):手动 -deployLatest 与计划任务 loop 可能同时进入,
+#    两者会互相 Remove-Item/.next 与 .next-staging,导致构建期 ENOENT(实测
+#    _buildManifest.js.tmp.* 被对端删除)。用 PID 锁保证同一时刻仅一个部署实例。
+$DeployLock = "$Root\deploy\win\.deploy.lock"
+function Get-DeployLock {
+    if (Test-Path $DeployLock) {
+        $pidIn = (Get-Content $DeployLock -Raw -ErrorAction SilentlyContinue).Trim()
+        $alive = $false
+        if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
+        if ($alive) {
+            Write-Host "FAIL  检测到进行中的部署(pid=$pidIn),终止本次部署避免并发冲突"
+            exit 2
+        }
+        Remove-Item $DeployLock -Force -ErrorAction SilentlyContinue   # 悬挂锁清理
+    }
+    Set-Content -Path $DeployLock -Value "$PID" -NoNewline
+}
+function Release-DeployLock {
+    if ((Test-Path $DeployLock) -and ((Get-Content $DeployLock -Raw).Trim() -eq "$PID")) {
+        Remove-Item $DeployLock -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# ── 日志时间戳带时区(2026-09-21 根治,实测):生产机时钟为 UTC,旧格式 'HH:mm:ss'
+#    裸时间曾导致人工排查时误判「日志停更 7.5 小时」(实为 UTC 02:33=本地 10:33)。
+#    所有日志时间一律带 +偏移,人眼即可分辨时区,杜绝同类误判。
+function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
+function Ok    { param([string]$m) Log "OK    $m" }
+
+# ── Server酱微信告警(2026-09-18 接入,AGENTS.md §5e):部署失败自动推送到微信。
+#    配额自保:免费版 5 条/天,自动告警每日上限 3 条(保留 2 条给人工);
+#    SendKey 优先环境变量,NSSM 服务上下文未继承时回读 HKCU 注册表;
+#    通知任何失败只记日志,绝不影响部署/回滚流程本身。
+#    邮件兜底(2026-09-18 加):Server酱发送失败/超额时,自动改发邮件到 502319984@qq.com
+#    (邮件兜底优先 SMTP(如腾讯企业邮,收件无"代发"标注),未配置时回落 Resend,发件人 智汇AI官方 <IHUI-AI@aizhs.top>,密钥读 apps/api\.env 的 RESEND_API_KEY),每日上限 10 封。
+#    状态唯一写入点:Invoke-FailNotify(当日计数 date/count/emailCount 落盘)。
+$SctStateFile = "$Root\deploy\win\.sct-notify-state.json"
+# 迁移失败告警去重状态(2026-09-21 加):同一签名 12h 内只推一次,避免每轮循环刷爆 3 条/天配额
+$MigAlertStateFile = "$Root\deploy\win\.migrate-alert-state.json"
+$NotifyEmailTo = '502319984@qq.com'
+function Get-SctSendKey {
+    if ($env:SERVERCHAN_SENDKEY) { return $env:SERVERCHAN_SENDKEY }
+    try {
+        $v = (Get-ItemProperty -Path 'HKCU:\Environment' -Name 'SERVERCHAN_SENDKEY' -ErrorAction Stop).SERVERCHAN_SENDKEY
+        if ($v) { return $v }
+    } catch {}
+    return $null
+}
+function Send-SctNotify {
+    # 纯发送,不碰计数。返回 $true=已送达;$false=失败/未配置。
+    param([string]$title,[string]$desp,[string]$short = '')
+    try {
+        $key = Get-SctSendKey
+        if (-not $key) { Log "SCT   跳过微信告警:SERVERCHAN_SENDKEY 未配置"; return $false }
+        $body = @{ title = $title; desp = $desp }
+        if ($short) { $body.short = $short }
+        Invoke-RestMethod -Uri "https://sctapi.ftqq.com/$key.send" -Method Post -Body $body -TimeoutSec 8 -ErrorAction Stop | Out-Null
+        Log "SCT   微信告警已推送"
+        return $true
+    } catch {
+        Log "SCT   微信告警发送失败: $($_.Exception.Message)"
+        return $false
+    }
+}
+function Get-ResendApiKey {
+    if ($env:RESEND_API_KEY) { return $env:RESEND_API_KEY }
+    try {
+        $found = $null
+        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
+            if ($_ -match '^RESEND_API_KEY=(.+?)\s*$') { $found = $Matches[1] }
+        }
+        if ($found) { return $found }
+    } catch {}
+    return $null
+}
+function Get-SmtpConfig {
+    # SMTP 配置读取:环境变量优先,其次 apps/api\.env。返回 $null 表示未配置。
+    $cfg = @{ Host=''; Port=587; User=''; Pass=''; From='智汇AI官方 <IHUI-AI@aizhs.top>' }
+    $sources = @(@{}, @{})
+    if ($env:SMTP_HOST) { $sources[0]['SMTP_HOST'] = $env:SMTP_HOST; $sources[0]['SMTP_PORT'] = $env:SMTP_PORT; $sources[0]['SMTP_USER'] = $env:SMTP_USER; $sources[0]['SMTP_PASS'] = $env:SMTP_PASS; $sources[0]['SMTP_FROM'] = $env:SMTP_FROM }
+    try {
+        Get-Content "$ApiDir\.env" -ErrorAction Stop | ForEach-Object {
+            if ($_ -match '^(SMTP_[A-Z]+)=(.*?)\s*$') { $sources[1][$Matches[1]] = $Matches[2] }
+        }
+    } catch {}
+    foreach ($s in $sources) {
+        foreach ($k in @('Host','Port','User','Pass','From')) {
+            if (-not $cfg[$k] -or ($k -eq 'Port' -and $cfg.Port -eq 587 -and $s['SMTP_PORT'])) {
+                $v = $s["SMTP_$k"]
+                if ($v) { $cfg[$k] = $v }
+            }
+        }
+    }
+    if (-not $cfg.Host -or -not $cfg.User -or -not $cfg.Pass) { return $null }
+    return $cfg
+}
+function Send-EmailNotify {
+    # 纯发送,不碰计数。返回 $true=已发送。优先 SMTP(主域回信路径,QQ 等收件方无"由 xx 代发"标注),失败回落 Resend。
+    param([string]$subject,[string]$text)
+    try {
+        $smtp = Get-SmtpConfig
+        if ($smtp) {
+            $cred = New-Object System.Management.Automation.PSCredential($smtp.User,(ConvertTo-SecureString $smtp.Pass -AsPlainText -Force))
+            Send-MailMessage -SmtpServer $smtp.Host -Port ([int]$smtp.Port) -UseSsl -Credential $cred `
+                -From $smtp.From -To $NotifyEmailTo -Subject $subject -Body $text -Encoding UTF8 -ErrorAction Stop
+            Log "MAIL  邮件告警已发送至 $NotifyEmailTo (SMTP $($smtp.Host))"
+            return $true
+        }
+    } catch {
+        Log "MAIL  SMTP 告警发送失败,转 Resend 兜底: $($_.Exception.Message)"
+    }
+    try {
+        $key = Get-ResendApiKey
+        if (-not $key) { Log "MAIL  跳过邮件兜底:SMTP 与 RESEND_API_KEY 均未配置"; return $false }
+        $payload = @{ from = '智汇AI官方 <IHUI-AI@aizhs.top>'; to = @($NotifyEmailTo); subject = $subject; text = $text } | ConvertTo-Json
+        Invoke-RestMethod -Uri 'https://api.resend.com/emails' -Method Post -Body $payload -ContentType 'application/json' -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Log "MAIL  邮件告警已发送至 $NotifyEmailTo (Resend)"
+        return $true
+    } catch {
+        Log "MAIL  邮件告警发送失败: $($_.Exception.Message)"
+        return $false
+    }
+}
+function Invoke-FailNotify {
+    param([string]$m)
+    $today = Get-Date -Format 'yyyy-MM-dd'
+    $sctCount = 0; $emailCount = 0
+    try {
+        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($prev.date -eq $today) { $sctCount = [int]$prev.count; $emailCount = [int]$prev.emailCount }
+    } catch {}
+    # 同签名 12h 去重(2026-09-21 加):失败冷却机制上线后同一失败会每 30 分钟重放,
+    # 不去重会瞬间耗光 3 条/天微信配额与 10 封/天邮件配额,把后续新故障挤出告警通道。
+    $sig = ($m -replace '\s+', ' ').Trim()
+    $sigFresh = $false
+    try {
+        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ([string]$prev.sig -eq $sig) {
+            $ageH = ((Get-Date) - [datetime]$prev.sigTs).TotalHours
+            if ($ageH -ge 0 -and $ageH -lt 12) { $sigFresh = $true }
+        }
+    } catch {}
+    if ($sigFresh) {
+        Log "SCT   同签名失败告警 12h 内已推过,跳过(冷却重试期间的重复失败不再刷配额)"
+        return
+    }
+    $nowTxt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
+    $sent = $false
+    if ($sctCount -ge 3) {
+        Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"
+    } else {
+        try {
+            $sent = Send-SctNotify -title "【生产环境】部署失败" -short $m `
+                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $nowTxt`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+        } catch { $sent = $false }
+        if ($sent) { $sctCount++ }
+    }
+    if (-not $sent) {
+        if ($emailCount -ge 10) {
+            Log "MAIL  跳过邮件兜底:已达当日上限(10 封)"
+        } else {
+            $mailOk = $false
+            try {
+                $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
+                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+            } catch { $mailOk = $false }
+            if ($mailOk) { $emailCount++ }
+        }
+    }
+    try {
+        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = $sctCount; emailCount = $emailCount; sig = $sig; sigTs = (Get-Date).ToString('o') } | ConvertTo-Json) -NoNewline
+    } catch {}
+}
+function Fail {
+    param([string]$m)
+    Log "FAIL  $m"
+    try { Invoke-FailNotify -m $m } catch {}
+    try { Release-DeployLock } catch {}
+    exit 1
+}
+
+function Invoke-Step { param([string]$name,[scriptblock]$body)
+    Log "── $name ──"
+    & $body | ForEach-Object { Write-Host "   $_" }
+    return $LASTEXITCODE
+}
+
+function Test-Http {
+    param([string]$url,[string]$contains='')
+    try {
+        $r = Invoke-WebRequest -Uri $url -TimeoutSec 15 -ErrorAction Stop -UseBasicParsing
+        if ($contains -and $r.Content -notmatch [regex]::Escape($contains)) { return $false }
+        return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400)
+    } catch { return $false }
+}
+
+function BackendLogin-Token {
+    # 探测 LLM 网关需带 Bearer;用 admin 获取 token(仅作健康探测,不改数据)
+    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入
+    $adminPwd = $env:IHUI_ADMIN_PASSWORD
+    if (-not $adminPwd) { return $null }
+    try {
+        $b = @{ username='admin'; password=$adminPwd } | ConvertTo-Json
+        $login = Invoke-RestMethod -Uri "$PublicWeb/api/auth/login/username" -Method Post `
+                        -Body $b -ContentType 'application/json' -TimeoutSec 20 -ErrorAction Stop
+        if ($login.data.accessToken) { return $login.data.accessToken }
+        if ($login.token.accessToken) { return $login.token.accessToken }
+        if ($login.accessToken) { return $login.accessToken }
+    } catch {}
+    return $null
+}
+
+function Test-LlmGateway {
+    $tok = BackendLogin-Token
+    if (-not $tok) { return $false }
+    try {
+        $r = Invoke-WebRequest -Uri "$PublicWeb/api/llm/providers/health" `
+                    -Headers @{ Authorization = "Bearer $tok" } -TimeoutSec 20 -ErrorAction Stop -UseBasicParsing
+        return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 400)
+    } catch { return $false }
+}
+
+# 健康门禁: web + api健康 + LLM网关
+# 2026-09-07 加固:Next 冷启动需数秒，重启后立即探全部走 :8801 的端点会集体误判失败
+# (api/llm 都经 web 反代/tunnel → web 未就绪即整链 FAIL)。改为带退避的多次探测,
+# 前 Ups个周期内(N 次 × 间隔)任一轮全过即成功;全部耗尽才算未过 → 进回滚。
+function Test-HealthGate {
+    [int]$Tries  = 8
+    [int]$GapSec = 12
+    for ($i = 1; $i -le $Tries; $i++) {
+        Start-Sleep -Seconds $GapSec
+        $p1 = Test-Http -url $PublicWeb -contains '<!DOCTYPE html'
+        $p2 = Test-Http -url $ApiHealth -contains '"status":"ok"'
+        $p3 = Test-LlmGateway
+        Log "健康门禁 第 $i/$Tries 轮: web=$p1 api=$p2 llm=$p3"
+        if ($p1 -and $p2 -and $p3) { return $true }
+    }
+    Log "健康门禁 ${Tries} 轮均未全过,判定失败"
+    return $false
+}
+
+function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null } }
+
+# ── 构建新鲜度判据(2026-09-14 加;2026-09-21 根治) ─────────────────────────────
+# 背景:本脚本原先只在 behind>0 时才重建 web,他方抢跑 ff 后 behind 恒 0 → 循环永不部署。
+# 2026-09-21 根治(实测教训):旧判据「marker..HEAD 在 webPaths 路径上的差异提交数>0」
+#       存在两处致命盲区,叠加造成本次部署停滞:
+#       ① 失败轮也写 marker(尝试标记语义) → 构建连败后 marker=HEAD,每轮误判「新鲜」
+#         → 永久跳过,根因消失后也无法自愈,必须人工删标记;
+#       ② webPaths 过滤漏掉 deploy/docs 等路径 → 本次修复提交(deploy/win/*)被 merge 后
+#         差异数恒 0,即使 marker 落后也不触发重建。
+# 新判据:marker 只记录「最后一次成功部署」的 HEAD,marker != HEAD 即陈旧 → 重建。
+#       任何新提交(含仅改 deploy 脚本的提交)都触发一次重建;next build 仅 ~2.5 分钟,
+#       用确定性换精细度,不再做文件级 diff。失败轮一律不写 marker(见 Set-BuildCooldown)。
+function Get-BuildStale {
+    $marker = "$WebDir\.next\IHUI_BUILD_SHA"
+    if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
+    $built = (Get-Content $marker -Raw -ErrorAction SilentlyContinue).Trim()
+    if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
+    & git -C $Root cat-file -e "$built^{commit}" 2>$null
+    if ($LASTEXITCODE -ne 0) { return $true }                          # 标记提交不可达(强推/rebase)→ 重建
+    $head = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($head -notmatch '^[0-9a-f]{7,40}$') { return $true }           # HEAD 不可得 → 保守重建
+    return ($built -ne $head)
+}
+function Set-BuildMarker {
+    $dirNext = "$WebDir\.next"
+    if (-not (Test-Path $dirNext)) { return }
+    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
+}
+
+# ── 构建失败冷却(2026-09-21 加):marker 改为成功标记后,失败轮不再写标记。若不冷却,
+#    持续失败会每轮(60s)重走 重建dist+next build(~10-20 分钟) → 每天数百轮无效构建,
+#    刷爆日志与告警配额。冷却 30 分钟 ≈ 每小时 2 次自动重试:根因修复后最多 30 分钟
+#    自动恢复,无需人工删标记(本次事故正是靠手动删标记才恢复的)。
+#    冷却只拦「behind=0、仅因构建新鲜度触发」的重试;有新提交(behind>0)不拦,保住
+#    push→部署的及时性。成功部署即清除冷却。
+$BuildCooldownFile = "$Root\deploy\win\.build-fail-state.json"
+function Set-BuildCooldown {
+    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    try { Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction SilentlyContinue } catch {}
+}
+function Test-BuildCooldown {
+    # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
+    try {
+        $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
+        return ($ageMin -ge 0 -and $ageMin -lt 30)
+    } catch { return $false }
+}
+function Clear-BuildCooldown {
+    if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
+}
+
+function Build-Web {
+    param([string]$DistDir = 'staging', [int]$MaxTries = 4)
+    Set-Location $WebDir
+    if (-not (Test-Path "node_modules\.bin\next.cmd")) {
+        Log "web 依赖缺失,先 pnpm install"
+        & "D:\DevEnv\tools\npm-global\pnpm.cmd" install
+        # throw 而非 Fail(2026-09-21 根治):Fail 直接 exit 1 会绕过外层 catch 的失败冷却,
+        # 下一轮无冷却反复重试;throw 统一走主流程 catch → Set-BuildCooldown → 告警去重。
+        if ($LASTEXITCODE -ne 0) { throw "pnpm install 失败(exit $LASTEXITCODE)" }
+    }
+    # ── workspace 包 dist 重建(2026-09-21 加,实测):packages/*/dist 不入库(gitignored),
+    #    生产机 dist 永远停留在某次手工构建。api-client 新增 patrol 端点、ui-react 新增
+    #    icon-2xs 档位后,next build 仍解析 09-14 的旧 dist → "Export updatePatrolTask
+    #    doesn't exist in target module" 连续 4 轮构建失败 → 部署停滞(web 滞留旧版本)。
+    #    web 经 dist 消费的 6 个 workspace 包在此逐个重建(拓扑序:shared→api-client/
+    #    design-tokens/types,ui-react→design-tokens,api-client→types,实测 2026-09-21:
+    #    shared 排在 api-client 前会对其旧 dist 报 TS2305 CitationsEvent),单包失败即
+    #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
+    foreach ($pkg in @('@ihui/types','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
+        Log "重建 $pkg dist ..."
+        & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
+        if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
+    }
+    # 2026-09-07 可靠性加固(实测):Tailwind v4 展开成 ~271KB 单行 CSS,Next 前端 CSS
+    # 管线(lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性
+    # "Parsing CSS failed / Unexpected token Delim('\u{1a}')" 中断构建;成功可达但概率失败。
+    # 对策:冷构建(每次清空 staging 缓存)+ 多轮重试,落在成功态为止。
+    # 2026-09-14 堆内存加固(实测):next build(Turbopack/webpack 皆然)Node 侧堆
+    # 需求 >4GB(本机 4GB 默认堆实测 OOM "Ineffective mark-compacts",12GB 堆通过);
+    # 生产机若默认堆不足会连续 4 轮构建失败 → 部署 exit 1 → web 永久滞留旧构建。
+    # 对策:显式放宽 Node 堆到 8GB(按需分配,不预占),构建结束在 finally 还原。
+    $env:NEXT_TELEMETRY_DISABLED = '1'
+    $prevNodeOptions = $env:NODE_OPTIONS
+    $env:NODE_OPTIONS = "--max-old-space-size=8192$(if ($prevNodeOptions -and $prevNodeOptions -notmatch 'max-old-space-size') { ' ' + $prevNodeOptions })"
+    try {
+        for ($try = 1; $try -le $MaxTries; $try++) {
+            Log "构建尝试 $try/$MaxTries -> .next-$DistDir"
+            Remove-Item "$WebDir\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
+            $env:IHUI_BUILD_DIST = ".next-$DistDir"
+            # 2026-09-21 加固(实测):`& pnpm build` 直调出现过「构建进程 2 分钟内静默死亡,
+            # pwsh 却因孤儿孙进程持有 stdout 管道而永久挂起」——守护进程等子进程退出才落日志,
+            # 表现为 deploy-loop.log 停更 7.5h(02:56→10:2x)且 .deploy.lock 被活锁占用。
+            # 对策:Start-Process + stdout/stderr 重定向到临时文件(文件不依赖存活写者,天然
+            # 免疫管道挂死)+ WaitForExit 30 分钟墙钟;超时 taskkill /T 整树按失败 try 处理。
+            $bldOk = $false; $exitCode = 1
+            $bldOut = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-out.log"
+            $bldErr = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-err.log"
+            try {
+                $bldProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'build' `
+                    -WorkingDirectory $WebDir -NoNewWindow -PassThru `
+                    -RedirectStandardOutput $bldOut -RedirectStandardError $bldErr
+                if (-not $bldProc.WaitForExit(30 * 60 * 1000)) {
+                    Log "构建 try$try 超 30 分钟墙钟(pid=$($bldProc.Id))判挂死,taskkill /T 整树"
+                    & taskkill /PID $bldProc.Id /T /F 2>&1 | Out-Null
+                    $exitCode = 124
+                } else {
+                    $exitCode = $bldProc.ExitCode
+                }
+            } catch {
+                Log "Start-Process 构建异常($($_.Exception.Message)),回退直调"
+                & 'D:\DevEnv\tools\npm-global\pnpm.cmd' build
+                $exitCode = $LASTEXITCODE
+            }
+            foreach ($l in (Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)) { Log "[build-err] $l" }
+            foreach ($l in (Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)) { Log "[build-out] $l" }
+            $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
+            if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
+            Log "第 $try 次失败(exit=$exitCode),清缓存重试"
+        }
+        throw "next build 连续 $MaxTries 次失败,保持当前在线版本"
+    } finally {
+        Remove-Item Env:\IHUI_BUILD_DIST -ErrorAction SilentlyContinue
+        Remove-Item Env:\NEXT_TELEMETRY_DISABLED -ErrorAction SilentlyContinue
+        if ($prevNodeOptions) { $env:NODE_OPTIONS = $prevNodeOptions } else { Remove-Item Env:\NODE_OPTIONS -ErrorAction SilentlyContinue }
+    }
+}
+
+# ── 回滚:恢复上次构建产物 + 重启 ──
+function Start-Web {
+    try { sc.exe start IHUI-WEB | Out-Null } catch { throw "启动 IHUI-WEB 失败: $_" }
+}
+function Stop-Web {
+    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败: $_" }
+}
+function Restart-Web {
+    try { sc.exe stop IHUI-WEB | Out-Null } catch {}
+    Start-Sleep -Seconds 2
+    try { sc.exe start IHUI-WEB | Out-Null } catch { Fail "启动 IHUI-WEB 失败: $_" }
+    Start-Sleep -Seconds 8
+}
+
+# ── 回滚:仅 web(恢复 .rollback 构建 + 重启 web;api/ai 不受部署影响不重启)──
+function Do-Rollback {
+    Log "开始回滚:恢复上次 web 构建产物"
+    $rb = "$WebDir\.rollback"
+    if (-not (Test-Path "$rb\BUILD_ID")) { Fail "无可用 .rollback 构建,无法回滚" }
+    Stop-Web
+    Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item $rb "$WebDir\.next" -Recurse -Force
+    Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
+    Start-Web
+    Start-Sleep -Seconds 8
+    if (Test-HealthGate) { Ok "回滚完成,健康检查通过" } else { Fail "回滚后健康仍异常,需人工介入" }
+}
+
+# =============================================================================
+# -diagnose —— 只读诊断(2026-09-13 加)
+#
+# 背景:生产出现「服务在重启但代码不更新」时,旧脚本只报一句 FAIL,无法定位。
+# 本模式一次性打印定位所需的全部事实:仓库 HEAD / dirty / 分叉、fetch 三源可达性、
+# NSSM 服务与进程启动时间、deploy\prod-bundle 是否被用作 API 载体、线上与主干的
+# 一致性探针、部署日志尾部、并发锁状态、判读提示。
+# **不做**:不加锁、不建备份目录、不迁移、不 seed、不构建、不合并、不切流。
+# 唯一副作用:`git fetch`(只更新 .git/FETCH_HEAD,不动工作树)——这是判定 behind/ahead 的必要输入。
+# 需 PowerShell 7(pwsh)。
+# =============================================================================
+function Invoke-Diagnose {
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $script:diagDirty = 0
+    $script:diagAhead = -1
+    $script:diagFetched = $false
+    $script:diagDivergent = $false
+
+    function GitText { param([string[]]$a)
+        $o = & git @a 2>&1 | Out-String
+        return $o.Trim()
+    }
+    function DiagLog { param([string]$m) Write-Host $m }
+
+    DiagLog "================ -diagnose 只读诊断 ================"
+    DiagLog ("主机:$env:COMPUTERNAME  用户:$env:USERNAME  PID=$PID  时间:{0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'))
+    DiagLog ("仓库根:{0}  存在:{1}" -f $Root, (Test-Path $Root))
+
+    if (Test-Path $Root) {
+        Push-Location $Root
+        try {
+            # ── [1] 仓库状态:定位「为何合并失败 / 为何不部署」──
+            DiagLog "── [1] git 状态 ──"
+            DiagLog ("HEAD   : {0} | {1} | {2}" -f (GitText @('log','-1','--format=%h')), (GitText @('log','-1','--format=%cI')), (GitText @('log','-1','--format=%s')))
+            DiagLog ("分支   : {0}" -f (GitText @('rev-parse','--abbrev-ref','HEAD')))
+            DiagLog ("origin : {0}" -f (GitText @('remote','get-url','origin')))
+            $porcelain = GitText @('status','--porcelain')
+            if ($porcelain) { $script:diagDirty = ($porcelain -split "`n").Count } else { $script:diagDirty = 0 }
+            DiagLog ("未提交改动条目数: {0}" -f $script:diagDirty)
+            if ($script:diagDirty -gt 0) {
+                DiagLog "  ↓ 前 15 条(这些会让 git merge --ff-only 直接失败)"
+                ($porcelain -split "`n" | Select-Object -First 15) | ForEach-Object { DiagLog ("    {0}" -f $_) }
+            }
+            # 官方名归一后字段的旁证:本目录源码是否等于 origin/main
+            $apiRouteFile = Join-Path $Root 'apps\api\src\routes\ai-pricing.ts'
+            if (Test-Path $apiRouteFile) {
+                $script:diagDivergent = [bool](Select-String -Path $apiRouteFile -Pattern 'billingMode|perUnitPrice|tieredCallPrices|videoUnit' -Quiet)
+                DiagLog ("apps\api\src\routes\ai-pricing.ts 含「主干从未有过」的字段: {0}(期望 False)" -f $script:diagDivergent)
+            }
+        } finally { Pop-Location }
+    }
+
+    # ── [2] 网络:代理与三源 fetch 可达性 ──
+    DiagLog "── [2] git 网络 ──"
+    $proxyOk = $false
+    try {
+        $cli = New-Object System.Net.Sockets.TcpClient
+        $iar = $cli.BeginConnect('127.0.0.1', 7897, $null, $null)
+        $proxyOk = ($iar.AsyncWaitHandle.WaitOne(600) -and $cli.Connected)
+        $cli.Close()
+    } catch {}
+    DiagLog ("Clash 代理 127.0.0.1:7897 可用: {0}" -f $proxyOk)
+    $gitNet = @()
+    if ($proxyOk) { $gitNet = @('-c','http.proxy=http://127.0.0.1:7897','-c','https.proxy=http://127.0.0.1:7897') }
+    if (Test-Path $Root) {
+        Push-Location $Root
+        try {
+            $srcs = @('origin', 'https://gitcode.com/IHUI-AI/IHUI-AI.git', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git')
+            foreach ($s in $srcs) {
+                $o = & git @gitNet fetch $s main 2>&1 | Out-String
+                if ($LASTEXITCODE -eq 0) {
+                    DiagLog ("fetch {0} → OK" -f $s)
+                    $script:diagFetched = $true
+                } else {
+                    DiagLog ("fetch {0} → FAIL:{1}" -f $s, (($o.Trim() -split "`n" | Select-Object -First 2) -join ' / '))
+                }
+            }
+            if ($script:diagFetched) {
+                $bN = GitText @('rev-list','--count','HEAD..FETCH_HEAD')
+                $aN = GitText @('rev-list','--count','FETCH_HEAD..HEAD')
+                if ($bN -match '^\d+$') { DiagLog ("相对 FETCH_HEAD: behind={0} ahead={1}" -f $bN, $aN) }
+                if ($aN -match '^\d+$') { $script:diagAhead = [int]$aN }
+            }
+        } finally { Pop-Location }
+    }
+
+    # ── [3] 服务与进程启动时间(判断"重启过但代码没换") ──
+    DiagLog "── [3] NSSM 服务 ──"
+    foreach ($svc in @('IHUI-WEB','IHUI-API','IHUI-AI-SERVICE','IHUI-DEPLOYLOOP')) {
+        $s = Get-Service -Name $svc -ErrorAction SilentlyContinue
+        if ($s) { DiagLog ("  {0} : {1}" -f $svc, $s.Status) } else { DiagLog ("  {0} : 不存在" -f $svc) }
+    }
+    DiagLog "── [3b] node/pwsh 进程(命令行为 API 真实载体) ──"
+    try {
+        Get-CimInstance Win32_Process -Filter "Name='node.exe' OR Name='pwsh.exe'" -ErrorAction Stop |
+            Select-Object -First 12 | ForEach-Object {
+                $cmd = $_.CommandLine
+                if ($cmd -and $cmd.Length -gt 180) { $cmd = $cmd.Substring(0, 180) + '…' }
+                DiagLog ("  pid={0} {1} start={2}" -f $_.ProcessId, $_.Name, $_.CreationDate)
+                DiagLog ("      cmd: {0}" -f $cmd)
+            }
+    } catch { DiagLog ("  (取进程命令失败:{0})" -f $_.Exception.Message) }
+
+    # ── [4] API 载体:A 套壳产物目录是否被使用 ──
+    DiagLog "── [4] API 载体 ──"
+    $bundle = Join-Path $Root 'deploy\prod-bundle'
+    DiagLog ("deploy\prod-bundle 存在: {0}" -f (Test-Path $bundle))
+    $runApi = Join-Path $bundle 'svc\run-api.ps1'
+    if (Test-Path $runApi) {
+        DiagLog "  run-api.ps1 启动相关行:"
+        (Select-String -Path $runApi -Pattern 'Start-Process|tsx|dist|node |Set-Location|WorkingDirectory|-File|-c ' -ErrorAction SilentlyContinue |
+            Select-Object -First 12) | ForEach-Object { DiagLog ("    {0}" -f $_.Line.Trim()) }
+    }
+
+    # ── [5] 线上与主干一致性探针 ──
+    DiagLog "── [5] 线上一致性探针 ──"
+    $probes = @(
+        @{ u = "$ApiHealth"; n = '' },
+        @{ u = "$PublicWeb/api/ai-pricing/gemini-3-pro"; n = '' },
+        @{ u = "$PublicWeb/developer/keys"; n = 'developerKeys' }
+    )
+    foreach ($p in $probes) {
+        try {
+            $r = Invoke-WebRequest -Uri $p.u -TimeoutSec 15 -ErrorAction Stop -UseBasicParsing -SkipHttpErrorCheck
+            $hit = ''
+            if ($p.n) {
+                if ($r.Content -match [regex]::Escape($p.n)) { $hit = "  命中 '$($p.n)'(=旧构建仍在)" } else { $hit = "  未命中 '$($p.n)'" }
+            }
+            $body = ''
+            if ($r.Content) { $body = $r.Content.Substring(0, [Math]::Min(160, $r.Content.Length)) }
+            DiagLog ("  {0} → HTTP {1}{2}" -f $p.u, $r.StatusCode, $hit)
+            DiagLog ("      body: {0}" -f ($body -replace "`r?`n", ' '))
+        } catch {
+            DiagLog ("  {0} → 探测失败:{1}" -f $p.u, $_.Exception.Message)
+        }
+    }
+
+    # ── [6] 部署日志尾部 ──
+    DiagLog "── [6] deploy-loop.log 尾部 25 行 ──"
+    $loopLog = Join-Path $Root 'deploy\win\deploy-loop.log'
+    if (Test-Path $loopLog) {
+        Get-Content $loopLog -Tail 25 -ErrorAction SilentlyContinue | ForEach-Object { DiagLog ("  {0}" -f $_) }
+    } else { DiagLog "  (日志不存在:$loopLog)" }
+
+    # ── [7] 并发锁 ──
+    DiagLog "── [7] 并发锁 ──"
+    foreach ($lf in @((Join-Path $Root 'deploy\win\.deploy.lock'), (Join-Path $Root 'deploy\win\.deploy-loop.lock'))) {
+        if (Test-Path $lf) {
+            $pidIn = (Get-Content $lf -Raw -ErrorAction SilentlyContinue)
+            if ($pidIn) { $pidIn = $pidIn.Trim() }
+            $alive = $false
+            if ($pidIn -match '^\d+$') { $alive = $null -ne (Get-Process -Id ([int]$pidIn) -ErrorAction SilentlyContinue) }
+            DiagLog ("  {0}: 内容='{1}' 进程存活={2}" -f (Split-Path $lf -Leaf), $pidIn, $alive)
+        } else { DiagLog ("  {0}: 不存在" -f (Split-Path $lf -Leaf)) }
+    }
+
+    # ── [7b] DB 迁移是否落后(2026-09-21 加:迁移静默失败两天的直接后果就是这个没人看) ──
+    DiagLog "── [7b] DB 迁移落后 ──"
+    try {
+        $apiEnvP = Join-Path $Root 'apps\api\.env'
+        if ((Test-Path $apiEnvP) -and -not $env:DATABASE_URL) {
+            Get-Content $apiEnvP | ForEach-Object {
+                if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"', "'") }
+            }
+        }
+        $pd = Get-PendingMigrationCount
+        if ($null -eq $pd) { DiagLog "  · 无法判定(journal 或 psql/DATABASE_URL 不可用) —— 不代表没问题,请手查 drizzle.__drizzle_migrations 行数 vs _journal.json entries" }
+        elseif ($pd -gt 0) { DiagLog ("  · ❌ 生产库落后 {0} 个迁移:代码已合并但表/列不存在,依赖它的接口会 500/503。逐文件零写复现:BEGIN;<迁移文件>;ROLLBACK" -f $pd) }
+        else { DiagLog "  · ✓ 迁移已全部落地(journal 与库内记录一致)" }
+    } catch { DiagLog ("  · 判定异常:" + $_.Exception.Message) }
+
+    # ── [7c] web 构建标记与失败冷却(2026-09-21 加:本次「永久跳过」事故在旧诊断里
+    #    完全不可见,只能人工猜 marker 状态;现在一眼可判) ──
+    DiagLog "── [7c] web 构建标记与失败冷却 ──"
+    $mkFile = Join-Path $WebDir '.next\IHUI_BUILD_SHA'
+    $headSha = GitText @('rev-parse','HEAD')
+    if (Test-Path $mkFile) {
+        $builtSha = (Get-Content $mkFile -Raw -ErrorAction SilentlyContinue).Trim()
+        $same = if ($builtSha -eq $headSha) { 'True' } else { 'False' }
+        DiagLog ("  IHUI_BUILD_SHA={0}" -f ($(if ($builtSha) { $builtSha } else { '(空)' })))
+        DiagLog ("  HEAD          ={0}  一致={1} —— 不一致/不存在 ⇒ 下轮轮询强制重建(2026-09-21 新判据:marker≠HEAD 即陈旧)" -f $headSha, $same)
+    } else { DiagLog ("  IHUI_BUILD_SHA 不存在 ⇒ 下轮轮询强制重建(marker 只在部署成功后写入)") }
+    $cdFile = Join-Path $Root 'deploy\win\.build-fail-state.json'
+    if (Test-Path $cdFile) {
+        try {
+            $cdSt = Get-Content $cdFile -Raw -ErrorAction Stop | ConvertFrom-Json
+            $cdAge = ((Get-Date) - [datetime]$cdSt.ts).TotalMinutes
+            $cdIn = if ($cdAge -ge 0 -and $cdAge -lt 30) { '是(behind=0 时跳过重试)' } else { '否(已过 30 分钟,下轮自动重试)' }
+            DiagLog ("  构建失败冷却: 上次失败 {0:N0} 分钟前(head={1}) ⇒ 冷却中:{2}" -f $cdAge, $cdSt.head, $cdIn)
+        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0})" -f $_.Exception.Message) }
+    } else { DiagLog "  构建失败冷却: 无(上次部署成功或从未失败)" }
+
+    # ── [8] 判读提示 ──
+    DiagLog "── [8] 判读提示 ──"
+    if ($script:diagDirty -gt 0) { DiagLog ("  · 工作树有 {0} 条未提交改动 → git merge --ff-only 会被拒,现象是「每轮 behind>0 却永不部署」。先确认这些是本地修改还是产物目录再处理。" -f $script:diagDirty) }
+    if ($script:diagAhead -gt 0) { DiagLog "  · 本地领先 FETCH_HEAD(分叉)→ ff-only 必失败,需人工决定处理策略(勿盲目 reset)。" }
+    if (-not $script:diagFetched) { DiagLog "  · 三源 fetch 全失败 → 部署循环必然停摆;先恢复网络/代理(Clash 127.0.0.1:7897),或用镜像手动 fetch。" }
+    if ($script:diagDivergent) { DiagLog "  · apps/api 源码含主干从未有过的字段 → 本目录源码并非 origin/main,须核对来源后再部署。" }
+    if ($script:diagDirty -eq 0 -and $script:diagAhead -le 0 -and $script:diagFetched) { DiagLog "  · 仓库侧未见异常;若线上仍是旧代码,重点看 [3]/[4]:服务是否真的重启、API 是否跑在非 git 载体上。" }
+    DiagLog "================ 诊断结束(未做任何变更) ================"
+    $ErrorActionPreference = $prevEAP
+}
+
+if ($diagnose) { Invoke-Diagnose; exit 0 }
+
+# ── 零停机蓝绿式部署主流程 ──
+New-BackupDir
+Set-Location $Root
+
+if (-not $dryrun) { Get-DeployLock }     # 仅实际构建占用;dryrun 只读裸查不占锁
+
+if ($rollbackOnly) { try { Do-Rollback; exit 0 } finally { Release-DeployLock } }
+
+# ── DB 迁移(2026-09-13 加):幂等,每轮执行;drizzle journal 保证仅 pending 迁移实际跑 ──
+# 失败只告警不中止部署(数据库连接失败不应阻断 web 发布;计费修复依赖本步,失败会有监控/验证兜底)
+#
+# 2026-09-21 加固(实测教训):上面那句"失败会有监控兜底"是假的 —— 迁移自 09-19 起连续 exit 1,
+# 循环每轮只留一行 WARN 就继续发布,两天无人发现,8 个迁移全被 drizzle 的单事务一起回滚。
+# 现在:① 每轮把"journal 条数 vs 库里已记录条数"的差额打进日志(可 grep MIG);
+#      ② 失败时按签名去重推送(12h 内同一签名只推一次,不刷爆 3 条/天配额);
+#      ③ 本轮标 degraded,收尾再显式提示一次。仍**不改退出码**(NSSM/包装器语义未知,不冒险)。
+function Get-PsqlExe {
+    foreach ($c in @('D:\DevEnv\runtimes\pgsql\bin\psql.exe')) { if (Test-Path $c) { return $c } }
+    $g = Get-Command psql.exe -ErrorAction SilentlyContinue
+    if ($g) { return $g.Source }
+    return $null
+}
+
+function Get-PendingMigrationCount {
+    # 返回 $null 表示"判不了"(取不到 journal 或连不上库)—— 宁可不说,也不误报 0
+    $total = 0
+    try {
+        $jp = Join-Path $Root 'packages\database\drizzle\meta\_journal.json'
+        if (-not (Test-Path $jp)) { return $null }
+        $total = (@((Get-Content $jp -Raw | ConvertFrom-Json).entries)).Count
+        if ($total -lt 1) { return $null }
+    } catch { return $null }
+    try {
+        $psql = Get-PsqlExe
+        if (-not $psql -or -not $env:DATABASE_URL) { return $null }
+        $raw = ((& $psql $env:DATABASE_URL -At -c "select count(*) from drizzle.__drizzle_migrations;" 2>$null) | Out-String).Trim()
+        if ($raw -notmatch '^\d+$') { return $null }
+        $d = $total - ([int]$raw)
+        if ($d -lt 0) { $d = 0 }
+        return $d
+    } catch { return $null }
+}
+
+function Note-MigrateFailure {
+    param([string]$reason, [string]$pendingTxt)
+    $script:DbMigrateDegraded = $true
+    $sig = "$reason|$pendingTxt"
+    $prevSig = ''; $prevTs = [datetime]::MinValue
+    try {
+        if (Test-Path $MigAlertStateFile) {
+            $st = Get-Content $MigAlertStateFile -Raw | ConvertFrom-Json
+            $prevSig = [string]$st.sig
+            try { $prevTs = [datetime]$st.ts } catch { $prevTs = [datetime]::MinValue }
+        }
+    } catch {}
+    $ageH = ((Get-Date) - $prevTs).TotalHours
+    if ($prevSig -eq $sig -and $ageH -lt 12) {
+        Log ("MIG   同一签名告警 {0:N1}h 内已推过,跳过(签名={1})" -f $ageH, $sig)
+        return
+    }
+    try {
+        Set-Content -Path $MigAlertStateFile -Value (@{ sig = $sig; ts = (Get-Date).ToString('o') } | ConvertTo-Json -Compress) -NoNewline
+    } catch {}
+    try {
+        Invoke-FailNotify -m "DB 迁移未落地(原因:$reason;仍待应用 $pendingTxt)。部署循环按设计继续发布,但生产库结构已落后代码 —— 逐文件复现办法:BEGIN;<迁移文件>;ROLLBACK(零写生产)。详见 deploy\win\deploy-loop.log 的 MIG 行"
+    } catch { Log "MIG   告警推送异常: $_" }
+}
+
+function Invoke-DbMigrate {
+    Log "DB 迁移检查(packages/database db:migrate)"
+    $apiEnv = "$Root\apps\api\.env"
+    if (Test-Path $apiEnv) {
+        Get-Content $apiEnv | ForEach-Object {
+            if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"',"'") }
+        }
+    }
+    Push-Location "$Root\packages\database"
+    try {
+        $migOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" run db:migrate 2>&1 | Out-String
+        $migOut | Write-Host
+        $pend = Get-PendingMigrationCount
+        $pendTxt = if ($null -eq $pend) { '未知' } else { "$pend 个" }
+        Log "MIG   待应用迁移=$pendTxt(journal vs drizzle.__drizzle_migrations)"
+        if ($LASTEXITCODE -eq 0) {
+            if ($pend -gt 0) {
+                Log "WARN  db:migrate exit 0 但仍落后 $pend 个迁移 —— 属于「跑过但没应用完」,需人工核查"
+                Note-MigrateFailure -reason "exit 0 但仍有待应用" -pendingTxt $pendTxt
+            } else {
+                Ok "db:migrate 完成(exit 0)"
+            }
+        }
+        else {
+            # 2026-09-13 加固:失败必须能定位到具体迁移,而不是只报退出码
+            $bad = ($migOut -split "`n" | Where-Object { $_ -match "\.sql|ERROR|error:" } | Select-Object -First 6) -join " | "
+            Log "WARN  db:migrate 失败(exit $LASTEXITCODE),本轮继续但需人工核查;线索: $bad"
+            Note-MigrateFailure -reason "exit $LASTEXITCODE" -pendingTxt $pendTxt
+        }
+    } finally { Pop-Location }
+}
+if (-not $dryrun) { Invoke-DbMigrate }
+
+# ── DB seed(2026-09-13 加):仅跑 13 号中转站定价步骤,幂等可重复 ──
+# 与 Invoke-DbMigrate 共用 apps/api/.env 的 DATABASE_URL(进程级 env 已设置,这里再兜底一次)
+function Invoke-DbSeedRelayPricing {
+    Log "DB seed(packages/database 中转站定价,--only=13)"
+    $apiEnv = "$Root\apps\api\.env"
+    if (Test-Path $apiEnv) {
+        Get-Content $apiEnv | ForEach-Object {
+            if ($_ -match '^\s*DATABASE_URL\s*=\s*(.+)\s*$') { $env:DATABASE_URL = $Matches[1].Trim('"',"'") }
+        }
+    }
+    Push-Location "$Root\packages\database"
+    try {
+        $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
+        $seedOut | Write-Host
+        if ($LASTEXITCODE -eq 0) { Ok "seed 完成(exit 0)" }
+        else { Log "WARN  seed 失败(exit $LASTEXITCODE),本轮继续但需人工核查" }
+    } finally { Pop-Location }
+}
+if (-not $dryrun) { Invoke-DbSeedRelayPricing }
+
+# ── 代理解析(2026-09-13 修复,实测):GitHub 直连在本机被墙,系统/SYSTEM 上下文
+#    没有 http_proxy 环境变量 → `git fetch` 报 "Failed to connect to github.com:443"
+#    (实测 09-13 09:13),且失败时 stdout 为空 → 旧代码 `[int](...)` 得 0 →
+#    误判"已是最新"静默 exit 0。此为「部署循环永不部署」的第二重根因(静默失效),
+#    比 origin/main ref 被吞更隐蔽。对策:① 探测本机 Clash 代理显式传给 git;
+#    ② fetch 与 behind 全程 fail-closed —— 任何一步失败即非 0 退出,绝不伪装成"已最新"。
+$ProxyCandidates = @('http://127.0.0.1:7897')
+$Proxy = $null
+foreach ($p in $ProxyCandidates) {
+    try {
+        $u = [Uri]$p
+        $cli = New-Object System.Net.Sockets.TcpClient
+        $iar = $cli.BeginConnect($u.Host, $u.Port, $null, $null)
+        if ($iar.AsyncWaitHandle.WaitOne(600) -and $cli.Connected) { $Proxy = $p; $cli.Close(); break }
+        $cli.Close()
+    } catch {}
+}
+$gitNet = @()
+if ($Proxy) { $gitNet = @('-c', "http.proxy=$Proxy", '-c', "https.proxy=$Proxy"); Log "git 网络走代理 $Proxy" }
+else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ',')),将尝试直连" }
+
+Log "fetch origin main ..."
+$fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
+$fetchOut.Trim() | Write-Host
+# ── 镜像回退(2026-09-13 加):本机 GitHub 直连被墙,依赖 Clash 代理(127.0.0.1:7897);
+#    代理未运行/被防火墙拦时 fetch 必失败 → fail-closed → 部署循环长时间停摆(实测 09-13
+#    出现 uptime 单调上升 35 分钟、新提交不入库)。三仓 main 由本项目推送流程保证同步,
+#    故 origin 失败时回退国内镜像;镜像落后时 behind=0 会自然跳过,不会回滚。
+#    注意:镜像 fetch 同样写 FETCH_HEAD,下游 behind/merge 逻辑无需改动。
+$MirrorUrls = @(
+    'https://gitcode.com/IHUI-AI/IHUI-AI.git',
+    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
+)
+$fetched = $false
+if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+    $fetched = $true
+} else {
+    Log "WARN  origin fetch 失败,尝试国内镜像回退 ..."
+    foreach ($m in $MirrorUrls) {
+        Log "fetch $m main ..."
+        $mOut = & git fetch $m main 2>&1 | Out-String
+        $mOut.Trim() | Write-Host
+        if ($LASTEXITCODE -eq 0 -and -not ($mOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $fetched = $true
+            Log "镜像回退成功:$m"
+            break
+        }
+    }
+}
+if (-not $fetched) {
+    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署"
+}
+# 落后提交数 = 本地未含 origin/main 的提交数
+# 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
+# (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
+# 旧写法 git rev-list --count HEAD..origin/main 恒 0 → 循环判定"已是最新"提前退出、永不部署。
+# 改为对齐刚 fetch 下来的 FETCH_HEAD(fetch 之后它必然是远端最新),彻底免疫该问题。
+$behindRaw = (& git @gitNet rev-list --count HEAD..FETCH_HEAD 2>&1 | Out-String).Trim()
+if ($behindRaw -notmatch '^\d+$') { Fail "无法计算 behind(FETCH_HEAD 无效:'$behindRaw'),本轮不部署" }
+$behind = [int]$behindRaw
+
+if ($behind -eq 0 -and -not $deployLatest -and -not (Get-BuildStale)) {
+    Ok "本地已是最新 main,无需部署(behind=$behind)"
+    Release-DeployLock
+    exit 0
+}
+if ($behind -eq 0 -and -not $deployLatest) {
+    # 冷却拦截(2026-09-21 加):上轮构建/门禁失败后 30 分钟内不因「构建新鲜度」反复重试,
+    # 防持续失败时每轮 10-20 分钟无效构建;30 分钟后自动重试,根因修复后无需人工干预。
+    # behind>0(有新提交)不拦,push→部署及时性优先。
+    if (Test-BuildCooldown) {
+        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内),本轮不重建;冷却结束自动重试,根因已修复则无需干预"
+        Release-DeployLock
+        exit 0
+    }
+    Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建"
+}
+if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short FETCH_HEAD | Out-String).Trim())"; Release-DeployLock; exit 0 }
+
+if ($behind -gt 0) {
+    Log "本地落后远端 $behind 个提交,进行 fast-forward merge(FETCH_HEAD)"
+    & git merge --ff-only FETCH_HEAD 2>&1 | Out-String | Write-Host
+    if ($LASTEXITCODE -ne 0) { Fail "git merge --ff-only FETCH_HEAD 失败(可能冲突/未提交改动),已停止,未切流" }
+    Ok "merge 完成,HEAD=$(git rev-parse --short HEAD | Out-String)"
+}
+
+# 1) 备份当前 web 构建 → .rollback(web 保持在线,只读复制)
+Log "备份当前 web 构建 → .rollback"
+$curNext = "$WebDir\.next"
+if (Test-Path "$curNext\BUILD_ID") {
+    $rb = "$WebDir\.rollback"
+    Remove-Item $rb -Recurse -Force -ErrorAction SilentlyContinue
+    Copy-Item $curNext $rb -Recurse -Force
+    Ok "已备份当前构建为回滚点"
+} else { Log "未发现现有 .next\BUILD_ID,跳过备份(冷启动)" }
+
+# 2) 构建到 staging 目录(Turbopack 持久 cache 独立于 staging,每次冷构建规避
+#    持久 cache 遮蔽的 CSS 解析偶发问题);web 在线,构建期零停机
+try {
+        Remove-Item "$WebDir\.next-staging" -Recurse -Force -ErrorAction SilentlyContinue
+        Build-Web -DistDir 'staging'
+    } catch {
+        # 2026-09-21 根治:失败轮不再 Set-BuildMarker(旧逻辑写「尝试标记」导致
+        # marker=HEAD → 下一轮误判新鲜 → 永久跳过,根因消失也无法自愈)。
+        # 改记失败冷却:30 分钟内不重试,之后自动重试直到成功。
+        Set-BuildCooldown
+        Log "构建失败($_) → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)"
+        Release-DeployLock
+        exit 1
+    }
+
+# 3) 秒级交换:停 web → 用新构建替换 .next → 起 web
+Log "交换 staging → 线上(.next),重启 web"
+Stop-Web
+Remove-Item "$WebDir\.next" -Recurse -Force -ErrorAction SilentlyContinue
+Move-Item "$WebDir\.next-staging" "$WebDir\.next"
+# 2026-09-15 修复:next build 在 IHUI_BUILD_DIST 覆盖 distDir 时会把被跟踪的
+#   next-env.d.ts 改写为引用 .next-staging/types/...,但上方只移动 .next 目录、
+#   不还原该文件 → 残留污染源码树(违反 AGENTS.md「.next-* 变体永不提交」铁律)。
+#   交换完成后立即还原为已提交版本;git 不可用时静默跳过(不阻塞部署)。
+try {
+    $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+    if ($gitCmd) { & git -C $Root checkout -- apps/web/next-env.d.ts 2>$null }
+} catch { /* 还原失败不阻塞部署,下次本地 git checkout 即可 */ }
+Start-Web
+Start-Sleep -Seconds 8
+
+# 4) 健康门禁(web + api + llm)
+Log "健康门禁检查"
+if (-not (Test-HealthGate)) {
+    if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
+    else {
+        # 2026-09-21 根治:回滚属于失败轮,不再 Set-BuildMarker(旧逻辑导致 marker=HEAD
+        # 误判新鲜永久跳过);改记冷却,30 分钟后自动重试。
+        # 且回滚后必须提前退出 —— 旧代码会流到收尾 Set-BuildMarker,把「回滚保留的
+        # 旧构建」标记成新 HEAD 的成功构建,下轮误判新鲜跳过,同样造成部署停滞。
+        Set-BuildCooldown
+        Do-Rollback
+        Log "=== 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ==="
+        Release-DeployLock
+        exit 0
+    }
+} else {
+    Ok "健康门禁通过,部署成功"
+    Clear-BuildCooldown
+    Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
+
+    # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
+    # 服务名不确定,按候选精确匹配;找不到则跳过(tsx watch 形态会自动重载)
+    $apiName = @('IHUI-API','ihui-api','svc-api','IHUI-API-SVC') |
+        Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
+        Select-Object -First 1
+    if ($apiName) {
+        Log "重启 api 服务($apiName)使后端新代码生效"
+        try {
+            sc.exe stop $apiName | Out-Null
+            Start-Sleep -Seconds 4
+            sc.exe start $apiName | Out-Null
+            Start-Sleep -Seconds 6
+            $apiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $ApiHealth -contains '"status":"ok"') { $apiOk = $true; break }
+                Start-Sleep -Seconds 6
+            }
+            if ($apiOk) { Ok "api 重启完成且健康" }
+            else { Log "WARN  api 重启后健康未即时通过(冷启动可能较慢),需人工核查 $apiName" }
+        } catch { Log "WARN  api 重启异常: $_" }
+    } else {
+        Log "未找到 api 服务(候选:IHUI-API/ihui-api/svc-api),跳过重启(tsx watch 形态自动重载)"
+    }
+
+    # ── 重启 ai-service(2026-09-14 加):uvicorn 源码直跑,pull 后需重载才能吃到
+    # 新路由/新代码——当日实证:ai-service 停在旧版(FIM summary 路由 404),根因
+    # 即部署只重启 web+api 漏了 ai-service。服务名按候选精确匹配;找不到则跳过。
+    $aiName = @('IHUI-AI-SERVICE','ihui-ai-service','svc-ai','IHUI-AI-SVC') |
+        Where-Object { $null -ne (Get-Service -Name $_ -ErrorAction SilentlyContinue) } |
+        Select-Object -First 1
+    if ($aiName) {
+        Log "重启 ai-service 服务($aiName)使 AI 新代码生效"
+        try {
+            sc.exe stop $aiName | Out-Null
+            Start-Sleep -Seconds 4
+            sc.exe start $aiName | Out-Null
+            Start-Sleep -Seconds 8
+            $aiOk = $false
+            for ($i = 1; $i -le 5; $i++) {
+                if (Test-Http -url $AiServiceHealth) { $aiOk = $true; break }
+                Start-Sleep -Seconds 6
+            }
+            if ($aiOk) { Ok "ai-service 重启完成且健康" }
+            else { Log "WARN  ai-service 重启后健康未即时通过(冷启动可能较慢),需人工核查 $aiName" }
+        } catch { Log "WARN  ai-service 重启异常: $_" }
+    } else {
+        Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
+    }
+}
+# 收尾写成功标记(2026-09-21 语义变更):只有部署成功(或显式 -force)才会流到这里,
+# marker 语义 = 「.next 是该 HEAD 的成功构建」。失败路径(构建异常/门禁回滚)均已提前
+# 退出或改记冷却,绝不写 marker —— 这是本次「误判新鲜永久跳过」事故的根治点。
+Set-BuildMarker
+Write-Host ""
+Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
+Release-DeployLock
+if ($script:DbMigrateDegraded) {
+    Log "WARN  本轮收尾:DB 迁移未落地(发布按设计继续),状态见 deploy\win\.migrate-alert-state.json;-diagnose 的 [7b] 会复述落后条数"
+}
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
