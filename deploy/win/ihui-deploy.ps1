@@ -337,10 +337,35 @@ function Build-Web {
             Log "构建尝试 $try/$MaxTries -> .next-$DistDir"
             Remove-Item "$WebDir\.next-$DistDir" -Recurse -Force -ErrorAction SilentlyContinue
             $env:IHUI_BUILD_DIST = ".next-$DistDir"
-            & "D:\DevEnv\tools\npm-global\pnpm.cmd" build
-            $ok = ($LASTEXITCODE -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
+            # 2026-09-21 加固(实测):`& pnpm build` 直调出现过「构建进程 2 分钟内静默死亡,
+            # pwsh 却因孤儿孙进程持有 stdout 管道而永久挂起」——守护进程等子进程退出才落日志,
+            # 表现为 deploy-loop.log 停更 7.5h(02:56→10:2x)且 .deploy.lock 被活锁占用。
+            # 对策:Start-Process + stdout/stderr 重定向到临时文件(文件不依赖存活写者,天然
+            # 免疫管道挂死)+ WaitForExit 30 分钟墙钟;超时 taskkill /T 整树按失败 try 处理。
+            $bldOk = $false; $exitCode = 1
+            $bldOut = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-out.log"
+            $bldErr = Join-Path $env:TEMP "ihui-next-build-$PID-try$try-err.log"
+            try {
+                $bldProc = Start-Process -FilePath 'D:\DevEnv\tools\npm-global\pnpm.cmd' -ArgumentList 'build' `
+                    -WorkingDirectory $WebDir -NoNewWindow -PassThru `
+                    -RedirectStandardOutput $bldOut -RedirectStandardError $bldErr
+                if (-not $bldProc.WaitForExit(30 * 60 * 1000)) {
+                    Log "构建 try$try 超 30 分钟墙钟(pid=$($bldProc.Id))判挂死,taskkill /T 整树"
+                    & taskkill /PID $bldProc.Id /T /F 2>&1 | Out-Null
+                    $exitCode = 124
+                } else {
+                    $exitCode = $bldProc.ExitCode
+                }
+            } catch {
+                Log "Start-Process 构建异常($($_.Exception.Message)),回退直调"
+                & 'D:\DevEnv\tools\npm-global\pnpm.cmd' build
+                $exitCode = $LASTEXITCODE
+            }
+            foreach ($l in (Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)) { Log "[build-err] $l" }
+            foreach ($l in (Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)) { Log "[build-out] $l" }
+            $ok = ($exitCode -eq 0) -and (Test-Path "$WebDir\.next-$DistDir\BUILD_ID")
             if ($ok) { Ok "next build 完成 -> .next-$DistDir"; return }
-            Log "第 $try 次失败(exit=$LASTEXITCODE),清缓存重试"
+            Log "第 $try 次失败(exit=$exitCode),清缓存重试"
         }
         throw "next build 连续 $MaxTries 次失败,保持当前在线版本"
     } finally {
