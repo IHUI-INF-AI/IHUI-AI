@@ -210,6 +210,7 @@ addopts = "-n auto --dist loadfile --basetemp=../../../.pytest_tmp"
 # 2026-09-02 立:真网集成测试标记(语雀/飞书等 Connector 真通验证,CI 默认不跑)
 markers = [
     "network: 真实网络调用集成测试(需外网,默认跳过可 --run-network 强制)",
+    "real_jwt: 绕过 conftest 的 JWT 中和夹具,用真实密钥与中间件验证鉴权判定层",
 ]
 
 [dependency-groups]

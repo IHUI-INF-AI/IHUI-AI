@@ -2301,6 +2301,7 @@ class AgentEngine:
             workspace=params.get("workspace")
             if isinstance(params.get("workspace"), str)
             else None,
+            # userId 已在承载层被绑定为已验证身份(routers/engine.py::_bind_principal)
             user_id=params.get("userId") if isinstance(params.get("userId"), str) else None,
             conversation_id=params.get("conversationId")
             if isinstance(params.get("conversationId"), str)
@@ -6865,9 +6866,12 @@ class AgentEngine:
         # 的审批 → owner != principal → 不生效(applied=False)。
         # 不传 threadId 时 principal 退化为 None,此时只能结算同样无属主的条目
         # (非 HTTP 上下文创建的历史审批),不会因此开出新口子。
-        # 残余敞口(已知,不粉饰):thread.start 的 userId 由客户端声明,谎报他人 id
-        # 即可解"该 id 经引擎创建的"审批。根治需在连接层用 JWT subject 覆盖
-        # thread.user_id,属引擎身份模型改造,不在本次范围。
+        # 敞口收口(2026-09-21 同日晚于本注释落地):thread.start 的 userId 曾由客户端
+        # 自述,谎报即可解他人审批;现承载层 routers/engine.py::_bind_principal 把
+        # **已验证身份**(HTTP request.state.user_id / WS 握手 token 的 sub)写回
+        # params.userId,自述值在进入引擎前被丢弃。仅剩"未鉴权通道"(principal=None,
+        # 如 dev 态)仍按自述值建线程 —— 那类通道本身无身份可谎报,信任级不变。
+        # 测试:tests/test_engine_principal_binding_59.py
         thread_id = params.get("threadId")
         principal: str | None = None
         if isinstance(thread_id, str) and thread_id:

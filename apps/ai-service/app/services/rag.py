@@ -167,8 +167,13 @@ class RAGService:
         content: str,
         role: str = "system",
         metadata: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> None:
-        """向 RAG 知识库添加文档(写入 vector_memory + memory)。"""
+        """向 RAG 知识库添加文档(写入 vector_memory + memory)。
+
+        O19:user_id 为可证明的上传方属主(路由层从请求解析);None 时条目属主未知,
+        按用户裁剪的检索不可见(fail-closed),内部全量检索路径仍可见。
+        """
         entry_id = _uuid.uuid4().hex
         entry: dict[str, Any] = {
             "session_id": session_id,
@@ -177,7 +182,7 @@ class RAGService:
             **(metadata or {}),
         }
         embedding = await vector_memory.embed(content)
-        await vector_memory.add_entry(entry_id, entry, embedding)
+        await vector_memory.add_entry(entry_id, entry, embedding, user_id=user_id)
         await memory_store.add(session_id, role, content, metadata)
 
     async def retrieve_only(
