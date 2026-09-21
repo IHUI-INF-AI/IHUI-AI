@@ -109,11 +109,19 @@ BEGIN
     RAISE NOTICE '[o13] 已创建应用角色 %：非超级用户 / 无 BYPASSRLS / 不继承(密码需运维另行 ALTER ROLE 设置)', app_role;
   ELSE
     -- 已存在也**重刷属性**:防"手滑给它点了 SUPERUSER"悄悄漂回来越跑越松
-    EXECUTE format(
-      'ALTER ROLE %I WITH NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS NOINHERIT NOREPLICATION LOGIN',
-      app_role
-    );
-    RAISE NOTICE '[o13] 应用角色 % 已存在,已重刷为非超级用户 / 无 BYPASSRLS / 不继承', app_role;
+    -- (2026-09-21 加 EXCEPTION 豁免:PG 对非超管连接连"撤销 SUPERUSER"都一律报
+    --  insufficient_privilege,不豁免会让整条迁移在生产部署库上永远挂掉。
+    --  无权时降级为 NOTICE 不阻塞 —— 属性防漂移交由运维以超管账号手动执行同款 ALTER)
+    BEGIN
+      EXECUTE format(
+        'ALTER ROLE %I WITH NOSUPERUSER NOCREATEROLE NOCREATEDB NOBYPASSRLS NOINHERIT NOREPLICATION LOGIN',
+        app_role
+      );
+      RAISE NOTICE '[o13] 应用角色 % 已存在,已重刷为非超级用户 / 无 BYPASSRLS / 不继承', app_role;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE NOTICE '[o13] 应用角色 % 已存在,当前连接非超管无权 ALTER ROLE,已跳过属性重刷(如需防漂移请以超管执行同款 ALTER)', app_role;
+    END;
   END IF;
 
   -- --------------------------------------------------------------------------
