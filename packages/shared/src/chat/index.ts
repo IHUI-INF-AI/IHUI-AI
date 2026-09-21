@@ -8,3 +8,4 @@ export * from './render-model'
 export * from './task-status'
 // 工具码名 → i18n 键展示映射(界面禁止直显英文工具码名)
 export * from './tool-display'
+export * from './tool-activity'
