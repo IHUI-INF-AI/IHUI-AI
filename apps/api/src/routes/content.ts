@@ -41,6 +41,11 @@ import {
   countUnreadAnnouncements,
 } from '../db/content-queries.js'
 import { success, error } from '../utils/response.js'
+import { renderChangelogEmail, renderLaunchEmail } from '../services/email-templates.js'
+import {
+  listEmailRecipients,
+  broadcastDispatchEmail,
+} from '../services/broadcast-email-service.js'
 
 const ANNOUNCEMENT_TYPES = ['info', 'warning', 'maintenance', 'update'] as const
 const HELP_CATEGORIES = ['account', 'payment', 'project', 'ai', 'tech', 'other'] as const
@@ -102,6 +107,34 @@ const updateAnnouncementSchema = z.object({
     .nullable()
     .optional(),
 })
+
+/** 更新推送邮件:changelog=版本更新日志 / launch=新品上线(渲染智汇通报版式后全量群发) */
+const emailPushSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('changelog'),
+    version: z.string().min(1).max(32),
+    items: z
+      .array(
+        z.object({
+          tag: z.enum(['NEW', 'OPT', 'FIX', 'SEC']),
+          title: z.string().min(1).max(120),
+          desc: z.string().min(1).max(300),
+        }),
+      )
+      .min(1)
+      .max(20),
+  }),
+  z.object({
+    mode: z.literal('launch'),
+    productName: z.string().min(1).max(64),
+    version: z.string().min(1).max(32),
+    features: z
+      .array(z.object({ title: z.string().min(1).max(120), desc: z.string().min(1).max(300) }))
+      .min(1)
+      .max(9),
+    ctaPath: z.string().min(1).max(200),
+  }),
+])
 
 const createHelpCategorySchema = z.object({
   name: z.string().min(1).max(64),
@@ -427,6 +460,44 @@ export const adminContentRoutes: FastifyPluginAsync = async (server) => {
     }
     await deleteAnnouncement(parsed.data.id)
     return reply.send(success({ ok: true }))
+  })
+
+  // POST /announcements/email-push - 更新推送邮件群发(changelog=更新日志 / launch=新品上线)
+  server.post('/announcements/email-push', async (request, reply) => {
+    const parsed = emailPushSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const today = new Date().toLocaleDateString('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+    const mail =
+      parsed.data.mode === 'changelog'
+        ? renderChangelogEmail({
+            version: parsed.data.version,
+            date: today,
+            items: parsed.data.items,
+          })
+        : renderLaunchEmail({
+            productName: parsed.data.productName,
+            version: parsed.data.version,
+            features: parsed.data.features,
+            ctaPath: parsed.data.ctaPath,
+          })
+    const recipients = await listEmailRecipients()
+    // 群发 fire-and-forget:接口立即返回排队数,发送统计落日志
+    void broadcastDispatchEmail(mail, recipients)
+      .then((stats) => {
+        request.log.info(
+          { stats, mode: parsed.data.mode, operator: request.userId },
+          '更新推送邮件群发完成',
+        )
+      })
+      .catch((e) => request.log.error(e, '更新推送邮件群发失败'))
+    return reply.send(success({ queued: recipients.length, mode: parsed.data.mode }))
   })
 
   // ----- Help Categories Admin -----
