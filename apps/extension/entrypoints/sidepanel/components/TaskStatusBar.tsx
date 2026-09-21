@@ -20,6 +20,8 @@ import { Check, ChevronDown, ChevronUp, CircleDashed, Loader2, X } from 'lucide-
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import {
   deriveTaskStatusBar,
+  humanizeToolText,
+  toolDisplayKey,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
@@ -66,7 +68,13 @@ export interface TaskStatusBarProps {
   isStreaming: boolean
 }
 
-function StepRow({ step }: { step: TaskStatusStepView }) {
+function StepRow({
+  step,
+  translate,
+}: {
+  step: TaskStatusStepView
+  translate: (key: string) => string
+}) {
   const Icon = STEP_ICON[step.status]
   return (
     <li className="flex items-start gap-2 py-0.5">
@@ -80,7 +88,7 @@ function StepRow({ step }: { step: TaskStatusStepView }) {
               : 'text-muted-foreground'
         }`}
       >
-        {step.title}
+        {humanizeToolText(step.title, translate)}
       </span>
     </li>
   )
@@ -104,6 +112,8 @@ export function TaskStatusBar({
 
   // 流式期间"此刻在做什么":优先展示正在跑的工具 / 终端命令,拿不到名称时留空,
   // 让 view.headline(当前步骤标题)顶上 —— 与 web 端 activityLabel 同一优先级。
+  // 界面禁止直显英文工具码名:已映射的工具显示本地化功能名(如 read_file → "读取文件内容"),
+  // 插件/MCP 动态名回落 activityTool/activityMcp/activityPlugin。
   const activityLabel = useMemo(() => {
     if (!isStreaming) return ''
     const runningTool = (toolCalls ?? []).find((call) => call.status === 'running')
@@ -118,6 +128,8 @@ export function TaskStatusBar({
           plugin: runningTool.serverName ?? runningTool.toolName,
         })
       }
+      const displayKey = toolDisplayKey(runningTool.toolName)
+      if (displayKey) return t(`taskStatus.${displayKey}`)
       return t('taskStatus.activityTool', { tool: runningTool.toolName })
     }
     if ((terminalTasks ?? []).some((task) => task.status === 'running')) {
@@ -131,7 +143,7 @@ export function TaskStatusBar({
   const { icon: Glyph, cls: glyphCls } = KIND_GLYPH[view.kind]
   const headline =
     activityLabel ||
-    view.headline ||
+    (view.headline ? humanizeToolText(view.headline, t) : '') ||
     (view.active ? t('taskStatus.activityRunning') : t('taskStatus.waiting'))
   const stepText =
     view.stepTotal > 0
@@ -196,7 +208,7 @@ export function TaskStatusBar({
             aria-label={t('taskStatus.steps', { current: view.stepCurrent, total: view.stepTotal })}
           >
             {view.steps.map((step) => (
-              <StepRow key={step.id} step={step} />
+              <StepRow key={step.id} step={step} translate={t} />
             ))}
           </ul>
         ) : null}

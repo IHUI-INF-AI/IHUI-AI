@@ -85,7 +85,7 @@ import {
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
-import { FALLBACK_MODELS } from '@ihui/shared'
+import { FALLBACK_MODELS, humanizeToolText, toolDisplayKey } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
@@ -268,6 +268,9 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.toolCalls')}</Text>
       {items.map((item) => {
+        // 界面禁止直显英文工具码名:内置工具映射为本地化功能名,插件/MCP 动态名回落原样
+        const displayKey = toolDisplayKey(item.name)
+        const displayName = displayKey ? t(`taskStatus.${displayKey}`) : item.name
         const statusLabel =
           item.status === 'running'
             ? t('aiAssistantN8n.toolStatusRunning')
@@ -287,7 +290,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
               accessibilityRole="button"
-              accessibilityLabel={item.name}
+              accessibilityLabel={displayName}
             >
               {expandable ? (
                 open ? (
@@ -297,7 +300,7 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
                 )
               ) : null}
               <Text style={bubbleStyles.cardTitle} numberOfLines={1}>
-                {item.name}
+                {displayName}
               </Text>
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
@@ -355,7 +358,9 @@ function PlanStepList({
         return (
           <View key={step.id} style={bubbleStyles.planRow}>
             <Text style={bubbleStyles.planIndex}>{index + 1}</Text>
-            <Text style={bubbleStyles.planText}>{step.step}</Text>
+            <Text style={bubbleStyles.planText}>
+              {humanizeToolText(step.step, (key) => t(`taskStatus.${key}`))}
+            </Text>
             <StatusBadge kind={toneKind} label={statusLabel} />
             {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
           </View>
