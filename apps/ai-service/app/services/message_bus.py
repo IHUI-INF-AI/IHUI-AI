@@ -27,8 +27,10 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from enum import StrEnum
+from html import escape as _html_escape
 from typing import Any
 
 import httpx
@@ -429,13 +431,75 @@ class WebhookChannel(BaseChannel):
         return True
 
 
+# 「智汇通报」邮件版式令牌(与 apps/api/src/services/email-templates.ts DISPATCH_TOKENS 同源,
+# 色值/结构保持同步,勿单侧漂移)
+_DISPATCH_PAGE_BG = "#050506"
+_DISPATCH_CARD_BG = "#0A0A0C"
+_DISPATCH_INK = "#F5F5F0"
+_DISPATCH_BODY = "#C9C9C2"
+_DISPATCH_DIM = "#8A8A85"
+_DISPATCH_ACCENT = "#B4FF00"
+_DISPATCH_HAIRLINE = "#3A3A40"
+
+
+def _render_dispatch_html(tag: str, title: str, body_text: str) -> str:
+    """渲染「智汇通报」品牌 HTML(深黑机械风,600px 卡片)。
+
+    正文纯文本逐行转义后渲染,杜绝内容注入。
+    """
+    safe_lines = _html_escape(str(body_text), quote=False).splitlines() or [""]
+    body_html = "".join(f"<div>{ln if ln else '&nbsp;'}</div>" for ln in safe_lines)
+    origin = (os.environ.get("CORS_ORIGIN") or "https://aizhs.top").split(",")[0].strip().rstrip("/")
+    qr = f"{origin}/footer/erweima/wechat-vx.png"
+    yahei = "'Microsoft YaHei',sans-serif"
+    mono = "Consolas,monospace"
+    return (
+        '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1"></head>'
+        f'<body style="margin:0;padding:0;background:{_DISPATCH_PAGE_BG};">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_PAGE_BG}"><tr><td align="center" style="padding:24px 8px;">'
+        f'<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_CARD_BG}" style="width:600px;max-width:600px;background:{_DISPATCH_CARD_BG};">'
+        # 刊头
+        f'<tr><td style="padding:0 0 20px 36px;">'
+        f'<div style="font-family:{mono};font-size:26px;font-weight:bold;color:{_DISPATCH_INK};letter-spacing:2px;">IHUI.</div>'
+        f'<div style="font-family:{mono};font-size:10px;color:{_DISPATCH_DIM};letter-spacing:4px;margin-top:6px;">THE&nbsp;MECHANICAL&nbsp;DISPATCH&nbsp;//&nbsp;智汇通报</div>'
+        f'</td></tr>'
+        # 栏目眉 + 标题 + 色条
+        f'<tr><td style="padding:0 36px 0 36px;"><div style="font-family:{mono};font-size:11px;color:{_DISPATCH_ACCENT};letter-spacing:2px;">{_html_escape(tag, quote=False)}</div></td></tr>'
+        f'<tr><td style="padding:12px 36px 0 36px;"><div style="font-family:{yahei};font-size:26px;font-weight:900;color:{_DISPATCH_INK};">{_html_escape(title, quote=False)}</div></td></tr>'
+        f'<tr><td style="padding:18px 36px 0 36px;"><div style="height:4px;background:{_DISPATCH_ACCENT};font-size:0;line-height:0;">&nbsp;</div></td></tr>'
+        # 正文(逐行转义)
+        f'<tr><td style="padding:20px 36px 0 36px;">'
+        f'<div style="font-family:{yahei};font-size:17px;line-height:1.9;color:{_DISPATCH_BODY};border:1px dashed {_DISPATCH_ACCENT};padding:18px 22px;">{body_html}</div>'
+        f'</td></tr>'
+        # 创始人直联卡
+        f'<tr><td style="padding:24px 36px 0 36px;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed {_DISPATCH_HAIRLINE};"><tr>'
+        f'<td style="padding:18px 22px;">'
+        f'<div style="font-family:{mono};font-size:13px;color:{_DISPATCH_DIM};letter-spacing:3px;">[&nbsp;DIRECT_LINE&nbsp;//&nbsp;创始人直联&nbsp;]</div>'
+        f'<div style="font-family:{yahei};font-size:13px;color:{_DISPATCH_DIM};margin-top:8px;">遇到任何问题,微信扫码<b style="color:{_DISPATCH_INK};">直接联系创始人李春川</b><br>微信号:<span style="font-family:{mono};font-size:17px;color:{_DISPATCH_ACCENT};letter-spacing:1px;">ok502319984</span>(长按复制)· 邮件兜底:<a href="mailto:support@aizhs.top" style="color:{_DISPATCH_ACCENT};text-decoration:none;">support@aizhs.top</a></div>'
+        f'</td>'
+        f'<td width="84" style="padding:12px;"><img src="{qr}" alt="创始人微信二维码" width="72" height="72" style="display:block;border:0;" /></td>'
+        f'</tr></table>'
+        f'</td></tr>'
+        # 页脚
+        f'<tr><td style="padding:22px 36px 26px 36px;">'
+        f'<div style="font-family:{mono};font-size:13px;line-height:22px;color:{_DISPATCH_DIM};letter-spacing:1px;">DESIGNED_AS_A_MACHINE&nbsp;//&nbsp;FOR_INVESTIGATORS</div>'
+        f'<div style="font-family:{mono};font-size:13px;color:{_DISPATCH_DIM};margin-top:8px;">智汇AI集团 创始人 <span style="color:{_DISPATCH_INK};font-weight:bold;">李春川</span> · aizhs.top · © 2026 IHUI AI · 系统自动派发</div>'
+        f'</td></tr>'
+        f'</table></td></tr></table></body></html>'
+    )
+
+
 class EmailChannel(BaseChannel):
     """Email 通道 — 真实实现(SMTP)。
 
     配置来源 env:SMTP_HOST / SMTP_PORT(默认 587) / SMTP_USER /
     SMTP_PASSWORD / SMTP_FROM。收件人来自 message.metadata['to'](str 或 list)。
-    用标准库 smtplib + email.mime 构建文本邮件,SMTP 阻塞调用放入线程池,
-    整体 15s 超时。env 未配置 SMTP → 返回失败(不假装成功)。
+    用标准库 smtplib 构建纯文本 + HTML 双部分邮件(HTML 走「智汇通报」
+    品牌版式,与 apps/api/src/services/email-templates.ts 同源同色值),
+    SMTP 阻塞调用放入线程池,整体 15s 超时。
+    env 未配置 SMTP → 返回失败(不假装成功)。
     """
 
     channel_type = ChannelType.EMAIL
@@ -461,8 +525,13 @@ class EmailChannel(BaseChannel):
         password = self._env("SMTP_PASSWORD")
         from_addr = self._env("SMTP_FROM") or user or "noreply@localhost"
         subject = (message.metadata or {}).get("subject") or "IHUI 通知"
+        tag = (message.metadata or {}).get("tag") or "SYSTEM // NOTICE"
 
-        msg = MIMEText(message.content, "plain", "utf-8")
+        plain = MIMEText(message.content, "plain", "utf-8")
+        rich = MIMEText(_render_dispatch_html(tag, subject, message.content), "html", "utf-8")
+        msg = MIMEMultipart("alternative")
+        msg.attach(plain)
+        msg.attach(rich)
         msg["Subject"] = subject
         msg["From"] = from_addr
         msg["To"] = ", ".join(to_list)
