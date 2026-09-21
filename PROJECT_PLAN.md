@@ -3438,3 +3438,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - **① planSteps 持久化与回放**:现状 `plan_updated` 只写前端内存 `message.planSteps`,API/DB 无 plan_steps 字段(schema 0 命中)→ 历史重拉/刷新后状态条与消息流 PlanStepsCard 全部消失。修法:messages 表加 JSON 列(或 meta 内嵌)+ api 写入链 + GET 回放。⚠️ 涉及生产迁移(有 RLS/CREATEROLE 静默失败前科),须按迁移检查单走。
 - **② 其他端渲染层同步 humanizeToolText**:extension/mobile-rn/taro 状态条与消息流工具卡当前仍直显英文工具码名,应接 `@ihui/shared/chat` 的 `toolDisplayKey`/`humanizeToolText`(web 已接,commit 5d767ca52 + 本次)。
+
+**2026-09-21 晚更新(状态条 P1 两项进展)**:
+- **② 各端工具功能名化已完成 ✅**:extension(5 渲染点)/ mobile-rn(3 渲染点)/ miniapp-taro(5 渲染点)全部接入共享 `toolDisplayKey`/`humanizeToolText`,三端 typecheck+test(139/365/双守门)全绿。taro remote-locales 生成产物暂无新键(有 zh-CN 回退,不显裸键),待上游重生成自动补齐。
+- **① planSteps 持久化——零迁移方案已探明**:落库链 = ai-chat-stream 流结束 `replaceMessages(conversationId, result.messages)`,**该函数已支持逐条 `metadata`(jsonb)**,无需 DB 迁移。剩余工作:① ai-service llm.py 在 tool loop 终态把 plan 快照挂到 assistant message 的 metadata.planSteps(result.messages 组装处);② web 历史加载路径把 metadata.planSteps 映射回 message.planSteps。两处均为小改,但 llm.py 为 3000+ 行并行会话热点文件,留待独立会话执行。
