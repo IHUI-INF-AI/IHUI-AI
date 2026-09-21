@@ -1380,7 +1380,14 @@
     "title": "検索",
     "placeholder": "コース、講師、コンテンツを検索",
     "empty": "関連するコンテンツが見つかりません",
-    "failed": "検索に失敗"
+    "failed": "検索に失敗",
+    "type": {
+      "course": "コース",
+      "article": "記事",
+      "post": "投稿",
+      "note": "ノート",
+      "agent": "エージェント"
+    }
   },
   "securitySettings": {
     "title": "セキュリティ設定",
@@ -1448,7 +1455,10 @@
     "goToDo": "やりに行く",
     "progress": "{current}/{target}",
     "claimFailed": "受取に失敗",
-    "loadFailed": "タスクの読み込みに失敗"
+    "loadFailed": "タスクの読み込みに失敗",
+    "tab_daily": "毎日",
+    "tab_weekly": "毎週",
+    "tab_newbie": "初心者"
   },
   "team": {
     "title": "マイチーム",
@@ -1758,7 +1768,10 @@
   "circleMember": {
     "empty": "メンバーがいません",
     "loadFailed": "メンバーの読み込みに失敗",
-    "title": "サークルメンバー"
+    "title": "サークルメンバー",
+    "owner": "オーナー",
+    "admin": "管理者",
+    "member": "メンバー"
   },
   "courseCatalog": {
     "duration": "長さ",
