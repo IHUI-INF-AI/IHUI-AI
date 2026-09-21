@@ -404,6 +404,35 @@ export const uiControlToolsFor = createAppControlToolSelector({
   api: API_CONTROL_TOOLS,
 })
 
+/**
+ * 文件工具族 → 文件/代码意图条件携带(2026-09-21,用户实测"请调用 read_file 读取 xxx"
+ * 模型只能干答):普通对话不携带 agentTools 时,后端 llm.py 根本不进 tool loop,
+ * 模型永远没有 read_file 可调,任务进度状态条也永远无步骤可显示。
+ * 只读族宽松召回(读/看/分析/搜 文件·代码·路径);写族仅明确修改动词才携带。
+ */
+const FILE_READ_TOOLS: readonly string[] = [
+  'read_file',
+  'list_files',
+  'file_search',
+  'search_codebase',
+  'analyze_code',
+]
+const FILE_WRITE_TOOLS: readonly string[] = ['write_file', 'edit_file']
+
+const FILE_READ_INTENT_RE =
+  /(读取|读一下|读出|看一下|看看|查看|打开|分析|总结|检查|搜索|找一下|列出)[^。\n]{0,24}(文件|代码|目录|配置|项目|仓库)|(package|src|apps|packages|components|hooks|stores|lib)[\\/][\w./\\-]+\.\w{1,8}|[\w-]+\.(tsx?|jsx?|py|json|md|css|ya?ml)\b|read_file|list_files/i
+
+const FILE_WRITE_INTENT_RE =
+  /(修改|改动|改一下|改掉|编辑|写入|写一个|新增|添加|删除|创建|修复|重构|实现|补齐)[^。\n]{0,24}(文件|代码|逻辑|功能|组件|接口|样式|错误|报错|类型|参数|路径|方法|函数)/i
+
+export function fileToolsFor(content: string): string[] {
+  if (!content) return []
+  if (!FILE_READ_INTENT_RE.test(content)) return []
+  // 文件上下文已成立(路径/扩展名/读文件动词)时,出现修改动词即加写族
+  if (FILE_WRITE_INTENT_RE.test(content)) return [...FILE_READ_TOOLS, ...FILE_WRITE_TOOLS]
+  return [...FILE_READ_TOOLS]
+}
+
 export function eduToolsFor(content: string): string[] {
   if (!content) return []
   const text = content.toLowerCase()
