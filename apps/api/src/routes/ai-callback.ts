@@ -43,6 +43,16 @@ const persistedTerminalTaskSchema = z.looseObject({
   exitCode: z.number().optional(),
 })
 
+// planSteps(2026-09-21 立,零 schema 迁移):ai-service 侧与 SSE plan_updated
+// 事件同源的权威计划快照( packages/types/src/ai.ts 的 PlanStep[])。
+// 只校验关键字段,其余(startedAt/endedAt/toolCallIds/error/durationMs…)透传落库,
+// 回放时前端按 PlanStep 消费 —— 与 toolCalls 通道保持一致的 loose 策略。
+const persistedPlanStepSchema = z.looseObject({
+  id: z.string(),
+  step: z.string(),
+  status: z.string(),
+})
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -53,6 +63,8 @@ const callbackSchema = z.object({
   // D24(2026-09-19 立):工具调用与终端任务持久化通道(无工具调用时不携带)
   toolCalls: z.array(persistedToolCallSchema).optional(),
   terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
+  // planSteps(2026-09-21 立):计划快照持久化通道(本轮无计划工具调用时不携带)
+  planSteps: z.array(persistedPlanStepSchema).optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -104,6 +116,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         stub,
         toolCalls,
         terminalTasks,
+        planSteps,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -158,6 +171,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               stub,
               ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
               ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
+              // planSteps(2026-09-21 立):空数组不写 key —— 与"本轮无计划"语义区分,
+              // 且 worker 侧是浅合并({ ...prevMeta, ...metadata }),不写 key 就不会
+              // 覆盖既有 metadata(toolCalls / pendingQuestion 等)。
+              ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
             },
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
