@@ -12,6 +12,23 @@
 
 ---
 
+## P0 2026-09-21 qwen/mimo 401 收口 + 并发回退丢失面全量回捞 + OpenAPI 漂移门禁修复
+
+- **mimo 401 根因不是密钥**:三处端点写的是算力计划域名 `token-plan-cn.xiaomimimo.com`(只认 `tp-` 前缀 key),官方 `api.xiaomimimo.com` 才收普通 key。已改 `free_provider_registry.py` / `ai-vendors/_shared.ts` / DB 配置行,`default_models` 由已下架的 MiMo-7B-RL 重写为在售 4 个(v2.5 / v2.5-pro / v2.5-asr / v2.5-tts)。另补 `model_availability._MODEL_PREFIX_TO_PROVIDER` 的 `("mimo-","mimo")` —— 官方 `/v1/models` 返回裸名,缺映射会按 fail-closed 被 `/llm/models` 过滤掉。
+- **model_sync 单厂同步永久挂起**:`_get_configured_providers` 外层与 `_sync_single_provider` 内层取同一把非重入 `asyncio.Lock` → 死锁,`is_syncing` 卡 `True` 后全量同步也被静默跳过(表现为"模型永远不同步")。改为锁只由内层统一持有。
+- **qwen(DashScope)401 = 密钥失效**:换用户提供的百炼 key,鉴权实测 200 / 258 模型;残留 `400 Arrearage` 是账号欠费,不充值的前提下已验证可用替代通道 `groq/qwen/qwen3.8-27b`、`openrouter/qwen/qwen3-30b-a3b` 均 200。
+- **生图链摘掉 stepfun**:官方 `/v1/models` 实测 10 个模型只有 `step-image-edit-2`(编辑),原硬编码 `step-1v-8k` 不存在 → 生图必失败;同步清掉 token6688 不认的 `size` 参数与 agnes 专属分路。
+- **两次并发回退抹掉的面按"回退前暂存索引树快照"整文件回捞**(厂商注册表/参数面板/权限标签映射/路由注册/proxy 系列/ai-generation 面板/i18n 48 键…),并补交 `FALLBACK_VENDORS` 由 `VENDORS` 动态映射(11 家硬编码 → 零维护);`/v1/batches` 的 O10b `page_format` 游标分页同批回捞 —— 判据是已提交用例真红(`expected ['batch_seed_2'] to deeply equal [Array(3)]`),恢复后该文件 40 用例全绿。
+- **`pnpm openapi:check-drift` 此前结构性必红**:`export-openapi.ts` 的相对 `--out` 按 cwd 解析,而脚本经 `pnpm --filter @ihui/api exec` 调起时 cwd 是 `apps/api`,产物落进 `apps/api/.ihui-agent/` 而第二步从仓库根找它。改为恒按仓库根解析,并同步产物(mimo description + 漏提交的 `email-push` 路由)。
+
+### 验证证据(2026-09-21)
+- [x] `pnpm openapi:check-drift` → ✅ OpenAPI 契约与代码一致(path 3780 / operation 4765)
+- [x] `apps/api` `vitest run tests/o10b-run-ref-and-cursor.test.ts` → 40 passed(回捞前 1 failed)
+- [x] mimo 官方 `/v1/models` 与 `/chat/completions` 实连 200;DashScope 新 key `/models` 200
+- [x] api / web `tsc --noEmit` 本任务文件 0 错误(唯一残留报错在其他会话在飞的 `agent-control.ts` `ext_ui`,不属本任务范围)
+
+---
+
 ## P0 2026-09-20 web 语言包含点键根治(84 → 0):en/ko 44 处"键名当文案"回退修复 + 防回潮 blocking
 
 > 背景:D28 收尾审计翻出 web 语言包 84 个含点键。2026-09-09 的 F6-F8 那轮把它判成"日志级噪音"留置,
