@@ -3,27 +3,26 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
- * 多端 i18n messages 文件存在性守门脚本。
- *
- * 触发场景：MIGRATION_INTEGRITY_REPORT §6.3 P0-7(4 端 i18n messages 文件缺失)
- * 验证 4 端（desktop / extension / mobile-rn / miniapp-taro）的 i18n messages 文件存在。
+ * 验证各端 i18n 语言包与端内 loader 的存在性、可解析性、非空性。
  *
  * 守门目的：
- *   - 防止任何端（特别是 miniapp-taro）删除或重命名 i18n 目录导致 typecheck 全失败
+ *   - 防止任何端删除或重命名 i18n 文件/目录导致构建与运行期集体取不到文案
  *   - AGENTS.md §9 多端同步开发强制规则自动化检查
+ *   - 保住 miniapp-taro 那份**签入 git 的压缩产物**与源 JSON 的同步关系
  *
- * 4 端文件位置（基于实际代码盘点 2026-07-20）：
- *   - apps/desktop/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.ts
- *   - apps/extension/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.ts
- *   - apps/mobile-rn/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.ts
- *   - apps/miniapp-taro/src/i18n/{zh-CN,en,ja,ko,zh-TW}.ts（无 messages/ 子目录）
+ * 实际布局(2026-09-21 重新盘点):翻译事实源已统一到 packages/i18n/messages/,端内只留 loader。
+ *   - packages/i18n/messages/{shared,web,miniapp-taro,mobile-rn,cli,extension,api}/{5 语言}.json
+ *   - apps/{miniapp-taro,mobile-rn,extension}/src/i18n/index.tsx、apps/cli/src/i18n/index.ts
+ *   - apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts(签入的构建产物)
+ *   - desktop 无自有 i18n:它加载 8801 那份 web 页,故不校验 desktop
+ *
+ * 历史备注:本脚本 2026-07-20 版按 apps/<端>/src/i18n/messages/*.ts 找文件,布局迁移后
+ *   会稳定报出 6-8 个"缺失文件"幻影(2026-09-21 实测),已改为按上面的真实布局判定。
  *
  * 验证项：
- *   1. 4 端 × 5 语言 = 20 个文件全部存在
- *   2. 文件可被 require() 解析（语法正确、export default 存在）
- *   3. 文件内容非空、key 数量 > 0
+ *   1. 7 个语言包目录 × 5 语言 = 35 个 JSON 全部存在且可解析为非空对象
+ *   2. 4 个端内 loader + 1 个压缩产物存在且含 export default;产物体积不低于下限
  *
  * 退出码：
  *   0 = 通过
@@ -51,27 +50,29 @@ const C = {
 
 const LOCALES = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 
-// 4 端文件位置定义
-const ENDPOINTS = [
+// 实际布局(2026-09-21 重新盘点,替换 2026-07-20 那份已失真配置):
+// 翻译事实源已统一到 packages/i18n/messages/<端>/<语言>.json,端内只留 loader。
+// 老配置按 apps/<端>/src/i18n/messages/*.ts 去找,报出来的"缺失文件"绝大多数是幻影。
+const MSG_ROOT = 'packages/i18n/messages'
+const ENDPOINTS = ['shared', 'web', 'miniapp-taro', 'mobile-rn', 'cli', 'extension', 'api'].map(
+  (name) => ({
+    name,
+    dir: `${MSG_ROOT}/${name}`,
+    filePattern: (locale) => `${locale}.json`,
+  }),
+)
+
+// 端内 loader 入口必须存在且能 export default;desktop 无自有 i18n(它加载 8801 那份 web 页)
+const LOADER_TARGETS = [
+  { name: 'miniapp-taro-loader', file: 'apps/miniapp-taro/src/i18n/index.tsx' },
+  { name: 'mobile-rn-loader', file: 'apps/mobile-rn/src/i18n/index.tsx' },
+  { name: 'extension-loader', file: 'apps/extension/src/i18n/index.tsx' },
+  { name: 'cli-loader', file: 'apps/cli/src/i18n/index.ts' },
+  // 签入 git 的压缩语言包(源 JSON 改了它必须重生成,否则端内运行时拿旧包)
   {
-    name: 'desktop',
-    dir: 'apps/desktop/src/i18n/messages',
-    filePattern: (locale) => `${locale}.ts`,
-  },
-  {
-    name: 'extension',
-    dir: 'apps/extension/src/i18n/messages',
-    filePattern: (locale) => `${locale}.ts`,
-  },
-  {
-    name: 'mobile-rn',
-    dir: 'apps/mobile-rn/src/i18n/messages',
-    filePattern: (locale) => `${locale}.ts`,
-  },
-  {
-    name: 'miniapp-taro',
-    dir: 'apps/miniapp-taro/src/i18n',
-    filePattern: (locale) => `${locale}.ts`,
+    name: 'miniapp-taro-generated',
+    file: 'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts',
+    minBytes: 10000,
   },
 ]
 
@@ -103,38 +104,56 @@ for (const endpoint of ENDPOINTS) {
       continue
     }
 
-    // 解析校验：必须含 export default
-    const content = fs.readFileSync(absPath, 'utf8')
-    if (!/export\s+default/.test(content)) {
+    // 语言包是 JSON:校验可解析、是非空对象(不再要求 export default —— 那是端内 loader 的形态)
+    let parsed
+    try {
+      parsed = JSON.parse(fs.readFileSync(absPath, 'utf8'))
+    } catch (e) {
       parseErrors.push({
         endpoint: endpoint.name,
         path: relPath,
-        issue: 'no-export-default',
+        issue: `json-parse-error: ${String(e.message).slice(0, 60)}`,
       })
       continue
     }
-
-    // 简单 key 数量估算：统计 export default 内的顶级 key（基于缩进的字符串 key）
-    // 严格计数需要 AST 解析，这里用启发式（顶层对象 key）
-    const keyMatch = content.match(/export\s+default\s*\{([\s\S]*?)\n\}/)
-    if (!keyMatch) {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       parseErrors.push({
         endpoint: endpoint.name,
         path: relPath,
-        issue: 'invalid-export-default-shape',
+        issue: 'not-a-json-object',
       })
       continue
     }
-    const body = keyMatch[1]
-    // 匹配 2-space 缩进下的顶级 key（如 "  common: {"）
-    const topKeyCount = (body.match(/^\s{2}\w+:\s*\{/gm) || []).length
-    if (topKeyCount === 0) {
+    if (Object.keys(parsed).length === 0) {
       emptyFiles.push({
         endpoint: endpoint.name,
         path: relPath,
         issue: 'no-top-level-keys',
       })
     }
+  }
+}
+
+// 端内 loader / 签入产物:存在 + 能 export default + 体积下限(防被清空或未生成)
+for (const target of LOADER_TARGETS) {
+  const absPath = path.resolve(ROOT, target.file)
+  if (!fs.existsSync(absPath)) {
+    missing.push({ endpoint: target.name, path: target.file, issue: 'file-missing' })
+    continue
+  }
+  const content = fs.readFileSync(absPath, 'utf8')
+  // 端内 loader 都是**具名导出**(export function getLocale / export { messages } / export type Locale),
+  // 只有压缩产物是 export const。老校验写死 `export default`,5 个入口全部误判为"无导出"。
+  if (!/\bexport\s+(default\s+)?(const|function|type|interface|class|\{|\*)/.test(content)) {
+    parseErrors.push({ endpoint: target.name, path: target.file, issue: 'no-export' })
+    continue
+  }
+  if (target.minBytes && Buffer.byteLength(content, 'utf8') < target.minBytes) {
+    emptyFiles.push({
+      endpoint: target.name,
+      path: target.file,
+      issue: `too-small(<${target.minBytes}B),疑似未生成或被清空`,
+    })
   }
 }
 
@@ -157,9 +176,7 @@ if (isStaged) {
       }
     }
     if (stagedI18nDirs.size === 0) {
-      console.log(
-        `${C.dim}[i18n-messages-exist] staged 模式: 暂存区无 i18n 改动,跳过${C.reset}`,
-      )
+      console.log(`${C.dim}[i18n-messages-exist] staged 模式: 暂存区无 i18n 改动,跳过${C.reset}`)
       process.exit(0)
     }
     onlyStaged = true
@@ -171,8 +188,8 @@ if (isStaged) {
   }
 }
 
-const filterByEndpoint = (issue) =>
-  !onlyStaged || ['desktop', 'extension', 'mobile-rn', 'miniapp-taro'].includes(issue.endpoint)
+const KNOWN_ENDPOINTS = [...ENDPOINTS.map((e) => e.name), ...LOADER_TARGETS.map((t) => t.name)]
+const filterByEndpoint = (issue) => !onlyStaged || KNOWN_ENDPOINTS.includes(issue.endpoint)
 
 const filteredMissing = missing.filter(filterByEndpoint)
 const filteredParseErrors = parseErrors.filter(filterByEndpoint)
@@ -181,16 +198,14 @@ const filteredEmpty = emptyFiles.filter(filterByEndpoint)
 const totalIssues = filteredMissing.length + filteredParseErrors.length + filteredEmpty.length
 
 if (totalIssues === 0) {
-  const totalFiles = ENDPOINTS.length * LOCALES.length
+  const totalFiles = ENDPOINTS.length * LOCALES.length + LOADER_TARGETS.length
   console.log(
-    `${C.green}[i18n-messages-exist] ✅ 通过 (4 端 × 5 语言 = ${totalFiles} 文件全部存在且合法)${C.reset}`,
+    `${C.green}[i18n-messages-exist] ✅ 通过 (${ENDPOINTS.length} 个语言包目录 × ${LOCALES.length} 语言 = ${ENDPOINTS.length * LOCALES.length} 份 JSON + ${LOADER_TARGETS.length} 个端内 loader/签入产物,合计 ${totalFiles} 项全部存在且合法)${C.reset}`,
   )
   process.exit(0)
 }
 
-console.error(
-  `${C.red}[i18n-messages-exist] ❌ 发现 ${totalIssues} 处问题:${C.reset}\n`,
-)
+console.error(`${C.red}[i18n-messages-exist] ❌ 发现 ${totalIssues} 处问题:${C.reset}\n`)
 
 if (filteredMissing.length > 0) {
   console.error(`  ${C.red}缺失文件/目录(${filteredMissing.length}个):${C.reset}`)
@@ -217,7 +232,9 @@ if (filteredEmpty.length > 0) {
 }
 
 console.error(`${C.yellow}修复方法:${C.reset}`)
-console.error(`  1. 4 端文件位置见脚本顶部 ENDPOINTS 配置`)
+console.error(
+  `  1. 语言包位置:packages/i18n/messages/<端>/<语言>.json;端内 loader 见脚本顶部 LOADER_TARGETS`,
+)
 console.error(`  2. 从已有端复制并裁剪 messages 文件`)
 console.error(`  3. 确保文件含 'export default { ... }' 结构`)
 console.error(`  4. 确保顶级 key 数量 > 0`)
