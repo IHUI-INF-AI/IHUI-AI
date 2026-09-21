@@ -446,3 +446,6 @@ apps/web/public/downloads/extension/*.zip
 
 # Server酱部署告警当日计数(生产运行时生成,不入库)
 deploy/win/.sct-notify-state.json
+# 构建失败冷却状态(生产运行时生成,不入库;脏工作树会让 merge --ff-only 失败)
+deploy/win/.build-fail-state.json
+deploy/win/.migrate-alert-state.json
