@@ -5,9 +5,11 @@
 'use client'
 
 import * as React from 'react'
-import { AlertCircle, Check, Circle, Loader2, Minus } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { humanizeToolText } from '@ihui/shared/chat'
 import type { PlanStepStatus } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import { StreamRow, planStepStreamStatus } from '@/components/chat/stream/stream-ui'
 
 export interface ChecklistItemData {
   id: string
@@ -25,71 +27,55 @@ interface ChecklistProps {
   'data-testid'?: string
 }
 
-const STATUS_ICON: Record<
-  ChecklistItemData['status'],
-  React.ComponentType<{ className?: string }>
-> = {
-  pending: Circle,
-  in_progress: Loader2,
-  completed: Check,
-  skipped: Minus,
-  failed: AlertCircle,
-}
-
-const STATUS_CLS: Record<ChecklistItemData['status'], string> = {
-  pending: 'text-muted-foreground/50',
-  in_progress: 'text-primary',
-  completed: 'text-emerald-500',
-  skipped: 'text-muted-foreground/40',
-  failed: 'text-destructive',
-}
-
+/**
+ * Checklist — 迷你清单(步骤关联的工具调用、子代理动作序列等)。
+ *
+ * 2026-09-22 接入 `stream-ui` 基元:一行 = 一条 StreamRow,与计划步骤、工具卡同字号同图标;
+ * 改造前自配 10/11px 两档字号 + 独立色板,在同气泡里读起来是第四种视觉语言。
+ * 五态 → StreamStatus 的收敛不再自配映射表,统一走基元 `planStepStreamStatus`
+ * (与计划步骤同一口径);label 常为工具码名(read_file / write_file),必须过
+ * `humanizeToolText` 本地化,禁止直显英文码名。
+ */
 export const Checklist = React.memo(function Checklist({
   items,
   dense = false,
   className,
   'data-testid': testId,
 }: ChecklistProps) {
+  const tStatus = useTranslations('taskStatus')
   if (items.length === 0) return null
+  const rootTestId = testId ?? 'checklist'
   return (
-    <ul className={cn('space-y-0.5', className)} data-testid={testId ?? 'checklist'}>
+    <ul
+      className={cn('space-y-0.5', dense && 'space-y-0', className)}
+      data-testid={rootTestId}
+      data-checklist-dense={dense ? 'true' : 'false'}
+    >
       {items.map((item) => {
-        const Icon = STATUS_ICON[item.status]
+        const status = planStepStreamStatus(item)
+        const label = humanizeToolText(item.label, tStatus)
         return (
           <li
             key={item.id}
-            className={cn('flex items-start gap-1.5', dense ? 'py-0.5' : 'py-1')}
-            aria-label={item.label}
+            className="-mx-1 rounded-sm px-1"
+            aria-label={label}
+            data-status={item.status}
+            data-stream-status={status}
+            data-testid={`${rootTestId}-item-${item.id}`}
           >
-            <Icon
-              className={cn(
-                'mt-0.5 h-3 w-3 shrink-0 transition-colors',
-                STATUS_CLS[item.status],
-                item.status === 'in_progress' && 'animate-spin',
-              )}
-              aria-hidden
+            <StreamRow
+              status={status}
+              title={label}
+              titleMode="primary"
+              meta={item.meta}
+              ariaLabel={label}
+              testId={`${rootTestId}-row-${item.id}`}
             />
-            <div className="min-w-0 flex-1">
-              <div
-                className={cn(
-                  'flex items-center gap-1.5 text-[11px] leading-snug',
-                  item.status === 'completed' && 'text-muted-foreground/70',
-                  item.status === 'skipped' && 'text-muted-foreground/40 line-through',
-                  item.status === 'pending' && 'text-muted-foreground/70',
-                  item.status === 'in_progress' && 'text-foreground/90',
-                )}
-              >
-                <span className="flex-1 break-all">{item.label}</span>
-                {item.meta && (
-                  <span className="shrink-0 text-[10px] text-muted-foreground/60">{item.meta}</span>
-                )}
+            {item.description && (
+              <div className="ml-5 break-words text-xs leading-relaxed text-muted-foreground/70">
+                {item.description}
               </div>
-              {item.description && (
-                <div className="mt-0.5 text-[10px] text-muted-foreground/60">
-                  {item.description}
-                </div>
-              )}
-            </div>
+            )}
           </li>
         )
       })}

@@ -5,10 +5,10 @@
 'use client'
 
 import * as React from 'react'
-import { Brain, Loader2, Copy, Check } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
-import { formatDuration } from './foldable-section'
+import { StreamDetail, StreamRow } from '@/components/chat/stream/stream-ui'
 import { splitReasoningSections } from '@/lib/reasoning-sections'
 
 // Phase 22: localStorage key(ihui: 命名空间)
@@ -194,137 +194,98 @@ export const ThinkingSection = React.memo(function ThinkingSection({
 
   return (
     <div
-      className="mt-1.5 rounded-sm transition-colors"
+      className="mt-1 transition-colors"
       data-testid="thinking-section"
       data-thinking-state={isStreaming ? 'streaming' : 'idle'}
       // 2026-08-29:交错增长指示(供单测/e2e 断言)
       data-thinking-growing={isGrowing ? 'true' : 'false'}
       data-thinking-expanded={expanded ? 'true' : 'false'}
     >
-      <button
-        type="button"
+      {/* 2026-09-21:思考行并入消息流活动行基元 —— 与工具行/步骤行同一字号、同一状态图标、
+          同一"标题 · 预览 ……… 耗时 ›"信息排布,不再自成一套 text-sm 头部 */}
+      <StreamRow
+        status={thinkingActive ? 'running' : 'success'}
+        title={t('thinkingTitle')}
+        subject={expanded ? undefined : preview}
+        subjectKind="none"
+        tags={currentNode ? [currentNode] : undefined}
+        elapsedMs={!expanded && elapsedMs > 500 ? elapsedMs : undefined}
+        trailing={
+          thinkingActive && !expanded ? (
+            // 折叠态也要把"思考中"播报给读屏用户(行内状态图标对 SR 不可见)
+            <span aria-live="polite" data-testid="thinking-loader">
+              {t('thinkingStreaming')}
+            </span>
+          ) : expanded && content.length > 0 ? (
+            <Tooltip content={t('thinkingCharCountTitle', { n: content.length })}>
+              <span className="tabular-nums" data-testid="thinking-char-count">
+                {content.length} {t('thinkingChars')}
+              </span>
+            </Tooltip>
+          ) : undefined
+        }
         onClick={handleToggle}
-        aria-expanded={expanded}
-        aria-label={t('thinkingTitle')}
-        data-section-header="true"
-        data-testid="thinking-toggle"
-        className="flex w-full items-center gap-1.5 py-1 text-left text-sm font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
-      >
-        <Brain className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" aria-hidden />
-        <span className="shrink-0">{t('thinkingTitle')}</span>
-        {currentNode && (
-          <span
-            className="inline-flex shrink-0 items-center rounded-sm bg-primary/8 px-1 py-0.5 text-xs font-medium text-primary/80"
-            data-testid="thinking-current-node"
-          >
-            {currentNode}
-          </span>
-        )}
-        {/* v2: 折叠态流式 loader(对标 AI 工作台 "思考中...";2026-08-29:交错增长期同样显示) */}
-        {thinkingActive && !expanded && (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 text-xs text-primary/70"
-            data-testid="thinking-loader"
-            aria-live="polite"
-          >
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            {/* 2026-08-29:文字光线扫描动效(.text-shimmer) */}
-            <span className="text-shimmer">{t('thinkingStreaming')}</span>
-          </span>
-        )}
-        {/* v2: 折叠态内容预览(1 行高度,最后 60 字符) */}
-        {!expanded && preview && (
-          <span
-            className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground/50 transition-all duration-150"
-            data-testid="thinking-preview"
-          >
-            {preview}
-          </span>
-        )}
-        {/* v2: 折叠态耗时(从 mount 累积,>500ms 才显示) */}
-        {!expanded && elapsedMs > 500 && (
-          <Tooltip content={t('thinkingElapsedTitle', { time: formatDuration(elapsedMs) })}>
-            <span
-              className="shrink-0 tabular-nums text-xs text-muted-foreground/45"
-              data-testid="thinking-elapsed"
-            >
-              {formatDuration(elapsedMs)}
-            </span>
-          </Tooltip>
-        )}
-        {/* 展开态:字符数提示(右上角) */}
-        {expanded && content.length > 0 && (
-          <Tooltip content={t('thinkingCharCountTitle', { n: content.length })}>
-            <span
-              className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground/45"
-              data-testid="thinking-char-count"
-            >
-              {content.length} {t('thinkingChars')}
-            </span>
-          </Tooltip>
-        )}
-      </button>
+        expanded={expanded}
+        sectionHeader
+        ariaLabel={t('thinkingTitle')}
+        className={thinkingActive ? 'text-shimmer' : undefined}
+        testId="thinking-toggle"
+      />
       {/* v2: 展开态内容区(代码块样式);P3 #33:按节渲染 + 小标题 */}
       {hasContent && expanded && (
-        <div className="px-2 pb-1 pt-0.5" data-testid="thinking-content-wrapper">
-          <div className="relative">
-            {content && (
-              <div
-                ref={preRef}
-                className="max-h-28 overflow-y-auto rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-xs leading-relaxed text-foreground/70"
-                aria-live={thinkingActive ? 'polite' : undefined}
-                aria-atomic={thinkingActive ? 'false' : undefined}
-                data-testid="thinking-content"
-              >
-                {sections.map((s, i) => (
-                  <div
-                    key={i}
-                    className={i > 0 ? 'mt-2' : ''}
-                    data-testid={`thinking-section-${i}`}
-                  >
-                    {s.title && (
-                      <div
-                        className="mb-0.5 font-sans text-[11px] font-medium text-foreground/85"
-                        data-testid={`thinking-section-title-${i}`}
-                      >
-                        {s.title}
-                      </div>
-                    )}
-                    <div className="whitespace-pre-wrap break-all">
-                      {s.body}
-                      {/* 2026-08-29:流式/交错增长期脉冲光标(思考仍在输出),内联在最后节正文末尾 */}
-                      {thinkingActive && i === sections.length - 1 && (
-                        <span
-                          className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
-                          style={{ height: '10px' }}
-                          aria-hidden
-                        />
-                      )}
+        <StreamDetail className="relative" testId="thinking-content-wrapper">
+          {content && (
+            <div
+              ref={preRef}
+              className="max-h-[200px] overflow-y-auto whitespace-pre-wrap break-all text-xs leading-relaxed text-foreground/75"
+              aria-live={thinkingActive ? 'polite' : undefined}
+              aria-atomic={thinkingActive ? 'false' : undefined}
+              data-testid="thinking-content"
+            >
+              {sections.map((s, i) => (
+                <div key={i} className={i > 0 ? 'mt-2' : ''} data-testid={`thinking-section-${i}`}>
+                  {s.title && (
+                    <div
+                      className="mb-0.5 text-[11px] font-medium text-foreground/85"
+                      data-testid={`thinking-section-title-${i}`}
+                    >
+                      {s.title}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {content && (
-              <Tooltip content={copied ? t('copied') : t('copyThinking')}>
-                <button
-                  type="button"
-                  onClick={onCopy}
-                  className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:text-foreground/70 focus-visible:outline-none"
-                  aria-label={copied ? t('copied') : t('copyThinking')}
-                  data-testid="thinking-copy-btn"
-                  data-copied={copied ? 'true' : undefined}
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" aria-hidden />
                   )}
-                </button>
-              </Tooltip>
-            )}
-          </div>
-        </div>
+                  <div className="whitespace-pre-wrap break-all">
+                    {s.body}
+                    {/* 2026-08-29:流式/交错增长期脉冲光标(思考仍在输出),内联在最后节正文末尾 */}
+                    {thinkingActive && i === sections.length - 1 && (
+                      <span
+                        className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
+                        style={{ height: '10px' }}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {content && (
+            <Tooltip content={copied ? t('copied') : t('copyThinking')}>
+              <button
+                type="button"
+                onClick={onCopy}
+                className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground/50 transition-colors hover:text-foreground/70 focus-visible:outline-none"
+                aria-label={copied ? t('copied') : t('copyThinking')}
+                data-testid="thinking-copy-btn"
+                data-copied={copied ? 'true' : undefined}
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" aria-hidden />
+                )}
+              </button>
+            </Tooltip>
+          )}
+        </StreamDetail>
       )}
     </div>
   )
