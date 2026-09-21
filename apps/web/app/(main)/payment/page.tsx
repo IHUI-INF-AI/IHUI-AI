@@ -81,7 +81,7 @@ export default function PaymentPage() {
                   <Icon className="h-5 w-5" />
                 </div>
                 <CardTitle className="text-lg">
-                  {t(PLAN_NAME_KEY[plan.id] ?? 'plans.unknown.name')}
+                  {t(PLAN_NAME_KEY[plan.id])}
                 </CardTitle>
                 <div className="mt-2 flex items-baseline gap-1">
                   <span className="text-xl font-bold tracking-tight min-[768px]:text-2xl">

@@ -375,7 +375,13 @@
     "rulesLabel": "活動規則",
     "subtitle": "參與活動贏取獎勵",
     "title": "活動中心",
-    "viewDetail": "查看詳情"
+    "viewDetail": "查看詳情",
+    "status": {
+      "active": "進行中",
+      "ended": "已結束",
+      "unknown": "未知",
+      "upcoming": "未開始"
+    }
   },
   "admin": {
     "aboutUs": {
@@ -849,6 +855,7 @@
       "types": {
         "info": "通知",
         "maintenance": "維護",
+        "unknown": "未知",
         "update": "更新",
         "warning": "警告"
       },
@@ -1358,7 +1365,13 @@
           "statTotal": "總答題數",
           "subtitle": "查看答題記錄與成績",
           "title": "答題卡",
-          "totalItems": "共{count}條"
+          "totalItems": "共{count}條",
+          "status": {
+            "graded": "已批閱",
+            "pending": "進行中",
+            "submitted": "已提交",
+            "unknown": "未知"
+          }
         },
         "online": {
           "answerPlaceholder": "請輸入你的解答",
@@ -2167,7 +2180,13 @@
           "subtitle": "查看全部答題記錄與成績",
           "title": "答題記錄",
           "totalItems": "共 {count} 條",
-          "unknownPaper": "未知試卷"
+          "unknownPaper": "未知試卷",
+          "status": {
+            "graded": "已評分",
+            "pending": "答題中",
+            "submitted": "已提交",
+            "unknown": "未知"
+          }
         }
       },
       "finance": {
@@ -2246,12 +2265,18 @@
             "issued": "已開具",
             "pending": "待處理",
             "processing": "處理中",
-            "rejected": "已拒絕"
+            "rejected": "已拒絕",
+            "unknown": "未知"
           },
           "statusLabel": "狀態",
           "subtitle": "審核與開具學員發票申請",
           "title": "發票管理",
-          "totalItems": "共 {count} 條"
+          "totalItems": "共 {count} 條",
+          "type": {
+            "company": "企業",
+            "personal": "個人",
+            "unknown": "未知"
+          }
         },
         "statistics": {
           "avgOrderAmount": "客單價",
@@ -5529,7 +5554,14 @@
       "statusAll": "全部",
       "subtitle": "審核用戶提現申請",
       "title": "提現審核",
-      "total": "共 {total} 條"
+      "total": "共 {total} 條",
+      "status": {
+        "approved": "已通過",
+        "paid": "已撥款",
+        "pending": "待審核",
+        "rejected": "已駁回",
+        "unknown": "未知"
+      }
     },
     "workflows": {
       "actions": "操作",
@@ -6584,6 +6616,7 @@
       "noTeam": "不指定團隊",
       "priority": "優先級",
       "team": "團隊",
+      "unknown": "未知",
       "workspace": "工作區",
       "agentIdRequired": "請先選擇智慧體",
       "workspacePlaceholder": "留空使用預設工作區"
@@ -6801,7 +6834,8 @@
       "offline": "已下線",
       "pending": "待審核",
       "published": "已發布",
-      "rejected": "已拒絕"
+      "rejected": "已拒絕",
+      "unknown": "未知"
     },
     "subtitle": "管理你創建的智能體",
     "title": "我的智能體"
@@ -6810,7 +6844,15 @@
     "back": "返回",
     "loading": "加載中...",
     "subtitle": "智能體使用數據概覽",
-    "title": "智能體統計"
+    "title": "智能體統計",
+    "stat": {
+      "avgRating": "平均評分",
+      "pending": "待審核",
+      "published": "已發布",
+      "totalAgents": "智能體總數",
+      "totalCalls": "總呼叫數",
+      "totalUsers": "使用用戶數"
+    }
   },
   "agreement": {
     "effectiveDate": "生效日期",
@@ -7302,7 +7344,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -7319,7 +7366,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8084,7 +8136,17 @@
           "id": "ID",
           "name": "站點名稱"
         },
-        "title": "AI 世界站點管理"
+        "title": "AI 世界站點管理",
+        "iconLabels": {
+          "briefcase": "辦公",
+          "code": "程式碼",
+          "graduation": "教育",
+          "megaphone": "營銷",
+          "message": "對話",
+          "music": "音樂",
+          "palette": "繪畫",
+          "video": "影片"
+        }
       }
     },
     "title": "AI 世界"
@@ -8370,7 +8432,14 @@
     "prev": "上一篇",
     "publishedAt": "發布於",
     "subtitle": "瞭解最新動態與維護通知",
-    "title": "平臺公告"
+    "title": "平臺公告",
+    "types": {
+      "info": "通知",
+      "maintenance": "維護",
+      "unknown": "未知",
+      "update": "更新",
+      "warning": "警告"
+    }
   },
   "answerArea": {
     "audio": {
@@ -9146,7 +9215,8 @@
         "popover": "彈窗",
         "shift-tab": "Shift+Tab",
         "slash": "斜槓",
-        "confirm-dialog": "確認彈窗"
+        "confirm-dialog": "確認彈窗",
+        "unknown": "未知"
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "權限模式歷史",
@@ -9935,117 +10005,215 @@
     "commands": {
       "agent": {
         "description": "管理並調度 AI 智能體",
-        "keywords": ["智能體", "調度", "agent"],
+        "keywords": [
+          "智能體",
+          "調度",
+          "agent"
+        ],
         "label": "AI 智能體"
       },
       "browser": {
         "description": "在工作區內瀏覽網頁",
-        "keywords": ["瀏覽器", "網頁", "browser"],
+        "keywords": [
+          "瀏覽器",
+          "網頁",
+          "browser"
+        ],
         "label": "內建瀏覽器"
       },
       "capabilityMarket": {
         "description": "發現並安裝能力包",
-        "keywords": ["能力", "市場", "market", "插件"],
+        "keywords": [
+          "能力",
+          "市場",
+          "market",
+          "插件"
+        ],
         "label": "能力市場"
       },
       "codeChanges": {
         "description": "查看工作區程式碼變更",
-        "keywords": ["程式碼", "變更", "diff", "修改"],
+        "keywords": [
+          "程式碼",
+          "變更",
+          "diff",
+          "修改"
+        ],
         "label": "程式碼變更"
       },
       "connectors": {
         "description": "管理外部服務連接",
-        "keywords": ["連接", "外部服務", "connector"],
+        "keywords": [
+          "連接",
+          "外部服務",
+          "connector"
+        ],
         "label": "連接器"
       },
       "document": {
         "description": "編輯工作區文件",
-        "keywords": ["文件", "編輯", "doc"],
+        "keywords": [
+          "文件",
+          "編輯",
+          "doc"
+        ],
         "label": "文件"
       },
       "editor": {
         "description": "開啟程式碼編輯器",
-        "keywords": ["編輯器", "程式碼", "code"],
+        "keywords": [
+          "編輯器",
+          "程式碼",
+          "code"
+        ],
         "label": "編輯器"
       },
       "mcp": {
         "description": "管理 MCP 伺服器與工具",
-        "keywords": ["MCP", "伺服器", "工具"],
+        "keywords": [
+          "MCP",
+          "伺服器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "瀏覽與安裝 MCP 服務",
-        "keywords": ["MCP", "廣場", "store", "安裝"],
+        "keywords": [
+          "MCP",
+          "廣場",
+          "store",
+          "安裝"
+        ],
         "label": "MCP 廣場"
       },
       "modeAsk": {
         "description": "切換到純問答模式,停用工具",
-        "keywords": ["問答", "ask", "模式"],
+        "keywords": [
+          "問答",
+          "ask",
+          "模式"
+        ],
         "label": "問答模式"
       },
       "modeBuild": {
         "description": "讓 AI 直接建構與修改",
-        "keywords": ["建構", "模式", "build"],
+        "keywords": [
+          "建構",
+          "模式",
+          "build"
+        ],
         "label": "建構模式"
       },
       "modePlan": {
         "description": "先制定計劃再執行",
-        "keywords": ["規劃", "計劃", "plan"],
+        "keywords": [
+          "規劃",
+          "計劃",
+          "plan"
+        ],
         "label": "規劃模式"
       },
       "modeReview": {
         "description": "審查與評審現有程式碼",
-        "keywords": ["審查", "評審", "review"],
+        "keywords": [
+          "審查",
+          "評審",
+          "review"
+        ],
         "label": "審查模式"
       },
       "modeSpec": {
         "description": "從規格生成實現",
-        "keywords": ["規格", "spec", "模式"],
+        "keywords": [
+          "規格",
+          "spec",
+          "模式"
+        ],
         "label": "規格模式"
       },
       "skill": {
         "description": "管理與呼叫 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "開啟整合終端機",
-        "keywords": ["終端機", "命令列", "terminal"],
+        "keywords": [
+          "終端機",
+          "命令列",
+          "terminal"
+        ],
         "label": "終端機"
       },
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       },
       "skillsMarket": {
         "description": "瀏覽並安裝自進化 Skill",
-        "keywords": ["skill", "技能", "市場", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市場",
+          "market"
+        ],
         "label": "Skill 市場"
       }
     },
@@ -10283,7 +10451,12 @@
       "signedAt": "簽約時間"
     },
     "planName": "連續包月訂閱",
-    "title": "簽約管理"
+    "title": "簽約管理",
+    "status": {
+      "active": "生效中",
+      "pending": "簽約中",
+      "unknown": "未知"
+    }
   },
   "course": {
     "chapters": {
@@ -10345,6 +10518,7 @@
       "hour": "小時",
       "day": "日",
       "month": "月",
+      "unknown": "未知",
       "weekday": "星期"
     },
     "mode": {
@@ -10400,7 +10574,20 @@
       "totalProjects": "總項目",
       "totalUsers": "總用戶",
       "userGrowth": "用戶增長趨勢",
-      "userGrowthHint": "近 14 天新增用戶"
+      "userGrowthHint": "近 14 天新增用戶",
+      "fileTypes": {
+        "document": "文檔",
+        "image": "圖片",
+        "other": "其他",
+        "unknown": "未知",
+        "video": "影片"
+      },
+      "projectStatus": {
+        "active": "進行中",
+        "archived": "已歸檔",
+        "completed": "已完成",
+        "unknown": "未知"
+      }
     }
   },
   "deliveryReview": {
@@ -10846,7 +11033,17 @@
     "subtitle": "查看賬單記錄與付款方式",
     "title": "賬單",
     "toastContactSupport": "請聯系客服添加",
-    "toastInvoiceGenerating": "發票生成中,請稍後"
+    "toastInvoiceGenerating": "發票生成中,請稍後",
+    "payType": {
+      "alipay": "支付寶",
+      "card": "銀行卡",
+      "wechat": "微信支付"
+    },
+    "status": {
+      "failed": "失敗",
+      "paid": "已付款",
+      "pending": "待付款"
+    }
   },
   "developerHomePage": {
     "currentPlan": "當前套餐",
@@ -10972,7 +11169,13 @@
     "releasedAt": "發布於 {date}",
     "subtitle": "查看 API 版本狀態與廢棄時間表",
     "sunsetTime": "下線時間:",
-    "title": "API 版本管理"
+    "title": "API 版本管理",
+    "status": {
+      "beta": "測試版",
+      "deprecated": "已廢棄",
+      "stable": "穩定",
+      "sunset": "已下線"
+    }
   },
   "dict": {
     "addItem": "新增字典項",
@@ -12101,25 +12304,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -12253,19 +12468,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -12846,7 +13073,17 @@
   "follows": {
     "loading": "加載中...",
     "subtitle": "管理您關注的人",
-    "title": "關注"
+    "title": "關注",
+    "tabs": {
+      "followers": "關注我的",
+      "following": "我關注的",
+      "unknown": "未知"
+    },
+    "empty": {
+      "followers": "暫無關注者",
+      "following": "暫未關注任何人",
+      "unknown": "暫無數據"
+    }
   },
   "footer": {
     "aboutUs": "關於我們",
@@ -13509,7 +13746,12 @@
     "rewardValue": "邀請人 +{inviter} / 被邀請人 +{invitee} 積分",
     "subtitle": "邀請好友，雙方均可獲得獎勵",
     "title": "邀請有獎",
-    "user": "用戶"
+    "user": "用戶",
+    "status": {
+      "expired": "已過期",
+      "unused": "有效",
+      "used": "已使用"
+    }
   },
   "kbArticleForm": {
     "articleInfo": "文章信息",
@@ -13661,7 +13903,8 @@
       "title": "學習專題",
       "type": {
         "lesson": {
-          "label": "課程專題"
+          "label": "課程專題",
+          "tip": "由運營精選的課程組合,免費學習。"
         },
         "premium": {
           "label": "高級專題"
@@ -13700,7 +13943,10 @@
     "errorFallback": "加載失敗",
     "loading": "加載中...",
     "status": {
+      "failApproval": "未通過",
       "notSubmitted": "未提交",
+      "passApproval": "已通過",
+      "submitted": "已提交",
       "unknown": "未知"
     },
     "submitBtn": {
@@ -14765,6 +15011,9 @@
     "empty": "暫無報名記錄",
     "loading": "加載中...",
     "status": {
+      "attended": "已考",
+      "canceled": "已取消",
+      "pending": "待考",
       "unknown": "未知"
     },
     "title": "我的考試報名",
@@ -14777,7 +15026,20 @@
     "privacyTitle": "隱私設置",
     "saveBtn": "保存設置",
     "saved": "已保存",
-    "title": "會員設置"
+    "title": "會員設置",
+    "notif": {
+      "newsletter": "訂閱電子簡報",
+      "orderUpdates": "訂單狀態更新",
+      "points": "積分變動提醒",
+      "promotions": "促銷與優惠活動",
+      "unknown": "未知"
+    },
+    "privacy": {
+      "allowInvites": "允許他人邀請我",
+      "showActivity": "展示最近活動",
+      "showProfile": "公開個人主頁",
+      "unknown": "未知"
+    }
   },
   "memberSubscriptionPage": {
     "autoRenew": "自動續費",
@@ -14790,7 +15052,12 @@
     "subscribeNow": "立即訂閱",
     "subscriptionAmount": "訂閱金額",
     "subtitle": "管理當前訂閱，續費或取消",
-    "title": "訂閱管理"
+    "title": "訂閱管理",
+    "status": {
+      "active": "生效中",
+      "cancelled": "已取消",
+      "expired": "已過期"
+    }
   },
   "members": {
     "allLevels": "全部等級",
@@ -14819,7 +15086,15 @@
     "empty": "暫無消息",
     "loading": "加載中...",
     "noData": "暫無消息",
-    "title": "消息"
+    "title": "消息",
+    "tab": {
+      "comment": "評論",
+      "favorite": "收藏",
+      "follow": "粉絲",
+      "like": "點贊",
+      "notice": "通知",
+      "unknown": "未知"
+    }
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -14849,7 +15124,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "relay": {
@@ -15599,7 +15882,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -15686,7 +15974,15 @@
     "generate": "生成音樂",
     "genreLabel": "風格",
     "placeholder": "描述要生成的音樂...",
-    "title": "音樂生成"
+    "title": "音樂生成",
+    "genre": {
+      "classical": "古典",
+      "electronic": "電子",
+      "jazz": "爵士",
+      "pop": "流行",
+      "rock": "搖滾",
+      "unknown": "未知"
+    }
   },
   "myArticles": {
     "create": "寫文章",
@@ -16653,8 +16949,12 @@
       "decisions": "聯合決策"
     },
     "telemetry": {
+      "degraded": "降級",
+      "healthy": "健康",
       "pillarHealth": "支柱健康",
-      "recentTraces": "最近 Trace"
+      "recentTraces": "最近 Trace",
+      "unhealthy": "不健康",
+      "unknown": "未知"
     },
     "title": "編排中樞",
     "unavailable": "編排中樞不可用"
@@ -16672,7 +16972,8 @@
       "cancelled": "已取消",
       "paid": "已支付",
       "pending": "待支付",
-      "refunded": "已退款"
+      "refunded": "已退款",
+      "unknown": "未知"
     },
     "statusLabel": "狀態",
     "subtitle": "查看課程和會員卡訂單",
@@ -16682,7 +16983,8 @@
     "type": {
       "all": "全部",
       "card": "卡密",
-      "course": "課程"
+      "course": "課程",
+      "unknown": "未知"
     }
   },
   "overview": {
@@ -16822,12 +17124,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16840,6 +17154,9 @@
           "郵件支持"
         ],
         "name": "專業版"
+      },
+      "unknown": {
+        "name": "未知套餐"
       }
     },
     "popular": "推薦",
@@ -17869,6 +18186,7 @@
     "range": {
       "month": "本月",
       "total": "總計",
+      "unknown": "未知",
       "week": "本週"
     },
     "subtitle": "查看用戶積分與活躍度排名",
@@ -18088,7 +18406,13 @@
     "empty": "暫無安全事件",
     "loading": "加載中...",
     "subtitle": "查看賬戶安全相關事件（已脫敏）",
-    "title": "安全審計"
+    "title": "安全審計",
+    "type": {
+      "login": "登入記錄",
+      "other": "其他",
+      "permission": "權限變更",
+      "sensitive": "敏感操作"
+    }
   },
   "selfMedia": {
     "automation": "自動化",
@@ -18212,7 +18536,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -19201,11 +19531,19 @@
     "subtitle": "管理您的訂閱",
     "tabs": {
       "all": "全部",
+      "category": "分類",
       "project": "項目",
       "tag": "標簽",
+      "unknown": "未知",
       "user": "用戶"
     },
-    "title": "訂閱管理"
+    "title": "訂閱管理",
+    "types": {
+      "category": "分類",
+      "project": "項目",
+      "tag": "標籤",
+      "user": "使用者"
+    }
   },
   "supportNewTicketForm": {
     "cancel": "取消",
@@ -19218,7 +19556,13 @@
     "priorityLabel": "優先級",
     "submit": "提交工單",
     "titleLabel": "標題",
-    "titlePlaceholder": "簡述您的問題"
+    "titlePlaceholder": "簡述您的問題",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "緊急"
+    }
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -19268,7 +19612,14 @@
     "target": "下發至",
     "title": "任務接收",
     "wsConnected": "WS 已連接",
-    "wsDisconnected": "WS 斷開"
+    "wsDisconnected": "WS 斷開",
+    "status": {
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失敗",
+      "pending": "待執行",
+      "running": "執行中"
+    }
   },
   "tasksLog": {
     "confirmClean": "確定清理全部任務記錄?",
@@ -19358,7 +19709,17 @@
     "tabInvitations": "邀請",
     "tabMembers": "成員",
     "tabSettings": "設置",
-    "title": "團隊"
+    "title": "團隊",
+    "status": {
+      "accepted": "已接受",
+      "expired": "已過期",
+      "pending": "待接受"
+    },
+    "roles": {
+      "admin": "管理員",
+      "member": "成員",
+      "owner": "擁有者"
+    }
   },
   "terminalPanel": {
     "aiDiagnoseTitle": "AI 診斷",
@@ -19481,7 +19842,20 @@
     "serviceRating": "服務評價",
     "statusPrefix": "狀態：",
     "submitRating": "提交評價",
-    "userRole": "我"
+    "userRole": "我",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "緊急"
+    },
+    "status": {
+      "closed": "已關閉",
+      "open": "處理中",
+      "pending": "待處理",
+      "rejected": "已駁回",
+      "resolved": "已解決"
+    }
   },
   "title": "管理後臺",
   "tokenValue": {
@@ -19520,7 +19894,8 @@
     "mode": {
       "bookmarks": "按書簽",
       "every": "每頁",
-      "range": "按範圍"
+      "range": "按範圍",
+      "unknown": "未知"
     },
     "modeLabel": "拆分模式",
     "rangesLabel": "頁碼範圍（用逗號分隔，例如 1-3,5,7-10）",
@@ -19878,7 +20253,13 @@
     "generate": "生成視頻",
     "placeholder": "描述要生成的視頻...",
     "providerLabel": "服務商",
-    "title": "視頻生成"
+    "title": "視頻生成",
+    "provider": {
+      "kling": "可靈",
+      "one-click": "一鍵生成",
+      "qwen": "通義千問",
+      "unknown": "未知"
+    }
   },
   "videoTasksPage": {
     "createdAt": "創建時間",
@@ -20304,7 +20685,17 @@
         "queue": "隊列中還有 {count} 個請求",
         "title": "權限確認",
         "tool": "工具",
-        "workspace": "工作區"
+        "workspace": "工作區",
+        "toolNames": {
+          "fsDelete": "刪除檔案",
+          "fsEdit": "編輯檔案",
+          "fsGlob": "尋找檔案",
+          "fsGrep": "搜尋內容",
+          "fsRead": "讀取檔案",
+          "fsRun": "執行命令",
+          "fsWrite": "寫入檔案",
+          "unknown": "未知"
+        }
       },
       "builtin": "內置",
       "bypassWarning": "完全訪問權限將允許 AI 執行任何操作,包括刪除文件、執行任意命令。請僅在完全信任的私有項目中使用。",
