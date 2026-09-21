@@ -20,7 +20,6 @@ import { useChatStore } from '@/stores/chat'
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
-import { ConversationLocatorRail } from './conversation-locator-rail'
 import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
@@ -416,10 +415,10 @@ export function MessageList({
         onNavigate={handleSearchNavigate}
       />
       {inlinePanelNode}
-      {/* #18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问 */}
-      <QueryThumbRail messages={messages} />
-      {/* D3(2026-09-18 立):对话快速定位器(右侧细轨,按用户消息分节,点击跳转到对应消息) */}
-      <ConversationLocatorRail messages={messages} containerRef={containerRef} />
+      {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
+          2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
+          右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
+      <QueryThumbRail messages={messages} containerRef={containerRef} />
       {/* D3(2026-09-18 立):右下角浮动跳顶/跳底按钮,距顶/距底 >800px 时渐显 */}
       <ScrollJumpButtons
         isFarFromTop={isFarFromTop}
