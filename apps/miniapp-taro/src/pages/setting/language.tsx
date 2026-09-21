@@ -36,11 +36,11 @@ const LANGS = (tt: TtFn): LangItem[] => [
 ]
 
 const LANG_KEY: Record<string, string> = {
-  zhCN: 'setting.zhCN',
-  zhTW: 'setting.zhTW',
-  en: 'setting.en',
-  ko: 'setting.ko',
-  ja: 'setting.ja',
+  zhCN: 'legal.supportedRegions.languageZhCN',
+  zhTW: 'legal.supportedRegions.languageZhTW',
+  en: 'legal.supportedRegions.languageEN',
+  ko: 'legal.supportedRegions.languageKO',
+  ja: 'legal.supportedRegions.languageJA',
 }
 
 export default function LanguagePage() {
@@ -101,7 +101,7 @@ export default function LanguagePage() {
                 <View className="min-w-0 flex-1">
                   {/* rowLabel 对齐 RN: 16dp→32rpx + text.medium 语义映射 muted-foreground */}
                   <Text className="text-[32rpx] text-muted-foreground">
-                    {tt(LANG_KEY[l.key] ?? 'setting.zhCN', l.native)}
+                    {tt(LANG_KEY[l.key] ?? 'legal.supportedRegions.languageZhCN', l.native)}
                   </Text>
                   {/* 副行(英文名)为小程序端补充信息:24rpx + text.tertiary + userMeta gap 2dp→4rpx */}
                   <Text className="mt-[4rpx] block text-[24rpx] text-[color:var(--color-text-tertiary)]">
