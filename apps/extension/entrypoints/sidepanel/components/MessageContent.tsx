@@ -13,9 +13,11 @@
  * 安全性:所有文本均以 React 子节点渲染(React 自动对文本做 HTML 转义,不注入 innerHTML),
  * 链接仅放行 http(s) / mailto / # 协议,其余降级为纯文本,杜绝 javascript: 注入。
  */
-import { useMemo, type ReactNode } from 'react'
+import { type ComponentType, useMemo, type ReactNode } from 'react'
+import { Check, CircleDashed, Loader2, Terminal, X } from 'lucide-react'
 import {
   buildRenderModel,
+  describeToolCall,
   humanizeToolText,
   toolDisplayKey,
   type ChatMessage,
@@ -23,7 +25,9 @@ import {
   type RenderPlanStep,
   type SubagentRenderBlock,
   type TerminalRenderBlock,
+  type ToolMetricKind,
   type ToolRenderBlock,
+  type ToolSubjectKind,
 } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils'
 import { useI18n } from '../../../src/i18n'
@@ -224,8 +228,107 @@ function stringifyValue(value: unknown): string {
   }
 }
 
-// ==================== 各类型块视图 ====================
+// ==================== 活动行基元(与 web stream-ui 同一信息顺序) ====================
 
+/**
+ * taskStatus 命名空间取词器。
+ *
+ * 共享层(describeToolCall / humanizeToolText)给出的是 **未限定** 的 taskStatus 键名
+ * —— web 端用 next-intl 的 `useTranslations('taskStatus')` 天然带命名空间,
+ * extension 的 `t` 走"全路径点号键",必须在此补前缀。
+ * 少了这一步界面会回显英文键名(把 read_file 显示成 "toolReadFile"),
+ * 等于换个姿势违反"禁止直显英文码名",故抽成单一函数集中处理。
+ */
+export function makeToolTranslate(t: Translate): Translate {
+  return (key: string, params?: Record<string, string | number>) => t(`taskStatus.${key}`, params)
+}
+
+/** 工具码名 → 用户可见功能名:映射命中的走 i18n,未登记的(插件/MCP 动态名)保留码名 */
+export function toolDisplayName(toolName: string | undefined, tTool: Translate): string {
+  if (!toolName) return '—'
+  const key = toolDisplayKey(toolName)
+  return key ? tTool(key) : toolName
+}
+
+/** 对象类字形特征:路径 / URL / 命令用等宽字体,检索词与实体名按正文 */
+const MONO_SUBJECT_KINDS: ReadonlySet<ToolSubjectKind> = new Set<ToolSubjectKind>([
+  'path',
+  'url',
+  'command',
+])
+
+/** 度量单位键查表(单位文案一律来自共享口径);'chars' 与 web 同口径按行数显示 */
+const METRIC_UNIT_KEY: Record<ToolMetricKind, string> = {
+  lines: 'unitLines',
+  results: 'unitResults',
+  files: 'unitFiles',
+  chars: 'unitLines',
+  none: 'unitLines',
+}
+
+/**
+ * 徽章确定性居中(AGENTS §4 数字计数徽章规范):
+ * inline-flex + h-4 + leading-none + items-center 保证垂直居中不依赖字体行高,
+ * tabular-nums 保证多位数字等宽不抖。
+ */
+const BADGE_CLASS =
+  'inline-flex h-4 shrink-0 items-center justify-center rounded px-1 text-[10px] font-semibold leading-none tabular-nums'
+
+/** 工具状态图标:running 转圈 / success 对勾 / error 叉 / 其余(取消、待执行)虚线圆 */
+function toolStatusIcon(block: ToolRenderBlock): ComponentType<{ className?: string }> {
+  if (block.isError || block.status === 'error') return X
+  if (block.status === 'success') return Check
+  if (block.status === 'running') return Loader2
+  return CircleDashed
+}
+
+/** 工具状态图标配色(与状态徽标同一语义,不额外引入色板) */
+function toolStatusIconClass(block: ToolRenderBlock): string {
+  if (block.isError || block.status === 'error') return 'text-destructive'
+  if (block.status === 'success') return 'text-success'
+  if (block.status === 'running') return 'text-primary animate-spin'
+  return 'text-muted-foreground/50'
+}
+
+/** 通用状态串 → 图标(子代理状态联合与工具状态不同源,按字面量试探,未知态用虚线圆) */
+function statusIconByString(status: string): ComponentType<{ className?: string }> {
+  if (status === 'failed' || status === 'error') return X
+  if (status === 'completed' || status === 'success' || status === 'ok') return Check
+  if (status === 'running' || status === 'in_progress') return Loader2
+  return CircleDashed
+}
+
+/** 通用状态串 → 图标配色 */
+function statusIconClassByString(status: string): string {
+  if (status === 'failed' || status === 'error') return 'text-destructive'
+  if (status === 'completed' || status === 'success' || status === 'ok') return 'text-success'
+  if (status === 'running' || status === 'in_progress') return 'text-primary animate-spin'
+  return 'text-muted-foreground/50'
+}
+
+/** 子代理状态文案:已知态走 taskStatus i18n,未知态回落原值(不猜语义) */
+function subagentStatusLabel(status: string, tTool: Translate): string {
+  switch (status) {
+    case 'completed':
+    case 'success':
+    case 'ok':
+      return tTool('statusSuccess')
+    case 'failed':
+    case 'error':
+      return tTool('statusFailed')
+    case 'running':
+    case 'in_progress':
+      return tTool('statusRunning')
+    case 'pending':
+      return tTool('stepPending')
+    case 'skipped':
+      return tTool('statusSkipped')
+    default:
+      return status
+  }
+}
+
+// ==================== 各类型块视图 ====================
 /** 推理过程块 */
 function ReasoningBlockView({ block, t }: { block: ReasoningRenderBlock; t: Translate }) {
   return (
@@ -238,29 +341,97 @@ function ReasoningBlockView({ block, t }: { block: ReasoningRenderBlock; t: Tran
   )
 }
 
-/** 工具调用块(含媒体产物) */
-function ToolBlockView({ block, t }: { block: ToolRenderBlock; t: Translate }) {
+/**
+ * 工具调用块(含媒体产物)—— 一条活动行:
+ * 状态图标 · 工具功能名 · 对象(路径/检索词/URL/命令) · 结果度量(4 行 / 2 个结果 / +18 -4) · 耗时。
+ *
+ * 素材一律由共享纯函数 `describeToolCall` 给出(跨端单一真相源),端内**不得**再从
+ * args/result 里现挖字段,也不得把英文工具码名当用户可见文案(插件/MCP 动态名除外)。
+ */
+function ToolBlockView({
+  block,
+  t,
+  tTool,
+}: {
+  block: ToolRenderBlock
+  t: Translate
+  tTool: Translate
+}) {
   const argsText = stringifyValue(block.args)
   const resultText = stringifyValue(block.result)
-  // 界面禁止直显英文工具码名:已映射的工具显示本地化功能名(如 read_file → "读取文件内容"),
-  // 插件/MCP 动态名回落原码名展示。
-  const displayKey = toolDisplayKey(block.toolName)
+  const view = describeToolCall({
+    toolName: block.toolName,
+    args: block.args,
+    result: block.result,
+    status: block.status,
+  })
+  const Icon = toolStatusIcon(block)
+  const title = view.nameKey ? tTool(view.nameKey) : view.codeName
+  const metricText =
+    view.metricKind === 'none' || view.metricValue === null || view.metricValue < 0
+      ? ''
+      : tTool(METRIC_UNIT_KEY[view.metricKind], { n: view.metricValue })
+  // 写类文件的 ± 行数:added/removed = -1 表示行数未知,整段不渲染(绝不显示占位 0)
+  const showAdded = view.writesFile && view.added >= 0
+  const showRemoved = view.writesFile && view.removed >= 0
+  const statusText = toolStatusLabel(block, t)
+  const durationText =
+    typeof block.durationMs === 'number' ? formatDurationMs(block.durationMs) : ''
+  const ariaLabel = [title, view.subject, statusText, metricText, durationText]
+    .filter((part): part is string => part !== '')
+    .join(' · ')
+
   return (
-    <div className="px-2 py-1.5 rounded-md border border-border bg-card text-xs">
+    <div
+      className="px-2 py-1.5 rounded-md border border-border bg-card text-xs"
+      role="group"
+      aria-label={ariaLabel}
+      data-tool-status={block.status}
+    >
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={`font-medium break-all ${displayKey ? '' : 'font-mono'}`}>
-          {displayKey ? t(`taskStatus.${displayKey}`) : block.toolName}
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${toolStatusIconClass(block)}`} aria-hidden />
+        <span
+          className={`shrink-0 max-w-[45%] truncate font-medium ${view.nameKey ? '' : 'font-mono'}`}
+        >
+          {title}
         </span>
-        <span className={`px-1 py-0.5 rounded text-[10px] leading-tight ${toolStatusClass(block)}`}>
-          {toolStatusLabel(block, t)}
-        </span>
-        {typeof block.durationMs === 'number' ? (
-          <span className="text-[10px] text-muted-foreground">
-            {formatDurationMs(block.durationMs)}
+        {view.subject ? (
+          <span
+            data-stream-subject="true"
+            className={`min-w-0 flex-1 truncate text-muted-foreground ${
+              MONO_SUBJECT_KINDS.has(view.subjectKind) ? 'font-mono' : ''
+            }`}
+          >
+            {view.subject}
+          </span>
+        ) : (
+          <span className="min-w-0 flex-1" />
+        )}
+        {block.serverName ? (
+          <span className={`${BADGE_CLASS} bg-muted font-normal text-muted-foreground`}>
+            {block.serverName}
           </span>
         ) : null}
-        {block.serverName ? (
-          <span className="text-[10px] text-muted-foreground">· {block.serverName}</span>
+        {metricText ? (
+          <span className="shrink-0 tabular-nums text-muted-foreground">{metricText}</span>
+        ) : null}
+        {showAdded || showRemoved ? (
+          <span className="flex shrink-0 items-center gap-1">
+            {showAdded ? (
+              <span className={`${BADGE_CLASS} bg-success/10 text-success`}>
+                {tTool('addedCount', { n: view.added })}
+              </span>
+            ) : null}
+            {showRemoved ? (
+              <span className={`${BADGE_CLASS} bg-destructive/10 text-destructive`}>
+                {tTool('removedCount', { n: view.removed })}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        <span className={`${BADGE_CLASS} ${toolStatusClass(block)}`}>{statusText}</span>
+        {durationText ? (
+          <span className="shrink-0 tabular-nums text-muted-foreground">{durationText}</span>
         ) : null}
       </div>
       {argsText || resultText ? (
@@ -294,22 +465,35 @@ function ToolBlockView({ block, t }: { block: ToolRenderBlock; t: Translate }) {
 }
 
 /** 终端任务块 */
-function TerminalBlockView({ block, t }: { block: TerminalRenderBlock; t: Translate }) {
+function TerminalBlockView({
+  block,
+  t,
+  tTool,
+}: {
+  block: TerminalRenderBlock
+  t: Translate
+  tTool: Translate
+}) {
   return (
-    <div className="px-2 py-1.5 rounded-md border border-border bg-card text-xs">
+    <div
+      className="px-2 py-1.5 rounded-md border border-border bg-card text-xs"
+      role="group"
+      aria-label={`${t('chat.terminal')} · ${block.command}`}
+    >
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] text-muted-foreground shrink-0">{t('chat.terminal')}</span>
-        <code className="font-mono flex-1 break-all">{block.command}</code>
-        <span
-          className={`px-1 py-0.5 rounded text-[10px] leading-tight ${terminalStatusClass(block.status)}`}
-        >
+        <Terminal className={`h-3.5 w-3.5 shrink-0 text-muted-foreground`} aria-hidden />
+        <span className="shrink-0 text-[10px] text-muted-foreground">{t('chat.terminal')}</span>
+        <code className="font-mono min-w-0 flex-1 break-all">{block.command}</code>
+        {typeof block.exitCode === 'number' ? (
+          <span className="shrink-0 tabular-nums text-muted-foreground">
+            {tTool('exitCode', { n: block.exitCode })}
+          </span>
+        ) : null}
+        <span className={`${BADGE_CLASS} ${terminalStatusClass(block.status)}`}>
           {terminalStatusLabel(block.status, t)}
         </span>
-        {typeof block.exitCode === 'number' ? (
-          <span className="text-[10px] text-muted-foreground">exit {block.exitCode}</span>
-        ) : null}
         {typeof block.durationMs === 'number' ? (
-          <span className="text-[10px] text-muted-foreground">
+          <span className="shrink-0 tabular-nums text-muted-foreground">
             {formatDurationMs(block.durationMs)}
           </span>
         ) : null}
@@ -324,24 +508,41 @@ function TerminalBlockView({ block, t }: { block: TerminalRenderBlock; t: Transl
 }
 
 /** 子代理活动块 */
-function SubagentBlockView({ block, t }: { block: SubagentRenderBlock; t: Translate }) {
+function SubagentBlockView({
+  block,
+  t,
+  tTool,
+}: {
+  block: SubagentRenderBlock
+  t: Translate
+  tTool: Translate
+}) {
+  const Icon = statusIconByString(block.status)
   return (
-    <div className="px-2 py-1.5 rounded-md border border-border bg-card text-xs">
+    <div
+      className="px-2 py-1.5 rounded-md border border-border bg-card text-xs"
+      role="group"
+      aria-label={`${block.name} · ${subagentStatusLabel(block.status, tTool)}`}
+    >
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="font-medium">{block.name}</span>
-        <span className="text-[10px] text-muted-foreground">{block.type}</span>
-        <span className="px-1 py-0.5 rounded text-[10px] leading-tight bg-muted text-muted-foreground">
-          {block.status}
+        <Icon
+          className={`h-3.5 w-3.5 shrink-0 ${statusIconClassByString(block.status)}`}
+          aria-hidden
+        />
+        <span className="min-w-0 shrink-0 max-w-[45%] truncate font-medium">{block.name}</span>
+        <span className="shrink-0 text-[10px] text-muted-foreground">{block.type}</span>
+        <span className={`${BADGE_CLASS} bg-muted text-muted-foreground`}>
+          {subagentStatusLabel(block.status, tTool)}
         </span>
         {typeof block.toolCallsCount === 'number' ? (
-          <span className="text-[10px] text-muted-foreground">
+          <span className="shrink-0 tabular-nums text-[10px] text-muted-foreground">
             · {t('chat.subagentTools', { count: block.toolCallsCount })}
           </span>
         ) : null}
       </div>
       {block.currentStep ? (
         <div className="mt-1 text-muted-foreground whitespace-pre-wrap break-words">
-          {block.currentStep}
+          {humanizeToolText(block.currentStep, tTool)}
         </div>
       ) : null}
       {block.outputPreview ? (
@@ -364,6 +565,9 @@ export interface PlanStepsViewProps {
 
 export function PlanStepsView({ steps, explanation }: PlanStepsViewProps) {
   const { t } = useI18n()
+  // 步骤标题可能含 "read_file: path" 式英文码名前缀,必须经 humanizeToolText 本地化;
+  // 取词器要带 taskStatus 命名空间,否则回显的是 toolReadFile 这类键名(见 makeToolTranslate)
+  const tTool = useMemo(() => makeToolTranslate(t), [t])
   if (steps.length === 0) return null
   return (
     <div className="flex flex-col gap-1">
@@ -371,16 +575,14 @@ export function PlanStepsView({ steps, explanation }: PlanStepsViewProps) {
       <ol className="m-0 p-0 list-none flex flex-col gap-1">
         {steps.map((step) => (
           <li key={step.id} className="flex items-start gap-1.5">
-            <span
-              className={`shrink-0 px-1 py-0.5 rounded text-[10px] leading-tight ${planStatusClass(step.status)}`}
-            >
+            <span className={`${BADGE_CLASS} shrink-0 ${planStatusClass(step.status)}`}>
               {planStatusLabel(step.status, t)}
             </span>
-            <span className="flex-1 whitespace-pre-wrap break-words">
-              {humanizeToolText(step.step, t)}
+            <span className="min-w-0 flex-1 break-words whitespace-pre-wrap">
+              {humanizeToolText(step.step, tTool)}
             </span>
             {typeof step.durationMs === 'number' ? (
-              <span className="shrink-0 text-[10px] text-muted-foreground">
+              <span className="shrink-0 tabular-nums text-[10px] text-muted-foreground">
                 {formatDurationMs(step.durationMs)}
               </span>
             ) : null}
@@ -399,6 +601,7 @@ export interface MessageContentProps {
 
 export function MessageContent({ message, streaming = false }: MessageContentProps) {
   const { t } = useI18n()
+  const tTool = useMemo(() => makeToolTranslate(t), [t])
   const model = useMemo(() => buildRenderModel(message, { streaming }), [message, streaming])
   return (
     <div className="flex flex-col gap-1.5" data-testid="message-content">
@@ -409,15 +612,15 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           case 'reasoning':
             return <ReasoningBlockView key={block.id} block={block} t={t} />
           case 'tool':
-            return <ToolBlockView key={block.id} block={block} t={t} />
+            return <ToolBlockView key={block.id} block={block} t={t} tTool={tTool} />
           case 'plan':
             return (
               <PlanStepsView key={block.id} steps={block.steps} explanation={block.explanation} />
             )
           case 'terminal':
-            return <TerminalBlockView key={block.id} block={block} t={t} />
+            return <TerminalBlockView key={block.id} block={block} t={t} tTool={tTool} />
           case 'subagent':
-            return <SubagentBlockView key={block.id} block={block} t={t} />
+            return <SubagentBlockView key={block.id} block={block} t={t} tTool={tTool} />
           default:
             return null
         }

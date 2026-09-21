@@ -20,14 +20,15 @@ import { Check, ChevronDown, ChevronUp, CircleDashed, Loader2, X } from 'lucide-
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import {
   deriveTaskStatusBar,
+  describeToolCall,
   humanizeToolText,
-  toolDisplayKey,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
 import type { PlanStep, PlanStepStatus, TerminalTask } from '@ihui/types'
 import type { ToolCall } from '@ihui/types/chat'
 import { useI18n } from '../../../src/i18n'
+import { makeToolTranslate } from './MessageContent'
 
 /** 步骤状态图标:与消息流内 plan 块同一套语义(对齐 web 端) */
 const STEP_ICON: Record<PlanStepStatus, ComponentType<{ className?: string }>> = {
@@ -101,6 +102,7 @@ export function TaskStatusBar({
   isStreaming,
 }: TaskStatusBarProps) {
   const { t } = useI18n()
+  const tTool = useMemo(() => makeToolTranslate(t), [t])
   // null = 用户未干预,跟随流式状态自动展开/收起
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const open = userOpen ?? isStreaming
@@ -112,8 +114,9 @@ export function TaskStatusBar({
 
   // 流式期间"此刻在做什么":优先展示正在跑的工具 / 终端命令,拿不到名称时留空,
   // 让 view.headline(当前步骤标题)顶上 —— 与 web 端 activityLabel 同一优先级。
-  // 界面禁止直显英文工具码名:已映射的工具显示本地化功能名(如 read_file → "读取文件内容"),
-  // 插件/MCP 动态名回落 activityTool/activityMcp/activityPlugin。
+  // 界面禁止直显英文工具码名:一行话素材(功能名 + 对象)由共享层 describeToolCall 给出,
+  // 端内不再自行从 args 里挖字段;插件/MCP 动态名回落 activityMcp/activityPlugin,
+  // 未登记的内置工具名才走 activityTool(带码名)兜底。
   const activityLabel = useMemo(() => {
     if (!isStreaming) return ''
     const runningTool = (toolCalls ?? []).find((call) => call.status === 'running')
@@ -128,22 +131,29 @@ export function TaskStatusBar({
           plugin: runningTool.serverName ?? runningTool.toolName,
         })
       }
-      const displayKey = toolDisplayKey(runningTool.toolName)
-      if (displayKey) return t(`taskStatus.${displayKey}`)
+      const call = describeToolCall({
+        toolName: runningTool.toolName,
+        args: runningTool.args,
+        status: runningTool.status,
+      })
+      if (call.nameKey) {
+        const title = tTool(call.nameKey)
+        return call.subject === '' ? title : `${title} · ${call.subject}`
+      }
       return t('taskStatus.activityTool', { tool: runningTool.toolName })
     }
     if ((terminalTasks ?? []).some((task) => task.status === 'running')) {
       return t('taskStatus.activityTerminal')
     }
     return ''
-  }, [isStreaming, toolCalls, terminalTasks, t])
+  }, [isStreaming, toolCalls, terminalTasks, t, tTool])
 
   if (!view) return null
 
   const { icon: Glyph, cls: glyphCls } = KIND_GLYPH[view.kind]
   const headline =
     activityLabel ||
-    (view.headline ? humanizeToolText(view.headline, t) : '') ||
+    (view.headline ? humanizeToolText(view.headline, tTool) : '') ||
     (view.active ? t('taskStatus.activityRunning') : t('taskStatus.waiting'))
   const stepText =
     view.stepTotal > 0
@@ -181,12 +191,20 @@ export function TaskStatusBar({
                     {filesText}
                   </span>
                 ) : null}
-                {view.linesKnown && view.changedFiles > 0 ? (
-                  <span className="shrink-0 text-xs tabular-nums">
-                    <span className="text-emerald-600 dark:text-emerald-400">
-                      +{view.addedLines}
-                    </span>{' '}
-                    <span className="text-red-600 dark:text-red-400">-{view.removedLines}</span>
+                {view.linesKnown &&
+                view.changedFiles > 0 &&
+                (view.addedLines > 0 || view.removedLines > 0) ? (
+                  <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums">
+                    {view.addedLines > 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {tTool('addedCount', { n: view.addedLines })}
+                      </span>
+                    ) : null}
+                    {view.removedLines > 0 ? (
+                      <span className="text-red-600 dark:text-red-400">
+                        {tTool('removedCount', { n: view.removedLines })}
+                      </span>
+                    ) : null}
                   </span>
                 ) : null}
                 {open ? (
@@ -208,7 +226,7 @@ export function TaskStatusBar({
             aria-label={t('taskStatus.steps', { current: view.stepCurrent, total: view.stepTotal })}
           >
             {view.steps.map((step) => (
-              <StepRow key={step.id} step={step} translate={t} />
+              <StepRow key={step.id} step={step} translate={tTool} />
             ))}
           </ul>
         ) : null}
