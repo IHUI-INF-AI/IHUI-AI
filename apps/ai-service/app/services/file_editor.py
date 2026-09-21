@@ -38,6 +38,11 @@ from typing import Any
 
 from app.core.tunables import FILE_VERSION_REDIS_TTL as _FILE_VERSION_REDIS_TTL
 
+# 批58(三十):敏感目录黑名单收敛为单一权威源。
+# 此前本模块与 mcp_server 各持一份实现,而只有本模块这份有黑名单判定,
+# 导致 mcp_server 的三个写工具可写 .git/hooks/。现统一由 path_guard 提供。
+from .path_guard import SENSITIVE_DIR_PATTERN
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -67,10 +72,10 @@ def _resolve_workspace_roots() -> list[str]:
 _WORKSPACE_ROOTS: list[str] = _resolve_workspace_roots()
 
 # 敏感目录黑名单(正则,匹配路径片段,防误改依赖/VCS/构建产物)
-_SENSITIVE_DIR_PATTERNS = re.compile(
-    r"(^|[\\/])(\.git|node_modules|\.venv|venv|dist|build|__pycache__|\.next)([\\/]|$)",
-    re.IGNORECASE,
-)
+# 批58(三十):正则本体已上移到 path_guard.SENSITIVE_DIR_PATTERN(单一权威源),
+# 此处保留同名绑定以兼容既有引用点;匹配语义与历史版本逐字一致(含 IGNORECASE),
+# 因此本模块行为零变化 —— 收敛的方向是「让 mcp_server 对齐本模块」,不是反过来。
+_SENSITIVE_DIR_PATTERNS: re.Pattern[str] = SENSITIVE_DIR_PATTERN
 
 # 文件大小上限(1MB)
 MAX_FILE_SIZE = 1 * 1024 * 1024
