@@ -22,6 +22,7 @@ import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { toolDisplayKey } from '@ihui/shared/chat'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 
@@ -156,6 +157,11 @@ export const ToolCallItem = React.memo(function ToolCallItem({
   stepLabel?: string
 }) {
   const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
+  const toolDisplayName = React.useMemo(() => {
+    const key = toolDisplayKey(tool.toolName)
+    return key ? tStatus(key) : tool.toolName
+  }, [tool.toolName, tStatus])
   const [expanded, setExpanded] = React.useState(false)
   const cat = categorize(tool.toolName)
   const CatIcon = CATEGORY_ICON[cat]
@@ -212,8 +218,11 @@ export const ToolCallItem = React.memo(function ToolCallItem({
         >
           {t(CATEGORY_TKEY[cat])}
         </span>
-        <code className="shrink-0 font-mono text-[11px] text-muted-foreground">
-          {tool.toolName}
+        <code
+          className="shrink-0 font-mono text-[11px] text-muted-foreground"
+          data-tool-name={tool.toolName}
+        >
+          {toolDisplayName}
         </code>
         {/* 2026-09-19 v2:所属步骤 chip(planSteps.toolCallIds 精确匹配,超长截断由 Tooltip 兜底) */}
         {stepLabel && (
