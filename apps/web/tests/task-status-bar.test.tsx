@@ -35,6 +35,8 @@ const { mockT, progress, chat } = vi.hoisted(() => {
     activityTerminal: '执行终端命令',
     activityPlanning: '规划进度',
     activityRunning: '执行中',
+    toolReadFile: '读取文件内容',
+    toolEditFile: '编辑文件',
   }
   const t = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
@@ -183,7 +185,7 @@ describe('TaskStatusBar - 数值与文案', () => {
       },
     ]
     render(<TaskStatusBar />)
-    expect(screen.getByText('调用 edit_file')).toBeTruthy()
+    expect(screen.getByText('编辑文件')).toBeTruthy()
     expect(screen.getByText('步骤 2/3')).toBeTruthy()
     expect(screen.getByText('1 个文件已修改')).toBeTruthy()
     expect(screen.getByText('+3')).toBeTruthy()
@@ -195,6 +197,17 @@ describe('TaskStatusBar - 数值与文案', () => {
     progress.planSteps = [step({ step: '唯一在跑的步骤', status: 'in_progress' })]
     render(<TaskStatusBar />)
     expect(screen.getByText('唯一在跑的步骤')).toBeTruthy()
+  })
+
+  it('工具码名显示为功能名而非英文代码名(如 read_file → 读取文件内容)', () => {
+    progress.isStreaming = true
+    progress.currentTask = { kind: 'tool', label: 'x', toolName: 'read_file' }
+    const { unmount } = render(<TaskStatusBar />)
+    expect(screen.getByText('读取文件内容')).toBeTruthy()
+    unmount()
+    progress.currentTask = { kind: 'tool', label: 'x', toolName: 'totally_unknown_tool' }
+    render(<TaskStatusBar />)
+    expect(screen.getByText('调用 totally_unknown_tool')).toBeTruthy()
   })
 
   it('MCP / 插件活动各自走专属文案', () => {
