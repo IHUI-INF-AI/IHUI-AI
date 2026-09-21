@@ -185,7 +185,17 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 
 > 完整端口表见 [docs/port-management.md](docs/port-management.md),生产部署/蓝绿/回滚见 [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)。
 
-> 环境变量 `DATABASE_APP_URL`(可选):非超级用户应用角色 `ihui_app` 的独立连接串,**只服务受控出口**(`dbScoped()`/`dbReadScoped()`),不配置则 `scoped-*` 能力在生产恒 503 `DATA_ISOLATION_UNAVAILABLE`(有意的 fail-closed,第一方链路不受影响)。角色与逐表 GRANT 见迁移 `packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql`,上线顺序见 [docs/developer/data-classes.md](docs/developer/data-classes.md) §3.1。
+> 环境变量 `DATABASE_APP_URL`(可选):非超级用户应用角色 `ihui_app` 的独立连接串,**只服务受控出口**(`dbScoped()`/`dbReadScoped()`),不配置则 `scoped-*` 能力在生产恒 503 `DATA_ISOLATION_UNAVAILABLE`(有意的 fail-closed,第一方链路不受影响)。角色与逐表 GRANT 见迁移 `packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql`,上线顺序见 [docs/developer/data-classes.md](docs/developer/data-classes.md) §3.1。**aizhs.top 生产已启用该配置**(2026-09-21):`ihui_app` 实测 `rolsuper=false` + `rolbypassrls=false`,带机器凭据打 `scoped-read` 端点返回 200(而非 503),匿名返回 401,`X-Api-Secret` 不匹配返回 401。`ROW LEVEL SECURITY` 仍刻意未 `ENABLE`——真正挡数据的是应用闸,不是 policy。
+
+> **第三方 Agent 接入的公网形态**(2026-09-21 逐条实测,非文档推断):
+>
+> | 通道             | 公网入口                                                                                                         | 匿名行为                                                                 | 凭据                                                |
+> | ---------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
+> | REST / OpenAPI   | `https://aizhs.top/api/*` 与 `https://api.aizhs.top/api/*`                                                       | 401(响应体已脱敏,不回显内部 SQL)                                         | Developer API Key(`Bearer ihui_*` + `X-Api-Secret`) |
+> | MCP              | `https://aizhs.top/api/mcp`                                                                                      | 401(匿名后门 O1 已关)                                                    | 同上                                                |
+> | OAuth 2.1 / OIDC | `https://api.aizhs.top/.well-known/{openid-configuration,oauth-authorization-server}`、`/oauth/{register,token}` | discovery 200;DCR 对匿名 `client_credentials` 明确拒绝并给可操作替代路径 | 授权码 + PKCE / client_credentials                  |
+>
+> discovery 的 `issuer` 按转发头推导(实测为 `https://api.aizhs.top`,不写死部署配置)。⚠️ **尚未打通**:`aizhs.top`(主域)的 `/.well-known/*` 与 `/oauth/*` 由 Next.js 承接,不转发到 `apps/api`,所以只认主域根路径的标准客户端仍需走 `api.aizhs.top`;`apps/ai-service` 的 A2A 面(含 `/.well-known/agent.json` 与其卡片里的任务 `url`)当前**公网不可达**,详见 PROJECT_PLAN.md O20/O20b。
 
 ### 推荐组合(零成本上线)
 
