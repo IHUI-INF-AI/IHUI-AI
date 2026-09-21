@@ -19,6 +19,10 @@ import {
   Pencil,
   FileText,
   FileCode,
+  FileJson,
+  Camera,
+  Image as ImageIcon,
+  Link2,
   LogIn,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,6 +35,13 @@ import {
   compressConversation,
 } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
+import {
+  downloadConversationJson,
+  downloadConversationSnapshot,
+  downloadConversationShareCard,
+  copyConversationShareLink,
+  type ExportRoleLabel,
+} from '@/components/chat/conversation-export'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
@@ -114,6 +125,7 @@ function groupByDate(items: ConversationItem[]): { key: GroupKey; items: Convers
 export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('chatHistory')
   const tc = useTranslations('aiChat')
+  const te = useTranslations('chat.exportMenu')
   const tCommon = useTranslations('common')
   const locale = useLocale()
   const queryClient = useQueryClient()
@@ -373,6 +385,48 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
     )
   }
 
+  const exportRoleLabel: ExportRoleLabel = {
+    user: te('roleUser'),
+    assistant: te('roleAssistant'),
+  }
+
+  // 导出/分享动作:按会话 ID 拉全量消息后本地生成,不依赖面板当前加载的会话
+  const runExportAction = (id: string, successMsg: string, action: () => Promise<boolean>) => {
+    setBusyId(id)
+    void action()
+      .then((done) => {
+        if (done) success(successMsg)
+      })
+      .catch((err: unknown) => {
+        error(err instanceof Error && err.message ? err.message : tc('toast.exportFailed'))
+      })
+      .finally(() => setBusyId(null))
+  }
+
+  const handleExportJson = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationJson(item.id, item.title),
+    )
+  }
+
+  const handleSnapshot = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationSnapshot(item.id, item.title, exportRoleLabel),
+    )
+  }
+
+  const handleShareCard = (item: ConversationItem) => {
+    runExportAction(item.id, te('exportStarted'), () =>
+      downloadConversationShareCard(item.id, item.title, te('shareCardUser')),
+    )
+  }
+
+  const handleShareLink = (item: ConversationItem) => {
+    runExportAction(item.id, te('shareLinkCopied'), () =>
+      copyConversationShareLink(item.id, te('shareFailed')).then(() => true),
+    )
+  }
+
   const renderItem = (item: ConversationItem) => {
     const active = item.id === currentConversationId
     return (
@@ -488,6 +542,46 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             >
               <FileText className="mr-2 h-3.5 w-3.5" />
               <span>{tc('actions.exportTxt')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleExportJson(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <FileJson className="mr-2 h-3.5 w-3.5" />
+              <span>{te('exportJson')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleSnapshot(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Camera className="mr-2 h-3.5 w-3.5" />
+              <span>{te('snapshot')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleShareCard(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <ImageIcon className="mr-2 h-3.5 w-3.5" />
+              <span>{te('exportCard')}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                handleShareLink(item)
+              }}
+              disabled={busyId === item.id}
+            >
+              <Link2 className="mr-2 h-3.5 w-3.5" />
+              <span>{te('share')}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={(e) => {
