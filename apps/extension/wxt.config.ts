@@ -1,0 +1,74 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { defineConfig } from 'wxt'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  modules: ['@wxt-dev/module-react'],
+  vite: () => ({
+    plugins: [tailwindcss()],
+  }),
+  // 2026-07-26 P0 修复:Node 17+ + Windows 把 localhost 解析为 ::1,Chrome 扩展页面
+  // 用 127.0.0.1 解析 localhost 时连接被拒绝 → 显式绑 IPv4 127.0.0.1。
+  // 注意:WXT dev 必须用顶层的 dev.server.host,vite.server.host 会被覆盖。
+  // 2026-08-03 wxt 0.21 升级:dev.server.hostname 已移除(原 v0.20 deprecated),改用 host。
+  dev: {
+    server: {
+      host: '127.0.0.1',
+      port: 8808,
+    },
+  },
+  manifest: {
+    name: 'IHUI AI',
+    description: 'IHUI AI 浏览器助手',
+    version: '1.0.0',
+    minimum_chrome_version: '114',
+    permissions: [
+      'storage',
+      'activeTab',
+      'sidePanel',
+      'contextMenus',
+      'tabs',
+      'scripting',
+      'alarms',
+      // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
+      'identity',
+    ],
+    host_permissions: [
+      'http://localhost:8802/*',
+      // 2026-08-06 补 8803:VoiceInput STT fallback 直连 ai-service(localhost:8803)
+      'http://localhost:8803/*',
+      'https://*.aizhs.top/*',
+    ],
+    icons: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+      128: 'icon/128.png',
+    },
+    side_panel: {
+      default_path: '/sidepanel.html',
+    },
+    action: {
+      default_popup: 'popup.html',
+      default_icon: {
+        16: 'icon/16.png',
+        32: 'icon/32.png',
+        48: 'icon/48.png',
+        128: 'icon/128.png',
+      },
+    },
+    web_accessible_resources: [
+      {
+        resources: ['*.css', '*.svg'],
+        // 2026-07-22 P0 Round 5 鲁棒性加固:收窄 matches 防 fingerprinting
+        // 原 ['<all_urls>'] 允许任何网站引用扩展资源,可被钓鱼站点探测用户是否安装扩展
+        // 收窄到 aizhs.top 域 + 本地开发环境(与 host_permissions 一致)
+        matches: ['http://localhost:8802/*', 'https://*.aizhs.top/*'],
+      },
+    ],
+  },
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

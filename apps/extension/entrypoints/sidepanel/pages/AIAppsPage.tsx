@@ -1,0 +1,66 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * AIAppsPage — AI 应用中心首页,列出所有 AI 类功能入口。
+ */
+import {
+  BookOpen,
+  Brain,
+  Briefcase,
+  ClipboardList,
+  Globe,
+  Palette,
+  Radio,
+  Bot,
+  Search,
+  Trophy,
+  Zap,
+} from 'lucide-react'
+import { AppListPage, type AppItem } from '../components/AppListPage'
+import { WEB_BASE } from '../../../lib/open-in-web'
+
+const items: AppItem[] = [
+  { to: '/ai/agents', icon: Bot, titleKey: 'apps.aiAgents', descKey: 'apps.aiAgentsDesc' },
+  { to: '/ai/skills', icon: Zap, titleKey: 'apps.aiSkills', descKey: 'apps.aiSkillsDesc' },
+  { to: '/ai/image-gen', icon: Palette, titleKey: 'apps.imageGen', descKey: 'apps.imageGenDesc' },
+  { to: '/ai/memory', icon: Brain, titleKey: 'apps.memory', descKey: 'apps.memoryDesc' },
+  { to: '/ai/news', icon: Radio, titleKey: 'apps.aiNews', descKey: 'apps.aiNewsDesc' },
+  { to: '/ai/models', icon: Trophy, titleKey: 'apps.models', descKey: 'apps.modelsDesc' },
+  {
+    externalUrl: `${WEB_BASE}/ai-world`,
+    icon: Globe,
+    titleKey: 'apps.aiWorld',
+    descKey: 'apps.aiWorldDesc',
+  },
+  {
+    externalUrl: `${WEB_BASE}/ai-career`,
+    icon: Briefcase,
+    titleKey: 'apps.aiCareer',
+    descKey: 'apps.aiCareerDesc',
+  },
+  {
+    externalUrl: `${WEB_BASE}/spec`,
+    icon: ClipboardList,
+    titleKey: 'apps.spec',
+    descKey: 'apps.specDesc',
+  },
+  {
+    externalUrl: `${WEB_BASE}/knowledge-base`,
+    icon: BookOpen,
+    titleKey: 'apps.knowledgeBase',
+    descKey: 'apps.knowledgeBaseDesc',
+  },
+  {
+    externalUrl: `${WEB_BASE}/knowledge-rag`,
+    icon: Search,
+    titleKey: 'apps.knowledgeRag',
+    descKey: 'apps.knowledgeRagDesc',
+  },
+]
+
+export default function AIAppsPage() {
+  return <AppListPage titleKey="apps.aiTitle" items={items} />
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

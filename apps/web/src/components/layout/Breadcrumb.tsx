@@ -1,0 +1,67 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useTranslations } from 'next-intl'
+import { ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+export interface BreadcrumbItem {
+  label: string
+  href?: string
+  onClick?: () => void
+}
+
+interface BreadcrumbProps {
+  items: BreadcrumbItem[]
+  separator?: React.ReactNode
+  className?: string
+}
+
+export function Breadcrumb({ items, separator, className }: BreadcrumbProps) {
+  const tA11y = useTranslations('a11y')
+  const sep = separator ?? <ChevronRight className="h-4 w-4" />
+  return (
+    <nav aria-label={tA11y('breadcrumb')} className={cn('flex items-center text-sm', className)}>
+      <ol className="flex min-w-0 items-center gap-1.5">
+        {items.map((item, i) => {
+          const isLast = i === items.length - 1
+          return (
+            <li key={item.label} className="flex shrink-0 items-center gap-1.5">
+              {item.href && !isLast ? (
+                <a
+                  href={item.href}
+                  className="whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </a>
+              ) : item.onClick && !isLast ? (
+                <button
+                  onClick={item.onClick}
+                  className="whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <span
+                  className={cn(
+                    'whitespace-nowrap',
+                    isLast && 'max-w-[200px] truncate',
+                    isLast ? 'font-medium text-foreground' : 'text-muted-foreground',
+                  )}
+                >
+                  {item.label}
+                </span>
+              )}
+              {!isLast && <span className="text-muted-foreground/50">{sep}</span>}
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

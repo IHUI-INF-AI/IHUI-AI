@@ -1,0 +1,215 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '@/i18n'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+import { useCallback } from 'react'
+import { formatDateByTemplate } from '@ihui/shared'
+import DrawerComponent from './DrawerComponent'
+import EmptyState from './EmptyState'
+import { icon } from '@/constants/remote-icons'
+
+export type MaterialTab = 1 | 2 | 3 | 4
+
+export interface MaterialItem {
+  id: string
+  title: string
+  thumbnail?: string
+  createdAt?: string
+  content?: string
+  tab?: MaterialTab
+}
+
+export interface MaterialPopupProps {
+  visible?: boolean
+  tab?: MaterialTab
+  items?: MaterialItem[]
+  loading?: boolean
+  hasMore?: boolean
+  selectedId?: string
+  onTabChange?: (tab: MaterialTab) => void
+  onSelect?: (item: MaterialItem) => void
+  onClose?: () => void
+  onUpload?: (tab: MaterialTab) => void
+  onLoadMore?: () => void
+}
+
+const TABS: { key: MaterialTab; labelKey: string; icon: string }[] = [
+  { key: 1, labelKey: 'ai.materialPopup.tabText', icon: icon('addText') },
+  { key: 2, labelKey: 'ai.materialPopup.tabImage', icon: icon('addPicter') },
+  { key: 3, labelKey: 'ai.materialPopup.tabVideo', icon: icon('addVideo') },
+  { key: 4, labelKey: 'ai.materialPopup.tabAudio', icon: icon('addAudio') },
+]
+
+function formatTime(ts?: string): string {
+  return formatDateByTemplate(ts, 'MM/DD')
+}
+
+export default function MaterialPopup({
+  visible = false,
+  tab = 1,
+  items = [],
+  loading = false,
+  hasMore = false,
+  selectedId = '',
+  onTabChange,
+  onSelect,
+  onClose,
+  onUpload,
+  onLoadMore,
+}: MaterialPopupProps) {
+  const { t } = useI18n()
+  const handleScrollToLower = useCallback(() => {
+    if (hasMore && !loading && onLoadMore) onLoadMore()
+  }, [hasMore, loading, onLoadMore])
+
+  const handleUploadClick = useCallback(() => {
+    onUpload?.(tab)
+  }, [tab, onUpload])
+
+  const isTextTab = tab === 1
+  const isImageTab = tab === 2
+
+  return (
+    <DrawerComponent visible={visible} onClose={onClose} height="75vh">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
+        <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
+          {t('ai.materialPopup.title')}
+        </Text>
+        {/* weapp 端不支持 CSS :active,active:bg-primary 为死样式,改用 hoverClass 提供按压反馈 */}
+        <View
+          className="px-3 py-1 text-xs rounded-md bg-primary text-primary-foreground"
+          hoverClass="opacity-60"
+          onClick={handleUploadClick}
+        >
+          <Text>＋ {t('ai.materialPopup.upload')}</Text>
+        </View>
+      </View>
+
+      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 mb-2">
+        {TABS.map((tabItem) => (
+          <View
+            key={tabItem.key}
+            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            hoverClass="opacity-60"
+            onClick={() => onTabChange?.(tabItem.key)}
+          >
+            <Image className="w-3 h-3 mr-1" src={tabItem.icon} mode="aspectFit" />
+            <Text>{t(tabItem.labelKey)}</Text>
+          </View>
+        ))}
+      </ScrollView>
+
+      <ScrollView
+        scrollY
+        className="flex-1"
+        style={{ maxHeight: '55vh' }}
+        onScrollToLower={handleScrollToLower}
+        lowerThreshold={80}
+      >
+        {loading && !items.length ? (
+          <View className="py-12 text-center text-sm text-muted-foreground">
+            <Text>{t('ai.common.loading')}</Text>
+          </View>
+        ) : items.length ? (
+          <View className="px-3 py-2">
+            {isImageTab ? (
+              <View className="grid grid-cols-3 gap-2">
+                {items.map((item) => (
+                  <View
+                    key={item.id}
+                    /* weapp 端不支持 CSS :active,active:opacity-80 为死样式,精确翻译为 hoverClass */
+                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted ${selectedId === item.id ? 'ring-2 ring-primary' : ''}`}
+                    hoverClass="opacity-80"
+                    onClick={() => onSelect?.(item)}
+                  >
+                    {item.thumbnail ? (
+                      <Image className="w-full h-full" src={item.thumbnail} mode="aspectFill" />
+                    ) : (
+                      <View className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Image className="w-8 h-8" src={icon('addPicter')} mode="aspectFit" />
+                      </View>
+                    )}
+                    <View className="absolute bottom-0 left-0 right-0 px-1 py-1 bg-[var(--color-black-40)]">
+                      <Text className="block text-xs text-[var(--color-white-98)] truncate">
+                        {item.title}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View>
+                {items.map((item) => (
+                  <View
+                    key={item.id}
+                    className={`flex p-3 mb-2 rounded-xl ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
+                    onClick={() => onSelect?.(item)}
+                    hoverClass="opacity-60"
+                  >
+                    <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      {item.thumbnail ? null : (
+                        <Image
+                          className="w-5 h-5"
+                          src={
+                            isTextTab
+                              ? icon('addText')
+                              : tab === 3
+                                ? icon('addVideo')
+                                : icon('addAudio')
+                          }
+                          mode="aspectFit"
+                        />
+                      )}
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <View className="flex items-center">
+                        <Text className="text-sm font-medium text-foreground dark:text-muted-foreground truncate">
+                          {item.title}
+                        </Text>
+                        {selectedId === item.id ? (
+                          <LineIcon
+                            name="check-success"
+                            size="14px"
+                            color="var(--color-success)"
+                            className="ml-2"
+                          />
+                        ) : null}
+                      </View>
+                      {isTextTab && item.content ? (
+                        <Text className="block text-xs text-muted-foreground dark:text-muted-foreground mt-1 line-clamp-2">
+                          {item.content}
+                        </Text>
+                      ) : null}
+                      {item.createdAt ? (
+                        <Text className="block text-xs text-muted-foreground mt-1">
+                          {formatTime(item.createdAt)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {loading && items.length ? (
+              <View className="py-3 text-center text-xs text-muted-foreground">
+                <Text>{t('ai.materialPopup.loadMore')}</Text>
+              </View>
+            ) : null}
+            {!loading && !hasMore && items.length ? (
+              <View className="py-3 text-center text-xs text-muted-foreground">
+                <Text>{t('ai.materialPopup.noMore')}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : (
+          <EmptyState text={t('ai.materialPopup.empty')} />
+        )}
+      </ScrollView>
+    </DrawerComponent>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

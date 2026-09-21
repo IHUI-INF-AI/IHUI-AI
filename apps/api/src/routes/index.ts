@@ -1,0 +1,1284 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { type FastifyInstance } from 'fastify'
+
+import { healthRoutes } from './health.js'
+import { authRoutes } from './auth.js'
+import { usersRoutes } from './users.js'
+import { workspaceRoutes } from './workspace.js'
+import { workspaceAiRoutes } from './workspace-ai.js'
+import { workspacePermissionRoutes } from './workspace-permissions.js'
+import { fileRoutes } from './files.js'
+import { adminRoutes } from './admin.js'
+import { i18nDashboardRoutes } from './i18n-dashboard.js'
+import { notificationRoutes } from './notifications.js'
+import { billingRoutes } from './billing.js'
+import { searchRoutes } from './search.js'
+import { auditRoutes } from './audit.js'
+import { chatRoutes } from './chat.js'
+import { chatModelRoutes } from './chat-models.js'
+import { chatSkillsRoutes } from './chat-skills.js'
+import { teamRoutes } from './teams.js'
+import { rbacRoutes } from './rbac.js'
+import { workflowRoutes } from './workflows.js'
+import { commentRoutes } from './comments.js'
+import { communityRoutes } from './community.js'
+import { socialRoutes } from './social.js'
+import { interactionsRoutes } from './interactions.js'
+import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
+import { gamificationRoutes } from './gamification.js'
+import { pointsTasksRoutes } from './points-tasks.js'
+import { userExtraRoutes } from './user-extras.js'
+import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
+import { contentRoutes, adminContentRoutes } from './content.js'
+import { learnRoutes, adminLearnRoutes } from './learn.js'
+import { systemRoutes, adminSystemRoutes } from './system.js'
+import { examRoutes } from './exam.js'
+import { orderRoutes, adminOrderRoutes } from './order.js'
+import { liveRoutes, adminLiveRoutes } from './live.js'
+import { memberRoutes, adminMemberRoutes } from './member.js'
+import { resourceRoutes, adminResourceRoutes } from './resource.js'
+import { default as githubProjectRoutes } from './github-projects.js'
+import { pointRoutes, adminPointRoutes } from './point.js'
+import { usercenterRoutes } from './usercenter.js'
+import { scheduleRoutes, adminScheduleRoutes } from './schedule.js'
+import { statisticsRoutes, adminStatisticsRoutes } from './statistics.js'
+import { messageRoutes, adminMessageRoutes } from './message.js'
+import { topicRoutes, adminTopicRoutes } from './topic.js'
+import { behaviorRoutes, adminBehaviorRoutes } from './behavior.js'
+import { visitTrackingRoutes, adminVisitTrackingRoutes } from './visit-tracking.js'
+import { analyticsRoutes, adminAnalyticsRoutes } from './analytics.js'
+import { ossRoutes, adminOssRoutes } from './oss.js'
+import { settingRoutes, adminSettingRoutes } from './setting.js'
+import { carouselPublicRoutes } from './carousel.js'
+import { newsRoutes, adminNewsRoutes } from './news.js'
+import { certificateRoutes, adminCertificateRoutes } from './certificate.js'
+import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from './payment-gateway.js'
+import paymentUsdtRoutes from './payment-usdt.js'
+import { refundAuditRoutes, adminRefundAuditRoutes } from './refund-audit.js'
+import { financeRoutes } from './finance.js'
+import { authExtendedRoutes } from './auth-extended.js'
+import authPasskeyRoutes from './auth-passkey.js'
+import { authSsoRoutes } from './auth-sso.js'
+import { authCarrierRoutes } from './auth-carrier.js'
+import { vipRoutes, adminVipRoutes } from './vip.js'
+// P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
+import aiPricingRoutes from './ai-pricing.js'
+import { developerPortalRoutes } from './developer-portal.js'
+import { agentsRoutes } from './agents.js'
+import { agentsKanbanRoutes } from './agents-kanban.js'
+import { taskMessagesRoutes } from './task-messages.js'
+import { oauthKeysRoutes } from './oauth-keys.js'
+import { plazaRoutes } from './plaza.js'
+import { shareFirstRoutes } from './share-first.js'
+import { cozeVariablesRoutes } from './coze-variables.js'
+import { cozeRoutes } from './coze.js'
+import { cozeEcosystemRoutes } from './coze-ecosystem.js'
+import { cozeTestRoutes } from './coze-test.js'
+import { cozeOauthRoutes } from './coze-oauth.js'
+import { knowledgeRagRoutes } from './knowledge-rag.js'
+import { crewRoutes } from './crew.js'
+import { agenticServiceRoutes } from './agentic-service.js'
+import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './edu-extended.js'
+import aiCallbackRoutes from './ai-callback.js'
+import { adminSysRoutes, menuRoutersRoutes } from './admin-sys.js'
+import { dictPublicRoutes } from './dict.js'
+import { eduPublicRoutes } from './edu-public.js'
+import { aiVendorRoutes, adminAiVendorRoutes, aiVendorV2Routes } from './ai-vendors.js'
+import { aiAudioRoutes } from './ai-audio.js'
+import { customerServiceRoutes, adminCustomerServiceRoutes } from './customer-service.js'
+import { gdprRoutes } from './gdpr.js'
+import { clawdbotRoutes } from './clawdbot.js'
+import { tenantRoutes } from './tenant.js'
+import canaryRoutes from './canary.js'
+import tboxRoutes from './tbox.js'
+// 2026-08-31 六组功能:ab-testing/ai-grading/certificate-serials/gen-table/live-gifts/tbox-points
+import { abTestingRoutes } from './ab-testing.js'
+import { aiGradingRoutes } from './ai-grading.js'
+import { certificateSerialsRoutes } from './certificate-serials.js'
+import { genTableRoutes } from './gen-table.js'
+import { liveGiftsRoutes } from './live-gifts.js'
+import { tboxPointsRoutes } from './tbox-points.js'
+import stockRoutes from './stock.js'
+import agentExtendedRoutes from './agent-extended.js'
+import eduExtendedRoutes from './edu-extended.js'
+import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './system-extended.js'
+import aiExtendedRoutes from './ai-extended.js'
+import { mcpExtendedRoutes } from './mcp-extended.js'
+import miscExtendedRoutes from './misc-extended.js'
+import aiGenerationRoutes from './ai-generation.js'
+import { aiChatStreamRoutes } from './ai-chat-stream.js'
+import { llmModelsRoutes } from './llm-models.js'
+// M-20 补建：14 个 API 模块路由
+import toolsRoutes from './tools.js'
+import rankingRoutes from './ranking.js'
+import { adminGamificationRoutes } from './gamification-admin.js'
+import developerRoutes from './developer.js'
+import appVersionRoutes from './app-version.js'
+import monitorRoutes from './monitor.js'
+import webhooksRoutes from './webhooks.js'
+import webhookTriggerRoutes from './webhooks-trigger.js'
+import packagesRoutes from './packages.js'
+import walletRoutes, { adminWalletRoutes } from './wallet.js'
+import traderRoutes from './trader.js'
+import sdksRoutes from './sdks.js'
+import miniprogramRoutes from './miniprogram.js'
+import productIdentityRoutes from './product-identity.js'
+import groupsRoutes from './groups.js'
+// M-23 补建：AI 定价引擎路由
+import { pricingRoutes } from './pricing.js'
+// M-22 补建：散点缺失路由
+import { aiUserModelChatRoutes } from './ai-user-model-chat.js'
+import { adminFaqRoutes } from './admin-faq.js'
+// P3 深度层:AI 教育引擎(SRS 间隔复习)+ LangGraph 升级(interrupt HITL + streaming)
+import { srsReviewRoutes } from './srs-review.js'
+import { agentLanggraphRoutes } from './agent-langgraph.js'
+// P0:Agent Canvas 整图 DAG 一次性执行(转发 ai-service /api/langgraph/canvas/run)
+import { agentCanvasRoutes } from './agent-canvas.js'
+import { adminZoneRoutes } from './admin-zone.js'
+import { adminDemandSquareRoutes } from './admin-demand-square.js'
+import { zhsLegacyRoutes } from './zhs-legacy.js'
+import { zhsOrganizationRoutes, adminZhsOrganizationRoutes } from './zhs-organization.js'
+import { userAgentFreeTimesRoutes, adminUserAgentFreeTimesRoutes } from './user-agent-free-times.js'
+import { serviceCatalogRoutes, adminServiceCatalogRoutes } from './service-catalog.js'
+import { serviceInquiryRoutes } from './service-inquiry.js'
+import { shareContentRoutes } from './share-content.js'
+// 历史项目缺失端点补齐（从 legacy-completion.ts 拆分为 9 个业务模块文件,完整路径 /api/legacy/* 不变）
+import { legacyExamRoutes } from './legacy-exam.js'
+import { legacyLearnRoutes } from './legacy-learn.js'
+import { legacyLiveRoutes } from './legacy-live.js'
+import { legacyAskRoutes } from './legacy-ask.js'
+import { legacyBatchRoutes } from './legacy-batch.js'
+import { legacyOssRoutes } from './legacy-oss.js'
+import { legacyCommunityRoutes } from './legacy-community.js'
+import { legacyWorkWechatRoutes } from './legacy-work-wechat.js'
+import { legacyStudyRoutes } from './legacy-study.js'
+// R101 补建：WS live-chat 房间实时聊天（/ws/live-chat?roomId=xxx）
+import { liveChatWsRoutes } from './ws/live-chat.js'
+// R101 补建：课程/小节视频签名 URL 端点
+import { learnVideoRoutes } from './learn/get-lesson-video.js'
+// R101 补建：AdminContent 统一 CRUD（POST/PATCH/DELETE /api/admin/content/{type}/:id）
+import { adminContentCrudRoutes } from './admin/content/crud.js'
+// P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块
+import aiFeedRoutes from './ai-feed.js'
+import leaderboardRoutes from './leaderboard.js'
+import aiEducationRoutes from './ai-education.js'
+import eduAiManagementRoutes from './edu-ai-management.js'
+// 教育食堂采购记账(2026-09-19 立):AI 小票三轮核对 + 台账/供应商/统计/导出
+import eduCanteenRoutes from './edu-canteen.js'
+// F3 真实缺口补齐(2026-08-15):技能分类管理 + 元学习闭环路由
+import skillCategoriesRoutes from './skill-categories.js'
+import metaLearnerRoutes from './meta-learner.js'
+import { fileVersionRoutes } from './file-version.js'
+import { callbackLogRoutes } from './callback-log.js'
+// P1-6 断点续传(2026-09-13 立):独立路由文件,避免改动并行会话 WIP 中的 chat.ts
+import { chatResumeRoutes } from './chat-resume.js'
+
+// R65 补建：M-52 分片上传 + M-54 财务扩展 + M-56 支付扩展 + M-67 实名认证
+import { chunkedUploadRoutes } from './chunked-upload.js'
+import { financeExtendedRoutes } from './finance-extended.js'
+import { paymentExtendedRoutes } from './payment-extended.js'
+import { paymentRecurringRoutes } from './payment-recurring.js'
+import { authIdentityRoutes } from './auth-identity.js'
+
+// R67 补建：M-55 通知扩展 + M-66 教育平台 + M-72 支付状态 WS
+import { educationPlatformRoutes } from './education-platform.js'
+// 网信办「算法/模型备案」公开查询(2026-09-06 立,全网已备案模型/算法查询)
+import algorithmRecordRoutes from './algorithm-record.js'
+
+// R66 补建：M-44 remote + M-55 notification + M-57 content + M-60 org + M-61 AI图片编辑
+import { remoteExtendedRoutes } from './remote-extended.js'
+import { notificationExtendedRoutes } from './notification-extended.js'
+import { contentExtendedRoutes } from './content-extended.js'
+import { aiImageEditRoutes } from './ai-image-edit.js'
+
+// R68 补建：M-21 开放平台 Feature Center 后端路由
+import { featureCenterRoutes } from './feature-center.js'
+
+// 插件市场后端路由(2026-07-22 立,复用 user_preferences 表,零迁移)
+import { pluginsRoutes } from './plugins.js'
+
+// AI 自动控制路由(2026-07-22 立,跨端:ai-service ↔ api ↔ extension/desktop)
+import { agentControlRoutes } from './agent-control.js'
+
+// 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:截图 + 探测)
+import { browserRoutes } from './browser.js'
+import { embedProxyRoutes } from './embed-proxy.js'
+// 统一记忆读写路由(P0-3,cli/ai-service/api 三端记忆同步中枢)
+import { memoryRoutes } from './memory.js'
+// Skill 持久化路由(P0-2,管理自进化生成的 skill)
+import { skillsRoutes } from './skills.js'
+// Design 预览路由(P3 深度层,desktop 画布 + 预览:POST /design/preview + GET /design/previews)
+import { designRoutes } from './design.js'
+// 三端联动任务调度(P3 深度层,mobile-rn → api WS → desktop 执行:dispatch/result/list/devices)
+import { tasksRoutes } from './tasks.js'
+// IM 平台 gateway 路由(P1-1,对标 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
+import { imGatewayRoutes } from './im-gateway.js'
+
+// R68 补建：M-64 ask 模块扩展端点
+import { askExtendedRoutes } from './ask-extended.js'
+// admin/asks 管理后台问答端点
+import { adminAskRoutes } from './admin-asks.js'
+
+// 死表激活：敏感词 / 协议 / 汇率 / 私信管理
+import { adminSensitiveWordsRoutes } from './admin-sensitive-words.js'
+import { agreementPublicRoutes, adminAgreementsRoutes } from './admin-agreements.js'
+import { exchangeRatePublicRoutes, adminExchangeRateRoutes } from './admin-exchange-rate.js'
+import { adminPrivateLettersRoutes } from './admin-private-letters.js'
+
+// P0-3 补建：M-81 管理后台页面后端 API（菜单管理 + 需求审核 + 在线用户）
+import { adminExtendedRoutes } from './admin-extended.js'
+// M-85/M-87 补建：SRS 媒体服务器 + 远程设备任务管理
+import { srsRoutes } from './srs.js'
+import { remoteDeviceRoutes } from './remote-device.js'
+
+// 前端页面后端路由补齐
+import { aiWorldRoutes } from './ai-world.js'
+import { biDashboardRoutes } from './bi-dashboard.js'
+import { dramaRoutes } from './drama.js'
+import { distributionRoutes } from './distribution.js'
+// 用户级 LLM 平台配置（每用户独立 API Key + 模板 + 测试连通 + 拉取模型）
+import { userLlmConfigRoutes } from './user-llm-configs.js'
+// 用户级 LLM 平台配置 v2(2026-07-22 立,1:N provider-model,与 v1 并存)
+import { userLlmConfigV2Routes } from './user-llm-configs-v2.js'
+import { cliImportRoutes } from './cli-import.js'
+// 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用,2026-09-20 新增)
+import { conversationImportRoutes } from './conversation-import.js'
+// 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
+import { selfMediaRoutes } from './self-media-routes.js'
+// 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
+import { publishRoutes } from './publish-routes.js'
+import { publishAnalyticsRoutes } from './publish-analytics.js'
+import { adminGrayReleaseRoutes } from './admin-gray-release.js'
+import { adminErrorDashboardRoutes } from './admin-error-dashboard.js'
+import { adminApiPlatformRoutes } from './admin-api-platform.js'
+// 前端管理端缺失路由补建（真实 CRUD + 空数据桩）
+import { adminMissingRoutes } from './admin-missing-routes.js'
+// 内容运营真实 CRUD（6 个端点，替代 admin-missing-routes 中的空桩）
+import { adminContentOpsRoutes } from './admin-content-routes.js'
+// 鉴权/教育/学习真实 CRUD（11 个端点，替代空桩）
+import { adminAuthEduRoutes } from './admin-auth-edu-routes.js'
+// 监控/统计路由（19 个真实聚合端点，替代空桩）
+import { adminMonitoringRoutes } from './admin-monitoring-routes.js'
+// 插件市场统计(2026-07-22 新增,热度/安装量/点击量监测)
+import { adminPluginStatsRoutes } from './admin-plugin-stats.js'
+// 商城路由（10 个端点，替代空桩）
+import { adminShopRoutes } from './admin-shop-routes.js'
+// 发票抬头路由（4 个端点，替代空桩）
+import { adminInvoicesRoutes } from './admin-invoices.js'
+// 前端用户端缺失路由补建（54 个路由：空数据桩）
+import { missingUserRoutes } from './missing-user-routes.js'
+import { miniappPublicFallbackRoutes } from './miniapp-public-fallback-routes.js'
+import { miniappCompatRoutes } from './miniapp-compat-routes.js'
+import { publicSocketRoutes } from './public-socket.js'
+// OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
+import { openclawRoutes } from './openclaw-routes.js'
+// 补建：文章列表 / 用户签到 / 教育课程作业评分证书 / 学习记录上传
+import { articleRoutes } from './articles.js'
+import { userCheckinRoutes } from './user.js'
+import { eduSupplementaryRoutes } from './edu-supplementary-routes.js'
+// 前端补建路由（按模块分组，原 stub 命名已废弃）
+import { frontendAdminRoutes } from './admin-extended/index.js'
+import { aiFrontendRoutes } from './ai-frontend-routes.js'
+import { eduFrontendRoutes } from './edu-frontend-routes.js'
+import { otherRoutes } from './other/index.js'
+
+// 收款落地页(API 自包含 HTML,平台独占)
+import { landingRoutes } from './landing.js'
+
+// P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
+import { adminReportRoutes } from './report.js'
+
+// 孤儿路由接线(2026-07-22 整合:5 个路由有完整 api-client 封装但 server.ts 漏挂载,前端调用 404)
+import mailRoutes from './mail.js'
+import wrongQuestionRoutes from './wrong-questions.js'
+import examMarkingRoutes from './exam-marking.js'
+import authCodeRoutes from './auth-codes.js'
+import privateLetterRoutes from './private-letters.js'
+
+// P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）
+import { announcementsRoutes } from './announcements.js'
+
+// P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/ingest）
+import { telemetryRoutes } from './telemetry.js'
+
+// P1-3 补建：推送服务（FCM + 个推 HTTP API，无 SDK 依赖）
+import { pushRoutes, adminPushRoutes } from './push.js'
+
+// 设备推送 token 注册表路由(2026-09-06 立):PUT/DELETE /api/devices/token
+import { devicesRoutes } from './devices.js'
+
+// P1-4 补建：文件转码服务（FFmpeg 子进程封装）
+import { transcodeRoutes, adminTranscodeRoutes } from './transcode.js'
+
+// P1-5 补建：迁移缺口补全（7 个后端缺失路由文件）
+import { webrtcVoiceRoutes } from './webrtc-voice.js'
+import { luyalaRoutes } from './ai-vendors/luyala.js'
+import { outboundRoutes } from './outbound.js'
+import { aiVideoComposeRoutes } from './ai-video-compose.js'
+import { legacyLangchainRoutes } from './legacy-langchain.js'
+import { rewardedVideoAdRoutes } from './rewarded-video-ad.js'
+import { agentRuntimeRoutes } from './agent-runtime.js'
+import { repoWikiRoutes } from './repo-wiki.js'
+// Knowledge Card:仓库级任务经验卡(2026-09-10 新增,2-1 项目知识引擎)
+import { knowledgeCardRoutes } from './knowledge-card.js'
+import automationsRoutes from './automations.js'
+import patrolRoutes from './patrol.js'
+
+// R81 补建：D 盘 coze_zhs_py 代理类路由
+import { n8nProxyRoutes } from './n8n-proxy.js'
+import { tencentHunyuan3dRoutes } from './tencent-hunyuan-3d.js'
+
+// P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 coze_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
+import { agentCategoriesCacheRoutes } from './agent-categories-cache.js'
+import { categorySyncRoutes } from './category-sync.js'
+// 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
+import v1PublicRoutes from './v1-public.js'
+import v1GeminiRoutes from './v1-gemini.js'
+// 对外公开 API — AI 核心类路由(/v1/*,2026-07-22 立,20 个 AI 核心端点:chat/embeddings/models/agent 高级执行)
+import v1AiCoreRoutes from './v1-ai-core.js'
+// 对外公开 API — 多模态类路由(/v1/*,2026-07-22 立,21 个端点:audio/images/videos/3d/generation)
+import v1MultimodalRoutes from './v1-multimodal.js'
+// 对外公开 API — 知识工具类路由(/v1/*,2026-07-22 立,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
+import v1KnowledgeToolsRoutes from './v1-knowledge-tools.js'
+// P3 深度层:Inline Diff Apply 后端入口(POST /api/v1/ai/apply-diff,2026-07-22 立)
+import { aiApplyDiffRoutes } from './v1-apply-diff.js'
+// P3 深度层:代码库语义搜索路由(POST /api/v1/codebase/search 等,2026-07-22 立)
+import { codebaseSearchRoutes } from './v1-codebase-search.js'
+// P3 深度层:DAP debug 代理路由(代理到 ai-service /api/v1/debug/*,2026-07-22 立)
+import { debugRoutes } from './debug.js'
+
+// P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
+// 终端集成(对标 Codex/OpenCode 内置终端,REST CRUD + WebSocket 双向流 + 进程退出清理)
+import { terminalRoutes } from './terminal.js'
+import { wsTerminal } from '../plugins/terminal-ws.js'
+import terminalCleanup from '../plugins/terminal-cleanup.js'
+// Rules 引擎(文件存储 .ihui-agent/rules/*.md + 热加载 + 4 种匹配)
+import { rulesRoutes } from './rules.js'
+// Hook 服务(事件总线 + JSONLogic 条件 + 4 执行器)
+import hooksRoutes from './hooks.js'
+// 多通道消息总线(Wave 3 W3-2,飞书/钉钉/TG/Slack/Discord/微信 统一消息总线)
+import { messageBusRoutes } from './message-bus.js'
+// Plan/Spec 模式(spec 生成 + 模板)
+import { specRoutes } from './spec.js'
+// Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
+import { contextMentionRoutes } from './context-mentions.js'
+// Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
+import { subagentDispatchRoutes } from './subagent-dispatch.js'
+// 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
+import { orchestrationRoutes } from './orchestration.js'
+// A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
+import { adminSaasProxyRoutes } from './admin-saas-proxy.js'
+// A 套壳:SaaS 租户配额真实数据源(拦截 /customers/:slug/quota,基于 tenants/tenant_quotas/ai_cost_records)
+import { adminSaasQuotaRoutes } from './admin-saas-quota.js'
+// 资源上游自动同步中心(2026-07-24 立,CRUD + 同步触发 + webhook 接收 + BullMQ 每 6h 定时拉取)
+import { registrySyncRoutes } from './registry-sync.js'
+
+// 2026-07-24 国安级安全升级(E2-E5):MFA + 审计链 + 安全挑战
+import mfaRoutes from './mfa.js'
+import { auditLogRoutes } from './audit-log.js'
+import { securityRoutes } from './security.js'
+
+// P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
+import agentCreationRoutes from './agent-creation.js'
+// P0-5 模型 API 中转站(2026-07-29 立,4 个 admin 路由 + 1 个公开路由 + 1 个 developer 路由)
+import relayModelsRoutes from './admin/relay-models.js'
+import relayKeyPoolRoutes from './admin/relay-key-pool.js'
+import relayDiscoveryRoutes from './admin/relay-discovery.js'
+import relayLogsRoutes from './admin/relay-logs.js'
+import adminRelayStatsRoutes from './admin/relay-stats.js'
+import { relayPublicRoutes } from './relay-public.js'
+import developerRelayRoutes from './developer-relay.js'
+// developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+import developerRelayBootstrapRoutes from './developer-relay-bootstrap.js'
+// developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+import developerRelayKeysAdminRoutes from './developer-relay-keys-admin.js'
+// Usage 重度分析(2026-09-16,第三轮对标补强 K)
+import developerRelayUsageAnalyticsRoutes from './developer-relay-usage-analytics.js'
+// 备份作业系统(2026-09-16,补强 V)
+import adminBackupJobsRoutes from './admin/backup-jobs.js'
+// 号池调度精细控制(2026-09-16,补强 Y)
+import adminRelayKeySchedulingRoutes from './admin/relay-key-scheduling.js'
+// 容量与趋势看板(2026-09-16,补强 X)
+import adminRelayCapacityRoutes from './admin/relay-capacity.js'
+// 运营控制台模块 CRUD(2026-09-17,4-4-12):lottery/points-mall/promotion-rules/tax
+import { consoleModulesRoutes as adminConsoleModulesRoutes } from './admin/console-modules.js'
+// 上游错误透传规则(2026-09-16,五轮补强)
+import adminRelayErrorRulesRoutes from './admin/relay-error-rules.js'
+// 提示词审计(2026-09-17,补强 54)
+import adminRelayPromptAuditRoutes from './admin/relay-prompt-audit.js'
+// 用户自定义属性(2026-09-17,补强 55)
+import adminRelayUserAttributesRoutes from './admin/relay-user-attributes.js'
+// 运营洞察(2026-09-17,补强 62,差异化)
+import adminRelayInsightsRoutes from './admin/relay-insights.js'
+// 数据管理(2026-09-17,补强 56)
+import adminRelayDataManagementRoutes from './admin/relay-data-management.js'
+// 企业合规闭环(2026-09-17,补强 61,差异化:认证/发票/合同/对公结算)
+import adminRelayEnterpriseRoutes from './admin/relay-enterprise.js'
+import relayEnterpriseRoutes from './relay-enterprise.js'
+// 插件系统(2026-09-17,补强 59,声明式插件零代码执行)
+import adminRelayPluginsRoutes from './admin/relay-plugins.js'
+// 渠道公开监控(2026-09-16,第三轮对标补强 O)
+import relayMonitorPublicRoutes from './relay-monitor-public.js'
+// 告警规则引擎管理(2026-09-16,补强 U)
+import adminRelayAlertRulesRoutes from './admin/relay-alert-rules.js'
+import developerApiKeyGroupsRoutes from './developer/api-key-groups.js'
+// P0-7 API Key 安全粒度管理(2026-07-31 立,admin 侧管理用户/租户 API Key + 过期/IP白名单/模型白名单/token上限)
+import relayApiKeysRoutes from './admin/relay-api-keys.js'
+// P0 中转站造血能力对标批次(2026-07-31 立):Anthropic 原生格式 + 兑换码 + 模型映射
+import adminModelMappingsRoutes from './admin/model-mappings.js'
+import adminRedemptionCodesRoutes from './admin/redemption-codes.js'
+import adminRelayCommissionRoutes from './admin/relay-commission.js'
+import adminCouponsRoutes from './admin/coupons.js'
+import adminRelayChannelsRoutes from './admin/relay-channels.js'
+import adminTieredPricingRoutes from './admin/tiered-pricing.js'
+import adminTopupConfigRoutes from './admin/topup-config.js'
+import adminRelayPricingRoutes from './admin/relay-pricing.js'
+// 分时(高峰/低谷)倍率规则管理(2026-09-16 立)
+import adminRelayPeakPricingRoutes from './admin/relay-peak-pricing.js'
+import adminUserBillingGroupsRoutes from './admin/user-billing-groups.js'
+import v1MessagesRoutes from './v1-messages.js'
+// P0 第二批次(2026-07-31 立):rerank/moderations + realtime + mcp-gateway + midjourney 4 个对外端点
+import v1RerankModerationsRoutes from './v1-rerank-moderations.js'
+import { v1RealtimeRoutes } from './v1-realtime.js'
+import v1McpGatewayRoutes from './v1-mcp-gateway.js'
+import v1MidjourneyRoutes from './v1-midjourney.js'
+import v1ResponsesRoutes from './v1-responses.js'
+import v1Assistants from './v1-assistants.js'
+import v1ProtocolCompletenessRoutes from './v1-protocol-completeness.js'
+// P0-18 Batch API(2026-08-01 立,OpenAI/Anthropic Batch 兼容,BullMQ 异步处理 + 50% 折扣计费)
+import v1Batches from './v1-batches.js'
+// O7(2026-09-21)OAuth 2.1 / OIDC 提供方:discovery + RFC 7591 DCR + introspect/revoke/rotation
+// 三个插件路径写全、**不带 prefix**(discovery 规范要求 /.well-known/* 在根路径)
+import { oauthAuthorizationServerRoutes } from './oauth-authorization-server.js'
+import { oauthRegisterRoutes } from './oauth-register.js'
+import { oauthTokensRoutes } from './oauth-tokens.js'
+// P0-20b 参数覆盖规则管理(2026-08-01 立,admin CRUD + dry-run 预览)
+import adminRelayParamOpsRoutes from './admin/relay-param-ops.js'
+// Relay Webhook 订阅自助管理 + admin 调试面板(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)
+import developerWebhooksRoutes from './developer/webhooks.js'
+import adminWebhookDebugRoutes from './admin/webhook-debug.js'
+// 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
+import resourceContextRoutes from './resource-context.js'
+import traderStatsRoutes from './trader-stats.js'
+// Subagent 扩展路由(2026-07-24 立,补建前端调用但后端缺失的端点:/api/subagents/*)
+import { subagentsExtendedRoutes } from './subagents-extended-routes.js'
+// AI 助教路由代理(把 /api/ai-tutor/* 透传到 ai-service,避免前端直连 CORS)
+import { aiTutorRoutes } from './ai-tutor-routes.js'
+// Newsletter 订阅路由(定价页转化率优化配套,lead capture)
+import newsletterRoutes from './newsletter.js'
+// 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
+import { earningsRoutes } from './earnings-routes.js'
+// P0 第四批次(2026-07-31 立):public-status + api-key-shares + export-csv + relay-conversations 4 个新路由
+import publicStatusRoutes from './public-status.js'
+import apiKeySharesRoutes from './api-key-shares.js'
+import exportCsvRoutes from './admin/export-csv.js'
+import relayConversationsRoutes from './relay-conversations.js'
+// P0-28 配套(2026-08-01 立):渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
+import channelQuotaAdminRoutes from './admin/channel-quota.js'
+// 移动端运营统计(2026-08-06 立):GET /api/admin/mobile-stats(真实聚合,requireAdmin)
+import mobileStatsRoutes from './admin/mobile-stats.js'
+// O6 能力开放登记表的运行期入口(根级 preHandler,详见 utils/open-capability-gate.ts)
+import { openCapabilityGateway } from '../utils/open-capability-gate.js'
+
+export function registerRoutes(server: FastifyInstance) {
+  // O6(2026-09-21)`/api` 面机器凭据入口闸:仅放行 config/open-capability-registry.ts
+  // 逐条登记过的 (方法, 路径)。未携带 API Key → 本钩子完全 no-op,存量人 JWT 行为不变;
+  // 携带 API Key 但不在登记表 → 不放行,由端点自身 authenticate() 照旧判 401(默认拒绝)。
+  server.addHook('preHandler', openCapabilityGateway)
+
+  server.register(healthRoutes, { prefix: '/api' })
+  server.register(authRoutes, { prefix: '/api/auth' })
+  server.register(usersRoutes, { prefix: '/api/users' })
+  server.register(workspaceRoutes, { prefix: '/api/workspace' })
+  // Workspace AI 能力：swarm/subagents/agent_loop/sandbox/computer_use/codebase_index/permissions 等 15 个子模块
+  server.register(workspaceAiRoutes, { prefix: '/api/workspace' })
+  server.register(workspacePermissionRoutes, { prefix: '/api/workspace' })
+  // 文件管理增强 API：/api/files/*（/api/tags 已迁至 socialRoutes）
+  server.register(fileRoutes, { prefix: '/api' })
+  server.register(adminRoutes, { prefix: '/api/admin' })
+  server.register(i18nDashboardRoutes, { prefix: '/api/admin' })
+  server.register(notificationRoutes, { prefix: '/api' })
+  server.register(billingRoutes, { prefix: '/api' })
+  server.register(searchRoutes, { prefix: '/api' })
+  server.register(auditRoutes, { prefix: '/api/admin' })
+  server.register(teamRoutes, { prefix: '/api/teams' })
+  server.register(chatRoutes, { prefix: '/api/chat' })
+  // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
+  server.register(chatModelRoutes, { prefix: '/api/chat' })
+  // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
+  server.register(chatSkillsRoutes, { prefix: '/api/chat/skills' })
+  // RBAC: /api/roles /api/permissions /api/users/:id/roles /api/admin/rbac/check
+  server.register(rbacRoutes, { prefix: '/api' })
+  server.register(workflowRoutes, { prefix: '/api' })
+  // 评论与反馈：/api/comments/* /api/feedbacks/* /api/admin/feedbacks/*
+  server.register(commentRoutes, { prefix: '/api' })
+  // 社区圈子与问答：/api/circles/* /api/asks/*
+  server.register(communityRoutes, { prefix: '/api' })
+  // 社交关系：/api/follows /api/favorites /api/subscriptions /api/tags
+  server.register(socialRoutes, { prefix: '/api' })
+  // 互动统一入口：/api/interactions/like /comment /follow(复用 comments + social query)
+  server.register(interactionsRoutes, { prefix: '/api/interactions' })
+  // 邀请码 / 活动 / 优惠券：/api/invitations /api/activities /api/coupons + /api/admin/activities /api/admin/coupons
+  server.register(promotionRoutes, { prefix: '/api' })
+  server.register(adminPromotionRoutes, { prefix: '/api/admin' })
+  // 公告 / 帮助 / 文档：/api/announcements /api/help/* /api/docs + /api/admin/announcements /api/admin/help/articles /api/admin/docs
+  server.register(contentRoutes, { prefix: '/api' })
+  server.register(adminContentRoutes, { prefix: '/api/admin' })
+  // 学习模块：/api/learn/* + /api/admin/learn/*
+  server.register(learnRoutes, { prefix: '/api' })
+  server.register(adminLearnRoutes, { prefix: '/api/admin' })
+  // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
+  server.register(gamificationRoutes, { prefix: '/api' })
+  server.register(pointsTasksRoutes, { prefix: '/api' })
+  server.register(userExtraRoutes, { prefix: '/api/user' })
+  server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
+  // 系统配置 / 集成 / API 日志 / 系统事件：/api/configs + /api/admin/configs /api/admin/integrations /api/admin/logs /api/admin/events
+  server.register(systemRoutes, { prefix: '/api' })
+  server.register(adminSystemRoutes, { prefix: '/api/admin' })
+  // 考试模块：/api/exam/papers /api/exam/records + /api/admin/exam/papers /api/admin/exam/questions
+  server.register(examRoutes, { prefix: '/api' })
+  // 教育订单：/api/orders/* + /api/admin/orders/*
+  server.register(orderRoutes, { prefix: '/api' })
+  server.register(adminOrderRoutes, { prefix: '/api/admin' })
+  // 直播模块：/api/live/* + /api/admin/live/*
+  server.register(liveRoutes, { prefix: '/api' })
+  server.register(adminLiveRoutes, { prefix: '/api/admin' })
+  // 会员模块：/api/members/* + /api/admin/members/*
+  server.register(memberRoutes, { prefix: '/api' })
+  server.register(adminMemberRoutes, { prefix: '/api/admin' })
+  // 资源库：/api/resources/* + /api/admin/resources/*
+  server.register(resourceRoutes, { prefix: '/api' })
+  server.register(adminResourceRoutes, { prefix: '/api/admin' })
+  // GitHub 开源项目库：/api/github-projects/*
+  server.register(githubProjectRoutes, { prefix: '/api' })
+  // 教育积分：/api/edu-points/* + /api/admin/edu-points/*
+  server.register(pointRoutes, { prefix: '/api' })
+  server.register(adminPointRoutes, { prefix: '/api/admin' })
+  // 用户中心扩展：/api/admin/usercenter/*
+  server.register(usercenterRoutes, { prefix: '/api/admin' })
+  // 定时任务调度 + 浏览记录异步落库：/api/schedule/* + /api/admin/schedule/*
+  server.register(scheduleRoutes, { prefix: '/api' })
+  server.register(adminScheduleRoutes, { prefix: '/api/admin' })
+  // 统计模块：/api/statistics/* + /api/admin/statistics/*
+  server.register(statisticsRoutes, { prefix: '/api' })
+  server.register(adminStatisticsRoutes, { prefix: '/api/admin' })
+  // 站内消息：/api/messages/* + /api/admin/messages/*
+  server.register(messageRoutes, { prefix: '/api' })
+  server.register(adminMessageRoutes, { prefix: '/api/admin' })
+  // 专题模块：/api/topics/* + /api/admin/topics/*
+  server.register(topicRoutes, { prefix: '/api' })
+  server.register(adminTopicRoutes, { prefix: '/api/admin' })
+  // 行为追踪：/api/behavior/* + /api/admin/behavior/*
+  server.register(behaviorRoutes, { prefix: '/api' })
+  server.register(adminBehaviorRoutes, { prefix: '/api/admin' })
+  // 访问追踪：/api/visit-tracking/* + /api/admin/visit-tracking/*
+  server.register(visitTrackingRoutes, { prefix: '/api' })
+  server.register(adminVisitTrackingRoutes, { prefix: '/api/admin' })
+  server.register(analyticsRoutes, { prefix: '/api' })
+  server.register(adminAnalyticsRoutes, { prefix: '/api/admin' })
+  // 对象存储：/api/oss/* + /api/admin/oss/*
+  server.register(ossRoutes, { prefix: '/api' })
+  server.register(adminOssRoutes, { prefix: '/api/admin' })
+  // 教育设置：/api/edu-settings/* + /api/admin/edu-settings/*
+  server.register(settingRoutes, { prefix: '/api' })
+  server.register(adminSettingRoutes, { prefix: '/api/admin' })
+  // 公开轮播图：/api/carousels（无需登录，仅返回 status=1）
+  server.register(carouselPublicRoutes, { prefix: '/api' })
+  // 资讯模块：/api/news/* + /api/admin/news/*
+  server.register(newsRoutes, { prefix: '/api' })
+  server.register(adminNewsRoutes, { prefix: '/api/admin' })
+  // 证书模块：/api/certificates/* + /api/admin/certificates/*
+  server.register(certificateRoutes, { prefix: '/api' })
+  server.register(adminCertificateRoutes, { prefix: '/api/admin' })
+  // 教育扩展模块：/api/admin/edu/notes /api/admin/edu/offline-records /api/admin/edu/uploaded-certs /api/admin/edu/uploaded-papers
+  server.register(adminEduExtendedRoutes, { prefix: '/api' })
+  // 系统管理后端(迁移自 admin_panel.py):/api/admin/menu /api/admin/logininfor /api/admin/notice /api/admin/job /api/admin/online /api/admin/dept /api/admin/post /api/admin/config /api/admin/dict
+  server.register(adminSysRoutes, { prefix: '/api/admin' })
+  server.register(menuRoutersRoutes, { prefix: '/api/admin/menu' })
+  // 公开字典查询(登录用户可用,无需 admin):/api/dict/data/type/:dictType
+  server.register(dictPublicRoutes, { prefix: '/api/dict' })
+  // 代理 / 广场 / Coze 变量 / Agent 服务
+  server.register(agentsRoutes, { prefix: '/api' })
+  server.register(agentsKanbanRoutes, { prefix: '/api' })
+  // D25 统一任务看板:任务消息(@任务引用跨任务发消息)
+  server.register(taskMessagesRoutes, { prefix: '/api' })
+  // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
+  server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
+  server.register(plazaRoutes, { prefix: '/api/plaza' })
+  server.register(shareFirstRoutes, { prefix: '/api' })
+  server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
+  // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
+  server.register(cozeRoutes, { prefix: '/api/coze' })
+  // Coze 生态全量接口(R74 审计 P2 补建):REST 风格 apps/datasets/audio/files 端点
+  server.register(cozeEcosystemRoutes, { prefix: '/api/coze' })
+  // Coze 平台连接性测试:/api/coze/test/pat /api-key /workflow/:id /bot/:id /knowledge/:id
+  server.register(cozeTestRoutes, { prefix: '/api' })
+  // Coze OAuth client (项目作为 Coze OAuth client 调用 Coze 平台):
+  // /api/coze/oauth/authorize /token /refresh /jwt /config (4 模式: device/web/pkce/jwt)
+  server.register(cozeOauthRoutes, { prefix: '/api/coze/oauth' })
+  // 知识库 RAG:/api/knowledge/health /ingest /search /rag-context /docs /docs/:id /docs/:id/chunks /docs/:id (DELETE) /docs/batch-delete
+  server.register(knowledgeRagRoutes, { prefix: '/api/knowledge' })
+  // 多智能体 Crew: 13 端点 (会话/任务/消息/Runs流式/Artifacts) + AgentRegistry 5 角色
+  server.register(crewRoutes, { prefix: '/api/crew' })
+  server.register(agenticServiceRoutes, { prefix: '/api/agent' })
+
+  // AI 回调端点(由 AI service 推理完成后 POST 调用,入队 aiCallback)
+  server.register(aiCallbackRoutes)
+
+  // 支付网关：微信/支付宝/基金/对账（R1 补完）
+  server.register(paymentGatewayRoutes, { prefix: '/api' })
+  server.register(adminPaymentGatewayRoutes, { prefix: '/api/admin' })
+  // USDT 加密货币支付网关(P0-23):/api/payment/usdt/* + /api/admin/payment/usdt/*
+  server.register(paymentUsdtRoutes, { prefix: '/api' })
+  // 收款落地页(无 prefix,直接 /landing)
+  server.register(landingRoutes)
+  // 退款审核管理：退款列表/审核/驳回/详情/统计
+  server.register(refundAuditRoutes, { prefix: '/api' })
+  server.register(adminRefundAuditRoutes, { prefix: '/api/admin' })
+  // 财务模块：佣金/分销/Token/提现（R1 补完）
+  server.register(financeRoutes, { prefix: '/api' })
+  // 多登录扩展：密码/邮箱/用户名/OAuth2/Google/微信/企微/验证码/绑定/SK（R1 补完）
+  server.register(authExtendedRoutes, { prefix: '/api' })
+  // Passkey WebAuthn 无密码登录(P0-22):/api/auth/passkey/register|auth/*
+  server.register(authPasskeyRoutes, { prefix: '/api' })
+  // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
+  server.register(authSsoRoutes, { prefix: '/api/auth' })
+  // 运营商一键登录(闪验 Univerify 聚合):POST /api/auth/login/carrier
+  server.register(authCarrierRoutes, { prefix: '/api/auth' })
+  // VIP 会员：等级/购买/我的 + admin（R1 补完）
+  server.register(vipRoutes, { prefix: '/api' })
+  server.register(adminVipRoutes, { prefix: '/api/admin' })
+  // AI 模型定价公开查询（P0-3a/b 配套,定价页用,/api/ai-pricing）
+  server.register(aiPricingRoutes, { prefix: '/api' })
+  // 开发者门户公开元信息（P0-4a/b 配套,开发者门户页用）
+  server.register(developerPortalRoutes, { prefix: '/api' })
+  // 网信办「算法/模型备案」公开查询（2026-09-06 立,全网已备案算法/模型查询）
+  server.register(algorithmRecordRoutes, { prefix: '/api' })
+
+  // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
+  server.register(eduPublicRoutes, { prefix: '/api' })
+
+  // AI 厂商专属多模态：dashscope/doubao/gemini/suno/sora2/coze + 通用工具（R4 补完）
+  server.register(aiVendorRoutes, { prefix: '/api/ai' })
+  server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
+  // AI 厂商 v2 路由：基于 R4 重构的 callVendor(ctx, reply) 新签名（dashscope/doubao/gemini 部分端点）
+  // 与原 /api/ai/* 共存，前端可逐步迁移到 /api/ai/v2/*
+  server.register(aiVendorV2Routes, { prefix: '/api/ai' })
+  // AI audio 子模块：TTS/ASR/声纹/实时语音 WebSocket（R4 补完）
+  server.register(aiAudioRoutes, { prefix: '/api/ai' })
+
+  // 客服系统：工单 + 实时会话（工单流程：提交→分配→处理→评级→关闭）
+  server.register(customerServiceRoutes, { prefix: '/api/customer-service' })
+  server.register(adminCustomerServiceRoutes, { prefix: '/api/admin/customer-service' })
+
+  // GDPR 数据擦除：/api/gdpr/export /api/gdpr/erase /api/gdpr/portability
+  server.register(gdprRoutes, { prefix: '/api/gdpr' })
+
+  // Clawdbot AI Bot 服务：/api/admin/clawdbot/*
+  server.register(clawdbotRoutes, { prefix: '/api/admin' })
+
+  // 多租户管理：/api/tenants CRUD + 成员管理 + 配额管理
+  server.register(tenantRoutes, { prefix: '/api/tenants' })
+
+  // Canary 阶段化门控部署：/api/canary/configs /api/canary/audit /api/canary/traffic
+  server.register(canaryRoutes, { prefix: '/api/canary' })
+
+  // TBox IoT 设备管理：设备注册/查询/指令下发/事件通知接收
+  server.register(tboxRoutes, { prefix: '/api/tbox' })
+
+  // 2026-08-31 六组功能路由注册（commit 291cb36c9e 声称注册但实际缺失，此处补回）
+  // A/B 测试引擎：/api/ab-testing/*
+  server.register(abTestingRoutes, { prefix: '/api' })
+  // AI 智能出题/批改：/api/ai-grading/*
+  server.register(aiGradingRoutes, { prefix: '/api' })
+  // 证书序列号：/api/certificate-serials/*
+  server.register(certificateSerialsRoutes, { prefix: '/api' })
+  // 代码生成器：/api/gen-table/*
+  server.register(genTableRoutes, { prefix: '/api/gen-table' })
+  // 直播打赏：/api/live-gifts/*
+  server.register(liveGiftsRoutes, { prefix: '/api' })
+  // TBox 积分：/api/tbox-points/*
+  // 注意:不挂 /api/tbox —— tbox.ts 已有 /events /devices 路由,同前缀会触发 FST_ERR_DUPLICATED_ROUTE
+  server.register(tboxPointsRoutes, { prefix: '/api/tbox-points' })
+
+  // Stock 股票分析：Token 余额/分析/历史记录（迁移自旧架构 stock_analyse_service）
+  server.register(stockRoutes, { prefix: '/api/stock' })
+
+  // 旧架构补建模块：Agent 扩展（need_task/upload/usedetail）
+  server.register(agentExtendedRoutes, { prefix: '/api/agent-ext' })
+  // 教育扩展（course_audit 课程审核）
+  server.register(eduExtendedRoutes, { prefix: '/api/edu-ext' })
+  // 管理员 course-audit 路由（前缀 /api/admin/course-audit）
+  server.register(adminCourseAuditRoutes, { prefix: '/api/admin' })
+  // 管理/系统扩展（category_dictionary/bot_sites/ws_admin/compat_routes）
+  server.register(systemExtendedRoutes, { prefix: '/api/system-ext' })
+  server.register(adminCategoryDictionaryRoutes, { prefix: '/api/admin' })
+  // AI 扩展（capabilities/model_info/outbound_routes/video_routes/developer model_test）
+  server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
+  // MCP 项目管理与集成扩展（projects/integrations）
+  server.register(mcpExtendedRoutes, { prefix: '/api' })
+  // 其他扩展（remote/user_agent_context/docs）
+  server.register(miscExtendedRoutes, { prefix: '/api/misc-ext' })
+  // AI 生成队列：enqueue/status/cancel/list/stats
+  server.register(aiGenerationRoutes, { prefix: '/api' })
+
+  // ===== M-20 补建：14 个 API 模块路由 =====
+  // 用户端工具目录：/api/tools/*
+  server.register(toolsRoutes, { prefix: '/api/tools' })
+  // 排行榜系统：/api/ranking/*
+  server.register(rankingRoutes, { prefix: '/api/ranking' })
+  // 签到体系(2026-08-08 重组):checkin.ts 已废弃,admin 规则 CRUD 迁移至 gamification-admin
+  server.register(adminGamificationRoutes, { prefix: '/api/admin' })
+  // 开发者 API 密钥管理：/api/developer/*
+  server.register(developerRoutes, { prefix: '/api/developer' })
+  // 应用版本管理：/api/app-version/*
+  server.register(appVersionRoutes, { prefix: '/api/app-version' })
+  // 监控系统：/api/monitor/*
+  server.register(monitorRoutes, { prefix: '/api/monitor' })
+  // Webhook 管理：/api/developer/webhooks/*
+  server.register(webhooksRoutes, { prefix: '/api/developer/webhooks' })
+  // Webhook 触发器(Wave 3 W3-3):/api/webhooks/* — 外部系统 webhook 唤醒 agent
+  server.register(webhookTriggerRoutes, { prefix: '/api/webhooks' })
+  // 套餐管理：/api/packages/*
+  server.register(packagesRoutes, { prefix: '/api/packages' })
+  // 钱包管理：/api/wallet/*
+  server.register(walletRoutes, { prefix: '/api/wallet' })
+  // 钱包管理后台(统计聚合 + 全量流水审计 + 管理员余额调整)
+  server.register(adminWalletRoutes, { prefix: '/api/admin/wallet' })
+  // 充值阶梯折扣配置(P0-21):/api/admin/topup/config + /api/admin/topup/preview
+  server.register(adminTopupConfigRoutes, { prefix: '/api/admin' })
+  // 交易员管理：/api/trader/*
+  server.register(traderRoutes, { prefix: '/api/trader' })
+  // SDK 管理：/api/sdks/*
+  server.register(sdksRoutes, { prefix: '/api/sdks' })
+  // 小程序后台管理：/api/miniprogram/*
+  server.register(miniprogramRoutes, { prefix: '/api/miniprogram' })
+  // 产品标识管理：/api/product-identity/*
+  server.register(productIdentityRoutes, { prefix: '/api/product-identity' })
+  // 用户组管理：/api/groups/*
+  server.register(groupsRoutes, { prefix: '/api/groups' })
+
+  // ===== M-23 补建：AI 定价引擎 =====
+  // 定价管理：/api/pricing/*
+  server.register(pricingRoutes, { prefix: '/api' })
+
+  // ===== M-22 补建：散点缺失路由 =====
+  // 用户自定义模型对话：/api/ai/user-model-chat/*
+  server.register(aiUserModelChatRoutes, { prefix: '/api/ai' })
+  // AI 对话 SSE 流式代理（小程序端）：/api/ai/chat/stream
+  server.register(aiChatStreamRoutes, { prefix: '/api/ai' })
+  // LLM 模型列表代理：/api/llm/models（转发到 AI-service）
+  server.register(llmModelsRoutes, { prefix: '/api/llm' })
+  // FAQ 管理：/api/admin/faq/*
+  server.register(adminFaqRoutes, { prefix: '/api/admin/faq' })
+  // 区域/分区管理：/api/admin/zones/*
+  server.register(adminZoneRoutes, { prefix: '/api/admin/zones' })
+  // 需求广场管理：/api/admin/demand-square/*
+  server.register(adminDemandSquareRoutes, { prefix: '/api/admin/demand-square' })
+
+  // ZHS 历史遗留(2026-08-08 重组):zhs-course.ts 已废弃,admin 独有端点迁移至 zhs-legacy
+  server.register(zhsLegacyRoutes, { prefix: '/api/admin/zhs-legacy' })
+  // ZHS 组织机构管理：/api/organization/* + /api/admin/organization/*
+  server.register(zhsOrganizationRoutes, { prefix: '/api/organization' })
+  server.register(adminZhsOrganizationRoutes, { prefix: '/api/admin/organization' })
+  // 智能体免费试用次数：/api/agent-free-times/* + /api/admin/agent-free-times/*
+  server.register(userAgentFreeTimesRoutes, { prefix: '/api/agent-free-times' })
+  server.register(adminUserAgentFreeTimesRoutes, { prefix: '/api/admin/agent-free-times' })
+  // 服务注册发现：/api/service-catalog/* + /api/admin/service-catalog/*
+  server.register(serviceCatalogRoutes, { prefix: '/api/service-catalog' })
+  server.register(adminServiceCatalogRoutes, { prefix: '/api/admin/service-catalog' })
+  // 商业化服务询价(AGENTS.md §24 配套):POST /api/service-inquiry + admin 管理端点
+  server.register(serviceInquiryRoutes, { prefix: '/api/service-inquiry' })
+
+  // 分享内容 H5：/api/share/content/:code（迁移自 share-h5 历史项目）
+  server.register(shareContentRoutes, { prefix: '/api/share' })
+
+  // ===== 历史项目缺失端点补齐（从 legacy-completion.ts 拆分为 9 个业务模块文件）=====
+  // 完整路径保持 /api/legacy/* 不变(exam/learn/live/ask/batch/oss/community/work-wechat/study)
+  server.register(legacyExamRoutes, { prefix: '/api/legacy' })
+  server.register(legacyLearnRoutes, { prefix: '/api/legacy' })
+  server.register(legacyLiveRoutes, { prefix: '/api/legacy' })
+  server.register(legacyAskRoutes, { prefix: '/api/legacy' })
+  server.register(legacyBatchRoutes, { prefix: '/api/legacy' })
+  server.register(legacyOssRoutes, { prefix: '/api/legacy' })
+  server.register(legacyCommunityRoutes, { prefix: '/api/legacy' })
+  server.register(legacyWorkWechatRoutes, { prefix: '/api/legacy' })
+  server.register(legacyStudyRoutes, { prefix: '/api/legacy' })
+
+  // ===== R101 补建：WS live-chat + 视频签名 URL + AdminContent 统一 CRUD =====
+  // WS live-chat:房间实时聊天,房间管理 + 历史消息(读 live_comment 表)
+  server.register(liveChatWsRoutes)
+  // 课程/小节视频签名 URL(HMAC-SHA256,默认 1 小时过期)
+  server.register(learnVideoRoutes, { prefix: '/api/learn' })
+  // AdminContent 统一 CRUD:补 desktop AdminContent 缺口的动态 {type} 端点
+  server.register(adminContentCrudRoutes, { prefix: '/api/admin/content' })
+
+  // ===== P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块 =====
+  // AI 资讯聚合：/api/ai-feed/sources /items /trends /stats + collect/summarize/translate（管理）
+  server.register(aiFeedRoutes, { prefix: '/api/ai-feed' })
+  // 大模型排行榜(参考 arena.ai):/api/model-leaderboard?category=llm&subcategory=coding
+  // 用 model-leaderboard 避免与 gamification 的 /api/leaderboard(积分排行榜)冲突
+  server.register(leaderboardRoutes, { prefix: '/api' })
+  // AI 教育模块：5 张表 CRUD（policy/teacher-certification/aigc-tool/k12-curriculum/university-course）
+  server.register(aiEducationRoutes, { prefix: '/api/ai-education' })
+  // AI 教育管理：学期/班级/课程表/菜谱/学习计划 7 表 CRUD（2026-08-11 立）
+  server.register(eduAiManagementRoutes, { prefix: '/api/edu-ai-management' })
+  // 教育食堂采购记账：AI 小票三轮核对 + 台账/供应商/统计/导出（2026-09-19 立）
+  server.register(eduCanteenRoutes, { prefix: '/api/edu-canteen' })
+
+  // 文件版本管理：版本创建/列表/详情/回滚/删除/对比
+  server.register(fileVersionRoutes, { prefix: '/api' })
+  // 通用回调日志：外呼/短信/支付回调记录 + 列表/详情/删除
+  server.register(callbackLogRoutes, { prefix: '/api/callback-log' })
+
+  // P1-6 断点续传:GET /api/chat/resume/status + POST /api/chat/resume(SSE 续生成)
+  server.register(chatResumeRoutes, { prefix: '/api/chat' })
+
+  // ===== R65 补建：M-52/M-54/M-56/M-67 =====
+  // M-52: 分片上传（大文件上传核心功能）: init/upload/merge/cancel/status
+  server.register(chunkedUploadRoutes, { prefix: '/api' })
+  // M-54: 财务扩展（分销统计/Agent提现/管理员工具）
+  server.register(financeExtendedRoutes, { prefix: '/api' })
+  // M-56: 支付扩展（提现回调/同步返回/连续订阅）
+  server.register(paymentExtendedRoutes, { prefix: '/api' })
+  // 周期扣款（连续包月）:签约/解约/查询/webhook/定时扣款
+  server.register(paymentRecurringRoutes, { prefix: '/api' })
+  // M-67: 实名认证（提交/查询/列表/审核）
+  server.register(authIdentityRoutes, { prefix: '/api' })
+
+  // ===== R66 补建：M-44/M-55/M-57/M-60/M-61 =====
+  // M-44: 远程设备/三方请求模块（12端点）
+  server.register(remoteExtendedRoutes, { prefix: '/api' })
+  // M-55: 通知渠道管理扩展（7端点）
+  server.register(notificationExtendedRoutes, { prefix: '/api' })
+  // M-57: 内容管理扩展（12端点）
+  server.register(contentExtendedRoutes, { prefix: '/api' })
+  // M-61: AI图片编辑（8端点）
+  server.register(aiImageEditRoutes, { prefix: '/api' })
+
+  // ===== R68 补建：M-21 开放平台 Feature Center =====
+  // M-21: Feature Center 后端路由（6端点）
+  server.register(featureCenterRoutes, { prefix: '/api/feature-center' })
+
+  // 插件市场后端路由(2026-07-22 立,4端点:GET /installed + POST/DELETE /:id/install + PATCH /:id/preferences)
+  server.register(pluginsRoutes, { prefix: '/api/plugins' })
+
+  // AI 自动控制路由(2026-07-22 立,4端点:POST /capability + POST /execute + POST /result + GET /status)
+  server.register(agentControlRoutes, { prefix: '/api/agent-control' })
+
+  // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:POST /screenshot + POST /probe)
+  server.register(browserRoutes, { prefix: '/api/browser' })
+
+  // 同源嵌入代理(2026-09-02 立,WorkPanel 真实内嵌:GET /raw?url= 剥 XFO/CSP 喂 iframe)
+  server.register(embedProxyRoutes, { prefix: '/api/embed-proxy' })
+
+  // 统一记忆读写(2026-07-22 立,P0-3:GET/POST/DELETE /api/memory)
+  server.register(memoryRoutes, { prefix: '/api' })
+  // Skill 持久化(2026-07-22 立,P0-2:GET/POST /api/skills + GET/DELETE /api/skills/:name + POST /api/skills/sync)
+  server.register(skillsRoutes, { prefix: '/api' })
+  // Design 预览(P3 深度层:POST /api/design/preview + GET /api/design/previews)
+  server.register(designRoutes, { prefix: '/api' })
+  // 三端联动任务调度(P3 深度层:POST /api/tasks/dispatch + POST /api/tasks/result + GET /api/tasks + GET /api/tasks/devices)
+  server.register(tasksRoutes, { prefix: '/api' })
+  // IM 平台 gateway(2026-07-22 立,P1-1:POST /api/im-gateway/webhook/:platform + /send + GET/POST /api/im-gateway/adapters + GET /api/im-gateway/status)
+  server.register(imGatewayRoutes, { prefix: '/api' })
+
+  // ===== R68 补建：M-64 ask 模块扩展端点 =====
+  // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）
+  server.register(askExtendedRoutes, { prefix: '/api' })
+  // admin/asks 管理后台问答端点（5端点：列表/创建/编辑/审核/删除）
+  server.register(adminAskRoutes, { prefix: '/api/admin' })
+
+  // ===== R67 补建：M-66 教育平台 + M-72 支付状态 WS =====
+  // M-66: 教育平台同步管理（6端点）
+  server.register(educationPlatformRoutes, { prefix: '/api/education-platform' })
+  server.register(educationPlatformRoutes, { prefix: '/api/admin/education-platform' })
+
+  // ===== 死表激活：敏感词 / 协议 / 汇率 / 私信管理 =====
+  // 敏感词管理：/api/admin/sensitive-words CRUD + 内容过滤
+  server.register(adminSensitiveWordsRoutes, { prefix: '/api/admin' })
+  // 协议管理：/api/agreements/current（公共）+ /api/admin/agreements CRUD
+  server.register(agreementPublicRoutes, { prefix: '/api' })
+  server.register(adminAgreementsRoutes, { prefix: '/api/admin' })
+  // 汇率管理：/api/exchange-rates/rate + convert（公共）+ /api/admin/exchange-rates CRUD
+  server.register(exchangeRatePublicRoutes, { prefix: '/api' })
+  server.register(adminExchangeRateRoutes, { prefix: '/api/admin' })
+  // 私信管理：/api/admin/private-letters 列表
+  server.register(adminPrivateLettersRoutes, { prefix: '/api/admin' })
+
+  // ===== 孤儿路由接线(2026-07-22 整合:5 个路由有完整 api-client 封装但 server.ts 漏挂载) =====
+  // 邮件发送:/api/mail/send + /api/mail/send/html
+  server.register(mailRoutes, { prefix: '/api/mail' })
+  // 错题本:/api/wrong-questions CRUD
+  server.register(wrongQuestionRoutes, { prefix: '/api/wrong-questions' })
+  // 阅卷:/api/exam-marking POST
+  server.register(examMarkingRoutes, { prefix: '/api/exam-marking' })
+  // 验证码:/api/auth-codes GET + /check
+  server.register(authCodeRoutes, { prefix: '/api/auth-codes' })
+  // 私信:/api/private-letters CRUD(前端 sidebar 已有页面入口)
+  server.register(privateLetterRoutes, { prefix: '/api/private-letters' })
+
+  // ===== P0-3 补建：M-81 管理后台页面后端 API =====
+  // 菜单管理 + 需求审核 + 在线用户
+  server.register(adminExtendedRoutes, { prefix: '/api/admin' })
+
+  // ===== M-85 补建：SRS 媒体服务器管理 =====
+  // RTMP 推流 / WebRTC 拉流 / HLS / FLV 流管理
+  server.register(srsRoutes, { prefix: '/api/srs' })
+
+  // ===== M-87 补建：远程设备任务管理 =====
+  // IoT 设备注册 + 任务下发 + 心跳 + 状态管理
+  server.register(remoteDeviceRoutes, { prefix: '/api' })
+
+  // ===== 前端页面后端路由补齐 =====
+  server.register(aiWorldRoutes, { prefix: '/api' })
+  server.register(biDashboardRoutes, { prefix: '/api/admin' })
+  server.register(dramaRoutes, { prefix: '/api' })
+  server.register(distributionRoutes, { prefix: '/api' })
+  // 用户级 LLM 平台配置：模板/CRUD/测试/拉取模型（/api/user/llm-configs/*）
+  server.register(userLlmConfigRoutes, { prefix: '/api/user' })
+  // 用户级 LLM 配置中心 v2（/api/v2/user/llm-providers/* + llm-groups/*）
+  // 1:N provider-model + group 数据模型，与 v1 路由并存，不破坏现有接口
+  server.register(userLlmConfigV2Routes, { prefix: '/api/v2/user' })
+  // CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
+  // 端点:/api/user/cli-import/{sources,parse-file,parse-payload,commit,preview/:id,history}
+  server.register(cliImportRoutes, { prefix: '/api/user' })
+  // 外部会话导入(D28:Claude Code/Codex/Cursor/Aider 会话迁入即用)
+  // 端点:/api/user/conversation-import/{parse,commit,history}
+  server.register(conversationImportRoutes, { prefix: '/api/user' })
+  // 自媒体 skill(公众号文章 + 口播稿,代理到 ai-service,2026-07-20 新增)
+  server.register(selfMediaRoutes, { prefix: '/api' })
+  // 多平台发布代理(账号/任务/历史/统计,代理到 ai-service,2026-07-20 新增)
+  server.register(publishRoutes, { prefix: '/api' })
+  server.register(publishAnalyticsRoutes, { prefix: '/api' })
+  server.register(adminGrayReleaseRoutes, { prefix: '/api/admin' })
+  server.register(adminErrorDashboardRoutes, { prefix: '/api/admin' })
+  server.register(adminApiPlatformRoutes, { prefix: '/api/admin' })
+
+  // ===== 前端管理端缺失路由补建（75 个路由）=====
+  // 24 条有表路由（真实 CRUD）+ 51 条无表路由（空数据桩）
+  // 覆盖：内容运营 / 鉴权 / 教务 / 平台 / 监控 / 商城 等模块
+  server.register(adminMissingRoutes, { prefix: '/api/admin' })
+  server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
+  server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
+  server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
+  server.register(adminPluginStatsRoutes, { prefix: '/api/admin/plugins' })
+  server.register(adminShopRoutes, { prefix: '/api/admin' })
+  server.register(adminInvoicesRoutes, { prefix: '/api/admin' })
+
+  // ===== 前端用户端缺失路由补建（54 个路由）=====
+  // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
+  // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
+  server.register(missingUserRoutes, { prefix: '/api' })
+  // 小程序端首页公开 fallback(未登录可访问,返回空数据,2026-07-22 立)
+  server.register(miniappPublicFallbackRoutes, { prefix: '/api' })
+
+  // 小程序兼容路由(49 个空桩端点,补建小程序调用但后端缺失的路径,避免 404,2026-07-24 立)
+  server.register(miniappCompatRoutes, { prefix: '/api' })
+
+  // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
+  server.register(publicSocketRoutes, { prefix: '/api/admin' })
+
+  // OpenClaw 控制台 8 面板后端端点
+  server.register(openclawRoutes, { prefix: '/api' })
+
+  // ===== 补桩：文章列表 / 用户签到 / 教育课程扩展 / 学习记录上传 =====
+  server.register(articleRoutes, { prefix: '/api' })
+  server.register(userCheckinRoutes, { prefix: '/api' })
+  server.register(eduSupplementaryRoutes, { prefix: '/api' })
+
+  // ===== 前端补建路由（按模块分组，兜底避免 404）=====
+  server.register(frontendAdminRoutes, { prefix: '/api' })
+  server.register(aiFrontendRoutes, { prefix: '/api' })
+  server.register(eduFrontendRoutes, { prefix: '/api' })
+  server.register(otherRoutes, { prefix: '/api' })
+
+  // ===== P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）=====
+  server.register(adminReportRoutes, { prefix: '/api/admin' })
+
+  // ===== P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）=====
+  server.register(announcementsRoutes, { prefix: '/api' })
+
+  // ===== P3-2 补建：Telemetry 极简上报端点（/api/v1/telemetry/*）=====
+  server.register(telemetryRoutes, { prefix: '/api' })
+
+  // ===== P1-3 补建：推送服务（FCM + 个推 HTTP API）=====
+  server.register(pushRoutes, { prefix: '/api' })
+  server.register(adminPushRoutes, { prefix: '/api/admin' })
+  // 设备推送 token 注册表(2026-09-06 立):PUT/DELETE /api/devices/token
+  server.register(devicesRoutes, { prefix: '/api' })
+
+  // ===== P1-4 补建：文件转码服务（FFmpeg 子进程封装）=====
+  server.register(transcodeRoutes, { prefix: '/api' })
+  server.register(adminTranscodeRoutes, { prefix: '/api/admin' })
+
+  // ===== P1-5 补建：迁移缺口补全（7 个后端缺失路由文件）=====
+  // WebRTC 语音通话信令:/api/webrtc-voice/session|offer|ice-candidate|end
+  server.register(webrtcVoiceRoutes, { prefix: '/api/webrtc-voice' })
+  // 路亚拉(luyala)视频/语音代理:/api/ai-vendors/luyala/video|voice|tasks/:id
+  server.register(luyalaRoutes, { prefix: '/api/ai-vendors/luyala' })
+  // 外呼业务编排:/api/outbound/campaign + start/stop/stats
+  server.register(outboundRoutes, { prefix: '/api/outbound' })
+  // 一键视频编排(脚本→素材→合成→字幕):/api/ai-video-compose + /:id + /:id/regenerate
+  server.register(aiVideoComposeRoutes, { prefix: '/api/ai-video-compose' })
+  // LangChain API 兼容路由(旧客户端兼容):/api/langchain/chat|agent|models
+  server.register(legacyLangchainRoutes, { prefix: '/api/langchain' })
+  // 激励视频广告回调:/api/rewarded-video-ad/notify|config
+  server.register(rewardedVideoAdRoutes, { prefix: '/api/rewarded-video-ad' })
+
+  // Agent Runtime:PermissionGuard 5 mode + SessionManager 集成(/api/agent-runtime/*)
+  server.register(agentRuntimeRoutes, { prefix: '/api/agent-runtime' })
+
+  // ===== R81 补建: D 盘 coze_zhs_py 代理类路由 =====
+  // n8n 代理(D 盘 coze_zhs_py/api/n8n_proxy.py):workflows 透传 + addAgent 真实写库
+  server.register(n8nProxyRoutes, { prefix: '/api' })
+  // 腾讯混元 3D(D 盘 coze_zhs_py/api/tencent_hunyuan_3d.py):submit/query/job/admin + video_generation_tasks 落库
+  server.register(tencentHunyuan3dRoutes, { prefix: '/api' })
+
+  // ===== R83 补建: 路径别名 redirect (前端兼容) =====
+  // 旧前端调用路径 → 308 Permanent Redirect → 新规范化路径
+  // 守门脚本 check-api-migration-completeness.mjs [5/7] + [7/7] 要求 5 个 redirect
+  // 1. /api/agents — 已删除 redirect(2026-08-01):agents.ts:176 现在直接处理 GET /api/agents,
+  //    redirect 到 /api/agents/list 已过时(冲突 FST_ERR_DUPLICATED_ROUTE)
+  // 2. /api/agent-withdrawal-detail → /api/agent-ext/withdrawal/list (旧路由名 → agent-extended.ts)
+  server.get('/api/agent-withdrawal-detail', async (_req, reply) =>
+    reply.redirect('/api/agent-ext/withdrawal/list', 308),
+  )
+  // 3. /api/ai-model-info → /api/llm/models (旧 LLM 模型信息路径 → llm-models.ts)
+  server.get('/api/ai-model-info', async (_req, reply) => reply.redirect('/api/llm/models', 308))
+  // 4. /api/customer-service/faqs → /api/v1/customer_service/faqs (旧客服 FAQ → frontend-stub-other-routes.ts:1749)
+  server.get('/api/customer-service/faqs', async (_req, reply) =>
+    reply.redirect('/api/v1/customer_service/faqs', 308),
+  )
+  // 5. /api/ai-capabilities → /api/ai-ext/capabilities (旧 AI 能力路径 → ai-extended.ts:151)
+  server.get('/api/ai-capabilities', async (_req, reply) =>
+    reply.redirect('/api/ai-ext/capabilities', 308),
+  )
+
+  // ===== P1-3/P1-4 补建: 智能体分类字典缓存 + 分类同步 API =====
+  // 5 端点: GET / POST refresh / DELETE / GET :key / POST sync（绝对路径字面量注册，见 routes/agent-categories-cache.ts）
+  server.register(agentCategoriesCacheRoutes)
+  // 5 端点: POST pull / POST push / GET status / POST resolve / GET history（绝对路径字面量注册，见 routes/category-sync.ts）
+  server.register(categorySyncRoutes)
+
+  // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
+  server.register(v1PublicRoutes, { prefix: '/v1' })
+  // 对外公开 API — Gemini 协议入站(/v1beta/*,generateContent/streamGenerateContent/ListModels,2026-09-13 立)
+  server.register(v1GeminiRoutes, { prefix: '/v1beta' })
+  // 对外公开 API — AI 核心类路由(/v1/*,20 个端点:chat/embeddings/models/agent 高级执行)
+  server.register(v1AiCoreRoutes, { prefix: '/v1' })
+  // 对外公开 API — 多模态类路由(/v1/*,21 个端点:audio/images/videos/3d/generation)
+  server.register(v1MultimodalRoutes, { prefix: '/v1' })
+  // 对外公开 API — 知识工具类路由(/v1/*,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
+  server.register(v1KnowledgeToolsRoutes, { prefix: '/v1' })
+  // P3 深度层:Inline Diff Apply 后端入口(POST /api/v1/ai/apply-diff,2026-07-22 立)
+  server.register(aiApplyDiffRoutes, { prefix: '/api' })
+  // P3 深度层:代码库语义搜索(POST /api/v1/codebase/search 等,2026-07-22 立)
+  server.register(codebaseSearchRoutes, { prefix: '/api/v1/codebase' })
+  // P3 深度层:DAP debug 代理(10 端点:launch/attach/sessions CRUD/breakpoints/continue/step/stack/variables/eval,2026-07-22 立)
+  server.register(debugRoutes, { prefix: '/api/debug' })
+
+  // P3 深度层 Wave 11:6 大对标能力(2026-07-22 立)
+  // 终端集成(REST CRUD + WebSocket 双向流 + 进程退出清理)
+  server.register(terminalRoutes, { prefix: '/api' })
+  server.register(wsTerminal)
+  server.register(terminalCleanup)
+  // Rules 引擎(CRUD + 测试,文件存储 .ihui-agent/rules/*.md)
+  server.register(rulesRoutes, { prefix: '/api' })
+  // Hook 服务(CRUD + 测试 + 日志,事件总线 + 4 执行器 webhook/script/log/notify)
+  server.register(hooksRoutes, { prefix: '/api' })
+  // 多通道消息总线(Wave 3 W3-2,6 渠道统一发送 + webhook 接收)
+  server.register(messageBusRoutes, { prefix: '/api' })
+  // Plan/Spec 模式(spec 生成 + 模板,tree-sitter AST 反向生成 spec markdown)
+  server.register(specRoutes, { prefix: '/api' })
+  // Context Engineering(多维 @ 提及 file/database/symbol/folder/web + LRU 缓存)
+  server.register(contextMentionRoutes, { prefix: '/api/context' })
+  // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
+  server.register(subagentDispatchRoutes, { prefix: '/api' })
+  // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
+  server.register(orchestrationRoutes, { prefix: '/api' })
+  // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)
+  server.register(srsReviewRoutes, { prefix: '/api/srs-review' })
+  server.register(agentLanggraphRoutes, { prefix: '/api/agent-langgraph' })
+  // P0:Agent Canvas 整图执行(POST /api/agent-canvas/run,SSE 复用 /api/agent-langgraph/:runId/stream)
+  server.register(agentCanvasRoutes, { prefix: '/api/agent-canvas' })
+
+  // A 套壳:SaaS Admin API 代理(透传到 admin-api 8830,迁移自 web 端 API route)
+  // 注意:配额真实数据源路由先注册,其更具体的 /customers/:slug/quota 优先于代理的 /* 通配
+  server.register(adminSaasQuotaRoutes, { prefix: '/api/admin-saas' })
+  server.register(adminSaasProxyRoutes, { prefix: '/api/admin-saas' })
+
+  // 资源上游自动同步中心(8 端点:items/sync-logs/sync/webhooks/webhook/install/upgrade-all + BullMQ 每 6h 定时拉取)
+  server.register(registrySyncRoutes, { prefix: '/api' })
+
+  // ===== 2026-07-24 国安级安全升级(E2-E5)=====
+  // MFA/2FA 路由(7 端点):setup/enable/disable/verify/recovery-codes/recovery/status
+  server.register(mfaRoutes, { prefix: '/api/mfa' })
+  // 审计日志链(admin 4 端点):list/export/verify/stats,HMAC 链式防篡改
+  server.register(auditLogRoutes, { prefix: '/api/admin/audit-logs' })
+  // 安全挑战路由(7 端点):challenge/verify-challenge/ip-reputation/block-ip/anomalies/report
+  server.register(securityRoutes, { prefix: '/api/security' })
+
+  // P0-4 补建:智能体创作核心接口(绝对路径字面量注册,无 prefix,与旧前端 apiClient 路径直接对齐)
+  server.register(agentCreationRoutes)
+  // 资源上下文管理(7 端点,绝对路径字面量注册)
+  server.register(resourceContextRoutes)
+  // 交易员流水统计(4 端点,绝对路径字面量注册)
+  server.register(traderStatsRoutes)
+
+  // Subagent 扩展路由(/api/subagents/*:auto-plan + roles/custom CRUD + evolution + collaboration)
+  server.register(subagentsExtendedRoutes, { prefix: '/api' })
+  // AI 助教路由代理(/api/ai-tutor/*:explain/hint/quiz → 透传到 ai-service)
+  server.register(aiTutorRoutes, { prefix: '/api' })
+  // Newsletter 订阅(定价页转化率优化配套:subscribe/unsubscribe + admin list/send)
+  server.register(newsletterRoutes, { prefix: '/api/newsletter' })
+  // 挣钱中心仪表盘后端(P0 挣钱核心,4 端点:overview/byok-trend/referral/funnel)
+  server.register(earningsRoutes, { prefix: '/api/earnings' })
+
+  // ===== P0-5 模型 API 中转站(2026-07-29 立,对标 OneAPI/NewAPI)=====
+  // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
+  server.register(relayModelsRoutes, { prefix: '/api' })
+  server.register(relayKeyPoolRoutes, { prefix: '/api' })
+  server.register(relayDiscoveryRoutes, { prefix: '/api' })
+  server.register(relayLogsRoutes, { prefix: '/api' })
+  // P0-7 admin 侧 API Key 安全粒度管理(列表/创建/详情/按租户统计/强制更新,含过期/IP白名单/模型白名单/token上限)
+  server.register(relayApiKeysRoutes, { prefix: '/api' })
+  // admin 实时监控 Dashboard 聚合端点(overview/model-distribution/trend/top-users)
+  server.register(adminRelayStatsRoutes, { prefix: '/api/admin' })
+  // 公开端点:GET /api/relay/models/public(无需鉴权,返回中转站已上架模型清单 + 定价倍率)
+  server.register(relayPublicRoutes, { prefix: '/api/relay' })
+  // developer 用户侧端点:API Key 列表(含余额)/ 用量明细 / 调用日志 / 充值
+  server.register(developerRelayRoutes, { prefix: '/api' })
+  // developer 用户侧:API Key 一键接入配置生成器(2026-09-16,对标 Sub2API)
+  server.register(developerRelayBootstrapRoutes, { prefix: '/api' })
+  // developer 用户侧:Key 批量管理(2026-09-16,对标 bulkEdit)
+  server.register(developerRelayKeysAdminRoutes, { prefix: '/api' })
+  // Usage 重度分析(2026-09-16,第三轮对标补强 K):四维成本/缓存命中率/延迟分位/CSV 导出
+  server.register(developerRelayUsageAnalyticsRoutes, { prefix: '/api' })
+  // 渠道公开监控(2026-09-16,第三轮对标补强 O):脱敏状态页,无鉴权
+  server.register(relayMonitorPublicRoutes, { prefix: '/api' })
+  // 告警规则引擎 CRUD + 立即评估(2026-09-16,补强 U)
+  server.register(adminRelayAlertRulesRoutes, { prefix: '/api/admin' })
+  // 备份作业系统(2026-09-16,补强 V)
+  server.register(adminBackupJobsRoutes, { prefix: '/api/admin' })
+  // 号池调度精细控制(2026-09-16,补强 Y)
+  server.register(adminRelayKeySchedulingRoutes, { prefix: '/api/admin' })
+  // 容量与趋势看板(2026-09-16,补强 X)
+  server.register(adminRelayCapacityRoutes, { prefix: '/api/admin' })
+  // 运营控制台模块 CRUD(2026-09-17,4-4-12)
+  server.register(adminConsoleModulesRoutes, { prefix: '/api/admin' })
+  // 上游错误透传规则(2026-09-16,五轮补强)
+  server.register(adminRelayErrorRulesRoutes, { prefix: '/api/admin' })
+  // 提示词审计(2026-09-17,补强 54)
+  server.register(adminRelayPromptAuditRoutes, { prefix: '/api/admin' })
+  // 用户自定义属性(2026-09-17,补强 55)
+  server.register(adminRelayUserAttributesRoutes, { prefix: '/api/admin' })
+  // 运营洞察(2026-09-17,补强 62,差异化)
+  server.register(adminRelayInsightsRoutes, { prefix: '/api/admin' })
+  // 数据管理(2026-09-17,补强 56)
+  server.register(adminRelayDataManagementRoutes, { prefix: '/api/admin' })
+  // 企业合规闭环(2026-09-17,补强 61,差异化:认证/发票/合同/对公结算)
+  server.register(adminRelayEnterpriseRoutes, { prefix: '/api/admin' })
+  server.register(relayEnterpriseRoutes, { prefix: '/api' })
+  // 插件系统(2026-09-17,补强 59,声明式插件零代码执行)
+  server.register(adminRelayPluginsRoutes, { prefix: '/api/admin' })
+  // developer API Key 分组(2026-08-01 立,多 Key 共享额度池 + 子 Key 权限继承 + 组内用量排行)
+  server.register(developerApiKeyGroupsRoutes, { prefix: '/api/developer' })
+
+  // ===== P0 中转站造血能力对标批次(2026-07-31 立,8 subagent 并行)=====
+  // admin 模型映射管理(CRUD + 优先级 + 启用/禁用):POST /api/admin/model-mappings 等
+  server.register(adminModelMappingsRoutes, { prefix: '/api/admin' })
+  // admin 兑换码管理(批量生成 + 查询 + 兑换记录):POST /api/admin/redemption-codes/batch 等
+  server.register(adminRedemptionCodesRoutes, { prefix: '/api/admin' })
+  // admin Relay 返佣管理(2026-07-31 立,把返佣绑到 relay 调用消费:记录/统计/释放/配置)
+  server.register(adminRelayCommissionRoutes, { prefix: '/api/admin' })
+  // admin 优惠券管理(2026-07-31 立,折扣券/满减券/裂变券三合一:CRUD + 统计 + 领券记录 + 批量生成)
+  server.register(adminCouponsRoutes, { prefix: '/api/admin' })
+  // admin 用户计费分组管理(分组 CRUD + 成员 + 模型倍率矩阵):/api/admin/user-billing-groups/*
+  server.register(adminUserBillingGroupsRoutes, { prefix: '/api/admin' })
+  // admin 中转站渠道分组管理(分组 CRUD + 成员 + 组统计 + 一键测速):
+  // GET/POST /api/admin/relay/channels/groups 等(8 端点,#4 #6 合并任务)
+  server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })
+  // admin 阶梯计价规则管理(规则 CRUD + 按 model 筛选):/api/admin/tiered-pricing/rules 等
+  server.register(adminTieredPricingRoutes, { prefix: '/api/admin' })
+  // admin 价格历史 + 限时折扣调度 + 动态调价建议(7 端点):
+  // GET/POST /api/admin/relay/pricing/history + GET/POST/PATCH/DELETE /api/admin/relay/pricing/discounts + GET /api/admin/relay/pricing/suggestions
+  server.register(adminRelayPricingRoutes, { prefix: '/api/admin' })
+  // 分时(高峰/低谷)倍率规则 CRUD + 命中预览(2026-09-16 立)
+  server.register(adminRelayPeakPricingRoutes, { prefix: '/api/admin' })
+  // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
+  // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
+  // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
+  // ANTHROPIC_BASE_URL=https://api.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
+  server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+
+  // ===== P0 第二批次对外端点(2026-07-31 立,8 subagent 并行)=====
+  // /v1/rerank + /v1/moderations(Cohere/Jina rerank + OpenAI moderations 兼容,API Key 鉴权)
+  server.register(v1RerankModerationsRoutes, { prefix: '/v1' })
+  // /v1/realtime(OpenAI Realtime API 兼容 WebSocket,绝对路径字面量注册)
+  server.register(v1RealtimeRoutes)
+  // /v1/mcp/tools + /v1/mcp/tools/call + /v1/mcp/resources/read(MCP 网关对外暴露,绝对路径字面量注册)
+  server.register(v1McpGatewayRoutes)
+  // /v1/midjourney/*(Midjourney-Proxy 标准接口:imagine/tasks/:taskId/action/upscale,绝对路径字面量注册)
+  server.register(v1MidjourneyRoutes)
+  // ===== P0 第三批次对外端点(2026-07-31 立,3 个 OpenAI 协议兼容路由)=====
+  // /v1/responses(OpenAI Responses API 兼容,Cursor/Codex 客户端,支持 stream)
+  server.register(v1ResponsesRoutes, { prefix: '/v1' })
+  // /v1/assistants + /v1/threads + /v1/messages + /v1/runs(OpenAI Assistants API v2 兼容,17 个端点)
+  server.register(v1Assistants, { prefix: '/v1' })
+  // /v1/midjourney/{describe,shorten,blend} + /v1/audio/translations + /v1/images/variations + /v1/fine_tuning/jobs
+  server.register(v1ProtocolCompletenessRoutes, { prefix: '/v1' })
+  // P0-18 Batch API(2026-08-01 立):/v1/batch + /v1/batches + /v1/messages/batches(OpenAI/Anthropic 兼容,BullMQ 异步)
+  server.register(v1Batches, { prefix: '/v1' })
+  // ===== O7 OAuth 2.1 / OIDC 提供方(2026-09-21 立)=====
+  // 根路径挂载:/.well-known/oauth-authorization-server(RFC 8414)、
+  // /.well-known/openid-configuration(OIDC)、/oauth/{jwks,register,authorize,token,
+  // introspect,revoke}。不挂载则这三个插件等于死代码。
+  server.register(oauthAuthorizationServerRoutes)
+  server.register(oauthRegisterRoutes)
+  server.register(oauthTokensRoutes)
+  // P0-20b 参数覆盖规则管理(2026-08-01 立):/api/admin/relay-param-ops(CRUD + dry-run)
+  server.register(adminRelayParamOpsRoutes, { prefix: '/api/admin' })
+
+  // ===== Relay Webhook 系统(2026-08-01 立,relay 调用事件订阅 + 重试 + HMAC 签名)=====
+  // developer 用户自助管理订阅(7 端点):/api/developer/webhooks/subscriptions/*
+  // 注:用 /webhooks/subscriptions 子路径,避免与现有 /api/developer/webhooks(/) 及 /:id 路由冲突
+  server.register(developerWebhooksRoutes, { prefix: '/api/developer' })
+  // admin 调试面板(4 端点):/api/admin/webhook-debug/subscriptions | /logs | /retry-all | /stats
+  server.register(adminWebhookDebugRoutes, { prefix: '/api/admin' })
+
+  // ===== P0 第四批次对外端点(2026-07-31 立,8 subagent 并行)=====
+  // /api/public/status/*(公开状态页,无需鉴权,展示模型可用性 + 系统总览 + 事件列表)
+  server.register(publicStatusRoutes, { prefix: '/api/public' })
+  // /api/developer/api-keys/:id/shares + /api/developer/shares(API Key 临时分享/限时 token)
+  server.register(apiKeySharesRoutes, { prefix: '/api/developer' })
+  // /api/admin/export/orders.csv + /api/admin/export/relay-logs.csv(充值订单 + 调用日志 CSV 导出)
+  server.register(exportCsvRoutes, { prefix: '/api/admin' })
+  // /api/developer/conversations(中转站用户会话历史保存,B 端协作场景)
+  server.register(relayConversationsRoutes, { prefix: '/api' })
+  // P0-28 配套:渠道配额管理 admin 端点(GET/PATCH /api/admin/relay/channels)
+  server.register(channelQuotaAdminRoutes, { prefix: '/api/admin' })
+  // 移动端运营统计(GET /api/admin/mobile-stats,真实聚合,requireAdmin)
+  server.register(mobileStatsRoutes, { prefix: '/api/admin' })
+
+  // F3 真实缺口补齐(2026-08-15):技能分类管理路由(GET/POST/PUT/DELETE /api/skill-categories)
+  server.register(skillCategoriesRoutes, { prefix: '/api' })
+  // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
+  server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
+
+  // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
+  server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
+
+  // Knowledge Card:仓库级任务经验卡 CRUD + 检索(2026-09-10 立,2-1 项目知识引擎)
+  server.register(knowledgeCardRoutes, { prefix: '/api/knowledge-cards' })
+
+  // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
+  server.register(automationsRoutes, { prefix: '/api/automations' })
+
+  // 主动巡逻 Agent(P3 #40,2026-09-17 立)
+  server.register(patrolRoutes, { prefix: '/api/patrol' })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

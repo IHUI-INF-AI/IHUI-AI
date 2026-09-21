@@ -1,0 +1,63 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * R4 AI 厂商专属多模态后端路由(HUB)。
+ *
+ * 拆分说明(R4 重构):原 2567 行单体文件按职责拆为 4 个 ≤800 行子路由 + 共享模块:
+ *   - ai-vendors/_shared.ts        共享 schema / VENDORS / 工具函数(422 行)
+ *   - ai-vendors/proxy-llm.ts      LLM:Dashscope + Doubao + Gemini + V2 样板(473 行)
+ *   - ai-vendors/proxy-media.ts    多媒体:Suno + Sora2(134 行)
+ *   - ai-vendors/proxy-tools.ts    工具:Coze + Bailian + JiMeng4 + N8N + Coze workflow + Kling(753 行)
+ *   - ai-vendors/proxy-extended.ts 扩展:Tencent + Volcengine + 通用端点 + Admin(728 行)
+ *
+ * 注册(server.ts):
+ *   server.register(aiVendorRoutes, { prefix: '/api/ai' })
+ *   server.register(adminAiVendorRoutes, { prefix: '/api/admin/ai' })
+ *   server.register(aiVendorV2Routes, { prefix: '/api/ai' })
+ */
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { requireAuth } from './ai-vendors/_shared.js'
+import { llmVendorRoutes, llmVendorV2Routes } from './ai-vendors/proxy-llm.js'
+import { mediaVendorRoutes } from './ai-vendors/proxy-media.js'
+import { toolsVendorRoutes } from './ai-vendors/proxy-tools.js'
+import { extendedVendorRoutes, adminAiVendorRoutes } from './ai-vendors/proxy-extended.js'
+import { extendedMediaVendorRoutes } from './ai-vendors/proxy-extended-media.js'
+import { extendedMediaVendorRoutes2 } from './ai-vendors/proxy-extended-media2.js'
+import { extendedMediaVendorRoutes3 } from './ai-vendors/proxy-extended-media3.js'
+import { extendedMediaVendorRoutes4 } from './ai-vendors/proxy-extended-media4.js'
+import { extendedMediaVendorRoutes5 } from './ai-vendors/proxy-extended-media5.js'
+import { openaiCompatVendorRoutes } from './ai-vendors/proxy-openai-compat.js'
+import { anthropicVendorRoutes } from './ai-vendors/proxy-anthropic.js'
+
+export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.headers.upgrade === 'websocket') return
+    if (!(await requireAuth(request, reply))) return
+  })
+  await server.register(llmVendorRoutes)
+  await server.register(mediaVendorRoutes)
+  await server.register(toolsVendorRoutes)
+  await server.register(extendedVendorRoutes)
+  await server.register(openaiCompatVendorRoutes)
+  await server.register(anthropicVendorRoutes)
+  await server.register(extendedMediaVendorRoutes)
+  await server.register(extendedMediaVendorRoutes2)
+  await server.register(extendedMediaVendorRoutes3)
+  await server.register(extendedMediaVendorRoutes4)
+  await server.register(extendedMediaVendorRoutes5)
+}
+
+export { adminAiVendorRoutes }
+
+export const aiVendorV2Routes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.headers.upgrade === 'websocket') return
+    if (!(await requireAuth(request, reply))) return
+  })
+  await server.register(llmVendorV2Routes)
+}
+
+export { cloneTimbre } from './ai-vendors/_shared.js'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

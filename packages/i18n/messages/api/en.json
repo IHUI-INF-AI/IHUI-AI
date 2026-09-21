@@ -1,0 +1,12 @@
+{
+  "budgetAlert": {
+    "subject": {
+      "warning": "[Warning] AI budget is nearing its limit",
+      "critical": "[Critical] AI budget has been exceeded"
+    },
+    "body": {
+      "warning": "Your AI usage is approaching the budget limit. Please review:\n• Today Tokens: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• This Month Cost: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nTo avoid service interruption, please adjust your usage or contact the administrator to raise the quota.",
+      "critical": "Your AI usage has reached the budget limit and may impact subsequent calls:\n• Today Tokens: {dailyUsed} / {dailyLimit} ({dailyPercent}%)\n• This Month Cost: ${monthlyUsed} / ${monthlyLimit} ({monthlyPercent}%)\n\nPlease adjust your usage or contact the administrator immediately to raise the quota, otherwise over-limit usage may be restricted or suspended."
+    }
+  }
+}

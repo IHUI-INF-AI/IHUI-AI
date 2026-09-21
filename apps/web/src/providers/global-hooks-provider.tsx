@@ -1,0 +1,276 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
+import type { ChatMode } from '@ihui/types'
+import { useRouteAnalytics } from '@/hooks/use-route-analytics'
+import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
+import { useGlobalNotification } from '@/hooks/use-global-notification'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
+import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
+import { useAgentControl } from '@/hooks/use-agent-control'
+import { useUiControlBridge } from '@/hooks/use-ui-control-bridge'
+import { useNativePushRegister } from '@/hooks/use-native-push'
+import { CommandPalette } from '@/components/layout/CommandPalette'
+import { toast } from '@/components/common'
+import { useModeStore } from '@/stores/mode'
+
+const SHORTCUT_ROUTES: Record<string, string> = {
+  'global-shortcut:search': '/search',
+  'global-shortcut:new-chat': '/chat',
+  'global-shortcut:open-drama': '/drama',
+  // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
+  // Ctrl+, 直接打开设置(VS Code 标准,最高频入口,免命令面板搜索)
+  'global-shortcut:open-settings': '/settings',
+}
+
+/** Ctrl+1/2/3/4 模式切换事件 → ChatMode(与 use-global-shortcuts DEFAULT_SHORTCUTS 对应)
+ *
+ * 2026-08-27 修复(根因):此前 `global-shortcut:mode-*` 事件由 use-global-shortcuts
+ * 全局派发但无任何消费者,实际切换逻辑只在 ai-side-panel 的条件 useEffect 里
+ * (仅 AI 面板 open 且深层组件树 hydration 完成后才挂载),导致:
+ * - 非 /chat 页面 Ctrl+1-4 被 preventDefault 却无任何功能(劫持浏览器 tab 切换)
+ * - /chat 页面 hydration 未完成时按键静默丢失(E2E 偶发失败根因)
+ * 现统一在根 Layout 的 Provider 消费事件:根级 hydration 即生效,全页面可用,
+ * 与斜杠命令 + AI 关键词自动判断三通道联动(ai-side-panel 的重复监听已移除)。
+ */
+const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
+  'global-shortcut:mode-ask': 'ask',
+  'global-shortcut:mode-build': 'build',
+  'global-shortcut:mode-plan': 'plan',
+  'global-shortcut:mode-review': 'review',
+  'global-shortcut:mode-spec': 'spec',
+}
+
+/**
+ * 快捷键描述 i18n 静态映射(1-6):帮助面板(Ctrl+/)原先展示
+ * use-global-shortcuts DEFAULT_SHORTCUTS 的硬编码中文 description,未走 i18n,
+ * 现统一经 `shortcutHelp.desc.<key>` 解析(与 DEFAULT_SHORTCUTS 的 key 一一对应)。
+ */
+const SHORTCUT_DESC_KEYS: Record<string, string> = {
+  'Ctrl+K': 'desc.ctrlK',
+  'Ctrl+P': 'desc.ctrlP',
+  'Ctrl+Shift+N': 'desc.ctrlShiftN',
+  'Ctrl+/': 'desc.ctrlSlash',
+  'Ctrl+Shift+D': 'desc.ctrlShiftD',
+  'Ctrl+Shift+P': 'desc.ctrlShiftP',
+  'Ctrl+,': 'desc.ctrlComma',
+  'Ctrl+1': 'desc.ctrl1',
+  'Ctrl+2': 'desc.ctrl2',
+  'Ctrl+3': 'desc.ctrl3',
+  'Ctrl+4': 'desc.ctrl4',
+  'Ctrl+5': 'desc.ctrl5',
+  'Ctrl+Alt+V': 'desc.ctrlAltV',
+  'Ctrl+Alt+B': 'desc.ctrlAltB',
+  'Ctrl+Alt+H': 'desc.ctrlAltH',
+}
+
+/**
+ * 全局 Hooks Provider：在根 Layout 挂载全局副作用 hooks。
+ *
+ * - useRouteAnalytics：路由变化自动埋点（page_view / page_time / route_change）
+ * - useGlobalShortcuts：全局快捷键监听（Ctrl+K 命令面板 / Ctrl+P 搜索 / Ctrl+Shift+N 新对话 / Ctrl+/ 帮助 /
+ *   Ctrl+Shift+P 视图切换命令面板 / Ctrl+, 打开设置）
+ * - useGlobalNotification：登录后自动连接 WebSocket 通知,写入 notification store(各 UI 组件按需订阅)
+ * - 主题跨标签页同步:监听 storage 事件,当其他标签页切换主题时,本标签页通过 next-themes setTheme 跟随
+ *
+ * 帮助面板（Ctrl+/ 触发）以最简 overlay 呈现，避免引入额外依赖。
+ */
+export function GlobalHooksProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const t = useTranslations('chat')
+  // 性能修复(2026-07-25):useRouteAnalytics 现在是纯副作用 hook,不再返回 currentPath,
+  // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
+  useRouteAnalytics()
+  const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
+  const tHelp = useTranslations('shortcutHelp')
+  // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
+  React.useEffect(() => {
+    if (!showHelpPanel) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        toggleHelpPanel()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showHelpPanel, toggleHelpPanel])
+  // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
+  useGlobalNotification()
+  // 应用启动时从 Cookie 恢复登录态(modal 模式 + mock cookie + 真后端 token 三种路径)
+  // ready 仅供子组件读 useAuthBootstrap().ready 用,这里只是触发副作用
+  useAuthBootstrap()
+  // 桌面端事件监听:托盘菜单 + 系统级快捷键(浏览器端 no-op,仅在 Tauri 环境注册监听)
+  useDesktopEvents()
+  // 桌面端 deep-link 监听:ihui:// scheme 回调,自动完成 SSO 闭环(浏览器端 no-op)
+  useDesktopDeepLink()
+  // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
+  useAgentControl()
+  // Web 端 UI 控制桥:上报 endpoint:'web' 能力 + 消费 agent.action(category:'ui')指令,
+  // 让 AI 经 web_ui_* 工具操作本站页面(Tauri 端 no-op,让位 useAgentControl)
+  useUiControlBridge()
+  // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
+  // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
+  useNativePushRegister()
+  const { setTheme } = useTheme()
+  const [showCommandPalette, setShowCommandPalette] = React.useState(false)
+
+  // 主题跨标签页同步:其他标签页修改 localStorage('theme')时,通过 setTheme 跟随
+  // next-themes 自带 localStorage 持久化但不监听 storage 事件,需手动桥接。
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'theme' || !e.newValue) return
+      setTheme(e.newValue)
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [setTheme])
+
+  React.useEffect(() => {
+    const openChatHandler = () => setShowCommandPalette(true)
+    window.addEventListener('global-shortcut:open-chat', openChatHandler)
+
+    // 2026-09-09 1-6 键盘优先交互统一:Ctrl+Shift+P(open-plus)不再打开
+    // GlobalTopBar Plus 九宫格弹窗,而是打开统一 CommandPalette(命令注册表单一事实源,
+    // 21 项命令 + MRU)。Plus 按钮的鼠标点击弹窗保留(GlobalTopBar 内部状态)。
+    window.addEventListener('global-shortcut:open-plus', openChatHandler)
+
+    // Ctrl+1/2/3/4 模式切换(2026-08-27 根因修复,见 MODE_SHORTCUT_EVENTS 注释):
+    // use-global-shortcuts 统一做按键匹配 + preventDefault 后派发事件,这里消费。
+    const MODE_LABEL_KEYS: Record<ChatMode, string> = {
+      ask: 'modeAsk',
+      build: 'modeBuild',
+      plan: 'modePlan',
+      review: 'modeReview',
+      spec: 'modeSpec',
+    }
+    const modeHandlers: Array<[string, () => void]> = Object.entries(MODE_SHORTCUT_EVENTS).map(
+      ([event, mode]) => {
+        const handler = () => {
+          const label = t(MODE_LABEL_KEYS[mode])
+          const modeStore = useModeStore.getState()
+          if (modeStore.currentMode === mode) {
+            toast.info(t('modeAlreadyActive', { mode: label }))
+            return
+          }
+          modeStore.setMode(mode)
+          toast.success(t('modeSwitched', { mode: label }))
+        }
+        window.addEventListener(event, handler)
+        return [event, handler]
+      },
+    )
+
+    // inline-edit 兜底:若收到事件时焦点已离开 Monaco(竞态),回退到命令面板
+    const inlineEditFallback = () => {
+      const active = document.activeElement
+      if (!active?.closest('.monaco-editor')) {
+        window.dispatchEvent(new CustomEvent('global-shortcut:open-chat'))
+      }
+    }
+    window.addEventListener('global-shortcut:inline-edit', inlineEditFallback)
+
+    const handlers: Array<[string, () => void]> = Object.entries(SHORTCUT_ROUTES).map(
+      ([event, path]) => {
+        const handler = () => {
+          if (window.location.pathname === path) return
+          router.push(path)
+        }
+        window.addEventListener(event, handler)
+        return [event, handler]
+      },
+    )
+    return () => {
+      window.removeEventListener('global-shortcut:open-chat', openChatHandler)
+      window.removeEventListener('global-shortcut:open-plus', openChatHandler)
+      window.removeEventListener('global-shortcut:inline-edit', inlineEditFallback)
+      for (const [event, handler] of handlers) {
+        window.removeEventListener(event, handler)
+      }
+      for (const [event, handler] of modeHandlers) {
+        window.removeEventListener(event, handler)
+      }
+    }
+  }, [router, t])
+
+  return (
+    <>
+      {children}
+      <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
+      {showHelpPanel && (
+        <div
+          role="button"
+          aria-label="快捷键帮助"
+          tabIndex={0}
+          onClick={toggleHelpPanel}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              toggleHelpPanel()
+            }
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 'var(--z-notification)',
+            background: 'rgba(0, 0, 0, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+              }
+            }}
+            style={{
+              background: 'var(--color-background, #fff)',
+              color: 'var(--color-foreground, #000)',
+              borderRadius: 12,
+              padding: '24px 32px',
+              minWidth: 320,
+              maxWidth: 480,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>{tHelp('title')}</h3>
+            <ul className="m-0 grid list-none gap-2 p-0">
+              {shortcuts
+                .filter((s) => s.active)
+                .map((s) => {
+                  const descKey = SHORTCUT_DESC_KEYS[s.key]
+                  return (
+                    <li key={s.key} className="flex justify-between gap-6" style={{ fontSize: 14 }}>
+                      <span style={{ opacity: 0.7 }}>
+                        {descKey ? tHelp(descKey) : (s.description ?? s.key)}
+                      </span>
+                      <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
+                    </li>
+                  )
+                })}
+            </ul>
+            <p style={{ margin: '16px 0 0', fontSize: 12, opacity: 0.5, textAlign: 'center' }}>
+              {tHelp('closeHint')}
+            </p>
+          </div>
+        </div>
+      )}
+      {/* 性能修复:删除 debug span(data-current-path=currentPath),
+          原本仅用于调试,却是 usePathname 订阅链路的唯一消费点,触发整 provider 重渲染。 */}
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

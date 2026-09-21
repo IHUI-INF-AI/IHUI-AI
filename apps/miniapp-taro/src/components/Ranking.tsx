@@ -1,0 +1,103 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt, t } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+
+export interface RankingItem {
+  id: string | number
+  nickname?: string
+  name?: string
+  avatar?: string
+  score?: number
+  value?: number
+  commission?: number
+  minutes?: number
+}
+
+export interface RankingProps {
+  list: RankingItem[]
+  title?: string
+  unit?: string
+  loading?: boolean
+}
+
+const MEDALS = ['medal', 'medal', 'medal'] as const
+
+function getValue(item: RankingItem): number {
+  return item.score || item.value || item.commission || item.minutes || 0
+}
+
+function getName(item: RankingItem): string {
+  return item.nickname || item.name || t('aiCircle.anonymous')
+}
+
+export default function Ranking({ list, title, unit = '', loading = false }: RankingProps) {
+  const tt = useTt()
+  if (loading) {
+    return (
+      <View className="px-3 py-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <View key={i} className="flex items-center py-3 animate-pulse">
+            <View className="w-6 h-4 mr-3 bg-muted rounded" />
+            <View className="w-9 h-9 mr-3 rounded-lg bg-muted" />
+            <View className="flex-1 h-3 bg-muted rounded" />
+          </View>
+        ))}
+      </View>
+    )
+  }
+
+  return (
+    <View className="px-3 py-2">
+      {title && <Text className="block text-base font-medium text-foreground mb-2">{title}</Text>}
+      {list.length === 0 ? (
+        <View className="flex items-center justify-center py-12">
+          <Text className="text-sm text-muted-foreground">
+            {tt('ranking.noData', '暂无排行数据')}
+          </Text>
+        </View>
+      ) : (
+        list.map((item, idx) => (
+          <View
+            key={item.id}
+            className={`flex items-center py-2.5 px-3 mb-1.5 rounded-lg ${
+              idx < 3 ? 'bg-[var(--color-warning-amber-light)]' : 'bg-card'
+            }`}
+          >
+            <View className="flex items-center justify-center w-6 mr-3">
+              {idx < 3 ? (
+                <LineIcon name={MEDALS[idx]!} size={36} color="var(--color-warning)" />
+              ) : (
+                <Text className="text-sm font-medium text-muted-foreground">{idx + 1}</Text>
+              )}
+            </View>
+            {item.avatar ? (
+              <Image
+                className="w-9 h-9 mr-3 rounded-lg bg-muted"
+                src={item.avatar}
+                mode="aspectFill"
+              />
+            ) : (
+              <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-muted">
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {getName(item).charAt(0)}
+                </Text>
+              </View>
+            )}
+            <Text className="flex-1 text-sm text-foreground truncate">{getName(item)}</Text>
+            <Text
+              className={`text-sm font-medium ${idx < 3 ? 'text-[var(--color-warning-amber)]' : 'text-foreground'}`}
+            >
+              {getValue(item)}
+              {unit}
+            </Text>
+          </View>
+        ))
+      )}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

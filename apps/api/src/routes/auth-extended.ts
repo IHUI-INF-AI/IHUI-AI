@@ -1,0 +1,3701 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import { z } from 'zod'
+import type { Redis } from 'ioredis'
+import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { eq } from 'drizzle-orm'
+import { generateShortCode } from '../utils/crypto-random.js'
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  createFamilyId,
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
+  type JWTPayload,
+  createOidcProvider,
+  createDiscordProvider,
+  createTelegramProvider,
+  isOidcConfigured,
+  isDiscordConfigured,
+  isTelegramConfigured,
+  buildOidcAuthorizationUrl,
+  generateTelegramAuthToken,
+  // O7(2026-09-21):OAuth 2.1 AS 补齐 —— PKCE 唯一真相源 + 客户端凭证校验
+  evaluatePkce,
+  extractClientCredentials,
+  isPublicClientApp,
+  isModernOAuthClientApp,
+  pkcePolicyFromEnv,
+  resolveGrantedScopes,
+  validatePkceChallenge,
+  verifyClientSecret,
+  isRefreshTokenReused,
+  isRefreshTokenExpired,
+  signM2MAccessToken,
+  type OAuth2Client,
+} from '@ihui/auth'
+import { authenticate } from '../plugins/auth.js'
+import { success, error } from '../utils/response.js'
+import { setAuthCookies } from '../utils/auth-cookies.js'
+import { encryptJSON, decryptJSON } from '../utils/crypto.js'
+import { db } from '../db/index.js'
+import { config } from '../config/index.js'
+import { users } from '@ihui/database'
+import { toUserFriendlyMessage } from '@ihui/shared'
+import { publicUser, resolveUserPermissions } from './auth.js'
+import {
+  generateSecret,
+  verifyTotp,
+  buildOtpauthUri,
+  generateQrCodeDataUrl,
+  generateBackupCodes,
+  hashBackupCode,
+  verifyBackupCode,
+  base32Encode,
+  verifyChallengeToken,
+} from '../services/totp-service.js'
+import {
+  recordLoginFailure,
+  clearLoginFailures,
+  getLockRemainingMs,
+  ACCOUNT_LOCKOUT_CONFIG,
+} from '../services/account-lockout.js'
+import {
+  findUserByPhone,
+  findUserByEmail,
+  findUserByUsername,
+  findUserById,
+  createUser,
+  updateUser,
+  checkPhoneExists,
+  checkEmailExists,
+  cancelUserAccount,
+  saveRefreshToken,
+  findRefreshToken,
+  revokeRefreshToken,
+  revokeRefreshTokenFamily,
+} from '../db/queries.js'
+import {
+  findOAuthAppByClientId,
+  createOAuthApp,
+  listOAuthApps,
+  deleteOAuthApp,
+  createOAuthSession,
+  findSessionByCode,
+  markSessionUsed,
+  listUserSessions,
+  deleteSession,
+  listActiveScopeMeta,
+  findThirdPartyAccount,
+  listUserBindings,
+  createThirdPartyBinding,
+  removeBinding,
+  removeBindingByPlatform,
+  createUserSk,
+  listUserSk,
+  updateUserSk,
+  deleteUserSk,
+  createAuditLog,
+} from '../db/oauth-queries.js'
+import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
+import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
+import {
+  codeStore,
+  generateCode,
+  cleanupExpiredCodes,
+  verifyCode,
+  CODE_TTL_MS,
+  CODE_RESEND_INTERVAL_MS,
+} from '../utils/code-store.js'
+import {
+  generateCaptchaKey,
+  generateCaptchaCode,
+  generateCaptchaImage,
+  verifyCaptcha,
+} from '../services/captcha.js'
+import { saveCaptcha, findCaptcha, deleteCaptcha } from '../db/captcha-queries.js'
+import {
+  exchangeGoogleCode,
+  verifyGoogleIdToken,
+  isGoogleConfigured,
+  jscode2session,
+  getPhoneNumber,
+  isWechatMiniConfigured,
+  wecomCode2session,
+  wecomPcCode2session,
+  isWecomConfigured,
+  isWecomSuiteConfigured,
+  isDingtalkConfigured,
+  buildDingtalkAuthUrl,
+  exchangeDingtalkCode,
+  getDingtalkUserInfo,
+  isAlipayLoginConfigured,
+  exchangeAlipayCode,
+  getAlipayUserInfo,
+  isFeishuConfigured,
+  getFeishuAccessToken,
+  getFeishuUserInfo,
+  generateState,
+  generateAuthCode,
+  generateClientId,
+  generateClientSecret,
+  generateUserSk,
+} from '../services/oauth-providers.js'
+import { buildResponseSchema } from '../utils/api-schemas.js'
+import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
+
+// Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
+// - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
+// - REFRESH_TOKEN_TTL_SECONDS 默认 30d(env.JWT_REFRESH_TTL_SECONDS 可覆盖)
+// 之前硬编码 7d 与 jwt.ts 实际 15min 不符,返回给客户端的 expiresIn 撒谎,
+// 导致前端 tokenUtils.startAutoRefresh 提前 5min 续期时 token 已失效 14min45s。
+
+// 注:旧版"模拟二维码登录"(qrStore + /auth/qr/generate + /auth/qr/status + /auth/qr/confirm)
+// 已移除(2026-07-22),改为前端内嵌各厂商官方扫码 SDK(微信 WxLogin / 企业微信 wwLogin /
+// 钉钉 DTFrameLogin / 飞书 QRLogin),扫码成功后走标准 OAuth callback:POST /api/auth/:platform/callback
+
+/** 签发 access+refresh 双 token 并落库(O7 起 export:根级 /oauth/token 复用同一签发口径)。 */
+export async function buildTokenPair(
+  user: {
+    id: string
+    phone: string | null
+    roleId: number | null
+    familyId: string | null
+  },
+  reply?: FastifyReply,
+): Promise<{
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+}> {
+  const familyId = user.familyId ?? createFamilyId()
+  const payload: JWTPayload = {
+    userId: user.id,
+    phone: user.phone ?? '',
+    familyId,
+    roleId: user.roleId ?? 0,
+  }
+  const [accessToken, refreshToken] = await Promise.all([
+    signAccessToken(payload),
+    signRefreshToken(payload),
+  ])
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000)
+  await saveRefreshToken(refreshToken, user.id, familyId, expiresAt)
+  // P2-18:签发成功后设置 httpOnly auth cookie(浏览器场景;OAuth 客户端/非浏览器调用不传 reply)
+  if (reply) setAuthCookies(reply, { accessToken, refreshToken }, true)
+  return {
+    accessToken,
+    refreshToken,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
+  }
+}
+
+// ============================================================
+// O7:OAuth2.1 / OIDC 授权服务器共用 helper(2026-09-21 立)
+// ============================================================
+// 所有"授权码换 token / 客户端凭证校验"的入口都必须走这里,避免再出现
+// "某个 token 端点忘了校验 PKCE"这类逐个端点漏接的安全断层。
+
+/** oauth_apps 行类型(findOAuthAppByClientId 的返回,去掉 undefined)。 */
+export type OAuthAppRow = NonNullable<Awaited<ReturnType<typeof findOAuthAppByClientId>>>
+
+/** bcrypt($2*)/argon2($argon2*) 形态摘要 —— 这两个 KDF 的依赖在 apps/api,故本分支不下沉到 @ihui/auth。 */
+function looksLikeKdfHash(stored: string | null | undefined): stored is string {
+  return typeof stored === 'string' && (stored.startsWith('$2') || stored.startsWith('$argon2'))
+}
+
+/** 把 oauth_apps 行映射为 @ihui/auth 的 OAuth2Client 视图。 */
+export function toOAuth2Client(app: OAuthAppRow): OAuth2Client {
+  return {
+    clientId: app.clientId,
+    clientSecret: app.clientSecret,
+    clientSecretHash: app.clientSecretHash ?? null,
+    redirectUris: Array.isArray(app.redirectUris) ? (app.redirectUris as string[]) : [],
+    scopes: Array.isArray(app.scopes) ? (app.scopes as string[]) : [],
+    name: app.name,
+  }
+}
+
+export type OAuthClientAuth =
+  | { ok: true; app: OAuthAppRow; publicClient: boolean }
+  | { ok: false; status: number; error: string; description: string }
+/**
+ * app 记录与出示的 secret 是否匹配。
+ * 摘要优先(v1hmac / bcrypt / argon2),最后才回退 legacy 明文恒定比较。
+ */
+export async function matchesOAuthAppSecret(
+  app: { clientSecret?: string | null; clientSecretHash?: string | null },
+  presented: string,
+): Promise<boolean> {
+  if (verifyClientSecret(app, presented)) return true
+  const kdfStored = [app.clientSecretHash, app.clientSecret].find(looksLikeKdfHash)
+  return Boolean(kdfStored && (await verifyPassword(presented, kdfStored)))
+}
+
+/**
+ * 客户端认证:支持 client_secret_post(表单/JSON)与 client_secret_basic(Basic),
+ * 公开客户端(token_endpoint_auth_method=none)允许不带 secret。
+ * 不区分"应用不存在"与"secret 错误"(统一 invalid_client + 同一文案),防客户端枚举。
+ */
+export async function authenticateOAuthClient(
+  request: FastifyRequest,
+  body: { client_id?: string | undefined; client_secret?: string | undefined },
+): Promise<OAuthClientAuth> {
+  const presented = extractClientCredentials({
+    authorizationHeader: request.headers.authorization ?? null,
+    body: { client_id: body.client_id, client_secret: body.client_secret },
+  })
+  if (!presented.clientId) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '缺少 client_id' }
+  }
+  const app = await findOAuthAppByClientId(presented.clientId)
+  if (!app || app.isActive !== 1) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '应用凭证错误' }
+  }
+  if (isPublicClientApp(app)) {
+    if (presented.clientSecret) {
+      return {
+        ok: false,
+        status: 401,
+        error: 'invalid_client',
+        description: '公开客户端不得使用 client_secret,必须使用 PKCE',
+      }
+    }
+    return { ok: true, app, publicClient: true }
+  }
+  if (!presented.clientSecret) {
+    return { ok: false, status: 401, error: 'invalid_client', description: '缺少 client_secret' }
+  }
+  if (await matchesOAuthAppSecret(app, presented.clientSecret)) {
+    return { ok: true, app, publicClient: false }
+  }
+  return { ok: false, status: 401, error: 'invalid_client', description: '应用凭证错误' }
+}
+
+export type OAuthPkceGate =
+  { ok: true } | { ok: false; status: number; error: string; description: string }
+
+/**
+ * 授权码链路的 PKCE 闸门(session = oauth_sessions 行)。
+ * 公开客户端 / DCR 注册的现代客户端强制 PKCE;存量机密客户端由 OAUTH_REQUIRE_PKCE 控制。
+ */
+export function gatePkceForSession(params: {
+  session: { codeChallenge: string | null; codeChallengeMethod: string | null }
+  codeVerifier?: string | null
+  app: OAuthAppRow
+  publicClient: boolean
+}): OAuthPkceGate {
+  const result = evaluatePkce({
+    session: params.session,
+    codeVerifier: params.codeVerifier,
+    isPublicClient: params.publicClient,
+    policy: pkcePolicyFromEnv(),
+    requirePkceForClient: isModernOAuthClientApp(params.app),
+  })
+  if (result.ok) return { ok: true }
+  return {
+    ok: false,
+    status: result.error === 'invalid_client' ? 401 : 400,
+    error: result.error,
+    description: result.description,
+  }
+}
+
+/**
+ * authorize 端点侧 PKCE 前置校验(形状 + 公开/现代客户端必须带 challenge)。
+ * @returns 错误描述;null = 通过
+ */
+export function precheckAuthorizePkce(params: {
+  codeChallenge?: string | null
+  codeChallengeMethod?: string | null
+  app: OAuthAppRow
+  publicClient: boolean
+}): string | null {
+  const shapeError = validatePkceChallenge(params.codeChallenge, params.codeChallengeMethod)
+  if (shapeError) return shapeError
+  const policy = pkcePolicyFromEnv()
+  const mustHave =
+    params.publicClient ||
+    isModernOAuthClientApp(params.app) ||
+    policy.requirePkceForConfidentialClients
+  if (mustHave && !params.codeChallenge) {
+    return '该客户端必须使用 PKCE:缺少 code_challenge(RFC 7636 / OAuth 2.1)'
+  }
+  return null
+}
+
+export type RefreshFlowResult =
+  | {
+      ok: true
+      userId: string
+      tokens: {
+        accessToken: string
+        refreshToken: string
+        expiresIn: number
+        refreshExpiresIn: number
+      }
+    }
+  | { ok: false; status: number; message: string }
+
+/**
+ * refresh token 轮转 + 重用检测(RFC 6749 §10.4 / OAuth 2.1 §4.3.1)。
+ *
+ * 关键修正:原各 device、web、pkce 三条 refresh 端点只撤销单条 token,
+ * 重用已吊销 token 时不会撤销同 family 的其他活跃 token —— 攻击者偷到一份
+ * refresh token 可与受害者长期并存。现按 family 撤销(重放即全族失效,
+ * 迫使合法用户重新登录),并把新 token 续在同一 family 上(buildTokenPair 原本
+ * 会改用 user.familyId,导致 family 每次刷新都漂移、重用检测形同虚设)。
+ */
+export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<RefreshFlowResult> {
+  let payload: JWTPayload
+  try {
+    payload = await verifyRefreshToken(rawRefreshToken)
+  } catch {
+    return { ok: false, status: 400, message: 'refresh_token 无效或已过期' }
+  }
+  const stored = await findRefreshToken(rawRefreshToken)
+  if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
+  if (isRefreshTokenReused(stored)) {
+    if (payload.familyId) await revokeRefreshTokenFamily(payload.familyId)
+    return {
+      ok: false,
+      status: 400,
+      message: 'refresh_token 已被重用,该 token family 已全部撤销',
+    }
+  }
+  if (isRefreshTokenExpired(stored))
+    return { ok: false, status: 400, message: 'refresh_token 无效或已过期' }
+  const user = await findUserById(payload.userId)
+  if (!user) return { ok: false, status: 404, message: '用户不存在' }
+  await revokeRefreshToken(rawRefreshToken)
+  const tokens = await buildTokenPair({
+    ...user,
+    familyId: payload.familyId || user.familyId || createFamilyId(),
+  })
+  return { ok: true, userId: user.id, tokens }
+}
+
+export type M2MMintResult =
+  | {
+      ok: true
+      accessToken: string
+      expiresIn: number
+      scope: string
+      clientId: string
+      /** = oauth_apps.owner_uuid,进 token 的 sub */
+      sub: string
+    }
+  | { ok: false; status: number; error: string; description: string }
+
+/**
+ * client_credentials M2M 令牌签发(RFC 6749 §4.4 / OAuth 2.1 §1.3)。
+ *
+ * 绑定关系(供 O4/O6 判 principal.kind):
+ *  - sub   = oauth_apps.owner_uuid(应用归属人,业务侧数据归属锚点)
+ *  - claims = principal_kind:'client' + grant_type:'client_credentials' + client_id + scope
+ *  - roleId 恒为 0:M2M 令牌绝不继承 owner 的管理员角色(权限最小化)
+ *  - 不签发 refresh_token(RFC 6749 §4.4.3:该 grant 不应带 refresh token)
+ *
+ * 拒绝面:公开客户端(无 secret)、无 owner_uuid 的 DCR 自助注册客户端、
+ * 请求了应用未被授予的 scope。
+ */
+export async function mintClientCredentialsToken(
+  app: OAuthAppRow,
+  requestedScope?: string,
+): Promise<M2MMintResult> {
+  if (isPublicClientApp(app)) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'unauthorized_client',
+      description: '公开客户端不得使用 client_credentials(RFC 6749 §4.4.2)',
+    }
+  }
+  if (!app.ownerUuid) {
+    // RFC 6749 §5.2:`invalid_client` 的 HTTP 状态**必须**是 401(此前回 400,与
+    // "请求形状错"的 400 混在一起,排查时看不出是客户端身份问题 —— O17b-④ 定位真因
+    // 就在这里绕了弯)。2026-09-21 起 DCR 已不再受理 client_credentials 声明,
+    // 这条分支只覆盖"控制台建的空壳应用"这类存量,仍是失败关闭,不静默签发。
+    return {
+      ok: false,
+      status: 401,
+      error: 'invalid_client',
+      description: '该客户端未绑定用户(owner_uuid 为空),不可签发 M2M 令牌',
+    }
+  }
+  const appScopes = (app.scopes as string[]) ?? []
+  // 机器对机器只放行"非 profile 类"scope 由能力目录侧决定;这里只做 app scope 白名单收敛
+  const { granted, rejected } = resolveGrantedScopes(requestedScope, appScopes)
+  if (rejected.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'invalid_scope',
+      description: `scope 未被该应用授权: ${rejected.join(' ')}`,
+    }
+  }
+  const accessToken = await signM2MAccessToken({
+    sub: app.ownerUuid,
+    clientId: app.clientId,
+    scopes: granted,
+  })
+  await createAuditLog({
+    event: 'client_credentials_token',
+    clientId: app.clientId,
+    userId: app.ownerUuid,
+    status: 'success',
+  })
+  return {
+    ok: true,
+    accessToken,
+    expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    scope: granted.join(' '),
+    clientId: app.clientId,
+    sub: app.ownerUuid,
+  }
+}
+
+// ============================================================
+// 3 个社交登录(OIDC + Discord + Telegram)共用 helper
+// ============================================================
+// 复用现有 findThirdPartyAccount/createThirdPartyBinding(userThirdPartyAccounts 表)
+// + buildTokenPair 颁发 JWT。platform 参数为 'oidc' | 'discord' | 'telegram'。
+// 主 agent 后续如需独立 oauth_accounts 表再迁移。
+
+async function loginWithOAuthAccount(params: {
+  platform: 'oidc' | 'discord' | 'telegram'
+  openId: string
+  unionId?: string
+  nickname?: string
+  avatar?: string
+  email?: string
+}): Promise<{
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+  userId: string
+  isNewUser: boolean
+}> {
+  const { platform, openId, unionId, nickname, avatar, email } = params
+  const binding = await findThirdPartyAccount(platform, openId)
+  let user: NonNullable<Awaited<ReturnType<typeof findUserById>>>
+  let isNewUser = false
+  if (binding) {
+    const existing = await findUserById(binding.userId)
+    if (!existing) throw new Error('用户不存在')
+    if (existing.status !== 1) throw new Error('账号已被禁用')
+    user = existing
+  } else {
+    // 同邮箱已注册用户 → 自动关联绑定(对齐邮箱验证码登录的既有语义,
+    // 避免 users_email_unique 唯一约束冲突导致 SSO 首登 500)
+    const existingByEmail = email ? await findUserByEmail(email) : undefined
+    if (existingByEmail) {
+      if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
+      user = existingByEmail
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    } else {
+      user = await createUser({
+        email,
+        nickname: nickname ?? `用户${openId.slice(-6)}`,
+        avatar,
+        roleId: 0,
+        status: 1,
+      })
+      isNewUser = true
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    }
+  }
+  const tokens = await buildTokenPair(user)
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn,
+    refreshExpiresIn: tokens.refreshExpiresIn,
+    userId: user.id,
+    isNewUser,
+  }
+}
+
+// 共用 callback 响应格式(与现有 /auth/:platform/callback 一致)
+function buildOAuthCallbackResponse(result: {
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+  userId: string
+  isNewUser: boolean
+}) {
+  return success({
+    token: result.accessToken,
+    refreshToken: result.refreshToken,
+    accessToken: result.accessToken,
+    expiresIn: result.expiresIn,
+    refreshExpiresIn: result.refreshExpiresIn,
+    userId: result.userId,
+    isNewUser: result.isNewUser,
+    tokenType: 'Bearer',
+  })
+}
+
+// ============================================================
+// 2FA (TOTP RFC 6238) 辅助
+// ============================================================
+// 密钥存储方案:20 字节原始 secret → base64 字符串 → encryptJSON (AES-256-GCM)
+// → EncryptedPayload {iv,ciphertext,tag} → JSON 序列化为 Buffer → bytea 列
+// 解密时反向:bytea → Buffer → JSON.parse → EncryptedPayload → decryptJSON → base64 → Buffer
+// 复用 apps/api/src/utils/crypto.ts 的 AES-256-GCM 实现,key 来自 CREDENTIALS_ENCRYPTION_KEY env。
+
+function encryptTwoFactorSecret(secret: Buffer): Buffer {
+  const encrypted = encryptJSON(secret.toString('base64'))
+  return Buffer.from(JSON.stringify(encrypted), 'utf8')
+}
+
+function decryptTwoFactorSecret(stored: Buffer | null): Buffer | null {
+  if (!stored || stored.length === 0) return null
+  try {
+    const payload = JSON.parse(stored.toString('utf8'))
+    const base64 = decryptJSON(payload) as string
+    return Buffer.from(base64, 'base64')
+  } catch {
+    return null
+  }
+}
+
+// Challenge token 签发/校验由 totp-service.ts 统一实现:
+// - signChallengeToken(payload) → 5min 短期 JWT,type='challenge'
+// - verifyChallengeToken(token) → 校验 type='challenge',返回 {userId,...} 或 null
+// challenge token 只能用于 /auth/2fa/login-verify,其他端点由 plugins/auth.ts 拒绝。
+
+const loginByEmailSchema = z.object({
+  email: z.email(),
+  code: z.string().length(6),
+})
+
+const loginByUsernameSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+})
+
+const emailCodeSchema = z.object({
+  email: z.email(),
+  scene: z.enum(['register', 'login', 'reset']).default('login'),
+})
+
+const smsCodeSchema = z.object({
+  phone: z.string().min(1),
+})
+
+const smsVerifySchema = z.object({
+  phone: z.string().min(1),
+  code: z.string().length(6),
+})
+
+const smsRegisterSchema = z.object({
+  phone: z.string().min(1),
+  code: z.string().length(6),
+  password: z.string().min(6),
+  nickname: z.string().min(1).max(50).optional(),
+})
+
+const captchaVerifySchema = z.object({
+  captchaKey: z.string().min(1),
+  code: z.string().min(1),
+})
+
+const oauthAppCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+  redirectUris: z.array(z.url()).min(1).max(20),
+  scopes: z.array(z.string()).max(100).optional(),
+  icon: z.string().optional(),
+})
+
+const bindingRemoveSchema = z.object({
+  uuid: z.string().min(1),
+  platform: z.string().min(1),
+})
+
+const codeQuery = z.object({ code: z.string() })
+const pageLimitQuery = z.object({
+  // P1 修复(2026-08-06): 分页 limit 补上限
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+})
+const skIdParam = z.object({ skId: z.string() })
+
+export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // 所有 auth-extended 端点响应中携带 accessToken/refreshToken/access_token/refresh_token
+  // 必须跳过响应脱敏,否则会被 response-sanitizer 的 'token' 子串匹配误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
+  // 邮箱登录
+  server.post(
+    '/auth/login/email',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = loginByEmailSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(email, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      let user = await findUserByEmail(email)
+      if (!user) {
+        const emailPrefix = email.split('@')[0] ?? 'user'
+        user = await createUser({
+          email,
+          nickname: `用户${emailPrefix.slice(0, 20)}`,
+          roleId: 0,
+          status: 1,
+        })
+      } else if (user.status !== 1) {
+        return reply.status(403).send(error(403, '账号已被禁用'))
+      }
+      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+      return reply.send(
+        success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
+      )
+    },
+  )
+
+  // 用户名登录
+  server.post(
+    '/auth/login/username',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = loginByUsernameSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { username, password } = parsed.data
+      const ip = request.ip
+
+      const lockRemaining = await getLockRemainingMs(username, ip)
+      if (lockRemaining > 0) {
+        return reply
+          .status(429)
+          .header('Retry-After', String(Math.ceil(lockRemaining / 1000)))
+          .send(
+            error(
+              429,
+              `登录失败次数过多，账号已被临时锁定 ${Math.ceil(lockRemaining / 60000)} 分钟后重试`,
+            ),
+          )
+      }
+
+      const user = await findUserByUsername(username)
+      if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+        const remaining = await recordLoginFailure(username, ip)
+        if (remaining === 0) {
+          const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
+          return reply
+            .status(429)
+            .header('Retry-After', String(Math.ceil(lockDurationMs / 1000)))
+            .send(
+              error(
+                429,
+                `登录失败次数过多，账号已被临时锁定 ${Math.ceil(lockDurationMs / 60000)} 分钟`,
+              ),
+            )
+        }
+        return reply
+          .status(401)
+          .send(error(401, `用户名或密码错误（剩余 ${remaining} 次重试机会）`))
+      }
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      await clearLoginFailures(username, ip)
+      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+      return reply.send(
+        success({ userId: user.id, accessToken, refreshToken, tokenType: 'Bearer' }),
+      )
+    },
+  )
+
+  // 邮箱验证码
+  server.post(
+    '/auth/email/code',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = emailCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, scene } = parsed.data
+      cleanupExpiredCodes()
+      const existing = codeStore.get(email)
+      if (existing && Date.now() - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
+        return reply.status(429).send(error(429, '请稍候再试'))
+      }
+      const code = generateCode()
+      codeStore.set(email, {
+        code,
+        expiresAt: Date.now() + CODE_TTL_MS,
+        sentAt: Date.now(),
+      })
+      const result = await sendVerificationEmail(email, code, scene as EmailCodeScene)
+      if (!result.sent && !result.stub) {
+        return reply.status(500).send(error(500, '验证码发送失败'))
+      }
+      // dev stub 模式下回传验证码,便于本地联调(生产环境 stub 不会触发,因为生产应配置真实 provider)
+      const isDev = process.env.NODE_ENV !== 'production'
+      return reply.send(
+        success(isDev && result.stub ? { sent: true, devCode: code } : { sent: true }),
+      )
+    },
+  )
+
+  // 邮箱注册新用户
+  server.post(
+    '/auth/register/email',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const bodySchema = z.object({
+        email: z.email(),
+        code: z.string().length(6),
+        password: z.string().min(6).max(64),
+        nickname: z.string().min(1).max(50).optional(),
+      })
+      const parsed = bodySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { email, code, password, nickname } = parsed.data
+      if (!(await verifyCode(email, code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      if (await checkEmailExists(email)) {
+        return reply.status(409).send(error(409, '该邮箱已注册'))
+      }
+      const emailPrefix = email.split('@')[0] ?? 'user'
+      const user = await createUser({
+        email,
+        passwordHash: await hashPassword(password),
+        nickname: nickname ?? `用户${emailPrefix.slice(0, 12)}`,
+        roleId: 0,
+        status: 1,
+      })
+      // 欢迎邮件(异步入队,失败静默 — 绝不阻断注册主流程)
+      try {
+        const { queueWelcomeEmail } = await import('../services/email-service.js')
+        const maskedId = `${emailPrefix.slice(0, 2)}****${emailPrefix.slice(-2)}@${email.split('@')[1] ?? ''}`
+        await queueWelcomeEmail(
+          request.server,
+          user.email ?? email,
+          user.nickname ?? emailPrefix,
+          maskedId,
+          100,
+        )
+      } catch {
+        // 欢迎信失败不影响注册结果
+      }
+      return reply.status(201).send(
+        success({
+          userId: user.id,
+          email: user.email,
+          message: '注册成功,请登录',
+        }),
+      )
+    },
+  )
+
+  // 检查手机号（加 rateLimit 防枚举）
+  server.get(
+    '/auth/exist/:phone',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const { phone } = z.object({ phone: z.string() }).parse(request.params)
+      return reply.send(success({ exists: await checkPhoneExists(phone) }))
+    },
+  )
+
+  // 第三方登录配置状态(公开端点,登录页用于显示哪些平台可用)
+  // 返回 8 平台 true/false,与 .env 凭据配置实时一致
+  server.get('/auth/oauth-status', async (_request, reply) => {
+    return reply.send(
+      success({
+        google: isGoogleConfigured(),
+        apple: Boolean(
+          process.env.APPLE_CLIENT_ID &&
+          process.env.APPLE_TEAM_ID &&
+          process.env.APPLE_KEY_ID &&
+          process.env.APPLE_PRIVATE_KEY,
+        ),
+        dingtalk: isDingtalkConfigured(),
+        enterpriseWechat: isWecomConfigured(),
+        wechat: Boolean(process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET),
+        feishu: isFeishuConfigured(),
+        github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
+        alipay: isAlipayLoginConfigured(),
+      }),
+    )
+  })
+
+  // 用户信息
+  server.get('/auth/info', async (request, reply) => {
+    await authenticate(request)
+    const user = await findUserById(request.userId!)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(
+      success({
+        id: user.id,
+        phone: user.phone,
+        email: user.email,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        gender: user.gender,
+        isVip: user.isVip,
+      }),
+    )
+  })
+
+  // 更新资料 (Phase 5 P0 修复:接受前端 api-client 全部字段)
+  server.put(
+    '/auth/profile',
+    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = z
+        .object({
+          // 兼容两种风格:后端原 snake_case (nickname/email/gender) + 前端 camelCase (avatar/bio/birthday)
+          nickname: z.string().min(1).max(64).optional(),
+          email: z.email().optional(),
+          gender: z.number().int().min(0).max(2).optional(),
+          avatar: z
+            .string()
+            .max(500)
+            .refine(
+              (s) => s.startsWith('/') || s.startsWith('http://') || s.startsWith('https://'),
+              {
+                message: 'avatar 必须是 URL 或以 / 开头的相对路径',
+              },
+            )
+            .optional(),
+          bio: z.string().max(500).optional(),
+          birthday: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}/, 'birthday 格式应为 YYYY-MM-DD')
+            .optional()
+            .nullable(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const d = parsed.data
+      const { nickname, email, gender, avatar, bio, birthday } = d
+      if (
+        nickname === undefined &&
+        email === undefined &&
+        gender === undefined &&
+        avatar === undefined &&
+        bio === undefined &&
+        birthday === undefined
+      ) {
+        return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
+      }
+      // 基础字段走 users 表
+      // P0 合规:昵称/简介等个人资料 UGC 敏感词过滤
+      const toCheck: Record<string, string> = {}
+      if (nickname !== undefined) toCheck.nickname = nickname
+      if (bio !== undefined && bio !== null) toCheck.bio = bio
+      let nicknameSafe = nickname
+      let bioSafe = bio
+      if (Object.keys(toCheck).length > 0) {
+        const filtered = await sanitizeUgcInput(toCheck, {
+          action: 'ugc.profile.update',
+          resourceType: 'user_profile',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        })
+        if (!filtered.ok) {
+          return reply.status(400).send(error(400, '昵称/简介含违规词,修改失败'))
+        }
+        if (filtered.fields.nickname) nicknameSafe = filtered.fields.nickname.text
+        if (filtered.fields.bio) bioSafe = filtered.fields.bio.text
+      }
+      await updateUser(request.userId!, {
+        ...(nicknameSafe !== undefined ? { nickname: nicknameSafe } : {}),
+        ...(email !== undefined ? { email } : {}),
+      })
+      // 扩展字段直写 users (avatar/bio/birthday/gender)
+      const { db } = await import('../db/index.js')
+      const { users } = await import('@ihui/database')
+      const { eq } = await import('drizzle-orm')
+      const updates: Record<string, unknown> = { updatedAt: new Date() }
+      if (avatar !== undefined) updates.avatar = avatar
+      if (bioSafe !== undefined) updates.bio = bioSafe
+      if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
+      if (gender !== undefined) updates.gender = gender
+      if (Object.keys(updates).length > 0) {
+        await db.update(users).set(updates).where(eq(users.id, request.userId!))
+      }
+      // 拉取最新用户信息
+      const fresh = await findUserById(request.userId!)
+      return reply.send(
+        success({
+          id: fresh?.id,
+          nickname: fresh?.nickname ?? nickname ?? null,
+          avatar: fresh?.avatar ?? avatar ?? null,
+          email: fresh?.email ?? email ?? null,
+          bio: fresh?.bio ?? bio ?? null,
+          gender: fresh?.gender ?? gender ?? null,
+          birthday: fresh?.birthday ?? (birthday ? new Date(birthday).toISOString() : null),
+          updated: true,
+        }),
+      )
+    },
+  )
+
+  // 修改密码 (Phase 5 P0 修复:同时接受 camelCase 与 snake_case 字段)
+  server.put(
+    '/auth/profile/password',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = z
+        .object({
+          // 前端 api-client 使用 camelCase
+          oldPassword: z.string().min(1).max(128).optional(),
+          newPassword: z.string().min(6).max(128).optional(),
+          // 兼容旧接口 snake_case
+          old_password: z.string().min(1).max(128).optional(),
+          new_password: z.string().min(6).max(128).optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const oldPwd = parsed.data.oldPassword ?? parsed.data.old_password
+      const newPwd = parsed.data.newPassword ?? parsed.data.new_password
+      if (!oldPwd || !newPwd) {
+        return reply.status(400).send(error(400, '缺少 oldPassword/newPassword'))
+      }
+      if (newPwd.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
+      const user = await findUserById(request.userId!)
+      if (!user?.passwordHash || !(await verifyPassword(oldPwd, user.passwordHash))) {
+        return reply.status(400).send(error(400, '旧密码错误'))
+      }
+      await updateUser(request.userId!, { passwordHash: await hashPassword(newPwd) })
+      return reply.send(success({ success: true, updated: true }))
+    },
+  )
+
+  // 注销
+  server.delete(
+    '/auth/cancel',
+    { config: { rateLimit: { max: 3, timeWindow: '1 hour' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      await cancelUserAccount(request.userId!)
+      return reply.send(success({ cancelled: true }))
+    },
+  )
+
+  // Google OAuth
+  server.get('/auth/google/pc/wxCode', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isGoogleConfigured())
+      return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
+    const info = await exchangeGoogleCode(code)
+    return reply.send(success(info))
+  })
+
+  server.get('/auth/google/android/wxCode', async (request, reply) => {
+    const { id_token } = z.object({ id_token: z.string() }).parse(request.query)
+    if (!isGoogleConfigured())
+      return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
+    const info = await verifyGoogleIdToken(id_token)
+    return reply.send(success(info))
+  })
+
+  // 支付宝登录（auth_code → access_token + user_id）
+  // 与 Google /auth/google/pc/wxCode 风格一致,前端 GET /auth/alipay/pc/wxCode?code=xxx
+  server.get('/auth/alipay/pc/wxCode', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isAlipayLoginConfigured())
+      return reply.send(success({ mock: true, msg: 'Alipay OAuth 未配置' }))
+    const token = await exchangeAlipayCode(code)
+    let info: { nick: string; avatar: string } = { nick: '', avatar: '' }
+    try {
+      const user = await getAlipayUserInfo(token.accessToken)
+      info = { nick: user.nick, avatar: user.avatar }
+    } catch {
+      // user.info.share 失败不影响主流程,用 user_id 作为兜底
+    }
+    return reply.send(
+      success({
+        userId: token.userId,
+        openId: token.openId,
+        unionId: token.unionId,
+        accessToken: token.accessToken,
+        nick: info.nick || `支付宝用户${token.userId.slice(-4)}`,
+        avatar: info.avatar,
+      }),
+    )
+  })
+
+  server.get('/auth/alipay/config', async (_request, reply) => {
+    return reply.send(success({ configured: isAlipayLoginConfigured() }))
+  })
+
+  // 微信小程序登录
+  server.get('/auth/wechat/mini/login', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isWechatMiniConfigured())
+      return reply.send(success({ mock: true, msg: '微信小程序未配置' }))
+    const session = await jscode2session(code)
+    const binding = await findThirdPartyAccount('wechat', session.openId)
+    if (!binding) {
+      return reply.send(
+        success({ needPhone: true, openId: session.openId, unionId: session.unionId }),
+      )
+    }
+    const user = await findUserById(binding.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+    return reply.send(success({ userId: user.id, accessToken, refreshToken }))
+  })
+
+  server.post(
+    '/auth/wechat/mini/phone',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const { code } = codeQuery.parse(request.query)
+      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      const phone = await getPhoneNumber(code)
+      let user = await findUserByPhone(phone)
+      if (!user) {
+        user = await createUser({
+          phone,
+          nickname: `用户${phone.slice(-4)}`,
+          roleId: 0,
+          status: 1,
+        })
+      }
+      return reply.send(success({ userId: user.id, phone }))
+    },
+  )
+
+  server.post(
+    '/auth/wechat/mini/rebind',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const { code } = codeQuery.parse(request.query)
+      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      const session = await jscode2session(code)
+      const existing = await findThirdPartyAccount('wechat', session.openId)
+      if (existing && existing.userId !== request.userId) {
+        return reply.status(409).send(error(409, '该微信已绑定其他账号'))
+      }
+      await removeBindingByPlatform(request.userId!, 'wechat')
+      await createThirdPartyBinding({
+        userId: request.userId!,
+        openId: session.openId,
+        unionId: session.unionId,
+        platform: 'wechat',
+      })
+      return reply.send(success({ rebound: true }))
+    },
+  )
+
+  // POST /auth/bind-user — 绑定/更新用户信息(前端 bindUser)
+  // 入参:nickname / phone / avatar / openId;nickname→users.nickname,openId→userThirdPartyAccounts
+  server.post('/auth/bind-user', { bodyLimit: 1024 * 16 }, async (request, reply) => {
+    await authenticate(request)
+    const userId = request.userId!
+    const body = (request.body ?? {}) as {
+      nickname?: string
+      phone?: string
+      avatar?: string
+      openId?: string
+    }
+
+    const updateData: { nickname?: string; phone?: string; avatar?: string } = {}
+    if (body.nickname) updateData.nickname = body.nickname
+    if (body.phone) updateData.phone = body.phone
+    if (body.avatar) updateData.avatar = body.avatar
+
+    if (Object.keys(updateData).length === 0 && !body.openId) {
+      return reply.send(success({ bound: true, userId, message: '无更新字段' }))
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await updateUser(userId, updateData)
+    }
+
+    if (body.openId) {
+      const existing = await findThirdPartyAccount('wechat', body.openId)
+      if (existing && existing.userId !== userId) {
+        return reply.status(409).send(error(409, '该微信已绑定其他账号'))
+      }
+      if (!existing) {
+        await createThirdPartyBinding({
+          userId,
+          openId: body.openId,
+          platform: 'wechat',
+        })
+      }
+    }
+
+    return reply.send(success({ bound: true, userId, updated: Object.keys(updateData) }))
+  })
+
+  // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
+  server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isWecomConfigured() && !isWecomSuiteConfigured())
+      return reply.send(success({ mock: true, msg: '企业微信未配置' }))
+    try {
+      const session = isWecomConfigured()
+        ? await wecomPcCode2session(code)
+        : await wecomCode2session(code)
+      const binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId)
+      if (!binding) {
+        return reply.send(
+          success({
+            needPhone: true,
+            openId: session.openUserId,
+            unionId: session.openUserId,
+            nick: `企微用户${session.userId.slice(-4)}`,
+          }),
+        )
+      }
+      const user = await findUserById(binding.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
+        user,
+        reply,
+      )
+      return reply.send(
+        success({
+          accessToken,
+          refreshToken,
+          expiresIn,
+          refreshExpiresIn,
+          user: {
+            id: user.id,
+            phone: user.phone ?? undefined,
+            email: user.email ?? undefined,
+            username: user.username ?? undefined,
+            nickname: user.nickname ?? undefined,
+            avatar: user.avatar ?? undefined,
+            bio: user.bio ?? undefined,
+            gender: user.gender,
+            birthday: user.birthday ?? undefined,
+            familyId: user.familyId ?? undefined,
+            roleId: user.roleId ?? 0,
+            status: user.status,
+            isVip: user.isVip,
+            level: user.level,
+            inviteCode: user.inviteCode ?? undefined,
+            parentId: user.parentId ?? undefined,
+            createdAt: user.createdAt?.toISOString() ?? undefined,
+            updatedAt: user.updatedAt?.toISOString() ?? undefined,
+          },
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '企微登录失败'))
+    }
+  })
+
+  // 钉钉扫码登录 — 授权 URL
+  server.get('/auth/dingtalk/auth-url', async (_request, reply) => {
+    if (!isDingtalkConfigured())
+      return reply.send(success({ mock: true, msg: '钉钉 OAuth 未配置' }))
+    const state = generateState()
+    const authUrl = buildDingtalkAuthUrl(state)
+    return reply.send(success({ authUrl, state }))
+  })
+
+  // 钉钉扫码登录 — code 换用户信息 → 查/建用户 → 颁发 JWT
+  server.get('/auth/dingtalk/login', async (request, reply) => {
+    const { code } = codeQuery.parse(request.query)
+    if (!isDingtalkConfigured())
+      return reply.send(success({ mock: true, msg: '钉钉 OAuth 未配置' }))
+    const dingtalkToken = await exchangeDingtalkCode(code)
+    const info = await getDingtalkUserInfo(dingtalkToken)
+    const binding = await findThirdPartyAccount('dingtalk', info.openId)
+    if (!binding) {
+      return reply.send(
+        success({
+          needPhone: true,
+          openId: info.openId,
+          unionId: info.unionId,
+          nick: info.nick,
+          avatar: info.avatarUrl,
+        }),
+      )
+    }
+    const user = await findUserById(binding.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
+      user,
+      reply,
+    )
+    return reply.send(
+      success({
+        accessToken,
+        refreshToken,
+        expiresIn,
+        refreshExpiresIn,
+        user: {
+          id: user.id,
+          phone: user.phone ?? undefined,
+          email: user.email ?? undefined,
+          username: user.username ?? undefined,
+          nickname: user.nickname ?? undefined,
+          avatar: user.avatar ?? undefined,
+          bio: user.bio ?? undefined,
+          gender: user.gender,
+          birthday: user.birthday ?? undefined,
+          familyId: user.familyId ?? undefined,
+          roleId: user.roleId ?? 0,
+          status: user.status,
+          isVip: user.isVip,
+          level: user.level,
+          inviteCode: user.inviteCode ?? undefined,
+          parentId: user.parentId ?? undefined,
+          createdAt: user.createdAt?.toISOString() ?? undefined,
+          updatedAt: user.updatedAt?.toISOString() ?? undefined,
+        },
+      }),
+    )
+  })
+
+  // 图形验证码
+  server.get('/auth/captcha', async (_request, reply) => {
+    const captchaKey = generateCaptchaKey()
+    const code = generateCaptchaCode()
+    const img = generateCaptchaImage(code)
+    await saveCaptcha(captchaKey, code)
+    return reply.send(success({ captchaKey, img }))
+  })
+
+  server.post(
+    '/auth/captcha/verify',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = captchaVerifySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const stored = await findCaptcha(parsed.data.captchaKey)
+      if (!stored) return reply.status(400).send(error(400, '验证码不存在或已过期'))
+      const ok = verifyCaptcha(stored.code, parsed.data.code)
+      await deleteCaptcha(parsed.data.captchaKey)
+      if (!ok) return reply.status(400).send(error(400, '验证码错误'))
+      return reply.send(success({ verified: true }))
+    },
+  )
+
+  // SMS
+  server.post(
+    '/auth/sms/code',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = smsCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await sendSmsCode(parsed.data.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
+
+  // SMS Proxy — 独立短信代理端点（解决旧前端 CORS 直连问题）
+  // P0 安全修复(2026-08-02):公开短信端点无限流可被刷短信轰炸,1 次/分钟/IP。
+  server.post(
+    '/sms-proxy/send',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = smsCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await sendSmsCode(parsed.data.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
+
+  /**
+   * 校验短信验证码。
+   * @body { phone: string, code: string }
+   * @returns { valid: boolean } 验证通过返回 true，否则 false（验证码一次性使用）
+   */
+  server.post(
+    '/sms-proxy/verify',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = smsVerifySchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { verifyCode } = await import('../utils/code-store.js')
+      const valid = await verifyCode(parsed.data.phone, parsed.data.code)
+      if (!valid) return reply.status(400).send(error(400, '验证码错误或已过期'))
+      return reply.send(success({ valid: true }))
+    },
+  )
+
+  /**
+   * 短信验证码注册新用户。
+   * @body { phone: string, code: string, password: string, nickname?: string }
+   * @returns 创建的用户信息（不含密码哈希）
+   */
+  server.post(
+    '/sms-proxy/register',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = smsRegisterSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code, password, nickname } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(phone, code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      if (await checkPhoneExists(phone)) {
+        return reply.status(409).send(error(409, '该手机号已注册'))
+      }
+      const user = await createUser({
+        phone,
+        passwordHash: await hashPassword(password),
+        nickname: nickname ?? `用户${phone.slice(-4)}`,
+        roleId: 0,
+        status: 1,
+      })
+      return reply.status(201).send(
+        success({
+          id: user.id,
+          phone: user.phone,
+          nickname: user.nickname,
+        }),
+      )
+    },
+  )
+
+  /**
+   * 获取短信服务配置信息（不含密钥）。
+   * @returns { configured, provider, apiBaseUrlSet }
+   */
+  server.get('/sms-proxy/config', async (_request, reply) => {
+    const provider =
+      process.env.ALI_SMS_ACCESS_KEY_ID && process.env.ALI_SMS_ACCESS_KEY_SECRET
+        ? 'aliyun'
+        : process.env.SMS_API_BASE_URL
+          ? 'proxy'
+          : 'dev'
+    return reply.send(
+      success({
+        configured: isSmsConfigured(),
+        provider,
+        apiBaseUrlSet: Boolean(process.env.SMS_API_BASE_URL),
+      }),
+    )
+  })
+
+  // OAuth2 授权
+  server.get('/auth/oauth/authorize', async (request, reply) => {
+    await authenticate(request)
+    const { client_id, redirect_uri, state, scope, code_challenge, code_challenge_method } = z
+      .object({
+        client_id: z.string(),
+        redirect_uri: z.string(),
+        state: z.string(),
+        scope: z.string().optional(),
+        code_challenge: z.string().optional(),
+        code_challenge_method: z.string().optional(),
+      })
+      .parse(request.query)
+    if (!state) return reply.status(400).send(error(400, 'state 不能为空'))
+    const app = await findOAuthAppByClientId(client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const redirectUris = (app.redirectUris as string[]) ?? []
+    if (!redirectUris.includes(redirect_uri))
+      return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    // O7 加固(2026-09-21):requested scope ⊆ app.scopes;PKCE 形状 + 公开/现代客户端强制
+    const { granted, rejected } = resolveGrantedScopes(scope, (app.scopes as string[]) ?? [])
+    if (rejected.length > 0)
+      return reply.status(400).send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+    const pkceError = precheckAuthorizePkce({
+      codeChallenge: code_challenge,
+      codeChallengeMethod: code_challenge_method,
+      app,
+      publicClient: isPublicClientApp(app),
+    })
+    if (pkceError) return reply.status(400).send(error(400, pkceError))
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: client_id,
+      userId: request.userId!,
+      state,
+      scope: scope ?? (granted.length > 0 ? granted.join(' ') : undefined),
+      codeChallenge: code_challenge,
+      codeChallengeMethod: code_challenge_method,
+    })
+    await createAuditLog({
+      event: 'authorize',
+      clientId: client_id,
+      userId: request.userId!,
+      status: 'success',
+    })
+    const sep = redirect_uri.includes('?') ? '&' : '?'
+    return reply.send(
+      success({ code, state, redirect_uri: `${redirect_uri}${sep}code=${code}&state=${state}` }),
+    )
+  })
+
+  server.post(
+    '/auth/oauth/token',
+    {
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          code: z.string(),
+          client_id: z.string(),
+          // 公开客户端(PKCE-only)不带 secret:O7 起允许缺省
+          client_secret: z.string().optional(),
+          state: z.string().optional(),
+          code_verifier: z.string().optional(),
+          redirect_uri: z.string().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { code, client_id, client_secret, state, code_verifier, redirect_uri } = parsed.data
+      // O7 安全修复(2026-09-21):此端点历史上只比 client_secret + code/state,
+      // 完全不校验 authorize 时存进 oauth_sessions.codeChallenge 的 PKCE challenge
+      // —— 授权码被注入后,攻击者只要再掌握 client 凭证即可换 token。现统一走
+      // authenticateOAuthClient + gatePkceForSession(与根级 /oauth/token 同一真相源)。
+      const client = await authenticateOAuthClient(request, {
+        client_id,
+        client_secret,
+      })
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
+      const session = await findSessionByCode(code)
+      if (!session || session.isUsed || session.expiresAt < new Date()) {
+        return reply.status(400).send(error(400, '授权码无效或已过期'))
+      }
+      if (session.clientId !== client_id)
+        return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
+      if (state && session.state !== state)
+        return reply.status(400).send(error(400, 'state 不匹配'))
+      if (redirect_uri) {
+        // oauth_sessions 未落 redirect_uri 列,故只能退化为"仍在该 app 白名单内"的校验
+        // (补齐为严格一致需要加列,SQL 见 O7 交付说明)。
+        const uris = (client.app.redirectUris as string[]) ?? []
+        if (!uris.includes(redirect_uri))
+          return reply.status(400).send(error(400, 'redirect_uri 与授权时不一致'))
+      }
+      const pkce = gatePkceForSession({
+        session: {
+          codeChallenge: session.codeChallenge ?? null,
+          codeChallengeMethod: session.codeChallengeMethod ?? null,
+        },
+        codeVerifier: code_verifier,
+        app: client.app,
+        publicClient: client.publicClient,
+      })
+      if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
+      await markSessionUsed(code)
+      const user = await findUserById(session.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+      await createAuditLog({
+        event: 'token',
+        clientId: client_id,
+        userId: user.id,
+        status: 'success',
+      })
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+          scope: session.scope ?? undefined,
+        }),
+      )
+    },
+  )
+
+  /**
+   * POST /auth/oauth/client-credentials — M2M(RFC 6749 §4.4)在 /api 前缀下的别名端点。
+   * 标准发现链路走根级 `POST /oauth/token`(grant_type=client_credentials);
+   * 本别名仅供存量 /api 内部调用方使用,响应沿用项目 `{code,message,data}` 形状。
+   */
+  server.post(
+    '/auth/oauth/client-credentials',
+    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          client_id: z.string().min(1),
+          client_secret: z.string().min(1),
+          scope: z.string().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const client = await authenticateOAuthClient(request, parsed.data)
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
+      const mint = await mintClientCredentialsToken(client.app, parsed.data.scope)
+      if (!mint.ok) return reply.status(mint.status).send(error(mint.status, mint.description))
+      return reply.send(
+        success({
+          access_token: mint.accessToken,
+          token_type: 'Bearer',
+          expires_in: mint.expiresIn,
+          scope: mint.scope,
+        }),
+      )
+    },
+  )
+
+  // OAuth2 应用管理
+  server.post('/auth/oauth/apps/create', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthAppCreateSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const clientId = generateClientId()
+    const clientSecret = generateClientSecret()
+    const app = await createOAuthApp({
+      clientId,
+      clientSecret,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      redirectUris: parsed.data.redirectUris,
+      scopes: parsed.data.scopes,
+      icon: parsed.data.icon,
+      ownerUuid: request.userId!,
+    })
+    return reply.send(success(app))
+  })
+
+  server.get('/auth/oauth/apps/list', async (request, reply) => {
+    await authenticate(request)
+    const { page, limit } = pageLimitQuery.parse(request.query)
+    const result = await listOAuthApps(request.userId!, page, limit)
+    return reply.send(success(result))
+  })
+
+  server.delete('/auth/oauth/apps/:clientId', async (request, reply) => {
+    await authenticate(request)
+    const { clientId } = z.object({ clientId: z.string() }).parse(request.params)
+    await deleteOAuthApp(clientId, request.userId!)
+    return reply.send(success({ deleted: true }))
+  })
+
+  // 已授权应用
+  server.get('/auth/oauth/my-authorized', async (request, reply) => {
+    await authenticate(request)
+    const sessions = await listUserSessions(request.userId!)
+    return reply.send(success({ items: sessions }))
+  })
+
+  server.delete('/auth/oauth/my-authorized/:sessionId', async (request, reply) => {
+    await authenticate(request)
+    const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
+    await deleteSession(sessionId)
+    return reply.send(success({ deleted: true }))
+  })
+
+  // Scope 元数据
+  server.get('/auth/oauth/scope-meta', async (_request, reply) => {
+    const scopes = await listActiveScopeMeta()
+    return reply.send(success({ items: scopes }))
+  })
+
+  // 第三方绑定
+  server.get('/auth/bindings', async (request, reply) => {
+    await authenticate(request)
+    const bindings = await listUserBindings(request.userId!)
+    return reply.send(success({ items: bindings }))
+  })
+
+  server.delete('/auth/bindings/:id', async (request, reply) => {
+    await authenticate(request)
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    await removeBinding(id, request.userId!)
+    return reply.send(success({ deleted: true }))
+  })
+
+  server.post('/auth/bindings/remove', async (request, reply) => {
+    await authenticate(request)
+    const parsed = bindingRemoveSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (parsed.data.uuid !== request.userId) {
+      return reply.status(403).send(error(403, '无权操作此绑定'))
+    }
+    await removeBindingByPlatform(parsed.data.uuid, parsed.data.platform)
+    return reply.send(success({ removed: true }))
+  })
+
+  // 用户 SK
+  server.post('/auth/user-sk/create', async (request, reply) => {
+    await authenticate(request)
+    const key = generateUserSk()
+    const sk = await createUserSk(request.userId!, key)
+    return reply.send(success(sk))
+  })
+
+  server.get('/auth/user-sk/list', async (request, reply) => {
+    await authenticate(request)
+    const { page, limit } = pageLimitQuery.parse(request.query)
+    const result = await listUserSk(request.userId!, page, limit)
+    return reply.send(success(result))
+  })
+
+  server.put('/auth/user-sk/:skId', async (request, reply) => {
+    await authenticate(request)
+    const { skId } = skIdParam.parse(request.params)
+    const { status } = z.object({ status: z.number() }).parse(request.body)
+    await updateUserSk(skId, request.userId!, status)
+    return reply.send(success({ updated: true }))
+  })
+
+  server.delete('/auth/user-sk/:skId', async (request, reply) => {
+    await authenticate(request)
+    const { skId } = skIdParam.parse(request.params)
+    await deleteUserSk(skId, request.userId!)
+    return reply.send(success({ deleted: true }))
+  })
+
+  // 注：实名认证端点已迁移到独立路由文件 auth-identity.ts（M-67）
+
+  // ============================================================================
+  // OAuth 核心端点（迁移自 coze_zhs_py oauth_auth.py，共 20 端点）
+  // 已有: GET /auth/oauth/authorize（授权页面）、POST /auth/oauth/token（令牌交换）
+  // 以下补齐缺失的 18 个端点
+  // ============================================================================
+
+  // --- 设备码流程（device_code → user_code → 授权 → token）---
+  // 设备码映射存储（内存,带 TTL。单实例足够；多实例可改 Redis）
+  const DEVICE_CODE_TTL_MS = 15 * 60 * 1000
+  const deviceCodeStore = new Map<
+    string,
+    {
+      userCode: string
+      clientId: string
+      userId: string | null
+      expiresAt: number
+    }
+  >()
+
+  const oauthDeviceSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().optional(),
+    scope: z.string().optional(),
+  })
+
+  // POST /oauth/device — 设备码授权
+  server.post('/oauth/device', async (request, reply) => {
+    const parsed = oauthDeviceSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const deviceCode = randomBytes(16).toString('hex')
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成设备授权 userCode,
+    // userCode 可预测 -> 攻击者可劫持 OAuth 设备授权流程
+    const userCode = generateShortCode(6)
+    deviceCodeStore.set(deviceCode, {
+      userCode,
+      clientId: parsed.data.client_id,
+      userId: null,
+      expiresAt: Date.now() + DEVICE_CODE_TTL_MS,
+    })
+    return reply.send(
+      success({
+        device_code: deviceCode,
+        user_code: userCode,
+        verification_uri: '/oauth/sms-login',
+        expires_in: DEVICE_CODE_TTL_MS / 1000,
+        interval: 5,
+      }),
+    )
+  })
+
+  const oauthDeviceTokenSchema = z.object({
+    device_code: z.string().min(1),
+    client_id: z.string().min(1),
+  })
+
+  // POST /oauth/device/token — 设备码换 token（轮询）
+  server.post('/oauth/device/token', async (request, reply) => {
+    const parsed = oauthDeviceTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const entry = deviceCodeStore.get(parsed.data.device_code)
+    if (!entry) return reply.status(400).send(error(400, 'device_code 无效'))
+    if (Date.now() > entry.expiresAt) {
+      deviceCodeStore.delete(parsed.data.device_code)
+      return reply.status(400).send(error(400, 'device_code 已过期'))
+    }
+    if (!entry.userId) return reply.status(428).send(error(428, 'authorization_pending'))
+    const user = await findUserById(entry.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    deviceCodeStore.delete(parsed.data.device_code)
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+    await createAuditLog({
+      event: 'device_token',
+      clientId: entry.clientId,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  const oauthRefreshSchema = z.object({
+    refresh_token: z.string().min(1),
+    client_id: z.string().optional(),
+  })
+
+  // POST /oauth/device/refresh — 刷新设备 token（O7:统一走 family 重用检测）
+  server.post('/oauth/device/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    await createAuditLog({ event: 'device_refresh', userId: result.userId, status: 'success' })
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
+  })
+
+  // --- Web 授权流程（POST 版本，与已有 GET /auth/oauth/authorize 互补）---
+
+  const oauthWebAuthorizeSchema = z.object({
+    client_id: z.string().min(1),
+    redirect_uri: z.url(),
+    state: z.string().min(1),
+    scope: z.string().optional(),
+    code_challenge: z.string().optional(),
+    code_challenge_method: z.string().optional(),
+  })
+
+  // POST /oauth/web/authorize — Web 授权
+  server.post('/oauth/web/authorize', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthWebAuthorizeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const redirectUris = (app.redirectUris as string[]) ?? []
+    if (!redirectUris.includes(parsed.data.redirect_uri))
+      return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    // O7:与 GET /auth/oauth/authorize 同规则(scope 收敛 + PKCE 前置校验)
+    const { rejected } = resolveGrantedScopes(parsed.data.scope, (app.scopes as string[]) ?? [])
+    if (rejected.length > 0)
+      return reply.status(400).send(error(400, `scope 未被该应用授权: ${rejected.join(' ')}`))
+    const pkceError = precheckAuthorizePkce({
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
+      app,
+      publicClient: isPublicClientApp(app),
+    })
+    if (pkceError) return reply.status(400).send(error(400, pkceError))
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: parsed.data.client_id,
+      userId: request.userId!,
+      state: parsed.data.state,
+      scope: parsed.data.scope,
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
+    })
+    const sep = parsed.data.redirect_uri.includes('?') ? '&' : '?'
+    return reply.send(
+      success({
+        code,
+        state: parsed.data.state,
+        redirect_uri: `${parsed.data.redirect_uri}${sep}code=${code}&state=${parsed.data.state}`,
+      }),
+    )
+  })
+
+  const oauthTokenExchangeSchema = z.object({
+    code: z.string().min(1),
+    client_id: z.string().min(1),
+    client_secret: z.string().min(1).optional(),
+    state: z.string().optional(),
+    code_verifier: z.string().optional(),
+  })
+
+  // POST /oauth/web/token — Web 换 token
+  server.post('/oauth/web/token', async (request, reply) => {
+    const parsed = oauthTokenExchangeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const client = await authenticateOAuthClient(request, parsed.data)
+    if (!client.ok)
+      return reply.status(client.status).send(error(client.status, client.description))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    const pkce = gatePkceForSession({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      app: client.app,
+      publicClient: client.publicClient,
+    })
+    if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+    await createAuditLog({
+      event: 'web_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  // POST /oauth/web/refresh — 刷新 Web token（O7:统一走 family 重用检测）
+  server.post('/oauth/web/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
+  })
+
+  // --- PKCE 授权流程 ---
+
+  const oauthPkceAuthorizeSchema = z.object({
+    client_id: z.string().min(1),
+    redirect_uri: z.url(),
+    state: z.string().min(1),
+    scope: z.string().optional(),
+    code_challenge: z.string().min(1),
+    code_challenge_method: z.literal('S256'),
+  })
+
+  // POST /oauth/pkce/authorize — PKCE 授权
+  server.post('/oauth/pkce/authorize', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthPkceAuthorizeSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    const redirectUris = (app.redirectUris as string[]) ?? []
+    if (!redirectUris.includes(parsed.data.redirect_uri))
+      return reply.status(400).send(error(400, 'redirect_uri 不在白名单'))
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: parsed.data.client_id,
+      userId: request.userId!,
+      state: parsed.data.state,
+      scope: parsed.data.scope,
+      codeChallenge: parsed.data.code_challenge,
+      codeChallengeMethod: parsed.data.code_challenge_method,
+    })
+    const sep = parsed.data.redirect_uri.includes('?') ? '&' : '?'
+    return reply.send(
+      success({
+        code,
+        state: parsed.data.state,
+        redirect_uri: `${parsed.data.redirect_uri}${sep}code=${code}&state=${parsed.data.state}`,
+      }),
+    )
+  })
+
+  const oauthPkceTokenSchema = z.object({
+    code: z.string().min(1),
+    client_id: z.string().min(1),
+    code_verifier: z.string().min(1),
+  })
+
+  // POST /oauth/pkce/token — PKCE 换 token(公开客户端专用,不做 client_secret 校验)
+  server.post('/oauth/pkce/token', async (request, reply) => {
+    const parsed = oauthPkceTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    if (session.clientId !== parsed.data.client_id)
+      return reply.status(400).send(error(400, '授权码与 client_id 不匹配'))
+    // O7:inline sha256 比对 → 收敛到 evaluatePkce(唯一真相源,公开客户端强制 PKCE,
+    // 并拒绝 S256 之外的 code_challenge_method)
+    const pkce = evaluatePkce({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      isPublicClient: true,
+      policy: pkcePolicyFromEnv(),
+      requirePkceForClient: true,
+    })
+    if (!pkce.ok) return reply.status(400).send(error(400, pkce.description))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+    await createAuditLog({
+      event: 'pkce_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        token_type: 'Bearer',
+        expires_in: expiresIn,
+      }),
+    )
+  })
+
+  // POST /oauth/pkce/refresh — 刷新 PKCE token（O7:统一走 family 重用检测）
+  server.post('/oauth/pkce/refresh', async (request, reply) => {
+    const parsed = oauthRefreshSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+    if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+    return reply.send(
+      success({
+        access_token: result.tokens.accessToken,
+        refresh_token: result.tokens.refreshToken,
+        token_type: 'Bearer',
+        expires_in: result.tokens.expiresIn,
+      }),
+    )
+  })
+
+  // --- JWT 授权 ---
+
+  const oauthJwtTokenSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().optional(),
+    assertion: z.string().min(1),
+    grant_type: z.literal('urn:ietf:params:oauth:grant-type:jwt-bearer'),
+  })
+
+  // POST /oauth/jwt/token — JWT 授权（private_key_jwt）
+  server.post('/oauth/jwt/token', async (request, reply) => {
+    const parsed = oauthJwtTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const app = await findOAuthAppByClientId(parsed.data.client_id)
+    if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
+    if (parsed.data.client_secret && app.clientSecret !== parsed.data.client_secret)
+      return reply.status(401).send(error(401, '应用凭证错误'))
+    // 校验 assertion（JWT格式: header.payload.signature）
+    const parts = parsed.data.assertion.split('.')
+    if (parts.length !== 3) return reply.status(400).send(error(400, 'assertion 格式无效'))
+    try {
+      const payloadJson = JSON.parse(Buffer.from(parts[1]!, 'base64url').toString()) as {
+        sub?: string
+        exp?: number
+      }
+      if (payloadJson.exp && payloadJson.exp * 1000 < Date.now())
+        return reply.status(400).send(error(400, 'assertion 已过期'))
+      const userId = payloadJson.sub
+      if (!userId) return reply.status(400).send(error(400, 'assertion 缺少 sub'))
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+      await createAuditLog({
+        event: 'jwt_token',
+        clientId: parsed.data.client_id,
+        userId: user.id,
+        status: 'success',
+      })
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    } catch {
+      return reply.status(400).send(error(400, 'assertion 解析失败'))
+    }
+  })
+
+  // --- 确认授权 / 多路径兼容 / 调试 ---
+
+  const oauthConfirmSchema = z.object({
+    user_code: z.string().min(1),
+  })
+
+  // POST /oauth/authorize/confirm — 确认授权（设备码流程用户确认）
+  server.post('/oauth/authorize/confirm', async (request, reply) => {
+    await authenticate(request)
+    const parsed = oauthConfirmSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    let deviceEntry: {
+      key: string
+      value: { userCode: string; clientId: string; userId: string | null; expiresAt: number }
+    } | null = null
+    for (const [key, value] of deviceCodeStore) {
+      if (value.userCode === parsed.data.user_code) {
+        deviceEntry = { key, value }
+        break
+      }
+    }
+    if (!deviceEntry) return reply.status(404).send(error(404, 'user_code 无效'))
+    if (Date.now() > deviceEntry.value.expiresAt) {
+      deviceCodeStore.delete(deviceEntry.key)
+      return reply.status(400).send(error(400, 'user_code 已过期'))
+    }
+    deviceEntry.value.userId = request.userId!
+    return reply.send(success({ confirmed: true, user_code: parsed.data.user_code }))
+  })
+
+  const oauthAccessTokenSchema = z.object({
+    client_id: z.string().min(1),
+    client_secret: z.string().min(1).optional(),
+    code: z.string().min(1),
+    code_verifier: z.string().optional(),
+  })
+
+  // POST /oauth/access_token — 访问令牌（多路径兼容，同 /auth/oauth/token）
+  server.post('/oauth/access_token', async (request, reply) => {
+    const parsed = oauthAccessTokenSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const client = await authenticateOAuthClient(request, parsed.data)
+    if (!client.ok)
+      return reply.status(client.status).send(error(client.status, client.description))
+    const session = await findSessionByCode(parsed.data.code)
+    if (!session || session.isUsed || session.expiresAt < new Date())
+      return reply.status(400).send(error(400, '授权码无效或已过期'))
+    const pkce = gatePkceForSession({
+      session: {
+        codeChallenge: session.codeChallenge ?? null,
+        codeChallengeMethod: session.codeChallengeMethod ?? null,
+      },
+      codeVerifier: parsed.data.code_verifier,
+      app: client.app,
+      publicClient: client.publicClient,
+    })
+    if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
+    await markSessionUsed(parsed.data.code)
+    const user = await findUserById(session.userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    const { accessToken, expiresIn } = await buildTokenPair(user, reply)
+    await createAuditLog({
+      event: 'access_token',
+      clientId: parsed.data.client_id,
+      userId: user.id,
+      status: 'success',
+    })
+    return reply.send(
+      success({ access_token: accessToken, token_type: 'Bearer', expires_in: expiresIn }),
+    )
+  })
+
+  // POST /oauth/token/exchange — 令牌交换（多路径兼容）
+  server.post('/oauth/token/exchange', async (request, reply) => {
+    const body = request.body as Record<string, string | undefined>
+    const grantType = body.grant_type
+    // authorization_code 流程
+    if (grantType === 'authorization_code' || body.code) {
+      const parsed = oauthTokenExchangeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const client = await authenticateOAuthClient(request, parsed.data)
+      if (!client.ok)
+        return reply.status(client.status).send(error(client.status, client.description))
+      const session = await findSessionByCode(parsed.data.code)
+      if (!session || session.isUsed || session.expiresAt < new Date())
+        return reply.status(400).send(error(400, '授权码无效或已过期'))
+      const pkce = gatePkceForSession({
+        session: {
+          codeChallenge: session.codeChallenge ?? null,
+          codeChallengeMethod: session.codeChallengeMethod ?? null,
+        },
+        codeVerifier: parsed.data.code_verifier,
+        app: client.app,
+        publicClient: client.publicClient,
+      })
+      if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
+      await markSessionUsed(parsed.data.code)
+      const user = await findUserById(session.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      const { accessToken, refreshToken, expiresIn } = await buildTokenPair(user, reply)
+      return reply.send(
+        success({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          token_type: 'Bearer',
+          expires_in: expiresIn,
+        }),
+      )
+    }
+    // refresh_token 流程
+    if (grantType === 'refresh_token' || body.refresh_token) {
+      const parsed = oauthRefreshSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const result = await rotateRefreshTokenFlow(parsed.data.refresh_token)
+      if (!result.ok) return reply.status(result.status).send(error(result.status, result.message))
+      return reply.send(
+        success({
+          access_token: result.tokens.accessToken,
+          refresh_token: result.tokens.refreshToken,
+          token_type: 'Bearer',
+          expires_in: result.tokens.expiresIn,
+        }),
+      )
+    }
+    return reply.status(400).send(error(400, '不支持的 grant_type'))
+  })
+
+  // GET /oauth/token/test — 测试令牌
+  server.get('/oauth/token/test', async (request, reply) => {
+    const authHeader = request.headers.authorization
+    if (!authHeader?.startsWith('Bearer '))
+      return reply.status(401).send(error(401, '缺少 Bearer token'))
+    const token = authHeader.slice(7)
+    try {
+      const { verifyAccessToken } = await import('@ihui/auth')
+      const payload = await verifyAccessToken(token)
+      return reply.send(success({ valid: true, userId: payload.userId, roleId: payload.roleId }))
+    } catch {
+      return reply.status(401).send(error(401, 'token 无效或已过期'))
+    }
+  })
+
+  // POST /oauth/debug/callback — 调试回调（生产环境禁止）
+  server.post('/oauth/debug/callback', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production')
+      return reply.status(403).send(error(403, '生产环境禁止调试端点'))
+    const body = request.body as Record<string, unknown>
+    await createAuditLog({
+      event: 'debug_callback',
+      status: 'success',
+      detail: JSON.stringify(body),
+    })
+    return reply.send(success({ received: true, echoed: body }))
+  })
+
+  // GET /oauth/sms-config — 短信配置（同 /sms-proxy/config，多路径兼容）
+  server.get('/oauth/sms-config', async (_request, reply) => {
+    const provider =
+      process.env.ALI_SMS_ACCESS_KEY_ID && process.env.ALI_SMS_ACCESS_KEY_SECRET
+        ? 'aliyun'
+        : process.env.SMS_API_BASE_URL
+          ? 'proxy'
+          : 'dev'
+    return reply.send(
+      success({
+        configured: isSmsConfigured(),
+        provider,
+        apiBaseUrlSet: Boolean(process.env.SMS_API_BASE_URL),
+      }),
+    )
+  })
+
+  // POST /oauth/debug/create-test-session — 创建测试会话
+  server.post('/oauth/debug/create-test-session', async (request, reply) => {
+    if (process.env.NODE_ENV === 'production')
+      return reply.status(403).send(error(403, '生产环境禁止调试端点'))
+    await authenticate(request)
+    const { client_id } = z.object({ client_id: z.string().optional() }).parse(request.body)
+    const code = generateAuthCode()
+    await createOAuthSession({
+      code,
+      clientId: client_id ?? 'test_client',
+      userId: request.userId!,
+      state: 'test_state',
+    })
+    return reply.send(success({ code, state: 'test_state', message: '测试会话已创建,5分钟内有效' }))
+  })
+
+  // GET /oauth/sms-login — 短信登录页（返回页面配置信息,前端渲染）
+  server.get('/oauth/sms-login', async (_request, reply) => {
+    return reply.send(
+      success({
+        page: 'sms-login',
+        smsConfigured: isSmsConfigured(),
+        sendCodeEndpoint: '/api/auth/sms/code',
+        verifyEndpoint: '/api/sms-proxy/verify',
+      }),
+    )
+  })
+
+  // ========== 历史补齐:Coze PAT（个人访问令牌）端点 ==========
+  // 迁移自 coze_zhs_py/api/auth.py 的 /pat + /pat/async。
+  // 新架构不依赖 coze-py SDK，直接 HTTP 调用 Coze /v1/users/me。
+  const patRequestSchema = z.object({
+    token: z.string().min(1),
+    baseUrl: z.url().optional(),
+  })
+
+  const COZE_DEFAULT_BASE_URL = 'https://api.coze.cn'
+
+  /**
+   * POST /auth/pat — 使用 Coze PAT 验证身份（同步）。
+   * @body { token: string, baseUrl?: string }
+   * @returns { success: true, user: { name, ... } }
+   */
+  server.post(
+    '/auth/pat',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = patRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { token, baseUrl } = parsed.data
+      const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) {
+          return reply.status(401).send(error(401, `Coze 认证失败: HTTP ${res.status}`))
+        }
+        const data = (await res.json()) as {
+          code?: number
+          msg?: string
+          data?: { user_name?: string; nickname?: string; user_id?: string }
+        }
+        if (data.code !== 0) {
+          return reply.status(401).send(error(401, data.msg ?? 'Coze 认证失败'))
+        }
+        const user = data.data ?? {}
+        return reply.send(
+          success({
+            authenticated: true,
+            user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(401)
+          .send(
+            error(401, `认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`),
+          )
+      }
+    },
+  )
+
+  /**
+   * POST /auth/pat/async — 使用 Coze PAT 验证身份（异步,语义与 /pat 一致,保留端点兼容）。
+   * @body { token: string, baseUrl?: string }
+   */
+  server.post(
+    '/auth/pat/async',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = patRequestSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { token, baseUrl } = parsed.data
+      const apiUrl = `${baseUrl ?? COZE_DEFAULT_BASE_URL}/v1/users/me`
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) {
+          return reply.status(401).send(error(401, `Coze 异步认证失败: HTTP ${res.status}`))
+        }
+        const data = (await res.json()) as {
+          code?: number
+          msg?: string
+          data?: { user_name?: string; nickname?: string; user_id?: string }
+        }
+        if (data.code !== 0) {
+          return reply.status(401).send(error(401, data.msg ?? 'Coze 异步认证失败'))
+        }
+        const user = data.data ?? {}
+        return reply.send(
+          success({
+            authenticated: true,
+            user: { name: user.user_name ?? user.nickname ?? '', userId: user.user_id ?? null },
+          }),
+        )
+      } catch (e) {
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              `异步认证失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+            ),
+          )
+      }
+    },
+  )
+
+  // ============================================================================
+  // 换手机号四步流程（前端 auth-api.ts 调用 /api/auth/change-phone/*）
+  // ============================================================================
+
+  // POST /auth/change-phone/send-old-code — 向当前手机号发送验证码
+  // P0 安全修复(2026-08-02):换号短信验证码端点限流 1 次/分钟,防刷短信。
+  server.post(
+    '/auth/change-phone/send-old-code',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const user = await findUserById(request.userId!)
+      if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+      const result = await sendSmsCode(user.phone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
+
+  // POST /auth/change-phone/verify-old-code — 校验当前手机号验证码
+  const oldCodeSchema = z.object({ code: z.string().length(6) })
+  server.post(
+    '/auth/change-phone/verify-old-code',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const user = await findUserById(request.userId!)
+      if (!user?.phone) return reply.status(400).send(error(400, '当前账号未绑定手机号'))
+      const parsed = oldCodeSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(user.phone, parsed.data.code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      return reply.send(success({ verified: true }))
+    },
+  )
+
+  // POST /auth/change-phone/send-new-code — 向新手机号发送验证码
+  const newPhoneSchema = z.object({
+    newPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+  })
+  server.post(
+    '/auth/change-phone/send-new-code',
+    { config: { rateLimit: { max: 1, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = newPhoneSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { newPhone } = parsed.data
+      const existing = await findUserByPhone(newPhone)
+      if (existing && existing.id !== request.userId) {
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      }
+      const result = await sendSmsCode(newPhone)
+      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      return reply.send(success({ sent: true }))
+    },
+  )
+
+  // POST /auth/change-phone/confirm — 确认换号（校验新手机号验证码并更新）
+  const confirmSchema = z.object({
+    newPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    code: z.string().length(6, '验证码必须为 6 位'),
+  })
+  server.post(
+    '/auth/change-phone/confirm',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      await authenticate(request)
+      const parsed = confirmSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { newPhone, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(newPhone, code))) {
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      }
+      const existing = await findUserByPhone(newPhone)
+      if (existing && existing.id !== request.userId) {
+        return reply.status(409).send(error(409, '该手机号已被其他账号绑定'))
+      }
+      const updated = await updateUser(request.userId!, { phone: newPhone })
+      return reply.send(success({ user: { id: updated.id, phone: updated.phone ?? '' } }))
+    },
+  )
+
+  // ============================================================================
+  // 第三方登录统一回调 POST /auth/:platform/callback
+  // 前端 use-third-party-auth.ts handleCallback 调用,接收 { code, state },
+  // 按 platform 分发到各厂商 API 换取用户信息,查/建用户,返回 token+user。
+  // ============================================================================
+
+  const platformCallbackParam = z.object({
+    platform: z.enum([
+      'google',
+      'apple',
+      'dingtalk',
+      'enterpriseWechat',
+      'wechat',
+      'feishu',
+      'github',
+      'alipay',
+    ]),
+  })
+  const platformCallbackBody = z.object({
+    code: z.string().min(1),
+    state: z.string().min(1),
+  })
+
+  server.post('/auth/:platform/callback', async (request, reply) => {
+    const paramParsed = platformCallbackParam.safeParse(request.params)
+    if (!paramParsed.success) return reply.status(400).send(error(400, '不支持的平台'))
+    const bodyParsed = platformCallbackBody.safeParse(request.body)
+    if (!bodyParsed.success)
+      return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+    const { platform } = paramParsed.data
+    const { code } = bodyParsed.data
+
+    let openId: string
+    let unionId: string | undefined
+    let nickname: string | undefined
+    let avatar: string | undefined
+    let email: string | undefined
+
+    try {
+      switch (platform) {
+        case 'google': {
+          if (!isGoogleConfigured())
+            return reply.status(400).send(error(400, 'Google OAuth 未配置'))
+          const info = await exchangeGoogleCode(code)
+          openId = info.openId
+          email = info.email
+          nickname = info.name
+          avatar = info.picture
+          break
+        }
+        case 'github': {
+          const ghClientId = process.env.GITHUB_CLIENT_ID
+          const ghSecret = process.env.GITHUB_CLIENT_SECRET
+          if (!ghClientId || !ghSecret)
+            return reply.status(400).send(error(400, 'GitHub OAuth 未配置'))
+          const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ client_id: ghClientId, client_secret: ghSecret, code }),
+          })
+          const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
+          if (!tokenData.access_token)
+            return reply.status(400).send(error(400, 'GitHub 授权码无效'))
+          const userRes = await fetch('https://api.github.com/user', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+          })
+          const ghUser = (await userRes.json()) as {
+            id: number
+            login: string
+            avatar_url: string
+            email: string | null
+          }
+          openId = String(ghUser.id)
+          nickname = ghUser.login
+          avatar = ghUser.avatar_url
+          email = ghUser.email ?? undefined
+          break
+        }
+        case 'dingtalk': {
+          if (!isDingtalkConfigured())
+            return reply.status(400).send(error(400, '钉钉 OAuth 未配置'))
+          const dt = await exchangeDingtalkCode(code)
+          const info = await getDingtalkUserInfo(dt)
+          openId = info.openId
+          unionId = info.unionId
+          nickname = info.nick
+          avatar = info.avatarUrl
+          break
+        }
+        case 'enterpriseWechat': {
+          // 优先自建应用 PC 网页扫码模式(WECOM_CORP_ID + WECOM_AGENT_ID + WECOM_SECRET)
+          // 回退到 suite 模式(第三方应用服务商,仅小程序场景)
+          if (!isWecomConfigured() && !isWecomSuiteConfigured())
+            return reply.status(400).send(error(400, '企业微信未配置'))
+          const session = isWecomConfigured()
+            ? await wecomPcCode2session(code)
+            : await wecomCode2session(code)
+          openId = session.openUserId || session.userId
+          break
+        }
+        case 'feishu': {
+          if (!isFeishuConfigured()) return reply.status(400).send(error(400, '飞书 OAuth 未配置'))
+          const feishuToken = await getFeishuAccessToken(code)
+          const feishuInfo = await getFeishuUserInfo(feishuToken.accessToken)
+          openId = feishuInfo.openId
+          unionId = feishuInfo.unionId
+          nickname = feishuInfo.name
+          avatar = feishuInfo.avatar
+          break
+        }
+        case 'wechat': {
+          const wxAppId = process.env.WECHAT_APP_ID
+          const wxSecret = process.env.WECHAT_APP_SECRET
+          if (!wxAppId || !wxSecret) return reply.status(400).send(error(400, '微信 OAuth 未配置'))
+          // 2026-07-22 P0 Round 3:微信 API 限制 secret 必须在 query(官方设计),
+          // 通过 HTTPS 传输保护 + 10s 超时防挂起(无法移到 POST body)
+          const tokenRes = await fetch(
+            `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${wxAppId}&secret=${wxSecret}&code=${code}&grant_type=authorization_code`,
+            { signal: AbortSignal.timeout(10_000) },
+          )
+          const tokenData = (await tokenRes.json()) as {
+            access_token?: string
+            openid?: string
+            unionid?: string
+            errcode?: number
+          }
+          if (!tokenData.access_token || !tokenData.openid)
+            return reply.status(400).send(error(400, '微信授权码无效'))
+          const userRes = await fetch(
+            `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+            { signal: AbortSignal.timeout(10_000) },
+          )
+          const wxUser = (await userRes.json()) as {
+            openid: string
+            unionid?: string
+            nickname?: string
+            headimgurl?: string
+          }
+          openId = wxUser.openid
+          unionId = wxUser.unionid
+          nickname = wxUser.nickname
+          avatar = wxUser.headimgurl
+          break
+        }
+        case 'apple': {
+          // Apple OAuth 框架实现:接收 code/state,尝试用预签名 client_secret 换取 token。
+          // 完整实现需用 Apple 私钥签名 client_secret JWT,此处支持两种模式:
+          //   1) APPLE_CLIENT_SECRET 已为签名后的 JWT → 真实交换并解码 id_token
+          //   2) 未配置 → 返回回调已接收的框架响应
+          const appleClientId = process.env.APPLE_CLIENT_ID
+          const appleClientSecret = process.env.APPLE_CLIENT_SECRET
+          if (!appleClientId) {
+            return reply.status(400).send(error(400, 'Apple OAuth 未配置 (APPLE_CLIENT_ID 缺失)'))
+          }
+          if (appleClientSecret) {
+            const tokenRes = await fetch('https://appleid.apple.com/auth/token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({
+                client_id: appleClientId,
+                client_secret: appleClientSecret,
+                code,
+                grant_type: 'authorization_code',
+              }),
+            })
+            const tokenData = (await tokenRes.json()) as {
+              access_token?: string
+              id_token?: string
+              refresh_token?: string
+              error?: string
+              error_description?: string
+            }
+            if (!tokenData.id_token) {
+              return reply
+                .status(400)
+                .send(
+                  error(
+                    400,
+                    `Apple token 交换失败: ${tokenData.error ?? '未知错误'}${tokenData.error_description ? ` — ${tokenData.error_description}` : ''}`,
+                  ),
+                )
+            }
+            // 解码 id_token payload 获取 sub(Apple 用户唯一标识)与 email
+            const payloadB64 = tokenData.id_token.split('.')[1]
+            if (!payloadB64) {
+              return reply.status(400).send(error(400, 'Apple id_token 格式无效'))
+            }
+            const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8')) as {
+              sub: string
+              email?: string
+            }
+            openId = payload.sub
+            email = payload.email
+            break
+          }
+          // 框架返回:未配置私钥,仅确认收到回调
+          return reply.send(
+            success({
+              status: 'apple_callback_received',
+              code,
+              state: bodyParsed.data.state,
+              note: '需配置 Apple 私钥生成 client_secret JWT (APPLE_CLIENT_SECRET) 以完成 token 交换',
+              missing: {
+                clientSecret: true,
+                teamId: !process.env.APPLE_TEAM_ID,
+                keyId: !process.env.APPLE_KEY_ID,
+                privateKey: !process.env.APPLE_PRIVATE_KEY,
+              },
+            }),
+          )
+        }
+        case 'alipay': {
+          // 支付宝使用 auth_code → access_token 模式(与 Google/微信一致,但需在请求体
+          // 用 auth_code 字段而非 code 字段——前端 ThirdPartyLoginButtons 已做区分)。
+          // 这里兼容两种字段名以提升韧性。
+          const alipayAuthCode = (request.body as { auth_code?: string }).auth_code ?? code
+          if (!isAlipayLoginConfigured())
+            return reply
+              .status(400)
+              .send(error(400, '支付宝 OAuth 未配置 (ALIPAY_APP_ID/ALIPAY_PRIVATE_KEY 缺失)'))
+          const token = await exchangeAlipayCode(alipayAuthCode)
+          let info: { nick?: string; avatar?: string } = {}
+          try {
+            const user = await getAlipayUserInfo(token.accessToken)
+            info = { nick: user.nick, avatar: user.avatar }
+          } catch {
+            // user.info.share 失败不影响主流程,用 user_id 兜底
+          }
+          openId = token.userId
+          unionId = token.unionId
+          nickname = info.nick || `支付宝用户${token.userId.slice(-4)}`
+          avatar = info.avatar
+          break
+        }
+      }
+    } catch (e) {
+      return reply
+        .status(500)
+        .send(
+          error(
+            500,
+            `${platform} 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
+    }
+
+    const binding = await findThirdPartyAccount(platform, openId)
+    let user
+    if (binding) {
+      user = await findUserById(binding.userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    } else {
+      user = await createUser({
+        email,
+        nickname: nickname ?? `用户${openId.slice(-6)}`,
+        avatar,
+        roleId: 0,
+        status: 1,
+      })
+      await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
+    }
+
+    const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+    return reply.send(
+      success({
+        token: accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          username: user.username ?? '',
+          email: user.email ?? '',
+          nickname: user.nickname ?? '',
+          avatar: user.avatar ?? '',
+          isVip: Boolean(user.isVip),
+          inviteCode: user.inviteCode ?? '',
+          createTime: user.createdAt?.toISOString() ?? '',
+        },
+      }),
+    )
+  })
+
+  // ============================================================================
+  // 前端 API 路由扫描兼容：OAuth provider 重定向通常为 GET，前端对象字面量路径
+  // 也被脚本扫描为 GET。这里提供 GET 版本并内部转发到 POST handler。
+  // ============================================================================
+
+  server.get('/auth/:platform/callback', async (request, reply) => {
+    const { platform } = z.object({ platform: z.string() }).parse(request.params)
+    const { code, state } = z
+      .object({ code: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/auth/${platform}/callback`,
+      payload: { code, state },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+
+  server.get('/auth/callback/wechat', async (request, reply) => {
+    const { code, state } = z
+      .object({ code: z.string(), state: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/wechat/callback',
+      payload: { code, state },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+
+  // 手机短信验证码登录
+  server.post(
+    '/auth/login/phone-code',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = z
+        .object({ phone: z.string().min(1), code: z.string().length(6) })
+        .safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      const { phone, code } = parsed.data
+      const { verifyCode } = await import('../utils/code-store.js')
+      if (!(await verifyCode(phone, code)))
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
+      let user = await findUserByPhone(phone)
+      if (!user) {
+        user = await createUser({
+          phone,
+          nickname: `用户${phone.slice(-4)}`,
+          roleId: 0,
+          status: 1,
+        })
+      }
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const tokens = await buildTokenPair(user, reply)
+      return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
+    },
+  )
+
+  // ============================================================
+  // 双因素认证 (2FA/MFA) - TOTP (RFC 6238)
+  // ============================================================
+  // 启用流程:setup(生成密钥+QR) → verify(输入 6 位码,启用 + 返回 backup codes 明文,只此一次)
+  // 登录流程:密码校验通过 + twoFactorEnabled=true → 返回 challengeToken(5min)
+  //         前端用 challengeToken 调 /auth/2fa/login-verify(POST,接收 TOTP 或 backup code)
+
+  // GET /api/auth/2fa/status — 查询当前用户 2FA 状态
+  server.get(
+    '/auth/2fa/status',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '查询 2FA 状态',
+        tags: ['auth', '2fa'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  enabled: { type: 'boolean' },
+                  hasBackupCodes: { type: 'boolean' },
+                  enabledAt: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = await findUserById(request.userId!)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      return reply.send(
+        success({
+          enabled: user.twoFactorEnabled,
+          hasBackupCodes: (user.twoFactorBackupCodes?.length ?? 0) > 0,
+          enabledAt: user.twoFactorEnabledAt ? user.twoFactorEnabledAt.toISOString() : null,
+        }),
+      )
+    },
+  )
+
+  // POST /api/auth/2fa/setup — 生成 TOTP 密钥 + QR 码(扫码确认前 enabled 仍为 false)
+  server.post(
+    '/auth/2fa/setup',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '生成 2FA 密钥 + QR 码',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          properties: {
+            accountName: {
+              type: 'string',
+              description: 'Authenticator 显示的账号名(可选,默认用 email/phone)',
+            },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  secret: { type: 'string', description: 'Base32 编码的密钥(可手动输入)' },
+                  uri: { type: 'string', description: 'otpauth:// URI' },
+                  qrCode: { type: 'string', description: 'data:image/png;base64,... QR 码' },
+                },
+              },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.twoFactorEnabled) {
+        return reply.status(400).send(error(400, '2FA 已启用,如需重置请先禁用'))
+      }
+
+      const secret = generateSecret() // 20 bytes CSPRNG
+      const accountName =
+        (request.body as { accountName?: string } | null)?.accountName ??
+        user.email ??
+        user.phone ??
+        userId
+      const uri = buildOtpauthUri({ secret, accountName, issuer: 'IHUI-AI' })
+      const qrCode = await generateQrCodeDataUrl(uri)
+
+      // 加密存储 secret 到 bytea(此时 twoFactorEnabled 仍为 false,等 /verify 确认后才置 true)
+      const encryptedBuf = encryptTwoFactorSecret(secret)
+      await db
+        .update(users)
+        .set({
+          twoFactorSecret: encryptedBuf,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+
+      return reply.send(
+        success({
+          secret: base32Encode(secret),
+          uri,
+          qrCode,
+        }),
+      )
+    },
+  )
+
+  // POST /api/auth/2fa/verify — 校验 TOTP 6 位码,启用 2FA + 返回 backup codes(明文,只此一次)
+  server.post(
+    '/auth/2fa/verify',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '校验 TOTP 并启用 2FA',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          required: ['code'],
+          properties: { code: { type: 'string', description: '6 位 TOTP 码' } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  verified: { type: 'boolean' },
+                  backupCodes: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: '10 个 backup code(明文,只此一次)',
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = z.object({ code: z.string().length(6) }).safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '验证码必须为 6 位数字'))
+      }
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (!user.twoFactorSecret) {
+        return reply.status(400).send(error(400, '请先调用 /auth/2fa/setup 生成密钥'))
+      }
+      if (user.twoFactorEnabled) {
+        return reply.status(400).send(error(400, '2FA 已启用,如需重新启用请先禁用'))
+      }
+
+      const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+      if (!secret) {
+        return reply.status(500).send(error(500, '密钥解密失败,请重新 setup'))
+      }
+      if (!verifyTotp(parsed.data.code, secret)) {
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
+      }
+
+      // 启用 2FA + 生成 10 个 backup code(明文返回一次,sha256 hash 存库)
+      const backupCodes = generateBackupCodes(10)
+      const hashes = backupCodes.map(hashBackupCode)
+      await db
+        .update(users)
+        .set({
+          twoFactorEnabled: true,
+          twoFactorEnabledAt: new Date(),
+          twoFactorBackupCodes: hashes,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+
+      return reply.send(
+        success({
+          verified: true,
+          backupCodes,
+        }),
+      )
+    },
+  )
+
+  // POST /api/auth/2fa/disable — 禁用 2FA(需密码二次确认)
+  server.post(
+    '/auth/2fa/disable',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '禁用 2FA(需密码二次确认)',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          required: ['password'],
+          properties: { password: { type: 'string', description: '当前密码(二次确认)' } },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', properties: { disabled: { type: 'boolean' } } },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          401: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          404: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '密码不能为空'))
+      }
+      const userId = request.userId!
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (!user.twoFactorEnabled) {
+        return reply.status(400).send(error(400, '2FA 未启用'))
+      }
+      if (!user.passwordHash || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+        return reply.status(401).send(error(401, '密码错误'))
+      }
+
+      await db
+        .update(users)
+        .set({
+          twoFactorEnabled: false,
+          twoFactorSecret: null,
+          twoFactorBackupCodes: [],
+          twoFactorEnabledAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId))
+
+      return reply.send(success({ disabled: true }))
+    },
+  )
+
+  // POST /api/auth/2fa/login-verify — 登录 2FA challenge 校验(TOTP 或 backup code)
+  // 输入 challengeToken(由 /auth/login 在用户启用 2FA 时返回的短期 5min token)
+  //       + 6 位 TOTP token 或 backup code(8 位字母数字,格式 AAAA-AAAA)
+  // 校验通过后签发完整 access + refresh token 对
+  server.post(
+    '/auth/2fa/login-verify',
+    {
+      schema: {
+        summary: '登录 2FA 校验(TOTP 或 backup code)',
+        tags: ['auth', '2fa'],
+        body: {
+          type: 'object',
+          required: ['challengeToken'],
+          properties: {
+            challengeToken: {
+              type: 'string',
+              description: '/auth/login 返回的 2FA challenge token (5min)',
+            },
+            token: { type: 'string', description: '6 位 TOTP 码(与 backupCode 二选一)' },
+            backupCode: {
+              type: 'string',
+              description: '8 位 backup code AAAA-AAAA(与 token 二选一)',
+            },
+          },
+        },
+        response: buildResponseSchema(400, 401, 403, 404),
+      },
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          challengeToken: z.string().min(1),
+          token: z.string().optional(),
+          backupCode: z.string().optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { challengeToken, token, backupCode } = parsed.data
+      if (!token && !backupCode) {
+        return reply.status(400).send(error(400, '请提供 token (TOTP) 或 backupCode'))
+      }
+
+      // 校验 challenge token(type='challenge',5min 有效)
+      const challenge = await verifyChallengeToken(challengeToken)
+      if (!challenge) {
+        return reply.status(401).send(error(401, 'challenge token 无效或已过期'))
+      }
+
+      const userId = challenge.userId
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+
+      // 校验 TOTP 或 backup code
+      let verified = false
+      if (token) {
+        // TOTP 路径
+        const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+        if (secret && verifyTotp(token, secret)) {
+          verified = true
+        }
+      } else if (backupCode) {
+        // backup code 路径:校验通过后立即从数组移除(单次使用)
+        const hashes = user.twoFactorBackupCodes ?? []
+        if (verifyBackupCode(backupCode, hashes)) {
+          const usedHash = hashBackupCode(backupCode)
+          const remaining = hashes.filter((h) => h !== usedHash)
+          await db
+            .update(users)
+            .set({
+              twoFactorBackupCodes: remaining,
+              updatedAt: new Date(),
+            })
+            .where(eq(users.id, userId))
+          verified = true
+        }
+      }
+
+      if (!verified) {
+        return reply.status(401).send(error(401, '2FA 验证失败:token 或 backup code 错误'))
+      }
+
+      // 校验通过 → 签发完整 access + refresh token 对(与正常登录响应一致,含 user 信息)
+      request.skipResponseSanitization = true
+      const familyId = createFamilyId()
+      const tokens = await buildTokenPair(
+        {
+          id: user.id,
+          phone: user.phone,
+          roleId: user.roleId,
+          familyId,
+        },
+        reply,
+      )
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+
+      return reply.send(
+        success({
+          ...tokens,
+          user: publicUser(user, permissions),
+        }),
+      )
+    },
+  )
+
+  // SSO 端点 GET 兼容：前端 lib/sso.ts 中字面量路径被脚本扫描为 GET，实际调用为 POST
+  server.get('/auth/sso/code', { preHandler: authenticate }, async (request, reply) => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/code',
+      headers: { authorization: request.headers.authorization },
+      payload: { clientId: 'web', redirectUri: '/' },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+  server.get('/auth/sso/exchange', async (request, reply) => {
+    const { code, clientId } = z
+      .object({ code: z.string(), clientId: z.string().optional() })
+      .parse(request.query)
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/exchange',
+      payload: { code, clientId: clientId ?? 'web' },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+  server.get('/auth/sso/logout', { preHandler: authenticate }, async (request, reply) => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/auth/sso/logout',
+      headers: { authorization: request.headers.authorization },
+    })
+    return reply.status(res.statusCode).send(res.json())
+  })
+
+  // ============================================================================
+  // 3 个社交登录 Provider handler(OIDC + Discord + Telegram)
+  // 与现有 POST /auth/:platform/callback(8 平台)并列,路径独立: /auth/oauth/<provider>/*
+  // 复用 loginWithOAuthAccount helper(查/建用户 + 颁发 token)
+  // state CSRF 校验(2026-08-31 实装,替换原占位实现):
+  // - redirect 签发随机 state → Redis 持久化(key=oauth:state:<state>,TTL 10min,
+  //   value 含 provider+userId+创建时间);Redis 不可用时降级 httpOnly cookie 承载。
+  // - callback 一次性消费(GET 命中后立即 DEL,防重放),provider 用 timingSafeEqual 比对。
+  // - 校验失败返回 401 并记 warning 日志;存量无 state 的回调走原逻辑(向后兼容)。
+  // ============================================================================
+
+  /** OAuth state Redis 存储 key 前缀(一次性消费) */
+  const OAUTH_STATE_KEY_PREFIX = 'oauth:state:'
+  /** state 有效期:10 分钟(覆盖用户在 IdP 授权页的正常停留时长) */
+  const OAUTH_STATE_TTL_SECONDS = 10 * 60
+  /** Redis 不可用时的降级 httpOnly cookie 名前缀(按 provider 隔离) */
+  const OAUTH_STATE_COOKIE_PREFIX = 'oauth_state_'
+
+  // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件,与 auth.ts QR 登录同模式)
+  const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
+
+  /** state 持久化载荷 */
+  interface OAuthStatePayload {
+    provider: string
+    userId: string | null
+    createdAt: string
+    /** 发起登录的前端源(CORS_ORIGIN 白名单校验后存入;callback 按它回跳) */
+    webOrigin: string | null
+  }
+
+  // 常量时间字符串比对(长度不等直接失败,避免 timing 攻击泄露比对进度)
+  function safeEqual(a: string, b: string): boolean {
+    const ab = Buffer.from(a)
+    const bb = Buffer.from(b)
+    if (ab.length !== bb.length) return false
+    return timingSafeEqual(ab, bb)
+  }
+
+  /** CORS_ORIGIN 白名单集合(回跳源校验;每次调用解析,兼容运行期 env 变化) */
+  function getAllowedWebOrigins(): string[] {
+    return config.CORS_ORIGIN.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+
+  function isAllowedWebOrigin(origin: string): boolean {
+    return getAllowedWebOrigins().includes(origin)
+  }
+
+  /**
+   * 从请求头提取发起登录的前端源:Origin 头优先(跨源导航/POST 才发),
+   * 回退 Referer(同源顶级导航必带,如 bsm.aizhs.top/api 反代场景)。
+   * 经 CORS_ORIGIN 白名单校验后返回;无头/头值非法/不在白名单 → null。
+   * 注:custom scheme(如 tauri://localhost)须用 protocol//host 手工拼接,
+   * WHATWG URL.origin 对非特殊 scheme 返回字符串 "null"。
+   */
+  function deriveWebOrigin(request: FastifyRequest): string | null {
+    const header = (name: string): string | undefined => {
+      const v = request.headers[name]
+      return Array.isArray(v) ? v[0] : v
+    }
+    for (const raw of [header('origin'), header('referer')]) {
+      if (!raw) continue
+      try {
+        const u = new URL(raw)
+        const origin = `${u.protocol}//${u.host}`
+        if (isAllowedWebOrigin(origin)) return origin
+      } catch {
+        // 非法头值(如 Origin: null)忽略,继续下一个候选
+      }
+    }
+    return null
+  }
+
+  // state 持久化:Redis 优先(SET EX 10min);Redis 不可用/写入失败时降级 httpOnly cookie
+  // (sameSite=lax 下 OAuth 回调是顶级导航 GET,浏览器仍会携带该 cookie,可完成比对)
+  async function persistOAuthState(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    provider: string,
+    state: string,
+  ): Promise<void> {
+    const payload: OAuthStatePayload = {
+      provider,
+      userId: request.userId ?? null,
+      createdAt: new Date().toISOString(),
+      // 记录发起源(白名单内才存):callback 按它回跳,修复 bsm.aizhs.top 发起的
+      // 企业 SSO 登录被硬编码回 CORS_ORIGIN 首项(aizhs.top)导致跨域丢上下文(2026-09-19)
+      webOrigin: deriveWebOrigin(request),
+    }
+    const redis = getRedis()
+    if (redis) {
+      try {
+        await redis.set(
+          OAUTH_STATE_KEY_PREFIX + state,
+          JSON.stringify(payload),
+          'EX',
+          OAUTH_STATE_TTL_SECONDS,
+        )
+        return
+      } catch (e) {
+        request.log.warn({ err: e }, '[oauth-state] redis set 失败,降级 cookie 承载')
+      }
+    }
+    reply.setCookie(OAUTH_STATE_COOKIE_PREFIX + provider, state, {
+      path: '/',
+      sameSite: 'lax',
+      httpOnly: true,
+      maxAge: OAUTH_STATE_TTL_SECONDS,
+    })
+  }
+
+  // state 校验:Redis 命中 → 先 DEL(一次性消费,并发重放至多一人成功)再比对 provider;
+  // Redis 未命中(过期/重放/降级签发)或读删异常 → 降级与 cookie 内 state timingSafeEqual 比对
+  async function verifyOAuthState(
+    request: FastifyRequest,
+    provider: string,
+    state: string,
+  ): Promise<{ ok: boolean; reason?: string; webOrigin?: string | null }> {
+    const redis = getRedis()
+    if (redis) {
+      try {
+        const key = OAUTH_STATE_KEY_PREFIX + state
+        const raw = await redis.get(key)
+        if (raw !== null) {
+          // 一次性消费:先删除防重放,再做内容比对
+          await redis.del(key)
+          let payload: OAuthStatePayload
+          try {
+            payload = JSON.parse(raw) as OAuthStatePayload
+          } catch {
+            return { ok: false, reason: 'state 存储内容损坏' }
+          }
+          if (!payload.provider || !safeEqual(payload.provider, provider)) {
+            return { ok: false, reason: `state provider 不匹配(期望 ${provider})` }
+          }
+          // Redis 路径携带发起源;cookie 降级路径只有裸 state,webOrigin 缺失 → 回退默认源
+          return { ok: true, webOrigin: payload.webOrigin ?? null }
+        }
+        // Redis 未命中 → 继续尝试 cookie 兜底(覆盖降级签发后 Redis 恢复的边缘场景)
+      } catch (e) {
+        // Redis 读/删异常 → 降级 cookie 比对,不因基础设施故障拒绝合法回调
+        request.log.warn({ err: e }, '[oauth-state] redis get/del 失败,降级 cookie 比对')
+      }
+    }
+    const cookieState = request.cookies?.[OAUTH_STATE_COOKIE_PREFIX + provider]
+    if (cookieState && safeEqual(cookieState, state)) return { ok: true }
+    return { ok: false, reason: 'state 不存在、已过期或已被消费' }
+  }
+
+  // 回调入口统一 state 校验:
+  // - 携带 state(新流程)→ 强制校验,失败返回 401 + warning 日志;
+  // - 未携带 state(存量兼容)→ 走原有逻辑放行,仅记 warning,不阻断。
+  // 注:state 为空字符串不视为"未携带",必须走校验并失败,防止攻击者用空值绕过 CSRF 防护。
+  async function enforceOAuthState(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    provider: string,
+    state: string | undefined,
+  ): Promise<{ denied: FastifyReply | null; webOrigin: string | null }> {
+    if (state === undefined) {
+      request.log.warn({ provider }, '[oauth-state] 回调缺少 state,走存量兼容路径放行')
+      return { denied: null, webOrigin: null }
+    }
+    const check = await verifyOAuthState(request, provider, state)
+    if (!check.ok) {
+      request.log.warn({ provider, reason: check.reason }, '[oauth-state] CSRF 校验失败,拒绝回调')
+      return {
+        denied: reply.status(401).send(error(401, 'OAuth state 校验失败,请重新发起登录')),
+        webOrigin: null,
+      }
+    }
+    return { denied: null, webOrigin: check.webOrigin ?? null }
+  }
+
+  // GET /auth/oauth/:provider/redirect — 统一重定向入口
+  // :provider ∈ oidc/discord(telegram 走 /start 端点)
+  server.get('/auth/oauth/:provider/redirect', async (request, reply) => {
+    const parsed = z.object({ provider: z.enum(['oidc', 'discord']) }).safeParse(request.params)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord'))
+    const provider = parsed.data.provider
+    const state = generateState()
+
+    let authUrl: string
+    try {
+      if (provider === 'oidc') {
+        if (!isOidcConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'OIDC 未配置 (OIDC_ISSUER/CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        authUrl = await buildOidcAuthorizationUrl(
+          {
+            issuer: process.env.OIDC_ISSUER!,
+            clientId: process.env.OIDC_CLIENT_ID!,
+            clientSecret: process.env.OIDC_CLIENT_SECRET!,
+            redirectUri: process.env.OIDC_REDIRECT_URI!,
+          },
+          state,
+        )
+      } else {
+        // provider === 'discord'(z.enum 已限定为 oidc | discord)
+        if (!isDiscordConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'Discord 未配置 (DISCORD_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        const p = createDiscordProvider({
+          clientId: process.env.DISCORD_CLIENT_ID!,
+          clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+          redirectUri: process.env.DISCORD_REDIRECT_URI!,
+        })
+        authUrl = await p.getAuthorizationUrl(state)
+      }
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(
+          error(
+            500,
+            `${provider} 授权 URL 构造失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
+    }
+    // state 持久化(Redis 优先,降级 httpOnly cookie)放在授权 URL 构造成功后,
+    // 避免构造失败的请求在 Redis 留下孤儿 state
+    await persistOAuthState(request, reply, provider, state)
+    return reply.redirect(authUrl)
+  })
+
+  // GET /auth/oauth/oidc/callback — OIDC 授权码回调
+  server.get('/auth/oauth/oidc/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isOidcConfigured()) return reply.status(400).send(error(400, 'OIDC 未配置'))
+    // state CSRF 校验(新流程强制;存量无 state 回调兼容放行)
+    const stateCheck = await enforceOAuthState(request, reply, 'oidc', parsed.data.state)
+    if (stateCheck.denied) return stateCheck.denied
+    try {
+      const provider = createOidcProvider({
+        issuer: process.env.OIDC_ISSUER!,
+        clientId: process.env.OIDC_CLIENT_ID!,
+        clientSecret: process.env.OIDC_CLIENT_SECRET!,
+        redirectUri: process.env.OIDC_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        platform: 'oidc',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+      })
+      // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
+      // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
+      setAuthCookies(
+        reply,
+        { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        true,
+      )
+      // 回跳源:优先 state 里记录的发起源(签发时已过白名单,此处二次校验防
+      // CORS_ORIGIN 在 10min state 有效期内变更),未记录/已失效回退 CORS_ORIGIN 首项。
+      // 修复:bsm.aizhs.top 发起的登录不再被硬编码丢到 aizhs.top(2026-09-19)。
+      const fallbackOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
+      const webOrigin =
+        stateCheck.webOrigin && isAllowedWebOrigin(stateCheck.webOrigin)
+          ? stateCheck.webOrigin
+          : fallbackOrigin
+      // sso=oidc 标记:前端 /sso/login 检测到后,已登录态自动跳转 redirect(关闭登录弹窗),
+      // 避免 OIDC 回跳后停留在授权卡片需要手动点击(2026-09-19 SSO 闭环体验修复)
+      return reply.redirect(`${webOrigin}/sso/login?sso=oidc`)
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(
+          error(500, `OIDC 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`),
+        )
+    }
+  })
+
+  // GET /auth/oauth/discord/callback — Discord 授权码回调
+  server.get('/auth/oauth/discord/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isDiscordConfigured()) return reply.status(400).send(error(400, 'Discord 未配置'))
+    try {
+      const provider = createDiscordProvider({
+        clientId: process.env.DISCORD_CLIENT_ID!,
+        clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+        redirectUri: process.env.DISCORD_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        platform: 'discord',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+      })
+      return reply.send(buildOAuthCallbackResponse(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(
+          error(
+            500,
+            `Discord 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
+    }
+  })
+
+  // POST /auth/oauth/telegram/start — 生成 Bot deeplink
+  // 接收 phone/email(可选,主 agent 后续用于关联已有账号),返回 botAuthUrl + authToken(5min)
+  server.post(
+    '/auth/oauth/telegram/start',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      if (!isTelegramConfigured())
+        return reply
+          .status(400)
+          .send(error(400, 'Telegram 未配置 (TELEGRAM_BOT_TOKEN/BOT_USERNAME 缺失)'))
+      // 接收 phone/email(可选)——当前未使用,主 agent 后续可基于此关联已有账号
+      const bodySchema = z
+        .object({
+          phone: z.string().optional(),
+          email: z.email().optional(),
+        })
+        .optional()
+      const bodyResult = bodySchema.safeParse(request.body ?? {})
+      if (!bodyResult.success)
+        return reply.status(400).send(error(400, bodyResult.error.issues[0]?.message ?? '参数错误'))
+      void bodyResult.data
+
+      // authToken: CSPRNG 32 字节 hex(5min TTL,等价 JWT 强度,无需 JWT 库依赖)
+      const authToken = generateTelegramAuthToken()
+      const provider = createTelegramProvider({
+        botToken: process.env.TELEGRAM_BOT_TOKEN!,
+        botUsername: process.env.TELEGRAM_BOT_USERNAME!,
+      })
+      const botAuthUrl = provider.getBotAuthUrl(authToken)
+      return reply.send(
+        success({
+          authToken,
+          botAuthUrl,
+          expiresIn: 300,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        }),
+      )
+    },
+  )
+
+  // POST /auth/oauth/telegram/verify — 轮询验证(Bot 已写入用户信息则登录,否则 pending)
+  // 前端每 2-3 秒轮询一次,最多 5 分钟(与 authToken TTL 对齐)
+  server.post(
+    '/auth/oauth/telegram/verify',
+    {
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    },
+    async (request, reply) => {
+      if (!isTelegramConfigured()) return reply.status(400).send(error(400, 'Telegram 未配置'))
+      const parsed = z.object({ authToken: z.string().min(1) }).safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+      const provider = createTelegramProvider({
+        botToken: process.env.TELEGRAM_BOT_TOKEN!,
+        botUsername: process.env.TELEGRAM_BOT_USERNAME!,
+      })
+      const authResult = await provider.verifyAuth(parsed.data.authToken)
+      if (!authResult) {
+        // Bot 尚未回写用户信息(用户未点击 deeplink 或 Bot webhook 未集成)
+        return reply.send(success({ status: 'pending' }))
+      }
+      // Bot 已回写 → 查/建用户 + 颁发 token
+      try {
+        const result = await loginWithOAuthAccount({
+          platform: 'telegram',
+          openId: authResult.openId,
+          nickname: authResult.nickname,
+          avatar: authResult.avatar,
+        })
+        return reply.send(
+          success({
+            status: 'success',
+            token: result.accessToken,
+            refreshToken: result.refreshToken,
+            accessToken: result.accessToken,
+            expiresIn: result.expiresIn,
+            refreshExpiresIn: result.refreshExpiresIn,
+            userId: result.userId,
+            isNewUser: result.isNewUser,
+            tokenType: 'Bearer',
+          }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply
+          .status(500)
+          .send(
+            error(
+              500,
+              `Telegram 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+            ),
+          )
+      }
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

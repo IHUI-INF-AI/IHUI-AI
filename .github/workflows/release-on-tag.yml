@@ -1,0 +1,70 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Release on Tag
+
+# 在 push tag v* 时自动创建 GitHub Release(用 GITHUB_TOKEN,无需用户操作)
+# 用法:git tag v1.0.0 && git push origin v1.0.0
+# Release notes 优先级:.github/RELEASE_NOTES_<tag>.md → .github/RELEASE_NOTES_v1.0.md → 默认
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          echo "Creating release for tag: $TAG_NAME"
+
+          # 优先级:精确匹配 → v1.0 系列通用 → v1 通用 → 默认
+          NOTES_FILE=""
+          for f in ".github/RELEASE_NOTES_${TAG_NAME}.md" ".github/RELEASE_NOTES_v1.0.md" ".github/RELEASE_NOTES_v1.md" ".github/RELEASE_NOTES.md"; do
+            if [ -f "$f" ]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+
+          if [ -n "$NOTES_FILE" ]; then
+            echo "Using release notes from: $NOTES_FILE"
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME — 全栈 AI 操作系统正式发布" \
+              --notes-file "$NOTES_FILE" \
+              --latest
+          else
+            echo "No release notes file found, using default"
+            gh release create "$TAG_NAME" \
+              --title "$TAG_NAME — 发布" \
+              --notes "详见 [README](https://github.com/${{ github.repository }}#readme)" \
+              --latest
+          fi
+
+          # 附加数字产品发布资产(zip 包),让用户可直接从 Release 页面下载
+          ASSET_DIR="products/ai-prompt-library/dist"
+          if [ -d "$ASSET_DIR" ] && ls "$ASSET_DIR"/*.zip >/dev/null 2>&1; then
+            echo "Attaching release assets from $ASSET_DIR"
+            gh release upload "$TAG_NAME" "$ASSET_DIR"/*.zip
+            echo "✅ Assets attached"
+          else
+            echo "ℹ️ No product assets to attach (directory $ASSET_DIR not found or empty)"
+          fi
+
+          echo "✅ Release $TAG_NAME created successfully"
+          echo "🔗 https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

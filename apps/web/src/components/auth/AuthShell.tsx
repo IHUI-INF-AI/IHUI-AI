@@ -1,0 +1,101 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+/**
+ * AuthShell — web 端登录弹窗外壳(2026-07-26 改用共享 @ihui/ui-react.AuthShell)
+ *
+ * 历史: 此前 web 端有独立 AuthShell 实现,与扩展端 ExtensionAuthShell 各自维护,
+ * 样式有肉眼可见差异。2026-07-26 抽取到 packages/ui-react,web + extension 共用
+ * 同一份组件 + 同一份 CSS(.login-scope / .welcome-img),真正"一模一样"。
+ *
+ * 本文件仅做 re-export + 包装,保持 web 端现有 import 路径不变。
+ * 扩展端 ExtensionAuthShell.tsx 已删除,扩展端 popup/sidepanel 直接用
+ * `@ihui/ui-react` 的 AuthShell / AuthShellCompact。
+ */
+import * as React from 'react'
+import { AuthShell as SharedAuthShell } from '@ihui/ui-react'
+import { cn } from '@/lib/utils'
+
+interface AuthShellProps {
+  title?: string
+  subtitle?: React.ReactNode
+  onClose?: () => void
+  /** 隐藏右上角关闭按钮(移动全屏登录页用) */
+  hideCloseButton?: boolean
+  children: React.ReactNode
+  footer?: React.ReactNode
+  className?: string
+}
+
+/**
+ * 统一弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)
+ *
+ * 视觉规范由共享包锁定:
+ *   - 容器:rounded-xl border bg-card p-3(共享基类;web 侧叠加 px-6 pb-6 呼吸感覆盖,见实现处注释)
+ *   - 阴影:subtle 双层 0_4px_24px + 0_1px_4px
+ *   - 顶部:logo (31×31) + welcome.svg/baiwelcome.svg 浅/深主题并排
+ *   - 关闭按钮(右上角,onClose 存在时):lucide-react X
+ *   - max-w-[460px](主站宽度上限)
+ *   - 标题/副标题 sr-only
+ */
+export function AuthShell({ className, ...rest }: AuthShellProps) {
+  return (
+    <SharedAuthShell
+      // 2026-09-18 呼吸感修复:共享基类 p-3(12px)导致登录卡片左右下三边过挤——
+      // 顶部已由 header pt-9 撑到 48px,而左右/下仅 12px,失衡 4:1
+      // (用户反馈"左右下三个边的呼吸感不够 很难受";2026-09-18 修订:pb 回 24px,
+      // 真正缺的是底部"没有账号?立即注册"行的独立呼吸,见 LoginForm 内该行的 mb)。
+      // 2026-09-19 第二轮(用户要求"禁止滚动、内容完整显示"):px-6 pb-6→px-5 pb-3,
+      // 呼吸感让位于总高硬约束;共享 AuthShell 头部同步紧凑化(welcome 52→32px、pt-9→pt-2、
+      // children mt-6→mt-3),顶部比例重新平衡。
+      // 不改共享基类的原因:扩展端 popup/sidepanel 在 AuthShell 外层各自包了
+      // p-3/p-4 补偿 padding,改基类会双层叠加;web 弹窗(登录框/SSO)裸用基类才显紧。
+      // 移动全屏形态(LoginDialog isMobile)自带 p-3/max-w-none className 覆盖,不受默认值影响。
+      // cn 合并而非 ??:调用方可叠加类(如 LoginDialog 的 animate-login-dialog-pop)而无需
+      // 重复默认值;冲突时调用方优先(twMerge 语义)。
+      className={cn('max-w-[460px] px-5 pb-2 pt-2', className)}
+      {...rest}
+    />
+  )
+}
+
+/**
+ * SSO 整页弹窗化包装器:全屏遮罩 + 居中 AuthShell
+ *
+ * 用途:/sso/login、/sso/register 路由保留,但视觉与主站 LoginDialog 完全一致。
+ * 遮罩 bg-black/40 backdrop-blur-[2px](比主站 Dialog 的 bg-black/80 浅,
+ * 因 SSO 整页 body 已有 bg-muted/30 背景,过深遮罩会显得突兀)。
+ *
+ * z-index:z-modal(=2000,引用 --z-modal CSS 变量)。
+ *   - 必须高于 AISidePanel 的 z-sticky(=990),否则 SSO 登录遮罩被 AI 面板压在下面,
+ *     AI 面板露在遮罩之上 = "AI 对话框跟着登录窗一起变"(2026-07-24 用户反馈回归)。
+ *   - 与 globals.css 第 597 行注释"z-modal 用于登录框"规范一致。
+ *   - 禁用 z-50(Tailwind 内置=50,低于 z-sticky=990,会复现本 bug)。
+ *
+ * 点击外部关闭(2026-07-25 立):传 onClose 时,点击遮罩空白处(e.target === e.currentTarget)
+ * 触发 onClose(通常是 router.push(redirectUrl) 跳回原页面)。点穿到 AuthShell 子元素不触发,
+ * 避免 input/button 误关。与主站 LoginDialog 的 Radix onInteractOutside 行为对齐。
+ *
+ * 用法:<AuthShellPage onClose={handleClose}><AuthShell onClose={...}>...</AuthShell></AuthShellPage>
+ */
+export function AuthShellPage({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode
+  onClose?: () => void
+}) {
+  return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]"
+      onClick={onClose ? (e) => e.target === e.currentTarget && onClose() : undefined}
+    >
+      {children}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

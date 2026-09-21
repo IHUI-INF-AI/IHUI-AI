@@ -1,0 +1,91 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import {
+  pgTable,
+  uuid,
+  varchar,
+  text,
+  integer,
+  numeric,
+  timestamp,
+  index,
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
+
+// 智能体购买记录表
+// R81 补齐: D 盘 coze_zhs_py/models/agent_models.py:227-275 ZhsAgentBuy 5 字段
+//   agent_name / bug_name / category_id / discount / prologue
+//   (旧 D 盘为 String/Integer/Text 类型, G 盘对应 varchar/integer/text/numeric/text)
+export const zhsAgentBuy = pgTable(
+  'zhs_agent_buy',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    agentId: uuid('agent_id').notNull(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    price: numeric('price', { precision: 10, scale: 2 }).notNull(),
+    duration: integer('duration').notNull(), // 购买时长（天）
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    status: varchar('status', { length: 32 }).default('pending').notNull(), // pending/active/expired/cancelled
+    paymentMethod: varchar('payment_method', { length: 32 }),
+    paymentId: varchar('payment_id', { length: 128 }),
+    // R81 补齐 5 字段 (D 盘 ZhsAgentBuy 业务信息)
+    agentName: varchar('agent_name', { length: 128 }), // 智能体名称(冗余便于列表展示)
+    bugName: varchar('bug_name', { length: 128 }), // 购买者昵称(冗余)
+    categoryId: integer('category_id'), // 智能体分类 ID(冗余)
+    discount: numeric('discount', { precision: 5, scale: 2 }).default('1.00'), // 折扣(0-1, 1.00=无折扣)
+    prologue: text('prologue'), // 智能体开场白(冗余便于审计)
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    agentIdx: index('zhs_agent_buy_agent_idx').on(t.agentId),
+    userIdx: index('zhs_agent_buy_user_idx').on(t.userId),
+    statusIdx: index('zhs_agent_buy_status_idx').on(t.status),
+    categoryIdx: index('zhs_agent_buy_category_idx').on(t.categoryId),
+  }),
+)
+
+// 智能体提现明细表
+export const zhsAgentWithdrawalDetail = pgTable(
+  'zhs_agent_withdrawal_detail',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    agentId: uuid('agent_id'),
+    amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+    status: varchar('status', { length: 32 }).default('pending').notNull(), // pending/approved/processing/completed/rejected/failed
+    type: integer('type'), // 提现方式: 1=微信 2=支付宝 3=其他
+    outBillNo: varchar('out_bill_no', { length: 255 }), // 提现订单号
+    orderIds: text('order_ids'), // 关联的结算记录 ID,逗号分隔
+    reviewer: uuid('reviewer'), // 审核人 ID
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }), // 审核时间
+    initiateAt: timestamp('initiate_at', { withTimezone: true }), // 发起时间
+    bankInfo: text('bank_info'),
+    rejectReason: text('reject_reason'),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userIdx: index('zhs_agent_withdrawal_user_idx').on(t.userId),
+    statusIdx: index('zhs_agent_withdrawal_status_idx').on(t.status),
+    outBillNoIdx: index('zhs_agent_withdrawal_out_bill_no_idx').on(t.outBillNo),
+  }),
+)
+
+export type ZhsAgentBuy = typeof zhsAgentBuy.$inferSelect
+export type NewZhsAgentBuy = typeof zhsAgentBuy.$inferInsert
+export type ZhsAgentWithdrawalDetail = typeof zhsAgentWithdrawalDetail.$inferSelect
+export type NewZhsAgentWithdrawalDetail = typeof zhsAgentWithdrawalDetail.$inferInsert
+
+/**
+ * 智能体购买定时任务表 - 定时检查购买过期并更新状态。
+ * 注: buyId 软引用 zhsAgentBuy.id,不建物理外键(避免 migration 顺序依赖)
+ */
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

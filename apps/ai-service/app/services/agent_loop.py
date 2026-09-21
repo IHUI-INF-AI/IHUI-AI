@@ -1,0 +1,596 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""Agent 循环执行器。
+
+循环调用 LLM + 工具,直到完成或达到 max_iterations。
+维护 _running 字典跟踪执行状态。
+新增 run_stream 流式执行方法,通过异步生成器 yield 每一步事件。
+"""
+
+import asyncio
+import json
+import logging
+import re
+import time
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+from ..core.config import settings
+from ..core.llm_gateway import llm_gateway
+from .mcp_server import mcp_server
+from .memory import memory_store
+from .meta_learner import meta_learner
+from .project_memory import build_system_prompt
+
+logger = logging.getLogger(__name__)
+
+# P1-2 并行工具执行:单轮最大并行数(防工具过多打爆),超出分批 gather
+MAX_PARALLEL_TOOL_CALLS = 5
+
+# 幂等只读工具:失败可安全重试 1 次(无副作用);写操作工具不重试
+_RETRYABLE_TOOLS: frozenset[str] = frozenset({
+    "web_search", "search_web", "knowledge_lookup", "read_file", "list_files",
+    "file_search", "search_codebase", "analyze_code", "parse_document",
+    "generate_chart", "summarize_artifacts",
+})
+
+
+async def _execute_tool_call(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
+    """执行单个工具调用,返回 (content, status)。
+
+    行为与串行版一致:call_tool 返回 ok=False 也序列化为 content(status="ok"),
+    仅异常时 status="error" 并把错误回填;幂等只读工具失败/异常时重试 1 次。
+    异常归一化不向外抛 —— 保证并行批次中单工具失败不中断整体。
+    """
+
+    async def _once() -> tuple[dict[str, Any] | None, str]:
+        try:
+            return await mcp_server.call_tool(tool_name, args), "ok"
+        except Exception as e:
+            return None, f"工具 {tool_name} 执行失败: {e}"
+
+    result, status = await _once()
+    if (status != "ok" or not (result or {}).get("ok")) and tool_name in _RETRYABLE_TOOLS:
+        logger.debug("工具 %s 首次执行失败,重试 1 次", tool_name)
+        result, status = await _once()
+    if status == "ok" and result is not None:
+        return json.dumps(result, ensure_ascii=False, default=str), "ok"
+    return status, "error"
+
+
+class AgentExecutor:
+    """Agent 循环执行器。"""
+
+    def __init__(self) -> None:
+        # 运行中任务: task_id -> 状态信息
+        self._running: dict[str, dict[str, Any]] = {}
+        # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
+        self._pending_tasks: set[asyncio.Task[Any]] = set()
+
+    @staticmethod
+    def _now() -> str:
+        return datetime.now(UTC).isoformat()
+
+    @staticmethod
+    def _new_task_id() -> str:
+        return uuid.uuid4().hex[:12]
+
+    # ==================================================================
+    # P0:用户画像 + 长期记忆注入辅助(孤岛能力打通,与 agent_loop_v2 的 L1-1 记忆闭环一致)
+    # 铁律:任何失败/拿不到 user_id 都降级返回空,绝不抛异常阻塞对话
+    # ==================================================================
+
+    @staticmethod
+    def _resolve_user_id(sid: str, task_info: dict[str, Any] | None = None) -> str:
+        """解析当前任务的 user_id(供画像/长期记忆注入),拿不到返回空串。
+
+        优先级:
+        1. task 运行记录(run 前可由路由层写入 self._running[task_id]["user_id"])
+        2. session_id 复合格式前缀 user:{user_id}:{session}(冒号分隔保守解析)
+        3. 都拿不到 → 返回空串(调用方 debug 日志后跳过注入,绝不阻塞对话)
+        """
+        uid = (task_info or {}).get("user_id")
+        if uid:
+            return str(uid)
+        if sid and ":" in sid:
+            head = sid.split(":", 1)[0].strip()
+            # 排除系统前缀,避免把 session-xxx/conv-xxx 等误判为用户标识
+            if head and head.lower() not in {"session", "conv", "sess", "u", "user", "chat"}:
+                return head
+        return ""
+
+    def _build_profile_snippet(self, user_id: str) -> str:
+        """构建用户画像 system prompt 片段(同步,读内存缓存),失败返回空串。"""
+        if not user_id:
+            return ""
+        try:
+            from .user_profile import user_profile_builder
+
+            return user_profile_builder.build_system_prompt_snippet(user_id)
+        except Exception as e:
+            logger.warning(
+                "user_profile.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+            )
+            return ""
+
+    async def _load_memory_context(self, user_id: str, sid: str) -> str:
+        """加载跨会话记忆摘要(与 v2 load_context_for_conversation 同参数),失败返回空串。"""
+        if not user_id:
+            return ""
+        try:
+            from .memory_service import memory_service as _memory_svc
+
+            return await _memory_svc.load_context_for_conversation(
+                user_id=user_id,
+                session_id=sid,
+            )
+        except Exception as e:
+            logger.warning(
+                "memory_service.load_context_for_conversation 失败(降级,不阻塞): %s", e
+            )
+            return ""
+
+    def list_running(self) -> dict[str, dict[str, Any]]:
+        """返回所有运行中/已完成任务的快照。"""
+        # 先 snapshot 再迭代,防止并发 run/cancel 修改 _running 触发
+        # RuntimeError: dictionary changed size during iteration(2026-08-01 P0 修复)
+        return {tid: dict(info) for tid, info in list(self._running.items())}
+
+    def status(self, task_id: str) -> dict[str, Any] | None:
+        """查询任务状态,不存在返回 None。"""
+        info = self._running.get(task_id)
+        return dict(info) if info else None
+
+    def cancel(self, task_id: str) -> bool:
+        """取消任务。返回是否成功取消。"""
+        info = self._running.get(task_id)
+        if not info:
+            return False
+        if info["status"] in {"completed", "failed", "canceled"}:
+            return False
+        info["status"] = "canceled"
+        info["updated_at"] = self._now()
+        info["message"] = "任务已被取消"
+        return True
+
+    @staticmethod
+    def _parse_tool_calls(llm_result: dict[str, Any], content: str) -> list[dict[str, Any]]:
+        """解析 LLM 输出中的 tool_call。
+
+        优先 OpenAI function calling 原生格式(llm_gateway 已提取 tool_calls 字段),
+        降级解析 ```tool_call\\n{"name":...,"arguments":{...}}\\n``` 文本块。
+        返回 [{"name": str, "arguments": dict}] 列表。
+        """
+        calls: list[dict[str, Any]] = []
+        # 1. OpenAI function calling 原生格式
+        raw = llm_result.get("tool_calls")
+        if raw and isinstance(raw, list):
+            for tc in raw:
+                fn = tc.get("function", {}) if isinstance(tc, dict) else {}
+                name = fn.get("name", "")
+                args_str = fn.get("arguments", "")
+                try:
+                    args = json.loads(args_str) if args_str else {}
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                if name:
+                    calls.append({"name": name, "arguments": args})
+            if calls:
+                return calls
+        # 2. 降级:解析 ```tool_call``` 文本块
+        for m in re.finditer(r"```tool_call\s*(\{.*?\})\s*```", content, re.DOTALL):
+            try:
+                obj = json.loads(m.group(1))
+                name = obj.get("name", "")
+                if name:
+                    calls.append({"name": name, "arguments": obj.get("arguments", {}) or {}})
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return calls
+
+    async def run(
+        self,
+        goal: str,
+        session_id: str | None = None,
+        model: str | None = None,
+        max_iterations: int | None = None,
+        tools: list[str] | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """执行 agent 循环。
+
+        Args:
+            goal: 本次 agent 的目标/用户输入。
+            session_id: 会话 ID,为空则新建。
+            model: 指定模型,为空使用默认。
+            max_iterations: 最大迭代次数,为空使用配置默认。
+            tools: 允许调用的工具名列表,为空则不调用工具。
+            user_id: O19(2026-09-21)由路由层从 JWT 解析后显式传入的属主。会话记忆
+                按 P1-6 复合 key(`memory:{user_id}:{session_id}`)隔离读写 —— 写入与
+                读取必须同源,否则 GET /agents/sessions* 会看不到本 run 刚写的消息。
+                为空时回退到 _resolve_user_id 的 session 前缀解析(旧行为)。
+
+        Returns:
+            包含 task_id/session_id/status/iterations/steps/result 的字典。
+        """
+        task_id = self._new_task_id()
+        sid = session_id or uuid.uuid4().hex[:12]
+        max_iter = max_iterations if max_iterations is not None else settings.max_agent_iterations
+
+        self._running[task_id] = {
+            "task_id": task_id,
+            "session_id": sid,
+            "goal": goal,
+            "status": "running",
+            "iterations": 0,
+            "steps": [],
+            "created_at": self._now(),
+            "updated_at": self._now(),
+        }
+
+        # 记录用户输入
+        await memory_store.add(sid, "user", goal, {"task_id": task_id}, user_id=user_id)
+
+        steps: list[dict[str, Any]] = []
+        final_content = ""
+        error: str | None = None
+
+        try:
+            # P0 注入:解析 user_id 并预加载画像/长期记忆(与 v2 L1-1 一致;
+            # 任何失败降级为空串,绝不中断对话;user_id 拿不到则 debug 日志跳过)
+            # O19:路由层已传入的属主优先,只有为空时才回退 session 前缀解析。
+            user_id = user_id or self._resolve_user_id(sid, self._running.get(task_id))
+            if not user_id:
+                logger.debug(
+                    "agent_loop 未解析到 user_id,跳过画像/长期记忆注入(sid=%s)", sid
+                )
+            profile_snippet = self._build_profile_snippet(user_id)
+            memory_context = await self._load_memory_context(user_id, sid)
+            # 循环外声明,供完成后记忆闭环(保存洞察)使用
+            messages: list[dict[str, Any]] = []
+
+            for i in range(max_iter):
+                # 检查是否被取消
+                if self._running[task_id]["status"] == "canceled":
+                    break
+
+                self._running[task_id]["iterations"] = i + 1
+
+                # 取出会话历史作为上下文
+                history = await memory_store.get(sid, user_id=user_id)
+                # L4 自进化:构建 system prompt 时注入 meta_lessons 避坑指南
+                # build_system_prompt_snippet 是同步方法(读内存缓存),失败降级不阻塞
+                system_prompt_content = build_system_prompt(sid)
+                try:
+                    lessons_snippet = meta_learner.build_system_prompt_snippet()
+                    if lessons_snippet:
+                        system_prompt_content = f"{system_prompt_content}\n\n{lessons_snippet}"
+                except Exception as e:
+                    logger.warning(
+                        "meta_learner.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+                    )
+                # P0 注入:追加用户画像 + 长期记忆摘要(snippet 为空时跳过,拼接格式与现有一致)
+                if profile_snippet:
+                    system_prompt_content = f"{system_prompt_content}\n\n{profile_snippet}"
+                if memory_context:
+                    system_prompt_content = f"{system_prompt_content}\n\n{memory_context}"
+                messages = [
+                    {"role": "system", "content": system_prompt_content}
+                ]
+                messages.extend(
+                    {"role": m["role"], "content": m["content"]} for m in history
+                )
+
+                # 调用 LLM
+                llm_result = await llm_gateway.complete(messages, model=model)
+                assistant_content = str(llm_result.get("content", ""))
+                await memory_store.add(
+                    sid, "assistant", assistant_content, {"iteration": i + 1},
+                    user_id=user_id,
+                )
+
+                step = {
+                    "iteration": i + 1,
+                    "type": "llm",
+                    "content": assistant_content,
+                    "stub": llm_result.get("stub", False),
+                }
+                steps.append(step)
+
+                # stub 模式或无工具配置: 直接结束循环
+                if llm_result.get("stub") or not tools:
+                    final_content = assistant_content
+                    break
+
+                # 解析 tool_call(优先 OpenAI function calling,降级 ```tool_call``` 文本块)
+                tool_calls = self._parse_tool_calls(llm_result, assistant_content)
+                if not tool_calls:
+                    # 无 tool_call: LLM 认为任务完成
+                    final_content = assistant_content
+                    break
+
+                # 执行工具(白名单过滤),结果回填 memory,继续下一轮迭代
+                # P1-2:白名单内工具同轮并行执行(单轮最大 5,超出分批),
+                # steps/memory 回填顺序保持与 tool_calls 一致,单工具失败不中断整体。
+                pending: list[tuple[int, str, dict[str, Any]]] = []
+                skipped: dict[int, str] = {}
+                for idx, tc in enumerate(tool_calls):
+                    tool_name = tc["name"]
+                    tool_args = tc["arguments"]
+                    if tool_name not in tools:
+                        skipped[idx] = f"工具 {tool_name} 不在白名单 {tools} 内,跳过"
+                    else:
+                        pending.append((idx, tool_name, tool_args))
+
+                tool_outcomes: list[tuple[str, str]] = []
+                for b in range(0, len(pending), MAX_PARALLEL_TOOL_CALLS):
+                    batch = pending[b:b + MAX_PARALLEL_TOOL_CALLS]
+                    gathered = await asyncio.gather(
+                        *(_execute_tool_call(name, args) for _, name, args in batch),
+                        return_exceptions=True,
+                    )
+                    for (_idx, name, _args), outcome in zip(batch, gathered, strict=True):
+                        if isinstance(outcome, BaseException):
+                            # 防御:helper 已归一化,理论上到不了这里
+                            tool_outcomes.append((
+                                f"工具 {name} 执行失败: {outcome}",
+                                "error",
+                            ))
+                        else:
+                            tool_outcomes.append(outcome)
+
+                exec_by_idx = {
+                    pending[i][0]: (pending[i][1], pending[i][2], tool_outcomes[i])
+                    for i in range(len(pending))
+                }
+                for idx, tc in enumerate(tool_calls):
+                    if idx in skipped:
+                        tool_name = tc["name"]
+                        tool_args = tc["arguments"]
+                        skip_msg = skipped[idx]
+                        steps.append({
+                            "iteration": i + 1,
+                            "type": "tool",
+                            "tool_name": tool_name,
+                            "tool_args": tool_args,
+                            "content": skip_msg,
+                            "status": "skipped",
+                        })
+                        await memory_store.add(
+                            sid, "tool", skip_msg,
+                            {"tool_name": tool_name, "tool_args": tool_args},
+                            user_id=user_id,
+                        )
+                    else:
+                        tool_name, tool_args, (tool_content, step_status) = exec_by_idx[idx]
+                        steps.append({
+                            "iteration": i + 1,
+                            "type": "tool",
+                            "tool_name": tool_name,
+                            "tool_args": tool_args,
+                            "content": tool_content,
+                            "status": step_status,
+                        })
+                        await memory_store.add(
+                            sid, "tool", tool_content,
+                            {"tool_name": tool_name, "tool_args": tool_args},
+                            user_id=user_id,
+                        )
+                # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
+
+            if self._running[task_id]["status"] != "canceled":
+                self._running[task_id]["status"] = "completed"
+
+        except Exception as e:
+            error = str(e)
+            self._running[task_id]["status"] = "failed"
+            self._running[task_id]["error"] = error
+
+        self._running[task_id]["updated_at"] = self._now()
+        self._running[task_id]["steps"] = steps
+
+        # 任务完成后异步触发 Skill 自进化评估(不阻塞返回)
+        if self._running[task_id]["status"] == "completed":
+            try:
+                from .skills import SkillEvolutionService, skill_registry
+
+                evolution = SkillEvolutionService()
+                task = asyncio.create_task(evolution.evaluate({
+                    "taskId": task_id,
+                    "sessionId": sid,
+                    "goal": goal,
+                    "steps": steps,
+                    "finalResult": final_content,
+                    "existingSkills": [s.name for s in skill_registry.list_skills()],
+                }))
+                self._pending_tasks.add(task)
+                task.add_done_callback(self._pending_tasks.discard)
+            except Exception as e:
+                logger.warning("Skill 自进化评估启动失败: %s", e)
+
+            # P0 记忆闭环出口:completed 后提取洞察写回跨会话记忆(与 v2 的
+            # _persist_memory_insights 行为一致;fire-and-forget 不阻塞返回,
+            # user_id 缺失或失败均降级)
+            if user_id and messages:
+                try:
+                    from .memory_service import memory_service as _memory_svc
+
+                    save_task = asyncio.create_task(
+                        _memory_svc.save_insights_from_conversation(
+                            user_id=user_id,
+                            messages=messages,
+                            session_id=sid,
+                        )
+                    )
+                    self._pending_tasks.add(save_task)
+                    save_task.add_done_callback(self._pending_tasks.discard)
+                except Exception as e:
+                    logger.warning("memory_save 启动失败(降级,不阻塞): %s", e)
+
+                # P0 GraphRAG 闭环出口:开关开启或 LLM 处于 stub 模式时,对话完成后
+                # 自动抽取实体建图谱。stub 模式(无 key)走关键词 NER 零成本,自动启用;
+                # 真实 LLM 模式默认关闭(settings.auto_graph_extract_enabled,LLM NER 有
+                # token 成本,需业务决策开启)。开启后图谱有数据,knowledge_lookup graph
+                # 源才能命中。fire-and-forget + 最近 8 条消息 + 截断 8000,失败降级。
+                try:
+                    from ..core.llm_gateway import LLMGateway
+
+                    if settings.auto_graph_extract_enabled or LLMGateway._is_stub_mode():
+                        from .knowledge_graph import knowledge_graph_service
+
+                        graph_text = "\n".join(
+                            str(m.get("content", ""))
+                            for m in messages[-8:]
+                            if m.get("role") in ("user", "assistant")
+                        )
+                        if graph_text.strip():
+                            graph_task = asyncio.create_task(
+                                knowledge_graph_service.extract(
+                                    graph_text[-8000:],
+                                    owner_uuid=user_id,
+                                )
+                            )
+                            self._pending_tasks.add(graph_task)
+                            graph_task.add_done_callback(self._pending_tasks.discard)
+
+                        # P1-3 记忆提炼闭环出口:与 auto graph extract 同一 gating,
+                        # 对同一批最近 8 条消息做 episodic→semantic consolidation。
+                        # stub 模式在 consolidate 内部直接 skipped(零成本);
+                        # 用户隐私开关 autoMemory(false)在 consolidate 内部校验后跳过。
+                        # fire-and-forget,失败降级不阻塞。
+                        try:
+                            from .memory_service import memory_service as _memory_svc
+
+                            consolidate_task = asyncio.create_task(
+                                _memory_svc.consolidate(
+                                    user_id=user_id,
+                                    messages=messages[-8:],
+                                    session_id=sid,
+                                )
+                            )
+                            self._pending_tasks.add(consolidate_task)
+                            consolidate_task.add_done_callback(self._pending_tasks.discard)
+                        except Exception as e:
+                            logger.warning("consolidate 启动失败(降级,不阻塞): %s", e)
+                except Exception as e:
+                    logger.warning("auto graph extract 启动失败(降级,不阻塞): %s", e)
+
+        # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
+        # canceled 状态不触发(用户主动取消,非真实失败,无可学习信号)
+        if self._running[task_id]["status"] in {"completed", "failed"}:
+            try:
+                task_result_for_eval = {
+                    "task_id": task_id,
+                    "session_id": sid,
+                    "status": self._running[task_id]["status"],
+                    "iterations": self._running[task_id]["iterations"],
+                    "steps": steps,
+                    "result": final_content,
+                    "error": error,
+                }
+                eval_task = asyncio.create_task(
+                    meta_learner.evaluate_and_record(
+                        task_result=task_result_for_eval,
+                        task_input=goal,
+                        skill_name="default",
+                    )
+                )
+                self._pending_tasks.add(eval_task)
+                eval_task.add_done_callback(self._pending_tasks.discard)
+            except Exception as e:
+                logger.warning(
+                    "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
+                )
+
+        return {
+            "task_id": task_id,
+            "session_id": sid,
+            "status": self._running[task_id]["status"],
+            "iterations": self._running[task_id]["iterations"],
+            "steps": steps,
+            "result": final_content,
+            "error": error,
+        }
+
+    async def run_stream(
+        self,
+        goal: str,
+        session_id: str | None = None,
+        model: str | None = None,
+        max_iterations: int | None = None,
+        tools: list[str] | None = None,
+    ) -> Any:
+        """流式执行 agent,yield 每一步的事件。
+
+        ⚠️ DEPRECATED(单轮假流式):本方法只调用一次 LLM 即结束,不构成真正的
+        ReAct 工具循环(max_iterations / tools 参数已弃用,仅保留签名兼容)。
+        仅作为 agents.py execute/stream 在 LangGraph 工作流异常时的 last-resort 兜底。
+        新链路默认走 AgentLoopV2(真流式 + 完整循环 + checkpoint),不要试图修复本方法。
+
+        Args:
+            goal: 本次 agent 的目标/用户输入。
+            session_id: 会话 ID,为空则新建。
+            model: 指定模型,为空使用默认。
+            max_iterations: 最大迭代次数(保留参数,当前实现单轮;已弃用)。
+            tools: 允许调用的工具名列表(保留参数;已弃用)。
+
+        Yields:
+            事件字典,类型包括 message/thinking/usage/status/error。
+        """
+        task_id = f"task-{self._new_task_id()}"
+        session_id = session_id or f"session-{int(time.time())}"
+        max_iter = max_iterations or settings.max_agent_iterations  # noqa: F841
+
+        self._running[task_id] = {
+            "task_id": task_id,
+            "session_id": session_id,
+            "status": "running",
+            "started_at": self._now(),
+        }
+
+        try:
+            # 保存用户输入到记忆
+            await memory_store.add(session_id, "user", goal)
+            yield {"type": "message", "role": "user", "content": goal, "task_id": task_id}
+
+            # 获取历史消息
+            history = await memory_store.get(session_id)
+            messages = [{"role": m["role"], "content": m["content"]} for m in history]
+
+            yield {"type": "thinking", "task_id": task_id, "message": "正在思考..."}
+
+            # 调用 LLM
+            result = await llm_gateway.complete(messages, model=model)
+
+            # 保存 assistant 响应
+            assistant_content = result.get("content", "")
+            await memory_store.add(session_id, "assistant", assistant_content)
+
+            yield {
+                "type": "message",
+                "role": "assistant",
+                "content": assistant_content,
+                "task_id": task_id,
+                "stub": result.get("stub", False),
+            }
+
+            if result.get("usage"):
+                yield {"type": "usage", "task_id": task_id, "usage": result["usage"]}
+
+            self._running[task_id]["status"] = "completed"
+            yield {"type": "status", "task_id": task_id, "status": "completed"}
+        except asyncio.CancelledError:
+            self._running[task_id]["status"] = "canceled"
+            yield {"type": "status", "task_id": task_id, "status": "canceled"}
+            raise
+        except Exception as e:
+            self._running[task_id]["status"] = "failed"
+            self._running[task_id]["error"] = str(e)
+            yield {"type": "error", "task_id": task_id, "message": str(e)}
+
+
+agent_executor = AgentExecutor()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
