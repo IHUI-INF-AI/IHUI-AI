@@ -7227,7 +7227,9 @@
       },
       "laneEmpty": "空闲",
       "viewToggle": "视图切换",
-      "working": "{count} 个子智能体协作中"
+      "working": "{count} 个子智能体协作中",
+      "viewCanvas": "画布视图",
+      "viewFeed": "列表视图"
     },
     "swarmMonitor": {
       "agentStatus": "Agent 状态",
@@ -8908,7 +8910,10 @@
       "title": "本轮变更",
       "revert": "恢复到本轮之前",
       "noCheckpoints": "无可用检查点",
-      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。"
+      "revertConfirm": "即将把对话与文件恢复到本条 AI 回复之前。共 {count} 个文件改动将回退,此操作不可撤销。",
+      "changedFile": "修改文件",
+      "createdFile": "新建文件",
+      "deletedFile": "删除文件"
     },
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加为上下文引用",
@@ -9107,6 +9112,7 @@
       "shareCardUser": "用户"
     },
     "fallbackNotice": "已切换到备用模型 {backup}(原模型 {primary} 暂时不可用)",
+    "fallbackNoticeQuota": "本次由 {backup} 作答({primary} 所属厂商账号额度已用尽,已自动改道同族可用模型)",
     "feedbackRecorded": "已记录反馈",
     "foldPolicy": {
       "title": "中间步骤折叠策略",
@@ -9435,6 +9441,8 @@
       "submit": "提交回答",
       "title": "AI 需要你的回答"
     },
+    "quotaExhaustedNotice": "该模型所属厂商的账号额度已用完(不是你的账户问题),平台已自动尝试改道其他通道仍未成功。请稍后再试,或改选带「免费」标识的模型。",
+    "quotaExhaustedTitle": "厂商账号额度已用尽",
     "realIntegratedTooltip": "已集成:ai-service 后端有对应 MCP 工具,LLM 真能调用",
     "reconnectAttempt": "第 {n} 次尝试,{ms}ms 后重试",
     "reconnecting": "重连中",
