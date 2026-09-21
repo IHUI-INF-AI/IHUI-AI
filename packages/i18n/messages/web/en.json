@@ -10274,6 +10274,8 @@
       "installing": "Installing",
       "preparing": "Preparing update...",
       "quitChecking": "Checking for updates...",
+      "upToDate": "Up to date",
+      "upToDateDesc": "You are on the latest version",
       "quitDownloading": "Downloading update...",
       "quitQuitting": "Quitting...",
       "quitRestarting": "Update complete, restarting...",
