@@ -943,11 +943,6 @@ async function http(method, url, { headers = {}, body, form } = {}) {
   }
 }
 
-async function probe(url) {
-  const r = await http('GET', url)
-  return { online: r.status !== null && r.status < 500, detail: r.error ? r.error : `HTTP ${r.status} in ${r.ms}ms` }
-}
-
 /** 依次试多个健康路径(Fastify 用 /health,ai-service 同样挂在根 /health,/api/health 是 404)。 */
 async function probeAny(base, paths) {
   let last = null
