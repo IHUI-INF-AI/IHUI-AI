@@ -50,7 +50,7 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { eduToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
+import { eduToolsFor, fileToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
 import {
   createToolCallHandler,
   createToolSummaryHandler,
@@ -966,6 +966,7 @@ export function createSendMessage(
               ...mergeAgentTools(),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
+              ...fileToolsFor(content),
             ]),
           ]
           return agentTools.length > 0 ? { agentTools } : {}
