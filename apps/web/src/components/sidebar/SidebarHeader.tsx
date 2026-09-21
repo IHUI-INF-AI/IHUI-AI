@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
-import { startWindowDrag } from '@/lib/tauri-bridge'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { Tooltip } from '@/components/feedback'
 
 interface SidebarHeaderProps {
@@ -63,13 +63,15 @@ export function SidebarHeader({
   const navigate = useNavigateWithProgress()
   const { isDesktop } = useDesktop()
 
-  // 桌面端 sidebar logo 按下即拖拽窗口(Tauri decorations:false 无边框窗口;
-  // 2026-09-21 用户要求废除 300ms 长按等待,"直接点击就可以拖拽")。
-  // 未移动鼠标即松开时 click 仍会派发(Tauri 拖拽循环对无位移按压不吞 click,
-  // 官方拖拽区 onDoubleClick 示例同机理)→ ThemeLogo 自身 onClick 跳首页保持不变。
+  // 桌面端 sidebar header 空白区按下即拖拽窗口(Tauri decorations:false 无边框窗口;
+  // 2026-09-21 用户要求"直接点击就可以拖拽,不需要长按",实现见 lib/window-drag.ts)。
+  // 必须排除交互子元素(折叠/展开 Button、logo 按钮、长 logo):Tauri 的原生拖拽循环会
+  // 吞掉子元素 click,漏了守卫就会出现"展开按钮点了没反应"的回归。
+  // 空白区(header 的 padding/gap)按下即拖;logo 保持短按跳首页。
   const handleLogoMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    void startWindowDrag()
+    if (!isDraggableBlankArea(e.target as HTMLElement, '[data-sidebar-logo]')) return
+    armWindowDragOnFirstMove(e.screenX, e.screenY)
   }
 
   if (variant === 'mobile') {
