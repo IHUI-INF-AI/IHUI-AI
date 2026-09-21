@@ -6,6 +6,7 @@ import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, Textarea, Input, Button, RadioGroup, Radio } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -26,6 +27,16 @@ export default function OrderRefund() {
   const [reason, setReason] = useState('')
   const [desc, setDesc] = useState('')
   const [contact, setContact] = useState('')
+  // AI 操控通道(2026-09-21):只登记联系方式(普通业务输入)。
+  // 未登记:退款说明 —— 屏上文案含"退款",命中注册表 DESTRUCTIVE_RE,注册了也连快照都不出现,
+  // 且退款单一旦提交不可逆 → 按"宁可不注册"跳过;提交按钮同样不注册。
+  useUiField({
+    kind: 'input',
+    label: tt('order.refund.contactPlaceholder', '请输入手机号或邮箱'),
+    placeholder: tt('order.refund.contactPlaceholder', '请输入手机号或邮箱'),
+    readValue: () => contact,
+    setValue: setContact,
+  })
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {

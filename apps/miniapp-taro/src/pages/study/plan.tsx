@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { getStudyPlan, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -24,6 +25,30 @@ export default function StudyPlan() {
   const [newTitle, setNewTitle] = useState('')
   const [newTarget, setNewTarget] = useState('30')
   const [saving, setSaving] = useState(false)
+  // AI 操控通道(2026-09-21):新增计划弹层的两个输入框,只在弹层展开时登记(收起即摘除,
+  // 旧 id 如实失败),避免快照里出现界面上看不见的控件。
+  useUiField(
+    showAdd
+      ? {
+          kind: 'input',
+          label: t('study.publish.titlePlaceholder'),
+          maxLength: 50,
+          readValue: () => newTitle,
+          setValue: setNewTitle,
+        }
+      : null,
+  )
+  useUiField(
+    showAdd
+      ? {
+          kind: 'number',
+          label: t('study.planPage.target', { n: 30 }),
+          inputType: 'number',
+          readValue: () => newTarget,
+          setValue: setNewTarget,
+        }
+      : null,
+  )
 
   const load = useCallback(async () => {
     try {
