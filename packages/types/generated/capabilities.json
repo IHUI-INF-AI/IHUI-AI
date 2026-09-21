@@ -1,6 +1,6 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-21T00:37:46.016Z",
+  "generatedAt": "2026-09-21T02:08:18.900Z",
   "dataClasses": [
     "compute",
     "scoped-read",
@@ -498,8 +498,10 @@
       "routes": [
         "GET /v1/tools",
         "GET /v1/resources",
+        "GET /v1/resources/:uri",
         "GET /v1/prompts",
-        "GET /v1/mcp/tools"
+        "GET /v1/mcp/tools",
+        "POST /v1/mcp/resources/read"
       ],
       "tools": [
         "list_tools",

@@ -418,9 +418,13 @@ export async function mintClientCredentialsToken(
     }
   }
   if (!app.ownerUuid) {
+    // RFC 6749 §5.2:`invalid_client` 的 HTTP 状态**必须**是 401(此前回 400,与
+    // "请求形状错"的 400 混在一起,排查时看不出是客户端身份问题 —— O17b-④ 定位真因
+    // 就在这里绕了弯)。2026-09-21 起 DCR 已不再受理 client_credentials 声明,
+    // 这条分支只覆盖"控制台建的空壳应用"这类存量,仍是失败关闭,不静默签发。
     return {
       ok: false,
-      status: 400,
+      status: 401,
       error: 'invalid_client',
       description: '该客户端未绑定用户(owner_uuid 为空),不可签发 M2M 令牌',
     }

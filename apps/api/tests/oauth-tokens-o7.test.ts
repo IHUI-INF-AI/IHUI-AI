@@ -76,6 +76,8 @@ const dbMocks = vi.hoisted(() => ({
   findRefreshToken: vi.fn(),
   findUserById: vi.fn(),
   createAuditLog: vi.fn(),
+  listActiveScopeMeta: vi.fn(async () => []),
+  findOAuthAppByClientId: vi.fn(async () => undefined),
 }))
 
 vi.mock('../src/db/oauth-token-queries.js', () => ({
@@ -92,7 +94,46 @@ vi.mock('../src/db/queries.js', () => ({
 
 vi.mock('../src/db/oauth-queries.js', () => ({
   createAuditLog: dbMocks.createAuditLog,
+  // DCR 侧(oauth-register.ts)从同一模块多引两个函数:命名导入缺一个就会在 import
+  // 阶段抛错,这里一并补上替身(reject 分支走不到它们,成功分支需要 listActiveScopeMeta)。
+  listActiveScopeMeta: dbMocks.listActiveScopeMeta,
+  findOAuthAppByClientId: dbMocks.findOAuthAppByClientId,
 }))
+
+/**
+ * DCR 落库用的 drizzle 链式替身:`select().from().where().limit()` 回空集(无重复注册),
+ * `insert().values().onConflictDoNothing().returning()` 原样回传入的行 + 时间戳。
+ * 断言看的正是这些值(owner_uuid 恒 null 就是 O17b-④ 的真因),所以不能糊一个常量行。
+ */
+vi.mock('../src/db/index.js', () => {
+  let lastMethod = ''
+  let inserted: Record<string, unknown> = {}
+  const chain: Record<string, unknown> = {}
+  const step =
+    (method: string) =>
+    (...args: unknown[]): unknown => {
+      lastMethod = method
+      if (method === 'values') inserted = { ...(args[0] as Record<string, unknown>) }
+      return chain
+    }
+  for (const method of ['select', 'from', 'where', 'limit', 'insert', 'values', 'onConflictDoNothing', 'returning']) {
+    chain[method] = step(method)
+  }
+  chain.then = (onOk: (value: unknown) => unknown): unknown =>
+    Promise.resolve(
+      lastMethod === 'limit'
+        ? []
+        : [
+            {
+              ...inserted,
+              id: 'row-dcr-1',
+              createdAt: new Date('2026-09-21T00:00:00.000Z'),
+              updatedAt: new Date('2026-09-21T00:00:00.000Z'),
+            },
+          ],
+    ).then(onOk)
+  return { db: chain }
+})
 
 // ─── auth-extended 的共享 helper:客户端认证/M2M 用替身,PKCE 闸门用真实现 ──────
 const asMocks = vi.hoisted(() => ({
@@ -136,6 +177,7 @@ vi.mock('../src/routes/auth-extended.js', async () => {
 })
 
 import { oauthTokensRoutes } from '../src/routes/oauth-tokens.js'
+import { oauthRegisterRoutes } from '../src/routes/oauth-register.js'
 import { errorUriFor, isSafeExternalUrl, resolveIssuer } from '../src/utils/oauth-as.js'
 import {
   evaluatePkce,
@@ -773,5 +815,120 @@ describe('O7 POST /oauth/token + /oauth/introspect + /oauth/revoke', () => {
   // 「旧 5 参与旧响应形状零回归」由既有套件 tests/auth-oauth-server.test.ts 逐条钉住
   // (18 例,含 data.access_token / token_type / message 文案断言),本文件不重复注册
   // auth-extended 插件:它顶层 import ../db/index.js,而该模块正被并发任务改动中。
+})
+
+// =============================================================================
+// O17b-④ DCR(POST /oauth/register)与 token 面的口径收口
+//
+// 三条契约:
+//  1. 匿名 DCR 落库的 owner_uuid 恒为 null,而 client_credentials 的 M2M 令牌必须以
+//     owner_uuid 为 sub ⇒ 注册期就显式拒绝(不许静默接受后在 /oauth/token 恒报错);
+//  2. token_endpoint_auth_method 在**注册响应**里按客户端声明回显(AS 对 basic/post
+//     同等有效,见 authenticateOAuthClient 同时读头与 body);
+//  3. 根级 AS 表面所有错误体统一 `{error, code, error_description}` —— 注册面此前只回
+//     `{error, error_description}`,与 token 面"一半一半",第三方按 code 判成败会失效。
+// =============================================================================
+
+describe('O17b-④ POST /oauth/register(RFC 7591 DCR)', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    app.decorate('redis', {})
+    await app.register(oauthRegisterRoutes)
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  function register(payload: Record<string, unknown>) {
+    return app.inject({ method: 'POST', url: '/oauth/register', payload })
+  }
+
+  it('声明 client_credentials 的机密客户端 → 注册即拒(不再留一个换不到令牌的客户端)', async () => {
+    const res = await register({
+      client_name: 'O17b M2M Connector',
+      grant_types: ['client_credentials'],
+      token_endpoint_auth_method: 'client_secret_post',
+    })
+    expect(res.statusCode).toBe(400)
+    const body = res.json() as { error: string; code: number; error_description: string }
+    expect(body.error).toBe('invalid_client_metadata')
+    expect(body.code).toBe(400)
+    expect(body.error_description).toContain('owner_uuid')
+    expect(body.error_description).toContain('/api/auth/oauth/apps/create')
+  })
+
+  it('公开客户端 + client_credentials → 仍按 RFC 6749 §4.4.2 拒(既有规则不回退)', async () => {
+    const res = await register({
+      client_name: 'O17b Public M2M',
+      grant_types: ['authorization_code', 'client_credentials'],
+      redirect_uris: ['https://app.example.com/callback'],
+      token_endpoint_auth_method: 'none',
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().error).toBe('invalid_client_metadata')
+    expect(res.json().error_description).toContain('公开客户端')
+  })
+
+  it('authorization_code + client_secret_post → 201 忠实回显 auth method 与明文 secret', async () => {
+    const res = await register({
+      client_name: 'O17b Auth Code Connector',
+      grant_types: ['authorization_code', 'refresh_token'],
+      redirect_uris: ['https://app.example.com/callback'],
+      token_endpoint_auth_method: 'client_secret_post',
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as Record<string, unknown>
+    expect(body.token_endpoint_auth_method).toBe('client_secret_post')
+    expect(body.grant_types).toEqual(['authorization_code', 'refresh_token'])
+    // secret 只下发一次且必须是明文(响应脱敏把它打成 '***' 就是 O17 抓到的老 bug)
+    expect(typeof body.client_secret).toBe('string')
+    expect((body.client_secret as string).length).toBeGreaterThan(20)
+    expect(body.client_secret).not.toBe('***')
+    expect(body.client_secret_expires_at).toBe(0)
+    expect(body.scope).toBe('read:profile')
+  })
+
+  it('未声明 auth method → 回显 AS 默认 basic;纯 M2M 之外的注册一律不带 client_credentials', async () => {
+    const res = await register({
+      client_name: 'O17b Default Auth Method',
+      redirect_uris: ['https://app.example.com/cb2'],
+    })
+    expect(res.statusCode).toBe(201)
+    const body = res.json() as Record<string, unknown>
+    expect(body.token_endpoint_auth_method).toBe('client_secret_basic')
+    // owner_uuid 为空的行不回显它签发不了的 grant(与 mint 侧同一判据)
+    expect(body.grant_types).not.toContain('client_credentials')
+  })
+
+  it('token 路由把表单里的客户端凭证原样交给认证函数(client_secret_post 取参位置)', async () => {
+    const tokenApp = Fastify({ logger: false })
+    tokenApp.decorate('redis', {})
+    await tokenApp.register(oauthTokensRoutes)
+    await tokenApp.ready()
+    asMocks.authenticateOAuthClient.mockResolvedValue({
+      ok: true,
+      app: makeApp(),
+      publicClient: false,
+    })
+    const res = await tokenApp.inject({
+      method: 'POST',
+      url: '/oauth/token',
+      payload: {
+        grant_type: 'client_credentials',
+        client_id: 'zhs_conf_001',
+        client_secret: 's'.repeat(64),
+      },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(asMocks.authenticateOAuthClient).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ client_id: 'zhs_conf_001' }),
+    )
+    await tokenApp.close()
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

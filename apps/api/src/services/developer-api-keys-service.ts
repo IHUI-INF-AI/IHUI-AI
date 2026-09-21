@@ -122,6 +122,9 @@ export async function createKey(
       key,
       secret: hashed,
       permissions,
+      // DEPRECATED(2026-09-21):`rate_limit` 不参与任何限流判定(判定只读 rateLimit5h/1d/7d
+      // + per-model RPM/TPM + tpmLimit),保留列与默认值仅为存量展示兼容;
+      // 入口已在 routes/developer.ts `noteDeprecatedKeyFields` 回废弃响应头,2026-12-31 移除。
       rateLimit: input.rateLimit ?? 60,
       // P0-7 安全粒度字段:undefined → null(DB 默认),null = 不限制
       expiresAt: input.expiresAt ?? null,
