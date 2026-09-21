@@ -161,6 +161,17 @@ def test_latest_alias_is_curated(model_id: str) -> None:
     assert _tier_of(model_id, "openrouter") == ModelTier.LATEST.value
 
 
+def test_mimo_flagship_curated_but_specialized_variants_are_not() -> None:
+    """MiMo 官方回裸名(mimo-v2.5 而非 xiaomi/mimo-*),白名单要按裸名命中;
+    同代次的 tts/asr 属专用模型,不能被抬进聊天默认区。"""
+    assert _tier_of("mimo-v2.5", "mimo") == ModelTier.LATEST.value
+    assert _tier_of("mimo-v2.5-pro", "mimo") == ModelTier.LATEST.value
+    assert _cat_of("mimo-v2.5", "mimo") == "chat"
+    for specialized in ("mimo-v2.5-tts", "mimo-v2.5-asr", "mimo-v2.5-tts-voiceclone"):
+        assert _tier_of(specialized, "mimo") != ModelTier.LATEST.value
+    assert _tier_of("mimo-v2.5-free", "mimo") != ModelTier.LATEST.value
+
+
 def test_latest_alias_of_old_generation_still_demoted() -> None:
     """老代次的 -latest 别名要被代次比较压下去,不能因为别名就常驻最新。"""
     models = [_mk("gemini-3.7-flash"), _mk("gemini-2.5-flash-native-audio-latest")]
