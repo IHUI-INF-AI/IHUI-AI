@@ -10,6 +10,7 @@ import {
   numeric,
   bigint,
   timestamp,
+  text,
   jsonb,
   index,
 } from 'drizzle-orm/pg-core'
@@ -80,6 +81,15 @@ export const developerApiKeys = pgTable(
     perModelRpmLimit: jsonb('per_model_rpm_limit').$type<Record<string, number> | null>(),
     /** 单模型 TPM 上限映射(jsonb {"gpt-4o": 100000},null/缺 key = 该模型不限) */
     perModelTpmLimit: jsonb('per_model_tpm_limit').$type<Record<string, number> | null>(),
+    // --- TPM 限流 + 标签管理(2026-07-31 立,迁移 20260801010060_add_api_key_tpm_tags.sql)---
+    /** 每分钟 token 上限(null = 无限) */
+    tpmLimit: integer('tpm_limit'),
+    /** 标签数组(TEXT[]),用于分组管理 */
+    tags: text('tags').array().default([]),
+    /** 别名(显示用,区别于 name) */
+    alias: varchar('alias', { length: 100 }),
+    /** 备注/描述 */
+    description: text('description'),
     // --- 多租户关联字段(对标 New API,API Key 可关联到 tenant 实现组织级配额池)---
     /** 关联的租户 ID(nullable,不关联则为个人 Key),onDelete set null 避免删租户时级联删 Key */
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
