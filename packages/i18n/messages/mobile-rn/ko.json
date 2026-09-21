@@ -1062,7 +1062,11 @@
     "submit": "인증 제출",
     "submitting": "제출 중...",
     "failed": "인증 실패",
-    "loadFailed": "인증 불러오기 실패"
+    "loadFailed": "인증 불러오기 실패",
+    "status_unverified": "미인증",
+    "status_pending": "심사 중",
+    "status_verified": "인증됨",
+    "status_rejected": "미통과"
   },
   "income": {
     "title": "수익",
@@ -1271,7 +1275,9 @@
     "rules": "홍보 규칙",
     "inviteRecords": "초대 기록",
     "empty": "데이터 없음",
-    "loadFailed": "프로모션 불러오기 실패"
+    "loadFailed": "프로모션 불러오기 실패",
+    "status_active": "활성",
+    "status_inactive": "비활성"
   },
   "promotion": {
     "title": "쿠폰",
@@ -1316,7 +1322,11 @@
     "submitting": "제출 중...",
     "failed": "인증 실패",
     "fieldsRequired": "모든 항목을 입력하세요",
-    "loadFailed": "실명 인증 불러오기 실패"
+    "loadFailed": "실명 인증 불러오기 실패",
+    "status_unverified": "미인증",
+    "status_pending": "심사 중",
+    "status_verified": "인증됨",
+    "status_rejected": "미통과"
   },
   "recruitment": {
     "title": "채용 공고",
