@@ -6,11 +6,12 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Loader2, Bot, Sparkles } from 'lucide-react'
+import { Loader2, Bot, Sparkles, LogIn } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Card, CardContent } from '@ihui/ui-react'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Grid } from '@/components/layout'
 import { Avatar, VipBadge } from '@/components/data'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { cn } from '@/lib/utils'
 import type { Agent } from './types'
 
@@ -35,6 +36,19 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
   }
 
   if (error) {
+    // 401 兜底引导:正常情况下市场列表已对游客公开(API 市场公开化 2026-09-21),
+    // 若仍出现 401(如鉴权回归),给出登录入口而不是裸错误文案
+    if ((error as Error & { status?: number }).status === 401) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <LogIn className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t('loginRequired')}</p>
+          <Button size="sm" onClick={() => openLoginDialogOnce('/agents')}>
+            {t('loginNow')}
+          </Button>
+        </div>
+      )
+    }
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
         {(error as Error).message}
