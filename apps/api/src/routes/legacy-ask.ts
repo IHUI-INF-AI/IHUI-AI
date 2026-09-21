@@ -1,0 +1,98 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import { authenticate } from '../plugins/auth.js'
+import { z } from 'zod'
+import { db } from '../db/index.js'
+import { sql, eq, and } from 'drizzle-orm'
+import { asks, askAnswers } from '@ihui/database'
+import { error } from '../utils/response.js'
+
+/**
+ * 历史项目缺失端点补齐 — 问答模块(D7/D8)。
+ * 从原 legacy-completion.ts 拆分,注册 prefix 为 /api/legacy,完整路径保持不变。
+ * - D7: 问答分类/会员计数(5端点 /ask/*)
+ * - D8: 回答删除/更新(2端点 /ask/answers/*)
+ */
+export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  const idParam = z.object({ id: z.string() })
+  const userIdQuery = z.object({ userId: z.string() })
+  const paginatedUserIdQuery = z.object({
+    userId: z.string(),
+    // P1 修复(2026-08-06): 分页 pageSize 补上限
+    page: z.coerce.number().int().min(1).optional().default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
+  })
+
+  // ========== D7: 问答分类/会员计数 (5端点) ==========
+  fastify.get('/ask/categories', async () => {
+    const rows = await db.execute(
+      sql`SELECT * FROM ask_categories WHERE is_show = true ORDER BY sort_order ASC`,
+    )
+    return { list: rows as Record<string, unknown>[] }
+  })
+
+  fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request) => {
+    const { userId } = userIdQuery.parse(request.query)
+    const rows = await db.execute(
+      sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
+    )
+    return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
+  })
+
+  fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request) => {
+    const { userId } = userIdQuery.parse(request.query)
+    const rows = await db.execute(
+      sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
+    )
+    return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
+  })
+
+  fastify.get('/ask/member/questions', { preHandler: authenticate }, async (request) => {
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
+    const list = await db
+      .select()
+      .from(asks)
+      .where(eq(asks.userId, userId))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return { list, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  fastify.get('/ask/member/answers', { preHandler: authenticate }, async (request) => {
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
+    const list = await db
+      .select()
+      .from(askAnswers)
+      .where(eq(askAnswers.userId, userId))
+      .limit(Number(pageSize))
+      .offset((Number(page) - 1) * Number(pageSize))
+    return { list, page: Number(page), pageSize: Number(pageSize) }
+  })
+
+  // ========== D8: 回答删除/更新 (2端点) ==========
+  fastify.delete('/ask/answers/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = idParam.parse(request.params)
+    const [deleted] = await db
+      .delete(askAnswers)
+      .where(and(eq(askAnswers.id, id), eq(askAnswers.userId, request.userId!)))
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '回答不存在'))
+    return { deleted: true }
+  })
+
+  fastify.patch('/ask/answers/:id', { preHandler: authenticate }, async (request, reply) => {
+    const { id } = idParam.parse(request.params)
+    const { content } = z.object({ content: z.string() }).parse(request.body)
+    const [updated] = await db
+      .update(askAnswers)
+      .set({ content })
+      .where(and(eq(askAnswers.id, id), eq(askAnswers.userId, request.userId!)))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '回答不存在'))
+    return updated
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

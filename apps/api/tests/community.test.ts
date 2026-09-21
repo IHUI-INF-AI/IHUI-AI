@@ -1,0 +1,141 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { describe, it, expect, afterAll, vi } from 'vitest'
+import Fastify from 'fastify'
+
+// Mock config 避免导入时 env 校验触发 process.exit(1)
+vi.mock('../src/config/index.js', () => ({
+  config: {
+    NODE_ENV: 'test',
+    PORT: 8802,
+    HOST: '0.0.0.0',
+    LOG_LEVEL: 'silent',
+    CORS_ORIGIN: 'http://localhost:8801',
+    DATABASE_URL: 'postgres://localhost:5432/test',
+    REDIS_URL: 'redis://localhost:6379',
+    JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
+    JWT_EXPIRES_IN: '7d',
+    AI_SERVICE_URL: 'http://localhost:8803',
+    CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
+  },
+}))
+
+import { communityRoutes } from '../src/routes/community'
+
+// community 路由通过 preHandler 钩子统一鉴权，未登录时所有端点返回 401。
+const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
+
+describe('community routes', () => {
+  const server = Fastify({ logger: false })
+
+  // 与 server.ts 保持一致的错误处理器：将验证错误格式化为 { code, message }
+  server.setErrorHandler((error, _request, reply) => {
+    const statusCode =
+      error.statusCode && error.statusCode >= 400 && error.statusCode < 600 ? error.statusCode : 500
+    reply.status(statusCode).send({
+      code: statusCode,
+      message: statusCode >= 500 ? '服务器错误' : error.message,
+    })
+  })
+
+  afterAll(async () => {
+    await server.close()
+  })
+
+  it('GET /api/circles 是公开端点(不强制鉴权):实现走 preHandler 钩子 early-return,handler 内部依赖 DB 连接', async () => {
+    // 产品设计:GET /api/circles(列表)/:id(详情)/:id/posts(帖子列表)是公开浏览接口,
+    // 由 community/circles.ts 的 preHandler 钩子在 path 匹配时 early-return 跳过 authenticate。
+    // 因此未登录请求会进入 handler,handler 调用 findCircles() 等 DB 查询函数;
+    // 测试环境无 DB → setErrorHandler 将错误转为 500。
+    // 这个测试验证的是:401 鉴权短路不会发生在公开 GET 端点上。
+    await server.register(communityRoutes, { prefix: '/api' })
+    await server.ready()
+
+    const res = await server.inject({ method: 'GET', url: '/api/circles' })
+    // 不应是 401(公开端点不进 authenticate 钩子)
+    expect(res.statusCode).not.toBe(401)
+  })
+
+  it('GET /api/circles/:id 是公开端点', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/circles/${SAMPLE_UUID}`,
+    })
+    expect(res.statusCode).not.toBe(401)
+  })
+
+  it('GET /api/circles/:id/posts 是公开端点', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/circles/${SAMPLE_UUID}/posts`,
+    })
+    expect(res.statusCode).not.toBe(401)
+  })
+
+  it('POST /api/circles/:id/posts 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/circles/${SAMPLE_UUID}/posts`,
+      body: { title: 't', content: 'c' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('GET /api/circles/posts/:id 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/circles/posts/${SAMPLE_UUID}`,
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('GET /api/asks 未登录返回 401', async () => {
+    const res = await server.inject({ method: 'GET', url: '/api/asks' })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('GET /api/asks/:id 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/asks/${SAMPLE_UUID}`,
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('POST /api/asks 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/asks',
+      body: { title: 't', content: 'c' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('GET /api/asks/:id/answers 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/asks/${SAMPLE_UUID}/answers`,
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('POST /api/asks/:id/answers 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/asks/${SAMPLE_UUID}/answers`,
+      body: { content: 'c' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('POST /api/asks/answers/:id/accept 未登录返回 401', async () => {
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/asks/answers/${SAMPLE_UUID}/accept`,
+    })
+    expect(res.statusCode).toBe(401)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

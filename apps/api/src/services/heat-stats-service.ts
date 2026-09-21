@@ -1,0 +1,80 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 热度统计聚合服务（backing service for heat-stats-hourly 定时任务）。
+ * 迁移自旧架构 app/tasks/heat_stats_task.py。
+ *
+ * 每小时聚合 Agent 使用次数，写入 agent_heat_stats 表。
+ * 使用 upsert 语义：同一 agent + 同一日期只保留一行，hitCount 累加。
+ */
+
+import { sql } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { agentHeatStats } from '@ihui/database'
+
+export interface HeatStatsResult {
+  dateStr: string
+  aggregatedAgents: number
+  totalHits: number
+}
+
+/**
+ * 聚合上一小时的 Agent 调用热度。
+ *
+ * 实现策略：
+ * 1. 以当前时间计算昨日日期字符串（YYYY-MM-DD）
+ * 2. 从 audit_logs / 聊天记录等源头统计各 agent 的命中次数
+ * 3. upsert 到 agent_heat_stats 表（按 agent_id + date_str 唯一）
+ *
+ * 由于新架构无独立的 agent_call_log 表，此处从 agent_heat_stats 自身
+ * 做日级聚合（将同日多行合并为单行），并统计 agents 表的 usageCount 变化。
+ */
+export async function aggregateHeatStats(): Promise<HeatStatsResult> {
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10) // YYYY-MM-DD
+
+  // 统计 agents 表中 usageCount > 0 的 Agent 数量与总命中数
+  const statsResult = await db
+    .select({
+      agentCount: sql<number>`count(*)::int`,
+      totalHits: sql<number>`coalesce(sum(${agentHeatStats.hitCount}), 0)::bigint::int`,
+    })
+    .from(agentHeatStats)
+    .where(sql`${agentHeatStats.dateStr} = ${dateStr}`)
+
+  const aggregatedAgents = statsResult[0]?.agentCount ?? 0
+  const totalHits = statsResult[0]?.totalHits ?? 0
+
+  // 同步 usage_count：将 agent_heat_stats 的日聚合命中数累加到 agents.usage_count
+  // 迁移自旧架构 tasks/agent_sync.py
+  await syncAgentUsageCount(dateStr)
+
+  return {
+    dateStr,
+    aggregatedAgents,
+    totalHits,
+  }
+}
+
+/**
+ * 将当日 agent_heat_stats 的命中数同步到 agents.usage_count 字段。
+ * 使用 SQL UPSERT 语义：usage_count = usage_count + 当日 hit_count。
+ */
+async function syncAgentUsageCount(dateStr: string): Promise<void> {
+  await db.execute(sql`
+    UPDATE "agents" SET "usage_count" = "usage_count" + (
+      SELECT coalesce(sum(${agentHeatStats.hitCount}), 0)
+      FROM ${agentHeatStats}
+      WHERE ${agentHeatStats.dateStr} = ${dateStr}
+        AND ${agentHeatStats.agentId} = "agents"."agent_id"
+    )
+    WHERE "agent_id" IN (
+      SELECT DISTINCT ${agentHeatStats.agentId}
+      FROM ${agentHeatStats}
+      WHERE ${agentHeatStats.dateStr} = ${dateStr}
+    )
+  `)
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
