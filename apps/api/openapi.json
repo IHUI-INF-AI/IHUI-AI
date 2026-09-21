@@ -3162,6 +3162,15 @@
         }
       }
     },
+    "/api/admin/announcements/email-push": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/announcements/{id}": {
       "delete": {
         "parameters": [
@@ -77840,7 +77849,7 @@
     },
     "/api/ai/mimo/chat": {
       "post": {
-        "description": "代理调用 https://token-plan-cn.xiaomimimo.com/v1/chat/completions(OpenAI 协议全参数透传)",
+        "description": "代理调用 https://api.xiaomimimo.com/v1/chat/completions(OpenAI 协议全参数透传)",
         "requestBody": {
           "required": true,
           "content": {
@@ -78172,7 +78181,7 @@
     },
     "/api/ai/mimo/models": {
       "get": {
-        "description": "代理调用 https://token-plan-cn.xiaomimimo.com/v1/models 动态获取官方全量模型",
+        "description": "代理调用 https://api.xiaomimimo.com/v1/models 动态获取官方全量模型",
         "responses": {
           "200": {
             "description": "Default Response",
