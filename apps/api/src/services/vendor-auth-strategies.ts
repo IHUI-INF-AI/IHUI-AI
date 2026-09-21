@@ -12,14 +12,16 @@
  * 并通过 AuthStrategyFactory 注册，无需修改 routes 路由文件。
  *
  * 鉴权类型（与 ai_vendor_configs.authType 字段对应）：
- * - bearer         大多数厂商（Dashscope/Doubao/Suno/Sora2/Coze/Bailian/N8N）
- * - tencent_tc3    腾讯云 TC3-HMAC-SHA256 签名（Tencent 混元 / ARC）
- * - volcengine_v4  火山引擎 HMAC-SHA256 V4 签名（即梦 / 字节豆包企业版）
+ * - bearer          大多数厂商（Dashscope/Doubao/Suno/Sora2/Coze/Bailian/N8N）
+ * - tencent_tc3     腾讯云 TC3-HMAC-SHA256 签名（Tencent 混元 / ARC）
+ * - volcengine_v4   火山引擎 HMAC-SHA256 V4 签名（即梦 / 字节豆包企业版）
+ * - custom_headers  通用自定义头兜底（Hume/Inworld/Gladia/Bria/Freepik 等，复用 V1 VENDORS.authHeader）
  *
  * Gemini/即梦/腾讯：使用 API Key 注入到自定义 header，不需要复杂签名，
  * 仍归类为 bearer 策略，buildHeaders 直接返回对应的 header 即可。
  */
 import { createHmac, createHash } from 'node:crypto'
+import { VENDORS } from '../routes/ai-vendors/_shared.js'
 
 export interface VendorCredentials {
   key?: string
@@ -205,6 +207,29 @@ export class VolcengineV4AuthStrategy implements AuthStrategy {
 }
 
 /**
+ * 自定义头鉴权策略（通用兜底，authType: custom_headers）。
+ * 适用于：Hume(X-Hume-Api-Key) / Inworld(Basic) / Gladia / Bria / Freepik / N8N / Gemini 等非标准 Bearer 厂商。
+ * 实现：直接复用 V1 VENDORS 注册表的 authHeader(key) 产出鉴权头，新增厂商零维护。
+ * 前提：调用方（vendor-caller-service）在 ctx.config 中注入 vendorCode。
+ */
+export class CustomHeadersAuthStrategy implements AuthStrategy {
+  readonly authType = 'custom_headers'
+
+  buildHeaders(credentials: VendorCredentials, ctx: AuthRequestContext): SimpleAuthResult {
+    const vendorCode = typeof ctx.config?.vendorCode === 'string' ? ctx.config.vendorCode : ''
+    const cfg = vendorCode ? VENDORS[vendorCode] : undefined
+    if (!cfg) {
+      throw new Error(`厂商 ${vendorCode || '(未知)'} 不在 VENDORS 注册表，无法构建自定义鉴权头`)
+    }
+    return { headers: cfg.authHeader(credentials.key ?? '') }
+  }
+
+  validateCredentials(credentials: VendorCredentials): boolean {
+    return !!credentials.key
+  }
+}
+
+/**
  * 鉴权策略工厂。
  * 提供策略注册与查询能力，新增厂商时只需 registerStrategy(authType, instance) 即可。
  */
@@ -215,6 +240,7 @@ export class AuthStrategyFactory {
     this.registerStrategy(new BearerAuthStrategy())
     this.registerStrategy(new TencentTc3AuthStrategy())
     this.registerStrategy(new VolcengineV4AuthStrategy())
+    this.registerStrategy(new CustomHeadersAuthStrategy())
   }
 
   registerStrategy(strategy: AuthStrategy): void {
