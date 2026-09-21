@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { BASE_URL } from '@/utils/api-config'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -40,6 +41,16 @@ export default function ApiSettings() {
   })
   const [apiToken, setApiToken] = useState('')
   const [workflowId, setWorkflowId] = useState('')
+  // AI 操控通道(2026-09-21):只登记工作流 ID —— API 令牌是凭据(password 属性 + 令牌语义),
+  // 按硬规矩连快照都不出现,故不交出写通道。
+  useUiField({
+    kind: 'input',
+    label: tt('about.apiSettings.workflowId', '工作流 ID(Workflow ID)'),
+    placeholder: tt('about.apiSettings.workflowPlaceholder', '请输入工作流 ID'),
+    inputType: 'text',
+    readValue: () => workflowId,
+    setValue: setWorkflowId,
+  })
   const [showToken, setShowToken] = useState(false)
   const [testing, setTesting] = useState<TestState>('idle')
 
