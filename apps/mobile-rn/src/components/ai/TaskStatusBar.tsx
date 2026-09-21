@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Check, ChevronDown, ChevronUp, CircleDashed, Loader2, X } from 'lucide-react-native'
-import { deriveTaskStatusBar } from '@ihui/shared'
+import { humanizeToolText, deriveTaskStatusBar } from '@ihui/shared'
 import type { TaskStatusKind, TaskStatusStepView } from '@ihui/shared'
 import type { PlanStepStatus, ToolCall } from '@ihui/types'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -65,7 +65,13 @@ function StatusIcon({ glyph, spinning }: { glyph: StatusGlyph; spinning: boolean
   return <CircleDashed size={14} color={glyph.color} />
 }
 
-function StepRow({ step }: { step: TaskStatusStepView }) {
+function StepRow({
+  step,
+  translate,
+}: {
+  step: TaskStatusStepView
+  translate: (key: string) => string
+}) {
   const glyph = STEP_GLYPH[step.status]
   return (
     <View style={styles.stepRow}>
@@ -77,7 +83,7 @@ function StepRow({ step }: { step: TaskStatusStepView }) {
           step.status === 'in_progress' && styles.stepTitleActive,
         ]}
       >
-        {step.title}
+        {humanizeToolText(step.title, translate)}
       </Text>
     </View>
   )
@@ -113,7 +119,10 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
 
   if (!view) return null
 
-  const headline = view.headline || t('taskStatus.waiting')
+  // 界面禁止直显英文工具码名:标题/步骤文本里的 read_file 等替换为本地化功能名
+  const translateTool = (key: string) => t(`taskStatus.${key}`)
+  const headline =
+    (view.headline ? humanizeToolText(view.headline, translateTool) : '') || t('taskStatus.waiting')
   const stepText =
     view.stepTotal > 0
       ? t('taskStatus.steps', { current: view.stepCurrent, total: view.stepTotal })
@@ -156,7 +165,7 @@ export function TaskStatusBar({ planSteps, toolCalls, isStreaming }: TaskStatusB
         {open && view.stepTotal > 0 ? (
           <View style={styles.detail}>
             {view.steps.map((step) => (
-              <StepRow key={step.id} step={step} />
+              <StepRow key={step.id} step={step} translate={translateTool} />
             ))}
           </View>
         ) : null}
