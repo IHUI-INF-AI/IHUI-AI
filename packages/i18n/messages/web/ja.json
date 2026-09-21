@@ -375,7 +375,13 @@
     "rulesLabel": "ルール",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "APIテスト",
-    "viewDetail": "View"
+    "viewDetail": "View",
+    "status": {
+      "active": "アクティブ",
+      "ended": "已終了",
+      "unknown": "不明",
+      "upcoming": "未開始"
+    }
   },
   "admin": {
     "aboutUs": {
@@ -849,6 +855,7 @@
       "types": {
         "info": "情報",
         "maintenance": "メンテナンス",
+        "unknown": "不明",
         "update": "しい",
         "warning": "警告"
       },
@@ -1358,7 +1365,13 @@
           "statTotal": "总解答数",
           "subtitle": "とを",
           "title": "カード",
-          "totalItems": "{count}"
+          "totalItems": "{count}",
+          "status": {
+            "graded": "採点済み",
+            "pending": "進行中",
+            "submitted": "提出済み",
+            "unknown": "不明"
+          }
         },
         "online": {
           "answerPlaceholder": "を",
@@ -2167,7 +2180,13 @@
           "subtitle": "すべてのとを",
           "title": "解答記録",
           "totalItems": "{count}",
-          "unknownPaper": "な"
+          "unknownPaper": "な",
+          "status": {
+            "graded": "採点済み",
+            "pending": "解答中",
+            "submitted": "提出済み",
+            "unknown": "不明"
+          }
         }
       },
       "finance": {
@@ -2246,12 +2265,18 @@
             "issued": "み",
             "pending": "ち",
             "processing": "...",
-            "rejected": "しました"
+            "rejected": "しました",
+            "unknown": "不明"
           },
           "statusLabel": "ステータス",
           "subtitle": "のを・",
           "title": "請求書管理",
-          "totalItems": "{count}"
+          "totalItems": "{count}",
+          "type": {
+            "company": "企業",
+            "personal": "個人",
+            "unknown": "不明"
+          }
         },
         "statistics": {
           "avgOrderAmount": "客単価",
@@ -5529,7 +5554,14 @@
       "statusAll": "すべて",
       "subtitle": "ユーザーの出金申請審査",
       "title": "出金管理",
-      "total": "合計 {total} 件"
+      "total": "合計 {total} 件",
+      "status": {
+        "approved": "承認済み",
+        "paid": "支払済み",
+        "pending": "審査待ち",
+        "rejected": "却下済み",
+        "unknown": "不明"
+      }
     },
     "workflows": {
       "actions": "操作",
@@ -6584,6 +6616,7 @@
       "noTeam": "チーム未設定",
       "priority": "優先度",
       "team": "チーム",
+      "unknown": "不明",
       "workspace": "ワークスペース",
       "agentIdRequired": "エージェントを選択してください",
       "workspacePlaceholder": "空欄の場合はデフォルトのワークスペースを使用"
@@ -6801,7 +6834,8 @@
       "offline": "オフライン",
       "pending": "審査中",
       "published": "公開済み",
-      "rejected": "却下済み"
+      "rejected": "却下済み",
+      "unknown": "不明"
     },
     "subtitle": "作成したエージェントを管理",
     "title": "マイエージェント"
@@ -6810,7 +6844,15 @@
     "back": "戻る",
     "loading": "読み込み中...",
     "subtitle": "エージェント使用データ概覽",
-    "title": "エージェント統計"
+    "title": "エージェント統計",
+    "stat": {
+      "avgRating": "平均評価",
+      "pending": "審査中",
+      "published": "公開済み",
+      "totalAgents": "エージェント総数",
+      "totalCalls": "総呼び出し数",
+      "totalUsers": "利用ユーザー数"
+    }
   },
   "agreement": {
     "effectiveDate": "生效日付",
@@ -7302,7 +7344,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -7319,7 +7366,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8084,7 +8136,17 @@
           "id": "ＩＤ",
           "name": "サイト名"
         },
-        "title": "AI ワールドサイト管理"
+        "title": "AI ワールドサイト管理",
+        "iconLabels": {
+          "briefcase": "事務",
+          "code": "コード",
+          "graduation": "教育",
+          "megaphone": "マーケティング",
+          "message": "会話",
+          "music": "音楽",
+          "palette": "絵画",
+          "video": "動画"
+        }
       }
     },
     "title": "AI 世界"
@@ -8370,7 +8432,14 @@
     "prev": "へ",
     "publishedAt": "み",
     "subtitle": "管理ドキュメントとAPIリファレンス",
-    "title": "おらせ"
+    "title": "おらせ",
+    "types": {
+      "info": "情報",
+      "maintenance": "メンテナンス",
+      "unknown": "不明",
+      "update": "更新",
+      "warning": "警告"
+    }
   },
   "answerArea": {
     "audio": {
@@ -9146,7 +9215,8 @@
         "popover": "ポップオーバー",
         "shift-tab": "Shift+Tab",
         "slash": "スラッシュ",
-        "confirm-dialog": "確認ダイアログ"
+        "confirm-dialog": "確認ダイアログ",
+        "unknown": "不明"
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "権限モード履歴",
@@ -9935,117 +10005,215 @@
     "commands": {
       "agent": {
         "description": "AI エージェントの管理とディスパッチ",
-        "keywords": ["エージェント", "agent", "bot"],
+        "keywords": [
+          "エージェント",
+          "agent",
+          "bot"
+        ],
         "label": "AI エージェント"
       },
       "browser": {
         "description": "ワークスペース内でウェブを閲覧",
-        "keywords": ["ブラウザ", "ウェブ", "browser"],
+        "keywords": [
+          "ブラウザ",
+          "ウェブ",
+          "browser"
+        ],
         "label": "組み込みブラウザ"
       },
       "capabilityMarket": {
         "description": "ケイパビリティパックの発見とインストール",
-        "keywords": ["ケイパビリティ", "マーケット", "market", "プラグイン"],
+        "keywords": [
+          "ケイパビリティ",
+          "マーケット",
+          "market",
+          "プラグイン"
+        ],
         "label": "ケイパビリティマーケット"
       },
       "codeChanges": {
         "description": "ワークスペースのコード変更を確認",
-        "keywords": ["コード", "変更", "diff", "修正"],
+        "keywords": [
+          "コード",
+          "変更",
+          "diff",
+          "修正"
+        ],
         "label": "コード変更"
       },
       "connectors": {
         "description": "外部サービス接続を管理",
-        "keywords": ["コネクタ", "接続", "connector"],
+        "keywords": [
+          "コネクタ",
+          "接続",
+          "connector"
+        ],
         "label": "コネクタ"
       },
       "document": {
         "description": "ワークスペースのドキュメントを編集",
-        "keywords": ["ドキュメント", "編集", "doc"],
+        "keywords": [
+          "ドキュメント",
+          "編集",
+          "doc"
+        ],
         "label": "ドキュメント"
       },
       "editor": {
         "description": "コードエディタを開く",
-        "keywords": ["エディタ", "コード", "editor"],
+        "keywords": [
+          "エディタ",
+          "コード",
+          "editor"
+        ],
         "label": "エディタ"
       },
       "mcp": {
         "description": "MCP サーバーとツールを管理",
-        "keywords": ["MCP", "サーバー", "ツール"],
+        "keywords": [
+          "MCP",
+          "サーバー",
+          "ツール"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "MCP サービスの閲覧とインストール",
-        "keywords": ["MCP", "ストア", "store", "インストール"],
+        "keywords": [
+          "MCP",
+          "ストア",
+          "store",
+          "インストール"
+        ],
         "label": "MCP ストア"
       },
       "modeAsk": {
         "description": "質問モードへ切替(ツール無効)",
-        "keywords": ["質問", "ask", "モード"],
+        "keywords": [
+          "質問",
+          "ask",
+          "モード"
+        ],
         "label": "質問モード"
       },
       "modeBuild": {
         "description": "AI に直接構築・修正させる",
-        "keywords": ["ビルド", "モード", "build"],
+        "keywords": [
+          "ビルド",
+          "モード",
+          "build"
+        ],
         "label": "ビルドモード"
       },
       "modePlan": {
         "description": "計画を立ててから実行",
-        "keywords": ["計画", "モード", "plan"],
+        "keywords": [
+          "計画",
+          "モード",
+          "plan"
+        ],
         "label": "計画モード"
       },
       "modeReview": {
         "description": "既存コードをレビュー",
-        "keywords": ["レビュー", "モード", "review"],
+        "keywords": [
+          "レビュー",
+          "モード",
+          "review"
+        ],
         "label": "レビューモード"
       },
       "modeSpec": {
         "description": "仕様から実装を生成",
-        "keywords": ["仕様", "モード", "spec"],
+        "keywords": [
+          "仕様",
+          "モード",
+          "spec"
+        ],
         "label": "仕様モード"
       },
       "skill": {
         "description": "AI スキルの管理と呼び出し",
-        "keywords": ["スキル", "skill", "機能"],
+        "keywords": [
+          "スキル",
+          "skill",
+          "機能"
+        ],
         "label": "スキル"
       },
       "terminal": {
         "description": "統合ターミナルを開く",
-        "keywords": ["ターミナル", "端末", "terminal"],
+        "keywords": [
+          "ターミナル",
+          "端末",
+          "terminal"
+        ],
         "label": "ターミナル"
       },
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       },
       "skillsMarket": {
         "description": "自己進化スキルの閲覧と導入",
-        "keywords": ["skill", "スキル", "マーケット", "market"],
+        "keywords": [
+          "skill",
+          "スキル",
+          "マーケット",
+          "market"
+        ],
         "label": "Skill マーケット"
       }
     },
@@ -10283,7 +10451,12 @@
       "signedAt": "契約日時"
     },
     "planName": "月額サブスクリプション",
-    "title": "契約管理"
+    "title": "契約管理",
+    "status": {
+      "active": "有効",
+      "pending": "契約中",
+      "unknown": "不明"
+    }
   },
   "course": {
     "chapters": {
@@ -10345,6 +10518,7 @@
       "hour": "時",
       "day": "日",
       "month": "月",
+      "unknown": "不明",
       "weekday": "曜日"
     },
     "mode": {
@@ -10400,7 +10574,20 @@
       "totalProjects": "プロジェクト",
       "totalUsers": "ユーザー",
       "userGrowth": "ユーザーへ",
-      "userGrowthHint": "14のユーザー"
+      "userGrowthHint": "14のユーザー",
+      "fileTypes": {
+        "document": "ドキュメント",
+        "image": "画像",
+        "other": "その他",
+        "unknown": "不明",
+        "video": "動画"
+      },
+      "projectStatus": {
+        "active": "アクティブ",
+        "archived": "アーカイブみ",
+        "completed": "完了",
+        "unknown": "不明"
+      }
     }
   },
   "deliveryReview": {
@@ -10846,7 +11033,17 @@
     "subtitle": "請求記録と支払い方法を表示",
     "title": "請求書",
     "toastContactSupport": "カスタマーサポートにお問い合わせください",
-    "toastInvoiceGenerating": "請求書を生成中です。お待ちください"
+    "toastInvoiceGenerating": "請求書を生成中です。お待ちください",
+    "payType": {
+      "alipay": "Alipay",
+      "card": "銀行カード",
+      "wechat": "WeChat Pay"
+    },
+    "status": {
+      "failed": "失敗",
+      "paid": "支払済み",
+      "pending": "未払い"
+    }
   },
   "developerHomePage": {
     "currentPlan": "現在のプラン",
@@ -10972,7 +11169,13 @@
     "releasedAt": "公開日 {date}",
     "subtitle": "APIバージョンの状態と廃止スケジュールを表示",
     "sunsetTime": "提供終了日時:",
-    "title": "API バージョン管理"
+    "title": "API バージョン管理",
+    "status": {
+      "beta": "ベータ",
+      "deprecated": "廃止予定",
+      "stable": "安定",
+      "sunset": "提供終了"
+    }
   },
   "dict": {
     "addItem": "項目を追加",
@@ -12101,25 +12304,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -12253,19 +12468,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -12846,7 +13073,17 @@
   "follows": {
     "loading": "読み込み中...",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "みフォロー"
+    "title": "みフォロー",
+    "tabs": {
+      "followers": "フォロワー",
+      "following": "みフォロー",
+      "unknown": "不明"
+    },
+    "empty": {
+      "followers": "フォロワー",
+      "following": "みフォロー",
+      "unknown": "データなし"
+    }
   },
   "footer": {
     "aboutUs": "私たちについて",
@@ -13509,7 +13746,12 @@
     "rewardValue": "+{inviter} / られる +{invitee} ポイント",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "APIテスト",
-    "user": "ユーザー"
+    "user": "ユーザー",
+    "status": {
+      "expired": "期限切れ",
+      "unused": "アクティブ",
+      "used": "使用済み"
+    }
   },
   "kbArticleForm": {
     "articleInfo": "記事情報",
@@ -13661,7 +13903,8 @@
       "title": "学習トピック",
       "type": {
         "lesson": {
-          "label": "コース特集"
+          "label": "コース特集",
+          "tip": "運営精選のコース組み合わせ、無料で学習できます。"
         },
         "premium": {
           "label": "プレミアム特集"
@@ -13700,7 +13943,10 @@
     "errorFallback": "読み込み失敗",
     "loading": "読み込み中...",
     "status": {
+      "failApproval": "不合格",
       "notSubmitted": "未提出",
+      "passApproval": "合格",
+      "submitted": "提出済み",
       "unknown": "不明"
     },
     "submitBtn": {
@@ -14765,6 +15011,9 @@
     "empty": "申込記録はありません",
     "loading": "読み込み中...",
     "status": {
+      "attended": "受験済み",
+      "canceled": "キャンセル済み",
+      "pending": "受験待ち",
       "unknown": "不明"
     },
     "title": "試験申込",
@@ -14777,7 +15026,20 @@
     "privacyTitle": "プライバシー設定",
     "saveBtn": "設定を保存",
     "saved": "保存済み",
-    "title": "会員設定"
+    "title": "会員設定",
+    "notif": {
+      "newsletter": "ニュースレター購読",
+      "orderUpdates": "注文ステータス更新",
+      "points": "ポイント変動通知",
+      "promotions": "プロモーションとオファー",
+      "unknown": "不明"
+    },
+    "privacy": {
+      "allowInvites": "他ユーザーからの招待を許可",
+      "showActivity": "最近のアクティビティを表示",
+      "showProfile": "プロフィールを公開",
+      "unknown": "不明"
+    }
   },
   "memberSubscriptionPage": {
     "autoRenew": "自動更新",
@@ -14790,7 +15052,12 @@
     "subscribeNow": "今すぐ登録",
     "subscriptionAmount": "サブスクリプション金額",
     "subtitle": "現在のサブスクリプションを管理、更新またはキャンセル",
-    "title": "サブスクリプション管理"
+    "title": "サブスクリプション管理",
+    "status": {
+      "active": "有効",
+      "cancelled": "キャンセル済み",
+      "expired": "期限切れ"
+    }
   },
   "members": {
     "allLevels": "てレベル",
@@ -14819,7 +15086,15 @@
     "empty": "なしメッセージ",
     "loading": "読み込み中...",
     "noData": "なしメッセージ",
-    "title": "消息"
+    "title": "消息",
+    "tab": {
+      "comment": "コメント",
+      "favorite": "お気に入り",
+      "follow": "フォロワー",
+      "like": "いいね",
+      "notice": "通知",
+      "unknown": "不明"
+    }
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -14849,7 +15124,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "relay": {
@@ -15691,7 +15974,15 @@
     "generate": "音楽を生成",
     "genreLabel": "ジャンル",
     "placeholder": "生成する音楽を説明してください...",
-    "title": "音楽生成"
+    "title": "音楽生成",
+    "genre": {
+      "classical": "クラシック",
+      "electronic": "エレクトロニック",
+      "jazz": "ジャズ",
+      "pop": "ポップ",
+      "rock": "ロック",
+      "unknown": "不明"
+    }
   },
   "myArticles": {
     "create": "記事を書く",
@@ -16658,8 +16949,12 @@
       "decisions": "共同決定"
     },
     "telemetry": {
+      "degraded": "低下",
+      "healthy": "健全",
       "pillarHealth": "ピラー健全性",
-      "recentTraces": "最近のTrace"
+      "recentTraces": "最近のTrace",
+      "unhealthy": "不健全",
+      "unknown": "不明"
     },
     "title": "オーケストレーションハブ",
     "unavailable": "オーケストレーションハブ利用不可"
@@ -16677,7 +16972,8 @@
       "cancelled": "キャンセル済み",
       "paid": "支払済み",
       "pending": "支払い待ち",
-      "refunded": "返金済み"
+      "refunded": "返金済み",
+      "unknown": "不明"
     },
     "statusLabel": "ステータス",
     "subtitle": "のなドキュメントとAPIリファレンス",
@@ -16687,7 +16983,8 @@
     "type": {
       "all": "すべて",
       "card": "カード",
-      "course": "コース"
+      "course": "コース",
+      "unknown": "不明"
     }
   },
   "overview": {
@@ -16857,6 +17154,9 @@
           "メールサポート"
         ],
         "name": "プロ版"
+      },
+      "unknown": {
+        "name": "不明なプラン"
       }
     },
     "popular": "推奨",
@@ -17886,6 +18186,7 @@
     "range": {
       "month": "月間",
       "total": "累計",
+      "unknown": "不明",
       "week": "週間"
     },
     "subtitle": "ユーザーのポイントとアクティブ度ランキングを表示",
@@ -18105,7 +18406,13 @@
     "empty": "セキュリティイベントはありません",
     "loading": "読み込み中...",
     "subtitle": "アカウントセキュリティ関連のイベントを表示（マスキング済み）",
-    "title": "セキュリティ監査"
+    "title": "セキュリティ監査",
+    "type": {
+      "login": "ログイン記録",
+      "other": "その他",
+      "permission": "権限変更",
+      "sensitive": "機密操作"
+    }
   },
   "selfMedia": {
     "automation": "自動化",
@@ -19224,11 +19531,19 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "tabs": {
       "all": "すべて",
+      "category": "カテゴリ",
+      "project": "プロジェクト",
+      "tag": "タグ",
+      "unknown": "不明",
+      "user": "ユーザー"
+    },
+    "title": "サブスクリプション",
+    "types": {
+      "category": "カテゴリ",
       "project": "プロジェクト",
       "tag": "タグ",
       "user": "ユーザー"
-    },
-    "title": "サブスクリプション"
+    }
   },
   "supportNewTicketForm": {
     "cancel": "キャンセル",
@@ -19241,7 +19556,13 @@
     "priorityLabel": "優先度",
     "submit": "チケットを送信",
     "titleLabel": "タイトル",
-    "titlePlaceholder": "問題を簡潔に説明してください"
+    "titlePlaceholder": "問題を簡潔に説明してください",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "緊急"
+    }
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -19291,7 +19612,14 @@
     "target": "宛先",
     "title": "タスク受信",
     "wsConnected": "WS 接続済み",
-    "wsDisconnected": "WS 切断"
+    "wsDisconnected": "WS 切断",
+    "status": {
+      "cancelled": "キャンセル",
+      "completed": "完了",
+      "failed": "失敗",
+      "pending": "待機中",
+      "running": "実行中"
+    }
   },
   "tasksLog": {
     "confirmClean": "すべてのタスクログを消去しますか?",
@@ -19381,7 +19709,17 @@
     "tabInvitations": "招待",
     "tabMembers": "メンバー",
     "tabSettings": "設定",
-    "title": "チーム"
+    "title": "チーム",
+    "status": {
+      "accepted": "承認済み",
+      "expired": "期限切れ",
+      "pending": "承認待ち"
+    },
+    "roles": {
+      "admin": "管理者",
+      "member": "メンバー",
+      "owner": "所有者"
+    }
   },
   "terminalPanel": {
     "aiDiagnoseTitle": "AI 診断",
@@ -19504,7 +19842,20 @@
     "serviceRating": "サービス評価",
     "statusPrefix": "ステータス: ",
     "submitRating": "評価を送信",
-    "userRole": "自分"
+    "userRole": "自分",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "緊急"
+    },
+    "status": {
+      "closed": "クローズ",
+      "open": "処理中",
+      "pending": "保留中",
+      "rejected": "却下",
+      "resolved": "解決済み"
+    }
   },
   "title": "管理ダッシュボード",
   "tokenValue": {
@@ -19543,7 +19894,8 @@
     "mode": {
       "bookmarks": "ブックマーク別",
       "every": "ページごと",
-      "range": "範囲指定"
+      "range": "範囲指定",
+      "unknown": "不明"
     },
     "modeLabel": "分割モード",
     "rangesLabel": "ページ範囲（カンマ区切り、例: 1-3,5,7-10）",
@@ -19901,7 +20253,13 @@
     "generate": "動画を生成",
     "placeholder": "生成する動画を説明してください...",
     "providerLabel": "プロバイダー",
-    "title": "動画生成"
+    "title": "動画生成",
+    "provider": {
+      "kling": "Kling",
+      "one-click": "ワンクリック生成",
+      "qwen": "Qwen",
+      "unknown": "不明"
+    }
   },
   "videoTasksPage": {
     "createdAt": "作成日時",
@@ -20327,7 +20685,17 @@
         "queue": "キューに {count} 件の追加リクエスト",
         "title": "権限確認",
         "tool": "ツール",
-        "workspace": "ワークスペース"
+        "workspace": "ワークスペース",
+        "toolNames": {
+          "fsDelete": "ファイル削除",
+          "fsEdit": "ファイル編集",
+          "fsGlob": "ファイル検索",
+          "fsGrep": "コンテンツ検索",
+          "fsRead": "ファイル読み取り",
+          "fsRun": "コマンド実行",
+          "fsWrite": "ファイル書き込み",
+          "unknown": "不明"
+        }
       },
       "builtin": "組み込み",
       "bypassWarning": "完全アクセス権限は AI にファイル削除、任意のコマンド実行などすべての操作を許可します。完全に信頼するプライベートプロジェクトでのみ使用してください。",

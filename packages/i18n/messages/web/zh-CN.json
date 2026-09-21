@@ -375,7 +375,13 @@
     "rulesLabel": "活动规则",
     "subtitle": "参与活动赢取奖励",
     "title": "活动中心",
-    "viewDetail": "查看详情"
+    "viewDetail": "查看详情",
+    "status": {
+      "active": "进行中",
+      "ended": "已结束",
+      "unknown": "未知",
+      "upcoming": "未开始"
+    }
   },
   "admin": {
     "aboutUs": {
@@ -849,6 +855,7 @@
       "types": {
         "info": "通知",
         "maintenance": "维护",
+        "unknown": "未知",
         "update": "更新",
         "warning": "警告"
       },
@@ -1358,7 +1365,13 @@
           "statTotal": "总答题数",
           "subtitle": "查看答题记录与成绩",
           "title": "答题卡",
-          "totalItems": "共{count}条"
+          "totalItems": "共{count}条",
+          "status": {
+            "graded": "已批阅",
+            "pending": "进行中",
+            "submitted": "已提交",
+            "unknown": "未知"
+          }
         },
         "online": {
           "answerPlaceholder": "请输入你的解答",
@@ -2167,7 +2180,13 @@
           "subtitle": "查看全部答题记录与成绩",
           "title": "答题记录",
           "totalItems": "共 {count} 条",
-          "unknownPaper": "未知试卷"
+          "unknownPaper": "未知试卷",
+          "status": {
+            "graded": "已评分",
+            "pending": "答题中",
+            "submitted": "已提交",
+            "unknown": "未知"
+          }
         }
       },
       "finance": {
@@ -2246,12 +2265,18 @@
             "issued": "已开具",
             "pending": "待处理",
             "processing": "处理中",
-            "rejected": "已拒绝"
+            "rejected": "已拒绝",
+            "unknown": "未知"
           },
           "statusLabel": "状态",
           "subtitle": "审核与开具学员发票申请",
           "title": "发票管理",
-          "totalItems": "共 {count} 条"
+          "totalItems": "共 {count} 条",
+          "type": {
+            "company": "企业",
+            "personal": "个人",
+            "unknown": "未知"
+          }
         },
         "statistics": {
           "avgOrderAmount": "客单价",
@@ -5529,7 +5554,14 @@
       "statusAll": "全部",
       "subtitle": "审核用户提现申请",
       "title": "提现审核",
-      "total": "共 {total} 条"
+      "total": "共 {total} 条",
+      "status": {
+        "approved": "已通过",
+        "paid": "已打款",
+        "pending": "待审核",
+        "rejected": "已驳回",
+        "unknown": "未知"
+      }
     },
     "workflows": {
       "actions": "操作",
@@ -6584,6 +6616,7 @@
       "noTeam": "不指定团队",
       "priority": "优先级",
       "team": "团队",
+      "unknown": "未知",
       "workspace": "工作区",
       "agentIdRequired": "请先选择智能体",
       "workspacePlaceholder": "留空使用默认工作区"
@@ -6801,7 +6834,8 @@
       "offline": "已下线",
       "pending": "待审核",
       "published": "已发布",
-      "rejected": "已拒绝"
+      "rejected": "已拒绝",
+      "unknown": "未知"
     },
     "subtitle": "管理你创建的智能体",
     "title": "我的智能体"
@@ -6810,7 +6844,15 @@
     "back": "返回",
     "loading": "加载中...",
     "subtitle": "智能体使用数据概览",
-    "title": "智能体统计"
+    "title": "智能体统计",
+    "stat": {
+      "avgRating": "平均评分",
+      "pending": "待审核",
+      "published": "已发布",
+      "totalAgents": "智能体总数",
+      "totalCalls": "总调用数",
+      "totalUsers": "使用用户数"
+    }
   },
   "agreement": {
     "effectiveDate": "生效日期",
@@ -7302,7 +7344,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -7319,7 +7366,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8084,7 +8136,17 @@
           "id": "ID",
           "name": "站点名称"
         },
-        "title": "AI 世界站点管理"
+        "title": "AI 世界站点管理",
+        "iconLabels": {
+          "briefcase": "办公",
+          "code": "代码",
+          "graduation": "教育",
+          "megaphone": "营销",
+          "message": "对话",
+          "music": "音乐",
+          "palette": "绘画",
+          "video": "视频"
+        }
       }
     },
     "title": "AI 世界"
@@ -8370,7 +8432,14 @@
     "prev": "上一篇",
     "publishedAt": "发布于",
     "subtitle": "了解最新动态与维护通知",
-    "title": "平台公告"
+    "title": "平台公告",
+    "types": {
+      "info": "通知",
+      "maintenance": "维护",
+      "unknown": "未知",
+      "update": "更新",
+      "warning": "警告"
+    }
   },
   "answerArea": {
     "audio": {
@@ -9146,7 +9215,8 @@
         "popover": "弹窗",
         "shift-tab": "Shift+Tab",
         "slash": "斜杠",
-        "confirm-dialog": "确认弹窗"
+        "confirm-dialog": "确认弹窗",
+        "unknown": "未知"
       },
       "historyStatsTitle": "累计统计",
       "historyTitle": "权限模式历史",
@@ -9935,117 +10005,215 @@
     "commands": {
       "agent": {
         "description": "管理并调度 AI 智能体",
-        "keywords": ["智能体", "调度", "agent"],
+        "keywords": [
+          "智能体",
+          "调度",
+          "agent"
+        ],
         "label": "AI 智能体"
       },
       "browser": {
         "description": "在工作区内浏览网页",
-        "keywords": ["浏览器", "网页", "browser"],
+        "keywords": [
+          "浏览器",
+          "网页",
+          "browser"
+        ],
         "label": "内置浏览器"
       },
       "capabilityMarket": {
         "description": "发现并安装能力包",
-        "keywords": ["能力", "市场", "插件", "market"],
+        "keywords": [
+          "能力",
+          "市场",
+          "插件",
+          "market"
+        ],
         "label": "能力市场"
       },
       "codeChanges": {
         "description": "查看工作区代码改动",
-        "keywords": ["代码", "变更", "改动", "diff"],
+        "keywords": [
+          "代码",
+          "变更",
+          "改动",
+          "diff"
+        ],
         "label": "代码变更"
       },
       "connectors": {
         "description": "管理外部服务连接",
-        "keywords": ["连接", "外部服务", "connector"],
+        "keywords": [
+          "连接",
+          "外部服务",
+          "connector"
+        ],
         "label": "连接器"
       },
       "document": {
         "description": "编辑工作区文档",
-        "keywords": ["文档", "编辑", "doc"],
+        "keywords": [
+          "文档",
+          "编辑",
+          "doc"
+        ],
         "label": "文档"
       },
       "editor": {
         "description": "打开代码编辑器",
-        "keywords": ["编辑器", "代码", "code"],
+        "keywords": [
+          "编辑器",
+          "代码",
+          "code"
+        ],
         "label": "编辑器"
       },
       "mcp": {
         "description": "管理 MCP 服务器与工具",
-        "keywords": ["MCP", "服务器", "工具"],
+        "keywords": [
+          "MCP",
+          "服务器",
+          "工具"
+        ],
         "label": "MCP 管理"
       },
       "mcpStore": {
         "description": "浏览与安装 MCP 服务",
-        "keywords": ["MCP", "广场", "市场", "store"],
+        "keywords": [
+          "MCP",
+          "广场",
+          "市场",
+          "store"
+        ],
         "label": "MCP 广场"
       },
       "modeAsk": {
         "description": "切换到纯问答模式,禁用工具",
-        "keywords": ["问答", "ask", "模式"],
+        "keywords": [
+          "问答",
+          "ask",
+          "模式"
+        ],
         "label": "问答模式"
       },
       "modeBuild": {
         "description": "让 AI 直接构建与修改",
-        "keywords": ["构建", "模式", "build"],
+        "keywords": [
+          "构建",
+          "模式",
+          "build"
+        ],
         "label": "构建模式"
       },
       "modePlan": {
         "description": "先制定计划再执行",
-        "keywords": ["规划", "计划", "plan"],
+        "keywords": [
+          "规划",
+          "计划",
+          "plan"
+        ],
         "label": "规划模式"
       },
       "modeReview": {
         "description": "审查与评审现有代码",
-        "keywords": ["审查", "评审", "review"],
+        "keywords": [
+          "审查",
+          "评审",
+          "review"
+        ],
         "label": "审查模式"
       },
       "modeSpec": {
         "description": "从规格生成实现",
-        "keywords": ["规格", "spec", "模式"],
+        "keywords": [
+          "规格",
+          "spec",
+          "模式"
+        ],
         "label": "规格模式"
       },
       "skill": {
         "description": "管理与调用 AI 技能",
-        "keywords": ["技能", "skill", "能力"],
+        "keywords": [
+          "技能",
+          "skill",
+          "能力"
+        ],
         "label": "技能"
       },
       "terminal": {
         "description": "打开集成终端",
-        "keywords": ["终端", "命令行", "terminal"],
+        "keywords": [
+          "终端",
+          "命令行",
+          "terminal"
+        ],
         "label": "终端"
       },
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       },
       "skillsMarket": {
         "description": "浏览并安装自进化 Skill",
-        "keywords": ["skill", "技能", "市场", "market"],
+        "keywords": [
+          "skill",
+          "技能",
+          "市场",
+          "market"
+        ],
         "label": "Skill 市场"
       }
     },
@@ -10283,7 +10451,12 @@
       "signedAt": "签约时间"
     },
     "planName": "连续包月订阅",
-    "title": "签约管理"
+    "title": "签约管理",
+    "status": {
+      "active": "生效中",
+      "pending": "签约中",
+      "unknown": "未知"
+    }
   },
   "course": {
     "chapters": {
@@ -10345,6 +10518,7 @@
       "hour": "小时",
       "day": "日",
       "month": "月",
+      "unknown": "未知",
       "weekday": "星期"
     },
     "mode": {
@@ -10400,7 +10574,20 @@
       "totalProjects": "总项目",
       "totalUsers": "总用户",
       "userGrowth": "用户增长趋势",
-      "userGrowthHint": "近 14 天新增用户"
+      "userGrowthHint": "近 14 天新增用户",
+      "fileTypes": {
+        "document": "文档",
+        "image": "图片",
+        "other": "其他",
+        "unknown": "未知",
+        "video": "视频"
+      },
+      "projectStatus": {
+        "active": "进行中",
+        "archived": "已归档",
+        "completed": "已完成",
+        "unknown": "未知"
+      }
     }
   },
   "deliveryReview": {
@@ -10846,7 +11033,17 @@
     "subtitle": "查看账单记录与付款方式",
     "title": "账单",
     "toastContactSupport": "请联系客服添加",
-    "toastInvoiceGenerating": "发票生成中,请稍后"
+    "toastInvoiceGenerating": "发票生成中,请稍后",
+    "payType": {
+      "alipay": "支付宝",
+      "card": "银行卡",
+      "wechat": "微信支付"
+    },
+    "status": {
+      "failed": "失败",
+      "paid": "已支付",
+      "pending": "待支付"
+    }
   },
   "developerHomePage": {
     "currentPlan": "当前套餐",
@@ -10972,7 +11169,13 @@
     "releasedAt": "发布于 {date}",
     "subtitle": "查看 API 版本状态与废弃时间表",
     "sunsetTime": "下线时间:",
-    "title": "API 版本管理"
+    "title": "API 版本管理",
+    "status": {
+      "beta": "测试版",
+      "deprecated": "已废弃",
+      "stable": "稳定",
+      "sunset": "已下线"
+    }
   },
   "dict": {
     "addItem": "新增字典项",
@@ -12101,25 +12304,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -12253,19 +12468,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -12846,7 +13073,17 @@
   "follows": {
     "loading": "加载中...",
     "subtitle": "管理您关注的人",
-    "title": "关注"
+    "title": "关注",
+    "tabs": {
+      "followers": "关注我的",
+      "following": "我关注的",
+      "unknown": "未知"
+    },
+    "empty": {
+      "followers": "暂无关注者",
+      "following": "暂未关注任何人",
+      "unknown": "暂无数据"
+    }
   },
   "footer": {
     "aboutUs": "关于我们",
@@ -13509,7 +13746,12 @@
     "rewardValue": "邀请人 +{inviter} / 被邀请人 +{invitee} 积分",
     "subtitle": "邀请好友，双方均可获得奖励",
     "title": "邀请有奖",
-    "user": "用户"
+    "user": "用户",
+    "status": {
+      "expired": "已过期",
+      "unused": "有效",
+      "used": "已使用"
+    }
   },
   "kbArticleForm": {
     "articleInfo": "文章信息",
@@ -13661,7 +13903,8 @@
       "title": "学习专题",
       "type": {
         "lesson": {
-          "label": "课程专题"
+          "label": "课程专题",
+          "tip": "由运营精选的课程组合,免费学习。"
         },
         "premium": {
           "label": "高级专题"
@@ -13700,7 +13943,10 @@
     "errorFallback": "加载失败",
     "loading": "加载中...",
     "status": {
+      "failApproval": "未通过",
       "notSubmitted": "未提交",
+      "passApproval": "已通过",
+      "submitted": "已提交",
       "unknown": "未知"
     },
     "submitBtn": {
@@ -14765,6 +15011,9 @@
     "empty": "暂无报名记录",
     "loading": "加载中...",
     "status": {
+      "attended": "已考",
+      "canceled": "已取消",
+      "pending": "待考",
       "unknown": "未知"
     },
     "title": "我的考试报名",
@@ -14777,7 +15026,20 @@
     "privacyTitle": "隐私设置",
     "saveBtn": "保存设置",
     "saved": "已保存",
-    "title": "会员设置"
+    "title": "会员设置",
+    "notif": {
+      "newsletter": "订阅电子简报",
+      "orderUpdates": "订单状态更新",
+      "points": "积分变动提醒",
+      "promotions": "促销与优惠活动",
+      "unknown": "未知"
+    },
+    "privacy": {
+      "allowInvites": "允许他人邀请我",
+      "showActivity": "展示最近活动",
+      "showProfile": "公开个人主页",
+      "unknown": "未知"
+    }
   },
   "memberSubscriptionPage": {
     "autoRenew": "自动续费",
@@ -14790,7 +15052,12 @@
     "subscribeNow": "立即订阅",
     "subscriptionAmount": "订阅金额",
     "subtitle": "管理当前订阅，续费或取消",
-    "title": "订阅管理"
+    "title": "订阅管理",
+    "status": {
+      "active": "生效中",
+      "cancelled": "已取消",
+      "expired": "已过期"
+    }
   },
   "members": {
     "allLevels": "全部等级",
@@ -14819,7 +15086,15 @@
     "empty": "暂无消息",
     "loading": "加载中...",
     "noData": "暂无消息",
-    "title": "消息"
+    "title": "消息",
+    "tab": {
+      "comment": "评论",
+      "favorite": "收藏",
+      "follow": "粉丝",
+      "like": "点赞",
+      "notice": "通知",
+      "unknown": "未知"
+    }
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -14849,7 +15124,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "relay": {
@@ -15599,7 +15882,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -15686,7 +15974,15 @@
     "generate": "生成音乐",
     "genreLabel": "风格",
     "placeholder": "描述要生成的音乐...",
-    "title": "音乐生成"
+    "title": "音乐生成",
+    "genre": {
+      "classical": "古典",
+      "electronic": "电子",
+      "jazz": "爵士",
+      "pop": "流行",
+      "rock": "摇滚",
+      "unknown": "未知"
+    }
   },
   "myArticles": {
     "create": "写文章",
@@ -16653,8 +16949,12 @@
       "decisions": "联合决策"
     },
     "telemetry": {
+      "degraded": "降级",
+      "healthy": "健康",
       "pillarHealth": "支柱健康",
-      "recentTraces": "最近 Trace"
+      "recentTraces": "最近 Trace",
+      "unhealthy": "不健康",
+      "unknown": "未知"
     },
     "title": "编排中枢",
     "unavailable": "编排中枢不可用"
@@ -16672,7 +16972,8 @@
       "cancelled": "已取消",
       "paid": "已支付",
       "pending": "待支付",
-      "refunded": "已退款"
+      "refunded": "已退款",
+      "unknown": "未知"
     },
     "statusLabel": "状态",
     "subtitle": "查看课程和会员卡订单",
@@ -16682,7 +16983,8 @@
     "type": {
       "all": "全部",
       "card": "卡密",
-      "course": "课程"
+      "course": "课程",
+      "unknown": "未知"
     }
   },
   "overview": {
@@ -16822,12 +17124,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -16840,6 +17154,9 @@
           "邮件支持"
         ],
         "name": "专业版"
+      },
+      "unknown": {
+        "name": "未知套餐"
       }
     },
     "popular": "推荐",
@@ -17869,6 +18186,7 @@
     "range": {
       "month": "本月",
       "total": "总计",
+      "unknown": "未知",
       "week": "本周"
     },
     "subtitle": "查看用户积分与活跃度排名",
@@ -18088,7 +18406,13 @@
     "empty": "暂无安全事件",
     "loading": "加载中...",
     "subtitle": "查看账户安全相关事件（已脱敏）",
-    "title": "安全审计"
+    "title": "安全审计",
+    "type": {
+      "login": "登录记录",
+      "other": "其他",
+      "permission": "权限变更",
+      "sensitive": "敏感操作"
+    }
   },
   "selfMedia": {
     "automation": "自动化",
@@ -18212,7 +18536,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -19201,11 +19531,19 @@
     "subtitle": "管理您的订阅",
     "tabs": {
       "all": "全部",
+      "category": "分类",
+      "project": "项目",
+      "tag": "标签",
+      "unknown": "未知",
+      "user": "用户"
+    },
+    "title": "订阅管理",
+    "types": {
+      "category": "分类",
       "project": "项目",
       "tag": "标签",
       "user": "用户"
-    },
-    "title": "订阅管理"
+    }
   },
   "supportNewTicketForm": {
     "cancel": "取消",
@@ -19218,7 +19556,13 @@
     "priorityLabel": "优先级",
     "submit": "提交工单",
     "titleLabel": "标题",
-    "titlePlaceholder": "简述您的问题"
+    "titlePlaceholder": "简述您的问题",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "紧急"
+    }
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -19268,7 +19612,14 @@
     "target": "下发至",
     "title": "任务接收",
     "wsConnected": "WS 已连接",
-    "wsDisconnected": "WS 断开"
+    "wsDisconnected": "WS 断开",
+    "status": {
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失败",
+      "pending": "待执行",
+      "running": "执行中"
+    }
   },
   "tasksLog": {
     "confirmClean": "确定清理全部任务日志?",
@@ -19358,7 +19709,17 @@
     "tabInvitations": "邀请",
     "tabMembers": "成员",
     "tabSettings": "设置",
-    "title": "团队"
+    "title": "团队",
+    "status": {
+      "accepted": "已接受",
+      "expired": "已过期",
+      "pending": "待接受"
+    },
+    "roles": {
+      "admin": "管理员",
+      "member": "成员",
+      "owner": "拥有者"
+    }
   },
   "terminalPanel": {
     "aiDiagnoseTitle": "AI 诊断",
@@ -19481,7 +19842,20 @@
     "serviceRating": "服务评价",
     "statusPrefix": "状态：",
     "submitRating": "提交评价",
-    "userRole": "我"
+    "userRole": "我",
+    "priority": {
+      "high": "高",
+      "low": "低",
+      "medium": "中",
+      "urgent": "紧急"
+    },
+    "status": {
+      "closed": "已关闭",
+      "open": "处理中",
+      "pending": "待处理",
+      "rejected": "已驳回",
+      "resolved": "已解决"
+    }
   },
   "title": "管理后台",
   "tokenValue": {
@@ -19520,7 +19894,8 @@
     "mode": {
       "bookmarks": "按书签",
       "every": "每页",
-      "range": "按范围"
+      "range": "按范围",
+      "unknown": "未知"
     },
     "modeLabel": "拆分模式",
     "rangesLabel": "页码范围（用逗号分隔，例如 1-3,5,7-10）",
@@ -19878,7 +20253,13 @@
     "generate": "生成视频",
     "placeholder": "描述要生成的视频...",
     "providerLabel": "服务商",
-    "title": "视频生成"
+    "title": "视频生成",
+    "provider": {
+      "kling": "可灵",
+      "one-click": "一键生成",
+      "qwen": "通义千问",
+      "unknown": "未知"
+    }
   },
   "videoTasksPage": {
     "createdAt": "创建时间",
@@ -20304,7 +20685,17 @@
         "queue": "队列中还有 {count} 个请求",
         "title": "权限确认",
         "tool": "工具",
-        "workspace": "工作区"
+        "workspace": "工作区",
+        "toolNames": {
+          "fsDelete": "删除文件",
+          "fsEdit": "编辑文件",
+          "fsGlob": "查找文件",
+          "fsGrep": "搜索内容",
+          "fsRead": "读取文件",
+          "fsRun": "执行命令",
+          "fsWrite": "写入文件",
+          "unknown": "未知"
+        }
       },
       "builtin": "内置",
       "bypassWarning": "完全访问权限将允许 AI 执行任何操作,包括删除文件、执行任意命令。请仅在完全信任的私有项目中使用。",

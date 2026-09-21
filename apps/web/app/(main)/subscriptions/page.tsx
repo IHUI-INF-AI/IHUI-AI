@@ -140,7 +140,7 @@ export default function SubscriptionsPage() {
                 <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-sm font-medium">
-                    {t(TYPE_KEY[s.targetType] ?? 'types.unknown')}
+                    {t(TYPE_KEY[s.targetType])}
                   </p>
                   <p className="break-words font-mono text-xs text-muted-foreground">
                     {s.targetId}
