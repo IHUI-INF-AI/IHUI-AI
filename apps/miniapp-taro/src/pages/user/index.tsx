@@ -1,0 +1,1426 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { aizhsUrl } from '@/constants/icon-urls'
+import { useTt, useI18n, t } from '@/i18n'
+import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
+import {
+  isLoggedIn,
+  getUserInfo,
+  clearAuth,
+  setToken,
+  setUserInfo as persistUserInfo,
+  type UserInfo,
+} from '@/utils/auth'
+import { getShareInfo } from '@/utils/share'
+import { getSystemInfoCompat } from '@/utils/system-info'
+import * as api from '@/api'
+import { icon } from '@/constants/remote-icons'
+import NavBar from '@/components/NavBar'
+import DrawerComponent, {
+  type DrawerModelGroup,
+  type DrawerChatItem,
+} from '@/components/DrawerComponent'
+import UserInfoCard from '@/components/UserInfoCard'
+import LoginPopUp from '@/components/LoginPopUp'
+import StudyBar from '@/components/StudyBar'
+import { FloatBox, VideoPlayer } from '@/components'
+import { rpx } from '@/utils/rpx'
+import UserCard from './components/UserCard'
+// 本地化远程 CDN 图标（原 cdn.bspapp.com / file.aizhs.top 在 H5 模式下加载失败）
+import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
+import courseIconLocal from '@/assets/remote-images/course-icon.svg'
+import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
+const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
+const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
+const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
+const gonggaoIcon = aizhsUrl('remote-images/gonggao.png')
+const downloadIcon = aizhsUrl('remote-images/download.png')
+const yejiaoIcon = aizhsUrl('remote-images/yejiao.png')
+import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
+import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
+import { ICONS } from '@/components/LineIcon/icons'
+import './index.css'
+
+const defaultAvatar = TABBAR_HOME_ICON_URL
+
+/**
+ * bindUser 请求参数(对齐原项目 onLogin L587-624 接口字段)。
+ * api.bindUser(data: unknown) 参数类型为 unknown,本地接口用于约束字段类型。
+ * open_id/fileName 需微信登录后获取,此处不传。
+ */
+interface BindUserParams {
+  nickname: string
+  userId: string | number | undefined
+  phone?: string
+  avatar?: string
+}
+
+// 状态栏高度（对齐原项目 statusBarHeight，用于 DrawerComponent 顶部 padding）
+const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
+const statusBarHeight = menuButton.top
+
+// 判断 icon 是否为图片路径(http(s):// 远程 URL 或 / 开头本地路径),非图片视为 emoji
+function isImagePath(icon: string): boolean {
+  return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
+}
+
+// 统一渲染 icon:图片路径 → <Image>,LineIcon 键 → <LineIcon>,其它视为 emoji → <Text>
+function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
+  if (isImagePath(iconStr)) {
+    return <Image src={iconStr} className={imgClass} mode="aspectFit" />
+  }
+  if ((ICONS as Record<string, unknown>)[iconStr]) {
+    return <LineIcon name={iconStr as never} size={40} color="var(--color-muted-foreground)" />
+  }
+  return <Text className={emojiClass}>{iconStr}</Text>
+}
+
+const quickEntries = [
+  { icon: dingdanIcon, key: 'user.menu.orders', path: '/pkg-user/user/orders' },
+  { icon: icon('shoucang'), key: 'user.menu.favorites', path: '/pkg-user/favorites/index' },
+  { icon: gerenIcon, key: 'user.menu.following', path: '/pkg-user/following/index' },
+  { icon: gonggaoIcon, key: 'user.menu.subscriptions', path: '/pkg-user/subscriptions/index' },
+]
+
+const menus = [
+  { icon: courseIconLocal, key: 'user.menu.courses', path: '/pkg-learn/course/list' },
+  { icon: aiIconLocal, key: 'user.menu.ai', path: '/pkg-ai/ai/chat' },
+  { icon: shezhiIcon, key: 'user.menu.settings', path: '/pkg-user/user/settings' },
+  // P0 页面导航入口(复用 LineIcon 图标资产)
+  {
+    icon: 'calendar',
+    key: 'checkIn.title',
+    path: '/pkg-user/check-in/index',
+  },
+  {
+    icon: 'gift',
+    key: 'taskCenter.title',
+    path: '/pkg-user/task-center/index',
+  },
+]
+
+// 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)
+// i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
+const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
+  { icon: aiIconLocal, key: 'user.benefits.aiAssistant', fallback: t('tail.21') },
+  { icon: courseIconLocal, key: 'user.benefits.freeCourses', fallback: t('tail.22') },
+  { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: t('tail.23') },
+]
+
+// 格式化音频时间（秒 → mm:ss）
+function formatAudioTime(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainingSeconds < 10 ? '0' + remainingSeconds : remainingSeconds}`
+}
+
+// 视频首帧图生成(对齐原项目 getVideoPoster,L1355-1386)
+function getVideoPoster(videoUrl: string): string {
+  if (!videoUrl) return ''
+  // 阿里云 OSS
+  if (videoUrl.includes('aliyuncs.com') || videoUrl.includes('oss-cn-')) {
+    return videoUrl + '?x-oss-process=video/snapshot,t_1000,m_fast'
+  }
+  // 腾讯云 COS
+  if (videoUrl.includes('myqcloud.com') || videoUrl.includes('cos.')) {
+    return videoUrl + '?ci-process=snapshot%2Fformat%3Djpg%2Ftime%3D1'
+  }
+  return ''
+}
+
+// 简化版 Markdown 渲染(对齐原项目 formatContent,L805-842,只处理代码块/加粗/换行)
+function renderMarkdown(content: string): ReactNode {
+  if (!content) return null
+  const lines = content.split('\n')
+  return lines.map((line, idx) => {
+    // 代码块 ```...```
+    if (line.startsWith('```')) {
+      return (
+        <ThemeRoot key={idx}>
+          <View
+            key={idx}
+            style={{
+              background: 'var(--color-muted)',
+              padding: rpx(12),
+              borderRadius: rpx(8),
+              marginTop: rpx(8),
+              marginBottom: rpx(8),
+            }}
+          >
+            <Text
+              style={{
+                fontSize: rpx(24),
+                fontFamily: 'monospace',
+                color: 'var(--color-foreground)',
+              }}
+            >
+              {line.replace(/```/g, '')}
+            </Text>
+          </View>
+        </ThemeRoot>
+      )
+    }
+    // 加粗 **text**
+    const boldParts = line.split(/\*\*(.+?)\*\*/)
+    if (boldParts.length > 1) {
+      return (
+        <ThemeRoot key={idx}>
+          <Text
+            key={idx}
+            style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
+          >
+            {boldParts.map((part, i) =>
+              i % 2 === 1 ? (
+                <Text key={i} style={{ fontWeight: 'bold' }}>
+                  {part}
+                </Text>
+              ) : (
+                part
+              ),
+            )}
+          </Text>
+        </ThemeRoot>
+      )
+    }
+    // 普通行
+    return (
+      <ThemeRoot key={idx}>
+        <Text
+          key={idx}
+          style={{
+            fontSize: rpx(26),
+            color: 'var(--color-muted-foreground)',
+            lineHeight: 1.6,
+            display: 'block',
+          }}
+        >
+          {line || ' '}
+        </Text>
+      </ThemeRoot>
+    )
+  })
+}
+
+export default function UserIndex() {
+  const tt = useTt()
+  const { t } = useI18n()
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [showBenefits, setShowBenefits] = useState<boolean>(false)
+  // isshow: 对齐原项目，iOS 设备标识（UserCard 和会员权益在非 iOS 设备上显示）
+  const [isshow] = useState<boolean>(() => {
+    try {
+      const systemInfo = getSystemInfoCompat()
+      return systemInfo.platform === 'ios'
+    } catch {
+      return false
+    }
+  })
+  const [activeTab, setActiveTab] = useState<number>(1)
+  const [textContentList, setTextContentList] = useState<
+    Array<{ title: string; time: string; content: string }>
+  >([])
+  const [imageContentList, setImageContentList] = useState<
+    Array<{ title: string; time: string; imageList: string[] }>
+  >([])
+  const [videoContentList, setVideoContentList] = useState<
+    Array<{ title: string; time: string; videoUrl: string }>
+  >([])
+  const [audioContentList, setAudioContentList] = useState<
+    Array<{ title: string; time: string; audioUrl: string }>
+  >([])
+  const [contentLoading, setContentLoading] = useState<boolean>(false)
+  // 音频播放状态
+  const [audioPlayStates, setAudioPlayStates] = useState<Record<number, boolean>>({})
+  const [audioProgress, setAudioProgress] = useState<Record<number, number>>({})
+  const [audioCurrentTime, setAudioCurrentTime] = useState<Record<number, number>>({})
+  const audioContextsRef = useRef<Record<number, Taro.InnerAudioContext>>({})
+  // 视频播放弹窗
+  const [showVideoPlayer, setShowVideoPlayer] = useState<boolean>(false)
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('')
+  // 登录弹窗
+  const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
+  // 侧边栏抽屉
+  const [showDrawer, setShowDrawer] = useState<boolean>(false)
+  // 历史对话分组数据（对齐原项目 groupedData，实际由 API 填充）
+  const [groupedData, setGroupedData] = useState<DrawerModelGroup[]>([])
+  // 分享弹窗
+  const [showSharePopup, setShowSharePopup] = useState<boolean>(false)
+
+  const isLogin = useMemo(() => !!userInfo, [userInfo])
+
+  const refresh = useCallback(() => {
+    setUserInfo(isLoggedIn() ? getUserInfo() : null)
+  }, [])
+
+  // 按日期分组(对齐原项目 groupDataByDate)
+  const groupDataByDate = useCallback(
+    (
+      chats: Array<{ id: string; title: string; time: string; modelName?: string }>,
+    ): DrawerModelGroup[] => {
+      const modelMap = new Map<
+        string,
+        Array<{ id: string; title: string; time: string; modelName?: string }>
+      >()
+      for (const chat of chats) {
+        const modelName = chat.modelName || t('tail.15')
+        if (!modelMap.has(modelName)) modelMap.set(modelName, [])
+        modelMap.get(modelName)!.push(chat)
+      }
+      return Array.from(modelMap.entries()).map(([modelName, modelChats]) => {
+        const dateMap = new Map<
+          string,
+          Array<{ id: string | number; title: string; date: string }>
+        >()
+        for (const chat of modelChats) {
+          const dateKey = chat.time ? chat.time.slice(0, 7) : tt('ai.agentList.tabRecent', '最近') // YYYY-MM 分组
+          if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+          dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+        }
+        return {
+          modelName,
+          dateGroups: Array.from(dateMap.entries()).map(([date, items]) => ({
+            date,
+            chats: items,
+          })),
+        }
+      })
+    },
+    [t, tt],
+  )
+
+  // 加载历史对话(对齐原项目 loadHistoryChat)
+  const loadHistoryChat = useCallback(async () => {
+    try {
+      const res = (await api.getChatHistory({ page: 1, pageSize: 20 })) as {
+        list?: Array<{ id: string; title: string; time: string; messages?: unknown[] }>
+      }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      setGroupedData(
+        groupDataByDate(rawList.map((c) => ({ id: c.id, title: c.title, time: c.time }))),
+      )
+    } catch {
+      setGroupedData([])
+    }
+  }, [groupDataByDate])
+
+  // 加载内容数据(对齐原项目 loadContentByTab)
+  const loadContentByTab = useCallback(async (tabId: number) => {
+    setContentLoading(true)
+    try {
+      const res = (await api.getMyCreation({ type: tabId, page: 1, pageSize: 10 })) as {
+        list?: unknown[]
+      }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      if (tabId === 1) {
+        setTextContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              content: String(item['content'] ?? ''),
+            }
+          }),
+        )
+      } else if (tabId === 2) {
+        setImageContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              imageList: Array.isArray(item['imageList']) ? (item['imageList'] as string[]) : [],
+            }
+          }),
+        )
+      } else if (tabId === 3) {
+        setVideoContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              videoUrl: String(item['videoUrl'] ?? ''),
+            }
+          }),
+        )
+      } else if (tabId === 4) {
+        setAudioContentList(
+          rawList.map((r) => {
+            const item = r as Record<string, unknown>
+            return {
+              title: String(item['title'] ?? ''),
+              time: String(item['time'] ?? item['createTime'] ?? ''),
+              audioUrl: String(item['audioUrl'] ?? ''),
+            }
+          }),
+        )
+      }
+    } catch {
+      if (tabId === 1) setTextContentList([])
+      else if (tabId === 2) setImageContentList([])
+      else if (tabId === 3) setVideoContentList([])
+      else if (tabId === 4) setAudioContentList([])
+    } finally {
+      setContentLoading(false)
+    }
+  }, [])
+
+  const maskPhone = useCallback((phone: string) => {
+    return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+  }, [])
+
+  const toggleBenefits = useCallback(() => setShowBenefits((v) => !v), [])
+
+  // i18n key 不存在时(t 返回 key 本身)回退到中文文案
+  const tf = useCallback(
+    (key: string, fallback: string): string => {
+      const v = t(key)
+      return v === key ? fallback : v
+    },
+    [t],
+  )
+
+  function goLogin() {
+    // 一键登录链路已接入 LoginPopUp(对齐原项目 getPhoneNumber L577-712):
+    // Button openType="getPhoneNumber" → onOneClickLogin → api.openId + api.getPhoneNumber
+    setShowLoginPopup(true)
+  }
+
+  function goPage(path: string) {
+    Taro.navigateTo({ url: path })
+  }
+
+  function handleLogout() {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('user.logoutConfirm'),
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            await api.logout()
+          } catch {
+            // 忽略退出接口错误
+          }
+          clearAuth()
+          setUserInfo(null)
+          Taro.showToast({ title: t('user.loggedOut'), icon: 'success' })
+        }
+      },
+    })
+  }
+
+  // 图片预览（对齐原项目 previewImage）
+  function previewImage(currentUrl: string, urlList: string[]) {
+    Taro.previewImage({
+      current: currentUrl,
+      urls: urlList || [currentUrl],
+    })
+  }
+
+  // 切换音频播放/暂停（对齐原项目 toggleAudioPlay）
+  function toggleAudioPlay(index: number, audioUrl: string) {
+    const isPlaying = !audioPlayStates[index]
+    setAudioPlayStates((prev) => ({ ...prev, [index]: isPlaying }))
+
+    if (isPlaying) {
+      const audioContext = Taro.createInnerAudioContext()
+      audioContext.src = audioUrl
+      audioContext.volume = 1
+
+      audioContextsRef.current[index] = audioContext
+
+      audioContext.onTimeUpdate(() => {
+        const duration = audioContext.duration || 0
+        const currentTime = audioContext.currentTime || 0
+        const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+        setAudioProgress((prev) => ({ ...prev, [index]: progress }))
+        setAudioCurrentTime((prev) => ({ ...prev, [index]: currentTime }))
+      })
+
+      audioContext.onEnded(() => {
+        setAudioPlayStates((prev) => ({ ...prev, [index]: false }))
+        setAudioProgress((prev) => ({ ...prev, [index]: 100 }))
+        setAudioCurrentTime((prev) => ({ ...prev, [index]: audioContext.duration || 0 }))
+        cleanupAudioContext(index)
+      })
+
+      audioContext.onError(() => {
+        setAudioPlayStates((prev) => ({ ...prev, [index]: false }))
+        cleanupAudioContext(index)
+      })
+
+      audioContext.play()
+    } else {
+      const audioContext = audioContextsRef.current[index]
+      if (audioContext) {
+        audioContext.pause()
+        cleanupAudioContext(index)
+      }
+    }
+  }
+
+  // 清理音频上下文（对齐原项目 cleanupAudioContext）
+  function cleanupAudioContext(index: number) {
+    const audioContext = audioContextsRef.current[index]
+    if (audioContext) {
+      audioContext.stop()
+      audioContext.destroy()
+      delete audioContextsRef.current[index]
+    }
+  }
+
+  // 处理音频进度条变化（对齐原项目 onAudioProgressChange）
+  function onAudioProgressChange(index: number, e: { detail: { value: number } }) {
+    const progress = e.detail.value
+    setAudioProgress((prev) => ({ ...prev, [index]: progress }))
+
+    const audioContext = audioContextsRef.current[index]
+    if (audioContext && audioContext.duration) {
+      const seekTime = (progress / 100) * audioContext.duration
+      audioContext.seek(seekTime)
+      setAudioCurrentTime((prev) => ({ ...prev, [index]: seekTime }))
+    }
+  }
+
+  // 下载音频（对齐原项目 downloadAudio）
+  function downloadAudio(audioUrl: string) {
+    if (!audioUrl) {
+      Taro.showToast({
+        title: tf('user.audio.invalidUrl', '音频地址无效'),
+        icon: 'none',
+      })
+      return
+    }
+
+    Taro.showLoading({
+      title: tf('user.audio.preparing', '准备下载...'),
+    })
+
+    const downloadTask = Taro.downloadFile({
+      url: audioUrl,
+      success: (res) => {
+        if (res.statusCode === 200) {
+          Taro.showLoading({
+            title: tf('user.audio.saving', '保存中...'),
+          })
+
+          Taro.saveFile({
+            tempFilePath: res.tempFilePath,
+            success: () => {
+              Taro.hideLoading()
+              Taro.showToast({
+                title: tf('user.audio.downloadSuccess', '下载成功'),
+                icon: 'success',
+              })
+            },
+            fail: () => {
+              Taro.hideLoading()
+              Taro.showToast({
+                title: tf('user.audio.downloadFail', '保存失败'),
+                icon: 'none',
+              })
+            },
+          })
+        } else {
+          Taro.hideLoading()
+          Taro.showToast({
+            title: tf('user.audio.downloadFail', '下载失败'),
+            icon: 'none',
+          })
+        }
+      },
+      fail: () => {
+        Taro.hideLoading()
+        Taro.showToast({
+          title: tf('user.audio.downloadFail', '下载失败'),
+          icon: 'none',
+        })
+      },
+    })
+
+    downloadTask.onProgressUpdate((res) => {
+      Taro.showLoading({
+        title: `${tf('user.audio.downloading', '下载中...')} ${res.progress}%`,
+      })
+    })
+  }
+
+  // 打开视频播放器（对齐原项目 openVideoPlayer）
+  function openVideoPlayer(videoUrl: string) {
+    if (!videoUrl) {
+      Taro.showToast({
+        title: tf('user.video.invalidUrl', '视频地址无效'),
+        icon: 'none',
+      })
+      return
+    }
+    setCurrentVideoUrl(videoUrl)
+    setShowVideoPlayer(true)
+  }
+
+  // 关闭视频播放器
+  function closeVideoPlayer() {
+    setShowVideoPlayer(false)
+    setCurrentVideoUrl('')
+  }
+
+  // 处理反馈按钮点击（对齐原项目 @feedback-click → handleFeedbackClick）
+  function handleFeedbackClick() {
+    // 对齐原项目 /pagesA/fankui/index?pageType=list
+    Taro.navigateTo({
+      url: '/pages/feedback/index?pageType=list',
+      fail: () => Taro.navigateTo({ url: '/pages/feedback/index' }),
+    })
+  }
+
+  // 处理返回首页（对齐原项目 @pack → onPackClick）
+  function onPackClick() {
+    Taro.switchTab({ url: '/pages/index/index' })
+  }
+
+  // 复制官网链接（对齐原项目 copyWebsiteLink）
+  function copyWebsiteLink() {
+    const websiteUrl = 'https://www.aizhs.top'
+    Taro.setClipboardData({
+      data: websiteUrl,
+      success: () => {
+        Taro.showToast({
+          title: tf('user.websiteLinkCopied', '已复制官网地址，请在浏览器打开'),
+          icon: 'none',
+          duration: 2000,
+        })
+      },
+      fail: () => {
+        Taro.showToast({
+          title: tf('user.websiteLinkFail', '复制失败，请重试'),
+          icon: 'none',
+          duration: 2000,
+        })
+      },
+    })
+  }
+
+  // 打开/关闭侧边栏抽屉
+  const toggleDrawer = useCallback(() => {
+    setShowDrawer((v) => !v)
+  }, [])
+
+  // 分享弹窗
+  const openSharePopup = useCallback(() => {
+    setShowSharePopup(true)
+  }, [])
+
+  const closeSharePopup = useCallback(() => {
+    setShowSharePopup(false)
+  }, [])
+
+  // 历史对话项点击回调（对齐原项目 onChatItemClick）
+  const handleChatItemClick = useCallback(
+    (chat: DrawerChatItem) => {
+      toggleDrawer()
+      // 对齐原项目 handleShowFullList:携带 chatId + title 参数
+      Taro.navigateTo({
+        url: `/pkg-ai/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
+        fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
+      })
+    },
+    [toggleDrawer, tt],
+  )
+
+  // 会员权益点击跳转
+  const goVipDetail = useCallback(() => {
+    // 对齐原项目 openIntroduce/openIntroduces/openIntroduces2:按 isVip 分流
+    const isVip = userInfo?.isVip ? 1 : 0
+    const routeMap: Record<number, string> = {
+      0: '/pkg-shop/vip/index?type=IntroducePopup', // 非会员:开通 VIP
+      1: '/pkg-shop/vip/index?type=IntroducePopups', // 会员:成为操盘手
+      2: '/pkg-shop/vip/index?type=PrivateAdvisory', // 操盘手:加入私董会
+    }
+    // noUncheckedIndexedAccess 下 routeMap[isVip] 为 string | undefined,用 ?? 兜底
+    const url = routeMap[isVip] ?? '/pkg-shop/vip/index'
+    Taro.navigateTo({ url, fail: () => Taro.navigateTo({ url: '/pkg-shop/vip/index' }) })
+  }, [userInfo?.isVip])
+
+  // 对齐原项目 tabList
+  const tabList = useMemo(
+    () => [
+      { id: 1, name: tf('user.tab.text', '文本') },
+      { id: 2, name: tf('user.tab.image', '图片') },
+      { id: 3, name: tf('user.tab.video', '视频') },
+      { id: 4, name: tf('user.tab.audio', '音频') },
+    ],
+    [tf],
+  )
+
+  // 对齐原项目 handleTabChange
+  function handleTabChange(item: { id: number; name: string }) {
+    setActiveTab(item.id)
+    void loadContentByTab(item.id)
+  }
+
+  // 编辑个人资料(对齐原项目 handleEditProfile:已登录也弹 LoginPopUp 编辑资料)
+  const goProfile = useCallback(() => {
+    if (!isLogin) {
+      goLogin()
+      return
+    }
+    setShowLoginPopup(true)
+  }, [isLogin])
+
+  useDidShow(() => {
+    refresh()
+    void loadContentByTab(1) // 默认加载文本 tab
+    void loadHistoryChat()
+  })
+
+  // 对齐原项目 onShareAppMessage:用 getShareInfo 注入 inviteCode(从 storage 读取)
+  useShareAppMessage(() =>
+    getShareInfo(
+      '/pages/index/index',
+      t('share.appTitle'),
+      aizhsUrl('remote-images/share_zhz.png'),
+    ),
+  )
+  useShareTimeline(() => ({
+    title: t('share.timelineTitle'),
+    query: '',
+  }))
+
+  return (
+    <ThemeRoot>
+      <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+        {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
+        <DrawerComponent
+          visible={showDrawer}
+          onClose={toggleDrawer}
+          side="left"
+          statusBarHeight={statusBarHeight}
+          groupedData={groupedData}
+          userinfo={
+            userInfo
+              ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
+              : undefined
+          }
+          onMenuItemClick={(item) => {
+            toggleDrawer()
+            // 根据菜单项 key 跳转不同页面
+            const menuRouteMap: Record<string, string> = {
+              appStore: '/pages/index/index',
+              demand: '/pages/demand/index',
+              inspiration: '/pages/inspiration/index',
+              dynamic: '/pages/dynamic/index',
+              course: '/pkg-learn/course/list',
+            }
+            const route = menuRouteMap[item.key]
+            if (route) Taro.navigateTo({ url: route })
+          }}
+          onLabelItemClick={(item) => {
+            toggleDrawer()
+            const labelRouteMap: Record<string, string> = {
+              company: '/pages/company/index',
+              freebie: '/pages/freebie/index',
+            }
+            const route = labelRouteMap[item.key]
+            if (route) Taro.navigateTo({ url: route })
+          }}
+          onChatItemClick={handleChatItemClick}
+          onCreateChat={() => {
+            toggleDrawer()
+            Taro.switchTab({ url: '/pages/index/index' })
+          }}
+          onRemoveChat={(chat) => {
+            Taro.showModal({
+              title: t('common.hint'),
+              content: t('community.confirm12'),
+              success: async (res) => {
+                if (res.confirm) {
+                  try {
+                    await api.removeModelChat(String(chat.id))
+                    Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
+                    void loadHistoryChat()
+                  } catch {
+                    Taro.showToast({
+                      title: tt('developer.index.deleteFail', '删除失败'),
+                      icon: 'none',
+                    })
+                  }
+                }
+              },
+            })
+          }}
+        />
+
+        {/* ===== FloatBox 浮动组件 ===== */}
+        <FloatBox />
+
+        {/* ===== 导航栏(对齐原项目 navigation-bars: showFeedback / @pack / @feedback-click / @menu-click) ===== */}
+        <NavBar
+          variant="ai-home"
+          title={tf('user.title', '我的')}
+          bgColor="transparent"
+          textColor="var(--color-foreground)"
+          showFeedback
+          onMenuClick={toggleDrawer}
+          onFeedbackClick={handleFeedbackClick}
+          onPack={onPackClick}
+        />
+
+        {/* ===== 用户信息头部 ===== */}
+        <View
+          className="pt-[120rpx] px-[20rpx] pb-[48rpx]"
+          style={{ background: 'var(--color-background)' }}
+        >
+          {userInfo ? (
+            <View className="flex items-center">
+              {/* 使用 UserInfoCard 替换内联用户信息 */}
+              <View className="flex-1">
+                <UserInfoCard
+                  avatar={userInfo.avatar}
+                  nickname={userInfo.userName || userInfo.nickname || t('common.user')}
+                  isVip={!!userInfo.isVip}
+                  vipTitle={userInfo.isVip ? 'VIP' : undefined}
+                  desc={userInfo.phone ? maskPhone(userInfo.phone) : undefined}
+                  onClick={goProfile}
+                  // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
+                  // growthValue/growthMax/tokenValue 暂未纳入 UserInfo 类型,用精确类型断言读取
+                  growthValue={(userInfo as { growthValue?: number }).growthValue}
+                  growthMax={(userInfo as { growthMax?: number }).growthMax}
+                  tokenValue={(userInfo as { tokenValue?: number }).tokenValue}
+                  identityType={userInfo.isVip ? 1 : 0}
+                  onWallet={() =>
+                    Taro.navigateTo({
+                      url: '/pkg-shop/token/balance',
+                      fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
+                    })
+                  }
+                  onUnsubscribe={() =>
+                    Taro.showModal({
+                      title: t('common.hint'),
+                      content: t('user.confirm3'),
+                      success: async (res) => {
+                        if (!res.confirm || !userInfo) return
+                        try {
+                          // 对齐原项目 unsubscribe L933-972:优先取消微信支付订阅合约
+                          const contractsRes = (await api.listRecurringContracts()) as {
+                            list?: Array<{ id: number; status: string }>
+                          }
+                          const activeContract = contractsRes?.list?.find(
+                            (c) => c.status === 'active',
+                          )
+                          if (activeContract) {
+                            await api.cancelRecurringContract(activeContract.id, '用户主动退订')
+                          } else {
+                            // 无 active 订阅合约(可能是积分兑换 VIP),降级更新本地 isVip 标记
+                            await api.updateProfile({ isVip: false })
+                          }
+                          setUserInfo({ ...userInfo, isVip: false })
+                          Taro.showToast({
+                            title: tt('user.success4', '退订成功'),
+                            icon: 'success',
+                          })
+                        } catch {
+                          Taro.showToast({
+                            title: tt('user.failed5', '退订失败，请联系客服'),
+                            icon: 'none',
+                          })
+                        }
+                      },
+                    })
+                  }
+                  onOpenVip={goVipDetail}
+                  onOpenLevel={() =>
+                    Taro.navigateTo({
+                      url: '/pkg-shop/vip/index?type=levelPopup',
+                      fail: () =>
+                        Taro.showToast({
+                          title: tt('user.text6', '等级介绍页未配置'),
+                          icon: 'none',
+                        }),
+                    })
+                  }
+                  onLogin={goLogin}
+                />
+              </View>
+              {/* 分享按钮 */}
+              <View
+                className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center border border-solid border-[var(--color-border)]"
+                style={{ background: 'var(--color-card)' }}
+                hoverClass="opacity-60"
+                onClick={openSharePopup}
+              >
+                <LineIcon
+                  className="text-[32rpx] text-primary"
+                  name="share-2"
+                  size={32}
+                  color="var(--color-muted-foreground)"
+                />
+              </View>
+            </View>
+          ) : (
+            <View className="flex items-center" hoverClass="opacity-60" onClick={goLogin}>
+              <Image
+                className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary"
+                src={defaultAvatar}
+                mode="aspectFill"
+              />
+              <View className="ml-[24rpx]">
+                <Text className="block text-foreground text-[36rpx] font-semibold">
+                  {t('user.tapLogin')}
+                </Text>
+                <Text className="block mt-[8rpx] text-foreground text-[24rpx] opacity-85">
+                  {t('user.loginHint')}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* ===== LoginPopUp 登录弹窗（对齐原项目 loginPopUp） ===== */}
+        <LoginPopUp
+          visible={showLoginPopup}
+          defaultAvatar={defaultAvatar}
+          userInfo={
+            userInfo
+              ? {
+                  nickname: userInfo.nickname || userInfo.userName,
+                  avatar: userInfo.avatar,
+                  isVip: userInfo.isVip ? 1 : 0,
+                  identityTypy: 0,
+                }
+              : undefined
+          }
+          onClose={() => setShowLoginPopup(false)}
+          onUpgrade={goVipDetail}
+          onOneClickLogin={async ({ loginCode, phoneCode }) => {
+            try {
+              // 1. 获取 openId(对齐原项目 api.openId(loginCode) → GET /auth/wechat/mini/login)
+              const openIdRes = (await api.openId(loginCode)) as {
+                openId?: string
+                unionId?: string
+                needPhone?: boolean
+                token?: string
+              }
+
+              // 已绑定用户:openId 接口直接返回 token,登录成功
+              if (openIdRes?.token) {
+                setToken(openIdRes.token)
+                // 拉取用户信息并持久化到 storage(refresh 读取 storage,需先写入)
+                try {
+                  const profile = await api.getProfile()
+                  persistUserInfo(profile)
+                } catch {
+                  // getProfile 失败不阻塞登录态(token 已保存)
+                }
+                setShowLoginPopup(false)
+                refresh()
+                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+                return
+              }
+
+              // 2. 未绑定用户:用手机号登录(对齐原项目 api.getPhoneNumber → POST /auth/wechat/mini/phone)
+              const phoneRes = (await api.getPhoneNumber({
+                code: phoneCode,
+                phoneCode: loginCode,
+              })) as {
+                userId?: string
+                phone?: string
+                token?: string
+              }
+
+              if (phoneRes?.token) {
+                setToken(phoneRes.token)
+                try {
+                  const profile = await api.getProfile()
+                  persistUserInfo(profile)
+                } catch {
+                  // getProfile 失败不阻塞登录态
+                }
+                setShowLoginPopup(false)
+                refresh()
+                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+              } else {
+                Taro.showToast({
+                  title: tf('login.noToken', '登录失败,未获取到 token'),
+                  icon: 'none',
+                })
+              }
+            } catch {
+              Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+            }
+          }}
+          onNicknameChange={async (nickname) => {
+            if (!userInfo) return
+            try {
+              // 对齐原项目 onLogin L587-624:bindUser(open_id, nickname, phone, avatar, fileName)
+              // open_id/fileName 需要微信登录后获取,此处仅传本地已有字段
+              // bindUser API 参数类型为 unknown(api/index.ts),用本地接口约束字段
+              const params: BindUserParams = {
+                nickname,
+                userId: userInfo.id ?? userInfo.uuid,
+                phone: userInfo.phone,
+                avatar: userInfo.avatar,
+              }
+              await api.bindUser(params)
+              setUserInfo({ ...userInfo, nickname })
+              Taro.showToast({
+                title: tt('about.apiSettings.savedTip', '保存成功'),
+                icon: 'success',
+              })
+            } catch {
+              Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
+            }
+          }}
+        />
+
+        {/* ===== UserCard 功能卡片（对齐原项目 user_cards.vue，非 iOS 显示） ===== */}
+        {!isshow ? (
+          <View className="mx-[20rpx]">
+            <UserCard onGoPage={goPage} />
+          </View>
+        ) : null}
+
+        {/* ===== 会员权益卡片(对齐 RN ProfileScreen membershipHeader:标题 + chevron-down 旋转) ===== */}
+        {!isshow ? (
+          <View className="membership-benefits-container mx-[20rpx] mt-[16rpx] mb-0">
+            {/* 折叠头:点击展开/收起(对齐 RN membershipHeaderText + membershipArrow) */}
+            <View
+              className="membership-benefits-header"
+              hoverClass="opacity-60"
+              onClick={toggleBenefits}
+            >
+              <Text className="membership-benefits-title">
+                {tf('user.membershipBenefits', '会员权益')}
+              </Text>
+              <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
+                <LineIcon
+                  className="arrow-icon"
+                  name="chevron-down"
+                  size={48}
+                  color="var(--color-muted-foreground)"
+                />
+              </View>
+            </View>
+            {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
+            {showBenefits ? (
+              <View className="membership-benefits-content">
+                <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
+                  {membershipBenefits.map((b) => (
+                    <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
+                      {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
+                      <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
+                        {tf(b.key, b.fallback)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* ===== StudyBar + 内容展示区 ===== */}
+        <View className="content-display-area">
+          {/* StudyBar Tab 切换 — 对齐原项目 <StudyBar :barList="tabList" @change="handleTabChange" /> */}
+          <StudyBar barList={tabList} onChange={handleTabChange} />
+
+          {/* 内容展示区 */}
+          <View className="content-list">
+            {/* 加载状态(对齐原项目 contentLoading) */}
+            {contentLoading ? (
+              <View className="py-[96rpx] flex items-center justify-center">
+                <Text
+                  style={{
+                    fontSize: rpx(28),
+                    color: 'var(--color-muted-foreground)',
+                  }}
+                >
+                  {tf('common.loading', '加载中...')}
+                </Text>
+              </View>
+            ) : null}
+            {/* 文本内容 */}
+            {activeTab === 1 && (
+              <View>
+                {textContentList.length === 0 ? (
+                  <View className="py-[96rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {tf('user.empty.text', '暂无文本内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  textContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-text"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      {renderMarkdown(item.content)}
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* 图片内容 */}
+            {activeTab === 2 && (
+              <View>
+                {imageContentList.length === 0 ? (
+                  <View className="py-[96rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {tf('user.empty.image', '暂无图片内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  imageContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-image"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      {/* 纵向单列大图(对齐 RN imageColumn gap rpx(16) + imageColumnImg 高 200dp)*/}
+                      <View className="flex flex-col" style={{ gap: rpx(16) }}>
+                        {(item.imageList || []).map((imgUrl, imgIdx) => (
+                          <Image
+                            key={imgIdx}
+                            src={imgUrl}
+                            mode="aspectFill"
+                            style={{ width: '100%', height: rpx(400), borderRadius: rpx(16) }}
+                            onClick={() => previewImage(imgUrl, item.imageList)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* 视频内容 */}
+            {activeTab === 3 && (
+              <View>
+                {videoContentList.length === 0 ? (
+                  <View className="py-[96rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {tf('user.empty.video', '暂无视频内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  videoContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="bg-card rounded-[20rpx] overflow-hidden border border-border user-content-video"
+                    >
+                      <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      <View
+                        className="relative mx-[24rpx] mb-[24rpx] rounded-[16rpx] overflow-hidden bg-muted"
+                        style={{ height: rpx(400) }}
+                        hoverClass="opacity-60"
+                        onClick={() => openVideoPlayer(item.videoUrl)}
+                      >
+                        {/* 视频封面图(对齐原项目 getVideoPoster)*/}
+                        {getVideoPoster(item.videoUrl) ? (
+                          <Image
+                            src={getVideoPoster(item.videoUrl)}
+                            mode="aspectFill"
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        ) : null}
+                        <View className="absolute inset-0 flex items-center justify-center">
+                          <View className="w-[120rpx] h-[120rpx] rounded-full bg-[var(--color-black-50)] flex items-center justify-center">
+                            <LineIcon
+                              name="play"
+                              size={60}
+                              color="var(--color-white-98)"
+                              className="w-[60rpx] h-[60rpx]"
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* 音频内容 */}
+            {activeTab === 4 && (
+              <View>
+                {audioContentList.length === 0 ? (
+                  <View className="py-[96rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(28),
+                        color: 'var(--color-muted-foreground)',
+                      }}
+                    >
+                      {tf('user.empty.audio', '暂无音频内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  audioContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="bg-card rounded-[20rpx] p-[28rpx] border border-border user-content-audio"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[32rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      <View className="flex-row items-center gap-[12rpx]">
+                        {/* 播放/暂停按钮(对齐 RN audioPlayBtn 36dp→72rpx 圆角 16rpx) */}
+                        <View
+                          className="w-[72rpx] h-[72rpx] rounded-[16rpx] flex items-center justify-center"
+                          style={{ background: 'var(--color-primary)', flexShrink: 0 }}
+                          hoverClass="opacity-60"
+                          onClick={() => toggleAudioPlay(index, item.audioUrl)}
+                        >
+                          <LineIcon
+                            name={audioPlayStates[index] ? 'pause' : 'play'}
+                            size={32}
+                            color="var(--color-primary-foreground)"
+                            className="w-[32rpx] h-[32rpx]"
+                          />
+                        </View>
+                        {/* 进度条 */}
+                        <View className="flex-1" style={{ minWidth: 0 }}>
+                          <Slider
+                            value={audioProgress[index] || 0}
+                            min={0}
+                            max={100}
+                            activeColor="var(--color-primary)"
+                            backgroundColor="var(--color-muted)"
+                            blockSize={12}
+                            blockColor="var(--color-primary)"
+                            onChange={(e) => onAudioProgressChange(index, e)}
+                          />
+                        </View>
+                        {/* 当前时间(对齐 RN audioTime fontSize 12dp) */}
+                        <Text
+                          className="text-[24rpx] text-muted-foreground"
+                          style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
+                        >
+                          {formatAudioTime(audioCurrentTime[index] || 0)}
+                        </Text>
+                        {/* 下载按钮 */}
+                        <Image
+                          src={downloadIcon}
+                          mode="aspectFit"
+                          className="w-[36rpx] h-[36rpx]"
+                          style={{ flexShrink: 0 }}
+                          onClick={() => downloadAudio(item.audioUrl)}
+                        />
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* 快捷入口 */}
+        <View className="mx-[20rpx] my-[24rpx] py-[28rpx]">
+          <View className="flex">
+            {quickEntries.map((entry) => (
+              <View
+                key={entry.path}
+                className="flex-1 flex flex-col items-center"
+                hoverClass="opacity-60"
+                onClick={() => goPage(entry.path)}
+              >
+                {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
+                <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* 功能列表 */}
+        <View className="mx-[20rpx] my-[24rpx] overflow-hidden">
+          {menus.map((item, idx) => (
+            <View
+              key={item.path}
+              className={`flex items-center px-[32rpx] py-[32rpx] ${
+                idx < menus.length - 1 ? 'mb-[8rpx]' : ''
+              }`}
+              hoverClass="opacity-60"
+              onClick={() => goPage(item.path)}
+            >
+              {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
+              <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
+              <Text className="text-[26rpx] text-[var(--color-brand-accent-deep)]">{'>'}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 退出登录 */}
+        {isLogin ? (
+          <View
+            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
+            hoverClass="opacity-60"
+            onClick={handleLogout}
+          >
+            <Text>{t('user.logout')}</Text>
+          </View>
+        ) : null}
+
+        {/* 官网链接 */}
+        <View className="w-full flex items-center justify-center pb-[20rpx]">
+          <Image
+            src={yejiaoIcon}
+            mode="widthFix"
+            className="w-[348rpx]"
+            onClick={copyWebsiteLink}
+          />
+        </View>
+
+        {/* ===== 视频播放弹窗(对齐 RN videoModalOverlay/videoModalClose) ===== */}
+        {showVideoPlayer ? (
+          <View className="fixed inset-0 z-[2000] flex items-center justify-center">
+            <View
+              className="absolute inset-0"
+              style={{ background: 'var(--color-black-90)' }}
+              hoverClass="opacity-60"
+              onClick={closeVideoPlayer}
+            />
+            <View className="relative w-[90%] rounded-lg overflow-hidden">
+              <VideoPlayer src={currentVideoUrl} controls onError={closeVideoPlayer} />
+              {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
+              <CoverView
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  width: '80rpx',
+                  height: '80rpx',
+                  background: 'var(--color-white-18)',
+                  borderTopRightRadius: '24rpx',
+                  borderBottomLeftRadius: '24rpx',
+                  zIndex: 10,
+                }}
+                onClick={closeVideoPlayer}
+              >
+                <CoverView
+                  style={{
+                    color: 'var(--color-white-98)',
+                    fontSize: '60rpx',
+                    fontWeight: 'bold',
+                    lineHeight: '80rpx',
+                    textAlign: 'center',
+                  }}
+                >
+                  ×
+                </CoverView>
+              </CoverView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ===== 分享弹窗 ===== */}
+        {showSharePopup ? (
+          <View className="share-popup-mask" onClick={closeSharePopup}>
+            <View
+              className="share-popup-content"
+              onClick={(e) => e.stopPropagation()}
+              hoverClass="opacity-60"
+            >
+              {/* 关闭按钮(对齐 RN sharePopupCloseText) */}
+              <View className="share-popup-close" hoverClass="opacity-60" onClick={closeSharePopup}>
+                <Text className="share-popup-close-text">×</Text>
+              </View>
+              {/* 分享卡片预览 */}
+              <View className="share-popup-image">
+                <Text className="share-popup-title">
+                  {tf('user.share.cardTitle', 'AI IHUI 智能平台')}
+                </Text>
+                <Text className="share-popup-subtitle">
+                  {tf('user.share.cardDesc', '开启智能学习之旅，探索无限可能')}
+                </Text>
+              </View>
+              {/* 分享提示 */}
+              <Text className="block text-center text-[28rpx] text-foreground font-semibold mb-[20rpx]">
+                {tf('user.share.shareTo', '分享给好友')}
+              </Text>
+              {/* 分享按钮 */}
+              <View
+                className="share-popup-btn"
+                hoverClass="opacity-60"
+                onClick={() => {
+                  // 对齐原项目 handleAppShareClick:调起分享菜单
+                  Taro.showShareMenu({
+                    withShareTicket: true,
+                    showShareItems: ['shareAppMessage', 'shareTimeline'],
+                    success: () => {
+                      // 对齐原项目 handleShareSuccess:分享成功后调 firstShare 接口领取智汇值
+                      void api.firstShare({ source: 'user' }).catch(() => {
+                        // 静默:接口失败不阻塞分享成功提示
+                      })
+                      Taro.showToast({
+                        title: tf('share.success', '分享成功'),
+                        icon: 'success',
+                      })
+                      closeSharePopup()
+                    },
+                    fail: () => {
+                      // 部分平台不支持 showShareMenu,降级为复制链接
+                      Taro.setClipboardData({
+                        data: 'https://ihui.ai',
+                        success: () =>
+                          Taro.showToast({
+                            title: tf('user.share.linkCopied', '链接已复制'),
+                            icon: 'success',
+                          }),
+                      })
+                      closeSharePopup()
+                    },
+                  })
+                }}
+              >
+                {tf('share.shareNow', '立即分享')}
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,130 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  listPendingPermissionRequests,
+  resolvePermissionRequest,
+} from '@ihui/api-client/endpoints/workspace'
+import { useToast } from '@/hooks/use-toast'
+
+export interface PermissionRequestPayload {
+  requestId: string
+  userId: string
+  tool: string
+  args: Record<string, unknown>
+  workspacePath?: string
+  createdAt: number
+}
+
+interface UsePermissionRequestOptions {
+  userId?: string
+}
+
+/**
+ * 监听 WebSocket 推送的权限确认请求(default / accept-edits 无匹配模式,FS Bridge
+ * 工具调用前会推送一条 workspace.permission.request 事件,前端弹窗展示后,
+ * 用户选择后调 POST /api/workspace/permission/requests/:requestId/resolve)。
+ *
+ * 同时仍兼容旧的 permission.request 事件(AgentLoop 用),统一收集展示。
+ */
+export function usePermissionRequest({ userId }: UsePermissionRequestOptions = {}) {
+  const queryClient = useQueryClient()
+  const toast = useToast()
+  const [pendingRequests, setPendingRequests] = React.useState<PermissionRequestPayload[]>([])
+
+  // 页面加载时拉一次后端 pending 列表(兜底:刷新时仍存在的待决请求)
+  React.useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await listPendingPermissionRequests()
+        if (cancelled || !res.success) return
+        const items: PermissionRequestPayload[] = (res.data?.requests ?? []).map((r) => ({
+          requestId: r.requestId,
+          userId: r.userId,
+          tool: r.tool,
+          args: r.args,
+          createdAt: r.createdAt,
+        }))
+        if (items.length > 0) {
+          setPendingRequests((prev) => {
+            const known = new Set(prev.map((p) => p.requestId))
+            return [...prev, ...items.filter((i) => !known.has(i.requestId))]
+          })
+        }
+      } catch {
+        // 忽略权限请求拉取错误
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
+
+  React.useEffect(() => {
+    if (!userId) return
+
+    let cancelled = false
+    // 复用全局 WebSocket(由 use-websocket.ts 维护);此处通过自定义事件订阅
+    const handler = (e: Event) => {
+      if (cancelled) return
+      const detail = (e as CustomEvent<{ type: string; payload: unknown }>).detail
+      // workspace_permissions 系统的待决请求
+      if (detail?.type === 'workspace.permission.request') {
+        const payload = detail.payload as PermissionRequestPayload
+        if (payload.userId !== userId) return
+        setPendingRequests((prev) => {
+          if (prev.some((p) => p.requestId === payload.requestId)) return prev
+          return [...prev, payload]
+        })
+        return
+      }
+      // 兼容旧 AgentLoop 的 permission.request 事件
+      if (detail?.type === 'permission.request') {
+        const payload = detail.payload as PermissionRequestPayload
+        if (payload.userId !== userId) return
+        setPendingRequests((prev) => {
+          if (prev.some((p) => p.requestId === payload.requestId)) return prev
+          return [...prev, payload]
+        })
+      }
+    }
+    window.addEventListener('ws:message', handler as EventListener)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener('ws:message', handler as EventListener)
+    }
+  }, [userId, queryClient])
+
+  const dismiss = React.useCallback((requestId: string) => {
+    setPendingRequests((prev) => prev.filter((r) => r.requestId !== requestId))
+  }, [])
+
+  /**
+   * 用户决策:调用后端 resolve 端点 → 后端 Promise 解锁 → 等待中的 FS 工具调用同步放行/拒绝。
+   */
+  const resolve = React.useCallback(
+    async (requestId: string, approved: boolean, reason?: string) => {
+      // 2026-08-02 修复: resolve 失败后请求消失 - 先 await API, 成功后再 dismiss; 失败保留请求 + toast 提示
+      try {
+        await resolvePermissionRequest(requestId, approved, reason)
+        dismiss(requestId)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        toast.error(msg)
+        // 不 dismiss, 保留请求让用户可重试
+      }
+    },
+    [dismiss, toast],
+  )
+
+  return { pendingRequests, dismiss, resolve }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

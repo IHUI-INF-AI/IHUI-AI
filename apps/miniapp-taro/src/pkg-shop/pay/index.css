@@ -1,0 +1,238 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* Pay 页 — 视觉对齐 RN 端 PaymentScreen / PayButton / ConfirmPurchasePopUp(2026-09-08)
+   卡片对齐 RN card:白底 var(--color-card) + 1px 描边 var(--color-border) + 圆角 12dp→24rpx;
+   金额色对齐 RN amountValue(success.DEFAULT → var(--color-success));
+   支付方式选中态对齐全项目 brandAccent 语言(brand-accent-light 底 + brand-accent 描边);
+   辅助描边按钮对齐 RN outlineBtn(success 描边 + success 字);
+   主按钮对齐 RN primaryBtn/PayButton:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字。 */
+
+.py-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 180rpx;
+}
+
+.py-countdown {
+  margin-bottom: 24rpx;
+  padding: 20rpx 32rpx;
+  background: var(--color-secondary);
+  border-radius: var(--radius-md);
+  border: 2rpx solid var(--color-border);
+  text-align: center;
+}
+.py-countdown--expired {
+  border-color: var(--color-destructive);
+  background: var(--color-danger-tint);
+}
+.py-countdown-text {
+  font-size: 26rpx;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.py-countdown--expired .py-countdown-text {
+  color: var(--color-destructive);
+}
+
+.py-amount-card {
+  padding: 40rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  border: 2rpx solid var(--color-border);
+  text-align: center;
+}
+.py-amount-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-amount-value {
+  display: block;
+  margin-top: 16rpx;
+  /* 对齐 RN amountValue 色:success.DEFAULT → var(--color-success) */
+  font-size: 64rpx;
+  color: var(--color-success);
+  font-weight: 700;
+}
+.py-amount-discount {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-success);
+}
+
+.py-order-card {
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+.py-order-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-order-value {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  max-width: 360rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.py-method-card {
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-section-title {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.py-method {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 12rpx;
+  border-radius: var(--radius-md);
+  border: 2rpx solid transparent;
+}
+.py-method--active {
+  /* 选中态对齐全项目 brandAccent 语言(同 vip 页支付方式选中态;前景描边用 deep 保对比) */
+  background: var(--color-brand-accent-light);
+  border-color: var(--color-brand-accent-deep);
+}
+.py-method-icon {
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: var(--radius-md);
+  font-size: 28rpx;
+  background: var(--color-muted);
+  font-weight: 700;
+}
+.py-method-icon--wx {
+  color: var(--color-success);
+}
+.py-method-icon--ali {
+  color: var(--color-primary);
+}
+.py-method-icon--balance {
+  color: var(--color-warning);
+}
+.py-method-body {
+  flex: 1;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+.py-method-name {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.py-method-sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.py-recharge-link {
+  /* 辅助描边按钮对齐 RN outlineBtn:success 描边 + success 字 */
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-success);
+  border: 2rpx solid var(--color-success);
+  border-radius: var(--radius-sm);
+}
+.py-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.py-radio--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+.py-radio-mark {
+  color: var(--color-primary-foreground);
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.py-coupon-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-coupon-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.py-coupon-right {
+  display: flex;
+  align-items: center;
+}
+.py-coupon-value {
+  /* 优惠减免金额与 py-amount-discount 同语义(RN success 金额语言) */
+  font-size: 28rpx;
+  color: var(--color-success);
+  font-weight: 600;
+}
+.py-coupon-placeholder {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-coupon-arrow {
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
+
+.py-submit {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  /* 对齐 RN primaryBtn:高 50dp→100rpx / 圆角 12dp→24rpx / brand 黑底白字 */
+  height: 100rpx;
+  line-height: 100rpx;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: 24rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+}
+.py-submit::after {
+  border: none;
+}
+.py-submit--disabled {
+  opacity: 0.5;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
