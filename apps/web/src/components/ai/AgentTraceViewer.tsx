@@ -5,8 +5,10 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertCircle, CheckCircle2, ChevronDown, Clock, XCircle } from 'lucide-react'
 
+import { toolDisplayKey } from '@ihui/shared/chat'
 import { cn } from '@/lib/utils'
 
 interface TraceToolCall {
@@ -59,6 +61,7 @@ function stopReasonLabel(reason: string): string {
 }
 
 export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
+  const tStatus = useTranslations('taskStatus')
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [showAllReasoning, setShowAllReasoning] = React.useState(false)
 
@@ -205,7 +208,13 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                               )}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{tc.name}</span>
+                                <span className="text-sm font-medium">
+                                  {/* 工具显示名走共享映射;映射不到的插件/MCP 动态名保留原码名 */}
+                                  {(() => {
+                                    const key = toolDisplayKey(tc.name)
+                                    return key ? tStatus(key) : tc.name
+                                  })()}
+                                </span>
                                 {result?.error ? (
                                   <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                                 ) : (
