@@ -507,11 +507,11 @@ class ModelSyncService:
             )
 
         sem = asyncio.Semaphore(1)
-        # F4.7 provider 级别并发锁
-        async with self._get_provider_lock(provider_code):
-            result = await self._sync_single_provider(
-                sem, provider_code, api_base, api_key, dry_run=dry_run
-            )
+        # provider 级并发锁由 _sync_single_provider 内部统一持有:asyncio.Lock 非重入,
+        # 外层再取同一把锁会让单厂同步永久挂起,并把 is_syncing 卡在 True(此后全量同步也被静默跳过)
+        result = await self._sync_single_provider(
+            sem, provider_code, api_base, api_key, dry_run=dry_run
+        )
 
         self._status.results = [result]
         self._status.total_providers = 1
