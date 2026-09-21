@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
 import { cn } from '@ihui/design-tokens'
@@ -122,6 +123,22 @@ export default function InputArea({
   const [isFangdaActive, setIsFangdaActive] = useState(false) // 全屏放大
   const [inputBottom, setInputBottom] = useState(0) // 键盘高度(px)
   const [isamplify, setIsamplify] = useState(false) // 放大按钮阈值
+  // AI 操控通道(2026-09-21):普通态与全屏放大态两个 Textarea 共用同一个 value + handleInput
+  // 受控通道,故只登记一次(两个 id 指向同一真相源反而更含糊)。
+  // 只有父组件真的给了 onInput 才登记 —— 没有它"填进去"改变不了任何状态,登记即假成功。
+  // 发送按钮属对外发声,不交出 onPress。
+  useUiField(
+    onInput
+      ? {
+          kind: 'textarea',
+          label: placeholder || t('messageInput.placeholder'),
+          placeholder: placeholder || t('messageInput.placeholder'),
+          ...(typeof maxLength === 'number' ? { maxLength } : {}),
+          readValue: () => value,
+          setValue: (next) => onInput(next),
+        }
+      : null,
+  )
 
   // mount 时查询 .search-input 高度初始化 isamplify(对齐原项目 mounted 逻辑)
   useEffect(() => {
