@@ -5,6 +5,7 @@
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useTt, t } from '@/i18n'
 import { useState } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
@@ -146,6 +147,49 @@ export default function ModelConfigDialog({
   })
   const [showAudioMenu, setShowAudioMenu] = useState(false)
   const [selectedVoiceIndex, setSelectedVoiceIndex] = useState<number>(-1)
+  // AI 操控通道(2026-09-21):default variant 的三个固定数值/文本输入框交出写通道,
+  // 写入走与 onInput 完全相同的 onChange 合并逻辑(与界面渲染同一真相源)。
+  // 弹窗关闭时传 null → 不注册,旧 id 如实失败,不会指到别的控件。
+  // 未注册:最大 Token(标签命中注册表 SENSITIVE_RE 的 token 关键词,按硬规矩连快照都不出现);
+  // 自定义参数项(在 configParams.map 内、项数可变,hook 不能进循环,需抽子组件=改 JSX)。
+  const aiParamVisible = visible && variant === 'default'
+  useUiField(
+    aiParamVisible
+      ? {
+          kind: 'number',
+          label: tt('model.temperature', '温度 (0-2)'),
+          placeholder: '0.7',
+          inputType: 'digit',
+          constraint: '0-2,超出由 parseFloat 归零',
+          readValue: () => config.temperature?.toString() || '',
+          setValue: (next) => onChange?.({ ...config, temperature: parseFloat(next) || 0 }),
+        }
+      : null,
+  )
+  useUiField(
+    aiParamVisible
+      ? {
+          kind: 'number',
+          label: 'Top P (0-1)',
+          placeholder: '0.9',
+          inputType: 'digit',
+          constraint: '0-1,超出由 parseFloat 归零',
+          readValue: () => config.topP?.toString() || '',
+          setValue: (next) => onChange?.({ ...config, topP: parseFloat(next) || 0 }),
+        }
+      : null,
+  )
+  useUiField(
+    aiParamVisible
+      ? {
+          kind: 'input',
+          label: tt('model.systemPrompt', '系统提示词'),
+          placeholder: 'You are a helpful assistant',
+          readValue: () => config.systemPrompt || '',
+          setValue: (next) => onChange?.({ ...config, systemPrompt: next }),
+        }
+      : null,
+  )
 
   if (!visible) return null
 
