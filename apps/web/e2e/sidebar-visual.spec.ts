@@ -166,41 +166,29 @@ test.describe('Sidebar 视觉守门', () => {
     expect(lineBox!.width).toBeLessThanOrEqual(2)
   })
 
-  test('语言切换 Popover 弹出后完整可见不被裁剪 + 触发器 Globe2 图标渲染', async ({
+  test('语言切换子菜单弹出后完整可见不被裁剪 + 语言徽章渲染', async ({
     authenticatedPage,
   }) => {
-    // 1. 找到侧边栏底部语言切换按钮(带 lucide Flag svg 的 ghost icon button)
-    // 2026-07-31 v3: 触发器改为 Flag(用户要求"类似国旗"的图标);
-    // 下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)不动。
-    const langBtn = authenticatedPage
-      .locator('aside button[aria-label]')
-      .filter({ has: authenticatedPage.locator('svg.lucide-flag') })
-      .first()
-    await expect(langBtn).toBeVisible()
+    // 2026-09-21 迁移:语言切换从底部工具栏 Flag 图标按钮改为用户行下拉菜单的"语言"子菜单。
+    // 1. 点击侧边栏底部用户行 trigger(头像+昵称整行)打开用户菜单
+    const userRow = authenticatedPage.locator('aside .group\\/row').first()
+    await expect(userRow).toBeVisible()
+    await userRow.click()
 
-    // 2. 验证触发按钮里的 Flag svg 可见且有尺寸(非 0x0),btnClass [&_svg]:size-5 应渲染 20×20
-    const triggerIcon = langBtn.locator('svg.lucide-flag')
-    await expect(triggerIcon).toBeVisible()
-    const iconBox = await triggerIcon.boundingBox()
-    expect(iconBox).not.toBeNull()
-    expect(iconBox!.width, 'Flag svg 宽度应 > 0').toBeGreaterThan(0)
-    expect(iconBox!.height, 'Flag svg 高度应 > 0').toBeGreaterThan(0)
-    // [&_svg]:size-5 渲染为 20×20,允许 1px 误差
-    expect(Math.abs(iconBox!.width - 20)).toBeLessThanOrEqual(1)
-    expect(Math.abs(iconBox!.height - 20)).toBeLessThanOrEqual(1)
-
-    // 3. 点击打开 Popover
-    await langBtn.click()
+    // 2. 点击"语言"菜单项展开子菜单(Radix SubTrigger:click/hover 均可展开)
+    const langTrigger = authenticatedPage.getByRole('menuitem', { name: '语言' }).first()
+    await expect(langTrigger).toBeVisible({ timeout: 3000 })
+    await langTrigger.click()
     await authenticatedPage.waitForTimeout(300)
 
-    // 4. 验证 Popover 内 5 个语言项可见(关键:不被 aside overflow 裁剪)
-    // 2026-07-31 v2: 下拉项由 img 国旗改为 span[data-lang-code] 徽章(ZH/TW/EN/JA/KO)
-    const langItems = authenticatedPage.locator('div.bg-popover button:has(span[data-lang-code])')
+    // 3. 验证子菜单内 5 个语言项可见(关键:不被 aside overflow 裁剪)
+    //    下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)
+    const langItems = authenticatedPage.locator('[role="menuitem"]:has(span[data-lang-code])')
     await expect(langItems.first()).toBeVisible({ timeout: 3000 })
     const itemCount = await langItems.count()
     expect(itemCount, '应显示 5 个语言项').toBe(5)
 
-    // 5. 验证每个语言项的徽章 span 可见且有尺寸(非 0x0),h-5 w-7 应渲染 20×28
+    // 4. 验证每个语言项的徽章 span 可见且有尺寸(非 0x0),h-5 w-7 应渲染 20×28
     const firstItemBadge = langItems.first().locator('span[data-lang-code]')
     await expect(firstItemBadge).toBeVisible()
     const badgeBox = await firstItemBadge.boundingBox()
@@ -208,7 +196,7 @@ test.describe('Sidebar 视觉守门', () => {
     expect(badgeBox!.width).toBeGreaterThan(0)
     expect(badgeBox!.height).toBeGreaterThan(0)
 
-    // 6. 验证 Popover 完整在视口内(不被裁剪)
+    // 5. 验证子菜单完整在视口内(不被裁剪)
     const firstItemBox = await langItems.first().boundingBox()
     expect(firstItemBox).not.toBeNull()
     expect(firstItemBox!.y, '语言项 y 坐标应 >= 0(不被顶部裁剪)').toBeGreaterThanOrEqual(0)
@@ -222,23 +210,18 @@ test.describe('Sidebar 视觉守门', () => {
       '最后一项底部应 <= 视口高度(不被底部裁剪)',
     ).toBeLessThanOrEqual(viewportHeight)
 
-    // 7. 验证 Popover 宽度超出 aside 时不被裁剪(w-36=144px > aside 130px)
-    // Popover 居中展开会左右各超 7px,需 overflow-visible 才能显示
-    const popoverContainer = langItems
-      .first()
-      .locator('xpath=ancestor::div[contains(@class,"bg-popover")]')
-    const popoverBox = await popoverContainer.boundingBox()
-    expect(popoverBox).not.toBeNull()
-    // Popover 应完整可见(宽度 = 144px w-36,允许 2px 误差)
-    expect(popoverBox!.width, 'Popover 宽度应为 144px(w-36)').toBeGreaterThanOrEqual(142)
+    // 6. 验证子菜单容器宽度符合 min-w-[10rem](Radix SubContent,160px 边框内 ≥158px),
+    //    不被 aside 宽度限制(子菜单渲染在 Portal,天然不受 aside overflow 影响)
+    const subMenu = langItems.first().locator('xpath=ancestor::*[@role="menu"][1]')
+    const subMenuBox = await subMenu.boundingBox()
+    expect(subMenuBox).not.toBeNull()
+    expect(
+      subMenuBox!.width,
+      `语言子菜单宽度应 ≥158px(min-w-[10rem]),实际 ${subMenuBox!.width}`,
+    ).toBeGreaterThanOrEqual(158)
 
-    // 8. 关键断言:Popover 右边缘不应被 aside 右边缘裁剪
-    // aside overflow-visible 时,Popover 可以超出 aside 显示
-    const aside = authenticatedPage.locator('aside').first()
-    const asideBox = await aside.boundingBox()
-    expect(asideBox).not.toBeNull()
-    // Popover 应能在 aside 外显示(至少不被 overflow:hidden 裁剪成更小宽度)
-    expect(popoverBox!.width, 'Popover 不应被裁剪(宽度应完整 144px)').toBeGreaterThanOrEqual(142)
+    // 7. 收尾:关闭菜单
+    await authenticatedPage.keyboard.press('Escape')
   })
 })
 
@@ -323,8 +306,8 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
         const ariaLabel = el.getAttribute('aria-label') || ''
         // 排除底部工具栏(语言/下载/消息/主题/设置)和用户头像
         if (excludeLabels.some((l) => ariaLabel.includes(l))) continue
-        // 排除底部 SidebarActions 区的按钮(它们是 h-7 w-7 即 28×28 图标按钮,
-        // 2026-08-07 起尺寸从 26px 升级为 28px,与侧边栏其他图标按钮视觉统一)
+        // 排除历史底部工具栏按钮(2026-09-21 已迁入用户菜单,保留过滤防御:
+        // 防止导航区 ExpandableNavItem 的"站内消息"等含相同词的 aria-label 项被误计入)
         if (ariaLabel.includes('语言') || ariaLabel.includes('Language')) continue
         if (ariaLabel.includes('下载') || ariaLabel.includes('Download')) continue
         if (ariaLabel.includes('消息') || ariaLabel.includes('Messages')) continue
@@ -708,18 +691,18 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
 })
 
 /**
- * Sidebar 折叠/展开布局方向守门测试 (2026-09-09 立)
+ * Sidebar 折叠/展开布局方向守门测试 (2026-09-09 立,2026-09-21 迁移适配)
  *
  * 防护近期折叠态布局修复的回归:
- *   - 折叠态(60px 条)底部工具栏必须是竖排 flex-col(旧 flex-row flex-nowrap 横排
- *     挤压是"按钮互相重叠"根因,5×28+4×2=148px > 59px 内容区)
- *   - 折叠态 header 拉出按钮不得与 footer 按钮重叠(SSR 展开 HTML 被 CSS 压进
+ *   - 折叠态(60px 条)底部用户行完整落在 aside 界内(原底部工具栏 5 按钮已迁入
+ *     用户行下拉菜单,footer 只剩 SidebarUserRow,不再存在横排挤压重叠问题)
+ *   - 折叠态 header 拉出按钮不得与 footer 用户行重叠(SSR 展开 HTML 被 CSS 压进
  *     60px 条时,长 logo 与折叠按钮曾重叠)
- *   - 桌面展开态工具栏为横排单行(防止"展开时先竖排再变横排"闪烁回归)
+ *   - 桌面展开态用户行常驻渲染(头像容器 span + 昵称 span)
  *   - 移动抽屉恒展开布局(2026-09-09 修复折叠偏好泄漏:桌面折叠过的用户
  *     打开手机抽屉不应看到折叠态图标条)
  *
- * 定位说明:按钮 aria-label 走 i18n(随语言变),故用结构选择器 .sidebar-actions;
+ * 定位说明:用户行 aria-label 走 i18n(随语言变),故用结构选择器 .group\/row;
  * 移动抽屉触发按钮用其唯一 lucide 图标 svg.lucide-panel-left-open 定位。
  */
 test.describe('Sidebar 折叠/展开布局方向守门', () => {
@@ -728,7 +711,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
   // (实测 failed + teardown 连锁超时;单跑恒过,纯预算问题)。
   test.describe.configure({ timeout: 90_000 })
 
-  test('平板视口(768-1023px)折叠态:footer 竖排 + 5 按钮在 60px 界内 + 无互相重叠', async ({
+  test('平板视口(768-1023px)折叠态:用户行完整落在 60px aside 界内', async ({
     authenticatedPage,
   }) => {
     // 平板区间:不注入 localStorage 偏好,验证的是"视口强制折叠"本身
@@ -743,20 +726,15 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
 
     const data = await authenticatedPage.evaluate(() => {
       const aside = document.querySelector('aside')
-      const actions = aside?.querySelector('.sidebar-actions')
-      if (!aside || !actions) return { error: 'no aside or .sidebar-actions' }
+      const row = aside?.querySelector('.group\\/row')
+      if (!aside || !row) return { error: 'no aside or .group/row' }
       const asideRect = aside.getBoundingClientRect()
-      const btns = Array.from(actions.querySelectorAll('button')).map((b) => {
-        const r = (b as HTMLElement).getBoundingClientRect()
-        return { x: r.x, y: r.y, w: r.width, h: r.height }
-      })
+      const r = row.getBoundingClientRect()
       return {
         asideWidth: Math.round(asideRect.width),
         asideX: asideRect.x,
         asideRight: asideRect.x + asideRect.width,
-        flexDirection: getComputedStyle(actions).flexDirection,
-        btnCount: btns.length,
-        btns,
+        row: { x: r.x, y: r.y, w: r.width, h: r.height },
       }
     })
 
@@ -766,37 +744,20 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     // 1. 平板区间视口强制折叠:aside 60px
     expect(d.asideWidth, `平板视口 aside 应为 60px,实际 ${d.asideWidth}`).toBe(60)
 
-    // 2. footer 竖排(flex-col;hydration 后 React 折叠分支 + CSS 兜底均为 column)
-    expect(d.flexDirection, `.sidebar-actions 应为 column(竖排),实际 ${d.flexDirection}`).toBe(
-      'column',
+    // 2. 用户行完整落在 aside 横向边界内(允许 1px border 误差)
+    expect(d.row.x, `用户行左边界(${d.row.x})应 ≥ aside 左边界(${d.asideX - 1})`).toBeGreaterThanOrEqual(
+      d.asideX - 1,
     )
+    expect(
+      d.row.x + d.row.w,
+      `用户行右边界(${d.row.x + d.row.w})应 ≤ aside 右边界(${d.asideRight}+1)`,
+    ).toBeLessThanOrEqual(d.asideRight + 1)
 
-    // 3. 5 个工具按钮(语言/下载客户端/站内消息/深色/设置)
-    expect(d.btnCount, `工具栏按钮数应为 5,实际 ${d.btnCount}`).toBe(5)
-
-    // 4. 每个按钮完整落在 aside 60px 横向边界内(允许 1px border 误差)——
-    //    横排挤压重叠回归时按钮会互相叠且可能溢出
-    for (const [i, b] of d.btns.entries()) {
-      expect(b.x, `按钮${i} 左边界应 ≥ aside 左边界`).toBeGreaterThanOrEqual(d.asideX - 1)
-      expect(
-        b.x + b.w,
-        `按钮${i} 右边界(${b.x + b.w})应 ≤ aside 右边界(${d.asideRight}+1)`,
-      ).toBeLessThanOrEqual(d.asideRight + 1)
-      expect(b.w, `按钮${i} 宽度应为 28px(h-7),实际 ${b.w}`).toBeCloseTo(28, 0)
-    }
-
-    // 5. 竖排相邻按钮垂直不重叠(按 y 排序后,前一个底部 ≤ 后一个顶部)
-    const sorted = [...d.btns].sort((a, b) => a.y - b.y)
-    for (let i = 1; i < sorted.length; i++) {
-      const prevBottom = sorted[i - 1]!.y + sorted[i - 1]!.h
-      expect(
-        sorted[i]!.y,
-        `按钮${i} 顶部(${sorted[i]!.y})应 ≥ 前一按钮底部(${prevBottom}),竖排不得重叠`,
-      ).toBeGreaterThanOrEqual(prevBottom - 0.5)
-    }
+    // 3. 用户行高度 36px(h-9,与导航项一致)
+    expect(d.row.h, `用户行高度应为 36(h-9),实际 ${d.row.h}`).toBe(36)
   })
 
-  test('平板视口折叠态:header 拉出按钮与 footer 按钮无重叠', async ({ authenticatedPage }) => {
+  test('平板视口折叠态:header 拉出按钮与用户行无重叠', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 900, height: 800 })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
@@ -812,33 +773,26 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     const expandBox = await expandBtn.boundingBox()
     expect(expandBox).not.toBeNull()
 
-    // 与 footer 每个按钮断言零相交(矩形面积 = 0)
-    const footerBoxes = await authenticatedPage.evaluate(() => {
-      const actions = document.querySelector('aside .sidebar-actions')
-      if (!actions) return { error: 'no .sidebar-actions' }
-      return {
-        boxes: Array.from(actions.querySelectorAll('button')).map((b) => {
-          const r = (b as HTMLElement).getBoundingClientRect()
-          return { x: r.x, y: r.y, w: r.width, h: r.height }
-        }),
-      }
+    // 与 footer 用户行断言零相交(矩形面积 = 0)
+    const rowBox = await authenticatedPage.evaluate(() => {
+      const row = document.querySelector('aside .group\\/row')
+      if (!row) return null
+      const r = row.getBoundingClientRect()
+      return { x: r.x, y: r.y, w: r.width, h: r.height }
     })
-    expect(footerBoxes, '应能读取 footer 按钮几何').not.toHaveProperty('error')
+    expect(rowBox, '应能读取用户行几何').not.toBeNull()
 
     const eb = expandBox!
-    for (const [i, f] of (
-      footerBoxes as { boxes: Array<{ x: number; y: number; w: number; h: number }> }
-    ).boxes.entries()) {
-      const overlapX = Math.min(eb.x + eb.width, f.x + f.w) - Math.max(eb.x, f.x)
-      const overlapY = Math.min(eb.y + eb.height, f.y + f.h) - Math.max(eb.y, f.y)
-      const overlapArea = Math.max(0, overlapX) * Math.max(0, overlapY)
-      expect(overlapArea, `拉出按钮与 footer 按钮${i} 相交面积应为 0,实际 ${overlapArea}px²`).toBe(
-        0,
-      )
-    }
+    const f = rowBox!
+    const overlapX = Math.min(eb.x + eb.width, f.x + f.w) - Math.max(eb.x, f.x)
+    const overlapY = Math.min(eb.y + eb.height, f.y + f.h) - Math.max(eb.y, f.y)
+    const overlapArea = Math.max(0, overlapX) * Math.max(0, overlapY)
+    expect(overlapArea, `拉出按钮与用户行相交面积应为 0,实际 ${overlapArea}px²`).toBe(0)
   })
 
-  test('桌面视口(≥1024px)展开态:footer 横排单行', async ({ authenticatedPage }) => {
+  test('桌面视口(≥1024px)展开态:用户行常驻渲染(头像 + 昵称)', async ({
+    authenticatedPage,
+  }) => {
     await authenticatedPage.setViewportSize({ width: 1280, height: 800 })
     await authenticatedPage.addInitScript(() => {
       localStorage.setItem('sidebar-collapsed', 'false')
@@ -848,38 +802,30 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.waitForTimeout(500)
 
     const data = await authenticatedPage.evaluate(() => {
-      const actions = document.querySelector('aside .sidebar-actions')
-      if (!actions) return { error: 'no .sidebar-actions' }
-      const btns = Array.from(actions.querySelectorAll('button')).map((b) => {
-        const r = (b as HTMLElement).getBoundingClientRect()
-        return { y: r.y + r.height / 2 }
+      const row = document.querySelector('aside .group\\/row')
+      if (!row) return { error: 'no .group/row' }
+      const r = row.getBoundingClientRect()
+      const spans = Array.from(row.querySelectorAll(':scope > span')).map((s) => {
+        const sr = s.getBoundingClientRect()
+        return { w: Math.round(sr.width), h: Math.round(sr.height), text: s.textContent ?? '' }
       })
-      return {
-        flexDirection: getComputedStyle(actions).flexDirection,
-        btnCount: btns.length,
-        btns,
-      }
+      return { h: r.height, spanCount: spans.length, spans }
     })
 
-    expect(data, '应能读取展开态几何').not.toHaveProperty('error')
+    expect(data, '应能读取展开态用户行').not.toHaveProperty('error')
     const d = data as Exclude<typeof data, { error: string }>
 
-    // 展开态横排(flex-row):防止"先竖排再变横排"闪烁回归固化成常驻竖排
-    expect(d.flexDirection, `展开态应为 row,实际 ${d.flexDirection}`).toBe('row')
-    expect(d.btnCount, `工具栏按钮数应为 5,实际 ${d.btnCount}`).toBe(5)
-
-    // 单行:5 按钮垂直中心一致(±1px)
-    const midYs = d.btns.map((b) => b.y)
-    const firstMid = midYs[0]!
-    for (const [i, mid] of midYs.entries()) {
-      expect(
-        Math.abs(mid - firstMid),
-        `按钮${i} 垂直中心(${mid})应与首按钮(${firstMid})一致(单行)`,
-      ).toBeLessThanOrEqual(1)
-    }
+    // 展开态用户行高 36(h-9),含 2 个直接子 span(头像容器 + 昵称)
+    expect(d.h, `用户行高度应为 36(h-9),实际 ${d.h}`).toBe(36)
+    expect(d.spanCount, `应含 2 个直接子 span(头像容器+昵称),实际 ${d.spanCount}`).toBe(2)
+    // 头像容器 28×28(h-7 w-7)
+    expect(d.spans[0]!.w, `头像 span 宽应为 28,实际 ${d.spans[0]!.w}`).toBe(28)
+    expect(d.spans[0]!.h, `头像 span 高应为 28,实际 ${d.spans[0]!.h}`).toBe(28)
+    // 昵称 span 有文字(已登录态渲染昵称)
+    expect(d.spans[1]!.text.length, '昵称 span 应有文字').toBeGreaterThan(0)
   })
 
-  test('移动视口(<768px):折叠偏好 true 时抽屉仍恒展开布局', async ({ authenticatedPage }) => {
+  test('移动视口(<768px):折叠偏好 true 时抽屉用户行仍恒展开', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 375, height: 667 })
     // 注入桌面折叠偏好(2026-09-09 修复的泄漏场景:旧实现会把它传给抽屉)
     await authenticatedPage.addInitScript(() => {
@@ -913,17 +859,22 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await expect(drawer).toBeVisible({ timeout: 10000 })
     await authenticatedPage.waitForTimeout(300)
 
-    // 抽屉内 footer 必须是横排(恒 collapsed={false}),不受桌面折叠偏好影响
-    const drawerActionsDir = await authenticatedPage.evaluate(() => {
+    // 抽屉内用户行必须存在且恒展开布局(collapsed={false}),不受桌面折叠偏好影响:
+    // 2 个直接子 span(头像容器 + 昵称)且昵称可见(宽 > 0)
+    const drawerRow = await authenticatedPage.evaluate(() => {
       const drawer = document.querySelector('aside[role="dialog"]')
-      const actions = drawer?.querySelector('.sidebar-actions')
-      if (!actions) return null
-      return getComputedStyle(actions).flexDirection
+      const row = drawer?.querySelector('.group\\/row')
+      if (!row) return null
+      const spans = Array.from(row.querySelectorAll(':scope > span'))
+      const nameSpan = spans[spans.length - 1]
+      return {
+        spanCount: spans.length,
+        nameVisible: !!nameSpan && nameSpan.getBoundingClientRect().width > 0,
+      }
     })
-    expect(drawerActionsDir, '抽屉内 .sidebar-actions 应存在').not.toBeNull()
-    expect(drawerActionsDir, `抽屉 footer 应为 row(抽屉恒展开布局),实际 ${drawerActionsDir}`).toBe(
-      'row',
-    )
+    expect(drawerRow, '抽屉内用户行(.group/row)应存在').not.toBeNull()
+    expect(drawerRow!.spanCount, '抽屉用户行应恒展开(2 个直接子 span)').toBe(2)
+    expect(drawerRow!.nameVisible, '抽屉用户行昵称 span 应可见(宽 > 0)').toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
