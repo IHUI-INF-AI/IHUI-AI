@@ -22,7 +22,12 @@ import { render, fireEvent } from '@testing-library/react'
 
 vi.mock('@ihui/shared', async () => {
   const actual = await import('../../../packages/shared/src/chat/task-status')
-  return { deriveTaskStatusBar: actual.deriveTaskStatusBar }
+  const toolDisplay = await import('../../../packages/shared/src/chat/tool-display')
+  return {
+    deriveTaskStatusBar: actual.deriveTaskStatusBar,
+    humanizeToolText: toolDisplay.humanizeToolText,
+    toolDisplayKey: toolDisplay.toolDisplayKey,
+  }
 })
 
 vi.mock('../src/i18n', () => {
@@ -72,6 +77,25 @@ describe('TaskStatusBar (mobile-rn)', () => {
     expect(getByText('运行验证脚本')).toBeTruthy()
     fireEvent.click(toggle()!)
     expect(queryByText('运行验证脚本')).toBeNull()
+  })
+
+  it('步骤标题含英文工具码名(read_file)时替换为功能名 i18n 键(t 直返键名验证链路)', () => {
+    const steps: PlanStepItem[] = [
+      { id: 's1', step: 'read_file: src/app.ts', status: 'in_progress' },
+    ]
+    // 测试 t 恒返键名,故期望 headline/步骤文本为 "taskStatus.toolReadFile: src/app.ts"
+    const { getAllByText } = render(<TaskStatusBar planSteps={steps} isStreaming={true} />)
+    expect(getAllByText('taskStatus.toolReadFile: src/app.ts').length).toBeGreaterThan(0)
+    // 原始英文码名不得直显
+    expect(() => getAllByText('read_file: src/app.ts')).toThrow()
+  })
+
+  it('映射表外的动态工具名(MCP/插件)原样保留不误替换', () => {
+    const steps: PlanStepItem[] = [
+      { id: 's1', step: 'mcp_search: 天气查询', status: 'in_progress' },
+    ]
+    const { getAllByText } = render(<TaskStatusBar planSteps={steps} isStreaming={true} />)
+    expect(getAllByText('mcp_search: 天气查询').length).toBeGreaterThan(0)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
