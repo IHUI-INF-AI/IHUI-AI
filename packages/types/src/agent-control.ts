@@ -270,6 +270,48 @@ export interface UiElementDescriptor {
   group: string
   /** 是否禁用 */
   disabled?: boolean
+  /** 2026-09-21 立:kind='link' 时回传 a[href] 指向(截断至 120 字符),模型据此知道"这条链接通向哪" */
+  target?: string
+}
+
+/**
+ * web_ui_describe 的全站路由检索摘要(2026-09-21 立,令牌成本硬约束)。
+ *
+ * 879 条路由全量绝不进回执:冷 describe 只带 total/navigable/groups(按顶级前缀的
+ * 计数摘要,≤25 桶);模型再用 web_ui_describe(query=…) 拿回 top-N(≤40)命中,
+ * 然后用 web_ui_navigate 跳转。matches[].path 是唯一会出现完整路径的字段,且仅按需。
+ */
+export interface UiRouteGroupCount {
+  /** 路由组(顶级路径段;根路径为 'root';溢出尾桶为 '…others') */
+  prefix: string
+  /** 该组可导航路由条数 */
+  count: number
+}
+
+/** describe(query=…) 的单条命中 */
+export interface UiRouteMatch {
+  path: string
+  /** 路由分组(生成器 group) */
+  group: string
+  /** 是否含 :param 段(导航前须把 :id 替换为真实值) */
+  param: boolean
+}
+
+export interface UiRouteIndex {
+  /** 生成器产出的全部路由条数(含禁跳段) */
+  total: number
+  /** AI 可导航条数(剔除 login/sso/api 等禁跳前缀后) */
+  navigable: number
+  /** 按顶级前缀的计数摘要 */
+  groups: UiRouteGroupCount[]
+  /** 恒 true:web_ui_describe 接受可选 query 做全站检索 */
+  queryable: true
+  /** 带 query 检索时回显检索词 */
+  query?: string
+  /** 带 query 检索时的命中(top ≤40) */
+  matches?: UiRouteMatch[]
+  /** 命中总数(matches 可能截断于它) */
+  matchTotal?: number
 }
 
 /** web_ui_describe 返回的表单描述符 */
@@ -301,6 +343,8 @@ export interface UiRegistrySnapshot {
   elements: UiElementDescriptor[]
   /** 被安全策略排除的元素数量(如密码框),供 AI 知悉而非静默丢弃 */
   suppressed: number
+  /** 全站路由检索摘要(2026-09-21 立):冷回执只含计数分组,完整路径仅随 query 检索返回 */
+  routes?: UiRouteIndex
   reportedAt: number
 }
 
