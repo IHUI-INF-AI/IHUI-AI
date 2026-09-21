@@ -451,6 +451,7 @@ def _render_dispatch_html(tag: str, title: str, body_text: str) -> str:
     body_html = "".join(f"<div>{ln if ln else '&nbsp;'}</div>" for ln in safe_lines)
     origin = (os.environ.get("CORS_ORIGIN") or "https://aizhs.top").split(",")[0].strip().rstrip("/")
     qr = f"{origin}/footer/erweima/wechat-vx.png"
+    logo = f"{origin}/images/logo.png"
     yahei = "'Microsoft YaHei',sans-serif"
     mono = "Consolas,monospace"
     return (
@@ -459,8 +460,14 @@ def _render_dispatch_html(tag: str, title: str, body_text: str) -> str:
         f'<body style="margin:0;padding:0;background:{_DISPATCH_PAGE_BG};">'
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_PAGE_BG}"><tr><td align="center" style="padding:24px 8px;">'
         f'<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="{_DISPATCH_CARD_BG}" style="width:600px;max-width:600px;background:{_DISPATCH_CARD_BG};">'
-        # 刊头
-        f'<tr><td style="padding:0 0 20px 36px;">'
+        # 刊头(左侧坐标行,右侧品牌图片 Logo)
+        f'<tr><td style="padding:28px 36px 0 36px;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+        f'<td style="font-family:{mono};font-size:14px;color:{_DISPATCH_DIM};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:{_DISPATCH_ACCENT};">&nbsp;&nbsp;//&nbsp;&nbsp;{_html_escape(tag, quote=False)}</span></td>'
+        f'<td width="64" align="right" valign="top"><img src="{logo}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid {_DISPATCH_HAIRLINE};" /></td>'
+        f'</tr></table>'
+        f'</td></tr>'
+        f'<tr><td style="padding:14px 36px 0 36px;">'
         f'<div style="font-family:{mono};font-size:26px;font-weight:bold;color:{_DISPATCH_INK};letter-spacing:2px;">IHUI.</div>'
         f'<div style="font-family:{mono};font-size:10px;color:{_DISPATCH_DIM};letter-spacing:4px;margin-top:6px;">THE&nbsp;MECHANICAL&nbsp;DISPATCH&nbsp;//&nbsp;智汇通报</div>'
         f'</td></tr>'
