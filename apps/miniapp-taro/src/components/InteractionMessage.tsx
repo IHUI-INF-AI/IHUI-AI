@@ -1,0 +1,113 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
+
+export interface InteractionItem {
+  id: string
+  type: 'like' | 'comment' | 'follow' | 'collect'
+  userName: string
+  userAvatar?: string
+  content: string
+  targetTitle?: string
+  createdAt: string
+  read: boolean
+}
+
+export interface InteractionMessageProps {
+  list: InteractionItem[]
+  onClick?: (item: InteractionItem) => void
+}
+
+const TYPE_ICON: Record<InteractionItem['type'], string> = {
+  like: 'heart',
+  comment: 'message-circle',
+  follow: '✚',
+  collect: 'star',
+}
+
+const TYPE_COLOR: Record<InteractionItem['type'], string> = {
+  like: 'text-destructive',
+  comment: 'text-primary',
+  follow: 'text-primary',
+  collect: 'text-warning',
+}
+
+export default function InteractionMessage({ list, onClick }: InteractionMessageProps) {
+  const tt = useTt()
+  const TYPE_LABEL: Record<InteractionItem['type'], string> = {
+    like: tt('interaction.like', '赞了我'),
+    comment: tt('interaction.comment', '评论了我'),
+    follow: tt('interaction.follow', '关注了我'),
+    collect: tt('interaction.collect', '收藏了我'),
+  }
+  if (!list.length) {
+    return (
+      <View className="flex items-center justify-center py-16">
+        <Text className="text-sm text-muted-foreground">
+          {tt('message.noInteraction', '暂无互动消息')}
+        </Text>
+      </View>
+    )
+  }
+
+  return (
+    <View className="px-3 py-2">
+      {list.map((item) => (
+        <View
+          key={item.id}
+          className="flex bg-card rounded-xl p-3 mb-2"
+          onClick={() => onClick?.(item)}
+          hoverClass="opacity-60"
+        >
+          <View className="relative mr-3">
+            {item.userAvatar ? (
+              <Image
+                src={item.userAvatar}
+                className="w-10 h-10 rounded-lg bg-muted"
+                mode="aspectFill"
+              />
+            ) : (
+              <View className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                <Text className="text-sm text-muted-foreground">{item.userName.charAt(0)}</Text>
+              </View>
+            )}
+            <View
+              className={`absolute -bottom-1 -right-1 w-4 h-4 bg-card rounded flex items-center justify-center`}
+            >
+              {TYPE_ICON[item.type] === '✚' ? (
+                <Text className={`text-xs ${TYPE_COLOR[item.type]}`}>{TYPE_ICON[item.type]}</Text>
+              ) : (
+                <LineIcon
+                  name={TYPE_ICON[item.type] as 'heart' | 'message-circle' | 'star'}
+                  size={16}
+                  color="var(--color-muted-foreground)"
+                />
+              )}
+            </View>
+          </View>
+          <View className="flex-1 min-w-0">
+            <View className="flex items-center">
+              <Text className="text-sm font-medium text-foreground truncate">{item.userName}</Text>
+              <Text className="ml-1 text-xs text-muted-foreground">{TYPE_LABEL[item.type]}</Text>
+              {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-auto" />}
+            </View>
+            <Text className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.content}</Text>
+            {item.targetTitle && (
+              <View className="mt-1.5 px-2 py-1 bg-muted rounded">
+                <Text className="text-xs text-muted-foreground line-clamp-1">
+                  @{item.targetTitle}
+                </Text>
+              </View>
+            )}
+            <Text className="text-[20rpx] text-muted-foreground mt-1">{item.createdAt}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

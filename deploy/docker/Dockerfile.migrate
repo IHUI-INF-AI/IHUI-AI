@@ -1,0 +1,39 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# 数据库迁移专用 Dockerfile(一次性容器)
+# 启动时执行 drizzle-kit migrate,完成后退出
+#
+# 2026-09-10 修复两处:
+#  ① node:20-alpine + pnpm@9.15.0 与根 package.json engines(node>=22.13 / pnpm>=11)冲突,
+#     `pnpm install` 必挂 ERR_PNPM_UNSUPPORTED_ENGINE → 对齐 CI 口径。
+#  ② 原 COPY packages/config/package.json,但 packages/ 下无 config 包 → COPY 必挂。
+#     database 包唯一 workspace 依赖是 devDep @ihui/eslint-config(tsconfig 直接继承
+#     根 tsconfig.base.json,不需 @ihui/tsconfig),故改为复制 eslint-config。
+FROM node:22-alpine AS base
+RUN apk add --no-cache tini && npm install -g pnpm@11.18.0
+WORKDIR /app
+
+# 仅复制 database 包所需文件(最小化镜像)
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+COPY tsconfig.base.json ./
+COPY packages/database/package.json ./packages/database/
+COPY packages/eslint-config/package.json ./packages/eslint-config/
+RUN pnpm install --frozen-lockfile
+
+# 复制 database 包源码 + 迁移文件
+COPY packages/database/src ./packages/database/src
+COPY packages/database/tsconfig.json ./packages/database/
+COPY packages/database/drizzle ./packages/database/drizzle
+COPY packages/database/drizzle.config.ts ./packages/database/
+
+# 切换到 database 包目录,构建后执行迁移
+WORKDIR /app/packages/database
+RUN pnpm run build
+
+# 使用 tini 处理信号,确保迁移完成后容器正确退出
+ENTRYPOINT ["/sbin/tini", "--"]
+# drizzle-kit migrate 读取 drizzle.config.ts + DATABASE_URL 环境变量
+CMD ["pnpm", "run", "db:migrate"]
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

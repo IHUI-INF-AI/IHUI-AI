@@ -1,0 +1,211 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Checkbox } from '@/components/form'
+
+export interface Column<T> {
+  key: string
+  title: string
+  render?: (row: T, index: number) => React.ReactNode
+  sortable?: boolean
+  width?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+interface DataTableProps<T> {
+  columns: Column<T>[]
+  data: T[]
+  rowKey?: (row: T, index: number) => string | number
+  pagination?: { page: number; pageSize: number; total: number }
+  onPageChange?: (page: number) => void
+  selectable?: boolean
+  onSelect?: (selectedRows: T[]) => void
+  loading?: boolean
+  className?: string
+}
+
+type SortState = { key: string; dir: 'asc' | 'desc' } | null
+
+function DataTableImpl<T>({
+  columns,
+  data,
+  rowKey = (_, i) => `row-${i}`,
+  pagination,
+  onPageChange,
+  selectable = false,
+  onSelect,
+  loading = false,
+  className,
+}: DataTableProps<T>) {
+  const [sort, setSort] = React.useState<SortState>(null)
+  // 选中态以 rowKey 为准,与排序/翻页解耦,避免"排序后勾选错行""跨页残留"
+  const [selected, setSelected] = React.useState<Set<string | number>>(new Set())
+
+  const sortedData = React.useMemo(() => {
+    const indexed = data.map((row, i) => ({ row, index: i }))
+    if (!sort) return indexed
+    return indexed.sort((a, b) => {
+      const rowA = a.row as Record<string, unknown>
+      const rowB = b.row as Record<string, unknown>
+      const av = rowA[sort.key] as unknown
+      const bv = rowB[sort.key] as unknown
+      if (av === bv) return 0
+      const cmp = (av as number) > (bv as number) ? 1 : -1
+      return sort.dir === 'asc' ? cmp : -cmp
+    })
+  }, [data, sort])
+
+  const handleSort = (key: string) => {
+    setSort((prev) => {
+      if (prev?.key === key) {
+        return prev.dir === 'asc' ? { key, dir: 'desc' } : null
+      }
+      return { key, dir: 'asc' }
+    })
+  }
+
+  const allChecked = data.length > 0 && data.every((row, i) => selected.has(rowKey(row, i)))
+  const toggleAll = () => {
+    const next = new Set(selected)
+    if (allChecked) {
+      data.forEach((row, i) => next.delete(rowKey(row, i)))
+    } else {
+      data.forEach((row, i) => next.add(rowKey(row, i)))
+    }
+    setSelected(next)
+    onSelect?.(data.filter((row, i) => next.has(rowKey(row, i))))
+  }
+
+  const toggleRow = (row: T, idx: number) => {
+    const key = rowKey(row, idx)
+    const next = new Set(selected)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setSelected(next)
+    onSelect?.(data.filter((r, i) => next.has(rowKey(r, i))))
+  }
+
+  const alignMap = { left: 'text-left', center: 'text-center', right: 'text-right' }
+
+  return (
+    <div className={cn('w-full', className)}>
+      <div className="overflow-x-auto rounded-md border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              {selectable && (
+                <th className="w-10 px-3 py-2.5">
+                  <Checkbox checked={allChecked} onChange={toggleAll} />
+                </th>
+              )}
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className={cn(
+                    'whitespace-nowrap px-3 py-2.5 font-medium',
+                    alignMap[col.align ?? 'left'],
+                    col.width,
+                  )}
+                >
+                  {col.sortable ? (
+                    <button
+                      onClick={() => handleSort(col.key)}
+                      className="inline-flex flex-nowrap items-center gap-1 hover:text-foreground"
+                    >
+                      <span className="truncate">{col.title}</span>
+                      {sort?.key === col.key ? (
+                        sort.dir === 'asc' ? (
+                          <ChevronUp className="h-3 w-3 shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 shrink-0" />
+                        )
+                      ) : (
+                        <ChevronsUpDown className="h-3 w-3 shrink-0 opacity-40" />
+                      )}
+                    </button>
+                  ) : (
+                    col.title
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={columns.length + (selectable ? 1 : 0)}
+                  className="px-3 py-5 text-center text-muted-foreground"
+                >
+                  加载中...
+                </td>
+              </tr>
+            ) : sortedData.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length + (selectable ? 1 : 0)}
+                  className="px-3 py-5 text-center text-muted-foreground"
+                >
+                  暂无数据
+                </td>
+              </tr>
+            ) : (
+              sortedData.map(({ row, index }) => (
+                <tr key={rowKey(row, index)} className="transition-colors hover:bg-muted/30">
+                  {selectable && (
+                    <td className="w-10 px-3 py-2.5">
+                      <Checkbox
+                        checked={selected.has(rowKey(row, index))}
+                        onChange={() => toggleRow(row, index)}
+                      />
+                    </td>
+                  )}
+                  {columns.map((col) => (
+                    <td key={col.key} className={cn('px-3 py-2.5', alignMap[col.align ?? 'left'])}>
+                      {col.render
+                        ? col.render(row, index)
+                        : String((row as Record<string, unknown>)[col.key] ?? '')}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {pagination && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span className="shrink-0 whitespace-nowrap tabular-nums text-muted-foreground">
+            共 {pagination.total} 条,第 {pagination.page}/
+            {Math.max(1, Math.ceil(pagination.total / pagination.pageSize))} 页
+          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              disabled={pagination.page <= 1}
+              onClick={() => onPageChange?.(pagination.page - 1)}
+              className="rounded border px-2 py-1 disabled:opacity-50"
+            >
+              上一页
+            </button>
+            <button
+              disabled={pagination.page * pagination.pageSize >= pagination.total}
+              onClick={() => onPageChange?.(pagination.page + 1)}
+              className="rounded border px-2 py-1 disabled:opacity-50"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const DataTable = React.memo(DataTableImpl) as typeof DataTableImpl
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

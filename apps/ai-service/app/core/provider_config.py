@@ -1,0 +1,41 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""LLM provider 强类型配置(2026-07-26 阶段 3 主体已落地).
+
+设计参考 docs/llm-provider-dict-design.md §2 目标架构 + §3 向后兼容策略.
+
+阶段 3 主体(2026-07-26):24 个 *_api_key + 7 个 *_api_base 扁平字段已删除,
+Settings.get_provider_config() 只走 llm_providers JSON 路径(失败返回空 ProviderConfig).
+LLM 调用层(llm_gateway.py / mcp_server.py 等)直接消费 ProviderConfig 实例。
+"""
+from __future__ import annotations
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class ProviderConfig(BaseModel):
+    """单个 LLM provider 的强类型配置.
+
+    字段说明:
+    - api_key: API 凭证(provider-specific,如 OpenAI sk-xxx / Anthropic sk-ant-xxx).
+      默认空字符串(同旧扁平字段语义)。
+    - api_base: API endpoint URL(OpenAI 兼容端点)。None 表示使用 provider 默认 endpoint。
+    - enabled: 是否启用该 provider(未来扩展,允许在 .env 关闭特定 provider)。
+    - models: 该 provider 支持的 model 列表(未来扩展,LLM 路由层用来过滤)。
+    - default_model: provider 默认 model(未来扩展,无显式指定 model 时用此值)。
+    """
+
+    api_key: str = ""
+    api_base: str | None = None
+    enabled: bool = True
+    models: list[str] = Field(default_factory=list)
+    default_model: str | None = None
+
+    @field_validator("api_base")
+    @classmethod
+    def _strip_trailing_slash(cls, v: str | None) -> str | None:
+        """统一去掉 api_base 末尾的 /,避免拼接路径时出现 //v1 双斜杠。"""
+        return v.rstrip("/") if v else v
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

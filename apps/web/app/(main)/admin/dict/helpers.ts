@@ -1,0 +1,126 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { fetchApi } from '@/lib/api'
+import type { DictItem, DictType, TypeForm, ItemForm, ListClass } from './types'
+
+export const EMPTY_TYPE: TypeForm = { name: '', code: '', description: '' }
+export const EMPTY_ITEM: ItemForm = {
+  label: '',
+  value: '',
+  sort: 0,
+  cssClass: '',
+  listClass: 'default' as ListClass,
+  status: 0,
+  remark: '',
+  dictType: '',
+}
+
+export const LIST_CLASS_OPTIONS: ListClass[] = [
+  'default',
+  'primary',
+  'success',
+  'info',
+  'warning',
+  'danger',
+]
+
+/** i18n 静态映射表 — 用于消除 `t(`dict.listClass_${opt}`)` 动态拼接 */
+export const LIST_CLASS_KEY: Record<ListClass, string> = {
+  default: 'dict.listClass_default',
+  primary: 'dict.listClass_primary',
+  success: 'dict.listClass_success',
+  info: 'dict.listClass_info',
+  warning: 'dict.listClass_warning',
+  danger: 'dict.listClass_danger',
+}
+
+export const th = 'px-4 py-2.5 font-medium'
+
+export const textareaClass =
+  'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
+
+export const EXPORT_COLUMNS = [
+  { key: 'typeName', title: '字典名称' },
+  { key: 'typeCode', title: '字典编码' },
+  { key: 'label', title: '字典标签' },
+  { key: 'value', title: '字典值' },
+  { key: 'sort', title: '排序' },
+]
+
+export async function fetchDictList(): Promise<DictType[]> {
+  const r = await fetchApi<{
+    list: { dictId: number; dictName: string; dictType: string; remark?: string | null }[]
+  }>('/api/admin/dict/type/list')
+  if (!r.success) throw new Error(r.error)
+  const result: DictType[] = await Promise.all(
+    (r.data?.list ?? []).map(async (t) => {
+      const dr = await fetchApi<{
+        list: {
+          dictCode: number
+          dictLabel: string
+          dictValue: string
+          dictSort?: number
+          cssClass?: string
+          listClass?: string
+          status?: string | number
+          remark?: string
+          dictType?: string
+        }[]
+      }>(`/api/admin/dict/data/type/${t.dictType}`)
+      const items: DictItem[] =
+        dr.success && dr.data?.list
+          ? dr.data.list.map((d) => ({
+              id: String(d.dictCode),
+              label: d.dictLabel,
+              value: d.dictValue,
+              sort: d.dictSort ?? 0,
+              cssClass: d.cssClass ?? '',
+              listClass: (LIST_CLASS_OPTIONS.includes(d.listClass as ListClass)
+                ? d.listClass
+                : 'default') as ListClass,
+              status: Number(d.status) === 1 ? 1 : 0,
+              remark: d.remark ?? '',
+              dictType: d.dictType ?? t.dictType,
+            }))
+          : []
+      return {
+        id: String(t.dictId),
+        name: t.dictName,
+        code: t.dictType,
+        description: t.remark ?? '',
+        itemCount: items.length,
+        items,
+      }
+    }),
+  )
+  return result
+}
+
+export function filterDictList(list: DictType[], search: string): DictType[] {
+  if (!search.trim()) return list
+  const q = search.toLowerCase()
+  return list.filter((d) => d.name.toLowerCase().includes(q) || d.code.toLowerCase().includes(q))
+}
+
+export function buildDictExportRows(list: DictType[]): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+  list.forEach((d) => {
+    if (d.items.length === 0) {
+      rows.push({ typeName: d.name, typeCode: d.code, label: '', value: '', sort: '' })
+    } else {
+      d.items.forEach((it) => {
+        rows.push({
+          typeName: d.name,
+          typeCode: d.code,
+          label: it.label,
+          value: it.value,
+          sort: it.sort,
+        })
+      })
+    }
+  })
+  return rows
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,205 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: e2e
+
+# =============================================================================
+# E2E (Playwright) 测试 workflow — 新架构 (apps/web + apps/api)
+#
+# 架构: Monorepo (pnpm workspace + Turborepo)
+#   - apps/web: Next.js 15 + React 19 + Tailwind 4 + shadcn/ui
+#   - apps/api: Fastify 5 + Drizzle ORM + PostgreSQL
+#
+# 流程:
+#   1. 安装 pnpm 依赖
+#   2. 安装 Playwright 浏览器 (chromium)
+#   3. 构建 Next.js 前端 (production build)
+#   4. 启动 Next.js 预览服务器 (localhost:8801)
+#   5. 运行 Playwright E2E 测试 (apps/web/e2e/*.spec.ts)
+# =============================================================================
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/web/**'
+      - 'apps/api/**'
+      - 'packages/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.15'
+
+jobs:
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    # 2026-09-14 复评:647 例全量在 2 workers 下实测 ~14m(本地同量级机器),
+    # CI runner(4c)按 1.5x 余量 + install/build/migrate ≈ 10m → 60min 消除 30min 硬顶
+    # (2026-08-20 起 e2e 连续 400+ 次 cancelled 的直接根因,见 PROJECT_PLAN 2-18)
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ihui
+          POSTGRES_PASSWORD: ihui_test
+          POSTGRES_DB: ihui_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ihui"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run database migrations
+        working-directory: packages/database
+        env:
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+        run: pnpm exec drizzle-kit migrate
+
+      - name: Seed E2E 测试用户(test@aizhs.top)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        run: pnpm --filter @ihui/api run seed:test-users
+
+      - name: Seed E2E 知识库条目(knowledge-base.spec 依赖)
+        # JWT_SECRET/CREDENTIALS_ENCRYPTION_KEY 必传:src/config import 链顶层 zod 校验
+        # 缺失即 process.exit(1);CI 无 apps/api/.env,dotenv 无从兜底(2026-09-14 实锤)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+        run: pnpm --filter @ihui/api run seed:e2e-knowledge
+
+      - name: Build database package
+        # web 产物引用 @ihui/database 的 dist;缺此步 next build 预渲染时
+        # 解析 src/index.ts → src/client.js 报 ERR_MODULE_NOT_FOUND(2026-09-10)
+        run: pnpm --filter @ihui/database run build
+
+      - name: Build API
+        run: pnpm --filter @ihui/api run build
+
+      - name: Build web (production)
+        # JWT_SECRET 构建期必传:proxy.ts 中间件 verifyAccessTokenEdge 在 edge bundle
+        # 中读取 process.env.JWT_SECRET;构建期缺失 → 验签恒败 → 所有 /admin/* 被
+        # 307 进 SSO 授权链(im-channels ×4 卡死「授权并跳转」,2026-09-14 实锤;
+        # 本地 .next-e2e 构建带了该 secret 所以从未暴露)
+        env:
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+        run: pnpm --filter @ihui/web run build
+
+      - name: Start API server (background)
+        working-directory: apps/api
+        env:
+          NODE_ENV: test
+          PORT: '8802'
+          HOST: '0.0.0.0'
+          DATABASE_URL: postgres://ihui:ihui_test@localhost:5432/ihui_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+          CREDENTIALS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+          # 2026-09-14 CI 实锤(2-18):access token 默认 TTL 15min,CI 全量 45.6m
+          # → 中途过期;应用侧 refresh 轮转消费与 storage 文件互踩 → 晚段用例被
+          # SSO 授权页接管(im-channels ×4 等)。e2e 拉长到 24h 根治,生产不变。
+          JWT_ACCESS_TTL_SECONDS: '86400'
+        run: |
+          # --import tsx:api dist 引用 @ihui/database 的 src/index.ts(纯 TS,无 dist 条件),
+          # 纯 node 无法加载;tsx 同时解决 .ts 导入与 .js→.ts 扩展名解析(2026-09-10)
+          node --import tsx dist/index.js &
+          # 服务冷启动(加载路由/BullMQ/scheduler)在 CI 上实测 >5s,单次 curl 会抢跑;
+          # 轮询等待就绪,最多 60s(2026-09-10 修复:server listening 前单次 curl 失败直接 exit 1)
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8802/health; then
+              echo "API ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API health check timeout after 60s"
+          exit 1
+
+      - name: Start web server (background)
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8802
+          JWT_SECRET: test-jwt-secret-for-e2e-0123456789abcdef
+        run: |
+          pnpm start &
+          sleep 5
+          curl -sf http://localhost:8801 || exit 1
+
+      - name: Run Playwright E2E tests
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:8801
+          # CI 已在上方 "Seed E2E 测试用户" step 显式 seed,跳过 globalSetup 的重复 seed
+          E2E_SKIP_SEED: '1'
+          # CI 数据库为临时容器,跑完即销毁,无需 globalTeardown cleanup 节省时间
+          E2E_AUTO_CLEANUP: '0'
+          # web 服务器已由上方 "Start web server" step 启动并健康检查;
+          # 不设此项 playwright webServer 会再起一个 → 8801 端口冲突(2026-09-10 CI 实测)
+          PLAYWRIGHT_REUSE_SERVER: '1'
+        run: pnpm exec playwright test
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

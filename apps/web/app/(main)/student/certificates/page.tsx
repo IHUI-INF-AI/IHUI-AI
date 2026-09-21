@@ -1,0 +1,124 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import { Award, Loader2 } from 'lucide-react'
+
+import { fetchApi } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@ihui/ui-react'
+import { formatDateOnly } from '@/lib/date-utils'
+import { BackButton } from '@/components/common'
+
+interface Certificate {
+  id: string
+  certificateNo: string
+  userId: string
+  templateId: string
+  nickname: string
+  templateName: string
+  issuedAt: string
+  status: number
+}
+
+interface CertsData {
+  list: Certificate[]
+  total: number
+}
+
+const PAGE_SIZE = 20
+
+async function api<T>(url: string): Promise<T> {
+  const r = await fetchApi<T>(url)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
+const STATUS_STYLE: Record<number, string> = {
+  1: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  2: 'bg-destructive/10 text-destructive',
+}
+
+export default function MyCertificatesPage() {
+  const t = useTranslations('student')
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['student', 'my-certificates'],
+    queryFn: () => api<CertsData>(`/api/edu/my-certificates?page=1&pageSize=${PAGE_SIZE}`),
+  })
+
+  const list = data?.list ?? []
+
+  return (
+    <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
+      <BackButton />
+      <header className="space-y-1">
+        <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
+          <Award className="h-7 w-7 text-primary" />
+          {t('myCertsTitle')}
+        </h1>
+      </header>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('loading')}
+        </div>
+      ) : error ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {(error as Error).message}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
+          <Award className="h-8 w-8 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">{t('empty')}</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+          {list.map((cert) => {
+            const statusKey = cert.status === 2 ? 'statusRevoked' : 'statusValid'
+            return (
+              <Card key={cert.id} className="transition-colors hover:bg-accent">
+                <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
+                      <Award className="h-5 w-5 text-primary" />
+                    </div>
+                    <span
+                      className={cn(
+                        'inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
+                        STATUS_STYLE[cert.status] ?? STATUS_STYLE[1],
+                      )}
+                    >
+                      {t(statusKey)}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{t('certNo')}</span>
+                      <span className="font-medium">{cert.certificateNo}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{t('template')}</span>
+                      <span className="font-medium">{cert.templateName}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">{t('issuedAt')}</span>
+                      <span className="font-medium">{formatDateOnly(cert.issuedAt)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

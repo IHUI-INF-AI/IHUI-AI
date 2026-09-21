@@ -1,0 +1,30 @@
+# 本地 CI 演练配置文件(nektos/act)
+# 用于在本地 Docker 中跑 GitHub Actions 工作流,不消耗 GitHub Actions 配额
+# 使用:安装 act (https://github.com/nektos/act) 后运行 `act -j build` 或 `act -W .github/workflows/ci-monorepo.yml`
+
+# 默认使用 medium 镜像(包含常见工具,平衡大小与兼容性)
+-P ubuntu-22.04=catthehacker/ubuntu:22.04
+
+# 默认工作目录
+--workdir .
+
+# 默认 dry-run=false(实际执行)
+# 如需 dry-run:act -n
+
+# artifact bind path(避免权限问题)
+--bind
+
+# 默认 env(与 GitHub Actions secrets 对齐,从 .env.act 读取)
+--env-file .env.act
+
+# 默认 secrets(从 .secrets.act 读取)
+--secret-file .secrets.act
+
+# 默认 volume 缓存(加速重复运行)
+-v /tmp/act-cache:/cache
+
+# 默认 network=host(便于访问本地服务)
+--network host
+
+# 默认 reuse=false(每次重新创建容器)
+# 如需复用:act -r

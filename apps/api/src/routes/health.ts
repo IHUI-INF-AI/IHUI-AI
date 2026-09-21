@@ -1,0 +1,213 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { db } from '../db/index.js'
+import { sql } from 'drizzle-orm'
+import { config } from '../config/index.js'
+import { resetBulkhead } from '../plugins/resilience-extended.js'
+import { authenticate } from '../plugins/auth.js'
+import { isWechatPayConfigured, isPlatformCertConfigured } from '../services/wechat-pay.js'
+import { success, error } from '../utils/response.js'
+
+interface HealthHistoryEntry {
+  timestamp: string
+  status: string
+  checks: Record<string, { status: string; latency?: number }>
+}
+
+const MAX_HISTORY = 100
+const healthHistory: HealthHistoryEntry[] = []
+
+export const healthRoutes: FastifyPluginAsync = async (server) => {
+  server.get('/health', async () => {
+    return {
+      status: 'ok',
+      service: '@ihui/api',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    }
+  })
+
+  // 就绪检查:检查 DB 连通性
+  server.get('/health/ready', async (request, reply) => {
+    const checks: Record<string, { status: string; latency?: number }> = {}
+    let allOk = true
+
+    // DB 检查
+    try {
+      const start = Date.now()
+      await db.execute(sql`SELECT 1`)
+      checks.database = { status: 'ok', latency: Date.now() - start }
+    } catch {
+      checks.database = { status: 'error' }
+      allOk = false
+    }
+
+    // Redis 检查：实际 ping 命令验证连通性
+    // 若 Redis 插件未注册（如测试环境或单实例无 Redis 部署），返回 skip 不影响 ready 状态
+    const redisClient = (server as unknown as { redis?: { ping(): Promise<string> } }).redis
+    if (!redisClient) {
+      checks.redis = { status: 'skip' }
+    } else {
+      try {
+        const start = Date.now()
+        const pong = await redisClient.ping()
+        checks.redis = {
+          status: pong === 'PONG' ? 'ok' : 'error',
+          latency: Date.now() - start,
+        }
+        if (pong !== 'PONG') allOk = false
+      } catch (e) {
+        checks.redis = { status: 'error' }
+        allOk = false
+        request.log.warn({ err: e }, 'redis health check failed')
+      }
+    }
+
+    // AI service 检查:实际 HTTP 请求验证连通性(让 AI_SERVICE_URL 配置有真实用途)
+    // 超时 2s,失败不阻塞 ready(降级为 warning)
+    try {
+      const start = Date.now()
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 2000)
+      const aiResp = await fetch(`${config.AI_SERVICE_URL}/health`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timer)
+      checks.aiService = {
+        status: aiResp.ok ? 'ok' : 'error',
+        latency: Date.now() - start,
+      }
+      if (!aiResp.ok) {
+        // AI service 不可用不阻塞 ready(降级运行,chat 功能受影响但其他正常)
+        request.log.warn({ status: aiResp.status }, 'ai service health check non-2xx')
+      }
+    } catch (e) {
+      checks.aiService = { status: 'unreachable' }
+      request.log.warn({ err: e }, 'ai service health check failed (degraded)')
+    }
+
+    // 微信支付配置检查:
+    // - private key:生产环境未配置时,所有支付走 mock,真实支付失败
+    // - platform cert:生产环境未配置时,所有支付回调验签失败,订单永远无法标记为 paid
+    // 两项均不阻塞 ready(降级为 warning),但健康检查中显式暴露,便于监控告警
+    const wxPrivateKey = isWechatPayConfigured()
+    const wxPlatformCert = isPlatformCertConfigured()
+    checks.wechatPay = {
+      status:
+        wxPrivateKey && wxPlatformCert
+          ? 'ok'
+          : wxPrivateKey || wxPlatformCert
+            ? 'partial'
+            : 'missing',
+    }
+    if (config.NODE_ENV === 'production') {
+      if (!wxPrivateKey) {
+        request.log.warn('⚠️ 生产环境未配置微信支付私钥,所有支付走 mock')
+      }
+      if (!wxPlatformCert) {
+        request.log.warn(
+          '⚠️ 生产环境未配置微信支付平台证书,所有支付回调验签失败,订单无法自动标记为 paid',
+        )
+      }
+    }
+
+    const status = allOk ? 'ready' : 'degraded'
+    healthHistory.push({ timestamp: new Date().toISOString(), status, checks })
+    if (healthHistory.length > MAX_HISTORY) healthHistory.shift()
+    reply.code(allOk ? 200 : 503)
+    return { status, checks }
+  })
+
+  // 存活检查
+  server.get('/health/live', async () => {
+    return { status: 'alive', uptime: process.uptime() }
+  })
+
+  // 指标摘要(简化版,完整指标在 /metrics)
+  server.get('/health/metrics', async () => {
+    const m = server.metrics
+    if (!m) return { status: 'metrics not available' }
+    return {
+      requestsTotal: m.requestsTotal,
+      avgResponseTime: m.responseTimeCount > 0 ? m.responseTimeSum / m.responseTimeCount : 0,
+      uptime: process.uptime(),
+    }
+  })
+
+  // 健康检查历史（最近 MAX_HISTORY 次 /health/ready 结果）
+  server.get('/health/history', async () => {
+    return {
+      total: healthHistory.length,
+      list: healthHistory,
+    }
+  })
+
+  // OpenAPI tag 列表（按 tag 统计端点数）
+  server.get('/openapi/tags', async () => {
+    const schema = server.swagger()
+    const tagCounts: Record<string, number> = {}
+    const paths = schema.paths ?? {}
+    for (const path of Object.values(paths)) {
+      if (!path) continue
+      for (const methodData of Object.values(path)) {
+        if (!methodData) continue
+        for (const tag of (methodData as { tags?: string[] }).tags ?? []) {
+          tagCounts[tag] = (tagCounts[tag] ?? 0) + 1
+        }
+      }
+    }
+    return {
+      totalTags: Object.keys(tagCounts).length,
+      tags: tagCounts,
+    }
+  })
+
+  // OpenAPI 指定 tag 的端点子文档
+  server.get<{ Params: { tagName: string } }>('/openapi/tag/:tagName', async (request, reply) => {
+    const { tagName } = request.params
+    const schema = server.swagger()
+    const filteredPaths: NonNullable<typeof schema.paths> = {}
+    const paths = schema.paths ?? {}
+    for (const [path, methods] of Object.entries(paths)) {
+      if (!methods) continue
+      const filteredMethods: Record<string, unknown> = {}
+      let matched = false
+      for (const [method, methodData] of Object.entries(methods)) {
+        if (!methodData) continue
+        if ((methodData as { tags?: string[] }).tags?.includes(tagName)) {
+          filteredMethods[method] = methodData
+          matched = true
+        }
+      }
+      if (matched) filteredPaths[path] = filteredMethods as never
+    }
+    if (Object.keys(filteredPaths).length === 0) {
+      return reply.status(404).send(error(404, `tag "${tagName}" 不存在`))
+    }
+    return {
+      openapi: (schema as { openapi?: string }).openapi ?? '3.0.0',
+      info: schema.info,
+      paths: filteredPaths,
+    }
+  })
+
+  // 重置指定 Bulkhead 隔离器（新架构用 Bulkhead 替代旧架构 CircuitBreaker）
+  server.post<{ Params: { circuitName: string } }>(
+    '/resilience/reset/:circuitName',
+    async (request, reply) => {
+      await authenticate(request)
+      const roleId = request.jwtPayload?.roleId ?? 0
+      if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
+      const { circuitName } = request.params
+      const ok = resetBulkhead(circuitName)
+      if (!ok) {
+        return reply.status(404).send(error(404, `隔离器 "${circuitName}" 不存在`))
+      }
+      return reply.send(success({ circuitName, reset: true }))
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

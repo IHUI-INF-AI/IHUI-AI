@@ -1,0 +1,250 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { eq, and, or, ilike, desc, sql, inArray } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { requireAdmin } from '../plugins/require-permission.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
+import { logger } from '../utils/logger.js'
+import { zhsDemandSquare } from '@ihui/database'
+
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+const listQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  type: z.transform(emptyToUndefined).pipe(z.string().max(20).optional()),
+  search: z.transform(emptyToUndefined).pipe(z.string().max(200).optional()),
+})
+
+const reviewSchema = z.object({
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().max(500).optional(),
+})
+
+const updateStatusSchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected', 'offline', 'featured']),
+})
+
+const updateTaskStatusSchema = z.object({
+  taskStatus: z.enum(['waiting', 'developing', 'completed']),
+})
+
+const batchReviewSchema = z.object({
+  ids: z.array(z.uuid()).min(1).max(100),
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().max(500).optional(),
+})
+
+function buildWhere(status?: string, type?: string, search?: string) {
+  const conditions = []
+  if (status) conditions.push(eq(zhsDemandSquare.status, status))
+  if (type) conditions.push(eq(zhsDemandSquare.type, type))
+  if (search) {
+    const kw = `%${search}%`
+    conditions.push(or(ilike(zhsDemandSquare.title, kw), ilike(zhsDemandSquare.description, kw)))
+  }
+  return conditions.length > 0 ? and(...conditions) : undefined
+}
+
+export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAdmin)
+
+  server.get('/', async (request, reply) => {
+    const parsed = listQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize, status, type, search } = parsed.data
+    const offset = (page - 1) * pageSize
+    const where = buildWhere(status, type, search)
+
+    const list = await db
+      .select()
+      .from(zhsDemandSquare)
+      .where(where)
+      .orderBy(desc(zhsDemandSquare.createdAt))
+      .limit(pageSize)
+      .offset(offset)
+    const countRows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(zhsDemandSquare)
+      .where(where)
+    const total = countRows[0]?.count ?? 0
+    return reply.send(success({ list, total, page, pageSize }))
+  })
+
+  server.get('/stats', async (_request, reply) => {
+    const [stats] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        pending: sql<number>`count(*) filter (where status = 'pending')::int`,
+        approved: sql<number>`count(*) filter (where status = 'approved')::int`,
+        rejected: sql<number>`count(*) filter (where status = 'rejected')::int`,
+        offline: sql<number>`count(*) filter (where status = 'offline')::int`,
+        featured: sql<number>`count(*) filter (where status = 'featured')::int`,
+      })
+      .from(zhsDemandSquare)
+    return reply.send(
+      success({
+        stats: stats ?? { total: 0, pending: 0, approved: 0, rejected: 0, offline: 0, featured: 0 },
+      }),
+    )
+  })
+
+  server.get('/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [item] = await db
+      .select()
+      .from(zhsDemandSquare)
+      .where(eq(zhsDemandSquare.id, parsed.data.id))
+      .limit(1)
+    if (!item) return reply.status(404).send(error(404, '需求不存在'))
+    return reply.send(success({ demand: item }))
+  })
+
+  server.post('/:id/review', async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = reviewSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [existing] = await db
+      .select()
+      .from(zhsDemandSquare)
+      .where(eq(zhsDemandSquare.id, paramParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '需求不存在'))
+    if (existing.status !== 'pending') {
+      return reply.status(400).send(error(400, '该需求已审核，不可重复审核'))
+    }
+    const now = new Date()
+    const newStatus = body.data.action === 'approve' ? 'approved' : 'rejected'
+    const rejectReason = body.data.action === 'reject' ? (body.data.reason ?? null) : null
+    const [updated] = await db
+      .update(zhsDemandSquare)
+      .set({
+        status: newStatus,
+        taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
+        rejectReason,
+        reviewedBy: request.userId,
+        reviewedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(zhsDemandSquare.id, paramParsed.data.id))
+      .returning()
+    return reply.send(success({ demand: updated }))
+  })
+
+  server.post('/batch-review', async (request, reply) => {
+    const body = batchReviewSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const now = new Date()
+    const newStatus = body.data.action === 'approve' ? 'approved' : 'rejected'
+    const rejectReason = body.data.action === 'reject' ? (body.data.reason ?? null) : null
+    const results: Array<{ id: string; status: string }> = []
+
+    // P1 修复:N+1 查询改批量,2 次 DB 往返替代 2N 次
+    const existingRows = await db
+      .select({ id: zhsDemandSquare.id, status: zhsDemandSquare.status })
+      .from(zhsDemandSquare)
+      .where(inArray(zhsDemandSquare.id, body.data.ids))
+
+    const pendingIdSet = new Set(
+      existingRows.filter((r) => r.status === 'pending').map((r) => r.id),
+    )
+
+    if (pendingIdSet.size > 0) {
+      await db
+        .update(zhsDemandSquare)
+        .set({
+          status: newStatus,
+          taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
+          rejectReason,
+          reviewedBy: request.userId,
+          reviewedAt: now,
+          updatedAt: now,
+        })
+        .where(inArray(zhsDemandSquare.id, Array.from(pendingIdSet)))
+    }
+
+    // 保持输入顺序:pending → newStatus,其余 → skipped
+    for (const id of body.data.ids) {
+      results.push({ id, status: pendingIdSet.has(id) ? newStatus : 'skipped' })
+    }
+    // P2 修复(2026-08-06):批量审核无操作日志,补记操作人/动作/影响数量,便于审计追责。
+    logger.info('admin demand-square batch-review executed', {
+      userId: request.userId,
+      action: body.data.action,
+      total: body.data.ids.length,
+      affected: pendingIdSet.size,
+    })
+    return reply.send(success({ results }))
+  })
+
+  server.put('/:id/task-status', async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = updateTaskStatusSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [updated] = await db
+      .update(zhsDemandSquare)
+      .set({ taskStatus: body.data.taskStatus, updatedAt: new Date() })
+      .where(eq(zhsDemandSquare.id, paramParsed.data.id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '需求不存在'))
+    return reply.send(success({ demand: updated }))
+  })
+
+  server.put('/:id/status', async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = updateStatusSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [updated] = await db
+      .update(zhsDemandSquare)
+      .set({ status: body.data.status, updatedAt: new Date() })
+      .where(eq(zhsDemandSquare.id, paramParsed.data.id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '需求不存在'))
+    return reply.send(success({ demand: updated }))
+  })
+
+  server.delete('/:id', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [existing] = await db
+      .select({ id: zhsDemandSquare.id })
+      .from(zhsDemandSquare)
+      .where(eq(zhsDemandSquare.id, parsed.data.id))
+      .limit(1)
+    if (!existing) {
+      return reply.status(404).send(error(404, '需求不存在'))
+    }
+    await db.delete(zhsDemandSquare).where(eq(zhsDemandSquare.id, parsed.data.id))
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,114 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { Check, Copy } from 'lucide-react'
+import { IconButton } from './icon-button'
+import { cn } from '../lib/utils'
+
+/**
+ * 轻量级代码块组件:纯文本 + 复制按钮 + 流式标记 + 错误降级。
+ *
+ * 主题感知:使用 Tailwind 设计 token(`bg-muted` / `text-foreground` 等),
+ * 由调用方应用的全局主题(含 dark 模式)自动适配,跨端通用,不绑定任何框架。
+ *
+ * 语法高亮:本组件不内置语法高亮 —— 避免引入 react-syntax-highlighter 这类重依赖,
+ * 因 packages/ui 需被 desktop / extension / mobile-rn / miniapp-taro 等 8 端复用。
+ * 若需语法高亮,调用方可:
+ *   1. 自行用高亮组件包裹,再传入 children 渲染;
+ *   2. 在 web 端直接使用 apps/web 的 ThemedCodeBlock(markdown-stream.tsx)。
+ */
+export interface CodeBlockProps {
+  code: string
+  language?: string
+  isStreaming?: boolean
+  showCopy?: boolean
+  className?: string
+}
+
+function useCopy() {
+  const [copied, setCopied] = React.useState(false)
+  const copy = React.useCallback((text: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => {})
+  }, [])
+  return { copied, copy }
+}
+
+class CodeBlockErrorBoundary extends React.PureComponent<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { fallback: React.ReactNode; children: React.ReactNode }) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  // 2026-08-06 修复:noImplicitOverride 下覆写 PureComponent 方法需 override 修饰符
+  override componentDidCatch() {
+    // 静默降级到 fallback
+  }
+  override render() {
+    if (this.state.hasError) return this.props.fallback
+    return this.props.children
+  }
+}
+
+const CodeBlockImpl = ({
+  code,
+  language,
+  isStreaming,
+  showCopy = true,
+  className,
+}: CodeBlockProps): React.ReactElement => {
+  const { copied, copy } = useCopy()
+  const lang = (language ?? '').trim().toLowerCase()
+
+  const copyButton = showCopy ? (
+    // 2026-09-17:统一样式 token 化 — IconButton md(32×32),尺寸/交互单一来源 icon-button.ts
+    <IconButton
+      onClick={() => copy(code)}
+      aria-label={copied ? '已复制' : '复制代码'}
+      className="absolute right-2 top-2"
+    >
+      {copied ? <Check /> : <Copy />}
+    </IconButton>
+  ) : null
+
+  const preClassName = cn(
+    'relative my-2 overflow-x-auto rounded-lg p-3 text-sm',
+    'bg-muted text-foreground',
+    isStreaming && 'opacity-60',
+    className,
+  )
+
+  const content = (
+    <pre className={preClassName}>
+      {copyButton}
+      <code className={cn('font-mono', lang && `language-${lang}`)}>{code}</code>
+    </pre>
+  )
+
+  const fallback = (
+    <pre className={preClassName}>
+      <code className="font-mono">{code}</code>
+    </pre>
+  )
+
+  return <CodeBlockErrorBoundary fallback={fallback}>{content}</CodeBlockErrorBoundary>
+}
+
+export const CodeBlock = React.memo(CodeBlockImpl)
+CodeBlock.displayName = 'CodeBlock'
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
