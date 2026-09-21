@@ -514,6 +514,18 @@ def _engine_rollout_truncation_enabled_from_env() -> bool:
     )
 
 
+def _engine_file_watcher_enabled_from_env() -> bool:
+    """批58 接线(对标 codex file_watcher.rs):文件变更事件路由。
+
+    默认 off:不持有路由器、不分发任何事件(逐字节等价);设为 on/1/true/yes 时
+    引擎持有 FileWatcherRouter,补丁落盘后把变更路径分发给命中订阅方。
+    仅启用纯路由层(订阅/分发),不启动轮询任务,不引入后台生命周期。
+    """
+    return os.environ.get("ENGINE_FILE_WATCHER_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 def _engine_feature_flags_enabled_from_env() -> bool:
     """集中式特性开关注册表开关(模块5,对标 codex features crate)。
 
@@ -1748,6 +1760,8 @@ class AgentEngine:
         # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
         # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
+        # 批58 接线:文件变更事件路由器(纯路由层,惰性创建;off 时恒为 None)
+        self._file_watcher_router: Any = None
         # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
         # 注册已知特性(含本批各 env 开关);off 时引擎不咨询注册表,判定路径与
         # 现状逐字节一致;on 时经注册表解析生效集(见 _resolve_engine_features)。
@@ -3180,6 +3194,44 @@ class AgentEngine:
             )
         except Exception as e:  # noqa: BLE001 - 构建失败降级跳过
             logger.warning("Codex 会话元数据构建失败(降级跳过): %s", e)
+
+    def _file_watcher_router_or_none(self) -> Any | None:
+        """批58:取文件变更事件路由器;off 或构造失败返回 None(惰性,零副作用)。"""
+        if not _engine_file_watcher_enabled_from_env():
+            return None
+        if self._file_watcher_router is None:
+            try:
+                from app.core.file_watcher import FileWatcherRouter
+
+                self._file_watcher_router = FileWatcherRouter()
+            except Exception as e:  # noqa: BLE001 - 构造失败降级不路由
+                logger.warning("file_watcher 路由器构造失败(降级不路由): %s", e)
+                return None
+        return self._file_watcher_router
+
+    def subscribe_file_changes(self, paths: list[str]) -> Any | None:
+        """批58:订阅文件变更(off 返回 None;调用方需判空)。"""
+        router = self._file_watcher_router_or_none()
+        if router is None:
+            return None
+        try:
+            return router.subscribe(paths)
+        except Exception as e:  # noqa: BLE001 - 订阅失败降级返回 None
+            logger.warning("file_watcher 订阅失败(降级返回 None): %s", e)
+            return None
+
+    def dispatch_file_change(self, paths: list[str]) -> int:
+        """批58:把变更路径分发给命中订阅方;off 恒为 0,异常降级 0。"""
+        router = self._file_watcher_router_or_none()
+        if router is None or not paths:
+            return 0
+        try:
+            from app.core.file_watcher import FileWatcherEvent
+
+            return int(router.dispatch(FileWatcherEvent(paths=tuple(paths))))
+        except Exception as e:  # noqa: BLE001 - 分发失败降级 0
+            logger.warning("file_watcher 分发失败(降级返回 0): %s", e)
+            return 0
 
     def reset_agents_md_state(self, thread: EngineThread) -> None:
         """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
@@ -5383,6 +5435,11 @@ class AgentEngine:
                     {"path": rel, "action": "unchanged", "changed": False}
                 )
             changed_files = [r for r in results if r.get("changed")]
+            # 批58:ENGINE_FILE_WATCHER_ENABLED on 时把本次变更路径分发给订阅方
+            if _engine_file_watcher_enabled_from_env():
+                self.dispatch_file_change(
+                    [str((base / str(r.get("path", ""))).resolve()) for r in changed_files]
+                )
             thread.touch()
             # 批 41 接线:补丁提交进回合净 diff 跟踪器(对标 Codex TurnDiffTracker;
             # tracker 初始化/记录失败降级跳过,不影响补丁主链路)。
