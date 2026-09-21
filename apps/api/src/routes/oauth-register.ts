@@ -166,9 +166,18 @@ export const oauthRegisterRoutes: FastifyPluginAsync = async (server) => {
       const publicClient = meta.token_endpoint_auth_method === 'none'
       const redirectUris = meta.redirect_uris ?? []
 
-      // authorization_code grant 必须有 redirect_uri(RFC 7591 §2 要求 + 防 open redirect)
-      if (redirectUris.length === 0 && !publicClient) {
-        return deny(reply, 'invalid_redirect_uri', '机密客户端注册必须提供 redirect_uris')
+      // authorization_code grant 必须有 redirect_uri(RFC 7591 §2 要求 + 防 open redirect)。
+      // 2026-09-21 实跑纠正:判据原先只看"有没有 redirect_uris",把**纯 M2M 客户端**
+      // (只声明 client_credentials,压根不走授权码、没有回调)一并拒掉 ⇒ 第三方机器凭据
+      // 自助接入这条路被自己堵死。redirect_uri 只在确实会用到跳转时才必需。
+      const grants = meta.grant_types ?? ['authorization_code']
+      const needsRedirectUri = grants.includes('authorization_code')
+      if (needsRedirectUri && redirectUris.length === 0 && !publicClient) {
+        return deny(
+          reply,
+          'invalid_redirect_uri',
+          '使用 authorization_code 的机密客户端注册必须提供 redirect_uris',
+        )
       }
       if (redirectUris.length > 0) {
         const uriError = validateRegistrationRedirectUris(redirectUris)
@@ -256,6 +265,13 @@ export const oauthRegisterRoutes: FastifyPluginAsync = async (server) => {
         status: 'success',
         detail: JSON.stringify({ publicClient, redirectUris, scopes: grantedScopes }),
       })
+
+      // 机密客户端:本次是 client_secret **唯一一次**明文下发。响应脱敏会把任何看起来
+      // 像密钥的字段替换成 '***'(与 developer API Key 下发同一机制,那边显式跳过),
+      // 于是 RFC 7591 返回体里的 client_secret 变成 "***" ⇒ 客户端拿不到可用凭据,
+      // 后续 /oauth/token 恒 invalid_client ⇒ OAuth M2M 通道事实上走不通。
+      // 2026-09-21 O17 三通道实跑抓到(no-verify 无法发现,只有真发请求才暴露)。
+      if (!publicClient) request.skipResponseSanitization = true
 
       return reply
         .status(201)

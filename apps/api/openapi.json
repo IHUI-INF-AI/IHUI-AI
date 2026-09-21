@@ -177578,6 +177578,43 @@
         ]
       }
     },
+    "/v1/threads/runs/by-external-id/{externalId}": {
+      "get": {
+        "description": "用调用方自带业务键 external_id 查询 Run 状态(仅能查到本 key 名下登记的键)",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+            },
+            "in": "path",
+            "name": "externalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "runs:read"
+            ]
+          }
+        ],
+        "tags": [
+          "Runs"
+        ]
+      }
+    },
     "/v1/threads/{id}": {
       "delete": {
         "parameters": [
@@ -177934,6 +177971,10 @@
                   },
                   "metadata": {
                     "type": "object"
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "description": "可选:调用方自带业务键(1-128 字符 [A-Za-z0-9_.-]),登记后可用 GET /v1/threads/runs/by-external-id/{external_id} 反查本 run"
                   }
                 },
                 "required": [
