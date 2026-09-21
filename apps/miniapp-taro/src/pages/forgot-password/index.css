@@ -1,0 +1,273 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* forgot-password/index.css — 对齐 RN SharedChangePwdScreen 视觉(2026-09-08 RN→CSS 转换)
+ * 换算规则:RN raw dp M → M*2 rpx;RN borderWidth 1 → 1rpx(细边框,同 login.css 范例)。
+ * 颜色全部走 design-tokens:tk.surface.bg→var(--color-background) / tk.surface.muted→var(--color-muted) /
+ * tk.text.primary→var(--color-foreground) / tk.text.secondary→var(--color-muted-foreground) /
+ * tk.text.tertiary→var(--color-text-tertiary) / tk.text.medium→var(--color-text-medium) /
+ * tk.brand.DEFAULT→var(--color-primary)。
+ */
+
+/* ===== 容器(对齐 RN container:bg surface.bg) ===== */
+.container-ali {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.container1 {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  /* RN 无顶部 padding;custom 导航下用 safe-area 补状态栏 + 余量 */
+  padding-top: calc(env(safe-area-inset-top) + 8rpx);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== header(对齐 RN header:paddingH 10 + paddingV 12 + gap 12) ===== */
+.fp-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24rpx;
+  padding: 24rpx 20rpx;
+}
+
+.fp-back {
+  font-size: 32rpx;
+  color: var(--color-text-medium);
+}
+
+.fp-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+/* ===== 表单体(对齐 RN body:padding 14 + gap 12) ===== */
+.fp-body {
+  padding: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+/* 步骤指示器(端内 2 步业务流程,RN 无此元素) */
+.fp-step {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 字段(对齐 RN field:gap 6) ===== */
+.fp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.fp-label {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 输入框(对齐 RN inputBox:surface.muted + 圆角 12 + 高 50 + paddingH 12) ===== */
+.fp-input-box {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 100rpx;
+  padding: 0 24rpx;
+  border-radius: 24rpx;
+  background-color: var(--color-muted);
+}
+
+.fp-input-box-flex {
+  flex: 1;
+}
+
+.fp-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-size: 32rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 验证码行(输入框 + 发送按钮,对齐 RN codeRow 同族样式,gap 8) ===== */
+.fp-coderow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.fp-codebtn {
+  height: 100rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid var(--color-primary);
+  border-radius: 24rpx;
+  background-color: var(--color-card);
+  flex-shrink: 0;
+}
+
+.fp-codebtn-disabled {
+  opacity: 0.5;
+}
+
+.fp-codebtn-text {
+  color: var(--color-primary);
+  font-size: 28rpx;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===== 主按钮(AuthButton 组件用,对齐 RN submitBtn:brand 底 + 圆角 12 + 高 50 + mt 8) ===== */
+.login-btn {
+  width: 100%;
+  height: 100rpx;
+  margin-top: 16rpx;
+}
+
+.btn {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.btn-login {
+  border-radius: 24rpx;
+  background-color: var(--color-primary);
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 返回链接(端内 2 步流程步骤回退 / 回登录) ===== */
+.back-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 16rpx;
+}
+
+.back-link {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 密码可见性切换(PasswordVisibilityToggle 组件用,对齐 RN eyeBtn/eyeText) ===== */
+.password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 8rpx;
+  flex-shrink: 0;
+}
+
+.password-toggle-label {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  margin-right: 8rpx;
+  white-space: nowrap;
+}
+
+.eye-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ===== 区号选择器(PhoneAreaCodePicker 组件用,RN 无此控件,按输入框同族样式收敛到 token) ===== */
+.xiaicc {
+  height: 100%;
+  padding-right: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-right: 1rpx solid var(--color-border);
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.xiaicc-img {
+  width: 0;
+  height: 0;
+  border-left: 5rpx solid transparent;
+  border-right: 5rpx solid transparent;
+  border-top: 9rpx solid var(--color-muted-foreground);
+  margin-left: 6rpx;
+}
+
+.input-area-code {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* 区号下拉(悬浮在输入框下方) */
+.nation-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  background-color: var(--color-card);
+  box-shadow: 0 8rpx 24rpx var(--color-black-12);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.nation-boo {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-card);
+}
+
+.nationInfo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16rpx;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.nation-info1 {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nation-name {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  flex-shrink: 0;
+}
+
+.nation-code {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -1,0 +1,218 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""LLM 用量统计服务 — 按 provider/model/user 统计 token 用量 + 估算成本。
+
+数据存储: 内存 dict 存储（进程内），Redis 可用时持久化。
+成本估算: 按各厂商公开定价表（每百万 token 价格）。
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# 厂商定价表(每百万 token 价格,单位:美元)。
+# 2026-09-07 收口:改引 core.model_pricing 单一价目源
+# (此前本表与 cost_ledger / llm_budget_governor 三处漂移且停留 2024 价位)。
+# 计价策略:_estimate_cost 优先按模型级价目(前缀匹配),未命中回落厂商级。
+from ..core.model_pricing import (
+    DEFAULT_PRICE_PER_1M as DEFAULT_PRICING,
+)
+from ..core.model_pricing import (
+    PROVIDER_PRICES_PER_1M as PROVIDER_PRICING,
+)
+from ..core.model_pricing import (
+    cost_micro_usd,
+    cost_micro_usd_from_per_1m,
+)
+
+# 默认配额(每月 token 上限)
+DEFAULT_QUOTA_LIMIT = 10_000_000
+
+
+@dataclass
+class UsageRecord:
+    id: str
+    provider: str
+    model: str
+    user_id: str
+    input_tokens: int
+    output_tokens: int
+    estimated_cost: float  # 美元
+    timestamp: float
+    session_id: str = ""
+
+
+def _estimate_cost(
+    provider: str, input_tokens: int, output_tokens: int, model: str = ""
+) -> float:
+    """按定价表估算单次调用成本(美元)。
+
+    2026-09-07 起:有 model 时优先走统一价目源模型级匹配(前缀匹配 +
+    厂商级兜底),未传 model 时维持原厂商级查表行为。
+    2026-09-12 精度改造(2-6 成本真实计价):内部改走 Decimal 微元整数
+    计价(core.model_pricing),仅最终一次舍入,消除 float 累积漂移;
+    对外仍返回 USD float(保留 round 4 位口径不变)。
+    """
+    if model:
+        micro = cost_micro_usd(model, input_tokens, output_tokens, provider)
+    else:
+        pricing = PROVIDER_PRICING.get(provider, DEFAULT_PRICING)
+        micro = cost_micro_usd_from_per_1m(
+            pricing["input"], pricing["output"], input_tokens, output_tokens
+        )
+    return round(micro / 1_000_000, 4)
+
+
+class LLMUsageService:
+    def __init__(self, quota_limit: int = DEFAULT_QUOTA_LIMIT):
+        self._records: list[UsageRecord] = []
+        self._max_records = 10000
+        self._quota_limit = quota_limit
+
+    def record_usage(
+        self,
+        provider: str,
+        model: str,
+        user_id: str,
+        input_tokens: int,
+        output_tokens: int,
+        session_id: str = "",
+    ) -> UsageRecord:
+        """记录一次 LLM 调用用量。"""
+        cost = _estimate_cost(provider, input_tokens, output_tokens, model=model)
+        record = UsageRecord(
+            id=uuid.uuid4().hex[:12],
+            provider=provider,
+            model=model,
+            user_id=user_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            estimated_cost=cost,
+            timestamp=time.time(),
+            session_id=session_id,
+        )
+        self._records.append(record)
+        # 限制内存记录数
+        if len(self._records) > self._max_records:
+            self._records = self._records[-self._max_records:]
+        logger.info(
+            "record_usage: user=%s provider=%s model=%s input=%d output=%d cost=%.4f",
+            user_id, provider, model, input_tokens, output_tokens, cost,
+        )
+        return record
+
+    def get_user_stats(self, user_id: str, days: int = 7) -> dict[str, Any]:
+        """获取用户用量统计。"""
+        cutoff = time.time() - days * 86400
+        user_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= cutoff]
+
+        total_input = sum(r.input_tokens for r in user_records)
+        total_output = sum(r.output_tokens for r in user_records)
+        total_tokens = total_input + total_output
+        total_cost = round(sum(r.estimated_cost for r in user_records), 4)
+
+        # 按天汇总
+        daily: dict[str, dict[str, int | float]] = {}
+        for r in user_records:
+            day_key = datetime.fromtimestamp(r.timestamp).strftime("%Y-%m-%d")
+            if day_key not in daily:
+                daily[day_key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0}
+            daily[day_key]["input_tokens"] += r.input_tokens
+            daily[day_key]["output_tokens"] += r.output_tokens
+            daily[day_key]["total_tokens"] += r.input_tokens + r.output_tokens
+            daily[day_key]["cost"] += r.estimated_cost
+
+        # 按模型汇总
+        model_breakdown: dict[str, dict[str, int | float]] = {}
+        for r in user_records:
+            key = f"{r.provider}/{r.model}"
+            if key not in model_breakdown:
+                model_breakdown[key] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
+            model_breakdown[key]["input_tokens"] += r.input_tokens
+            model_breakdown[key]["output_tokens"] += r.output_tokens
+            model_breakdown[key]["total_tokens"] += r.input_tokens + r.output_tokens
+            model_breakdown[key]["cost"] += r.estimated_cost
+            model_breakdown[key]["calls"] += 1
+
+        # 按厂商汇总
+        provider_breakdown: dict[str, dict[str, int | float]] = {}
+        for r in user_records:
+            p = r.provider
+            if p not in provider_breakdown:
+                provider_breakdown[p] = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": 0.0, "calls": 0}
+            provider_breakdown[p]["input_tokens"] += r.input_tokens
+            provider_breakdown[p]["output_tokens"] += r.output_tokens
+            provider_breakdown[p]["total_tokens"] += r.input_tokens + r.output_tokens
+            provider_breakdown[p]["cost"] += r.estimated_cost
+            provider_breakdown[p]["calls"] += 1
+
+        # 每日 breakdown 排序
+        daily_sorted = dict(sorted(daily.items()))
+
+        return {
+            "user_id": user_id,
+            "days": days,
+            "total_tokens": total_tokens,
+            "total_input_tokens": total_input,
+            "total_output_tokens": total_output,
+            "total_cost": total_cost,
+            "total_calls": len(user_records),
+            "daily_breakdown": daily_sorted,
+            "model_breakdown": model_breakdown,
+            "provider_breakdown": provider_breakdown,
+        }
+
+    def get_global_stats(self, days: int = 7) -> dict[str, Any]:
+        """获取全局用量统计。"""
+        cutoff = time.time() - days * 86400
+        recent = [r for r in self._records if r.timestamp >= cutoff]
+
+        total_input = sum(r.input_tokens for r in recent)
+        total_output = sum(r.output_tokens for r in recent)
+        total_tokens = total_input + total_output
+        total_cost = round(sum(r.estimated_cost for r in recent), 4)
+        active_users = len({r.user_id for r in recent})
+
+        return {
+            "days": days,
+            "total_tokens": total_tokens,
+            "total_input_tokens": total_input,
+            "total_output_tokens": total_output,
+            "total_cost": total_cost,
+            "total_calls": len(recent),
+            "active_users": active_users,
+        }
+
+    def get_quota_info(self, user_id: str) -> dict[str, Any]:
+        """获取用户配额信息。"""
+        # 本月用量(月初按 UTC 计算,与 time.time() 记录的 UTC epoch 对齐;
+        # 原 naive datetime.now() 在东八区下月初窗口会偏早 8 小时 —— 2026-09-20 时区语义修复)
+        now_utc = datetime.now(UTC)
+        month_start = datetime(now_utc.year, now_utc.month, 1, tzinfo=UTC).timestamp()
+        month_records = [r for r in self._records if r.user_id == user_id and r.timestamp >= month_start]
+        used_tokens = sum(r.input_tokens + r.output_tokens for r in month_records)
+        quota_limit = self._quota_limit
+        remaining = max(0, quota_limit - used_tokens)
+        usage_percent = round((used_tokens / quota_limit) * 100, 2) if quota_limit > 0 else 0.0
+
+        return {
+            "user_id": user_id,
+            "used_tokens": used_tokens,
+            "quota_limit": quota_limit,
+            "remaining": remaining,
+            "usage_percent": usage_percent,
+        }
+
+
+# 全局单例
+usage_service = LLMUsageService()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
