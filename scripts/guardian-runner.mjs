@@ -1214,6 +1214,26 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '57',
+    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:锚点漂移·契约事件两端不齐·清单条目倒退)',
+    script: 'check-chat-element-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 三类违规各有解法:',
+      '     ① 锚点漂移 = 该元素已在库内,其渲染位文件/关键标识被删或被改名 → 恢复实现,',
+      '        或确属重命名时同 PR 更新 scripts/data/chat-flow-elements.json 并说明理由',
+      '     ② 事件不齐 = 元素声明的 SSE 事件必须同时出现在 apps/ai-service/app/core/sse_contract.py',
+      '        与 packages/shared/src/sse/contract.ts(两端契约是一份事实源的两份拷贝)',
+      '     ③ 条目倒退 = 清单条目数低于 entryCountBaseline → 撤销误删的任务行,或在计划里说明撤销理由',
+      '     自检:node scripts/check-chat-element-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CHAT_ELEMENT_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
