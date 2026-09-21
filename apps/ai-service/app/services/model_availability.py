@@ -42,6 +42,7 @@ from typing import Any
 import httpx
 
 from ..core.config import settings
+from ..middleware.llm_metrics import is_quota_exhaustion_error
 from .free_provider_registry import ProviderCategory, ProviderStatus, free_provider_registry
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,10 @@ PING_CONCURRENCY = 10
 
 # 429 限流退避(秒)— provider 被 429 后,跳过 ping 的时间,避免反复触发限流
 RATE_LIMIT_BACKOFF_S = 900
+
+# 额度耗尽标记的可信时长(秒)= 一个探测周期:实时调用判定的额度状态只采信到下一轮
+# ping 覆盖为止,充值后由既有刷新循环自动恢复,网关侧不需要任何持久化脏状态。
+QUOTA_BLOCK_TRUST_S = REFRESH_INTERVAL_S
 
 # zero_cost provider 集合(无需 key 即可调用,与 free_provider_registry._ZERO_COST_CODES 对齐)
 _ZERO_COST_CODES: set[str] = {"pollinations", "llm7", "aihorde", "opencode_zen"}
@@ -561,7 +566,7 @@ class ModelAvailabilityService:
         try:
             resp = await client.get(balance_url, headers={"Authorization": f"Bearer {api_key}"})
             if resp.status_code != 200:
-                err_type = self._http_status_to_error_type(resp.status_code)
+                err_type = self._http_status_to_error_type(resp.status_code, resp.text)
                 return None, None, err_type, f"HTTP {resp.status_code}"
             data = resp.json()
 
@@ -718,7 +723,7 @@ class ModelAvailabilityService:
                         recharge_url=recharge_url,
                     )
 
-                err_type = self._http_status_to_error_type(resp.status_code)
+                err_type = self._http_status_to_error_type(resp.status_code, resp.text)
                 # 429 限流/402 余额不足:当前调不通,立即判定(换模型也无意义,同一账户)
                 if err_type in (ProviderErrorType.RATE_LIMITED, ProviderErrorType.PAYMENT_REQUIRED):
                     status = ProviderHealthStatus.DEGRADED if err_type == ProviderErrorType.RATE_LIMITED else ProviderHealthStatus.DOWN
@@ -740,7 +745,7 @@ class ModelAvailabilityService:
                 err_type = (
                     ProviderErrorType.TIMEOUT
                     if status_code == 0
-                    else self._http_status_to_error_type(status_code)
+                    else self._http_status_to_error_type(status_code, text)
                 )
                 return ProviderHealth(
                     status=ProviderHealthStatus.DOWN,
@@ -854,11 +859,17 @@ class ModelAvailabilityService:
             return None
 
     @staticmethod
-    def _http_status_to_error_type(status: int) -> ProviderErrorType:
-        """HTTP 状态码 → ProviderErrorType 映射。"""
+    def _http_status_to_error_type(status: int, body: str = "") -> ProviderErrorType:
+        """HTTP 状态码(+ 响应体)→ ProviderErrorType 映射。
+
+        400 本身不足以判额度,必须带额度错误码(如 DashScope 400 Arrearage),
+        否则 ping 会把"模型名不对"这类参数错标成"需充值"。
+        """
         if status == 401:
             return ProviderErrorType.INVALID_KEY
         if status == 402:
+            return ProviderErrorType.PAYMENT_REQUIRED
+        if is_quota_exhaustion_error(body, status_code=status):
             return ProviderErrorType.PAYMENT_REQUIRED
         if status == 403:
             return ProviderErrorType.FORBIDDEN
@@ -874,6 +885,33 @@ class ModelAvailabilityService:
         未命中缓存返回 PENDING 状态(首次启动时可能出现)。
         """
         return self._health.get(provider_code, ProviderHealth(status=ProviderHealthStatus.PENDING))
+
+    async def mark_provider_quota_exhausted(self, provider_code: str, detail: str) -> None:
+        """实时调用命中额度类错误 → 标 DOWN + PAYMENT_REQUIRED(与 ping 判定同一状态位)。
+
+        恢复路径复用既有 5 分钟刷新循环:充值后下一轮 ping 通过即回到 HEALTHY;
+        即便 provider 已不在 ping 清单,读取侧的 QUOTA_BLOCK_TRUST_S 也会让标记过期。
+        """
+        if not provider_code:
+            return
+        async with self._lock:
+            self._health[provider_code] = ProviderHealth(
+                status=ProviderHealthStatus.DOWN,
+                last_check=time.time(),
+                error=detail[:200],
+                error_type=ProviderErrorType.PAYMENT_REQUIRED,
+                recharge_url=free_provider_registry.get_recharge_url(provider_code),
+            )
+        logger.info("[quota] provider %s 标记额度耗尽(%s)", provider_code, detail[:120])
+
+    def is_provider_quota_blocked(self, provider_code: str) -> bool:
+        """该 provider 是否处于"刚被判定额度耗尽"窗口内(换通道时跳过同一家)。"""
+        health = self._health.get(provider_code)
+        if health is None or health.error_type != ProviderErrorType.PAYMENT_REQUIRED:
+            return False
+        if health.status not in (ProviderHealthStatus.DOWN, ProviderHealthStatus.DEGRADED):
+            return False
+        return (time.time() - health.last_check) < QUOTA_BLOCK_TRUST_S
 
     def is_model_available(self, model_id: str) -> bool:
         """判断单个模型是否可显示(用于 /llm/models 过滤)。
