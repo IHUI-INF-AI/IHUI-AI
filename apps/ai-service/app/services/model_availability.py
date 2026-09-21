@@ -170,6 +170,9 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     ("internlm", "internlm"),
     ("sensenova-", "sensenova"),
     ("skywork-", "skywork"),
+    # 小米 MiMo 官方 /v1/models 返回裸名(mimo-v2.5 等,无 vendor 前缀);缺此条则
+    # _infer_provider_code 判为未知 provider,按 fail-closed 规则被 /llm/models 过滤掉
+    ("mimo-", "mimo"),
     # === 推理平台扩展 ===
     ("novita/", "novita"),
     ("lambda/", "lambda"),
