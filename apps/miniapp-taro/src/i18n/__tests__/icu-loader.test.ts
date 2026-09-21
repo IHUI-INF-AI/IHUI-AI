@@ -53,6 +53,9 @@ describe('ICU 子集解释器 — 四形 + 既有插值不回归', () => {
   it('number 按 locale 分组', () => {
     expect(t('余额 {amount, number}', { amount: 1234.5 }, 'zh-CN')).toBe('余额 1,234.5')
     expect(t('余额 {amount, number}', { amount: 1234.5 }, 'de-DE')).toBe('余额 1.234,5')
+    // ICU `::` skeleton 不支持时退化为默认分组:web(next-intl)会渲染成 50%,我方只出 0.5,
+    // 属已知静默差异 —— 该类键由守门 56(check-icu-locale-support.mjs)拦在非 web 命名空间外
+    expect(t('比例 {v, number, ::percent}', { v: 0.5 }, 'zh-CN')).toBe('比例 0.5')
   })
 
   it('legacy {{name}} 与 {name} 行为不变', () => {
