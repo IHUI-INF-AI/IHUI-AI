@@ -68,12 +68,12 @@ export function FeedbackDetailHeader({ fb }: Props) {
           <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{fb.title}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <Badge className={TYPE_BADGE[fb.type]}>{t(TYPE_KEY[fb.type] ?? 'type_unknown')}</Badge>
+          <Badge className={TYPE_BADGE[fb.type]}>{t(TYPE_KEY[fb.type] ?? 'typeUnknown')}</Badge>
           <Badge className={STATUS_BADGE[fb.status]}>
-            {t(STATUS_KEY[fb.status] ?? 'status_unknown')}
+            {t(STATUS_KEY[fb.status] ?? 'statusUnknown')}
           </Badge>
           <Badge className={PRIORITY_BADGE[fb.priority]}>
-            {t(PRIORITY_KEY[fb.priority] ?? 'priority_unknown')}
+            {t(PRIORITY_KEY[fb.priority] ?? 'priorityUnknown')}
           </Badge>
           <span>·</span>
           <span>{dateFmt.format(new Date(fb.createdAt))}</span>
