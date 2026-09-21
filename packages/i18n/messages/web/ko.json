@@ -7292,7 +7292,21 @@
         "ariaLabel": "메시지 사용량 세부 정보"
       },
       "retryBadge": "재시도 {count}회",
-      "retryBadgeAria": "일시적 실패 후 {count}회 자동 재시도"
+      "retryBadgeAria": "일시적 실패 후 {count}회 자동 재시도",
+      "openInWorkPanel": "워크 패널에서 열기",
+      "toolUnknownFile": "(알 수 없는 파일)",
+      "pendingTaskTitle": "작업 진행 중",
+      "pendingAutoChecked": "자동 확인됨",
+      "pendingAutoChecking": "확인 중",
+      "pendingTaskSubmitted": "{tool}이(가) 전송되었습니다. 준비가 완료되면 여기에 자동으로 표시됩니다.",
+      "pendingCheckingShort": "확인 중",
+      "pendingRefresh": "상태 새로고침",
+      "pendingStopped": "오래 소요되어 자동 새로고침을 중단했습니다. 상태 새로고침으로 다시 확인할 수 있습니다.",
+      "pendingFailed": "작업이 실패하거나 취소되었습니다. 다른 프롬프트로 다시 시도하세요.",
+      "planStepPending": "대기",
+      "planStepInProgress": "진행 중",
+      "planStepCompleted": "완료",
+      "planStepFailed": "실패"
     },
     "tokenUsage": {
       "promptTokens": "프롬프트",

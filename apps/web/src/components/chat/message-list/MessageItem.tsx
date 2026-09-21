@@ -19,7 +19,6 @@ import {
   RotateCcw,
   Volume2,
   Square,
-  ChevronDown,
   CheckCheck,
   Ban,
   AlertTriangle,
@@ -27,13 +26,14 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import type { ChatMessage } from '@/stores/chat'
 import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
+import { StreamGroup } from '@/components/chat/stream/stream-ui'
+import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -139,6 +139,10 @@ const MessageItem = React.memo(function MessageItem({
   const t = useTranslations('chat')
   // 2026-09-12 立:Checkpoint/Rewind 相关文案走 aiChat 命名空间(与 CheckpointRewindPanel 保持一致)
   const tAiChat = useTranslations('aiChat')
+  // 消息流活动区统一文面(与 stream-ui 基元同一命名空间)
+  const tStream = useTranslations('taskStatus')
+  // diff 卡取不到路径时的占位(工具卡同一文案源)
+  const tTool = useTranslations('ai.toolCall')
   const isUser = m.role === 'user'
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
@@ -232,11 +236,31 @@ const MessageItem = React.memo(function MessageItem({
     (m.terminalTasks?.length ?? 0) +
     (m.subagentActivities?.length ?? 0)
 
-  // D21:hover 预览文本(2026-09-19 立):折叠态悬停时轻量呈现最后一段中间步骤摘要
-  // (工具名优先,plan 步骤标题次之),免点击展开即可感知内容(对标 Trae 折叠摘要体验)
-  const lastToolCall = m.toolCalls?.[m.toolCalls.length - 1]
-  const lastStepPreview =
-    lastToolCall?.toolName ?? m.planSteps?.[m.planSteps.length - 1]?.step ?? ''
+  // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
+  // 而不是一句"查看 N 个中间步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
+  // 头行禁止出现英文工具码名 —— 映射不到的插件/MCP 名走 "调用 {tool}" 措辞。
+  const activeToolCall =
+    m.toolCalls?.find((tc) => tc.status === 'running') ?? m.toolCalls?.[m.toolCalls.length - 1]
+  const activeCallView = activeToolCall
+    ? describeToolCall({
+        toolName: activeToolCall.toolName,
+        args: activeToolCall.args,
+        status: activeToolCall.status,
+      })
+    : null
+  const activeCallTitle = activeCallView
+    ? activeCallView.nameKey
+      ? tStream(activeCallView.nameKey)
+      : tStream('activityTool', { tool: activeCallView.codeName })
+    : ''
+  const activeStepTitle = m.planSteps?.find((s) => s.status === 'in_progress')?.step
+  const stepsHeadline = !streamingThis
+    ? undefined
+    : activeCallTitle !== ''
+      ? `${activeCallTitle}${activeCallView?.subject ? ` ${activeCallView.subject}` : ''}`
+      : activeStepTitle
+        ? humanizeToolText(activeStepTitle, (key) => tStream(key))
+        : tStream('statusRunning')
 
   // #14 批量 Accept/Reject 派生统计(2026-09-13 立):
   // 统计消息内 diff 卡(hasDiffCard)的 applyStatus 分布,驱动消息级批量按钮条与聚合徽章
@@ -727,239 +751,207 @@ const MessageItem = React.memo(function MessageItem({
                 2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount)
                 D21:key={foldPolicyMode} — 配置变更时重挂载,动画状态与新初始态一致 */}
             {stepSectionsCount > 0 && (
-              <Collapsible
+              <StreamGroup
+                key={foldPolicyMode}
+                active={streamingThis}
+                stepCount={stepSectionsCount}
+                headline={stepsHeadline}
+                elapsedMs={typeof m.meta?.durationMs === 'number' ? m.meta.durationMs : null}
                 open={showSteps}
                 onOpenChange={setShowSteps}
-                key={foldPolicyMode}
-                className="group/steps rounded-lg border bg-muted/50"
-                data-testid={`message-steps-collapsible-${m.id}`}
+                testId={`message-steps-group-${m.id}`}
+                className="mt-1"
               >
-                <CollapsibleTrigger
-                  title={t('stepsHoverPreview')}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/50 focus-visible:group-hover/steps:bg-accent/50"
-                >
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
-                      showSteps && 'rotate-180',
-                    )}
-                  />
-                  <span className="flex-1 truncate text-sm font-medium">
-                    {t('viewNIntermediateSteps', {
-                      count: stepSectionsCount,
-                    })}
-                  </span>
-                  {/* D21:hover 预览:折叠态悬停折叠条时在行尾轻量展示末段摘要 */}
-                  {!showSteps && lastStepPreview !== '' && (
-                    <span
-                      aria-hidden="true"
-                      className="hidden max-w-[40%] truncate text-xs text-muted-foreground group-hover/steps:inline"
-                    >
-                      {lastStepPreview}
-                    </span>
-                  )}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="space-y-2 px-3 pb-3">
-                    {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
+                <div className="ml-[7px] space-y-1 pl-3">
+                  {/* #14 批量 Accept/Reject 按钮条(2026-09-13 立):
                       仅当消息含 ≥2 个 diff 卡且已注册批量回调时显示;左侧聚合徽章展示应用进度 */}
-                    {diffStats.total >= 2 && (onApplyAllDiffs || onRejectAllDiffs) && (
-                      <div
-                        className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5"
-                        data-testid={`batch-diff-bar-${m.id}`}
-                      >
-                        <span className="text-xs text-muted-foreground">
-                          {diffStats.applying
-                            ? t('batchDiff.applying')
-                            : diffStats.pending === 0
-                              ? t('batchDiff.done', {
-                                  applied: diffStats.applied,
-                                  rejected: diffStats.rejected,
-                                })
-                              : t('batchDiff.pendingCount', {
-                                  count: diffStats.pending,
-                                  total: diffStats.total,
-                                })}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {onApplyAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
-                            <Button
-                              size="xs"
-                              className="px-2 text-xs"
-                              onClick={() => void onApplyAllDiffs(m.id)}
-                              data-testid={`batch-diff-accept-all-${m.id}`}
-                            >
-                              <CheckCheck className="mr-1 h-3.5 w-3.5" />
-                              {t('batchDiff.acceptAll')}
-                            </Button>
-                          )}
-                          {onRejectAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              className="px-2 text-xs"
-                              onClick={() => onRejectAllDiffs(m.id)}
-                              data-testid={`batch-diff-reject-all-${m.id}`}
-                            >
-                              <Ban className="mr-1 h-3.5 w-3.5" />
-                              {t('batchDiff.rejectAll')}
-                            </Button>
-                          )}
-                        </div>
+                  {diffStats.total >= 2 && (onApplyAllDiffs || onRejectAllDiffs) && (
+                    <div
+                      className="flex items-center justify-between gap-2 rounded-md border bg-muted/30 px-3 py-1.5"
+                      data-testid={`batch-diff-bar-${m.id}`}
+                    >
+                      <span className="text-xs text-muted-foreground">
+                        {diffStats.applying
+                          ? t('batchDiff.applying')
+                          : diffStats.pending === 0
+                            ? t('batchDiff.done', {
+                                applied: diffStats.applied,
+                                rejected: diffStats.rejected,
+                              })
+                            : t('batchDiff.pendingCount', {
+                                count: diffStats.pending,
+                                total: diffStats.total,
+                              })}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {onApplyAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
+                          <Button
+                            size="xs"
+                            className="px-2 text-xs"
+                            onClick={() => void onApplyAllDiffs(m.id)}
+                            data-testid={`batch-diff-accept-all-${m.id}`}
+                          >
+                            <CheckCheck className="mr-1 h-3.5 w-3.5" />
+                            {t('batchDiff.acceptAll')}
+                          </Button>
+                        )}
+                        {onRejectAllDiffs && diffStats.pending > 0 && !diffStats.applying && (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="px-2 text-xs"
+                            onClick={() => onRejectAllDiffs(m.id)}
+                            data-testid={`batch-diff-reject-all-${m.id}`}
+                          >
+                            <Ban className="mr-1 h-3.5 w-3.5" />
+                            {t('batchDiff.rejectAll')}
+                          </Button>
+                        )}
                       </div>
-                    )}
-                    {m.toolCalls?.map((tc) => {
-                      // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
-                      // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
-                      const effectiveDiffInfo =
-                        tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
-                      const hasDiff = !!effectiveDiffInfo
+                    </div>
+                  )}
+                  {m.toolCalls?.map((tc) => {
+                    // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
+                    // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
+                    const effectiveDiffInfo =
+                      tc.diffInfo ??
+                      deriveDiffInfo(tc.toolName, tc.args, tTool('toolUnknownFile')) ??
+                      undefined
+                    const hasDiff = !!effectiveDiffInfo
 
-                      // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
-                      // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
-                      // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
-                      const tcResult =
-                        tc.result && typeof tc.result === 'object'
-                          ? (tc.result as Record<string, unknown>)
-                          : null
-                      const effectiveImageUrl: string | undefined =
-                        tc.image_url ||
-                        (typeof tcResult?.image_url === 'string'
-                          ? tcResult.image_url
-                          : undefined) ||
-                        (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
-                      // music_generation/video_generation:从 result 兜底推导播放地址
-                      // (完成后 result 顶层含 audio_url/video_url;未完成时无 URL 走通用 result 展示)
-                      const effectiveAudioUrl: string | undefined =
-                        (typeof tcResult?.audio_url === 'string'
-                          ? tcResult.audio_url
-                          : undefined) ||
-                        (typeof tcResult?.audioUrl === 'string' ? tcResult.audioUrl : undefined)
-                      const effectiveVideoUrl: string | undefined =
-                        (typeof tcResult?.video_url === 'string'
-                          ? tcResult.video_url
-                          : undefined) ||
-                        (typeof tcResult?.videoUrl === 'string' ? tcResult.videoUrl : undefined)
-                      // 2026-09-09 长任务 task_id:后端 SSE tool-result 顶层扁平化已填充 tc.task_id,
-                      // 无 URL 时透传给 ToolCallCard 渲染"任务进行中"状态
-                      const effectiveTaskId: string | undefined =
-                        tc.task_id ||
-                        (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
-                      const effectiveSummaryData =
-                        tc.summary_data ??
-                        (tcResult &&
-                        (tcResult.plans ||
-                          tcResult.sources ||
-                          tcResult.artifacts ||
-                          tcResult.tool_calls_summary)
-                          ? ({
-                              plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
-                              sources: Array.isArray(tcResult.sources)
-                                ? tcResult.sources
+                    // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
+                    // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
+                    // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
+                    const tcResult =
+                      tc.result && typeof tc.result === 'object'
+                        ? (tc.result as Record<string, unknown>)
+                        : null
+                    const effectiveImageUrl: string | undefined =
+                      tc.image_url ||
+                      (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
+                      (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
+                    // music_generation/video_generation:从 result 兜底推导播放地址
+                    // (完成后 result 顶层含 audio_url/video_url;未完成时无 URL 走通用 result 展示)
+                    const effectiveAudioUrl: string | undefined =
+                      (typeof tcResult?.audio_url === 'string' ? tcResult.audio_url : undefined) ||
+                      (typeof tcResult?.audioUrl === 'string' ? tcResult.audioUrl : undefined)
+                    const effectiveVideoUrl: string | undefined =
+                      (typeof tcResult?.video_url === 'string' ? tcResult.video_url : undefined) ||
+                      (typeof tcResult?.videoUrl === 'string' ? tcResult.videoUrl : undefined)
+                    // 2026-09-09 长任务 task_id:后端 SSE tool-result 顶层扁平化已填充 tc.task_id,
+                    // 无 URL 时透传给 ToolCallCard 渲染"任务进行中"状态
+                    const effectiveTaskId: string | undefined =
+                      tc.task_id ||
+                      (typeof tcResult?.task_id === 'string' ? tcResult.task_id : undefined)
+                    const effectiveSummaryData =
+                      tc.summary_data ??
+                      (tcResult &&
+                      (tcResult.plans ||
+                        tcResult.sources ||
+                        tcResult.artifacts ||
+                        tcResult.tool_calls_summary)
+                        ? ({
+                            plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
+                            sources: Array.isArray(tcResult.sources) ? tcResult.sources : undefined,
+                            artifacts: Array.isArray(tcResult.artifacts)
+                              ? tcResult.artifacts
+                              : undefined,
+                            tool_calls_summary:
+                              tcResult.tool_calls_summary &&
+                              typeof tcResult.tool_calls_summary === 'object'
+                                ? tcResult.tool_calls_summary
                                 : undefined,
-                              artifacts: Array.isArray(tcResult.artifacts)
-                                ? tcResult.artifacts
-                                : undefined,
-                              tool_calls_summary:
-                                tcResult.tool_calls_summary &&
-                                typeof tcResult.tool_calls_summary === 'object'
-                                  ? tcResult.tool_calls_summary
-                                  : undefined,
-                            } as unknown as React.ComponentProps<
-                              typeof ToolCallCard
-                            >['summaryData'])
-                          : undefined)
+                          } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
+                        : undefined)
 
-                      // 内联 content 型 artifact(html/css/js 等)→ Artifact 画布渲染对象
-                      const effectiveArtifacts: Artifact[] | undefined =
-                        tcResult && Array.isArray(tcResult.artifacts)
-                          ? (tcResult.artifacts as Array<Record<string, unknown>>).map((a) => ({
-                              type: typeof a.type === 'string' ? a.type : undefined,
-                              content: typeof a.content === 'string' ? a.content : undefined,
-                              path: typeof a.path === 'string' ? a.path : undefined,
-                              name: typeof a.name === 'string' ? a.name : undefined,
-                              created_at:
-                                typeof a.created_at === 'string' ? a.created_at : undefined,
-                            }))
-                          : undefined
+                    // 内联 content 型 artifact(html/css/js 等)→ Artifact 画布渲染对象
+                    const effectiveArtifacts: Artifact[] | undefined =
+                      tcResult && Array.isArray(tcResult.artifacts)
+                        ? (tcResult.artifacts as Array<Record<string, unknown>>).map((a) => ({
+                            type: typeof a.type === 'string' ? a.type : undefined,
+                            content: typeof a.content === 'string' ? a.content : undefined,
+                            path: typeof a.path === 'string' ? a.path : undefined,
+                            name: typeof a.name === 'string' ? a.name : undefined,
+                            created_at: typeof a.created_at === 'string' ? a.created_at : undefined,
+                          }))
+                        : undefined
 
-                      return (
-                        <React.Fragment key={tc.id}>
-                          <ToolCallCard
-                            toolName={tc.toolName}
-                            args={tc.args}
-                            result={tc.result}
-                            status={tc.status}
-                            duration={tc.duration ?? tc.durationMs}
-                            error={tc.error}
-                            iteration={tc.iteration}
-                            toolCallId={tc.id}
-                            diffInfo={tc.diffInfo}
-                            applyStatus={tc.applyStatus}
-                            applyError={tc.applyError}
-                            repeated={tc.repeated}
-                            retryCount={tc.retryCount}
-                            imageUrl={effectiveImageUrl}
-                            audioUrl={effectiveAudioUrl}
-                            videoUrl={effectiveVideoUrl}
-                            taskId={effectiveTaskId}
-                            summaryData={effectiveSummaryData}
-                            serverSource={tc.serverSource}
-                            serverId={tc.serverId}
-                            serverName={tc.serverName}
-                            onApply={
-                              hasDiff && onApplyDiff
-                                ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
-                                : undefined
-                            }
-                            onReject={
-                              hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined
-                            }
-                            onApplyPartial={
-                              hasDiff && onApplyPartialDiff
-                                ? (newContent) =>
-                                    onApplyPartialDiff(m.id, tc.id, effectiveDiffInfo!, newContent)
-                                : undefined
-                            }
-                          />
-                          {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
-                          {effectiveArtifacts?.map((art, i) => (
-                            <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
-                          ))}
-                        </React.Fragment>
-                      )
-                    })}
-                    {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾 */}
-                    <ToolCallSummaryCard
-                      summary={m.toolCallSummary}
-                      toolCalls={m.toolCalls}
-                      isStreaming={streamingThis}
-                      data-testid={`message-tool-call-summary-${m.id}`}
+                    return (
+                      <React.Fragment key={tc.id}>
+                        <ToolCallCard
+                          toolName={tc.toolName}
+                          args={tc.args}
+                          result={tc.result}
+                          status={tc.status}
+                          duration={tc.duration ?? tc.durationMs}
+                          error={tc.error}
+                          iteration={tc.iteration}
+                          toolCallId={tc.id}
+                          diffInfo={tc.diffInfo}
+                          applyStatus={tc.applyStatus}
+                          applyError={tc.applyError}
+                          repeated={tc.repeated}
+                          retryCount={tc.retryCount}
+                          imageUrl={effectiveImageUrl}
+                          audioUrl={effectiveAudioUrl}
+                          videoUrl={effectiveVideoUrl}
+                          taskId={effectiveTaskId}
+                          summaryData={effectiveSummaryData}
+                          serverSource={tc.serverSource}
+                          serverId={tc.serverId}
+                          serverName={tc.serverName}
+                          onApply={
+                            hasDiff && onApplyDiff
+                              ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
+                              : undefined
+                          }
+                          onReject={
+                            hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined
+                          }
+                          onApplyPartial={
+                            hasDiff && onApplyPartialDiff
+                              ? (newContent) =>
+                                  onApplyPartialDiff(m.id, tc.id, effectiveDiffInfo!, newContent)
+                              : undefined
+                          }
+                        />
+                        {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
+                        {effectiveArtifacts?.map((art, i) => (
+                          <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
+                        ))}
+                      </React.Fragment>
+                    )
+                  })}
+                  {/* 2026-07-31 立,AI 对话可视化深度接入:工具调用汇总卡片 inline 到 AI 回复末尾 */}
+                  <ToolCallSummaryCard
+                    summary={m.toolCallSummary}
+                    toolCalls={m.toolCalls}
+                    isStreaming={streamingThis}
+                    data-testid={`message-tool-call-summary-${m.id}`}
+                  />
+                  {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡 */}
+                  {m.subagentActivities && m.subagentActivities.length > 0 && (
+                    <SubAgentActivityFeed
+                      swarmId={m.id}
+                      activities={m.subagentActivities}
+                      completed={!streamingThis}
                     />
-                    {/* 2026-08-01 Phase 4b/4c/4d:消息级 subagent/terminal/plan inline 到消息气泡 */}
-                    {m.subagentActivities && m.subagentActivities.length > 0 && (
-                      <SubAgentActivityFeed
-                        swarmId={m.id}
-                        activities={m.subagentActivities}
-                        completed={!streamingThis}
-                      />
-                    )}
-                    {/* W1(2026-09-12 立):终端区外层套一层纯定位容器 */}
-                    {m.terminalTasks && m.terminalTasks.length > 0 && (
-                      <div data-testid={`message-terminal-${m.id}`}>
-                        <TerminalSection terminals={m.terminalTasks} />
-                      </div>
-                    )}
-                    {m.planSteps && m.planSteps.length > 0 && (
-                      <PlanStepsCard
-                        steps={m.planSteps}
-                        isStreaming={streamingThis}
-                        data-testid={`message-plan-steps-${m.id}`}
-                      />
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                  )}
+                  {/* W1(2026-09-12 立):终端区外层套一层纯定位容器 */}
+                  {m.terminalTasks && m.terminalTasks.length > 0 && (
+                    <div data-testid={`message-terminal-${m.id}`}>
+                      <TerminalSection terminals={m.terminalTasks} />
+                    </div>
+                  )}
+                  {m.planSteps && m.planSteps.length > 0 && (
+                    <PlanStepsCard
+                      steps={m.planSteps}
+                      isStreaming={streamingThis}
+                      data-testid={`message-plan-steps-${m.id}`}
+                    />
+                  )}
+                </div>
+              </StreamGroup>
             )}
             <MarkdownStream
               content={m.content}
@@ -1036,7 +1028,9 @@ const MessageItem = React.memo(function MessageItem({
                   <span className="text-muted-foreground/70">· {formatDuration(durationMs)}</span>
                 )}
                 {toolCallCount !== undefined && toolCallCount > 0 && (
-                  <span className="text-muted-foreground/70">· {toolCallCount} tools</span>
+                  <span className="text-muted-foreground/70">
+                    · {tStream('toolCallCount', { n: toolCallCount })}
+                  </span>
                 )}
                 {/* W12(2026-09-13 立):AI 消息 token/成本内联徽章 `· 1.2k tok · ¥0.0034` */}
                 {!isUser && (
