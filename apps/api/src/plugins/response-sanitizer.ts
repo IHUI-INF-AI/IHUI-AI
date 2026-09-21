@@ -46,6 +46,26 @@ export const SAFE_KEYS: ReadonlySet<string> = new Set([
 
 const MASK = '***'
 
+/**
+ * 协议面路径前缀:整体跳过脱敏。
+ *
+ * 为什么按路径豁免而不是逐字段白名单:isSensitiveKey 是**子串**匹配,而 OAuth/OIDC 的
+ * RFC 字段名天生带 token/secret(规范定的名,我们改不了)。2026-09-21 生产实跑抓到:
+ *  - `POST /oauth/token` → HTTP 200 但 `access_token:"***"`,客户端拿到一把假令牌,
+ *    整条 OAuth 2.1 通道对外不可用(单测没挂本管线,所以一直全绿);
+ *  - `/oauth/introspect` → `token_use:"***"`;
+ *  - discovery 文档 → `token_endpoint_auth_methods_supported:"***"`(数组值一律打码),
+ *    客户端据此选客户端鉴权方式,损坏即解析失败。
+ * 这些响应体本身就是**要交付给客户端的凭据或公开元数据**,不含任何第三方用户数据。
+ */
+export const PROTOCOL_NO_MASK_PREFIXES: readonly string[] = ['/oauth/', '/.well-known/']
+
+/** 命中协议豁免前缀则不脱敏;query 串不参与前缀判定。 */
+export function isProtocolNoMaskPath(url: string): boolean {
+  const path = url.split('?', 1)[0] ?? url
+  return PROTOCOL_NO_MASK_PREFIXES.some((p) => path === p.slice(0, -1) || path.startsWith(p))
+}
+
 export interface SanitizerOptions {
   /** 额外的敏感字段名（与默认列表合并，全部小写）。 */
   extraKeys?: readonly string[]
@@ -456,6 +476,8 @@ const responseSanitizerPlugin: FastifyPluginAsync<SanitizerOptions> = async (
     async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
       // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
       if (request.skipResponseSanitization) return payload
+      // OAuth/OIDC 协议面整体豁免(理由见 PROTOCOL_NO_MASK_PREFIXES)
+      if (isProtocolNoMaskPath(request.url)) return payload
       const contentType = reply.getHeader('content-type')
       if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
         return payload
