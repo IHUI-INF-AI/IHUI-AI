@@ -665,10 +665,10 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       success([
         { id: 'qwen-image', name: '通义千问文生图', type: 'text-to-image' },
         { id: 'qwen-image-edit', name: '通义千问图编辑', type: 'image-edit' },
-        { id: 'wanx-v1', name: '通义万相v1', type: 'text-to-image' },
+        { id: 'wan2.5-t2i-preview', name: '通义万相2.5文生图', type: 'text-to-image' },
         {
-          id: 'wanx2.1-t2i-turbo',
-          name: '通义万相2.1加速版',
+          id: 'wan2.6-t2i',
+          name: '通义万相2.6文生图',
           type: 'text-to-image',
         },
       ]),
@@ -683,8 +683,8 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success([
         {
-          id: 'wanx2.1-imageedit',
-          name: '通义万相2.1图编辑',
+          id: 'wan2.6-image',
+          name: '通义万相2.6图编辑',
           type: 'image-to-image',
         },
         {

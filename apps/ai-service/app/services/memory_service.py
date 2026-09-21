@@ -408,7 +408,7 @@ class MemoryService:
         if len(embedding) != 1536:
             raise ValueError(
                 f"embedding 维度必须为 1536,实际 {len(embedding)}"
-                "(请用 text-embedding-ada-002 或同维度模型)"
+                "(请用 text-embedding-3-small 或同维度模型)"
             )
         score = _resolve_importance_score(importance_score, metadata)
         # pgvector 接受 '[0.1,0.2,...]' 字符串

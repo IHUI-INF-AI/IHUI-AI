@@ -1632,6 +1632,131 @@ class TestEnsureProviderConfig:
 
 
 # ---------------------------------------------------------------------------
+# Fix A(2026-09-02):同批 / 跨大小写 model_id 唯一索引冲突防护
+# ---------------------------------------------------------------------------
+
+
+class TestUpsertLowerIdDedup:
+    """唯一索引建在 (config_id, LOWER(model_id)) 上的两条防护路径。
+
+    故障现场:openrouter/siliconflow 清单里两条记录别名归一后只差大小写,
+    首条 INSERT 后第二条仍走 INSERT → 23505 重复键 → 整个 provider 事务回滚。
+    """
+
+    class _FakeTx:
+        async def __aenter__(self) -> None:
+            return None
+
+        async def __aexit__(self, *args: Any) -> bool:
+            return False
+
+    class _FakeConn:
+        def __init__(self, existing_rows: list[dict[str, Any]]) -> None:
+            self._existing = existing_rows
+            self.executed: list[tuple[str, tuple[Any, ...]]] = []
+
+        def transaction(self) -> "TestUpsertLowerIdDedup._FakeTx":
+            return TestUpsertLowerIdDedup._FakeTx()
+
+        async def fetch(self, query: str, *args: Any) -> list[dict[str, Any]]:
+            return self._existing
+
+        async def execute(self, query: str, *args: Any) -> None:
+            self.executed.append((query, args))
+
+    class _FakeAcquire:
+        def __init__(self, conn: "TestUpsertLowerIdDedup._FakeConn") -> None:
+            self._conn = conn
+
+        async def __aenter__(self) -> "TestUpsertLowerIdDedup._FakeConn":
+            return self._conn
+
+        async def __aexit__(self, *args: Any) -> bool:
+            return False
+
+    class _FakePool:
+        def __init__(self, conn: "TestUpsertLowerIdDedup._FakeConn") -> None:
+            self._conn = conn
+
+        def acquire(self) -> "TestUpsertLowerIdDedup._FakeAcquire":
+            return TestUpsertLowerIdDedup._FakeAcquire(self._conn)
+
+    @staticmethod
+    async def _run(
+        monkeypatch: pytest.MonkeyPatch,
+        existing_rows: list[dict[str, Any]],
+        upstream_models: list[dict[str, Any]],
+    ) -> tuple[Any, "TestUpsertLowerIdDedup._FakeConn"]:
+        """跑一次 _upsert_models_to_db(全程零真实 DB 连接)。"""
+        import app.services.model_sync as ms
+
+        conn = TestUpsertLowerIdDedup._FakeConn(existing_rows)
+
+        async def _fake_get_shared_pool() -> "TestUpsertLowerIdDedup._FakePool":
+            return TestUpsertLowerIdDedup._FakePool(conn)
+
+        async def _cfg(self: Any, _conn: Any, _code: str) -> int:
+            return 22
+
+        async def _tags(self: Any, _conn: Any) -> bool:
+            return False
+
+        async def _cols(self: Any, _conn: Any, names: list[str]) -> dict[str, bool]:
+            return {n: False for n in names}
+
+        monkeypatch.setattr(ms, "get_shared_pool", _fake_get_shared_pool)
+        monkeypatch.setattr(ModelSyncService, "_ensure_provider_config", _cfg)
+        monkeypatch.setattr(ModelSyncService, "_check_tags_column_exists", _tags)
+        monkeypatch.setattr(ModelSyncService, "_check_columns_exists", _cols)
+        svc = ModelSyncService()
+        result = await svc._upsert_models_to_db("siliconflow", upstream_models)
+        return result, conn
+
+    @staticmethod
+    def _inserts(conn: "TestUpsertLowerIdDedup._FakeConn") -> list[tuple[Any, ...]]:
+        return [c for c in conn.executed if c[0].lstrip().upper().startswith("INSERT")]
+
+    @staticmethod
+    def _updates(conn: "TestUpsertLowerIdDedup._FakeConn") -> list[tuple[Any, ...]]:
+        return [c for c in conn.executed if c[0].lstrip().upper().startswith("UPDATE")]
+
+    @pytest.mark.asyncio
+    async def test_same_batch_case_collision_inserts_once(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """防护①:同批两条只差大小写 → 只 INSERT 一次(DB 空)。"""
+        upstream = [
+            {"id": "pro/moonshotai/Kimi-K2.6"},
+            {"id": "pro/moonshotai/kimi-k2.6"},
+        ]
+        (new_count, removed_count, _pn, _pr, _tags), conn = await self._run(
+            monkeypatch, [], upstream
+        )
+        assert len(self._inserts(conn)) == 1, "同批 lower 冲突必须只落一条 INSERT"
+        assert new_count == 1
+        assert removed_count == 0
+
+    @pytest.mark.asyncio
+    async def test_db_row_with_different_case_goes_update_not_insert(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """防护②:DB 已有大小写不同的旧行 → 走 UPDATE(用库里真实写法),不 INSERT。"""
+        upstream = [{"id": "ztest/model"}]
+        existing = [{"model_id": "ZTest/Model", "is_relay_public": True}]
+        (new_count, removed_count, _pn, _pr, _tags), conn = await self._run(
+            monkeypatch, existing, upstream
+        )
+        assert self._inserts(conn) == [], "大小写不同的旧行不得再 INSERT"
+        updates = self._updates(conn)
+        assert len(updates) == 1
+        assert updates[0][1][1] == "ZTest/Model", "UPDATE 必须命中库里已有的写法"
+        # 同一模型不得被误判为"上游已下架"而置 is_relay_public = false
+        assert not any("is_relay_public = false" in sql for sql, _ in conn.executed)
+        assert new_count == 0
+        assert removed_count == 0
+
+
+# ---------------------------------------------------------------------------
 # token6688 目录加深(2026-09-08):/v1/logical-models 富元数据合并
 # ---------------------------------------------------------------------------
 
