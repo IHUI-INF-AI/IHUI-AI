@@ -131,10 +131,12 @@ export function TaskStatusBar() {
     [planSteps, fileChanges, isStreaming, fromAgentRuntime, agentProgress.overview.status],
   )
 
-  // 活动文案按 kind + 名称本地化,不回落到 hook 内硬编码的中文 label
+  // 活动文案按 kind + 名称本地化,不回落到 hook 内硬编码的中文 label。
+  // 普通对话(非 agent 线程)流式时 currentTask 为 idle kind → 走默认"执行中",
+  // 不能把"等待任务开始"当流式标题(那是空闲态文案)。
   const currentTask = agentProgress.currentTask
   const activityLabel = React.useMemo(() => {
-    if (!fromAgentRuntime || !agentProgress.isStreaming) return ''
+    if (!isStreaming) return ''
     switch (currentTask.kind) {
       case 'tool':
         if (currentTask.mcpName) return t('activityMcp', { mcp: currentTask.mcpName })
@@ -149,16 +151,15 @@ export function TaskStatusBar() {
       default:
         return t('activityRunning')
     }
-  }, [fromAgentRuntime, agentProgress.isStreaming, currentTask, t])
+  }, [isStreaming, currentTask, t])
 
   if (!view) return null
 
   const { icon: Glyph, cls: glyphCls } = KIND_GLYPH[view.kind]
   const headline = activityLabel || view.headline || t('waiting')
+  // 无步骤时不渲染计数(否则流式中会出现"执行中 · 空闲"的矛盾文案)
   const stepText =
-    view.stepTotal > 0
-      ? t('steps', { current: view.stepCurrent, total: view.stepTotal })
-      : t('idle')
+    view.stepTotal > 0 ? t('steps', { current: view.stepCurrent, total: view.stepTotal }) : ''
   const filesText = view.changedFiles > 0 ? t('filesChanged', { n: view.changedFiles }) : ''
 
   return (
@@ -180,7 +181,9 @@ export function TaskStatusBar() {
           <span className="min-w-0 flex-1 truncate text-xs font-medium" aria-live="polite">
             {headline}
           </span>
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{stepText}</span>
+          {stepText ? (
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{stepText}</span>
+          ) : null}
           {filesText ? (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{filesText}</span>
           ) : null}
