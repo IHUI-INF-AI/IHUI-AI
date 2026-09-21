@@ -7311,8 +7311,6 @@
         "total": "总用量",
         "ariaLabel": "消息用量详情"
       },
-      "retryBadge": "重试{count}次",
-      "retryBadgeAria": "工具瞬时失败后自动重试 {count} 次",
       "openInWorkPanel": "在工作展示区打开",
       "toolUnknownFile": "(未知文件)",
       "pendingTaskTitle": "任务进行中",
@@ -7323,7 +7321,6 @@
       "pendingRefresh": "刷新状态",
       "pendingStopped": "长时间未完成,已停止自动刷新;可点击\"刷新状态\"继续检查。",
       "pendingFailed": "任务已失败或取消,可换个提示词重新生成。",
-      "planStepPending": "待执行",
       "planStepInProgress": "进行中",
       "planStepCompleted": "已完成",
       "planStepFailed": "失败"
@@ -8957,7 +8954,6 @@
     "cmdKouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。",
     "cmdPolish": "请润色以下文本，使其更专业流畅：",
     "cmdSummary": "请总结以上对话内容，提炼关键信息",
-    "viewNIntermediateSteps": "查看 {count} 个中间步骤",
     "hideIntermediateSteps": "隐藏中间步骤",
     "batchDiff": {
       "acceptAll": "全部接受",
@@ -9207,7 +9203,6 @@
     "modelCapReasoning": "推理",
     "modelCapTools": "工具",
     "modelCapFim": "补全",
-    "stepsHoverPreview": "悬停预览末段，点击展开完整步骤",
     "modelCategoryAsr": "语音识别",
     "modelCategoryChat": "对话推理",
     "modelCategoryEmbedding": "向量嵌入",
