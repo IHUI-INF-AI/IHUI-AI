@@ -96,7 +96,13 @@
     "errorLabel": "Error",
     "toolCallCount": "{n} tool calls",
     "showMore": "Show more",
-    "noOutput": "No output"
+    "noOutput": "No output",
+    "stepPending": "Pending",
+    "phaseThinking": "Thinking",
+    "phaseActing": "Acting",
+    "phaseReflecting": "Reflecting",
+    "phaseOutputReady": "Finalizing output",
+    "exitCode": "Exit code {n}"
   },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",
