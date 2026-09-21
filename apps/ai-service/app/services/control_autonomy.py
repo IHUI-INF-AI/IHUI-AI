@@ -35,6 +35,7 @@ _ENDPOINT_PREFIX: dict[str, str] = {
     "web": "web_ui_",
     "rn": "mobile_ui_",
     "miniapp": "taro_ui_",
+    "extension": "ext_ui_",
 }
 
 # 各族支持的动词,须与 app/services/ui_action_bridge.py 的 _FAMILIES 动作集同形。
@@ -43,7 +44,7 @@ _ENDPOINT_PREFIX: dict[str, str] = {
 # (2026-09-21 补齐:此前只给四动词,导致端上注册好的输入框永远到不了模型手上)。
 _FAMILY_ACTIONS: dict[str, frozenset[str]] = {
     prefix: frozenset({"describe", "read", "navigate", "click", "fill", "submit", "invoke"})
-    for prefix in ("web_ui_", "mobile_ui_", "taro_ui_")
+    for prefix in ("web_ui_", "mobile_ui_", "taro_ui_", "ext_ui_")
 }
 
 _API_ENTRY_TOOLS: tuple[str, ...] = ("api_endpoints_search", "api_endpoint_call")
