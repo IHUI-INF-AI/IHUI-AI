@@ -1,4 +1,19 @@
 {
+  "taskStatus": {
+    "activityMcp": "调用 {mcp} MCP",
+    "activityPlugin": "调用 {plugin} 插件",
+    "activityPlanning": "规划进度",
+    "activityRunning": "执行中",
+    "activitySubagent": "子代理 {name}",
+    "activityTerminal": "执行终端命令",
+    "activityTool": "调用 {tool}",
+    "collapseDetail": "收起任务明细",
+    "expandDetail": "展开任务明细",
+    "filesChanged": "{n} 个文件已修改",
+    "idle": "空闲",
+    "steps": "步骤 {current}/{total}",
+    "waiting": "等待任务开始"
+  },
   "a11y": {
     "addAttachment": "添加附件(图片/视频/文件)",
     "barChart": "柱状图",
