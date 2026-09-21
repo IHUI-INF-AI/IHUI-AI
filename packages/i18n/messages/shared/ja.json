@@ -1,4 +1,19 @@
 {
+  "taskStatus": {
+    "activityMcp": "{mcp} MCP を呼び出し",
+    "activityPlugin": "{plugin} プラグインを呼び出し",
+    "activityPlanning": "計画を立案中",
+    "activityRunning": "実行中",
+    "activitySubagent": "サブエージェント {name}",
+    "activityTerminal": "ターミナルコマンドを実行",
+    "activityTool": "{tool} を呼び出し",
+    "collapseDetail": "タスク詳細を折りたたむ",
+    "expandDetail": "タスク詳細を展開",
+    "filesChanged": "{n} 件のファイルを変更しました",
+    "idle": "待機中",
+    "steps": "ステップ {current}/{total}",
+    "waiting": "タスクの開始を待っています"
+  },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",
     "barChart": "棒グラフ",

@@ -3317,5 +3317,16 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 **2026-09-17 生产只读核验(本轮闭环 2-8/2-10 的证据)**:
 - **2-8 nginx 已生效**:公网 `https://aizhs.top/v1/models`、`/v1beta/models` 均返回 **401**(应用鉴权层应答,而非 nginx 404)→ 2-8 新增的三个 location(`/v1`、`/v1beta`、`/ws`)早已部署生效,「部署机 `nginx -t && nginx -s reload`」不再有待办。`/ws` 返回 404 但响应头为 `Content-Type: application/json` + `X-Api-Version` + `Traceparent`(Fastify helmet 特征)= **API 自身 404**,说明 nginx 已把 `/ws` 转发进 API;该 404 是「58 运营面板 WS 未实现」的应用层表现,与 nginx 无关。
 - **2-10 已由自动部署循环覆盖(但当日同时暴露循环自身曾卡死)**:生产工作树为 `D:\IHUI-AI`(`.git` 指向 `D:/IHUI-AI-git-repo`);SSH 只读核实生产 git HEAD = `88bd8b2fea4` = 核验时刻 `origin/main`,`D:\IHUI-AI\apps\web\.next\IHUI_BUILD_SHA` 同为 `88bd8b2fea4`、构建清单 mtime = 18:09(北京时)→ 构建与 main 同步,「生产进程尚未重建、需在 GitHub Actions 手动触发 Blue-Green」的记载已过期,自动部署循环才是本项目唯一部署通道。**同日 18:30 另发现**:该循环此前卡死 30+ 小时(NSSM 显示 SERVICE_RUNNING 但内部轮询停摆,构建时间停在 09-16),已 `nssm restart IHUI-DEPLOYLOOP` 恢复。**判据/口径修正**:①「生产是否最新」**不能只看 git HEAD**,权威判据 = `apps/web/.next/IHUI_BUILD_SHA` + `app-path-routes-manifest.json` 路由清单;②**生产机器本地时区为 UTC**(比北京时慢 8 小时),读生产文件时间戳与日志必须换算,否则会误判构建新鲜度。小写模型名归一兜底代码位于 main(`apps/api/src/routes/v1-public.ts:339`,2026-09-13 立),随构建刷新即生效。
+
+## P0 AI 对话输入框上方任务进度状态条(2026-09-21 立并完成 ✅,跨端:packages/shared + packages/i18n + apps/web + apps/extension + apps/cli;miniapp-taro/mobile-rn 接线待键落地后继续,desktop=Tauri 薄壳自动跟随)
+
+- 用户对标 Qoder「输入框上方常驻任务卡 / 步骤 X/Y · N 个文件已修改 ±行 / 子任务清单」功能块,要求"最重要的消息都在这里动态更新显示"。
+- 单一真相源:`packages/shared/src/chat/task-status.ts` `deriveTaskStatusBar`(态势优先级:实时流 > 会话终态 > 步骤级推断;无步骤+无变更+非流式返回 null 零占位);i18n 13 键 ×5 语言落 `packages/i18n/messages/shared` 顶层 `taskStatus` 命名空间(surgical Edit 落键,不用 i18n-apply 以免整体重排)。
+- web:`apps/web/src/components/ai/task-status-bar.tsx` 挂 `message-input.tsx` 输入框正上方,双数据源(LangGraph 会话级 useAgentProgress + 普通对话消息级 planSteps/toolCalls——只接会话级会让普通对话永不显示,已修)。测试:shared 派生层 20 用例 + web 组件 12 用例全绿。
+- extension:sidepanel `TaskStatusBar.tsx` + `ChatPage.tsx` 挂载;typecheck / lint / test(116) 全绿。
+- cli:`task-status-line.ts` + repl 接线(beginTurn / onToolCall / onToolResult / todo_write 步骤通道 / endTurn 终态)+ `agent.ts` onPlanUpdate 透传;typecheck / test(2437) 全绿。
+- desktop 为 Tauri 薄壳直载线上 web(tauri.conf.json url=aizhs.top)→ 自动跟随,平台独占豁免。
+- 教训:并行会话的 git restore 把本任务已验证的 tracked 改动整体还原过一次(未提交工作清零后全部重打)——验证全绿后必须立刻 commit,不得攒批。
+
 <!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

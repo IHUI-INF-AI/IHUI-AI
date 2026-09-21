@@ -19,6 +19,7 @@ import { useI18n } from '../../../src/i18n'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
+import { TaskStatusBar } from '../components/TaskStatusBar'
 import type { PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
 
@@ -287,6 +288,15 @@ export default function ChatPage() {
   }
 
   const lastMessageId = messages[messages.length - 1]?.id
+  // 任务状态条数据源:最后一条带 planSteps 的 assistant 消息(消息级权威快照)
+  const taskMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant' && (m.planSteps?.length ?? 0) > 0) return m
+    }
+    return undefined
+  }, [messages])
+  const taskStreaming = streaming && taskMessage?.id === lastMessageId
 
   return (
     <div className="flex flex-col h-full">
@@ -367,6 +377,14 @@ export default function ChatPage() {
           {error}
         </div>
       ) : null}
+      {/* 任务进度常驻状态条:plan_updated 驱动,流式时随事件自动刷新,空闲时零占位。
+          taskStreaming 门控:新一轮流式开始时上一轮残留 planSteps 不得再当活动态转圈 */}
+      <TaskStatusBar
+        planSteps={taskMessage?.planSteps ?? []}
+        toolCalls={taskMessage?.toolCalls}
+        terminalTasks={taskMessage?.terminalTasks}
+        isStreaming={taskStreaming}
+      />
       <form
         className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
         onSubmit={(e) => {
