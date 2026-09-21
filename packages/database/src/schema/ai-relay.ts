@@ -54,6 +54,16 @@ export const aiRelayKeyPool = pgTable(
     rateMultiplier: numeric('rate_multiplier', { precision: 6, scale: 2 }),
     /** 账号级 RPM 覆盖(null = 用 group/global 配置;0 = 暂停) */
     rpmOverride: integer('rpm_override'),
+    // ── 渠道配额(2026-08-01 立,迁移 20260801010050_add_channel_quota_fields.sql)──
+    // 4 个上限全部可空(NULL = 无限),读写走 apps/api/src/services/channel-quota-service.ts
+    /** 每日调用次数上限(null=无限) */
+    dailyCallLimit: integer('daily_call_limit'),
+    /** 每月调用次数上限(null=无限) */
+    monthlyCallLimit: integer('monthly_call_limit'),
+    /** 每日 token 上限(null=无限) */
+    dailyTokenLimit: bigint('daily_token_limit', { mode: 'number' }),
+    /** 每月 token 上限(null=无限) */
+    monthlyTokenLimit: bigint('monthly_token_limit', { mode: 'number' }),
     healthCheckedAt: timestamp('health_checked_at', { withTimezone: true }),
     lastErrorMessage: text('last_error_message'),
     /** 额度信息(可选,从上游拉取或 admin 手填,单位:分,-1=无限) */
