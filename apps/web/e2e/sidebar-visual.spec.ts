@@ -166,58 +166,76 @@ test.describe('Sidebar 视觉守门', () => {
     expect(lineBox!.width).toBeLessThanOrEqual(2)
   })
 
-  test('语言切换子菜单弹出后完整可见不被裁剪 + 语言徽章渲染', async ({
-    authenticatedPage,
-  }) => {
+  test('语言切换子菜单弹出后完整可见不被裁剪 + 语言徽章渲染', async ({ authenticatedPage }) => {
     // 2026-09-21 迁移:语言切换从底部工具栏 Flag 图标按钮改为用户行下拉菜单的"语言"子菜单。
+    // 2026-09-21 二次修(根治 1/4 偶发失败):
+    //   ① Radix Sub 只在指针位于 SubTrigger **或** SubContent 内时保持展开;指针停在主菜单
+    //      行上不动时,任何一次重排(菜单从 153px 量到 160px 的沉降)都会让命中目标改变,
+    //      触发 pointerleave → 300ms 后子菜单自行关闭,而主菜单仍开着(失败快照实证)。
+    //      故 hover 展开后必须再把指针移进子菜单第一项 —— 这也是真实用户的鼠标路径。
+    //   ② locator.boundingBox() 只等 attached 不等 visible(见 trace 的 waitForSelector
+    //      state:"attached"),所以"逐次 round trip 量首项/末项"必然存在两次读取之间菜单
+    //      已关闭 → 返回 null 的竞态。改为在页面内一次性原子读取全部几何量。
     // 1. 点击侧边栏底部用户行 trigger(头像+昵称整行)打开用户菜单
     const userRow = authenticatedPage.locator('aside .group\\/row').first()
     await expect(userRow).toBeVisible()
     await userRow.click()
 
-    // 2. 点击"语言"菜单项展开子菜单(Radix SubTrigger:click/hover 均可展开)
+    // 2. hover "语言"项展开子菜单(Radix SubTrigger 靠 pointerenter 展开)
     const langTrigger = authenticatedPage.getByRole('menuitem', { name: '语言' }).first()
     await expect(langTrigger).toBeVisible({ timeout: 3000 })
-    await langTrigger.click()
-    await authenticatedPage.waitForTimeout(300)
+    await langTrigger.hover()
 
-    // 3. 验证子菜单内 5 个语言项可见(关键:不被 aside overflow 裁剪)
-    //    下拉项保留单色语言代码徽章(ZH/TW/EN/JA/KO)
     const langItems = authenticatedPage.locator('[role="menuitem"]:has(span[data-lang-code])')
-    await expect(langItems.first()).toBeVisible({ timeout: 3000 })
-    const itemCount = await langItems.count()
-    expect(itemCount, '应显示 5 个语言项').toBe(5)
+    await expect(langItems).toHaveCount(5, { timeout: 5000 })
+    // 首末两项都确认可见,再进入"指针驻留在子菜单内"的稳定态
+    await expect(langItems.first()).toBeVisible()
+    await expect(langItems.last()).toBeVisible()
+    await langItems.first().hover()
 
-    // 4. 验证每个语言项的徽章 span 可见且有尺寸(非 0x0),h-5 w-7 应渲染 20×28
-    const firstItemBadge = langItems.first().locator('span[data-lang-code]')
-    await expect(firstItemBadge).toBeVisible()
-    const badgeBox = await firstItemBadge.boundingBox()
-    expect(badgeBox).not.toBeNull()
-    expect(badgeBox!.width).toBeGreaterThan(0)
-    expect(badgeBox!.height).toBeGreaterThan(0)
+    // 3. 一次性原子读取:徽章尺寸 / 首末项位置 / 子菜单容器宽度(同一帧内取全,无竞态)
+    const geo = await authenticatedPage.evaluate(() => {
+      const rect = (el: Element) => {
+        const b = el.getBoundingClientRect()
+        return { x: b.x, y: b.y, w: b.width, h: b.height }
+      }
+      const items = Array.from(document.querySelectorAll('[role="menuitem"]')).filter((el) =>
+        el.querySelector('span[data-lang-code]'),
+      )
+      const sub = items[0]?.closest('[role="menu"]')
+      const badge = items[0]?.querySelector('span[data-lang-code]')
+      return {
+        count: items.length,
+        badge: badge ? rect(badge) : null,
+        first: items[0] ? rect(items[0]) : null,
+        last: items[items.length - 1] ? rect(items[items.length - 1]) : null,
+        sub: sub ? rect(sub) : null,
+        viewportHeight: window.innerHeight,
+      }
+    })
+    expect(geo.count, '测量时子菜单必须仍展开(5 项在位)').toBe(5)
 
-    // 5. 验证子菜单完整在视口内(不被裁剪)
-    const firstItemBox = await langItems.first().boundingBox()
-    expect(firstItemBox).not.toBeNull()
-    expect(firstItemBox!.y, '语言项 y 坐标应 >= 0(不被顶部裁剪)').toBeGreaterThanOrEqual(0)
-    expect(firstItemBox!.x, '语言项 x 坐标应 >= 0(不被左侧裁剪)').toBeGreaterThanOrEqual(0)
+    // 4. 语言项徽章 span 有实际尺寸(h-5 w-7 → 20×28)
+    expect(geo.badge, '首个语言项的徽章必须可见').not.toBeNull()
+    expect(geo.badge!.w).toBeGreaterThan(0)
+    expect(geo.badge!.h).toBeGreaterThan(0)
 
-    const lastItemBox = await langItems.last().boundingBox()
-    expect(lastItemBox).not.toBeNull()
-    const viewportHeight = authenticatedPage.viewportSize()!.height
+    // 5. 子菜单完整在视口内(不被裁剪)
+    expect(geo.first).not.toBeNull()
+    expect(geo.first!.y, '语言项 y 坐标应 >= 0(不被顶部裁剪)').toBeGreaterThanOrEqual(0)
+    expect(geo.first!.x, '语言项 x 坐标应 >= 0(不被左侧裁剪)').toBeGreaterThanOrEqual(0)
+    expect(geo.last).not.toBeNull()
     expect(
-      lastItemBox!.y + lastItemBox!.height,
-      '最后一项底部应 <= 视口高度(不被底部裁剪)',
-    ).toBeLessThanOrEqual(viewportHeight)
+      geo.last!.y + geo.last!.h,
+      `最后一项底部应 <= 视口高度(不被底部裁剪),实际 ${geo.last!.y + geo.last!.h} vs ${geo.viewportHeight}`,
+    ).toBeLessThanOrEqual(geo.viewportHeight)
 
-    // 6. 验证子菜单容器宽度符合 min-w-[10rem](Radix SubContent,160px 边框内 ≥158px),
+    // 6. 子菜单容器宽度符合 min-w-[10rem](Radix SubContent,160px 边框内 ≥158px),
     //    不被 aside 宽度限制(子菜单渲染在 Portal,天然不受 aside overflow 影响)
-    const subMenu = langItems.first().locator('xpath=ancestor::*[@role="menu"][1]')
-    const subMenuBox = await subMenu.boundingBox()
-    expect(subMenuBox).not.toBeNull()
+    expect(geo.sub).not.toBeNull()
     expect(
-      subMenuBox!.width,
-      `语言子菜单宽度应 ≥158px(min-w-[10rem]),实际 ${subMenuBox!.width}`,
+      geo.sub!.w,
+      `语言子菜单宽度应 ≥158px(min-w-[10rem]),实际 ${geo.sub!.w}`,
     ).toBeGreaterThanOrEqual(158)
 
     // 7. 收尾:关闭菜单
@@ -745,9 +763,10 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     expect(d.asideWidth, `平板视口 aside 应为 60px,实际 ${d.asideWidth}`).toBe(60)
 
     // 2. 用户行完整落在 aside 横向边界内(允许 1px border 误差)
-    expect(d.row.x, `用户行左边界(${d.row.x})应 ≥ aside 左边界(${d.asideX - 1})`).toBeGreaterThanOrEqual(
-      d.asideX - 1,
-    )
+    expect(
+      d.row.x,
+      `用户行左边界(${d.row.x})应 ≥ aside 左边界(${d.asideX - 1})`,
+    ).toBeGreaterThanOrEqual(d.asideX - 1)
     expect(
       d.row.x + d.row.w,
       `用户行右边界(${d.row.x + d.row.w})应 ≤ aside 右边界(${d.asideRight}+1)`,
@@ -790,9 +809,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     expect(overlapArea, `拉出按钮与用户行相交面积应为 0,实际 ${overlapArea}px²`).toBe(0)
   })
 
-  test('桌面视口(≥1024px)展开态:用户行常驻渲染(头像 + 昵称)', async ({
-    authenticatedPage,
-  }) => {
+  test('桌面视口(≥1024px)展开态:用户行常驻渲染(头像 + 昵称)', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 1280, height: 800 })
     await authenticatedPage.addInitScript(() => {
       localStorage.setItem('sidebar-collapsed', 'false')
