@@ -7292,7 +7292,21 @@
         "ariaLabel": "Message usage details"
       },
       "retryBadge": "Retried {count}×",
-      "retryBadgeAria": "Auto-retried {count} time(s) after transient failure"
+      "retryBadgeAria": "Auto-retried {count} time(s) after transient failure",
+      "openInWorkPanel": "Open in Work Panel",
+      "toolUnknownFile": "(unknown file)",
+      "pendingTaskTitle": "Task in progress",
+      "pendingAutoChecked": "Checked",
+      "pendingAutoChecking": "Checking",
+      "pendingTaskSubmitted": "{tool} submitted. The result appears here automatically when it is ready.",
+      "pendingCheckingShort": "Checking",
+      "pendingRefresh": "Refresh",
+      "pendingStopped": "Still not ready, auto-refresh stopped. Click Refresh to check again.",
+      "pendingFailed": "The task failed or was canceled. Try another prompt.",
+      "planStepPending": "Pending",
+      "planStepInProgress": "In progress",
+      "planStepCompleted": "Done",
+      "planStepFailed": "Failed"
     },
     "tokenUsage": {
       "promptTokens": "Prompt",
