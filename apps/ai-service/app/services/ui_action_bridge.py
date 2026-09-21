@@ -348,6 +348,7 @@ def register_ui_action_tools() -> int:
 
 _FAMILY_RN = "mobile"
 _FAMILY_TARO = "taro"
+_FAMILY_EXT = "extension"
 
 # 与 packages/types 的 AppUiActionType 一一对应
 _APP_ACTIONS = ("describe", "navigate", "read", "invoke", "click", "fill", "submit")
@@ -356,6 +357,10 @@ _APP_ACTIONS = ("describe", "navigate", "read", "invoke", "click", "fill", "subm
 _FAMILIES: dict[str, tuple[str, str, str, tuple[str, ...]]] = {
     _FAMILY_RN: ("app_ui", "mobile_ui_", "React Native App", _APP_ACTIONS),
     _FAMILY_TARO: ("miniapp_ui", "taro_ui_", "微信小程序", _APP_ACTIONS),
+    # 第五族:浏览器扩展自有界面(sidepanel/popup 有真实同源 DOM,七动词与 web 同形)。
+    # endpoint 与 browser 同为 extension,但 category 分开 —— 否则同一端点上"操控外部网页"与
+    # "操控扩展面板"会互相抢指令(api 侧 category→endpoint 是 1:1 择端)。
+_FAMILY_EXT: ("ext_ui", "ext_ui_", "浏览器扩展面板", _APP_ACTIONS),
 }
 
 

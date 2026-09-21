@@ -14,6 +14,8 @@
  * category 与执行端一一对应(见 CATEGORY_ENDPOINT):
  *  - browser  → extension(外部网页 DOM 操作 + 截图)
  *  - computer → desktop(操作系统级鼠标键盘/剪贴板)
+ *  - ext_ui   → extension(2026-09-21 立,扩展自有界面 sidepanel/popup:与 web 同七动词,
+ *               靠同源 DOM 定位;与 browser 同 endpoint 但不同 category,互不抢指令)
  *  - ui       → web(2026-09-20 立,只操控自家应用页面:站内导航 / 按钮点击 / 表单填写 /
  *               命令面板调用。目标靠前端的 web_ui_describe 返回的 actionId 定位,而非任意
  *               CSS 选择器或系统级输入,因此无需 OS 权限也不触及第三方站点)
@@ -91,6 +93,9 @@ const CATEGORY_ENDPOINT: Record<
   computer: 'desktop',
   ui: 'web',
   app_ui: 'rn',
+  // 扩展自有界面:与 browser 共用 endpoint='extension',但 category 必须分开
+  // (同一 endpoint 上两类执行面 —— 外部网页 DOM 与扩展面板 DOM —— 若同类就会互抢指令)
+  ext_ui: 'extension',
   miniapp_ui: 'miniapp',
 }
 
@@ -101,6 +106,7 @@ const CATEGORY_LABEL: Record<AgentActionRequest['category'], string> = {
   ui: 'Web 前端',
   app_ui: '移动端',
   miniapp_ui: '小程序端',
+  ext_ui: '扩展面板',
 }
 
 function cleanupStaleEndpoints(): void {
@@ -169,13 +175,15 @@ const capabilitySchema = z.object({
   uiActions: z.array(z.string()).max(20).optional(),
   appUiActions: z.array(z.string()).max(10).optional(),
   taroUiActions: z.array(z.string()).max(10).optional(),
+  // 上限按 web 同档(20):七动词已用掉 7,留 10 的上限会让下一次扩动词整条上报 400
+  extUiActions: z.array(z.string()).max(20).optional(),
   version: z.string().optional(),
   reportedAt: z.string(),
 })
 
 const executeSchema = z.object({
   requestId: z.string().min(1).max(100),
-  category: z.enum(['browser', 'computer', 'ui', 'app_ui', 'miniapp_ui']),
+  category: z.enum(['browser', 'computer', 'ui', 'app_ui', 'miniapp_ui', 'ext_ui']),
   action: z.string().min(1).max(100),
   params: z.record(z.string(), z.unknown()).default({}),
   toolCallId: z.string().optional(),
@@ -365,6 +373,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
         uiActions: ep.capability.uiActions?.length ?? 0,
         appUiActions: ep.capability.appUiActions?.length ?? 0,
         taroUiActions: ep.capability.taroUiActions?.length ?? 0,
+        extUiActions: ep.capability.extUiActions?.length ?? 0,
       }))
 
     return reply.send(
