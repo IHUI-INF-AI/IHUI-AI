@@ -5,6 +5,7 @@
 import { createHmac, createHash } from 'node:crypto'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
+import { renderNoticeEmail } from './email-templates.js'
 import { emailLogs } from '@ihui/database'
 import { db } from '../db/index.js'
 import type { FastifyInstance } from 'fastify'
@@ -585,11 +586,13 @@ export async function queueNotificationEmail(
 }
 
 /**
- * 通知邮件模板表。
+ * 通知邮件模板表(统一走「智汇通报」品牌版式,内容纯文本自动转义)。
  */
 function getNotificationTemplate(
   type: string,
 ): { subject: string; html: (name: string, data: Record<string, unknown>) => string } | null {
+  const render = (title: string, userName: string, content: string): string =>
+    renderNoticeEmail({ tag: 'SYSTEM // NOTICE', title, userName, content }).html
   const templates: Record<
     string,
     { subject: string; html: (name: string, data: Record<string, unknown>) => string }
@@ -597,16 +600,24 @@ function getNotificationTemplate(
     follow: {
       subject: '您有新的关注者',
       html: (name, d) =>
-        `<h2>Hi ${name},</h2><p>用户 ${d.followerName ?? '某人'} 关注了你${d.isMutual ? '(互相关注)' : ''}。</p>`,
+        render(
+          '您有新的关注者',
+          name,
+          `用户 ${String(d.followerName ?? '某人')} 关注了你${d.isMutual ? '(互相关注)' : ''}。`,
+        ),
     },
     system: {
       subject: '系统通知',
-      html: (name, d) => `<h2>Hi ${name},</h2><p>${d.content ?? '您有一条新通知'}</p>`,
+      html: (name, d) => render('系统通知', name, String(d.content ?? '您有一条新通知')),
     },
     order: {
       subject: '订单状态更新',
       html: (name, d) =>
-        `<h2>Hi ${name},</h2><p>您的订单 ${d.orderId ?? ''} 状态已更新为 ${d.status ?? ''}。</p>`,
+        render(
+          '订单状态更新',
+          name,
+          `您的订单 ${String(d.orderId ?? '')} 状态已更新为 ${String(d.status ?? '')}。`,
+        ),
     },
   }
   return templates[type] ?? templates.system ?? null

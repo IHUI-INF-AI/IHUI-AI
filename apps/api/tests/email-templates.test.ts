@@ -12,6 +12,7 @@ import {
   renderLaunchEmail,
   renderSystemAlertEmail,
   renderLowBalanceEmail,
+  renderNoticeEmail,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
   escapeHtml,
@@ -251,6 +252,34 @@ describe('email-templates — 余额不足提醒', () => {
     })
     expect(r.html).not.toContain('<img src=x')
     expect(r.html).toContain('&lt;img src=x')
+  })
+})
+
+describe('email-templates — 通用系统通知', () => {
+  it('品牌版式渲染,标题进主题,内容真实文本', () => {
+    const r = renderNoticeEmail({
+      tag: 'SYSTEM // NOTICE',
+      title: '订单状态更新',
+      userName: '李总',
+      content: '您的订单 A-1001 状态已更新为已支付。',
+    })
+    expect(r.subject).toBe('订单状态更新')
+    expect(r.html).toContain('李总')
+    expect(r.html).toContain('您的订单 A-1001 状态已更新为已支付。')
+    expect(r.html).toContain('#B4FF00')
+    expect(r.html).not.toContain('<pre>')
+    expect(r.text).toContain('A-1001')
+  })
+
+  it('内容被转义(XSS 防护)且无用户名时省略称呼', () => {
+    const r = renderNoticeEmail({
+      tag: 'SYSTEM // NOTICE',
+      title: '系统通知',
+      content: '<script>alert(1)</script>',
+    })
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+    expect(r.html).not.toContain('undefined')
   })
 })
 
