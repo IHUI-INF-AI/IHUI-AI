@@ -40,6 +40,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import {
   Camera,
   ChevronDown,
@@ -371,6 +372,13 @@ function ChatInputBar(props: BottomActionBarProps) {
     isLoading = false,
     isShowIcon = false,
   } = props
+  useUiTextField({
+    label: t('chat.inputPlaceholder'),
+    value: prompt,
+    setValue: onPromptChange,
+    multiline: true,
+    disabled: isLoading,
+  })
 
   const insets = useSafeAreaInsets()
   const prevVoiceEnabled = useRef(false)
