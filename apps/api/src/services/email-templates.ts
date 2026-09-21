@@ -438,4 +438,111 @@ export function renderLaunchEmail(input: LaunchEmailInput): DispatchEmail {
     text: `${input.productName} v${input.version} 正式上线。特性:${input.features.map((f) => f.title).join(' / ')}。立即体验:${origin}${cta}`,
   }
 }
+
+/** 运维系统告警输入(message 为多行纯文本,按行渲染,整体转义) */
+export interface SystemAlertEmailInput {
+  severity: 'info' | 'warning' | 'critical'
+  source: string
+  time: string
+  title: string
+  message: string
+}
+
+const SEVERITY_LABEL: Record<SystemAlertEmailInput['severity'], string> = {
+  info: 'INFO',
+  warning: 'WARNING',
+  critical: 'CRITICAL',
+}
+
+/** 渲染运维系统告警邮件(critical/warning 信号红,info 品牌绿) */
+export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const tone = input.severity === 'info' ? 'accent' : 'danger'
+  const accent = tone === 'danger' ? t.danger : t.accent
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:17px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  // message 整体转义后按行拆分渲染,空行以 &nbsp; 保位
+  const messageHtml = escapeHtml(input.message)
+    .split(/\r?\n/)
+    .map((line) => `<div>${line || '&nbsp;'}</div>`)
+    .join('')
+  const body = `
+    ${para(input.severity === 'info' ? '系统监测到以下事件,供知悉:' : '系统监测到异常,请值班操作员立即关注:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell(
+            'SEVERITY',
+            `<span style="color:${accent};">[ ${SEVERITY_LABEL[input.severity]} ]</span>`,
+            accent,
+            { right: true },
+          ),
+          cell('SOURCE', escapeHtml(input.source), accent, { right: true, valueStyle: mono }),
+          cell('TIME', escapeHtml(input.time), accent, { valueStyle: mono }),
+        ]),
+        metaRow([
+          `<td colspan="3" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;margin-bottom:8px;">MESSAGE</div><div style="font-family:Consolas,'Courier New',monospace;font-size:16px;line-height:1.9;color:#F5F5F0;">${messageHtml}</div></td>`,
+        ]),
+      ],
+      accent,
+    )}
+    ${note('本邮件由系统自动派发,无需回复。请前往服务器日志定位根因后再恢复。')}`
+  return {
+    subject: `[${SEVERITY_LABEL[input.severity]}] ${input.title}`,
+    html: renderDispatchEmail({
+      tag: `SYSTEM // ALERT_${SEVERITY_LABEL[input.severity]}`,
+      title: input.title,
+      bodyHtml: body,
+      tone,
+    }),
+    text: `[${SEVERITY_LABEL[input.severity]}] ${input.title}\n${input.message}\n来源:${input.source} · 时间:${input.time}`,
+  }
+}
+
+/** 余额不足邮件输入 */
+export interface LowBalanceEmailInput {
+  userName?: string
+  keyName: string
+  tokenBalance: number
+  costBalanceCents: number
+  thresholdCents: number
+  /** 充值落地页完整 URL(调用方负责提供真实存在路径,杜绝 404) */
+  purchaseUrl: string
+}
+
+/** 渲染 API Key 余额不足提醒(品牌绿 + 真实可点击充值按钮) */
+export function renderLowBalanceEmail(input: LowBalanceEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const yuan = (input.costBalanceCents / 100).toFixed(2)
+  const thresholdYuan = (input.thresholdCents / 100).toFixed(2)
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.danger};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const body = `
+    ${para(`您的 API Key <b style="color:${t.ink};">「${escapeHtml(input.keyName)}」</b> 余额已不足,为避免调用中断请尽快充值:`)}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('TOKEN_BALANCE', escapeHtml(String(input.tokenBalance)), t.accent, {
+            right: true,
+            valueStyle: mono,
+          }),
+          cell('BALANCE', `¥${yuan}`, t.accent, { right: true, valueStyle: impact }),
+          cell('THRESHOLD', `¥${thresholdYuan}`, t.accent, { valueStyle: mono }),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: '【智汇AI】您的 API Key 余额不足,请及时充值',
+    html: renderDispatchEmail({
+      tag: 'BILLING // LOW_BALANCE',
+      title: 'API Key 余额不足',
+      bodyHtml: body,
+      button: { href: input.purchaseUrl, label: '立即充值 →' },
+      footNote: `余额耗尽后该 Key 将无法继续调用,充值即时到账。${
+        input.userName ? `(操作员:${input.userName})` : ''
+      }`,
+    }),
+    text: `您的 API Key「${input.keyName}」余额不足(Token 余额 ${input.tokenBalance},¥${yuan},阈值 ¥${thresholdYuan})。立即充值:${input.purchaseUrl}`,
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
