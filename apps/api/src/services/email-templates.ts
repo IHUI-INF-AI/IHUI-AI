@@ -454,6 +454,14 @@ const SEVERITY_LABEL: Record<SystemAlertEmailInput['severity'], string> = {
   critical: 'CRITICAL',
 }
 
+/** 多行纯文本 → 逐行 div(先整体转义,空行以 &nbsp; 保位) */
+function multiLineHtml(text: string): string {
+  return escapeHtml(text)
+    .split(/\r?\n/)
+    .map((line) => `<div>${line || '&nbsp;'}</div>`)
+    .join('')
+}
+
 /** 渲染运维系统告警邮件(critical/warning 信号红,info 品牌绿) */
 export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEmail {
   const t = DISPATCH_TOKENS
@@ -461,10 +469,7 @@ export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEm
   const accent = tone === 'danger' ? t.danger : t.accent
   const mono = `font-family:Consolas,'Courier New',monospace;font-size:17px;font-weight:bold;color:${t.ink};margin-top:7px;`
   // message 整体转义后按行拆分渲染,空行以 &nbsp; 保位
-  const messageHtml = escapeHtml(input.message)
-    .split(/\r?\n/)
-    .map((line) => `<div>${line || '&nbsp;'}</div>`)
-    .join('')
+  const messageHtml = multiLineHtml(input.message)
   const body = `
     ${para(input.severity === 'info' ? '系统监测到以下事件,供知悉:' : '系统监测到异常,请值班操作员立即关注:')}
     ${metaGrid(
@@ -543,6 +548,33 @@ export function renderLowBalanceEmail(input: LowBalanceEmailInput): DispatchEmai
       }`,
     }),
     text: `您的 API Key「${input.keyName}」余额不足(Token 余额 ${input.tokenBalance},¥${yuan},阈值 ¥${thresholdYuan})。立即充值:${input.purchaseUrl}`,
+  }
+}
+
+/** 通用系统通知输入(content 为多行纯文本,整体转义) */
+export interface NoticeEmailInput {
+  /** 栏目眉,如 SYSTEM // NOTICE */
+  tag: string
+  title: string
+  userName?: string
+  content: string
+}
+
+/** 渲染通用系统通知邮件(品牌绿朴素版式;内容为纯文本自动转义,不含按钮) */
+export function renderNoticeEmail(input: NoticeEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const greeting = input.userName ? `${escapeHtml(input.userName)},` : ''
+  const body = `
+    ${para(`${greeting}您有一条新的系统通知:`)}
+    <div style="font-family:'Microsoft YaHei',sans-serif;font-size:17px;line-height:1.9;color:${t.ink};border:1px dashed ${t.accent};padding:18px 22px;margin:0 0 24px;">${multiLineHtml(input.content)}</div>`
+  return {
+    subject: input.title,
+    html: renderDispatchEmail({
+      tag: input.tag,
+      title: input.title,
+      bodyHtml: body,
+    }),
+    text: input.content,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
