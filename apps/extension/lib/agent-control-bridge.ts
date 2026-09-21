@@ -23,10 +23,12 @@ import type {
   AgentActionResponse,
   AgentControlCapability,
   BrowserControlActionType,
+  ExtUiActionType,
 } from '@ihui/types'
 import { getToken } from './token'
 import { getBridgeBaseUrl } from './config'
-import { executeAgentActionRequest } from './agent-control'
+import { dispatchAgentActionRequest } from './ext-ui-forwarder'
+import { EXT_UI_CONTROL_TOOLS } from './ui-control-tools'
 
 // ===== Constants =====
 
@@ -49,6 +51,16 @@ const BROWSER_ACTIONS: BrowserControlActionType[] = [
   'switch_tab',
   'close_tab',
 ]
+
+/**
+ * ext_ui 能力上报(2026-09-21 立,第五族):从契约清单 `EXT_UI_CONTROL_TOOLS` 派生动词名
+ * (api schema 为 `z.array(z.string()).max(20)`,且 api 侧
+ * `tests/agent-control-ui.test.ts:820` 的口径是动词 ['describe',...];故去掉 `ext_ui_`
+ * 前缀上报,派生自契约清单、零手抄漂移)。
+ */
+const EXT_UI_VERBS: ExtUiActionType[] = EXT_UI_CONTROL_TOOLS.map((tool) =>
+  tool.replace(/^ext_ui_/, ''),
+) as ExtUiActionType[]
 
 let bridgeInitialized = false
 
@@ -84,6 +96,7 @@ function buildCapability(): AgentControlCapability {
     instanceId: `ext-${chrome.runtime.id}`,
     browserActions: BROWSER_ACTIONS,
     computerActions: [],
+    extUiActions: [...EXT_UI_VERBS],
     version: VERSION,
     reportedAt: new Date().toISOString(),
   }
@@ -156,7 +169,7 @@ function onRuntimeMessage(msg: unknown): void {
       _processedIds.add(id)
     }
   }
-  void executeAgentActionRequest(req)
+  void dispatchAgentActionRequest(req)
     .then(reportResult)
     .catch((err) => {
       console.warn('[IHUI AI] agent-control bridge: action failed:', err)
