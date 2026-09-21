@@ -24,8 +24,9 @@ const MESSAGES_DIR = join(ROOT, 'packages', 'i18n', 'messages')
 
 /** 共享子集解释器(icu.ts)支持的四形;web=next-intl 全量 ICU,天然四形皆可 */
 const SUPPORTED_TYPES = new Set(['plural', 'select', 'selectordinal', 'number'])
-/** cli 端自写替换只认 {name}/{{name}},任何 ICU 形态都会吐成字面量 */
-const NO_ICU_NAMESPACES = new Set(['cli'])
+/** 仍自带插值器、渲染不了 ICU 的端。cli 已于 D101 第④步收编为共享 formatIcu 故清空;
+ *  新端若自带插值器,把命名空间登记在此即可复用同一判据。 */
+const NO_ICU_NAMESPACES = new Set()
 const WEB_NAMESPACE = 'web'
 const ARG_RE = /\{\s*([\w$]+)\s*,\s*([\w$-]+)/gu
 
@@ -141,7 +142,7 @@ export function runScan(messagesDir = MESSAGES_DIR) {
 
 function selfTest() {
   const cases = [
-    ['cli', 'zh-CN', '{a, select, x {1} other {2}}', 1],
+    ['cli', 'zh-CN', '{a, select, x {1} other {2}}', 0],
     ['miniapp-taro', 'zh-CN', '{a, select, x {1} other {2}}', 0],
     ['shared', 'en', '{n, plural, one {# file} other {# files}}', 0],
     ['extension', 'zh-CN', '{x, number, ::percent}', 1],
