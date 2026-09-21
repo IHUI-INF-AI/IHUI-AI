@@ -37,6 +37,7 @@ import {
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
+  localizeQuotaExhausted,
 } from './stream-handlers'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
@@ -435,20 +436,26 @@ export function createSendAnswer(
           reasoningBatcher.flush()
           agentBatcher.flushAll()
           const formatted = formatSSEError(errMsg, info)
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
+          // 厂商账号额度耗尽(2026-09-22 批次 60):与 sendMessage 对称 —— 只认 errorCode
+          // (ai-service 未登记该码,HTTP 仍回落默认 502),且不给出 retry 按钮。
+          const ec = info?.errorCode
+          const quotaNotice = localizeQuotaExhausted(ec, t)
+          const displayMessage = quotaNotice?.message ?? formatted.message
+          useChatStore.getState().setMessageError(assistantId, displayMessage)
+          useChatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
           // 前端错误码透出(P1):sendAnswer 路径同 sendMessage,toast description 加 [errorCode] 前缀
-          const ec = info?.errorCode
           const toastDesc =
             formatted.severity === 'auth'
               ? formatted.message
               : ec
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
-          if (formatted.severity === 'ratelimit') {
+          if (quotaNotice) {
+            toast.error(quotaNotice.title, { description: toastDesc })
+          } else if (formatted.severity === 'ratelimit') {
             // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {

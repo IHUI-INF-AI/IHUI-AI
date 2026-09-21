@@ -6,7 +6,27 @@ import { useChatStore, type ToolCall } from '@/stores/chat'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import type { ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
+import { PROVIDER_QUOTA_EXHAUSTED } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
+
+/**
+ * 厂商账号额度耗尽的人话覆盖(2026-09-22 批次 60 前端配套)。
+ *
+ * 为什么只认 errorCode:ai-service 的 status_map 未登记 PROVIDER_QUOTA_EXHAUSTED,
+ * HTTP 仍回落默认 502 —— 按状态码分类会被误判成"AI 服务暂时不可用,请稍后重试",
+ * 而该档下所有候选通道都已因欠费失败,重试必然再撞,文案会误导用户。
+ *
+ * 共享层 `formatSSEError` 已给出中文兜底 + `retryable: false`(供 extension/mobile-rn/cli/
+ * miniapp-taro 等非 i18n 端直接使用);web 有 5 语言,故在端内按 errorCode 本地化覆盖,
+ * 不复制第二套错误表。
+ */
+export function localizeQuotaExhausted(
+  errorCode: string | undefined,
+  t: (key: string) => string,
+): { title: string; message: string } | null {
+  if (errorCode !== PROVIDER_QUOTA_EXHAUSTED) return null
+  return { title: t('quotaExhaustedTitle'), message: t('quotaExhaustedNotice') }
+}
 
 /** 回收"正在压缩上下文"预告态:仅清 compacting,done 态交给状态栏组件自行 3s 隐藏。
  *  2026-09-21 立:预告态在请求发起前点亮,原先只靠 onResponse 清除 —— 而响应头之前失败
