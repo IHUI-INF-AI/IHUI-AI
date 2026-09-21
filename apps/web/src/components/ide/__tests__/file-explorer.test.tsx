@@ -1,0 +1,179 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import React from 'react'
+import { render, fireEvent, cleanup } from '@testing-library/react'
+import type { FileNode } from '@ihui/types'
+
+// useIDEWorkspace 返回的可变状态容器(每个用例 beforeEach 重置)
+const mockStore = vi.hoisted(() => ({
+  state: {
+    activeView: 'files',
+    fileTree: [] as FileNode[],
+    loading: false,
+    error: null as string | null,
+    workspacePath: '/ws',
+    openFile: vi.fn(),
+    selectFile: vi.fn(),
+    fetchFileTree: vi.fn(),
+    toggleFolder: vi.fn(),
+    expandedFolders: new Set<string>(),
+    selectedFileId: null as string | null,
+    // 大纲子Tab依赖(与 useIDEWorkspace 真实 store 契约一致)
+    openTabs: [] as Array<{ id: string; fileId: string; name: string; content?: string }>,
+    activeTabId: null as string | null,
+  },
+}))
+
+// next-intl:返回 key 字面值,使 getByText / getByRole 能按 key 定位
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+  useLocale: () => 'zh-CN',
+}))
+
+// 时间线子Tab会调 runCommand 拉取 git log,mock 掉避免测试环境真实网络请求
+vi.mock('@ihui/api-client', () => ({
+  runCommand: vi.fn().mockResolvedValue({ success: false, data: { stdout: '', stderr: '' } }),
+}))
+
+vi.mock('@/stores/ide-workspace', () => ({
+  useIDEWorkspace: () => mockStore.state,
+}))
+
+import { FileExplorer } from '../file-explorer'
+
+// 2026-08-05 修复:Tooltip 需 TooltipProvider 上下文
+import { TooltipProvider } from '@/components/feedback'
+
+function renderFileExplorer() {
+  return render(
+    <TooltipProvider>
+      <FileExplorer />
+    </TooltipProvider>,
+  )
+}
+
+describe('FileExplorer', () => {
+  beforeEach(() => {
+    mockStore.state = {
+      activeView: 'files',
+      fileTree: [],
+      loading: false,
+      error: null,
+      workspacePath: '/ws',
+      openFile: vi.fn(),
+      selectFile: vi.fn(),
+      fetchFileTree: vi.fn().mockResolvedValue(undefined),
+      toggleFolder: vi.fn(),
+      expandedFolders: new Set<string>(),
+      selectedFileId: null,
+      openTabs: [],
+      activeTabId: null,
+    }
+  })
+  afterEach(() => cleanup())
+
+  it('正常渲染:Tab 按钮 + 搜索框 + 空文件树提示', () => {
+    const { getByText, getByPlaceholderText } = renderFileExplorer()
+    // 三个子标签
+    expect(getByText('fileExplorer.tabFiles')).not.toBeNull()
+    expect(getByText('fileExplorer.tabOutline')).not.toBeNull()
+    expect(getByText('fileExplorer.tabTimeline')).not.toBeNull()
+    // 搜索框(files 子标签下)
+    expect(getByPlaceholderText('fileExplorer.searchPlaceholder')).not.toBeNull()
+    // 空文件树(fileTree.length === 0)→ 显示 noMatch
+    expect(getByText('fileExplorer.noMatch')).not.toBeNull()
+  })
+
+  it('activeView 非 files 时不渲染', () => {
+    mockStore.state.activeView = 'debug'
+    const { container } = renderFileExplorer()
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('无工作区时显示空状态提示', () => {
+    mockStore.state.workspacePath = ''
+    const { getByText } = renderFileExplorer()
+    expect(getByText('editorEmpty.subtitle')).not.toBeNull()
+  })
+
+  it('加载中显示 ... 占位', () => {
+    mockStore.state.workspacePath = '/ws'
+    mockStore.state.loading = true
+    const { getByText } = renderFileExplorer()
+    expect(getByText('...')).not.toBeNull()
+  })
+
+  it('错误状态显示 error 文本', () => {
+    mockStore.state.workspacePath = '/ws'
+    mockStore.state.error = '加载失败'
+    const { getByText } = renderFileExplorer()
+    expect(getByText('加载失败')).not.toBeNull()
+  })
+
+  it('文件夹点击触发 toggleFolder 回调', () => {
+    mockStore.state.workspacePath = '/ws'
+    mockStore.state.fileTree = [
+      { id: 'f1', name: 'src', path: '/ws/src', type: 'folder', children: [] },
+    ]
+    const { getByText } = renderFileExplorer()
+    fireEvent.click(getByText('src'))
+    expect(mockStore.state.toggleFolder).toHaveBeenCalledWith('f1')
+  })
+
+  it('文件点击触发 selectFile + openFile 回调', () => {
+    mockStore.state.workspacePath = '/ws'
+    const fileNode: FileNode = {
+      id: 'file-1',
+      name: 'app.ts',
+      path: '/ws/app.ts',
+      type: 'file',
+      language: 'typescript',
+    }
+    mockStore.state.fileTree = [fileNode]
+    const { getByText } = renderFileExplorer()
+    fireEvent.click(getByText('app.ts'))
+    expect(mockStore.state.selectFile).toHaveBeenCalledWith('file-1')
+    expect(mockStore.state.openFile).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'file-1', name: 'app.ts', type: 'file' }),
+    )
+  })
+
+  it('搜索框输入关键词过滤出匹配文件', () => {
+    mockStore.state.workspacePath = '/ws'
+    mockStore.state.fileTree = [
+      { id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' },
+      { id: 'f2', name: 'readme.md', path: '/ws/readme.md', type: 'file' },
+    ]
+    const { getByPlaceholderText, getByText, queryByText } = renderFileExplorer()
+    const input = getByPlaceholderText('fileExplorer.searchPlaceholder')
+    fireEvent.change(input, { target: { value: 'app' } })
+    // 命中 app.ts:highlightMatch 把 'app' 拆为高亮 span,后缀 '.ts' 为独立文本节点
+    expect(getByText('app')).not.toBeNull()
+    expect(getByText('.ts')).not.toBeNull()
+    // 不命中 readme.min-[768px]:readme 文本不存在
+    expect(queryByText('readme')).toBeNull()
+  })
+
+  it('搜索无匹配显示 noMatch', () => {
+    mockStore.state.workspacePath = '/ws'
+    mockStore.state.fileTree = [{ id: 'f1', name: 'app.ts', path: '/ws/app.ts', type: 'file' }]
+    const { getByPlaceholderText, getByText } = renderFileExplorer()
+    fireEvent.change(getByPlaceholderText('fileExplorer.searchPlaceholder'), {
+      target: { value: 'zzz' },
+    })
+    expect(getByText('fileExplorer.noMatch')).not.toBeNull()
+  })
+
+  it('刷新按钮点击触发 fetchFileTree', () => {
+    mockStore.state.workspacePath = '/ws'
+    // 组件用 aria-label(非原生 title,符合项目 Tooltip 统一规则),按 role+name 定位
+    const { getByRole } = renderFileExplorer()
+    fireEvent.click(getByRole('button', { name: 'fileExplorer.refresh' }))
+    expect(mockStore.state.fetchFileTree).toHaveBeenCalled()
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,822 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { basename } from 'node:path'
+import { z } from 'zod'
+import { and, eq, desc } from 'drizzle-orm'
+import { auditLogs, resourceProducts } from '@ihui/database'
+import { db } from '../db/index.js'
+import { requireAdmin } from '../plugins/require-permission.js'
+import { authenticate } from '../plugins/auth.js'
+import {
+  findCategoriesByPid,
+  findCategoryById,
+  createResourceCategory,
+  updateResourceCategory,
+  deleteResourceCategory,
+  findResources,
+  findResourceByIdAndIncrementView,
+  findResourceById,
+  findResourcesByIds,
+  createResource,
+  updateResource,
+  deleteResource,
+  publishResource,
+  findProducts,
+  findProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  findTags,
+  findTagById,
+  createTag,
+  updateTag,
+  deleteTag,
+  findPublishedResourceById,
+  checkDownloadPermission,
+  createDownloadRecord,
+  incrementResourceDownloadCount,
+} from '../db/resource-queries.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
+import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
+
+// 通用响应 schema(data 透传)
+const responseSchema = {
+  200: {
+    type: 'object',
+    properties: {
+      code: { type: 'number' },
+      message: { type: 'string' },
+      data: { type: 'object', additionalProperties: true },
+    },
+  },
+  400: {
+    type: 'object',
+    properties: { code: { type: 'number' }, message: { type: 'string' } },
+  },
+  401: {
+    type: 'object',
+    properties: { code: { type: 'number' }, message: { type: 'string' } },
+  },
+  404: {
+    type: 'object',
+    properties: { code: { type: 'number' }, message: { type: 'string' } },
+  },
+}
+
+const responseSchema201 = {
+  ...responseSchema,
+  201: responseSchema[200],
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const paginationQuery = {
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+}
+
+const uuidParamSchema = z.object({ id: z.uuid({ error: '无效的 ID' }) })
+
+const resourcesListQuery = z.object({
+  ...paginationQuery,
+  title: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  categoryId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+})
+
+const byIdsQuery = z.object({
+  ids: z.string().min(1, 'ids 不能为空'),
+})
+
+const categoryQuery = z.object({
+  pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  fetchAll: booleanStringSchemaOptional,
+})
+
+const createCategorySchema = z.object({
+  name: z.string().min(1).max(100),
+  pid: z.uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+const updateCategorySchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  pid: z.uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+const createResourceSchema = z.object({
+  title: z.string().min(1).max(200),
+  coverImage: z.string().max(500).nullable().optional(),
+  intro: z.string().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  fileUrl: z.string().max(500).nullable().optional(),
+  fileType: z.string().max(50).nullable().optional(),
+  fileSize: z.number().int().min(0).optional(),
+  isPublished: z.boolean().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).optional(),
+  type: z.string().max(50).nullable().optional(),
+  productId: z.transform(emptyToUndefined).pipe(z.uuid().nullable()).optional(),
+  tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
+  image: z.string().max(500).nullable().optional(),
+  introduction: z.string().nullable().optional(),
+  cidList: z.array(z.uuid()).max(100).nullable().optional(),
+})
+
+const updateResourceSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  coverImage: z.string().max(500).nullable().optional(),
+  intro: z.string().nullable().optional(),
+  categoryId: z.uuid().nullable().optional(),
+  fileUrl: z.string().max(500).nullable().optional(),
+  fileType: z.string().max(50).nullable().optional(),
+  fileSize: z.number().int().min(0).optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).optional(),
+  type: z.string().max(50).nullable().optional(),
+  productId: z.transform(emptyToUndefined).pipe(z.uuid().nullable()).optional(),
+  tagIdList: z.array(z.uuid()).max(100).nullable().optional(),
+  image: z.string().max(500).nullable().optional(),
+  introduction: z.string().nullable().optional(),
+  cidList: z.array(z.uuid()).max(100).nullable().optional(),
+})
+
+const publishResourceSchema = z.object({
+  isPublished: z.boolean(),
+})
+
+const productsListQuery = z.object({
+  ...paginationQuery,
+  resourceId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(200).optional()),
+  // P1 修复(2026-08-06):z.coerce.boolean() 将 "false"/"0" 解析为 true,改用严格布尔 schema
+  isPublished: booleanStringSchemaOptional,
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+})
+
+const createProductSchema = z.object({
+  resourceId: z.uuid({ error: '无效的资源 ID' }),
+  name: z.string().min(1).max(200),
+  price: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .optional(),
+  originalPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .nullable()
+    .optional(),
+  description: z.string().nullable().optional(),
+  isPublished: z.boolean().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).optional(),
+})
+
+const updateProductSchema = z.object({
+  resourceId: z.uuid().optional(),
+  name: z.string().min(1).max(200).optional(),
+  price: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .optional(),
+  originalPrice: z
+    .string()
+    .regex(/^\d+(\.\d{1,2})?$/, '价格格式错误')
+    .nullable()
+    .optional(),
+  description: z.string().nullable().optional(),
+  isPublished: z.boolean().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).optional(),
+})
+
+const tagsListQuery = z.object({
+  ...paginationQuery,
+  name: z.transform(emptyToUndefined).pipe(z.string().min(1).max(100).optional()),
+  pid: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  status: z.transform(emptyToUndefined).pipe(z.coerce.number().int().min(0).optional()),
+})
+
+const createTagSchema = z.object({
+  name: z.string().min(1).max(100),
+  pid: z.uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+const updateTagSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  pid: z.uuid().nullable().optional(),
+  sort: z.number().int().min(0).optional(),
+  status: z.number().int().min(0).max(1).optional(),
+})
+
+// =============================================================================
+// 公共路由（前缀 /api，需登录）
+// =============================================================================
+
+export const resourceRoutes: FastifyPluginAsync = async (server) => {
+  // GET /resources/categories - 启用分类列表(可选 pid 筛选)（公开）
+  server.get(
+    '/resources/categories',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = categoryQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const list = await findCategoriesByPid(parsed.data.pid ?? null, false)
+      return reply.send(success({ list }))
+    },
+  )
+
+  // GET /resources/categories/:id - 分类详情
+  server.get(
+    '/resources/categories/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const category = await findCategoryById(parsed.data.id)
+      if (!category) return reply.status(404).send(error(404, '分类不存在'))
+      return reply.send(success({ category }))
+    },
+  )
+
+  // GET /resources - 已发布资源列表(分页+筛选)
+  server.get(
+    '/resources',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = resourcesListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // 公开端点强制只看已发布+启用
+      const result = await findResources({
+        ...parsed.data,
+        isPublished: true,
+        status: 1,
+      })
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /resources/by-ids - 批量获取资源
+  server.get(
+    '/resources/by-ids',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = byIdsQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ids = parsed.data.ids
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const list = await findResourcesByIds(ids)
+      return reply.send(success({ list }))
+    },
+  )
+
+  // GET /resources/:id - 资源详情(自增浏览量)
+  server.get(
+    '/resources/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const resource = await findResourceByIdAndIncrementView(parsed.data.id)
+      if (!resource) return reply.status(404).send(error(404, '资源不存在'))
+      return reply.send(success({ resource }))
+    },
+  )
+
+  // GET /resources/:id/download - 资源下载（需登录 + 权限校验 + 下载记录）
+  server.get(
+    '/resources/:id/download',
+    {
+      schema: {
+        response: {
+          ...responseSchema,
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+          302: { type: 'string' },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      await authenticate(request)
+      const userId = request.userId!
+
+      const resource = await findPublishedResourceById(parsed.data.id)
+      if (!resource) return reply.status(404).send(error(404, '资源不存在或未发布'))
+
+      const permission = await checkDownloadPermission(userId, parsed.data.id)
+      if (!permission.allowed) {
+        return reply.status(403).send(error(403, permission.reason))
+      }
+
+      const fileUrl = resource.fileUrl
+      if (!fileUrl) return reply.status(404).send(error(404, '资源文件不存在'))
+
+      // 写入下载记录 + 自增下载量（不阻塞响应）
+      // 2026-07-21 安全审计第十轮加固:不再手工读 X-Forwarded-For
+      // request.ip 已经过 trustProxy 验证,等同于真实客户端 IP(或最后可信代理 IP)
+      // 手工读 X-Forwarded-For 会被攻击者伪造任意 IP 污染审计日志
+      const ip = request.ip
+      const userAgent = request.headers['user-agent'] ?? null
+      await Promise.all([
+        createDownloadRecord({ resourceId: parsed.data.id, userId, ip, userAgent }),
+        incrementResourceDownloadCount(parsed.data.id),
+      ])
+
+      // HTTP(S) URL → 重定向到 OSS/CDN
+      if (/^https?:\/\//i.test(fileUrl)) {
+        return reply.redirect(fileUrl)
+      }
+
+      // 本地文件 → 流式传输
+      try {
+        const stats = await stat(fileUrl)
+        const filename = basename(fileUrl)
+        reply.header('Content-Type', resource.fileType || 'application/octet-stream')
+        reply.header('Content-Length', stats.size)
+        reply.header(
+          'Content-Disposition',
+          `attachment; filename="${encodeURIComponent(filename)}"`,
+        )
+        const stream = createReadStream(fileUrl)
+        return reply.send(stream)
+      } catch {
+        return reply.status(404).send(error(404, '资源文件不存在'))
+      }
+    },
+  )
+
+  // GET /resources/products/:id - 产品详情(公开)
+  server.get(
+    '/resources/products/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const product = await findProductById(parsed.data.id)
+      if (!product) return reply.status(404).send(error(404, '产品不存在'))
+      return reply.send(success({ product }))
+    },
+  )
+
+  // GET /resources/tags/:id - 标签详情(公开)
+  server.get(
+    '/resources/tags/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const tag = await findTagById(parsed.data.id)
+      if (!tag) return reply.status(404).send(error(404, '标签不存在'))
+      return reply.send(success({ tag }))
+    },
+  )
+
+  // GET /resource/auth-api/member/last-search-record - 当前用户最近一条搜索记录(迁移自 D 盘历史路径)
+  // 复用 audit_logs 表 action='resource.search' 记录,无记录时返回 null
+  server.get('/resource/auth-api/member/last-search-record', async (request, reply) => {
+    let userId: string | undefined
+    try {
+      await authenticate(request)
+      userId = request.userId
+    } catch {
+      return reply.status(401).send(error(401, '操作失败,请稍后重试'))
+    }
+    const [record] = await db
+      .select({
+        id: auditLogs.id,
+        details: auditLogs.details,
+        createdAt: auditLogs.createdAt,
+      })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.userId, userId!), eq(auditLogs.action, 'resource.search')))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(1)
+    return reply.send(success({ record: record ?? null }))
+  })
+}
+
+// =============================================================================
+// 管理员路由（前缀 /api/admin）
+// =============================================================================
+
+/** 产品树形分类节点(递归 children) */
+interface ProductTreeNode {
+  id: string
+  name: string
+  price: string
+  resourceId: string
+  pid: string | null
+  sort: number
+  status: number
+  isPublished: boolean
+  children: ProductTreeNode[]
+}
+
+export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAdmin)
+
+  // ----- Categories Admin -----
+
+  // GET /resources/categories - 分类列表(含禁用,可选 pid)
+  server.get(
+    '/resources/categories',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = categoryQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const list = await findCategoriesByPid(parsed.data.pid ?? null, parsed.data.fetchAll ?? false)
+      return reply.send(success({ list }))
+    },
+  )
+
+  // POST /resources/categories - 创建分类
+  server.post(
+    '/resources/categories',
+    { schema: { response: { ...responseSchema201 } } },
+    async (request, reply) => {
+      const parsed = createCategorySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const category = await createResourceCategory(parsed.data)
+      return reply.status(201).send(success({ category }))
+    },
+  )
+
+  // PUT /resources/categories/:id - 更新分类
+  server.put(
+    '/resources/categories/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const idParsed = uuidParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = updateCategorySchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findCategoryById(idParsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '分类不存在'))
+      const category = await updateResourceCategory(idParsed.data.id, parsed.data)
+      return reply.send(success({ category }))
+    },
+  )
+
+  // DELETE /resources/categories/:id - 删除分类
+  server.delete(
+    '/resources/categories/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findCategoryById(parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '分类不存在'))
+      await deleteResourceCategory(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
+
+  // ----- Resources Admin -----
+
+  // GET /resources - 资源列表(不限发布状态)
+  server.get(
+    '/resources',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = resourcesListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findResources(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // GET /resources/:id - 资源详情(admin,不自增浏览量)
+  server.get(
+    '/resources/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const resource = await findResourceById(parsed.data.id)
+      if (!resource) return reply.status(404).send(error(404, '资源不存在'))
+      return reply.send(success({ resource }))
+    },
+  )
+
+  // POST /resources - 创建资源
+  server.post(
+    '/resources',
+    { schema: { response: { ...responseSchema201 } } },
+    async (request, reply) => {
+      const parsed = createResourceSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const resource = await createResource(parsed.data)
+      return reply.status(201).send(success({ resource }))
+    },
+  )
+
+  // PUT /resources/:id - 更新资源
+  server.put(
+    '/resources/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const idParsed = uuidParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = updateResourceSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findResourceById(idParsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '资源不存在'))
+      const resource = await updateResource(idParsed.data.id, parsed.data)
+      return reply.send(success({ resource }))
+    },
+  )
+
+  // DELETE /resources/:id - 删除资源
+  server.delete(
+    '/resources/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findResourceById(parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '资源不存在'))
+      await deleteResource(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
+
+  // PUT /resources/:id/publish - 发布/取消发布
+  server.put(
+    '/resources/:id/publish',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const idParsed = uuidParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = publishResourceSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findResourceById(idParsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '资源不存在'))
+      const resource = await publishResource(idParsed.data.id, parsed.data.isPublished)
+      return reply.send(success({ resource }))
+    },
+  )
+
+  // ----- Products Admin -----
+
+  // GET /resources/products/tree - 产品树形分类(根节点 pid=NULL,递归组装 children)
+  // 2026-07-25 P2 治理:resource_products 加 pid 列后的树形查询接口
+  server.get(
+    '/resources/products/tree',
+    { schema: { response: { ...responseSchema } } },
+    async (_request, reply) => {
+      const rows = await db
+        .select()
+        .from(resourceProducts)
+        .orderBy(desc(resourceProducts.sort), desc(resourceProducts.createdAt))
+
+      // 单层查询 + 内存组装(产品数通常 < 1000,无需递归 SQL)
+      const nodeMap = new Map<string, ProductTreeNode>()
+      for (const r of rows) {
+        nodeMap.set(r.id, {
+          id: r.id,
+          name: r.name,
+          price: r.price,
+          resourceId: r.resourceId,
+          pid: r.pid,
+          sort: r.sort,
+          status: r.status,
+          isPublished: r.isPublished,
+          children: [],
+        })
+      }
+
+      const roots: ProductTreeNode[] = []
+      for (const node of nodeMap.values()) {
+        if (node.pid && nodeMap.has(node.pid)) {
+          nodeMap.get(node.pid)!.children.push(node)
+        } else {
+          // pid 为空或指向不存在的产品 → 视为根节点
+          roots.push(node)
+        }
+      }
+
+      return reply.send(success({ tree: roots, total: rows.length }))
+    },
+  )
+
+  // GET /resources/products - 产品列表
+  server.get(
+    '/resources/products',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = productsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findProducts(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /resources/products - 创建产品
+  server.post(
+    '/resources/products',
+    { schema: { response: { ...responseSchema201 } } },
+    async (request, reply) => {
+      const parsed = createProductSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const product = await createProduct(parsed.data)
+      return reply.status(201).send(success({ product }))
+    },
+  )
+
+  // PUT /resources/products/:id - 更新产品
+  server.put(
+    '/resources/products/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const idParsed = uuidParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = updateProductSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findProductById(idParsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '产品不存在'))
+      const product = await updateProduct(idParsed.data.id, parsed.data)
+      return reply.send(success({ product }))
+    },
+  )
+
+  // DELETE /resources/products/:id - 删除产品
+  server.delete(
+    '/resources/products/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findProductById(parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '产品不存在'))
+      await deleteProduct(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
+
+  // ----- Tags Admin -----
+
+  // GET /resources/tags - 标签列表
+  server.get(
+    '/resources/tags',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = tagsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findTags(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  // POST /resources/tags - 创建标签
+  server.post(
+    '/resources/tags',
+    { schema: { response: { ...responseSchema201 } } },
+    async (request, reply) => {
+      const parsed = createTagSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const tag = await createTag(parsed.data)
+      return reply.status(201).send(success({ tag }))
+    },
+  )
+
+  // PUT /resources/tags/:id - 更新标签
+  server.put(
+    '/resources/tags/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const idParsed = uuidParamSchema.safeParse(request.params)
+      if (!idParsed.success) {
+        return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const parsed = updateTagSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findTagById(idParsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '标签不存在'))
+      const tag = await updateTag(idParsed.data.id, parsed.data)
+      return reply.send(success({ tag }))
+    },
+  )
+
+  // DELETE /resources/tags/:id - 删除标签
+  server.delete(
+    '/resources/tags/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const existing = await findTagById(parsed.data.id)
+      if (!existing) return reply.status(404).send(error(404, '标签不存在'))
+      await deleteTag(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
+
+  // 单数路径别名(兼容前端 /api/admin/resource/products 与 /api/admin/resource/tags 调用)
+  server.get(
+    '/resource/products',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = productsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findProducts(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  server.get(
+    '/resource/tags',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = tagsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findTags(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

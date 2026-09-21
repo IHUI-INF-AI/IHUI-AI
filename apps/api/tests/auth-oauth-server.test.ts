@@ -1,0 +1,789 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import Fastify, { type FastifyInstance } from 'fastify'
+import cookie from '@fastify/cookie'
+
+/**
+ * OAuth2 Server 路由测试(2026-08-01 立)
+ *
+ * 覆盖 /auth/oauth/authorize + /auth/oauth/token 两个端点:
+ * - 成功路径(authorize 颁发 code → token 交换)
+ * - 应用不存在/已禁用
+ * - redirect_uri 不在白名单
+ * - state 不匹配
+ * - 凭证错误(client_secret)
+ * - 授权码已用/已过期
+ * - 用户不存在
+ */
+
+const mockUser = {
+  id: 'user-001',
+  phone: '13800000001',
+  email: 'test@example.com',
+  nickname: 'Tester',
+  avatar: 'https://example.com/a.png',
+  passwordHash: null,
+  roleId: 0,
+  status: 1,
+  familyId: 'fam-001',
+}
+
+const mockOAuthApp = {
+  clientId: 'test-client-001',
+  clientSecret: 'test-secret-abc',
+  name: 'Test OAuth App',
+  description: 'Test app for OAuth2 server routes',
+  redirectUris: ['https://app.example.com/callback', 'http://localhost:8801/cb'],
+  scopes: ['read', 'write'],
+  icon: null,
+  ownerUuid: 'user-001',
+  isActive: 1,
+  createdAt: new Date('2026-07-01'),
+  updatedAt: new Date('2026-07-01'),
+}
+
+const mockSession = {
+  id: 'session-001',
+  code: 'auth-code-abc123',
+  clientId: 'test-client-001',
+  userId: 'user-001',
+  state: 'state-xyz',
+  scope: 'read',
+  codeChallenge: null,
+  codeChallengeMethod: null,
+  isUsed: 0,
+  expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 分钟后过期
+  createdAt: new Date(),
+}
+
+const {
+  mockAuthenticate,
+  mockFindOAuthAppByClientId,
+  mockCreateOAuthSession,
+  mockFindSessionByCode,
+  mockMarkSessionUsed,
+  mockCreateAuditLog,
+  mockFindUserById,
+  mockSaveRefreshToken,
+  mockGenerateAuthCode,
+  mockGenerateState,
+  mockGenerateClientId,
+  mockGenerateClientSecret,
+  mockGenerateUserSk,
+  mockVerifyAccessToken,
+  mockSignAccessToken,
+  mockSignRefreshToken,
+  mockCreateFamilyId,
+  mockSignM2MAccessToken,
+} = vi.hoisted(() => ({
+  mockAuthenticate: vi.fn(),
+  mockFindOAuthAppByClientId: vi.fn(),
+  mockCreateOAuthSession: vi.fn(),
+  mockFindSessionByCode: vi.fn(),
+  mockMarkSessionUsed: vi.fn(),
+  mockCreateAuditLog: vi.fn(),
+  mockFindUserById: vi.fn(),
+  mockSaveRefreshToken: vi.fn(),
+  mockGenerateAuthCode: vi.fn(),
+  mockGenerateState: vi.fn(),
+  mockGenerateClientId: vi.fn(),
+  mockGenerateClientSecret: vi.fn(),
+  mockGenerateUserSk: vi.fn(),
+  mockVerifyAccessToken: vi.fn(),
+  mockSignAccessToken: vi.fn(),
+  mockSignRefreshToken: vi.fn(),
+  mockCreateFamilyId: vi.fn(),
+  // 本文件把 'jose' 整体打桩成 { decodeJwt },真 signM2MAccessToken 里的 new SignJWT()
+  // 会炸;M2M 签发成功路径要测,故替身化这一个函数(其余 OAuth 纯函数走真实现)。
+  mockSignM2MAccessToken: vi.fn(async () => 'm2m.test.jwt'),
+}))
+
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
+vi.mock('@ihui/auth', async (importOriginal) => {
+  // O7 之后 auth-extended.ts 从 @ihui/auth 多引了 11 个符号(evaluatePkce /
+  // extractClientCredentials / verifyClientSecret / isPublicClientApp / …),
+  // 逐条手写白名单的形式每次加依赖都会漏一条 → handler 里抛 TypeError → 全部 500。
+  // 改成"保留真实实现 + 只替身化 4 个需要断言的函数",依赖增量不再影响本套件。
+  const actual = (await importOriginal<Record<string, unknown>>()) as Record<string, unknown>
+  return {
+    ...actual,
+    verifyAccessToken: mockVerifyAccessToken,
+    signAccessToken: mockSignAccessToken,
+    signRefreshToken: mockSignRefreshToken,
+    signM2MAccessToken: mockSignM2MAccessToken,
+    createFamilyId: mockCreateFamilyId,
+    isOidcConfigured: () => false,
+    isDiscordConfigured: () => false,
+    isTelegramConfigured: () => false,
+  }
+})
+
+vi.mock('../src/config/index.js', () => ({
+  config: {
+    JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
+    NODE_ENV: 'test',
+  },
+}))
+
+vi.mock('../src/plugins/auth.js', () => ({
+  authenticate: mockAuthenticate,
+}))
+
+vi.mock('../src/db/oauth-queries.js', () => ({
+  findOAuthAppByClientId: mockFindOAuthAppByClientId,
+  createOAuthApp: vi.fn(),
+  listOAuthApps: vi.fn(),
+  deleteOAuthApp: vi.fn(),
+  createOAuthSession: mockCreateOAuthSession,
+  findSessionByCode: mockFindSessionByCode,
+  markSessionUsed: mockMarkSessionUsed,
+  listUserSessions: vi.fn(),
+  deleteSession: vi.fn(),
+  listActiveScopeMeta: vi.fn(),
+  findThirdPartyAccount: vi.fn(),
+  listUserBindings: vi.fn(),
+  createThirdPartyBinding: vi.fn(),
+  removeBinding: vi.fn(),
+  removeBindingByPlatform: vi.fn(),
+  createUserSk: vi.fn(),
+  listUserSk: vi.fn(),
+  updateUserSk: vi.fn(),
+  deleteUserSk: vi.fn(),
+  createAuditLog: mockCreateAuditLog,
+}))
+
+vi.mock('../src/db/queries.js', () => ({
+  findUserByPhone: vi.fn(),
+  findUserByEmail: vi.fn(),
+  findUserByUsername: vi.fn(),
+  findUserById: mockFindUserById,
+  createUser: vi.fn(),
+  updateUser: vi.fn(),
+  checkPhoneExists: vi.fn(),
+  checkEmailExists: vi.fn(),
+  cancelUserAccount: vi.fn(),
+  saveRefreshToken: mockSaveRefreshToken,
+  findRefreshToken: vi.fn(),
+  revokeRefreshToken: vi.fn(),
+}))
+
+vi.mock('../src/services/oauth-providers.js', () => ({
+  exchangeGoogleCode: vi.fn(),
+  verifyGoogleIdToken: vi.fn(),
+  isGoogleConfigured: () => false,
+  jscode2session: vi.fn(),
+  getPhoneNumber: vi.fn(),
+  isWechatMiniConfigured: () => false,
+  wecomCode2session: vi.fn(),
+  wecomPcCode2session: vi.fn(),
+  isWecomConfigured: () => false,
+  isWecomSuiteConfigured: () => false,
+  isDingtalkConfigured: () => false,
+  buildDingtalkAuthUrl: vi.fn(),
+  exchangeDingtalkCode: vi.fn(),
+  getDingtalkUserInfo: vi.fn(),
+  isAlipayLoginConfigured: () => false,
+  exchangeAlipayCode: vi.fn(),
+  getAlipayUserInfo: vi.fn(),
+  isFeishuConfigured: () => false,
+  getFeishuAccessToken: vi.fn(),
+  getFeishuUserInfo: vi.fn(),
+  generateState: mockGenerateState,
+  generateAuthCode: mockGenerateAuthCode,
+  generateClientId: mockGenerateClientId,
+  generateClientSecret: mockGenerateClientSecret,
+  generateUserSk: mockGenerateUserSk,
+}))
+
+vi.mock('../src/services/sms.js', () => ({
+  sendSmsCode: vi.fn(),
+  isSmsConfigured: () => false,
+}))
+
+vi.mock('../src/services/email-service.js', () => ({
+  sendVerificationEmail: vi.fn(),
+}))
+
+vi.mock('../src/services/captcha.js', () => ({
+  generateCaptchaKey: vi.fn(),
+  generateCaptchaCode: vi.fn(),
+  generateCaptchaImage: vi.fn(),
+  verifyCaptcha: vi.fn(),
+}))
+
+vi.mock('../src/db/captcha-queries.js', () => ({
+  saveCaptcha: vi.fn(),
+  findCaptcha: vi.fn(),
+  deleteCaptcha: vi.fn(),
+}))
+
+vi.mock('../src/services/totp-service.js', () => ({
+  generateSecret: vi.fn(),
+  verifyTotp: vi.fn(),
+  buildOtpauthUri: vi.fn(),
+  generateQrCodeDataUrl: vi.fn(),
+  generateBackupCodes: vi.fn(),
+  hashBackupCode: vi.fn(),
+  verifyBackupCode: vi.fn(),
+  base32Encode: vi.fn(),
+  verifyChallengeToken: vi.fn(),
+}))
+
+vi.mock('../src/services/account-lockout.js', () => ({
+  recordLoginFailure: vi.fn(),
+  clearLoginFailures: vi.fn(),
+  getLockRemainingMs: vi.fn().mockResolvedValue(0),
+  ACCOUNT_LOCKOUT_CONFIG: { lockDurationSec: 900 },
+}))
+
+vi.mock('../src/utils/code-store.js', () => ({
+  codeStore: new Map(),
+  generateCode: vi.fn(),
+  cleanupExpiredCodes: vi.fn(),
+  verifyCode: vi.fn(),
+  CODE_TTL_MS: 300000,
+  CODE_RESEND_INTERVAL_MS: 60000,
+}))
+
+vi.mock('../src/utils/crypto.js', () => ({
+  encryptJSON: vi.fn((data: unknown) => ({ iv: 'iv', ciphertext: String(data), tag: 'tag' })),
+  decryptJSON: vi.fn(),
+}))
+
+vi.mock('../src/utils/password-crypto.js', () => ({
+  hashPassword: vi.fn(),
+  verifyPassword: vi.fn(),
+}))
+
+vi.mock('../src/utils/crypto-random.js', () => ({
+  generateShortCode: vi.fn(),
+}))
+
+vi.mock('@ihui/database', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>()
+  return {
+    ...actual,
+    users: {},
+    invitationCodes: {
+      id: 'id',
+      code: 'code',
+      userId: 'user_id',
+      usedAt: 'used_at',
+      createdAt: 'created_at',
+      expiresAt: 'expires_at',
+    },
+  }
+})
+
+vi.mock('../src/db/index.js', () => ({
+  db: {},
+}))
+
+import {
+  authExtendedRoutes,
+  authenticateOAuthClient,
+  mintClientCredentialsToken,
+  type OAuthAppRow,
+} from '../src/routes/auth-extended.js'
+import { PUBLIC_CLIENT_SECRET } from '@ihui/auth'
+
+describe('OAuth2 Server 路由 — /auth/oauth/authorize + /auth/oauth/token', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    // 2026-08-15 修复:auth 路由依赖 @fastify/cookie 提供的 reply.setCookie
+    await app.register(cookie)
+    app.decorate('redis', {
+      get: vi.fn(),
+      set: vi.fn(),
+      getdel: vi.fn(),
+      del: vi.fn(),
+    })
+    // 注:不设置自定义 errorHandler,Fastify 默认会根据 err.statusCode 返回对应状态码
+    await app.register(authExtendedRoutes, { prefix: '/api' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // 默认 mock:已登录用户 user-001
+    mockAuthenticate.mockImplementation(async (request) => {
+      request.userId = 'user-001'
+      return { userId: 'user-001', roleId: 0, type: 'access' }
+    })
+    mockFindOAuthAppByClientId.mockResolvedValue(mockOAuthApp)
+    mockCreateOAuthSession.mockResolvedValue(mockSession)
+    mockFindSessionByCode.mockResolvedValue(mockSession)
+    mockMarkSessionUsed.mockResolvedValue(undefined)
+    mockCreateAuditLog.mockResolvedValue(undefined)
+    mockFindUserById.mockResolvedValue(mockUser)
+    mockSaveRefreshToken.mockResolvedValue(undefined)
+    mockGenerateAuthCode.mockReturnValue('auth-code-abc123')
+    mockGenerateState.mockReturnValue('state-xyz')
+    mockGenerateClientId.mockReturnValue('cli-test-001')
+    mockGenerateClientSecret.mockReturnValue('sec-test-001')
+    mockGenerateUserSk.mockReturnValue('sk-test-001')
+    mockVerifyAccessToken.mockResolvedValue({ userId: 'user-001', roleId: 0, type: 'access' })
+    mockSignAccessToken.mockResolvedValue('mock-access-token-real')
+    mockSignRefreshToken.mockResolvedValue('mock-refresh-token-real')
+    mockCreateFamilyId.mockReturnValue('fam-mock')
+  })
+
+  describe('GET /api/auth/oauth/authorize — 颁发授权码', () => {
+    it('成功颁发授权码 + 返回 redirect_uri 拼接 code/state', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://app.example.com/callback',
+          state: 'state-xyz',
+          scope: 'read',
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.code).toBe('auth-code-abc123')
+      expect(body.data.state).toBe('state-xyz')
+      expect(body.data.redirect_uri).toContain('code=auth-code-abc123')
+      expect(body.data.redirect_uri).toContain('state=state-xyz')
+      expect(mockCreateOAuthSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'auth-code-abc123',
+          clientId: 'test-client-001',
+          userId: 'user-001',
+          state: 'state-xyz',
+          scope: 'read',
+        }),
+      )
+      expect(mockCreateAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'authorize',
+          clientId: 'test-client-001',
+          userId: 'user-001',
+          status: 'success',
+        }),
+      )
+    })
+
+    it('支持 PKCE 参数(code_challenge + code_challenge_method)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://app.example.com/callback',
+          state: 'state-xyz',
+          code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URhbuHrIZD2gdk',
+          code_challenge_method: 'S256',
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockCreateOAuthSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          codeChallenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URhbuHrIZD2gdk',
+          codeChallengeMethod: 'S256',
+        }),
+      )
+    })
+
+    it('未登录返回 401', async () => {
+      // 模拟 authenticate 真实行为:抛带 statusCode=401 的 Error(2026-08-01 修复)
+      // 原 mock 抛普通 Error,无 statusCode,Fastify 默认转 500
+      const err = new Error('no token') as Error & { statusCode: number }
+      err.statusCode = 401
+      mockAuthenticate.mockRejectedValueOnce(err)
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://app.example.com/callback',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(401)
+    })
+
+    it('state 为空返回 400', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://app.example.com/callback',
+          state: '',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('应用不存在返回 404', async () => {
+      mockFindOAuthAppByClientId.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'nonexistent-client',
+          redirect_uri: 'https://app.example.com/callback',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(404)
+      expect(res.json().message).toContain('不存在')
+    })
+
+    it('应用已禁用(isActive=0)返回 404', async () => {
+      mockFindOAuthAppByClientId.mockResolvedValueOnce({ ...mockOAuthApp, isActive: 0 })
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://app.example.com/callback',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('redirect_uri 不在白名单返回 400', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: 'https://evil.com/callback',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('白名单')
+    })
+
+    it('redirect_uri 为空返回 400(zod parse 失败)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/oauth/authorize',
+        query: {
+          client_id: 'test-client-001',
+          redirect_uri: '',
+          state: 'state-xyz',
+        },
+      })
+      // zod parse 失败抛出,默认 500(statusCode 未设置)
+      // 实际项目应通过 errorHandler 转为 400,这里仅验证不成功
+      expect(res.statusCode).toBeGreaterThanOrEqual(400)
+    })
+  })
+
+  describe('POST /api/auth/oauth/token — 授权码换 access_token', () => {
+    it('成功用 code 换取 access_token', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.access_token).toBe('mock-access-token-real')
+      expect(body.data.token_type).toBe('Bearer')
+      expect(mockMarkSessionUsed).toHaveBeenCalledWith('auth-code-abc123')
+      expect(mockCreateAuditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'token',
+          clientId: 'test-client-001',
+          userId: 'user-001',
+        }),
+      )
+    })
+
+    it('client_secret 错误返回 401', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'wrong-secret',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('凭证错误')
+    })
+
+    it('应用不存在返回 401(凭证错误路径)', async () => {
+      mockFindOAuthAppByClientId.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'nonexistent-client',
+          client_secret: 'any-secret',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(401)
+    })
+
+    it('授权码无效(findSessionByCode 返回 null)返回 400', async () => {
+      mockFindSessionByCode.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'invalid-code',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('无效或已过期')
+    })
+
+    it('授权码已使用(isUsed=1)返回 400', async () => {
+      mockFindSessionByCode.mockResolvedValueOnce({ ...mockSession, isUsed: 1 })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('无效或已过期')
+    })
+
+    it('授权码已过期(expiresAt < now)返回 400', async () => {
+      mockFindSessionByCode.mockResolvedValueOnce({
+        ...mockSession,
+        expiresAt: new Date('2020-01-01'),
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('无效或已过期')
+    })
+
+    it('state 不匹配返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'wrong-state',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('state')
+    })
+
+    it('state 省略时不校验(向后兼容)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+        },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('用户不存在返回 404', async () => {
+      mockFindUserById.mockResolvedValueOnce(null)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('授权码一次性使用 — 第二次使用失败', async () => {
+      // 第一次成功
+      const res1 = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res1.statusCode).toBe(200)
+      // 第二次:模拟 markSessionUsed 已标记,findSessionByCode 返回 isUsed=1
+      mockFindSessionByCode.mockResolvedValueOnce({ ...mockSession, isUsed: 1 })
+      const res2 = await app.inject({
+        method: 'POST',
+        url: '/api/auth/oauth/token',
+        payload: {
+          code: 'auth-code-abc123',
+          client_id: 'test-client-001',
+          client_secret: 'test-secret-abc',
+          state: 'state-xyz',
+        },
+      })
+      expect(res2.statusCode).toBe(400)
+    })
+  })
+})
+
+/**
+ * O17b-④:`POST /oauth/token` 恒 400 的行级真因回归。
+ *
+ * 真因不在取参位置(`extractClientCredentials` 同时读 Authorization 头与表单 body,
+ * basic / post 同等有效),而在 **`oauth_apps.owner_uuid` 为 NULL**:动态注册(O17b 前的
+ * DCR)插入的行 owner_uuid 恒为 null,而 `mintClientCredentialsToken` 要求
+ * sub = owner_uuid(平台数据归属不变量),于是返回 400 invalid_client。
+ * 本组用例把"两条认证通道各自换到 token"与"空 owner / 越权 scope / 公开客户端"
+ * 三条拒绝面钉死,错误状态码同时按 RFC 6749 §5.2 收敛为 401。
+ */
+describe('O17b-④ authenticateOAuthClient + mintClientCredentialsToken', () => {
+  type RequestLike = Parameters<typeof authenticateOAuthClient>[0]
+
+  function requestWithHeader(authorization?: string): RequestLike {
+    return { headers: { ...(authorization ? { authorization } : {}) } } as unknown as RequestLike
+  }
+
+  function appRow(overrides: Record<string, unknown> = {}) {
+    return {
+      ...mockOAuthApp,
+      id: 'row-1',
+      clientSecretHash: null,
+      icon: null,
+      createdAt: new Date('2026-07-01'),
+      updatedAt: new Date('2026-07-01'),
+      ...overrides,
+    } as unknown as OAuthAppRow
+  }
+
+  beforeEach(() => {
+    mockFindOAuthAppByClientId.mockResolvedValue(mockOAuthApp)
+    mockFindUserById.mockResolvedValue(mockUser)
+    mockCreateAuditLog.mockResolvedValue(undefined)
+  })
+
+  it('client_secret_basic:Authorization 头里的凭证可换到 M2M 令牌', async () => {
+    const basic = Buffer.from('test-client-001:test-secret-abc').toString('base64')
+    const auth = await authenticateOAuthClient(requestWithHeader(`Basic ${basic}`), {})
+    expect(auth.ok).toBe(true)
+    if (!auth.ok) return
+    const mint = await mintClientCredentialsToken(auth.app, 'read')
+    expect(mint.ok).toBe(true)
+    if (!mint.ok) return
+    expect(mint.accessToken).toBe('m2m.test.jwt')
+    expect(mint.sub).toBe('user-001')
+  })
+
+  it('client_secret_post:表单/JSON body 里的凭证同样换到令牌(声明不是空头承诺)', async () => {
+    const auth = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'test-secret-abc',
+    })
+    expect(auth.ok).toBe(true)
+    if (!auth.ok) return
+    const mint = await mintClientCredentialsToken(auth.app)
+    expect(mint.ok).toBe(true)
+    if (!mint.ok) return
+    // 未显式申请 scope 时回应用被授予的全集(RFC 6749 §6.3 的可选回显)
+    expect(mint.scope).toBe('read write')
+  })
+
+  it('basic 与 post 同时给出时以头为准,且错 secret 一律 invalid_client + 401', async () => {
+    const basic = Buffer.from('test-client-001:test-secret-abc').toString('base64')
+    const mixed = await authenticateOAuthClient(requestWithHeader(`Basic ${basic}`), {
+      client_id: 'test-client-001',
+      client_secret: 'wrong-secret',
+    })
+    expect(mixed.ok).toBe(true)
+
+    const wrong = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'wrong-secret',
+    })
+    expect(wrong.ok).toBe(false)
+    if (wrong.ok) return
+    expect(wrong.status).toBe(401)
+    expect(wrong.error).toBe('invalid_client')
+  })
+
+  it('真因回归:owner_uuid 为 NULL 的应用签发 M2M 被拒,状态码是 401 而非 400', async () => {
+    const mint = await mintClientCredentialsToken(appRow({ ownerUuid: null }), 'read')
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    // 此前回 400,和"请求形状错"的 400 混在一起,正是本次排障绕弯的原因
+    expect(mint.status).toBe(401)
+    expect(mint.error).toBe('invalid_client')
+    expect(mint.description).toContain('owner_uuid')
+  })
+
+  it('scope 越权申请被拒:应用未被授予的 scope → 400 invalid_scope', async () => {
+    const mint = await mintClientCredentialsToken(appRow(), 'read admin:write')
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    expect(mint.status).toBe(400)
+    expect(mint.error).toBe('invalid_scope')
+    expect(mint.description).toContain('admin:write')
+  })
+
+  it('公开客户端(none)出示 secret 直接拒;不得用 client_credentials', async () => {
+    mockFindOAuthAppByClientId.mockResolvedValueOnce({
+      ...mockOAuthApp,
+      clientSecret: PUBLIC_CLIENT_SECRET,
+    })
+    const auth = await authenticateOAuthClient(requestWithHeader(), {
+      client_id: 'test-client-001',
+      client_secret: 'anything',
+    })
+    expect(auth.ok).toBe(false)
+    if (auth.ok) return
+    expect(auth.status).toBe(401)
+    expect(auth.description).toContain('PKCE')
+
+    const mint = await mintClientCredentialsToken(appRow({ clientSecret: PUBLIC_CLIENT_SECRET }))
+    expect(mint.ok).toBe(false)
+    if (mint.ok) return
+    expect(mint.status).toBe(401)
+    expect(mint.error).toBe('unauthorized_client')
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,106 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import DOMPurify from 'dompurify'
+
+export interface SafeHtmlProps {
+  html: string
+  className?: string
+  allowedTags?: string[]
+}
+
+const DEFAULT_ALLOWED_TAGS = [
+  'a',
+  'b',
+  'i',
+  'em',
+  'strong',
+  'u',
+  'p',
+  'br',
+  'ul',
+  'ol',
+  'li',
+  'span',
+  'div',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'code',
+  'pre',
+  'blockquote',
+  'img',
+  'hr',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'th',
+  'td',
+]
+
+const DEFAULT_ALLOWED_ATTR = [
+  'href',
+  'src',
+  'alt',
+  'title',
+  'class',
+  'id',
+  'target',
+  'rel',
+  'width',
+  'height',
+  'colspan',
+  'rowspan',
+]
+
+function sanitize(html: string, allowedTags: string[]): string {
+  // SSR 安全:dompurify 依赖 DOM,只能在客户端运行
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: allowedTags,
+    ALLOWED_ATTR: DEFAULT_ALLOWED_ATTR,
+  })
+}
+
+/**
+ * 安全 HTML 渲染组件。
+ *
+ * 使用 dompurify 对 HTML 进行消毒,防止 XSS 攻击:
+ * - 仅保留 allowedTags 白名单中的标签
+ * - 仅保留安全的属性白名单
+ * - 自动移除 script/style 标签、事件处理器、javascript: 协议等危险内容
+ *
+ * SSR 安全:dompurify 依赖 DOM,只能在客户端运行。服务端渲染时返回空内容,
+ * 客户端水合后渲染消毒后的 HTML。
+ */
+export function SafeHtml({
+  html,
+  className,
+  allowedTags = DEFAULT_ALLOWED_TAGS,
+}: SafeHtmlProps): React.ReactElement {
+  // 2026-08-02 修复: SSR sanitize 返回 '' 而 CSR 后返回真实 HTML 导致 hydration mismatch。
+  // 用 state + useEffect 模式:首帧 SSR 与 CSR 一致都为 '',useEffect 触发后再 setSanitized 真实内容;
+  // suppressHydrationWarning 抑制第二帧差异引起的 warning。
+  const [sanitized, setSanitized] = React.useState('')
+  React.useEffect(() => {
+    setSanitized(sanitize(html, allowedTags))
+  }, [html, allowedTags])
+  return (
+    <div
+      className={className}
+      dangerouslySetInnerHTML={{ __html: sanitized }}
+      suppressHydrationWarning
+    />
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
