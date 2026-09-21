@@ -49,6 +49,11 @@ import {
   resetRnUiBridge,
   resolveRoute,
 } from '../src/lib/ui-action-registry'
+import {
+  registerRnField,
+  resetRnFieldRegistry,
+  type RnFieldSpec,
+} from '../src/lib/ui-field-registry'
 
 const destructiveIds = [
   'auth:logout',
@@ -76,8 +81,10 @@ describe('executeRnUiAction — describe', () => {
     expect(Object.keys(registry).sort()).toEqual([
       'authed',
       'commands',
+      'elements',
       'routes',
       'screen',
+      'suppressed',
       'version',
     ])
     expect(registry.screen).toMatchObject({ name: 'Wallet', key: 'wallet-1' })
@@ -101,13 +108,67 @@ describe('executeRnUiAction — describe', () => {
     expect(buildRnUiSnapshot().authed).toBe(false)
   })
 
-  it('动作面只有 describe/navigate/read/invoke,不存在 click/fill/submit', async () => {
-    for (const action of ['click', 'fill', 'submit'] as const) {
-      const res = await executeRnUiAction(action as 'describe', {})
-      expect(res.ok).toBe(false)
-      expect(res.errorCode).toBe('UNSUPPORTED_ACTION')
-    }
-    expect(nav.calls).toHaveLength(0)
+  it('click/fill/submit 经控件注册表执行:组件交出通道才生效,没通道如实失败', async () => {
+    let written = ''
+    let pressed = 0
+    let submitted = 0
+    const input = registerRnField({
+      kind: 'input',
+      label: () => '备注',
+      value: () => written,
+      writable: () => true,
+      write: (text) => {
+        written = text
+      },
+    } as RnFieldSpec)
+    const button = registerRnField({
+      kind: 'button',
+      label: () => '保存草稿',
+      press: () => {
+        pressed += 1
+      },
+    } as RnFieldSpec)
+    const form = registerRnField({
+      kind: 'form',
+      label: () => '资料表单',
+      submit: () => {
+        submitted += 1
+      },
+    } as RnFieldSpec)
+    expect([input, button, form].every((h) => h !== null)).toBe(true)
+
+    const filled = await executeRnUiAction('fill', { target: input?.id, value: 'AI 写的备注' })
+    expect(filled.ok).toBe(true)
+    expect(written).toBe('AI 写的备注')
+    expect((await executeRnUiAction('click', { target: button?.id })).ok).toBe(true)
+    expect(pressed).toBe(1)
+    expect((await executeRnUiAction('submit', { target: form?.id })).ok).toBe(true)
+    expect(submitted).toBe(1)
+
+    // 未登记的控件:如实失败,绝不去"猜一个"来点
+    expect((await executeRnUiAction('click', { target: '不存在的控件' })).ok).toBe(false)
+    input?.dispose()
+    button?.dispose()
+    form?.dispose()
+    expect((await executeRnUiAction('fill', { target: input?.id, value: 'x' })).ok).toBe(false)
+  })
+
+  it('describe 如实带上当前屏的控件表与分组', async () => {
+    const handle = registerRnField({
+      kind: 'input',
+      label: () => '金额',
+      value: () => '0',
+      writable: () => true,
+      write: () => undefined,
+    } as RnFieldSpec)
+    const res = await executeRnUiAction('describe', {})
+    const registry = (res.data as { registry: ReturnType<typeof buildRnUiSnapshot> }).registry
+    expect(registry.elements?.map((e) => e.label)).toEqual(['金额'])
+    // 分组由 ui-action-registry 注入当前屏名(beforeEach 把路由设成 Wallet)
+    expect(registry.elements?.[0]?.group).toBe('Wallet')
+    expect(registry.suppressed).toBe(0)
+    handle?.dispose()
+    resetRnFieldRegistry()
   })
 })
 
