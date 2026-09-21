@@ -325,9 +325,12 @@ async def test_email_channel_branded_dispatch_html(monkeypatch) -> None:
     html_body = next(p for p in parts if p.get_content_type() == "text/html").get_content()
     plain_body = next(p for p in parts if p.get_content_type() == "text/plain").get_content()
     assert "余额" in plain_body
-    # 品牌版式关键元素
+    # 品牌版式关键元素(Logo + 二维码)
     assert "IHUI." in html_body
     assert "THE&nbsp;MECHANICAL&nbsp;DISPATCH" in html_body
+    assert 'alt="IHUI AI"' in html_body
+    assert "/images/logo.png" in html_body
+    assert "/footer/erweima/wechat-vx.png" in html_body
     assert "BILLING // LOW_BALANCE" in html_body
     assert "background:#050506" in html_body
     assert "#B4FF00" in html_body
