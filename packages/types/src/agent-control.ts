@@ -197,6 +197,17 @@ export type AppUiActionType =
 export type TaroUiActionType = AppUiActionType
 
 /**
+ * 浏览器扩展**自有界面**(sidepanel / popup)可控动作(2026-09-21 立,第五族 `ext_ui`)。
+ *
+ * 为什么不能复用 `browser`:该 category 已按 1:1 择端映射到 endpoint='extension',语义是
+ * "通过 content script 操控用户正在看的外部网页"。扩展自己的 `chrome-extension://` 页面
+ * content script 进不去,却要同一 endpoint 承载两种完全不同的执行面 —— 若仍挂在 `browser` 上,
+ * `findEndpointByCategory('browser')` 就会在"外部网页"和"扩展面板"之间二选一(随机吃掉一侧指令)。
+ * 故单开 category,endpoint 仍是 extension:一个扩展注册一次能力,两族动作各走各的 category。
+ * 执行端有真实同源 DOM,所以动作集与 web 同形(七动词)。
+ */
+export type ExtUiActionType = AppUiActionType
+/**
  * 无 DOM 端describe 交出的**控件**条目(与 web 的 elements 同形,便于模型同一套用法)。
  * 只有真正挂载并交出通道的控件才会出现在这里;敏感框(密码/验证码)根本不入表。
  */
@@ -387,7 +398,7 @@ export interface AgentActionRequest {
   /** 唯一请求 ID,用于结果回传配对 */
   requestId: string
   /** 控制类别 */
-  category: 'browser' | 'computer' | 'ui' | 'app_ui' | 'miniapp_ui'
+  category: 'browser' | 'computer' | 'ui' | 'app_ui' | 'miniapp_ui' | 'ext_ui' | 'ext_ui'
   /** 具体 action 类型 */
   action:
     | BrowserControlActionType
@@ -395,6 +406,7 @@ export interface AgentActionRequest {
     | UiControlActionType
     | AppUiActionType
     | TaroUiActionType
+    | ExtUiActionType
   /** action 参数(根据 action 类型不同) */
   params: Record<string, unknown>
   /** 来源 MCP tool 调用 ID */
@@ -480,6 +492,8 @@ export interface AgentControlCapability {
   appUiActions?: AppUiActionType[]
   /** 支持的小程序 action 列表(2026-09-21 立,miniapp-taro 上报) */
   taroUiActions?: TaroUiActionType[]
+  /** 支持的扩展自有界面 action 列表(2026-09-21 立,sidepanel/popup 上报) */
+  extUiActions?: ExtUiActionType[]
   /** 端版本 */
   version?: string
   /** 上报时间 ISO */
