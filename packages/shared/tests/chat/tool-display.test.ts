@@ -48,8 +48,8 @@ describe('describeToolCall 对象提取', () => {
   it('未登记工具按 路径→URL→检索词→命令→实体名 试探并猜类型', () => {
     const view = describeToolCall({
       toolName: 'custom_vendor_tool',
-      args: { target: 'https://aizhs.top/docs' },
-      // 只有 unknown key 时取不到;这里给 url 字段命中第二档
+      // 完全不在任何探针键表里的字段 → 取不到对象,subject 为空
+      args: { some_vendor_specific_field: 'https://aizhs.top/docs' },
     })
     expect(view.nameKey).toBeNull()
     expect(view.subject).toBe('')
