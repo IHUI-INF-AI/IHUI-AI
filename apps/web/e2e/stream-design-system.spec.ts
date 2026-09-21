@@ -192,23 +192,23 @@ test.describe('消息流活动区设计系统', () => {
     if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
       await trigger.click()
     }
-    const rows = page.locator('[data-stream-status]')
-    const count = await rows.count()
-    expect(count).toBeGreaterThanOrEqual(2)
+    // 只看消息流内的活动行:输入区任务状态条等不归本闸管,避免跨区段误判
+    const rows = page.locator('[data-message-id] [data-stream-status]')
+    await expect(rows.first()).toBeVisible()
     const metrics = await rows.evaluateAll((els) =>
       els.map((el) => {
         const cs = getComputedStyle(el)
         return {
+          testId: el.getAttribute('data-testid') ?? '',
           fontSize: cs.fontSize,
           height: cs.height,
           status: el.getAttribute('data-stream-status'),
         }
       }),
     )
-    for (const m of metrics) {
-      expect(m.fontSize).toBe('12px')
-      expect(m.height).toBe('24px')
-    }
+    expect(metrics.length).toBeGreaterThanOrEqual(2)
+    // 失败时点名哪一行漂了 —— 不点名会让下一次偶发红变成无从下手的哑谜
+    expect(metrics.filter((m) => m.fontSize !== '12px' || m.height !== '24px')).toEqual([])
     // 组头与行同一档
     const headStyle = await trigger.evaluate((el) => {
       const cs = getComputedStyle(el)
