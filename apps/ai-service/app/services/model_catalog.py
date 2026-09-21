@@ -306,6 +306,8 @@ CURATED_LATEST: tuple[str, ...] = (
     r"minimax-m[2-9]",
     # 字节 Seed / 豆包
     r"seed-2|seed-3|doubao-2|doubao-3",
+    # 小米 MiMo(官方 /v1/models 返回裸名 mimo-v2.5 等,无 vendor 前缀)
+    r"mimo-v2\.[5-9]|mimo-v[3-9]",
     # 腾讯混元
     r"hunyuan-hy3|hunyuan-turbo|hunyuan-.*-2026",
     # 百度文心
