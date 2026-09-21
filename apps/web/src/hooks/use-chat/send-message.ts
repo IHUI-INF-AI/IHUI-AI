@@ -59,6 +59,7 @@ import {
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
+  localizeQuotaExhausted,
 } from './stream-handlers'
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
@@ -981,21 +982,25 @@ export function createSendMessage(
           // W28 Hooks 事件:error(SSE 流式错误)
           emitAgentHook('error', { summary: errMsg?.slice(0, 120) })
           const formatted = formatSSEError(errMsg, info)
+          // 前端错误码透出(P1,2026-07-22 立):errorCode 是唯一可靠判据(见 localizeQuotaExhausted)
+          const ec = info?.errorCode
+          // 厂商账号额度耗尽(2026-09-22 批次 60):人话化 + 不给 retry(重试必然再撞)
+          const quotaNotice = localizeQuotaExhausted(ec, t)
           // Budget 三态·硬中断档(2026-09-19 立):网关判定日用量 ≥100% 时返回 429 +
           // errorCode='BUDGET_EXHAUSTED'(响应体含 percent/usedTokens/limitTokens/resetAt)。
           // 与普通限频区分:预算要到次日 0 点才重置,通用「频率超限,60 秒后重试」文案会误导。
-          const isBudgetBlock = info?.errorCode === 'BUDGET_EXHAUSTED'
+          const isBudgetBlock = ec === 'BUDGET_EXHAUSTED'
           const budgetBlockMessage = '今日 token 预算已用尽,明日 0 点重置后可继续对话'
-          useChatStore
-            .getState()
-            .setMessageError(assistantId, isBudgetBlock ? budgetBlockMessage : formatted.message)
-          useChatStore.getState().setError(isBudgetBlock ? budgetBlockMessage : formatted.message)
+          const displayMessage = isBudgetBlock
+            ? budgetBlockMessage
+            : (quotaNotice?.message ?? formatted.message)
+          useChatStore.getState().setMessageError(assistantId, displayMessage)
+          useChatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
-          // 前端错误码透出(P1,2026-07-22 立):toast description 前缀 [errorCode],
-          // 让用户直接定位问题(MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
-          const ec = info?.errorCode
+          // toast description 前缀 [errorCode],让用户直接定位问题
+          // (MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
           const toastDesc =
             formatted.severity === 'auth'
               ? formatted.message
@@ -1006,6 +1011,11 @@ export function createSendMessage(
             // Budget 硬中断档 toast:预算次日 0 点才重置,立即重试必然再 429,故不给 retry 按钮
             toast.error('今日 AI 用量已达上限', {
               description: budgetBlockMessage,
+            })
+          } else if (quotaNotice) {
+            // 额度耗尽档:全部候选通道都已失败,立即重试必然再撞,故不给 retry 按钮(同 Budget 档理由)
+            toast.error(quotaNotice.title, {
+              description: toastDesc,
             })
           } else if (formatted.severity === 'ratelimit') {
             toast.warning(formatted.title, { description: toastDesc })
