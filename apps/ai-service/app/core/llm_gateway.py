@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import random
+import re
 import socket
 import time
 from collections.abc import AsyncIterator
@@ -519,6 +520,127 @@ def _model_to_provider_code(model: str) -> str:
 
 
 # ============================================================================
+# 厂商归属:DB 实证优先于名字前缀(2026-09-22 批次 60 立)
+# ============================================================================
+# _PREFIX_TO_PROVIDER_CODE 是"看模型名长什么样猜厂商",对不带 vendor 路径的裸名必然出错:
+# mimo-v2.5-free 在库里只挂在 provider_code='opencode_zen'(base https://opencode.ai/zen/v1)
+# 名下,按裸前缀判成 mimo 后打到小米公网端点 → 上游回 "Unsupported model mimo-v2.5-free"。
+# 故归属判定固定三级:显式厂商路径 > ai_model_config 实证 > 名字前缀兜底。
+# 前缀层原样保留:这是全链路热路径,DB 不可用/查不到时必须逐字节退回改动前的行为。
+
+_PROVIDER_OWNERSHIP_TTL = 300  # 与 _IHUI_RELAY_BASE_TTL 同档(模型同步 6h 一轮,5 分钟够跟上新行)
+_PROVIDER_OWNERSHIP_MAX = 512  # 键是调用方传入的模型串,给上限防爆;整表清,不做 LRU
+_provider_ownership_cache: dict[str, tuple[str, float]] = {}
+
+
+def _declared_provider_code_of(model: str) -> str:
+    """模型 ID 里用户**显式写出**的厂商(只认 `vendor/` 这类含斜杠的路径前缀)。
+
+    裸名规则("qwen" / "mimo-" / "glm-")是"按名字猜",不构成用户点名,
+    所以只有含斜杠前缀才享有"压倒 DB 实证"的优先级
+    (openrouter/… 不能被 DB 猜成别的厂商,ihui/… 同理)。
+    """
+    m = (model or "").lower()
+    for prefix, code in _PREFIX_TO_PROVIDER_CODE.items():
+        if "/" in prefix and m.startswith(prefix):
+            return code
+    return ""
+
+
+def _provider_looks_unavailable(provider_code: str) -> bool:
+    """该厂商此刻是否明显调不通(刚判欠费 / ping 判 DOWN / 未配置)。
+
+    只用于**同序裁决**(多行命中时挑哪个归属),不是过滤条件:
+    全都不可用时仍返回排序第一的 provider —— 归属是"这一行属于谁"的事实,
+    不该随 ping 结果漂移,否则同一次故障里归因会来回变。
+    """
+    from ..services.model_availability import ProviderHealthStatus, model_availability
+
+    if model_availability.is_provider_quota_blocked(provider_code):
+        return True
+    return model_availability.get_provider_health(provider_code).status in (
+        ProviderHealthStatus.DOWN,
+        ProviderHealthStatus.NOT_CONFIGURED,
+    )
+
+
+async def _query_provider_ownership(model: str) -> str:
+    """一次带 JOIN 的查询:这个 model_id 实际存在于哪个已启用的全局配置行。
+
+    表与条件与 _find_quota_alternate_channels 完全一致(ai_model_config_models ⋈
+    ai_model_config,enabled + owner_uuid IS NULL)。不使用 m.is_relay_public:
+    那一列是"进不进模型选择器"的展示开关,不是"这一行是否存在"的归属事实。
+    """
+    bare = model.split("/", 1)[-1] if "/" in model else model
+    # 查询键保留原始大小写(DB 里存的就是厂商返回的原始 model_id,如 Qwen/Qwen3-Max)
+    keys = [model] if bare == model else [model, bare]
+    try:
+        pool = await _get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT c.provider_code, m.model_id
+                   FROM ai_model_config_models m
+                   JOIN ai_model_config c ON m.config_id = c.id
+                   WHERE m.enabled = true AND c.enabled = true AND c.owner_uuid IS NULL
+                     AND m.model_id = ANY($1::text[])
+                   ORDER BY c.sort_order NULLS LAST, m.relay_sort_order
+                   LIMIT 40""",
+                keys,
+            )
+    except Exception as e:
+        logger.warning("[provider-ownership] 查询失败(model=%s),退回名字前缀判定: %s", model, e)
+        return ""
+
+    # 排序键:① 整串精确匹配优先于"去厂商路径后的末段匹配"(用户给的就是整串时不该被别家抢走)
+    #       ② 可用性(欠费/DOWN 的厂商排后面,同一 model_id 常同时挂在多家名下)
+    #       ③ SQL 已给的 (c.sort_order, m.relay_sort_order) —— 与 /llm/models 同序
+    ranked: list[tuple[int, int, int, str]] = []
+    lowered = model.lower()
+    for idx, row in enumerate(rows):
+        code = str(row["provider_code"] or "")
+        if not code:
+            continue
+        exact = 0 if str(row["model_id"] or "").lower() == lowered else 1
+        ranked.append((exact, 1 if _provider_looks_unavailable(code) else 0, idx, code))
+    return min(ranked)[3] if ranked else ""
+
+
+def _cache_provider_ownership(model: str, code: str, now: float) -> None:
+    """写归属缓存(未命中也写空串,避免热路径反复打 DB)。"""
+    if len(_provider_ownership_cache) >= _PROVIDER_OWNERSHIP_MAX:
+        _provider_ownership_cache.clear()
+    _provider_ownership_cache[model] = (code, now + _PROVIDER_OWNERSHIP_TTL)
+
+
+async def _db_provider_code_for_model(model: str) -> str:
+    """带进程内 TTL 缓存的归属查询(缓存键小写:同一 ID 的大小写变体不各查一次)。"""
+    raw = (model or "").strip()
+    if not raw:
+        return ""
+    key = raw.lower()
+    cached = _provider_ownership_cache.get(key)
+    now = time.time()
+    if cached and cached[1] > now:
+        return cached[0]
+    code = await _query_provider_ownership(raw)
+    _cache_provider_ownership(key, code, now)
+    return code
+
+
+async def _resolve_provider_code(model: str) -> str:
+    """权威归属:显式厂商路径 > DB 实证 > 名字前缀;返回 "" 表示无法归因。
+
+    与 _explicit_provider_code_of 同语义(不兜底成 openai),供额度归因使用;
+    需要 openai 兜底的调用方自行 `or "openai"`(见 _resolve_from_db)。
+    """
+    return (
+        _declared_provider_code_of(model)
+        or await _db_provider_code_for_model(model)
+        or _explicit_provider_code_of(model)
+    )
+
+
+# ============================================================================
 # 账号额度耗尽 → 跨厂商换通道(2026-09-22 批次 59 立)
 # ============================================================================
 # 判据在 ..middleware.llm_metrics.is_quota_exhaustion_error(状态码 + 额度错误码双条件)。
@@ -595,6 +717,128 @@ async def _find_quota_alternate_channels(
         if len(channels) >= _MAX_QUOTA_FAILOVER_CHANNELS:
             break
     return channels
+
+
+# ============================================================================
+# 额度耗尽 → 同族等效模型降级(2026-09-22 批次 60 立)
+# ============================================================================
+# 批次 59 只换"同名其他厂商",qwen-plus 在别家没有同名通道时用户仍只能看到一个报错。
+# 这里补第二档:同名通道全部用尽后,挑同族(family 词干相同)且当前可用的替代模型。
+# 硬性约束是"不许静默替换" —— 换道结果必须经既有 fallback 事件 / model 字段回给调用方。
+
+_MAX_QUOTA_EQUIVALENT_CHANNELS = 3
+_MIN_FAMILY_STEM_LEN = 3  # 'yi' 这类短词干 LIKE 会命中一大片,宁可不换
+
+# 额度耗尽的稳定错误码(命名对齐既有 MODEL_NOT_CONFIGURED / BUDGET_EXHAUSTED 先例;
+# apps/api/src/routes/ai-chat-stream.ts 把上游 {errorCode,message} 原样透传,前端按码精准提示)
+PROVIDER_QUOTA_EXHAUSTED = "PROVIDER_QUOTA_EXHAUSTED"
+# fallback 事件 reason 的取值:同名换厂商仍是 'quota',换到不同模型才加 '_equivalent' 后缀
+FALLBACK_REASON_QUOTA_EQUIVALENT = "quota_equivalent"
+
+_TIER_RANK: dict[str, int] = {"latest": 0, "standard": 1, "legacy": 2}
+# 家族词干:模型名开头那段连续字母(model_catalog 的 family 里 'qwen' / 'mimo' / 'deepseek')
+_RE_FAMILY_STEM = re.compile(r"^[a-z]+")
+
+
+def _generation_rank(origin: str | None, candidate: str | None) -> int:
+    """代次接近度:0=同大版本,1=任一侧无版本信息(不可比,不奖励也不惩罚),2=不同大版本。
+
+    只比大版本:qwen3-max 的替代取 qwen3.5-flash 仍然同代,而掉到 qwen-plus
+    是跨代降级(能力差距明显),放后面。
+    """
+    if not origin or not candidate:
+        return 1
+    return 0 if origin.split(".", 1)[0] == candidate.split(".", 1)[0] else 2
+
+
+def _family_stem(model_name: str) -> str:
+    """家族词干:取 model_catalog 判出的 family 开头那段字母。
+
+    为什么不用 family 原值:qwen-plus 的 family 就是 'qwen-plus'(名字里没有版本号,
+    family 退化成整名),拿它当家族判据只能匹配到同名模型,等效降级等于没做;
+    取词干后 qwen-plus / qwen3-max / qwen3.5-397b-a17b 同归 'qwen' 家族。
+    """
+    from ..services.model_catalog import classify_model
+
+    family = classify_model(model_name).family or ""
+    m = _RE_FAMILY_STEM.match(family.lower())
+    stem = m.group(0) if m else ""
+    return stem if len(stem) >= _MIN_FAMILY_STEM_LEN else ""
+
+
+async def _find_quota_equivalent_channels(
+    model_id: str,
+    exclude_providers: set[str],
+) -> list[str]:
+    """同族等效替代(同名通道全部用尽后再退一档)。
+
+    筛选:同 family 词干 + 不是原模型本身 + 厂商未被判欠费 + model_availability
+    判"当前可用"(未配 key / DOWN 的厂商直接排除)。
+
+    排序即优先级:① 免费额度通道(zero_cost / free_tier)优先 —— 本分支的起因就是
+    "账号没钱",换到另一家也要挑不额外烧钱的;② 代次接近度(同大版本 > 任一侧无版本
+    信息 > 跨大版本) —— qwen3-max 的替代应当还是 qwen3.x,而不是掉到 qwen-plus;
+    ③ 代次档位 latest > standard > legacy;④ 以上全同时保持 SQL 的
+    (c.sort_order, m.relay_sort_order) —— 与 /llm/models 同序,结果可测。
+    """
+    bare = model_id.split("/", 1)[-1] if "/" in model_id else model_id
+    stem = _family_stem(bare)
+    if not stem:
+        return []
+    try:
+        pool = await _get_pool()
+        async with pool.acquire() as conn:
+            # family 是 model_catalog 的算法概念,SQL 算不出来:用词干做粗筛(同一张表同一套
+            # enabled/owner_uuid 条件),再由 _family_stem 逐行精确判定,误命中不会漏进结果。
+            rows = await conn.fetch(
+                """SELECT c.provider_code, m.model_id
+                   FROM ai_model_config_models m
+                   JOIN ai_model_config c ON m.config_id = c.id
+                   WHERE m.enabled = true AND c.enabled = true AND c.owner_uuid IS NULL
+                     AND m.model_id ILIKE '%' || $1 || '%'
+                   ORDER BY c.sort_order NULLS LAST, m.relay_sort_order
+                   LIMIT 200""",
+                stem,
+            )
+    except Exception as e:
+        logger.warning("[quota-equivalent] 同族模型查询失败(model=%s): %s", model_id, e)
+        return []
+
+    from ..services.free_provider_registry import free_provider_registry
+    from ..services.model_availability import model_availability
+    from ..services.model_catalog import classify_model
+
+    scored: list[tuple[int, int, int, int, str]] = []
+    seen: set[str] = set()
+    origin_generation = classify_model(bare).generation
+    for idx, row in enumerate(rows):
+        provider_code = str(row["provider_code"] or "")
+        db_model = str(row["model_id"] or "")
+        if not provider_code or provider_code in exclude_providers:
+            continue
+        if model_availability.is_provider_quota_blocked(provider_code):
+            continue
+        cand_bare = db_model.rsplit("/", 1)[-1]
+        if not cand_bare or cand_bare.lower() == bare.lower():
+            continue  # 同名属于第一档(跨厂商同名通道),不在这里重复
+        if _family_stem(cand_bare) != stem:
+            continue
+        prefix = _provider_prefix_for_code(provider_code)
+        if not prefix:
+            continue
+        candidate = f"{prefix}{db_model}"
+        if candidate.lower() in seen or any(candidate.startswith(p) for p in _LOCAL_PREFIXES):
+            continue
+        if not model_availability.is_model_available(candidate):
+            continue
+        seen.add(candidate.lower())
+        provider = free_provider_registry.get_by_code(provider_code)
+        free_rank = 0 if provider is not None and (provider.zero_cost or provider.free_tier) else 1
+        cls = classify_model(cand_bare)
+        gen_rank = _generation_rank(origin_generation, cls.generation)
+        scored.append((free_rank, gen_rank, _TIER_RANK.get(cls.tier.value, 2), idx, candidate))
+    scored.sort()
+    return [c for _, _, _, _, c in scored[:_MAX_QUOTA_EQUIVALENT_CHANNELS]]
 
 
 # ============================================================================
@@ -860,7 +1104,7 @@ async def _resolve_from_db(
 
     优先 owner_uuid 匹配的用户私有配置,兜底 owner_uuid IS NULL 的全局配置。
     """
-    provider_code = _model_to_provider_code(model)
+    provider_code = await _resolve_provider_code(model) or "openai"
     try:
         pool = await _get_pool()
         async with pool.acquire() as conn:
@@ -907,8 +1151,9 @@ async def _resolve_from_db(
         elif provider_code == "openrouter":
             # P0-5m(2026-07-30):OpenRouter 需要走 LiteLLM 原生 openrouter/ 路由,
             # 不能转成 openai/(否则 LiteLLM 走 OpenAI 路由不传 Auth header)。
-            # model 已含 openrouter/ 前缀(如 openrouter/deepseek/deepseek-v4-pro),原样返回。
-            litellm_model = model
+            # 归属改由 DB 实证后,模型串可能只是 'qwen/qwen3-max'(库里存的路径形态),
+            # 此时必须补上 openrouter/ 才能被 LiteLLM 认出来。
+            litellm_model = model if model.lower().startswith("openrouter/") else f"openrouter/{model}"
         else:
             litellm_model = f"openai/{real_model}"
         return api_key, base_url, litellm_model
@@ -1971,6 +2216,7 @@ class LLMGateway:
             # FallbackRouter 接入:LLM_ERROR 且未跳过 fallback 时,
             # 自动尝试 fallbacks 配置中的备用 provider(如 stepfun 故障 → agnes 兜底)
             # 额度耗尽时即使没配静态 fallbacks 也要进(候选由替代通道动态补齐)
+            quota_exhausted_hit = False
             if (
                 err_code == "LLM_ERROR"
                 and not _skip_fallback
@@ -2013,6 +2259,9 @@ class LLMGateway:
                 if fb_result.get("quota_exhausted"):
                     # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
                     safe_msg = f"{safe_msg} | {fb_result.get('error')}"
+                    # 单独标记而非直接改 err_code:err_code 还兼作下面 ComboRouter 分支的闸门,
+                    # combo 是显式配置的多级链,额度穷尽后仍应照试。
+                    quota_exhausted_hit = True
 
             # P0-1 Combo 多级 fallback 接入(2026-07-30 立,超越 OmniRoute):
             # FallbackRouter 单层 fallback 失败后,若 primary model 在某个 combo 链中,
@@ -2059,7 +2308,8 @@ class LLMGateway:
                 "stub": False,
                 "error": True,
                 "error_message": safe_msg,
-                "errorCode": err_code,
+                # 只在"确实因额度且同名+同族改道已穷尽"时给稳定码;普通 LLM 错误不受影响
+                "errorCode": PROVIDER_QUOTA_EXHAUSTED if quota_exhausted_hit else err_code,
             }
 
     async def structured_completion(
@@ -2206,7 +2456,8 @@ class LLMGateway:
                     "type": "fallback",
                     "primary_model": used_model,
                     "backup_model": backup_model,
-                    "reason": fb_reason,
+                    # 换到同族等效模型时 reason 变 'quota_equivalent'(既有字段,不新增键)
+                    "reason": str(fb_result.get("fallback_reason") or fb_reason),
                 }
                 chunk_size = 10
                 for i in range(0, len(fb_content), chunk_size):
@@ -2223,7 +2474,11 @@ class LLMGateway:
             # 所有 fallback 均失败 → 指标埋点 + 透传原 error
             if fb_result.get("quota_exhausted"):
                 # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
-                error_evt = {**error_evt, "message": f"{error_message} | {fb_result.get('error')}"}
+                error_evt = {
+                    **error_evt,
+                    "message": f"{error_message} | {fb_result.get('error')}",
+                    "errorCode": str(fb_result.get("errorCode") or PROVIDER_QUOTA_EXHAUSTED),
+                }
             try:
                 LLM_FALLBACK_TRIGGERED.labels(
                     primary_model=used_model,
@@ -2772,7 +3027,8 @@ class LLMGateway:
                             "type": "fallback",
                             "primary_model": used_model,
                             "backup_model": backup_model,
-                            "reason": fb_reason,
+                            # 换到同族等效模型时 reason 变 'quota_equivalent'(既有字段,不新增键)
+                            "reason": str(fb_result.get("fallback_reason") or fb_reason),
                         }
                         chunk_size = 10
                         for i in range(0, len(fb_content), chunk_size):
@@ -2802,6 +3058,10 @@ class LLMGateway:
                     if fb_result.get("quota_exhausted"):
                         # 透传"哪家、因为什么",否则调用方只看到主通道那一条上游错误
                         safe_msg = f"{safe_msg} | {fb_result.get('error')}"
+                        # 稳定错误码:仅"确因额度且同名+同族改道已穷尽"时替换 LLM_ERROR
+                        err_code = str(
+                            fb_result.get("errorCode") or PROVIDER_QUOTA_EXHAUSTED
+                        )
                 except Exception as fb_err:
                     logger.warning("astream fallback 失败: %s", fb_err)
                     # P3-2 指标埋点:fallback 触发 + 失败(fallback_router 自身抛异常)
@@ -2976,6 +3236,12 @@ class FallbackRouter:
         额度耗尽专用分支(2026-09-22 批次 59):primary_error 被判为账号额度类错误时,
         把同一模型在其他厂商的可用通道也送进候选,并把"已确认没钱"的厂商记进本请求黑名单
         —— 欠费是厂商级状态,换 key 或重试同一家都不可能有结果。
+
+        批次 60 补第二档:同名通道全部用尽后,再退到"同族等效模型"
+        (_find_quota_equivalent_channels)。顺序 = 同名其他通道 > 同族替代 > 报错;
+        换到不同模型时结果带 fallback_reason='quota_equivalent',绝不静默替换。
+        三条都失败时按 `模型[厂商]=错误码` 点名归因,并回 PROVIDER_QUOTA_EXHAUSTED
+        错误码供前端精准提示。
         """
         config = self._configs.get(primary, {})
         candidates: list[str] = [
@@ -3006,8 +3272,9 @@ class FallbackRouter:
 
         quota_hit = is_quota_exhaustion_error(primary_error)
         blocked_providers: set[str] = set()
-        primary_provider = _explicit_provider_code_of(primary)
+        primary_provider = ""
         if quota_hit:
+            primary_provider = await _resolve_provider_code(primary)
             if primary_provider:
                 blocked_providers.add(primary_provider)
                 await model_availability.mark_provider_quota_exhausted(
@@ -3021,10 +3288,38 @@ class FallbackRouter:
                 primary, candidates, sorted(blocked_providers) or "-",
             )
 
+        # 第二档(同族等效)惰性加载:同名通道里任一能成就不必多打一次 DB,
+        # 也保证优先级严格为 同名其他通道 > 同族替代 > 报错。
+        equivalents: list[str] = []
+        equivalents_loaded = not quota_hit
+
         last_error: str | None = None
         attempts: list[str] = []
-        for provider in candidates:
-            provider_code = _explicit_provider_code_of(provider)
+        cursor = 0
+        while True:
+            if cursor >= len(candidates):
+                if equivalents_loaded:
+                    break
+                equivalents_loaded = True
+                equivalents = await _find_quota_equivalent_channels(
+                    primary, blocked_providers
+                )
+                if equivalents:
+                    logger.info(
+                        "[quota-equivalent] %s 无可用同名通道,同族等效候选=%s",
+                        primary, equivalents,
+                    )
+                candidates.extend(equivalents)
+                continue
+            provider = candidates[cursor]
+            cursor += 1
+            # 非额度分支保持纯前缀归因(provider_code 只服务于额度黑名单与点名归因,
+            # 不参与该分支的返回文案)—— 普通故障转移不得因为归属查询多打一次 DB。
+            provider_code = (
+                await _resolve_provider_code(provider)
+                if quota_hit
+                else _explicit_provider_code_of(provider)
+            )
             if provider_code and provider_code in blocked_providers:
                 continue
             try:
@@ -3035,6 +3330,10 @@ class FallbackRouter:
                     num_retries=0,
                 )
                 if not result.get("error"):
+                    if provider in equivalents:
+                        # 不许静默替换:换到不同模型时把这一点标出来,
+                        # 由 astream 的 fallback 事件 reason / complete 的 fallback_reason 回给调用方
+                        result["fallback_reason"] = FALLBACK_REASON_QUOTA_EQUIVALENT
                     return result
                 last_error = result.get("error_message") or result.get("error")
             except Exception as e:
@@ -3056,6 +3355,7 @@ class FallbackRouter:
                 "content": "",
                 "error": "所有通道均因账号额度耗尽失败: " + "; ".join(trail),
                 "quota_exhausted": True,
+                "errorCode": PROVIDER_QUOTA_EXHAUSTED,
             }
         return {"content": "", "error": f"all fallbacks failed: {last_error}"}
 

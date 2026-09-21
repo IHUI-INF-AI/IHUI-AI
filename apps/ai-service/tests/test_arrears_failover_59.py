@@ -88,16 +88,33 @@ def clean_health() -> Iterator[dict[str, ProviderHealth]]:
 def alt_channel_spy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[[list[str]], None]:
-    """把"替代通道查询"整体换成假实现(零 DB),测试内决定返回哪些通道。"""
+    """把"替代通道查询"整体换成假实现(零 DB),测试内决定返回哪些通道。
+
+    批次 60 起,额度分支还会走两处新的 DB 依赖,一并 stub 掉(本文件只覆盖"同名换厂商"
+    这一档,归属判定与同族等效各自有 test_quota_equivalent_fallback_60.py 专门验):
+      - _find_quota_equivalent_channels:同名通道用尽后的第二档候选
+      - _db_provider_code_for_model:厂商归属的 DB 实证层(stub 成"DB 无信息"→ 退回名字前缀,
+        于是 qwen3-max 仍归 qwen、openrouter/… 仍归 openrouter,本文件断言语义不变)
+    """
     state: dict[str, list[str]] = {"channels": []}
 
     async def _fake(model_id: str, exclude_providers: set[str]) -> list[str]:
         return list(state["channels"])
 
+    async def _fake_equivalents(model_id: str, exclude_providers: set[str]) -> list[str]:
+        return []
+
+    async def _no_ownership(model_id: str) -> str:
+        return ""
+
     def _configure(channels: list[str]) -> None:
         state["channels"] = channels
 
     monkeypatch.setattr("app.core.llm_gateway._find_quota_alternate_channels", _fake)
+    monkeypatch.setattr(
+        "app.core.llm_gateway._find_quota_equivalent_channels", _fake_equivalents
+    )
+    monkeypatch.setattr("app.core.llm_gateway._db_provider_code_for_model", _no_ownership)
     return _configure
 
 
@@ -600,7 +617,10 @@ async def test_complete_reports_every_indebt_provider_to_caller(
         fallback_router._configs.update(saved)
 
     assert result.get("error") is True
-    assert result["errorCode"] == "LLM_ERROR"
+    # 契约演进(批次 60 / 任务 C):"确因额度且同名+同族改道已穷尽"时不再是笼统 LLM_ERROR,
+    # 而是稳定码 PROVIDER_QUOTA_EXHAUSTED,供前端按 errorCode 精准提示(对齐
+    # MODEL_NOT_CONFIGURED / BUDGET_EXHAUSTED 先例);message 仍保留点名归因。
+    assert result["errorCode"] == "PROVIDER_QUOTA_EXHAUSTED"
     msg = str(result["error_message"])
     assert "arrearage" in msg
     assert "openrouter" in msg
