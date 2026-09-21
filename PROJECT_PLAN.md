@@ -834,12 +834,12 @@
 - **B1 数据面 D33-D36**:ai-service● api● web● extension● miniapp● rn● cli● desktop○ —— 持久化与契约是跨端前提,**任何一端缺席即未完成**(H18 判据)。
 - **B2 渲染位 D37-D41、D44**:七端全●;仅 **D42 浏览器视觉标注** 与 **D43/D62 语音** 允许部分豁免。
 - **豁免清单(显式登记,依 §9"未标注按全端同步执行")**:
-  - **D42 浏览器标注**:豁免 **cli**(无 GUI 嵌浏览器)、**miniapp-taro**(小程序 web-view 无 CDP/代理注入口)、**mobile-rn**(无内嵌桌面级浏览器)→ 有效范围 = web + desktop(壳)+ extension(其 sidepanel 若具备内嵌页则同做,**实施前先核该能力,未核不得声称豁免**)。
-  - **D43 快捷笔记 / D62 语音字幕与讨论纪要**:豁免 **cli**(终端无麦克风 UI 栈)、**miniapp-taro** 平台独占理由=录音 API 与 `Taro.getRecorderManager` 能力差异(该理由在 D43 已首次登记);**extension** 待核 sidepanel 是否具备 MediaRecorder 权限,**未核前不得豁免**。
+  - **D42 浏览器标注**:豁免 **cli**(无 GUI 嵌浏览器)、**miniapp-taro**(小程序 web-view 无 CDP/代理注入口)、**mobile-rn**(无内嵌桌面级浏览器)→ 有效范围 = web + desktop(壳)+ extension **已实测核验 = 不豁免且是最自然宿主**:manifest 具 `tabs`+`scripting`+`activeTab`+`sidePanel`+`contextMenus` 权限且有 `entrypoints/content.ts` 内容脚本 → 完全可"向当前标签页注入标注层并把结果送回 sidepanel 对话面"。。
+  - **D43 快捷笔记 / D62 语音字幕与讨论纪要**:豁免 **cli**(终端无麦克风 UI 栈)、**miniapp-taro** 平台独占理由=录音 API 与 `Taro.getRecorderManager` 能力差异(该理由在 D43 已首次登记);**extension 已实测核验 = 不豁免**:该端有 `apps/extension/entrypoints/sidepanel/components/VoiceInput.tsx`(含 MediaRecorder/getUserMedia 用法)与 `NotificationPanel.tsx`/`AgentRuntimePanel.tsx`/`TaskStatusBar.tsx` → D43/D62 在 extension 端为**必做**。
   - **D47 checkpoint 载体**:单端评估项(仅产出决策,不涉渲染)→ 标"单端文档/决策"。
   - **D57 文档证据等级 / D48 本地加密(桌面端专项)**:D57=单端文档;D48 豁免 web/api/服务端(其数据在库),仅桌面本地缓存相关。
   - **D51/D54 守门与词表**:守门脚本按 §9 属"单端文档/脚本"豁免渲染同步;**词表 D54 例外——它是五语言 i18n 资产,必须走 §19 全语言 parity,不得豁免**。
-  - **禁止豁免的方向**:凡"对方有我方无"的**对话流可视元素**(G-39~G-83 中任意一条),不得以"该端未接"为由豁免掉端覆盖——只能按上表逐端接线或登记显式豁免理由。
+  - **禁止豁免的方向**:凡"对方有我方无"的**对话流可视元素**(G-39~G-94 中任意一条),不得以"该端未接"为由豁免掉端覆盖——只能按上表逐端接线或登记显式豁免理由。
 
 
 
@@ -860,6 +860,7 @@
 - ✅ **第 6 轮(§9 端覆盖矩阵)**:实测各端对话面拓扑真值并据此**更正本会话自己的第二条假结论**——extension **确有独立聊天面**(`entrypoints/sidepanel/pages/ChatPage.tsx`/`MessagesPage.tsx`/`components/MessageContent.tsx`,5 处事件消费),前一轮"desktop/extension 消费点为 0"仅对 desktop(壳加载 8801)成立;矩阵同时把 miniapp `src/api/index.ts` 自研分发层、rn 双屏能力不等、cli TUI/ACP 分档写清,并给出**带理由的显式豁免清单**(D42/D43/D62/D47/D48/D51·D54)+ 一条硬约束:**对话流可视元素不得以"该端未接"为由豁免**,未核能力前不得声称豁免
 - ✅ **与并行会话的协作边界(实施前必读,防撞车返工)**:登记后本仓又落地两个相邻提交,已核其真实范围——① `1b542f00f3`「侧栏工具列表与轨迹查看器不再直显英文工具码名」**只改了** `ai/progress-sections/tool-calls-section.tsx` + `ai/AgentTraceViewer.tsx` 两文件,**未覆盖聊天消息流内的 `tool-call-card.tsx`,也未做 87/87 覆盖率** → **D54 范围据此收窄**:只补词表覆盖与聊天卡渲染,禁再碰上述两个已改文件;② `0777fcc22f` 新增 `apps/web/e2e/stream-design-system.spec.ts`(244 行,SSE mock 消息流设计系统防回潮闸,另见本文件第 3626 行其登记)→ **D51 不得再造第二条消息流 e2e 闸**,改为在其 spec 之上扩"期望元素清单"断言 + 静态守门脚本,二者共享同一份清单数据文件
 - ✅ **第 6-7 轮补证(报告 §8/§9)**:①**Trae 思考卡默认态静态定档** = `isLatest && !hasOutput`,且发现对手"`hasOutput` 转真时无条件强制收起、无视用户刚手动展开"的真实缺陷 → 转成我方**可辩护的超越判据 H22**;②21 类目中文双态文案模板定位到 `dist/273.c2354dd8.mjs`(**根因是我方上一轮 pattern 少了 `trae-chat-core.` 前缀**,非服务端下发;已排除 nls 与 desktop-modules)→ 成为 D58 文案规格;③Qoder 输入区/建议面板/额度族全量原文(10 条承重断言复现)→ 新增 **G-89~G-94** 与 **D66-D70**,另加 **H23 文案溯源纪律**(实测 7 个臆测措辞在竞品盘上零命中,凭印象写断言会直接产出错误验收);④两条存疑项**登记为"待自证"不列差距**(G-95 提示词润色、G-96 权限三档说明句),本轮第 3 次靠该纪律挡住幻影差距
+- ✅ **第 8 轮**:①**两条豁免被实测推翻**——extension 有 `sidepanel/components/VoiceInput.tsx`(MediaRecorder/getUserMedia)与 `tabs`+`scripting`+`activeTab`+`sidePanel`+`contextMenus` 权限及 `content.ts` 内容脚本 → **D42 浏览器标注与 D43/D62 语音在 extension 端改为必做**(extension 反而是标注注入的最自然宿主),§9 豁免清单已按实测改写;②报告新增 **§10 四家状态机横向对照**(14 阶段 × 4 家),结论三条:我方短板集中在阶段 3/6/9/10/14(排队语义·代批可见性·额度与负载·失败可观测·长会话投影)而非"少几个卡片",其中 4 个阶段需新帧故 **B1 必须先行**;阶段 7(hunk 级部分应用)与 12(交付审查四源)是**我方反超位**,对外叙事应举这两例;对手把"展示态与数据态分离"(`formatted_output`/`retryInMs`)与我方工具耗时前端本地计时同构,属结构问题非缺字段
 - ⏳ 待实施:D33-D70 全部(本轮为计划轮,不含代码实现);**开工顺序强制 B1→B2→B3/B4,D51 与 B1 同批启动**(否则补完仍会退化)
 - ⏳ 敞口(明写,不假装收口):①**取证已到静态界(第 5 轮已推进多数)**:Trae 步骤卡默认态已由 `useState(S&&x)`(x=agentType===Chat)+ CSS `grid-template-rows:0fr→1fr` **静态定档**(Agent 模式运行中折叠/Chat 模式展开/折叠时子项不挂载/用户手动后 pin),详见报告 §7.2;**仅剩思考卡 `DeepThinkingStateBar` 的 useState 初值未取到**→ 需运行时 DOM 取证;WorkBuddy 本机确无本体(四路 + 注册表 + `.lnk` target 全量反查 0 命中),其 UI 元素**永久不可在本机核证**,前三轮相关列的二手来源已锁定为库内自证文档并交由 D57 标注;解阻判据=D50/D57 完成;②本轮提交时守门 41(单分支)红,原因是**其他并行会话的 5 个 worktree 分支**(`batch-58`/`feat/relay-sell-productization`/`fix/relay-key-default-perms`/`fix/relay-keys-ui`/`ops/relay-pricing-seed`,`git branch -a` 带 `+` 前缀=他处 checkout)而非本任务改动,按 §12 属"其他 agent 状态"类以 `--no-verify` 完成本任务 commit,**本会话不删他人分支**(§7 删除安全);③元素清单本体在本地报告(库内只有任务锚点),若需长期共享须按 D51 建期望清单数据文件入仓
 
