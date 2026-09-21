@@ -85,7 +85,12 @@ import {
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
-import { FALLBACK_MODELS, humanizeToolText, toolDisplayKey } from '@ihui/shared'
+import {
+  FALLBACK_MODELS,
+  humanizeToolText,
+  describeToolCall,
+  type ToolCallView,
+} from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
@@ -260,7 +265,31 @@ function StatusBadge({ kind, label }: { kind: BadgeKind; label: string }): React
   )
 }
 
-/** 工具调用列表(W7):工具名 + 状态徽标 + 耗时;点击卡片行折叠查看参数/输出 */
+/** 工具结果度量行:写类文件 "+18 -4";读/检索 "128 行" / "5 个结果" / "3 个文件";无度量 '' */
+function formatToolMetricLine(
+  view: ToolCallView,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (view.writesFile) {
+    if (view.added < 0 && view.removed < 0) return ''
+    const plus = t('taskStatus.addedCount', { n: Math.max(0, view.added) })
+    const minus = t('taskStatus.removedCount', { n: Math.max(0, view.removed) })
+    return `${plus} ${minus}`
+  }
+  if (view.metricValue === null) return ''
+  const unitKey =
+    view.metricKind === 'lines'
+      ? 'taskStatus.unitLines'
+      : view.metricKind === 'files'
+        ? 'taskStatus.unitFiles'
+        : view.metricKind === 'results'
+          ? 'taskStatus.unitResults'
+          : ''
+  if (!unitKey) return ''
+  return t(unitKey, { n: view.metricValue })
+}
+
+/** 工具调用列表(W7):功能名 · 对象 · 度量 + 状态徽标 + 耗时;点击卡片行折叠查看参数/输出 */
 function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.Element {
   const { t } = useI18n()
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
@@ -268,9 +297,16 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.toolCalls')}</Text>
       {items.map((item) => {
-        // 界面禁止直显英文工具码名:内置工具映射为本地化功能名,插件/MCP 动态名回落原样
-        const displayKey = toolDisplayKey(item.name)
-        const displayName = displayKey ? t(`taskStatus.${displayKey}`) : item.name
+        // 活动行语言:状态 · 功能名 · 对象 · 结果度量(单一真相源 describeToolCall,禁端内自行挖 args/result)
+        const view = describeToolCall({
+          toolName: item.name,
+          args: item.args,
+          result: item.result,
+          status: item.status,
+        })
+        const displayName = view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name
+        const metricLine = formatToolMetricLine(view, t)
+        const showSubject = view.subject !== ''
         const statusLabel =
           item.status === 'running'
             ? t('aiAssistantN8n.toolStatusRunning')
@@ -290,7 +326,9 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
               accessibilityRole="button"
-              accessibilityLabel={displayName}
+              accessibilityLabel={[displayName, view.subject, statusLabel]
+                .filter(Boolean)
+                .join(' · ')}
             >
               {expandable ? (
                 open ? (
@@ -302,6 +340,12 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               <Text style={bubbleStyles.cardTitle} numberOfLines={1}>
                 {displayName}
               </Text>
+              {showSubject ? (
+                <Text style={bubbleStyles.cardSubject} numberOfLines={1}>
+                  {view.subject}
+                </Text>
+              ) : null}
+              {metricLine ? <Text style={bubbleStyles.cardMeta}>{metricLine}</Text> : null}
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
             </Pressable>
@@ -804,13 +848,59 @@ export default function AiAssistantN8nScreen() {
   const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
     const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
+      // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
+      // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
+      // 使历史会话与实时流走同一活动行渲染口径(状态 · 功能名 · 对象 · 度量)。
       const loaded: N8nMessage[] = res.data.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m, idx) => ({
-          id: `${m.id}-${idx}`,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }))
+        .map((m, idx) => {
+          const meta = m.metadata as { toolCalls?: unknown; planSteps?: unknown } | null
+          const planSteps = Array.isArray(meta?.planSteps)
+            ? (meta?.planSteps as Array<Record<string, unknown>>).flatMap((s, i) =>
+                typeof s?.step === 'string'
+                  ? [
+                      {
+                        id: typeof s.id === 'string' ? s.id : `plan-${idx}-${i}`,
+                        step: s.step,
+                        status: (s.status as PlanStepItem['status']) ?? 'pending',
+                        ...(typeof s.durationMs === 'number' ? { durationMs: s.durationMs } : {}),
+                        ...(typeof s.tokenUsage === 'number' ? { tokenUsage: s.tokenUsage } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const toolCalls = Array.isArray(meta?.toolCalls)
+            ? (meta?.toolCalls as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.id === 'string' && typeof c.toolName === 'string'
+                  ? [
+                      {
+                        id: c.id,
+                        name: c.toolName,
+                        status:
+                          c.status === 'error' || c.error
+                            ? ('error' as const)
+                            : c.status === 'success'
+                              ? ('success' as const)
+                              : ('running' as const),
+                        ...(c.args && typeof c.args === 'object'
+                          ? { args: c.args as Record<string, unknown> }
+                          : {}),
+                        ...(c.result !== undefined ? { result: c.result } : {}),
+                        ...(typeof c.durationMs === 'number' ? { durationMs: c.durationMs } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          return {
+            id: `${m.id}-${idx}`,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+            ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+          }
+        })
       setMessages(loaded)
       requestAnimationFrame(() => {
         listRef.current?.scrollToEnd({ animated: true })
@@ -988,8 +1078,9 @@ export default function AiAssistantN8nScreen() {
             }),
           )
         },
-        onError: (err) => {
-          const formatted = formatSSEError(new Error(err))
+        onError: (err, info) => {
+          // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
+          const formatted = formatSSEError(new Error(err), info)
           setSending(false)
           abortRef.current = null
           // 空回复时填充错误提示
@@ -1545,7 +1636,13 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: rpx(12),
     paddingVertical: rpx(8),
   },
-  cardTitle: { flex: 1, fontSize: 12, color: tokens.text.primary },
+  cardTitle: { flexShrink: 0, fontSize: 12, color: tokens.text.primary },
+  cardSubject: {
+    flex: 1,
+    fontSize: 11,
+    color: tokens.text.tertiary,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
   cardMeta: { fontSize: 10, color: tokens.text.tertiary },
   cardBody: {
     paddingHorizontal: rpx(12),
