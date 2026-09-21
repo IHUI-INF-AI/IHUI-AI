@@ -7292,7 +7292,21 @@
         "ariaLabel": "メッセージ使用量詳細"
       },
       "retryBadge": "再試行{count}回",
-      "retryBadgeAria": "一時的な失敗後に{count}回自動再試行"
+      "retryBadgeAria": "一時的な失敗後に{count}回自動再試行",
+      "openInWorkPanel": "ワークパネルで開く",
+      "toolUnknownFile": "(不明なファイル)",
+      "pendingTaskTitle": "タスク実行中",
+      "pendingAutoChecked": "自動確認済み",
+      "pendingAutoChecking": "確認中",
+      "pendingTaskSubmitted": "{tool} を送信しました。生成が終わるとここに表示されます。",
+      "pendingCheckingShort": "確認中",
+      "pendingRefresh": "状態を更新",
+      "pendingStopped": "長時間完了しないため自動更新を停止しました。状態を更新で再確認できます。",
+      "pendingFailed": "タスクが失敗またはキャンセルされました。別のプロンプトで再試行できます。",
+      "planStepPending": "未実行",
+      "planStepInProgress": "進行中",
+      "planStepCompleted": "完了",
+      "planStepFailed": "失敗"
     },
     "tokenUsage": {
       "promptTokens": "プロンプト",
