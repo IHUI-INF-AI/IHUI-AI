@@ -7311,8 +7311,6 @@
         "total": "合計使用量",
         "ariaLabel": "メッセージ使用量詳細"
       },
-      "retryBadge": "再試行{count}回",
-      "retryBadgeAria": "一時的な失敗後に{count}回自動再試行",
       "openInWorkPanel": "ワークパネルで開く",
       "toolUnknownFile": "(不明なファイル)",
       "pendingTaskTitle": "タスク実行中",
@@ -7323,7 +7321,6 @@
       "pendingRefresh": "状態を更新",
       "pendingStopped": "長時間完了しないため自動更新を停止しました。状態を更新で再確認できます。",
       "pendingFailed": "タスクが失敗またはキャンセルされました。別のプロンプトで再試行できます。",
-      "planStepPending": "未実行",
       "planStepInProgress": "進行中",
       "planStepCompleted": "完了",
       "planStepFailed": "失敗"
@@ -8957,7 +8954,6 @@
     "cmdKouboScript": "本日8本のDouyinナレーション原稿を生成してください。要件:\n1. 日付: MMDD\n2. テーマ方向:\n3. 二重ゲート検証(曖昧さ圧縮 / 原稿間語彙 / 全量検証 / 語弊 / ホットトピックカバー)\nkoubo-workflowパイプラインを実行してください(制約優先執筆法)。",
     "cmdPolish": "のテキストを確認し、よりプロフェッショナルでストリームにしてください：",
     "cmdSummary": "の内容を確認し、適切なをしてください",
-    "viewNIntermediateSteps": "{count} 個の中間ステップを表示",
     "hideIntermediateSteps": "中間ステップを隠す",
     "batchDiff": {
       "acceptAll": "すべて承認",
@@ -9207,7 +9203,6 @@
     "modelCapReasoning": "推論",
     "modelCapTools": "ツール",
     "modelCapFim": "補完",
-    "stepsHoverPreview": "ホバーで末段をプレビュー、クリックで全手順を展開",
     "modelCategoryAsr": "音声認識",
     "modelCategoryChat": "対話・推論",
     "modelCategoryEmbedding": "埋め込み",

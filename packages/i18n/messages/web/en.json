@@ -7311,8 +7311,6 @@
         "total": "Total usage",
         "ariaLabel": "Message usage details"
       },
-      "retryBadge": "Retried {count}×",
-      "retryBadgeAria": "Auto-retried {count} time(s) after transient failure",
       "openInWorkPanel": "Open in Work Panel",
       "toolUnknownFile": "(unknown file)",
       "pendingTaskTitle": "Task in progress",
@@ -7323,7 +7321,6 @@
       "pendingRefresh": "Refresh",
       "pendingStopped": "Still not ready, auto-refresh stopped. Click Refresh to check again.",
       "pendingFailed": "The task failed or was canceled. Try another prompt.",
-      "planStepPending": "Pending",
       "planStepInProgress": "In progress",
       "planStepCompleted": "Done",
       "planStepFailed": "Failed"
@@ -8967,7 +8964,6 @@
     "cmdKouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method).",
     "cmdPolish": "Please polish the following text to make it more professional and fluent:",
     "cmdSummary": "Please summarize the above conversation and extract key information",
-    "viewNIntermediateSteps": "View {count} intermediate steps",
     "hideIntermediateSteps": "Hide intermediate steps",
     "batchDiff": {
       "acceptAll": "Accept All",
@@ -9217,7 +9213,6 @@
     "modelCapReasoning": "Reasoning",
     "modelCapTools": "Tools",
     "modelCapFim": "FIM",
-    "stepsHoverPreview": "Hover to preview the last step; click to expand all",
     "modelCategoryAsr": "Speech to text",
     "modelCategoryChat": "Chat",
     "modelCategoryEmbedding": "Embedding",
