@@ -18,7 +18,7 @@ import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
 import { getApiBaseUrl } from '../lib/config'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
-import { executeAgentActionRequest } from '../lib/agent-control'
+import { dispatchAgentActionRequest } from '../lib/ext-ui-forwarder'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { createChromePlatform } from '@ihui/browser-platform'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -281,9 +281,9 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
         return reply(msg.requestId, data)
       }
       case 'agent.action': {
-        // 2026-07-22 P2 dedupe:改用 agent-control.ts 的 executeAgentActionRequest
-        // (与 agent-control-bridge.ts 共用同一实现,消除重复)
-        const data = await executeAgentActionRequest(msg.payload)
+        // 2026-07-22 P2 dedupe:改用共享执行器;2026-09-21 第五族 ext_ui:改走
+        // dispatchAgentActionRequest 分流(ext_ui 转发 sidepanel,其余走 browser 执行器)
+        const data = await dispatchAgentActionRequest(msg.payload)
         return reply(msg.requestId, data)
       }
       default: {
