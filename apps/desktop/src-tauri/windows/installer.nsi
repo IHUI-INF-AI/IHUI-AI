@@ -90,6 +90,9 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状(见 .onInit / CreateOrUpdateDesktopShortcut)
+Var HadExistingInstall
+Var DesktopIconExisted
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -505,6 +508,25 @@ Function .onInit
   !endif
 
   !insertmacro SetContext
+
+  ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。
+  ; 背景:仅应用内自动更新器带 /UPDATE(UpdateMode=1,卸载器不删图标、新装不重建);
+  ; 手动跑安装包覆盖安装(交互/静默)不带该参数,走「卸载旧版(删桌面图标)→
+  ; 全新安装(无条件重建)」,用户删过的图标被强行恢复。此处于 .onInit
+  ; (卸载旧版之前、SetContext 之后,SHCTX/$DESKTOP 语义与快捷方式创建一致)
+  ; 记录「升级前是否已有安装」与「桌面图标是否存在」,供
+  ; CreateOrUpdateDesktopShortcut 判断:用户已删 → 不再创建;未删 → 重建(视觉等同保留)。
+  StrCpy $DesktopIconExisted 0
+  ${If} ${FileExists} "$DESKTOP\${PRODUCTNAME}.lnk"
+    StrCpy $DesktopIconExisted 1
+  ${EndIf}
+  ReadRegStr $HadExistingInstall SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+  ${OrIf} $HadExistingInstall == ""
+    StrCpy $HadExistingInstall 0
+  ${Else}
+    StrCpy $HadExistingInstall 1
+  ${EndIf}
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====
@@ -996,6 +1018,14 @@ Function CreateOrUpdateDesktopShortcut
   ${If} $WixMode = 0
     ${If} $UpdateMode = 1
     ${OrIf} $NoShortcutMode = 1
+      Return
+    ${EndIf}
+    ; IHUI 2026-09-21:覆盖升级(手动跑安装包,无 /UPDATE)尊重用户桌面图标现状:
+    ; 升级前桌面无快捷方式(用户已删) → 不再强行创建。
+    ; 首次安装(HadExistingInstall=0)行为不变,始终创建;
+    ; 升级前图标存在 → 仍创建(旧卸载器已删除,重建后视觉等同保留,且指向新安装目录)。
+    ${If} $HadExistingInstall = 1
+    ${AndIf} $DesktopIconExisted = 0
       Return
     ${EndIf}
   ${EndIf}
