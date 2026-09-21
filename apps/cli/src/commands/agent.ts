@@ -24,7 +24,7 @@ import { randomUUID } from 'node:crypto';
 import * as path from 'node:path';
 import chalk from 'chalk';
 import ora from 'ora';
-import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEErrorSeverity } from '@ihui/api-client';
+import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEErrorSeverity, type PlanUpdateEvent } from '@ihui/api-client';
 // L1-4(2026-07-25 立):doom_loop 反思沉淀 procedural memory,需 loadConfig 拿 ai-service URL
 import { loadConfig } from '../config/index.js';
 import {
@@ -392,6 +392,8 @@ export interface RunToolLoopOptions {
   onError?: (message: string) => void | Promise<void>;
   /** 模型推理过程增量(reasoning/thinking)回调 — 透传 api-client 的 onReasoning,未传时零开销 */
   onReasoning?: (delta: string) => void | Promise<void>;
+  /** 执行计划快照(plan_updated)回调 — 透传 api-client 的 onPlanUpdate,REPL 借此驱动实时任务状态行 */
+  onPlanUpdate?: (event: PlanUpdateEvent) => void;
   /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
@@ -658,6 +660,8 @@ interface SampleWithRetryOptions {
   extraBody?: Record<string, unknown>;
   /** 原生 function calling:SSE tool-call 事件回调 */
   onToolCallEvent?: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => void;
+  /** 执行计划快照(plan_updated)— 透传 api-client 的 onPlanUpdate,未传时零开销 */
+  onPlanUpdate?: (event: PlanUpdateEvent) => void;
 }
 
 interface SampleWithRetryResult {
@@ -754,6 +758,7 @@ async function sampleWithRetry(
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
         ...(opts.onToolCallEvent ? { onToolCall: opts.onToolCallEvent } : {}),
         ...(opts.onReasoning ? { onReasoning: opts.onReasoning } : {}),
+        ...(opts.onPlanUpdate ? { onPlanUpdate: opts.onPlanUpdate } : {}),
         ...(opts.sampler ?? {}),
         onError: (msg) => { streamErr = msg; },
       } as Parameters<typeof streamChat>[0]);
@@ -1054,6 +1059,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             ...(opts.onReasoning
               ? { onReasoning: (delta: string) => { void opts.onReasoning?.(delta); } }
               : {}),
+            // 执行计划快照透传(plan_updated):REPL 借此驱动实时任务状态行
+            ...(opts.onPlanUpdate ? { onPlanUpdate: opts.onPlanUpdate } : {}),
             sampler: opts.sampler,
             ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
             ...(withTools
