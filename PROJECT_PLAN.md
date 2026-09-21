@@ -343,15 +343,19 @@
 - [x] ✅(2026-09-20) O4 数据闸机械层：`plugins/principal.ts` + `utils/scoped-guard.ts` + `dbMode` 守卫 + `rls-context` 移到鉴权后阶段并改非超级用户连接 + `idor-guard` 由 catalog 驱动接线（现为 0 调用点）
 - [x] ✅(2026-09-20) O5 `/v1` nginx 独立 `limit_req` + 审计归因（`audit*.ts`/`api-logger.ts` 补 `apiKeyId` + 端点 + 脱敏参数摘要）+ `llm_call_logs` prompt 原文留存策略（按 key 可关 + TTL）
 
+- [ ] O18 从空库重放迁移会**静默截断**:`0110_skills_tombstone.sql` 曾以裸 `ADD COLUMN` 撞上前面建表迁移已带出的列,抛 42701 后 `drizzle-kit migrate` 只 exit 1 不打原因 ⇒ 全新部署(含 `deploy/saas` 客户模板)拿到残缺 schema。本轮已把它改成 `ADD COLUMN IF NOT EXISTS` 并实测 **285/285** 全通(592 表、`ai_model_config` 32 列与 dev 对齐);**仍缺机械防线**:CI 加"建空库 → `db:migrate` → 与 `packages/database/src/schema` 比对表/列集合"的门,否则同类非幂等迁移还会再进来(dev 库靠历史增量长出,所以这类洞永远不会在本地暴露)
+
 ### P1 深度打磨（全域开放 + 标准协议）
 
 - [x] ✅(2026-09-20) O6 能力开放注册表：`authenticateApiKeyOrJwt` + catalog 驱动的 `/api/*` 逐步开放（默认拒绝，逐条登记 data-class）
 - [x] ✅(2026-09-20) O7 OAuth 2.1 提供方补齐：`/.well-known/oauth-authorization-server` + OIDC discovery、RFC 7591 DCR、`client_credentials` M2M grant、授权码链路 PKCE 强制接线（现路由未读 codeChallenge）、`/oauth/introspect` + `/oauth/revoke` + refresh rotation
 - [x] ✅(2026-09-21) O8 + O8b OpenAPI 契约产物**真正入仓**并把门禁做成真的：`apps/api/openapi.json`(3778 path / 4763 operation)此前被 `.gitignore` 的全局 `openapi.json` 规则顺手忽略 ⇒ `openapi-check` 只能"产物不存在→跳过",是恒绿假门禁;现加 `!apps/api/openapi.json` negation 入库,补 `pnpm openapi:export` 脚本(守门提示语此前指向一个不存在的命令)。漂移判据 [E] 接进 CI(`.github/workflows/openapi-check.yml`:先 `pnpm capabilities:check` 校 TS↔产物,再重导出 `--out` + `--fresh` 校产物↔代码)。guardian 第 10 项由 `info` 升 **blocking**(`--staged`,只在暂存触及路由/产物/清单时判定)。契约漂移清零:[C] 能力清单未落地端点 39→**0**、缺 security **0**、`check-capability-catalog` 的"声明无注册点"9→**0**;做法是补 `CapabilityEntry.host`(`'api'`/`'ai-service'`,缺省 api)让"归属不同"不再被误判成漂移,并按事实删除不实声明(`web:fetch`/`search:web`/`ops:execute`/`skills:write` 等 5 条改为 `routes: []` + 注明真实面),`browser-hub`→真实 `/api/browser/*`、`mcp/external/connect`→真实 `/api/mcp/external/servers/{name}/connect`。顺带修掉三处守门自身缺陷:`openapi-check` 的 [B] 用上写字面量比小写 OpenAPI 键 ⇒ 4 个存在的关键端点恒判缺失;`--self-test` 在 HEAD 上就是红的(假阳性断言 + 覆盖率样例期望错);`export-capabilities --check` 把 `generatedAt` 计入比对 ⇒ 文档宣称的 CI 门恒红从未生效
 - [x] ✅(2026-09-20) O9 MCP server 完整化：协议版本协商、`resources/read`、batching、`outputSchema`、streamable HTTP 正式挂载、per-key 限流、工具 list_changed 广播
-- [x] ✅(2026-09-21) O10 + O10b 对外 run 语义：幂等 run 创建(`Idempotency-Key`)、通用幂等层、外部 run 句柄 `irun_<ulid>`(`POST /runs` 发句柄 + `GET /v1/run-refs/:ref` 反查,Redis 90d,已登记进 runs:read 能力面)、`/v1` 游标分页(`apps/api/src/utils/cursor-page.ts` 单一实现,assistants/messages/runs/steps 四条列表路由接上并补 querystring schema——原先契约里看不见 limit/after/page_format)。已知边界如实记录:句柄只在 POST /runs 成功响应出现一次,失败/取消与 GET 详情不回显;按第三方自带业务键反查 run **未实现**(需给 metadata 建索引,属新增能力,按 §24 待用户确认)
+- [x] ✅(2026-09-21) O10 + O10b 对外 run 语义：幂等 run 创建(`Idempotency-Key`)、通用幂等层、外部 run 句柄 `irun_<ulid>`(`POST /runs` 发句柄 + `GET /v1/run-refs/:ref` 反查,Redis 90d,已登记进 runs:read 能力面)、`/v1` 游标分页(`apps/api/src/utils/cursor-page.ts` 单一实现,assistants/messages/runs/steps 四条列表路由接上并补 querystring schema——原先契约里看不见 limit/after/page_format)。已知边界如实记录:句柄只在 POST /runs 成功响应出现一次,失败/取消与 GET 详情不回显;按第三方自带业务键反查 run 已于 O10c 落地:建 run 时带 `external_id` → 登记 Redis `run_ext:<调用方 userId>:<external_id>`,反查端点 `GET /v1/threads/runs/by-external-id/:externalId` 挂 runs:read;字符集 `[A-Za-z0-9_.-]` 刻意排除 `:` 防键体注入,跨用户反查与"键不存在"**响应体逐字节相同**(不泄露存在性),35 项测试覆盖。仍未做:失败/取消分支回显句柄、`external_id` 在创建响应里回显
 - [x] ✅(2026-09-20) O11 A2A 标准化：`/.well-known/agent.json` agent-card（现 `routers/a2a.py` 为自研协议）
 - [x] ✅(2026-09-20) O12 CLI/ACP 对外凭据形态：`ihui serve` / `acp` 支持 API Key（现只认人 JWT）
+
+- [ ] O17b 在线三通道**未复现的 5 项**(18 项断言已 PASS 13:匿名 401、自助签发 `ihui_*` key、`/v1/models` 200/249、**真模型调用 200 出内容**、SSE 200、未授予 scope 403、**scoped-read 经 `ihui_app` 非超级用户连接 200**、discovery 匿名可读、DCR 201 + secret 明文下发、threads/assistants 创建 200、游标分页契约可见):① MCP 工具面 403(`mcp:connect` 与 `GET /v1/mcp/tools` 能力闸的 scope 对应关系要确认);② 配额 429 未在线触发(第 2 次仍 200 —— `rateLimit` 字段与 5h/1d/7d 窗口的关系需另判,现仅有 63 项 mock 断言);③ `POST /runs` 502(私有实例上游指向并发会话的 8803,需自带可控 ai-service);④ `/oauth/token` 换取 400 的**具体原因**(secret 已明文下发 47 字符,疑在 grant/scope 校验或 `client_secret_post` 取参);⑤ run 失败/取消分支不回显句柄。复现配方已沉淀(隔离库 `create database ... template0 encoding 'UTF8' lc_collate 'C'` → `drizzle-kit migrate` → `pg_dump --data-only` 灌 `ai_vendor_configs`/`ai_model_config` → `signAccessToken` 直接签人 JWT → 8809 + `DATABASE_APP_URL` + Redis db12)
 
 ### P2 广度产品化（生态）
 
@@ -361,6 +365,9 @@
 - [x] ✅(2026-09-20) O15 web 开发者控制台：`apps/web/app/(main)/developer/capabilities/` 能力目录浏览(62/62 渲染)+ scope 申请面板(显式标出因 `thirdPartyEligible=false`/platform 域而**永远申请不到**的 scope)+ 用量面板;文案五语齐套;运行时浏览器自验完成
 - [x] ✅(2026-09-20) O16 治理：docs/developer 补权限模型 + data-class + 速率表 + 错误码 + 滥用政策/DMCA；share token 不再全权继承
 - [x] ✅(2026-09-21) O17 验证:三通道接入自跑通脚本 `scripts/e2e-agent-access.mjs`(离线 17 PASS / 0 FAIL / 1 SKIP,`node --test` 8 passed;`--live` 在私有端口 8809 + 隔离库实跑只读探针)。**顺带抓到三条真实缺陷并修复(504f694)**:① 401 响应体回显内部 SQL 原文(72 处双通道 catch 把未标 statusCode 的 DB 异常原样吐给调用方);② 任意乱码 `Authorization: Bearer x` 可整块绕过 CSRF;③ RFC 7591 动态注册端点 `POST /oauth/register` 不在 CSRF 公开名单 ⇒ 标准第三方客户端根本注册不到 client_id,OAuth 通道实际走不通。ai-service 侧两条边界改为**不由部署 .env 决定**:`/api/mcp*` 从 `JWT_PUBLIC_PATHS` 强制剔除(O1 关掉的匿名后门不许被 .env 残留重开)、`/.well-known/agent*.json` 强制补齐(A2A 发现必须匿名可读)。配额 429 由 `tests/api-key-quota-enforcement.test.ts` 63 项断言机器可证。未闭环:带合法凭据的成功路径需一条可写隔离库(私有全量库 ihui_o17 的 users 行拷贝在 postgres.js 报 UNDEFINED_VALUE),ai-service 两处修复的 HTTP 级复验需重启 8803(非本会话进程),均以单元断言为准、未冒充在线证据
+
+- [ ] O14b Go 通道 tag **形态错误**:`packages/sdk/go/go.mod` 的 module 是 `github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go`,Go 要求子目录模块的 tag 带完整次目录前缀(实测对照 `opentelemetry-go-contrib` 即 `instrumentation/github.com/gorilla/mux/otelmux/v0.71.0`),而 `release-sdk.yml` 现在推 `sdk/v$VERSION` ⇒ **永远 `go get` 不到**。改成 `packages/sdk/go/v$VERSION`(或把 go 模块提升到根 module 路径),并用 `GOPROXY=direct go list -m -versions` 回读为完成判据(proxy.golang.org 本机不可达)
+- [ ] O14c `@ihui/api-client` 去 `private` 的前置:补 build→dist、`files` 白名单、`publishConfig`,并把 `@ihui/types` 换成已发布坐标(现在 `main`/`types`/`exports` 全指 `./src/*.ts`,外部装了也用不了)
 
 ### 验收硬性指标
 
