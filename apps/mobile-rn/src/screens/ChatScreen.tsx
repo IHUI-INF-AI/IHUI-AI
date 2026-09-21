@@ -139,6 +139,7 @@ import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
@@ -398,6 +399,7 @@ export function ChatScreen() {
     route.params?.conversationId ?? null,
   )
   const [prompt, setPrompt] = useState('')
+  useUiTextField({ label: '请输入内容...', value: prompt, setValue: setPrompt, multiline: true })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   // 消息富内容状态:代码块展开(msgId-partIndex) + 图片全屏预览(对齐 ai_index2 toggleCodeBlock/previewImage)
@@ -434,6 +436,12 @@ export function ChatScreen() {
   // P1.4 网页链接输入 Modal
   const [urlInputVisible, setUrlInputVisible] = useState(false)
   const [urlInputValue, setUrlInputValue] = useState('')
+  useUiTextField({
+    label: '请输入网页链接(https://...)',
+    value: urlInputValue,
+    setValue: setUrlInputValue,
+    keyboardType: 'url',
+  })
   // P1.5 文件上传 Modal(expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传)
   const [fileUploadVisible, setFileUploadVisible] = useState(false)
   const [fileUploading, setFileUploading] = useState(false)

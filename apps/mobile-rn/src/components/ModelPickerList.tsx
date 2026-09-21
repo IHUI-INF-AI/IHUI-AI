@@ -42,6 +42,7 @@ import { ChevronDown, ChevronUp, History, Search } from 'lucide-react-native'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 
 // 调用方需要用它自己组装条目(category / modelTier 是 ModelListItem 的字段),此处转出
 export type { ModelListItem }
@@ -83,6 +84,7 @@ export default function ModelPickerList({
   const { t } = useI18n()
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [keyword, setKeyword] = useState('')
+  useUiTextField({ label: t('chat.modelHistorySearch'), value: keyword, setValue: setKeyword })
 
   // ── 分区:默认列表 vs 历史模型 ──
   const { primary, archived } = useMemo(() => {
