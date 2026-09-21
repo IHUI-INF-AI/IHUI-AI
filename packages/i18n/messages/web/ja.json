@@ -9416,6 +9416,7 @@
     "quotedReplyAssistant": "AI 回答を引用",
     "quotedReplyUser": "ユーザーメッセージを引用",
     "webSearch": "ウェブ検索",
+    "webSearchDesc": "有効にすると、通常のチャットでもアシスタントがウェブを検索して最新情報を取得できます",
     "retry": "再試行",
     "screenshot": "スクリーンショット",
     "screenshotHint": "Ctrl+V でスクリーンショットを貼り付けることもできます",
