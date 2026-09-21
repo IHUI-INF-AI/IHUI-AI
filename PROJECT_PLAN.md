@@ -3564,10 +3564,50 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 <!-- 已归档占位与水印尾行见文件末尾 -->
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
 
-## P1 任务进度状态条收尾两项(2026-09-21 登记,待做)
+## P0 消息流活动区统一设计语言(2026-09-21 立并完成 ✅,web + packages/shared + i18n;跨端渲染层跟进见下)
+
+用户反馈:"流式对话框内的内容、样式跟 Qoder / Trae / Codex 差太多,都不一致"。诊断出的根因不是单点配色,
+而是**同一个气泡里六类过程信息各写各的**:字号五档(9/10/11/12/13px)、圆角三档、状态色表四份、徽章各自手搓,
+过程区被 `rounded-lg + border + bg-muted` 大盒子包成卡片;更关键的是**行内只有功能名没有对象**,
+读不出"对哪个文件、搜了什么、结果多大",而 Qoder/Trae/Codex 都是一行一事把对象与度量摊开。
+
+**落地**(三笔提交:`1f89e91217` 基元 + 工具卡、`67cf8fc5ea` 六类区段、本次 e2e 闸):
+
+- **共享层单一真相源** `packages/shared/src/chat/tool-display.ts` 新增 `describeToolCall()`:
+  一次工具调用 → `{nameKey, subject, subjectKind, metricKind, metricValue, added, removed, writesFile}`,
+  即"功能名 + 对象 + 结果度量"的口径;功能名映射从 14 个扩到 55 个(含端侧操控桥 `web_ui_*`/`api_*`、
+  教育管理 `edu_*`、媒体/Git/检索),未登记工具按 路径→URL→检索词→命令→实体名 试探兜底。
+  `task-status.ts` 抽出 `fileChangeForCall` 并把 `countLines` 修正为"末尾换行不额外计一行"(3 行文件曾显示 +4)。
+- **web 设计基元** `components/chat/stream/stream-ui.tsx`:`StreamRow`(状态图标·功能名·对象·度量·±行数·耗时,
+  `titleMode` 区分动词短语与整句话主体,`leading` 放序号,skipped/pending 整行弱化)/
+  `StreamGroup`(无边框无底色 + 一条竖引导线时间线,组头流式期=此刻正在做的这一行,结束回落「N 个步骤 · 用时 Xs」,
+  `headerExtra` 容纳视图切换避免按钮套按钮)/ `StreamDetail`/`StreamLabel`/`StreamCode(autoScrollToBottom)`/
+  `StreamTag(strong)`(§4 数字徽章确定性居中单点实现)/ `useStreamStatusLabel`/`planStepStreamStatus`/`useLiveElapsed`。
+- **六类区段全部接入**:工具卡(整卡→一条活动行 + 展开明细,插件/MCP/轮次/重试/跳过/错误分类收口为中性徽章,
+  `timeout`/`http_4xx` 等错误码不再直显)、计划步骤 + 清单(状态三张表→基元口径)、终端(命令一行,输出块统一)、
+  子代理活动(组头改 StreamGroup,10 业务态→5 StreamStatus,**顺带修真实缺陷**:`ai.status` 只有 completed/failed
+  两键,running/pending 此前把英文码原样回显到界面)、turn 变更卡与文件 chips(删端内 95 行自造行数统计,
+  改调共享 `computeFileChanges`)、思考区(并入活动行,保留 aria-live 播报与 data-section-header 键盘导航锚点)、
+  工具调用汇总(分类计数按功能名,删死掉的 safeT 兜底层)、执行轨迹回放、等待态 TypingIndicator。
+- **文案**:界面硬编码中文与英文码名全部改走 i18n —— shared `taskStatus` +76 键(工具功能名 55 + 状态/度量/
+  分组头/错误分类/phase),web `ai.toolCall` +14、`ai.subAgentFeed` +2、`chat.turnChanges` +3;5 语言 parity、
+  zh-TW opencc 用字(後臺)、ko/ja 残留扫描全绿。
+- **防回潮闸** `apps/web/e2e/stream-design-system.spec.ts`(SSE mock,不依赖真实模型,CI 可重复):
+  ① 工具行必须显示本地化功能名 + 等宽对象 + 结果度量("4 行"/"2 个结果");② 消息流内**所有**活动行与组头
+  计算样式必须恰为 `12px / 24px`(再手写 9/10/11px 档位即红);③ 组头含「N 个步骤」摘要;
+  ④ 消息流文本禁止出现 `read_file`/`web_search`/`http_4xx`/`N tools` 等英文码名。
+- **§17 真机取证**:8801 上跑的是 ~20:10 的**生产构建**(`pnpm start`),不含我 20:10 后的两处改动 →
+  另起私有 dev 实例 8877 复跑,`6 passed (16.2s)`;取证完成后按监听 PID 8776 精确 `taskkill /T /F` 关闭该树,
+  8801 未受影响(仍 200)。全量 web `vitest` 143 文件 / **1973 passed**,`tsc --noEmit` **0 错误**。
+
+**残余(明确不闭环项)**:① extension / miniapp-taro / mobile-rn 已用 `toolDisplayKey`/`humanizeToolText`,
+但尚未接入 `describeToolCall` 的"对象 + 结果度量",视觉档位仍各自实现(跨端样式 parity 待跟);② CLI 端
+`0` 处使用共享工具名映射,状态行仍显示原始码名;③ 侧栏工具面板 `AgentTraceViewer`(`text-sm` + 硬编码
+"执行成功/执行失败")与 `tool-calls-section.tsx:216`(`{tool.toolName}` 直显)未在本轮清单内。
+
 
 - **① planSteps 持久化与回放**:现状 `plan_updated` 只写前端内存 `message.planSteps`,API/DB 无 plan_steps 字段(schema 0 命中)→ 历史重拉/刷新后状态条与消息流 PlanStepsCard 全部消失。修法:messages 表加 JSON 列(或 meta 内嵌)+ api 写入链 + GET 回放。⚠️ 涉及生产迁移(有 RLS/CREATEROLE 静默失败前科),须按迁移检查单走。
-- **② 其他端渲染层同步 humanizeToolText**:extension/mobile-rn/taro 状态条与消息流工具卡当前仍直显英文工具码名,应接 `@ihui/shared/chat` 的 `toolDisplayKey`/`humanizeToolText`(web 已接,commit 5d767ca52 + 本次)。
+- [x] ✅(2026-09-21)**② 其他端渲染层同步 humanizeToolText**:extension/miniapp-taro/mobile-rn 的状态条与消息流工具卡已接 `@ihui/shared/chat` 的 `toolDisplayKey`/`humanizeToolText`(不再直显英文码名)。**残余**:CLI 端 0 处使用(状态行仍显示原始码名)、三端尚未接本轮新增的 `describeToolCall`(对象 + 结果度量),归入上一条 P0 的"残余"继续跟。
 
 **2026-09-21 晚更新(状态条 P1 两项进展)**:
 - **② 各端工具功能名化已完成 ✅**:extension(5 渲染点)/ mobile-rn(3 渲染点)/ miniapp-taro(5 渲染点)全部接入共享 `toolDisplayKey`/`humanizeToolText`,三端 typecheck+test(139/365/双守门)全绿。taro remote-locales 生成产物暂无新键(有 zh-CN 回退,不显裸键),待上游重生成自动补齐。
