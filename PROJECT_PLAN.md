@@ -901,6 +901,9 @@
 - **D69 层级下移**:`agent_engine.py:1949` 已产出 `autoCompactThreshold`、`agents.py:1476` 已有 ErrorHeatmap 先例 → 属 **R 层(有数据缺呈现)**,不是 P 层,省一条契约改动
 - **H25 噪声识别纪律(本轮新增)**:**"grep 命中 > 0"不等于"我方已有"**。本轮 43 条里出现 4 类噪声——`reorderTabs`(work-panel 标签页)冒充队列重排、`withdraw` 命中**提现**接口 `use-distribution-withdraw.ts`、`速通` 命中 SEO 文案词表 `content_engine/lib/csdn_docx.py`、`captions` 命中空 track 元素。**凡判定"已存在",必须贴出命中行的语义上下文**;把没有的说成有(漏做)与把有的说成没有(重复做)是同等严重的两类返工源。
 
+- **D79/D81 措辞基线已到手(报告 §17.1)**:`workflow.fileWorked`=**已扫描文档** / `fileWorking`=**正在扫描文档**、`searchWorked`=**已搜索网页** / `searchWorking`=**正在搜索网页**(双时态中文实例确证);`waitState.followUpMessagesInitialA.*` 同语义 ≥11 个中文变体(正在查看/翻查/阅读/重新查看/扫描/梳理之前的消息)→ i18n 词表按"**池**"设计,不按单串
+- **H26 多语言块定界纪律(第 15 轮立,同一陷阱已栽三次)**:在交错的多语言块里判"某语言的值",**禁止**用任何"非 ASCII / `\x{4e00}-\x{9fff}` / `\p{Han}`"式字符过滤——GNU grep ERE 不解析 `\xNN`(会退化成字母区间而误配瑞典语)、`LC_ALL=C` 下 `\x{...}` 直接报错、**`\p{Han}` 同样匹配日文汉字**且不排除 `\p{Kana}` 也未能生效。正解只有两条:①解析容器头拿目标文件字节边界再切块;②**用已知目标语言锚点**向两侧扩窗(本任务所有正确中文值均来自锚点法)。违反者产出的"证据"一律作废重取
+
 ### 本轮(第四轮)交付状态
 
 
