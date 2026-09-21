@@ -913,7 +913,19 @@
     "instructor": "講師",
     "level_label": "難度",
     "free": "免費",
-    "loadFailed": "載入篩選失敗"
+    "loadFailed": "載入篩選失敗",
+    "cat_all": "全部",
+    "cat_tech": "技術",
+    "cat_design": "設計",
+    "cat_business": "商務",
+    "cat_language": "語言",
+    "level_all": "全部",
+    "level_beginner": "入門",
+    "level_intermediate": "進階",
+    "level_advanced": "高級",
+    "price_all": "全部",
+    "price_free": "免費",
+    "price_paid": "付費"
   },
   "courseQAAsk": {
     "title": "課程提問",
