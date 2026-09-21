@@ -173,6 +173,8 @@
   "live": {
     "viewers": "{n} viewers",
     "preview": "Preview",
+    "replay": "Replay",
+    "liveNow": "Live",
     "detail": {
       "loadFailed": "Live load failed",
       "loading": "Loading live…",
@@ -218,7 +220,8 @@
       "liveList": "Live schedule",
       "noLive": "No live sessions scheduled today",
       "anchor": "Host",
-      "today": "Today"
+      "today": "Today",
+      "upcoming": "Upcoming"
     },
     "calendarBtn": "📅 Calendar",
     "mySubscriptionBtn": "🔔 My Subscriptions",
@@ -321,7 +324,9 @@
     },
     "orderNo": "Order No.",
     "status": {
-      "refunded": "Refunded"
+      "failed": "Failed",
+      "refunded": "Refunded",
+      "refunding": "Refunding"
     }
   },
   "wallet": {
@@ -527,6 +532,7 @@
         "education": "Education",
         "life": "Lifestyle",
         "office": "Office",
+        "other": "Other",
         "recommend": "Recommended",
         "writing": "Writing"
       },
@@ -2370,7 +2376,10 @@
       "thresholdText": "Spend {threshold}+",
       "expireText": "Valid until {time}",
       "use": "Use now",
-      "loadMore": "Pull up to load more"
+      "loadMore": "Pull up to load more",
+      "unused": "Unused",
+      "used": "Used",
+      "expired": "Expired"
     },
     "couponList": {
       "received": "Claimed",
@@ -3016,7 +3025,19 @@
     "recommendDesc": "Get premium content recommendations",
     "personalize": "Personalized recommendations",
     "personalizeDesc": "Personalized content based on your interests",
-    "privacyPolicy": "Privacy policy"
+    "privacyPolicy": "Privacy policy",
+    "status": {
+      "granted": "Granted",
+      "denied": "Denied",
+      "unknown": "Not authorized"
+    },
+    "permissions": {
+      "album": "Album Permission",
+      "camera": "Camera Permission",
+      "record": "Microphone Permission",
+      "location": "Location Permission",
+      "notification": "Notification Permission"
+    }
   },
   "page": {
     "vip": {
