@@ -766,7 +766,7 @@
 
 #### B4 跨端与自证缺陷(与 D19 合流)
 
-- [ ] **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现仅 toast,`use-message-list-context-menu.tsx:117-119`);② 工具耗时改为后端下发(D34 帧),废除前端本地计时(断线即不可得);③ `MessageItem.tsx` 1370 / `message-input.tsx` 1234 / `ai-side-panel.tsx` 1496 三巨无霸拆分 + 各补专属单测(现零专属覆盖,仅 message-list.test.tsx);④ miniapp-taro 自研分发层迁 `@ihui/api-client streamChat`(消除漂移);⑤ desktop/extension 对话事件消费点从 0 接线或显式标注平台独占。**验收**:五项各有可复核证据(反馈表行数 +1、耗时来源断言、三文件行数下降且测试数上升、miniapp grep 分发层消失、两端消费点 grep 命中)
+- [ ] **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现仅 toast,`use-message-list-context-menu.tsx:117-119`);② 工具耗时改为后端下发(D34 帧),废除前端本地计时(断线即不可得);③ `MessageItem.tsx` 1370 / `message-input.tsx` 1234 / `ai-side-panel.tsx` 1496 三巨无霸拆分 + 各补专属单测(现零专属覆盖,仅 message-list.test.tsx);④ miniapp-taro 自研分发层迁 `@ihui/api-client streamChat`(消除漂移);⑤ **更正一处本会话此前的假结论**:第 3 轮子代理报"desktop/extension 对话事件消费点为 0",经主代理换路径复测**只对了一半**——desktop 确为 0 端内渲染件(`tauri.conf.json:9 devUrl=http://localhost:8801`,随 Web 壳自动覆盖 ✅);但 **extension 有独立聊天面**(`apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`、`MessagesPage.tsx`、`components/MessageContent.tsx`,5 个事件消费点)→ D49⑤ 的真实任务是**把 extension sidepanel 纳入事件 parity 真值矩阵**(而非"从 0 接线"),并修 `apps/miniapp-taro/src/api/index.ts` 自研分发层向 `@ihui/api-client streamChat` 收编(D49④)。**验收**:五项各有可复核证据(反馈表行数 +1、耗时来源断言、三文件行数下降且测试数上升、miniapp grep 分发层消失、两端消费点 grep 命中)
 - [ ] **D50 多端遥控配对 + 每会话浏览器 Tab 状态(G-60)+ WorkBuddy 取证专项**:① 手机看/接管桌面在跑会话(对标 `remote_control_enrollments`);② 每会话浏览器 tab 路由状态持久化(对标 `thread-tab-routes-v1`,复用 work-panel 历史连贯根治成果);③ **WorkBuddy 元素级取证补齐**(本机四路探测确认无程序本体):在装有 WorkBuddy 的机器上取包体或跑一次渲染取证,把报告 §1.4 的 E4 二手升为 E1/E2,再回补差距编号
 
 #### B5 防返工机制(本轮"不可返工"的落地保证)
@@ -812,12 +812,42 @@
 4. **付费诱导与免费心智冲突**:D56/D59 都涉及额度提示与速通,**2026-09-21 三轮已定"不充值可用心智"边界**,实现前须重读那节口径,不得在免费档可用时弹升级诱导。
 5. **不可核证证据不得进实现**:任何以 WorkBuddy/Trae 未取证元素为依据的条目**禁止开工**;验收文案只能引用报告中标 `E1` 的原文。
 
+#### AGENTS.md §9 端覆盖矩阵(D33-D64 实施时逐格对照,免"只改一端"与误豁免)
+
+**各端对话面拓扑真相(2026-09-21 实测,证据路径即判据,禁止再用印象值)**:
+
+| 端 | 是否有独立渲染面 | 实测证据 | 覆盖义务 |
+|---|---|---|---|
+| ai-service | 事件源/持久化源头 | `app/core/sse_contract.py:18-45`(24 事件)、`routers/llm.py` | **必做**(数据面唯一源) |
+| api(Node) | 网关+落库 | `routes/ai-chat-stream.ts`、`routes/ai-callback.ts:54-55,159-160` | **必做** |
+| web | 主渲染面(最全) | `components/chat/message-list/MessageItem.tsx`(1370 行)、`components/ai/*` | **必做** |
+| desktop | **无端内渲染件=0**,随壳 | `apps/desktop/src-tauri/tauri.conf.json:9 devUrl=http://localhost:8801` | **○ 自动覆盖**(壳内即 web 页,无需端内改动;若日后改本地打包页则义务转为必做) |
+| extension | **有独立聊天面**(此前被误判为 0) | `apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx`、`MessagesPage.tsx`、`components/MessageContent.tsx`(5 处事件消费) | **必做**(纳入 parity 真值矩阵,见 D49⑤) |
+| miniapp-taro | 有,且**自研分发层未走 api-client** | `apps/miniapp-taro/src/api/index.ts`(分发)、`src/pkg-ai/ai/chat.tsx`(渲染) | **必做**(最易漂移;D49④ 收编前,任何新事件须三处同改) |
+| mobile-rn | 有(双屏且能力不等) | `apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx`(tool/plan/terminal/usage/reasoning)、`ChatScreen`(仅 reasoning+delta) | **必做**(两屏都算,不得只补一屏) |
+| cli | 有(TUI + ACP 桥) | `apps/cli/src` 29 处消费(`agent.ts`、`acp/server.ts`、`tui-client` 只认 done/error/result) | **必做**(TUI 档位低是事实,但 ACP 供第三方 IDE 渲染,契约须齐) |
+
+**按任务组的端覆盖声明**(●必做 ○壳自动 –豁免,豁免必须带理由):
+
+- **B1 数据面 D33-D36**:ai-service● api● web● extension● miniapp● rn● cli● desktop○ —— 持久化与契约是跨端前提,**任何一端缺席即未完成**(H18 判据)。
+- **B2 渲染位 D37-D41、D44**:七端全●;仅 **D42 浏览器视觉标注** 与 **D43/D62 语音** 允许部分豁免。
+- **豁免清单(显式登记,依 §9"未标注按全端同步执行")**:
+  - **D42 浏览器标注**:豁免 **cli**(无 GUI 嵌浏览器)、**miniapp-taro**(小程序 web-view 无 CDP/代理注入口)、**mobile-rn**(无内嵌桌面级浏览器)→ 有效范围 = web + desktop(壳)+ extension(其 sidepanel 若具备内嵌页则同做,**实施前先核该能力,未核不得声称豁免**)。
+  - **D43 快捷笔记 / D62 语音字幕与讨论纪要**:豁免 **cli**(终端无麦克风 UI 栈)、**miniapp-taro** 平台独占理由=录音 API 与 `Taro.getRecorderManager` 能力差异(该理由在 D43 已首次登记);**extension** 待核 sidepanel 是否具备 MediaRecorder 权限,**未核前不得豁免**。
+  - **D47 checkpoint 载体**:单端评估项(仅产出决策,不涉渲染)→ 标"单端文档/决策"。
+  - **D57 文档证据等级 / D48 本地加密(桌面端专项)**:D57=单端文档;D48 豁免 web/api/服务端(其数据在库),仅桌面本地缓存相关。
+  - **D51/D54 守门与词表**:守门脚本按 §9 属"单端文档/脚本"豁免渲染同步;**词表 D54 例外——它是五语言 i18n 资产,必须走 §19 全语言 parity,不得豁免**。
+  - **禁止豁免的方向**:凡"对方有我方无"的**对话流可视元素**(G-39~G-83 中任意一条),不得以"该端未接"为由豁免掉端覆盖——只能按上表逐端接线或登记显式豁免理由。
+
+
+
 ### 本轮(第四轮)交付状态
 
 - ✅ V3 元素级对标报告产出并一手证据自验(报告 §0 表列 11 处硬锚点全部复核通过,含一处子代理过度断言的纠正)
 - ✅ **第 4 轮补证(报告 §6)**:三家一手升级——Trae 对话面板包**实为安装目录本地包**(`@byted-icube/ai-modules-chat/dist/index.mjs` 14.6MB,主代理复现 `ai_revert_tips`/`Guardian 已自动批准`/`思考强度`/`工具长输出自动转文件` 等逐字原文),**推翻上一轮"热下发 webview"结论**;Qoder asar **中文显示值取得到**(E5→E1,`任务监控`/`插话`/`打断并执行`/`页面已变化` 等);`.workbuddy/` 确证为**我方脚本自建目录**(`git-push-guard.mjs:177,202`),WorkBuddy 前三轮证据锁定为库内自证文档 → 新增 **G-63~G-70** 与 **D52-D57**,并就地修正本块两处错误结论(D47 前提、敞口 ①)
 - ✅ **第 5 轮补证(报告 §7)**:开「调用」维度并**拦下一条幻影差距**——原判"我方工具名可能未本地化"经自查**不成立**(`packages/shared/src/chat/tool-display.ts` 词表已在、i18n 值在 `messages/shared/zh-CN.json:3`),真差距改定为可量化的**覆盖率 37/87 未覆盖、browser·computer 两族 0 覆盖**(→ D54 定档);Trae 折叠默认态**用静态判据定档**(Agent 模式运行中折叠/Chat 展开/折叠时子项不挂载/手动后 pin)→ 第 4 轮残余 ① 关闭;新增 **G-71~G-83**(13 条)与 **D58-D64**;G-45 证据等级由 E3 升回 **E1**(`增购更多资源`/`升级订阅计划`/`切换模型分级`/`查看用量详情` 已复现)
 - ✅ D33-D64 任务登记(按根因层分 B1-B5 + B4b + B4c,批次顺序纪律写入;差距累计 **G-39~G-83 共 45 条**)
+- ✅ **第 6 轮(§9 端覆盖矩阵)**:实测各端对话面拓扑真值并据此**更正本会话自己的第二条假结论**——extension **确有独立聊天面**(`entrypoints/sidepanel/pages/ChatPage.tsx`/`MessagesPage.tsx`/`components/MessageContent.tsx`,5 处事件消费),前一轮"desktop/extension 消费点为 0"仅对 desktop(壳加载 8801)成立;矩阵同时把 miniapp `src/api/index.ts` 自研分发层、rn 双屏能力不等、cli TUI/ACP 分档写清,并给出**带理由的显式豁免清单**(D42/D43/D62/D47/D48/D51·D54)+ 一条硬约束:**对话流可视元素不得以"该端未接"为由豁免**,未核能力前不得声称豁免
 - ✅ **与并行会话的协作边界(实施前必读,防撞车返工)**:登记后本仓又落地两个相邻提交,已核其真实范围——① `1b542f00f3`「侧栏工具列表与轨迹查看器不再直显英文工具码名」**只改了** `ai/progress-sections/tool-calls-section.tsx` + `ai/AgentTraceViewer.tsx` 两文件,**未覆盖聊天消息流内的 `tool-call-card.tsx`,也未做 87/87 覆盖率** → **D54 范围据此收窄**:只补词表覆盖与聊天卡渲染,禁再碰上述两个已改文件;② `0777fcc22f` 新增 `apps/web/e2e/stream-design-system.spec.ts`(244 行,SSE mock 消息流设计系统防回潮闸,另见本文件第 3626 行其登记)→ **D51 不得再造第二条消息流 e2e 闸**,改为在其 spec 之上扩"期望元素清单"断言 + 静态守门脚本,二者共享同一份清单数据文件
 - ⏳ 待实施:D33-D64 全部(本轮为计划轮,不含代码实现);**开工顺序强制 B1→B2→B3/B4,D51 与 B1 同批启动**(否则补完仍会退化)
 - ⏳ 敞口(明写,不假装收口):①**取证已到静态界(第 5 轮已推进多数)**:Trae 步骤卡默认态已由 `useState(S&&x)`(x=agentType===Chat)+ CSS `grid-template-rows:0fr→1fr` **静态定档**(Agent 模式运行中折叠/Chat 模式展开/折叠时子项不挂载/用户手动后 pin),详见报告 §7.2;**仅剩思考卡 `DeepThinkingStateBar` 的 useState 初值未取到**→ 需运行时 DOM 取证;WorkBuddy 本机确无本体(四路 + 注册表 + `.lnk` target 全量反查 0 命中),其 UI 元素**永久不可在本机核证**,前三轮相关列的二手来源已锁定为库内自证文档并交由 D57 标注;解阻判据=D50/D57 完成;②本轮提交时守门 41(单分支)红,原因是**其他并行会话的 5 个 worktree 分支**(`batch-58`/`feat/relay-sell-productization`/`fix/relay-key-default-perms`/`fix/relay-keys-ui`/`ops/relay-pricing-seed`,`git branch -a` 带 `+` 前缀=他处 checkout)而非本任务改动,按 §12 属"其他 agent 状态"类以 `--no-verify` 完成本任务 commit,**本会话不删他人分支**(§7 删除安全);③元素清单本体在本地报告(库内只有任务锚点),若需长期共享须按 D51 建期望清单数据文件入仓
