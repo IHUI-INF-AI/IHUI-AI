@@ -38,6 +38,7 @@
     "@agentclientprotocol/sdk": "^1.3.0",
     "@ihui/api-client": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
+    "@ihui/i18n": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
