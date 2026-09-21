@@ -509,7 +509,6 @@ export function UnifiedTaskDashboard() {
                     )}
                   </Button>
                   <Button variant="ghost" size="icon-2xs" onClick={() => setEditingKey(null)}>
-                  <Button variant="ghost" size="icon" onClick={() => setEditingKey(null)}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
