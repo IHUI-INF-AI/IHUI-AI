@@ -23,7 +23,8 @@ export const vipLevels = pgTable(
   'vip_levels',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    levelName: varchar('level_name', { length: 100 }).notNull(),
+    // unique 防重放: 20260921200000 迁移,0037 种子依赖唯一约束才能 ON CONFLICT DO NOTHING 防重
+    levelName: varchar('level_name', { length: 100 }).notNull().unique('vip_levels_level_name_unique'),
     levelValue: integer('level_value').default(0).notNull(), // 0=免费 1=个人 2=团队 3=企业
     price: integer('price').default(0).notNull(),
     durationDays: integer('duration_days').default(30).notNull(),

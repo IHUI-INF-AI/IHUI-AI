@@ -314,13 +314,19 @@ class TestRedisMode:
         assert again is not None and again.token == first.token
         assert fake_redis.ttl[key] == 120
 
-    async def test_corrupted_value_treated_as_unlocked(self, fake_redis):
-        """value 损坏 → 按无锁处理,可重新获取(自愈)。"""
+    async def test_corrupted_value_treated_as_held(self, fake_redis):
+        """未知格式/损坏 value → 视为未知活锁:不删除、不抢锁(防跨服务误删)。"""
         key = wl._lock_key("/repo/app")
         fake_redis.store[key] = "not-json{{"
-        info = await workspace_lock.acquire("/repo/app", holder="agent-1")
-        assert info is not None
-        assert json.loads(fake_redis.store[key])["holder"] == "agent-1"
+        assert await workspace_lock.acquire("/repo/app", holder="agent-1") is None
+        assert fake_redis.store[key] == "not-json{{"  # 原 value 保持,未被删除
+
+    async def test_value_missing_fields_treated_as_held(self, fake_redis):
+        """JSON 合法但缺 holder/token → 同样按未知活锁处理。"""
+        key = wl._lock_key("/repo/app")
+        fake_redis.store[key] = json.dumps({"foo": "bar"})
+        assert await workspace_lock.acquire("/repo/app", holder="agent-1") is None
+        assert key in fake_redis.store
 
     async def test_force_release_deletes_key(self, fake_redis):
         await workspace_lock.acquire("/repo/app", holder="agent-1")
@@ -393,3 +399,74 @@ class TestIndependentInstance:
         assert info is not None
         assert await lock.release("/repo/x", info.token) is True
         assert info.acquired_at <= time.time()
+
+
+# =============================================================================
+# 跨服务协议兼容(apps/api workspace-lock.ts,见文件头协议契约)
+# =============================================================================
+
+
+def _ts_format_value(holder: str, token: str) -> str:
+    """apps/api(TS)历史写入格式:camelCase。"""
+    now = time.time()
+    return json.dumps(
+        {
+            "workspace": "/repo/app",
+            "holder": holder,
+            "token": token,
+            "acquiredAt": now,
+            "heartbeatAt": now,
+        }
+    )
+
+
+class TestCrossProtocolCompat:
+    async def test_parse_ts_camelcase_value(self):
+        """_parse_lock 直接解析 TS camelCase 格式 → 字段正确映射。"""
+        info = wl._parse_lock(_ts_format_value("api-agent", "tok-1"), "/repo/app")
+        assert info is not None
+        assert info.holder == "api-agent"
+        assert info.token == "tok-1"
+        assert info.acquired_at > 0
+        assert info.heartbeat_at > 0
+        assert info.workspace == "/repo/app"
+
+    async def test_ts_format_lock_held_not_deleted(self, fake_redis):
+        """① TS 格式锁值 → Python 识别为持有:不删、不抢。"""
+        key = wl._lock_key("/repo/app")
+        raw = _ts_format_value("api-agent", "tok-1")
+        fake_redis.store[key] = raw
+        # 其他 holder 抢锁 → None,key 原样保留(不删除他人活锁)
+        assert await workspace_lock.acquire("/repo/app", holder="py-agent") is None
+        assert fake_redis.store[key] == raw
+        current = await workspace_lock.get_lock("/repo/app")
+        assert current is not None and current.holder == "api-agent"
+
+    async def test_ts_format_same_holder_reentry_renews(self, fake_redis):
+        """TS 格式锁 + 同 holder 重入 → 原 token 续期(互认兼容)。"""
+        key = wl._lock_key("/repo/app")
+        fake_redis.store[key] = _ts_format_value("api-agent", "tok-1")
+        again = await workspace_lock.acquire("/repo/app", holder="api-agent")
+        assert again is not None
+        assert again.token == "tok-1"
+        assert fake_redis.ttl[key] == WORKSPACE_LOCK_TTL
+
+    async def test_ts_format_token_mismatch_rejects_release(self, fake_redis):
+        """③ token 不匹配 → 拒绝释放/覆盖,锁保持。"""
+        key = wl._lock_key("/repo/app")
+        raw = _ts_format_value("api-agent", "tok-1")
+        fake_redis.store[key] = raw
+        assert await workspace_lock.release("/repo/app", "wrong-token") is False
+        assert fake_redis.store[key] == raw
+        assert await workspace_lock.renew("/repo/app", "wrong-token") is False
+        assert fake_redis.store[key] == raw
+
+    async def test_expired_lock_can_be_acquired(self, fake_redis):
+        """④ TTL 过期(Redis 侧 key 自动消失)→ 可正常抢锁。"""
+        key = wl._lock_key("/repo/app")
+        fake_redis.store[key] = _ts_format_value("api-agent", "tok-1")
+        fake_redis.store.pop(key)  # 模拟 TTL 到期:Redis 自动清除过期 key
+        info = await workspace_lock.acquire("/repo/app", holder="py-agent")
+        assert info is not None
+        assert info.holder == "py-agent"
+        assert json.loads(fake_redis.store[key])["holder"] == "py-agent"
