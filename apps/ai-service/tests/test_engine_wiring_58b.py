@@ -32,6 +32,7 @@ SWITCHES = [
     ("ENGINE_MESSAGE_HISTORY_ENABLED", ae._engine_message_history_enabled_from_env),
     ("ENGINE_ROLLOUT_ARCHIVE_ENABLED", ae._engine_rollout_archive_enabled_from_env),
     ("ENGINE_ROLLOUT_TRUNCATION_ENABLED", ae._engine_rollout_truncation_enabled_from_env),
+    ("ENGINE_FILE_WATCHER_ENABLED", ae._engine_file_watcher_enabled_from_env),
 ]
 
 
@@ -180,4 +181,61 @@ def test_rollout_truncation_has_prior_user_turns():
     items = [{"role": "user"}, {"role": "assistant"}]
     assert has_prior_user_turns(items, lambda r: r.get("role") == "user") is True
     assert has_prior_user_turns([{"role": "assistant"}], lambda r: r.get("role") == "user") is False
+
+
+# ---------------------------------------------------------------------------
+# file_watcher:文件变更事件路由(纯路由层,不启动轮询任务)
+# ---------------------------------------------------------------------------
+
+
+async def _factory(spec: dict, host_tools: list) -> object:
+    """最小 loop 工厂:file_watcher 用例不需要真实回合执行。"""
+
+    class _FakeLoop:
+        async def run(self, *a, **k):
+            return None
+
+    return _FakeLoop()
+
+
+def _engine():
+    return ae.AgentEngine(loop_factory=_factory)
+
+
+def test_file_watcher_off_zero_diff():
+    """off:不订阅、不分发(调用方拿到 None / 0)。"""
+    assert ae._engine_file_watcher_enabled_from_env() is False
+    engine = _engine()
+    assert engine.subscribe_file_changes(["/tmp/x"]) is None
+    assert engine.dispatch_file_change(["/tmp/x"]) == 0
+    assert engine._file_watcher_router is None
+
+
+def test_file_watcher_on_routes_events(monkeypatch):
+    """on:订阅命中路径后能收到变更事件(事件真实入队)。"""
+    monkeypatch.setenv("ENGINE_FILE_WATCHER_ENABLED", "1")
+    engine = _engine()
+    sub = engine.subscribe_file_changes([os.path.join(os.getcwd(), "watched.txt")])
+    assert sub is not None
+    hit = engine.dispatch_file_change([os.path.join(os.getcwd(), "watched.txt")])
+    assert hit == 1
+    assert sub.queue.qsize() == 1
+    # 不命中的路径不分发
+    assert engine.dispatch_file_change([os.path.join(os.getcwd(), "other.txt")]) == 0
+
+
+def test_file_watcher_exception_isolated(monkeypatch):
+    """路由层抛异常:降级返回 0,绝不冒泡。"""
+    import app.core.file_watcher as fw
+
+    monkeypatch.setenv("ENGINE_FILE_WATCHER_ENABLED", "1")
+    engine = _engine()
+    monkeypatch.setattr(fw.FileWatcherRouter, "dispatch", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert engine.dispatch_file_change(["/tmp/x"]) == 0
+
+
+def test_file_watcher_invalid_env_is_off(monkeypatch):
+    monkeypatch.setenv("ENGINE_FILE_WATCHER_ENABLED", "enable")
+    assert ae._engine_file_watcher_enabled_from_env() is False
+    assert _engine().dispatch_file_change(["/tmp/x"]) == 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
