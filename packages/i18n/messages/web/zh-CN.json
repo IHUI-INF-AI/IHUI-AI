@@ -7292,7 +7292,21 @@
         "ariaLabel": "消息用量详情"
       },
       "retryBadge": "重试{count}次",
-      "retryBadgeAria": "工具瞬时失败后自动重试 {count} 次"
+      "retryBadgeAria": "工具瞬时失败后自动重试 {count} 次",
+      "openInWorkPanel": "在工作展示区打开",
+      "toolUnknownFile": "(未知文件)",
+      "pendingTaskTitle": "任务进行中",
+      "pendingAutoChecked": "已自动检查",
+      "pendingAutoChecking": "正在检查",
+      "pendingTaskSubmitted": "{tool} 已提交,产物生成完成后会自动展示在这里。",
+      "pendingCheckingShort": "检查中",
+      "pendingRefresh": "刷新状态",
+      "pendingStopped": "长时间未完成,已停止自动刷新;可点击\"刷新状态\"继续检查。",
+      "pendingFailed": "任务已失败或取消,可换个提示词重新生成。",
+      "planStepPending": "待执行",
+      "planStepInProgress": "进行中",
+      "planStepCompleted": "已完成",
+      "planStepFailed": "失败"
     },
     "tokenUsage": {
       "promptTokens": "提示词",
