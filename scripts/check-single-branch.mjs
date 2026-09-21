@@ -60,9 +60,14 @@ const SANCTIONED_RELEASE_BRANCHES = new Set([
   'gitcode/desktop-feed',
 ])
 
-/** origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过 */
+/**
+ * origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过。
+ * 但 AGENTS.md §5b 的嵌套 ref 自愈会把 refs/remotes/<remote>/HEAD 固化进 packed-refs,
+ * git pack-refs 将符号引用摊平为普通 sha ref → `git branch -a` 输出无 `->` 的 `origin/HEAD`,
+ * 只按箭头判定会漏(实测:本机 origin/HEAD 已摊平,symbolic-ref 返回非 0)。
+ */
 function isSymbolicRef(branch) {
-  return branch.includes('->')
+  return branch.includes('->') || /(^|\/)HEAD$/.test(branch)
 }
 
 /**
