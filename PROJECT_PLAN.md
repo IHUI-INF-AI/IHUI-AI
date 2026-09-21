@@ -3818,6 +3818,18 @@ CLI 由 0 处使用改为走 `describeToolActivityLine`,并顺带修 `deepMerge`
 ③ 跨端视觉级真机自验仍未做(需各端模拟器),现有证据为各端 tsc 0 错 + 单测
 cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算样式闸 6 passed;
 ④ 8801 常驻的是旧生产构建(`next start`),**要看新样式需重建或另起 dev 端口**。
+   ⚠️ 同日实测:`scripts/build-next-prod.ps1` 把 `$ProjectRoot/$WebDir/$LogDir` 写死成 `D:\IHUI-AI`,
+   而**本机该路径不存在**(仓库现在在 `G:\IHUI-AI`)→ 生产构建入口在本机不可用;同型硬编码在
+   `deploy/win/*` 与 `scripts/deploy-online.ps1` 另有若干处(生产机 checkout 在 D 盘,本轮不动)。
+   **已修 `build-next-prod.ps1`**:三个路径改由 `$PSScriptRoot` 推导(生产机自然解析到 D 盘,
+   开发机到 G 盘,两端同一份脚本);`.next` 备份根目录由写死 `C:\tmp` 改为 `$env:TEMP\ihui-next-backup`
+   (§26 C 盘防护:单份备份实测 4.7GB,且旧清理逻辑只保留 1 份仍可能瞬时翻倍),
+   错误提示里的 `D:\IHUI-AI\.deploy.lock` 同步去掉盘符。PowerShell 7 解析器静态校验 `SYNTAX_ERRORS=0`。
+
+**新增两条机制闸(同日)**:第 55 项 `check-tool-name-display-coverage` 与第 56 项
+`check-tool-display-resolvable`(91 个工具功能名 ×5 语言 ×(shared + 5 端合并视图 + 小程序离线包)
+= 3094 项解析全绿;`node --test scripts/tests/check-tool-display-resolvable.test.mjs` 4 例自检
+锁住"只遍历 base 键会吞掉端命名空间""坏载荷必须判 null 不得抛错放过"两条教训)。
 
 
 - [x] ✅(2026-09-21)**① planSteps 持久化与回放**:原判"API/DB 无字段、须加 JSON 列 + 生产迁移"**不成立** —— `chat_messages.metadata` 本就是 jsonb 且 `replaceMessages`/`updateMessage` 全链路透传(`metadata.toolCalls` 早已在持久化)。实际落地为零迁移:ai-service 抽出 `_build_plan_snapshot` 让 SSE 与落库共用同一份快照 → api-callback zod `looseObject` 透传 → worker `{...prevMeta, ...metadata}` 浅合并不整体覆盖 → web `readPlanStepsFromMetadata` 守卫式回灌(老消息安静缺席)。三处端到端往返断言 + mypy strict 0 错;**部署需重启 ai-service 与 api**(schema 不更新会静默丢字段),存量历史不回补。
