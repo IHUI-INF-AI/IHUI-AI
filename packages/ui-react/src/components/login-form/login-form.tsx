@@ -22,7 +22,11 @@ import type { LoginFormProps, LoginTab } from './types'
  * 亮色模式纯白 / 暗色模式纯黑,覆盖 TabsTrigger 默认的 bg-background(浅灰/深灰)。
  * 仅作用于登录场景的 TabsTrigger,不影响其他 Tabs。
  */
-const loginTabActiveClassName = 'data-[state=active]:bg-white dark:data-[state=active]:bg-black'
+const loginTabActiveClassName =
+  // 2026-09-21 立:h-8 TabsList(32px) - p-1(8px) = 24px 内容区,trigger 基类 py-1+行高20px=28px
+  // 会溢出 4px 且 grid 隐式行从顶部排,溢出全堆底部 → 选中胶囊上 4px/下 0px 不对称。
+  // h-6 py-0 让 trigger 正好填满 24px,四周均匀 4px 灰边(twMerge 覆盖基类 py-1)。
+  'h-6 py-0 data-[state=active]:bg-white dark:data-[state=active]:bg-black'
 
 /**
  * 共享 LoginForm 组件(2026-07-26 立)
