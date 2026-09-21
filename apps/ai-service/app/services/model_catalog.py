@@ -47,6 +47,10 @@ TTS / ASR / 图像生成等非对话模型,以及 `-preview-09-2025` 快照、`:
       (白名单不豁免这一步,否则 `gpt-5` / `gpt-5.1` / … / `gpt-5.6` 会全部算"最新")
    f. `-preview` / `-exp` 实验版 → standard
    g. 其余 → standard
+   h. **零白名单厂商兜底**(2026-09-25 立):本次批次内一条 `CURATED_LATEST` 都没命中的
+      厂商,把厂商内最高代次的 chat 模型抬为 latest。逐厂商手补白名单不可持续 —— 每接一家
+      免费/中转厂商、每出一代新模型就复发,漏一家该厂商就整家沉进"历史模型"折叠区,
+      而这些恰是零成本可用通道。**已有 curated 命中的厂商行为完全不变**(见 2.5 趟)。
 
 系列(family)归一化
 ------------------
@@ -80,6 +84,7 @@ __all__ = [
     "ModelClassification",
     "LEGACY_RELEASE_DAYS",
     "CURATED_LATEST",
+    "PROVIDER_TOP_GEN_REASON",
     "classify_model",
     "annotate_models",
     "is_fim_model",
@@ -320,6 +325,18 @@ CURATED_LATEST: tuple[str, ...] = (
     # 这类老代次别名会被自动压下去。
     r"-latest$",
 )
+
+#: 零白名单厂商兜底命中的 classify_reason —— 独立可断言,便于前端/运维解释
+#: "这家厂商一个白名单条目都没有,为什么模型出现在默认列表里"。
+PROVIDER_TOP_GEN_REASON = "provider-top-generation (no curated match)"
+
+#: 第一趟"什么都没判出来"的 reason 前缀:兜底只在这种模型里选,于是价格变体 /
+#: 日期快照 / 实验版 / 预览版 / 废弃标记 / 超时间窗 / 非对话用途(各自有独立 reason)
+#: 与 `preset:` 手工档位**天然**不可能被抬成 latest,无需在此重复列一份豁免清单。
+_UNCLASSIFIED_REASON = "unclassified-default"
+
+#: 第一趟 curated 白名单命中的 reason —— 兜底的触发判据(厂商内一条都没有才兜底)
+_CURATED_REASON = "curated-latest"
 
 # ---------------------------------------------------------------------------
 # 变体标记
@@ -679,7 +696,7 @@ def classify_model(
             tier=ModelTier.LATEST,
             family=family,
             generation=generation,
-            reason="curated-latest",
+            reason=_CURATED_REASON,
         )
 
     # 7. 预览版 → standard
@@ -698,8 +715,100 @@ def classify_model(
         tier=ModelTier.STANDARD,
         family=family,
         generation=generation,
-        reason=f"unclassified-default (provider={provider_code})",
+        reason=f"{_UNCLASSIFIED_REASON} (provider={provider_code})",
     )
+
+
+def _seed_constant_release_date_providers(models: list[dict[str, Any]]) -> set[str]:
+    """整厂共用同一个 release_date 的厂商(≥2 行同值)——那是灌种子数据时的常量,不是真实发布日期。
+
+    不忽略它就会把该厂所有模型一律判成"发布超 365 天 → legacy":实测 agnes 全厂
+    `2021-07-20T10:40:00Z`,导致它是当前**唯一免充值可用**的通道却整家在默认列表里不可见。
+    """
+    dates: dict[str, set[str]] = {}
+    counts: dict[str, int] = {}
+    for m in models:
+        provider = str(m.get("provider") or "").strip().lower()
+        raw = m.get("release_date")
+        if not provider or raw in (None, ""):
+            continue
+        dates.setdefault(provider, set()).add(str(raw))
+        counts[provider] = counts.get(provider, 0) + 1
+    return {p for p, ds in dates.items() if len(ds) == 1 and counts[p] >= 2}
+
+
+def _promote_unlisted_providers(
+    models: list[dict[str, Any]],
+    classifications: list[ModelClassification],
+) -> None:
+    """零白名单厂商兜底:把"本次批次内一条 CURATED_LATEST 都没命中"的厂商里
+    最高代次的 chat 模型抬为 latest(原地改 models,不返回)。
+
+    判定顺序:
+    1. 按 provider 分桶,任一模型第一趟命中 curated → **整厂跳过**(行为与改动前完全一致,
+       否则等于把 qwen / openrouter 的老代次重新放回默认列表)。
+    2. 候选 = chat 用途 且 第一趟 reason 仍是 `_UNCLASSIFIED_REASON`
+       (价格/`:batch` 变体、日期快照、experimental、preview、deprecated、超
+       `LEGACY_RELEASE_DAYS` 时间窗、非对话用途、`preset:` 手工档位、以及第二趟被
+       判为 older-generation / minor-behind 的,全都带别的 reason → 自动排除)。
+    3. 候选里 `_version_tuple` 解析不出版本 → 不抬(无从判断"最高代次",宁缺毋滥)。
+    4. 剩余候选按 `_version_sort_key` 取厂商内最高,同高者全部抬为 latest
+       (一家厂商的 flash / pro 同代次变体应一起可见)。
+    5. 但候选的 family 若在全批次里已有更高代次被认定为 latest(跨厂商家族知识),则不抬 —
+       否则免费镜像站只收录了 llama-3.1 这类老代次时,会把分层要藏的东西放回默认列表。
+    """
+    buckets: dict[str, list[int]] = {}
+    curated_providers: set[str] = set()
+    # 跨厂商的家族代次知识:全批次里已被认定 latest 的模型(白名单/别名/第二趟比较)给出
+    # 每个 family 的"当前代次"下限。没有它,兜底会按"厂商内最高版本"把 llama-3.1-8b
+    # 这类全局老代次抬成 latest —— 因为某家免费厂商只收录了老模型,而这正是分层要藏的东西。
+    known_family_top: dict[str, tuple[int, int, int]] = {}
+    for idx, cls in enumerate(classifications):
+        # 空 provider 无法归属厂商,跨厂商比较没有意义 → 不参与兜底
+        provider = str(models[idx].get("provider") or "").strip().lower()
+        if not provider:
+            continue
+        buckets.setdefault(provider, []).append(idx)
+        if cls.reason == _CURATED_REASON:
+            curated_providers.add(provider)
+        if str(models[idx].get("model_tier") or "") != ModelTier.LATEST.value:
+            continue
+        fam = str(cls.family or "").strip().lower()
+        ver = _version_tuple(cls.generation)
+        if not fam or not ver:
+            continue
+        known_key = _version_sort_key(ver)
+        if known_family_top.get(fam) is None or known_key > known_family_top[fam]:
+            known_family_top[fam] = known_key
+
+    for provider, idxs in buckets.items():
+        if provider in curated_providers:
+            continue
+        candidates: list[tuple[tuple[int, int, int], int]] = []
+        for idx in idxs:
+            cls = classifications[idx]
+            if cls.category is not ModelCategory.CHAT:
+                continue
+            reason = str(models[idx].get("classify_reason") or "")
+            if not reason.startswith(_UNCLASSIFIED_REASON):
+                continue
+            ver = _version_tuple(cls.generation)
+            if not ver:
+                continue
+            key = _version_sort_key(ver)
+            fam = str(cls.family or "").strip().lower()
+            known = known_family_top.get(fam)
+            if known is not None and key < known:
+                continue
+            candidates.append((key, idx))
+        if not candidates:
+            continue
+        top_key = max(key for key, _ in candidates)
+        for key, idx in candidates:
+            if key != top_key:
+                continue
+            models[idx]["model_tier"] = ModelTier.LATEST.value
+            models[idx]["classify_reason"] = PROVIDER_TOP_GEN_REASON
 
 
 def annotate_models(
@@ -712,6 +821,8 @@ def annotate_models(
     - 第一趟:单模型分类(用途 + 白名单 + 时间窗 + 变体)
     - 第二趟:按 family 分组做**代次比较** —— 同系列里主版本低于最高的压到 legacy,
       同主版本低次版本的压到 standard。这样新模型上线时旧代次自动降级,无需改白名单。
+      第二趟之后插一记**零 curated 厂商兜底**(`_promote_unlisted_providers`):
+      一条白名单都没命中的厂商,把其最高代次 chat 模型抬回 latest。
     - 第三趟:语义能力派生(2026-09-19 D23)—— 附加 `capabilities` 四布尔
       (vision/reasoning/tools/fim),必须在代次比较之后(依赖终态 model_tier);
       模型条目显式 `capabilities` 预设(同键布尔)优先于名字派生。
@@ -725,12 +836,14 @@ def annotate_models(
         return models
 
     classifications: list[ModelClassification] = []
+    seed_date_providers = _seed_constant_release_date_providers(models)
     for m in models:
         model_id = str(m.get("id") or m.get("model") or "")
+        provider = str(m.get("provider") or "")
         cls = classify_model(
             model_id,
-            provider=str(m.get("provider") or ""),
-            release_date=m.get("release_date"),
+            provider=provider,
+            release_date=None if provider.strip().lower() in seed_date_providers else m.get("release_date"),
             tags=m.get("tags"),
             now=now,
         )
@@ -781,6 +894,11 @@ def annotate_models(
                 model["classify_reason"] = (
                     f"minor-behind ({cls.family} {cls.generation} < {'.'.join(map(str, max_ver))})"
                 )
+
+    # ---- 第二点五趟:零 curated 厂商的最高代次兜底(必须在代次比较之后)----
+    # 放在第二趟之后,才能复用"同系列旧版本已被压成 legacy/minor-behind"的结果:
+    # 兜底只抬厂商内的最高代次,老代次的 reason 已被第二趟改掉,天然不会再被抬起来。
+    _promote_unlisted_providers(models, classifications)
 
     # ---- 第三趟:语义能力派生(2026-09-19 D23,对标四竞品模型能力矩阵) ----
     # 必须在代次比较之后:reasoning/tools 依赖**终态** model_tier(旧代次会被压成 legacy)。
