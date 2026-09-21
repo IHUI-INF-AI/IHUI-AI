@@ -42,6 +42,7 @@ import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spin
 import {
   asPlanUpdateSink,
   createTaskStatusLine,
+  describeToolActivityLine,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
@@ -2162,6 +2163,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     let toolCallCount = 0;
     // W10 当前工具调用参数(onToolCall 记录,onToolResult 写入 toolLog)
     let currentToolArgsJson = '';
+    // 当前工具入参对象(结果度量算 +x/-y 需要真实 args,不能用 '(无参数)' 反解)
+    let currentToolArgs: Record<string, unknown> = {};
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
 
@@ -2267,14 +2270,20 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
         // W10 记录完整参数(/tool 回看用)
         currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(args) : '(无参数)';
-        console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(name)} ${chalk.dim(`#${toolCallCount}`)}`));
+        currentToolArgs = args;
+        // 活动行语言:功能名 · 对象(单一真相源 describeToolCall,禁直显英文码名)
+        const activity = describeToolActivityLine({ toolName: name, args });
+        const activityHead = activity.subject
+          ? `${activity.title} · ${activity.subject}`
+          : activity.title;
+        console.info(chalk.cyan(`\n  ┌─ ${chalk.bold(activityHead)} ${chalk.dim(`#${toolCallCount}`)}`));
         console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}${argStr.length > 100 ? chalk.dim(' (+字符 — /tool 查看)') : ''}`));
         // 启动工具运行 spinner(显示在卡片下方)
-        currentToolSpinner = createToolSpinner(name, argDisplay);
+        currentToolSpinner = createToolSpinner(activity.title, argDisplay);
         currentToolSpinner.start();
-        // 状态行:记录工具调用(供共享层折叠文件变更)+ "此刻在做什么"
+        // 状态行:记录工具调用(供共享层折叠文件变更)+ "此刻在做什么"(功能名 · 对象)
         state.statusLine.recordToolCall({ toolName: name, args });
-        state.statusLine.setCurrentActivity(toolActivityLabel(name));
+        state.statusLine.setCurrentActivity(toolActivityLabel(name, args));
       },
       onToolResult: (name, success, output) => {
         // 停止工具运行 spinner
@@ -2288,6 +2297,14 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const durationStr = durationMs > 0 ? chalk.dim(` ${durationMs}ms`) : '';
         const icon = success ? chalk.green('✓') : chalk.red('✗');
         const statusLabel = success ? chalk.green('成功') : chalk.red('失败');
+        // 结果度量:写类文件 +x -y / 读取 N 行 / 检索 N 个结果(与共享层同一口径,无度量则空)
+        const resultMetric = describeToolActivityLine({
+          toolName: name,
+          args: currentToolArgs,
+          result: output,
+          status: success ? 'success' : 'error',
+        }).metric;
+        const metricStr = resultMetric ? chalk.dim(` · ${resultMetric}`) : '';
         // W10 卡片显示:多行截断 + diff 红绿着色 + /tool 提示;完整输出进 toolLog
         const card = formatToolResultForCard(output);
         state.toolLog.push({
@@ -2300,7 +2317,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         });
         if (state.toolLog.length > 20) state.toolLog.shift();
         console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${card.text.replace(/\n/g, '\n  │  ')}`));
-        console.info(chalk.cyan(`  └─ ${statusLabel}${durationStr} ${chalk.dim('────')}`));
+        console.info(chalk.cyan(`  └─ ${statusLabel}${metricStr}${durationStr} ${chalk.dim('────')}`));
         // W10 todo 常驻渲染:todo_write 成功后即时刷新勾选列表
         if (name === 'todo_write' && success) {
           const todoCtx = state.ctx ?? { workspacePath: state.opts.workspacePath };
