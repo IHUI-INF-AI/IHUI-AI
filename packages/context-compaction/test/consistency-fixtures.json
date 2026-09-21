@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "fixtures": [
+    {
+      "name": "plain_text_dialogue",
+      "description": "纯文本对话，无工具调用，无图片",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant."
+        },
+        {
+          "role": "user",
+          "content": "Hello, please help me debug a Python script."
+        },
+        {
+          "role": "assistant",
+          "content": "Sure, please paste the traceback."
+        },
+        {
+          "role": "user",
+          "content": "Traceback (most recent call last):\n  File \"main.py\", line 12, in <module>\n    print(undefined_var)"
+        },
+        {
+          "role": "assistant",
+          "content": "The variable `undefined_var` is not defined. Did you mean `defined_var`?"
+        }
+      ],
+      "expect_tokens_ts": 88,
+      "expect_tokens_python": 88,
+      "expect_struct_summary_lines_ts": [
+        "[system] You are a helpful assistant",
+        "[user] Hello, please help me debug a Python script",
+        "[assistant] Sure, please paste the traceback",
+        "[user] Traceback (most recent call last): File \"main.py\", line 12, in <module> print(undefined var)",
+        "[assistant] The variable undefined var is not defined"
+      ],
+      "expect_struct_summary_lines_python": [
+        "- [user] Hello, please help me debug a Python script.",
+        "- [assistant] Sure, please paste the traceback.",
+        "- [user] Traceback (most recent call last):   File \"main.py\", line 12, in <module>     print(undefined_var)",
+        "- [assistant] The variable `undefined_var` is not defined. Did you mean `defined_var`?"
+      ]
+    },
+    {
+      "name": "tool_calls_with_results",
+      "description": "assistant tool_calls + 配对的 tool 消息 + 后续 user 询问",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You can call tools."
+        },
+        {
+          "role": "user",
+          "content": "列出 ~/docs 下所有 .md 文件"
+        },
+        {
+          "role": "assistant",
+          "content": "好的,开始扫描",
+          "tool_calls": [
+            {
+              "id": "call_001",
+              "type": "function",
+              "function": {
+                "name": "list_files",
+                "arguments": "{\"path\": \"/root/docs\", \"ext\": \".md\"}"
+              }
+            }
+          ]
+        },
+        {
+          "role": "tool",
+          "content": "a.md\nb.md\nc.md",
+          "tool_call_id": "call_001"
+        },
+        {
+          "role": "assistant",
+          "content": "找到 3 个 .md 文件:a.md / b.md / c.md"
+        },
+        {
+          "role": "user",
+          "content": "读取 a.md 内容"
+        }
+      ],
+      "expect_tokens_ts": 96,
+      "expect_tokens_python": 105,
+      "expect_struct_summary_lines_ts": [
+        "[system] You can call tools",
+        "[user] 列出 ~/docs 下所有 .md 文件",
+        "[assistant] 好的,开始扫描",
+        "[tool] a.md b.md c.md",
+        "[assistant] 找到 3 个 .md 文件:a.md / b.md / c.md",
+        "[user] 读取 a.md 内容"
+      ],
+      "expect_struct_summary_lines_python": [
+        "- [user] 列出 ~/docs 下所有 .md 文件",
+        "- [assistant] 好的,开始扫描",
+        "- [tool] a.md b.md c.md",
+        "- [assistant] 找到 3 个 .md 文件:a.md / b.md / c.md",
+        "- [user] 读取 a.md 内容"
+      ]
+    },
+    {
+      "name": "multimodal_image_base64",
+      "description": "user 消息含 data:image base64,触发 IMAGE_TOKEN_PLACEHOLDER 短路",
+      "messages": [
+        {
+          "role": "system",
+          "content": "Vision-enabled assistant."
+        },
+        {
+          "role": "user",
+          "content": "这张图里有什么?\ndata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCBGAAEAAAAASUVORK5CYII=\n请详细描述"
+        }
+      ],
+      "expect_tokens_ts": 1222,
+      "expect_tokens_python": 1227,
+      "expect_struct_summary_lines_ts": [
+        "[system] Vision-enabled assistant",
+        "[user] 这张图里有什么"
+      ],
+      "expect_struct_summary_lines_python": [
+        "- [user] 这张图里有什么? data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCBGAAEAAAAASUVORK5CYII= 请详细描述"
+      ]
+    },
+    {
+      "name": "chinese_long_text",
+      "description": "中文长文本,验证 token 估算与压缩",
+      "messages": [
+        {
+          "role": "system",
+          "content": "你是一名资深工程师。"
+        },
+        {
+          "role": "user",
+          "content": "请帮我重构以下代码,提升可维护性与性能。"
+        },
+        {
+          "role": "assistant",
+          "content": "好的,我建议先抽取公共方法到 helper 模块,然后用策略模式替换过长的 if/else 分支。"
+        },
+        {
+          "role": "user",
+          "content": "能否给出具体的 diff?"
+        },
+        {
+          "role": "assistant",
+          "content": "当然,以下是改写后的代码示例 + 单元测试。"
+        }
+      ],
+      "expect_tokens_ts": 95,
+      "expect_tokens_python": 122,
+      "expect_struct_summary_lines_ts": [
+        "[system] 你是一名资深工程师",
+        "[user] 请帮我重构以下代码,提升可维护性与性能",
+        "[assistant] 好的,我建议先抽取公共方法到 helper 模块,然后用策略模式替换过长的 if/else 分支",
+        "[user] 能否给出具体的 diff",
+        "[assistant] 当然,以下是改写后的代码示例 + 单元测试"
+      ],
+      "expect_struct_summary_lines_python": [
+        "- [user] 请帮我重构以下代码,提升可维护性与性能。",
+        "- [assistant] 好的,我建议先抽取公共方法到 helper 模块,然后用策略模式替换过长的 if/else 分支。",
+        "- [user] 能否给出具体的 diff?",
+        "- [assistant] 当然,以下是改写后的代码示例 + 单元测试。"
+      ]
+    },
+    {
+      "name": "existing_summary_merge",
+      "description": "含历史摘要消息(防嵌套):再压缩时条数累加,正文原样并入",
+      "messages": [
+        {
+          "role": "system",
+          "content": "助手"
+        },
+        {
+          "role": "user",
+          "content": "[上下文摘要 — 之前 4 条消息已压缩]\n旧摘要正文:用户讨论了重构策略与测试覆盖。"
+        },
+        {
+          "role": "assistant",
+          "content": "继续。"
+        },
+        {
+          "role": "user",
+          "content": "下一步是部署到 staging。"
+        }
+      ],
+      "expect_tokens_ts": 55,
+      "expect_tokens_python": 82,
+      "expect_struct_summary_lines_ts": [
+        "[system] 助手",
+        "[user] [上下文摘要 — 之前 4 条消息已压缩] 旧摘要正文:用户讨论了重构策略与测试覆盖",
+        "[assistant] 继续",
+        "[user] 下一步是部署到 staging"
+      ],
+      "expect_struct_summary_lines_python": [
+        "旧摘要正文:用户讨论了重构策略与测试覆盖。",
+        "- [assistant] 继续。",
+        "- [user] 下一步是部署到 staging。"
+      ]
+    }
+  ]
+}

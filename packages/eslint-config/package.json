@@ -1,0 +1,26 @@
+{
+  "name": "@ihui/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./react": "./react.js",
+    "./next": "./next.js",
+    "./cross-end": "./cross-end.js"
+  },
+  "dependencies": {
+    "@next/eslint-plugin-next": "^16.0.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "typescript-eslint": "^8.65.0"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0 || ^10.0.0"
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top",
+  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
+  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+}

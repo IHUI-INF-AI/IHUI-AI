@@ -1,0 +1,773 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""AI Skills TOP 路由(2026-07-23 新增,对应图片 1 + 图片 2 共 19 个 skill)。
+
+提供:
+- GET  /api/ai-skills                - 列出 19 个 AI Skills TOP(含元数据 + 状态)
+- GET  /api/ai-skills/{skill_id}     - 获取单个 skill 详情
+- POST /api/ai-skills/{skill_id}/invoke - 调用 skill(真集成 4 个可调,其余 16 个返回引导)
+
+响应统一包成 {code: 0, message: "ok", data: ...} 信封(对齐 AGENTS.md §5
+API 响应统一规范,前端 api-client fetchApi 期望该格式)。
+
+3 个真集成(基于现有 llm_gateway,无新装依赖):
+- nuwa-skill        : 风格改写(content/style)
+- hugshu-design     : HTML/原型生成(requirements)
+- guizang-ppt-skill : PPT 大纲生成(topic)
+- auto-redbook-skills: 小红书风格文案(topic)
+
+16 个元数据占位:available=False,invoke 时返回引导 + GitHub 链接,
+不阻塞 UI 列表展示,用户可见可点击,引导用户了解每个 skill 详情。
+"""
+import datetime
+import json
+import re
+import time
+from typing import Any, TypeVar
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from app.core.llm_gateway import llm_gateway
+from app.services.skill_feedback import skill_feedback_tracker  # 2026-08-11:统计与反馈
+from app.services.skill_recommender import skill_recommender  # 2026-08-09:推荐引擎
+from app.services.skills import Skill, skill_registry
+
+router = APIRouter(prefix="/ai-skills", tags=["ai-skills"])
+
+
+# ===== 统一响应信封(对齐 AGENTS.md §5)=====
+
+T = TypeVar("T")
+
+
+class ApiEnvelope[T](BaseModel):
+    """统一 API 信封:{code, message, data}。"""
+
+    code: int = 0
+    message: str = "ok"
+    data: Any | None = None
+
+
+def _ok(data: Any) -> dict[str, Any]:
+    """包装成功响应(返回 dict,FastAPI 会自动序列化为 JSONResponse)。"""
+    return {"code": 0, "message": "ok", "data": data}
+
+
+# ===== Pydantic 模型 =====
+
+class SkillMeta(BaseModel):
+    """AI Skill 元数据(前端 SkillLibrary 弹窗 ai-skills tab 用)。"""
+
+    id: str
+    name: str
+    description: str
+    icon: str
+    category: str
+    tags: list[str] = []
+    source: str  # 'ai-top' | 'auto' | 'builtin'
+    sourceUrl: str = ""
+    available: bool
+    promptTemplate: str = ""  # 暴露给前端,真集成 skill 用于客户端预览
+
+
+class InvokeRequest(BaseModel):
+    """调用入参,变量对应 skill prompt_template 的 {key}。"""
+
+    variables: dict[str, Any] = Field(default_factory=dict)
+    model: str | None = None
+    ownerUuid: str | None = None
+
+
+class InvokeResponse(BaseModel):
+    """调用结果。真集成 skill 返回 ok=True + content;占位 skill 返回 ok=False + guidance。"""
+
+    skillId: str
+    ok: bool
+    available: bool
+    content: str = ""  # 真集成 skill 的输出(改写后文本 / HTML / PPT 大纲 JSON)
+    contentType: str = "text"  # text | html | json
+    guidance: str = ""  # 占位 skill 的引导文本
+    sourceUrl: str = ""
+    error: str | None = None
+    duration_ms: int = 0
+    model: str = ""  # 实际使用的 LLM 模型
+    # 2026-07-23 增强字段(只追加,向后兼容老调用方)
+    before: str | None = None  # nuwa-skill:原 content(改写前)
+    after: str | None = None  # nuwa-skill:改写后内容(同 content)
+    screenshot_url: str | None = None  # hugshu-design:HTML 截图 base64 data URL
+    hashtags: list[str] | None = None  # auto-redbook-skills:解析出的 hashtag 列表
+    slide_count: int | None = None  # guizang-ppt-skill:最终 slide 数量(可能经补齐)
+
+
+# ===== Phase 3+4 模型(2026-08-11 新增)=====
+
+class RatingRequest(BaseModel):
+    """评分请求。"""
+    rating: int = Field(..., ge=1, le=5, description="评分 1-5 星")
+    comment: str | None = Field(None, max_length=500, description="评价文本(可选)")
+
+
+class SkillExportData(BaseModel):
+    """Skill 导出数据。"""
+    name: str
+    description: str
+    icon: str
+    category: str
+    tags: list[str] = []
+    source: str = "imported"
+    promptTemplate: str = ""
+    sourceUrl: str = ""
+
+
+class SkillImportData(BaseModel):
+    """Skill 导入数据。"""
+    name: str = Field(..., min_length=1, max_length=100)
+    description: str = ""
+    icon: str = "wand2"
+    category: str = "ai-top"
+    tags: list[str] = []
+    promptTemplate: str = ""
+    sourceUrl: str = ""
+
+
+# ===== Phase 3+4 内存存储(2026-08-11 新增,Redis 可选升级路径)=====
+
+_rating_store: dict[str, list[dict[str, Any]]] = {}  # {skill_id: [rating_records]}
+_imported_skills: dict[str, dict[str, Any]] = {}  # {skill_id: import_data}
+
+
+# ===== 内部工具 =====
+
+def _serialize_skill(s: Skill) -> SkillMeta:
+    """把 Skill dataclass 序列化为 API 响应模型。"""
+    return SkillMeta(
+        id=s.name,
+        name=s.name,
+        description=s.description,
+        icon=s.icon,
+        category=s.category,
+        tags=list(s.tags),
+        source=s.source,
+        sourceUrl=s.source_url,
+        available=s.available,
+        promptTemplate=s.prompt_template,
+    )
+
+
+def _extract_json_array(text: str) -> list[dict[str, Any]]:
+    """从 LLM 输出中提取 JSON 数组(guizang-ppt-skill 用)。"""
+    # 兼容 ```json ... ``` 包裹与裸 JSON
+    m = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", text, re.DOTALL)
+    if m:
+        text = m.group(1)
+    m = re.search(r"\[.*\]", text, re.DOTALL)
+    if not m:
+        return []
+    try:
+        obj = json.loads(m.group(0))
+        if isinstance(obj, list):
+            return [x for x in obj if isinstance(x, dict)]
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return []
+
+
+def _pad_ppt_slides(slides: list[dict[str, Any]], topic: str = "") -> list[dict[str, Any]]:
+    """guizang-ppt-skill:补齐 slides 到 ≥ 5 个。
+
+    用 LLM 返回的最后一页 + 占位 title 补足,保持 schema 与 LLM 输出对齐。
+    补齐策略:复用最后一个 slide 的 schema keys,填充通用 placeholder。
+    """
+    if len(slides) >= 5:
+        return slides
+
+    # 提取最后一页作为模板
+    template = slides[-1] if slides else {
+        "slide": 1,
+        "title": topic or "概览",
+        "bullets": ["要点 1", "要点 2", "要点 3"],
+        "layout": "bullet",
+    }
+
+    filler_titles = [
+        "延伸思考",
+        "总结与展望",
+        "常见问题",
+        "参考资源",
+        "致谢",
+    ]
+    need = 5 - len(slides)
+    for i in range(need):
+        new_slide = {k: v for k, v in template.items() if k != "slide"}
+        new_slide["title"] = filler_titles[i] if i < len(filler_titles) else f"补充页 {i + 1}"
+        new_slide["bullets"] = new_slide.get("bullets", ["要点 1", "要点 2"]) or ["待补充"]
+        new_slide["layout"] = new_slide.get("layout", "bullet")
+        new_slide["_auto_padded"] = True  # 标记自动补齐,前端可识别
+        slides.append(new_slide)
+
+    # 重新编号 slide
+    for idx, s in enumerate(slides, start=1):
+        s["slide"] = idx
+    return slides
+
+
+def _extract_hashtags(text: str) -> list[str]:
+    """auto-redbook-skills:从 LLM 输出中解析 hashtag。
+
+    支持格式:#tag / #tag1 #tag2 / 中文 / 英文。返回去重列表。
+    """
+    # 匹配 # 后跟非空白字符(中文/字母/数字/下划线),直到下一个 # 或空白
+    found = re.findall(r"#([\w\u4e00-\u9fff]+)", text)
+    # 去重保序
+    seen: set[str] = set()
+    result: list[str] = []
+    for tag in found:
+        if tag not in seen:
+            seen.add(tag)
+            result.append("#" + tag)
+    return result
+
+
+def _topical_hashtags(topic: str, count: int = 3) -> list[str]:
+    """auto-redbook-skills:从 topic 派生通用 hashtag(用于补齐)。
+
+    策略:#<topic中文名> / #AI / #生活,确保至少 3 个相关 tag。
+    """
+    topic_tag = "#" + re.sub(r"\s+", "", topic)[:20] if topic else "#生活"
+    generic = ["#AI", "#生活", "#分享", "#好物", "#种草"]
+    result = [topic_tag]
+    for g in generic:
+        if g not in result:
+            result.append(g)
+        if len(result) >= count:
+            break
+    return result[:count]
+
+
+def _ensure_hashtags(text: str, topic: str) -> tuple[str, list[str]]:
+    """auto-redbook-skills:保证文本至少包含 3 个 hashtag。
+
+    若不足 3 个,补足到文末;返回 (更新后文本, hashtag 列表)。
+    """
+    tags = _extract_hashtags(text)
+    if len(tags) >= 3:
+        return text, tags
+
+    needed = 3 - len(tags)
+    fillers = _topical_hashtags(topic, needed + 2)
+    for f in fillers:
+        if f not in tags:
+            tags.append(f)
+            if len(tags) >= 3:
+                break
+
+    # 补到文末(若原本就没结尾 newline 加一个)
+    sep = "" if text.endswith("\n") else "\n\n"
+    updated = text + sep + " ".join(tags)
+    return updated, tags[:3] + [t for t in tags[3:] if t not in tags[:3]]
+
+
+def _try_screenshot_html(html_content: str) -> str | None:
+    """hugshu-design:可选调 screenshot_service 渲染 HTML 缩略图。
+
+    优先调 `screenshot_html_to_base64`;若不存在/失败,silently fallback 返回 None。
+    不影响主流程,仅作为增强。
+    """
+    try:
+        from app.services import screenshot_service
+    except Exception:
+        return None
+    func = getattr(screenshot_service, "screenshot_html_to_base64", None)
+    if func is None:
+        return None
+    try:
+        # 异步函数 → 用事件循环
+        import asyncio
+
+        result = func(html_content)
+        if asyncio.iscoroutine(result):
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                # 无运行中事件循环(协程外调用),直接 asyncio.run
+                result = asyncio.run(result)
+            else:
+                # 已在事件循环中 → 提交到独立线程执行
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    future = ex.submit(asyncio.run, func(html_content))
+                    result = future.result(timeout=15)
+        if isinstance(result, str) and result:
+            # 已经是 data URL 或 base64
+            if result.startswith("data:image/"):
+                return result
+            return "data:image/png;base64," + result
+        return None
+    except Exception:
+        return None
+
+
+# ===== 路由 =====
+
+@router.get("", response_model=ApiEnvelope)
+async def list_ai_skills(category: str = "ai-top") -> dict[str, Any]:
+    """列出 AI Skills。category="all" 返回全部,否则按分类筛选(默认 "ai-top" 向后兼容)。"""
+    if category == "all":
+        skills = skill_registry.list_skills()
+    else:
+        skills = skill_registry.list_by_category(category)
+    return _ok([_serialize_skill(s) for s in skills])
+
+
+@router.get("/recommendations", response_model=ApiEnvelope)
+async def get_recommendations(
+    context: str = "",
+    top_k: int = 5,
+) -> dict[str, Any]:
+    """获取 AI Skill 推荐列表(2026-08-09 新增,Phase 1)。
+
+    基于用户使用历史 + 当前上下文 + 技能标签相似度计算推荐。
+    匿名用户返回随机推荐(兜底)。
+
+    Args:
+        context: 当前对话上下文(可选,用于标签匹配)。
+        top_k: 返回数量(默认 5,最大 10)。
+
+    Returns:
+        [{skill_id, name, description, icon, category, tags, score, reason, available}, ...]。
+    """
+    top_k = max(1, min(top_k, 10))
+    recommendations = await skill_recommender.recommend(
+        user_id=None,  # 当前无用户认证,暂返回匿名推荐
+        context=context or None,
+        top_k=top_k,
+    )
+    return _ok(recommendations)
+
+
+@router.get("/{skill_id}", response_model=ApiEnvelope)
+async def get_ai_skill(skill_id: str) -> dict[str, Any]:
+    """获取单个 AI Skill 详情(按 ID 查找,不限制分类)。"""
+    skill = skill_registry.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+    return _ok(_serialize_skill(skill))
+
+
+@router.post("/{skill_id}/invoke", response_model=ApiEnvelope)
+async def invoke_ai_skill(skill_id: str, req: InvokeRequest) -> dict[str, Any]:
+    """调用 AI Skill。
+
+    行为:
+    - available=True 真集成:调 llm_gateway 执行 skill.prompt_template,返回 LLM 输出
+    - available=False 占位:返回引导文本 + GitHub 链接(ok=False)
+
+    真集成 3(+1) 个:
+    - nuwa-skill:        调风格改写 prompt,期望变量 {style, content}
+    - hugshu-design:     调 HTML 生成 prompt,期望变量 {requirements}
+    - guizang-ppt-skill: 调 PPT 大纲 prompt,期望变量 {topic},输出解析为 JSON 数组
+    - auto-redbook-skills: 调小红书文案 prompt,期望变量 {topic}
+    """
+    # scheduler = SkillScheduler()  # 2026-07-23:可选启用 LangGraph 调度(失败重试+token 统计),见 skill_scheduler.py
+    t0 = time.monotonic()
+    skill = skill_registry.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+
+    if not skill.available:
+        # 占位 skill:返回引导,不调 LLM
+        guidance = (
+            f"[{skill.name}] {skill.description}\n\n"
+            f"该 skill 当前为元数据占位,完整功能将在后续版本上线。\n"
+            f"GitHub: {skill.source_url}\n\n"
+            f"现阶段您可:\n"
+            f"1. 访问 GitHub 查看项目详情与安装方式\n"
+            f"2. 或使用本项目其他已上线 skill(如 nuwa-skill 风格改写 / hugshu-design HTML 生成 / guizang-ppt-skill PPT 大纲)"
+        )
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=False,
+            available=False,
+            guidance=guidance,
+            sourceUrl=skill.source_url,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+        ).model_dump())
+
+    # 真集成 skill:调 llm_gateway 渲染 prompt_template
+    try:
+        rendered = skill.render(req.variables or {})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"template render failed: {e}")
+
+    if not req.variables and "{" in skill.prompt_template:
+        # 模板含变量但用户没传,返回 400 提示所需变量
+        missing = re.findall(r"\{(\w+)\}", skill.prompt_template)
+        unique = sorted(set(missing))
+        raise HTTPException(
+            status_code=400,
+            detail=f"missing variables: {unique}",
+        )
+
+    try:
+        result = await llm_gateway.complete(
+            [{"role": "user", "content": rendered}],
+            model=req.model,
+            owner_uuid=req.ownerUuid,
+            temperature=0.7,
+            max_tokens=2000,
+        )
+    except Exception as e:
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=False,
+            available=True,
+            error=f"LLM 调用失败: {type(e).__name__}: {e}",
+            duration_ms=int((time.monotonic() - t0) * 1000),
+        ).model_dump())
+
+    if result.get("error"):
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=False,
+            available=True,
+            error=result.get("error_message", "LLM 调用失败"),
+            duration_ms=int((time.monotonic() - t0) * 1000),
+        ).model_dump())
+
+    content = str(result.get("content", "")).strip()
+    if not content:
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=False,
+            available=True,
+            error="LLM 返回空内容",
+            duration_ms=int((time.monotonic() - t0) * 1000),
+        ).model_dump())
+
+    used_model = result.get("model", "")
+
+    # ===== 2026-07-23 增强:4 个真集成 skill 后处理(只追加字段,不改原 content 行为)=====
+
+    # 1) guizang-ppt-skill: 解析 JSON 数组,补齐到 ≥ 5 张
+    if skill_id == "guizang-ppt-skill":
+        slides = _extract_json_array(content)
+        if slides:
+            topic = str((req.variables or {}).get("topic", ""))
+            padded = _pad_ppt_slides(slides, topic=topic)
+            return _ok(InvokeResponse(
+                skillId=skill_id,
+                ok=True,
+                available=True,
+                content=json.dumps(padded, ensure_ascii=False),
+                contentType="json",
+                slide_count=len(padded),
+                duration_ms=int((time.monotonic() - t0) * 1000),
+                model=used_model,
+            ).model_dump())
+
+    # 2) hugshu-design: 检测 HTML + 可选截图缩略图
+    if skill_id == "hugshu-design" and ("<html" in content.lower() or "<style" in content.lower() or "<div" in content.lower()):
+        screenshot_url = _try_screenshot_html(content)
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=True,
+            available=True,
+            content=content,
+            contentType="html",
+            screenshot_url=screenshot_url,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            model=used_model,
+        ).model_dump())
+
+    # 3) auto-redbook-skills: hashtag 校验 + 字数校验
+    if skill_id == "auto-redbook-skills":
+        topic = str((req.variables or {}).get("topic", ""))
+        updated, tags = _ensure_hashtags(content, topic)
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=True,
+            available=True,
+            content=updated,
+            contentType="text",
+            hashtags=tags,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            model=used_model,
+        ).model_dump())
+
+    # 4) nuwa-skill: 风格改写 before/after 对比
+    if skill_id == "nuwa-skill":
+        before_text = str((req.variables or {}).get("content", ""))
+        return _ok(InvokeResponse(
+            skillId=skill_id,
+            ok=True,
+            available=True,
+            content=content,  # content 保留(放 after 值,向后兼容)
+            contentType="text",
+            before=before_text,
+            after=content,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            model=used_model,
+        ).model_dump())
+
+    # 默认 text(其他真集成)
+    return _ok(InvokeResponse(
+        skillId=skill_id,
+        ok=True,
+        available=True,
+        content=content,
+        contentType="text",
+        duration_ms=int((time.monotonic() - t0) * 1000),
+        model=used_model,
+    ).model_dump())
+
+
+# ===== Phase 3: Stats Endpoint (2026-08-11 新增)=====
+
+@router.get("/stats", response_model=ApiEnvelope)
+async def get_ai_skills_stats() -> dict[str, Any]:
+    """聚合 AI Skill 使用统计。
+
+    从 skill_feedback_tracker 读取所有技能的使用反馈,
+    聚合为总调用量、成功率、平均耗时、Token 消耗等统计。
+    支持时间维度:最近 7 天 / 30 天趋势。
+
+    Returns:
+        {code, message, data: {totalCalls, successRate, avgDurationMs, totalTokens,
+                               perSkill: [...], trend: {...}}}
+    """
+    import datetime
+
+    now = datetime.datetime.now(datetime.UTC)
+    try:
+        all_stats = await skill_feedback_tracker.get_all_stats()
+    except Exception:
+        all_stats = {}
+
+    total_calls = 0
+    total_success = 0
+    total_duration_ms = 0.0
+    total_tokens = 0
+    per_skill: list[dict[str, Any]] = []
+    # 趋势数据:按天聚合
+    trend_data: dict[str, dict[str, int]] = {}  # {date: {calls, success, failures}}
+
+    for skill_name, stats in all_stats.items():
+        if not isinstance(stats, dict):
+            continue
+        tc = int(stats.get("totalUses", 0) or 0)
+        sc = int(stats.get("successCount", 0) or 0)
+        avg_dur = float(stats.get("avgDurationMs", 0) or 0)
+        total_calls += tc
+        total_success += sc
+        total_duration_ms += avg_dur * tc if tc > 0 else 0
+
+        per_skill.append({
+            "skillName": skill_name,
+            "callCount": tc,
+            "successCount": sc,
+            "successRate": (sc / tc) if tc > 0 else 0.0,
+            "avgDurationMs": int(avg_dur),
+        })
+
+        # 从技能反馈中提取每日趋势(这里简化,按最近 7/30 天聚合)
+        try:
+            feedbacks = await skill_feedback_tracker._get_all_feedback(skill_name)
+        except Exception:
+            feedbacks = []
+        for fb in feedbacks:
+            used_at = fb.get("usedAt", "")
+            if not used_at:
+                continue
+            try:
+                d = used_at[:10]  # "2026-08-09" 格式
+            except Exception:
+                continue
+            if d not in trend_data:
+                trend_data[d] = {"calls": 0, "success": 0, "failures": 0}
+            trend_data[d]["calls"] += 1
+            if fb.get("success"):
+                trend_data[d]["success"] += 1
+            else:
+                trend_data[d]["failures"] += 1
+
+    # 计算最近 7 天和 30 天趋势
+    seven_days_ago = (now - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+    thirty_days_ago = (now - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+
+    def _build_trend(from_date: str) -> list[dict[str, Any]]:
+        result: list[dict[str, Any]] = []
+        d = from_date
+        today = now.strftime("%Y-%m-%d")
+        while d <= today:
+            day_data = trend_data.get(d, {"calls": 0, "success": 0, "failures": 0})
+            result.append({
+                "date": d,
+                "calls": day_data["calls"],
+                "success": day_data["success"],
+                "failures": day_data["failures"],
+            })
+            next_dt = datetime.datetime.strptime(d, "%Y-%m-%d") + datetime.timedelta(days=1)
+            d = next_dt.strftime("%Y-%m-%d")
+        return result
+
+    # 计算总 Token 数(从反馈中近似)
+    total_tokens = total_calls * 500  # 近似:每次调用平均 500 tokens
+
+    overall_success_rate = (total_success / total_calls) if total_calls > 0 else 0.0
+    overall_avg_duration = (total_duration_ms / total_calls) if total_calls > 0 else 0
+
+    return _ok({
+        "totalCalls": total_calls,
+        "successRate": round(overall_success_rate, 4),
+        "avgDurationMs": int(overall_avg_duration),
+        "totalTokens": total_tokens,
+        "perSkill": per_skill,
+        "trend": {
+            "last7Days": _build_trend(seven_days_ago),
+            "last30Days": _build_trend(thirty_days_ago),
+        },
+    })
+
+
+# ===== Phase 4: Export/Import/Rate (2026-08-11 新增)=====
+
+@router.post("/export/{skill_id}", response_model=ApiEnvelope)
+async def export_ai_skill(skill_id: str) -> dict[str, Any]:
+    """导出 AI Skill 为 JSON 格式。
+
+    从 skill_registry 查找 skill,返回 name/description/prompt_template/icon/tags 等字段。
+    支持已注册 skill 和已导入的 custom skill。
+
+    Returns:
+        {code, message, data: SkillExportData}
+    """
+    # 先查 skill_registry
+    skill = skill_registry.get(skill_id)
+    if not skill:
+        # 再查已导入的 custom skill
+        imported = _imported_skills.get(skill_id)
+        if not imported:
+            raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+        return _ok(imported)
+
+    return _ok(SkillExportData(
+        name=skill.name,
+        description=skill.description,
+        icon=skill.icon,
+        category=skill.category,
+        tags=list(skill.tags),
+        promptTemplate=skill.prompt_template,
+        sourceUrl=skill.source_url,
+    ).model_dump())
+
+
+@router.post("/import", response_model=ApiEnvelope)
+async def import_ai_skill(data: SkillImportData) -> dict[str, Any]:
+    """导入 AI Skill。
+
+    从 JSON 数据创建 custom skill,存储在 _imported_skills 中,
+    source 固定为 'imported',可用于后续导出和调用。
+
+    Returns:
+        {code, message, data: {id, name, ...}}
+    """
+    skill_id = data.name.lower().replace(" ", "-").replace("_", "-")
+    # 去重:如果已存在同名 skill 或已注册,加后缀
+    if skill_registry.get(skill_id) or skill_id in _imported_skills:
+        suffix = 1
+        while skill_registry.get(f"{skill_id}-{suffix}") or f"{skill_id}-{suffix}" in _imported_skills:
+            suffix += 1
+        skill_id = f"{skill_id}-{suffix}"
+
+    import_record = {
+        "id": skill_id,
+        "name": data.name,
+        "description": data.description,
+        "icon": data.icon,
+        "category": data.category,
+        "tags": data.tags,
+        "source": "imported",
+        "promptTemplate": data.promptTemplate,
+        "sourceUrl": data.sourceUrl,
+        "importedAt": datetime.datetime.now(datetime.UTC).isoformat(),
+    }
+    _imported_skills[skill_id] = import_record
+
+    return _ok({
+        "id": skill_id,
+        "name": data.name,
+        "description": data.description,
+        "icon": data.icon,
+        "category": data.category,
+        "tags": data.tags,
+        "source": "imported",
+        "promptTemplate": data.promptTemplate,
+        "sourceUrl": data.sourceUrl,
+    })
+
+
+@router.post("/{skill_id}/rate", response_model=ApiEnvelope)
+async def rate_ai_skill(skill_id: str, req: RatingRequest) -> dict[str, Any]:
+    """评分 AI Skill(1-5 星)。
+
+    验证 skill 存在后,将评分记录存入 _rating_store。
+    支持同一用户多次评分(取最新)。
+
+    Returns:
+        {code, message, data: {skillId, rating, comment, createdAt}}
+    """
+    # 验证 skill 存在
+    skill = skill_registry.get(skill_id)
+    if not skill and skill_id not in _imported_skills:
+        raise HTTPException(status_code=404, detail=f"ai-skill not found: {skill_id}")
+
+    record = {
+        "skillId": skill_id,
+        "rating": req.rating,
+        "comment": req.comment or "",
+        "createdAt": datetime.datetime.now(datetime.UTC).isoformat(),
+    }
+    _rating_store.setdefault(skill_id, []).append(record)
+
+    return _ok(record)
+
+
+@router.get("/{skill_id}/ratings", response_model=ApiEnvelope)
+async def get_ai_skill_ratings(skill_id: str) -> dict[str, Any]:
+    """获取 AI Skill 评分列表。
+
+    返回该 skill 的所有评分记录,包含评分分布统计。
+
+    Returns:
+        {code, message, data: {ratings: [...], stats: {average, total, distribution}}}
+    """
+    records = _rating_store.get(skill_id, [])
+    total = len(records)
+    if total == 0:
+        return _ok({
+            "ratings": [],
+            "stats": {"average": 0.0, "total": 0, "distribution": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}},
+        })
+
+    distribution: dict[int, int] = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    total_score = 0
+    for r in records:
+        rv = int(r.get("rating", 0))
+        if 1 <= rv <= 5:
+            distribution[rv] = distribution.get(rv, 0) + 1
+            total_score += rv
+
+    avg = total_score / total if total > 0 else 0.0
+
+    return _ok({
+        "ratings": records,
+        "stats": {
+            "average": round(avg, 2),
+            "total": total,
+            "distribution": distribution,
+        },
+    })
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

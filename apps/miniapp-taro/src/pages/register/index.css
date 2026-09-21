@@ -1,0 +1,309 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* register/index.css — 对齐 RN SharedRegisterScreen 视觉(2026-09-08 RN→CSS 转换)
+ * 换算规则:RN raw dp M → M*2 rpx;RN rpx(N) → N rpx;RN borderWidth 1 → 1rpx(细边框,同 login.css 范例)。
+ * 颜色全部走 design-tokens:tk.surface.bg→var(--color-background) / tk.surface.light→var(--color-card) /
+ * tk.surface.muted→var(--color-muted) / tk.border.light→var(--color-border) /
+ * tk.text.primary→var(--color-foreground) / tk.text.secondary→var(--color-muted-foreground) /
+ * tk.text.tertiary→var(--color-text-tertiary) / tk.brand.DEFAULT→var(--color-primary) /
+ * tk.brandAccent.DEFAULT→var(--color-brand-accent) / tk.danger→var(--color-danger)。
+ */
+
+/* ===== 容器(对齐 RN container:bg surface.bg + paddingH 10 + paddingTop 48 + paddingBottom 32) ===== */
+.container-ali {
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.container1 {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  /* RN paddingTop 48dp 含状态栏;小程序 custom 导航用 safe-area 补状态栏 + 余量 */
+  padding: calc(env(safe-area-inset-top) + 8rpx) 20rpx 64rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== header(对齐 RN header:返回文字 + 标题) ===== */
+.reg-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 0;
+  margin-bottom: 24rpx;
+}
+
+.reg-back {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+  margin-right: 24rpx;
+}
+
+.reg-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+/* ===== 表单卡片(对齐 RN card:padding 14 + surface.light + 圆角 12) ===== */
+.reg-card {
+  padding: 28rpx;
+  background-color: var(--color-card);
+  border-radius: 24rpx;
+}
+
+/* ===== 字段标签(对齐 RN label:14/600/text.secondary,mt 12 mb 8) ===== */
+.reg-label {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  margin-top: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+/* ===== 输入框(对齐 RN input:高 50 / 圆角 12 / border.light / surface.muted) ===== */
+.reg-input-box {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 100rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 24rpx;
+  background-color: var(--color-muted);
+}
+
+.reg-input-box-flex {
+  flex: 1;
+}
+
+.reg-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  background: transparent;
+  font-size: 32rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 验证码行(对齐 RN codeRow:输入框 + 发送按钮,gap 8) ===== */
+.reg-coderow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+}
+
+/* 发送验证码按钮(对齐 RN codeBtn:brand 描边 + surface.light 底) */
+.reg-codebtn {
+  height: 100rpx;
+  padding: 0 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid var(--color-primary);
+  border-radius: 24rpx;
+  background-color: var(--color-card);
+  flex-shrink: 0;
+}
+
+.reg-codebtn-disabled {
+  opacity: 0.5;
+}
+
+.reg-codebtn-text {
+  color: var(--color-primary);
+  font-size: 28rpx;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===== 协议同意行(对齐 RN agreementRow/agreementRowMain) ===== */
+.reg-agreement {
+  margin-top: 32rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.reg-agreement-main {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+/* 勾选框(对齐 RN checkbox:16×16 圆角 4,勾选态 brand 底 + 对比色勾) */
+.reg-checkbox {
+  width: 32rpx;
+  height: 32rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 8rpx;
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-card);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.reg-checkbox-checked {
+  border-color: var(--color-foreground);
+  background-color: var(--color-foreground);
+}
+
+.reg-checkmark {
+  color: var(--color-card);
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 28rpx;
+}
+
+.reg-agreement-text {
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 36rpx;
+  color: var(--color-muted-foreground);
+}
+
+.reg-agreement-link {
+  color: var(--color-primary);
+}
+
+/* ===== 注册按钮(AuthButton 组件用,对齐 RN submitBtn:brandAccent 灰蓝底 + 圆角 12 + 高 50) ===== */
+.login-btn {
+  width: 100%;
+  height: 100rpx;
+  margin-top: 32rpx;
+}
+
+.btn {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+
+.btn-register {
+  border-radius: 24rpx;
+  background-color: var(--color-brand-accent);
+  font-size: 32rpx;
+  font-weight: 600;
+  /* accent 底配 foreground 文字(浅灰蓝上白字对比不足) */
+  color: var(--color-brand-accent-foreground);
+}
+
+.btn-text {
+  position: relative;
+  z-index: 1;
+}
+
+.btn-disabled {
+  opacity: 0.6;
+}
+
+/* ===== 密码可见性切换(PasswordVisibilityToggle 组件用,对齐 RN eyeBtn/eyeText) ===== */
+.password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16rpx 8rpx;
+  flex-shrink: 0;
+}
+
+.password-toggle-label {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  margin-right: 8rpx;
+  white-space: nowrap;
+}
+
+.eye-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+/* ===== 区号选择器(PhoneAreaCodePicker 组件用,RN 无此控件,按输入框同族样式收敛到 token) ===== */
+.xiaicc {
+  height: 100%;
+  padding-right: 16rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-right: 1rpx solid var(--color-border);
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.xiaicc-img {
+  width: 0;
+  height: 0;
+  border-left: 5rpx solid transparent;
+  border-right: 5rpx solid transparent;
+  border-top: 9rpx solid var(--color-muted-foreground);
+  margin-left: 6rpx;
+}
+
+.input-area-code {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* 区号下拉(悬浮在输入框下方) */
+.nation-box {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: 12rpx;
+  background-color: var(--color-card);
+  box-shadow: 0 8rpx 24rpx var(--color-black-12);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.nation-boo {
+  width: 100%;
+  height: 100%;
+  background-color: var(--color-card);
+}
+
+.nationInfo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16rpx;
+  border-bottom: 1rpx solid var(--color-border);
+}
+
+.nation-info1 {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nation-name {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  flex-shrink: 0;
+}
+
+.nation-code {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -1,0 +1,1037 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
+import { QrCode } from 'lucide-react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import {
+  checkPaymentStatus,
+  createOrder,
+  createWechatAppPayment,
+  getMembershipInfo,
+  getVipLevels,
+  type MembershipInfo,
+  type VipLevel,
+} from '@ihui/api-client'
+import {
+  VipScreen as SharedVipScreen,
+  type VipLevelItem2,
+  type VipMembershipInfo,
+} from '@ihui/rn-app'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
+import { BottomPopup } from '../components/BottomPopup'
+import { BottomPops } from '../components/BottomPops'
+import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
+import { IntroducePopup } from '../components/IntroducePopup'
+import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
+import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+function toVipLevel(l: VipLevel): VipLevelItem2 {
+  return {
+    id: l.id,
+    levelName: l.levelName,
+    levelValue: l.levelValue,
+    price: l.price,
+    durationDays: l.durationDays,
+    status: l.status,
+    benefits: l.benefits ?? undefined,
+  }
+}
+
+function toVipMembership(m: MembershipInfo): VipMembershipInfo {
+  return {
+    isActive: m.isActive,
+    level: m.level,
+    levelName: m.levelName,
+    expireTime: formatDateOnly(m.expireTime ?? ''),
+    daysRemaining: m.daysRemaining,
+  }
+}
+
+/** 价格档位 Tab(对齐 Uniapp introduce-popup/index.vue 行 26-35 tab-container) */
+type PlanTab = 'continuous' | 'monthly'
+
+/**
+ * 价格档位(对齐 Uniapp productList 结构)。
+ * amount/defAmount 单位:分(对齐 Uniapp amount/100 显示逻辑)。
+ */
+interface PricePlan {
+  id: string
+  tab: PlanTab
+  cycle: string
+  discount?: string
+  trial?: string
+  amount: number
+  defAmount: number
+  detail: string
+  durationDays: number
+}
+
+/** 连续包月折扣率(对齐 Uniapp 连续订阅优惠) */
+const CONTINUOUS_DISCOUNT_RATE = 0.8
+
+/**
+ * 根据 durationDays 生成周期标签(对齐 Uniapp 周期命名)。
+ */
+function cycleLabel(days: number): string {
+  if (days <= 31) return '包月'
+  if (days <= 93) return '包季'
+  if (days <= 186) return '半年'
+  return '包年'
+}
+
+/**
+ * 根据 durationDays 生成详情文案。
+ */
+function detailText(days: number, continuous: boolean): string {
+  if (continuous) {
+    if (days <= 31) return '每月自动续费,可随时取消'
+    if (days <= 93) return '每季自动续费,节省 25%'
+    return '每年自动续费,最划算'
+  }
+  if (days <= 31) return `一次性购买,${days} 天有效`
+  if (days <= 93) return `一次性购买,${days} 天有效`
+  return `一次性购买,${days} 天有效`
+}
+
+/**
+ * 从 getVipLevels() 返回数据动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)。
+ * 每个 VipLevel 生成 2 条:连续(折扣价)+ 按月(原价)。
+ */
+function buildPricePlans(levels: readonly VipLevel[]): PricePlan[] {
+  if (levels.length === 0) return []
+  const plans: PricePlan[] = []
+  for (const lv of levels) {
+    if (lv.status !== 1) continue
+    const baseAmount = lv.price
+    const defAmount = baseAmount
+    const contAmount = Math.round(baseAmount * CONTINUOUS_DISCOUNT_RATE)
+    const cycle = cycleLabel(lv.durationDays)
+    // 连续订阅档(折扣价)
+    plans.push({
+      id: `cont-${lv.id}`,
+      tab: 'continuous',
+      cycle: `连续${cycle}`,
+      discount: `${Math.round(CONTINUOUS_DISCOUNT_RATE * 10)}折`,
+      trial: lv.durationDays >= 365 ? '7天试用' : undefined,
+      amount: contAmount,
+      defAmount,
+      detail: detailText(lv.durationDays, true),
+      durationDays: lv.durationDays,
+    })
+    // 按月购买档(原价)
+    const monthlyCycle =
+      lv.durationDays <= 31 ? '月度会员' : lv.durationDays <= 93 ? '季度会员' : '年度会员'
+    plans.push({
+      id: `month-${lv.id}`,
+      tab: 'monthly',
+      cycle: monthlyCycle,
+      amount: baseAmount,
+      defAmount,
+      detail: detailText(lv.durationDays, false),
+      durationDays: lv.durationDays,
+    })
+  }
+  return plans
+}
+
+const TABS: readonly { key: PlanTab; labelKey: string }[] = [
+  { key: 'continuous', labelKey: 'vipScreen.plans.continuous' },
+  { key: 'monthly', labelKey: 'vipScreen.plans.monthly' },
+]
+
+export function VipScreen() {
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
+  // route.params.type 五分支驱动(对齐 Uniapp vip_info/index.vue onLoad 行 58-76)
+  const route = useRoute<RouteProp<RootStackParamList, 'Vip'>>()
+  const routeType = route.params?.type
+  const [levels, setLevels] = useState<VipLevelItem2[]>([])
+  const [membership, setMembership] = useState<VipMembershipInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+  const [purchasingId, setPurchasingId] = useState<string | null>(null)
+  const [toast, setToast] = useState('')
+  // 动态价格档位(从 getVipLevels 生成,对齐 Uniapp getvipPrice 个性化定价)
+  const [pricePlans, setPricePlans] = useState<PricePlan[]>([])
+  // VIP 权益介绍弹窗(首次进入自动展示,关闭后本次会话不再弹出)
+  const [introVisible, setIntroVisible] = useState(false)
+  const [introShown, setIntroShown] = useState(false)
+  // VIP 等级介绍弹窗(H18,复刻 Uniapp vip_info/index.vue 的 introduce-popup levelIndex 变体)
+  const [levelIntroVisible, setLevelIntroVisible] = useState(false)
+  // 3 个未触发变体(复刻 Uniapp vip_info/index.vue 行 59-71 触发入口)
+  const [introIndexVisible, setIntroIndexVisible] = useState(false)
+  const [introIndexsVisible, setIntroIndexsVisible] = useState(false)
+  const [privateAdvisoryVisible, setPrivateAdvisoryVisible] = useState(false)
+  // BottomPopup 支付弹窗(行 6/127 BottomPopup 组件)
+  const [bottomPopupVisible, setBottomPopupVisible] = useState(false)
+  // 价格档位 Tab(对齐 Uniapp introduce-popup/index.vue 行 26-35)
+  const [planTab, setPlanTab] = useState<PlanTab>('continuous')
+  // 私董会服务弹窗(对齐 Uniapp privateAdvisory.vue 行 100-114 名片二维码弹窗)
+  const [servicePopupVisible, setServicePopupVisible] = useState(false)
+
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const [levelsRes, membershipRes] = await Promise.all([getVipLevels(), getMembershipInfo()])
+      if (levelsRes.success) {
+        const mapped = levelsRes.data.map(toVipLevel)
+        setLevels(mapped)
+        // 从 VipLevel 动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)
+        setPricePlans(buildPricePlans(levelsRes.data))
+      } else {
+        setError(levelsRes.error || t('vip.loadFailed'))
+      }
+      if (membershipRes.success && membershipRes.data)
+        setMembership(toVipMembership(membershipRes.data))
+      setLoading(false)
+      setRefreshing(false)
+    },
+    [t],
+  )
+
+  // route.params.type 五分支(对齐 Uniapp vip_info/index.vue onLoad 行 58-76):
+  // - 'IntroducePopups'  → 操盘手(IntroducePopups,indexs 变体,按 uuid 取价)
+  // - 'IntroducePopups1' → 操盘手(IntroducePopups,indexs 变体,按 token 取价;RN 端取价逻辑合一,行为等价)
+  // - 'IntroducePopup'   → 会员权益(IntroducePopup,index 变体)
+  // - 'PrivateAdvisory'  → 私事会权益(PrivateAdvisory,privateAdvisory 变体)
+  // - 'levelPopup'       → 会员等级介绍(levelPopup,levelIndex 变体)
+  // 历史端各分支还会改导航栏标题(操盘手/会员权益/私事会权益/会员等级介绍),
+  // RN 端 RootStack 全局 headerShown:false 无导航标题,故不做标题切换。
+  useEffect(() => {
+    void load()
+    if (routeType === 'IntroducePopup') {
+      setIntroIndexVisible(true)
+      return undefined
+    }
+    if (routeType === 'IntroducePopups' || routeType === 'IntroducePopups1') {
+      setIntroIndexsVisible(true)
+      return undefined
+    }
+    if (routeType === 'PrivateAdvisory') {
+      setPrivateAdvisoryVisible(true)
+      return undefined
+    }
+    if (routeType === 'levelPopup') {
+      setLevelIntroVisible(true)
+      return undefined
+    }
+    // 无 type 参数:保留既有默认行为(首次进入自动展示 VIP 等级介绍弹窗)
+    const timer = setTimeout(() => setLevelIntroVisible(true), 500)
+    return () => clearTimeout(timer)
+  }, [load, routeType])
+
+  const onPurchase = async (level: VipLevelItem2) => {
+    setPurchasingId(level.id)
+    setToast('')
+    try {
+      const res = await createOrder({ type: 'vip', targetId: level.id })
+      if (res.success) {
+        setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
+        // 订单创建成功后弹出购买须知,引导用户完成支付
+        if (!introShown) {
+          setIntroVisible(true)
+          setIntroShown(true)
+        }
+      } else {
+        setToast(res.error || t('vip.purchaseFailed'))
+      }
+    } catch {
+      setToast(t('vip.purchaseFailed'))
+    } finally {
+      setPurchasingId(null)
+    }
+  }
+
+  // 从介绍弹窗(index/indexs/privateAdvisory)跳转到等级弹窗
+  // 对齐 Uniapp vip_info/index.vue 行 112-120 handleOpenLevelPopup:
+  // 隐藏当前介绍弹窗 → 显示会员等级介绍弹窗
+  const openLevelFromIntro = useCallback(() => {
+    setIntroIndexVisible(false)
+    setIntroIndexsVisible(false)
+    setPrivateAdvisoryVisible(false)
+    setLevelIntroVisible(true)
+  }, [])
+
+  // 从等级弹窗跳转到支付弹窗
+  // 对齐 Uniapp vip_info/index.vue 行 127-140 handleOpenPaymentPopup:
+  // 关闭介绍/等级弹窗 → 显示 BottomPopup 支付弹窗
+  const openPaymentFromLevel = useCallback(() => {
+    setLevelIntroVisible(false)
+    setBottomPopupVisible(true)
+  }, [])
+
+  // BottomPopup 确认 → 调 createOrder API(对齐 Uniapp pay 流程)
+  const onBottomPopupConfirm = useCallback(
+    async (levelId: string) => {
+      setBottomPopupVisible(false)
+      setToast('')
+      try {
+        const res = await createOrder({ type: 'vip', targetId: levelId })
+        if (res.success) {
+          setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
+        } else {
+          setToast(res.error || t('vip.purchaseFailed'))
+        }
+      } catch {
+        setToast(t('vip.purchaseFailed'))
+      }
+    },
+    [t],
+  )
+
+  // pay() 支付逻辑(对齐 Uniapp introduce-popup/index.vue 行 170 pay 函数)
+  // P1: 接入微信 APP 支付 SDK(createWechatAppPayment → openWeChatPayment → checkPaymentStatus)
+  const pay = useCallback(
+    async (plan: PricePlan) => {
+      const amountYuan = (plan.amount / 100).toFixed(2)
+      Alert.alert(
+        t('vipScreen.pay.title'),
+        t('vipScreen.pay.message', { amount: amountYuan, name: plan.cycle }),
+        [
+          { text: t('vipScreen.pay.cancel'), style: 'cancel' },
+          {
+            text: t('vipScreen.pay.confirm'),
+            onPress: async () => {
+              setToast('')
+              setPurchasingId(plan.id)
+              try {
+                // 1. 检查微信客户端是否安装
+                const installed = await isWeChatInstalled()
+                if (!installed) {
+                  setToast(t('payment.wechatNotInstalled'))
+                  setPurchasingId(null)
+                  return
+                }
+
+                // 2. 创建微信 APP 支付订单(后端返回签名参数)
+                // orderType=1 表示 VIP 会员订单(对齐后端 orderType 枚举)
+                const payRes = await createWechatAppPayment({
+                  amount: plan.amount,
+                  orderType: 1,
+                  description: plan.cycle,
+                })
+                if (!payRes.success || !payRes.data) {
+                  setToast(payRes.error || t('vipScreen.pay.failed'))
+                  setPurchasingId(null)
+                  return
+                }
+
+                // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
+                if (payRes.data.mock) {
+                  setToast(t('payment.nativeUnavailable'))
+                  setPurchasingId(null)
+                  return
+                }
+
+                // 4. 调起微信 APP 支付(传签名参数给 react-native-wechat-lib)
+                if (!payRes.data.prepayData) {
+                  setToast(t('payment.nativeUnavailable'))
+                  setPurchasingId(null)
+                  return
+                }
+                const paySuccess = await openWeChatPayment(payRes.data.prepayData)
+                if (!paySuccess) {
+                  // 用户取消支付
+                  setToast(t('payment.payCancelled'))
+                  setPurchasingId(null)
+                  return
+                }
+
+                // 5. 只有后端确认已支付才展示成功
+                const orderNo = payRes.data.outTradeNo
+                if (!orderNo) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
+                }
+                const statusRes = await checkPaymentStatus(orderNo)
+                if (!statusRes.success || !statusRes.data?.paid) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
+                }
+                setToast(t('vipScreen.pay.success'))
+                void load(true)
+              } catch (err) {
+                const errMsg = err instanceof Error ? err.message : String(err)
+                if (errMsg === 'WECHAT_NOT_INSTALLED') {
+                  setToast(t('payment.wechatNotInstalled'))
+                } else if (errMsg === 'WECHAT_NATIVE_UNAVAILABLE') {
+                  setToast(t('payment.nativeUnavailable'))
+                } else {
+                  setToast(t('payment.payFailed'))
+                }
+              } finally {
+                setPurchasingId(null)
+              }
+            },
+          },
+        ],
+      )
+    },
+    [t, load],
+  )
+
+  // indexs 变体「加入我们」:直接拉起支付
+  // 对齐 Uniapp introduce-popup/indexs.vue 行 149-171 handleOpen →
+  // pay("", dataInfo.amount, dataInfo.id, 1, 2)(操盘手个性化定价直接支付,不开等级弹窗);
+  // RN 端暂以最高档位 plan 替代操盘手专属 SKU,待后端补 getvipPrice 接口后替换
+  const payTopPlanFromIndexs = useCallback(() => {
+    const topPlan = [...pricePlans].sort((a, b) => b.amount - a.amount)[0]
+    if (topPlan) {
+      setIntroIndexsVisible(false)
+      void pay(topPlan)
+    }
+  }, [pay, pricePlans])
+
+  // 私董会"加入我们" → 打开名片二维码服务弹窗
+  // 对齐 Uniapp privateAdvisory.vue 行 84/180-182 showServicePopup
+  const openServicePopup = useCallback(() => {
+    setPrivateAdvisoryVisible(false)
+    setServicePopupVisible(true)
+  }, [])
+
+  const filteredPlans = pricePlans.filter((p) => p.tab === planTab)
+
+  return (
+    <View style={styles.screen}>
+      {/* 权益介绍入口(对齐 Uniapp vip_info/index.vue 行 59-71 触发入口) */}
+      <View style={styles.entryCard}>
+        <Text style={styles.entryTitle}>权益介绍</Text>
+        <View style={styles.entryRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
+            onPress={() => setIntroIndexVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="会员权益介绍"
+          >
+            <Text style={styles.entryButtonText}>会员权益</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
+            onPress={() => setIntroIndexsVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="操盘手权益介绍"
+          >
+            <Text style={styles.entryButtonText}>操盘手权益</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.entryButton,
+              pressed ? styles.entryButtonPressed : null,
+            ]}
+            onPress={() => setPrivateAdvisoryVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel="私人顾问介绍"
+          >
+            <Text style={styles.entryButtonText}>私人顾问</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* 会员权益价格卡片 + 连续/按月 Tab(对齐 Uniapp introduce-popup/index.vue 行 26-119) */}
+      <View style={styles.planCard}>
+        {/* Tab 切换(连续包月 vs 按月) */}
+        <View style={styles.tabBar} accessibilityRole="tablist">
+          {TABS.map((tab) => {
+            const active = planTab === tab.key
+            return (
+              <Pressable
+                key={tab.key}
+                style={({ pressed }) => [
+                  styles.tab,
+                  active ? styles.tabActive : null,
+                  pressed ? styles.tabPressed : null,
+                ]}
+                onPress={() => setPlanTab(tab.key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={active ? styles.tabTextActive : styles.tabText}>
+                  {t(tab.labelKey)}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </View>
+
+        {/* 价格卡片列表 */}
+        <ScrollView
+          style={styles.planScroll}
+          contentContainerStyle={styles.planList}
+          showsVerticalScrollIndicator={false}
+        >
+          {filteredPlans.map((plan) => {
+            const hasDiscount = plan.defAmount > plan.amount
+            return (
+              <View key={plan.id} style={styles.planItem}>
+                <View style={styles.planHeader}>
+                  <Text style={styles.planCycle} numberOfLines={1}>
+                    {plan.cycle}
+                  </Text>
+                  <View style={styles.planTags}>
+                    {plan.discount ? (
+                      <View style={styles.discountTag}>
+                        <Text style={styles.discountTagText}>{t('vipScreen.discount')}</Text>
+                      </View>
+                    ) : null}
+                    {plan.trial ? (
+                      <View style={styles.trialTag}>
+                        <Text style={styles.trialTagText}>{t('vipScreen.trial')}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+                <Text style={styles.planDetail}>{plan.detail}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.planAmount} allowFontScaling={false}>
+                    ¥{(plan.amount / 100).toFixed(2)}
+                  </Text>
+                  {hasDiscount ? (
+                    <Text style={styles.planDefAmount} allowFontScaling={false}>
+                      ¥{(plan.defAmount / 100).toFixed(2)}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.planDuration}>{plan.durationDays} 天</Text>
+                </View>
+                {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付) */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.subscribeButton,
+                    pressed ? styles.planItemPressed : null,
+                  ]}
+                  onPress={() => pay(plan)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('vipScreen.subscribe')}
+                >
+                  <Text style={styles.subscribeButtonText}>{t('vipScreen.subscribe')}</Text>
+                </Pressable>
+              </View>
+            )
+          })}
+        </ScrollView>
+
+        {/* 协议提示(对齐 Uniapp 行 122-124 agreement-text) */}
+        <Text style={styles.agreementText}>{t('vipScreen.agreement')}</Text>
+      </View>
+
+      {/* 等级升级机制装饰区(对齐 Uniapp levelIndex.vue 行 21-29 钻石装饰) */}
+      <Pressable
+        style={({ pressed }) => [styles.levelBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() => {
+          // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
+          const firstLevel = levels[0]
+          if (firstLevel) navigation.navigate('VipLevel', { id: firstLevel.id })
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.level')}
+      >
+        <Text style={styles.diamondIcon} allowFontScaling={false}>
+          {'\u25C6'}
+        </Text>
+        <View style={styles.levelBannerText}>
+          <Text style={styles.levelBannerTitle}>{t('vipScreen.banner.level')}</Text>
+          <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
+        </View>
+      </Pressable>
+
+      {/* 操盘手专属权益横幅(品牌色卡片,title + subtitle) */}
+      <Pressable
+        style={({ pressed }) => [styles.traderBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() => {
+          // 孤儿路由修复:VipTrader 注册无入口,点击操盘手横幅进入开通页
+          navigation.navigate('VipTrader')
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.trader')}
+      >
+        <Text style={styles.traderBannerTitle}>{t('vipScreen.banner.trader')}</Text>
+        <Text style={styles.traderBannerSubtitle}>{t('vipScreen.banner.traderSubtitle')}</Text>
+      </Pressable>
+
+      <SharedVipScreen
+        t={t}
+        levels={levels}
+        membership={membership}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        toast={toast}
+        purchasingId={purchasingId}
+        onRefresh={() => load(true)}
+        onPurchase={onPurchase}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+      />
+      <PurchaseNoticePopUp
+        visible={introVisible}
+        title="VIP 会员权益"
+        subtitle="解锁全部高级内容与专属服务"
+        bullets={[
+          '畅享全站 VIP 课程与直播',
+          '专属客服优先响应',
+          '每月赠送积分,可兑换礼品',
+          '专享会员折扣与活动',
+        ]}
+        primaryLabel="立即查看"
+        onClose={() => setIntroVisible(false)}
+        onPrimary={() => setIntroVisible(false)}
+      />
+      {/* levelIndex 变体:会员等级介绍弹窗(行 72 options.type == 'levelPopup') */}
+      <IntroducePopup
+        visible={levelIntroVisible}
+        onClose={() => setLevelIntroVisible(false)}
+        variant="levelIndex"
+        level={membership?.level ?? 0}
+        onConfirm={openPaymentFromLevel}
+      />
+      {/* index 变体:会员权益介绍(行 65 options.type == 'IntroducePopup') */}
+      <IntroducePopup
+        visible={introIndexVisible}
+        onClose={() => setIntroIndexVisible(false)}
+        variant="index"
+        onConfirm={openLevelFromIntro}
+      />
+      {/* indexs 变体:操盘手权益(行 59/62 options.type == 'IntroducePopups' / 'IntroducePopups1')
+          「加入我们」直接拉起支付(对齐 Uniapp indexs.vue handleOpen → pay,不开等级弹窗) */}
+      <IntroducePopup
+        visible={introIndexsVisible}
+        onClose={() => setIntroIndexsVisible(false)}
+        variant="indexs"
+        onConfirm={payTopPlanFromIndexs}
+      />
+      {/* privateAdvisory 变体:私人顾问(行 69 options.type == 'PrivateAdvisory')
+          onConfirm 改为打开名片二维码服务弹窗(对齐 Uniapp privateAdvisory.vue 行 180-182) */}
+      <IntroducePopup
+        visible={privateAdvisoryVisible}
+        onClose={() => setPrivateAdvisoryVisible(false)}
+        variant="privateAdvisory"
+        onConfirm={openServicePopup}
+      />
+      {/* BottomPopup 支付弹窗(行 6/127 BottomPopup 组件) */}
+      <BottomPopup
+        visible={bottomPopupVisible}
+        onClose={() => setBottomPopupVisible(false)}
+        levels={levels}
+        onConfirm={onBottomPopupConfirm}
+      />
+      {/* 私董会名片二维码服务弹窗(对齐 Uniapp privateAdvisory.vue 行 100-114) */}
+      <BottomPops visible={servicePopupVisible} onClose={() => setServicePopupVisible(false)}>
+        {/* 名片区(对齐 Uniapp mingpian.png) */}
+        <View style={styles.serviceCard}>
+          <Text style={styles.serviceCardTitle}>{t('vipScreen.qr.card')}</Text>
+          <Text style={styles.serviceCardDesc}>{t('vipScreen.banner.privateAdvisory')}</Text>
+        </View>
+        {/* 二维码区(对齐 Uniapp erweima.png,长按可保存) */}
+        <View style={styles.qrCodeBox}>
+          <QrCode size={200} color={tokens.text.primary} />
+        </View>
+        <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
+        <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
+        {/* 二维码弹层关闭按钮 */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.qrCloseButton,
+            pressed ? styles.qrCloseButtonPressed : null,
+          ]}
+          onPress={() => setServicePopupVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('vipScreen.qr.close')}
+        >
+          <Text style={styles.qrCloseText}>{t('vipScreen.qr.close')}</Text>
+        </Pressable>
+      </BottomPops>
+    </View>
+  )
+}
+
+// ── 样式常量(圆角守门:仅 2/4/6/8/12/16,无 rounded-full) ──
+const ENTRY_CARD_RADIUS = 8
+const ENTRY_BUTTON_PADDING_V = 10
+const ENTRY_TITLE_FONT_SIZE = 13
+const ENTRY_BUTTON_FONT_SIZE = 13
+
+const TAB_RADIUS = 6
+const TAB_FONT_SIZE = 13
+const TAB_PADDING_V = 8
+
+const PLAN_CARD_RADIUS = 8
+// 对齐 Uniapp 20rpx(≈10px)价格卡片圆角
+const PLAN_ITEM_RADIUS = 10
+// 对齐 Uniapp 30rpx(≈15px)价格卡片内边距
+const PLAN_ITEM_PADDING = 15
+const PLAN_ITEM_GAP = 10
+const PLAN_CYCLE_FONT_SIZE = 15
+const PLAN_DETAIL_FONT_SIZE = 12
+const PLAN_AMOUNT_FONT_SIZE = 22
+const PLAN_DEF_AMOUNT_FONT_SIZE = 12
+const PLAN_DURATION_FONT_SIZE = 12
+const TAG_FONT_SIZE = 10
+const TAG_RADIUS = 4
+const TAG_PADDING_H = 6
+const TAG_PADDING_V = 2
+const AGREEMENT_FONT_SIZE = 10
+
+const LEVEL_BANNER_RADIUS = 8
+const DIAMOND_FONT_SIZE = 24
+const LEVEL_BANNER_TITLE_FONT_SIZE = 13
+const LEVEL_BANNER_HINT_FONT_SIZE = 11
+
+const SERVICE_CARD_RADIUS = 8
+const QR_BOX_RADIUS = 8
+const SERVICE_TITLE_FONT_SIZE = 15
+const SERVICE_HINT_FONT_SIZE = 12
+
+const SUBSCRIBE_BUTTON_HEIGHT = 36
+const SUBSCRIBE_BUTTON_RADIUS = 8
+const SUBSCRIBE_BUTTON_FONT_SIZE = 13
+
+const TRADER_BANNER_RADIUS = 8
+const TRADER_TITLE_FONT_SIZE = 15
+const TRADER_SUBTITLE_FONT_SIZE = 12
+
+const QR_CLOSE_BUTTON_HEIGHT = 40
+const QR_CLOSE_BUTTON_RADIUS = 8
+const QR_CLOSE_FONT_SIZE = 13
+
+// 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量(仅作底色;前景文字用 foreground)
+const ACCENT_COLOR = tokens.brandAccent.DEFAULT
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  } as ViewStyle,
+  entryCard: {
+    paddingHorizontal: rpx(32),
+    paddingTop: rpx(24),
+    paddingBottom: rpx(20),
+    backgroundColor: tokens.surface.light,
+    borderRadius: ENTRY_CARD_RADIUS,
+  } as ViewStyle,
+  entryTitle: {
+    fontSize: ENTRY_TITLE_FONT_SIZE,
+    lineHeight: ENTRY_TITLE_FONT_SIZE + 4,
+    color: tokens.text.secondary,
+    marginBottom: rpx(16),
+  } as TextStyle,
+  entryRow: {
+    flexDirection: 'row',
+    gap: rpx(16),
+  } as ViewStyle,
+  entryButton: {
+    flex: 1,
+    paddingVertical: ENTRY_BUTTON_PADDING_V,
+    borderRadius: ENTRY_CARD_RADIUS,
+    backgroundColor: tokens.surface.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  entryButtonPressed: {
+    opacity: 0.7,
+  } as ViewStyle,
+  entryButtonText: {
+    fontSize: ENTRY_BUTTON_FONT_SIZE,
+    lineHeight: ENTRY_BUTTON_FONT_SIZE + 2,
+    color: tokens.text.primary,
+    fontWeight: '500',
+  } as TextStyle,
+  // ── 价格卡片 Tab ──
+  planCard: {
+    marginTop: rpx(20),
+    marginHorizontal: rpx(32),
+    backgroundColor: tokens.surface.light,
+    borderRadius: PLAN_CARD_RADIUS,
+    padding: rpx(28),
+  } as ViewStyle,
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: tokens.surface.muted,
+    borderRadius: TAB_RADIUS,
+    padding: rpx(6),
+  } as ViewStyle,
+  tab: {
+    flex: 1,
+    paddingVertical: TAB_PADDING_V,
+    borderRadius: TAB_RADIUS,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  tabActive: {
+    backgroundColor: tokens.surface.light,
+    shadowColor: tokens.gray.black,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  } as ViewStyle,
+  tabPressed: {
+    opacity: 0.7,
+  } as ViewStyle,
+  tabText: {
+    fontSize: TAB_FONT_SIZE,
+    lineHeight: TAB_FONT_SIZE + 2,
+    color: tokens.text.secondary,
+    fontWeight: '500',
+  } as TextStyle,
+  tabTextActive: {
+    fontSize: TAB_FONT_SIZE,
+    lineHeight: TAB_FONT_SIZE + 2,
+    color: tokens.text.primary,
+    fontWeight: '600',
+  } as TextStyle,
+  // ── 价格卡片列表 ──
+  planScroll: {
+    marginTop: rpx(20),
+  } as ViewStyle,
+  planList: {
+    gap: PLAN_ITEM_GAP,
+    paddingBottom: rpx(8),
+  } as ViewStyle,
+  planItem: {
+    backgroundColor: tokens.surface.muted,
+    borderRadius: PLAN_ITEM_RADIUS,
+    padding: PLAN_ITEM_PADDING,
+  } as ViewStyle,
+  planItemPressed: {
+    opacity: 0.7,
+  } as ViewStyle,
+  planHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  } as ViewStyle,
+  planCycle: {
+    flex: 1,
+    fontSize: PLAN_CYCLE_FONT_SIZE,
+    lineHeight: PLAN_CYCLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as TextStyle,
+  planTags: {
+    flexDirection: 'row',
+    gap: rpx(8),
+  } as ViewStyle,
+  discountTag: {
+    backgroundColor: tokens.danger.light,
+    borderRadius: TAG_RADIUS,
+    paddingHorizontal: TAG_PADDING_H,
+    paddingVertical: TAG_PADDING_V,
+  } as ViewStyle,
+  discountTagText: {
+    fontSize: TAG_FONT_SIZE,
+    lineHeight: TAG_FONT_SIZE + 2,
+    color: tokens.danger.DEFAULT,
+    fontWeight: '600',
+  } as TextStyle,
+  trialTag: {
+    backgroundColor: tokens.brandAccent.light,
+    borderRadius: TAG_RADIUS,
+    paddingHorizontal: TAG_PADDING_H,
+    paddingVertical: TAG_PADDING_V,
+  } as ViewStyle,
+  trialTagText: {
+    fontSize: TAG_FONT_SIZE,
+    lineHeight: TAG_FONT_SIZE + 2,
+    color: tokens.brandAccent.deep,
+    fontWeight: '600',
+  } as TextStyle,
+  planDetail: {
+    marginTop: rpx(8),
+    fontSize: PLAN_DETAIL_FONT_SIZE,
+    lineHeight: PLAN_DETAIL_FONT_SIZE + 4,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: rpx(16),
+    marginTop: rpx(16),
+  } as ViewStyle,
+  planAmount: {
+    fontSize: PLAN_AMOUNT_FONT_SIZE,
+    lineHeight: PLAN_AMOUNT_FONT_SIZE + 2,
+    fontWeight: '700',
+    color: tokens.brandAccent.deep,
+  } as TextStyle,
+  planDefAmount: {
+    fontSize: PLAN_DEF_AMOUNT_FONT_SIZE,
+    lineHeight: PLAN_DEF_AMOUNT_FONT_SIZE + 2,
+    color: tokens.text.tertiary,
+    textDecorationLine: 'line-through',
+  } as TextStyle,
+  planDuration: {
+    fontSize: PLAN_DURATION_FONT_SIZE,
+    lineHeight: PLAN_DURATION_FONT_SIZE + 2,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  subscribeButton: {
+    marginTop: rpx(16),
+    height: SUBSCRIBE_BUTTON_HEIGHT,
+    borderRadius: SUBSCRIBE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  subscribeButtonText: {
+    fontSize: SUBSCRIBE_BUTTON_FONT_SIZE,
+    lineHeight: SUBSCRIBE_BUTTON_FONT_SIZE + 2,
+    color: tokens.brandAccent.foreground,
+    fontWeight: '600',
+  } as TextStyle,
+  agreementText: {
+    marginTop: rpx(16),
+    fontSize: AGREEMENT_FONT_SIZE,
+    lineHeight: AGREEMENT_FONT_SIZE + 4,
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+  } as TextStyle,
+  // ── 等级升级机制装饰区 ──
+  levelBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(20),
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
+    backgroundColor: tokens.brandAccent.light,
+    borderRadius: LEVEL_BANNER_RADIUS,
+  } as ViewStyle,
+  diamondIcon: {
+    fontSize: DIAMOND_FONT_SIZE,
+    lineHeight: DIAMOND_FONT_SIZE + 2,
+    color: tokens.brandAccent.deep,
+  } as TextStyle,
+  levelBannerText: {
+    flex: 1,
+  } as ViewStyle,
+  levelBannerTitle: {
+    fontSize: LEVEL_BANNER_TITLE_FONT_SIZE,
+    lineHeight: LEVEL_BANNER_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as TextStyle,
+  levelBannerHint: {
+    fontSize: LEVEL_BANNER_HINT_FONT_SIZE,
+    lineHeight: LEVEL_BANNER_HINT_FONT_SIZE + 4,
+    color: tokens.danger.DEFAULT,
+    marginTop: rpx(4),
+  } as TextStyle,
+  // ── 操盘手专属权益横幅 ──
+  traderBanner: {
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    backgroundColor: ACCENT_COLOR,
+    borderRadius: TRADER_BANNER_RADIUS,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
+  } as ViewStyle,
+  traderBannerPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  traderBannerTitle: {
+    fontSize: TRADER_TITLE_FONT_SIZE,
+    lineHeight: TRADER_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.brandAccent.foreground,
+  } as TextStyle,
+  traderBannerSubtitle: {
+    marginTop: rpx(6),
+    fontSize: TRADER_SUBTITLE_FONT_SIZE,
+    lineHeight: TRADER_SUBTITLE_FONT_SIZE + 4,
+    color: tokens.brandAccent.foreground,
+    opacity: 0.9,
+  } as TextStyle,
+  // ── 私董会服务弹窗(BottomPops 子内容样式) ──
+  serviceCard: {
+    width: '100%',
+    backgroundColor: tokens.surface.muted,
+    borderRadius: SERVICE_CARD_RADIUS,
+    padding: rpx(28),
+    alignItems: 'center',
+  } as ViewStyle,
+  serviceCardTitle: {
+    fontSize: SERVICE_TITLE_FONT_SIZE,
+    lineHeight: SERVICE_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as TextStyle,
+  serviceCardDesc: {
+    fontSize: SERVICE_HINT_FONT_SIZE,
+    lineHeight: SERVICE_HINT_FONT_SIZE + 4,
+    color: tokens.text.secondary,
+    marginTop: rpx(8),
+  } as TextStyle,
+  qrCodeBox: {
+    marginTop: rpx(32),
+    width: 220,
+    height: 220,
+    borderRadius: QR_BOX_RADIUS,
+    backgroundColor: tokens.surface.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+  } as ViewStyle,
+  qrCodeTitle: {
+    marginTop: rpx(24),
+    fontSize: SERVICE_TITLE_FONT_SIZE,
+    lineHeight: SERVICE_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    textAlign: 'center',
+  } as TextStyle,
+  qrCodeHint: {
+    marginTop: rpx(12),
+    fontSize: SERVICE_HINT_FONT_SIZE,
+    lineHeight: SERVICE_HINT_FONT_SIZE + 4,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+  } as TextStyle,
+  qrCloseButton: {
+    marginTop: rpx(24),
+    height: QR_CLOSE_BUTTON_HEIGHT,
+    borderRadius: QR_CLOSE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  qrCloseButtonPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  qrCloseText: {
+    fontSize: QR_CLOSE_FONT_SIZE,
+    lineHeight: QR_CLOSE_FONT_SIZE + 2,
+    color: tokens.brandAccent.foreground,
+    fontWeight: '600',
+    textAlign: 'center',
+  } as TextStyle,
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

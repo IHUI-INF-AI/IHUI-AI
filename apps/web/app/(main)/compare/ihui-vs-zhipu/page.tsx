@@ -1,0 +1,66 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { Metadata } from 'next'
+import { CompareContent } from '../ihui-vs-dify/CompareContent'
+
+const compareJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebPage',
+      '@id': 'https://aizhs.top/compare/ihui-vs-zhipu#webpage',
+      url: 'https://aizhs.top/compare/ihui-vs-zhipu',
+      name: 'IHUI AI vs 智谱清言:跨模型 Agent OS vs GLM 应用平台',
+      description:
+        '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+六端分发。',
+      inLanguage: ['zh-CN', 'zh-TW', 'en', 'ko', 'ja'],
+      isPartOf: { '@id': 'https://aizhs.top/#website' },
+      about: [
+        { '@id': 'https://aizhs.top/#organization' },
+        { '@type': 'Thing', name: 'Zhipu Qingyan / 智谱清言' },
+      ],
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': 'https://aizhs.top/compare/ihui-vs-zhipu#breadcrumb',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: '首页', item: 'https://aizhs.top' },
+        { '@type': 'ListItem', position: 2, name: '产品对比', item: 'https://aizhs.top/compare' },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'IHUI AI vs 智谱清言',
+          item: 'https://aizhs.top/compare/ihui-vs-zhipu',
+        },
+      ],
+    },
+  ],
+}
+
+export const metadata: Metadata = {
+  title: 'IHUI AI vs 智谱清言:跨模型 Agent OS vs GLM 应用平台 | 2026 对比',
+  description:
+    '智谱清言是 GLM 模型应用平台;IHUI AI 是 Apache 2.0 开源全栈 AI 操作系统,跨模型(含 GLM)+Agent 市场+知识库+六端分发+团队协作。本文 9 维度对比。',
+  alternates: { canonical: '/compare/ihui-vs-zhipu' },
+  openGraph: {
+    title: 'IHUI AI vs 智谱清言 — 跨模型 vs 锁定 GLM',
+    description: '30+ 模型中立 + 六端 vs GLM 锁定。',
+    url: 'https://aizhs.top/compare/ihui-vs-zhipu',
+    type: 'article',
+  },
+}
+
+export default function CompareZhipuPage() {
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(compareJsonLd) }}
+      />
+      <CompareContent competitor="zhipu" />
+    </>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

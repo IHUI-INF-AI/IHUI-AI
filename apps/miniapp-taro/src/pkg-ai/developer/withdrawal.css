@@ -1,0 +1,106 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+.withdrawal-page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+.page-header {
+  padding: 20rpx 30rpx;
+  background: var(--color-card);
+}
+.page-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: var(--color-foreground);
+}
+.summary-card {
+  display: flex;
+  margin: 20rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  padding: 24rpx 0;
+}
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.summary-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.summary-value {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-top: 8rpx;
+}
+.withdrawal-list {
+  padding: 20rpx;
+}
+.withdrawal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.withdrawal-info {
+  flex: 1;
+}
+.withdrawal-amount {
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8rpx;
+}
+.withdrawal-time {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  display: block;
+}
+.withdrawal-reason {
+  font-size: 22rpx;
+  color: var(--color-destructive);
+  margin-top: 6rpx;
+  display: block;
+}
+.withdrawal-status {
+  font-size: 24rpx;
+  padding: 6rpx 16rpx;
+  border-radius: var(--radius-sm);
+}
+.status-pending {
+  color: var(--color-warning);
+  background: var(--color-warning-tint);
+}
+.status-processing {
+  color: var(--color-info);
+  /* custom color: 原 iOS 蓝 #007AFF → info 语义 */
+  background: var(--color-info-tint);
+}
+.status-success {
+  color: var(--color-success);
+  background: var(--color-success-tint);
+}
+.status-failed {
+  color: var(--color-destructive);
+  background: var(--color-danger-tint);
+}
+.loading-text,
+.empty-text {
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+  display: block;
+  padding: 60rpx 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

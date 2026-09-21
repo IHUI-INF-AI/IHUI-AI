@@ -1,0 +1,93 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# =============================================================================
+# PR AI 评审 pipeline
+#
+# 触发:PR 打开/更新 + 手动 workflow_dispatch
+# 闭环:PR 打开 → 取 diff → 调 ai-service /api/v1/pr-review → 评论到 PR
+# 优雅降级:secrets.AI_SERVICE_URL 未配置时整体 green(输出 notice 后 exit 0),
+#          不依赖仓库级 GitHub App/凭据,服务端也无 GitHub 凭据(脚本侧传 diff)。
+# =============================================================================
+
+name: PR AI Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: '要评审的 PR 编号(手动触发时填)'
+        required: false
+        type: number
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number || inputs.pr_number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pr-ai-review:
+    name: AI 评审并评论
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 生成 PR diff
+        id: diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PR_NUM="${{ github.event.pull_request.number || inputs.pr_number }}"
+          if [ -z "$PR_NUM" ]; then
+            echo "::notice::非 PR 触发且无 pr_number 输入,跳过"
+            echo "SKIP=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # gh pr diff 对 fork PR 也安全,仅需 pull-requests: read(已被 write 覆盖)
+          gh pr diff "$PR_NUM" > pr_diff.txt
+          echo "PR_NUM=$PR_NUM" >> "$GITHUB_OUTPUT"
+
+      - name: 调用 AI 评审并评论
+        if: steps.diff.outputs.SKIP != '1'
+        env:
+          AI_SERVICE_URL: ${{ secrets.AI_SERVICE_URL }}
+          AI_SERVICE_TOKEN: ${{ secrets.AI_SERVICE_TOKEN }}
+          PR_NUM: ${{ steps.diff.outputs.PR_NUM }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$AI_SERVICE_URL" ]; then
+            echo "::notice::AI_SERVICE_URL 未配置,跳过 PR AI 评审(整个 workflow 保持 green)"
+            exit 0
+          fi
+          PAYLOAD=$(python3 - "$PR_NUM" pr_diff.txt <<'PY'
+          import json, sys
+          pr = int(sys.argv[1]) if sys.argv[1] else None
+          diff = open(sys.argv[2], encoding="utf-8").read()
+          print(json.dumps({"repo": "${{ github.repository }}", "pr_number": pr, "diff": diff}))
+          PY
+          )
+          RESP=$(curl -fsS -X POST "$AI_SERVICE_URL/api/v1/pr-review" \
+            -H "Content-Type: application/json" \
+            ${AI_SERVICE_TOKEN:+-H "Authorization: Bearer $AI_SERVICE_TOKEN"} \
+            -d "$PAYLOAD")
+          CODE=$(echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('code'))")
+          if [ "$CODE" != "0" ]; then
+            echo "::warning::AI 评审端点返回非成功(code=$CODE),跳过评论"
+            exit 0
+          fi
+          echo "$RESP" | python3 -c "import sys,json;print(json.load(sys.stdin)['data']['comment'])" > comment.md
+          gh pr comment "$PR_NUM" --body-file comment.md

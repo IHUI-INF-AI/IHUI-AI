@@ -1,0 +1,325 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* ============ 流式执行过程卡片根容器 ============ */
+.ai-card-root {
+  margin: 12rpx 16rpx;
+  padding: 16rpx 20rpx;
+  background: var(--color-streamed-container-bg);
+  border: 1rpx solid var(--color-border);
+  border-radius: 16rpx;
+  box-sizing: border-box;
+}
+.ai-card-root-head {
+  display: flex;
+  align-items: center;
+}
+.ai-card-root-title {
+  flex: 1;
+  margin-left: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 40rpx;
+}
+.ai-card-root-chevron {
+  margin-left: 8rpx;
+  flex-shrink: 0;
+}
+.ai-card-root-body {
+  margin-top: 12rpx;
+}
+
+/* ============ 区块通用头 ============ */
+.ai-card-section {
+  margin-bottom: 16rpx;
+}
+.ai-card-section:last-child {
+  margin-bottom: 0;
+}
+.ai-card-section-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+.ai-card-section-title {
+  margin-left: 10rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  line-height: 40rpx;
+}
+.ai-card-section-count {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ============ 计划步骤卡片 ============ */
+.ai-card-plan-list {
+  padding-left: 4rpx;
+}
+.ai-card-plan-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 12rpx 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+.ai-card-plan-item:last-child {
+  border-bottom: none;
+}
+.ai-card-plan-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+  background: var(--color-muted);
+}
+.ai-card-plan-dot.done {
+  background: var(--color-success);
+}
+.ai-card-plan-dot.running {
+  background: var(--color-primary);
+}
+.ai-card-plan-dot.pending {
+  background: var(--color-muted);
+}
+.ai-card-plan-dot.error {
+  background: var(--color-danger);
+}
+.ai-card-plan-body {
+  flex: 1;
+  margin-left: 14rpx;
+}
+.ai-card-plan-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.5;
+}
+.ai-card-plan-text.error {
+  color: var(--color-danger);
+}
+.ai-card-plan-explain {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.ai-card-plan-duration {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ============ 工具调用卡片 ============ */
+.ai-card-tool-list {
+  padding-left: 4rpx;
+}
+.ai-card-tool-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+.ai-card-tool-item:last-child {
+  border-bottom: none;
+}
+.ai-card-tool-item.error {
+  background: var(--color-danger-tint);
+  border-radius: 10rpx;
+  padding: 14rpx 12rpx;
+}
+.ai-card-tool-icon {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2rpx;
+}
+.ai-card-tool-body {
+  flex: 1;
+  margin-left: 14rpx;
+}
+.ai-card-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ai-card-tool-name {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.5;
+}
+.ai-card-tool-source {
+  margin-left: 12rpx;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  flex-shrink: 0;
+}
+.ai-card-tool-status {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-tool-status.running {
+  color: var(--color-primary);
+}
+.ai-card-tool-status.done {
+  color: var(--color-success);
+}
+.ai-card-tool-status.error {
+  color: var(--color-danger);
+}
+.ai-card-tool-duration {
+  margin-left: 12rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ============ 终端输出卡片 ============ */
+.ai-card-term-item {
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid var(--color-border);
+}
+.ai-card-term-item:last-child {
+  border-bottom: none;
+}
+.ai-card-term-item.error {
+  background: var(--color-danger-tint);
+  border-radius: 10rpx;
+  padding: 14rpx 12rpx;
+}
+.ai-card-term-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.ai-card-term-cmd {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  margin-right: 12rpx;
+}
+.ai-card-term-prompt {
+  font-size: 24rpx;
+  color: var(--color-success);
+  margin-right: 8rpx;
+  font-family: monospace;
+}
+.ai-card-term-command {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  font-family: monospace;
+  line-height: 1.5;
+  word-break: break-all;
+}
+.ai-card-term-meta {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.ai-card-term-status {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-term-status.running {
+  color: var(--color-primary);
+}
+.ai-card-term-status.done {
+  color: var(--color-success);
+}
+.ai-card-term-status.error {
+  color: var(--color-danger);
+}
+.ai-card-term-duration {
+  margin-left: 10rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-term-output-wrap {
+  margin-top: 10rpx;
+  position: relative;
+  background: var(--color-muted);
+  border-radius: 10rpx;
+  padding: 16rpx 16rpx;
+}
+.ai-card-term-output {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-foreground);
+  font-family: monospace;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding-right: 80rpx;
+}
+.ai-card-term-copy {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  display: flex;
+  align-items: center;
+  background: var(--color-card);
+  border-radius: 8rpx;
+  padding: 4rpx 10rpx;
+}
+.ai-card-term-copy-text {
+  margin-left: 4rpx;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+}
+.ai-card-term-error {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-danger);
+}
+
+/* ============ 三点加载态(spinner,替代 emoji/原生) ============ */
+.ai-card-spinner {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+.ai-card-spinner-dot {
+  width: 8rpx;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: var(--color-card);
+  animation: aiCardPulse 1.2s infinite ease-in-out;
+}
+.ai-card-spinner-dot:nth-child(1) {
+  animation-delay: -0.24s;
+}
+.ai-card-spinner-dot:nth-child(2) {
+  animation-delay: -0.12s;
+}
+.ai-card-spinner-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+@keyframes aiCardPulse {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

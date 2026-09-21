@@ -1,0 +1,279 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Loader2, Search } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@ihui/ui-react'
+import { BackButton } from '@/components/common'
+import { fetchApi } from '@/lib/api'
+
+interface RegionPricing {
+  cn?: number | null
+  us?: number | null
+  eu?: number | null
+}
+
+interface AiPricing {
+  id: string
+  modelId: string
+  inputTokenPrice: number
+  outputTokenPrice: number
+  regionPricing: RegionPricing
+  currency: 'CNY' | 'USD'
+  effectiveAt?: string | null
+  billingMode?: 'token' | 'per_call' | 'per_image' | 'per_video' | null
+  perUnitPrice?: number | null
+  tieredCallPrices?: Record<string, number> | null
+  videoUnit?: string | null
+}
+
+interface AiPricingResponse {
+  items: AiPricing[]
+}
+
+async function fetchAiPricing(): Promise<AiPricing[]> {
+  const r = await fetchApi<AiPricingResponse>(`/api/ai-pricing`)
+  if (!r.success || !r.data?.items) {
+    throw new Error(r.error ?? '加载模型定价失败')
+  }
+  return r.data.items
+}
+
+const VENDOR_RULES: Array<{ prefixes: string[]; vendor: string }> = [
+  { prefixes: ['gpt-', 'o1', 'o3'], vendor: 'OpenAI' },
+  { prefixes: ['claude-'], vendor: 'Anthropic' },
+  { prefixes: ['gemini-'], vendor: 'Gemini' },
+  { prefixes: ['deepseek-'], vendor: 'DeepSeek' },
+  { prefixes: ['qwen'], vendor: '阿里 Qwen' },
+  { prefixes: ['doubao-'], vendor: '字节豆包' },
+  { prefixes: ['moonshot-', 'kimi-'], vendor: '月之暗面 Kimi' },
+  { prefixes: ['glm-'], vendor: '智谱' },
+  { prefixes: ['abab'], vendor: 'MiniMax' },
+]
+
+function detectVendor(modelId: string): string {
+  const lower = modelId.toLowerCase()
+  for (const rule of VENDOR_RULES) {
+    if (rule.prefixes.some((p) => lower.startsWith(p))) return rule.vendor
+  }
+  return '其他'
+}
+
+const CURRENCY_SYMBOL: Record<string, string> = {
+  CNY: '¥',
+  USD: '$',
+}
+
+// 分/千 token → 元/百万 token: 乘以 10
+const formatPrice = (centsPerKToken: number): string => {
+  const yuan = centsPerKToken * 10
+  return yuan.toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+}
+
+const BILLING_MODE_LABEL: Record<string, string> = {
+  per_call: '按次',
+  per_image: '按张',
+  per_video: '按视频',
+}
+
+// 按次/按张/按秒单价: 分 → 元, 除以 100
+const formatUnitPrice = (cents: number): string =>
+  (cents / 100).toLocaleString('zh-CN', { maximumFractionDigits: 4 })
+
+const TIER_LABELS: Array<{ key: string; label: string }> = [
+  { key: 'le256k', label: '≤256K' },
+  { key: 'mid', label: '256K–512K' },
+  { key: 'gt512k', label: '>512K' },
+]
+
+function formatMultimodalPrice(p: AiPricing): string {
+  const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
+  if (p.billingMode === 'per_call') {
+    const tiers = p.tieredCallPrices ?? {}
+    const parts = TIER_LABELS.map((t) => ({ label: t.label, price: tiers[t.key] })).filter(
+      (t): t is { label: string; price: number } => typeof t.price === 'number' && t.price > 0,
+    )
+    if (parts.length > 0) {
+      return parts.map((t) => `${t.label} ${sym}${formatUnitPrice(t.price)}`).join(' / ')
+    }
+    if (p.perUnitPrice !== null && p.perUnitPrice !== undefined && p.perUnitPrice > 0) {
+      return `${sym}${formatUnitPrice(p.perUnitPrice)} / 次`
+    }
+    return '—'
+  }
+  if (
+    p.billingMode === 'per_image' &&
+    p.perUnitPrice !== null &&
+    p.perUnitPrice !== undefined &&
+    p.perUnitPrice > 0
+  ) {
+    return `${sym}${formatUnitPrice(p.perUnitPrice)} / 张`
+  }
+  if (
+    p.billingMode === 'per_video' &&
+    p.perUnitPrice !== null &&
+    p.perUnitPrice !== undefined &&
+    p.perUnitPrice > 0
+  ) {
+    return `${sym}${formatUnitPrice(p.perUnitPrice)} / ${p.videoUnit === 'second' ? '秒' : '次'}`
+  }
+  return '—'
+}
+
+export function ModelsPricingContent(): React.JSX.Element {
+  const [keyword, setKeyword] = React.useState('')
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['ai-pricing'],
+    queryFn: fetchAiPricing,
+  })
+
+  const grouped = React.useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
+    const items = (data ?? []).filter((p) => (kw ? p.modelId.toLowerCase().includes(kw) : true))
+    const map = new Map<string, AiPricing[]>()
+    for (const item of items) {
+      const vendor = detectVendor(item.modelId)
+      if (!map.has(vendor)) map.set(vendor, [])
+      map.get(vendor)!.push(item)
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+  }, [data, keyword])
+
+  return (
+    <main className="mx-auto w-full max-w-6xl px-4 py-4">
+      <BackButton />
+      <header className="space-y-2 text-center">
+        <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
+          模型定价
+        </h1>
+        <p className="mx-auto max-w-2xl text-xs text-muted-foreground min-[768px]:text-base">
+          对话模型按输入/输出 token 计价(元 / 百万
+          token);生图按张、生视频按次或按秒、按次对话按上下文长度分档计价。按厂商分组,支持关键词搜索。
+        </p>
+      </header>
+
+      <div className="relative mx-auto mt-6 max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={keyword}
+          onChange={(e) => setKeyword(e.target.value)}
+          placeholder="搜索模型 ID,如 gpt-4、claude-3、deepseek-chat"
+          className="pl-9"
+        />
+      </div>
+
+      <section className="mt-8 space-y-5">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            加载中...
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {(error as Error).message}
+          </div>
+        ) : grouped.length === 0 ? (
+          <div className="rounded-md border border-dashed py-8 text-center text-sm text-muted-foreground">
+            {keyword.trim() ? `未找到匹配 "${keyword.trim()}" 的模型` : '暂无定价数据'}
+          </div>
+        ) : (
+          grouped.map(([vendor, items]) => (
+            <Card key={vendor}>
+              <CardHeader className="p-3 pb-3">
+                <CardTitle className="flex items-center justify-between gap-2 text-base">
+                  <span className="min-w-0 truncate">{vendor}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground tabular-nums">
+                    {items.length} 个模型
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-[640px]:p-3 p-3 pt-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>模型 ID</TableHead>
+                      <TableHead className="text-right">输入价</TableHead>
+                      <TableHead className="text-right">输出价</TableHead>
+                      <TableHead>货币</TableHead>
+                      <TableHead>区域系数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((p) => {
+                      const sym = CURRENCY_SYMBOL[p.currency] ?? p.currency
+                      const mode = p.billingMode ?? 'token'
+                      const regions = [
+                        p.regionPricing?.cn !== null &&
+                          p.regionPricing?.cn !== undefined &&
+                          `CN ${p.regionPricing.cn}`,
+                        p.regionPricing?.us !== null &&
+                          p.regionPricing?.us !== undefined &&
+                          `US ${p.regionPricing.us}`,
+                        p.regionPricing?.eu !== null &&
+                          p.regionPricing?.eu !== undefined &&
+                          `EU ${p.regionPricing.eu}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' / ')
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell
+                            className="max-w-[180px] truncate font-mono text-xs"
+                            title={p.modelId}
+                          >
+                            {p.modelId}
+                          </TableCell>
+                          {mode === 'token' ? (
+                            <>
+                              <TableCell className="text-right tabular-nums">
+                                {sym}
+                                {formatPrice(p.inputTokenPrice)}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {sym}
+                                {formatPrice(p.outputTokenPrice)}
+                              </TableCell>
+                            </>
+                          ) : (
+                            <TableCell colSpan={2} className="text-right tabular-nums">
+                              <span className="mr-1.5 inline-block rounded bg-muted px-1.5 py-0.5 align-middle text-[10px] font-normal text-muted-foreground">
+                                {BILLING_MODE_LABEL[mode] ?? mode}
+                              </span>
+                              {formatMultimodalPrice(p)}
+                            </TableCell>
+                          )}
+                          <TableCell className="text-muted-foreground">{p.currency}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {regions || '—'}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </section>
+    </main>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

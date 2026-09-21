@@ -1,0 +1,73 @@
+{
+  "total": 8,
+  "passed": 5,
+  "failed": 3,
+  "passRate": 0.625,
+  "mode": "mock",
+  "results": [
+    {
+      "id": "py-fizzbuzz",
+      "language": "python",
+      "style": "generation",
+      "passed": false,
+      "exitCode": 9009,
+      "outputTail": "Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.\r\n"
+    },
+    {
+      "id": "py-reverse-words",
+      "language": "python",
+      "style": "generation",
+      "passed": false,
+      "exitCode": 9009,
+      "outputTail": "Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.\r\n"
+    },
+    {
+      "id": "py-fix-slugify",
+      "language": "python",
+      "style": "fix",
+      "passed": false,
+      "exitCode": 9009,
+      "outputTail": "Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases.\r\n"
+    },
+    {
+      "id": "ts-debounce",
+      "language": "typescript",
+      "style": "generation",
+      "passed": true,
+      "exitCode": 0,
+      "outputTail": "OK\n"
+    },
+    {
+      "id": "ts-group-by",
+      "language": "typescript",
+      "style": "generation",
+      "passed": true,
+      "exitCode": 0,
+      "outputTail": "OK\n"
+    },
+    {
+      "id": "ts-fix-parse-int",
+      "language": "typescript",
+      "style": "fix",
+      "passed": true,
+      "exitCode": 0,
+      "outputTail": "OK\n"
+    },
+    {
+      "id": "sh-count-lines",
+      "language": "shell",
+      "style": "generation",
+      "passed": true,
+      "exitCode": 0,
+      "outputTail": "OK\n"
+    },
+    {
+      "id": "sh-fix-env-check",
+      "language": "shell",
+      "style": "fix",
+      "passed": true,
+      "exitCode": 0,
+      "outputTail": "OK\n"
+    }
+  ]
+}
