@@ -203,7 +203,12 @@ export type TaroUiActionType = AppUiActionType
 export interface AppUiElement {
   /** 稳定 id(如 'fld:input#3'),单调递增且永不复用 —— 卸载后重填会如实报未找到 */
   id: string
-  kind: 'input' | 'button' | 'form'
+  /**
+   * 控件类型。协议上保持 string:各端的取值集合不同且会各自演进
+   * (web 另有 richtext/code/file,RN 只有 input/button/form,小程序还有 textarea/number/select/switch)。
+   * 端内一律用自己的窄联合类型产出,消费方按字面量窄化。
+   */
+  kind: string
   label: string
   value?: string
   /** 约束提示,如 'multiline' / 'maxLength=50' / 'keyboardType=numeric' */

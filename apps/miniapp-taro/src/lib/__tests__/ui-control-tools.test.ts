@@ -18,14 +18,14 @@ import {
 } from '../ui-control-tools'
 
 describe('TARO_UI_CONTROL_TOOLS 与 ai-service 注册面一致', () => {
-  it('恰好四个动作,且全部 taro_ui_ 前缀', () => {
-    expect(TARO_UI_CONTROL_TOOLS).toHaveLength(4)
+  it('恰好七个动作,且全部 taro_ui_ 前缀', () => {
+    expect(TARO_UI_CONTROL_TOOLS).toHaveLength(7)
     for (const name of TARO_UI_CONTROL_TOOLS) expect(name.startsWith('taro_ui_')).toBe(true)
   })
 
-  it('不含 click/fill/submit(小程序无同源 DOM,这三动词刻意不暴露)', () => {
-    for (const banned of ['taro_ui_click', 'taro_ui_fill', 'taro_ui_submit']) {
-      expect(TARO_UI_CONTROL_TOOLS).not.toContain(banned)
+  it('含 click/fill/submit:小程序无同源 DOM,这三动词由控件注册表承接而非砍掉', () => {
+    for (const verb of ['taro_ui_click', 'taro_ui_fill', 'taro_ui_submit']) {
+      expect(TARO_UI_CONTROL_TOOLS).toContain(verb)
     }
   })
 

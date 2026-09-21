@@ -173,14 +173,14 @@ afterEach(() => {
 })
 
 describe('能力上报与保活', () => {
-  it('start 立即上报一次 miniapp 能力(四项动作 + endpoint/instanceId/reportedAt)', async () => {
+  it('start 立即上报一次 miniapp 能力(七项动作 + endpoint/instanceId/reportedAt)', async () => {
     bridge.startUiControlBridge()
     await flush()
     const calls = capabilityCalls()
     expect(calls).toHaveLength(1)
     expect(calls[0]).toMatchObject({
       endpoint: 'miniapp',
-      taroUiActions: ['describe', 'navigate', 'read', 'invoke'],
+      taroUiActions: ['describe', 'navigate', 'read', 'invoke', 'click', 'fill', 'submit'],
       version: '1.0.0',
     })
     expect(typeof calls[0]?.instanceId).toBe('string')
@@ -336,7 +336,7 @@ describe('WS 消息消费与结果回传', () => {
   it('协议外动作回 UNSUPPORTED_ACTION,不让调用方干等 30s 超时', async () => {
     bridge.startUiControlBridge()
     await flush()
-    pushAction({ requestId: 'r6', category: 'miniapp_ui', action: 'click', params: {} })
+    pushAction({ requestId: 'r6', category: 'miniapp_ui', action: 'teleport', params: {} })
     await flush()
     const results = resultCalls()
     expect(results).toHaveLength(1)
@@ -344,6 +344,34 @@ describe('WS 消息消费与结果回传', () => {
     expect((results[0]?.data as Record<string, unknown>).instanceId).toBe(
       bridge.getTaroInstanceId(),
     )
+  })
+
+  it('click/fill/submit 属协议内动作,一律放行给注册表(拦不拦由控件有没有通道决定)', async () => {
+    bridge.startUiControlBridge()
+    await flush()
+    // 与本用例的桥同一模块实例的注册表(resetModules 后必须动态取,否则拿到另一份表)
+    const fields = await import('../ui-field-registry')
+    let pressed = 0
+    fields.resetUiFieldRegistryForTest()
+    fields.registerUiField({
+      kind: 'button',
+      label: '保存草稿',
+      onPress: () => {
+        pressed += 1
+      },
+    })
+    const target = fields.snapshotUiFields().elements[0]?.id ?? ''
+    pushAction({
+      requestId: 'r7',
+      category: 'miniapp_ui',
+      action: 'click',
+      params: { target },
+    })
+    await flush()
+    expect(pressed).toBe(1) // 真的打到了组件交出的 onPress 上
+    const results = resultCalls()
+    expect(results).toHaveLength(1)
+    expect(results[0]).toMatchObject({ success: true })
   })
 
   it('非 agent.action 通知(普通消息通知)不触发执行', async () => {
