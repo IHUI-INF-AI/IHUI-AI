@@ -1195,6 +1195,25 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '56',
+    label: '🈳 ICU 语法跨端可用性守门(blocking,D101:非 web 端取词引擎只支持四形子集)',
+    script: 'check-icu-locale-support.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 语言包里出现了某端渲染不了的 ICU 形态 —— 界面会直接显示 `{state, select, …}` 语法残,',
+      '     或与 web(next-intl 全量 ICU)静默渲染成不同文本。实测背景:next-intl 只挂在 apps/web。',
+      '     三种正解,按优先级:',
+      '       1) 拆成普通键(如 toolRunning / toolCompleted),不用 ICU',
+      '       2) 用共享子集解释器支持的四形:plural / select / selectordinal / number(plain style)',
+      '       3) 确需 `::` skeleton 或 cli 端要用 ICU → 先完成 PROJECT_PLAN.md D101 第④⑥项再解锁',
+      '     自检:node scripts/check-icu-locale-support.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
