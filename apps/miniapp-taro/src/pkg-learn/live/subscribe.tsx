@@ -19,7 +19,7 @@ const STATUS_BADGE: Record<Live['status'], string> = {
 }
 
 const STATUS_LABEL: Record<Live['status'], { key: string; fb: string }> = {
-  upcoming: { key: 'live.upcoming', fb: '即将开始' },
+  upcoming: { key: 'live.calendar.upcoming', fb: '即将开始' },
   living: { key: 'live.liveNow', fb: '进行中' },
   ended: { key: 'live.ended', fb: '已结束' },
 }
