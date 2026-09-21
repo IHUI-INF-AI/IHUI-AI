@@ -89,6 +89,7 @@ import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
+import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
@@ -761,6 +762,16 @@ export default function AiAssistantN8nScreen() {
 
   const previewSource: ImageSourcePropType | null = previewImage ? { uri: previewImage } : null
 
+  // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照写在
+  // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
+  const planMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i]
+      if (message?.role === 'assistant' && (message.planSteps?.length ?? 0) > 0) return message
+    }
+    return null
+  }, [messages])
+
   const scrollToEnd = (): void => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true })
@@ -1241,6 +1252,13 @@ export default function AiAssistantN8nScreen() {
             }}
           />
         </View>
+        {/* 任务进度状态条(对齐 web task-status-bar):plan_updated 驱动自动刷新,
+            空闲(无步骤/无变更/非流式)时内部返回 null 不占高度 */}
+        <TaskStatusBar
+          planSteps={planMessage?.planSteps ?? []}
+          toolCalls={planMessage?.toolCalls}
+          isStreaming={sending}
+        />
         <InputArea
           value={input}
           onChangeText={setInput}
