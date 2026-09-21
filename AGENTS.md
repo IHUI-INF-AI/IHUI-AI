@@ -159,12 +159,12 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 新建弹层/浮层必须按内容类型对齐以下四档,**禁止自创中间值**:
 
-| 类型 | 判定特征 | 容器内边距 | 参考实现 |
-|---|---|---|---|
-| 内容面板 | role=dialog,含标题/表单/信息块(permission、通知、设置卡) | `p-3` | permission-mode-popover、permission-history-panel、context-usage-ring |
-| 菜单/选项列表 | role=menu / select 列表,纯按钮项 | `p-1` | Select、TagsView 右键菜单、canvas-overlay |
-| 轻提示/徽标 | tooltip、角标、状态胶囊 | `px-2 py-1`(mini 用 `px-1.5 py-0.5`) | ByokIncomeChart、activity-bar |
-| 复合面板 | 输入行+列表的 overflow-hidden 面板(mention、selector、终端 overlay) | 外层零 padding,**行级自带** `px-3 py-*` | file-mention-popover、context-selector-popover |
+| 类型          | 判定特征                                                            | 容器内边距                              | 参考实现                                                              |
+| ------------- | ------------------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------------------- |
+| 内容面板      | role=dialog,含标题/表单/信息块(permission、通知、设置卡)            | `p-3`                                   | permission-mode-popover、permission-history-panel、context-usage-ring |
+| 菜单/选项列表 | role=menu / select 列表,纯按钮项                                    | `p-1`                                   | Select、TagsView 右键菜单、canvas-overlay                             |
+| 轻提示/徽标   | tooltip、角标、状态胶囊                                             | `px-2 py-1`(mini 用 `px-1.5 py-0.5`)    | ByokIncomeChart、activity-bar                                         |
+| 复合面板      | 输入行+列表的 overflow-hidden 面板(mention、selector、终端 overlay) | 外层零 padding,**行级自带** `px-3 py-*` | file-mention-popover、context-selector-popover                        |
 
 - 反例存档:自定义 portal 弹层从 Radix 迁出时最易漏搬 `p-3`(PopoverContent 自带),新建 portal 容器必须显式写内边距档位。
 - 同族组件必须同档:同一直弹层家族(如 permission 系列)不允许 p-2/p-3 混用。
@@ -1105,6 +1105,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
 - **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
 - **桌面弹窗防护**(52):check-no-visible-spawn(派生控制台程序漏 `windowsHide` 检测,blocking,AGENTS.md §5b 机器级根治配套,2026-09-20 立;`--self-test` 14 例 + §22c 镜像测试)
+- **工具名本地化**(55/56):check-tool-name-display-coverage(注册表 `_TOOLS` × 词表 × 五语言 taskStatus 三方比对,blocking,拦"新增工具不补功能名");check-tool-display-resolvable(91 个功能名在 shared + 5 端合并视图 + 小程序离线包逐语言解析,拦两类静默失败:端内取词缺键回显 `toolReadFile`、忘跑 `pnpm gen:i18n` 致离线包过期;`node --test scripts/tests/check-tool-display-resolvable.test.mjs` 自检)。紧急跳过 `HUSKY_SKIP_TOOL_NAME_COVERAGE=1` / `HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE=1`
 
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
 
