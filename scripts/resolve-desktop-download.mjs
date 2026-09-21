@@ -226,6 +226,19 @@ async function resolveFromGitee() {
         size = 0
       }
     }
+    // 2026-09-21(0.1.43 run 35562703606 实测):CI 环境对 Gitee 302 链 HEAD 拿不到
+    // content-length(size=0)→ 下载页显示 "-"。Range GET(bytes=0-0)取
+    // content-range 总长兜底(206 响应头形如 "bytes 0-0/4070601")。
+    if (!size) {
+      try {
+        const ranged = await fetch(href, { headers: { Range: 'bytes=0-0' }, redirect: 'follow' })
+        const cr = ranged.headers.get('content-range') || ''
+        const total = cr.split('/')[1]
+        if (total && /^\d+$/.test(total)) size = Number(total)
+      } catch {
+        size = size || 0
+      }
+    }
     const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
     if (mapped) {
       // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供 /api/desktop-feed 输出 updater 格式
