@@ -1380,7 +1380,14 @@
     "title": "검색",
     "placeholder": "강좌, 강사, 콘텐츠 검색",
     "empty": "검색 결과가 없습니다",
-    "failed": "검색 실패"
+    "failed": "검색 실패",
+    "type": {
+      "course": "강좌",
+      "article": "게시글",
+      "post": "게시물",
+      "note": "노트",
+      "agent": "에이전트"
+    }
   },
   "securitySettings": {
     "title": "보안 설정",
@@ -1448,7 +1455,10 @@
     "goToDo": "완료하러 가기",
     "progress": "{current}/{target}",
     "claimFailed": "수령 실패",
-    "loadFailed": "작업 불러오기 실패"
+    "loadFailed": "작업 불러오기 실패",
+    "tab_daily": "매일",
+    "tab_weekly": "매주",
+    "tab_newbie": "신규"
   },
   "team": {
     "title": "내 팀",
@@ -1758,7 +1768,10 @@
   "circleMember": {
     "empty": "멤버가 없습니다",
     "loadFailed": "멤버 불러오기 실패",
-    "title": "서클 멤버"
+    "title": "서클 멤버",
+    "owner": "소유자",
+    "admin": "관리자",
+    "member": "멤버"
   },
   "courseCatalog": {
     "duration": "재생 시간",
