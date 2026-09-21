@@ -94,7 +94,11 @@ def test_timeout_default_and_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_ui_tools_names_and_schemas() -> None:
     tools = {t.name: t for t, _ in ub._ui_tools()}
     assert set(tools) == _EXPECTED_TOOLS
-    assert tools["web_ui_describe"].input_schema["properties"] == {}
+    # describe 全站路由检索(2026-09-21):query/limit 皆可选,不得进 required
+    describe_props = set(tools["web_ui_describe"].input_schema["properties"])
+    assert describe_props == {"query", "limit"}
+    assert "required" not in tools["web_ui_describe"].input_schema
+    assert "query" in tools["web_ui_describe"].description  # 描述里必须教会模型怎么用
     assert tools["web_ui_navigate"].input_schema["required"] == ["path"]
     assert tools["web_ui_click"].input_schema["required"] == ["target"]
     assert tools["web_ui_fill"].input_schema["required"] == ["target", "value"]

@@ -7,16 +7,20 @@ import Fastify from 'fastify'
 import type { FastifyInstance } from 'fastify'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
 
-// /capability 与 /result 与 /status 走 checkAuth(JWT → 会查用户状态打 DB),
+// /capability 与 /result 走 checkAuth(JWT → 会查用户状态打 DB);/status 走
+// checkAuthOrInternalService(JWT 或内部服务凭据都收,ai-service 要靠它查在线端);
 // /execute 走 AGENT_CONTROL_INTERNAL_SECRET。整模块 mock 鉴权,测试不触达生产 PG/Redis。
-const { mockAuthenticate, mockCheckAuth } = vi.hoisted(() => ({
+const { mockAuthenticate, mockCheckAuth, mockCheckAuthOrInternal } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn<(request: { userId?: string }) => Promise<unknown>>(),
   mockCheckAuth: vi.fn<(request: { userId?: string }, reply: unknown) => Promise<boolean>>(),
+  mockCheckAuthOrInternal:
+    vi.fn<(request: { userId?: string }, reply: unknown) => Promise<boolean>>(),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
   checkAuth: mockCheckAuth,
+  checkAuthOrInternalService: mockCheckAuthOrInternal,
 }))
 
 // 路由仅用到 toUserFriendlyMessage;mock 掉避免 @ihui/shared 的 React hooks 被 node 测试环境加载
@@ -140,6 +144,13 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     mockPush.mockReset()
     mockCheckAuth.mockReset()
     mockCheckAuth.mockImplementation(async (request) => {
+      request.userId = USER_A
+      return true
+    })
+    // /status 默认按"JWT 认到 USER_A"处理;个别用例会改写成内部服务凭据认到别的用户,
+    // 用来证明端点清单是**按用户过滤**的(不得把别人的端点泄漏给当前调用方)
+    mockCheckAuthOrInternal.mockReset()
+    mockCheckAuthOrInternal.mockImplementation(async (request) => {
       request.userId = USER_A
       return true
     })
@@ -341,6 +352,50 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(__test__.findEndpointByCategory('ui', USER_A, 'web-dead')?.capability.instanceId).toBe(
       'web-b',
     )
+  })
+
+  it('⑰ /status 认内部服务凭据,且端点清单按用户过滤(不泄漏别人的端点)', async () => {
+    await reportCapability(
+      {
+        endpoint: 'web',
+        instanceId: 'web-a',
+        uiActions: [...ALL_UI_ACTIONS],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_A,
+    )
+    await reportCapability(
+      {
+        endpoint: 'rn',
+        instanceId: 'rn-b',
+        appUiActions: ['describe', 'read', 'navigate', 'invoke'],
+        reportedAt: new Date().toISOString(),
+      },
+      USER_B,
+    )
+
+    // ① 内部凭据路径必须可用:ai-service 只带机器凭据(JWT 这条走不通),
+    //    若 /status 仍只认 checkAuth,这里就是 401 —— 那正是它此前读不到在线端的原因。
+    mockCheckAuth.mockResolvedValue(false)
+    mockCheckAuthOrInternal.mockImplementation(async (request) => {
+      request.userId = USER_A
+      return true
+    })
+    const asOwner = await app.inject({ method: 'GET', url: `${PREFIX}/status` })
+    expect(asOwner.statusCode).toBe(200)
+    const own = (asOwner.json().data.endpoints as StatusEndpoint[]).map((e) => e.instanceId)
+    expect(own).toEqual(['web-a'])
+    // ② USER_B 的 rn 端不得出现在 USER_A 的回执里(改前是全表返回 = 跨租户泄漏)
+    expect(own).not.toContain('rn-b')
+
+    mockCheckAuthOrInternal.mockImplementation(async (request) => {
+      request.userId = USER_B
+      return true
+    })
+    const asOther = await app.inject({ method: 'GET', url: `${PREFIX}/status` })
+    expect((asOther.json().data.endpoints as StatusEndpoint[]).map((e) => e.instanceId)).toEqual([
+      'rn-b',
+    ])
   })
 
   it('⑯ 钉定实例被"页面重载"留下(心跳落后超一个保活周期)时回落最新端,不再走满超时', async () => {
