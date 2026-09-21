@@ -1298,6 +1298,27 @@ export function parseStreamLineReasoning(line: string): string | null {
 }
 
 /**
+ * 厂商账号额度耗尽(2026-09-22 批次 60 立,与 ai-service `llm_gateway.PROVIDER_QUOTA_EXHAUSTED` 同名)。
+ * 仅在"判定为账号额度/欠费且全部候选通道都失败"时出现;ai-service 未登记该码的 HTTP 状态,
+ * 实际仍是默认 502,因此**只能靠 errorCode 判定,不能靠 HTTP 码**。
+ */
+export const PROVIDER_QUOTA_EXHAUSTED = 'PROVIDER_QUOTA_EXHAUSTED' as const
+
+/** 同族等效替换的 fallback 事件 reason(与 ai-service `FALLBACK_REASON_QUOTA_EQUIVALENT` 对齐)。 */
+export const FALLBACK_REASON_QUOTA_EQUIVALENT = 'quota_equivalent' as const
+
+/**
+ * 非 i18n 端(extension / mobile-rn / cli / miniapp-taro)的兜底文案。
+ * web 端不使用此处常量,而走 i18n key `chat.quotaExhaustedTitle` / `chat.quotaExhaustedNotice`,
+ * 避免在共享层维护第二套错误表 —— 共享层只负责"分类 + 默认可读文案"。
+ */
+const QUOTA_EXHAUSTED_ZH = {
+  title: '厂商账号额度已用尽',
+  message:
+    '该模型所属厂商的账号额度已用完(不是你的账户问题),平台已自动尝试改道其他通道仍未成功。请稍后再试,或改选带「免费」标识的模型。',
+}
+
+/**
  * 错误码元信息 — 从 Error 对象 / 错误 JSON / 状态码中提取的结构化字段。
  *
  * 跨端使用:`web` / `mobile-rn` / `desktop` / `extension` / `CLI` / `miniapp-taro`
@@ -1333,6 +1354,11 @@ export interface FormattedSSEError {
   message: string
   rawMessage: string
   requireReauth: boolean
+  /**
+   * 重试是否可能改变结果。`false` = 重试必然再撞同一堵墙(如厂商账号额度耗尽),
+   * 各端据此隐藏"立即重试"按钮 / 跳过自动退避重试。`undefined` 按可重试处理(向后兼容)。
+   */
+  retryable?: boolean
 }
 
 function asString(v: unknown): string | undefined {
@@ -1461,6 +1487,25 @@ export function formatSSEError(
   const code = extraInfo?.code ?? extractedInfo?.code
   const errorCode = extraInfo?.errorCode ?? extractedInfo?.errorCode
   const retryAfter = extraInfo?.retryAfter ?? extractedInfo?.retryAfter
+
+  // 厂商账号额度耗尽:必须在 detectSafetyViolation / HTTP 状态码分支之前判定。
+  // ai-service 的 status_map 未登记该码,实际仍回落默认 502 → 若先走 code>=500 分支会被误判成
+  // "AI 服务暂时不可用,请稍后重试",而重试必然再撞同一堵墙(所有候选通道都已因欠费失败)。
+  // rawMessage 保留后端点名归因("所有通道均因账号额度耗尽失败: qwen-plus[qwen]=..."),
+  // 各端 toast 继续以 [PROVIDER_QUOTA_EXHAUSTED] 前缀透出以便排障。
+  if (errorCode === PROVIDER_QUOTA_EXHAUSTED) {
+    return {
+      code,
+      errorCode,
+      retryAfter,
+      severity: 'server',
+      title: QUOTA_EXHAUSTED_ZH.title,
+      message: QUOTA_EXHAUSTED_ZH.message,
+      rawMessage,
+      requireReauth: false,
+      retryable: false,
+    }
+  }
 
   // 优先识别 LLM 厂商内容安全策略拦截关键词
   // 这些错误来自上游 LLM(Gemini/OpenAI/Anthropic),不是项目本身的违规判定
