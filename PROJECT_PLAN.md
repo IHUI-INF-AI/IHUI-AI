@@ -924,6 +924,15 @@
 - [ ] **D93 计划产物多版本(G-126)**:Qoder 产物区有 `计划版本`(`planTabsLabel`)多版本切换与 `还没有计划产物` 空态 → 我方 plan 已有步骤卡与 spec tab,缺**计划的历史版本对照**。与 D27 交付审查、D47 轮内两段式合并设计(版本单位很可能就是"轮")。**验收**:版本切换 + 跨版本 diff 入口 + 空态
 - **H27 无障碍硬判据(第 17 轮立,来自 Trae 实证的对手缺陷)**:取到 Trae `DeepThinkingStateBar` 本体(`index.mjs:2013286`,module 51300):`createElement("div",{className:"ai-deep-thinking-state-bar state-reasoning expandable", role:"button", onClick:a})` —— **无 `aria-expanded`、无 `tabIndex`、无键盘处理**,键盘用户无法聚焦/展开,读屏读不到状态。判据:对话流内**所有可折叠元素**必须 ①`aria-expanded` ②Tab 可聚焦 ③Enter/Space 切换 ④状态变化可被读屏播报(复用 `sr-stream-announcer`)。**禁止照抄 Trae 这一处**;e2e 断言四件套,缺一不得勾选所属任务
 
+#### B4m 第 18 轮补证追加(G-127~G-133 + H28;数据源=完整枚举 TSV,未再碰 asar)
+
+- [ ] **D94 失败诊断脱敏交接包(G-127,品类级)**:出错时自动产出**可直接对外提交的四段式交接单**——`诊断方法`(确定性本地规则优先,外部服务状态作辅助信号)／`已尝试的修复步骤`／**`已脱敏证据：`**(`- 用户可见错误：{errorMessage}`)／`产品界面` + `状态：可能相关的事件：{incidentNames}`。与我方既有 Server酱 + Resend 邮件兜底(AGENTS.md §5e)接成一条链:agent 失败 → 生成交接单 → 推给用户/附到工单。**脱敏是硬要求**(复用 D28 已实测的 `redact_secrets` + strip_ansi + 长度截断,不得新写一套)。**验收**:四段齐全 + 断言密钥/邮箱/IP 被脱敏(用真实含密样本测) + "无网络时降级不阻断"(与 §5d 网络不可达≠失败口径一致)
+- [ ] **D95 分叉对话框(先自证,G-128)**:Codex 把"从任意旧轮分叉"做成三选项——在此工作树／在同一工作树／在新工作树／在此工作空间。**先核我方** `spec-panel/SpecBranchesTab.tsx`、`use-spec-handlers.ts`、`use-chat/send-message.ts` 里的"创建分支"到底有无意图区分工作树;**未定档前不得开工**(本轮已 4 次靠该纪律挡下幻影)。若成立,则与 §12d worktree 规范同构 → 把我方内部工程实践产品化,属 L2 反超素材
+- [ ] **D96 对话内写作块(G-129)**:流内可编辑文本块 + **逐块`接受`/`全部接受`/`撤销`** + 失败态`无法更新此写作块`;附带"打开方式"应用选择器(`使用默认电子邮箱应用打开电子邮件` 形态)。与 D41/D90 预览降级同族,复用 `artifact-canvas`,禁止新造编辑栈。**验收**:三动作 + 失败态 + 撤销可逆
+- [ ] **D97 云端聊天互操作活动卡(G-133)**:`附加云端聊天 / 创建云端聊天 / 列出云端聊天 / 读取云端聊天轮次 / 向云端聊天发送消息` 五动作的流内活动条(带 active/completed/following 三态)。数据面我方**已有**(D28 多端 + `/api/task-messages` + W2 abort 通道),缺的是把"跨端操作"呈现成可审计活动条 → 与 D50 多端遥控合并设计,不要两套传输
+- **规格补强(并入既有任务,不另开)**:G-130→D84 审批摘要模板(含`通过网络访问 {target}`、`权限请求：{reason}`、复数规则);G-131→D83 措辞矩阵维度(工具 × active/completed/following × 是否带标题/参数,**并把"repeated=合并计数"与现"已跳过"区分开**);G-132→D76 产物类型副标题(`现场演示`/`实时电子表格`/`网站`)
+- [ ] **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流状态类措辞一律用 **ICU `select`/`plural`**(一种语义一个键,否则 27 工具 × 3 状态 × 带参 × 5 语言 = 词表爆炸)。我方现状实测:全仓 ICU 仅 **5 处 plural、`select` 零使用** → 先跑通一条真链路:在 `packages/i18n/messages/**/zh-CN.json` 放一个含 `{state, select, …}` 的键,过 `check-i18n-keys.mjs`(含**含点键**与 parity 规则)、next-intl 渲染、e2e 断言渲染出中文态文本,五语言齐了才算通;**不通则改方案**(如自写小解析器)并回到本节记录结论,不得带着未验证假设进实现
+
 ### 本轮(第四轮)交付状态
 
 
@@ -3756,15 +3765,20 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
   另起私有 dev 实例 8877 复跑,`6 passed (16.2s)`;取证完成后按监听 PID 8776 精确 `taskkill /T /F` 关闭该树,
   8801 未受影响(仍 200)。全量 web `vitest` 143 文件 / **1973 passed**,`tsc --noEmit` **0 错误**。
 
-**残余(明确不闭环项)**:① extension / miniapp-taro / mobile-rn 已用 `toolDisplayKey`/`humanizeToolText`,
-但尚未接入 `describeToolCall` 的"对象 + 结果度量",视觉档位仍各自实现(跨端样式 parity 待跟);② CLI 端
-`0` 处使用共享工具名映射,状态行仍显示原始码名;③ `AgentTraceViewer` 头部 `'执行成功'/'执行失败'` 与
-`stopReasonLabel()` 仍是硬编码中文(工具名本身已走映射),需新开 `ai.traceViewer` 命名空间补 5 语言。
-(同轮已顺带收口:`tool-calls-section.tsx` 与 `AgentTraceViewer` 的工具名不再直显英文码名,
-原始码名保留在 `data-tool-name` 供用例定位。)
+**残余收口(2026-09-21 同日全部做完,证据在各端提交信息内)**:
+① 三端 + CLI 已接 `describeToolCall` 的"对象 + 结果度量":extension 新增 `makeToolTranslate`
+(修真实缺陷:共享层给未限定键,端内 t 走点号全路径且缺键回显键名,原实现把 `read_file`
+显示成 `toolReadFile`)、miniapp-taro 新增端内唯一取词层 `cards/tool-line.ts` + 样式档位对齐
+(24rpx=web 12px / 22rpx=web 11px)、mobile-rn 等宽对象 + accessibilityLabel、
+CLI 由 0 处使用改为走 `describeToolActivityLine`,并顺带修 `deepMerge` 只遍历 base 键导致
+`cli.*` 命名空间被整块吞掉、`t()` 回显键名的真实缺陷(补 `tests/i18n-loader.test.ts` 锁两侧命名空间);
+② `AgentTraceViewer` 头部/停止原因/轮次等 12 处硬编码中文已改走 `ai.pane.trace*`(18 键 ×5 语言);
+③ 跨端视觉级真机自验仍未做(需各端模拟器),现有证据为各端 tsc 0 错 + 单测
+cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算样式闸 6 passed;
+④ 8801 常驻的是旧生产构建(`next start`),**要看新样式需重建或另起 dev 端口**。
 
 
-- **① planSteps 持久化与回放**:现状 `plan_updated` 只写前端内存 `message.planSteps`,API/DB 无 plan_steps 字段(schema 0 命中)→ 历史重拉/刷新后状态条与消息流 PlanStepsCard 全部消失。修法:messages 表加 JSON 列(或 meta 内嵌)+ api 写入链 + GET 回放。⚠️ 涉及生产迁移(有 RLS/CREATEROLE 静默失败前科),须按迁移检查单走。
+- [x] ✅(2026-09-21)**① planSteps 持久化与回放**:原判"API/DB 无字段、须加 JSON 列 + 生产迁移"**不成立** —— `chat_messages.metadata` 本就是 jsonb 且 `replaceMessages`/`updateMessage` 全链路透传(`metadata.toolCalls` 早已在持久化)。实际落地为零迁移:ai-service 抽出 `_build_plan_snapshot` 让 SSE 与落库共用同一份快照 → api-callback zod `looseObject` 透传 → worker `{...prevMeta, ...metadata}` 浅合并不整体覆盖 → web `readPlanStepsFromMetadata` 守卫式回灌(老消息安静缺席)。三处端到端往返断言 + mypy strict 0 错;**部署需重启 ai-service 与 api**(schema 不更新会静默丢字段),存量历史不回补。
 - [x] ✅(2026-09-21)**② 其他端渲染层同步 humanizeToolText**:extension/miniapp-taro/mobile-rn 的状态条与消息流工具卡已接 `@ihui/shared/chat` 的 `toolDisplayKey`/`humanizeToolText`(不再直显英文码名)。**残余**:CLI 端 0 处使用(状态行仍显示原始码名)、三端尚未接本轮新增的 `describeToolCall`(对象 + 结果度量),归入上一条 P0 的"残余"继续跟。
 
 **2026-09-21 晚更新(状态条 P1 两项进展)**:
