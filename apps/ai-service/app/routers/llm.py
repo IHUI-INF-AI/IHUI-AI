@@ -16,6 +16,7 @@
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from collections import Counter
@@ -268,9 +269,48 @@ def _format_plan_updated_event(
     return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
 
 
+def _sse_contract_enabled() -> bool:
+    """批58(接线):SSE 契约校验开关 —— 默认 off(与接线前逐字节等价)。
+
+    开启后按 app/core/sse_contract.py 的 SSE_EVENT_CONTRACTS 校验事件名与 payload
+    必填字段,漂移只告警(不改写帧内容、不阻断流式输出)。
+    """
+    return os.environ.get("SSE_CONTRACT_VALIDATE_ENABLED", "false").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def _sse(evt: str, payload: Any) -> str:
-    """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。"""
+    """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。
+
+    批58(接线):开关开启时经 sse_contract 做跨端契约漂移诊断(仅告警)。
+    """
+    if _sse_contract_enabled():
+        try:
+            from app.core.sse_contract import SSE_EVENT_CONTRACTS
+
+            contract = next((c for c in SSE_EVENT_CONTRACTS if c.name == evt), None)
+            if contract is None:
+                _sse_contract_warn(f"SSE 事件未在契约清单中登记: {evt}")
+            elif isinstance(payload, dict):
+                missing = [f for f in contract.payload_fields if f not in payload]
+                if missing:
+                    _sse_contract_warn(
+                        f"SSE 事件 {evt} 缺少契约字段 {missing}",
+                    )
+        except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
+            _sse_contract_warn(f"SSE 契约诊断异常(降级跳过): {e}")
     return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _sse_contract_warn(msg: str) -> None:
+    """契约漂移告警(warnings 通道,不阻断流式输出)。"""
+    import warnings
+
+    warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
 
 def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
