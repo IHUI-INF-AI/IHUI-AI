@@ -128,7 +128,15 @@ describe('能力上报信封', () => {
   it('endpoint=rn + appUiActions 四项 + reportedAt 为 ISO', () => {
     const cap = buildCapability()
     expect(cap.endpoint).toBe('rn')
-    expect(cap.appUiActions).toEqual(['describe', 'navigate', 'read', 'invoke'])
+    expect(cap.appUiActions).toEqual([
+      'describe',
+      'navigate',
+      'read',
+      'invoke',
+      'click',
+      'fill',
+      'submit',
+    ])
     expect(cap.uiActions).toBeUndefined()
     expect(cap.instanceId).toBe(getRnInstanceId())
     expect(new Date(cap.reportedAt).toISOString()).toBe(cap.reportedAt)
@@ -243,15 +251,15 @@ describe('WS 消息过滤', () => {
     expect(registry.execute).toHaveBeenCalledTimes(1)
   })
 
-  it('协议外的动作(click/fill/submit)回 UNSUPPORTED_ACTION 且不进注册表', async () => {
+  it('控件级动作(click/fill/submit)放行给注册表执行 —— 桥层不得自作主张拦掉', async () => {
+    registry.execute.mockResolvedValueOnce({ ok: true, data: { pressed: true } })
     handleWsNotification(
       notificationFor(agentRequest({ action: 'click' as AgentActionRequest['action'] })),
     )
     await flush()
-    expect(registry.execute).not.toHaveBeenCalled()
-    const result = postedResults()[0]?.body
-    expect(result?.success).toBe(false)
-    expect(result?.errorCode).toBe('UNSUPPORTED_ACTION')
+    expect(registry.execute).toHaveBeenCalledWith('click', expect.anything())
+    // 回执来自注册表:能不能点由控件有没有交出通道决定,桥层只负责投递
+    expect(postedResults()[0]?.body?.success).toBe(true)
   })
 
   it('建连时把 handleWsNotification 挂到 onMessage', () => {

@@ -6,6 +6,13 @@
 import type { AgentActionErrorCode, AppUiActionType, AppUiSnapshot } from '@ihui/types'
 
 import { themeStore } from '../context/ThemeContext'
+import {
+  pressField,
+  setFieldGroupProvider,
+  setValueOnField,
+  snapshotFields,
+  submitForm,
+} from './ui-field-registry'
 import { RN_UI_ROUTES, type RnUiRouteEntry } from '../constants/ui-routes.generated'
 import { navigationRef } from '../navigation/navigation-ref'
 import { requestLocaleChange } from '../i18n'
@@ -335,6 +342,9 @@ const INVOKE_BY_ID: ReadonlyMap<string, RnInvokeCommand> = new Map(
  */
 export function buildRnUiSnapshot(): AppUiSnapshot {
   const current = readCurrentRoute()
+  // 控件快照:RN 没有 DOM,click/fill 只能打在"组件挂载时主动登记"的控件上。
+  // 空数组也要如实返回 —— 模型据此知道"这一屏没有可操控控件",而不是以为没查。
+  const fields = snapshotFields()
   return {
     version: 1,
     screen: {
@@ -349,8 +359,13 @@ export function buildRnUiSnapshot(): AppUiSnapshot {
     })),
     commands: SAFE_COMMANDS.map(({ id, label, group }) => ({ id, label, group })),
     authed: isAuthed?.() ?? false,
+    elements: fields.elements,
+    suppressed: fields.suppressed,
   }
 }
+
+/** 控件登记表按当前屏分组:注册表不依赖 react-navigation,分组由这里注入 */
+setFieldGroupProvider(() => readCurrentRoute().name)
 
 function executeDescribe(): RnUiActionResult {
   const current = readCurrentRoute()
@@ -479,6 +494,14 @@ export async function executeRnUiAction(
         return executeRead()
       case 'invoke':
         return await executeInvoke(params)
+      // 控件级动作一律经注册表执行:它只认"组件挂载时交出的通道",
+      // 没有通道就如实 UNSUPPORTED_ACTION,不会回 ok 而界面没动
+      case 'click':
+        return pressField(readString(params.target))
+      case 'fill':
+        return setValueOnField(readString(params.target), params.value ?? '')
+      case 'submit':
+        return submitForm(readString(params.target))
       default:
         return fail('UNSUPPORTED_ACTION', `RN 端不支持的动作: ${String(action)}`)
     }
