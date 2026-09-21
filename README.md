@@ -723,14 +723,22 @@ A 路线因此提供两个**名字恒定**的入口工具，让模型"先搜后�
 - `api_endpoint_call(name, arguments)` → 转发到对应端点工具(**仅接受 `api_` 前缀**，
   否则等于把 `run_command` 这类高危工具暴露给一个字符串参数，是越权捷径)
 
-> ⚠️ 聊天主链还有一道**客户端闸门**：`llm.py` 的 tool loop 只在请求带 `agentTools` 时才进，
-> 而 web 的 `mergeAgentTools()` 为保住打字机流式在"未选插件/未开网页搜索"时刻意返回空。
-> 意图判定收敛到共享层单一事实源 `packages/shared/src/utils/app-control-intent.ts`：
-> `detectAppControlIntent(content)` 判"这句是不是在要求操作本站"(打开 / 点击 / 填写 / 查后台…)，
-> `createAppControlToolSelector({ui, api})` 由**各端注入本端族名**后生成选择器
-> （web `tool-config.ts::uiControlToolsFor` / 小程序 `lib/ui-control-tools.ts::uiControlToolsFor`）。
-> 命中才带工具，普通问答**完全不传该字段**(不是传 `[]`)；各端只带自己族名，
-> 把 `web_ui_*` 发给小程序只会换来 `TARGET_NOT_CONNECTED` 并白烧一轮上下文。
+> ⚠️ 聊天主链有一道**双重闸门**：`llm.py` 的 tool loop 只在请求带非空 `agentTools` 时才进，
+> 而各端为保打字机流式刻意"普通问答不带工具"。两道闸门做的是同一件事——"这一句要不要给 AI 一只手"：
+>
+> - **客户端预筛**(提前量)：`packages/shared/src/utils/app-control-intent.ts` 是单一事实源 ——
+>   `detectAppControlIntent()` 判信号，`createAppControlToolSelector({ui, api})` 由**各端注入本端族名**
+>   (web / 小程序 / RN 各 3~5 行实例化)。命中才带本端整族，普通问答连字段都不出现；
+>   把 `web_ui_*` 发给小程序只会换来 `TARGET_NOT_CONNECTED` 并白烧一轮上下文。
+> - **服务端自主补全**(2026-09-21 加，`apps/ai-service/app/services/control_autonomy.py`)：
+>   客户端没说中不等于用户没这个意思。服务端再判一次 —— 意图取"强信号正则 ∪ 关键词表"两源并集
+>   (实测 13 条真实措辞：正则命中 2、关键词命中 8、并集 9，两张网几乎不重叠)，并且
+>   **只注入该用户此刻真在线的那一族**(查 `/api/agent-control/status`，15s 缓存，查不到就不加)。
+>   客户端已带工具时(本轮本来就要进 tool loop)直接放宽到整族 —— 这部分零额外延迟。
+>
+> 为什么默认不做"每轮都让模型自己决定要不要用工具"：那会给每条普通问答多一次非流式
+> `complete()`，首字延迟用户能直接感知(web 2026-08-29 就是为此改成按需携带)。
+> 要最大自主性用 `CONTROL_AUTONOMY=always`，`off` 可整个关掉 —— 代价与收益摆在这，由部署方选。
 
 对话侧自动路由:`apps/ai-service/app/services/conversation.py` 的 `_app_control_intent_tools()`
 按强信号正则识别"操控本站"意图(打开页面 / 点击按钮 / 填表单 / 提交 / 切模式 / 调接口)，
@@ -822,6 +830,21 @@ location.pathname: "/" → "/capability-market"，页面 h1 = "能力市场"    
 即：`uiControlToolsFor` 带上本端整族工具 → `llm.py` 进了 tool loop → 模型按"先探后动"先
 `describe` 再 `navigate` → api 经 WS 推给用户浏览器 → 前端注册表执行并 `/result` 回传(718ms)→
 模型拿到 `ok:true`。全程无 403、无 20s 超时。三条上面的缺陷都是这一次跑动才撞出来的。
+
+### 页面与输入框的覆盖面：量出来的数，不是形容词(2026-09-21)
+
+「所有页面 / 所有输入框」这类话必须用可核对的口径写，实测与实现后如下：
+
+| 维度                | 实现前                                                                                                                               | 现在                                                                                                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 页面可发现性        | describe 只回 63 条导航命令，879 条路由**只用于校验**，模型只能猜路径(先猜 `open-model-market` 失败，再猜 `/capability-market` 猜中) | `routes` 摘要常驻(880 total / 779 navigable / ≤25 分组桶，+838 B)，模型按 `describe(query=…)` 取 top-N(封顶 40，满命中 3,286 B)。**冷回执里一条 path 都不铺**(用例断言 JSON 不含任何 `/` 形态路径) |
+| 链接可读性          | `UiElementDescriptor` 无 `target`，`a[href]` 采到了也读不到指向                                                                      | link 补 `target=href`(64 元素页 +约 830 B)                                                                                                                                                         |
+| `input[type=file]`  | 被选择器显式排除(web 11 处上传点)                                                                                                    | 采集 kind/label/`accept`/`multiple`；`fill` 一律 `PERMISSION_DENIED` 并说明原因(浏览器禁止脚本写路径，造 `File` 不属本次范围)。**不假装填成功**                                                    |
+| `[contenteditable]` | 不在选择器内(5 处组件)                                                                                                               | 采集 + 可写(focus → textContent → 派发 input/change，React 受控可见)。ProseMirror/Slate 内部文档模型可能与 DOM 不同步，回执回写后文本供核对                                                        |
+| Monaco 代码编辑器   | 不在选择器内                                                                                                                         | 只采容器(内嵌 textarea 去重)；能取到 editor 实例才 `setValue`，取不到回 `UNSUPPORTED_ACTION`；多编辑器绝不自选                                                                                     |
+| RN / 小程序输入框   | 无 click/fill(无同源 DOM)                                                                                                            | 维持不变 —— 要成立得业务组件逐个开放写入通道，属另一量级新功能，未擅自扩                                                                                                                           |
+
+`suppressed` 计数与优先级择优保留：应用外壳常驻 200+ 可交互元素，按 DOM 顺序截断会把真正的表单字段整批挤出去，所以是"表单字段 → 正文按钮 → 其他 → 外壳导航"择优。
 
 ### 可达面 ≠ 授权面（重要边界）
 
@@ -2326,25 +2349,25 @@ pnpm turbo build typecheck lint test
 
 第三方 AI Agent 通过**机器凭据**调用本项目能力,能力面由 `packages/types/src/capability-catalog.ts` 一处声明、三处消费(API 闸口 / MCP 门禁 / 文档产物)。
 
-| 要素             | 落点                                                                                                                                                      | 说明                                                                                                                  |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 凭据             | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                 | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧                                               |
-| 授权             | `apps/api/src/utils/capability-guard.ts`                                                                                                                  | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)                                             |
-| 数据边界         | `CapabilityEntry.dataClass`                                                                                                                               | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`                                         |
-| MCP 接入         | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*`                                                                         | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                                                         |
-| 产物             | `packages/types/generated/capabilities.json`                                                                                                              | `pnpm capabilities:export` 生成;`--check` 防漂移                                                                      |
-| 协议兼容         | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)                                                                              | 官方 SDK 可直接指向本项目                                                                                             |
+| 要素             | 落点                                                                                                                                                      | 说明                                                                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 凭据             | `Authorization: Bearer ihui_xxx`(+ `X-Api-Secret` 双因子)                                                                                                 | 用户自助签发:`POST /api/developer/api-keys`;可按 scope/IP/模型/时段收紧                                                                                                                                        |
+| 授权             | `apps/api/src/utils/capability-guard.ts`                                                                                                                  | `requireCapability(scope)`;`platform` 域与未登记 scope 一律 403(默认拒绝)                                                                                                                                      |
+| 数据边界         | `CapabilityEntry.dataClass`                                                                                                                               | `compute`(禁读业务表)/ `scoped-read` / `scoped-write`(强制 owner)/ `platform`                                                                                                                                  |
+| MCP 接入         | `POST /v1/mcp/*`(API Key)+ `apps/ai-service` `POST /api/mcp`、`/api/mcp/export/*`                                                                         | 匿名 tools/call 已关闭;逐工具按目录裁决 scope                                                                                                                                                                  |
+| 产物             | `packages/types/generated/capabilities.json`                                                                                                              | `pnpm capabilities:export` 生成;`--check` 防漂移                                                                                                                                                               |
+| 协议兼容         | `/v1`(OpenAI)/`/v1beta`(Gemini)/`/v1/messages`(Anthropic)/`/v1/realtime`(WS)                                                                              | 官方 SDK 可直接指向本项目                                                                                                                                                                                      |
 | 限流             | `RATE_PROFILES`(按 risk)+ key 级 5h/1d/7d 窗口 + nginx `limit_req`                                                                                        | 限流后端不可用时 billable 能力 fail-closed(503)。key 上的 `rateLimit` 字段**已废弃**(鉴权链零读取点,设了不生效):携带即回 `Deprecation` + `X-Ihui-Deprecated-Fields`,生效窗口只有 5h/1d/7d 与 per-model RPM/TPM |
-| MCP 工具面 scope | `GET /v1/mcp/tools` / `POST /v1/mcp/resources/read` → `tools:read`;`POST /v1/mcp/tools/call` → `tools:call`                                                | 与 `mcp:connect` **无关** —— 后者只服务"把 IHUI 当作 MCP server 长连接接入"(由 ai-service 提供)。申请错会恒 403 |
-| 不开放           | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                                                                                            | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send`                                     |
-| OAuth 2.1 提供方 | `/.well-known/oauth-authorization-server`、`/oauth/register`(RFC 7591 DCR)、`/oauth/token`(含 `client_credentials`)、`/oauth/introspect`、`/oauth/revoke` | 授权码链路已真正校验 PKCE(此前形同虚设);discovery 只声明已实现的能力                                                  |
-| A2A 发现         | `/.well-known/agent.json`(+ `agent-card.json` 别名)                                                                                                       | `skills[]` 全部由能力目录派生并剔除门禁不放行的 scope，无真实素材的字段宁缺不假报                                     |
-| 幂等             | `Idempotency-Key`（带则生效，不带行为不变）                                                                                                               | `idem:<key\|user>:<scope>:<client key>`；进行中 409、已完成原样重放且不重复计费；Redis 断连有 1s 截止避免 fail-hang   |
-| `/api` 面开放    | `apps/api/src/config/open-capability-registry.ts` 逐条登记（精确路径 + `:param`，**无**前缀通配）                                                         | 未携带 API Key 时根级闸完全 no-op；族内新增端点不会被"顺手开放"                                                       |
-| 契约产物         | `apps/api/openapi.json`（入库,3778 path / 4763 operation）                                                                                                | `pnpm openapi:export` 由真实 Fastify 启动图导出;`pnpm openapi-check` 阻断"目录声明了但契约里没有",CI 另做产物漂移比对 |
-| 对外 run 句柄    | `POST /v1/threads/:id/runs` 返回 `irun_<ulid>`,`GET /v1/run-refs/:ref` 反查(runs:read)                                                                    | 第三方无需保存 IHUI 内部 runId;`external_id` 反查已实现(`GET /v1/threads/runs/by-external-id/:externalId`,按调用方 userId 命名登记,跨用户查不到且与"不存在"响应体逐字节相同)                                  |
-| 分页口径         | `/v1` 列表端点统一 `limit` / `after` / `page_format`,响应带 `has_more` 与 `next_cursor`                                                                   | 单一实现 `apps/api/src/utils/cursor-page.ts`;内部 `/api/*` 仍用 `page/pageSize`,两套不得互穿                          |
-| 接入自证         | `node scripts/e2e-agent-access.mjs`（离线）/ `--live`（只读探测）                                                                                         | 四通道 + 匿名/越权默认拒绝 + 配额 429 的可重复判据,不依赖任何服务在跑                                                 |
+| MCP 工具面 scope | `GET /v1/mcp/tools` / `POST /v1/mcp/resources/read` → `tools:read`;`POST /v1/mcp/tools/call` → `tools:call`                                               | 与 `mcp:connect` **无关** —— 后者只服务"把 IHUI 当作 MCP server 长连接接入"(由 ai-service 提供)。申请错会恒 403                                                                                                |
+| 不开放           | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                                                                                            | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send`                                                                                                                              |
+| OAuth 2.1 提供方 | `/.well-known/oauth-authorization-server`、`/oauth/register`(RFC 7591 DCR)、`/oauth/token`(含 `client_credentials`)、`/oauth/introspect`、`/oauth/revoke` | 授权码链路已真正校验 PKCE(此前形同虚设);discovery 只声明已实现的能力                                                                                                                                           |
+| A2A 发现         | `/.well-known/agent.json`(+ `agent-card.json` 别名)                                                                                                       | `skills[]` 全部由能力目录派生并剔除门禁不放行的 scope，无真实素材的字段宁缺不假报                                                                                                                              |
+| 幂等             | `Idempotency-Key`（带则生效，不带行为不变）                                                                                                               | `idem:<key\|user>:<scope>:<client key>`；进行中 409、已完成原样重放且不重复计费；Redis 断连有 1s 截止避免 fail-hang                                                                                            |
+| `/api` 面开放    | `apps/api/src/config/open-capability-registry.ts` 逐条登记（精确路径 + `:param`，**无**前缀通配）                                                         | 未携带 API Key 时根级闸完全 no-op；族内新增端点不会被"顺手开放"                                                                                                                                                |
+| 契约产物         | `apps/api/openapi.json`（入库,3778 path / 4763 operation）                                                                                                | `pnpm openapi:export` 由真实 Fastify 启动图导出;`pnpm openapi-check` 阻断"目录声明了但契约里没有",CI 另做产物漂移比对                                                                                          |
+| 对外 run 句柄    | `POST /v1/threads/:id/runs` 返回 `irun_<ulid>`,`GET /v1/run-refs/:ref` 反查(runs:read)                                                                    | 第三方无需保存 IHUI 内部 runId;`external_id` 反查已实现(`GET /v1/threads/runs/by-external-id/:externalId`,按调用方 userId 命名登记,跨用户查不到且与"不存在"响应体逐字节相同)                                   |
+| 分页口径         | `/v1` 列表端点统一 `limit` / `after` / `page_format`,响应带 `has_more` 与 `next_cursor`                                                                   | 单一实现 `apps/api/src/utils/cursor-page.ts`;内部 `/api/*` 仍用 `page/pageSize`,两套不得互穿                                                                                                                   |
+| 接入自证         | `node scripts/e2e-agent-access.mjs`（离线）/ `--live`（只读探测）                                                                                         | 四通道 + 匿名/越权默认拒绝 + 配额 429 的可重复判据,不依赖任何服务在跑                                                                                                                                          |
 
 治理文档：[capabilities](./docs/developer/capabilities.md) · [data-classes](./docs/developer/data-classes.md) · [rate-limits](./docs/developer/rate-limits.md) · [error-codes](./docs/developer/error-codes.md) · [abuse-policy](./docs/developer/abuse-policy.md) · [compliance](./docs/developer/compliance.md)
 

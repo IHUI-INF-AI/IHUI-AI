@@ -306,6 +306,54 @@
       "`lang:en`/`locale:EN`/`locale:set` 等近似 id 一律 UNSUPPORTED_ACTION"。
       未验证:微信真机 `switchTab` 实际换 tab、`pageScrollTo` 真滚动、语言切换后**整树重渲染**的
       真实表现、expo 端 `Main` 嵌套跳转。
+- [x] ✅(2026-09-21) E7 操控工具改由**服务端自主注入**(治"自动自主"的真瓶颈):
+      旧链路里"要不要给 AI 一只手"完全由**客户端一张 ~35 词关键词表**决定(`llm.py` tool loop
+      入口 `if req.agent_tools`),用户没说中那几个词就静默失效 —— 那是暗号匹配,不是自主分析。
+      新增 `apps/ai-service/app/services/control_autonomy.py`:
+      ① 意图判定**两源并联** —— `conversation._UI_INTENT_PATTERNS` 强信号正则 ∪ 客户端关键词表的
+         Python 移植(防漂移有专门用例逐字比对 TS 源文件)。**实测召回**(13 条真实措辞):
+         正则单独命中 2 条、关键词表单独命中 8 条、并集 9 条 —— 两网几乎不重叠,这组数字是
+         "为什么要并"而不是"并了就够"的依据;
+      ② **只注入该用户此刻真在线的那一族**:新增查 `/api/agent-control/status`(15s 进程内缓存、
+         1.5s 超时、失败一律降级为"不注入")。带错族名等于让模型去操控另一台设备。
+      ③ 客户端已带 `agentTools`(用户开了插件 ⇒ 本轮本来就进 tool loop)时**跳过词面判定直接给整族**
+         —— 零额外延迟的自主性。
+      配套 api 侧两处:`/status` 改 `checkAuthOrInternalService`(ai-service 只带机器凭据,原先必 401)
+      + **按 userId 过滤端点清单**(原先返回全表 = 任何登录用户可读他人 instanceId/版本/动作数,
+      跨租户泄漏,一并收口)。
+      开关 `CONTROL_AUTONOMY=off|on|always`(默认 `on`):`always` 才是有端在线就注入,
+      **刻意不做默认** —— 那会让每条普通问答多一次非流式 complete(),首字延迟用户能直接感知
+      (web 2026-08-29 就是为这个改成按需携带的)。
+      活体证据(私有实例 8813,避开并发会话抢 8803):客户端 **完全不传 agentTools** 时日志
+      `[control_autonomy] 服务端注入工具 来源=词面意图 新增=['web_ui_describe','web_ui_navigate']`,
+      SSE 出现 `tool-call-start`/`tool-result`/`tool-summary` —— 模型真的被服务端喂了工具并调用成功。
+      证据:新增 `tests/test_control_autonomy.py` 19 项(意图并集、族裁剪、双端并注、整族放宽、
+      api 入口成对、去重保序、无端/关闭/缺身份/查询失败四态降级、缓存只发一次 +
+      **钉住鉴权头必须是 `x-internal-service-token`**)、api `agent-control-ui` 17 项(新增 ⑰
+      内部凭据 + 按用户过滤)。ruff + mypy --strict 零错。
+      **诚实的上限**:纯措辞创新(不含任何关键词、也不是正则句式)仍可能不触发。彻底解法是
+      "每轮先让模型判断要不要用工具",代价即上述首字延迟 —— 已留给 `CONTROL_AUTONOMY=always`。
+      过程教训:本轮两次"没生效"都是我打到**并发会话抢同一 8803 端口的陈旧实例**(kill 时
+      `netstat | head -1` 取到的是别人 0.0.0.0 那行的 PID),改私有端口后一次即通过。
+- [x] ✅(2026-09-21) E8 web 侧覆盖面扩容(补齐"所有页面 + 所有输入框"里最硬的两块):
+      ① **全站路由可检索**:新增 `apps/web/src/lib/ui-route-index.ts`,describe 支持可选
+      `query`/`limit` —— 冷回执只暴露摘要 `{total:880, navigable:779, groups≤25 桶}`,
+      **一条 path 都不铺**(有用例断言冷回执 JSON 里不含任何 `/` 形态路径);模型再按 query 拿
+      top-N(封顶 40)。此前 879 条路由只用于校验、模型看不见,只能猜路径
+      (实测就是先猜 `open-model-market` 失败、再猜 `/capability-market` 猜中)。
+      **量化**:冷 describe 因 `routes` 摘要 +838 B;带 query 满 40 命中 routes 字段共 3,286 B;
+      64 元素冷回执 11,606 B → 13,276 B(+1,670 B,含 32 个 link 的 target)。
+      ② 补三类被漏掉的控件:`input[type=file]`(11 处上传点)、`[contenteditable]`、
+      `.monaco-editor`(5 处组件);link 描述符补 `target`(模型此前读不到链接指向)。
+      **诚实边界**:file 只采集 + `fill` 一律 `PERMISSION_DENIED`(浏览器禁止脚本写路径,
+      造 File 不属本次范围);Monaco 仅在能取到 editor 实例时 `setValue`,取不到回
+      `UNSUPPORTED_ACTION`;ProseMirror/Slate 内部文档模型可能与 DOM 不同步 —— 三种情况都有用例,
+      没有一处假成功。
+      证据:web typecheck/lint exit 0;`tests/ + src/lib/__tests__` 60 文件 1111 项全绿
+      (既有 registry 21 项零回归 + 新增 rich-fields 10 + route-index 7);
+      `test_ui_action_bridge.py` 25 项同步 describe 的 `input_schema`(query/limit)。
+      未验证:真浏览器里模型实际使用 query 的命中率与新控件回执字节数(主 agent 端口被并发会话
+      反复打断),需下轮真机复测。
 
 ### 验证证据(2026-09-20)
 

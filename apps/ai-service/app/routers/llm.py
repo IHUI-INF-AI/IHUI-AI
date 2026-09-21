@@ -2182,12 +2182,27 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 3. 如有 tool_calls:推送 SSE 事件 → 执行工具 → 回灌结果 → 继续 astream 生成最终回复
             # 4. 如无 tool_calls:推送 content + done,跳过 astream
             # ask 模式(2026-09-13 矩阵 A #24):纯问答禁工具,即使携带 agent_tools 也跳过 tool loop
-            if req.agent_tools and chat_mode != "ask":
+            #
+            # 服务端自主补全(2026-09-21 立):原先"要不要给 AI 操控本站的工具"完全由客户端
+            # 一张关键词表决定(agent_tools 为空就根本不进本 if),用户没说中那几个词整条链静默
+            # 失效。现在服务端自己也判一次 —— 意图复用 conversation 的强信号正则,工具族只给
+            # **该用户此刻真在线的端**(查 status 得到),查不到就一律不加,绝不为这一步打断聊天。
+            # ask 模式下保持 None ⇒ 与原语义逐字一致(纯问答永不进 tool loop)。
+            agent_tools: list[str] | None = None
+            if chat_mode != "ask":
+                from ..services.control_autonomy import augment_agent_tools
+
+                agent_tools = await augment_agent_tools(
+                    req.agent_tools,
+                    _last_user_text(messages),
+                    _resolve_owner_uuid(request),
+                )
+            if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
                 tool_map = {t.name: t for t in all_tools}
                 openai_tools: list[dict[str, Any]] = []
-                for _name in req.agent_tools:
+                for _name in agent_tools:
                     _t = tool_map.get(_name)
                     if _t:
                         openai_tools.append({
@@ -2205,7 +2220,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 当 dispatch_subagent 在 agent_tools 中时,在 tool loop 开始前注入引导 system message,
                     # 引导 LLM 在复杂任务时主动派发子智能体。注入只发生一次,不随 iteration 重复。
                     # 注入策略与 _inject_workspace_memory 一致:messages[0] 为 system 则追加,否则在开头插入。
-                    if "dispatch_subagent" in req.agent_tools:
+                    if "dispatch_subagent" in agent_tools:
                         _subagent_prompt = _build_subagent_orchestration_prompt()
                         if messages and messages[0].get("role") == "system":
                             _existing = messages[0].get("content", "")
@@ -3762,7 +3777,7 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
     {
         "object": "list",
         "data": [{"object": "embedding", "index": 0, "embedding": [0.1, ...]}],
-        "model": "text-embedding-ada-002",
+        "model": "text-embedding-3-small",
         "usage": {"prompt_tokens": 10, "total_tokens": 10}
     }
     """
@@ -3773,7 +3788,7 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
             content={"code": "INVALID_INPUT", "message": "input must not be empty", "model": req.model},
         )
 
-    used_model = req.model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+    used_model = req.model or getattr(settings, "embedding_model", "text-embedding-3-small")
 
     # stub 模式:逐条调 llm_gateway.embed(返回确定性哈希向量,无真实 usage)
     if llm_gateway._is_stub_mode():
