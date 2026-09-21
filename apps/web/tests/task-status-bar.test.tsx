@@ -335,3 +335,25 @@ describe('TaskStatusBar - 终态优先级(回归)', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('TaskStatusBar - 步骤标题功能名化(humanizeToolText)', () => {
+  beforeEach(resetProgress)
+  afterEach(cleanup)
+
+  it('后端 step 标题含英文工具码名 → 渲染为功能中文名', () => {
+    progress.isStreaming = true
+    progress.planSteps = [
+      step({ step: 'read_file: packages/types/package.json', status: 'in_progress' }),
+    ]
+    render(<TaskStatusBar />)
+    expect(screen.getByText('读取文件内容: packages/types/package.json')).toBeTruthy()
+    expect(screen.queryByText(/read_file/)).toBeNull()
+  })
+
+  it('headline 同步功能名化', () => {
+    progress.isStreaming = true
+    progress.planSteps = [step({ step: 'edit_file 修改配置', status: 'in_progress' })]
+    render(<TaskStatusBar />)
+    expect(screen.getByText('编辑文件 修改配置')).toBeTruthy()
+  })
+})
