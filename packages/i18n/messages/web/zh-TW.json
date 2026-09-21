@@ -7292,7 +7292,21 @@
         "ariaLabel": "訊息用量詳情"
       },
       "retryBadge": "重試{count}次",
-      "retryBadgeAria": "工具瞬時失敗後自動重試 {count} 次"
+      "retryBadgeAria": "工具瞬時失敗後自動重試 {count} 次",
+      "openInWorkPanel": "在工作展示區打開",
+      "toolUnknownFile": "(未知檔案)",
+      "pendingTaskTitle": "任務進行中",
+      "pendingAutoChecked": "已自動檢查",
+      "pendingAutoChecking": "正在檢查",
+      "pendingTaskSubmitted": "{tool} 已提交,產物生成完成後會自動顯示在這裡。",
+      "pendingCheckingShort": "檢查中",
+      "pendingRefresh": "重新整理狀態",
+      "pendingStopped": "長時間未完成,已停止自動重新整理;可點擊\"重新整理狀態\"繼續檢查。",
+      "pendingFailed": "任務已失敗或取消,可換個提示詞重新產生。",
+      "planStepPending": "待執行",
+      "planStepInProgress": "進行中",
+      "planStepCompleted": "已完成",
+      "planStepFailed": "失敗"
     },
     "tokenUsage": {
       "promptTokens": "提示詞",
