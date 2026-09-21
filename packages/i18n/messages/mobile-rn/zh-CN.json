@@ -1380,7 +1380,14 @@
     "title": "搜索",
     "placeholder": "搜索课程、讲师、内容",
     "empty": "未找到相关内容",
-    "failed": "搜索失败"
+    "failed": "搜索失败",
+    "type": {
+      "course": "课程",
+      "article": "文章",
+      "post": "帖子",
+      "note": "笔记",
+      "agent": "智能体"
+    }
   },
   "securitySettings": {
     "title": "安全设置",
@@ -1448,7 +1455,10 @@
     "goToDo": "去完成",
     "progress": "{current}/{target}",
     "claimFailed": "领取失败",
-    "loadFailed": "加载任务失败"
+    "loadFailed": "加载任务失败",
+    "tab_daily": "每日",
+    "tab_weekly": "每周",
+    "tab_newbie": "新手"
   },
   "team": {
     "title": "我的团队",
@@ -1758,7 +1768,10 @@
   "circleMember": {
     "empty": "暂无成员",
     "loadFailed": "加载成员失败",
-    "title": "圈子成员"
+    "title": "圈子成员",
+    "owner": "圈主",
+    "admin": "管理员",
+    "member": "成员"
   },
   "courseCatalog": {
     "duration": "时长",
