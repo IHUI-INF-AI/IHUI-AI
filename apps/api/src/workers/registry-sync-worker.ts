@@ -1,0 +1,248 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 资源上游同步中心 BullMQ Worker 消费者(2026-07-24 立)。
+ *
+ * 消费 registry-sync-queue 队列任务,调用适配器拉取上游数据,upsert 到 registry_items 表,
+ * 并写入 registry_sync_logs 日志。
+ *
+ * 与 registry-queue.ts(生产者)配对:生产者入队 → 本 Worker 消费 → DB 落库。
+ *
+ * 缺口修复(2026-07-24):
+ * - d1:幂等 + 重试去重(lockDuration=60s + maxStalledCount=1 + payload_hash 跳过未变更条目)
+ * - d3:sync_log oldVersion 聚合(取第一个版本有变化的 oldVersion,不再恒为 null)
+ * - d10:优雅关闭(SIGTERM/SIGINT,process.once 避免重复注册)+ 指标统计(挂到 server.registryWorkerStats)
+ * - 性能优化:批量 upsert(2 次 DB 往返替代 2N 次)+ payload hash 复用(避免重复 SHA-256 计算)
+ */
+import type { FastifyInstance } from 'fastify'
+import { Worker } from 'bullmq'
+import { REGISTRY_SYNC_QUEUE_NAME, type RegistrySyncJobData } from '../plugins/registry-queue.js'
+import {
+  fetchAllRawItems,
+  calculateHeatScore,
+  calculateQualityScore,
+  computePayloadHash,
+} from '../services/registry-sync/index.js'
+import {
+  batchUpsertRegistryItems,
+  insertSyncLog,
+  markWebhookTriggerProcessed,
+} from '../db/registry-queries.js'
+
+/** Worker 运行时指标(供 /api/registry/worker-stats 端点读取,简化版挂到 server 实例) */
+export interface RegistryWorkerStats {
+  processed: number
+  failed: number
+  lastProcessedAt: Date | null
+}
+
+// 扩展 FastifyInstance 类型,避免 as any 断言挂载 worker 指标
+declare module 'fastify' {
+  interface FastifyInstance {
+    registryWorkerStats?: RegistryWorkerStats
+  }
+}
+
+export function startRegistrySyncWorker(server: FastifyInstance): Worker {
+  const connection = server.redisForQueue
+  if (!connection) {
+    server.log.warn('registry-sync-worker: Redis 不适用,Worker 未启动')
+    return {} as Worker
+  }
+
+  // d10:指标统计(挂到 server 实例,供 worker-stats 端点读取)
+  const stats: RegistryWorkerStats = {
+    processed: 0,
+    failed: 0,
+    lastProcessedAt: null,
+  }
+  server.registryWorkerStats = stats
+
+  const worker = new Worker<RegistrySyncJobData>(
+    REGISTRY_SYNC_QUEUE_NAME,
+    async (job) => {
+      const startedAt = new Date()
+      const { sourceType, source, force, triggerId } = job.data
+      const githubToken = process.env.GITHUB_TOKEN
+      const customRegistryUrl = process.env.IHUI_CUSTOM_REGISTRY_URL
+
+      // d1:重试检测(job 未配 attempts,attemptsMade 恒为 0;防御性日志,供未来启用重试时排查)
+      const isRetry = job.attemptsMade > 0
+      if (isRetry) {
+        server.log.warn(
+          { jobId: job.id, attemptsMade: job.attemptsMade },
+          'registry-sync: 重试任务,启用幂等检查',
+        )
+      }
+
+      server.log.info(
+        { jobId: job.id, sourceType, source, force, triggerId, attemptsMade: job.attemptsMade },
+        'registry-sync: 开始处理同步任务',
+      )
+
+      // fetchAllRawItems 整体失败时写 sync_log 兜底,再 rethrow 让 BullMQ failed 也能捕获
+      let items
+      try {
+        items = await fetchAllRawItems(sourceType ?? undefined, source ?? undefined, {
+          githubToken,
+          customRegistryUrl,
+          force,
+        })
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err)
+        await insertSyncLog({
+          sourceType: sourceType ?? 'mcp',
+          sourceName: source ?? 'all',
+          status: 'fail',
+          errorMessage: `fetchAllRawItems 失败: ${errMsg}`,
+          durationMs: Date.now() - startedAt.getTime(),
+          startedAt,
+          finishedAt: new Date(),
+        })
+        throw err
+      }
+
+      let synced = 0
+      let failed = 0
+      let skipped = 0
+      // d2:聚合 newVersion(取第一个非空) + oldVersion(取第一个版本有变化的)
+      let newVersion: string | null = null
+      let oldVersion: string | null = null
+      let hashList: string[] = []
+
+      // 缺口 2:批量 upsert + hash 复用(2 次 DB 往返替代 2N 次)
+      // 先并行计算每条的 heat/quality/hash,再一次调用 batchUpsertRegistryItems
+      const batchItems = await Promise.all(
+        items.map(async (raw) => ({
+          raw,
+          heat: calculateHeatScore(raw),
+          quality: calculateQualityScore(raw),
+          hash: await computePayloadHash(raw.payload),
+        })),
+      )
+
+      try {
+        const result = await batchUpsertRegistryItems(batchItems, { force })
+        synced = result.inserted + result.updated
+        skipped = result.skipped
+        failed = result.failed
+        hashList = result.hashList
+
+        // d2:聚合 oldVersion(取第一个版本有变化的) + newVersion(取第一个非空)
+        for (const ov of result.oldVersions) {
+          if (ov.oldVersion && ov.newVersion && ov.oldVersion !== ov.newVersion && !oldVersion) {
+            oldVersion = ov.oldVersion
+          }
+          if (ov.newVersion && !newVersion) {
+            newVersion = ov.newVersion
+          }
+        }
+      } catch (err) {
+        // 批量失败兜底:全部计为 failed
+        failed = items.length
+        synced = 0
+        server.log.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          'registry-sync: 批量 upsert 失败',
+        )
+      }
+
+      // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
+      const status: 'success' | 'fail' | 'skipped' =
+        failed > 0 ? (synced > 0 ? 'success' : 'fail') : items.length === 0 ? 'skipped' : 'success'
+
+      // hash 复用:用已计算的 per-item hash 聚合 sync_log payloadHash,避免重复 JSON.stringify + SHA-256
+      const payloadHash = hashList.length > 0 ? await computePayloadHash({ items: hashList }) : null
+
+      await insertSyncLog({
+        sourceType: sourceType ?? 'mcp',
+        sourceName: source ?? 'all',
+        status,
+        errorMessage: failed > 0 ? `${failed} 个条目 upsert 失败` : null,
+        payloadHash,
+        oldVersion,
+        newVersion,
+        durationMs: Date.now() - startedAt.getTime(),
+        startedAt,
+        finishedAt: new Date(),
+      })
+
+      // webhook trigger 状态回写 — 成功时标记 processed
+      // 注:job 未配 attempts,failed 事件即最终失败,无需检查是否已被前次重试标记
+      if (triggerId) {
+        try {
+          await markWebhookTriggerProcessed(
+            triggerId,
+            'processed',
+            `同步完成: synced=${synced} failed=${failed} skipped=${skipped}`,
+          )
+        } catch (err) {
+          server.log.warn(
+            { triggerId, err: err instanceof Error ? err.message : String(err) },
+            'registry-sync: 回写 webhook trigger processed 失败',
+          )
+        }
+      }
+
+      server.log.info(
+        {
+          jobId: job.id,
+          synced,
+          failed,
+          skipped,
+          total: items.length,
+          durationMs: Date.now() - startedAt.getTime(),
+        },
+        'registry-sync: 同步任务完成',
+      )
+
+      return { synced, failed, skipped, total: items.length }
+    },
+    {
+      connection,
+      concurrency: 1,
+      lockDuration: 60000, // d1:60s,避免长任务被判定 stalled
+      maxStalledCount: 1, // d1:最多 stall 1 次后判定失败,避免无限重试
+    },
+  )
+
+  worker.on('completed', () => {
+    stats.processed++
+    stats.lastProcessedAt = new Date()
+  })
+  worker.on('failed', (job, err) => {
+    stats.failed++
+    server.log.error({ jobId: job?.id, err: err.message }, 'registry-sync: 同步任务异常')
+    // webhook trigger 状态回写 — 失败时标记 failed
+    const triggerId = job?.data?.triggerId
+    if (triggerId) {
+      markWebhookTriggerProcessed(triggerId, 'failed', err.message).catch((e) => {
+        server.log.warn(
+          { triggerId, err: e instanceof Error ? e.message : String(e) },
+          'registry-sync: 回写 webhook trigger failed 失败',
+        )
+      })
+    }
+  })
+
+  // d10:优雅关闭 — process.once 避免重复注册(worker 理论上只创建一次,防御性编程)
+  const gracefulShutdown = async (signal: string) => {
+    server.log.info({ signal }, 'registry-sync: 收到关闭信号,正在优雅关闭 worker...')
+    try {
+      await worker.close()
+      server.log.info('registry-sync: worker 已优雅关闭')
+    } catch (err) {
+      server.log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        'registry-sync: worker 关闭失败',
+      )
+    }
+  }
+  process.once('SIGTERM', () => void gracefulShutdown('SIGTERM'))
+  process.once('SIGINT', () => void gracefulShutdown('SIGINT'))
+
+  return worker
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

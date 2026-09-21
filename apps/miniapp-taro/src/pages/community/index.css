@@ -1,0 +1,673 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/*
+ * 智汇 AI 应用商店页样式 — 对齐原项目 tools/index.vue AI 应用商店
+ *
+ * 布局结构(对齐原项目):
+ * outContainer → main-container → float-box + 双层 navigationBars + mask + s_t_b + content + toodown
+ */
+
+/* ===== 页面容器(对齐原项目 .outContainer) ===== */
+
+.community-out-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+/* ===== main-container(对齐原项目) ===== */
+
+.community-main-container {
+  position: relative;
+  color: var(--color-foreground);
+}
+
+/* ===== mask(对齐原项目 .mask) ===== */
+
+.community-mask {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 996;
+  background-color: var(--color-black-50);
+}
+
+/* ===== s_t_b 分类弹层(对齐原项目 .s_t_b) ===== */
+
+.community-s-t-b {
+  position: fixed;
+  top: var(--app-top-bar-height);
+  left: 0;
+  right: 0;
+  z-index: 998;
+}
+
+/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */
+.community-fenlei-overlay {
+  width: 100%;
+  background-color: var(--color-card);
+  box-sizing: border-box;
+  padding: 0 20rpx 10rpx;
+}
+
+.community-fenlei-inner {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 100%;
+  padding: 10rpx 0;
+  margin: 0;
+  overflow-x: auto;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+/* RN trackBtn: height 22dp→44rpx / borderRadius 4dp→8rpx / paddingH rpx(8)→8rpx /
+   fontSize 11dp→22rpx / color overlay.modal(rgba(0,0,0,0.4)) /
+   borderColor surface.light(白,视觉不可见)→transparent 保留边框占位 */
+.community-fenlei-btn {
+  flex: none;
+  color: var(--color-black-40);
+  margin-right: 6rpx;
+  height: 44rpx;
+  padding: 0 8rpx 0 3rpx;
+  line-height: 44rpx;
+  border-radius: 8rpx;
+  border: 1px solid transparent;
+  font-size: 22rpx;
+  white-space: nowrap;
+}
+
+/* RN trackBtnActive: bg rgba(248,249,252,0.65)→--color-track-active-bg /
+   borderColor brandAccent.light→--color-brand-accent-light /
+   shadow black 0.06 offsetY 1dp→2rpx radius 3dp→6rpx / 文字 gray.black→foreground 700 */
+.community-fenlei-btn.active {
+  color: var(--color-foreground);
+  border-bottom: none;
+  font-weight: 700;
+  border: 1px solid var(--color-brand-accent-light);
+  background: var(--color-track-active-bg);
+  box-shadow: 0 2rpx 6rpx var(--color-black-6);
+}
+
+.community-fenlei-btn:last-child {
+  margin-right: 0;
+}
+
+.community-fenlei-btn-text {
+  font-size: 26rpx;
+  color: inherit;
+}
+
+/* fenlei_icon — 分类按钮图标(对齐原项目 tools/styles/index.scss L1644-1646) */
+.community-fenlei-btn .fenlei_icon {
+  width: 44rpx;
+  height: 44rpx;
+  margin-right: 10rpx;
+  vertical-align: middle;
+}
+
+/* ===== 内容区域(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) ===== */
+
+.community-content-area {
+  /* padding 由内联 style 控制,使用 var(--app-top-bar-height) 20rpx 40rpx */
+}
+
+/* ===== 轮播图(对齐原项目 gradient-border + carousel-inner) ===== */
+
+.community-carousel-wrapper {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 30rpx;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.community-carousel-gradient {
+  position: relative;
+  width: 100%;
+  border-radius: 30rpx;
+  background: linear-gradient(
+    235deg,
+    var(--color-accent) 6%,
+    var(--color-secondary) 31%,
+    var(--color-muted) 52%,
+    var(--color-secondary) 73%,
+    var(--color-accent) 93%
+  );
+  box-shadow: 0 0 16rpx var(--color-black-8);
+  box-sizing: border-box;
+}
+
+.community-carousel-inner {
+  width: 100%;
+  border-radius: 30rpx;
+  overflow: hidden;
+  background: var(--color-card);
+  box-sizing: border-box;
+}
+
+/* ===== 搜索框区域(对齐原项目 showSearchBox 条件渲染) ===== */
+
+.community-search-area {
+  margin: 10rpx 0;
+}
+
+/* ===== 横向滚动智能体列表容器 ===== */
+
+.agent-h-scroll-container {
+  margin: 20rpx 0;
+}
+
+.agent-h-scroll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.agent-h-scroll-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+/* RN: teamButton 无底色无边框,仅文字+箭头(paddingVertical 4dp→8rpx);
+   teamButtonText fontSize 14dp→28rpx / color text.secondary;teamArrow fontSize 16dp→32rpx */
+.team-button {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 8rpx 0;
+}
+
+.team-button-text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
+.team-button-arrow {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
+
+.agent-h-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.agent-h-list {
+  display: flex;
+  gap: 20rpx;
+  padding: 4rpx 0;
+}
+
+.agent-h-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  width: 120rpx;
+  flex-shrink: 0;
+}
+
+.agent-h-avatar-wrap {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  overflow: hidden;
+  background-color: var(--color-muted);
+  border: 2rpx solid var(--color-border, var(--color-border));
+}
+
+.agent-h-avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.agent-h-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+}
+
+.agent-h-avatar-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-background);
+}
+
+.agent-h-name {
+  font-size: 22rpx;
+  color: var(--color-foreground);
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== RecentAgents 组件样式(对齐原项目 RecentAgents.vue) ===== */
+
+.recent-agents-container {
+  padding: 0;
+  background: transparent;
+  margin: 20rpx 0;
+}
+
+.recent-header {
+  padding: 0 0 20rpx;
+}
+
+.recent-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--color-foreground);
+}
+
+.recent-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  gap: 16rpx;
+}
+
+.recent-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120rpx;
+  padding: 20rpx 10rpx;
+  border-radius: 16rpx;
+  background: var(--color-muted);
+  transition: all 0.3s ease;
+}
+
+.recent-item:active {
+  transform: scale(0.95);
+  background: var(--color-muted);
+}
+
+.recent-item .agent-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+  background: var(--color-muted);
+}
+
+.recent-item .agent-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-radius: 10rpx;
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
+}
+
+.recent-item .agent-avatar-fallback-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-background);
+}
+
+.recent-item .agent-name {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  text-align: center;
+  max-width: 100rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== MyAgents 组件样式(对齐原项目 MyAgents.vue) ===== */
+
+.my-agents-container {
+  padding: 0;
+  background: transparent;
+  margin: 20rpx 0;
+}
+
+.my-header {
+  padding: 0 0 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.my-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--color-foreground);
+}
+
+.my-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.my-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0;
+  gap: 16rpx;
+}
+
+.my-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 120rpx;
+  padding: 20rpx 10rpx;
+  border-radius: 16rpx;
+  background: var(--color-muted);
+  transition: all 0.3s ease;
+}
+
+.my-item:active {
+  transform: scale(0.95);
+  background: var(--color-muted);
+}
+
+.my-item .agent-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 10rpx;
+  margin-bottom: 12rpx;
+  background: var(--color-muted);
+}
+
+.my-item .agent-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  border-radius: 10rpx;
+  width: 80rpx;
+  height: 80rpx;
+  margin-bottom: 12rpx;
+}
+
+.my-item .agent-avatar-fallback-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-background);
+}
+
+.my-item .agent-name {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  text-align: center;
+  max-width: 100rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 智能体列表区域(对齐 RN AgentScreen viewport + 共享屏 FlatList:
+   viewport paddingHorizontal rpx(20)→20rpx(页面已有) + minHeight 400dp→800rpx;
+   FlatList contentContainer padding 16dp→32rpx / paddingBottom 32dp→64rpx) ===== */
+
+.community-ailist-content {
+  padding: 0 32rpx 64rpx;
+  min-height: 800rpx;
+  box-sizing: border-box;
+}
+
+/* RN: 共享屏 title paddingHorizontal 10dp→20rpx / paddingTop+Bottom 8dp→16rpx / fontSize 22dp→44rpx /
+   fontWeight 700 / color text.primary */
+.community-agent-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  margin-bottom: 0;
+}
+
+.community-agent-list-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+.community-agent-list-posts {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.community-agent-list-more {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+/* ===== 加载 / 空 / 没有更多 ===== */
+
+.community-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 0;
+}
+
+.community-loading-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground, var(--color-white-50));
+}
+
+.community-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx 0;
+}
+
+.community-loading-more-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground, var(--color-white-50));
+}
+
+.community-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
+}
+
+.community-empty-text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground, var(--color-white-50));
+}
+
+.community-no-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+
+.community-no-more-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground, var(--color-white-40));
+}
+
+/* ===== toodown 返回顶部按钮(对齐 RN backToTopBtn: bottom 20dp→40rpx / right 16dp→32rpx /
+   34dp→68rpx 圆形 / bg surface.card / 阴影 black 0.2 offsetY 2dp radius 4dp) ===== */
+
+.community-toodown-wrapper {
+  z-index: 2;
+  transition: all 0.2s ease-in-out;
+  position: fixed;
+  right: 32rpx;
+  bottom: 40rpx;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.community-toodown {
+  width: 68rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border-radius: 34rpx;
+  margin: 0 auto;
+  pointer-events: auto;
+  background: var(--color-card);
+  box-shadow: 0 4rpx 8rpx var(--color-black-20);
+}
+
+.community-toodown:active {
+  background-color: var(--color-muted);
+}
+
+.community-toodown-icon {
+  font-size: 32rpx;
+  color: var(--color-primary);
+  font-weight: 700;
+  transform: rotate(90deg);
+  display: block;
+}
+
+/* toodown 图标(对齐原项目 toodownimg, 用 back.svg) */
+.community-toodown-img {
+  width: 32rpx;
+  height: 32rpx;
+  transform: rotate(90deg);
+}
+
+/* ===== FloatBox 浮动组件 ===== */
+/* 对齐原项目 components/FloatBox.vue 样式 */
+
+/* 展开时透明遮罩，覆盖全屏，点击收起 */
+.community-float-mask {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1004;
+  background: transparent;
+}
+
+/* 浮动盒子 — fixed 定位右下角 */
+.community-float-box {
+  position: fixed;
+  right: 20rpx;
+  bottom: 9%;
+  width: 118rpx;
+  min-height: 340rpx;
+  background-color: var(--color-card);
+  border-radius: 30rpx;
+  box-shadow: 0 1px 3px var(--color-black-6);
+  transition: right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1);
+  z-index: 1005;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* 收起状态 — box 推到右侧 off-screen */
+.community-float-box--open {
+  right: -240rpx;
+}
+
+/* 箭头 — 始终在 box 左侧，收起时可见 */
+.community-float-arrow {
+  width: 40rpx;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: -161rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  z-index: 10000;
+  transition: left 0.3s;
+}
+
+.community-float-arrow-text {
+  font-size: 40rpx;
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+/* 内容区域 */
+.community-float-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14rpx 0;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+/* 每个按钮项 */
+.community-float-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 5rpx 0;
+}
+
+.community-float-item-icon {
+  font-size: 36rpx;
+  margin-bottom: 6rpx;
+}
+
+.community-float-item-text {
+  font-size: 22rpx;
+  font-weight: bold;
+  color: var(--color-foreground);
+  letter-spacing: 2rpx;
+}
+
+.community-float-item-text-red {
+  color: var(--color-destructive);
+}
+
+/* ===== 分类弹层 TitleSwitchScrollTitle 适配 ===== */
+
+.community-s-t-b .w-full.rounded-b-\[30rpx\] {
+  background-color: var(--color-card);
+  border-radius: 0 0 16rpx 16rpx;
+  padding-bottom: 16rpx;
+}
+
+.community-s-t-b .text-\[60rpx\] {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground, var(--color-white-70));
+}
+
+.community-s-t-b .text-black {
+  color: var(--color-foreground);
+}
+
+/* 去除 ScrollTitle 内部的 tag-wrap 边框 */
+.community-s-t-b .tag-wrap {
+  border-width: 0;
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
