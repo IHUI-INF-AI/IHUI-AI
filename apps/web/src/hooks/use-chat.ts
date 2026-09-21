@@ -14,6 +14,7 @@ import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { fetchApi } from '@/lib/api'
 import { createSendMessage } from './use-chat/send-message'
 import { createSendAnswer } from './use-chat/send-answer'
+import { clearCompactionPreview } from './use-chat/stream-handlers'
 import type { UseChatReturn, ChatActionContext } from './use-chat/types'
 
 export type { UseChatReturn } from './use-chat/types'
@@ -66,6 +67,9 @@ export function useChat(): UseChatReturn {
     // abort 后走 catch 的 AbortError 静默分支(非超时 abort 不报错),finally 由
     // 代际守卫跳过全局状态清理,不影响新会话。
     if (abortRef.current && streamConv !== conversationId) {
+      // 2026-09-21 修复:旧流被 abort 后其 finally 会被代际守卫跳过,全局"压缩中"预告态
+      // 必须在这里回收,否则灰条跟着用户留在新会话界面里。
+      clearCompactionPreview()
       abortRef.current.abort()
     }
   }, [conversationId])
@@ -107,6 +111,9 @@ export function useChat(): UseChatReturn {
       }).catch(() => {})
     }
     abortRef.current?.abort()
+    // 2026-09-21 修复:主动 stop 不会触发 onResponse,回收残留的"压缩中"预告态,
+    // 否则灰条会一直挂在全局 AISidePanel 上(用户走到哪个页面都看得到)。
+    clearCompactionPreview()
   }, [])
 
   // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息

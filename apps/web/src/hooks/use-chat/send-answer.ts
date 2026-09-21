@@ -20,6 +20,7 @@ import {
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
+import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
@@ -30,6 +31,7 @@ import {
 import { loadBrowserWorkspaceContext } from './workspace'
 import { eduToolsFor, fileToolsFor, mergeAgentTools } from './tool-config'
 import {
+  clearCompactionPreview,
   createToolCallHandler,
   createToolSummaryHandler,
   createUsageHandler,
@@ -152,10 +154,12 @@ export function createSendAnswer(
     // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
     useChatStore.getState().setMessageStreamCompleted(assistantId, false)
     try {
-      // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
-      useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
-
       const answerContextLimit = getModelContextCapacity(effectiveModel)
+      // 2026-09-21 修复(与 sendMessage 对称):仅当上下文占用已达后端 88% 压缩阈值,
+      // 才显示"正在压缩上下文"预告;原实现无条件点亮且无兜底回收,会全站常驻。
+      if (isContextAtCompactionThreshold(store.messages, answerContextLimit)) {
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+      }
       logger.debug(
         '[Compaction] sendAnswer contextLimit=',
         answerContextLimit,
@@ -295,10 +299,7 @@ export function createSendAnswer(
         // 2026-08-16 立:与 sendMessage 对称,收到响应后立即清除压缩中状态(无论是否触发压缩)
         onResponse: () => {
           clearTimeout(timeout15sId)
-          const status = useChatStore.getState().compactionStatus
-          if (status?.phase === 'compacting') {
-            useChatStore.getState().setCompactionStatus(null)
-          }
+          clearCompactionPreview()
         },
         onUsage: (usage) => {
           // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
@@ -537,6 +538,8 @@ export function createSendAnswer(
       // 2026-08-21 修复(C3):代际守卫(与 sendMessage 对称),旧流不清理新流全局状态
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
+        // 2026-09-21 修复(与 sendMessage 对称):兜底回收"压缩中"预告态,防灰条全站常驻
+        clearCompactionPreview()
         useChatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):流收尾清除流式消息 ID
         useChatStore.getState().setStreamingAssistantId(null)
