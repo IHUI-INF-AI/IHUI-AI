@@ -61,10 +61,42 @@
 - **门禁口径修复 2 处**:`watermark.mjs verify` 改按 `git ls-files` 判定(本机原报"23363/25367 + 30 损坏 + 1974 未覆盖"
   全在未跟踪的 `.ihui-agent/**`,CI 干净树恒绿 → 纯本机假红),并用 `clean`→`inject` 反向证明真损坏照样 exit 1(`93c44557df`);
   PROJECT_PLAN 归档守卫 13c 全量模式的 CRLF 假红(`011ab402b8`)。
-- **未闭环(需要钱,不是代码)**:阿里云百炼与小米 MiMo 两个账号都是**余额/欠费**状态。代码侧已做到:
-  额度类错误一定自动改道、改不到同名通道时点名归因;不充值走 qwen 系模型的可用通道实测为 openrouter(54 行)/
-  token6688(9)/cloudflare_workers_ai(4)/groq(1)/siliconflow(2)/opencode_zen(2)/siliconcloud(1)。
-  另:`mimo-v2.5-free` 这个 id 在公网端点回 `Unsupported model`(免费别名不在该 endpoint 售卖面)。
+- **未闭环(需要钱,不是代码)**:阿里云百炼与小米 MiMo 两个账号都是**余额/欠费**状态。
+  **2026-09-21 全通道真实探测矩阵(每通道一次 16-token 真实请求,凭据全程不打印)更正本文件上方的乐观说法**:
+  31 个全局厂商行里**只有 `agnes`(agnes-2.0/2.5/3.0-flash 三条均真出字)与 `ihui_relay`(平台自有中转,glm-5.3 实测 200 "ok")不充值即可用**;
+  其余:钱 —— qwen(400 Arrearage)、mimo(402 Insufficient account balance)、siliconflow(402)、deepseek(402 Insufficient Balance)、
+  zhipu(429 余额不足或无可用资源包)、stepfun(402 超配额)、openrouter(402 Insufficient credits,o1/o3/gpt-5 另报区域不可用);
+  网络不可达 —— gemini / mistral / huggingface / github_models / llm7;groq 稳定 403 Forbidden。
+  **本会话早前"openrouter/qwen/qwen3-30b-a3b 实测 200"不能作为可持续结论:该账号现已实测 402 无额度,结论作废。**
+  另:`mimo-v2.5-free` 这个 id 归属 **opencode_zen**(不是小米),按裸名前缀派给小米才回 `Unsupported model`。
+
+### 三轮:不充值可用心智的边界(2026-09-21 追加,含对本文件上方两条说法的更正)
+
+- **提交 `32d7c7195a`**:零 curated 厂商的代次兜底(`_promote_unlisted_providers`)+ 我复核后补的两条护栏
+  (跨厂家族知识 `known_family_top` 防老代次回潮;整厂同值 `release_date` 视为灌数据常量)。
+- **提交 `2ca0db22c2`**:厂商归属优先级改为 **显式前缀 > DB 实证 > 名字前缀**(`mimo-v2.5-free` 归属事故的根治)
+  + 额度耗尽第二档"同族等效模型"(免费通道优先、跳过欠费厂商、**不静默替换**:实际模型走 `backup_model`/`done.model`,
+  reason=`quota_equivalent`) + 稳定错误码 `PROVIDER_QUOTA_EXHAUSTED`(仅"额度判定且全通道失败";普通错误仍 `LLM_ERROR`)。
+- **更正一(我自己上一条提交的信息过头)**:我在 `32d7c7195a` 的提交说明里写"agnes-3.0-flash = latest 进默认列表",
+  这在**分类层**成立(`annotate_models` 全量批次实测 `latest / provider-top-generation`),但**产品接口层未证实**:
+  私有实例真实调 `/api/llm/models` 返回 **0 条 agnes**(改动前的 8803 实例同样为 0,故非本次引入),
+  而 `/api/llm/providers/health` 显示 agnes `status=ok, model_count=12, is_in_cooldown=false` —— 不是健康度过滤所致,
+  真因待定(方向:`get_available_models` 的取数集合与 `default_models` 来源口径)。**已登记为待办,不当作已交付。**
+- **更正二(上方"不充值可用清单"要打折)**:逐通道真实探测(每通道一次 16-token)结论 ——
+  **能真出字的只有 `agnes`(chat 200 且 content 非空,agnes-2.0/2.5/3.0-flash 三条)与 `ihui_relay`(200 "ok")**;
+  其余全卡在钱或凭据:qwen/mimo/siliconflow/deepseek/zhipu/stepfun/openrouter 均为额度类(402/400/429),
+  groq 稳定 403,openrouter 另有区域限制,llm7/gemini/mistral/huggingface/github 网络不可达。
+- **一条我自己造出来的幻影(如实记录,防止别人再追)**:只读审计脚本 `cred-audit.mjs` 在 node 侧解密后**没有做 Python 那套 `strip('"')`**,
+  于是把 20 个厂商行共用的同一个字面量 `"sk-placeholder-need-real-key"` 读成"带引号的坏 key 挡住了 `.env` 兜底",
+  进而判成"一批真缺陷"。**实情**:`_decrypt_api_key` 会剥引号,旧 H7 判据 `startswith("sk-placeholder")` 命中,
+  运行时日志早就在正常降级(实测日志:`H7: provider=qwen 的 api_key 为占位符(sk-placeholder-n...),降级到 .env 配置`)。
+  我按这个错结论动手扩了判据,`pytest tests/test_llm_gateway.py` **立刻 4 条 BYOK 用例误伤**
+  (`"sk-plaintext-key"` 这类引号包裹的合法明文 key 被判成未配置),已 `git checkout HEAD --` 全量撤销并删除配套新测试文件。
+  留两条纪律:**跨语言复刻解密路径必须逐行对照**(少一个 `strip` 就得出假结论);
+  凭据形态类判据必须先用既有 BYOK 用例做误伤回归,再谈收益。
+- **仍开放的接口层问题(不当作已交付)**:`agnes` 的 DB 行 key 是独立真值(非模板)、健康探针 `status=ok / model_count=12`,
+  真实 chat 调用实测 200 有内容,但 `/api/llm/models` 返回 **0 条 agnes**(改动前后两个实例一致,故非本会话引入)。
+  方向:`llm.py` 里 `default_models` 的取数集合与 `model_availability.get_available_models()` 的过滤口径。
 
 ---
 
