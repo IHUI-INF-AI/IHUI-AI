@@ -9426,6 +9426,7 @@
     "quotedReplyAssistant": "Quoted AI reply",
     "quotedReplyUser": "Quoted user message",
     "webSearch": "Web search",
+    "webSearchDesc": "When enabled, the assistant can search the web for up-to-date information in normal chats",
     "retry": "Retry",
     "screenshot": "Screenshot",
     "screenshotHint": "You can also paste a screenshot with Ctrl+V",

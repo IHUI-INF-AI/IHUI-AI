@@ -9416,6 +9416,7 @@
     "quotedReplyAssistant": "引用 AI 回覆",
     "quotedReplyUser": "引用使用者訊息",
     "webSearch": "網頁搜尋",
+    "webSearchDesc": "開啟後,普通對話中助手也可搜尋網路獲取最新資訊",
     "retry": "重試",
     "screenshot": "截圖",
     "screenshotHint": "也可直接 Ctrl+V 貼上截圖",
