@@ -4,17 +4,41 @@
 
 'use client'
 
+import * as React from 'react'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
-import { LogIn, User, Settings, Crown, LogOut } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import {
+  LogIn,
+  User,
+  Settings,
+  Crown,
+  LogOut,
+  Bell,
+  Sun,
+  Moon,
+  Languages,
+  Download,
+  Check,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
+import { useLanguageStore, type Language } from '@/stores/language'
+import { useNotificationStore } from '@/stores/notification'
+import { useAnalytics } from '@/hooks/use-analytics'
+import { useDownloadTrack } from '@ihui/shared/hooks'
+import { DOWNLOADS, isDownloadAvailable, isExternalDownloadHref } from '@/lib/downloads'
 import { Avatar } from '@/components/data/Avatar'
-import { Dropdown } from '@/components/feedback'
+import { Dropdown, Modal, type DropdownItem } from '@/components/feedback'
+import { NotificationCenter, type NoticeItem } from '@/components/feature-center'
+import { LANGUAGES } from './nav-data'
 
-/** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单(profile/settings/logout)。未登录态不渲染(Header 已有登录入口)。 */
+/** 侧边栏底部用户区:头像 + 用户名 + 下拉菜单。
+ *  2026-09-21 用户要求(Qoder 风格):原 SidebarActions 底部 5 按钮
+ *  (语言 / 下载客户端 / 站内消息 / 主题切换 / 设置)全部收进本菜单,
+ *  侧边栏底部只保留用户行;未登录态镜像同一套工具项 + 登录项。 */
 export function SidebarUserRow({
   collapsed,
   onCloseMobile,
@@ -24,44 +48,275 @@ export function SidebarUserRow({
 }) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
+  const tt = useTranslations('themeToggle')
   const navigate = useNavigateWithProgress()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
+  const { locale, setLocale } = useLanguageStore()
+  const { resolvedTheme, setTheme } = useTheme()
+  const notifications = useNotificationStore((s) => s.notifications)
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
+  const { trackClick } = useAnalytics()
+  const trackDownload = useDownloadTrack()
   // hydration-safe: 首屏按"未登录"渲染,挂载后才显示真实态,避免 SSR/CSR 不一致
   const mounted = useMounted()
   const showAuthed = mounted && isAuthenticated
+  // hydration-safe: next-themes 的 theme 在 SSR 返回 undefined,未挂载时固定 Moon + "深色",
+  // 挂载后再切真实态(与原 SidebarActions 同策略)。
+  const isDark = mounted && resolvedTheme === 'dark'
+  const [msgOpen, setMsgOpen] = React.useState(false)
 
   const handleLogout = () => {
     logout()
     useLoginDialogStore.getState().open('login')
   }
 
-  // 未登录态:与已登录态占据同一位置(px-1.5 pb-2 + flex items-center gap-1.5 rounded-md p-1),
-  // 渲染为"图标 + 登录文字"单行按钮,折叠态只显图标。
+  // 语言切换:store 更新 → I18nProvider 重新渲染 → NextIntlClientProvider 拿到新 locale+messages。
+  const handleLocaleChange = (code: Language) => {
+    if (code === locale) return
+    document.cookie = `locale=${code};path=/;max-age=31536000`
+    setLocale(code)
+  }
+
+  // 底层加固(承继自原 SidebarActions 2026-08-29):以 <html> 的 .dark class 为事实源取对立面,
+  // 彻底消灭 resolvedTheme 为 undefined / 状态滞后等一切时序极端情况。
+  const handleToggleTheme = () => {
+    const isDarkNow =
+      (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ||
+      resolvedTheme === 'dark'
+    setTheme(isDarkNow ? 'light' : 'dark')
+  }
+
+  // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
+  const noticeItems: NoticeItem[] = notifications.map((n) => ({
+    id: n.id,
+    title: n.title,
+    description: n.content,
+    type: n.type === 'warning' || n.type === 'error' || n.type === 'success' ? n.type : 'info',
+    read: n.isRead,
+    createdAt: n.createdAt,
+  }))
+
+  // 原 SidebarActions 的 5 个工具项(除"设置"已有外,其余全部迁入):
+  // 站内消息(未读徽标,点击弹 Modal)/ 语言(子菜单,当前项勾选)/
+  // 下载客户端(子菜单,即将上线的平台 disabled)/ 主题切换(明暗一键切换)。
+  const actionItems: DropdownItem[] = [
+    {
+      key: 'messages',
+      label: t('messages'),
+      icon: Bell,
+      trailing:
+        unreadCount > 0 ? (
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-medium text-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        ) : null,
+      onSelect: () => setMsgOpen(true),
+    },
+    {
+      key: 'language',
+      label: t('language'),
+      icon: Languages,
+      children: LANGUAGES.map((lang) => ({
+        key: `lang-${lang.code}`,
+        label: (
+          <span className="flex items-center gap-2">
+            <span
+              data-lang-code={lang.code}
+              className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm border border-border text-[10px] font-bold tracking-wide text-foreground"
+            >
+              {lang.badge}
+            </span>
+            <span>{lang.name}</span>
+          </span>
+        ),
+        trailing: locale === lang.code ? <Check className="h-4 w-4" /> : null,
+        onSelect: () => handleLocaleChange(lang.code),
+      })),
+    },
+    {
+      key: 'downloadClient',
+      label: t('downloadClient'),
+      icon: Download,
+      children: DOWNLOADS.map((dl) => {
+        const available = isDownloadAvailable(dl.platform)
+        const isExternal = isExternalDownloadHref(dl.href)
+        return {
+          key: `download-${dl.platform}`,
+          icon: dl.icon,
+          disabled: !available,
+          label: (
+            <span className="flex min-w-0 flex-col">
+              <span className="flex items-center gap-1.5">
+                <span className={cn('truncate', !available && 'text-muted-foreground')}>
+                  {t(dl.labelKey)}
+                </span>
+                {dl.version && available && (
+                  <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[9px] font-medium text-muted-foreground">
+                    v{dl.version}
+                  </span>
+                )}
+                {!available && (
+                  <span className="shrink-0 rounded-sm bg-amber-500/15 px-1 py-px text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                    {t('downloadComingSoon')}
+                  </span>
+                )}
+              </span>
+              {dl.descKey && (
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {t(dl.descKey)}
+                </span>
+              )}
+            </span>
+          ),
+          onSelect: () => {
+            if (!available) return
+            trackClick(`download_${dl.platform}`, 'user_menu')
+            trackDownload(dl.platform, 'sidebar')
+            if (isExternal) {
+              window.open(dl.href, '_blank', 'noopener,noreferrer')
+            } else {
+              navigate(dl.href)
+              onCloseMobile()
+            }
+          },
+        }
+      }),
+    },
+    {
+      key: 'themeToggle',
+      label: isDark ? tt('lightMode') : tt('darkMode'),
+      icon: isDark ? Sun : Moon,
+      onSelect: handleToggleTheme,
+    },
+  ]
+
+  // 菜单内容:已登录 = 用户信息头 + 个人中心/会员中心 + 工具项(消息/语言/下载/主题/设置) + 退出登录
+  const userMenuItems: DropdownItem[] = [
+    {
+      key: 'header',
+      label: (
+        <div className="flex items-center gap-2 px-1 py-1">
+          <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</div>
+            {user?.phone && (
+              <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    { key: 'div1', divider: true },
+    {
+      key: 'profile',
+      label: t('user'),
+      icon: User,
+      onSelect: () => {
+        navigate('/user/profile')
+        onCloseMobile()
+      },
+    },
+    {
+      key: 'vip',
+      label: t('vip'),
+      icon: Crown,
+      onSelect: () => {
+        navigate('/vip')
+        onCloseMobile()
+      },
+    },
+    { key: 'div2', divider: true },
+    ...actionItems,
+    {
+      key: 'settings',
+      label: t('settings'),
+      icon: Settings,
+      onSelect: () => {
+        navigate('/settings')
+        onCloseMobile()
+      },
+    },
+    { key: 'div3', divider: true },
+    {
+      key: 'logout',
+      label: tc('logout'),
+      icon: LogOut,
+      danger: true,
+      onSelect: handleLogout,
+    },
+  ]
+
+  // 未登录 = 同一套工具项 + 分隔线 + 登录(替代原独立登录按钮的直接打开行为)
+  const guestMenuItems: DropdownItem[] = [
+    ...actionItems,
+    { key: 'div-login', divider: true },
+    {
+      key: 'login',
+      label: tc('login'),
+      icon: LogIn,
+      onSelect: () => {
+        useLoginDialogStore.getState().open('login')
+        onCloseMobile()
+      },
+    },
+  ]
+
+  // 未登录态 trigger:与已登录态占据同一位置,渲染为"图标 + 登录文字"单行按钮,
+  // 整行作为 Dropdown 触发器打开同一套工具菜单(菜单末尾含"登录"项)。
   // 默认黑白背景(bg-foreground text-background):亮色模式黑底白字、暗色模式白底黑字,
-  // 居中显示(justify-center 始终生效,展开态文字 + 图标也居中),
   // hover 保持黑白但稍淡 (bg-foreground/90),不切色相避免视觉跳跃。
-  if (!showAuthed) {
-    return (
-      <div className="px-2 pb-2">
-        <button
-          type="button"
-          onClick={() => {
-            useLoginDialogStore.getState().open('login')
-            onCloseMobile()
-          }}
-          aria-label={tc('login')}
+  const loginTrigger = (
+    <button
+      type="button"
+      aria-label={tc('login')}
+      className={cn(
+        'flex w-full items-center justify-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+      )}
+    >
+      <LogIn className="h-3.5 w-3.5 shrink-0" />
+      {!collapsed && <span>{tc('login')}</span>}
+    </button>
+  )
+
+  // 已登录态 trigger:头像 + 用户名整行,任意位置点击都打开菜单(承继 v4 结构)。
+  const userTrigger = (
+    <button
+      aria-label={user?.nickname ?? 'User'}
+      className={cn(
+        // 整行 row 容器样式:flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
+        // flex w-full 与导航项(NavLink w-full)同宽,px-2.5 与导航区对齐
+        'group/row flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
+        // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
+        'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
+      )}
+    >
+      {/* 内层 28×28 命中区,内含 24×24 Avatar(xs),保留 2px 留白 */}
+      <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
+        <Avatar
+          src={user?.avatar ?? undefined}
+          name={user?.nickname ?? 'U'}
+          size="xs"
+          className="ring-1 ring-inset ring-border/30"
+        />
+        {/* 未读红点:菜单收起时唯一可见的"有新消息"信号(承继原铃铛徽标职责) */}
+        {unreadCount > 0 && (
+          <span className="absolute right-0 top-0 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background" />
+        )}
+      </span>
+      {!collapsed && (
+        <span
           className={cn(
-            'flex w-full items-center justify-center gap-1.5 rounded-md p-1 text-sm font-medium transition-colors bg-foreground text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
           )}
         >
-          <LogIn className="h-3.5 w-3.5 shrink-0" />
-          {!collapsed && <span>{tc('login')}</span>}
-        </button>
-      </div>
-    )
-  }
+          {user?.nickname ?? 'User'}
+        </span>
+      )}
+    </button>
+  )
 
   return (
     <div className="px-2 pb-2">
@@ -105,91 +360,15 @@ export function SidebarUserRow({
       <Dropdown
         align="start"
         side="top"
-        items={[
-          {
-            key: 'header',
-            label: (
-              <div className="flex items-center gap-2 px-1 py-1">
-                <Avatar src={user?.avatar ?? undefined} name={user?.nickname ?? 'U'} size="sm" />
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{user?.nickname ?? 'User'}</div>
-                  {user?.phone && (
-                    <div className="truncate text-xs text-muted-foreground">{user.phone}</div>
-                  )}
-                </div>
-              </div>
-            ),
-          },
-          { key: 'div1', divider: true },
-          {
-            key: 'profile',
-            label: t('user'),
-            icon: User,
-            onSelect: () => {
-              navigate('/user/profile')
-              onCloseMobile()
-            },
-          },
-          {
-            key: 'settings',
-            label: t('settings'),
-            icon: Settings,
-            onSelect: () => {
-              navigate('/settings')
-              onCloseMobile()
-            },
-          },
-          {
-            key: 'vip',
-            label: t('vip'),
-            icon: Crown,
-            onSelect: () => {
-              navigate('/vip')
-              onCloseMobile()
-            },
-          },
-          { key: 'div2', divider: true },
-          {
-            key: 'logout',
-            label: tc('logout'),
-            icon: LogOut,
-            danger: true,
-            onSelect: handleLogout,
-          },
-        ]}
-        trigger={
-          <button
-            aria-label={user?.nickname ?? 'User'}
-            className={cn(
-              // 整行 row 容器样式(继承自旧外层 div):flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
-              // 2026-09-07 修复:inline-flex 按内容自适应 → flex w-full 与导航项(NavLink w-full)同宽,
-              // 容器 px-1.5 → px-2 与导航区(px-2)对齐,消除"用户行比导航项左右各宽出几像素"的不一致
-              'group/row flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
-              // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
-              'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
-            )}
-          >
-            {/* 内层 span 复用旧 trigger button 的 28×28 命中区,内含 24×24 Avatar(xs),保留 2px 留白 */}
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md">
-              <Avatar
-                src={user?.avatar ?? undefined}
-                name={user?.nickname ?? 'U'}
-                size="xs"
-                className="ring-1 ring-inset ring-border/30"
-              />
-            </span>
-            {!collapsed && (
-              <span
-                className={cn(
-                  'min-w-0 truncate text-sm font-medium text-foreground/70 transition-colors group-hover/row:text-foreground',
-                )}
-              >
-                {user?.nickname ?? 'User'}
-              </span>
-            )}
-          </button>
-        }
+        items={showAuthed ? userMenuItems : guestMenuItems}
+        trigger={showAuthed ? userTrigger : loginTrigger}
       />
+      {/* 站内消息弹窗(承继原 SidebarActions MessageCenter 的 PortalPanel):
+          NotificationCenter 为"裸内容"组件,自带"通知中心"头部 + 全部已读 + max-h-60vh 滚动,
+          Modal 提供卡片外观与右上角关闭按钮。 */}
+      <Modal open={msgOpen} onClose={() => setMsgOpen(false)} size="sm">
+        <NotificationCenter items={noticeItems} onMarkAllRead={() => markAllAsRead()} />
+      </Modal>
     </div>
   )
 }
