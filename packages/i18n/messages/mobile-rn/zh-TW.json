@@ -1062,7 +1062,11 @@
     "submit": "提交認證",
     "submitting": "提交中...",
     "failed": "認證失敗",
-    "loadFailed": "載入認證失敗"
+    "loadFailed": "載入認證失敗",
+    "status_unverified": "未認證",
+    "status_pending": "審核中",
+    "status_verified": "已認證",
+    "status_rejected": "未通過"
   },
   "income": {
     "title": "收益",
@@ -1271,7 +1275,9 @@
     "rules": "推廣規則",
     "inviteRecords": "邀請記錄",
     "empty": "暫無資料",
-    "loadFailed": "載入推廣失敗"
+    "loadFailed": "載入推廣失敗",
+    "status_active": "已活躍",
+    "status_inactive": "未活躍"
   },
   "promotion": {
     "title": "優惠券",
@@ -1316,7 +1322,11 @@
     "submitting": "提交中...",
     "failed": "認證失敗",
     "fieldsRequired": "請填寫完整資訊",
-    "loadFailed": "載入實名認證失敗"
+    "loadFailed": "載入實名認證失敗",
+    "status_unverified": "未認證",
+    "status_pending": "審核中",
+    "status_verified": "已認證",
+    "status_rejected": "未通過"
   },
   "recruitment": {
     "title": "人才招聘",

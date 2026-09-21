@@ -1062,7 +1062,11 @@
     "submit": "認証を提出",
     "submitting": "送信中...",
     "failed": "認証に失敗",
-    "loadFailed": "認証の読み込みに失敗"
+    "loadFailed": "認証の読み込みに失敗",
+    "status_unverified": "未認証",
+    "status_pending": "審査中",
+    "status_verified": "認証済み",
+    "status_rejected": "却下"
   },
   "income": {
     "title": "収益",
@@ -1271,7 +1275,9 @@
     "rules": "プロモーション規則",
     "inviteRecords": "招待記録",
     "empty": "データなし",
-    "loadFailed": "プロモーションの読み込みに失敗"
+    "loadFailed": "プロモーションの読み込みに失敗",
+    "status_active": "アクティブ",
+    "status_inactive": "非アクティブ"
   },
   "promotion": {
     "title": "クーポン",
@@ -1316,7 +1322,11 @@
     "submitting": "送信中...",
     "failed": "認証に失敗",
     "fieldsRequired": "すべての項目を入力してください",
-    "loadFailed": "実名認証の読み込みに失敗"
+    "loadFailed": "実名認証の読み込みに失敗",
+    "status_unverified": "未認証",
+    "status_pending": "審査中",
+    "status_verified": "認証済み",
+    "status_rejected": "却下"
   },
   "recruitment": {
     "title": "人材募集",
