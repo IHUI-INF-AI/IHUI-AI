@@ -26,6 +26,42 @@
 - 按命名空间:54 个
 - **2026-09-21 复核实测(判据 = 该路径"仍被源码引用"且"五语仍不可达"):仍开放 112 处**
   (web 86 · miniapp-taro 15 · mobile-rn 11),已消解 6 处(全在 mobile-rn,见第 4 节)。
+- ✅ **2026-09-21 第二轮收口:118 处全部关闭**(同一判据复跑 `仍开放 0 处`)。方法与根因见下一节。
+
+## 根因:这批键绝大多数不是"没人翻译",而是被一次静态清理**误删**的
+
+`4b28879f01`(2026-07-25 `refactor: /goal P1 #4 - i18n 5 语言无引用 key 批量清理`)用静态扫描判定
+"无引用"后,从 web / miniapp-taro 五本语言包里各删了 **1.8 万行**。静态扫描看不见
+`t(`status.${x}`)` 与 `t(STATUS_KEY[x])` 两类动态引用,于是把**整批仍在使用**的嵌套对象连 5 语言一起删了。
+实测比例(档案 178 个唯一待补路径,web 侧):
+
+| 分类 | 条数 | 处置 |
+|---|---|---|
+| 在 `4b28879f01^` 五语原样可取 | **131**(含 5 条档案未收录的同批误删) | **原样恢复**,不新造任何文案 |
+| 词典里本就有等价可达键 | 20 | **改代码指向既有键**(见"代码侧三种形态") |
+| 历史也没有(多为 `?? 'x.unknown'` 兜底) | 32 | 其中 **8** 条按全库惯例补兜底键、**4** 条是 `Record` 已穷举的**死兜底 → 直接删 `??`**、其余由本档案既有口径判定 |
+
+死兜底 4 处的判据(不是"看着多余",是类型层不可达):`STAT_KEY: Record<StatKey,string>`
+按 `card.key: StatKey` 取值、`MODE_KEY: Record<Mode,string>` 按 `mode: Mode`、
+`PLAN_NAME_KEY: Record<Plan['id'],string>` 按 `plan.id`、`TYPE_KEY: Record<TargetType,string>` 按
+`s.targetType` —— 键类型是穷举联合,`noUncheckedIndexedAccess` 也不会返回 `undefined`,删掉 `??` 后
+`tsc --noEmit` 0 错误即为证。**反之**那些 `Record<string, string>` 且键来自接口/DB 的(`admin.withdrawal.status`、
+`dashboard.admin.projectStatus`、`agentsMyPage.statusFilters`、`agent.kanban`、`follows.empty`、
+`subscriptions.tabs`、`payment/checkout` 的 `plans.unknown.name`)兜底是真可达,故补键而非删兜底。
+
+**恢复时顺手修掉的 13 处历史脏值**(`4b28879f01^` 里就坏着,照抄会把坏值带回来):
+ja 截断残片 `み/れ/せるみ/その/しい` 9 处 → 用全库既有写法(`その他`/`提出済み`/`採点済み`/`期限切れ`/`使用済み`/`承認済み`)替;
+ja 直接躺着简体字的 2 处(`teams.roles.owner`="拥有者"、`teams.status.pending`="待接受")→ `所有者`/`承認待ち`;
+ko 拼写 `관리게`→`관리자`;`announcements.types.update` ja="しい"→`更新`。
+
+### 仍未收口的一族(本档案未覆盖,建议另立条目)
+
+同一次清理之外,语言包里还存在**机翻残片**:值本身被切掉了前半段。全库按"纯平假名 ≤4 且 zh 非空"紧判据实测
+**787 处**(web 784 · miniapp-taro 3),归并后只有 **242 个「中文 → 残片」组合**,且两名独立代理各自在不同键上
+撞到同一形态(`workspace.deleteFile` ja=`ファイルを`、`admin.demandAudit.status{Approved,Rejected}` ja=`み`、
+`common.login` ja=`登录`(简体直接落进 ja)、`admin.users.roleAdmin` ko=`管理게`)。
+典型:「下一页/上一页」ja 都是 `へ`,「更新成功」ja=`しいしい`,「请输入名称」ja=`ごの`,「已发布」ja=`み`。
+这些值 HEAD 就在渲染,与动态键无关,判据也无法靠"键是否存在"发现 —— 需要单独一轮按 242 组合批量重译。
 
 ## 修复口径(两类,别混用)
 

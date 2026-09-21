@@ -375,7 +375,13 @@
     "rulesLabel": "판매 규칙",
     "subtitle": "포괄적인의개발문서및API참조",
     "title": "AI인마음페이스테스트",
-    "viewDetail": "View상세"
+    "viewDetail": "View상세",
+    "status": {
+      "active": "활성",
+      "ended": "종료됨",
+      "unknown": "알 수 없음",
+      "upcoming": "시작 예정"
+    }
   },
   "admin": {
     "aboutUs": {
@@ -849,6 +855,7 @@
       "types": {
         "info": "정보",
         "maintenance": "유지보수",
+        "unknown": "알 수 없음",
         "update": "업데이트",
         "warning": "경고"
       },
@@ -1358,7 +1365,13 @@
           "statTotal": "총 응시수",
           "subtitle": "답안 기록 및 성적 조회",
           "title": "답안 카드",
-          "totalItems": "총 {count}건"
+          "totalItems": "총 {count}건",
+          "status": {
+            "graded": "채점됨",
+            "pending": "진행 중",
+            "submitted": "제출됨",
+            "unknown": "알 수 없음"
+          }
         },
         "online": {
           "answerPlaceholder": "답안을 입력하세요",
@@ -2167,7 +2180,13 @@
           "subtitle": "모든 시험 기록 및 성적 보기",
           "title": "시험 기록",
           "totalItems": "총 {count}건",
-          "unknownPaper": "알 수 없는 시험지"
+          "unknownPaper": "알 수 없는 시험지",
+          "status": {
+            "graded": "채점 완료",
+            "pending": "진행 중",
+            "submitted": "제출됨",
+            "unknown": "알 수 없음"
+          }
         }
       },
       "finance": {
@@ -2246,12 +2265,18 @@
             "issued": "발행됨",
             "pending": "대기 중",
             "processing": "처리 중",
-            "rejected": "거절됨"
+            "rejected": "거절됨",
+            "unknown": "알 수 없음"
           },
           "statusLabel": "상태",
           "subtitle": "학생 청구서 신청 검토 및 발행",
           "title": "청구서 관리",
-          "totalItems": "총 {count}건"
+          "totalItems": "총 {count}건",
+          "type": {
+            "company": "기업",
+            "personal": "개인",
+            "unknown": "알 수 없음"
+          }
         },
         "statistics": {
           "avgOrderAmount": "객단가",
@@ -5529,7 +5554,14 @@
       "statusAll": "전체",
       "subtitle": "사용자 출금 신청 심사",
       "title": "출금 관리",
-      "total": "총 {total}건"
+      "total": "총 {total}건",
+      "status": {
+        "approved": "승인됨",
+        "paid": "지급 완료",
+        "pending": "심사 대기",
+        "rejected": "거절됨",
+        "unknown": "알 수 없음"
+      }
     },
     "workflows": {
       "actions": "작업",
@@ -6584,6 +6616,7 @@
       "noTeam": "팀 없음",
       "priority": "우선순위",
       "team": "팀",
+      "unknown": "알 수 없음",
       "workspace": "워크스페이스",
       "agentIdRequired": "에이전트를 선택해 주세요",
       "workspacePlaceholder": "비워 두면 기본 워크스페이스를 사용합니다"
@@ -6801,7 +6834,8 @@
       "offline": "오프라인",
       "pending": "심사 중",
       "published": "게시됨",
-      "rejected": "거절됨"
+      "rejected": "거절됨",
+      "unknown": "알 수 없음"
     },
     "subtitle": "내가 만든 에이전트 관리",
     "title": "내 에이전트"
@@ -6810,7 +6844,15 @@
     "back": "뒤로",
     "loading": "로딩 중...",
     "subtitle": "에이전트 사용 데이터 개요",
-    "title": "에이전트 통계"
+    "title": "에이전트 통계",
+    "stat": {
+      "avgRating": "평균 평점",
+      "pending": "심사 대기",
+      "published": "게시됨",
+      "totalAgents": "에이전트 총수",
+      "totalCalls": "총 호출 수",
+      "totalUsers": "사용자 수"
+    }
   },
   "agreement": {
     "effectiveDate": "시행일",
@@ -7302,7 +7344,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -7319,7 +7366,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -8084,7 +8136,17 @@
           "id": "ＩＤ",
           "name": "사이트 이름"
         },
-        "title": "AI 월드 사이트 관리"
+        "title": "AI 월드 사이트 관리",
+        "iconLabels": {
+          "briefcase": "사무",
+          "code": "코드",
+          "graduation": "교육",
+          "megaphone": "마케팅",
+          "message": "대화",
+          "music": "음악",
+          "palette": "그림",
+          "video": "영상"
+        }
       }
     },
     "title": "AI 월드"
@@ -8370,7 +8432,14 @@
     "prev": "이전",
     "publishedAt": "게시됨",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "공지관리"
+    "title": "공지관리",
+    "types": {
+      "info": "정보",
+      "maintenance": "유지보수",
+      "unknown": "알 수 없음",
+      "update": "업데이트",
+      "warning": "경고"
+    }
   },
   "answerArea": {
     "audio": {
@@ -9146,7 +9215,8 @@
         "popover": "팝오버",
         "shift-tab": "Shift+Tab",
         "slash": "슬래시",
-        "confirm-dialog": "확인 대화상자"
+        "confirm-dialog": "확인 대화상자",
+        "unknown": "알 수 없음"
       },
       "historyStatsTitle": "누적 통계",
       "historyTitle": "권한 모드 기록",
@@ -9935,117 +10005,215 @@
     "commands": {
       "agent": {
         "description": "AI 에이전트 관리 및 디스패치",
-        "keywords": ["에이전트", "agent", "bot"],
+        "keywords": [
+          "에이전트",
+          "agent",
+          "bot"
+        ],
         "label": "AI 에이전트"
       },
       "browser": {
         "description": "작업 공간에서 웹 탐색",
-        "keywords": ["브라우저", "웹", "browser"],
+        "keywords": [
+          "브라우저",
+          "웹",
+          "browser"
+        ],
         "label": "내장 브라우저"
       },
       "capabilityMarket": {
         "description": "기능 팩 탐색 및 설치",
-        "keywords": ["기능", "마켓", "market", "플러그인"],
+        "keywords": [
+          "기능",
+          "마켓",
+          "market",
+          "플러그인"
+        ],
         "label": "기능 마켓"
       },
       "codeChanges": {
         "description": "작업 공간 코드 변경 확인",
-        "keywords": ["코드", "변경", "diff", "수정"],
+        "keywords": [
+          "코드",
+          "변경",
+          "diff",
+          "수정"
+        ],
         "label": "코드 변경"
       },
       "connectors": {
         "description": "외부 서비스 연결 관리",
-        "keywords": ["커넥터", "연결", "connector"],
+        "keywords": [
+          "커넥터",
+          "연결",
+          "connector"
+        ],
         "label": "커넥터"
       },
       "document": {
         "description": "작업 공간 문서 편집",
-        "keywords": ["문서", "편집", "doc"],
+        "keywords": [
+          "문서",
+          "편집",
+          "doc"
+        ],
         "label": "문서"
       },
       "editor": {
         "description": "코드 에디터 열기",
-        "keywords": ["에디터", "코드", "editor"],
+        "keywords": [
+          "에디터",
+          "코드",
+          "editor"
+        ],
         "label": "에디터"
       },
       "mcp": {
         "description": "MCP 서버 및 도구 관리",
-        "keywords": ["MCP", "서버", "도구"],
+        "keywords": [
+          "MCP",
+          "서버",
+          "도구"
+        ],
         "label": "MCP 관리"
       },
       "mcpStore": {
         "description": "MCP 서비스 탐색 및 설치",
-        "keywords": ["MCP", "스토어", "store", "설치"],
+        "keywords": [
+          "MCP",
+          "스토어",
+          "store",
+          "설치"
+        ],
         "label": "MCP 스토어"
       },
       "modeAsk": {
         "description": "질문 모드로 전환(도구 비활성)",
-        "keywords": ["질문", "ask", "모드"],
+        "keywords": [
+          "질문",
+          "ask",
+          "모드"
+        ],
         "label": "질문 모드"
       },
       "modeBuild": {
         "description": "AI가 직접 빌드하고 수정",
-        "keywords": ["빌드", "모드", "build"],
+        "keywords": [
+          "빌드",
+          "모드",
+          "build"
+        ],
         "label": "빌드 모드"
       },
       "modePlan": {
         "description": "계획 수립 후 실행",
-        "keywords": ["계획", "모드", "plan"],
+        "keywords": [
+          "계획",
+          "모드",
+          "plan"
+        ],
         "label": "계획 모드"
       },
       "modeReview": {
         "description": "기존 코드 검토",
-        "keywords": ["리뷰", "모드", "review"],
+        "keywords": [
+          "리뷰",
+          "모드",
+          "review"
+        ],
         "label": "리뷰 모드"
       },
       "modeSpec": {
         "description": "스펙에서 구현 생성",
-        "keywords": ["스펙", "모드", "spec"],
+        "keywords": [
+          "스펙",
+          "모드",
+          "spec"
+        ],
         "label": "스펙 모드"
       },
       "skill": {
         "description": "AI 스킬 관리 및 호출",
-        "keywords": ["스킬", "skill", "능력"],
+        "keywords": [
+          "스킬",
+          "skill",
+          "능력"
+        ],
         "label": "스킬"
       },
       "terminal": {
         "description": "통합 터미널 열기",
-        "keywords": ["터미널", "콘솔", "terminal"],
+        "keywords": [
+          "터미널",
+          "콘솔",
+          "terminal"
+        ],
         "label": "터미널"
       },
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       },
       "skillsMarket": {
         "description": "자가 진화 스킬 탐색 및 설치",
-        "keywords": ["skill", "스킬", "마켓", "market"],
+        "keywords": [
+          "skill",
+          "스킬",
+          "마켓",
+          "market"
+        ],
         "label": "스킬 마켓"
       }
     },
@@ -10283,7 +10451,12 @@
       "signedAt": "계약 시간"
     },
     "planName": "월간 구독",
-    "title": "계약 관리"
+    "title": "계약 관리",
+    "status": {
+      "active": "활성",
+      "pending": "계약 중",
+      "unknown": "알 수 없음"
+    }
   },
   "course": {
     "chapters": {
@@ -10345,6 +10518,7 @@
       "hour": "시",
       "day": "일",
       "month": "월",
+      "unknown": "알 수 없음",
       "weekday": "요일"
     },
     "mode": {
@@ -10400,7 +10574,20 @@
       "totalProjects": "총 프로젝트",
       "totalUsers": "총 사용자 수",
       "userGrowth": "사용자 증가 추세",
-      "userGrowthHint": "최근 14일 신규 사용자"
+      "userGrowthHint": "최근 14일 신규 사용자",
+      "fileTypes": {
+        "document": "개문서",
+        "image": "수익",
+        "other": "기타",
+        "unknown": "알 수 없음",
+        "video": "동영상"
+      },
+      "projectStatus": {
+        "active": "활성",
+        "archived": "보관됨",
+        "completed": "완료",
+        "unknown": "알 수 없음"
+      }
     }
   },
   "deliveryReview": {
@@ -10846,7 +11033,17 @@
     "subtitle": "청구 기록과 결제 방법 조회",
     "title": "청구서",
     "toastContactSupport": "고객 지원에 문의해 주세요",
-    "toastInvoiceGenerating": "청구서 생성 중, 잠시만 기다려 주세요"
+    "toastInvoiceGenerating": "청구서 생성 중, 잠시만 기다려 주세요",
+    "payType": {
+      "alipay": "Alipay",
+      "card": "은행 카드",
+      "wechat": "WeChat Pay"
+    },
+    "status": {
+      "failed": "실패",
+      "paid": "결제 완료",
+      "pending": "결제 대기"
+    }
   },
   "developerHomePage": {
     "currentPlan": "현재 요금제",
@@ -10972,7 +11169,13 @@
     "releasedAt": "게시일 {date}",
     "subtitle": "API 버전 상태와 폐기 일정 보기",
     "sunsetTime": "서비스 종료 시간:",
-    "title": "API 버전 관리"
+    "title": "API 버전 관리",
+    "status": {
+      "beta": "베타",
+      "deprecated": "폐기됨",
+      "stable": "안정",
+      "sunset": "서비스 종료"
+    }
   },
   "dict": {
     "addItem": "항목 추가",
@@ -12101,25 +12304,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -12253,19 +12468,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -12846,7 +13073,17 @@
   "follows": {
     "loading": "로딩 중...",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "완료팔로우"
+    "title": "완료팔로우",
+    "tabs": {
+      "followers": "팔로워",
+      "following": "완료팔로우",
+      "unknown": "알 수 없음"
+    },
+    "empty": {
+      "followers": "팔로워",
+      "following": "완료팔로우",
+      "unknown": "데이터 없음"
+    }
   },
   "footer": {
     "aboutUs": "회사 소개",
@@ -13509,7 +13746,12 @@
     "rewardValue": "초대자 +{inviter} / 피초대자 +{invitee} 포인트",
     "subtitle": "포괄적인의개발문서및API참조",
     "title": "AI인마음페이스테스트",
-    "user": "사용자"
+    "user": "사용자",
+    "status": {
+      "expired": "만료됨",
+      "unused": "활성",
+      "used": "사용됨"
+    }
   },
   "kbArticleForm": {
     "articleInfo": "문서 정보",
@@ -13661,7 +13903,8 @@
       "title": "학습 토픽",
       "type": {
         "lesson": {
-          "label": "강좌 토픽"
+          "label": "강좌 토픽",
+          "tip": "운영진이 엄선한 강좌 조합, 무료로 학습할 수 있습니다."
         },
         "premium": {
           "label": "프리미엄 토픽"
@@ -13700,7 +13943,10 @@
     "errorFallback": "로딩 실패",
     "loading": "로딩 중...",
     "status": {
+      "failApproval": "불합격",
       "notSubmitted": "미제출",
+      "passApproval": "합격",
+      "submitted": "제출됨",
       "unknown": "알 수 없음"
     },
     "submitBtn": {
@@ -14765,6 +15011,9 @@
     "empty": "접수 기록이 없습니다",
     "loading": "로딩 중...",
     "status": {
+      "attended": "응시 완료",
+      "canceled": "취소됨",
+      "pending": "대기",
       "unknown": "알 수 없음"
     },
     "title": "시험 접수",
@@ -14777,7 +15026,20 @@
     "privacyTitle": "개인정보 설정",
     "saveBtn": "설정 저장",
     "saved": "저장됨",
-    "title": "회원 설정"
+    "title": "회원 설정",
+    "notif": {
+      "newsletter": "뉴스레터 구독",
+      "orderUpdates": "주문 상태 업데이트",
+      "points": "포인트 변동 알림",
+      "promotions": "프로모션 및 할인",
+      "unknown": "알 수 없음"
+    },
+    "privacy": {
+      "allowInvites": "다른 사용자의 초대 허용",
+      "showActivity": "최근 활동 표시",
+      "showProfile": "프로필 페이지 공개",
+      "unknown": "알 수 없음"
+    }
   },
   "memberSubscriptionPage": {
     "autoRenew": "자동 갱신",
@@ -14790,7 +15052,12 @@
     "subscribeNow": "지금 구독",
     "subscriptionAmount": "구독 금액",
     "subtitle": "현재 구독 관리, 갱신 또는 취소",
-    "title": "구독 관리"
+    "title": "구독 관리",
+    "status": {
+      "active": "활성",
+      "cancelled": "취소됨",
+      "expired": "만료됨"
+    }
   },
   "members": {
     "allLevels": "모든구분",
@@ -14819,7 +15086,15 @@
     "empty": "없음메시지",
     "loading": "로딩 중...",
     "noData": "없음메시지",
-    "title": "뉴스"
+    "title": "뉴스",
+    "tab": {
+      "comment": "댓글",
+      "favorite": "즐겨찾기",
+      "follow": "팔로워",
+      "like": "좋아요",
+      "notice": "알림",
+      "unknown": "알 수 없음"
+    }
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -14849,7 +15124,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "relay": {
@@ -15599,7 +15882,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -15686,7 +15974,15 @@
     "generate": "음악 생성",
     "genreLabel": "장르",
     "placeholder": "생성할 음악을 설명하세요...",
-    "title": "음악 생성"
+    "title": "음악 생성",
+    "genre": {
+      "classical": "클래식",
+      "electronic": "일렉트로닉",
+      "jazz": "재즈",
+      "pop": "팝",
+      "rock": "록",
+      "unknown": "알 수 없음"
+    }
   },
   "myArticles": {
     "create": "쓰기",
@@ -16653,8 +16949,12 @@
       "decisions": "공동 결정"
     },
     "telemetry": {
+      "degraded": "저하",
+      "healthy": "정상",
       "pillarHealth": "필러 상태",
-      "recentTraces": "최근 Trace"
+      "recentTraces": "최근 Trace",
+      "unhealthy": "비정상",
+      "unknown": "알 수 없음"
     },
     "title": "오케스트레이션 허브",
     "unavailable": "오케스트레이션 허브 사용 불가"
@@ -16672,7 +16972,8 @@
       "cancelled": "취소됨",
       "paid": "결제 완료",
       "pending": "결제 대기",
-      "refunded": "환불됨"
+      "refunded": "환불됨",
+      "unknown": "알 수 없음"
     },
     "statusLabel": "상태",
     "subtitle": "포괄적인의개발문서및API참조",
@@ -16682,7 +16983,8 @@
     "type": {
       "all": "전체",
       "card": "카드",
-      "course": "코스"
+      "course": "코스",
+      "unknown": "알 수 없음"
     }
   },
   "overview": {
@@ -16822,7 +17124,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -16846,6 +17154,9 @@
           "이메일 지원"
         ],
         "name": "프로판"
+      },
+      "unknown": {
+        "name": "알 수 없는 요금제"
       }
     },
     "popular": "인기",
@@ -17875,6 +18186,7 @@
     "range": {
       "month": "월간",
       "total": "전체",
+      "unknown": "알 수 없음",
       "week": "주간"
     },
     "subtitle": "사용자 포인트 및 활동 순위 조회",
@@ -18094,7 +18406,13 @@
     "empty": "보안 이벤트 없음",
     "loading": "로딩 중...",
     "subtitle": "계정 보안 관련 이벤트를 확인 (마스킹됨)",
-    "title": "보안 감사"
+    "title": "보안 감사",
+    "type": {
+      "login": "로그인 기록",
+      "other": "기타",
+      "permission": "권한 변경",
+      "sensitive": "민감 작업"
+    }
   },
   "selfMedia": {
     "automation": "자동화",
@@ -19213,11 +19531,19 @@
     "subtitle": "포괄적인의개발문서및API참조",
     "tabs": {
       "all": "전체",
+      "category": "카테고리",
+      "project": "프로젝트",
+      "tag": "태그",
+      "unknown": "알 수 없음",
+      "user": "사용자"
+    },
+    "title": "구독 관리",
+    "types": {
+      "category": "카테고리",
       "project": "프로젝트",
       "tag": "태그",
       "user": "사용자"
-    },
-    "title": "구독 관리"
+    }
   },
   "supportNewTicketForm": {
     "cancel": "취소",
@@ -19230,7 +19556,13 @@
     "priorityLabel": "우선순위",
     "submit": "티켓 제출",
     "titleLabel": "제목",
-    "titlePlaceholder": "문제를 간단히 설명해 주세요"
+    "titlePlaceholder": "문제를 간단히 설명해 주세요",
+    "priority": {
+      "high": "높음",
+      "low": "낮음",
+      "medium": "보통",
+      "urgent": "긴급"
+    }
   },
   "swarmTopology": {
     "dispatchStatus": {
@@ -19280,7 +19612,14 @@
     "target": "대상",
     "title": "작업 수신기",
     "wsConnected": "WS 연결됨",
-    "wsDisconnected": "WS 연결 끊김"
+    "wsDisconnected": "WS 연결 끊김",
+    "status": {
+      "cancelled": "취소됨",
+      "completed": "완료됨",
+      "failed": "실패",
+      "pending": "대기 중",
+      "running": "실행 중"
+    }
   },
   "tasksLog": {
     "confirmClean": "모든 작업 로그를 삭제하시겠습니까?",
@@ -19370,7 +19709,17 @@
     "tabInvitations": "초대",
     "tabMembers": "회원 목록",
     "tabSettings": "설정",
-    "title": "팀"
+    "title": "팀",
+    "status": {
+      "accepted": "수락됨",
+      "expired": "만료됨",
+      "pending": "대기 중"
+    },
+    "roles": {
+      "admin": "관리자",
+      "member": "회원",
+      "owner": "운영자"
+    }
   },
   "terminalPanel": {
     "aiDiagnoseTitle": "AI 진단",
@@ -19493,7 +19842,20 @@
     "serviceRating": "서비스 평가",
     "statusPrefix": "상태: ",
     "submitRating": "평가 제출",
-    "userRole": "나"
+    "userRole": "나",
+    "priority": {
+      "high": "높음",
+      "low": "낮음",
+      "medium": "중간",
+      "urgent": "긴급"
+    },
+    "status": {
+      "closed": "종료됨",
+      "open": "처리 중",
+      "pending": "대기 중",
+      "rejected": "반려됨",
+      "resolved": "해결됨"
+    }
   },
   "title": "관리 대시보드",
   "tokenValue": {
@@ -19532,7 +19894,8 @@
     "mode": {
       "bookmarks": "북마크별",
       "every": "페이지별",
-      "range": "범위 지정"
+      "range": "범위 지정",
+      "unknown": "알 수 없음"
     },
     "modeLabel": "분할 모드",
     "rangesLabel": "페이지 범위(쉼표로 구분, 예: 1-3,5,7-10)",
@@ -19890,7 +20253,13 @@
     "generate": "비디오 생성",
     "placeholder": "생성할 비디오를 설명하세요...",
     "providerLabel": "제공자",
-    "title": "비디오 생성"
+    "title": "비디오 생성",
+    "provider": {
+      "kling": "Kling",
+      "one-click": "원클릭 생성",
+      "qwen": "Qwen",
+      "unknown": "알 수 없음"
+    }
   },
   "videoTasksPage": {
     "createdAt": "생성 시간",
@@ -20316,7 +20685,17 @@
         "queue": "대기열에 {count}개 요청 더 있음",
         "title": "권한 확인",
         "tool": "도구",
-        "workspace": "워크스페이스"
+        "workspace": "워크스페이스",
+        "toolNames": {
+          "fsDelete": "파일 삭제",
+          "fsEdit": "파일 편집",
+          "fsGlob": "파일 찾기",
+          "fsGrep": "내용 검색",
+          "fsRead": "파일 읽기",
+          "fsRun": "명령 실행",
+          "fsWrite": "파일 쓰기",
+          "unknown": "알 수 없음"
+        }
       },
       "builtin": "내장",
       "bypassWarning": "전체 접근 권한은 AI가 파일 삭제, 임의 명령 실행 등 모든 작업을 수행할 수 있게 합니다. 완전히 신뢰하는 개인 프로젝트에서만 사용하세요.",

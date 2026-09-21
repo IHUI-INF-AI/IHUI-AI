@@ -26,17 +26,18 @@ import { BackButton } from '@/components/common'
 type TopicType = 'lesson' | 'premium'
 
 /**
- * 学习专题类型 i18n key 静态映射表:type.${type}.label / type.${type}.tip
- * 用于消除 `t(`type.${var}.label`)` 动态拼接,并补全 TYPE_TIP_KEY 定义
- * 覆盖 TopicType 全部 2 个枚值(lesson/premium),未知值兜底 'type.lesson.label'
+ * 学习专题类型 i18n key 静态映射表
+ * label 走 learn.topic.type.${type}.label;tip 走 learnTopicPage.*(见下方注释)
+ * 覆盖 TopicType 全部 2 个枚值(lesson/premium),Record 已穷举故无需兜底
  */
 const TYPE_LABEL_KEY: Record<TopicType, string> = {
   lesson: 'type.lesson.label',
   premium: 'type.premium.label',
 }
+/** 指向既有 learnTopicPage.*(五语齐备且标点更新),不重复登记同一句提示 */
 const TYPE_TIP_KEY: Record<TopicType, string> = {
-  lesson: 'type.lesson.tip',
-  premium: 'type.premium.tip',
+  lesson: 'courseTip',
+  premium: 'premiumTip',
 }
 
 interface LessonTopic {
@@ -118,6 +119,7 @@ function normalizePremiumTopic(t: PremiumTopic): UnifiedTopic {
 
 export default function LearnTopicPage() {
   const t = useTranslations('learn.topic')
+  const tTip = useTranslations('learnTopicPage')
 
   const lessonQ = useQuery({
     queryKey: ['learn', 'topics', 'lesson'],
@@ -195,7 +197,7 @@ export default function LearnTopicPage() {
                       <TooltipTrigger asChild>
                         <span
                           className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
-                          aria-label={t(TYPE_LABEL_KEY[topic.type] ?? 'type.lesson.label')}
+                          aria-label={t(TYPE_LABEL_KEY[topic.type])}
                         >
                           {topic.type === 'premium' ? (
                             <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
@@ -211,7 +213,7 @@ export default function LearnTopicPage() {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
-                        {t(TYPE_TIP_KEY[topic.type])}
+                        {tTip(TYPE_TIP_KEY[topic.type])}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
