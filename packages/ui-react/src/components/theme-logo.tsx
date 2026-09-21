@@ -19,8 +19,6 @@ interface ThemeLogoProps {
   clickable?: boolean
   /** 点击回调(配合 clickable 使用) */
   onClick?: () => void
-  /** 桌面端把 logo 本身作为拖窗把手(Tauri 原生拖拽区,mousedown 即接管,零延迟) */
-  dragRegion?: boolean
 }
 
 /**
@@ -59,7 +57,6 @@ export function ThemeLogo({
   className,
   clickable = false,
   onClick,
-  dragRegion = false,
 }: ThemeLogoProps) {
   const baseClass = cn(
     'h-8 w-auto object-contain',
@@ -82,7 +79,6 @@ export function ThemeLogo({
         // 桌面端 logo 兼作拖窗口把手:不禁原生图片拖拽的话,浏览器会在按下移动时
         // 抢走手势起图片拖拽,页面的 mousemove 再也收不到 → 拖不动窗口(2026-09-21 实测)
         draggable={false}
-        data-tauri-drag-region={dragRegion ? '' : undefined}
         onClick={onClick}
         className={cn(baseClass, 'dark:hidden')}
       />
@@ -92,7 +88,6 @@ export function ThemeLogo({
         width={width}
         height={height}
         draggable={false}
-        data-tauri-drag-region={dragRegion ? '' : undefined}
         onClick={onClick}
         // 2026-07-20 修复:不再用 filter: brightness(0) invert(1) 反色整图
         // 改用独立 logo-dark.svg,深色模式自然显示品牌色图标 + 白色文字
