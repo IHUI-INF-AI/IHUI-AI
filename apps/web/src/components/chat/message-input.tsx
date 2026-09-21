@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, Globe, MessageCircle, X } from 'lucide-react'
+import { Send, Square, Info, Zap, MessageCircle, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -326,9 +326,6 @@ export function MessageInput({
   // (store 只暴露 setQuotedMessage,以 setQuotedMessage(null) 充当清除)
   const quotedMessage = useChatStore((s) => s.quotedMessage)
   const setQuotedMessage = useChatStore((s) => s.setQuotedMessage)
-  // D22 网页搜索开关:开启后普通问答也携带 web_search 最小工具集(mergeAgentTools 消费)
-  const webSearchEnabled = useChatStore((s) => s.webSearchEnabled)
-  const setWebSearchEnabled = useChatStore((s) => s.setWebSearchEnabled)
   // D22 圈选 AI 回复入上下文:MessageItem 内选中文本后浮现「引用选中」按钮,
   // 派发 ihui:add-text-reference,输入框统一消费转成文本引用 chip
   React.useEffect(() => {
@@ -1073,28 +1070,9 @@ export function MessageInput({
               {/* 模式选择器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
                   与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源 */}
               <ModeSwitcher disabled={isStreaming} />
-              {/* D21 折叠策略入口已迁入设置页「偏好设置」卡片(2026-09-21,显示偏好归位设置页,
-                  与高级参数 2026-09-14 迁移同模式);配置链路不变(localStorage + 事件广播)。 */}
-              {/* D22 网页搜索开关(2026-09-19 立,对标 Qoder 0.2.x):开启后普通问答也携带
-                  web_search 最小工具集(mergeAgentTools 消费),localStorage 持久化跨会话 */}
-              <Tooltip content={t('webSearch')}>
-                <button
-                  type="button"
-                  onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                  disabled={isStreaming}
-                  aria-pressed={webSearchEnabled}
-                  aria-label={t('webSearch')}
-                  data-testid="web-search-toggle"
-                  className={cn(
-                    'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-                    webSearchEnabled
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <Globe className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </Tooltip>
+              {/* D21 折叠策略、D22 网页搜索两个入口均已迁入设置页「偏好设置」卡片
+                  (2026-09-21 用户裁决:偏好类开关归位设置页,工具栏只留会话级控件);
+                  状态链路不变(chat store + mergeAgentTools 消费)。 */}
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />
