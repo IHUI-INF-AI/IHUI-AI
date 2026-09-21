@@ -24,17 +24,38 @@ import {
   type FastifyPluginAsync,
 } from './_shared.js'
 
+// Suno 音乐生成:官方完整参数(custom_mode/instrumental/style/title/seed 等)
 const sunoGenerateBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
   duration: z.number().optional(),
+  // Suno 官方参数
+  style: z.string().optional(),
+  title: z.string().optional(),
+  custom_mode: z.boolean().optional(),
+  instrumental: z.boolean().optional(),
+  make_instrumental: z.boolean().optional(),
+  tags: z.string().optional(),
+  negative_tags: z.string().optional(),
+  seed: z.number().optional(),
+  style_weight: z.number().optional(),
+  weirdness_constraint: z.number().optional(),
+  audio_weight: z.number().optional(),
 })
 
+// Sora2(OpenAI videos)官方完整参数:seconds/size/input_reference 等
 const sora2GenerateBody = z.object({
   prompt: z.string().optional(),
   model: z.string().optional(),
   duration: z.number().optional(),
   size: z.string().optional(),
+  // OpenAI 官方参数
+  seconds: z.string().optional(),
+  aspect_ratio: z.string().optional(),
+  input_reference: z.string().optional(),
+  resolution: z.string().optional(),
+  output_format: z.string().optional(),
+  output_size: z.string().optional(),
 })
 
 // Agnes 视频生成:CLI 源码确认 payload 无顶层 mode 字段,img2video 仅附加 image(单图 URL)
@@ -188,7 +209,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       const body = sora2GenerateBody.parse(request.body)
       const data = await callVendor(
         'sora2',
-        `${VENDORS.sora2!.baseUrl}/v1/videos/generations`,
+        // OpenAI 官方 Sora 端点:POST /v1/videos(client.videos.create),非 /v1/videos/generations
+        `${VENDORS.sora2!.baseUrl}/v1/videos`,
         reply,
         { method: 'POST', body: JSON.stringify(body) },
       )
@@ -236,7 +258,8 @@ export const mediaVendorRoutes: FastifyPluginAsync = async (server) => {
       }
       const upstream = await callVendor(
         'sora2',
-        `${VENDORS.sora2!.baseUrl}/v1/videos/generations/${encodeURIComponent(taskId)}`,
+        // OpenAI 官方 Sora 查询端点:GET /v1/videos/{video_id}
+        `${VENDORS.sora2!.baseUrl}/v1/videos/${encodeURIComponent(taskId)}`,
         reply,
         { method: 'GET' },
       )

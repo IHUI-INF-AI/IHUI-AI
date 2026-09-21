@@ -11,7 +11,7 @@
   4. tts()              语音合成(tts-1-hd, 短文本 mp3)      近零成本
   5. list_voices()      声纹列表                            零成本
   --- 以下为付费项(默认需要确认;--cheap 跳过) ---
-  6. generate_image()   图片生成(gpt-image-2, 40-50s)      付费(分级)
+  6. generate_image()   图片生成(gpt-image-2.5-flare, 40-50s)      付费(分级)
   7. generate_music(wait=False) + get_task_status()        付费
      音乐提交即返 task_id,轮询至成片(官方 1~5 分钟)
   8. generate_video(wait=False) + get_task_status()        付费
@@ -181,7 +181,7 @@ CHEAP_STEPS = [
     ("声纹列表", step_voices),
 ]
 PAID_STEPS = [
-    ("图片生成(gpt-image-2, ~40-50s)", step_image),
+    ("图片生成(gpt-image-2.5-flare, ~40-50s)", step_image),
     ("音乐生成(Suno, 1~5 分钟)", step_music),
     ("视频生成提交(seedance-2-5)", step_video),
 ]

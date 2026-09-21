@@ -296,7 +296,7 @@ class VectorMemoryStore:
         # P4-3: cache key 含 model 维度,避免不同 model 维度不同导致向量索引污染
         # (如 ada-002=1536 维 vs text-embedding-3-large=3072 维,共享缓存会致 cosine 失效)
         from ..core.config import settings
-        used_model = model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+        used_model = model or getattr(settings, "embedding_model", "text-embedding-3-small")
         cache_key = hashlib.sha256(f"{used_model}:{text}".encode()).hexdigest()
         # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
         cached = await _embedding_cache.get(cache_key)

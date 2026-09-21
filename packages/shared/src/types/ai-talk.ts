@@ -12,7 +12,7 @@ export type AiModelKey =
   | 'keling'
   | 'sora-2'
   | 'volcengine-t2v'
-  | 'doubao-seedream-4.0'
+  | 'doubao-seedream-5-0-pro'
   | 'qwen-image'
   | 'qwen-image-Edit'
   | 'wan2.5-i2v-preview'

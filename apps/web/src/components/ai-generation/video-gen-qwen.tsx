@@ -25,6 +25,41 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
+
+// Dashscope wanx 视频官方参数(model/imageUrl/negativePrompt/resolution/fps/seed/watermark/prompt_extend)
+const DASHSCOPE_VIDEO_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  {
+    key: 'model',
+    label: 'model',
+    type: 'select',
+    options: [
+      { value: 'wan2.5-t2v-plus', label: 'wan2.5-t2v-plus' },
+      { value: 'wan2.5-i2v-preview', label: 'wan2.5-i2v-preview' },
+    ],
+  },
+  { key: 'imageUrl', label: 'imageUrl', type: 'text', placeholder: '-' },
+  { key: 'negativePrompt', label: 'negativePrompt', type: 'text', placeholder: '-' },
+  {
+    key: 'resolution',
+    label: 'resolution',
+    type: 'select',
+    options: [
+      { value: '480P', label: '480P' },
+      { value: '720P', label: '720P' },
+      { value: '1080P', label: '1080P' },
+    ],
+  },
+  { key: 'fps', label: 'frameRate', type: 'number', step: 1, placeholder: '-' },
+  { key: 'seed', label: 'seed', type: 'number', step: 1, placeholder: '-' },
+  { key: 'watermark', label: 'watermark', type: 'boolean', placeholder: '-' },
+  { key: 'prompt_extend', label: 'promptExtend', type: 'boolean', placeholder: '-' },
+]
 
 const SIZES = ['1280*720', '720*1280'] as const
 const DURATIONS = ['5', '10'] as const
@@ -38,14 +73,10 @@ export function VideoGenQwen() {
   const [size, setSize] = React.useState<string>(SIZES[0])
   const [duration, setDuration] = React.useState<string>(DURATIONS[0])
   const [taskId, setTaskId] = React.useState<string | null>(null)
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
 
   const mutation = useMutation({
-    mutationFn: async (payload: {
-      prompt: string
-      model: string
-      size: string
-      duration: string
-    }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/dashscope/video', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -97,7 +128,14 @@ export function VideoGenQwen() {
       return
     }
     setTaskId(null)
-    mutation.mutate({ prompt: prompt.trim(), model: 'wanx2.1-t2v-turbo', size, duration })
+    const advancedValues = parseParamValues(advanced, DASHSCOPE_VIDEO_FIELDS)
+    mutation.mutate({
+      prompt: prompt.trim(),
+      size,
+      duration: Number(duration),
+      ...advancedValues,
+      model: (advancedValues.model as string | undefined) ?? 'wan2.5-t2v-plus',
+    })
   }
 
   return (
@@ -150,6 +188,11 @@ export function VideoGenQwen() {
             </Select>
           </div>
         </div>
+        <AdvancedParamsPanel
+          fields={DASHSCOPE_VIDEO_FIELDS}
+          values={advanced}
+          onChange={setAdvanced}
+        />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}
