@@ -497,7 +497,7 @@ export function UnifiedTaskDashboard() {
                   <Button
                     variant="outline"
                     size="icon-2xs"
-                    size="icon"
+
                     disabled={renameTask.isPending || !editDraft.trim()}
                     onClick={() => submitRename(row)}
                     data-testid="unified-rename-confirm"
@@ -695,7 +695,7 @@ export function UnifiedTaskDashboard() {
               <Button
                 variant="outline"
                 size="icon-2xs"
-                size="icon"
+
                 onClick={() => setMentionPickerOpen((o) => !o)}
                 data-testid="unified-mention-btn"
               >
