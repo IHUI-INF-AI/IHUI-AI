@@ -1234,6 +1234,26 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '58',
+    label: '🈹 中文术语机翻残留守门(blocking,D104/H29:竞品自家 zh 包实测 list→挂牌/房源,我方 zh 侧此前无闸)',
+    script: 'check-zh-term-quality.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 判据是「键名英文词根 ∧ 值内高置信错误译法」双条件,单条件一律放过(宁漏不误报)。',
+      '     两种正当处置:',
+      '       ① 确为误译 → 改成正确术语(如 list 类键里出现 房源/挂牌)',
+      '       ② 确为业务用词(真在做房产/港口类文案)→ 在 scripts/data/zh-term-glossary.json',
+      '          给该规则补 expect 词或收紧 keyRoot 定义,并在提交说明里写清理由',
+      '     误伤回归:node scripts/check-zh-term-quality.mjs(现存语言包须 0 命中才可加新判据)',
+      '     自检:node scripts/check-zh-term-quality.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ZH_TERM_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
