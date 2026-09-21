@@ -13,6 +13,7 @@ import {
   renderSystemAlertEmail,
   renderLowBalanceEmail,
   renderNoticeEmail,
+  BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
   escapeHtml,
@@ -75,19 +76,19 @@ describe('email-templates — 欢迎邮件', () => {
   })
 })
 
-describe('email-templates — 创始人直联二维码(所有邮件共享页脚)', () => {
-  it('页脚含微信二维码图与真实站内路径', () => {
+describe('email-templates — 品牌资产(Logo + 二维码,所有邮件共享)', () => {
+  it('刊头含品牌图片 Logo(右上角,真实静态资产路径)', () => {
     const r = renderVerificationEmail('123456', 'login')
-    expect(r.html).toContain(`src="http://localhost:8801${FOUNDER_QR_PATH}"`)
-    expect(r.html).toContain(FOUNDER_WECHAT_ID)
-    expect(r.html).toContain('直接联系创始人李春川')
-    expect(r.html).toContain('support@aizhs.top')
+    expect(r.html).toContain(`src="http://localhost:8801${BRAND_LOGO_PATH}"`)
+    expect(r.html).toContain('alt="IHUI AI"')
+    expect(r.html).toContain('width="56" height="56"')
   })
 
-  it('二维码图与 SiteFooter QRS 同源(防路径漂移)', () => {
-    // web 端 footer-data.ts QRS 声明的个人号二维码路径
+  it('品牌资产路径与 web public 同源(防路径漂移)', () => {
+    // web 端 footer-data.ts QRS 声明的个人号二维码路径 + public/images 品牌图
     expect(FOUNDER_QR_PATH).toBe('/footer/erweima/wechat-vx.png')
     expect(FOUNDER_WECHAT_ID).toBe('ok502319984')
+    expect(BRAND_LOGO_PATH).toBe('/images/logo.png')
   })
 })
 

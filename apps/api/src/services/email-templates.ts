@@ -86,6 +86,8 @@ function bulletproofButton(
 export const FOUNDER_QR_PATH = '/footer/erweima/wechat-vx.png'
 /** 创始人微信号(与 SiteFooter QRS copyValue 同源) */
 export const FOUNDER_WECHAT_ID = 'ok502319984'
+/** 品牌图片 Logo(黑底渐变,与邮件深黑卡片底色融合;PNG 保证 Outlook/Gmail 兼容) */
+export const BRAND_LOGO_PATH = '/images/logo.png'
 
 /** 通用版式:品牌刊头(纯 HTML) + 内容 + 按钮 + 创始人直联 + 页脚 */
 export function renderDispatchEmail(input: DispatchLayoutInput): string {
@@ -110,7 +112,7 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
 <body style="margin:0;padding:0;background:${t.pageBg};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.pageBg}"><tr><td align="center" style="padding:24px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.cardBg}" style="width:600px;max-width:600px;background:${t.cardBg};">
-  <tr><td style="padding:28px 36px 0;font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td></tr>
+  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="${origin}${BRAND_LOGO_PATH}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
   <tr><td style="padding:14px 36px 0;font-family:Impact,'Arial Black','Microsoft YaHei',sans-serif;font-size:64px;line-height:70px;font-weight:bold;color:${t.ink};letter-spacing:3px;">IHUI<span style="color:${accent};">.</span></td></tr>
   <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">智汇AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH</td></tr>
   <tr><td style="padding:16px 36px 0;"><div style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</div></td></tr>
