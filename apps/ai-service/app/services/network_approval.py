@@ -1,6 +1,6 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 """网络访问审批面(批 52:审批策略面,对标 OpenAI codex-rs approvals.rs)。
 
@@ -40,6 +40,7 @@ ihui 现状:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -199,12 +200,30 @@ class NetworkApprovalGate:
               拒绝则 ``'deny'``;无 requester → ``'deny'``。
             持久层异常一律按「未命中」降级(仍走 requester,真异常则 fail-closed)。
         """
+        verdict, _denial = self.evaluate_detailed(url, reason=reason)
+        return verdict
+
+    def evaluate_detailed(
+        self, url: str, *, reason: str | None = None
+    ) -> tuple[str, str | None]:
+        """批58(十六):在 ``evaluate`` 之上透出拒绝原因码(对标 codex network_policy_decision)。
+
+        返回 ``(verdict, denial_reason)``;``denial_reason`` 仅在 verdict 为 ``deny``
+        时非空,取值对齐 codex ``denied_network_policy_message`` 的 reason 词表:
+
+        - ``not_allowed_local`` —— 目标为本地/私网地址(策略阻止);
+        - ``not_allowed``       —— 目标无法解析或不在允许名单;
+        - ``denied``            —— 显式拒绝(审批人被征询后拒绝,或未注入审批通道)。
+
+        放行判定与 ``evaluate`` 逐字节等价(共享同一实现),denial_reason 只做标注,
+        绝不改变放行/拒绝结果。
+        """
         # 1) 归一键(解析失败 → fail-closed 拒绝)
         try:
             cache_key = normalize_net_key(url)
         except ValueError as exc:
             logger.warning("网络审批:target 解析失败,拒绝: %s", exc)
-            return "deny"
+            return "deny", _unparsable_denial_reason(url)
 
         # 2) 持久层命中 → 免弹放行(异常按未命中)
         try:
@@ -213,12 +232,13 @@ class NetworkApprovalGate:
             logger.warning("网络审批:持久层 check 异常,按未命中处理: %s", exc)
             hit = None
         if hit is not None:
-            return "persist_allow"
+            return "persist_allow", None
 
         # 3) 未命中 → 征询审批
         requester = self._requester
         if requester is None:
-            return "deny"
+            # 无审批通道 = fail-closed(无法从此提示放行,对标 codex denied 语义)
+            return "deny", "denied"
 
         request = NetworkApprovalRequest.from_url(url, reason=reason)
         decision = requester(request)
@@ -232,8 +252,43 @@ class NetworkApprovalGate:
                 )
             except Exception as exc:  # noqa: BLE001 - 落盘失败不阻断本次放行
                 logger.warning("网络审批:授权落盘失败(本次仍放行): %s", exc)
-            return "allow"
-        return "deny"
+            # 批58(接线):network_rule_amendments 真接线(对标 codex
+            # network_policy_decision.rs —— 批准即产出 Allow 修正案回执)。
+            # on 时把本次批准归一为 allow 网络修正案(结构化回执,含 host 与协议);
+            # off 时零差异;失败静默,绝不阻断放行。
+            try:
+                import os as _os
+
+                from app.core.network_rule_amendments import (
+                    NetworkApprovalContext,
+                    NetworkApprovalProtocol,
+                    NetworkPolicyAmendment,
+                    NetworkPolicyRuleAction,
+                    execpolicy_network_rule_amendment,
+                )
+
+                if _os.environ.get(
+                    "AGENT_NETWORK_RULE_AMENDMENTS_ENABLED", "false"
+                ).strip().lower() not in ("on", "1", "true", "yes"):
+                    raise LookupError("amendments disabled")
+                _proto = NetworkApprovalProtocol(request.protocol or "https")
+                _amendment = execpolicy_network_rule_amendment(
+                    NetworkPolicyAmendment(
+                        host=request.host,
+                        action=NetworkPolicyRuleAction.ALLOW,
+                    ),
+                    NetworkApprovalContext(host=request.host, protocol=_proto),
+                    request.host,
+                )
+                logger.info(
+                    "网络审批:Allow 修正案产出 host=%s decision=%s",
+                    request.host,
+                    _amendment.decision,
+                )
+            except Exception as exc:  # noqa: BLE001 - 修正案失败降级,不阻断放行
+                logger.warning("网络审批:Allow 修正案产出失败(降级跳过): %s", exc)
+            return "allow", None
+        return "deny", "denied"
 
 
 # =============================================================================
@@ -279,6 +334,38 @@ def evaluate_network_access(url: str, *, reason: str | None = None) -> str:
     return _default_gate.evaluate(url, reason=reason)
 
 
+def evaluate_network_access_detailed(
+    url: str, *, reason: str | None = None
+) -> tuple[str, str | None]:
+    """批58(十六):便捷入口的带原因版本(委托 ``_default_gate.evaluate_detailed``)。"""
+    return _default_gate.evaluate_detailed(url, reason=reason)
+
+
+def _unparsable_denial_reason(url: str) -> str:
+    """解析失败时的拒绝原因码(对标 codex not_allowed / not_allowed_local 二分)。
+
+    本地回环 / 私网 / link-local / ``.local`` 域名 → ``not_allowed_local``,
+    其余无法解析目标 → ``not_allowed``。仅用于拒绝文案标注,不参与放行判定。
+    """
+    raw = (url or "").strip()
+    candidate = raw if "://" in raw else f"https://{raw}"
+    try:
+        host = (urlparse(candidate).hostname or "").lower()
+    except ValueError:
+        host = ""
+    if not host:
+        return "not_allowed"
+    if host in ("localhost", "127.0.0.1", "::1") or host.endswith(".local"):
+        return "not_allowed_local"
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return "not_allowed"
+    if addr.is_private or addr.is_loopback or addr.is_link_local:
+        return "not_allowed_local"
+    return "not_allowed"
+
+
 __all__ = [
     "KIND_NET",
     "normalize_net_key",
@@ -288,4 +375,6 @@ __all__ = [
     "set_db_path",
     "configure",
     "evaluate_network_access",
+    "evaluate_network_access_detailed",
 ]
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
