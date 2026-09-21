@@ -1177,6 +1177,9 @@ export function AISidePanel() {
             {/* 标题栏(浮窗模式下可拖拽,手机全屏模式禁用拖拽) */}
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户走窗口原生快捷键 */}
             <header
+              // 停靠态:原生拖拽区(按下即启动窗口移动循环,无 JS 往返延迟);
+              // 浮窗态不加——该态标题栏的职责是移动面板自身(handleFloatDragStart)
+              data-tauri-drag-region={windowDragFromHeader ? '' : undefined}
               onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
               onMouseDown={handleHeaderWindowDragMouseDown}
               className={cn(
