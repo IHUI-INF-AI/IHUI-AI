@@ -100,7 +100,7 @@ def record_llm_call(
 # 标签语义:
 # - primary_model: 主模型名(失败的那个)
 # - backup_model:  实际成功/失败的备用模型名(全部失败用 "all_failed")
-# - reason:        fallback 触发原因(timeout / rate_limit / api_error / unknown)
+# - reason:        fallback 触发原因(timeout / rate_limit / api_error / quota / unknown)
 # =============================================================================
 
 LLM_FALLBACK_TRIGGERED = Counter(
@@ -122,6 +122,99 @@ LLM_FALLBACK_FAILURE = Counter(
 )
 
 
+# =============================================================================
+# 上游"账号额度耗尽"判据(2026-09-22 批次 59 立)
+#
+# 场景:DashScope(阿里云百炼)账号欠费时鉴权仍正常(/models 返 200),但聊天调用返
+# 400 {"code":"Arrearage"}。这类失败换 key 无用(整家账号没钱),只有换厂商才能接通,
+# 因此与 timeout / rate_limit 区分成独立一类。
+#
+# 判据必须是"HTTP 状态码 + 额度错误码/文案"双条件:单看 400 会把参数错、上下文超长
+# 误判成额度问题(进而把本来正常的请求改道);单看文案则任何 5xx 里的中文提示都能
+# 触发降级。400 Arrearage 与参数错 400 的区分完全靠这份错误码清单。
+# =============================================================================
+
+# 只有这三个状态码可能承载额度语义(其余状态码一律不算,含 401/403/404/5xx)
+_QUOTA_STATUS_CODES: frozenset[int] = frozenset({400, 402, 429})
+
+# 厂商返回的额度类错误码/文案(只收录明确指向"这家账号没钱"的字符串,不含泛化词)
+_QUOTA_MARKERS: tuple[str, ...] = (
+    "arrearage",             # DashScope: {"code":"Arrearage"}
+    "insufficientbalance",   # 通用"余额不足"错误码(下划线形态一并覆盖)
+    "insufficient_quota",    # OpenAI: 账单额度耗尽
+    "quota exceeded",        # Google: 月度配额耗尽
+    "insufficient balance",  # 通用文案
+    "余额不足",
+    "欠费",
+    "额度耗尽",
+    # 2026-09-21 直连 DashScope 抓到的真实英文文案:{"error":{"type":"Arrearage","code":"Arrearage",
+    # "message":"Access denied, please make sure your account is in good standing…#overdue-payment"}}。
+    # 收录 message 片段是为了经代理转发后只剩文案、丢掉 code 字段的场景仍能判出来。
+    "in good standing",
+    "overdue-payment",
+)
+
+
+def _error_text(exc: BaseException | str) -> str:
+    """异常/字符串统一成小写待匹配文本(含类型名,兼容无类型定义的包装异常)。"""
+    if isinstance(exc, str):
+        return exc.lower()
+    return f"{type(exc).__name__} {exc}".lower()
+
+
+def _upstream_status_code(exc: BaseException | str) -> int | None:
+    """取上游 HTTP 状态码(LiteLLM 异常带 status_code;纯字符串没有状态码)。"""
+    raw: object = getattr(exc, "status_code", None)
+    if raw is None:
+        raw = getattr(exc, "status", None)
+    return raw if isinstance(raw, int) else None
+
+
+def first_quota_marker(exc: BaseException | str | None) -> str:
+    """返回命中的额度错误码/文案(未命中返回空串)。"""
+    if exc is None:
+        return ""
+    text = _error_text(exc)
+    for marker in _QUOTA_MARKERS:
+        if marker in text:
+            return marker
+    return ""
+
+
+def is_quota_exhaustion_error(
+    exc: BaseException | str | None,
+    *,
+    status_code: int | None = None,
+) -> bool:
+    """判定"上游因账号额度/欠费/余额不足而失败"(值得换厂商,而非换 key 或改参数)。
+
+    Args:
+        exc: 异常对象或已序列化的错误文本(astream 的 error 事件只剩字符串)。
+        status_code: 调用方已知的状态码(HTTP 响应 ping 场景),优先于从异常上取。
+
+    Returns:
+        True = 额度类错误。402 语义无歧义直接算;400/429 必须同时命中额度错误码;
+        无状态码时只信错误码。
+    """
+    if exc is None:
+        return False
+    status = status_code if status_code is not None else _upstream_status_code(exc)
+    if status == 402:
+        return True
+    if status is not None and status not in _QUOTA_STATUS_CODES:
+        return False
+    return bool(first_quota_marker(exc))
+
+
+def describe_quota_error(exc: BaseException | str | None) -> str:
+    """额度类错误的简短归因(错误码优先,退回状态码),用于错误透传不夹带原始响应体。"""
+    marker = first_quota_marker(exc)
+    if marker:
+        return marker
+    status = _upstream_status_code(exc) if isinstance(exc, BaseException) else None
+    return f"http_{status}" if status is not None else "quota"
+
+
 def classify_fallback_reason(exc: BaseException | None) -> str:
     """从异常类型/消息推导 fallback 触发原因标签。
 
@@ -129,10 +222,13 @@ def classify_fallback_reason(exc: BaseException | None) -> str:
         exc: 主模型抛出的异常(None 时返回 'unknown')。
 
     Returns:
-        'timeout' / 'rate_limit' / 'api_error' / 'unknown'
+        'timeout' / 'rate_limit' / 'api_error' / 'quota' / 'unknown'
     """
     if exc is None:
         return 'unknown'
+    # 额度判定先于 429→rate_limit:429 + insufficient_quota 是没钱,不是限流
+    if is_quota_exhaustion_error(exc):
+        return 'quota'
     combined = f"{type(exc).__name__} {exc}".lower()
     if 'timeout' in combined or 'timed out' in combined:
         return 'timeout'
