@@ -74,7 +74,10 @@ function Release-DeployLock {
     }
 }
 
-function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $m" }
+# ── 日志时间戳带时区(2026-09-21 根治,实测):生产机时钟为 UTC,旧格式 'HH:mm:ss'
+#    裸时间曾导致人工排查时误判「日志停更 7.5 小时」(实为 UTC 02:33=本地 10:33)。
+#    所有日志时间一律带 +偏移,人眼即可分辨时区,杜绝同类误判。
+function Log   { param([string]$m) Write-Host "[$(Get-Date -Format 'HH:mm:ss zzz')] $m" }
 function Ok    { param([string]$m) Log "OK    $m" }
 
 # ── Server酱微信告警(2026-09-18 接入,AGENTS.md §5e):部署失败自动推送到微信。
@@ -179,13 +182,29 @@ function Invoke-FailNotify {
         $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
         if ($prev.date -eq $today) { $sctCount = [int]$prev.count; $emailCount = [int]$prev.emailCount }
     } catch {}
+    # 同签名 12h 去重(2026-09-21 加):失败冷却机制上线后同一失败会每 30 分钟重放,
+    # 不去重会瞬间耗光 3 条/天微信配额与 10 封/天邮件配额,把后续新故障挤出告警通道。
+    $sig = ($m -replace '\s+', ' ').Trim()
+    $sigFresh = $false
+    try {
+        $prev = Get-Content $SctStateFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ([string]$prev.sig -eq $sig) {
+            $ageH = ((Get-Date) - [datetime]$prev.sigTs).TotalHours
+            if ($ageH -ge 0 -and $ageH -lt 12) { $sigFresh = $true }
+        }
+    } catch {}
+    if ($sigFresh) {
+        Log "SCT   同签名失败告警 12h 内已推过,跳过(冷却重试期间的重复失败不再刷配额)"
+        return
+    }
+    $nowTxt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
     $sent = $false
     if ($sctCount -ge 3) {
         Log "SCT   跳过微信告警:已达当日自动告警上限(3/天),保留额度给人工推送"
     } else {
         try {
             $sent = Send-SctNotify -title "【生产环境】部署失败" -short $m `
-                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+                -desp "**IHUI-AI 生产部署失败**`n`n- 原因: $m`n- 时间: $nowTxt`n- 处置: 已自动回滚或保持当前在线版本`n- 排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
         } catch { $sent = $false }
         if ($sent) { $sctCount++ }
     }
@@ -196,13 +215,13 @@ function Invoke-FailNotify {
             $mailOk = $false
             try {
                 $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
-                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m`n时间: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+                    -text "IHUI-AI 生产部署失败(微信通道未送达,邮件兜底)`n`n原因: $m`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
             } catch { $mailOk = $false }
             if ($mailOk) { $emailCount++ }
         }
     }
     try {
-        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = $sctCount; emailCount = $emailCount } | ConvertTo-Json) -NoNewline
+        Set-Content -Path $SctStateFile -Value (@{ date = $today; count = $sctCount; emailCount = $emailCount; sig = $sig; sigTs = (Get-Date).ToString('o') } | ConvertTo-Json) -NoNewline
     } catch {}
 }
 function Fail {
@@ -275,14 +294,17 @@ function Test-HealthGate {
 
 function New-BackupDir { if (-not (Test-Path $BackupDir)) { New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null } }
 
-# ── 构建新鲜度判据(2026-09-14 加:第三重「部署循环永不部署」根因) ──────────────
-# 背景:本脚本原先只在 behind>0 时才重建 web。一旦他方抢在部署循环轮次前直接把机上源码
-#       fast-forward 到新提交(实测存在 reflog 无记录的外部改动),behind 恒 0 →
-#       循环每轮「已是最新,无需部署」退出,而线上 web 构建长期停留在旧提交
-#       (现象:源码已更新、构建没更新)。
-# 判据:标记文件 .next\IHUI_BUILD_SHA 记录本次构建/尝试所基于的提交;标记提交与 HEAD
-#       之间在 web 相关路径上的差异提交数 >0 即判定陈旧 → 强制重建。
-#       标记在每次尝试后写入,避免构建/门禁持续失败时每轮重复重建(6 分钟级抖动)。
+# ── 构建新鲜度判据(2026-09-14 加;2026-09-21 根治) ─────────────────────────────
+# 背景:本脚本原先只在 behind>0 时才重建 web,他方抢跑 ff 后 behind 恒 0 → 循环永不部署。
+# 2026-09-21 根治(实测教训):旧判据「marker..HEAD 在 webPaths 路径上的差异提交数>0」
+#       存在两处致命盲区,叠加造成本次部署停滞:
+#       ① 失败轮也写 marker(尝试标记语义) → 构建连败后 marker=HEAD,每轮误判「新鲜」
+#         → 永久跳过,根因消失后也无法自愈,必须人工删标记;
+#       ② webPaths 过滤漏掉 deploy/docs 等路径 → 本次修复提交(deploy/win/*)被 merge 后
+#         差异数恒 0,即使 marker 落后也不触发重建。
+# 新判据:marker 只记录「最后一次成功部署」的 HEAD,marker != HEAD 即陈旧 → 重建。
+#       任何新提交(含仅改 deploy 脚本的提交)都触发一次重建;next build 仅 ~2.5 分钟,
+#       用确定性换精细度,不再做文件级 diff。失败轮一律不写 marker(见 Set-BuildCooldown)。
 function Get-BuildStale {
     $marker = "$WebDir\.next\IHUI_BUILD_SHA"
     if (-not (Test-Path $marker)) { return $true }                     # 无标记 → 无法证明新鲜 → 重建
@@ -290,10 +312,9 @@ function Get-BuildStale {
     if ($built -notmatch '^[0-9a-f]{7,40}$') { return $true }
     & git -C $Root cat-file -e "$built^{commit}" 2>$null
     if ($LASTEXITCODE -ne 0) { return $true }                          # 标记提交不可达(强推/rebase)→ 重建
-    $webPaths = @('apps/web','packages','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','turbo.json')
-    $n = (& git -C $Root rev-list --count "$built..HEAD" -- @webPaths 2>&1 | Out-String).Trim()
-    if ($n -notmatch '^\d+$') { return $true }                         # 计算失败 → 保守重建
-    return ([int]$n -gt 0)
+    $head = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($head -notmatch '^[0-9a-f]{7,40}$') { return $true }           # HEAD 不可得 → 保守重建
+    return ($built -ne $head)
 }
 function Set-BuildMarker {
     $dirNext = "$WebDir\.next"
@@ -302,13 +323,38 @@ function Set-BuildMarker {
     if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
 }
 
+# ── 构建失败冷却(2026-09-21 加):marker 改为成功标记后,失败轮不再写标记。若不冷却,
+#    持续失败会每轮(60s)重走 重建dist+next build(~10-20 分钟) → 每天数百轮无效构建,
+#    刷爆日志与告警配额。冷却 30 分钟 ≈ 每小时 2 次自动重试:根因修复后最多 30 分钟
+#    自动恢复,无需人工删标记(本次事故正是靠手动删标记才恢复的)。
+#    冷却只拦「behind=0、仅因构建新鲜度触发」的重试;有新提交(behind>0)不拦,保住
+#    push→部署的及时性。成功部署即清除冷却。
+$BuildCooldownFile = "$Root\deploy\win\.build-fail-state.json"
+function Set-BuildCooldown {
+    $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
+    try { Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction SilentlyContinue } catch {}
+}
+function Test-BuildCooldown {
+    # 返回 $true 表示仍在 30 分钟冷却期内(上轮构建/门禁失败后跳过本轮重建)
+    try {
+        $st = Get-Content $BuildCooldownFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        $ageMin = ((Get-Date) - [datetime]$st.ts).TotalMinutes
+        return ($ageMin -ge 0 -and $ageMin -lt 30)
+    } catch { return $false }
+}
+function Clear-BuildCooldown {
+    if (Test-Path $BuildCooldownFile) { Remove-Item $BuildCooldownFile -Force -ErrorAction SilentlyContinue }
+}
+
 function Build-Web {
     param([string]$DistDir = 'staging', [int]$MaxTries = 4)
     Set-Location $WebDir
     if (-not (Test-Path "node_modules\.bin\next.cmd")) {
         Log "web 依赖缺失,先 pnpm install"
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" install
-        if ($LASTEXITCODE -ne 0) { Fail "pnpm install 失败(exit $LASTEXITCODE)" }
+        # throw 而非 Fail(2026-09-21 根治):Fail 直接 exit 1 会绕过外层 catch 的失败冷却,
+        # 下一轮无冷却反复重试;throw 统一走主流程 catch → Set-BuildCooldown → 告警去重。
+        if ($LASTEXITCODE -ne 0) { throw "pnpm install 失败(exit $LASTEXITCODE)" }
     }
     # ── workspace 包 dist 重建(2026-09-21 加,实测):packages/*/dist 不入库(gitignored),
     #    生产机 dist 永远停留在某次手工构建。api-client 新增 patrol 端点、ui-react 新增
@@ -321,7 +367,7 @@ function Build-Web {
     foreach ($pkg in @('@ihui/types','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
         Log "重建 $pkg dist ..."
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
-        if ($LASTEXITCODE -ne 0) { Fail "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
+        if ($LASTEXITCODE -ne 0) { throw "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
     }
     # 2026-09-07 可靠性加固(实测):Tailwind v4 展开成 ~271KB 单行 CSS,Next 前端 CSS
     # 管线(lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性
@@ -431,7 +477,7 @@ function Invoke-Diagnose {
     function DiagLog { param([string]$m) Write-Host $m }
 
     DiagLog "================ -diagnose 只读诊断 ================"
-    DiagLog ("主机:$env:COMPUTERNAME  用户:$env:USERNAME  PID=$PID  时间:{0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
+    DiagLog ("主机:$env:COMPUTERNAME  用户:$env:USERNAME  PID=$PID  时间:{0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'))
     DiagLog ("仓库根:{0}  存在:{1}" -f $Root, (Test-Path $Root))
 
     if (Test-Path $Root) {
@@ -576,6 +622,27 @@ function Invoke-Diagnose {
         elseif ($pd -gt 0) { DiagLog ("  · ❌ 生产库落后 {0} 个迁移:代码已合并但表/列不存在,依赖它的接口会 500/503。逐文件零写复现:BEGIN;<迁移文件>;ROLLBACK" -f $pd) }
         else { DiagLog "  · ✓ 迁移已全部落地(journal 与库内记录一致)" }
     } catch { DiagLog ("  · 判定异常:" + $_.Exception.Message) }
+
+    # ── [7c] web 构建标记与失败冷却(2026-09-21 加:本次「永久跳过」事故在旧诊断里
+    #    完全不可见,只能人工猜 marker 状态;现在一眼可判) ──
+    DiagLog "── [7c] web 构建标记与失败冷却 ──"
+    $mkFile = Join-Path $WebDir '.next\IHUI_BUILD_SHA'
+    $headSha = GitText @('rev-parse','HEAD')
+    if (Test-Path $mkFile) {
+        $builtSha = (Get-Content $mkFile -Raw -ErrorAction SilentlyContinue).Trim()
+        $same = if ($builtSha -eq $headSha) { 'True' } else { 'False' }
+        DiagLog ("  IHUI_BUILD_SHA={0}" -f ($(if ($builtSha) { $builtSha } else { '(空)' })))
+        DiagLog ("  HEAD          ={0}  一致={1} —— 不一致/不存在 ⇒ 下轮轮询强制重建(2026-09-21 新判据:marker≠HEAD 即陈旧)" -f $headSha, $same)
+    } else { DiagLog ("  IHUI_BUILD_SHA 不存在 ⇒ 下轮轮询强制重建(marker 只在部署成功后写入)") }
+    $cdFile = Join-Path $Root 'deploy\win\.build-fail-state.json'
+    if (Test-Path $cdFile) {
+        try {
+            $cdSt = Get-Content $cdFile -Raw -ErrorAction Stop | ConvertFrom-Json
+            $cdAge = ((Get-Date) - [datetime]$cdSt.ts).TotalMinutes
+            $cdIn = if ($cdAge -ge 0 -and $cdAge -lt 30) { '是(behind=0 时跳过重试)' } else { '否(已过 30 分钟,下轮自动重试)' }
+            DiagLog ("  构建失败冷却: 上次失败 {0:N0} 分钟前(head={1}) ⇒ 冷却中:{2}" -f $cdAge, $cdSt.head, $cdIn)
+        } catch { DiagLog ("  构建失败冷却: 状态文件存在但不可读({0})" -f $_.Exception.Message) }
+    } else { DiagLog "  构建失败冷却: 无(上次部署成功或从未失败)" }
 
     # ── [8] 判读提示 ──
     DiagLog "── [8] 判读提示 ──"
@@ -777,7 +844,17 @@ if ($behind -eq 0 -and -not $deployLatest -and -not (Get-BuildStale)) {
     Release-DeployLock
     exit 0
 }
-if ($behind -eq 0 -and -not $deployLatest) { Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建" }
+if ($behind -eq 0 -and -not $deployLatest) {
+    # 冷却拦截(2026-09-21 加):上轮构建/门禁失败后 30 分钟内不因「构建新鲜度」反复重试,
+    # 防持续失败时每轮 10-20 分钟无效构建;30 分钟后自动重试,根因修复后无需人工干预。
+    # behind>0(有新提交)不拦,push→部署及时性优先。
+    if (Test-BuildCooldown) {
+        Log "SKIP  前轮构建/门禁失败后冷却中(30 分钟内),本轮不重建;冷却结束自动重试,根因已修复则无需干预"
+        Release-DeployLock
+        exit 0
+    }
+    Log "WARN  触发原因=构建新鲜度:源码未落后但 web 构建非当前提交产物 → 强制重建"
+}
 if ($dryrun) { Ok "dryrun 模式: behind=$behind,即将部署到 origin/main=$($(git rev-parse --short FETCH_HEAD | Out-String).Trim())"; Release-DeployLock; exit 0 }
 
 if ($behind -gt 0) {
@@ -803,8 +880,11 @@ try {
         Remove-Item "$WebDir\.next-staging" -Recurse -Force -ErrorAction SilentlyContinue
         Build-Web -DistDir 'staging'
     } catch {
-        Set-BuildMarker
-        Log "构建失败($_) → 保持当前在线版本,不动 web"
+        # 2026-09-21 根治:失败轮不再 Set-BuildMarker(旧逻辑写「尝试标记」导致
+        # marker=HEAD → 下一轮误判新鲜 → 永久跳过,根因消失也无法自愈)。
+        # 改记失败冷却:30 分钟内不重试,之后自动重试直到成功。
+        Set-BuildCooldown
+        Log "构建失败($_) → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)"
         Release-DeployLock
         exit 1
     }
@@ -829,9 +909,20 @@ Start-Sleep -Seconds 8
 Log "健康门禁检查"
 if (-not (Test-HealthGate)) {
     if ($force) { Log "force=true,忽略门禁直接切流(违规操作,请确认)" }
-    else       { Set-BuildMarker; Do-Rollback }
+    else {
+        # 2026-09-21 根治:回滚属于失败轮,不再 Set-BuildMarker(旧逻辑导致 marker=HEAD
+        # 误判新鲜永久跳过);改记冷却,30 分钟后自动重试。
+        # 且回滚后必须提前退出 —— 旧代码会流到收尾 Set-BuildMarker,把「回滚保留的
+        # 旧构建」标记成新 HEAD 的成功构建,下轮误判新鲜跳过,同样造成部署停滞。
+        Set-BuildCooldown
+        Do-Rollback
+        Log "=== 门禁未过已回滚,旧版本在线;已记冷却,30 分钟后自动重试构建 ==="
+        Release-DeployLock
+        exit 0
+    }
 } else {
     Ok "健康门禁通过,部署成功"
+    Clear-BuildCooldown
     Remove-Item "$WebDir\.rollback" -Recurse -Force -ErrorAction SilentlyContinue
 
     # ── 重启 api(2026-09-13 加):api 为源码直跑,pull 后需重载才能吃到后端新代码 ──
@@ -883,6 +974,9 @@ if (-not (Test-HealthGate)) {
         Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
     }
 }
+# 收尾写成功标记(2026-09-21 语义变更):只有部署成功(或显式 -force)才会流到这里,
+# marker 语义 = 「.next 是该 HEAD 的成功构建」。失败路径(构建异常/门禁回滚)均已提前
+# 退出或改记冷却,绝不写 marker —— 这是本次「误判新鲜永久跳过」事故的根治点。
 Set-BuildMarker
 Write-Host ""
 Log "=== 部署完成,HEAD=$(git rev-parse --short HEAD | Out-String).Trim() 活跃组=win(8801/8802/8803) ==="
