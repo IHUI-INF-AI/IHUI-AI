@@ -3,7 +3,7 @@
     "notFound": "{target}을(를) 찾을 수 없습니다"
   },
   "cli": {
-    "sessionResumed": "최근 세션 복원: {id} ({count}개 기록)",
+    "sessionResumed": "최근 세션 복원: {id} ({count, plural, =0 {기록 없음} other {{count}개 기록}})",
     "sessionResumedWithId": "세션 복원: {id} ({count}개 기록)",
     "noSessions": "최근 세션이 없습니다",
     "errorPathIsDir": "경로는 디렉토리입니다, 파일이 아닙니다: {path}",
