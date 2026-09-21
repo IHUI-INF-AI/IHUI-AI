@@ -8,15 +8,19 @@ import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-int
 /**
  * RN 端的 UI 操控工具族(2026-09-21 立)。
  *
- * 只有四个动作:describe / navigate / read / invoke。**没有 click / fill / submit** ——
- * RN 无同源 DOM,那三个动词要成立得让业务组件逐个开放写入通道,不在本次范围
- * (与 ai-service `ui_action_bridge._FAMILIES['mobile']` 的注册面严格一致)。
+ * 七个动作与 web 同名同义:describe / navigate / read / invoke / click / fill / submit。
+ * 定位机理不同 —— RN 无同源 DOM,click/fill/submit 打在 ui-field-registry 登记的控件上
+ * (组件挂载时交出 onPress / 写入通道才会在表里),没通道就如实失败。
+ * (与 ai-service `ui_action_bridge._FAMILIES['mobile']` 的注册面严格一致,漂移由双端测试互校)
  */
 export const MOBILE_UI_CONTROL_TOOLS = [
   'mobile_ui_describe',
   'mobile_ui_read',
   'mobile_ui_navigate',
   'mobile_ui_invoke',
+  'mobile_ui_click',
+  'mobile_ui_fill',
+  'mobile_ui_submit',
 ] as const
 
 /** 后端能力入口工具(服务端执行,与端无关,故与 web / 小程序端同名) */
