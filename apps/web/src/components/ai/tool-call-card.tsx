@@ -6,23 +6,23 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  ChevronRight,
-  Loader2,
-  Check,
-  AlertCircle,
-  ExternalLink,
-  Copy,
-  BarChart3,
-  Ban,
-} from 'lucide-react'
+import { Loader2, Check, ExternalLink, Copy, BarChart3 } from 'lucide-react'
 import { getArtifactToken } from '@ihui/api-client'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { toolDisplayKey } from '@ihui/shared/chat'
+import { describeToolCall, toolDisplayKey } from '@ihui/shared/chat'
+import {
+  StreamDetail,
+  StreamLabel,
+  StreamCode,
+  StreamRow,
+  StreamTag,
+  useLiveElapsed,
+  type StreamStatus,
+} from '@/components/chat/stream/stream-ui'
 import { InlineDiffCard } from './inline-diff-card'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
@@ -82,32 +82,22 @@ interface ToolCallCardProps {
   serverName?: string
 }
 
-const STATUS_CONFIG = {
-  running: { icon: Loader2, className: 'animate-spin text-primary', labelKey: 'statusRunning' },
-  success: { icon: Check, className: 'text-green-500', labelKey: 'statusSuccess' },
-  error: { icon: AlertCircle, className: 'text-red-500', labelKey: 'statusFailed' },
-  // #23 撤回未执行工具卡(2026-09-13 立):cancelled=流中断时未执行的 running 工具,渲染"已撤回"
-  cancelled: { icon: Ban, className: 'text-muted-foreground', labelKey: 'statusRevoked' },
-} as const
-
-/** 2026-09-01 立,工具调用过程流式可视化:耗时格式化
- *  <1s 显示毫秒整数(如 "520ms"),>=1s 显示秒一位小数(如 "2.3s") */
-export function formatToolDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(1)}s`
+/** 工具原始状态 → 活动行统一状态词汇(全消息流只有这五种) */
+const STREAM_STATUS: Record<ToolCallCardProps['status'], StreamStatus> = {
+  running: 'running',
+  success: 'success',
+  error: 'error',
+  cancelled: 'skipped',
 }
 
-/** 浏览器类工具名(命中则视为 URL 相关,可触发 WorkPanel) */
-const BROWSER_TOOL_NAMES = new Set([
-  'browser_navigate',
-  'browser_click',
-  'browser_extract',
-  'browser_screenshot',
-  'web_search',
-  'fetch-url',
-  'fetch_url',
-  'web_fetch',
-])
+/** 失败分类 → taskStatus 里的本地化文案键。此前直接把 timeout/http_4xx 甩在界面上 */
+const ERROR_TYPE_KEYS: Record<string, string> = {
+  timeout: 'errorTimeout',
+  http_4xx: 'errorHttp4xx',
+  http_5xx: 'errorHttp5xx',
+  connection: 'errorConnection',
+  cancelled: 'errorCancelled',
+}
 
 /** edit_file / write_file 工具名命中即渲染 InlineDiffCard */
 const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
@@ -382,12 +372,14 @@ function pickStr(args: Record<string, unknown> | undefined, keys: string[]): str
 }
 
 /** 从 tool args 推导 InlineDiffInfo(edit_file/write_file 专用)
- *  导出供 message-list.tsx 在绑定 onApply 回调时构造 diffInfo 用 */
+ *  导出供 message-list.tsx 在绑定 onApply 回调时构造 diffInfo 用。
+ *  取不到路径时用调用方传入的本地化占位,函数自身不产文案(避免硬编码中文进界面) */
 export function deriveDiffInfo(
   toolName: string,
   args: Record<string, unknown> | undefined,
+  unknownFilePath: string,
 ): InlineDiffInfo | null {
-  const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
+  const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || unknownFilePath
 
   if (toolName === 'edit_file') {
     const oldContent = pickStr(args, ['oldText', 'old_text', 'oldContent', 'old_content'])
@@ -667,59 +659,59 @@ function useMediaTaskPolling(
  *  并保留手动"刷新状态"按钮兜底。 */
 function PendingTaskBlock({
   taskId,
-  toolName,
+  toolLabel,
   pollStatus,
   checkedAt,
   onRefresh,
 }: {
   taskId: string
-  toolName: string
+  /** 已本地化的工具功能名(禁止把 read_file 这类码名甩给用户) */
+  toolLabel: string
   pollStatus: MediaPollStatus
   checkedAt: number | null
   onRefresh: () => void
 }) {
+  const t = useTranslations('ai.toolCall')
   const checking = pollStatus === 'checking'
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-xs">
         <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-        <span className="font-medium text-muted-foreground">任务进行中</span>
+        <span className="font-medium text-muted-foreground">{t('pendingTaskTitle')}</span>
         {checkedAt && (
-          <span className="text-[10px] text-muted-foreground/50">
-            已自动检查{checking ? '中' : '过'}
+          <span className="text-[11px] text-muted-foreground/50">
+            {checking ? t('pendingAutoChecking') : t('pendingAutoChecked')}
           </span>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        {toolName} 已提交,task_id 已记录;生成完成后会自动取件展示。
+        {t('pendingTaskSubmitted', { tool: toolLabel })}
       </p>
       <div className="flex items-center gap-1.5">
-        <code className="block min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <code className="block min-w-0 flex-1 truncate rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           {taskId}
         </code>
         <button
           type="button"
           onClick={onRefresh}
           disabled={checking}
-          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 px-1.5 py-0.5 text-[10px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 px-1.5 py-0.5 text-[11px] text-primary hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {checking ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              检查中
+              <span>{t('pendingCheckingShort')}</span>
             </>
           ) : (
-            '刷新状态'
+            <span>{t('pendingRefresh')}</span>
           )}
         </button>
       </div>
       {pollStatus === 'stopped' && (
-        <p className="text-[10px] text-muted-foreground/60">
-          长时间未完成,已停止自动刷新;可点击"刷新状态"继续检查。
-        </p>
+        <p className="text-[11px] text-muted-foreground/60">{t('pendingStopped')}</p>
       )}
       {pollStatus === 'failed' && (
-        <p className="text-[10px] text-amber-600">任务已失败/取消,可换个提示词重新生成。</p>
+        <p className="text-[11px] text-amber-600">{t('pendingFailed')}</p>
       )}
     </div>
   )
@@ -728,28 +720,28 @@ function PendingTaskBlock({
 /** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
 function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
   const t = useTranslations('ai.toolCall')
+  const tStatus = useTranslations('taskStatus')
+  const PLAN_TONE: Record<string, 'neutral' | 'running' | 'success' | 'danger'> = {
+    in_progress: 'running',
+    completed: 'success',
+    failed: 'danger',
+  }
+  const PLAN_LABEL: Record<string, string> = {
+    in_progress: t('planStepInProgress'),
+    completed: t('planStepCompleted'),
+    failed: t('planStepFailed'),
+  }
   return (
     <div className="space-y-3">
       {data.plans && data.plans.length > 0 && (
         <div>
-          <p className="mb-1 font-medium text-muted-foreground">
-            {t('plan', { count: data.plans.length })}
-          </p>
+          <StreamLabel>{t('plan', { count: data.plans.length })}</StreamLabel>
           <ul className="space-y-1 text-xs">
             {data.plans.map((p, i) => (
               <li key={p.id || i} className="flex items-center gap-2">
-                <span
-                  className={cn(
-                    'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
-                    p.status === 'completed'
-                      ? 'bg-green-500/10 text-green-600'
-                      : p.status === 'in_progress'
-                        ? 'bg-blue-500/10 text-blue-600'
-                        : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {p.status}
-                </span>
+                <StreamTag tone={PLAN_TONE[p.status] ?? 'neutral'}>
+                  {PLAN_LABEL[p.status] ?? p.status}
+                </StreamTag>
                 <span className="break-words">{p.title}</span>
               </li>
             ))}
@@ -758,18 +750,15 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       )}
       {data.sources && data.sources.length > 0 && (
         <div>
-          <p className="mb-1 font-medium text-muted-foreground">
-            {t('reference', { count: data.sources.length })}
-          </p>
+          <StreamLabel>{t('reference', { count: data.sources.length })}</StreamLabel>
           <ul className="space-y-0.5 text-xs">
             {data.sources.slice(0, 5).map((s, i) => (
               <li key={i} className="truncate font-mono text-muted-foreground">
-                <span className="mr-1 rounded-sm bg-muted px-1 py-0.5 text-[10px]">{s.type}</span>
-                {s.ref}
+                <StreamTag>{s.type}</StreamTag> {s.ref}
               </li>
             ))}
             {data.sources.length > 5 && (
-              <li className="text-[10px] text-muted-foreground">
+              <li className="text-[11px] text-muted-foreground">
                 {t('moreItems', { count: data.sources.length - 5 })}
               </li>
             )}
@@ -778,18 +767,17 @@ function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['sum
       )}
       {data.tool_calls_summary && data.tool_calls_summary.total > 0 && (
         <div>
-          <p className="mb-1 font-medium text-muted-foreground">
-            {t('toolCallStats', { count: data.tool_calls_summary.total })}
-          </p>
+          <StreamLabel>{t('toolCallStats', { count: data.tool_calls_summary.total })}</StreamLabel>
           <div className="flex flex-wrap gap-1">
-            {Object.entries(data.tool_calls_summary.by_tool).map(([tool, count]) => (
-              <span
-                key={tool}
-                className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums"
-              >
-                {tool} × {count}
-              </span>
-            ))}
+            {Object.entries(data.tool_calls_summary.by_tool).map(([tool, count]) => {
+              // 统计徽章同样禁止直显英文工具码名
+              const key = toolDisplayKey(tool)
+              return (
+                <StreamTag key={tool}>
+                  {key ? tStatus(key) : tool} × {count}
+                </StreamTag>
+              )
+            })}
           </div>
         </div>
       )}
@@ -826,37 +814,69 @@ export const ToolCallCard = React.memo(function ToolCallCard({
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const t = useTranslations('ai.toolCall')
-  // 工具卡标题禁止直显英文工具码名:映射命中的内置工具显示本地化功能名
+  // 取不到文件路径时的占位由文案层给出(组件不产硬编码文案)
+  const unknownFileLabel = t('toolUnknownFile')
+  // 工具行禁止直显英文工具码名:映射命中的内置工具显示本地化功能名
   const tStatus = useTranslations('taskStatus')
-  const toolDisplayKeyResult = toolDisplayKey(toolName)
-  const config = STATUS_CONFIG[status]
-  const StatusIcon = config.icon
 
   // 2026-09-01 立,工具调用过程流式可视化:running 状态实时耗时 tick。
   // tool-call-start 到达后卡片即挂载,间隔 250ms 自增一次,让用户看到"执行中"的实时进度;
-  // status 变为 success/error 后清理定时器,由后端计算出的 durationMs(duration prop)接管显示。
-  const [elapsedMs, setElapsedMs] = React.useState(0)
-  React.useEffect(() => {
-    if (status !== 'running') return
-    setElapsedMs(0)
-    const id = window.setInterval(() => setElapsedMs((v) => v + 250), 250)
-    return () => window.clearInterval(id)
-  }, [status])
+  // status 变为 success/error 后停止,由后端算出的 durationMs(duration prop)接管显示。
+  const liveElapsed = useLiveElapsed(status === 'running', duration ?? null)
+  const streamStatus = STREAM_STATUS[status]
+
+  // 一行话的素材:功能名 + 对象 + 结果度量(单一真相源在 @ihui/shared/chat,各端同一口径)
+  const view = React.useMemo(
+    () => describeToolCall({ toolName, args, result, status }),
+    [toolName, args, result, status],
+  )
+  const rowTitle = view.nameKey ? tStatus(view.nameKey) : view.codeName
+  const rowTags: string[] = []
+  if (serverSource === 'plugin') rowTags.push(serverName || tStatus('sourcePlugin'))
+  if (serverSource === 'mcp')
+    rowTags.push(
+      `${tStatus('sourceMcp')}${serverName || serverId ? ` · ${serverName ?? serverId}` : ''}`,
+    )
+  if (iteration !== undefined && iteration > 1)
+    rowTags.push(tStatus('roundNumber', { n: iteration }))
+  if (repeated) rowTags.push(tStatus('statusSkipped'))
+  // #23 撤回未执行工具(2026-09-13 立):流中断时残留的 running 调用,行内以文字态保留原因
+  if (status === 'cancelled') rowTags.push(t('statusRevoked'))
+  if (retryCount !== undefined && retryCount > 0)
+    rowTags.push(tStatus('retriedTimes', { n: retryCount }))
+  if (status === 'error' && errorType) {
+    rowTags.push(ERROR_TYPE_KEYS[errorType] ? tStatus(ERROR_TYPE_KEYS[errorType]) : errorType)
+  }
+  const rowAriaLabel = [
+    rowTitle,
+    view.subject,
+    tStatus(
+      status === 'running'
+        ? 'statusRunning'
+        : status === 'error'
+          ? 'statusFailed'
+          : status === 'cancelled'
+            ? 'errorCancelled'
+            : 'statusSuccess',
+    ),
+    ...rowTags,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part !== '')
+    .join(' · ')
 
   // 提取 URL(P2 联动 WorkPanel)
   const extractedUrl = React.useMemo(
     () => extractUrl(toolName, args, result),
     [toolName, args, result],
   )
-  const isBrowserTool = BROWSER_TOOL_NAMES.has(toolName)
   const canOpenInWorkPanel = !!extractedUrl && status === 'success'
 
   // edit_file/write_file:优先用显式 diffInfo prop,否则从 args 推导
   const diffInfo = React.useMemo<InlineDiffInfo | null>(() => {
     if (diffInfoProp) return diffInfoProp
-    if (DIFF_TOOL_NAMES.has(toolName)) return deriveDiffInfo(toolName, args)
+    if (DIFF_TOOL_NAMES.has(toolName)) return deriveDiffInfo(toolName, args, unknownFileLabel)
     return null
-  }, [diffInfoProp, toolName, args])
+  }, [diffInfoProp, toolName, args, unknownFileLabel])
 
   // edit_file/write_file 且有 diffInfo:展开时渲染 InlineDiffCard 替代 <pre>
   const showInlineDiff = !!diffInfo
@@ -907,106 +927,25 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   }, [extractedUrl])
 
   return (
-    <div className="overflow-hidden rounded-sm border border-border/30 bg-card/50">
-      <button
-        type="button"
+    <div>
+      <StreamRow
+        status={streamStatus}
+        title={rowTitle}
+        subject={view.subject}
+        subjectKind={view.subjectKind}
+        metricKind={view.metricKind}
+        metricValue={view.metricValue}
+        added={status === 'success' ? view.added : undefined}
+        removed={status === 'success' ? view.removed : undefined}
+        tags={rowTags}
+        elapsedMs={liveElapsed}
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-1.5 px-2 py-1 text-left transition-colors hover:bg-accent/30"
-      >
-        <ChevronRight
-          className={cn(
-            'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform',
-            expanded && 'rotate-90',
-          )}
-        />
-        <StatusIcon className={cn('h-3 w-3 shrink-0', config.className)} />
-        <span className="flex-1 truncate text-[11px] font-medium text-foreground/80">
-          {toolDisplayKeyResult ? tStatus(toolDisplayKeyResult) : toolName}
-        </span>
-        {/* 2026-07-31 立,AI 对话可视化深度接入:工具来源徽章
-          - builtin: 不显示徽章(默认,避免噪音)
-          - plugin: 紫底徽章 "插件"
-          - mcp: 蓝底徽章 "MCP · {serverName}"(无 serverName 时仅 "MCP")
-          让用户一眼分辨原生工具 / 插件工具 / MCP 外部工具 */}
-        {serverSource === 'plugin' && (
-          <Tooltip content={`插件工具${serverName ? ` · ${serverName}` : ''}`}>
-            <span
-              aria-label={`插件工具${serverName ? ` · ${serverName}` : ''}`}
-              data-testid={`tool-call-source-plugin-${toolName}`}
-              className="shrink-0 rounded-sm border border-violet-500/30 bg-violet-500/10 px-1 py-0.5 text-[9px] font-medium text-violet-600 dark:text-violet-400"
-            >
-              {serverName ?? '插件'}
-            </span>
-          </Tooltip>
-        )}
-        {serverSource === 'mcp' && (
-          <Tooltip
-            content={`MCP 工具${serverName ? ` · ${serverName}` : serverId ? ` · ${serverId}` : ''}`}
-          >
-            <span
-              aria-label={`MCP 工具${serverId ? ` · ${serverId}` : ''}`}
-              data-testid={`tool-call-source-mcp-${toolName}`}
-              className="shrink-0 rounded-sm border border-sky-500/30 bg-sky-500/10 px-1 py-0.5 text-[9px] font-medium text-sky-600 dark:text-sky-400"
-            >
-              MCP{serverName ? ` · ${serverName}` : ''}
-            </span>
-          </Tooltip>
-        )}
-        {iteration !== undefined && iteration > 1 && (
-          <span className="shrink-0 rounded-sm bg-muted/60 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70">
-            第{iteration}轮
-          </span>
-        )}
-        {repeated && (
-          <span
-            aria-label="LLM 试图重复调用同参数工具,被去重机制跳过"
-            className="shrink-0 rounded-sm border border-border/50 bg-muted/40 px-1 py-0.5 text-[9px] text-muted-foreground/70"
-          >
-            已跳过
-          </span>
-        )}
-        {retryCount !== undefined && retryCount > 0 && (
-          <span
-            aria-label={t('retryBadgeAria', { count: retryCount })}
-            className="shrink-0 rounded-sm border border-border/50 bg-amber-500/10 px-1 py-0.5 text-[9px] text-amber-600"
-          >
-            {t('retryBadge', { count: retryCount })}
-          </span>
-        )}
-        {status === 'error' && errorType && (
-          <span
-            className={cn(
-              'shrink-0 rounded-sm border border-border/50 px-1 py-0.5 text-[9px]',
-              errorType === 'timeout' && 'bg-amber-500/10 text-amber-600',
-              errorType === 'http_4xx' && 'bg-amber-500/10 text-amber-600',
-              (errorType === 'connection' || errorType === 'http_5xx') &&
-                'bg-red-500/10 text-red-600',
-              errorType === 'cancelled' && 'bg-muted/40 text-muted-foreground',
-              !['timeout', 'http_4xx', 'connection', 'http_5xx', 'cancelled'].includes(errorType) &&
-                'bg-muted/40 text-muted-foreground',
-            )}
-          >
-            {errorType}
-          </span>
-        )}
-        {status === 'running' ? (
-          // 流式可视化:执行中显示实时自增耗时(替代静态"执行中"标签,秒表实时反馈)
-          <span
-            aria-label={`工具已执行 ${formatToolDuration(elapsedMs)}`}
-            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
-          >
-            {formatToolDuration(elapsedMs)}
-          </span>
-        ) : duration !== undefined ? (
-          // 已返回:显示后端计算的真实耗时(tool-result 到达时前端补算)
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
-            {formatToolDuration(duration)}
-          </span>
-        ) : null}
-        <span className={cn('shrink-0 text-[10px]', config.className)}>{t(config.labelKey)}</span>
-      </button>
+        expanded={expanded}
+        ariaLabel={rowAriaLabel}
+        testId={`tool-call-row-${toolCallId ?? toolName}`}
+      />
       {expanded && (
-        <div className="space-y-1.5 bg-muted/20 px-2 pb-1.5 pt-1 text-[11px]">
+        <StreamDetail className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
           {/* edit_file/write_file:InlineDiffCard 替代 <pre> 渲染 */}
           {showInlineDiff && diffInfo && (
             <InlineDiffCard
@@ -1064,7 +1003,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             ) : (
               <PendingTaskBlock
                 taskId={taskId}
-                toolName={toolName}
+                toolLabel={rowTitle}
                 pollStatus={pollStatusForPending}
                 checkedAt={checkedAt}
                 onRefresh={refreshNow}
@@ -1090,29 +1029,30 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 ) : (
                   <>
                     <div>
-                      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
-                        参数
-                      </p>
-                      <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                        {JSON.stringify(args, null, 2)}
-                      </pre>
+                      <StreamLabel>{tStatus('argsLabel')}</StreamLabel>
+                      <StreamCode text={JSON.stringify(args, null, 2)} testId="tool-call-args" />
                     </div>
                     {error && (
                       <div>
-                        <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
-                        <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
-                          {error}
-                        </pre>
+                        <StreamLabel>
+                          <span className="text-red-500/80">{tStatus('errorLabel')}</span>
+                        </StreamLabel>
+                        <StreamCode
+                          text={error}
+                          className="bg-red-500/8 text-red-500/80"
+                          testId="tool-call-error"
+                        />
                       </div>
                     )}
                     {result !== undefined && (
                       <div>
-                        <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
-                          结果
-                        </p>
-                        <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                          {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-                        </pre>
+                        <StreamLabel>{tStatus('resultLabel')}</StreamLabel>
+                        <StreamCode
+                          text={
+                            typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+                          }
+                          testId="tool-call-result"
+                        />
                       </div>
                     )}
                   </>
@@ -1127,10 +1067,10 @@ export const ToolCallCard = React.memo(function ToolCallCard({
               className="inline-flex items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-2 py-1 text-[10px] hover:bg-muted/40"
             >
               <ExternalLink className="h-3 w-3" />
-              <span>在工作展示区打开{isBrowserTool ? '' : '(URL)'}</span>
+              <span>{t('openInWorkPanel')}</span>
             </button>
           )}
-        </div>
+        </StreamDetail>
       )}
     </div>
   )
