@@ -130,6 +130,11 @@ function isMostlyEnglish(s: string | undefined): boolean {
 }
 
 function errorHandler(error: FastifyError, _request: FastifyRequest, reply: FastifyReply) {
+  // 2026-09-20 f5:响应已发出(在途或已结束)时,这里的 send 只会触发
+  // FST_ERR_REP_ALREADY_SENT 级联 —— 生产日志 WARN#2 的发送者正是本函数(server.ts:167)。
+  // 此时客户端拿到的已是首个成功响应,静默返回即可。
+  if (reply.sent) return
+
   const isZodErr =
     error.name === 'ZodError' && Array.isArray((error as { issues?: unknown[] }).issues)
   const statusCode = isZodErr
