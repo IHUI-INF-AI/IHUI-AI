@@ -76,7 +76,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 from app.core.image_preparation import (
@@ -89,6 +89,22 @@ from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(
 from app.core.retained_context import RetainedContext, RetainedUserMessage  # 批58:宿主事实账本(对标 codex retained_context.rs)
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
+# 批58 接线:5 个已写但零生产引用的模块(假覆盖 → 真接线)。
+# 各模块仅纯函数/数据结构,导入无副作用;运行行为仍由各自 env 开关门控。
+from app.core.git_workspaces_metadata import (
+    collect_git_workspaces,
+    workspaces_to_metadata_value,
+)
+from app.core.thread_originator import (
+    effective_originator_value,
+    originator_from_service_name,
+)
+from app.core.installation_id import INSTALLATION_ID_FILENAME
+from app.core.turn_metadata import (
+    CodexResponsesMetadata,
+    CodexResponsesRequestKind,
+)
+from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
 from .session_store import ItemBase, SessionStore
 
@@ -420,6 +436,95 @@ def _turn_token_usage_enabled_from_env() -> bool:
     )
 
 
+def _engine_git_metadata_enabled_from_env() -> bool:
+    """git workspaces 元数据采集开关(模块1,对标 codex turn_metadata.rs git enrichment)。
+
+    默认 off:不采集 git 信息(逐字节等价);设为 on/1/true/yes 时于 turn telemetry
+    组装处采集 repo_root → {remote_urls 脱敏 / head hash / has_changes} 附加事件。
+    """
+    return os.environ.get("ENGINE_GIT_METADATA_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_thread_originator_enabled_from_env() -> bool:
+    """线程来源 originator 解析开关(模块2,对标 codex thread_manager.rs)。
+
+    默认 off:线程不持有 originator(逐字节等价);设为 on/1/true/yes 时于线程
+    创建/恢复处经 effective_originator_value 解析并归一挂到 thread。
+    """
+    return os.environ.get("ENGINE_THREAD_ORIGINATOR_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_installation_id_enabled_from_env() -> bool:
+    """安装实例 ID 纳入 telemetry 开关(模块3,read-only 不写文件)。
+
+    默认 off:不读取/不附加安装实例 ID(逐字节等价);设为 on/1/true/yes 时于
+    turn telemetry 处读取既有 installation_id 文件(若存在且合法)附加事件。
+    约束:绝不调用写文件的 resolve_installation_id,只读不创建。
+    """
+    return os.environ.get("ENGINE_INSTALLATION_ID_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_turn_metadata_enabled_from_env() -> bool:
+    """Codex 会话元数据键与请求元数据构建开关(模块4,对标 responses_metadata.rs)。
+
+    默认 off:不构建 Codex 元数据(逐字节等价);设为 on/1/true/yes 时于 turn
+    telemetry 处经 CodexResponsesMetadata 构建 client_metadata 投影附加事件。
+    """
+    return os.environ.get("ENGINE_TURN_METADATA_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_message_history_enabled_from_env() -> bool:
+    """批58 接线(对标 codex message_history.rs):宿主历史账本追加。
+
+    默认 off:不落任何历史文件(逐字节等价);设为 on/1/true/yes 且配置了
+    IHUI_MESSAGE_HISTORY_PATH 时,于 turn.start 落盘处追加(多进程安全)用户指令。
+    """
+    return os.environ.get("ENGINE_MESSAGE_HISTORY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_rollout_archive_enabled_from_env() -> bool:
+    """批58 接线(对标 codex rollout 压缩 worker):导出后冷文件归档。
+
+    默认 off:导出后不压缩(逐字节等价);设为 on/1/true/yes 时对同一目录下的
+    冷导出 *.jsonl 做 gzip 归档(原子写 + 保留 mtime,单文件失败不抛出)。
+    """
+    return os.environ.get("ENGINE_ROLLOUT_ARCHIVE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_rollout_truncation_enabled_from_env() -> bool:
+    """批58 接线(对标 codex rollout truncation):导出按 turn_id 截断。
+
+    默认 off:导出全量(逐字节等价);设为 on/1/true/yes 且入参带
+    truncateAfterTurnId 时,只导出该 turn 及其之前的内容。
+    """
+    return os.environ.get("ENGINE_ROLLOUT_TRUNCATION_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_feature_flags_enabled_from_env() -> bool:
+    """集中式特性开关注册表开关(模块5,对标 codex features crate)。
+
+    默认 off:引擎不咨询注册表,各特性判定走现有直读 env 路径(逐字节等价);
+    设为 on/1/true/yes 时于 initialize 处经注册表解析生效集并暴露给客户端。
+    """
+    return os.environ.get("ENGINE_FEATURE_FLAGS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 @dataclass
 class EngineThread:
     """引擎线程 = 持久会话(对话历史 + 状态机 + 待回填请求)。"""
@@ -514,6 +619,10 @@ class EngineThread:
     # 默认 None(off,零行为变化);IHUI_RETAINED_CONTEXT_ENABLED=1 时每轮记录
     # 已投递用户指令,压缩不过期它们,指令边界回滚才清除。
     retained_context: RetainedContext | None = None
+    # 批58(接线):线程来源(originator)解析结果(对标 codex thread_manager.rs)。
+    # 默认 None(off,零行为变化);ENGINE_THREAD_ORIGINATOR_ENABLED=on 时于线程
+    # 创建/恢复处经 effective_originator_value 解析并归一挂到线程。
+    originator: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -1639,6 +1748,13 @@ class AgentEngine:
         # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
         # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
+        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # 注册已知特性(含本批各 env 开关);off 时引擎不咨询注册表,判定路径与
+        # 现状逐字节一致;on 时经注册表解析生效集(见 _resolve_engine_features)。
+        self._feature_registry: Any = self._build_feature_registry()
+        # 安装实例 ID 读取目录(模块3,read-only;不写文件)。
+        # 仅当配置 IHUI_INSTALLATION_ID_DIR 且文件存在时才纳入 telemetry;否则跳过。
+        self._installation_id_dir: str | None = os.environ.get("IHUI_INSTALLATION_ID_DIR")
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -1861,6 +1977,18 @@ class AgentEngine:
             store.append_item(
                 turn.turn_id, UserMessageItem(content=user_text), thread_id=thread.thread_id
             )
+            # 批58:宿主历史账本追加(需同时开开关并配路径;失败仅告警)
+            if _engine_message_history_enabled_from_env():
+                hist_path = os.environ.get("IHUI_MESSAGE_HISTORY_PATH", "").strip()
+                if hist_path:
+                    try:
+                        from app.core.message_history import append_history
+
+                        append_history(
+                            Path(hist_path), thread.session_id or thread.thread_id, user_text
+                        )
+                    except Exception as e:  # noqa: BLE001 - 账本失败不阻断持久化
+                        logger.warning("[engine] message_history 追加失败(降级跳过): %s", e)
             thread.current_turn_id = turn.turn_id
             return turn.turn_id
         except Exception as e:
@@ -1978,6 +2106,29 @@ class AgentEngine:
             if md.get("role") in _AGENT_ROLE_TEMPLATES:
                 thread.role = str(md["role"])
             self._threads[thread_id] = thread
+            # 批58(接线):线程来源 originator 恢复(模块2)。off → None;on →
+            # 优先取持久化 metadata 中的 originator,否则按现来源默认。
+            if _engine_thread_originator_enabled_from_env():
+                try:
+                    persisted = (
+                        str(md["originator"])
+                        if isinstance(md.get("originator"), str)
+                        else None
+                    )
+                    svc = (
+                        str(md["serviceName"])
+                        if isinstance(md.get("serviceName"), str)
+                        else None
+                    )
+                    thread.originator = effective_originator_value(
+                        originator_from_service_name(svc) if svc else None,
+                        None,
+                        persisted,
+                        None,
+                        "ihui_engine",
+                    )
+                except Exception as e:  # noqa: BLE001 - 恢复失败降级不挂
+                    logger.warning("thread originator 恢复失败(降级跳过): %s", e)
             logger.info(
                 "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
             )
@@ -2008,7 +2159,7 @@ class AgentEngine:
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
         """能力握手:声明协议版本与全部能力(客户端据此决定可用方法集)。"""
-        return {
+        resp: dict[str, Any] = {
             "protocolVersion": PROTOCOL_VERSION,
             "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
             "capabilities": {
@@ -2053,6 +2204,14 @@ class AgentEngine:
                 "压缩时决策链保留(thread.state.compactionEvents)",
             ],
         }
+        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # off 时不咨询注册表(判定路径与现状逐字节一致);on 时把解析生效集经
+        # capabilities.featureFlags 暴露给客户端(仅 on 时新增该键)。
+        if _engine_feature_flags_enabled_from_env():
+            flags = self._resolve_engine_features()
+            if flags:
+                resp["capabilities"]["featureFlags"] = flags
+        return resp
 
     async def _handle_ping(self, params: dict[str, Any], emit: Emitter) -> dict[str, Any]:
         return {"pong": True, "time": time.time(), "threads": len(self._threads)}
@@ -2146,6 +2305,23 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # 批58(接线):线程来源 originator 解析(模块2,对标 codex thread_manager.rs)。
+        # off → None(零行为变化);on → 经 effective_originator_value 解析并挂到 thread。
+        if _engine_thread_originator_enabled_from_env():
+            try:
+                thread.originator = effective_originator_value(
+                    str(params["serviceName"])
+                    if isinstance(params.get("serviceName"), str)
+                    else None,
+                    str(params["originator"])
+                    if isinstance(params.get("originator"), str)
+                    else None,
+                    None,
+                    None,
+                    "ihui_engine",
+                )
+            except Exception as e:  # noqa: BLE001 - 解析失败降级不挂
+                logger.warning("thread originator 解析失败(降级跳过): %s", e)
         # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
         # off → None(零行为变化);on → 线程持有账本,每轮记录已投递用户指令。
         if os.environ.get("IHUI_RETAINED_CONTEXT_ENABLED", "false").strip().lower() in (
@@ -2713,6 +2889,10 @@ class AgentEngine:
                             "turn_token_usage",
                             sample,
                         )
+            # 批58 接线(模块1/3/4):turn 元数据/telemetry 组装增强。
+            # off 时整体零行为(逐字节等价);on 时经各自 env 开关采集并附加事件;
+            # 异常由各子方法隔离,主流程照常返回 payload。
+            await self._enrich_turn_telemetry(thread, emit)
             return payload
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -2818,6 +2998,188 @@ class AgentEngine:
         if per_iteration:
             out["perIteration"] = per_iteration
         return out
+
+    # ------------------------------------------------------------------
+    # 批58 接线:5 个模块的 turn 元数据/telemetry 组装与特性注册表
+    # (默认全部 off,与现状逐字节等价;on 时经各自 env 开关生效;异常隔离)
+    # ------------------------------------------------------------------
+
+    def _build_feature_registry(self) -> Any:
+        """构建集中式特性注册表(模块5,对标 codex features crate)。
+
+        注册本仓已知特性(含批58 各 env 开关),供 ENGINE_FEATURE_FLAGS_ENABLED
+        开启时统一解析生效集;构造失败降级为 None(不阻塞引擎启动)。
+        """
+        try:
+            reg = FeatureRegistry()
+            reg.register(
+                FeatureSpec(
+                    key="agents_md_state",
+                    stage="stable",
+                    default=False,
+                    description="AGENTS.md 状态机增量注入",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="turn_token_usage",
+                    stage="stable",
+                    default=False,
+                    description="turn token 直方图",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="retained_context",
+                    stage="stable",
+                    default=False,
+                    description="宿主事实账本",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="git_metadata",
+                    stage="experimental",
+                    default=False,
+                    experimental_menu_name="Git 元数据",
+                    experimental_menu_description="git workspaces 元数据采集",
+                    description="git workspaces 元数据采集",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="thread_originator",
+                    stage="stable",
+                    default=False,
+                    description="线程来源解析",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="installation_id",
+                    stage="stable",
+                    default=False,
+                    description="安装实例 ID",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="turn_metadata",
+                    stage="stable",
+                    default=False,
+                    description="Codex 会话元数据",
+                )
+            )
+            return reg
+        except Exception as e:  # noqa: BLE001 - 注册失败降级(off 路径不受限)
+            logger.warning("特性注册表构建失败(降级为 None): %s", e)
+            return None
+
+    def _resolve_engine_features(
+        self, overrides: dict[str, bool] | None = None
+    ) -> dict[str, bool] | None:
+        """经注册表解析生效集(模块5)。
+
+        off(ENGINE_FEATURE_FLAGS_ENABLED 未开)直接返回 None,引擎沿用现有直读
+        env 判定路径(逐字节一致);on 时返回解析生效集,任何未知/非法 env 均
+        被捕获降级为 None(不阻塞握手)。
+        """
+        if not _engine_feature_flags_enabled_from_env():
+            return None
+        reg = self._feature_registry
+        if reg is None:
+            return None
+        try:
+            resolved = reg.resolve_features(overrides or {}, env=os.environ)
+            return cast("dict[str, bool] | None", resolved)
+        except Exception as e:  # noqa: BLE001 - 解析失败降级
+            logger.warning("特性注册表解析失败(降级返回 None): %s", e)
+            return None
+
+    async def _enrich_turn_telemetry(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """批58 接线(模块1/3/4):turn 元数据/telemetry 组装增强。
+
+        仅当各自 env 开关 on 时分别采集并附加到 turn telemetry;off 时整体零
+        行为(逐字节等价)。任一模块抛异常均被各自子方法隔离,主流程照常返回。
+        """
+        if _engine_git_metadata_enabled_from_env():
+            await self._emit_git_metadata_event(thread, emit)
+        if _engine_installation_id_enabled_from_env():
+            await self._emit_installation_id_event(thread, emit)
+        if _engine_turn_metadata_enabled_from_env():
+            await self._emit_codex_metadata_event(thread, emit)
+
+    async def _emit_git_metadata_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块1:采集 git workspaces 元数据并附加 turn.git_metadata 事件。
+
+        collect_git_workspaces 本身对 git 失败静默降级返回空;此处再包一层
+        try/except 隔离非预期异常(logger.warning 降级跳过,绝不阻塞)。
+        """
+        try:
+            cwd = thread.workspace or os.getcwd()
+            snapshot = collect_git_workspaces(cwd)
+            if not snapshot:
+                return
+            value = workspaces_to_metadata_value(snapshot)
+            if value:
+                await self._emit_engine_event(
+                    thread, emit, "turn.git_metadata", {"workspaces": value}
+                )
+        except Exception as e:  # noqa: BLE001 - 采集失败降级跳过
+            logger.warning("git 元数据采集失败(降级跳过): %s", e)
+
+    async def _emit_installation_id_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块3:读取既有 installation_id 文件(read-only)并附加 turn.installation_id 事件。
+
+        约束:绝不调用写文件的 resolve_installation_id;仅当 IHUI_INSTALLATION_ID_DIR
+        配置且文件存在且内容为合法 UUID 时才附加;任何失败均降级跳过。
+        """
+        try:
+            base_dir = self._installation_id_dir
+            if not base_dir:
+                return
+            path = Path(base_dir) / INSTALLATION_ID_FILENAME
+            if not path.is_file():
+                return
+            raw = path.read_text(encoding="utf-8", errors="replace").strip()
+            try:
+                inst_id = str(uuid.UUID(raw))
+            except (ValueError, AttributeError):
+                return
+            await self._emit_engine_event(
+                thread, emit, "turn.installation_id", {"installationId": inst_id}
+            )
+        except Exception as e:  # noqa: BLE001 - 读取失败降级跳过
+            logger.warning("installation_id 读取失败(降级跳过): %s", e)
+
+    async def _emit_codex_metadata_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块4:经 CodexResponsesMetadata 构建请求元数据(client_metadata 投影)并附加事件。
+
+        installation_id 真实值由模块3 独立提供;此处仅构建会话元数据键与投影。
+        任何失败均降级跳过,绝不阻塞主流程。
+        """
+        try:
+            meta = CodexResponsesMetadata.new(
+                installation_id="",
+                session_id=thread.session_id,
+                thread_id=thread.thread_id,
+                window_id="",
+            )
+            meta.request_kind = CodexResponsesRequestKind("turn")
+            client = meta.client_metadata()
+            await self._emit_engine_event(
+                thread, emit, "turn.codex_metadata", client
+            )
+        except Exception as e:  # noqa: BLE001 - 构建失败降级跳过
+            logger.warning("Codex 会话元数据构建失败(降级跳过): %s", e)
 
     def reset_agents_md_state(self, thread: EngineThread) -> None:
         """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
@@ -3276,6 +3638,28 @@ class AgentEngine:
                 lines.append(
                     json.dumps({"type": "message", **m}, ensure_ascii=False, default=str)
                 )
+        # 批58:ENGINE_ROLLOUT_TRUNCATION_ENABLED on 时按 truncateAfterTurnId 截断导出
+        if _engine_rollout_truncation_enabled_from_env():
+            cut_at = params.get("truncateAfterTurnId")
+            if isinstance(cut_at, str) and cut_at.strip():
+                try:
+                    from app.core.rollout_truncation import truncate_after_turn_id
+
+                    records: list[dict[str, Any]] = []
+                    for ln in lines:
+                        with contextlib.suppress(json.JSONDecodeError):
+                            records.append(json.loads(ln))
+                    if records:
+                        cut = truncate_after_turn_id(
+                            records,
+                            cut_at.strip(),
+                            lambda r: r.get("turn_id") if isinstance(r, dict) else None,
+                        )
+                        lines = [
+                            json.dumps(r, ensure_ascii=False, default=str) for r in cut
+                        ]
+                except Exception as e:  # noqa: BLE001 - 截断失败降级导出全量
+                    logger.warning("[engine] 导出截断失败(降级导出全量): %s", e)
         path = params.get("path")
         written: str | None = None
         if isinstance(path, str) and path.strip():
@@ -3283,6 +3667,14 @@ class AgentEngine:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("\n".join(lines) + "\n", encoding="utf-8")
             written = str(target)
+            # 批58:导出后对同目录冷导出做 gzip 归档(仅 on 时)
+            if _engine_rollout_archive_enabled_from_env():
+                try:
+                    from app.core.rollout_archive import compress_cold_exports
+
+                    compress_cold_exports(target.parent, marker_dir=target.parent)
+                except Exception as e:  # noqa: BLE001 - 归档失败不阻断导出
+                    logger.warning("[engine] 冷导出归档失败(降级跳过): %s", e)
         return {
             "threadId": thread.thread_id,
             "format": "jsonl",

@@ -90,6 +90,109 @@ def _network_denial_message(denial_reason: str | None, url: str) -> str:
         return "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)"
 
 
+# ---------------------------------------------------------------------------
+# 批58(w3):5 个"已写但零生产引用"模块的真接线(env 开关,默认 off,异常隔离,
+# off 时逐字节等价)。风格对齐 agent_loop_v2._auto_compact_window_enabled_from_env。
+# 模块路径(均在 app/core/):
+#   elicitation_pause.py / mcp_openai_file.py / world_state_tools.py /
+#   permission_profiles.py / permissions_instructions.py
+# ---------------------------------------------------------------------------
+
+
+def _mcp_elicitation_pause_enabled_from_env() -> bool:
+    """elicitation 计数暂停开关(env MCP_ELICITATION_PAUSE_ENABLED,默认 off)。
+
+    对标 codex elicitation.rs ElicitationService。on/1/true/yes 时启用;默认 off
+    时不持有服务实例、不参与任何计数(与现状逐零差异)。
+    """
+    return os.environ.get(
+        "MCP_ELICITATION_PAUSE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_openai_file_rewrite_enabled_from_env() -> bool:
+    """OpenAI 文件参数重写开关(env MCP_OPENAI_FILE_REWRITE_ENABLED,默认 off)。
+
+    对标 codex mcp_openai_file.rs。on 时按声明字段把本地路径重写为远端文件载荷;
+    默认 off 时工具参数完全不变(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_OPENAI_FILE_REWRITE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_world_state_tools_enabled_from_env() -> bool:
+    """延迟工具命名空间开关(env MCP_WORLD_STATE_TOOLS_ENABLED,默认 off)。
+
+    对标 codex context/world_state/tools.rs。on 时把延迟工具声明并入工具清单;
+    默认 off 时清单逐字节不变。
+    """
+    return os.environ.get(
+        "MCP_WORLD_STATE_TOOLS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permission_profiles_enabled_from_env() -> bool:
+    """权限档案开关(env MCP_PERMISSION_PROFILES_ENABLED,默认 off)。
+
+    对标 codex permissions_toml.rs。on 时解析生效档案参与审批决策;解析失败走现状
+    默认(降级跳过)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSION_PROFILES_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permissions_instructions_enabled_from_env() -> bool:
+    """权限指令片段开关(env MCP_PERMISSIONS_INSTRUCTIONS_ENABLED,默认 off)。
+
+    对标 codex permissions_instructions.rs。on 时把权限指令片段并入回执;默认 off
+    时不注入任何片段(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSIONS_INSTRUCTIONS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+# 模块级可注入配置(测试/生产可注入,默认 None = 不触发改写,off 逐字节等价)
+_MCP_OPENAI_FILE_INPUT_FIELDS: dict[str, list[str]] | None = None
+_MCP_WORLD_STATE_DEFERRED_NAMESPACES: dict[str, str] | None = None
+_MCP_PERMISSION_PROFILES: dict[str, Any] | None = None
+_MCP_PERMISSION_PROFILES_ACTIVE: str | None = None
+
+
+# elicitation 服务懒构造单例(构造失败标记 False,避免反复尝试)
+_ELICITATION_SERVICE: Any = None
+
+
+def _get_elicitation_service() -> Any | None:
+    """懒构造 ElicitationService;失败/禁用返回 None(降级不启用)。"""
+    global _ELICITATION_SERVICE
+    if _ELICITATION_SERVICE is None:
+        try:
+            from app.core.elicitation_pause import ElicitationService
+
+            _ELICITATION_SERVICE = ElicitationService()
+        except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+            logger.warning("ElicitationService 构造失败(降级不启用): %s", e)
+            _ELICITATION_SERVICE = False
+    return _ELICITATION_SERVICE or None
+
+
+async def _openai_file_default_uploader(
+    field_name: str, index: int | None, file_path: str
+) -> Any:
+    """OpenAI 文件上传器默认实现(无真实文件存储时的确定性占位)。
+
+    生产侧应注入真实上传器(经同层机制覆盖本函数);此处保证默认行为可降级、
+    不破坏 offline 工具调用(下载地址直接回退为本地路径)。
+    """
+    from app.core.mcp_openai_file import UploadedFile
+
+    _name = file_path.replace("\\", "/").split("/")[-1] or "file"
+    return UploadedFile(download_url=file_path, file_id=file_path, file_name=_name)
+
+
 def _tool_result_token_estimate(obj: object) -> int:
     """递归估算工具结果中所有字符串值的 token 总数(轻量 len//4)。"""
     if isinstance(obj, str):
@@ -1751,7 +1854,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                     [r.pattern for r in _exec_decision.matched_rules],
                 )
             else:
-                return {
+                _approval_result: dict[str, Any] = {
                     "ok": False, "tool": "run_command",
                     "error": "exec_policy_needs_approval",
                     "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
@@ -1767,6 +1870,34 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                     },
                     "message": "命令需要用户审批后方可执行",
                 }
+                # 批58(w3):权限档案参与审批决策(对标 codex permissions_toml.rs)
+                # on 时解析生效档案,把档位/网络模式/启用根并入回执;解析失败走现状
+                # 默认(降级跳过,绝不改变拒绝语义)。off 时回执逐字节等价。
+                if _mcp_permission_profiles_enabled_from_env():
+                    try:
+                        from app.core.permission_profiles import resolve_permission_profile
+
+                        if (
+                            _MCP_PERMISSION_PROFILES is not None
+                            and _MCP_PERMISSION_PROFILES_ACTIVE
+                        ):
+                            _prof = resolve_permission_profile(
+                                _MCP_PERMISSION_PROFILES_ACTIVE,
+                                _MCP_PERMISSION_PROFILES,
+                            )
+                            _net_mode = (
+                                _prof.network.mode.value
+                                if _prof.network and _prof.network.mode
+                                else None
+                            )
+                            _approval_result["resolved_permission_profile"] = {
+                                "name": _MCP_PERMISSION_PROFILES_ACTIVE,
+                                "network_mode": _net_mode,
+                                "enabled_roots": _prof.enabled_roots(),
+                            }
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("permission_profiles 解析失败(降级跳过): %s", e)
+                return _approval_result
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
@@ -6423,6 +6554,18 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _mcp_model_tools_enabled_from_env() -> bool:
+    """批58 接线(对标 codex model_tools.rs):特殊工具结果/校验归一。
+
+    默认 off:后台 sleep 时长不校验、完成通知不带 async 投影(逐字节等价);
+    设为 on/1/true/yes 时经 validate_sleep_duration 校验时长、经
+    build_async_user_notification 产出 host 侧投递载荷。
+    """
+    return os.environ.get("MCP_MODEL_TOOLS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 # ---------------------------------------------------------------------------
 # 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)
 # ---------------------------------------------------------------------------
@@ -6433,8 +6576,21 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
 # 扩展点:后续批次在此注册真实长任务(如 codebase_indexer / spec_generator / 长搜索),
 # 仅需实现 async(args: dict) -> Any 并加入本字典,task 名即进入白名单。
 async def _bg_impl_sleep(args: dict[str, Any]) -> Any:
-    """演示实现:休眠指定秒数(测试 / 占位用)。"""
+    """演示实现:休眠指定秒数(测试 / 占位用)。
+
+    批58:MCP_MODEL_TOOLS_ENABLED on 时先经 model_tools_57.validate_sleep_duration
+    校验时长(秒→毫秒),越界直接返回 error 不休眠;off 时行为与接线前一致。
+    """
     seconds = float(args.get("seconds", 0))
+    if _mcp_model_tools_enabled_from_env():
+        try:
+            from app.core.model_tools_57 import validate_sleep_duration
+
+            err = validate_sleep_duration(seconds * 1000.0)
+            if err is not None:
+                return {"error": err, "slept_seconds": 0}
+        except Exception as e:  # noqa: BLE001 - 校验失败降级照常休眠
+            logger.warning("model_tools 时长校验失败(降级照常休眠): %s", e)
     await asyncio.sleep(seconds)
     return {"slept_seconds": seconds}
 
@@ -8922,8 +9078,31 @@ class MCPServer:
     """MCP 服务端,统一管理工具/资源/提示词的查询与调用。"""
 
     def list_tools(self) -> list[MCPTool]:
-        """列出全部工具。"""
-        return list(_TOOLS)
+        """列出全部工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
+
+        off 时直接返回 list(_TOOLS)(逐字节等价);on 时仅追加由 world_state_tools
+        归一化出的延迟工具条目,不改动既有 _TOOLS。
+        """
+        tools: list[MCPTool] = list(_TOOLS)
+        if (
+            _mcp_world_state_tools_enabled_from_env()
+            and _MCP_WORLD_STATE_DEFERRED_NAMESPACES
+        ):
+            try:
+                from app.core.world_state_tools import ToolsState
+
+                _state = ToolsState(_MCP_WORLD_STATE_DEFERRED_NAMESPACES)
+                for _ns, _desc in _state.deferred_namespaces.items():
+                    tools.append(
+                        MCPTool(
+                            name=f"deferred:{_ns}",
+                            description=_desc,
+                            input_schema={"type": "object", "properties": {}},
+                        )
+                    )
+            except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
+                logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
+        return tools
 
     async def call_tool(
         self,
