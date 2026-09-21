@@ -1,0 +1,18 @@
+{
+  "common": {
+    "notFound": "{target} not found"
+  },
+  "cli": {
+    "sessionResumed": "Resumed recent session: {id} ({count} messages)",
+    "sessionResumedWithId": "Resumed session: {id} ({count} messages)",
+    "noSessions": "No historical sessions",
+    "errorPathIsDir": "Path is a directory, not a file: {path}",
+    "errorFileEmpty": "File is empty: {path}",
+    "errorFileNotFound": "File not found: {path}",
+    "errorReadFile": "Failed to read file: {message}",
+    "errorPromptFile": "--prompt-file error: {error}",
+    "agentUsage": "Usage: ihui agent <task>  or  ihui agent --prompt-file <path>",
+    "agentsMdExists": "AGENTS.md already exists. Use --force to overwrite.",
+    "agentsMdCreated": "Created: {path}"
+  }
+}

@@ -1,0 +1,579 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# IHUI-AI Docker Compose 编排(新架构: Fastify + Next.js + FastAPI AI 服务)
+# 旧架构(Python FastAPI server/ + Vue client/)已弃用,不再编排
+#
+# ============================================================================
+# ⚠️ 部署模型声明(2026-09-06 立)
+# ============================================================================
+# 当前线上生产环境采用【Windows 原生进程部署】:
+#   监控二进制位于 D:\DevEnv\monitor,由 Windows 服务(NSSM)/裸进程托管
+#   (Prometheus 127.0.0.1:8815、Grafana 8816、Loki 3100、Promtail 9080、
+#    Alertmanager 9093)。
+#   业务服务 api(8802)/web(8801 next)/ai-service(8803) 亦为原生 node/python 进程,
+#   启动脚本见 deploy/prod-bundle/svc/run-{api,web,ai}.ps1。
+#
+# 本 docker-compose.yml【仅作为可选容器化方案保留】,并非当前线上真实形态。
+# 监控/日志文档见 monitoring/README-logging.md;请勿再以 "docker compose up loki promtail"
+# 的思路操作生产监控栈——线上没有 docker 容器,也没有 docker 网络中的服务名。
+#
+# 追踪栈(Jaeger / otel-collector):docker-compose 中保留服务定义,但线上【当前未部署】
+# (无进程)。若需启用,先在本机原生方式起好 otel-collector(8888) 与 Jaeger(16686)。
+# ============================================================================
+#
+# 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒
+# 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 :latest 是本地 tag,非外部拉取
+# ============================================================================
+# 可观测性服务 Profile(2026-07-25 立)
+# ============================================================================
+# 默认 `docker compose up -d` 仅启动业务服务(api/worker/web/ai-service/db/redis/migrate)
+# 监控服务(jaeger/otel-collector/prometheus/grafana/node-exporter/loki/promtail)
+# 需显式启用:`docker compose --profile observability up -d`
+# 单独启动监控:`docker compose --profile observability up -d jaeger prometheus grafana`
+# 关闭监控:`docker compose --profile observability down`
+services:
+  # 新后端 API(Fastify 5 + Drizzle ORM)
+  api:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+    image: ihui-api:latest
+    container_name: ihui-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=8802
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=http://${DOMAIN:-localhost},http://tauri.localhost,tauri://localhost
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      # O13:受控出口(dbScoped/dbReadScoped)走独立的非超级用户应用角色 ihui_app
+      # (角色 + 逐表 GRANT = 迁移 20260921160000_scoped_app_role_owner_rls.sql)。
+      # 留空 = 受控出口仍与 DATABASE_URL 同池,scoped-* 能力 fail-closed 到 503。
+      # 口令不落仓:迁移建角色后由运维 `ALTER ROLE ihui_app PASSWORD '...'` 设置。
+      - DATABASE_APP_URL=${DATABASE_APP_URL:-}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - JWT_EXPIRES_IN=7d
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+      - AI_SERVICE_URL=http://ai-service:8803
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
+      - WX_SHOP_ID=${WX_SHOP_ID:-}
+      - WX_PAY_V3_KEY=${WX_PAY_V3_KEY:-}
+      - WX_PAY_PRIVATE_KEY=${WX_PAY_PRIVATE_KEY:-}
+      - WX_PAY_PLATFORM_CERT=${WX_PAY_PLATFORM_CERT:-}
+      # 2026-09-18 补齐:证书序列号 + 各渠道回调/海外/USDT 变量缺失会导致收款静默失败
+      - WX_PAY_CERT_SERIAL=${WX_PAY_CERT_SERIAL:-}
+      - WX_PAY_NOTIFY_URL=${WX_PAY_NOTIFY_URL:-}
+      - WX_PAY_COURSE_NOTIFY_URL=${WX_PAY_COURSE_NOTIFY_URL:-}
+      - WX_ANDROID_NOTIFY_URL=${WX_ANDROID_NOTIFY_URL:-}
+      - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL:-}
+      - PAYPAL_WEBHOOK_ID=${PAYPAL_WEBHOOK_ID:-}
+      - USDT_TRC20_ADDRESS=${USDT_TRC20_ADDRESS:-}
+      - USDT_ERC20_ADDRESS=${USDT_ERC20_ADDRESS:-}
+      - USDT_WEBHOOK_SECRET=${USDT_WEBHOOK_SECRET:-}
+      # BullMQ Worker 开关(多实例部署可设为 false 仅做生产者)
+      - ENABLE_WORKER=${ENABLE_WORKER:-true}
+      # OpenTelemetry 分布式追踪(OTLP 导出到 otel-collector)
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=ihui-api
+      # OAuth 第三方登录凭据(2026-07-22 补全,从根目录 .env 读取)
+      # 前端 NEXT_PUBLIC_* 在 Next.js build 时已静态编译进产物,无需运行时注入
+      # 后端凭据运行时读取 process.env,必须在容器 environment 中显式注入
+      # 微信网站扫码登录(微信开放平台 - 网站应用)
+      - WECHAT_APP_ID=${WECHAT_APP_ID:-}
+      - WECHAT_APP_SECRET=${WECHAT_APP_SECRET:-}
+      # 钉钉扫码登录(钉钉开放平台 - 企业内部应用)
+      - DINGTALK_APP_KEY=${DINGTALK_APP_KEY:-}
+      - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
+      - DINGTALK_REDIRECT_URI=${DINGTALK_REDIRECT_URI:-}
+      # 企业微信扫码登录(企业微信管理后台 - 自建应用)
+      - WECOM_CORP_ID=${WECOM_CORP_ID:-}
+      - WECOM_AGENT_ID=${WECOM_AGENT_ID:-}
+      - WECOM_SECRET=${WECOM_SECRET:-}
+      - WECOM_REDIRECT_URI=${WECOM_REDIRECT_URI:-}
+      # 飞书登录(飞书开放平台 - 自建应用)
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - FEISHU_REDIRECT_URI=${FEISHU_REDIRECT_URI:-}
+      # Google 登录(Google Cloud Console - OAuth 2.0)
+      - GOOGLE_APP_ID=${GOOGLE_APP_ID:-}
+      - GOOGLE_SECRET=${GOOGLE_SECRET:-}
+      - GOOGLE_PC_REDIRECT_URI=${GOOGLE_PC_REDIRECT_URI:-}
+      # GitHub 登录(GitHub OAuth App)
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      # 支付宝登录(支付宝开放平台 - 网页应用)
+      - ALIPAY_APP_ID=${ALIPAY_APP_ID:-}
+      - ALIPAY_PRIVATE_KEY=${ALIPAY_PRIVATE_KEY:-}
+      - ALIPAY_PUBLIC_KEY=${ALIPAY_PUBLIC_KEY:-}
+      - ALIPAY_GATEWAY=${ALIPAY_GATEWAY:-https://openapi.alipay.com/gateway.do}
+      - ALIPAY_RETURN_URL=${ALIPAY_RETURN_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8802/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # BullMQ Worker 独立进程(消费者)
+  # 生产部署最佳实践:API 进程仅生产(ENABLE_WORKER=false),Worker 进程独立消费
+  # 避免单进程内 HTTP 请求与异步任务互相阻塞,支持独立扩缩
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.api
+    image: ihui-api:latest
+    container_name: ihui-worker
+    restart: unless-stopped
+    command: ['node', 'apps/api/dist/worker-entry.js']
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      # O13:与 api 服务同一份应用角色连接(Worker 也可能经 dbScoped() 触达开放面数据)
+      - DATABASE_APP_URL=${DATABASE_APP_URL:-}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+      - AI_SERVICE_URL=http://ai-service:8803
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@aizhs.top}
+      - SMTP_ENABLED=${SMTP_ENABLED:-false}
+      # 微信支付证书(占位值通过启动校验;真实部署替换为有效证书)
+      - WX_SHOP_ID=${WX_SHOP_ID:-}
+      - WX_PAY_V3_KEY=${WX_PAY_V3_KEY:-}
+      - WX_PAY_PRIVATE_KEY=${WX_PAY_PRIVATE_KEY:-}
+      - WX_PAY_PLATFORM_CERT=${WX_PAY_PLATFORM_CERT:-}
+      # 2026-09-18 补齐:证书序列号 + 各渠道回调/海外/USDT 变量缺失会导致收款静默失败
+      - WX_PAY_CERT_SERIAL=${WX_PAY_CERT_SERIAL:-}
+      - WX_PAY_NOTIFY_URL=${WX_PAY_NOTIFY_URL:-}
+      - WX_PAY_COURSE_NOTIFY_URL=${WX_PAY_COURSE_NOTIFY_URL:-}
+      - WX_ANDROID_NOTIFY_URL=${WX_ANDROID_NOTIFY_URL:-}
+      - ALIPAY_NOTIFY_URL=${ALIPAY_NOTIFY_URL:-}
+      - PAYPAL_WEBHOOK_ID=${PAYPAL_WEBHOOK_ID:-}
+      - USDT_TRC20_ADDRESS=${USDT_TRC20_ADDRESS:-}
+      - USDT_ERC20_ADDRESS=${USDT_ERC20_ADDRESS:-}
+      - USDT_WEBHOOK_SECRET=${USDT_WEBHOOK_SECRET:-}
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=ihui-worker
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8804/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # 新前端(Next.js 15 static export,A 套壳架构 — nginx 静态文件 + API 反向代理)
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.web
+    image: ihui-web:latest
+    container_name: ihui-web
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - API_URL=http://api:8802
+      - AI_SERVICE_URL=http://ai-service:8803
+      - NEXT_TELEMETRY_DISABLED=1
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+    ports:
+      - '${WEB_PORT:-8801}:8801'
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ihui-net
+
+  # AI 服务(FastAPI + LangGraph + LiteLLM + MCP)
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    image: ihui-ai-service:latest
+    container_name: ihui-ai-service
+    restart: unless-stopped
+    ports:
+      - '${AI_SERVICE_PORT:-8803}:8803'
+    environment:
+      - NODE_ENV=production
+      - PORT=8803
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=http://${DOMAIN:-localhost},http://tauri.localhost,tauri://localhost
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - AGNES_API_KEY=${AGNES_API_KEY:-}
+      - AGNES_API_BASE=${AGNES_API_BASE:-https://apihub.agnes-ai.com/v1}
+      - STEPFUN_API_KEY=${STEPFUN_API_KEY:-}
+      - STEPFUN_API_BASE=${STEPFUN_API_BASE:-https://api.stepfun.com/step_plan/v1}
+      - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
+      - API_SERVICE_URL=http://api:8802
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
+      - LLM_PROXY_URL=${LLM_PROXY_URL:-}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ihui-net
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8803/health',timeout=3).status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # PostgreSQL 数据库(启用 pgvector 扩展,支撑 RAG 知识库语义检索)
+  db:
+    image: pgvector/pgvector:pg15-alpine
+    container_name: ihui-db
+    restart: unless-stopped
+    environment:
+      # 2026-07-24 安全审计:强制 DB_PASSWORD 必填(空值启动失败),杜绝弱密码默认
+      POSTGRES_USER: ${DB_USER:-ihui}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+      POSTGRES_DB: ${DB_NAME:-ihui}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # 2026-07-24 安全审计:DB 端口仅绑定 127.0.0.1,禁止暴露到 0.0.0.0(防外网扫描爆破)
+    ports:
+      - '127.0.0.1:${DB_PORT:-8810}:5432'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-ihui}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 数据库迁移(一次性服务:执行 drizzle-kit migrate 后退出)
+  # api 服务依赖 migrate 成功完成(service_completed_successfully)才启动
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.migrate
+    image: ihui-migrate:latest
+    container_name: ihui-migrate
+    environment:
+      - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ihui-net
+    restart: 'no'
+    # 迁移失败时 docker compose up 会因依赖条件不满足而停止,避免 api 启动到空库
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ihui-redis
+    restart: unless-stopped
+    # 2026-07-24 安全审计:强制 REDIS_PASSWORD 必填,禁止无密码运行(防未授权访问 + 持久化攻击)
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+    volumes:
+      - redisdata:/data
+    # 2026-07-24 安全审计:Redis 端口仅绑定 127.0.0.1,禁止暴露到 0.0.0.0(防未授权访问 + RCE)
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-8811}:6379'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Jaeger(分布式追踪 UI + OTLP 收集器，接收 otel-collector 导出的追踪)
+  # 注意:线上生产【当前未部署】此服务(无进程)。原生部署若需追踪,需在本机
+  # 单独启动 jaeger 二进制(默认 16686 UI)并由 otel-collector 推送 span。
+  jaeger:
+    profiles: [observability]
+    image: jaegertracing/all-in-one:1.62
+    container_name: ihui-jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - '${JAEGER_UI_PORT:-8814}:16686'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:14269/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # OpenTelemetry Collector(接收 OTLP 追踪/指标，导出到 Jaeger + Prometheus exporter)
+  # 注意:线上生产【当前未部署】此服务(无进程)。原生部署若需追踪,需在本机
+  # 单独启动 otel-collector 二进制(监听 8888 metrics 端口)并对接 Jaeger。
+  otel-collector:
+    profiles: [observability]
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: ihui-otel-collector
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
+    command: ['--config=/etc/otelcol/config.yaml']
+    ports:
+      - '${OTEL_COLLECTOR_PORT:-8813}:4318'
+      - '${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
+    networks:
+      - ihui-net
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:13133/']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+
+  # Prometheus 监控(抓取 api + ai-service 的 /metrics)
+  prometheus:
+    profiles: [observability]
+    image: prom/prometheus:v2.55.0
+    container_name: ihui-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheusdata:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - '${PROMETHEUS_PORT:-8815}:9090'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9090/-/healthy']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Grafana 仪表盘(可视化监控数据)
+  grafana:
+    profiles: [observability]
+    image: grafana/grafana:11.3.0
+    container_name: ihui-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafanadata:/var/lib/grafana
+    environment:
+      # 2026-07-21 安全审计第十轮加固:严禁 `:-change-me-...` 弱密码 fallback
+      # 必须从 .env 显式注入,若未配置则服务启动失败(Grafana 会用默认值,
+      # 但任何知晓源码的人都能登录,等于公开后门)
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER 未配置,请在 .env 设置}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_HTTP_PORT=8816
+    ports:
+      - '${GRAFANA_PORT:-8816}:8816'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:8816/api/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Node Exporter(主机指标:CPU/内存/磁盘/网络)
+  node-exporter:
+    profiles: [observability]
+    image: prom/node-exporter:v1.8.2
+    container_name: ihui-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    ports:
+      - '${NODE_EXPORTER_PORT:-8817}:9100'
+    networks:
+      - ihui-net
+
+  # Loki(日志聚合后端,接收 Promtail 推送的日志)
+  # 配置文件挂载到 /etc/loki/local-config.yaml(沿用镜像默认命令路径)
+  loki:
+    profiles: [observability]
+    image: grafana/loki:2.9.0
+    container_name: ihui-loki
+    restart: unless-stopped
+    command:
+      - '-config.file=/etc/loki/local-config.yaml'
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki-data
+    ports:
+      - '${LOKI_PORT:-8818}:3100'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:3100/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+
+  # Promtail(日志采集器,抓取日志文件并推送到 Loki)
+  # 注意:线上生产采用原生部署,实际运行副本位于 D:\DevEnv\monitor,采集的是
+  # 本机应用日志文件(非 docker 容器日志)。本 compose 服务仅作容器化参考,
+  # docker_sd_configs / docker.sock 挂载仅在容器化方案下生效,原生部署不使用。
+  promtail:
+    profiles: [observability]
+    image: grafana/promtail:2.9.0
+    container_name: ihui-promtail
+    restart: unless-stopped
+    command:
+      - '-config.file=/etc/promtail/promtail-config.yml'
+    volumes:
+      # 配置文件
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
+      # Docker 容器日志(只读)
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      # 宿主机 /var/log(只读,用于采集 Nginx 等系统日志)
+      - /var/log:/var/log:ro
+      # Docker socket(用于 docker_sd_configs 自动发现容器)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # API 应用日志目录(只读,需要在 docker-compose 服务中通过 volumes 共享 ./apps/api/logs)
+      - ./apps/api/logs:/apps/api/logs:ro
+      # Promtail 读取位置持久化(重启后不重复读取)
+      - promtail-positions:/tmp
+    depends_on:
+      loki:
+        condition: service_started
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q http://localhost:9080/ready || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Alertmanager(告警通知:Email/钉钉/飞书/企业微信 4 通道)
+  # Prometheus ->Alertmanager 路由/抑制/分组 ->各 receiver
+  # 说明:alertmanager.yml 中 webhook 接收器(dingtalk-webhook/feishu-webhook/wechat-webhook:8060)
+  # 对应独立的 webhook 转换服务(未在本 compose 编排),作为告警出口占位;SMTP 凭据经 env 注入。
+  # 若无自定义模板目录则忽略 templates 加载(Alertmanager 可无 templates 启动)。
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:v0.27.0
+    container_name: ihui-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.listen-address=0.0.0.0:9093'
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml
+      - alertmanager-data:/alertmanager
+    environment:
+      # 告警出口地址(占位;真实值经 .env 注入,勿提交真实凭据)
+      - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL:-}
+      - FEISHU_WEBHOOK_URL=${FEISHU_WEBHOOK_URL:-}
+      - WECHAT_WEBHOOK_URL=${WECHAT_WEBHOOK_URL:-}
+      # SMTP 邮件网关(告警通道一)
+      - SMTP_SMARTHOST=${SMTP_SMARTHOST:-smtp.example.com:465}
+      - SMTP_FROM=${ALERT_SMTP_FROM:-alert@aizhs.top}
+      - SMTP_AUTH_USER=${ALERT_SMTP_AUTH_USER:-}
+      - SMTP_AUTH_PASSWORD=${ALERT_SMTP_AUTH_PASSWORD:-}
+    ports:
+      - '${ALERTMANAGER_PORT:-9093}:9093'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9093/-/healthy']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  ihui-net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  redisdata:
+  prometheusdata:
+  grafanadata:
+  loki-data: # Loki 数据持久化(chunks + index + compactor)
+  promtail-positions: # Promtail 读取位置持久化(positions.yaml)
+  alertmanager-data: # Alertmanager 告警通知状态持久化(nflog/silences)
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
