@@ -106,17 +106,18 @@ async def test_web_online_injects_web_family(monkeypatch: pytest.MonkeyPatch) ->
     assert not any(t.startswith(("mobile_ui_", "taro_ui_")) for t in out), out
 
 
-async def test_mobile_only_online_never_gets_web_tools_or_impossible_verbs(
+async def test_mobile_only_online_routes_its_verbs_to_mobile_family(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _online(monkeypatch, {"mobile_ui_"})
-    # 正则命中的是 click(RN 族根本没有这个动词)→ 必须被族裁掉,且绝不带 web_ui_*
+    # 只有 RN 在线时,"点击提交按钮"必须落到 mobile 族的 click ——
+    # 2026-09-21 补齐前这里会被族裁剪成"只剩 describe",端上注册好的控件到不了模型手上。
     out = await ca.augment_agent_tools([], "帮我点击提交按钮", _USER)
     assert out is not None
     assert all(not t.startswith("web_ui_") for t in out), out
-    for banned in ("mobile_ui_click", "mobile_ui_fill", "mobile_ui_submit"):
-        assert banned not in out
-    assert "mobile_ui_describe" in out and "mobile_ui_click" not in out, out
+    assert "mobile_ui_click" in out, out
+    # 动作类工具一律配一份 describe:元素定位符只能从快照里拿,模型无从猜
+    assert "mobile_ui_describe" in out, out
 
 
 async def test_two_ends_online_inject_both_families(monkeypatch: pytest.MonkeyPatch) -> None:
