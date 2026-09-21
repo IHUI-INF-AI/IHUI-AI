@@ -60,6 +60,10 @@ const whitelist = new Set([
   'web/useClipboard', // 工厂模式: createUseClipboard + 浏览器 adapter,不是独立实现
   'web/useNotificationStore', // web 特有 notification store(集成浏览器 Notification API)
   'mobile-rn/useAuth', // RN AuthContext wrapper(集成 AsyncStorage),shared 是纯逻辑层
+  'mobile-rn/useNotificationStore', // RN 薄封装:re-export @ihui/shared/notifications/notification-store
+  // + 只在 addFromWs 上过滤 agent-control 指令帧(agent.action),其余字段原样透传。
+  // 属 AGENTS.md §3 允许的"re-export wrapper + 平台 adapter",非端内独立实现;
+  // 本守门的 re-export 判定只看 export 那一行有没有 `from`,故函数型 wrapper 必须显式登记。
 ])
 
 // ===== re-export wrapper 检测标识 =====
