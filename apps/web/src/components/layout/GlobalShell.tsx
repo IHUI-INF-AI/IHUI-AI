@@ -182,7 +182,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   //   useMediaQuery 已改为 isomorphic layout effect(2026-09-09),hydration 后 paint 前
   //   完成纠正,无可见闪烁;SSR 初始值 false 与服务端一致,无 hydration mismatch。
   // - CSS 层兜底:globals.css 平板区间对 aside[data-viewport-collapsed='true'] 强制 60px
-  //   宽 + .sidebar-actions 竖排 + 隐藏长 logo,覆盖 SSR 展开 HTML → hydration 前的间隙。
+  //   宽 + 隐藏长 logo,覆盖 SSR 展开 HTML → hydration 前的间隙。
+  //   (2026-09-21:原 .sidebar-actions 竖排兜底规则已随该组件迁入用户菜单而删除)
   // - 历史:2026-08-02 曾用"纯 CSS 不改 state"方案(max-[1023px] 宽度覆盖),2026-09-07 起
   //   演进为上述 JS+CSS 双层方案(纯 CSS 无法切换 footer 竖排/折叠 header 的 React 分支)。
   // - collapsed 状态已下沉到 Sidebar 内部(2026-09-04 性能优化),GlobalShell 不再持有。
