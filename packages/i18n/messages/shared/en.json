@@ -1,4 +1,19 @@
 {
+  "taskStatus": {
+    "activityMcp": "Calling {mcp} MCP",
+    "activityPlugin": "Calling {plugin} plugin",
+    "activityPlanning": "Planning in progress",
+    "activityRunning": "Running",
+    "activitySubagent": "Subagent {name}",
+    "activityTerminal": "Running terminal command",
+    "activityTool": "Calling {tool}",
+    "collapseDetail": "Collapse task details",
+    "expandDetail": "Expand task details",
+    "filesChanged": "{n} files changed",
+    "idle": "Idle",
+    "steps": "Step {current}/{total}",
+    "waiting": "Waiting for the task to start"
+  },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",
     "barChart": "Bar chart",
