@@ -18,6 +18,8 @@ import {
   renderWithdrawalResultEmail,
   renderRedeemSuccessEmail,
   renderVipExpireEmail,
+  renderInvoiceResultEmail,
+  renderWalletRechargeEmail,
   BRAND_LOGO_PATH,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
@@ -485,6 +487,98 @@ describe('email-templates — VIP 过期通知', () => {
     expect(r.html).not.toContain('<script>')
     expect(r.html).toContain('&lt;script&gt;')
     expect(r.html).toContain('尊享版')
+  })
+})
+
+describe('email-templates — 发票结果通知', () => {
+  it('issued 品牌绿:类型/抬头/金额/发票号齐备,有 invoiceUrl 时按钮为下载发票', () => {
+    const r = renderInvoiceResultEmail({
+      invoiceType: 'vat_special',
+      title: '智汇科技有限公司',
+      amountYuan: '365.00',
+      orderNo: 'IH20260921001',
+      status: 'issued',
+      invoiceNo: 'FP-2026-0001',
+      invoiceUrl: 'https://aizhs.top/invoice.pdf',
+      finishedAt: '2026-09-21 16:00:00',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.subject).toContain('发票已开具')
+    expect(r.subject).toContain('增值税专用发票')
+    expect(r.html).toContain('智汇科技有限公司')
+    expect(r.html).toContain('¥365.00')
+    expect(r.html).toContain('FP-2026-0001')
+    expect(r.html).toContain('[ 开具完成 ]')
+    expect(r.html).toContain('href="https://aizhs.top/invoice.pdf"')
+    expect(r.html).toContain('下载发票')
+    expect(r.html).toContain('#B4FF00')
+  })
+
+  it('issued 无 invoiceUrl 时按钮回退到订单页', () => {
+    const r = renderInvoiceResultEmail({
+      invoiceType: 'plain',
+      title: '个人',
+      amountYuan: '9.90',
+      orderNo: 'X1',
+      status: 'issued',
+      invoiceNo: 'FP-1',
+      finishedAt: 't',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.html).toContain('href="https://aizhs.top/orders"')
+    expect(r.html).not.toContain('下载发票')
+  })
+
+  it('rejected 信号红 + 原因;恶意抬头被转义(XSS 防护)', () => {
+    const r = renderInvoiceResultEmail({
+      invoiceType: 'plain',
+      title: '<script>alert(1)</script>',
+      amountYuan: '1.00',
+      orderNo: 'X',
+      status: 'rejected',
+      reason: '税号信息有误',
+      finishedAt: 't',
+      ordersUrl: 'https://aizhs.top/orders',
+    })
+    expect(r.subject).toContain('未通过')
+    expect(r.html).toContain('#FF3B2F')
+    expect(r.html).toContain('[ 未通过 ]')
+    expect(r.html).toContain('税号信息有误')
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('email-templates — 钱包充值到账通知', () => {
+  it('Key 名/扣款/额度/余额齐备 + 按钮指向 API Key 页', () => {
+    const r = renderWalletRechargeEmail({
+      userName: '李总',
+      keyName: '生产环境 Key',
+      costYuan: '12.34',
+      creditTokens: 1000,
+      newTokenBalance: 2000,
+      keysUrl: 'https://aizhs.top/models/keys',
+    })
+    expect(r.subject).toContain('+1000')
+    expect(r.html).toContain('生产环境 Key')
+    expect(r.html).toContain('¥12.34')
+    expect(r.html).toContain('+1000')
+    expect(r.html).toContain('2000')
+    expect(r.html).toContain('href="https://aizhs.top/models/keys"')
+    expect(r.text).toContain('¥12.34')
+  })
+
+  it('无限额度(-1)渲染为 ∞;恶意 Key 名被转义(XSS 防护)', () => {
+    const r = renderWalletRechargeEmail({
+      keyName: '<img src=x onerror=alert(1)>',
+      costYuan: '1.00',
+      creditTokens: 1,
+      newTokenBalance: -1,
+      keysUrl: 'https://aizhs.top/models/keys',
+    })
+    expect(r.html).toContain('∞ 无限')
+    expect(r.html).not.toContain('<img src=x')
+    expect(r.html).toContain('&lt;img src=x')
   })
 })
 
