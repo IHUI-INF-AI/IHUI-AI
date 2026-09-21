@@ -141,6 +141,7 @@ vi.mock('../src/plugins/api-key-auth.js', () => ({
 import v1Assistants from '../src/routes/v1-assistants'
 import v1Batches from '../src/routes/v1-batches'
 import { BATCH_KEY_PREFIX } from '../src/queue/batch-queue'
+import { aiServiceFetch } from '../src/utils/ai-service-fetch'
 
 // =============================================================================
 // 内存假 Redis(只实现本文件路由族用到的命令,语义对齐真 Redis)
@@ -375,9 +376,14 @@ describe('O10b run_ref:创建 → 查询闭环', () => {
       unknown
     >
     const byThreadBody = byThread.json() as Record<string, unknown>
+    // O17b-⑤ 起两条路径都回显句柄,且**取值必须是同一个**(同一份反向索引读出来的)。
+    expect(byThreadBody.run_ref).toBe(created.run_ref)
     // 同一轮:去掉句柄后两条路径的字段完全一致(读逻辑复用,没复制一份)
-    delete byRef.run_ref
-    expect(byRef).toEqual(byThreadBody)
+    const strippedRef = { ...byRef }
+    const strippedThread = { ...byThreadBody }
+    delete strippedRef.run_ref
+    delete strippedThread.run_ref
+    expect(strippedRef).toEqual(strippedThread)
   })
 
   it('别人的句柄 → 404,且与"句柄不存在"回同一个响应体(不泄露存在性)', async () => {
@@ -444,6 +450,8 @@ describe('O10c external_id:自带业务键反查 run', () => {
     expect(lookedBody.usage).toEqual({ prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 })
     expect(lookedBody.external_id).toBe(externalId)
     expect(lookedBody.userId).toBeUndefined()
+    // O17b-⑤:自带业务键反查同样回显 irun_ 句柄,且与创建响应是同一个值
+    expect(lookedBody.run_ref).toBe(body.run_ref)
     // 复用同一份读逻辑:去掉回显的业务键后与按 runId 查询逐字段相等(没另写一套读取)
     const stripped = { ...lookedBody }
     delete stripped.external_id
@@ -564,6 +572,146 @@ describe('O10c external_id:自带业务键反查 run', () => {
     // 那是"默认拒绝"的副作用,不能当作"跑到了 scope 闸"的证据。
     expect(res.statusCode).toBe(403)
     expect(res.json().errorCode).toBe('SCOPE_REQUIRED')
+  })
+})
+
+// =============================================================================
+// 1c. 失败分支与单条详情的句柄回显(O17b-⑤)
+//
+// 边界规则只有一句:**run 记录已落库才给句柄**。
+// storeRun / storeRunRef / storeExternalRunId 全部发生在打 ai-service **之前**,所以三条
+// 失败分支(上游 !ok、上游 error 标记、抛异常)手里的 run 一定可反查;而先于 storeRun 的
+// 400/401/404(参数非法、助手不存在)一个句柄都不带 —— 指向不存在对象的假句柄比没有
+// 句柄更坏。列表族刻意不回显(整页 N 次 Redis 往返),理由写在路由注释里。
+// =============================================================================
+
+describe('O17b-⑤ 失败分支句柄回显 + 单条详情句柄', () => {
+  it('上游非 2xx → 502 带 run_ref/external_id,句柄真能反查到那条 failed run', async () => {
+    const { assistantId, threadId } = await fixtureThread('fail-upstream')
+    vi.mocked(aiServiceFetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+      text: async () => 'upstream exploded',
+    } as unknown as Response)
+
+    const res = await post(`/v1/threads/${threadId}/runs`, {
+      assistant_id: assistantId,
+      external_id: 'fail-upstream-001',
+    })
+    expect(res.statusCode).toBe(502)
+    const body = res.json() as Record<string, unknown>
+    expect(body.code).toBe(502)
+    expect(body.message).toContain('upstream exploded')
+    expect(body.run_ref).toMatch(/^irun_[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(body.external_id).toBe('fail-upstream-001')
+    // 失败响应里没有 runId(不把内部 id 塞进错误体),但两条通道都指向同一条 run
+    expect(body.id).toBeUndefined()
+    const runRef = body.run_ref as string
+    const runId = need().redis.peek(`run_ref:${runRef}`)
+    expect(runId).toBeTruthy()
+
+    const byRef = await get(`/v1/run-refs/${runRef}`)
+    expect(byRef.statusCode).toBe(200)
+    expect(byRef.json().status).toBe('failed')
+    expect(byRef.json().id).toBe(runId)
+    const byExt = await get('/v1/threads/runs/by-external-id/fail-upstream-001')
+    expect(byExt.json().id).toBe(runId)
+    // 反向键同步落地:GET 单条详情靠它回显
+    expect(need().redis.peek(`run_ref_of:${runId as string}`)).toBe(runRef)
+  })
+
+  it('上游回 error 标记 → 502 同样带句柄;未传 external_id 时不带该字段', async () => {
+    const { assistantId, threadId } = await fixtureThread('fail-flagged')
+    vi.mocked(aiServiceFetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ error: true, error_message: 'model rejected the prompt' }),
+      text: async () => '',
+    } as unknown as Response)
+
+    const res = await post(`/v1/threads/${threadId}/runs`, { assistant_id: assistantId })
+    expect(res.statusCode).toBe(502)
+    const body = res.json() as Record<string, unknown>
+    expect(body.message).toBe('model rejected the prompt')
+    expect(body.run_ref).toMatch(/^irun_/)
+    expect(body.external_id).toBeUndefined()
+    const looked = await get(`/v1/run-refs/${body.run_ref as string}`)
+    expect(looked.json().status).toBe('failed')
+  })
+
+  it('抛异常 → 503 带句柄(客户端没接住创建响应也找得回)', async () => {
+    const { assistantId, threadId } = await fixtureThread('fail-throw')
+    vi.mocked(aiServiceFetch).mockRejectedValueOnce(new Error('connection reset'))
+
+    const res = await post(`/v1/threads/${threadId}/runs`, { assistant_id: assistantId })
+    expect(res.statusCode).toBe(503)
+    const body = res.json() as Record<string, unknown>
+    expect(body.message).toBe('connection reset')
+    expect(body.run_ref).toMatch(/^irun_/)
+    const runId = need().redis.peek(`run_ref:${body.run_ref as string}`)
+    expect(runId).toBeTruthy()
+    expect((await get(`/v1/run-refs/${body.run_ref as string}`)).json().status).toBe('failed')
+  })
+
+  it('run 未落库的失败分支不带任何句柄(404 助手不存在 / 400 参数非法)', async () => {
+    const { threadId } = await fixtureThread('fail-no-run')
+    const missing = await post(`/v1/threads/${threadId}/runs`, { assistant_id: 'asst_missing' })
+    expect(missing.statusCode).toBe(404)
+    expect(Object.keys(missing.json() as object)).not.toContain('run_ref')
+    expect(Object.keys(missing.json() as object)).not.toContain('external_id')
+
+    const invalid = await post(`/v1/threads/${threadId}/runs`, {
+      assistant_id: 'asst_missing',
+      external_id: 'bad key with space',
+    })
+    expect(invalid.statusCode).toBe(400)
+    expect(invalid.body).not.toContain('run_ref')
+  })
+
+  it('单条详情回显句柄;列表不回显;存量 run(无反向键)不造句柄', async () => {
+    const { assistantId, threadId } = await fixtureThread('detail-ref')
+    const created = (
+      await post(`/v1/threads/${threadId}/runs`, { assistant_id: assistantId })
+    ).json() as Record<string, unknown>
+
+    const detail = await get(`/v1/threads/${threadId}/runs/${created.id as string}`)
+    expect(detail.statusCode).toBe(200)
+    expect(detail.json().run_ref).toBe(created.run_ref)
+
+    const list = await get(`/v1/threads/${threadId}/runs`)
+    expect(list.statusCode).toBe(200)
+    const data = (list.json() as { data: Record<string, unknown>[] }).data
+    expect(data.length).toBeGreaterThan(0)
+    // 列表刻意不回显:整页 N 次 Redis 往返换字段对称不值当(路由注释同口径)
+    expect(data[0]?.run_ref).toBeUndefined()
+
+    // 存量 run:本改动之前落库、没有反向键 → 宁可不回显,也不凭空造一个查不到的句柄
+    const legacyId = 'run_legacy_without_ref'
+    need().redis.seed(
+      `run:${legacyId}`,
+      JSON.stringify({
+        id: legacyId,
+        object: 'thread.run',
+        created_at: 1,
+        thread_id: threadId,
+        status: 'completed',
+        assistant_id: assistantId,
+        model: 'gpt-4o-mini',
+        instructions: null,
+        tools: [],
+        metadata: null,
+        started_at: 1,
+        completed_at: 1,
+        failed_at: null,
+        usage: null,
+        userId: 'user_a',
+      }),
+    )
+    const legacy = await get(`/v1/threads/${threadId}/runs/${legacyId}`)
+    expect(legacy.statusCode).toBe(200)
+    expect(legacy.json().id).toBe(legacyId)
+    expect(Object.keys(legacy.json() as object)).not.toContain('run_ref')
   })
 })
 

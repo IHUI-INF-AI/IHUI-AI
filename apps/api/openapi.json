@@ -66920,7 +66920,7 @@
     },
     "/api/ai/gemini/video": {
       "post": {
-        "description": "代理调用 Gemini veo-3.0 predictLongRunning 异步视频生成接口",
+        "description": "代理调用 Gemini veo-3.1 predictLongRunning 异步视频生成接口",
         "requestBody": {
           "required": true,
           "content": {
@@ -106769,7 +106769,7 @@
     },
     "/api/ai/x5m5x-image/models": {
       "get": {
-        "description": "代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2 系列)",
+        "description": "代理调用 x5m5x /v1/models 接口(生图 key 鉴权)动态获取官方全量生图模型(gpt-image-2.5 系列)",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -107693,7 +107693,7 @@
     },
     "/api/ai/x5m5x/image": {
       "post": {
-        "description": "代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),支持模型: gpt-image-2(默认,2026-09-20 实测出图)/ gpt-image-2.5-flare / gpt-image-2.5-sunburst / gpt-image-2.5;返回 b64_json 内联数据(非 URL),前端需转 data URI 展示",
+        "description": "代理调用 x5m5x /v1/images/generations(OpenAI images 协议,生图 key),支持模型: gpt-image-2.5-flare(默认,实测出图)/ gpt-image-2.5-sunburst / gpt-image-2.5;返回 b64_json 内联数据(非 URL),前端需转 data URI 展示",
         "requestBody": {
           "required": true,
           "content": {
@@ -174462,6 +174462,11 @@
           },
           {
             "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "tools:read"
+            ]
           }
         ]
       }
@@ -176894,6 +176899,11 @@
           },
           {
             "ApiKeyAuth": []
+          },
+          {
+            "OAuth2": [
+              "tools:read"
+            ]
           }
         ],
         "tags": [

@@ -427,14 +427,30 @@ function newRunRef(nowMs: number): string {
   return `${RUN_REF_PREFIX}_${newUlid(nowMs)}`
 }
 
-/** 句柄 → 内部 runId 的单向映射;TTL 与 run 记录一致(句柄不能比它指的东西活得更久)。 */
+/**
+ * 句柄 → 内部 runId 的单向映射;TTL 与 run 记录一致(句柄不能比它指的东西活得更久)。
+ *
+ * O17b-⑤:同时写**反向**键 `run_ref_of:<runId>`,否则"客户端没接住创建响应"时,
+ * 单条详情(`GET /threads/:threadId/runs/:id`)无从回显句柄 —— 正向键只能由句柄查 runId,
+ * 不能由 runId 查句柄。反向键与正向键同 TTL、同一次写入落地,不引入第二条生命周期。
+ */
 async function storeRunRef(redis: Redis, runRef: string, runId: string): Promise<void> {
   await redis.set(`run_ref:${runRef}`, runId, 'EX', TTL_SECONDS)
+  await redis.set(`run_ref_of:${runId}`, runRef, 'EX', TTL_SECONDS)
 }
 
 /** 句柄反查内部 runId;不存在(或已随 run 一起过期)返回 null。 */
 async function resolveRunRef(redis: Redis, runRef: string): Promise<string | null> {
   return await redis.get(`run_ref:${runRef}`)
+}
+
+/**
+ * 内部 runId → 对外句柄(反向读)。本 O17b-⑤ 之前落库的 run 没有反向键,
+ * 此时**返回 null 而不是现造一个**:句柄必须真能反查到对象,否则回显出去就是假地址。
+ */
+async function readRunRefOf(redis: Redis, runId: string): Promise<string | null> {
+  const ref = await redis.get(`run_ref_of:${runId}`)
+  return ref ? ref : null
 }
 
 // =============================================================================
@@ -1159,6 +1175,17 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
         await storeExternalRunId(redis, apiKey.userId, externalId, runId)
       }
 
+      // O17b-⑤:失败分支也要把句柄交回去。判据只有一条 —— **run 记录是否已落库**:
+      // 上面的 storeRun / storeRunRef / storeExternalRunId 全部发生在打 ai-service **之前**,
+      // 所以能走到下面三个失败分支(上游 5xx、上游 error 标记、抛异常)时 run 一定存在,
+      // 句柄反查得到它(状态为 failed)。反之,先于 storeRun 的 400/401/403/404
+      // (参数校验、归属校验、助手不存在)**不带任何句柄** —— 造一个指向不存在对象的
+      // 假句柄,比不交句柄更坏。
+      const runHandles = (): { run_ref: string; external_id?: string } => ({
+        run_ref: runRef,
+        ...(externalId ? { external_id: externalId } : {}),
+      })
+
       // 收集线程消息构建 ai-service 请求(仍取写入顺序前 MAX_LIMIT 条,与改造前逐字一致)
       const collected = await collectMessages(redis, threadId)
       const aiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
@@ -1187,7 +1214,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           await updateRun(redis, failedRun)
           return reply
             .status(502)
-            .send(error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`))
+            .send({
+              ...error(502, `AI service unavailable (${resp.status}): ${errText.slice(0, 200)}`),
+              ...runHandles(),
+            })
         }
 
         const data = (await resp.json()) as {
@@ -1204,7 +1234,9 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
             failed_at: Math.floor(Date.now() / 1000),
           }
           await updateRun(redis, failedRun)
-          return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
+          return reply
+            .status(502)
+            .send({ ...error(502, data.error_message ?? 'AI service error'), ...runHandles() })
         }
 
         const promptTokens = data.usage?.prompt_tokens ?? 0
@@ -1285,7 +1317,12 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
           failed_at: Math.floor(Date.now() / 1000),
         }
         await updateRun(redis, failedRun)
-        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+        return reply
+          .status(503)
+          .send({
+            ...error(503, (e as Error).message || 'AI service unavailable'),
+            ...runHandles(),
+          })
       }
     },
   )
@@ -1306,7 +1343,11 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       if (!run || run.thread_id !== threadId) {
         return reply.status(404).send(error(404, 'Run not found'))
       }
-      return reply.send(toRunResponse(run))
+      // O17b-⑤:单条详情回显对外句柄(反向键 `run_ref_of:<runId>`)。这样即使第三方
+      // 漏接了创建响应,只要还留着 runId 就能重新拿到句柄。**没有反向键就不回显**
+      // (本改动之前落库的 run),绝不现造一个查不到的句柄。
+      const ref = await readRunRefOf(redis, id)
+      return reply.send({ ...toRunResponse(run), ...(ref ? { run_ref: ref } : {}) })
     },
   )
 
@@ -1374,6 +1415,11 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       }
       const page = readPage(request.query as Record<string, unknown>, binding)
       const items = await collectRuns(redis, threadId)
+      // 刻意**不**在列表里回显 `run_ref`(O17b-⑤):句柄的反向索引是
+      // `run_ref_of:<runId>` 一个键一条值,列表要回显就得对整页(最多 MAX_LIMIT 条)
+      // 各打一次 Redis 往返 —— 为了"字段对称"付 N 次 RTT 不值当,而列表本来的用途是
+      // "看这一轮跑成什么样",runId 已经够用。需要句柄的场景都有零成本出口:
+      // 创建响应(含失败分支)带 run_ref、单条详情带 run_ref、自带业务键反查带 run_ref。
       const result = listPage({ items, page, binding, map: toRunResponse })
       if (!result.ok) return reply.status(400).send(error(400, result.message))
       return reply.send(result.body)
@@ -1492,7 +1538,14 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, 'Run reference not found'))
       }
       // 只增字段:`external_id` 回显调用方自己带来的键;`userId` 依旧不外泄。
-      return reply.send({ ...toRunResponse(run), external_id: externalId })
+      // O17b-⑤:同为"单条 run 详情",一并回显 irun_ 句柄(与按 runId 查询同一条读逻辑,
+      // 两处取值必须一致,否则第三方拿到两个互相矛盾的地址)。
+      const ref = await readRunRefOf(redis, runId)
+      return reply.send({
+        ...toRunResponse(run),
+        external_id: externalId,
+        ...(ref ? { run_ref: ref } : {}),
+      })
     },
   )
 }

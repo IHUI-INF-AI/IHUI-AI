@@ -93,6 +93,21 @@ nginx 的注释也以"60 rpm = 1r/s"作为取值依据(`deploy/nginx/conf.d/rate
 而 L2 真正按分钟计的只有 #3/#4/#5。**要限"每分钟请求数",请配 `per_model_rpm_limit`(#3),
 不要指望 `rateLimit` 字段。**
 
+> **2026-09-21 正式废弃(DEPRECATED)。** 由于上述"可配置但不生效"的误导面长期存在,
+> 该字段已被显式废弃,而不是继续静默保留:
+>
+> - `POST /api/developer/api-keys` 与 `PATCH /api/developer/api-keys/:id` 的 OpenAPI 字段描述
+>   已标注 DEPRECATED(`apps/api/src/routes/developer.ts` `createKeySchema` / `updateKeySchema`);
+> - 请求体只要携带 `rateLimit`,响应即回三个废弃信号头(不改响应体,兼容既有客户端):
+>   `Deprecation: true`、`X-Ihui-Deprecated-Fields: rateLimit`、
+>   `X-Ihui-Deprecated-Hint: …use rateLimit5h/rateLimit1d/rateLimit7d (429 code 1010) or perModelRpmLimit (429 code 1007)`;
+> - **一个版本过渡**:列与默认值 `60` 暂时保留(存量 Key 与 #6 的展示兜底不受影响),
+>   但**不会**参与任何限流判定;计划 **2026-12-31** 起 schema 拒收该字段(400)。
+>
+> 想验证"限流确实在工作",请配 **`rateLimit5h: 1`** —— 第 2 次请求即 `429` +
+> `Retry-After` + `X-RateLimit-Window: 5h` + 业务码 **1010**(回归断言见
+> `apps/api/tests/api-key-quota-enforcement.test.ts` 的 O2-8)。
+
 ### 3.2 逐请求的预估 token 口径
 
 RPM/TPM 检查发生在请求**进入模型之前**,所以只能用预估值:
@@ -191,7 +206,7 @@ RPM/TPM 检查发生在请求**进入模型之前**,所以只能用预估值:
 | 说法                                    | 实际状态 | 依据 |
 | --------------------------------------- | -------- | ---- |
 | 「按 scope 风险档自动限 rpm/burst/并发」 | 未生效   | 第 4 节:apps/api 零引用;ai-service 已实现但无调用点 |
-| 「`rateLimit` 字段=每分钟上限」          | 未生效   | 第 3.1 节:唯一消费点是小时/天兜底 |
+| 「`rateLimit` 字段=每分钟上限」          | 未生效(2026-09-21 已正式废弃) | 第 3.1 节:唯一消费点是小时/天兜底;API 已回 `Deprecation` 头 |
 | 「`critical` 档 1 并发、15 分钟上限」    | 未生效   | 同上;`dailyCalls`/`maxDurationMs` 在 ai-service 实现里也被显式排除(`capability_gate.py:748-749`) |
 | 「分布式限流规则覆盖开放面」              | 未生效   | `plugins/distributed-rate-limit.ts` 提供 `ip/user/tenant/api_key/global` 五档(`:48`),但全仓仅注册了一条规则:`apps/api/src/routes/notifications.ts:357-361`(管理员定向推送,`limit:1,windowSec:60,scope:'user'`),`/v1` 未挂 |
 | 「多实例下并发计数全局一致」              | 未生效   | #8 是进程内计数,源码注释标注单实例正确、多实例需迁 Redis(`apps/api/src/routes/v1-public.ts:1406-1407`) |

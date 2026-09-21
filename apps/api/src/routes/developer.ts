@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { isValidApiKeyPermission } from '@ihui/types'
@@ -53,17 +53,70 @@ const keyQuotaSchema = z.object({
     .optional(),
 })
 
+/**
+ * `rateLimit` 自 2026-09-21 起**正式废弃(DEPRECATED)**。
+ *
+ * 判据(全仓 grep 的 `rate_limit` / `rateLimit` 读取点):
+ * - 鉴权与配额主链路 `enforceApiKeyQuotaAfterAuth`(`plugins/api-key-auth.ts:1024-1050`)
+ *   只读 `limitsOf(apiKey)` 的 `rateLimit5h/1d/7d`(`services/key-rate-window-service.ts:46-56`)、
+ *   `checkTpmQuota`(`tpm_limit`)与 `perModelRpmLimit/perModelTpmLimit`;
+ * - `rateLimit` 仅被复制进 `request.apiKey`(`api-key-auth.ts:870,985`),**零限流判定读取点**;
+ * - 唯一把它当数值消费的地方是 `routes/v1-knowledge-tools.ts:2857-2859` 的小时/天配额**展示兜底**。
+ * 故"设 `rateLimit: 1` 期望第 2 次请求 429"不成立 —— 这是可配置但不生效的死字段。
+ *
+ * 过渡策略(保留一个版本,不静默保留误导):
+ * ① schema 仍接受并写列(不破坏存量客户端与 relay/设置页展示);
+ * ② 只要请求携带该字段,响应即回 `Deprecation: true` + `X-Ihui-Deprecated-Fields` +
+ *    `X-Ihui-Deprecated-Hint`(ASCII,避免 Node 头值非 latin1 抛错)显式告知失效与替代旋钮;
+ * ③ OpenAPI 字段描述同步标注(由 `pnpm openapi:export` 落产物);
+ * ④ 计划 2026-12-31 起 schema 拒收(400)。
+ */
+const DEPRECATED_KEY_FIELDS = ['rateLimit'] as const
+const DEPRECATED_KEY_FIELD_HINT =
+  'rateLimit is deprecated and inert for rate limiting. Use rateLimit5h/rateLimit1d/rateLimit7d (429 code 1010) or perModelRpmLimit (429 code 1007). Removal target: 2026-12-31.'
+
+/** 请求体携带废弃字段时挂废弃响应头(不改动响应体,兼容既有客户端与断言)。 */
+function noteDeprecatedKeyFields(reply: FastifyReply, body: unknown): void {
+  const sent = DEPRECATED_KEY_FIELDS.filter(
+    (field) => typeof body === 'object' && body !== null && field in (body as Record<string, unknown>),
+  )
+  if (sent.length === 0) return
+  void reply.header('Deprecation', 'true')
+  void reply.header('X-Ihui-Deprecated-Fields', sent.join(','))
+  void reply.header('X-Ihui-Deprecated-Hint', DEPRECATED_KEY_FIELD_HINT)
+}
+
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
   permissions: permissionsSchema.default([]),
-  rateLimit: z.number().int().min(1).max(10000).optional(),
+  rateLimit: z
+    .number()
+    .int()
+    .min(1)
+    .max(10000)
+    .optional()
+    .describe(
+      'DEPRECATED(2026-09-21 起不参与任何限流判定,2026-12-31 移除)。' +
+        '限请求数请用 rateLimit5h/rateLimit1d/rateLimit7d(429 code 1010),' +
+        '每分钟请用 perModelRpmLimit(429 code 1007)。',
+    ),
   ...keyQuotaSchema.shape,
 })
 
 const updateKeySchema = z.object({
   name: z.string().min(1).max(100).optional(),
   permissions: permissionsSchema.optional(),
-  rateLimit: z.number().int().min(1).max(10000).optional(),
+  rateLimit: z
+    .number()
+    .int()
+    .min(1)
+    .max(10000)
+    .optional()
+    .describe(
+      'DEPRECATED(2026-09-21 起不参与任何限流判定,2026-12-31 移除)。' +
+        '限请求数请用 rateLimit5h/rateLimit1d/rateLimit7d(429 code 1010),' +
+        '每分钟请用 perModelRpmLimit(429 code 1007)。',
+    ),
   status: z.enum(['active', 'revoked']).optional(),
   ...keyQuotaSchema.shape,
 })
@@ -112,6 +165,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { expiresAt, ...quota } = parsed.data
+    noteDeprecatedKeyFields(reply, request.body)
     const { apiKey, secret } = await apiKeysService.createKey(userId, {
       ...quota,
       expiresAt: toExpiresAt(expiresAt),
@@ -146,6 +200,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { expiresAt, ...patch } = parsed.data
+    noteDeprecatedKeyFields(reply, request.body)
     const updated = await apiKeysService.updateKey(idParsed.data.id, userId, {
       ...patch,
       expiresAt: toExpiresAt(expiresAt),
