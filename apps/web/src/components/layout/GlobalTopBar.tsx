@@ -492,7 +492,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
             3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
             4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间 */}
-        <div ref={topbarInnerRef} className="flex h-9 items-center gap-1">
+        <div ref={topbarInnerRef} data-tauri-drag-region className="flex h-9 items-center gap-1">
           {/* 0. 移动端汉堡菜单按钮(2026-07-31 第十三轮立,GlobalShell 注入)
               - 物理上作为顶栏 flex 第一个元素,跟 TagsViewSearchButton 36x36 尺寸一致,
                 杜绝 absolute 定位与顶栏子元素 z-index/stacking-context 冲突(原 bug:z-modal 也无法覆盖)
