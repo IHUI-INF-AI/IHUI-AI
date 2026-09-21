@@ -1058,8 +1058,9 @@ describe('Progress Sections — 折叠子区组件(对齐 AI 工作台)', () => 
     fireEvent.click(item)
     // 展开后显示嵌套工具调用
     expect(container.textContent).toContain('工具调用(2)')
-    expect(container.textContent).toContain('read_file')
-    expect(container.textContent).toContain('edit_file')
+    // 界面文案已禁止直显英文码名:码名只保留在 data-tool-name 上,显示走 taskStatus 功能名映射
+    expect(container.querySelector('[data-tool-name="read_file"]')).toBeTruthy()
+    expect(container.querySelector('[data-tool-name="edit_file"]')).toBeTruthy()
     expect(container.textContent).toContain('app.ts')
   })
 
