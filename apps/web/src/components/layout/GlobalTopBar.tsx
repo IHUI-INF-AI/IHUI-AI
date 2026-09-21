@@ -38,10 +38,10 @@ import {
   minimizeWindow,
   toggleMaximizeWindow,
   closeWindow,
-  startWindowDrag,
   startResize,
   onMaximizeChange,
 } from '@/lib/tauri-bridge'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
 import { Tooltip } from '@/components/feedback'
@@ -201,9 +201,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 桌面端:窗口最大化状态(Tauri onResized 事件)
   const [isMaximized, setIsMaximized] = React.useState(false)
 
-  // 双击最大化检测(拖拽已改为 mousedown 即时触发,不再需要 timer)
-  const lastMouseDownAt = React.useRef<number>(0)
-  const DOUBLE_CLICK_MS = 250
+  // 拖拽 + 双击最大化:实现见 lib/window-drag.ts(2026-09-21 按下即拖改造)
 
   // 监听 Tauri 最大化事件
   React.useEffect(() => {
@@ -374,28 +372,20 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   }
 
   /**
-   * 顶栏空白区域鼠标按下:即时拖拽 + 双击最大化检测(2026-09-21 用户要求"直接点击就可以拖拽,不需要长按")。
-   * - mousedown 即调用 startWindowDrag(原 250ms 长按等待废除);未移动鼠标即松开时
-   *   click 仍会派发(Tauri 拖拽循环对无位移按压不吞 click,官方拖拽区 onDoubleClick 示例同机理)
-   * - DOUBLE_CLICK_MS 内第二次 mousedown → toggleMaximizeWindow(双击最大化,保留)
-   * - 跳过交互元素(标签/按钮/输入框),让它们的点击正常触发
+   * 顶栏空白区域拖拽 + 双击最大化(2026-09-21 用户要求"直接点击就可以拖拽,不需要长按")。
+   * 按下即拖的实现与理由见 lib/window-drag.ts;双击最大化改用原生 onDoubleClick
+   * (纯点击不启动拖拽 → click 链完整 → 双击照常触发)。
    */
   const handleDragRegionMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    const target = e.target as HTMLElement
-    if (target.closest('a, button, [role="button"], input, textarea, select')) return
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
+    armWindowDragOnFirstMove(e.screenX, e.screenY)
+  }
 
-    const now = Date.now()
-    const sinceLast = now - lastMouseDownAt.current
-
-    if (sinceLast < DOUBLE_CLICK_MS) {
-      lastMouseDownAt.current = 0
-      void handleToggleMax()
-      return
-    }
-
-    lastMouseDownAt.current = now
-    void startWindowDrag()
+  const handleDragRegionDoubleClick = (e: React.MouseEvent) => {
+    if (!isDesktop) return
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
+    void handleToggleMax()
   }
 
   const plusLabel = t('topBar.plus')
@@ -491,6 +481,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         // 空白区 → move 提示可拖;按钮/链接 → pointer 提示可点。
         className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-move"
         onMouseDown={handleDragRegionMouseDown}
+        onDoubleClick={handleDragRegionDoubleClick}
       >
         {/* 第十二轮 flex 顺序契约(2026-07-31 用户反馈"这两个按钮对换一下",由 JSX 顺序控制):
             1. TagsViewSearchButton    ← 搜索按钮(36x36)
