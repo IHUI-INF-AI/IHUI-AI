@@ -3442,3 +3442,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 **2026-09-21 晚更新(状态条 P1 两项进展)**:
 - **② 各端工具功能名化已完成 ✅**:extension(5 渲染点)/ mobile-rn(3 渲染点)/ miniapp-taro(5 渲染点)全部接入共享 `toolDisplayKey`/`humanizeToolText`,三端 typecheck+test(139/365/双守门)全绿。taro remote-locales 生成产物暂无新键(有 zh-CN 回退,不显裸键),待上游重生成自动补齐。
 - **① planSteps 持久化——零迁移方案已探明**:落库链 = ai-chat-stream 流结束 `replaceMessages(conversationId, result.messages)`,**该函数已支持逐条 `metadata`(jsonb)**,无需 DB 迁移。剩余工作:① ai-service llm.py 在 tool loop 终态把 plan 快照挂到 assistant message 的 metadata.planSteps(result.messages 组装处);② web 历史加载路径把 metadata.planSteps 映射回 message.planSteps。两处均为小改,但 llm.py 为 3000+ 行并行会话热点文件,留待独立会话执行。
+
+## P1 侧边栏底部 5 工具按钮收进用户行下拉菜单(2026-09-21 立并完成 ✅,平台独占:仅 apps/web)
+
+- 用户诉求(附 Qoder 截图):侧边栏底部 `div` 内 5 个工具按钮(站内消息/语言/下载客户端/主题切换/设置)全部挪进用户头像行 `button` 的下拉菜单,Qoder 风格 = 普通项 + 「语言 ›」「下载客户端 ›」子菜单。
+- **平台独占豁免依据(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载 web(8801)→ 自动跟随;`apps/mobile-rn/src` grep `Sidebar` 0 命中(无侧边栏形态);`apps/miniapp-taro` 用原生 tabBar + 设置页主题切换,无对应底部工具条。故本任务不涉跨端同步。
+- 主体落地(commit `374de0cbcc`,12 文件):`feedback/Dropdown.tsx` 的 `DropdownItems` 递归渲染支持 `children`(Radix `Sub` + `Portal`/`SubContent`)与 `trailing`(未读徽章 / 当前语言勾选);`SidebarUserRow.tsx` 承载 5 工具项 + 站内消息 Modal(内挂 `NotificationCenter`)+ 下载平台 disabled/版本徽章;删除 `SidebarActions.tsx`(410 行)与 `.sidebar-actions` 样式;`Sidebar.tsx` / barrel `sidebar.tsx` / `nav-data.ts` / `GlobalTopBar.tsx` / `GlobalShell.tsx` 清引用。
+- **本会话续做(交付时该子菜单用例实测 1/4 偶发红,已定位并根治)**:
+  - `e2e/sidebar-visual.spec.ts` 语言子菜单用例两条竞态:① Radix `Sub` 只在指针位于 SubTrigger **或** SubContent 内时保持展开,主菜单从 153→160px 的沉降重排会让"静止指针"触发 pointerleave → 300ms 后子菜单自行关闭(失败 a11y 快照实证"主菜单在、子菜单已无");② trace 实证 `locator.boundingBox()` 只等 `state:"attached"` 不等 visible,故"逐项 round trip 量首项/末项"必留两次读取之间菜单已关的窗口。改法:hover 展开后把指针移进子菜单第一项(即真实用户鼠标路径),再在页面内**一次性原子读取**徽章尺寸/首末项坐标/子菜单宽度,并对"测量时子菜单必须仍在"显式断言。
+  - `e2e/theme-toggle.spec.ts` `openUserMenu`:trigger 由 SSR 渲染,DOM 里先"可见"但 React 水合前点击会被事件系统丢弃(实测撞出 30s 用例超时)→ 改为 `expect.poll` 有界重试,判据取 trigger 自身 `aria-expanded === "true"`(证明这一次点击真被接住;不看菜单可见性也就不会把已开着的菜单再点关),15s 上限明显小于用例超时。
+  - `apps/api/scripts/seed-test-users.ts` + `seed-e2e-knowledge.ts` 生产库防呆误判(阻断本机全部登录态 e2e):原判据 `DATABASE_URL.includes('ihui_dev')` 命中的其实是**口令前缀** `ihui_dev_`(本机库名实为 `ihui`,`url.includes` 为真),于是 seed 恒拒绝 → `global-setup` 只 warn → `test@aizhs.top` 永不存在 → 所有 `authenticatedPage` 用例死在 fixture 登录。改为比对 URL 的**库名**段,仅在 URL 解析失败时回退整串匹配(保持 fail-closed)。修后 seed 成功、setup 2/2 绿。
+- 验证:三套受影响 e2e **23/23 全绿**;稳定性专测 语言子菜单 `--repeat-each=8 --retries=0` **8/8**、theme-toggle `--repeat-each=3` **15/15**;`pnpm --filter @ihui/web typecheck` 与 `@ihui/api typecheck` exit 0;eslint + prettier 改动文件 0 问题。README 免更(§21 豁免:未改对外能力清单,README 亦无该工具条条目)。
