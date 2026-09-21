@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import {
   renderVerificationEmail,
   renderWelcomeEmail,
@@ -26,11 +26,13 @@ import {
   escapeHtml,
 } from '../src/services/email-templates.js'
 
-const mockConfig = vi.hoisted(() => ({
-  CORS_ORIGIN: 'http://localhost:8801,http://tauri.localhost',
-}))
+// email-templates 现为零副作用模块(不 import config),CORS_ORIGIN 直读 process.env。
+// 测试通过 env 控制站点根,默认与 config 校验后的 default 首项一致。
+const DEFAULT_TEST_ORIGIN = 'http://localhost:8801,http://tauri.localhost'
 
-vi.mock('../src/config/index.js', () => ({ config: mockConfig }))
+beforeEach(() => {
+  process.env.CORS_ORIGIN = DEFAULT_TEST_ORIGIN
+})
 
 describe('email-templates — 验证码', () => {
   it('验证码为真实文本且出现在主题/正文/纯文本三处', () => {
@@ -61,7 +63,7 @@ describe('email-templates — 验证码', () => {
 
 describe('email-templates — 欢迎邮件', () => {
   beforeEach(() => {
-    mockConfig.CORS_ORIGIN = 'http://localhost:8801,http://tauri.localhost'
+    process.env.CORS_ORIGIN = DEFAULT_TEST_ORIGIN
   })
 
   it('按钮为真实 <a> 链接且指向控制台', () => {
@@ -584,7 +586,7 @@ describe('email-templates — 钱包充值到账通知', () => {
 
 describe('email-templates — resolveWebOrigin 与转义', () => {
   it('CORS_ORIGIN 为空串时回退到 aizhs.top', () => {
-    mockConfig.CORS_ORIGIN = ''
+    process.env.CORS_ORIGIN = ''
     const r = renderWelcomeEmail({ nickname: 'x', maskedId: 'x', initCredits: 1 })
     expect(r.html).toContain('https://aizhs.top/dashboard')
     expect(r.html).not.toContain('/console')
