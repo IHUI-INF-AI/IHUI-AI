@@ -282,6 +282,10 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 里的 mimo 行 → 列表里能选中但一调用即 LiteLLM "LLM Provider NOT provided" 502。
     "mimo": "mimo",
     "mimo-": "mimo",
+    # agnes 官方回裸名(agnes-2.0-flash / agnes-3.0-flash);缺这条则 `_resolve_from_db` 按
+    # 'openai' 查不到行、`_resolve_provider` 落到 openai 默认位 → 选择器里看得见即 502。
+    "agnes": "agnes",
+    "agnes-": "agnes",
     "doubao-": "doubao",
     "hunyuan-": "hunyuan",
     "glm-": "zhipu",
@@ -1732,6 +1736,14 @@ class LLMGateway:
             return (
                 cfg.api_key or None,
                 cfg.api_base or "https://api.xiaomimimo.com/v1",
+                f"openai/{real_model}",
+            )
+        if m.startswith("agnes"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            cfg = settings.get_provider_config("agnes")
+            return (
+                cfg.api_key or None,
+                cfg.api_base or "https://apihub.agnes-ai.com/v1",
                 f"openai/{real_model}",
             )
         # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)

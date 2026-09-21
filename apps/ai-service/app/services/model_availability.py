@@ -100,6 +100,10 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # === 项目主力(LLM_PROVIDERS JSON 已配置)===
     ("stepfun/", "stepfun"),
     ("agnes/", "agnes"),
+    # agnes 入库的是裸名(agnes-2.0-flash / agnes-3.0-flash,官方不带 vendor 前缀):
+    # 只有带斜杠那条会判成"未知 provider",整家被 /llm/models 过滤掉 —— 而 agnes 是实测
+    # 免充值真能出字的通道之一(2026-09-21 逐通道探测)。与 mimo 同一类缺陷。
+    ("agnes-", "agnes"),
     # 2026-08-31 强化:智汇AI官方中继(极速API),健康检查/5分钟ping/模型过滤需覆盖 ihui/ 前缀
     ("ihui/", "ihui_relay"),
     # 2026-09-08 新增:token6688 聚合网关(t6688/ 前缀),缺此条 is_model_available
