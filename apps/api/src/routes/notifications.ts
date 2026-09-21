@@ -23,6 +23,7 @@ import {
   attachTopicToList,
 } from '../db/notification-queries.js'
 import { sendEmail } from '../services/email-service.js'
+import { renderNoticeEmail } from '../services/email-templates.js'
 import { sendSmsMessage } from '../services/sms.js'
 import { logAction } from '../services/audit-service.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -549,11 +550,18 @@ export const notificationRoutes: FastifyPluginAsync = async (server) => {
                 })
                 queued++
               } else {
+                // 降级:与 notification-dispatch-worker 队列路径同一「智汇通报」品牌模板
+                const rendered = renderNoticeEmail({
+                  tag: 'SYSTEM // NOTICE',
+                  title,
+                  userName: user.nickname ?? undefined,
+                  content,
+                })
                 const result = await sendEmail({
                   to: user.email,
-                  subject: title,
-                  html: `<h2>Hi ${user.nickname ?? user.email},</h2><p>${content}</p>`,
-                  text: content,
+                  subject: rendered.subject,
+                  html: rendered.html,
+                  text: rendered.text,
                 })
                 if (result.sent || result.stub) {
                   sent++
