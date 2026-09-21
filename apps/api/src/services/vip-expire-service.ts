@@ -25,6 +25,38 @@ export interface VipExpireResult {
   errors: string[]
 }
 
+/**
+ * VIP 过期降级邮件通知(fire-and-forget,失败不阻塞每日降级任务)。
+ * 动态 import 避免与 db 层循环依赖;信号红警示 + 续费按钮。
+ */
+async function notifyVipExpired(userId: string, expiredAt: Date): Promise<void> {
+  try {
+    const [{ findUserById }, { sendEmail }, { renderVipExpireEmail, resolveWebOrigin }] =
+      await Promise.all([
+        import('../db/queries.js'),
+        import('./email-service.js'),
+        import('./email-templates.js'),
+      ])
+    const user = await findUserById(userId)
+    if (!user?.email) return
+    const mail = renderVipExpireEmail({
+      userName: user.nickname ?? undefined,
+      expiredAt: expiredAt.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      renewUrl: `${resolveWebOrigin()}/vip`,
+    })
+    await sendEmail({
+      to: user.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      scene: 'notification',
+      userId,
+    })
+  } catch {
+    /* 到期通知失败不阻塞降级任务 */
+  }
+}
+
 export async function expireVipMembers(): Promise<VipExpireResult> {
   const errors: string[] = []
   let expiredVips = 0
@@ -35,6 +67,7 @@ export async function expireVipMembers(): Promise<VipExpireResult> {
     .select({
       id: userVips.id,
       userId: userVips.userId,
+      endTime: userVips.endTime,
     })
     .from(userVips)
     .where(and(eq(userVips.status, 1), lt(userVips.endTime, new Date())))
@@ -45,11 +78,18 @@ export async function expireVipMembers(): Promise<VipExpireResult> {
     return { scanned: 0, expiredVips: 0, downgradedUsers: 0, errors: [] }
   }
 
+  // userId → 最晚过期时间(取该用户多条过期记录中最近失效的一条,用于到期通知)
+  const expiredEndTimes = new Map<string, Date>()
+
   // 2. 批量更新 VIP 记录状态为过期（status=0）
   for (const record of expiredRecords) {
     try {
       await db.update(userVips).set({ status: 0 }).where(eq(userVips.id, record.id))
       expiredVips++
+      const prev = expiredEndTimes.get(record.userId)
+      if (!prev || (record.endTime && record.endTime > prev)) {
+        expiredEndTimes.set(record.userId, record.endTime)
+      }
     } catch (err) {
       errors.push(`Failed to expire VIP record ${record.id}: ${String(err)}`)
     }
@@ -70,6 +110,9 @@ export async function expireVipMembers(): Promise<VipExpireResult> {
       if (!activeVip) {
         await db.update(users).set({ isVip: 0 }).where(eq(users.id, userId))
         downgradedUsers++
+        // VIP 过期邮件通知(fire-and-forget,不阻塞降级循环)
+        const expiredAt = expiredEndTimes.get(userId)
+        if (expiredAt) void notifyVipExpired(userId, expiredAt)
       }
     } catch (err) {
       errors.push(`Failed to downgrade user ${userId}: ${String(err)}`)

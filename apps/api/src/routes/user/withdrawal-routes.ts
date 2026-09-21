@@ -7,6 +7,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import type { WithdrawalFlow } from '@ihui/database'
 import { success, error } from '../../utils/response.js'
 import {
   applyWithdrawal,
@@ -24,6 +25,46 @@ const withdrawalApplySchema = z.object({
   method: z.string().min(1),
   accountInfo: z.record(z.string(), z.unknown()).optional(),
 })
+
+/**
+ * 提现结果邮件通知(fire-and-forget,失败不阻塞审批主流程)。
+ * approved 品牌绿(打款处理中),rejected 信号红(驳回 + 原因 + 余额退回)。
+ */
+function notifyWithdrawalResult(flow: WithdrawalFlow, status: 'approved' | 'rejected'): void {
+  if (!flow.userId) return
+  const targetUserId = flow.userId
+  void (async () => {
+    const [{ findUserById }, { sendEmail }, { renderWithdrawalResultEmail, resolveWebOrigin }] =
+      await Promise.all([
+        import('../../db/queries.js'),
+        import('../../services/email-service.js'),
+        import('../../services/email-templates.js'),
+      ])
+    const user = await findUserById(targetUserId)
+    if (!user?.email) return
+    const mail = renderWithdrawalResultEmail({
+      userName: user.nickname ?? undefined,
+      amountYuan: (flow.amount / 100).toFixed(2),
+      feeYuan: (flow.fee / 100).toFixed(2),
+      method: flow.method,
+      status,
+      rejectReason: flow.rejectReason ?? undefined,
+      processedAt: (flow.processedAt ?? new Date()).toLocaleString('zh-CN', {
+        timeZone: 'Asia/Shanghai',
+        hour12: false,
+      }),
+      withdrawUrl: `${resolveWebOrigin()}/wallet/withdraw/records`,
+    })
+    await sendEmail({
+      to: user.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      scene: 'notification',
+      userId: targetUserId,
+    })
+  })().catch(() => {})
+}
 
 const withdrawalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
@@ -99,6 +140,7 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
       if (id === null) return
       const flow = await approveWithdrawal(id, request.userId ?? null)
       if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
+      notifyWithdrawalResult(flow, 'approved')
       return reply.send(success({ success: true, flow }))
     },
   )
@@ -114,6 +156,7 @@ const withdrawalRoutes: FastifyPluginAsync = async (server) => {
       const body = (request.body as { reason?: string } | null) ?? {}
       const flow = await rejectWithdrawal(id, body.reason ?? '驳回', request.userId ?? null)
       if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
+      notifyWithdrawalResult(flow, 'rejected')
       return reply.send(success({ success: true, flow }))
     },
   )
