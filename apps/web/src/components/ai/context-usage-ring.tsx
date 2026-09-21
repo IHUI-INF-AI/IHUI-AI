@@ -546,7 +546,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             ref={panelRef}
             // z-popover(2026-09-14 补):portal 挂 body 且 z-auto,营销首页 hero 区
             // 祖先 z-10 会整体压住弹层(与 add-menu-popover 同根因)
-            className="z-popover w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // p-3(2026-09-21 补):对齐全局弹层四边内边距规范(permission-mode/history
+            // 同族统一 p-3),此前容器漏写 padding 导致标题/圆环/明细全部贴边
+            className="z-popover w-72 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               coords
                 ? { position: 'fixed', top: coords.top, left: coords.left }
