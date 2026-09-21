@@ -6626,6 +6626,8 @@
     "marketTab": "Agent Market",
     "marketTitle": "Agent Market",
     "mineTab": "My Agents",
+    "loginRequired": "Sign in to enjoy the full agent market experience",
+    "loginNow": "Sign in",
     "nameRequired": "Name is required",
     "next": "Next",
     "noDescription": "No description",

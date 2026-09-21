@@ -6626,6 +6626,8 @@
     "marketTab": "Agent マーケット",
     "marketTitle": "エージェントマーケット",
     "mineTab": "マイ Agent",
+    "loginRequired": "ログインしてエージェントマーケットの全機能をご利用ください",
+    "loginNow": "ログイン",
     "nameRequired": "ごエージェント",
     "next": "次のページ",
     "noDescription": "なし",
