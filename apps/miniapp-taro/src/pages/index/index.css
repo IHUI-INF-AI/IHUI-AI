@@ -1,0 +1,529 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+
+/*
+ * 首页 AI 对话主页专用样式 — 对齐原项目 ai_index.vue 视觉
+ *
+ * 作用域:仅 pages/index/index.tsx 使用。
+ * 设计 token:青色品牌色 / 导航栏背景 / 输入框背景等已迁移为语义 token
+ * (--color-link / --color-link-bg / --color-brand / --color-border 等),
+ * 与 web 端亮色 token 体系统一,CSS 变量向下继承,子组件通过原变量名引用。
+ *
+ * 动画:7 个 @keyframes 对齐原项目 pulse / slideUp / rotate / flipIn /
+ * popupFadeIn / gradientFlow / move。
+ */
+
+/* ===== 首页局部 CSS 变量(对齐原项目硬编码颜色 → 语义 token)===== */
+.ai-home-page {
+  /* 品牌色(原青色系 → 对齐 web 端亮色 token:蓝/品牌语义) */
+
+  /* 容器 / 背景色 */
+  --color-nav-bg: var(--color-link-bg);
+  --color-nav-title: var(--color-foreground);
+  --color-input-bg: var(--color-link-bg);
+  --color-active-bg: var(--color-link-bg);
+  --color-card-subtle: var(--color-card);
+  --color-bg-warm: var(--color-background);
+
+  /* 文字色 */
+
+  /* 边框色 */
+  --color-border-list-item: var(--color-border);
+  --color-border-card: var(--color-border);
+  --color-border-subtle: var(--color-border);
+
+  /* 强调色 */
+  --color-brand-purple-bright: var(--color-brand);
+  --color-brand-purple-soft: var(--color-brand);
+  --color-ios-blue: var(--color-link);
+
+  /* 遮罩已统一收敛至全局 --color-black-* 档位(原本地 --color-overlay-40/50/70 为死代码,已删) */
+}
+
+/* ===== 顶部品牌区脉冲动画(对齐原项目 .share-image pulse)===== */
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.ai-pulse {
+  animation: pulse 0.5s infinite ease-in-out;
+}
+
+/* ===== ModelList 子项上滑入场动画(对齐原项目 .chu-row slideUp)===== */
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(60rpx);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ai-slide-up {
+  opacity: 0;
+  transform: translateY(60rpx);
+  animation: slideUp 0.8s ease forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 旋转动画(对齐原项目 .agent_back rotate)===== */
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-rotate {
+  animation: rotate 5s linear infinite;
+  will-change: transform;
+}
+
+/* ===== 翻转动画(对齐原项目 .popup-content flipIn)===== */
+@keyframes flipIn {
+  0% {
+    transform: perspective(400rpx) rotateX(90deg);
+    opacity: 0;
+  }
+  100% {
+    transform: perspective(400rpx) rotateX(0deg);
+    opacity: 1;
+  }
+}
+
+.ai-flip-in {
+  animation: flipIn 1s linear forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 弹窗淡入(对齐原项目 popupFadeIn)===== */
+@keyframes popupFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ai-popup-fade-in {
+  animation: popupFadeIn 0.2s ease-out forwards;
+  will-change: transform, opacity;
+}
+
+/* ===== 渐变文字流动(对齐原项目 gradientFlow)===== */
+@keyframes gradientFlow {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.ai-gradient-flow {
+  background-size: 200% 200%;
+  animation: gradientFlow 3s ease-in-out infinite;
+}
+
+/* ===== 语音线条动画(对齐原项目 move)===== */
+@keyframes move {
+  0% {
+    transform: scaleY(0.3);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+.ai-voice-move {
+  animation: move 0.75s linear infinite alternate;
+  will-change: transform;
+}
+
+/* ===== 抽屉滑入滑出过渡 ===== */
+.ai-drawer-border {
+  transition: transform 0.3s ease;
+  will-change: transform;
+}
+
+.ai-drawer-border-hidden {
+  transform: translateX(-100%);
+}
+
+.ai-drawer-border-visible {
+  transform: translateX(0);
+}
+
+/* ===== posi_angeetlis(对齐原项目 position: relative;
+      顶部分隔线对齐 RN HomeScreen modelTypeBar borderTop 1dp→2rpx)===== */
+.posi_angeetlis {
+  position: relative;
+  border-top: 2rpx solid var(--color-border);
+}
+
+/* ===== input_box_content(对齐原项目 background-color: #fff)===== */
+.input_box_content {
+  background-color: var(--color-card);
+}
+
+/* ===== model-type-btn 容器(对齐 RN HomeScreen modelTypeBtn:
+      padding 12/20rpx + marginRight 12rpx + 圆角 32rpx + muted 背景)===== */
+.ai-model-type-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+  padding: 12rpx 20rpx;
+  border-radius: 32rpx;
+  background: var(--color-muted);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ai-model-type-btn.active {
+  background: var(--color-primary);
+}
+
+/* model-type-btn 文字标签(对齐 RN modelTypeLabel fontSize 12dp→24rpx,text.secondary) */
+.ai-model-type-label {
+  margin-left: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.ai-model-type-label.active {
+  color: var(--color-primary-foreground);
+  font-weight: 600;
+}
+
+/* ===== 输入区底部安全区(对齐原项目 env(safe-area-inset-bottom))===== */
+.ai-input-safe-area {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
+}
+
+/* ===== 抽屉菜单项选中态(对齐原项目 .menu-item_active)===== */
+.ai-menu-item-active {
+  background: var(--color-active-bg);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+/* ===== ModelList popup 模式行样式(对齐原项目 .chu-row)===== */
+.ai-chu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 80rpx;
+  border-radius: var(--radius-lg);
+  background: var(--color-card);
+  border: 4rpx solid var(--color-border-list-item);
+  margin: 5rpx 0;
+  padding: 0 24rpx;
+}
+
+.ai-chu-row-active {
+  border-color: var(--color-foreground);
+  box-shadow: 0 0 10rpx var(--color-black-10);
+}
+
+/* 关闭按钮(AGENTS §4 圆角守门豁免:close 按钮) */
+.ai-close-btn {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 50rpx;
+  height: 50rpx;
+  z-index: 1000;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== MaterialList 素材库弹窗(对齐原项目 MaterialList.vue) ===== */
+.material-list-container {
+  background: var(--color-card);
+  border-radius: var(--radius-xl);
+  margin: 10rpx 0;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx var(--color-black-8);
+}
+
+/* Tab 栏 */
+.material-tabs {
+  display: flex;
+  flex-direction: row;
+  border-bottom: 2rpx solid var(--color-border-subtle);
+  padding: 0 10rpx;
+}
+
+.material-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  position: relative;
+  cursor: pointer;
+}
+
+.material-tab-text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  transition: color 0.2s ease;
+}
+
+.material-tab-active .material-tab-text {
+  color: var(--color-link);
+  font-weight: bold;
+}
+
+.material-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 4rpx;
+  background: var(--color-link);
+  border-radius: 2rpx;
+}
+
+/* 素材列表滚动区 */
+.material-list-scroll {
+  padding: 0 10rpx;
+}
+
+/* 素材列表项 */
+.material-list-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16rpx 10rpx;
+  border-bottom: 2rpx solid var(--color-border-subtle);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.material-list-item:active {
+  background: var(--color-black-5);
+}
+
+.material-list-item:last-child {
+  border-bottom: none;
+}
+
+/* 文本类型素材项 */
+.material-item-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.material-item-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-item-preview {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 图片/视频类型素材项 */
+.material-item-image,
+.material-item-video {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  width: 100%;
+}
+
+.material-item-thumb {
+  flex-shrink: 0;
+}
+
+/* 音频类型素材项 */
+.material-item-audio {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ===== MaterialCards 素材卡片流(对齐原项目 ai_index.vue) ===== */
+.material-cards-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: var(--color-card-subtle);
+  border-top: 2rpx solid var(--color-border-subtle);
+}
+
+.material-cards-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.material-cards-list {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10rpx 20rpx;
+}
+
+.material-card-item {
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+
+.material-card-close {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  z-index: 2;
+  width: 32rpx;
+  height: 32rpx;
+}
+
+.material-card-body {
+  position: relative;
+  overflow: hidden;
+}
+
+.material-card-text {
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border-subtle);
+}
+
+.material-card-title {
+  font-size: 26rpx;
+  font-weight: bold;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-card-preview {
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== 语音输入动画(对齐原项目 .voice-animation-overlay) ===== */
+.voice-animation-overlay {
+  box-shadow: 0 -4rpx 20rpx var(--color-black-10);
+}
+
+.voice-wave-container {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  height: 80rpx;
+}
+
+.voice-wave-bar {
+  width: 8rpx;
+  height: 60rpx;
+  background: var(--color-link);
+  border-radius: 4rpx;
+}
+
+/* ===== 公告栏样式(滚动文字,亮色 token 渐变背景,对齐 web 端视觉) ===== */
+.announcement-bar {
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(
+    90deg,
+    var(--color-muted),
+    var(--color-secondary),
+    var(--color-accent)
+  );
+  padding: 12rpx 20rpx;
+  position: relative;
+}
+
+.announcement-scroll {
+  display: flex;
+  white-space: nowrap;
+  animation: announcement-marquee 15s linear infinite;
+}
+
+.announcement-text {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  font-weight: 400;
+}
+
+@keyframes announcement-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ===== 模型列表选中样式增强 ===== */
+.ai-chu-row-selected {
+  border-color: var(--color-link) !important;
+  background: linear-gradient(135deg, var(--color-link-bg), var(--color-muted)) !important;
+  box-shadow: none !important;
+}
+
+/* ===== 加载更多样式 ===== */
+.load-more-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.load-more-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 流式光标闪烁动画(对标原项目流式接收光标)===== */
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌ */

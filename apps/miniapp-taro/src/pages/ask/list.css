@@ -1,0 +1,108 @@
+/*
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+*/
+
+/* 样式对齐 RN SharedAskListScreen(packages/app/src/features/ask-list/AskListScreen.tsx)。
+ * 尺寸换算:rpx(N) → N rpx;RN raw 数字(dp) → N*2 rpx。颜色全部走语义 token。
+ * 搜索栏/tab/发布 FAB 为小程序既有功能,保留但配色对齐 RN 视觉语言。 */
+
+/* RN container:bg surface.bg + paddingHorizontal 10 */
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 0 20rpx 120rpx;
+}
+
+/* 分类 tab(小程序独有,active 用 --color-primary 对齐 RN 强调) */
+.tabs {
+  display: flex;
+  margin-bottom: 8rpx;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  padding: 24rpx 0;
+}
+.tab.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ===== 卡片列表(RN card:padding 14 radius 12 border border.light bg surface.light)===== */
+.list {
+  padding: 8rpx 0 0;
+}
+.item {
+  background: var(--color-card);
+  border-radius: 24rpx;
+  border: 1rpx solid var(--color-border);
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-sizing: border-box;
+}
+/* RN cardTitle:fontSize 16 600 text.primary,2 行截断 */
+.title {
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-all;
+}
+/* RN row:row space-between marginTop 8 */
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+}
+/* RN author:fontSize 11 text.tertiary */
+.author {
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* RN meta(answers·views):fontSize 11 text.tertiary;已采纳保留 success 语义色 */
+.answers {
+  margin-left: 16rpx;
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: var(--color-text-tertiary);
+}
+.answers.adopted {
+  color: var(--color-success);
+}
+
+/* 空态(RN empty:paddingVertical 40 center;muted:fontSize 14 text.secondary) */
+.empty {
+  text-align: center;
+  padding: 80rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+}
+
+/* 发布 FAB(对应 RN header "+" onCreate 入口;brand 底 + primary-foreground 字) */
+.fab {
+  position: fixed;
+  right: 40rpx;
+  bottom: 60rpx;
+  width: 96rpx;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: 24rpx;
+  font-size: 48rpx;
+  font-weight: 600;
+  box-shadow: 0 4rpx 20rpx var(--color-black-20);
+}
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
