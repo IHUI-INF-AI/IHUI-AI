@@ -17407,8 +17407,6 @@
     "loadMore": "Load more",
     "loading": "Loading...",
     "noConversations": "No conversations",
-    "branchBadge": "Fork",
-    "branchSourceTooltip": "This conversation was forked from another one",
     "noMessages": "No messages",
     "noMessagesHint": "No messages yet. Send one to say hello!",
     "searchPlaceholder": "Search conversations",
