@@ -10313,6 +10313,8 @@
       "installing": "インストール中",
       "preparing": "アップデートの準備中...",
       "quitChecking": "更新を確認中...",
+      "upToDate": "最新です",
+      "upToDateDesc": "最新バージョンをご利用中です",
       "quitDownloading": "更新をダウンロード中...",
       "quitQuitting": "終了中...",
       "quitRestarting": "更新完了、再起動中...",
