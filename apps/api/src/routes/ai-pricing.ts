@@ -79,6 +79,10 @@ const VENDOR_RULES: VendorRule[] = [
   { vendor: 'internlm', label: '上海AI实验室', prefixes: ['internlm'] },
   { vendor: 'kunlun', label: '昆仑万维天工', prefixes: ['skywork-'] },
   { vendor: 'iflytek', label: '科大讯飞星火', prefixes: ['spark-'] },
+  // 2026-09-21 补:zai 的 glm- 前缀已被上方 zhipu 规则覆盖,此处仅接 zlm- 专有前缀
+  { vendor: 'zai', label: 'Z.ai 智谱国际', prefixes: ['zlm-'] },
+  { vendor: 'pangu', label: '华为盘古', prefixes: ['pangu-'] },
+  { vendor: 'mureka', label: 'Mureka 天工音乐', prefixes: ['mureka-'] },
   {
     vendor: 'mistral',
     label: 'Mistral',
@@ -103,7 +107,13 @@ const VENDOR_RULES: VendorRule[] = [
   { vendor: 'nous', label: 'Nous Research', prefixes: ['nous-'] },
   // 云厂商
   { vendor: 'aws', label: 'AWS Nova', prefixes: ['amazon-nova-'] },
-  { vendor: 'bedrock', label: 'AWS Bedrock', prefixes: ['bedrock/'] },
+  // 2026-09-21 补:Bedrock 点号域格式(anthropic.claude-*/openai.gpt-*/meta.llama-*),
+  // 不会被上方 anthropic/openai/meta 的裸前缀抢匹配(前缀均不带 'anthropic.'/'openai.'/'meta.' 点号形态)
+  {
+    vendor: 'bedrock',
+    label: 'AWS Bedrock',
+    prefixes: ['bedrock/', 'anthropic.', 'openai.', 'meta.'],
+  },
   { vendor: 'azure', label: 'Azure OpenAI', prefixes: ['azure/'] },
   // 推理平台(放最后,前缀匹配优先级低)
   { vendor: 'openrouter', label: 'OpenRouter', prefixes: ['openrouter/'] },
@@ -132,11 +142,28 @@ const VENDOR_RULES: VendorRule[] = [
   { vendor: 'ollama', label: 'Ollama', prefixes: ['ollama/'] },
   { vendor: 'openwebui', label: 'OpenWebUI', prefixes: ['openwebui/'] },
   { vendor: 'featherless', label: 'Featherless', prefixes: ['featherless/'] },
-  { vendor: 'modelscope', label: 'ModelScope', prefixes: ['modelscope/'] },
+  // 2026-09-21 补:Vercel Gateway 转发模型 id 形如 openai/gpt-5.1、anthropic/claude-*、google/gemini-*
+  { vendor: 'vercel', label: 'Vercel Gateway', prefixes: ['openai/', 'anthropic/', 'google/'] },
+  { vendor: 'nscale', label: 'Nscale', prefixes: ['nscale/'] },
+  { vendor: 'vllm', label: 'vLLM', prefixes: ['vllm/'] },
+  { vendor: 'xinference', label: 'Xinference', prefixes: ['xinference/'] },
+  { vendor: 'fal', label: 'Fal.ai', prefixes: ['fal-ai/'] },
+  { vendor: 'inferencenet', label: 'Inference.net', prefixes: ['inferencenet/'] },
+  { vendor: 'modelscope', label: '魔搭', prefixes: ['modelscope/', 'qwen/'] },
+  // 注:modelscope 的 deepseek-ai/ 前缀会被上方 deepseek 规则('deepseek-')抢匹配,不重复加
   { vendor: 'ppio', label: 'PPIO', prefixes: ['ppio/'] },
   { vendor: 'stability', label: 'Stability AI', prefixes: ['stablelm-'] },
   { vendor: 'inflection', label: 'Inflection AI', prefixes: ['inflection-'] },
   { vendor: 'ibm', label: 'IBM watsonx', prefixes: ['watsonx/'] },
+  // 2026-09-21 补:语音/媒体厂商
+  { vendor: 'gladia', label: 'Gladia', prefixes: ['gladia/'] },
+  { vendor: 'soniox', label: 'Soniox', prefixes: ['soniox/'] },
+  { vendor: 'hume', label: 'Hume', prefixes: ['hume/'] },
+  { vendor: 'inworld', label: 'Inworld', prefixes: ['inworld/'] },
+  { vendor: 'getimg', label: 'GetIMG', prefixes: ['getimg/'] },
+  { vendor: 'bria', label: 'Bria', prefixes: ['bria/'] },
+  { vendor: 'freepik', label: 'Freepik', prefixes: ['freepik/'] },
+  { vendor: 'playai', label: 'Play.ai', prefixes: ['playai/'] },
 ]
 
 function detectVendor(modelId: string): { vendor: string; label: string } {
