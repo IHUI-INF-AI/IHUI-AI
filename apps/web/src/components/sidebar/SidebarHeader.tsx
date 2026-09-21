@@ -164,12 +164,15 @@ export function SidebarHeader({
         onMouseUp={handleLogoDragEnd}
         onMouseLeave={handleLogoDragEnd}
       >
-        {/* 方形品牌 logo:与 EmptyState 同源 /images/logo.png,36×36 圆角;button 包裹满足键盘可达性 */}
+        {/* 方形品牌 logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
+            2026-09-21 用户要求去掉遮罩容器圆角:该 PNG 自身已是 22% 圆角 + 四角透明的成品图
+            (2534px 上约 558px 半径,缩到 36px ≈ 8px),再套 rounded-xl(12px)比图自身更圆,
+            会把黑底四角切出缺口露出底色;button 包裹满足键盘可达性 */}
         <button
           type="button"
           aria-label="IHUI AI"
           onClick={() => navigate('/')}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
@@ -178,7 +181,7 @@ export function SidebarHeader({
             width={36}
             height={36}
             draggable={false}
-            className="h-9 w-9 select-none rounded-xl object-contain"
+            className="h-9 w-9 select-none object-contain"
           />
         </button>
         {/* 2026-09-21 修复(用户反馈"拉出按钮跟+号重合 + 按钮变长方形"):
