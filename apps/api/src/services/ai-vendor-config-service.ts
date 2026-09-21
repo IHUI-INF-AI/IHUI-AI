@@ -16,6 +16,9 @@
 import { dbRead } from '../db/index.js'
 import { aiVendorConfigs, type AiVendorConfig } from '@ihui/database'
 import { eq, asc } from 'drizzle-orm'
+// 单一事实源:厂商元数据的权威清单在 V1 路由注册表 VENDORS 里,
+// 本文件的 FALLBACK_VENDORS 由它动态映射生成(新增厂商零维护)。
+import { VENDORS } from '../routes/ai-vendors/_shared.js'
 import type { VendorCredentials } from './vendor-auth-strategies.js'
 
 /**
@@ -39,110 +42,57 @@ export interface FallbackVendorConfig {
  * 字段命名与 AiVendorConfig 保持一致，但不含 id/createdAt/updatedAt。
  * 当数据库不可用或查询失败时，caller service 读取此映射作为兜底。
  */
-export const FALLBACK_VENDORS: Record<string, FallbackVendorConfig> = {
-  dashscope: {
-    vendorCode: 'dashscope',
-    vendorName: 'Dashscope(阿里通义)',
-    baseUrl: 'https://dashscope.aliyuncs.com',
-    authType: 'bearer',
-    keyEnvName: 'DASHSCOPE_API_KEY',
-    isEnabled: true,
-    priority: 1,
-  },
-  doubao: {
-    vendorCode: 'doubao',
-    vendorName: 'Doubao(豆包/字节)',
-    baseUrl: 'https://ark.cn-beijing.volces.com',
-    authType: 'bearer',
-    keyEnvName: 'DOUBAO_API_KEY',
-    isEnabled: true,
-    priority: 2,
-  },
-  gemini: {
-    vendorCode: 'gemini',
-    vendorName: 'Gemini(Google)',
-    baseUrl: 'https://generativelanguage.googleapis.com',
-    authType: 'bearer',
-    keyEnvName: 'GEMINI_API_KEY',
-    isEnabled: true,
-    priority: 3,
-  },
-  suno: {
-    vendorCode: 'suno',
-    vendorName: 'Suno(音乐生成)',
-    baseUrl: 'https://api.suno.ai',
-    authType: 'bearer',
-    keyEnvName: 'SUNO_API_KEY',
-    isEnabled: true,
-    priority: 4,
-  },
-  sora2: {
-    vendorCode: 'sora2',
-    vendorName: 'Sora2(OpenAI 视频)',
-    baseUrl: 'https://api.openai.com',
-    authType: 'bearer',
-    keyEnvName: 'SORA2_API_KEY',
-    isEnabled: true,
-    priority: 5,
-  },
-  coze: {
-    vendorCode: 'coze',
-    vendorName: 'Coze(扣子)',
-    baseUrl: 'https://api.coze.cn',
-    authType: 'bearer',
-    keyEnvName: 'COZE_API_KEY',
-    isEnabled: true,
-    priority: 6,
-  },
-  bailian: {
-    vendorCode: 'bailian',
-    vendorName: 'Bailian(百炼/阿里云)',
-    baseUrl: 'https://dashscope.aliyuncs.com',
-    authType: 'bearer',
-    keyEnvName: 'BAILIAN_API_KEY',
-    isEnabled: true,
-    priority: 7,
-  },
-  jimeng4: {
-    vendorCode: 'jimeng4',
-    vendorName: 'JiMeng4(即梦/字节AI绘画)',
-    baseUrl: 'https://visual.volcengineapi.com',
-    authType: 'volcengine_v4',
-    keyEnvName: 'JIMENG4_API_KEY',
-    secretKeyEnvName: 'JIMENG4_SECRET_KEY',
-    isEnabled: true,
-    priority: 8,
-  },
-  n8n: {
-    vendorCode: 'n8n',
-    vendorName: 'N8N(工作流平台)',
-    baseUrl: '',
-    authType: 'bearer',
-    keyEnvName: 'N8N_API_KEY',
-    isEnabled: true,
-    priority: 9,
-  },
-  tencent: {
-    vendorCode: 'tencent',
-    vendorName: 'Tencent(腾讯混元/ARC)',
-    baseUrl: 'https://ai3d.tencentcloudapi.com',
-    authType: 'tencent_tc3',
-    keyEnvName: 'TENCENT_SECRET_ID',
-    secretKeyEnvName: 'TENCENT_SECRET_KEY',
-    isEnabled: true,
-    priority: 10,
-  },
-  volcengine: {
-    vendorCode: 'volcengine',
-    vendorName: 'Volcengine(火山引擎/字节豆包企业版)',
-    baseUrl: 'https://visual.volcengineapi.com',
-    authType: 'volcengine_v4',
-    keyEnvName: 'VOLCENGINE_API_KEY',
-    secretKeyEnvName: 'VOLCENGINE_SECRET_KEY',
-    isEnabled: true,
-    priority: 11,
-  },
+// 2026-09-21 改为动态映射:此前这里手写 11 家,而 V1 注册表 VENDORS 已有 113 家,
+// 后果是 init-vendor-configs 只种 11 家、admin 后台只列 11 家,其余 100+ 厂商
+// 不可见/不可配 key/详情 404。现以 VENDORS 为单一事实源,新增厂商零维护。
+const SPECIAL_AUTH_TYPES: Record<string, string> = {
+  tencent: 'tencent_tc3',
+  jimeng4: 'volcengine_v4',
+  volcengine: 'volcengine_v4',
 }
+
+/** 按 authHeader 形态探测鉴权类型:签名类走专用值,标准 Bearer 走 bearer,其余 custom_headers */
+function detectAuthType(vendorCode: string): string {
+  const special = SPECIAL_AUTH_TYPES[vendorCode]
+  if (special) return special
+  const cfg = VENDORS[vendorCode]
+  if (!cfg) return 'bearer'
+  const probe = JSON.stringify(cfg.authHeader('__probe__'))
+  return probe === JSON.stringify({ Authorization: 'Bearer __probe__' })
+    ? 'bearer'
+    : 'custom_headers'
+}
+
+/** 早期 11 家的 priority 是已生效的排序语义,必须原样保留;新厂商按 100+ 序号补 */
+const LEGACY_PRIORITIES: Record<string, number> = {
+  dashscope: 1,
+  doubao: 2,
+  gemini: 3,
+  suno: 4,
+  sora2: 5,
+  coze: 6,
+  bailian: 7,
+  jimeng4: 8,
+  n8n: 9,
+  tencent: 10,
+  volcengine: 11,
+}
+
+export const FALLBACK_VENDORS: Record<string, FallbackVendorConfig> = Object.fromEntries(
+  Object.entries(VENDORS).map(([code, cfg], idx): [string, FallbackVendorConfig] => [
+    code,
+    {
+      vendorCode: code,
+      vendorName: cfg.name,
+      baseUrl: cfg.baseUrl,
+      authType: detectAuthType(code),
+      keyEnvName: cfg.keyEnv,
+      secretKeyEnvName: cfg.secretKeyEnv,
+      isEnabled: true,
+      priority: LEGACY_PRIORITIES[code] ?? 100 + idx,
+    },
+  ]),
+)
 
 /**
  * 获取所有启用的厂商配置（按 priority 升序）。
