@@ -1,0 +1,180 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { success, error } from '../utils/response.js'
+import { config } from '../config/index.js'
+
+/**
+ * AI 回调端点。
+ *
+ * 由 AI service 在 LLM 推理完成后 POST 调用(见 apps/ai-service/app/routers/llm.py)。
+ * 接收完整推理结果 + metadata,入队 aiCallback 队列由 Worker 异步处理:
+ * - 持久化 assistant 消息(关联 conversationId/messageId)
+ * - 记录 token 用量
+ * - WebSocket 实时推送(多端同步)
+ *
+ * 端点设计:
+ * - POST /api/ai/callback — 接收回调,入队,立即返回 202 Accepted
+ * - 内部服务间调用,无需 JWT 鉴权(由网络隔离 + 后续可加 shared secret)
+ */
+// D24(2026-09-19 立):工具调用/终端任务持久化 —— 回调 body 可选数组 schema。
+// looseObject:ai-service 侧字段会随协议演进增加,这里只校验关键字段,
+// 其余透传落库(恢复/回放时前端按 BaseToolCall/TerminalTask 消费)。
+const persistedToolCallSchema = z.looseObject({
+  id: z.string(),
+  toolName: z.string(),
+  status: z.string().optional(),
+  isError: z.boolean().optional(),
+  iteration: z.number().optional(),
+  durationMs: z.number().optional(),
+})
+
+const persistedTerminalTaskSchema = z.looseObject({
+  id: z.string(),
+  command: z.string(),
+  status: z.string().optional(),
+  output: z.string().optional(),
+  startedAt: z.string().optional(),
+  endedAt: z.string().optional(),
+  durationMs: z.number().optional(),
+  exitCode: z.number().optional(),
+})
+
+const callbackSchema = z.object({
+  content: z.string(),
+  reasoning: z.string().optional(),
+  model: z.string().nullable().optional(),
+  provider: z.string().optional(),
+  usage: z.unknown().optional(),
+  stub: z.boolean().optional(),
+  // D24(2026-09-19 立):工具调用与终端任务持久化通道(无工具调用时不携带)
+  toolCalls: z.array(persistedToolCallSchema).optional(),
+  terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
+  metadata: z
+    .looseObject({
+      conversationId: z.string().optional(),
+      messageId: z.string().optional(),
+      userId: z.string().optional(),
+    })
+    .optional(),
+})
+
+const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
+  server.post(
+    '/api/ai/callback',
+    {
+      // 2026-08-06 修复:AI 回调内容为 LLM 生成的自由文本,天然含 "#/引号/分号"等字符
+      // (如 markdown 标题 "## 步骤"、编号 "#1")。sqli-guard 强特征正则把 "#" 当 SQL
+      // 注释符拦截 → AI 回复永远无法写库(生产故障:对话只有 user 消息、AI 不回复)。
+      // 本端点为 ai-service(localhost:8803)服务间回调,内容不可预测且非用户输入,
+      // 完全豁免 SQLi 检测;认证由共享密钥(X-Internal-Secret)保证。
+      config: { sqliGuard: { enabled: false } },
+    },
+    async (request, reply) => {
+      // 2026-08-06 修复:共享密钥校验从"可选"改为"强制"(fail-closed)。
+      // 原实现:AI_CALLBACK_SECRET 为空时端点完全公开,攻击者可伪造回调
+      // 注入任意 assistant 消息 + 篡改 token 用量(扣费) + 伪造 userId 关联。
+      // 与 plugins/internal-service-token.ts 的 checkInternalServiceToken
+      // 策略保持一致(该函数对未配置 secret 已 fail-closed);docker-compose
+      // 亦强制要求配置 AI_CALLBACK_SECRET(:? 校验),生产环境必有密钥。
+      if (!config.AI_CALLBACK_SECRET) {
+        request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
+        return reply.status(401).send(error(401, 'AI callback secret not configured'))
+      }
+      const provided = request.headers['x-internal-secret']
+      if (provided !== config.AI_CALLBACK_SECRET) {
+        request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
+        return reply.status(401).send(error(401, 'unauthorized'))
+      }
+
+      const parsed = callbackSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const {
+        content,
+        reasoning,
+        model,
+        provider,
+        usage,
+        stub,
+        toolCalls,
+        terminalTasks,
+        metadata,
+      } = parsed.data
+      const conversationId = metadata?.conversationId
+      const messageId = metadata?.messageId
+      const userId = metadata?.userId
+
+      if (!conversationId || !userId) {
+        // 缺少关联键,无法处理,但仍返回 202 避免阻塞 AI service
+        request.log.warn({ metadata }, 'ai callback missing conversationId/userId')
+        return reply
+          .status(202)
+          .send(success({ accepted: true, warning: 'missing association keys' }))
+      }
+
+      // 入队 aiCallback,Worker 异步处理持久化 + 推送
+      try {
+        const aiCallbackQueue = (
+          server as unknown as {
+            aiCallbackQueue?: { add: (name: string, data: unknown) => Promise<{ id?: string }> }
+          }
+        ).aiCallbackQueue
+
+        if (aiCallbackQueue) {
+          const usageObj = usage as
+            | {
+                total_tokens?: number
+                prompt_tokens?: number
+                completion_tokens?: number
+              }
+            | undefined
+          const tokens = usageObj?.total_tokens
+          await aiCallbackQueue.add('complete', {
+            conversationId,
+            userId,
+            messageId: messageId ?? '',
+            content,
+            reasoning,
+            tokens,
+            // G3: 透传 LLM 扣费链路所需结构化字段
+            model: model ?? undefined,
+            provider,
+            promptTokens: usageObj?.prompt_tokens,
+            completionTokens: usageObj?.completion_tokens,
+            // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
+            idempotencyKey: `${conversationId}:${messageId ?? ''}`,
+            // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
+            // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
+            // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
+            metadata: {
+              model,
+              usage,
+              stub,
+              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
+            },
+          })
+          return reply.status(202).send(success({ accepted: true, queued: true }))
+        }
+
+        // 队列不可用时降级:直接返回,AI service 会重试或放弃(由其策略决定)
+        request.log.warn('aiCallbackQueue not available, callback dropped')
+        return reply
+          .status(202)
+          .send(success({ accepted: true, queued: false, warning: 'queue unavailable' }))
+      } catch (e) {
+        request.log.error({ err: e }, 'ai callback enqueue failed')
+        return reply.status(502).send(error(502, 'callback enqueue failed'))
+      }
+    },
+  )
+}
+
+export default aiCallbackPlugin
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

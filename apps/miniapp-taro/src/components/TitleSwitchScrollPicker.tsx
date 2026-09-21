@@ -1,0 +1,139 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useTt, type TtFn } from '@/i18n'
+import { View, PickerView, PickerViewColumn, Text } from '@tarojs/components'
+import { useState, useCallback, useEffect } from 'react'
+import type { CSSProperties } from 'react'
+import type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps } from '@ihui/types'
+
+// 共享类型 TitleSwitchScrollPickerItem / TitleSwitchScrollPickerProps 已下沉到 packages/types,两端复用。
+// 重新导出以维持本模块公开 API(原文件 export 这些类型)。
+export type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps }
+
+const DEFAULT_LIST = (tt: TtFn): TitleSwitchScrollPickerItem[] => [
+  { name: tt('TitleSwitchScrollPicker.d1', '赛道一') },
+  { name: tt('TitleSwitchScrollPicker.d2', '赛道二') },
+  { name: tt('TitleSwitchScrollPicker.d3', '赛道三') },
+  { name: tt('TitleSwitchScrollPicker.d4', '赛道四') },
+  { name: tt('TitleSwitchScrollPicker.d5', '赛道五') },
+  { name: tt('TitleSwitchScrollPicker.d6', '赛道六') },
+  { name: tt('TitleSwitchScrollPicker.d7', '赛道七') },
+  { name: tt('TitleSwitchScrollPicker.d8', '赛道八') },
+]
+
+/** 5 层堆叠样式:对标旧项目 active_before2/before/item/after/after2 */
+function getItemStyle(delta: number): CSSProperties {
+  const base: CSSProperties = {
+    textAlign: 'center',
+    width: '200px',
+    height: '80px',
+    fontSize: '32px',
+    color: 'var(--color-muted-foreground)',
+    borderRadius: '15px',
+    background: 'var(--color-muted)',
+    boxSizing: 'border-box',
+    boxShadow: '1px 0 9px 1px var(--color-black-50)',
+    transition: 'all 0.5s ease',
+    fontWeight: 'bold',
+    letterSpacing: '0.08em',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: '4px',
+  }
+  if (delta === 0) {
+    return {
+      ...base,
+      color: 'var(--color-foreground)',
+      fontWeight: 600,
+      backgroundColor: 'var(--color-card)',
+      transform: 'scale(1)',
+      opacity: 1,
+      zIndex: 10,
+    }
+  }
+  if (delta === -1) {
+    return { ...base, transform: 'translateY(40px) scale(0.8)', opacity: 0.8, zIndex: -1 }
+  }
+  if (delta === -2) {
+    return { ...base, transform: 'translateY(90px) scale(0.6)', opacity: 0.8, zIndex: -1 }
+  }
+  if (delta === 1) {
+    return {
+      ...base,
+      transform: 'translateY(-38px) scale(0.8)',
+      opacity: 0.8,
+      zIndex: -10,
+      position: 'relative',
+    }
+  }
+  if (delta === 2) {
+    return {
+      ...base,
+      transform: 'translateY(-90px) scale(0.6)',
+      opacity: 0.8,
+      zIndex: -100,
+      position: 'relative',
+    }
+  }
+  return { ...base, transform: 'scale(0.6)', opacity: 0.3 }
+}
+
+/**
+ * 滚动选择器标题切换(对标旧项目 title-switch/scroll_picker.vue)
+ * - 用 PickerView + PickerViewColumn 实现原生滚轮选择
+ * - 上/下点击区域可手动 ±1
+ */
+export default function TitleSwitchScrollPicker(props: TitleSwitchScrollPickerProps) {
+  const tt = useTt()
+  const { mainList = DEFAULT_LIST(tt), defaultIndex = 0, onChange } = props
+  const [itemIndex, setItemIndex] = useState<number[]>([defaultIndex])
+
+  useEffect(() => {
+    onChange?.(itemIndex[0] ?? 0)
+  }, [itemIndex, onChange])
+
+  const prev = useCallback(() => {
+    setItemIndex(([v]) => [Math.max(0, (v ?? 0) - 1)])
+  }, [])
+
+  const next = useCallback(() => {
+    setItemIndex(([v]) => [Math.min(mainList.length - 1, (v ?? 0) + 1)])
+  }, [mainList.length])
+
+  const handleChange = useCallback((e: { detail: { value: number[] } }) => {
+    const next = Array.isArray(e.detail.value) ? e.detail.value : [0]
+    setItemIndex(next)
+  }, [])
+
+  const cur = itemIndex[0] ?? 0
+
+  return (
+    <View className="relative">
+      <View
+        className="absolute top-0 left-0 z-[9995] flex flex-col items-center justify-between"
+        style={{ height: '140px' }}
+      >
+        <View className="w-full h-[40rpx]" onClick={prev} />
+        <View className="w-full h-[40rpx]" onClick={next} />
+      </View>
+      <PickerView
+        value={itemIndex}
+        onChange={handleChange}
+        immediateChange
+        className="w-[420rpx] h-[280rpx]"
+      >
+        <PickerViewColumn className="relative" style={{ paddingLeft: '4px' }}>
+          {mainList.map((item, index) => (
+            <View key={index} style={getItemStyle(cur - index)}>
+              <Text>{item.name}</Text>
+            </View>
+          ))}
+        </PickerViewColumn>
+      </PickerView>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,67 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { View, Text } from '@tarojs/components'
+import { useState, useEffect, useRef } from 'react'
+
+export interface ToastProps {
+  visible?: boolean
+  type?: 'success' | 'error' | 'warning' | 'info'
+  text?: string
+  duration?: number
+  onClose?: () => void
+}
+
+const COLORS: Record<string, string> = {
+  success: 'bg-primary text-primary-foreground',
+  error: 'bg-destructive text-destructive-foreground',
+  warning: 'bg-warning text-warning-foreground',
+  info: 'bg-primary text-primary-foreground',
+}
+
+const ICONS: Record<string, string> = {
+  success: '✓',
+  error: '✕',
+  warning: '!',
+  info: 'i',
+}
+
+export default function Toast({
+  visible = false,
+  type = 'info',
+  text = '',
+  duration = 2000,
+  onClose,
+}: ToastProps) {
+  const [show, setShow] = useState(visible)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const durationRef = useRef(duration)
+  durationRef.current = duration
+
+  useEffect(() => {
+    setShow(visible)
+    if (visible && durationRef.current > 0) {
+      const timer = setTimeout(() => {
+        setShow(false)
+        onCloseRef.current?.()
+      }, durationRef.current)
+      return () => clearTimeout(timer)
+    }
+  }, [visible])
+
+  if (!show) return null
+
+  return (
+    <View className="fixed top-1/2 left-1/2 z-50" style={{ transform: 'translate(-50%, -50%)' }}>
+      <View className={`${COLORS[type]} px-4 py-3 rounded-lg shadow-lg max-w-xs`}>
+        <View className="flex items-center">
+          <Text className="text-sm font-medium mr-2">{ICONS[type]}</Text>
+          <Text className="text-sm">{text}</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
