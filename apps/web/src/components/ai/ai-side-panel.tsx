@@ -1182,7 +1182,12 @@ export function AISidePanel() {
                   className="text-foreground/80"
                 />
               </div>
-              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+              <div
+                // 同 header 的拖拽语义:标题文字区是这块 flex-1,不标属性就只走 JS 兜底
+                // 路径(滞后约 40px)。按钮/徽章是兄弟节点,不受影响。
+                data-tauri-drag-region={windowDragFromHeader ? '' : undefined}
+                className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden"
+              >
                 <span className="flex min-w-0 items-center gap-1">
                   <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
                   {/* 会话累计 Token / 费用徽章(2026-09-07 工作线 A;2026-09-12 W4 成本真网计价):
