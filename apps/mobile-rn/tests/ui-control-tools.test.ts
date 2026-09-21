@@ -16,14 +16,14 @@ import {
 } from '../src/lib/ui-control-tools'
 
 describe('MOBILE_UI_CONTROL_TOOLS 与 ai-service 注册面一致', () => {
-  it('恰好四个动作,且全部 mobile_ui_ 前缀', () => {
-    expect(MOBILE_UI_CONTROL_TOOLS).toHaveLength(4)
+  it('恰好七个动作,且全部 mobile_ui_ 前缀', () => {
+    expect(MOBILE_UI_CONTROL_TOOLS).toHaveLength(7)
     for (const name of MOBILE_UI_CONTROL_TOOLS) expect(name.startsWith('mobile_ui_')).toBe(true)
   })
 
-  it('不含 click/fill/submit(RN 无同源 DOM,这三动词刻意不暴露)', () => {
-    for (const banned of ['mobile_ui_click', 'mobile_ui_fill', 'mobile_ui_submit']) {
-      expect(MOBILE_UI_CONTROL_TOOLS).not.toContain(banned)
+  it('含 click/fill/submit:无 DOM 端靠控件注册表承接,不是把能力砍掉', () => {
+    for (const verb of ['mobile_ui_click', 'mobile_ui_fill', 'mobile_ui_submit']) {
+      expect(MOBILE_UI_CONTROL_TOOLS).toContain(verb)
     }
   })
 
