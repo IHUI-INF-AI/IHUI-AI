@@ -1062,7 +1062,11 @@
     "submit": "Submit",
     "submitting": "Submitting...",
     "failed": "Verification failed",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "status_unverified": "Not verified",
+    "status_pending": "Under review",
+    "status_verified": "Verified",
+    "status_rejected": "Rejected"
   },
   "income": {
     "title": "Earnings",
@@ -1271,7 +1275,9 @@
     "rules": "Promotion Rules",
     "inviteRecords": "Invitation Records",
     "empty": "No data",
-    "loadFailed": "Failed to load promote"
+    "loadFailed": "Failed to load promote",
+    "status_active": "Active",
+    "status_inactive": "Inactive"
   },
   "promotion": {
     "title": "Coupons",
@@ -1316,7 +1322,11 @@
     "submitting": "Submitting...",
     "failed": "Verification failed",
     "fieldsRequired": "Please fill in all fields",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "status_unverified": "Not verified",
+    "status_pending": "Under review",
+    "status_verified": "Verified",
+    "status_rejected": "Rejected"
   },
   "recruitment": {
     "title": "Careers",
