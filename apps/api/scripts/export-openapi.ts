@@ -835,7 +835,9 @@ export async function generateOpenApiDocument(): Promise<ExportResult> {
 
 async function run(argv: string[]): Promise<number> {
   const outIdx = argv.indexOf('--out')
-  const outFile = outIdx >= 0 ? resolve(argv[outIdx + 1] ?? '') : null
+  // 相对 --out 一律按仓库根解析:本脚本由 `pnpm --filter @ihui/api exec` 调起时 cwd 是 apps/api,
+  // 若按 cwd 解析,CI 的 openapi:check-drift 会把产物写进 apps/api/.ihui-agent/ 而第二步从仓库根去找它,门禁用不起来。
+  const outFile = outIdx >= 0 && argv[outIdx + 1] ? resolve(repoRoot, argv[outIdx + 1]!) : null
   const toStdout = argv.includes('--stdout')
   const quiet = argv.includes('--quiet')
   const log = (...args: unknown[]): void => {
