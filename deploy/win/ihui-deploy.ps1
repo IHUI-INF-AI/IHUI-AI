@@ -314,9 +314,11 @@ function Build-Web {
     #    生产机 dist 永远停留在某次手工构建。api-client 新增 patrol 端点、ui-react 新增
     #    icon-2xs 档位后,next build 仍解析 09-14 的旧 dist → "Export updatePatrolTask
     #    doesn't exist in target module" 连续 4 轮构建失败 → 部署停滞(web 滞留旧版本)。
-    #    web 经 dist 消费的 6 个 workspace 包在此逐个重建(依赖序,幂等,单包失败即中止并
-    #    定位到包);未来 web 新增 dist 型 workspace 依赖时须同步加入此清单。
-    foreach ($pkg in @('@ihui/types','@ihui/shared','@ihui/design-tokens','@ihui/auth','@ihui/api-client','@ihui/ui-react')) {
+    #    web 经 dist 消费的 6 个 workspace 包在此逐个重建(拓扑序:shared→api-client/
+    #    design-tokens/types,ui-react→design-tokens,api-client→types,实测 2026-09-21:
+    #    shared 排在 api-client 前会对其旧 dist 报 TS2305 CitationsEvent),单包失败即
+    #    中止并定位到包;未来新增 dist 型 workspace 依赖时须同步调整清单与顺序。
+    foreach ($pkg in @('@ihui/types','@ihui/api-client','@ihui/design-tokens','@ihui/shared','@ihui/auth','@ihui/ui-react')) {
         Log "重建 $pkg dist ..."
         & "D:\DevEnv\tools\npm-global\pnpm.cmd" --filter $pkg run build
         if ($LASTEXITCODE -ne 0) { Fail "workspace 包 $pkg dist 重建失败(exit $LASTEXITCODE)" }
