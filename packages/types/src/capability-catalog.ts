@@ -408,7 +408,17 @@ export const CAPABILITY_CATALOG: readonly CapabilityEntry[] = [
     thirdPartyEligible: true,
     idempotencyRequired: false,
     description: '工具/资源/提示词清单',
-    routes: ['GET /v1/tools', 'GET /v1/resources', 'GET /v1/prompts', 'GET /v1/mcp/tools'],
+    // POST /v1/mcp/resources/read 与 GET /v1/mcp/tools 同属 MCP 网关只读面,
+    // 闸口规则在 apps/api/src/routes/v1-mcp-gateway.ts:164-168 要求 tools:read;
+    // 此前只登记了清单端点、漏登记读取端点,机器凭据无法从 capabilities 清单发现它。
+    routes: [
+      'GET /v1/tools',
+      'GET /v1/resources',
+      'GET /v1/resources/:uri',
+      'GET /v1/prompts',
+      'GET /v1/mcp/tools',
+      'POST /v1/mcp/resources/read',
+    ],
     tools: ['list_tools', 'list_resources', 'get_tool_schema'],
   }),
   c({
