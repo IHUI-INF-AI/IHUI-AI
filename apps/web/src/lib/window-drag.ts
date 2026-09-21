@@ -19,7 +19,13 @@ import { startWindowDrag } from './tauri-bridge'
 
 const DRAG_START_THRESHOLD_PX = 3
 
-const INTERACTIVE_SELECTOR = 'a, button, [role="button"], input, textarea, select'
+// 排除项=真正会与"按下即拖"抢手势的控件:
+//   button/input/textarea/select/[role=button]:点击语义 + 文本选择拖拽;
+//   a:标签页自身带 HTML5 draggable 排序(TagsView),撞车。
+// data-window-drag 显式opt-in:logo 这类"既要能点、又是天然拖窗把手"的元素
+// (旧实现整条 header 都能长按拖,用户习惯抓 logo 拖窗口)。
+const INTERACTIVE_SELECTOR =
+  'a, input, textarea, select, [role="button"]:not([data-window-drag]), button:not([data-window-drag])'
 
 /** mousedown 目标是否属于"可拖拽的空白区"(排除交互子元素 + 调用方额外排除项) */
 export function isDraggableBlankArea(target: HTMLElement, extraExcludeSelector?: string): boolean {
