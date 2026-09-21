@@ -1245,10 +1245,16 @@ async def test_fetch_url_missing_params():
 # -----------------------------------------------------------------------------
 
 async def test_image_generation_success(monkeypatch):
-    """mock httpx 返回 data[0].url,验证 image_url。"""
+    """只配一家凭据(agnes)→ 自动选中该家并成功出图,验证 image_url/provider/model。
+
+    2026-09-21 改写:原用例配 stepfun 并断言 provider=stepfun /
+    model=step-1v-8k,但 stepfun 官方 /v1/models 实测无任何文生图模型
+    (step-1v-8k 是对话视觉模型),该 provider 已从图片链移除,断言的是
+    已不存在的旧行为。测试意图(单家凭据自动选中 + 成功出图)保持不变。
+    """
     from app.core.config import settings
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "fake-key", "api_base": "https://fake.stepfun.com/v1"},
+        "agnes": {"api_key": "fake-key", "api_base": "https://apihub.agnes-ai.com/v1"},
     }))
 
     def handler(method, url):
@@ -1260,10 +1266,10 @@ async def test_image_generation_success(monkeypatch):
     monkeypatch.setattr("httpx.AsyncClient", _make_fake_httpx_client(handler))
     out = await _tool_image_generation({"prompt": "a cat"})
     assert out["tool"] == "image_generation"
-    assert out["ok"] is True
+    assert out["ok"] is True, out
     assert out["image_url"] == "https://cdn.example.com/img.png"
-    assert out["provider"] == "stepfun"
-    assert out["model"] == "step-1v-8k"
+    assert out["provider"] == "agnes"
+    assert out["model"] == "agnes-image-2.5-flash"
 
 
 async def test_image_generation_no_provider(monkeypatch):
