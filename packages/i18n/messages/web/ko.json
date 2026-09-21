@@ -6626,6 +6626,8 @@
     "marketTab": "Agent 마켓",
     "marketTitle": "에이전트 마켓",
     "mineTab": "나의 Agent",
+    "loginRequired": "로그인하면 에이전트 마켓의 전체 기능을 이용할 수 있습니다",
+    "loginNow": "로그인",
     "nameRequired": "에이전트 이름을 입력하세요",
     "next": "다음",
     "noDescription": "설명 없음",
