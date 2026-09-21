@@ -173,6 +173,8 @@
   "live": {
     "viewers": "{n} 人观看",
     "preview": "预告",
+    "replay": "回放",
+    "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播加载失败",
       "loading": "直播加载中…",
@@ -218,7 +220,8 @@
       "liveList": "直播安排",
       "noLive": "当日暂无直播安排",
       "anchor": "主播",
-      "today": "今天"
+      "today": "今天",
+      "upcoming": "即将开始"
     },
     "calendarBtn": "📅 日历",
     "mySubscriptionBtn": "🔔 我的订阅",
@@ -321,7 +324,9 @@
     },
     "orderNo": "订单号",
     "status": {
-      "refunded": "已退款"
+      "failed": "失败",
+      "refunded": "已退款",
+      "refunding": "退款中"
     }
   },
   "wallet": {
@@ -522,6 +527,7 @@
         "education": "教育",
         "life": "生活",
         "office": "办公",
+        "other": "其他",
         "recommend": "推荐",
         "writing": "写作"
       },
@@ -2352,7 +2358,10 @@
       "thresholdText": "满{threshold}可用",
       "expireText": "有效期至 {time}",
       "use": "立即使用",
-      "loadMore": "上拉加载更多"
+      "loadMore": "上拉加载更多",
+      "unused": "未使用",
+      "used": "已使用",
+      "expired": "已过期"
     },
     "couponList": {
       "received": "领取成功",
@@ -2984,7 +2993,19 @@
     "recommendDesc": "开启后将为您推荐优质内容",
     "personalize": "个性化推荐",
     "personalizeDesc": "基于兴趣为您提供个性化内容",
-    "privacyPolicy": "隐私政策"
+    "privacyPolicy": "隐私政策",
+    "status": {
+      "granted": "已授权",
+      "denied": "已拒绝",
+      "unknown": "未授权"
+    },
+    "permissions": {
+      "album": "相册权限",
+      "camera": "相机权限",
+      "record": "麦克风权限",
+      "location": "位置权限",
+      "notification": "通知权限"
+    }
   },
   "page": {
     "vip": {
