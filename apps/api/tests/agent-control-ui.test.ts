@@ -810,6 +810,55 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(mp?.taroUiActions).toBe(__test__.endpoints.get('mp-7')?.capability.taroUiActions?.length)
   })
 
+  it('㉒ category=ext_ui 命中 extension 端,且与 browser 同端不互抢(1:1 择端按 category)', async () => {
+    // 同一个扩展实例同时承载两类执行面:browser(外部网页)与 ext_ui(自有面板)
+    await reportCapability(
+      {
+        endpoint: 'extension',
+        instanceId: 'ext-dual',
+        browserActions: ['click_element'],
+        extUiActions: ['describe', 'navigate', 'read', 'invoke', 'click', 'fill', 'submit'],
+      },
+      USER_A,
+    )
+    expect(__test__.findEndpointByCategory('ext_ui', USER_A)?.capability.instanceId).toBe(
+      'ext-dual',
+    )
+    expect(__test__.findEndpointByCategory('browser', USER_A)?.capability.instanceId).toBe(
+      'ext-dual',
+    )
+    // 但指令按 category 精确投递:ext_ui 的 request.category 是 'ext_ui',不会被改写成 browser
+    const executed = executeCommand({
+      requestId: 'req-ext-ui',
+      category: 'ext_ui',
+      action: 'fill',
+      params: { target: 'el:input#3', value: 'AI 写入' },
+      __user_id: USER_A,
+    })
+    await executed
+    expect(mockPush).toHaveBeenCalledTimes(1)
+    const frame = mockPush.mock.calls[0]?.[1] as { request?: { category?: string } }
+    expect(frame?.request?.category).toBe('ext_ui')
+  })
+
+  it('㉓ /status 对 ext_ui 族回计数,且浏览器/桌面族不串计', async () => {
+    await reportCapability(
+      {
+        endpoint: 'extension',
+        instanceId: 'ext-s',
+        browserActions: ['click_element'],
+        extUiActions: ['describe', 'read'],
+      },
+      USER_A,
+    )
+    const st = await app.inject({ method: 'GET', url: `${PREFIX}/status` })
+    expect(st.statusCode).toBe(200)
+    const rows = (st.json() as { data?: { endpoints?: StatusEndpoint[] } }).data?.endpoints ?? []
+    const ext = rows.find((r) => r.instanceId === 'ext-s')
+    expect(ext?.extUiActions).toBe(2)
+    expect(ext?.browserActions).toBe(1)
+  })
+
   it('⑬ category=ui 被 executeSchema 接受(非法 category 仍 400)', async () => {
     const bad = await app.inject({
       method: 'POST',
