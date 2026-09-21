@@ -35,8 +35,6 @@ export interface MessageListScrollResult {
   scrollToBottom: () => void
   handleJumpToLatest: () => void
   userScrolledUp: boolean
-  userScrolledToTop: boolean
-  setUserScrolledToTop: (v: boolean) => void
   focusedIndex: number
   isFarFromTop: boolean
   isFarFromBottom: boolean
@@ -59,25 +57,18 @@ export function useMessageListScroll({
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
   // 是否在用户手动向上滚动(暂停自动滚动到底部,直到新消息到达或用户滚到底)
   const userScrolledUpRef = React.useRef(false)
-  const userScrolledToTopRef = React.useRef(false)
   // 2026-07-28 立:userScrolledUp 状态镜像(用于驱动 jump-to-latest 浮动按钮显隐)
   // - ref 用于在 scroll callback 高频更新时避免整个组件重渲染
   // - state 镜像驱动浮动按钮条件渲染(ref 变化不会触发重渲染)
   // - 用 rAF 节流合并多次 ref 更新 → state 一次,避免抖动
   const userScrolledUp = useChatStore((s) => s.userScrolledUp)
-  const userScrolledToTop = useChatStore((s) => s.userScrolledToTop)
   const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
-  const setUserScrolledToTop = useChatStore((s) => s.setUserScrolledToTop)
   // 防御性 null check(测试环境 mock 可能未完整注入 setter)
   // 2026-08-25 useMemo 稳定化:原条件表达式在 setter 缺失时每次渲染新建 () => {},
   // 导致依赖它的 useCallback deps 每帧变化(exhaustive-deps 警告 + 无谓重渲染)。
   const safeSetUserScrolledUp = React.useMemo(
     () => (typeof setUserScrolledUp === 'function' ? setUserScrolledUp : () => {}),
     [setUserScrolledUp],
-  )
-  const safeSetUserScrolledToTop = React.useMemo(
-    () => (typeof setUserScrolledToTop === 'function' ? setUserScrolledToTop : () => {}),
-    [setUserScrolledToTop],
   )
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
@@ -180,14 +171,6 @@ export function useMessageListScroll({
       safeSetUserScrolledUp(scrolledUp)
     }
 
-    // 顶部返回按钮:scrollTop > 200px 时显示
-    const TOP_BACK_THRESHOLD = 200
-    const scrolledAwayFromTop = el.scrollTop > TOP_BACK_THRESHOLD
-    userScrolledToTopRef.current = scrolledAwayFromTop
-    if (scrolledAwayFromTop !== userScrolledToTop) {
-      safeSetUserScrolledToTop(scrolledAwayFromTop)
-    }
-
     // D3(2026-09-18 立):跳顶/跳底按钮显隐阈值(距顶/距底 > 800px)。
     // 用 ref 镜像比对,仅在跨阈值时 setState(避免每次 scroll 都重渲染)
     const farTop = el.scrollTop > FAR_THRESHOLD
@@ -274,8 +257,6 @@ export function useMessageListScroll({
     onLoadMoreHistory,
     hasMoreHistory,
     loadingMoreHistory,
-    userScrolledToTop,
-    safeSetUserScrolledToTop,
     userScrolledUp,
     safeSetUserScrolledUp,
   ])
@@ -379,8 +360,6 @@ export function useMessageListScroll({
     if (messages.length === 0) {
       heightMapRef.current.clear()
       setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
-      userScrolledToTopRef.current = false
-      safeSetUserScrolledToTop(false)
       userScrolledUpRef.current = false
       safeSetUserScrolledUp(false)
       isFarFromTopRef.current = false
@@ -520,8 +499,6 @@ export function useMessageListScroll({
     scrollToBottom,
     handleJumpToLatest,
     userScrolledUp,
-    userScrolledToTop,
-    setUserScrolledToTop,
     focusedIndex,
     isFarFromTop,
     isFarFromBottom,
