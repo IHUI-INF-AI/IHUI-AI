@@ -7,7 +7,7 @@ import { executeAgentRuntimeStream, sendToolApprovalResponse } from '@ihui/api-c
 import { parsePlanText, type RenderPlanStep } from '@ihui/shared'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
-import { PlanStepsView, makeToolTranslate, toolDisplayName } from './MessageContent'
+import { PlanStepsView, enumLabel, makeToolTranslate, toolDisplayName } from './MessageContent'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
 
@@ -19,6 +19,31 @@ interface PermissionEvent {
   /** W6:审批 ID。当前 /agent-runtime 通道的 onPermission 载荷未提供该字段,
    *  后端补齐后「允许/拒绝」按钮即可直接走 sendToolApprovalResponse 生效。 */
   approvalId?: string
+}
+
+// 权限决策矩阵的三个枚举字段(契约层均为 string,取值见
+// apps/ai-service/app/routers/agent_runtime.py::_check_permission)。
+// 只登记**已核实**的字面量;映射不到一律原样显示,不猜语义(理由见 MessageContent.enumLabel)
+// —— 审批面板上把 deny 误译成"已放行"会直接误导用户的授权决定。
+export const DECISION_KEY: Readonly<Record<string, string>> = {
+  allow: 'agent.decisionAllow',
+  ask: 'agent.decisionAsk',
+  deny: 'agent.decisionDeny',
+}
+export const DANGER_LEVEL_KEY: Readonly<Record<string, string>> = {
+  read: 'agent.levelRead',
+  write: 'agent.levelWrite',
+  dangerous: 'agent.levelDangerous',
+  high: 'agent.levelHigh',
+  medium: 'agent.levelMedium',
+  low: 'agent.levelLow',
+}
+export const MODE_KEY: Readonly<Record<string, string>> = {
+  default: 'agent.modeDefault',
+  plan: 'agent.modePlan',
+  acceptEdits: 'agent.modeAcceptEdits',
+  bypassPermissions: 'agent.modeBypassPermissions',
+  manual: 'agent.modeManual',
 }
 
 interface AgentRuntimePanelProps {
@@ -195,16 +220,18 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         {permission && (
           <section className="px-2.5 py-2 border border-warning rounded-md text-xs bg-warning/10">
             <div className="text-xs text-muted-foreground mb-1 font-medium">
-              {t('agent.permissionDecision') + ': '}
-              {permission.decision}
+              <span>{t('agent.permissionDecision') + ': '}</span>
+              {/* decision 是枚举原值(allow/ask/deny),必须走映射显示本地化措辞 */}
+              <span>{enumLabel(permission.decision, DECISION_KEY, t)}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              {t('agent.tool') + ': '}
+              <span>{t('agent.tool') + ': '}</span>
               {/* 界面禁止直显英文工具码名:已登记的内置工具显示本地化功能名 */}
-              {toolDisplayName(permission.toolName, makeToolTranslate(t))} ·{' '}
-              {t('agent.level') + ':'}
-              {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}
-              {permission.mode}
+              <span>{toolDisplayName(permission.toolName, makeToolTranslate(t))}</span>
+              <span> · {t('agent.level') + ':'}</span>
+              <span>{enumLabel(permission.dangerLevel ?? 'read', DANGER_LEVEL_KEY, t)}</span>
+              <span> · {t('agent.mode') + ': '}</span>
+              <span>{enumLabel(permission.mode, MODE_KEY, t)}</span>
             </div>
             {/* W6:审批按钮。缺 approvalId 时降级只读并给出提示 */}
             <div className="flex items-center gap-1.5 mt-2">

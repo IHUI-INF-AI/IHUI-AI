@@ -192,7 +192,17 @@
     "planStatusInProgress": "진행 중",
     "planStatusCompleted": "완료",
     "subagentTools": "하위 에이전트 도구 ×{count}",
-    "usage": "사용량"
+    "usage": "사용량",
+    "subagentRoleValidator": "검증자",
+    "subagentRoleReviewer": "검토자",
+    "subagentRoleExplorer": "탐색자",
+    "subagentRoleImplementer": "구현자",
+    "subagentRolePlanner": "계획자",
+    "subagentRoleTester": "테스트자",
+    "subagentRoleResearcher": "연구원",
+    "subagentRoleOptimizer": "최적화자",
+    "subagentRoleDebugger": "디버거",
+    "subagentRoleRefactorer": "리팩터링자"
   },
   "settings": {
     "language": "인터페이스 언어",
@@ -245,7 +255,21 @@
     "approvalSubmitting": "제출 중...",
     "approvalSent": "제출됨",
     "approvalFailed": "제출 실패",
-    "approvalUnavailable": "이 채널은 온라인 승인을 지원하지 않습니다"
+    "approvalUnavailable": "이 채널은 온라인 승인을 지원하지 않습니다",
+    "decisionAllow": "허용됨",
+    "decisionAsk": "승인 대기",
+    "decisionDeny": "차단됨",
+    "levelRead": "읽기 전용",
+    "levelWrite": "쓰기",
+    "levelDangerous": "위험함",
+    "levelHigh": "고위험",
+    "levelMedium": "중위험",
+    "levelLow": "저위험",
+    "modeDefault": "기본",
+    "modePlan": "계획 모드",
+    "modeAcceptEdits": "편집 자동 승인",
+    "modeBypassPermissions": "모두 허용",
+    "modeManual": "수동 승인"
   },
   "course": {
     "title": "코스",

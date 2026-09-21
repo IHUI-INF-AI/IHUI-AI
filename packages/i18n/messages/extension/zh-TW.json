@@ -192,7 +192,17 @@
     "planStatusInProgress": "進行中",
     "planStatusCompleted": "已完成",
     "subagentTools": "子代理工具 ×{count}",
-    "usage": "用量"
+    "usage": "用量",
+    "subagentRoleValidator": "校驗者",
+    "subagentRoleReviewer": "評審者",
+    "subagentRoleExplorer": "探索者",
+    "subagentRoleImplementer": "實現者",
+    "subagentRolePlanner": "規劃者",
+    "subagentRoleTester": "測試者",
+    "subagentRoleResearcher": "研究員",
+    "subagentRoleOptimizer": "優化者",
+    "subagentRoleDebugger": "調試者",
+    "subagentRoleRefactorer": "重構者"
   },
   "settings": {
     "language": "介面語言",
@@ -245,7 +255,21 @@
     "approvalSubmitting": "提交中...",
     "approvalSent": "已提交",
     "approvalFailed": "提交失敗",
-    "approvalUnavailable": "當前通道暫不支援線上審批"
+    "approvalUnavailable": "當前通道暫不支援線上審批",
+    "decisionAllow": "已放行",
+    "decisionAsk": "待確認",
+    "decisionDeny": "已攔截",
+    "levelRead": "唯讀",
+    "levelWrite": "寫入",
+    "levelDangerous": "高危",
+    "levelHigh": "高風險",
+    "levelMedium": "中風險",
+    "levelLow": "低風險",
+    "modeDefault": "預設",
+    "modePlan": "規劃模式",
+    "modeAcceptEdits": "自動接受編輯",
+    "modeBypassPermissions": "全部放行",
+    "modeManual": "手動確認"
   },
   "course": {
     "title": "課程",
