@@ -3,7 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash, createHmac, randomBytes } from 'node:crypto'
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type {
+  DoneFuncWithErrOrRes,
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyReply,
+  FastifyRequest,
+} from 'fastify'
 import fp from 'fastify-plugin'
 import { encryptJSON, decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 
@@ -471,35 +477,53 @@ const responseSanitizerPlugin: FastifyPluginAsync<SanitizerOptions> = async (
   const secretKey = opts.secretKey ?? DEFAULT_SECRET_KEY
   const maskOpts = rules ? { rules, secretKey } : undefined
 
+  /**
+   * 计算脱敏后的响应体（纯同步：只有 JSON.parse / stringify 与对象遍历，没有任何 await）。
+   * 命中豁免/解析失败时原样返回 payload，因此调用方一律 done(null, ...)。
+   */
+  function rewritePayload(request: FastifyRequest, reply: FastifyReply, payload: unknown): unknown {
+    // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
+    if (request.skipResponseSanitization) return payload
+    // OAuth/OIDC 协议面整体豁免(理由见 PROTOCOL_NO_MASK_PREFIXES)
+    if (isProtocolNoMaskPath(request.url)) return payload
+    const contentType = reply.getHeader('content-type')
+    if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
+      return payload
+    }
+    // SSE 不处理
+    if (contentType.includes('text/event-stream')) return payload
+    // 仅处理 2xx
+    if (reply.statusCode < 200 || reply.statusCode >= 300) return payload
+    if (typeof payload !== 'string' || payload.length === 0) return payload
+
+    try {
+      const data = JSON.parse(payload) as unknown
+      const masked = sanitizeData(data, keys, maskOpts)
+      // 未改动则返回原 payload（避免无谓的序列化）
+      if (masked === data) return payload
+      const body = JSON.stringify(masked)
+      reply.header('content-length', Buffer.byteLength(body))
+      return body
+    } catch {
+      // 脱敏失败不影响正常响应（fail-open）
+      return payload
+    }
+  }
+
+  // 刻意用**回调风格**而不是 async(2026-09-22):async onSend 会让 Fastify 5 的
+  // `onSendHookRunner` 走 `result.then(handleResolve)`,把 writeHead 推到下一个微任务,
+  // 留出"headers 已写出但 writableEnded 未置位"的交错窗口 → 生产日志里成对的
+  // ERR_HTTP_HEADERS_SENT + FST_ERR_REP_ALREADY_SENT WARN。本钩子全程同步,
+  // `done()` 同步调用即让整条钩子链在同一调用栈内走完。
   server.addHook(
     'onSend',
-    async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
-      // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
-      if (request.skipResponseSanitization) return payload
-      // OAuth/OIDC 协议面整体豁免(理由见 PROTOCOL_NO_MASK_PREFIXES)
-      if (isProtocolNoMaskPath(request.url)) return payload
-      const contentType = reply.getHeader('content-type')
-      if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
-        return payload
-      }
-      // SSE 不处理
-      if (contentType.includes('text/event-stream')) return payload
-      // 仅处理 2xx
-      if (reply.statusCode < 200 || reply.statusCode >= 300) return payload
-      if (typeof payload !== 'string' || payload.length === 0) return payload
-
-      try {
-        const data = JSON.parse(payload) as unknown
-        const masked = sanitizeData(data, keys, maskOpts)
-        // 未改动则返回原 payload（避免无谓的序列化）
-        if (masked === data) return payload
-        const body = JSON.stringify(masked)
-        reply.header('content-length', Buffer.byteLength(body))
-        return body
-      } catch {
-        // 脱敏失败不影响正常响应（fail-open）
-        return payload
-      }
+    (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      payload: unknown,
+      done: DoneFuncWithErrOrRes,
+    ) => {
+      done(null, rewritePayload(request, reply, payload))
     },
   )
 }
