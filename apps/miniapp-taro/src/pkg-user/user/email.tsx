@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { getProfile, bindEmail, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import './email.css'
@@ -15,6 +16,15 @@ export default function Email() {
   const { t } = useI18n()
   const [currentEmail, setCurrentEmail] = useState('')
   const [email, setEmail] = useState('')
+  // AI 操控通道(2026-09-21):只登记新邮箱(PII,回传值会被注册表打码);
+  // 验证码字段属凭据,不交出写通道。
+  useUiField({
+    kind: 'input',
+    label: t('user.email.emailPlaceholder'),
+    placeholder: t('user.email.emailPlaceholder'),
+    readValue: () => email,
+    setValue: setEmail,
+  })
   const [code, setCode] = useState('')
   const [counting, setCounting] = useState(false)
   const [count, setCount] = useState(60)

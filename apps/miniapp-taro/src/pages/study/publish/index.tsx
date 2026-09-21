@@ -7,6 +7,7 @@ import { View, Text, Input, Textarea, Button, Picker } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 
@@ -18,6 +19,28 @@ export default function StudyPublish() {
   const [visibility, setVisibility] = useState(0)
   const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
+  // AI 操控通道(2026-09-21):学习计划表单的三个输入框(界面上无独立 label,placeholder 即屏上文案)。
+  // 发布按钮不注册 submit —— 对外发布不可撤销,交回用户。
+  useUiField({
+    kind: 'input',
+    label: t('study.publish.titlePlaceholder'),
+    maxLength: 50,
+    readValue: () => title,
+    setValue: setTitle,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: t('study.publish.contentPlaceholder'),
+    maxLength: 2000,
+    readValue: () => content,
+    setValue: setContent,
+  })
+  useUiField({
+    kind: 'input',
+    label: t('study.publish.tagsPlaceholder'),
+    readValue: () => tags,
+    setValue: setTags,
+  })
 
   const categories = tList('study.publish.categories')
   const visibilityOptions = tList('study.publish.visibilityOptions')

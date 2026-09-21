@@ -89,7 +89,16 @@ const failResult = (errorCode: AgentActionErrorCode, error: string): UiRegistryR
  * 判定面 = inputType + password 属性 + label/placeholder 关键词(三者取并,宁严勿松)。
  */
 const SENSITIVE_RE =
-  /password|passwd|pwd|passcode|secret|token|api[_\s-]?key|private[_\s-]?key|access[_\s-]?key|credential|验证码|动态码|短信码|校验码|密钥|证书/i
+  /password|passwd|pwd|passcode|secret|api[_\s-]?key|private[_\s-]?key|access[_\s-]?key|credential|密码|验证码|动态码|短信码|校验码|密钥|证书|令牌/i
+
+/**
+ * `token` 一词有两种身份:凭据名与**计量单位**。裸判会让「Max Tokens」「tokens 上限」这类
+ * 模型参数被当密钥吞掉(AI 侧表现为"这框不存在"),而漏放凭据的代价才是不可逆的 ——
+ * 故 token 只在非计量语境下算敏感。与 apps/mobile-rn/src/lib/ui-field-registry.ts 同一口径。
+ */
+const TOKEN_RE = /token/i
+const TOKEN_MEASURE_RE =
+  /max[\s_-]*tokens|tokens?\s*(数|量|上限|预算|长度|成本)|上下文(长度|窗口|预算)|每秒|per[\s_-]?second/i
 
 /** 个人信息:仍允许操作(填手机号是正常需求),但 describe 回传的值必须打码 */
 const PII_RE =
@@ -104,8 +113,9 @@ const DESTRUCTIVE_RE =
 
 export function isSensitiveField(spec: UiFieldSpec): boolean {
   if (spec.password === true) return true
-  if (spec.inputType && SENSITIVE_RE.test(spec.inputType)) return true
-  return SENSITIVE_RE.test(`${spec.label} ${spec.placeholder ?? ''}`)
+  const haystack = `${spec.inputType ?? ''} ${spec.label} ${spec.placeholder ?? ''}`
+  if (SENSITIVE_RE.test(haystack)) return true
+  return TOKEN_RE.test(haystack) && !TOKEN_MEASURE_RE.test(haystack)
 }
 
 export function isDestructiveControl(spec: UiFieldSpec | UiFormSpec): boolean {
