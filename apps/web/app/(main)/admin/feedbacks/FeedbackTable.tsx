@@ -122,7 +122,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                         STATUS_BADGE[fb.status],
                       )}
                     >
-                      {tf(STATUS_KEY[fb.status] ?? 'status_unknown')}
+                      {tf(STATUS_KEY[fb.status] ?? 'statusUnknown')}
                     </span>
                   </td>
                   <td className="px-4 py-2.5">
@@ -132,7 +132,7 @@ export function FeedbackTable({ list, isLoading, error, onEdit, onDelete }: Feed
                         PRIORITY_BADGE[fb.priority],
                       )}
                     >
-                      {tf(PRIORITY_KEY[fb.priority] ?? 'priority_unknown')}
+                      {tf(PRIORITY_KEY[fb.priority] ?? 'priorityUnknown')}
                     </span>
                   </td>
                   <td className="max-w-xs break-words px-4 py-2.5">{fb.feedback ?? '-'}</td>
