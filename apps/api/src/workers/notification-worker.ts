@@ -6,6 +6,7 @@ import type { FastifyInstance } from 'fastify'
 import type { Worker } from 'bullmq'
 import { createWorker, QUEUE_NAMES, type NotificationJobData, type Job } from '../plugins/queue.js'
 import { sendEmail } from '../services/email-service.js'
+import { renderNoticeEmail, renderSystemAlertEmail } from '../services/email-templates.js'
 import { createNotification } from '../db/notification-queries.js'
 
 /**
@@ -36,10 +37,32 @@ export function startNotificationWorker(server: FastifyInstance): Worker {
       }
       if (email) {
         try {
+          // 「智汇通报」品牌模板:预算告警走信号红工程框,其余走通用通知版式
+          const alertSeverity =
+            data && typeof data === 'object' && 'severity' in data
+              ? (data as { severity?: unknown }).severity
+              : undefined
+          const rendered =
+            type === 'BUDGET_ALERT'
+              ? renderSystemAlertEmail({
+                  severity:
+                    alertSeverity === 'critical' || alertSeverity === 'info'
+                      ? alertSeverity
+                      : 'warning',
+                  source: 'BUDGET_ALERT',
+                  time: new Date().toLocaleString('zh-CN', {
+                    timeZone: 'Asia/Shanghai',
+                    hour12: false,
+                  }),
+                  title,
+                  message: content ?? '',
+                })
+              : renderNoticeEmail({ tag: 'SYSTEM // NOTICE', title, userName, content: content ?? '' })
           await sendEmail({
             to: email,
-            subject: title,
-            html: `<h2>Hi ${userName ?? ''},</h2><p>${content ?? ''}</p>`,
+            subject: rendered.subject,
+            html: rendered.html,
+            text: rendered.text,
           })
         } catch (e) {
           server.log.warn({ err: e, jobId: job.id }, 'notification email failed')
