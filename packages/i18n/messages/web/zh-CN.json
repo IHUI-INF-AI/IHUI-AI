@@ -17380,8 +17380,6 @@
     "loadMore": "加载更多",
     "loading": "加载中...",
     "noConversations": "暂无会话",
-    "branchBadge": "分支",
-    "branchSourceTooltip": "此会话从其他会话分叉而来",
     "noMessages": "暂无消息",
     "noMessagesHint": "暂无消息，发送一条打个招呼吧",
     "searchPlaceholder": "搜索会话",
