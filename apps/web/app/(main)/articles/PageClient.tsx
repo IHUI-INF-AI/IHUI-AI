@@ -1,0 +1,103 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useTranslations, useLocale } from 'next-intl'
+import { Newspaper } from 'lucide-react'
+import { SearchInput } from '@ihui/ui-react'
+
+import { BackButton } from '@/components/common'
+import { ArticlesList } from './ArticlesList'
+import { ArticlesSidebar } from './ArticlesSidebar'
+import { PAGE_SIZE, api } from './helpers'
+import type { ArticleCategory, ArticlesData } from './types'
+
+export default function ArticlesPageClient() {
+  const t = useTranslations('articles')
+  const locale = useLocale()
+
+  const [search, setSearch] = React.useState('')
+  const [debounced, setDebounced] = React.useState('')
+  const [categoryId, setCategoryId] = React.useState<string>('all')
+  const [page, setPage] = React.useState(1)
+
+  React.useEffect(() => {
+    const tm = setTimeout(() => {
+      setDebounced(search)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(tm)
+  }, [search])
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['articles', 'categories'],
+    queryFn: () =>
+      api<{ list: ArticleCategory[] }>(`/api/article/categories`).then((d) => d.list ?? []),
+  })
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['articles', debounced, categoryId, page],
+    queryFn: () => {
+      const qs = new URLSearchParams({
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
+      })
+      if (categoryId !== 'all') qs.set('categoryId', categoryId)
+      if (debounced) qs.set('search', debounced)
+      return api<ArticlesData>(`/api/article/list?${qs.toString()}`)
+    },
+  })
+
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const items = data?.list ?? []
+
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-4">
+      <BackButton />
+      <header className="space-y-1">
+        <div className="flex items-center gap-2">
+          <Newspaper className="h-6 w-6 text-primary" />
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
+        </div>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+      </header>
+
+      <SearchInput
+        size="lg"
+        wrapperClassName="w-full max-w-md"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('search')}
+        aria-label={t('search')}
+      />
+
+      <div className="flex flex-col gap-6 min-[1024px]:flex-row">
+        <ArticlesList
+          items={items}
+          isLoading={isLoading}
+          error={error as Error | null}
+          total={total}
+          totalPages={totalPages}
+          page={page}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+          locale={locale}
+        />
+        <ArticlesSidebar
+          categories={categories}
+          categoryId={categoryId}
+          onSelectCategory={(id) => {
+            setCategoryId(id)
+            setPage(1)
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

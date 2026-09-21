@@ -1,0 +1,422 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { eq, and, asc, sql, type SQL } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { aibotSites } from '@ihui/database'
+import { success, error } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
+
+const idParamSchema = z.object({ id: z.string().min(1) })
+
+// =============================================================================
+// 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
+// =============================================================================
+
+function parsePaging(q: { page?: string; pageSize?: string }): { page: number; pageSize: number } {
+  const page = Math.max(1, Math.floor(Number(q.page) || 1))
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(q.pageSize) || 20)))
+  return { page, pageSize }
+}
+
+// 允许访问的表名白名单（防止 sql.raw 拼接 table 参数时引入注入风险）
+const ALLOWED_TABLES = new Set(['zhs_category_dictionary'])
+
+function assertTable(table: string): void {
+  if (!ALLOWED_TABLES.has(table)) {
+    throw new Error(`Table not in allowlist: ${table}`)
+  }
+}
+
+// 允许的 ORDER BY 白名单（key → 安全 SQL 片段，防止 sql.raw(order) 注入）
+const ALLOWED_ORDERS: Record<string, string> = {
+  id_desc: '"id" DESC',
+  id_asc: '"id" ASC',
+  sort_asc_id_asc: '"sort_order" ASC, "id" ASC',
+  created_desc: '"created_at" DESC',
+  created_asc: '"created_at" ASC',
+  updated_desc: '"updated_at" DESC',
+  updated_asc: '"updated_at" ASC',
+}
+
+async function rawList(
+  table: string,
+  opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
+) {
+  assertTable(table)
+  const where =
+    opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
+  const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
+  const offset = (opts.page - 1) * opts.pageSize
+  const rows = await db.execute(
+    sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
+  )
+  const countRows = await db.execute(
+    sql`SELECT count(*)::int AS count FROM ${sql.raw(`"${table}"`)} ${where}`,
+  )
+  const total = (countRows[0] as { count?: number } | undefined)?.count ?? 0
+  return {
+    list: rows as Record<string, unknown>[],
+    total,
+    page: opts.page,
+    pageSize: opts.pageSize,
+  }
+}
+
+async function rawById(table: string, id: string) {
+  assertTable(table)
+  const rows = await db.execute(
+    sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id} LIMIT 1`,
+  )
+  return (rows as Record<string, unknown>[])[0] ?? null
+}
+
+async function rawInsert(
+  table: string,
+  columns: string[],
+  body: Record<string, unknown>,
+  reply: FastifyReply,
+): Promise<Record<string, unknown> | null> {
+  assertTable(table)
+  const cols: string[] = []
+  const vals: unknown[] = []
+  for (const c of columns) {
+    if (body[c] !== undefined) {
+      cols.push(c)
+      vals.push(body[c])
+    }
+  }
+  if (cols.length === 0) {
+    reply.status(400).send(error(400, '无可写入字段'))
+    return null
+  }
+  const colList = sql.join(
+    cols.map((c) => sql.raw(`"${c}"`)),
+    sql`, `,
+  )
+  const valList = sql.join(
+    vals.map((v) => sql`${v}`),
+    sql`, `,
+  )
+  const rows = await db.execute(
+    sql`INSERT INTO ${sql.raw(`"${table}"`)} (${colList}) VALUES (${valList}) RETURNING *`,
+  )
+  return (rows as Record<string, unknown>[])[0] ?? null
+}
+
+async function rawUpdate(
+  table: string,
+  columns: string[],
+  id: string,
+  body: Record<string, unknown>,
+) {
+  assertTable(table)
+  const sets: SQL[] = []
+  for (const c of columns) {
+    if (body[c] !== undefined) sets.push(sql`${sql.raw(`"${c}"`)} = ${body[c]}`)
+  }
+  if (sets.length === 0) return undefined
+  const rows = await db.execute(
+    sql`UPDATE ${sql.raw(`"${table}"`)} SET ${sql.join(sets, sql`, `)} WHERE "id"::text = ${id} RETURNING *`,
+  )
+  return (rows as Record<string, unknown>[])[0] ?? null
+}
+
+async function rawDelete(table: string, id: string) {
+  assertTable(table)
+  await db.execute(sql`DELETE FROM ${sql.raw(`"${table}"`)} WHERE "id"::text = ${id}`)
+}
+
+const categoryDictCols = [
+  'dict_type',
+  'code',
+  'label',
+  'value',
+  'sort_order',
+  'is_show',
+  'description',
+  'parent_id',
+  'extra',
+]
+
+/** 注册 category-dictionary 路由（可复用于用户端和 admin 端） */
+function registerCategoryDictionaryRoutes(server: FastifyInstance) {
+  server.get('/category-dictionary/list', async (req, reply) => {
+    const q = req.query as {
+      page?: string
+      pageSize?: string
+      dict_type?: string
+      showAll?: string
+    }
+    const { page, pageSize } = parsePaging(q)
+    const conds: SQL[] = []
+    if (q.dict_type) conds.push(sql`"dict_type" = ${q.dict_type}`)
+    if (q.showAll !== '1' && q.showAll !== 'true') conds.push(sql`"is_show" = true`)
+    try {
+      const result = await rawList('zhs_category_dictionary', {
+        page,
+        pageSize,
+        conds,
+        orderBy: 'sort_asc_id_asc',
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询分类字典失败'))
+    }
+  })
+  server.get('/category-dictionary/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const row = await rawById('zhs_category_dictionary', parsed.data.id)
+      if (!row) return reply.status(404).send(error(404, '字典项不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询分类字典失败'))
+    }
+  })
+  server.post('/category-dictionary', async (req, reply) => {
+    try {
+      const row = await rawInsert(
+        'zhs_category_dictionary',
+        categoryDictCols,
+        req.body as Record<string, unknown>,
+        reply,
+      )
+      if (!row) return
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建字典项失败'))
+    }
+  })
+  server.put('/category-dictionary/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const row = await rawUpdate(
+        'zhs_category_dictionary',
+        categoryDictCols,
+        parsed.data.id,
+        req.body as Record<string, unknown>,
+      )
+      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新字典项失败'))
+    }
+  })
+  server.delete('/category-dictionary/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      await rawDelete('zhs_category_dictionary', parsed.data.id)
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除字典项失败'))
+    }
+  })
+}
+
+/** 管理员 category-dictionary 路由（前缀 /api/admin/category-dictionary） */
+export const adminCategoryDictionaryRoutes: FastifyPluginAsync = async (server) => {
+  server.addHook('preHandler', requireAdmin)
+  registerCategoryDictionaryRoutes(server)
+}
+
+const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // -------------------------------------------------------------------------
+  // category_dictionary — 分类字典管理（表 zhs_category_dictionary）
+  // 旧逻辑：列表仅返回 is_show=true，按 sort_order 升序
+  // -------------------------------------------------------------------------
+  registerCategoryDictionaryRoutes(server)
+
+  // -------------------------------------------------------------------------
+  // bot_sites — Bot 站点配置（Drizzle schema: aibot_sites）
+  // -------------------------------------------------------------------------
+  server.get('/bot-sites/list', async (req, reply) => {
+    const q = req.query as {
+      page?: string
+      pageSize?: string
+      section?: string
+      subSection?: string
+    }
+    const { page, pageSize } = parsePaging(q)
+    const conds: SQL[] = []
+    if (q.section) conds.push(eq(aibotSites.section, q.section))
+    if (q.subSection) conds.push(eq(aibotSites.subSection, q.subSection))
+    const where = conds.length ? and(...conds) : undefined
+    try {
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(aibotSites)
+          .where(where)
+          .orderBy(asc(aibotSites.id))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(aibotSites)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 Bot 站点失败'))
+    }
+  })
+  server.get('/bot-sites/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const numId = Number(parsed.data.id)
+    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const rows = await db.select().from(aibotSites).where(eq(aibotSites.id, numId)).limit(1)
+      if (!rows[0]) return reply.status(404).send(error(404, 'Bot 站点不存在'))
+      return reply.send(success(rows[0]))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 Bot 站点失败'))
+    }
+  })
+  server.post('/bot-sites', async (req, reply) => {
+    try {
+      const rows = await db
+        .insert(aibotSites)
+        .values(req.body as typeof aibotSites.$inferInsert)
+        .returning()
+      return reply.status(201).send(success(rows[0]))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '创建 Bot 站点失败'))
+    }
+  })
+  server.put('/bot-sites/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const numId = Number(parsed.data.id)
+    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      const rows = await db
+        .update(aibotSites)
+        .set(req.body as Partial<typeof aibotSites.$inferInsert>)
+        .where(eq(aibotSites.id, numId))
+        .returning()
+      if (!rows[0]) return reply.status(404).send(error(404, 'Bot 站点不存在'))
+      return reply.send(success(rows[0]))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '更新 Bot 站点失败'))
+    }
+  })
+  server.delete('/bot-sites/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const numId = Number(parsed.data.id)
+    if (!Number.isFinite(numId)) return reply.status(400).send(error(400, '无效的 ID'))
+    try {
+      await db.delete(aibotSites).where(eq(aibotSites.id, numId))
+      return reply.send(success({ id: parsed.data.id, deleted: true }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除 Bot 站点失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // ws_admin — WebSocket 管理
+  // 连接信息来自 Redis（key 模式 ws:connections:*），由 WS 插件在连接/断开时写入。
+  // 多实例部署下可聚合所有实例的在线连接。
+  // -------------------------------------------------------------------------
+  const WS_CONN_PREFIX = 'ws:connections:'
+
+  server.get('/ws-admin/connections', async (req, reply) => {
+    const redis = req.server.redis
+    try {
+      const keys = await redis.keys(`${WS_CONN_PREFIX}*`)
+      if (keys.length === 0) {
+        return reply.send(success({ list: [], total: 0 }))
+      }
+      const values = await redis.mget(...keys)
+      const list: Record<string, unknown>[] = []
+      for (let i = 0; i < keys.length; i++) {
+        const raw = values[i]
+        const key = keys[i]
+        if (!raw || !key) continue
+        try {
+          const conn = JSON.parse(raw) as Record<string, unknown>
+          conn.socketId = key.slice(WS_CONN_PREFIX.length)
+          list.push(conn)
+        } catch {
+          /* 跳过无法解析的记录 */
+        }
+      }
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 WS 连接列表失败'))
+    }
+  })
+
+  server.get('/ws-admin/connections/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const redis = req.server.redis
+    try {
+      const raw = await redis.get(`${WS_CONN_PREFIX}${parsed.data.id}`)
+      if (!raw) return reply.status(404).send(error(404, '连接不存在'))
+      const conn = JSON.parse(raw) as Record<string, unknown>
+      conn.socketId = parsed.data.id
+      return reply.send(success(conn))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询 WS 连接详情失败'))
+    }
+  })
+
+  server.delete('/ws-admin/connections/:id', async (req, reply) => {
+    const parsed = idParamSchema.safeParse(req.params)
+    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
+    const redis = req.server.redis
+    const key = `${WS_CONN_PREFIX}${parsed.data.id}`
+    try {
+      const raw = await redis.get(key)
+      if (!raw) return reply.status(404).send(error(404, '连接不存在'))
+      const conn = JSON.parse(raw) as Record<string, unknown>
+      const deleted = await redis.del(key)
+      // 通过 Redis Pub/Sub 通知 WS 插件关闭对应 socket（频道 ws:admin:close）
+      if (deleted > 0) {
+        await redis.publish(
+          'ws:admin:close',
+          JSON.stringify({ socketId: parsed.data.id, userId: conn.userId ?? null }),
+        )
+      }
+      return reply.send(
+        success({ id: parsed.data.id, closed: deleted > 0, userId: conn.userId ?? null }),
+      )
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '关闭 WS 连接失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // compat_routes — 兼容性路由（旧 API 路径）
+  // NOTE: 兼容端点，对旧 API 路径统一返回 410 废弃提示，无 DB 操作。
+  // -------------------------------------------------------------------------
+  server.get('/compat/*', async (_req, reply) => {
+    return reply
+      .status(410)
+      .send(success({ deprecated: true, message: '此 API 已废弃，请使用新版本' }))
+  })
+}
+
+export default plugin
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

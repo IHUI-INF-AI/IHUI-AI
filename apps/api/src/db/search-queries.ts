@@ -1,0 +1,708 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { eq, and, or, ilike, desc, sql, gt, gte, lte } from 'drizzle-orm'
+import { db, dbRead } from './index.js'
+import {
+  users,
+  projects,
+  files,
+  orders,
+  auditLogs,
+  searchHistory,
+  type AuditLog,
+  type SearchHistory,
+} from '@ihui/database'
+
+// =============================================================================
+// 全局搜索
+// =============================================================================
+
+export type SearchType = 'user' | 'project' | 'file' | 'all'
+
+/**
+ * 中文分词:对含中文的 query 做 2-gram 滑动窗口分词
+ * 简化实现历史项目 Lucene HMMChineseTokenizer 的中文搜索能力
+ * - "人工智能教育" → ["人工智能教育", "人工", "工智", "智能", "能教", "教育", "人", "工", "智", "能", "教", "育"]
+ * - 非中文 query 返回空数组,走原 tsvector 路径
+ */
+export function segmentChineseQuery(q: string): string[] {
+  const trimmed = q.trim()
+  if (!trimmed) return []
+  if (!/[\u4e00-\u9fa5]/.test(trimmed)) return []
+
+  const tokens = new Set<string>()
+  tokens.add(trimmed)
+
+  for (let i = 0; i < trimmed.length - 1; i++) {
+    const token = trimmed.slice(i, i + 2)
+    if (/[\u4e00-\u9fa5]{2}/.test(token)) tokens.add(token)
+  }
+
+  const chineseChars = trimmed.match(/[\u4e00-\u9fa5]/g) ?? []
+  for (const ch of chineseChars) tokens.add(ch)
+
+  return [...tokens]
+}
+
+export interface SearchUserRow {
+  id: string
+  nickname: string | null
+  email: string | null
+  phone: string | null
+  avatar: string | null
+}
+
+export interface SearchProjectRow {
+  id: string
+  name: string
+  description: string | null
+  status: number
+  fileCount: number
+  updatedAt: Date
+}
+
+export interface SearchFileRow {
+  id: string
+  name: string
+  mimeType: string
+  size: number
+  projectId: string
+  createdAt: Date
+  projectName: string | null
+}
+
+export interface GlobalSearchResult {
+  users: SearchUserRow[]
+  projects: SearchProjectRow[]
+  files: SearchFileRow[]
+  total: number
+}
+
+/**
+ * 用户搜索：优先使用 tsvector 全文搜索（search_vector 覆盖 nickname+email），
+ * phone 未进入全文索引，仍用 ilike 兜底。
+ * search_vector 列由 0010 migration 创建，Drizzle schema 中未声明，
+ * 若 migration 未执行则查询报错，catch 后降级为全 ilike。
+ */
+async function searchUsers(q: string, like: string, limit: number): Promise<SearchUserRow[]> {
+  const cols = {
+    id: users.id,
+    nickname: users.nickname,
+    email: users.email,
+    phone: users.phone,
+    avatar: users.avatar,
+  }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.flatMap((t) => [
+      ilike(users.nickname, `%${t}%`),
+      ilike(users.email, `%${t}%`),
+      ilike(users.phone, `%${t}%`),
+    ])
+    return (await dbRead
+      .select(cols)
+      .from(users)
+      .where(or(...conds))
+      .limit(limit)) as SearchUserRow[]
+  }
+  try {
+    return (await dbRead
+      .select(cols)
+      .from(users)
+      .where(
+        or(
+          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+          ilike(users.phone, like),
+        ),
+      )
+      .limit(limit)) as SearchUserRow[]
+  } catch {
+    return (await dbRead
+      .select(cols)
+      .from(users)
+      .where(or(ilike(users.nickname, like), ilike(users.email, like), ilike(users.phone, like)))
+      .limit(limit)) as SearchUserRow[]
+  }
+}
+
+/**
+ * 项目搜索：优先 tsvector 全文搜索（name+description），降级 ilike。
+ * 仅查询当前用户拥有的项目。
+ */
+async function searchProjects(
+  userId: string,
+  q: string,
+  like: string,
+  limit: number,
+): Promise<SearchProjectRow[]> {
+  const cols = {
+    id: projects.id,
+    name: projects.name,
+    description: projects.description,
+    status: projects.status,
+    fileCount: sql<number>`(
+      SELECT COUNT(*)::int FROM ${files} WHERE ${files.projectId} = ${sql.raw('projects.id')}
+    )`,
+    updatedAt: projects.updatedAt,
+  }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.flatMap((t) => [
+      ilike(projects.name, `%${t}%`),
+      ilike(projects.description, `%${t}%`),
+    ])
+    return (await dbRead
+      .select(cols)
+      .from(projects)
+      .where(and(eq(projects.userId, userId), or(...conds)))
+      .limit(limit)) as SearchProjectRow[]
+  }
+  try {
+    return (await dbRead
+      .select(cols)
+      .from(projects)
+      .where(
+        and(
+          eq(projects.userId, userId),
+          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+        ),
+      )
+      .limit(limit)) as SearchProjectRow[]
+  } catch {
+    return (await dbRead
+      .select(cols)
+      .from(projects)
+      .where(
+        and(
+          eq(projects.userId, userId),
+          or(ilike(projects.name, like), ilike(projects.description, like)),
+        ),
+      )
+      .limit(limit)) as SearchProjectRow[]
+  }
+}
+
+/**
+ * 文件搜索：优先 tsvector 全文搜索（name），降级 ilike。
+ * 仅查询当前用户拥有的项目下的文件。
+ */
+async function searchFiles(
+  userId: string,
+  q: string,
+  like: string,
+  limit: number,
+): Promise<SearchFileRow[]> {
+  const cols = {
+    id: files.id,
+    name: files.name,
+    mimeType: files.mimeType,
+    size: files.size,
+    projectId: files.projectId,
+    createdAt: files.createdAt,
+    projectName: projects.name,
+  }
+  const chineseTokens = segmentChineseQuery(q)
+  if (chineseTokens.length > 0) {
+    const conds = chineseTokens.map((t) => ilike(files.name, `%${t}%`))
+    return (await dbRead
+      .select(cols)
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(and(eq(projects.userId, userId), or(...conds)))
+      .limit(limit)) as SearchFileRow[]
+  }
+  try {
+    return (await dbRead
+      .select(cols)
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(
+        and(
+          eq(projects.userId, userId),
+          sql`"files".search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+        ),
+      )
+      .limit(limit)) as SearchFileRow[]
+  } catch {
+    return (await dbRead
+      .select(cols)
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(and(eq(projects.userId, userId), ilike(files.name, like)))
+      .limit(limit)) as SearchFileRow[]
+  }
+}
+
+/**
+ * 全局搜索：跨表聚合查询。
+ * - users：全量用户公开信息（昵称/邮箱/手机号）
+ * - projects/files：仅限当前用户拥有的项目及其文件
+ * 优先使用 GIN 全文索引（search_vector @@ plainto_tsquery），
+ * 若 migration 未执行则自动降级为 ilike 模糊匹配。
+ * 按需根据 type 执行对应查询，结果合并返回。
+ */
+export async function globalSearch(
+  userId: string,
+  query: string,
+  type: SearchType,
+  limit: number,
+): Promise<GlobalSearchResult> {
+  const like = `%${query}%`
+  const result: GlobalSearchResult = { users: [], projects: [], files: [], total: 0 }
+
+  const tasks: Promise<void>[] = []
+
+  if (type === 'user' || type === 'all') {
+    tasks.push(
+      (async () => {
+        result.users = await searchUsers(query, like, limit)
+      })(),
+    )
+  }
+
+  if (type === 'project' || type === 'all') {
+    tasks.push(
+      (async () => {
+        result.projects = await searchProjects(userId, query, like, limit)
+      })(),
+    )
+  }
+
+  if (type === 'file' || type === 'all') {
+    tasks.push(
+      (async () => {
+        result.files = await searchFiles(userId, query, like, limit)
+      })(),
+    )
+  }
+
+  await Promise.all(tasks)
+  result.total = result.users.length + result.projects.length + result.files.length
+  return result
+}
+
+// =============================================================================
+// 搜索高亮
+// =============================================================================
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * 高亮搜索关键词：在匹配的查询词位置包裹 <mark> 标签。
+ * - 先对原文做 HTML 转义（防 XSS），再对转义后的文本做正则替换。
+ * - 中文 query 使用 segmentChineseQuery 的 2-gram 分词结果匹配。
+ * - 多个 token 用单条正则交替匹配，长 token 优先，避免嵌套 <mark>。
+ */
+export function highlightText(text: string, query: string): string {
+  if (!text || !query) return text ?? ''
+
+  const escaped = escapeHtml(text)
+
+  const chineseTokens = segmentChineseQuery(query)
+  const rawTokens =
+    chineseTokens.length > 0
+      ? chineseTokens.filter((t) => t.length >= 2)
+      : [query.trim()].filter((t) => t.length > 0)
+
+  if (rawTokens.length === 0) return escaped
+
+  const uniqueTokens = [...new Set(rawTokens)].sort((a, b) => b.length - a.length)
+  const pattern = uniqueTokens.map((t) => escapeRegex(escapeHtml(t))).join('|')
+
+  return escaped.replace(new RegExp(`(${pattern})`, 'gi'), '<mark>$1</mark>')
+}
+
+export interface HighlightedFields {
+  highlightedTitle?: string
+  highlightedContent?: string
+}
+
+export type HighlightedUserRow = SearchUserRow & HighlightedFields
+export type HighlightedProjectRow = SearchProjectRow & HighlightedFields
+export type HighlightedFileRow = SearchFileRow & HighlightedFields
+
+export interface HighlightedGlobalSearchResult {
+  users: HighlightedUserRow[]
+  projects: HighlightedProjectRow[]
+  files: HighlightedFileRow[]
+  total: number
+  facets?: Facet[]
+}
+
+/**
+ * 为搜索结果中每条记录添加 highlightedTitle / highlightedContent 字段。
+ * 不修改原始 title / content，仅追加高亮副本。
+ */
+export function highlightSearchResult(
+  result: GlobalSearchResult,
+  query: string,
+): HighlightedGlobalSearchResult {
+  return {
+    users: result.users.map((u) => ({
+      ...u,
+      highlightedTitle: highlightText(u.nickname ?? '', query),
+      highlightedContent: highlightText(u.email ?? '', query),
+    })),
+    projects: result.projects.map((p) => ({
+      ...p,
+      highlightedTitle: highlightText(p.name, query),
+      highlightedContent: highlightText(p.description ?? '', query),
+    })),
+    files: result.files.map((f) => ({
+      ...f,
+      highlightedTitle: highlightText(f.name, query),
+      highlightedContent: '',
+    })),
+    total: result.total,
+  }
+}
+
+// =============================================================================
+// 搜索 Facets 聚合
+// =============================================================================
+
+export interface FacetValue {
+  value: string
+  count: number
+}
+
+export interface Facet {
+  field: string
+  values: FacetValue[]
+}
+
+/**
+ * 搜索 Facets 聚合：按结果类型（user/project/file）统计匹配数。
+ * 使用 SQL COUNT 聚合，与 globalSearch 的 WHERE 条件保持一致。
+ * 仅返回 count > 0 的类型。
+ */
+export async function getSearchFacets(userId: string, query: string): Promise<Facet[]> {
+  const like = `%${query}%`
+  const chineseTokens = segmentChineseQuery(query)
+
+  const [userCount, projectCount, fileCount] = await Promise.all([
+    countUsers(query, like, chineseTokens),
+    countProjects(userId, query, like, chineseTokens),
+    countFiles(userId, query, like, chineseTokens),
+  ])
+
+  const values: FacetValue[] = [
+    { value: 'user', count: userCount },
+    { value: 'project', count: projectCount },
+    { value: 'file', count: fileCount },
+  ].filter((v) => v.count > 0)
+
+  return [{ field: 'type', values }]
+}
+
+async function countUsers(q: string, like: string, chineseTokens: string[]): Promise<number> {
+  const cond =
+    chineseTokens.length > 0
+      ? or(
+          ...chineseTokens.flatMap((t) => [
+            ilike(users.nickname, `%${t}%`),
+            ilike(users.email, `%${t}%`),
+            ilike(users.phone, `%${t}%`),
+          ]),
+        )
+      : or(
+          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+          ilike(users.phone, like),
+        )
+  try {
+    const rows = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(users)
+      .where(cond)
+    return Number(rows[0]?.count ?? 0)
+  } catch {
+    const fallback = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(users)
+      .where(or(ilike(users.nickname, like), ilike(users.email, like), ilike(users.phone, like)))
+    return Number(fallback[0]?.count ?? 0)
+  }
+}
+
+async function countProjects(
+  userId: string,
+  q: string,
+  like: string,
+  chineseTokens: string[],
+): Promise<number> {
+  const cond =
+    chineseTokens.length > 0
+      ? and(
+          eq(projects.userId, userId),
+          or(
+            ...chineseTokens.flatMap((t) => [
+              ilike(projects.name, `%${t}%`),
+              ilike(projects.description, `%${t}%`),
+            ]),
+          ),
+        )
+      : and(
+          eq(projects.userId, userId),
+          sql`search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+        )
+  try {
+    const rows = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(projects)
+      .where(cond)
+    return Number(rows[0]?.count ?? 0)
+  } catch {
+    const fallback = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.userId, userId),
+          or(ilike(projects.name, like), ilike(projects.description, like)),
+        ),
+      )
+    return Number(fallback[0]?.count ?? 0)
+  }
+}
+
+async function countFiles(
+  userId: string,
+  q: string,
+  like: string,
+  chineseTokens: string[],
+): Promise<number> {
+  const cond =
+    chineseTokens.length > 0
+      ? and(
+          eq(projects.userId, userId),
+          or(...chineseTokens.map((t) => ilike(files.name, `%${t}%`))),
+        )
+      : and(
+          eq(projects.userId, userId),
+          sql`"files".search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
+        )
+  try {
+    const rows = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(cond)
+    return Number(rows[0]?.count ?? 0)
+  } catch {
+    const fallback = await dbRead
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(files)
+      .innerJoin(projects, eq(files.projectId, projects.id))
+      .where(and(eq(projects.userId, userId), ilike(files.name, like)))
+    return Number(fallback[0]?.count ?? 0)
+  }
+}
+
+// =============================================================================
+// 搜索历史
+// =============================================================================
+
+export async function findSearchHistory(userId: string, limit: number): Promise<SearchHistory[]> {
+  return dbRead
+    .select()
+    .from(searchHistory)
+    .where(eq(searchHistory.userId, userId))
+    .orderBy(desc(searchHistory.createdAt))
+    .limit(limit)
+}
+
+export async function addSearchHistory(input: {
+  userId: string
+  query: string
+  filters?: unknown
+  resultsCount: number
+}): Promise<void> {
+  await db.insert(searchHistory).values({
+    userId: input.userId,
+    query: input.query,
+    filters: input.filters,
+    resultsCount: input.resultsCount,
+  })
+}
+
+export async function clearSearchHistory(userId: string): Promise<number> {
+  const rows = await db.delete(searchHistory).where(eq(searchHistory.userId, userId)).returning()
+  return rows.length
+}
+
+export async function deleteSearchHistory(
+  id: string,
+  userId: string,
+): Promise<SearchHistory | undefined> {
+  const rows = await db
+    .delete(searchHistory)
+    .where(and(eq(searchHistory.id, id), eq(searchHistory.userId, userId)))
+    .returning()
+  return rows[0]
+}
+
+// =============================================================================
+// 审计日志
+// =============================================================================
+
+export async function addAuditLog(input: {
+  userId?: string
+  action: string
+  resourceType?: string
+  resourceId?: string
+  details?: unknown
+  ip?: string
+  userAgent?: string
+}): Promise<void> {
+  await db.insert(auditLogs).values({
+    userId: input.userId,
+    action: input.action,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    details: input.details,
+    ip: input.ip,
+    userAgent: input.userAgent,
+  })
+}
+
+export async function findAuditLogs(
+  page: number,
+  pageSize: number,
+  opts: {
+    userId?: string
+    action?: string
+    resourceType?: string
+    startDate?: string
+    endDate?: string
+  },
+): Promise<{ list: AuditLog[]; total: number }> {
+  const conds = []
+  if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
+  if (opts.action) conds.push(eq(auditLogs.action, opts.action))
+  if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  const [list, totalRows] = await Promise.all([
+    dbRead
+      .select()
+      .from(auditLogs)
+      .where(where)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(pageSize)
+      .offset((page - 1) * pageSize),
+    dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(auditLogs)
+      .where(where),
+  ])
+
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
+}
+
+/** 导出审计日志（不分页，最多 10000 条）。 */
+export async function exportAuditLogs(
+  opts: {
+    userId?: string
+    action?: string
+    resourceType?: string
+    startDate?: string
+    endDate?: string
+  },
+  limit = 10000,
+): Promise<AuditLog[]> {
+  const conds = []
+  if (opts.userId) conds.push(eq(auditLogs.userId, opts.userId))
+  if (opts.action) conds.push(eq(auditLogs.action, opts.action))
+  if (opts.resourceType) conds.push(eq(auditLogs.resourceType, opts.resourceType))
+  if (opts.startDate) conds.push(gte(auditLogs.createdAt, new Date(opts.startDate)))
+  if (opts.endDate) conds.push(lte(auditLogs.createdAt, new Date(`${opts.endDate}T23:59:59.999Z`)))
+  const where = conds.length > 0 ? and(...conds) : undefined
+
+  return dbRead
+    .select()
+    .from(auditLogs)
+    .where(where)
+    .orderBy(desc(auditLogs.createdAt))
+    .limit(limit)
+}
+
+// =============================================================================
+// 详细统计
+// =============================================================================
+
+export interface DetailedStats {
+  userGrowthTrend: { date: string; count: number }[]
+  projectDistribution: { status: number; count: number }[]
+  fileTypeDistribution: { mimeType: string; count: number }[]
+  orderStats: { total: number; paid: number; pending: number; totalRevenue: number }
+}
+
+/**
+ * 详细统计：用户增长趋势（近 14 天）/ 项目状态分布 / 文件类型分布 / 订单统计。
+ */
+export async function getDetailedStats(): Promise<DetailedStats> {
+  const dateExpr = sql<string>`TO_CHAR(${users.createdAt}, 'YYYY-MM-DD')`
+
+  const [userGrowth, projectDist, fileTypes, orderTotal, orderPaid, orderPending] =
+    await Promise.all([
+      dbRead
+        .select({ date: dateExpr, count: sql<number>`COUNT(*)::int` })
+        .from(users)
+        .where(gt(users.createdAt, sql`NOW() - INTERVAL '14 days'`))
+        .groupBy(dateExpr)
+        .orderBy(dateExpr),
+      dbRead
+        .select({ status: projects.status, count: sql<number>`COUNT(*)::int` })
+        .from(projects)
+        .groupBy(projects.status),
+      dbRead
+        .select({ mimeType: files.mimeType, count: sql<number>`COUNT(*)::int` })
+        .from(files)
+        .groupBy(files.mimeType),
+      dbRead.select({ total: sql<number>`COUNT(*)::int` }).from(orders),
+      dbRead
+        .select({
+          count: sql<number>`COUNT(*)::int`,
+          revenue: sql<number>`COALESCE(SUM(${orders.amount}), 0)::int`,
+        })
+        .from(orders)
+        .where(eq(orders.status, 'paid')),
+      dbRead
+        .select({ count: sql<number>`COUNT(*)::int` })
+        .from(orders)
+        .where(eq(orders.status, 'pending')),
+    ])
+
+  return {
+    userGrowthTrend: userGrowth.map((r) => ({ date: r.date, count: Number(r.count) })),
+    projectDistribution: projectDist.map((r) => ({
+      status: Number(r.status ?? 0),
+      count: Number(r.count),
+    })),
+    fileTypeDistribution: fileTypes.map((r) => ({
+      mimeType: r.mimeType,
+      count: Number(r.count),
+    })),
+    orderStats: {
+      total: Number(orderTotal[0]?.total ?? 0),
+      paid: Number(orderPaid[0]?.count ?? 0),
+      pending: Number(orderPending[0]?.count ?? 0),
+      totalRevenue: Number(orderPaid[0]?.revenue ?? 0),
+    },
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,22 @@
+{
+  "name": "@ihui/desktop",
+  "version": "0.1.43",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "tauri": "tauri",
+    "build:debug": "tauri build --debug",
+    "icons:regen": "tauri icon ../../apps/mobile-rn/assets/icon.png",
+    "clean": "rimraf dist node_modules .turbo src-tauri/target"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
+    "rimraf": "catalog:"
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top",
+  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
+  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+}

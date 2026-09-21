@@ -1,0 +1,114 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const MESSAGES_DIR = join(__dirname, '../../../../packages/i18n/messages/cli')
+
+type Messages = Record<string, unknown>
+
+function loadMessages(locale: string): Messages {
+  try {
+    return JSON.parse(readFileSync(join(MESSAGES_DIR, `${locale}.json`), 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
+const baseMessages: Record<Locale, Messages> = {
+  'zh-CN': loadMessages('zh-CN'),
+  en: loadMessages('en'),
+  ja: loadMessages('ja'),
+  ko: loadMessages('ko'),
+  'zh-TW': loadMessages('zh-TW'),
+}
+
+let activeLocale: Locale = getLocale()
+function normalizeLocale(raw: string): Locale {
+  const lower = raw.toLowerCase()
+  if (lower === 'zh' || lower === 'zh-cn') return 'zh-CN'
+  if (lower === 'zh-tw' || lower === 'zh-hk') return 'zh-TW'
+  if (lower === 'en' || lower.startsWith('en-')) return 'en'
+  if (lower === 'ja' || lower.startsWith('ja-')) return 'ja'
+  if (lower === 'ko' || lower.startsWith('ko-')) return 'ko'
+  return 'zh-CN'
+}
+
+export function getLocale(): Locale {
+  if (process.env.IHUI_LOCALE) {
+    return normalizeLocale(process.env.IHUI_LOCALE)
+  }
+  return normalizeLocale(Intl.DateTimeFormat().resolvedOptions().locale)
+}
+
+export function setLocale(locale: Locale): void {
+  activeLocale = locale
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function deepMerge<T extends Record<string, unknown>>(
+  base: T,
+  override: Partial<T>,
+): T {
+  const result: Record<string, unknown> = {}
+  for (const key of Object.keys(base)) {
+    const baseValue = base[key]
+    const overrideValue = override[key]
+    if (isPlainObject(baseValue) && isPlainObject(overrideValue)) {
+      result[key] = deepMerge(
+        baseValue as Record<string, unknown>,
+        overrideValue as Record<string, unknown>,
+      )
+    } else {
+      result[key] = overrideValue !== undefined ? overrideValue : baseValue
+    }
+  }
+  return result as T
+}
+function getNestedValue(obj: Record<string, unknown>, key: string): string | undefined {
+  const parts = key.split('.')
+  let current: unknown = obj
+  for (const part of parts) {
+    if (!isPlainObject(current)) return undefined
+    current = current[part]
+  }
+  return typeof current === 'string' ? current : undefined
+}
+
+export function t(key: string, params?: Record<string, string | number>): string {
+  const active = deepMerge(
+    baseMessages['zh-CN'] as unknown as Record<string, unknown>,
+    baseMessages[activeLocale] as unknown as Record<string, unknown>,
+  )
+  const text = getNestedValue(active, key)
+  if (text === undefined) {
+    return key
+  }
+  if (!params) return text
+  // 同时支持 {{name}} 与 {name} 两种占位符:packages/i18n/messages 全库统一
+  // 单花括号(ICU 风格),旧消息用双花括号(2026-09-10 修复:单花括号不插值,
+  // CLI 输出出现字面量 "{path}",且 en locale 下中文断言测试失败)
+  return text
+    .replace(/\{\{(\w+)\}\}/g, (_, name) =>
+      String(params[name] ?? `{{${name}}}`),
+    )
+    .replace(/\{(\w+)\}/g, (_, name) =>
+      String(params[name] ?? `{${name}}`),
+    )
+}
+
+export const i18n = {
+  getLocale,
+  setLocale,
+  t,
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

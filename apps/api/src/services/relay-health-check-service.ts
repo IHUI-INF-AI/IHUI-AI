@@ -1,0 +1,324 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 中转站 Key 池健康巡检服务。
+ *
+ * 职责：
+ * 1. checkAllKeys(): 巡检所有 is_enabled=true 的 key，更新 health_status
+ * 2. checkSingleKey(keyId): 巡检单个 key（供 admin API 手动触发）
+ * 3. 巡检方式：用 key 调上游 /models 或 /v1/models 端点（根据 base_url 是否已含 /v1 自动适配）（轻量，不消耗 token）
+ *    - 根据 provider_code 从 ai_model_config 表查 base_url
+ *    - 200 = healthy, 401/403 = down（key 失效）, 429 = degraded（限流）, 超时/网络错误 = degraded
+ * 4. 自动禁用：连续 3 次巡检 health_status='down' → is_enabled=false（熔断）
+ */
+import { eq, and } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import { aiRelayKeyPool, aiModelConfig } from '@ihui/database'
+import { decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
+
+const HEALTH_CHECK_TIMEOUT_MS = 10_000
+const CONSECUTIVE_FAILURES_THRESHOLD = 3
+const CF_KEY = 'consecutiveFailures'
+/** 单轮恢复探测的禁用 key 数上限(防上游大面积失效时探测风暴) */
+const RECOVER_PROBE_MAX_KEYS = 20
+
+export type HealthStatus = 'healthy' | 'degraded' | 'down'
+
+export interface HealthCheckResult {
+  keyId: string
+  status: HealthStatus
+  latencyMs: number
+  errorMessage?: string
+}
+
+export interface HealthCheckSummary {
+  total: number
+  healthy: number
+  degraded: number
+  down: number
+  disabled: number
+  /** 本轮从禁用状态恢复探测成功的 key 数(2026-09-13 立) */
+  recovered: number
+}
+
+interface KeyRowForCheck {
+  id: string
+  providerCode: string
+  apiKeyEnc: string
+  extraMetadata: unknown
+}
+
+/** 安全解析 extra_metadata 为可读结构（保留未知字段以避免 clobber）。 */
+function readExtraMetadata(raw: unknown): Record<string, unknown> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return {}
+  }
+  return raw as Record<string, unknown>
+}
+
+/** 从 extra_metadata 读取连续失败次数。 */
+function readConsecutiveFailures(meta: Record<string, unknown>): number {
+  const v = meta[CF_KEY]
+  return typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : 0
+}
+
+/** 解密 api_key_enc（存储格式：JSON.stringify(encryptJSON(plainKey))）。 */
+function decryptApiKey(apiKeyEnc: string): string {
+  const payload = JSON.parse(apiKeyEnc) as EncryptedPayload
+  const plain = decryptJSON(payload)
+  return typeof plain === 'string' ? plain : String(plain)
+}
+
+/** 按 providerCode 查 ai_model_config.base_url（取启用且第一条）。 */
+async function findBaseUrlByProvider(providerCode: string): Promise<string | null> {
+  const [row] = await dbRead
+    .select({ baseUrl: aiModelConfig.baseUrl })
+    .from(aiModelConfig)
+    .where(and(eq(aiModelConfig.providerCode, providerCode), eq(aiModelConfig.enabled, true)))
+    .limit(1)
+  return row?.baseUrl ?? null
+}
+
+/** 规范化 base_url（去尾部斜杠），拼接 /models 或 /v1/models。 */
+function buildModelsUrl(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/+$/, '')
+  // base_url 已以 /v1 结尾 → 拼 /models（避免 /v1/v1/models 双重拼接）
+  if (trimmed.endsWith('/v1')) {
+    return `${trimmed}/models`
+  }
+  // base_url 不含 /v1 → 拼 /v1/models（向后兼容）
+  return `${trimmed}/v1/models`
+}
+
+/** 用 AbortController 实现 fetch 超时。返回状态与可选错误信息。 */
+async function pingModelsEndpoint(
+  url: string,
+  apiKey: string,
+): Promise<{ status: HealthStatus; errorMessage?: string }> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    })
+    if (res.status === 200) return { status: 'healthy' }
+    if (res.status === 401 || res.status === 403) {
+      return { status: 'down', errorMessage: `HTTP ${res.status}: key 失效或无权访问` }
+    }
+    if (res.status === 429) {
+      return { status: 'degraded', errorMessage: 'HTTP 429: 限流' }
+    }
+    return { status: 'degraded', errorMessage: `HTTP ${res.status}` }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { status: 'degraded', errorMessage: msg }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 执行一次巡检（解密 + 查 base_url + ping），不写 DB。 */
+async function runHealthCheck(row: KeyRowForCheck): Promise<HealthCheckResult> {
+  const startedAt = Date.now()
+
+  let apiKey: string
+  try {
+    apiKey = decryptApiKey(row.apiKeyEnc)
+  } catch (err) {
+    return {
+      keyId: row.id,
+      status: 'down',
+      latencyMs: Date.now() - startedAt,
+      errorMessage: `解密失败: ${err instanceof Error ? err.message : String(err)}`,
+    }
+  }
+
+  // key 级 extraMetadata.baseUrl 覆盖(2026-09-13):同一聚合上游多端点各建一条 key
+  // 条目并各自覆写 baseUrl,巡检按 key 粒度测速 → 与渠道路由的 per-key 覆盖同源
+  const keyMeta = readExtraMetadata(row.extraMetadata)
+  const keyBaseUrlOverride = keyMeta['baseUrl']
+  const baseUrl =
+    typeof keyBaseUrlOverride === 'string' && keyBaseUrlOverride.trim() !== ''
+      ? keyBaseUrlOverride.trim()
+      : await findBaseUrlByProvider(row.providerCode)
+  if (!baseUrl) {
+    return {
+      keyId: row.id,
+      status: 'degraded',
+      latencyMs: Date.now() - startedAt,
+      errorMessage: `未找到 provider=${row.providerCode} 的 base_url`,
+    }
+  }
+
+  const ping = await pingModelsEndpoint(buildModelsUrl(baseUrl), apiKey)
+  return {
+    keyId: row.id,
+    status: ping.status,
+    latencyMs: Date.now() - startedAt,
+    errorMessage: ping.errorMessage,
+  }
+}
+
+/**
+ * 持久化巡检结果到 DB。
+ * - 更新 health_status / health_checked_at / last_error_message
+ * - 更新 extra_metadata.consecutiveFailures（down +1, healthy 重置 0, degraded 不变）
+ * - 连续 3 次 down → is_enabled=false（熔断）
+ * 返回是否触发了自动禁用。
+ */
+async function persistResult(row: KeyRowForCheck, result: HealthCheckResult): Promise<boolean> {
+  const meta = readExtraMetadata(row.extraMetadata)
+  const prevFailures = readConsecutiveFailures(meta)
+
+  let newFailures: number
+  if (result.status === 'down') {
+    newFailures = prevFailures + 1
+  } else if (result.status === 'healthy') {
+    newFailures = 0
+  } else {
+    newFailures = prevFailures
+  }
+
+  const shouldDisable = result.status === 'down' && newFailures >= CONSECUTIVE_FAILURES_THRESHOLD
+
+  await db
+    .update(aiRelayKeyPool)
+    .set({
+      healthStatus: result.status,
+      healthCheckedAt: new Date(),
+      lastErrorMessage: result.errorMessage ?? null,
+      extraMetadata: { ...meta, [CF_KEY]: newFailures },
+      ...(shouldDisable ? { isEnabled: false } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(aiRelayKeyPool.id, row.id))
+
+  return shouldDisable
+}
+
+/** 巡检单个 key：解密 key → 查 base_url → ping /v1/models → 更新 DB。 */
+export async function checkSingleKey(keyId: string): Promise<HealthCheckResult> {
+  const [row] = await dbRead
+    .select({
+      id: aiRelayKeyPool.id,
+      providerCode: aiRelayKeyPool.providerCode,
+      apiKeyEnc: aiRelayKeyPool.apiKeyEnc,
+      extraMetadata: aiRelayKeyPool.extraMetadata,
+    })
+    .from(aiRelayKeyPool)
+    .where(eq(aiRelayKeyPool.id, keyId))
+    .limit(1)
+
+  if (!row) {
+    return { keyId, status: 'down', latencyMs: 0, errorMessage: 'Key 不存在' }
+  }
+
+  const result = await runHealthCheck(row)
+  await persistResult(row, result)
+  return result
+}
+
+/**
+ * 禁用 key 恢复探测(2026-09-13 立)。
+ *
+ * 背景:熔断只禁不查——checkAllKeys 只巡 is_enabled=true 的 key,被禁的 key
+ * 永远不会被重新探测,上游侧恢复(如充值/解限)后不会自动回到售卖池,必须
+ * 手动 re-enable。这里对禁用 key 做低频旁路探测:
+ * - healthy → is_enabled=true + consecutiveFailures=0(单次成功即恢复;若上游
+ *   仍不稳定,正常流量会再次触发 3 连败熔断,误恢复代价可控)
+ * - 其他状态 → 仅刷新健康信息,保持禁用
+ * 返回恢复数量。
+ */
+async function recoverDisabledKeys(): Promise<number> {
+  const disabledKeys = await dbRead
+    .select({
+      id: aiRelayKeyPool.id,
+      providerCode: aiRelayKeyPool.providerCode,
+      apiKeyEnc: aiRelayKeyPool.apiKeyEnc,
+      extraMetadata: aiRelayKeyPool.extraMetadata,
+    })
+    .from(aiRelayKeyPool)
+    .where(eq(aiRelayKeyPool.isEnabled, false))
+    .limit(RECOVER_PROBE_MAX_KEYS)
+
+  let recovered = 0
+  for (const row of disabledKeys) {
+    try {
+      const result = await runHealthCheck(row)
+      if (result.status === 'healthy') {
+        const meta = readExtraMetadata(row.extraMetadata)
+        await db
+          .update(aiRelayKeyPool)
+          .set({
+            isEnabled: true,
+            healthStatus: 'healthy',
+            healthCheckedAt: new Date(),
+            lastErrorMessage: null,
+            extraMetadata: { ...meta, [CF_KEY]: 0 },
+            updatedAt: new Date(),
+          })
+          .where(eq(aiRelayKeyPool.id, row.id))
+        recovered++
+      } else {
+        // 保持禁用,仅刷新健康信息便于 admin 观察上游是否恢复
+        await db
+          .update(aiRelayKeyPool)
+          .set({
+            healthStatus: result.status,
+            healthCheckedAt: new Date(),
+            lastErrorMessage: result.errorMessage ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(aiRelayKeyPool.id, row.id))
+      }
+    } catch {
+      // 单 key 探测异常不中断恢复流程
+    }
+  }
+  return recovered
+}
+
+/** 巡检所有 is_enabled=true 的 key + 禁用 key 恢复探测。返回各状态计数(串行避免上游并发冲击)。 */
+export async function checkAllKeys(): Promise<HealthCheckSummary> {
+  const keys = await dbRead
+    .select({
+      id: aiRelayKeyPool.id,
+      providerCode: aiRelayKeyPool.providerCode,
+      apiKeyEnc: aiRelayKeyPool.apiKeyEnc,
+      extraMetadata: aiRelayKeyPool.extraMetadata,
+    })
+    .from(aiRelayKeyPool)
+    .where(eq(aiRelayKeyPool.isEnabled, true))
+
+  const summary: HealthCheckSummary = {
+    total: keys.length,
+    healthy: 0,
+    degraded: 0,
+    down: 0,
+    disabled: 0,
+    recovered: 0,
+  }
+
+  for (const row of keys) {
+    try {
+      const result = await runHealthCheck(row)
+      const disabled = await persistResult(row, result)
+      summary[result.status]++
+      if (disabled) summary.disabled++
+    } catch (err) {
+      // 意外错误（DB 异常等），计为 degraded 但不中断巡检
+      summary.degraded++
+      void err
+    }
+  }
+
+  // 禁用 key 恢复探测:上游侧恢复(充值/解限)后自动回到售卖池
+  summary.recovered = await recoverDisabledKeys()
+
+  return summary
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
