@@ -96,7 +96,13 @@
     "errorLabel": "エラー",
     "toolCallCount": "ツール呼び出し{n}回",
     "showMore": "もっと見る",
-    "noOutput": "出力なし"
+    "noOutput": "出力なし",
+    "stepPending": "待機中",
+    "phaseThinking": "思考中",
+    "phaseActing": "実行中",
+    "phaseReflecting": "振り返り",
+    "phaseOutputReady": "出力整理中",
+    "exitCode": "終了コード {n}"
   },
   "a11y": {
     "addAttachment": "添付ファイルを追加（画像/動画/ファイル）",

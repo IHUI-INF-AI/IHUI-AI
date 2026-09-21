@@ -2607,7 +2607,10 @@ describe('AgentTaskProgressPane — v2 toolsByStep 步骤-工具关联', () => {
     const checklist = container.querySelector('[data-testid="plan-step-tools-p-exact"]')
     expect(checklist).toBeTruthy()
     // 精确 ID 匹配命中(时间窗外的工具仍被关联)
-    expect(checklist?.textContent).toContain('read_file')
+    // 关联身份用行 testid 断言:Checklist 已接 stream-ui,界面不再回显英文工具码名
+    expect(
+      checklist?.querySelector('[data-testid="plan-step-tools-p-exact-row-t-exact"]'),
+    ).toBeTruthy()
   })
 
   // ── 2. 时间窗回退 ──
@@ -2694,8 +2697,8 @@ describe('AgentTaskProgressPane — v2 toolsByStep 步骤-工具关联', () => {
     const { container } = render(<AgentTaskProgressPane />)
     const checklist = container.querySelector('[data-testid="plan-step-tools-p-prio"]')
     expect(checklist).toBeTruthy()
-    // 只包含精确匹配的 t-a
-    expect(checklist?.textContent).toContain('read_file')
+    // 只包含精确匹配的 t-a(行 testid 即关联身份;Checklist 已接 stream-ui,界面不回显英文码名)
+    expect(checklist?.querySelector('[data-testid="plan-step-tools-p-prio-row-t-a"]')).toBeTruthy()
     // 窗口内的 t-b 被排除(精确匹配命中即短路,不做时间窗兜底)
     expect(checklist?.textContent).not.toContain('search')
   })
