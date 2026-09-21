@@ -589,9 +589,11 @@ async def test_approval_respond_normalizes_allow_deny(monkeypatch):
     import app.services.agent_loop_v2 as loop_mod
 
     seen: list[tuple[str, str]] = []
+    principals: list[str | None] = []
 
-    def _resolve(approval_id: str, decision: str) -> bool:
+    def _resolve(approval_id: str, decision: str, requester_user_id: str | None = None) -> bool:
         seen.append((approval_id, decision))
+        principals.append(requester_user_id)
         return True
 
     monkeypatch.setattr(loop_mod, "resolve_approval_response", _resolve)
@@ -599,6 +601,8 @@ async def test_approval_respond_normalizes_allow_deny(monkeypatch):
     await _rpc(engine, "approval.respond", {"approvalId": "a1", "decision": "allow"})
     await _rpc(engine, "approval.respond", {"approvalId": "a2", "decision": "deny"})
     assert seen == [("a1", "approve"), ("a2", "reject")]
+    # O19:未带 threadId ⇒ 无可证明的 principal(只能结算同样无属主的条目,不开新口子)
+    assert principals == [None, None]
 
 
 # ---------------------------------------------------------------------------

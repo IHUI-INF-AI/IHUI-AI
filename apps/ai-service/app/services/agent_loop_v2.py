@@ -2119,6 +2119,7 @@ class AgentLoopV2:
                 status=status,
                 metadata=metadata,
                 file_snapshots=file_snapshots,
+                owner_user_id=self._user_id,
             )
             # 1-5:跟踪最新 checkpoint id(供 tool.after 事件与 step 录制的
             # rollback 证据引用;失败/None 时保留上一个)
