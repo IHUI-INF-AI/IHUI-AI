@@ -34,6 +34,10 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+
+# 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
+# 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
+from .path_guard import find_sensitive_segment, sensitive_error_message
 from .security_config import get_security_config
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
@@ -517,6 +521,39 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
         )
     except Exception as e:
         return False, f"路径解析失败: {e}"
+
+
+def _validate_write_path_in_workspace(path: str) -> tuple[bool, str]:
+    """**写工具专用**路径校验:白名单根 + symlink 解析 + 敏感目录黑名单。
+
+    与 ``_validate_path_in_workspace`` 的差别只有最后一层:本函数额外拒绝落在
+    敏感目录(.git / node_modules / .venv / venv / dist / build / __pycache__ /
+    .next)内的路径(判定源见 ``path_guard``)。
+
+    为什么只给写路径加这一层,而不直接加进 ``_validate_path_in_workspace``:
+    后者另有 10 个调用点(read_file / list_files / run_command 的 cwd /
+    vision_analyze / 媒体 save_path 三兄弟等),读路径与 cwd 在业务上允许触及
+    .git、node_modules(agent 需要查看依赖源码、读取仓库状态),在黑名单加在
+    那里会**顺带改变读行为**,属于超出修复范围的语义变更。真实危害集中在「写」:
+    写入 .git/hooks/ 即等价于任意代码执行。因此本层只覆盖三个写工具
+    (write_file / file_edit / resolve_conflict)——它们与
+    ``file_editor.validate_path`` 属同一语义面(源代码编辑),后者的黑名单行为
+    正是本层对齐的目标,两条编辑路径从此不会再有策略分歧。
+
+    媒体落盘(save_path 三兄弟)**刻意不加**本层:其后缀已被限定为图片/音频/视频
+    扩展名,无法落成 .git/hooks/pre-commit 这类可执行文本;而"把生成产物写进
+    build/ 目录"是合理构建用法,加了会误伤。
+
+    Returns:
+        (True, resolved_path) 或 (False, error_message)
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info
+    # 对**解析后**路径判定:这样 symlink 指向 .git 的情况同样被拦住。
+    if find_sensitive_segment(info):
+        return False, sensitive_error_message(info)
+    return True, info
 
 
 # 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
@@ -1110,7 +1147,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
     content = arguments.get("content", "")
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "write_file", "path": path, "ok": False, "error": info}
     resolved_path = info
@@ -1143,7 +1180,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "file_edit", "file_path": path, "ok": False,
                 "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
 
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "file_edit", "file_path": path, "ok": False,
                 "error": info, "errorCode": "PATH_NOT_ALLOWED"}
@@ -1256,7 +1293,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "resolve_conflict", "file_path": path, "ok": False,
                 "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
 
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "resolve_conflict", "file_path": path, "ok": False,
                 "error": info, "errorCode": "PATH_NOT_ALLOWED"}
