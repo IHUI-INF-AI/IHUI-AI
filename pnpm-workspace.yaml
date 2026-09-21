@@ -1,0 +1,248 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# ============== nodeLinker: isolated(2026-08-05 恢复)==============
+# 2026-08-05 曾切到 hoisted 解决 react-native-worklets CMake 路径过长问题,
+# 但 hoisted 模式下 pnpm 不创建 @ihui/* workspace 包符号链接到顶层 node_modules,
+# 导致 web/api/mobile-rn 全部报 "Cannot find package '@ihui/database'" 等 ESM 解析失败。
+# 修复方案:回到 isolated(默认)+ publicHoistPattern 已包含 *react-native*,
+# react-native-worklets 会被 hoist 到顶层 node_modules/react-native-worklets(短路径),
+# CMake 编译时用此短路径,不会触发 250 字符限制。
+# Metro 错误(Cannot find metro/src/lib/isResolvedDependency.js)用 metro.config.js
+# 的 Module._resolveFilename monkey-patch 单独解决(重定向到 @expo/metro/metro/lib/)。
+# nodeLinker 默认值 isolated,此处显式声明便于后续维护者理解。
+nodeLinker: isolated
+
+# ============== virtualStoreDir: 短路径(2026-09-08 引入,2026-09-10 迁 D 盘)==============
+# Windows 上 pnpm isolated 的 .pnpm 虚拟仓库位于 node_modules/.pnpm,叠加包名+hash 后
+# 真实绝对路径过长,导致 mobile-rn 原生 CMake/AGP 生成的 .cxx 对象与 prefab 文件路径
+# 超过 Windows 260 字符限制(ninja: mkdir/Stat ... longer than 260 characters)。
+# 把虚拟仓库挪到短路径(仅改变 .pnpm 物理位置,不改 nodeLinker,
+# 不影响 node_modules/<pkg> 软链解析,@ihui/* workspace 链接不受影响),
+# 全局缩短 ~20 字符。依赖解析/锁文件不受影响(仅物理落盘位置变化)。此路径需存在且为短路径。
+# 2026-09-10: C:/pstore → D:/pstore。原因:内容寻址仓库在 D:\.pnpm-store,虚拟仓放 C 盘
+# 导致跨盘硬链接失效退化为逐文件复制(全新安装 ~3 包/分钟);同盘后 pnpm 直接硬链接,
+# 全新安装分钟级完成。路径长度不变,短路径约束(mobile-rn 原生构建)不受影响。
+# 2026-09-10 回退默认(项目内 node_modules/.pnpm):Next 16 Turbopack 强制 hermetic
+# workspace root(按锁文件定位=D:\IHUI-AI),根外虚拟仓实体文件被拒绝解析 → next build
+# 必挂 "Could not find the Next.js package" / "@ihui/shared/*" 全线 Module not found(实测)。
+# 回退后仓库根与 store 同为 D 盘,硬链接优势保留;长路径由 publicHoistPattern 兜底。
+# virtualStoreDir: 'D:/pstore'
+
+# ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
+# 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
+# Metro 0.81 默认不 follow pnpm 的 .pnpm/<pkg>/node_modules junction 真实路径,
+# 导致 react-native / @react-navigation/native 的传递依赖(invariant, @react-navigation/core,
+# ansi-regex 等)无法从 .pnpm 隔离目录解析,报 "Unable to resolve module"。
+# 方案:用 publicHoistPattern 把 RN/Expo 生态的传递依赖 hoist 到根 node_modules 顶层,
+# Metro 的 hierarchical lookup 即可找到。
+# 注意:pnpm 9.15+ 的 public-hoist-pattern 必须配在 pnpm-workspace.yaml(而非 .npmrc),
+#       否则 pnpm config get 能读到但 install 时不应用。
+# 影响范围:仅 RN/Expo 生态包,其他 7 端不引用这些包,无影响。
+publicHoistPattern:
+  # ----- 通配符:覆盖 RN/Expo/Metro 生态 -----
+  - '*react-native*'
+  - '*react-navigation*'
+  - '*expo*'
+  - '*nativewind*'
+  - '*metro*'
+  - '@react-native/*'
+  - '@react-native-*/*'
+  - '@react-navigation/*'
+  - '@expo/*'
+  - '@ide/*'
+  # ----- react-native 0.79.6 非 scoped 传递依赖(Metro bundle 必需) -----
+  - 'invariant'
+  - 'nullthrows'
+  - 'memoize-one'
+  - 'scheduler'
+  - 'stacktrace-parser'
+  - 'pretty-format'
+  - 'regenerator-runtime'
+  - 'anser'
+  - 'ansi-regex'
+  - 'chalk'
+  - 'commander'
+  - 'glob'
+  - 'event-target-shim'
+  - 'abort-controller'
+  - 'base64-js'
+  - 'whatwg-fetch'
+  - 'ws'
+  - 'yargs'
+  - 'semver'
+  - 'promise'
+  - 'react-devtools-core'
+  - 'react-refresh'
+  - 'flow-enums-runtime'
+  - 'babel-jest'
+  - 'jest-environment-node'
+  - 'babel-plugin-syntax-hermes-parser'
+  - '@jest/create-cache-key-function'
+  # ----- @react-navigation / expo 非 scoped 传递依赖 -----
+  - 'escape-string-regexp'
+  - 'fast-deep-equal'
+  - 'nanoid'
+  - 'query-string'
+  - 'react-is'
+  - 'use-latest-callback'
+  - 'color'
+  - 'warn-once'
+  - 'whatwg-url-without-unicode'
+  - 'babel-preset-expo'
+  - 'ua-parser-js'
+  - 'assert'
+  - 'badgin'
+  # ----- react-native-* / nativewind / workspace 包的非 scoped 传递依赖 -----
+  - 'react-freeze'
+  - 'comment-json'
+  - 'debug'
+  - 'lightningcss'
+  - 'convert-source-map'
+  - 'merge-options'
+  - 'html2canvas'
+  - 'events'
+  - 'js-sha1'
+  - 'tailwindcss'
+  - 'class-variance-authority'
+  - 'clsx'
+  - 'tailwind-merge'
+  - 'xstate'
+  - 'zod'
+
+# ============== pnpm catalog(2026-07-29 立,AGENTS.md P3 阶段 1.2)==============
+# 目的:锁定全端共用依赖的单一版本,升级改一处,所有引用自动同步。
+# 范围:只纳入"版本完全一致 + 多端共用"的依赖。
+# 排除(版本冲突硬约束,不可纳入 catalog):
+#   - react/react-dom:Taro 4 需要 React 18,web/extension/desktop 用 React 19(18 vs 19 硬约束)
+#   - tailwindcss:miniapp-taro/mobile-rn 用 v3(NativeWind/Taro 兼容),web/extension 用 v4(v3 vs v4 硬约束)
+#   - next:web 独占
+#   - expo + react-native:RN 独占
+#   - @tarojs/*:taro 独占
+#   - @types/react:对应 React 版本,由根 pnpm.overrides 全局锁定
+#   - lucide-react:ui-react 用 ^0.460.0,web 用 ^0.562.0(版本不一致,暂纳入 catalog 锁定
+#     ui-react 基线版本 ^0.460.0,web 未迁移到 catalog: 仍用硬编码 ^0.562.0,待后续统一)
+# 引用方式:package.json 中 "typescript": "catalog:" 即引用此处的版本。
+# 与 pnpm.overrides 协同:overrides 优先级 > catalog,二者可并存。
+catalog:
+  typescript: ^5.7.2 # L1:保持 5.x(TS 7.0 是 major,留 L2 评估)
+  rimraf: ^6.1.3 # L1:6.0.1 → 6.1.3 minor
+  vitest: ^4.0.0 # L3:3.x→4.x major(miniapp-taro 除外,其 @tarojs/vite-runner peerDep 锁定 vite^4,而 vitest 4.x 需要 vite 5+ 的 ./module-runner 导出,故 miniapp-taro 单独降级到 vitest ^3.2.7)
+  zod: ^4.0.0 # L4:3.x→4.x major(已迁移:z.string().ip()→z.union([z.ipv4(),z.ipv6()])、errorMap→error、.flatten()→z.treeifyError、.passthrough()→z.looseObject()、z.record(z.x)→z.record(z.string(),z.x)、z.string().email()→z.email())
+  eslint: ^10.0.0 # L2:9.x→10.x major(已评估:flat config 已就位 + typescript-eslint v8.56+ 支持 + Node 24 满足要求)
+  zustand: ^5.0.14 # L1:5.0.2 → 5.0.14 patch
+
+# ============== pnpm 11 配置迁移(2026-08-03)==============
+# pnpm 11 不再读取 package.json 的 pnpm 字段,overrides/peerDependencyRules
+# 必须迁移到 pnpm-workspace.yaml(https://pnpm.io/settings)
+
+# minimumReleaseAge:pnpm 11 默认启用供应链策略(拒绝发布<24h 的包)。
+# 项目 2026-08-03 从 pnpm 9 升级到 11,此策略会阻止 fastify 5.11.2 等新发布包。
+# 显式设 0 禁用,恢复 pnpm 9 安全级别(项目已有 onlyBuiltDependencies 白名单兜底)。
+minimumReleaseAge: 0
+
+# 原 package.json pnpm.overrides 迁移至此:
+overrides:
+  ioredis: 6.0.0
+  webpack: 5.91.0
+  '@types/react': 19.2.18
+  '@types/react-dom': 19.2.4
+  '@types/node': 26.1.2
+  drizzle-orm: 0.45.2
+  fast-jwt: 6.3.1
+  # 2026-09-06 依赖安全审计(PATCH 级低风险修复):
+  # fast-uri 3.1.5/4.1.2 → ^3.1.6/^4.1.3(SSRF/IDN 规范化,被 @fastify/ajv-compiler 与 fastify 引用)
+  # '@xmldom/xmldom' 0.8.14 → ^0.8.15(XML 片段注入,被 exceljs/@expo/plist 传递引用)
+  fast-uri@>=3.0.0 <3.1.6: ^3.1.6
+  fast-uri@>=4.0.0 <4.1.3: ^4.1.3
+  '@xmldom/xmldom@>=0.8.0 <0.8.15': ^0.8.15
+  # metro override 删除(2026-08-05):
+  # 原 metro: 0.81.5 是为 react-native-css-interop 0.2.6 的 _fileSystem API 兼容,
+  # 但 metro.config.js 已用 forceWriteFileSystem: true 绕过 _fileSystem 调用,
+  # 且 @expo/metro 56.0.0 依赖 metro 0.84.4(新 API isResolvedDependency.js),
+  # 强制锁 0.81.5 会导致 "Cannot find module metro/src/lib/isResolvedDependency.js"。
+  # react-native 0.86.2 不依赖 metro(无 peer/dependencies 声明),删除 override 安全。
+  html-encoding-sniffer: 4.0.0
+  d3-array: ^3.2.0
+  d3-shape: ^3.2.0
+  jiti: 2.7.0
+  adm-zip@<0.6.0: ^0.6.0
+  dompurify@<3.4.9: ^3.4.9
+  dompurify@<=3.4.10: ^3.4.11
+  dompurify@<=3.4.11: ^3.4.12
+  dompurify@<=3.4.12: ^3.4.13
+  fast-xml-parser@<5.7.0: ^5.7.0
+  glob@>=10.2.0 <10.5.0: ^10.5.0
+  got@<11.8.5: ^11.8.5
+  http-cache-semantics@<4.1.1: ^4.1.1
+  lodash-es@<=4.17.23: ^4.17.24
+  lodash-es@>=4.0.0 <=4.17.22: ^4.17.23
+  lodash-es@>=4.0.0 <=4.17.23: ^4.17.24
+  postcss@<8.4.31: ^8.4.31
+  postcss@<8.5.10: ^8.5.10
+  postcss@<=8.5.11: ^8.5.12
+  postcss@<=8.5.17: ^8.5.18
+  postcss@<=8.5.22: ^8.5.23
+  serialize-javascript@<=7.0.2: ^7.0.3
+  serialize-javascript@>=5.0.0 <7.0.5: ^7.0.5
+  sharp@<0.35.0: ^0.35.0
+  swiper@>=6.5.1 <12.1.2: ^12.1.2
+  uuid@<11.1.1: ^11.1.1
+  vite-plugin-static-copy@>=0.4.3 <=2.3.1: ^2.3.2
+  vite@<=5.4.19: ^5.4.20
+  vite@<=5.4.8: ^5.4.9
+  vite@<=6.4.1: ^6.4.2
+  vite@<=6.4.2: ^6.4.3
+  vite@>=4.5.3 <5.0.0: ^5.0.0
+  webpack-dev-server@<5.2.5: ^5.2.5
+  webpack-dev-server@<=5.2.0: ^5.2.1
+  webpack-dev-server@<=5.2.3: ^5.2.4
+  webpack-dev-server@<=5.2.5: ^5.2.6
+  webpack@>=5.0.0-alpha.0 <5.94.0: ^5.94.0
+  webpack@>=5.49.0 <5.104.0: ^5.104.0
+  webpack@>=5.49.0 <=5.104.0: ^5.104.1
+  # 供应链(2026-09-06):xlsx(SheetJS npm 冻结版 0.18.5)存在 CVE-2023-30533(原型污染)/ReDoS,
+  # npm 上游不再发布修复版,统一强制到无漏洞 drop-in fork @e965/xlsx 0.20.x(API 兼容)。
+  xlsx: npm:@e965/xlsx@^0.20.3
+
+# 原 package.json pnpm.peerDependencyRules 迁移至此:
+peerDependencyRules:
+  ignoreMissing:
+    - '@opentelemetry/api'
+
+# ============== pnpm 11 allowBuilds 迁移(2026-08-03)==============
+# pnpm 11 删除了 onlyBuiltDependencies / neverBuiltDependencies / ignoredBuiltDependencies,
+# 全部替换为 allowBuilds 映射(包名 → true/false)。
+# pnpm 11 默认 strictDepBuilds=true,未在 allowBuilds 中列 true 的包的 build scripts 全部忽略。
+# 原 .npmrc onlyBuiltDependencies[] 白名单:argon2/sharp/esbuild/playwright
+# 新增(2026-08-03):项目实际需要的 native/binding 依赖全部设 true,
+# 否则 ERR_PNPM_IGNORED_BUILDS 阻塞 install。
+allowBuilds:
+  # ----- 原 .npmrc 白名单 -----
+  argon2: true
+  sharp: true
+  esbuild: true
+  playwright: true
+  # ----- 新增:项目实际需要的 build scripts -----
+  '@parcel/watcher': true # taro/next 文件监听 native binding
+  '@swc/core': true # taro/next SWC 编译器 native binding
+  '@tarojs/binding': true # taro 4 native binding
+  '@tarojs/cli': true # taro CLI build script
+  core-js: true # polyfill build script
+  core-js-pure: true # polyfill build script
+  msgpackr-extract: true # msgpackr native binding
+  msw: true # mock service worker build script
+  node-pty: true # 终端伪线程 native binding(cli 端)
+  protobufjs: true # protobuf codegen
+  unrs-resolver: true # oxlint resolver native binding
+  '@alicloud/openapi-core': true # 阿里云 SDK build script
+  dtrace-provider: true # native dtrace probe(缓存/instrumentation 依赖)
+
+verifyDepsBeforeRun: false
+
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
