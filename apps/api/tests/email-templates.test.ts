@@ -10,6 +10,8 @@ import {
   renderMaintenanceNoticeEmail,
   renderChangelogEmail,
   renderLaunchEmail,
+  renderSystemAlertEmail,
+  renderLowBalanceEmail,
   FOUNDER_QR_PATH,
   FOUNDER_WECHAT_ID,
   escapeHtml,
@@ -173,6 +175,82 @@ describe('email-templates — 新品上线', () => {
     })
     expect(r.html).not.toContain('<script>')
     expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('email-templates — 运维系统告警', () => {
+  it('critical 走信号红,主题保留 [CRITICAL] 前缀(兼容监控过滤规则)', () => {
+    const r = renderSystemAlertEmail({
+      severity: 'critical',
+      source: 'guardian-runner',
+      time: '2026-09-21 10:00:00',
+      title: 'API 服务 5xx 飙升',
+      message: 'error rate 12.4%\nthreshold 5%',
+    })
+    expect(r.subject).toBe('[CRITICAL] API 服务 5xx 飙升')
+    expect(r.html).toContain('#FF3B2F')
+    expect(r.html).toContain('[ CRITICAL ]')
+    expect(r.html).toContain('guardian-runner')
+    expect(r.html).toContain('2026-09-21 10:00:00')
+    expect(r.html).toContain('error rate 12.4%')
+  })
+
+  it('info 走品牌绿,theme 标签映射正确', () => {
+    const r = renderSystemAlertEmail({
+      severity: 'info',
+      source: 'scheduler',
+      time: '2026-09-21 11:00:00',
+      title: '例行巡检完成',
+      message: 'all green',
+    })
+    expect(r.subject).toBe('[INFO] 例行巡检完成')
+    expect(r.html).toContain('#B4FF00')
+    expect(r.html).toContain('ALERT_INFO')
+    expect(r.html).not.toContain('#FF3B2F')
+  })
+
+  it('message 为真实文本(逐行 div,非 <pre>)且被转义(XSS 防护)', () => {
+    const r = renderSystemAlertEmail({
+      severity: 'warning',
+      source: 's',
+      time: 't',
+      title: 'x',
+      message: '<script>alert(1)</script>',
+    })
+    expect(r.html).not.toContain('<pre>')
+    expect(r.html).not.toContain('<script>')
+    expect(r.html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('email-templates — 余额不足提醒', () => {
+  it('充值按钮为真实链接且金额换算正确', () => {
+    const r = renderLowBalanceEmail({
+      userName: '李总',
+      keyName: 'prod-key',
+      tokenBalance: 42,
+      costBalanceCents: 5000,
+      thresholdCents: 1000,
+      purchaseUrl: 'https://aizhs.top/purchase',
+    })
+    expect(r.subject).toContain('余额不足')
+    expect(r.html).toContain('href="https://aizhs.top/purchase"')
+    expect(r.html).toContain('¥50.00')
+    expect(r.html).toContain('¥10.00')
+    expect(r.html).toContain('prod-key')
+    expect(r.text).toContain('https://aizhs.top/purchase')
+  })
+
+  it('keyName 被转义(XSS 防护)', () => {
+    const r = renderLowBalanceEmail({
+      keyName: '<img src=x onerror=alert(1)>',
+      tokenBalance: 1,
+      costBalanceCents: 0,
+      thresholdCents: 1000,
+      purchaseUrl: 'https://aizhs.top/purchase',
+    })
+    expect(r.html).not.toContain('<img src=x')
+    expect(r.html).toContain('&lt;img src=x')
   })
 })
 
