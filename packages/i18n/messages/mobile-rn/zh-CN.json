@@ -913,7 +913,19 @@
     "instructor": "讲师",
     "level_label": "难度",
     "free": "免费",
-    "loadFailed": "加载筛选失败"
+    "loadFailed": "加载筛选失败",
+    "cat_all": "全部",
+    "cat_tech": "技术",
+    "cat_design": "设计",
+    "cat_business": "商务",
+    "cat_language": "语言",
+    "level_all": "全部",
+    "level_beginner": "入门",
+    "level_intermediate": "进阶",
+    "level_advanced": "高级",
+    "price_all": "全部",
+    "price_free": "免费",
+    "price_paid": "付费"
   },
   "courseQAAsk": {
     "title": "课程提问",

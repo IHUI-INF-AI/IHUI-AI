@@ -913,7 +913,19 @@
     "instructor": "講師",
     "level_label": "難易度",
     "free": "無料",
-    "loadFailed": "フィルターの読み込みに失敗"
+    "loadFailed": "フィルターの読み込みに失敗",
+    "cat_all": "全て",
+    "cat_tech": "テクノロジー",
+    "cat_design": "デザイン",
+    "cat_business": "ビジネス",
+    "cat_language": "語学",
+    "level_all": "全て",
+    "level_beginner": "初級",
+    "level_intermediate": "中級",
+    "level_advanced": "上級",
+    "price_all": "全て",
+    "price_free": "無料",
+    "price_paid": "有料"
   },
   "courseQAAsk": {
     "title": "コース質問",

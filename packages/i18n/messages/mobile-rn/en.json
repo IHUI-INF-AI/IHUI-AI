@@ -913,7 +913,19 @@
     "instructor": "Instructor",
     "level_label": "Level",
     "free": "Free",
-    "loadFailed": "Failed to load filter"
+    "loadFailed": "Failed to load filter",
+    "cat_all": "All",
+    "cat_tech": "Technology",
+    "cat_design": "Design",
+    "cat_business": "Business",
+    "cat_language": "Language",
+    "level_all": "All",
+    "level_beginner": "Beginner",
+    "level_intermediate": "Intermediate",
+    "level_advanced": "Advanced",
+    "price_all": "All",
+    "price_free": "Free",
+    "price_paid": "Paid"
   },
   "courseQAAsk": {
     "title": "Ask a Question",

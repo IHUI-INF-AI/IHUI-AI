@@ -913,7 +913,19 @@
     "instructor": "강사",
     "level_label": "난이도",
     "free": "무료",
-    "loadFailed": "필터 불러오기 실패"
+    "loadFailed": "필터 불러오기 실패",
+    "cat_all": "전체",
+    "cat_tech": "기술",
+    "cat_design": "디자인",
+    "cat_business": "비즈니스",
+    "cat_language": "언어",
+    "level_all": "전체",
+    "level_beginner": "초급",
+    "level_intermediate": "중급",
+    "level_advanced": "고급",
+    "price_all": "전체",
+    "price_free": "무료",
+    "price_paid": "유료"
   },
   "courseQAAsk": {
     "title": "강좌 질문",

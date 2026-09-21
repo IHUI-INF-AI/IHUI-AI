@@ -18,9 +18,9 @@ import type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps } fro
 export type { PromotionCouponStatus, PromotionCoupon, PromotionScreenProps }
 
 const STATUS_KEYS: Record<PromotionCouponStatus, string> = {
-  available: 'promotion.status_available',
-  used: 'promotion.status_used',
-  expired: 'promotion.status_expired',
+  available: 'coupon.available',
+  used: 'coupon.used',
+  expired: 'coupon.expired',
 }
 
 /**
