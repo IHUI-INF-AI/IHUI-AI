@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
 import { useChatStore } from '@/stores/chat'
+import { toolDisplayKey } from '@ihui/shared/chat'
 import { computeMessageCostCny, formatCompactTokens, useModelPriceCny } from './use-model-price'
 
 /** 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
@@ -18,11 +19,14 @@ export function TypingIndicator({
   toolCalls?: ChatMessage['toolCalls']
 }) {
   const t = useTranslations('ai.toolCall')
+  const tStatus = useTranslations('taskStatus')
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
 
   let label: string
   if (runningTool) {
-    label = t('callingTool', { name: runningTool.toolName })
+    // 工具码名 → 功能名(映射不到的插件/MCP 动态名回落原展示)
+    const displayKey = toolDisplayKey(runningTool.toolName)
+    label = displayKey ? tStatus(displayKey) : t('callingTool', { name: runningTool.toolName })
   } else if (reasoning && reasoning.length > 0) {
     const preview = reasoning.length > 40 ? `${reasoning.slice(0, 40)}…` : reasoning
     label = t('thinking', { preview })
