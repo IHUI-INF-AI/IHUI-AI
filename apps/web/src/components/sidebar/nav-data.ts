@@ -618,7 +618,7 @@ export function isHrefActive(href: string, pathname: string): boolean {
   return !ALL_NAV_HREFS.some((h) => h !== href && h.startsWith(href) && pathname.startsWith(h))
 }
 
-/** 侧边栏语言切换菜单数据(8 端语言)。SidebarActions 使用。 */
+/** 侧边栏语言切换菜单数据(8 端语言)。SidebarUserRow 用户菜单"语言"子菜单使用。 */
 export const LANGUAGES: { code: Language; name: string; badge: string }[] = [
   { code: 'zh-CN', name: '简体中文', badge: 'ZH' },
   { code: 'zh-TW', name: '繁體中文', badge: 'TW' },
