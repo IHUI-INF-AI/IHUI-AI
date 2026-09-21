@@ -6626,6 +6626,8 @@
     "marketTab": "Agent 市場",
     "marketTitle": "智能體市場",
     "mineTab": "我的 Agent",
+    "loginRequired": "登入後可獲得完整智能體市場體驗",
+    "loginNow": "立即登入",
     "nameRequired": "名稱不能為空",
     "next": "下一頁",
     "noDescription": "暫無描述",
