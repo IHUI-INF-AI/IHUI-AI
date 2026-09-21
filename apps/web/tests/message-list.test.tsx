@@ -757,9 +757,7 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       render(<MessageList {...baseProps} messages={msgs} />)
       // D21(2026-09-19 立):初始折叠态由折叠策略驱动 — 本例为轻查询(短正文+无工具+零耗时),
       // auto 口径下默认展开,卡片无需点击即可见;再点击触发器验证可收起
-      const trigger = document.querySelector(
-        '[data-testid="message-steps-collapsible-a1"] button',
-      ) as HTMLElement
+      const trigger = document.querySelector('[data-stream-group] button') as HTMLElement
       expect(trigger).toBeTruthy()
       expect(screen.queryByTestId('message-plan-steps-a1')).toBeTruthy()
       fireEvent.click(trigger)
