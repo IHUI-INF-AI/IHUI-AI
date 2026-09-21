@@ -229,7 +229,7 @@ const MessageItem = React.memo(function MessageItem({
   // 原 gate 仅判 `m.toolCalls.length > 0`,导致"只有 planSteps / 终端任务 / subagent 活动
   // 而没有工具调用"的消息完全不渲染折叠区 —— plan 步骤永久不可见(tests/message-list
   // 的 PlanStepsCard 用例实证:纯 planSteps 消息 queryByTestId 恒为 null)。
-  // 现取四类区段总数:既做折叠区 gate,也做「查看 N 个中间步骤」计数,语义一致。
+  // 现取四类区段总数:既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
   const stepSectionsCount =
     (m.toolCalls?.length ?? 0) +
     (m.planSteps?.length ?? 0) +
@@ -237,7 +237,7 @@ const MessageItem = React.memo(function MessageItem({
     (m.subagentActivities?.length ?? 0)
 
   // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
-  // 而不是一句"查看 N 个中间步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
+  // 而不是一句"展开查看更多步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
   // 头行禁止出现英文工具码名 —— 映射不到的插件/MCP 名走 "调用 {tool}" 措辞。
   const activeToolCall =
     m.toolCalls?.find((tc) => tc.status === 'running') ?? m.toolCalls?.[m.toolCalls.length - 1]
@@ -747,7 +747,7 @@ const MessageItem = React.memo(function MessageItem({
               />
             )}
             {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                初始态由折叠策略驱动(D21,2026-09-19 立),点击"查看 N 个中间步骤"展开后显示完整内容
+                初始态由折叠策略驱动(D21,2026-09-19 立),点击组头「N 个步骤」展开后显示完整内容
                 2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount)
                 D21:key={foldPolicyMode} — 配置变更时重挂载,动画状态与新初始态一致 */}
             {stepSectionsCount > 0 && (
