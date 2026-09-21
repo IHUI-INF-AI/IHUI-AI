@@ -22,6 +22,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import responseSanitizerPlugin from '../src/plugins/response-sanitizer.js'
 
 // ─── 可变 config(测试内直接改字段,省掉整套 vi.resetModules 体操) ────────────
 const cfg = vi.hoisted(() => ({
@@ -47,7 +48,11 @@ vi.mock('../src/config/index.js', () => ({
 
 // ─── 假 Redis 黑名单(断言吊销写入,不碰真 Redis) ─────────────────────────────
 const blacklistCalls = vi.hoisted(() => ({ add: [] as string[], has: [] as string[] }))
-const fakeBlacklistAdd = vi.hoisted(() => vi.fn(async (token: string) => { blacklistCalls.add.push(token) }))
+const fakeBlacklistAdd = vi.hoisted(() =>
+  vi.fn(async (token: string) => {
+    blacklistCalls.add.push(token)
+  }),
+)
 const fakeBlacklistHas = vi.hoisted(() =>
   vi.fn(async (token: string) => {
     blacklistCalls.has.push(token)
@@ -116,7 +121,16 @@ vi.mock('../src/db/index.js', () => {
       if (method === 'values') inserted = { ...(args[0] as Record<string, unknown>) }
       return chain
     }
-  for (const method of ['select', 'from', 'where', 'limit', 'insert', 'values', 'onConflictDoNothing', 'returning']) {
+  for (const method of [
+    'select',
+    'from',
+    'where',
+    'limit',
+    'insert',
+    'values',
+    'onConflictDoNothing',
+    'returning',
+  ]) {
     chain[method] = step(method)
   }
   chain.then = (onOk: (value: unknown) => unknown): unknown =>
@@ -270,9 +284,9 @@ describe('O7 纯函数层:redirect_uri 边界 + PKCE 策略 + 摘要匹配', () 
     expect(policy.requirePkceForConfidentialClients).toBe(false)
     expect(policy.requirePkceForPublicClients).toBe(true)
     expect(policy.allowedMethods).toEqual(['S256'])
-    expect(pkcePolicyFromEnv({ OAUTH_REQUIRE_PKCE: 'true' }).requirePkceForConfidentialClients).toBe(
-      true,
-    )
+    expect(
+      pkcePolicyFromEnv({ OAUTH_REQUIRE_PKCE: 'true' }).requirePkceForConfidentialClients,
+    ).toBe(true)
     // 灰度开关绝不能关掉"带了 challenge 就必须校验 verifier"这条
     const noChallengeNoVerifier = evaluatePkce({
       session: { codeChallenge: generatePkceChallenge(VERIFIER, 'S256') },
@@ -389,6 +403,10 @@ describe('O7 POST /oauth/token + /oauth/introspect + /oauth/revoke', () => {
       sadd: vi.fn(async () => 1),
       expire: vi.fn(async () => 1),
     })
+    // 挂上真实响应脱敏管线:它是全局 onSend 钩子,不挂则本文件所有"响应形状"断言只测了
+    // 裸路由 —— 生产上 access_token / token_use 被 "token" 子串匹配整体打成 "***"
+    // 这件事测不到(2026-09-21 生产实跑抓到,HTTP 200 + 假令牌,OAuth 通道对外不可用)。
+    await app.register(responseSanitizerPlugin)
     // 与真实 server.ts 的注册方式一致:本插件不带 prefix
     await app.register(oauthTokensRoutes)
     await app.ready()
