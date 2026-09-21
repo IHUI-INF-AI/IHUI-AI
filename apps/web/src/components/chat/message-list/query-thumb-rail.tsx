@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import type { RefObject } from 'react'
 import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
 import { floatIndicatorRailCls, FloatIndicatorDot } from '@/components/ui/float-indicator'
@@ -30,6 +31,8 @@ interface MapNode {
 
 interface QueryThumbRailProps {
   messages: ChatMessage[]
+  /** 滚动容器 ref(用于滚动联动高亮 + 点击 scrollIntoView) */
+  containerRef: RefObject<HTMLDivElement | null>
 }
 
 /** 提取纯文本预览(截断 80 字符) */
@@ -55,7 +58,7 @@ const KIND_CLS: Record<MapNodeKind, { shape: string; color: string }> = {
   error: { shape: ROUND_SHAPE, color: 'bg-rose-500' },
 }
 
-export function QueryThumbRail({ messages }: QueryThumbRailProps) {
+export function QueryThumbRail({ messages, containerRef }: QueryThumbRailProps) {
   const t = useTranslations('chat')
   // W18:三类节点 —— 用户消息 / 工具卡(assistant 含 toolCalls 且无正文) / 错误消息
   const nodes = React.useMemo<MapNode[]>(() => {
@@ -76,11 +79,39 @@ export function QueryThumbRail({ messages }: QueryThumbRailProps) {
     }
     return out
   }, [messages])
-  // 当前高亮的节点(最近一次点击),滚动联动由 MessageItem isFocused/isHighlighted 承担
-  // 2026-09-17:默认激活首个节点 —— 与首页 PageIndicator(始终有一个胶囊)视觉一致,
-  // 修复"不点击时 rail 无激活胶囊、两处样式看着不一样"的问题
+  // 当前高亮的节点:滚动联动自动推算 + 点击覆盖(2026-09-21 合并 ConversationLocatorRail/D3 归一:
+  // 原"仅点击激活、默认首个"升级为 rAF 阅读线联动,两 rail 二合一,消除右侧双列圆点)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const [hoveredId, setHoveredId] = React.useState<string | null>(null)
+
+  // 滚动联动高亮:rAF 节流,仅在激活节点变化时才 setState(避免每帧重算/重渲染)。
+  // 取容器顶部下 30% 处为"当前阅读线",最后一个越过该线的节点为激活节(承 D3 定稿算法)
+  React.useEffect(() => {
+    const el = containerRef.current
+    if (!el || nodes.length === 0) return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const rect = el.getBoundingClientRect()
+      const line = rect.top + rect.height * 0.3
+      let current = nodes[0]?.id ?? null
+      for (const n of nodes) {
+        const node = el.querySelector(`[data-message-id="${n.id}"]`)
+        if (!node) continue
+        if ((node as HTMLElement).getBoundingClientRect().top <= line) current = n.id
+      }
+      setActiveId((prev) => (prev === current ? prev : current))
+    }
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+    el.addEventListener('scroll', onScroll)
+    update()
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [nodes, containerRef])
 
   if (nodes.length < 2) return null
 
