@@ -1,0 +1,219 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import * as React from 'react'
+import {
+  QrCode,
+  ExternalLink,
+  Loader2,
+  MessageCircle,
+  Building2,
+  MapPin,
+  Plane,
+} from 'lucide-react'
+
+import { Button } from '../button'
+import { cn } from '../../lib/utils'
+import type { QrPlatformConfig, ThirdPartyPlatform } from './types'
+
+export interface QrTabProps {
+  /** i18n 翻译函数 */
+  t: (key: string, params?: Record<string, string | number>) => string
+  /**
+   * 自定义二维码组件(可选)。web 端可注入带 WxLogin/DTFrameLogin/QRLogin/wwLogin SDK 的版本;
+   * extension 不传时显示默认"打开网页完成扫码"占位。
+   * 接收当前选中的 platform key + refreshKey,返回 ReactNode。
+   */
+  QrComponent?: (props: { platform: ThirdPartyPlatform; refreshKey: number }) => React.ReactNode
+  /** 自定义平台列表(默认 4 个 wechat/wecom/dingtalk/feishu) */
+  platforms?: QrPlatformConfig[]
+  /** 初始选中的平台(默认 list[0]?.key;用于 URL参数 ?platform=xxx 自动选中) */
+  defaultPlatform?: ThirdPartyPlatform
+  /** 切换登录方式回调(默认跳到 email tab) */
+  onSwitchMethod?: () => void
+  className?: string
+}
+
+/** 默认 4 个扫码登录平台(对标 web 端 QrCodeLogin.tsx) */
+const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
+  {
+    key: 'wechat',
+    labelKey: 'auth.wechatLogin',
+    icon: <MessageCircle aria-hidden className="h-4 w-4" />,
+    webUrl: '/login?method=qr&platform=wechat',
+  },
+  {
+    key: 'enterpriseWechat',
+    labelKey: 'auth.enterpriseWechat',
+    icon: <Building2 aria-hidden className="h-4 w-4" />,
+    webUrl: '/login?method=qr&platform=enterpriseWechat',
+  },
+  {
+    key: 'dingtalk',
+    labelKey: 'auth.dingtalkLogin',
+    icon: <MapPin aria-hidden className="h-4 w-4" />,
+    webUrl: '/login?method=qr&platform=dingtalk',
+  },
+  {
+    key: 'feishu',
+    labelKey: 'auth.feishuLogin',
+    icon: <Plane aria-hidden className="h-4 w-4" />,
+    webUrl: '/login?method=qr&platform=feishu',
+  },
+]
+
+/**
+ * 扫码登录 tab(2026-07-26 抽取到共享包)
+ *
+ * 共享版策略(对标 web 端 QrCodeLogin.tsx):
+ *   - 4 平台切换 Tab(wechat / enterpriseWechat / dingtalk / feishu)
+ *   - 二维码面板:Q:web 端可注入带 SDK 的 QrComponent(微信 WxLogin.js / 钉钉 DTFrameLogin
+ *     / 飞书 QRLogin / 企业微信 wwLogin),这些 SDK 不能在 extension 中使用(跨域 /
+ *     iframe 限制)
+ *   - 默认:显示简单占位"请使用 {平台} APP 扫描二维码登录" + QrCode 图标 + "打开网页"按钮
+ *     (点击跳到 web 端 /login 完成扫码)
+ *
+ * 共享包关键差异(2026-07-26):
+ *   - **不嵌入第三方 SDK**(SDK 跨域 / iframe 在 extension 中会失败)
+ *   - 默认显示占位 + 打开网页按钮
+ *   - web 端可注入 QrComponent 接管渲染逻辑,实现完全兼容旧行为
+ */
+export function QrTab({
+  t,
+  QrComponent,
+  platforms,
+  defaultPlatform,
+  onSwitchMethod,
+  className,
+}: QrTabProps) {
+  const list = platforms ?? DEFAULT_PLATFORMS
+  const [platform, setPlatform] = React.useState<ThirdPartyPlatform>(
+    defaultPlatform && list.some((p) => p.key === defaultPlatform)
+      ? defaultPlatform
+      : (list[0]?.key ?? 'wechat'),
+  )
+  const [refreshKey, setRefreshKey] = React.useState(0)
+  const [loading, setLoading] = React.useState(false)
+
+  const current = list.find((p) => p.key === platform) ?? list[0]
+
+  const handleOpenWeb = () => {
+    if (!current) return
+    setLoading(true)
+    try {
+      window.open(current.webUrl, '_blank', 'noopener,noreferrer')
+    } finally {
+      // 即使被 popup blocker 拦截,也不阻塞 UI
+      setTimeout(() => setLoading(false), 200)
+    }
+  }
+
+  return (
+    // 2026-09-19 紧凑化(用户要求登录弹窗禁滚动):gap-3→gap-2、pt-2→0;
+    // 面板包裹层 py-3→py-1。厂商 SDK 二维码面板高度(280px)不动,只压本组件自身 chrome。
+    <div className={cn('flex flex-col items-center gap-2', className)}>
+      {/* 平台切换 Tab:列数跟随平台数(5 平台单行排布,修复第 5 项掉行) */}
+      <div
+        role="tablist"
+        aria-label={t('auth.qrLogin')}
+        className="grid w-full gap-1 rounded-md border bg-muted/40 p-1"
+        style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }}
+      >
+        {list.map((tab) => {
+          const active = tab.key === platform
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-testid={`qr-tab-${tab.key}`}
+              onClick={() => setPlatform(tab.key)}
+              className={cn(
+                // 2026-09-19 竖排(图标上/文字下):5 平台单行网格列宽 ~71px,
+                // 横排 icon+文字会让"App 扫码/企业微信"换行挤压,竖排永不换行
+                'flex flex-col items-center justify-center gap-1 rounded-[4px] px-1 py-1.5 text-[11px] leading-none transition-colors',
+                active
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
+              )}
+            >
+              {typeof tab.icon === 'string' ? (
+                <span aria-hidden="true" className="text-sm leading-none">
+                  {tab.icon}
+                </span>
+              ) : (
+                tab.icon
+              )}
+              <span>{t(tab.labelKey)}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 当前平台的二维码面板 */}
+      <div className="flex w-full flex-col items-center gap-2 py-1">
+        {QrComponent ? (
+          <QrComponent platform={platform} refreshKey={refreshKey} />
+        ) : (
+          <>
+            <div className="flex h-32 w-32 items-center justify-center rounded-md border border-dashed border-border bg-muted/30">
+              <QrCode className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenWeb}
+              disabled={loading}
+              className="text-xs"
+              data-testid="qr-open-web"
+            >
+              {loading ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <ExternalLink className="mr-1 h-3 w-3" aria-hidden="true" />
+              )}
+              {t('common.open')}
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* 扫码提示 */}
+      <p className="text-center text-xs text-muted-foreground">
+        {current
+          ? t('auth.qrScanTipPlatform', { platform: t(current.labelKey) })
+          : t('auth.qrScanTipPlatform', { platform: '' })}
+      </p>
+
+      {/* 操作行:刷新 + 切换登录方式 */}
+      <div className="flex w-full items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={() => setRefreshKey((k) => k + 1)}
+          className="px-2 text-xs text-muted-foreground"
+        >
+          {t('auth.qrRefresh')}
+        </Button>
+        {onSwitchMethod && (
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            onClick={onSwitchMethod}
+            className="px-2 text-xs"
+          >
+            {t('auth.qrSwitchMethod')}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

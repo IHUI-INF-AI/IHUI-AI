@@ -1,0 +1,75 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+[package]
+name = "ihui-desktop"
+version = "0.1.0"
+description = "IHUI AI — Tauri 2 壳"
+authors = ["IHUI AI"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "ihui_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon", "devtools"] }
+tauri-plugin-deep-link = "2.4"
+tauri-plugin-dialog = "2.7"
+tauri-plugin-fs = "2.5"
+tauri-plugin-http = { version = "2.5", features = ["unsafe-headers"] }
+tauri-plugin-notification = "2.3"
+# 2026-09-17 薄壳化配套:auto_refresh 模块(线上前端构建指纹轮询 + 断网健康检查)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["time"] }
+tauri-plugin-os = "2.3"
+tauri-plugin-shell = "2.3"
+tauri-plugin-store = "2.4"
+tauri-plugin-updater = "2.10"
+tauri-plugin-autostart = "2.5"
+tauri-plugin-global-shortcut = "2.3"
+tauri-plugin-single-instance = "2.4"
+tauri-plugin-log = "2.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+log = "0.4"
+screenshots = "0.8"
+enigo = "0.6"
+arboard = "3.6"
+base64 = "0.23"
+image = { version = "0.24", default-features = false, features = ["png"] }
+
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls"] }
+# 2026-09-02:显式固定进程级 AppUserModelID,修复 Windows 通知区托盘图标显隐记忆在
+# dev 重编译/更新后被重置的问题(SetCurrentProcessExplicitAppUserModelID 所在模块)。
+windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
+# 2026-09-02 #2:启动时把托盘图标写入 Win11 任务栏常驻(NotifyIconSettings\IsPromoted=1)。
+# 0.55 已在依赖树中(tauri 插件引用),不增加编译产物。
+winreg = "0.55"
+
+[profile.release]
+panic = "abort"
+# 2026-09-17 编译提速:关 lto + codegen-units=256(链接阶段是大头,thin-lto 的跨 crate
+# 合并耗时显著;薄壳化后包体小,用包体换速度)。2026-07-29 曾试 thin(包体降 15-20%,
+# 当时触发改回的历史见下);薄壳后 exe 仅 ~20MB,包体不再是敏感项。
+lto = false
+codegen-units = 256
+opt-level = "s"
+strip = true
+
+# 2026-09-02:托盘图标显隐记忆根治补丁。
+# 根因:tray-icon 0.24.2 注册通知图标时只设置 (hWnd, 自增计数器 uID),不设置
+# guidItem/NIF_GUID。Windows 因此按 exe 路径识别图标 → dev/安装/更新版路径不同
+# 被当成不同图标 → 显隐记忆每次重置、图标被丢进隐藏溢出区。Microsoft 官方要求
+# 用稳定 GUID 才能保证"跨重装/更新持久化"。此补丁在 NIM_ADD/MODIFY/DELETE 与
+# NOTIFYICONIDENTIFIER 全程带上由 tray id 派生的确定性 GUID。
+# 路径相对本 Cargo.toml 目录;vendor 副本由 upstream 0.24.2 仅改 Windows 后端。
+[patch.crates-io]
+tray-icon = { path = "vendor/tray-icon-0.24.2" }
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

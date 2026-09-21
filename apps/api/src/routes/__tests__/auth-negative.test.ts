@@ -1,0 +1,73 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import Fastify, { type FastifyInstance } from 'fastify'
+
+vi.hoisted(() => {
+  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
+  process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
+  process.env.REDIS_URL ??= 'redis://localhost:6379/0'
+})
+
+import { missingUserRoutes } from '../missing-user-routes.js'
+
+describe('Auth Negative Tests (无 Bearer token → 401)', () => {
+  let app: FastifyInstance
+
+  beforeAll(async () => {
+    app = Fastify({ logger: false })
+    await app.register(missingUserRoutes, { prefix: '/api' })
+    await app.ready()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  // 注:GET /api/knowledge 列表/详情是公开访问(见 missing-user-routes.ts isPublicKnowledgeGet),
+  // 不在此处断言 401。
+  // 注:GET /api/commission/overview 路由未在 missingUserRoutes barrel 中注册
+  // (由独立插件挂载),返回 404 而非 401。已移至单独测试验证 404。
+  // 注:POST /api/analytics/track 是公开埋点上报端点(匿名访客可上报,见 analytics.ts
+  // 注释与 csrf.ts PUBLIC_PREFIXES 白名单),本就不要求鉴权,不在此处断言 401。
+  const endpoints: Array<{ method: 'GET' | 'POST'; url: string }> = [
+    { method: 'GET', url: '/api/article/list' },
+    { method: 'GET', url: '/api/course/my' },
+    { method: 'GET', url: '/api/settings/notifications' },
+    { method: 'GET', url: '/api/mcp' },
+    { method: 'GET', url: '/api/fund' },
+    { method: 'GET', url: '/api/ai/index' },
+    { method: 'GET', url: '/api/developer/info' },
+  ]
+
+  for (const { method, url } of endpoints) {
+    it(`${method} ${url} 无 Bearer token 返回 401`, async () => {
+      const res = await app.inject({ method, url })
+      expect(res.statusCode).toBe(401)
+    })
+  }
+
+  it('GET /api/commission/overview 路由未注册返回 404(commission 由独立插件挂载)', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/commission/overview' })
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('GET /api/article/list 无效 token 返回 401', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/article/list',
+      headers: { authorization: 'Bearer invalid-token' },
+    })
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('401 响应体为 { code: 401, message }', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/article/list' })
+    const body = JSON.parse(res.body)
+    expect(body.code).toBe(401)
+    expect(body.message).toBeTruthy()
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

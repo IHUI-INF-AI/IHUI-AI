@@ -1,0 +1,4 @@
+# 2026-09-17 离线兜底页(打包进 exe 的静态资源,需入库;豁免根 .gitignore 的 *.html 规则)
+!offline/**
+# 2026-09-17 终极薄壳 frontendDist 占位页(同上)
+!shell/**
