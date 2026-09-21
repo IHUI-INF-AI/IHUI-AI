@@ -29,7 +29,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { timingSafeEqual } from 'node:crypto'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
-import { authenticate, checkAuth } from '../plugins/auth.js'
+import { authenticate, checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
@@ -345,20 +345,27 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // GET /status - 查询已注册的端(管理/调试用)
   // -------------------------------------------------------------------------
   server.get('/status', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+    // 两条凭据都收:①用户 JWT(前端/端侧自查);②内部服务凭据(ai-service 在 tool loop 前
+    // 要问"这个用户此刻哪些端在线",据此决定该自主注入哪一族工具 —— 不依赖客户端关键词命中)。
+    if (!(await checkAuthOrInternalService(request, reply))) return
 
     cleanupStaleEndpoints()
-    const endpoints = Array.from(_endpoints.values()).map((ep) => ({
-      endpoint: ep.capability.endpoint,
-      instanceId: ep.capability.instanceId,
-      version: ep.capability.version,
-      lastSeen: new Date(ep.lastSeen).toISOString(),
-      browserActions: ep.capability.browserActions?.length ?? 0,
-      computerActions: ep.capability.computerActions?.length ?? 0,
-      uiActions: ep.capability.uiActions?.length ?? 0,
-      appUiActions: ep.capability.appUiActions?.length ?? 0,
-      taroUiActions: ep.capability.taroUiActions?.length ?? 0,
-    }))
+    // **按用户过滤**(2026-09-21 修):原先返回全表,等于任何登录用户都能读到别人端点的
+    // instanceId / 版本 / 动作数。多用户部署下这是跨租户信息泄漏,与 /execute 早先的
+    // userId 越权修复同源,一并收口。
+    const endpoints = Array.from(_endpoints.values())
+      .filter((ep) => ep.userId === request.userId)
+      .map((ep) => ({
+        endpoint: ep.capability.endpoint,
+        instanceId: ep.capability.instanceId,
+        version: ep.capability.version,
+        lastSeen: new Date(ep.lastSeen).toISOString(),
+        browserActions: ep.capability.browserActions?.length ?? 0,
+        computerActions: ep.capability.computerActions?.length ?? 0,
+        uiActions: ep.capability.uiActions?.length ?? 0,
+        appUiActions: ep.capability.appUiActions?.length ?? 0,
+        taroUiActions: ep.capability.taroUiActions?.length ?? 0,
+      }))
 
     return reply.send(
       success({

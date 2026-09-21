@@ -22,22 +22,27 @@ import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useModeStore } from '@/stores/mode'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { UI_ROUTES } from '@/lib/ui-routes.generated'
+import { NAVIGATE_DENY_RE, buildRouteIndex } from '@/lib/ui-route-index'
 
 // AI 下发指令可到达本页执行,破坏性词与敏感字段黑名单是 2026-09-20 立项的安全底线:
 // 防 AI 幻觉误删数据/误付款/误泄露凭据,命中一律拒绝而非"尽量执行"。
 const DESTRUCTIVE_RE =
   /注销|删除|清空|提现|转账|退款|支付|确认付款|退号|delete|remove|destroy|withdraw|refund|pay/i
 const SENSITIVE_RE = /密码|验证码|password|secret|token|api[-_]?key/i
-const NAVIGATE_DENY_RE = /^\/(login|sso|api)(\/|$)/i
 
 const MAX_ELEMENTS = 80
 const MAX_FORMS = 20
 const MAX_ROUTE_COMMANDS = 40
 const MAX_LABEL_CHARS = 40
 const MAX_READ_TEXT_CHARS = 4000
+const MAX_VALUE_CHARS = 200
 
-const INTERACTIVE_SELECTOR =
-  'input:not([type="hidden"]):not([type="file"]), select, textarea, button, a[href], [role="button"], [role="combobox"]'
+// file 输入现在也采集(kind='file',浏览器禁止脚本填真实路径,但模型必须"看得见上传位");
+// contenteditable 富文本与 Monaco 容器同样入表(可填性见 executeUiAction 各分支)。
+const CONTENT_EDITABLE_SELECTOR =
+  '[contenteditable="true"],[contenteditable=""],[contenteditable="plaintext-only"]'
+const MONACO_SELECTOR = '.monaco-editor'
+const INTERACTIVE_SELECTOR = `input:not([type="hidden"]), select, textarea, button, a[href], [role="button"], [role="combobox"], ${CONTENT_EDITABLE_SELECTOR}, ${MONACO_SELECTOR}`
 
 export interface UiActionResult {
   ok: boolean
@@ -49,6 +54,10 @@ export interface UiActionResult {
 export interface BuildUiSnapshotOptions {
   /** commandPalette 命名空间的 i18n 解析器(桥接 hook 注入);缺省回落命令 id */
   translate?: (key: string) => string
+  /** 全站路由检索词(2026-09-21 立):缺省时 routes 只回"总数+前缀计数摘要",零完整路径 */
+  routeQuery?: string
+  /** 检索命中上限,默认且封顶 40(MAX_ROUTE_QUERY_RESULTS) */
+  routeLimit?: number
 }
 
 type NavigateHandler = (href: string) => void
@@ -104,15 +113,102 @@ function trimLabel(text: string): string {
 
 function elementKind(el: HTMLElement): string {
   if (el instanceof HTMLInputElement) {
+    if (el.type === 'file') return 'file'
     if (el.type === 'checkbox' || el.type === 'radio') return 'checkbox'
     if (el.type === 'submit' || el.type === 'button') return 'button'
     return 'input'
   }
   if (el instanceof HTMLTextAreaElement) return 'textarea'
   if (el instanceof HTMLSelectElement) return 'select'
+  if (el.classList.contains('monaco-editor')) return 'code'
+  if (isContentEditableRoot(el)) return 'richtext'
   if (el.tagName === 'A') return 'link'
   if (el.getAttribute('role') === 'combobox') return 'combobox'
   return 'button'
+}
+
+function isContentEditableRoot(el: HTMLElement): boolean {
+  const attr = el.getAttribute('contenteditable')
+  return attr === 'true' || attr === '' || attr === 'plaintext-only'
+}
+
+/** Monaco 内嵌 textarea/input、嵌套 contenteditable 都是控件内部实现,只采外层容器 */
+function isControlInternal(el: HTMLElement): boolean {
+  if (el.parentElement?.closest(CONTENT_EDITABLE_SELECTOR)) return true
+  if (!el.classList.contains('monaco-editor') && el.closest(MONACO_SELECTOR)) return true
+  return false
+}
+
+// ===== Monaco 实例桥(无 @types,全部经 unknown + 结构守卫,零 any)=====
+interface MonacoTextModel {
+  setValue(value: string): void
+  getValue(): string
+}
+
+function asMonacoModel(candidate: unknown): MonacoTextModel | null {
+  if (typeof candidate !== 'object' || candidate === null) return null
+  const shape = candidate as Record<string, unknown>
+  if (typeof shape['setValue'] === 'function' && typeof shape['getValue'] === 'function') {
+    return candidate as MonacoTextModel
+  }
+  return null
+}
+
+function monacoModelFor(el: HTMLElement): MonacoTextModel | null {
+  // 通道①:容器上的 _modelData(monaco 0.x 内部结构,存在即用)
+  const byContainer = asMonacoModel(
+    (el as unknown as { _modelData?: { model?: unknown } })._modelData?.model,
+  )
+  if (byContainer) return byContainer
+  // 通道②:window.monaco.editor.getEditors() 找包含该容器的编辑器
+  const w = el.ownerDocument.defaultView as
+    (Window & { monaco?: { editor?: { getEditors?: () => unknown } } }) | null
+  const editors = w?.monaco?.editor?.getEditors?.()
+  if (!Array.isArray(editors)) return null
+  for (const item of editors) {
+    if (typeof item !== 'object' || item === null) continue
+    const ed = item as Record<string, unknown>
+    const container = typeof ed['getContainer'] === 'function' ? ed['getContainer']() : undefined
+    if (
+      container instanceof Node &&
+      (container === el || el.contains(container) || container.contains(el))
+    ) {
+      const model = typeof ed['getModel'] === 'function' ? ed['getModel']() : null
+      const found = asMonacoModel(model)
+      if (found) return found
+    }
+  }
+  // 全页仅一个编辑器且拿不到 container 时的保守回落(多编辑器绝不自选,防写错面板)
+  if (editors.length === 1) {
+    const ed = editors[0]
+    if (
+      typeof ed === 'object' &&
+      ed !== null &&
+      typeof (ed as Record<string, unknown>)['getContainer'] !== 'function'
+    ) {
+      return asMonacoModel(
+        typeof (ed as Record<string, unknown>)['getModel'] === 'function'
+          ? ((ed as Record<string, unknown>)['getModel'] as () => unknown)()
+          : null,
+      )
+    }
+  }
+  return null
+}
+
+/** contenteditable 写入:直写 textContent + 派发 input/change(React 受控/监听方可见)。
+ * 刻意不用 execCommand:jsdom/happy-dom 未实现且真浏览器 insertText 依赖选区,行为不可测;
+ * 维护独立文档模型的编辑器(ProseMirror/Slate)可能不同步,回执里如实回写后的文本供核对。 */
+function fillContentEditable(el: HTMLElement, text: string): void {
+  el.focus()
+  el.textContent = text
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+function sliceValue(text: string): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  return t.length > MAX_VALUE_CHARS ? `${t.slice(0, MAX_VALUE_CHARS)}…` : t
 }
 
 function associatedLabel(el: HTMLElement): string | null {
@@ -145,6 +241,9 @@ function elementLabel(el: HTMLElement): string {
   }
   const name = el.getAttribute('name')
   if (name) return trimLabel(name)
+  // Monaco 容器的 textContent 是整篇代码,当标签毫无信息量(trimLabel 已截 40 字符,但仍是代码碎片)
+  if (el.classList.contains('monaco-editor'))
+    return trimLabel(el.getAttribute('aria-label') ?? '代码编辑器')
   return trimLabel(el.textContent ?? '')
 }
 
@@ -179,11 +278,21 @@ function readElementValue(el: HTMLElement): string | undefined {
   }
   if (el instanceof HTMLTextAreaElement) return el.value
   if (el instanceof HTMLSelectElement) return el.selectedOptions[0]?.value ?? ''
+  if (el.classList.contains('monaco-editor')) {
+    const model = monacoModelFor(el)
+    return model ? sliceValue(model.getValue()) : undefined
+  }
+  if (isContentEditableRoot(el)) return sliceValue(el.textContent ?? '')
   return undefined
 }
 
 function elementConstraint(el: HTMLElement): string | undefined {
   const parts: string[] = []
+  if (el instanceof HTMLInputElement && el.type === 'file') {
+    // 模型据此知道"这是上传位、收哪些文件、能否多选";真实路径无法由脚本写入
+    if (el.accept) parts.push(`accept=${el.accept}`)
+    if (el.multiple) parts.push('multiple')
+  }
   if (el instanceof HTMLInputElement && el.type === 'number') {
     if (el.min) parts.push(`min=${el.min}`)
     if (el.max) parts.push(`max=${el.max}`)
@@ -199,7 +308,7 @@ function elementConstraint(el: HTMLElement): string | undefined {
 function collectInteractive(): HTMLElement[] {
   if (typeof document === 'undefined') return []
   return Array.from(document.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR)).filter(
-    (el) => isVisibleElement(el) && !isSensitiveField(el),
+    (el) => isVisibleElement(el) && !isSensitiveField(el) && !isControlInternal(el),
   )
 }
 
@@ -212,10 +321,22 @@ function collectInteractive(): HTMLElement[] {
  * 故表单字段永远优先保留,正文区按钮次之,外壳导航最后。
  */
 const SHELL_SELECTOR = 'nav,header,aside,[role="navigation"],[role="complementary"],[role="banner"]'
-const FIELD_KINDS = new Set(['input', 'textarea', 'select', 'combobox', 'checkbox'])
+// richtext/code 与 input/textarea 同级:它们就是页面的"正文输入通道",被挤出即失能
+const FIELD_KINDS = new Set([
+  'input',
+  'textarea',
+  'select',
+  'combobox',
+  'checkbox',
+  'richtext',
+  'code',
+])
 
 function elementPriority(el: HTMLElement, kind: string): number {
   if (FIELD_KINDS.has(kind)) return 0
+  // file 归 1(与正文按钮同级):上传位只能"看见"不能代填(浏览器安全策略),
+  // 截断时不得挤掉真正可操作的字段,但又比外壳链接更贴近页面主任务
+  if (kind === 'file') return 1
   const inShell = !!el.closest(SHELL_SELECTOR)
   if (!inShell && kind === 'button') return 1
   return inShell ? 3 : 2
@@ -293,6 +414,7 @@ function formTitle(form: HTMLFormElement, id: string): string {
 export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistrySnapshot {
   if (options.translate) snapshotTranslate = options.translate
   const commands = buildCommands()
+  const routes = buildRouteIndex(options.routeQuery, options.routeLimit)
   const page =
     typeof document === 'undefined'
       ? { path: '', title: '', url: '' }
@@ -309,6 +431,7 @@ export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistr
       forms: [],
       elements: [],
       suppressed: 0,
+      routes,
       reportedAt: Date.now(),
     }
   }
@@ -336,6 +459,7 @@ export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistr
   if (typeof document !== 'undefined') {
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(INTERACTIVE_SELECTOR))) {
       if (!isVisibleElement(el)) continue
+      if (isControlInternal(el)) continue
       if (isSensitiveField(el)) {
         suppressed++
         continue
@@ -364,6 +488,11 @@ export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistr
     const constraint = elementConstraint(el)
     if (constraint) descriptor.constraint = constraint
     if (isDisabledElement(el)) descriptor.disabled = true
+    // 2026-09-21:link 补 href(实测模型拿到 link 却读不到指向,只能猜路径)
+    if (kind === 'link' && el instanceof HTMLAnchorElement) {
+      const href = el.getAttribute('href')
+      if (href) descriptor.target = href.length > 120 ? `${href.slice(0, 117)}…` : href
+    }
     elements.push(descriptor)
     if (ownerForm) fieldsByForm.get(ownerForm)?.push(descriptor)
   }
@@ -385,6 +514,7 @@ export function buildUiSnapshot(options: BuildUiSnapshotOptions = {}): UiRegistr
     forms,
     elements,
     suppressed,
+    routes,
     reportedAt: Date.now(),
   }
 }
@@ -480,8 +610,13 @@ export async function executeUiAction(
   if (typeof document === 'undefined') return fail('EXECUTION_FAILED', '无 DOM 环境')
   const p = params ?? {}
   switch (action) {
-    case 'describe':
-      return { ok: true, data: { registry: buildUiSnapshot() } }
+    case 'describe': {
+      // 2026-09-21:query/limit 透传给路由检索(不带 query 时 routes 只有计数摘要,零完整路径)
+      const routeQuery = typeof p.query === 'string' && p.query.trim() ? p.query.trim() : undefined
+      const routeLimit =
+        typeof p.limit === 'number' && Number.isFinite(p.limit) ? p.limit : undefined
+      return { ok: true, data: { registry: buildUiSnapshot({ routeQuery, routeLimit }) } }
+    }
 
     case 'navigate': {
       const { ok, path } = isAllowedNavigatePath(String(p.path ?? ''))
@@ -508,6 +643,44 @@ export async function executeUiAction(
         return fail('PERMISSION_DENIED', '密码/验证码/密钥类字段禁止 AI 填写')
       if (isDisabledElement(el)) return fail('EXECUTION_FAILED', '目标元素已禁用')
       const raw = p.value
+      // file:浏览器安全策略禁止脚本写真实路径,DataTransfer 通道又要求"AI 凭空造文件内容"
+      // (属另一项待确认的新能力)。协议中亦无"引用页面既有 File 对象"的机制,故一律如实拒绝。
+      if (el instanceof HTMLInputElement && el.type === 'file') {
+        return fail(
+          'PERMISSION_DENIED',
+          '文件上传位无法由 AI 代填:浏览器禁止脚本写入本地路径,当前协议也不支持引用页面上已有的 File 对象。' +
+            '该元素在快照中 kind=file(constraint 含 accept/multiple),请引导用户手动选择文件',
+        )
+      }
+      if (el.classList.contains('monaco-editor')) {
+        const model = monacoModelFor(el)
+        if (!model) {
+          return fail(
+            'UNSUPPORTED_ACTION',
+            '检测到 Monaco 代码编辑器容器,但 window.monaco.editor.getEditors 与容器 _modelData 均取不到 editor 实例,' +
+              '暂不支持 AI 写入代码(快照中 kind=code 供感知)',
+          )
+        }
+        const codeText = String(raw ?? '')
+        model.setValue(p.clear === false ? model.getValue() + codeText : codeText)
+        return {
+          ok: true,
+          data: { filled: elementLabel(el), kind: 'code', chars: codeText.length },
+        }
+      }
+      if (isContentEditableRoot(el)) {
+        const richText = typeof raw === 'boolean' ? String(raw) : String(raw ?? '')
+        const next = p.clear === false && el.textContent ? el.textContent + richText : richText
+        fillContentEditable(el, next)
+        return {
+          ok: true,
+          data: {
+            filled: elementLabel(el),
+            kind: 'richtext',
+            value: next.slice(0, MAX_VALUE_CHARS),
+          },
+        }
+      }
       if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
         const want = raw === true || raw === 'true' || raw === 1 || raw === '1'
         if (el.checked !== want) el.click()
