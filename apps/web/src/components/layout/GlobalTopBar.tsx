@@ -126,7 +126,7 @@ const PLUS_MENU_GROUPS: Array<{
       // 2026-09-02 中文连接器入口(P2-2 语雀/飞书/企微/钉钉文档接入)
       { key: 'connectors', icon: Library, href: '/connectors' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
-      // 设置项已提取到左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions),
+      // 设置项已提取到左侧侧边栏底部用户行下拉菜单(2026-09-21 前为独立工具栏 SidebarActions),
       // 不再放在本菜单内。Ctrl+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
     ],
   },
@@ -154,7 +154,7 @@ const PLUS_MENU_GROUPS: Array<{
  *     </div>
  *   </div>
  *   桌面端总高 50px = pt-2(8) + h-9(36) + pb-1.5(6);右缘 pr-2 与下方工作展示区卡片右缘对齐(2026-09-02 修,不再用水平 16px)。
- *   注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions)。
+ *   注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部,2026-09-21 起收进用户行下拉菜单(原 SidebarActions 已删)。
  *
  * 与 MainShell 的分工:
  * - GlobalTopBar:负责全站顶栏(标签 + Plus 弹窗 + 窗口控制 + 桌面端拖拽/resize)
