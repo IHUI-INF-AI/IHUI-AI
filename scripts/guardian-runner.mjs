@@ -1146,6 +1146,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
+  // 背景:同日两次功能丢失 —— 并行会话执行 git checkout/reset,把另一会话**已验证但
+  //   尚未 commit** 的工作树改动整体还原(一次要重做,一次连带丢失两条常驻防漂移测试)。
+  //   stash 侧已有 30b 兜住,「留在工作树里没提交」这一整类此前无任何机制覆盖。
+  // warn-only 理由:共享工作树里并行会话常态存在超龄未提交改动(实测本仓当前 21 个,
+  //   最老 21 天),一上来 blocking 会把别人未完成的工作变成我的提交阻塞;先观察一轮,
+  //   等并行会话收敛后再评估升级。判据/阈值见 scripts/check-uncommitted-age.mjs 头注释。
+  {
+    id: '54',
+    label: '⏳ 未提交源码改动年龄守门(warn-only,B14 防工作树改动被并行 checkout 抹掉)',
+    script: 'check-uncommitted-age.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 有源码改动停留在未提交状态超过阈值(默认 45 分钟)。工作树不是暂存区:',
+      '     任何一次并行的 git checkout / reset / clean 都会把它整体抹掉且不留痕迹。',
+      '     处置:node scripts/safe-commit.mjs -m "<本次改动说明>" -- <file>(改完即提交)',
+      '           或按 AGENTS.md §12d 用 git worktree 隔离并行开发。',
+      '     自检:node scripts/check-uncommitted-age.mjs --self-test',
+      '     全量:node scripts/check-uncommitted-age.mjs --json',
+      '     调阈值:IHUI_UNCOMMITTED_AGE_MIN=<分钟> 或 --threshold-min <分钟>',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
