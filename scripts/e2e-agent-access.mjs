@@ -13,7 +13,9 @@
  *  1) 离线模式(默认,不依赖任何服务/数据库):读 `packages/types/generated/capabilities.json`
  *     + 扫源码 + 通过 tsx 直接调用 `packages/types/src` 里的**真实**判据函数
  *     (`isM2MAllowed` / `effectiveDataClass` / `DEFAULT_API_KEY_PERMISSIONS`),断言:
- *       - 匿名 MCP 已关闭(`jwt_public_paths` 默认值不含 `/api/mcp`;路由层凭据门禁存在)
+ *       - 匿名 MCP 已关闭(`jwt_public_paths` 默认值与 **apps/ai-service/.env 原文**都不含
+ *         `jwt_auth._NEVER_PUBLIC_ROOTS` 里的任何特权 router 根 / `_CATCH_ALL_PUBLIC_ENTRIES`
+ *         兜底写法;清单从 jwt_auth.py 动态解析,不手抄;路由层凭据门禁存在)
  *       - `/v1` 无未登记端点(复用 scripts/check-capability-catalog.mjs 的判据,零复刻)
  *       - `/api` 能力开放登记表无通配、全部落 `/api/` 下、scope 可对机器凭据开放
  *       - `default permissions` 不含 `chat:write`
@@ -94,6 +96,13 @@ const OPTS = {
   unregisteredApiPath: flagOf('unregistered-path') || '/api/notifications/unread-count',
   /** 登记表已逐条放行的 /api 路由(正向对照:机器通道必须能进门)。 */
   registeredApiPath: flagOf('registered-path') || '/api/v1/tools/list',
+  /**
+   * 被审计的部署态 .env 路径(默认 `apps/ai-service/.env`)。
+   * 存在的意义:OFF-02c 的判据必须是 **.env 原文**,而 .env 是 gitignored 的机器态、随时可能被
+   * 人手工清理 —— 提供覆盖入口才能用固定夹具复现"当初那条 /api/agents/ 违规",证明本门禁真能报红,
+   * 而不是只在"恰好还没清理"的那台机器上绿一次。
+   */
+  envFile: flagOf('ai-env') || envOr(['AI_SERVICE_ENV_FILE'], 'apps/ai-service/.env'),
 }
 
 const HELP = `
@@ -110,6 +119,7 @@ e2e-agent-access.mjs —— 外部 Agent 接入能力端到端证明(O17)
   --api-secret <sk>    X-Api-Secret 第二因子(或 env IHUI_API_SECRET)
   --jwt <token>        人通道 JWT,用于 ai-service MCP(或 env IHUI_JWT)
   --timeout <ms>       单次 HTTP 超时(默认 8000)
+  --ai-env <path>      被审计的部署态 .env(默认 apps/ai-service/.env;OFF-02c/02d 判据取该文件原文)
   --no-tsx             禁用 tsx 引擎(不直接调真实函数,改由 capabilities.json 推导)
   --json               输出机器可读 JSON
   --quiet              抑制逐条明细,只给汇总
@@ -133,6 +143,14 @@ function finding(severity, title, detail) {
 function read(rel) {
   try {
     return readFileSync(join(ROOT, rel), 'utf8')
+  } catch {
+    return null
+  }
+}
+/** 读任意(相对仓库根或绝对)路径;失败返回 null,由调用方判"未证明"。 */
+function readAbs(p) {
+  try {
+    return readFileSync(resolve(ROOT, p), 'utf8')
   } catch {
     return null
   }
@@ -225,6 +243,134 @@ function parseEnvList(envSource, key) {
   const m = new RegExp(`^${key}=(.*)$`, 'm').exec(envSource || '')
   if (!m) return null
   return m[1].split(',').map((s) => s.trim()).filter(Boolean)
+}
+
+/**
+ * 从 Python 源码里动态解析一个**元组字面量常量**(如 `_NEVER_PUBLIC_ROOTS = ("a", "b")`)。
+ * 绝不手抄常量:AGENTS.md §4 记录过"文档手抄 button 档位表 → 文档与代码漂移 → 按文档写反而违规"
+ * 的同类事故,守门判据必须与被守门机制同源。
+ * @returns {string[]|null} 解析不到(常量改名/结构变化/空清单)一律 null,由调用方判 FAIL。
+ */
+function parsePyTupleLiteral(source, constName) {
+  if (!source) return null
+  const m = new RegExp(`^${constName}\\s*(?::[^=\\n]+)?=\\s*\\(([^)]*)\\)`, 'm').exec(source)
+  if (!m) return null
+  const parts = [...m[1].matchAll(/"([^"]*)"|'([^']*)'/g)].map((x) => x[1] ?? x[2]).filter(Boolean)
+  return parts.length > 0 ? parts : null
+}
+
+/**
+ * 解析 `apps/ai-service/app/core/jwt_auth.py` 的两条安全边界清单。
+ * @returns {{neverPublicRoots:string[], catchAllEntries:string[]}|null}
+ */
+function parseSecurityBoundaryTuples(jwtAuthSource) {
+  const neverPublicRoots = parsePyTupleLiteral(jwtAuthSource, '_NEVER_PUBLIC_ROOTS')
+  const catchAllEntries = parsePyTupleLiteral(jwtAuthSource, '_CATCH_ALL_PUBLIC_ENTRIES')
+  if (!neverPublicRoots || !catchAllEntries) return null
+  return { neverPublicRoots, catchAllEntries }
+}
+
+/** 与 jwt_auth._is_never_public **同口径**的判定(清单由入参注入,不写死任何路径)。 */
+function isNeverPublicEntry(entry, tuples) {
+  const normalized = String(entry).trim()
+  if (tuples.catchAllEntries.includes(normalized)) return true
+  return tuples.neverPublicRoots.some((root) => normalized === root || normalized.startsWith(`${root}/`))
+}
+
+/**
+ * 逐条给出违规归因(属于哪个 router 根 / 为什么不得匿名放行)。
+ * 注意:本函数**不接收**任何"代码侧是否已有 fail-safe"的入参 —— 运行时净化不能消除配置债,
+ * 否则 jwt_auth 一加固,守门就永远报不出来(真机 .env 的 /api/agents/ 正是这种"运行时已无害、
+ * 配置里仍然错"的条目)。判据源只能是 .env 原文。
+ * @param {string[]} entries
+ * @param {{neverPublicRoots:string[], catchAllEntries:string[]}} tuples
+ */
+function detectPrivilegedPublicEntries(entries, tuples) {
+  const violations = []
+  for (const entry of entries) {
+    const normalized = String(entry).trim()
+    const root = tuples.neverPublicRoots.find((r) => normalized === r || normalized.startsWith(`${r}/`))
+    if (root) {
+      violations.push({
+        entry: normalized,
+        kind: 'privileged-router-root',
+        routerRoot: root,
+        reason: `/api 前缀 = 一个 FastAPI router 根;该 router 自身无端点级鉴权(无 Depends、无属主校验),`
+          + `安全性全押在 JWTAuthMiddleware 上 ⇒ 一条目录前缀会静默放行该 router 现在与将来的每一个端点。`
+          + `确需公开单个端点:在 router 内显式实现凭据门禁并走 code review,不得靠 .env 静默重开。`,
+      })
+      continue
+    }
+    if (tuples.catchAllEntries.includes(normalized)) {
+      violations.push({
+        entry: normalized,
+        kind: 'catch-all',
+        routerRoot: normalized,
+        reason: `兜底放行写法:命中该条目后全部路由匿名可达(等同于关掉整条鉴权链),`
+          + `属于配置层面的鉴权失效,不得出现在 JWT_PUBLIC_PATHS 的任何一侧。`,
+      })
+    }
+  }
+  return violations
+}
+
+/** 消费方检索时需要跳过的产物/副本目录(命中它们等于命中构建输出,不是真的调用方)。 */
+const CONSUMER_SKIP_DIRS = new Set([
+  'node_modules', 'dist', 'build', 'out', 'coverage', '.turbo', '.output',
+  'android', 'ios', 'www', 'intermediates', 'generated', '.next-static-r2',
+])
+const CONSUMER_EXT_RE = /\.(ts|tsx|js|mjs)$/
+
+/**
+ * 全仓 ts/tsx/js/mjs 检索某条白名单路径的字面量消费方(排除构建产物与副本目录)。
+ * 一次遍历同时匹配多条,避免 .env 漂移条目多时反复扫盘。
+ * @param {string[]} entries
+ * @returns {Map<string, string[]>} entry → 相对路径命中清单(最多 4 条)
+ */
+function scanJsConsumers(entries) {
+  const hits = new Map(entries.map((e) => [e, []]))
+  const needles = entries.map((e) => ({ entry: e, needle: `"${e}"`, alt: `'${e}'` }))
+  const walk = (dir) => {
+    let names = []
+    try {
+      names = readdirSync(dir)
+    } catch {
+      return
+    }
+    for (const name of names) {
+      const full = join(dir, name)
+      let st = null
+      try {
+        st = statSync(full)
+      } catch {
+        continue
+      }
+      if (st.isDirectory()) {
+        if (CONSUMER_SKIP_DIRS.has(name) || name.startsWith('.next')) continue
+        walk(full)
+        continue
+      }
+      if (!CONSUMER_EXT_RE.test(name)) continue
+      let text = null
+      try {
+        text = readFileSync(full, 'utf8')
+      } catch {
+        continue
+      }
+      if (!text.includes('/api/')) continue
+      const rel = full.slice(ROOT.length + 1).replace(/\\/g, '/')
+      for (const { entry, needle, alt } of needles) {
+        const bucket = hits.get(entry)
+        if (bucket.length >= 4) continue
+        if (text.includes(needle) || text.includes(alt)) bucket.push(rel)
+      }
+    }
+  }
+  for (const sub of ['apps', 'packages', 'scripts']) {
+    const abs = resolve(ROOT, sub)
+    if (existsSync(abs)) walk(abs)
+  }
+  return hits
 }
 
 /**
@@ -359,42 +505,120 @@ async function runOfflineChecks() {
     `${MANIFEST.capabilities.length} 个 scope / M2M 可用 ${MANIFEST.capabilities.filter((c) => m2mAllowedOf(c.scope)).length} 个 / 判据引擎=${REAL.engine}${REAL.error ? `(${REAL.error})` : ''}`,
   )
 
-  // ── OFF-02 匿名 MCP 已关闭:jwt_public_paths 默认值不含 /api/mcp ──
+  // ── OFF-02 JWT 白名单不得放行特权 router 根 / 兜底条目 ──
+  // 清单**从 apps/ai-service/app/core/jwt_auth.py 动态解析**(不手抄,见 parseSecurityBoundaryTuples 注释):
+  // jwt_auth 侧新增/删改一个 router 根,本守门的判据自动跟随,不存在"文档抄漏"窗口。
   const cfgSrc = read('apps/ai-service/app/core/config.py')
   const publicPaths = parseJwtPublicPaths(cfgSrc)
+  const jwtAuth = read('apps/ai-service/app/core/jwt_auth.py') ?? ''
+  const tuples = parseSecurityBoundaryTuples(jwtAuth)
+  const codeEnforcesNeverPublic = /_is_never_public|_NEVER_PUBLIC/.test(jwtAuth)
+  const codeEnforcesAlwaysPublic = /_ALWAYS_PUBLIC/.test(jwtAuth)
+
+  add(
+    G,
+    'OFF-02a',
+    '安全边界清单与 jwt_auth.py 同源可解析(判据不得手抄)',
+    tuples ? 'PASS' : 'FAIL',
+    tuples
+      ? `_NEVER_PUBLIC_ROOTS=[${tuples.neverPublicRoots.join(', ')}] / _CATCH_ALL_PUBLIC_ENTRIES=[${tuples.catchAllEntries.map((s) => `'${s}'`).join(', ')}] —— 逐次从源码元组字面量读取`
+      : '解析不到 jwt_auth.py 的 _NEVER_PUBLIC_ROOTS / _CATCH_ALL_PUBLIC_ENTRIES 元组字面量(改名/结构变化)→ 判据失源,特权条目断言按**未证明**处理并 exit 1,禁止静默跳过',
+  )
+
   if (!publicPaths) {
-    add(G, 'OFF-02', '匿名 MCP 已关闭(jwt_public_paths 默认值)', 'FAIL', '读不到 apps/ai-service/app/core/config.py 的 jwt_public_paths 默认值,判据失效即视为未证明')
+    add(G, 'OFF-02', '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)', 'FAIL', '读不到 apps/ai-service/app/core/config.py 的 jwt_public_paths 默认值,判据失效即视为未证明')
+  } else if (!tuples) {
+    add(G, 'OFF-02', '特权 router 根不在 JWT 白名单(jwt_public_paths 默认值)', 'FAIL', '边界清单解析失败(OFF-02a),本用例未执行 —— 按未证明处理,不得留绿')
   } else {
-    const mcpish = publicPaths.filter((p) => p === '/api/mcp' || p.startsWith('/api/mcp/'))
+    const defaultViolations = detectPrivilegedPublicEntries(publicPaths, tuples)
     add(
       G,
       'OFF-02',
-      '匿名 MCP 已关闭(jwt_public_paths 默认值不含 /api/mcp)',
-      mcpish.length === 0 ? 'PASS' : 'FAIL',
-      mcpish.length === 0
-        ? `默认白名单 ${publicPaths.length} 项,无 /api/mcp 形态:${publicPaths.join(', ')}`
-        : `默认白名单仍含匿名 MCP 豁免:${mcpish.join(', ')}`,
+      `特权 router 根不在 JWT 白名单(默认值,清单 ${tuples.neverPublicRoots.length} 个根)`,
+      defaultViolations.length === 0 ? 'PASS' : 'FAIL',
+      defaultViolations.length === 0
+        ? `默认白名单 ${publicPaths.length} 项,无 ${tuples.neverPublicRoots.join(' / ')} 形态、无兜底放行:${publicPaths.join(', ')}`
+        : `默认白名单含特权条目:${defaultViolations.map((v) => `${v.entry}(属 ${v.routerRoot})`).join(', ')} —— 源码层就已经放开`,
     )
     // 运行时权威值是 apps/ai-service/.env 的覆盖值(config.py 注释自己就警告过):
     // 双向比对 —— .env 多加的(后门)/ .env 漏掉的(把默认已放行的公开端点又锁死)。
-    // 代码侧是否已经把这两类边界钉死(2026-09-21 O17 收口:jwt_auth._resolve_public_paths
-    // 强制剔除 /api/mcp*、强制补齐 /.well-known/agent*)。断言必须跟**机制**同源,
+    // 代码侧是否已经把这两类边界钉死(2026-09-21 O17/O19 收口:jwt_auth._resolve_public_paths
+    // 强制剔除特权根、强制补齐 /.well-known/agent*)。断言必须跟**机制**同源,
     // 不能停在"配置写错就判红"——机制变了还按旧判据,守门就会一直报一个已被修掉的洞。
-    const jwtAuth = read('apps/ai-service/app/core/jwt_auth.py') ?? ''
-    const codeEnforcesNeverPublic = /_is_never_public|_NEVER_PUBLIC/.test(jwtAuth)
-    const codeEnforcesAlwaysPublic = /_ALWAYS_PUBLIC/.test(jwtAuth)
-    const envPaths = parseEnvList(read('apps/ai-service/.env'), 'JWT_PUBLIC_PATHS')
-    if (envPaths) {
+    //
+    // **"运行时无害"不等于"静态可免"**:jwt_auth 的 fail-safe 让 .env 里的后门条目在运行时失效,
+    // 但那条 .env 换机/重装/重新 clone 就会消失,而代码默认值一旦被同样改错就没有第二道闸。
+    // 故 OFF-02c 的输入是 **.env 原文**(`read()` + `parseEnvList`),既不是运行时 PUBLIC_PATHS 也不做
+    // HTTP 探测;`detectPrivilegedPublicEntries` 结构上不接受"代码侧是否已加固"这一入参,
+    // 因此加固本身永远无法把本条判绿(见 scripts/tests/e2e-agent-access-never-public.test.mjs)。
+    const envRaw = readAbs(OPTS.envFile)
+    const envPaths = parseEnvList(envRaw, 'JWT_PUBLIC_PATHS')
+    if (!envPaths) {
+      add(
+        G,
+        'OFF-02c',
+        '部署态 .env 的 JWT_PUBLIC_PATHS 不含特权条目(判据 = .env 原文)',
+        envRaw === null ? 'FAIL' : 'SKIP',
+        envRaw === null
+          ? `读不到 ${OPTS.envFile}(可用 --ai-env / env AI_SERVICE_ENV_FILE 指定)→ 特权条目断言无法执行,按未证明处理(禁止静默跳过)`
+          : `${OPTS.envFile} 无 JWT_PUBLIC_PATHS 覆盖 → 运行时即用 config.py 默认值,漂移侧无需清理(默认值由 OFF-02 判定)`,
+      )
+    } else {
       const extra = envPaths.filter((p) => !publicPaths.includes(p))
       const dropped = publicPaths.filter((p) => !envPaths.includes(p))
-      const envMcp = extra.filter((p) => p === '/api/mcp' || p.startsWith('/api/mcp/'))
-      if (envMcp.length > 0) {
+      const envViolations = detectPrivilegedPublicEntries(envPaths, tuples)
+      add(
+        G,
+        'OFF-02c',
+        '部署态 .env 的 JWT_PUBLIC_PATHS 不含特权条目(判据 = .env 原文)',
+        envViolations.length === 0 ? 'PASS' : 'FAIL',
+        envViolations.length === 0
+          ? `${OPTS.envFile} 覆盖值 ${envPaths.length} 项,逐条比对 ${tuples.neverPublicRoots.length} 个特权根 + ${tuples.catchAllEntries.length} 个兜底写法,均不命中`
+          : [
+              `${OPTS.envFile} 的 JWT_PUBLIC_PATHS 原文含 ${envViolations.length} 条特权条目:`,
+              ...envViolations.map((v) => `  · ${v.entry} → (${v.kind === 'catch-all' ? '兜底放行写法' : `router 根 ${v.routerRoot}`}) —— ${v.reason}`),
+              codeEnforcesNeverPublic
+                ? `  注:jwt_auth 侧 fail-safe 已在运行时剔除这些条目(${envViolations.map((v) => v.entry).join(', ')} 不在运行时 PUBLIC_PATHS 内),`
+                  + '但**配置债不随加固消失** —— .env 是 gitignored 的机器态(根 .gitignore `**/.env`),换机/重新 clone 后这条后门就没了记录,'
+                  + '而下一次 jwt_auth 判据被改动(或有人把剔除逻辑当成"反正会兜住"而删掉)就是既成越权。必须从 .env 删除,或显式认领并走 code review。'
+                : '  且 jwt_auth 侧未见强制剔除逻辑 ⇒ 这些条目在运行时**真实匿名可达**,属部署态未收口,须立即处理。',
+            ].join('\n'),
+      )
+      for (const v of envViolations) {
+        const attribution = v.kind === 'catch-all'
+          ? `兜底放行写法 ${v.entry} 命中 _CATCH_ALL_PUBLIC_ENTRIES`
+          : `条目 ${v.entry} 命中特权 router 根 ${v.routerRoot}`
         finding(
-          codeEnforcesNeverPublic ? 'low' : 'high',
-          `apps/ai-service/.env 的 JWT_PUBLIC_PATHS 含 /api/mcp${codeEnforcesNeverPublic ? '(代码侧已强制剔除,仍建议清理)' : '(部署态中间件豁免未随 O1 收口)'}`,
-          codeEnforcesNeverPublic
-            ? `覆盖值多出:${envMcp.join(', ')} —— jwt_auth._resolve_public_paths 会在解析期剔除并打 error 日志,运行时名单里已不含它(LIVE-B01 实测为准);但 .env 是**部署态权威值**,留着这条等于每次启动都要靠代码兜底,清理掉才是终态。`
-            : `覆盖值比默认值多出:${envMcp.join(', ')} —— JWTAuthMiddleware 会跳过该路径鉴权,只剩路由层凭据闸兜底;生产/预发部署必须同步从 .env 移除,并配 node_env=production。`,
+          'high',
+          `JWT_PUBLIC_PATHS(.env 原文)放行特权条目:${v.entry}`,
+          `${attribution} —— ${v.reason} `
+            + '实测越权证据(O19):匿名方可 ① GET /api/agents/sessions 列出全站会话 ② POST /api/agents/approval-response 抵达人工审批决策写入点 '
+            + '③ 订阅 /api/agents/tasks/stream 收到他人会话实时工具事件。',
+        )
+      }
+      // 漂移条目逐条认领:.env 多出而代码默认值没有的条目 = 只存在于某台机器的授权决定。
+      const privilegedSet = new Set(envViolations.map((v) => v.entry))
+      const strayEntries = extra.filter((p) => !privilegedSet.has(String(p).trim()))
+      const consumerHits = strayEntries.length > 0 ? scanJsConsumers(strayEntries) : new Map()
+      const deadEntries = strayEntries.filter((p) => (consumerHits.get(p) ?? []).length === 0)
+      if (strayEntries.length > 0) {
+        const lines = strayEntries.map((p) => {
+          const hits = consumerHits.get(p) ?? []
+          return `  · ${p} → 消费方 ${hits.length === 0 ? '0 个(全仓 ts/tsx/js/mjs 无字面量引用)' : `${hits.length}${hits.length >= 4 ? '+' : ''} 个:${hits.join(', ')}`}`
+        })
+        add(
+          G,
+          'OFF-02d',
+          '.env 独有的白名单条目须逐条人工认领(全仓无消费方即视为死条目)',
+          deadEntries.length === 0 ? 'PASS' : 'FAIL',
+          [
+            `${OPTS.envFile} 比 config.py 默认值多出 ${strayEntries.length} 条(特权条目已在 OFF-02c 单独判定):`,
+            ...lines,
+            deadEntries.length > 0
+              ? `  ❌ 死条目 ${deadEntries.length} 个:${deadEntries.join(', ')} —— 匿名放行却零调用方,只可能是历史试验残留或后门;"没人用的公开端点"没有任何保留理由。`
+                + '请二选一并留痕:① 从 .env 删除;② 若确有消费方(如 Python 内部回调/外部平台 webhook),把它写进 config.py 默认值并在注释注明鉴权方式与理由,让决定进入 git 而不是某台机器。'
+              : `  其余条目均有源码消费方,请确认每条在 config.py 默认值一侧有对应登记(${strayEntries.length} 条待双写)。`,
+          ].join('\n'),
         )
       }
       const lostDiscovery = dropped.filter((p) => p.startsWith('/.well-known/'))
@@ -404,7 +628,7 @@ async function runOfflineChecks() {
           'OFF-02b',
           'A2A/OAuth 发现文档在运行时 .env 覆盖后仍匿名可读',
           'FAIL',
-          `默认白名单里的 ${lostDiscovery.join(', ')} 被 apps/ai-service/.env 覆盖值丢掉 → 匿名抓取实测 401(LIVE-D01);外部 A2A 客户端在拿到凭据前无法发现本 agent 能力,标准合规失败。覆盖值多出:${extra.join(', ') || '(无)'}`,
+          `默认白名单里的 ${lostDiscovery.join(', ')} 被 ${OPTS.envFile} 覆盖值丢掉 → 匿名抓取实测 401(LIVE-D01);外部 A2A 客户端在拿到凭据前无法发现本 agent 能力,标准合规失败。覆盖值多出:${extra.join(', ') || '(无)'}`,
         )
       } else {
         add(
@@ -419,8 +643,10 @@ async function runOfflineChecks() {
       }
       finding(
         dropped.length || extra.length ? 'medium' : 'low',
-        `apps/ai-service/.env 的 JWT_PUBLIC_PATHS 与 config.py 默认值已分叉(+${extra.length} / -${dropped.length})`,
-        `多出的:${extra.join(', ') || '(无)'};丢掉的:${dropped.join(', ') || '(无)'} —— 白名单是整串替换而非增量,任何一侧的改动都必须双写,否则出现"默认收了权、部署又放开"或"默认放开了、部署又锁死"。`,
+        `${OPTS.envFile} 的 JWT_PUBLIC_PATHS 与 config.py 默认值已分叉(+${extra.length} / -${dropped.length})`,
+        `多出的:${extra.join(', ') || '(无)'};丢掉的:${dropped.join(', ') || '(无)'}`
+          + `${deadEntries.length ? `;其中零消费方的死条目:${deadEntries.join(', ')}(见 OFF-02d,必须显式认领)` : ''} `
+          + '—— 白名单是整串替换而非增量,任何一侧的改动都必须双写,否则出现"默认收了权、部署又放开"或"默认放开了、部署又锁死"。',
       )
     }
   }
@@ -1192,6 +1418,10 @@ async function main() {
 export const __test__ = {
   parseJwtPublicPaths,
   parseEnvList,
+  parsePyTupleLiteral,
+  parseSecurityBoundaryTuples,
+  isNeverPublicEntry,
+  detectPrivilegedPublicEntries,
   parseOpenRegistry,
   stripComments,
   countScopedCallSites,
