@@ -96,7 +96,13 @@
     "errorLabel": "오류",
     "toolCallCount": "도구 호출 {n}회",
     "showMore": "더 보기",
-    "noOutput": "출력 없음"
+    "noOutput": "출력 없음",
+    "stepPending": "대기 중",
+    "phaseThinking": "생각 중",
+    "phaseActing": "동작 실행",
+    "phaseReflecting": "되짚는 중",
+    "phaseOutputReady": "출력 정리",
+    "exitCode": "종료 코드 {n}"
   },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/동영상/파일)",

@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { toolDisplayKey } from '@ihui/shared/chat'
 import type { ToolCallSummary } from '@ihui/types/ai'
 
 /**
@@ -184,46 +185,17 @@ function StatChip({
     <Tooltip content={label}>
       <span
         className={cn(
-          'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70',
+          'inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-sm bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-muted-foreground',
           colorClass,
         )}
         aria-label={label}
         data-testid={testId}
       >
-        <Icon className="h-2 w-2" aria-hidden />
+        <Icon className="h-3 w-3" aria-hidden />
         <span className="font-medium">{value}</span>
       </span>
     </Tooltip>
   )
-}
-
-// ─── i18n 动态 key 包装(与 timeline-tab.tsx 一致,允许新 key 缺失时回退) ──
-
-const warnedSummaryKeys = new Set<string>()
-type LooseTranslator = (key: string, values?: Record<string, unknown>) => string
-
-function safeT(
-  t: ReturnType<typeof useTranslations<'ai.pane'>>,
-  key: string,
-  fallback: string,
-  values?: Record<string, unknown>,
-): string {
-  const looseT = t as unknown as LooseTranslator
-  try {
-    const v = looseT(key, values)
-    if (v === key || !v) {
-      if (!warnedSummaryKeys.has(key)) {
-        warnedSummaryKeys.add(key)
-        console.warn(
-          `[tool-call-summary-card] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
-        )
-      }
-      return fallback
-    }
-    return v
-  } catch {
-    return fallback
-  }
 }
 
 /**
@@ -240,6 +212,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
   'data-testid': testId,
 }: ToolCallSummaryCardProps) {
   const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
 
   // toolCalls fingerprint:基于内容(toolName + status)生成稳定字符串。
   // 父级每次 setMessages 会创建新数组引用(即使内容相同),直接依赖 toolCalls 引用
@@ -279,9 +252,9 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           data-testid={testId ?? 'tool-call-summary-card'}
           data-state="streaming"
         >
-          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60">
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60">
             <Clock className="h-2.5 w-2.5 animate-pulse" aria-hidden />
-            {safeT(t, 'toolSummaryStreaming', '统计工具调用中…')}
+            {t('toolSummaryStreaming')}
           </span>
         </div>
       )
@@ -298,35 +271,35 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       key: 'filesSearched',
       Icon: FileSearch,
       value: effectiveSummary.filesSearched,
-      label: safeT(t, 'toolSummaryFilesSearched', '搜索文件'),
+      label: t('toolSummaryFilesSearched'),
       colorClass: 'text-blue-500/80',
     },
     {
       key: 'webSearched',
       Icon: Globe,
       value: effectiveSummary.webSearched,
-      label: safeT(t, 'toolSummaryWebSearched', '搜索网页'),
+      label: t('toolSummaryWebSearched'),
       colorClass: 'text-cyan-500/80',
     },
     {
       key: 'filesModified',
       Icon: FilePen,
       value: effectiveSummary.filesModified,
-      label: safeT(t, 'toolSummaryFilesModified', '修改文件'),
+      label: t('toolSummaryFilesModified'),
       colorClass: 'text-amber-500/80',
     },
     {
       key: 'linesAdded',
       Icon: Plus,
       value: effectiveSummary.linesAdded,
-      label: safeT(t, 'toolSummaryLinesAdded', '新增行数'),
+      label: t('toolSummaryLinesAdded'),
       colorClass: 'text-emerald-500/80',
     },
     {
       key: 'linesDeleted',
       Icon: Minus,
       value: effectiveSummary.linesDeleted,
-      label: safeT(t, 'toolSummaryLinesDeleted', '删除行数'),
+      label: t('toolSummaryLinesDeleted'),
       colorClass: 'text-rose-500/80',
     },
   ]
@@ -338,7 +311,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     .map((c) => `${c.label} ${c.value}`)
     .join(' · ')
 
-  const title = safeT(t, 'toolSummaryTitle', '工具调用汇总')
+  const title = t('toolSummaryTitle')
   const allChipsHidden = visibleChips.length === 0 && !effectiveSummary.totalDurationMs
 
   // 全部统计为 0 + 无耗时 → 不渲染卡片
@@ -371,13 +344,13 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           })}
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
-              <Tooltip content={safeT(t, 'toolSummaryDuration', '总耗时')}>
+              <Tooltip content={t('toolSummaryDuration')}>
                 <span
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70"
-                  aria-label={safeT(t, 'toolSummaryDuration', '总耗时')}
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-muted-foreground/70"
+                  aria-label={t('toolSummaryDuration')}
                   data-testid="tool-call-summary-chip-duration"
                 >
-                  <Clock className="h-2 w-2" aria-hidden />
+                  <Clock className="h-3 w-3" aria-hidden />
                   <span className="font-medium">
                     {formatDuration(effectiveSummary.totalDurationMs)}
                   </span>
@@ -389,34 +362,37 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
         {/* 工具分类列表(展开态显示) */}
         {categoryEntries.length > 0 && (
           <div
-            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/20 px-2 py-0.5 text-[9px]"
+            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/20 px-2 py-0.5 text-[11px]"
             data-testid="tool-call-summary-categories"
           >
-            {categoryEntries.map(([name, count]) => (
-              <div
-                key={name}
-                className="flex items-center justify-between gap-2 text-muted-foreground/70"
-              >
-                <span className="truncate font-mono">{name}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{count}</span>
-              </div>
-            ))}
+            {categoryEntries.map(([name, count]) => {
+              // 分类计数按功能名显示,映射不到的插件/MCP 动态名保留原名
+              const displayKey = toolDisplayKey(name)
+              return (
+                <div
+                  key={name}
+                  className="flex items-center justify-between gap-2 text-muted-foreground/70"
+                >
+                  <span className="truncate">{displayKey ? tStatus(displayKey) : name}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground/60">×{count}</span>
+                </div>
+              )
+            })}
           </div>
         )}
 
         {/* 总览(展开态显示) */}
         <div
-          className="flex items-center gap-3 text-[9px] text-muted-foreground/60"
+          className="flex items-center gap-3 text-[11px] text-muted-foreground/60"
           data-testid="tool-call-summary-overview"
         >
           <span>
-            {safeT(t, 'toolSummaryTotalCalls', '总调用')}: {effectiveSummary.totalCalls}
+            {t('toolSummaryTotalCalls')}: {effectiveSummary.totalCalls}
           </span>
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
               <span>
-                {safeT(t, 'toolSummaryDuration', '总耗时')}:{' '}
-                {formatDuration(effectiveSummary.totalDurationMs)}
+                {t('toolSummaryDuration')}: {formatDuration(effectiveSummary.totalDurationMs)}
               </span>
             )}
         </div>

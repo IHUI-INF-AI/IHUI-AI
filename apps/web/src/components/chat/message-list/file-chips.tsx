@@ -6,10 +6,18 @@
 
 import * as React from 'react'
 import { FileText, FilePen, Edit3 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+import { computeFileChanges } from '@ihui/shared/chat'
 import type { ToolCall } from '@/stores/chat'
 import { useIDEWorkspace, EXT_LANG } from '@/stores/ide-workspace'
 import type { FileNode } from '@ihui/types'
 import { cn } from '@/lib/utils'
+import { StreamDelta } from '@/components/chat/stream/stream-ui'
+
+/** 路径键统一成正斜杠,保证 computeFileChanges 与工具入参两边能对上 */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').trim()
+}
 
 // 文件引用类工具白名单(读 + 写/改)。口径与 tool-call-card.tsx 对齐:
 // DIFF_TOOL_NAMES=['edit_file','write_file'] + MessageItem FILE_MODIFY_TOOLS
@@ -58,6 +66,21 @@ interface FileRef {
   path: string
   name: string
   icon: 'read' | 'write' | 'edit'
+  /** 文件动作(chat.turnChanges.* 键后缀);读引用无动作词 */
+  action: 'changedFile' | 'createdFile' | 'deletedFile' | null
+}
+
+/** 工具码名 → 本地化动作词键后缀(与"本轮变更"卡同一口径,单一来源在 chat.turnChanges.*) */
+function fileAction(toolName: string): 'changedFile' | 'createdFile' | 'deletedFile' | null {
+  if (
+    FILE_REF_TOOLS.has(toolName) &&
+    !WRITE_PEN_TOOLS.has(toolName) &&
+    !EDIT_PEN_TOOLS.has(toolName)
+  )
+    return null
+  if (toolName === 'create_file') return 'createdFile'
+  if (toolName === 'delete_file') return 'deletedFile'
+  return 'changedFile'
 }
 
 function extractRefs(toolCalls: ToolCall[] | undefined): FileRef[] {
@@ -72,7 +95,7 @@ function extractRefs(toolCalls: ToolCall[] | undefined): FileRef[] {
     let icon: FileRef['icon'] = 'read'
     if (EDIT_PEN_TOOLS.has(tc.toolName)) icon = 'edit'
     else if (WRITE_PEN_TOOLS.has(tc.toolName)) icon = 'write'
-    out.push({ path: p, name: basename(p), icon })
+    out.push({ path: p, name: basename(p), icon, action: fileAction(tc.toolName) })
   }
   return out
 }
@@ -82,7 +105,22 @@ export interface MessageFileChipsProps {
 }
 
 export function MessageFileChips({ toolCalls }: MessageFileChipsProps) {
+  const t = useTranslations('chat')
+  // 文件动作词与"本轮变更"卡同一口径(chat.turnChanges.*),不再各自拼中文
+  const actionText: Record<NonNullable<FileRef['action']>, string> = {
+    changedFile: t('turnChanges.changedFile'),
+    createdFile: t('turnChanges.createdFile'),
+    deletedFile: t('turnChanges.deletedFile'),
+  }
   const refs = React.useMemo(() => extractRefs(toolCalls), [toolCalls])
+  // ±行数由 @ihui/shared/chat 统一计算(与"本轮变更"卡同一口径,端内不再数第二遍)
+  const deltas = React.useMemo(() => {
+    const map = new Map<string, { added: number; removed: number }>()
+    for (const change of computeFileChanges(toolCalls)) {
+      map.set(normalizePath(change.path), { added: change.added, removed: change.removed })
+    }
+    return map
+  }, [toolCalls])
 
   const handleOpen = React.useCallback((ref: FileRef) => {
     const ide = useIDEWorkspace.getState()
@@ -104,20 +142,23 @@ export function MessageFileChips({ toolCalls }: MessageFileChipsProps) {
     <div className="flex flex-wrap gap-1.5" data-testid="message-file-chips">
       {refs.map((ref) => {
         const Icon = ref.icon === 'read' ? FileText : ref.icon === 'edit' ? Edit3 : FilePen
+        const delta = deltas.get(normalizePath(ref.path))
         return (
           <button
             key={ref.path}
             type="button"
             onClick={() => handleOpen(ref)}
-            aria-label={ref.path}
+            aria-label={ref.action ? `${actionText[ref.action]} ${ref.path}` : ref.path}
             data-testid={`file-chip-${ref.name}`}
             className={cn(
-              'inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-xs',
-              'hover:bg-muted/60 transition-colors',
+              // 圆角/内距与 StreamTag 同档(rounded-sm + px-1 py-px + 11px + leading-none)
+              'inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 px-1 py-px',
+              'text-[11px] leading-none transition-colors hover:bg-muted/60',
             )}
           >
-            <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-            <span className="truncate">{ref.name}</span>
+            <Icon className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 truncate font-mono text-foreground/80">{ref.name}</span>
+            <StreamDelta added={delta?.added ?? -1} removed={delta?.removed ?? -1} />
           </button>
         )
       })}

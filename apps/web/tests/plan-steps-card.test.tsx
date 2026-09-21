@@ -4,29 +4,21 @@
 
 // @vitest-environment happy-dom
 /**
- * PlanStepsCard 单元测试(深度对标 OpenAI Codex /plan + 折叠态摘要设计)
+ * PlanStepsCard 单元测试(2026-09-22 接入 stream-ui 基元后同步改版)
  *
- * 覆盖(2026-07-31 深度优化):
+ * 覆盖:
  * - 空 steps 不渲染
  * - 有 steps 时渲染 FoldableSection + 完成度 "doneCount/count"
  * - 展开/折叠交互(aria-expanded 切换)
- * - 每步标题渲染
- * - 状态图标映射(pending→Clock / in_progress→Loader2 / completed→Check)
- * - 状态颜色 + animate-spin(in_progress)
- * - 耗时显示(有 durationMs 时)
- * - explanation 渲染
- * - 错误状态独立视觉(error=true → AlertCircle + 红色 + data-error)
- * - 分段进度条(每个步骤一段)
- * - 进度百分比显示
- * - 总耗时徽章(headerExtra)
- * - 折叠态摘要(正在: / 已完成 / 全部完成 / 错误计数)
- * - 点击步骤跳转消息(ProgressJumpStore)
- * - hover 联动(setHoveredPlanStep)
- * - 步骤分组(groupIndex 不同组间分隔)
- * - 可访问性(role=list + aria-live + aria-label)
- * - streaming 自动展开
- * - 长 reasoning 用 MarkdownViewer
- * - 复制 reasoning 按钮
+ * - 每步渲染为一条 StreamRow(状态图标 + leading 序号 + 步骤全文主体 + trailing 状态词 + 耗时)
+ * - 五态 → StreamStatus 收敛(pending→CircleDashed / in_progress→Loader2 /
+ *   completed→Check / skipped→Minus / failed|error→X),行上带 data-stream-status
+ * - 分段进度条(每步一段)+ 百分比徽章 + Tooltip 富文本(@/components/feedback)
+ * - 总耗时徽章(workedFor 措辞,流式实时 tick / 终态权威值)
+ * - 折叠态摘要("{n} 个步骤 · 状态词 · 当前步骤")
+ * - 点击步骤跳转消息 / hover 联动 / 组间 mt-1.5 分隔
+ * - 长 reasoning 展开为 StreamDetail + MarkdownViewer + 复制按钮
+ * - 可访问性(ol + aria-live + aria-label)+ streaming 自动展开
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest'
@@ -37,7 +29,7 @@ import type { PlanStep } from '../src/hooks/use-agent-progress'
 
 // ─── lucide-react mock:每个图标用独立 testid(便于断言"正确图标渲染") ──
 // 用 vi.importActual 透传真实 lucide-react 模块(保证 Alert 等被透传引用的图标 Info/CheckCircle 等可用),
-// 再覆盖测试用例关注的图标为带 testid 的 span。
+// 再覆盖测试用例关注的图标为带 testid 的 span。StreamStatusIcon 用到 Loader2/Check/X/Minus/CircleDashed。
 vi.mock('lucide-react', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   const make = (name: string) => {
@@ -56,14 +48,17 @@ vi.mock('lucide-react', async (importOriginal) => {
     Loader2: make('Loader2'),
     ChevronRight: make('ChevronRight'),
     ChevronDown: make('ChevronDown'),
+    CircleDashed: make('CircleDashed'),
+    Minus: make('Minus'),
+    X: make('X'),
     AlertCircle: make('AlertCircle'),
     Copy: make('Copy'),
-    X: make('X'),
     SkipForward: make('SkipForward'),
   }
 })
 
 // ─── next-intl mock:useTranslations 返回 t 函数,支持 key 查表 + 参数插值 ──
+// 命名空间无关(chat.* 与 taskStatus.* 同表查),与组件内 useTranslations('chat'|'taskStatus') 对应
 const I18N_MAP: Record<string, string> = {
   'plan.title': '执行计划',
   'plan.ariaLabel': '执行计划步骤',
@@ -83,6 +78,14 @@ const I18N_MAP: Record<string, string> = {
   'plan.reasoningCopied': '推理过程已复制',
   'plan.reasoningCopyFailed': '复制失败',
   copied: '已复制',
+  // taskStatus 命名空间(stream-ui 基元 + 状态词收敛口径)
+  statusSuccess: '已完成',
+  statusRunning: '执行中',
+  statusFailed: '执行失败',
+  statusSkipped: '已跳过',
+  stepPending: '待开始',
+  stepCount: '{n} 个步骤',
+  workedFor: '用时 {time}',
 }
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, string | number>) => {
@@ -232,16 +235,23 @@ describe('PlanStepsCard', () => {
     expect(header.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('状态图标映射正确(pending→Clock / in_progress→Loader2 / completed→Check)', () => {
+  it('五态 → StreamStatus 图标收敛(pending→CircleDashed / in_progress→Loader2 / completed→Check)', () => {
     const steps = [
       makeStep({ id: 's1', step: '已完成', status: 'completed' }),
       makeStep({ id: 's2', step: '进行中', status: 'in_progress' }),
       makeStep({ id: 's3', step: '待开始', status: 'pending' }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    expect(screen.getAllByTestId('icon-Check')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-Loader2')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-Clock')).toHaveLength(1)
+    // 每步渲染为一条 StreamRow(基元统一 testId 口径 plan-steps-card-row-{id}),
+    // 图标断言限定在行内(分段进度条的 Tooltip 里也有同一枚状态图标)
+    const expectRowIcon = (id: string, status: string, icon: string) => {
+      const row = screen.getByTestId(`plan-steps-card-row-${id}`)
+      expect(row.getAttribute('data-stream-status')).toBe(status)
+      expect(row.querySelector(`[data-testid="icon-${icon}"]`)).toBeTruthy()
+    }
+    expectRowIcon('s1', 'success', 'Check')
+    expectRowIcon('s2', 'running', 'Loader2')
+    expectRowIcon('s3', 'pending', 'CircleDashed')
   })
 
   it('in_progress 步骤图标带 animate-spin 类', () => {
@@ -256,13 +266,14 @@ describe('PlanStepsCard', () => {
     expect(icon?.className).toContain('text-primary')
   })
 
-  it('completed 步骤图标为 emerald 色', () => {
+  it('completed 步骤图标用基元统一口径(14px 图标 + muted 色,不再自配 emerald)', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', status: 'completed' })]} />,
     )
     const icon = container.querySelector('[data-status="completed"] [data-testid="icon-Check"]')
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('text-emerald-500')
+    expect(icon?.className).toContain('h-3.5')
+    expect(icon?.className).toContain('text-muted-foreground/50')
   })
 
   it('有 durationMs 时显示耗时(formatDuration)', () => {
@@ -303,7 +314,7 @@ describe('PlanStepsCard', () => {
 
   // ─── 深度优化(2026-07-31)新增测试 ──────────────────────────────
 
-  it('错误状态独立视觉:error=true 时用 AlertCircle 图标 + 红色 + data-error="true"', () => {
+  it('错误状态收敛到基元 error 态:error=true → data-stream-status="error" + X 红色 + data-error="true"', () => {
     const { container } = render(
       <PlanStepsCard
         steps={[
@@ -319,51 +330,55 @@ describe('PlanStepsCard', () => {
     )
     const li = container.querySelector('[data-error="true"]')
     expect(li).toBeTruthy()
-    // 错误状态用 AlertCircle 图标(非 Check)
-    const icon = li?.querySelector('[data-testid="icon-AlertCircle"]')
+    expect(li?.getAttribute('data-stream-status')).toBe('error')
+    // 错误状态用基元的 X 图标(红色),不再自配 AlertCircle
+    const icon = li?.querySelector('[data-testid="icon-X"]')
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-red-500')
+    // 状态词收敛为 taskStatus.statusFailed(执行失败)
+    expect(li?.textContent).toContain('执行失败')
     // data-status 仍为 completed(类型不破坏)
     expect(li?.getAttribute('data-status')).toBe('completed')
   })
 
-  // ─── 五态渲染(2026-09-19 v2:skipped/failed 独立状态) ────────────
+  // ─── 五态渲染(2026-09-19 v2:skipped/failed 独立状态;2026-09-22 收敛到 StreamStatus) ────
 
-  it('skipped 状态:SkipForward 图标 + 删除线 + data-status="skipped"', () => {
+  it('skipped 状态:Minus 图标 + data-stream-status="skipped" + 步骤全文完整可读', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', step: '跳过的步骤', status: 'skipped' })]} />,
     )
     const li = container.querySelector('[data-status="skipped"]')
     expect(li).toBeTruthy()
-    // skipped 用 SkipForward 图标 + 弱化灰色
-    const icon = li?.querySelector('[data-testid="icon-SkipForward"]')
+    expect(li?.getAttribute('data-stream-status')).toBe('skipped')
+    const icon = li?.querySelector('[data-testid="icon-Minus"]')
     expect(icon).toBeTruthy()
-    expect(icon?.className).toContain('text-muted-foreground/60')
-    // 步骤名删除线弱化显示
-    const label = li?.querySelector('span.flex-1')
-    expect(label?.className).toContain('line-through')
+    expect(icon?.className).toContain('text-muted-foreground/40')
+    // 2026-09-22 收尾接线:步骤全文是行主体(titleMode="primary"),序号走 leading 槽
+    // → 两个独立 span,textContent 里不再有"1. "的空格,故分别断言序号与全文
+    expect(li?.textContent).toContain('1.')
+    expect(li?.textContent).toContain('跳过的步骤')
+    expect(li?.textContent).toContain('已跳过')
     // skipped 不带 error 标记
     expect(li?.getAttribute('data-error')).toBe(null)
   })
 
-  it('failed 状态(显式):AlertCircle 图标 + 红色 + data-status="failed"', () => {
+  it('failed 状态(显式):X 图标 + 红色 + data-stream-status="error"', () => {
     const { container } = render(
       <PlanStepsCard steps={[makeStep({ id: 's1', step: '失败的步骤', status: 'failed' })]} />,
     )
     const li = container.querySelector('[data-status="failed"]')
     expect(li).toBeTruthy()
-    // isFailed 统一视觉:显式 failed 也用 AlertCircle + 红色
-    const icon = li?.querySelector('[data-testid="icon-AlertCircle"]')
+    // isFailed 统一视觉:显式 failed 与 error=true 收敛为同一 error 态
+    expect(li?.getAttribute('data-stream-status')).toBe('error')
+    const icon = li?.querySelector('[data-testid="icon-X"]')
     expect(icon).toBeTruthy()
     expect(icon?.className).toContain('text-red-500')
-    // 步骤名红色(浅色 text-red-600 / 深色 text-red-400)
-    const label = li?.querySelector('span.flex-1')
-    expect(label?.className).toContain('text-red-600')
+    expect(li?.textContent).toContain('执行失败')
     // 无 error 标记时 data-error 属性不渲染
     expect(li?.getAttribute('data-error')).toBe(null)
   })
 
-  it('failed 统一视觉:completed+error=true(旧协议)与显式 failed(新协议)均红色 AlertCircle', () => {
+  it('failed 统一视觉:completed+error=true(旧协议)与显式 failed(新协议)均为 error 态 X 图标', () => {
     const { container } = render(
       <PlanStepsCard
         steps={[
@@ -372,8 +387,10 @@ describe('PlanStepsCard', () => {
         ]}
       />,
     )
-    // 两种来源(isFailed 归一化)均渲染 AlertCircle 红色图标
-    const icons = container.querySelectorAll('[data-testid="icon-AlertCircle"]')
+    // 两种来源(isFailed 归一化)均渲染基元 error 态 X 红色图标(限定在步骤列表内,
+    // 分段进度条 Tooltip 里另有同枚图标,不计入)
+    const list = container.querySelector('[data-testid="plan-steps-card-list"]')!
+    const icons = list.querySelectorAll('[data-testid="icon-X"]')
     expect(icons).toHaveLength(2)
     icons.forEach((icon) => expect(icon.className).toContain('text-red-500'))
     // s1 旧协议带 data-error 标记;s2 新协议无(仅显式 failed)
@@ -392,15 +409,26 @@ describe('PlanStepsCard', () => {
       makeStep({ id: 's5', step: '已失败', status: 'failed' }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    // 时间线图标:failed 走 isFailed 统一视觉用 AlertCircle,skipped 用 SkipForward
-    expect(screen.getAllByTestId('icon-Clock')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-Loader2')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-Check')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-SkipForward')).toHaveLength(1)
-    expect(screen.getAllByTestId('icon-AlertCircle')).toHaveLength(1)
+    // 图标断言限定在各自行内(分段进度条的 Tooltip 里另有同枚状态图标)
+    const rowIcon = (id: string) =>
+      screen
+        .getByTestId(`plan-steps-card-row-${id}`)
+        .querySelector('[data-testid^="icon-"]')
+        ?.getAttribute('data-testid')
+    expect(rowIcon('s1')).toBe('icon-CircleDashed')
+    expect(rowIcon('s2')).toBe('icon-Loader2')
+    expect(rowIcon('s3')).toBe('icon-Check')
+    expect(rowIcon('s4')).toBe('icon-Minus')
+    expect(rowIcon('s5')).toBe('icon-X')
+    // 五态各自映射到独立 StreamStatus(行的 data 属性即状态真相)
+    expect(
+      ['s1', 's2', 's3', 's4', 's5'].map((id) =>
+        screen.getByTestId(`plan-steps-card-row-${id}`).getAttribute('data-stream-status'),
+      ),
+    ).toEqual(['pending', 'running', 'success', 'skipped', 'error'])
   })
 
-  it('分段进度条五态:skipped/failed 段颜色独立 + Tooltip 状态文案', () => {
+  it('分段进度条五态:skipped/failed 段颜色独立 + Tooltip 状态文案(feedback Tooltip)', () => {
     const steps = [
       makeStep({ id: 's1', step: '跳过段', status: 'skipped' }),
       makeStep({ id: 's2', step: '失败段', status: 'failed' }),
@@ -411,11 +439,16 @@ describe('PlanStepsCard', () => {
     const seg2 = container.querySelector('[data-testid="plan-steps-card-segment-s2"]')
     expect(seg1?.className).toContain('bg-muted-foreground/40')
     expect(seg2?.className).toContain('bg-red-500/70')
-    // Tooltip 文案使用 statusSkipped / statusFailed key
-    const contents = screen.getAllByTestId('tooltip-content')
+    // Tooltip 走 @/components/feedback(Radix),文案收敛到 taskStatus 口径。
+    // 取 [role=tooltip] 而非 getByRole:Portal 在测试环境被 mock 成内联渲染,浮层落在
+    // 装饰性进度条容器(role=img + aria-hidden)子树内,可访问性查询会把它过滤掉。
+    const contents = [...container.querySelectorAll('[role="tooltip"]')]
     expect(contents).toHaveLength(2)
     expect(contents[0]!.textContent).toContain('已跳过')
-    expect(contents[1]!.textContent).toContain('失败')
+    expect(contents[1]!.textContent).toContain('执行失败')
+    // Tooltip 内状态指示用基元图标(替代原 rounded-full 装饰点)
+    expect(contents[0]!.querySelector('[data-testid="icon-Minus"]')).toBeTruthy()
+    expect(contents[1]!.querySelector('[data-testid="icon-X"]')).toBeTruthy()
   })
 
   it('折叠态摘要:显式 failed 状态计入错误计数(与 error=true 归一化)', () => {
@@ -425,6 +458,7 @@ describe('PlanStepsCard', () => {
     ]
     render(<PlanStepsCard steps={steps} />)
     const summary = screen.getByTestId('plan-steps-card-summary')
+    expect(summary.textContent).toContain('2 个步骤')
     expect(summary.textContent).toContain('错误')
     expect(summary.textContent).toContain('1')
   })
@@ -442,12 +476,13 @@ describe('PlanStepsCard', () => {
     // 3 个步骤 → 3 段(用 flex-1 类标识)
     const segments = segBar.querySelectorAll('.h-full.flex-1')
     expect(segments).toHaveLength(3)
-    // 百分比:1/3 = 33%
+    // 百分比:1/3 = 33%(确定性居中徽章 + plan.progressPercent 文案)
     const pct = screen.getByTestId('plan-steps-card-progress-percent')
     expect(pct.textContent).toBe('33%')
+    expect(pct.className).toContain('tabular-nums')
   })
 
-  it('总耗时徽章:有 durationMs 时显示 "总 Xs"', () => {
+  it('总耗时徽章:有 durationMs 时显示 workedFor 措辞 "用时 Xs"', () => {
     const steps = [
       makeStep({ id: 's1', status: 'completed', durationMs: 1500 }),
       makeStep({ id: 's2', status: 'completed', durationMs: 2500 }),
@@ -455,18 +490,20 @@ describe('PlanStepsCard', () => {
     render(<PlanStepsCard steps={steps} />)
     // 总耗时 = 1500 + 2500 = 4000ms = 4.0s
     const totalBadge = screen.getByTestId('plan-steps-card-total-duration')
-    expect(totalBadge.textContent).toContain('总')
+    expect(totalBadge.textContent).toContain('用时')
     expect(totalBadge.textContent).toContain('4.0s')
   })
 
-  it('折叠态摘要:有 in_progress 步骤时显示 "正在:step"', () => {
+  it('折叠态摘要:有 in_progress 步骤时显示 步数 + 执行中 + 当前步骤', () => {
     const steps = [
       makeStep({ id: 's1', status: 'completed', step: '已完成步骤' }),
       makeStep({ id: 's2', status: 'in_progress', step: '执行中步骤' }),
     ]
     render(<PlanStepsCard steps={steps} />)
     const summary = screen.getByTestId('plan-steps-card-summary')
-    expect(summary.textContent).toContain('正在:执行中步骤')
+    expect(summary.textContent).toContain('2 个步骤')
+    expect(summary.textContent).toContain('执行中')
+    expect(summary.textContent).toContain('执行中步骤')
   })
 
   it('折叠态摘要:全完成时显示 "全部完成"', () => {
@@ -479,7 +516,7 @@ describe('PlanStepsCard', () => {
     expect(summary.textContent).toContain('全部完成')
   })
 
-  it('折叠态摘要:有错误时显示错误计数 + 完成度', () => {
+  it('折叠态摘要:有错误时显示错误计数,完成度由 header 的 doneCount/count 承载', () => {
     const steps = [
       makeStep({ id: 's1', status: 'completed', step: '步骤一' }),
       makeStep({ id: 's2', status: 'completed', step: '步骤二', error: true }),
@@ -488,7 +525,9 @@ describe('PlanStepsCard', () => {
     const summary = screen.getByTestId('plan-steps-card-summary')
     expect(summary.textContent).toContain('错误')
     expect(summary.textContent).toContain('1')
-    expect(summary.textContent).toContain('2/2')
+    // 完成度不再重复出现在摘要里(header 已有 2/2)
+    expect(summary.textContent).not.toContain('2/2')
+    expect(screen.getByTestId('plan-steps-card-progress-text').textContent).toBe('2/2')
   })
 
   it('点击步骤跳转消息:有 sourceMessageId 时调用 requestJumpToMessage', () => {
@@ -510,16 +549,17 @@ describe('PlanStepsCard', () => {
     expect(mockSetHoveredPlanStep).toHaveBeenCalledWith(null)
   })
 
-  it('步骤分组:不同 groupIndex 的步骤间有 pt-1.5 类(组间分隔)', () => {
+  it('步骤分组:不同 groupIndex 的步骤间有 mt-1.5 类(组间空隙分隔,非分割线)', () => {
     const steps = [
       makeStep({ id: 's1', step: '组1步骤', groupIndex: 0 }),
       makeStep({ id: 's2', step: '组2步骤', groupIndex: 1 }),
     ]
     const { container } = render(<PlanStepsCard steps={steps} />)
-    // 第2个步骤是组边界,应有 pt-1.5 类
+    // 第2个步骤是组边界,应有 mt-1.5 类(改造前的 pt-1.5 + 时间线连接线一并移除)
     const li2 = container.querySelector(`[data-testid="plan-steps-card-item-s2"]`)
     expect(li2).toBeTruthy()
-    expect(li2?.className).toContain('pt-1.5')
+    expect(li2?.className).toContain('mt-1.5')
+    expect(li2?.className).not.toContain('pt-1.5')
   })
 
   it('可访问性:步骤列表为 ol 元素 + aria-live=polite + aria-label', () => {
@@ -543,7 +583,7 @@ describe('PlanStepsCard', () => {
     expect(header.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('长 reasoning 用 MarkdownViewer 渲染(>120 字符)', () => {
+  it('长 reasoning 展开为 StreamDetail + MarkdownViewer(>120 字符,收起态不占位)', () => {
     const longReasoning = '这是一段很长的思考过程'.repeat(20) // >120 字符
     const steps = [
       makeStep({
@@ -554,7 +594,14 @@ describe('PlanStepsCard', () => {
       }),
     ]
     render(<PlanStepsCard steps={steps} />)
-    // 长 explanation 用 MarkdownViewer 渲染
+    // 收起态不渲染明细(取代改造前的 line-clamp-2 两行截断)
+    expect(screen.queryByTestId('markdown-viewer')).toBeNull()
+    // 行本身即展开按钮(StreamRow 交互态)
+    const row = screen.getByTestId('plan-steps-card-row-s1')
+    expect(row.tagName).toBe('BUTTON')
+    fireEvent.click(row)
+    expect(row.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByTestId('plan-steps-card-detail-s1')).toBeTruthy()
     expect(screen.getByTestId('markdown-viewer')).toBeTruthy()
   })
 
@@ -568,64 +615,74 @@ describe('PlanStepsCard', () => {
         explanation: longReasoning,
       }),
     ]
-    const { container } = render(<PlanStepsCard steps={steps} />)
-    // 先展开步骤(点击可点击区域)
-    const li = container.querySelector(`[data-testid="plan-steps-card-item-s1"]`)!
-    const clickableArea = li.querySelector('[role="button"]')!
-    fireEvent.click(clickableArea)
+    render(<PlanStepsCard steps={steps} />)
+    // 先展开步骤(点击 StreamRow 行按钮)
+    fireEvent.click(screen.getByTestId('plan-steps-card-row-s1'))
     // 复制按钮应出现
     const copyBtn = screen.getByTestId('plan-steps-card-copy-reasoning-s1')
     expect(copyBtn).toBeTruthy()
+    // 提示走 Tooltip 组件而非 title 属性
+    expect(copyBtn.getAttribute('title')).toBe(null)
   })
 
-  // ─── Tooltip 富文本浮层(2026-07-31 升级 native title → shadcn Tooltip) ──
+  // ─── Tooltip 富文本浮层(@/components/feedback,禁用原生 title) ──
+  // 说明:浮层节点用 [role=tooltip] 取,不用 getByRole —— Portal 在测试环境被 mock 成
+  // 内联渲染,浮层落在装饰性进度条容器(role=img + aria-hidden)子树内,可访问性查询会过滤掉。
 
-  it('分段进度条段落 hover 显示 Tooltip 富文本(步骤名 + 状态 + 耗时)', () => {
+  const getTooltips = (container: HTMLElement) => [
+    ...container.querySelectorAll('[role="tooltip"]'),
+  ]
+
+  it('分段进度条段落显示 Tooltip 富文本(基元状态图标 + 步骤名 + 状态 + 耗时)', () => {
     const steps = [makeStep({ id: 's1', step: '分析需求', status: 'completed', durationMs: 1500 })]
-    render(<PlanStepsCard steps={steps} />)
-    const tooltipContent = screen.getByTestId('tooltip-content')
-    expect(tooltipContent.textContent).toContain('分析需求')
-    expect(tooltipContent.textContent).toContain('已完成')
-    expect(tooltipContent.textContent).toContain('1.5s')
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    const [tooltipContent] = getTooltips(container)
+    expect(tooltipContent?.textContent).toContain('分析需求')
+    expect(tooltipContent?.textContent).toContain('已完成')
+    expect(tooltipContent?.textContent).toContain('1.5s')
+    // 段落本身不使用原生 title 属性(改用 Tooltip 组件)
+    expect(
+      container.querySelector('[data-testid="plan-steps-card-segment-s1"]')?.getAttribute('title'),
+    ).toBe(null)
   })
 
-  it('段落 Tooltip 内容使用 i18n 状态文案(stepError / statusInProgress / statusCompleted / statusPending)', () => {
+  it('段落 Tooltip 状态文案与 StreamStatus 同一口径(stepPending/statusRunning/statusSuccess)', () => {
     const steps = [
       makeStep({ id: 's1', step: '步骤一', status: 'pending' }),
       makeStep({ id: 's2', step: '步骤二', status: 'in_progress' }),
       makeStep({ id: 's3', step: '步骤三', status: 'completed' }),
     ]
-    render(<PlanStepsCard steps={steps} />)
-    const contents = screen.getAllByTestId('tooltip-content')
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    const contents = getTooltips(container)
     expect(contents).toHaveLength(3)
     expect(contents[0]!.textContent).toContain('待开始')
-    expect(contents[1]!.textContent).toContain('正在')
+    expect(contents[1]!.textContent).toContain('执行中')
     expect(contents[2]!.textContent).toContain('已完成')
   })
 
   it('段落 Tooltip 在 error=true 时显示错误状态文案', () => {
     const steps = [makeStep({ id: 's1', step: '连接数据库', status: 'completed', error: true })]
-    render(<PlanStepsCard steps={steps} />)
-    const tooltipContent = screen.getByTestId('tooltip-content')
-    expect(tooltipContent.textContent).toContain('失败')
-    expect(tooltipContent.textContent).toContain('连接数据库')
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    const [tooltipContent] = getTooltips(container)
+    expect(tooltipContent?.textContent).toContain('失败')
+    expect(tooltipContent?.textContent).toContain('连接数据库')
   })
 
   it('段落 Tooltip 在有 durationMs 时显示耗时', () => {
     const steps = [
       makeStep({ id: 's1', step: '执行中步骤', status: 'in_progress', durationMs: 65000 }),
     ]
-    render(<PlanStepsCard steps={steps} />)
-    const tooltipContent = screen.getByTestId('tooltip-content')
-    expect(tooltipContent.textContent).toContain('1m5s')
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    const [tooltipContent] = getTooltips(container)
+    expect(tooltipContent?.textContent).toContain('1m5s')
   })
 
   it('段落 Tooltip 在无 durationMs 时不显示耗时', () => {
     const steps = [makeStep({ id: 's1', step: '分析需求', status: 'pending' })]
-    render(<PlanStepsCard steps={steps} />)
-    const tooltipContent = screen.getByTestId('tooltip-content')
-    expect(tooltipContent.textContent).toContain('待开始')
-    expect(tooltipContent.textContent).not.toContain('·')
+    const { container } = render(<PlanStepsCard steps={steps} />)
+    const [tooltipContent] = getTooltips(container)
+    expect(tooltipContent?.textContent).toContain('待开始')
+    expect(tooltipContent?.textContent).not.toContain('·')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
