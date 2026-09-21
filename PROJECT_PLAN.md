@@ -21,6 +21,9 @@
 - **两次并发回退抹掉的面按"回退前暂存索引树快照"整文件回捞**(厂商注册表/参数面板/权限标签映射/路由注册/proxy 系列/ai-generation 面板/i18n 48 键…),并补交 `FALLBACK_VENDORS` 由 `VENDORS` 动态映射(11 家硬编码 → 零维护);`/v1/batches` 的 O10b `page_format` 游标分页同批回捞 —— 判据是已提交用例真红(`expected ['batch_seed_2'] to deeply equal [Array(3)]`),恢复后该文件 40 用例全绿。
 - **`pnpm openapi:check-drift` 此前结构性必红**:`export-openapi.ts` 的相对 `--out` 按 cwd 解析,而脚本经 `pnpm --filter @ihui/api exec` 调起时 cwd 是 `apps/api`,产物落进 `apps/api/.ihui-agent/` 而第二步从仓库根找它。改为恒按仓库根解析,并同步产物(mimo description + 漏提交的 `email-push` 路由)。
 
+### 顺手修掉的一条工程治理假红(2026-09-21)
+- `check-project-plan-archive.mjs`(守门 13c)全量模式用 `split('\n')` 取标题,而 HEAD blob 是 LF、本机 worktree 是 CRLF → 两侧标题集永不相交,**任何纯追加**都被报成"删了 21 条已完成"并 exit 1(pre-commit 走 `--staged` 才没暴露)。改 `split(/\r?\n/)`,并用临时 `GIT_INDEX_FILE` 注入"真删一条已完成标题"做对拍:改前/改后均 exit 1 且精确点名该条,拦截能力未削弱。
+
 ### 验证证据(2026-09-21)
 - [x] `pnpm openapi:check-drift` → ✅ OpenAPI 契约与代码一致(path 3780 / operation 4765)
 - [x] `apps/api` `vitest run tests/o10b-run-ref-and-cursor.test.ts` → 40 passed(回捞前 1 failed)
