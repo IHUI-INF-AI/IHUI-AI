@@ -35,8 +35,10 @@ import type { PlanStep, PlanUpdateEvent } from '@ihui/types/ai';
 import type { ToolCall } from '@ihui/types/chat';
 import {
   deriveTaskStatusBar,
+  describeToolCall,
   type TaskStatusBarViewModel,
   type TaskStatusKind,
+  type ToolCallView,
 } from '@ihui/shared/chat';
 import { t } from '../i18n/index.js';
 
@@ -180,6 +182,60 @@ function filesChangedLabel(n: number): string {
 
 function activityToolLabel(tool: string): string {
   return label('activityTool', '调用 {tool}', { tool });
+}
+
+/**
+ * 把工具功能名 i18n 键解析为本地化文案。
+ * nameKey 命中 → 直接取 `taskStatus.{nameKey}`(shared 已合并进 cli,键可达);
+ * nameKey 为 null(插件 / MCP 动态名)→ 回落 `调用 {code}`,这是"取不到映射才回落原码名"
+ * 的唯一入口(AGENTS.md §5:CLI 输出禁出现英文码名,但无映射的动态名允许原样呈现)。
+ */
+function toolNameText(view: ToolCallView): string {
+  if (!view.nameKey) return activityToolLabel(view.codeName);
+  const hit = t(`taskStatus.${view.nameKey}`);
+  return hit === `taskStatus.${view.nameKey}` ? view.codeName : hit;
+}
+
+/** 结果度量文本:写类文件用 "+18 -4";读/检索类用 "128 行" / "5 个结果" / "3 个文件";无度量为空串 */
+function metricText(view: ToolCallView): string {
+  if (view.writesFile) {
+    if (view.added < 0 && view.removed < 0) return '';
+    return `${label('addedCount', '+{n}', { n: Math.max(0, view.added) })} ${label(
+      'removedCount',
+      '-{n}',
+      { n: Math.max(0, view.removed) },
+    )}`;
+  }
+  if (view.metricValue === null) return '';
+  const unitKey =
+    view.metricKind === 'lines'
+      ? 'unitLines'
+      : view.metricKind === 'files'
+        ? 'unitFiles'
+        : view.metricKind === 'results'
+          ? 'unitResults'
+          : '';
+  if (!unitKey) return '';
+  const fallback =
+    view.metricKind === 'lines' ? '{n} 行' : view.metricKind === 'files' ? '{n} 个文件' : '{n} 个结果';
+  return label(unitKey, fallback, { n: view.metricValue });
+}
+
+/** CLI 一次工具调用的活动行三段(功能名 / 对象 / 度量),纯函数便于单测。*/
+export interface ToolActivityLineParts {
+  title: string;
+  subject: string;
+  metric: string;
+}
+
+export function describeToolActivityLine(input: {
+  toolName: string;
+  args?: Record<string, unknown> | null;
+  result?: unknown;
+  status?: string;
+}): ToolActivityLineParts {
+  const view = describeToolCall(input);
+  return { title: toolNameText(view), subject: view.subject, metric: metricText(view) };
 }
 
 function kindLabel(kind: TaskStatusKind): string {
@@ -334,9 +390,17 @@ export function createTaskStatusLine(opts: TaskStatusLineOptions = {}): TaskStat
   return api;
 }
 
-/** 供 repl 复用的"此刻在做什么"文案(与 shared taskStatus.activityTool 对齐) */
-export function toolActivityLabel(toolName: string): string {
-  return activityToolLabel(toolName);
+/**
+ * 供 repl 复用的"此刻在做什么"文案 —— 活动行语言:功能名 · 对象 · 度量。
+ * 经共享层 describeToolCall 取真实功能名,禁止直显英文码名(仅无映射的动态名回落)。
+ * args 缺省时(只有码名)只显示功能名,不硬凑对象。
+ */
+export function toolActivityLabel(
+  toolName: string,
+  args?: Record<string, unknown> | null,
+): string {
+  const { title, subject, metric } = describeToolActivityLine({ toolName, args });
+  return [title, subject, metric].filter((part) => part !== '').join(' · ');
 }
 
 /**
