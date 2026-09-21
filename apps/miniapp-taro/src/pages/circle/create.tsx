@@ -52,9 +52,9 @@ const VIS_OPTIONS = (tt: TtFn): Array<{ key: Visibility; label: string; icon: Ic
 ]
 
 const VIS_KEY: Record<string, string> = {
-  public: 'circle.create.vis.public',
-  friends: 'circle.create.vis.friends',
-  private: 'circle.create.vis.private',
+  public: 'circleCreate.d1',
+  friends: 'circleCreate.d2',
+  private: 'circleCreate.d3',
 }
 
 export default function CircleCreatePage() {
@@ -361,7 +361,7 @@ export default function CircleCreatePage() {
                     color="currentColor"
                   />
                   <Text className="cc-vis-text">
-                    {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}
+                    {tt(VIS_KEY[opt.key] ?? 'circleCreate.d1', opt.label)}
                   </Text>
                 </View>
               ))}
