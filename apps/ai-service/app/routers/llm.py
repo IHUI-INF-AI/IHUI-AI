@@ -178,13 +178,15 @@ def _resolve_message_id(metadata: Any) -> str | None:
     return None
 
 
-def _format_plan_updated_event(
+def _build_plan_snapshot(
     tool_calls_history: list[dict[str, Any]],
-    *,
-    explanation: str,
-    message_id: str | None,
-) -> str:
-    """W1(2026-09-12 立):把 tool loop 的工具调用历史格式化为 plan_updated SSE 事件。
+) -> list[dict[str, Any]]:
+    """W1(2026-09-12 立):把 tool loop 的工具调用历史构造为权威 plan 快照数组。
+
+    单一真相源(2026-09-21 抽取):本函数同时服务两条出口 ——
+    ① SSE `plan_updated` 事件(_format_plan_updated_event 的 plan 字段);
+    ② 会话持久化(_fire_callback body 的 planSteps → chat_messages.metadata.planSteps)。
+    两者必须逐字段等价,否则刷新页面后回放的计划会与流式期间所见不同。
 
     链路 A(普通对话 /api/ai/chat/stream)此前没有任何 plan 生产者,
     前端只能基于 reasoning/toolCalls/content 伪派生步骤
@@ -206,13 +208,17 @@ def _format_plan_updated_event(
     - result 存在且记录 isError → failed(附 "error": true)
     - result 存在无 error → completed
 
-    空历史返回空串:调用点可无条件 yield(空串不产生 SSE 输出),
-    同时避免发出空 plan 数组把前端 message.planSteps 清空。
+    空历史返回空数组:调用方据此决定不发 SSE 帧、不写 metadata 字段
+    (避免用空 plan 把前端 message.planSteps / 已落库计划清空)。
     """
     if not tool_calls_history:
-        return ""
+        return []
     _steps: list[dict[str, Any]] = []
     for _i, _rec in enumerate(tool_calls_history):
+        # 容错:调用方历史数组可能混入非 dict 脏记录(与 _build_persisted_tool_calls
+        # 同口径跳过),不得让 SSE 事件或回调落库因此抛 AttributeError
+        if not isinstance(_rec, dict):
+            continue
         _done = _rec.get("result") is not None
         _failed = _done and bool(_rec.get("isError"))
         _name = str(_rec.get("toolName") or "tool")
@@ -257,6 +263,25 @@ def _format_plan_updated_event(
             if isinstance(_dur, int) and _dur >= 0:
                 _step["durationMs"] = _dur
         _steps.append(_step)
+
+    return _steps
+
+
+def _format_plan_updated_event(
+    tool_calls_history: list[dict[str, Any]],
+    *,
+    explanation: str,
+    message_id: str | None,
+) -> str:
+    """W1(2026-09-12 立):把 tool loop 历史格式化为 plan_updated SSE 事件帧。
+
+    plan 快照由 _build_plan_snapshot 统一构造(与落库的 metadata.planSteps 同源)。
+    空快照返回空串:调用点可无条件 yield(空串不产生 SSE 输出),同时避免发出
+    空 plan 数组把前端 message.planSteps 清空。
+    """
+    _steps = _build_plan_snapshot(tool_calls_history)
+    if not _steps:
+        return ""
 
     _evt: dict[str, Any] = {
         "type": "plan_updated",
@@ -3671,6 +3696,12 @@ async def _fire_callback(
     回放/审计时还原工具卡与终端区。非流式端点(/llm/complete)无 tool loop,
     不传即缺省 None(不带字段,向后兼容)。
 
+    planSteps 持久化(2026-09-21 立):同一份 tool_calls_history 还经
+    _build_plan_snapshot 生成 body.planSteps,与 SSE plan_updated 的 plan 数组
+    逐字段同源。API 侧 /api/ai/callback 收到后浅合并进
+    chat_messages.metadata.planSteps(已有 jsonb 列,零 schema 迁移),使刷新页面 /
+    重拉历史后输入框上方任务状态条与消息流 PlanStepsCard 均可回放。
+
     健壮性:
     - 若配置 ai_callback_secret,携带 X-Internal-Secret 头(与后端共享密钥校验)
     - 对 5xx / 网络错误重试 2 次(指数退避 0.5s → 1s),4xx 不重试(请求本身有问题)
@@ -3695,6 +3726,13 @@ async def _fire_callback(
         body["toolCalls"] = _persist_calls
     if terminal_tasks_history:
         body["terminalTasks"] = terminal_tasks_history
+    # planSteps 持久化(2026-09-21 立,零 schema 迁移):与 plan_updated SSE 事件
+    # 逐字段同源(_build_plan_snapshot 单一真相源),API 侧浅合并进
+    # chat_messages.metadata.planSteps,jsonb 已有列,不新增字段/不改表结构。
+    # 空快照不写字段:与"本轮无计划"语义区分,也不会覆盖 worker 已合并的其他 key。
+    _persist_plan = _build_plan_snapshot(tool_calls_history or [])
+    if _persist_plan:
+        body["planSteps"] = _persist_plan
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
