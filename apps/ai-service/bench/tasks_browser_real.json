@@ -1,0 +1,179 @@
+[
+  {
+    "id": "real-example-navigate",
+    "title": "真实站点:example.com 导航与标题断言",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://example.com/", "timeout_ms": 25000 },
+        "expect": { "type": "title_contains", "value": "Example Domain" }
+      }
+    ],
+    "checks": [
+      { "type": "url_contains", "params": { "text": "example.com" } },
+      { "type": "selector_text_contains", "params": { "selector": "h1", "text": "Example Domain" } }
+    ]
+  },
+  {
+    "id": "real-wikipedia-article",
+    "title": "真实站点:维基百科人工智能词条导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": {
+          "url": "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD",
+          "timeout_ms": 30000
+        },
+        "expect": { "type": "title_contains", "value": "人工智能" }
+      }
+    ],
+    "checks": [
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "#firstHeading", "text": "人工智能" }
+      }
+    ]
+  },
+  {
+    "id": "real-github-repo",
+    "title": "真实站点:GitHub 仓库页导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://github.com/IHUI-INF-AI/IHUI-AI", "timeout_ms": 30000 },
+        "expect": { "type": "title_contains", "value": "IHUI-AI" }
+      }
+    ],
+    "checks": [
+      { "type": "url_contains", "params": { "text": "IHUI-INF-AI/IHUI-AI" } },
+      { "type": "selector_exists", "params": { "selector": "#repository-container-header" } }
+    ]
+  },
+  {
+    "id": "real-pypi-fastapi",
+    "title": "真实站点:PyPI fastapi 包页导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://pypi.org/project/fastapi/", "timeout_ms": 30000 },
+        "expect": { "type": "title_contains", "value": "fastapi" }
+      }
+    ],
+    "checks": [
+      { "type": "selector_text_contains", "params": { "selector": "h1", "text": "fastapi" } }
+    ]
+  },
+  {
+    "id": "real-hackernews-home",
+    "title": "真实站点:Hacker News 首页导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://news.ycombinator.com/", "timeout_ms": 30000 },
+        "expect": { "type": "title_contains", "value": "Hacker News" }
+      }
+    ],
+    "checks": [{ "type": "selector_exists", "params": { "selector": "#hnmain" } }]
+  },
+  {
+    "id": "real-hn-login-form",
+    "title": "真实站点:Hacker News 登录表单操作(填写+提交+错误回执断言)",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://news.ycombinator.com/login", "timeout_ms": 30000 }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "input[name='acct']" },
+        "params": { "text": "ihui-browser-bench-probe", "clear": true }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "input[name='pw']" },
+        "params": { "text": "bench-probe-no-such-account", "clear": true }
+      },
+      { "action": "click", "target": { "selector": "input[type='submit']" } }
+    ],
+    "checks": [{ "type": "url_contains", "params": { "text": "news.ycombinator.com" } }]
+  },
+  {
+    "id": "real-bing-results",
+    "title": "真实站点:必应搜索结果页导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://www.bing.com/search?q=IHUI+AI", "timeout_ms": 30000 }
+      }
+    ],
+    "checks": [{ "type": "selector_exists", "params": { "selector": "#b_results" } }]
+  },
+  {
+    "id": "real-github-login-form",
+    "title": "真实站点:GitHub 登录表单操作(填写+提交+错误回执断言)",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://github.com/login", "timeout_ms": 30000 },
+        "expect": { "type": "url_contains", "value": "login" }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "#login_field" },
+        "params": { "text": "ihui-browser-bench-probe", "clear": true }
+      },
+      {
+        "action": "type",
+        "target": { "selector": "#password" },
+        "params": { "text": "bench-probe-no-such-account", "clear": true }
+      },
+      { "action": "click", "target": { "selector": "input[name='commit']" } }
+    ],
+    "checks": [
+      { "type": "selector_text_contains", "params": { "selector": "body", "text": "Incorrect" } }
+    ]
+  },
+  {
+    "id": "real-mdn-docs",
+    "title": "真实站点:MDN JavaScript 文档导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": {
+          "url": "https://developer.mozilla.org/zh-CN/docs/Web/JavaScript",
+          "timeout_ms": 30000
+        }
+      }
+    ],
+    "checks": [
+      { "type": "url_contains", "params": { "text": "/zh-CN/docs/Web/JavaScript" } },
+      { "type": "selector_exists", "params": { "selector": "h1" } }
+    ]
+  },
+  {
+    "id": "real-iana-reserved",
+    "title": "真实站点:IANA 保留域名说明页导航",
+    "category": "real-site",
+    "steps": [
+      {
+        "action": "navigate",
+        "params": { "url": "https://www.iana.org/domains/reserved", "timeout_ms": 30000 }
+      }
+    ],
+    "checks": [
+      {
+        "type": "selector_text_contains",
+        "params": { "selector": "h1", "text": "Reserved Domains" }
+      }
+    ]
+  }
+]

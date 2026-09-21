@@ -1,0 +1,861 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import { z } from 'zod'
+import { randomUUID } from 'node:crypto'
+import { join } from 'node:path'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import sharp from 'sharp'
+import { authenticate } from '../plugins/auth.js'
+import { findFileById } from '../db/workspace-queries.js'
+import {
+  searchFiles,
+  canAccessFile,
+  createShare,
+  findShareByToken,
+  deleteShare,
+  findRecentFiles,
+} from '../db/file-queries.js'
+import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
+import { success, error, emptyToUndefined } from '../utils/response.js'
+import { buildSchema } from '../utils/swagger.js'
+import {
+  convertToMarkdownDetailed,
+  extractDocumentAssets,
+} from '../services/markdown-converter-service.js'
+import {
+  validateUploadFile,
+  sanitizeFilename,
+  getCanonicalMime,
+  extractExt,
+  MAX_MULTIPART_UPLOAD_SIZE,
+} from '../utils/file-type-validator.js'
+
+const ADMIN_ROLE_ID = 1
+
+// P2 修复(2026-08-25):上传接口返回的 path 由磁盘绝对路径改为公开可访问 URL。
+// 配置 FILE_CDN_BASE(可选,如 https://file.aizhs.top)时返回 CDN 前缀地址;
+// 未配置时返回相对路径 /uploads/<id>(与 server.ts 静态服务 prefix 对应,
+// 前端 resolveFileUrl 拼 host,保持向后兼容)。
+function resolvePublicUrl(fileId: string): string {
+  const cdnBase = process.env.FILE_CDN_BASE
+  return cdnBase ? `${cdnBase}/uploads/${fileId}` : `/uploads/${fileId}`
+}
+
+// 2026-09-08 修复:convert-markdown 端点此前把 file.path 直接当磁盘路径。
+// 但 P2(2026-08-06)之后 path 已是公开 URL(/uploads/<id> 或 CDN 绝对 URL),
+// 新上传文件必然 existsSync 失败 → 恒 422"文件不存在"。
+// 还原规则:旧记录(真实磁盘路径)原样使用;新记录按 basename 在
+// UPLOAD_DIR / uploads/public / uploads/private 下定位落盘文件。
+function resolveDiskPath(filePath: string): string {
+  if (existsSync(filePath)) return filePath
+  const base = filePath.split(/[\\/]/).pop() ?? filePath
+  const candidates = [
+    process.env.UPLOAD_DIR ? join(process.env.UPLOAD_DIR, base) : '',
+    join(process.cwd(), 'uploads', 'public', base),
+    join(process.cwd(), 'uploads', 'private', base),
+  ]
+  for (const c of candidates) {
+    if (c && existsSync(c)) return c
+  }
+  return filePath // 未命中:交由服务层返回"文件不存在"
+}
+
+// =============================================================================
+// 序列化辅助
+// =============================================================================
+
+function serializeFile(f: {
+  id: string
+  projectId: string
+  name: string
+  path: string
+  size: number | bigint
+  mimeType: string
+  uploadedBy: string | null
+  createdAt: Date
+}) {
+  return {
+    id: f.id,
+    projectId: f.projectId,
+    name: f.name,
+    size: Number(f.size),
+    mimeType: f.mimeType,
+    uploadedBy: f.uploadedBy,
+    createdAt: f.createdAt,
+  }
+}
+
+function serializeTag(t: {
+  id: string
+  name: string
+  slug: string
+  color: string | null
+  createdBy: string | null
+  createdAt: Date
+}) {
+  return {
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    color: t.color,
+    createdBy: t.createdBy,
+    createdAt: t.createdAt,
+  }
+}
+
+// =============================================================================
+// Zod schemas
+// =============================================================================
+
+const searchQuerySchema = z.object({
+  q: z.transform(emptyToUndefined).pipe(z.string().max(255).optional()),
+  projectId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  mimeType: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
+  tag: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+})
+
+const recentQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+const idParamSchema = z.object({ id: z.uuid({ error: '无效的文件 ID' }) })
+const tagIdParamSchema = z.object({
+  id: z.uuid({ error: '无效的文件 ID' }),
+  tagId: z.uuid({ error: '无效的标签 ID' }),
+})
+const tokenParamSchema = z.object({ token: z.string().min(1, 'token 不能为空') })
+const shareIdParamSchema = z.object({ id: z.uuid({ error: '无效的分享 ID' }) })
+
+const addTagsSchema = z.object({
+  tagIds: z.array(z.uuid()).min(1, '至少选择一个标签').max(50, '一次最多 50 个标签'),
+})
+
+// 用于 OpenAPI 文档（无 transform，z.toJSONSchema 可处理）
+const createShareSchemaDoc = z.object({
+  sharedWith: z.uuid().optional(),
+  permissions: z.enum(['view', 'edit']).default('view'),
+  expiresAt: z.iso.datetime().optional(),
+})
+// 用于运行时校验（含 transform，Date 对象流入业务逻辑）
+const createShareSchema = createShareSchemaDoc.extend({
+  expiresAt: z.iso
+    .datetime()
+    .optional()
+    .transform((v) => (v ? new Date(v) : undefined)),
+})
+
+const uploadBase64Schema = z.object({
+  base64: z.string().min(1, 'base64 数据不能为空'),
+  filename: z.string().min(1).max(255),
+  mime: z.string().min(1).max(128),
+})
+
+// =============================================================================
+// 路由
+// =============================================================================
+
+export const fileRoutes: FastifyPluginAsync = async (server) => {
+  const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+  }
+
+  // 判断当前用户是否为管理员
+  const isAdmin = (request: FastifyRequest): boolean =>
+    (request.jwtPayload?.roleId ?? 0) >= ADMIN_ROLE_ID
+
+  // P2 修复(2026-08-06):公开文件(图片/附件,前端以 /uploads/<id> 引用)写入
+  // uploads/public —— 静态白名单只暴露该子目录,URL 保持不变;
+  // 私有文件(工作区文件)由 workspace.ts 写入 uploads/private/,不再对外提供。
+  const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads', 'public')
+
+  // POST /files/upload/base64 - base64 上传（支持 webp→png 转换）
+  server.post(
+    '/files/upload/base64',
+    {
+      schema: buildSchema({
+        summary: 'Base64 上传文件',
+        description: '通过 base64 编码上传文件,支持 webp 自动转 png',
+        tags: ['File'],
+        body: uploadBase64Schema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      const parsed = uploadBase64Schema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const { base64, filename, mime } = parsed.data
+
+      let finalBuffer: Buffer
+      let finalMime: string
+      let finalFilename: string
+
+      try {
+        const buffer = Buffer.from(base64, 'base64')
+
+        if (mime === 'image/webp') {
+          finalBuffer = await sharp(buffer).png().toBuffer()
+          finalMime = 'image/png'
+          // webp -> png: 确保文件名以 .png 结尾,丢弃 .webp 扩展名
+          const baseName = filename.replace(/\.webp$/i, '')
+          finalFilename = /\.png$/i.test(baseName) ? baseName : `${baseName}.png`
+        } else {
+          finalBuffer = buffer
+          finalMime = mime
+          finalFilename = filename
+        }
+      } catch (e) {
+        request.log.error({ err: e }, 'base64 解码或图片转换失败')
+        return reply.status(400).send(error(400, 'base64 解码或图片转换失败'))
+      }
+
+      // CWE-434 防护:扩展名白名单 + MIME 一致性 + magic number + 大小限制
+      const validation = validateUploadFile(finalBuffer, finalFilename, finalMime)
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(finalFilename)
+
+      try {
+        if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+        const fileId = randomUUID()
+        const filePath = join(UPLOAD_DIR, fileId)
+        writeFileSync(filePath, finalBuffer)
+
+        return reply.status(201).send(
+          success({
+            file: {
+              id: fileId,
+              name: safeFilename,
+              size: finalBuffer.length,
+              mimeType: validation.mimeType,
+              path: resolvePublicUrl(fileId),
+              uploadedBy: request.userId,
+            },
+          }),
+        )
+      } catch (e) {
+        request.log.error({ err: e }, '文件保存失败')
+        return reply.status(500).send(error(500, '文件保存失败'))
+      }
+    },
+  )
+
+  // GET /files/search - 搜索文件（query: q / projectId / mimeType / tag）
+  server.get(
+    '/files/search',
+    {
+      schema: buildSchema({
+        summary: '搜索文件',
+        description: '按关键字、项目、MIME 类型、标签搜索文件',
+        tags: ['File'],
+        querystring: searchQuerySchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      const parsed = searchQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const list = await searchFiles({
+        userId: request.userId,
+        q: parsed.data.q,
+        projectId: parsed.data.projectId,
+        mimeType: parsed.data.mimeType,
+        tag: parsed.data.tag,
+      })
+      return reply.send(success({ files: list.map(serializeFile) }))
+    },
+  )
+
+  // GET /files/recent - 最近文件（按 createdAt 倒序）
+  server.get(
+    '/files/recent',
+    {
+      schema: buildSchema({
+        summary: '最近文件',
+        description: '返回当前用户最近上传的文件列表(按 createdAt 倒序)',
+        tags: ['File'],
+        querystring: recentQuerySchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      const parsed = recentQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const list = await findRecentFiles(request.userId, parsed.data.limit)
+      return reply.send(success({ files: list.map(serializeFile) }))
+    },
+  )
+
+  // GET /files/shared/:token - 公开访问分享的文件信息（无需登录）
+  server.get(
+    '/files/shared/:token',
+    {
+      schema: buildSchema({
+        summary: '获取分享文件信息',
+        description: '通过分享 token 公开访问文件信息(无需登录)',
+        tags: ['File'],
+        params: tokenParamSchema,
+        auth: false,
+      }),
+    },
+    async (request, reply) => {
+      const parsed = tokenParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const share = await findShareByToken(parsed.data.token)
+      if (!share) {
+        return reply.status(404).send(error(404, '分享不存在或已过期'))
+      }
+
+      const file = await findFileById(share.fileId)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+
+      return reply.send(
+        success({
+          share: {
+            id: share.id,
+            permissions: share.permissions,
+            expiresAt: share.expiresAt,
+            createdAt: share.createdAt,
+          },
+          file: {
+            id: file.id,
+            name: file.name,
+            size: Number(file.size),
+            mimeType: file.mimeType,
+            createdAt: file.createdAt,
+          },
+        }),
+      )
+    },
+  )
+
+  // GET /files/:id/tags - 获取文件标签
+  server.get(
+    '/files/:id/tags',
+    {
+      schema: buildSchema({
+        summary: '获取文件标签',
+        description: '返回指定文件绑定的所有标签',
+        tags: ['File'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      const tags = await findTagsByTarget('file', file.id)
+      return reply.send(success({ tags: tags.map(serializeTag) }))
+    },
+  )
+
+  // POST /files/:id/convert-markdown - 文件转 Markdown
+  server.post(
+    '/files/:id/convert-markdown',
+    {
+      schema: buildSchema({
+        summary: '文件转 Markdown',
+        description:
+          '将指定文件(doc/docx/ppt/pptx/xls/xlsx/xlsm/odt/ods/odp/rtf/epub/csv/pdf/txt/md)转换为 Markdown 文本;失败时返回具体原因(如扫描件需 OCR/文件加密/结构损坏)',
+        tags: ['File'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      // P2 修复(2026-08-06):改用 DB 记录的真实路径(file.path)定位文件;
+      // 2026-09-08:path 为 URL 形态(/uploads/<id>),需先还原本地磁盘路径;
+      // 落盘名为无后缀 UUID,类型判定须传原始文件名 file.name
+      const filePath = resolveDiskPath(file.path)
+      const result = await convertToMarkdownDetailed(filePath, file.name)
+      if (!result.markdown) {
+        return reply.status(422).send(error(422, result.error ?? '不支持的文件类型或转换失败'))
+      }
+
+      return reply.send(success({ markdown: result.markdown, fileName: file.name }))
+    },
+  )
+
+  // POST /files/:id/extract-assets - 提取文档内嵌图片/对象资产
+  server.post(
+    '/files/:id/extract-assets',
+    {
+      schema: buildSchema({
+        summary: '提取文档内嵌资产',
+        description:
+          '提取 doc/docx/pptx/xls/xlsx/ods/odt/odp/rtf/epub 内嵌图片等二进制资产并落盘到公开目录;返回可访问 URL 清单;pdf 返回 unsupported=true(无文档模型)',
+        tags: ['File'],
+        params: idParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权访问该文件'))
+      }
+
+      if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+      const filePath = resolveDiskPath(file.path)
+      const result = await extractDocumentAssets(filePath, file.name, UPLOAD_DIR)
+      if (result.error) {
+        return reply.status(422).send(error(422, result.error))
+      }
+
+      const assets = result.assets.map((a) => ({
+        id: a.id,
+        mediaType: a.mediaType,
+        originPart: a.originPart,
+        extension: a.extension,
+        size: a.size,
+        url: resolvePublicUrl(a.filename),
+      }))
+
+      if (result.unsupported) {
+        return reply.send(success({ assets: [], unsupported: true, fileName: file.name }))
+      }
+      return reply.send(success({ assets, unsupported: false, fileName: file.name }))
+    },
+  )
+
+  // POST /files/:id/tags - 给文件打标签（覆盖式追加）
+  server.post(
+    '/files/:id/tags',
+    {
+      schema: buildSchema({
+        summary: '给文件打标签',
+        description: '为指定文件追加标签(支持批量)',
+        tags: ['File'],
+        params: idParamSchema,
+        body: addTagsSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = addTagsSchema.safeParse(request.body)
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权操作该文件'))
+      }
+
+      for (const tagId of bodyParsed.data.tagIds) {
+        await attachTag({
+          tagId,
+          resourceType: 'file',
+          resourceId: file.id,
+          createdBy: userId,
+        })
+      }
+      const tags = await findTagsByTarget('file', file.id)
+      return reply.send(success({ tags: tags.map(serializeTag) }))
+    },
+  )
+
+  // DELETE /files/:id/tags/:tagId - 移除文件上的标签
+  server.delete(
+    '/files/:id/tags/:tagId',
+    {
+      schema: buildSchema({
+        summary: '移除文件标签',
+        description: '从指定文件移除一个标签',
+        tags: ['File'],
+        params: tagIdParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = tagIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权操作该文件'))
+      }
+
+      const removed = await detachTag({
+        tagId: parsed.data.tagId,
+        resourceType: 'file',
+        resourceId: file.id,
+      })
+      if (!removed) {
+        return reply.status(404).send(error(404, '该标签未绑定到此文件'))
+      }
+      return reply.send(success({ removed: true }))
+    },
+  )
+
+  // POST /files/:id/share - 创建分享
+  server.post(
+    '/files/:id/share',
+    {
+      schema: buildSchema({
+        summary: '创建文件分享',
+        description: '为指定文件创建分享链接(可指定接收人与权限)',
+        tags: ['File'],
+        params: idParamSchema,
+        body: createShareSchemaDoc,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const userId = request.userId
+
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const bodyParsed = createShareSchema.safeParse(request.body)
+      if (!bodyParsed.success) {
+        return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const file = await findFileById(parsed.data.id)
+      if (!file) {
+        return reply.status(404).send(error(404, '文件不存在'))
+      }
+      if (!isAdmin(request) && !(await canAccessFile(userId, file))) {
+        return reply.status(403).send(error(403, '无权分享该文件'))
+      }
+
+      let share
+      try {
+        share = await createShare({
+          fileId: file.id,
+          sharedBy: userId,
+          sharedWith: bodyParsed.data.sharedWith,
+          permissions: bodyParsed.data.permissions,
+          expiresAt: bodyParsed.data.expiresAt,
+        })
+      } catch (e) {
+        request.log.error({ err: e }, '创建分享失败')
+        return reply.status(500).send(error(500, '创建分享失败'))
+      }
+
+      return reply.status(201).send(
+        success({
+          share: {
+            id: share.id,
+            shareToken: share.shareToken,
+            permissions: share.permissions,
+            sharedWith: share.sharedWith,
+            expiresAt: share.expiresAt,
+            createdAt: share.createdAt,
+          },
+        }),
+      )
+    },
+  )
+
+  // DELETE /files/shares/:id - 撤销分享（仅创建者本人）
+  server.delete(
+    '/files/shares/:id',
+    {
+      schema: buildSchema({
+        summary: '撤销文件分享',
+        description: '撤销指定分享(仅创建者本人可操作)',
+        tags: ['File'],
+        params: shareIdParamSchema,
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      const parsed = shareIdParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const deleted = await deleteShare(parsed.data.id, request.userId)
+      if (!deleted) {
+        return reply.status(404).send(error(404, '分享不存在或无权撤销'))
+      }
+      return reply.send(success({ deleted: true }))
+    },
+  )
+
+  // =============================================================================
+  // 扩展上传端点（multipart / octet-stream）
+  // =============================================================================
+
+  // GET /files/upload/form - 获取上传表单信息(本地存储模式返回上传端点元数据)
+  server.get(
+    '/files/upload/form',
+    {
+      schema: buildSchema({
+        summary: '获取上传表单信息',
+        description: '返回文件上传端点与策略(本地存储模式,前端用 POST multipart 上传)',
+        tags: ['File'],
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      return reply.send(
+        success({
+          uploadUrl: '/api/files/upload/form',
+          method: 'POST',
+          encoding: 'multipart/form-data',
+          field: 'file',
+          maxSize: MAX_MULTIPART_UPLOAD_SIZE,
+        }),
+      )
+    },
+  )
+
+  // 为 application/octet-stream 注册 content-type parser（原始二进制流）
+  server.addContentTypeParser(
+    'application/octet-stream',
+    { parseAs: 'buffer' },
+    (_req, body, done) => {
+      done(null, body)
+    },
+  )
+
+  /**
+   * multipart/form-data 文件上传。
+   * 使用 @fastify/multipart 解析，单文件限制 100MB（见 server.ts 注册配置）。
+   * @form field "file" — 文件二进制（必填）
+   * @returns { file: { id, name, size, mimeType, path(公开 URL,见 resolvePublicUrl), uploadedBy } }
+   */
+  server.post(
+    '/files/upload/form',
+    {
+      schema: buildSchema({
+        summary: 'Multipart 表单上传文件',
+        description: '通过 multipart/form-data 上传文件(单文件限制 100MB)',
+        tags: ['File'],
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      if (!request.isMultipart()) {
+        return reply.status(400).send(error(400, '请求必须是 multipart/form-data'))
+      }
+
+      const data = await request.file()
+      if (!data) {
+        return reply.status(400).send(error(400, '未找到上传文件'))
+      }
+
+      // P2 修复(2026-08-25):超限文件会被 @fastify/multipart 截断(busboy limits.fileSize=100MB),
+      // 截断后 toBuffer() 恰好返回 100MB,validateUploadFile 的 `> maxSize` 判断不生效,
+      // 导致超大文件被静默截断落盘(内容损坏)。必须在读取前检查 truncated 直接拒绝。
+      if (data.file.truncated) {
+        const mb = Math.floor(MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024)
+        return reply.status(400).send(error(400, `文件大小超过 ${mb}MB 限制`))
+      }
+
+      const buffer = await data.toBuffer()
+      if (buffer.length === 0) {
+        return reply.status(400).send(error(400, '文件内容为空'))
+      }
+
+      const filename = data.filename || `upload-${Date.now()}`
+      const mimeType = data.mimetype || 'application/octet-stream'
+
+      // CWE-434 防护:扩展名白名单 + MIME 一致性 + magic number + 大小限制(100MB,对齐 multipart 配置)
+      const validation = validateUploadFile(buffer, filename, mimeType, MAX_MULTIPART_UPLOAD_SIZE)
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(filename)
+
+      try {
+        if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+        const fileId = randomUUID()
+        const filePath = join(UPLOAD_DIR, fileId)
+        writeFileSync(filePath, buffer)
+
+        return reply.status(201).send(
+          success({
+            file: {
+              id: fileId,
+              name: safeFilename,
+              size: buffer.length,
+              mimeType: validation.mimeType,
+              path: resolvePublicUrl(fileId),
+              uploadedBy: request.userId,
+            },
+          }),
+        )
+      } catch (e) {
+        request.log.error({ err: e }, '文件保存失败')
+        return reply.status(500).send(error(500, '文件保存失败'))
+      }
+    },
+  )
+
+  /**
+   * application/octet-stream 原始流上传。
+   * @header x-filename — 必填,指定保存文件名(含扩展名,用于类型校验)
+   * @returns { file: { id, name, size, mimeType, path(公开 URL,见 resolvePublicUrl), uploadedBy } }
+   */
+  server.post(
+    '/files/upload/octet',
+    {
+      schema: buildSchema({
+        summary: '原始流上传文件',
+        description: '通过 application/octet-stream 上传原始二进制流(支持 x-filename 头)',
+        tags: ['File'],
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+
+      const buffer = request.body as Buffer | undefined
+      if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
+        return reply.status(400).send(error(400, '文件内容为空'))
+      }
+
+      const rawFilename = request.headers['x-filename']
+      const rawFilenameStr = Array.isArray(rawFilename) ? rawFilename[0] : rawFilename
+      if (!rawFilenameStr) {
+        return reply.status(400).send(error(400, '缺少 x-filename 请求头,无法识别文件类型'))
+      }
+      const filename = String(rawFilenameStr)
+
+      // octet-stream 未声明 MIME,按文件名扩展名推导 canonical MIME 用于校验
+      const ext = extractExt(filename)
+      const canonicalMime = getCanonicalMime(ext)
+      if (!canonicalMime) {
+        return reply.status(400).send(error(400, `不支持的文件类型: .${ext || '未知'}`))
+      }
+
+      // CWE-434 防护:扩展名白名单 + magic number + 大小限制(100MB,对齐 multipart 配置)
+      const validation = validateUploadFile(
+        buffer,
+        filename,
+        canonicalMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(filename)
+
+      try {
+        if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
+        const fileId = randomUUID()
+        const filePath = join(UPLOAD_DIR, fileId)
+        writeFileSync(filePath, buffer)
+
+        return reply.status(201).send(
+          success({
+            file: {
+              id: fileId,
+              name: safeFilename,
+              size: buffer.length,
+              mimeType: validation.mimeType,
+              path: resolvePublicUrl(fileId),
+              uploadedBy: request.userId,
+            },
+          }),
+        )
+      } catch (e) {
+        request.log.error({ err: e }, '文件保存失败')
+        return reply.status(500).send(error(500, '文件保存失败'))
+      }
+    },
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

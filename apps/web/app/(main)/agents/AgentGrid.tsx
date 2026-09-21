@@ -1,0 +1,124 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+'use client'
+
+import Link from 'next/link'
+import Image from 'next/image'
+import { Loader2, Bot, Sparkles, LogIn } from 'lucide-react'
+import { useTranslations, useLocale } from 'next-intl'
+import { Card, CardContent, Button } from '@ihui/ui-react'
+import { Grid } from '@/components/layout'
+import { Avatar, VipBadge } from '@/components/data'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+import { cn } from '@/lib/utils'
+import type { Agent } from './types'
+
+interface Props {
+  agents: Agent[]
+  isLoading: boolean
+  error: unknown
+}
+
+export function AgentGrid({ agents, isLoading, error }: Props) {
+  const t = useTranslations('agent')
+  const locale = useLocale()
+  const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        {t('loading')}
+      </div>
+    )
+  }
+
+  if (error) {
+    // 401 兜底引导:正常情况下市场列表已对游客公开(API 市场公开化 2026-09-21),
+    // 若仍出现 401(如鉴权回归),给出登录入口而不是裸错误文案
+    if ((error as Error & { status?: number }).status === 401) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <LogIn className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">{t('loginRequired')}</p>
+          <Button size="sm" onClick={() => openLoginDialogOnce('/agents')}>
+            {t('loginNow')}
+          </Button>
+        </div>
+      )
+    }
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        {(error as Error).message}
+      </div>
+    )
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
+        <Bot className="h-10 w-10 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">{t('empty')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <Grid cols={1} smCols={2} lgCols={3} gap="md">
+      {agents.map((a) => (
+        <Link key={a.agentId} href={`/agents/${a.agentId}`} className="group">
+          <Card className="flex h-full flex-col overflow-hidden transition-colors hover:bg-accent">
+            <div className="relative h-32 w-full overflow-hidden bg-muted">
+              {a.cover ? (
+                <Image
+                  fill
+                  src={a.cover}
+                  alt={a.name}
+                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted-foreground/40">
+                  <Sparkles className="h-8 w-8" />
+                </div>
+              )}
+              {a.isVipExclusive && (
+                <div className="absolute left-2 top-2">
+                  <VipBadge />
+                </div>
+              )}
+            </div>
+            <CardContent className="min-[640px]:p-3 flex flex-1 flex-col gap-2 p-3">
+              <div className="flex items-center gap-2">
+                <Avatar src={a.avatar ?? undefined} name={a.name ?? 'A'} size="sm" />
+                <span className="break-words font-medium">{a.name}</span>
+              </div>
+              <p className="flex-1 text-sm text-muted-foreground">
+                {a.description || t('noDescription')}
+              </p>
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
+                      a.isFree
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
+                        : 'bg-primary/10 text-primary',
+                    )}
+                  >
+                    {a.isFree ? t('free') : priceFmt.format(a.price)}
+                  </span>
+                </div>
+                <span className="text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                  {t('viewDetail')}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </Grid>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

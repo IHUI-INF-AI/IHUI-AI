@@ -1,0 +1,334 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 文件版本管理路由。
+ *
+ * 迁移自旧架构 server/app/api/v1/version/routes.py。
+ *
+ * 功能：版本创建 / 列表 / 详情 / 回滚 / 删除 / 当前版本 / 对比。
+ * 使用 packages/database/src/schema/files.ts 中的 file_versions 表。
+ * 对比能力复用 services/diff-service.ts（基于 LCS 的文本 diff + 二进制哈希对比）。
+ *
+ * 注册（server.ts）：server.register(fileVersionRoutes, { prefix: '/api' })
+ */
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { createWriteStream } from 'node:fs'
+import { existsSync, mkdirSync, unlinkSync, copyFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { eq, desc, max, and } from 'drizzle-orm'
+import { checkAuth } from '../plugins/auth.js'
+import { db } from '../db/index.js'
+import { fileVersions, files } from '@ihui/database'
+import { findFileById } from '../db/workspace-queries.js'
+import { compareFiles, getSimilarity } from '../services/diff-service.js'
+import { success, error } from '../utils/response.js'
+import {
+  validateUploadFile,
+  MAX_MULTIPART_UPLOAD_SIZE,
+  extractExt,
+  ALLOWED_EXTENSIONS,
+} from '../utils/file-type-validator.js'
+
+// P2 修复(2026-08-06):文件版本属私有资源,写入 uploads/private/versions(静态白名单只暴露 public/)
+const VERSIONS_DIR = join(process.cwd(), 'uploads', 'private', 'versions')
+
+function ensureVersionsDir(): void {
+  if (!existsSync(VERSIONS_DIR)) mkdirSync(VERSIONS_DIR, { recursive: true })
+}
+
+function serializeVersion(v: typeof fileVersions.$inferSelect) {
+  return {
+    id: v.id,
+    fileId: v.fileId,
+    version: v.version,
+    size: v.size,
+    path: v.path,
+    uploadedBy: v.uploadedBy,
+    changeLog: v.changeLog,
+    createdAt: v.createdAt,
+  }
+}
+
+export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
+  const fileIdParam = z.object({ fileId: z.string() })
+  const versionIdParam = z.object({ versionId: z.string() })
+  const compareQuery = z.object({ v1: z.coerce.number(), v2: z.coerce.number() })
+
+  // POST /file-versions/create — 上传新版本（multipart: file + 表单字段 fileId/changeLog）
+  server.post('/file-versions/create', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const data = await request.file()
+    if (!data) {
+      return reply.status(400).send(error(400, '未检测到上传文件'))
+    }
+
+    // 从表单字段读取 fileId / changeLog
+    const fileIdRaw = (data.fields as Record<string, { value?: string } | undefined>).fileId
+    const changeLogRaw = (data.fields as Record<string, { value?: string } | undefined>).changeLog
+    const fileId = typeof fileIdRaw?.value === 'string' ? fileIdRaw.value : ''
+    const changeLog = typeof changeLogRaw?.value === 'string' ? changeLogRaw.value : null
+
+    if (!fileId) {
+      return reply.status(400).send(error(400, 'fileId 为必填'))
+    }
+
+    // 校验文件存在
+    const file = await findFileById(fileId)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+
+    // P0 安全加固(2026-08-02):读取 buffer 后校验,不再流式直接写盘
+    // 防 CWE-434 恶意文件上传 + CWE-400 大文件 DoS
+    const buffer = await data.toBuffer()
+    if (buffer.length === 0) {
+      return reply.status(400).send(error(400, '文件内容为空'))
+    }
+    if (buffer.length > MAX_MULTIPART_UPLOAD_SIZE) {
+      return reply.status(400).send(error(400, '文件大小超过 100MB 限制'))
+    }
+
+    // 文件类型校验:白名单内走 magic number + MIME 一致性校验;
+    // 白名单外校验新版本扩展名与原文件一致(防止上传可执行文件覆盖文档)
+    const uploadFilename = data.filename ?? file.name ?? 'version'
+    const uploadExt = extractExt(uploadFilename)
+    const originalExt = extractExt(file.name ?? '')
+    if (ALLOWED_EXTENSIONS.includes(uploadExt)) {
+      const declaredMime = data.mimetype ?? 'application/octet-stream'
+      const validation = validateUploadFile(
+        buffer,
+        uploadFilename,
+        declaredMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+    } else {
+      // 非白名单扩展名:校验新版本与原文件扩展名一致(防止类型替换攻击)
+      if (uploadExt !== originalExt) {
+        return reply
+          .status(400)
+          .send(error(400, `版本文件扩展名(.${uploadExt})与原文件(.${originalExt})不一致`))
+      }
+    }
+
+    ensureVersionsDir()
+    const versionId = randomUUID()
+    const versionPath = join(VERSIONS_DIR, versionId)
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const stream = createWriteStream(versionPath)
+        stream.on('error', reject)
+        stream.on('finish', resolve)
+        stream.end(buffer)
+      })
+    } catch (err) {
+      request.log.error({ err }, '版本文件保存失败')
+      if (existsSync(versionPath)) unlinkSync(versionPath)
+      return reply.status(500).send(error(500, '版本文件保存失败'))
+    }
+
+    const totalSize = buffer.length
+
+    // 计算下一个版本号（当前最大版本 + 1）
+    const maxRow = await db
+      .select({ maxVer: max(fileVersions.version) })
+      .from(fileVersions)
+      .where(eq(fileVersions.fileId, fileId))
+    const nextVer = ((maxRow[0]?.maxVer ?? 0) as number) + 1
+
+    const [created] = await db
+      .insert(fileVersions)
+      .values({
+        fileId,
+        version: nextVer,
+        size: totalSize,
+        path: versionPath,
+        uploadedBy: userId,
+        changeLog,
+      })
+      .returning()
+
+    return reply.status(201).send(success({ version: serializeVersion(created!) }))
+  })
+
+  // GET /file-versions/list/:fileId — 版本列表（按版本号倒序）
+  server.get('/file-versions/list/:fileId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { fileId } = fileIdParam.parse(request.params)
+
+    const list = await db
+      .select()
+      .from(fileVersions)
+      .where(eq(fileVersions.fileId, fileId))
+      .orderBy(desc(fileVersions.version))
+
+    return reply.send(success({ versions: list.map(serializeVersion) }))
+  })
+
+  // GET /file-versions/current/:fileId — 当前（最新）版本
+  server.get('/file-versions/current/:fileId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { fileId } = fileIdParam.parse(request.params)
+
+    const list = await db
+      .select()
+      .from(fileVersions)
+      .where(eq(fileVersions.fileId, fileId))
+      .orderBy(desc(fileVersions.version))
+      .limit(1)
+
+    if (list.length === 0) {
+      return reply.status(404).send(error(404, '该文件暂无版本记录'))
+    }
+    return reply.send(success({ version: serializeVersion(list[0]!) }))
+  })
+
+  // GET /file-versions/:versionId — 版本详情
+  server.get('/file-versions/:versionId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { versionId } = versionIdParam.parse(request.params)
+
+    const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
+
+    if (list.length === 0) {
+      return reply.status(404).send(error(404, '版本不存在'))
+    }
+    const version = list[0]!
+    if (!existsSync(version.path)) {
+      return reply.status(404).send(error(404, '版本文件在磁盘上不存在'))
+    }
+    return reply.send(success({ version: serializeVersion(version) }))
+  })
+
+  // POST /file-versions/rollback/:versionId — 回滚到指定版本（以新版本号写入，成为当前版本）
+  server.post('/file-versions/rollback/:versionId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const { versionId } = versionIdParam.parse(request.params)
+
+    const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
+
+    if (list.length === 0) {
+      return reply.status(404).send(error(404, '版本不存在'))
+    }
+    const target = list[0]!
+    if (!existsSync(target.path)) {
+      return reply.status(404).send(error(404, '版本文件在磁盘上不存在'))
+    }
+
+    ensureVersionsDir()
+    const newVersionId = randomUUID()
+    const newPath = join(VERSIONS_DIR, newVersionId)
+    copyFileSync(target.path, newPath)
+    const size = statSync(newPath).size
+
+    const maxRow = await db
+      .select({ maxVer: max(fileVersions.version) })
+      .from(fileVersions)
+      .where(eq(fileVersions.fileId, target.fileId))
+    const nextVer = ((maxRow[0]?.maxVer ?? 0) as number) + 1
+
+    const [created] = await db
+      .insert(fileVersions)
+      .values({
+        fileId: target.fileId,
+        version: nextVer,
+        size,
+        path: newPath,
+        uploadedBy: userId,
+        changeLog: `回滚至版本 ${target.version}`,
+      })
+      .returning()
+
+    // 同步更新 files 表的 path 指向新版本文件
+    await db.update(files).set({ path: newPath }).where(eq(files.id, target.fileId))
+
+    return reply.send(success({ version: serializeVersion(created!) }))
+  })
+
+  // DELETE /file-versions/:versionId — 删除指定版本（当前最新版本不可删）
+  server.delete('/file-versions/:versionId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { versionId } = versionIdParam.parse(request.params)
+
+    const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
+
+    if (list.length === 0) {
+      return reply.status(404).send(error(404, '版本不存在'))
+    }
+    const target = list[0]!
+
+    // 查询当前最新版本号
+    const latestRow = await db
+      .select({ maxVer: max(fileVersions.version) })
+      .from(fileVersions)
+      .where(eq(fileVersions.fileId, target.fileId))
+    const latestVer = (latestRow[0]?.maxVer ?? 0) as number
+    if (target.version === latestVer) {
+      return reply.status(400).send(error(400, '不能删除当前最新版本'))
+    }
+
+    if (existsSync(target.path)) {
+      try {
+        unlinkSync(target.path)
+      } catch {
+        /* ignore */
+      }
+    }
+    await db.delete(fileVersions).where(eq(fileVersions.id, versionId))
+    return reply.send(success({ versionId, deleted: true }))
+  })
+
+  // GET /file-versions/compare/:fileId?v1=&v2= — 对比两个版本
+  server.get('/file-versions/compare/:fileId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { fileId } = fileIdParam.parse(request.params)
+    const parsed = compareQuery.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, 'v1 和 v2 为必填且须为数字'))
+    }
+    const { v1, v2 } = parsed.data
+
+    const versions = await db
+      .select()
+      .from(fileVersions)
+      .where(and(eq(fileVersions.fileId, fileId)))
+      .orderBy(desc(fileVersions.version))
+
+    const va = versions.find((v) => v.version === v1)
+    const vb = versions.find((v) => v.version === v2)
+    if (!va || !vb) {
+      return reply.status(404).send(error(404, '指定的版本不存在'))
+    }
+    if (!existsSync(va.path) || !existsSync(vb.path)) {
+      return reply.status(404).send(error(404, '版本文件在磁盘上不存在'))
+    }
+
+    const diff = compareFiles(va.path, vb.path)
+    const similarity = getSimilarity(va.path, vb.path)
+    return reply.send(
+      success({
+        comparison: {
+          version1: { version: va.version, size: va.size },
+          version2: { version: vb.version, size: vb.size },
+          additions: diff.additions,
+          deletions: diff.deletions,
+          changes: diff.changes,
+          similarity,
+          changesList: diff.changesList,
+        },
+      }),
+    )
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

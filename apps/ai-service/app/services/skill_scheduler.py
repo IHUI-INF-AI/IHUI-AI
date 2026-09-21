@@ -1,0 +1,343 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""LangGraph Skill 调度器(2026-07-23 新增)。
+
+编排 AI Skills 调用,提供单步执行 / 失败重试(指数退避 1s/2s/4s)/
+上下文传递 / token 用量统计。不替换 ai_skills.py 现有 llm_gateway 调用,
+而是通过 SkillScheduler 包装。无新装依赖。
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from datetime import UTC, datetime
+from typing import Any
+
+from ..core.llm_gateway import llm_gateway
+from .skill_feedback import skill_feedback_tracker
+from .skills import skill_registry
+
+logger = logging.getLogger(__name__)
+
+# 指数退避基准(秒):1s, 2s, 4s
+_BACKOFF_BASE_SECONDS = 1.0
+_MAX_BACKOFF_MULTIPLIER = 4  # 第 3 次重试:1 * 2^2 = 4s
+
+
+class SkillScheduler:
+    """LangGraph 编排的 skill 调度器。
+
+    Attributes:
+        max_retries: 单次 skill 调用的最大重试次数(含首次)。
+        total_tokens: 累计所有 run_skill 调用的 token 用量。
+        call_count: 累计 run_skill 调用次数(含失败重试)。
+        error_count: 累计彻底失败(重试耗尽)的次数。
+        history: 每次调用的简要历史(最多保留 100 条)。
+    """
+
+    def __init__(self, max_retries: int = 3) -> None:
+        self.max_retries = max_retries
+        self.total_tokens: int = 0
+        self.call_count: int = 0
+        self.error_count: int = 0
+        self.history: list[dict[str, Any]] = []
+
+    # ===== 单步执行 =====
+
+    async def run_skill(
+        self,
+        skill_name: str,
+        variables: dict[str, Any] | None = None,
+        model: str | None = None,
+        *,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """运行单个 skill(包装 llm_gateway),支持重试 + token 统计。
+
+        L1-2 扩展(2026-07-25):成功/失败均调 skill_feedback_tracker.record_usage,
+        接通反馈追踪断链,让 iterate_on_feedback 能拿到 failure_cases。
+
+        Returns dict: content / model / tokens / retries / error。
+        """
+        # L1-2:测量单次调用耗时,供反馈追踪
+        skill_start = time.time()
+        skill = skill_registry.get(skill_name)
+        if skill is None:
+            return self._record(
+                skill_name=skill_name, content="", model="", tokens=0, retries=0,
+                error=f"skill not found: {skill_name}",
+                duration_ms=(time.time() - skill_start) * 1000,
+            )
+
+        # 合并 variables + context(context 优先,允许链式 skill 覆盖)
+        merged_vars: dict[str, Any] = {}
+        if variables:
+            merged_vars.update(variables)
+        if context:
+            merged_vars.update(context)
+        try:
+            rendered = skill.render(merged_vars or None)
+        except Exception as e:
+            return self._record(
+                skill_name=skill_name, content="", model="", tokens=0, retries=0,
+                error=f"template render failed: {type(e).__name__}: {e}",
+                duration_ms=(time.time() - skill_start) * 1000,
+            )
+
+        # 指数退避重试
+        last_error: str | None = None
+        for attempt in range(self.max_retries):
+            if attempt > 0:
+                backoff = min(
+                    _BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)),
+                    _BACKOFF_BASE_SECONDS * _MAX_BACKOFF_MULTIPLIER,
+                )
+                logger.info(
+                    "SkillScheduler 重试 skill=%s 第 %d 次,等待 %.1fs",
+                    skill_name, attempt, backoff,
+                )
+                await asyncio.sleep(backoff)
+            try:
+                result = await llm_gateway.complete(
+                    [{"role": "user", "content": rendered}],
+                    model=model, temperature=0.7, max_tokens=2000,
+                )
+            except Exception as e:
+                last_error = f"{type(e).__name__}: {e}"
+                logger.warning(
+                    "SkillScheduler skill=%s 第 %d 次调用异常: %s",
+                    skill_name, attempt + 1, last_error,
+                )
+                continue
+            if not result.get("error"):
+                tokens = int(result.get("usage", {}).get("total_tokens", 0))
+                entry = self._record(
+                    skill_name=skill_name,
+                    content=str(result.get("content", "")),
+                    model=str(result.get("model", "")),
+                    tokens=tokens, retries=attempt, error=None,
+                    duration_ms=(time.time() - skill_start) * 1000,
+                )
+                # L5:fire-and-forget 触发 shadow call(若有 active A/B test)
+                # 由 AB_TEST_ENABLED 环境变量间接控制(scheduler 启动时已检查)
+                # 失败不影响主流程,只 log warning
+                try:
+                    from .shadow_runner import shadow_runner
+                    shadow_runner.maybe_shadow_call(
+                        skill_name=skill_name,
+                        control_call_result=entry,
+                        model=model,
+                        variables=merged_vars,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[skill_scheduler] maybe_shadow_call 触发失败(忽略): %s: %s",
+                        type(e).__name__, e,
+                    )
+                return entry
+            last_error = str(result.get("error_message") or result.get("error"))
+            logger.warning(
+                "SkillScheduler skill=%s 第 %d 次返回 error: %s",
+                skill_name, attempt + 1, last_error,
+            )
+
+        # 重试耗尽
+        return self._record(
+            skill_name=skill_name, content="", model="", tokens=0,
+            retries=self.max_retries - 1,
+            error=f"重试 {self.max_retries} 次后仍失败: {last_error}",
+            duration_ms=(time.time() - skill_start) * 1000,
+        )
+
+    # ===== 链式执行(上下文传递) =====
+
+    async def run_chain(
+        self,
+        steps: list[dict[str, Any]],
+        initial_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """链式执行多个 skill,前一步输出可被后一步引用。
+
+        每步 dict 字段:skill(必填)/ variables / context_from(从前序 step output 提取)/
+        model。返回:results / context / total_tokens / error(任一步失败时记录最后一步的错误)。
+        """
+        context: dict[str, Any] = dict(initial_context or {})
+        results: list[dict[str, Any]] = []
+        for idx, step in enumerate(steps):
+            skill_name = step.get("skill")
+            if not skill_name:
+                results.append(self._record(
+                    skill_name="<missing>", content="", model="", tokens=0, retries=0,
+                    error="step 缺少 skill 字段",
+                ))
+                continue
+            if step.get("context_from") and results:
+                context[step["context_from"]] = results[-1].get("content", "")
+            step_result = await self.run_skill(
+                skill_name=skill_name,
+                variables=step.get("variables"),
+                model=step.get("model"),
+                context=context,
+            )
+            results.append(step_result)
+            if step_result.get("content"):
+                context[f"step_{idx}_output"] = step_result["content"]
+        chain_result = {
+            "results": results,
+            "context": context,
+            "total_tokens": self.total_tokens,
+            "error": next((r.get("error") for r in reversed(results) if r.get("error")), None),
+        }
+
+        # L4-6:fire-and-forget 触发 SelfEvaluator 自评 + MetaLearner 沉淀
+        # 由 SELF_EVAL_ENABLED 环境变量控制(默认 false,避免消耗 LLM tokens)
+        # 失败不影响主流程,只 log warning
+        try:
+            import os as _os
+            if _os.environ.get("SELF_EVAL_ENABLED", "false").lower() == "true":
+                asyncio.create_task(
+                    self._trigger_self_eval(chain_result, steps)
+                )
+        except Exception as e:
+            logger.warning(
+                "[skill_scheduler] self_eval 触发失败(忽略): %s: %s",
+                type(e).__name__, e,
+            )
+
+        return chain_result
+
+    async def _trigger_self_eval(
+        self,
+        chain_result: dict[str, Any],
+        steps: list[dict[str, Any]],
+    ) -> None:
+        """L4-6:把 chain 结果转成 SelfEvaluator 输入,触发自评 + 沉淀 meta_lessons。
+
+        fire-and-forget,任何异常不向上抛(只 warning)。
+        """
+        try:
+            # 局部导入避免循环依赖
+            from .meta_learner import meta_learner
+
+            # 把 chain 结果转成 AgentLoopResult 风格(SelfEvaluator 期望的输入)
+            results_list = chain_result.get("results", []) or []
+            error = chain_result.get("error")
+            # 取最后一个 skill 名作为 source skill(若有)
+            last_skill = ""
+            for step in reversed(steps):
+                if step.get("skill"):
+                    last_skill = str(step["skill"])
+                    break
+
+            # 构造 iterations(每步一条)
+            iterations = []
+            for r in results_list:
+                if not isinstance(r, dict):
+                    continue
+                iterations.append({
+                    "reasoning": str(r.get("content", ""))[:200],
+                    "tool_calls": [{"name": r.get("skill", ""), "args": {}}],
+                    "tool_results": [
+                        {
+                            "tool_call_id": "0",
+                            "name": r.get("skill", ""),
+                            "result": r.get("content", ""),
+                            "error": r.get("error"),
+                        }
+                    ],
+                })
+
+            task_result = {
+                "success": error is None,
+                "iterations": iterations,
+                "final_response": str(
+                    results_list[-1].get("content", "") if results_list else ""
+                ),
+                "total_duration_ms": 0.0,  # 累计耗时未知,传 0
+                "total_tokens_used": int(chain_result.get("total_tokens", 0) or 0),
+                "stop_reason": "error" if error else "completed",
+                "error": error,
+            }
+
+            await meta_learner.evaluate_and_record(
+                task_result=task_result,
+                task_input=str(steps)[:500] if steps else "",
+                skill_name=last_skill,
+            )
+        except Exception as e:
+            logger.warning(
+                "[skill_scheduler] _trigger_self_eval 失败(忽略): %s: %s",
+                type(e).__name__, e,
+            )
+
+    # ===== 内部工具 =====
+
+    def _record(
+        self,
+        *,
+        skill_name: str,
+        content: str,
+        model: str,
+        tokens: int,
+        retries: int,
+        error: str | None,
+        duration_ms: float = 0.0,
+    ) -> dict[str, Any]:
+        """记录单次调用结果 + 更新累计统计。
+
+        L1-2 扩展(2026-07-25):fire-and-forget 调 skill_feedback_tracker.record_usage,
+        接通反馈追踪断链(让 iterate_on_feedback 能拿到 failure_cases / stats)。
+        """
+        self.call_count += 1
+        if tokens > 0:
+            self.total_tokens += tokens
+        if error:
+            self.error_count += 1
+        entry: dict[str, Any] = {
+            "content": content, "model": model, "tokens": tokens,
+            "retries": retries, "error": error,
+        }
+        # history 摘要(不含 content,避免内存膨胀)
+        self.history.append({
+            "skill": skill_name, "tokens": tokens, "retries": retries,
+            "error": error, "ts": time.time(),
+        })
+        if len(self.history) > 100:
+            self.history = self.history[-100:]
+
+        # L1-2:fire-and-forget 接入反馈追踪(失败不影响主流程,只 log warning)
+        try:
+            feedback: dict[str, Any] = {
+                "skillName": skill_name,
+                "usedAt": datetime.now(UTC).isoformat(),
+                "success": error is None,
+                "durationMs": int(duration_ms),
+            }
+            if error is not None:
+                feedback["failureReason"] = error
+            asyncio.create_task(
+                skill_feedback_tracker.record_usage(feedback)
+            )
+        except Exception as e:
+            logger.warning(
+                "skill_feedback_tracker.record_usage 触发失败(skill=%s): %s",
+                skill_name, e,
+            )
+        return entry
+
+    def stats(self) -> dict[str, Any]:
+        """返回当前统计快照。"""
+        return {
+            "total_tokens": self.total_tokens,
+            "call_count": self.call_count,
+            "error_count": self.error_count,
+            "history_size": len(self.history),
+        }
+
+
+# 全局单例(ai_skills.py 可选用)
+skill_scheduler = SkillScheduler()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

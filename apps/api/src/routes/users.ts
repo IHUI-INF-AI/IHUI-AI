@@ -1,0 +1,462 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import type { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { desc, eq } from 'drizzle-orm'
+import { userDevices } from '@ihui/database'
+import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
+import { join, extname } from 'node:path'
+import { pipeline } from 'node:stream/promises'
+import { Readable } from 'node:stream'
+import { randomUUID } from 'node:crypto'
+import { authenticate } from '../plugins/auth.js'
+import {
+  findUserById,
+  findUserByPhone,
+  isSystemAdminUser,
+  updateUser,
+  mergeUserAccounts,
+} from '../db/queries.js'
+import { countFollowing, countFollowers, countFavorites } from '../db/social-queries.js'
+import { updateUserPassword } from '../db/usercenter-queries.js'
+import { success, error } from '../utils/response.js'
+import { verifyCode } from '../utils/code-store.js'
+import { validateUploadFile, sanitizeFilename } from '../utils/file-type-validator.js'
+import { db } from '../db/index.js'
+
+const ADMIN_ROLE_ID = 1
+
+const updateSchema = z.object({
+  nickname: z.string().min(1).max(64).optional(),
+  avatar: z.string().max(512).optional(),
+  email: z.email({ error: '邮箱格式不正确' }).optional(),
+  bio: z.string().max(500).optional(),
+  gender: z.number().int().min(0).max(2).optional().describe('0=未知 1=男 2=女'),
+  phone: z
+    .string()
+    .regex(/^1[3-9]\d{9}$/, '手机号格式不正确')
+    .optional(),
+})
+
+function publicUser(user: {
+  id: string
+  username: string | null
+  phone: string | null
+  email: string | null
+  nickname: string | null
+  avatar: string | null
+  bio: string | null
+  gender: number | null
+  roleId: number | null
+  status: number | null
+  createdAt: Date | null
+  updatedAt: Date | null
+}) {
+  return {
+    id: user.id,
+    username: user.username ?? '',
+    phone: user.phone ?? '',
+    email: user.email ?? '',
+    nickname: user.nickname ?? '',
+    avatar: user.avatar ?? '',
+    bio: user.bio ?? '',
+    gender: user.gender ?? 0,
+    roleId: user.roleId ?? 0,
+    status: user.status ?? 1,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }
+}
+
+/**
+ * 精简公开字段:供非本人用户查询时返回(不含 phone/email)。
+ */
+function limitedPublicUser(user: {
+  id: string
+  nickname: string | null
+  avatar: string | null
+  bio: string | null
+  roleId: number | null
+  status: number | null
+  createdAt: Date | null
+  updatedAt: Date | null
+}) {
+  return {
+    id: user.id,
+    nickname: user.nickname ?? '',
+    avatar: user.avatar ?? '',
+    bio: user.bio ?? '',
+    roleId: user.roleId ?? 0,
+    status: user.status ?? 1,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  }
+}
+
+export const usersRoutes: FastifyPluginAsync = async (server) => {
+  // 用户自身资料含 phone/email,需跳过响应脱敏
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  server.addHook('onRequest', async (request) => {
+    request.skipResponseSanitization = true
+  })
+
+  // GET /api/users/me - 获取当前登录用户信息(必须在 /:id 之前注册以优先匹配)
+  server.get('/me', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const currentUserId = request.userId!
+    const user = await findUserById(currentUserId)
+    if (!user) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+    return reply.send(success(publicUser(user)))
+  })
+
+  // GET /api/users/:id - 获取用户信息(需认证;本人/管理员返回完整字段,其他登录用户返回精简公开字段)
+  server.get('/:id', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
+    const isSelfOrAdmin = id === currentUserId || roleId >= ADMIN_ROLE_ID
+
+    const user = await findUserById(id)
+    if (!user) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+
+    const [followingCount, followersCount, favoritesCount] = await Promise.all([
+      countFollowing(id),
+      countFollowers(id),
+      countFavorites(id),
+    ])
+
+    // 非本人且非管理员:返回精简公开字段(不含 phone/email)
+    const userPayload = isSelfOrAdmin ? publicUser(user) : limitedPublicUser(user)
+
+    return reply.send(
+      success({
+        user: userPayload,
+        stats: { followingCount, followersCount, favoritesCount },
+      }),
+    )
+  })
+
+  // PATCH /api/users/:id - 更新用户信息（nickname、avatar、email、bio）
+  server.patch('/:id', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
+
+    // 仅本人或管理员可更新
+    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '无权修改该用户信息'))
+    }
+
+    const parsed = updateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const existing = await findUserById(id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员资料不可修改'))
+    }
+
+    // 手机号唯一性校验:如改了手机号,确认新号未被其他用户占用
+    if (parsed.data.phone && parsed.data.phone !== existing.phone) {
+      const conflict = await findUserByPhone(parsed.data.phone)
+      if (conflict && conflict.id !== id) {
+        return reply.status(409).send(error(409, '该手机号已被其他用户绑定'))
+      }
+    }
+
+    const updated = await updateUser(id, parsed.data)
+    return reply.send(success({ user: publicUser(updated) }))
+  })
+
+  // POST /api/users/:id/password - 用户自助修改密码（仅本人,校验原密码）
+  const passwordSchema = z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6, '新密码至少6位').max(128),
+  })
+  server.post('/:id/password', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+
+    // 仅本人可修改自己的密码
+    if (id !== currentUserId) {
+      return reply.status(403).send(error(403, '无权修改他人密码'))
+    }
+
+    const parsed = passwordSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    const user = await findUserById(id)
+    if (!user) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员密码不可修改'))
+    }
+
+    const ok = await verifyPassword(parsed.data.currentPassword, user.passwordHash ?? '')
+    if (!ok) {
+      return reply.status(401).send(error(401, '原密码错误'))
+    }
+
+    const passwordHash = await hashPassword(parsed.data.newPassword)
+    await updateUserPassword(id, passwordHash)
+    return reply.send(success({ id: user.id }))
+  })
+
+  // POST /api/users/:id/avatar - 上传头像（multipart,仅本人,限图片 ≤2MB）
+  // P2 修复(2026-08-06):头像写入 uploads/public/avatars(静态白名单只暴露 public/),
+  // 对外 URL /uploads/avatars/<id>.<ext> 保持不变;存量头像需按同结构迁移一次。
+  const AVATAR_DIR = join(process.cwd(), 'uploads', 'public', 'avatars')
+  const AVATAR_MAX_SIZE = 2 * 1024 * 1024
+  const AVATAR_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+  const AVATAR_EXT_MAP: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+  }
+
+  server.post('/:id/avatar', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
+
+    // 仅本人或管理员可上传头像
+    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '无权修改他人头像'))
+    }
+
+    if (await isSystemAdminUser(id)) {
+      return reply.status(403).send(error(403, '系统内置管理员头像不可修改'))
+    }
+
+    const data = await request.file()
+    if (!data) {
+      return reply.status(400).send(error(400, '未检测到上传文件'))
+    }
+
+    const mimeType = data.mimetype ?? ''
+    if (!AVATAR_ALLOWED_TYPES.includes(mimeType)) {
+      return reply.status(400).send(error(400, '仅支持 JPG/PNG/WebP/GIF 格式'))
+    }
+
+    // 2026-07-24 安全加固:读取 buffer 后用 validateUploadFile 校验扩展名 + MIME 一致性 + magic number + 大小
+    // 防御 Content-Type 伪造(CWE-434):仅校验 data.mimetype 可被攻击者绕过,必须读文件头 magic number
+    const buffer = await data.toBuffer()
+    const filename = sanitizeFilename(data.filename ?? 'avatar.jpg')
+    const valid = validateUploadFile(buffer, filename, mimeType, AVATAR_MAX_SIZE)
+    if (!valid.ok) {
+      return reply.status(400).send(error(400, valid.reason))
+    }
+
+    if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true })
+
+    const fileId = randomUUID()
+    const ext = AVATAR_EXT_MAP[mimeType] ?? extname(data.filename) ?? '.jpg'
+    const tmpPath = join(AVATAR_DIR, `${fileId}.tmp`)
+    const finalPath = join(AVATAR_DIR, `${fileId}${ext}`)
+
+    try {
+      await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
+      renameSync(tmpPath, finalPath)
+    } catch (err) {
+      try {
+        if (existsSync(tmpPath)) unlinkSync(tmpPath)
+      } catch (e) {
+        request.log.warn({ err: e }, '头像临时文件清理失败')
+        // ignore
+      }
+      request.log.error({ err }, '头像上传失败')
+      return reply.status(500).send(error(500, '头像上传失败'))
+    }
+
+    const avatarUrl = `/uploads/avatars/${fileId}${ext}`
+    const updated = await updateUser(id, { avatar: avatarUrl })
+    return reply.send(success({ user: publicUser(updated) }))
+  })
+
+  // POST /api/users/change-phone - 更换手机号(需旧+新手机号双验证码,新号有账号则合并)
+  // 业务规则:
+  //   1. 必须验证旧手机号(当前账号绑定的手机号)和新手机号各自的 6 位验证码
+  //   2. 新手机号若已被其他账号绑定,自动合并:把新号账号的所有外键数据迁移到当前账号,
+  //      保留当前账号(老手机号)的 nickname/avatar/bio 等资料,删除新号账号
+  //   3. 新手机号未被占用时,直接更新当前账号的手机号
+  const changePhoneSchema = z.object({
+    oldPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    oldCode: z.string().length(6, '验证码必须为 6 位'),
+    newPhone: z
+      .string()
+      .length(11, '手机号必须为 11 位')
+      .regex(/^1[3-9]\d{9}$/, '手机号格式不正确'),
+    newCode: z.string().length(6, '验证码必须为 6 位'),
+  })
+  server.post('/change-phone', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const userId = request.jwtPayload!.userId
+
+    if (await isSystemAdminUser(userId)) {
+      return reply.status(403).send(error(403, '系统内置管理员手机号不可修改'))
+    }
+
+    const parsed = changePhoneSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { oldPhone, oldCode, newPhone, newCode } = parsed.data
+
+    if (oldPhone === newPhone) {
+      return reply.status(400).send(error(400, '新手机号不能与旧手机号相同'))
+    }
+
+    // 当前账号信息
+    const currentUser = await findUserById(userId)
+    if (!currentUser) {
+      return reply.status(404).send(error(404, '用户不存在'))
+    }
+    if (currentUser.phone !== oldPhone) {
+      return reply.status(400).send(error(400, '旧手机号与当前账号绑定手机号不一致'))
+    }
+
+    // 校验旧手机号验证码
+    if (!(await verifyCode(oldPhone, oldCode))) {
+      return reply.status(400).send(error(400, '旧手机号验证码无效或已过期'))
+    }
+    // 校验新手机号验证码
+    if (!(await verifyCode(newPhone, newCode))) {
+      return reply.status(400).send(error(400, '新手机号验证码无效或已过期'))
+    }
+
+    // 新手机号是否已被其他账号绑定
+    const existingNew = await findUserByPhone(newPhone)
+    if (existingNew && existingNew.id === userId) {
+      return reply.status(400).send(error(400, '新手机号已是当前账号绑定手机号'))
+    }
+
+    if (existingNew) {
+      // 合并账号:把 existingNew 的所有外键数据迁移到当前账号,删除 existingNew
+      // 保留当前账号(老手机号)的 nickname/avatar/bio 等资料
+      if (await isSystemAdminUser(existingNew.id)) {
+        return reply.status(403).send(error(403, '目标账号为系统管理员,不可合并'))
+      }
+      try {
+        await mergeUserAccounts({
+          fromUserId: existingNew.id,
+          toUserId: userId,
+        })
+      } catch (e) {
+        request.log.error({ err: e }, '账号合并失败')
+        return reply.status(500).send(error(500, '账号合并失败,请稍后重试'))
+      }
+    }
+
+    // 更新当前账号的手机号为新号(保留老账号的所有资料)
+    const updated = await updateUser(userId, { phone: newPhone })
+    return reply.send(success({ user: publicUser(updated) }))
+  })
+
+  // GET /api/users/:id/devices — 登录设备列表（从 user_devices 表查,按设备指纹识别真实设备）
+  server.get('/:id/devices', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const currentUserId = request.userId!
+    const roleId = request.jwtPayload?.roleId ?? 0
+
+    if (id !== currentUserId && roleId < ADMIN_ROLE_ID) {
+      return reply.status(403).send(error(403, '无权查看他人设备'))
+    }
+
+    try {
+      const rows = await db
+        .select({
+          id: userDevices.id,
+          fingerprintHash: userDevices.fingerprintHash,
+          userAgent: userDevices.userAgent,
+          ip: userDevices.ip,
+          firstSeenAt: userDevices.firstSeenAt,
+          lastSeenAt: userDevices.lastSeenAt,
+          trusted: userDevices.trusted,
+          lastLocation: userDevices.lastLocation,
+        })
+        .from(userDevices)
+        .where(eq(userDevices.userId, id))
+        .orderBy(desc(userDevices.lastSeenAt))
+        .limit(50)
+      return reply.send(success({ devices: rows }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询登录设备失败'))
+    }
+  })
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,357 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""模型价目单一来源(2026-09-07 收口,GAP-PLAN"成本真网计价"落地)。
+
+此前 cost_ledger / llm_budget_governor / llm_usage_service 三处各自维护价目表,
+数值停留在 2024(gpt-4o/claude-3 时代)且互相漂移。本模块为唯一事实来源:
+
+匹配优先级:  set_model_pricing 运行时覆盖 > 模型级前缀匹配 > 厂商级兜底 > 全局默认
+单位口径:    美元 / 1M tokens(对外 helper 提供 per-1K 换算,兼容旧调用方)
+数值口径:    各厂商公开页目估算值(2025 下半年公开定价),仅用于成本估算,
+            精确计费以厂商账单为准;estimated=True 表示走了兜底价。
+
+与 apps/api ai_pricing 表的分工(2026-09-07 对齐,防误合并):
+  - 本模块:ai-service 进程内估算价(静态公开价+运行时覆盖),用于 cost 缺失时
+    的即时估算/预算扣减,零外部依赖,重启即回静态值。
+  - ai_pricing(apps/api,litellm-price-sync 每 24h 同步 LiteLLM 公开价表
+    +frankfurter 实时汇率):计费/展示口径的持久化真网价,分/千 token。
+  两者单位与用途不同,勿互相替代;若未来要求 ai-service 估算价与计费价严格
+  一致,应通过 set_model_pricing 由管理面注入 ai_pricing 快照,而非删本模块。
+"""
+
+from __future__ import annotations
+
+import threading
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# 运行时覆盖(进程级,精确模型名匹配,优先级最高)
+# ---------------------------------------------------------------------------
+_OVERRIDES: dict[str, dict[str, float]] = {}
+_LOCK = threading.Lock()
+
+
+def set_model_pricing(model: str, input_per_1m: float, output_per_1m: float) -> None:
+    """运行时注入/覆盖某模型单价(USD per 1M tokens)。精确名匹配。"""
+    key = str(model or "").strip().lower()
+    if not key:
+        return
+    with _LOCK:
+        _OVERRIDES[key] = {"input": float(input_per_1m), "output": float(output_per_1m)}
+
+
+def get_overrides() -> dict[str, dict[str, float]]:
+    """只读获取运行时覆盖表(P3-9 价表看板用;返回浅拷贝防外部误改)。"""
+    with _LOCK:
+        return {k: dict(v) for k, v in _OVERRIDES.items()}
+
+
+# ---------------------------------------------------------------------------
+# 模型级价目(前缀匹配;键按长度降序匹配,"gpt-4o-mini" 先于 "gpt-4o")
+# USD per 1M tokens,公开定价(2025 下半年口径)
+# ---------------------------------------------------------------------------
+_MODEL_PRICES_PER_1M: dict[str, dict[str, float]] = {
+    # OpenAI
+    "gpt-5-nano": {"input": 0.05, "output": 0.40},
+    "gpt-5-mini": {"input": 0.25, "output": 2.00},
+    "gpt-5": {"input": 1.25, "output": 10.00},
+    "o4-mini": {"input": 1.10, "output": 4.40},
+    "o3-mini": {"input": 1.10, "output": 4.40},
+    "o3": {"input": 2.00, "output": 8.00},
+    "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    # Anthropic
+    "claude-opus-4": {"input": 15.00, "output": 75.00},
+    "claude-3-opus": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4": {"input": 3.00, "output": 15.00},
+    "claude-3-7-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-5-haiku": {"input": 0.80, "output": 4.00},
+    "claude-3-haiku": {"input": 0.25, "output": 1.25},
+    # Google
+    "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
+    "gemini-2.5-flash": {"input": 0.30, "output": 2.50},
+    "gemini-2.0-flash-lite": {"input": 0.075, "output": 0.30},
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
+    "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
+    # DeepSeek
+    # DeepSeek 官方 V3.2 统一牌价(2026-09 真网对账核实,cache-miss 口径;原 V3 价 0.27/1.10 已过期)
+    "deepseek-reasoner": {"input": 0.28, "output": 0.42},
+    "deepseek-chat": {"input": 0.28, "output": 0.42},
+    # 智谱
+    "glm-4.5-air": {"input": 0.20, "output": 1.10},
+    "glm-4.5": {"input": 0.60, "output": 2.20},
+    "glm-4-flash": {"input": 0.0, "output": 0.0},
+    "glm-4-plus": {"input": 6.90, "output": 6.90},
+    # 字节豆包(火山引擎)
+    "doubao-seed": {"input": 0.24, "output": 2.24},
+    "doubao-1.5-pro": {"input": 0.11, "output": 0.28},
+    "doubao-pro": {"input": 0.11, "output": 0.28},
+    # 阿里通义
+    "qwen-turbo": {"input": 0.05, "output": 0.20},
+    "qwen-plus": {"input": 0.40, "output": 1.20},
+    "qwen-max": {"input": 1.60, "output": 6.40},
+    # Moonshot
+    "kimi-k2": {"input": 0.60, "output": 2.50},
+    "moonshot-v1": {"input": 1.71, "output": 1.71},
+}
+
+# ---------------------------------------------------------------------------
+# 厂商级兜底(模型级未命中时使用;llm_usage_service.PROVIDER_PRICING 同源引用)
+# ---------------------------------------------------------------------------
+PROVIDER_PRICES_PER_1M: dict[str, dict[str, float]] = {
+    "openai": {"input": 2.50, "output": 10.00},
+    "anthropic": {"input": 3.00, "output": 15.00},
+    "gemini": {"input": 0.30, "output": 2.50},
+    "google": {"input": 0.30, "output": 2.50},
+    "deepseek": {"input": 0.27, "output": 1.10},
+    "zhipu": {"input": 0.60, "output": 2.20},
+    "volcengine": {"input": 0.24, "output": 2.24},
+    "doubao": {"input": 0.24, "output": 2.24},
+    "dashscope": {"input": 0.40, "output": 1.20},
+    "qwen_local": {"input": 0.0, "output": 0.0},
+    "moonshot": {"input": 0.60, "output": 2.50},
+    "stepfun": {"input": 0.50, "output": 2.00},
+    "tencent_hunyuan": {"input": 1.00, "output": 4.00},
+    "openrouter": {"input": 1.00, "output": 3.00},
+    "agnes": {"input": 0.50, "output": 2.00},
+    # 免费/本地后端
+    "ollama": {"input": 0.0, "output": 0.0},
+    "lmstudio": {"input": 0.0, "output": 0.0},
+    "llama_cpp": {"input": 0.0, "output": 0.0},
+    "groq": {"input": 0.0, "output": 0.0},
+    "cloudflare_workers_ai": {"input": 0.0, "output": 0.0},
+    "nvidia_nim": {"input": 0.0, "output": 0.0},
+    "stub": {"input": 0.0, "output": 0.0},
+}
+
+# 全局默认(模型与厂商均未命中)
+DEFAULT_PRICE_PER_1M: dict[str, float] = {"input": 1.00, "output": 3.00}
+
+# ---------------------------------------------------------------------------
+# Prompt 缓存计价(P0-①,2026-09-18 立,对标 Codex Harness 的 prompt-cache 成本口径)
+#
+# 缓存读/写相对 input 单价的乘数(公开定价口径,2025 下半年-2026):
+#   anthropic: cache read 0.1x / cache write(5min TTL)1.25x
+#   openai:    cached input 0.5x(隐式缓存,无写入费)
+#   deepseek:  cache hit 0.1x / cache miss 1x(写入免费)
+# 未列厂商走默认(read 0.1x / write 1.0x,与多数"缓存读约一折"的公开牌价一致);
+# 数值仅用于成本估算,精确计费以厂商账单为准(与本模块既有口径一致)。
+# ---------------------------------------------------------------------------
+CACHE_READ_MULTIPLIER_BY_PROVIDER: dict[str, float] = {
+    "anthropic": 0.1,
+    "openai": 0.5,
+    "deepseek": 0.1,
+    "openrouter": 0.5,  # OpenRouter 透传 OpenAI 形态 cached_tokens,折扣按 0.5x 保守估
+}
+CACHE_READ_MULTIPLIER_DEFAULT = 0.1
+CACHE_WRITE_MULTIPLIER_BY_PROVIDER: dict[str, float] = {
+    "anthropic": 1.25,
+}
+CACHE_WRITE_MULTIPLIER_DEFAULT = 1.0
+
+# 按键长度降序排列(前缀匹配特异性优先)
+_SORTED_MODEL_KEYS: list[str] = sorted(_MODEL_PRICES_PER_1M, key=len, reverse=True)
+
+
+def _normalize(model: str) -> str:
+    """小写 + 去空白。"""
+    return str(model or "").strip().lower()
+
+
+def _model_candidates(model: str) -> list[str]:
+    """候选匹配名:完整名 + LiteLLM 风格 'provider/model' 的斜杠后缀。"""
+    normalized = _normalize(model)
+    if not normalized:
+        return []
+    candidates = [normalized]
+    if "/" in normalized:
+        suffix = normalized.rsplit("/", 1)[-1]
+        if suffix and suffix not in candidates:
+            candidates.append(suffix)
+    return candidates
+
+
+def resolve_model_pricing_per_1m(model: str, provider: str | None = None) -> dict[str, float]:
+    """解析某模型单价(USD per 1M tokens)。
+
+    优先级: 运行时覆盖 > 模型级前缀匹配 > 厂商级兜底 > 全局默认。
+    """
+    for candidate in _model_candidates(model):
+        with _LOCK:
+            override = _OVERRIDES.get(candidate)
+        if override:
+            return dict(override)
+        for key in _SORTED_MODEL_KEYS:
+            if candidate == key or candidate.startswith(key):
+                return dict(_MODEL_PRICES_PER_1M[key])
+
+    provider_key = _normalize(provider or "")
+    if provider_key and provider_key in PROVIDER_PRICES_PER_1M:
+        return dict(PROVIDER_PRICES_PER_1M[provider_key])
+    return dict(DEFAULT_PRICE_PER_1M)
+
+
+def is_model_price_known(model: str) -> bool:
+    """模型是否命中运行时覆盖或模型级价目(未命中=走了兜底价)。"""
+    for candidate in _model_candidates(model):
+        with _LOCK:
+            if candidate in _OVERRIDES:
+                return True
+        for key in _SORTED_MODEL_KEYS:
+            if candidate == key or candidate.startswith(key):
+                return True
+    return False
+
+
+def list_known_model_prices() -> dict[str, dict[str, float]]:
+    """模型级价目表快照(含运行时覆盖,叠加在静态表之上)。
+
+    P2-③(2026-09-18 立):供 Agent Engine 的 models.list 只读清单消费 ——
+    把"多模型路由"从实现细节变成可被第三方编排程序读取的能力清单。
+    返回的是拷贝(调用方可安全修改),字段为 per-1M tokens 的 USD 单价。
+    """
+    with _LOCK:
+        snapshot: dict[str, dict[str, float]] = {
+            model: dict(price) for model, price in _MODEL_PRICES_PER_1M.items()
+        }
+        for model, price in _OVERRIDES.items():
+            snapshot[model] = dict(price)
+    return snapshot
+
+
+def cost_micro_usd(
+    model: str, tokens_in: int, tokens_out: int, provider: str | None = None
+) -> int:
+    """按模型计算成本,返回微美元整数(1 micro-USD = 1e-6 USD)。
+
+    2026-09-12 精度改造(2-6 成本真实计价):Decimal 全程精确乘加、仅在最终
+    一次性舍入(ROUND_HALF_UP)到微元,替代旧 float 链路(tokens/1e6 × rate)
+    的累积漂移。per-1M 单价 × token 数恰以微元为量纲(USD×1e6),全程无除法;
+    价目解析优先级与 resolve_model_pricing_per_1m 一致。
+    """
+    rates = resolve_model_pricing_per_1m(model, provider)
+    return cost_micro_usd_from_per_1m(
+        rates["input"], rates["output"], tokens_in, tokens_out
+    )
+
+
+def cache_multipliers(provider: str | None = None) -> tuple[float, float]:
+    """按厂商解析 (缓存读乘数, 缓存写乘数),未列厂商用默认值。
+
+    乘数相对 input 单价:cached × in × read_mult,write × in × write_mult。
+    """
+    key = _normalize(provider or "")
+    read = CACHE_READ_MULTIPLIER_BY_PROVIDER.get(key, CACHE_READ_MULTIPLIER_DEFAULT)
+    write = CACHE_WRITE_MULTIPLIER_BY_PROVIDER.get(key, CACHE_WRITE_MULTIPLIER_DEFAULT)
+    return read, write
+
+
+def cost_micro_usd_with_cache(
+    model: str,
+    tokens_in: int,
+    tokens_out: int,
+    cached_tokens: int = 0,
+    cache_write_tokens: int = 0,
+    provider: str | None = None,
+) -> int:
+    """缓存感知计价(微美元整数,Decimal 精确,舍入口径与 cost_micro_usd 一致)。
+
+    口径(Anthropic/OpenAI/DeepSeek 一致):tokens_in 为输入总量,已含缓存读
+    (cached_tokens)与缓存写(cache_write_tokens),计费时拆三段:
+
+      uncached = tokens_in - cached - write(下限 0)
+      cost = uncached×in + cached×in×read_mult + write×in×write_mult + out×out
+
+    防御:cached/write 负数或超出 tokens_in 时截断到 [0, 剩余量],保证
+    uncached ≥ 0、总输入计费量恒 ≤ tokens_in(不产生负成本或双计)。
+    """
+    rates = resolve_model_pricing_per_1m(model, provider)
+    read_mult, write_mult = cache_multipliers(provider)
+    t_in = max(int(tokens_in), 0)
+    cached = min(max(int(cached_tokens), 0), t_in)
+    write = min(max(int(cache_write_tokens), 0), t_in - cached)
+    uncached = t_in - cached - write
+    rate_in = Decimal(str(rates["input"]))
+    micro = (
+        Decimal(uncached) * rate_in
+        + Decimal(cached) * rate_in * Decimal(str(read_mult))
+        + Decimal(write) * rate_in * Decimal(str(write_mult))
+        + Decimal(int(tokens_out)) * Decimal(str(rates["output"]))
+    )
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def cost_micro_usd_from_per_1m(
+    rate_in: float, rate_out: float, tokens_in: int, tokens_out: int
+) -> int:
+    """按 per-1M(USD/1M tokens)费率精确计算成本(微美元整数)。
+
+    供已持有费率 dict 的调用方(如 llm_usage_service 厂商级查表)复用
+    同一 Decimal 舍入口径。
+    """
+    micro = (
+        Decimal(int(tokens_in)) * Decimal(str(rate_in))
+        + Decimal(int(tokens_out)) * Decimal(str(rate_out))
+    )
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def cost_micro_usd_from_per_1k(
+    rate_in: float, rate_out: float, tokens_in: int, tokens_out: int
+) -> int:
+    """按 per-1K(USD/1K tokens)费率精确计算成本(微美元整数)。
+
+    供仍以 per-1K 表存储的调用方(llm_budget_governor.model_cost_table /
+    cost_ledger.set_pricing)复用同一 Decimal 舍入口径:
+    tokens × USD/1K × 1000 = 微美元。
+    """
+    micro = (
+        Decimal(int(tokens_in)) * Decimal(str(rate_in))
+        + Decimal(int(tokens_out)) * Decimal(str(rate_out))
+    ) * 1000
+    return int(micro.to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def micro_usd_to_usd(micro: int) -> float:
+    """微美元整数 → USD float(微元内精确,round 6 位口径与账本一致)。"""
+    return round(int(micro) / 1_000_000, 6)
+
+
+def estimate_cost_usd(
+    model: str, tokens_in: int, tokens_out: int, provider: str | None = None
+) -> dict[str, Any]:
+    """按模型估算成本(USD,round 6 位)。
+
+    返回 {"cost_usd", "estimated"};estimated=True 表示未命中模型级价目,
+    用了厂商兜底价或全局默认价(口径与 cost_ledger.estimated 一致)。
+    2026-09-12 起内部走 cost_micro_usd(Decimal 微元整数)计算,对外契约不变。
+    """
+    micro = cost_micro_usd(model, tokens_in, tokens_out, provider)
+    return {"cost_usd": micro_usd_to_usd(micro), "estimated": not is_model_price_known(model)}
+
+
+def snapshot_per_1k(models: list[str]) -> dict[str, dict[str, float]]:
+    """按名称列表生成 per-1K 费率快照(含 default 兜底)。
+
+    供旧式"精确名查表"调用方(如 llm_budget_governor.model_cost_table)使用,
+    免去各处手抄价格;运行时调价仍走 set_model_pricing(影响 resolve,不影响已生成快照)。
+    """
+    table: dict[str, dict[str, float]] = {}
+    for name in models:
+        rates = resolve_model_pricing_per_1m(name)
+        table[name] = {"input": rates["input"] / 1000.0, "output": rates["output"] / 1000.0}
+    table["default"] = {
+        "input": DEFAULT_PRICE_PER_1M["input"] / 1000.0,
+        "output": DEFAULT_PRICE_PER_1M["output"] / 1000.0,
+    }
+    return table
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

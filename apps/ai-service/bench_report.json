@@ -1,0 +1,27 @@
+{
+  "total": 1,
+  "passed": 1,
+  "pass_rate": 1.0,
+  "tasks": [
+    {
+      "id": "fix-calc-divzero",
+      "title": "修复计算器除零崩溃",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 8,
+      "duration_ms": 66995.8,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_5v3z2cqi\\task_fix-calc-divzero"
+    }
+  ]
+}

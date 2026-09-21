@@ -1,0 +1,29 @@
+diff --git a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+index 07c9ec97..e19895a6 100644
+--- a/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
++++ b/node_modules/@capacitor/android/capacitor/src/main/java/com/getcapacitor/CapacitorWebView.java
+@@ -81,7 +81,23 @@ public class CapacitorWebView extends WebView {
+                 mlp.topMargin = insets.top;
+                 v.setLayoutParams(mlp);
+ 
+-                // Don't pass window insets to children
++                // 布局状态栏/导航栏避让使用手动 margin(见上)。
++                // IME(软键盘)insets 不能被吞:若对全部 insets 返回 CONSUMED,
++                // 系统认为本 View 已消费所有 insets,配合 windowSoftInputMode=adjustResize
++                // 时键盘无法正常弹出/避让(真机"点输入框键盘不出来")。
++                // 因此在键盘弹出时,仅把 IME insets 重建后向上传递,让 window 层按 adjustResize 处理键盘。
++                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
++                    Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
++                    if (ime.bottom > 0) {
++                        @SuppressWarnings("deprecation")
++                        WindowInsetsCompat reduced = new WindowInsetsCompat.Builder()
++                            .setInsets(WindowInsetsCompat.Type.ime(), ime)
++                            .build();
++                        return reduced;
++                    }
++                }
++
++                // 无键盘时,系统栏 insets 已通过 margin 手动处理,不再向下分发
+                 return WindowInsetsCompat.CONSUMED;
+             });
+         }
