@@ -50,7 +50,7 @@ function PanelLeftRounded({
 
 /**
  * 侧边栏顶部:Logo + 折叠/展开按钮(桌面端)或 Logo + 关闭按钮(移动端抽屉)。
- * 桌面端 logo 支持长按拖拽窗口(Tauri decorations:false 无边框窗口)。
+ * 桌面端 logo 按下即拖拽窗口(Tauri decorations:false 无边框窗口)。
  */
 export function SidebarHeader({
   variant,
@@ -63,22 +63,13 @@ export function SidebarHeader({
   const navigate = useNavigateWithProgress()
   const { isDesktop } = useDesktop()
 
-  // 桌面端 sidebar logo 长按拖拽窗口(Tauri decorations:false 无边框窗口)。
-  // 短按(< 300ms)→ ThemeLogo 自身 onClick 跳首页保持不变;长按(≥ 300ms)→ startWindowDrag()。
-  const logoDragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  // 桌面端 sidebar logo 按下即拖拽窗口(Tauri decorations:false 无边框窗口;
+  // 2026-09-21 用户要求废除 300ms 长按等待,"直接点击就可以拖拽")。
+  // 未移动鼠标即松开时 click 仍会派发(Tauri 拖拽循环对无位移按压不吞 click,
+  // 官方拖拽区 onDoubleClick 示例同机理)→ ThemeLogo 自身 onClick 跳首页保持不变。
   const handleLogoMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    logoDragTimer.current = setTimeout(() => {
-      void startWindowDrag()
-    }, 300)
-  }
-
-  const handleLogoDragEnd = () => {
-    if (logoDragTimer.current) {
-      clearTimeout(logoDragTimer.current)
-      logoDragTimer.current = null
-    }
+    void startWindowDrag()
   }
 
   if (variant === 'mobile') {
@@ -154,17 +145,15 @@ export function SidebarHeader({
    */
   if (collapsed) {
     return (
-      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口长按拖拽
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口按下即拖拽
       <div
         className={cn(
           'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
           isDesktop && 'cursor-move',
         )}
         onMouseDown={handleLogoMouseDown}
-        onMouseUp={handleLogoDragEnd}
-        onMouseLeave={handleLogoDragEnd}
       >
-        {/* 方形品牌 logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
+        {/* 方形品牌logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
             2026-09-21 用户要求去掉遮罩容器圆角:该 PNG 自身已是 22% 圆角 + 四角透明的成品图
             (2534px 上约 558px 半径,缩到 36px ≈ 8px),再套 rounded-xl(12px)比图自身更圆,
             会把黑底四角切出缺口露出底色;button 包裹满足键盘可达性 */}
@@ -216,7 +205,7 @@ export function SidebarHeader({
    * Logo + 折叠按钮,仅在展开态渲染(≥1024px 桌面,或用户未折叠时)。
    */
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
     <div
       // data-sidebar-header-expanded:标记展开态 header,globals.css 平板区间(768-1023px)
       // 用它在 hydration 前隐藏 80px 长 logo 并居中折叠按钮 —— SSR 输出展开态 HTML,
@@ -230,12 +219,10 @@ export function SidebarHeader({
         // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。
         // gap-1(4px)让 logo(80) + gap(4) + 按钮(28) = 112px < 内容区 114px,不溢出。
         'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0 transition-[padding] duration-200',
-        // 桌面端长按可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
+        // 桌面端按下即可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
         isDesktop && 'cursor-move',
       )}
       onMouseDown={handleLogoMouseDown}
-      onMouseUp={handleLogoDragEnd}
-      onMouseLeave={handleLogoDragEnd}
     >
       {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 768-1023px 隐藏;
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
