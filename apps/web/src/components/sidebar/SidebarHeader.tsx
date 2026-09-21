@@ -174,7 +174,6 @@ export function SidebarHeader({
             width={36}
             height={36}
             draggable={false}
-            data-tauri-drag-region
             className="h-9 w-9 select-none object-contain"
           />
         </button>
@@ -234,19 +233,34 @@ export function SidebarHeader({
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
       <span
         data-sidebar-logo
-        // 桌面端把 logo 当拖窗把手,必须掐掉 <img> 原生拖拽(否则浏览器起图片幽灵拖拽)
+        // 拖窗属性必须挂在"真正承接 mousedown 的元素"上:Tauri 的拖拽脚本会跳过
+        // img 这类原生可拖标签(实测挂在 img 上完全不生效),故把 img 置为
+        // pointer-events-none,让按下落到本 span;点击语义随之上移到本层。
+        // 用 span+role 而非 <button>:button 标签同样在 Tauri 拖拽脚本的跳过名单里。
+        data-tauri-drag-region
+        // 双保险:原生拖拽生效时模态循环会吃掉 mousemove(JS 路径自然不触发);
+        // 若 Tauri 也跳过 role=button,则退到 JS 位移阈值路径,不至于完全拖不动
+        data-window-drag
+        role="button"
+        tabIndex={0}
+        aria-label="IHUI AI"
         onDragStart={(e) => {
           if (isDesktop) e.preventDefault()
         }}
-        className="flex shrink-0"
+        onClick={() => navigate('/')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            navigate('/')
+          }
+        }}
+        className="flex shrink-0 cursor-pointer [&_img]:pointer-events-none"
       >
         <ThemeLogo
           clickable
-          dragRegion
           width={80}
           height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
+          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 transition-opacity hover:opacity-75"
         />
       </span>
       <Tooltip content={t('collapse')} side="right">
