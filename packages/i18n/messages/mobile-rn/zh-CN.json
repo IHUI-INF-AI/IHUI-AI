@@ -1062,7 +1062,11 @@
     "submit": "提交认证",
     "submitting": "提交中...",
     "failed": "认证失败",
-    "loadFailed": "加载认证失败"
+    "loadFailed": "加载认证失败",
+    "status_unverified": "未认证",
+    "status_pending": "审核中",
+    "status_verified": "已认证",
+    "status_rejected": "未通过"
   },
   "income": {
     "title": "收益",
@@ -1271,7 +1275,9 @@
     "rules": "推广规则",
     "inviteRecords": "邀请记录",
     "empty": "暂无数据",
-    "loadFailed": "加载推广失败"
+    "loadFailed": "加载推广失败",
+    "status_active": "已活跃",
+    "status_inactive": "未活跃"
   },
   "promotion": {
     "title": "优惠券",
@@ -1316,7 +1322,11 @@
     "submitting": "提交中...",
     "failed": "认证失败",
     "fieldsRequired": "请填写完整信息",
-    "loadFailed": "加载实名认证失败"
+    "loadFailed": "加载实名认证失败",
+    "status_unverified": "未认证",
+    "status_pending": "审核中",
+    "status_verified": "已认证",
+    "status_rejected": "未通过"
   },
   "recruitment": {
     "title": "人才招聘",
