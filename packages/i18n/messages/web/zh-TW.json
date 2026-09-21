@@ -9858,10 +9858,7 @@
     "voiceHandsFreeOn": "連續對話已開啟（說話即發送）",
     "voiceHandsFreeOff": "連續對話已關閉",
     "voicePlayback": "朗讀",
-    "voiceHandsFree": "連續",
-    "locator": {
-      "title": "對話定位導航"
-    }
+    "voiceHandsFree": "連續"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
