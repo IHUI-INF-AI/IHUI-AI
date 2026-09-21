@@ -31,7 +31,6 @@ import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover
 import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
-import { ChatExportMenu } from '@/components/chat/chat-export-menu'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
@@ -1199,10 +1198,7 @@ export function AISidePanel() {
               2026-09-17 修复:原先放在 overflow-hidden 标题容器内,displayTitle 占满宽度时
               IconButton 被裁半/遮挡;现移出到右侧按钮组最左,不再受 overflow-hidden 裁切 */}
               <WorkspaceSelector />
-              {/* W15(2026-09-13 立):会话级导出/分享菜单(MD/JSON/快照图/分享链接)
-              2026-09-17 修复:原放在标题 overflow-hidden 容器内,标题占满宽度时按钮被裁半;
-              移出到右侧按钮组最左(浮窗/环境信息按钮之前),不再受标题容器裁切 */}
-              <ChatExportMenu title={displayTitle} disabled={isStreaming} />
+              {/* 会话导出/分享入口(W15)已迁移至侧边栏会话"..."菜单(sidebar-chat-history) */}
               {/* Plan/Act 模式切换(2026-07-24 立,对标 AI 工作台 plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
