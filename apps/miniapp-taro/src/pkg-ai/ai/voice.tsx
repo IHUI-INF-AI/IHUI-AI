@@ -32,14 +32,14 @@ const speedLabel: Record<Speed, string> = {
 const timbreLabel: Record<Timbre, string> = { female: t('aiVoice.q4'), male: t('aiVoice.q5') }
 
 const SPEED_KEY: Record<string, string> = {
-  normal: 'ai.voice.speed.normal',
-  fast: 'ai.voice.speed.fast',
-  slow: 'ai.voice.speed.slow',
+  normal: 'aiVoice.q1',
+  fast: 'aiVoice.q2',
+  slow: 'aiVoice.q3',
 }
 
 const TIMBRE_KEY: Record<string, string> = {
-  female: 'ai.voice.timbre.female',
-  male: 'ai.voice.timbre.male',
+  female: 'aiVoice.q4',
+  male: 'aiVoice.q5',
 }
 
 const WAVE_DELAYS = [0, 0.1, 0.2, 0.3, 0.4]
@@ -298,7 +298,7 @@ export default function VoicePage() {
               className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
-              {tt(SPEED_KEY[s] ?? 'ai.voice.speed.normal', speedLabel[s])}
+              {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
             </Text>
           ))}
         </View>
@@ -312,7 +312,7 @@ export default function VoicePage() {
               className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
-              {tt(TIMBRE_KEY[tb] ?? 'ai.voice.timbre.female', timbreLabel[tb])}
+              {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
             </Text>
           ))}
         </View>
