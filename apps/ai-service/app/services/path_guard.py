@@ -6,10 +6,11 @@
 
 为什么需要这个模块(而不是各处各写一份正则)
 --------------------------------------------------------------------------
-本仓历史上有 4 处彼此独立的路径校验实现:
+本仓历史上有 4 处彼此独立的路径校验实现(2 号 ``image_saver.validate_save_path`` 系
+未接线副本,已于 2026-09-21 按 §7 收敛删除,守卫改由 ``test_save_path_guard_parity_58.py``
+直接钉权威源):
 
 1. ``file_editor.validate_path``
-2. ``image_saver.validate_save_path``
 3. ``mcp_server._validate_path_in_workspace``  (13 个调用点)
 4. ``mcp_server._validate_image_save_path``   (媒体落盘三兄弟之一)
 

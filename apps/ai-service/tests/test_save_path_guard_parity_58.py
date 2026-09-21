@@ -2,27 +2,26 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""save_path 落盘后缀白名单的权威源一致性守卫(2026-09-21 立)。
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 
-## 为什么要有这个测试
+"""落盘后缀白名单「唯一权威源」守卫(2026-09-21 由跨实现 parity 改写)。
 
-本仓存在多处 save_path / 路径白名单校验实现:
-
-1. `app/services/file_editor.py::validate_path`
-2. `app/services/image_saver.py::validate_save_path`
-3. `app/services/mcp_server.py::_validate_path_in_workspace`
-4. `app/services/mcp_server.py::_validate_image_save_path`(2 层的图片特化)
-
-排查中发现:实现 2 原先**只做白名单根 + 禁止目录两重校验,缺少后缀防线**,
-而线上在用的实现 4 额外要求 save_path 必须落在图片后缀白名单内。
-若日后有人按"消除重复实现"的动机把实现 2 换进线上路径,会**静默削掉这道防线**。
-
-本测试把"两处后缀白名单必须一致"变成可执行断言,使该类漂移在 CI 即被拦下,
-而不是等到某次重构之后才由安全审计发现。
+历史与本测试的形态变化:
+- 原形态:断言 `image_saver._SAVE_PATH_EXTENSIONS` 与 `mcp_server._IMAGE_EXTENSIONS`
+  逐元素相同 —— 起因是仓里存在**两份** save_path 校验实现,且未接线那份的黑名单比
+  权威源少 `.next`(拿宽松版替换严格版会静默削掉防线,本仓出过同类事故)。
+- 当日按 §7 收敛:线上 3 个图片工具走的是 `mcp_server._validate_image_save_path`,
+  等价实现确实存在 ⇒ 删除零消费方的 `app/services/image_saver.py` 与
+  `app/services/dispatch_helper.py`。两份实现变一份,"两处必须一致"的断言随之失效,
+  本文件改为钉**权威源自身**的取值/形式/行为,并拦截"第二份副本被重新引入"。
+- 敏感目录黑名单那条轴由 `test_path_guard_parity_58.py` 继续守卫(它断言
+  `file_editor._SENSITIVE_DIR_PATTERNS is path_guard.SENSITIVE_DIR_PATTERN`,
+  即对象同一而非复制字面量)。
 """
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -30,62 +29,43 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.services import image_saver as isv  # noqa: E402
 from app.services import mcp_server as ms  # noqa: E402
 
-
-def test_save_path_extension_sets_are_identical():
-    """核心守卫:两处 save_path 后缀白名单必须逐元素相同(含顺序无关)。"""
-    assert set(isv._SAVE_PATH_EXTENSIONS) == set(ms._IMAGE_EXTENSIONS), (
-        "image_saver._SAVE_PATH_EXTENSIONS 与 mcp_server._IMAGE_EXTENSIONS 已漂移;"
-        "以 mcp_server 为唯一权威源对齐,勿只改一处"
-    )
+# 线上唯一权威源应锁定的落盘后缀(扩充需显式改这里 + 说明理由)
+_PINNED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 
 
-def test_all_extensions_lowercase_and_dotted():
-    """常量形式约束:必须是小写、带点的后缀,否则 startswith/suffix 比对会失效。"""
-    for ext in isv._SAVE_PATH_EXTENSIONS:
+def test_live_extension_whitelist_is_exactly_the_pinned_set() -> None:
+    assert set(ms._IMAGE_EXTENSIONS) == _PINNED_EXTENSIONS
+
+
+def test_extensions_are_lowercase_and_dotted() -> None:
+    """形式约束:小写 + 带前导点,否则 `splitext(...).lower()` 比对会静默失效。"""
+    for ext in ms._IMAGE_EXTENSIONS:
         assert ext.startswith("."), f"{ext} 缺少前导点"
         assert ext == ext.lower(), f"{ext} 必须小写"
 
 
-def test_input_format_set_is_a_different_axis():
-    """输入格式集合与落盘后缀集合是两条轴,不得混用(前者含 gif/bmp/svg)。"""
-    assert not set(isv._ALLOWED_FORMATS) == set(isv._SAVE_PATH_EXTENSIONS)
-    # 输入允许 gif/bmp/svg,但落盘后缀不接受这三者
-    assert {"gif", "bmp", "svg"} <= set(isv._ALLOWED_FORMATS)
-    assert not ({"gif", "bmp", "svg"} & {e.lstrip(".") for e in isv._SAVE_PATH_EXTENSIONS})
+@pytest.mark.parametrize("bad_path", ["out/img.gif", "out/img.bmp", "out/img", "/tmp/x.EXE"])
+def test_validator_rejects_every_non_whitelisted_suffix(bad_path: str) -> None:
+    ok, _resolved, err = ms._validate_image_save_path(bad_path)
+    assert ok is False
+    assert err == "INVALID_EXTENSION", f"{bad_path} 未在后缀白名单内却未被拦(实得 {err})"
 
 
-class TestModuleValidatorIsAtLeastAsStrictAsLive:
-    """模块版校验器不得比线上版宽松(防"去重"时降级安全强度)。"""
+@pytest.mark.parametrize("suffix", sorted(_PINNED_EXTENSIONS))
+def test_validator_accepts_whitelisted_suffixes_past_the_extension_gate(suffix: str) -> None:
+    """白名单内后缀不得再被判 INVALID_EXTENSION(工作区闸门是否放行由各自测试负责)。"""
+    _ok, _resolved, err = ms._validate_image_save_path(f"out/pic{suffix}")
+    assert err != "INVALID_EXTENSION"
 
-    @pytest.mark.parametrize("bad", ["a.txt", "payload.exe", "noext", "x.png.exe"])
-    def test_rejects_non_image_suffix(self, tmp_path, monkeypatch, bad):
-        monkeypatch.setattr(isv, "_ALLOWED_ROOTS", [tmp_path])
-        ok, reason = isv.validate_save_path(str(tmp_path / bad))
-        assert not ok
-        assert "后缀" in reason
 
-    @pytest.mark.parametrize("good", ["a.png", "b.jpg", "c.jpeg", "d.webp"])
-    def test_accepts_image_suffix(self, tmp_path, monkeypatch, good):
-        monkeypatch.setattr(isv, "_ALLOWED_ROOTS", [tmp_path])
-        ok, resolved = isv.validate_save_path(str(tmp_path / good))
-        assert ok
-        assert resolved.endswith(good)
+def test_no_second_implementation_reappears() -> None:
+    """防回潮:被删的两份未接线副本不得被重新引入而不做说明。
 
-    def test_forbidden_dir_reason_takes_priority(self, tmp_path, monkeypatch):
-        """禁止目录的判定必须早于后缀判定,否则既有 reason 语义被改坏。"""
-        monkeypatch.setattr(isv, "_ALLOWED_ROOTS", [tmp_path])
-        (tmp_path / "node_modules").mkdir()
-        ok, reason = isv.validate_save_path(str(tmp_path / "node_modules" / "x"))
-        assert not ok
-        assert "禁止" in reason
-
-    def test_live_validator_rejects_same_bad_suffix(self):
-        """线上校验器对同一批坏后缀同样拒绝(行为面抽样对齐)。"""
-        for bad in ("a.txt", "payload.exe"):
-            ok, _info, code = ms._validate_image_save_path(bad)
-            assert not ok
-            assert code == "INVALID_EXTENSION"
+    若确有需要再写一份,必须先让它**复用** path_guard / mcp_server 的权威源,
+    并在本测试里说明为何不能直接调用权威源 —— 复制字面量正是当年漂移的成因。
+    """
+    for gone in ("app.services.image_saver", "app.services.dispatch_helper"):
+        assert importlib.util.find_spec(gone) is None, f"{gone} 又出现了第二份实现"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
