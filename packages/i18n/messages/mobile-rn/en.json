@@ -1380,7 +1380,14 @@
     "title": "Search",
     "placeholder": "Search courses, lecturers and more",
     "empty": "No results found",
-    "failed": "Search failed"
+    "failed": "Search failed",
+    "type": {
+      "course": "Course",
+      "article": "Article",
+      "post": "Post",
+      "note": "Note",
+      "agent": "Agent"
+    }
   },
   "securitySettings": {
     "title": "Security Settings",
@@ -1448,7 +1455,10 @@
     "goToDo": "Go",
     "progress": "{current}/{target}",
     "claimFailed": "Claim failed",
-    "loadFailed": "Failed to load tasks"
+    "loadFailed": "Failed to load tasks",
+    "tab_daily": "Daily",
+    "tab_weekly": "Weekly",
+    "tab_newbie": "Newbie"
   },
   "team": {
     "title": "My Team",
@@ -1758,7 +1768,10 @@
   "circleMember": {
     "empty": "No members",
     "loadFailed": "Failed to load members",
-    "title": "Circle Members"
+    "title": "Circle Members",
+    "owner": "Owner",
+    "admin": "Admin",
+    "member": "Member"
   },
   "courseCatalog": {
     "duration": "Duration",
