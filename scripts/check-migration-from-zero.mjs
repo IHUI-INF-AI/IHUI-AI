@@ -74,14 +74,16 @@ const RUNTIME_MANAGED_TABLES = new Set(['rag_chunks'])
  * 提醒(stale),不许留僵尸豁免;③ 新增条目必须在行尾注明原因,不得静默加。
  */
 const KNOWN_SCHEMA_HOLES = {
+  // O19(2026-09-21):ai_relay_key_pool 4 个配额列 / developer_api_keys 4 列 /
+  // resource_github_projects.updated_at 已声明进 drizzle schema,基线对应条目已删除。
+  // 下面 ai_model_config_models.metadata 与 extra_metadata(jsonb)语义重叠,属 owner 级
+  // 设计决策(两个 jsonb 元数据袋谁为准),未定夺前保留豁免。
   ai_model_config_models: ['metadata'],
-  ai_relay_key_pool: ['daily_call_limit', 'daily_token_limit', 'monthly_call_limit', 'monthly_token_limit'],
-  developer_api_keys: ['alias', 'description', 'tags', 'tpm_limit'],
   // 0010_fulltext_search_indexes.sql 的 tsvector 列由 PG 触发器维护,刻意不进 ORM 建模
+  // (drizzle 0.38 无 tsvector 类型;声明会让 ORM 写触发器托管列 + 丢 3 个 GIN 索引/触发器)
   files: ['search_vector'],
   projects: ['search_vector'],
   users: ['search_vector'],
-  resource_github_projects: ['updated_at'],
 }
 const MAX_REPORTED_FAILURES = 25
 const PSQL_TIMEOUT_MS = 180_000
