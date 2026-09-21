@@ -9416,6 +9416,7 @@
     "quotedReplyAssistant": "引用 AI 回复",
     "quotedReplyUser": "引用用户消息",
     "webSearch": "网页搜索",
+    "webSearchDesc": "开启后,普通对话中助手也可搜索网络获取最新信息",
     "retry": "重试",
     "screenshot": "截图",
     "screenshotHint": "也可直接 Ctrl+V 粘贴截图",
