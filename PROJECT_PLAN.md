@@ -39,6 +39,38 @@
 
 ---
 
+## P0 2026-09-21 生产迁移欠账 8 个已清零(根因:迁移失败被降格成一行 WARN)
+
+- [x] ✅(2026-09-21) **生产 `db:migrate` 自 09-19 11:29 起连续 exit 1、8 个迁移两天无人发现,已定位并清零**:
+  生产机(`ssh.aizhs.top` / 库 `ihui_dev` @8810)现象是"连最无害的 `conversation_imports` 建表都没落地"。
+  逐文件 **`BEGIN;<迁移>;ROLLBACK` 零写复现**(Postgres DDL 事务化,跑前确认无 `COMMIT`/`CONCURRENTLY`)
+  测得:7 个可干净应用,只有 `20260921160000_scoped_app_role_owner_rls.sql:186` 报
+  `permission denied to create role` —— 连接角色 `ihui` 非超级用户;而 drizzle 把**整个待应用批次放在一个事务**,
+  最后一条失败把前 7 条一起回滚。**权限修好后,部署循环下一轮自行应用完毕**:
+  `02:42:10 WARN db:migrate 失败(exit 1)` → `02:53:16 OK db:migrate 完成(exit 0)`,现 285/285 一致,
+  `conversation_imports`(11 列)、`agent_checkpoints`、角色 `ihui_app` 均已存在。
+  只读验证 O13 前提已成立:`ihui_app` 可连且 `is_super=f`(正是此前 scoped 端点恒 503 的根因),
+  授权符合该迁移自述的逐表逐 DML(`messages` 只 SELECT、`webhook_subscriptions` SELECT+INSERT)。
+  落地资产:`D:\DevEnv\backups\deploy\ihui_dev-pre-migrate-20260921-023647.dump`(76.2MB,`pg_dump -Fc`,
+  我为回滚主动建的;顺带发现 `IHUI-PG-BACKUP` 服务在跑但该目录此前**一个 dump 都没有**,备份落点待核)。
+- [x] ✅(2026-09-21,commit `4e94ccae94`) **两处让此事沉默两天的缺陷已修**:① `deploy/win/ihui-deploy.ps1`
+  每轮打 `MIG 待应用迁移=N`(journal entries vs `drizzle.__drizzle_migrations`)、失败按签名 12h 去重推送告警
+  (复用 `Invoke-FailNotify`,不刷爆 3 条/天配额)、exit 0 但仍有欠账也判降级、`-diagnose` 新增 `[7b] DB 迁移落后`;
+  **不改退出码**(NSSM/包装器语义未知)。新函数是在生产上**原样抽出只读跑过**的,不是只看语法。
+  ② `.github/workflows/db-from-zero-migrate.yml` 收尾步骤连着 `ihui_fz_base` 又 DROP 它自己
+  → `cannot drop the currently open database` + exit 1,使**门体全绿也被判红**(今天 main 那条红即此);
+  改为连维护库 `postgres`、跳过基库、清理失败只告警。
+- [ ] **留给 O18 门 owner 的决策(我不擅自改其不变式)**:该门还有一个**真实**发现 —— 迁移后库比 TS schema
+  多一张 `rag_chunks`。它由 `20260919090000`(带 pgvector 条件判断的 DO 块)与 ai-service
+  `pgvector_store.py` 运行时 `CREATE TABLE IF NOT EXISTS` 共同自管,Drizzle 侧无映射(且该列是**无界 `vector`**,
+  不是 `knowledge-rag.ts` 里那个 `vector1536`)。两条路各有代价:补 TS 声明会让下一次 `drizzle-kit generate`
+  产出 `CREATE TABLE rag_chunks`,在无 pgvector 扩展的环境上从"静默跳过"变成硬失败;不补则要为"多表"开豁免,
+  与脚本注释"多表一律不豁免"的原设计冲突。二选一需 owner 定。
+- [ ] **另一条与迁移无关但同轮发现、正在阻塞生产的问题**:`next build` 因
+  `apps/web/src/components/patrol/patrol-form-dialog.tsx:33` 引用的 `updatePatrolTask` 不存在连续 4 次失败,
+  部署脚本按设计"保持当前在线版本" → **web 侧当天合入的内容没上线**。属他人 in-flight 代码,按 AGENTS.md §12
+  我不代为修改,需该功能 owner 补导出或改引用。
+
 ## P0 2026-09-20 Windows 弹 git 黑窗根治(逐点收口 + 机器级默认值)
 
 > 背景:用户反馈"电脑总是弹 git 窗口,我不要让它弹"。现场取证抓到 3 个带可见窗口的 `git push origin main`,
