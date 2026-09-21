@@ -9858,10 +9858,7 @@
     "voiceHandsFreeOn": "연속 대화 켜짐（말하면 전송）",
     "voiceHandsFreeOff": "연속 대화 꺼짐",
     "voicePlayback": "재생",
-    "voiceHandsFree": "핸즈프리",
-    "locator": {
-      "title": "대화 내비게이터"
-    }
+    "voiceHandsFree": "핸즈프리"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
