@@ -70,6 +70,24 @@ def test_plain_qa_hits_nothing(text: str) -> None:
     assert want_api is False
 
 
+def test_family_actions_match_registered_tools() -> None:
+    """控制闸认得的动词,必须恰好是服务端真在注册的那些(双向)。
+
+    漂移两个方向都致命:闸门比注册面**宽** ⇒ 注入一个不存在的工具名,模型调它直接报
+    未知工具;**窄** ⇒ 端上能力已就绪却永远不发(2026-09-21 移动两族扩七动词时就是这个形态)。
+    """
+    from app.services import ui_action_bridge as ub
+
+    expected = {
+        "web_ui_": {t.name.removeprefix("web_ui_") for t, _ in ub._ui_tools()},
+        "mobile_ui_": {t.name.removeprefix("mobile_ui_") for t, _ in ub._app_tools("mobile")},
+        "taro_ui_": {t.name.removeprefix("taro_ui_") for t, _ in ub._app_tools("taro")},
+    }
+    assert set(expected) == set(ca._FAMILY_ACTIONS)
+    for prefix, verbs in expected.items():
+        assert set(ca._FAMILY_ACTIONS[prefix]) == verbs, prefix
+
+
 def test_python_keyword_table_does_not_drift_from_shared_ts() -> None:
     """Python 侧移植的关键词表必须与 @ihui/shared 那张 TS 表逐字一致。
 
