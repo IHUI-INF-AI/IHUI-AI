@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/* eslint-disable no-console -- 测试文件输出诊断信息 */
+ 
 /**
  * O18 空库重放守门的镜像测试(§22c / §22d)。
  * 跑法:node --test scripts/tests/check-migration-from-zero.test.mjs
@@ -21,6 +21,7 @@ test('__test__ 导出形状齐全(§22c 锚点)', () => {
     'unquoteIdentifier',
     'diffIdentifierSets',
     'diffSchemaMaps',
+    'RUNTIME_MANAGED_TABLES',
     'firstErrorLine',
     'errorFrom',
     'formatReplayFailures',
@@ -72,6 +73,30 @@ test('__migrations 簿记表不算多表(drizzle-kit 自建,非业务 schema)', 
   )
   assert.deepEqual(diff.tables.extra, [], '__migrations 必须被忽略')
   assert.equal(diff.isEmpty(), true)
+})
+
+test('RUNTIME_MANAGED_TABLES 运行期自管表豁免多表(rag_chunks),其余多表照红', () => {
+  assert.ok(src.RUNTIME_MANAGED_TABLES.has('rag_chunks'), 'rag_chunks 必须在运行期自管清单内')
+  const diff = src.diffSchemaMaps(
+    new Map([['users', new Set(['id'])]]),
+    new Map([
+      ['users', new Set(['id'])],
+      ['rag_chunks', new Set(['id', 'embedding'])],
+      ['legacy_orphan_table', new Set(['id'])],
+    ]),
+  )
+  assert.deepEqual(diff.tables.extra, ['legacy_orphan_table'], '清单外的多表必须照常报出')
+  assert.equal(diff.isEmpty(), false, '清单外多表存在时不得判空')
+  // 清单内表不得连带豁免清单外多表(豁免按表名逐个判定)
+  const onlyRuntime = src.diffSchemaMaps(
+    new Map([['users', new Set(['id'])]]),
+    new Map([
+      ['users', new Set(['id'])],
+      ['rag_chunks', new Set(['id', 'embedding'])],
+    ]),
+  )
+  assert.deepEqual(onlyRuntime.tables.extra, [], 'rag_chunks 必须被表级豁免')
+  assert.equal(onlyRuntime.isEmpty(), true)
 })
 
 /* ---------------- ② 列名差集 ---------------- */
