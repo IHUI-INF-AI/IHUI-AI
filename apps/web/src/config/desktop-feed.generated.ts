@@ -23,11 +23,11 @@ export const DESKTOP_FEED: DesktopFeed = {
   releaseDate: '2026-09-21',
   githubReleasesUrl: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases',
   resolvedFromTag: 'desktop-v0.1.43',
-  resolvedAt: '2026-09-21T04:32:54.290Z',
+  resolvedAt: '2026-09-21T05:14:21.171Z',
   assets: [
-    { href: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.43/%E6%99%BA%E6%B1%87AI_0.1.43_x64-setup.exe', sizeBytes: 4067765, format: 'Windows NSIS exe', arch: 'x64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFZxK2JOUzlZR3VBQ3V3WWlwU2loNUxBQUlIRlpsR0I2MEhSRG1LbU5CUlBYYlIzTHR3STl2VWdFRld3TFdOakZmbHVrUXNTa1QvOWVXNU13Y2psandBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5OTY0OTIyCWZpbGU65pm65rGHQUlfMC4xLjQzX3g2NC1zZXR1cC5leGUKQ3pMRHE3azJFejRmZlVmSE1hVXBGc0FCdEUrazBzRGdLZkozMGFPTUkybnBzQkxIZ0kwZ01rUjZEVlFqbEl3UU52aEYxZStkekEzYkJEWjFOMjdXQXc9PQo=' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.42/AI_0.1.42_universal.dmg', sizeBytes: 11062397, format: 'macOS DMG', arch: 'x64', signature: '' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.42/AI_0.1.42_amd64.AppImage', sizeBytes: 81906168, format: 'Linux AppImage', arch: 'amd64', signature: '' },
-    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.42/AI_0.1.42_amd64.deb', sizeBytes: 6653060, format: 'Linux DEB', arch: 'amd64', signature: '' },
+    { href: 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/desktop-v0.1.43/AI_0.1.43_x64-setup.exe', sizeBytes: 4070601, format: 'Windows NSIS exe', arch: 'x64', signature: 'dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSTI3R2lmdWJYdFlmTVl6NW5yek40bCtLMUQwMDBIOFZjck1FZDI5ZDlzNGFwUG00MENtSVpGZ0JxMnd2L2djWjNhMzJlVnV4bkgzM1FlbW5rNmZNb0w5YUFlOU1jU3dFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5OTY1ODkwCWZpbGU65pm65rGHQUlfMC4xLjQzX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjEuNDMKV2h4VHRyVUFYUTdxNDNsUCtMSXJCTk15UmFSbzBqc2dyTHpDUzVjM2JzUGkweDV1NWhmU0oyRk9zZTMvYitBSjFWdGlBb3Zsc3pEQ1NjTEhhem1jQ0E9PQo=' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.43/AI_0.1.43_universal.dmg', sizeBytes: 11062412, format: 'macOS DMG', arch: 'x64', signature: '' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.43/AI_0.1.43_amd64.AppImage', sizeBytes: 81906168, format: 'Linux AppImage', arch: 'amd64', signature: '' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.43/AI_0.1.43_amd64.deb', sizeBytes: 6653058, format: 'Linux DEB', arch: 'amd64', signature: '' },
   ],
 }
