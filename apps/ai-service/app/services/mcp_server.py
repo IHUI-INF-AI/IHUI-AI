@@ -1,0 +1,9465 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+"""MCP 服务端。
+
+定义 11 个工具、3 个资源、3 个提示词,并提供统一的查询/调用接口。
+工具实现为真实文件系统/网络操作,无外部依赖时返回降级结果。
+"""
+
+import asyncio
+import contextvars
+import difflib
+import functools
+import json
+import os
+import re
+import shlex
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import parse_qs, quote_plus, urlparse
+
+if TYPE_CHECKING:
+    from .agent_orchestrator import AgentOrchestrator
+
+# 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
+from .context_recall import context_recall
+from .exec_policy import PolicyDecision, RuleDecision
+from .exec_policy import evaluate as exec_policy_evaluate
+from .merge3 import merge3_for_edit
+
+# 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
+from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+
+# 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
+# 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
+from .path_guard import find_sensitive_segment, sensitive_error_message
+from .security_config import get_security_config
+
+# 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
+MCP_GLOBAL_TIMEOUT = 120
+
+# ---------------------------------------------------------------------------
+# 工具层安全护栏(Phase 0 · W2:确定性防御,非审批流)
+# ---------------------------------------------------------------------------
+
+# 0-2 call_tool 出口统一输出护栏:所有工具返回结果按 token 上限截断,
+# 默认 8000 token,env TOOL_OUTPUT_MAX_TOKENS 可覆盖。
+_TOOL_OUTPUT_TRUNCATE_MARKER = "…[已截断,共截断 {n} token,可用分页/范围参数获取更多]"
+# 受保护 key:其字符串值不被截断,确保 ok/status/error 等控制字段完整
+_TRUNCATION_PROTECTED_KEYS = frozenset(
+    {"ok", "status", "error", "errorCode", "tool", "matched"}
+)
+
+
+def _get_tool_output_max_tokens() -> int:
+    """工具输出 token 上限(env TOOL_OUTPUT_MAX_TOKENS,默认 8000)。"""
+    try:
+        return max(1, int(os.environ.get("TOOL_OUTPUT_MAX_TOKENS", "8000")))
+    except (TypeError, ValueError):
+        return 8000
+
+
+def _estimate_tokens_len(text: str) -> int:
+    """轻量 token 估算:len//4(无外部依赖,与 context_compaction 降级策略一致)。"""
+    return len(text) // 4
+
+
+def _network_denial_message(denial_reason: str | None, url: str) -> str:
+    """批58(十六):网络审批拒绝的用户可读消息(对标 codex network_policy_decision.rs)。
+
+    把审批门的机器原因码(denied / not_allowed / not_allowed_local)翻译为
+    "为什么不能在此处放行"的可读文案,避免模型反复重试同一目标。原因码缺失/
+    翻译失败时回退到原有通用文案(与接线前逐零差异)。
+    """
+    host = ""
+    try:
+        from urllib.parse import urlparse
+
+        raw = (url or "").strip()
+        host = (
+            urlparse(raw if "://" in raw else f"https://{raw}").hostname or ""
+        ).lower()
+    except (ValueError, TypeError):  # pragma: no cover - 解析失败仅影响文案
+        host = ""
+    try:
+        from app.core.network_policy_decision import denied_network_policy_message
+
+        return denied_network_policy_message(str(denial_reason or "denied"), host)
+    except Exception:  # noqa: BLE001 - 文案失败绝不改变拒绝语义
+        return "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)"
+
+
+# ---------------------------------------------------------------------------
+# 批58(w3):5 个"已写但零生产引用"模块的真接线(env 开关,默认 off,异常隔离,
+# off 时逐字节等价)。风格对齐 agent_loop_v2._auto_compact_window_enabled_from_env。
+# 模块路径(均在 app/core/):
+#   elicitation_pause.py / mcp_openai_file.py / world_state_tools.py /
+#   permission_profiles.py / permissions_instructions.py
+# ---------------------------------------------------------------------------
+
+
+def _mcp_elicitation_pause_enabled_from_env() -> bool:
+    """elicitation 计数暂停开关(env MCP_ELICITATION_PAUSE_ENABLED,默认 off)。
+
+    对标 codex elicitation.rs ElicitationService。on/1/true/yes 时启用;默认 off
+    时不持有服务实例、不参与任何计数(与现状逐零差异)。
+    """
+    return os.environ.get(
+        "MCP_ELICITATION_PAUSE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_openai_file_rewrite_enabled_from_env() -> bool:
+    """OpenAI 文件参数重写开关(env MCP_OPENAI_FILE_REWRITE_ENABLED,默认 off)。
+
+    对标 codex mcp_openai_file.rs。on 时按声明字段把本地路径重写为远端文件载荷;
+    默认 off 时工具参数完全不变(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_OPENAI_FILE_REWRITE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_world_state_tools_enabled_from_env() -> bool:
+    """延迟工具命名空间开关(env MCP_WORLD_STATE_TOOLS_ENABLED,默认 off)。
+
+    对标 codex context/world_state/tools.rs。on 时把延迟工具声明并入工具清单;
+    默认 off 时清单逐字节不变。
+    """
+    return os.environ.get(
+        "MCP_WORLD_STATE_TOOLS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permission_profiles_enabled_from_env() -> bool:
+    """权限档案开关(env MCP_PERMISSION_PROFILES_ENABLED,默认 off)。
+
+    对标 codex permissions_toml.rs。on 时解析生效档案参与审批决策;解析失败走现状
+    默认(降级跳过)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSION_PROFILES_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permissions_instructions_enabled_from_env() -> bool:
+    """权限指令片段开关(env MCP_PERMISSIONS_INSTRUCTIONS_ENABLED,默认 off)。
+
+    对标 codex permissions_instructions.rs。on 时把权限指令片段并入回执;默认 off
+    时不注入任何片段(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSIONS_INSTRUCTIONS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+# 模块级可注入配置(测试/生产可注入,默认 None = 不触发改写,off 逐字节等价)
+_MCP_OPENAI_FILE_INPUT_FIELDS: dict[str, list[str]] | None = None
+_MCP_WORLD_STATE_DEFERRED_NAMESPACES: dict[str, str] | None = None
+_MCP_PERMISSION_PROFILES: dict[str, Any] | None = None
+_MCP_PERMISSION_PROFILES_ACTIVE: str | None = None
+
+
+# elicitation 服务懒构造单例(构造失败标记 False,避免反复尝试)
+_ELICITATION_SERVICE: Any = None
+
+
+def _get_elicitation_service() -> Any | None:
+    """懒构造 ElicitationService;失败/禁用返回 None(降级不启用)。"""
+    global _ELICITATION_SERVICE
+    if _ELICITATION_SERVICE is None:
+        try:
+            from app.core.elicitation_pause import ElicitationService
+
+            _ELICITATION_SERVICE = ElicitationService()
+        except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+            logger.warning("ElicitationService 构造失败(降级不启用): %s", e)
+            _ELICITATION_SERVICE = False
+    return _ELICITATION_SERVICE or None
+
+
+async def _openai_file_default_uploader(
+    field_name: str, index: int | None, file_path: str
+) -> Any:
+    """OpenAI 文件上传器默认实现(无真实文件存储时的确定性占位)。
+
+    生产侧应注入真实上传器(经同层机制覆盖本函数);此处保证默认行为可降级、
+    不破坏 offline 工具调用(下载地址直接回退为本地路径)。
+    """
+    from app.core.mcp_openai_file import UploadedFile
+
+    _name = file_path.replace("\\", "/").split("/")[-1] or "file"
+    return UploadedFile(download_url=file_path, file_id=file_path, file_name=_name)
+
+
+def _tool_result_token_estimate(obj: object) -> int:
+    """递归估算工具结果中所有字符串值的 token 总数(轻量 len//4)。"""
+    if isinstance(obj, str):
+        return _estimate_tokens_len(obj)
+    total = 0
+    if isinstance(obj, dict):
+        for v in obj.values():
+            total += _tool_result_token_estimate(v)
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            total += _tool_result_token_estimate(v)
+    return total
+
+
+def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
+    """call_tool 出口统一输出护栏:将超 token 预算的字符串值截断。
+
+    策略(确定性、保持 dict 结构与控制字段完整):
+    - 总 token <= 预算 → 原样返回,不加 truncated 标志
+    - 超限 → 收集全部字符串叶子(受保护 key 除外),按长度降序贪心截断,
+      直到总 token <= 预算;每个被截断字符串追加标记,并置顶层 truncated=True
+
+    注意:截断量为近似(标记本身占少量 token),已在边界内;目的是防上下文膨胀,
+    不保证精确等于预算(误差 < 标记长度)。
+    """
+    if not isinstance(result, dict):
+        return result
+    max_tokens = _get_tool_output_max_tokens()
+    total = _tool_result_token_estimate(result)
+    if total <= max_tokens:
+        return result
+
+    # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
+    leaves: list[tuple[Any, Any, str]] = []
+
+    def _collect(obj: Any, parent: Any, key: Any) -> None:
+        if isinstance(obj, str):
+            if isinstance(parent, dict) and key in _TRUNCATION_PROTECTED_KEYS:
+                return
+            leaves.append((parent, key, obj))
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                _collect(v, obj, k)
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                _collect(v, obj, i)
+
+    _collect(result, None, None)
+    # 按长度降序,优先截断最大块,最贴近原始信息分布
+    leaves.sort(key=lambda item: len(item[2]), reverse=True)
+
+    remaining = total - max_tokens
+    plan: list[tuple[Any, Any, int]] = []
+    truncated_tokens = 0
+    for _parent, _key, s in leaves:
+        if remaining <= 0:
+            break
+        t = _estimate_tokens_len(s)
+        if t <= 0:
+            continue
+        need = min(remaining, t)
+        allow = max(0, t - need)
+        keep_chars = allow * 4
+        # 占位估算:用单字符近似标记开销,真实标记在回填时写入
+        new_t = _estimate_tokens_len(s[:keep_chars] + "X")
+        delta = t - new_t
+        truncated_tokens += delta
+        remaining -= delta
+        plan.append((_parent, _key, keep_chars))
+
+    if not plan:
+        return result  # 边界:所有字符串均为受保护 key 或空,无法截断
+    marker = _TOOL_OUTPUT_TRUNCATE_MARKER.format(n=truncated_tokens)
+    for parent, key, keep_chars in plan:
+        parent[key] = parent[key][:keep_chars] + marker
+    result["truncated"] = True
+    return result
+
+
+# 0-5 run_command 危险命令硬门(env DANGEROUS_COMMAND_BLOCKED 默认 true)
+def _is_dangerous_command_blocked() -> bool:
+    """危险命令拦截是否开启(env DANGEROUS_COMMAND_BLOCKED,默认 true)。"""
+    val = os.environ.get("DANGEROUS_COMMAND_BLOCKED", "true").strip().lower()
+    return val not in ("0", "false", "no", "off", "")
+
+
+def _get_run_command_hard_timeout() -> int:
+    """run_command 执行硬超时上限秒(env RUN_COMMAND_TIMEOUT_S,默认 120)。"""
+    try:
+        return max(1, int(os.environ.get("RUN_COMMAND_TIMEOUT_S", "120")))
+    except (TypeError, ValueError):
+        return 120
+
+
+def _match_destructive_command(command: str) -> str | None:
+    """确定性检测破坏性命令。命中返回模式名,未命中返回 None。
+
+    覆盖 Windows(format/diskpart/reg delete/shutdown/bcdedit/vssadmin delete/
+    cipher /w/rd /s/del /f /s /q 宽路径/Remove-Item -Recurse -Force 作用于根)
+    与 Unix(rm -rf //~/rm -rf ~/mkfs/dd of=/dev//chmod -R 777 //fork bomb/shutdown)。
+    """
+    c = command or ""
+
+    def _at_start(pat: str) -> bool:
+        # 命令起始锚点:行首或空白/链分隔符(&|;`、左括号、空格)之后
+        return bool(re.search(r"(?i)(?:^|[\s&|;`(])" + pat, c))
+
+    # Windows
+    if _at_start(r"(?:cmd\s+/[cC]\s+)?format\b"):
+        return "win_format"
+    if _at_start(r"diskpart\b"):
+        return "win_diskpart"
+    if _at_start(r"reg\s+delete\b"):
+        return "win_reg_delete"
+    if _at_start(r"(?:shutdown|shutdown\.exe|halt|poweroff|reboot)\b"):
+        return "shutdown"
+    if _at_start(r"bcdedit\b"):
+        return "win_bcdedit"
+    if re.search(r"(?i)(?:^|[\s&|;`])vssadmin\b[^|]*?delete\b", c):
+        return "win_vssadmin_delete"
+    if re.search(r"(?i)(?:^|[\s&|;`])cipher\b[^|]*?/w\b", c):
+        return "win_cipher_w"
+    if re.search(r"(?i)(?:^|[\s&|;`])(?:rd|rmdir)\b[^|]*?/s\b", c):
+        return "win_rd_s"
+    # del /f /s /q(顺序无关,宽路径)
+    if _at_start(r"del\b") and all(f in c for f in ("/f", "/s", "/q")):
+        return "win_del_fsq"
+    # Remove-Item -Recurse -Force 作用于盘符/用户根/unix 根/家目录
+    # 路径可出现在 flags 之前或之后,故拆为独立条件判断(更稳健)
+    if _at_start(r"Remove-Item\b"):
+        has_recurse = re.search(r"(?i)-Recurse\b", c) is not None
+        has_force = re.search(r"(?i)-Force\b", c) is not None
+        has_root = re.search(r"(?i)(?:[a-z]:\\|C:\\Users|/|~)", c) is not None
+        if has_recurse and has_force and has_root:
+            return "win_remove_item_root"
+    # Unix
+    if re.search(
+        r"(?i)(?:^|[\s&|;`])(?:sudo\s+)?rm\b[^|]*?-[rR][fF]\b[^|]*?(?:\s/[^\s]*|\s~)",
+        c,
+    ):
+        return "unix_rm_rf_root"
+    if re.search(
+        r"(?i)(?:^|[\s&|;`])(?:sudo\s+)?rm\b[^|]*?-[rR]\s+-[fF]\b[^|]*?(?:\s/[^\s]*|\s~)",
+        c,
+    ):
+        return "unix_rm_rf_home"
+    if _at_start(r"(?:mkfs|mkfs\.\w+)\b"):
+        return "unix_mkfs"
+    if re.search(r"(?i)(?:^|[\s&|;`])dd\b[^|]*?of=/dev/", c):
+        return "unix_dd_dev"
+    if re.search(r"(?i)(?:^|[\s&|;`])chmod\b[^|]*?-R\b[^|]*?777\b[^|]*?(?:\s/|/[^|]*$)", c):
+        return "unix_chmod_777_root"
+    if ":(){ :|:& };:" in c or re.search(
+        r":\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:", c
+    ):
+        return "unix_fork_bomb"
+    return None
+
+
+# 0-6 dispatch_subagent 治理
+# 全局并发上限(模块级 Semaphore,env SUBAGENT_MAX_CONCURRENT,默认 5)
+_SUBAGENT_MAX_CONCURRENT = max(1, int(os.environ.get("SUBAGENT_MAX_CONCURRENT", "5")))
+_SUBAGENT_SEMAPHORE = asyncio.Semaphore(_SUBAGENT_MAX_CONCURRENT)
+# 嵌套深度上限(≤2):contextvar 记录当前深度,子代理执行时 +1,超限拒绝
+_SUBAGENT_MAX_DEPTH = 2
+_subagent_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "subagent_depth", default=0
+)
+
+
+def _get_subagent_timeout() -> int:
+    """单子代理超时秒(env SUBAGENT_TIMEOUT_S,默认 300)。"""
+    try:
+        return max(1, int(os.environ.get("SUBAGENT_TIMEOUT_S", "300")))
+    except (TypeError, ValueError):
+        return 300
+
+
+import contextlib
+
+from .skills import skill_registry
+
+# ---------------------------------------------------------------------------
+# 安全常量(2026-07-22 P0 Round 2 鲁棒性加固)
+# ---------------------------------------------------------------------------
+
+# 工作区根目录白名单:MCP read_file/write_file 只允许读写白名单内文件
+# 从 env MCP_WORKSPACE_ROOTS 读取(分隔符 os.pathsep),默认当前工作目录
+#
+# 2026-07-27 修复:_WORKSPACE_ROOTS 原在模块加载时通过 os.environ.get 求值,
+# 但 main.py 同步 settings → os.environ 在第 71-77 行(模块导入之后),
+# 导致 MCP_WORKSPACE_ROOTS 永远读到 os.getcwd()=apps/ai-service/,
+# 相对路径 apps/ai-service/pyproject.toml 被拼成 apps/ai-service/apps/ai-service/... 前缀重复。
+# 修复:改为函数式延迟读取,在 _validate_path_in_workspace 调用时才求值,
+# 此时 main.py 已完成 settings → os.environ 同步。
+
+
+def _get_workspace_roots() -> list[str]:
+    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。"""
+    raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
+    return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
+
+# 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
+# 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
+_ADMIN_ONLY_TOOLS: set[str] = {
+    "write_file", "run_command", "db_query", "git_operations",
+    "configure_automation_task",
+    # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
+    "file_edit",
+    # 1-2(2026-09-08):resolve_conflict 也写盘(按块落盘解决结果),必须 admin
+    "resolve_conflict",
+    # computer_* 系列:控制电脑是高危操作,需 admin
+    "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
+    "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
+    "computer_keyboard_hotkey", "computer_active_window",
+    "computer_clipboard_get", "computer_clipboard_set",
+    # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
+    # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
+    "screenshot_url",
+    # 2026-07-24 扩展工具(自研核心能力):
+    # fetch_url:SSRF 入口 + 可探测内网;
+    # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
+    # 2026-09-08 全模态深度适配:image_generation 移出 admin 专属(与 video/music/tts
+    # 媒体工具对齐)。原因:对话链 conversation → call_tool 不传 user_role(默认 0),
+    # 留在名单里 = 对话内图片生成永远 PERMISSION_DENIED,全模态自动路由断链。
+    "fetch_url",
+    # 2026-09 Firecrawl 极致融合:crawl_site 多页/SSRF 密集/资源重, 同 fetch_url 限 admin;
+    # fetch_readable/map_site/extract_web(单页只读)不限, 避免对话链 user_role=0 断链
+    "crawl_site",
+    "review_pr",
+    "schedule_task",
+}
+
+# agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
+# 2026-07-22 修复:原 os.environ.get 在模块加载时求值,main.py 同步 os.environ 晚于本模块导入 → 永远为空
+# 改为函数调用时动态读取,确保 .env 配置已加载
+def _get_agent_control_secret() -> str:
+    from ..core.config import settings
+    return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+
+# ---------------------------------------------------------------------------
+# 1-2 补丁冲突处理:文件 base 版本跟踪(3-way merge 的公共祖先)
+# ---------------------------------------------------------------------------
+# read_file / write_file / file_edit 成功后记录「agent 视角的最新内容」;
+# file_edit 匹配失败(0 命中)且 old_string 在 base 中存在时,判定为
+# 「快照之后被外部修改」→ 走 merge3 三方合并(干净合并 / 冲突块)。
+# 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
+_FILE_BASE_CONTENT: dict[str, str] = {}
+_FILE_BASE_MAX = 256
+
+
+def _normalize_eol(text: str) -> str:
+    """EOL 归一化:CRLF → LF(1-2 生产修复)。
+
+    read_file 文本模式经 universal newlines 得到 LF 视角,而 Windows
+    编辑器/工具写盘常为 CRLF;若 base(LF)与磁盘内容(CRLF)直接进
+    merge3 逐行比较,会整文件误判为单侧全改。base 存储与 merge3
+    计算统一用 LF,写盘前再按磁盘原行尾风格还原。
+    """
+    return text.replace("\r\n", "\n")
+
+
+def _restore_eol(text: str, original: str) -> str:
+    """按磁盘原行尾风格还原合并结果:原文件 CRLF 则 LF → CRLF,否则保持 LF。"""
+    if "\r\n" in original:
+        return text.replace("\r\n", "\n").replace("\n", "\r\n")
+    return text
+
+
+def _record_file_base(resolved_path: str, content: str) -> None:
+    """记录/刷新文件的 base 版本(agent 视角最新内容,统一 LF 归一化存储)。"""
+    normalized = _normalize_eol(content)
+    if resolved_path in _FILE_BASE_CONTENT:
+        _FILE_BASE_CONTENT.pop(resolved_path)
+    _FILE_BASE_CONTENT[resolved_path] = normalized
+    while len(_FILE_BASE_CONTENT) > _FILE_BASE_MAX:
+        _FILE_BASE_CONTENT.pop(next(iter(_FILE_BASE_CONTENT)))
+
+
+def _reset_file_base_store() -> None:
+    """清空 base 版本跟踪(测试隔离用)。"""
+    _FILE_BASE_CONTENT.clear()
+
+
+def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
+    """校验路径在工作区白名单内,防 symlink 穿越。
+
+    Returns:
+        (ok, resolved_path) 或 (False, error_message)
+    """
+    from pathlib import Path
+
+    if not path:
+        return False, "路径为空"
+    try:
+        # 2026-07-27 修复路径重复拼接:ai-service 进程 cwd 通常是 apps/ai-service/,
+        # 用户传相对路径 apps/ai-service/pyproject.toml 时 Path().resolve() 会拼成
+        # apps/ai-service/apps/ai-service/pyproject.toml(前缀重复)。
+        # 修复策略:相对路径优先在所有 _WORKSPACE_ROOTS 下查找存在的文件,
+        # 命中即用;都找不到才退回到 cwd resolve(保留原行为兼容绝对路径)。
+        p = Path(path)
+        roots = _get_workspace_roots()
+        if not p.is_absolute():
+            for root in roots:
+                candidate = (Path(root) / path).resolve(strict=False)
+                if candidate.exists():
+                    resolved_str = str(candidate)
+                    return True, resolved_str
+        # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
+        resolved = Path(path).resolve(strict=False)
+        resolved_str = str(resolved)
+        # 检查 resolved 是否在任一白名单根目录下(防 symlink 穿越到 /etc/passwd 等)
+        for root in roots:
+            try:
+                resolved.relative_to(root)
+                return True, resolved_str
+            except ValueError:
+                continue
+        return False, (
+            f"路径不在工作区白名单内: {path}"
+            f"(允许根目录: {roots})"
+        )
+    except Exception as e:
+        return False, f"路径解析失败: {e}"
+
+
+def _validate_write_path_in_workspace(path: str) -> tuple[bool, str]:
+    """**写工具专用**路径校验:白名单根 + symlink 解析 + 敏感目录黑名单。
+
+    与 ``_validate_path_in_workspace`` 的差别只有最后一层:本函数额外拒绝落在
+    敏感目录(.git / node_modules / .venv / venv / dist / build / __pycache__ /
+    .next)内的路径(判定源见 ``path_guard``)。
+
+    为什么只给写路径加这一层,而不直接加进 ``_validate_path_in_workspace``:
+    后者另有 10 个调用点(read_file / list_files / run_command 的 cwd /
+    vision_analyze / 媒体 save_path 三兄弟等),读路径与 cwd 在业务上允许触及
+    .git、node_modules(agent 需要查看依赖源码、读取仓库状态),在黑名单加在
+    那里会**顺带改变读行为**,属于超出修复范围的语义变更。真实危害集中在「写」:
+    写入 .git/hooks/ 即等价于任意代码执行。因此本层只覆盖三个写工具
+    (write_file / file_edit / resolve_conflict)——它们与
+    ``file_editor.validate_path`` 属同一语义面(源代码编辑),后者的黑名单行为
+    正是本层对齐的目标,两条编辑路径从此不会再有策略分歧。
+
+    媒体落盘(save_path 三兄弟)**刻意不加**本层:其后缀已被限定为图片/音频/视频
+    扩展名,无法落成 .git/hooks/pre-commit 这类可执行文本;而"把生成产物写进
+    build/ 目录"是合理构建用法,加了会误伤。
+
+    Returns:
+        (True, resolved_path) 或 (False, error_message)
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info
+    # 对**解析后**路径判定:这样 symlink 指向 .git 的情况同样被拦住。
+    if find_sensitive_segment(info):
+        return False, sensitive_error_message(info)
+    return True, info
+
+
+# 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
+# 匹配文件名(basename)或路径片段,命中即拒绝读取。
+_SENSITIVE_FILE_PATTERNS = (
+    ".env",                # .env / .env.production / .env.local
+    ".npmrc",              # npm token
+    ".pypirc",             # pip token
+    ".netrc",              # HTTP 凭证
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",  # SSH 私钥
+    "credentials.json",    # GCP/AWS 凭证
+    "service_account.json",  # GCP 服务账号
+)
+_SENSITIVE_FILE_EXTENSIONS = (
+    ".key", ".pem", ".crt", ".pfx", ".p12",  # 私钥/证书
+    ".keystore", ".jks",  # Java 密钥库
+    ".kdbx",  # KeePass 数据库
+)
+
+
+def _is_sensitive_file(path: str) -> bool:
+    """检查路径是否为敏感文件(可能含 API key/私钥/凭证)。
+
+    匹配规则:
+      1. 文件名 basename 命中 _SENSITIVE_FILE_PATTERNS(含前缀匹配,如 .env.production)
+      2. 扩展名命中 _SENSITIVE_FILE_EXTENSIONS
+    """
+    import os
+    basename = os.path.basename(path).lower()
+    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production)
+    for pat in _SENSITIVE_FILE_PATTERNS:
+        if basename == pat or basename.startswith(pat + ".") or basename.startswith(pat + "_"):
+            return True
+    # 扩展名匹配
+    return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
+
+
+# ---------------------------------------------------------------------------
+# 数据模型
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MCPTool:
+    """MCP 工具定义。"""
+
+    name: str
+    description: str
+    input_schema: dict[str, Any]
+
+
+@dataclass
+class MCPResource:
+    """MCP 资源定义。"""
+
+    uri: str
+    name: str
+    description: str
+    mime_type: str = "application/json"
+
+
+@dataclass
+class MCPPrompt:
+    """MCP 提示词定义。"""
+
+    name: str
+    description: str
+    arguments: list[dict[str, Any]]
+
+
+# ---------------------------------------------------------------------------
+# 工具实现(11 个)
+# ---------------------------------------------------------------------------
+
+
+# 懒索引护栏(2026-09-07 立):语义搜索空结果时自动触发增量索引的上限与冷却
+_LAZY_INDEX_MAX_FILES = 2000
+_LAZY_INDEX_COOLDOWN_SECONDS = 600.0
+_LAZY_INDEX_LAST_RUN: dict[str, float] = {}
+
+async def _lazy_index_and_research(
+    indexer: Any,
+    query: str,
+    path: str,
+    max_results: int,
+    internal_user_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """懒索引:语义通道空结果且 path 为本地目录时,尽力做一次 Merkle 增量索引后重搜。
+
+    护栏:文件数 ≤ _LAZY_INDEX_MAX_FILES;同路径冷却期内不重复触发;全失败静默返回 []。
+    背景:此前 index_repository 无任何调用方,codebase_chunks 表永远是空的,
+    语义/混合检索在生产运行时形同虚设(2026-09-07 审计发现并根治)。
+    """
+    import time as _time
+    try:
+        from pathlib import Path as _Path
+        root = _Path(path).resolve()
+        if not root.exists() or not root.is_dir():
+            return []
+        now = _time.monotonic()
+        # 2026-09-10 修复:缺省哨兵不得用 0.0 —— monotonic() 从进程/系统启动起计,
+        # 新启动机器上可能小于冷却窗口,0.0 哨兵会误判为"冷却中"而跳过索引。
+        # 改为显式区分"从未运行"(None)与"运行过"(时间戳)。
+        last = _LAZY_INDEX_LAST_RUN.get(str(root))
+        if last is not None and now - last < _LAZY_INDEX_COOLDOWN_SECONDS:
+            return []
+        files = indexer._collect_code_files(root)
+        if len(files) == 0 or len(files) > _LAZY_INDEX_MAX_FILES:
+            _LAZY_INDEX_LAST_RUN[str(root)] = now  # 超限路径也记录,避免反复扫描
+            return []
+        _LAZY_INDEX_LAST_RUN[str(root)] = now
+        await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
+        return cast(list[dict[str, Any]], await indexer.search(query, top_k=max_results))
+    except Exception:
+        return []
+
+
+async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
+    """index_codebase: 对本地代码库建立/刷新语义索引(Merkle 增量)。
+
+    search_codebase 的语义/混合通道(pgvector + BM25 RRF)依赖本索引;
+    首次语义搜索前建议显式调用,或依赖 search_codebase 的懒索引自动触发。
+    """
+    path = str(arguments.get("path", "")).strip()
+    repo_id = str(arguments.get("repo_id", "")).strip() or None
+    force_full = bool(arguments.get("force_full", False))
+    # 服务端注入的调用者身份(G6,LLM 不可控),透传给内部服务鉴权通道
+    internal_user_id = arguments.get("__user_id") or None
+    if not path:
+        return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    try:
+        from .codebase_indexer import codebase_indexer
+        result = await codebase_indexer.index_repository(
+            path, repo_id=repo_id, incremental=not force_full,
+            internal_user_id=internal_user_id,
+        )
+        return {
+            "tool": "index_codebase",
+            "ok": len(result.errors) == 0,
+            "repo_id": result.repo_id,
+            "files_scanned": result.files_scanned,
+            "files_indexed": result.files_indexed,
+            "files_unchanged": result.files_unchanged,
+            "files_deleted": result.files_deleted,
+            "chunks_created": result.chunks_created,
+            "chunks_vectorized": result.chunks_vectorized,
+            "merkle_root": result.merkle_root,
+            "errors": result.errors[:10],
+            "message": (
+                f"索引完成: 扫描 {result.files_scanned} 文件, "
+                f"新建 {result.files_indexed}, 未变更 {result.files_unchanged}, "
+                f"切片 {result.chunks_created}"
+            ),
+        }
+    except Exception as e:
+        return {"tool": "index_codebase", "ok": False, "error": str(e)[:300]}
+
+
+async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
+    """search_codebase: 代码符号搜索(真实文件系统)。
+
+    专注于代码符号(函数/类/方法定义 + 引用)的搜索,支持:
+    - query: 符号名或关键词(如函数名、类名)
+    - path: 搜索根目录(默认当前目录)
+    - pattern: 文件名 glob 限定(默认 *.py/*.ts/*.tsx/*.js/*.jsx/*.go/*.rs/*.java)
+    - max_results: 最大返回数(默认 50)
+    - symbol_type: 符号类型过滤(def/class/func/function/interface/type,默认空=全部)
+    - 忽略常见依赖/构建/缓存目录
+    - 忽略二进制文件
+    - 返回: 文件路径 + 行号 + 符号类型 + 代码行 + 上下文预览
+    """
+    query = arguments.get("query", "")
+    path = arguments.get("path", ".")
+    pattern = arguments.get("pattern", "")
+    max_results = int(arguments.get("max_results", 50))
+    symbol_type = arguments.get("symbol_type", "").strip().lower()
+    # 2026-07-22 新增:语义搜索开关(默认 True,失败/无结果时 fallback 到 regex)
+    use_semantic = arguments.get("use_semantic", True)
+
+    # 默认代码文件扩展名(若未指定 pattern)
+    _CODE_EXTS = {
+        ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+        ".go", ".rs", ".java", ".kt", ".swift", ".c", ".h", ".cpp", ".cc", ".hpp",
+        ".cs", ".rb", ".php", ".scala", ".clj", ".el", ".ex", ".exs",
+        ".vue", ".svelte", ".astro",
+        ".sql", ".sh", ".bash", ".zsh", ".ps1",
+        ".yml", ".yaml", ".toml", ".json", ".xml", ".html", ".css", ".scss",
+    }
+    # 忽略目录
+    _IGNORED_DIRS = {
+        "node_modules", ".git", "__pycache__", ".venv", "venv",
+        "dist", "build", ".next", ".turbo", ".cache", "coverage",
+        ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", "env",
+    }
+    # 符号定义模式(按语言)
+    # 匹配 def/class/func/function/interface/type 等关键字后跟符号名
+    _SYMBOL_PATTERNS = {
+        "def": re.compile(r"^\s*(?:async\s+def|def)\s+(\w+)", re.MULTILINE),  # Python
+        "class": re.compile(r"^\s*(?:abstract\s+class|class|interface|trait)\s+(\w+)", re.MULTILINE),
+        "func": re.compile(r"^\s*func\s+(\w+)", re.MULTILINE),  # Go
+        "function": re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)", re.MULTILINE),  # JS/TS
+        "interface": re.compile(r"^\s*(?:export\s+)?interface\s+(\w+)", re.MULTILINE),  # TS
+        "type": re.compile(r"^\s*(?:export\s+)?type\s+(\w+)", re.MULTILINE),  # TS
+    }
+
+    if not query:
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "matches": [],
+            "message": "搜索关键词为空",
+            "ok": False,
+        }
+
+    # 2026-07-22 新增:语义搜索路径(pgvector ANN,优先于 regex)
+    # 失败或无结果时静默 fallback 到下方 regex 路径
+    if use_semantic:
+        try:
+            from .codebase_indexer import codebase_indexer
+            semantic_results = await codebase_indexer.search(query, top_k=max_results)
+            # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
+            # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
+            if not semantic_results:
+                semantic_results = await _lazy_index_and_research(
+                    codebase_indexer,
+                    query,
+                    path,
+                    max_results,
+                    internal_user_id=arguments.get("__user_id") or None,
+                )
+            if semantic_results:
+                semantic_matches: list[dict[str, Any]] = []
+                for r in semantic_results[:max_results]:
+                    content_preview = r.get("content", "")
+                    if len(content_preview) > 500:
+                        content_preview = content_preview[:500]
+                    semantic_matches.append({
+                        "path": r.get("filePath", ""),
+                        "file": r.get("filePath", "").rsplit("/", 1)[-1],
+                        "line": r.get("lineStart", 0),
+                        "symbol_type": r.get("symbolType", "semantic"),
+                        "symbol_name": r.get("symbolName", ""),
+                        "code": content_preview[:200],
+                        "preview": content_preview,
+                        "score": round(r.get("score", 0), 4),
+                    })
+                return {
+                    "tool": "search_codebase",
+                    "query": query,
+                    "path": path,
+                    "use_semantic": True,
+                    "matches": semantic_matches,
+                    "total": len(semantic_matches),
+                    "truncated": False,
+                    "message": f"语义搜索找到 {len(semantic_matches)} 个匹配(pgvector ANN)",
+                    "ok": True,
+                }
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                "semantic search failed, fallback to regex: %s", e
+            )
+
+    try:
+        import fnmatch
+        import os
+        from pathlib import Path
+
+        root = Path(path).resolve()
+        if not root.exists():
+            return {
+                "tool": "search_codebase",
+                "query": query,
+                "path": path,
+                "matches": [],
+                "message": f"路径不存在: {path}",
+                "ok": False,
+            }
+        if not root.is_dir():
+            return {
+                "tool": "search_codebase",
+                "query": query,
+                "path": path,
+                "matches": [],
+                "message": f"路径不是目录: {path}",
+                "ok": False,
+            }
+
+        # 构建 pattern 列表(支持逗号分隔多 pattern)
+        if pattern:
+            patterns = [p.strip() for p in pattern.split(",") if p.strip()]
+        else:
+            patterns = []  # 用扩展名过滤
+
+        query_lower = query.lower()
+        matches: list[dict[str, Any]] = []
+        count = 0
+
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+            for fname in filenames:
+                if count >= max_results:
+                    break
+                # pattern 或扩展名过滤
+                if patterns:
+                    if not any(fnmatch.fnmatch(fname, p) for p in patterns):
+                        continue
+                else:
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext not in _CODE_EXTS:
+                        continue
+
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    with open(fpath, encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                except OSError:
+                    continue
+
+                lines = content.splitlines()
+                rel_path = os.path.relpath(fpath, root)
+
+                # 先快速过滤:文件内容必须含 query(大小写不敏感)
+                if query_lower not in content.lower():
+                    continue
+
+                # 1) 符号定义匹配:扫描每种符号模式
+                symbol_matches: list[tuple[int, str, str]] = []  # (line_no, sym_type, line_text)
+                for sym_type, sym_re in _SYMBOL_PATTERNS.items():
+                    if symbol_type and sym_type != symbol_type:
+                        continue
+                    for m in sym_re.finditer(content):
+                        sym_name = m.group(1)
+                        if sym_name.lower() == query_lower or query_lower in sym_name.lower():
+                            # 计算 line_no
+                            line_no = content.count("\n", 0, m.start()) + 1
+                            line_text = lines[line_no - 1] if 0 < line_no <= len(lines) else ""
+                            symbol_matches.append((line_no, sym_type, line_text))
+
+                # 2) 通用行匹配(任意包含 query 的行)
+                line_matches: list[tuple[int, str]] = []  # (line_no, line_text)
+                for i, line_text in enumerate(lines):
+                    if query_lower in line_text.lower():
+                        line_matches.append((i + 1, line_text))
+
+                # 合并:符号匹配优先,再补通用行匹配(去重)
+                seen_lines: set[int] = {ln_no for ln_no, _, _ in symbol_matches}
+                for ln_no, ln_text in line_matches:
+                    if ln_no not in seen_lines:
+                        symbol_matches.append((ln_no, "reference", ln_text))
+                        seen_lines.add(ln_no)
+
+                if not symbol_matches:
+                    continue
+
+                # 限制每个文件最多 10 条匹配
+                for line_no, sym_type, line_text in symbol_matches[:10]:
+                    # 提取上下文(前后各 2 行)
+                    start = max(0, line_no - 3)
+                    end = min(len(lines), line_no + 2)
+                    preview = "\n".join(
+                        f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                    )
+                    matches.append({
+                        "path": rel_path,
+                        "file": fname,
+                        "line": line_no,
+                        "symbol_type": sym_type,
+                        "code": line_text.strip()[:200],
+                        "preview": preview[:500],
+                    })
+                    count += 1
+                    if count >= max_results:
+                        break
+
+            if count >= max_results:
+                break
+
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "pattern": pattern,
+            "symbol_type": symbol_type,
+            "matches": matches,
+            "total": len(matches),
+            "truncated": count >= max_results,
+            "message": f"在 {path} 下找到 {len(matches)} 个匹配"
+                       + ("(已截断)" if count >= max_results else ""),
+            "ok": True,
+        }
+    except Exception as e:
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "matches": [],
+            "message": f"搜索失败: {e}",
+            "ok": False,
+            "error": str(e),
+        }
+
+
+async def _tool_knowledge_lookup(arguments: dict[str, Any]) -> dict[str, Any]:
+    """knowledge_lookup: 统一知识查询(三源并发,代码库 + RAG + 跨会话历史)。
+
+    包装 app.services.knowledge_lookup.knowledge_lookup(),供 LLM 通过 MCP 协议
+    查外部知识,减少 hallucination + 重复 token 消耗。
+
+    LLM 可控参数:
+    - query (required): 自然语言查询
+    - top_k_per_source (optional): 每源 top-K,默认 5,1-20
+
+    服务端注入(G6,2026-07-26,从 call_tool 的 user_id/session_id 透传,LLM 不可控):
+    - __user_id: 从 FastAPI request.state.user_id 注入;非空时启用 long_term_memory 源
+      (跨会话历史检索),None 时跳过 LTM(与 G5 旧行为一致,service 层无 request 上下文)
+    - __session_id: 从 request 上下文注入;非空时限定 RAG 检索会话范围
+
+    服务端固定(不暴露给 LLM,安全考虑):
+    - repo_id/api_token/source_priority: None(用 knowledge_lookup 默认值)
+
+    返回:
+        {tool, query, hits, errors, duration_ms, ok}
+        hits: list[{source, score, content}](不含 raw,避免 LLM 上下文冗长)
+        空 query → ok=False
+        三源全失败 → ok=False + errors(降级不抛异常)
+    """
+    query = str(arguments.get("query", "")).strip()
+    if not query:
+        return {
+            "tool": "knowledge_lookup",
+            "query": "",
+            "hits": [],
+            "errors": [],
+            "duration_ms": 0.0,
+            "ok": False,
+            "message": "query 不能为空",
+        }
+
+    top_k = int(arguments.get("top_k_per_source", 5))
+    # 防御性 clamp(1-20,即使 LLM 传越界值也安全)
+    top_k = max(1, min(20, top_k))
+
+    # G6(2026-07-26):从 arguments 提取 call_tool 注入的 session context
+    # (LLM 不可控,从 FastAPI request 透传;None 时 knowledge_lookup 跳过 LTM 源)
+    user_id = arguments.get("__user_id")
+    session_id = arguments.get("__session_id")
+
+    try:
+        from .knowledge_lookup import knowledge_lookup
+        result = await knowledge_lookup(
+            query,
+            user_id=user_id,  # G6:None 跳过 LTM,非空启用跨会话历史检索
+            repo_id=None,
+            session_id=session_id,  # G6:None 时 RAG 跨会话,非空限定会话范围
+            top_k_per_source=top_k,
+            source_priority=None,  # 用默认 [codebase, rag, long_term_memory]
+            api_token=None,
+        )
+    except ValueError as e:
+        # source_priority 不合法(理论上不会,因为没传,但防御性处理)
+        return {
+            "tool": "knowledge_lookup",
+            "query": query,
+            "hits": [],
+            "errors": [{"source": "knowledge_lookup", "error": f"ValueError: {e}"}],
+            "duration_ms": 0.0,
+            "ok": False,
+            "message": f"参数校验失败: {e}",
+        }
+
+    # 序列化 hits(不含 raw,避免 LLM 上下文冗长)
+    hits_serialized = [
+        {
+            "source": h.source,
+            "score": round(h.score, 4),
+            "content": h.content,
+        }
+        for h in result.hits
+    ]
+
+    return {
+        "tool": "knowledge_lookup",
+        "query": result.query,
+        "hits": hits_serialized,
+        "errors": result.errors,
+        "duration_ms": result.duration_ms,
+        "total_hits": len(hits_serialized),
+        "ok": len(hits_serialized) > 0 or len(result.errors) == 0,
+        "message": (
+            f"找到 {len(hits_serialized)} 条知识"
+            if hits_serialized
+            else (
+                "三源全失败,无知识返回"
+                if result.errors and not hits_serialized
+                else "无匹配知识(各源空结果)"
+            )
+        ),
+    }
+
+
+async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
+    """read_file: 读取文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
+    path = arguments.get("path", "")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": info}
+    resolved_path = info
+    # 2026-07-24 安全加固:敏感文件读取拦截(防 .env/*.key/*.pem 泄露 API key/私钥)
+    # 工作区白名单只防路径穿越,不防敏感文件内容泄露;此处补敏感文件名黑名单。
+    if _is_sensitive_file(resolved_path):
+        return {
+            "tool": "read_file",
+            "path": resolved_path,
+            "content": "",
+            "ok": False,
+            "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
+            "errorCode": "SENSITIVE_FILE_BLOCKED",
+        }
+    try:
+        # 2026-08-06 生产修复:目录路径显式报错。
+        # Windows 上 open() 目录返回模糊的 PermissionError([Errno 13] Permission denied),
+        # 用户/模型误以为是权限问题(实际是"把目录当文件读")。
+        # 改为明确错误 + 引导使用 search_codebase 探索目录结构。
+        import os as _os
+        if _os.path.isdir(resolved_path):
+            return {
+                "tool": "read_file",
+                "path": resolved_path,
+                "content": "",
+                "ok": False,
+                "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
+                "errorCode": "IS_A_DIRECTORY",
+            }
+        with open(resolved_path, encoding="utf-8") as f:
+            content = f.read()
+        # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
+        _record_file_base(resolved_path, content)
+        return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
+    except Exception as e:
+        return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
+
+
+async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
+    """list_files: 列出目录内容(路径必须在工作区白名单内,防 symlink 穿越)。
+
+    2026-08-06 立:LLM(stepfun step_plan 等)高频调用 list_files 列目录,
+    此前无此工具导致"未知工具"工具执行失败(会话 83633a7c 实测)。
+    只返回一层条目(name/type/size),超大目录截断 500 项,避免响应爆炸。
+    """
+    path = arguments.get("path", ".")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "list_files", "path": path, "ok": False, "error": info}
+    resolved = info
+    import os as _os
+    if not _os.path.isdir(resolved):
+        return {
+            "tool": "list_files", "path": resolved, "ok": False,
+            "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
+            "errorCode": "NOT_A_DIRECTORY",
+        }
+    try:
+        names = sorted(_os.listdir(resolved))
+        entries = []
+        for name in names:
+            full = _os.path.join(resolved, name)
+            try:
+                is_dir = _os.path.isdir(full)
+                entries.append({
+                    "name": name,
+                    "type": "dir" if is_dir else "file",
+                    "size": None if is_dir else _os.path.getsize(full),
+                })
+            except OSError:
+                entries.append({"name": name, "type": "unknown", "size": None})
+        return {
+            "tool": "list_files",
+            "path": resolved,
+            "ok": True,
+            "entries": entries[:500],
+            "total": len(entries),
+            "truncated": len(entries) > 500,
+        }
+    except Exception as e:
+        return {"tool": "list_files", "path": resolved, "ok": False, "error": str(e)}
+
+
+async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
+    """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
+    path = arguments.get("path", "")
+    content = arguments.get("content", "")
+    ok, info = _validate_write_path_in_workspace(path)
+    if not ok:
+        return {"tool": "write_file", "path": path, "ok": False, "error": info}
+    resolved_path = info
+    try:
+        with open(resolved_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        # 1-2:写盘后刷新 base(agent 视角最新内容)
+        _record_file_base(resolved_path, content)
+        return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
+    except Exception as e:
+        return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
+
+
+async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
+    """file_edit: 精细编辑文件,精确替换 old_string 为 new_string,带 conflict 检测。
+
+    自研 Edit 工具:replace_all=false 时要求 old_string 唯一匹配,
+    多个匹配报 AMBIGUOUS_MATCH 错误,避免误改多处。
+    """
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
+        return {"tool": "file_edit", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    replace_all = bool(arguments.get("replace_all", False))
+
+    if not old_string:
+        return {"tool": "file_edit", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_write_path_in_workspace(path)
+    if not ok:
+        return {"tool": "file_edit", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    if b"\x00" in raw:
+        return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    count = content.count(old_string)
+    strategy = "direct"
+    if count == 0:
+        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+        # 由 resolve_conflict 工具按块决策(局部拒绝)。
+        base = _FILE_BASE_CONTENT.get(resolved_path)
+        if base is not None and old_string in base:
+            # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
+            # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
+            current_lf = _normalize_eol(content)
+            mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
+            if mr.clean:
+                new_content = _restore_eol(mr.merged, content)
+                strategy = "auto_merged_3way"
+                replaced_count = base.count(old_string) if replace_all else 1
+            else:
+                return _err(
+                    "CONFLICT",
+                    (
+                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                        f"file_path/old_string/new_string 与 choices 数组"
+                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                    ),
+                    conflict_count=mr.conflict_count(),
+                    strategy="3way_merge",
+                )
+        else:
+            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+    elif not replace_all and count >= 2:
+        return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
+    elif replace_all:
+        new_content = content.replace(old_string, new_string)
+        replaced_count = count
+    else:
+        new_content = content.replace(old_string, new_string, 1)
+        replaced_count = 1
+
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(new_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+        try:
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
+        except OSError:
+            pass
+        with contextlib.suppress(OSError):
+            os.remove(backup_path)
+        return _err("IO_ERROR", str(e))
+
+    diff = list(difflib.unified_diff(content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+    # 1-2:写盘后刷新 base(agent 视角最新内容)
+    _record_file_base(resolved_path, new_content)
+    return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
+            "replaced_count": replaced_count, "backup_path": backup_path,
+            "strategy": strategy,
+            "diff_preview": "".join(diff[:20])}
+
+
+async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
+    """resolve_conflict:按块解决 file_edit 报告的 3-way merge 冲突(1-2 局部拒绝)。
+
+    与触发 CONFLICT 的 file_edit 携带相同 file_path/old_string/new_string;
+    choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘
+    现状=拒绝该块修改)。choices 不足的块缺省 'ours'。
+    """
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
+        return {"tool": "resolve_conflict", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    choices_raw = arguments.get("choices", [])
+    replace_all = bool(arguments.get("replace_all", False))
+    choices = [str(c) for c in choices_raw] if isinstance(choices_raw, list) else []
+
+    if not old_string:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_write_path_in_workspace(path)
+    if not ok:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    try:
+        content = raw.decode("utf-8")
+    except (UnicodeDecodeError, ValueError) as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    base = _FILE_BASE_CONTENT.get(resolved_path)
+    if base is None or old_string not in base:
+        return _err(
+            "NO_BASE_VERSION",
+            "无该文件的 base 版本(或 old_string 不在 base 中),无法按块解决冲突;请先 read_file 后重试 file_edit",
+        )
+
+    # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并;
+    # 结果按磁盘原行尾风格还原后写盘
+    resolved = _merge3_resolve_conflicts(
+        base, _normalize_eol(content), old_string, new_string, choices, replace_all=replace_all
+    )
+    if not resolved.get("ok"):
+        return _err("MERGE_FAILED", str(resolved.get("error", "合并失败")))
+
+    final_content = _restore_eol(str(resolved["content"]), content)
+    applied = list(resolved.get("applied", []))
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(final_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复磁盘原内容
+        try:
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
+        except OSError:
+            pass
+        with contextlib.suppress(OSError):
+            os.remove(backup_path)
+        return _err("IO_ERROR", str(e))
+
+    # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
+    _record_file_base(resolved_path, final_content)
+    rejected = sum(1 for a in applied if a.get("choice") == "theirs")
+    return {
+        "tool": "resolve_conflict",
+        "ok": True,
+        "file_path": resolved_path,
+        "conflicts": int(resolved.get("conflicts", 0)),
+        "resolved": len(applied),
+        "rejected_hunks": rejected,
+        "backup_path": backup_path,
+        "applied_choices": applied,
+    }
+
+
+# =====================================================================
+# P0-B(2026-09-18):终端实时输出事件(terminal.delta)。
+# run_command 执行期间逐行 stdout/stderr 经 hook_engine 广播,SSE 订阅端
+# (agents.py /agents/tasks/stream 等,经 AGENT_SUBSCRIBE_EVENTS)映射为
+# terminal-delta 推送前端 TerminalSection 实时渲染。会话上下文经
+# contextvar 注入(agent_loop_v2._execute_single 调工具前 set),工具直调
+# (无上下文)时 session_id 为空串,订阅端按既有约定对空 session 透传。
+# 发射 fire-and-forget(不阻塞 drain 读取循环);失败降级不阻塞命令执行。
+# =====================================================================
+
+_terminal_stream_ctx: contextvars.ContextVar[dict[str, Any] | None] = (
+    contextvars.ContextVar("ihui_terminal_stream_ctx", default=None)
+)
+
+# terminal.delta 帧聚合节流:每 N 行合为一帧(防高频行输出刷屏 SSE)
+_TERMINAL_DELTA_BATCH_LINES = 4
+
+# fire-and-forget 任务引用集合(防 CPython GC 提前回收,与其他 _pending 集合同模式)
+_terminal_delta_tasks: set[asyncio.Task[None]] = set()
+
+
+def set_terminal_stream_context(**ctx: Any) -> contextvars.Token[dict[str, Any] | None]:
+    """注入终端输出事件上下文(session_id/iteration/tool_call_id 等)。"""
+    return _terminal_stream_ctx.set(dict(ctx))
+
+
+def reset_terminal_stream_context(token: contextvars.Token[dict[str, Any] | None]) -> None:
+    """恢复终端输出事件上下文(与 set 配对使用,防跨工具泄漏)。"""
+    _terminal_stream_ctx.reset(token)
+
+
+async def _emit_terminal_delta(command: str, stream_name: str, text: str) -> None:
+    """发射 terminal.delta 事件(失败降级不阻塞命令执行)。
+
+    进程内直投:llm.py 主聊天流在调用终端工具前经 contextvar 注入可调用的
+    `push`(同步 callable,通常为 asyncio.Queue.put_nowait)。命中时优先走
+    push(payload) 并跳过 hook_engine.emit —— 增量帧由调用方直接 yield 成 SSE,
+    不阻塞命令主链路、不改变既有 SSE 顺序语义。无 push(agent_loop_v2 等)
+    时维持原 hook_engine 广播行为,agent 通道零回归。
+    """
+    if not text:
+        return
+    try:
+        ctx = _terminal_stream_ctx.get() or {}
+        # 进程内直投:优先走 push,不再经 hook_engine(前端 SSE 由调用方直接 yield)
+        push = ctx.get("push")
+        if callable(push):
+            _payload: dict[str, Any] = {
+                "type": "terminal_delta",
+                "terminalId": ctx.get("tool_call_id") or "",
+                "command": command,
+                "stream": stream_name,  # stdout / stderr
+                "text": text,
+                "iteration": ctx.get("iteration"),
+            }
+            _msg_id = ctx.get("messageId")
+            if _msg_id:  # 上下文带 messageId 时才带上(与 terminal_start 对齐)
+                _payload["messageId"] = _msg_id
+            push(_payload)
+            return
+        from .hook_engine import hook_engine
+
+        session_id = str(ctx.get("session_id") or "")
+        await hook_engine.emit(
+            "terminal.delta",
+            {
+                "session_id": session_id,
+                "run_id": session_id,  # workbench session 关联键(与 thinking.delta 同约定)
+                "command": command,
+                "stream": stream_name,  # stdout / stderr
+                "text": text,
+                "iteration": ctx.get("iteration"),
+                "tool_call_id": ctx.get("tool_call_id"),
+            },
+        )
+    except Exception:  # noqa: BLE001 - 事件发射失败绝不阻塞工具主链路
+        pass
+
+
+def _spawn_terminal_delta(command: str, stream_name: str, text: str) -> None:
+    """fire-and-forget 包装:drain 循环内同步回调,实际 emit 后台执行。
+
+    出库脱敏(2026-09-18 第十五批):实时 delta 早于汇总结果发出,若只脱敏
+    汇总输出,逐行流会先于脱敏把密钥送到 SSE —— 故在此唯一咽喉点统一盖。
+    """
+    if not text:
+        return
+    try:
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        text = _redact_secrets(text)
+    except Exception:  # noqa: BLE001 - 脱敏失败绝不阻塞实时输出
+        pass
+    try:
+        task = asyncio.ensure_future(
+            _emit_terminal_delta(command, stream_name, text)
+        )
+    except RuntimeError:  # 无事件循环(理论不可达,防御)
+        return
+    _terminal_delta_tasks.add(task)
+    task.add_done_callback(_terminal_delta_tasks.discard)
+
+
+async def _drain_stream(
+    stream: Any,
+    lines_list: list[str],
+    max_output: int = 10000,
+    *,
+    on_line: Callable[[str], None] | None = None,
+    batch_lines: int = _TERMINAL_DELTA_BATCH_LINES,
+) -> None:
+    """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。
+
+    P0-B(2026-09-18):on_line 提供时,每读一行(按 batch_lines 聚合节流)同步回调
+    (供 terminal.delta 实时事件发射,回调自身 fire-and-forget 不阻塞读取)。
+
+    P1 修复(mcp_server _tool_run_command 大输出全量累积后截断):
+    原实现无大小上限,GB 级 stdout/stderr 会全量加载到内存 list,再在
+    _tool_run_command 末尾截断到 max_output → 截断前 OOM 已发生。
+    现在实时累计 total_size,超过 2 * max_output 硬上限立即停止读取,
+    避免大输出全量加载到内存(截断点放宽到 2 倍是为了保留少量尾部上下文)。
+    """
+    total_size = 0
+    size_limit = max_output * 2  # 2 倍 max_output 作为硬上限
+    pending: list[str] = []
+
+    def _flush_pending() -> None:
+        if pending and on_line is not None:
+            on_line("\n".join(pending) + "\n")
+        pending.clear()
+
+    while True:
+        line_bytes = await stream.readline()
+        if not line_bytes:
+            break
+        decoded = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+        lines_list.append(decoded)
+        total_size += len(decoded)
+        if on_line is not None:
+            pending.append(decoded)
+            if len(pending) >= batch_lines:
+                _flush_pending()
+        if total_size > size_limit:
+            lines_list.append(f"\n...(输出超过 {size_limit} 字符,已截断)")
+            break
+    _flush_pending()  # 尾部残余帧
+
+
+def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
+    """构建 subprocess env:复制 os.environ,合并用户 env(禁止覆盖 PATH/HOME)。
+
+    2026-07-24 流式升级:支持 env 参数透传,但不允许覆盖 PATH/HOME(防劫持命令查找)。
+    """
+    env = dict(os.environ)
+    if isinstance(user_env, dict):
+        for k, v in user_env.items():
+            if not isinstance(k, str) or not isinstance(v, (str, int, float)):
+                continue
+            if k.upper() in ("PATH", "HOME", "USERPROFILE"):
+                continue  # 不允许覆盖 PATH/HOME
+            env[k] = str(v)
+    return env
+
+
+_COMMAND_POLICY_DEFAULT: dict[str, Any] = {
+    # 与 app/data/command_policy.json 保持一致(文件加载失败时的回退兜底)
+    "dangerous_patterns": [
+        r";\s*\S", r"&&\s*\S", r"\|\|\s*\S",
+        r"\brm\b", r"\brmdir\b", r"\bmv\b", r"\bcp\b", r"\bmkdir\b",
+        r"\btouch\b", r"\bchmod\b", r"\bchown\b",
+        r"\bcurl\b", r"\bwget\b", r"\bscp\b", r"\bssh\b",
+        r"\bdd\b", r"\bmkfs\b", r"\bshutdown\b", r"\breboot\b",
+        r"\bkill\b", r"\bkillall\b",
+        r">\s*", r">>\s*", r"<\s*", r"\|\s*",
+        r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
+    ],
+    "allowed_prefixes": [
+        "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
+        "pnpm", "tsc", "ruff", "mypy", "pytest", "find", "grep", "rg", "wc",
+        "head", "tail", "date", "whoami", "pwd", "which", "where", "env",
+        "uname", "ver", "dir", "type", "getopt",
+    ],
+    "sensitive_file_markers": [".env", ".pem", ".key", "credentials", "secret", "token"],
+}
+
+
+@functools.lru_cache(maxsize=1)
+def _load_command_policy() -> dict[str, Any]:
+    """读取命令安全策略单一权威源(app/data/command_policy.json)。
+
+    统一安全 C4(2026-09-01):策略从函数内硬编码提取为 JSON 权威源,前后端共用
+    (前端用 scripts/generate-command-policy-ts.mjs 生成 TS 常量)。文件缺失/
+    解析失败回退 _COMMAND_POLICY_DEFAULT(与既有内联行为一致),绝不抛异常。
+    """
+    try:
+        policy_path = Path(__file__).resolve().parent.parent / "data" / "command_policy.json"
+        with open(policy_path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("command_policy.json 根必须是对象")
+        return data
+    except Exception as e:  # noqa: BLE001 - 策略加载失败回退默认,不阻塞工具
+        logger.warning("command_policy.json 加载失败,回退默认策略: %s", e)
+        return _COMMAND_POLICY_DEFAULT
+
+
+# =====================================================================
+# P0-3(2026-09-12):exec_policy 一次性审批放行登记表。
+# agent_loop_v2 在用户批准 exec_policy PROMPT 命令后调用 approve_exec_command
+# 登记;_tool_run_command 首次执行到该命令时消费放行(仅跳过 PROMPT 分支,
+# DENY 硬拦截/危险命令硬门/黑白名单不受影响)。LLM 无法伪造——登记仅在真实
+# 审批通过后由服务端代码写入,工具入参不可触及。命令串键 + 一次性消费 + 容量上限。
+# =====================================================================
+_EXEC_APPROVED_MAX = 128
+_exec_approved_commands: set[str] = set()
+
+
+def _canonical_approval_key(command: str) -> str:
+    """批 41 接线:审批缓存键规范化(对标 command_canonicalization.rs)。
+
+    同一条命令经不同 shell 包装(bash -lc 'git status' vs 直接 git status)
+    到达时归一为同一键,避免"换个包装就要再批一次"的体验损耗;
+    复杂脚本归一为固定前缀形态,保证复杂脚本间不误互相命中。
+    规范化失败(理论上不抛,防御性兜底)回退原始命令字符串。
+    """
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        # posix=True 切词:剥离外层引号,使 bash -lc 'git status' 与 git status
+        # 得到同形 argv(审批键空间一致);Windows 的 cmd 语义保留引号形态仅在
+        # 原始执行路径使用,审批键统一用规范化形态
+        argv = _approval_tokens(command)
+        if not argv:
+            return command
+        canonical = canonicalize_command_for_approval(argv)
+        try:
+            return shlex.join(canonical)
+        except ValueError:  # Windows 路径反斜杠等 shlex.join 限制 → 空格拼接兜底
+            return " ".join(canonical)
+    except Exception:  # noqa: BLE001 - 规范化失败回退原键,绝不放松审批
+        return command
+
+
+def approve_exec_command(command: str) -> None:
+    """登记一次性 exec_policy 审批放行(由 agent_loop_v2 在用户批准后调用)。
+
+    批 51b:双写持久层(always 档,对标 codex PERSIST_ALWAYS)——内存表保持
+    一次性消费语义,持久层只做审计/恢复底账,消费后不删(一次性语义由内存表
+    承担);持久层写失败静默(不阻断放行,内存表已生效)。
+    """
+    key = _canonical_approval_key(command)
+    if len(_exec_approved_commands) >= _EXEC_APPROVED_MAX:
+        _exec_approved_commands.clear()
+    _exec_approved_commands.add(key)
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.grant(_ap.SCOPE_ALWAYS, key, _ap.KIND_EXEC_ONCE)
+    except Exception:  # noqa: BLE001 - 持久化失败不阻断内存放行
+        pass
+
+
+def _consume_exec_approval(command: str) -> bool:
+    """消费一次性放行(命中即移除并返回 True;批 41 起走规范化键)。"""
+    key = _canonical_approval_key(command)
+    if key in _exec_approved_commands:
+        _exec_approved_commands.discard(key)
+        return True
+    return False
+
+
+# =====================================================================
+# 第十六批(2026-09-18,对标 Codex execpolicy::blocking_append_allow_prefix_rule):
+# 「前缀放行规则」登记表。用户选择"这类命令以后都允许"时登记前 N 个 token,
+# 后续同前缀命令直接放行,不再逐次弹审批 —— 一次性放行只解决一次,前缀规则
+# 解决一类(git push / pnpm install / pytest 这类高频重复命令)。
+# 与一次性放行同规格:仅服务端代码可写(LLM 无法经工具入参伪造),仅跳过
+# PROMPT 分支,危险命令硬门 / DENY 硬红线 / 黑白名单一律不受影响。
+# =====================================================================
+_EXEC_ALLOWED_PREFIXES_MAX = 256
+_exec_allowed_prefixes: set[tuple[str, ...]] = set()
+
+
+def _command_tokens(command: str) -> list[str]:
+    """命令切词(Windows 用非 posix 模式,保留引号以贴合 cmd 语义)。"""
+    try:
+        return shlex.split(command, posix=os.name != "nt")
+    except ValueError:  # 引号不闭合等
+        return command.split()
+
+
+def _approval_tokens(command: str) -> list[str]:
+    """批 41 接线:审批键空间统一切词(posix=True 剥外层引号)。
+
+    bash -lc 'git status' 与 git status 在键空间同形;切词失败回退
+    _command_tokens(cmd 语义),绝不放松审批。
+    """
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return _command_tokens(command)
+
+
+def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None:
+    """登记前缀放行规则;返回登记的前缀(命令为空时返回 None)。
+
+    tokens=2 是默认值:`git push --force` → ("git", "push"),即"允许所有
+    git push",但不含 `git` 全部子命令(避免过度放行)。
+    """
+    parts = _approval_tokens(command)
+    if not parts:
+        return None
+    # 批 41 接线:登记前同样规范化,保证登记与匹配键空间一致
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        parts = canonicalize_command_for_approval(parts)
+    except Exception:  # noqa: BLE001 - 失败回退原切词
+        pass
+    prefix = tuple(parts[: max(1, tokens)])
+    if len(_exec_allowed_prefixes) >= _EXEC_ALLOWED_PREFIXES_MAX:
+        _exec_allowed_prefixes.clear()  # 容量上限:整体清空而非逐条淘汰(与一次性放行同策略)
+    _exec_allowed_prefixes.add(prefix)
+    # 批 51b:双写持久层(always 档)。重启后经 _matches_exec_prefix 的
+    # 持久层查询自动恢复;写失败静默(内存表已生效,不阻断放行)。
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.grant(_ap.SCOPE_ALWAYS, _ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
+    except Exception:  # noqa: BLE001
+        pass
+    # 批58(接线):exec_policy_amendments 真接线(对标 codex amend.rs
+    # blocking_append_allow_prefix_rule)——on 时把前缀规则同步进 ExecPolicy
+    # 引擎热更新(get_or_create_manager().append_rule:内存替换+落盘 *.rules,
+    # 落盘失败回滚内存并抛错,此处降级为仅内存表生效)与规则文件追加
+    # (append_allow_prefix_rule 直写 rules 文件)。off 时零差异;任何失败
+    # 静默降级,绝不阻断既有放行链路。
+    if os.environ.get("AGENT_EXEC_POLICY_AMENDMENTS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes"
+    ):
+        try:
+            from .exec_policy import PrefixRule as _PR, get_or_create_manager as _gocm
+            from ..core.exec_policy_amendments import (
+                append_allow_prefix_rule as _ea_append,
+            )
+            from .exec_policy import rules_dir_from_env as _rules_dir_env
+
+            _mgr = _gocm()
+            _rule = _PR(pattern=tuple(prefix), decision=RuleDecision.ALLOW, source="amend")
+            # append_rule 是 async(内存替换+异步落盘);approve_exec_prefix 在
+            # 请求上下文中通常已有运行中 loop,直接建后台任务消费;无 loop(同步
+            # 测试/脚本)时退化为 create_new_event_loop 同步跑完。两种路径均
+            # 异常隔离,失败降级仅内存表生效。
+            try:
+                asyncio.get_running_loop()
+                _amend_task = asyncio.get_event_loop().create_task(_mgr.append_rule(_rule))
+                _amend_task.add_done_callback(
+                    lambda t: (
+                        logger.warning("exec_policy 修正案后台追加失败: %s", t.exception())
+                        if not t.cancelled() and t.exception() is not None
+                        else None
+                    )
+                )
+            except RuntimeError:
+                asyncio.run(_mgr.append_rule(_rule))
+            _rd = _rules_dir_env()
+            if _rd:
+                _ea_append(Path(_rd) / "default.rules", list(prefix))
+        except Exception as _amend_exc:  # noqa: BLE001 - 修正案失败降级,不阻断放行
+            logger.warning("exec_policy 前缀修正案追加失败(降级仅内存表): %s", _amend_exc)
+    return prefix
+
+
+def _matches_exec_prefix(command: str) -> bool:
+    """命令是否命中任一已登记的前缀放行规则(不消费,规则长期有效;批 41 起走规范化键)。
+
+    批 51b:内存表未命中时回源持久层(重启恢复;fail-closed——查询异常视为未命中)。
+    """
+    try:
+        from ..core.command_canonicalization import canonicalize_command_for_approval
+
+        parts = canonicalize_command_for_approval(_approval_tokens(command))
+    except Exception:  # noqa: BLE001 - 规范化失败回退原切词,绝不放松审批
+        parts = _command_tokens(command)
+    if not parts:
+        return False
+    for prefix in _exec_allowed_prefixes:
+        if parts[: len(prefix)] == list(prefix):
+            return True
+    # 批 51b:内存未命中 → 查持久层(重启恢复;fail-closed——查询异常视为未命中)。
+    try:
+        from . import approval_persistence as _ap
+
+        persisted = _ap.check(
+            _ap.normalize_exec_key(parts), _ap.KIND_EXEC_PREFIX
+        )
+        if persisted is not None:
+            return True
+        # 前缀语义:持久层键是"前 N 个 token"的归一串;完整键未命中时再试
+        # 前 1/2 token 的前缀键(与内存表 tokens=2 默认语义对齐)。
+        for n in (2, 1):
+            if n <= len(parts):
+                if _ap.check(
+                    _ap.normalize_exec_key(parts[:n]), _ap.KIND_EXEC_PREFIX
+                ) is not None:
+                    return True
+    except Exception:  # noqa: BLE001 - 持久层异常按未命中处理,绝不放松审批
+        pass
+    return False
+
+
+def list_exec_prefix_rules() -> list[list[str]]:
+    """当前生效的前缀放行规则(可观测:设置页/审计用)。"""
+    return [list(p) for p in sorted(_exec_allowed_prefixes)]
+
+
+def revoke_exec_prefix(prefix: list[str]) -> bool:
+    """撤销一条前缀放行规则;返回该规则此前是否存在。
+
+    批 51b:同步撤销持久层对应键(内存前缀 + 归一化键)。
+    """
+    key = tuple(prefix)
+    existed = key in _exec_allowed_prefixes
+    _exec_allowed_prefixes.discard(key)
+    try:
+        from . import approval_persistence as _ap
+
+        _ap.revoke(_ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
+    except Exception:  # noqa: BLE001 - 持久层失败不影响内存撤销
+        pass
+    return existed
+
+
+async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
+    """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
+
+    出于安全考虑,仅允许只读/查询类命令,禁止任何修改/删除/网络写入操作。
+    - command: 命令字符串(如 "git status", "ls -la", "python --version")
+    - cwd: 工作目录(默认当前目录,需 _validate_path_in_workspace 校验)
+    - timeout: 超时秒数(默认 60)
+    - max_timeout: 超时上限(默认 600,timeout 不超过此值)
+    - env: 环境变量 dict(不允许覆盖 PATH/HOME)
+    - sandbox_backend: 沙箱后端(默认 local,可选 docker/ssh/modal/daytona/singularity)
+    - 白名单: git/ls/cat/echo/python/node/npm/pnpm/tsc/ruff/mypy/pytest/find/grep/wc/head/tail 等
+    - 禁止: rm/mv/cp/mkdir/curl/wget/dd/mkfs/>/>>/|/`/$() 等危险操作
+    - 超时 → kill 进程 + 返回 partial_output + errorCode=TIMEOUT
+    """
+    command = arguments.get("command", "").strip()
+    cwd = arguments.get("cwd", ".")
+    sandbox_backend = arguments.get("sandbox_backend", "local")
+    docker_image = arguments.get("docker_image", "python:3.12-slim")
+    ssh_host = arguments.get("ssh_host")
+    ssh_user = arguments.get("ssh_user", "root")
+    user_env = arguments.get("env")
+
+    max_timeout = max(1, int(arguments.get("max_timeout", 600)))
+    timeout = max(1, min(int(arguments.get("timeout", 60)), max_timeout))
+    # 0-5 执行硬超时上限(env RUN_COMMAND_TIMEOUT_S,默认 120s):请求超时不得超过,
+    # 防止调用方通过 timeout/max_timeout 把执行拖到失控时长
+    timeout = min(timeout, _get_run_command_hard_timeout())
+
+    if not command:
+        return {
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": "",
+            "ok": False, "streamed": True, "message": "命令为空",
+        }
+
+    # 0-5 确定性破坏性命令硬门(默认开启,env DANGEROUS_COMMAND_BLOCKED 可关)
+    # 任何后端(local/sandbox)执行前一律拦截,命中即不执行
+    if _is_dangerous_command_blocked():
+        matched = _match_destructive_command(command)
+        if matched:
+            return {
+                "ok": False, "tool": "run_command",
+                "error": "dangerous_command_blocked",
+                "errorCode": "DANGEROUS_COMMAND_BLOCKED",
+                "matched": matched,
+                "command": command,
+                "message": (
+                    f"命令被危险命令硬门拦截:命中破坏性模式 '{matched}'"
+                    f"(安全限制,禁止执行)"
+                ),
+            }
+
+    # exec_policy 策略引擎评估(在硬门之后、cwd 校验之前)
+    # P0-3(2026-09-12):三档模式由 security_config 决定(设置页可热更)——
+    # enforce = DENY 拒绝;PROMPT 返回审批结构(agent_loop_v2 转真实用户审批弹窗,
+    #           批准后经 approve_exec_command 一次性放行重执行);
+    # audit   = PROMPT 仅记录后放行(观察期);DENY 硬红线仍拒绝,不降级;
+    # off     = 跳过评估(危险命令硬门/黑白名单等其他防线不受影响)。
+    _exec_mode = get_security_config().exec_policy_mode
+    # 一次性放行 或 长期前缀放行规则命中 → 跳过 PROMPT 分支
+    # (第十六批:前缀规则不消费,长期有效;仅服务端可登记,LLM 无法伪造)
+    _exec_approved = _consume_exec_approval(command) or _matches_exec_prefix(command)
+    if _exec_mode != "off" and not _exec_approved:
+        _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
+        if _exec_decision.action == RuleDecision.DENY:
+            if _exec_mode == "audit":
+                logger.info(
+                    "[exec_policy][audit] DENY 记录后放行: command=%r, rules=%s",
+                    command[:200],
+                    [r.pattern for r in _exec_decision.matched_rules],
+                )
+            else:
+                return {
+                    "ok": False, "tool": "run_command",
+                    "error": "exec_policy_denied",
+                    "errorCode": "EXEC_POLICY_DENIED",
+                    "command": command,
+                    "matched_rules": [
+                        {"pattern": r.pattern, "reason": r.reason, "source": r.source}
+                        for r in _exec_decision.matched_rules
+                    ],
+                    "risk_notes": _exec_decision.risk_notes,
+                    "message": (
+                        f"命令被策略引擎拒绝:{_exec_decision.matched_rules[0].reason if _exec_decision.matched_rules else '未匹配规则'}"
+                        "(安全策略禁止执行)"
+                    ),
+                }
+        elif _exec_decision.action == RuleDecision.PROMPT:
+            if _exec_mode == "audit":
+                logger.info(
+                    "[exec_policy][audit] PROMPT 记录后放行: command=%r, rules=%s",
+                    command[:200],
+                    [r.pattern for r in _exec_decision.matched_rules],
+                )
+            else:
+                _approval_result: dict[str, Any] = {
+                    "ok": False, "tool": "run_command",
+                    "error": "exec_policy_needs_approval",
+                    "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
+                    "command": command,
+                    "matched_rules": [
+                        {"pattern": r.pattern, "decision": r.decision.value, "reason": r.reason, "source": r.source}
+                        for r in _exec_decision.matched_rules
+                    ],
+                    "risk_notes": _exec_decision.risk_notes,
+                    "approval_request": {
+                        "command": command,
+                        "reason": "; ".join(_exec_decision.risk_notes) if _exec_decision.risk_notes else "命令需要人工审批",
+                    },
+                    "message": "命令需要用户审批后方可执行",
+                }
+                # 批58(w3):权限档案参与审批决策(对标 codex permissions_toml.rs)
+                # on 时解析生效档案,把档位/网络模式/启用根并入回执;解析失败走现状
+                # 默认(降级跳过,绝不改变拒绝语义)。off 时回执逐字节等价。
+                if _mcp_permission_profiles_enabled_from_env():
+                    try:
+                        from app.core.permission_profiles import resolve_permission_profile
+
+                        if (
+                            _MCP_PERMISSION_PROFILES is not None
+                            and _MCP_PERMISSION_PROFILES_ACTIVE
+                        ):
+                            _prof = resolve_permission_profile(
+                                _MCP_PERMISSION_PROFILES_ACTIVE,
+                                _MCP_PERMISSION_PROFILES,
+                            )
+                            _net_mode = (
+                                _prof.network.mode.value
+                                if _prof.network and _prof.network.mode
+                                else None
+                            )
+                            _approval_result["resolved_permission_profile"] = {
+                                "name": _MCP_PERMISSION_PROFILES_ACTIVE,
+                                "network_mode": _net_mode,
+                                "enabled_roots": _prof.enabled_roots(),
+                            }
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("permission_profiles 解析失败(降级跳过): %s", e)
+                return _approval_result
+
+    # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
+    if cwd and cwd != ".":
+        ok_cwd, cwd_info = _validate_path_in_workspace(cwd)
+        if not ok_cwd:
+            return {
+                "tool": "run_command", "command": command,
+                "exit_code": -1, "stdout": "", "stderr": "",
+                "ok": False, "streamed": True,
+                "errorCode": "PATH_NOT_ALLOWED",
+                "message": f"cwd 不在工作区白名单: {cwd_info}",
+            }
+        cwd = cwd_info
+
+    # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端)
+    if sandbox_backend != "local":
+        from .sandbox import sandbox_executor
+        result = await sandbox_executor.execute(
+            command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
+            docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
+        )
+        # 与本地路径一致:沙箱后端输出同样出库脱敏(docker/ssh/modal 等)
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        return {
+            "tool": "run_command", "command": command,
+            "backend": sandbox_backend,
+            "exit_code": result.exit_code, "stdout": _redact_secrets(result.stdout),
+            "stderr": _redact_secrets(result.stderr), "duration_ms": result.duration_ms,
+            "timed_out": result.timed_out, "ok": result.exit_code == 0,
+            "streamed": False,
+            "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
+        }
+
+    # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)—— 单一权威源 command_policy.json
+    _policy = _load_command_policy()
+    _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
+    for pat in _DANGEROUS_PATTERNS:
+        if re.search(pat, command):
+            return {
+                "tool": "run_command", "command": command,
+                "exit_code": -1, "stdout": "", "stderr": "",
+                "ok": False, "streamed": True,
+                "errorCode": "DANGEROUS_COMMAND",
+                "message": f"命令包含禁止的模式: {pat}(安全限制)",
+            }
+
+    # 命令前缀白名单 —— 单一权威源 command_policy.json
+    _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
+    first_token = command.split()[0] if command.split() else ""
+    cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+    if cmd_name not in _ALLOWED_PREFIXES:
+        return {
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": "",
+            "ok": False, "streamed": True,
+            "message": f"命令 '{cmd_name}' 不在白名单中(允许: {', '.join(sorted(_ALLOWED_PREFIXES))})",
+        }
+
+    try:
+        import shlex
+        import sys
+
+        _WIN_BUILTINS = {
+            "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
+            "prompt", "title", "path", "assoc", "ftype",
+        }
+        args = shlex.split(command, posix=sys.platform != "win32")
+        env_for_proc = _build_subprocess_env(user_env) if user_env else None
+
+        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+            proc = await asyncio.create_subprocess_exec(
+                "cmd", "/c", command,
+                cwd=cwd, env=env_for_proc,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                cwd=cwd, env=env_for_proc,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+        # 流式逐行读取 stdout/stderr(并发 drain,防长输出阻塞)
+        # P0-B(2026-09-18):逐行经 terminal.delta 实时透出(4 行/帧节流,
+        # fire-and-forget 不阻塞读取;上下文经 contextvar 由 agent_loop 注入)
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+        on_stdout_line = functools.partial(_spawn_terminal_delta, command, "stdout")
+        on_stderr_line = functools.partial(_spawn_terminal_delta, command, "stderr")
+        drain = asyncio.gather(
+            _drain_stream(proc.stdout, stdout_lines, on_line=on_stdout_line),
+            _drain_stream(proc.stderr, stderr_lines, on_line=on_stderr_line),
+        )
+        try:
+            await asyncio.wait_for(drain, timeout=timeout)
+            await proc.wait()
+            timed_out = False
+        except TimeoutError:
+            timed_out = True
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
+            drain.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await drain
+            try:
+                await proc.wait()
+            except Exception as e:
+                logger.warning("mcp_server proc.wait 失败: %s", e, exc_info=True)
+
+        stdout = "\n".join(stdout_lines)
+        stderr = "\n".join(stderr_lines)
+        max_output = 10000
+        if len(stdout) > max_output:
+            stdout = stdout[:max_output] + f"\n...(已截断,共 {len(stdout)} 字符)"
+        if len(stderr) > max_output:
+            stderr = stderr[:max_output] + f"\n...(已截断,共 {len(stderr)} 字符)"
+        # 出库脱敏(2026-09-18 第十五批,对标 Codex secrets::redact_secrets):
+        # 命令输出是密钥外泄的主要通道(cat .env / env / printenv / 日志抓取),
+        # 截断之后、回传之前统一盖掉已知凭据形态。
+        from app.core.output_cleaning import redact_secrets as _redact_secrets
+
+        stdout = _redact_secrets(stdout)
+        stderr = _redact_secrets(stderr)
+
+        if timed_out:
+            return {
+                "tool": "run_command", "command": command,
+                "exit_code": -1,
+                "stdout": stdout, "stderr": stderr,
+                "partial_output": stdout,
+                "ok": False, "streamed": True,
+                "errorCode": "TIMEOUT",
+                "message": f"命令执行超时({timeout} 秒,已 kill 进程)",
+            }
+
+        exit_code = proc.returncode if proc.returncode is not None else -1
+        return {
+            "tool": "run_command", "command": command,
+            "exit_code": exit_code, "stdout": stdout, "stderr": stderr,
+            "ok": exit_code == 0, "streamed": True,
+            "message": f"命令退出码: {exit_code}",
+        }
+    except FileNotFoundError:
+        return {
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": f"命令未找到: {first_token}",
+            "ok": False, "streamed": True,
+            "message": f"命令未找到: {first_token}",
+        }
+    except asyncio.CancelledError:
+        # P0-B(2026-09-18):外部取消(agent 循环内 abort)时 kill 进程防泄漏,
+        # 再原样传播 CancelledError(交由上层中断链路处理)
+        with contextlib.suppress(ProcessLookupError, OSError):
+            proc.kill()
+        raise
+    except Exception as e:
+        return {
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": str(e),
+            "ok": False, "streamed": True,
+            "message": f"命令执行失败: {e}", "error": str(e),
+        }
+
+
+async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
+    """web_search: 网页搜索(复用 DuckDuckGo Lite HTML 搜索)。
+
+    与 search_web 功能等价,但接口更简洁(仅 query 参数,默认 5 条结果)。
+    无网络或解析失败时返回空结果 + 错误信息。
+    """
+    query = arguments.get("query", "")
+    max_results = int(arguments.get("max_results", 5))
+
+    if not query:
+        return {
+            "tool": "web_search",
+            "ok": True,
+            "query": query,
+            "results": [],
+            "message": "搜索关键词为空",
+        }
+
+    # 复用 search_web 的实现
+    sub_result = await _tool_search_web({
+        "query": query,
+        "max_results": max_results,
+    })
+
+    # 转换字段名(tool → web_search,保留 results)
+    return {
+        "tool": "web_search",
+        "ok": True,
+        "query": query,
+        "max_results": max_results,
+        "results": sub_result.get("results", []),
+        "total": sub_result.get("total", 0),
+        "message": sub_result.get("message", ""),
+    }
+
+
+async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
+    """search_web: DuckDuckGo HTML 搜索,返回解析后的结果列表。
+
+    使用 DuckDuckGo Lite HTML 版本(无需 API key),解析结果。
+    无网络或解析失败时返回空结果 + 错误信息。
+    """
+    query = arguments.get("query", "")
+    max_results = int(arguments.get("max_results", 5))
+
+    if not query:
+        return {
+            "tool": "search_web",
+            "ok": True,
+            "query": query,
+            "max_results": max_results,
+            "results": [],
+            "message": "搜索关键词为空",
+        }
+
+    try:
+        # 动态导入 httpx(未安装时降级)
+        try:
+            import httpx
+        except ImportError:
+            return {
+                "tool": "search_web",
+                "ok": True,
+                "query": query,
+                "max_results": max_results,
+                "results": [],
+                "message": "[stub] httpx 未安装,无法执行真实搜索",
+            }
+
+        # DuckDuckGo Lite HTML 搜索
+        url = f"https://lite.duckduckgo.com/lite/?q={quote_plus(query)}&kl=wt-wt"
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+        }
+
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            html = resp.text
+
+        # 解析 DuckDuckGo Lite HTML 结果
+        results = _parse_ddg_lite_html(html, max_results)
+
+        return {
+            "tool": "search_web",
+            "ok": True,
+            "query": query,
+            "max_results": max_results,
+            "results": results,
+            "total": len(results),
+            "message": f"找到 {len(results)} 条结果" if results else "未找到结果",
+        }
+
+    except Exception as e:
+        return {
+            "tool": "search_web",
+            "ok": False,
+            "query": query,
+            "max_results": max_results,
+            "results": [],
+            "message": f"搜索失败: {e}",
+            "error": str(e),
+        }
+
+
+def _parse_ddg_lite_html(html: str, max_results: int) -> list[dict[str, str]]:
+    """解析 DuckDuckGo Lite HTML 结果页。
+
+    DuckDuckGo Lite 的结果在 <a class="result-link" href="..."> 标题 </a> 中,
+    摘要在 <td class="result-snippet"> 中。
+    """
+    results: list[dict[str, str]] = []
+
+    # 匹配结果链接(多种可能的选择器,容错)
+    # DuckDuckGo Lite: <a rel="nofollow" class="result-link" href="URL">TITLE</a>
+    link_pattern = re.compile(
+        r'<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>(.*?)</a>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    # 摘要: <td class="result-snippet">...</td>
+    snippet_pattern = re.compile(
+        r'<td[^>]*class="result-snippet"[^>]*>(.*?)</td>',
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    links = link_pattern.findall(html)
+    snippets = snippet_pattern.findall(html)
+
+    for i, (url, title_html) in enumerate(links[:max_results]):
+        # 清理 HTML 标签
+        title = re.sub(r"<[^>]+>", "", title_html).strip()
+        snippet = ""
+        if i < len(snippets):
+            snippet = re.sub(r"<[^>]+>", "", snippets[i]).strip()
+
+        # DuckDuckGo 可能用 redirect URL,提取真实 URL
+        # 格式: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
+        if "uddg=" in url:
+            parsed = urlparse(url)
+            qs = parse_qs(parsed.query)
+            if "uddg" in qs:
+                url = qs["uddg"][0]
+        elif url.startswith("//"):
+            url = "https:" + url
+
+        if title and url:
+            results.append(
+                {
+                    "title": title,
+                    "url": url,
+                    "snippet": snippet[:300] if snippet else "",
+                }
+            )
+
+    return results
+
+
+async def _tool_analyze_code(arguments: dict[str, Any]) -> dict[str, Any]:
+    """analyze_code: 代码分析(基础静态分析)。"""
+    code = arguments.get("code", "")
+    language = arguments.get("language", "text")
+    lines = code.splitlines()
+    return {
+        "tool": "analyze_code",
+        "ok": True,
+        "language": language,
+        "metrics": {
+            "lines": len(lines),
+            "chars": len(code),
+            "blank_lines": sum(1 for l in lines if not l.strip()),
+            "comment_lines": sum(
+                1
+                for l in lines
+                if l.strip().startswith(("#", "//", "--", "/*", "*"))
+            ),
+        },
+        "message": f"基础静态分析完成(language={language})",
+    }
+
+
+async def _tool_generate_test(arguments: dict[str, Any]) -> dict[str, Any]:
+    """generate_test: 生成测试模板。"""
+    code = arguments.get("code", "")
+    language = arguments.get("language", "python")
+    framework = arguments.get("framework", "pytest")
+    template = f"""# 自动生成的测试模板({framework})
+# 源代码语言: {language}
+
+def test_placeholder():
+    \"\"\"测试模板占位:需根据源代码补充具体用例。\"\"\"
+    # 源代码:
+    # {chr(10).join('# ' + l for l in code.splitlines()[:20])}
+    pass
+"""
+    return {
+        "tool": "generate_test",
+        "ok": True,
+        "language": language,
+        "framework": framework,
+        "test_code": template,
+        "message": "测试模板已生成(需结合 LLM 完善用例)",
+    }
+
+
+async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
+    """file_search: 搜索文件内容(真实文件系统搜索)。
+
+    支持:
+    - pattern: 文件名 glob 匹配(默认 *)
+    - query: 文件内容关键词搜索(为空则仅按文件名匹配)
+    - fuzzy: true 时 query 作为文件名模糊子序列模式,按 fzf 风格相关度
+      排序返回(对标 Codex file-search/nucleo;忽略内容搜索)
+    - path: 搜索根目录(默认当前目录)
+    - max_results: 最大返回数(默认 50)
+    - 忽略常见忽略目录(node_modules/.git/__pycache__/.venv/venv/dist/build)
+    - 忽略二进制文件(按扩展名判断)
+    """
+    query = arguments.get("query", "")
+    path = arguments.get("path", ".")
+    pattern = arguments.get("pattern", "*")
+    max_results = int(arguments.get("max_results", 50))
+    fuzzy = bool(arguments.get("fuzzy", False))
+
+    # 忽略目录(常见依赖/构建/缓存)
+    _IGNORED_DIRS = {
+        "node_modules", ".git", "__pycache__", ".venv", "venv",
+        "dist", "build", ".next", ".turbo", ".cache", "coverage",
+    }
+    # 忽略二进制/大文件扩展名
+    _IGNORED_EXTS = {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".webp",
+        ".pdf", ".zip", ".tar", ".gz", ".rar", ".7z",
+        ".exe", ".dll", ".so", ".dylib", ".class", ".jar",
+        ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flv",
+        ".woff", ".woff2", ".ttf", ".eot", ".otf",
+    }
+
+    matches: list[dict[str, Any]] = []
+    try:
+        import fnmatch
+        import os
+        from pathlib import Path
+
+        root = Path(path).resolve()
+        if not root.exists():
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "message": f"路径不存在: {path}",
+                "ok": False,
+            }
+        if not root.is_dir():
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "message": f"路径不是目录: {path}",
+                "ok": False,
+            }
+
+        # 模糊文件名搜索(2026-09-18 第十一批,对标 Codex file-search/nucleo):
+        # query 作为子序列模式对相对路径评分排序(fzf 语义:连续命中/词首加分)
+        if fuzzy and query:
+            from app.core.output_cleaning import fuzzy_score
+
+            scored: list[tuple[int, str, str]] = []
+            for dirpath, dirnames, filenames in os.walk(root):
+                dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+                for fname in filenames:
+                    ext = os.path.splitext(fname)[1].lower()
+                    if ext in _IGNORED_EXTS:
+                        continue
+                    rel_path = os.path.relpath(
+                        os.path.join(dirpath, fname), root
+                    ).replace("\\", "/")
+                    score = fuzzy_score(query, rel_path)
+                    if score is None:
+                        name_score = fuzzy_score(query, fname)
+                        if name_score is not None:
+                            score = name_score - 20  # 仅文件名命中降权
+                    if score is not None:
+                        scored.append((score, rel_path, fname))
+            scored.sort(key=lambda x: (-x[0], x[1]))
+            matches = [
+                {"path": rp, "file": fn, "score": sc}
+                for sc, rp, fn in scored[:max_results]
+            ]
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "fuzzy": True,
+                "matches": matches,
+                "total": len(matches),
+                "candidates": len(scored),
+                "truncated": len(scored) > max_results,
+                "message": f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}"
+                "(按相关度排序)",
+                "ok": True,
+            }
+
+        query_lower = query.lower() if query else None
+        count = 0
+        for dirpath, dirnames, filenames in os.walk(root):
+            # 原地修改 dirnames 跳过忽略目录
+            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+            for fname in filenames:
+                if count >= max_results:
+                    break
+                if not fnmatch.fnmatch(fname, pattern):
+                    continue
+                ext = os.path.splitext(fname)[1].lower()
+                if ext in _IGNORED_EXTS:
+                    continue
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    rel_path = os.path.relpath(fpath, root)
+                    # 若有 query,需读取文件内容匹配
+                    if query_lower:
+                        try:
+                            with open(fpath, encoding="utf-8", errors="ignore") as f:
+                                content = f.read()
+                            if query_lower not in content.lower():
+                                continue
+                            # 提取匹配行上下文
+                            lines = content.splitlines()
+                            line_numbers = [
+                                i + 1 for i, ln in enumerate(lines) if query_lower in ln.lower()
+                            ]
+                            preview = ""
+                            if line_numbers:
+                                ln = line_numbers[0]
+                                start = max(0, ln - 2)
+                                end = min(len(lines), ln + 1)
+                                preview = "\n".join(
+                                    f"{start + j + 1}: {lines[start + j]}" for j in range(end - start)
+                                )
+                            matches.append({
+                                "path": rel_path,
+                                "file": fname,
+                                "line_numbers": line_numbers[:10],
+                                "preview": preview[:500],
+                            })
+                        except (OSError, UnicodeDecodeError):
+                            continue
+                    else:
+                        # 无 query,仅文件名匹配
+                        try:
+                            size = os.path.getsize(fpath)
+                        except OSError:
+                            size = 0
+                        matches.append({
+                            "path": rel_path,
+                            "file": fname,
+                            "size": size,
+                        })
+                    count += 1
+                except OSError:
+                    continue
+            if count >= max_results:
+                break
+
+        message = (
+            f"在 {path} 下找到 {len(matches)} 个匹配文件"
+            + ("(已截断)" if count >= max_results else "")
+        )
+        if not matches:
+            # 零结果给可操作指引(第十四批:体验优化,避免模型盲目重试)
+            message += (
+                ";建议:①放宽 pattern(如 '*.py' 或 '*');"
+                "②改用 fuzzy=true 做文件名模糊搜索;"
+                "③确认 path 是否为期望根目录"
+            )
+        return {
+            "tool": "file_search",
+            "query": query,
+            "path": path,
+            "pattern": pattern,
+            "matches": matches,
+            "total": len(matches),
+            "truncated": count >= max_results,
+            "message": message,
+            "ok": True,
+        }
+    except Exception as e:
+        return {
+            "tool": "file_search",
+            "query": query,
+            "path": path,
+            "pattern": pattern,
+            "matches": [],
+            "message": f"搜索失败: {e}",
+            "ok": False,
+            "error": str(e),
+        }
+
+
+async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
+    """git_operations: Git 操作(真实 git 命令执行)。
+
+    支持的 action:
+      只读(所有用户): status/diff/log/branch(show)/show/stash(list)/list
+      写操作(需 admin,role >= 1): branch_create/branch_switch/branch_delete/merge/
+                                  rebase/stash_push/stash_pop/tag_create/tag_list
+    """
+    action = arguments.get("action", "status")
+    repo = arguments.get("repo", ".")
+
+    # 只读操作白名单(所有用户可用)
+    _READONLY_ACTIONS = {
+        "status": ["status", "--short", "--branch"],
+        "diff": ["diff", "--stat"],
+        "log": ["log", "--oneline", "-20"],
+        "branch": ["branch", "-a"],
+        "show": ["show", "--stat"],  # show 需要 ref 参数
+        "stash": ["stash", "list"],
+        "list": ["ls-files"],
+    }
+
+    # 写操作集合(admin only,role >= 1)Wave 8 新增
+    _WRITE_ACTIONS = {
+        "branch_create", "branch_switch", "branch_delete", "merge",
+        "rebase", "stash_push", "stash_pop", "tag_create", "tag_list",
+    }
+
+    if action not in _READONLY_ACTIONS and action not in _WRITE_ACTIONS:
+        return {
+            "tool": "git_operations",
+            "action": action,
+            "repo": repo,
+            "output": "",
+            "message": (
+                f"不允许的 git 操作: {action}。允许: "
+                f"只读={', '.join(sorted(_READONLY_ACTIONS))}; "
+                f"写操作(admin)={', '.join(sorted(_WRITE_ACTIONS))}"
+            ),
+            "ok": False,
+        }
+
+    # 写操作 admin 权限校验(defense-in-depth,call_tool 层已校验 _ADMIN_ONLY_TOOLS,
+    # 此处再校验 __user_role 以防绕过)
+    if action in _WRITE_ACTIONS:
+        user_role = arguments.get("__user_role", 0)
+        if user_role < 1:
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"写操作 '{action}' 需要 admin 权限(role >= 1),当前 role={user_role}",
+                "ok": False,
+                "error": "PERMISSION_DENIED",
+            }
+
+    try:
+        import os
+        import subprocess
+
+        repo_path = os.path.abspath(repo)
+        if not os.path.isdir(repo_path):
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"仓库路径不存在或不是目录: {repo}",
+                "ok": False,
+            }
+
+        # 构造 git 命令参数
+        git_args: list[str] | None
+        if action in _READONLY_ACTIONS:
+            git_args = list(_READONLY_ACTIONS[action])
+            # show 命令需要 ref 参数
+            if action == "show":
+                ref = arguments.get("ref", "HEAD")
+                git_args.append(ref)
+        else:
+            # 写操作:根据 action 构造命令参数
+            git_args = _build_write_action_args(action, arguments)
+            if git_args is None:
+                return {
+                    "tool": "git_operations",
+                    "action": action,
+                    "repo": repo,
+                    "output": "",
+                    "message": f"写操作 '{action}' 参数无效或缺失必填参数",
+                    "ok": False,
+                }
+
+        result = subprocess.run(
+            ["git"] + (git_args or []),
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            check=False,
+        )
+
+        output = result.stdout
+        if result.stderr:
+            output = (output + "\n" + result.stderr).strip() if output else result.stderr.strip()
+
+        return {
+            "tool": "git_operations",
+            "action": action,
+            "repo": repo,
+            "output": output,
+            "exit_code": result.returncode,
+            "ok": result.returncode == 0,
+            "message": f"git {action} 完成(exit_code={result.returncode})",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "tool": "git_operations",
+            "action": action,
+            "repo": repo,
+            "output": "",
+            "message": "git 命令执行超时(30s)",
+            "ok": False,
+        }
+    except FileNotFoundError:
+        return {
+            "tool": "git_operations",
+            "action": action,
+            "repo": repo,
+            "output": "",
+            "message": "git 命令未找到(需安装 git 并加入 PATH)",
+            "ok": False,
+        }
+    except Exception as e:
+        return {
+            "tool": "git_operations",
+            "action": action,
+            "repo": repo,
+            "output": "",
+            "message": f"git 操作失败: {e}",
+            "ok": False,
+            "error": str(e),
+        }
+
+
+def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str] | None:
+    """构造写操作的 git 命令参数(Wave 8 新增)。
+
+    Returns:
+        git 命令参数列表,或 None(参数无效/缺失必填)。
+    """
+    if action == "branch_create":
+        name = arguments.get("name")
+        if not name:
+            return None
+        args = ["branch", str(name)]
+        from_ref = arguments.get("from")
+        if from_ref:
+            args.append(str(from_ref))
+        return args
+
+    if action == "branch_switch":
+        name = arguments.get("name")
+        if not name:
+            return None
+        create = arguments.get("create", False)
+        args = ["checkout"]
+        if create:
+            args.append("-b")
+        args.append(str(name))
+        return args
+
+    if action == "branch_delete":
+        name = arguments.get("name")
+        if not name:
+            return None
+        force = arguments.get("force", False)
+        return ["branch", "-D" if force else "-d", str(name)]
+
+    if action == "merge":
+        branch = arguments.get("branch")
+        if not branch:
+            return None
+        args = ["merge"]
+        if arguments.get("no_ff"):
+            args.append("--no-ff")
+        if arguments.get("squash"):
+            args.append("--squash")
+        message = arguments.get("message")
+        if message:
+            args.extend(["-m", str(message)])
+        args.append(str(branch))
+        return args
+
+    if action == "rebase":
+        upstream = arguments.get("upstream")
+        if not upstream:
+            return None
+        args = ["rebase", str(upstream)]
+        branch = arguments.get("branch")
+        if branch:
+            args.append(str(branch))
+        return args
+
+    if action == "stash_push":
+        args = ["stash", "push"]
+        message = arguments.get("message")
+        if message:
+            args.extend(["-m", str(message)])
+        if arguments.get("include_untracked"):
+            args.append("-u")
+        return args
+
+    if action == "stash_pop":
+        index = arguments.get("index", 0)
+        apply = arguments.get("apply", False)
+        return ["stash", "apply" if apply else "pop", f"stash@{{{int(index)}}}"]
+
+    if action == "tag_create":
+        name = arguments.get("name")
+        if not name:
+            return None
+        args = ["tag"]
+        if arguments.get("annotated"):
+            args.extend(["-a", str(name)])
+            message = arguments.get("message")
+            args.extend(["-m", str(message) if message else f"Tag {name}"])
+        else:
+            args.append(str(name))
+        return args
+
+    if action == "tag_list":
+        args = ["tag", "-l"]
+        pattern = arguments.get("pattern")
+        if pattern:
+            args.append(str(pattern))
+        return args
+
+    return None
+
+
+async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
+    """db_query: 数据库只读查询(真实 postgres 查询,安全加固)。
+
+    安全策略:
+    - 仅允许 SELECT / WITH 查询(只读),禁止 INSERT/UPDATE/DELETE/DROP/ALTER 等
+    - SQL 语句经正则校验,必须以 SELECT 或 WITH 开头(忽略前导空白/注释)
+    - 参数化查询:arguments.params 透传给 asyncpg.fetch($1,$2... 占位符)
+    - 查询超时 10s
+    - 结果行数限制 max_rows(默认 100,上限 1000)
+    - database_url 未配置时返回 ok=False
+    - 任何异常捕获,不泄露完整 SQL 错误(仅返回简短信息)
+    """
+    sql = arguments.get("sql", "").strip()
+    params = arguments.get("params", [])
+    max_rows = min(int(arguments.get("max_rows", 100)), 1000)
+
+    # 安全校验:仅允许 SELECT / WITH 开头
+    import re
+    # 去除前导 SQL 注释(-- ... 和 /* ... */)和空白
+    _SQL_LEADING_COMMENT_RE = re.compile(
+        r"^\s*(?:--[^\n]*\n|/\*.*?\*/\s*)*",
+        re.DOTALL,
+    )
+    stripped = _SQL_LEADING_COMMENT_RE.sub("", sql).lstrip()
+    sql_upper = stripped.upper()
+    if not sql_upper.startswith("SELECT") and not sql_upper.startswith("WITH"):
+        return {
+            "tool": "db_query",
+            "sql": sql,
+            "rows": [],
+            "ok": False,
+            "message": "仅允许 SELECT / WITH 查询(只读),禁止写操作/DDL",
+        }
+
+    # 禁止危险关键词(在 SQL 任意位置,忽略大小写)
+    _DANGEROUS_KEYWORDS = [
+        "INSERT ", "UPDATE ", "DELETE ", "DROP ", "ALTER ", "CREATE ",
+        "TRUNCATE ", "GRANT ", "REVOKE ", "EXEC ", "EXECUTE ", "MERGE ",
+        "VACUUM ", "REINDEX ", "CLUSTER ",
+    ]
+    sql_check = " " + sql_upper + " "
+    for kw in _DANGEROUS_KEYWORDS:
+        if kw in sql_check:
+            return {
+                "tool": "db_query",
+                "sql": sql,
+                "rows": [],
+                "ok": False,
+                "message": f"SQL 含禁止关键词: {kw.strip()}",
+            }
+
+    # 检查 database_url 配置
+    from app.core.config import settings
+    if not settings.database_url:
+        return {
+            "tool": "db_query",
+            "sql": sql,
+            "rows": [],
+            "ok": False,
+            "message": "DATABASE_URL 未配置,无法执行数据库查询",
+        }
+
+    # 执行查询
+    try:
+        import asyncio
+
+        import asyncpg
+
+        # 强制只读:在事务外用 READ ONLY 模式(若 postgres 支持)
+        # asyncpg 不直接支持事务只读模式,这里靠 SQL 校验 + SELECT 限制保证只读
+        conn = await asyncio.wait_for(
+            asyncpg.connect(settings.database_url),
+            timeout=5,
+        )
+        try:
+            # 添加 LIMIT(若 SQL 未含 LIMIT)
+            if "LIMIT" not in sql_upper:
+                sql_with_limit = f"{sql.rstrip(';')} LIMIT {max_rows}"
+            else:
+                sql_with_limit = sql
+
+            rows = await asyncio.wait_for(
+                conn.fetch(sql_with_limit, *params),
+                timeout=10,
+            )
+            # 转换为可序列化 dict 列表
+            result_rows = [dict(r) for r in rows]
+            # 将非 JSON 类型转为字符串
+            for r in result_rows:
+                for k, v in r.items():
+                    if not isinstance(v, (str, int, float, bool, type(None))):
+                        r[k] = str(v)
+            return {
+                "tool": "db_query",
+                "sql": sql,
+                "rows": result_rows,
+                "row_count": len(result_rows),
+                "truncated": len(result_rows) >= max_rows,
+                "ok": True,
+                "message": f"查询成功,返回 {len(result_rows)} 行",
+            }
+        finally:
+            await conn.close()
+    except TimeoutError:
+        return {
+            "tool": "db_query",
+            "sql": sql,
+            "rows": [],
+            "ok": False,
+            "message": "查询超时(连接 5s / 查询 10s)",
+        }
+    except Exception as e:
+        # 仅返回错误类型,不泄露完整 SQL 错误
+        err_type = type(e).__name__
+        return {
+            "tool": "db_query",
+            "sql": sql,
+            "rows": [],
+            "ok": False,
+            "message": f"查询失败: {err_type}",
+            "error": str(e)[:200],  # 截断错误信息
+        }
+
+
+# ---------------------------------------------------------------------------
+# AI 自动控制工具(22 个:12 browser + 10 computer,2026-07-22 立)
+# 转发到 api 层 /api/agent-control/execute,由 extension/desktop 端执行
+# ---------------------------------------------------------------------------
+
+# api 层 agent-control 端点(转发到 extension/desktop 端执行)
+# 2026-07-24 修复:原硬编码 http://127.0.0.1:8801(端口 8801 是 web,agent-control 路由在 api 8802)
+# 改为从 settings.api_service_url 动态构建,与 .env API_SERVICE_URL 配置一致
+def _get_agent_control_api_url() -> str:
+    """动态构建 agent-control API URL(确保 settings 已加载 .env)。"""
+    from ..core.config import settings
+    return f"{settings.api_service_url}/api/agent-control/execute"
+
+
+async def _tool_agent_control(
+    category: str, action: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    """agent_control: AI 自动控制浏览器/电脑(转发到 extension/desktop 端执行)。
+
+    category='browser'  → extension 端执行 DOM 操作 + 截图
+    category='computer' → desktop 端执行 Tauri IPC(截图/鼠标/键盘)
+    """
+    import uuid
+
+    import httpx
+
+    # 从 arguments 提取参数(去掉 MCP tool 的元数据字段)
+    timeout_ms = int(arguments.pop("timeout", 30000))
+    params = dict(arguments)
+
+    request = {
+        "requestId": f"mcp-{uuid.uuid4().hex[:12]}",
+        "category": category,
+        "action": action,
+        "params": params,
+        "timeout": timeout_ms,
+    }
+
+    tool_name = f"{category}_{action}"
+    # 内部服务密钥从 env 读取(2026-07-22 修复:原硬编码 "internal-service")
+    # api 层用 secrets.compare_digest 校验,密钥未配置时拒绝调用(fail-closed)
+    if not _get_agent_control_secret():
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": "AGENT_CONTROL_INTERNAL_SECRET 未配置,拒绝 agent_control 调用(fail-closed)",
+            "errorCode": "MISSING_SECRET",
+        }
+    try:
+        async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 10) as client:
+            response = await client.post(
+                _get_agent_control_api_url(),
+                json=request,
+                headers={"Authorization": f"Bearer {_get_agent_control_secret()}"},
+            )
+            response.raise_for_status()
+            payload = response.json()
+            # api 层返回 ApiResponse<AgentActionResponse> = { code, message, data }
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            return {
+                "tool": tool_name,
+                "ok": bool(data.get("success", False)),
+                "action": action,
+                "category": category,
+                "result": data,
+            }
+    except httpx.TimeoutException:
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": f"控制调用超时({timeout_ms}ms)",
+            "errorCode": "TIMEOUT",
+        }
+    except Exception as e:
+        err_type = type(e).__name__
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": str(e)[:200],
+            "errorCode": "EXECUTION_FAILED",
+            "message": f"控制调用失败: {err_type}",
+        }
+
+
+def _make_agent_control_handler(category: str, action: str) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
+    """生成 agent control handler 闭包,绑定 category + action。"""
+
+    async def handler(arguments: dict[str, Any]) -> dict[str, Any]:
+        return await _tool_agent_control(category, action, arguments)
+
+    return handler
+
+
+# ---------------------------------------------------------------------------
+# 自动化任务配置工具(2026-07-22 新增)
+# 调用 api 层 /api/self-media/automation/tasks/:taskId/config
+# ---------------------------------------------------------------------------
+
+# 2026-07-24 修复:原硬编码 8801(web),self-media/automation 路由在 api 8802
+def _get_automation_api_base() -> str:
+    """动态构建 self-media automation API base URL(确保 settings 已加载 .env)。"""
+    from ..core.config import settings
+    return f"{settings.api_service_url}/api/self-media/automation/tasks"
+
+
+# ---------------------------------------------------------------------------
+# 截图工具(2026-07-22 新增,WorkPanel iframe 降级)
+# 直接调本服务 Playwright headless 截图,不走 agent_control 转发
+# ---------------------------------------------------------------------------
+
+
+async def _tool_screenshot_url(arguments: dict[str, Any]) -> dict[str, Any]:
+    """对指定 URL 截图(Playwright headless Chromium)。
+
+    用于 WorkPanel iframe 降级:当目标站点禁止 iframe 嵌入(X-Frame-Options /
+    CSP frame-ancestors)时,后端截图返回 base64 给前端展示。
+    """
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "screenshot_url", "ok": False, "error": "缺少 url 参数"}
+
+    width = int(arguments.get("width", 1280))
+    height = int(arguments.get("height", 720))
+    full_page = bool(arguments.get("full_page", False))
+    wait_until = str(arguments.get("wait_until", "load"))
+    timeout = int(arguments.get("timeout", 15000))
+
+    try:
+        from .screenshot_service import take_screenshot
+
+        result = await take_screenshot(
+            url,
+            width=width,
+            height=height,
+            full_page=full_page,
+            wait_until=wait_until,
+            timeout=timeout,
+        )
+        return {
+            "tool": "screenshot_url",
+            "ok": True,
+            "url": result["url"],
+            "title": result["title"],
+            "can_embed": result["can_embed"],
+            "screenshot_length": len(result["screenshot"]),
+            "captured_at": result["captured_at"],
+            # 注意:不直接返回 base64(可能很大),客户端调 HTTP 端点获取
+        }
+    except Exception as e:
+        err_type = type(e).__name__
+        return {
+            "tool": "screenshot_url",
+            "ok": False,
+            "error": str(e)[:200],
+            "errorCode": "SCREENSHOT_FAILED",
+            "message": f"截图失败: {err_type}",
+        }
+
+
+# ===== D11 浏览器自检截图(2026-09)=====
+async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[str, Any]:
+    """对 URL 截图自检,返回 base64 PNG + 视口尺寸 + console 错误(playwright headless)。
+
+    复用 app.tools.browser_selfcheck.capture_screenshot(全链路异常已收敛为 {ok:False})。
+    """
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "browser_selfcheck_screenshot", "ok": False, "error": "缺少 url 参数"}
+
+    viewport = arguments.get("viewport")
+    if viewport is not None and not isinstance(viewport, dict):
+        viewport = None
+    full_page = bool(arguments.get("full_page", False))
+    try:
+        wait_ms = int(arguments.get("wait_ms", 1500))
+    except (TypeError, ValueError):
+        wait_ms = 1500
+
+    try:
+        from ..tools.browser_selfcheck import capture_screenshot
+
+        result = await capture_screenshot(url, viewport=viewport, full_page=full_page, wait_ms=wait_ms)
+    except Exception as e:  # noqa: BLE001 - 双重保险,绝不上抛 agent 循环
+        return {
+            "tool": "browser_selfcheck_screenshot",
+            "ok": False,
+            "url": url,
+            "error": f"{type(e).__name__}: {str(e)[:200]}",
+            "errorCode": "TOOL_FAILED",
+        }
+
+    return {
+        "tool": "browser_selfcheck_screenshot",
+        "ok": result.get("ok", False),
+        "url": result.get("finalUrl", url),
+        "title": result.get("title", ""),
+        "finalUrl": result.get("finalUrl", url),
+        "width": result.get("width", 0),
+        "height": result.get("height", 0),
+        "consoleErrors": result.get("consoleErrors", []),
+        "imageBase64": result.get("imageBase64"),
+        "error": result.get("error"),
+        "errorCode": result.get("errorCode"),
+    }
+
+
+async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
+    """截图 + 视觉 LLM 逐项判定检查点 pass/fail(复用 browser_selfcheck.selfcheck_report)。"""
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "browser_selfcheck", "ok": False, "error": "缺少 url 参数"}
+
+    checks = arguments.get("checks") or []
+    if not isinstance(checks, list):
+        checks = [str(checks)]
+    checks = [str(c) for c in checks if str(c).strip()]
+
+    try:
+        from ..tools.browser_selfcheck import selfcheck_report
+
+        result = await selfcheck_report(url, checks)
+    except Exception as e:  # noqa: BLE001 - 双重保险,绝不上抛 agent 循环
+        return {
+            "tool": "browser_selfcheck",
+            "ok": False,
+            "url": url,
+            "checks": [],
+            "error": f"{type(e).__name__}: {str(e)[:200]}",
+            "errorCode": "TOOL_FAILED",
+        }
+
+    return {
+        "tool": "browser_selfcheck",
+        "ok": result.get("ok", False),
+        "url": result.get("url", url),
+        "title": result.get("title", ""),
+        "finalUrl": result.get("finalUrl", url),
+        "consoleErrors": result.get("consoleErrors", []),
+        "screenshot_length": result.get("screenshot_length", 0),
+        "visionChecked": result.get("visionChecked", False),
+        "visionModel": result.get("visionModel", ""),
+        "checks": result.get("checks", []),
+        "visionError": result.get("visionError"),
+        "note": result.get("note"),
+        "error": result.get("error"),
+        "errorCode": result.get("errorCode"),
+    }
+
+
+# 自动化任务配置缓存(2026-07-24 立,configure_automation_task 配置记录 + 执行结果)
+# key=config_id(uuid hex),value={task_id, action, execute, arguments, config_response}
+_AUTOMATION_CONFIGS: dict[str, dict[str, Any]] = {}
+
+
+async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """配置自媒体自动化定时任务并可选立即执行(自研定时任务编排)。
+
+    1. 配置阶段:转发到 api 层 config 端点(koubo_daily/wechat_daily),缓存到 _AUTOMATION_CONFIGS。
+    2. 执行阶段(execute=True,默认):按 action 真实执行一次:
+       - schedule → 调用 _tool_schedule_task 真实调度
+       - dispatch_subagent → 调用 _tool_dispatch_subagent 派发子智能体
+       - webhook → httpx POST 到 arguments.webhook_url
+    """
+    import uuid
+
+    import httpx
+
+    task_id = arguments.get("task_id", "wechat_daily")
+    execute = bool(arguments.get("execute", True))
+    action = arguments.get("action", "")
+
+    # ===== 配置阶段(保留原有 koubo_daily/wechat_daily config 路径)=====
+    config_ok = False
+    config_resp: dict[str, Any] = {}
+    if task_id in ("koubo_daily", "wechat_daily"):
+        hour = int(arguments.get("hour", 9))
+        minute = int(arguments.get("minute", 0))
+        dry_run = bool(arguments.get("dry_run", True))
+        enabled = bool(arguments.get("enabled", True))
+        title_template = arguments.get("title_template")
+        config_body: dict[str, Any] = {
+            "hour": hour, "minute": minute,
+            "dry_run": dry_run, "enabled": enabled,
+        }
+        if title_template:
+            config_body["title_template"] = str(title_template)
+        url = f"{_get_automation_api_base()}/{task_id}/config"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, json=config_body)
+                if resp.status_code < 400:
+                    data = resp.json()
+                    config_resp = data.get("data", data) if isinstance(data, dict) else data
+                    config_ok = True
+                else:
+                    config_resp = {"error": f"api 返回 {resp.status_code}: {resp.text[:200]}"}
+        except Exception as e:
+            config_resp = {"error": f"配置失败: {type(e).__name__}: {str(e)[:200]}"}
+    # 非 koubo_daily/wechat_daily:跳过 api config(仅作为缓存,供 schedule/dispatch/webhook 执行)
+
+    config_id = uuid.uuid4().hex
+    _AUTOMATION_CONFIGS[config_id] = {
+        "task_id": task_id, "action": action, "execute": execute,
+        "arguments": arguments, "config_response": config_resp,
+    }
+
+    # ===== 执行阶段 =====
+    executed = False
+    execution_result: dict[str, Any] = {}
+    if execute and action:
+        try:
+            if action == "schedule":
+                execution_result = await _tool_schedule_task(arguments)
+                executed = bool(execution_result.get("ok"))
+            elif action == "dispatch_subagent":
+                execution_result = await _tool_dispatch_subagent(arguments)
+                executed = bool(execution_result.get("ok"))
+            elif action == "webhook":
+                webhook_url = arguments.get("webhook_url", "")
+                if not webhook_url:
+                    execution_result = {
+                        "ok": False, "errorCode": "MISSING_PARAMS",
+                        "error": "action=webhook 时 webhook_url 必填",
+                    }
+                else:
+                    # 批 52b:webhook 出站走网络审批门(fail-closed;SSRF 硬防线
+                    # 由内网地址不可达兜底,此处补审批语义层)
+                    # 批58(十六):拒绝分支带 codex 原因码 + 可读文案。
+                    _net_ok = True
+                    _net_denial: str | None = None
+                    try:
+                        from .network_approval import evaluate_network_access_detailed
+
+                        _net_verdict, _net_denial = evaluate_network_access_detailed(
+                            webhook_url, reason="tool:webhook"
+                        )
+                        _net_ok = _net_verdict != "deny"
+                    except Exception:  # noqa: BLE001 - 门故障不改变现有行为
+                        _net_ok = True
+                    if not _net_ok:
+                        execution_result = {
+                            "ok": False, "errorCode": "NETWORK_APPROVAL_DENIED",
+                            "error": "webhook 目标未获网络审批授权",
+                            "detail": _network_denial_message(_net_denial, webhook_url),
+                            "denialReason": _net_denial,
+                        }
+                    else:
+                        webhook_payload = arguments.get("webhook_payload", arguments)
+                        async with httpx.AsyncClient(timeout=15.0) as client:
+                            wresp = await client.post(webhook_url, json=webhook_payload)
+                            execution_result = {
+                                "ok": wresp.status_code < 400,
+                                "status_code": wresp.status_code,
+                                "response": wresp.text[:500],
+                            }
+                            executed = wresp.status_code < 400
+            else:
+                execution_result = {
+                    "ok": False, "errorCode": "INVALID_PARAMS",
+                    "error": f"不支持的 action: {action}(schedule/dispatch_subagent/webhook)",
+                }
+        except Exception as e:
+            execution_result = {
+                "ok": False, "errorCode": "EXECUTION_EXCEPTION",
+                "error": f"执行失败: {type(e).__name__}: {str(e)[:200]}",
+            }
+
+    # ok:执行模式下看 executed;纯配置模式看 config_ok(非 koubo/wechat 视为配置通过)
+    if execute and action:
+        overall_ok = executed
+    else:
+        overall_ok = config_ok or (task_id not in ("koubo_daily", "wechat_daily"))
+
+    return {
+        "ok": overall_ok,
+        "configured": config_ok or (task_id not in ("koubo_daily", "wechat_daily")),
+        "executed": executed,
+        "execution_result": execution_result,
+        "config_id": config_id,
+        "task_id": task_id,
+        "action": action,
+    }
+
+
+async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
+    """vision_analyze: 图像分析(支持本地文件路径、URL 和 base64)。
+
+    参数优先级: image_path > image_base64 > image_url > image(legacy 兼容)。
+    参数:
+    - image_path: 本地图片绝对路径(可选,自动转 base64,需在工作区白名单内)
+    - image_base64: base64 编码图片(可选)
+    - image_url: 图片 URL(可选)
+    - image: 图片 URL 或 base64(legacy 兼容,可选)
+    - task: 分析任务描述(必填)
+    - model: 期望模型(可选,缺省用支持视觉的模型)
+    """
+    import base64 as _b64
+    from pathlib import Path
+
+    from ..core.llm_gateway import llm_gateway
+
+    task = arguments.get("task", "")
+    model = arguments.get("model")
+    image_path = arguments.get("image_path", "")
+    image_base64 = arguments.get("image_base64", "")
+    image_url = arguments.get("image_url", "")
+    legacy_image = arguments.get("image", "")
+
+    # 解析图片来源,构造 OpenAI vision image_url url
+    source = ""
+    file_path = ""
+
+    if image_path:
+        # 本地文件路径:校验工作区白名单(防 symlink 穿越)
+        ok, info = _validate_path_in_workspace(str(image_path))
+        if not ok:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": info, "errorCode": "PATH_NOT_IN_WORKSPACE",
+            }
+        p = Path(info)
+        if not p.exists():
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"文件不存在: {image_path}", "errorCode": "FILE_NOT_FOUND",
+            }
+        # 文件大小校验(>10MB 拒绝)
+        try:
+            file_size = p.stat().st_size
+        except OSError as e:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"读取文件大小失败: {e}", "errorCode": "FILE_NOT_FOUND",
+            }
+        if file_size > 10 * 1024 * 1024:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"图片过大({file_size} bytes > 10MB)", "errorCode": "IMAGE_TOO_LARGE",
+            }
+        # MIME 推断
+        ext = p.suffix.lower()
+        mime_map = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".webp": "image/webp", ".gif": "image/gif",
+        }
+        mime = mime_map.get(ext)
+        if not mime:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"不支持的图片格式: {ext}(仅支持 png/jpg/jpeg/webp/gif)",
+                "errorCode": "UNSUPPORTED_IMAGE_FORMAT",
+            }
+        try:
+            raw_bytes = p.read_bytes()
+        except OSError as e:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"读取文件失败: {e}", "errorCode": "FILE_NOT_FOUND",
+            }
+        b64 = _b64.b64encode(raw_bytes).decode("ascii")
+        image_url_value = f"data:{mime};base64,{b64}"
+        source = "local_file"
+        file_path = str(image_path)
+    elif image_base64:
+        image_url_value = (
+            image_base64 if image_base64.startswith("data:")
+            else f"data:image/png;base64,{image_base64}"
+        )
+        source = "base64"
+    elif image_url:
+        image_url_value = image_url
+        source = "url"
+    elif legacy_image:
+        image_url_value = legacy_image
+        source = "legacy"
+    else:
+        return {
+            "tool": "vision_analyze", "ok": False,
+            "error": "image_path / image_base64 / image_url / image 至少需要一个",
+        }
+
+    if not task:
+        return {"tool": "vision_analyze", "ok": False, "error": "task is required"}
+
+    # 构造 OpenAI vision 格式消息(text + image_url content block)
+    # 批 42 接线:data URL 先经 image_preparation 按提示图像预算降采样
+    # (对标 codex load_data_url_for_prompt;此前原图原样上传,超大图打爆
+    # vision 请求或被服务端拒绝;远程 URL 保持原样交由上游拉取)。降采样
+    # 失败安全:回退原图,行为与历史一致,不阻塞分析。
+    vision_note = ""
+    if image_url_value.startswith("data:"):
+        try:
+            from ..core.image_preparation import (
+                detail_limits as _vl,
+            )
+            from ..core.image_preparation import (
+                load_data_url_for_prompt as _vload,
+            )
+
+            _detail, _limits = _vl("high")
+            _prepared = _vload(image_url_value, _limits)
+            if (_prepared.width, _prepared.height) != (
+                _prepared.source_width,
+                _prepared.source_height,
+            ):
+                image_url_value = _prepared.into_data_url()
+                vision_note = (
+                    f"image resized from {_prepared.source_width}x"
+                    f"{_prepared.source_height} to {_prepared.width}x"
+                    f"{_prepared.height} pixels to fit the prompt image budget"
+                )
+        except Exception:  # noqa: BLE001 - 降采样失败回退原图
+            vision_note = ""
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": task},
+                {"type": "image_url", "image_url": {"url": image_url_value}},
+            ],
+        }
+    ]
+    try:
+        result = await llm_gateway.complete(messages, model=model)
+        ret: dict[str, Any] = {
+            "tool": "vision_analyze",
+            "ok": not result.get("error"),
+            "analysis": result.get("content", ""),
+            "model": result.get("model", model or ""),
+            "stub": result.get("stub", False),
+            "error": result.get("error_message"),
+            "source": source,
+        }
+        if vision_note:
+            ret["resized"] = vision_note
+        if file_path:
+            ret["file_path"] = file_path
+        return ret
+    except Exception as e:
+        return {
+            "tool": "vision_analyze",
+            "ok": False,
+            "error": str(e)[:200],
+            "message": f"vision analysis failed: {type(e).__name__}",
+        }
+
+
+# ---------------------------------------------------------------------------
+# 子智能体派发工具(2026-07-24 新增)
+# 让 LLM 在 tool loop 中能自主派发子智能体执行任务
+# ---------------------------------------------------------------------------
+
+# 模块级单例 + lazy init(避免循环依赖:agent_orchestrator.py 在模块加载时
+# `from .mcp_server import mcp_server`,若本模块顶部反向 import 会触发循环导入)
+_orchestrator: "AgentOrchestrator | None" = None
+
+
+def _get_orchestrator() -> "AgentOrchestrator":
+    """Lazy 获取 AgentOrchestrator 单例(避免模块加载时循环导入)。
+
+    agent_orchestrator.py 模块加载时执行 `from .mcp_server import mcp_server`,
+    若本模块在顶部反向 import agent_orchestrator 会触发循环导入 → 用 lazy init。
+    复用 agent_orchestrator.py 模块级单例(已注册 5 个默认 agent)。
+    """
+    global _orchestrator
+    if _orchestrator is None:
+        from .agent_orchestrator import agent_orchestrator as _inst
+        _orchestrator = _inst
+    return _orchestrator
+
+
+async def _tool_dispatch_subagent(
+    arguments: dict[str, Any],
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
+
+    双模式(自研 subagent orchestration):
+    - 单 agent 模式(兼容):{name, task, session_id?} → orchestrator.invoke
+    - 并行模式:{tasks: [{name, task, context?}, ...], max_concurrency?} →
+      orchestrator.invoke_parallel,真实并行派发,互不污染上下文。
+
+    互斥:同时传 name/task 与 tasks → 报错 DUAL_MODE。
+
+    2026-07-30 加固:新增 progress_callback 参数(可选),让调用方(llm.py router)
+    能在子任务执行过程中实时推送 subagent_progress SSE 事件,而不是等任务全部完成
+    才返回。callback 收到 {phase, agentName, iteration, tool, ok, output_preview}。
+    """
+    name = arguments.get("name", "")
+    task = arguments.get("task", "")
+    tasks = arguments.get("tasks")
+    max_concurrency = arguments.get("max_concurrency", 5)
+
+    def _emit(evt: dict[str, Any]) -> None:
+        """统一进度事件出口(无 callback 时静默 no-op)"""
+        if progress_callback is not None:
+            try:
+                progress_callback(evt)
+            except Exception:  # noqa: BLE001
+                # 回调失败不影响主任务执行
+                pass
+
+    # 0-6 嵌套深度护栏:顶层 depth=0 → 1(允许),子代理内 → 2(允许),
+    # 再嵌套 → 3 拒绝(阻断无限递归派发链)。contextvar 保证跨协程上下文传递。
+    current_depth = _subagent_depth.get()
+    next_depth = current_depth + 1
+    if next_depth > _SUBAGENT_MAX_DEPTH:
+        return {
+            "tool": "dispatch_subagent", "ok": False,
+            "error": (
+                f"子代理嵌套深度超过上限({_SUBAGENT_MAX_DEPTH}),"
+                f"当前深度 {current_depth},拒绝派发以阻断无限递归"
+            ),
+            "errorCode": "NESTING_DEPTH_EXCEEDED",
+        }
+    has_single = bool(name) or bool(task)
+    has_tasks = tasks is not None
+
+    # 双模式互斥校验
+    if has_single and has_tasks:
+        return {
+            "tool": "dispatch_subagent", "ok": False,
+            "error": "不可同时传 name/task 与 tasks(单 agent 模式与并行模式互斥)",
+            "errorCode": "DUAL_MODE",
+        }
+
+    # 并行模式:tasks 数组 → invoke_parallel
+    if has_tasks:
+        if not isinstance(tasks, list):
+            return {
+                "tool": "dispatch_subagent", "ok": False,
+                "error": "tasks 必须为数组", "errorCode": "INVALID_PARAMS",
+            }
+        if not tasks:
+            return {
+                "tool": "dispatch_subagent", "ok": False,
+                "error": "tasks 列表为空", "errorCode": "EMPTY_TASKS",
+            }
+        for i, t in enumerate(tasks):
+            if not isinstance(t, dict) or not t.get("name") or not t.get("task"):
+                return {
+                    "tool": "dispatch_subagent", "ok": False,
+                    "error": f"tasks[{i}] 缺少 name 或 task 字段",
+                    "errorCode": "INVALID_PARAMS",
+                }
+        _emit({"phase": "parallel_started", "total": len(tasks), "max_concurrency": max_concurrency})
+        try:
+            orchestrator = _get_orchestrator()
+            if _SUBAGENT_SEMAPHORE.locked():
+                return {
+                    "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                    "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
+                    "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
+                }
+            async with _SUBAGENT_SEMAPHORE:
+                # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
+                _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+                try:
+                    result = await asyncio.wait_for(
+                        orchestrator.invoke_parallel(
+                            tasks=tasks, max_concurrency=max_concurrency
+                        ),
+                        timeout=_get_subagent_timeout(),
+                    )
+                finally:
+                    _subagent_depth.reset(_dtok)
+            _emit({
+                "phase": "parallel_done",
+                "total": result.get("total", 0),
+                "succeeded": result.get("succeeded", 0),
+                "failed": result.get("failed", 0),
+            })
+            _payload = {
+                "tool": "dispatch_subagent", "mode": "parallel",
+                "ok": result.get("ok", False),
+                "total": result.get("total", 0),
+                "succeeded": result.get("succeeded", 0),
+                "failed": result.get("failed", 0),
+                "results": result.get("results", []),
+                "message": result.get("message", ""),
+            }
+            # 0-6 单子代理输出限额:复用 0-2 截断助手
+            return _truncate_tool_output(_payload)
+        except Exception as e:
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                "error": str(e), "errorCode": "SUBAGENT_FAILED",
+            }
+
+    # 单 agent 模式(兼容)
+    session_id = arguments.get("session_id")
+    if not name or not task:
+        return {
+            "tool": "dispatch_subagent", "ok": False,
+            "error": "name and task are required(或传 tasks 数组启用并行模式)",
+            "errorCode": "MISSING_PARAMS",
+        }
+    _emit({"phase": "single_started", "agentName": name})
+    try:
+        orchestrator = _get_orchestrator()
+        if _SUBAGENT_SEMAPHORE.locked():
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "single",
+                "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
+                "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
+            }
+        async with _SUBAGENT_SEMAPHORE:
+            # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
+            _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+            try:
+                step_result = await asyncio.wait_for(
+                    orchestrator.invoke(
+                        agent_name=name,
+                        user_input=task,
+                        session_id=session_id,
+                    ),
+                    timeout=_get_subagent_timeout(),
+                )
+            finally:
+                _subagent_depth.reset(_dtok)
+        _emit({
+            "phase": "single_done",
+            "agentName": name,
+            "iterations": step_result.iterations,
+            "ok": step_result.status == "completed",
+        })
+        _payload = {
+            "tool": "dispatch_subagent", "mode": "single",
+            "agent": name,
+            "task": task,
+            "status": step_result.status,
+            "output": step_result.output,
+            "duration_ms": step_result.duration_ms,
+            "iterations": step_result.iterations,
+            "error": step_result.error,
+            "ok": step_result.status == "completed",
+        }
+        # 0-6 单子代理输出限额:复用 0-2 截断助手
+        return _truncate_tool_output(_payload)
+    except Exception as e:
+        return {
+            "tool": "dispatch_subagent", "ok": False, "mode": "single",
+            "error": str(e), "errorCode": "SUBAGENT_FAILED",
+        }
+
+
+# ---------------------------------------------------------------------------
+# 扩展工具(2026-07-24 新增,自研核心能力)
+# 6 个工具:fetch_url / image_generation / review_pr /
+#          summarize_artifacts / schedule_task / proactive_suggestion
+# ---------------------------------------------------------------------------
+
+# 会话 artifacts 持久化(Redis hash TTL 7d,进程重启不丢;Redis 不可用降级进程内)。
+# _ARTIFACTS_CACHE 保留为 artifacts_store._fallback_cache 的别名引用,向后兼容现有测试
+# (test_mcp_server.py 直接读写 _ARTIFACTS_CACHE);_tool_summarize_artifacts 改用 _load_artifacts。
+from .artifacts_store import _fallback_cache as _ARTIFACTS_CACHE
+
+# 2026-09-10:F401 会把「仅被测试/外部引用」的再导出判为未使用并**直接删除**
+# (本次债务收敛时就误删过本别名,导致 tests/test_artifacts_store.py 收集失败)。
+# `__all__` 是 ruff 认可的「这是有意的再导出」信号,在此显式声明以锁定该兼容契约。
+__all__ = ["_ARTIFACTS_CACHE"]
+
+from ..tools import (
+    document_tables as _document_tables,
+)
+from ..tools import (
+    extract_document_assets as _extract_document_assets,
+)
+
+# P0 新增工具(chart_tools / document_tools,零新依赖,2026-09-01 竞品对标补齐)
+# 延迟导入避免启动期探测;工具内部异常已自兜底返回结构化错误,不抛给 MCP 层
+from ..tools import (  # noqa: E402
+    generate_chart as _generate_chart,
+)
+from ..tools import (
+    parse_document as _parse_document,
+)
+from ..tools.web_crawl_tools import (
+    crawl_site as _crawl_site,
+)
+from ..tools.web_crawl_tools import (
+    extract_web as _extract_web,
+)
+
+# Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)
+from ..tools.web_crawl_tools import (  # noqa: E402
+    fetch_readable as _fetch_readable,
+)
+from ..tools.web_crawl_tools import (
+    map_site as _map_site,
+)
+from .artifacts_store import (  # noqa: E402
+    load_artifacts as _load_artifacts,
+)
+
+# 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
+_SCHEDULED_TASKS: list[dict[str, Any]] = []
+
+# 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
+# key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
+import logging as _schedule_logging
+from datetime import UTC
+
+logger = _schedule_logging.getLogger(__name__)
+_SCHEDULE_REDIS_PREFIX = "mcp:schedule:"
+_SCHEDULE_REDIS_FIELDS = (
+    "task_id", "name", "prompt", "schedule", "run_at", "cron",
+    "interval_seconds", "agent_tools", "next_run_at", "status",
+    "created_at", "last_run_at", "last_result", "webhook_url",
+)
+# 进程内 Redis 客户端单例(同步,线程安全;None 表示 Redis 不可用,降级内存)
+_SCHEDULE_REDIS: Any = None
+_SCHEDULE_REDIS_CHECKED = False
+
+
+def _get_schedule_redis() -> Any:
+    """返回调度任务 Redis 同步客户端,不可用返回 None(降级内存模式)。"""
+    global _SCHEDULE_REDIS, _SCHEDULE_REDIS_CHECKED
+    if _SCHEDULE_REDIS_CHECKED:
+        return _SCHEDULE_REDIS
+    _SCHEDULE_REDIS_CHECKED = True
+    from app.core.config import settings
+
+    url = settings.schedule_redis_url or settings.redis_url
+    try:
+        import redis
+
+        # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+        # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
+        client = redis.Redis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
+        client.ping()
+        _SCHEDULE_REDIS = client
+        logger.info("[schedule_task] Redis 连接成功: %s", url)
+    except Exception as e:
+        _SCHEDULE_REDIS = None
+        logger.warning("[schedule_task] Redis 不可用,降级内存模式: %s", e)
+    return _SCHEDULE_REDIS
+
+
+def _serialize_task_field(key: str, value: Any) -> str:
+    """序列化任务字段为 Redis hash 字符串(list/dict/数字 → JSON,字符串原样)。"""
+    if key in ("agent_tools", "interval_seconds"):
+        import json as _json
+
+        return _json.dumps(value)
+    return str(value) if value is not None else ""
+
+
+def _deserialize_task(data: dict[str, str]) -> dict[str, Any]:
+    """反序列化 Redis hash → task dict(agent_tools/interval_seconds 还原为原类型)。"""
+    import json as _json
+
+    task: dict[str, Any] = {}
+    for key, raw in data.items():
+        if key in ("agent_tools", "interval_seconds"):
+            try:
+                task[key] = _json.loads(raw)
+            except (TypeError, ValueError):
+                task[key] = raw
+        else:
+            task[key] = raw
+    return task
+
+
+def _persist_task_to_redis(task: dict[str, Any]) -> bool:
+    """持久化任务到 Redis hash,成功返回 True;Redis 不可用返回 False(调用方降级内存)。"""
+    client = _get_schedule_redis()
+    tid = task.get("task_id", "")
+    if not tid or client is None:
+        return False
+    mapping = {
+        k: _serialize_task_field(k, task.get(k, "" if k != "agent_tools" else []))
+        for k in _SCHEDULE_REDIS_FIELDS
+        if k in task or k in ("agent_tools",)
+    }
+    try:
+        client.hset(_SCHEDULE_REDIS_PREFIX + tid, mapping=mapping)
+        return True
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 持久化失败: %s", e)
+        return False
+
+
+def _load_task_from_redis(task_id: str) -> dict[str, Any] | None:
+    """从 Redis 加载单个任务,不存在或 Redis 不可用返回 None。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return None
+    try:
+        data = client.hgetall(_SCHEDULE_REDIS_PREFIX + task_id)
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 读取失败: %s", e)
+        return None
+    return _deserialize_task(data) if data else None
+
+
+def _load_pending_tasks_from_redis() -> list[dict[str, Any]]:
+    """扫描所有 mcp:schedule:* 任务记录(供 ai-service 启动时重新注册)。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return []
+    tasks: list[dict[str, Any]] = []
+    try:
+        for key in client.scan_iter(_SCHEDULE_REDIS_PREFIX + "*"):
+            data = client.hgetall(key)
+            if data:
+                tasks.append(_deserialize_task(data))
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 扫描失败: %s", e)
+    return tasks
+
+
+def _update_schedule_task_status(
+    task_id: str, status: str, **fields: Any
+) -> bool:
+    """局部更新任务状态字段,成功返回 True;Redis 不可用返回 False(调用方降级内存)。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return False
+    mapping = {"status": status}
+    for k, v in fields.items():
+        mapping[k] = _serialize_task_field(k, v) if k in ("agent_tools", "interval_seconds") else (str(v) if v is not None else "")
+    try:
+        client.hset(_SCHEDULE_REDIS_PREFIX + task_id, mapping=mapping)
+        return True
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 状态更新失败: %s", e)
+        return False
+
+
+async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
+    """fetch_url: 抓取 URL 内容,返回 markdown/text/html/metadata(对标 #Web + Codex in-app browser)。
+
+    SSRF 防护:复用 screenshot_service._validate_url_ssrf,禁止内网/保留/回环地址。
+    """
+    import html as _html
+    import json as _json
+    from datetime import datetime
+
+    url = arguments.get("url", "")
+    mode = arguments.get("mode", "text")
+    max_chars = int(arguments.get("max_chars", 8000))
+
+    if not url or not isinstance(url, str):
+        return {
+            "tool": "fetch_url", "ok": False,
+            "error": "缺少 url 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if mode not in ("text", "html", "metadata"):
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": f"无效 mode: {mode}(允许 text/html/metadata)",
+            "errorCode": "INVALID_PARAMS",
+        }
+
+    # SSRF 校验(复用 screenshot_service 实现,防 127.0.0.1/10.*/169.254.* 云元数据等)
+    from .screenshot_service import _validate_url_ssrf
+    ok_ssrf, reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": reason, "errorCode": "SSRF_BLOCKED",
+            "message": f"SSRF 校验失败: {reason}",
+        }
+
+    # 批 52b:网络审批门(对标 codex ApprovalAction::NetworkAccess)。
+    # SSRF 硬防线在前(不可被审批放行);审批门在后,持久授权命中免弹窗,
+    # 未授权默认拒绝(fail-closed),requester 未注入时不改变现有行为。
+    # 批58(十六):拒绝分支附加 codex 原因码 + 可读消息(network_policy_decision)。
+    try:
+        from .network_approval import evaluate_network_access_detailed
+
+        verdict, _denial_reason = evaluate_network_access_detailed(
+            url, reason="tool:fetch_url"
+        )
+        if verdict == "deny":
+            return {
+                "tool": "fetch_url", "ok": False, "url": url,
+                "error": "网络访问未授权(审批拒绝/无审批通道)",
+                "errorCode": "NETWORK_APPROVAL_DENIED",
+                "message": _network_denial_message(_denial_reason, url),
+                "denialReason": _denial_reason,
+            }
+    except Exception:  # noqa: BLE001 - 审批门自身故障不改变现有放行行为(向后兼容)
+        pass
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+            )
+        content_type = resp.headers.get("content-type", "")
+        body = resp.text
+        title = ""
+        truncated = False
+
+        # title(所有模式都尝试提取)
+        _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+        m_title = _TITLE_RE.search(body)
+        if m_title:
+            title = _html.unescape(m_title.group(1).strip())
+
+        if mode == "html":
+            content = body
+        elif mode == "metadata":
+            _DESC_RE = re.compile(
+                r"""<meta\s+name=["']description["']\s+content=["']([^"']*)["']""",
+                re.IGNORECASE,
+            )
+            _OG_RE = re.compile(
+                r"""<meta\s+property=["']og:([^"']+)["']\s+content=["']([^"']*)["']""",
+                re.IGNORECASE,
+            )
+            desc = ""
+            dm = _DESC_RE.search(body)
+            if dm:
+                desc = _html.unescape(dm.group(1))
+            og = {prop: _html.unescape(val) for prop, val in _OG_RE.findall(body)}
+            content = _json.dumps(
+                {"title": title, "description": desc, "og": og},
+                ensure_ascii=False,
+            )
+        else:  # text 模式:简单 HTML→text
+            text = re.sub(
+                r"<script[^>]*>.*?</script>", "", body, flags=re.IGNORECASE | re.DOTALL
+            )
+            text = re.sub(
+                r"<style[^>]*>.*?</style>", "", text, flags=re.IGNORECASE | re.DOTALL
+            )
+            text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"<[^>]+>", "", text)
+            content = _html.unescape(text)
+            content = re.sub(r"[ \t]+\n", "\n", content)
+            content = re.sub(r"\n{3,}", "\n\n", content)
+            content = content.strip()
+
+        if len(content) > max_chars:
+            content = content[:max_chars]
+            truncated = True
+
+        return {
+            "tool": "fetch_url",
+            "ok": True,
+            "url": str(resp.url),
+            "title": title,
+            "content": content,
+            "content_type": content_type,
+            "status_code": resp.status_code,
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "truncated": truncated,
+            "message": f"抓取成功(mode={mode}, {len(content)} 字符)",
+        }
+    except Exception as e:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": str(e)[:200], "errorCode": "FETCH_FAILED",
+            "message": f"抓取失败: {type(e).__name__}",
+        }
+
+
+# 图片落地约束(2026-07-24 save_path 升级)
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+# 2026-09-05 video_generation(可灵/即梦真实视频任务)落地支持
+_VIDEO_EXTENSIONS = (".mp4",)
+_MAX_VIDEO_BYTES = 200 * 1024 * 1024  # 200MB
+# 音乐生成 save_path(2026-09-08 token6688 music 工具用)
+_AUDIO_EXTENSIONS = (".mp3", ".wav", ".ogg", ".flac")
+_MAX_AUDIO_BYTES = 50 * 1024 * 1024  # 50MB(Suno 风格成曲一般 3~8MB)
+
+
+def _validate_video_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验视频 save_path:工作区白名单 + 后缀(.mp4)。"""
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _VIDEO_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_video_to_disk(
+    video_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将视频字节写入磁盘 save_path(200MB 上限,父目录自动 mkdir)。"""
+    if len(video_bytes) > _MAX_VIDEO_BYTES:
+        return False, "", 0, "VIDEO_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(video_bytes)
+        return True, str(path_obj), len(video_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
+
+
+def _validate_audio_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验音频 save_path:工作区白名单 + 后缀(.mp3/.wav/.ogg/.flac)。"""
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _AUDIO_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_audio_to_disk(
+    audio_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将音频字节写入磁盘 save_path(50MB 上限,父目录自动 mkdir)。"""
+    if len(audio_bytes) > _MAX_AUDIO_BYTES:
+        return False, "", 0, "AUDIO_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(audio_bytes)
+        return True, str(path_obj), len(audio_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
+
+
+def _validate_image_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验 save_path:工作区白名单 + 后缀(.png/.jpg/.jpeg/.webp)。
+
+    Returns:
+        (ok, resolved_path, error_code)
+    """
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _IMAGE_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_image_to_disk(
+    image_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将图片字节写入磁盘 save_path(覆盖已存在文件,父目录自动 mkdir)。
+
+    Returns:
+        (ok, saved_path, file_size_bytes, error_code)
+    """
+    if len(image_bytes) > _MAX_IMAGE_BYTES:
+        return False, "", 0, "IMAGE_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(image_bytes)
+        return True, str(path_obj), len(image_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
+
+
+def _image_provider_chain(explicit: str | None) -> list[str]:
+    """图片 provider 自动切换链(2026-09-08 全模态自动切换,对标 video 编排)。
+
+    顺序:env `IMAGE_PROVIDER`(逗号分隔,顺序即优先级)缺省
+    token6688 → stepfun → agnes → kling → jimeng,仅保留凭据已配置的。
+    显式指定 provider 时:已配置 → 提到链首(用户意图优先);未配置 → 保持自动链
+    (与 video_generation 显式 provider 未配置时降级全链的行为一致)。
+    """
+    from ..core.config import settings
+
+    def _has_creds(name: str) -> bool:
+        try:
+            if name == "token6688":
+                cfg = settings.get_provider_config("token6688")
+                return bool(cfg.api_key or os.environ.get("TOKEN6688_API_KEY", ""))
+            if name in ("stepfun", "agnes"):
+                return bool(settings.get_provider_config(name).api_key)
+            if name == "kling":
+                from ..providers import KlingProvider
+
+                return bool(KlingProvider(None).configured)
+            if name == "jimeng":
+                from ..providers import JimengProvider
+
+                return bool(JimengProvider(None).configured)
+        except Exception:  # noqa: BLE001
+            return False
+        return False
+
+    raw = os.environ.get("IMAGE_PROVIDER", "").strip()
+    order = [p.strip() for p in raw.split(",") if p.strip()] or [
+        "token6688", "stepfun", "agnes", "kling", "jimeng",
+    ]
+    chain = [n for n in order if n in ("token6688", "stepfun", "agnes", "kling", "jimeng") and _has_creds(n)]
+    if explicit:
+        if explicit in chain:
+            chain = [explicit] + [n for n in chain if n != explicit]
+        elif _has_creds(explicit):
+            chain.insert(0, explicit)
+    return chain
+
+
+async def _image_generate_once(
+    provider: str, prompt: str, size: str, save_path: str | None,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    """单家图片 provider 生成一次(OpenAI images 协议;失败返回 ok=False 不抛)。"""
+    from datetime import datetime
+
+    from ..core.config import settings
+
+    if provider == "token6688":
+        cfg = settings.get_provider_config("token6688")
+        api_base = (cfg.api_base or os.environ.get(
+            "TOKEN6688_BASE_URL", "https://k.token6688.com"
+        )).rstrip("/")
+        if not api_base.endswith("/v1"):
+            api_base += "/v1"
+        api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
+        model = os.environ.get("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
+    elif provider == "stepfun":
+        cfg = settings.get_provider_config("stepfun")
+        api_key = cfg.api_key
+        api_base = cfg.api_base or "https://api.stepfun.com/step_plan/v1"
+        model = "step-1v-8k"
+    elif provider == "agnes":
+        cfg = settings.get_provider_config("agnes")
+        api_key = cfg.api_key
+        api_base = cfg.api_base or "https://apihub.agnes-ai.com/v1"
+        # 2026-09-20 修复:原硬编码 "agnes-image-v1" 是无效模型 ID,agnes 生图必失败。
+        # Agnes 实际生图模型(/v1/models 实测): agnes-image-2.5-flash(最新,默认,
+        # 已实测出图)/ agnes-image-2.1-flash / agnes-image-2.0-flash;
+        # 支持 arguments.model 覆盖 + AGNES_IMAGE_MODEL env 配置
+        model = (
+            str(arguments.get("model") or "").strip()
+            or os.environ.get("AGNES_IMAGE_MODEL", "agnes-image-2.5-flash")
+        )
+    else:
+        # kling/jimeng 走 providers 包原生真实适配器(可灵 JWT / 即梦 Ark Bearer)
+        return await _tool_image_generation_native(prompt, provider, size, save_path, arguments)
+
+    if not api_key:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+            "error": f"{provider} 未配置 api_key",
+        }
+
+    # token6688 提交前 fail-fast 校验(2026-09-08 目录加深):prompt 长度/size 枚举,
+    # 非法直接拒(不调用上游不产生费用);元数据未同步时跳过不阻塞
+    if provider == "token6688":
+        from . import token6688_catalog as _t6688_catalog
+
+        _meta = await _t6688_catalog.get_model_metadata(str(model))
+        if _meta and isinstance(_meta.get("param_schema"), dict) and _meta["param_schema"]:
+            _ps = dict(_meta["param_schema"])
+            if _meta.get("max_prompt_chars"):
+                _ps["_max_prompt_chars"] = _meta["max_prompt_chars"]
+            _chk: dict[str, Any] = {}
+            if size:
+                _chk["size"] = size
+            _issues = _t6688_catalog.validate_generation_params(
+                _ps, _chk, prompt=str(prompt), linkages=_meta.get("linkages"),
+            )
+            if _issues:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "model": model, "saved_path": None,
+                    "error": "参数未通过提交前校验(未调用上游,不产生费用): "
+                             + "; ".join(_issues),
+                    "errorCode": "INVALID_PARAMS",
+                    "hint": "可用 token6688_model_info(action=params, model=...) "
+                            "查询该模型的参数合法值。",
+                }
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    endpoint = f"{api_base}/images/generations"
+    try:
+        # timeout 90s:官方同步出图 40-50s 且 40s 后发保活字节,60s 会误断
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            resp = await client.post(
+                endpoint,
+                json={"prompt": prompt, "model": model, "size": size, "n": 1},
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+        if resp.status_code >= 400:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "error": f"provider 返回 {resp.status_code}: {resp.text[:200]}",
+                "errorCode": "PROVIDER_ERROR",
+            }
+        data = resp.json()
+        # ⚠ 官方指南:同步端点 40s 后发保活字节,HTTP 状态码已固定 200,
+        # 生成失败也改不回 4xx → 必须检查 body.error(token6688)
+        body_err = data.get("error")
+        if body_err:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "error": str(body_err.get("message") or body_err)[:300],
+                "errorCode": "PROVIDER_ERROR",
+            }
+        items = data.get("data") or []
+        if not items:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
+            }
+        item = items[0]
+        if item.get("b64_json"):
+            image_url = f"data:image/png;base64,{item['b64_json']}"
+        else:
+            image_url = item.get("url", "")
+        if not image_url:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "error": "provider 响应缺少 url/b64_json", "errorCode": "EMPTY_RESULT",
+            }
+
+        # save_path 落地:校验 → 取字节 → 写入磁盘
+        saved_path: str | None = None
+        file_size_bytes: int = 0
+        if save_path:
+            img_bytes = await _fetch_image_bytes(item, image_url, httpx)
+            if img_bytes is None:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "saved_path": None,
+                    "errorCode": "IMAGE_FETCH_FAILED",
+                    "message": "无法获取图片字节(b64 解码 / URL 下载均失败)",
+                }
+            ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, save_path)
+            if not ok_w:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "saved_path": None,
+                    "errorCode": werr,
+                    "message": f"图片写入磁盘失败: {werr}",
+                }
+            saved_path = sp
+            file_size_bytes = sz
+
+        return {
+            "tool": "image_generation", "ok": True, "prompt": prompt,
+            "image_url": image_url, "size": size,
+            "provider": provider, "model": model,
+            "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+            "created_at": datetime.now(UTC).isoformat(),
+            "message": f"图片已生成(provider={provider}, model={model}"
+                       + (f", saved={saved_path}" if saved_path else "") + ")",
+        }
+    except Exception as e:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": str(e)[:200], "errorCode": "GENERATION_FAILED",
+            "message": f"图片生成失败: {type(e).__name__}",
+        }
+
+
+async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """image_generation: 生成图片(多 provider 统一编排 + 运行时自动故障转移)。
+
+    2026-09-08 全模态自动切换升级:
+    - provider 链:IMAGE_PROVIDER env(缺省 token6688 → stepfun → agnes → kling → jimeng),
+      仅保留凭据已配置的;首选失败自动换下一家(含 401/402/429/5xx/超时),全失败才报错
+    - 显式 provider 已配置 → 提到链首;未配置 → 自动链兜底(兼容旧降级语义)
+    - 返回带 failover_attempts(每次尝试的 provider/errorCode 摘要),对话侧可如实转述
+    - save_path 落地:校验前置(链路外 fail-fast,不浪费付费 API 调用)
+    """
+    prompt = arguments.get("prompt", "")
+    size = arguments.get("size", "1024x1024")
+    quality = arguments.get("quality", "standard")
+    style = arguments.get("style", "natural")
+    provider = arguments.get("provider")  # None=自动:按链逐家尝试
+    save_path = arguments.get("save_path")
+
+    if not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "image_generation", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+            "saved_path": None,
+        }
+    _ALLOWED = ("token6688", "stepfun", "agnes", "kling", "jimeng")
+    if provider is not None and provider not in _ALLOWED:
+        return {
+            "tool": "image_generation", "ok": False,
+            "error": f"未知 provider: {provider}(允许 {'/'.join(_ALLOWED)})",
+            "errorCode": "INVALID_PROVIDER", "saved_path": None,
+        }
+    # save_path 校验前置:格式/白名单错误与 provider 无关,fail-fast 不浪费付费调用
+    resolved_save: str | None = None
+    if save_path:
+        ok_path, resolved_save, err_code = _validate_image_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider or "auto", "saved_path": None,
+                "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+
+    chain = _image_provider_chain(provider)
+    if not chain:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider or "auto", "saved_path": None,
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+            "message": "未配置任何图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 "
+                       "token6688 / stepfun / agnes 的 api_key,或 KLING_*/ARK_* 凭据",
+        }
+
+    attempts: list[dict[str, str]] = []
+    for name in chain:
+        result = await _image_generate_once(name, prompt, size, resolved_save, arguments)
+        if result.get("ok"):
+            if attempts:
+                result["failover_attempts"] = attempts
+            result.setdefault("quality", quality)
+            result.setdefault("style", style)
+            return result
+        attempts.append({
+            "provider": name,
+            "errorCode": str(result.get("errorCode", "UNKNOWN")),
+            "error": str(result.get("error") or result.get("message") or "")[:200],
+        })
+    # 全链失败:errorCode 保留末次错误码(单 provider 场景与旧语义一致),附尝试明细
+    last = attempts[-1]
+    return {
+        "tool": "image_generation", "ok": False, "prompt": prompt,
+        "provider": chain[0], "saved_path": None,
+        "errorCode": last["errorCode"],
+        "error": last["error"],
+        "failover_attempts": attempts,
+        "message": f"全部 {len(attempts)} 家图片 provider 均失败",
+    }
+
+
+async def _fetch_image_bytes(
+    item: dict[str, Any], image_url: str, httpx_mod: Any
+) -> bytes | None:
+    """从 provider 响应提取图片字节:优先 b64_json,降级 URL 下载。"""
+    b64 = item.get("b64_json")
+    if b64:
+        try:
+            import base64
+
+            return base64.b64decode(b64)
+        except Exception as e:
+            logger.warning("mcp_server b64_json 解码失败: %s", e, exc_info=True)
+            return None
+    if image_url and not image_url.startswith("data:"):
+        try:
+            async with httpx_mod.AsyncClient(timeout=60.0) as dl:
+                dl_resp = await dl.get(image_url)
+            if dl_resp.status_code < 400:
+                return cast(bytes, dl_resp.content)
+        except Exception as e:
+            logger.warning("mcp_server 图片 URL 下载失败: %s", e, exc_info=True)
+            return None
+    return None
+
+
+async def _download_media_bytes(url: str, httpx_mod: Any) -> bytes | None:
+    """下载媒体字节(图片/视频统一),失败返回 None。"""
+    if not url or url.startswith("data:"):
+        return None
+    try:
+        async with httpx_mod.AsyncClient(timeout=300.0, follow_redirects=True) as dl:
+            resp = await dl.get(url)
+        if resp.status_code < 400:
+            return cast(bytes, resp.content)
+    except Exception as e:
+        logger.warning("mcp_server 媒体 URL 下载失败: %s", e, exc_info=True)
+    return None
+
+
+def _resolve_native_provider(provider: str) -> tuple[Any, str]:
+    """实例化 kling/jimeng 原生真实适配器,返回 (impl, 默认 model)。"""
+    from ..providers import JimengProvider, KlingProvider
+
+    if provider == "kling":
+        return KlingProvider(None), "kling-v1"
+    return JimengProvider(None), "jimeng-video_generation"
+
+
+async def _tool_image_generation_native(
+    prompt: str, provider: str, size: str, save_path: str | None,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    """image_generation 的 kling/jimeng 原生分支(2026-09-05 真实化)。
+
+    复用 providers 包真实适配器(可灵 JWT HS256 / 即梦 Ark Bearer +
+    视觉服务 V4 HMAC 签名),save_path 落地流程与主分支一致。
+    """
+    from datetime import datetime
+
+    from ..providers.base_provider import ProviderError
+
+    impl, default_model = _resolve_native_provider(provider)
+    model = arguments.get("model") or default_model
+    kwargs: dict[str, Any] = {
+        k: arguments[k]
+        for k in ("negative_prompt", "aspect_ratio", "image", "seed", "watermark")
+        if k in arguments
+    }
+    try:
+        result = await impl.generate_image(prompt, model, size=size, **kwargs)
+    except ProviderError as e:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    items = result.get("data") or []
+    image_url = items[0].get("url", "") if items else ""
+    if not image_url:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
+        }
+
+    # save_path 落地(与主分支一致:校验 → 下载 → 写盘)
+    saved_path: str | None = None
+    file_size_bytes: int = 0
+    if save_path:
+        import httpx
+
+        ok_path, resolved, err_code = _validate_image_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+        img_bytes = await _fetch_image_bytes({"url": image_url}, image_url, httpx)
+        if img_bytes is None:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": "IMAGE_FETCH_FAILED",
+                "message": "无法获取图片字节(b64 解码 / URL 下载均失败)",
+            }
+        ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, resolved)
+        if not ok_w:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": werr,
+                "message": f"图片写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    used_model = result.get("model", model)
+    return {
+        "tool": "image_generation", "ok": True, "prompt": prompt,
+        "image_url": image_url, "size": size,
+        "provider": provider, "model": used_model,
+        "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+        "created_at": datetime.now(UTC).isoformat(),
+        "message": f"图片已生成(provider={provider}, model={used_model}"
+                   + (f", saved={saved_path}" if saved_path else "") + ")",
+    }
+
+
+async def _resolve_image_source_bytes(source: str) -> tuple[bytes | None, str | None]:
+    """把图片输入(source)解析为原始字节,返回 (bytes, 错误码)。
+
+    支持:
+    - http(s) URL → 下载(60s 超时)
+    - data URI(data:image/*;base64,...) → base64 解码
+    - 裸 base64 字符串 → 直接解码
+    - 本地绝对路径 → 读文件(工作区白名单校验)
+    """
+    import base64 as _b64
+    from pathlib import Path
+
+    import httpx as _httpx
+
+    if not source or not isinstance(source, str):
+        return None, "MISSING_PARAMS"
+    s = source.strip()
+    if s.startswith("data:"):
+        try:
+            _, _, b64part = s.partition(";base64,")
+            raw = _b64.b64decode(b64part)
+        except Exception:  # noqa: BLE001
+            return None, "INVALID_BASE64"
+        return raw or None, None if raw else "INVALID_BASE64"
+    if s.startswith("http://") or s.startswith("https://"):
+        try:
+            async with _httpx.AsyncClient(timeout=60.0, follow_redirects=True) as dl:
+                resp = await dl.get(s)
+            if resp.status_code >= 400:
+                return None, "DOWNLOAD_FAILED"
+            return resp.content, None
+        except Exception:  # noqa: BLE001
+            return None, "DOWNLOAD_FAILED"
+    if len(s) > 40 and (s.startswith("data:") is False):
+        # 可能是纯 base64(非 data URI)或本地路径
+        try:
+            raw = _b64.b64decode(s, validate=True)
+            if raw:
+                return raw, None
+        except Exception:  # noqa: BLE001
+            pass
+        ok, info = _validate_path_in_workspace(s)
+        if ok:
+            p = Path(info)
+            if p.exists() and p.is_file():
+                try:
+                    raw = p.read_bytes()
+                except OSError:
+                    return None, "FILE_READ_FAILED"
+                if raw:
+                    return raw, None
+    return None, "INVALID_SOURCE"
+
+
+async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
+    """image_edit: 图片编辑(token6688 官方 /v1/images/edits,OpenAI Images edits 同构)。
+
+    2026-09-09 全模态深度适配新增:图片生成之外补齐"改图"能力(局部重绘/扩图/改元素),
+    与 REST POST /api/image/edits 同源,供 AI 对话内直接调用。
+    - image 必填:待编辑图(URL / data URI / 裸 base64 / 本地工作区路径)
+    - prompt 必填:编辑指令(改什么)
+    - mask 可选:遮罩(透明区域=重绘区,URL/data URI)
+    - 同步 40-50s 出图;200 响应仍检查 body.error(官方陷阱);超 25MiB 拒绝
+    - save_path 落地(.png/.jpg/.jpeg/.webp,工作区白名单,5MB 上限)
+    需 .env 配置 TOKEN6688_API_KEY;未配置返回 PROVIDER_NOT_CONFIGURED。外部 API+计费。
+    """
+    image = arguments.get("image")
+    prompt = arguments.get("prompt", "")
+    if not image or not prompt:
+        return {
+            "tool": "image_edit", "ok": False,
+            "error": "缺少 image(待编辑图)或 prompt(编辑指令)",
+            "errorCode": "MISSING_PARAMS", "saved_path": None,
+        }
+    if not isinstance(image, str) or len(image) > 30 * 1024 * 1024:
+        return {
+            "tool": "image_edit", "ok": False,
+            "error": "image 参数非法(须为 URL/data URI/base64,且 ≤30MiB)",
+            "errorCode": "INVALID_PARAMS", "saved_path": None,
+        }
+    # save_path 校验前置(与 image_generation 一致,fail-fast 不浪费付费调用)
+    resolved_save: str | None = None
+    save_path = arguments.get("save_path")
+    if save_path:
+        ok_path, resolved_save, err_code = _validate_image_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+
+    from ..core.config import settings
+    from ..providers.base_provider import ProviderError
+    from ..providers.token6688_provider import Token6688Provider
+
+    cfg = settings.get_provider_config("token6688")
+    api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
+    if not api_key:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": "token6688 未配置:请在 .env 设置 TOKEN6688_API_KEY 或 "
+                     "LLM_PROVIDERS.token6688.api_key",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    api_base = (cfg.api_base or os.environ.get("TOKEN6688_BASE_URL", "https://k.token6688.com")).rstrip("/")
+    provider = Token6688Provider(api_key=api_key, api_base=api_base)
+
+    image_bytes, err_code = await _resolve_image_source_bytes(image)
+    if image_bytes is None:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None, "errorCode": err_code,
+            "error": f"无法解析待编辑图({err_code})",
+        }
+    mask_bytes = None
+    mask = arguments.get("mask")
+    if mask:
+        mask_bytes, mask_err = await _resolve_image_source_bytes(mask)
+        if mask_bytes is None:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": mask_err,
+                "error": f"无法解析 mask({mask_err})",
+            }
+
+    model = arguments.get("model")
+    n = int(arguments.get("n") or 1)
+    size = arguments.get("size")
+    extra: dict[str, Any] = {}
+    for k in ("aspect_ratio", "quality", "output_format"):
+        if arguments.get(k):
+            extra[k] = arguments[k]
+    try:
+        result = await provider.images_edits(
+            prompt, image_bytes, filename="image.png",
+            model=model, mask_bytes=mask_bytes, n=n, size=size, **extra,
+        )
+    except ProviderError as e:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None, "error": str(e)[:300], "errorCode": "GENERATION_FAILED",
+        }
+
+    items = result.get("images") or []
+    item = items[0] if items else {}
+    if item.get("b64_json"):
+        image_url = f"data:image/png;base64,{item['b64_json']}"
+    else:
+        image_url = item.get("url", "")
+    if not image_url:
+        return {
+            "tool": "image_edit", "ok": False, "prompt": prompt,
+            "saved_path": None,
+            "error": "provider 响应缺少 url/b64_json", "errorCode": "EMPTY_RESULT",
+        }
+
+    saved_path: str | None = None
+    file_size_bytes = 0
+    if resolved_save:
+        import httpx as _httpx
+
+        img_bytes = await _fetch_image_bytes(item, image_url, _httpx)
+        if img_bytes is None:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": "IMAGE_FETCH_FAILED",
+                "message": "无法获取编辑结果字节(b64 解码 / URL 下载均失败)",
+            }
+        ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, resolved_save)
+        if not ok_w:
+            return {
+                "tool": "image_edit", "ok": False, "prompt": prompt,
+                "saved_path": None, "errorCode": werr,
+                "message": f"图片写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    return {
+        "tool": "image_edit", "ok": True, "prompt": prompt,
+        "image_url": image_url,
+        "model": result.get("model"), "saved_path": saved_path,
+        "file_size_bytes": file_size_bytes,
+        "message": "图片编辑完成" + (f", saved={saved_path}" if saved_path else ""),
+    }
+
+
+async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """video_generation: 生成视频(统一编排,5 家厂商自动故障转移)。
+
+    复用 app.services.video_generation.generate_video 统一编排:
+    - token6688(名创AI 聚合网关,单 key,默认首选;提交+限时轮询+task_id 取件)
+    - kling(快手可灵, JWT text2video/image2video)
+    - jimeng(字节即梦, Ark Seedance)
+    - wan(阿里通义万相, DashScope 文生视频)
+    - hunyuan(腾讯混元, 文生视频需开通)
+
+    按 VIDEO_PROVIDER / 已配置凭据顺序自动挑厂商,首选失败自动降级下一家。
+    返回统一 {provider, model, task_id, video_url, duration}。
+    token6688 长任务(p90 55~75 分钟):90s 窗口内完成直接返回成片;否则返回
+    submitted+task_id,后续传 arguments.task_id 查询取件(防工具调用卡死对话)。
+    未配置任何厂商凭据时返回清晰错误(PROVIDER_NOT_CONFIGURED),
+    不误标"已生成"——对话侧据 ok=false 如实告知用户。
+    """
+    from datetime import datetime
+
+    from ..providers.base_provider import ProviderError
+
+    prompt = arguments.get("prompt", "")
+    provider = arguments.get("provider")  # None=自动;显式=指定厂商
+    duration = arguments.get("duration", 5)
+    save_path = arguments.get("save_path")
+    # 查询模式:只传 task_id 不传 prompt(对话里"视频好了吗"直接取件)
+    _query_task_id = str(arguments.get("task_id") or "").strip()
+
+    if _query_task_id:
+        prompt = prompt if isinstance(prompt, str) else ""
+    elif not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "video_generation", "ok": False,
+            "error": "缺少 prompt 参数(或传 task_id 查询已有任务)", "errorCode": "MISSING_PARAMS",
+            "video_url": None,
+        }
+    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan", "token6688"):
+        return {
+            "tool": "video_generation", "ok": False,
+            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan/token6688)",
+            "errorCode": "INVALID_PROVIDER", "video_url": None,
+        }
+    if not isinstance(duration, int) or duration <= 0:
+        duration = 5
+
+    # ---- 查询模式:传 task_id 时查 token6688 任务状态(对话里"视频好了吗")----
+    if _query_task_id:
+        from .video_generation import _instantiate as _video_instantiate
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "video_generation", "ok": False,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),无法查询任务",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "video_url": None,
+            }
+        st = await inst.get_task_status(_query_task_id)
+        if st.get("ok") and st.get("video_url"):
+            return {
+                "tool": "video_generation", "ok": True, "completed": True,
+                "task_id": _query_task_id, "provider": "token6688",
+                "video_url": st["video_url"], "status": st["status"],
+                "message": "视频已生成完成",
+            }
+        if st.get("failed"):
+            return {
+                "tool": "video_generation", "ok": False, "task_id": _query_task_id,
+                "provider": "token6688", "video_url": None, "status": st["status"],
+                "error": st.get("error") or "视频任务失败", "errorCode": "TASK_FAILED",
+            }
+        return {
+            "tool": "video_generation", "ok": True, "completed": False,
+            "task_id": _query_task_id, "provider": "token6688", "video_url": None,
+            "status": st["status"], "progress": st.get("progress"),
+            "message": f"视频仍在生成中(status={st['status']}),请稍后再问一次(带同一 task_id)",
+        }
+
+    # ---- token6688 专用路径:提交 + 限时轮询,避免长任务(p90 55~75 分钟)卡死对话 ----
+    # 完成窗口内(默认 90s,VIDEO_TOOL_WAIT_S 可调)拿到视频直接返回;超时返回
+    # submitted+task_id,用户稍后带 task_id 再问一次即可取件。其他厂商保持原同步编排。
+    from .video_generation import _instantiate as _video_instantiate
+    _t6688 = _video_instantiate("token6688") if provider in (None, "token6688") else None
+    if _t6688 is not None:
+        # ---- 提交前 fail-fast 参数校验(2026-09-08 目录加深)----
+        # 用同步入库的 param_schema/linkages 校验,非法参数直接拒:
+        # 枚举错值上游会静默落默认档(白花钱),mode=first-frame 漏传图上游必报错。
+        # 元数据缺失(未同步/未指定 model)时跳过,不阻塞主路径。
+        _model_in = str(arguments.get("model") or "").strip()
+        if _model_in:
+            from . import token6688_catalog as _t6688_catalog
+
+            _meta = await _t6688_catalog.get_model_metadata(_model_in)
+            if _meta and isinstance(_meta.get("param_schema"), dict) and _meta["param_schema"]:
+                # 复刻 provider 的 mode 自动推断(显式 > 传图 first-frame > 纯文生)
+                _eff_mode = str(arguments.get("mode") or "").strip()
+                if not _eff_mode:
+                    _eff_mode = "first-frame" if arguments.get("image") else "text-to-video"
+                _chk: dict[str, Any] = {"mode": _eff_mode}
+                for _k in ("resolution", "aspect_ratio"):
+                    if arguments.get(_k) is not None:
+                        _chk[_k] = arguments[_k]
+                if arguments.get("duration") is not None:
+                    _chk["duration"] = arguments["duration"]
+                if arguments.get("image"):
+                    _chk["images"] = arguments["image"]  # linkages 用官方参数名
+                _ps = dict(_meta["param_schema"])
+                if _meta.get("max_prompt_chars"):
+                    _ps["_max_prompt_chars"] = _meta["max_prompt_chars"]
+                _issues = _t6688_catalog.validate_generation_params(
+                    _ps, _chk, prompt=str(prompt), linkages=_meta.get("linkages"),
+                )
+                if _issues:
+                    return {
+                        "tool": "video_generation", "ok": False, "prompt": prompt,
+                        "provider": "token6688", "model": _model_in, "video_url": None,
+                        "error": "参数未通过提交前校验(未调用上游,不产生费用): "
+                                 + "; ".join(_issues),
+                        "errorCode": "INVALID_PARAMS",
+                        "hint": "可用 token6688_model_info(action=params, model=...) "
+                                "查询该模型的参数合法值与素材上限。",
+                    }
+        try:
+            submitted = await _t6688.generate_video(
+                prompt, str(arguments.get("model") or ""),
+                duration=duration, wait=False,
+                image=arguments.get("image"),
+                mode=arguments.get("mode") or None,
+                resolution=arguments.get("resolution") or None,
+                aspect_ratio=arguments.get("aspect_ratio") or None,
+            )
+        except Exception as e:  # noqa: BLE001
+            # token6688 提交失败 → 落回原编排(自动降级其他厂商)
+            logger.warning("[mcp][video] token6688 提交失败,降级原编排: %s", e)
+            submitted = None
+        if submitted is not None and submitted.get("task_id"):
+            wait_s = max(15, int(os.environ.get("VIDEO_TOOL_WAIT_S", "90")))
+            import asyncio as _asyncio
+
+            deadline = time.monotonic() + wait_s
+            while time.monotonic() < deadline:
+                await _asyncio.sleep(3)
+                st = await _t6688.get_task_status(str(submitted["task_id"]))
+                if st.get("ok") and st.get("video_url"):
+                    result = {
+                        "provider": "token6688", "model": submitted.get("model", ""),
+                        "task_id": submitted["task_id"], "video_url": st["video_url"],
+                        "duration": duration,
+                    }
+                    break
+                if st.get("failed"):
+                    return {
+                        "tool": "video_generation", "ok": False, "prompt": prompt,
+                        "provider": "token6688", "task_id": submitted["task_id"],
+                        "video_url": None, "error": st.get("error") or "视频任务失败",
+                        "errorCode": "TASK_FAILED",
+                    }
+            else:
+                return {
+                    "tool": "video_generation", "ok": True, "submitted": True,
+                    "prompt": prompt, "provider": "token6688",
+                    "model": submitted.get("model", ""),
+                    "task_id": submitted["task_id"], "video_url": None,
+                    "message": (
+                        "视频生成任务已提交(token6688 网关),官方耗时中位 4~40 分钟、"
+                        f"p90 55~75 分钟。已等待 {wait_s}s 未完成——请稍后让我查询进度"
+                        f"(我会用 task_id={submitted['task_id']} 拿成片链接)。"
+                        "任务已计费,请勿重复提交同一 prompt。"
+                    ),
+                }
+            # while 内 break(拿到成片)→ 落到下方统一返回
+            video_url = result.get("video_url", "")
+            return {
+                "tool": "video_generation", "ok": True, "prompt": prompt,
+                "provider": result.get("provider", "token6688"),
+                "model": result.get("model", ""), "task_id": result.get("task_id", ""),
+                "video_url": video_url, "duration": result.get("duration", duration),
+                "message": "视频生成完成",
+            }
+
+    from .video_generation import generate_video
+
+    try:
+        result = await generate_video(
+            prompt,
+            duration=duration,
+            image=arguments.get("image"),
+            provider=provider,
+        )
+    except ProviderError as e:
+        return {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider or "auto", "video_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    video_url = result.get("video_url", "")
+    if not video_url:
+        return {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": result.get("provider") or "auto", "video_url": None,
+            "error": "provider 返回缺少 video_url", "errorCode": "EMPTY_RESULT",
+        }
+
+    used_provider = result.get("provider") or provider or "auto"
+    used_model = result.get("model", "")
+    saved_path: str | None = None
+    file_size_bytes: int = 0
+    if save_path:
+        import httpx
+
+        ok_path, resolved, err_code = _validate_video_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": used_provider, "video_url": None,
+                "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+        vid_bytes = await _download_media_bytes(video_url, httpx)
+        if vid_bytes is None:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": used_provider, "video_url": None,
+                "errorCode": "VIDEO_FETCH_FAILED",
+                "message": "视频下载失败",
+            }
+        ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
+        if not ok_w:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": used_provider, "video_url": None,
+                "errorCode": werr,
+                "message": f"视频写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    return {
+        "tool": "video_generation", "ok": True, "prompt": prompt,
+        "video_url": video_url, "task_id": result.get("task_id"),
+        "provider": used_provider, "model": used_model, "duration": duration,
+        "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+        "created_at": datetime.now(UTC).isoformat(),
+        "message": f"视频已生成(provider={used_provider}, model={used_model}"
+                   + (f", saved={saved_path}" if saved_path else "") + ")",
+    }
+
+
+async def _tool_music_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """music_generation: 生成音乐(token6688 Suno 风格,2026-09-08 落地)。
+
+    复用 Token6688Provider.generate_music(POST /v1/audio/generations 扁平形状
+    → 轮询 GET /v1/tasks/{task_id} 读 output_url)。防卡死同视频模式:
+    - 提交后限时轮询(MUSIC_TOOL_WAIT_S 默认 150s,音乐官方耗时约 1~5 分钟)
+    - 窗口内完成直接返回成片;超时返回 submitted+task_id,
+      用户稍后带 task_id 再问一次即可取件(查询模式无需 prompt)
+    - 支持 mode=song/instrumental(纯音乐)、lyrics/style/title/vocal_gender
+    - 支持 save_path 下载落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
+    未配置 token6688 key 时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。
+    """
+    from datetime import datetime
+
+    prompt = arguments.get("prompt", "")
+    mode = arguments.get("mode", "song")
+    save_path = arguments.get("save_path")
+    # 查询模式:只传 task_id 不传 prompt(对话里"歌好了吗"直接取件)
+    _query_task_id = str(arguments.get("task_id") or "").strip()
+
+    if _query_task_id:
+        prompt = prompt if isinstance(prompt, str) else ""
+    elif not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "music_generation", "ok": False,
+            "error": "缺少 prompt 参数(或传 task_id 查询已有任务)", "errorCode": "MISSING_PARAMS",
+            "audio_url": None,
+        }
+    if mode not in ("song", "instrumental"):
+        mode = "song"
+
+    from .video_generation import _instantiate as _video_instantiate
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "music_generation", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),音乐生成不可用",
+            "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+        }
+
+    # ---- 查询模式 ----
+    if _query_task_id:
+        st = await inst.get_task_status(_query_task_id)
+        if st.get("ok") and st.get("video_url"):
+            return {
+                "tool": "music_generation", "ok": True, "completed": True,
+                "task_id": _query_task_id, "provider": "token6688",
+                "audio_url": st["video_url"], "status": st["status"],
+                "message": "音乐已生成完成",
+            }
+        if st.get("failed"):
+            return {
+                "tool": "music_generation", "ok": False, "task_id": _query_task_id,
+                "provider": "token6688", "audio_url": None, "status": st["status"],
+                "error": st.get("error") or "音乐任务失败", "errorCode": "TASK_FAILED",
+            }
+        return {
+            "tool": "music_generation", "ok": True, "completed": False,
+            "task_id": _query_task_id, "provider": "token6688", "audio_url": None,
+            "status": st["status"], "progress": st.get("progress"),
+            "message": f"音乐仍在生成中(status={st['status']}),请稍后再问一次(带同一 task_id)",
+        }
+
+    # ---- 提交 + 限时轮询 ----
+    try:
+        submitted = await inst.generate_music(
+            prompt,
+            mode=mode,
+            lyrics=arguments.get("lyrics"),
+            style=arguments.get("style"),
+            title=arguments.get("title"),
+            vocal_gender=arguments.get("vocal_gender"),
+            version=arguments.get("version"),
+            operation=str(arguments.get("operation") or "generate"),
+            negative_tags=arguments.get("negative_tags"),
+            model=str(arguments.get("model") or "")
+            or os.environ.get("TOKEN6688_MUSIC_MODEL", "music"),
+            wait=False,
+        )
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "music_generation", "ok": False, "prompt": prompt,
+            "provider": "token6688", "audio_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    remote_id = str(submitted.get("task_id") or "")
+    if not remote_id:
+        return {
+            "tool": "music_generation", "ok": False, "prompt": prompt,
+            "provider": "token6688", "audio_url": None,
+            "error": "网关响应缺少 task_id", "errorCode": "PROVIDER_ERROR",
+        }
+
+    wait_s = max(30, int(os.environ.get("MUSIC_TOOL_WAIT_S", "150")))
+    import asyncio as _asyncio
+
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        await _asyncio.sleep(5)
+        st = await inst.get_task_status(remote_id)
+        if st.get("ok") and st.get("video_url"):
+            audio_url = st["video_url"]
+            # ---- save_path 落地(可选)----
+            saved_path: str | None = None
+            file_size_bytes = 0
+            if save_path:
+                import httpx
+
+                ok_path, resolved, err_code = _validate_audio_save_path(save_path)
+                if not ok_path:
+                    return {
+                        "tool": "music_generation", "ok": True, "prompt": prompt,
+                        "provider": "token6688", "task_id": remote_id,
+                        "audio_url": audio_url, "saved_path": None,
+                        "errorCode": err_code,
+                        "message": f"音乐已生成,但 save_path 校验失败: {err_code}",
+                    }
+                audio_bytes = await _download_media_bytes(audio_url, httpx)
+                if audio_bytes is not None:
+                    ok_w, sp, sz, werr = await _persist_audio_to_disk(audio_bytes, resolved)
+                    if ok_w:
+                        saved_path, file_size_bytes = sp, sz
+            return {
+                "tool": "music_generation", "ok": True, "prompt": prompt,
+                "provider": "token6688", "model": submitted.get("model", ""),
+                "task_id": remote_id, "audio_url": audio_url,
+                "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+                "created_at": datetime.now(UTC).isoformat(),
+                "message": "音乐生成完成"
+                           + (f",saved={saved_path}" if saved_path else ""),
+            }
+        if st.get("failed"):
+            return {
+                "tool": "music_generation", "ok": False, "prompt": prompt,
+                "provider": "token6688", "task_id": remote_id,
+                "audio_url": None, "error": st.get("error") or "音乐任务失败",
+                "errorCode": "TASK_FAILED",
+            }
+    # 超时窗口:返回 submitted+task_id,用户稍后取件(防对话卡死)
+    return {
+        "tool": "music_generation", "ok": True, "submitted": True,
+        "prompt": prompt, "provider": "token6688",
+        "model": submitted.get("model", ""), "task_id": remote_id,
+        "audio_url": None,
+        "message": (
+            f"音乐生成任务已提交(token6688 网关),官方耗时约 1~5 分钟。"
+            f"已等待 {wait_s}s 未完成——请稍后让我查询进度"
+            f"(我会用 task_id={remote_id} 拿成曲链接)。"
+            "任务已计费,请勿重复提交同一 prompt。"
+        ),
+    }
+
+
+async def _tool_token6688_model_info(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_model_info: 模型信息查询(目录/参数/估价/跨渠道价)。
+
+    - action=models:目录清单(可选 modality 过滤;读 DB 同步目录,免上游请求;
+      含 modality/display_name/capabilities/健康分/官方价描述/输入提示)
+    - action=params:单模型参数详情。优先读 DB 同步的 param_schema(linked-models
+      dict 形态,含 available_when/max_items/max_bytes/linkages 联动),比上游单模型
+      接口更丰富;DB 未同步时回退 GET /v1/skills/models/{model}(免鉴权)。
+      枚举合法值在 allowed_values —— 发 value 不发界面显示名,否则参数不生效
+    - action=estimate:提交前估价(POST /v1/pricing-estimate;参数与提交完全一致才准,
+      带参考视频必须给 video_total_duration_sec,否则估价不含参考视频费)
+    - action=pricing:跨渠道价格(GET /v1/skills/models/{model}/pricing,免鉴权)
+    """
+    action = str(arguments.get("action") or "estimate").lower()
+    model = str(arguments.get("model") or "").strip()
+
+    # ---- action=models:目录清单(读 DB 同步目录,不需要 model)----
+    if action == "models":
+        from . import token6688_catalog
+
+        modality = str(arguments.get("modality") or "").strip().lower() or None
+        if modality and modality not in ("chat", "video", "image", "audio"):
+            return {
+                "tool": "token6688_model_info", "ok": False,
+                "error": f"modality 仅支持 chat/video/image/audio,收到 {modality!r}",
+                "errorCode": "BAD_PARAMS",
+            }
+        items = await token6688_catalog.list_models(modality)
+        return {
+            "tool": "token6688_model_info", "ok": True, "action": "models",
+            "modality": modality or "all", "count": len(items),
+            "models": items,
+            "note": "目录来自 model_sync 同步(上游 available 模型);视频/图片/音频模型走"
+                    " video_generation / image_generation / tts 等工具调用,不进对话列表。",
+        }
+
+    if not model:
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": "缺少 model 参数(如 seedance-2-5 / music / gpt-image-2)",
+            "errorCode": "MISSING_PARAMS",
+        }
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        if action == "params":
+            # DB 优先:同步入库的 param_schema 含 available_when/linkages/max_items
+            # 等 agent 构造素材参数需要的机读信息,且免一次上游请求
+            from . import token6688_catalog
+
+            meta = await token6688_catalog.get_model_metadata(model)
+            if meta and meta.get("param_schema"):
+                summary = token6688_catalog.summarize_params_for_agent(meta)
+                return {
+                    "tool": "token6688_model_info", "ok": True, "action": "params",
+                    "model": model, "source": "db_sync",
+                    "display_name": meta.get("display_name"),
+                    **summary,
+                }
+            data = await inst.get_model_params(model)
+            params_summary = []
+            for p in data.get("params") or []:
+                if not isinstance(p, dict):
+                    continue
+                opts = p.get("options") or []
+                params_summary.append({
+                    "name": p.get("name"),
+                    "label": p.get("label"),
+                    "default": next((o.get("value") for o in opts if o.get("is_default")), None),
+                    "allowed_values": [o.get("value") for o in opts],
+                })
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "params",
+                "model": model, "source": "upstream",
+                "display_name": data.get("display_name"),
+                "capabilities": data.get("capabilities"),
+                "params": params_summary, "raw": data,
+            }
+        if action == "pricing":
+            data = await inst.get_model_pricing(model)
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "pricing",
+                "model": model, "channel_groups": data.get("channel_groups"), "raw": data,
+            }
+        if action == "estimate":
+            prompt = str(arguments.get("prompt") or "")
+            params_in = arguments.get("params") if isinstance(arguments.get("params"), dict) else {}
+            data = await inst.estimate_pricing(model, prompt, params=params_in or None)
+            return {
+                "tool": "token6688_model_info", "ok": True, "action": "estimate",
+                "model": model,
+                "effective_total_rmb": data.get("effective_total_rmb"),
+                "max_effective_total_rmb": data.get("max_effective_total_rmb"),
+                "price_basis": data.get("price_basis"),
+                "raw": data,
+            }
+        return {
+            "tool": "token6688_model_info", "ok": False,
+            "error": f"未知 action: {action}(允许 estimate/params/pricing)", "errorCode": "BAD_PARAMS",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_model_info", "ok": False, "model": model,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+
+
+async def _tool_token6688_cancel_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_cancel_task: 取消在途异步任务(2026-09-08 新增)。
+
+    DELETE /v1/tasks/{id} 优先、POST .../cancel 兜底;官方未收录该端点,
+    ok=false 时如实带原因(unsupported/not_found),绝不阻塞对话。
+    """
+    task_id = str(arguments.get("task_id") or "").strip()
+    if not task_id:
+        return {
+            "tool": "token6688_cancel_task", "ok": False,
+            "error": "缺少 task_id(提交任务时返回的异步任务 ID)",
+            "errorCode": "MISSING_PARAMS",
+        }
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_cancel_task", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        result = await inst.cancel_task(task_id)
+        return {"tool": "token6688_cancel_task", "task_id": task_id, **result}
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_cancel_task", "ok": False, "task_id": task_id,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+
+
+async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_upload_file: 上传文件换 24h 有效公网 URL(POST /v1/files,≤50MB)。
+
+    多模态输入(视频参考素材 audios/videos、图编辑、声纹克隆参考音频)官方只收
+    URL,本地文件先走此接口拿 URL。入参二选一:
+    - path: 服务器本地文件路径(读取后上传)
+    - url:  远程 http(s) URL(先 SSRF 校验,再拉取转发)
+    purpose 可选(官方语义:assistants/voice 等)。
+    """
+    from .video_generation import _instantiate as _video_instantiate
+
+    path = str(arguments.get("path") or "").strip()
+    url = str(arguments.get("url") or "").strip()
+    purpose = str(arguments.get("purpose") or "").strip() or None
+    if not path and not url:
+        return {
+            "tool": "token6688_upload_file", "ok": False,
+            "error": "缺少入参:传 path(服务器本地路径)或 url(远程 http URL)",
+            "errorCode": "MISSING_PARAMS", "file_url": None,
+        }
+    import os
+
+    try:
+        if path:
+            if not os.path.isfile(path):
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"文件不存在: {path}", "errorCode": "FILE_NOT_FOUND",
+                    "file_url": None,
+                }
+            size = os.path.getsize(path)
+            if size > 50 * 1024 * 1024:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"文件超过 50MB 上限({size} 字节)", "errorCode": "FILE_TOO_LARGE",
+                    "file_url": None,
+                }
+            with open(path, "rb") as _f:
+                data = _f.read()
+            filename = os.path.basename(path) or "file.bin"
+        else:
+            from .screenshot_service import _validate_url_ssrf
+
+            ok_ssrf, reason = _validate_url_ssrf(url)
+            if not ok_ssrf:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                    "file_url": None,
+                }
+            import httpx as _httpx
+
+            try:
+                async with _httpx.AsyncClient(timeout=60, follow_redirects=True) as _c:
+                    _r = await _c.get(url)
+                    _r.raise_for_status()
+                    data = _r.content
+            except Exception as e:  # noqa: BLE001
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"拉取远程文件失败: {e}"[:300], "errorCode": "FETCH_FAILED",
+                    "file_url": None,
+                }
+            if len(data) > 50 * 1024 * 1024:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": "远程文件超过 50MB 上限", "errorCode": "FILE_TOO_LARGE",
+                    "file_url": None,
+                }
+            filename = url.rsplit("/", 1)[-1][:200] or "file.bin"
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "token6688_upload_file", "ok": False,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "file_url": None,
+            }
+        file_url = await inst.upload_file(data, filename, purpose=purpose)
+        return {
+            "tool": "token6688_upload_file", "ok": True,
+            "file_url": file_url, "filename": filename, "size": len(data),
+            "hint": "该 URL 24 小时内有效,可作为视频参考素材(videos/audios)/图编辑输入/声纹参考",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_upload_file", "ok": False,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR", "file_url": None,
+        }
+
+
+_TTS_OPENAI_VOICES = frozenset({"alloy", "echo", "fable", "onyx", "nova", "shimmer"})
+
+
+def _tts_engine_chain(engine: str, voice: str) -> list[str]:
+    """TTS 引擎自动切换链(2026-09-08 全模态自动切换)。
+
+    - engine=auto(缺省):voice 是 OpenAI 官方音色或声纹库 voice_id → token6688 优先
+      (edge 发不出这些音色);否则 edge 优先(零 key 零成本)。失败互备换下一家。
+    - engine 显式指定 edge/token6688 → 单引擎(尊重用户明确选择,失败如实报错)。
+    """
+    if engine in ("edge", "token6688"):
+        return [engine]
+    if voice:
+        v = voice.strip()
+        if v.lower() in _TTS_OPENAI_VOICES or v.lower().startswith("voice_"):
+            return ["token6688", "edge"]
+    return ["edge", "token6688"]
+
+
+async def _tts_once(
+    engine: str, text: str, arguments: dict[str, Any]
+) -> tuple[bytes, str, str, str, dict[str, Any] | None]:
+    """单引擎合成一次。返回 (audio, content_type, voice, provider_name, err)。
+
+    err 非 None 时 audio 为空字节,err 为归一化失败 dict(ok=False)。
+    """
+    if engine == "token6688":
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return b"", "", "", "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688);"
+                         "可改用 engine=edge(零成本)或 engine=auto(自动切换)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        used_voice = str(arguments.get("voice") or "alloy")
+        try:
+            audio, content_type = await inst.tts(
+                text, voice=used_voice,
+                speed=float(arguments.get("speed") or 1.0),
+                response_format=str(arguments.get("response_format") or "mp3"),
+            )
+            return audio, content_type, used_voice, "token6688", None
+        except Exception as e:  # noqa: BLE001
+            return b"", "", used_voice, "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": str(e)[:300], "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+    # engine == "edge":微软 edge-tts,零 key 零成本
+    used_voice = str(arguments.get("voice") or "zh-CN-XiaoxiaoNeural")
+    try:
+        import edge_tts
+
+        communicate = edge_tts.Communicate(text, voice=used_voice)
+        chunks: list[bytes] = []
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio":
+                chunks.append(chunk["data"])
+        if not chunks:
+            raise RuntimeError("edge-tts 未返回音频数据")
+        return b"".join(chunks), "audio/mpeg", used_voice, "edge-tts", None
+    except Exception as e:  # noqa: BLE001
+        return b"", "", used_voice, "edge-tts", {
+            "ok": False, "provider": "edge-tts",
+            "error": f"edge-tts 不可达或失败: {e}"[:300], "errorCode": "ENGINE_ERROR",
+            "audio_url": None,
+        }
+
+
+async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
+    """voice_tts: 文本转语音(对话内朗读/配音/播报,2026-09-08 落地)。
+
+    2026-09-08 全模态自动切换升级:engine=auto(新默认)按音色智能排序引擎链,
+    失败自动互备(edge↔token6688),全失败才报错;显式 engine 仍单引擎。
+    2026-09-09 深度增强:
+    - 超长文本(2000<text≤5000)自动切 token6688 异步 TTS(/v1/audio/speech/async,
+      免长连接;返回 task_id + submitted=true,与视频/音乐长任务同构,可用 task_id 取件)
+    - task_id 查询模式:只传 task_id 时查询异步 TTS 任务状态,completed 返回公网 audio_url
+    - voice 支持声纹库 voice_id(克隆音色;engine=token6688 时直通)
+    - edge:微软 edge-tts,零 key 零成本,中文质量高(白名单音色)
+    - token6688:聚合网关 /v1/audio/speech(OpenAI 同构,单 key;
+      voice 可传官方音色 alloy/echo/fable/onyx/nova/shimmer 或声纹库 voice_id 克隆音色)
+    - 同步接口直接出音频,无任务轮询;audio_url 为 data URI(前端 <audio> 直接播放)
+    - 支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)
+    """
+    import base64 as _base64
+    from datetime import datetime
+
+    # ---- task_id 查询模式(2026-09-09):异步 TTS 取件 ----
+    query_task_id = str(arguments.get("task_id") or "").strip()
+    if query_task_id:
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),"
+                         "无法查询异步 TTS 任务",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        try:
+            st = await inst.get_task_status(query_task_id)
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "error": f"查询异步 TTS 任务失败: {e}"[:300],
+                "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+        if st.get("failed"):
+            return {
+                "tool": "voice_tts", "ok": False, "task_id": query_task_id,
+                "status": st.get("status"), "error": st.get("error") or "异步 TTS 任务失败",
+                "errorCode": "TASK_FAILED", "audio_url": None,
+            }
+        audio_url = st.get("audio_url") or st.get("video_url") or ""
+        if st.get("ok") and audio_url:
+            return {
+                "tool": "voice_tts", "ok": True, "task_id": query_task_id,
+                "status": "completed", "audio_url": audio_url,
+                "provider": "token6688", "message": "异步 TTS 任务已完成",
+            }
+        return {
+            "tool": "voice_tts", "ok": True, "task_id": query_task_id,
+            "status": st.get("status") or "processing", "submitted": True,
+            "audio_url": None, "provider": "token6688",
+            "message": f"异步 TTS 任务处理中(status={st.get('status') or 'processing'}),"
+                       "请稍后带同一 task_id 查询取件",
+        }
+
+    text = arguments.get("text", "")
+    if not isinstance(text, str) or not text.strip():
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": "缺少 text 参数", "errorCode": "MISSING_PARAMS", "audio_url": None,
+        }
+    text = text.strip()
+    if len(text) > 5000:
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": f"text 超长({len(text)}>5000 字符),请分段合成或缩短文本",
+            "errorCode": "TEXT_TOO_LONG", "audio_url": None,
+        }
+    engine = str(arguments.get("engine") or "auto").lower()
+    if engine not in ("auto", "edge", "token6688"):
+        return {
+            "tool": "voice_tts", "ok": False,
+            "error": f"未知 engine: {engine}(允许 auto/edge/token6688)",
+            "errorCode": "BAD_PARAMS", "audio_url": None,
+        }
+    save_path = arguments.get("save_path")
+
+    # ---- 超长文本(>2000):自动切 token6688 异步 TTS(免长连接;产物为公网 URL)----
+    if len(text) > 2000:
+        from .video_generation import _instantiate as _video_instantiate
+
+        if engine == "edge":
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": f"text 超长({len(text)}>2000 字符),edge 引擎不支持超长合成;"
+                         "请改用 engine=auto / engine=token6688(异步 TTS,支持 ≤5000 字符)",
+                "errorCode": "TEXT_TOO_LONG", "audio_url": None,
+            }
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": "text 超长需要 token6688 异步 TTS,但 token6688 未配置"
+                         "(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688);"
+                         "请配置 key 或把文本分段(每段 ≤2000 字符)走 edge",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "audio_url": None,
+            }
+        used_voice = str(arguments.get("voice") or "alloy")
+        try:
+            sub = await inst.tts_async(
+                text, voice=used_voice,
+                speed=float(arguments.get("speed") or 1.0),
+                response_format=str(arguments.get("response_format") or "mp3"),
+                wait=False,
+            )
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "voice_tts", "ok": False,
+                "error": f"token6688 异步 TTS 提交失败: {e}"[:300],
+                "errorCode": "PROVIDER_ERROR", "audio_url": None,
+            }
+        return {
+            "tool": "voice_tts", "ok": True, "provider": "token6688",
+            "engine": "token6688", "voice": used_voice,
+            "task_id": sub.get("task_id"), "submitted": True,
+            "status": "submitted", "text_chars": len(text),
+            "audio_url": None,
+            "message": f"超长文本已提交 token6688 异步 TTS(task_id={sub.get('task_id')}),"
+                       "完成后会返回公网语音链接;稍后问我'语音好了吗'带该 task_id 即可取件",
+        }
+
+    chain = _tts_engine_chain(engine, str(arguments.get("voice") or ""))
+    attempts: list[dict[str, str]] = []
+    audio = b""
+    content_type = "audio/mpeg"
+    used_voice = ""
+    provider_name = ""
+    used_engine = chain[0] if chain else "edge"
+    for eng in chain:
+        audio, content_type, used_voice, provider_name, err = await _tts_once(eng, text, arguments)
+        if err is None:
+            used_engine = eng
+            break
+        attempts.append({
+            "engine": eng, "provider": provider_name,
+            "errorCode": str(err.get("errorCode", "UNKNOWN")),
+            "error": str(err.get("error", ""))[:200],
+        })
+    else:
+        # 全引擎失败:errorCode 保留末次错误码,附尝试明细(对话侧如实转述)
+        last = attempts[-1]
+        return {
+            "tool": "voice_tts", "ok": False, "provider": last["provider"],
+            "error": last["error"], "errorCode": last["errorCode"],
+            "audio_url": None, "failover_attempts": attempts,
+            "message": f"全部 {len(attempts)} 个 TTS 引擎均失败",
+        }
+
+    # ---- save_path 落地(可选)----
+    saved_path: str | None = None
+    file_size_bytes = len(audio)
+    if save_path:
+        ok_path, resolved, err_code = _validate_audio_save_path(save_path)
+        if ok_path:
+            ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved)
+            if ok_w:
+                saved_path, file_size_bytes = sp, sz
+
+    # data URI 直播给前端 <audio>(文本≤2000 字符,mp3 通常 <2MB)
+    audio_url = f"data:{content_type or 'audio/mpeg'};base64,{_base64.b64encode(audio).decode()}"
+    out = {
+        "tool": "voice_tts", "ok": True,
+        "provider": provider_name, "engine": used_engine, "voice": used_voice,
+        "text_chars": len(text), "file_size_bytes": file_size_bytes,
+        "audio_url": audio_url, "saved_path": saved_path,
+        "created_at": datetime.now(UTC).isoformat(),
+        "message": "语音合成完成" + (f",saved={saved_path}" if saved_path else ""),
+    }
+    if attempts:
+        out["failover_attempts"] = attempts
+    return out
+
+
+# ---------------------------------------------------------------------------
+# token6688_voice_clone(2026-09-09 全模态深度适配):对话内声纹克隆管理。
+# 官方声纹库端点(/v1/audio/voices):
+# - action=list    列我的声纹(voice_id/名称/时长等)
+# - action=upload  上传参考音频(本地路径 / http URL / base64 data URI)克隆音色
+#                  (官方硬限制:MP3/M4A/WAV,10~300s,<20MiB;异步任务轮询至终态)
+# - action=get     查单一声纹详情(克隆状态)
+# 克隆成功后把 voice_id 传给 voice_tts(engine=token6688)即可用克隆音色合成。
+# ---------------------------------------------------------------------------
+
+
+def _audio_source_from_args(
+    arguments: dict[str, Any],
+) -> tuple[bytes, str, str | None]:
+    """从工具入参解析音频字节:path / url / data URI 三选一。
+
+    Returns (audio_bytes, filename, error)。error 非 None 时前两者为空。
+    """
+    import base64 as _b64
+    import os as _os
+
+    path = str(arguments.get("path") or "").strip()
+    url = str(arguments.get("url") or "").strip()
+    data_uri = str(arguments.get("data_uri") or "").strip()
+    sources = sum(bool(v) for v in (path, url, data_uri))
+    if sources == 0:
+        return b"", "", "缺少入参:path / url / data_uri 至少传一个"
+    if sources > 1:
+        return b"", "", "path / url / data_uri 只能传一个"
+    if path:
+        if not _os.path.isfile(path):
+            return b"", "", f"文件不存在: {path}"
+        size = _os.path.getsize(path)
+        if size >= 20 * 1024 * 1024:
+            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
+        try:
+            with open(path, "rb") as _f:
+                return _f.read(), _os.path.basename(path) or "ref.wav", None
+        except OSError as e:
+            return b"", "", f"读取文件失败: {e}"
+    if url:
+        from .screenshot_service import _validate_url_ssrf
+
+        ok_ssrf, reason = _validate_url_ssrf(url)
+        if not ok_ssrf:
+            return b"", "", f"URL 不允许访问: {reason}"
+        import httpx as _httpx
+
+        try:
+            with _httpx.Client(timeout=60, follow_redirects=True) as _c:
+                _r = _c.get(url)
+                _r.raise_for_status()
+                data = _r.content
+        except Exception as e:  # noqa: BLE001
+            return b"", "", f"拉取远程音频失败: {e}"[:300]
+        if len(data) >= 20 * 1024 * 1024:
+            return b"", "", "远程音频超过官方 <20MiB 硬限制"
+        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
+    # data URI:data:audio/mpeg;base64,....
+    # 2026-09-09 修复:partition 结果变量原命名为 _b64,遮蔽了 import base64 as _b64
+    # 的模块引用,导致 b64decode 抛 AttributeError → 永远"解码失败"。改名 _b64payload。
+    _head, _sep, _b64payload = data_uri.partition(",")
+    if not _sep or not _b64payload:
+        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)"
+    try:
+        data = _b64.b64decode(_b64payload)
+    except Exception:  # noqa: BLE001
+        data = b""
+    if not data:
+        return b"", "", "data_uri base64 解码失败或内容为空"
+    if len(data) >= 20 * 1024 * 1024:
+        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制"
+    ext = "mp3"
+    if _head and "/" in _head:
+        _mime = _head.split(";", 1)[0].split("/", 1)[-1]
+        if _mime in ("wav", "wave", "m4a", "mp3"):
+            ext = "wav" if _mime == "wave" else _mime
+    return data, f"ref.{ext}", None
+
+
+async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_voice_clone: 声纹克隆管理(2026-09-09 全模态深度适配)。
+
+    - action=list: 列我的声纹库(voice_id 列表,克隆 TTS 直接传 voice_id)
+    - action=upload: 上传参考音频克隆音色(path / url / data_uri 三选一;
+      MP3/M4A/WAV,10~300s,<20MiB;异步任务轮询至终态,返回 voice_id)
+    - action=get: 查单一声纹(voice_id 必填)
+    - action=delete: 删除克隆声纹(voice_id 必填;DELETE /v1/audio/voices/{id} 优先,
+      POST /delete 兜底,失败如实返回不抛)
+    用户说"克隆我的声音/用我的声音朗读/上传参考音频"时使用;"删除音色/清理声纹"用 delete。
+    """
+    action = str(arguments.get("action") or "list").lower()
+    if action not in ("list", "upload", "get", "delete"):
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": f"未知 action: {action}(允许 list/upload/get/delete)", "errorCode": "BAD_PARAMS",
+        }
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        if action == "list":
+            voices = await inst.list_voices()
+            return {
+                "tool": "token6688_voice_clone", "ok": True, "action": "list",
+                "count": len(voices), "voices": voices,
+                "hint": "把某个 voice_id 传给 voice_tts(engine=token6688,voice=voice_id)即可克隆合成",
+            }
+        if action == "get":
+            voice_id = str(arguments.get("voice_id") or "").strip()
+            if not voice_id:
+                return {
+                    "tool": "token6688_voice_clone", "ok": False,
+                    "error": "缺少 voice_id(action=get 需要)", "errorCode": "MISSING_PARAMS",
+                }
+            data = await inst.get_voice(voice_id)
+            return {
+                "tool": "token6688_voice_clone", "ok": True, "action": "get",
+                "voice_id": voice_id, "voice": data, "raw": data,
+            }
+        if action == "delete":
+            voice_id = str(arguments.get("voice_id") or "").strip()
+            if not voice_id:
+                return {
+                    "tool": "token6688_voice_clone", "ok": False,
+                    "error": "缺少 voice_id(action=delete 需要)", "errorCode": "MISSING_PARAMS",
+                }
+            result = await inst.delete_voice(voice_id)
+            return {
+                "tool": "token6688_voice_clone", "ok": bool(result.get("ok")), "action": "delete",
+                "voice_id": voice_id, "status": result.get("status", ""),
+                "error": result.get("error"), "raw": result.get("raw"),
+                "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
+            }
+        # action == "upload"
+        audio, filename, err = _audio_source_from_args(arguments)
+        if err:
+            return {
+                "tool": "token6688_voice_clone", "ok": False,
+                "error": err, "errorCode": "BAD_PARAMS",
+            }
+        result = await inst.upload_voice(audio, filename)
+        voice_id = ""
+        v = result.get("voice")
+        if isinstance(v, dict):
+            voice_id = str(v.get("id") or v.get("voice_id") or "").strip()
+        if not voice_id:
+            voice_id = str(result.get("id") or result.get("voice_id") or "").strip()
+        return {
+            "tool": "token6688_voice_clone", "ok": True, "action": "upload",
+            "voice_id": voice_id or None, "voice": v if isinstance(v, dict) else None,
+            "filename": filename, "size": len(audio), "raw": result,
+            "hint": f"声纹克隆完成:voice_id={voice_id or '(见 voice 字段)'}。"
+                    "用 voice_tts(engine=token6688,voice=voice_id)即可用该音色合成",
+        }
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_voice_clone", "ok": False,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+
+
+# ---------------------------------------------------------------------------
+# audio_transcription(2026-09-09 全模态深度适配):对话内语音转文字(ASR)。
+# 引擎链:local(faster-whisper 本地推理,零 key 零成本,与 /api/voice/stt 同源)
+# → token6688(/v1/audio/transcriptions,OpenAI 同构;平台暂未开通时 404 自动换)。
+# 输入支持:URL(http/https,过 SSRF 校验)/ base64 data URI / 本地路径。
+# ---------------------------------------------------------------------------
+_AUDIO_STT_MAX_BYTES = 25 * 1024 * 1024  # 25MB,与主流转写接口上限对齐
+
+
+def _stt_engine_chain() -> list[str]:
+    """STT 引擎链:本地 faster-whisper 优先(零成本),token6688 兜底。"""
+    return ["local", "token6688"]
+
+
+async def _stt_once(
+    engine: str, audio_bytes: bytes, filename: str, language: str | None
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """单引擎转写一次。返回 (text, model_name, provider_name, err)。
+
+    err 非 None 时 text 为空串,err 为归一化失败 dict(ok=False)。
+    """
+    if engine == "token6688":
+        from .video_generation import _instantiate as _video_instantiate
+
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return "", "", "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+                "errorCode": "PROVIDER_NOT_CONFIGURED",
+            }
+        try:
+            st = await inst.stt(audio_bytes, filename, language=language or None)
+            return str(st.get("text", "")), str(st.get("model", "")), "token6688", None
+        except Exception as e:  # noqa: BLE001
+            return "", "", "token6688", {
+                "ok": False, "provider": "token6688",
+                "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+            }
+    # engine == "local":faster-whisper 本地推理(与 /api/voice/stt 同源,零成本)
+    try:
+        import asyncio as _asyncio
+        import os as _os
+        import tempfile as _tempfile
+
+        from ..routers.voice_stt import _DEFAULT_STT_MODEL, _get_whisper_model, _transcribe_sync
+
+        suffix = ".wav"
+        dot = filename.rfind(".")
+        if dot >= 0:
+            ext = filename[dot + 1:].lower()
+            if ext.isalnum() and len(ext) <= 6:
+                suffix = f".{ext}"
+        model = await _asyncio.to_thread(_get_whisper_model)
+        tmp_fd, tmp_path = _tempfile.mkstemp(suffix=suffix)
+        try:
+            with _os.fdopen(tmp_fd, "wb") as f:
+                f.write(audio_bytes)
+            text = await _asyncio.to_thread(_transcribe_sync, model, tmp_path, language or None)
+        finally:
+            with contextlib.suppress(OSError):
+                _os.unlink(tmp_path)
+        return text, _DEFAULT_STT_MODEL, "faster-whisper", None
+    except ImportError:
+        return "", "", "faster-whisper", {
+            "ok": False, "provider": "faster-whisper",
+            "error": "faster-whisper 未安装(请运行 pip install faster-whisper)",
+            "errorCode": "ENGINE_UNAVAILABLE",
+        }
+    except Exception as e:  # noqa: BLE001
+        return "", "", "faster-whisper", {
+            "ok": False, "provider": "faster-whisper",
+            "error": f"本地转写失败: {e}"[:300], "errorCode": "ENGINE_ERROR",
+        }
+
+
+async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]:
+    """audio_transcription: 语音转文字(对话内 ASR,2026-09-09 落地)。
+
+    引擎链自动切换:local(faster-whisper,零 key 零成本)→ token6688(备用),
+    首选失败自动换下一家,全失败聚合报错(对话侧如实转述)。
+    用户说"把这段录音转文字/听听这个音频说了什么"时使用。
+    """
+    import base64 as _base64
+
+    audio_in = arguments.get("audio") or arguments.get("file") or ""
+    if not isinstance(audio_in, str) or not audio_in.strip():
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": "缺少 audio 参数(URL / base64 data URI / 本地路径)",
+            "errorCode": "MISSING_PARAMS", "text": None,
+        }
+    audio_in = audio_in.strip()
+    language = str(arguments.get("language") or "").strip() or None
+    filename = str(arguments.get("filename") or "audio.wav")
+
+    audio_bytes = b""
+    source = ""
+    if audio_in.startswith("data:"):
+        # base64 data URI:data:audio/mpeg;base64,....
+        _head, _sep, _b64 = audio_in.partition(",")
+        if not _sep or not _b64:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": "data URI 格式非法(应为 data:audio/xxx;base64,...)",
+                "errorCode": "BAD_PARAMS", "text": None,
+            }
+        try:
+            audio_bytes = _base64.b64decode(_b64)
+        except Exception:  # noqa: BLE001
+            audio_bytes = b""
+        if not audio_bytes:
+            # 解码异常或空载荷(如 b64decode 忽略非法字符后得空)统一按格式非法处理
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": "base64 解码失败或内容为空", "errorCode": "BAD_PARAMS",
+                "text": None,
+            }
+        source = "data_uri"
+    elif audio_in.lower().startswith(("http://", "https://")):
+        from .screenshot_service import _validate_url_ssrf
+
+        ok_ssrf, reason = _validate_url_ssrf(audio_in)
+        if not ok_ssrf:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"URL 不允许访问: {reason}", "errorCode": "SSRF_BLOCKED",
+                "text": None,
+            }
+        try:
+            from ..core.llm_gateway import get_http_client
+
+            client = get_http_client()
+            resp = await client.get(audio_in, timeout=60.0)
+            resp.raise_for_status()
+            audio_bytes = resp.content
+        except Exception as e:  # noqa: BLE001
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"音频下载失败: {e}"[:300], "errorCode": "DOWNLOAD_FAILED",
+                "text": None,
+            }
+        source = "url"
+        ctype = str(resp.headers.get("content-type", "")).lower()
+        for _ext in ("mpeg", "mp3", "wav", "ogg", "flac", "m4a", "webm", "aac"):
+            if _ext in ctype:
+                filename = f"audio.{'mp3' if _ext == 'mpeg' else _ext}"
+                break
+    else:
+        # 本地路径(如 voice_tts save_path 落地的音频)
+        from pathlib import Path as _Path
+
+        p = _Path(audio_in)
+        if not p.is_file():
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"本地文件不存在: {audio_in}", "errorCode": "FILE_NOT_FOUND",
+                "text": None,
+            }
+        if p.stat().st_size > _AUDIO_STT_MAX_BYTES:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": f"音频超限({p.stat().st_size} > {_AUDIO_STT_MAX_BYTES} 字节)",
+                "errorCode": "TOO_LARGE", "text": None,
+            }
+        audio_bytes = p.read_bytes()
+        source = "local_path"
+        filename = p.name
+
+    if not audio_bytes:
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": "音频内容为空", "errorCode": "EMPTY_AUDIO", "text": None,
+        }
+    if len(audio_bytes) > _AUDIO_STT_MAX_BYTES:
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "error": f"音频超限({len(audio_bytes)} > {_AUDIO_STT_MAX_BYTES} 字节)",
+            "errorCode": "TOO_LARGE", "text": None,
+        }
+
+    attempts: list[dict[str, str]] = []
+    text = ""
+    used_model = ""
+    provider_name = ""
+    for eng in _stt_engine_chain():
+        text, used_model, provider_name, err = await _stt_once(
+            eng, audio_bytes, filename, language,
+        )
+        if err is None:
+            break
+        attempts.append({
+            "engine": eng, "provider": err.get("provider", eng),
+            "errorCode": str(err.get("errorCode", "UNKNOWN")),
+            "error": str(err.get("error", ""))[:200],
+        })
+    else:
+        last = attempts[-1]
+        return {
+            "tool": "audio_transcription", "ok": False,
+            "provider": last["provider"], "error": last["error"],
+            "errorCode": last["errorCode"], "text": None,
+            "failover_attempts": attempts,
+            "message": f"全部 {len(attempts)} 个转写引擎均失败",
+        }
+
+    out = {
+        "tool": "audio_transcription", "ok": True,
+        "provider": provider_name, "model": used_model,
+        "text": text, "text_chars": len(text),
+        "audio_bytes": len(audio_bytes), "source": source,
+        "language": language,
+        "message": "转写完成",
+    }
+    if attempts:
+        out["failover_attempts"] = attempts
+    return out
+
+
+async def _tool_token6688_balance(arguments: dict[str, Any]) -> dict[str, Any]:
+    """token6688_balance: 查询 token6688(名创AI 网关)账户余额(只读)。
+
+    用户问"还剩多少额度/余额多少钱"时使用;未配置 key 时返回清晰错误。
+    """
+    from .video_generation import _instantiate as _video_instantiate
+
+    inst = _video_instantiate("token6688")
+    if inst is None:
+        return {
+            "tool": "token6688_balance", "ok": False,
+            "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688)",
+            "errorCode": "PROVIDER_NOT_CONFIGURED",
+        }
+    try:
+        st = await inst.get_balance()
+    except Exception as e:  # noqa: BLE001
+        return {
+            "tool": "token6688_balance", "ok": False,
+            "error": f"余额查询失败: {e}"[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    return {
+        "tool": "token6688_balance", "ok": True,
+        "balance": st.get("balance"), "available_balance": st.get("available_balance"),
+        "frozen": st.get("frozen"), "currency": "USD",
+        "message": "余额查询成功",
+    }
+
+
+def _scan_pr_files_for_findings(
+    files: list[dict[str, Any]], focus: str
+) -> list[dict[str, Any]]:
+    """扫描 PR 文件 diff,用正则模式匹配潜在问题(零 LLM)。"""
+    findings: list[dict[str, Any]] = []
+    # (regex, category, severity, comment)
+    _PATTERNS = [
+        (r"\beval\s*\(", "security", "high", "使用 eval() 有代码注入风险"),
+        (r"\bexec\s*\(", "security", "high", "使用 exec() 有代码注入风险"),
+        (r"new\s+Function\s*\(", "security", "high", "new Function() 有代码注入风险"),
+        (r"os\.system\s*\(", "security", "high", "os.system() 有命令注入风险"),
+        (
+            r"subprocess\.(?:run|call|Popen)\s*\([^)]*shell\s*=\s*True",
+            "security", "high", "subprocess shell=True 有命令注入风险",
+        ),
+        (
+            r"""(?:api[_-]?key|secret|token|password)\s*=\s*["'][^"']{8,}["']""",
+            "security", "high", "疑似硬编码凭证",
+        ),
+        (
+            r"for\s+[^:]+:\s*\n[+\-\s]*for\s+[^:]+:",
+            "performance", "medium", "嵌套循环可能 O(n²)",
+        ),
+        (
+            r"for\s+\w+\s+in\s+.*:\s*\n[+\-\s]*.*\.execute\s*\(",
+            "performance", "medium", "疑似 N+1 查询模式",
+        ),
+    ]
+    for f in files:
+        filename = f.get("filename", "")
+        patch = f.get("patch", "")
+        if not patch:
+            continue
+        for rgx, cat, sev, comment in _PATTERNS:
+            if focus not in ("all", cat):
+                continue
+            m = re.search(rgx, patch, re.IGNORECASE)
+            if m:
+                line_no = patch[: m.start()].count("\n") + 1
+                findings.append({
+                    "severity": sev, "file": filename,
+                    "line": line_no, "category": cat, "comment": comment,
+                })
+        # readability: 大函数检测(新增行 > 500)
+        added_count = sum(
+            1 for ln in patch.splitlines()
+            if ln.startswith("+") and not ln.startswith("+++")
+        )
+        if focus in ("readability", "all") and added_count > 500:
+            findings.append({
+                "severity": "low", "file": filename, "line": 1,
+                "category": "readability",
+                "comment": f"新增 {added_count} 行,可能函数过长",
+            })
+    return findings
+
+
+# PR diff 缓存(进程内,TTL 1h,2026-07-24 review_pr 升级)
+_PR_DIFF_CACHE: dict[str, tuple[str, float]] = {}
+_PR_DIFF_CACHE_TTL = 3600.0  # 1 hour
+
+
+def _get_cached_pr_diff(key: str) -> str | None:
+    """读 PR diff 缓存:命中且未过期返回 diff 文本,否则 None。"""
+    if key not in _PR_DIFF_CACHE:
+        return None
+    diff_text, ts = _PR_DIFF_CACHE[key]
+    if time.time() - ts > _PR_DIFF_CACHE_TTL:
+        del _PR_DIFF_CACHE[key]
+        return None
+    return diff_text
+
+
+def _set_cached_pr_diff(key: str, diff_text: str) -> None:
+    """写 PR diff 缓存(TTL 在读时检查)。"""
+    _PR_DIFF_CACHE[key] = (diff_text, time.time())
+
+
+def _parse_unified_diff(diff_text: str) -> list[dict[str, Any]]:
+    """解析 unified diff 文本为文件列表。
+
+    每项: {filename, patch(原始 diff 行), additions, deletions}
+    以 '+++ b/<path>' 行作为文件边界。
+    """
+    files: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for line in diff_text.splitlines():
+        m = re.match(r"^\+\+\+ b/(.+?)(?:\s|$)", line)
+        if m:
+            if current:
+                files.append(current)
+            current = {
+                "filename": m.group(1).strip(),
+                "patch": "",
+                "additions": 0,
+                "deletions": 0,
+            }
+            current["patch"] += line + "\n"
+            continue
+        if current is None:
+            continue
+        current["patch"] += line + "\n"
+        if line.startswith("+") and not line.startswith("+++"):
+            current["additions"] += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            current["deletions"] += 1
+    if current:
+        files.append(current)
+    return files
+
+
+def _compute_diff_stats(files: list[dict[str, Any]]) -> dict[str, Any]:
+    """从解析后的文件列表计算 files_changed/added_lines/removed_lines/complexity/risk。"""
+    files_changed = len(files)
+    added = sum(f.get("additions", 0) for f in files)
+    removed = sum(f.get("deletions", 0) for f in files)
+    complexity = added + 2 * removed + 10 * files_changed
+    if complexity < 50:
+        risk = "low"
+    elif complexity < 300:
+        risk = "medium"
+    else:
+        risk = "high"
+    return {
+        "files_changed": files_changed,
+        "added_lines": added,
+        "removed_lines": removed,
+        "complexity_score": complexity,
+        "risk_assessment": risk,
+    }
+
+
+def _gh_error_for_status(status: int) -> str:
+    """GitHub API 状态码 → errorCode 映射(2026-07-24 spec)。"""
+    if status in (401, 403):
+        return "GITHUB_AUTH_FAILED"
+    if status in (404, 422):
+        return "PR_NOT_FOUND"
+    return "GITHUB_API_ERROR"
+
+
+async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
+    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,对标 Codex GitHub PR Reviews)。
+
+    2026-07-24 升级:
+    - 新增 diff 参数(字符串),与 repo+pr_number 互斥(优先 repo+pr_number)
+    - repo+pr_number 时调 GitHub API 获取真实 diff(Accept: application/vnd.github.v3.diff)
+    - Authorization: Bearer(GITHUB_TOKEN 可空,空则匿名限速 60/h)
+    - 新增 source / pr_url / files_changed / added_lines / removed_lines / complexity_score / risk_assessment
+    - 进程内 cache 1h(key=github:pr:{repo}:{pr_number}:diff)
+    """
+    repo = arguments.get("repo", "")
+    pr_number = arguments.get("pr_number")
+    diff_arg = arguments.get("diff", "")
+    focus = arguments.get("focus", "all")
+    max_files = int(arguments.get("max_files", 20))
+
+    if focus not in ("security", "performance", "readability", "all"):
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": f"无效 focus: {focus}", "errorCode": "INVALID_PARAMS",
+        }
+
+    use_github = bool(repo and "/" in repo and pr_number is not None)
+    if not use_github and not diff_arg:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "缺少 repo+pr_number 或 diff 参数", "errorCode": "MISSING_PARAMS",
+        }
+
+    # 分支 1:diff 字符串(无 GitHub API 调用)
+    if not use_github:
+        files = _parse_unified_diff(diff_arg)[:max_files]
+        findings = _scan_pr_files_for_findings(files, focus)
+        stats = _compute_diff_stats(files)
+        return _build_review_result(
+            repo="", pr_number=None, source="diff_string", pr_url=None,
+            title="", author="", additions=0, deletions=0,
+            files_reviewed=len(files), findings=findings, stats=stats, focus=focus,
+        )
+
+    # 分支 2:GitHub API(repo + pr_number)
+    # use_github=True 隐含 pr_number is not None(已在 line 2744 校验)
+    if pr_number is None:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
+    try:
+        pr_number = int(pr_number)
+    except (TypeError, ValueError):
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
+    if pr_number <= 0:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    gh_token = os.environ.get("GITHUB_TOKEN", "")
+    auth_hdr = f"Bearer {gh_token}" if gh_token else None
+    headers_json = {"Accept": "application/vnd.github+json"}
+    headers_diff = {"Accept": "application/vnd.github.v3.diff"}
+    if auth_hdr:
+        headers_json["Authorization"] = auth_hdr
+        headers_diff["Authorization"] = auth_hdr
+
+    cache_key = f"github:pr:{repo}:{pr_number}:diff"
+    cached_diff = _get_cached_pr_diff(cache_key)
+    base = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            # 1) JSON metadata(title/author/additions/deletions,向后兼容)
+            pr_resp = await client.get(base, headers=headers_json)
+            if pr_resp.status_code >= 400:
+                return {
+                    "tool": "review_pr", "ok": False, "repo": repo,
+                    "pr_number": pr_number,
+                    "error": f"GitHub API 返回 {pr_resp.status_code}",
+                    "errorCode": _gh_error_for_status(pr_resp.status_code),
+                }
+            pr_data = pr_resp.json()
+
+            # 2) Raw diff via Accept: application/vnd.github.v3.diff(新)
+            if cached_diff is None:
+                diff_resp = await client.get(base, headers=headers_diff)
+                if diff_resp.status_code >= 400:
+                    return {
+                        "tool": "review_pr", "ok": False, "repo": repo,
+                        "pr_number": pr_number,
+                        "error": f"GitHub API (diff) 返回 {diff_resp.status_code}",
+                        "errorCode": _gh_error_for_status(diff_resp.status_code),
+                    }
+                cached_diff = diff_resp.text
+                _set_cached_pr_diff(cache_key, cached_diff)
+
+            # 3) /files endpoint(向后兼容:findings 走 file list + patch)
+            files_resp = await client.get(f"{base}/files", headers=headers_json)
+            files_data = files_resp.json() if files_resp.status_code < 400 else []
+    except Exception as e:
+        return {
+            "tool": "review_pr", "ok": False, "repo": repo,
+            "pr_number": pr_number,
+            "error": str(e)[:200], "errorCode": "GITHUB_API_ERROR",
+            "message": f"PR 审查失败: {type(e).__name__}",
+        }
+
+    files_to_scan = files_data[:max_files] if isinstance(files_data, list) else []
+    findings = _scan_pr_files_for_findings(files_to_scan, focus)
+    parsed_files = _parse_unified_diff(cached_diff)
+    stats = _compute_diff_stats(parsed_files)
+
+    return _build_review_result(
+        repo=repo, pr_number=pr_number, source="github_api",
+        pr_url=f"https://github.com/{repo}/pull/{pr_number}",
+        title=pr_data.get("title", ""),
+        author=(pr_data.get("user") or {}).get("login", ""),
+        additions=pr_data.get("additions", 0),
+        deletions=pr_data.get("deletions", 0),
+        files_reviewed=len(files_to_scan),
+        findings=findings, stats=stats, focus=focus,
+    )
+
+
+def _build_review_result(
+    repo: str, pr_number: int | None, source: str, pr_url: str | None,
+    title: str, author: str, additions: int, deletions: int,
+    files_reviewed: int, findings: list[dict[str, Any]], stats: dict[str, Any], focus: str,
+) -> dict[str, Any]:
+    """组装 review_pr 返回结构(避免主函数超 80 行)。"""
+    high = sum(1 for f in findings if f["severity"] == "high")
+    med = sum(1 for f in findings if f["severity"] == "medium")
+    low = sum(1 for f in findings if f["severity"] == "low")
+    result: dict[str, Any] = {
+        "tool": "review_pr", "ok": True, "repo": repo,
+        "pr_number": pr_number,
+        "source": source,
+        "pr_url": pr_url,
+        "title": title,
+        "author": author,
+        "files_reviewed": files_reviewed,
+        "additions": additions,
+        "deletions": deletions,
+        "files_changed": stats["files_changed"],
+        "added_lines": stats["added_lines"],
+        "removed_lines": stats["removed_lines"],
+        "complexity_score": stats["complexity_score"],
+        "risk_assessment": stats["risk_assessment"],
+        "findings": findings,
+        "summary": (
+            f"审查 {files_reviewed} 个文件,发现 {high} 个 high / "
+            f"{med} 个 medium / {low} 个 low 问题"
+        ),
+        "message": f"PR 审查完成(focus={focus}, {len(findings)} 个 finding, source={source})",
+    }
+    return result
+
+
+async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]:
+    """summarize_artifacts: 聚合当前会话的 plans/sources/artifacts(对标 Codex Summary pane)。
+
+    通过 artifacts_store 读取(Redis hash 持久化,进程重启不丢;Redis 不可用降级进程内)。
+    纯本地读取,不调外部 API(零算力)。
+    """
+    conversation_id = arguments.get("conversation_id", "")
+    include = arguments.get("include") or ["plans", "sources", "artifacts", "tool_calls"]
+    max_items = int(arguments.get("max_items", 20))
+
+    result: dict[str, Any] = {
+        "tool": "summarize_artifacts", "ok": True,
+        "conversation_id": conversation_id,
+        "plans": [], "sources": [], "artifacts": [],
+        "tool_calls_summary": {"total": 0, "by_tool": {}},
+        "message": "",
+    }
+
+    if not conversation_id:
+        result["message"] = "未提供 conversation_id,返回空 artifacts"
+        return result
+
+    cached = _load_artifacts(conversation_id)
+    if not cached:
+        result["message"] = "无会话 artifacts 记录(可能为新会话或 Redis 未命中)"
+        return result
+
+    def _clip(items: Any) -> Any:
+        return items[:max_items] if isinstance(items, list) else items
+
+    if "plans" in include:
+        result["plans"] = _clip(cached.get("plans", []))
+    if "sources" in include:
+        result["sources"] = _clip(cached.get("sources", []))
+    if "artifacts" in include:
+        result["artifacts"] = _clip(cached.get("artifacts", []))
+    if "tool_calls" in include:
+        tc = cached.get("tool_calls", [])
+        by_tool: dict[str, int] = {}
+        for call in tc:
+            name = call.get("tool", "unknown") if isinstance(call, dict) else "unknown"
+            by_tool[name] = by_tool.get(name, 0) + 1
+        result["tool_calls_summary"] = {"total": len(tc), "by_tool": by_tool}
+    result["message"] = f"聚合 {conversation_id} 的 artifacts 完成"
+    return result
+
+
+def _parse_simple_cron(cron: str) -> str | None:
+    """降级解析简单 cron 表达式(croniter 未安装时,仅支持 'M H * * *' 形式)。"""
+    parts = cron.split()
+    if len(parts) != 5:
+        return None
+    minute, hour, *_rest = parts
+    try:
+        m = int(minute)
+        h = int(hour)
+    except ValueError:
+        return None
+    return f"{h:02d}:{m:02d} daily (cron: {cron})"
+
+
+def _build_scheduler_params(
+    task: dict[str, Any],
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """将 schedule_task 任务字典映射为 task_scheduler 的 (trigger_type, trigger_config, callback)。
+
+    - once → date trigger(run_date=run_at)
+    - recurring + cron → cron trigger(解析 crontab 5 字段 → APScheduler kwargs)
+    - recurring + interval_seconds → interval trigger
+    callback:webhook_url 存在 → http_webhook,否则 mcp_tool(dispatch_subagent)。
+    """
+    schedule = task.get("schedule", "once")
+    webhook_url = task.get("webhook_url", "")
+    prompt = task.get("prompt", "")
+    task_id = task.get("task_id", "")
+
+    if schedule == "once":
+        trigger_type = "date"
+        trigger_config = {"run_date": task.get("run_at", "")}
+    elif task.get("cron"):
+        trigger_type = "cron"
+        parts = str(task.get("cron", "")).split()
+        if len(parts) != 5:
+            raise ValueError(f"cron 表达式必须是 5 字段: {task.get('cron')}")
+        trigger_config = {
+            "minute": parts[0], "hour": parts[1], "day": parts[2],
+            "month": parts[3], "day_of_week": parts[4],
+        }
+    else:
+        trigger_type = "interval"
+        trigger_config = {"seconds": int(task.get("interval_seconds") or 0)}
+
+    if webhook_url:
+        callback = {
+            "type": "http_webhook", "url": webhook_url,
+            "payload": {"prompt": prompt, "task_id": task_id},
+        }
+    else:
+        callback = {
+            "type": "mcp_tool", "tool_name": "dispatch_subagent",
+            "args": {"name": "feature-planner", "task": prompt},
+        }
+    return trigger_type, trigger_config, callback
+
+
+async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """schedule_task: 调度定时任务(对标 Codex Automations)。
+
+    支持 cron / date / interval 三种 trigger,任务记录持久化到 Redis
+    (key: mcp:schedule:<task_id> 详细记录 + task_scheduler 内部 mcp:scheduled_task: 调度态),
+    由 task_scheduler(AsyncIOScheduler)后台执行 worker(派发 dispatch_subagent 或 POST webhook_url)。
+    """
+    import uuid
+    from datetime import datetime, timedelta
+
+    name = arguments.get("name", "")
+    prompt = arguments.get("prompt", "")
+    schedule = arguments.get("schedule", "once")
+    run_at = arguments.get("run_at", "")
+    cron = arguments.get("cron", "")
+    interval_seconds = arguments.get("interval_seconds")
+    webhook_url = arguments.get("webhook_url", "")
+    agent_tools = (
+        arguments.get("agent_tools")
+        or ["search_codebase", "read_file", "web_search"]
+    )
+
+    if not name:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "缺少 name 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if not prompt:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if schedule not in ("once", "recurring"):
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": f"无效 schedule: {schedule}", "errorCode": "INVALID_PARAMS",
+        }
+    if schedule == "once" and not run_at:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "schedule=once 时 run_at 必填", "errorCode": "MISSING_PARAMS",
+        }
+    if schedule == "recurring" and not cron and not interval_seconds:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "schedule=recurring 时 cron 或 interval_seconds 至少一个必填",
+            "errorCode": "MISSING_PARAMS",
+        }
+
+    next_run_at = ""
+    if schedule == "once":
+        next_run_at = run_at
+    elif cron:
+        # recurring + cron:优先用 croniter 计算 next_run
+        try:
+            from croniter import croniter
+
+            cron_iter = croniter(cron, datetime.now(UTC))
+            next_run_at = cron_iter.get_next(datetime).isoformat()
+        except ImportError:
+            parsed = _parse_simple_cron(cron)
+            if parsed is None:
+                return {
+                    "tool": "schedule_task", "ok": False,
+                    "errorCode": "CRON_NOT_SUPPORTED",
+                    "message": "croniter 未安装,无法解析复杂 cron 表达式",
+                }
+            next_run_at = parsed
+    else:
+        # recurring + interval_seconds
+        if interval_seconds is None:
+            return {
+                "tool": "schedule_task", "ok": False,
+                "error": "interval_seconds 必须为正整数",
+                "errorCode": "INVALID_PARAMS",
+            }
+        try:
+            int(interval_seconds)
+        except (TypeError, ValueError):
+            return {
+                "tool": "schedule_task", "ok": False,
+                "error": "interval_seconds 必须为正整数",
+                "errorCode": "INVALID_PARAMS",
+            }
+        next_run_at = (
+            datetime.now(UTC) + timedelta(seconds=int(interval_seconds))
+        ).isoformat()
+
+    task_id = uuid.uuid4().hex
+    task = {
+        "task_id": task_id, "name": name, "prompt": prompt,
+        "schedule": schedule, "run_at": run_at, "cron": cron,
+        "interval_seconds": interval_seconds, "agent_tools": agent_tools,
+        "next_run_at": next_run_at, "status": "scheduled",
+        "created_at": datetime.now(UTC).isoformat(),
+        "webhook_url": webhook_url,
+    }
+    _SCHEDULED_TASKS.append(task)
+    # 持久化到 Redis(失败降级内存,不阻塞调度)
+    _persist_task_to_redis(task)
+    # 注册到后台调度器(task_scheduler 单例:AsyncIOScheduler + cron/date/interval + worker 回调)
+    # scheduler 未启动或 stub 模式时 add_task 内部降级,不抛异常
+    try:
+        from app.services.scheduler_service import task_scheduler
+
+        trigger_type, trigger_config, callback = _build_scheduler_params(task)
+        sched_result = await task_scheduler.add_task(
+            task_id, trigger_type, trigger_config, callback,
+            conversation_id=name,
+        )
+        if sched_result.get("next_run_at"):
+            task["next_run_at"] = sched_result["next_run_at"]
+            _persist_task_to_redis(task)
+    except Exception as e:
+        logger.warning("[schedule_task] 注册到 task_scheduler 失败(仅持久化): %s", e)
+    return {
+        "tool": "schedule_task", "ok": True, "task_id": task_id,
+        "name": name, "schedule": schedule, "next_run_at": next_run_at,
+        "status": "scheduled",
+        "message": "任务已调度,后台 worker 将按计划自动执行",
+    }
+
+
+async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any]:
+    """proactive_suggestion: 基于当前会话上下文主动建议后续工作(对标 Codex Proactive work proposals)。
+
+    纯本地规则匹配(零算力,不调 LLM)。
+    """
+    ctx = arguments.get("conversation_context", "") or ""
+    recent_files = arguments.get("recent_files") or []
+    recent_tool_calls = arguments.get("recent_tool_calls") or []
+
+    suggestions: list[dict[str, Any]] = []
+    ctx_lower = ctx.lower()
+
+    if "write_file" in recent_tool_calls:
+        suggestions.append({
+            "type": "follow_up", "title": "为新代码添加单元测试",
+            "description": "检测到 write_file 调用,建议为新代码补充对应单元测试",
+            "priority": "high", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "edit_file" in recent_tool_calls and "search_codebase" not in recent_tool_calls:
+        suggestions.append({
+            "type": "explore", "title": "先搜索是否有类似实现可复用",
+            "description": "检测到 edit_file 但未先 search_codebase,建议先搜索可复用代码",
+            "priority": "medium", "estimated_steps": 1,
+            "related_files": [],
+        })
+    _TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+    if any(
+        isinstance(f, str) and f.endswith(_TEST_SUFFIXES) for f in recent_files
+    ):
+        suggestions.append({
+            "type": "test", "title": "运行测试验证改动",
+            "description": "检测到测试文件改动,建议运行测试确保通过",
+            "priority": "high", "estimated_steps": 1,
+            "related_files": [
+                f for f in recent_files
+                if isinstance(f, str) and (".test." in f or ".spec." in f)
+            ],
+        })
+    if "fix" in ctx_lower or "bug" in ctx_lower:
+        suggestions.append({
+            "type": "test", "title": "添加回归测试覆盖 bug 场景",
+            "description": "检测到 bug 修复上下文,建议添加回归测试防止复发",
+            "priority": "high", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "refactor" in ctx_lower:
+        suggestions.append({
+            "type": "improve", "title": "审查重构影响范围",
+            "description": "检测到重构上下文,建议审查影响范围与兼容性",
+            "priority": "medium", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "new feature" in ctx_lower or "新增" in ctx:
+        suggestions.append({
+            "type": "follow_up", "title": "同步更新 README + 守门脚本",
+            "description": "检测到新功能上下文,建议同步更新 README 与守门脚本",
+            "priority": "medium", "estimated_steps": 2,
+            "related_files": [],
+        })
+
+    if not suggestions:
+        return {
+            "tool": "proactive_suggestion", "ok": True,
+            "suggestions": [],
+            "message": "上下文不足,无法生成建议",
+        }
+    return {
+        "tool": "proactive_suggestion", "ok": True,
+        "suggestions": suggestions,
+        "message": f"生成 {len(suggestions)} 条建议",
+    }
+
+
+def _mcp_model_tools_enabled_from_env() -> bool:
+    """批58 接线(对标 codex model_tools.rs):特殊工具结果/校验归一。
+
+    默认 off:后台 sleep 时长不校验、完成通知不带 async 投影(逐字节等价);
+    设为 on/1/true/yes 时经 validate_sleep_duration 校验时长、经
+    build_async_user_notification 产出 host 侧投递载荷。
+    """
+    return os.environ.get("MCP_MODEL_TOOLS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+# ---------------------------------------------------------------------------
+# 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)
+# ---------------------------------------------------------------------------
+# run_in_background:立即返回 task_id,后台执行,完成后经 message_bus 推送 IM 通知;
+# bg_task_status:查询单个任务状态或列出某用户任务。两工具只读/低危,不进 _ADMIN_ONLY_TOOLS。
+#
+# 内置任务实现注册表 _BG_TASK_IMPLS:task 名 → 接收参数字典、返回结果协程的异步函数。
+# 扩展点:后续批次在此注册真实长任务(如 codebase_indexer / spec_generator / 长搜索),
+# 仅需实现 async(args: dict) -> Any 并加入本字典,task 名即进入白名单。
+async def _bg_impl_sleep(args: dict[str, Any]) -> Any:
+    """演示实现:休眠指定秒数(测试 / 占位用)。
+
+    批58:MCP_MODEL_TOOLS_ENABLED on 时先经 model_tools_57.validate_sleep_duration
+    校验时长(秒→毫秒),越界直接返回 error 不休眠;off 时行为与接线前一致。
+    """
+    seconds = float(args.get("seconds", 0))
+    if _mcp_model_tools_enabled_from_env():
+        try:
+            from app.core.model_tools_57 import validate_sleep_duration
+
+            err = validate_sleep_duration(seconds * 1000.0)
+            if err is not None:
+                return {"error": err, "slept_seconds": 0}
+        except Exception as e:  # noqa: BLE001 - 校验失败降级照常休眠
+            logger.warning("model_tools 时长校验失败(降级照常休眠): %s", e)
+    await asyncio.sleep(seconds)
+    return {"slept_seconds": seconds}
+
+
+async def _bg_impl_echo(args: dict[str, Any]) -> Any:
+    """演示实现:回显消息(测试 / 占位用)。"""
+    return {"echo": args.get("message", "")}
+
+
+_BG_TASK_IMPLS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {
+    "sleep": _bg_impl_sleep,
+    "echo": _bg_impl_echo,
+}
+
+
+async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
+    """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
+
+    仅接受 _BG_TASK_IMPLS 白名单内的 task 类型,防任意代码注入。
+    完成后若 notify_on_done,经 message_bus 的 IM 通道给调用用户推送完成通知。
+    """
+    task = str(arguments.get("task", "")).strip()
+    raw_args = arguments.get("arguments")
+    task_args = raw_args if isinstance(raw_args, dict) else {}
+    notify = bool(arguments.get("notify_on_done", True))
+    timeout_s = arguments.get("timeout_s")
+    timeout_s = max(1, int(timeout_s)) if timeout_s is not None else 300
+    name = str(arguments.get("name") or task or "background_task")
+
+    impl = _BG_TASK_IMPLS.get(task)
+    if impl is None:
+        return {
+            "ok": False,
+            "error": f"未知后台任务类型: {task}",
+            "available": sorted(_BG_TASK_IMPLS.keys()),
+        }
+
+    # 调用者身份由 call_tool 注入(LLM 不可控),用于归属与通知推送
+    user_id = arguments.get("__user_id")
+    session_id = arguments.get("__session_id")
+
+    from .background_tasks import background_task_manager
+
+    def coro_factory() -> Awaitable[Any]:
+        return impl(task_args)
+
+    submit_result = await background_task_manager.submit(
+        coro_factory,
+        name=name,
+        user_id=user_id,
+        session_id=session_id,
+        notify_on_done=notify,
+        timeout_s=timeout_s,
+    )
+    if isinstance(submit_result, dict) and submit_result.get("error"):
+        return {"ok": False, "tool": "run_in_background", **submit_result}
+    return {
+        "ok": True,
+        "tool": "run_in_background",
+        "task_id": submit_result,
+        "name": name,
+        "task_type": task,
+        "notify_on_done": notify,
+        "message": "后台任务已提交,用 bg_task_status 凭 task_id 查询结果",
+    }
+
+
+async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """bg_task_status:查询单个后台任务状态,或不传 task_id 时列出某用户的任务。"""
+    from .background_tasks import background_task_manager
+
+    task_id = arguments.get("task_id")
+    if task_id:
+        status = await background_task_manager.get_status(str(task_id))
+        if status is None:
+            return {"ok": False, "error": f"任务不存在: {task_id}"}
+        return {"ok": True, "task": status}
+
+    # 列表模式:user_id 可选过滤(来自调用者身份,或显式传入)
+    user_id = arguments.get("user_id") or arguments.get("__user_id")
+    limit = int(arguments.get("limit", 20))
+    tasks = await background_task_manager.list_tasks(user_id=user_id, limit=limit)
+    return {"ok": True, "tasks": tasks, "count": len(tasks)}
+
+
+# 工具注册表
+async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
+    """context_recall: 语义检索回捞被压缩丢弃的旧消息(只读,不修改任何状态)。"""
+    query = arguments.get("query", "")
+    session_id = arguments.get("session_id")
+    top_k = arguments.get("top_k", 8)
+    if not isinstance(top_k, int) or top_k <= 0:
+        top_k = 8
+    try:
+        return await context_recall.recall(
+            session_id=session_id if isinstance(session_id, str) else None,
+            query=query if isinstance(query, str) else "",
+            top_k=top_k,
+        )
+    except Exception as e:
+        logger.warning("context_recall 工具执行异常: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+_TOOLS: list[MCPTool] = [
+    MCPTool(
+        name="search_codebase",
+        description="代码符号搜索(真实文件系统,支持 def/class/func/function/interface/type 符号 + 引用匹配)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "符号名或关键词(函数名/类名等)"},
+                "path": {"type": "string", "description": "搜索路径(默认当前目录)"},
+                "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
+                "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
+                "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
+                "use_semantic": {"type": "boolean", "description": "是否使用语义搜索(pgvector ANN,默认 True;失败/无结果时自动 fallback 到 regex)", "default": True},
+            },
+            "required": ["query"],
+        },
+    ),
+    MCPTool(
+        name="index_codebase",
+        description=(
+            "对本地代码库建立/刷新语义索引(Merkle 增量,未变更文件零重嵌入)。"
+            "search_codebase 的语义/混合检索通道依赖本索引;首次语义搜索前建议显式调用,"
+            "或依赖 search_codebase 空结果时的懒索引自动触发。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "仓库根目录绝对路径"},
+                "repo_id": {"type": "string", "description": "仓库标识(为空按路径 hash 自动生成)"},
+                "force_full": {"type": "boolean", "description": "强制全量重建(默认 False=Merkle 增量)", "default": False},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="knowledge_lookup",
+        description="统一知识查询(三源并发:代码库语义检索 + RAG 向量检索 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "自然语言查询,如 '用户认证逻辑实现' 或 'JWT 相关代码'"},
+                "top_k_per_source": {"type": "integer", "description": "每个源返回 top-K,默认 5(范围 1-20)", "default": 5, "minimum": 1, "maximum": 20},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="context_recall",
+        description="语义回捞被上下文压缩丢弃的旧消息(只读)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "自然语言查询,用于语义匹配被压缩丢弃的旧消息原文"},
+                "session_id": {"type": "string", "description": "会话 id(可选,限定检索范围;为空则全库检索)"},
+                "top_k": {"type": "integer", "description": "返回条数上限,默认 8", "default": 8, "minimum": 1, "maximum": 50},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="read_file",
+        description="读取本地文件内容",
+        input_schema={
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "文件绝对或相对路径"}},
+            "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="list_files",
+        description="列出目录内容(返回子项名称/类型/大小;路径必须在工作区白名单内)",
+        input_schema={
+            "type": "object",
+            "properties": {"path": {"type": "string", "description": "目录绝对或相对路径,默认当前目录"}},
+            "required": ["path"],
+        },
+    ),
+    MCPTool(
+        name="write_file",
+        description="写入内容到本地文件",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+            "required": ["path", "content"],
+        },
+    ),
+    MCPTool(
+        name="file_edit",
+        description="精细编辑文件:精确替换 old_string 为 new_string,带 conflict 检测",
+        input_schema={
+            "type": "object",
+            "required": ["file_path", "old_string", "new_string"],
+            "properties": {
+                "file_path": {"type": "string", "description": "文件绝对路径,必须在工作区白名单内"},
+                "old_string": {"type": "string", "minLength": 1, "description": "要替换的字符串(不能为空)"},
+                "new_string": {"type": "string", "description": "替换后的字符串(可为空=删除)"},
+                "replace_all": {"type": "boolean", "default": False, "description": "true 替换所有匹配;false 必须唯一匹配,多个报 AMBIGUOUS_MATCH"},
+            },
+        },
+    ),
+    MCPTool(
+        name="resolve_conflict",
+        description="按块解决 file_edit 报告的 3-way merge 冲突(局部拒绝):choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘现状=拒绝该块修改),不足缺省 ours",
+        input_schema={
+            "type": "object",
+            "required": ["file_path", "old_string", "new_string"],
+            "properties": {
+                "file_path": {"type": "string", "description": "文件绝对路径,必须与触发冲突的 file_edit 一致"},
+                "old_string": {"type": "string", "minLength": 1, "description": "与触发冲突的 file_edit 相同的 old_string"},
+                "new_string": {"type": "string", "description": "与触发冲突的 file_edit 相同的 new_string"},
+                "choices": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["ours", "theirs"]},
+                    "description": "按冲突块顺序的决策列表:'ours'=采用 agent 修改,'theirs'=保留磁盘现状(拒绝该块)",
+                },
+                "replace_all": {"type": "boolean", "default": False},
+            },
+        },
+    ),
+    MCPTool(
+        name="run_command",
+        description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "command": {"type": "string", "description": "命令字符串(如 git status, python --version)"},
+                "cwd": {"type": "string", "description": "工作目录(默认当前目录,非 . 时需在工作区白名单内)", "default": "."},
+                "timeout": {"type": "integer", "description": "超时秒数(默认 60,不超过 max_timeout)", "default": 60},
+                "max_timeout": {"type": "integer", "description": "超时上限(默认 600,timeout 不超过此值)", "default": 600},
+                "env": {
+                    "type": "object",
+                    "description": "环境变量 dict(透传到 subprocess,不允许覆盖 PATH/HOME/USERPROFILE)",
+                    "additionalProperties": {"type": "string"},
+                },
+                "sandbox_backend": {
+                    "type": "string",
+                    "enum": ["local", "docker", "ssh", "modal", "daytona", "singularity"],
+                    "description": "沙箱后端(默认 local,modal/daytona/singularity 预留未实现)",
+                    "default": "local",
+                },
+                "docker_image": {
+                    "type": "string",
+                    "description": "Docker 镜像(backend=docker 时,默认 python:3.12-slim)",
+                    "default": "python:3.12-slim",
+                },
+                "ssh_host": {"type": "string", "description": "SSH 主机(backend=ssh 时必填)"},
+                "ssh_user": {"type": "string", "description": "SSH 用户名(backend=ssh 时,默认 root)", "default": "root"},
+            },
+            "required": ["command"],
+        },
+    ),
+    MCPTool(
+        name="web_search",
+        description="网页搜索(复用 DuckDuckGo Lite HTML,无 API key)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "搜索关键词"},
+                "max_results": {"type": "integer", "description": "最大返回数", "default": 5},
+            },
+            "required": ["query"],
+        },
+    ),
+    MCPTool(
+        name="search_web",
+        description="DuckDuckGo Lite 搜索",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "max_results": {"type": "integer", "default": 5},
+            },
+            "required": ["query"],
+        },
+    ),
+    MCPTool(
+        name="analyze_code",
+        description="代码静态分析(行数、注释、空行等)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+                "language": {"type": "string", "default": "text"},
+            },
+            "required": ["code"],
+        },
+    ),
+    MCPTool(
+        name="generate_test",
+        description="为代码生成测试模板",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "code": {"type": "string"},
+                "language": {"type": "string", "default": "python"},
+                "framework": {"type": "string", "default": "pytest"},
+            },
+            "required": ["code"],
+        },
+    ),
+    MCPTool(
+        name="file_search",
+        description="搜索文件内容(真实文件系统搜索,支持文件名 glob + 内容关键词)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "搜索关键词(为空则仅按文件名匹配)"},
+                "path": {"type": "string", "description": "搜索路径(默认当前目录)"},
+                "pattern": {"type": "string", "description": "文件名 glob 匹配模式", "default": "*"},
+                "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="git_operations",
+        description=(
+            "Git 操作(真实 git 命令)。只读(所有用户): status/diff/log/branch/show/stash/list; "
+            "写操作(需 admin): branch_create/branch_switch/branch_delete/merge/rebase/"
+            "stash_push/stash_pop/tag_create/tag_list"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "git 操作。只读: status/diff/log/branch/show/stash/list; "
+                        "写(admin): branch_create/branch_switch/branch_delete/merge/rebase/"
+                        "stash_push/stash_pop/tag_create/tag_list"
+                    ),
+                    "default": "status",
+                },
+                "repo": {"type": "string", "description": "仓库路径(默认当前目录)", "default": "."},
+                "ref": {"type": "string", "description": "git 引用(仅 show 操作使用,默认 HEAD)", "default": "HEAD"},
+                "name": {"type": "string", "description": "分支名/标签名(branch_create/branch_switch/branch_delete/tag_create 必填)"},
+                "from": {"type": "string", "description": "起点引用(branch_create,默认 HEAD)"},
+                "create": {"type": "boolean", "description": "不存在时创建(branch_switch)"},
+                "force": {"type": "boolean", "description": "强制删除未合并分支(branch_delete,-D)"},
+                "branch": {"type": "string", "description": "要合并的分支(merge)或变基目标分支(rebase)"},
+                "upstream": {"type": "string", "description": "上游分支(rebase 必填,如 origin/main)"},
+                "no_ff": {"type": "boolean", "description": "禁用 fast-forward(merge,--no-ff)"},
+                "squash": {"type": "boolean", "description": "压缩合并(merge,--squash)"},
+                "message": {"type": "string", "description": "提交信息(merge/tag_create/stash_push)"},
+                "include_untracked": {"type": "boolean", "description": "包含未跟踪文件(stash_push,-u)"},
+                "index": {"type": "integer", "description": "暂存索引(stash_pop,默认 0)", "default": 0},
+                "apply": {"type": "boolean", "description": "仅应用不删除(stash_pop,--apply)"},
+                "annotated": {"type": "boolean", "description": "创建附注标签(tag_create,-a)"},
+                "pattern": {"type": "string", "description": "glob 匹配模式(tag_list,如 v*)"},
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="db_query",
+        description="数据库只读查询(真实 postgres,仅允许 SELECT/WITH,参数化 + 超时 + 行数限制)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "sql": {"type": "string", "description": "SQL 查询语句(仅 SELECT/WITH)"},
+                "params": {"type": "array", "description": "参数化查询参数($1,$2... 占位符)", "default": []},
+                "max_rows": {"type": "integer", "description": "最大返回行数(默认 100,上限 1000)", "default": 100},
+            },
+            "required": ["sql"],
+        },
+    ),
+    # ===== AI 自动控制浏览器(12 个,由 extension 端执行)=====
+    MCPTool(
+        name="browser_screenshot",
+        description="浏览器截图(chrome.tabs.captureVisibleTab,返回 base64 PNG)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "area": {"type": "string", "enum": ["viewport", "fullpage", "element"], "default": "viewport"},
+                "selector": {"type": "string", "description": "area='element' 时的 CSS 选择器"},
+            },
+        },
+    ),
+    MCPTool(
+        name="browser_click_element",
+        description="点击浏览器页面元素(CSS 选择器定位)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string", "description": "CSS 选择器"},
+                "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+                "count": {"type": "integer", "default": 1},
+            },
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_type_text",
+        description="在浏览器输入框输入文本(CSS 选择器定位)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "text": {"type": "string"},
+                "clear": {"type": "boolean", "default": True},
+                "delay": {"type": "integer", "default": 0},
+            },
+            "required": ["selector", "text"],
+        },
+    ),
+    MCPTool(
+        name="browser_scroll",
+        description="浏览器页面滚动(上下左右)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
+                "amount": {"type": "integer", "default": 300},
+                "selector": {"type": "string", "description": "作用于指定元素,默认 window"},
+            },
+            "required": ["direction"],
+        },
+    ),
+    MCPTool(
+        name="browser_extract_dom",
+        description="提取浏览器页面 DOM 信息(文本/属性/节点结构)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string", "description": "空=visible;'all'=全文档;其他=选择器"},
+                "attributes": {"type": "array", "items": {"type": "string"}, "default": ["text", "href", "src", "value"]},
+                "maxNodes": {"type": "integer", "default": 100},
+            },
+        },
+    ),
+    MCPTool(
+        name="browser_navigate",
+        description="浏览器导航到指定 URL",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "waitUntil": {"type": "string", "enum": ["load", "domcontentloaded", "networkidle0", "networkidle2"], "default": "load"},
+                "timeout": {"type": "integer", "default": 30000},
+            },
+            "required": ["url"],
+        },
+    ),
+    MCPTool(
+        name="browser_wait_for_element",
+        description="等待浏览器页面元素出现/消失",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "state": {"type": "string", "enum": ["attached", "detached", "visible", "hidden"], "default": "visible"},
+                "timeout": {"type": "integer", "default": 30000},
+            },
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_get_attribute",
+        description="获取浏览器页面元素属性值",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "attribute": {"type": "string"},
+            },
+            "required": ["selector", "attribute"],
+        },
+    ),
+    MCPTool(
+        name="browser_hover",
+        description="鼠标悬停在浏览器页面元素上",
+        input_schema={
+            "type": "object",
+            "properties": {"selector": {"type": "string"}},
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_select_option",
+        description="选择浏览器页面 select 下拉选项",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "value": {"type": "string", "description": "选项值或文本"},
+            },
+            "required": ["selector", "value"],
+        },
+    ),
+    MCPTool(
+        name="browser_switch_tab",
+        description="切换浏览器标签页(按索引)",
+        input_schema={
+            "type": "object",
+            "properties": {"index": {"type": "integer", "description": "0-based 标签页索引"}},
+            "required": ["index"],
+        },
+    ),
+    MCPTool(
+        name="browser_close_tab",
+        description="关闭当前浏览器标签页",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    # ===== AI 自动控制电脑(10 个,由 desktop 端 Tauri 执行)=====
+    MCPTool(
+        name="computer_screenshot_screen",
+        description="电脑截屏(返回 base64 PNG,支持多显示器 + 区域截取)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "displayIndex": {"type": "integer", "default": 0, "description": "显示器索引,默认 0(主屏)"},
+                "region": {"type": "array", "items": {"type": "number"}, "description": "[x, y, w, h] 截取区域,默认全屏"},
+            },
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_move",
+        description="移动电脑鼠标(绝对坐标)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "absolute": {"type": "boolean", "default": True},
+            },
+            "required": ["x", "y"],
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_click",
+        description="点击电脑鼠标(支持左/右/中键 + 单/双击)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+                "count": {"type": "integer", "default": 1},
+            },
+            "required": ["x", "y"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_type",
+        description="电脑键盘输入文本(逐字符)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string"},
+                "delay": {"type": "integer", "default": 0},
+            },
+            "required": ["text"],
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_scroll",
+        description="电脑鼠标滚轮(正数向上,负数向下)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "deltaY": {"type": "integer"},
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+            },
+            "required": ["deltaY"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_press",
+        description="电脑键盘按单个键(如 Enter/Tab/Escape)",
+        input_schema={
+            "type": "object",
+            "properties": {"key": {"type": "string"}},
+            "required": ["key"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_hotkey",
+        description="电脑键盘组合键(如 Ctrl+Shift+A)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keys": {"type": "array", "items": {"type": "string"}, "description": "如 ['Control','Shift','A']"},
+            },
+            "required": ["keys"],
+        },
+    ),
+    MCPTool(
+        name="computer_active_window",
+        description="获取电脑当前活动窗口信息(标题/应用名/边界)",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    MCPTool(
+        name="computer_clipboard_get",
+        description="读取电脑剪贴板内容(文本/图片)",
+        input_schema={
+            "type": "object",
+            "properties": {"format": {"type": "string", "enum": ["text", "image"], "default": "text"}},
+        },
+    ),
+    MCPTool(
+        name="computer_clipboard_set",
+        description="写入电脑剪贴板内容(文本/图片)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "文本内容或 base64 image dataURL"},
+                "format": {"type": "string", "enum": ["text", "image"], "default": "text"},
+            },
+            "required": ["content"],
+        },
+    ),
+    # ===== 自动化任务配置工具(2026-07-22 新增)=====
+    MCPTool(
+        name="configure_automation_task",
+        description=(
+            "配置自媒体自动化定时任务(支持 koubo_daily / wechat_daily 两个内置任务)。"
+            "可修改执行时间、dry-run 模式、启用状态、标题模板。"
+            "适用于用户说'帮我设置每天 9 点生成公众号文章'等场景。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "enum": ["koubo_daily", "wechat_daily"],
+                    "description": "任务 ID:koubo_daily=每日口播稿生成,wechat_daily=每日公众号文章生成",
+                },
+                "hour": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 23,
+                    "description": "执行小时(0-23,24 小时制)",
+                },
+                "minute": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 59,
+                    "description": "执行分钟(0-59)",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "是否 dry-run 模式(默认 true,只生成不发布)",
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否启用任务(默认 true)",
+                },
+                "title_template": {
+                    "type": "string",
+                    "description": "标题模板(仅 wechat_daily 用,支持 {date} 占位符)",
+                },
+            },
+            "required": ["task_id", "hour", "minute"],
+        },
+    ),
+    # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
+    MCPTool(
+        name="screenshot_url",
+        description=(
+            "对指定 URL 截图(Playwright headless Chromium),返回 base64 PNG。"
+            "适用于:目标站点禁止 iframe 嵌入时,后端截图供前端展示。"
+            "注意:本工具返回截图元数据(不含 base64 全文),如需获取 base64 数据请调 HTTP 端点 /api/screenshot/take。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https)"},
+                "width": {"type": "integer", "description": "视口宽度(默认 1280)", "default": 1280},
+                "height": {"type": "integer", "description": "视口高度(默认 720)", "default": 720},
+                "full_page": {"type": "boolean", "description": "是否全页面截图(默认 false)", "default": False},
+                "wait_until": {
+                    "type": "string",
+                    "enum": ["none", "dom", "load", "networkidle"],
+                    "description": "等待策略(默认 load)",
+                    "default": "load",
+                },
+                "timeout": {"type": "integer", "description": "超时 ms(默认 15000)", "default": 15000},
+            },
+            "required": ["url"],
+        },
+    ),
+    # ===== 图像分析工具(P2-3,对标 Hermes 多模态输入)=====
+    MCPTool(
+        name="vision_analyze",
+        description=(
+            "图像分析(支持 URL 和 base64)。传入图片 + 分析任务描述,"
+            "调用支持视觉的 LLM 模型返回分析结果。"
+            "适用于'描述这张图片的内容'/'识别图中的文字'/'分析 UI 截图'等场景。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "description": "图片 URL(http/https)或 base64 编码(如 data:image/png;base64,...)",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "分析任务描述(如'描述这张图片的内容')",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "期望模型(可选,缺省用支持视觉的模型,如 gpt-4o)",
+                },
+            },
+            "required": ["image", "task"],
+        },
+    ),
+    # ===== 子智能体派发工具(2026-07-24 新增)=====
+    MCPTool(
+        name="dispatch_subagent",
+        description=(
+            "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
+            "可用 agent 名称:code-reviewer(代码审查)、bug-fixer(Bug 修复)、"
+            "feature-planner(功能规划)、test-writer(测试编写)、refactorer(重构建议)。"
+            "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "单 agent 模式:要派发的子智能体名称(如 code-reviewer / bug-fixer)",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "单 agent 模式:交给子智能体执行的任务描述",
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "会话 ID(可选,单 agent 模式用于上下文复用)",
+                },
+                "tasks": {
+                    "type": "array",
+                    "description": (
+                        "并行模式:任务数组,每项 {name, task, context?}。"
+                        "传 tasks 时不可同时传 name/task(互斥,DUAL_MODE)。"
+                    ),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "task": {"type": "string"},
+                            "context": {"type": "object"},
+                        },
+                        "required": ["name", "task"],
+                    },
+                },
+                "max_concurrency": {
+                    "type": "integer",
+                    "description": "并行模式最大并发数(默认 5)",
+                    "default": 5,
+                },
+            },
+        },
+    ),
+    # ===== 扩展工具(2026-07-24 新增,自研)=====
+    MCPTool(
+        name="fetch_url",
+        description=(
+            "抓取 URL 内容,返回 markdown/text/html/metadata。"
+            "用于获取网页正文、提取页面元数据(title/description/og 标签)。"
+            "SSRF 防护:禁止内网/保留/回环地址。admin 专属工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https,必填)"},
+                "mode": {
+                    "type": "string",
+                    "enum": ["text", "html", "metadata"],
+                    "description": "返回模式:text(默认,纯文本/markdown)/html(原始 HTML)/metadata(仅 title/description/og)",
+                    "default": "text",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "最大返回字符数(默认 8000,避免上下文爆炸)",
+                    "default": 8000,
+                },
+            },
+            "required": ["url"],
+        },
+    ),
+    MCPTool(
+        name="image_generation",
+        description=(
+            "生成图片,返回图片 URL 或 base64 data URI。多 provider 统一编排 + 运行时自动故障转移:"
+            "token6688(聚合网关单 key 全模态,默认首选)→ stepfun → agnes → kling(可灵 Kolors)→ "
+            "jimeng(即梦),按 IMAGE_PROVIDER env 或已配置凭据自动排序,首选失败(401/402/429/5xx/超时)"
+            "自动换下一家,返回带 failover_attempts 明细。"
+            "2026-07-24 升级:支持 save_path 落地文件系统(b64_json 解码或 URL 下载),"
+            "校验后缀(.png/.jpg/.jpeg/.webp)+ 工作区白名单,5MB 上限。"
+            "所有用户可用(与 video/music/tts 媒体工具一致)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "图片描述(必填)"},
+                "size": {
+                    "type": "string",
+                    "description": "图片尺寸(默认 1024x1024)",
+                    "default": "1024x1024",
+                },
+                "quality": {
+                    "type": "string",
+                    "enum": ["standard", "hd"],
+                    "default": "standard",
+                },
+                "style": {
+                    "type": "string",
+                    "enum": ["natural", "vivid"],
+                    "default": "natural",
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": ["stepfun", "agnes", "token6688", "kling", "jimeng"],
+                    "default": "stepfun",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(如 kling-kolors / jimeng-high_aes_general_v21);kling/jimeng provider 用",
+                },
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "可选,反向提示词(kling/jimeng provider 用)",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,落地图片到文件系统(需工作区白名单内,后缀 .png/.jpg/.jpeg/.webp,5MB 上限)",
+                },
+            },
+            "required": ["prompt"],
+        },
+    ),
+    MCPTool(
+        name="image_edit",
+        description=(
+            "图片编辑/局部重绘/扩图(改现有图,2026-09-09 全模态深度适配新增)。"
+            "基于 token6688 官方 /v1/images/edits(OpenAI Images edits 同构,同步 40-50s):"
+            "把待编辑图 image 按 prompt 指令修改(改元素/去水印/局部重绘/扩图等),"
+            "可选 mask 遮罩(透明区域=重绘区)。image 支持 URL / data URI / 裸 base64 / "
+            "本地工作区路径;编辑结果返回 image_url 或 base64,支持 save_path 落地"
+            "(.png/.jpg/.jpeg/.webp,工作区白名单,5MB 上限)。"
+            "与 image_generation 不同:这是改已有图,不是从零生成。"
+            "需 .env 配置 TOKEN6688_API_KEY;未配置返回 PROVIDER_NOT_CONFIGURED。"
+            "外部 API 调用 + 计费。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "image": {"type": "string", "description": "待编辑图(URL/data URI/裸 base64/本地路径,必填,≤25MiB)"},
+                "prompt": {"type": "string", "description": "编辑指令(改什么,必填)"},
+                "mask": {"type": "string", "description": "可选遮罩(透明区域=重绘区,URL/data URI)"},
+                "model": {"type": "string", "description": "可选,图片模型(默认 gpt-image-2)"},
+                "n": {"type": "integer", "description": "生成数量(官方 1~50,默认 1)", "default": 1},
+                "size": {"type": "string", "description": "可选,像素串(与 aspect_ratio 二选一,兼容老 API)"},
+                "aspect_ratio": {"type": "string", "description": "可选,比例(官方 12 枚举,如 16:9/1:1/9:16)"},
+                "quality": {"type": "string", "enum": ["auto", "high", "medium", "low"], "description": "可选,质量"},
+                "output_format": {"type": "string", "enum": ["png", "jpeg"], "description": "可选,输出格式"},
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,落地编辑结果(需工作区白名单内,后缀 .png/.jpg/.jpeg/.webp,5MB 上限)",
+                },
+            },
+            "required": ["image", "prompt"],
+        },
+    ),
+    MCPTool(
+        name="video_generation",
+        description=(
+            "生成视频,返回视频 URL。统一编排 5 家厂商并自动故障转移:"
+            "token6688(名创AI 聚合网关,单 key 全模态,默认首选,支持 4~30 秒时长)、"
+            "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
+            "wan(阿里通义万相)、hunyuan(腾讯混元)。token6688 长任务防卡死:"
+            "先提交并等待 90s 窗口,窗口内完成直接返回成片;超时返回 task_id 与"
+            "取件提示——用户稍后追问时只传 task_id(不传 prompt)即可查询进度/取件。"
+            "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
+            "需 .env 配置 TOKEN6688_API_KEY 或 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* "
+            "任一厂商凭据;未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。"
+            "外部 API 调用 + 计费。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "视频描述(首次提交必填;查询模式可省)"},
+                "provider": {
+                    "type": "string",
+                    "enum": ["token6688", "kling", "jimeng", "wan", "hunyuan"],
+                    "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(如 seedance-2-5 / kling-v1 / doubao-seedance-1-0-pro / wan2.x)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,查询模式:传入此前提交返回的 task_id 查询进度/取件成片,无需 prompt",
+                },
+                "duration": {
+                    "type": "integer",
+                    "description": "视频时长秒(token6688 支持 4~30;其他厂商上限通常 10~15s;默认 5)",
+                    "default": 5,
+                },
+                "image": {
+                    "type": "string",
+                    "description": "可选,图生视频首帧图片(URL 或 base64;本地文件请先给 URL,多模态输入只收公网直链)",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["text-to-video", "first-frame", "reference", "first-last", "edit", "extend"],
+                    "description": "可选,生成模式(token6688 枚举值,默认按有无 image 自动:text-to-video/first-frame);"
+                    "reference=参考生成,first-last=首尾帧,edit=视频编辑,extend=续写。发枚举值,勿发界面显示名",
+                },
+                "resolution": {
+                    "type": "string",
+                    "enum": ["480p", "720p", "1080p"],
+                    "description": "可选,清晰度(token6688,默认随模型)",
+                },
+                "aspect_ratio": {
+                    "type": "string",
+                    "enum": ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
+                    "description": "可选,画面比例(token6688)",
+                },
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "可选,反向提示词",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,下载视频落地(需工作区白名单内,后缀 .mp4,200MB 上限)",
+                },
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="music_generation",
+        description=(
+            "生成音乐/歌曲(Suno 风格,token6688 名创AI 网关单 key 可用),返回成曲音频 URL。"
+            "支持 mode=song(带人声歌曲)/instrumental(纯音乐配乐),可选歌词 lyrics、"
+            "曲风 style(如 EDM/民谣/古风/流行)、标题 title、人声 gender(vocal_gender)。"
+            "长任务防卡死:提交后限时等待(默认 150s),窗口内完成直接返回成曲;"
+            "超时返回 submitted+task_id——用户稍后追问时只传 task_id(不传 prompt)即可取件。"
+            "支持 save_path 下载落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)。"
+            "需 .env 配置 TOKEN6688_API_KEY;未配置时返回 PROVIDER_NOT_CONFIGURED。"
+            "外部 API 调用 + 计费。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "音乐/歌曲描述(首次提交必填;查询模式可省)"},
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,查询模式:传入此前提交返回的 task_id 查询进度/取件成曲,无需 prompt",
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": ["song", "instrumental"],
+                    "description": "song=带人声歌曲(默认);instrumental=纯音乐/配乐",
+                    "default": "song",
+                },
+                "lyrics": {
+                    "type": "string",
+                    "description": "可选,自定义歌词(mode=song 时);不传则由模型根据 prompt 创作",
+                },
+                "style": {
+                    "type": "string",
+                    "description": "可选,曲风(如 EDM/民谣/古风/流行/摇滚/爵士)",
+                },
+                "title": {
+                    "type": "string",
+                    "description": "可选,歌曲标题",
+                },
+                "vocal_gender": {
+                    "type": "string",
+                    "enum": ["auto", "m", "f"],
+                    "description": "可选,人声性别(mode=song 时;auto=自动/m=男声/f=女声,官方枚举值)",
+                    "default": "auto",
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": ["generate", "extend", "cover", "lyrics", "stems", "stems_all"],
+                    "description": "可选,操作类型:generate=生成(默认)/extend=续写(需 continue_at)/"
+                    "cover=翻唱/lyrics=仅写词/stems=分轨",
+                    "default": "generate",
+                },
+                "negative_tags": {
+                    "type": "string",
+                    "description": "可选,排除的风格标签(不想要的元素)",
+                },
+                "version": {
+                    "type": "string",
+                    "enum": ["chirp-v5-5", "chirp-v5", "chirp-v4-5+", "chirp-v4-5", "chirp-v4", "chirp-v3-5"],
+                    "description": "可选,Suno 模型版本(不传落平台默认)",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(默认 music)",
+                    "default": "music",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,下载成曲落地(需工作区白名单内,后缀 .mp3/.wav/.ogg/.flac,50MB 上限)",
+                },
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="voice_tts",
+        description=(
+            "文本转语音/朗读/配音(对话内直接出音频,前端内嵌播放器可播)。"
+            "engine=edge(默认,微软 edge-tts,零 key 零成本,中文推荐 zh-CN-XiaoxiaoNeural)或 "
+            "engine=token6688(聚合网关单 key,voice 可选 alloy/echo/fable/onyx/nova/shimmer "
+            "或声纹库 voice_id 克隆音色;需 TOKEN6688_API_KEY,未配置时返回 PROVIDER_NOT_CONFIGURED)。"
+            "同步接口无任务轮询;text≤2000 字符走同步直出。"
+            "超长文本(2000<text≤5000)自动切 token6688 异步 TTS:返回 task_id + submitted=true,"
+            "稍后用同一 task_id 调本工具查询取件(completed 后 audio_url 为公网链接)。"
+            "支持 save_path 落地(.mp3/.wav/.ogg/.flac,工作区白名单,50MB 上限)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "要合成的文本(≤2000 字符同步直出;2000<text≤5000 自动走 token6688 异步 TTS)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,异步 TTS 任务 ID:只传 task_id 时查询任务状态并取件"
+                    "(completed 返回公网 audio_url;处理中返回 submitted=true)",
+                },
+                "engine": {
+                    "type": "string",
+                    "enum": ["edge", "token6688"],
+                    "description": "edge=零成本默认;token6688=聚合网关(单 key,支持声纹克隆与超长异步 TTS)",
+                    "default": "edge",
+                },
+                "voice": {
+                    "type": "string",
+                    "description": "音色:edge 引擎用 zh-CN-XiaoxiaoNeural 等 edge 白名单;"
+                    "token6688 引擎用 alloy/echo/fable/onyx/nova/shimmer 或声纹库 voice_id",
+                },
+                "speed": {
+                    "type": "number",
+                    "description": "可选,语速倍率(token6688 引擎,0.25~4.0,默认 1.0)",
+                    "default": 1.0,
+                },
+                "response_format": {
+                    "type": "string",
+                    "enum": ["mp3", "opus", "aac", "flac", "wav", "pcm"],
+                    "description": "可选,音频格式(token6688 引擎,默认 mp3)",
+                    "default": "mp3",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,音频落地(需工作区白名单内,后缀 .mp3/.wav/.ogg/.flac,50MB 上限)",
+                },
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="token6688_model_info",
+        description=(
+            "查询 token6688(名创AI 网关)模型信息,四合一:"
+            "action=models 目录清单(可传 modality=chat/video/image/audio 过滤,"
+            "查'有哪些视频/图片模型'用它,不用猜模型 ID);"
+            "action=params 查单模型参数合法值(枚举参数必须发 value 不是界面显示名,"
+            "否则被忽略落默认档;含素材上限 max_items/max_bytes 与 mode↔images 联动规则);"
+            "action=estimate 提交前估价(参数与提交完全一致才准,带参考视频必须传"
+            " video_total_duration_sec,否则估价不含参考视频费——官方真实客诉估 4.5 实扣 7.3);"
+            "action=pricing 查跨渠道价格(按秒/按次、各渠道均价)。"
+            "用户问'有哪些视频模型''生成要多少钱''这个模型有哪些参数''哪个渠道便宜'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "model": {
+                    "type": "string",
+                    "description": "模型 ID(如 seedance-2-5 / music / gpt-image-2 / tts-1-hd);"
+                    "action=models 时可省略",
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["models", "estimate", "params", "pricing"],
+                    "description": "models=目录清单/estimate=估价(默认)/params=参数详情/pricing=跨渠道价格",
+                    "default": "estimate",
+                },
+                "modality": {
+                    "type": "string",
+                    "enum": ["chat", "video", "image", "audio"],
+                    "description": "action=models 时按模态过滤(可选)",
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "action=estimate 时的生成提示词(与提交一致)",
+                },
+                "params": {
+                    "type": "object",
+                    "description": "action=estimate 时的生成参数(信封形状,如 {duration:15, mode:'text-to-video'};"
+                    "带参考视频必须含 video_total_duration_sec)",
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="token6688_cancel_task",
+        description=(
+            "取消 token6688(名创AI 网关)在途异步任务(视频/音乐/异步 TTS 的 task_id)。"
+            "⚠ 官方文档未收录取消端点:新提交任务可能来不及取消,终态任务必然取消失败;"
+            "返回 ok=false 时如实带原因(unsupported/not_found),不阻塞对话。"
+            "用户说'取消刚才那个视频/音乐生成'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "异步任务 ID(提交时返回的 task_id)",
+                },
+            },
+            "required": ["task_id"],
+        },
+    ),
+    MCPTool(
+        name="token6688_upload_file",
+        description=(
+            "上传文件换 24h 有效公网 URL(token6688 /v1/files,≤50MB)。"
+            "多模态输入官方只收 URL:视频参考素材(videos/audios)、图编辑输入、声纹克隆"
+            "参考音频等本地文件先走此工具拿 URL。入参二选一:path(服务器本地文件路径)"
+            "或 url(远程 http URL,过 SSRF 校验后拉取转发);purpose 可选。"
+            "用户提供本地/远端文件要求'把它作为参考视频/参考音频/素材'时,先调它上传。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "服务器本地文件路径(二选一;读取后上传,≤50MB)",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "远程 http(s) URL(二选一;SSRF 校验后拉取转发,≤50MB)",
+                },
+                "purpose": {
+                    "type": "string",
+                    "description": "可选,官方用途语义(如 voice/assistants)",
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="audio_transcription",
+        description=(
+            "语音转文字(对话内 ASR,2026-09-09 落地)。传入音频"
+            "(URL / base64 data URI / 本地路径,≤25MB)+ 可选语言提示,"
+            "引擎链自动切换:faster-whisper 本地推理(零 key 零成本,默认首选)"
+            "→ token6688 /v1/audio/transcriptions(备用),首选失败自动换下一家。"
+            "用户说'把这段录音转文字/听听这个音频说了什么/识别这段语音'时使用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "audio": {
+                    "type": "string",
+                    "description": "音频来源:http(s) URL、base64 data URI(data:audio/...;base64,..)"
+                    "或本地文件路径(如 voice_tts save_path 落地的 .mp3)",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "可选,语言提示(ISO 639-1,如 zh/en/ja;缺省自动检测)",
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "可选,文件名(用于推断格式后缀,默认 audio.wav)",
+                },
+            },
+            "required": ["audio"],
+        },
+    ),
+    MCPTool(
+        name="token6688_balance",
+        description=(
+            "查询 token6688(名创AI 网关)账户余额(只读):总余额/可用余额/冻结金额(USD)。"
+            "用户问'还剩多少额度/余额多少钱/账户还剩多少'时使用;"
+            "未配置 TOKEN6688_API_KEY 时返回 PROVIDER_NOT_CONFIGURED。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="review_pr",
+        description=(
+            "审查 GitHub PR,返回结构化审查报告。"
+            "用正则模式匹配(security/performance/readability),零 LLM 调用。"
+            "2026-07-24 升级:支持 diff 字符串参数(与 repo+pr_number 互斥);"
+            "repo+pr_number 时调 GitHub API(Accept: application/vnd.github.v3.diff)获取真实 diff,"
+            "Bearer 鉴权(GITHUB_TOKEN 可空),进程内 cache 1h。"
+            "admin 专属工具(可能暴露源代码)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "description": "owner/repo 格式(与 diff 二选一,优先 repo+pr_number)"},
+                "pr_number": {"type": "integer", "description": "PR 编号(正整数,与 diff 二选一)"},
+                "diff": {
+                    "type": "string",
+                    "description": "可选,直接传入 unified diff 字符串(无 GitHub API 调用,source=diff_string)",
+                },
+                "focus": {
+                    "type": "string",
+                    "enum": ["security", "performance", "readability", "all"],
+                    "default": "all",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "description": "最多审查的文件数(默认 20)",
+                    "default": 20,
+                },
+            },
+            "required": [],
+        },
+    ),
+    MCPTool(
+        name="summarize_artifacts",
+        description=(
+            "聚合当前会话的 plans/sources/artifacts/tool_calls。"
+            "纯本地缓存读取(进程内,重启即丢),不调外部 API。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "conversation_id": {"type": "string", "description": "会话 ID(可选)"},
+                "include": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "包含的类别(默认全部)",
+                    "default": ["plans", "sources", "artifacts", "tool_calls"],
+                },
+                "max_items": {
+                    "type": "integer",
+                    "description": "每类最大返回数(默认 20)",
+                    "default": 20,
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="schedule_task",
+        description=(
+            "调度定时任务(once/recurring)。"
+            "仅记录到进程内任务列表,需 ai-service 后台 worker 启动才会自动执行。"
+            "admin 专属工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "任务名(必填)"},
+                "prompt": {"type": "string", "description": "任务提示词(必填)"},
+                "schedule": {
+                    "type": "string",
+                    "enum": ["once", "recurring"],
+                    "default": "once",
+                },
+                "run_at": {"type": "string", "description": "ISO 时间戳(schedule=once 时必填)"},
+                "cron": {"type": "string", "description": "cron 表达式(schedule=recurring 时必填)"},
+                "agent_tools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "任务可用工具列表",
+                    "default": ["search_codebase", "read_file", "web_search"],
+                },
+            },
+            "required": ["name", "prompt"],
+        },
+    ),
+    MCPTool(
+        name="proactive_suggestion",
+        description=(
+            "基于当前会话上下文,主动建议后续工作(follow_up/refactor/test/improve/explore)。"
+            "纯本地规则匹配(零算力,不调 LLM)。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "conversation_context": {"type": "string", "description": "当前对话最近消息摘要(可选)"},
+                "recent_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "最近修改的文件列表(可选)",
+                },
+                "recent_tool_calls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "最近工具调用列表(可选)",
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="generate_chart",
+        description=(
+            "生成数据图表(输出 ECharts 单文件 HTML,支持 line/bar/pie/scatter 四类,中文标题)。"
+            "用于数据分析/报表/趋势可视化。data 参数为 JSON 字符串,按类型传结构。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "chart_type": {"type": "string", "description": "图表类型:line/bar/pie/scatter"},
+                "title": {"type": "string", "description": "图表标题"},
+                "data": {
+                    "type": "string",
+                    "description": "JSON 字符串。line/bar:{\"x\":[...],\"series\":[{\"name\":\"..\",\"values\":[...]}]};pie:[{\"name\":\"..\",\"value\":n}];scatter:{\"points\":[[x,y],...]} 或 {\"series\":[{\"name\":\"s1\",\"points\":[[x,y],...]}]}",
+                },
+                "output_dir": {"type": "string", "description": "输出目录(相对项目根,默认 tmp/charts)", "default": "tmp/charts"},
+            },
+            "required": ["chart_type", "title", "data"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="parse_document",
+        description=(
+            "解析本地文档为可注入上下文的文本/Markdown,支持 15 种格式:"
+            "txt/md/csv/json/pdf/docx/doc/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub"
+            "(办公文档经 Firecrawl anydoc 引擎高保真提取标题/表格/列表)。"
+            "用于阅读上传文档、抽取表格、总结文件内容、解析电子书。"
+            "仅限项目工作区内文件,敏感文件(密钥类)拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径"},
+                "max_chars": {"type": "integer", "description": "返回内容上限,默认 20000(500-100000)", "default": 20000},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="extract_document_assets",
+        description=(
+            "提取办公文档(Word/Excel/PPT/ODF/RTF/EPUB 等)内嵌的图片/对象等二进制资产,"
+            "落盘到项目临时目录并返回资产清单(含本地路径/相对路径/字节数/媒体类型)。"
+            "用于把 docx/xlsx/pptx 里的插图从文档中抢救出来供多模态使用。"
+            "基于 Firecrawl anydoc 的文档模型;PDF 无文档模型不支持资产提取。"
+            "仅限项目工作区内文件,敏感文件拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径(不支持 pdf)"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="document_tables",
+        description=(
+            "提取文档(Word/Excel/PPT/ODF/RTF/EPUB 等)中规范化数据表格,含合并单元格 span"
+            "展开,输出二维文本数组 headers/rows 及 GFM Markdown/CSV,供结构化入库或对话引用。"
+            "基于 Firecrawl anydoc 的文档模型;PDF 无文档模型不支持表格提取。"
+            "仅限项目工作区内文件,敏感文件拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径(不支持 pdf)"},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)=====
+    MCPTool(
+        name="fetch_readable",
+        description=(
+            "抓取单个网页并抽取正文为干净 GFM markdown(对标 Firecrawl Scrape 的 clean markdown,"
+            "剥离 nav/footer/header/script/style 等噪声)。返回可注入 LLM 上下文的正文 + title/metadata。"
+            "用于阅读新闻报道、文档页、产品页等网页正文。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "max_chars": {"type": "integer", "description": "正文上限, 默认 8000(500-50000)", "default": 8000},
+                "include_links": {"type": "boolean", "description": "markdown 是否保留内链, 默认 False", "default": False},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="map_site",
+        description=(
+            "抓取起始页面并提取其全部站内链接, 返回站点 URL 地图(对标 Firecrawl Map)。"
+            "默认仅同域、去 fragment、去重, 附带锚文本。常用于快速摸清站点结构。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "same_domain_only": {"type": "boolean", "description": "仅保留同域链接, 默认 True", "default": True},
+                "max_links": {"type": "integer", "description": "返回链接上限, 默认 200", "default": 200},
+                "include_text": {"type": "boolean", "description": "是否附带锚文本, 默认 True", "default": True},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="crawl_site",
+        description=(
+            "从起始 URL 递归抓取同域名页面(对标 Firecrawl Crawl,BFS 限深度/页数/并发),"
+            "输出分页清单或合并 markdown。全站探索/站点总结用。SSRF 防护 + 同域约束,"
+            "默认深度 1 限 10 页(硬上限深度 3/页数 50, 单页 15s)。资源较重, 限 admin 调用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "起始 URL(http/https, 必填)"},
+                "max_depth": {"type": "integer", "description": "最大爬取深度, 默认 1(硬上限 3)", "default": 1},
+                "max_pages": {"type": "integer", "description": "最多抓取页数, 默认 10(硬上限 50)", "default": 10},
+                "format": {"type": "string", "description": "输出格式: pages(分页清单)/concatenated(合并单篇), 默认 concatenated", "default": "concatenated", "enum": ["pages", "concatenated"]},
+                "respect_robots": {"type": "boolean", "description": "是否尊重 robots.txt, 默认 False", "default": False},
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="extract_web",
+        description=(
+            "按显式字段 schema 从网页抽取结构化数据(对标 Firecrawl Extract)。"
+            "fields 传 JSON 字符串如 {\"price\":\"number\",\"author\":\"string\"}。"
+            "LLM 通道优先, 未配置时启发式兜底。用于价格/作者/联系方式等字段抽取。SSRF 防护同 fetch_url。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https, 必填)"},
+                "fields": {"type": "string", "description": "JSON 对象: 字段名->类型, 如 {\"price\":\"number\"}(必填)"},
+                "max_chars": {"type": "integer", "description": "正文上限, 默认 8000(500-50000)", "default": 8000},
+            },
+            "required": ["url", "fields"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
+    MCPTool(
+        name="get_tool_schema",
+        description=(
+            "返回指定工具的完整参数 schema(name/description/input_schema),只读。"
+            "当工具定义被 deferral 精简(上下文只放短描述+占位参数)后,模型用本工具"
+            "按工具名取回完整参数,再决定是否调用该工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "要查询完整 schema 的工具名(可用 tools/list 获取全部工具名)",
+                },
+            },
+            "required": ["name"],
+        },
+    ),
+    # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
+    MCPTool(
+        name="run_in_background",
+        description=(
+            "提交后台任务并立即返回 task_id(不阻塞循环),"
+            "完成后经 IM 推送完成通知。支持 sleep/echo(可扩展)"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "后台任务类型(白名单:sleep/echo;后续批次扩展真实长任务)",
+                },
+                "arguments": {
+                    "type": "object",
+                    "description": "任务参数,如 sleep 的 {seconds:number},echo 的 {message:string}",
+                },
+                "name": {"type": "string", "description": "任务显示名(可选,默认=task)"},
+                "notify_on_done": {
+                    "type": "boolean",
+                    "description": "完成后经 message_bus 推送 IM 通知(默认 true)",
+                    "default": True,
+                },
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "任务超时秒数(默认 300,最小 1)",
+                    "default": 300,
+                },
+            },
+            "required": ["task"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="bg_task_status",
+        description="查询后台任务状态(凭 task_id)或列出某用户的任务;只读,不阻塞循环",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "查询指定任务状态(不传则进入列表模式)",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "列表模式下按用户过滤(可选,默认取调用者身份)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "列表返回上限(默认 20)",
+                    "default": 20,
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="token6688_voice_clone",
+        description=(
+            "声纹克隆管理(2026-09-09 全模态深度适配):上传参考音频克隆音色、"
+            "列我的声纹库、查单一声纹详情、删除克隆声纹。action=upload 支持 path / url / data_uri 三选一"
+            "(MP3/M4A/WAV,10~300s,<20MiB),异步任务轮询至终态返回 voice_id。"
+            "克隆成功后把 voice_id 传给 voice_tts(engine=token6688, voice=voice_id)"
+            "即可用克隆音色合成朗读。用户说'克隆我的声音/用我的声音朗读/上传参考音频'时使用;"
+            "说'删除某个音色/清理声纹'时用 action=delete 回收。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "upload", "get", "delete"],
+                    "description": "list=列声纹库(默认)/upload=上传参考音频克隆/get=查单一声纹(需 voice_id)/delete=删除克隆声纹(需 voice_id)",
+                    "default": "list",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "action=upload 时的本地音频绝对路径(工作区白名单内)",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "action=upload 时的远程音频 http(s) URL(SSRF 校验)",
+                },
+                "data_uri": {
+                    "type": "string",
+                    "description": "action=upload 时的 data URI(如 data:audio/wav;base64,...)",
+                },
+                "voice_id": {
+                    "type": "string",
+                    "description": "action=get/delete 时必填:声纹库 voice_id",
+                },
+            },
+            "required": [],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== D11 浏览器自检截图(2026-09)=====
+    # 注意:本名刻意避开已存在的 extension 端 browser_screenshot(由 agent-control
+    # handler 转发浏览器扩展执行),避免覆盖既有 12 个浏览器控制工具。
+    MCPTool(
+        name="browser_selfcheck_screenshot",
+        description=(
+            "D11 浏览器自检截图:用 headless Chromium 对指定 URL 截图,返回 base64 PNG、"
+            "视口宽高、页面 console 错误列表、页面标题与最终 URL。agent 完成前端/UI 任务后"
+            "用于自主截图自检(对标 Codex/Trae 的 completion verification)。"
+            "仅允许 http/https,禁止 file:// 等非常规协议。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "目标页面 URL(http/https,必填)",
+                },
+                "viewport": {
+                    "type": "object",
+                    "description": "视口尺寸(可选),如 {\"width\":1280,\"height\":720}",
+                    "properties": {
+                        "width": {"type": "integer"},
+                        "height": {"type": "integer"},
+                    },
+                },
+                "full_page": {
+                    "type": "boolean",
+                    "description": "是否截取整页(默认 false=仅视口)",
+                    "default": False,
+                },
+                "wait_ms": {
+                    "type": "integer",
+                    "description": "截图前等待渲染的毫秒数(默认 1500,给前端组件挂载留时间)",
+                    "default": 1500,
+                },
+            },
+            "required": ["url"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="browser_selfcheck",
+        description=(
+            "D11 浏览器自检报告:对 URL 截图后,把给定检查点(如『提交按钮可见』『无白屏』"
+            "『标题含登录』)交给视觉 LLM 逐项判定 pass/fail 并给理由;LLM/视觉不可用时"
+            "降级为仅返回截图 + console 错误,不报错。agent 完成前端任务后做闭环自检。"
+            "仅允许 http/https,禁止 file:// 等非常规协议。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "目标页面 URL(http/https,必填)",
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "检查点列表,如 [\"提交按钮可见\",\"无白屏\",\"标题含『登录』\"]",
+                },
+            },
+            "required": ["url", "checks"],
+            "additionalProperties": False,
+        },
+    ),
+    # ===== 教育管理(edu_* 2026-09-19):读 8 + 写 6,经 internal token 调 api =====
+    # 权限收敛在 api 侧 RBAC(edu:view 读 / edu:manage 写);不入 _ADMIN_ONLY_TOOLS
+    # (对话链 user_role=0,入名单即断链,同 image_generation 2026-09-08 先例)
+    MCPTool(
+        name="edu_list_students",
+        description=(
+            "教育管理-学员名册检索:按关键词(姓名/手机号)/业务线/班级/学期分页查询报名学员,"
+            "返回 enrollmentId/studentId/studentName/studentPhone/className/totalFee/paidAmount"
+            "/dueAmount(欠费金额,单位元)。用于把学员姓名解析成催费/缴费/退费所需的 ID。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keyword": {"type": "string", "description": "学员姓名或手机号模糊搜索(可选)"},
+                "businessLine": {"type": "string", "enum": ["after_school_care", "kindergarten", "academic", "ai_course", "other"], "description": "业务线过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_arrears",
+        description=(
+            "教育管理-欠费学员名单:只看 totalFee > paidAmount 的报名记录,返回结构同"
+            " edu_list_students(含 dueAmount 欠费金额)。批量催费前先查本名单,再把"
+            " enrollmentId 列表交给 edu_send_fee_reminder_batch。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keyword": {"type": "string", "description": "学员姓名或手机号模糊搜索(可选)"},
+                "businessLine": {"type": "string", "enum": ["after_school_care", "kindergarten", "academic", "ai_course", "other"], "description": "业务线过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_fee_reminders",
+        description="教育管理-催费记录查询:按学员/班级/渠道分页查询历史催费发送记录(含状态与欠费金额快照)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "channel": {"type": "string", "description": "发送渠道过滤 in_app/sms/wechat(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_payment_records",
+        description="教育管理-缴费记录查询:按学员/班级/状态(paid/pending 等)分页查询缴费流水(amount 单位元)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "status": {"type": "string", "description": "缴费状态过滤,如 paid/pending(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_payment_summary",
+        description=(
+            "教育管理-缴费汇总统计:返回 totalIncome(实收总额,元)/paidStudentCount(已缴人数)"
+            "/arrearsCount(欠费人数)/arrearsTotal(欠费总额,元),可按班级/学期过滤。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_refunds",
+        description="教育管理-退费记录查询:按学员/班级/状态分页查询退费单(status: pending 待审批/approved 已通过/rejected 已驳回)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID 过滤(可选)"},
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "status": {"type": "string", "description": "状态过滤 pending/approved/rejected(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_list_tuition_fees",
+        description="教育管理-学费标准查询:按班级/学期分页查询学费标准(feeName/amount 单位元/billingCycle/effectiveDate)。",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "classId": {"type": "string", "description": "班级 ID 过滤(可选)"},
+                "termId": {"type": "string", "description": "学期 ID 过滤(可选)"},
+                "page": {"type": "integer", "description": "页码(默认 1)"},
+                "pageSize": {"type": "integer", "description": "每页条数 1-100(默认 20)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_my_bills",
+        description="教育管理-我的学费账单:查当前聊天用户自己的报名(应缴/已缴/欠费)与最近缴费记录(家长自查,无需管理权限)。",
+        input_schema={"type": "object", "properties": {}, "additionalProperties": False},
+    ),
+    MCPTool(
+        name="edu_send_fee_reminder",
+        description=(
+            "教育管理-发送学费催缴(写操作):向指定报名记录发送催费通知,站内信必达,"
+            "channel=wechat 时尽力发微信订阅消息。enrollmentId 先用 edu_list_students 或"
+            " edu_list_arrears 查得;该报名无欠费会被拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "enrollmentId": {"type": "string", "description": "报名记录 ID(必填)"},
+                "channel": {"type": "string", "enum": ["in_app", "sms", "wechat"], "description": "发送渠道(默认 in_app)"},
+                "message": {"type": "string", "description": "自定义催费文案(可选,留空用默认文案,最长 500 字)"},
+            },
+            "required": ["enrollmentId"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_send_fee_reminder_batch",
+        description=(
+            "教育管理-批量催费(写操作):对多个报名记录(1-100 个)批量发送催缴通知;"
+            "不存在/无欠费的记录自动跳过并返回 skipped 明细。常配 edu_list_arrears 先拉欠费名单再整批发送。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "enrollmentIds": {"type": "array", "items": {"type": "string"}, "description": "报名记录 ID 列表(1-100 个,必填)"},
+                "channel": {"type": "string", "enum": ["in_app", "sms", "wechat"], "description": "发送渠道(默认 in_app)"},
+                "message": {"type": "string", "description": "自定义催费文案(可选,留空用默认文案)"},
+            },
+            "required": ["enrollmentIds"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_create_payment_record",
+        description=(
+            "教育管理-登记缴费(写操作):为学员新增一条缴费记录。amount 单位为元(整数);"
+            "paymentDate 格式 YYYY-MM-DD;paymentMethod 如 现金/微信/支付宝/银行转账;"
+            "status 默认 paid(计入汇总收入),pending 为待确认。studentId/classId 用"
+            " edu_list_students 查得;缺金额/日期/方式时先向用户确认再调用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID(必填)"},
+                "classId": {"type": "string", "description": "班级 ID(必填)"},
+                "amount": {"type": "integer", "description": "缴费金额,单位元(必填)"},
+                "paymentDate": {"type": "string", "description": "缴费日期 YYYY-MM-DD(必填)"},
+                "paymentMethod": {"type": "string", "description": "缴费方式,如 现金/微信/支付宝/银行转账(必填)"},
+                "status": {"type": "string", "description": "状态 paid/pending(默认 paid)"},
+                "receiptNo": {"type": "string", "description": "收据号(可选)"},
+                "remark": {"type": "string", "description": "备注(可选)"},
+            },
+            "required": ["studentId", "classId", "amount", "paymentDate", "paymentMethod"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_create_refund",
+        description=(
+            "教育管理-创建退费申请(写操作):登记退费单(初始 pending),需再用"
+            " edu_approve_refund/edu_reject_refund 审批。amount 单位为元(整数);"
+            "refundDate 格式 YYYY-MM-DD;reason 退费原因必填。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "studentId": {"type": "string", "description": "学员 ID(必填)"},
+                "classId": {"type": "string", "description": "班级 ID(必填)"},
+                "amount": {"type": "integer", "description": "退费金额,单位元(必填)"},
+                "refundDate": {"type": "string", "description": "退费日期 YYYY-MM-DD(必填)"},
+                "reason": {"type": "string", "description": "退费原因(必填)"},
+                "paymentId": {"type": "string", "description": "关联缴费记录 ID(可选)"},
+                "refundMethod": {"type": "string", "description": "退回方式,如 原路退回/银行转账(可选)"},
+            },
+            "required": ["studentId", "classId", "amount", "refundDate", "reason"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_approve_refund",
+        description=(
+            "教育管理-审批通过退费(写操作):把 pending 状态的退费记录置为 approved;"
+            "refundId 用 edu_list_refunds(status=pending) 查得。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "refundId": {"type": "string", "description": "退费记录 ID(必填)"},
+                "approveRemark": {"type": "string", "description": "审批备注(可选)"},
+            },
+            "required": ["refundId"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="edu_reject_refund",
+        description=(
+            "教育管理-驳回退费(写操作):把 pending 状态的退费记录置为 rejected;"
+            "refundId 用 edu_list_refunds(status=pending) 查得。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "refundId": {"type": "string", "description": "退费记录 ID(必填)"},
+                "approveRemark": {"type": "string", "description": "驳回理由/备注(可选)"},
+            },
+            "required": ["refundId"],
+            "additionalProperties": False,
+        },
+    ),
+]
+
+
+def get_registered_tool_names() -> set[str]:
+    """返回所有已注册工具的名字集合(只读 helper,2026-07-31 立)。
+
+    供 llm.py 的 resolve_tool_source() 派生工具来源(serverSource)使用:
+    - 工具名在本集合中且不属于 builtin/plugin → serverSource='mcp'
+    - 当前所有工具均为本地实现(无外部 MCP server 注册),server_id/server_name 暂为 None
+    - 未来接入外部 MCP server(如 context7/filesystem)后,扩展本函数返回 (name, server_id, server_name) 三元组
+    """
+    return {t.name for t in _TOOLS}
+
+
+# 2026-08-06 生产修复:LLM 可能返回与注册工具不一致的别名(模型幻觉/跨平台命名),
+# 统一映射到实际注册工具名,防止 call_tool 报"未知工具"。
+_TOOL_ALIASES: dict[str, str] = {
+    "execute_command": "run_command",  # Claude/Codex 风格 → 本项目 run_command
+    "list_directory": "list_files",
+}
+
+
+def _suggest_close_tool(name: str, limit: int = 3) -> list[str]:
+    """未知工具的近似候选推荐(did-you-mean):别名/大小写/分隔符差异 + 模糊匹配。
+
+    工具清单上百个时直接铺全清单=信息淹没,这里只回 Top-N 真正可能被误写的名字。
+    """
+    import difflib as _dl
+
+    def _norm(s: str) -> str:
+        return _normalize_tool_name(s.strip()).lower().replace("-", "_")
+
+    candidates = sorted(_TOOL_HANDLERS.keys())
+    norm_t = _norm(name)
+    if not norm_t:
+        return []
+    norm_map = {_norm(c): c for c in candidates}
+    if norm_t in norm_map:
+        return [norm_map[norm_t]]
+    scored = sorted(
+        ((_dl.SequenceMatcher(None, norm_t, _norm(c)).ratio(), c) for c in candidates),
+        key=lambda x: (-x[0], x[1]),
+    )
+    return [c for ratio, c in scored[:limit] if ratio >= 0.62]
+
+
+def _normalize_tool_name(name: str) -> str:
+    """工具名归一化:优先映射别名,否则原样返回。"""
+    return _TOOL_ALIASES.get(name, name)
+
+
+# ---------------------------------------------------------------------------
+# 工具定义 deferral(瘦身)数据层(2026-09-02 立)
+# ---------------------------------------------------------------------------
+# 把"完整工具 schema"与"放进 LLM 上下文的精简定义"解耦:默认(TOOL_DEFERRAL=on)
+# 下,agent loop 只把"短描述 + 占位参数"塞进上下文,模型需要完整参数时通过内置
+# get_tool_schema 工具按需拉取,对标 Claude Code 的工具定义瘦身(上下文占比超阈值
+# 自动 deferral)。本注册表是两来源(内置 _TOOLS / 外部 register_external_tool)的统一落点。
+_DEFERRED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {}
+
+
+def _register_deferred_schema(tool: MCPTool) -> None:
+    """把单个工具的完整 schema 写入 deferral 注册表(name → 完整 schema)。"""
+    _DEFERRED_TOOL_SCHEMAS[tool.name] = {
+        "name": tool.name,
+        "description": tool.description,
+        "input_schema": tool.input_schema,
+    }
+
+
+def _populate_deferred_schemas() -> None:
+    """把当前 _TOOLS 全部内置工具的完整 schema 批量灌入注册表(幂等)。
+
+    在模块加载、_TOOLS 彻底构建完成后调用一次;外部工具走 register_external_tool
+    各自增量写入,二者共同保证注册表覆盖两来源。重复调用安全(后者覆盖前者)。
+    """
+    for t in _TOOLS:
+        _register_deferred_schema(t)
+
+
+def get_full_tool_schema(name: str) -> dict[str, Any] | None:
+    """返回 deferral 注册表中某工具的完整 schema(name/description/input_schema)。
+
+    name 不存在返回 None。供内置 get_tool_schema 工具与 agent loop 的按需展开复用。
+    """
+    return _DEFERRED_TOOL_SCHEMAS.get(name)
+
+
+def list_deferred_tool_names() -> list[str]:
+    """返回当前已登记完整 schema 的工具名列表(排序,输出稳定)。"""
+    return sorted(_DEFERRED_TOOL_SCHEMAS.keys())
+
+
+async def _tool_get_tool_schema(arguments: dict[str, Any]) -> dict[str, Any]:
+    """get_tool_schema: 返回指定工具的完整参数 schema(deferral 反查入口,只读)。
+
+    模型在工具定义被 deferral 精简后,用本工具按 name 取回完整 input_schema/描述,
+    再决定是否调用该工具。name 为空或不存在均返回 ok=False 并附带可用工具名清单。
+    """
+    name = str(arguments.get("name", "")).strip()
+    if not name:
+        return {"ok": False, "error": "name 不能为空(get_tool_schema 需要目标工具名)"}
+    schema = get_full_tool_schema(name)
+    if schema is None:
+        return {
+            "ok": False,
+            "error": f"未找到工具: {name}",
+            "available": list_deferred_tool_names(),
+        }
+    return {"ok": True, "tool": name, "schema": schema}
+
+
+# ---------------------------------------------------------------------------
+# 教育管理工具(edu_* 2026-09-19 立,读 8 + 写 6):经 internal service token
+# 调用 api /api/edu-ai-management/* 端点。权限由 api 侧 RBAC 对真实聊天用户
+# 兜底(edu:view 读 / edu:manage 写);不入 _ADMIN_ONLY_TOOLS(对话链
+# user_role=0,入名单即断链,同 image_generation 2026-09-08 先例)。
+# 身份链路:web 主链 llm.py call_tool(user_id=owner_uuid) 直通 __user_id;
+# conversation 链 _execute_tool_call 传入 _resolve_user_id(sid) 解析结果。
+# ---------------------------------------------------------------------------
+_EDU_API_BASE_URL = os.environ.get("API_SERVICE_URL", "http://localhost:8802").rstrip("/")
+
+
+def _edu_internal_headers(user_id: Any) -> dict[str, str]:
+    """edu 工具调 api 的鉴权头:internal token + 真实用户 ID(契约同 codebase_indexer)。
+
+    api 侧 checkInternalServiceToken 校验 token 并把 X-User-Id 注入 request.userId,
+    随后 requireAnyPermission 的 RBAC 查询对该用户做权限兜底。
+    """
+    uid = str(user_id or "").strip()
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
+    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+        return {}
+    return {"x-internal-service-token": secret, "x-user-id": uid}
+
+
+def _edu_query_params(args: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    """从 handler args 挑选非空字段组装参数(过滤 None/空串,丢弃 __ 前缀内部键)。"""
+    params: dict[str, Any] = {}
+    for key in keys:
+        value = args.get(key)
+        if value not in (None, ""):
+            params[key] = value
+    return params
+
+
+def _edu_coerce_amount(body: dict[str, Any]) -> dict[str, Any] | None:
+    """把 amount 归一为整数(元);非法返回错误 dict,None 表示成功。"""
+    if "amount" not in body:
+        return None
+    try:
+        body["amount"] = int(float(body["amount"]))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "amount 必须为数字(单位:元)"}
+    return None
+
+
+async def _edu_api_request(
+    method: str,
+    path: str,
+    *,
+    user_id: Any,
+    params: dict[str, Any] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """edu 工具统一 HTTP 出口:调 api 并剥 success() 壳({code,message,data})。
+
+    2xx → {ok: True, **data};非 2xx → {ok: False, error, errorCode}。
+    鉴权头缺失(未配置 AI_CALLBACK_SECRET/无用户身份)时直接返回可读错误,
+    不发请求。
+    """
+    import httpx
+
+    headers = _edu_internal_headers(user_id)
+    if not headers:
+        return {
+            "ok": False,
+            "error": "内部服务凭证未配置(AI_CALLBACK_SECRET)或用户身份缺失,无法调用教育管理接口",
+            "errorCode": "INTERNAL_AUTH_UNAVAILABLE",
+        }
+    url = f"{_EDU_API_BASE_URL}/api/edu-ai-management{path}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.request(method, url, headers=headers, params=params, json=json_body)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"教育管理接口请求失败: {e}", "errorCode": "NETWORK_ERROR"}
+    try:
+        payload = resp.json()
+    except Exception:  # noqa: BLE001
+        payload = {}
+    if resp.status_code < 400:
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if isinstance(data, dict):
+            return {"ok": True, **data}
+        return {"ok": True, "data": data}
+    message = payload.get("message") if isinstance(payload, dict) else None
+    return {
+        "ok": False,
+        "error": str(message) if message else f"教育管理接口返回 HTTP {resp.status_code}",
+        "errorCode": f"HTTP_{resp.status_code}",
+    }
+
+
+async def _tool_edu_list_students(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_students: 学员名册检索(姓名/手机号 → enrollmentId/studentId 解析)。"""
+    params = _edu_query_params(args, ("keyword", "businessLine", "classId", "termId", "page", "pageSize"))
+    return await _edu_api_request("GET", "/student-roster", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_arrears(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_arrears: 欠费学员名单(totalFee > paidAmount)。"""
+    params = _edu_query_params(args, ("keyword", "businessLine", "classId", "termId", "page", "pageSize"))
+    params["arrearsOnly"] = "true"
+    return await _edu_api_request("GET", "/student-roster", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_fee_reminders(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_fee_reminders: 催费发送记录查询。"""
+    params = _edu_query_params(args, ("studentId", "classId", "channel", "page", "pageSize"))
+    return await _edu_api_request("GET", "/fee-reminder", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_payment_records(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_payment_records: 缴费流水查询。"""
+    params = _edu_query_params(args, ("studentId", "classId", "status", "page", "pageSize"))
+    return await _edu_api_request("GET", "/payment-record", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_payment_summary(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_payment_summary: 缴费汇总(实收/已缴人数/欠费人数/欠费总额)。"""
+    params = _edu_query_params(args, ("classId", "termId"))
+    return await _edu_api_request("GET", "/payment-record/summary", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_refunds(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_refunds: 退费记录查询(pending/approved/rejected)。"""
+    params = _edu_query_params(args, ("studentId", "classId", "status", "page", "pageSize"))
+    return await _edu_api_request("GET", "/refund-record", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_list_tuition_fees(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_list_tuition_fees: 学费标准查询。"""
+    params = _edu_query_params(args, ("classId", "termId", "page", "pageSize"))
+    return await _edu_api_request("GET", "/tuition-fee", user_id=args.get("__user_id"), params=params)
+
+
+async def _tool_edu_my_bills(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_my_bills: 当前聊天用户(家长)自己的报名与最近缴费。"""
+    return await _edu_api_request("GET", "/my-bills", user_id=args.get("__user_id"))
+
+
+async def _tool_edu_send_fee_reminder(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_send_fee_reminder: 单发催费(站内信必达,wechat 渠道尽力外发)。"""
+    body = _edu_query_params(args, ("enrollmentId", "channel", "message"))
+    if "enrollmentId" not in body:
+        return {"ok": False, "error": "enrollmentId 不能为空(可用 edu_list_students/edu_list_arrears 查得)"}
+    return await _edu_api_request("POST", "/fee-reminder", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_send_fee_reminder_batch(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_send_fee_reminder_batch: 批量催费(1-100 条,无欠费/不存在自动跳过)。"""
+    ids = args.get("enrollmentIds")
+    if not isinstance(ids, list) or not ids:
+        return {"ok": False, "error": "enrollmentIds 必须为非空 ID 数组(1-100 个)"}
+    body: dict[str, Any] = {"enrollmentIds": [str(i) for i in ids]}
+    body.update(_edu_query_params(args, ("channel", "message")))
+    return await _edu_api_request("POST", "/fee-reminder/batch", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_create_payment_record(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_create_payment_record: 登记缴费记录(amount 单位元)。"""
+    body = _edu_query_params(
+        args,
+        ("studentId", "classId", "feeId", "amount", "paymentDate", "paymentMethod", "status", "receiptNo", "remark"),
+    )
+    missing = [k for k in ("studentId", "classId", "amount", "paymentDate", "paymentMethod") if k not in body]
+    if missing:
+        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(studentId/classId 可用 edu_list_students 查得)"}
+    err = _edu_coerce_amount(body)
+    if err:
+        return err
+    return await _edu_api_request("POST", "/payment-record", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_create_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_create_refund: 创建退费申请(pending 待审批;amount 单位元)。"""
+    body = _edu_query_params(
+        args,
+        ("studentId", "classId", "paymentId", "amount", "refundDate", "refundMethod", "reason"),
+    )
+    missing = [k for k in ("studentId", "classId", "amount", "refundDate", "reason") if k not in body]
+    if missing:
+        return {"ok": False, "error": f"缺少必填字段: {', '.join(missing)}(studentId/classId 可用 edu_list_students 查得)"}
+    err = _edu_coerce_amount(body)
+    if err:
+        return err
+    return await _edu_api_request("POST", "/refund-record", user_id=args.get("__user_id"), json_body=body)
+
+
+async def _tool_edu_approve_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_approve_refund: 审批通过退费(pending → approved)。"""
+    refund_id = str(args.get("refundId") or "").strip()
+    if not refund_id:
+        return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    body = _edu_query_params(args, ("approveRemark",))
+    return await _edu_api_request(
+        "PUT", f"/refund-record/{refund_id}/approve", user_id=args.get("__user_id"), json_body=body
+    )
+
+
+async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
+    """edu_reject_refund: 驳回退费(pending → rejected)。"""
+    refund_id = str(args.get("refundId") or "").strip()
+    if not refund_id:
+        return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    body = _edu_query_params(args, ("approveRemark",))
+    return await _edu_api_request(
+        "PUT", f"/refund-record/{refund_id}/reject", user_id=args.get("__user_id"), json_body=body
+    )
+
+
+_TOOL_HANDLERS: dict[str, Any] = {
+    # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
+    "get_tool_schema": _tool_get_tool_schema,
+    "search_codebase": _tool_search_codebase,
+    "index_codebase": _tool_index_codebase,
+    "knowledge_lookup": _tool_knowledge_lookup,
+    "context_recall": _tool_context_recall,
+    "read_file": _tool_read_file,
+    "list_files": _tool_list_files,
+    "write_file": _tool_write_file,
+    "file_edit": _tool_file_edit,
+    "run_command": _tool_run_command,
+    "web_search": _tool_web_search,
+    "search_web": _tool_search_web,
+    "analyze_code": _tool_analyze_code,
+    "generate_test": _tool_generate_test,
+    "file_search": _tool_file_search,
+    "git_operations": _tool_git_operations,
+    "db_query": _tool_db_query,
+    # ===== 视频生成(2026-09-05 新增;2026-09-07 补注册——工具已定义但漏入此表,
+    # _TOOLS 53 vs _TOOL_HANDLERS 52 失配,test_tools_count_matches_registry 拦截)=====
+    "video_generation": _tool_video_generation,
+    "music_generation": _tool_music_generation,
+    "voice_tts": _tool_voice_tts,
+    "token6688_model_info": _tool_token6688_model_info,
+    "token6688_cancel_task": _tool_token6688_cancel_task,
+    # ===== 文件上传(2026-09-09 全模态深度适配;视频参考素材/声纹/改图输入先传文件拿 URL)=====
+    "token6688_upload_file": _tool_token6688_upload_file,
+    # ===== 图片编辑(2026-09-09 全模态深度适配)=====
+    "image_edit": _tool_image_edit,
+    # ===== 语音转文字 + 余额查询(2026-09-09 全模态深度适配)=====
+    "audio_transcription": _tool_audio_transcription,
+    "token6688_balance": _tool_token6688_balance,
+    # ===== 声纹克隆(2026-09-09 全模态深度适配;补注册——handler 已存在但漏入此表,
+    # 导致对话链调工具永远"未知工具",test_tools_count_matches_registry 会拦截)=====
+    "token6688_voice_clone": _tool_token6688_voice_clone,
+    # ===== AI 自动控制浏览器(12 个)=====
+    "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
+    "browser_click_element": _make_agent_control_handler("browser", "click_element"),
+    "browser_type_text": _make_agent_control_handler("browser", "type_text"),
+    "browser_scroll": _make_agent_control_handler("browser", "scroll"),
+    "browser_extract_dom": _make_agent_control_handler("browser", "extract_dom"),
+    "browser_navigate": _make_agent_control_handler("browser", "navigate"),
+    "browser_wait_for_element": _make_agent_control_handler("browser", "wait_for_element"),
+    "browser_get_attribute": _make_agent_control_handler("browser", "get_attribute"),
+    "browser_hover": _make_agent_control_handler("browser", "hover"),
+    "browser_select_option": _make_agent_control_handler("browser", "select_option"),
+    "browser_switch_tab": _make_agent_control_handler("browser", "switch_tab"),
+    "browser_close_tab": _make_agent_control_handler("browser", "close_tab"),
+    # ===== AI 自动控制电脑(10 个)=====
+    "computer_screenshot_screen": _make_agent_control_handler("computer", "screenshot_screen"),
+    "computer_mouse_move": _make_agent_control_handler("computer", "mouse_move"),
+    "computer_mouse_click": _make_agent_control_handler("computer", "mouse_click"),
+    "computer_keyboard_type": _make_agent_control_handler("computer", "keyboard_type"),
+    "computer_mouse_scroll": _make_agent_control_handler("computer", "mouse_scroll"),
+    "computer_keyboard_press": _make_agent_control_handler("computer", "keyboard_press"),
+    "computer_keyboard_hotkey": _make_agent_control_handler("computer", "keyboard_hotkey"),
+    "computer_active_window": _make_agent_control_handler("computer", "active_window"),
+    "computer_clipboard_get": _make_agent_control_handler("computer", "clipboard_get"),
+    "computer_clipboard_set": _make_agent_control_handler("computer", "clipboard_set"),
+    # ===== 自动化任务配置(2026-07-22 新增)=====
+    "configure_automation_task": _tool_configure_automation_task,
+    # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
+    "screenshot_url": _tool_screenshot_url,
+    # ===== 图像分析(P2-3,对标 Hermes 多模态输入)=====
+    "vision_analyze": _tool_vision_analyze,
+    # ===== 子智能体派发(2026-07-24 新增)=====
+    "dispatch_subagent": _tool_dispatch_subagent,
+    # ===== 扩展工具(2026-07-24 新增,自研)=====
+    "fetch_url": _tool_fetch_url,
+    "image_generation": _tool_image_generation,
+    "review_pr": _tool_review_pr,
+    "summarize_artifacts": _tool_summarize_artifacts,
+    "schedule_task": _tool_schedule_task,
+    "proactive_suggestion": _tool_proactive_suggestion,
+    # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
+    "generate_chart": _generate_chart,
+    "parse_document": _parse_document,
+    # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
+    "extract_document_assets": _extract_document_assets,
+    "document_tables": _document_tables,
+    # ===== Web 网络抓取(Firecrawl Scrape/Map/Crawl/Extract 极致融合, 2026-09)=====
+    "fetch_readable": _fetch_readable,
+    "map_site": _map_site,
+    "crawl_site": _crawl_site,
+    "extract_web": _extract_web,
+    # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
+    "run_in_background": _tool_run_in_background,
+    "bg_task_status": _tool_bg_task_status,
+    # ===== 补丁冲突处理(1-2 · 2026-09-08):3-way merge 局部拒绝 =====
+    "resolve_conflict": _tool_resolve_conflict,
+    # ===== D11 浏览器自检截图(2026-09)=====
+    "browser_selfcheck_screenshot": _tool_browser_selfcheck_screenshot,
+    "browser_selfcheck": _tool_browser_selfcheck,
+    # ===== 教育管理(edu_* 2026-09-19,读 8 + 写 6;internal token → api RBAC 兜底)=====
+    "edu_list_students": _tool_edu_list_students,
+    "edu_list_arrears": _tool_edu_list_arrears,
+    "edu_list_fee_reminders": _tool_edu_list_fee_reminders,
+    "edu_list_payment_records": _tool_edu_list_payment_records,
+    "edu_payment_summary": _tool_edu_payment_summary,
+    "edu_list_refunds": _tool_edu_list_refunds,
+    "edu_list_tuition_fees": _tool_edu_list_tuition_fees,
+    "edu_my_bills": _tool_edu_my_bills,
+    "edu_send_fee_reminder": _tool_edu_send_fee_reminder,
+    "edu_send_fee_reminder_batch": _tool_edu_send_fee_reminder_batch,
+    "edu_create_payment_record": _tool_edu_create_payment_record,
+    "edu_create_refund": _tool_edu_create_refund,
+    "edu_approve_refund": _tool_edu_approve_refund,
+    "edu_reject_refund": _tool_edu_reject_refund,
+}
+
+
+# 外部注入工具名单(2026-09-02 立,P2-1):register_external_tool 注册成功的工具名集合,
+# 供卸载/停用时精确清理(_TOOLS/_TOOL_HANDLERS 还含大量本地工具,不能整表操作)。
+# 同名工具已被占用时 register 返回 False,不进入本集合。
+_EXTERNAL_TOOL_NAMES: set[str] = set()
+
+
+def register_external_tool(tool: MCPTool, handler: Any) -> bool:
+    """注册外部 MCP 工具(2026-09-01 立,stdio bridge 注入外部 server 工具用)。
+
+    自研工具注册表(_TOOLS + _TOOL_HANDLERS)是唯一权威工具来源,LLM tool schema、
+    mcp_official 协议层、agent loop 均从这里读取。外部 stdio MCP server 发现工具后,
+    通过本函数把远程工具包装成内部 MCPTool + 转发 handler 注入注册表,复用既有
+    权限矩阵与调用链,LLM 无需感知工具是本地实现还是外部子进程。
+
+    幂等:同名工具已注册(handler 已存在)时返回 False 且不覆盖,防止多个 stdio
+    server 或本地工具被外部工具同名覆盖。
+
+    Args:
+        tool: 待注册的 MCPTool(名称/描述/input_schema 来自外部 server 的 list_tools)
+        handler: async (arguments: dict) -> dict 转发 handler,与本地工具 handler 同签名
+
+    Returns:
+        True=注册成功;False=同名工具已存在,跳过
+    """
+    if tool.name in _TOOL_HANDLERS:
+        return False
+    _TOOLS.append(tool)
+    _TOOL_HANDLERS[tool.name] = handler
+    _EXTERNAL_TOOL_NAMES.add(tool.name)
+    # 同步写入 deferral 注册表:外部工具也需可被 get_tool_schema 反查完整 schema。
+    _register_deferred_schema(tool)
+    return True
+
+
+def unregister_external_tools(names: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    """按精确工具名批量移除外部注入的工具(2026-09-02 立,P2-1)。
+
+    只清理由 register_external_tool 注入的工具(_EXTERNAL_TOOL_NAMES 名单内的),
+    不触碰本地工具表;从 _TOOLS / _TOOL_HANDLERS / _EXTERNAL_TOOL_NAMES 三个容器
+    同步移除。幂等:目标名不存在或非外部注入时静默跳过。
+
+    Args:
+        names: 待移除的外部工具名(可迭代;空集合/未安装名均安全)
+
+    Returns:
+        实际移除的工具名列表
+    """
+    target = {n for n in names if n}
+    removed = sorted(n for n in target if n in _EXTERNAL_TOOL_NAMES)
+    if not removed:
+        return []
+    for n in removed:
+        _EXTERNAL_TOOL_NAMES.discard(n)
+        _TOOL_HANDLERS.pop(n, None)
+        _DEFERRED_TOOL_SCHEMAS.pop(n, None)
+    _TOOLS[:] = [t for t in _TOOLS if t.name not in removed]
+    return removed
+
+
+def unregister_external_tool_by_prefix(prefix: str) -> list[str]:
+    """按工具名前缀批量移除外部注入的工具(2026-09-02 立,P2-1,幂等)。
+
+    供按 server 维度清理:外部 server 注入的工具名以统一前缀命名时,传前缀即可
+    批量移除;否则调用方应改用 unregister_external_tools(精确名单)。
+
+    Args:
+        prefix: 工具名前缀(如 "mcp:filesystem__")
+
+    Returns:
+        实际移除的工具名列表
+    """
+    target = [n for n in _EXTERNAL_TOOL_NAMES if n.startswith(prefix)]
+    return unregister_external_tools(target)
+
+
+def list_external_tools_injected() -> list[str]:
+    """返回当前由 register_external_tool 注入的外部工具名列表(2026-09-02 立,P2-1)。
+
+    只含外部注入且注册成功的工具,不含本地工具;按名排序保证输出稳定。
+    """
+    return sorted(_EXTERNAL_TOOL_NAMES)
+
+
+# ---------------------------------------------------------------------------
+# 资源(3 个)
+# ---------------------------------------------------------------------------
+
+_RESOURCES: list[MCPResource] = [
+    MCPResource(
+        uri="memory://current",
+        name="current_memory",
+        description="当前会话记忆",
+    ),
+    MCPResource(
+        uri="skills://available",
+        name="available_skills",
+        description="可用 skill 列表",
+    ),
+    MCPResource(
+        uri="config://agent",
+        name="agent_config",
+        description="agent 配置",
+    ),
+]
+
+
+# ---------------------------------------------------------------------------
+# 提示词(3 个)
+# ---------------------------------------------------------------------------
+
+_PROMPTS: list[MCPPrompt] = [
+    MCPPrompt(
+        name="code_review",
+        description="代码审查提示词",
+        arguments=[
+            {"name": "code", "description": "待审查的代码", "required": True},
+            {"name": "language", "description": "代码语言", "required": False},
+        ],
+    ),
+    MCPPrompt(
+        name="bug_fix",
+        description="Bug 修复提示词",
+        arguments=[
+            {"name": "error", "description": "错误信息", "required": True},
+            {"name": "code", "description": "相关代码", "required": True},
+            {"name": "language", "description": "代码语言", "required": False},
+        ],
+    ),
+    MCPPrompt(
+        name="feature_plan",
+        description="功能规划提示词",
+        arguments=[
+            {"name": "feature", "description": "功能描述", "required": True},
+            {"name": "requirements", "description": "详细需求", "required": False},
+        ],
+    ),
+]
+
+
+def _render_prompt(name: str, arguments: dict[str, Any]) -> str:
+    """根据 name 和 arguments 渲染提示词模板。"""
+    language = arguments.get("language", "未指定")
+    if name == "code_review":
+        return (
+            "请审查以下代码,关注质量、bug、安全与最佳实践:\n\n"
+            f"语言: {language}\n代码:\n```\n{arguments.get('code', '')}\n```"
+        )
+    if name == "bug_fix":
+        return (
+            "请根据错误信息修复代码:\n\n"
+            f"语言: {language}\n错误:\n{arguments.get('error', '')}\n\n"
+            f"代码:\n```\n{arguments.get('code', '')}\n```\n"
+            "输出: 根因分析 + 修复方案 + 修复后代码"
+        )
+    if name == "feature_plan":
+        return (
+            "请规划以下功能的实现方案:\n\n"
+            f"功能: {arguments.get('feature', '')}\n"
+            f"需求: {arguments.get('requirements', '(无)')}\n\n"
+            "输出: 技术方案、任务拆解、风险点、验收标准"
+        )
+    return f"未知提示词: {name}"
+
+
+# ---------------------------------------------------------------------------
+# MCPServer
+# ---------------------------------------------------------------------------
+
+
+class MCPServer:
+    """MCP 服务端,统一管理工具/资源/提示词的查询与调用。"""
+
+    def list_tools(self) -> list[MCPTool]:
+        """列出全部工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
+
+        off 时直接返回 list(_TOOLS)(逐字节等价);on 时仅追加由 world_state_tools
+        归一化出的延迟工具条目,不改动既有 _TOOLS。
+        """
+        tools: list[MCPTool] = list(_TOOLS)
+        if (
+            _mcp_world_state_tools_enabled_from_env()
+            and _MCP_WORLD_STATE_DEFERRED_NAMESPACES
+        ):
+            try:
+                from app.core.world_state_tools import ToolsState
+
+                _state = ToolsState(_MCP_WORLD_STATE_DEFERRED_NAMESPACES)
+                for _ns, _desc in _state.deferred_namespaces.items():
+                    tools.append(
+                        MCPTool(
+                            name=f"deferred:{_ns}",
+                            description=_desc,
+                            input_schema={"type": "object", "properties": {}},
+                        )
+                    )
+            except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
+                logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
+        return tools
+
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        user_role: int = 0,
+        user_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """调用指定工具(带权限矩阵校验)。
+
+        Args:
+            name: 工具名
+            arguments: 工具参数
+            user_role: 调用者角色 ID(0=普通用户,>=1=admin)。admin 专属工具
+                       需 user_role >= 1,其他工具所有用户可用。
+            user_id: 调用者用户 ID(可选)。从 FastAPI request 上下文注入,
+                     供 knowledge_lookup 查 long_term_memory 源(跨会话历史)。
+                     service 层(agent_loop/orchestrator/conversation)无 request 上下文,
+                     传 None 时 _tool_knowledge_lookup 跳过 LTM(与 G5 旧行为一致)。
+            session_id: 会话 ID(可选)。供 knowledge_lookup 限定 RAG 检索会话范围。
+        """
+        handler = _TOOL_HANDLERS.get(name)
+        if not handler:
+            # 2026-08-06 修复:LLM 返回的别名工具名归一化后再查(execute_command → run_command)
+            normalized = _normalize_tool_name(name)
+            if normalized != name:
+                handler = _TOOL_HANDLERS.get(normalized)
+                name = normalized
+        if not handler:
+            # 可纠错回执(体验优化):工具清单很长,直接铺全会淹没真正有用的信息,
+            # 先给最近似的几个候选;匹配不上才回退全量清单。
+            suggestions = _suggest_close_tool(name)
+            message = f"未知工具: {name}"
+            if suggestions:
+                message += f"。是否想调用: {' / '.join(suggestions)}"
+            else:
+                message += f"。可用: {', '.join(sorted(_TOOL_HANDLERS.keys()))}"
+            return {
+                "ok": False,
+                "error": message,
+                "suggestions": suggestions,
+                "available": sorted(_TOOL_HANDLERS.keys()),
+            }
+        # 权限矩阵:admin 专属工具(write_file/run_command/db_query/computer_* 等)
+        # 普通用户(user_role < 1)调用 → 直接拒绝,不执行 handler
+        if name in _ADMIN_ONLY_TOOLS and user_role < 1:
+            return {
+                "ok": False,
+                "error": f"工具 '{name}' 需要 admin 权限(role >= 1),当前 role={user_role}",
+                "errorCode": "PERMISSION_DENIED",
+            }
+        try:
+            # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
+            # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
+            # G6(2026-07-26):同时注入 __user_id/__session_id 供 knowledge_lookup
+            # 查 long_term_memory 源(从 FastAPI request 上下文透传,LLM 不可控)
+            args_with_role = dict(arguments or {})
+            args_with_role["__user_role"] = user_role
+            args_with_role["__user_id"] = user_id
+            args_with_role["__session_id"] = session_id
+            # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
+            result = await asyncio.wait_for(
+                handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+            )
+            # 2026-09-09 媒体任务统一落库:对话内媒体工具(video/music/tts/image/改图)
+            # 提交即持久化到 media_tasks,支撑"我的媒体任务"查询/取消;DB 异常仅告警,
+            # 绝不阻断对话主流程(与 video_generation_tasks 并存:该表是 REST 视频任务队列)。
+            try:
+                from .media_tasks import persist_media_task
+
+                await persist_media_task(
+                    name,
+                    result if isinstance(result, dict) else {},
+                    user_uuid=user_id or "",
+                    chat_id=session_id or "",
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning("[mcp] 媒体任务落库异常(忽略): tool=%s", name)
+            # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
+            return _truncate_tool_output(result)
+        except TimeoutError:
+            return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
+        except Exception as e:
+            return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
+
+    def list_resources(self) -> list[MCPResource]:
+        """列出全部资源。"""
+        return list(_RESOURCES)
+
+    async def read_resource(self, uri: str) -> dict[str, Any]:
+        """读取指定 URI 的资源内容。"""
+        if uri == "memory://current":
+            from .memory import memory_store
+
+            sessions = await memory_store.list_sessions()
+            data: dict[str, Any] = {"sessions": sessions}
+            for sid in sessions[:5]:
+                data[sid] = await memory_store.get(sid, limit=10)
+            return {"uri": uri, "content": data, "ok": True}
+        if uri == "skills://available":
+            skills = skill_registry.list_skills()
+            return {
+                "uri": uri,
+                "content": [
+                    {"name": s.name, "description": s.description} for s in skills
+                ],
+                "ok": True,
+            }
+        if uri == "config://agent":
+            from ..core.config import settings
+
+            return {
+                "uri": uri,
+                "content": {
+                    "app_name": settings.app_name,
+                    "litellm_model": settings.litellm_model,
+                    "max_agent_iterations": settings.max_agent_iterations,
+                    "debug": settings.debug,
+                },
+                "ok": True,
+            }
+        if uri == "sampling://handler":
+            return {
+                "uri": uri,
+                "content": sampling_handler.get_stats(),
+                "ok": True,
+            }
+        return {"uri": uri, "content": None, "ok": False, "error": f"未知资源 URI: {uri}"}
+
+    def list_prompts(self) -> list[MCPPrompt]:
+        """列出全部提示词。"""
+        return list(_PROMPTS)
+
+    def invoke_prompt(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+        """调用指定提示词,返回渲染后的 prompt 文本。"""
+        prompt_names = {p.name for p in _PROMPTS}
+        if name not in prompt_names:
+            return {"ok": False, "error": f"未知提示词: {name}。可用: {', '.join(prompt_names)}"}
+        return {"name": name, "prompt": _render_prompt(name, arguments or {}), "ok": True}
+
+    # =========================================================================
+    # Sampling(反向调用 LLM,P1-3)
+    # =========================================================================
+
+    def list_sampling_capabilities(self) -> dict[str, Any]:
+        """列出 Sampling 能力(供 MCP 客户端发现 sampling/createMessage)。"""
+        return {
+            "uri": "sampling://handler",
+            "name": "sampling_handler",
+            "description": (
+                "MCP Sampling 反向调用:让 MCP 工具请求 LLM 推理(createMessage)。"
+                "5 层护栏:速率限制 / 模型白名单 / 工具调用轮数 / 超时 / 审计日志。"
+            ),
+            "guardrails": sampling_handler.get_stats()["guardrails"],
+        }
+
+    async def call_sampling(self, request: dict[str, Any]) -> dict[str, Any]:
+        """处理 MCP Sampling 请求(反向让 MCP 工具调用 LLM)。
+
+        Args:
+            request: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+                     temperature/context)。
+
+        Returns:
+            McpSamplingResponse 字典(content/model/usage/blocked/blockedReason)。
+        """
+        return await sampling_handler.handle_sampling(request)
+
+
+mcp_server = MCPServer()
+
+# 模块加载末段:把全部内置工具(含本文件新增的 get_tool_schema)的完整 schema 灌入
+# deferral 注册表。外部工具在 register_external_tool 时各自增量写入,二者共同覆盖两来源。
+_populate_deferred_schemas()
+
+
+# ---------------------------------------------------------------------------
+# SamplingHandler — MCP Sampling 反向调用处理器(5 层护栏,P1-3)
+# ---------------------------------------------------------------------------
+
+
+class SamplingHandler:
+    """MCP Sampling 反向调用处理器(5 层护栏)。
+
+    让 MCP 工具能反向请求 LLM 推理(sampling/createMessage)。
+    对齐 packages/types 的 McpSamplingRequest/Response/Guardrails 契约。
+    """
+
+    # 默认护栏配置(对齐 McpSamplingGuardrails 类型)
+    DEFAULT_GUARDRAILS: dict[str, Any] = {
+        "rate_limit_rpm": 10,       # 速率限制 10 RPM
+        "model_whitelist": [],      # 空白名单=允许所有(非空时只允许白名单内模型)
+        "max_tool_rounds": 5,       # 单个 callerTool 最大调用轮数
+        "timeout_seconds": 30,      # LLM 调用超时
+        "audit_log": True,          # 审计日志
+    }
+
+    def __init__(self, guardrails: dict[str, Any] | None = None) -> None:
+        self._guardrails: dict[str, Any] = {
+            **self.DEFAULT_GUARDRAILS, **(guardrails or {})
+        }
+        self._call_timestamps: list[float] = []  # 滑动窗口速率限制
+        self._audit_logs: list[dict[str, Any]] = []
+
+    async def handle_sampling(self, request: dict[str, Any]) -> dict[str, Any]:
+        """处理 MCP Sampling 请求。
+
+        Args:
+            request: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+                     temperature/context)。
+
+        Returns:
+            McpSamplingResponse 字典(content/model/usage/blocked/blockedReason)。
+
+        5 层护栏:
+        1. 速率限制:滑动窗口检查 RPM
+        2. 模型白名单:request.model 非空且白名单非空时校验
+        3. 工具调用轮数:记录每个 callerTool 的成功调用次数,超限拦截
+        4. 超时:asyncio.wait_for 包装 llm_gateway.complete
+        5. 审计日志:记录每次调用(callerTool/model/timestamp/blocked)
+        """
+        import asyncio
+        import time
+        from datetime import datetime
+
+        from ..core.llm_gateway import llm_gateway
+
+        # 1. 速率限制(滑动窗口 60s)
+        now = time.monotonic()
+        self._call_timestamps = [t for t in self._call_timestamps if now - t < 60]
+        if len(self._call_timestamps) >= self._guardrails["rate_limit_rpm"]:
+            return {
+                "content": "", "model": "", "usage": None,
+                "blocked": True, "blockedReason": "rate_limit_exceeded",
+            }
+
+        # 2. 模型白名单
+        model = request.get("model")
+        whitelist = self._guardrails["model_whitelist"]
+        if model and whitelist and model not in whitelist:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "model_not_whitelisted",
+            }
+
+        # 3. 工具调用轮数(用 audit_logs 统计每个 callerTool 的成功次数)
+        caller = request.get("callerTool", "unknown")
+        caller_count = sum(
+            1 for log in self._audit_logs
+            if log.get("callerTool") == caller and not log.get("blocked")
+        )
+        if caller_count >= self._guardrails["max_tool_rounds"]:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "max_tool_rounds_exceeded",
+            }
+
+        # 记录时间戳(通过速率检查后才记录)
+        self._call_timestamps.append(now)
+
+        # 4. 超时调用 LLM
+        messages = request.get("messages", [])
+        try:
+            result = await asyncio.wait_for(
+                llm_gateway.complete(messages, model=model),
+                timeout=self._guardrails["timeout_seconds"],
+            )
+            content = str(result.get("content", "") or "")
+            used_model = str(result.get("model", model or "") or "")
+            usage = result.get("usage")
+
+            # 5. 审计日志
+            if self._guardrails["audit_log"]:
+                self._audit_logs.append({
+                    "callerTool": caller,
+                    "model": used_model,
+                    # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
+                    "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                    "blocked": False,
+                    "context": str(request.get("context", ""))[:200],
+                })
+            return {
+                "content": content,
+                "model": used_model,
+                "usage": usage,
+                "blocked": False,
+            }
+        except TimeoutError:
+            if self._guardrails["audit_log"]:
+                self._audit_logs.append({
+                    "callerTool": caller,
+                    "model": model or "",
+                    "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+                    "blocked": True,
+                    "blockedReason": "timeout",
+                })
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "timeout",
+            }
+        except Exception as e:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": f"error: {e}",
+            }
+
+    def get_audit_logs(self) -> list[dict[str, Any]]:
+        """获取审计日志。"""
+        return list(self._audit_logs)
+
+    def get_stats(self) -> dict[str, Any]:
+        """获取统计信息。"""
+        return {
+            "total_calls": len(self._audit_logs),
+            "blocked_calls": sum(1 for log in self._audit_logs if log.get("blocked")),
+            "guardrails": dict(self._guardrails),
+        }
+
+
+sampling_handler = SamplingHandler()
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -384,46 +384,6 @@
       control_autonomy 20、conversation)、ruff + mypy --strict 零错;
       RN 桥层 28 项(新增"click/fill/submit 必须放行到注册表")、taro 桥层 31 项;
       api typecheck exit 0、`@ihui/types` build exit 0。
-      **⚠️ 2026-09-21 中午本条被并行会话清空后重做**(见 E11):上述"证据"是本条**首次落地时**
-      的实测,但当天 11:4x 一批未提交改动(含 `packages/types` 七动词、`_FAMILIES` 动词表、
-      三端客户端清单、两个桥层入站过滤器)被同仓库另一会话的 `git checkout`/reset 类操作整体还原,
-      只有已 commit 的部分(control_autonomy.py、web 侧、api 侧)活了下来。
-      重做后落在 `7504dc5e11` + `aea6ef9f92`;当年声称的两条常驻防漂移断言同样被清空,
-      已重建为 `test_client_tool_lists_match_registered_surface`(Python 直接读三端 TS 清单做
-      **双向**差集)与 `test_family_actions_match_registered_tools`(闸门动词集 == 真实注册面),
-      这正是能机械发现今天这种丢失的那条断言 —— 一次性审计脚本不足以自保。
-- [x] ✅(2026-09-21) E11 无 DOM 端的输入框真正可填(端内控件注册表 + ui-native 交出写通道):
-      把"所有输入框都能被 AI 操作"从 web 一路做到 RN 与小程序。机理与语言切换那次同源
-      (Provider 挂载时注册 setter,拿不到就如实失败),不是新发明:
-      ① `apps/mobile-rn/src/lib/ui-field-registry.ts`、`apps/miniapp-taro/src/lib/ui-field-registry.ts`
-      —— 控件挂载时登记,**id 序号单调且永不复用**(按卸载顺序换位会让下一次 fill 打到别的控件上,
-      比失败更糟);60 条上限,超出计入 `suppressed` 而不是静默丢;密码/验证码/token 连快照都不出现,
-      删除/注销/支付/提现/分享类文案一律拒绝入表(误触即不可逆,收益为零);
-      ② `packages/ui-native/{input,button}.tsx` + `field-host.ts` —— 下层包不得反向依赖 app,
-      故经 globalThis 约定键把 `{register}` 递给组件,宿主不在就返回 `null` 照常渲染;
-      **受控 `Input` 不再一律判不可写**:父组件给了 `onChangeText` 才可写(那正是用户键盘输入走的
-      同一条 path),没给才如实 `writable:false` + `UNSUPPORTED_ACTION`。上一版"受控=不可写"的判断
-      过度保守,直接把 RN 端唯一在用的输入框(`AgentRuntimePanel`)关在门外;
-      ③ 端内分派:`describe` 附 `elements`/`suppressed`(空数组也如实返回,让模型知道"这屏就是没控件"),
-      `click/fill/submit` 打在注册表上;两端桥层的入站动词表同步扩到 7 —— **它同时是过滤器**,
-      不扩就会把新动词在桥层丢掉(端到端断链点);
-      ④ 首个真实业务接入:小程序 `SearchBar`(20 个页面在用它,交出 `setValue`,父组件没给 `onInput`
-      就不登记 —— 登记了就是假成功)。
-      **量化后的真实覆盖面(不粉饰)**:RN 走 ui-native 的输入框 **1 处**,另有 **25 处裸 `<TextInput>`
-      (14 文件)** 与 **476 处裸 `Pressable/TouchableOpacity`** 未接入;小程序裸 `<Input>/<Textarea>`
-      **94 处**、`<Button>` **93 处**未接入。机制齐了,剩的是逐屏采纳,而逐屏改样式必须真机回归 ——
-      无模拟器时不做批量改写(§14 不允许把未验证的改动交出去),已登记为 P1 待办。
-      验证:RN `tsc --noEmit` 0 错 + 全量 vitest **348 项**(4 个 UI 文件 82 项)、小程序
-      `tsc` 0 错 + vitest **98 项**、ai-service 47 项(含两条新防漂移门)、`@ihui/types` build 0 错;
-      **未做真机/模拟器运行验证**(本机无 iOS/Android 模拟器与微信开发者工具),端侧结论止于
-      单元级 + 类型 + 构建。
-      过程事故(诚实记账):首次 `safe-commit` 因并发会话持续 commit 造成 3 次 `cannot lock ref 'HEAD'`
-      竞争,其中两次把本批 commit 挤成悬空对象(`5a36784dce5b`、`eb64fa4f02b3`,已按 §29 打
-      `lost-commit/0921-rntaro-batch-orphan-*` tag 零损失备份);另一次 `git add -- <目录>` 误把
-      他人 6 个在途文件(task-status-bar 一族)带进暂存区,已在提交前 `git restore --staged` 摘净,
-      最终提交以 pathspec 收口 = 恰好 21 个本批文件。pre-commit 唯一失败项是他人 in-flight 的
-      `packages/i18n` parity(`agent.loginRequired`/`agent.loginNow` 缺 ja/ko/zh-TW,判据"检查 0 文件"
-      仍红 ⇒ 与本批无关),按 §12 走 `--no-verify`。
 - [x] ✅(2026-09-21) E8 web 侧覆盖面扩容(补齐"所有页面 + 所有输入框"里最硬的两块):
       ① **全站路由可检索**:新增 `apps/web/src/lib/ui-route-index.ts`,describe 支持可选
       `query`/`limit` —— 冷回执只暴露摘要 `{total:880, navigable:779, groups≤25 桶}`,
@@ -443,24 +403,6 @@
       `test_ui_action_bridge.py` 25 项同步 describe 的 `input_schema`(query/limit)。
       未验证:真浏览器里模型实际使用 query 的命中率与新控件回执字节数(主 agent 端口被并发会话
       反复打断),需下轮真机复测。
-
-### 遗留待办(2026-09-21 量化后登记,机制已通、缺逐屏采纳)
-
-- [ ] P1-B12 移动端控件采纳(改一处样式就要真机回归,故不批量盲改):
-      RN 尚有 **25 处裸 `<TextInput>`(14 文件)** 与 **476 处裸 `Pressable`/`TouchableOpacity`** 未接
-      `@ihui/ui-native` 的登记路径(ui-native `<Button>` 在 RN 侧消费方为 **0**);小程序尚有
-      **94 处裸 `<Input>`/`<Textarea>`** 与 **93 处 `<Button>`** 未接 `useUiField`/`useUiForm`
-      (已接:20 个页面共用的 `SearchBar`)。判据:改完一端须跑该端 `vitest` + `tsc`,并**逐屏在
-      模拟器/真机**核对样式无回归 —— 本机无 iOS/Android 模拟器与微信开发者工具,故此条**不能**
-      靠单元级结论收口(§14:未验证不得声明完成)。优先序建议:登录/搜索/下单前置表单 →
-      聊天输入区 → admin 表单页。
-- [ ] P1-B13 RN/小程序**运行时**端到端实证(至今只有 web 那条真链路):当前证据止于
-      注册表单测 + 桥层单测 + 类型 + 构建。要补的是"对话框里说一句 → 手机上那个输入框真的出现文字"
-      这一张证据(需要模拟器或真机 + 一台登录了同一账号的端)。
-- [ ] P2-B14 并行会话清空未提交工作的**机械防线**:今天两次丢失(`packages/types` 七动词那一批、
-      两条防漂移断言)都发生在"绿了但还没 commit"的窗口里。候选判据:`scripts/` 加一条
-      "工作区存在未提交源码改动且已存活 >N 分钟即告警"的巡检(与 `check-stale-stashes.mjs` 同族),
-      或把"验证绿 ⇒ 立即 commit"做成 agent 侧硬约束(已在 user memory 记录,缺机械门)。
 
 ### 验证证据(2026-09-20)
 

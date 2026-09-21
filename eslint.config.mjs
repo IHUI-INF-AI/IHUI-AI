@@ -1,0 +1,64 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import base from '@ihui/eslint-config'
+import nextPlugin from '@next/eslint-plugin-next'
+import reactHooks from 'eslint-plugin-react-hooks'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+
+// 根级 ESLint 配置
+// 各 app 有独立的 eslint.config.js，此配置仅用于根目录脚本和 lint-staged 兜底
+export default [
+  ...base,
+  {
+    ignores: [
+      'apps/*/dist/**',
+      'apps/*/.next/**',
+      'apps/*/.swc/**',
+      'apps/*/node_modules/**',
+      'packages/*/dist/**',
+      'packages/*/node_modules/**',
+      '**/.turbo/**',
+      '**/coverage/**',
+    ],
+  },
+  // lint-staged 兜底:注册 web 包使用的插件,使 eslint-disable 注释生效
+  {
+    files: ['apps/web/**/*.{ts,tsx,js,jsx}'],
+    plugins: {
+      '@next/next': nextPlugin,
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      '@next/next/no-img-element': 'warn',
+      'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
+  // lint-staged 兜底:注册 extension 包使用的 react-hooks 插件,使规则生效
+  {
+    files: ['apps/extension/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
+    },
+  },
+  {
+    files: ['apps/web/**/*.{tsx,jsx}'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    rules: { ...jsxA11y.configs.recommended.rules },
+  },
+  // clawdbot 模块模态框遮罩使用 div+onClick 模式,豁免 a11y 规则
+  {
+    files: ['apps/web/app/(main)/admin/clawdbot/**/*.tsx'],
+    rules: {
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/no-noninteractive-tabindex': 'off',
+    },
+  },
+]
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
