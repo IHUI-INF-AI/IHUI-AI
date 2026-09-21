@@ -891,6 +891,16 @@
 - **D55 修正(改口径,避免重复实现)**:决策/理由展示**我方面板里已有**——`agent-task-progress-pane.tsx:557-559` 渲染 `step.decision ?? step.reason`、`agent-runtime-panel.tsx:38,173` 渲染 `permissionDecision`。差距精确表述为"**缺的是每条工具活动卡内联那一份,不是决策视图本身**";实现须**复用**既有字段与渲染组件,禁止新建第二套决策 UI(与 §12d 撞车风险)
 - 抽验确认无误的 3 条:D59(api-client 无 `queuePosition|queuedTurns|estimatedWait` = 0)、D63(全仓无 `reviewOnCommit|review_on_commit` = 0)、D44(抽样 `memory_context` 前端 0 命中)——**判据一并留档**,后续实现者不必重复验证
 
+#### B4j 第 14 轮批量反向审计结果(43 条断言,12 落点覆盖;报告 §16)
+
+- **确认为真缺失(26 条,判据=12 落点全 0)**:`injection_applied`/`retry_scheduled`/`formatted_output` 帧、内联注入条、transcript 分页、浏览器标注、快捷笔记、聚合档位、环境建议、图表模板注册表、本地加密、任务监控分区、「等待你处理」态、额度恢复续跑询问、图片预览翻页、编辑重发带回退、错误分类标题映射、worktree 卡、窗格拆分、Workspace Actions、产物归属 turn、表单请求卡、连接器授权卡、等待态文案池、双时态活动条目、citations 持久化 → **实现者不必重复验证**
+- **D33 口径修正**:planSteps 持久化**今天是半成品**——`apps/api/src/routes/ai-callback.ts:46-55` 已建 `persistedPlanStepSchema`(注释"2026-09-21 立,零 schema 迁移"),但 `ai-callback-worker.ts`/`api-client`/`ai-side-panel.tsx` 三处 `grep planSteps` = **0** → 本子项由"新建"改为"**补完断链**"(worker 落库 + web hydration),**禁止重复建 schema**
+- **D40 口径修正**:`packages/api-client/src/endpoints/agent-runtime.ts:305 resumeAgentSession`、`:843 resumeAgentRuntimeSession` **已有 resume** → 缺口只剩 **pause 一侧** + 中间响应引用/跳转,勿重写 resume
+- **D62 结论保持但记陷阱**:`voice-record.tsx:206` 的 `<track kind="captions"/>` 在 `<audio className="hidden">` 内且无 src → **假阳性,不是字幕功能**;"无字幕"结论成立
+- **D67 口径修正**:`stream-handlers.ts:23-29 localizeQuotaExhausted()` 已按 `errorCode` 出标题+说明(注释:"不复制第二套错误表")→ 已有**单型**,任务是**扩这张表**为按归属分型 + 三动作族,不得另起一套
+- **D69 层级下移**:`agent_engine.py:1949` 已产出 `autoCompactThreshold`、`agents.py:1476` 已有 ErrorHeatmap 先例 → 属 **R 层(有数据缺呈现)**,不是 P 层,省一条契约改动
+- **H25 噪声识别纪律(本轮新增)**:**"grep 命中 > 0"不等于"我方已有"**。本轮 43 条里出现 4 类噪声——`reorderTabs`(work-panel 标签页)冒充队列重排、`withdraw` 命中**提现**接口 `use-distribution-withdraw.ts`、`速通` 命中 SEO 文案词表 `content_engine/lib/csdn_docx.py`、`captions` 命中空 track 元素。**凡判定"已存在",必须贴出命中行的语义上下文**;把没有的说成有(漏做)与把有的说成没有(重复做)是同等严重的两类返工源。
+
 ### 本轮(第四轮)交付状态
 
 
@@ -907,6 +917,7 @@
 - ✅ **第 8 轮**:①**两条豁免被实测推翻**——extension 有 `sidepanel/components/VoiceInput.tsx`(MediaRecorder/getUserMedia)与 `tabs`+`scripting`+`activeTab`+`sidePanel`+`contextMenus` 权限及 `content.ts` 内容脚本 → **D42 浏览器标注与 D43/D62 语音在 extension 端改为必做**(extension 反而是标注注入的最自然宿主),§9 豁免清单已按实测改写;②报告新增 **§10 四家状态机横向对照**(14 阶段 × 4 家),结论三条:我方短板集中在阶段 3/6/9/10/14(排队语义·代批可见性·额度与负载·失败可观测·长会话投影)而非"少几个卡片",其中 4 个阶段需新帧故 **B1 必须先行**;阶段 7(hunk 级部分应用)与 12(交付审查四源)是**我方反超位**,对外叙事应举这两例;对手把"展示态与数据态分离"(`formatted_output`/`retryInMs`)与我方工具耗时前端本地计时同构,属结构问题非缺字段
 - ✅ **第 9 轮(报告 §11)**:①**一条负面事实作废**——Codex 的 `WindowsApps` 包**实测可读**(无需提权),`app/resources/app.asar` 324,915,625 B 直接可 grep,宿主为与 ChatGPT 共用的自研 Chromium 分支 Owl;据此取到桌面元件名(agent-activity-item×10 / diff-comment-card×12 / review-* 九件 / Popcorn 三态产物面板 / step-back·forward / cloud-browser-side-panel / auto-review-approval-nudge)+ 协议三层 `thread//turn//item` 与新语义(`turn/steer`9、`thread/approveGuardianDeniedAction`、`thread/rollback` 与 `revert` **并存**)+ MCP 方法旧→新**严格超集**(12→29,OLD_ONLY=0)。**证据边界已钉死**:这些是 **E2 存在性**,不得据文件名写 UI 断言。②Qoder **状态词汇表**全量到手(19/19 复现):Turn 十态、错误 20+ 类、子智能体六态 + `阶段性回复`三键、后台进程六态 + `输出过长…`、Worktree 八态、多任务窗格、Workspace Actions(13 图标)、侧边任务生命周期、`hook.status` 含 **`未记录最终结果`**。③新增 **G-97~G-105** 与 **D71-D76 + 补上漏号的 D65**;三条规格补强并入 D47/D55/D40/D44。④**自查发现计划自身缺陷并修**:另一会话在第 124 行也用了 `D33`(i18n 批次)→ 立「引用以 G-ID + 落点文件为键、D51 主键禁用 D-ID、新批次从 D77 起号」约定
 - ✅ **第 12 轮**:三条"待自证"**全部清零**——再撤一条幻影(G-96 我方已有 `mode.askDesc/autoDesc/fullDesc` 三档说明句)、收窄一条(G-92 三连中"权限切换"我方已有 `permission-mode-popover.tsx:231-242` **且带撤销动作=反超点**,禁止重做削弱)、重定义一条(G-95 改判为"就地润色 + 失败保稿",我方现有的是"插入润色模板")、转正一条(G-110 工作流未内联,但 `MessageItem.tsx:920` 已内联 `ArtifactCanvas` → 属增量非新建)。产出 **D82** + D81 第⑦项 + **H24 证伪判据纪律**;D80 标记完成
+- ✅ **第 14 轮(批量反向审计)**:43 条"我方缺失"断言一次跑完,12 落点覆盖 → **26 条确认真缺失(判据留档,实现者不必重测)**、**5 条改口径**(D33 planSteps 是"服务端 schema 已建、worker+hydration 断链"故改为补链而非新建;D40 resume 已有只缺 pause;D62 `captions` 是空 track 属假阳性;D67 已有单型额度映射故只扩表;D69 后端已产出 `autoCompactThreshold` → 从 P 层降为 R 层),并新增 **H25 噪声识别纪律**(命中>0 ≠ 已存在,本轮抓到 4 类噪声:提现接口冒充撤回、SEO 词表冒充速通、标签页 reorder 冒充队列重排、空 track 冒充字幕)
 - ⏳ 待实施:D33-D82 全部(本轮为计划轮,不含代码实现);**开工顺序强制 B1→B2→B3/B4,D51 与 B1 同批启动**(否则补完仍会退化)
 - ⏳ 敞口(明写,不假装收口):①**取证已到静态界(第 5 轮已推进多数)**:Trae 步骤卡默认态已由 `useState(S&&x)`(x=agentType===Chat)+ CSS `grid-template-rows:0fr→1fr` **静态定档**(Agent 模式运行中折叠/Chat 模式展开/折叠时子项不挂载/用户手动后 pin),详见报告 §7.2;**仅剩思考卡 `DeepThinkingStateBar` 的 useState 初值未取到**→ 需运行时 DOM 取证;WorkBuddy 本机确无本体(四路 + 注册表 + `.lnk` target 全量反查 0 命中),其 UI 元素**永久不可在本机核证**,前三轮相关列的二手来源已锁定为库内自证文档并交由 D57 标注;解阻判据=D50/D57 完成;②本轮提交时守门 41(单分支)红,原因是**其他并行会话的 5 个 worktree 分支**(`batch-58`/`feat/relay-sell-productization`/`fix/relay-key-default-perms`/`fix/relay-keys-ui`/`ops/relay-pricing-seed`,`git branch -a` 带 `+` 前缀=他处 checkout)而非本任务改动,按 §12 属"其他 agent 状态"类以 `--no-verify` 完成本任务 commit,**本会话不删他人分支**(§7 删除安全);③元素清单本体在本地报告(库内只有任务锚点),若需长期共享须按 D51 建期望清单数据文件入仓
 
