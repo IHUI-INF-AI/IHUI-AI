@@ -121,23 +121,26 @@ export function SidebarHeader({
               移动端 wrapper 没 h-9 父容器,所以在移动端实例上加 h-9 让按钮自身 36×36,跟桌面端 h-9
               父容器 + h-full 子元素等价)
             - 跟顶栏按钮共用 base 后,改一处生效所有同源按钮,杜绝"漏改"漂移 */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onCloseMobile}
-          className={cn(
-            // h-9 w-9 已被 Button size="icon" + TOPBAR_BTN_W9 覆盖,无需重复声明
-            // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-            'ml-auto shrink-0',
-            TOPBAR_BTN_BASE,
-            TOPBAR_BTN_W9,
-          )}
-          aria-label={tc('close')}
-        >
-          {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
-              移动端触屏更易辨识/命中 */}
-          <PanelLeftRounded className="h-5 w-5" />
-        </Button>
+        {/* 2026-09-21 修复:36×36 定尺寸 wrapper(原生 div,Button 守门豁免)。
+            TOPBAR_BTN_BASE 内置 h-full,直接放在 h-[44px] header 里会被拉成 36×44 长方形;
+            wrapper 提供确定高度后 h-full 正确解析为 36px。ml-auto/shrink-0 随之上移到 wrapper。 */}
+        <div className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onCloseMobile}
+            className={cn(
+              // 跟顶栏按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
+              TOPBAR_BTN_BASE,
+              TOPBAR_BTN_W9,
+            )}
+            aria-label={tc('close')}
+          >
+            {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
+                移动端触屏更易辨识/命中 */}
+            <PanelLeftRounded className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
     )
   }
@@ -178,22 +181,29 @@ export function SidebarHeader({
             className="h-9 w-9 select-none rounded-xl object-contain"
           />
         </button>
-        <Tooltip content={t('expand')} side="right">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onToggleCollapse}
-            className={cn(
-              TOPBAR_BTN_BASE,
-              TOPBAR_BTN_W9,
-              // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
-              'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
-            )}
-            aria-label={t('expand')}
-          >
-            <PanelLeftRounded open className="h-5 w-5" />
-          </Button>
-        </Tooltip>
+        {/* 2026-09-21 修复(用户反馈"拉出按钮跟+号重合 + 按钮变长方形"):
+            TOPBAR_BTN_BASE 内置 h-full,折叠态 header 是 flex-col 自动高度,循环百分比解析
+            被 Chrome 一次性解析成 60px 高 → 按钮变 36×60 长方形并压住下方 + 新建任务按钮。
+            h-full 需要"确定高度"父容器才成立:包一层 36×36 定尺寸 wrapper(原生 div,
+            Button 守门豁免),按钮 h-full/w-9 在其中正确解析为 36×36 正方形。 */}
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+          <Tooltip content={t('expand')} side="right">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleCollapse}
+              className={cn(
+                TOPBAR_BTN_BASE,
+                TOPBAR_BTN_W9,
+                // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
+                'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+              )}
+              aria-label={t('expand')}
+            >
+              <PanelLeftRounded open className="h-5 w-5" />
+            </Button>
+          </Tooltip>
+        </div>
       </div>
     )
   }
