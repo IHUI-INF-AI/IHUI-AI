@@ -527,6 +527,35 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
         }
         return reply.status(mapped.status).send(error(mapped.status, mapped.msg))
       }
+      // 兑换成功邮件通知(fire-and-forget,失败不阻塞兑换)
+      try {
+        const [{ findUserById }, { sendEmail }, { renderRedeemSuccessEmail, resolveWebOrigin }] =
+          await Promise.all([
+            import('../db/queries.js'),
+            import('../services/email-service.js'),
+            import('../services/email-templates.js'),
+          ])
+        const user = await findUserById(userId)
+        if (user?.email) {
+          const mail = renderRedeemSuccessEmail({
+            userName: user.nickname ?? undefined,
+            code: parsed.data.code,
+            tokenAmount: result.tokenAmount ?? 0,
+            newTokenBalance: result.newTokenBalance ?? 0,
+            keysUrl: `${resolveWebOrigin()}/models/keys`,
+          })
+          void sendEmail({
+            to: user.email,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            scene: 'notification',
+            userId,
+          }).catch(() => {})
+        }
+      } catch {
+        /* 兑换成功邮件失败不阻塞兑换 */
+      }
       return reply.send(
         success({
           tokenAmount: result.tokenAmount,
