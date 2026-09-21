@@ -26,6 +26,37 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractMediaUrls } from '@/lib/ai-media'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
+
+// Doubao images/generations 官方参数(n/quality/style/response_format/user)
+const DOUBAO_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  { key: 'n', label: 'numImages', type: 'number', min: 1, max: 10, step: 1, placeholder: '1' },
+  {
+    key: 'quality',
+    label: 'quality',
+    type: 'select',
+    options: [
+      { value: 'standard', label: 'standard' },
+      { value: 'hd', label: 'hd' },
+    ],
+  },
+  { key: 'style', label: 'style', type: 'text', placeholder: '-' },
+  {
+    key: 'response_format',
+    label: 'responseFormat',
+    type: 'select',
+    options: [
+      { value: 'url', label: 'url' },
+      { value: 'b64_json', label: 'b64_json' },
+    ],
+  },
+  { key: 'user', label: 'user', type: 'text', placeholder: '-' },
+]
 
 const SIZES = ['1024x1024', '1280x720', '720x1280'] as const
 const MODELS = [
@@ -41,9 +72,10 @@ export const ImageGenDoubao = React.memo(function ImageGenDoubao() {
   const [prompt, setPrompt] = React.useState('')
   const [size, setSize] = React.useState<string>(SIZES[0])
   const [model, setModel] = React.useState<string>(MODELS[0].value)
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
 
   const mutation = useMutation({
-    mutationFn: async (payload: { prompt: string; model: string; size: string }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<unknown>('/api/ai/doubao/image', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -62,7 +94,12 @@ export const ImageGenDoubao = React.memo(function ImageGenDoubao() {
       toast.error(t('promptRequired'))
       return
     }
-    mutation.mutate({ prompt: prompt.trim(), model, size })
+    mutation.mutate({
+      prompt: prompt.trim(),
+      model,
+      size,
+      ...parseParamValues(advanced, DOUBAO_FIELDS),
+    })
   }
 
   return (
@@ -115,6 +152,7 @@ export const ImageGenDoubao = React.memo(function ImageGenDoubao() {
             </Select>
           </div>
         </div>
+        <AdvancedParamsPanel fields={DOUBAO_FIELDS} values={advanced} onChange={setAdvanced} />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}

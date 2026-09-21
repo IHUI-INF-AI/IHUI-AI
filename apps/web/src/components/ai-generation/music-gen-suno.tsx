@@ -26,9 +26,35 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
 
 const STYLES = ['pop', 'rock', 'classical', 'electronic'] as const
 const DURATIONS = ['30', '60', '120'] as const
+
+// Suno 官方生成参数(custom_mode/style/title/negative_tags/seed)
+const SUNO_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  { key: 'custom_mode', label: 'customMode', type: 'boolean', placeholder: '-' },
+  { key: 'title', label: 'title', type: 'text', placeholder: 'Song title' },
+  { key: 'style', label: 'style', type: 'text', placeholder: 'style tags, e.g. acoustic, ballad' },
+  { key: 'negative_tags', label: 'negativeTags', type: 'text', placeholder: 'exclude tags' },
+  { key: 'seed', label: 'seed', type: 'number', step: 1, placeholder: '-' },
+  {
+    key: 'model',
+    label: 'model',
+    type: 'select',
+    options: [
+      { value: 'v3.5', label: 'v3.5' },
+      { value: 'v4', label: 'v4' },
+      { value: 'v4.5', label: 'v4.5' },
+      { value: 'v5', label: 'v5' },
+    ],
+  },
+]
 
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
@@ -39,6 +65,7 @@ export function MusicGenSuno() {
   const [style, setStyle] = React.useState<string>(STYLES[0])
   const [duration, setDuration] = React.useState<string>(DURATIONS[0])
   const [instrumental, setInstrumental] = React.useState(false)
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
   const [taskId, setTaskId] = React.useState<string | null>(null)
 
   const styleLabel = (s: string): string => {
@@ -57,7 +84,7 @@ export function MusicGenSuno() {
   }
 
   const mutation = useMutation({
-    mutationFn: async (payload: { prompt: string; duration: number }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/suno/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -108,12 +135,24 @@ export function MusicGenSuno() {
       toast.error(t('promptRequired'))
       return
     }
-    const parts: string[] = [styleLabel(style)]
-    if (instrumental) parts.push('instrumental')
-    parts.push(prompt.trim())
-    const combinedPrompt = parts.join(', ')
+    const advancedParams = parseParamValues(advanced, SUNO_FIELDS)
+    // 高级面板 style/title/custom_mode 优先,未填时回退到风格下拉
+    const styleTags =
+      typeof advancedParams.style === 'string' && advancedParams.style
+        ? advancedParams.style
+        : styleLabel(style)
+    const payload: Record<string, unknown> = {
+      prompt: prompt.trim(),
+      duration: Number(duration),
+      style: styleTags,
+      ...parseParamValues(
+        advanced,
+        SUNO_FIELDS.filter((f) => f.key !== 'style'),
+      ),
+    }
+    if (instrumental) payload.instrumental = true
     setTaskId(null)
-    mutation.mutate({ prompt: combinedPrompt, duration: Number(duration) })
+    mutation.mutate(payload)
   }
 
   return (
@@ -176,6 +215,7 @@ export function MusicGenSuno() {
             {t('instrumental')}
           </Label>
         </div>
+        <AdvancedParamsPanel fields={SUNO_FIELDS} values={advanced} onChange={setAdvanced} />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}

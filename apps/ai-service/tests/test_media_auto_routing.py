@@ -197,63 +197,60 @@ class TestWebIntentTools:
 
 
 @pytest.fixture
-def stepfun_configured(monkeypatch):
+def agnes_configured(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
-        "agnes": {"api_key": "", "api_base": ""},
+        "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
         "token6688": {"api_key": "", "api_base": ""},
     }))
 
 
 @pytest.fixture
-def token6688_and_stepfun(monkeypatch):
-    """token6688(env)+ stepfun 双厂商,验证链序与故障转移。"""
+def token6688_and_agnes(monkeypatch):
+    """token6688(env)+ agnes 双厂商,验证链序与故障转移。"""
     from app.core.config import settings
 
     monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test-6688")
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
-        "agnes": {"api_key": "", "api_base": ""},
+        "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
         "token6688": {"api_key": "", "api_base": ""},
     }))
 
 
 class TestImageProviderChain:
-    def test_chain_filters_unconfigured(self, stepfun_configured):
-        assert _image_provider_chain(None) == ["stepfun"]
+    def test_chain_filters_unconfigured(self, agnes_configured):
+        assert _image_provider_chain(None) == ["agnes"]
 
-    def test_explicit_provider_first(self, token6688_and_stepfun):
-        # 默认 token6688 优先;显式 stepfun → 提到链首但保留兜底
+    def test_explicit_provider_first(self, token6688_and_agnes):
+        # 默认 token6688 优先;显式 agnes → 提到链首但保留兜底
         assert _image_provider_chain(None)[0] == "token6688"
-        assert _image_provider_chain("stepfun") == ["stepfun", "token6688"]
+        assert _image_provider_chain("agnes") == ["agnes", "token6688"]
 
-    def test_explicit_unconfigured_falls_back_to_chain(self, stepfun_configured):
-        # 显式 agnes 无 key → 不再空手而归,降级自动链(兼容旧降级语义)
-        assert _image_provider_chain("agnes") == ["stepfun"]
+    def test_explicit_unconfigured_falls_back_to_chain(self, agnes_configured):
+        # 显式 token6688 无 key → 不再空手而归,降级自动链(兼容旧降级语义)
+        assert _image_provider_chain("token6688") == ["agnes"]
 
     def test_no_creds_empty_chain(self, monkeypatch):
         from app.core.config import settings
 
         monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "stepfun": {"api_key": ""},
             "agnes": {"api_key": ""},
             "token6688": {"api_key": ""},
         }))
         monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
         assert _image_provider_chain(None) == []
 
-    def test_env_override_order(self, token6688_and_stepfun, monkeypatch):
-        monkeypatch.setenv("IMAGE_PROVIDER", "stepfun,token6688")
-        assert _image_provider_chain(None) == ["stepfun", "token6688"]
+    def test_env_override_order(self, token6688_and_agnes, monkeypatch):
+        monkeypatch.setenv("IMAGE_PROVIDER", "agnes,token6688")
+        assert _image_provider_chain(None) == ["agnes", "token6688"]
 
 
 class TestImageRuntimeFailover:
     async def test_first_provider_fails_switches_to_next(
-        self, token6688_and_stepfun, monkeypatch,
+        self, token6688_and_agnes, monkeypatch,
     ):
-        """token6688 提交失败(如 402/429)→ 自动换 stepfun 成功,带尝试明细。"""
+        """token6688 提交失败(如 402/429)→ 自动换 agnes 成功,带尝试明细。"""
         calls: list[str] = []
 
         async def _fake_once(provider, prompt, size, save_path, arguments):
@@ -266,13 +263,13 @@ class TestImageRuntimeFailover:
         monkeypatch.setattr(mcp_server, "_image_generate_once", _fake_once)
         out = await _tool_image_generation({"prompt": "一只猫"})
         assert out["ok"] is True
-        assert out["provider"] == "stepfun"
-        assert calls == ["token6688", "stepfun"]
+        assert out["provider"] == "agnes"
+        assert calls == ["token6688", "agnes"]
         assert out["failover_attempts"][0]["provider"] == "token6688"
         assert out["failover_attempts"][0]["errorCode"] == "PROVIDER_ERROR"
 
     async def test_all_providers_fail_keeps_last_error_code(
-        self, token6688_and_stepfun, monkeypatch,
+        self, token6688_and_agnes, monkeypatch,
     ):
         """全链失败 → ok=False,errorCode 取末次(兼容单 provider 旧语义)。"""
 
@@ -294,7 +291,6 @@ class TestImageRuntimeFailover:
         from app.core.config import settings
 
         monkeypatch.setattr(settings, "llm_providers", json.dumps({
-            "stepfun": {"api_key": ""},
             "agnes": {"api_key": ""},
             "token6688": {"api_key": ""},
         }))
@@ -303,12 +299,12 @@ class TestImageRuntimeFailover:
         assert out["ok"] is False
         assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
 
-    async def test_invalid_provider_rejected(self, stepfun_configured):
+    async def test_invalid_provider_rejected(self, agnes_configured):
         out = await _tool_image_generation({"prompt": "x", "provider": "midjourney"})
         assert out["errorCode"] == "INVALID_PROVIDER"
 
     async def test_save_path_invalid_fails_fast_before_paid_call(
-        self, token6688_and_stepfun, monkeypatch,
+        self, token6688_and_agnes, monkeypatch,
     ):
         """save_path 校验前置:格式错误不触发任何 provider 调用(不浪费付费 API)。"""
         called: list[str] = []
@@ -496,7 +492,7 @@ class TestMediaArtifactSummary:
         from app.services.conversation import _media_artifact_summary
 
         tc = _tc("image_generation", {
-            "ok": True, "image_url": "https://cdn/a.png", "provider": "stepfun",
+            "ok": True, "image_url": "https://cdn/a.png", "provider": "agnes",
         })
         note = _media_artifact_summary([tc])
         assert "https://cdn/a.png" in note
@@ -714,7 +710,7 @@ class TestImageEditTool:
         b64 = base64.b64encode(b"fake-png-bytes").decode("ascii")
 
         async def _fake_edits(self, *a, **kw):
-            return {"provider": "token6688", "model": "gpt-image-2",
+            return {"provider": "token6688", "model": "gpt-image-2.5-flare",
                     "images": [{"b64_json": b64}]}
 
         monkeypatch.setattr(Token6688Provider, "images_edits", _fake_edits)
@@ -733,7 +729,7 @@ class TestImageEditTool:
         }))
 
         async def _fake_edits(self, *a, **kw):
-            return {"provider": "token6688", "model": "gpt-image-2",
+            return {"provider": "token6688", "model": "gpt-image-2.5-flare",
                     "images": [{"url": "https://cdn.x/edited.png"}]}
 
         monkeypatch.setattr(Token6688Provider, "images_edits", _fake_edits)
