@@ -374,7 +374,49 @@ export async function processRefund(
       and(eq(eduRefunds.id, id), inArray(eduRefunds.status, ['pending', 'approved', 'rejected'])),
     )
     .returning()
+  // 审核拒绝邮件通知(信号红 + 原因;fire-and-forget)
+  if (rows[0] && status === 'rejected') {
+    notifyRefundResult(rows[0], 'rejected')
+  }
   return rows[0]
+}
+
+/**
+ * 退款结果邮件通知(fire-and-forget,失败不阻塞退款主流程)。
+ * 动态 import 避免与 db 层循环依赖;completed 绿,rejected/failed 红。
+ */
+function notifyRefundResult(
+  refund: EduRefund | undefined,
+  status: 'completed' | 'rejected' | 'failed',
+): void {
+  if (!refund) return
+  void (async () => {
+    const [{ findUserById }, { sendEmail }, { renderRefundResultEmail, resolveWebOrigin }] =
+      await Promise.all([
+        import('./queries.js'),
+        import('../services/email-service.js'),
+        import('../services/email-templates.js'),
+      ])
+    const user = await findUserById(refund.userId)
+    if (!user?.email) return
+    const mail = renderRefundResultEmail({
+      userName: user.nickname ?? undefined,
+      orderNo: refund.orderNo,
+      refundAmountYuan: refund.refundAmount,
+      status,
+      reason: refund.handleMessage ?? refund.processMessage ?? undefined,
+      finishedAt: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      ordersUrl: `${resolveWebOrigin()}/orders`,
+    })
+    await sendEmail({
+      to: user.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      scene: 'notification',
+      userId: refund.userId,
+    })
+  })().catch(() => {})
 }
 
 /** 管理员处理退款(processing/completed/failed)。completed 时同步订单为 refunded。事务保证退款+订单状态原子更新。
@@ -387,7 +429,7 @@ export async function handleRefund(
   status: 'processing' | 'completed' | 'failed',
   handleMessage?: string | null,
 ): Promise<EduRefund | undefined> {
-  return db.transaction(async (tx) => {
+  const refund = await db.transaction(async (tx) => {
     const rows = await tx
       .update(eduRefunds)
       .set({
@@ -418,6 +460,11 @@ export async function handleRefund(
     }
     return refund
   })
+  // 退款结果邮件通知(completed 退款成功 / failed 退款失败;fire-and-forget)
+  if (refund && status !== 'processing') {
+    notifyRefundResult(refund, status)
+  }
+  return refund
 }
 
 export interface ListRefundsOpts {
