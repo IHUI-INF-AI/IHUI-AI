@@ -1255,6 +1255,27 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '60',
+    label: '🕐 工具活动行双时态覆盖守门(blocking,D81①/D83/H28:键形合规 + 覆盖率 ratchet)',
+    script: 'check-tool-activity-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 两类失败,处置不同:',
+      '     ① 键形不合规(半套措辞)→ 五语言必须齐,且每个 *Activity 值必须是含',
+      '        running{} / completed{} / other{} 三支的 ICU select。半套比不补更糟:',
+      '        某语言会恒显示"正在…"或整条空白。',
+      '     ② 覆盖率低于 floor → 有人删了/改名了已配置的措辞键,补回;确属撤销才调',
+      '        scripts/data/tool-activity-coverage.json 的 floor,并在提交说明写数量变化。',
+      '     逐批补齐清单:node scripts/check-tool-activity-coverage.mjs --scaffold',
+      '     自检:node scripts/check-tool-activity-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_ACTIVITY_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 56 (2026-09-21 新增,工具功能名"各端取得到值"覆盖守门,blocking) ---
   // 拦两类静默失败:① 词表加了映射但某语言/某端语言包没有该 taskStatus 键 →
   //   端内点号取词器缺键回显键名,把 read_file 显示成 toolReadFile(断言"不含 read_file"照样绿);
