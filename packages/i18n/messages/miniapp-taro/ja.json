@@ -173,6 +173,8 @@
   "live": {
     "viewers": "{n} 人視聴",
     "preview": "予告",
+    "replay": "リプレイ",
+    "liveNow": "配信中",
     "detail": {
       "loadFailed": "ライブの読み込みに失敗",
       "loading": "ライブ読み込み中…",
@@ -218,7 +220,8 @@
       "liveList": "ライブ予定",
       "noLive": "当日のライブ予定はありません",
       "anchor": "ライバー",
-      "today": "今日"
+      "today": "今日",
+      "upcoming": "開始予定"
     },
     "calendarBtn": "📅 カレンダー",
     "mySubscriptionBtn": "🔔 マイサブスクリプション",
@@ -321,7 +324,9 @@
     },
     "orderNo": "注文番号",
     "status": {
-      "refunded": "返金済み"
+      "failed": "失敗",
+      "refunded": "返金済み",
+      "refunding": "返金処理中"
     }
   },
   "wallet": {
@@ -643,6 +648,7 @@
       "categories": {
         "recommend": "おすすめ",
         "office": "オフィス",
+        "other": "その他",
         "writing": "ライティング",
         "coding": "コーディング",
         "education": "教育",
@@ -2364,7 +2370,10 @@
       "thresholdText": "満{threshold}で利用可",
       "expireText": "有効期限: {time}",
       "use": "今すぐ使用",
-      "loadMore": "スライドして読み込む"
+      "loadMore": "スライドして読み込む",
+      "unused": "未使用",
+      "used": "使用済み",
+      "expired": "期限切れ"
     },
     "couponList": {
       "received": "受け取り成功",
@@ -3003,7 +3012,19 @@
     "recommendDesc": "オンで質の高いコンテンツを推奨",
     "personalize": "パーソナライズ推奨",
     "personalizeDesc": "興味に基づくパーソナライズコンテンツ",
-    "privacyPolicy": "プライバシーポリシー"
+    "privacyPolicy": "プライバシーポリシー",
+    "status": {
+      "granted": "許可済み",
+      "denied": "拒否済み",
+      "unknown": "未許可"
+    },
+    "permissions": {
+      "album": "アルバム権限",
+      "camera": "カメラ権限",
+      "record": "マイク権限",
+      "location": "位置権限",
+      "notification": "通知権限"
+    }
   },
   "page": {
     "vip": {

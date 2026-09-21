@@ -173,6 +173,8 @@
   "live": {
     "viewers": "{n} 人觀看",
     "preview": "預告",
+    "replay": "回放",
+    "liveNow": "直播中",
     "detail": {
       "loadFailed": "直播載入失敗",
       "loading": "直播載入中…",
@@ -218,7 +220,8 @@
       "liveList": "直播安排",
       "noLive": "當日暫無直播安排",
       "anchor": "主播",
-      "today": "今天"
+      "today": "今天",
+      "upcoming": "即將開始"
     },
     "calendarBtn": "📅 日曆",
     "mySubscriptionBtn": "🔔 我的訂閱",
@@ -321,7 +324,9 @@
     },
     "orderNo": "訂單號",
     "status": {
-      "refunded": "已退款"
+      "failed": "失敗",
+      "refunded": "已退款",
+      "refunding": "退款中"
     }
   },
   "wallet": {
@@ -638,6 +643,7 @@
       "categories": {
         "recommend": "推薦",
         "office": "辦公",
+        "other": "其他",
         "writing": "寫作",
         "coding": "編程",
         "education": "教育",
@@ -2352,7 +2358,10 @@
       "thresholdText": "滿{threshold}可用",
       "expireText": "有效期至 {time}",
       "use": "立即使用",
-      "loadMore": "上拉載入更多"
+      "loadMore": "上拉載入更多",
+      "unused": "未使用",
+      "used": "已使用",
+      "expired": "已過期"
     },
     "couponList": {
       "received": "領取成功",
@@ -2984,7 +2993,19 @@
     "recommendDesc": "開啟後將為您推薦優質內容",
     "personalize": "個性化推薦",
     "personalizeDesc": "基於興趣為您提供個性化內容",
-    "privacyPolicy": "隱私政策"
+    "privacyPolicy": "隱私政策",
+    "status": {
+      "granted": "已授權",
+      "denied": "已拒絕",
+      "unknown": "未授權"
+    },
+    "permissions": {
+      "album": "相簿權限",
+      "camera": "相機權限",
+      "record": "麥克風權限",
+      "location": "位置權限",
+      "notification": "通知權限"
+    }
   },
   "page": {
     "vip": {
