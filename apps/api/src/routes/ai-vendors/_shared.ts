@@ -304,7 +304,7 @@ export async function fetchWithTimeout(
       const headersRec: Record<string, string> = {}
       if (options.headers) Object.assign(headersRec, options.headers as Record<string, string>)
       const bodyStr =
-        options.body == null
+        options.body === null || options.body === undefined
           ? undefined
           : typeof options.body === 'string'
             ? options.body
