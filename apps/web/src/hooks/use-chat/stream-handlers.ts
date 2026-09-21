@@ -8,6 +8,15 @@ import { emitAgentHook } from '@/stores/agent-hooks'
 import type { ToolSummaryEvent, UsageEvent } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
+/** 回收"正在压缩上下文"预告态:仅清 compacting,done 态交给状态栏组件自行 3s 隐藏。
+ *  2026-09-21 立:预告态在请求发起前点亮,原先只靠 onResponse 清除 —— 而响应头之前失败
+ *  (HTTP 4xx/5xx 在 api-client 内 throw)、超时 abort、主动 stop、切换会话四条路径都不会
+ *  走到 onResponse,残留状态挂在全局 AISidePanel 的状态栏上,用户走到哪个页面都看得到。 */
+export function clearCompactionPreview(): void {
+  const store = useChatStore.getState()
+  if (store.compactionStatus?.phase === 'compacting') store.setCompactionStatus(null)
+}
+
 export function createToolCallHandler(assistantMessageId: string) {
   // 2026-09-01 立,工具调用过程流式可视化:SSE tool-result 事件不携带耗时字段,
   // 需在 tool-call-start 时记录本地起点,result 到达时计算 durationMs 补写,
