@@ -17397,8 +17397,6 @@
     "loadMore": "もっとる",
     "loading": "読み込み中...",
     "noConversations": "会話なし",
-    "branchBadge": "フォーク",
-    "branchSourceTooltip": "この会話は他の会話からフォークされました",
     "noMessages": "メッセージがありません",
     "noMessagesHint": "メッセージがありません。をってみましょう！",
     "searchPlaceholder": "会話を検索",

@@ -17386,8 +17386,6 @@
     "loadMore": "더 보기",
     "loading": "로딩 중...",
     "noConversations": "대화 없음",
-    "branchBadge": "포크",
-    "branchSourceTooltip": "이 대화는 다른 대화에서 분기되었습니다",
     "noMessages": "메시지 없음",
     "noMessagesHint": "메시지가 없습니다. 인사를 보내보세요!",
     "searchPlaceholder": "대화 검색",
