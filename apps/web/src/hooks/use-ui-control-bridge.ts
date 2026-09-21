@@ -33,8 +33,14 @@ import {
 } from '@/lib/ui-action-registry'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useAuthStore } from '@/stores/auth'
+import { resolveWsApiBaseUrl } from '@/lib/api-base-url'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
+/**
+ * UI 控制桥 WS 基址(必须绝对地址:api-client 内部 new URL() 解析,空串会抛错)。
+ * 收口于 lib/api-base-url.ts(2026-09-21):桌面端薄壳加载线上站点,WS 必须同源线上,
+ * 旧逻辑空 env 回退 127.0.0.1:8802 会连用户本机 dev 后端。
+ */
+const API_BASE = resolveWsApiBaseUrl()
 const CAPABILITY_INTERVAL_MS = 60_000
 const VERSION = '1.0.0'
 const PROCESSED_IDS_MAX = 100

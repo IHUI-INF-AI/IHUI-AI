@@ -87,7 +87,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 ### Button 高度档位守门(强制,2026-09-07 立)
 
-- **`@ihui/ui-react` 的 `<Button>` 禁止用 className `h-*` / `w-*` 覆盖高度宽度**,必须用 `size` 档位:`xs`(h-7 px-3 text-xs, 28px)/ `sm`(h-8, 32px)/ `default`(h-9, 36px)/ `lg`(h-10, 40px)/ `icon-xs`(h-7 w-7)/ `icon-sm`(h-8 w-8)/ `icon`(h-9 w-9)。需要新高度先在 `packages/ui-react/src/components/button.tsx` size 表立档,禁止逐处打补丁。
+- **`@ihui/ui-react` 的 `<Button>` 禁止用 className `h-*` / `w-*` 覆盖高度宽度**,必须用 `size` 档位:`xs`(h-7 px-3 text-xs, 28px)/ `sm`(h-8, 32px)/ `default`(h-9, 36px)/ `lg`(h-10, 40px)/ `icon-2xs`(h-7 w-7, 28px)/ `icon-xs`(h-8 w-8)/ `icon-sm`(h-8 w-8)/ `icon`(h-8 w-8)。需要新高度先在 `packages/ui-react/src/components/button.tsx` size 表立档,禁止逐处打补丁。**2026-09-21 修正文档漂移**:`icon-xs`/`icon-sm`/`icon` 三档当前**同值**(均为 32px,仅保留名称以兼容既有调用),28px 图标请用 `icon-2xs`;此前本文档误写为 h-7/h-8/h-9 三档不同 —— 这正是"按文档用 `icon-xs` 期望 28px → 不达预期 → 再以 `className="h-7 w-7"` 覆盖 → 触发本守门"违规链的成因。守门脚本(`check-button-height.mjs`)的档位清单已改为从 button.tsx **动态解析**,不再手抄。
 - **豁免(不属 Button token 体系)**:原生 `<button>` 自绘按钮(IDE 面板 / spec-panel / chat 密集工具条的 24px 紧凑档为有意设计)、`Input` / `SelectTrigger` / `Skeleton` / 图标 svg 等非 Button 元素;Button 上的 `h-5`/`h-6`(24px/20px 紧凑档,存量 45 处表格行操作钮/侧栏密集场景)暂豁免,后续统一时先立对应档位再迁移。
 - 守门:`scripts/check-button-height.mjs`(精确 JSX 开标签解析,零误报;拦 h-7 及以上覆盖 + 校验 size 值合法性)+ pre-commit blocking(紧急跳过 `HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1`)。
 
