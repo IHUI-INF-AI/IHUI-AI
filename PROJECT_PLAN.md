@@ -97,6 +97,9 @@
 - **仍开放的接口层问题(不当作已交付)**:`agnes` 的 DB 行 key 是独立真值(非模板)、健康探针 `status=ok / model_count=12`,
   真实 chat 调用实测 200 有内容,但 `/api/llm/models` 返回 **0 条 agnes**(改动前后两个实例一致,故非本会话引入)。
   方向:`llm.py` 里 `default_models` 的取数集合与 `model_availability.get_available_models()` 的过滤口径。
+  **2026-09-21 收尾补充(提交 `1f23c51cf`)**:定位并修掉三道解析闸中的一类(`agnes/` 带斜杠前缀 vs 入库裸名),
+  私有实例实测**经网关 POST /api/llm/complete model=agnes-3.0-flash → 200 且 content 有字**(修前必 502);
+  但同一次实测 `/api/llm/models` 368 条里 **agnes 仍为 0** → 可见性还有第二道闸未定位,本轮不宣称已解决"能看见"。
 
 ---
 
