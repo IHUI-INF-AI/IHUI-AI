@@ -237,7 +237,7 @@ jobs:
           fi
 
           if need go; then
-            # Go 的"发布"= 往 origin 推 sdk/v* tag,用的就是自带 GITHUB_TOKEN。
+            # Go 的"发布"= 往 origin 推 packages/sdk/go/v* tag,用的就是自带 GITHUB_TOKEN。
             # 只读探测 tag 列表接口(不把 token 拼进 URL,避免泄漏进 git 输出/日志)。
             if curl -fsS --max-time 30 \
               -H "Authorization: Bearer $GITHUB_TOKEN" \
@@ -634,11 +634,19 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          # Go 模块使用 git tag 作为版本号,创建 sdk/v$VERSION tag
-          # 已有 v* tag(主仓库),再打一个 sdk/v$VERSION 子 tag
-          git tag -d "sdk/v$VERSION" 2>/dev/null || true
-          git tag "sdk/v$VERSION" HEAD
-          echo "✅ Created tag sdk/v$VERSION pointing to HEAD"
+          # Go 对「仓库子目录模块」要求 tag 前缀 = 完整次目录路径:
+          #   module github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go
+          #   → tag 必须是 packages/sdk/go/v$VERSION
+          # 公开对照样本:open-telemetry/opentelemetry-go-contrib 的
+          #   instrumentation/github.com/gorilla/mux/otelmux/v0.71.0
+          # 旧形态 sdk/v$VERSION 前缀与次目录 packages/sdk/go 不符,Go 解析器永不认领
+          #   ⇒ tag 推上去也永远 go get 不到(O14b)。
+          # 注意:CI 自身的触发标签仍是 sdk-v*(见 on.push.tags),与本标签互不影响;
+          #   packages/sdk/go/v* 不匹配 sdk-v*,不会自触发。
+          TAG="packages/sdk/go/v$VERSION"
+          git tag -d "$TAG" 2>/dev/null || true
+          git tag "$TAG" HEAD
+          echo "✅ Created tag $TAG pointing to HEAD"
 
       - name: Verify Go build
         working-directory: packages/sdk/go
@@ -654,22 +662,55 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
+          TAG="packages/sdk/go/v$VERSION"
           SHA="$(git rev-parse HEAD)"
-          echo "📦 Pushing sdk/v$VERSION tag to origin..."
-          git push origin "sdk/v$VERSION"
+          # 幂等:origin 已有同名 tag 就跳过推送(严禁任何 force —— Go tag 不可变)
+          EXISTING="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [ -n "$EXISTING" ]; then
+            echo "ℹ️ origin 已存在 $TAG -> $EXISTING(幂等跳过推送)"
+            [ "$EXISTING" = "$SHA" ] \
+              || { echo "❌ $TAG 已指向 $EXISTING,本次 HEAD=$SHA —— 拒绝覆盖(不使用 --force)"; exit 1; }
+            echo "proof=go module tag $TAG @ $SHA(origin 已存在,幂等复用)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "📦 Pushing $TAG tag to origin..."
+          git push origin "refs/tags/$TAG"
           # 回读验证 ①(权威):tag 没落到 origin = 没发布。git push 退出码不算证据。
-          REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/sdk/v$VERSION" | awk '{print $1}')"
-          echo "origin 回读 sdk/v$VERSION -> ${REMOTE_SHA:-<无>} (期望 $SHA)"
+          REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          echo "origin 回读 $TAG -> ${REMOTE_SHA:-<无>} (期望 $SHA)"
           [ "$REMOTE_SHA" = "$SHA" ] \
-            || { echo "❌ Go 发布回读失败:origin 上没有 sha 匹配的 sdk/v$VERSION tag"; exit 1; }
-          echo "proof=go module tag sdk/v$VERSION @ $SHA(origin ls-remote 回读确认)" >> "$GITHUB_OUTPUT"
-          # 回读 ②(best-effort,不当判据):proxy.golang.org 收录要几分钟到几小时,
-          # 且模块路径大小写需转义。取不到只记状态,不判红 —— 但也不得写成"已可 go get"。
+            || { echo "❌ Go 发布回读失败:origin 上没有 sha 匹配的 $TAG tag"; exit 1; }
+          echo "proof=go module tag $TAG @ $SHA(origin ls-remote 回读确认)" >> "$GITHUB_OUTPUT"
+
+      - name: Read back published Go tag from origin (判红)
+        if: needs.extract.outputs.dry_run == 'false'
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          TAG="packages/sdk/go/v$VERSION"
+          SHA="$(git rev-parse HEAD)"
+          # 回读验证 ③(发布后 glob 判红):用与 Go 解析器一致的 glob 形态枚举,
+          # 必须能读到刚推的那个 sha 且与本地 HEAD 一致,否则判红 exit 1。
+          echo "$ git ls-remote --tags origin refs/tags/packages/sdk/go/v*"
+          git ls-remote --tags origin "refs/tags/packages/sdk/go/v*" || true
+          MATCH="$(git ls-remote --tags origin "refs/tags/packages/sdk/go/v*" | awk -v t="refs/tags/$TAG" '$2 == t { print $1 }')"
+          if [ -z "$MATCH" ]; then
+            echo "❌ 回读判红:glob refs/tags/packages/sdk/go/v* 匹配不到 $TAG"
+            exit 1
+          fi
+          if [ "$MATCH" != "$SHA" ]; then
+            echo "❌ 回读判红:$TAG 在 origin 指向 $MATCH,与本地 HEAD $SHA 不一致"
+            exit 1
+          fi
+          echo "✅ 回读判红通过:$TAG @ $MATCH"
+          # 回读 ④(best-effort,不当判据):proxy.golang.org 收录要几分钟到几小时。
+          # 子目录模块在 proxy 上的版本号是「去掉次目录前缀」后的 v$VERSION。
+          # 取不到只记状态,不判红 —— 但也不得写成"已可 go get"。
           MP="github.com/!i!h!u!i-!i!n!f-!a!i/!i!h!u!i-!a!i/packages/sdk/go"
-          if curl -fsS --max-time 20 "https://proxy.golang.org/$MP/@v/sdk/v$VERSION.info" -o /tmp/go-proxy.json; then
+          if curl -fsS --max-time 20 "https://proxy.golang.org/$MP/@v/v$VERSION.info" -o /tmp/go-proxy.json; then
             echo "✅ Go proxy 已收录:$(cat /tmp/go-proxy.json)" | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            echo "⚠️ Go proxy 尚未收录 sdk/v$VERSION(索引延迟,非失败判据;tag 已在 origin)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "⚠️ Go proxy 尚未收录 $TAG(索引延迟,非失败判据;tag 已在 origin)" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Dry-run verification
@@ -678,7 +719,7 @@ jobs:
         run: |
           echo "🔍 Dry-run: validate Go module config..."
           echo "Module path: github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go"
-          echo "Version: sdk/v${{ needs.extract.outputs.version }}"
+          echo "Version tag: packages/sdk/go/v${{ needs.extract.outputs.version }}"
           echo "✅ Dry-run passed — module would be published to Go proxy"
 
       - name: Summary
@@ -686,8 +727,8 @@ jobs:
           VERSION="${{ needs.extract.outputs.version }}"
           echo "### Go module SDK 发布" >> $GITHUB_STEP_SUMMARY
           echo "- 模块: \`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 版本: \`sdk/v$VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 版本 tag: \`packages/sdk/go/v$VERSION\`(子目录模块必须带次目录前缀)" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v$VERSION\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 5: 发布总结 ----------
   release-summary:
@@ -731,7 +772,7 @@ jobs:
           echo "| npm \`@ihui/sdk\` | ${{ needs.npm-publish.result }} | @ihui/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| PyPI \`ihui-ai\` | ${{ needs.pypi-publish.result }} | ihui-ai==$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| Maven Central | ${{ needs.maven-publish.result }} | com.ihui:ihui-ai-java:$VERSION |" >> $GITHUB_STEP_SUMMARY
-          echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go sdk/v$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go tag=packages/sdk/go/v$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 4 语言安装命令" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
@@ -742,7 +783,7 @@ jobs:
           echo "# Java (Maven)" >> $GITHUB_STEP_SUMMARY
           echo "mvn dependency:get -Dartifact=com.ihui:ihui-ai-java:$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "# Go" >> $GITHUB_STEP_SUMMARY
-          echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v$VERSION" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
           # ---------- 回读证据硬闸 ----------
