@@ -55,6 +55,7 @@
 }
 
 .tsb-lines-removed {
+  margin-left: 8rpx;
   color: var(--color-danger);
 }
 
