@@ -57,6 +57,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from ..core.usage_cache import normalize_usage
@@ -325,9 +326,43 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 
 
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
-#   approval_id -> (asyncio.Event, decision|None)
+#   approval_id -> _ApprovalEntry(event, decision, owner_user_id)
 # 决策值:"approve" / "reject"。等待方超时/完成后由 _request_approval 清理条目(防内存泄漏)。
-_approval_registry: dict[str, tuple[asyncio.Event, str | None]] = {}
+#
+# O19 端点级属主鉴权(2026-09-21 立):条目必须带属主,否则"知道 approval_id"就等于
+# "能替别人批准高危工具"。owner_user_id 由 _request_approval 从 self._user_id 登记
+# (路由层 → 执行路径 → loop 构造参数,全链路显式传递,不读全局、不猜)。
+# None = 创建时就没有可证明的 principal(非 HTTP 上下文,如引擎未带 userId 的线程、
+# 直接以库方式调用 AgentLoopV2 的测试),此类条目**不允许**被 HTTP 审批端点解析掉
+# (HTTP 侧永远传真实 principal,与 None 不等 ⇒ 403),但引擎 JSON-RPC 通道在自身
+# principal 同为 None 时仍可结算(见 agent_engine._handle_approval_respond 的信任边界注释)。
+@dataclass
+class _ApprovalEntry:
+    """审批条目:唤醒事件 + 已写入的决策 + 属主。"""
+
+    event: asyncio.Event
+    decision: str | None = None
+    owner_user_id: str | None = None
+
+
+# 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
+# _ApprovalEntry(owner=None),不要求所有写入方同步改造(见 _as_entry)。
+_ApprovalRecord = _ApprovalEntry | tuple[asyncio.Event, str | None]
+
+_approval_registry: dict[str, _ApprovalRecord] = {}
+
+
+def _as_entry(approval_id: str) -> _ApprovalEntry | None:
+    """取注册表条目并归一为 _ApprovalEntry(二元组就地升级,保证后续写入生效在同一对象上)。"""
+    record = _approval_registry.get(approval_id)
+    if record is None:
+        return None
+    if isinstance(record, _ApprovalEntry):
+        return record
+    event, decision = record
+    entry = _ApprovalEntry(event=event, decision=decision, owner_user_id=None)
+    _approval_registry[approval_id] = entry
+    return entry
 
 
 # 批 53(2026-09-20):审批 persist 持久键旁路登记(approval_id → cache_key)。
@@ -365,24 +400,71 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
     return True
 
 
-def resolve_approval_response(approval_id: str, decision: str) -> bool:
-    """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点调用)。
+class ApprovalOutcome(str, Enum):
+    """审批决策回填的三态结论(供路由层区分 403 与 404)。"""
+
+    APPLIED = "applied"
+    NOT_FOUND = "not_found"
+    FORBIDDEN = "forbidden"
+
+
+def resolve_approval_for_requester(
+    approval_id: str, decision: str, requester_user_id: str | None
+) -> ApprovalOutcome:
+    """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
+
+    Args:
+        approval_id: 审批请求 id
+        decision: "approve" 或 "reject"(其他值由调用方归一后再传入)
+        requester_user_id: 调用方能证明的 principal。None 表示"无可证明身份",
+            只能结算同样无属主的条目(非 HTTP 上下文创建的历史行为)。
+
+    Returns:
+        APPLIED   = 属主匹配,决策已写入且协程被唤醒;
+        NOT_FOUND = approval_id 不存在(已超时清理或从未发起);
+        FORBIDDEN = id 存在但属主与请求者不符(跨用户决策尝试)。
+
+    判定只有一种:**精确相等**(含 None==None)。不区分"部分匹配"/前缀匹配,
+    也不因属主缺失而放行 —— 缺失属主的条目对带身份的请求者一律 FORBIDDEN。
+    """
+    entry = _as_entry(approval_id)
+    if entry is None:
+        return ApprovalOutcome.NOT_FOUND
+    if entry.owner_user_id != requester_user_id:
+        logger.warning(
+            "[security] 审批决策被拒:approval_id=%s 请求者=%s 属主=%s",
+            approval_id,
+            requester_user_id,
+            entry.owner_user_id,
+        )
+        return ApprovalOutcome.FORBIDDEN
+    entry.decision = decision
+    with contextlib.suppress(Exception):
+        entry.event.set()
+    return ApprovalOutcome.APPLIED
+
+
+def resolve_approval_response(
+    approval_id: str,
+    decision: str,
+    requester_user_id: str | None = None,
+) -> bool:
+    """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点/引擎通道调用)。
 
     Args:
         approval_id: 审批请求 id
         decision: "approve" 或 "reject"(其他值视为 reject)
+        requester_user_id: 调用方 principal;缺省 None 保持"仅无属主条目可结算"的
+            历史语义(直接以库方式驱动循环的测试/脚本),对带属主的条目返回 False。
 
     Returns:
-        True=决策已写入且协程被唤醒;False=approval_id 不存在(已超时清理或从未发起)
+        True=决策已写入且协程被唤醒;False=id 不存在 **或** 属主不符。
+        需要区分这两类时改用 resolve_approval_for_requester()。
     """
-    entry = _approval_registry.get(approval_id)
-    if entry is None:
-        return False
-    ev, _ = entry
-    _approval_registry[approval_id] = (ev, decision)
-    with contextlib.suppress(Exception):
-        ev.set()
-    return True
+    return (
+        resolve_approval_for_requester(approval_id, decision, requester_user_id)
+        is ApprovalOutcome.APPLIED
+    )
 
 
 # 批 52(2026-09-20):工具审批持久键 + 撤销口(对标 codex-rs PERSIST_SESSION /
@@ -3382,7 +3464,12 @@ class AgentLoopV2:
 
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
-        _approval_registry[approval_id] = (ev, None)
+        # O19:登记属主。self._user_id 由构造参数注入(路由层/引擎线程显式传入),
+        # 为 None 时该审批只能被同样无可证明身份的通道(引擎无 userId 线程)结算,
+        # HTTP 审批端点会返回 403 —— 这是 fail-closed,不是漏判。
+        _approval_registry[approval_id] = _ApprovalEntry(
+            event=ev, decision=None, owner_user_id=self._user_id
+        )
         # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
         _approval_persist_keys[approval_id] = key
         try:
@@ -3406,7 +3493,8 @@ class AgentLoopV2:
                 await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
             except TimeoutError:
                 return "approval_timeout"
-            _, decision = _approval_registry.get(approval_id, (None, None))
+            settled = _as_entry(approval_id)
+            decision = settled.decision if settled is not None else None
             if decision == "approve":
                 # 批 52:批准后落盘 session 级授权(下次同键免弹窗)。
                 # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None。
