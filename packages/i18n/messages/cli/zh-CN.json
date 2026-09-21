@@ -3,7 +3,7 @@
     "notFound": "未找到 {target}"
   },
   "cli": {
-    "sessionResumed": "恢复最近会话: {id} ({count} 条历史)",
+    "sessionResumed": "恢复最近会话: {id} ({count, plural, =0 {无历史} other {{count} 条历史}})",
     "sessionResumedWithId": "恢复会话: {id} ({count} 条历史)",
     "noSessions": "暂无历史会话",
     "errorPathIsDir": "路径是目录,不是文件: {path}",

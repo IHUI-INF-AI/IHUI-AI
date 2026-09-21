@@ -3,7 +3,7 @@
     "notFound": "{target} not found"
   },
   "cli": {
-    "sessionResumed": "Resumed recent session: {id} ({count} messages)",
+    "sessionResumed": "Resumed recent session: {id} ({count, plural, =0 {no messages} one {# message} other {# messages}})",
     "sessionResumedWithId": "Resumed session: {id} ({count} messages)",
     "noSessions": "No historical sessions",
     "errorPathIsDir": "Path is a directory, not a file: {path}",

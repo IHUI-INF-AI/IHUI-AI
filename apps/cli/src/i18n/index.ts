@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { formatIcu, hasIcuSyntax } from '@ihui/i18n'
+
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -103,6 +105,11 @@ export function t(key: string, params?: Record<string, string | number>): string
   const text = getNestedValue(active, key)
   if (text === undefined) {
     return key
+  }
+  // ICU 形态一律交给共享端中立解释器(packages/i18n/src/icu.ts),与 web(next-intl)同语义;
+  // 缺 params 也要渲染,否则 plural/select 键会在终端里显示成语法残迹。
+  if (hasIcuSyntax(text)) {
+    return formatIcu(text, params ?? {}, { locale: activeLocale })
   }
   if (!params) return text
   // 同时支持 {{name}} 与 {name} 两种占位符:packages/i18n/messages 全库统一
