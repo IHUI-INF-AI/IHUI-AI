@@ -11,9 +11,10 @@
  * - 正文字号 ≥17px,标题 ≥27px,验证码 ≥36px 等宽加字距;
  * - 禁蓝色系;品牌色 = 酸绿 #B4FF00,安全告警 = 信号红 #FF3B2F;
  * - 所有插值必须 escapeHtml,链接域名取 CORS_ORIGIN 首项(与 payment-gateway 同约定)。
+ *
+ * 本模块保持零副作用(不 import config):CI 脚本(如部署失败通知)可在
+ * 无完整环境变量的进程中直接 import 复用品牌版式,CORS_ORIGIN 直读 env。
  */
-
-import { config } from '../config/index.js'
 
 /** 品牌色板 — 机械风(禁蓝) */
 export const DISPATCH_TOKENS = {
@@ -27,9 +28,9 @@ export const DISPATCH_TOKENS = {
   hairline: '#3A3A40',
 } as const
 
-/** 从 CORS_ORIGIN 取 web 站点根(与 payment-gateway 同一约定) */
+/** 从 CORS_ORIGIN 取 web 站点根(与 payment-gateway 同一约定;直读 env 保持模块零副作用) */
 export function resolveWebOrigin(): string {
-  const first = (config.CORS_ORIGIN ?? '').split(',')[0]?.trim()
+  const first = (process.env.CORS_ORIGIN ?? '').split(',')[0]?.trim()
   return first && first.length > 0 ? first.replace(/\/+$/, '') : 'https://aizhs.top'
 }
 
