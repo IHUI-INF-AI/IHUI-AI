@@ -728,6 +728,55 @@
 - [ ] D30 无人值守修复闭环:GitHub issue/代码扫描告警/失败测试→automations 定时认领修复→PR 回帖(对标 QoderWake;与 D14/D15 协同)(G-36)
 - [ ] D31 设计稿转码:Figma Frame/组件→可运行前端代码(对标 Trae 设计还原)(G-37)
 
+### P0 2026-09-21 第四轮**元素级**对标新增任务(V3 报告产出,D33-D51,依据 `outputs/AI能力深度对标分析报告V3-2026-09-21.md` 新增差距 G-39~G-62)
+
+> 与前三轮的分工:V1/V2 是能力级(做什么),本轮是元素级(对话流里每一个可视部件 + 承载它的数据帧 + 落库形态)。
+> **批次纪律 B1→B2 强制**:先补数据面(S/P 层),再补渲染位(R 层)——前三轮"补了 UI 发现上游没数据"的返工就是批次顺序倒置造成的。
+> 四家证据分级 E1-E5(见报告 §0),`E5 待证` 条目不得立任务;WorkBuddy 程序本体经四路探测确认不在本机,其 UI 元素本轮不立差距,取证专项并入 D50。
+> 自验纠正一处:报告初稿子代理断言"工具卡刷新即丢",实测 D24 已覆盖 toolCalls/terminalTasks(`ai-side-panel.tsx:491-493,553-554`),G-39 已据实缩窄为"其余九类"。
+> **报告载体说明**:`outputs/` 被 `.gitignore` 第 435 行「严禁入库」政策忽略(该目录可能含签名私钥,见 430-434 行注释),故 V1/V2/V3 三份对标报告**一律是本地产物、从未入 git**(实测 `git ls-files outputs/` 为空)。因此本块任务条目内的证据锚点(文件:行 + 计数)就是**仓库内唯一持久真相**,实施与验收只认这些锚点,不得因报告文件不在库里而重做取证。
+
+#### B1 数据面收口(1 周,根因层 S/P——先做,否则 B2 全要返工)
+
+- [ ] **D33 过程性信息持久化补全(G-39)**:在 D24 已落 toolCalls/terminalTasks 的基础上,把 metadata 落库面扩到九类——`planSteps`/`citations`/`usageDetail`(4 分项+firstTokenMs+durationMs+costUsd+model)/`fallback`{primary,backup,reason}/`steerApplied`/`compactionNotice`/`memoryUpdates`/`subagentActivities`/`queueItems`。落点:`apps/ai-service/app/routers/llm.py` `_fire_callback` 扩参(沿用 D24 的 keyword-only + 空值不写 key 语义)、`apps/api/src/routes/ai-callback.ts` 九类 zod schema、`ai-callback-worker.ts` 浅合并(沿用 D24 读旧值降级路径)、`apps/web/src/components/ai/ai-side-panel.tsx` 两处 hydration 映射(491-493/553-554)。**禁止**改走新表(与 D24 方案 B 一致性优先)。**验收**:逐类"发送→刷新→元素仍在"9 断言 + `tests/ai-callback-persistence.test.ts` 九类空值不写 key + 体积护栏单测(超限退化标注文本而非丢字段)
+- [ ] **D34 事件契约扩字段(G-40/G-43/G-44/G-52)**:`sse_contract.py:18-45` 与 `packages/shared/src/sse/contract.ts:28-53` **同步**新增四事件 `injection_applied`{kind∈goal/model_switch/permissions/agents_md/host_skills/environments/developer_instructions/turn_aborted,collapsed 摘要,可展开全文}/`settings_applied`{model,reasoningEffort,personality,prev}/`retry_scheduled`{attempt,maxRetries,retryInMs,httpStatus}/`terminal_output`{stdout,stderr,**formattedOutput**,exitCode,truncated};Codex 实证字段名为准(报告 §1.1 计数 273/15/72/810)。`packages/api-client/src/client.ts` 分发**必须**拦在"未知 type 兜底当正文"之前(沿用 W4 教训 + 负例断言)。**验收**:两份契约集合相等断言(守门既有)+ api-client 四事件新用例 + "绝不落正文"守护 + 跨端消费登记(与 D49 联动)
+- [ ] **D35 长会话分页投影与增量回放(G-59)**:对标 Codex `thread_history_projection_state{next_rollout_byte_offset,next_rollout_ordinal}` + `idx_thread_items_by_turn_updated_page`。会话消息按 turn 分片拉取 + metadata 九类只回"摘要 + 展开时懒取全文"。**验收**:5000 消息会话首屏 ≤800ms(Playwright 计时断言,阈值入 e2e)+ 上翻不重复不丢帧 + 懒取失败降级为占位不白屏
+- [ ] **D36 输入草稿与历史(G-55)**:对标 Codex `prompt-history.global` + 按线程 + `composer-prompt-drafts-v2`。按会话保留草稿(切会话不丢)、↑↑ 翻历史含粘贴附件、跨端经 store 持久化。**验收**:三态用例(切会话保留/发送后清空/回填历史)+ 存储配额淘汰单测
+
+#### B2 渲染位补齐(2-3 周,根因层 R)
+
+- [ ] **D37 内联系统注入条 + 上下文装配查看器(G-40/G-41,并扩 D13 口径四类→七源)**:流内可折叠"注入条"(模型切换/权限说明/AGENTS.md/技能清单/环境/目标上下文/轮次中止)+ 一键查看"本轮实际注入了什么"(含 Qoder `agent_listing_delta` 式 addedTypes/removedTypes/addedLines 增量视图)。落点 `MessageItem.tsx` 内容区序(724-1000)插 injection 段 + 新 `injection-bar.tsx`。**验收**:七源逐源渲染断言 + 折叠默认态与 fold-policy 联动 + i18n 五语言
+- [ ] **D38 队列语义完整交互(G-42)**:拖拽重排 / 撤回 / 编辑队列项 / 「打断并执行」/ 队列模式可配(steer vs queue,对标 Codex `followUpQueueMode`)。复用 D28 侧问队列与 W2 abort 通道,不造第二套排队。**验收**:五动词各有 e2e + 与 /side 互不回归 + 重排后发送顺序断言
+- [ ] **D39 错误重试可观测 + 额度耗尽处置动作族(G-44/G-45)**:error 卡补「第 N/M 次 · Xs 后重试」倒计时 + HTTP 状态 + 无响应超时;**额度型错误**补动作族(补积分/升级套餐/切档/查看用量/重登/重试),接我方既有钱包/VIP/BYOK 体系。**验收**:`FallbackBanner` 与 error 卡两套动作族用例 + 消费 D34 `retry_scheduled`/`injection_applied` 帧 + 免费额度心智不回退(2026-09-21 三轮口径:不充值仍可用心智不得被动作族打断)
+- [ ] **D40 recap/handoff + 后台任务暂停恢复 + 子代理 transcript(G-46/G-47/G-48,D6 协同)**:① 会话回顾生成→带 purpose 新建会话承接→reveal 文件;② D25 看板补 pause/resume 与「引用某条中间响应/跳转到该响应」;③ SubAgentActivityFeed 补 transcript 分页加载更多 + 失败重试 + 中断态 + 三态时长。**验收**:三组各独立组件测试 + 跳转锚点定位断言(scrollIntoView 后高亮)
+- [ ] **D41 Office/PDF 产物预览(G-49)**:docx/pptx(含讲者备注)/xlsx(sheet 切换 + 选区)/pdf(页码)preview + preview/源码切换 + 不可用/过大/过期三态降级(对标 Qoder `data-artifact-preview-kind`)。共享层优先:先查 `packages/ui-react` 与既有 FilePreview,不得端内重造。**验收**:四态(可用/过大/过期/不支持)用例 + 与 `canOpenInWorkPanel` 互不冲突 + 大文件不内联走懒加载
+- [ ] **D42 浏览器视觉标注回传对话(G-50)**:work-panel 嵌入浏览器补「点选元素/区域 → 样式面板(颜色/边框/圆角/字号/内外边距) → 批注 → 作为上下文进对话」,含 `annotationStale`(DOM 已变)失效提示。复用既有 CDP/代理通道与圈选引用事件(`ihui:add-text-reference` 同族机制)。**验收**:标注→上下文→发送全链路 e2e + stale 态用例 + 不违反圆角/浮层内边距规范(§4 p-3 档)
+- [ ] **D43 会话内快捷笔记(G-51)**:录音 12 phase 状态机 + 转写 + 归档/分组/搜索,笔记可一键插入对话。复用 `voice-input/voice-record`,不新建录音栈。**验收**:phase 矩阵用例(权限拒绝/中断/最终化失败)+ 笔记→上下文引用闭环 + miniapp 端豁免标注(平台独占:录音 API 差异)
+- [ ] **D44 白名单兜底事件逐个补渲染位(G-62)**:`scripts/check-agent-event-parity.mjs` WHITELIST 第 107 行起 10 事件(task_progress/worker_status/dag_level_advanced/log/status/memory_context/step_start/step_done/trace/trace_summary)逐个定"渲染或显式声明不渲染",清一个删一个,**白名单只许缩短不许加长**。**验收**:白名单长度断言(新守门见 D51)
+
+#### B3 策略与形态(1 个月,根因层 O)
+
+- [ ] **D45 会话详情聚合档位 + 环境建议条(G-53/G-54)**:① 步骤视图/命令视图/叙述视图三档(与 D21 fold-policy 合流但语义正交:fold 管展开,档位管信息聚合粒度,对标 Codex `conversationDetailMode=STEPS_COMMANDS`);② ambient suggestions(按项目根生成 next-action 建议,采纳/忽略,可关)。**验收**:三档持久化 + 建议条不侵入正文(禁渐变遮罩/禁原生 title 提示)
+- [ ] **D46 对话内受控图表卡(G-57)**:把 ChartArtifactBlock 的自由 HTML 升级为**模板白名单 + design-tokens 驱动**(对标 Trae `dynamic-ui` 16 模板:甘特/桑基/雷达/热力/漏斗/时序图/树流/对比卡 + scenes 分类 + visual-tokens)。**验收**:模板清单测试 + 主题(明暗)与 8 端 token 同源 + 圆角/字体规范守门全过
+- [ ] **D47 检查点载体 git 仓库化评估(G-58,须先出决策不直接改)**:对标 Trae `snapshot/<sessionId>/v2/.git`(原生 diff/log 可审计 + 快照压缩策略位)。评估与现有 DB 快照/checkpoint-impact(D4)的迁移代价、并发写锁(§12 git 写锁)冲突、`.git` 存续治理(§5b)风险。**结论落 PROJECT_PLAN 本条,未拍板前禁止实施**(风险:与工作区 gitdir 守护链冲突)
+- [ ] **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQLCipher;我方优势:导入侧已有 redact_secrets 实测 0.07% 命中)。**验收**:静态盘 grep 明文会话为 0 + 解锁失败降级可读空态不崩 + 密钥不落仓(§5d)
+
+#### B4 跨端与自证缺陷(与 D19 合流)
+
+- [ ] **D49 我方自证缺陷包(G-61)**:① 点赞/点踩落库(现仅 toast,`use-message-list-context-menu.tsx:117-119`);② 工具耗时改为后端下发(D34 帧),废除前端本地计时(断线即不可得);③ `MessageItem.tsx` 1370 / `message-input.tsx` 1234 / `ai-side-panel.tsx` 1496 三巨无霸拆分 + 各补专属单测(现零专属覆盖,仅 message-list.test.tsx);④ miniapp-taro 自研分发层迁 `@ihui/api-client streamChat`(消除漂移);⑤ desktop/extension 对话事件消费点从 0 接线或显式标注平台独占。**验收**:五项各有可复核证据(反馈表行数 +1、耗时来源断言、三文件行数下降且测试数上升、miniapp grep 分发层消失、两端消费点 grep 命中)
+- [ ] **D50 多端遥控配对 + 每会话浏览器 Tab 状态(G-60)+ WorkBuddy 取证专项**:① 手机看/接管桌面在跑会话(对标 `remote_control_enrollments`);② 每会话浏览器 tab 路由状态持久化(对标 `thread-tab-routes-v1`,复用 work-panel 历史连贯根治成果);③ **WorkBuddy 元素级取证补齐**(本机四路探测确认无程序本体):在装有 WorkBuddy 的机器上取包体或跑一次渲染取证,把报告 §1.4 的 E4 二手升为 E1/E2,再回补差距编号
+
+#### B5 防返工机制(本轮"不可返工"的落地保证)
+
+- [ ] **D51 对话流元素覆盖守门**:新建 `scripts/check-chat-element-coverage.mjs`(注册进 guardian-runner blocking + `check:all`)。把 V3 报告 §1/§2 的元素清单固化为**期望清单数据文件**(单一事实源,含每项的:元素名/证据级别/要求的契约事件/要求的渲染位/跨端要求),三类违规即阻塞:① 期望元素无渲染位;② 事件契约有帧但无消费点(取代 D44 人工清理);③ 前端监听但后端不发(沿用 parity 守门语义)。配套:元素清单变更必须同 PR 改数据文件(与 §22b 全量 include + 错误过滤、§22c 镜像常量、§22d isDirectRun 三规范一致)。**验收**:`--self-test` 三类违规各注入样例必红 + 全量绿 + 紧急跳过 env 登记
+
+### 本轮(第四轮)交付状态
+
+- ✅ V3 元素级对标报告产出并一手证据自验(报告 §0 表列 11 处硬锚点全部复核通过,含一处子代理过度断言的纠正)
+- ✅ D33-D51 任务登记(按根因层分 B1-B5,批次顺序纪律写入)
+- ⏳ 待实施:D33-D51 全部(本轮为计划轮,不含代码实现);**开工顺序强制 B1→B2→B3/B4,D51 与 B1 同批启动**(否则补完仍会退化)
+- ⏳ 敞口(明写,不假装收口):WorkBuddy 与 Trae 的对话面板 UI 元素本轮 E5 待证(取证手段受限:Trae 面板热下发不在安装目录、会话库 SQLCipher;WorkBuddy 无本体),解阻判据=D50 在有该程序的机器上完成取证
+
 ### P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年)
 
 > 目标判定:不以“功能存在”为完成,以**黄金 E2E 成功率、首响应延迟、补全接受率、LSP 可用性、默认安全、审计可逆性、8 端一致性**量化验收。用户已要求“完整彻底、毫无遗漏,并开始深度开发”。
