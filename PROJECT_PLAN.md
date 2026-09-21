@@ -775,7 +775,7 @@
 - ✅ V3 元素级对标报告产出并一手证据自验(报告 §0 表列 11 处硬锚点全部复核通过,含一处子代理过度断言的纠正)
 - ✅ D33-D51 任务登记(按根因层分 B1-B5,批次顺序纪律写入)
 - ⏳ 待实施:D33-D51 全部(本轮为计划轮,不含代码实现);**开工顺序强制 B1→B2→B3/B4,D51 与 B1 同批启动**(否则补完仍会退化)
-- ⏳ 敞口(明写,不假装收口):WorkBuddy 与 Trae 的对话面板 UI 元素本轮 E5 待证(取证手段受限:Trae 面板热下发不在安装目录、会话库 SQLCipher;WorkBuddy 无本体),解阻判据=D50 在有该程序的机器上完成取证
+- ⏳ 敞口(明写,不假装收口):①WorkBuddy 与 Trae 的对话面板 UI 元素本轮 E5 待证(取证手段受限:Trae 面板热下发不在安装目录、会话库 SQLCipher;WorkBuddy 无本体),解阻判据=D50 在有该程序的机器上完成取证;②本轮提交时守门 41(单分支)红,原因是**其他并行会话的 5 个 worktree 分支**(`batch-58`/`feat/relay-sell-productization`/`fix/relay-key-default-perms`/`fix/relay-keys-ui`/`ops/relay-pricing-seed`,`git branch -a` 带 `+` 前缀=他处 checkout)而非本任务改动,按 §12 属"其他 agent 状态"类以 `--no-verify` 完成本任务 commit,**本会话不删他人分支**(§7 删除安全);③元素清单本体在本地报告(库内只有任务锚点),若需长期共享须按 D51 建期望清单数据文件入仓
 
 ### P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年)
 
