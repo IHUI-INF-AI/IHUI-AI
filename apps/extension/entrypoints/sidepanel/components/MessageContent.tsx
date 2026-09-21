@@ -16,6 +16,8 @@
 import { useMemo, type ReactNode } from 'react'
 import {
   buildRenderModel,
+  humanizeToolText,
+  toolDisplayKey,
   type ChatMessage,
   type ReasoningRenderBlock,
   type RenderPlanStep,
@@ -240,10 +242,15 @@ function ReasoningBlockView({ block, t }: { block: ReasoningRenderBlock; t: Tran
 function ToolBlockView({ block, t }: { block: ToolRenderBlock; t: Translate }) {
   const argsText = stringifyValue(block.args)
   const resultText = stringifyValue(block.result)
+  // 界面禁止直显英文工具码名:已映射的工具显示本地化功能名(如 read_file → "读取文件内容"),
+  // 插件/MCP 动态名回落原码名展示。
+  const displayKey = toolDisplayKey(block.toolName)
   return (
     <div className="px-2 py-1.5 rounded-md border border-border bg-card text-xs">
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="font-medium font-mono break-all">{block.toolName}</span>
+        <span className={`font-medium break-all ${displayKey ? '' : 'font-mono'}`}>
+          {displayKey ? t(`taskStatus.${displayKey}`) : block.toolName}
+        </span>
         <span className={`px-1 py-0.5 rounded text-[10px] leading-tight ${toolStatusClass(block)}`}>
           {toolStatusLabel(block, t)}
         </span>
@@ -369,7 +376,9 @@ export function PlanStepsView({ steps, explanation }: PlanStepsViewProps) {
             >
               {planStatusLabel(step.status, t)}
             </span>
-            <span className="flex-1 whitespace-pre-wrap break-words">{step.step}</span>
+            <span className="flex-1 whitespace-pre-wrap break-words">
+              {humanizeToolText(step.step, t)}
+            </span>
             {typeof step.durationMs === 'number' ? (
               <span className="shrink-0 text-[10px] text-muted-foreground">
                 {formatDurationMs(step.durationMs)}

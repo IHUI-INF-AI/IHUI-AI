@@ -20,8 +20,29 @@ import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import { useI18n } from '@/i18n'
 import LineIcon from '@/components/LineIcon'
+import { humanizeToolText, toolDisplayKey } from '@ihui/shared/chat'
 import type { ToolCallView, PlanStepView, TerminalTaskView } from '@/pkg-ai/ai/cards/types'
 import './ai-cards.css'
+
+/** taro t 的键在 taskStatus 命名空间下,toolDisplayKey 返回裸键,此处统一加前缀 */
+const toDisplayKey = (key: string): string => `taskStatus.${key}`
+
+/** 工具调用名展示:内置工具 → i18n 功能名;插件/MCP 动态名回落原名 */
+function toolDisplayName(
+  name: string,
+  t: (k: string, params?: Record<string, string | number>) => string,
+): string {
+  const key = toolDisplayKey(name)
+  return key ? t(toDisplayKey(key)) : name
+}
+
+/** 自由文本(计划步骤标题/说明)内的英文工具码名 → i18n 功能名 */
+function localizeToolText(
+  text: string,
+  t: (k: string, params?: Record<string, string | number>) => string,
+): string {
+  return humanizeToolText(text, (k) => t(toDisplayKey(k)))
+}
 
 /** 耗时格式化(ms / s,单位非中文,无需 i18n) */
 function formatDuration(ms?: number): string {
@@ -68,9 +89,11 @@ export function PlanStepsCard({ steps }: { steps: PlanStepView[] }) {
                 ) : null}
               </View>
               <View className="ai-card-plan-body">
-                <Text className={`ai-card-plan-text${errClass}`}>{s.step}</Text>
+                <Text className={`ai-card-plan-text${errClass}`}>
+                  {localizeToolText(s.step, t)}
+                </Text>
                 {s.explanation ? (
-                  <Text className="ai-card-plan-explain">{s.explanation}</Text>
+                  <Text className="ai-card-plan-explain">{localizeToolText(s.explanation, t)}</Text>
                 ) : null}
                 {s.status === 'completed' && formatDuration(s.durationMs) ? (
                   <Text className="ai-card-plan-duration">{formatDuration(s.durationMs)}</Text>
@@ -122,7 +145,7 @@ export function ToolCallCard({ calls }: { calls: ToolCallView[] }) {
               </View>
               <View className="ai-card-tool-body">
                 <View className="ai-card-tool-row">
-                  <Text className="ai-card-tool-name">{c.name}</Text>
+                  <Text className="ai-card-tool-name">{toolDisplayName(c.name, t)}</Text>
                   {srcKey ? <Text className="ai-card-tool-source">{t(srcKey)}</Text> : null}
                 </View>
                 <View className="ai-card-tool-row">

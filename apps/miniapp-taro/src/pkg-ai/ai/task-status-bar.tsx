@@ -20,6 +20,8 @@ import LineIcon, { type IconName } from '@/components/LineIcon'
 import { useI18n } from '@/i18n'
 import {
   deriveTaskStatusBar,
+  humanizeToolText,
+  toolDisplayKey,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
@@ -68,16 +70,25 @@ const STEP_COLOR: Record<PlanStepStatus, string> = {
   skipped: 'var(--color-text-tertiary)',
 }
 
-/** PlanStepView → 共享 PlanStep 显式适配(id 缺失补 `step-<idx>`) */
-function toPlanSteps(viewSteps: readonly PlanStepView[]): PlanStep[] {
+/** PlanStepView → 共享 PlanStep 显式适配(id 缺失补 `step-<idx>`);
+ *  step/explanation 文本内的英文工具码名统一本地化为功能名(共享 tool-display 映射)。 */
+function toPlanSteps(
+  viewSteps: readonly PlanStepView[],
+  localizeToolText: (text: string) => string,
+): PlanStep[] {
   return viewSteps.map((p, i) => ({
     id: p.id || `step-${i}`,
-    step: p.step,
+    step: localizeToolText(p.step),
     status: p.status,
-    explanation: p.explanation,
+    explanation: p.explanation ? localizeToolText(p.explanation) : p.explanation,
     durationMs: p.durationMs,
     error: p.error,
   }))
+}
+
+/** taro t 的键在 taskStatus 命名空间下,toolDisplayKey 返回裸键,此处统一加前缀 */
+function toDisplayKey(key: string): string {
+  return `taskStatus.${key}`
 }
 
 export default function TaskStatusBar({ cards, isStreaming }: TaskStatusBarProps) {
@@ -86,14 +97,25 @@ export default function TaskStatusBar({ cards, isStreaming }: TaskStatusBarProps
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const open = userOpen ?? isStreaming
 
-  const planSteps = useMemo<PlanStep[]>(() => toPlanSteps(cards?.planSteps ?? []), [cards])
+  const planSteps = useMemo<PlanStep[]>(
+    () =>
+      toPlanSteps(cards?.planSteps ?? [], (text) =>
+        humanizeToolText(text, (k) => t(toDisplayKey(k))),
+      ),
+    [cards, t],
+  )
 
-  // 端侧"当前在做什么":最近一个 running 工具调用名本地化为标题(不自行造状态)
+  // 端侧"当前在做什么":最近一个 running 工具调用名本地化为标题(不自行造状态)。
+  // 界面禁止直显英文工具码名:优先查共享功能名映射,查不到(插件/MCP 动态名)才回落"调用 {name}"。
   const currentTaskLabel = useMemo<string | undefined>(() => {
     const calls = cards?.toolCalls ?? []
     for (let i = calls.length - 1; i >= 0; i--) {
       const call: ToolCallView | undefined = calls[i]
-      if (call?.status === 'running') return t('taskStatus.activityTool', { tool: call.name })
+      if (call?.status !== 'running') continue
+      const displayKey = call.name ? toolDisplayKey(call.name) : null
+      return displayKey
+        ? t(toDisplayKey(displayKey))
+        : t('taskStatus.activityTool', { tool: call.name })
     }
     return undefined
   }, [cards, t])
