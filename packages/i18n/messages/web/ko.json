@@ -10313,6 +10313,8 @@
       "installing": "설치 중",
       "preparing": "업데이트 준비 중...",
       "quitChecking": "업데이트 확인 중...",
+      "upToDate": "최신 버전입니다",
+      "upToDateDesc": "이미 최신 버전을 사용 중입니다",
       "quitDownloading": "업데이트 다운로드 중...",
       "quitQuitting": "종료 중...",
       "quitRestarting": "업데이트 완료, 재시작 중...",

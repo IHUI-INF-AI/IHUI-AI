@@ -10313,6 +10313,8 @@
       "installing": "安裝中",
       "preparing": "正在準備更新...",
       "quitChecking": "正在檢查更新...",
+      "upToDate": "已是最新版本",
+      "upToDateDesc": "當前已是最新版本,無需更新",
       "quitDownloading": "正在下載更新...",
       "quitQuitting": "正在退出...",
       "quitRestarting": "更新完成，正在重啟...",
