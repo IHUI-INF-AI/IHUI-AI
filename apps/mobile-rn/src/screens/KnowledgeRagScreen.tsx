@@ -28,6 +28,7 @@ import {
 } from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -68,6 +69,7 @@ export function KnowledgeRagScreen() {
 
   // 搜索状态
   const [query, setQuery] = useState('')
+  useUiTextField({ label: t('common.searchPlaceholder'), value: query, setValue: setQuery })
   const [hits, setHits] = useState<KnowledgeSearchHit[]>([])
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')

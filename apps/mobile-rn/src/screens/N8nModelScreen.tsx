@@ -31,6 +31,7 @@ import { Zap, PauseCircle } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
@@ -301,6 +302,17 @@ function WorkflowFormModal({
   onConfirm,
 }: WorkflowFormModalProps) {
   const { t } = useI18n()
+  useUiTextField({
+    label: t('n8nModel.namePlaceholder'),
+    value: name,
+    setValue: onChangeName,
+  })
+  useUiTextField({
+    label: t('n8nModel.descPlaceholder'),
+    value: desc,
+    setValue: onChangeDesc,
+    multiline: true,
+  })
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.modalMask}>
