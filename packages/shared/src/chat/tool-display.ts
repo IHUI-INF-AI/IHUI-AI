@@ -79,6 +79,46 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   edu_send_fee_reminder: 'toolEduSendReminder',
   edu_send_fee_reminder_batch: 'toolEduSendReminderBatch',
   edu_create_payment_record: 'toolEduCreatePayment',
+  // 浏览器操控族(mcp_server._TOOLS 的 browser_*,对标 Trae browser_action / Qoder browser.* 全中文)
+  browser_navigate: 'toolBrowserNavigate',
+  browser_click_element: 'toolBrowserClickElement',
+  browser_type_text: 'toolBrowserTypeText',
+  browser_scroll: 'toolBrowserScroll',
+  browser_hover: 'toolBrowserHover',
+  browser_select_option: 'toolBrowserSelectOption',
+  browser_get_attribute: 'toolBrowserGetAttribute',
+  browser_extract_dom: 'toolBrowserExtractDom',
+  browser_wait_for_element: 'toolBrowserWaitForElement',
+  browser_screenshot: 'toolBrowserScreenshot',
+  browser_switch_tab: 'toolBrowserSwitchTab',
+  browser_close_tab: 'toolBrowserCloseTab',
+  browser_selfcheck: 'toolBrowserSelfcheck',
+  browser_selfcheck_screenshot: 'toolBrowserSelfcheckScreenshot',
+  // 电脑操控族(computer_*)
+  computer_screenshot_screen: 'toolComputerScreenshotScreen',
+  computer_mouse_click: 'toolComputerMouseClick',
+  computer_mouse_move: 'toolComputerMouseMove',
+  computer_mouse_scroll: 'toolComputerMouseScroll',
+  computer_keyboard_type: 'toolComputerKeyboardType',
+  computer_keyboard_press: 'toolComputerKeyboardPress',
+  computer_keyboard_hotkey: 'toolComputerKeyboardHotkey',
+  computer_clipboard_get: 'toolComputerClipboardGet',
+  computer_clipboard_set: 'toolComputerClipboardSet',
+  computer_active_window: 'toolComputerActiveWindow',
+  // 其余零散内置工具
+  db_query: 'toolDbQuery',
+  document_tables: 'toolDocumentTables',
+  extract_document_assets: 'toolExtractDocumentAssets',
+  get_tool_schema: 'toolGetToolSchema',
+  proactive_suggestion: 'toolProactiveSuggestion',
+  resolve_conflict: 'toolResolveConflict',
+  review_pr: 'toolReviewPr',
+  // token6688 厂商侧能力(键名按"厂商"语义,不把厂商标识塞进 i18n 键)
+  token6688_balance: 'toolVendorBalance',
+  token6688_model_info: 'toolVendorModelInfo',
+  token6688_upload_file: 'toolVendorUploadFile',
+  token6688_cancel_task: 'toolVendorCancelTask',
+  token6688_voice_clone: 'toolVendorVoiceClone',
 }
 
 export function toolDisplayKey(toolName: string): string | null {
@@ -132,10 +172,21 @@ export interface ToolCallView {
 
 const SUBJECT_KEYS: Readonly<Record<Exclude<ToolSubjectKind, 'none'>, readonly string[]>> = {
   path: ['path', 'file_path', 'filePath', 'file', 'filename', 'target_file', 'dir', 'directory'],
-  query: ['query', 'keyword', 'keywords', 'pattern', 'q', 'search_term', 'prompt', 'description'],
+  query: [
+    'query',
+    'keyword',
+    'keywords',
+    'pattern',
+    'q',
+    'search_term',
+    'prompt',
+    'description',
+    'selector',
+    'target',
+  ],
   url: ['url', 'uri', 'link', 'target_url', 'site_url'],
   command: ['command', 'cmd', 'script'],
-  name: ['agent', 'agent_name', 'subagent_type', 'name', 'title', 'task_name'],
+  name: ['agent', 'agent_name', 'subagent_type', 'name', 'title', 'task_name', 'key', 'text'],
 }
 
 /** 工具 → 对象类型。未登记的走"按类型逐个试探"的通用兜底,避免每加一个工具都要改表 */
