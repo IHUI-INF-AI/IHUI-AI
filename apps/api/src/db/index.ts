@@ -147,31 +147,44 @@ configureDataScopeGuard({
 // SELECT 1 探测把信号前移;失败/超时只 warn,**不 crash 进程** —— 开放面配置错
 // 不许把第一方链路(db/dbRead,主池)一起拖起不来。
 if (scopedClient) {
-  const SCOPED_BOOT_PROBE_TIMEOUT_MS = 2_000
+  /**
+   * 2026-09-21 实跑校准:原本 2s 单次,在多构建并发的开发机上**首连**就会被挤到超时,
+   * 打出"scoped-* 恒 503"的假告警(实际请求仍 200)。假告警会侵蚀这条信号的可信度,
+   * 故放宽到 8s 并允许一次重试;仍然只 warn、不 crash。
+   */
+  const SCOPED_BOOT_PROBE_TIMEOUT_MS = 8_000
+  const SCOPED_BOOT_PROBE_ATTEMPTS = 2
   void (async (): Promise<void> => {
-    let timer: ReturnType<typeof setTimeout> | undefined
-    try {
-      await Promise.race([
-        // 与下方 replica 探测循环同款口径:tagged template 直连,不经任何 drizzle 出口
-        scopedClient`SELECT 1`,
-        new Promise<never>((_resolve, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(`连接探测超时(>${SCOPED_BOOT_PROBE_TIMEOUT_MS}ms)`)),
-            SCOPED_BOOT_PROBE_TIMEOUT_MS,
+    for (let attempt = 1; attempt <= SCOPED_BOOT_PROBE_ATTEMPTS; attempt += 1) {
+      let timer: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          // 与下方 replica 探测循环同款口径:tagged template 直连,不经任何 drizzle 出口
+          scopedClient`SELECT 1`,
+          new Promise<never>((_resolve, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`连接探测超时(>${SCOPED_BOOT_PROBE_TIMEOUT_MS}ms)`)),
+              SCOPED_BOOT_PROBE_TIMEOUT_MS,
+            )
+            timer.unref()
+          }),
+        ])
+        console.info(
+          `[db] DATABASE_APP_URL 启动探测成功(SELECT 1${attempt > 1 ? `,第 ${attempt} 次` : ''}),scoped-* 受控出口连接可用`,
+        )
+        return
+      } catch (e) {
+        if (attempt === SCOPED_BOOT_PROBE_ATTEMPTS) {
+          console.warn(
+            '[db] DATABASE_APP_URL 启动探测失败:' +
+              ((e as Error)?.message ?? e) +
+              ' —— scoped-* 能力将恒 503 DATA_ISOLATION_UNAVAILABLE(有意的 fail-closed);' +
+              'db/dbRead 第一方链路不受影响。请核对该 DSN 的角色/库/密码与网络连通性',
           )
-          timer.unref()
-        }),
-      ])
-      console.info('[db] DATABASE_APP_URL 启动探测成功(SELECT 1),scoped-* 受控出口连接可用')
-    } catch (e) {
-      console.warn(
-        '[db] DATABASE_APP_URL 启动探测失败:' +
-          ((e as Error)?.message ?? e) +
-          ' —— scoped-* 能力将恒 503 DATA_ISOLATION_UNAVAILABLE(有意的 fail-closed);' +
-          'db/dbRead 第一方链路不受影响。请核对该 DSN 的角色/库/密码与网络连通性',
-      )
-    } finally {
-      if (timer) clearTimeout(timer)
+        }
+      } finally {
+        if (timer) clearTimeout(timer)
+      }
     }
   })()
 }

@@ -12,6 +12,8 @@
  *   Messages:  POST /threads/:threadId/messages | GET /threads/:threadId/messages/:id | GET /threads/:threadId/messages
  *   Runs:      POST /threads/:threadId/runs | GET /threads/:threadId/runs/:id | POST /threads/:threadId/runs/:id | GET /threads/:threadId/runs
  *   Run Steps: GET /threads/:threadId/runs/:runId/steps
+ *   Run Refs:  GET /run-refs/:ref(IHUI 发的 irun_ 句柄,O10b)
+ *              GET /threads/runs/by-external-id/:externalId(第三方自带业务键反查,O10c)
  *
  * 内部映射:Assistant → ai-service 的 agent 配置;Thread → 会话;Run → agent 执行(调用 /api/llm/complete)。
  * 存储:助手/线程/消息/run 元数据存 Redis(key 前缀 assistant: / thread: / run:),TTL 90 天。
@@ -177,6 +179,19 @@ const DEFAULT_LIMIT = 20
 /** 列表分页最大 limit */
 const MAX_LIMIT = 100
 
+/**
+ * 自带业务键(O10c)边界:1-128 字符,字符集**白名单式**收窄到 `[A-Za-z0-9_.-]`。
+ * - 空白、控制字符、零宽字符(U+200B/200C/200D/2060)一律进不来:它们能被 JSON 原样带进来,
+ *   却会在 Redis 里造出两个肉眼无法区分、实际不同的键,也会在下次 URL 拼接时被百分号编码
+ *   改形。入口判 400 比事后对不上账便宜得多。
+ * - 长度按 UTF-16 码元计;params schema 复用同一条 pattern,不另立 `maxLength`,
+ *   免得 Ajv 与 zod 两套口径(与 `run-refs/:ref` 一致)。
+ * - 刻意**不含** `:`:`run_ext:<userId>:<external_id>` 的分隔符不可能出现在键体里,
+ *   否则 `b:c` 与 `c` 这类形状会让命名空间产生歧义。
+ */
+const EXTERNAL_ID_MAX = 128
+const EXTERNAL_ID_PATTERN = `^[A-Za-z0-9_.-]{1,${EXTERNAL_ID_MAX}}$`
+
 // =============================================================================
 // Zod schemas(请求体校验)
 // =============================================================================
@@ -234,11 +249,24 @@ const createMessageSchema = z.object({
   metadata: metadataSchema,
 })
 
+/**
+ * 自带业务键的 zod 版判据(与路由 params schema 共用 `EXTERNAL_ID_PATTERN` 一条真相)。
+ * 边界说明见上方常量段。
+ */
+const externalIdSchema = z
+  .string()
+  .regex(
+    new RegExp(EXTERNAL_ID_PATTERN),
+    `external_id must be 1-${EXTERNAL_ID_MAX} chars of [A-Za-z0-9_.-]`,
+  )
+
 const createRunSchema = z.object({
   assistant_id: z.string().min(1),
   model: z.string().min(1).optional(),
   instructions: z.string().optional(),
   metadata: metadataSchema,
+  // O10c:调用方自带业务键(可选)。登记后即可凭它反查本 run,不需要先存 IHUI 发的句柄。
+  external_id: externalIdSchema.optional(),
 })
 
 const updateRunSchema = z.object({
@@ -407,6 +435,38 @@ async function storeRunRef(redis: Redis, runRef: string, runId: string): Promise
 /** 句柄反查内部 runId;不存在(或已随 run 一起过期)返回 null。 */
 async function resolveRunRef(redis: Redis, runRef: string): Promise<string | null> {
   return await redis.get(`run_ref:${runRef}`)
+}
+
+// =============================================================================
+// 自带业务键反查(O10c:第三方自己的 external_id → 内部 runId)
+//
+// 与上面 `irun_` 句柄是**两条独立通道**:各占各的 Redis 前缀(`run_ref:` / `run_ext:`),
+// 键形态互不重叠,谁也不会覆盖谁 —— 第三方既可以凭 IHUI 发的句柄查,也可以凭自己库里
+// 的业务主键查,拿到的是同一个 run。
+// 边界常量与 zod schema 在文件上方「常量 / Zod schemas」段(声明先于使用)。
+// =============================================================================
+
+/**
+ * 业务键 → 内部 runId。**键名带 userId 前缀就是本条链路的归属边界**:反查永远只在
+ * 调用方自己的命名空间里寻址,机器凭据 A 查不到 B 的 run —— 连"这个键存在吗"都探不出来
+ * (两条路径回同一个 404 响应体)。TTL 与 run 记录一致,句柄不能比它指的东西活得更久。
+ */
+async function storeExternalRunId(
+  redis: Redis,
+  userId: string,
+  externalId: string,
+  runId: string,
+): Promise<void> {
+  await redis.set(`run_ext:${userId}:${externalId}`, runId, 'EX', TTL_SECONDS)
+}
+
+/** 按 (调用方 userId, 业务键) 反查内部 runId;不存在(或已随 run 过期)返回 null。 */
+async function resolveExternalRunId(
+  redis: Redis,
+  userId: string,
+  externalId: string,
+): Promise<string | null> {
+  return await redis.get(`run_ext:${userId}:${externalId}`)
 }
 
 // =============================================================================
@@ -953,6 +1013,14 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       // O10b:对外 run 句柄查询。刻意复用 runs:read —— 它是"读一个 run 的状态"这件事
       // 唯一的能力声明,换个新 scope 只会让第三方多要一个权限位却拿不到任何新数据。
       { methods: ['GET'], pattern: /^\/v1\/run-refs\/[^/]+$/, scope: 'runs:read' },
+      // O10c:自带业务键反查。同上,复用 runs:read,不新增权限位。必须排在上面那条
+      // 通用 runs 规则之外单独登记 —— 通用规则要求 `threads/<一段>/runs`,而本路径的
+      // `runs` 就在第二段,匹配不上,漏登记即 403 CAPABILITY_UNREGISTERED。
+      {
+        methods: ['GET'],
+        pattern: /^\/v1\/threads\/runs\/by-external-id\/[^/]+$/,
+        scope: 'runs:read',
+      },
     ]),
   )
 
@@ -1023,6 +1091,10 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
             model: { type: 'string' },
             instructions: { type: 'string' },
             metadata: { type: 'object' },
+            external_id: {
+              type: 'string',
+              description: `可选:调用方自带业务键(1-${EXTERNAL_ID_MAX} 字符 [A-Za-z0-9_.-]),登记后可用 GET /v1/threads/runs/by-external-id/{external_id} 反查本 run`,
+            },
           },
           required: ['assistant_id'],
         },
@@ -1079,6 +1151,13 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
       // (状态为 failed 的)run —— 第三方拿到的永远是"能用的地址",不是一串内部 uuid。
       const runRef = newRunRef(nowMs)
       await storeRunRef(redis, runRef, runId)
+      // O10c:自带业务键 —— 紧随句柄登记,同样落在 ai-service 调用**之前**,理由与上面
+      // 一句(失败也要能反查到这条 run)。未传则一个键都不写,不产生空映射。
+      // 同一业务键重复登记为后写覆盖(反查语义是"最近一次",不是历史表)。
+      const externalId = parsed.data.external_id
+      if (externalId) {
+        await storeExternalRunId(redis, apiKey.userId, externalId, runId)
+      }
 
       // 收集线程消息构建 ai-service 请求(仍取写入顺序前 MAX_LIMIT 条,与改造前逐字一致)
       const collected = await collectMessages(redis, threadId)
@@ -1375,6 +1454,45 @@ const v1Assistants: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, 'Run reference not found'))
       }
       return reply.send({ ...toRunResponse(run), run_ref: ref })
+    },
+  )
+
+  // GET /threads/runs/by-external-id/:externalId — 用调用方自带业务键反查 run(O10c)
+  //
+  // 与 run-refs 的差别只在"键是谁生的":`irun_*` 由 IHUI 发,第三方必须存下响应里的
+  // 句柄;`external_id` 由第三方自带,它只要在自己库里记住这个业务主键就能找回 run。
+  server.get(
+    '/threads/runs/by-external-id/:externalId',
+    {
+      schema: {
+        description: '用调用方自带业务键 external_id 查询 Run 状态(仅能查到本 key 名下登记的键)',
+        tags: ['Runs'],
+        params: {
+          type: 'object',
+          properties: {
+            externalId: { type: 'string', pattern: EXTERNAL_ID_PATTERN },
+          },
+          required: ['externalId'],
+        },
+      },
+      preHandler: [requireApiKeyAuth],
+    },
+    async (request, reply) => {
+      const { externalId } = request.params as { externalId: string }
+      const apiKey = request.apiKey
+      if (!apiKey) return reply.status(401).send(error(401, 'API key authentication required'))
+      // 归属边界就在这一行:寻址用的键名带调用方自己的 userId,别人名下同名业务键根本
+      // 不在这个命名空间里 —— 不存在"猜到键就能读别人 run"的通路。
+      const runId = await resolveExternalRunId(redis, apiKey.userId, externalId)
+      if (!runId) return reply.status(404).send(error(404, 'Run reference not found'))
+      // 双保险:run 体上的 userId 再校一次(与本文件其余端点同一条判据)。回 404 而非 403,
+      // 与 run-refs 同口径 —— 回 403 等于承认"这个业务键存在"。
+      const run = await getRun(redis, runId)
+      if (!run || run.userId !== apiKey.userId) {
+        return reply.status(404).send(error(404, 'Run reference not found'))
+      }
+      // 只增字段:`external_id` 回显调用方自己带来的键;`userId` 依旧不外泄。
+      return reply.send({ ...toRunResponse(run), external_id: externalId })
     },
   )
 }
