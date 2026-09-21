@@ -9,7 +9,10 @@
 --   - CLI sync 时若本地不存在某 slug 但远端存在(未软删除),远端标记为 tombstone
 -- 这样本地删文件 → sync → 远端软删除;Web 端删除 → sync → 本地删文件,双向闭环
 
-ALTER TABLE "skills" ADD COLUMN "deleted_at" timestamp with time zone;
+-- 必须 IF NOT EXISTS:skills.deleted_at 已由更早的建表迁移带出,裸 ADD COLUMN 在
+-- **从空库重放**时抛 42701「属性已经存在」,而 drizzle-kit migrate 只 exit 1 不打印原因
+-- ⇒ 从零部署静默停在 110/285(2026-09-21 隔离库实测)。
+ALTER TABLE "skills" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone;
 
 -- 索引:快速过滤活跃 skills(deleted_at IS NULL)
 CREATE INDEX IF NOT EXISTS "skills_deleted_at_idx" ON "skills" ("deleted_at");

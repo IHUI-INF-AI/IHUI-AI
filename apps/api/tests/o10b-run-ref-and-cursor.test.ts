@@ -410,6 +410,164 @@ describe('O10b run_ref:创建 → 查询闭环', () => {
 })
 
 // =============================================================================
+// 1b. external_id:第三方自带业务键反查(O10c)
+//
+// 与 1 组的分工:1 组证"IHUI 发的句柄能用",本组证"调用方自己带来的键也能用,而且
+// **只能自己的**用。归属边界靠 Redis 键名 `run_ext:<userId>:<external_id>`,所以本组的
+// 核心断言是"同一个业务键在两个用户名下互不可见",不是"查不到就算对"。
+// =============================================================================
+
+describe('O10c external_id:自带业务键反查 run', () => {
+  it('带 external_id 建 run → 反查命中同一轮;与 irun_ 句柄各自独立', async () => {
+    const { assistantId, threadId } = await fixtureThread('ext-roundtrip')
+    const externalId = 'order-2026.09_21-A'
+    const created = await post(`/v1/threads/${threadId}/runs`, {
+      assistant_id: assistantId,
+      external_id: externalId,
+    })
+    expect(created.statusCode).toBe(200)
+    const body = created.json() as Record<string, unknown>
+
+    // 创建响应一个键都不多:O10b 钉住的"只追加 run_ref"契约不被本任务破坏
+    expect(Object.keys(body).at(-1)).toBe('run_ref')
+    expect(body.external_id).toBeUndefined()
+    // Redis 侧两条通道并存且互不覆盖:键形态在此钉死
+    expect(need().redis.peek(`run_ext:user_a:${externalId}`)).toBe(body.id)
+    expect(need().redis.peek(`run_ref:${body.run_ref as string}`)).toBe(body.id)
+
+    const looked = await get(`/v1/threads/runs/by-external-id/${externalId}`)
+    expect(looked.statusCode).toBe(200)
+    const lookedBody = looked.json() as Record<string, unknown>
+    expect(lookedBody.id).toBe(body.id)
+    expect(lookedBody.thread_id).toBe(threadId)
+    expect(lookedBody.status).toBe('completed')
+    expect(lookedBody.usage).toEqual({ prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 })
+    expect(lookedBody.external_id).toBe(externalId)
+    expect(lookedBody.userId).toBeUndefined()
+    // 复用同一份读逻辑:去掉回显的业务键后与按 runId 查询逐字段相等(没另写一套读取)
+    const stripped = { ...lookedBody }
+    delete stripped.external_id
+    expect(stripped).toEqual(
+      (await get(`/v1/threads/${threadId}/runs/${body.id as string}`)).json(),
+    )
+    // 句柄通道照旧可用
+    const byRef = await get(`/v1/run-refs/${body.run_ref as string}`)
+    expect(byRef.statusCode).toBe(200)
+    expect(byRef.json().id).toBe(body.id)
+  })
+
+  it('同一业务键在两个用户名下互不可见:A 的键 B 查不到,反之亦然', async () => {
+    const key = 'tenant-shared-biz-key-777'
+    const a = await fixtureThread('ext-own-a', 'ak_a')
+    const b = await fixtureThread('ext-own-b', 'ak_b')
+    const resA = await post(`/v1/threads/${a.threadId}/runs`, {
+      assistant_id: a.assistantId,
+      external_id: key,
+    })
+    const resB = await post(
+      `/v1/threads/${b.threadId}/runs`,
+      { assistant_id: b.assistantId, external_id: key },
+      'ak_b',
+    )
+    expect(resA.statusCode).toBe(200)
+    expect(resB.statusCode).toBe(200)
+    const runA = resA.json() as Record<string, unknown>
+    const runB = resB.json() as Record<string, unknown>
+    // 两条映射确实分处两个命名空间(键名不同,不是同一条被覆盖)
+    expect(need().redis.peek(`run_ext:user_a:${key}`)).toBe(runA.id)
+    expect(need().redis.peek(`run_ext:user_b:${key}`)).toBe(runB.id)
+    expect(runA.id).not.toBe(runB.id)
+
+    const byA = await get(`/v1/threads/runs/by-external-id/${key}`, 'ak_a')
+    const byB = await get(`/v1/threads/runs/by-external-id/${key}`, 'ak_b')
+    expect(byA.statusCode).toBe(200)
+    expect(byB.statusCode).toBe(200)
+    expect(byA.json().id).toBe(runA.id)
+    expect(byB.json().id).toBe(runB.id)
+    // B 用自己的 key 永远拿不到 A 的 run:既不是重定向,也不是"查到但少了字段"
+    expect(byB.json().id).not.toBe(runA.id)
+    expect(byB.json().thread_id).toBe(b.threadId)
+  })
+
+  it('他人未登记的键 → 404,且与"键不存在"回同一个响应体(不泄露存在性)', async () => {
+    const a = await fixtureThread('ext-cross-owner')
+    const key = 'only-user-a-has-this'
+    const runA = (
+      await post(`/v1/threads/${a.threadId}/runs`, {
+        assistant_id: a.assistantId,
+        external_id: key,
+      })
+    ).json() as Record<string, unknown>
+    // B 名下完全没建过这个键
+    expect(need().redis.peek('run_ext:user_b:only-user-a-has-this')).toBeUndefined()
+
+    const stolen = await get(`/v1/threads/runs/by-external-id/${key}`, 'ak_b')
+    const unknown = await get('/v1/threads/runs/by-external-id/never-registered-anywhere')
+    expect(stolen.statusCode).toBe(404)
+    expect(unknown.statusCode).toBe(404)
+    expect(unknown.body).toBe(stolen.body)
+    // A 自己照旧命中(证明上面 404 是归属隔离,不是路由没接上)
+    const own = await get(`/v1/threads/runs/by-external-id/${key}`, 'ak_a')
+    expect(own.statusCode).toBe(200)
+    expect(own.json().id).toBe(runA.id)
+  })
+
+  it('非法 external_id 在创建入口即 400,且不写任何 Redis 键', async () => {
+    const { assistantId, threadId } = await fixtureThread('ext-invalid')
+    const cases: Array<[string, string]> = [
+      ['空串', ''],
+      ['首尾空白', ' ext-1 '],
+      ['纯空白', '\t\n'],
+      ['超长 129 字符', 'x'.repeat(129)],
+      ['零宽空格 U+200B', 'ext\u200b1'],
+      ['零宽非连接符 U+2060', 'ext\u20601'],
+      ['组合零宽 U+200D', 'ex\u200dt1'],
+      ['冒号(与键分隔符冲突)', 'ext:1'],
+      ['斜杠', 'ext/1'],
+      ['emoji', 'ext-\u{1f600}'],
+    ]
+    for (const [label, bad] of cases) {
+      const res = await post(`/v1/threads/${threadId}/runs`, {
+        assistant_id: assistantId,
+        external_id: bad,
+      })
+      expect(res.statusCode, label).toBe(400)
+      expect((res.json() as Record<string, unknown>).code, label).toBe(400)
+    }
+    // 上限本身可用:钉住"128 是边界"而不是"越界夹紧"
+    const edge = await post(`/v1/threads/${threadId}/runs`, {
+      assistant_id: assistantId,
+      external_id: 'y'.repeat(128),
+    })
+    expect(edge.statusCode).toBe(200)
+    expect(need().redis.peek(`run_ext:user_a:${'y'.repeat(128)}`)).toBe(edge.json().id)
+    // 非法值一个键都没落(空串尤其不能变成 `run_ext:user_a:` 幽灵映射)
+    expect(need().redis.peek('run_ext:user_a:')).toBeUndefined()
+    expect(need().redis.peek('run_ext:user_a: ext-1 ')).toBeUndefined()
+    expect(need().redis.peek('run_ext:user_a:ext\u200b1')).toBeUndefined()
+  })
+
+  it('反查路径上的非法业务键 → 400(参数 schema 拦在查 Redis 之前)', async () => {
+    const res = await get('/v1/threads/runs/by-external-id/not%20legal')
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('缺 runs:read 的 key → 403 SCOPE_REQUIRED(新路由已登记进能力表)', async () => {
+    const { assistantId, threadId } = await fixtureThread('ext-scope')
+    const created = await post(`/v1/threads/${threadId}/runs`, {
+      assistant_id: assistantId,
+      external_id: 'scope-probe-key',
+    })
+    expect(created.statusCode).toBe(200)
+    const res = await get('/v1/threads/runs/by-external-id/scope-probe-key', 'ak_noscope')
+    // 断言 errorCode 而非只断 403:漏登记能力表会是 CAPABILITY_UNREGISTERED,
+    // 那是"默认拒绝"的副作用,不能当作"跑到了 scope 闸"的证据。
+    expect(res.statusCode).toBe(403)
+    expect(res.json().errorCode).toBe('SCOPE_REQUIRED')
+  })
+})
+
+// =============================================================================
 // 2. 游标翻页:不重不漏
 // =============================================================================
 
