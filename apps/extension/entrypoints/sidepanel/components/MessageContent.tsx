@@ -328,6 +328,44 @@ function subagentStatusLabel(status: string, tTool: Translate): string {
   }
 }
 
+/**
+ * 枚举原值 → 用户可见措辞的通用映射器(type / decision / mode / dangerLevel 等同族字段共用)。
+ *
+ * 取舍(刻意为之):**映射不到就原样保留,绝不猜语义**。
+ * 这些字段在契约层多被声明为 `string`(后端角色池会增删、审批模式随版本扩展),
+ * 错译的代价高于直显英文码名 —— 用户看到 raw 原值知道"这是个未登记的取值",
+ * 看到错译(把 deny 译成"已放行")则可能据此做出错误的授权判断。
+ * 因此这里只用**已核实存在**的字面量建表,不做大小写归一、不做驼峰拆分等"猜测式"转换。
+ */
+export function enumLabel(
+  raw: string | undefined | null,
+  keyMap: Readonly<Record<string, string>>,
+  t: Translate,
+): string {
+  if (!raw) return '—'
+  const key = keyMap[raw]
+  return key ? t(key) : raw
+}
+
+/**
+ * 子代理角色名 → 文案键。
+ * 字面量取自后端昵称池(Codex 风格:validator/reviewer/explorer/...,
+ * 见 apps/web/src/hooks/use-agent-progress.ts NICKNAME_POOL),池外的自定义 agent 角色
+ * 属于"用户自己起的标识",按上面取舍保留原值。
+ */
+export const SUBAGENT_ROLE_KEY: Readonly<Record<string, string>> = {
+  validator: 'chat.subagentRoleValidator',
+  reviewer: 'chat.subagentRoleReviewer',
+  explorer: 'chat.subagentRoleExplorer',
+  implementer: 'chat.subagentRoleImplementer',
+  planner: 'chat.subagentRolePlanner',
+  tester: 'chat.subagentRoleTester',
+  researcher: 'chat.subagentRoleResearcher',
+  optimizer: 'chat.subagentRoleOptimizer',
+  debugger: 'chat.subagentRoleDebugger',
+  refactorer: 'chat.subagentRoleRefactorer',
+}
+
 // ==================== 各类型块视图 ====================
 /** 推理过程块 */
 function ReasoningBlockView({ block, t }: { block: ReasoningRenderBlock; t: Translate }) {
@@ -529,8 +567,15 @@ function SubagentBlockView({
           className={`h-3.5 w-3.5 shrink-0 ${statusIconClassByString(block.status)}`}
           aria-hidden
         />
+        {/* name 是用户/后端配置的可读标识(不是枚举),按原值显示;type 是角色码名,必须本地化 */}
         <span className="min-w-0 shrink-0 max-w-[45%] truncate font-medium">{block.name}</span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{block.type}</span>
+        <span
+          className={`shrink-0 text-[10px] text-muted-foreground ${
+            SUBAGENT_ROLE_KEY[block.type] ? '' : 'font-mono'
+          }`}
+        >
+          {enumLabel(block.type, SUBAGENT_ROLE_KEY, t)}
+        </span>
         <span className={`${BADGE_CLASS} bg-muted text-muted-foreground`}>
           {subagentStatusLabel(block.status, tTool)}
         </span>

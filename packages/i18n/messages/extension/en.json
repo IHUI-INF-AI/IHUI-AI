@@ -192,7 +192,17 @@
     "planStatusInProgress": "In progress",
     "planStatusCompleted": "Completed",
     "subagentTools": "Sub-agent tools ×{count}",
-    "usage": "Usage"
+    "usage": "Usage",
+    "subagentRoleValidator": "Validator",
+    "subagentRoleReviewer": "Reviewer",
+    "subagentRoleExplorer": "Explorer",
+    "subagentRoleImplementer": "Implementer",
+    "subagentRolePlanner": "Planner",
+    "subagentRoleTester": "Tester",
+    "subagentRoleResearcher": "Researcher",
+    "subagentRoleOptimizer": "Optimizer",
+    "subagentRoleDebugger": "Debugger",
+    "subagentRoleRefactorer": "Refactorer"
   },
   "settings": {
     "language": "Interface language",
@@ -245,7 +255,21 @@
     "approvalSubmitting": "Submitting...",
     "approvalSent": "Submitted",
     "approvalFailed": "Submit failed",
-    "approvalUnavailable": "Online approval is not supported on this channel"
+    "approvalUnavailable": "Online approval is not supported on this channel",
+    "decisionAllow": "Allowed",
+    "decisionAsk": "Approval needed",
+    "decisionDeny": "Blocked",
+    "levelRead": "Read-only",
+    "levelWrite": "Write",
+    "levelDangerous": "Dangerous",
+    "levelHigh": "High risk",
+    "levelMedium": "Medium risk",
+    "levelLow": "Low risk",
+    "modeDefault": "Default",
+    "modePlan": "Plan mode",
+    "modeAcceptEdits": "Auto-accept edits",
+    "modeBypassPermissions": "Allow everything",
+    "modeManual": "Manual approval"
   },
   "course": {
     "title": "Courses",
