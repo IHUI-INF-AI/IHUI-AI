@@ -201,8 +201,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 桌面端:窗口最大化状态(Tauri onResized 事件)
   const [isMaximized, setIsMaximized] = React.useState(false)
 
-  // 拖拽 + 双击最大化统一状态机(2026-07-28 sidebar.tsx 已验证模式,直接复用)
-  const dragTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 双击最大化检测(拖拽已改为 mousedown 即时触发,不再需要 timer)
   const lastMouseDownAt = React.useRef<number>(0)
   const DOUBLE_CLICK_MS = 250
 
@@ -218,16 +217,6 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       unlisten()
     }
   }, [isDesktop])
-
-  // 清理拖拽 timer
-  React.useEffect(() => {
-    return () => {
-      if (dragTimer.current) {
-        clearTimeout(dragTimer.current)
-        dragTimer.current = null
-      }
-    }
-  }, [])
 
   // 2026-08-01 立:动态测量搜索按钮 left,设置 --topbar-content-left CSS 变量。
   //
@@ -385,11 +374,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   }
 
   /**
-   * 顶栏空白区域鼠标按下:启动延迟拖拽 + 双击最大化检测。
-   * 状态机与 MainShell 原始实现完全一致(2026-07-28 sidebar.tsx 已验证模式):
-   * - 第一次 mousedown:启动 250ms timer,到期触发 startWindowDrag
-   * - 250ms 内 mouseup:取消 timer(纯点击,不拖拽)
-   * - 250ms 内第二次 mousedown:取消 timer + 触发 toggleMaximizeWindow(双击最大化)
+   * 顶栏空白区域鼠标按下:即时拖拽 + 双击最大化检测(2026-09-21 用户要求"直接点击就可以拖拽,不需要长按")。
+   * - mousedown 即调用 startWindowDrag(原 250ms 长按等待废除);未移动鼠标即松开时
+   *   click 仍会派发(Tauri 拖拽循环对无位移按压不吞 click,官方拖拽区 onDoubleClick 示例同机理)
+   * - DOUBLE_CLICK_MS 内第二次 mousedown → toggleMaximizeWindow(双击最大化,保留)
    * - 跳过交互元素(标签/按钮/输入框),让它们的点击正常触发
    */
   const handleDragRegionMouseDown = (e: React.MouseEvent) => {
@@ -400,27 +388,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     const now = Date.now()
     const sinceLast = now - lastMouseDownAt.current
 
-    if (sinceLast < DOUBLE_CLICK_MS && dragTimer.current) {
-      clearTimeout(dragTimer.current)
-      dragTimer.current = null
+    if (sinceLast < DOUBLE_CLICK_MS) {
       lastMouseDownAt.current = 0
       void handleToggleMax()
       return
     }
 
     lastMouseDownAt.current = now
-    if (dragTimer.current) clearTimeout(dragTimer.current)
-    dragTimer.current = setTimeout(() => {
-      void startWindowDrag()
-      dragTimer.current = null
-    }, DOUBLE_CLICK_MS)
-  }
-
-  const cancelDragTimer = () => {
-    if (dragTimer.current) {
-      clearTimeout(dragTimer.current)
-      dragTimer.current = null
-    }
+    void startWindowDrag()
   }
 
   const plusLabel = t('topBar.plus')
@@ -510,13 +485,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         // 左缘已自洽对齐,加 pl 反而会破坏左侧对齐。
         // 2026-09-02 修复(用户反馈"鼠标移入这个区域时为什么不显示拖拽图标可以直接拖拽"):
         // cursor-default → cursor-move。Windows 标准"窗口可拖动"语义,四向箭头明示该区域
-        // 250ms 长按启动拖拽(详见 handleDragRegionMouseDown)。交互子元素(Plus/搜索/chevron/
+        // 2026-09-21 用户要求:按下即拖(handleDragRegionMouseDown mousedown 直接
+        // startWindowDrag),不再需要长按。交互子元素(Plus/搜索/chevron/
         // 标签 a/Min/Max/Close)均自带 cursor-pointer,自动覆盖父级 move 指针:
         // 空白区 → move 提示可拖;按钮/链接 → pointer 提示可点。
         className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-move"
         onMouseDown={handleDragRegionMouseDown}
-        onMouseUp={cancelDragTimer}
-        onMouseLeave={cancelDragTimer}
       >
         {/* 第十二轮 flex 顺序契约(2026-07-31 用户反馈"这两个按钮对换一下",由 JSX 顺序控制):
             1. TagsViewSearchButton    ← 搜索按钮(36x36)
