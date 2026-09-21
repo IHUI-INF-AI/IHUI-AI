@@ -1106,6 +1106,61 @@ def _additional_context_enabled_from_env() -> bool:
     ).strip().lower() in ("on", "1", "true", "yes")
 
 
+def _context_fragments_enabled_from_env() -> bool:
+    """上下文片段组装开关(env AGENT_CONTEXT_FRAGMENTS_ENABLED)。
+
+    对标 codex context-fragments crate。默认 off:不注入任何 recap/answered_question
+    片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_CONTEXT_FRAGMENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _session_prefix_enabled_from_env() -> bool:
+    """Session 前缀片段开关(env AGENT_SESSION_PREFIX_ENABLED)。
+
+    对标 codex session_prefix.rs / inter_agent_message.rs。默认 off:不注入任何
+    inter-agent 完成片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_SESSION_PREFIX_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _instructional_fragments_enabled_from_env() -> bool:
+    """指令片段构造开关(env AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED)。
+
+    对标 codex core/src/context/*_instructions.rs。默认 off:不注入任何指令片段
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _startup_prewarm_enabled_from_env() -> bool:
+    """会话启动预热开关(env AGENT_STARTUP_PREWARM_ENABLED)。
+
+    对标 codex session_startup_prewarm.rs。默认 off:不发起预热、不兑现(与现状
+    逐零差异,首回合零额外延迟)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_STARTUP_PREWARM_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _stream_events_enabled_from_env() -> bool:
+    """流事件工具/回合项映射开关(env AGENT_STREAM_EVENTS_ENABLED)。
+
+    对标 codex event_mapping.rs parse_turn_item。默认 off:不调用任何流事件归一化
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_STREAM_EVENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
 def _build_additional_context_store_from_env() -> Any | None:
     """按 env 构造 AdditionalContextStore;开关关闭或构造异常时为 None(零行为变化)。"""
     if not _additional_context_enabled_from_env():
@@ -1465,6 +1520,25 @@ class AgentLoopV2:
         self._guardian_review_reminder: bool = os.environ.get(
             "AGENT_GUARDIAN_REVIEW_REMINDER", "false"
         ).strip().lower() in ("on", "1", "true", "yes")
+        # 批58(接线):上下文片段组装(对标 codex context-fragments crate)。
+        # 默认 off:不注入任何 recap/answered_question 片段,与现状逐零差异。
+        self._context_fragments_enabled: bool = _context_fragments_enabled_from_env()
+        # 批58(接线):Session 前缀片段(对标 codex session_prefix.rs)。
+        # 默认 off:不注入任何 inter-agent 完成片段,与现状逐零差异。
+        self._session_prefix_enabled: bool = _session_prefix_enabled_from_env()
+        # 批58(接线):指令片段构造(对标 codex core/src/context/*_instructions.rs)。
+        # 默认 off:不注入任何指令片段,与现状逐零差异。
+        self._instructional_fragments_enabled: bool = _instructional_fragments_enabled_from_env()
+        # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
+        # 默认 off:不发起预热、不兑现,首回合零额外延迟,与现状逐零差异。
+        self._startup_prewarm_enabled: bool = _startup_prewarm_enabled_from_env()
+        self._startup_prewarm_timeout: float = 10.0
+        self._startup_prewarm_handle: Any | None = None
+        self._startup_prewarm_resolution: Any | None = None
+        # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+        # 默认 off:不调用任何流事件归一化,与现状逐零差异。
+        self._stream_events_enabled: bool = _stream_events_enabled_from_env()
+        self._last_stream_turn_item: Any | None = None
         # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
         # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
         # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
@@ -2189,6 +2263,9 @@ class AgentLoopV2:
         )
         self._ensure_session_id()
         self._messages = messages
+        # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
+        # 后台发起预热任务;关闭时零动作、首回合零额外延迟,与现状逐零差异。
+        await self._maybe_start_startup_prewarm()
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
@@ -2252,6 +2329,8 @@ class AgentLoopV2:
                     messages.insert(0, {"role": "system", "content": goal_line})
             except Exception as e:
                 logger.warning("线程目标注入失败(降级): %s", e)
+        # 批58(接线):首回合前限时兑现启动预热(绝不无限阻塞,失败静默降级)。
+        await self._resolve_startup_prewarm()
         result = await self._run_loop(
             messages=messages,
             start_iteration=1,
@@ -3229,6 +3308,11 @@ class AgentLoopV2:
                 self._inject_world_state_sections(messages)
                 self._inject_additional_context(messages)
                 self._inject_guardian_context(messages)
+                # 批58(接线):上下文片段 / Session 前缀 / 指令片段 注入(同 developer
+                # 片段拼接区)。三者各自内部已做开关判定与异常隔离,关闭时零片段、零差异。
+                self._inject_context_fragments(messages)
+                self._inject_session_prefix(messages)
+                self._inject_instructional_fragments(messages)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -3242,6 +3326,10 @@ class AgentLoopV2:
 
                 content = llm_response.get("content", "")
                 tool_calls_raw = llm_response.get("tool_calls")
+                # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+                # 开关关闭时零产出(与现状逐零差异);开启时把本轮 LLM 响应归一化为回合项,
+                # 仅作内部观测,不回灌模型、不改动 messages/事件流。
+                self._record_stream_turn_item(llm_response)
                 # 内部标记取出后即消费,不随响应 dict 外泄(检查点/事件零差异)
                 streamed = bool(llm_response.pop("_streamed", False))
 
@@ -4883,4 +4971,177 @@ class AgentLoopV2:
                 )
         except Exception as e:  # noqa: BLE001 - 观测失败隔离
             logger.warning("auto_compact_window prefill 观测失败(降级跳过): %s", e)
+
+    # ------------------------------------------------------------------
+    # 批58(接线):上下文片段 / Session 前缀 / 指令片段 / 启动预热 / 流事件映射
+    # ------------------------------------------------------------------
+    def _derive_recap_history(self, messages: list[dict[str, Any]]) -> str:
+        """从消息列表提取可读历史文本(供 context_fragments.build_recap_prompt 使用)。
+
+        仅取 role/content 文本;content 为字符串直接拼接,为列表则取 input_text/
+        output_text/text 片段。失败返回空串(降级为零历史,模块侧自行兜底)。
+        """
+        try:
+            parts: list[str] = []
+            for _m in messages or []:
+                if not isinstance(_m, dict):
+                    continue
+                _role = _m.get("role", "")
+                _content = _m.get("content", "")
+                if isinstance(_content, str):
+                    _text = _content
+                elif isinstance(_content, list):
+                    _text = "".join(
+                        str(_c.get("text", "") or "")
+                        for _c in _content
+                        if isinstance(_c, dict)
+                        and _c.get("type") in ("input_text", "output_text", "text")
+                    )
+                else:
+                    _text = ""
+                if _text:
+                    parts.append(f"{_role}: {_text}")
+            return "\n".join(parts)
+        except Exception:  # noqa: BLE001 - 历史提取失败降级
+            return ""
+
+    def _inject_context_fragments(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):上下文片段组装注入(对标 codex context-fragments crate)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时用本轮对话历史经
+        build_recap_prompt 生成有界补课提示词,作为 developer 片段追加;注入失败
+        隔离,不阻塞回合。
+        """
+        if not self._context_fragments_enabled:
+            return
+        try:
+            from app.core.context_fragments import build_recap_prompt
+
+            _history = self._derive_recap_history(messages)
+            _recap = build_recap_prompt(_history)
+            if _recap:
+                messages.append({"role": "developer", "content": _recap})
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("context_fragments 注入异常(降级跳过): %s", e)
+
+    def _inject_session_prefix(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):Session 前缀片段注入(对标 codex session_prefix.rs)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时经
+        build_inter_agent_completion_fragment 产出 inter-agent 完成片段并追加;
+        返回空 dict 时不追加;注入失败隔离,不阻塞回合。
+        """
+        if not self._session_prefix_enabled:
+            return
+        try:
+            from app.core.session_prefix import build_inter_agent_completion_fragment
+
+            _task = self._session_id or "ihui-agent"
+            _frag = build_inter_agent_completion_fragment(
+                task_name=_task, sender=_task, status="completed", message=None
+            )
+            if _frag:
+                messages.append(_frag)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("session_prefix 注入异常(降级跳过): %s", e)
+
+    def _inject_instructional_fragments(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):指令片段构造注入(对标 codex core/src/context/*_instructions.rs)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时注入一组参数无关、低风险的
+        指令片段(apps/plugins/environments/user_verification);逐条失败不影响其余片段;
+        返回空则不追加;整体异常隔离,不阻塞回合。
+        """
+        if not self._instructional_fragments_enabled:
+            return
+        try:
+            from app.core.instructional_fragments import (
+                build_apps_instructions_fragment,
+                build_available_plugins_instructions_fragment,
+                build_environments_instructions_fragment,
+                build_user_verification_notice_fragment,
+            )
+
+            for _builder in (
+                build_apps_instructions_fragment,
+                build_available_plugins_instructions_fragment,
+                build_environments_instructions_fragment,
+                build_user_verification_notice_fragment,
+            ):
+                _frag = _builder()
+                if _frag:
+                    messages.append(_frag)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("instructional_fragments 注入异常(降级跳过): %s", e)
+
+    async def _prewarm_factory(self) -> None:
+        """最佳努力的网关连接预热占位(对标 codex 预热体)。
+
+        默认空操作:真实预热体由调用方注入的实现扩展(本仓 LLM 网关连接已随首次
+        请求自然建立)。本方法仅用于驱动 startup_prewarm 的机械(发起→限时兑现),
+        不引入外部依赖、不调用模型。
+        """
+        await asyncio.sleep(0)
+
+    async def _maybe_start_startup_prewarm(self) -> None:
+        """批58(接线):后台发起会话启动预热(对标 codex session_startup_prewarm.rs)。
+
+        仅开关开启且尚未发起时调用;在运行事件循环内创建后台 task。发起失败静默降级,
+        不阻塞主链路。关闭时零动作,与现状逐零差异。
+        """
+        if not self._startup_prewarm_enabled or self._startup_prewarm_handle is not None:
+            return
+        try:
+            from app.core.startup_prewarm import start_startup_prewarm
+
+            self._startup_prewarm_handle = start_startup_prewarm(
+                self._prewarm_factory, timeout=self._startup_prewarm_timeout
+            )
+        except Exception as e:  # noqa: BLE001 - 预热发起失败静默降级
+            logger.debug("startup_prewarm 发起失败(降级跳过): %s", e)
+            self._startup_prewarm_handle = None
+
+    async def _resolve_startup_prewarm(self) -> None:
+        """批58(接线):首回合前限时兑现预热(对标 codex resolve 语义)。
+
+        无句柄时直接返回(零延迟)。有句柄时 await 其 resolve(),并加外层 wait_for 保险,
+        确保绝不无限阻塞;兑现结果(status/耗时)存入 _startup_prewarm_resolution 供观测;
+        任何失败静默降级,不阻塞主链路。
+        """
+        _handle = self._startup_prewarm_handle
+        if _handle is None:
+            return
+        try:
+            # 外层保险:即使 handle.resolve 内部超时逻辑异常,也绝不无限阻塞首回合
+            self._startup_prewarm_resolution = await asyncio.wait_for(
+                _handle.resolve(), timeout=self._startup_prewarm_timeout + 1.0
+            )
+        except Exception as e:  # noqa: BLE001 - 兑现失败静默降级
+            logger.debug("startup_prewarm 兑现失败(降级跳过): %s", e)
+            self._startup_prewarm_resolution = None
+
+    def _record_stream_turn_item(self, llm_response: dict[str, Any]) -> None:
+        """批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+
+        开关关闭时直接返回(零产出、与现状逐零差异)。开启时把本轮 LLM 响应构造为
+        ResponseItem 并归一化为回合项,仅作内部观测(存 _last_stream_turn_item),
+        不回灌模型、不改动 messages/事件流。异常隔离,不阻塞回合。
+        """
+        if not self._stream_events_enabled:
+            return
+        try:
+            from app.core.stream_events import parse_turn_item
+
+            _content = llm_response.get("content", "") or ""
+            if not isinstance(_content, str):
+                _content = ""
+            _item = {
+                "type": "message",
+                "role": "assistant",
+                "id": llm_response.get("id"),
+                "content": [{"type": "output_text", "text": _content}],
+            }
+            self._last_stream_turn_item = parse_turn_item(_item)
+        except Exception as e:  # noqa: BLE001 - 映射失败隔离,不阻塞回合
+            logger.debug("stream_events 回合项映射失败(降级跳过): %s", e)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
