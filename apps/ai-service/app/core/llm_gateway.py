@@ -810,6 +810,9 @@ async def _find_quota_equivalent_channels(
 
     scored: list[tuple[int, int, int, int, str]] = []
     seen: set[str] = set()
+    # 只用于诊断:命中 SQL 粗筛却被逐出的行数。没有它,"为什么没给我换到可用通道"
+    # 在日志里完全看不出来(实测:进程刚起完、模型同步未跑完时全部候选会被可用性闸排除)。
+    dropped_unavailable = 0
     origin_generation = classify_model(bare).generation
     for idx, row in enumerate(rows):
         provider_code = str(row["provider_code"] or "")
@@ -830,6 +833,7 @@ async def _find_quota_equivalent_channels(
         if candidate.lower() in seen or any(candidate.startswith(p) for p in _LOCAL_PREFIXES):
             continue
         if not model_availability.is_model_available(candidate):
+            dropped_unavailable += 1
             continue
         seen.add(candidate.lower())
         provider = free_provider_registry.get_by_code(provider_code)
@@ -838,6 +842,15 @@ async def _find_quota_equivalent_channels(
         gen_rank = _generation_rank(origin_generation, cls.generation)
         scored.append((free_rank, gen_rank, _TIER_RANK.get(cls.tier.value, 2), idx, candidate))
     scored.sort()
+    if not scored and rows:
+        logger.info(
+            "[quota-equivalent] %s 粗筛命中 %d 行同族候选,全部被逐出:"
+            " 可用性闸未放行=%d,其他原因(未配 key/前缀不可路由/同名/家族词干不符)=%d",
+            model_id,
+            len(rows),
+            dropped_unavailable,
+            len(rows) - len(scored) - dropped_unavailable,
+        )
     return [c for _, _, _, _, c in scored[:_MAX_QUOTA_EQUIVALENT_CHANNELS]]
 
 
