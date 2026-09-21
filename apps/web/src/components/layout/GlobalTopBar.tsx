@@ -480,6 +480,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         // 标签 a/Min/Max/Close)均自带 cursor-pointer,自动覆盖父级 move 指针:
         // 空白区 → move 提示可拖;按钮/链接 → pointer 提示可点。
         className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-move"
+        // 原生拖拽区:Tauri 注入脚本在 mousedown 当下即启动窗口移动循环,零 IPC 往返延迟。
+        // (JS 里 invoke start_dragging 有 ~50-90ms 启动延迟,实测会吃掉手势前几十像素,
+        //  用户感知为"要按一会才跟手"。)按元素生效:子按钮/标签不带此属性,点击不受影响。
+        data-tauri-drag-region
         onMouseDown={handleDragRegionMouseDown}
         onDoubleClick={handleDragRegionDoubleClick}
       >

@@ -149,6 +149,7 @@ export function SidebarHeader({
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口按下即拖拽
       <div
+        data-tauri-drag-region
         className={cn(
           'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
           isDesktop && 'cursor-move',
@@ -215,6 +216,7 @@ export function SidebarHeader({
       // 该区间 CSS 已强制 aside 60px,长 logo 会与折叠按钮重叠(2026-09-09 修复)。
       // hydration 后 React 切到折叠态分支(方形 logo + 展开按钮),此标记不再存在。
       data-sidebar-header-expanded
+      data-tauri-drag-region
       className={cn(
         // header 高 44px(保持不变,新建任务按钮位置不动)。
         // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
