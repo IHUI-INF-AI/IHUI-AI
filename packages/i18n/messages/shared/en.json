@@ -1,5 +1,11 @@
 {
   "taskStatus": {
+    "toolReadFileActivity": "{state, select, running {Reading file contents} completed {Read file contents} other {Read file}}",
+    "toolEditFileActivity": "{state, select, running {Editing file} completed {Edited file} other {Edit file}}",
+    "toolWriteFileActivity": "{state, select, running {Writing file} completed {Wrote file} other {Write file}}",
+    "toolSearchCodebaseActivity": "{state, select, running {Searching codebase} completed {Searched codebase} other {Search codebase}}",
+    "toolWebSearchActivity": "{state, select, running {Searching the web} completed {Searched the web} other {Search the web}}",
+    "toolParseDocumentActivity": "{state, select, running {Parsing document} completed {Parsed document} other {Parse document}}",
     "toolReadFile": "Read file contents",
     "toolEditFile": "Edit file",
     "toolWriteFile": "Write file",
