@@ -52,6 +52,8 @@ import {
   type PendingResume,
 } from '@/hooks/use-chat/resume-stream'
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { useDesktop } from '@/hooks/use-desktop'
+import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 // P3 #34(2026-09-16 立):流式屏幕阅读器播报(aria-live)
 import { SrStreamAnnouncer } from '@/components/chat/sr-stream-announcer'
 import { VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
@@ -237,6 +239,19 @@ export function AISidePanel() {
   //   解决 a3eb24ffc6 把阈值从 768 改到 1023 导致桌面端小窗口 AI 面板"异常宽"回归
   // - 浮窗展开时全屏覆盖(利用现有 floatMode,移动端样式覆盖)
   const isMobileSmall = useMediaQuery('(max-width: 767px)')
+
+  // 桌面端 + 停靠态:面板标题栏作为窗口拖拽把手(用户习惯抓任意顶部标题栏拖窗口)。
+  // 浮窗态不接管——那时标题栏的职责是移动面板自身(handleFloatDragStart)。
+  const { isDesktop } = useDesktop()
+  const windowDragFromHeader = isDesktop && !isMobileSmall && !floatMode
+  const handleHeaderWindowDragMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      if (!windowDragFromHeader || e.button !== 0) return
+      if (!isDraggableBlankArea(e.target as HTMLElement)) return
+      armWindowDragOnFirstMove(e.screenX, e.screenY)
+    },
+    [windowDragFromHeader],
+  )
 
   // 移动端自动切换:进入手机视口(<768px)时,自动切为浮窗展开模式(默认正常态)
   // - 仅在 floatMode=false(docked)且 isMobileSmall=true(手机)时触发
@@ -1160,15 +1175,18 @@ export function AISidePanel() {
             )}
           >
             {/* 标题栏(浮窗模式下可拖拽,手机全屏模式禁用拖拽) */}
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口按下即拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户走窗口原生快捷键 */}
             <header
               onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
+              onMouseDown={handleHeaderWindowDragMouseDown}
               className={cn(
                 'flex h-14 shrink-0 items-center gap-2 px-3',
                 // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
                 '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
                 // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
                 // 移动端全屏模式:不可拖拽
-                floatMode && !isMobileSmall && 'cursor-move',
+                // 停靠态(桌面端):标题栏拖的是整个窗口,同样给 move 指针
+                ((floatMode && !isMobileSmall) || windowDragFromHeader) && 'cursor-move',
               )}
             >
               {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
