@@ -12,6 +12,7 @@ import {
   computeFileChanges,
   computeFileChangesFromDiff,
   deriveTaskStatusBar,
+  humanizeToolText,
   toolDisplayKey,
   type TaskStatusKind,
   type TaskStatusStepView,
@@ -48,7 +49,13 @@ const KIND_GLYPH: Record<
   idle: { icon: CircleDashed, cls: 'text-muted-foreground' },
 }
 
-function StepRow({ step }: { step: TaskStatusStepView }) {
+function StepRow({
+  step,
+  translate,
+}: {
+  step: TaskStatusStepView
+  translate: (key: string) => string
+}) {
   const Icon = STEP_ICON[step.status]
   return (
     <li className="flex items-start gap-2 py-0.5">
@@ -61,7 +68,7 @@ function StepRow({ step }: { step: TaskStatusStepView }) {
           step.status === 'pending' && 'text-muted-foreground',
         )}
       >
-        {step.title}
+        {humanizeToolText(step.title, translate)}
       </span>
     </li>
   )
@@ -162,7 +169,8 @@ export function TaskStatusBar() {
   if (!view) return null
 
   const { icon: Glyph, cls: glyphCls } = KIND_GLYPH[view.kind]
-  const headline = activityLabel || view.headline || t('waiting')
+  const headline =
+    activityLabel || (view.headline ? humanizeToolText(view.headline, t) : '') || t('waiting')
   // 无步骤时不渲染计数(否则流式中会出现"执行中 · 空闲"的矛盾文案)
   const stepText =
     view.stepTotal > 0 ? t('steps', { current: view.stepCurrent, total: view.stepTotal }) : ''
@@ -209,7 +217,7 @@ export function TaskStatusBar() {
         {open && view.stepTotal > 0 ? (
           <ul className="px-3 pb-2" aria-label={t('steps')}>
             {view.steps.map((step) => (
-              <StepRow key={step.id} step={step} />
+              <StepRow key={step.id} step={step} translate={t} />
             ))}
           </ul>
         ) : null}

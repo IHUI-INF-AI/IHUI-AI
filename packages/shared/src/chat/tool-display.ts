@@ -29,4 +29,21 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
 export function toolDisplayKey(toolName: string): string | null {
   return TOOL_DISPLAY_KEYS[toolName] ?? null
 }
+
+/**
+ * 把自由文本里的英文工具码名替换为本地化功能名。
+ * 用于后端 plan step 标题等含 "read_file: path" 式前缀的文本 —— 界面禁止直显英文工具码名。
+ * translate 接收 i18n 键(如 'toolReadFile')返回本地化功能名;无翻译时键名原样回落可接受。
+ */
+export function humanizeToolText(text: string, translate: (key: string) => string): string {
+  let out = text
+  for (const [code, key] of Object.entries(TOOL_DISPLAY_KEYS)) {
+    if (out.includes(code)) {
+      out = out.split(code).join(translate(key))
+    }
+  }
+  return out
+}
+
+export const __toolDisplayKeys = TOOL_DISPLAY_KEYS
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
