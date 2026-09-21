@@ -380,8 +380,12 @@ _APP_ACTIONS = {"describe", "navigate", "read", "invoke", "click", "fill", "subm
 
 
 def test_app_tool_families_shapes() -> None:
-    """RN / 小程序族各七工具:无 DOM 端靠控件注册表承接 click/fill/submit,不是砍掉能力。"""
-    for family, prefix in (("mobile", "mobile_ui_"), ("taro", "taro_ui_")):
+    """RN / 小程序 / 扩展三族各七工具:无 DOM 端靠控件注册表承接 click/fill/submit,不是砍掉能力。"""
+    for family, prefix in (
+        ("mobile", "mobile_ui_"),
+        ("taro", "taro_ui_"),
+        ("extension", "ext_ui_"),
+    ):
         tools = {t.name: t for t, _ in ub._app_tools(family)}
         assert set(tools) == {prefix + a for a in _APP_ACTIONS}, family
         for name, tool in tools.items():
@@ -405,7 +409,11 @@ def test_app_family_action_set_matches_autonomy_gate() -> None:
     """
     from app.services.control_autonomy import _FAMILY_ACTIONS
 
-    for family, prefix in (("mobile", "mobile_ui_"), ("taro", "taro_ui_")):
+    for family, prefix in (
+        ("mobile", "mobile_ui_"),
+        ("taro", "taro_ui_"),
+        ("extension", "ext_ui_"),
+    ):
         registered = {t.name.replace(prefix, "") for t, _ in ub._app_tools(family)}
         assert registered == set(_FAMILY_ACTIONS[prefix]), family
 
@@ -413,13 +421,13 @@ def test_app_family_action_set_matches_autonomy_gate() -> None:
 def test_register_app_ui_tools_counts_and_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.services.mcp_server import mcp_server
 
-    assert ub.register_app_ui_tools() == 14
+    assert ub.register_app_ui_tools() == 21
     assert ub.register_app_ui_tools() == 0  # 幂等:同名不覆盖
     monkeypatch.setenv("APP_UI_TOOLS", "false")
     # 关闭时既不再注册,也要把已注册的两族撤掉(与 web 族同一语义)
     assert ub.register_app_ui_tools() == 0
     names = {t.name for t in mcp_server.list_tools()}
-    assert not {n for n in names if n.startswith(("mobile_ui_", "taro_ui_"))}
+    assert not {n for n in names if n.startswith(("mobile_ui_", "taro_ui_", "ext_ui_"))}
 
 
 async def test_pin_is_per_category_so_ends_do_not_cross_steal(
@@ -471,6 +479,7 @@ _CLIENT_TOOL_LISTS: tuple[tuple[str, str, str], ...] = (
     ("apps/web/src/hooks/use-chat/tool-config.ts", "WEB_UI_CONTROL_TOOLS", "web_ui_"),
     ("apps/mobile-rn/src/lib/ui-control-tools.ts", "MOBILE_UI_CONTROL_TOOLS", "mobile_ui_"),
     ("apps/miniapp-taro/src/lib/ui-control-tools.ts", "TARO_UI_CONTROL_TOOLS", "taro_ui_"),
+    ("apps/extension/lib/ui-control-tools.ts", "EXT_UI_CONTROL_TOOLS", "ext_ui_"),
 )
 
 
@@ -483,7 +492,7 @@ def _client_tools(repo_root: Path, rel: str, const: str) -> set[str]:
 
 
 def test_client_tool_lists_match_registered_surface() -> None:
-    """三端客户端清单必须与服务端真实注册面**双向**相等。
+    """四端客户端清单必须与服务端真实注册面**双向**相等。
 
     为什么常驻而不是"临时审计脚本":2026-09-21 一批把移动两族从 4 动词扩到 7 的改动被并行
     会话清空,一次性脚本当场过期无人察觉 —— 端清单落后于注册面时,AI 只会看见 describe/read/
@@ -494,6 +503,7 @@ def test_client_tool_lists_match_registered_surface() -> None:
         "web_ui_": {t.name for t, _ in ub._ui_tools()},
         "mobile_ui_": {t.name for t, _ in ub._app_tools("mobile")},
         "taro_ui_": {t.name for t, _ in ub._app_tools("taro")},
+        "ext_ui_": {t.name for t, _ in ub._app_tools("extension")},
     }
     for rel, const, prefix in _CLIENT_TOOL_LISTS:
         client = _client_tools(repo_root, rel, const)
