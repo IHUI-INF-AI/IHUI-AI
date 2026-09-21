@@ -360,6 +360,9 @@ def _sync_env_file_to_os() -> None:
             "API_INTERNAL_BASE_URL",
             "UI_ACTION_TOOLS",
             "UI_ACTION_TIMEOUT",
+            # 服务端自主注入操控工具(2026-09-21):control_autonomy 用 os.environ.get 直读,
+            # 不进白名单则 .env 里设了也不生效(与上面那几个键同一类静默失效)。
+            "CONTROL_AUTONOMY",
             # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
             # 代理变量,.env 值必须同步进环境才会生效。NO_PROXY 保证国内 Provider
             # 与本机服务直连。
