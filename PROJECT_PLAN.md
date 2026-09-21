@@ -486,6 +486,23 @@
       ③ 顺带记一处 api 余量:`appUiActions`/`taroUiActions` 的 zod 上限是 `max(10)`,现用 7 ⇒ 只剩 3 个余量,
       下次扩动词若撞上会**整条 capability 上报 400 静默失联**(web 侧同类字段是 `max(20)`)。
 
+- [x] ✅(2026-09-21) E16 扩展端自有界面纳入操控面(ext_ui 第五族,用户批准新增):
+      sidepanel/popup 是真实同源 DOM(44 页 / 51 处控件),但 `chrome-extension://` 页面 content script
+      进不去,而 `browser→extension` 已被"操控外部网页"按 1:1 择端占用 ⇒ 必须单开 category:
+      ① 协议四层(`971c4766a5`):types `ExtUiActionType` 七动词 + category 联合 + capability
+      `extUiActions`(zod 直接 max(20),不复犯 appUiActions max(10) 七动词只剩 3 个余量的错);
+      api `CATEGORY_ENDPOINT.ext_ui='extension'` + `CATEGORY_LABEL` + zod + /status 计数 ——
+      **漏一张按 category 键控的 Record 就是 TS2741**,这两张表是新增 category 的必改点;
+      ai-service `_FAMILIES`/`_ENDPOINT_PREFIX`/`_FAMILY_ACTIONS` 同步;
+      ② 端侧(`2b19843e06`):自有 DOM 执行器(fill 走原型原生 value setter,React 受控组件也生效;
+      密码字段连快照都不出现;删除/支付/发布 DESTRUCTIVE_BLOCKED 与 web 逐字对齐)、
+      导航白名单 49 条(SidepanelApp 路由表清点,白名单外 ROUTE_NOT_ALLOWED)、
+      background 按 category 分流经 chrome.runtime 转发 sidepanel 执行(方案 a:一条 WS、一处回执,
+      sidepanel 未开如实 TARGET_NOT_CONNECTED)、能力上报 extUiActions、聊天请求按意图携带 ext_ui_*。
+      证据:extension typecheck 0 错 + vitest **11 文件 / 139 项全绿**(基线 116);
+      ai-service 75 项(防漂移断言把 `apps/extension/lib/ui-control-tools.ts` 纳入双向对照);
+      api 23 项(㉒ 同端双 category 不互抢的正面证据 / ㉓ /status 计数);
+      主会话独立复核(非代理自报),未做真机浏览器装载验证(WXT dev 装载属 B15① 同类待验项)。
 ### 验证证据(2026-09-20)
 
 - ai-service 新增测试 72 项全绿;`tests/test_conversation.py` 23 项、`test_mcp_server.py` 172 项回归通过。
