@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -461,6 +463,46 @@ def test_unregister_prefix_removes_tools() -> None:
     assert len(removed) == 7
     names = {t.name for t in mcp_server.list_tools()}
     assert not (_EXPECTED_TOOLS & names)
+
+
+# 端内"本次请求要带哪些工具"的清单(客户端正门)。三端各写一份 TS 常量,
+# 服务端注册面写在 Python 里 —— 两边只有这一条机械路径能对上。
+_CLIENT_TOOL_LISTS: tuple[tuple[str, str, str], ...] = (
+    ("apps/web/src/hooks/use-chat/tool-config.ts", "WEB_UI_CONTROL_TOOLS", "web_ui_"),
+    ("apps/mobile-rn/src/lib/ui-control-tools.ts", "MOBILE_UI_CONTROL_TOOLS", "mobile_ui_"),
+    ("apps/miniapp-taro/src/lib/ui-control-tools.ts", "TARO_UI_CONTROL_TOOLS", "taro_ui_"),
+)
+
+
+def _client_tools(repo_root: Path, rel: str, const: str) -> set[str]:
+    """按 const 名抓出数组字面量里的工具名(不做 AST:这三处形态稳定且被本用例锁死)。"""
+    text = (repo_root / rel).read_text(encoding="utf-8")
+    block = re.search(rf"export const {const}\s*=\s*\[(.*?)\]", text, re.S)
+    assert block, f"{rel} 里找不到 export const {const} = [...](改名即等于断链,故视为失败)"
+    return set(re.findall(r"'([A-Za-z0-9_]+)'", block.group(1)))
+
+
+def test_client_tool_lists_match_registered_surface() -> None:
+    """三端客户端清单必须与服务端真实注册面**双向**相等。
+
+    为什么常驻而不是"临时审计脚本":2026-09-21 一批把移动两族从 4 动词扩到 7 的改动被并行
+    会话清空,一次性脚本当场过期无人察觉 —— 端清单落后于注册面时,AI 只会看见 describe/read/
+    navigate/invoke 四个工具,移动端填输入框的能力**静默消失**,不报错也不掉线。
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    registered_by_prefix = {
+        "web_ui_": {t.name for t, _ in ub._ui_tools()},
+        "mobile_ui_": {t.name for t, _ in ub._app_tools("mobile")},
+        "taro_ui_": {t.name for t, _ in ub._app_tools("taro")},
+    }
+    for rel, const, prefix in _CLIENT_TOOL_LISTS:
+        client = _client_tools(repo_root, rel, const)
+        registered = registered_by_prefix[prefix]
+        assert client, f"{const} 解析出空清单(解析式或数组形态变了)"
+        assert client == registered, (
+            f"{rel}::{const} 与 {prefix} 注册面漂移:"
+            f"端缺 {sorted(registered - client)} / 端多 {sorted(client - registered)}"
+        )
 
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
