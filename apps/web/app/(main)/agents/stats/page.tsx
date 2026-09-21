@@ -130,7 +130,7 @@ export default function AgentStatsPage() {
                 <CardContent className="min-[640px]:p-3 space-y-2 p-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {t(STAT_KEY[card.key] ?? 'stat.unknown')}
+                      {t(STAT_KEY[card.key])}
                     </span>
                     <Icon className={`h-4 w-4 ${card.color}`} />
                   </div>

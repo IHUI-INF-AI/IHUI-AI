@@ -72,7 +72,7 @@ export default function RankingPageClient() {
         <TabsList>
           {RANGES.map((r) => (
             <TabsTrigger key={r} value={r}>
-              {t(RANGE_KEY[r] ?? 'range.unknown')}
+              {t(RANGE_KEY[r])}
             </TabsTrigger>
           ))}
         </TabsList>
