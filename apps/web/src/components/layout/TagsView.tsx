@@ -479,6 +479,11 @@ export function TagsView() {
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div
+        // data-tauri-drag-region 按"按下目标恰为该元素"生效:顶栏中间这块 flex-1 空白
+        // 属于本容器而非 GlobalTopBar 外层 div,不标属性就只会走 JS 位移阈值兜底路径,
+        // 窗口会恒定滞后约 40px(手感即"推着不动、停一下才跟上")。标签 a 自带 HTML5
+        // 拖拽排序,不在此元素上,故不受影响。
+        data-tauri-drag-region
         className="hover-scroll flex h-full flex-1 items-center gap-1 whitespace-nowrap"
         onWheel={(e) => {
           // 2026-08-13 水平滚动:去掉 overflow-x:auto 后 outline 不被裁剪,
