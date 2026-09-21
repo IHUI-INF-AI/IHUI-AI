@@ -63,14 +63,14 @@ export function SidebarHeader({
   const navigate = useNavigateWithProgress()
   const { isDesktop } = useDesktop()
 
-  // 桌面端 sidebar header 空白区按下即拖拽窗口(Tauri decorations:false 无边框窗口;
+  // 桌面端 sidebar header 按下即拖拽窗口(Tauri decorations:false 无边框窗口;
   // 2026-09-21 用户要求"直接点击就可以拖拽,不需要长按",实现见 lib/window-drag.ts)。
-  // 必须排除交互子元素(折叠/展开 Button、logo 按钮、长 logo):Tauri 的原生拖拽循环会
-  // 吞掉子元素 click,漏了守卫就会出现"展开按钮点了没反应"的回归。
-  // 空白区(header 的 padding/gap)按下即拖;logo 保持短按跳首页。
+  // 拖拽面 = 整条 header 含 logo(用户习惯抓 logo 拖窗口,旧实现即如此);排除折叠/展开
+  // Button 等真控件,避免 Tauri 原生拖拽循环吞掉它们的 click(曾致"展开按钮点了没反应")。
+  // logo 的"点一下跳首页"由位移阈值保护:无位移 → 不启动拖拽 → click 照常派发。
   const handleLogoMouseDown = (e: React.MouseEvent) => {
     if (!isDesktop || e.button !== 0) return
-    if (!isDraggableBlankArea(e.target as HTMLElement, '[data-sidebar-logo]')) return
+    if (!isDraggableBlankArea(e.target as HTMLElement)) return
     armWindowDragOnFirstMove(e.screenX, e.screenY)
   }
 
@@ -162,6 +162,7 @@ export function SidebarHeader({
         <button
           type="button"
           aria-label="IHUI AI"
+          data-window-drag
           onClick={() => navigate('/')}
           className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
@@ -228,7 +229,14 @@ export function SidebarHeader({
     >
       {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 768-1023px 隐藏;
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
-      <span data-sidebar-logo className="flex shrink-0">
+      <span
+        data-sidebar-logo
+        // 桌面端把 logo 当拖窗把手,必须掐掉 <img> 原生拖拽(否则浏览器起图片幽灵拖拽)
+        onDragStart={(e) => {
+          if (isDesktop) e.preventDefault()
+        }}
+        className="flex shrink-0"
+      >
         <ThemeLogo
           clickable
           width={80}
