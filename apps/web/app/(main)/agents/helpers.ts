@@ -9,7 +9,7 @@ export const PAGE_SIZE = 12
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
+  if (!r.success) throw Object.assign(new Error(r.error), { status: r.status })
   return r.data
 }
 
