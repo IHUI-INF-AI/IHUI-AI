@@ -1183,6 +1183,7 @@ const checks = [
     script: 'check-tool-name-display-coverage.mjs',
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_NAME_COVERAGE',
     onFailHint: [
       '',
       '  💡 有注册工具没有本地化功能名,或 taskStatus 里对应键缺某语言文案。',
@@ -1196,7 +1197,7 @@ const checks = [
   },
 
   {
-    id: '56',
+    id: '59',
     label: '🈳 ICU 语法跨端可用性守门(blocking,D101:非 web 端取词引擎只支持四形子集)',
     script: 'check-icu-locale-support.mjs',
     args: [],
@@ -1250,6 +1251,28 @@ const checks = [
       '     误伤回归:node scripts/check-zh-term-quality.mjs(现存语言包须 0 命中才可加新判据)',
       '     自检:node scripts/check-zh-term-quality.mjs --self-test',
       '     紧急跳过(不推荐):HUSKY_SKIP_ZH_TERM_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 56 (2026-09-21 新增,工具功能名"各端取得到值"覆盖守门,blocking) ---
+  // 拦两类静默失败:① 词表加了映射但某语言/某端语言包没有该 taskStatus 键 →
+  //   端内点号取词器缺键回显键名,把 read_file 显示成 toolReadFile(断言"不含 read_file"照样绿);
+  // ② 改了 shared 却忘了跑 pnpm gen:i18n → 小程序离线包整块过期(实测曾 13 vs 139 键)。
+  {
+    id: '56',
+    label: '🔤 工具功能名各端可解析守门(blocking,防取词回显与离线包过期)',
+    script: 'check-tool-display-resolvable.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE',
+    onFailHint: [
+      '',
+      '  💡 有工具功能名在某语言 / 某端语言包 / 小程序离线包里取不到值。',
+      '     修复:1) 补齐 packages/i18n/messages/shared/<lang>.json 的 taskStatus 键(5 语言齐全)',
+      '           2) cd apps/miniapp-taro && pnpm gen:i18n  重生成离线语言包',
+      '     全量:node scripts/check-tool-display-resolvable.mjs --json',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE=1 git commit ...',
       '',
     ].join('\n'),
   },
