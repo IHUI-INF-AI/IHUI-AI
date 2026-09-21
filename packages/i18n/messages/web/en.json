@@ -9868,10 +9868,7 @@
     "voiceHandsFreeOn": "Hands-free on (speak to send)",
     "voiceHandsFreeOff": "Hands-free off",
     "voicePlayback": "Playback",
-    "voiceHandsFree": "Hands-free",
-    "locator": {
-      "title": "Conversation locator"
-    }
+    "voiceHandsFree": "Hands-free"
   },
   "chatHistory": {
     "backToHistory": "Back to History",

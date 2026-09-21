@@ -576,7 +576,7 @@
 
 - [x] ✅(2026-09-19 晚,V2 复核) D1 消息级计量徽章:后端 usage 逐帧透出(tokens/耗时/首包延迟/模型/费用)→ MessageItem 底部徽章行(G-1)。证据:MessageItem.tsx「D1 消息级计量徽章行」+ MessageUsageMetrics/UsageBreakdown;usage 帧 firstTokenMs/durationMs/costUsd(ai-chat-stream.ts)
 - [x] ✅(2026-09-19 晚,V2 复核·部分转出) D2 骨架屏等待占位 ✅(streaming-skeleton.tsx+test);**自适应折叠策略未收口→转入本轮 D21**(G-2/G-5)
-- [x] ✅(2026-09-19 晚,V2 复核) D3 对话快速定位器(侧轨 anchor 导航)+ 跳顶/跳底浮动钮(G-3/G-4)。证据:conversation-locator-rail.tsx+scroll-jump-buttons.tsx 均带测试
+- [x] ✅(2026-09-19 晚,V2 复核) D3 对话快速定位器(侧轨 anchor 导航)+ 跳顶/跳底浮动钮(G-3/G-4)。证据:conversation-locator-rail.tsx+scroll-jump-buttons.tsx 均带测试〔2026-09-21 归一:D3 滚动联动高亮并入 QueryThumbRail(W18),conversation-locator-rail.tsx 及其测试删除,右侧单 rail;背景 token --color-float-indicator-bg 缺失(致容器透明)已在 tokens.css 补齐〕
 - [x] ✅(2026-09-19 晚,V2 复核) D4 回退影响预览流:checkpoint/rollback 恢复前列影响文件+diff 确认(对标 Trae)(G-6)。证据:checkpoint-impact.ts+checkpoint-rollback-confirm.tsx
 - [x] ✅(2026-09-19 晚,V2 复核) D5 工具调用卡补耗时/重试元数据;导出图片分享卡(G-8/G-9)。证据:ToolCallCard duration/retry;share-card-svg.ts
 - [ ] D6 多 agent 栈收敛(agents-kanban/swarm/orchestration/tasks 四套→AgentLoopV2 单一事实源)方案评审并启动(G-22)。⏳(2026-09-19)四面板实现在库,终项确认待并行批次恢复后给出;产品化看板缺口另立 D25
