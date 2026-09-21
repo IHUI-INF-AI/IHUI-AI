@@ -1,0 +1,201 @@
+{
+  "$comment": "对话流元素清单(单一事实源之一)。planned 条目由 PROJECT_PLAN.md 第四轮任务行(支持 `- [ ] **Dnn` 与已完成态 `- [x] ✅(日期)**Dnn` 两种形态)实时解析,本文件只登记三样:① 已实现元素的锚点(锚点漂移即红,防渲染位被删);② 元素声明依赖的契约事件(防前端监听后端不发、或后端发而无人消费);③ 条目数基线(只挡倒退,不挡增长)。新增已实现元素必须同 PR 改本文件。",
+  "planSource": {
+    "file": "PROJECT_PLAN.md",
+    "taskLinePattern": "^- \\[([ x])\\]\\s*(?:✅[^*]*)?\\*\\*(D[0-9]+)",
+    "gapIdPattern": "G-[0-9]{2,3}"
+  },
+  "entryCountBaseline": 103,
+  "implemented": [
+    {
+      "id": "message-usage-metrics",
+      "title": "消息级计量徽章行(tokens/耗时/首包/费用)",
+      "sourceTask": "D1",
+      "events": ["usage"],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+          "mustMatch": "Metrics"
+        }
+      ]
+    },
+    {
+      "id": "streaming-skeleton",
+      "title": "流式等待骨架屏占位",
+      "sourceTask": "D2",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/streaming-skeleton.tsx",
+          "mustMatch": "Skeleton"
+        }
+      ]
+    },
+    {
+      "id": "scroll-jump-buttons",
+      "title": "跳顶/跳底浮动钮",
+      "sourceTask": "D3",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/scroll-jump-buttons.tsx",
+          "mustMatch": "Scroll"
+        }
+      ]
+    },
+    {
+      "id": "checkpoint-impact-preview",
+      "title": "回退影响预览(恢复前列影响文件+diff)",
+      "sourceTask": "D4",
+      "anchors": [
+        { "file": "apps/web/src/components/ai/checkpoint-impact.ts", "mustMatch": "export" },
+        {
+          "file": "apps/web/src/components/ai/checkpoint-rollback-confirm.tsx",
+          "mustMatch": "export"
+        }
+      ]
+    },
+    {
+      "id": "tool-call-card-meta",
+      "title": "工具调用卡耗时/重试元数据",
+      "sourceTask": "D5",
+      "anchors": [
+        { "file": "apps/web/src/components/ai/tool-call-card.tsx", "mustMatch": "duration" }
+      ]
+    },
+    {
+      "id": "fold-policy-adaptive",
+      "title": "对话流自适应折叠策略(三维阈值+三档配置)",
+      "sourceTask": "D21",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/fold-policy.ts",
+          "mustMatch": "AUTO_COLLAPSE"
+        }
+      ]
+    },
+    {
+      "id": "web-search-toggle-and-quoting",
+      "title": "输入区网页搜索开关与工具集合并",
+      "sourceTask": "D22",
+      "anchors": [
+        { "file": "apps/web/src/hooks/use-chat/tool-config.ts", "mustMatch": "webSearchEnabled" }
+      ]
+    },
+    {
+      "id": "model-capability-filter",
+      "title": "模型目录能力布尔标志→按能力过滤",
+      "sourceTask": "D23",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/model-tier-utils.ts",
+          "mustMatch": "filterByCapabilities"
+        }
+      ]
+    },
+    {
+      "id": "tool-output-persistence",
+      "title": "工具调用与终端输出落库后恢复",
+      "sourceTask": "D24",
+      "events": ["tool-call-start", "tool-result", "terminal_start", "terminal_end"]
+    },
+    {
+      "id": "plan-steps-persistence",
+      "title": "planSteps 零迁移持久化与回放",
+      "sourceTask": "D33(planSteps 子项)",
+      "events": ["plan-step"],
+      "anchors": [
+        { "file": "apps/web/src/hooks/use-chat/history-message.ts", "mustMatch": "planSteps" }
+      ]
+    },
+    {
+      "id": "citation-sources",
+      "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
+      "sourceTask": "D27/G-70",
+      "events": ["citations"]
+    },
+    {
+      "id": "unified-task-dashboard",
+      "title": "统一任务运行时看板 + @任务引用跨任务发消息",
+      "sourceTask": "D25",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/agents/UnifiedTaskDashboard.tsx",
+          "mustMatch": "unified-task-dashboard"
+        },
+        { "file": "apps/api/src/routes/task-messages.ts", "mustMatch": "task-messages" }
+      ]
+    },
+    {
+      "id": "delivery-review-panel",
+      "title": "交付审查清单(引用四源可点击 + 代码变更回溯)",
+      "sourceTask": "D27",
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/services/agent_deliverables.py",
+          "mustMatch": "DeliverablesCollector"
+        }
+      ]
+    },
+    {
+      "id": "external-session-import",
+      "title": "外部会话导入(Claude/Codex/Cursor/Aider 迁入即用)",
+      "sourceTask": "D28",
+      "anchors": [
+        { "file": "apps/ai-service/app/services/importers/ir.py", "mustMatch": "def " },
+        { "file": "apps/api/src/routes/conversation-import.ts", "mustMatch": "conversation-import" }
+      ]
+    },
+    {
+      "id": "context-usage-ring",
+      "title": "上下文用量环与弹层",
+      "sourceTask": "W18/D3 归一",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/context-usage-ring.tsx",
+          "mustMatch": "ContextUsageRing"
+        }
+      ]
+    },
+    {
+      "id": "artifact-canvas",
+      "title": "产物画布(流内可操作交付物)",
+      "sourceTask": "D20/G-110",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/artifact-canvas.tsx",
+          "mustMatch": "ArtifactCanvas"
+        }
+      ]
+    },
+    {
+      "id": "tool-name-i18n-coverage",
+      "title": "工具名本地化词表全覆盖",
+      "sourceTask": "D54/H16",
+      "anchors": [
+        { "file": "packages/shared/src/chat/tool-display.ts", "mustMatch": "TOOL_DISPLAY_KEYS" }
+      ]
+    },
+    {
+      "id": "permission-mode-popover",
+      "title": "权限三档说明句 + 切换失败可撤销",
+      "sourceTask": "G-92/G-96",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
+          "mustMatch": "autoDesc"
+        }
+      ]
+    }
+  ],
+  "negativeList": [
+    {
+      "id": "g70-inline-numbered-citations",
+      "gapId": "G-70",
+      "note": "行内 [n] 编号引用:我方已有、竞品(Qoder)无 —— 属领先项,禁止未来当差距'补齐'或为对齐竞品而移除"
+    },
+    {
+      "id": "g70-conversation-sharing",
+      "gapId": "G-70",
+      "note": "会话分享:我方已有、竞品(Qoder)无 —— 同上,禁止反向削平"
+    }
+  ]
+}
