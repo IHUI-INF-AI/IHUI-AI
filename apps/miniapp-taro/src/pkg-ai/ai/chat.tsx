@@ -12,7 +12,7 @@ const fileIcon = aizhsUrl('remote-images/file.png')
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
 const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -37,6 +37,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
+import TaskStatusBar from './task-status-bar'
 import type { AICardsData } from './cards/types'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -146,6 +147,15 @@ export default function ChatPage() {
   }, [])
 
   const activeAgentId = currentAgentId || routeAgentId
+
+  // 任务进度状态条数据源:最后一条 assistant 消息的 aiCards(plan_updated / 工具事件由 upsertCard 累积写入)
+  const lastAssistantCards = useMemo<AICardsData | undefined>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.aiCards
+    }
+    return undefined
+  }, [messages])
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
@@ -1122,6 +1132,9 @@ export default function ChatPage() {
           </ScrollView>
         </View>
       ) : null}
+
+      {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
+      <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
 
       <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">
