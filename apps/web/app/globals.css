@@ -838,15 +838,11 @@ iframe::-webkit-scrollbar {
   }
   /* 2026-09-09 修复(收回态按钮重叠/闪烁):
      SSR 输出展开态 HTML(footer 横排 + 展开 header),hydration 后 React 才切折叠态。
-     hydration 前的间隙里 5 个横排按钮在 59px 内容区互相挤压重叠,
-     展开 header 的 80px 长 logo 也与折叠按钮重叠。以下规则在 paint 前由 CSS 兜底,
-     与 hydration 后 React 折叠态视觉衔接,消除可见闪烁:
-     1. footer 工具栏(.sidebar-actions)强制竖排 + 水平居中
-     2. 展开态长 logo([data-sidebar-logo])隐藏,header([data-sidebar-header-expanded])居中 */
-  aside[data-viewport-collapsed='true'] .sidebar-actions {
-    flex-direction: column;
-    align-items: center;
-  }
+     hydration 前的间隙里展开 header 的 80px 长 logo 与折叠按钮重叠。以下规则在 paint 前由
+     CSS 兜底,与 hydration 后 React 折叠态视觉衔接,消除可见闪烁:
+     2026-09-21 更新:原第 1 条 footer 工具栏(.sidebar-actions)竖排规则已随该组件
+     迁入用户行下拉菜单而删除,footer 只剩用户行(60px 条下仅头像,无横排挤压问题)。
+     1. 展开态长 logo([data-sidebar-logo])隐藏,header([data-sidebar-header-expanded])居中 */
   aside[data-viewport-collapsed='true'] [data-sidebar-logo] {
     display: none;
   }
