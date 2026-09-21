@@ -177,6 +177,12 @@ class AgentLoopCheckpoint:
         current = now if now is not None else time.time()
         return self.expires_at <= current
 
+    @property
+    def owner_user_id(self) -> str | None:
+        """checkpoint 属主(O19:无记录 = 创建上下文无 principal,调用方须按不可判定处理)。"""
+        owner = self.metadata.get("owner_user_id")
+        return owner if isinstance(owner, str) and owner else None
+
 
 @dataclass
 class CheckpointMeta:
@@ -294,6 +300,7 @@ class AgentCheckpointManager:
         status: str = "running",
         metadata: dict[str, Any] | None = None,
         file_snapshots: list[dict[str, Any]] | None = None,
+        owner_user_id: str | None = None,
     ) -> str:
         """保存 checkpoint,返回 checkpoint_id。
 
@@ -307,6 +314,8 @@ class AgentCheckpointManager:
             file_snapshots: 可选的已捕获文件快照引用列表,每项形如
                 {"path": <绝对路径>, "version_id": <file_editor.snapshot_file 返回的版本 id>}。
                 会以 file_versions 键落入 metadata,供 restore 返回后做文件回滚。
+            owner_user_id: 创建该 checkpoint 的可证明属主(O19:落在 metadata 里随
+                payload jsonb 持久化,跨进程可判属主;None = 创建上下文无 principal)。
 
         Returns:
             checkpoint_id (uuid4 hex)
@@ -314,6 +323,8 @@ class AgentCheckpointManager:
         now = time.time()
         checkpoint_id = uuid.uuid4().hex
         meta = json.loads(json.dumps(metadata or {}, ensure_ascii=False))
+        if owner_user_id:
+            meta["owner_user_id"] = owner_user_id
         if file_snapshots:
             # 已捕获的文件快照引用:restore 时以 file_versions 对外暴露,驱动文件回滚。
             # 自动补齐 session_id 与 checkpoint_id,便于反查与跨会话隔离。

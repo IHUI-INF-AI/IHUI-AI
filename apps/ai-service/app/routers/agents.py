@@ -1041,10 +1041,12 @@ async def resume_agent_execute(
     checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
 
     O19(2026-09-21):必须登录;principal 贯通到重建的循环(续跑期新产生的高危
-    审批据此登记属主)。尽力做属主比对:checkpoint 存储**本身没有 user_id 列**,
-    只能拿 run_ownership 的进程内在飞登记反查该会话属主 —— 查得到且不是请求者
-    → 403;查不到(进程重启/跨实例)则**无法校验**,只保留"必须登录"这一层地板。
-    这是既有限制而非本次引入的降级,已作为敞口上报(根治要给 checkpoint 落 owner)。
+    审批据此登记属主)。属主判定按可信度两级:
+      ① **持久属主**:checkpoint 落盘时写入 `metadata.owner_user_id`(save_checkpoint
+         的 owner_user_id 参数,由 AgentLoopV2 用 self._user_id 传入)—— 跨进程/重启
+         后依然可判定,查得且非请求者 → 403;
+      ② **在飞登记**:老 checkpoint(改造前写入)无 owner 字段,退到 run_ownership
+         进程内登记比对;两者都判不出时只剩"必须登录"这一层地板(如实标注,不假装)。
     """
     from ..services.agent_checkpoint import get_agent_checkpoint_manager
     from ..services.agent_loop_v2 import AgentLoopV2
@@ -1059,7 +1061,9 @@ async def resume_agent_execute(
         existing = None
     if existing is not None:
         resumed_session = getattr(existing, "session_id", None) or None
-        known_owner = owner_of(resumed_session)
+        # ① 持久属主优先(跨进程可判定);② 无 owner 的旧数据退回在飞登记
+        persistent_owner = existing.owner_user_id
+        known_owner = persistent_owner or owner_of(resumed_session)
         if known_owner is not None and known_owner != current_user:
             raise HTTPException(
                 status_code=403, detail="该 checkpoint 所属会话不属于当前用户"
@@ -1214,14 +1218,13 @@ async def clear_session(
 ) -> dict[str, Any]:
     """清除指定会话的全部消息(按 current_user 的复合 key 删除,P1-6 隔离)。
 
-    O19:vector_memory.clear(session_id) 的存储**没有 user 维度**(见
-    services/vector_memory.py 的 add_entry/search/clear 签名),故向量条目仍按
-    session_id 全局寻址 —— 这里只能保证"改不到别人的 memory 键",无法声称向量
-    侧也完成了属主隔离(已作为敞口上报)。
+    O19:向量层同样按属主裁剪 —— `vector_memory.clear(session_id, user_id)` 只删
+    "该会话且属主为 current_user"的条目。改造前写入的无属主旧条目不会被本调用清除
+    (也无从判定属于谁),但它们在按属主检索时已 fail-closed 不可见,不构成泄漏面。
     """
     _assert_session_access(session_id, current_user)
     await memory_store.clear(session_id, user_id=current_user)
-    await vector_memory.clear(session_id)
+    await vector_memory.clear(session_id, user_id=current_user)
     return {"session_id": session_id, "cleared": True}
 
 
@@ -1230,21 +1233,20 @@ async def search_memory(
     req: MemorySearchRequest,
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """语义搜索记忆(向量检索)。
+    """语义搜索记忆(向量检索,按属主裁剪)。
 
-    通过 LLM 嵌入向量 + 余弦相似度检索最相关的历史记忆。
-    支持跨会话搜索或限定在指定会话内搜索。
-
-    O19:必须登录。**如实说明能力边界**:vector_memory 的条目不含 user_id 字段,
-    search() 也没有按用户过滤的参数 ⇒ 本端点返回的是**全站聚合**的语义检索结果,
-    无法按属主裁剪。要真正隔离需先给向量层加 user 维度(memory.py 的 P1-6 只覆盖
-    会话消息层),不在本次范围内(已作为敞口上报)。req.session_id 也不做属主校验:
-    它只是检索范围提示,越权面已由"必须登录"收敛。
+    通过 LLM 嵌入向量 + 余弦相似度检索当前用户自己的历史记忆。
+    O19(2026-09-21)收口:vector_memory 条目带 user_id 属主标记,search() 按
+    认证身份精确过滤,不再返回全站聚合结果。兼容性:改造前写入的旧条目无
+    user_id(属主未知),fail-closed 对任何用户不可见(漏返回只是功能降级,
+    漏过滤就是跨用户泄漏)。req.session_id 仅为检索范围提示,不做属主校验
+    (越权面已由属主过滤收敛)。
     """
     query_embedding = await vector_memory.embed(req.query)
     results = await vector_memory.search(
         query_embedding=query_embedding,
         top_k=req.top_k,
+        user_id=current_user,
     )
     return {"query": req.query, "results": results, "count": len(results)}
 
