@@ -428,8 +428,6 @@ export default function AiChatPage() {
               )}
             </div>
           )}
-          {/* 压缩状态 */}
-          <CompactionStatusBar />
           {/* 工具调用活动 */}
           {subAgentActivities.length > 0 && (
             <div className="ml-auto flex items-center gap-2">
@@ -465,6 +463,8 @@ export default function AiChatPage() {
 
         {/* 输入区 */}
         <div className="shrink-0 border-t">
+          {/* 压缩状态栏:输入框上方(与全局 AISidePanel 同口径;2026-09-21 从顶部工具栏下移) */}
+          <CompactionStatusBar />
           <MessageInput
             onSend={handleSend}
             onStop={stop}
