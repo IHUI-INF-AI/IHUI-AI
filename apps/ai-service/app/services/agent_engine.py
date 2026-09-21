@@ -5832,7 +5832,27 @@ class AgentEngine:
             resolve_approval_response,
         )
 
-        applied = bool(resolve_approval_response(approval_id, normalized))
+        # O19(2026-09-21)审批属主校验 —— 本通道的信任边界必须写清楚:
+        # 这里**不在 HTTP 请求上下文**(JSON-RPC over MCP / engine WS),拿不到
+        # request.state.user_id。引擎能自证的 principal 只有 threadId 所绑定线程的
+        # EngineThread.user_id(线程创建时写入,后续审批条目的属主也正是同一个值 ——
+        # 见 agent_loop_v2._request_approval 用 self._user_id 登记)。
+        # 传 principal 的效果:① 盲猜 approval_id 解不掉他人审批;② A 线程解 B 用户
+        # 的审批 → owner != principal → 不生效(applied=False)。
+        # 不传 threadId 时 principal 退化为 None,此时只能结算同样无属主的条目
+        # (非 HTTP 上下文创建的历史审批),不会因此开出新口子。
+        # 残余敞口(已知,不粉饰):thread.start 的 userId 由客户端声明,谎报他人 id
+        # 即可解"该 id 经引擎创建的"审批。根治需在连接层用 JWT subject 覆盖
+        # thread.user_id,属引擎身份模型改造,不在本次范围。
+        thread_id = params.get("threadId")
+        principal: str | None = None
+        if isinstance(thread_id, str) and thread_id:
+            bound_thread = self._threads.get(thread_id)
+            if bound_thread is not None:
+                principal = bound_thread.user_id
+        applied = bool(
+            resolve_approval_response(approval_id, normalized, principal)
+        )
         # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)
         perm_future = self._permission_requests.get(approval_id)
         if perm_future is not None and not perm_future.done():

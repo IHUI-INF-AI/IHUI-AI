@@ -198,6 +198,7 @@ class AgentExecutor:
         model: str | None = None,
         max_iterations: int | None = None,
         tools: list[str] | None = None,
+        user_id: str | None = None,
     ) -> dict[str, Any]:
         """执行 agent 循环。
 
@@ -207,6 +208,10 @@ class AgentExecutor:
             model: 指定模型,为空使用默认。
             max_iterations: 最大迭代次数,为空使用配置默认。
             tools: 允许调用的工具名列表,为空则不调用工具。
+            user_id: O19(2026-09-21)由路由层从 JWT 解析后显式传入的属主。会话记忆
+                按 P1-6 复合 key(`memory:{user_id}:{session_id}`)隔离读写 —— 写入与
+                读取必须同源,否则 GET /agents/sessions* 会看不到本 run 刚写的消息。
+                为空时回退到 _resolve_user_id 的 session 前缀解析(旧行为)。
 
         Returns:
             包含 task_id/session_id/status/iterations/steps/result 的字典。
@@ -227,7 +232,7 @@ class AgentExecutor:
         }
 
         # 记录用户输入
-        await memory_store.add(sid, "user", goal, {"task_id": task_id})
+        await memory_store.add(sid, "user", goal, {"task_id": task_id}, user_id=user_id)
 
         steps: list[dict[str, Any]] = []
         final_content = ""
@@ -236,7 +241,8 @@ class AgentExecutor:
         try:
             # P0 注入:解析 user_id 并预加载画像/长期记忆(与 v2 L1-1 一致;
             # 任何失败降级为空串,绝不中断对话;user_id 拿不到则 debug 日志跳过)
-            user_id = self._resolve_user_id(sid, self._running.get(task_id))
+            # O19:路由层已传入的属主优先,只有为空时才回退 session 前缀解析。
+            user_id = user_id or self._resolve_user_id(sid, self._running.get(task_id))
             if not user_id:
                 logger.debug(
                     "agent_loop 未解析到 user_id,跳过画像/长期记忆注入(sid=%s)", sid
@@ -254,7 +260,7 @@ class AgentExecutor:
                 self._running[task_id]["iterations"] = i + 1
 
                 # 取出会话历史作为上下文
-                history = await memory_store.get(sid)
+                history = await memory_store.get(sid, user_id=user_id)
                 # L4 自进化:构建 system prompt 时注入 meta_lessons 避坑指南
                 # build_system_prompt_snippet 是同步方法(读内存缓存),失败降级不阻塞
                 system_prompt_content = build_system_prompt(sid)
@@ -281,7 +287,10 @@ class AgentExecutor:
                 # 调用 LLM
                 llm_result = await llm_gateway.complete(messages, model=model)
                 assistant_content = str(llm_result.get("content", ""))
-                await memory_store.add(sid, "assistant", assistant_content, {"iteration": i + 1})
+                await memory_store.add(
+                    sid, "assistant", assistant_content, {"iteration": i + 1},
+                    user_id=user_id,
+                )
 
                 step = {
                     "iteration": i + 1,
@@ -353,6 +362,7 @@ class AgentExecutor:
                         await memory_store.add(
                             sid, "tool", skip_msg,
                             {"tool_name": tool_name, "tool_args": tool_args},
+                            user_id=user_id,
                         )
                     else:
                         tool_name, tool_args, (tool_content, step_status) = exec_by_idx[idx]
@@ -367,6 +377,7 @@ class AgentExecutor:
                         await memory_store.add(
                             sid, "tool", tool_content,
                             {"tool_name": tool_name, "tool_args": tool_args},
+                            user_id=user_id,
                         )
                 # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
 
