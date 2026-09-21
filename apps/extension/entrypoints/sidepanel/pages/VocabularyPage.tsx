@@ -1,0 +1,256 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * VocabularyPage — 词汇查询页(查词/翻译/生词本)。
+ *
+ * 数据流:
+ * - 输入:用户键入 / content script 写入 chrome.storage.session 的 ihui_pending_vocab
+ * - 查询:通过 background 的 vocab.lookup message 走 LLM
+ * - 生词本:IndexedDB(ihui-vocab / words store),支持 1000+ 词,word 唯一索引
+ * - 搜索:word / translation 子串匹配,前端游标扫描(1000 词 < 5ms)
+ */
+import { useEffect, useState, type FormEvent } from 'react'
+import { sendMessage } from '../../../lib/message-router'
+import { useI18n } from '../../../src/i18n'
+import { Button, Card, CardContent, Input, SearchInput } from '@ihui/ui-react'
+import {
+  addWord,
+  getAllWords,
+  removeWord,
+  searchWords,
+  countWords,
+  type WordEntry,
+} from '../../../src/idb/vocab-db'
+
+interface VocabResult {
+  word: string
+  translation: string
+  phonetic?: string
+  definitions?: string[]
+}
+
+const PENDING_KEY = 'ihui_pending_vocab'
+
+export default function VocabularyPage() {
+  const { t } = useI18n()
+  const [input, setInput] = useState('')
+  const [result, setResult] = useState<VocabResult | null>(null)
+  const [wordbook, setWordbook] = useState<WordEntry[]>([])
+  const [search, setSearch] = useState('')
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const refreshWordbook = async (query: string) => {
+    try {
+      const list = query.trim()
+        ? await searchWords(query, { limit: 500 })
+        : await getAllWords({ limit: 500 })
+      setWordbook(list)
+    } catch (err) {
+      console.warn('[IHUI] refresh wordbook failed:', err)
+      setWordbook([])
+    }
+  }
+
+  useEffect(() => {
+    void refreshWordbook('')
+    void countWords()
+      .then(setTotal)
+      .catch(() => setTotal(0))
+  }, [])
+
+  // 搜索 debounce(避免每次按键都全表扫描)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void refreshWordbook(search)
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // 监听 content script 写入的 pending vocab
+  useEffect(() => {
+    const listener = (msg: { type?: string; payload?: { text?: string } }) => {
+      if (msg?.type === 'ws.pending_vocab' && typeof msg.payload?.text === 'string') {
+        const text = msg.payload.text
+        setInput(text)
+        void doLookup(text)
+      }
+    }
+    chrome.runtime.onMessage.addListener(
+      listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
+    )
+    void chrome.storage.session
+      ?.get(PENDING_KEY)
+      .then((res) => {
+        const v = res[PENDING_KEY]
+        if (typeof v === 'string' && v.trim()) {
+          setInput(v)
+          void doLookup(v)
+          void chrome.storage.session?.remove(PENDING_KEY)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      chrome.runtime.onMessage.removeListener(
+        listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0],
+      )
+    }
+  }, [])
+
+  const doLookup = async (word: string) => {
+    const w = word.trim()
+    if (!w) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await sendMessage<VocabResult>({
+        type: 'vocab.lookup',
+        payload: { word: w, source: 'manual' },
+        requestId: `vocab-${Date.now()}`,
+      })
+      setResult(res)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '查询失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    void doLookup(input)
+  }
+
+  const onSave = async () => {
+    if (!result) return
+    try {
+      await addWord({
+        word: result.word,
+        translation: result.translation,
+        phonetic: result.phonetic,
+        definitions: result.definitions,
+        source: 'manual',
+      })
+      await refreshWordbook(search)
+      const n = await countWords()
+      setTotal(n)
+    } catch (err) {
+      console.warn('[IHUI] save to wordbook failed:', err)
+    }
+  }
+
+  const onRemove = async (word: string) => {
+    try {
+      await removeWord(word)
+      await refreshWordbook(search)
+      const n = await countWords()
+      setTotal(n)
+    } catch (err) {
+      console.warn('[IHUI] remove from wordbook failed:', err)
+    }
+  }
+
+  return (
+    <div className="p-3 md:p-4 flex flex-col gap-2.5" data-testid="vocab-page">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('vocab.title')}</h3>
+      </div>
+      <form onSubmit={onSubmit} className="flex gap-1.5">
+        <Input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={t('vocab.inputPlaceholder')}
+          className="flex-1 text-sm"
+          disabled={loading}
+        />
+        <Button type="submit" variant="default" size="sm" disabled={loading || !input.trim()}>
+          {t('vocab.lookup')}
+        </Button>
+      </form>
+      {error ? (
+        <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+          {error}
+        </div>
+      ) : null}
+      {result ? (
+        <Card className="rounded-md border-border shadow-none text-sm leading-normal">
+          <CardContent className="px-3 py-2.5">
+            <div>
+              <span className="text-lg font-semibold mr-2">{result.word}</span>
+              {result.phonetic ? (
+                <span className="text-xs text-muted-foreground font-mono">/{result.phonetic}/</span>
+              ) : null}
+            </div>
+            <div className="mt-1.5 text-primary font-medium">{result.translation}</div>
+            {result.definitions && result.definitions.length > 0 ? (
+              <ul className="mt-1.5 pl-[18px] text-xs text-foreground">
+                {result.definitions.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={onSave}
+                className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+              >
+                {t('vocab.saved')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+      <Card className="mt-1 rounded-md border-border bg-muted shadow-none text-xs">
+        <CardContent className="px-2.5 py-2">
+          <div className="flex items-center justify-between mb-1.5 gap-1.5">
+            <span className="text-xs text-muted-foreground">{t('wordbook.title')}</span>
+            <span
+              className="text-xs text-muted-foreground whitespace-nowrap"
+              data-testid="vocab-count"
+            >
+              {t('wordbook.countLabel', { count: total })}
+            </span>
+          </div>
+          <SearchInput
+            size="sm"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('wordbook.searchPlaceholder')}
+          />
+          {wordbook.length === 0 ? (
+            <div className="text-xs text-muted-foreground whitespace-nowrap py-2">
+              {search.trim() ? t('wordbook.noMatchHint') : t('wordbook.emptyHint')}
+            </div>
+          ) : (
+            <div className="mt-1">
+              {wordbook.map((e) => (
+                <div key={e.word} className="flex justify-between items-center py-1">
+                  <span>
+                    <strong>{e.word}</strong> — {e.translation}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+                    onClick={() => onRemove(e.word)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

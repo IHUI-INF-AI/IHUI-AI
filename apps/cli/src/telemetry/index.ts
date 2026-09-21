@@ -1,0 +1,351 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 极简 Telemetry 上报(fetch + JSON 批量,不引入 OpenTelemetry SDK)。
+ *
+ * 灵感来源:参考行业 Agent 框架的轻量 telemetry 设计(PostHog/Mixpanel 模式)。
+ * 简化策略(做减法):
+ *   - 队列 + 定时 flush(60s)+ 阈值 flush(50 条)
+ *   - fetch POST 单端点,失败重试入队(最多保留 100 条防止无限增长)
+ *   - feature flag 默认关闭(settings.telemetry.enabled),关闭时 track 直接 no-op
+ *   - shutdown 清理 timer + 最后一次 flush
+ *
+ * 使用方式:
+ *   1. 启动时 initTelemetry(settings.telemetry)
+ *   2. 任意位置 track('event_name', { prop: value })
+ *   3. 退出时 await shutdownTelemetry()
+ */
+
+import { randomUUID } from 'node:crypto';
+import type { TraceContext, TraceEvent } from '@ihui/types';
+
+/** Telemetry 事件类型(枚举已知事件) */
+export type TelemetryEventType =
+  | 'session_start'
+  | 'session_end'
+  | 'tool_call_completed'
+  | 'prompt_completed'
+  | 'error_logged';
+
+/** Telemetry 事件 */
+export interface TelemetryEvent {
+  /** 事件名 */
+  name: TelemetryEventType;
+  /** 事件属性(可选) */
+  props?: Record<string, unknown>;
+  /** 时间戳(ms) */
+  timestamp: number;
+}
+
+/**
+ * 敏感字段名匹配模式(用于 redact 过滤)。
+ *
+ * 命中规则:字段名(转小写)包含以下任一关键字时,值替换为 [REDACTED]。
+ * 同时支持驼峰(snake_case 转换后匹配)。
+ */
+const SENSITIVE_KEY_PATTERNS = [
+  'password',
+  'passwd',
+  'pwd',
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'authorization',
+  'auth',
+  'apikey',
+  'api_key',
+  'secret',
+  'clientsecret',
+  'privatekey',
+  'private_key',
+  'credential',
+  'credentials',
+  'sessionid',
+  'session_id',
+  'cookie',
+  'ssn',
+  'creditcard',
+  'credit_card',
+];
+
+/** 字段名是否敏感(命中任一模式即视为敏感) */
+function isSensitiveKey(key: string): boolean {
+  if (!key) return false;
+  // 统一为小写 + snake_case (驼峰转下划线)
+  const normalized = key
+    .toLowerCase()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .toLowerCase();
+  return SENSITIVE_KEY_PATTERNS.some((pat) => normalized.includes(pat));
+}
+
+/**
+ * 递归 redact 对象中的敏感字段(返回新对象,不修改入参)。
+ *
+ * - 字符串/数字/布尔值:若 key 敏感则替换为 '[REDACTED]'
+ * - 嵌套对象/数组:递归处理
+ * - 循环引用:通过 WeakSet 检测,遇到循环引用返回 '[Circular]'
+ * - 最大深度 10 层(防止深度嵌套导致栈溢出)
+ */
+export function redactSensitive(
+  value: unknown,
+  depth = 0,
+  seen = new WeakMap<object, true>(),
+): unknown {
+  if (depth > 10) return '[MaxDepth]';
+  if (value === null || typeof value !== 'object') return value;
+  // 循环引用检测
+  if (seen.has(value as object)) return '[Circular]';
+
+  if (Array.isArray(value)) {
+    seen.set(value, true);
+    return value.map((v) => redactSensitive(v, depth + 1, seen));
+  }
+
+  seen.set(value, true);
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isSensitiveKey(k)) {
+      result[k] = '[REDACTED]';
+    } else {
+      result[k] = redactSensitive(v, depth + 1, seen);
+    }
+  }
+  return result;
+}
+
+/** TelemetryClient 配置 */
+export interface TelemetryConfig {
+  /** 上报端点 URL(如 https://api.example.com/v1/telemetry/ingest) */
+  endpoint?: string;
+  /** 是否启用(默认 false) */
+  enabled?: boolean;
+  /** 批量大小(默认 50,达到即 flush) */
+  batchSize?: number;
+  /** flush 间隔毫秒(默认 60000=1min) */
+  flushIntervalMs?: number;
+  /** fetch 实现(可注入,测试用) */
+  fetchImpl?: typeof fetch;
+  /** 定时器实现(可注入,测试用) */
+  setIntervalImpl?: typeof setInterval;
+  /** 清除定时器实现(可注入,测试用) */
+  clearIntervalImpl?: typeof clearInterval;
+}
+
+/** 默认配置 */
+const DEFAULT_FLUSH_INTERVAL_MS = 60_000;
+const DEFAULT_MAX_BATCH_SIZE = 50;
+/** flush 失败时队列最多保留多少条(防止无限增长) */
+const MAX_QUEUE_ON_FAILURE = 100;
+
+/**
+ * TelemetryClient — 极简批量上报客户端。
+ *
+ * 行为契约:
+ * - enabled !== true 时 trackEvent 直接 no-op(零回归)
+ * - 队列达到 batchSize 时自动 flush(异步,失败忽略)
+ * - 定时 flush(默认 60s)
+ * - flush 失败时把事件放回队列(最多保留 MAX_QUEUE_ON_FAILURE 条)
+ * - endpoint 未配置时 flush 为 no-op
+ */
+export class TelemetryClient {
+  private queue: TelemetryEvent[] = [];
+  private flushTimer: NodeJS.Timeout | null = null;
+  private readonly config: Required<Pick<TelemetryConfig, 'enabled' | 'batchSize' | 'flushIntervalMs'>> &
+    Pick<TelemetryConfig, 'endpoint' | 'fetchImpl'>;
+  private readonly fetchFn: typeof fetch;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+
+  constructor(config: TelemetryConfig = {}) {
+    this.config = {
+      enabled: config.enabled ?? false,
+      batchSize: config.batchSize ?? DEFAULT_MAX_BATCH_SIZE,
+      flushIntervalMs: config.flushIntervalMs ?? DEFAULT_FLUSH_INTERVAL_MS,
+      endpoint: config.endpoint,
+      fetchImpl: config.fetchImpl,
+    };
+    this.fetchFn = config.fetchImpl ?? fetch;
+    this.setIntervalFn = config.setIntervalImpl ?? setInterval;
+    this.clearIntervalFn = config.clearIntervalImpl ?? clearInterval;
+
+    if (this.config.enabled) {
+      // 启用定时 flush(失败忽略)
+      this.flushTimer = this.setIntervalFn(() => {
+        void this.flush().catch(() => {
+          // 静默失败:telemetry 不应阻塞主流程
+        });
+      }, this.config.flushIntervalMs);
+    }
+  }
+
+  /** 入队事件(自动 redact 敏感字段后再入队) */
+  trackEvent(name: TelemetryEventType, props?: Record<string, unknown>): void {
+    if (!this.config.enabled) return;
+    // 隐私保护:递归 redact 敏感字段(password/token/secret/api_key 等)
+    const safeProps = props ? (redactSensitive(props) as Record<string, unknown>) : undefined;
+    this.queue.push({ name, props: safeProps, timestamp: Date.now() });
+    if (this.queue.length >= this.config.batchSize) {
+      void this.flush().catch(() => {
+        // 静默失败
+      });
+    }
+  }
+
+  /** flush 队列到 endpoint */
+  async flush(): Promise<void> {
+    if (this.queue.length === 0) return;
+    if (!this.config.endpoint) return;
+    const batch = this.queue.splice(0, this.queue.length);
+    try {
+      const res = await this.fetchFn(this.config.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: batch }),
+      });
+      if (!res.ok) {
+        // HTTP 非 2xx:把事件放回队列(最多保留 100 条)
+        this.queue.unshift(...batch.slice(-MAX_QUEUE_ON_FAILURE));
+      }
+    } catch {
+      // 网络错误:把事件放回队列(最多保留 100 条)
+      this.queue.unshift(...batch.slice(-MAX_QUEUE_ON_FAILURE));
+    }
+  }
+
+  /** 关闭客户端:清理 timer + 最后一次 flush */
+  async shutdown(): Promise<void> {
+    if (this.flushTimer !== null) {
+      this.clearIntervalFn(this.flushTimer);
+      this.flushTimer = null;
+    }
+    await this.flush();
+  }
+
+  /** 当前队列长度(测试用) */
+  getQueueSize(): number {
+    return this.queue.length;
+  }
+
+  /** 是否已启用(测试用) */
+  isEnabled(): boolean {
+    return this.config.enabled;
+  }
+}
+
+// === 默认实例 + 全局 API ===
+
+let defaultClient: TelemetryClient | null = null;
+
+/**
+ * 初始化默认 telemetry 客户端。
+ *
+ * 多次调用:先 shutdown 旧客户端(清理 timer + 最后一次 flush),再创建新客户端。
+ * 这保证测试中 initTelemetry 多次调用不会泄漏 timer。
+ *
+ * @returns 新创建的客户端(供调用方主动 shutdown)
+ */
+export function initTelemetry(config: TelemetryConfig = {}): TelemetryClient {
+  if (defaultClient) {
+    void defaultClient.shutdown();
+  }
+  defaultClient = new TelemetryClient(config);
+  return defaultClient;
+}
+
+/** 全局 track:把事件入队到默认客户端 */
+export function track(name: TelemetryEventType, props?: Record<string, unknown>): void {
+  defaultClient?.trackEvent(name, props);
+}
+
+/** 全局 flush:强制把默认客户端队列 flush 到 endpoint */
+export async function flushTelemetry(): Promise<void> {
+  if (defaultClient) {
+    await defaultClient.flush();
+  }
+}
+
+/** 全局 shutdown:清理默认客户端 timer + 最后一次 flush */
+export async function shutdownTelemetry(): Promise<void> {
+  if (defaultClient) {
+    await defaultClient.shutdown();
+    defaultClient = null;
+  }
+}
+
+/** 获取默认客户端(测试用) */
+export function getDefaultTelemetryClient(): TelemetryClient | null {
+  return defaultClient;
+}
+
+/** 重置默认客户端为 null(测试用,跳过 shutdown) */
+export function _resetDefaultClientForTest(): void {
+  defaultClient = null;
+}
+
+// ============================================================================
+// TraceLogger — CLI 端 trace 日志(P2-4,轻量级,不引入 OTel SDK)
+// ============================================================================
+
+/**
+ * TraceLogger — 记录工具调用/LLM 调用的 trace 事件,支持跨端 trace context 传递。
+ *
+ * 与 TelemetryClient 的区别:
+ * - TelemetryClient:批量上报业务事件到 api endpoint(feature flag 控制)
+ * - TraceLogger:本地 trace 事件内存缓冲,用于端到端调用链串联(maxEvents FIFO 防泄漏)
+ */
+export class TraceLogger {
+  private events: TraceEvent[] = [];
+  private readonly maxEvents: number;
+
+  constructor(maxEvents = 1000) {
+    this.maxEvents = maxEvents;
+  }
+
+  /** 生成新的 trace context(32 hex traceId + 16 hex spanId,endpoint 存入 baggage 跨端携带)。 */
+  startTrace(endpoint = 'cli'): TraceContext {
+    return {
+      traceId: randomUUID().replace(/-/g, '').padEnd(32, '0'),
+      spanId: randomUUID().replace(/-/g, '').substring(0, 16),
+      baggage: { endpoint },
+    };
+  }
+
+  /** 记录 trace 事件(超出 maxEvents 时 FIFO 淘汰最早条目)。 */
+  log(event: Omit<TraceEvent, 'timestamp'> & { timestamp?: string }): void {
+    const fullEvent: TraceEvent = {
+      ...event,
+      timestamp: event.timestamp || new Date().toISOString(),
+    };
+    this.events.push(fullEvent);
+    if (this.events.length > this.maxEvents) {
+      this.events.shift();
+    }
+  }
+
+  /** 获取所有 trace 事件(返回副本,外部修改不影响内部缓冲)。 */
+  getEvents(): TraceEvent[] {
+    return [...this.events];
+  }
+
+  /** 按 traceId 过滤事件(traceId 存放在 attributes 中)。 */
+  getEventsByTrace(traceId: string): TraceEvent[] {
+    return this.events.filter((e) => e.attributes?.traceId === traceId);
+  }
+
+  /** 清空所有 trace 事件。 */
+  clear(): void {
+    this.events = [];
+  }
+
+  /** 导出为 JSON(方便发送到 api 持久化)。 */
+  toJSON(): string {
+    return JSON.stringify(this.events);
+  }
+}
+
+/** 默认 TraceLogger 实例(CLI 全局可用) */
+export const traceLogger = new TraceLogger();
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
