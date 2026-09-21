@@ -173,6 +173,8 @@
   "live": {
     "viewers": "{n}명 시청",
     "preview": "예고",
+    "replay": "다시보기",
+    "liveNow": "진행 중",
     "detail": {
       "loadFailed": "라이브 로딩 실패",
       "loading": "라이브 로딩 중…",
@@ -218,7 +220,8 @@
       "liveList": "라이브 일정",
       "noLive": "오늘 라이브 일정이 없습니다",
       "anchor": "라이버",
-      "today": "오늘"
+      "today": "오늘",
+      "upcoming": "예정"
     },
     "calendarBtn": "📅 달력",
     "mySubscriptionBtn": "🔔 내 구독",
@@ -321,7 +324,9 @@
     },
     "orderNo": "주문번호",
     "status": {
-      "refunded": "환불 완료"
+      "failed": "실패",
+      "refunded": "환불 완료",
+      "refunding": "환불 중"
     }
   },
   "wallet": {
@@ -527,6 +532,7 @@
         "education": "교육",
         "life": "생활",
         "office": "오피스",
+        "other": "기타",
         "recommend": "추천",
         "writing": "작문"
       },
@@ -2364,7 +2370,10 @@
       "thresholdText": "{threshold} 이상 결제 시",
       "expireText": "유효 기간: {time}",
       "use": "지금 사용",
-      "loadMore": "위로 당겨 로딩"
+      "loadMore": "위로 당겨 로딩",
+      "unused": "미사용",
+      "used": "사용됨",
+      "expired": "만료"
     },
     "couponList": {
       "received": "받기 완료",
@@ -3003,7 +3012,19 @@
     "recommendDesc": "켜면 양질의 콘텐츠를 추천합니다",
     "personalize": "맞춤 추천",
     "personalizeDesc": "관심사 기반 맞춤 콘텐츠 제공",
-    "privacyPolicy": "개인정보 처리방침"
+    "privacyPolicy": "개인정보 처리방침",
+    "status": {
+      "granted": "허용됨",
+      "denied": "거부됨",
+      "unknown": "미승인"
+    },
+    "permissions": {
+      "album": "앨범 권한",
+      "camera": "카메라 권한",
+      "record": "마이크 권한",
+      "location": "위치 권한",
+      "notification": "알림 권한"
+    }
   },
   "page": {
     "vip": {
