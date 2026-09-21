@@ -177,6 +177,11 @@ export async function listKeys(userId: string): Promise<SafeApiKey[]> {
       // per-model 限流列(2026-09-21,O2 落地,保证 SafeApiKey 类型完整)
       perModelRpmLimit: developerApiKeys.perModelRpmLimit,
       perModelTpmLimit: developerApiKeys.perModelTpmLimit,
+      // O19 并回的迁移侧既有列(2026-08-01 迁移建的,此前 TS schema 未声明所以投影里也没有)
+      tpmLimit: developerApiKeys.tpmLimit,
+      tags: developerApiKeys.tags,
+      alias: developerApiKeys.alias,
+      description: developerApiKeys.description,
       createdAt: developerApiKeys.createdAt,
       updatedAt: developerApiKeys.updatedAt,
     })
