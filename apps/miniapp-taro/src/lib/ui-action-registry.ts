@@ -13,13 +13,15 @@ import {
 } from '@/constants/ui-routes.generated'
 import { setThemePreference } from '@/lib/theme'
 import { requestLocaleChange } from '@/i18n'
+import { pressField, setFieldValue, snapshotUiFields, submitForm } from '@/lib/ui-field-registry'
 
 /**
  * AI 对话操控小程序端的执行注册表(2026-09-21 立,与 web/RN 端同链路的降级形态)。
  *
- * 只暴露 describe / navigate / read / invoke 四个动作(协议见 @ihui/types TaroUiActionType):
- * 小程序没有 DOM,click/fill/submit 不成立,因此**不做**任何"猜测元素并点一下"的能力,
- * 导航目标必须命中 generate-ui-routes.mjs 生成的页面白名单。
+ * 七个动作与 web / RN 同形(协议见 @ihui/types TaroUiActionType):
+ * 但小程序没有可枚举的同源 DOM:click/fill/submit 一律打在 ui-field-registry 登记的控件上,
+ * 组件没交出 setValue/onPress/submit 通道就如实回 UNSUPPORTED_ACTION —— **不做**任何
+ * "猜测元素并点一下"的能力,导航目标也必须命中 generate-ui-routes.mjs 生成的页面白名单。
  *
  * 本文件是纯逻辑(非 hook):依赖 Taro 运行时 API,不依赖 React 上下文。
  * 需要 React/Provider 才能生效的能力(如登录态)由 use-ui-control-bridge.ts 注入。
@@ -309,6 +311,7 @@ const INVOKE_BY_ID: ReadonlyMap<string, TaroInvokeCommand> = new Map(
  */
 export function buildTaroUiSnapshot(): AppUiSnapshot {
   const current = readCurrentPage()
+  const fields = snapshotUiFields()
   const snapshot: AppUiSnapshot = {
     version: 1,
     screen: {
@@ -322,6 +325,20 @@ export function buildTaroUiSnapshot(): AppUiSnapshot {
     })),
     commands: INVOKE_COMMANDS.map(({ id, label, group }) => ({ id, label, group })),
     authed: isAuthed?.() ?? false,
+    // 控件 + 表单一起进 elements:小程序的表单是独立登记表,但协议里只有 elements 一个面,
+    // 用 kind='form' 表达,和 RN 端把表单也登记成 kind:'form' 保持一致
+    elements: [
+      ...fields.elements,
+      ...fields.forms.map((form) => ({
+        id: form.id,
+        kind: 'form' as const,
+        label: form.label,
+        group: form.group,
+        pressable: false,
+      })),
+    ],
+    // 只报"被上限挤掉"的数量:因敏感/破坏性被安全策略排除的不算"还有没列出来的"
+    suppressed: fields.limitSuppressed,
   }
   return snapshot
 }
@@ -434,6 +451,11 @@ function describeError(err: unknown): string {
   return typeof err === 'string' ? err : '未知错误'
 }
 
+/** 模型漏传 target 时归一为空串:让注册表按"定位不到"如实回,而不是把 undefined 传下去 */
+function targetOf(params: Record<string, unknown>): string {
+  return typeof params.target === 'string' ? params.target : ''
+}
+
 /** 动作分派入口 —— 桥层把 AgentActionRequest.action/params 原样交进来 */
 export async function executeTaroUiAction(
   action: TaroUiActionType,
@@ -449,6 +471,13 @@ export async function executeTaroUiAction(
         return executeRead()
       case 'invoke':
         return await executeInvoke(params)
+      // 控件级动作打在注册表登记的通道上(登记表与协议回执同形,直接透传)
+      case 'click':
+        return await pressField(targetOf(params))
+      case 'fill':
+        return setFieldValue(targetOf(params), params.value ?? '')
+      case 'submit':
+        return await submitForm(params.target)
       default:
         return fail('UNSUPPORTED_ACTION', `小程序端不支持的动作: ${String(action)}`)
     }

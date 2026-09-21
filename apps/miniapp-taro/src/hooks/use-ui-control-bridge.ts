@@ -54,7 +54,15 @@ const AUTH_CATCHUP_DELAYS_MS: readonly number[] = [5_000, 20_000]
 const PROCESSED_IDS_MAX = 100
 const VERSION = '1.0.0'
 
-const TARO_UI_ACTIONS: readonly TaroUiActionType[] = ['describe', 'navigate', 'read', 'invoke']
+const TARO_UI_ACTIONS: readonly TaroUiActionType[] = [
+  'describe',
+  'navigate',
+  'read',
+  'invoke',
+  'click',
+  'fill',
+  'submit',
+]
 
 /**
  * 实例 ID:每次冷启一个新值,故意不做 storage 持久化 ——

@@ -11,15 +11,19 @@ import {
 /**
  * 小程序端的 UI 操控工具族(2026-09-21 立)。
  *
- * 只有四个动作:describe / navigate / read / invoke。**没有 click / fill / submit** ——
- * 小程序真机是 WXML,没有同源 DOM 可枚举,写入通道得逐个业务组件开,不在本次范围
- * (与 ai-service `ui_action_bridge._FAMILIES['taro']` 的注册面严格一致)。
+ * 七个动作与 web / RN 同名同义:describe / navigate / read / invoke / click / fill / submit。
+ * 真机是 WXML、没有同源 DOM 可枚举,所以 click/fill/submit 打在 ui-field-registry 登记的控件上
+ * (组件挂载时交出 setValue / onPress / submit 才会在表里),没通道就如实失败。
+ * (与 ai-service `ui_action_bridge._FAMILIES['taro']` 的注册面严格一致,漂移由双端测试互校)
  */
 export const TARO_UI_CONTROL_TOOLS = [
   'taro_ui_describe',
   'taro_ui_read',
   'taro_ui_navigate',
   'taro_ui_invoke',
+  'taro_ui_click',
+  'taro_ui_fill',
+  'taro_ui_submit',
 ] as const
 
 /** 后端能力入口工具(服务端执行,与端无关,故与 web 端同名) */

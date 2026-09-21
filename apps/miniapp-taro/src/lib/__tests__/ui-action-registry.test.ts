@@ -60,6 +60,12 @@ import {
   readCurrentPage,
   resetTaroUiBridge,
 } from '../ui-action-registry'
+import {
+  registerUiField,
+  registerUiForm,
+  resetUiFieldRegistryForTest,
+  snapshotUiFields,
+} from '../ui-field-registry'
 import { TARO_UI_ROUTES } from '@/constants/ui-routes.generated'
 
 const TAB_PAGE = '/pages/user/index'
@@ -424,7 +430,7 @@ describe('invoke —— 白名单 = 外观 + tab 导航 + 页面命令,破坏性
 
 describe('未知 action 与异常兜底', () => {
   it('协议外动作 → UNSUPPORTED_ACTION(不抛给桥层)', async () => {
-    const result = await executeTaroUiAction('click' as never, { target: 'btn' })
+    const result = await executeTaroUiAction('teleport' as never, { target: 'btn' })
     expect(result.ok).toBe(false)
     expect(result.errorCode).toBe('UNSUPPORTED_ACTION')
   })
@@ -444,6 +450,64 @@ describe('normalizeRoutePath', () => {
     expect(normalizeRoutePath('pages/index/index')).toBe('/pages/index/index')
     expect(normalizeRoutePath('  /pages/index/index  ')).toBe('/pages/index/index')
     expect(normalizeRoutePath('')).toBe('')
+  })
+})
+
+describe('click / fill / submit —— 打在控件注册表上(2026-09-21 补齐)', () => {
+  beforeEach(() => {
+    resetUiFieldRegistryForTest()
+  })
+
+  it('组件交出 setValue/onPress 才生效,登记消失后如实失败', async () => {
+    let written = ''
+    let pressed = 0
+    const disposeField = registerUiField({
+      kind: 'input',
+      label: '搜索关键词',
+      readValue: () => written,
+      setValue: (v) => {
+        written = v
+      },
+    })
+    const disposeButton = registerUiField({
+      kind: 'button',
+      label: '保存草稿',
+      onPress: () => {
+        pressed += 1
+      },
+    })
+    const snap = snapshotUiFields()
+    const inputId = snap.elements.find((e) => e.label === '搜索关键词')?.id ?? ''
+    const buttonId = snap.elements.find((e) => e.label === '保存草稿')?.id ?? ''
+    expect(inputId && buttonId).toBeTruthy()
+
+    const filled = await executeTaroUiAction('fill', { target: inputId, value: 'Agent 规则' })
+    expect(filled.ok).toBe(true)
+    expect(written).toBe('Agent 规则')
+    expect((await executeTaroUiAction('click', { target: buttonId })).ok).toBe(true)
+    expect(pressed).toBe(1)
+    // 猜一个 id 不能命中任何控件(序号永不复用 ⇒ 只会如实失败,不会误改别的控件)
+    expect((await executeTaroUiAction('fill', { target: 'fld:input#99999', value: 'x' })).ok).toBe(
+      false,
+    )
+
+    disposeField()
+    disposeButton()
+    expect((await executeTaroUiAction('click', { target: buttonId })).ok).toBe(false)
+  })
+
+  it('describe 把控件与表单一起列出,表单以 kind=form 表达提交通道', async () => {
+    const disposeForm = registerUiForm({
+      key: 'search-form',
+      label: '检索表单',
+      onSubmit: () => undefined,
+    })
+    const res = await executeTaroUiAction('describe', {})
+    const registry = (res.data as { registry: AppUiSnapshot }).registry
+    expect(registry.elements?.some((e) => e.kind === 'form' && e.label === '检索表单')).toBe(true)
+    expect(registry.suppressed).toBe(0)
+    expect((await executeTaroUiAction('submit', { target: 'form:1' })).ok).toBe(true)
+    disposeForm()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
