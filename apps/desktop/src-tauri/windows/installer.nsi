@@ -802,7 +802,15 @@ Function un.onInit
     !insertmacro MULTIUSER_UNINIT
   !endif
 
-  !insertmacro MUI_UNGETLANGUAGE
+  ; ==== IHUI 定制:卸载器语言只读注册表,绝不弹原生选择框 ====
+  !insertmacro MUI_LANGDLL_VARIABLES
+  !ifdef MUI_LANGDLL_REGISTRY_ROOT & MUI_LANGDLL_REGISTRY_KEY & MUI_LANGDLL_REGISTRY_VALUENAME
+    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"
+    ${If} $mui.LangDLL.RegistryLanguage != ""
+      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage
+    ${EndIf}
+  !endif
+  ; ==== IHUI 定制结束 ====
 
   ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配
   ${GetParameters} $R9

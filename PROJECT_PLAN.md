@@ -188,23 +188,45 @@
 ### 登记待拍板(需要产品归属决策或成批铺开,本次一律未动他人/成体系代码)
 
 - [x] ✅(2026-09-22) **同文案双 affordance 已消歧**:AI 面板内 `AgentTaskProgressPane`(与 MessageList **同容器**,`ai-side-panel.tsx:1300` 开、`:1342` 挂 pane)自带 `pane-jump-latest`(`agent-task-progress-pane.tsx:1762-1775`,`absolute bottom-2 left-1/2`,`ai.pane.jumpToLatest`),与对话列 `scroll-jump-bottom`(`chat.jumpToLatest`)在 en 语言包文案完全相同、zh 同为"跳到最新"一档,pane 打开 + pane 未贴底 + 列表已上滚即同屏。动作不等价(各滚自己容器),故属"文案歧义 + 叠压"而非重复按钮:pane 层 `z-sticky(990)` 高于列的 `z-20`,pane 可拖到右下时会吞掉列内按钮点击。解法二选一(需拍板):给 pane 那枚换语义文案(需新增 `ai.pane.*` 键 → 触发 §19 五语言流水线),或把 pane 的自动跟随改成 header 贴底开关。已做:新增键 `ai.pane.followEvents`(zh「跟随事件流」/ en "Follow event stream",ja·ko·zh-TW 走 §19 AI 流水线),pane 那枚的 Tooltip 与 aria-label 从 `jumpToLatest` 改为 `followEvents` → 同屏两枚按钮文案不再同名(判据前半已达成,5 语言 parity 与残留扫描全绿)。
-- [ ] **pane 与对话列浮动钮的叠压吞点击**(同上一条的剩余半边,本次未做):`z-sticky(990)` 的 pane 可拖至右下,覆盖列内 `z-20` 的 affordance 使其点不到。解阻判据:把 pane 拖到右下角后,列内「跟随事件流/跳到最新/跳顶」三钮仍可点击命中(真机 `elementFromPoint` 取证)。注意本仓有 z-index 层叠守门(guardian id 27/28),改层级前先读该规则的两组契约(桌面窗口控制按钮必须高于 resize 抓手、遮罩盖不到它)。
-- [ ] **pane 帮助面板正文仍把 `?` 文档化为「打开/关闭快捷键帮助」**(`agent-task-progress-pane.tsx:177` 一带使用 `ai.pane.shortcutShowHelp`):归属改完后这行字面仍成立但指向的是全局面板,易误导。要删该文档行会让 `ai.pane.shortcutShowHelp` 变新死键 → 必须同票清键(5 语言),故单列。
+- [x] ✅(2026-09-22) **pane 与对话列浮动钮的叠压吞点击已根治**(上条的剩余半边):新增 `clampPaneAboveAffordanceRail`(拖拽 `onMove` 与 localStorage 恢复两条路径都过一遍),pane 底边不得越过 affordance 列上沿,**不动 z-index**(守门 27/28 两组契约保持)。真机复现值:改前 `translate(116,212)` → pane 矩形 288..568×174..297 完全罩住 rail 412..444×200..272;改后 clamp 回退到 Y=115。单测锁算式含 3 条反例(水平不重叠 / 本在带沿之上 / 无 rail 节点)。commit `00fa252da2`。
+- [x] ✅(2026-09-22) **pane 帮助面板不再文档化 `?`**:帮助面板分组表里 `{ keys: '?', i18nKey: 'shortcutShowHelp' }` 一行已删并留归属注释(键位唯一归全局面板),`ai.pane.shortcutShowHelp` 同票从 5 语言包行级删除 → 不留新死键。断言改为 `expect(kbdTexts).not.toContain('?')` + `not.toContain('打开/关闭快捷键帮助')`。commit `00fa252da2`。
 - [x] ✅(2026-09-22) **`?` 双主已收口,归属定为全局**:`use-permission-mode-cycle.ts:92`(document)与 `agent-task-progress-pane.tsx:937`(window)在同一次按下中都会执行 → 一次 `?` 开两个面板。现删除 pane 的 `?` 分支(源码 `:936` 留归属注释),pane 帮助只走 header 钮 + Esc。三处既有断言(`pane-keyboard` / `pane` 两个 describe 共 3 例)同步从"派发 `?`"改为点 header 钮,并**新增反向断言**:pane 打开时在 window 派发 `?` / Shift+/ 后 `aria-expanded` 仍为 false(变异测试实证:把 `?` 分支加回该断言立即红)。
-- [ ] **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
-- [ ] **`Ctrl+Shift+A` 三主 + 我上一轮报告的两处更正 + 一处漏报**:
+- [x] ✅(2026-09-22) **Esc 层栈协议已落地**:新增 `apps/web/src/lib/overlay-stack.ts`(`pushOverlay`/`popOverlay`/`isTopOverlay`,模块级数组、注册幂等、**未接入层 fail-open** 故 Radix Dialog/Drawer 行为零变化)+ 7 例单测。接入 5 处:`PortalPanel`(共享入口,`overlayId` 可传稳定 id,不传用 `useId`)、`context-usage-ring`、`permission-mode-popover`、`Ctrl+/` 帮助面板(`global-hooks-provider`)、`add-menu-popover`。真机取证(私有 dev 8831):权限弹层 + 帮助面板两层同开 → 第 1 次 Esc 只关面板(`help 1→0`,menu 仍 1),第 2 次 Esc 才关弹层(`1→2→1→0`);改前实测一次 Esc 两层齐关。刻意**未**逐个补 `stopPropagation`(跨层顺序不可控)。`packages/ui-react` 的 Dialog 家族未内建 —— 其 Esc 由 Radix 自带且焦点封闭,不构成多关路径,故按"零改动"处理而非为改而改。commits `7dbe1a44c2` / `15ec752b83`。
+- [x] ✅(2026-09-22) **`Ctrl+Shift+A` 三主 + 我上一轮报告的两处更正 + 一处漏报**(已全部收口):
   - **更正**:我上一票口头报给你的"桌面 SSO `Ctrl+Shift+K` 撞键"与"`Alt+Enter` 切分屏 vs 输入框插入换行"**两项经全仓 grep 复核不成立** —— `Alt+Enter` 全仓 0 命中;`Ctrl+Shift+K` 只出现在 `src/components/publish/RichTextEditor.tsx:145` 的工具项 `shortcut` 标注里(富文本编辑器,与桌面 SSO 无关)。是我把未复核的推论写进了结论,已纠正。
   - **漏报(复核为真)**:`Ctrl+Shift+D` 同样双主 —— 注册表 `use-global-shortcuts.ts:60`(短剧编辑器)与 IDE `use-ide-shortcuts.ts` `case 'd'`(debug 视图,`activity-bar.tsx:24` tooltip 明写)。
   - **三主复核依旧成立**:`Ctrl+Shift+A` = 注册表 `:85`(提及文件)+ IDE `case 'a'`(applications 视图,`activity-bar.tsx:29` tooltip)+ 桌面移植 `use-native-shortcuts.ts:71`(管理后台,Rust accelerator 已删故移植)。
-  - 已定归属并交实施:IDE 家族(`Ctrl+Shift+{E,F,G,D,A}` 一族 + tooltip 已固化)保持不动;注册表两条让位到已复核空闲的新 chord;native 的管理后台分支删除(该功能有正常入口)。附带产出 `scripts/check-declared-shortcuts.mjs` 对账"UI 声明的 chord 是否真有处理器",防"声明未绑"这一类复发。
+  - 已定归属并交实施:IDE 家族(`Ctrl+Shift+{E,F,G,D,A}` 一族 + tooltip 已固化)保持不动;注册表两条让位到已复核空闲的新 chord(提及文件 → `Ctrl+Shift+U`、短剧编辑器 → `Ctrl+Alt+D`);native 的管理后台分支删除(该功能有正常入口)。附带产出 `scripts/check-declared-shortcuts.mjs` 对账"UI 声明的 chord 是否真有处理器",防"声明未绑"这一类复发。**实施证据**(commit `78ce2dcc2e`):真按键四条全 PASS —— `Ctrl+Shift+A` 既不插 @ 也不跳 /drama、`Ctrl+Shift+U` 插入 @、`Ctrl+Alt+D` 跳 /drama、`Ctrl+Shift+D` 不再打开短剧;守门含 10 例自检 + 全仓审计 exit 0(声明未绑 0 项)。
 - [x] ✅(2026-09-22) **`Alt+Arrow*`**:`SplitPaneContainer.tsx` window 监听原本命中即调用焦点切换但**不 `preventDefault`**,且 `handleFocusSwitch` 内部对 `paneIds.length<=1` 是 no-op ⇒ 单 pane 时按 Alt+← 什么也没做却仍触发浏览器后退;多 pane 时切焦点与后退导航同时发生。现:命中后先判 `paneIds.length<=1` 直接放行,真会切焦点才 `preventDefault + stopPropagation`;并补 `e.isComposing` 放行。**复核更正**:我上一轮登记时写的"无挂载守卫"不准确 —— 动作侧早有 `paneIds.length<=1` 早退,缺的只是不吃按键。
 - [x] ✅(2026-09-22) **`Ctrl+1..5` / `Ctrl+Shift+J` 吃输入法候选**:根因是应用级组合键在 IME 组合态下同样匹配。修法不是加"焦点在输入框"守卫(那会连带废掉在聊天框里正常按 Ctrl+1 切标签页的既有行为),而是**组合态判据 `event.isComposing`**:`use-global-shortcuts.ts` 的 `matchShortcut()` 顶部统一早退(覆盖全部注册快捷键)+ `agent-progress-trigger.tsx` 自有 Ctrl+Shift+J 监听同款补齐。
 - [x] ✅(2026-09-22) **`src/hooks/use-keyboard-shortcut.ts` 零调用死代码**:文件名与 `useKeyboardShortcut` 符号双落点 grep 均为 0 引用(apps/packages/docs/README,无同名测试)→ 已删除。**复核更正**:登记时写的"无焦点守卫"这条我对 SplitPane 的判断不准确,已按上条修正。
 - [x] ✅(2026-09-22) **`packages/ui-react` 3 处 hover 才显的常驻按钮**(`work-panel.tsx:430` 移除收藏、`:548` tab 关闭、`Upload.tsx:330` 删除已上传)已补 `group-focus-within:opacity-100` 做**聚焦即显形**(刻意不用 `tabIndex=-1`/`aria-hidden`,那对常驻操作等于剥夺键盘可达性);真跑 postcss 取证确认产物含 `.group-focus-within\:opacity-100:is(:where(.group):focus-within *)`,且 `apps/web/app/globals.css:14` 的 `@source` 已覆盖 ui-react 源码。
-- [ ] **`work-panel.tsx:480-554` 非法 HTML 嵌套**:`<button>` 内含 `<span role="button" tabIndex={0}>`(button 内容模型禁止 interactive content,且构成双 Tab 停靠点)。本次刻意未重构 DOM,取证理由:①`onDragLeave` 依赖 `e.currentTarget.contains(e.relatedTarget)` 防拖拽指示线抖动,X 移出按钮后保护失效;②span 的 `stopPropagation` 依赖同按钮内冒泡压制 `onTabChange`;③`group`/`relative` 与 `scale-105` 动画、`DropIndicator` 兄弟位都挂在外层。正解:外层改 `div[role=group].group.relative` + 内部并列"激活 `<button>`"与"关闭 `<button>`",另票实施并同步 `apps/web/e2e/work-panel.spec.ts`。
+- [x] ✅(2026-09-22) **`work-panel.tsx` 非法 HTML 嵌套已按定稿方案改造**:外层 `<button>` 降级为 `div`(承载 `group`/`relative`/拖拽五件套/`scale-105`),内部并列"激活 `<button>`"与"关闭 `<button>`(补 `aria-label=labels.closeTab`)"。三条顾虑逐条处理:①`draggable` + 五件套留在外层容器 → `onDragLeave` 的 `contains(relatedTarget)` 判定域与改造前**同一颗 pill**,指示线不抖;②关闭钮保留 `stopPropagation`(激活钮已改兄弟,该调用降为第二重保险);③`DropIndicator` 兄弟位不变。取证:真机 `elementFromPoint` 命中 `NESTED_HITS=0`(改前 span[role=button] 落在 button 内)、`e2e/work-panel.spec.ts` 由固定 `waitForTimeout(500)` 改自动等待 3 颗 pill 落 DOM + 新增内容模型/聚焦显形断言;`pnpm --filter @ihui/ui-react build` 重建 dist 后 web 包 typecheck 0 错误。commit `2631e49047`。
 - [x] ✅(2026-09-22) **hover 才显的 `opacity-0` 常驻按钮(web 侧 25 文件 / 26 处)已改聚焦即显形**:统一补 `group-focus-within:opacity-100`(宿主 `group` 均逐处读码确认在祖先行,非猜),覆盖 IDE 族(editor-tab-bar / source-control / search-panel / WatchSection / BreakpointSection / diff-file-list / applications-panel / terminal-session-list / terminal-tab-bar/TerminalTab / RecordingDrawer ×2)、媒体族(ImageViewer / VideoPlayer / LivePlayer / CodeViewer)、列表卡族(conversation-list / MemoryCard / ContentTemplateLibrary)、6 个 app 页面(favorites / member/favorites / subscriptions / search/history / settings/llm/GroupSidebar / edu meal)、UserAvatar。**刻意未用 `tabIndex=-1`/`aria-hidden`**(那对常驻操作等于剥夺键盘可达性)。两处偏离与理由:①两个终端关闭钮宿主本身是 `group-hover:opacity-60`,对齐成 `group-focus-within:opacity-60` 以免聚焦比悬停更亮;②`HeroCarousel` 不是 hover 显形问题(非当前 slide 的 CTA 全量渲染在 Tab 序里),改用 React 19 `inert={idx !== current}`(typecheck 已验证 `inert` 在本仓库 React 版本可用)。取证:全量 vitest 与 `pnpm --filter @ihui/web typecheck` 见本票;postcss 真编译产物含 `.group-focus-within\:opacity-100:is(:where(.group):focus-within *)` 与 `opacity-60` 两条规则。**过程自纠**:我先写的"纯新增自查脚本"产出了恒真 ✅(token 比对逻辑失效、文件数 30≠25),不可采信,已改为逐行读 26 处 diff 原文核对 `-`/`+` 前缀一致 + 追加类名,并确认他人 in-flight 的 21 个 `ai-generation/*.tsx` 与截图基线文件不在改动集内。(原 34 处里 `packages/ui-react` 那 3 处已随本票修完,见上一条 [x];`work-panel.tsx:548` 的非法嵌套另列为结构改造项)。**修法务必分清两类**:暂时性状态 affordance(如我已修的 `scroll-jump-buttons`)才用 `tabIndex=-1 + aria-hidden`;hover 才显的**常驻操作**绝不能用 `tabIndex=-1`(等于彻底不可达),正解是补 `group-focus-within:opacity-100` 让它显形。成批铺开前需先冻结各文件归属(并行会话正占用 apps/web 多处)。
 - [x] ✅(2026-09-22) **i18n 同义死键已清**:`chat.message.jumpToLatest`(跳至最新)、`chat.permission.jumpToLatest`(跳转到最新)全仓源码 0 引用(文件名 + 路径两种正则双查,含 8 端与 vue/jsx),已从 5 个 web 语言包行级删除;同票新增 `ai.pane.followEvents`。对称性核对:5 语言 diff 均 `1 2`、逐语言 added/removed 集合完全一致、叶子数 19722→19721、`i18n-apply --check` 与 `check-i18n-keys`(1451 文件 / 15747 键)、`scan-i18n-zh-residue ko`、`check-i18n-broken-en` 全绿。小程序离线包 `remote-locales.gen.ts` 经 `pnpm --filter miniapp gen:i18n` 重跑后**无变更**(该包不含 web 命名空间,符合预期)。
-- [ ] **残留:pane 帮助面板正文仍把 `?` 写成"打开/关闭快捷键帮助"**(`ai.pane.shortcutShowHelp`,zh-TW/ja/ko/en 同存)。删该行会立刻造出一个新死键,必须同票清键 → 本次刻意未动(判据:帮助面板不再声明 `?`,且 5 语言包中该键已移除且 `check-i18n-keys` 绿)。
+- [x] ✅(2026-09-22) **残留已清**:pane 帮助面板不再声明 `?`,`ai.pane.shortcutShowHelp` 已随同票从 5 语言包删除(判据两条均达成:帮助面板 kbd 集合不含 `?`;`check-i18n-keys` 15751 键 / 5 语言 parity OK,grep 全仓 `shortcutShowHelp` 在 apps/ 与 packages/ 双落点 0 命中)。commit `00fa252da2`。
+### 第二轮收口(同日续做:把上一节所有"待办"清零时新查出的 6 项,均已修并取证)
+
+上一节登记项全部闭合后继续按同一形状外推,又查出并修掉 6 项(证据均取自私有 dev 8831 真机 DOM 数值,不采信截图):
+
+- [x] ✅(2026-09-22) **`Ctrl+/` 快捷键帮助面板永久空白(0 行)**:`use-global-shortcuts.ts` 把注册表在 effect 里写进 `shortcutsRef`,而 `shortcuts` 的 `useMemo` 只依赖 `[scope]` —— 首帧算出空数组后永不重算(`useSyncExternalStore` 只触发重渲染,不改 memo 结论)。修法 = 读回版本号并入依赖。真机取证:改前 `role=dialog` 内 `code` 计数 **0**,改后 **18**(= 注册表条目数)。**这是我上一轮报"面板没渲染"疑点的正解** —— 当时我用 `code` 选择器探到 0 却因 dev 进程中断没敢定论;复核后确认疑点为真,同时澄清 `?` 那条是我用错了探针(该模态用 `<kbd>`,实测 11 个键位行,功能正常)。
+- [x] ✅(2026-09-22) **`Ctrl+,` 双主**:注册表(跳 `/settings`)与 `use-ide-shortcuts` `case ','`(切 IDE 设置视图)在 IDE 页焦点不在输入框时同一次按下都执行。按"成族者不动、单点让位"口径把全局项改绑 `Ctrl+Shift+,`(复核空闲),`command-registry` 提示位与顶栏注释同票更新。真机:`Ctrl+Shift+,` → `/settings`;`Ctrl+,` 停留在 `/chat`(不再跳设置)。
+- [x] ✅(2026-09-22) **RichTextEditor 自有 `Ctrl+{K,1,2,3}` 与注册表双主**:编辑器在 textarea 上处理这些键但不截断冒泡,React 根容器早于 window → 一次按键既插标题/链接又切对话模式。改为按 `ACTIONS` 派生的自有 chord 集合 `stopPropagation`(键位集合与工具条标签同源不漂移)。新增 9 例单测把"自有 chord 不到达 window / 非自有 chord(Ctrl+P)照常到达 / 裸键不截断"钉死。
+- [x] ✅(2026-09-22) **view-switcher 五项标签说谎**:`document/browser/figma/code-changes/agent` 标 `Ctrl+1-5`,但全仓无任何处理器把这些键位接到视图切换(真实绑定是注册表的切模式)。删除该 5 个标签;`Ctrl+\``(terminal)与 `Ctrl+,`(settings)由 `use-ide-shortcuts` 真实绑定 → 保留。**守门边界一并记档**:`check-declared-shortcuts.mjs` 只能证"声明的键没人接",证不了"同一个键被别的功能接走"(故本次这条靠人工复核),该边界已写在脚本头部注释。
+- [x] ✅(2026-09-22) **activity-bar 6 枚图标钮无可访问名 + tooltip 只 hover 显形**:补 `aria-label={t(item.labelKey)}` + `aria-pressed`(选中态原本只有底色与 2px 竖条),tooltip 容器补 `group-focus-within:opacity-100`。真机取证:聚焦 → tooltip `opacity 0→1`,失焦 → 回 0;6 个按钮 `aria-label` 实测为 文件/搜索/源代码管理/调试/应用/设置。**过程自纠**:前两次探针 FAIL 都取到了不可聚焦的节点 —— IDE 路由挂出登录 `auth-shell` 模态(整棵内容被 `aria-hidden`),关掉模态后判据立即为真;另记一次探针里写进 `.mjs` 的 TS 断言语法(会 SyntaxError)已改纯 JS。
+- [x] ✅(2026-09-22) **注册表新增 chord 未补 `shortcutHelp.desc` → 面板回显硬编码中文**:`Ctrl+Shift+/`、`Ctrl+Shift+U`、`Ctrl+Shift+M` 三条无描述键,在非中文语言下会把 `DEFAULT_SHORTCUTS` 的中文 description 直接打在面板上。5 语言各补 3 键(纯新增 `3 0`,每键每语言出现次数 =1,`check-i18n-keys`/`i18n-apply --check`/`scan-i18n-zh-residue ko·zh-TW`/`check-i18n-broken-en` 全绿;`desc.ctrlComma` 键名保留不随 chord 改名),并加静态覆盖断言(注册表每条 chord 必须有 desc 键)防复发。
+- [x] ✅(2026-09-22) **终端与 native 侧键位复核为"无残留双主"**:`TerminalViewport` 用 `attachCustomKeyEventHandler` 自理 `Ctrl+F/Ctrl+R/Ctrl+Shift+{C,V,D,H}`,其宿主是 xterm 的 textarea → `use-ide-shortcuts` 的 `isInputFocused` 早退天然让位;`use-native-shortcuts.ts` 余下仅 F11/F12/F5/Ctrl+R/Ctrl+Q,注册表无同名项。故本轮不再改动他处。
+
+### 第三轮收口(用户追加"直到没有任何未闭环"+全权授权后,清掉上一节自留的 3 条未闭环)
+
+- [x] ✅(2026-09-22) **三套快捷键帮助表面收敛为"各司其职"**:`?` 模态(`permission-shortcuts-modal.tsx`)原有一整块 `MODE_SWITCH_ROWS`("对话模式切换"5 行),与全局 `Ctrl+/` 面板**内容重复**、**硬编码中文**(代码注释自认"待 i18n",非中文语言必漏)、且**文案过期**(写"也可用 Ctrl+1-4",而 ChatMode 已是 5 态)。现删该块(连带 5 个只此用到的 lucide 导入),模态底部改为一行交叉指引"查看全部快捷键 `Ctrl+/`"(新键 `chat.permission.shortcutsSeeAllKbd`,5 语言各 +1 行);因此失去引用点的 **7 个键**(`shortcutsSectionChatMode`/`shortcutsItemChatModeDesc`/`shortcutsItemMode{Build,Plan,Review,Spec}Kbd`/`shortcutsItemModeCmdHint`)同票清除(全仓 grep 源码 0 引用 + 无动态拼键),5 语言对称性 = 每份 `1 7`、`check-i18n-keys`(15752 键 parity OK)/`i18n-apply --check`/`scan-i18n-zh-residue ko·zh-TW`/`check-i18n-broken-en` 全绿。新增 `tests/permission-shortcuts-modal.test.tsx` 6 例(静态源码断言 + 反向哨兵:三类"应当没有"的断言各前置一条命中哨兵,另断言权限族 `shortcutsItemShiftTabKbd`/`SquareSlash` 仍在)。
+- [x] ✅(2026-09-22) **我上一票自埋的窟窿:守门 69 根本没接线**。`check-declared-shortcuts.mjs` 随 `78ce2dcc2e` 入库,但 `grep guardian-runner.mjs / .husky / package.json` 三处 0 命中 —— 脚本"造好没装车"(与本仓守门 64 的成因同一类),我当时的提交信息写"新增守门"是**半真**。现:①补 `mislabelled` 判据(field 声明与注册表同键须自证持有,三条合法证据:event 字面量 / 自有同键 handler + `stopPropagation` / 同义镜像),把"同键被别的功能接走"这个我原写进注释当边界的盲区变成机检;②在 `guardian-runner` 注册为 **id 69 blocking**(`stagedTriggers: ['apps/web/']`,skipEnv `HUSKY_SKIP_DECLARED_SHORTCUTS`,编号先核对 HEAD 与工作区全集 1-68 无冲突);③README 守门表 + AGENTS 速查各加一行(§21 同 commit)。有效性证明:**注入违规而非读自述** —— 向 view-switcher 塞 `shortcut: 'Ctrl+2'` → exit 1 并点名被 `global-shortcut:mode-plan` 接走,字节级还原后 exit 0 且 `git diff --numstat` 为空;测试 20 例全绿(新增 8 例含反向断言:删掉 `stopPropagation` 即复红)。
+- [x] ✅(2026-09-22) **私有 dev 服务残留按进程树回收(纠正我"非本会话资产"的误判)**:上一轮收尾时看到 8831 换了 PID 就判给并行会话,实际父进程是我 16:05 启动的 `next dev`(18:11 子进程重生)。教训:**`next dev` 是监督进程,`taskkill /T /F` 只打子 PID 会被重生**(我正是先杀 9944 又冒出 27100)。正确做法是先 `Get-CimInstance` 顺父链找到 `next dev -p 8831` 本体再打整树,并用"重生等待 + 端口复采 + distDir 不再长回"三条收口。
+- 过程自纠两条:①我给的子代理任务书里"守门已注册"是错的,子代理如实上报并拒绝抢编号,这条差额由我本轮补上;②我在 README 表格里用**截断半行**做 Edit 锚点,把 65 行的闭合竖线吞进新行(同型错误今日第三次),已用"取 HEAD 原文整行还原 + 重插新行"修回,最终 `git diff --numstat -- README.md` = `1 0`。
+
+- [x] ✅(2026-09-22) **中英双语真机取证又挖出两处取词/语种缺陷(同日补修)**:①`?` 模态行表里 `key: '查看历史'` 是**当键位标签写的中文**(en/ja/ko 下直接漏中文)→ 改为 `labelKey: 'historyOpenExternal'`(复用现有 5 语言键,零新增键、零键序漂移);②**`<html lang>` 永不跟随语言切换** —— `app/layout.tsx:219` 服务端恒写 `zh-CN`(语言早已改为客户端 I18nProvider 驱动),而 `document.documentElement.lang` 是 **5 处取词口径的真值源**(`src/lib/number-format.ts:23` + ai-news 4 个组件),结果英文界面仍按 zh-CN 格式化数字、AT 读错语种 → 在 `I18nProvider` 加一条 `useEffect` 同步 `lang`,由 locale 驱动。真机双语言取证(私有 dev 8832,`NEXT_LOCALE` cookie 无效,正确机制是 localStorage `ihui-language` zustand persist):zh 模态 kbd 集合含「查看历史」且 `document.lang=zh-CN`,en 同一行渲染 **"View history"、整块 dialog 中文字符数 = 0、`lang=en`**,两语言均不再列 `Ctrl+1-5`。测试补一条"行表内不得有中文键位标签"(先命中哨兵再断言源码为空,防正则失配型假绿)→ 6 例全绿,全量 158 files / 2067 tests 绿。
+- 收尾自证一条:`.next dev` 是**监督进程**,`taskkill /T /F` 只打监听子进程会被重生(我已登记进记忆库),本轮 8832 用后台任务句柄整体停 + 等 14s 复采端口空闲 + 隔离 distDir 不再长回,三条齐才算收口。
+
 ### 普查落点(供复核,含我否掉的自身误判)
 
 第一轮"8 个只有监听没有生产者的事件名"是我用窄正则(`dispatchEvent(new CustomEvent('name'`)扫出来的**假阳性**:漏了模板字面量与换行写法。换判据逐名重 grep 后,`ihui:scroll-to-plan-step`、`ihui:toggle-reasoning`、`ihui:add-text-reference`、`ihui:insert-at-cursor` 等均有真实生产者(如 `timeline-event.tsx:349`、`MessageItem.tsx:628`、`markdown-stream.tsx:270`),**唯一**孤儿通道就是已删的 `ihui:jump-to-latest`。另:本轮为取真机证据两次重启本机 8802 API(它会被并行会话/僵尸清理任务打挂),收尾后保持运行未再关闭。
@@ -315,6 +337,30 @@
 - 本批全部验证:沙箱编译 0 warning、真包 `tauri build --bundles nsis` 成功(仅缺 `TAURI_SIGNING_PRIVATE_KEY` 的签名报错,不影响产物)、`check-installer-assets` PASS、`desktop-nsis-template --check` OK、接线测试 6/6。
 
 **残余**:签名私钥未参与本次本地构建(产物无 `.sig` 有效内容),发版走 CI 时才有;`tauri build` 的完整 `--bundles nsis` 在本机不含 Web 端构建(`frontendDist` 已是 `shell`)。
+
+### 第五批(同日):视觉精修三处 + 完成态空白块 + 探针清理 + DPI 封顶 + 签名链核实
+
+- **计量器构图**(用户:"进度条、文字都不好看没设计感"):百分比大字移到轨道正上方右对齐至 x=748,`%` 由位图烧在其右侧同基线(运行期文本不再自带 %,否则 "92% %");轨道 8→10px 加外描边与顶部内高光;阶段刻度 20/45/65/85/92 烧进轨道,填充经过时盖住 → 进度条自己在讲"过了几关"。欢迎页要点由"竖条+文本"改成 **01/02/03 编号列表**,与导轨步骤同一套数字语言。
+- **目录页三处**(用户附截图):路径容器 40→36 高、输入框 32→28 高并同基线(消掉"框下空一行");「浏览…」从"裸文字+下划线"改成正经**次级按钮**(卡底 + 1.5px 描边 + 8px 圆角 + ink 字),与 CTA 成主次对;「继续」钮周围"乱七八糟"= 原生主题边框 + 系统焦点虚线框两因叠加 → 样式补 `BS_FLAT(0x8000)` 去边框、清 `WS_TABSTOP(0x10000)` 让它拿不到焦点(点击仍走 BN_CLICKED,推进链不受影响)。
+- **完成态左下空白浅灰块**:洞还开着 + 核心 done 态把原生钮 2 重新置为可见 → 未贴皮按钮从洞里露出。`IHUI_INST_HOLES` 加 `INCLCANCEL` 参数(完成态只挖 CTA 洞)+ 原生 2 移屏(核心只改可见性不改坐标,时序无关)。
+- **删掉一枚随包发布的写死路径探针**:`IHUI_INST_DONE_THEME` 里的 `FileOpen "D:\caches\Temp\..."` 无任何条件包裹,每次安装完成都在用户机器上落一个文件(违 §15);`IHUI_LOG` 的 trace 路径同样写死(那处有 `!ifdef IHUI_TRACE` 守卫,非发布缺陷)→ 改用 NSIS 内置 `$TEMP`。全仓 `.nsi` 现已无硬编码盘符。
+- **DPI 天花板封顶**:上一批"向上取档"把模糊从小数缩放挪到了超高缩放。加 225/250 两档实测要再往 git 塞 ~223 MB(现有 5 档已 414 MB),不划算 → 改为把**布局 DPI** 钉在顶档 192(`IHUI_GUIINIT_SIZE` 与 `IHUI_PICKTIER` 各加一条 `> 192 → 192`,与既有 `< 96 → 96` 对称)。数值证明:DPI 96..480 全枚举,"位图 < 客户区"= **0 例**;96/120 行与改前逐值一致 → 本机零影响。>192 的屏本机不存在,该路径**只有数值证明、无截图证明**,如实登记。
+- **体积与签名链核实**:真包 `tauri build --bundles nsis` → **5.77 MB**(414 MB 落盘资产经 `/SOLID LZMA` 后整体不到 6 MB,"资产翻倍会撑爆安装包"的担心作废)。之前看到的 `A public key has been found, but no private key` **不是配置缺失**:私钥一直在 `~/.tauri/ihui-updater.key`(+ `.pub` + `-password.txt`),`scripts/release-desktop-local.mjs:66-78` 会读它并注入 `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)`,CI 走 `DESKTOP_TAURI_PRIVATE_KEY` secrets —— 是我直接跑裸 `tauri build` 绕过了发版脚本。带上环境变量重跑 → `Finished 1 updater signature`,并比对签名内 keyID 与配置公钥 keyID = **`08dbb1a27ee6d7b5` 逐字节一致**,证明确由该私钥签署。
+- 本批验证:沙箱安装器编译 0 warning(含 `-DIHUI_TRACE=1` 分支)、`check-installer-assets` PASS、`desktop-nsis-template --check` OK、eslint 0 error、真包构建成功且产出有效 `.sig`;目录页/安装页/完成态/完成页四处均 computer-use 截图目检通过。
+
+**残余(未闭环,如实登记)**:① DPI > 192 的超高缩放屏只有数值证明,无真机截图;② 卸载进度页两处视觉修复与品牌开关已复验,但**真包**(非沙箱)的卸载器界面未跑过一次 —— 需在下个发版周期用真 installer 装完再卸载复核;③ updater 签名的端到端消费(客户端校验 `.sig` 并应用更新)本批未测。
+
+### 第六批(同日):真包卸载全链路复核 —— 揪出两处"沙箱永远测不到"的缺陷并收口
+
+承第五批残余②,本轮用**真签名包**装完再卸载逐页取证。两处缺陷都是沙箱测不到的盲区,且其中一处正是用户报「卸载程序怎么还挂在我电脑上」的真凶。
+
+- **缺陷 A:卸载器启动即弹原生「Installer Language」框**(模板补丁 U3)。根因链:本项目 `DISPLAYLANGUAGESELECTOR=false` → 安装侧 `MUI_LANGDLL_DISPLAY` 被 `!if` 整段编译掉 → 语言值**永不写入注册表** → 上游 `un.onInit` 的 `MUI_UNGETLANGUAGE` 读空后回落到 `MUI_LANGDLL_DISPLAY`,弹出 292×152 原生选择框(框里已预选"中文(简体)"却仍要用户点一次 OK)。**为什么沙箱和历次 /S 验证全部漏掉**:沙箱 `sandbox.nsi` 只注册一种语言(单语言 NSIS 不弹框);而该宏自带 `${unless} ${Silent}`,静默路径永远看不到它。改法 = 只读注册表、缺失即沿用核心按系统 UI 语言自动选中的结果,任何情况都不弹框;不新增注册表写入(选择器关闭时该值恒等于自动检测结果,重写只会给"取消安装"留残留)。
+- **缺陷 B:普通交互卸载跑完 instfiles 后永久挂死**。上游 Section 尾部只在 passive / 更新模式 `SetAutoClose true`,交互卸载会原地停住等用户点「关闭」,而那颗钮(原生 1)进页时已被 `IHUI_HIDE_ALL` 移屏、原生 2 在完成态被核心置 `disabled` 画成灰底。真包 UIA 实锤整页只剩两个 disabled 按钮;CPU 4 秒增量 **0.000s** → 纯等待而非死循环,只能 taskkill。**收口 = `NSIS_HOOK_POSTUNINSTALL` 无条件 `SetAutoClose true`**,真包复测:点「继续」后 2s 内进程自行退出,`D:\智汇AI` 清空、`HKCU\...\Uninstall` 匹配 0、`HKCU\Software\智汇AI` 不存在、Run 值已清,`com.ihui.desktop` 两处数据目录按开关 OFF 语义**有意保留**。
+- **卸载侧「完成页」三条路全部实测否决**(登记以免后人重试):① 裸 `UninstPage custom` 挂在 `MUI_UNPAGE_INSTFILES` 之后 → 页函数开头**无条件**写标记文件,20s 内标记从未出现 = 这张页根本不会被走到;② 改 `!insertmacro MUI_UNPAGE_FINISH` → 7.6s 标记出现(页确实被走到),但截图实锤 MUI 自带白底面板 + 蓝色向导头图 + 两行原生文字压不住(内层 dialog 1044 `GetDlgItem` 拿不到句柄 → resize 不生效,原生控件 ID 段 1000..1100 也扫不掉),成品比原生完成框更难看;③ Section 内无从等待点击(instfiles 页运行期间没有任何定时器)。排查记录同步落在 `ihui-uninstaller.nsi` 文件末尾。
+- **顺带清掉一处虚假文档**:`ihui-uninstaller.nsi` 头部登记的 `U3 un.onInit 尾部 !insertmacro IHUI_UNINIT` 指向一个**全仓不存在**的宏(臆造条目),已按 `desktop-nsis-template.mjs` 里 PATCHES 的真实 name 逐条重写;并修正 `un.IHUIUninstShow` 上方"核心卸完直接关窗"的错误假设。
+- **侧车补丁锚点收缩一处**:新增 U3 与残留补丁 R5 的锚点窗口重叠(`--check` 报 R5 命中 0 次),把 R5 的 upstream/ihui 两侧同时从 `MUI_UNGETLANGUAGE` 行之后起截,不再互相遮蔽。
+- 本批验证:`desktop-nsis-template --check` OK(27 处补丁)、`check-installer-assets` PASS(引用 17 / 打包 33 / 5 档)、真包 `makensis` 0 错误且产出有效 `.sig`;真包卸载三页(确认页 / 进度页 95% + 品牌条 / 无语言框)computer-use 截图目检通过。
+- **仍未闭环**:① DPI > 192 屏只有数值证明,无真机截图;② updater 签名端到端消费(客户端校验 `.sig` 并应用更新)需真实灰度周期。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -1344,6 +1390,8 @@
   - **G-152 错误带"点击重试"动作**:对方"网络超时,操作已阻止,请检查网络后重试""明文获取失败,点击重试";我方第 48 轮只做到"第 N/M 次重试"的**告知**,没有用户可点的重试入口。
     - **G-152 落地进度(第 54 轮)**:web 侧其实**已有闭环**(MessageItem 错误气泡「重试」→ `ihui:retry-message` → MessageList 复用 `regenerateMessage`,今日刚补上监听);逐端按**落点性质**复核后确认缺口在别处 —— extension 的 `error` 是**页面级字符串**(不是消息级),只有文案没有出口,本票补 `pickRetryTarget`(纯函数,无错误不给按钮、无可重发用户消息也不给按钮)+ 错误条内联「重试」按钮(`chat.retryMessage` 1 键 × 5 语言同票)+ 4 例纯函数用例;守门 57 新增 `error-retry-action` 元素(web + extension 共 3 处锚点)。**剩余**:miniapp-taro 与 mobile-rn 的失败回复仍只有 `callFailed` 类文案、无重发动作;cli 属自动退避(另一形态,是否要 `/retry` 待判)。
   - **G-153 权限分级的后果说明**:对方"完全访问权限""减少确认步骤,允许 AI 直接执行更多操作""开启完全访问后…请谨慎操作。包括以下内容";我方权限模式切换缺"这一档会导致什么"的成文交代。
+    - **G-153 落地进度(第 54 轮 · cli 先行)**:先按落点性质核实现状 —— web 其实**已有**权限说明栈(popover / info-modal / confirm-dialog / history-panel),但 `permission-mode-info-modal` 的入口条件是 `mode === 'bypass-permissions'`,即**只有最高风险档解释后果,其余档只报档名**;miniapp-taro 与 mobile-rn **0 命中**(整套权限模式 UI 都没有,属独立大件);cli 首屏只打 `权限 <档名>`。本票补 cli:`permissionModeNote(mode)`(五档 → `cli.permNote*` 词表,**未知档返回空串**而不是回显键名或编造)+ 首屏「权限说明:」一行(bypass 红 / acceptEdits 黄 / 其余暗),词表 5 键 × 5 语言与代码同票(`cli` 键集合一致 24),用例 3 例。守门 57 新增 `permission-mode-consequence` 元素(cli 两处 + web info-modal 一处锚点,清单 114 → 115)。验证:cli tsc 0 错、**全量 115 文件 2469 例通过**(改首屏打印未伤既有输出断言)、守门 57 绿。**剩余**:web 其余四档的后果行(词表被并发 locale 未提交删除卡住,与 G-150 界面层同批续做);extension 仅 1 处类型命中、无档说明;miniapp / RN 需先做权限模式选择 UI。
+    - **G-153 更正(第 55 轮,自己推翻自己的结论)**:上面写的"web 只有最高风险档解释后果、其余档只报档名"**不成立** —— 复查 `permission-mode-popover.tsx` 渲染层发现 `MODE_OPTIONS_LIST` 三档各带 `descKey`(`mode.askDesc / autoDesc / fullDesc`),选项卡片里逐个渲染 `t(opt.descKey)`,另有 `highRisk` 徽章、高风险琥珀描边、切换后撤销 toast(`switchedTo*Desc`)与首次启用高风险的确认弹窗。我当时只看了 `permission-mode-info-modal` 的入口条件(`mode === bypass-permissions`)就下判断,**把"深入文档只给最高档"错说成"后果说明只给最高档"** —— 又一次"落点没看全就判缺失"(与 citations 那条同源)。真实缺口收缩为:web 无缺口;cli 确曾只打档名(本票已补);**extension / miniapp-taro / mobile-rn 是否各有档后果说明待逐端按渲染层核实**(miniapp/RN 是整套权限 UI 缺失的更大问题)。
   - **G-154 终端隔离交代**:对方"使用独立终端""命令在专用终端实例中运行";我方终端卡不说明执行隔离环境。
   - **G-155 检查点 / 撤销修改**:对方有"检查点""撤销""撤销修改"族文案;我方对话流无消息级回滚入口。
   - **G-156 记忆三态**:对方区分"记忆已创建 / 已更新 / 已删除";我方 #27 只有"已记住 N 条",既不分态也不可管理。
@@ -1416,6 +1464,24 @@
 > 目标判定:不以“功能存在”为完成,以**黄金 E2E 成功率、首响应延迟、补全接受率、LSP 可用性、默认安全、审计可逆性、8 端一致性**量化验收。用户已要求“完整彻底、毫无遗漏,并开始深度开发”。
 
 ### 硬性指标(H1-H12)
+
+- [ ] **D111 移动端完全没有权限模式可见性(G-159 / G-160;第 55 轮按渲染层实测新立)**:逐端核"档名 + 后果说明 + 审批状态"三件事的**渲染落点**,结果不是"文案缺",而是**整套 UI 缺** —— miniapp-taro 与 mobile-rn 对 `permissionMode|权限模式|WorkspacePermission` **0 命中**(连当前档位都不显示,更谈不上切换与理由);extension 只有 `AgentRuntimePanel` 的**审批结果**展示(`t('agent.permissionDecision')`,第 220-223 行),既无档位选择也无后果说明;web 是唯一完整的(popover 三档各带 `descKey` + `highRisk` 徽章 + 撤销 toast + 首次高风险确认弹窗),cli 第 54 轮补齐了首屏后果行。**这不是锦上添花**:同一份对话在手机端能让 AI 改文件/跑命令,而用户**看不到自己处于哪一档、也不知道那一档会导致什么**,是可比性上最刺眼的缺口(竞品移动端把风险档与批准入口做成一等公民)。**做法**:① 两端各加"权限档"一行(档名 + 后果,措辞走各端命名空间,**禁止把后端英文枚举或中文直贴界面**);② 审批态沿用已有 `permission` WS/SSE 事件,给"允许一次 / 总是允许 / 拒绝"三键;③ 移动端不提供"完全访问"的**静默开启**入口,切高档必须显式二次确认(web 已有的首次确认弹窗逻辑要复用而非重写);④ 守门 57 先登记 `status: planned`,实现落地后转 `implemented` 并挂满两端锚点。**验收**:两端各 1 条用例断言"档位与后果文案出现且本地化、未知档回退不崩";`grep` 证 miniapp / mobile-rn 的 `permissionMode` 命中数由 0 变非 0(分母用两端目录,口径同 D106)。**依赖(第 55 轮二次核实后的准确版)**:我之前写的"api-client 通道已存在,不需后端改造"**半对半错** —— 对的部分:`@ihui/api-client/endpoints/workspace` 已导出 `getWorkspacePermission / setWorkspacePermission / getWorkspacePermissionDefault / WorkspacePermissionMode`,移动端可直接复用,不需新端点;**错的部分:chat 流式通道里根本没有 `permissionMode`**(grep `permissionMode` 在 `packages/api-client/src/client.ts` 0 命中),它是 **agent 运行接口** `apps/api/src/routes/v1-ai-core.ts` 的入参(映射成 `body.permission_mode`)。所以移动端要做的是"查工作区档位 + 首屏一行交代",不是"从流里读字段" —— 若照我原来那句去接流字段,会写出一段永远取不到值的代码(返工)。另**新发现 G-161 档位枚举跨端不一致**:共享类型 `WorkspacePermissionMode = default | accept-edits | bypass-permissions`(三档),而 cli 的 `--permission-mode` 接受 `default|acceptEdits|bypassPermissions|plan|manual`(五档且**驼峰命名**)—— 同一概念两套枚举,用户在不同端看到的"档"名与数量都不同,须先定唯一真源再补移动端 UI,否则移动照抄哪一套都是错的。
+
+  - **进展(第 56 轮 2026-09-22):G-161 唯一真源已落地并上闸;顺带查出 G-162 一处对外端点从未通过**。
+    - **G-161 取证(五套拼写,不是两套)**:① `packages/types/src/agent-runtime.ts:5` 五档 camel;② `packages/types/src/workspace.ts:57,208` 四档 kebab;③ `packages/api-client/src/endpoints/workspace.ts:528` 三档 kebab(少 `plan`);④ `apps/ai-service/app/services/agent_loop_v2.py` 构造期只认 `default|plan|auto`,而 **`auto` 没有任何端会发**、web 的 `accept-edits` 一进去就 `ValueError`;⑤ `docs/developer/api/agents.md:145` 对外承诺 `read-only|accept-edits|accept-all|bypass-permissions|plan-only` —— 其中 `read-only`/`accept-all`/`plan-only` **代码里根本不存在**。`index.ts:29-33` 早已写下"两套 PermissionMode 命名冲突"的注释但从未收敛。
+    - **唯一真源**:`packages/types/src/permission-mode.ts`(`PERMISSION_MODES` 五档 + `PERMISSION_MODE_ALIASES` 11 键 + `normalizePermissionMode` 精确查表不做模糊匹配、认不出返回 `null` 不回退 default + 三个语义 predicate)↔ Python 镜像 `apps/ai-service/app/core/permission_mode.py`。`agent-runtime.ts` 的 `PermissionMode` 改为 derive 自该注册表。
+    - **边界接线(三处静默失效逐一关掉)**:① `agent_loop_v2.__init__` 改走注册表(非法值仍 fail-fast,文案由 `permission_mode_error` 单点提供),两个 `== "auto"` 决策位改 predicate,新增 `bypassPermissions` 全档免批(与 cli 端同名档一致)且**必发 `permission.mode` 审计事件**;② `agent_engine.py` 三处 JSON-RPC 入口(`thread.start`/恢复元数据/`settings`)改 `_require_permission_mode()`,认不出返回 -32602 而不是原样落库;③ `routers/agents.py` 的 `AgentExecuteRequest` **此前没有 `permission_mode` 字段** → Pydantic 静默丢弃,现声明之并接进 stream 的 `AgentLoopV2`,非流式端点(弃用执行器无审批门)显式拒 400。
+    - **G-162(顺带查出的对外能力断裂,已同步修)**:`apps/api/src/routes/v1-ai-core.ts` 向 `/api/agents/execute` 转发时发的是 `{agent_id, input}`,而 ai-service 请求模型的必填字段叫 **`goal`** → `POST /v1/agents/execute` 与 `/execute/stream` **每次必 422**,即 openapi.json + `docs/SDK.md` + `client.agents.execute()` 承诺的对外能力从未通过。取证:全仓 `apps/ai-service/tests` 里对该端点的 8 处调用**一律用 `goal`**,无一处用 `input`。修法:网关层新增 `buildAgentExecuteBody()` 单点装配(两处调用点此前各写一遍且都写错),同时补 `goal: input` 与权限归一。
+    - **闸(新增 guardian 第 68 项,blocking)**:`scripts/check-permission-mode-vocabulary.mjs` —— R1 跨语言镜像逐字对账(成员集/别名键/别名目标三项)、R2 别名值域闭合 + 成员必须能经自身归一化键解回、R3 消费点字面量必须已注册且**决策位不得拿别名比较**(拦 `== "auto"` 复发)且不许多造自档位白名单元组。有效性按"注入违规"自证:`--self-test` 11 例(含"只加在 Python 一侧的别名键"、`accept-all-x`、自造白名单)全绿,另有"无关元组 `("on","1","true")` 与工具名清单不误伤"两条反向例。**编号说明**:本门原拟用 67,提交前发现并发会话 8175c6984f 已占 67(凭据经非 2xx message 外泄对账),故让位改 68 —— 记录在此是为了将来查 id 冲突成因有据。
+    - **验证**:TS `packages/types/tests/permission-mode.test.ts` 11 例、Python `apps/ai-service/tests/test_permission_mode_registry.py` 21 例(含"读 TS 文件与 Python 字典逐项比对"的运行时兜底)、`tests/test_permission_modes.py` 15 例(4 处旧断言按新契约改写:入参 `auto` → 存储 `acceptEdits`;事件 `mode` 断言存储值;新增 `bypassPermissions` 免批且留痕 + 六组历史拼写归一)全绿。`pnpm --filter @ihui/types --filter @ihui/api --filter @ihui/cli typecheck` 全绿;`ruff`/`mypy --strict` 对 4 个改动文件与 HEAD 对照零新增告警(用 `git show HEAD:… | ruff --stdin-filename` 做的归因对照)。
+    - **cli 归一(第 56 轮续)**:cli 是**第 6 套拼写**的持有者 —— `apps/cli/src/tools/permissions.ts` 自带一份 `PermissionMode` 字面量联合 + `BackendPermissionMode = 'default'|'plan'|'auto'` 与 `mapCliModeToBackendMode`,把 `acceptEdits` 和 `bypassPermissions` **都折叠成 `auto`**(即用户选"全屏免批"到服务端变"只读免批"的静默降档)。现:类型 derive 自 `@ihui/types/permission-mode`,折叠改**恒等**(函数保留的唯一理由是"cli 档 ≠ 线上档"再出现时单测先红),`parsePermissionMode` 交注册表归一(此前只认 camelCase,照 web 界面写 `accept-edits` 会被判非法并**静默回落** settings 的 default),`config-cmd` 的 `enumValues` 与 `settings` 的存储值同样走注册表。**运行时陷阱**:`import('@ihui/types')` 在 node 下必炸(包内是无扩展名相对导入,`ERR_MODULE_NOT_FOUND ./user`),cli 此前 30+ 处全是 `import type` 所以从未暴露 —— 已为注册表单开 `@ihui/types/permission-mode` 子路径导出(该文件零依赖),并实测 `node --input-type=module` 从 `apps/cli` 能取到值。**守门加固**:消费点改成**逐文件档案**(变量名 + canonical/wire 两档) —— 通用 `mode ==` 会咬住 MoA 聚合档 `debate/vote/critique`(实测 3 处误报),放宽一次判据就永久没人信它;新增 R4 拦"第二份完整清单"、放过 workspace 的 kebab 子集。`--self-test` 11→15 例(含 4 条反向例),并补 `scripts/tests/check-permission-mode-vocabulary.test.mjs`(§22c:测试 import `__test__`,不复制源逻辑)让 CI 也咬住判闸失效。验证:`pnpm --filter @ihui/cli typecheck` + cli 全量 vitest **114 文件 / 2469 用例全绿**(其中 3 处旧断言按新契约改写:`auto`/`PLAN` 不再是非法值)。
+    - **G-163 已修(第 56 轮续,授权门 fail-open)**:顺 cli 归一往下查取用点时查出 —— `apps/api` 的 `permissionManager.check()` 无规则匹配时的兜底是 **`{ allowed: true }`**,而它的入参枚举里明确写着 `plan`(`mode: z.enum(['default','acceptEdits','plan','bypassPermissions'])`,是**第 7 套词表**:4 档 camel、没有 manual、与 DB 侧 kebab 并存)。后果:**客户端只要声明"只读计划档",写文件与执行命令一律放行**,档位名承诺最严、实现给的最松(注释当时还写着"acceptEdits/plan 直接放行")。
+      - 暴露面口径(不夸大):该 HTTP 门 `POST /workspace/ai/permissions/check` 在仓内**无调用方**(grep 仅命中路由定义),所以是"对外可达的潜在 fail-open"而非"已被利用";真正跑 Agent 工具的是 `checkWorkspace`,它此前**根本没有 plan 分支**(plan 落到 default → 全量人工审计,既不是只读也不报错)。两处一起收。
+      - 做法:新增**穷尽矩阵** `decideByPermissionMode(mode, tool)` + 四族分类 `permissionToolFamilyOf`(read/edit/exec/**unknown** —— 认不出按最坏情况,绝不落 edit 蒙混);`check()` 改查矩阵(兜底方向只能是更严),`checkWorkspace()` 加**档位上限**语义(只采纳矩阵的 deny,不采纳 allow,免得绕过 DB 规则反而放宽);两处 `perm.mode` 比较前先 `normalizePermissionMode`(DB 历史存 kebab、新链路可能送 camel/别名);`v1` 路由的 `mode` 由 z.enum 改"归一 + 认不出直接 400"。回显字段刻意**保持库中原值**(对外契约零变化,只改判定),这是我为避免把半径扩到他人测试而做的取舍。
+      - 顺手消掉一处死副本:`checkWithDb` 与 `checkWorkspace` 是**同一条 127 行授权梯的两份拷贝**且零调用方(含动态取用),两条同形梯子的下场必然是"改一条忘一条",现改为委托(保留符号不破契约,-111 行)。
+      - 证据:`apps/api/tests/permission-mode-matrix.test.ts` 14 例(含"未知档绝不 allow"、"哨兵不外溢"、全档×全族穷尽);**变异测试**把上限判定改成永不 deny 后,`plan 档写工具在真实闸门被 deny` 立刻红并落到 `stub-ask`(=静默退回人工审计),证明接线被咬住而非只测了纯函数。既有 `workspace-permission-manager.test.ts` 12 例不改期望仍全绿(契约未破的旁证)。守门 68 新增 `sentinels` 显式豁免(`'unset'` 是"未配置"哨兵不是档位,豁免写成带 why 的数据而不是放宽正则),自证 17 例 / CI 镜像 9 例。
+    - **G-164 新立(workspace 档位全线归一,必须整票做)**:`workspace_permissions` 的 REST 词表仍是 kebab 三档 —— `packages/types/src/workspace.ts:57,208`(4 档含 plan)、`packages/api-client/endpoints/workspace.ts:528`(3 档)、`apps/api/routes/workspace-permissions.ts:177` z.enum(3 档)。**为什么不能只加一档就交差**:web 有 3 处拿 kebab 字面量做运行时比较(`permission-history-panel.tsx:64-72,111,142` 的 MODE_ICON/MODE_KEY_MAP 与高风险徽章、`full-access-confirm-bridge.tsx:55`、`use-permission-auto-revert.ts:149,305`),一旦服务端改写规范 camel,这三处会**静默失效**(高风险徽章不再亮、自动撤回不再触发) —— 正是本次要消灭的那类事故。整票清单:① 三处读侧先归一(容忍 kebab 历史行 + camel 新行);② z.enum 与两个类型并到注册表;③ 存值策略定论(建议写规范 camel + 读侧永久容忍,配一条可选回填迁移);④ web popover 补 `plan`/`manual` 两档(措辞走 `mode.*` 五语言,含后果说明与二次确认沿用现有 full-access 弹窗);⑤ miniapp-taro / mobile-rn 档位行按同一注册表取词(D111 主项);⑥ `'unset'` 哨兵从 mode 字段拆成独立标志位(现在它和档位共用字段,靠字面量区分)。
+    - **D111 剩余(未闭环,别当已完)**:miniapp-taro 与 mobile-rn 的"档位行 + 后果说明"仍未实现(两端 `permissionMode` 命中数依旧 0),extension 仍只有审批结果无档位说明;移动端的取值现在必须走 G-161 注册表(`normalizePermissionMode`),不得再抄第四套拼写。
 
 - [x] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归 ✅(2026-09-13,2-18:golden-e2e CI run 34852081541 @ 4b3daefa = 41/41 通过率 100%(golden/review/checkpoint 三类各 41/41,--min-pass-rate 0.9 门槛通过);runner 每周回归 workflow_dispatch 已落地)
 - [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点(2026-09-14 终态:①指标 Redis 持久化(写穿+惰性恢复,跨重启保留已实测);②补全空输出根因修复(118 模型无 FIM 档位→auto 命中 step-router 空输出;stepfun/agnes 全 21 模型 3 轮实测后定案)+config.py env 白名单补漏+_strip_fences 混排加固;③**本地模型路径打通**——IHUI-OLLAMA nssm 常驻(OLLAMA_KEEP_ALIVE=24h)+qwen2.5-coder:1.5b 生产端到端 10/10 非空、0/10 污染,P50=798ms(短补全 234-400ms,较云端 agnes 5125ms 提升 6.4 倍);剩余差距为纯 CPU 生成速度本质约束(长补全 ~80 token≈2.4s),GPU 机型或专用 FIM 端点(/api/generate raw 模式跳 chat 模板)可进一步逼近 250ms,当前无工程待办)
@@ -2707,6 +2773,117 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **影响面核验**:`.husky/pre-commit:178` 与 `.husky/pre-push:86` 均只取退出码,exit 1 语义未变;push-gate 缓存判据 `failed === 0` 未动。**耗时**:绿的路径原本就要跑完全部 → 不变;仅失败轮次变长(--staged 全绿实测 171s / 全量 303s)。
   - **质量门**:`node --check` 0、`eslint` 0 错、`--help` 渲染正确、`--staged` 整轮 **失败 0**(即不会给任何会话的提交新增阻塞)。**未跑 prettier**:实测它会对同文件内他人条目(id 30a / 338 快照 / 中文术语机的 label)重排 28 行,属 §12 暂存区污染,故按 P2-F.6 既定口径手工对齐周围格式。
   - 平台独占:仅 scripts 守门 + 文档(§9 豁免,无跨端契约变更,无运行时能力变化)。
+- [x] ✅(2026-09-22) **P2-F.8 跑完再汇总暴露的门逐个归因:修两类真缺陷 + 新建守门 67**:
+  - **守门 52 自指误报已修**:全量扫描把自己 self-test 区(170-182 行)的判据样例当违规致恒红。
+    修法为 self-test 区段自我豁免(仅对文件名等于自身生效;标记缺失或多组则不豁免=宁红不漏;白名单未动)。
+    实测:全量 exit 1 → **0**(7806 文件);self-test 14 例仍全过;镜像测试 20/20(新增 3 例覆盖 strip/防旁路/标记完整性);
+    判据未松由**注入实验**背书(豁免区外插 `execFileSync('git',['status'])` 无 windowsHide → exit 1 精确报行,删后回 0)。提交 `b4faa930fd`。
+  - **守门 6 报的是更深一层的真实凭据外泄**:`response-sanitizer.ts:496` 明写
+    `if (reply.statusCode < 200 || reply.statusCode >= 300) return payload` —— **非 2xx 完全不打码**;
+    而 `proxy-extended-media3.ts` 把 Adobe IMS OAuth2 令牌端点**整个响应体** `JSON.stringify(tokenData)` 拼进 502 message
+    回传客户端(成功体含 `access_token`,502 正落在脱敏豁免区)。归属证据:该文件 `git status` 为空、内容即 HEAD
+    → **是已提交进 main 的存量缺陷**(我上一轮判为"他人 in-flight 文件"是错的,已更正)。
+    修法走 A:502 只回传 RFC 6749 error 码 + 令牌解析收紧为具名解构与 typeof/length 双判 + 删冗余凭据局部变量;
+    **明确不加 `skipResponseSanitization`**(那等于为"把凭据发出去"关掉一条脱敏保护,而该端点 2xx 响应本不含 token/secret)。提交 `7384c92ed0`。
+  - **新建守门 67** `scripts/check-credential-leak-in-message.mjs`(539 行 + §22c 测试 119 行 12 例 + 空基线):
+    仅在 4xx/5xx 构造上下文内、且被 stringify 的实参具备凭据语义(变量名/声明右侧/对象 key/message 字面量)时 BLOCK,
+    并覆盖"经一层声明间接外泄"。全仓同类"上游错误体→非2xx message"仍有 **35 处 / 13 文件**,其实参名
+    (`errData`/`genData`/`data`)不命中词表 → 只进**低置信候选**不计失败(否则历史代码全变假阳性)。
+    注册 id 67(blocking + `stagedTriggers=['apps/']` + `skipEnv=HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE`);
+    开工与收尾两次查号确认当时最大值 66、`uniq -d` 无重复。**高危类目现网实测 0 命中**(7384c92ed0 即唯一已知实例)。
+  - **两处自我纠正(不静默)**:① 我把守门 65 的 `--self-test` 判成"假绿"并派了修复任务,代理复核指出 HEAD 第 28 行
+    本就有 `process.exit(bad === 0 ? 0 : 1)` —— **根因是我 grep 用 `head -8` 把结论行截掉了**,
+    "否定式断言落点不足"在我自己身上复发;代理改动已按 sha256 逐字节还原(`e8ed6619…` 双向一致),未进提交。
+    ② 我第一版探针自拼 `findStatusContexts/extractWindow/findStringifyArgs`,而 `extractWindow` 实返回
+    `{ text, endIndex }` 对象 → 判据静默空转,**反例因 `args=[]` 恰等于期望 false 而假通过**;
+    改为直调权威 `scanSource` 并加"链路哨兵"(必须真看见候选/实参才算数)后结论才可信。
+  - **已知边界(记此不隐瞒)**:跨行写法(`reply.status(502).send(` 换行接 `error(502, …)`)会被**两个起点行各报一次**
+    (实测同一物理位置 violations=2),方向正确但计数重复;且基线 key 含起始行号,将来若写入豁免、其上方代码行增删
+    会使 key 漂移致豁免静默失效。当前基线为空、风险未现实化,故未额外改判据。
+  - **P2-F.7 真钩子端到端已由并发提交自然覆盖**:自 `85d0248d85` 起 main 新增 **21 枚**提交全部穿过改造后的
+    pre-commit(lint-staged `--no-stash` + `guardian-runner --staged`),无一被我的改动卡死。
+    另更正:本仓库 lint-staged 早在 2026-09-12 即强制 `--no-stash`(注释写明两次 gitdir 整体删除事故),
+    故我上一轮"怕 stash 才不跑真钩子"的理由不成立。
+  - **守门 8 由"跑完再汇总"暴露,4 处经逐条诊断为全部门判据缺陷(0 处需新增端点、0 处前端路径 bug)**:
+    后端路由实测均存在,门看不到跨文件 wrapper / 模板注册 / 配置对象的真实 method →
+    ① `GET /api/ai/agnes/image`(后端 `POST /api/ai/agnes/image` @ `proxy-llm.ts:362`,`callApi` 固定 POST);
+    ② `POST /api/ai/zhipu/images`(后端模板串 `` `/${vendor}/images` `` @ `proxy-openai-compat.ts:278`);
+    ③ `POST /api/ai/jimeng4/video/tasks/:param`(后端为 `GET` @ `proxy-tools.ts:742`,前端未传 method 运行时即 GET);
+    ④ `POST /api/auth/oauth/oidc/redirect`(后端 `GET /api/auth/oauth/:provider/redirect` @ `auth-extended.ts:3455`)。
+    **修法用门自己的最高优先级显式标注**(第 184-190 行 `// method: GET|POST`,其注释写明正是为"跨文件 wrapper、
+    多行签名、自动推断失效"设计),**未放宽任何判据、未动 `.check-api-routes-ignore.json`**。
+    已修 2 处(所在文件工作区干净):`app/(main)/ai-generation/PageClient.tsx:52` 标 POST、
+    `src/lib/third-party-config.ts:252` 标 GET → 门实测 **4 处 → 2 处**,消失的正是这两条(标注生效的直接证据)。
+  - **剩余 2 处受并发阻塞,不得现在修**:`image-gen-zhipu.tsx` 与 `video-gen-jimeng.tsx` 均为 ` M`(并行会话正在编辑),
+    按 AGENTS.md §12/§16 不可代改他人编辑中的文件。二者同样只需加 `// method: POST`(zhipu 若走模板注册则需展开模板路由,属门改进项)
+    —— 待该两会话收尾后由任何后续会话补标注即可,门即归绿。守门 8 在此前保持 exit 1(staged 为空时回退全量口径,故非本次改动引入)。
+  - **守门 67 建好当日即修掉两处自身缺陷(基线仍为空 = 零迁移窗口,现在修成本最低)**:
+    ① **豁免 key 含起始行号 → 会静默失效**:原 `<路径>::<归一化窗口>` 依赖 `start`,调用点上方任何一行增删即令
+    已登记豁免漂移失效、提交突然变红且无线索。新 key = `路径::<kind>|<凭据证据>`(证据为排序去重的凭据实参 /
+    `via:<声明名>` / `literal:<令牌名>`),**刻意不含行号**,行号仍留在报错输出与 `excerpt` 供人看。
+    ② **跨行写法重复计数**:`.status(502).send(` 换行接 `error(502,…)` 有两个起点、窗口互相包含 → 同一物理外泄报 2 条;
+    改为"同 key 且窗口行区间重叠"才合并,故同文件两处不相交的重复外泄仍各计一条、不同凭据实参不同 key。
+    ③ 顺带修 `printHelp` 死代码(`main` 里 `if (--help) return 0` 从未调用它 → **`--help` 静默无输出**),
+    并补齐同族惯例的文件级 `/* eslint-disable no-console */`(原 14 个 warning)。
+    判据未变松未变紧**由差分探针证明**:HEAD 版与新版逐文件比对 6361 文件,violations 0/0、candidates 27/27 无差异;
+    测试 12 → **18 例**(新增:行号漂移仍豁免 + 未豁免时行号变仍报、实参改掉不再放行、跨行恰为 1、不相交各计一条、
+    双凭据证据点名、self-test 失败必须非 0),期望"不拦"的用例均配**链路哨兵**。eslint 0 问题、prettier clean、水印无残迹。
+  - **一条新的"假通过"陷阱(务必记住)**:对落在 `.ihui-agent/` 下的副本跑 `prettier --check` **恒报绿** ——
+    `.prettierignore` 第 15 行整体忽略 `.ihui-agent/`。做对照副本/临时验证文件时不能用该目录来验格式类判据。
+  - **守门 7(依赖碎片化)处置结论:不在并发服务运行时执行 `pnpm dedupe`,已备好可执行包**
+    实测拦阻事实(非借口):`.deploy.lock` 的持有者 `pid 26160` **已死**(tasklist 无匹配,锁龄自 08:07 起超 10 小时,
+    按脚本注释"持有者退出即悬挂、acquire 强制抢占",锁本身不是障碍);**真正的拦阻是服务在跑** ——
+    `netstat` 显示 `:8801 :8802 :8803 :8832` 均在 LISTENING,`curl` 实测 **8801=200**(生产构建站)、8802 存活。
+    `pnpm dedupe` 会重写 `node_modules` 中 next/react 依赖副本与 `pnpm-lock.yaml`,
+    用**正在服务生产站的依赖树**去换一道"全量口径才红、不阻塞任何人提交"的门归绿,收益与风险不匹配。
+    且当前 `web typecheck` 被并发会话的 `PermissionMode/plan` 档位扩展中间态污染(12 个 error,与我方文件命中 0),
+    无法以"typecheck 全绿"作为 dedupe 的放行判据 —— 缺可靠回归信号,正是最容易把依赖改坏的时机。
+    **执行包(留给依赖治理专项 / 服务空闲窗口)**:① 前置 `curl 8801 不通` + `tasklist` 无 next/taro build
+    + `node scripts/deploy-lock.mjs acquire` 成功(会自动抢占死锁);② `pnpm dedupe`(预计收敛 `webpack 5.109.2`/`5.91.0`
+    双版本与连带的 `@tarojs/components`、`html-webpack-plugin`、`webpack-dev-server` 等);
+    ③ 验证三件缺一不可:`pnpm --filter @ihui/miniapp-taro build:weapp` 成功(小程序构建对 webpack 版本最敏感,
+    须确认收敛后仍能产出 `dist/app.json`)、`pnpm --filter @ihui/api typecheck` 0 错、`node scripts/check-dedupe.mjs` 0;
+    ④ lockfile 与 `pnpm-lock.yaml` 同 commit,失败即整体 revert(勿只回滚 lockfile 不回滚 node_modules)。
+  - **本轮全量守门终局(跑完再汇总后的真实故障面)**:99 项全部执行,**通过 94 / 警告 3 / 失败 2**,
+    两道红即上文 `[7] 依赖碎片化` 与 `[50] next-env.d.ts 构建污染`。
+    其中 **[50] 判定为"不该由我方还原"**并已更正早前结论:该文件 diff 是把 `./.next/...` 改成 `./.next-e2e-modal/...`,
+    属并发会话跑**私有 distDir 的 e2e dev** 的正常中间态(Next 会自动重生成),`git checkout` 还原会打断它此刻的 dev server;
+    门在此处不知道有并发变体构建在跑,是门与并发实践的冲突,非缺陷。
+  - **终局更正(同日稍后,用户答复"程序未上线运营、抖动可接受"后逐条重测,推翻本条上文两处结论)**:
+    ① **[7] 已实际完成** —— 我引用的两个拦阻都被实测瓦解:`.deploy.lock` 持有者 pid 26160 已死(锁龄超 10h,
+    `acquire` 依脚本语义自动抢占,实测 `lock_acquired=0`);而"web typecheck 被并发档位中间态污染"也已消失
+    (并发会话改完,重测 **web/miniapp typecheck 均 0 错误**)→ 干净回归信号到位后才动手。
+    `pnpm dedupe` 结果:lockfile 32+/99-、**守门 7 exit 1 → 0**。peer 告警经备份逐条比对判为**既存**
+    (`react-native@0.74.7` 14/14、`react-shallow-renderer` 2/2、`reanimated` 3/3,前后计数完全一致,属 mobile-rn 线历史不匹配);
+    `webpack@5.109.2` 仅从 38 收敛到 34 个 peer 变体、**未被删除**,`5.91.0` 80 处不变。
+    最敏感的小程序构建复验:`taro build --type weapp` exit 0、`dist/app.json` 正常、6 个分包齐、
+    **主包 3010KB 与 dedupe 前基线逐 KB 相同**、编译错误 0。提交 `8a2bfff27d`(走完整 pre-commit 钩子链)。
+    ② **[50] 的"不该还原"结论也被证伪** —— 我理由是"会打断并发会话正在跑的私有 distDir e2e dev",
+    但实测 `apps/web/.next-e2e-modal/` **根本不存在**(只有 `.next` 与 `.next-static-r2`),
+    即那是一条指向已消失目录的死引用残留,不构成活的 dev。按"引用拦阻前先验一遍"的纪律重查后还原为 `./.next/...`,
+    **守门 50 exit 1 → 0**;该文件与 HEAD 一致,无需提交。
+    ② **[50] 再修正(上一段结论只对了一半,现给出根治)**:我还原 `.next-e2e-modal` 后不到十几分钟,
+    该文件又被并发改成指向 `.next-e2e-lang`,随后又出现 `.next-static-r2` 活变体 —— 证明这不是孤立死残留,
+    而是**多会话各自跑 `distDir=.next-<场景>` 的常态**。硬证据:我尝试重写该文件时报 **`Permission denied`**
+    (文件正被持有该 distDir 的进程锁着),即"活构建"判断成立、`git checkout` 还原确实会打断别人。
+    因此不靠"还原"闭环,而是给门补上缺失的那一维:`scripts/check-next-env-dist.mjs` 现按
+    **变体目录是否存在**区分——目录存在=活 distDir(全量模式提示但不报红),目录已消失=真·源码污染(exit 1 要求还原)。
+    **`--staged` 路径一行未放宽**:变体引用一旦进暂存区必拦(实测"活变体 + 已 staged → exit 1"),
+    「.next-* 变体永不提交」铁律的执法点仍是 pre-commit,未被这次改动削弱。
+    四向实测:活变体+全量=0、死引用+全量=1(输出点名"目录已不存在")、活变体+staged=1、还原后=0 且与 HEAD 一致。
+    ③ **全量守门终局:99 项全部执行,通过 97 / 警告 2 / 失败 0,`guardian-runner` exit 0。**
+    本日从"fail-fast 只显示 1 道红"起,累计暴露 5 道 → 逐条归因 → [6] 凭据外泄、[8] 4 处假阳性、
+    [52] 自指误报、[7] 依赖碎片化、[50] 死引用污染 **五类全部闭环**,两道警告(`13b` PLAN 体积、`21`/`22` 多端与 README 同步类)保留原 warn 定位未擅自升级。
+  - **守门 8 的假阳性已根治(不是绕过)**:剩最后 1 处 `POST /api/ai/zhipu/images` 时我先试了 method 标注,发现**无效并当场撤掉**——method 本来就是 POST,缺的是后端路由条目。
+    根因是门的后端路由提取器只认引号字面量,展开不了厂商矩阵变量化的模板注册
+    (`proxy-openai-compat.ts:276-278` `if (cap.images) server.post(\`/${vendor}/images\`)`,矩阵第 43 行 `zhipu images:true` —— 我已逐行自查确认路由真实存在,**不是臆造**)。
+    修法为给门增加"矩阵 + flag 求交"的模板路由展开能力(遇任何其他 if/else/switch 则整条跳过,不猜)。
+    差分证据:后端注册路由 4933 → 5100(**消失键 0**)、前端调用点 1902 不变、违规 1 → **0**、既有 2 条豁免行为不变;
+    独立解析器复核 68 行厂商矩阵(images=true 仅 openai/siliconflow/zhipu/xai)确认**零臆造条目**;
+    变异测试 M1(禁用展开)、M2(去掉矩阵求交)均 exit 1,反向哨兵(不存在的 `__probe_no_such_route__` 与 `deepseek/images`)仍被报 → 证明没把门改成"永远不报"。
+    self-test 9 例 + 既有 §22c 测试 20/20、eslint 0 error、水印无残迹;回滚件在 `.ihui-agent/tmp/api-routes-gate-fix/`。
+    该门遗留边界(仍不展开,方向是**保留假阳性而非漏报**):矩阵被跨文件 import、数组行含嵌套花括号、`${basePath}` 形参插值(故 ignore 第 1 条仍必要)、正则字面量内的 `{` 会让括号栈退化为不展开。
+  - 平台独占:仅 scripts 守门 + apps/api 一处安全修复 + 文档(§9 豁免;api 修复对外仅改变 502 文案文本,响应结构不变)。
   - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
 - **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分

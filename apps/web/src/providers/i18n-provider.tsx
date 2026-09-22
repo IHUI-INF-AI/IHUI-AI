@@ -19,8 +19,10 @@
  * store.locale 变化 → Provider 自动重新渲染 → 真正切换语言。
  *
  * Hydration 安全:
- * 初始 locale='zh-CN' 与服务端 getLocale() 返回值一致,首屏无 mismatch。
- * 客户端挂载后若 localStorage 持久化了其他 locale,会立即切换(可接受的短暂闪烁)。
+ * 服务端首帧的 `<html lang>` 取自 `locale` cookie(见 @/lib/locale-cookie + app/layout.tsx),
+ * 而消息语言取自本 store;两者由 setLocale 一并写入 ⇒ 正常情况下同源。
+ * 只有"cookie 与 localStorage 被人手工改得不一致"这类边缘态会短暂错配,
+ * 由 layout 的 suppressHydrationWarning 兜住,并在本 Provider 挂载时把 store 真值镜像回 cookie 收敛。
  */
 
 import { NextIntlClientProvider } from 'next-intl'
@@ -29,6 +31,7 @@ import { useEffect } from 'react'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 import { useLanguageStore } from '@/stores/language'
+import { writeLocaleCookie } from '@/lib/locale-cookie'
 import { isTauri, setWindowTitle } from '@/lib/tauri-bridge'
 
 // 静态 import 所有 locale 的 messages(shared + web),构建时打包,运行时 O(1) 查找
@@ -65,6 +68,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setInitialized(true)
   }, [setInitialized])
+
+  // 语言切换后同步 <html lang>:app/layout.tsx:219 服务端恒写 'zh-CN'(语言已改为客户端驱动),
+  // 而 `document.documentElement.lang` 是 5+ 处取词口径的真值源(number-format.ts:23 与
+  // ai-news 4 个组件都读它),不同步则英文界面仍按 zh-CN 格式化数字、AT 也读错语种。
+  useEffect(() => {
+    document.documentElement.lang = locale
+    // 同步补写 cookie:用户清过 cookie 但留着 localStorage 偏好时,只改 DOM 会让下一次
+    // SSR 又退回 zh-CN(闪烁一次)。每次挂载都把 store 真值镜像回去,SSR 与客户端才收敛。
+    writeLocaleCookie(locale)
+  }, [locale])
 
   // 2026-09-06 产品名本地化(用户决策:中文→智汇AI,其他→IHUI AI)。
   // 仅桌面端(Tauri)同步窗口标题与 document.title;web 端 SEO 标题由 Next metadata 管理,不动。
