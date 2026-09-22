@@ -102,6 +102,7 @@ import {
   resendTargetText,
 } from '@ihui/shared/chat'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -428,110 +429,6 @@ function PlanStepList({
             </Text>
             <StatusBadge kind={toneKind} label={statusLabel} />
             {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
-/**
- * #11 引用来源列表:来源标签 + 条目文字。
- * 只有 **http(s)** 外链才给跳转(仓库相对路径在手机端没有可打开的目标,给了就是死链)。
- */
-function CitationList({ items }: { items: readonly MessageCitation[] }): React.JSX.Element | null {
-  const { t } = useI18n()
-  if (!items.length) return null
-  return (
-    <View style={bubbleStyles.block}>
-      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.citationTitle')}</Text>
-      {items.map((item, index) => {
-        const url = item.url
-        const external = typeof url === 'string' && /^https?:\/\//i.test(url)
-        const body = (
-          <>
-            <Text style={bubbleStyles.cardMeta}>{item.source}</Text>
-            <Text style={bubbleStyles.planText} numberOfLines={2}>
-              {item.label}
-            </Text>
-          </>
-        )
-        return (
-          <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
-            {external && url ? (
-              <Pressable
-                style={bubbleStyles.cardHead}
-                accessibilityRole="link"
-                accessibilityLabel={url}
-                onPress={() => {
-                  void Linking.openURL(url)
-                }}
-              >
-                {body}
-              </Pressable>
-            ) : (
-              <View style={bubbleStyles.cardHead}>{body}</View>
-            )}
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
-/** D34 注入来源 kind → 本端取词键(与 apps/ai-service llm.py 的 injection_frames 同源) */
-const INJECTION_KIND_KEYS = {
-  developer_instructions: 'aiAssistantN8n.injectionKindDeveloper',
-  workspace_memory: 'aiAssistantN8n.injectionKindWorkspace',
-  repo_wiki: 'aiAssistantN8n.injectionKindRepoWiki',
-  auto_context: 'aiAssistantN8n.injectionKindAutoContext',
-} as const
-
-/** 注入交代条:一行一个来源;只有帧里确实带了 fullText 才给展开入口(不给假按钮) */
-function InjectionDisclosure({
-  items,
-}: {
-  items: readonly MessageInjection[]
-}): React.JSX.Element | null {
-  const { t } = useI18n()
-  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({})
-  if (!items.length) return null
-  return (
-    <View style={bubbleStyles.block}>
-      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.injectionTitle')}</Text>
-      {items.map((item, index) => {
-        const key = `${item.kind}_${index}`
-        const open = openKeys[key] === true
-        const kindKey =
-          item.kind in INJECTION_KIND_KEYS
-            ? INJECTION_KIND_KEYS[item.kind as keyof typeof INJECTION_KIND_KEYS]
-            : undefined
-        return (
-          <View key={key} style={bubbleStyles.card}>
-            <Pressable
-              style={bubbleStyles.cardHead}
-              onPress={() => setOpenKeys((prev) => ({ ...prev, [key]: !open }))}
-              accessibilityRole="button"
-              accessibilityLabel={item.collapsed}
-            >
-              {item.fullText ? (
-                open ? (
-                  <ChevronDown size={10} color={tokens.text.tertiary} />
-                ) : (
-                  <ChevronRight size={10} color={tokens.text.tertiary} />
-                )
-              ) : null}
-              {/* 界面文本出自本端词表;后端中文 collapsed 仅在未知 kind 时兜底 */}
-              <Text style={bubbleStyles.planText}>{kindKey ? t(kindKey) : item.collapsed}</Text>
-              {typeof item.count === 'number' ? (
-                <Text style={bubbleStyles.cardMeta}>{item.count}</Text>
-              ) : null}
-            </Pressable>
-            {open && item.fullText ? (
-              <View style={bubbleStyles.cardBody}>
-                <Text style={bubbleStyles.planText}>{item.fullText}</Text>
-              </View>
-            ) : null}
           </View>
         )
       })}
