@@ -12,6 +12,35 @@
 
 ---
 
+## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
+
+用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
+
+### 根因(逐层核到 SQL,非推测)
+
+1. 列表是**纯服务端按用户隔离**的:`use-publish-accounts.ts` → `GET /api/publish/accounts/me` → `publish.py` 里 `SELECT * FROM publish_accounts WHERE user_id = <JWT.sub>`,路径里的 `me` 被忽略(IDOR 修复)。
+2. 那批账号写进了**本机开发库**(19 行,user_id `6b8cd0f6…`),生产库为 0 行 —— 因桌面端 API 寻址 bug 把请求打到本机 8802(09-21 才收口到 `lib/api-base-url.ts`)。
+3. 两端 `admin / 502319984@qq.com` 是**两个不同 UUID 的两行数据**,即便搬数据也要改归属。
+4. 前端 `reportError` 对 GET 401 静默(懒触发策略),所以鉴权掉了也只显示空列表、不报错,排查时易把"空"误判成"没数据"。
+
+### 机制(真源单一化,不做全库双向同步)
+
+生产库 713 表 / 本机 592 表(schema 不同步)、本机 `ai_feed_snapshot` 88w 行,全库同步既无意义也无法收敛。改为:
+
+- **生产库 = 唯一真源**;`users` 表只允许 生产 → 本地 单向镜像(永不回灌),日志/快照类大表不进白名单。
+- **白名单回灌**(本地 → 生产,幂等):`publish_accounts` / `publish_account_groups` / `publish_account_group_members` / `publish_tasks` / `publish_history` / `chat_conversations` / `chat_messages`;覆盖条件由 SQL 层 `WHERE EXCLUDED.updated_at > t.updated_at` 保证"本地更新才覆盖"。
+- **用户映射**:本地 user_id → 生产 user_id 按 email 对齐(key/value 一律取 `str()`——`publish_*.user_id` 是 **varchar**、`chat_conversations.user_id` 是 **uuid**,用 UUID 对象做 key 会让 varchar 列比较永远落空,实测已踩)。
+- **密钥统一**:两端 `PUBLISH_CREDENTIALS_KEY` 与 `data/credentials_key` 已统一为同一把(`credentials_enc` 可整列搬运,不再需要解密重加密);本机 19 行历史密文已用统一密钥重加密。
+- **自动化**:每 2 小时 `sync --apply`(本地增量回灌) + 每日 04:00 `mirror --yes`(生产快照覆盖本地,覆盖前自动备份到 `.ihui-agent/db-backups/`)。
+- 工具:`scripts/db/db_sync.py`(drift / sync / mirror 三模式,自建 SSH 隧道),入口 `pnpm db:drift` / `pnpm db:sync` / `pnpm db:mirror`;生产连接配置在 `.ihui-agent/db-sync.local.json`(已 gitignore)。
+
+### 验证(实测)
+
+- 19 行迁入生产并用**生产密钥**回读解密成功;生产/本机 `publish_accounts` 均 19 行且归属 `30763d9f…`。
+- 首轮回灌 52 行(publish_tasks 10 / publish_history 11 / chat_conversations 3 / chat_messages 28),`drift` 现报**两端一致**;本地 `users` 镜像为生产 8 行(UUID 相同),本地 dev 可直接用生产账号登录。
+
+---
+
 ## P1 2026-09-22 AI 对话框"两套上下键"键位归属切分(单端:apps/web 键盘交互)
 
 用户报障:AI 对话框里存在两套上下键在翻对话内容。
@@ -1140,6 +1169,10 @@
 
 - [ ] **D106 消息级"交代帧"跨端消费缺口(G-148;实测量化,不是推测)**:多落点 grep(`--include=*.ts --include=*.tsx`,排除 node_modules)得 **extension / miniapp-taro / mobile-rn / cli 四端对 `citations` 与 `onSteer` 均 0 命中,只有 web 消费**;对照 `compaction` 四端各有落点(extension 1 / miniapp-taro 3 / mobile-rn 2 / cli 15)→ 证明**不是"这些端不接 SSE 交代帧",而是逐帧漏接**,同一类缺口第 N 次出现(D34 的 `injection_applied` 我一开始也只接了 web,即本条的又一实例)。**根因层 = C 客户端通道(api-client 已给 `onInjectionApplied` / `onRetryScheduled` / `onCitations` 回调,端内没人注册)+ P 呈现(各端无对应组件)**。**做法纪律**:① 表现层组件沉 `@ihui/ui-react`(取词函数由 props 注入,不得在组件内 `useTranslations`,否则又变成 web 独占);② 每端注册回调时必须**逐字段显式承接**(各端 store 都是枚举式合并,未知字段会被静默丢掉 —— 与 D40 截断字段完全同因);③ 交代类文案一律走各端命名空间词表,**禁止把后端 `collapsed` 中文当界面文本**(第 42 轮已为此把 kind 定为取词键);④ 端内不得再抄一份渲染模型(mobile-rn 的 `utils/chat-render-model.ts` 属既有违例,收编另立任务)。**验收(可机检)**:守门 57 的 `context-injection-disclosure` 元素锚点从"仅 web"扩到 **web + extension + miniapp-taro + mobile-rn**;每端至少 1 条"帧字段进了 store、界面出本地化文案、未知 kind 回退 collapsed"的用例;`citations` 与 `steer` 在四端的命中数由 0 变非 0(脚本可复算,分母用四端目录)。
   - **进度(第 43 轮)**:呈现层已沉共享组件 `@ihui/ui-react` 的 `ContextInjectionList`(取词函数 props 注入,组件内零 `useTranslations`),web 侧改为薄壳复用(既有 6 用例**一字未改全绿**,证提取保行为);**extension 已接通**(ChatPage 注册 `onInjectionApplied` + 枚举式合并里显式承接 + MessageContent 渲染,新增 4 例静态渲染用例,断言"出本地化文案、不出后端中文、多条默认只露第一条"),`injectionTitle/injectionKind*` 等 7 键 × 5 语言已入 extension 命名空间,守门 57 该元素锚点已到 6 处(后端/api-client/web/extension×2)。**剩余**:miniapp-taro、mobile-rn 两端的承接与词表;`citations` / `steer` 在四端仍为 0 命中。
+  - **进度(第 44 轮 · C 层"双解析器漏接"根治 + 守门 63)**:量化出漏接的**结构成因**是同一协议被两处独立解析 —— `packages/api-client/src/client.ts`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro 经 `@ihui/shared` 单一真源使用;其端内 `src/utils/sse-parse.ts` 实测只是 7 行 re-export,故不存在第三解析器)。本轮把 sse-parse 漏接的四帧补齐(`steer`/`budget`/`injection_applied`/`retry_scheduled`,判据与 api-client 的 `tryParse*` 逐条对齐:无 `collapsed` 不产事件、`level` 非契约档位不产事件、`retryInMs` 缺省 0),覆盖数 **18 → 21**。**顺带修掉一条同族的第四层漏接**:`packages/api-client/src/index.ts` 的 re-export 清单里没有 `SteerEvent`/`InjectionAppliedEvent`/`RetryScheduledEvent`(只有 `BudgetEvent`/`CitationsEvent`),端内要写这三条回调就**点不到参数类型**,只能重抄一份或落 `any`(违 §3 类型零技术债)—— 已补 re-export 并重 build dist。**新增守门 63 `check-sse-parser-parity.mjs`(blocking,guardian-runner 已登记 + `stagedTriggers` 锁三个源文件与台账)**:① 抽不到事件名按失败处理;② sse-parse 覆盖数 ratchet(`parseCoverageBaseline=21`);③ 未接帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由拦、登记却已接也拦)。**判据强度不是自述而是实测**:先把 `steer` 守卫改成不匹配的字面量 → 本闸同时红两条(20<21 覆盖倒退 + `steer` 未登记),还原后 `grep -c` 归 0 且门禁绿;因此"只在类型联合里补一行 `'steer'`"和"守卫被删只剩 `return { type:'steer' }`"两种假覆盖形态都骗不过它(后者是我写第一版时自己发现的假绿口子,已收紧为"必须有守卫,`compaction`/`usage` 这类按 payload 形状识别的帧走显式白名单例外")。`--self-test` 10 例正反成对(含 4 条"必须不算覆盖"的反例)。**本闸刻意不覆盖的第三层**:parser 有帧 ≠ 端内显示 —— 各端 dispatch/回调表**不注册该 type 仍然什么都看不到**(miniapp-taro `src/api/index.ts`、mobile-rn `streamChat` 回调即此),这正是下方 D107 的主体。**残余敞口(未闭环,不称收口)**:`question` 已登记 webOnly(理由:作答需"挂起输入 + 问题卡 + sendAnswer 续流"整条闭环,当前只有 web 有 `apps/web/src/hooks/use-chat/send-message.ts:701` 的 `onQuestion`,miniapp-taro 无问题卡组件也无作答通道,只解析会让用户"看到提问却无法回答",比不显示更糟),`thinking` 已登记但**附带发现一条新缺陷**(见 D107b)。验证:shared tsc 0 错、shared 全量 22 文件 559 例、miniapp-taro SSE 相关 7 文件 113 例、新案 `packages/shared/src/utils/__tests__/sse-parse-disclosure.test.ts` 5 例(含"steer 不喷进正文增量"这条**显示错内容级**断言)、守门 57/59/60/63/parity/watermark 全绿。
+- [ ] **D107 交代帧的"端内注册层"与"阶段标签"缺口(第 44 轮实测新立)**:守门 63 只对齐到 parser 层,**帧到了各端 dispatch 表仍会二次静默丢弃**,本条覆盖剩下两层。
+  - **D107a 各端注册层(与 D106 同源,主体不变)**:miniapp-taro `src/api/index.ts` 的事件分派 + `pkg-ai/ai/chat.tsx` 承接、mobile-rn `streamChat` 回调 + 渲染,补 `injection_applied`/`retry_scheduled`/`citations`/`steer`;验收沿用 D106 第④条(四端 0 命中变非 0)。
+  - **D107b `thinking` 阶段帧"生产了没人看"(实测,两端都无消费)**:`apps/ai-service/app/services/langgraph_service.py`(754/861/974/1002 行)与 `agent_loop.py:563` 发出 `{"type":"thinking","message":"正在思考…|正在规划执行步骤…|正在总结执行结果…"}`,而两侧解析器都只认 **`content`** 字段(api-client `tryParseThinking` 第 2488 行 `if (typeof json.content !== 'string') return`)—— 这类**只带 `message` 的阶段帧被两港同时丢掉**,用户在长任务期看到的是"没有反馈",而竞品在此刻给的是显式阶段标签(规划/总结)。做法二选一并写进契约:① 后端把阶段文案改为规范字段(如 `injection_applied` 式的 `phase` 枚举 + 端内取词,**禁止把中文 `message` 当界面文本**,同第 42 轮纪律);② 若判定该帧属遗留通道,则从契约与发射点一并收回(不许留"发得出、没人接"的帧,同第 36 轮空契约帧判据)。验收:改后 web + miniapp-taro 各 1 条用例断言"阶段标签在界面上出现且为本地化文案",或 grep 证 `thinking` 的 `message`-only 发射点归零并同步处理契约项。
 
 - **H29 / D104 进度(2026-09-22 第 26 轮,已落地为守门 58)**:先自证已完成——`scripts/_i18n-scan-helpers.mjs`/`apply-brand-glossary.mjs`/`brand-glossary.json` 三处**只做品牌与人名的 canonical 映射、不判定中文技术术语错译**,§19 清单里 zh 侧只有简体字残留(zh-TW)/中文残留(ko、ja warn)/重复命名空间/含点键,确无机翻判据 → 差距成立。已建闸:`scripts/check-zh-term-quality.mjs`(guardian 第 **58** 项 blocking)+ `scripts/data/zh-term-glossary.json`(**12 条词根判据**,判据形状=「键名英文根 ∧ 值内高置信错误译法」双条件,同条含正确译法则放过)。误伤回归实测:**14 个语言包 / 54,656 条文案 → 0 命中**(即入库不会让任何并行会话提交变红);`--self-test` 5 例含三条"必须放过"的反例(仅错译无词根 / 仅词根无错译 / 并列用法)。紧急通道 `HUSKY_SKIP_ZH_TERM_GUARD=1`。**新增判据的硬前置**:往词表里加词根前必须先跑全量 0 命中回归,再入库(写进守门的 onFailHint)。**残余**:① 词表是**高精度低召回**的起点(12 条),后续应以"同族漂移"(同一前缀下两种互斥译法)作第二条判据——本轮已用它定位竞品缺陷却尚未在我方闸里实现;② 只扫 `messages/`,端内硬编码中文(§4 已禁)不在本门范围;③ miniapp 压缩产物 `remote-locales.gen.ts` 由生成器产出,须确认生成前后同一判据(未测)。
 
