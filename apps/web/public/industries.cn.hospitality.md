@@ -153,7 +153,7 @@
 │ 数据层                                   │
 │ - 客户画像 + 点评知识图谱                │
 │ - 房型/菜品知识库 + 多语种语料           │
-│ - PostgreSQL 16 + 向量库                 │
+│ - PostgreSQL 18 + 向量库                 │
 └─────────────────────────────────────────┘
 ```
 
@@ -161,7 +161,7 @@
 
 ### 智汇 AI 端到端能力(8 端覆盖)
 - **Web**(Next.js 16 + React 19):总部运营后台 / 门店看板
-- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 16):订单/会员接口
+- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):订单/会员接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):多 Agent 协同
 - **桌面端**(Tauri 2):门店管理工作站
 - **扩展**(WXT):浏览器侧点评采集
@@ -171,7 +171,7 @@
 
 ### 技术栈
 - 前端:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service:FastAPI + LangGraph + LiteLLM + MCP
 - 多端:Tauri 2 (桌面) / WXT (扩展) / React Native (移动) / Taro 4 (小程序) / Node.js CLI
 - PMS 集成:Opera / Shiji / 万能
@@ -196,7 +196,7 @@
 | 平均回本周期 | 4 月 |
 | 12 月 ROI | 290% |
 
-(测试环境:企业版中型部署,3 节点,PostgreSQL 16,Redis 7)
+(测试环境:企业版中型部署,3 节点,PostgreSQL 18,Redis 7)
 
 ### 常见问题 FAQ
 - Q:支持哪些 PMS 系统?
