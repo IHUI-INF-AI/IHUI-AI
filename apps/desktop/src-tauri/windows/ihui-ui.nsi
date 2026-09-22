@@ -152,16 +152,16 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_TGL_Y2     392
 !define IHUI_TGL_Y3     444
 !define IHUI_PB_X       288   ; 品牌进度条轨道(instfiles.bmp 已烧轨道底)
-!define IHUI_PB_Y       300
+!define IHUI_PB_Y       306
 !define IHUI_PB_W       544
-!define IHUI_PB_H       8
-!define IHUI_PCT_X      632   ; 百分比大字槽(右对齐至 832)
-!define IHUI_PCT_Y      186
-!define IHUI_PCT_W      200
-!define IHUI_PCT_H      64
-!define IHUI_PCT_PX     56    ; 百分比字号(逻辑像素)
+!define IHUI_PB_H       10
+!define IHUI_PCT_X      288   ; 百分比大字槽(右对齐至 748,右侧由位图烧 % 字形)
+!define IHUI_PCT_Y      240
+!define IHUI_PCT_W      460
+!define IHUI_PCT_H      58
+!define IHUI_PCT_PX     48    ; 百分比字号(逻辑像素)
 !define IHUI_STG_X      288   ; 阶段文案槽
-!define IHUI_STG_Y      322
+!define IHUI_STG_Y      334
 !define IHUI_STG_W      544
 !define IHUI_STG_H      22
 !define IHUI_STG_PX     13    ; 阶段文案字号(逻辑像素)
@@ -298,7 +298,9 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     System::Call "user32::SetWindowRgn(p $IHUIPB2, p R3, i 1)"
   ${EndIf}
   ${If} $IHUIPCT <> 0
-    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}%"
+    ; % 字形已烧在位图里(与数字同一条基线、同套配色),这里只写数字 ——
+    ; 否则运行期再补一个 % 会变成 "92% %"(2026-09-22 截图实锤)。
+    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}"
   ${EndIf}
   ${If} $IHUISTG <> 0
     !insertmacro IHUI_SETTEXT $IHUISTG "${TEXT}"
