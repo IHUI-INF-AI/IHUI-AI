@@ -590,6 +590,27 @@ Function IHUIOnDragTick
   !insertmacro IHUI_ONDRAGTICK_BODY
 FunctionEnd
 
+; ---- 取档规则:选"最小且 ≥ 该 DPI"的档(向上取档),不是就近取档 ----
+; 旧规则按中点(108/132/156)就近取档 → 小数缩放(110%/112.5%/133%/144%)会落到**更低**一档,
+; 位图尺寸小于客户区,被 STATIC 拉伸铺满 → 整页发糊(用户报"安装包/卸载器图像像素低看不清")。
+; 向上取档后位图恒 ≥ 客户区,STATIC 做的是**降采样**;恰好落在整数档(96/120/144/168/192)时
+; 仍是 1:1,零代价。代价只有小数缩放屏上多解压一档体积(单档,不是全档)。
+; 两处判定(系统档 / 窗口档)必须同规则,否则每个品牌页都会触发"档位不一致补解压"。
+; NSIS 宏参数必须写成 ${NAME} 才会被替换;写成 $NAME 会被当成字面量变量
+;   → 报 unknown variable / StrCpy Usage(macroline 定位到宏体内,不指向真因)。
+!macro IHUI_TIER_OF DPIVAR TIENVAR
+  ${If} ${DPIVAR} <= 96
+    StrCpy ${TIENVAR} "100"
+  ${ElseIf} ${DPIVAR} <= 120
+    StrCpy ${TIENVAR} "125"
+  ${ElseIf} ${DPIVAR} <= 144
+    StrCpy ${TIENVAR} "150"
+  ${ElseIf} ${DPIVAR} <= 168
+    StrCpy ${TIENVAR} "175"
+  ${Else}
+    StrCpy ${TIENVAR} "200"
+  ${EndIf}
+!macroend
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
@@ -599,17 +620,7 @@ FunctionEnd
   ${If} $IHUIDPI < 96
     StrCpy $IHUIDPI 96
   ${EndIf}
-  ${If} $IHUIDPI > 168
-    StrCpy $IHUITIER "200"
-  ${ElseIf} $IHUIDPI > 156
-    StrCpy $IHUITIER "175"
-  ${ElseIf} $IHUIDPI > 132
-    StrCpy $IHUITIER "150"
-  ${ElseIf} $IHUIDPI > 108
-    StrCpy $IHUITIER "125"
-  ${Else}
-    StrCpy $IHUITIER "100"
-  ${EndIf}
+  !insertmacro IHUI_TIER_OF $IHUIDPI $IHUITIER
 !macroend
 
 ; =====================================================================
@@ -629,17 +640,7 @@ FunctionEnd
   ${If} $IHUIDPIW < 96
     StrCpy $IHUIDPIW 96
   ${EndIf}
-  ${If} $IHUIDPIW > 168
-    StrCpy $IHUIWTIER "200"
-  ${ElseIf} $IHUIDPIW > 156
-    StrCpy $IHUIWTIER "175"
-  ${ElseIf} $IHUIDPIW > 132
-    StrCpy $IHUIWTIER "150"
-  ${ElseIf} $IHUIDPIW > 108
-    StrCpy $IHUIWTIER "125"
-  ${Else}
-    StrCpy $IHUIWTIER "100"
-  ${EndIf}
+  !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
   !insertmacro IHUI_PX $IHUIWW 880
   !insertmacro IHUI_PX $IHUIWH 600
   ; 工作区(R5..R8 已由 IHUIGuiInit 读出)居中
