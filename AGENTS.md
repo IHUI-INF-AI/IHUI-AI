@@ -184,6 +184,14 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。复用 `packages/auth` 的 authenticate 函数;admin 路由用 preHandler 统一校验(roleId >= 1)。幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。API 响应统一 `{ code, message, data }` 格式。
 
+### 鉴权面公开化必须显式列举(强制,2026-09-23 立)
+
+- **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
+- 正确做法:**显式白名单列路径**(如 `/api/agents`、`/api/agents/list`、`/api/categories/list`),详情路由用正则时**必须**配一张静态段排除表(`AGENTS_PROTECTED_STATIC_SEGMENTS`)。**新增 `/agents/<静态段>` 的 GET 路由时必须同步登记该表**,否则会被当成游客详情放行。
+- 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
+- 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
+- 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
+
 ### 测试隔离铁律(强制,2026-09-12 立)
 
 - **测试一律禁止连生产库**。pytest 用例不得对生产 PostgreSQL(`8810`)/ Redis(`8811`)产生任何写入副作用;需要 DB 的路径必须 mock 或注入隔离实例。
