@@ -16,6 +16,7 @@
 //   postgres 8810 · redis 8811 · api 8802(/health) · web 8801 · ai-service 8803
 //   metro 8081 —— 手机 dev client 的 bundle 地址指向 localhost:8081(RN 默认),
 //   仓库 start 脚本虽是 expo --port 8805,但手机实机链路以 8081 为准。
+//   web-preview 8806(浏览器打开手机 App)· prod-proxy 8807(它的 API 出口 → aizhs.top)
 //
 // 用法:
 //   node scripts/dev-stack.mjs                 体检,缺失的按依赖顺序拉起,必需全就绪才退出 0
@@ -236,6 +237,25 @@ const SERVICES = [
     start: () => launchDetached(NODE_EXE, [path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs')], ROOT, 'prod-proxy'),
     hint: '网页预览连生产需要它(:8806 的 API 请求经此转发到 aizhs.top)',
   },
+  {
+    // 浏览器打开手机 App:同一套 RN 代码换 react-native-web 渲染层,UI 改动即时可见。
+    // 必须强制覆盖 EXPO_PUBLIC_API_BASE_URL:本机用户级环境变量是生产域名,浏览器直连
+    // 必被 CORS 拦死(表现为顶部「网络已断开」红条),指向 8807 反代才通。
+    name: 'web-preview',
+    port: 8806,
+    required: false,
+    probe: 'tcp',
+    describe: 'Expo Web 预览(浏览器打开手机 App,可选,API 走 8807 反代到生产)',
+    start: () =>
+      launchDetached(
+        NODE_EXE,
+        [EXPO_ENTRY, 'start', '--web', '--port', '8806'],
+        RN_DIR,
+        'web-preview',
+        { EXPO_PUBLIC_API_BASE_URL: 'http://localhost:8807' },
+      ),
+    hint: '浏览器打开 http://localhost:8806(微信 SDK / 闪验 / 本地推送等平台独占能力会降级,真机仍需另验),看 .tmp-sync/dev-stack-web-preview.log',
+  },
 ];
 
 const args = process.argv.slice(2);
@@ -312,6 +332,8 @@ function canStart(svc) {
   }
   if (svc.name === 'ai-service') return fs.existsSync(path.join(AI_DIR, '.venv'));
   if (svc.name === 'prod-proxy') return fs.existsSync(path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs'));
+  // 兜底那行按 apps/<name> 判目录,web-preview 实际目录是 apps/mobile-rn
+  if (svc.name === 'web-preview') return fs.existsSync(RN_DIR) && fs.existsSync(EXPO_ENTRY);
   return fs.existsSync(path.join(ROOT, 'apps', svc.name === 'metro' ? 'mobile-rn' : svc.name));
 }
 
