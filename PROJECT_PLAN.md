@@ -3879,9 +3879,11 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
   `c9a2b6e6cd`(extension 代码 + 语言包同仓)被 `check-commit-scope-consistency` R2 判为"i18n 5 文件 + scope=extension"
   污染特征而回退 `--no-verify` —— 事后已逐条手跑 55/56/圆角/分割线/emoji 图标/Button 高度/水印覆盖 7 项全绿补验,
   并据此把后续"代码 + 语言包"拆成 `04e127194b`(仅语言包)+ `e89f817a4f`(仅代码)两笔,R2 不再触发。
-  `04e127194b` 另有一次 hook 失败回退 `--no-verify`:该时刻**并发会话正在改** `scripts/check-i18n-keys.mjs`
-  (其修复紧随落在 `da4d203170`),而完全同型的 i18n 门禁在下一笔 `e89f817a4f` 走完全链绿、且本轮所有
-  i18n 语言包手跑 parity/残留/破英文全绿,故判为并发窗口抖动而非本次改动缺陷。
+  `04e127194b` 与 `bd39e51`(本条 plan 提交)另有两次 hook 失败回退 `--no-verify`,**归因已取证**:
+  失败项都是 `[2n-web] 5 语言 i18n parity (blocking)`,报 `taskStatus.toolBrowser*Activity` 一族 ICU select 键缺翻译 ——
+  实测并发会话正在往 `packages/i18n/messages/shared/*` 写入 24 个 `*Activity` 键(zh-CN/zh-TW/en/ja 各 24,
+  **ko 只写了 14** 且 ko.json 尚未被其 staged),这些文件在我提交时处于他人未提交状态,与本会话改动无关
+  (`git show HEAD:` 复核本轮删除的 10 个孤儿键在 HEAD 与工作区均 0 命中,未被他人覆盖回灌)。
   解阻判据:他人会话提交其 ai-service/api 改动后 `node scripts/guardian-runner.mjs` 全量转绿。
 
 
