@@ -265,6 +265,14 @@
           "mustMatch": "CitationList"
         },
         {
+          "file": "apps/mobile-rn/src/components/ChatDisclosure.tsx",
+          "mustMatch": "export function CitationList"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "onCitations"
+        },
+        {
           "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
           "mustMatch": "onCitations"
         },
@@ -416,6 +424,14 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "InjectionDisclosure"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/ChatDisclosure.tsx",
+          "mustMatch": "export function InjectionDisclosure"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "onInjectionApplied"
         },
         {
           "file": "apps/cli/src/commands/task-status-line.ts",
