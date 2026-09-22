@@ -523,57 +523,89 @@ function anomalyLine(h) {
   return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
 }
 
+// —— 计划任务必须走隐藏链路(2026-09-22 立「任务漂移自检」) ——
+// 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
+// (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑;
+// 2026-09-22 复发:安装器早已修对,但活任务仍是直跑 node.exe 的旧版,没人重注册)。
+// 因此除 --install 外,常规巡检也核对活任务动作,漂移即自动重注册,不靠人记。
+const HIDDEN_VBS = join(WORKTREE, 'scripts', 'git-guardian-hidden.vbs')
+
+function registerTask() {
+  if (!existsSync(HIDDEN_VBS)) {
+    log(`注册失败:找不到隐藏启动包装 ${HIDDEN_VBS}(勿改成直接执行 node.exe)`)
+    return false
+  }
+  // 注册前预检:让包装器真跑一次并看退出码。cscript/wscript 按 ANSI 代码页解码 .vbs,
+  // 中文注释会被错切成伪引号导致**编译期**语法错(2026-09-20 实测踩过),而 wscript 下
+  // 该错误会弹 "Windows Script Host" 对话框且 schtasks 仍报成功 —— 只能靠这一步拦下。
+  // IHUI_GUARDIAN_PRECHECK 标记「本进程是预检派生的巡检」,防止漂移自检在预检子进程里
+  // 再次触发注册 → 预检又派生子进程的递归派生链。
+  let pre
+  try {
+    pre = execFileSync('cscript.exe', ['//nologo', HIDDEN_VBS], {
+      stdio: 'pipe',
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 60_000,
+      env: { ...process.env, IHUI_GUARDIAN_PRECHECK: '1' },
+    })
+  } catch (e) {
+    log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
+    return false
+  }
+  if (pre && /error/i.test(pre)) {
+    log(`注册失败:git-guardian-hidden.vbs 预检报错\n${pre}`)
+    return false
+  }
+  try {
+    execFileSync(
+      'schtasks',
+      ['/create', '/tn', TASK_NAME, '/tr', `wscript.exe "${HIDDEN_VBS}"`, '/sc', 'minute', '/mo', '2', '/f'],
+      {
+        stdio: 'inherit',
+        windowsHide: true,
+      },
+    )
+  } catch (e) {
+    log('注册任务计划失败(需管理员权限): ' + String(e.message || e))
+    return false
+  }
+  log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,经 git-guardian-hidden.vbs 静默启动)`)
+  return true
+}
+
+/** 活任务的动作是否仍是 wscript 隐藏链路(防「被人改回直跑 node.exe」的漂移)。 */
+function taskActionOk() {
+  let out = ''
+  try {
+    out = execFileSync('schtasks', ['/query', '/tn', TASK_NAME, '/v', '/fo', 'list'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+    })
+  } catch {
+    return false // 任务不存在同样算漂移,交给重注册兜底
+  }
+  return /wscript\.exe/i.test(out) && /git-guardian-hidden\.vbs/i.test(out)
+}
+
 function main() {
   if (INSTALL) {
-    // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
-    // (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑)。
-    // 与本仓库既有任务(DevProcessCleanup / KillGitSelector)保持同一隐藏启动约定。
-    const vbs = join(WORKTREE, 'scripts', 'git-guardian-hidden.vbs')
-    if (!existsSync(vbs)) {
-      log(`注册失败:找不到隐藏启动包装 ${vbs}(勿改成直接执行 node.exe)`)
-      return 1
-    }
-    // 注册前预检:让包装器真跑一次并看退出码。cscript/wscript 按 ANSI 代码页解码 .vbs,
-    // 中文注释会被错切成伪引号导致**编译期**语法错(2026-09-20 实测踩过),而 wscript 下
-    // 该错误会弹 "Windows Script Host" 对话框且 schtasks 仍报成功 —— 只能靠这一步拦下。
-    let pre
-    try {
-      pre = execFileSync('cscript.exe', ['//nologo', vbs], {
-        stdio: 'pipe',
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 60_000,
-      })
-    } catch (e) {
-      log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
-      return 1
-    }
-    if (pre && /error/i.test(pre)) {
-      log(`注册失败:git-guardian-hidden.vbs 预检报错\n${pre}`)
-      return 1
-    }
-    const tr = `wscript.exe "${vbs}"`
-    try {
-      execFileSync(
-        'schtasks',
-        ['/create', '/tn', TASK_NAME, '/tr', tr, '/sc', 'minute', '/mo', '2', '/f'],
-        {
-          stdio: 'inherit',
-          windowsHide: true,
-        },
-      )
-      log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,经 git-guardian-hidden.vbs 静默启动)`)
-    } catch (e) {
-      log('注册任务计划失败(需管理员权限): ' + String(e.message || e))
-      process.exit(1)
-    }
-    return 0
+    return registerTask() ? 0 : 1
   }
 
   const before = status()
   if (STATUS_ONLY) {
     console.log(JSON.stringify(before, null, 1))
     return 0
+  }
+
+  // 任务漂移自检(2026-09-22 立):活任务曾被改回直跑 node.exe → Interactive 会话每 2 分钟
+  // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
+  // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
+  if (!CHECK_ONLY && !process.env.IHUI_GUARDIAN_PRECHECK && !taskActionOk()) {
+    log('⚠️ 计划任务动作漂移(非 wscript 隐藏链路,会弹可见窗口),自动重注册')
+    registerTask()
   }
 
   const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
