@@ -199,6 +199,36 @@ export function applyTerminalStart(
 }
 
 /** 折叠终端任务结束事件(纯函数):按 terminalId 更新终态/输出/退出码/耗时 */
+/** D34 上下文注入交代:kind 是取词键,后端中文 collapsed 仅在未知 kind 时兜底显示 */
+export interface MessageInjection {
+  kind: string
+  collapsed: string
+  /** 缺省即后端判定超限 —— 不给"可展开"入口 */
+  fullText?: string
+  count?: number
+}
+
+/**
+ * injection_applied 帧累积:一条回答可能对应多条注入(自定义指令 / 工作区记忆 / Repo Wiki /
+ * 检索上下文),必须**追加**并按 kind+collapsed 去重 —— 整体替换会让流首与流中两批互相覆盖。
+ */
+export function applyInjectionFrame(
+  list: readonly MessageInjection[] | undefined,
+  event: MessageInjection,
+): MessageInjection[] {
+  const prev = list ? [...list] : []
+  if (prev.some((item) => item.kind === event.kind && item.collapsed === event.collapsed)) {
+    return prev
+  }
+  prev.push({
+    kind: event.kind,
+    collapsed: event.collapsed,
+    fullText: event.fullText,
+    count: event.count,
+  })
+  return prev
+}
+
 export function applyTerminalEnd(
   list: readonly TerminalTaskItem[] | undefined,
   event: TerminalEndEvent,
