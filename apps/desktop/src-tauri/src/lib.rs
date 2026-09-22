@@ -416,7 +416,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.new_chat" => {
                 // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "new_chat");
+                    if let Err(e) = window.emit("desktop-tray-action", "new_chat") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -435,7 +437,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.theme" => {
                 // emit 事件给前端,前端切换主题(light/dark)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "toggle_theme");
+                    if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -443,7 +447,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.settings" => {
                 // emit 事件给前端,前端跳转 /settings
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "open_settings");
+                    if let Err(e) = window.emit("desktop-tray-action", "open_settings") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -451,7 +457,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.update" => {
                 // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "check_update");
+                    if let Err(e) = window.emit("desktop-tray-action", "check_update") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -466,7 +474,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "quit");
+                    if let Err(e) = window.emit("desktop-tray-action", "quit") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                 } else {
                     // 主窗口不存在(异常状态),直接退出
                     app.exit(0);
@@ -1666,7 +1676,9 @@ pub fn run() {
                     // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息
                     // emit 是同步派发,前端 listen 异步处理;前端保存完不需要回调 Rust,
                     // 窗口立即隐藏(保存仍在进行,可接受)
-                    let _ = window.emit("desktop-before-close", ());
+                    if let Err(e) = window.emit("desktop-before-close", ()) {
+                        log::warn!("[desktop-event] emit desktop-before-close failed: {}", e);
+                    }
                     let _ = window.hide();
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
@@ -1725,7 +1737,9 @@ pub fn run() {
                         if let Some(first_url) = event.urls().first() {
                             let url_str = first_url.as_str().to_string();
                             log::info!("[desktop] deep-link received: {}", url_str);
-                            let _ = window.emit("desktop-deep-link", url_str);
+                            if let Err(e) = window.emit("desktop-deep-link", url_str) {
+                                log::warn!("[desktop-event] emit desktop-deep-link failed: {}", e);
+                            }
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -1778,7 +1792,9 @@ pub fn run() {
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+N", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.emit("desktop-shortcut", "new_chat");
+                        if let Err(e) = window.emit("desktop-shortcut", "new_chat") {
+                            log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
+                        }
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
@@ -1788,7 +1804,9 @@ pub fn run() {
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+S", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.emit("desktop-shortcut", "quick_screenshot");
+                        if let Err(e) = window.emit("desktop-shortcut", "quick_screenshot") {
+                            log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
+                        }
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
