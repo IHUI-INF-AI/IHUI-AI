@@ -182,7 +182,7 @@ const indexStyles = StyleSheet.create({
     borderRadius: 28,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
   thumb: {
@@ -343,7 +343,7 @@ const uptodateStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
   thumbWrap: {
@@ -593,7 +593,7 @@ const listStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
   thumbWrap: {

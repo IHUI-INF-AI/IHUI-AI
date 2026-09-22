@@ -266,7 +266,7 @@ export default function AiModelCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 12,

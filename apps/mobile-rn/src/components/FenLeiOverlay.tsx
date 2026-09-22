@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   // 面板:顶部下拉全宽(对齐 uniapp s_t_b fixed top + 白底 + 底部边框)
   panel: {
     width: '100%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
     borderWidth: 1,

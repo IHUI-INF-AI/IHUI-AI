@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   } as ViewStyle,
   icon: {
     width: 14,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   } as ViewStyle,
   customizeTitle: {
     fontSize: 14,
