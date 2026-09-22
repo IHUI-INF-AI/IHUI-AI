@@ -2003,5 +2003,30 @@
   },
   "topBar": {
     "capabilityMarket": "機能マーケット"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "プランは中断されました",
+      "securityBlocked": "セキュリティポリシーでブロック",
+      "rejectedByUser": "ユーザーが拒否しました",
+      "approvalTimeout": "承認がタイムアウトしました",
+      "toolMissing": "ツールが見つかりません",
+      "executeFailed": "実行に失敗しました",
+      "executeRetried": "再試行しました",
+      "executed": "実行しました",
+      "approvalPersistHit": "保存済みの承認を適用",
+      "execPolicyApproved": "実行ポリシーで許可",
+      "autoSkipApproval": "自動承認(承認スキップ)",
+      "bypassSkipApproval": "承認をスキップ",
+      "mcpRequiresApproval": "MCP 注釈が承認を要求",
+      "policyRequiresApproval": "ポリシーが承認を要求",
+      "policyForbidsExecution": "ポリシーが実行を禁止"
+    },
+    "state": {
+      "approved": "自動承認済み",
+      "rejected": "拒否済み",
+      "needsUser": "あなたの承認が必要",
+      "unknown": "判定不明"
+    }
   }
 }
