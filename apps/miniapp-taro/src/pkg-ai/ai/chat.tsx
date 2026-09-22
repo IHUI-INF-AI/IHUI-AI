@@ -576,6 +576,9 @@ export default function ChatPage() {
                         ...x,
                         status: evt.status,
                         output: evt.output,
+                        // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                        truncated: evt.truncated ?? x.truncated,
+                        totalChars: evt.totalChars ?? x.totalChars,
                         exitCode: evt.exitCode,
                         durationMs: evt.durationMs,
                       }

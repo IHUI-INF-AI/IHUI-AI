@@ -198,6 +198,18 @@
         {
           "file": "apps/ai-service/app/routers/llm.py",
           "mustMatch": "_clip_terminal_output"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "terminalTruncated"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai-card-term-truncated"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "terminalTruncated"
         }
       ]
     }
