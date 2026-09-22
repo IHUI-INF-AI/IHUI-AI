@@ -107,6 +107,26 @@
       ]
     },
     {
+      "id": "error-retry-action",
+      "title": "失败回复的「重试」动作(错误必须带出口,不只说请稍后重试)",
+      "sourceTask": "G-152",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageList.tsx",
+          "mustMatch": "ihui:retry-message"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/chat-send-utils.ts",
+          "mustMatch": "pickRetryTarget"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "retry-last-turn"
+        }
+      ]
+    },
+    {
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
       "sourceTask": "D27/G-70/D109",
