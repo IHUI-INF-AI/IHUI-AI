@@ -5,11 +5,12 @@
 // 快捷键对账守门 — 拦"UI 上写了 chord,源码里却没有任何处理器"这一整类缺陷
 // (仓库自述踩过的同型事故:use-native-shortcuts.ts 注释记录 Ctrl+Shift+J 曾"UI 明示但无监听")。
 //
-// 四类输出:
+// 五类输出:
 //   1) 已绑已声明(严格)  :处理器把三个 mod 槽位都断言了,且与声明完全一致
 //   2) 已绑已声明(宽松)  :声明的 mod 都被要求按下、没有被否定,但处理器未断言其余槽位
 //   3) 声明未绑(缺陷)    :找不到处理器 → exit 1(注册表事件无消费者也算)
-//   4) 存疑              :同 key 有处理器但 mod 断言矛盾 → INFO,不阻塞
+//   4) 声明被他功能接走(缺陷):field 声明与全局注册表同键,但声明方证不出这个键归它 → exit 1
+//   5) 存疑              :同 key 有处理器但 mod 断言矛盾 → INFO,不阻塞
 //      绑了未声明        :有处理器却没有任何 UI 文案宣传 → INFO
 //
 // 声明侧(用户能看到的 chord 字符串):
@@ -22,8 +23,15 @@
 //   - 通用按键条件解析:key/code 字面量 + ①同条件内的 mod 断言 ②外层 if 块的 mod 断言
 //     ③前 30 行内的早退守卫(如 `if (!isMod) return`)
 //
-// 已知边界(刻意不做,避免假红):i18n 语言包内的 chord 文案与 `⌘⇧P` 类 Unicode 形式
-// 不进声明侧;--staged 只把声明侧限制在暂存文件,绑定侧始终全量扫描。
+// 已知边界(刻意不做,避免假红):i18n 语言包内的 chord 文案与 `⌘⇧P` 类 Unicode 形式不进声明侧;
+// --staged 只把声明侧限制在暂存文件(注册表条目除外 —— 它是"谁接走了键位"的真相源,必须全量),
+// 绑定侧始终全量扫描。"同键位被别的功能接走"的盲区已由 mislabelled 判据覆盖 —— field 声明与
+// 注册表同键时须自证持有,三条证据任一即合法:①本文件出现该条目的 event 引号字面量(它就是
+// 生产/消费方);②本文件有同键处理器 + stopPropagation(独占截断,RichTextEditor 的修法);
+// ③本条目字面量内出现 event 的功能词元(命令面板原样镜像全局键位,按下去就是标签写的事)。
+// 只认 field:kbd/text 类常用来描述**别的表面**(帮助页/设置卡片/快捷键文档)的键位,纳进来必假红。
+// 残余漏判方向:① 的 event 名若以常量/模板拼接而非引号字面量出现则读不到;② 只看声明所在文件,
+// 跨文件包装派发时读不到;③ 只比词元,同义词('新建'vs'create')判不出。三者都只放过真缺陷。
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -85,9 +93,9 @@ function normalizeChord(raw) {
 function collectDeclarations(file, text) {
   const rel = relative(ROOT, file).replace(/\\/g, '/')
   const out = []
-  const add = (raw, kind) => {
+  const add = (raw, kind, line) => {
     const c = raw ? normalizeChord(raw) : null
-    if (c) out.push({ ...c, kind, file: rel })
+    if (c) out.push({ ...c, kind, file: rel, line })
   }
 
   if (/use-global-shortcuts\.ts$/.test(rel)) {
@@ -107,12 +115,12 @@ function collectDeclarations(file, text) {
     const isComment = /^\s*(?:\/\/|\*|\/\*)/.test(line)
     if (/<kbd[^>]*>\s*$/.test(line)) {
       const next = (lines[i + 1] || '').trim()
-      for (const h of next.match(DECL_RE) || []) add(h, 'kbd')
+      for (const h of next.match(DECL_RE) || []) add(h, 'kbd', i + 2)
     }
     const struct =
       line.match(/shortcut\s*[:=]\s*['"]([^'"]+)['"]/) || line.match(/<kbd[^>]*>\s*([^<]+?)\s*<\/kbd>/)
-    if (struct) add(struct[1], /shortcut/.test(struct[0]) ? 'field' : 'kbd')
-    else if (!isComment) for (const h of line.match(DECL_RE) || []) add(h, 'text')
+    if (struct) add(struct[1], /shortcut/.test(struct[0]) ? 'field' : 'kbd', i + 1)
+    else if (!isComment) for (const h of line.match(DECL_RE) || []) add(h, 'text', i + 1)
   })
   return out.filter((d) => d.required.length > 0) // 只收"组合键";裸 Enter/Esc/↑/F12 不属于本守门范围
 }
@@ -256,13 +264,108 @@ function matchHandler(d, h) {
   return h.determined && h.required.size === SLOTS.filter((s) => d.mods[s]).length ? '严格' : '宽松'
 }
 
-function eventHasConsumer(event, allText) {
-  if (event.startsWith('__')) return true // 内置:由 hook 自身消化
-  const escaped = event.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`['"\`]${escaped}['"\`]`).test(allText)
+function quotedLiteralRe(event) {
+  const escaped = String(event).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`['"\`]${escaped}['"\`]`)
 }
 
-function reconcile(declarations, handlers, allText) {
+function eventHasConsumer(event, allText) {
+  if (event.startsWith('__')) return true // 内置:由 hook 自身消化
+  return quotedLiteralRe(event).test(allText)
+}
+
+/** 声明方是否真的持有这个键位(见文件头 mislabelled 判据) */
+const EVENT_GENERIC_TOKENS = new Set(['global', 'shortcut', 'mode', 'type', 'open', 'toggle', 'show', 'hide', 'cycle', 'switch'])
+
+/** event 名 → 功能词元('global-shortcut:mode-build' → ['build']),泛词不参与比对 */
+function eventTokens(event) {
+  const tail = String(event).slice(String(event).lastIndexOf(':') + 1)
+  return tail
+    .split(/[-_\s]+|(?<=[a-z0-9])(?=[A-Z])/)
+    .map((t) => t.toLowerCase())
+    .filter((t) => t.length >= 3 && !EVENT_GENERIC_TOKENS.has(t))
+}
+
+function lineStart(text, line) {
+  if (!Number.isInteger(line) || line < 1) return -1
+  const rows = text.split(/\r?\n/)
+  if (rows.length < line) return -1
+  return rows.slice(0, line - 1).reduce((n, s) => n + s.length + 1, 0)
+}
+
+/** 包住 idx 的最内层 `{ … }`(数据条目字面量) */
+function enclosingObjectText(text, idx) {
+  if (idx < 0) return ''
+  let depth = 0
+  let start = -1
+  for (let i = idx; i >= 0; i--) {
+    if (text[i] === '}') depth++
+    else if (text[i] === '{') {
+      if (depth === 0) {
+        start = i
+        break
+      }
+      depth--
+    }
+  }
+  if (start === -1) return ''
+  let d = 0
+  for (let i = start; i < text.length && i - start < 4000; i++) {
+    if (text[i] === '{') d++
+    else if (text[i] === '}' && --d === 0) return text.slice(start, i + 1)
+  }
+  return ''
+}
+
+function holdsChord(decl, registryEntry, fileText, handlersInFile) {
+  if (registryEntry.event && quotedLiteralRe(registryEntry.event).test(fileText)) return true
+  const owned = handlersInFile.some((h) => {
+    const mode = matchHandler(decl, h)
+    return mode !== null && mode !== '矛盾'
+  })
+  // 独占证据要求"同键处理器 + 截断冒泡"同时成立:只有 stopPropagation 说明它不会与
+  // window 级注册表同时生效(RichTextEditor 的修法),缺一即不认。
+  if (owned && fileText.includes('stopPropagation')) return true
+  // ③镜像标注:该条目自身动作与注册表条目同义(命令面板把全局键位原样列出来),
+  // 按下去发生的正是标签写的事,不算说谎;比对范围严格限制在本条目字面量内。
+  const tokens = eventTokens(registryEntry.event)
+  const entry = enclosingObjectText(fileText, lineStart(fileText, decl.line))
+  return tokens.length > 0 && entry !== '' && tokens.some((t) => new RegExp(`\\b${t}\\b`, 'i').test(entry))
+}
+
+/**
+ * field 声明与注册表同键 → 逐个核验持有证据,拿不出证据即"标签说谎"。
+ * 只认 field:kbd/text 类常在帮助页/设置卡片里描述**别的表面**的键位,纳入必假红。
+ */
+function detectMislabelled(declarations, handlers, fileTexts) {
+  const registryByChord = new Map()
+  for (const r of declarations) {
+    if (r && r.kind === 'registry' && r.event && !registryByChord.has(r.canonical)) registryByChord.set(r.canonical, r)
+  }
+  if (registryByChord.size === 0 || fileTexts.size === 0) return []
+  const byFile = new Map()
+  for (const h of handlers) {
+    const list = byFile.get(h.file)
+    if (list) list.push(h)
+    else byFile.set(h.file, [h])
+  }
+  const out = []
+  const seen = new Set()
+  for (const d of declarations) {
+    if (!d || d.kind !== 'field') continue
+    const r = registryByChord.get(d.canonical)
+    const fileText = r ? fileTexts.get(d.file) : undefined
+    if (!r || fileText === undefined) continue
+    if (holdsChord(d, r, fileText, byFile.get(d.file) || [])) continue
+    const id = `${d.file}:${d.canonical}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    out.push({ ...d, event: r.event, reason: `同键位实际被 ${r.event}(use-global-shortcuts 注册表)接走` })
+  }
+  return out
+}
+
+function reconcile(declarations, handlers, allText, fileTexts = new Map()) {
   const byChord = new Map()
   for (const d of declarations) {
     if (!d) continue
@@ -303,7 +406,7 @@ function reconcile(declarations, handlers, allText) {
     const c = `${[...h.required].join('+')}+${h.key}`
     if (!byChord.has(c)) undeclared.push({ canonical: c, file: h.file, line: h.line })
   }
-  return { bound, unbound, doubtful, undeclared }
+  return { bound, unbound, doubtful, undeclared, mislabelled: detectMislabelled(declarations, handlers, fileTexts) }
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +459,7 @@ function stagedFiles() {
 function scanSources(opts = {}) {
   const declarations = []
   const handlers = []
+  const fileTexts = new Map()
   let allText = ''
   for (const root of SCAN_ROOTS) {
     for (const file of walk(resolve(ROOT, root))) {
@@ -368,10 +472,16 @@ function scanSources(opts = {}) {
       allText += text
       const rel = relative(ROOT, file).replace(/\\/g, '/')
       handlers.push(...parseHandlers(file, text))
-      if (!opts.staged || opts.staged.has(rel)) declarations.push(...collectDeclarations(file, text))
+      const isRegistry = /use-global-shortcuts\.ts$/.test(rel)
+      // --staged 下注册表条目仍须全量:它是"键位被谁接走"的真相源,漏读会让 mislabelled 恒绿
+      if (!opts.staged || opts.staged.has(rel) || isRegistry) {
+        const decls = collectDeclarations(file, text)
+        if (decls.length > 0) fileTexts.set(rel, text)
+        declarations.push(...decls)
+      }
     }
   }
-  return { declarations, handlers, allText }
+  return { declarations, handlers, allText, fileTexts }
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +492,7 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return runSelfTest()
   const staged = argv.includes('--staged') ? stagedFiles() : null
-  const { declarations, handlers, allText } = scanSources({ staged })
+  const { declarations, handlers, allText, fileTexts } = scanSources({ staged })
   const probeArg = argv.find((a) => a.startsWith('--probe'))
   if (probeArg) {
     const val = probeArg.includes('=') ? probeArg.split('=')[1] : argv[argv.indexOf(probeArg) + 1]
@@ -393,9 +503,9 @@ async function main() {
     }
     declarations.push({ ...c, kind: 'probe', file: '--probe' })
   }
-  const result = reconcile(declarations, handlers, allText)
+  const result = reconcile(declarations, handlers, allText, fileTexts)
   report(result, { json: argv.includes('--json'), staged: Boolean(staged), probed: Boolean(probeArg) })
-  return result.unbound.length > 0 ? 1 : 0
+  return result.unbound.length + result.mislabelled.length > 0 ? 1 : 0
 }
 
 function report(r, o) {
@@ -406,6 +516,13 @@ function report(r, o) {
         {
           bound: r.bound.map((d) => ({ chord: d.canonical, kind: d.kind, where: `${d.file}`, mode: d.mode, handler: `${d.via.file}:${d.via.line}` })),
           unbound: r.unbound.map((d) => ({ chord: d.canonical, kind: d.kind, where: d.file, reason: d.reason })),
+          mislabelled: r.mislabelled.map((d) => ({
+            chord: d.canonical,
+            kind: d.kind,
+            where: `${d.file}:${d.line ?? ''}`,
+            event: d.event,
+            reason: d.reason,
+          })),
           doubtful: r.doubtful.map((d) => ({ chord: d.canonical, where: d.file, reason: d.why, handler: `${d.via.file}:${d.via.line}` })),
           undeclared: r.undeclared,
         },
@@ -420,6 +537,11 @@ function report(r, o) {
   for (const d of r.bound) console.log(`  ✓ ${row(d)}  → ${d.mode} @ ${d.via.file}:${d.via.line}`)
   console.log(`\n【声明未绑 — 缺陷】${r.unbound.length} 项`)
   for (const d of r.unbound) console.log(`  ✗ ${row(d)}  → ${d.reason}`)
+  console.log(`\n【声明被他功能接走 — 缺陷】${r.mislabelled.length} 项`)
+  for (const d of r.mislabelled)
+    console.log(
+      `  ✗ ${row(d)}  → ${d.reason};要么删掉这个键位标签,要么在本文件加 ${d.event} 的处理/派发并 e.stopPropagation() 独占`,
+    )
   console.log(`\n【存疑 — mod 断言不一致】${r.doubtful.length} 项`)
   for (const d of r.doubtful) console.log(`  ? ${row(d)}  → ${d.why}(${d.via.file}:${d.via.line})`)
   console.log(`\n【绑了未声明 — 信息】${r.undeclared.length} 项`)
@@ -502,6 +624,8 @@ export const __test__ = {
   guardFacts,
   matchHandler,
   eventHasConsumer,
+  detectMislabelled,
+  holdsChord,
   reconcile,
   scanSources,
   FIXTURE,
