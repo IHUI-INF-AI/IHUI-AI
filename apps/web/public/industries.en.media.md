@@ -140,13 +140,13 @@
 | Data Layer                               |
 | - News corpus + Hot-topic knowledge graph |
 | - User profile + Content profile         |
-| - PostgreSQL 16 + pgvector               |
+| - PostgreSQL 18 + pgvector               |
 +-----------------------------------------+
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
 - **Web** (Next.js 16 + React 19): Editorial workspace / topic dashboard
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Content service APIs
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Content service APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Agent orchestration
 - **Desktop** (Tauri 2): Offline writing + local asset library
 - **Extension** (WXT): Browser-side hot-topic scraping / translation
@@ -156,7 +156,7 @@
 
 ### Technology Stack
 - Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI
 - Cache: Redis 7
@@ -181,7 +181,7 @@
 | Avg break-even period | 4 months |
 | 12-month ROI | 320% |
 
-(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 16, Redis 7)
+(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 18, Redis 7)
 
 ### FAQ
 - Q: Will AI-written articles have factual errors?

@@ -218,7 +218,7 @@ docker compose up -d              # 一键启动 14 服务(7 业务 + 7 监控)
 | 维度         | 实际值                                                                                                                                                                                                                                    |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **前端 Web** | Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 + Monaco Editor + xterm.js + Three.js + ECharts                                                                                                    |
-| **后端 API** | Fastify 5 + Drizzle ORM 0.45 + PostgreSQL 15 + Zod 4(**TypeScript**,非 Python),4393 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services                                                                                         |
+| **后端 API** | Fastify 5 + Drizzle ORM 0.45 + PostgreSQL 18 + Zod 4(**TypeScript**,非 Python),4393 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services                                                                                         |
 | **AI 服务**  | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,仅此层用 Python),200+ services + 23 routers + 18 LLM Providers + 24 MCP 工具 + 38 发布适配器                                                                            |
 | **Monorepo** | pnpm 11.18 workspace + Turborepo 2.10 + 16 共享包(@ihui/auth / database / types / ui / api-client / shared / i18n / sdk 等)                                                                                                               |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"):Web 250+ 页面 + API 288 路由 + AI-Service 200+ 服务 + Desktop 29 Tauri 命令 + Extension 30 Side Panel + Mobile 140 屏幕 + Miniapp 100+ 页面 + CLI 50 命令/36 工具                                  |
@@ -350,7 +350,7 @@ Demo: https://aizhs.top
 ### 🎓 技术栈关键词(AI 引擎技术栈检索)
 
 - **前端**:Next.js 16 · React 19 · Tailwind CSS 4 · shadcn/ui · Zustand · TanStack Query 5 · Monaco Editor · xterm.js · Three.js · ECharts
-- **后端**:Fastify 5 · Drizzle ORM 0.45 · PostgreSQL 15 · Zod 4 · BullMQ · WebSocket · Swagger/OpenAPI
+- **后端**:Fastify 5 · Drizzle ORM 0.45 · PostgreSQL 18 · Zod 4 · BullMQ · WebSocket · Swagger/OpenAPI
 - **AI**:FastAPI 0.141 · LangGraph 1.2 · LiteLLM 1.95+ · MCP · A2A · Socket.IO · Playwright · faster-whisper · Python 3.12
 - **桌面**:Tauri 2 · WebView2 · Rust · 自动更新 · GitHub Releases 签名
 - **扩展**:WXT 0.19 · Chrome Manifest V3 · Side Panel · IndexedDB
@@ -628,7 +628,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 错误仪表盘          | 错误聚合 / 告警 / 追踪 / security-audit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |                   | 操作日志            | 登录日志 / 操作日志 / 回调日志 / audit + security-logs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 |                   | 监控告警            | Prometheus + Grafana(3 仪表盘:agent-runtime + tenant-overview + tenant-comparison)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager + OTel Collector(见 [deploy/observability/](./deploy/observability/))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| **工程基础设施**  | 数据库              | PostgreSQL 15 / **542 表**(Grep 实测 pgTable)/ **205 schema 文件**(Glob 实测)/ drizzle-kit push 模式(无 SQL 迁移)/ Drizzle ORM + RLS + 租户路由 + **pgvector** + 23 seed 文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **工程基础设施**  | 数据库              | PostgreSQL 18 / **542 表**(Grep 实测 pgTable)/ **205 schema 文件**(Glob 实测)/ drizzle-kit push 模式(无 SQL 迁移)/ Drizzle ORM + RLS + 租户路由 + **pgvector** + 23 seed 文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |                   | 队列缓存            | Redis 7 + BullMQ / 独立 worker 进程(:8830)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 |                   | 对象存储            | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |                   | 邮件短信            | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -986,7 +986,7 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
 | **可观测性**         | Prometheus + Grafana(**3 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                                                                                                                                                                                                                                                                     | 全链路指标 / 日志 / 追踪 / 告警                                 |
 | **工程守门**         | 56+10 pre-commit + post-commit 自动 push + git-push-guard + drizzle-kit push 模式                                                                                                                                                                                                                                                                                                                                               | 杜绝协作事故,99.9% SLA                                          |
 | **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 21 i18n 工具链 + AI 翻译流水线(零 LLM API)                                                                                                                                                                                                                                                                                                                                         | 5 语言键集合 100% parity(AI agent 自主翻译补齐,开发成本降 70%+) |
-| **数据库**           | **542 表 + drizzle-kit push** + 205 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector                                                                                                                                                                                                                                                                                                                                       | 单库 PostgreSQL 15,schema 隔离                                  |
+| **数据库**           | **542 表 + drizzle-kit push** + 205 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector                                                                                                                                                                                                                                                                                                                                       | 单库 PostgreSQL 18,schema 隔离                                  |
 | **API 规模**         | 4393 路由(api 4393 + ai-service 55)+ 12 WebSocket + 288 路由文件                                                                                                                                                                                                                                                                                                                                                                | 远超源项目 331 端点                                             |
 | **业务覆盖**         | 15 大模块 / 50+ 子功能 / **250+ Web 页面**                                                                                                                                                                                                                                                                                                                                                                                      | 一个平台覆盖所有 AI 应用场景                                    |
 | **共享包**           | 16 packages(auth/database/types/ui/sdk/api-client/context-compaction/dom-actions/browser-platform/i18n 等)                                                                                                                                                                                                                                                                                                                      | 跨端类型安全 + 复用                                             |
@@ -1199,7 +1199,7 @@ cd IHUI-AI && docker compose up -d
                                   └────┬───────┬─────┘
                                        │       │
             ┌──────────────────────────▼─┐   ┌─▼──────────────────────────┐
-            │  PostgreSQL 15             │   │  apps/ai-service            │  FastAPI + Socket.IO
+            │  PostgreSQL 18             │   │  apps/ai-service            │  FastAPI + Socket.IO
             │  ├─ 542 表 / drizzle-kit push     │   │  :8803 strictPort           │  LangGraph + LiteLLM + MCP + A2A
             │  ├─ pgvector 向量索引       │   │                             │  + 三栈 + P3 深度层
             │  ├─ FTS5 全文检索           │   │  ┌─ 31+ provider + 16 IM 渠道 │  + 14 publish adapter
@@ -1518,7 +1518,7 @@ SettingsScreen                    (只注入 navigation / t / API)     (mock 数
                                            │
 ┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
 │ L5 数据层(Data) — 双引擎持久化                                                        │
-│   PostgreSQL 15 :8810  → 542 表 / drizzle-kit push / 30+ 业务域 / RLS 多租户隔离               │
+│   PostgreSQL 18 :8810  → 542 表 / drizzle-kit push / 30+ 业务域 / RLS 多租户隔离               │
 │     ├─ pgvector 向量索引(记忆 / RAG / 语义搜索,无需独立向量数据库)                      │
 │     ├─ FTS5 全文检索(双引擎:向量 + 关键词)                                            │
 │     └─ 知识图谱 schema(节点 + 关系 + 实体链接)                                        │
@@ -1646,7 +1646,7 @@ IHUI-AI 应用功能全景
     │   📁 packages/auth/ · apps/api/src/plugins/auth.ts · apps/api/src/plugins/csrf.ts
     │
     ├── E2. 数据库与共享包
-    │   • PostgreSQL 15 单库 + schema 隔离 · 542 表 / drizzle-kit push / 30+ 业务域
+    │   • PostgreSQL 18 单库 + schema 隔离 · 542 表 / drizzle-kit push / 30+ 业务域
     │   • pgvector 向量 · RLS 行级安全 · 读副本 + tenant-router · 7 步幂等 seed
     │   • 16 共享包(auth/database/types/ui/sdk/config/eslint-config/tsconfig/browser-platform/dom-actions 等)
     │   📁 packages/database/ · packages/auth/ · packages/types/
@@ -1832,12 +1832,12 @@ IHUI-AI/
 
 权限模式(唯一真源 5 档,可落库 4 档)+ 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
 
-| 模式                 | 行为                                                            |
-| -------------------- | --------------------------------------------------------------- |
-| `plan`               | **硬只读**:仅读取/检索,写文件与执行命令一律拒绝(不进审批门)     |
-| `default`            | 任何 FS 调用都触发人工审计弹窗                                  |
-| `accept-edits`       | 白名单规则匹配放行,不匹配触发弹窗                               |
-| `bypass-permissions` | 全部放行(仅信任环境使用,每次免批都写审计事件)                   |
+| 模式                 | 行为                                                        |
+| -------------------- | ----------------------------------------------------------- |
+| `plan`               | **硬只读**:仅读取/检索,写文件与执行命令一律拒绝(不进审批门) |
+| `default`            | 任何 FS 调用都触发人工审计弹窗                              |
+| `accept-edits`       | 白名单规则匹配放行,不匹配触发弹窗                           |
+| `bypass-permissions` | 全部放行(仅信任环境使用,每次免批都写审计事件)               |
 
 - 档位取值由 `packages/types/src/permission-mode.ts` ↔ `app/core/permission_mode.py` 两侧同一份
   注册表判定(守门第 68 项对账):`auto` / `read-only` / `accept-edits` 等历史与文档拼写自动归一,
@@ -2156,7 +2156,7 @@ IHUI-AI/
 
 #### E2. 数据库与共享包
 
-- **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
+- **单库设计**:PostgreSQL 18,单库 `ihui`,通过 schema 隔离业务域
 - **542 表**:205 个 schema 模块文件,覆盖 30+ 业务域
 - **drizzle-kit push**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量(实际 drizzle-kit push文件,含 pgvector / 知识图谱 / RLS 多租户隔离等关键迁移)
 - **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
@@ -2241,6 +2241,7 @@ IHUI-AI/
 | 62         | desktop-nsis-template.mjs --check                                        | 仓库 NSIS 模板 == 当前 Tauri CLI 内置模板 + 已登记补丁(防升级静默丢定制 / 防 --write 抹掉未登记手改)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 65         | check-mass-deletion.mjs                                                  | 整树删除拦截:索引相对 HEAD 缺失 ≥1000 文件或 ≥20% 即拦(1ec8c7f0f3 / 05f049ba09 两次各删 11,6xx 文件的事故根治)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 69         | check-declared-shortcuts.mjs                                             | **快捷键"声明 ↔ 归属"对账(blocking)**,两类红点:① 声明未绑(UI 标了 `Ctrl+X` 而全仓无处理器,含注册表"有键无消费者");② 同键被他功能接走(点选项标的键位其实归全局注册表里另一个动作 —— `view-switcher` 曾标 `Ctrl+1-5` 而实际切 AI 模式)。持有证据三选一:本文件出现该 event 字面量 / 自有同键 handler + `stopPropagation` 独占 / 条目自身与注册表同义镜像                                                                                                                                                                                                                                                                    |
+| 70         | scan-hardcoded-zh.mjs                                                    | **硬编码中文基线棘轮(blocking)**:扫 `apps/web/{app,src/components,src/hooks}` + `packages/{ui-react,shared}/src`,按"每文件命中数 ≤ 基线额度"判定 —— 存量 900+ 文件的历史债冻结在 `scripts/hardcoded-zh-baseline.json`,**新增即拦**,清理后 `--update-baseline` 下调额度。该脚本 2026-07-20 就已存在,但一年多从未接入守门链,故这一族缺陷无人拦                                                                                                                                                                                                                                                                             |
 | 63         | check-sse-parser-parity.mjs                                              | **SSE 双解析器漏接对账(blocking,D106/G-148 配套)**:同一协议被 `packages/api-client`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro)两处独立解析。三类判定:① 抽不到事件名 = 判据失效**按失败处理**;② sse-parse 覆盖帧数 ratchet(`parseCoverageBaseline=21`,只挡倒退);③ api-client 已解析而未接的帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由/已接却仍登记都拦)。判据强度实测:把 `steer` 守卫改坏 → 立即红两条(覆盖倒退 + 未登记),"只剩产出语句或只剩类型联合声明"都骗不过本闸。`--self-test` 10 例正反成对,`--report` 输出逐端补齐工单 |
 | 16d        | 条件 miniapp-taro dist 清理提示                                          | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 17-post    | git-push-guard.mjs(post-commit)                                          | 自动 push + 验证 local == remote(防遗漏)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -2276,7 +2277,7 @@ IHUI-AI/
 | Node.js    | `>=22.13.0`        | LTS 22.x,推荐 `nvm use`                            |
 | pnpm       | `>=11.0.0`         | 项目固定 `pnpm@11.18.0`,`corepack enable` 自动激活 |
 | Python     | `3.12+`            | 仅 `apps/ai-service` 需要                          |
-| PostgreSQL | `15+`              | compose 用 `postgres:15-alpine`                    |
+| PostgreSQL | `18+`              | compose 用 `pgvector/pgvector:pg18`                |
 | Redis      | `7+`               | compose 用 `redis:7-alpine`                        |
 | Docker     | `24+` + Compose v2 | 可选,推荐用于一键启动                              |
 | Git        | `2.40+`            | `core.autocrlf=false`(项目强制 LF)                 |
@@ -2522,7 +2523,7 @@ PostgreSQL 2 张表(`packages/database/src/schema/im-adapters.ts`):
 
 ## 数据库
 
-- **单库设计**:PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域
+- **单库设计**:PostgreSQL 18,单库 `ihui`,通过 schema 隔离业务域
 - **542 表**:205 个 schema 模块文件,覆盖 30+ 业务域
 - **drizzle-kit push**:`packages/database/drizzle/`,drizzle-kit generate 生成 + 手动增量(实际 drizzle-kit push文件,含 pgvector / 知识图谱 / RLS 多租户隔离等关键迁移)
 - **7 步幂等 seed**:`packages/database/seed/`,模式化 + 容错隔离
@@ -2858,7 +2859,7 @@ docker compose up -d
 | 业务 | worker         | 8830 | BullMQ 独立 worker 进程                |
 | 业务 | web            | 8801 | Next.js 前端(static export,A 套壳架构) |
 | 业务 | ai-service     | 8803 | FastAPI AI 服务                        |
-| 业务 | db             | 8810 | PostgreSQL 15                          |
+| 业务 | db             | 8810 | PostgreSQL 18                          |
 | 业务 | redis          | 8811 | Redis 7                                |
 | 业务 | migrate        | -    | 一次性迁移服务(完成后退出)             |
 | 监控 | jaeger         | 8814 | 分布式追踪 UI                          |
@@ -3859,7 +3860,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 #### 工程基础设施(87 守门 + 719 测试 + 40 CI + 可观测性)
 
-- **数据库**:PostgreSQL 15 + 542 表 + 205 schema 文件 + drizzle-kit push + pgvector + 23 seed
+- **数据库**:PostgreSQL 18 + 542 表 + 205 schema 文件 + drizzle-kit push + pgvector + 23 seed
 - **队列缓存**:Redis 7 + BullMQ + 独立 worker 进程
 - **对象存储**:OSS 多厂商驱动 + 凭证加密 + 分块上传 + 文件版本
 - **邮件短信**:SMTP + 短信网关 + 邮件模板 + 验证码

@@ -128,7 +128,7 @@ app.use('/v1/agents/:id/chat', firewall.middleware(), chatHandler)
 ### 기술 스택
 
 - **프론트엔드**: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- **백엔드**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
+- **백엔드**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Redis 7
 - **AI 서비스**: FastAPI + LangGraph + LiteLLM + MCP
 - **데스크톱**: Tauri 2
 - **미니프로그램**: Taro 4 (WeChat / Alipay / Douyin)
