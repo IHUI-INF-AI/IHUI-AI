@@ -19290,6 +19290,7 @@
     "registerSuccess": "注冊成功",
     "registerTitle": "統一注冊",
     "sendCodeFailed": "驗證碼發送失敗",
+    "sessionExpired": "登入狀態已失效，請重新登入",
     "subtitle": "登錄後將為 {clientId} 授權並跳轉",
     "title": "統一登錄",
     "mobileAuth": {
