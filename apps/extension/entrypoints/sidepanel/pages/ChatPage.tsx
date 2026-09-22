@@ -301,6 +301,23 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
+      // #11 引用溯源(第 52 轮):端内枚举式合并,不显式写 citations 就等于静默丢帧
+      onCitations: (evt) => {
+        updateAssistantMessage((m) => {
+          const existing = m.citations ?? []
+          const incoming = (evt.citations ?? []).map((x) => ({
+            source: x.source,
+            label: x.label,
+            ...(typeof x.url === 'string' ? { url: x.url } : {}),
+          }))
+          const next = [...existing]
+          for (const item of incoming) {
+            if (next.some((x) => x.source === item.source && x.label === item.label)) continue
+            next.push(item)
+          }
+          return { ...m, citations: next }
+        }, evt.messageId)
+      },
       onInjectionApplied: (evt) => {
         // D34 跨端(第 43 轮):api-client 已有通道,端内必须显式承接 ——
         // extension 的消息更新是枚举式合并,不写字段就等于静默丢弃。
