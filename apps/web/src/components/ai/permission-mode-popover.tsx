@@ -10,6 +10,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 import {
   Check,
+  Compass,
   ExternalLink,
   Hand,
   Loader2,
@@ -25,6 +26,8 @@ import {
   setWorkspacePermission,
   type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
+// 权限档读侧归一(G-161/G-164):跨界拼写多套,显示与比较前先归一到 wire 拼写
+import { permissionModeWire } from '@ihui/types/permission-mode'
 
 import {
   useSetWorkspacePermissionDefault,
@@ -76,8 +79,8 @@ const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
  *   (用户规则:选择项目文件后需要让用户确认同意是否可完全访问)
  */
 type ModeValue = WorkspacePermissionMode
-type ModeKey = 'mode.ask' | 'mode.auto' | 'mode.full'
-type ModeDescKey = 'mode.askDesc' | 'mode.autoDesc' | 'mode.fullDesc'
+type ModeKey = 'mode.ask' | 'mode.plan' | 'mode.auto' | 'mode.full'
+type ModeDescKey = 'mode.askDesc' | 'mode.planDesc' | 'mode.autoDesc' | 'mode.fullDesc'
 
 interface ModeOption {
   value: ModeValue
@@ -88,7 +91,19 @@ interface ModeOption {
 }
 
 // 移到组件外避免每次 render 重新创建(2026-07-25 深化)
+//
+// G-164 补 `plan` 档:共享类型 `WorkspacePermissionMode` 一直声明 4 档,而这里只给 3 档
+// 入口、服务端 z.enum 又只收 3 档 —— 于是"只读计划"这一档**类型里有、界面上选不出、
+// 接口也发不进**。而它恰好是竞品当主打的那个档位。现在按"由严到松"排序补在最前,
+// 服务端 agent_loop_v2 / checkWorkspace 对 plan 已是硬只读(拒绝而非询问)。
 const MODE_OPTIONS_LIST: ModeOption[] = [
+  {
+    value: 'plan',
+    icon: Compass,
+    titleKey: 'mode.plan',
+    descKey: 'mode.planDesc',
+    risk: 'low',
+  },
   { value: 'default', icon: Hand, titleKey: 'mode.ask', descKey: 'mode.askDesc', risk: 'low' },
   {
     value: 'accept-edits',
@@ -125,8 +140,11 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   // (2026-08-31 修复:以前未绑定工作区时永远显示"请求批准",切换后按钮文字/样式不变)
   // P3 3-3 权限继承(2026-09-17 立):会话/暂存 → 用户全局默认 → 系统默认
   const userDefaultMode = useWorkspacePermissionDefault()
+  // 读侧归一(G-164):三个来源里任何一个都可能送来非 kebab 拼写(用户全局默认走的是
+  // 另一条接口,暂存值是本地状态)。不归一就是"当前档显示不出来"+ 焦点落错卡片。
   const currentMode: WorkspacePermissionMode =
-    activeWorkspace?.mode ?? pendingPermissionMode ?? userDefaultMode ?? 'default'
+    permissionModeWire(activeWorkspace?.mode ?? pendingPermissionMode ?? userDefaultMode) ??
+    'default'
 
   // 弹层开关状态(由自定义 portal 接管,不再使用 Popover)
   const [isOpen, setIsOpen] = React.useState(false)
@@ -210,7 +228,8 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       // 始终从 store 实时读取最新模式,避免闭包陈旧导致切换失效(2026-08-17 修复)
       // 2026-08-31:未绑定工作区时也读取暂存模式(pendingPermissionMode),否则无法切回 default
       const store = useAiPanelStore.getState()
-      const currentMode = store.activeWorkspace?.mode ?? store.pendingPermissionMode ?? 'default'
+      const currentMode =
+        permissionModeWire(store.activeWorkspace?.mode ?? store.pendingPermissionMode) ?? 'default'
       if (mode === currentMode) return
       if (updateMode.isPending) return // 防止快速连点
       // 切到 bypass-permissions + 首次启用 + 未静默 → 弹确认弹窗(2026-07-25 深化)
