@@ -91,6 +91,30 @@ test('R4 咬住第二份完整档位清单,放过 kebab 子集', () => {
   assert.deepEqual(subset, [])
 })
 
+test('R3 哨兵豁免不外溢:unset 只在登记它的文件里被放过', () => {
+  const outside = gate.checkConsumers(
+    [
+      {
+        relPath: 'apps/api/src/services/workspace-ai-service.ts',
+        src: 'if (permMode === "unset") return allowed\n',
+      },
+    ],
+    ts,
+  )
+  assert.ok(outside.some((p) => p.includes('unset')), outside.join('\n'))
+
+  const inside = gate.checkConsumers(
+    [
+      {
+        relPath: 'apps/api/src/routes/workspace-ai.ts',
+        src: "const code = decision.mode === 'unset' ? 401 : 403\n",
+      },
+    ],
+    ts,
+  )
+  assert.deepEqual(inside, [])
+})
+
 test('当前工作区零违规(本门上去后不能给别人制造恒红)', () => {
   const { problems } = gate.runChecks({ root: ROOT })
   assert.deepEqual(problems, [])
