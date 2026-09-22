@@ -137,8 +137,8 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_CTA_W      144
 !define IHUI_CANCEL_X   288   ; 取消钮左缘(宽 96 → 288..384)
 !define IHUI_CANCEL_W   96
-!define IHUI_FINISH_X   712   ; 完成钮左缘(宽 120 → 712..832)
-!define IHUI_FINISH_W   120
+!define IHUI_FINISH_X   688   ; 完成钮左缘(宽 144 → 688..832,与其余 CTA 同槽同宽)
+!define IHUI_FINISH_W   144
 !define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14)
 !define IHUI_EDIT_Y     306
 !define IHUI_EDIT_W     384
