@@ -1489,6 +1489,37 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 67 (2026-09-22 新增,凭据经非2xx message 外泄对账,PROJECT_PLAN P2-F.8 配套) ---
+  // blocking:response-sanitizer.ts:496 明写非 2xx 响应原样返回(不打码),于是"把上游响应体
+  //   stringify 进 error message"构成脱敏体系的真实旁路 —— 已发生真实事故:
+  //   proxy-extended-media3.ts 曾把 Adobe IMS OAuth2 令牌端点整个响应体(含 access_token)
+  //   拼进 502 message 回传客户端(修复见 7384c92ed0)。本门把该类目变成结构性不可能。
+  // 判据刻意窄(宁漏不误报):仅在 4xx/5xx 构造上下文内、且被 stringify 的实参具备凭据语义时 BLOCK;
+  //   errData/genData/data 这类非凭据实参只进"低置信候选"清单打印、不计失败
+  //   (全仓此类历史写法 35 处 / 13 文件,一律拦会变成阻塞他人的假阳性)。
+  {
+    id: '67',
+    label: '🔐 凭据经非2xx message 外泄对账(blocking,拦上游令牌/密钥响应体被拼进错误消息)',
+    script: 'check-credential-leak-in-message.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/'],
+    skipEnv: 'HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE',
+    onFailHint: [
+      '',
+      '  💡 非 2xx 响应**不经** response-sanitizer(plugins/response-sanitizer.ts:496 直接 return payload),',
+      '     所以把上游响应体拼进 error message 等于绕过脱敏把凭据发出去。',
+      '     改法:message 只放厂商名 / HTTP 状态码 / RFC 6749 的 error 码等白名单字段,',
+      '            需要排查上游返回内容时改为记服务端日志(且日志亦不得含令牌原文)。',
+      '     低置信候选(实参名无凭据语义)不拦,仅供人审;确属长期豁免时:',
+      '       node scripts/check-credential-leak-in-message.mjs --update-baseline',
+      '     自检:node scripts/check-credential-leak-in-message.mjs --self-test',
+      '           node --test scripts/tests/check-credential-leak-in-message.test.mjs',
+      '     紧急跳过(不推荐,本门是安全门):HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
