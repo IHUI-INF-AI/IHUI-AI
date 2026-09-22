@@ -10,14 +10,14 @@ import { __test__ as wiring } from '../check-adapter-wiring.mjs'
 
 test('从 adapters 路径的具名 import 判定为已接线', () => {
   const bindings = wiring.extractAdapterBindings(
-    "import { SectionHeader } from '@/components/adapters'"
+    "import { SectionHeader } from '@/components/adapters'",
   )
   assert.equal([...bindings].join(','), 'SectionHeader')
 })
 
 test('type-only import 同样算接线', () => {
   const bindings = wiring.extractAdapterBindings(
-    "import type { SelecterProps } from '@/components/adapters'"
+    "import type { SelecterProps } from '@/components/adapters'",
   )
   assert.equal([...bindings].join(','), 'SelecterProps')
 })
@@ -29,7 +29,7 @@ test('as 别名取原组件名', () => {
 
 test('默认导入(specifier 含 adapters)算接线', () => {
   const bindings = wiring.extractAdapterBindings(
-    "import PayButton from '@/components/adapters/PayButton.taro'"
+    "import PayButton from '@/components/adapters/PayButton.taro'",
   )
   assert.equal([...bindings].join(','), 'PayButton')
 })
@@ -42,7 +42,8 @@ test('端内同名自有组件的 import 不得判为适配器接线', () => {
 })
 
 test('注释里的组件名不算接线', () => {
-  const code = 'const x = 1\n// 对齐 RN SettingsScreen container\nexport default function P() { return null }'
+  const code =
+    'const x = 1\n// 对齐 RN SettingsScreen container\nexport default function P() { return null }'
   assert.equal(wiring.extractAdapterBindings(code).size, 0)
 })
 
