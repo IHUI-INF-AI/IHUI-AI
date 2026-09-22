@@ -69,6 +69,15 @@
       "health": "http://localhost:8807/api/health",
       "timeout_sec": 30
     },
+    "web-preview": {
+      "_note": "浏览器打开手机 App(mobile-rn 同一套代码走 react-native-web),由 scripts/dev-stack.mjs 作为可选服务托管(web-preview)。EXPO_PUBLIC_API_BASE_URL 须覆盖为 http://localhost:8807(prod-proxy),否则继承本机用户级生产域名而被浏览器 CORS 拦死。",
+      "cmd": "node",
+      "args": ["node_modules/expo/bin/cli", "start", "--web", "--port", "8806"],
+      "cwd": "apps/mobile-rn",
+      "port": 8806,
+      "health": "http://localhost:8806",
+      "timeout_sec": 120
+    },
     "cli": {
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/cli", "dev"],
