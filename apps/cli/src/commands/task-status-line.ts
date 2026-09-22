@@ -30,7 +30,11 @@
  * `tasks.ts` 进度条同一视觉语言)与 `·` 分隔符 + ANSI 颜色表达状态语义。
  */
 import chalk from 'chalk';
-import type { StreamChatOptions } from '@ihui/api-client';
+import type {
+  StreamChatOptions,
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
+} from '@ihui/api-client';
 import type { PlanStep, PlanUpdateEvent } from '@ihui/types/ai';
 import type { ToolCall } from '@ihui/types/chat';
 import {
@@ -95,6 +99,8 @@ export interface TaskStatusLine {
   endTurn(kind?: TaskStatusKind): void;
   /** 当前帧视图模型(测试 / 上层需要时用) */
   viewModel(): TaskStatusBarViewModel | null;
+  /** 打印一行流水式交代(注入来源 / 上游重试),不并入可重绘的状态行 */
+  noteLine(text: string): void;
   /** 按当前输入刷新输出(相邻同文本自动去重,无内容不输出) */
   refresh(): void;
   /** 丢弃累计状态(如 /clear),不影响下一次 beginTurn */
@@ -365,6 +371,12 @@ export function createTaskStatusLine(opts: TaskStatusLineOptions = {}): TaskStat
     viewModel() {
       return snapshot();
     },
+    noteLine(text) {
+      if (!isOn()) return;
+      const one = truncate(text.replace(/\s+/gu, ' ').trim(), Math.max(20, columnsOf() - 1));
+      if (!one) return;
+      write(`${one}\n`);
+    },
     refresh() {
       if (!isOn()) return;
       const vm = snapshot();
@@ -408,6 +420,49 @@ export function toolActivityLabel(
  * `streamChat` 的 `onPlanUpdate` 回调类型。agent.ts 一旦在 RunToolLoopOptions 上透传该回调,
  * REPL 侧直接 `onPlanUpdate: asPlanUpdateSink(state.statusLine)` 即可,无需再改本文件。
  */
+/**
+ * D34 上下文注入交代(kind → cli 取词键)。
+ * kind 才是取词键,**禁止**把后端 `collapsed` 中文当界面文本 —— 它只在未知 kind /
+ * auto_context 未给段数时兜底(与 web / 小程序 / RN 同一条纪律)。
+ */
+const INJECTION_SOURCE_KEYS: Record<string, string> = {
+  developer_instructions: 'cli.injectionSrcDeveloper',
+  workspace_memory: 'cli.injectionSrcWorkspace',
+  repo_wiki: 'cli.injectionSrcRepoWiki',
+};
+
+export function injectionNoteText(event: InjectionAppliedEvent): string {
+  let label: string;
+  if (event.kind === 'auto_context' && typeof event.count === 'number') {
+    label = t('cli.injectionSrcAutoContext', { count: event.count });
+  } else {
+    const sourceKey = INJECTION_SOURCE_KEYS[event.kind];
+    label = sourceKey ? t(sourceKey) : event.collapsed;
+  }
+  return t('cli.injectionApplied', { sources: label });
+}
+
+/** D39 重试交代:retryInMs=0 是"换 key 立即重试",措辞不得写"0 秒后继续"这种假精确 */
+/**
+ * #11 引用溯源的终端一行。source/label 都是**内容**不是界面 chrome,故原样列出;
+ * 界面措辞(前缀"参考来源:")仍出自 cli.citationSources 词表,不写死中文。
+ */
+export function citationNoteText(items: readonly { source: string; label: string }[]): string {
+  return t('cli.citationSources', {
+    sources: items.map((x) => `${x.label}(${x.source})`).join(' · '),
+  });
+}
+
+export function retryNoteText(event: RetryScheduledEvent): string {
+  return event.retryInMs > 0
+    ? t('cli.retryScheduled', {
+        attempt: event.attempt,
+        max: event.maxRetries,
+        seconds: Math.round(event.retryInMs / 1000),
+      })
+    : t('cli.retryScheduledNow', { attempt: event.attempt, max: event.maxRetries });
+}
+
 export function asPlanUpdateSink(
   line: TaskStatusLine,
 ): NonNullable<StreamChatOptions['onPlanUpdate']> {

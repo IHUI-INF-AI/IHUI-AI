@@ -63,7 +63,7 @@ export default function UserAvatar({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"
+          className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           aria-label={t('uploadAvatar')}
         >
           {uploading ? (

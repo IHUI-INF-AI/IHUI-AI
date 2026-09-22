@@ -241,6 +241,14 @@ function TerminalTaskItem({
           </View>
         </View>
       ) : null}
+      {/* 后端只下发截断后的文本,复制按钮拿到的也只是这段 → 必须交代原始长度 */}
+      {task.truncated ? (
+        <Text className="ai-card-term-truncated">
+          {t('ai.cards.terminal.truncated', {
+            total: task.totalChars ?? task.output?.length ?? 0,
+          })}
+        </Text>
+      ) : null}
       {task.status === 'failed' ? (
         <Text className="ai-card-term-error">
           {t('ai.cards.terminal.exitCode', { code: task.exitCode ?? 1 })}
@@ -267,11 +275,107 @@ export function TerminalCard({ tasks }: { tasks: TerminalTaskView[] }) {
   )
 }
 
+/* ===================== D34:本轮上下文注入交代 ===================== */
+
+/** 与 apps/ai-service `llm.py` 的 injection_frames 同源(改 kind 必须两端同时改) */
+const INJECTION_KIND_KEYS: Record<string, string> = {
+  developer_instructions: 'ai.cards.injection.kind.developer',
+  workspace_memory: 'ai.cards.injection.kind.workspace',
+  repo_wiki: 'ai.cards.injection.kind.repoWiki',
+  auto_context: 'ai.cards.injection.kind.autoContext',
+}
+
+interface InjectionRowData {
+  kind: string
+  collapsed: string
+  fullText?: string
+  count?: number
+}
+
+function InjectionRow({
+  item,
+  t,
+}: {
+  item: InjectionRowData
+  t: (k: string, p?: Record<string, string | number>) => string
+}) {
+  const [open, setOpen] = useState(false)
+  const kindKey = INJECTION_KIND_KEYS[item.kind]
+  return (
+    <View className="ai-card-term-item">
+      <View className="ai-card-term-cmd">
+        {/* 界面文本出自本端词表,后端中文 collapsed 仅在未知 kind 时兜底 */}
+        <Text className="ai-card-term-command">{kindKey ? t(kindKey) : item.collapsed}</Text>
+      </View>
+      <View className="ai-card-term-meta">
+        {typeof item.count === 'number' ? (
+          <Text className="ai-card-term-duration">{item.count}</Text>
+        ) : null}
+        {item.fullText ? (
+          <Text className="ai-card-term-duration" onClick={() => setOpen((v) => !v)}>
+            {open ? t('ai.cards.injection.collapse') : t('ai.cards.injection.expand')}
+          </Text>
+        ) : null}
+      </View>
+      {item.fullText && open ? <Text className="ai-card-term-output">{item.fullText}</Text> : null}
+    </View>
+  )
+}
+
+export function InjectionCard({ items }: { items: readonly InjectionRowData[] }) {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View className="ai-card-section">
+      <View className="ai-card-section-head">
+        <LineIcon name="flask-conical" size={28} color="var(--color-primary)" />
+        <Text className="ai-card-section-title">{t('ai.cards.injection.title')}</Text>
+        <Text className="ai-card-section-count">{items.length}</Text>
+      </View>
+      {items.map((item, i) => (
+        <InjectionRow item={item} t={t} key={`${item.kind}_${i}`} />
+      ))}
+    </View>
+  )
+}
+
+/* ===================== #11:引用溯源(答案带了哪些知识来源) ===================== */
+export function CitationCard({
+  items,
+}: {
+  items: readonly { source: string; label: string; url?: string }[]
+}) {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View className="ai-card-section">
+      <View className="ai-card-section-head">
+        <LineIcon name="book-open" size={28} color="var(--color-primary)" />
+        <Text className="ai-card-section-title">{t('ai.cards.citation.title')}</Text>
+        <Text className="ai-card-section-count">{items.length}</Text>
+      </View>
+      {items.map((item, i) => (
+        <View className="ai-card-term-item" key={`${item.source}_${i}`}>
+          <View className="ai-card-term-cmd">
+            <Text className="ai-card-term-prompt">·</Text>
+            <Text className="ai-card-term-command">{item.label}</Text>
+          </View>
+          <View className="ai-card-term-meta">
+            <Text className="ai-card-term-duration">{item.source}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 /* ===================== 容器:折叠 / 三类卡片汇总 ===================== */
 export interface StreamActivityCardsProps {
   planSteps: PlanStepView[]
   toolCalls: ToolCallView[]
   terminalTasks: TerminalTaskView[]
+  injections: readonly InjectionRowData[]
+  citations: readonly { source: string; label: string; url?: string }[]
   expanded: boolean
   onToggleExpand: () => void
 }
@@ -280,11 +384,18 @@ export function StreamActivityCards({
   planSteps,
   toolCalls,
   terminalTasks,
+  injections,
+  citations,
   expanded,
   onToggleExpand,
 }: StreamActivityCardsProps) {
   const { t } = useI18n()
-  const total = planSteps.length + toolCalls.length + terminalTasks.length
+  const total =
+    planSteps.length +
+    toolCalls.length +
+    terminalTasks.length +
+    injections.length +
+    citations.length
   if (total === 0) return null
   return (
     <View className="ai-card-root">
@@ -305,6 +416,8 @@ export function StreamActivityCards({
           <PlanStepsCard steps={planSteps} />
           <ToolCallCard calls={toolCalls} />
           <TerminalCard tasks={terminalTasks} />
+          <InjectionCard items={injections} />
+          <CitationCard items={citations} />
         </View>
       ) : null}
     </View>

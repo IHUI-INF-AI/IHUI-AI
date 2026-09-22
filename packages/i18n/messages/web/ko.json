@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
+      "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
       "ariaLabel": "Agent 작업 진행 패널",
       "celebrate": "모든 작업 완료",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "패널 펼치기",
       "expandAll": "모두 펼치기",
       "failureBanner": "{n}개 작업 실패, 클릭하여 보기",
+      "followEvents": "이벤트 스트림 추적",
       "helpClose": "닫기",
       "helpPanelTitle": "키보드 단축키",
       "helpToggle": "키보드 단축키",
@@ -7101,6 +7104,13 @@
         "title": "터미널 작업",
         "truncated": "...(잘림, 총 {total}자)"
       },
+      "injectionTitle": "이번 컨텍스트: {count}개",
+      "injectionExpand": "나머지 {count}개 펼치기",
+      "injectionCollapse": "접기",
+      "injectionKindDeveloper": "세션 사용자 지정 지침을 적용했습니다",
+      "injectionKindWorkspace": "워크스페이스 메모리 / AGENTS.md를 주입했습니다",
+      "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
+      "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
       "thinkingCharCountTitle": "{n}자",
       "thinkingChars": "자",
       "thinkingElapsedTitle": "{time} 동안 사고 중",
@@ -7311,8 +7321,6 @@
         "total": "총 사용량",
         "ariaLabel": "메시지 사용량 세부 정보"
       },
-      "retryBadge": "재시도 {count}회",
-      "retryBadgeAria": "일시적 실패 후 {count}회 자동 재시도",
       "openInWorkPanel": "워크 패널에서 열기",
       "toolUnknownFile": "(알 수 없는 파일)",
       "pendingTaskTitle": "작업 진행 중",
@@ -7323,7 +7331,6 @@
       "pendingRefresh": "상태 새로고침",
       "pendingStopped": "오래 소요되어 자동 새로고침을 중단했습니다. 상태 새로고침으로 다시 확인할 수 있습니다.",
       "pendingFailed": "작업이 실패하거나 취소되었습니다. 다른 프롬프트로 다시 시도하세요.",
-      "planStepPending": "대기",
       "planStepInProgress": "진행 중",
       "planStepCompleted": "완료",
       "planStepFailed": "실패"
@@ -8957,7 +8964,6 @@
     "cmdKouboScript": "오늘의 더우인 나레이션 대본 8편을 생성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 문턱 검증(모호성 압축 / 교차 대본 어휘 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인을 실행하세요(제약 우선 작성법).",
     "cmdPolish": "다음 텍스트를 다듬어 더 전문적이고 유창하게 만들어 주세요:",
     "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
-    "viewNIntermediateSteps": "{count}개 중간 단계 보기",
     "hideIntermediateSteps": "중간 단계 숨기기",
     "batchDiff": {
       "acceptAll": "모두 수락",
@@ -9167,7 +9173,6 @@
       "editAndRerun": "저장 후 다시 실행",
       "editRollbackFiles": "파일 변경도 롤백",
       "hideContent": "콘텐츠 숨기기",
-      "jumpToLatest": "최신으로 이동",
       "like": "좋아요",
       "publishToCommunity": "커뮤니티에 게시",
       "readAloud": "읽어주기",
@@ -9207,7 +9212,6 @@
     "modelCapReasoning": "추론",
     "modelCapTools": "도구",
     "modelCapFim": "완성",
-    "stepsHoverPreview": "마우스를 올려 끝부분 미리 보기, 클릭하여 전체 단계 펼치기",
     "modelCategoryAsr": "음성 인식",
     "modelCategoryChat": "대화·추론",
     "modelCategoryEmbedding": "임베딩",
@@ -9299,7 +9303,6 @@
       "historyStatsTitle": "누적 통계",
       "historyTitle": "권한 모드 기록",
       "inputWarning": "현재 전체 액세스 모드: AI가 확인 없이 파일과 네트워크에 제한 없이 액세스할 수 있습니다",
-      "jumpToLatest": "최신으로 이동",
       "kbdNavigate": "전환",
       "latest": "최신",
       "learnMore": "자세히 보기",
@@ -19307,6 +19310,7 @@
     "registerSuccess": "회원가입 성공",
     "registerTitle": "통합 가입",
     "sendCodeFailed": "인증 코드 전송 실패",
+    "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주세요.",
     "subtitle": "로그인 후 {clientId}에 대한 인증 및 리디렉션",
     "title": "통합 로그인",
     "mobileAuth": {

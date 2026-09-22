@@ -25,6 +25,12 @@
  *   blocking  失败 → 立即 exit(1),阻塞 commit
  *   warn      失败 → 打印警告,继续执行(不阻塞 commit)
  *   info      始终继续,只打印信息
+ *
+ * 条目可选字段:
+ *   skipEnv        环境变量名,值为 '1' 时跳过该项(应急放行,见执行循环)
+ *   onFailHint     失败时打印的修复指引
+ *   stagedTriggers 路径前缀数组;声明后该项**仅在暂存区触及这些路径时**执行(见执行循环),
+ *                  用于把与绝大多数提交无关的领域守门(桌面安装器等)挂上而不拖慢/误伤
  */
 import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -332,23 +338,45 @@ const checks = [
   },
   {
     id: '27',
-    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归)',
+    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归 + 窗口按钮等效压暗)',
     script: 'check-z-index-guard.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-22 补:此前无应急通道,与其余门惯例对齐
+    skipEnv: 'HUSKY_SKIP_Z_INDEX_GUARD',
+    onFailHint: [
+      '',
+      '  💡 五类命中处置:',
+      '     ① tokens.css / globals.css 出现 !important → 项目禁令,改走 layout.tsx inline script setProperty;',
+      '     ② layout.tsx inline script 少设 --z-* 变量 → 补回 11 个 setProperty;',
+      '     ③ dialog.tsx 遮罩加了 open 态 fade-in → 删掉 animate-in / fade-in-0(渐显期间内容全亮);',
+      '     ④ GlobalTopBar.tsx 两组契约缺任一标记 ——',
+      '        等效压暗层 data-window-controls + data-window-controls-dim:窗口控制三按钮挂',
+      '        z-max(10003) 不能降(须高于 resize 抓手 z-loading=10000),遮罩永远盖不到它,',
+      '        只能靠等效压暗覆盖层,删掉=登录窗等 29+ 处遮罩下三按钮重新全亮(同族第 3 次复发);',
+      '        失焦非活动态 data-window-inactive(容器) + globals.css 的 [data-window-controls][data-window-inactive]',
+      '        无边框窗口拿不到 DWM 原生"非活动标题栏变灰",删掉即失焦时按钮不再降亮;',
+      '     ⑤ 判闸有效性自查:node scripts/check-z-index-guard.mjs --self-test(内存断言,不落盘)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_Z_INDEX_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
   },
   {
     id: '28',
     label: '🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发)',
     script: 'check-overlay-zindex.mjs',
+    // 脚本无 --staged 语义(全量扫 apps/web + packages/ui-react,实测 0 违规才接入)
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_OVERLAY_ZINDEX',
     onFailHint: [
       '',
       '  💡 fixed inset-0 全屏遮罩用了 z-50/z-40/z-30 等低数字 Tailwind 类(值 < 100),',
       '     低于 AISidePanel 的 z-sticky=990,会被压在下面 = AI 面板露在遮罩之上。',
       '     修复:把 z-50 改为 z-modal(=2000, 引用 --z-modal CSS 变量)。',
       '     透明点击捕获层(无 bg-black)不在本守门范围。',
+      '     全量清单:node scripts/check-overlay-zindex.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_OVERLAY_ZINDEX=1 git commit ...',
       '',
     ].join('\n'),
   },
@@ -1255,6 +1283,27 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '60',
+    label: '🕐 工具活动行双时态覆盖守门(blocking,D81①/D83/H28:键形合规 + 覆盖率 ratchet)',
+    script: 'check-tool-activity-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 两类失败,处置不同:',
+      '     ① 键形不合规(半套措辞)→ 五语言必须齐,且每个 *Activity 值必须是含',
+      '        running{} / completed{} / other{} 三支的 ICU select。半套比不补更糟:',
+      '        某语言会恒显示"正在…"或整条空白。',
+      '     ② 覆盖率低于 floor → 有人删了/改名了已配置的措辞键,补回;确属撤销才调',
+      '        scripts/data/tool-activity-coverage.json 的 floor,并在提交说明写数量变化。',
+      '     逐批补齐清单:node scripts/check-tool-activity-coverage.mjs --scaffold',
+      '     自检:node scripts/check-tool-activity-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_ACTIVITY_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 56 (2026-09-21 新增,工具功能名"各端取得到值"覆盖守门,blocking) ---
   // 拦两类静默失败:① 词表加了映射但某语言/某端语言包没有该 taskStatus 键 →
   //   端内点号取词器缺键回显键名,把 read_file 显示成 toolReadFile(断言"不含 read_file"照样绿);
@@ -1277,6 +1326,169 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 61 (2026-09-22 接入 pre-commit,桌面安装器品牌资产三方对账,blocking) ---
+  // 背景:2026-09-20 真实事故 —— ihui-ui.nsi 新增「最小化」按钮引用 btn-min.bmp,却漏登记
+  //   IHUI_EXTRACTPAGESETS_SET 里的 File 行 → $PLUGINSDIR 里根本没有该文件 → LoadImage 返回 0
+  //   → STM_SETIMAGE 贴空位图 → 按钮**肉眼不可见**,而 makensis 零报错零警告(用户报「最小化
+  //   按钮没显示」)。守门脚本自写下后只被手动跑过,在 guardian-runner / .husky / .github
+  //   零命中 = 没有任何自动执行点,等于「记得跑才有保护」。本次正式接入。
+  // 判据(任一不通过 exit 1):① 引用 ⊆ 打包;② 打包 ⊆ 落盘(100/125/150/175/200 五档齐全);
+  //   ③ 引用/打包解析为零命中即失败(正则被改坏时不自愈放行);④ installer.nsi 的 GetOptions
+  //   不得直接吃 $CMDLINE(路径里的 /ns 段会前缀误匹配)。
+  // 条件触发:见 stagedTriggers —— 安装器目录或资产生成器进暂存区才跑,全量模式一律跑。
+  {
+    id: '61',
+    label: '🖥️  桌面安装器资产三方对账(blocking,引用↔打包↔5 档落盘)',
+    script: 'check-installer-assets.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/desktop/src-tauri/windows/', 'scripts/desktop-installer-assets.mjs'],
+    skipEnv: 'HUSKY_SKIP_INSTALLER_ASSETS_GUARD',
+    onFailHint: [
+      '',
+      '  💡 NSIS 脚本「引用的位图 ↔ File 打包清单 ↔ 磁盘 5 档 DPI 资产」三方不一致(编译期零报错,',
+      '     只有真机跑安装器才暴露 —— 静默失败必须在这里拦住):',
+      '     按报错项处置:',
+      '       ① “引用了但未打包: X.bmp” → 在 apps/desktop/src-tauri/windows/ihui-ui.nsi 的',
+      '          !macro IHUI_EXTRACTPAGESETS_SET 内补一行(与 btn-close.bmp 同处):',
+      '            File "/oname=$PLUGINSDIR\\X.bmp" "${IHUI_ASSETROOT}\\assets-${LIT}\\X.bmp"',
+      '       ② “打包了但档位缺文件” → 重跑资产导出:node scripts/desktop-installer-assets.mjs',
+      '          五档(100/125/150/175/200)缺一档,就在那个 DPI 档位下控件空白',
+      '       ③ “解析到 0 个引用 / 0 条 File” → 判据正则与 nsi 结构漂移,门禁已失效,',
+      '          必须修 scripts/check-installer-assets.mjs 的解析式,**禁止放宽判定**',
+      '     单独复验:node scripts/check-installer-assets.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_INSTALLER_ASSETS_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
+  // 背景:apps/desktop/src-tauri/windows/installer.nsi 是「Tauri CLI 内置模板 + IHUI 补丁集」
+  //   的副本(Tauri v2 只暴露四个 Section 内宏,改不了向导页面结构,唯一官方接管方式是
+  //   bundle.nsis.template 整体替换)。2026-09-22 实测:该文件里累积了 11 段历史上**直接手改、
+  //   从未登记进 PATCHES / 侧车 JSON** 的定制,于是 --check 恒绿而 --write 会把这些定制整体
+  //   抹掉 —— 已真实发生过一次回退。--check 正是拦这一类的,但此前同样零自动执行点。
+  // 已核实的宽松兜底(保持不改、不改成阻塞):工作区未安装 @tauri-apps/cli 原生模块时,脚本
+  //   打印「未找到 @tauri-apps/cli 原生模块,跳过校验」并 exit 0(源码 desktop-nsis-template.mjs
+  //   第 373-381 行)。干净 checkout / 部分 CI 属正常态,该项在这些环境**自动放行**;
+  //   本机已装 @tauri-apps/cli 2.11.4 → 实测走的是真比对(命中 20+ 处 IHUI 补丁)。
+  {
+    id: '62',
+    label: '🧩 桌面 NSIS 安装器模板漂移(blocking,installer.nsi == 上游模板 + 已登记补丁)',
+    script: 'desktop-nsis-template.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/desktop/src-tauri/windows/installer.nsi',
+      'scripts/desktop-nsis-template.mjs',
+      'scripts/desktop-nsis-ihui-patches.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_NSIS_TEMPLATE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 installer.nsi 已不等于「当前 Tauri CLI 内置模板 + 已登记补丁集」。两类成因处置不同:',
+      '     ① 直接手改了 installer.nsi(最常见)→ 把差量登记进侧车补丁,复验后随代码同 commit:',
+      '          node scripts/desktop-nsis-template.mjs --emit-patches',
+      '            (导出 scripts/desktop-nsis-ihui-patches.json)',
+      '          node scripts/desktop-nsis-template.mjs --check   # 应回到 OK',
+      '          git add scripts/desktop-nsis-ihui-patches.json',
+      '        不登记就提交,下次 --write 会把这段定制整体抹掉(已真实回退过一次)。',
+      '     ② 升级了 Tauri CLI(上游模板变了)→ 先 diff 上游与仓库两份模板、人工复核各补丁',
+      '        锚点是否仍成立,确认后再 --write,然后重跑 --check(必要时补 --emit-patches);',
+      '        **禁止盲目 --write**(会连带抹掉未登记定制)。',
+      '     注:未安装 @tauri-apps/cli 原生模块的环境里该脚本打印「跳过校验」并 exit 0,',
+      '         即本项在干净 checkout / 部分 CI 自动放行(既有宽松兜底,不是漏判)。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_NSIS_TEMPLATE_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 63 (2026-09-22 接入 pre-commit,SSE 双解析器漏接对账,blocking,D106/G-148 配套) ---
+  // 背景(实测非推测):同一份 SSE 协议在库内被两处独立解析 —— packages/api-client/src/client.ts
+  // (web/extension/mobile-rn)与 packages/shared/src/utils/sse-parse.ts(miniapp-taro 经 @ihui/shared
+  // 单一真源使用,其端内 utils/sse-parse.ts 只是 re-export)。每加一帧要在两处各写一遍分支、
+  // 再在每端回调表注册一次;历史上 citations/steer 就是"一侧有、另一侧 0 命中"被静默遗忘,
+  // injection_applied/retry_scheduled 第 42 轮也只补了 api-client 一侧。
+  // 判据强度(实测):把 sse-parse 的 steer 守卫改成不匹配的字面量 → 本闸立即红两条
+  // (ratchet 20<21 + steer 未登记),证明"只剩产出语句/只剩类型联合声明"都骗不过它。
+  {
+    id: '63',
+    label: '🔀 SSE 双解析器漏接对账(blocking,帧覆盖 ratchet + 未接帧须交代归属)',
+    script: 'check-sse-parser-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/shared/src/sse/contract.ts',
+      'packages/api-client/src/client.ts',
+      'packages/shared/src/utils/sse-parse.ts',
+      'scripts/data/sse-parser-coverage.json',
+      'scripts/check-sse-parser-parity.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SSE_PARSER_PARITY',
+    onFailHint: [
+      '',
+      '  💡 同一协议两处解析,漏接是**静默**的:小程序拿不到帧,界面上看起来就是"没这个功能"。',
+      '     看清单:node scripts/check-sse-parser-parity.mjs --report',
+      '     补接一帧后:删 scripts/data/sse-parser-coverage.json 里对应的 webOnly 登记项,',
+      '                并把 parseCoverageBaseline 上调到新实测值(降回去就是在倒退)。',
+      '     确实只有 web 消费:必须在该文件 webOnly 里写明**为什么**(空理由同样拦)。',
+      '     自检:node scripts/check-sse-parser-parity.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_SSE_PARSER_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 64 (2026-09-22 新增,miniapp-taro 适配层「未接线即拦」,PROJECT_PLAN P2-F.5 配套) ---
+  // blocking:适配层历史上 18 个 .taro.tsx 里的 9 个屏级(共 3078 行)从写下到删除始终零页面引用,
+  //   而既有 check-adapter-style-parity.mjs 只守硬编码颜色、不守「是否被 import」,
+  //   所以「造好没装车」这种死代码此前无闸可挡 —— 本门补的就是这一格。
+  //   判据:新增适配器必须被 adapters 目录**之外**的源文件从 adapters 路径 import
+  //   (端内存在同名自有组件,不限定 specifier 会把它们误判为已接线);
+  //   基线已于同日三批清理后收紧为空数组 → 零豁免硬门。
+  {
+    id: '64',
+    label: '🧩 [miniapp-taro] 适配层未接线即拦(防"造好没装车"死代码回升)',
+    script: 'check-adapter-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_WIRING',
+    onFailHint: [
+      '',
+      '  💡 apps/miniapp-taro/src/components/adapters/*.taro.tsx 里有新增的无人 import 适配器。',
+      "     接线:页面里 import { X } from '@/components/adapters'",
+      '     或删除:确认端内已有自有实现后 rm(先过 AGENTS.md §7 删除三问)',
+      '     存量收紧基线:node scripts/check-adapter-wiring.mjs --update-baseline',
+      '     自检:node --test scripts/tests/check-adapter-wiring.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 66 (2026-09-22 补注册,miniapp-taro 适配层硬编码颜色基线门;65 已被「整树删除拦截」占用) ---
+  // 该脚本自 2026-09-03 起只挂在 package.json 的 check:all(手动/CI),**从未进 pre-commit 链路**,
+  //   所以新增硬编码颜色可以一路提交到 CI 才发现。本次适配层治理同族收口时补上这一格。
+  // 基线模式:存量 1 处/1 文件已在 scripts/adapter-style-parity-baseline.json 放行,只减不增。
+  {
+    id: '66',
+    label: '🎨 [miniapp-taro] 适配层硬编码颜色基线(防新增 hex/rgb 绕过 token)',
+    script: 'check-adapter-style-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_STYLE_PARITY',
+    onFailHint: [
+      '',
+      '  💡 adapters/*.taro.tsx 出现了基线之外的新增硬编码颜色,',
+      '     改法:用 getRnTokens(effectiveScheme).xxx 取 token(与 packages/app 主题同源)。',
+      '     确属合理保留(逐字沿用共享源的轮播点/HSL 等着色算法)时:',
+      '       node scripts/check-adapter-style-parity.mjs --update-baseline 后随本次提交一起 add 基线文件',
+      '     自检:node scripts/check-adapter-style-parity.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_STYLE_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1286,6 +1498,30 @@ const checks = [
     // 否则无关提交也要背 3.5MB 产物的比对成本。判据本身见 scripts/openapi-check.mjs。
     args: ['--staged'],
     mode: 'blocking',
+  },
+  // 整树删除事故的结构化拦截(2026-09-22 立)。同类事故已真实发生两次:
+  //   1ec8c7f0f3 / 05f049ba09 各带着"被清空的索引"提交,一次删掉 11,607 / 11,640 个文件,
+  //   事后各需一次索引层重建前向修复。当时**没有任何提交前闸**,只有事后人肉
+  //   `git ls-tree -r HEAD | wc -l`。本条把它变成结构性不可能。
+  // 判据:索引相对 HEAD 缺失 ≥1000 个文件,或缺失 ≥20% → 拦截;应急 IHUI_ALLOW_MASS_DELETION=1。
+  // 不加 stagedTriggers —— 恰恰在"暂存区被清空"时最需要它跑,任何提交都不得跳过。
+  {
+    id: '65',
+    label: '🧹 整树删除拦截(blocking,索引 vs HEAD 文件存续性)',
+    script: 'check-mass-deletion.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MASS_DELETION_GUARD',
+    onFailHint: [
+      '',
+      '  💡 索引相对 HEAD 大面积缺文件 = 提交会把它们从版本树里删掉。',
+      '     先分清成因(禁止用 reset --hard 抢救,那会连带抹掉并发会话的工作区改动):',
+      '       ① git ls-files | wc -l  与  git ls-tree -r HEAD | wc -l  差距大 → 索引被清空过',
+      '          (`git rm -r --cached .` 后未重加 / lint-staged 中断 / 索引被外部工具打残);',
+      '       ② 确属有意的大规模删除 → 影响范围写进提交信息,再 IHUI_ALLOW_MASS_DELETION=1;',
+      '       ③ 已经误提交 → 走索引层重建前向修复(见 PROJECT_PLAN 两次先例)。',
+      '     单独复验:node scripts/check-mass-deletion.mjs',
+    ].join('\n'),
   },
   // --- info (1 项) ---
   {
@@ -1433,6 +1669,42 @@ let failed = 0
 let skipped = 0
 const startTime = Date.now()
 
+// ─── 条件触发(2026-09-22 立)───
+// 条目声明 stagedTriggers(路径前缀数组)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
+// 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
+// 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
+//   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
+//   (NSIS 少一行 File 编译零报错、--write 抹掉未登记定制)只有真拦住才有意义。
+// 全量模式(不带 --staged,手动 / CI)一律执行;拿不到暂存区(非 git 环境)按「触及」处理,
+//   宁误跑不误漏。结果缓存一次,多个条件项共用。
+// 边界:--staged 而暂存区为空(手动误跑该模式)按「未触及」跳过 —— 需要全量审计请不带 --staged。
+let stagedFilesCache = null
+function stagedFilesOrNull() {
+  if (stagedFilesCache) return stagedFilesCache
+  try {
+    stagedFilesCache = execFileSync('git', ['diff', '--cached', '--name-only'], {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+    })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch {
+    return null
+  }
+  return stagedFilesCache
+}
+
+function stagedPathsTouch(prefixes) {
+  const files = stagedFilesOrNull()
+  if (files === null) return true
+  return files.some((f) => {
+    const norm = f.replace(/\\/g, '/')
+    return prefixes.some((p) => norm.startsWith(p))
+  })
+}
+
 for (const check of effectiveChecks) {
   // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
   // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
@@ -1441,6 +1713,15 @@ for (const check of effectiveChecks) {
   if (check.skipEnv && process.env[check.skipEnv] === '1') {
     skipped++
     console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
+  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
+  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
+  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
+    skipped++
+    console.log(
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
+    )
     continue
   }
   const cmdArgs = [...check.args]

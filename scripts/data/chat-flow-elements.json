@@ -107,10 +107,76 @@
       ]
     },
     {
+      "id": "error-retry-action",
+      "title": "失败回复的「重试」动作(错误必须带出口,不只说请稍后重试)",
+      "sourceTask": "G-152",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageList.tsx",
+          "mustMatch": "ihui:retry-message"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/chat-send-utils.ts",
+          "mustMatch": "pickRetryTarget"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "retry-last-turn"
+        }
+      ]
+    },
+    {
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
-      "sourceTask": "D27/G-70",
-      "events": ["citations"]
+      "sourceTask": "D27/G-70/D109",
+      "events": ["citations"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_citation_url"
+        },
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "onCitations"
+        },
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+          "mustMatch": "CitationBar"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts",
+          "mustMatch": "appendCitations"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai.cards.citation.title"
+        },
+        {
+          "file": "apps/mobile-rn/src/utils/chat-render-model.ts",
+          "mustMatch": "appendCitationFrames"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "CitationList"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onCitations"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "chat.citationTitle"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "citationNoteText"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "onCitations"
+        }
+      ]
     },
     {
       "id": "unified-task-dashboard",
@@ -182,6 +248,157 @@
         {
           "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
           "mustMatch": "autoDesc"
+        }
+      ]
+    },
+    {
+      "id": "context-injection-disclosure",
+      "title": "本轮上下文注入交代条(web/extension/miniapp-taro/mobile-rn/cli 五端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
+      "sourceTask": "D34/D45",
+      "events": ["injection_applied"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "injection_frames"
+        },
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/send-message.ts",
+          "mustMatch": "appendMessageInjection"
+        },
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+          "mustMatch": "InjectionBar"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "ContextInjectionList"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/api/index.ts",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai.cards.injection.title"
+        },
+        {
+          "file": "apps/mobile-rn/src/utils/chat-render-model.ts",
+          "mustMatch": "applyInjectionFrame"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "InjectionDisclosure"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "injectionNoteText"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "onInjectionApplied"
+        }
+      ]
+    },
+    {
+      "id": "upstream-retry-disclosure",
+      "title": "上游重试交代行(第 N/M 次 + 多久后继续;立即重试不写\"0 秒\")",
+      "sourceTask": "D39/D108",
+      "events": ["retry_scheduled"],
+      "anchors": [
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "tryParseRetryScheduled"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/send-message.ts",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/retry-notice.tsx",
+          "mustMatch": "RetryNotice"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "retryNoteText"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "chat.retryScheduled"
+        }
+      ]
+    },
+    {
+      "id": "tool-row-bilingual-tense-wording",
+      "title": "工具行双时态活动措辞(正在 X / 已 X;失败与撤回不声称已完成)",
+      "sourceTask": "D81①/D83/D98",
+      "anchors": [
+        {
+          "file": "packages/shared/src/chat/tool-activity.ts",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/tool-call-card.tsx",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/tool-calls-section.tsx",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/task-status-bar.tsx",
+          "mustMatch": "describeToolActivity"
+        }
+      ]
+    },
+    {
+      "id": "terminal-output-truncation-disclosure",
+      "title": "终端输出截断交代(truncated + totalChars,本地全文展开后仍持续交代)",
+      "sourceTask": "D40",
+      "events": ["terminal_end"],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
+          "mustMatch": "sourceTotal"
+        },
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_clip_terminal_output"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "terminalTruncated"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai-card-term-truncated"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "terminalTruncated"
         }
       ]
     }

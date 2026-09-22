@@ -279,6 +279,69 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
 }
 
 /**
+ * 监听窗口系统焦点变化(2026-09-22 立:桌面端 decorations:false 时窗口失焦,
+ * 自绘的 Min/Max/Close 三按钮要降亮为"非活动态",对齐 Windows caption 语义)。
+ *
+ * 与 onMaximizeChange 不同,**刻意不加节流** —— 切窗时必须立刻变暗,
+ * 节流会让用户先看到"别的窗口已激活、本窗口按钮还全亮"的错觉。
+ * 清理逻辑沿用 2026-07-28 的 cancelled flag + unlisten 泄漏兜底模板。
+ *
+ * 双通道,缺一不可:
+ * - `desktop-window-focus`:Rust 在 WindowEvent::Focused 里显式 emit。**这是主通道** ——
+ *   真机实测薄壳加载远程 URL(https://aizhs.top)时内核自带的 tauri://focus|blur 收不到,
+ *   聚焦/失焦两态像素逐字相同;而 desktop-* 这条应用层通道已被托盘菜单验证可用。
+ * - `onFocusChanged`:内核事件,留作兜底(若某版本可用即生效;两路同值重复回调无害)。
+ *
+ * 返回同步清理函数。非桌面端返回 no-op。
+ */
+export function onWindowFocusChange(callback: (focused: boolean) => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  let cancelled = false
+  const cleanups: Array<() => void> = []
+
+  const track = (promise: Promise<() => void>) => {
+    promise
+      .then((fn) => {
+        // cleanup 已先于 Promise resolve → 立即取消订阅,不留悬挂监听
+        if (cancelled) fn()
+        else cleanups.push(fn)
+      })
+      .catch(() => {
+        /* 单个通道注册失败不影响另一通道 */
+      })
+  }
+
+  track(win.listen<boolean>('desktop-window-focus', ({ payload }) => callback(payload)))
+  track(win.onFocusChanged(({ payload }) => callback(payload)))
+
+  return () => {
+    cancelled = true
+    for (const fn of cleanups.splice(0)) {
+      try {
+        fn()
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/**
+ * 当前窗口是否持有系统焦点(用于挂载时取初值,事件只报变化不报现状)。
+ * 失败/非桌面端一律返回 true:主窗口以 visible:false 创建、由 auto_refresh 才 show,
+ * 拿不到结论时宁可"亮着"也不要一打开就死灰。
+ */
+export async function isWindowFocused(): Promise<boolean> {
+  if (!isTauri()) return true
+  try {
+    return await getCurrentWindow().isFocused()
+  } catch {
+    return true
+  }
+}
+
+/**
  * 获取系统主题(P1-7:主题跟随,2026-07-27 立)。
  * 返回 'light' | 'dark' | undefined(非 Tauri 或失败)。
  * 2026-08-16 修复:此前 invoke('plugin:os|theme') 命令不存在(tauri-plugin-os
@@ -750,36 +813,36 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
     throw new Error('check_failed')
   }
   if (!update) return null
-    return {
-      info: {
-        version: update.version,
-        date: update.date,
-        notes: update.body,
-      },
-      downloadAndInstall: async (onProgress) => {
-        let downloaded = 0
-        let total = 0
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started': {
-              const d = event.data as { contentLength?: number }
-              total = d.contentLength ?? 0
-              onProgress?.({ downloaded: 0, total })
-              break
-            }
-            case 'Progress': {
-              const d = event.data as { chunkLength?: number }
-              downloaded += d.chunkLength ?? 0
-              onProgress?.({ downloaded, total })
-              break
-            }
-            case 'Finished':
-              onProgress?.({ downloaded: total || downloaded, total })
-              break
+  return {
+    info: {
+      version: update.version,
+      date: update.date,
+      notes: update.body,
+    },
+    downloadAndInstall: async (onProgress) => {
+      let downloaded = 0
+      let total = 0
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started': {
+            const d = event.data as { contentLength?: number }
+            total = d.contentLength ?? 0
+            onProgress?.({ downloaded: 0, total })
+            break
           }
-        })
-      },
-    }
+          case 'Progress': {
+            const d = event.data as { chunkLength?: number }
+            downloaded += d.chunkLength ?? 0
+            onProgress?.({ downloaded, total })
+            break
+          }
+          case 'Finished':
+            onProgress?.({ downloaded: total || downloaded, total })
+            break
+        }
+      })
+    },
+  }
 }
 
 /**

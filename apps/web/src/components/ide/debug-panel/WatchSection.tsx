@@ -62,7 +62,7 @@ export function WatchSection() {
           </span>
           <button
             onClick={() => removeWatchAction(i)}
-            className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+            className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
             aria-label={t('debug.delete')}
           >
             <X className="h-3 w-3" />

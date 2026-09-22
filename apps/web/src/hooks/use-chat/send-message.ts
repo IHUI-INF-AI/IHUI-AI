@@ -861,6 +861,9 @@ export function createSendMessage(
           useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
             output: evt.output,
+            // 截断交代必须一起落 store:回放/刷新时没有 live 缓冲,长度相等看不出内容不完整
+            truncated: evt.truncated,
+            totalChars: evt.totalChars,
             exitCode: evt.exitCode,
             endedAt: evt.endedAt,
             durationMs: evt.durationMs,
@@ -883,6 +886,31 @@ export function createSendMessage(
                 (c) => !evt.citations.some((n) => n.source === c.source && n.label === c.label),
               ) ?? []
           store.setMessageCitations(targetId, [...existing, ...evt.citations])
+        },
+        // D34 上下文注入交代(2026-09-22 立):后端在注入真正生效后、任何增量前下发
+        // injection_applied,写入 message.injections,MessageItem 渲染 InjectionBar。
+        // 此前该帧在 api-client 里只被"不喷进正文"地丢弃 —— 生产了却没人看。
+        onInjectionApplied: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().appendMessageInjection(targetId, {
+            kind: evt.kind,
+            collapsed: evt.collapsed,
+            ...(evt.fullText ? { fullText: evt.fullText } : {}),
+            ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+          })
+        },
+        // D39/D108 上游重试交代:retry_scheduled → 本条 assistant 消息的一行提示。
+        // 不接就等于让 web 用户在退避期只看到"停顿"(该帧第 42 轮已入契约,当时只补了通道)。
+        onRetryScheduled: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().setMessageRetryNotice(targetId, {
+            attempt: evt.attempt,
+            maxRetries: evt.maxRetries,
+            retryInMs: evt.retryInMs,
+            ...(typeof evt.httpStatus === 'number' ? { httpStatus: evt.httpStatus } : {}),
+          })
         },
         // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
         // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。

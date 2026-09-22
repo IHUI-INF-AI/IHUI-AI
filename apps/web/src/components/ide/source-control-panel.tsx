@@ -252,7 +252,7 @@ export function SourceControlPanel() {
           <span className="text-red-600 dark:text-red-400">-{file.deletions}</span>
           <button
             onClick={() => toggleStage(file)}
-            className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
+            className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
             aria-label={staged ? t('sourceControl.unstage') : t('sourceControl.stage')}
           >
             {staged ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}

@@ -172,7 +172,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 ### 跨端样式同步铁律(强制)
 
 - web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。
-- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `scripts/sync-design-tokens.mjs` 自动同步,**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 校验同步一致性。
+- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `apps/miniapp-taro/scripts/sync-design-tokens.mjs` 自动同步(**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步,该脚本是端内脚本,根 `scripts/` 下没有同名文件,`node scripts/sync-design-tokens.mjs` 会报模块找不到)。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 与 `scripts/check-miniapp-tokens-sync.mjs`(后者为 guardian-runner 第 36 项实际调用项)校验同步一致性。
 - **主题系统**:miniapp-taro 主题根为 `ThemeRoot`(`@/components/ThemeRoot`,内部调用 `useThemeRoot()`),每个路由页 .tsx 顶层须 `<ThemeRoot>...</ThemeRoot>`。设置页切换主题必须调用 `@/lib/theme` 的 `setThemePreference`(同步原生导航栏/tabBar 配色 + 广播事件),**禁止**只用 `Taro.setStorageSync('theme', ...)` 而不同步原生 chrome(否则导航栏/tabBar 不变色)。
 - **禁止深色科技风回潮**:app.css 不得再出现 `page{background:#121217}` / `*{font-family!important}` 等全局深色强制覆盖;页面/组件 CSS 不得硬编码禁用色板(`#00f2ff`/`#121217`/`#1f1f28`/`#1a1a2e` 等),一律改用 `var(--color-*`)。
 - **禁止同名工具类冲突**:miniapp-taro 的 `app.css` 不得重定义 `.text-primary`/`.mt-*`/`.flex*`/`.align-*`/`.justify-*` 等与 web 端 Tailwind 同名同义类(语义冲突),局部样式用语义化类名 + `var(--color-*`)。
@@ -1093,10 +1093,11 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 
 - **i18n**(2/2b/2c/2d/2e/2f/2g-web/2f-mobile-rn/2f-cli):check-i18n-keys(parity+白名单)/ scan-i18n-zh-residue(zh-TW/ko 阻塞,ja warn)/ check-i18n-broken-en(阻塞)/ i18n-diff(翻译流水线,2f-web + 2f-miniapp-taro 阻塞)/ check-i18n-namespace-passing(命名空间传递,warn)/ check-cli-i18n-parity(cli 端 parity,warn,2f-cli)
 - **代码质量**(1/3/4/4b/4c/5/6/7/8/9/10):API key 泄露 / schema drift / 陈旧 dist / UTF-8 完整性 / lint-staged / sanitizer / dedupe / 路由一致性 / safeParse(warn)/ OpenAPI(info)
-- **UI/样式**(11/11b/17/18/20/24a/24b/27/28/36):圆角 / 圆角溢出(父 rounded + 子 bg 贴边,warn,2026-08-06 立)/ CSS token / title tooltip / Tailwind 冲突 / 侧边栏宽度+端口注册表(warn)/ z-index+遮罩 z-index(阻塞)/ miniapp-taro design-tokens 同步(阻塞,防 app.css 漂移)
+- **UI/样式**(11/11b/17/18/20/24a/24b/27/28/36):圆角 / 圆角溢出(父 rounded + 子 bg 贴边,warn,2026-08-06 立)/ CSS token / title tooltip / Tailwind 冲突 / 侧边栏宽度+端口注册表(warn)/ z-index 层叠+遮罩 z-index(阻塞,id 27/28,2026-09-22 加固:补 skipEnv + onFailHint,并在 id 27 新增第 5 项两组契约——桌面端自绘窗口控制三按钮挂 z-max(10003) 不能降(须高于 resize 抓手 z-loading=10000),`z-modal` 遮罩永远盖不到它,故等效压暗层 `data-window-controls`+`data-window-controls-dim` 与失焦非活动态 `data-window-inactive` 两组标记缺一不可,**两态弱化/瞬时规则必须写在 `apps/web/app/globals.css`**(入口 CSS 变更必然重编译;实测生产构建里组件内 Tailwind 任意变体未进 CSS 产物);判据有效性自查 `--self-test`;紧急跳过 HUSKY_SKIP_Z_INDEX_GUARD / HUSKY_SKIP_OVERLAY_ZINDEX)/ miniapp-taro design-tokens 同步(阻塞,防 app.css 漂移)
 - **工程约束**(12/13b/13c/15/19/21/22/23):交付报告 / PLAN 体积(warn)+防误删 / 迁移完整性 / staged 污染(warn)/ 多端同步(warn)/ README 同步(warn)/ staged 清单(info)
 - **Push/工作区**(25/26/29):项目外路径(阻塞)/ 父目录污染(阻塞)/ Push 同步(阻塞)
 - **防提交丢失**(30a):reflog reset 检测 + fsck 悬空 commit 检测 + lost-commit/* tag 备份清单(AGENTS.md §22 配套,blocking)
+- **适配层接线**(64):miniapp-taro `adapters/*.taro.tsx` 未被 adapters **目录外**源文件从 adapters 路径 import 即拦截(blocking,2026-09-22 立)。补 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import"的缺口——9 个屏级适配器 3078 行"造好没装车"直到删除始终无闸可挡,即本条成因。存量基线已清零(`scripts/adapter-wiring-baseline.json` = `unwiredAdapters: []`),任何新增未接线适配器一律直接拦截;判据必须限定 specifier,否则端内同名自有组件(`components/NavBar.tsx` 等)会造成假阳性放过死代码。紧急跳过 `HUSKY_SKIP_ADAPTER_WIRING=1`,自检 `node --test scripts/tests/check-adapter-wiring.test.mjs`
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)

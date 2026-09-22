@@ -43,7 +43,16 @@ if (!existsSync(NSI)) {
   console.error(`[check-installer-assets] 找不到 ${NSI}`)
   process.exit(1)
 }
-const src = readFileSync(NSI, 'utf8')
+const src =
+  readFileSync(NSI, 'utf8') +
+  // 卸载器主题独立成文件(2026-09-22),它同样 File 打包资产 —— 不并入扫描面,
+  // 新增的 unconfirm/uninstfiles 会永远被误报「未被打包」,而真正漏登记也报不出来。
+  // 自测模式(IHUI_NSI_PATH 喂故意残缺的副本)不并入,保持判据单一。
+  (process.env.IHUI_NSI_PATH
+    ? ''
+    : existsSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'))
+      ? readFileSync(join(ROOT, 'apps/desktop/src-tauri/windows/ihui-uninstaller.nsi'), 'utf8')
+      : '')
 
 /** @returns {Set<string>} */
 function collect(re) {

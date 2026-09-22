@@ -45,6 +45,14 @@ SSE_STEER = "steer"          # 中途引导注入确认(2026-09-19 立,前端 us
                              # {"type":"steer","phase":"injected","text":"用户引导文本",
                              #  "timestamp":"ISO(入队时间)","messageId":"assistant 消息 ID"}
                              # tool loop 每轮 LLM 调用前 drain 注入 messages 时发出
+SSE_INJECTION_APPLIED = "injection_applied"
+                             # 本轮"到底给模型注入了什么"的交代帧(D34,2026-09-22 立,G-40):
+                             # {"type":"injection_applied","kind":"environments|agents_md|
+                             #  developer_instructions|…(8 枚举之一)","collapsed":"一行摘要",
+                             #  "fullText":"可选全文"}
+                             # /llm/complete/stream 在 gen() 首帧前按实际生效顺序发出;
+                             # 前端消费点属 B2(D37-D41),接线前由 api-client parseStreamLine
+                             # 显式分流,绝不回落成正文(见 sse-d34-frames.test.ts)
 
 # ---------------------------------------------------------------------------
 # 工具链事件(/llm/complete/stream 工具循环)

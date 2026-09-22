@@ -717,6 +717,7 @@
       "fallback": "Switched to backup model: {model}",
       "planUpdate": "Execution plan updated",
       "reconnect": "Connection lost, retrying #{attempt} in {seconds}s",
+      "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
       "subagent": "Subtask: {phase}",
       "title": "Execution",
       "toolCall": "Calling tool: {name}",
@@ -782,7 +783,22 @@
         "title": "Terminal",
         "copy": "Copy",
         "copied": "Copied",
-        "exitCode": "Exit code: {code}"
+        "exitCode": "Exit code: {code}",
+        "truncated": "…(truncated, {total} characters in total)"
+      },
+      "citation": {
+        "title": "Sources"
+      },
+      "injection": {
+        "title": "Context used in this turn",
+        "kind": {
+          "developer": "Custom instructions",
+          "workspace": "Workspace memory",
+          "repoWiki": "Repository wiki",
+          "autoContext": "Auto-retrieved context"
+        },
+        "expand": "Expand",
+        "collapse": "Collapse"
       },
       "status": {
         "running": "Running",
