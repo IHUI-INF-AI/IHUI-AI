@@ -1403,6 +1403,41 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 63 (2026-09-22 接入 pre-commit,SSE 双解析器漏接对账,blocking,D106/G-148 配套) ---
+  // 背景(实测非推测):同一份 SSE 协议在库内被两处独立解析 —— packages/api-client/src/client.ts
+  // (web/extension/mobile-rn)与 packages/shared/src/utils/sse-parse.ts(miniapp-taro 经 @ihui/shared
+  // 单一真源使用,其端内 utils/sse-parse.ts 只是 re-export)。每加一帧要在两处各写一遍分支、
+  // 再在每端回调表注册一次;历史上 citations/steer 就是"一侧有、另一侧 0 命中"被静默遗忘,
+  // injection_applied/retry_scheduled 第 42 轮也只补了 api-client 一侧。
+  // 判据强度(实测):把 sse-parse 的 steer 守卫改成不匹配的字面量 → 本闸立即红两条
+  // (ratchet 20<21 + steer 未登记),证明"只剩产出语句/只剩类型联合声明"都骗不过它。
+  {
+    id: '63',
+    label: '🔀 SSE 双解析器漏接对账(blocking,帧覆盖 ratchet + 未接帧须交代归属)',
+    script: 'check-sse-parser-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/shared/src/sse/contract.ts',
+      'packages/api-client/src/client.ts',
+      'packages/shared/src/utils/sse-parse.ts',
+      'scripts/data/sse-parser-coverage.json',
+      'scripts/check-sse-parser-parity.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SSE_PARSER_PARITY',
+    onFailHint: [
+      '',
+      '  💡 同一协议两处解析,漏接是**静默**的:小程序拿不到帧,界面上看起来就是"没这个功能"。',
+      '     看清单:node scripts/check-sse-parser-parity.mjs --report',
+      '     补接一帧后:删 scripts/data/sse-parser-coverage.json 里对应的 webOnly 登记项,',
+      '                并把 parseCoverageBaseline 上调到新实测值(降回去就是在倒退)。',
+      '     确实只有 web 消费:必须在该文件 webOnly 里写明**为什么**(空理由同样拦)。',
+      '     自检:node scripts/check-sse-parser-parity.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_SSE_PARSER_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
