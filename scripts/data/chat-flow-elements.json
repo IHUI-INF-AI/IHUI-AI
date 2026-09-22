@@ -450,6 +450,18 @@
       "events": ["retry_scheduled"],
       "anchors": [
         {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_note_retry"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedRetryNoticeSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readRetryNoticeFromMetadata"
+        },
+        {
           "file": "packages/api-client/src/client.ts",
           "mustMatch": "tryParseRetryScheduled"
         },

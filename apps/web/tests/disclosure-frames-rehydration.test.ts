@@ -140,4 +140,51 @@ describe('hydrateHistoryMessage compaction 回放(G-166 第②步)', () => {
     expect(hydrateHistoryMessage(row({ model: 'x' })).compaction).toBeUndefined()
   })
 })
+
+describe('hydrateHistoryMessage retryNotice 回放(G-166 第⑥步)', () => {
+  it('四字段逐字带回(httpStatus 存在时)', () => {
+    const msg = hydrateHistoryMessage(
+      row({
+        retryNotice: { attempt: 3, maxRetries: 3, retryInMs: 1500, httpStatus: 429 },
+      }),
+    )
+    expect(msg.retryNotice).toEqual({
+      attempt: 3,
+      maxRetries: 3,
+      retryInMs: 1500,
+      httpStatus: 429,
+    })
+  })
+
+  it('httpStatus 缺失时不补 0(不伪造"上游回了 0 码")', () => {
+    const msg = hydrateHistoryMessage(
+      row({ retryNotice: { attempt: 1, maxRetries: 3, retryInMs: 0 } }),
+    )
+    expect(msg.retryNotice).toEqual({ attempt: 1, maxRetries: 3, retryInMs: 0 })
+  })
+
+  it('attempt / maxRetries 非 ≥1 整数、非对象 → 字段缺席(不渲染假交代)', () => {
+    expect(
+      hydrateHistoryMessage(row({ retryNotice: { attempt: 0, maxRetries: 3, retryInMs: 0 } }))
+        .retryNotice,
+    ).toBeUndefined()
+    expect(
+      hydrateHistoryMessage(row({ retryNotice: { attempt: '2', maxRetries: 3 } })).retryNotice,
+    ).toBeUndefined()
+    expect(hydrateHistoryMessage(row({ retryNotice: 'nonsense' })).retryNotice).toBeUndefined()
+  })
+
+  it('与其他交代共存,互不挤掉', () => {
+    const msg = hydrateHistoryMessage(
+      row({
+        retryNotice: { attempt: 2, maxRetries: 3, retryInMs: 800 },
+        compaction: { triggered: true, tokensBefore: 10, tokensAfter: 5, trigger: 'ratio' },
+        citations: CITATIONS,
+      }),
+    )
+    expect(msg.retryNotice?.attempt).toBe(2)
+    expect(msg.compaction?.compressedTokens).toBe(5)
+    expect(msg.citations).toEqual(CITATIONS)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

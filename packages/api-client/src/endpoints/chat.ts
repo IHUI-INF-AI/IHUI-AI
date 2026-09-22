@@ -87,6 +87,11 @@ export interface ChatMessageMetadata {
     usageRatio?: number
     trigger?: string
   }
+  /** retryNotice(G-166 第⑥步立):这轮回答期间上游网关**换 key / 退避重试**的最终一次记账,
+   *  字段与 SSE `retry_scheduled` 契约同一套(attempt / maxRetries / retryInMs / httpStatus?)。
+   *  消费:web 历史水合映射回 `ChatMessage.retryNotice`(RetryNotice 条),
+   *  缺失 = 老消息或本轮没重试过 —— 不渲染"重试过"的假交代。 */
+  retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
   [key: string]: unknown
 }
 
