@@ -2003,5 +2003,30 @@
   },
   "topBar": {
     "capabilityMarket": "能力市场"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "计划受阻",
+      "securityBlocked": "被安全策略拦截",
+      "rejectedByUser": "你已拒绝",
+      "approvalTimeout": "审批超时",
+      "toolMissing": "工具不存在",
+      "executeFailed": "执行失败",
+      "executeRetried": "已重试",
+      "executed": "已执行",
+      "approvalPersistHit": "沿用你保存的批准",
+      "execPolicyApproved": "执行策略放行",
+      "autoSkipApproval": "自动批准(免审批)",
+      "bypassSkipApproval": "已跳过审批",
+      "mcpRequiresApproval": "MCP 标注要求确认",
+      "policyRequiresApproval": "策略要求审批",
+      "policyForbidsExecution": "策略禁止执行"
+    },
+    "state": {
+      "approved": "已自动批准",
+      "rejected": "已拒绝",
+      "needsUser": "请求用户确认",
+      "unknown": "决策未知"
+    }
   }
 }

@@ -2003,5 +2003,30 @@
   },
   "topBar": {
     "capabilityMarket": "Capability Market"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "Plan blocked",
+      "securityBlocked": "Blocked by security policy",
+      "rejectedByUser": "Rejected by you",
+      "approvalTimeout": "Approval timed out",
+      "toolMissing": "Tool not found",
+      "executeFailed": "Execution failed",
+      "executeRetried": "Retried",
+      "executed": "Executed",
+      "approvalPersistHit": "Reused your saved approval",
+      "execPolicyApproved": "Allowed by execution policy",
+      "autoSkipApproval": "Auto-approved (no approval needed)",
+      "bypassSkipApproval": "Approval skipped",
+      "mcpRequiresApproval": "MCP annotations require approval",
+      "policyRequiresApproval": "Policy requires approval",
+      "policyForbidsExecution": "Policy forbids execution"
+    },
+    "state": {
+      "approved": "Auto-approved",
+      "rejected": "Rejected",
+      "needsUser": "Needs your approval",
+      "unknown": "Decision unknown"
+    }
   }
 }
