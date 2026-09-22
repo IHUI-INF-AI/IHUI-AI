@@ -2761,7 +2761,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 同时以 `MODULE_NOT_FOUND` 挂掉(五个镜像坏四个)。typecheck / lint / 单测 / 守门 96 项**全都不会知道**,
 因为本机没有 docker、也没人在提交流程里跑 docker build。
 
-`scripts/check-dockerfile-copy-paths.mjs`(第 72 项,blocking)把这件事变成结构性不可能,两条判据都只用仓库内信息:
+`scripts/check-dockerfile-copy-paths.mjs`(第 72 项,blocking)把这件事变成结构性不可能,三条判据都只用仓库内信息:
 
 - **A｜钩子脚本必须进镜像**:凡 COPY 了 `pnpm-workspace.yaml`(= 根 monorepo 上下文标记)的 Dockerfile,
   其 `pnpm install` 会触发**根** package.json 的 `preinstall` / `postinstall` / `prepare`;
@@ -2770,6 +2770,14 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 - **B｜COPY 源必须存在**:每条不带 `--from=`、不含通配符的 COPY 源,必须能在**构建上下文**里取到。
   上下文不靠猜 —— 从 `.github/workflows/*.yml` 的 `context:` / `file:` 成对解析(现解析出 4 个);
   没声明上下文的 Dockerfile 一律跳过并在结论行里如实报 `B 核了 N/M`,绝不假装全覆盖。
+- **C｜`pnpm --filter … run <script>` 的脚本必须在闭包里人人都有**:pnpm 对"没有该脚本"的包是
+  **静默跳过**而非报错。被跳过的包若自带 `build`(产出 `dist/`),下游按 `main`/`exports` 读 `dist`
+  就会 `Module not found`。判据从 workspace 包图展开闭包(`pkg` = 自身 / `pkg^...` = 仅依赖 /
+  `pkg...` = 自身+依赖;取反式与上游方向表达式放过),点名"有 `build` 却缺被调用脚本"的包。
+  A/B 修好后 `build-api` 转绿、**`build-web` 仍恒红就是这一类**:`Dockerfile.web` 跑
+  `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖全都只有 `build`、没有
+  `build:static` ⇒ 依赖一个都没构建 ⇒ `@ihui/api-client`(`main: ./dist/index.js`)解析失败;
+  同仓 `Dockerfile.api` 用 `run build`(人人都有)所以一直绿 —— 两条 Dockerfile 只差一个脚本名。
 
 一个实现上的坑值得记:**存在性必须按提交内容判、不能按工作树判**。本仓当时正有并行会话把
 `scripts/fix-expo-metro-junction.mjs` 从工作树删掉但未暂存,按 `existsSync` 会产出一条与真实构建结果

@@ -3144,6 +3144,26 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     `typeof it === 'object' && it !== null`(先判型再判 null,对 `undefined`/`null` 的排除集合与原文一致)。
     **`pnpm --filter @ihui/api typecheck` 与 `lint` 双双 exit 0** 为终态证据;prettier 不在 api 的门内(`lint: eslint .`),
     故 `prettier --write` 带出的两处无关重排已 `git restore` 回退,本批 diff 恒为 3 行。
+  - **过度声明订正 + 同族第二类根因(2026-09-23 续)**:上面第一条把"CI 上 build-api/build-web 的
+    MODULE_NOT_FOUND"一并写成已修,**实际只修掉了 A/B 那一半** —— `build-api` 当场转绿,`build-web`
+    在 `f9a264f25b`/`3223dcbdde`/`f55cdf4bf3`/`ed8150407f`/`f4e25b8c35` 上逐个复查仍是红的,红在
+    另一个原因:`RUN pnpm --filter @ihui/web... run build:static`,而 pnpm 对闭包里**没有该脚本的包
+    是静默跳过、不报错**,web 的 7 个可构建依赖(api-client/auth/design-tokens/i18n/shared/types/
+    ui-react)全都只有 `build` 没有 `build:static` ⇒ 依赖一个都没构建 ⇒ `@ihui/api-client`
+    (`main: ./dist/index.js`)Module not found。同仓 `Dockerfile.api` 用 `run build`(人人都有)
+    故一直绿 —— 差别只在脚本名,这正是"本地全绿也发现不了"家族的第二个变体。
+  - **守门 72 补 C 判据**(同族失效的结构性拦截):`checkPnpmFilterScripts` 从 `workspaceGraph`(26 个包)
+    展开 `--filter` 闭包(`pkg` 自身 / `pkg^...` 仅依赖 / `pkg...` 自身+依赖;取反式与上游方向**放过**,
+    宁漏不误报),点名"自带 `build` 却被调用脚本缺失"的包;一条 RUN 里 `&&` 多段**逐段配对**
+    (混取首个脚本会让后一段借用前一段闭包 —— 写第一版时就是这么错的)。`Dockerfile.web` 改为
+    `pnpm --filter @ihui/web^... run build && pnpm --filter @ihui/web run build:static`。
+  - **有效性取证**:`--self-test` 5 → **10 例**(C 占 5 例:真故障正例 / 修法有效性 / 纯类型包反例 /
+    取反表达式反例 / 反斜杠续行正例),§22c 镜像测试 8 → **10 例**(新增"真仓包图上旧行必红且点名
+    api-client、修后必绿、api 作同仓对照"与 `expandFilterSpec` 三形态 + `logicalLines` 折叠)。
+    **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
+    package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
+    镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
+    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
