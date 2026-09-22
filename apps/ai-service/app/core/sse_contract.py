@@ -103,10 +103,12 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
             "output",
             "exitCode",
             "messageId",
-            # D34 收回 terminal_output 后,其唯一新增语义并到本帧(后端已排版的输出
-            # 与截断标志;前端优先渲染 formattedOutput,缺省回退 output)
-            "formattedOutput",
+            # D34 收回 terminal_output 后,截断语义并到本帧(第 39 轮补齐生产点):
+            # truncated 仅在真被截断时为 true,totalChars 恒为原始长度。
+            # formattedOutput 已删 —— 它只有竞品形状、我方无生产点也无消费方(后端不做排版,
+            # stdout/stderr 的结构化在 tool-result 帧里已分开),不留空壳字段。
             "truncated",
+            "totalChars",
         ),
     ),
     # D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
