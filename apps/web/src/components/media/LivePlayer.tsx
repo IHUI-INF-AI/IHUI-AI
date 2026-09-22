@@ -71,7 +71,7 @@ export function LivePlayer({
       setError(null)
 
       if (isFlvStream(url)) {
-        setError('FLV 协议需额外依赖 flv.js,暂不支持')
+        setError(t('flvUnsupported'))
         setLoading(false)
         return
       }
@@ -108,7 +108,7 @@ export function LivePlayer({
               } else if (data.type === HlsImpl.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError()
               } else {
-                setError(`直播流错误: ${data.details}`)
+                setError(t('liveStreamError', { details: data.details }))
                 setLoading(false)
               }
             }
@@ -120,7 +120,7 @@ export function LivePlayer({
             if (autoPlay) video.play().catch(() => {})
           }
         } else {
-          setError('当前浏览器不支持 HLS 直播')
+          setError(t('hlsNotSupported'))
           setLoading(false)
         }
       } else {
@@ -130,7 +130,7 @@ export function LivePlayer({
           if (autoPlay) video.play().catch(() => {})
         }
         video.onerror = () => {
-          setError('视频加载失败')
+          setError(t('videoLoadFailed'))
           setLoading(false)
         }
       }
@@ -218,7 +218,9 @@ export function LivePlayer({
             >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
-            <span className="ml-1 text-xs">{isHlsStream(src) ? 'HLS 直播' : '点播'}</span>
+            <span className="ml-1 text-xs">
+              {isHlsStream(src) ? t('hlsLiveLabel') : t('onDemandLabel')}
+            </span>
             <button
               onClick={fullscreen}
               aria-label={t('fullscreen')}

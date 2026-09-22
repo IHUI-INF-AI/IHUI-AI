@@ -1023,7 +1023,12 @@ export default function AiAssistantN8nScreen() {
       const loaded: N8nMessage[] = res.data.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m, idx) => {
-          const meta = m.metadata as { toolCalls?: unknown; planSteps?: unknown } | null
+          const meta = m.metadata as {
+            toolCalls?: unknown
+            planSteps?: unknown
+            citations?: unknown
+            injections?: unknown
+          } | null
           const planSteps = Array.isArray(meta?.planSteps)
             ? (meta?.planSteps as Array<Record<string, unknown>>).flatMap((s, i) =>
                 typeof s?.step === 'string'
@@ -1062,12 +1067,44 @@ export default function AiAssistantN8nScreen() {
                   : [],
               )
             : undefined
+          // G-166:交代帧同样从 metadata 读回 —— 服务端已把"引用了哪些来源 / 本轮带了哪些
+          // 上下文"随回调落库(与 SSE 帧同一真相源),此前重进历史会话这两段交代整段看不见。
+          // 逐条类型守卫:脏条目单条丢弃,缺 url 不造"点不动的假链接"。
+          const citations = Array.isArray(meta?.citations)
+            ? (meta?.citations as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.source === 'string' && typeof c.label === 'string'
+                  ? [
+                      {
+                        source: c.source,
+                        label: c.label,
+                        ...(typeof c.url === 'string' && c.url ? { url: c.url } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const injections = Array.isArray(meta?.injections)
+            ? (meta?.injections as Array<Record<string, unknown>>).flatMap((x) =>
+                typeof x?.kind === 'string' && typeof x.collapsed === 'string'
+                  ? [
+                      {
+                        kind: x.kind,
+                        collapsed: x.collapsed,
+                        ...(typeof x.fullText === 'string' ? { fullText: x.fullText } : {}),
+                        ...(typeof x.count === 'number' ? { count: x.count } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
           return {
             id: `${m.id}-${idx}`,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
             ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+            ...(citations && citations.length > 0 ? { citations } : {}),
+            ...(injections && injections.length > 0 ? { injections } : {}),
           }
         })
       setMessages(loaded)
