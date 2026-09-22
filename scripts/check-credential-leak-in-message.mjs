@@ -14,7 +14,7 @@
 //      整个响应体 `JSON.stringify(tokenData).slice(0, 400)` 拼进 502 message 回传客户端,
 //      而该体含 `access_token`。
 //
-// 判据刻意**窄**(宁漏不误报),命中需同一「错误构造表达式」窗口内满足 A∧B 且 C/D/E 至少一条:
+// 判据刻意**窄**(宁漏不误报),命中需同一「错误构造表达式」窗口内满足 A∧B 且 C/D/E/F 至少一条:
 //   A. 处于错误构造上下文:4xx/5xx 响应(`reply.status(5xx)` / `error(5xx, …)` / `{ code: 500 }`)
 //      **或** `throw new Error(...)` / `throw new XxxError(...)` —— service 层的外泄走的是后者,
 //      只认前者会整条漏掉(paypal.ts 即此形状);且
@@ -31,10 +31,22 @@
 //      text ← `resp.text()` ← `${API_BASE}/v1/oauth2/token`,而该请求自带 Basic(client_id:client_secret)
 //      —— 2026-09-22 由 E 咬出并改为只回传状态码 + RFC 6749 error 码。字段投影(`${json.error}`)**不算**,
 //      那正是推荐写法(有反例用例钉住,防止把修复判成违规)。
-// 仅 A∧B 而 C/D/E 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
-// 只进「低置信候选」清单供人审(打印但不计入失败)。现 31 处:8 处为本进程自造的常量错误对象
+//   F. **关键词 ∧ 整对象 dump**(补 D/E 的结构性盲区):被调方是**SDK 而非 fetch**时
+//      URL 字面量根本不在文件里(如阿里云 `client.callApi(params, request, {})` +
+//      `endpoint: 'sts.aliyuncs.com'` 在 60 行开外),来源链回溯够不到。此时以
+//      「错误消息自带凭据端点关键词(`CRED_CALL_KEYWORD_RE`:AssumeRole / OAuth / device/code /
+//      gettoken / tenant_access_token / …)」∧「窗口里把整个响应体倒进 message
+//      (`JSON.stringify(response.body)` / `${body}`,目标路径末段须是 body/data/payload/… 类名)」
+//      **双条件**命中。真实缺陷 `storage-service.ts` 即此形状:`throw new Error(\`STS AssumeRole 失败:
+//      ${JSON.stringify(response.body)}\`)`,而 AssumeRole 的成功体就是临时凭据
+//      (AccessKeyId / AccessKeySecret / SecurityToken)。字段投影 `${response.Code}` 不判。
+// 仅 A∧B 而 C/D/E/F 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
+// 只进「低置信候选」清单供人审(打印但不计入失败)。现 30 处:8 处为本进程自造的常量错误对象
 // (不含任何上游数据),其余为厂商**推理/生成端点**错误体透传 —— 已逐个回溯其 fetch 端点确认非令牌端点,
-// 含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL 情形(其全部调用点 path 均为推理接口)。
+// 含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL 情形(其全部调用点 path 均为推理接口);
+// throw 形态新增的 4 处也已逐个看明:STS 为真缺陷(已由 F 拦下并修),
+// cli installer(本地插件 source 描述符)、cli browser(CDP exceptionDetails)、
+// api-client coze(上游文本进 error 的**字段**而非 message,且为浏览器侧库)三处不含凭据。
 // 这类透传属中低危(泄露的是上游错误描述),故本门不对其恒红。
 //
 // 用法:node scripts/check-credential-leak-in-message.mjs
@@ -110,6 +122,37 @@ const THROW_CTX_RE = /\bthrow\s+new\s+(?:[A-Za-z_$][\w$]*)?Error\s*\(/
  * 刻意不含 `${x.field}` —— 字段投影(如 `${json.error}`)正是推荐写法,不得误伤。
  */
 const WHOLE_INTERP_RE = /\$\{\s*([A-Za-z_$][\w$]*)\s*(?:\.slice\([^)]*\))?\s*\}/g
+
+/**
+ * F 通道的关键词集:窗口文本里点名了"发凭据的那类调用"。
+ * 走 SDK(如阿里云 `client.callApi`、AWS SDK)时 URL 字面量不在文件里,D/E 的来源回溯够不到,
+ * 只能靠错误消息自带的端点名/动作名。故 F = 关键词 ∧ 整对象 dump 双条件,单条件一律不判。
+ */
+export const CRED_CALL_KEYWORD_RE =
+  /(assumeRole|getsessiontoken|sts\.aliyuncs|tenant_access_token|client[_-]?token|oauth2?[\/.]|\/login\/oauth|device\/code|access[_-]?token|refresh[_-]?token|id_token|gettoken|session[_-]?token|signature[_-]?token|\/credential)/i
+
+/** "整体倒进 message"的目标名:路径末段是响应体类名字才算,避免把 `${body.Code}` 这类字段投影判成违规。 */
+const DUMP_TARGET_RE =
+  /(?:^|\.)(body|data|json|payload|result|response|resp|output|text|detail|content)$/i
+
+/**
+ * F 通道求解:返回"关键词 + 被整体倒出的对象路径"证据数组(无则空)。
+ * @param {string} text 错误构造窗口文本
+ */
+export function credEndpointDumpEvidence(text) {
+  CRED_CALL_KEYWORD_RE.lastIndex = 0
+  const kw = text.match(CRED_CALL_KEYWORD_RE)
+  if (!kw) return []
+  const dumps = new Set()
+  const re =
+    /JSON\s*\.\s*stringify\s*\(\s*([A-Za-z_$][\w$.]*)|\$\{\s*([A-Za-z_$][\w$.]*)\s*(?:\.slice\([^)]*\))?\s*\}/g
+  for (const m of text.matchAll(re)) {
+    const target = (m[1] ?? m[2] ?? '').trim()
+    if (target && DUMP_TARGET_RE.test(target)) dumps.add(target)
+  }
+  if (!dumps.size) return []
+  return uniqueSorted([...dumps].map((d) => `keyword:${kw[1].toLowerCase() + ':' + d}`))
+}
 
 /** 跳过字符串字面量(含模板插值),返回结束下标(引号之后)。 */
 export function advanceQuoted(src, i) {
@@ -404,6 +447,8 @@ export function scanSource(src, file, exempt = new Set()) {
       : []
     // E. 无 JSON.stringify 的整对象透传:`${text}` / `${text.slice(0, 200)}`,text 取自令牌端点响应
     const interpE = hasDirectStringify ? [] : wholeInterpProvenance(decls, lines, text, usageLine)
+    // F. 凭据端点关键词 ∧ 整对象 dump:覆盖走 SDK、URL 不在窗口内、变量名/字段名都不像凭据的情形
+    const dumpEv = credEndpointDumpEvidence(text)
     const evidence = credArgs.length
       ? credArgs
       : viaDecl.length
@@ -412,7 +457,9 @@ export function scanSource(src, file, exempt = new Set()) {
           ? literals
           : provenance.length
             ? provenance
-            : interpE
+            : interpE.length
+              ? interpE
+              : dumpEv
     if (!evidence.length) {
       for (const arg of args) {
         // 同一文件内同一被序列化变量只记一次(同一条语句常有 status + error 两个上下文命中)
@@ -430,7 +477,9 @@ export function scanSource(src, file, exempt = new Set()) {
           ? 'token-literal-in-message'
           : provenance.length
             ? 'stringify-from-token-endpoint'
-            : 'raw-body-from-token-endpoint-in-message'
+            : interpE.length
+              ? 'raw-body-from-token-endpoint-in-message'
+              : 'cred-endpoint-keyword-with-body-dump'
     /** 稳定 key 后缀:只有 kind + 凭据证据,不含行号、不含整段窗口文本 */
     const snippet = `${kind}|${evidence.join(',')}`
     const key = `${file}::${snippet}`
@@ -603,7 +652,7 @@ export const SELFTEST_CASES = [
     want: 'candidate',
   },
   {
-    name: '来源证据反例:URL 由变量/函数拼出无字面量 → 仅候选(宁漏不误报)',
+    name: '来源证据反例(D 通道):URL 由变量/函数拼出无字面量 → 仅候选(宁漏不误报)',
     src: "const resp = await fetch(authEndpointUrl(), { method: 'POST' })\nconst data = await resp.json()\nreturn reply.status(502).send(error(502, 'e' + JSON.stringify(data)))",
     want: 'candidate',
   },
@@ -622,6 +671,22 @@ export const SELFTEST_CASES = [
     name: 'E 通道反例:资源类端点(非令牌)响应文本透传 → 不判(锚在端点性质上)',
     src: "const resp = await fetch(`${BASE}/v1/payments/payment`, { method: 'POST' })\nconst text = await resp.text()\nthrow new Error(`PayPal create failed: ${resp.status} ${text.slice(0, 200)}`)",
     want: 'none',
+  },
+  // --- F 通道:凭据端点关键词 ∧ 整对象 dump(走 SDK、URL 不在窗口内) ---
+  {
+    name: 'F 通道:SDK 调 AssumeRole 后整体 dump response.body → 违规(STS 真实形状,D/E 够不到)',
+    src: 'const response = await client.callApi(params, request, {})\nif (!creds) throw new Error(`STS AssumeRole 失败: ${JSON.stringify(response.body)}`)',
+    want: 'violation',
+  },
+  {
+    name: 'F 通道反例:同关键词但只取 Code 字段(推荐写法)→ 不判',
+    src: 'const response = await client.callApi(params, request, {})\nif (!creds) throw new Error(`STS AssumeRole 失败: ${response.Code}`)',
+    want: 'none',
+  },
+  {
+    name: 'F 通道反例:整对象 dump 但消息无凭据端点关键词 → 仅候选(不得扩大到厂商代理)',
+    src: "const resp = await fetch(url, { method: 'POST' })\nconst data = await resp.json()\nif (!resp.ok) return reply.status(502).send(error(502, `Firefly 调用失败: ${JSON.stringify(data)}`))",
+    want: 'candidate',
   },
 ]
 
@@ -757,6 +822,7 @@ export const __test__ = {
   resolveDeclaredEntry,
   tokenEndpointProvenance,
   wholeInterpProvenance,
+  credEndpointDumpEvidence,
   classifyStringifyArg,
   evalCase,
   SELFTEST_CASES,
