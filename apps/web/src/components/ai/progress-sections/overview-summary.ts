@@ -15,7 +15,7 @@ export type OverviewShape = AgentOverview
  * # 任务总览
  *
  * - 状态: 已完成
- * - 会话耗时: 12.3s
+ * - 耗时: 12.3s
  * - 步骤: 5/6
  * - 子代理: 2 活跃 · 3 总
  * - 工具: 8 成功 · 1 失败
@@ -107,11 +107,8 @@ export function calcSessionDurationMs(
   return Math.max(0, nowMs - startMs)
 }
 
-/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生;不取词,故无需 t */
-export function buildStatLines(
-  input: Omit<OverviewSummaryInput, 't'>,
-  durationMs?: number,
-): string[] {
+/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生;标签一律经注入的 translator 取词 */
+export function buildStatLines(input: OverviewSummaryInput, durationMs?: number): string[] {
   const {
     overview,
     sessionStart,
@@ -120,38 +117,41 @@ export function buildStatLines(
     tokenRate,
     etaMs,
     contextUsage,
+    t,
   } = input
   const effectiveDuration = durationMs ?? calcSessionDurationMs(sessionStart, nowMs)
   const lines: string[] = []
   if (overview.totalSteps > 0) {
-    lines.push(`- 步骤: ${overview.completedSteps}/${overview.totalSteps}`)
+    lines.push(`- ${t('overview.steps')}: ${overview.completedSteps}/${overview.totalSteps}`)
   }
   if (overview.totalSubagents > 0) {
-    const parts = [`${overview.activeSubagents} 活跃`]
-    parts.push(`${overview.totalSubagents} 总`)
-    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents} 死亡`)
-    lines.push(`- 子代理: ${parts.join(' · ')}`)
+    const parts = [`${overview.activeSubagents} ${t('overview.active')}`]
+    parts.push(`${overview.totalSubagents} ${t('overview.total')}`)
+    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents} ${t('overview.dead')}`)
+    lines.push(`- ${t('overview.subagents')}: ${parts.join(' · ')}`)
   }
   if (overview.totalTerminals > 0) {
-    lines.push(`- 终端: ${overview.runningTerminals} 运行中 · ${overview.totalTerminals} 总`)
+    lines.push(
+      `- ${t('overview.terminals')}: ${overview.runningTerminals} ${t('overview.running')} · ${overview.totalTerminals} ${t('overview.total')}`,
+    )
   }
   if (overview.totalChanges > 0) {
-    lines.push(`- 变更: ${overview.totalChanges} 文件`)
+    lines.push(`- ${t('overview.changes')}: ${overview.totalChanges} ${t('overview.files')}`)
   }
   if (effectiveDuration > 0) {
-    lines.push(`- 会话耗时: ${formatDurationMs(effectiveDuration)}`)
+    lines.push(`- ${t('overview.duration')}: ${formatDurationMs(effectiveDuration)}`)
   }
   if (totalTokens !== undefined && totalTokens > 0) {
-    lines.push(`- Token: ${formatTokenK(totalTokens)}`)
+    lines.push(`- ${t('overview.token')}: ${formatTokenK(totalTokens)}`)
   }
   if (tokenRate !== undefined && tokenRate > 0) {
-    lines.push(`- 速率: ${tokenRate}/s`)
+    lines.push(`- ${t('overview.rate')}: ${tokenRate}/s`)
   }
   if (etaMs !== undefined && etaMs !== null && etaMs > 0) {
-    lines.push(`- 预计: ${formatDurationMs(etaMs)}`)
+    lines.push(`- ${t('overview.eta')}: ${formatDurationMs(etaMs)}`)
   }
   if (contextUsage !== undefined && contextUsage > 0) {
-    lines.push(`- 上下文: ${Math.round(contextUsage)}%`)
+    lines.push(`- ${t('overview.context')}: ${Math.round(contextUsage)}%`)
   }
   return lines
 }
@@ -160,11 +160,12 @@ export function buildStatLines(
 export function buildOverviewSummaryMarkdown(input: OverviewSummaryInput): string {
   const { overview, isStreaming, sessionStart, nowMs = Date.now(), t } = input
   const durationMs = calcSessionDurationMs(sessionStart, nowMs)
-  const lines: string[] = ['# 任务总览', '']
+  const lines: string[] = [`# ${t('overview.title')}`, '']
   const statusText = formatStatusText(overview.status, isStreaming, t)
-  lines.push(`- 状态: ${statusText}`)
+  lines.push(`- ${t('overview.status')}: ${statusText}`)
   if (overview.error) {
-    lines.push(`- 错误: ${overview.error}`)
+    // overview.error 是后端原始错误文本:只取词标签,值本身不翻译、不包装
+    lines.push(`- ${t('overview.error')}: ${overview.error}`)
   }
   lines.push(...buildStatLines(input, durationMs))
   return lines.join('\n')

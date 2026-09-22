@@ -371,12 +371,6 @@
     "terminalStatusFailed": "실패",
     "terminalStatusRunning": "실행 중",
     "terminalTasks": "터미널 작업",
-    "citationTitle": "참조 출처",
-    "injectionTitle": "이번 응답에서 참조한 컨텍스트",
-    "injectionKindDeveloper": "사용자 지정 지침",
-    "injectionKindWorkspace": "워크스페이스 기억",
-    "injectionKindRepoWiki": "저장소 Wiki",
-    "injectionKindAutoContext": "자동 검색 컨텍스트",
     "gatewayRetry": "{attempt}/{max}회 재시도, {seconds}초 후 계속합니다",
     "toolArgs": "인수",
     "toolCalls": "도구 호출",
@@ -500,6 +494,14 @@
       "message": "스크린샷이 생성되었습니다",
       "shareBtn": "공유"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "참조 출처",
+    "injectionTitle": "이번 응답에서 참조한 컨텍스트",
+    "kindDeveloper": "사용자 지정 지침",
+    "kindWorkspace": "워크스페이스 기억",
+    "kindRepoWiki": "저장소 Wiki",
+    "kindAutoContext": "자동 검색 컨텍스트"
   },
   "developer": {
     "title": "개발자 포털",
@@ -2503,5 +2505,30 @@
     "statusSuccess": "성공",
     "statusPartial": "부분 성공",
     "statusFailed": "실패"
+  },
+  "permissionTier": {
+    "label": "권한 등급",
+    "mode": {
+      "default": {
+        "title": "기본 모드",
+        "desc": "모든 작업에 수동 승인 필요(가장 안전)"
+      },
+      "plan": {
+        "title": "읽기 전용 계획",
+        "desc": "읽기와 검색만 허용, 파일 쓰기와 명령 실행은 거부"
+      },
+      "accept-edits": {
+        "title": "편집 허용",
+        "desc": "허용 목록 작업은 자동 실행, 나머지는 확인 요청"
+      },
+      "bypass-permissions": {
+        "title": "권한 우회",
+        "desc": "확인 없는 전체 접근(고위험)"
+      },
+      "unknown": {
+        "title": "알 수 없는 모드",
+        "desc": "인식되지 않은 권한 모드, 기본값으로 처리"
+      }
+    }
   }
 }

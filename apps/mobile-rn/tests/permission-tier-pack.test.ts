@@ -2,62 +2,60 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
+// D111:移动端权限档词包完备性(真实 mobile-rn 词包 ×5 语言,口径同 miniapp-taro 侧用例)。
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-vi.mock('@ihui/api-client', () => ({
-  executeAgentRuntimeStream: vi.fn(),
-  sendToolApprovalResponse: vi.fn(),
-  getWorkspacePermissionDefault: vi.fn(() => Promise.resolve({ success: false })),
-}))
+import { describe, expect, it } from 'vitest'
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-    locale: 'zh-CN' as const,
-    setLocale: () => {},
-  }),
-}))
+import { permissionTierWordKeys } from '@ihui/shared/chat'
 
-import {
-  AgentRuntimePanel,
-  WorkspacePermissionTierRow,
-} from '../entrypoints/sidepanel/components/AgentRuntimePanel'
+const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
+const TIERS = ['default', 'plan', 'accept-edits', 'bypass-permissions', 'unknown'] as const
 
-describe('AgentRuntimePanel', () => {
-  it('mounts without crashing', () => {
-    const html = renderToStaticMarkup(<AgentRuntimePanel agentId="test-agent-1" />)
-    expect(typeof html).toBe('string')
-    expect(html.length).toBeGreaterThan(0)
-    expect(html).toContain('agent-runtime-panel')
+function pack(locale: string): Record<string, unknown> {
+  return JSON.parse(
+    readFileSync(
+      join(__dirname, '../../..', `packages/i18n/messages/mobile-rn/${locale}.json`),
+      'utf8',
+    ),
+  ) as Record<string, unknown>
+}
+
+function resolve(root: Record<string, unknown>, path: string): string | undefined {
+  let cur: unknown = root
+  for (const seg of path.split('.')) {
+    if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[seg]
+    } else {
+      return undefined
+    }
+  }
+  return typeof cur === 'string' ? cur : undefined
+}
+
+describe('permissionTier 词包(mobile-rn ×5 语言,D111)', () => {
+  it('label + 五档 title/desc 全部存在且非空', () => {
+    for (const locale of LOCALES) {
+      const root = pack(locale)
+      expect(resolve(root, 'permissionTier.label')?.length ?? 0).toBeGreaterThan(0)
+      for (const tier of TIERS) {
+        for (const part of ['title', 'desc'] as const) {
+          expect(resolve(root, `permissionTier.mode.${tier}.${part}`)?.length ?? 0).toBeGreaterThan(
+            0,
+          )
+        }
+      }
+    }
   })
 
-  it('renders textarea and send button in idle state', () => {
-    const html = renderToStaticMarkup(<AgentRuntimePanel agentId="test-agent-2" />)
-    expect(html).toContain('agent-runtime-input')
-    expect(html).toContain('agent-runtime-send')
-    expect(html).toContain('agent-runtime-panel')
-  })
-})
-
-describe('WorkspacePermissionTierRow(D111:权限档交代行)', () => {
-  it('有档位时出档名与后果两段词表键(取词走共享 permissionTierWordKeys)', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="accept-edits" />)
-    expect(html).toContain('workspace-permission-tier')
-    expect(html).toContain('permissionTier.label')
-    expect(html).toContain('permissionTier.mode.accept-edits.title')
-    expect(html).toContain('permissionTier.mode.accept-edits.desc')
-  })
-
-  it('未知档落 unknown 键,绝不显示成 default 档(授权误导防线)', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="yolo" />)
-    expect(html).toContain('permissionTier.mode.unknown.title')
-    expect(html).not.toContain('permissionTier.mode.default.title')
-  })
-
-  it('tier=null(取数失败)整行不渲染 —— 不假装知道档位', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier={null} />)
-    expect(html).not.toContain('workspace-permission-tier')
+  it('取词链路:未知档落 unknown 键且与 default 互异;各档在真实词包取得到词', () => {
+    const zh = pack('zh-CN')
+    expect(resolve(zh, permissionTierWordKeys('acceptEdits').title)).toBe('接受编辑')
+    expect(resolve(zh, permissionTierWordKeys(null).title)).toBe('默认模式')
+    expect(resolve(zh, permissionTierWordKeys('garbage-mode').title)).not.toBe(
+      resolve(zh, 'permissionTier.mode.default.title'),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
