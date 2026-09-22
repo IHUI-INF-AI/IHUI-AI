@@ -94,4 +94,43 @@ class TestInjectionAppliedFrames:
         assert resp.status_code == 200
         events = _parse_sse_events(resp.text)
         assert [e for e in events if e["event"] == "injection_applied"] == []
+
+
+class TestRetryScheduledForwarding:
+    """D34/G-44:网关在换 key 重试处 yield retry_scheduled,路由必须**原样转发上流**而非丢弃。
+
+    网关侧的真实触发要 mock provider 失败(成本高于收益),这里锁住最易静默失效的一段:
+    llm.py 的事件循环对非 chunk/done/error 类型的兜底转发。丢帧的表现是"界面毫无提示地卡住",
+    正是本帧要消灭的失败模式。
+    """
+
+    async def test_retry_scheduled_frame_reaches_the_wire(self, client: AsyncClient, monkeypatch):
+        from app.routers import llm as llm_router
+
+        async def fake_astream(messages, model=None, owner_uuid=None):
+            yield {
+                "type": "retry_scheduled",
+                "attempt": 1,
+                "maxRetries": 3,
+                "retryInMs": 0,
+                "httpStatus": 429,
+            }
+            yield {"type": "chunk", "content": "恢复后的正文"}
+            yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+        monkeypatch.setattr(llm_router.llm_gateway, "astream", fake_astream)
+        resp = await client.post(
+            "/api/llm/complete/stream",
+            json={"messages": [{"role": "user", "content": "test"}]},
+        )
+        assert resp.status_code == 200
+        events = _parse_sse_events(resp.text)
+        retries = [e for e in events if e["event"] == "retry_scheduled"]
+        assert len(retries) == 1
+        data = retries[0]["data"]
+        assert data["type"] == "retry_scheduled"
+        assert data["attempt"] == 1
+        assert data["maxRetries"] == 3
+        assert data["retryInMs"] == 0
+        assert data["httpStatus"] == 429
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
