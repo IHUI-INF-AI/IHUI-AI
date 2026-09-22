@@ -1663,12 +1663,10 @@ export function HomeScreen() {
         </View>
       ) : null}
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
-       *  collapsible + defaultCollapsed:首屏默认折叠为右下角浮动 FAB,
-       *  点击 FAB 展开完整输入栏(对齐历史 Uniapp 抽屉式输入交互)。
+       *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
+       *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
-        collapsible
-        defaultCollapsed
         value={inputValue}
         onChangeText={setInputValue}
         placeholder="请输入您的问题,或选择模型开始对话"
