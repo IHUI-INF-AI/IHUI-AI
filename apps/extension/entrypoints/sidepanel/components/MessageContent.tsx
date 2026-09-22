@@ -30,6 +30,7 @@ import {
   type ToolSubjectKind,
 } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { ContextInjectionList } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 /** i18n 翻译函数签名(与 useI18n 的 t 一致) */
@@ -690,6 +691,13 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           {formatTokenCount(model.usage.completionTokens)} /{' '}
           {formatTokenCount(model.usage.totalTokens)}
         </div>
+      ) : null}
+      {/* D34 上下文注入交代(第 43 轮跨端):呈现层复用 @ihui/ui-react,取词包成本端点号键 */}
+      {message.role === 'assistant' && message.injections?.length ? (
+        <ContextInjectionList
+          injections={message.injections}
+          t={(key, values) => t(`chat.${key}`, values)}
+        />
       ) : null}
     </div>
   )
