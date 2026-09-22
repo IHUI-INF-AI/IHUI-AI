@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+      "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
       "ariaLabel": "Agent 任务进度面板",
       "celebrate": "全部任务完成",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "展开面板",
       "expandAll": "展开全部",
       "failureBanner": "{n} 个任务失败,点击查看",
+      "followEvents": "跟随事件流",
       "helpClose": "关闭",
       "helpPanelTitle": "键盘快捷键",
       "helpToggle": "快捷键帮助",
@@ -9170,7 +9173,6 @@
       "editAndRerun": "保存并重跑",
       "editRollbackFiles": "同时回滚文件改动",
       "hideContent": "隐藏内容",
-      "jumpToLatest": "跳至最新",
       "like": "点赞",
       "publishToCommunity": "发布到社区",
       "readAloud": "朗读",
@@ -9301,7 +9303,6 @@
       "historyStatsTitle": "累计统计",
       "historyTitle": "权限模式历史",
       "inputWarning": "当前为完全访问模式:AI 可不受限制地访问文件和网络",
-      "jumpToLatest": "跳转到最新",
       "kbdNavigate": "切换",
       "latest": "最新",
       "learnMore": "了解更多",
