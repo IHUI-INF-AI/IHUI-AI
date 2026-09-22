@@ -137,8 +137,8 @@
 - [ ] **pane 与对话列浮动钮的叠压吞点击**(同上一条的剩余半边,本次未做):`z-sticky(990)` 的 pane 可拖至右下,覆盖列内 `z-20` 的 affordance 使其点不到。解阻判据:把 pane 拖到右下角后,列内「跟随事件流/跳到最新/跳顶」三钮仍可点击命中(真机 `elementFromPoint` 取证)。注意本仓有 z-index 层叠守门(guardian id 27/28),改层级前先读该规则的两组契约(桌面窗口控制按钮必须高于 resize 抓手、遮罩盖不到它)。
 - [ ] **pane 帮助面板正文仍把 `?` 文档化为「打开/关闭快捷键帮助」**(`agent-task-progress-pane.tsx:177` 一带使用 `ai.pane.shortcutShowHelp`):归属改完后这行字面仍成立但指向的是全局面板,易误导。要删该文档行会让 `ai.pane.shortcutShowHelp` 变新死键 → 必须同票清键(5 语言),故单列。
 - [x] ✅(2026-09-22) **`?` 双主已收口,归属定为全局**:`use-permission-mode-cycle.ts:92`(document)与 `agent-task-progress-pane.tsx:937`(window)在同一次按下中都会执行 → 一次 `?` 开两个面板。现删除 pane 的 `?` 分支(源码 `:936` 留归属注释),pane 帮助只走 header 钮 + Esc。三处既有断言(`pane-keyboard` / `pane` 两个 describe 共 3 例)同步从"派发 `?`"改为点 header 钮,并**新增反向断言**:pane 打开时在 window 派发 `?` / Shift+/ 后 `aria-expanded` 仍为 false(变异测试实证:把 `?` 分支加回该断言立即红)。
-- [ ] **`Ctrl+Shift+A` 三主**:`use-global-shortcuts.ts:85`(提及文件)/ `use-ide-shortcuts.ts:44`(切 applications 视图)/ `use-native-shortcuts.ts:72`(开管理后台),三处各自 preventDefault 且无 stopPropagation → 一次按下三件事同时发生;同文件 `:72` 另有 `key === 'a' || key === 'a'` 重复字面量笔误(疑似丢了第二个 intended 键)。
-- [ ] **Esc 无层栈协议**:20+ 处 document/window Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 可能同时关遮罩、弹层、pane、搜索条。仓库已有做对的三处可照抄(`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`),正解是在共享层做"最上层消费"栈而非逐处补。
+- [ ] **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
+- [ ] **`Ctrl+Shift+A` 三主(需产品拍板,刻意未自动决)**:与 `?` 那条不同,这次**三处都在用户可见界面声明了自己** —— 注册表帮助面板(`use-global-shortcuts.ts:85` 「提及文件」)、IDE activity-bar tooltip(`src/components/ide/activity-bar.tsx:29` 「applications 视图」)、原生菜单继承的 accelerator(`use-native-shortcuts.ts:22` 「唤起管理后台」,文件头注释记录其来源是 Tauri 菜单迁移)。换掉/摘掉任一个都要改用户可见文案或肌肉记忆,故不属我能代拍的归属。建议方案:注册表为唯一持有者(它出现在帮助面板里最可发现),另两者改绑(如 IDE 用 `Ctrl+Shift+G` 系列、管理后台去 tooltip),解阻判据:按一次 `Ctrl+Shift+A` 只发生一件事,且 activity-bar tooltip 与实际行为一致。另注:`use-native-shortcuts.ts:71` 有一处 `key === 'a' || key === 'a'` 重复字面量(疑为迁移时丢了第二个 intended 键),需原作者确认原意,我不猜。
 - [x] ✅(2026-09-22) **`Alt+Arrow*`**:`SplitPaneContainer.tsx` window 监听原本命中即调用焦点切换但**不 `preventDefault`**,且 `handleFocusSwitch` 内部对 `paneIds.length<=1` 是 no-op ⇒ 单 pane 时按 Alt+← 什么也没做却仍触发浏览器后退;多 pane 时切焦点与后退导航同时发生。现:命中后先判 `paneIds.length<=1` 直接放行,真会切焦点才 `preventDefault + stopPropagation`;并补 `e.isComposing` 放行。**复核更正**:我上一轮登记时写的"无挂载守卫"不准确 —— 动作侧早有 `paneIds.length<=1` 早退,缺的只是不吃按键。
 - [x] ✅(2026-09-22) **`Ctrl+1..5` / `Ctrl+Shift+J` 吃输入法候选**:根因是应用级组合键在 IME 组合态下同样匹配。修法不是加"焦点在输入框"守卫(那会连带废掉在聊天框里正常按 Ctrl+1 切标签页的既有行为),而是**组合态判据 `event.isComposing`**:`use-global-shortcuts.ts` 的 `matchShortcut()` 顶部统一早退(覆盖全部注册快捷键)+ `agent-progress-trigger.tsx` 自有 Ctrl+Shift+J 监听同款补齐。
 - [x] ✅(2026-09-22) **`src/hooks/use-keyboard-shortcut.ts` 零调用死代码**:文件名与 `useKeyboardShortcut` 符号双落点 grep 均为 0 引用(apps/packages/docs/README,无同名测试)→ 已删除。**复核更正**:登记时写的"无焦点守卫"这条我对 SplitPane 的判断不准确,已按上条修正。
@@ -150,6 +150,11 @@
 ### 普查落点(供复核,含我否掉的自身误判)
 
 第一轮"8 个只有监听没有生产者的事件名"是我用窄正则(`dispatchEvent(new CustomEvent('name'`)扫出来的**假阳性**:漏了模板字面量与换行写法。换判据逐名重 grep 后,`ihui:scroll-to-plan-step`、`ihui:toggle-reasoning`、`ihui:add-text-reference`、`ihui:insert-at-cursor` 等均有真实生产者(如 `timeline-event.tsx:349`、`MessageItem.tsx:628`、`markdown-stream.tsx:270`),**唯一**孤儿通道就是已删的 `ihui:jump-to-latest`。另:本轮为取真机证据两次重启本机 8802 API(它会被并行会话/僵尸清理任务打挂),收尾后保持运行未再关闭。
+
+### 收口过程中的两处工程侧问题(已当场治本,非登记项)
+
+- [x] ✅(2026-09-22) **两票提交被 guardian #30a 拦下、safe-commit 自动 `--no-verify` 兜过**:按 §12 先做逐文件归因 —— 复现链为 `guardian-runner --staged` → 先撞上 `check-api-routes` 报 4 处缺路由(复跑即消失,是并行会话在途文件的瞬时态,非本票文件);真正稳定失败的是 30a 自身。正解不是长期跳过:①`git-refs-heal.mjs --status` 显示 `refs/remotes/origin/main` 缺失 → 跑离线重建并按 FETCH_HEAD 权威值固化(`86921f6 → 46879f7`,即本票);②30a 报的 1 个"未 tag 备份悬空 commit"经查是并行会话的 `feat(desktop): 卸载器全面主题化`,其内容**已在 main 上的 `1e009f6dac`**(三个关键文件 blob 哈希逐一只读比对全等),属被放弃的重复尝试,无工作丢失 → 按 §22 打 `lost-commit/wip-uninstaller-theme-3569a03` 零损失备份后 `check-commit-loss-guard --blocking` 复跑 exit 0。**后续会话的 pre-commit 因此恢复干净,不需要再带 `--no-verify`。**
+- [x] ✅(2026-09-22) **本票 `--no-verify` 的实质门禁已逐项自跑补齐**:`pnpm --filter @ihui/web typecheck` exit 0、`pnpm --filter @ihui/web test` 152 files / 2036 tests 全绿、`packages/ui-react` typecheck+build+eslint exit 0、i18n 四道门禁(check-i18n-keys / i18n-apply --check / zh 残留 / broken-en)exit 0、watermark coverage `--no-fix` exit 0、miniapp 样式一致性与 root 整洁 exit 0。
 
 ### 多端与文档
 
@@ -213,6 +218,35 @@
 - **两条实测缺陷(沙箱真跑卸载器 + WGC 截图)**:① 卸载窗最终停在 825×600 而非 880×600 —— MUI 在 `UNGUIINIT` **之后**仍按 dialog units 给卸载窗定尺寸,把我们的 `SetWindowPos` 盖回(同一构建两次分别得 880 与 825,非确定性)→ 补 `IHUI_UNFIX_SIZE`,并在页面收尾再钉一次;② 卸载器与安装器共用 `IHUI_EXTRACTPAGESETS` 时档位不一致会裸贴低档图 → 解压改按 `$IHUIWTIER`。
 - **门禁补扫描面**:`check-installer-assets.mjs` 原只读 `ihui-ui.nsi`,新卸载器文件的 `File` 清单看不见 → 会把 `unconfirm/uninstfiles` 误报「未被打包(冗余)」,而真漏登记也报不出来。并入 `ihui-uninstaller.nsi`(自测模式 `IHUI_NSI_PATH` 不并入,保持判据单一)。现 **引用 17 / 打包 33 / 5 档** 三方一致。
 - **取证证据**(真实截图,非推断):卸载确认页 880×600 完整渲染 —— 导轨 01 确认卸载(渐变实心)/ 02 正在卸载(描边)、`UNINSTALL` kicker、大字「卸载 智汇AI 桌面版」、说明行、品牌开关 + 「删除应用数据(配置、缓存与登录状态)」标签、「取消」/「继续 ›」/右上角 X、页脚 `01 / 02`;卸载进度页 —— 01 打勾 / 02 高亮、`STEP 02`、「正在卸载」、百分比 `85%`、阶段文案「正在清理注册信息」、页脚 `02 / 02`。
+
+### 第三批(同日):卸载零残留
+
+用户追问"会不会留残留"。按**写入点 vs 清理点逐条对账**(不是凭印象),`Section Uninstall` 上游已覆盖:安装目录、文件关联、深度链接协议键(仅当 command 仍指向本机安装路径)、`UNINSTKEY`、`Software\厂商\产品` 及为空的父键、`Installer Language`、Run 自启值、开始菜单/桌面快捷方式、AppUserModelID、以及 `$UNDATA` 勾选后的 `%APPDATA%|%LOCALAPPDATA%\com.ihui.desktop`(本机实测 94 MB = `EBWebView` + `logs`)。另两处**有意不清**:`WebView2 Runtime` 本体(系统级共享运行库)、不勾选时保留用户数据(给重装/换机留路)。
+
+对账查出四类无人回收的残留,全部落在 `hooks.nsi` 的 `NSIS_HOOK_POSTUNINSTALL`(改这一个文件即可,**不需要新模板补丁**):
+
+1. `%TEMP%\MicrosoftEdgeWebview2Setup.exe` / `MicrosoftEdgeWebView2RuntimeInstaller.exe` —— 上游只在**写之前** Delete 一次做幂等,装完从不回收。
+2. `%APPDATA%\${MANUFACTURER}` / `%LOCALAPPDATA%\${MANUFACTURER}` —— 卸载器只按 bundle id 删;本机实测 `%LOCALAPPDATA%\智汇AI` 留着一个空目录。用**不带 /r 的 `RMDir`**:目录非空就删不动 → 别家产品数据零误伤。
+3. `HKCU\Control Panel\NotifyIconSettings\<n>` —— 托盘「常驻」开关(`src/lib.rs::apply_tray_promotion`)写的是 **Explorer 自己的编号项**,程序没了 Explorer 不回收,成永久孤儿。判据 = 该条目 `ExecutablePath` 里出现 `$INSTDIR\`(一次 `shlwapi::StrStrW` 搞定),既覆盖跨版本改过 `MainBinaryName` 的旧条目,又不可能命中装在别处的同名 exe。删一项会让后续编号前移 → 同步 `IntOp $8 - 1`,否则跳过相邻项。
+4. 未做(判据不可达就不写投机代码):防火墙规则 —— 本机与代码两侧都没找到任何创建点(无 `netsh` / 无入站监听),不为此加一条需要管理员权限的 best-effort 调用。
+
+**取证(`.ihui-agent/tmp/installer-redesign/verify-zero-residue.mjs`,真装→造残留→静默卸→逐条回读)7 条全绿**,含两枚**负向对照**:
+
+| 断言 | 结果 |
+|---|---|
+| ① 两个 WebView2 引导包已删 | ✅ |
+| ② 厂商名空目录已删 | ✅ |
+| ③ 我方托盘条目已删 | ✅ |
+| ④ 诱饵:`C:\SomeOther\ihui-sandbox-app.exe`(别家同名 exe)保留 | ✅ |
+| ⑤ 诱饵:`%TEMP%\ihui-sandbox-other\...`(前缀相似但在目录外)保留 | ✅ |
+| ⑥ 目录内旧二进制名条目已删(覆盖改名升级) | ✅ |
+| ⑦ 安装目录本身已删 | ✅ |
+
+**两条踩过的坑(已写进代码注释)**:LogicLib 的 `${OrIf}` **不支持**字符串"包含"判据(实锤 `Error in macro _Or on macroline 18`),只能用 `StrStrW`;`"$INSTDIR\"` 这种"反斜杠紧贴引号"要先 `StrCpy` 落地成寄存器再参与比较。
+
+**门禁与验证**:`check-installer-assets` PASS(引用 17/打包 33/5 档)、`desktop-nsis-template --check` OK(26 补丁,本批未动模板)、接线测试 6/6、水印完好、沙箱安装器编译通过。`guardian-runner` 全量唯一红项是并发会话在途的 `apps/api/src/routes/ai-vendors/proxy-extended-media3.ts`(第 6 项),与本批无关。
+
+**仍未闭环**:① 卸载进度页两处视觉修复(文本底色 / 进度条提顶)与② 该页品牌开关实点,均未经二次截图复验(判据:与安装页已截图证实的实现逐行同构);③ 安装包体积增幅待真包量化;④ 真包 `tauri build --bundles nsis` 本批未跑。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -2551,6 +2585,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - barrel 导出:index.ts 追加 9 屏 export;README.md 表格追加 9 行 + 架构原则 3.4 节补充
   - 验证:typecheck exit 0 ✅ + lint exit 0 ✅
   - 平台独占:仅 apps/miniapp-taro(§9 豁免,无跨端契约变更)
+  - **2026-09-22 修订**:本条 9 个屏级适配器(实际 3078 行,非 2921)已作为零引用死代码移除——小程序端这 9 个屏均有自有页面在跑,接线即造第三份实现。取证与判定见 P2-F.5/P2-F.6。
 - **P2-F.4**(评估触发):若适配层代码量 > 50% packages/app,启动 packages/app platform-agnostic 化重构评估
 - [x] ✅(2026-09-22) **P2-F.5 web→小程序 UI 复用路线终审(A 路线冒烟实测,P2-F.4 的结论替代项)**:针对"`@ihui/ui-react` 组件能否直接下沉 miniapp-taro(即免去双端各写一套)"做了一次**完整 weapp 编译冒烟**,四步改动(注册 `@tarojs/plugin-html` + 把 `packages/ui-react/src` 加进 weapp `compile.include` + 临时页 `pkg-about/about/ui-smoke` 引 `Button/Card/Input` + `app.config.ts` 注册),跑 `taro build --type weapp`,**测完已全部回滚,工作区零残留**。实测结论:
   - **编译层成立** ✅:构建成功产出 `dist/pkg-about/about/ui-smoke.{js,wxml,wxss,json}`,日志 0 error;`ui-smoke.wxss` 内出现 ui-react 的 `.login-scope` / `--color-accent` 规则,证明 Tailwind → WXSS 链路面通。
@@ -2559,6 +2594,12 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **判定:A 路线不采纳为主线**,理由是"存量重复已被治理"而非"技术上不可能"。同轮以 `node scripts/check-shared-layer-duplication.mjs`(守门 40)全量复核,结果 **✅ 0 违规**,并抽验两处同名 hook 证实均为 §3 允许形态:`use-pagination`(shared 111 行是实现,web 27 行 / miniapp 9 行均为 re-export wrapper)、`use-ui-control-bridge`(miniapp 348 行首行即 §3 要求的 `// 平台特有:依赖 Taro 运行时` 标注)。**故"再抽一个 VM 到 shared 当样板"这一项无对象可做,不再列为待办。**
   - **可复用的既有事实**(供后续讨论引用,免重复取证):miniapp-taro 自有组件 **88 个** `.tsx`;ui-react 顶层 32 个 `.tsx` 中 **19 个**无 Radix 无浏览器 API(18 pure + `button` 仅依赖 `@radix-ui/react-slot`)、**13 个**永久不可下沉(8 Radix 交互件 + 4 browser-only + `dialog` 两者皆有);本端 18 个适配器**实际仅 3 处页面接线**;`check-adapter-style-parity.mjs` 只守硬编码颜色、**不守"是否接线"**,所以"造好没装车"当前无闸可挡(若要加固,先按 §24 确认再建门,不在本次范围)。
   - 平台独占:仅 apps/miniapp-taro + 文档(§9 豁免,无跨端契约变更)。
+- [x] ✅(2026-09-22) **P2-F.6 屏级适配器死代码清理 + 新增守门 64「未接线即拦」**:
+  - **删除 9 个屏级适配器**(FeedbackScreen/SettingsScreen/OrderScreen/WalletScreen/MessageCenterScreen/StudyPlanScreen/CertificateScreen/NoteListScreen/NoteDetailScreen,共 3078 行)。**§7 三问取证**:① 承载功能 = RN 屏的 Taro 移植版;② 等价实现存在且**在跑**——小程序端对应屏自有页面齐备(settings 3 文件 / message 7 / order 2 / plan 2 / note 3 / wallet 1 / certificate 1 / feedback 2);③ 无外部引用(三落点核对:组件名目录外命中**全为注释**「对齐 RN XxxScreen」、`XxxProps` 引用 0、`OrderItem`/`WalletBalance` 命中系端内自有同名类型),`adapters/index.ts` 已摘除 9 组 export + 类型,README 表格与计数同步。删除前打 tag `backup/adapters-screen-cleanup-20260922`。
+  - **新增守门 64** `scripts/check-adapter-wiring.mjs`:适配器必须被 **adapters 目录之外**的源文件从 adapters 路径 import,否则 BLOCK;存量 6 个未接线项(Carousel/NavBar/PayButton/TabBar/Toolbar/UserInfoCard)入 `scripts/adapter-wiring-baseline.json` 基线放行,只减不增。注册于 `guardian-runner.mjs` id 64(blocking + `stagedTriggers=['apps/miniapp-taro/src/components/adapters/']` + `skipEnv=HUSKY_SKIP_ADAPTER_WIRING`),守门项数 94→95。§22c 测试 `scripts/tests/check-adapter-wiring.test.mjs` **直接 import `__test__`**(8 例全过),§22d `isDirectRun` 守卫到位。
+  - **建门过程中自查出的两个自身缺陷**(均已修并复验):① 初版 `main()` 返回 1 但入口未转 `process.exit` → 打印 BLOCK 却 exit 0,接进 pre-commit 就是**假门**;② 初版判据不限定 import specifier,而端内存在同名自有组件(`components/NavBar.tsx` 等),致 4 个死适配器被误判"已接线"(未接线数虚报 2,真实为 6)。**有效性靠注入 `InjectedDeadWidget.taro.tsx` 实测:BLOCK + exit 1,撤除后回 0**,而非读脚本自述。
+  - 验证:`pnpm --filter @ihui/miniapp-taro typecheck` 真实 exit 0(不经管道)+ `--self-test` 7 例 + `node --test` 8 例 + eslint 无错 + `watermark.mjs verify` 9964/9964 全绿 + `check-adapter-style-parity` PASS(预告的基线联动实测为 0 影响,存量仅 1 处)。
+  - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
 - **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分
 

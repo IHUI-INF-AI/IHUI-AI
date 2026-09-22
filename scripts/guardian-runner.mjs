@@ -1438,6 +1438,33 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 64 (2026-09-22 新增,miniapp-taro 适配层「未接线即拦」,PROJECT_PLAN P2-F.5 配套) ---
+  // blocking:适配层历史上 18 个 .taro.tsx 里的 9 个屏级(共 3078 行)从写下到删除始终零页面引用,
+  //   而既有 check-adapter-style-parity.mjs 只守硬编码颜色、不守「是否被 import」,
+  //   所以「造好没装车」这种死代码此前无闸可挡 —— 本门补的就是这一格。
+  //   判据:新增适配器必须被 adapters 目录**之外**的源文件从 adapters 路径 import
+  //   (端内存在同名自有组件,不限定 specifier 会把它们误判为已接线);
+  //   存量 6 个未接线项落在 scripts/adapter-wiring-baseline.json 内放行,只减不增。
+  {
+    id: '64',
+    label: '🧩 [miniapp-taro] 适配层未接线即拦(防"造好没装车"死代码回升)',
+    script: 'check-adapter-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_WIRING',
+    onFailHint: [
+      '',
+      '  💡 apps/miniapp-taro/src/components/adapters/*.taro.tsx 里有新增的无人 import 适配器。',
+      "     接线:页面里 import { X } from '@/components/adapters'",
+      '     或删除:确认端内已有自有实现后 rm(先过 AGENTS.md §7 删除三问)',
+      '     存量收紧基线:node scripts/check-adapter-wiring.mjs --update-baseline',
+      '     自检:node --test scripts/tests/check-adapter-wiring.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
