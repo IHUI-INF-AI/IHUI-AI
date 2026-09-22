@@ -13,6 +13,7 @@ import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { STATUS_META } from './helpers'
 import type { AskItem } from './types'
+import { useDataTableLabels } from '@/hooks/use-data-table-labels'
 
 interface Props {
   list: AskItem[]
@@ -47,6 +48,7 @@ export function AsksTable({
   onAudit,
   onDelete,
 }: Props) {
+  const dtLabels = useDataTableLabels()
   const t = useTranslations('admin.asks')
   const locale = useLocale()
   const dateFmt = React.useMemo(
@@ -242,6 +244,7 @@ export function AsksTable({
           </div>
         </div>
       )}
+      labels={dtLabels}
     />
   )
 }
