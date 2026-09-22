@@ -501,6 +501,14 @@
       "shareBtn": "공유"
     }
   },
+  "chatDisclosure": {
+    "citationTitle": "참조 출처",
+    "injectionTitle": "이번 응답에서 참조한 컨텍스트",
+    "kindDeveloper": "사용자 지정 지침",
+    "kindWorkspace": "워크스페이스 기억",
+    "kindRepoWiki": "저장소 Wiki",
+    "kindAutoContext": "자동 검색 컨텍스트"
+  },
   "developer": {
     "title": "개발자 포털",
     "becomeDeveloper": "개발자 되기",
