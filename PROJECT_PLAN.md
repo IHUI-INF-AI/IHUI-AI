@@ -2824,14 +2824,14 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 
 ## 后续任务建议(2026-07-30 立,本任务范围内,符合 §10 一致性约束)
 
-- **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + README + typecheck 全绿
+- [x] ✅(2026-07-30) **P2-F.1**(本批次立即):已完成 H1-H5,4 适配层 + barrel + README + typecheck 全绿
 - [x] ✅(2026-07-30) **P2-F.2** + **P2-F.3** 合并完成:9 屏共享组件 Taro 适配层一次性落地(9 subagent 并行派发,共 2921 行)
   - FeedbackScreen(309 行)/ SettingsScreen(545 行)/ OrderScreen(360 行)/ WalletScreen(258 行)/ MessageCenterScreen(366 行)/ StudyPlanScreen(333 行)/ CertificateScreen(273 行)/ NoteListScreen(239 行)/ NoteDetailScreen(238 行)
   - barrel 导出:index.ts 追加 9 屏 export;README.md 表格追加 9 行 + 架构原则 3.4 节补充
   - 验证:typecheck exit 0 ✅ + lint exit 0 ✅
   - 平台独占:仅 apps/miniapp-taro(§9 豁免,无跨端契约变更)
   - **2026-09-22 修订**:本条 9 个屏级适配器(实际 3078 行,非 2921)已作为零引用死代码移除——小程序端这 9 个屏均有自有页面在跑,接线即造第三份实现。取证与判定见 P2-F.5/P2-F.6。
-- **P2-F.4**(评估触发):若适配层代码量 > 50% packages/app,启动 packages/app platform-agnostic 化重构评估
+- [x] ✅(2026-09-22) **P2-F.4**(条件触发项,现以数据判定为**不触发**,结论由 P2-F.5 取代):原条款"若适配层代码量 > 50% packages/app,启动 packages/app platform-agnostic 化重构评估"从未写过判定,现补上:实测 `apps/miniapp-taro/src/components/adapters` = **725 行** vs `packages/app/src` = **51,777 行** ⇒ **1.4% ≪ 50%**,不触发;且 P2-F.6 已移除 3,078 行零引用屏级适配器,本条要评估的对象本身已不存在。主线改走 P2-F.5 的 weapp 冒烟实测结论。
 - [x] ✅(2026-09-22) **P2-F.5 web→小程序 UI 复用路线终审(A 路线冒烟实测,P2-F.4 的结论替代项)**:针对"`@ihui/ui-react` 组件能否直接下沉 miniapp-taro(即免去双端各写一套)"做了一次**完整 weapp 编译冒烟**,四步改动(注册 `@tarojs/plugin-html` + 把 `packages/ui-react/src` 加进 weapp `compile.include` + 临时页 `pkg-about/about/ui-smoke` 引 `Button/Card/Input` + `app.config.ts` 注册),跑 `taro build --type weapp`,**测完已全部回滚,工作区零残留**。实测结论:
   - **编译层成立** ✅:构建成功产出 `dist/pkg-about/about/ui-smoke.{js,wxml,wxss,json}`,日志 0 error;`ui-smoke.wxss` 内出现 ui-react 的 `.login-scope` / `--color-accent` 规则,证明 Tailwind → WXSS 链路面通。
   - **体积代价不成立** ❌:单个冒烟页使 `pkg-about` 分包 **222KB → 401KB(+179KB)**,主包 +11KB;且 ui-react 是 barrel 全量导出,一次 import 会把 `login-form` 全家 + `lucide-react` 一并拖入分包(见 `ui-smoke.js.LICENSE.txt` 列出的 `lucide-react v1.37.0`)。
