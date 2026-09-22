@@ -649,9 +649,30 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
 
 
 
+def _citation_url(source: Any, raw: Any) -> str | None:
+    """从命中元数据里取**真实**存在的跳转目标,取不到就返回 None(绝不合成链接)。
+
+    - 任意源:raw 里显式给了 url 就用;
+    - codebase:给仓库相对路径 —— web 端 CitationBar 把非 http/非 # 的 url 交给 WorkPanel 打开,
+      因此文件路径就是可用的溯源深链;小程序/终端不渲染链接,不受影响。
+    """
+    if not isinstance(raw, dict):
+        return None
+    url = raw.get("url")
+    if isinstance(url, str) and url.strip():
+        return url.strip()
+    if source == "codebase":
+        file_path = raw.get("file_path") or raw.get("path")
+        if isinstance(file_path, str) and file_path.strip():
+            return file_path.strip().lstrip("/\\")
+    return None
+
+
 def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[str, str]]:
     """#11 Citations 全链路(2026-09-13 立):从 tool_calls_history 提取 knowledge_lookup
-    的引用溯源条目,按 (source, label) 去重,最多 10 条避免事件体积膨胀。"""
+    的引用溯源条目,按 (source, label) 去重,最多 10 条避免事件体积膨胀。
+    第 50 轮补:命中元数据里**确实存在**的 url / 仓库相对路径一并带出(web 据此可点击溯源),
+    没有就不发该键 —— 不给界面一个点不动的"假链接"。"""
     seen: set[tuple[str, str]] = set()
     out: list[dict[str, str]] = []
     for tc in tool_calls_history:
@@ -667,6 +688,7 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
             if not isinstance(h, dict):
                 continue
             source = h.get("source") or "knowledge"
+            url = _citation_url(source, h.get("raw"))
             for c in h.get("citations") or []:
                 if not isinstance(c, str) or not c.strip():
                     continue
@@ -675,7 +697,10 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
                 if key in seen:
                     continue
                 seen.add(key)
-                out.append({"source": str(source), "label": label})
+                entry = {"source": str(source), "label": label}
+                if url:
+                    entry["url"] = url
+                out.append(entry)
                 if len(out) >= 10:
                     return out
     return out
