@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     width: '100%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: CARD_PADDING_TOP,

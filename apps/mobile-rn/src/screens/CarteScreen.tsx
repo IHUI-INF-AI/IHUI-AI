@@ -63,7 +63,7 @@ export default function CarteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   bottom: {
     position: 'absolute',

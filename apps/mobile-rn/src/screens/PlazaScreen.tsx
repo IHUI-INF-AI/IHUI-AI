@@ -645,7 +645,7 @@ export function PlazaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   navIcon: {
     fontSize: 20,
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   categoryCard: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(40),
   } as ViewStyle,
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   identityCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(48),
     alignItems: 'center',

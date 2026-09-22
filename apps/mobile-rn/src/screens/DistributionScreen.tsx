@@ -459,7 +459,7 @@ const shellStyles = {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
