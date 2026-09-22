@@ -331,8 +331,8 @@ ${body14(C_L, 440, '你的账号与云端数据不受此选择影响。', C.mute
 //   f7-15 底部品牌渐变进度线自中心延展
 //   f12+  域名 kicker
 // AdvSplash 以 Delay/帧数 的节奏轮播 splash.bmp, splash1.bmp, …
-const SPLASH_W = 720;
-const SPLASH_H = 450;
+const SPLASH_W = 880;
+const SPLASH_H = 600;
 const SPLASH_FRAMES = 16;
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -341,28 +341,28 @@ const easeOut = (x) => 1 - (1 - x) ** 3;
 function splashScene(frame, logo) {
   const f = frame;
   const markIn = easeOut(clamp01(f / 5));
-  const markSize = Math.round((110 * (0.86 + 0.14 * markIn)) * 10) / 10;
+  const markSize = Math.round((140 * (0.86 + 0.14 * markIn)) * 10) / 10;
   const markOp = clamp01(f / 4);
-  const markY = Math.round((188 - 10 * markIn) * 10) / 10;
+  const markY = Math.round((252 - 12 * markIn) * 10) / 10;
   const ringOp = clamp01((f - 2) / 5);
   const wordOp = clamp01((f - 6) / 4);
-  const wordSpacing = Math.round((22 - 19 * easeOut(clamp01((f - 6) / 6))) * 10) / 10;
+  const wordSpacing = Math.round((26 - 23 * easeOut(clamp01((f - 6) / 6))) * 10) / 10;
   const tagOp = clamp01((f - 9) / 3);
-  const lineW = Math.round(440 * easeOut(clamp01((f - 7) / 8)));
+  const lineW = Math.round(520 * easeOut(clamp01((f - 7) / 8)));
   const domOp = clamp01((f - 12) / 3);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SPLASH_W}" height="${SPLASH_H}" viewBox="0 0 ${SPLASH_W} ${SPLASH_H}">
 ${GRAD_DEFS}
 <rect width="${SPLASH_W}" height="${SPLASH_H}" fill="${C.bg}"/>
 <rect x="0" y="0" width="${SPLASH_W}" height="3" fill="url(#ihg)" opacity="${ringOp}"/>
 <g opacity="${ringOp}">
-<circle cx="360" cy="188" r="${104 + 10 * ringOp}" fill="none" stroke="${C.tintStrong}" stroke-width="1.5"/>
-<circle cx="360" cy="188" r="${132 + 16 * ringOp}" fill="none" stroke="${C.tint}" stroke-width="1.5"/>
+<circle cx="440" cy="252" r="${128 + 12 * ringOp}" fill="none" stroke="${C.tintStrong}" stroke-width="1.5"/>
+<circle cx="440" cy="252" r="${162 + 18 * ringOp}" fill="none" stroke="${C.tint}" stroke-width="1.5"/>
 </g>
-<image href="${logo}" x="${360 - markSize / 2}" y="${markY - markSize / 2}" width="${markSize}" height="${markSize}" opacity="${markOp}"/>
-<text x="360" y="300" font-family="${FONT}" font-size="46" font-weight="700" fill="${C.ink}" text-anchor="middle" letter-spacing="${wordSpacing}" opacity="${wordOp}">智汇AI</text>
-<text x="360" y="336" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="middle" opacity="${tagOp}">你的 AI 智能体工作台</text>
-<rect x="${360 - lineW / 2}" y="388" width="${lineW}" height="2" rx="1" fill="url(#ihg)"/>
-<text x="360" y="418" font-family="${FONT}" font-size="10" fill="${C.accent}" text-anchor="middle" letter-spacing="5" opacity="${domOp}">AIZHS.TOP</text>
+<image href="${logo}" x="${440 - markSize / 2}" y="${markY - markSize / 2}" width="${markSize}" height="${markSize}" opacity="${markOp}"/>
+<text x="440" y="392" font-family="${FONT}" font-size="52" font-weight="700" fill="${C.ink}" text-anchor="middle" letter-spacing="${wordSpacing}" opacity="${wordOp}">智汇AI</text>
+<text x="440" y="436" font-family="${FONT}" font-size="16" fill="${C.muted}" text-anchor="middle" opacity="${tagOp}">你的 AI 智能体工作台</text>
+<rect x="${440 - lineW / 2}" y="492" width="${lineW}" height="2" rx="1" fill="url(#ihg)"/>
+<text x="440" y="532" font-family="${FONT}" font-size="11" fill="${C.accent}" text-anchor="middle" letter-spacing="5" opacity="${domOp}">AIZHS.TOP</text>
 </svg>`;
 }
 
@@ -438,6 +438,17 @@ function buttonScene(kind, text, w, h, labelSize) {
     default:
       throw new Error(`未知按钮类型:${kind}`);
   }
+}
+
+// ---- 自绘品牌进度条填充(544×8,左→右品牌渐变,两端半圆胶囊) -----------------
+// 运行期由 IHUI_PROGRESS 用 SetWindowRgn 从左侧按百分比裁宽,所以位图必须是
+// "满量程"一张(控件尺寸 == 位图尺寸,SS_BITMAP 居中即逐像素贴合)。
+// 原生 msctls_progress32 由 NSIS 自行推进,与阶段驱动的百分比数字会打架,故弃用。
+function barFillScene() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PB_W}" height="${PB_H}" viewBox="0 0 ${PB_W} ${PB_H}">
+${GRAD_DEFS}
+<rect x="0" y="0" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="url(#ihg)"/>
+</svg>`;
 }
 
 // ---- BMP 编码(24bit BGR 自底向上) ------------------------------------------
@@ -549,6 +560,11 @@ for (const scale of SCALES) {
     await render(fn(logo), w, h, mode === 'write' ? join(dir, `${name}.bmp`) : null, join(pngDir, `${name}.png`));
     count++;
   }
+
+  // 自绘进度条填充(非满幅页,尺寸 = 轨道几何)
+  await render(barFillScene(), Math.round(PB_W * scale), Math.round(PB_H * scale),
+    mode === 'write' ? join(dir, 'bar-fill.bmp') : null, join(pngDir, 'bar-fill.png'));
+  count++;
 
   // 开屏帧
   for (let i = 0; i < SPLASH_FRAMES; i++) {
