@@ -62,8 +62,8 @@ function visibilityProps(on: boolean, extraClass = '') {
  *  - 跳顶 = 距顶>800px 才显;跳到最新 = 距底>800px 或用户主动上滚才显(真在底部时恒不显)
  *  - 2026-09-22 归一:此前 MessageList 底部居中另挂了一枚同义的「跳到最新」
  *    (data-testid="message-list-jump-latest"),同屏两枚语义重复的按钮共处一条 300px 宽的
- *    对话列。现合并为本列的唯一「跳到最新」,行为改用 handleJumpToLatest(滚到底 + 广播
- *    ihui:jump-to-latest),流式红点随该按钮。文案键沿用 jumpToTop/jumpToLatest,不新增键。
+ *    对话列。现合并为本列的唯一「跳到最新」,行为改用 hook 的 scrollToBottom(滚到底 + 复位
+ *    userScrolledUp),流式红点随该按钮。文案键沿用 jumpToTop/jumpToLatest,不新增键。
  *  - 禁发光/蓝光边框;红点属 ≤8px 装饰点(AGENTS.md 圆角豁免项) */
 export function ScrollJumpButtons({
   isFarFromTop,
