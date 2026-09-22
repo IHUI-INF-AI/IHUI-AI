@@ -427,7 +427,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                               e.stopPropagation()
                               onRemoveFavorite(item.url)
                             }}
-                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -545,7 +545,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                             e.stopPropagation()
                             onTabClose(tab.id)
                           }}
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                           <X className="h-3 w-3" />
                         </span>

@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+      "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
       "ariaLabel": "Agent 任务进度面板",
       "celebrate": "全部任务完成",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "展开面板",
       "expandAll": "展开全部",
       "failureBanner": "{n} 个任务失败,点击查看",
+      "followEvents": "跟随事件流",
       "helpClose": "关闭",
       "helpPanelTitle": "键盘快捷键",
       "helpToggle": "快捷键帮助",
@@ -7101,6 +7104,13 @@
         "title": "终端任务",
         "truncated": "…(已截断,共 {total} 字符)"
       },
+      "injectionTitle": "本轮上下文:{count} 项",
+      "injectionExpand": "展开其余 {count} 项",
+      "injectionCollapse": "收起",
+      "injectionKindDeveloper": "已应用会话级自定义指令",
+      "injectionKindWorkspace": "已注入工作区记忆 / AGENTS.md",
+      "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
+      "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
       "thinkingCharCountTitle": "{n} 个字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
@@ -7311,8 +7321,6 @@
         "total": "总用量",
         "ariaLabel": "消息用量详情"
       },
-      "retryBadge": "重试{count}次",
-      "retryBadgeAria": "工具瞬时失败后自动重试 {count} 次",
       "openInWorkPanel": "在工作展示区打开",
       "toolUnknownFile": "(未知文件)",
       "pendingTaskTitle": "任务进行中",
@@ -7323,7 +7331,6 @@
       "pendingRefresh": "刷新状态",
       "pendingStopped": "长时间未完成,已停止自动刷新;可点击\"刷新状态\"继续检查。",
       "pendingFailed": "任务已失败或取消,可换个提示词重新生成。",
-      "planStepPending": "待执行",
       "planStepInProgress": "进行中",
       "planStepCompleted": "已完成",
       "planStepFailed": "失败"
@@ -8957,7 +8964,6 @@
     "cmdKouboScript": "请帮我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 选题方向:\n3. 双门禁验证(歧义压缩 / 跨稿词表 / 全量验证 / 语病 / 热点覆盖)\n请走 koubo-workflow 流水线(约束优先写作法)。",
     "cmdPolish": "请润色以下文本，使其更专业流畅：",
     "cmdSummary": "请总结以上对话内容，提炼关键信息",
-    "viewNIntermediateSteps": "查看 {count} 个中间步骤",
     "hideIntermediateSteps": "隐藏中间步骤",
     "batchDiff": {
       "acceptAll": "全部接受",
@@ -9167,7 +9173,6 @@
       "editAndRerun": "保存并重跑",
       "editRollbackFiles": "同时回滚文件改动",
       "hideContent": "隐藏内容",
-      "jumpToLatest": "跳至最新",
       "like": "点赞",
       "publishToCommunity": "发布到社区",
       "readAloud": "朗读",
@@ -9207,7 +9212,6 @@
     "modelCapReasoning": "推理",
     "modelCapTools": "工具",
     "modelCapFim": "补全",
-    "stepsHoverPreview": "悬停预览末段，点击展开完整步骤",
     "modelCategoryAsr": "语音识别",
     "modelCategoryChat": "对话推理",
     "modelCategoryEmbedding": "向量嵌入",
@@ -9299,7 +9303,6 @@
       "historyStatsTitle": "累计统计",
       "historyTitle": "权限模式历史",
       "inputWarning": "当前为完全访问模式:AI 可不受限制地访问文件和网络",
-      "jumpToLatest": "跳转到最新",
       "kbdNavigate": "切换",
       "latest": "最新",
       "learnMore": "了解更多",
@@ -19295,6 +19298,7 @@
     "registerSuccess": "注册成功",
     "registerTitle": "统一注册",
     "sendCodeFailed": "验证码发送失败",
+    "sessionExpired": "登录状态已失效，请重新登录",
     "subtitle": "登录后将为 {clientId} 授权并跳转",
     "title": "统一登录",
     "mobileAuth": {

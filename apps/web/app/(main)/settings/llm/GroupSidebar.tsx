@@ -237,7 +237,7 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="h-6 w-6 shrink-0 p-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                   onClick={(e) => handleDeleteGroup(g, e)}
                 >
                   <Trash2 className="h-3 w-3" />

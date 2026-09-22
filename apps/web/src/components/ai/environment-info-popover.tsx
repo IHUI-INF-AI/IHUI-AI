@@ -24,7 +24,9 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
+import { useRouter } from 'next/navigation'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
 import type { GitStatusSnapshot } from '@ihui/types'
@@ -204,6 +206,8 @@ function PopoverBody({
 }) {
   const [localExpanded, setLocalExpanded] = React.useState(false)
   const [branchExpanded, setBranchExpanded] = React.useState(false)
+  const router = useRouter()
+  const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
 
   if (!snapshot.isRepo) {
     return (
@@ -235,9 +239,12 @@ function PopoverBody({
   const localPath = snapshot.localPath ?? null
   const remotes = snapshot.remotes ?? []
 
+  // 2026-09-22 修:原实现派发 CustomEvent 'ihui:open-ide-tab',而全仓无任何监听方 →
+  // 点击「比较分支」点击后毫无反应(与桌面托盘菜单同型的"派发到空气"缺陷)。
+  // 改为直接执行命令面板 Code Changes 的既有路径(setActiveTopTab + 跳转 /developer/ide)。
   const handleCompare = () => {
-    if (typeof window === 'undefined') return
-    window.dispatchEvent(new CustomEvent('ihui:open-ide-tab', { detail: { tab: 'code-changes' } }))
+    setActiveTopTab('code-changes')
+    router.push('/developer/ide')
   }
 
   const compareUrl = buildCompareUrl(githubStatus)

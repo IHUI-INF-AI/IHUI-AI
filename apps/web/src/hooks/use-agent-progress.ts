@@ -112,7 +112,12 @@ export interface TerminalTask {
   id: string
   command: string
   status: TerminalStatus
+  /** 命令输出(超出后端上限时为截断后的文本) */
   output?: string
+  /** 输出是否被后端截断(回放/刷新场景没有 live 缓冲,只能靠这个标志) */
+  truncated?: boolean
+  /** 截断前的原始字符数 */
+  totalChars?: number
   startedAt: string
   endedAt?: string
   durationMs?: number
@@ -695,8 +700,8 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
   const map = new Map<string, TerminalTask>()
   for (const evt of events) {
     if ((evt.type as string) === 'terminal_start') {
-      const data = evt.data as { id?: string; command?: string } | undefined
-      const id = data?.id ?? `term-${evt.timestamp}`
+      const data = evt.data as { id?: string; terminalId?: string; command?: string } | undefined
+      const id = data?.terminalId ?? data?.id ?? `term-${evt.timestamp}`
       map.set(id, {
         id,
         command: data?.command ?? '',
@@ -705,12 +710,25 @@ function extractTerminalsFromEvents(events: SSEEvent[]): TerminalTask[] {
       })
     } else if ((evt.type as string) === 'terminal_end') {
       const data = evt.data as
-        { id?: string; status?: TerminalStatus; output?: string; exitCode?: number } | undefined
-      const id = data?.id ?? ''
+        | {
+            id?: string
+            terminalId?: string
+            status?: TerminalStatus
+            output?: string
+            exitCode?: number
+            truncated?: boolean
+            totalChars?: number
+          }
+        | undefined
+      // 后端契约字段是 terminalId(llm.py `_format_terminal_end_event`);旧代码只读 id,
+      // 两者不一致时结束帧会被静默丢弃(命令永远停在 running 且没有输出)
+      const id = data?.terminalId ?? data?.id ?? ''
       const existing = id ? map.get(id) : undefined
       if (existing) {
         existing.status = data?.status ?? 'completed'
         existing.output = data?.output
+        if (data?.truncated !== undefined) existing.truncated = data.truncated
+        if (data?.totalChars !== undefined) existing.totalChars = data.totalChars
         existing.endedAt = evt.timestamp
         const startMs = Date.parse(existing.startedAt)
         const endMs = Date.parse(evt.timestamp)

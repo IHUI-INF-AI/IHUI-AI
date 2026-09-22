@@ -487,73 +487,74 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
     })
   })
 
-  // ─── 3. Jump-to-latest 浮动按钮 ────────────────────────────────
-  describe('Jump-to-latest 浮动按钮', () => {
-    it('默认不显示(用户未向上滚动)', () => {
+  // ─── 3. 跳到最新 affordance(2026-09-22 归一:合并进右下角列)────────────
+  // 旧实现:MessageList 内联一枚底部居中按钮(data-testid="message-list-jump-latest"),
+  // 与右下角 ScrollJumpButtons 的「跳底」(aria-label 同为 jumpToLatest)同义重复。
+  // 现契约:整屏仅一枚「跳到最新」,落在右下角列内,显隐由 userScrolledUp/isFarFromBottom 驱动。
+  describe('跳到最新 affordance(归一至右下角列)', () => {
+    const revealByScrollUp = async (container: HTMLElement) => {
+      const panel = container.querySelector(
+        '[data-testid="message-list-inline-panel"]',
+      ) as HTMLElement
+      Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
+      Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
+      Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
+      await act(async () => {
+        fireEvent.scroll(panel)
+      })
+      return panel
+    }
+    const latestAffordance = (container: HTMLElement) =>
+      container.querySelector('[data-testid="scroll-jump-bottom"]') as HTMLElement
+    const isRevealed = (el: HTMLElement) =>
+      el.className.includes('opacity-100') && el.className.includes('pointer-events-auto')
+
+    it('默认不显示,且旧的底部居中按钮已从 DOM 消失', () => {
       const msg = makeAssistantMsg('m1', 'hi')
-      render(<MessageList {...baseProps} messages={[msg]} />)
+      const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
       expect(screen.queryByTestId('message-list-jump-latest')).toBeNull()
+      expect(isRevealed(latestAffordance(container))).toBe(false)
     })
 
-    it('用户向上滚动超过 120px 后显示按钮', async () => {
+    it('用户向上滚动后,右下角列内的「跳到最新」显形,且全树仅此一枚', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
-      const panel = container.querySelector(
-        '[data-testid="message-list-inline-panel"]',
-      ) as HTMLElement
-      // 模拟大量内容导致可滚动
-      Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
-      Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
-      Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
-      // 触发滚动:距离底部 1000 - 0 - 200 = 800px > 120 → 向上滚动
-      await act(async () => {
-        fireEvent.scroll(panel)
-      })
-      // rAF 后 state 更新
+      await revealByScrollUp(container)
       await waitFor(() => {
-        expect(screen.getByTestId('message-list-jump-latest')).toBeTruthy()
+        expect(isRevealed(latestAffordance(container))).toBe(true)
       })
+      expect(screen.getAllByLabelText('Jump to latest')).toHaveLength(1)
+      expect(container.querySelector('[data-testid="message-list-jump-latest"]')).toBeNull()
     })
 
-    it('点击 jump-to-latest → 派发 ihui:jump-to-latest 事件 + 按钮消失', async () => {
+    it('点击合并后的「跳到最新」→ 只执行一次滚到底并复位 userScrolledUp', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
-      const panel = container.querySelector(
-        '[data-testid="message-list-inline-panel"]',
-      ) as HTMLElement
-      Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
-      Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
-      Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
-      const handler = vi.fn()
-      window.addEventListener('ihui:jump-to-latest', handler)
-      await act(async () => {
-        fireEvent.scroll(panel)
-      })
-      const btn = await waitFor(() => screen.getByTestId('message-list-jump-latest'))
-      // mock scrollIntoView 避免 jsdom 报错
-      Element.prototype.scrollIntoView = vi.fn()
+      await revealByScrollUp(container)
+      // 2026-09-22:此按钮此前经 handleJumpToLatest 自派发 ihui:jump-to-latest,
+      // 而同一 hook 又监听该事件 ⇒ 一次点击 scrollToBottom 跑两遍。
+      // 孤儿通道已删,这里用调用次数=1 把它钉住(同时事件本身不再有生产者)。
+      const spy = vi.fn()
+      Element.prototype.scrollIntoView = spy
+      const btn = await waitFor(() => latestAffordance(container))
       await act(async () => {
         fireEvent.click(btn)
       })
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('ihui:jump-to-latest', handler)
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(isRevealed(btn)).toBe(false)
+      expect(mockChatStore.state.userScrolledUp).toBe(false)
     })
 
-    it('isStreaming 时 jump-to-latest 按钮显示脉冲红点', async () => {
+    it('isStreaming 时红点随合并后的按钮出现', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} isStreaming />)
-      const panel = container.querySelector(
-        '[data-testid="message-list-inline-panel"]',
-      ) as HTMLElement
-      Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
-      Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
-      Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
-      await act(async () => {
-        fireEvent.scroll(panel)
-      })
+      await revealByScrollUp(container)
       await waitFor(() => {
         expect(screen.getByTestId('message-list-jump-latest-dot')).toBeTruthy()
       })
+      expect(
+        latestAffordance(container).contains(screen.getByTestId('message-list-jump-latest-dot')),
+      ).toBe(true)
     })
   })
 
@@ -693,6 +694,30 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       expect(
         document.querySelector('[data-message-id="u1"]')!.getAttribute('data-message-focused'),
       ).toBe('false')
+    })
+
+    // 2026-09-22 补:全局 Enter 不得吞掉"焦点本在可交互元素上"的原生激活。
+    // 旧行为:Tab 到右下角「跳到最新」钮后按 Enter ⇒ 既被 preventDefault 掉按钮激活,
+    // 又顺带翻动聚焦消息的 reasoning —— 一次按键干了两件都不是用户要的事。
+    it('Enter 焦点在 button 上:让位给按钮自身(不 preventDefault、不派发 toggle-reasoning)', () => {
+      const msgs = [makeAssistantMsg('a1', 'answer', { reasoning: 'thinking...' })]
+      const { container } = render(<MessageList {...baseProps} messages={msgs} />)
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+      })
+      const btn = container.querySelector('[data-testid="scroll-jump-bottom"]') as HTMLElement
+      expect(
+        document.querySelector('[data-message-id="a1"]')!.getAttribute('data-message-focused'),
+      ).toBe('true')
+      const handler = vi.fn()
+      window.addEventListener('ihui:toggle-reasoning', handler)
+      const evt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      act(() => {
+        btn.dispatchEvent(evt)
+      })
+      expect(evt.defaultPrevented).toBe(false)
+      expect(handler).not.toHaveBeenCalled()
+      window.removeEventListener('ihui:toggle-reasoning', handler)
     })
   })
 

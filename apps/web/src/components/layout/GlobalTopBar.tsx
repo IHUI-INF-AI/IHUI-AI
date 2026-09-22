@@ -40,7 +40,14 @@ import {
   closeWindow,
   startResize,
   onMaximizeChange,
+  onWindowFocusChange,
+  isWindowFocused,
 } from '@/lib/tauri-bridge'
+import {
+  getModalDimState,
+  subscribeModalDim,
+  type ModalDimState,
+} from '@/lib/modal-overlay-watcher'
 import { armWindowDragOnFirstMove, isDraggableBlankArea } from '@/lib/window-drag'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { TagsView, TagsViewSearchButton, TagsViewChevronButton } from './TagsView'
@@ -200,6 +207,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 
   // 桌面端:窗口最大化状态(Tauri onResized 事件)
   const [isMaximized, setIsMaximized] = React.useState(false)
+  // 桌面端:窗口系统焦点(失焦 → 三按钮非活动态降亮)。初值必须 true:主窗口以
+  // visible:false 创建、由 auto_refresh 才 show,焦点事件未到时若默认 false 会一打开就死灰。
+  const [windowFocused, setWindowFocused] = React.useState(true)
+  // 桌面端:模态遮罩等效压暗态(按钮挂 z-max=10003 盖不住 z-modal=2000 遮罩,只能自压)
+  const [modalDim, setModalDim] = React.useState<ModalDimState>(getModalDimState)
+  const { active: dimActive, color: dimColor } = modalDim
 
   // 拖拽 + 双击最大化:实现见 lib/window-drag.ts(2026-09-21 按下即拖改造)
 
@@ -213,6 +226,27 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     return () => {
       cancelled = true
       unlisten()
+    }
+  }, [isDesktop])
+
+  // 桌面端专属:模态遮罩压暗 + 窗口焦点态(浏览器端不订阅,零常驻开销、零行为变化)
+  React.useEffect(() => {
+    if (!isDesktop) return
+    let cancelled = false
+    let focusEventArrived = false
+    const unsubscribeDim = subscribeModalDim(setModalDim)
+    const unlistenFocus = onWindowFocusChange((focused) => {
+      focusEventArrived = true
+      setWindowFocused(focused)
+    })
+    // 事件只报"变化"不报现状,故挂载时补查一次初值;已收到事件则丢弃(避免用旧值覆盖新状态)
+    void isWindowFocused().then((focused) => {
+      if (!cancelled && !focusEventArrived) setWindowFocused(focused)
+    })
+    return () => {
+      cancelled = true
+      unsubscribeDim()
+      unlistenFocus()
     }
   }, [isDesktop])
 
@@ -665,9 +699,31 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             h-full 撑满容器,消除容器+按钮的"双重高度"残留风险。 */}
           {isDesktop && (
             <div
-              className="relative z-max flex h-full shrink-0 items-center gap-0.5 rounded-md"
+              // 必须显式 auto:Radix 模态 Dialog 打开时把 body 内联置 pointer-events:none
+              // (react-dismissable-layer 的 disableOutsidePointerEvents),容器/按钮继承即失效,
+              // 未登录时被登录窗挡住就关不掉应用。压暗层自身 pointer-events-none 不会挡点击。
+              className="relative z-max pointer-events-auto flex h-full shrink-0 items-center gap-0.5 rounded-md"
               data-window-controls
+              data-modal-dim={dimActive ? '1' : undefined}
+              data-window-inactive={windowFocused ? undefined : 'true'}
             >
+              {/* 模态遮罩"等效压暗"层(2026-09-22 立,同族第 3 次复发):
+                  按钮容器挂 z-max=10003(必须高过 resize 抓手 z-loading=10000,否则右上角拖不动
+                  窗口),顶栏外层又不形成 stacking context → z-modal=2000 的遮罩永远盖不到按钮。
+                  颜色来自 DOM 实测(inline style):全站全屏遮罩 29+ 处底色各异,ui-react Sheet
+                  浅色模式甚至是 bg-white/80(变亮),写死 bg-black/80 会把顶栏压成黑块。
+                  激活方向 duration-0 是硬约束:遮罩 open 态禁止 fade-in 是本项目既有 blocking 守门
+                  (check-z-index-guard 第 4 项),压暗必须第一帧到位;取消方向保留统一时长与遮罩
+                  fade-out 同步。pointer-events-none → 模态期间三按钮依然可点(未登录也能关窗)。 */}
+              <div
+                aria-hidden="true"
+                data-window-controls-dim
+                style={{ backgroundColor: dimColor ?? 'transparent' }}
+                className={cn(
+                  'pointer-events-none absolute inset-0 rounded-md opacity-0 transition-opacity duration-(--duration-unified) ease-unified',
+                  dimActive && 'opacity-100 duration-0',
+                )}
+              />
               <WindowControlButton
                 onClick={handleMinimize}
                 ariaLabel={tNav('minimize')}
@@ -827,6 +883,8 @@ function WindowControlButton({
       className={cn(
         TOPBAR_BTN_BASE,
         TOPBAR_BTN_W9,
+        // 窗口失焦的非活动态弱化不写在这里:见 globals.css 的
+        // [data-window-controls][data-window-inactive='true'] > button 规则(原因已在那处说明)
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一(默认 hover:bg-accent)
         //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-accent

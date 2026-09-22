@@ -43,6 +43,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -115,10 +116,14 @@ import { FREE_RESOURCE_URL } from '../constants/links'
 import {
   applyPlanUpdate,
   applyTerminalEnd,
+  applyInjectionFrame,
+  appendCitationFrames,
   applyTerminalStart,
   applyToolCallEvent,
   formatDurationMs,
   formatStructured,
+  type MessageInjection,
+  type MessageCitation,
   type PlanStepItem,
   type TerminalTaskItem,
   type ToolCallItem,
@@ -170,6 +175,10 @@ interface N8nMessage {
   planExplanation?: string
   /** 终端任务可视化(W7):onTerminalStart/onTerminalEnd 折叠后的列表(对齐 web Message.terminalTasks)。 */
   terminalTasks?: TerminalTaskItem[]
+  /** D34 本轮上下文注入交代(第 45 轮):对齐 web message.injections。 */
+  injections?: MessageInjection[]
+  /** #11 引用溯源(第 51 轮):答案带了哪些知识来源,对齐 web message.citations。 */
+  citations?: MessageCitation[]
 }
 
 /**
@@ -414,6 +423,110 @@ function PlanStepList({
   )
 }
 
+/**
+ * #11 引用来源列表:来源标签 + 条目文字。
+ * 只有 **http(s)** 外链才给跳转(仓库相对路径在手机端没有可打开的目标,给了就是死链)。
+ */
+function CitationList({ items }: { items: readonly MessageCitation[] }): React.JSX.Element | null {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.citationTitle')}</Text>
+      {items.map((item, index) => {
+        const url = item.url
+        const external = typeof url === 'string' && /^https?:\/\//i.test(url)
+        const body = (
+          <>
+            <Text style={bubbleStyles.cardMeta}>{item.source}</Text>
+            <Text style={bubbleStyles.planText} numberOfLines={2}>
+              {item.label}
+            </Text>
+          </>
+        )
+        return (
+          <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
+            {external && url ? (
+              <Pressable
+                style={bubbleStyles.cardHead}
+                accessibilityRole="link"
+                accessibilityLabel={url}
+                onPress={() => {
+                  void Linking.openURL(url)
+                }}
+              >
+                {body}
+              </Pressable>
+            ) : (
+              <View style={bubbleStyles.cardHead}>{body}</View>
+            )}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+/** D34 注入来源 kind → 本端取词键(与 apps/ai-service llm.py 的 injection_frames 同源) */
+const INJECTION_KIND_KEYS = {
+  developer_instructions: 'aiAssistantN8n.injectionKindDeveloper',
+  workspace_memory: 'aiAssistantN8n.injectionKindWorkspace',
+  repo_wiki: 'aiAssistantN8n.injectionKindRepoWiki',
+  auto_context: 'aiAssistantN8n.injectionKindAutoContext',
+} as const
+
+/** 注入交代条:一行一个来源;只有帧里确实带了 fullText 才给展开入口(不给假按钮) */
+function InjectionDisclosure({
+  items,
+}: {
+  items: readonly MessageInjection[]
+}): React.JSX.Element | null {
+  const { t } = useI18n()
+  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({})
+  if (!items.length) return null
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.injectionTitle')}</Text>
+      {items.map((item, index) => {
+        const key = `${item.kind}_${index}`
+        const open = openKeys[key] === true
+        const kindKey =
+          item.kind in INJECTION_KIND_KEYS
+            ? INJECTION_KIND_KEYS[item.kind as keyof typeof INJECTION_KIND_KEYS]
+            : undefined
+        return (
+          <View key={key} style={bubbleStyles.card}>
+            <Pressable
+              style={bubbleStyles.cardHead}
+              onPress={() => setOpenKeys((prev) => ({ ...prev, [key]: !open }))}
+              accessibilityRole="button"
+              accessibilityLabel={item.collapsed}
+            >
+              {item.fullText ? (
+                open ? (
+                  <ChevronDown size={10} color={tokens.text.tertiary} />
+                ) : (
+                  <ChevronRight size={10} color={tokens.text.tertiary} />
+                )
+              ) : null}
+              {/* 界面文本出自本端词表;后端中文 collapsed 仅在未知 kind 时兜底 */}
+              <Text style={bubbleStyles.planText}>{kindKey ? t(kindKey) : item.collapsed}</Text>
+              {typeof item.count === 'number' ? (
+                <Text style={bubbleStyles.cardMeta}>{item.count}</Text>
+              ) : null}
+            </Pressable>
+            {open && item.fullText ? (
+              <View style={bubbleStyles.cardBody}>
+                <Text style={bubbleStyles.planText}>{item.fullText}</Text>
+              </View>
+            ) : null}
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
 /** 终端任务列表(W7):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
 function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): React.JSX.Element {
   const { t } = useI18n()
@@ -464,6 +577,14 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
                       {t('aiAssistantN8n.terminalOutput')}
                     </Text>
                     <Text style={bubbleStyles.monoText}>{task.output}</Text>
+                    {/* 后端只下发截断文本:不交代总长就等于让用户把截断当完整 */}
+                    {task.truncated ? (
+                      <Text style={bubbleStyles.sectionLabel}>
+                        {t('aiAssistantN8n.terminalTruncated', {
+                          total: task.totalChars ?? task.output.length,
+                        })}
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -587,6 +708,13 @@ function MessageBubble({
           {/* 终端任务可视化(W7:命令 + 等宽输出 + 退出码) */}
           {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
             <TerminalTaskList tasks={message.terminalTasks} />
+          ) : null}
+          {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
+          {answerVisible && message.injections && message.injections.length > 0 ? (
+            <InjectionDisclosure items={message.injections} />
+          ) : null}
+          {answerVisible && message.citations && message.citations.length > 0 ? (
+            <CitationList items={message.citations} />
           ) : null}
           {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
           {sikaoOpen && message.thinkingContent ? (
@@ -1067,6 +1195,54 @@ export default function AiAssistantN8nScreen() {
             return next
           })
           scrollToEnd()
+        },
+        // #11 引用溯源(第 51 轮):引用进消息,答案下方出来源列表
+        onCitations: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                citations: appendCitationFrames(
+                  last.citations,
+                  (event.citations ?? []).map((x) => ({
+                    source: x.source,
+                    label: x.label,
+                    ...(typeof x.url === 'string' ? { url: x.url } : {}),
+                  })),
+                ),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // D34 上下文注入交代(第 45 轮):本轮回答真正带上了哪些注入(对齐 web / 小程序口径)
+        onInjectionApplied: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                injections: applyInjectionFrame(last.injections, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // D39 重试交代:网关换 key / 退避重试时提示,否则用户在流上只看到"卡住"
+        onRetryScheduled: (event) => {
+          showToast(
+            'info',
+            t('aiAssistantN8n.gatewayRetry', {
+              attempt: event.attempt,
+              max: event.maxRetries,
+              seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
+            }),
+          )
         },
         // 上下文自动压缩提示(W7):后端达阈值自动压缩时提示用户(对齐 onCompaction 契约)
         onCompaction: (info) => {
