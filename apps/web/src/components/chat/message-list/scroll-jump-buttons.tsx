@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronUp, ArrowDown } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
@@ -37,21 +37,45 @@ export function computeJumpVisibility(
 interface ScrollJumpButtonsProps {
   isFarFromTop: boolean
   isFarFromBottom: boolean
+  /** 用户主动上滚(不限距离)。与 isFarFromBottom 任一成立即需要「回到最新」。 */
+  userScrolledUp: boolean
+  hasMessages: boolean
+  isStreaming: boolean
   onJumpTop: () => void
-  onJumpBottom: () => void
+  onJumpLatest: () => void
 }
 
-/** 右下角浮动跳顶/跳底按钮(对标主流 IDE 对话流)。
- *  - 用 @ihui/ui-react Button size="icon-sm",chevron 图标用项目现有 lucide 图标
- *  - 仅当"距顶>800px 或距底>800px"时对应按钮渐显(opacity 过渡,禁发光/蓝光边框)
- *  - 跳顶复用 jumpToTop 键,跳底复用 jumpToLatest 键(不新增文案键) */
+/** 显隐用 opacity + pointer-events,不用条件渲染:保留 300ms 渐隐过渡且不撬动布局。
+ *  隐藏态同时退出无障碍树与 Tab 序(opacity-0 元素默认可聚焦,会在右下角偷走 Tab)。 */
+function visibilityProps(on: boolean, extraClass = '') {
+  return {
+    className: `transition-opacity duration-300 ${extraClass} ${
+      on ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+    }`.trim(),
+    'aria-hidden': on ? undefined : true,
+    tabIndex: on ? 0 : -1,
+  }
+}
+
+/** 右下角浮动 affordance 列(对标主流 IDE 对话流)。
+ *  - 用 @ihui/ui-react Button size="icon-sm",图标走项目既有 lucide
+ *  - 跳顶 = 距顶>800px 才显;跳到最新 = 距底>800px 或用户主动上滚才显(真在底部时恒不显)
+ *  - 2026-09-22 归一:此前 MessageList 底部居中另挂了一枚同义的「跳到最新」
+ *    (data-testid="message-list-jump-latest"),同屏两枚语义重复的按钮共处一条 300px 宽的
+ *    对话列。现合并为本列的唯一「跳到最新」,行为改用 handleJumpToLatest(滚到底 + 广播
+ *    ihui:jump-to-latest),流式红点随该按钮。文案键沿用 jumpToTop/jumpToLatest,不新增键。
+ *  - 禁发光/蓝光边框;红点属 ≤8px 装饰点(AGENTS.md 圆角豁免项) */
 export function ScrollJumpButtons({
   isFarFromTop,
   isFarFromBottom,
+  userScrolledUp,
+  hasMessages,
+  isStreaming,
   onJumpTop,
-  onJumpBottom,
+  onJumpLatest,
 }: ScrollJumpButtonsProps) {
   const t = useTranslations('chat')
+  const showLatest = hasMessages && (isFarFromBottom || userScrolledUp)
   return (
     <div
       data-testid="scroll-jump-buttons"
@@ -64,9 +88,7 @@ export function ScrollJumpButtons({
         aria-label={t('jumpToTop')}
         onClick={onJumpTop}
         data-testid="scroll-jump-top"
-        className={`transition-opacity duration-300 ${
-          isFarFromTop ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-        }`}
+        {...visibilityProps(isFarFromTop)}
       >
         <ChevronUp />
       </Button>
@@ -75,13 +97,18 @@ export function ScrollJumpButtons({
         size="icon-sm"
         variant="outline"
         aria-label={t('jumpToLatest')}
-        onClick={onJumpBottom}
+        onClick={onJumpLatest}
         data-testid="scroll-jump-bottom"
-        className={`transition-opacity duration-300 ${
-          isFarFromBottom ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-        }`}
+        {...visibilityProps(showLatest, 'relative')}
       >
-        <ChevronDown />
+        <ArrowDown />
+        {isStreaming && (
+          <span
+            data-testid="message-list-jump-latest-dot"
+            className="absolute -right-0.5 -top-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
+            aria-hidden
+          />
+        )}
       </Button>
     </div>
   )
