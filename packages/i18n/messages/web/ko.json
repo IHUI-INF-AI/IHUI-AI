@@ -7101,6 +7101,13 @@
         "title": "터미널 작업",
         "truncated": "...(잘림, 총 {total}자)"
       },
+      "injectionTitle": "이번 컨텍스트: {count}개",
+      "injectionExpand": "나머지 {count}개 펼치기",
+      "injectionCollapse": "접기",
+      "injectionKindDeveloper": "세션 사용자 지정 지침을 적용했습니다",
+      "injectionKindWorkspace": "워크스페이스 메모리 / AGENTS.md를 주입했습니다",
+      "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
+      "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
       "thinkingCharCountTitle": "{n}자",
       "thinkingChars": "자",
       "thinkingElapsedTitle": "{time} 동안 사고 중",
