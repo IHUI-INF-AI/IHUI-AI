@@ -19313,6 +19313,7 @@
     "registerSuccess": "登録成功",
     "registerTitle": "統合登録",
     "sendCodeFailed": "認証コードの送信に失敗しました",
+    "sessionExpired": "セッションの有効期限が切れました。再度ログインしてください。",
     "subtitle": "ログインに {clientId} へのとリダイレクトをいます",
     "title": "ログイン",
     "mobileAuth": {

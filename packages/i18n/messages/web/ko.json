@@ -19302,6 +19302,7 @@
     "registerSuccess": "회원가입 성공",
     "registerTitle": "통합 가입",
     "sendCodeFailed": "인증 코드 전송 실패",
+    "sessionExpired": "세션이 만료되었습니다. 다시 로그인해 주세요.",
     "subtitle": "로그인 후 {clientId}에 대한 인증 및 리디렉션",
     "title": "통합 로그인",
     "mobileAuth": {
