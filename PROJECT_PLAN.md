@@ -362,6 +362,20 @@
 - 本批验证:`desktop-nsis-template --check` OK(27 处补丁)、`check-installer-assets` PASS(引用 17 / 打包 33 / 5 档)、真包 `makensis` 0 错误且产出有效 `.sig`;真包卸载三页(确认页 / 进度页 95% + 品牌条 / 无语言框)computer-use 截图目检通过。
 - **仍未闭环**:① DPI > 192 屏只有数值证明,无真机截图;② updater 签名端到端消费(客户端校验 `.sig` 并应用更新)需真实灰度周期。
 
+### 第七批(同日):updater 端到端本地验证跑通 —— 顺带揪出一个"自动更新永远装不上 + 无限重启"的高危缺陷
+
+承第六批残余②。不靠灰度周期,改在**本机造真签名双版本包 + 本地 feed** 跑真实客户端链路。
+
+- **验证装置**:`e2e-build.cjs` 临时把 `tauri.conf.json` 的 `plugins.updater.endpoints` 指到 `http://127.0.0.1:8899/latest.json`、开 `dangerousInsecureTransportProtocol`(插件在 release 构建里硬拒非 https 端点,实锤于 `tauri-plugin-updater-2.10.1/src/config.rs:146-161`)、并把 `auto_refresh.rs` 的 `round % 120` 调成 `round % 2`(60s 一轮),构建 **C1=0.1.45**;再以生产配置构建 **C2=0.1.46** 作为更新载荷。**两次构建完都按字节还原源文件并校验**(测试面零留存)。本地 `http.server` 下发 `latest.json` + 6.04 MB 安装包。
+- **真反例(第一版反例是假的,已更正)**:第一次"篡改签名"只动了外层 base64 第 20 个字符,解出来落在 `untrusted comment: signature from tauri secret key` 文本里 —— minisign **不校验注释**,等于没篡改。改用"拿 0.1.45 包的合法签名去配 0.1.46 的字节"这一真反例后,客户端同秒报 `应用更新失败(含签名校验不通过): The signature verification failed`,版本停在 0.1.45,安装包一次都没拉起。✅ 验签在真实客户端里确实生效。
+- **正例**:换真签名 → 下载一次、验签通过、NSIS 安装器接管、`D:\智汇AI\ihui-desktop.exe` 的 ProductVersion 由 0.1.45 变 **0.1.46**,`update.exe` 全程只下发 **1 次**。✅ 端到端消费闭环。
+- **顺带修掉的可观测性缺陷**:`check_app_update` 原写 `let Ok(Some(update)) = updater.check().await else { return }`,把"无新版"与"feed 404 / manifest 非法 / 网络不可达"一起静默吞掉。后台无人触发的链路静默 = 用户永远收不到更新而日志零痕迹。改为三分支,只有 `Ok(None)` 静默。该分支已被反例与"关掉本地 feed 后"的 `更新检查失败(feed 不可达或 manifest 非法): Could not fetch a valid release JSON from the remote` 双向命中验证。
+- **🔴 顺带揪出的高危缺陷(本次最有价值的产出)**:`download_and_install(on_chunk, on_download_finish)` 的**第二个闭包不是"退出前钩子"** —— 插件在 `updater.rs:710` 于 `verify_signature()`(:712) **之前**就调用它。我们原先传的是 `|| app.restart()`,于是**字节一落地应用就自杀**:验签结果永远拿不到、`install()` 里的 `ShellExecuteW(安装器)` 与进程退出赛跑(同一份 feed 实测一次装上、连续七轮没装上且零错误日志)、新实例又检测到同一新版 → **每轮一次无限重启循环**(日志 12:00:21→12:03:38 连续七轮"发现应用新版"为实证)。生产节奏是每小时,即"每小时把用户的桌面端重启一次、永远更新不上、且完全静默"。改法 = 第二闭包传空,进程退出交给插件自己在 `install_inner` 尾部 `ShellExecuteW` + `std::process::exit(0)`(:837-863);要挂退出前逻辑应走 `updater_builder().on_before_exit(..)`。修复后反例只尝试一次、正例只下发一次。
+- **已知限制(如实登记)**:成功路径上 `发现应用新版` 这行 INFO 可能被吞 —— 插件装完直接 `std::process::exit(0)`,而 `tauri-plugin-log 2.9.0` 未导出 `flush_log`。失败路径不受影响(不退出)。判据以"版本是否前进"为准,不以该行日志为准。
+- **顺带发现(未动,属发版链路专项)**:`scripts/release-desktop-local.mjs:106` 传给 `gitee-release-attach.py` 的 `DESKTOP_FEED_OUT` 是**死变量**(该 py 全文不读它,只读 `GH_TOKEN`/`GITHUB_REPOSITORY`),而本机通道只给 `GITEE_TOKEN` → `replace_github_feed` 直接 return,即端点② `github.com/.../desktop-updater-feed/latest.json` 自本机发版通道起**不再更新**。端点① `aizhs.top/desktop-feed.json` 实测在线且返回 0.1.44 + 420 字符签名,是实际生效的那一条。
+- 本批验证:`cargo check` 0 错误、`cargo test --lib` **7 passed**、真反例/真正例双向命中、`~nsu*` 与本地 feed 服务无残留、桌面端已还原为真实发布版 **0.1.44** 并运行中。
+- **仍未闭环**:① DPI > 192 屏的真机截图 —— 本机 `GetDpiForWindow` 实测 144(沙箱 trace 实锤 `guiinit-sys-144-win-144-tier-150-wtier-150`),而"设置 → 缩放"下拉框在当前"仅在 2 上显示"双显示器状态下为 **disabled**,不为一张截图去强改用户显示配置;数值证明(DPI 96..480 穷举,"位图 < 客户区"0 例)仍然成立。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 > **平台独占豁免(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载线上 web(`tauri.conf.json` → `windows[0].url=https://aizhs.top/agents`),web 侧修复自动跟随;`packages/shared` 的 `buildSsoRedirectUrl` 为**新增**共享能力,不改变既有导出签名,其他端(cli/extension/miniapp-taro/mobile-rn)按需采纳,非多端同步漏做。
