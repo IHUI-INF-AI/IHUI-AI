@@ -370,6 +370,7 @@
     "planStatusInProgress": "In Progress",
     "planStatusCompleted": "Completed",
     "terminalTasks": "Terminal Tasks",
+    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
