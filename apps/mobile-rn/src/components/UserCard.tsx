@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
     borderRadius: 12,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.07,
