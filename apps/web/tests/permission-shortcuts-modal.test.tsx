@@ -96,6 +96,12 @@ describe('PermissionShortcutsModal — 收敛为权限模式专属帮助', () =>
     expect(source).not.toMatch(/desc:\s*'切换到/)
     expect(source).not.toContain('切换到构建模式')
     expect(source).not.toContain('<span>对话模式切换</span>')
+    // 行表的"键位标签"位同样不得写中文(曾是 key: '查看历史',en/ja/ko 下直接漏中文)。
+    // 先证明这条正则会命中哨兵,再断言源码里没有 —— 防"正则失配型假绿"。
+    const CJK_KEY_ROW = /key:\s*'[^']*[\u4e00-\u9fff]/
+    expect(CJK_KEY_ROW.test("{ key: '查看历史', descKey: 'x' }")).toBe(true)
+    expect(source).not.toMatch(CJK_KEY_ROW)
+    expect(source).toContain("labelKey: 'historyOpenExternal'")
   })
 
   it('③ 底部交叉指引行存在且走 i18n', () => {
