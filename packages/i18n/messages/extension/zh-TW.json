@@ -308,6 +308,13 @@
   },
   "content": {
     "translate": "翻譯",
+    "typeLesson": "課程",
+    "typeLive": "直播",
+    "typeArticle": "文章",
+    "typeNews": "資訊",
+    "typeAsk": "問答",
+    "typeResource": "資源",
+    "typeExam": "試題",
     "highlight": "高亮",
     "vocab": "查詞",
     "sendAi": "問 AI",
