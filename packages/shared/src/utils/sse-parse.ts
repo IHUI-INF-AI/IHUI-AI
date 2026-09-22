@@ -67,6 +67,8 @@ export interface SSEEvent {
     tokensAfter: number
     removedCount: number
     usageRatio: number
+    /** G-150:incompressible = 压缩已撞到上限,界面须改口径并给"开新对话"出口 */
+    trigger?: string
   }
   /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发) */
   usage?: {
@@ -357,6 +359,7 @@ function parseLine(line: string): SSEEvent | null {
           tokensAfter: Number(compaction.tokensAfter ?? 0),
           removedCount: Number(compaction.removedCount ?? 0),
           usageRatio: Number(compaction.usageRatio ?? 0),
+          ...(typeof compaction.trigger === 'string' ? { trigger: compaction.trigger } : {}),
         },
       }
     }
