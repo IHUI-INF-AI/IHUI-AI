@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -33,9 +34,11 @@ function detectKind(fileName: string): ViewerKind {
 }
 
 export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) {
+  const t = useTranslations('a11y')
   const kind = React.useMemo(() => detectKind(fileName), [fileName])
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [textContent, setTextContent] = React.useState('')
+  const [isFullscreen, setIsFullscreen] = React.useState(false)
 
   const toggleFullscreen = () => {
     const el = containerRef.current
@@ -43,6 +46,13 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
     if (document.fullscreenElement) document.exitFullscreen()
     else el.requestFullscreen()
   }
+
+  // 跟随浏览器事件而不是点击:用户按 Esc 退出全屏时,标签也得回正成"全屏"
+  React.useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
 
   React.useEffect(() => {
     if (kind !== 'text') return
@@ -71,18 +81,20 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           <span className="truncate">{fileName}</span>
         </span>
         <div className="flex items-center gap-1">
-          <Tooltip content="下载">
+          <Tooltip content={t('download')}>
             <a
               href={url}
               download={fileName}
+              aria-label={t('download')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Download className="h-4 w-4" />
             </a>
           </Tooltip>
-          <Tooltip content="全屏">
+          <Tooltip content={isFullscreen ? t('exitFullscreen') : t('fullscreen')}>
             <button
               onClick={toggleFullscreen}
+              aria-label={isFullscreen ? t('exitFullscreen') : t('fullscreen')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Maximize2 className="h-4 w-4" />
@@ -119,7 +131,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
             <FileText className="h-8 w-8" />
             <p className="text-sm">不支持预览此文件格式</p>
             <a href={url} download={fileName} className="text-sm text-primary hover:underline">
-              下载文件
+              {t('downloadFile')}
             </a>
           </div>
         )}

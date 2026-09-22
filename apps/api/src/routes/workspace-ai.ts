@@ -756,9 +756,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       })
       const json = (await res.json()) as Record<string, unknown>
       if (!json.device_code || !json.user_code) {
-        return reply
-          .status(400)
-          .send(error(400, `GitHub 设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))
+        // device_code 按 RFC 8628 §1.5 属 bearer 凭据,而非 2xx 响应不经 response-sanitizer 打码,
+        // 故只回传错误码,不透传整个响应体(与下方 device-token 分支同口径)。
+        const errCode = typeof json.error === 'string' ? json.error : `http_${res.status}`
+        return reply.status(400).send(error(400, `GitHub 设备码获取失败: ${errCode}`))
       }
       return reply.send(
         success({

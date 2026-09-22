@@ -32,7 +32,16 @@
  */
 
 import * as React from 'react'
-import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand, BellRing } from 'lucide-react'
+import {
+  BellRing,
+  Clock4,
+  Compass,
+  Hand,
+  History,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
@@ -54,20 +63,34 @@ import {
   resetFullAccessAcknowledgement,
 } from '@/components/ai/full-access-confirm-dialog'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+// 权限档读侧归一(G-161/G-164):跨界拼写多套,查表/比较前先归一到 wire 拼写
+import { permissionModeWire } from '@ihui/types/permission-mode'
 import { useConfirm } from '@/hooks/use-confirm'
 
 /** 历史面板最大展示条数 */
 const HISTORY_DISPLAY_LIMIT = 10
 
+/**
+ * 档位显示表(G-164:补 `plan` 一档)。
+ *
+ * 这两个 Record 的键类型就是 `WorkspacePermissionMode` 本身 —— 上一版共享类型里声明了
+ * `plan` 而这里只列 3 档,tsc 会直接把"新增档位没补显示表"报成编译错(而不是像以前那样
+ * 运行时 `MODE_KEY_MAP[mode]` 取到 undefined 再喂给 t() 静默坏掉)。
+ * 查表前先 permissionModeWire() 归一:历史上落库是 kebab,新链路可能送 camel/别名。
+ */
 const MODE_ICON: Record<WorkspacePermissionMode, React.ComponentType<{ className?: string }>> = {
   default: Hand,
+  plan: Compass,
   'accept-edits': ShieldCheck,
   'bypass-permissions': ShieldAlert,
 }
 
+type ModeLabelKey = 'mode.ask' | 'mode.plan' | 'mode.auto' | 'mode.full'
+
 /** 把 mode 字符串映射到 i18n key 路径(用于显示"请求批准"等本地化名) */
-const MODE_KEY_MAP: Record<WorkspacePermissionMode, 'mode.ask' | 'mode.auto' | 'mode.full'> = {
+const MODE_KEY_MAP: Record<WorkspacePermissionMode, ModeLabelKey> = {
   default: 'mode.ask',
+  plan: 'mode.plan',
   'accept-edits': 'mode.auto',
   'bypass-permissions': 'mode.full',
 }
@@ -107,8 +130,11 @@ function HistoryList({ entries, now }: HistoryListProps) {
   return (
     <ul className="space-y-1.5">
       {entries.map((entry, idx) => {
-        const Icon = MODE_ICON[entry.mode] ?? Hand
-        const isHighRisk = entry.mode === 'bypass-permissions'
+        // 读侧归一(G-164):落库历史上是 kebab,新链路(v1 网关 / cli)可能送 camel 或
+        // 历史别名。不归一就是"徽章与档名静默错位" —— 高风险档显示成普通档。
+        const wire = permissionModeWire(entry.mode)
+        const Icon = wire ? (MODE_ICON[wire] ?? Hand) : Hand
+        const isHighRisk = wire === 'bypass-permissions'
         const sourceKey =
           entry.source === 'popover'
             ? 'popover'
@@ -139,7 +165,9 @@ function HistoryList({ entries, now }: HistoryListProps) {
                     isHighRisk && 'text-amber-700 dark:text-amber-400',
                   )}
                 >
-                  {t(MODE_KEY_MAP[entry.mode])}
+                  {/* 认不出的档位原样显示,不套某个已列档位的中文名(宁可不翻译,
+                      也不给安全相关标签编一个错的档位名) */}
+                  {wire ? t(MODE_KEY_MAP[wire]) : entry.mode}
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                   <span aria-hidden="true">·</span>
@@ -171,8 +199,9 @@ function StatsFooter() {
   const t = useTranslations('chat.permission')
   const stats: {
     mode: WorkspacePermissionMode
-    labelKey: 'mode.ask' | 'mode.auto' | 'mode.full'
+    labelKey: ModeLabelKey
   }[] = [
+    { mode: 'plan', labelKey: 'mode.plan' },
     { mode: 'default', labelKey: 'mode.ask' },
     { mode: 'accept-edits', labelKey: 'mode.auto' },
     { mode: 'bypass-permissions', labelKey: 'mode.full' },

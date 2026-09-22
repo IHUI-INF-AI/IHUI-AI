@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { UploadCloud, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,7 @@ export default function UserUpload({
   className,
   hint = '点击或拖拽文件到此处上传',
 }: UserUploadProps): React.JSX.Element {
+  const tA11y = useTranslations('a11y')
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [drag, setDrag] = React.useState(false)
   const [files, setFiles] = React.useState<File[]>([])
@@ -84,6 +86,7 @@ export default function UserUpload({
               <button
                 type="button"
                 onClick={() => removeFile(i)}
+                aria-label={tA11y('removeAttachment')}
                 className="shrink-0 text-muted-foreground hover:text-destructive"
               >
                 <X className="h-3 w-3" />
