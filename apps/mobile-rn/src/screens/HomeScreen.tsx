@@ -99,7 +99,6 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
@@ -519,7 +518,7 @@ function toAgentShopItem(a: Agent): AgentShopItem {
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
-    tags: a.tags.length > 0 ? a.tags : undefined,
+    tags: a.tags?.length ? a.tags : undefined,
     isCollect: a.isFavorited,
     collectCount: a.favoriteCount,
     usageCount: a.useCount,
@@ -1017,14 +1016,6 @@ export function HomeScreen() {
     }
     rootNav?.navigate('AppTopup')
   }
-  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
-  const handleCommissionPress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('Distribution')
-  }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
@@ -1347,8 +1338,6 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
       <OfflineBanner isOnline={isOnline} />
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
-      <CommissionFloatingIcon onPress={handleCommissionPress} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
@@ -1663,12 +1652,10 @@ export function HomeScreen() {
         </View>
       ) : null}
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
-       *  collapsible + defaultCollapsed:首屏默认折叠为右下角浮动 FAB,
-       *  点击 FAB 展开完整输入栏(对齐历史 Uniapp 抽屉式输入交互)。
+       *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
+       *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
-        collapsible
-        defaultCollapsed
         value={inputValue}
         onChangeText={setInputValue}
         placeholder="请输入您的问题,或选择模型开始对话"
