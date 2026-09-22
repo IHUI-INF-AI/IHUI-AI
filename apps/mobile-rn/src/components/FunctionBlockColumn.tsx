@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: tk.surface.light,
+    backgroundColor: tk.surface.card,
     borderRadius: CARD_RADIUS,
     padding: CARD_PADDING,
   } as ViewStyle,
