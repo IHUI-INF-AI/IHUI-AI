@@ -139,7 +139,12 @@ export default function ChatPage() {
       if (idx < 0) return prev
       const m = prev[idx]
       if (!m || m.role !== 'assistant') return prev
-      const cur: AICardsData = m.aiCards ?? { planSteps: [], toolCalls: [], terminalTasks: [] }
+      const cur: AICardsData = m.aiCards ?? {
+        planSteps: [],
+        toolCalls: [],
+        terminalTasks: [],
+        injections: [],
+      }
       const next = mutate(cur)
       const copy = prev.slice()
       copy[idx] = { ...m, aiCards: next }
@@ -587,6 +592,35 @@ export default function ChatPage() {
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
             },
+            // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
+            // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            onInjectionApplied: (evt) =>
+              upsertCard((c) => {
+                const items = c.injections ?? []
+                if (items.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+                  return { ...c, injections: items }
+                }
+                return {
+                  ...c,
+                  injections: [
+                    ...items,
+                    {
+                      kind: evt.kind,
+                      collapsed: evt.collapsed,
+                      fullText: evt.fullText,
+                      count: evt.count,
+                    },
+                  ],
+                }
+              }),
+            onRetryScheduled: (evt) =>
+              pushStreamActivity(
+                t('ai.stream.gatewayRetry', {
+                  attempt: evt.attempt,
+                  max: evt.maxRetries,
+                  seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
+                }),
+              ),
             onFallback: (evt) =>
               pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
             onUsage: (info) => {
