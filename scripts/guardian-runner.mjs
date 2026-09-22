@@ -1438,14 +1438,14 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 67 (2026-09-22 新增,权限模式词汇对账,PROJECT_PLAN G-161 配套) ---
+  // --- 68 (2026-09-22 新增,权限模式词汇对账,PROJECT_PLAN G-161 配套) ---
   // blocking:同一语义曾有 5 套拼写并存(agent-runtime 5-camel / workspace 4-kebab /
   //   api-client 3-kebab / AgentLoopV2 default+plan+auto / 对外文档 read-only+accept-all+plan-only),
   //   非法值被 Pydantic 静默丢弃或在构造期 ValueError 打 500 —— 即"客户端发了 ≠ 服务端生效"。
   //   判据:TS 注册表 ↔ Python 注册表成员/别名逐字一致 + 消费点取值必须已注册 +
   //   决策位不得拿别名比较 + 不许自造档位白名单。有效性由 --self-test 注入违规自证(11 例)。
   {
-    id: '67',
+    id: '68',
     label: '🔐 权限模式词汇对账(blocking,跨语言注册表一致 + 消费点禁漂移)',
     script: 'check-permission-mode-vocabulary.mjs',
     args: [],
