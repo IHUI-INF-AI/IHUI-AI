@@ -308,6 +308,13 @@
   },
   "content": {
     "translate": "Translate",
+    "typeLesson": "Lesson",
+    "typeLive": "Live",
+    "typeArticle": "Article",
+    "typeNews": "News",
+    "typeAsk": "Q&A",
+    "typeResource": "Resource",
+    "typeExam": "Exam",
     "highlight": "Highlight",
     "vocab": "Dictionary",
     "sendAi": "Ask AI",
