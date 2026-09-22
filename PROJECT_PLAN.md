@@ -1508,7 +1508,8 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 > **新增可复用证据产物**:`outputs/codex-zh-ui-strings.tsv`(**16,932 行**,由 asar 容器头解析定位 `/webview/assets/zh-CN-*.js` 1,394,280 B 后完整导出,方法见报告 §18.1 与 H26)。四家里第一次做到"可完整枚举",后续任何"对方有没有 X"的争议**一律以这张表判定**,不再抽样。D51 的期望清单可直接取其 `ConversationTurn|assistantMessage|composer|localConversation|diff|approvalRequestCard` 子集为种子。
 
 - [ ] **D83 MCP 工具活动的 server×tool 定制措辞层(G-114,架构级)**:对标 `localConversation.mcpToolActivity.<server>.<tool>.{active,completed,activeWithContext,completedWithContext}`(Codex 仅 github 112 条、linear 102 条、figma/browser 若干)。我方 `tool-display.ts` 只有"工具名→通用名"一层 → 需扩为**三层键**(server / tool / 是否带上下文参数),并定义"无定制时回落通用名"的规则(现 86/86 覆盖只到通用名)。落点 `packages/shared/src/chat/tool-display.ts` + 守门 `check-tool-name-display-coverage.mjs` 同步升级(不能只测通用名)。**验收**:回落链单测(server 定制 > tool 通用 > 原码名)+ 带参形态 `{itemName}` 用例 + 五语言 parity
-- [ ] **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许此对话 / 拒绝` + `原因` 输入位。我方现有三档模式 + 工具审批弹窗,**缺作用域分级**(单次/本会话/本对话/永久)——与我方权限继承树(3-3)的层级天然对齐,落点 `tool-approval-dialog` + `permission-mode-popover`。**验收**:四作用域各一用例 + 持久化作用域不回退成全局
+- [x] ✅(2026-09-23) **D84 审批作用域四件套与理由输入(G-115)**:`允许一次 / 始终允许 / 允许此对话 / 拒绝` + `原因` 输入位。我方现有三档模式 + 工具审批弹窗,**缺作用域分级**(单次/本会话/本对话/永久)——与我方权限继承树(3-3)的层级天然对齐,落点 `tool-approval-dialog` + `permission-mode-popover`。**验收**:四作用域各一用例 + 持久化作用域不回退成全局
+  - **D84 收口(第 62 轮,提交 `2236c92f68`,origin=ALREADY)**:全链五层落地 —— types `ToolApprovalScope` 契约、ai-service `grant_scope_for_approval` 纯函数 + 结算按作用域落盘(旧版"批准即授 session"收窄为 once 不落盘)、api 代理透传、api-client 扩参、web 弹窗作用域三档(默认 once=最小特权,新请求重置)+ 原因输入(空值不携带);拒绝不携带 scope(拒绝不落任何授权)。i18n 6 键 ×5 语言落 **shared 包**(web 包正被并行缓冲高频回写,两次注入被抹;mergeMessages 深合并下键存活,键检器+运行时合并双验证)。验证:新测试 12/12(含"持久授权不回退成全局"用例)、批 51/52/59 回归 59 例、web 组件 5/5+变异 2 例转红、types/api-client/web tsc 0 错。
 - [ ] **D85 自动审查统计条(G-116,与 D55 合批)**:在 D55 决策徽章之上加**聚合**——`自动审查统计`、`已接受 N / 已拒绝 N`、`命令历史` 展开、**`自动审查未提供理由`** 显式缺省(Trae 有代批无统计、Codex 有统计无逐条理由文案,我方一次做完可同超两家)。**验收**:统计计数与逐条徽章同源(不许两套数)+ 无理由缺省用例
 - [ ] **D86 钩子摘要卡(G-117;D65 口径升级为三家同证)**:Qoder `hook_non_blocking_error` + Trae `enterpriseHooks.toolFailure` + **Codex `assistantMessage.hookStats`**(运行/错误/已阻止/· 运行了 N 次 + **来源归属枚举 管理员/用户/项目/插件/会话**)。我方 hook 体系已有 source 语义 → 属"数据在手未上屏",**先自证再开工**的判定已完成(三家证据齐)。**验收**:摘要卡五态 + 来源枚举 + 折叠进活动条不抢主流程
 - [ ] **D87 回复文本批注双向锚点(G-118)**:把注释**锚在 AI 回复的具体选区**上(`注释 {n}`、`注释 {n}:{selectedText}`、多行 `所选注释文本,{lineCount} 行`),且可再次编辑/删除(`编辑注释`/`无法删除注释`/`目前无法编辑此批注`),并作为上下文回流。我方 D22 只有"圈选→引用回复"单向,缺**持久锚点 + 再编辑 + 失效态**。**验收**:锚点跨刷新可定位 + 文本变化后走失效态 + 删除失败反馈
@@ -3229,25 +3230,7 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):**`build-api` 与
-    `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
-    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
-    已被证明生效。
-  - **build-web 剩下的红是第三层、且不属于本任务(阻塞主体与解阻判据照实登记)**:失败点后移到
-    `Generating static pages (0/927)` ⇒ `Error: Route /models with \`dynamic = "error"\` couldn't be
-    rendered statically because it used \`cookies()\``(`/models`、`/admin/product-identity`、
-    `/context-compaction` 三条同因,Next 遇错即 `exiting the build`)。根因唯一:
-    `apps/web/app/layout.tsx:229` 在**根布局**里 `const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value`,
-    由并发会话 2026-09-22 的 `eabc82e8f3`(fix(web,i18n): 语言偏好补 cookie 真值源,SSR 首帧 `<html lang`)
-    引入 —— 而 `output:'export'` 等价于全路由 `dynamic="error"`,根布局读 cookie 会让**每一个**静态页
-    预渲染失败(docker web 镜像 / Tauri 桌面 / GH Pages 三条链共用 `build:static`,全被这一条打穿)。
-    **归属证据**:本任务 16 票的 26 个文件里 `apps/web` 命中数 = **0**;该文件工作区与 HEAD 一致(非 in-flight)。
-    **为何不代修**:改他人刚上线的功能语义属 §16 越权事故。**解阻判据**(任一即可,须由该功能持有者定):
-    ① 静态导出分支下不读 cookie(`process.env.EXPORT_STATIC === 'true'` 时直接走 `<html lang>` 客户端设定);
-    ② 把 locale 判定从根布局移到不被导出的边界(如 route handler / 客户端 effect);
-    ③ 该路由组改回服务端渲染。**取证补充**:同类三个更早的 run(`d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa`)
-    的 build-web 全部停在第一层 `Cannot find module '/app/scripts/fix-expo-metro-junction.mjs'`,
-    即 build-web 是**三层缺陷叠压**,前两层(A 钩子未 COPY / C 依赖被静默跳过)已在本任务收口。
+    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
