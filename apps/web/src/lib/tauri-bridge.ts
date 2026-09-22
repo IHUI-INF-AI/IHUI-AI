@@ -279,6 +279,66 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
 }
 
 /**
+ * 监听窗口系统焦点变化(2026-09-22 立:桌面端 decorations:false 时窗口失焦,
+ * 自绘的 Min/Max/Close 三按钮要降亮为"非活动态",对齐 Windows caption 语义)。
+ *
+ * 与 onMaximizeChange 不同,**刻意不加节流** —— 切窗时必须立刻变暗,
+ * 节流会让用户先看到"别的窗口已激活、本窗口按钮还全亮"的错觉。
+ * 清理逻辑沿用 2026-07-28 的 cancelled flag + unlisten 泄漏兜底模板。
+ *
+ * 返回同步清理函数。非桌面端返回 no-op。
+ */
+export function onWindowFocusChange(callback: (focused: boolean) => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  let cancelled = false
+  let unlistenFn: (() => void) | null = null
+
+  const promise = win.onFocusChanged(({ payload }) => {
+    if (!cancelled) callback(payload)
+  })
+
+  promise.then((fn: () => void) => {
+    if (cancelled) {
+      // cleanup 已先于 Promise resolve 调用 → 立即取消订阅
+      try {
+        fn()
+      } catch {
+        /* ignore */
+      }
+    } else {
+      unlistenFn = fn
+    }
+  })
+
+  return () => {
+    cancelled = true
+    if (unlistenFn) {
+      try {
+        unlistenFn()
+      } catch {
+        /* ignore */
+      }
+      unlistenFn = null
+    }
+  }
+}
+
+/**
+ * 当前窗口是否持有系统焦点(用于挂载时取初值,事件只报变化不报现状)。
+ * 失败/非桌面端一律返回 true:主窗口以 visible:false 创建、由 auto_refresh 才 show,
+ * 拿不到结论时宁可"亮着"也不要一打开就死灰。
+ */
+export async function isWindowFocused(): Promise<boolean> {
+  if (!isTauri()) return true
+  try {
+    return await getCurrentWindow().isFocused()
+  } catch {
+    return true
+  }
+}
+
+/**
  * 获取系统主题(P1-7:主题跟随,2026-07-27 立)。
  * 返回 'light' | 'dark' | undefined(非 Tauri 或失败)。
  * 2026-08-16 修复:此前 invoke('plugin:os|theme') 命令不存在(tauri-plugin-os
@@ -750,36 +810,36 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
     throw new Error('check_failed')
   }
   if (!update) return null
-    return {
-      info: {
-        version: update.version,
-        date: update.date,
-        notes: update.body,
-      },
-      downloadAndInstall: async (onProgress) => {
-        let downloaded = 0
-        let total = 0
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started': {
-              const d = event.data as { contentLength?: number }
-              total = d.contentLength ?? 0
-              onProgress?.({ downloaded: 0, total })
-              break
-            }
-            case 'Progress': {
-              const d = event.data as { chunkLength?: number }
-              downloaded += d.chunkLength ?? 0
-              onProgress?.({ downloaded, total })
-              break
-            }
-            case 'Finished':
-              onProgress?.({ downloaded: total || downloaded, total })
-              break
+  return {
+    info: {
+      version: update.version,
+      date: update.date,
+      notes: update.body,
+    },
+    downloadAndInstall: async (onProgress) => {
+      let downloaded = 0
+      let total = 0
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started': {
+            const d = event.data as { contentLength?: number }
+            total = d.contentLength ?? 0
+            onProgress?.({ downloaded: 0, total })
+            break
           }
-        })
-      },
-    }
+          case 'Progress': {
+            const d = event.data as { chunkLength?: number }
+            downloaded += d.chunkLength ?? 0
+            onProgress?.({ downloaded, total })
+            break
+          }
+          case 'Finished':
+            onProgress?.({ downloaded: total || downloaded, total })
+            break
+        }
+      })
+    },
+  }
 }
 
 /**

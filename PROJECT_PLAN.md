@@ -51,10 +51,11 @@
 
 > **平台独占豁免(AGENTS.md §9)**:Tauri 无边框窗口的最小化/最大化/关闭三按钮只存在于 `apps/desktop`(薄壳)+ `apps/web`(自绘标题栏宿主 `GlobalTopBar.tsx`);miniapp-taro / mobile-rn / extension / cli 无窗口控制按钮,属平台独占,不是多端同步漏做。
 
-- [x] ✅(2026-09-22) 防回潮守门补第 5 项:`scripts/check-z-index-guard.mjs` 断言 `GlobalTopBar.tsx` 同时含 `data-window-controls` 与 `data-window-controls-dim`(等效压暗层),标号统一 `/5`。理由已写进判据:`z-max(10003)` 不能降(须高于 8 方向 resize 抓手 `z-loading=10000`),层级压不住只能等效压暗,删掉 = 登录窗等 29+ 处遮罩下三按钮重新全亮。
-- [x] ✅(2026-09-22) 根治"守门从不执行"这条既有缺口:该脚本此前在 `package.json` / `.husky/pre-commit` / `.github/workflows` **0 命中**,同族 bug 因此三次复发(AI 面板发亮 → 登录框 → 窗口按钮)。现登记为 `guardian-runner` id **61**(blocking,紧急跳过 `HUSKY_SKIP_Z_INDEX_GUARD=1`),`GlobalTopBar.tsx` 一并纳入其 `--staged` 相关文件集。
-- [x] ✅(2026-09-22) 同批接入同族 `scripts/check-overlay-zindex.mjs` 为 id **62**(blocking;接入前实测全量 3775 文件 0 违规、耗时 0.5s,故不需降 warn;紧急跳过 `HUSKY_SKIP_OVERLAY_ZINDEX=1`)。
-- [x] ✅(2026-09-22) 等效压暗覆盖层与窗口失焦非活动态的**实现体由同日并行会话落盘**;守门判据已就位,`data-window-controls-dim` 未落库前 id 61 全量模式必红(设计如此,未放宽判据)。
+- [x] ✅(2026-09-22) 实现体:新建 `apps/web/src/lib/modal-overlay-watcher.ts`(DOM 实测遮罩色 + MutationObserver/rAF,穷尽全站 29+ 处遮罩,含 Drawer 双层陷阱与浅色 Sheet「变亮」),`GlobalTopBar.tsx` 加等效压暗覆盖层 `data-window-controls-dim`(激活方向 `duration-0`,对齐"遮罩 open 态禁 fade-in"既有 blocking 门)+ 失焦非活动态(`tauri-bridge.ts` 新增 `onWindowFocusChange`/`isWindowFocused`,零 Rust 改动);颜色不写死 `bg-black/80` 因各遮罩底色不同。
+- [x] ✅(2026-09-22) 顺带根治同链路可用性缺陷:Radix 模态 Dialog 经 `react-dismissable-layer` 给 `body` 内联写 `pointer-events:none`,三按钮继承后**在登录窗下点不动**(实测真实 `click()` 超时)→ 容器显式 `pointer-events-auto` 断掉继承链,模态期间 caption 仍可点(对齐 Windows 语义);8 方向 resize 抓手刻意不放开(会与"点遮罩关闭"抢点击)。
+- [x] ✅(2026-09-22) 防回潮判据:`scripts/check-z-index-guard.mjs` 新增第 5 项两组契约 —— 等效压暗层(`data-window-controls`+`data-window-controls-dim`)与失焦非活动态(`data-window-inactive`+`group/wc`+`group-data-[window-inactive=true]/wc:` 变体),裸标记加词边界防子串假绿;有效性靠 `--self-test` 内存断言(1 绿 + 5 红分支),并移除 `--fixture` 受控后门(它让"守门通过"≠"真实文件通过")。
+- [x] ✅(2026-09-22) 守门加固:两脚本本体自 2026-07-24 起即由 `guardian-runner` id **27/28**(blocking)自动执行(先前"0 命中从未执行"的判断只 grep 脚本名、漏查 runner 注册表,属误判已纠正),本轮为 27/28 补 `skipEnv`(`HUSKY_SKIP_Z_INDEX_GUARD` / `HUSKY_SKIP_OVERLAY_ZINDEX`)+ `onFailHint` 五类处置,`GlobalTopBar.tsx` 纳入 id 27 的 `--staged` 相关文件集。
+- [x] ✅(2026-09-22) 测试:单测 `apps/web/tests/modal-overlay-watcher.test.ts`(12 例,happy-dom 会静默丢 `oklab` 故按其能力边界取样)+ e2e `apps/web/e2e/desktop-window-controls-dim.spec.ts`(5 例真 Chromium,实测遮罩 computed = `oklab(0 0 0 / 0.8)` 且压暗层逐字相等、Sheet 变亮分支、多遮罩取最高 z、失焦两态色值、trial hit-test 可点)。
 
 ## P0 2026-09-21 qwen/mimo 401 收口 + 并发回退丢失面全量回捞 + OpenAPI 漂移门禁修复
 
