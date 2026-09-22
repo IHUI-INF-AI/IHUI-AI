@@ -3,6 +3,13 @@
     "notFound": "{target} not found"
   },
   "cli": {
+    "injectionApplied": "Context for this turn: {sources}",
+    "injectionSrcDeveloper": "custom instructions",
+    "injectionSrcWorkspace": "workspace memory",
+    "injectionSrcRepoWiki": "repository wiki",
+    "injectionSrcAutoContext": "{count} retrieved context blocks",
+    "retryScheduled": "Upstream unavailable: retry {attempt} of {max} in {seconds}s",
+    "retryScheduledNow": "Upstream unavailable: retry {attempt} of {max} now",
     "sessionResumed": "Resumed recent session: {id} ({count, plural, =0 {no messages} one {# message} other {# messages}})",
     "sessionResumedWithId": "Resumed session: {id} ({count} messages)",
     "noSessions": "No historical sessions",
