@@ -404,6 +404,8 @@ export function useMessageListScroll({
   // - Escape:清除聚焦
   // - Home/End:跳到首/末条
   // 用 window keydown 监听确保焦点在 message 容器内任意子元素都能响应
+  // 2026-09-22 键位归属:↑/↓/Home/End 的唯一持有者是本 hook。首页整屏翻页
+  // (use-full-page-scroll)曾同时监听这组键,在 /chat 上双触发,现已让出,只保留 PageUp/PageDown。
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 2026-08-02 修复 P1(问题 6-1):用 messagesRef.current 读最新 messages,
