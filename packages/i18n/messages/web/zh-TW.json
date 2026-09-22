@@ -9313,6 +9313,8 @@
       "loading": "加載中…",
       "me": "我",
       "mode": {
+        "plan": "唯讀計畫",
+        "planDesc": "僅讀取與檢索，寫檔案和執行命令都會被拒絕",
         "ask": "請求批准",
         "askDesc": "編輯外部文件和使用互聯網時始終詢問",
         "auto": "替我審批",
@@ -9409,6 +9411,7 @@
     },
     "permissionAlreadyActive": "目前已是 {mode} 模式",
     "permissionLabelAsk": "請求批准",
+    "permissionLabelPlan": "唯讀計畫",
     "permissionLabelAuto": "為我審批",
     "permissionLabelFull": "完全存取",
     "permissionSwitchFailed": "切換權限模式失敗:{error}",
@@ -20642,6 +20645,10 @@
         "default": {
           "desc": "全部操作需人工確認,最安全",
           "title": "默認模式"
+        },
+        "plan": {
+          "title": "唯讀計畫",
+          "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
         },
         "unknown": {
           "desc": "未識別的權限模式",

@@ -9323,6 +9323,8 @@
       "loading": "Loading…",
       "me": "Me",
       "mode": {
+        "plan": "Read-only plan",
+        "planDesc": "Reads and searches only; editing files and running commands are refused",
         "ask": "Ask for approval",
         "askDesc": "Always asks before editing files outside this project or using the internet",
         "auto": "Auto-approve edits",
@@ -9419,6 +9421,7 @@
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
+    "permissionLabelPlan": "Read-only plan",
     "permissionLabelAuto": "Auto-approve",
     "permissionLabelFull": "Full access",
     "permissionSwitchFailed": "Failed to switch permission mode: {error}",
@@ -20675,6 +20678,10 @@
         "default": {
           "desc": "All operations require manual confirmation. Most secure.",
           "title": "Default"
+        },
+        "plan": {
+          "title": "Read-only plan",
+          "desc": "Reads and searches only; edits and command execution are always refused"
         },
         "unknown": {
           "desc": "Unrecognized permission mode",
