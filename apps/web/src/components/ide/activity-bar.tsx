@@ -32,7 +32,7 @@ const ITEMS: Item[] = [
 
 function Tooltip({ label, shortcut }: { label: string; shortcut: string }) {
   return (
-    <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 translate-x-1 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100">
+    <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 translate-x-1 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-all duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
       <div className="flex items-center gap-1 whitespace-nowrap">
         <span>{label}</span>
         <span className="text-[10px] text-muted-foreground">({shortcut})</span>
@@ -56,6 +56,10 @@ export function ActivityBar() {
             <div key={item.id} className="group relative">
               <button
                 onClick={() => setActiveView(item.id)}
+                // 图标钮无文字(名称只在 hover tooltip 里)→ 必须显式 aria-label;
+                // 选中态原本只有底色 + 2px 竖条可见,AT 读不到 → 补 aria-pressed
+                aria-label={t(item.labelKey)}
+                aria-pressed={isActive}
                 className={cn(
                   'relative rounded-md p-2 transition-colors',
                   isActive
@@ -81,6 +85,7 @@ export function ActivityBar() {
       <div className="group relative mt-auto">
         <button
           onClick={() => setActiveTopTab('settings')}
+          aria-label={t('activityBar.settings')}
           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
         >
           <Settings className="h-5 w-5" />
