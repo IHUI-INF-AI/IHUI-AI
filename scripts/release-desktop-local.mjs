@@ -103,13 +103,20 @@ const giteeTok = existsSync(GITEE_KEY_FILE)
 if (!giteeTok) { console.error('ERROR: 无法获取 gitee.com token(密钥文件与环境变量均无)'); process.exit(1); }
 const gr = spawnSync(pythonBin, [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
   stdio: 'inherit',
-  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000, windowsHide: true,
+  env: { ...process.env, GITEE_TOKEN: giteeTok }, timeout: 120000, windowsHide: true,
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
-// feed 已改为 release 附件 + 站点快照方案(2026-09-17):
-//   - GitHub/Gitee release desktop-updater-feed 附件由 gitee-release-attach.py 维护
-//   - 站点端点 https://aizhs.top/desktop-feed.json 由 resolve-desktop-download.mjs 刷新快照后部署生效
-//   - 不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)
+// feed 三条链路的**真实归属**(2026-09-22 逐行核对后更正,原注释把 CI 的活记到了本机头上):
+//   ① 客户端主端点 https://aizhs.top/desktop-feed.json
+//      —— 由 resolve-desktop-download.mjs 刷新站点快照 `apps/web/src/config/desktop-feed.generated.ts`
+//         后随 Web 部署生效(CI: sync-downloads.yml / release-desktop.yml)。本机发版脚本**不刷它**。
+//   ② 客户端兜底端点 GitHub release `desktop-updater-feed/latest.json`
+//      —— 由 CI 的 scripts/generate-latest-json.mjs 维护。本机通道走 gitee-release-attach.py 的
+//         replace_gitee_feed + replace_github_feed,而后者开头就 `if not GH_TOKEN: return`,
+//         本机只传 GITEE_TOKEN ⇒ **本机这一条是空转**,别把它当成"已同步双平台"。
+//   ③ Gitee release 附件(安装包直链,供人下载,不在 updater endpoints 里)—— 本机这条真实生效。
+//   曾额外传过一个 DESKTOP_FEED_OUT 环境变量,但 gitee-release-attach.py 全文不读它(死变量,已删)。
+//   不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)。
 
 // ── 4. 提交推送版本 bump ──
 if (!NO_PUSH) {
