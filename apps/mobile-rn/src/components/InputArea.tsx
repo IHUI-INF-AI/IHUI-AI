@@ -39,6 +39,7 @@ import {
   Animated,
   Easing,
   Image,
+  Keyboard as RNKeyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -50,6 +51,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { formatShortDuration } from '@ihui/shared/utils'
+import { PlusButton } from './AddPanel'
 import {
   FileText,
   Film,
@@ -152,6 +155,26 @@ export interface InputAreaProps {
   collapsedFabLabel?: string
   /** 折叠按钮(完整态右上「×」)的可访问标签;未提供时回退「收起输入区」 */
   collapseButtonLabel?: string
+
+  // ── 内嵌语音(可选,HomeScreen 大输入框:麦克风+文本+发送同框)─────────────────
+  /** 显示框内麦克风按钮(长按录音,松开转写)。传入后输入区渲染为「一个大输入框」:
+   *  [🎤 长按] [TextInput/录音波形] [发送] 同处一个圆角边框内,发送按钮移入框内 */
+  showVoiceMic?: boolean
+  /** 录音中(showVoiceMic=true 时生效):输入区显示波形 + 时长「松开结束」 */
+  voiceRecording?: boolean
+  /** 转写中(showVoiceMic=true 时生效):输入区显示「转写中…」 */
+  voiceTranscribing?: boolean
+  /** 录音时长(秒,showVoiceMic=true 时生效) */
+  voiceDuration?: number
+  /** 长按麦克风开始录音(showVoiceMic=true 时生效) */
+  onVoiceStart?: () => void
+  /** 松开麦克风结束录音并转写(showVoiceMic=true 时生效) */
+  onVoiceEnd?: () => void
+  /** 「+」按钮回调(对齐 Uniapp functionHandle → 底部滑出菜单;提供后在大输入框发送按钮左侧渲染;
+   *  激活时旋转 45° + 品牌色高亮,对齐 BottomActionBar plusBtn 同款交互) */
+  onPlusToggle?: () => void
+  /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°) */
+  plusActive?: boolean
 }
 
 const DEFAULT_MAX_LENGTH = 500
@@ -187,8 +210,8 @@ function VoiceWave() {
   return (
     <View style={styles.voiceBars}>
       {bars.map((v, i) => {
-        const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] })
-        const baseHeight = 6 + (i % 6) * 3
+        const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [0.25, 1] })
+        const baseHeight = 8 + (i % 6) * 4
         return (
           <Animated.View
             key={i}
@@ -263,6 +286,14 @@ export function InputArea({
   onCollapsedChange,
   collapsedFabLabel,
   collapseButtonLabel,
+  showVoiceMic = false,
+  voiceRecording = false,
+  voiceTranscribing = false,
+  voiceDuration = 0,
+  onVoiceStart,
+  onVoiceEnd,
+  onPlusToggle,
+  plusActive = false,
 }: InputAreaProps) {
   const insets = useSafeAreaInsets()
   useUiTextField({
@@ -278,6 +309,11 @@ export function InputArea({
 
   // 文本自动撑高(上限 MAX_INPUT_HEIGHT,放大后无上限)
   const [contentHeight, setContentHeight] = useState(MIN_INPUT_HEIGHT)
+  // Android 的 onContentSizeChange 在文本收缩时不再回调,清空后输入框会卡在多行
+  // 高度上(计数徽章随之误显 0/500)。value 清空时主动复位到单行高度。
+  useEffect(() => {
+    if (value.length === 0) setContentHeight(MIN_INPUT_HEIGHT)
+  }, [value])
   const [expandedInternal, setExpandedInternal] = useState(false)
   const isExpanded = expanded ?? expandedInternal
   const inputHeight = isExpanded
@@ -288,10 +324,16 @@ export function InputArea({
   const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
   const isCollapsed = collapsible ? internalCollapsed : false
 
+  // showVoiceMic 大输入框:短按聚焦输入,长按 450ms 开始录音(2026-09-22 用户定稿:
+  // 长按输入框直接语音,微信同款交互)。Pressable 恒挂载持有触摸序列,
+  // 录音态内部切换波形/TextInput 不丢松开事件;TextInput 包 pointerEvents="none"
+  // 纯展示,短按由 Pressable 手动 focus(软键盘按键注入不依赖触摸 TextInput 本体)。
+  const inputRef = useRef<TextInput | null>(null)
+
   const hasImages = (images?.length ?? 0) > 0
   const hasParams = (pageAgentVariables?.length ?? 0) > 0
   const showVoiceBtn = onVoiceToggle !== null
-  const showAddBtn = onImageAdd !== null
+  const showAddBtn = onImageAdd !== undefined
   const showExpandBtn = onExpandToggle !== null && value.length > 0
 
   const handleSubmit = useCallback((): void => {
@@ -413,74 +455,101 @@ export function InputArea({
           </ScrollView>
         ) : null}
 
-        {/* 输入行:语音按钮 + 文本框/语音条 + 添加按钮 */}
-        <View style={styles.inputRow}>
-          {showVoiceBtn ? (
-            <TouchableOpacity
-              style={styles.voiceBtn}
-              onPress={onVoiceToggle}
-              activeOpacity={0.7}
+        {/* 输入行:showVoiceMic 时为一个「大输入框」(麦克风+文本/语音+发送同框);
+            否则原布局(独立语音按钮 + 文本框 + 框外发送按钮) */}
+        {showVoiceMic ? (
+          <View
+            style={[
+              styles.fieldShell,
+              voiceRecording || voiceTranscribing ? styles.fieldShellRecording : null,
+            ]}
+          >
+            {/* 麦克风:长按开始录音,松开结束并转写 */}
+            <Pressable
+              style={styles.micInShell}
+              onLongPress={onVoiceStart}
+              onPressOut={onVoiceEnd}
+              delayLongPress={300}
+              disabled={disabled || voiceTranscribing}
+              hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
+              accessibilityLabel="按住说出你的问题"
             >
-              {voiceActive || voiceInput ? (
-                <Keyboard size={20} color={tokens.text.secondary} />
+              {voiceTranscribing ? (
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
               ) : (
-                <Mic size={20} color={tokens.text.secondary} />
+                <Mic
+                  size={20}
+                  color={voiceRecording ? tokens.danger.DEFAULT : tokens.text.secondary}
+                />
               )}
-            </TouchableOpacity>
-          ) : null}
+            </Pressable>
 
-          <View style={styles.inputColumn}>
-            {voiceActive ? (
-              <Pressable
-                style={styles.voiceWaveWrap}
-                onPressIn={onVoiceAnimationStart}
-                onPressOut={onVoiceAnimationStop}
-                accessibilityLabel="按住说话,松开结束"
-              >
-                <VoiceWave />
-              </Pressable>
-            ) : voiceInput ? (
-              <Pressable
-                style={styles.voiceWaveWrap}
-                onPressIn={onVoiceAnimationStart}
-                onPressOut={onVoiceAnimationStop}
-                accessibilityLabel="按住说话,松开结束"
-              >
-                <Text style={styles.voiceHint}>按住说话</Text>
-              </Pressable>
-            ) : (
-              <TextInput
-                style={[styles.input, { height: inputHeight }]}
-                value={value}
-                onChangeText={onChangeText}
-                onContentSizeChange={(e) =>
-                  handleContentSizeChange(
-                    e.nativeEvent.contentSize.width,
-                    e.nativeEvent.contentSize.height,
-                  )
-                }
-                placeholder={placeholder}
-                placeholderTextColor={tokens.text.tertiary}
-                maxLength={maxLength}
-                multiline
-                textAlignVertical="top"
-                editable={!disabled}
-              />
-            )}
+            {/* 中部(恒挂载 Pressable 持有触摸):短按聚焦输入,长按开始录音,
+                录音态显示波形+时长,转写态显示「转写中…」;松开结束并转写 */}
+            <Pressable
+              style={styles.voiceTouchArea}
+              delayLongPress={450}
+              onLongPress={() => {
+                RNKeyboard.dismiss()
+                onVoiceStart?.()
+              }}
+              onPressOut={() => {
+                if (voiceRecording || voiceTranscribing) onVoiceEnd?.()
+              }}
+              onPress={() => inputRef.current?.focus()}
+              accessibilityLabel={placeholder ?? '请输入您的问题,或长按说话'}
+            >
+              {voiceRecording || voiceTranscribing ? (
+                <View style={styles.voiceAreaInShell}>
+                  {voiceTranscribing ? (
+                    <View style={styles.transcribingRow}>
+                      <ActivityIndicator size="small" color={tokens.danger.DEFAULT} />
+                      <Text style={styles.voiceAreaText}>转写中…</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <VoiceWave />
+                      <Text style={styles.voiceAreaDuration}>
+                        {formatShortDuration(voiceDuration)} 松开结束
+                      </Text>
+                    </>
+                  )}
+                </View>
+              ) : (
+                <View pointerEvents="none" style={styles.inputColumn}>
+                  <TextInput
+                    ref={inputRef}
+                    style={[styles.inputBare, { height: inputHeight }]}
+                    value={value}
+                    onChangeText={onChangeText}
+                    onContentSizeChange={(e) =>
+                      handleContentSizeChange(
+                        e.nativeEvent.contentSize.width,
+                        e.nativeEvent.contentSize.height,
+                      )
+                    }
+                    placeholder={placeholder}
+                    placeholderTextColor={tokens.text.tertiary}
+                    maxLength={maxLength}
+                    multiline
+                    textAlignVertical="top"
+                    editable={!disabled}
+                  />
+                  {/* 字数统计:仅输入框被多行内容拉开(两行及以上)时显示,单行不显示 */}
+                  {inputHeight > MIN_INPUT_HEIGHT + 10 ? (
+                    <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
+                      {value.length}/{maxLength}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+            </Pressable>
 
-            {/* 字数统计(输入框内右下角浮层) */}
-            {!voiceActive && !voiceInput ? (
-              <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
-                {value.length}/{maxLength}
-              </Text>
-            ) : null}
-
-            {/* 放大/缩小切换(handleFangda/handleFangdas) */}
-            {showExpandBtn ? (
+            {/* 放大/缩小切换(移出 pointerEvents="none" 区域保持可点) */}
+            {showExpandBtn && !voiceRecording && !voiceTranscribing ? (
               <TouchableOpacity
-                style={styles.expandBtn}
+                style={styles.expandBtnInShell}
                 onPress={handleExpandToggle}
                 activeOpacity={0.7}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -490,21 +559,125 @@ export function InputArea({
                 <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
               </TouchableOpacity>
             ) : null}
-          </View>
 
-          {/* 添加文件按钮(search-box2,functionHandle) */}
-          {showAddBtn ? (
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={onImageAdd}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="添加图片或文件"
-            >
-              <Plus size={24} color={tokens.text.secondary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+            {/* 「+」按钮(对齐 Uniapp functionHandle → 底部滑出菜单;视觉统一走共享 PlusButton,
+                激活旋转 45° + 品牌高亮,面板由调用方渲染共享 AddPanel) */}
+            {onPlusToggle !== undefined ? (
+              <PlusButton active={plusActive} onPress={onPlusToggle} />
+            ) : null}
+
+            {/* 发送按钮(框内右侧) */}
+            {loading && onStop ? (
+              <TouchableOpacity
+                style={[styles.sendInShell, styles.stopButton]}
+                onPress={onStop}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={stopLabel ?? 'stop'}
+              >
+                <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.sendInShell, isSendBlocked ? styles.sendButtonDisabled : null]}
+                onPress={handleSubmit}
+                activeOpacity={0.7}
+                disabled={!canSend}
+                accessibilityRole="button"
+                accessibilityLabel={sendLabel ?? 'send'}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color={tokens.surface.light} />
+                ) : (
+                  <Send size={16} color={tokens.surface.light} />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <View style={styles.inputRow}>
+            {showVoiceBtn ? (
+              <TouchableOpacity
+                style={styles.voiceBtn}
+                onPress={onVoiceToggle}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
+              >
+                {voiceActive || voiceInput ? (
+                  <Keyboard size={20} color={tokens.text.secondary} />
+                ) : (
+                  <Mic size={20} color={tokens.text.secondary} />
+                )}
+              </TouchableOpacity>
+            ) : null}
+
+            <View style={styles.inputColumn}>
+              {voiceActive ? (
+                <Pressable
+                  style={styles.voiceWaveWrap}
+                  onPressIn={onVoiceAnimationStart}
+                  onPressOut={onVoiceAnimationStop}
+                  accessibilityLabel="按住说话,松开结束"
+                >
+                  <VoiceWave />
+                </Pressable>
+              ) : voiceInput ? (
+                <Pressable
+                  style={styles.voiceWaveWrap}
+                  onPressIn={onVoiceAnimationStart}
+                  onPressOut={onVoiceAnimationStop}
+                  accessibilityLabel="按住说话,松开结束"
+                >
+                  <Text style={styles.voiceHint}>按住说话</Text>
+                </Pressable>
+              ) : (
+                <TextInput
+                  style={[styles.input, { height: inputHeight }]}
+                  value={value}
+                  onChangeText={onChangeText}
+                  onContentSizeChange={(e) =>
+                    handleContentSizeChange(
+                      e.nativeEvent.contentSize.width,
+                      e.nativeEvent.contentSize.height,
+                    )
+                  }
+                  placeholder={placeholder}
+                  placeholderTextColor={tokens.text.tertiary}
+                  maxLength={maxLength}
+                  multiline
+                  textAlignVertical="top"
+                  editable={!disabled}
+                />
+              )}
+
+              {/* 字数统计(输入框内右下角浮层) */}
+              {!voiceActive && !voiceInput ? (
+                <Text style={[styles.counter, isOverWarning ? styles.counterWarning : null]}>
+                  {value.length}/{maxLength}
+                </Text>
+              ) : null}
+
+              {/* 放大/缩小切换(handleFangda/handleFangdas) */}
+              {showExpandBtn ? (
+                <TouchableOpacity
+                  style={styles.expandBtn}
+                  onPress={handleExpandToggle}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
+                >
+                  <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {/* 添加文件按钮(search-box2,functionHandle;视觉统一走共享 PlusButton,
+              点击回调 onImageAdd 由调用方注入——弹统一 AddPanel 或直接选图) */}
+            {showAddBtn ? <PlusButton onPress={onImageAdd} label="添加图片或文件" /> : null}
+          </View>
+        )}
 
         {/* 参数变量输入区(pageAgentVariables,可选) */}
         {hasParams ? (
@@ -546,33 +719,35 @@ export function InputArea({
         ) : null}
       </View>
 
-      {/* 发送按钮(search-box3) */}
-      {loading && onStop ? (
-        <TouchableOpacity
-          style={[styles.sendButton, styles.stopButton]}
-          onPress={onStop}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={stopLabel ?? 'stop'}
-        >
-          <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          style={[styles.sendButton, isSendBlocked ? styles.sendButtonDisabled : null]}
-          onPress={handleSubmit}
-          activeOpacity={0.7}
-          disabled={!canSend}
-          accessibilityRole="button"
-          accessibilityLabel={sendLabel ?? 'send'}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color={tokens.surface.light} />
-          ) : (
-            <Send size={18} color={tokens.surface.light} />
-          )}
-        </TouchableOpacity>
-      )}
+      {/* 发送按钮(search-box3,框外;showVoiceMic 时已移入大输入框内,不重复渲染) */}
+      {!showVoiceMic ? (
+        loading && onStop ? (
+          <TouchableOpacity
+            style={[styles.sendButton, styles.stopButton]}
+            onPress={onStop}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={stopLabel ?? 'stop'}
+          >
+            <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.sendButton, isSendBlocked ? styles.sendButtonDisabled : null]}
+            onPress={handleSubmit}
+            activeOpacity={0.7}
+            disabled={!canSend}
+            accessibilityRole="button"
+            accessibilityLabel={sendLabel ?? 'send'}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color={tokens.surface.light} />
+            ) : (
+              <Send size={18} color={tokens.surface.light} />
+            )}
+          </TouchableOpacity>
+        )
+      ) : null}
     </View>
   )
 }
@@ -700,6 +875,81 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
+  // ── showVoiceMic 大输入框(麦克风+文本/语音+发送同框)──
+  fieldShell: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  micInShell: {
+    width: 36,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputBare: {
+    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 24,
+    fontSize: 14,
+    color: tokens.text.primary,
+  },
+  voiceAreaInShell: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 4,
+  },
+  transcribingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  voiceAreaText: {
+    fontSize: 12,
+    color: tokens.text.secondary,
+  },
+  voiceAreaDuration: {
+    fontSize: 12,
+    color: tokens.danger.DEFAULT,
+    fontWeight: '500',
+  },
+  fieldShellRecording: {
+    alignItems: 'center',
+    backgroundColor: tokens.danger.light,
+    borderColor: tokens.danger.light,
+  },
+  voiceTouchArea: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  expandBtnInShell: {
+    position: 'absolute',
+    right: 52,
+    top: 4,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  sendInShell: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    marginLeft: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+
   voiceBtn: {
     width: 32,
     height: 48,
@@ -738,15 +988,15 @@ const styles = StyleSheet.create({
   },
   voiceBars: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 3,
-    height: 40,
+    height: 32,
     justifyContent: 'center',
   },
   voiceBar: {
     width: 3,
     borderRadius: 2,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.danger.DEFAULT,
   },
   voiceHint: {
     fontSize: 14,
@@ -777,17 +1027,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: tokens.text.secondary,
   },
-  addBtn: {
-    width: 40,
-    height: 48,
-    marginLeft: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnIcon: {
-    fontSize: 24,
-    color: tokens.text.secondary,
-  },
+
   // 参数变量区
   paramsList: {
     flexDirection: 'row',
