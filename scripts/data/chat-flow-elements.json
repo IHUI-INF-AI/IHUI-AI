@@ -186,6 +186,30 @@
       ]
     },
     {
+      "id": "context-injection-disclosure",
+      "title": "本轮上下文注入交代条(前端本地化 kind 标签 + 可展开全文 + 段数计数)",
+      "sourceTask": "D34/D45",
+      "events": ["injection_applied"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "injection_frames"
+        },
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/send-message.ts",
+          "mustMatch": "appendMessageInjection"
+        },
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+          "mustMatch": "InjectionBar"
+        }
+      ]
+    },
+    {
       "id": "tool-row-bilingual-tense-wording",
       "title": "工具行双时态活动措辞(正在 X / 已 X;失败与撤回不声称已完成)",
       "sourceTask": "D81①/D83/D98",
