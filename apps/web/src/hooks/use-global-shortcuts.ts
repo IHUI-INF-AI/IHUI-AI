@@ -115,6 +115,10 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
  * - 无回归风险:Windows/Linux 上 wantCtrl 仍只接受 ctrlKey,行为不变
  */
 function matchShortcut(event: KeyboardEvent, keyCombo: string): boolean {
+  // 2026-09-22 补:输入法组合态一律不匹配。中文输入法用 Ctrl+1..9 选候选词时
+  // keydown 同样带 ctrlKey 且 key='1',此前会被 Ctrl+1 这类应用级快捷键整条抢走
+  // (候选选择被吞)。只在组合中判,不影响非组合态下正常的 Ctrl+数字切标签页。
+  if (event.isComposing) return false
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform)
 
   const parts = keyCombo.toLowerCase().split('+')
