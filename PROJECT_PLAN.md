@@ -2710,6 +2710,38 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **影响面核验**:`.husky/pre-commit:178` 与 `.husky/pre-push:86` 均只取退出码,exit 1 语义未变;push-gate 缓存判据 `failed === 0` 未动。**耗时**:绿的路径原本就要跑完全部 → 不变;仅失败轮次变长(--staged 全绿实测 171s / 全量 303s)。
   - **质量门**:`node --check` 0、`eslint` 0 错、`--help` 渲染正确、`--staged` 整轮 **失败 0**(即不会给任何会话的提交新增阻塞)。**未跑 prettier**:实测它会对同文件内他人条目(id 30a / 338 快照 / 中文术语机的 label)重排 28 行,属 §12 暂存区污染,故按 P2-F.6 既定口径手工对齐周围格式。
   - 平台独占:仅 scripts 守门 + 文档(§9 豁免,无跨端契约变更,无运行时能力变化)。
+- [x] ✅(2026-09-22) **P2-F.8 跑完再汇总暴露的门逐个归因:修两类真缺陷 + 新建守门 67**:
+  - **守门 52 自指误报已修**:全量扫描把自己 self-test 区(170-182 行)的判据样例当违规致恒红。
+    修法为 self-test 区段自我豁免(仅对文件名等于自身生效;标记缺失或多组则不豁免=宁红不漏;白名单未动)。
+    实测:全量 exit 1 → **0**(7806 文件);self-test 14 例仍全过;镜像测试 20/20(新增 3 例覆盖 strip/防旁路/标记完整性);
+    判据未松由**注入实验**背书(豁免区外插 `execFileSync('git',['status'])` 无 windowsHide → exit 1 精确报行,删后回 0)。提交 `b4faa930fd`。
+  - **守门 6 报的是更深一层的真实凭据外泄**:`response-sanitizer.ts:496` 明写
+    `if (reply.statusCode < 200 || reply.statusCode >= 300) return payload` —— **非 2xx 完全不打码**;
+    而 `proxy-extended-media3.ts` 把 Adobe IMS OAuth2 令牌端点**整个响应体** `JSON.stringify(tokenData)` 拼进 502 message
+    回传客户端(成功体含 `access_token`,502 正落在脱敏豁免区)。归属证据:该文件 `git status` 为空、内容即 HEAD
+    → **是已提交进 main 的存量缺陷**(我上一轮判为"他人 in-flight 文件"是错的,已更正)。
+    修法走 A:502 只回传 RFC 6749 error 码 + 令牌解析收紧为具名解构与 typeof/length 双判 + 删冗余凭据局部变量;
+    **明确不加 `skipResponseSanitization`**(那等于为"把凭据发出去"关掉一条脱敏保护,而该端点 2xx 响应本不含 token/secret)。提交 `7384c92ed0`。
+  - **新建守门 67** `scripts/check-credential-leak-in-message.mjs`(539 行 + §22c 测试 119 行 12 例 + 空基线):
+    仅在 4xx/5xx 构造上下文内、且被 stringify 的实参具备凭据语义(变量名/声明右侧/对象 key/message 字面量)时 BLOCK,
+    并覆盖"经一层声明间接外泄"。全仓同类"上游错误体→非2xx message"仍有 **35 处 / 13 文件**,其实参名
+    (`errData`/`genData`/`data`)不命中词表 → 只进**低置信候选**不计失败(否则历史代码全变假阳性)。
+    注册 id 67(blocking + `stagedTriggers=['apps/']` + `skipEnv=HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE`);
+    开工与收尾两次查号确认当时最大值 66、`uniq -d` 无重复。**高危类目现网实测 0 命中**(7384c92ed0 即唯一已知实例)。
+  - **两处自我纠正(不静默)**:① 我把守门 65 的 `--self-test` 判成"假绿"并派了修复任务,代理复核指出 HEAD 第 28 行
+    本就有 `process.exit(bad === 0 ? 0 : 1)` —— **根因是我 grep 用 `head -8` 把结论行截掉了**,
+    "否定式断言落点不足"在我自己身上复发;代理改动已按 sha256 逐字节还原(`e8ed6619…` 双向一致),未进提交。
+    ② 我第一版探针自拼 `findStatusContexts/extractWindow/findStringifyArgs`,而 `extractWindow` 实返回
+    `{ text, endIndex }` 对象 → 判据静默空转,**反例因 `args=[]` 恰等于期望 false 而假通过**;
+    改为直调权威 `scanSource` 并加"链路哨兵"(必须真看见候选/实参才算数)后结论才可信。
+  - **已知边界(记此不隐瞒)**:跨行写法(`reply.status(502).send(` 换行接 `error(502, …)`)会被**两个起点行各报一次**
+    (实测同一物理位置 violations=2),方向正确但计数重复;且基线 key 含起始行号,将来若写入豁免、其上方代码行增删
+    会使 key 漂移致豁免静默失效。当前基线为空、风险未现实化,故未额外改判据。
+  - **P2-F.7 真钩子端到端已由并发提交自然覆盖**:自 `85d0248d85` 起 main 新增 **21 枚**提交全部穿过改造后的
+    pre-commit(lint-staged `--no-stash` + `guardian-runner --staged`),无一被我的改动卡死。
+    另更正:本仓库 lint-staged 早在 2026-09-12 即强制 `--no-stash`(注释写明两次 gitdir 整体删除事故),
+    故我上一轮"怕 stash 才不跑真钩子"的理由不成立。
+  - 平台独占:仅 scripts 守门 + apps/api 一处安全修复 + 文档(§9 豁免;api 修复对外仅改变 502 文案文本,响应结构不变)。
   - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
 - **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分
