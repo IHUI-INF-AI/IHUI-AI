@@ -176,10 +176,12 @@ FunctionEnd
 
 Function un.IHUIConfirmPage
   ; ⚠️ 卸载器上下文里 $IHUIPassive 从未被赋值(它由安装侧 .onInit 装填),
-  ; 判 passive/silent 必须直接吃模板自己的 $PassiveMode 与 ${Silent}。
-  ${If} $PassiveMode = 1
-    Abort
-  ${EndIf}
+  ; 而模板自己的 $PassiveMode 在本文件的 include 点之后才声明 —— 见下面两条守卫的写法。
+  ; passive 判定交给上游 un.SkipIfPassive():它定义在 $PassiveMode 声明之后,
+  ; 因而编译期有效。本文件是经 hooks.nsi 在模板第 89 行之前就 include 的,在这里直接写
+  ; $PassiveMode 会被 NSIS 判为 unknown variable 并 ignoring(构建日志 warning 6000 实锤),
+  ; 守卫静默失效 —— passive 卸载会弹出一页无人点的确认页。
+  Call un.SkipIfPassive
   ${If} ${Silent}
     Abort
   ${EndIf}
@@ -230,9 +232,8 @@ FunctionEnd
 ; =====================================================================
 
 Function un.IHUIUninstShow
-  ${If} $PassiveMode = 1
-    Return
-  ${EndIf}
+  ; 只判 ${Silent}(内建常量,不受 Var 声明顺序影响):静默卸载不贴皮,
+  ; passive 仍要跑卸载 Section,页面贴不贴皮无所谓,不做 Abort。
   ${If} ${Silent}
     Return
   ${EndIf}
