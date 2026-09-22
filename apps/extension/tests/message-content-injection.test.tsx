@@ -90,3 +90,22 @@ describe('extension 消费 injection_applied(D106)', () => {
     expect(renderMessage({})).not.toContain('injection-bar')
   })
 })
+
+describe('G-165① 消息级权限档交代行(extension)', () => {
+  it('有盖章值时出档名与后果(真实词包本地化文案,非键名)', () => {
+    const html = renderMessage({ metadata: { permissionMode: 'plan' } })
+    expect(html).toContain('message-permission-tier')
+    expect(html).toContain(lookup('permissionTier.mode.plan.title')!)
+    expect(html).toContain(lookup('permissionTier.mode.plan.desc')!)
+  })
+
+  it('未知盖章值显示 unknown 键文案,绝不显示成 default(授权误导防线)', () => {
+    const html = renderMessage({ metadata: { permissionMode: 'yolo' } })
+    expect(html).toContain(lookup('permissionTier.mode.unknown.title')!)
+    expect(html).not.toContain(lookup('permissionTier.mode.default.title')!)
+  })
+
+  it('无盖章(老消息/未绑定工作区)不渲染,不编造 default', () => {
+    expect(renderMessage({})).not.toContain('message-permission-tier')
+  })
+})

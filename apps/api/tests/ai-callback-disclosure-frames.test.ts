@@ -180,4 +180,66 @@ describe('AI callback compaction 持久化(G-166 第②步)', () => {
     expect(mockAdd).not.toHaveBeenCalled()
   })
 })
+
+describe('AI callback retryNotice 持久化(G-166 第⑥步)', () => {
+  const server = Fastify({ logger: false })
+  let mockAdd: ReturnType<typeof vi.fn>
+
+  beforeAll(async () => {
+    mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
+    server.decorate('aiCallbackQueue', { add: mockAdd })
+    await server.register(aiCallbackRoutes)
+    await server.ready()
+  })
+
+  afterAll(async () => {
+    await server.close()
+  })
+
+  const post = (payload: Record<string, unknown>) =>
+    server.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-1' },
+        ...payload,
+      },
+    })
+
+  it('契约四字段入队到 metadata.retryNotice(与 SSE retry_scheduled 同名)', async () => {
+    mockAdd.mockClear()
+    const notice = { attempt: 3, maxRetries: 3, retryInMs: 1500, httpStatus: 429 }
+    const res = await post({ retryNotice: notice })
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect(job.metadata.retryNotice).toEqual(notice)
+  })
+
+  it('本轮没重试 → 不带字段(不清空已落库的记账)', async () => {
+    mockAdd.mockClear()
+    const res = await post({})
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect('retryNotice' in job.metadata).toBe(false)
+  })
+
+  it('attempt=0 被拒("重试了 0 次"不是一种交代)', async () => {
+    mockAdd.mockClear()
+    const res = await post({ retryNotice: { attempt: 0, maxRetries: 3, retryInMs: 0 } })
+    expect(res.statusCode).toBe(400)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+
+  it('httpStatus 可缺(换 key 立即重试那条就没有延迟与状态码)', async () => {
+    mockAdd.mockClear()
+    const res = await post({ retryNotice: { attempt: 1, maxRetries: 3, retryInMs: 0 } })
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0][1] as {
+      metadata: { retryNotice: Record<string, unknown> }
+    }
+    expect(job.metadata.retryNotice).toEqual({ attempt: 1, maxRetries: 3, retryInMs: 0 })
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

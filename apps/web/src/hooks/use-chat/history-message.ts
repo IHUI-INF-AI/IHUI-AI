@@ -115,6 +115,30 @@ function readCompactionFromMetadata(raw: unknown): ChatMessage['compaction'] {
 }
 
 /**
+ * 从 metadata.retryNotice 还原"这轮上游重试过几次"(G-166 第⑥步)。
+ * 四字段与 SSE retry_scheduled 契约同名;attempt / maxRetries 必须是 ≥1 的整数,
+ * 否则整条不采信 —— "重试了 0 次"不是一种交代,渲染出来只会误导。
+ */
+function readRetryNoticeFromMetadata(raw: unknown): ChatMessage['retryNotice'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const rec = raw as Record<string, unknown>
+  const pos = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isInteger(v) && v >= 1 ? v : undefined
+  const attempt = pos(rec.attempt)
+  const maxRetries = pos(rec.maxRetries)
+  if (attempt === undefined || maxRetries === undefined) return undefined
+  const retryInMs =
+    typeof rec.retryInMs === 'number' && Number.isInteger(rec.retryInMs) && rec.retryInMs >= 0
+      ? rec.retryInMs
+      : 0
+  const status =
+    typeof rec.httpStatus === 'number' && Number.isInteger(rec.httpStatus)
+      ? rec.httpStatus
+      : undefined
+  return { attempt, maxRetries, retryInMs, ...(status !== undefined ? { httpStatus: status } : {}) }
+}
+
+/**
  * 单条历史消息 → web store ChatMessage(D24 工具卡/终端区 + planSteps 计划快照)。
  *
  * 2026-09-21 立:plan_updated SSE 事件此前只写前端内存,刷新页面即丢。
@@ -145,6 +169,7 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     citations: readCitationsFromMetadata(meta?.citations),
     injections: readInjectionsFromMetadata(meta?.injections),
     compaction: readCompactionFromMetadata(meta?.compaction),
+    retryNotice: readRetryNoticeFromMetadata(meta?.retryNotice),
   }
 }
 
