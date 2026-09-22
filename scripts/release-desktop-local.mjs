@@ -97,7 +97,9 @@ console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
 // 判据本身抽到 scripts/lib/desktop-artifact-invariant.mjs(纯函数,有单测钉住),
 // 这里只负责执行删除与失败退出 —— 别在脚本里再抄一份过滤逻辑。
 {
-  const { keep, stale, violations } = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  // 这里不取首轮 violations:缺包/缺 sig 已由上方 existsSync 拦住,多包就是下面要删的 stale,
+  // 真正有判定意义的是**清理后**那一轮。
+  const { keep, stale } = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
   for (const f of stale) {
     rmSync(path.join(NSIS_DIR, f), { force: true })
     console.log(`🧹 清理旧产物: ${f}`)
