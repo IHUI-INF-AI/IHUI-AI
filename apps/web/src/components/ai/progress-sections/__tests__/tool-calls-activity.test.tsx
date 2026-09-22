@@ -73,6 +73,13 @@ function icu(key: string, state: string): string {
   return hasIcuSyntax(raw) ? formatIcu(raw, { state }, { locale: 'zh-CN' }) : raw
 }
 
+/** 语言包缺键必须让用例炸掉,而不是拿 undefined 去和界面文本比 */
+function msg(key: string): string {
+  const value = taskStatusPack[key]
+  if (typeof value !== 'string' || value === '') throw new Error(`zh-CN 语言包缺键 ${key}`)
+  return value
+}
+
 function makeTool(overrides: Partial<AgentToolCall> & { toolName: string }): AgentToolCall {
   return {
     id: `t-${overrides.toolName}-${overrides.status ?? 'running'}`,
@@ -104,7 +111,7 @@ describe('工具行活动措辞渲染位(D98/D102 B2)', () => {
     expect(running).toBe(icu('toolReadFileActivity', 'running'))
     expect(success).toBe(icu('toolReadFileActivity', 'completed'))
     expect(running).not.toBe(success)
-    expect(running).not.toBe(taskStatusPack.toolReadFile)
+    expect(running).not.toBe(msg('toolReadFile'))
     for (const text of [running, success]) {
       expect(text).not.toContain('{state')
       expect(text).not.toContain('select')
@@ -121,9 +128,9 @@ describe('工具行活动措辞渲染位(D98/D102 B2)', () => {
       const { container } = render(
         <ToolCallItem tool={makeTool({ toolName: readToolCode, status })} />,
       )
-      expect(labelOf(container, readToolCode)).toBe(taskStatusPack.toolReadFile)
+      expect(labelOf(container, readToolCode)).toBe(msg('toolReadFile'))
     }
-    expect(neutral).not.toBe(taskStatusPack.toolReadFile)
+    expect(neutral).not.toBe(msg('toolReadFile'))
   })
 
   it('长尾工具(无惯用措辞)走通用档:含功能名且带时态', () => {
@@ -133,7 +140,7 @@ describe('工具行活动措辞渲染位(D98/D102 B2)', () => {
     const { container: successBox } = render(
       <ToolCallItem tool={makeTool({ toolName: apiToolCode, status: 'success' })} />,
     )
-    const neutral = taskStatusPack.toolApiCall
+    const neutral = msg('toolApiCall')
     const running = labelOf(runningBox, apiToolCode)
     const success = labelOf(successBox, apiToolCode)
     expect(running).toContain(neutral)
@@ -142,7 +149,7 @@ describe('工具行活动措辞渲染位(D98/D102 B2)', () => {
     expect(running).not.toBe(success)
     expect(running).toBe(
       formatIcu(
-        taskStatusPack.toolGenericActivity,
+        msg('toolGenericActivity'),
         { state: 'running', name: neutral },
         { locale: 'zh-CN' },
       ),
