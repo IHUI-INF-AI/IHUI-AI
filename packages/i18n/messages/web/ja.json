@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
+      "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
       "ariaLabel": "Agent タスク進行パネル",
       "celebrate": "すべてのタスクが完了しました",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "パネルを展開",
       "expandAll": "すべて展開",
       "failureBanner": "{n} 件のタスクが失敗しました、クリックで表示",
+      "followEvents": "イベントストリームに追従",
       "helpClose": "閉じる",
       "helpPanelTitle": "キーボードショートカット",
       "helpToggle": "キーボードショートカット",
@@ -9170,7 +9173,6 @@
       "editAndRerun": "保存して再実行",
       "editRollbackFiles": "ファイル変更もロールバック",
       "hideContent": "コンテンツを非表示",
-      "jumpToLatest": "最新へ",
       "like": "いいね",
       "publishToCommunity": "コミュニティに投稿",
       "readAloud": "読み上げ",
@@ -9301,7 +9303,6 @@
       "historyStatsTitle": "累計統計",
       "historyTitle": "権限モード履歴",
       "inputWarning": "現在完全アクセスモード:AI は確認なしでファイルとネットワークに制限なくアクセスできます",
-      "jumpToLatest": "最新へ移動",
       "kbdNavigate": "切替",
       "latest": "最新",
       "learnMore": "詳細を見る",

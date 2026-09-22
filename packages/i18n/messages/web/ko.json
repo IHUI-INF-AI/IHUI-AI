@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
+      "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
       "ariaLabel": "Agent 작업 진행 패널",
       "celebrate": "모든 작업 완료",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "패널 펼치기",
       "expandAll": "모두 펼치기",
       "failureBanner": "{n}개 작업 실패, 클릭하여 보기",
+      "followEvents": "이벤트 스트림 추적",
       "helpClose": "닫기",
       "helpPanelTitle": "키보드 단축키",
       "helpToggle": "키보드 단축키",
@@ -9170,7 +9173,6 @@
       "editAndRerun": "저장 후 다시 실행",
       "editRollbackFiles": "파일 변경도 롤백",
       "hideContent": "콘텐츠 숨기기",
-      "jumpToLatest": "최신으로 이동",
       "like": "좋아요",
       "publishToCommunity": "커뮤니티에 게시",
       "readAloud": "읽어주기",
@@ -9301,7 +9303,6 @@
       "historyStatsTitle": "누적 통계",
       "historyTitle": "권한 모드 기록",
       "inputWarning": "현재 전체 액세스 모드: AI가 확인 없이 파일과 네트워크에 제한 없이 액세스할 수 있습니다",
-      "jumpToLatest": "최신으로 이동",
       "kbdNavigate": "전환",
       "latest": "최신",
       "learnMore": "자세히 보기",

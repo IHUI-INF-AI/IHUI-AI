@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+      "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
       "ariaLabel": "Agent Task Progress Panel",
       "celebrate": "All tasks complete",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "Expand Panel",
       "expandAll": "Expand All",
       "failureBanner": "{n} task(s) failed, click to view",
+      "followEvents": "Follow event stream",
       "helpClose": "Close",
       "helpPanelTitle": "Keyboard shortcuts",
       "helpToggle": "Keyboard shortcuts",
@@ -9180,7 +9183,6 @@
       "editAndRerun": "Save & Rerun",
       "editRollbackFiles": "Also rollback file changes",
       "hideContent": "Hide content",
-      "jumpToLatest": "Jump to latest",
       "like": "Like",
       "publishToCommunity": "Publish to community",
       "readAloud": "Read aloud",
@@ -9311,7 +9313,6 @@
       "historyStatsTitle": "Total usage",
       "historyTitle": "Permission mode history",
       "inputWarning": "Full access mode active: AI can use the internet and any file on your computer without asking",
-      "jumpToLatest": "Jump to latest",
       "kbdNavigate": "navigate",
       "latest": "Latest",
       "learnMore": "Learn more",
