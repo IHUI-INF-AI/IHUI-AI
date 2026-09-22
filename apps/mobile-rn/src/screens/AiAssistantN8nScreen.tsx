@@ -545,6 +545,10 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
   return (
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.terminalTasks')}</Text>
+      {/* 与 web/extension/小程序同一句执行环境交代(os_sandbox allow_network 默认 False) */}
+      <Text style={bubbleStyles.blockHint} testID="terminal-isolation">
+        {t('aiAssistantN8n.terminalIsolation')}
+      </Text>
       {tasks.map((task) => {
         const statusLabel =
           task.status === 'completed'
