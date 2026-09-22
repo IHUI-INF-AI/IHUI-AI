@@ -1227,7 +1227,7 @@ const styles = StyleSheet.create({
   },
   carrierWebTopBar: {
     height: 44,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     alignItems: 'flex-end',
@@ -1254,7 +1254,7 @@ const styles = StyleSheet.create({
   },
   agreementModalCard: {
     width: rpx(580),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rpx(24),
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: rpx(12) },
