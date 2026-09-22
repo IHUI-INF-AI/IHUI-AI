@@ -375,6 +375,7 @@
     "terminalStatusFailed": "Failed",
     "terminalExitCode": "Exit code",
     "terminalOutput": "Output",
+    "terminalTruncated": "…(truncated, {total} characters in total)",
     "compactionToast": "Context auto-compacted ({before} → {after} tokens)"
   },
   "aigcCover": {
