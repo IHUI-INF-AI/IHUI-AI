@@ -217,6 +217,14 @@
           "mustMatch": "_citation_url"
         },
         {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedCitationSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readCitationsFromMetadata"
+        },
+        {
           "file": "packages/api-client/src/client.ts",
           "mustMatch": "onCitations"
         },
@@ -340,6 +348,14 @@
         {
           "file": "apps/ai-service/app/routers/llm.py",
           "mustMatch": "injection_frames"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedInjectionSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readInjectionsFromMetadata"
         },
         {
           "file": "packages/api-client/src/client.ts",
