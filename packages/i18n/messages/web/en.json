@@ -7101,6 +7101,13 @@
         "title": "Terminal Tasks",
         "truncated": "...(truncated, {total} characters total)"
       },
+      "injectionTitle": "{count, plural, one {# context source in this turn} other {# context sources in this turn}}",
+      "injectionExpand": "Show {count, plural, one {# more} other {# more}}",
+      "injectionCollapse": "Collapse",
+      "injectionKindDeveloper": "Session-level custom instructions applied",
+      "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
+      "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
+      "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
       "thinkingCharCountTitle": "{n} characters",
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",

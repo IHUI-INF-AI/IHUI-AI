@@ -7101,6 +7101,13 @@
         "title": "終端任務",
         "truncated": "…(已截斷,共 {total} 字符)"
       },
+      "injectionTitle": "本輪上下文:{count} 項",
+      "injectionExpand": "展開其餘 {count} 項",
+      "injectionCollapse": "收起",
+      "injectionKindDeveloper": "已套用工作階段級自訂指令",
+      "injectionKindWorkspace": "已注入工作區記憶 / AGENTS.md",
+      "injectionKindRepoWiki": "已注入 Repo Wiki 專案百科",
+      "injectionKindAutoContext": "{count, plural, other {已自動檢索並注入 {count} 段程式碼上下文}}",
       "thinkingCharCountTitle": "{n} 個字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
