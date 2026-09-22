@@ -187,6 +187,18 @@
         {
           "file": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx",
           "mustMatch": "ai.chatMessageItem.errorCardTitle"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "retryLastTurn"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "chatAlert.errorTitle"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "bubbleStyles.errorCard"
         }
       ]
     },
