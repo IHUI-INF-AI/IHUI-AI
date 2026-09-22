@@ -3,6 +3,13 @@
     "notFound": "未找到 {target}"
   },
   "cli": {
+    "injectionApplied": "本轮参考上下文：{sources}",
+    "injectionSrcDeveloper": "自定义指令",
+    "injectionSrcWorkspace": "工作区记忆",
+    "injectionSrcRepoWiki": "仓库 Wiki",
+    "injectionSrcAutoContext": "{count} 段检索上下文",
+    "retryScheduled": "上游暂不可用：第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+    "retryScheduledNow": "上游暂不可用：第 {attempt}/{max} 次重试（立即继续）",
     "sessionResumed": "恢复最近会话: {id} ({count, plural, =0 {无历史} other {{count} 条历史}})",
     "sessionResumedWithId": "恢复会话: {id} ({count} 条历史)",
     "noSessions": "暂无历史会话",
