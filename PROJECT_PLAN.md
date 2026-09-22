@@ -975,6 +975,8 @@
 
 - **D83 覆盖率闸已落地(2026-09-22 第 29 轮)**:`scripts/check-tool-activity-coverage.mjs`(guardian 第 **60** 项 blocking)两类判定——① **键形**:凡 `taskStatus.*Activity` 必须五语言齐,且值是含 `running{}/completed{}/other{}` 三支的 ICU select(半套措辞比不补更糟:某语言会恒显示"正在…"或整条空白),一律红;② **覆盖率 ratchet**:`scripts/data/tool-activity-coverage.json` 的 `floor=6`,只挡回落不挡增长,逐批补时上调 floor 并在提交说明写数量变化。`--scaffold` 输出待补清单(现 **85/91 待补**);`--self-test` 7 例覆盖三类必红与"未配置不算形错"必绿。抽取到的功能名数 **91** 与守门 56 报的"91 个工具功能名"互相印证(同一事实源)。UI 接线属 B2,须与 D34 的 item 级时间戳同批,否则活动条只有动词没有耗时。
 
+- **双时态措辞批次进度(守门 60 的 floor 为准,勿凭记忆报数)**:第 27 轮首批 6(read/edit/write/searchCodebase/webSearch/parseDocument)→ 第 30 轮第二批 8(listFiles/fileSearch/createFile/deleteFile/analyzeCode/knowledgeLookup/fetchUrl/generateChart)→ 第 32 轮第三批 10(**browser 全族**:navigate/clickElement/typeText/screenshot/extractDom/scroll/waitForElement/hover/closeTab/switchTab),**现 24/91,floor=24,余 67**。每批五语言齐且 running/completed 两支措辞**按各语言自身语法构造**(不是套中文模板):zh 正在/已、zh-TW 已等到元素出现、en 现在分词/过去式、ja する-动词用「〜中/〜しました」而閉じる・開く 类用「〜ています/〜ました」、ko 「〜 중/〜했습니다」。**parity 口径改好后自证有效**:shared 由 1,662 → **1,672 键路径**(第二批 8 + 第三批 10 键,数对得上);zh-TW 无简体残留、en 无破碎机翻、守门 56 报 3094 项可解析、守门 58/59 全绿。
+
 ### 本轮(第四轮)交付状态
 
 
