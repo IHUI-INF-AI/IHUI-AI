@@ -721,6 +721,12 @@ FunctionEnd
     System::Call "user32::SetWindowRgn(p $HWNDPARENT, p R0, i 1)"
   ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  ; 取证打点(仅 -DIHUI_TRACE=1;发布构建宏体为空,零副作用):
+  ; 把"系统档 DPI / 封顶后布局 DPI / 两个档位"塞进文件名,用来钉死 >192 封顶路径
+  ; —— 本机没有超高缩放屏,只能靠单进程 __COMPAT_LAYER=DPI400SCALE 造出来。
+  ; ⚠️ 这里只能放 $变量(文件名是运行期字符串);!define 的 ${IHUI_DPI_CAP}(=192)
+  ;    在宏实参里**不会被预处理器展开**,写进去只会在文件名里留下字面量(实测踩到)。
+  !insertmacro IHUI_LOG "guiinit-sys-$IHUIDPI-win-$IHUIDPIW-tier-$IHUITIER-wtier-$IHUIWTIER"
 !macroend
 
 Function IHUIGuiInit
