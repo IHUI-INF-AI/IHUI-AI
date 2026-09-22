@@ -208,6 +208,29 @@ export interface MessageInjection {
   count?: number
 }
 
+/** #11 引用溯源条目(url 仅在后端确实取到跳转目标时才有,见 ai-service `_citation_url`) */
+export interface MessageCitation {
+  source: string
+  label: string
+  url?: string
+}
+
+/**
+ * citations 帧累积:**追加** + 按 (source,label) 去重。
+ * 整替会让流中后到的引用抹掉流首那批(web #26 同因),各端同一口径。
+ */
+export function appendCitationFrames(
+  list: readonly MessageCitation[] | undefined,
+  incoming: readonly MessageCitation[],
+): MessageCitation[] {
+  const next = list ? [...list] : []
+  for (const item of incoming) {
+    if (next.some((x) => x.source === item.source && x.label === item.label)) continue
+    next.push({ source: item.source, label: item.label, ...(item.url ? { url: item.url } : {}) })
+  }
+  return next
+}
+
 /**
  * injection_applied 帧累积:一条回答可能对应多条注入(自定义指令 / 工作区记忆 / Repo Wiki /
  * 检索上下文),必须**追加**并按 kind+collapsed 去重 —— 整体替换会让流首与流中两批互相覆盖。
