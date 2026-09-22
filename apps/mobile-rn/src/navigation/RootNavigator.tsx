@@ -7,6 +7,7 @@ import { View, Text } from 'react-native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { type NavigatorScreenParams } from '@react-navigation/native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { useUiControlBridge } from '../hooks/use-ui-control-bridge'
@@ -498,6 +499,10 @@ function MainNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: { display: 'none' },
+        // scene 背景兜底:悬浮 TabBar 留边处,根节点透明的屏(ProfileScreen 等 Fragment 根)
+        // 原本会露出原生窗口黑底(#000000 splash);取浅色 surface.bg 与各页内容底色一致。
+        // 主 tab 页均为静态浅色 token 渲染,暗色主题全量落地时再随主题切换。
+        sceneStyle: { backgroundColor: tokens.surface.bg },
         lazy: false,
       }}
     >
@@ -547,7 +552,14 @@ function RootNavigatorInner() {
 
   return (
     <>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator
+        screenOptions={{
+          headerShown: false,
+          // contentStyle 背景兜底(与 MainTabs 的 sceneStyle 同理):防止未来出现透明根节点的
+          // 推入屏在留边/悬浮元素处露出原生窗口黑底(#000000 splash)。
+          contentStyle: { backgroundColor: tokens.surface.bg },
+        }}
+      >
         {token ? (
           <>
             <RootStack.Screen name="Main" component={MainNavigator} />
@@ -778,8 +790,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="TopicList" component={TopicListScreen} />
             <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
             <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
-            {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局) */}
-            <UiControlBridgeLayer token={token} />
           </>
         ) : (
           <>
@@ -790,6 +800,9 @@ function RootNavigatorInner() {
           </>
         )}
       </RootStack.Navigator>
+      {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局)。
+          必须挂在 Navigator 之外 —— React Navigation 只允许 Screen/Group/Fragment 作为直接子节点 */}
+      {token ? <UiControlBridgeLayer token={token} /> : null}
       <NotificationPanel />
     </>
   )

@@ -371,12 +371,6 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "執行中",
     "terminalTasks": "終端任務",
-    "citationTitle": "參考來源",
-    "injectionTitle": "本輪參考的上下文",
-    "injectionKindDeveloper": "自訂指令",
-    "injectionKindWorkspace": "工作區記憶",
-    "injectionKindRepoWiki": "倉庫 Wiki",
-    "injectionKindAutoContext": "自動檢索上下文",
     "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
     "toolArgs": "參數",
     "toolCalls": "工具調用",
@@ -491,6 +485,8 @@
       "title": "上下文已自動壓縮",
       "message": "{before} → {after}(移除 {removed} 條歷史)"
     },
+    "errorTitle": "請求出錯",
+    "errorRetry": "重試",
     "loginBtn": "去登入",
     "longPress": {
       "myTitle": "我的訊息",
@@ -498,6 +494,14 @@
       "message": "截圖已生成",
       "shareBtn": "分享"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "參考來源",
+    "injectionTitle": "本輪參考的上下文",
+    "kindDeveloper": "自訂指令",
+    "kindWorkspace": "工作區記憶",
+    "kindRepoWiki": "倉庫 Wiki",
+    "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
     "title": "開發者入口",
@@ -2501,5 +2505,30 @@
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失敗"
+  },
+  "permissionTier": {
+    "label": "權限檔",
+    "mode": {
+      "default": {
+        "title": "預設模式",
+        "desc": "全部操作需人工確認,最安全"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
+      },
+      "accept-edits": {
+        "title": "接受編輯",
+        "desc": "白名單內的操作自動放行,其他需確認"
+      },
+      "bypass-permissions": {
+        "title": "繞過權限",
+        "desc": "完全存取,無任何確認(高風險)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未識別的權限模式,已按預設檔處理"
+      }
+    }
   }
 }

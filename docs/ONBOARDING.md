@@ -66,7 +66,7 @@ MCP 能力:`/mcp-store` 一键注册外部 MCP Server;`/capability-market` 启�
 
 - **pwsh 脚本被拒绝**:用了 Windows PowerShell 5.1。所有 .ps1 必须 PowerShell 7+(脚本头 `#requires -Version 7` 守门)。
 - **8803 起不来**:ai-service 用 `uv` 管理,首次先 `cd apps/ai-service && uv sync`;健康检查 240s 超时(UV 首次装依赖较慢)。
-- **api 报数据库连接失败**:确认 PostgreSQL 17 已启动且 `apps/api/.env.local` 中连接串正确;JWT_SECRET 三端(web/api/ai-service)必须一致,禁止各端自生成。
+- **api 报数据库连接失败**:确认 PostgreSQL 18 已启动且 `apps/api/.env.local` 中连接串正确;JWT_SECRET 三端(web/api/ai-service)必须一致,禁止各端自生成。
 - **端口被占**:`pwsh -File scripts/start-dev.ps1 -Clean` 清理全部 IHUI 端口后重启,或 `-Force` 强制 kill。
 - **web 请求 404 /api/xxx**:部分路由直连 ai-service 8803(next.config.ts rewrites),确认 ai-service 已启动。
 - **微信/桌面端**:桌面端 `pnpm --filter @ihui/desktop tauri dev`(自带 web 8801,与 web 服务互斥);小程序 `pwsh -File scripts/start-dev.ps1 -All` 后按 Taro 文档构建。

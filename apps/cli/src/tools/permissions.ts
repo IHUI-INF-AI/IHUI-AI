@@ -18,31 +18,28 @@
  *   ihui --disallowed-tools delete_file "..."    # 黑名单(规则)
  */
 
-/** 5 种权限模式(对齐 Claude Code) */
-export type PermissionMode =
-  | 'default'
-  | 'acceptEdits'
-  | 'bypassPermissions'
-  | 'plan'
-  | 'manual';
+// 走子路径而非包根:packages/types 内部是无扩展名相对导入,node 运行时解析不了包根
+// (实测 import('@ihui/types') → ERR_MODULE_NOT_FOUND './user'),而本文件所在包
+// 需要**运行时值**导入。permission-mode.ts 零依赖,可被 node 直接加载(已实测)。
+import { normalizePermissionMode, type PermissionModeId } from '@ihui/types/permission-mode'
+
+/** 5 种权限模式:取值以 @ihui/types 的唯一真源为准(G-161 前本文件自抄了一份字面量联合)。 */
+export type PermissionMode = PermissionModeId
 
 /** 三态权限决策 */
-export type PermissionDecision = 'allow' | 'deny' | 'ask';
+export type PermissionDecision = 'allow' | 'deny' | 'ask'
 
-const VALID_MODES: ReadonlySet<string> = new Set([
-  'default',
-  'acceptEdits',
-  'bypassPermissions',
-  'plan',
-  'manual',
-]);
-
-/** 解析字符串为 PermissionMode,非法值返回 undefined */
+/**
+ * 解析字符串为 PermissionMode,非法值返回 undefined。
+ *
+ * 归一化交注册表:除 5 个规范档外,历史/kebab 拼写(auto / accept-edits /
+ * bypass-permissions / read-only / plan-only / accept-all)也认 —— 此前本函数
+ * 精确匹配 camelCase,用户照 web 界面或文档写 `accept-edits` 会被判非法,
+ * 然后**静默**回落到 settings 里的 default(CLI 端"发了≠生效"的同一类事故)。
+ */
 export function parsePermissionMode(s: string | undefined): PermissionMode | undefined {
-  if (!s || typeof s !== 'string') return undefined;
-  const trimmed = s.trim();
-  if (VALID_MODES.has(trimmed)) return trimmed as PermissionMode;
-  return undefined;
+  if (!s || typeof s !== 'string') return undefined
+  return normalizePermissionMode(s) ?? undefined
 }
 
 export interface PermissionRules {
@@ -83,33 +80,19 @@ function matchRulesOnly(toolName: string, rules?: PermissionRules): PermissionDe
   return 'allow';
 }
 
-/** 后端 AgentLoopV2 权限模式词表(default/plan/auto,agent_loop_v2.py permission_mode) */
-export type BackendPermissionMode = 'default' | 'plan' | 'auto';
-
 /**
- * D3 权限模式对齐(2026-09-18):CLI 5 模式 → 后端 3 模式显式映射,单一事实源。
+ * 发往服务端的权限档类型 == 规范档本身(G-161 归一,2026-09-22)。
  *
- * 语义表(与 agent_loop_v2.py `_execute_single` 审批链对齐):
- * - default   → default:后端只读免审批,写/危险审批(CLI 本地矩阵同语义)
- * - acceptEdits → auto:后端 auto=只读免审批+高危仍审,是最接近"编辑放行"的档;
- *                CLI 本地 acceptEdits 更宽(write 也放行),接入后端通道时以此映射并知悉差异
- * - bypassPermissions → auto:后端无全免档,CLI 侧由审批门 bypass 特判(agent.ts plan 审批)
- *                补齐全免语义;后端通道按 auto 处理
- * - plan      → plan:1:1 直映
- * - manual    → default:CLI 本地 ask-everything 由 decideWithMode 保证;后端无对应档,退化为
- *                default(只读免审批)——接入后端时危险操作仍会经审批链,不产生放行风险
+ * 此前这里是第 6 套词表 `default|plan|auto`,并把
+ * `acceptEdits`/`bypassPermissions` **都折叠成 `auto`** —— 那是"静默降档"陷阱:
+ * 用户选的"全档免批"到服务端变成"只读免批"。第 68 项收口后服务端直接收规范档,
+ * 折叠层已无必要(且有害),故改为恒等。函数保留是为了让"cli 档 ≠ 线上档"
+ * 这类差异再次出现时,单测会先红。
  */
+export type BackendPermissionMode = PermissionModeId
+
 export function mapCliModeToBackendMode(mode: PermissionMode): BackendPermissionMode {
-  switch (mode) {
-    case 'bypassPermissions':
-    case 'acceptEdits':
-      return 'auto';
-    case 'plan':
-      return 'plan';
-    case 'default':
-    case 'manual':
-      return 'default';
-  }
+  return mode
 }
 
 /**

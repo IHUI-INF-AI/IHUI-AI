@@ -165,6 +165,7 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
+    "retryMessage": "再試行",
     "citationTitle": "参考元",
     "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
     "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
@@ -435,6 +436,31 @@
       "benefitsTitle": "含まれる特典",
       "note": "価格と特典はウェブ版の実際の表示に準じます。",
       "open": "ウェブ版で開通"
+    }
+  },
+  "permissionTier": {
+    "label": "権限モード",
+    "mode": {
+      "default": {
+        "title": "デフォルト",
+        "desc": "すべての操作に承認が必要(最も安全)"
+      },
+      "plan": {
+        "title": "読み取り専用プラン",
+        "desc": "読み取りと検索のみ許可。ファイル書き込みとコマンド実行は拒否"
+      },
+      "accept-edits": {
+        "title": "編集を許可",
+        "desc": "許可リスト内の操作は自動実行、その他は確認を求める"
+      },
+      "bypass-permissions": {
+        "title": "権限をバイパス",
+        "desc": "確認なしでフルアクセス(高リスク)"
+      },
+      "unknown": {
+        "title": "不明なモード",
+        "desc": "未対応の権限モード。デフォルトとして扱う"
+      }
     }
   }
 }
