@@ -197,7 +197,7 @@ export function ApplicationsPanel() {
                 <div className="truncate text-xs font-medium">{config.name}</div>
                 <div className="truncate text-xs text-muted-foreground">{config.command}</div>
               </div>
-              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                 <button
                   onClick={() => runConfig(config)}
                   className="rounded p-1 text-green-600 hover:bg-muted/50"
