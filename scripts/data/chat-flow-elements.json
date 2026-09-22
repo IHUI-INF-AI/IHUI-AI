@@ -274,6 +274,14 @@
         {
           "file": "apps/cli/src/commands/repl.ts",
           "mustMatch": "retryNoteText"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "chat.retryScheduled"
         }
       ]
     },
