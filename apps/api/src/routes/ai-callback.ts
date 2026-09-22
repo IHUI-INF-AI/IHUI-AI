@@ -83,6 +83,16 @@ const persistedCompactionSchema = z
   })
   .refine((v) => v.triggered === true, { message: 'compaction.triggered 必须为 true 才留痕' })
 
+// retryNotice(G-166 第⑥步):网关换 key / 退避重试的最终一条记账,四字段全部由契约钉死
+// (apps/ai-service/app/core/sse_contract.py 的 retry_scheduled)。attempt 必须 ≥ 1 ——
+// "重试了 0 次"不是一种交代,而是一种噪声,不该占 metadata。
+const persistedRetryNoticeSchema = z.looseObject({
+  attempt: z.number().int().min(1),
+  maxRetries: z.number().int().min(1),
+  retryInMs: z.number().int().min(0),
+  httpStatus: z.number().int().optional(),
+})
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -99,6 +109,7 @@ const callbackSchema = z.object({
   citations: z.array(persistedCitationSchema).optional(),
   injections: z.array(persistedInjectionSchema).optional(),
   compaction: persistedCompactionSchema.optional(),
+  retryNotice: persistedRetryNoticeSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -154,6 +165,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         citations,
         injections,
         compaction,
+        retryNotice,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -235,6 +247,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               ...(citations && citations.length > 0 ? { citations } : {}),
               ...(injections && injections.length > 0 ? { injections } : {}),
               ...(compaction ? { compaction } : {}),
+              ...(retryNotice ? { retryNotice } : {}),
               // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
               ...permissionMeta,
             },
