@@ -12,6 +12,41 @@
 
 ---
 
+## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
+
+> **平台独占豁免(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载线上 web(`tauri.conf.json` → `windows[0].url=https://aizhs.top/agents`),web 侧修复自动跟随;`packages/shared` 的 `buildSsoRedirectUrl` 为**新增**共享能力,不改变既有导出签名,其他端(cli/extension/miniapp-taro/mobile-rn)按需采纳,非多端同步漏做。
+
+### 症状与真机实证
+- 现象:桌面端 `/sso/login` 卡片上「授权并跳转」与右上 X **两个按钮点击后都回到本页**,表现为"点了没反应"。
+- 实证①:`%LOCALAPPDATA%\com.ihui.desktop\EBWebView\Default\History` 中同一地址连出 4 条,且 `redirect` 参数内的 `sso_code` **递归叠加**(`...study-plan?sso_code=A&sso_code=B`)。
+- 实证②:`curl` 对 `https://aizhs.top/edu/edu-management/study-plan` 三种 cookie 情形(无 / `auth_token=garbage` / 过期 JWT)实测**均 307** 至 `/sso/login?redirect=%2Fedu%2Fedu-management%2Fstudy-plan`,编码与 `apps/web/proxy.ts` 的 `encodeURIComponent(pathname+search)` 完全一致 → 生产守卫**验签而非仅判 cookie 存在性**。
+
+### 根因(两层)
+1. **`auth_token` cookie 装的是 15 分钟有效期的 access JWT**,cookie 自身却给 30 天;桌面端登录态靠持久化 refresh token + Bearer 维持 → 接口全通、页面认为已登录,但守卫侧 JWT 已过期 → 对 `/admin/*`、`/edu/edu-management/*` 一律 307 打回。而 `/sso/login` 的两个按钮**落点同为 `redirect`** → 双双回到本页。
+2. **回跳 URL 构造不幂等**:各页面手写 `${redirectUri}?sso_code=`,每被弹回一次追加一个 → `redirect` 逐次膨胀。
+
+### 改法
+- `packages/shared/src/auth/sso-core.ts` 新增 `buildSsoRedirectUrl()`:先删旧 `sso_code` 再附加,重入幂等;覆盖相对路径 / 绝对 URL / 自定义协议深链;解析失败退回最小拼接。单测 `packages/shared/tests/auth/sso-core.test.ts` **13 passed**(含"脏值收敛""反复打回不增长"两条真实故障用例)。
+- `apps/web/src/lib/sso-redirect-guard.ts`(新)**守卫探测 + 续种 cookie**:`fetch(target,{method:'HEAD',redirect:'manual'})` 判 `res.type==='opaqueredirect'`(零跟随、无副作用;探测抛错一律判放行,绝不误拦)→ 仅被拦才 `refreshAccessTokenOnce()`(后端 `/api/auth/refresh` 会 `setAuthCookies` 续种 httpOnly `auth_token`)→ 复测。仍被拦则**明示「登录状态已失效」**、关闭按钮回首页 —— **禁止静默循环**。单测 `apps/web/src/lib/__tests__/sso-redirect-guard.test.ts` **14 passed**(钉死判定口径)。
+- `/sso/login`、`/sso/register` 两个按钮均接入该判定并改用 `buildSsoRedirectUrl`。
+- `apps/web/app/sso/redirect/PageClient.tsx` 删掉孤立的 `detectApiBaseUrl()` 复制实现(Tauri 下 `|| 'http://127.0.0.1:8802'` 恒 `ECONNREFUSED`,未随 2026-09-21 `lib/api-base-url.ts` 寻址收口更新),改用权威 `resolveApiBaseUrl()`。
+- 5 个语言包补 `sso.sessionExpired`。
+
+### 同批修掉「页面在离线兜底页 ↔ 线上前端之间反复抖动」
+- **实证**:`%LOCALAPPDATA%\com.ihui.desktop\logs\智汇AI.log` 41 分钟内 **8 次**「切离线 → 约 30s 后切回」,每次都是单轮瞬时失败;而同机对 `HEAD https://aizhs.top/api/health` 直连与走本地代理各测 8 次**均 200 / ≤1.04s** → 底层只是低概率抖动,原实现的**单次采样、无重试、无滞回**却把用户整页替换掉(未发送内容、当前会话路由全丢)。
+- **改法**(`apps/desktop/src-tauri/src/auto_refresh.rs`):① 同轮重试 `PROBE_ATTEMPTS=2`(间隔 2s)滤掉单次瞬时失败;② 连续失败阈值 `OFFLINE_AFTER_FAILS=3`(≈90s)才切离线,恢复仍只需单次成功;③ 切离线前记住用户当前地址,恢复时**优先回跳原地址**而非一律回 `/agents` 首页;④ `location.href` 拼接改用 JSON 转义(`js_string`),原单引号包裹在 URL 含引号时静默失效;⑤ 判定逻辑抽成纯函数并加 **7 个 Rust 单测**(`cargo test --lib` → 7 passed)。
+
+### 顺手核清(非问题,已用线上产物实证排除)
+- **生产未设 `COOKIE_DOMAIN` 不会导致 cookie 域错配**:线上 `/agents` 引用的 **42 个 JS 产物全量检查,`api.aizhs.top` / `ai.aizhs.top` 均 0 命中** → 同源 `/api/*`,cookie 落在 `aizhs.top`、守卫可读;薄壳窗口 `url=https://aizhs.top/agents` 亦同源。故 `COOKIE_DOMAIN` 无需配置(且贸然开启会让存量 host-only cookie 与 Domain cookie 同名共存,有全量登出风险,不动为宜)。
+- **跨端查漏**:守卫 matcher 仅 `/admin/:path*` 与 `/edu/edu-management/:path*`,`/sso/*` 不受约束 → `mobile-rn` 的 `${origin}/sso/mobile-auth?sso_code=…&redirect=…`(已 `encodeURIComponent`)与 `cli` / `extension` 的 SSO 回调**均无回环风险**,无需同批改动。
+- **「push 门必然被他人未提交文件拦死」是误判**:`scripts/check-typecheck.mjs` 内置 **staged-scope 降级**(报错文件全落在本次推送范围外 → 降级为警告 exit 0),`PUSH_SCOPE_FILES` 优先、暂存区/`origin/main..HEAD` 兜底;且全量 typecheck 只在 **pre-push**,pre-commit 走 `check-staged-typecheck.mjs --staged` 只拦本任务文件。故并行会话噪音不会硬拦本次提交。
+
+### 验证证据(2026-09-22)
+- [x] `apps/web` `tsc --noEmit` → 0 错误;`vitest run src/lib/__tests__/sso-redirect-guard.test.ts` → 14 passed
+- [x] `packages/shared` `tsc --noEmit` → 0 错误;`vitest run tests/auth/sso-core.test.ts` → 13 passed
+- [x] `apps/desktop/src-tauri` `cargo test --lib` → 7 passed / 0 failed(29s 编译)
+- [x] 线上守卫行为复核:无 cookie / 垃圾 cookie / 过期 JWT 三种情形均 307,Location 编码与 `proxy.ts` 一致
+
 ## P0 2026-09-22 桌面端窗口控制三按钮模态压暗 + 层级守门自动化(平台独占:apps/desktop + apps/web)
 
 > **平台独占豁免(AGENTS.md §9)**:Tauri 无边框窗口的最小化/最大化/关闭三按钮只存在于 `apps/desktop`(薄壳)+ `apps/web`(自绘标题栏宿主 `GlobalTopBar.tsx`);miniapp-taro / mobile-rn / extension / cli 无窗口控制按钮,属平台独占,不是多端同步漏做。
@@ -987,6 +1022,8 @@
 - **双时态措辞批次进度(守门 60 的 floor 为准,勿凭记忆报数)**:第 27 轮首批 6(read/edit/write/searchCodebase/webSearch/parseDocument)→ 第 30 轮第二批 8(listFiles/fileSearch/createFile/deleteFile/analyzeCode/knowledgeLookup/fetchUrl/generateChart)→ 第 32 轮第三批 10(**browser 全族**:navigate/clickElement/typeText/screenshot/extractDom/scroll/waitForElement/hover/closeTab/switchTab),**现 24/91,floor=24,余 67**。每批五语言齐且 running/completed 两支措辞**按各语言自身语法构造**(不是套中文模板):zh 正在/已、zh-TW 已等到元素出现、en 现在分词/过去式、ja する-动词用「〜中/〜しました」而閉じる・開く 类用「〜ています/〜ました」、ko 「〜 중/〜했습니다」。**parity 口径改好后自证有效**:shared 由 1,662 → **1,672 键路径**(第二批 8 + 第三批 10 键,数对得上);zh-TW 无简体残留、en 无破碎机翻、守门 56 报 3094 项可解析、守门 58/59 全绿。
 
 - **D34 开工 + 两处更正(2026-09-22 第 33 轮)**:① 四帧已入两份契约(TS `SSE_EVENTS` + `SSEEventPayload` 判别联合、PY `SSE_EVENTS` + `SSE_EVENT_CONTRACTS`),api-client `parseStreamLine` 在**兜底抽取链之前**显式分流四型(与 usage/steer/budget 同一历史坑位),并落 `packages/api-client/tests/sse-d34-frames.test.ts` 5 例(含"普通增量仍返回"的正例,防把 null 当成兜底失效)。测试侧同步:PY `test_sse_contract.py` 24→28 + 四帧子集断言(6 passed),TS `contract.test.ts` 24→28 + 四帧用例(11 passed)。**② 出处更正(不要继续误引)**:D34 原文写"Codex 实证字段名为准"**只对了一半** —— 实证的是**字段形状**(kind 八枚举 / collapsed+可展开全文 / attempt+maxRetries+retryInMs+httpStatus / stdout+stderr+formattedOutput+exitCode+truncated);**事件名是我方协议自定**(snake_case,同 `plan_updated`/`terminal_end` 家族)。核证:`injection_applied`/`retry_scheduled`/`formatted_output` 在报告 §16.1 里的身份是"**我方缺失项的条目名**",不是竞品报文原名;Codex asar 对六个候选名(含 `thread_settings_applied`)全部 0 命中。**③ 顺手根治一处守门脆弱性**:`check-agent-event-parity.mjs` 原以 `text.indexOf(')')` 取 frozenset 结尾,**注释里出现半角括号就会截断提取、静默漏读尾部事件名(假绿)** —— 我插入的说明注释正好踩中,导致它报"terminal_output 仅存在于 TS 侧"。已改为切到"独占一行的 `)`",并**注入违规复验**:删掉 PY 侧该名 → 闸 exit 1 精确指出缺失,还原后两端各 28 个(还原前后 md5 一致)。这条与既有记忆"判断闸有效性靠注入违规"同源。
+
+- **D34 生产侧已落地(2026-09-22 第 34 轮)**:`injection_applied` 不再是空契约 —— `apps/ai-service/app/routers/llm.py` 的流式路径在四类注入(会话级自定义指令 / 工作区记忆·AGENTS.md / Repo Wiki 手动+自动 / auto_context 检索)**实际生效后**收集交代帧,并在 `gen()` 内**作为流上最早的业务帧**发出(先于任何 chunk,带 `messageId` 与 `plan_updated`/`terminal_*` 同守卫口径)。判定**只复用注入器既有的去重 marker**(`<!-- repo_wiki:{repo} -->` / `<!-- repo-wiki-auto -->` / `<!-- workspace:{label} -->`)+ 一处命中计数,**未给任何注入器加新状态或改其行为**。测试 `tests/test_complete_stream_injection.py` 2 例:① 设 `system_prompt` → 恰好 1 帧、kind/collapsed/messageId 齐、且 `names.index('injection_applied') < names.index('chunk')`;② 无注入 → **零帧**(不许发噪声)。验证:新测试 + `test_sse_contract` 共 8 passed、既有 `test_complete_stream_question` 12 passed(生成器改动无回归)、ruff 全过、`py_compile` 通过。**本会话另有一次自伤已当场修复**:我在 llm.py 做一次"移动变量初始化"的 Edit 时误把 `if … try:` 三行换成了一行注释(破坏了 auto_context 块),**立刻 `git diff` 复盘并改回**,最终对该文件的 diff 收敛到 3 个必要 hunk —— 教训:同一文件的多处结构改动不要用"替换相邻行"的写法表达,先 Read 目标区间再单点插入。**剩余未做**:① 后端 `settings_applied`/`retry_scheduled`/`terminal_output` 三帧的发送方(llm_gateway 重试切换点与 terminal 输出排版点,与 D40/D49 联动);② B2 前端渲染位(D37-D41);③ kind 八枚举里 `goal`/`model_switch`/`permissions`/`host_skills`/`turn_aborted` 五类尚无生产点。
 
 ### 本轮(第四轮)交付状态
 
