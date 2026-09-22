@@ -91,6 +91,30 @@ function readInjectionsFromMetadata(raw: unknown): ChatMessage['injections'] {
 }
 
 /**
+ * 从 metadata.compaction 还原"这条回答生成前压缩了多少上下文"(G-166 第②步)。
+ *
+ * 字段名换算:落库/SSE 用 tokensBefore / tokensAfter(契约侧命名),
+ * store 的 MessageCompaction 用 originalTokens / compressedTokens —— 逐字段显式映射,
+ * 不做"两个名字都塞进去"的偷懒透传。未 triggered / 非对象一律缺席(不渲染分隔线)。
+ */
+function readCompactionFromMetadata(raw: unknown): ChatMessage['compaction'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const rec = raw as Record<string, unknown>
+  if (rec.triggered !== true) return undefined
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  const originalTokens = num(rec.tokensBefore)
+  const compressedTokens = num(rec.tokensAfter)
+  if (originalTokens === undefined || compressedTokens === undefined) return undefined
+  return {
+    originalTokens,
+    compressedTokens,
+    ...(num(rec.removedCount) !== undefined ? { removedCount: num(rec.removedCount) } : {}),
+    ...(typeof rec.trigger === 'string' ? { trigger: rec.trigger } : {}),
+  }
+}
+
+/**
  * 单条历史消息 → web store ChatMessage(D24 工具卡/终端区 + planSteps 计划快照)。
  *
  * 2026-09-21 立:plan_updated SSE 事件此前只写前端内存,刷新页面即丢。
@@ -120,6 +144,7 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // 只在当轮看得见,回放时整段消失。服务端已按与 SSE 同源的两份列表落库,这里读回。
     citations: readCitationsFromMetadata(meta?.citations),
     injections: readInjectionsFromMetadata(meta?.injections),
+    compaction: readCompactionFromMetadata(meta?.compaction),
   }
 }
 
