@@ -9065,6 +9065,8 @@
         "archiveTitle": "已封存會話",
         "viewArchived": "查看已封存"
       },
+      "ceilingTitle": "上下文壓縮已達上限",
+      "ceilingHint": "建議開始新對話,或減少上下文(如停用不必要的 MCP 工具 / 技能)。",
       "dividerTitle": "上方歷史已壓縮為摘要",
       "dividerDescription": "上下文已從 {before} tokens 壓縮至 {after} tokens,更早的對話被折疊為摘要",
       "dividerSaved": "節省 {ratio}%"

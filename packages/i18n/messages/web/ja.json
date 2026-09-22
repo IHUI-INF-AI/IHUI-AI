@@ -9065,6 +9065,8 @@
         "archiveTitle": "アーカイブ済み会話",
         "viewArchived": "アーカイブを表示"
       },
+      "ceilingTitle": "コンテキスト圧縮が上限に達しました",
+      "ceilingHint": "新しい会話を開始するか、コンテキストを削減してください(不要な MCP ツール / スキルの無効化など)。",
       "dividerTitle": "これより前の履歴は要約に圧縮されました",
       "dividerDescription": "コンテキストを {before} トークンから {after} トークンに圧縮しました。以前の会話は要約に折りたたまれています",
       "dividerSaved": "{ratio}% 削減"
