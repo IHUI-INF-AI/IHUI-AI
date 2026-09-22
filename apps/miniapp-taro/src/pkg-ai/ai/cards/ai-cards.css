@@ -335,6 +335,12 @@
   font-size: 22rpx;
   color: var(--color-danger);
 }
+.ai-card-term-truncated {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
 
 /* ============ 三点加载态(spinner,替代 emoji/原生) ============ */
 .ai-card-spinner {
