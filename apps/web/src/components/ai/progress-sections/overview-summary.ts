@@ -38,22 +38,47 @@ export interface OverviewSummaryInput {
   sessionStart?: string | null
   /** 当前累计耗时(毫秒,可直接覆盖 sessionStart 计算) */
   nowMs?: number
-}
-
-const STATUS_LABEL: Record<AgentOverview['status'], string> = {
-  idle: '空闲',
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-  interrupted: '已中断',
+  /** 取词函数(由渲染侧注入,见 Translator) */
+  t: Translator
 }
 
 /**
- * 状态文字(导出便于单测 + 复用,2026-07-28 立)
- * - streaming=true 时追加 " (流式中)" 后缀
+ * 取词函数:本模块是纯函数集合,**禁止**模块级调用 `useTranslations`(Hook 只能在组件内调用),
+ * 故展示文案一律由调用方(组件里的 `useTranslations('ai.pane')`)注入。
  */
-export function formatStatusText(status: AgentOverview['status'], isStreaming: boolean): string {
-  return `${STATUS_LABEL[status]}${isStreaming ? ' (流式中)' : ''}`
+export type Translator = (key: string) => string
+
+/** 状态 → 语言包键名(命名空间 ai.pane,渲染侧与序列化侧共用同一份键表) */
+export const STATUS_LABEL_KEY: Record<AgentOverview['status'], string> = {
+  idle: 'overview.statusIdle',
+  running: 'overview.statusRunning',
+  completed: 'overview.statusCompleted',
+  failed: 'overview.statusFailed',
+  interrupted: 'overview.statusInterrupted',
+}
+
+/**
+ * 流式中变体的**整键**(2026-09-22 立):原先「状态标签 + 流式中后缀」的字符串拼接属于
+ * 跨语言拼词(英文等语序/标点与中文不同),现按状态各给一个完整键,不做任何字符串拼接。
+ */
+export const STATUS_LABEL_STREAMING_KEY: Record<AgentOverview['status'], string> = {
+  idle: 'overview.statusIdleStreaming',
+  running: 'overview.statusRunningStreaming',
+  completed: 'overview.statusCompletedStreaming',
+  failed: 'overview.statusFailedStreaming',
+  interrupted: 'overview.statusInterruptedStreaming',
+}
+
+/**
+ * 状态文字(导出便于单测 + 复用,2026-07-28 立;2026-09-22 取词下放到渲染侧)
+ * - streaming=true 时走独立的流式中整键,不再追加后缀
+ */
+export function formatStatusText(
+  status: AgentOverview['status'],
+  isStreaming: boolean,
+  t: Translator,
+): string {
+  return t(isStreaming ? STATUS_LABEL_STREAMING_KEY[status] : STATUS_LABEL_KEY[status])
 }
 
 function formatDurationMs(ms: number): string {
@@ -82,8 +107,11 @@ export function calcSessionDurationMs(
   return Math.max(0, nowMs - startMs)
 }
 
-/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生 */
-export function buildStatLines(input: OverviewSummaryInput, durationMs?: number): string[] {
+/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生;不取词,故无需 t */
+export function buildStatLines(
+  input: Omit<OverviewSummaryInput, 't'>,
+  durationMs?: number,
+): string[] {
   const {
     overview,
     sessionStart,
@@ -130,10 +158,10 @@ export function buildStatLines(input: OverviewSummaryInput, durationMs?: number)
 
 /** 主导出函数:把 overview + 统计序列化为 Markdown 字符串 */
 export function buildOverviewSummaryMarkdown(input: OverviewSummaryInput): string {
-  const { overview, isStreaming, sessionStart, nowMs = Date.now() } = input
+  const { overview, isStreaming, sessionStart, nowMs = Date.now(), t } = input
   const durationMs = calcSessionDurationMs(sessionStart, nowMs)
   const lines: string[] = ['# 任务总览', '']
-  const statusText = `${STATUS_LABEL[overview.status]}${isStreaming ? ' (流式中)' : ''}`
+  const statusText = formatStatusText(overview.status, isStreaming, t)
   lines.push(`- 状态: ${statusText}`)
   if (overview.error) {
     lines.push(`- 错误: ${overview.error}`)
