@@ -113,7 +113,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     ),
     # D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
     # 事件名为我方协议自定;字段形状取自竞品一手观察(报告 §1.1 / §16.1)。
-    SSEEventContract("injection_applied", ("kind", "collapsed", "fullText")),
+    SSEEventContract("injection_applied", ("kind", "collapsed", "fullText", "count")),
     SSEEventContract("retry_scheduled", ("attempt", "maxRetries", "retryInMs", "httpStatus")),
     SSEEventContract("done", ("usage", "model", "stub")),
     # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出

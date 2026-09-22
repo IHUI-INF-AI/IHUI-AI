@@ -7101,6 +7101,13 @@
         "title": "ターミナルタスク",
         "truncated": "...(切り詰め、合計 {total} 文字)"
       },
+      "injectionTitle": "今回のコンテキスト:{count} 件",
+      "injectionExpand": "他 {count} 件を表示",
+      "injectionCollapse": "閉じる",
+      "injectionKindDeveloper": "セッションレベルのカスタム指示を適用しました",
+      "injectionKindWorkspace": "ワークスペースメモリ / AGENTS.md を注入しました",
+      "injectionKindRepoWiki": "Repo Wiki プロジェクト百科を注入しました",
+      "injectionKindAutoContext": "{count, plural, other {自動検索したコードコンテキスト {count} 件を注入しました}}",
       "thinkingCharCountTitle": "{n} 文字",
       "thinkingChars": "文字",
       "thinkingElapsedTitle": "{time} 思考中",
