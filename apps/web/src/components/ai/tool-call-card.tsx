@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
-import { describeToolCall, toolDisplayKey } from '@ihui/shared/chat'
+import { describeToolActivityByStatus, describeToolCall, toolDisplayKey } from '@ihui/shared/chat'
 import {
   StreamDetail,
   StreamLabel,
@@ -830,7 +830,14 @@ export const ToolCallCard = React.memo(function ToolCallCard({
     () => describeToolCall({ toolName, args, result, status }),
     [toolName, args, result, status],
   )
-  const rowTitle = view.nameKey ? tStatus(view.nameKey) : view.codeName
+  // 双时态活动措辞(D98/D102):running "正在读取文件" / success "已读取文件"。
+  // 此前本行只有图标承载状态(状态文字仅进 aria-label),对屏幕外的用户等于没有状态;
+  // error / cancelled 仍只出功能名 —— 对失败或被撤回的调用声称"已完成 X"是假陈述。
+  const rowTitle = describeToolActivityByStatus({
+    toolName,
+    status,
+    translate: (key, params) => tStatus(key, params),
+  })
   const rowTags: string[] = []
   if (serverSource === 'plugin') rowTags.push(serverName || tStatus('sourcePlugin'))
   if (serverSource === 'mcp')
