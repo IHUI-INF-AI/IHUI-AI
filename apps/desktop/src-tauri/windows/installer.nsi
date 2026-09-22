@@ -9,7 +9,7 @@
 ;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
 ;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
 ;   P5 重装/升级确认页深色主题宏。
-;   P7 Install Section 进度埋点:四阶段 IHUI_PROGRESS(安装页百分比数字 + 自绘品牌进度条 + 阶段文案)。
+;   P7 Install Section 进度埋点:9 个真实步骤各报一次 IHUI_PROGRESS(百分比 + 品牌进度条 + 阶段文案)。
 ;
 ; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
 ;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
@@ -690,10 +690,10 @@ Section Install
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
-  !insertmacro IHUI_PROGRESS 30 "正在复制主程序"
+  !insertmacro IHUI_PROGRESS 12 "正在复制主程序"
   File "${MAINBINARYSRCPATH}"
 
-  !insertmacro IHUI_PROGRESS 55 "正在写入运行资源"
+  !insertmacro IHUI_PROGRESS 34 "正在写入运行资源"
   ; Copy resources
   {{#each resources_dirs}}
     CreateDirectory "$INSTDIR\\{{this}}"
@@ -702,11 +702,13 @@ Section Install
     File /a "/oname={{this.[1]}}" "{{no-escape @key}}"
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 52 "正在写入外部组件"
   ; Copy external binaries
   {{#each binaries}}
     File /a "/oname={{this}}" "{{no-escape @key}}"
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 64 "正在登记文件关联"
   ; Create file associations
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
@@ -714,6 +716,7 @@ Section Install
     {{/each}}
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 72 "正在登记深度链接"
   ; Register deep links
   {{#each deep_link_protocols as |protocol| ~}}
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}" "URL Protocol" ""
@@ -722,10 +725,11 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
 
-  !insertmacro IHUI_PROGRESS 75 "正在登记卸载与系统信息"
+  !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
+  !insertmacro IHUI_PROGRESS 88 "正在登记安装位置"
   ; Save $INSTDIR in registry for future installations
   WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
 
@@ -755,6 +759,7 @@ Section Install
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
 
+  !insertmacro IHUI_PROGRESS 93 "正在统计占用"
   ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2
   IntOp $0 $0 + ${ESTIMATEDSIZE}
   IntFmt $0 "0x%08X" $0
@@ -766,7 +771,7 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
   !endif
 
-  !insertmacro IHUI_PROGRESS 92 "正在创建快捷方式"
+  !insertmacro IHUI_PROGRESS 97 "正在创建快捷方式"
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
     Call CreateOrUpdateStartMenuShortcut
@@ -847,16 +852,19 @@ Section Uninstall
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
 
+  !insertmacro IHUI_UNPROGRESS 34 "正在删除运行资源"
   ; Delete resources
   {{#each resources}}
     Delete "$INSTDIR\\{{this.[1]}}"
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 46 "正在删除外部组件"
   ; Delete external binaries
   {{#each binaries}}
     Delete "$INSTDIR\\{{this}}"
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 56 "正在解除文件关联"
   ; Delete app associations
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
@@ -864,6 +872,7 @@ Section Uninstall
     {{/each}}
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 66 "正在解除深度链接"
   ; Delete deep links
   {{#each deep_link_protocols as |protocol| ~}}
     ReadRegStr $R7 SHCTX "Software\Classes\\{{protocol}}\shell\open\command" ""
@@ -873,7 +882,7 @@ Section Uninstall
   {{/each}}
 
 
-  !insertmacro IHUI_UNPROGRESS 45 "正在清理安装目录"
+  !insertmacro IHUI_UNPROGRESS 76 "正在清理安装目录"
   ; Delete uninstaller
   Delete "$INSTDIR\uninstall.exe"
 
@@ -882,7 +891,7 @@ Section Uninstall
   {{/each}}
   RMDir "$INSTDIR"
 
-  !insertmacro IHUI_UNPROGRESS 65 "正在移除快捷方式"
+  !insertmacro IHUI_UNPROGRESS 86 "正在移除快捷方式"
   ; Remove shortcuts if not updating
   ${If} $UpdateMode <> 1
     !insertmacro DeleteAppUserModelId
@@ -912,7 +921,7 @@ Section Uninstall
     ${EndIf}
   ${EndIf}
 
-  !insertmacro IHUI_UNPROGRESS 85 "正在清理注册信息"
+  !insertmacro IHUI_UNPROGRESS 92 "正在清理注册信息"
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
