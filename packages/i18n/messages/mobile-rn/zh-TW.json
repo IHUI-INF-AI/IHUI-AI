@@ -491,6 +491,8 @@
       "title": "上下文已自動壓縮",
       "message": "{before} → {after}(移除 {removed} 條歷史)"
     },
+    "errorTitle": "請求出錯",
+    "errorRetry": "重試",
     "loginBtn": "去登入",
     "longPress": {
       "myTitle": "我的訊息",
