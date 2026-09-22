@@ -491,6 +491,8 @@
       "title": "컨텍스트가 자동 압축되었습니다",
       "message": "{before} → {after}({removed}개 기록 제거)"
     },
+    "errorTitle": "요청 오류",
+    "errorRetry": "재시도",
     "loginBtn": "로그인",
     "longPress": {
       "myTitle": "내 메시지",
