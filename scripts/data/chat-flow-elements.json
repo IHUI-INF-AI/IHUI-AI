@@ -107,6 +107,46 @@
       ]
     },
     {
+      "id": "permission-mode-consequence",
+      "title": "权限档后果说明(不只报档名,要说清这一档会导致什么)",
+      "sourceTask": "G-153",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "permissionModeNote"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "permissionModeNote"
+        },
+        {
+          "file": "apps/web/src/components/ai/permission-mode-info-modal.tsx",
+          "mustMatch": "bypass-permissions"
+        }
+      ]
+    },
+    {
+      "id": "context-compaction-ceiling",
+      "title": "上下文压缩撞到上限的警示行(带下一步,不再静默降级)",
+      "sourceTask": "G-150",
+      "events": ["compaction"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_compaction_frame"
+        },
+        {
+          "file": "apps/ai-service/app/core/context_compaction.py",
+          "mustMatch": "incompressible"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/compression-divider.tsx",
+          "mustMatch": "compaction-ceiling"
+        }
+      ]
+    },
+    {
       "id": "error-retry-action",
       "title": "失败回复的「重试」动作(错误必须带出口,不只说请稍后重试)",
       "sourceTask": "G-152",

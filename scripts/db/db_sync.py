@@ -114,8 +114,18 @@ WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public'
 ORDER BY tc.table_name, kcu.ordinal_position
 """
 
-# 业务唯一约束(不含主键):两端主键不同但业务键相同的行,只有以业务键为 upsert
-# 目标才可能合并;否则会撞唯一约束、整批失败(2026-09-22 实测 8 张表如此)
+# 业务唯一键(不含主键):两端主键不同但业务键相同的行,只有以业务键为 upsert
+# 目标才可能合并;否则会撞唯一约束、整批失败(2026-09-22 实测 8 张表如此)。
+#
+# 两类都必须收,缺一不可:
+#   ① 约束式(pg_constraint contype='u');
+#   ② 索引式(pg_index indisunique)—— 本仓迁移大量使用 CREATE UNIQUE INDEX,
+#      这类不落 pg_constraint。2026-09-22 实测只收 ① 的后果:registry_items /
+#      model_leaderboard / oauth_scope_meta / ai_relay_channel_groups 等表的业务键
+#      被整批漏掉,upsert 退回主键做冲突目标 ⇒ 同业务键、不同主键的行撞上唯一索引,
+#      整批失败(registry_items 244 行只落 18 行,其余 226 行被误记为"冲突跳过")。
+#      只收非部分索引(indpred IS NULL)、且列中不含表达式(indkey 无 0):
+#      这两类索引不能直接充当 ON CONFLICT 的 arbiter,收了反而会造出新的失败。
 SQL_UNIQUE = """
 SELECT c.relname AS tbl,
        array_agg(a.attname ORDER BY k.ord) AS cols
@@ -126,6 +136,18 @@ JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord) ON true
 JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
 WHERE con.contype = 'u' AND n.nspname = 'public'
 GROUP BY c.relname, con.conname
+UNION
+SELECT c.relname AS tbl,
+       array_agg(a.attname ORDER BY k.ord) AS cols
+FROM pg_index i
+JOIN pg_class c ON c.oid = i.indrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+WHERE i.indisunique AND NOT i.indisprimary AND i.indpred IS NULL
+  AND n.nspname = 'public'
+  AND NOT EXISTS (SELECT 1 FROM unnest(i.indkey) AS z WHERE z = 0)
+GROUP BY c.relname, i.indexrelid
 """
 
 
@@ -391,18 +413,22 @@ async def load_exact_counts(conn: asyncpg.Connection, metas: dict[str, TableMeta
 
 
 async def build_ctx(local: asyncpg.Connection, prod: asyncpg.Connection,
-                    cfg: dict[str, Any] | None = None) -> Ctx:
+                    cfg: dict[str, Any] | None = None, exact: bool = True) -> Ctx:
     lmeta = await load_meta(local)
     pmeta = await load_meta(prod)
-    # 行数必须精确(2026-09-22 实测根因):scan() 用 rows == 0 跳过"两端皆空"的表,
-    # 而 reltuples / n_live_tup 对"只 INSERT 过、从未 ANALYZE"的表会双双报 0 ——
-    # 712 张共有表里 36 张实际有数据却被估计为 0,整表被无声漏掉(含本地 19 行的
-    # publish_notifications、本地 10 行的 agents)。一条 UNION ALL 取回全部精确行数,
-    # 实测本机 0.6s / 生产 3.4s。
-    n_local = await load_exact_counts(local, lmeta)
-    n_prod = await load_exact_counts(prod, pmeta)
-    log(f'[scan] 元数据就绪:本机 {len(lmeta)} 表 / 生产 {len(pmeta)} 表;'
-        f'精确行数已覆盖本机 {n_local} 张、生产 {n_prod} 张')
+    if exact:
+        # 行数必须精确(2026-09-22 实测根因):scan() 用 rows == 0 跳过"两端皆空"的表,
+        # 而 reltuples / n_live_tup 对"只 INSERT 过、从未 ANALYZE"的表会双双报 0 ——
+        # 712 张共有表里 36 张实际有数据却被估计为 0,整表被无声漏掉(含本地 19 行的
+        # publish_notifications、本地 10 行的 agents)。一条 UNION ALL 取回全部精确行数,
+        # 实测本机 0.6s / 生产 3.4s。
+        n_local = await load_exact_counts(local, lmeta)
+        n_prod = await load_exact_counts(prod, pmeta)
+        log(f'[scan] 元数据就绪:本机 {len(lmeta)} 表 / 生产 {len(pmeta)} 表;'
+            f'精确行数已覆盖本机 {n_local} 张、生产 {n_prod} 张')
+    else:
+        # parity 等只比对 schema 的模式与行数无关,跳过精确统计(实测省约 150s)
+        log(f'[scan] 元数据就绪:本机 {len(lmeta)} 表 / 生产 {len(pmeta)} 表(仅 schema,跳过行数统计)')
     return Ctx(local=lmeta, prod=pmeta, uniq=await load_uniq(prod), cfg=cfg or {})
 
 
@@ -771,6 +797,181 @@ WHERE con.contype = 'f' AND n.nspname = 'public'
 """
 
 
+# ---------------------------------------------------------------------------
+# parity:实例间 schema 一致性守门(只读)
+# ---------------------------------------------------------------------------
+# 为什么需要它(2026-09-22 实测缺口):
+#   仓库里的 check-db-schema-drift.mjs 只做「TS schema ↔ migration SQL」的**静态文件**
+#   对比,不连数据库;db_sync drift 只比数据行数,schema 部分仅报「列类型漂移 3 张 +
+#   本地缺表 1 张」。真实的实例间差异(经逐项实测确认)远超这些:
+#     PG 大版本 17.10 vs 18.2 / 扩展缺 pgvector / 列差异 17 张 / 索引差异 23 张 /
+#     表差异 5 张 / 迁移台账 285 vs 286 条 —— 全部漏报。
+#   本模式把「实例间一致性」变成可执行、可进 CI 的守门。
+#
+# 防假阳性的关键设计:排除 contype='n'
+#   PostgreSQL 18 把 NOT NULL 提升为 pg_constraint 的一等条目(contype='n'),
+#   17 及以下该类为 0 条。不排除则「713 张表约束差异」全部是版本行为造成的伪差异,
+#   真差异会被淹没在噪音里 —— 这正是漂移长期未被发现的成因之一。
+SQL_PG_VER = ("SELECT current_setting('server_version_num')::int AS num, "
+              "current_setting('server_version') AS ver")
+SQL_EXT_ALL = ("SELECT extname, extversion FROM pg_extension "
+               "WHERE extname <> 'plpgsql' ORDER BY extname")
+SQL_BASE_TABLES = ("SELECT table_name FROM information_schema.tables "
+                   "WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name")
+SQL_COLS_FULL = """
+SELECT table_name AS t, column_name AS c, udt_name AS ut,
+       is_nullable AS nn, column_default AS dflt
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position
+"""
+SQL_CONS_FULL = """
+SELECT c.relname AS t, con.conname AS n, con.contype AS ty,
+       pg_get_constraintdef(con.oid) AS d
+FROM pg_constraint con
+JOIN pg_class c ON c.oid = con.conrelid
+JOIN pg_namespace ns ON ns.oid = c.relnamespace
+WHERE ns.nspname = 'public' AND con.contype <> 'n'
+ORDER BY c.relname, con.conname
+"""
+SQL_IDX_FULL = """
+SELECT tablename AS t, indexname AS n, indexdef AS d
+FROM pg_indexes
+WHERE schemaname = 'public'
+ORDER BY tablename, indexname
+"""
+PARITY_DETAIL_LIMIT = 15
+
+
+async def do_parity(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
+                    fail: bool) -> int:
+    """对比两端实例的 schema 一致性(只读)。返回差异项数。
+
+    分类:env(版本/扩展) / table(表集) / column(列) / constraint(约束) / index(索引)。
+    差异项数 > 0 且带 --fail 时退出码 1。
+    """
+    log('[parity] 实例间 schema 一致性检查(只读)')
+    lv = await local.fetchrow(SQL_PG_VER)
+    pv = await prod.fetchrow(SQL_PG_VER)
+    lmajor, pmajor = lv['num'] // 10000, pv['num'] // 10000
+    issues = 0
+
+    log(f'[parity] 本地 PostgreSQL {lv["ver"]} | 生产 PostgreSQL {pv["ver"]}')
+    if lmajor != pmajor:
+        issues += 1
+        log(f'  [环境] ✗ 大版本不一致:本地 {lmajor} / 生产 {pmajor};'
+            '需先统一(本报告已排除 contype=n,故不含该版本行为造成的伪差异)')
+    else:
+        log(f'  [环境] ✓ 大版本一致({lmajor})')
+
+    lext = {r['extname']: r['extversion'] for r in await local.fetch(SQL_EXT_ALL)}
+    pext = {r['extname']: r['extversion'] for r in await prod.fetch(SQL_EXT_ALL)}
+    e_lines: list[str] = []
+    for e in sorted(set(pext) - set(lext)):
+        e_lines.append(f'本地缺扩展 {e} (生产 {pext[e]})')
+    for e in sorted(set(lext) - set(pext)):
+        e_lines.append(f'本地多扩展 {e}')
+    for e in sorted(set(lext) & set(pext)):
+        if lext[e] != pext[e]:
+            e_lines.append(f'扩展版本不同 {e}: 本地 {lext[e]} / 生产 {pext[e]}')
+    if e_lines:
+        issues += len(e_lines)
+        for line in e_lines:
+            log(f'  [扩展] ✗ {line}')
+    else:
+        log(f'  [扩展] ✓ 一致({len(lext)} 个)')
+
+    lt = {r['table_name'] for r in await local.fetch(SQL_BASE_TABLES)}
+    pt = {r['table_name'] for r in await prod.fetch(SQL_BASE_TABLES)}
+    only_l, only_p = sorted(lt - pt), sorted(pt - lt)
+    if only_l or only_p:
+        issues += len(only_l) + len(only_p)
+        if only_l:
+            log(f'  [表] ✗ 仅本地有 {len(only_l)} 张: {", ".join(only_l[:PARITY_DETAIL_LIMIT])}')
+        if only_p:
+            log(f'  [表] ✗ 仅生产有 {len(only_p)} 张: {", ".join(only_p[:PARITY_DETAIL_LIMIT])}')
+    else:
+        log(f'  [表] ✓ 表集一致({len(lt)} 张)')
+
+    def col_map(rows: list[Any]) -> dict[tuple[str, str], tuple[str, str, str]]:
+        return {(r['t'], r['c']): (r['ut'], r['nn'], str(r['dflt'])) for r in rows}
+
+    lcm = col_map(await local.fetch(SQL_COLS_FULL))
+    pcm = col_map(await prod.fetch(SQL_COLS_FULL))
+    c_lines: list[str] = []
+    for key in sorted(set(lcm) & set(pcm)):
+        lu, ln, ld = lcm[key]
+        pu, pn, pd = pcm[key]
+        diff = []
+        if lu != pu:
+            diff.append(f'类型 本地 {lu} / 生产 {pu}')
+        if ln != pn:
+            diff.append(f'可空 本地 {ln} / 生产 {pn}')
+        if ld != pd:
+            diff.append(f'默认值 本地 {ld} / 生产 {pd}')
+        if diff:
+            c_lines.append(f'{key[0]}.{key[1]}: {"; ".join(diff)}')
+    for key in sorted(set(lcm) - set(pcm)):
+        c_lines.append(f'{key[0]}.{key[1]}: 仅本地有此列')
+    for key in sorted(set(pcm) - set(lcm)):
+        c_lines.append(f'{key[0]}.{key[1]}: 仅生产有此列')
+    if c_lines:
+        issues += len(c_lines)
+        log(f'  [列] ✗ 差异 {len(c_lines)} 处(显示前 {PARITY_DETAIL_LIMIT}):')
+        for line in c_lines[:PARITY_DETAIL_LIMIT]:
+            log(f'      {line}')
+        if len(c_lines) > PARITY_DETAIL_LIMIT:
+            log(f'      …另有 {len(c_lines) - PARITY_DETAIL_LIMIT} 处')
+    else:
+        log('  [列] ✓ 一致')
+
+    def cons_map(rows: list[Any]) -> dict[tuple[str, str], tuple[str, str]]:
+        return {(r['t'], r['n']): (r['ty'], r['d']) for r in rows}
+
+    lc = cons_map(await local.fetch(SQL_CONS_FULL))
+    pc = cons_map(await prod.fetch(SQL_CONS_FULL))
+    k_lines: list[str] = []
+    for key in sorted(set(pc) - set(lc)):
+        k_lines.append(f'{key[0]}.{key[1]} (仅生产, {pc[key][1]})')
+    for key in sorted(set(lc) - set(pc)):
+        k_lines.append(f'{key[0]}.{key[1]} (仅本地, {lc[key][1]})')
+    if k_lines:
+        issues += len(k_lines)
+        log(f'  [约束] ✗ 差异 {len(k_lines)} 处(不含 NOT NULL 条目;显示前 {PARITY_DETAIL_LIMIT}):')
+        for line in k_lines[:PARITY_DETAIL_LIMIT]:
+            log(f'      {line}')
+        if len(k_lines) > PARITY_DETAIL_LIMIT:
+            log(f'      …另有 {len(k_lines) - PARITY_DETAIL_LIMIT} 处')
+    else:
+        log('  [约束] ✓ 一致')
+
+    def idx_map(rows: list[Any]) -> dict[tuple[str, str], str]:
+        return {(r['t'], r['n']): r['d'] for r in rows}
+
+    li = idx_map(await local.fetch(SQL_IDX_FULL))
+    pi = idx_map(await prod.fetch(SQL_IDX_FULL))
+    i_lines: list[str] = []
+    for key in sorted(set(pi) - set(li)):
+        i_lines.append(f'{key[0]}.{key[1]} (仅生产)')
+    for key in sorted(set(li) - set(pi)):
+        i_lines.append(f'{key[0]}.{key[1]} (仅本地)')
+    if i_lines:
+        issues += len(i_lines)
+        log(f'  [索引] ✗ 差异 {len(i_lines)} 处(显示前 {PARITY_DETAIL_LIMIT}):')
+        for line in i_lines[:PARITY_DETAIL_LIMIT]:
+            log(f'      {line}')
+        if len(i_lines) > PARITY_DETAIL_LIMIT:
+            log(f'      …另有 {len(i_lines) - PARITY_DETAIL_LIMIT} 处')
+    else:
+        log('  [索引] ✓ 一致')
+
+    if issues:
+        log(f'\n[parity] 两端存在 {issues} 处不一致;对齐方向以 packages/database/src/schema 为准')
+        return 1 if fail else 0
+    log('\n[parity] 两端 schema 完全一致')
+    return 0
+
+
 def topo_sort(tables: list[str], edges: list[tuple[str, str]]) -> list[str]:
     """按外键依赖排序(父表在前)。存在环时保留剩余表的原相对顺序。"""
     want = set(tables)
@@ -995,11 +1196,15 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
             continue
         after = await prod.fetchval(f'SELECT count(*) FROM {q(d.name)}')
         not_landed = conflicts + abandoned
+        net = after - d.prod_rows
         note = f',冲突跳过 {conflicts}' if conflicts else ''
         note += f',未落地 {abandoned}' if abandoned else ''
         if ferr:
             note += f' [首次失败 {ferr}]'
-        log(f'    → 已写入 {written} 行{note};生产现 {after} 行')
+        # 报"生产 before→after(净 ±Δ)"而不是只报提交行数:以业务唯一键为冲突目标时,
+        # 多条"不同主键、同业务键"的本地行会合并到同一条生产行(实测 resources 提交
+        # 720 行、生产 0→114 行),只写"已写入 720 行"会把合并说成落地,属新的乐观报告。
+        log(f'    → 已提交 {written} 行{note};生产 {d.prod_rows}→{after} 行(净 {net:+d})')
         total += written
         # tables_touched 只统计"真的写进去了"的表:此前不论 written 是否为 0 都 +1,
         # 于是"涉及 16 张表"里混进了 resources(0/720 行)这种一行没进的表,属于
@@ -1134,7 +1339,7 @@ def parse_set(raw: str) -> set[str]:
 async def main() -> int:
     global _JSON_MODE
     ap = argparse.ArgumentParser(description='生产 ⇄ 本地 全表数据同步器')
-    ap.add_argument('mode', choices=['tables', 'schema', 'drift', 'sync', 'mirror'])
+    ap.add_argument('mode', choices=['tables', 'schema', 'drift', 'sync', 'mirror', 'parity'])
     ap.add_argument('--apply', action='store_true', help='sync/schema: 真正执行(默认 dry-run)')
     ap.add_argument('--yes', action='store_true', help='mirror: 确认覆盖本地库')
     ap.add_argument('--fail', action='store_true', help='drift: 有未回灌增量时 exit 1')
@@ -1153,7 +1358,7 @@ async def main() -> int:
     try:
         prod = await asyncpg.connect(prod_dsn(cfg))
         try:
-            ctx = await build_ctx(local, prod, cfg)
+            ctx = await build_ctx(local, prod, cfg, exact=args.mode != 'parity')
             only = parse_set(args.tables) or None
             if args.mode == 'tables':
                 rc = await do_tables(ctx)
@@ -1161,6 +1366,8 @@ async def main() -> int:
                 rc = await do_schema(ctx, local, prod, args.apply)
             elif args.mode == 'drift':
                 rc = await do_drift(ctx, local, prod, args.fail)
+            elif args.mode == 'parity':
+                rc = await do_parity(ctx, local, prod, args.fail)
             elif args.mode == 'sync':
                 rc = await do_sync(ctx, local, prod, args.apply, args.force, only,
                                    parse_set(args.exclude), args.max_rows)
