@@ -781,6 +781,9 @@
         "exitCode": "退出码:{code}",
         "truncated": "…(已截断,共 {total} 字符)"
       },
+      "citation": {
+        "title": "参考来源"
+      },
       "injection": {
         "title": "本轮参考的上下文",
         "kind": {
