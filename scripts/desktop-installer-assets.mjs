@@ -104,9 +104,15 @@ const UNSTEPS = [
 ];
 // 安装页进度几何(与 ihui-ui.nsi IHUIInstShow 的进度条槽严格一致)
 const PB_X = C_L;
-const PB_Y = 300;
+const PB_Y = 306;
 const PB_W = C_W;
-const PB_H = 8;
+const PB_H = 10;
+// 阶段刻度(与 desktop-nsis-template.mjs 的 P7/U 埋点一一对应):
+// 烧进轨道,填充条经过时被盖住 → 天然表达"过了几关"。
+const PB_TICKS = [20, 45, 65, 85, 92];
+// 百分比大数字的右边界:数字右对齐到此,`%` 由位图烧在它的右侧
+const PCT_R = 748;
+const PCT_BASE = 288;
 
 // 品牌渐变定义(每份 SVG 内联一次)
 const GRAD_DEFS = `<defs>
@@ -253,8 +259,8 @@ ${body14(C_L, 268, '连接你与 AI 智能体的专属工作台', C.inkSoft, 15)
 ${features
   .map(
     (t, i) => `
-<rect x="${C_L}" y="${338 + i * 44}" width="3" height="18" rx="1.5" fill="url(#ihgv)"/>
-<text x="${C_L + 16}" y="${352 + i * 44}" font-family="${FONT}" font-size="15" fill="${C.inkSoft}">${esc(t)}</text>`,
+<text x="${C_L}" y="${352 + i * 46}" font-family="${FONT}" font-size="11" font-weight="700" letter-spacing="1" fill="${C.accent}">0${i + 1}</text>
+<text x="${C_L + 30}" y="${352 + i * 46}" font-family="${FONT}" font-size="15" fill="${C.ink}">${esc(t)}</text>`,
   )
   .join('')}
 ${auroraRings(712, 424, 74, [1, 1])}
@@ -276,13 +282,29 @@ ${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…�
 }
 
 // 安装页:百分比与阶段文案是运行期控件,位图只烧轨道底与静态文案。
+// 计量器:轨道(底 + 描边 + 内高光 + 阶段刻度)与 `%` 字形。
+// 数字由运行期 STATIC 右对齐画在 PCT_R 之前,`%` 烧在位图里 → 两者永远成一套,
+// 不再是"一个大数字飘在右上角、一条线孤零零在中间"。
+function meterTrack(ticks = PB_TICKS) {
+  return [
+    `<rect x="${PB_X - 1}" y="${PB_Y - 1}" width="${PB_W + 2}" height="${PB_H + 2}" rx="${(PB_H + 2) / 2}" fill="none" stroke="${C.hairline}" stroke-width="1"/>`,
+    `<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="#1A1A1A"/>`,
+    `<rect x="${PB_X + 3}" y="${PB_Y + 1}" width="${PB_W - 6}" height="1" rx="0.5" fill="#FFFFFF" opacity="0.05"/>`,
+    ...ticks.map(
+      (t) =>
+        `<rect x="${Math.round(PB_X + (PB_W * t) / 100)}" y="${PB_Y}" width="2" height="${PB_H}" fill="${C.bg}"/>`,
+    ),
+    `<text x="${PCT_R + 8}" y="${PCT_BASE}" font-family="${FONT}" font-size="20" font-weight="600" fill="${C.accent}">%</text>`,
+  ].join("\n");
+}
+
 function sceneInstfiles(logo) {
   return page(`
 ${pageChrome(logo, 2)}
 ${kicker(C_L, 176, 'STEP 03')}
 ${title(C_L, 232, '正在安装')}
 ${body14(C_L, 262, '智汇AI 正在写入你的电脑,请稍候…')}
-<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="${C.hairline}"/>
+${meterTrack()}
 ${body14(C_L, 400, '安装完成后可直接启动,你的数据始终保存在云端', C.muted, 13)}
 ${auroraRings(712, 456, 58, [1, 1])}
 `);
@@ -344,7 +366,7 @@ ${pageChrome(logo, 1, UNSTEPS)}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '正在卸载')}
 ${body14(C_L, 262, '智汇AI 正在从本机移除文件,请稍候…')}
-<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="${C.hairline}"/>
+${meterTrack([20, 45, 65, 85])}
 ${auroraRings(712, 456, 58, [1, 1])}
 `);
 }
@@ -475,6 +497,7 @@ function barFillScene() {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${PB_W}" height="${PB_H}" viewBox="0 0 ${PB_W} ${PB_H}">
 ${GRAD_DEFS}
 <rect x="0" y="0" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="url(#ihg)"/>
+<rect x="3" y="1" width="${PB_W - 6}" height="1" rx="0.5" fill="#FFFFFF" opacity="0.28"/>
 </svg>`;
 }
 
