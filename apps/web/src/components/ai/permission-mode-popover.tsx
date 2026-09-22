@@ -38,7 +38,11 @@ import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
+
+/** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
+const PERMISSION_MODE_OVERLAY_ID = 'permission-mode-popover'
 
 /** 工作区权限模式选择器(2026-07-25 深化,深度对标 OpenAI Codex CLI approvalMode)
  *
@@ -145,15 +149,22 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
 
   React.useEffect(() => {
     if (!isOpen) return
+    // 层栈:打开即入栈为栈顶;Esc 只由栈顶消费(与 context-usage / mention / 斜杠面板
+    // 等多层同时打开时,一次 Esc 不再把所有层一起关掉)
+    pushOverlay(PERMISSION_MODE_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(PERMISSION_MODE_OVERLAY_ID)) return
         // Escape 关闭后归还焦点到 trigger，符合 A11y 预期（2026-08-31 P2 修复）
         triggerRef.current?.focus()
         setIsOpen(false)
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      popOverlay(PERMISSION_MODE_OVERLAY_ID)
+      document.removeEventListener('keydown', onKey)
+    }
   }, [isOpen])
 
   const updateMode = useMutation({
