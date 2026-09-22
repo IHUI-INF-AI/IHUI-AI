@@ -31,16 +31,41 @@ const TS_REGISTRY = 'packages/types/src/permission-mode.ts'
 const PY_REGISTRY = 'apps/ai-service/app/core/permission_mode.py'
 const AGENT_LOOP = 'apps/ai-service/app/services/agent_loop_v2.py'
 
-/** R3 已登记的消费点(新增消费文件要显式加进来,免得门变成"看起来在管其实没管")。 */
+/**
+ * 消费点档案:**逐文件**声明"权限档存在哪个变量名里"。
+ *
+ * 为什么不用一条通用正则:实测 `mode == "debate"`(MoA 聚合档)、
+ * `mode == 'plan'`(计划文本)都会被"mode 比较"误抓 —— 判据一宽就必然误伤,
+ * 宁可显式登记每个消费点用什么变量名。canonical = 该处比较的是**已归一的存储值**
+ * (只许规范成员);wire = 该处比较/声明的是**对外拼写**(kebab 等别名合法)。
+ */
+const CONSUMER_PROFILES = [
+  { file: 'apps/ai-service/app/services/agent_loop_v2.py', vars: ['permission_mode'], kind: 'canonical' },
+  { file: 'apps/ai-service/app/routers/agent_runtime.py', vars: ['mode'], kind: 'canonical' },
+  { file: 'apps/ai-service/app/routers/agents.py', vars: ['permission_mode'], kind: 'wire' },
+  { file: 'apps/api/src/routes/workspace-permissions.ts', vars: ['mode'], kind: 'wire' },
+  { file: 'apps/api/src/routes/v1-ai-core.ts', vars: ['permissionMode'], kind: 'wire' },
+  { file: 'apps/cli/src/tools/permissions.ts', vars: ['permissionMode', 'mode'], kind: 'canonical' },
+  { file: 'apps/cli/src/commands/settings.ts', vars: ['permissionMode'], kind: 'canonical' },
+  { file: 'apps/cli/src/commands/repl.ts', vars: ['permissionMode'], kind: 'canonical' },
+  { file: 'apps/cli/src/commands/status-cmd.ts', vars: ['permissionMode'], kind: 'canonical' },
+  { file: 'apps/cli/src/commands/agent.ts', vars: ['permissionMode'], kind: 'canonical' },
+]
+
+/** R3/R4 扫描面 = 档案内文件 + 声明类文件(类型联合/zod) + 对外文档。 */
 const KNOWN_CONSUMERS = [
-  'apps/ai-service/app/services/agent_loop_v2.py',
-  'apps/ai-service/app/routers/agent_runtime.py',
-  'apps/api/src/routes/workspace-permissions.ts',
-  'apps/api/src/routes/v1-ai-core.ts',
+  ...CONSUMER_PROFILES.map((p) => p.file),
+  // 无比较位但可能有"清单副本"的文件,也要进 R4 视野
+  'apps/cli/src/commands/config-cmd.ts',
+  'apps/ai-service/app/routers/agents.py',
   'packages/types/src/workspace.ts',
+  'packages/types/src/agent-runtime.ts',
   'packages/api-client/src/endpoints/workspace.ts',
   'docs/developer/api/agents.md',
 ]
+
+/** R4 唯一允许"自己声明档位清单"的文件(注册表本身)。 */
+const REGISTRY_FILES = new Set(['packages/types/src/permission-mode.ts'])
 
 // ---------------------------------------------------------------------------
 // 解析器:把两侧注册表读成同构数据,顺带保证"注释里写的清单"与实际成员一致
@@ -89,36 +114,34 @@ export function parsePyRegistry(src) {
  * false 的是**声明/契约点**(zod 枚举、TS 联合、对外文档),别名同样合法,
  * 因为 kebab 拼写是 workspace REST 的既有wire 格式,不能强改。
  */
-export function collectConsumerLiterals(relPath, src) {
+export function collectConsumerLiterals(relPath, src, profile) {
   const found = []
-  const push = (value, line, why, canonicalOnly) =>
-    found.push({ value, line, why, canonicalOnly })
-
   const lineOf = (index) => src.slice(0, index).split('\n').length
+  const canonicalOnly = profile?.kind === 'canonical'
+  const push = (value, index, why) =>
+    found.push({ value, line: lineOf(index), why, canonicalOnly })
 
-  // ① Python 决策位:*permission_mode == "X" / mode == "X" / req.mode == "X"
-  for (const m of src.matchAll(/(?:permission_mode|\.mode|mode)\s*==\s*["']([^"']+)["']/g)) {
-    push(m[1], lineOf(m.index), 'Python 权限档比较字面量', true)
-  }
-  // ② TS zod 枚举:permissionModeSchema = z.enum([...])
-  for (const m of src.matchAll(/permission[A-Za-z_]*(?:\s*=\s*)?z\.enum\(\[([\s\S]*?)\]/g)) {
-    for (const lit of m[1].matchAll(/'([^']+)'/g)) {
-      push(lit[1], lineOf(m.index), 'zod 权限枚举成员', false)
+  // ① 比较位:只抓档案里登记的变量名 —— 通用 `mode ==` 会把 MoA 的 debate/vote/critique
+  //    这类无关档位一起咬进来(上一版实测 3 处误报),判据一宽就没人信。
+  for (const varName of profile?.vars ?? []) {
+    for (const m of src.matchAll(new RegExp(`${varName}\\s*===?\\s*(["'])([^"']+)\\1`, 'g'))) {
+      push(m[2], m.index, `${varName} 比较字面量`)
     }
   }
-  // ③ TS 类型联合:export type WorkspacePermissionMode = 'a' | 'b'
+
+  // ② 声明位:zod 枚举(键名含 permission/mode)
   for (
-    const m of src.matchAll(/export type \w*PermissionMode\s*=\s*((?:'[^']+'(?:\s*\|\s*)?)+)/g)
+    const m of src.matchAll(/\b(?:permission|mode)[A-Za-z_]*\s*[:=]\s*z\.enum\(\[([\s\S]*?)\]/g)
   ) {
-    for (const lit of m[1].matchAll(/'([^']+)'/g)) {
-      push(lit[1], lineOf(m.index), 'TS 权限模式联合', false)
-    }
+    for (const lit of m[1].matchAll(/'([^']+)'/g)) push(lit[1], m.index, 'zod 权限枚举成员')
   }
-  // ④ 文档表格行:`| permissionMode | ... | 说明 |`
+  // ③ 声明位:TS 类型联合 export type XxxPermissionMode = 'a' | 'b'
+  for (const m of src.matchAll(/export type \w*PermissionMode\s*=\s*((?:'[^']+'(?:\s*\|\s*)?)+)/g)) {
+    for (const lit of m[1].matchAll(/'([^']+)'/g)) push(lit[1], m.index, 'TS 权限模式联合')
+  }
+  // ④ 声明位:对外文档的参数表行
   for (const m of src.matchAll(/\|\s*permissionMode\s*\|[^\n]*$/gim)) {
-    for (const lit of m[0].matchAll(/`([a-zA-Z][\w-]*)`/g)) {
-      push(lit[1], lineOf(m.index), '文档取值清单', false)
-    }
+    for (const lit of m[0].matchAll(/`([a-zA-Z][\w-]*)`/g)) push(lit[1], m.index, '文档取值清单')
   }
   return found
 }
@@ -183,7 +206,8 @@ export function checkConsumers(files, registry) {
   const canonical = new Set(registry.members)
   const problems = []
   for (const { relPath, src } of files) {
-    for (const hit of collectConsumerLiterals(relPath, src)) {
+    const profile = CONSUMER_PROFILES.find((p) => p.file === relPath)
+    for (const hit of collectConsumerLiterals(relPath, src, profile)) {
       if (!declared.has(hit.value)) {
         problems.push(
           `R3 ${relPath}:${hit.line} 出现注册表外的权限档取值 '${hit.value}'(${hit.why})`,
@@ -214,6 +238,41 @@ export function checkConsumers(files, registry) {
   return problems
 }
 
+/**
+ * R4:禁止再抄一份"完整档位清单"。
+ *
+ * 只咬**覆盖了全部规范成员**的字面量联合 / 数组 / z.enum —— 那种形状就是注册表的副本
+ * (新增第 6 档时它必然漏接,正是 G-161 五套拼写并存的成因)。
+ * 刻意放过"子集声明":workspace 的 kebab wire 枚举是 REST 既有契约,不是副本。
+ */
+export function checkNoSecondList(files, registry) {
+  const problems = []
+  const members = new Set(registry.members)
+  const candidates = [
+    /export type \w*PermissionMode\w*\s*=\s*([^;]*?)\n/g,
+    /\b(?:enumValues|VALID_MODES|PERMISSION_MODE_VALUES)\s*[:=]\s*(\[[^\]]*\])/g,
+    /z\.enum\((\[[^\]]*\])\)/g,
+  ]
+  for (const { relPath, src } of files) {
+    if (REGISTRY_FILES.has(relPath)) continue
+    for (const re of candidates) {
+      for (const m of src.matchAll(re)) {
+        const lits = [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
+        if (lits.length === 0) continue
+        const coversAll = [...members].every((v) => lits.includes(v))
+        if (coversAll) {
+          problems.push(
+            `R4 ${relPath}:${src.slice(0, m.index).split('\n').length} 抄了第二份完整档位清单 ` +
+              `(${lits.join(', ')}) —— 改 import @ihui/types/permission-mode 的 PERMISSION_MODES` +
+              `(新增档位时副本必漏接)`,
+          )
+        }
+      }
+    }
+  }
+  return problems
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
@@ -228,6 +287,7 @@ export function runChecks({ root = ROOT } = {}) {
     ...checkAliasClosure(ts),
     ...checkAliasClosure(py),
     ...checkConsumers(files, ts),
+    ...checkNoSecondList(files, ts),
   ]
   return { problems, members: ts.members, aliasCount: Object.keys(ts.aliases).length }
 }
@@ -322,6 +382,49 @@ function selfTest() {
       baseTs,
     ).length === 0,
   )
+  t(
+    'R3 不吃 MoA 聚合档 debate(档案未登记该变量名)',
+    checkConsumers(
+      [{ relPath: 'apps/ai-service/app/routers/agents.py', src: 'if mode == "debate":\n    pass\n' }],
+      baseTs,
+    ).length === 0,
+  )
+  t(
+    'R3 仍吃 agents.py 里权限档的未注册取值',
+    checkConsumers(
+      [
+        {
+          relPath: 'apps/ai-service/app/routers/agents.py',
+          src: 'if permission_mode == "yolo":\n    pass\n',
+        },
+      ],
+      baseTs,
+    ).some((p) => p.includes('yolo')),
+  )
+  t(
+    'R4 咬住第二份完整档位清单',
+    checkNoSecondList(
+      [
+        {
+          relPath: 'apps/cli/src/tools/permissions.ts',
+          src: "const VALID_MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'manual'];\n",
+        },
+      ],
+      baseTs,
+    ).some((p) => p.startsWith('R4')),
+  )
+  t(
+    'R4 放过子集声明(workspace kebab wire 枚举不是副本)',
+    checkNoSecondList(
+      [
+        {
+          relPath: 'packages/types/src/workspace.ts',
+          src: "export type WorkspacePermissionMode = 'default' | 'accept-edits'\n",
+        },
+      ],
+      baseTs,
+    ).length === 0,
+  )
   // 现状必须干净:否则本门一上去就红,等于给并发会话添堵
   const live = runChecks()
   if (live.problems.length > 0) {
@@ -339,7 +442,8 @@ function main() {
   const { problems, members, aliasCount } = runChecks()
   if (problems.length === 0) {
     console.log(
-      `✅ 权限模式词汇对账通过:${members.length} 个规范档 / ${aliasCount} 个别名,TS↔Python 一致,消费侧无注册表外取值`,
+      `✅ 权限模式词汇对账通过:${members.length} 个规范档 / ${aliasCount} 个别名,` +
+        'TS↔Python 一致,消费侧无注册表外取值,无第二份档位清单',
     )
     return
   }
@@ -348,6 +452,25 @@ function main() {
   console.error('\n唯一真源:packages/types/src/permission-mode.ts ↔ app/core/permission_mode.py')
   console.error('改法:先在两侧登记成员/别名,再改消费点;紧急跳过 HUSKY_SKIP_PERMISSION_VOCAB=1')
   process.exit(1)
+}
+
+/**
+ * §22c 镜像常量防御:测试文件不得复制解析逻辑,一律从这里 import。
+ * (本脚本被 import 时 **不**执行 main(),见 isDirectRun 守卫。)
+ */
+export const __test__ = {
+  parseTsRegistry,
+  parsePyRegistry,
+  checkMirror,
+  checkAliasClosure,
+  checkConsumers,
+  checkNoSecondList,
+  collectConsumerLiterals,
+  modeKey,
+  runChecks,
+  KNOWN_CONSUMERS,
+  TS_REGISTRY,
+  PY_REGISTRY,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
