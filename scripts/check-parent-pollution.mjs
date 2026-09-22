@@ -170,6 +170,11 @@ const USER_LEGIT_PATTERNS = [
   // 2026-09-12 立:文件名 `ihui-` 前缀会命中强信号规则,但它不是 agent 产物,
   // 且 `pnpm hygiene:parent:clean` 会把强信号命中当作可自动清理目标 → 必须显式豁免,防止误删用户文件。
   /^ihui-release\.keystore\.说明\.txt$/i,
+  // 用户自有的应用密码表(位于 D:/DevEnv/secrets/,与 admin-2fa.html / admin-mfa-qr.png /
+  // .pybcrypt 同目录,是有意的凭据库而非 agent 产物)。同类陷阱第二次命中:2026-09-22 实测
+  // 它被 `ihui-` 前缀强信号判为污染,而 auto-clean 走 unlinkSync 且无二次确认 → 跑一次
+  // `pnpm hygiene:parent:clean` 就会把凭据库整体删掉。改前必须先补本豁免。
+  /^ihui-app-password\.txt$/i,
 ]
 
 /**
