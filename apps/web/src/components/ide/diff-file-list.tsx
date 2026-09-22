@@ -166,19 +166,19 @@ function FileRow({
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {showActions && (
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
+          // 非交互占位(2026-09-23 a11y 审计):此处曾是一对 onClick 只做 stopPropagation 的假按钮。
+          // 缺的能力:① 暂存 —— toggleStage + stagedIds 是 source-control-panel 的组件局部状态,
+          // 未下沉到 ide-workspace store,本表面拿不到;② 放弃更改 —— 全仓无实现
+          //(grep 无 `git checkout -- <file>` / discard 动作)。
+          // 接线需新增数据流(AGENTS.md §24 要先立项),故降级为非交互 span:
+          // 保留操作位视觉但不暗示可点(无 hover 反馈类、无焦点、aria-hidden 不向读屏器播报)。
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <span className="rounded p-0.5 text-muted-foreground" aria-hidden="true">
               <Plus className="h-3 w-3" />
-            </button>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            >
+            </span>
+            <span className="rounded p-0.5 text-muted-foreground" aria-hidden="true">
               <RotateCcw className="h-3 w-3" />
-            </button>
+            </span>
           </div>
         )}
         <span className="text-green-600 dark:text-green-400">+{file.additions}</span>
