@@ -11,6 +11,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
+import { buildSsoRedirectUrl } from '@ihui/shared'
+import { ensureSsoRedirectAllowed } from '@/lib/sso-redirect-guard'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -35,6 +37,19 @@ import { ForgotPasswordForm } from '@/components/login/ForgotPasswordForm'
  *
  * 2026-07-22 修订:从"手写账号密码表单 + 单独 ThirdPartyLoginButtons"改为复用 LoginFormContent,
  * 解决 SSO 与主站 LoginDialog 功能不同步问题(原 SSO 缺少邮箱验证码/手机验证码/扫码登录/注册/忘记密码/协议同意/记住密码/图形验证码)。
+ *
+ * 2026-09-22 修复桌面端"授权并跳转 / 右上 X 都点了没反应":
+ * 现象:桌面端薄壳(窗口直接加载 https://aizhs.top/agents)已登录状态下,点
+ * 「授权并跳转」或右上 X 都原地回到本页;WebView2 历史记录里
+ * /sso/login?redirect=/edu/... 的 redirect 参数中 sso_code 递归膨胀到 4 层。
+ * 根因:cookie 里的 auth_token 是 access JWT(15 分钟过期),而 cookie 自身 30 天;
+ * 桌面端登录态靠持久化 token + Bearer 维持,API 全通,但 cookie 内 JWT 早已过期
+ * → 登录守卫(proxy.ts verifyAccessTokenEdge / 生产 nginx $cookie_auth_token)对
+ * redirect 目标(/admin/*、/edu/edu-management/*)一律 307 打回本页。
+ * 两个按钮的导航目标都是 redirect,于是都退化为「点击后回到本页」的 307 重定向闭环。
+ * 修复:跳转前用 ensureRedirectAllowed() 探测守卫是否放行,被拦则静默续期一次
+ * (后端 /api/auth/refresh 会 setAuthCookies 续种 cookie)后复测;仍被拦时给出
+ * 明确结果(授权按钮报会话失效,关闭按钮回首页),彻底消除静默死循环。
  */
 export default function SsoLoginPage() {
   const tSso = useTranslations('sso')
@@ -65,21 +80,34 @@ export default function SsoLoginPage() {
   }, [])
 
   const handleClose = React.useCallback(() => {
-    router.push(redirectUrl)
-  }, [router, redirectUrl])
+    void (async () => {
+      // 2026-09-22 修复"关闭按钮点了没反应":redirect 若是受保护的同源路径
+      // (如 /edu/edu-management/*),直接跳回去必被守卫 307 弹回本页 → 看起来像按钮失灵。
+      // 先确保能被放行;仍不行则回首页,避免陷入 307 重定向闭环。
+      const allowed = await ensureSsoRedirectAllowed(redirectUrl)
+      router.push(allowed ? redirectUrl : '/')
+    })()
+  }, [redirectUrl, router])
 
   const generateCodeAndRedirect = React.useCallback(async () => {
     const currentToken = useAuthStore.getState().token
     if (!currentToken) return
     setExchanging(true)
     try {
+      // 2026-09-22:先确认回跳目标能被守卫放行(必要时静默续种 cookie)——
+      // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
+      if (!(await ensureSsoRedirectAllowed(redirectUrl))) {
+        toast.error(tSso('sessionExpired'))
+        return
+      }
       const r = await fetchApi<{ code: string; redirectUri: string }>('/api/auth/sso/code', {
         method: 'POST',
         body: JSON.stringify({ clientId, redirectUri: redirectUrl }),
       })
       if (r.success && r.data?.code) {
-        const separator = redirectUrl.includes('?') ? '&' : '?'
-        const finalUrl = `${redirectUrl}${separator}sso_code=${r.data.code}`
+        // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重),
+        // 防守卫打回重入导致 ?sso_code=A&sso_code=B 递归膨胀。
+        const finalUrl = buildSsoRedirectUrl(redirectUrl, r.data.code)
         // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
         // router.push 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
         const isCustomScheme =
