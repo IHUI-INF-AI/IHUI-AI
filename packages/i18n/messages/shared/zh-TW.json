@@ -2151,5 +2151,15 @@
       }
     },
     "vividTail": "，馬上就好"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "授權範圍",
+      "scopeOnce": "允許一次",
+      "scopeSession": "允許此對話",
+      "scopeAlways": "始終允許",
+      "reasonLabel": "原因(可選)",
+      "reasonPlaceholder": "填寫原因,便於審計與追溯"
+    }
   }
 }
