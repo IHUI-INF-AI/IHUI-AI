@@ -58,6 +58,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
+  AlertTriangle,
   Bot,
   BookOpen,
   Clapperboard,
@@ -111,6 +112,7 @@ import {
 } from '@ihui/api-client'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
   ChatScreen as SharedChatScreen,
@@ -567,7 +569,7 @@ export function ChatScreen() {
   }, [navigation])
 
   // ── 发送消息(send-message 事件) ──
-  const send = async (overrideText?: string): Promise<void> => {
+  const send = async (overrideText?: string, baseHistory?: ChatMessage[]): Promise<void> => {
     // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
     setInputPanelVisible(false)
     // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
@@ -596,17 +598,22 @@ export function ChatScreen() {
       return
     }
     // overrideText 用于 P1.4 网页链接发送等场景;onSend 已 wrap 为 () => send() 防止 PressableEvent 传入
+    // baseHistory:失败轮重试时显式传入"截到上一次提问之前"的历史,避免用渲染闭包里的旧 messages
     const text = (typeof overrideText === 'string' ? overrideText : prompt).trim()
     if (!text || isStreaming) return
     setPrompt('')
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: text }
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
-    const history = [...messages, userMsg]
+    const history = [...(baseHistory ?? messages), userMsg]
     setMessages([...history, aiMsg])
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
-    const apiMessages = history.map((m) => ({ role: m.role, content: m.content }))
+    // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
+    // 否则"请求出错"那句会被模型当成自己上一轮的回答读进去
+    const apiMessages = history
+      .filter((m) => !isErrorTurn(m))
+      .map((m) => ({ role: m.role, content: m.content }))
     // AI 操控本端(2026-09-21):只对"这一句"做意图判定,system/历史不参与 ——
     // 否则提示词里的"打开/进入"字样会让每次请求都带上工具,打字机流式首字延迟被拖进 tool 往返。
     const agentTools = uiControlToolsFor(text)
@@ -643,6 +650,9 @@ export function ChatScreen() {
       },
       onError: (err) => {
         const formatted = formatSSEError(new Error(err))
+        // 失败轮要"可辨认":此前只 toast,那条空 assistant 气泡既不进上下文也不给出口,
+        // 界面上看成一轮"回答完了"。标记后由 renderMessage 渲染错误卡片 + 重试。
+        setMessages((prev) => applyStreamError(prev, formatted.message))
         setIsStreaming(false)
         abortRef.current = null
         if (formatted.severity === 'auth') {
@@ -666,6 +676,20 @@ export function ChatScreen() {
     abortRef.current = null
     setIsStreaming(false)
   }
+
+  /** 失败轮重试:重发最后一条用户提问,并把历史截到它之前(失败轮不留进上下文)
+   *  send 未包 useCallback(每轮渲染重建),故经 ref 间接调用,免得 retryLastTurn 身份每轮都变 */
+  const sendRef = useRef(send)
+  useEffect(() => {
+    sendRef.current = send
+  })
+  const retryLastTurn = useCallback((): void => {
+    const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+    const text = resendTargetText(messages)
+    if (lastUserIdx < 0 || !text) return
+    const base = messages.slice(0, lastUserIdx)
+    void sendRef.current(text, base)
+  }, [messages])
 
   // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
   /** 按分类加载素材库(对齐 Uniapp loadMaterialContent;数据源 getMyCreation,按分类映射 API type;
@@ -1256,6 +1280,9 @@ export function ChatScreen() {
       const isUser = item.role === 'user'
       const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
       const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
+      // 失败轮:渲染错误卡片而非正文;重试只在"确实有一条可重发的用户提问"时给
+      const isFailed = !isUser && isErrorTurn(item)
+      const retryable = isFailed && resendTargetText(messages) !== null
       // 富内容分段(代码块/图片/文本,对齐 ai_index2 agent_content_list;消息内容不长,直接解析)
       const segments = parseMessageContent(item.content)
       // 思考过程(对齐 ai_index2 thinking-process:assistant 消息带 reasoning 时渲染折叠区块,
@@ -1275,7 +1302,31 @@ export function ChatScreen() {
               delayLongPress={500}
               style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
             >
-              {reasoning.trim() !== '' ? (
+              {isFailed ? (
+                // 失败轮:错误卡片(警示头 + 正文 + 重试出口),整块替换正文 —— 与 web D22 /
+                // miniapp 同一形态,跨端一致:失败不产出内容,也不能看起来像一次正常回答。
+                <View style={styles.msgErrorCard}>
+                  <View style={styles.msgErrorHeader}>
+                    <AlertTriangle size={14} color={tokens.error.text} />
+                    <Text style={styles.msgErrorTitle}>{t('chatAlert.errorTitle')}</Text>
+                  </View>
+                  <Text style={styles.msgErrorBody} selectable>
+                    {item.content}
+                  </Text>
+                  {retryable ? (
+                    <TouchableOpacity
+                      style={styles.msgErrorRetry}
+                      hitSlop={8}
+                      onPress={retryLastTurn}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('chatAlert.errorRetry')}
+                    >
+                      <RefreshCw size={14} color={tokens.error.text} />
+                      <Text style={styles.msgErrorRetryText}>{t('chatAlert.errorRetry')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              ) : reasoning.trim() !== '' ? (
                 <View style={styles.thinkingBlock}>
                   <Pressable
                     style={styles.thinkingHeader}
@@ -1304,88 +1355,89 @@ export function ChatScreen() {
                   ) : null}
                 </View>
               ) : null}
-              {segments.map((seg, segIndex) => {
-                if (seg.type === 'image') {
-                  return (
-                    <Pressable
-                      key={`${item.id}-img-${segIndex}`}
-                      onPress={() => setPreviewImageUrl(seg.url)}
-                      style={styles.msgImageWrap}
-                    >
-                      <Image
-                        source={{ uri: seg.url }}
-                        style={styles.msgImage}
-                        resizeMode="cover"
-                        accessibilityLabel="消息图片,点击预览"
-                      />
-                    </Pressable>
-                  )
-                }
-                if (seg.type === 'code') {
-                  const codeKey = `${item.id}-${segIndex}`
-                  const expanded = expandedCodeBlocks.has(codeKey)
-                  return (
-                    <View key={`${item.id}-code-${segIndex}`} style={styles.codeBlock}>
-                      <View style={styles.codeBlockHeader}>
-                        <Text style={styles.codeBlockLang} numberOfLines={1}>
-                          {seg.language || 'code'}
-                        </Text>
-                        <View style={styles.codeBlockActions}>
-                          <TouchableOpacity
-                            style={styles.codeBlockBtn}
-                            hitSlop={6}
-                            onPress={() => {
-                              Clipboard.setString(seg.code)
-                              showToast('success', '已复制')
-                            }}
-                            accessibilityRole="button"
-                            accessibilityLabel="复制代码"
-                          >
-                            <Copy size={13} color={tokens.gray['200']} />
-                            <Text style={styles.codeBlockBtnText}>复制</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.codeBlockBtn}
-                            hitSlop={6}
-                            onPress={() =>
-                              setExpandedCodeBlocks((prev) => {
-                                const next = new Set(prev)
-                                if (next.has(codeKey)) next.delete(codeKey)
-                                else next.add(codeKey)
-                                return next
-                              })
-                            }
-                            accessibilityRole="button"
-                            accessibilityLabel={expanded ? '收起代码' : '展开代码'}
-                          >
-                            <Text style={styles.codeBlockBtnText}>
-                              {expanded ? '收起' : '展开'}
-                            </Text>
-                          </TouchableOpacity>
+              {!isFailed &&
+                segments.map((seg, segIndex) => {
+                  if (seg.type === 'image') {
+                    return (
+                      <Pressable
+                        key={`${item.id}-img-${segIndex}`}
+                        onPress={() => setPreviewImageUrl(seg.url)}
+                        style={styles.msgImageWrap}
+                      >
+                        <Image
+                          source={{ uri: seg.url }}
+                          style={styles.msgImage}
+                          resizeMode="cover"
+                          accessibilityLabel="消息图片,点击预览"
+                        />
+                      </Pressable>
+                    )
+                  }
+                  if (seg.type === 'code') {
+                    const codeKey = `${item.id}-${segIndex}`
+                    const expanded = expandedCodeBlocks.has(codeKey)
+                    return (
+                      <View key={`${item.id}-code-${segIndex}`} style={styles.codeBlock}>
+                        <View style={styles.codeBlockHeader}>
+                          <Text style={styles.codeBlockLang} numberOfLines={1}>
+                            {seg.language || 'code'}
+                          </Text>
+                          <View style={styles.codeBlockActions}>
+                            <TouchableOpacity
+                              style={styles.codeBlockBtn}
+                              hitSlop={6}
+                              onPress={() => {
+                                Clipboard.setString(seg.code)
+                                showToast('success', '已复制')
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="复制代码"
+                            >
+                              <Copy size={13} color={tokens.gray['200']} />
+                              <Text style={styles.codeBlockBtnText}>复制</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.codeBlockBtn}
+                              hitSlop={6}
+                              onPress={() =>
+                                setExpandedCodeBlocks((prev) => {
+                                  const next = new Set(prev)
+                                  if (next.has(codeKey)) next.delete(codeKey)
+                                  else next.add(codeKey)
+                                  return next
+                                })
+                              }
+                              accessibilityRole="button"
+                              accessibilityLabel={expanded ? '收起代码' : '展开代码'}
+                            >
+                              <Text style={styles.codeBlockBtnText}>
+                                {expanded ? '收起' : '展开'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
+                        {expanded ? (
+                          <Text style={styles.codeBlockContent} selectable>
+                            {seg.code}
+                          </Text>
+                        ) : (
+                          <Text style={styles.codeBlockContent} numberOfLines={4}>
+                            {seg.code}
+                          </Text>
+                        )}
                       </View>
-                      {expanded ? (
-                        <Text style={styles.codeBlockContent} selectable>
-                          {seg.code}
-                        </Text>
-                      ) : (
-                        <Text style={styles.codeBlockContent} numberOfLines={4}>
-                          {seg.code}
-                        </Text>
-                      )}
-                    </View>
+                    )
+                  }
+                  return (
+                    <Text
+                      key={`${item.id}-text-${segIndex}`}
+                      style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
+                    >
+                      {seg.text}
+                    </Text>
                   )
-                }
-                return (
-                  <Text
-                    key={`${item.id}-text-${segIndex}`}
-                    style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
-                  >
-                    {seg.text}
-                  </Text>
-                )
-              })}
-              {segments.length === 0 ? (
+                })}
+              {!isFailed && segments.length === 0 ? (
                 <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
                   {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
                 </Text>
@@ -1406,20 +1458,23 @@ export function ChatScreen() {
                   <Copy size={16} color={tokens.text.secondary} />
                   <Text style={styles.msgActionText}>复制</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.msgActionBtn}
-                  hitSlop={8}
-                  onPress={() => {
-                    void Share.share({ message: item.content }).then(() => {
-                      void maybeTriggerFirstShareReward()
-                    })
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="分享"
-                >
-                  <Share2 size={16} color={tokens.text.secondary} />
-                  <Text style={styles.msgActionText}>分享</Text>
-                </TouchableOpacity>
+                {/* 失败轮不给"分享"(它不是内容);复制保留 —— 报错排查要用那段文字 */}
+                {isFailed ? null : (
+                  <TouchableOpacity
+                    style={styles.msgActionBtn}
+                    hitSlop={8}
+                    onPress={() => {
+                      void Share.share({ message: item.content }).then(() => {
+                        void maybeTriggerFirstShareReward()
+                      })
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="分享"
+                  >
+                    <Share2 size={16} color={tokens.text.secondary} />
+                    <Text style={styles.msgActionText}>分享</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : null}
           </View>
@@ -1434,6 +1489,8 @@ export function ChatScreen() {
       maybeTriggerFirstShareReward,
       showToast,
       handleLongPressMessage,
+      retryLastTurn,
+      t,
     ],
   )
 
@@ -2699,6 +2756,49 @@ const styles = StyleSheet.create({
   },
   msgBubbleAi: {
     backgroundColor: tokens.surface.card,
+  },
+  // 失败轮错误卡片(与 web D22 / miniapp 同形态:警示头 + 正文 + 重试出口)
+  msgErrorCard: {
+    width: '100%',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.danger.light,
+    backgroundColor: tokens.error.bg,
+    overflow: 'hidden',
+  },
+  msgErrorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: tokens.danger.light,
+  },
+  msgErrorTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: tokens.error.text,
+  },
+  msgErrorBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    lineHeight: 21,
+    color: tokens.error.text,
+  },
+  msgErrorRetry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  msgErrorRetryText: {
+    fontSize: 12,
+    color: tokens.error.text,
   },
   msgText: {
     fontSize: 15,
