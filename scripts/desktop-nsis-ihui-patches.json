@@ -1,0 +1,38 @@
+[
+  {
+    "upstream": "Var NoShortcutMode\nVar WixMode\nVar OldMainBinaryName\n\nName \"${PRODUCTNAME}\"\nBrandingText \"${COPYRIGHT}\"",
+    "ihui": "Var NoShortcutMode\nVar WixMode\nVar OldMainBinaryName\n; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状(见 .onInit / CreateOrUpdateDesktopShortcut)\nVar HadExistingInstall\nVar DesktopIconExisted\n\nName \"${PRODUCTNAME}\"\nBrandingText \"${COPYRIGHT}\""
+  },
+  {
+    "upstream": "{{/each}}\n\nFunction .onInit\n  ${GetOptions} $CMDLINE \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $CMDLINE \"/NS\" $NoShortcutMode\n  ${IfNot} ${Errors}\n    StrCpy $NoShortcutMode 1\n  ${EndIf}\n\n  ${GetOptions} $CMDLINE \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}",
+    "ihui": "{{/each}}\n\nFunction .onInit\n  ; GetOptions 是\"任意 / 后前缀匹配\",$CMDLINE 含 exe 全路径,正斜杠路径里\n  ; 的 /ns(如 Git Bash 启动)会误匹配 /NS → 先 GetParameters 剥掉 exe 路径。\n  ${GetParameters} $R9\n  ${GetOptions} $R9 \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $R9 \"/NS\" $NoShortcutMode\n  ${IfNot} ${Errors}\n    StrCpy $NoShortcutMode 1\n  ${EndIf}\n\n  ${GetOptions} $R9 \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}"
+  },
+  {
+    "upstream": "\n  !insertmacro SetContext\n\n  ${If} $INSTDIR == \"${PLACEHOLDER_INSTALL_DIR}\"\n    ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====\n    ; 上游按 INSTALLMODE 推导(currentUser → %LOCALAPPDATA%,perMachine → %PROGRAMFILES%);",
+    "ihui": "\n  !insertmacro SetContext\n\n  ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。\n  ; 背景:仅应用内自动更新器带 /UPDATE(UpdateMode=1,卸载器不删图标、新装不重建);\n  ; 手动跑安装包覆盖安装(交互/静默)不带该参数,走「卸载旧版(删桌面图标)→\n  ; 全新安装(无条件重建)」,用户删过的图标被强行恢复。此处于 .onInit\n  ; (卸载旧版之前、SetContext 之后,SHCTX/$DESKTOP 语义与快捷方式创建一致)\n  ; 记录「升级前是否已有安装」与「桌面图标是否存在」,供\n  ; CreateOrUpdateDesktopShortcut 判断:用户已删 → 不再创建;未删 → 重建(视觉等同保留)。\n  StrCpy $DesktopIconExisted 0\n  ${If} ${FileExists} \"$DESKTOP\\${PRODUCTNAME}.lnk\"\n    StrCpy $DesktopIconExisted 1\n  ${EndIf}\n  ReadRegStr $HadExistingInstall SHCTX \"${UNINSTKEY}\" \"UninstallString\"\n  ${If} ${Errors}\n  ${OrIf} $HadExistingInstall == \"\"\n    StrCpy $HadExistingInstall 0\n  ${Else}\n    StrCpy $HadExistingInstall 1\n  ${EndIf}\n\n  ${If} $INSTDIR == \"${PLACEHOLDER_INSTALL_DIR}\"\n    ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====\n    ; 上游按 INSTALLMODE 推导(currentUser → %LOCALAPPDATA%,perMachine → %PROGRAMFILES%);"
+  },
+  {
+    "upstream": "  ; GUI installer has a toggle for the user to (re)start the app\n  ${If} $PassiveMode = 1\n  ${OrIf} ${Silent}\n    ${GetOptions} $CMDLINE \"/R\" $R0\n    ${IfNot} ${Errors}\n      ${GetOptions} $CMDLINE \"/ARGS\" $R0\n      nsis_tauri_utils::RunAsUser \"$INSTDIR\\${MAINBINARYNAME}.exe\" \"$R0\"\n    ${EndIf}\n  ${EndIf}",
+    "ihui": "  ; GUI installer has a toggle for the user to (re)start the app\n  ${If} $PassiveMode = 1\n  ${OrIf} ${Silent}\n    ; 同 .onInit:GetParameters 剥 exe 路径,防正斜杠路径 /r /args 前缀误匹配\n    ${GetParameters} $R9\n    ${GetOptions} $R9 \"/R\" $R0\n    ${IfNot} ${Errors}\n      ${GetOptions} $R9 \"/ARGS\" $R0\n      nsis_tauri_utils::RunAsUser \"$INSTDIR\\${MAINBINARYNAME}.exe\" \"$R0\"\n    ${EndIf}\n  ${EndIf}"
+  },
+  {
+    "upstream": "\n  !insertmacro MUI_UNGETLANGUAGE\n\n  ${GetOptions} $CMDLINE \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $CMDLINE \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}",
+    "ihui": "\n  !insertmacro MUI_UNGETLANGUAGE\n\n  ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配\n  ${GetParameters} $R9\n  ${GetOptions} $R9 \"/P\" $PassiveMode\n  ${IfNot} ${Errors}\n    StrCpy $PassiveMode 1\n  ${EndIf}\n\n  ${GetOptions} $R9 \"/UPDATE\" $UpdateMode\n  ${IfNot} ${Errors}\n    StrCpy $UpdateMode 1\n  ${EndIf}"
+  },
+  {
+    "upstream": "    DeleteRegValue HKCU \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" \"${PRODUCTNAME}\"\n  ${EndIf}\n\n  ; Delete app data if the checkbox is selected\n  ; and if not updating\n  ${If} $DeleteAppDataCheckboxState = 1\n  ${AndIf} $UpdateMode <> 1\n    ; Clear the install location $INSTDIR from registry\n    DeleteRegKey SHCTX \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty SHCTX \"${MANUKEY}\"",
+    "ihui": "    DeleteRegValue HKCU \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\" \"${PRODUCTNAME}\"\n  ${EndIf}\n\n  ; IHUI 2026-09-21 根治:凡真实卸载(非更新模式)一律清理「安装位置/语言」持久化键。\n  ; 上游仅在勾选「删除应用数据」时清理,/S 静默卸载不勾选 → 键残留,重装时\n  ; RestorePreviousInstallLocation 会把全新安装拉回旧目录\n  ; (0.1.42 本机实测:静默重装被拉回测试目录而非默认目录)。\n  ${If} $UpdateMode <> 1\n    ; Clear the install location $INSTDIR from registry\n    DeleteRegKey SHCTX \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty SHCTX \"${MANUKEY}\""
+  },
+  {
+    "upstream": "    DeleteRegValue HKCU \"${MANUPRODUCTKEY}\" \"Installer Language\"\n    DeleteRegKey /ifempty HKCU \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty HKCU \"${MANUKEY}\"\n\n    SetShellVarContext current\n    RmDir /r \"$APPDATA\\${BUNDLEID}\"\n    RmDir /r \"$LOCALAPPDATA\\${BUNDLEID}\"",
+    "ihui": "    DeleteRegValue HKCU \"${MANUPRODUCTKEY}\" \"Installer Language\"\n    DeleteRegKey /ifempty HKCU \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty HKCU \"${MANUKEY}\"\n  ${EndIf}\n\n  ; Delete app data if the checkbox is selected\n  ; and if not updating\n  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,\n  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。\n  ${If} $UNDATA = 1\n  ${AndIf} $UpdateMode <> 1\n    SetShellVarContext current\n    RmDir /r \"$APPDATA\\${BUNDLEID}\"\n    RmDir /r \"$LOCALAPPDATA\\${BUNDLEID}\""
+  },
+  {
+    "upstream": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4",
+    "ihui": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有\n  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时\n  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回\n  ; 旧目录,应落默认目录(D:\\智汇AI / D:\\IHUI AI)。\n  ClearErrors\n  ReadRegStr $4 SHCTX \"${UNINSTKEY}\" \"UninstallString\"\n  ${If} ${Errors}\n    Return\n  ${EndIf}\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4"
+  },
+  {
+    "upstream": "    ${OrIf} $NoShortcutMode = 1\n      Return\n    ${EndIf}\n  ${EndIf}\n\n  CreateShortcut \"$DESKTOP\\${PRODUCTNAME}.lnk\" \"$INSTDIR\\${MAINBINARYNAME}.exe\"",
+    "ihui": "    ${OrIf} $NoShortcutMode = 1\n      Return\n    ${EndIf}\n    ; IHUI 2026-09-21:覆盖升级(手动跑安装包,无 /UPDATE)尊重用户桌面图标现状:\n    ; 升级前桌面无快捷方式(用户已删) → 不再强行创建。\n    ; 首次安装(HadExistingInstall=0)行为不变,始终创建;\n    ; 升级前图标存在 → 仍创建(旧卸载器已删除,重建后视觉等同保留,且指向新安装目录)。\n    ${If} $HadExistingInstall = 1\n    ${AndIf} $DesktopIconExisted = 0\n      Return\n    ${EndIf}\n  ${EndIf}\n\n  CreateShortcut \"$DESKTOP\\${PRODUCTNAME}.lnk\" \"$INSTDIR\\${MAINBINARYNAME}.exe\""
+  }
+]

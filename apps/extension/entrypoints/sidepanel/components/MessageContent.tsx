@@ -30,6 +30,7 @@ import {
   type ToolSubjectKind,
 } from '@ihui/shared'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { ContextInjectionList } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 /** i18n 翻译函数签名(与 useI18n 的 t 一致) */
@@ -328,6 +329,44 @@ function subagentStatusLabel(status: string, tTool: Translate): string {
   }
 }
 
+/**
+ * 枚举原值 → 用户可见措辞的通用映射器(type / decision / mode / dangerLevel 等同族字段共用)。
+ *
+ * 取舍(刻意为之):**映射不到就原样保留,绝不猜语义**。
+ * 这些字段在契约层多被声明为 `string`(后端角色池会增删、审批模式随版本扩展),
+ * 错译的代价高于直显英文码名 —— 用户看到 raw 原值知道"这是个未登记的取值",
+ * 看到错译(把 deny 译成"已放行")则可能据此做出错误的授权判断。
+ * 因此这里只用**已核实存在**的字面量建表,不做大小写归一、不做驼峰拆分等"猜测式"转换。
+ */
+export function enumLabel(
+  raw: string | undefined | null,
+  keyMap: Readonly<Record<string, string>>,
+  t: Translate,
+): string {
+  if (!raw) return '—'
+  const key = keyMap[raw]
+  return key ? t(key) : raw
+}
+
+/**
+ * 子代理角色名 → 文案键。
+ * 字面量取自后端昵称池(Codex 风格:validator/reviewer/explorer/...,
+ * 见 apps/web/src/hooks/use-agent-progress.ts NICKNAME_POOL),池外的自定义 agent 角色
+ * 属于"用户自己起的标识",按上面取舍保留原值。
+ */
+export const SUBAGENT_ROLE_KEY: Readonly<Record<string, string>> = {
+  validator: 'chat.subagentRoleValidator',
+  reviewer: 'chat.subagentRoleReviewer',
+  explorer: 'chat.subagentRoleExplorer',
+  implementer: 'chat.subagentRoleImplementer',
+  planner: 'chat.subagentRolePlanner',
+  tester: 'chat.subagentRoleTester',
+  researcher: 'chat.subagentRoleResearcher',
+  optimizer: 'chat.subagentRoleOptimizer',
+  debugger: 'chat.subagentRoleDebugger',
+  refactorer: 'chat.subagentRoleRefactorer',
+}
+
 // ==================== 各类型块视图 ====================
 /** 推理过程块 */
 function ReasoningBlockView({ block, t }: { block: ReasoningRenderBlock; t: Translate }) {
@@ -503,6 +542,17 @@ function TerminalBlockView({
           {block.output}
         </pre>
       ) : null}
+      {/* 后端只下发截断后的文本:不交代总长就等于让用户把截断当完整(回放时没有 live 缓冲可比对) */}
+      {block.truncated ? (
+        <div
+          className="mt-0.5 font-mono text-[10px] text-muted-foreground"
+          data-testid={`terminal-truncated-${block.id}`}
+        >
+          {t('chat.terminalTruncated', {
+            total: block.totalChars ?? block.output?.length ?? 0,
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -529,8 +579,15 @@ function SubagentBlockView({
           className={`h-3.5 w-3.5 shrink-0 ${statusIconClassByString(block.status)}`}
           aria-hidden
         />
+        {/* name 是用户/后端配置的可读标识(不是枚举),按原值显示;type 是角色码名,必须本地化 */}
         <span className="min-w-0 shrink-0 max-w-[45%] truncate font-medium">{block.name}</span>
-        <span className="shrink-0 text-[10px] text-muted-foreground">{block.type}</span>
+        <span
+          className={`shrink-0 text-[10px] text-muted-foreground ${
+            SUBAGENT_ROLE_KEY[block.type] ? '' : 'font-mono'
+          }`}
+        >
+          {enumLabel(block.type, SUBAGENT_ROLE_KEY, t)}
+        </span>
         <span className={`${BADGE_CLASS} bg-muted text-muted-foreground`}>
           {subagentStatusLabel(block.status, tTool)}
         </span>
@@ -633,6 +690,51 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           {t('chat.usage')}: {formatTokenCount(model.usage.promptTokens)} /{' '}
           {formatTokenCount(model.usage.completionTokens)} /{' '}
           {formatTokenCount(model.usage.totalTokens)}
+        </div>
+      ) : null}
+      {/* D34 上下文注入交代(第 43 轮跨端):呈现层复用 @ihui/ui-react,取词包成本端点号键 */}
+      {message.role === 'assistant' && message.injections?.length ? (
+        <ContextInjectionList
+          injections={message.injections}
+          t={(key, values) => t(`chat.${key}`, values)}
+        />
+      ) : null}
+      {/* #11 引用溯源(第 52 轮):该端此前对 citations 帧 0 命中(只有注释提到它) */}
+      {message.role === 'assistant' && message.citations?.length ? (
+        <div data-testid="citation-list" className="mt-1">
+          <div className="text-[11px] text-muted-foreground">{t('chat.citationTitle')}</div>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {message.citations.map((c, i) => (
+              <span
+                key={`${c.source}_${i}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              >
+                <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-medium">
+                  {c.source}
+                </span>
+                <span className="truncate">{c.label}</span>
+                {c.url ? <span className="truncate opacity-60">{c.url}</span> : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {/* D39/D108 上游重试交代:不接就等于侧边栏里只表现为"停顿"。措辞出自 chat.retry* 词表 */}
+      {message.role === 'assistant' && message.retryNotice ? (
+        <div
+          data-testid="retry-notice"
+          className="mt-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
+        >
+          {message.retryNotice.retryInMs > 0
+            ? t('chat.retryScheduled', {
+                attempt: message.retryNotice.attempt,
+                max: message.retryNotice.maxRetries,
+                seconds: Math.round(message.retryNotice.retryInMs / 1000),
+              })
+            : t('chat.retryScheduledNow', {
+                attempt: message.retryNotice.attempt,
+                max: message.retryNotice.maxRetries,
+              })}
         </div>
       ) : null}
     </div>

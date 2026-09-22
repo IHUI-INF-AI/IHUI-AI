@@ -33,7 +33,6 @@ export interface MessageListScrollResult {
   measureItem: (id: string) => (el: HTMLElement | null) => void
   handleScroll: () => void
   scrollToBottom: () => void
-  handleJumpToLatest: () => void
   userScrolledUp: boolean
   focusedIndex: number
   isFarFromTop: boolean
@@ -375,27 +374,16 @@ export function useMessageListScroll({
   // 2026-07-28 立:Jump-to-latest 浮动按钮点击处理(深度对标 AI 工作台)
   // - scrollIntoView 到 bottomRef(平滑)
   // - 重置 userScrolledUp 标记,触发自动滚动继续工作
-  // - 派发自定义事件,允许其他监听组件(如 timeline tab)同步滚动到底
+  // 2026-09-22 收口:此前此处另派发 'ihui:jump-to-latest' 且本 hook 又自行 addEventListener
+  // 消费同一事件 ⇒ 每次点击 scrollToBottom 跑两遍;注释声称"由 MessageInput 中的按钮触发",
+  // 但全仓 grep 该事件名除本文件自派发外无任何外部生产者/消费者(含 8 端 + packages),
+  // 属"生产了没人消费"的孤儿通道,连同重复执行一并删除。
   const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
     userScrolledUpRef.current = false
     safeSetUserScrolledUp(false)
   }, [safeSetUserScrolledUp])
-
-  const handleJumpToLatest = React.useCallback(() => {
-    scrollToBottom()
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('ihui:jump-to-latest'))
-    }
-  }, [scrollToBottom])
-
-  // 2026-08-16 立:监听外部 jump-to-latest 请求(由 MessageInput 中的按钮触发)
-  // 注意:外部监听器只调用 scrollToBottom(不派发事件),避免按钮点击→dispatch→监听→dispatch 无限递归
-  React.useEffect(() => {
-    window.addEventListener('ihui:jump-to-latest', scrollToBottom)
-    return () => window.removeEventListener('ihui:jump-to-latest', scrollToBottom)
-  }, [scrollToBottom])
 
   // 2026-07-28 立(深度对标 AI 工作台):键盘导航 ↑/↓ 切换消息聚焦
   // - 焦点不在 input/textarea/contenteditable 时生效(避免与输入冲突)
@@ -404,6 +392,8 @@ export function useMessageListScroll({
   // - Escape:清除聚焦
   // - Home/End:跳到首/末条
   // 用 window keydown 监听确保焦点在 message 容器内任意子元素都能响应
+  // 2026-09-22 键位归属:↑/↓/Home/End 的唯一持有者是本 hook。首页整屏翻页
+  // (use-full-page-scroll)曾同时监听这组键,在 /chat 上双触发,现已让出,只保留 PageUp/PageDown。
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 2026-08-02 修复 P1(问题 6-1):用 messagesRef.current 读最新 messages,
@@ -446,6 +436,18 @@ export function useMessageListScroll({
           setFocusedIndexBoth(-1)
         }
       } else if (e.key === 'Enter') {
+        // 2026-09-22 补:焦点落在原生会响应 Enter 的可交互元素上时一律让位。
+        // 上面只挡了 INPUT/TEXTAREA/contenteditable,而 button / a / [role=menuitem|tab]
+        // 被 Tab 聚焦后按 Enter 原本应当激活自身 —— 此前会被这里 preventDefault 吞掉
+        // (如右下角"跳到最新"钮聚焦后按 Enter 既不激活按钮,又翻动消息 reasoning)。
+        // 用 instanceof Element 兜住:测试里在 window 上派发的事件 target 非元素,行为不变;
+        // 同时覆盖 SVG 焦点态(SVGElement 不是 HTMLElement 但有 closest)。
+        if (e.target instanceof Element) {
+          const interactive = e.target.closest(
+            'button, a[href], select, [role="button"], [role="menuitem"], [role="tab"]',
+          )
+          if (interactive) return
+        }
         // 2026-07-28 立:同上,用 ref 读最新 focusedIndex
         const idx = focusedIndexRef.current
         if (idx >= 0) {
@@ -497,7 +499,6 @@ export function useMessageListScroll({
     measureItem,
     handleScroll,
     scrollToBottom,
-    handleJumpToLatest,
     userScrolledUp,
     focusedIndex,
     isFarFromTop,

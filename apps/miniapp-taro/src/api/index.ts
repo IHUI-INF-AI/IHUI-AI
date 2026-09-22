@@ -33,6 +33,9 @@ import type {
   ChatOptions,
   ChatResult,
   // W5:流式事件负载类型(复用 api-client 导出,禁止本端重复定义,保证字段与 web 端一致)
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
+  CitationsEvent,
   ToolCallEvent,
   ToolSummaryEvent,
   FallbackEvent,
@@ -315,6 +318,12 @@ export interface StreamEventCallbacks {
   }) => void
   /** 断点重连通知(指数退避重试前触发,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
+  /** D34 上下文注入交代(第 45 轮承接):本轮回答真正带上了哪些注入 */
+  onInjectionApplied?: (evt: InjectionAppliedEvent) => void
+  /** D39 重试交代:网关换 key / 退避重试时下发,没有它用户看到的只是"卡住" */
+  onRetryScheduled?: (evt: RetryScheduledEvent) => void
+  /** #11 引用溯源 */
+  onCitations?: (evt: CitationsEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -448,6 +457,16 @@ export const chatStream = async (
         break
       case 'usage':
         if (evt.usage) callbacks?.onUsage?.(evt.usage)
+        break
+      // ===== D106 第 45 轮:parser 已补齐,这里注册到端内回调表(不注册就等于没接) =====
+      case 'injection_applied':
+        if (evt.injectionApplied) callbacks?.onInjectionApplied?.(evt.injectionApplied)
+        break
+      case 'retry_scheduled':
+        if (evt.retryScheduled) callbacks?.onRetryScheduled?.(evt.retryScheduled)
+        break
+      case 'citations':
+        if (evt.citations) callbacks?.onCitations?.(evt.citations)
         break
       default:
         break

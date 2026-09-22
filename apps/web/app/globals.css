@@ -984,6 +984,29 @@ iframe::-webkit-scrollbar {
 }
 
 /* ============================================================
+ * 桌面端自绘窗口控制按钮两态(2026-09-22 立)
+ * ============================================================
+ * 刻意写显式 CSS,不用 Tailwind 任意变体:实测生产构建里 JS chunk 已含新代码,
+ * 但组件内新写的 `group-data-[window-inactive=true]/wc:*` 与 `duration-0` 都没进
+ * CSS 产物(用 @tailwindcss/postcss 单独编译 globals.css 可复现 window-inactive=0)。
+ * 入口 CSS 一旦变更必然重编译,不再赌"扫描是否提到这串 class"。
+ * 不写 !important(项目禁令):未分层规则天然优先于 @layer utilities 里的工具类。
+ *
+ * 1) data-modal-dim:模态遮罩打开 → 等效压暗层瞬时到位。"遮罩 open 态禁 fade-in"是
+ *    既有 blocking 守门,压暗必须第一帧生效;取消方向保留统一时长与遮罩 fade-out 同步。
+ * 2) data-window-inactive:窗口失去系统焦点 → 图标/底色弱化,对标 Windows caption
+ *    非活动态。:not(:hover):not(:focus-visible) 保证 hover 反馈(含 close 红底)不被吃掉。
+ */
+[data-window-controls][data-modal-dim='1'] > [data-window-controls-dim] {
+  transition-duration: 0s;
+}
+
+[data-window-controls][data-window-inactive='true'] > button:not(:hover):not(:focus-visible) {
+  color: var(--color-muted-foreground);
+  background-color: color-mix(in oklab, var(--color-card) 50%, transparent);
+}
+
+/* ============================================================
  * AI 输入框底部工具栏 container query (2026-07-20 立,2026-07-25 修正阈值)
  * ============================================================
  * 背景:AI 面板宽度 320-720px(默认 400px),aside 宽 = 面板宽。

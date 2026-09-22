@@ -38,7 +38,7 @@ import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import TaskStatusBar from './task-status-bar'
-import type { AICardsData } from './cards/types'
+import { appendCitations, type AICardsData } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -139,7 +139,13 @@ export default function ChatPage() {
       if (idx < 0) return prev
       const m = prev[idx]
       if (!m || m.role !== 'assistant') return prev
-      const cur: AICardsData = m.aiCards ?? { planSteps: [], toolCalls: [], terminalTasks: [] }
+      const cur: AICardsData = m.aiCards ?? {
+        planSteps: [],
+        toolCalls: [],
+        terminalTasks: [],
+        injections: [],
+        citations: [],
+      }
       const next = mutate(cur)
       const copy = prev.slice()
       copy[idx] = { ...m, aiCards: next }
@@ -576,6 +582,9 @@ export default function ChatPage() {
                         ...x,
                         status: evt.status,
                         output: evt.output,
+                        // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                        truncated: evt.truncated ?? x.truncated,
+                        totalChars: evt.totalChars ?? x.totalChars,
                         exitCode: evt.exitCode,
                         durationMs: evt.durationMs,
                       }
@@ -584,6 +593,44 @@ export default function ChatPage() {
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
             },
+            // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
+            // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            // #11 引用溯源(第 49 轮):parser 与回调表都给了通道,端内不注册 = 静默丢帧
+            onCitations: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                citations: appendCitations(
+                  c.citations,
+                  evt.citations.map((x) => ({ source: x.source, label: x.label })),
+                ),
+              })),
+            onInjectionApplied: (evt) =>
+              upsertCard((c) => {
+                const items = c.injections ?? []
+                if (items.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+                  return { ...c, injections: items }
+                }
+                return {
+                  ...c,
+                  injections: [
+                    ...items,
+                    {
+                      kind: evt.kind,
+                      collapsed: evt.collapsed,
+                      fullText: evt.fullText,
+                      count: evt.count,
+                    },
+                  ],
+                }
+              }),
+            onRetryScheduled: (evt) =>
+              pushStreamActivity(
+                t('ai.stream.gatewayRetry', {
+                  attempt: evt.attempt,
+                  max: evt.maxRetries,
+                  seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
+                }),
+              ),
             onFallback: (evt) =>
               pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
             onUsage: (info) => {

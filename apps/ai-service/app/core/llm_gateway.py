@@ -2970,6 +2970,21 @@ class LLMGateway:
                     "[key_pool] astream key %s 失败(retry %d/3),换 key 重试: %s",
                     current_key_pool_id, _pool_retry + 1, str(e)[:200],
                 )
+                # D34(2026-09-22,G-44):把"正在第 N/M 次重试"交到流上,界面才能出重试条
+                # 而不是静默等待。字段严格取契约声明的四项(sse_contract.py /
+                # packages/shared/src/sse/contract.ts 的 retry_scheduled);本路径是
+                # **换 key 立即重试**,故 retryInMs=0(带退避延迟的那条在
+                # agent_loop_v2 的 decide_stream_retry 侧,属 D39,未在此伪造延迟)。
+                _retry_status = getattr(e, "status_code", None) or getattr(
+                    getattr(e, "response", None), "status_code", None
+                )
+                yield {
+                    "type": "retry_scheduled",
+                    "attempt": _pool_retry + 1,
+                    "maxRetries": 3,
+                    "retryInMs": 0,
+                    "httpStatus": _retry_status if isinstance(_retry_status, int) else None,
+                }
                 async for evt in self.astream(
                     messages,
                     model=model,

@@ -1,7 +1,7 @@
 ; ⚠️ 本文件是 Tauri v2 NSIS 安装器模板的定制副本,上游版权归 tauri-apps/tauri(MIT / Apache-2.0)。
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
-; IHUI 定制范围(补丁集 P0-P6,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
+; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
 ;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
 ;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
 ;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
@@ -9,6 +9,7 @@
 ;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
 ;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
 ;   P5 重装/升级确认页深色主题宏。
+;   P7 Install Section 进度埋点:四阶段 IHUI_PROGRESS(安装页百分比数字 + 自绘品牌进度条 + 阶段文案)。
 ;
 ; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
 ;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
@@ -469,10 +470,14 @@ FunctionEnd
 Function un.ConfirmLeave
   SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
-!insertmacro MUI_UNPAGE_CONFIRM
+!undef MUI_PAGE_CUSTOMFUNCTION_SHOW
+!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+!undef MUI_PAGE_CUSTOMFUNCTION_PRE
+; U1 卸载确认页改自定义品牌页(原生向导外观 + 无法主题化的复选框一并弃用)
+UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave
 
 ; 2. Uninstalling Page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow
 !insertmacro MUI_UNPAGE_INSTFILES
 
 ;Languages
@@ -676,8 +681,10 @@ Section Install
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
+  !insertmacro IHUI_PROGRESS 30 "正在复制主程序"
   File "${MAINBINARYSRCPATH}"
 
+  !insertmacro IHUI_PROGRESS 55 "正在写入运行资源"
   ; Copy resources
   {{#each resources_dirs}}
     CreateDirectory "$INSTDIR\\{{this}}"
@@ -706,6 +713,7 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 75 "正在登记卸载与系统信息"
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -749,6 +757,7 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
   !endif
 
+  !insertmacro IHUI_PROGRESS 92 "正在创建快捷方式"
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
     Call CreateOrUpdateStartMenuShortcut
@@ -816,6 +825,7 @@ Section Uninstall
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
+  !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
@@ -846,6 +856,7 @@ Section Uninstall
   {{/each}}
 
 
+  !insertmacro IHUI_UNPROGRESS 45 "正在清理安装目录"
   ; Delete uninstaller
   Delete "$INSTDIR\uninstall.exe"
 
@@ -854,6 +865,7 @@ Section Uninstall
   {{/each}}
   RMDir "$INSTDIR"
 
+  !insertmacro IHUI_UNPROGRESS 65 "正在移除快捷方式"
   ; Remove shortcuts if not updating
   ${If} $UpdateMode <> 1
     !insertmacro DeleteAppUserModelId
@@ -883,6 +895,7 @@ Section Uninstall
     ${EndIf}
   ${EndIf}
 
+  !insertmacro IHUI_UNPROGRESS 85 "正在清理注册信息"
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
@@ -917,7 +930,9 @@ Section Uninstall
 
   ; Delete app data if the checkbox is selected
   ; and if not updating
-  ${If} $DeleteAppDataCheckboxState = 1
+  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,
+  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。
+  ${If} $UNDATA = 1
   ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
