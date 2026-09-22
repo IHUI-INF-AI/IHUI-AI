@@ -186,6 +186,29 @@
       ]
     },
     {
+      "id": "tool-row-bilingual-tense-wording",
+      "title": "工具行双时态活动措辞(正在 X / 已 X;失败与撤回不声称已完成)",
+      "sourceTask": "D81①/D83/D98",
+      "anchors": [
+        {
+          "file": "packages/shared/src/chat/tool-activity.ts",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/tool-call-card.tsx",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/tool-calls-section.tsx",
+          "mustMatch": "describeToolActivityByStatus"
+        },
+        {
+          "file": "apps/web/src/components/ai/task-status-bar.tsx",
+          "mustMatch": "describeToolActivity"
+        }
+      ]
+    },
+    {
       "id": "terminal-output-truncation-disclosure",
       "title": "终端输出截断交代(truncated + totalChars,本地全文展开后仍持续交代)",
       "sourceTask": "D40",
