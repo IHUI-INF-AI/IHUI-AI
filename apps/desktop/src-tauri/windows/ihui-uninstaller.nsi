@@ -27,7 +27,7 @@
 ;              (必须走 MUI 的宏:裸 UninstPage custom 放在 uninstfiles 之后不会被走到)
 ;   U3 语言     un.onInit 只读注册表语言值,缺失即沿用核心按系统 UI 语言的选择,
 ;              绝不再走 MUI_UNGETLANGUAGE 的空值分支(那条会弹原生「Installer Language」框)
-;   U 埋点      Section Uninstall 内 4 个 `!insertmacro IHUI_UNPROGRESS`(20/45/65/85)
+;   U 埋点      Section Uninstall 内 8 个 `!insertmacro IHUI_UNPROGRESS`(20/34/46/56/66/76/86/92)
 ;   passive     不新增宏:各自定义页开头 `Call un.SkipIfPassive`(上游自带函数)
 ; =====================================================================
 
