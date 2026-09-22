@@ -10,6 +10,11 @@ export { Input } from './components/input'
 // SearchInput 全项目统一搜索框(2026-09-15 立,圆角输入井唯一视觉来源,web + extension 共用)
 export { SearchInput, searchInputWellClassName } from './components/search-input'
 export type { SearchInputProps } from './components/search-input'
+export { ContextInjectionList } from './components/context-injection-list'
+export type {
+  ContextInjectionItem,
+  ContextInjectionListProps,
+} from './components/context-injection-list'
 export { Label } from './components/label'
 export {
   Card,

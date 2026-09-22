@@ -492,16 +492,20 @@ export default function ChatMessageItem({
                   </Text>
                 </View>
               ) : null}
-              {/* #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端),由 assistant 消息 aiCards 累积渲染 */}
+              {/* #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端 / 注入交代),由 assistant 消息 aiCards 累积渲染 */}
               {msg.aiCards &&
               msg.aiCards.planSteps.length +
                 msg.aiCards.toolCalls.length +
-                msg.aiCards.terminalTasks.length >
+                msg.aiCards.terminalTasks.length +
+                (msg.aiCards.injections?.length ?? 0) +
+                (msg.aiCards.citations?.length ?? 0) >
                 0 ? (
                 <StreamActivityCards
                   planSteps={msg.aiCards.planSteps}
                   toolCalls={msg.aiCards.toolCalls}
                   terminalTasks={msg.aiCards.terminalTasks}
+                  injections={msg.aiCards.injections ?? []}
+                  citations={msg.aiCards.citations ?? []}
                   expanded={cardsExpanded}
                   onToggleExpand={() => setCardsExpanded((v) => !v)}
                 />

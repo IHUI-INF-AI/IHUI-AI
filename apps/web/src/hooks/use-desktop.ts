@@ -246,12 +246,16 @@ export function useSystemTheme(): 'light' | 'dark' | null {
  * - "desktop-tray-action":托盘菜单点击(new_chat/toggle_theme/open_settings/check_update)
  * - "desktop-shortcut":系统级快捷键(new_chat/quick_screenshot)
  *
- * 转发策略:
- * - new_chat → global-shortcut:new-chat(use-global-shortcuts.ts 已有监听)
+ * 转发策略(括号内为**实际消费方**,2026-09-22 补全地图:改派发前务必确认对端真的在监听):
+ * - new_chat → global-shortcut:new-chat(SHORTCUT_ROUTES,providers/global-hooks-provider.tsx)
  * - toggle_theme → 下一个主题(next-themes setTheme,通过 CustomEvent 触发)
+ *   · desktop-theme-toggle → providers/global-hooks-provider.tsx
  * - open_settings → 路由跳转 /settings
- * - check_update → 触发 updater 检查
- * - quick_screenshot → 触发截图(Computer Control)
+ *   · desktop-open-settings → providers/global-hooks-provider.tsx
+ * - check_update → 触发 updater 检查(hooks/use-updater.ts)
+ * - quick_screenshot → 触发截图(hooks/use-updater.ts 无关,走 global-shortcut:screenshot
+ *   → components/chat/message-input.tsx 的 handleScreenshot)
+ * - quit → hooks/use-quit-update-guard.ts(桌面端退出自动更新守卫)
  *
  * 浏览器端 isTauri()=false,此 hook 不注册监听,无副作用。
  */
@@ -303,7 +307,14 @@ export function useDesktopEvents(): void {
             window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
             break
           case 'quick_screenshot':
-            window.dispatchEvent(new CustomEvent('desktop-quick-screenshot'))
+            // 2026-09-22 修复:原派发 'desktop-quick-screenshot',而全仓无任何
+            // addEventListener 监听该事件(Rust Ctrl+Shift+S 因此完全无反应)。
+            // 改派发既有的 'global-shortcut:screenshot' —— 与浏览器内 Ctrl+Shift+M
+            // 共用同一消费者(message-input.tsx 的 handleScreenshot:文件选择 +
+            // 「可直接 Ctrl+V 粘贴」提示),符合"Web 无系统级截图 API,退化为文件选择"
+            // 的既定降级策略。注意该消费者随 message-input 生命周期存在,
+            // AI 面板未挂载时该快捷键仍为 no-op(属既有设计,非本次回归)。
+            window.dispatchEvent(new CustomEvent('global-shortcut:screenshot'))
             break
         }
       })

@@ -1260,7 +1260,7 @@ export default function MealPage() {
                               <div className="flex items-center justify-end">
                                 <button
                                   type="button"
-                                  className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 hover:opacity-100"
+                                  className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 group-focus-within:opacity-100 hover:opacity-100"
                                   onClick={() => handleAddMeal(dateStr, mt.value)}
                                 >
                                   <Plus className="h-3 w-3" />
