@@ -473,7 +473,7 @@ npx @lhci/cli autorun
 **Job 3: `ai-service-schema-check`**
 
 ```yaml
-services: postgres:17(ihui_test 库)
+services: pgvector/pgvector:pg18(ihui_test 库)
 步骤:
   1. pnpm install
   2. pnpm --filter @ihui/database build
@@ -486,7 +486,7 @@ services: postgres:17(ihui_test 库)
 ### 10.3 E2E workflow 详解(`e2e.yml`)
 
 ```yaml
-services: postgres:15(ihui/ihui_test) + redis:7
+services: postgres:18(ihui/ihui_test) + redis:7
 步骤:
   1. pnpm install --frozen-lockfile
   2. pnpm exec playwright install --with-deps chromium
