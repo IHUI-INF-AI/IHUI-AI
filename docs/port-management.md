@@ -140,6 +140,7 @@ extension/desktop/mobile-rn/miniapp-taro
 - Web Next.js:`-p 8801`(端口被占报错)
 - API/AI Service:`.env` `PORT=88xx`(端口被占报错)
 - Metro:`--port 8805`(端口被占报错)
+  - **注意**:手机 dev client 的 bundle 地址指向 localhost:8081(RN 默认),仓库 `start` 脚本虽是 `--port 8805`,本地实机以 8081 为准——`scripts/dev-stack.mjs` 显式 `expo start --port 8081` 并经 adb reverse 转发到手机;8805 仅作为仓库脚本端口保留,dev-stack 不用它
 
 ---
 
