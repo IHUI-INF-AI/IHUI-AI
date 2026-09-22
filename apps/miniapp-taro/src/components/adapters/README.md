@@ -100,19 +100,19 @@ pnpm --filter @ihui/miniapp-taro lint           # ESLint 0 错误(含 no-explici
 
 ## 5. 未来扩展(本批次不做)
 
-- 剩余 6 个通用件(PayButton / NavBar / TabBar / Toolbar / UserInfoCard / Carousel)在 page 替换端内同名旧实现 — 属替换在跑 UI,须先具备真机渲染验证手段再动(AGENTS.md §17)
-- 屏级适配层不再新增:小程序端 9 个对应屏(settings / order / message / plan / certificate / note / feedback / wallet)均有自有页面在跑,再造第二份即第三份实现
-- 适配层单元测试(`*.test.tsx` 用 `@tarojs/test-utils` mock View/Text/ScrollView)
-- 适配层 Storybook(@storybook/react-native + taro-rn preset)
-- `packages/app` 升级为支持 H5 + 小程序 + RN 三端 — 当前仅 RN;web 端需先迁移到 `packages/ui-react`
+- ~~剩余 6 个通用件在 page 替换端内同名旧实现~~ — **本条已作废(2026-09-22 三批清理)**:实测两侧 props 契约不重叠(见 §2 台账),替换即掉功能而非去重;真要共享须**先统一契约再下沉**。
+- 屏级适配层不再新增:小程序端 9 个对应屏(settings / order / message / plan / certificate / note / feedback / wallet)均有自有页面在跑,再造第二份即第三份实现。
+- 适配层单元测试(`*.test.tsx` 用 `@tarojs/test-utils` mock View/Text/ScrollView)— 仅对现存 3 个适配器有意义
+- `packages/app` 若将来要支持 H5 + 小程序 + RN 三端:前提是 web 端先迁到 `packages/ui-react`,且必须先解决本目录踩过的契约分叉问题(适配器与端内组件平行演进,同名不同接口)。A 路线(直引 ui-react)已实测否决,见 `PROJECT_PLAN.md` P2-F.5。
 
 ## 6. 守门
 
 - 禁止在适配层引入 `any`(AGENTS.md §3 TypeScript 类型零技术债强制)
 - 禁止把 `useTt()` 替换为 `useTranslation`(后者依赖 next-intl,web 端专用)
-- 禁止硬编码颜色 hex/rgb,统一用 `getTokens(colorScheme).*` 注入
+- 禁止硬编码颜色 hex/rgb,统一用 `getTokens(colorScheme).*` 注入 — 现由**守门 66** `check-adapter-style-parity.mjs` 在 pre-commit 拦截(基线只减不增)
 - 禁止新增 `onClick` / `onMouseDown` / `onKeyDown`(Taro 端统一 `onTap`)
-- 禁止复用旧 Taro 端 SectionHeader/ColorfulLoader/PayButton/Selecter 业务实现
-  (那 4 个文件在 `apps/miniapp-taro/src/components/` 根目录,属"待迁移"阶段)
+- 新增适配器必须**接线**且与 `packages/app` 契约一致 — 由**守门 64** `check-adapter-wiring.mjs` 强制(基线已清零,零豁免)
+- 端内同名组件**不必然**要被适配器替换:三批清理的结论是,当两侧 props 契约不重叠时,端内版才是页面真正依赖的实现,
+  正确处置是删适配器(现存 3 个 SectionHeader / ColorfulLoader / Selecter 是契约确实一致的那批),而不是反过来迁就适配器。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
