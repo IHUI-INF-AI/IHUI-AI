@@ -62,7 +62,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
     fetch(url)
       .then((r) => r.text())
       .then((t) => !aborted && setTextContent(t))
-      .catch(() => !aborted && setTextContent('无法加载文件内容'))
+      .catch(() => !aborted && setTextContent(t('fileContentLoadFailed')))
     return () => {
       aborted = true
     }
@@ -129,7 +129,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
         {kind === 'other' && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">不支持预览此文件格式</p>
+            <p className="text-sm">{t('unsupportedPreviewFormat')}</p>
             <a href={url} download={fileName} className="text-sm text-primary hover:underline">
               {t('downloadFile')}
             </a>
