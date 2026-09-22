@@ -2815,10 +2815,26 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     双凭据证据点名、self-test 失败必须非 0),期望"不拦"的用例均配**链路哨兵**。eslint 0 问题、prettier clean、水印无残迹。
   - **一条新的"假通过"陷阱(务必记住)**:对落在 `.ihui-agent/` 下的副本跑 `prettier --check` **恒报绿** ——
     `.prettierignore` 第 15 行整体忽略 `.ihui-agent/`。做对照副本/临时验证文件时不能用该目录来验格式类判据。
-  - **守门 7(依赖碎片化)归因为存量依赖问题,本次不擅动**:实为 `webpack 5.109.2` 与 `5.91.0` 双版本共存
-    (Taro 4.2.1 / storybook 侧与主侧各引一套),连带 `@tarojs/components`、`html-webpack-plugin` 等一批可去重项;
-    解法是 `pnpm dedupe` 重写 `pnpm-lock.yaml`。lockfile 属高共享风险文件且会牵动小程序构建解析,
-    在并发会话频繁提交的窗口不做,留待专项评估(该门 `--staged` 亦回退全量口径,故持续红)。
+  - **守门 7(依赖碎片化)处置结论:不在并发服务运行时执行 `pnpm dedupe`,已备好可执行包**
+    实测拦阻事实(非借口):`.deploy.lock` 的持有者 `pid 26160` **已死**(tasklist 无匹配,锁龄自 08:07 起超 10 小时,
+    按脚本注释"持有者退出即悬挂、acquire 强制抢占",锁本身不是障碍);**真正的拦阻是服务在跑** ——
+    `netstat` 显示 `:8801 :8802 :8803 :8832` 均在 LISTENING,`curl` 实测 **8801=200**(生产构建站)、8802 存活。
+    `pnpm dedupe` 会重写 `node_modules` 中 next/react 依赖副本与 `pnpm-lock.yaml`,
+    用**正在服务生产站的依赖树**去换一道"全量口径才红、不阻塞任何人提交"的门归绿,收益与风险不匹配。
+    且当前 `web typecheck` 被并发会话的 `PermissionMode/plan` 档位扩展中间态污染(12 个 error,与我方文件命中 0),
+    无法以"typecheck 全绿"作为 dedupe 的放行判据 —— 缺可靠回归信号,正是最容易把依赖改坏的时机。
+    **执行包(留给依赖治理专项 / 服务空闲窗口)**:① 前置 `curl 8801 不通` + `tasklist` 无 next/taro build
+    + `node scripts/deploy-lock.mjs acquire` 成功(会自动抢占死锁);② `pnpm dedupe`(预计收敛 `webpack 5.109.2`/`5.91.0`
+    双版本与连带的 `@tarojs/components`、`html-webpack-plugin`、`webpack-dev-server` 等);
+    ③ 验证三件缺一不可:`pnpm --filter @ihui/miniapp-taro build:weapp` 成功(小程序构建对 webpack 版本最敏感,
+    须确认收敛后仍能产出 `dist/app.json`)、`pnpm --filter @ihui/api typecheck` 0 错、`node scripts/check-dedupe.mjs` 0;
+    ④ lockfile 与 `pnpm-lock.yaml` 同 commit,失败即整体 revert(勿只回滚 lockfile 不回滚 node_modules)。
+  - **本轮全量守门终局(跑完再汇总后的真实故障面)**:99 项全部执行,**通过 94 / 警告 3 / 失败 2**,
+    两道红即上文 `[7] 依赖碎片化` 与 `[50] next-env.d.ts 构建污染`。
+    其中 **[50] 判定为"不该由我方还原"**并已更正早前结论:该文件 diff 是把 `./.next/...` 改成 `./.next-e2e-modal/...`,
+    属并发会话跑**私有 distDir 的 e2e dev** 的正常中间态(Next 会自动重生成),`git checkout` 还原会打断它此刻的 dev server;
+    门在此处不知道有并发变体构建在跑,是门与并发实践的冲突,非缺陷。
+    今日由"遮蔽只显示 1 道红"到"暴露 5 道 → 逐条归因 → 消掉 [6][8] 两类真实缺陷与 [52] 自指误报",剩 2 道均为**并发态或需专门窗口**。
   - **守门 8 的假阳性已根治(不是绕过)**:剩最后 1 处 `POST /api/ai/zhipu/images` 时我先试了 method 标注,发现**无效并当场撤掉**——method 本来就是 POST,缺的是后端路由条目。
     根因是门的后端路由提取器只认引号字面量,展开不了厂商矩阵变量化的模板注册
     (`proxy-openai-compat.ts:276-278` `if (cap.images) server.post(\`/${vendor}/images\`)`,矩阵第 43 行 `zhipu images:true` —— 我已逐行自查确认路由真实存在,**不是臆造**)。
