@@ -19,11 +19,15 @@
 ;      ⚠️ 与安装页同源的限制:Section 执行期间拿不到任何定时器,百分比只能由
 ;      Section 内显式阶段调用驱动(见 desktop-nsis-template.mjs 的 U 系列补丁)。
 ;
-; 前置(全部由模板补丁提供,本文件不写 define 之外的接线):
-;   U1 `UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave`
-;   U2 `!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow`
-;   U3 un.onInit 尾部 `!insertmacro IHUI_UNINIT`
-;   U4..U7 Section Uninstall 内 4 个 `!insertmacro IHUI_UNPROGRESS` 埋点
+; 前置(全部由模板补丁提供,本文件不写 define 之外的接线;编号与
+; scripts/desktop-nsis-template.mjs 里 PATCHES 的 name 严格一一对应):
+;   U1 确认页   `UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave`
+;   U2 进度页   `!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow`
+;              (卸载侧没有完成页 —— 三条路全部实测否决,见文件末尾的排查记录)
+;   U3 语言     un.onInit 只读注册表语言值,缺失即沿用核心按系统 UI 语言的选择,
+;              绝不再走 MUI_UNGETLANGUAGE 的空值分支(那条会弹原生「Installer Language」框)
+;   U 埋点      Section Uninstall 内 4 个 `!insertmacro IHUI_UNPROGRESS`(20/45/65/85)
+;   passive     不新增宏:各自定义页开头 `Call un.SkipIfPassive`(上游自带函数)
 ; =====================================================================
 
 ; ---- 卸载器 GUI 初始化 ----
@@ -227,8 +231,10 @@ FunctionEnd
 ; =====================================================================
 ; 卸载进度页(MUI_UNPAGE_INSTFILES 的 SHOW 回调)
 ;   与 IHUIInstShow 同构:内层 #32770 裸建贴皮 + 原生钮 BS_BITMAP 换皮。
-;   卸载页没有"完成态原地转换"(核心卸完直接关窗),故不需要安装侧那套
-;   IHUI_INST_DONE_THEME / 白条移屏的时序兜底。
+;   ⚠️ 原注释写的是"卸载页没有完成态原地转换(核心卸完直接关窗)"—— **该假设是错的**,
+;   2026-09-22 真包实锤:普通交互卸载 AutoClose=false,本页跑完就原地停住,
+;   出口钮(原生 1)已被 IHUI_HIDE_ALL 移屏、原生 2 被核心置灰 → 窗口永久挂死。
+;   收口 = 模板补丁 U4 在本页之后挂自定义完成页(见文件末尾 un.IHUIFinishPage)。
 ; =====================================================================
 
 Function un.IHUIUninstShow
@@ -312,3 +318,25 @@ Function un.IHUIUninstShow
   !insertmacro IHUI_INST_SLOT 2 btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
   !insertmacro IHUI_UNPROGRESS 12 "正在准备卸载"
 FunctionEnd
+
+; =====================================================================
+; 卸载侧「完成页」这条路已排查并**否决**(2026-09-22 三轮沙箱对照,勿再重试)
+;
+; 要根治的缺陷:普通交互卸载跑完 instfiles 后原地停住 —— 上游只在 passive /
+; 更新模式里 SetAutoClose true;而出口钮(原生 1)进页时被 IHUI_HIDE_ALL 移屏,
+; 原生 2 在完成态被核心置 disabled 重绘成灰底。真包 UIA 实锤整页只剩两个
+; disabled 按钮,CPU 4 秒增量 0.000s(纯等待不是死循环)→ 窗口永久挂死,
+; 只能 taskkill。用户报的「卸载程序怎么还挂在我电脑上」真凶即此。
+;
+; 三条出路的实测结论:
+;   ① 裸 `UninstPage custom` 挂在 MUI_UNPAGE_INSTFILES 之后:
+;      页函数开头**无条件**写标记文件 → 20s 内标记从未出现 = 这张页根本不会被走到。
+;   ② `!insertmacro MUI_UNPAGE_FINISH` + SHOW 回调:
+;      7.6s 标记出现 = 页确实被走到,但截图实锤 MUI 自带白底面板 + 蓝色向导头图 +
+;      两行原生文字压不住(内层 dialog 1044 的 GetDlgItem 拿不到句柄 → resize 不生效,
+;      原生控件 ID 段 1000..1100 也扫不掉),成品比原生完成框更难看,违背零原生观感。
+;   ③ Section 内无从等待点击(instfiles 页运行期间没有任何定时器)。
+;
+; 收口 = 方案 ④:hooks.nsi 的 NSIS_HOOK_POSTUNINSTALL 里 SetAutoClose true,
+; Section 跑完即关窗 —— 与 passive/更新模式上游本来的行为一致,不留任何死端窗口。
+; =====================================================================

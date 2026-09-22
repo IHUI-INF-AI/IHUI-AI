@@ -224,6 +224,9 @@
 - [x] ✅(2026-09-22) **私有 dev 服务残留按进程树回收(纠正我"非本会话资产"的误判)**:上一轮收尾时看到 8831 换了 PID 就判给并行会话,实际父进程是我 16:05 启动的 `next dev`(18:11 子进程重生)。教训:**`next dev` 是监督进程,`taskkill /T /F` 只打子 PID 会被重生**(我正是先杀 9944 又冒出 27100)。正确做法是先 `Get-CimInstance` 顺父链找到 `next dev -p 8831` 本体再打整树,并用"重生等待 + 端口复采 + distDir 不再长回"三条收口。
 - 过程自纠两条:①我给的子代理任务书里"守门已注册"是错的,子代理如实上报并拒绝抢编号,这条差额由我本轮补上;②我在 README 表格里用**截断半行**做 Edit 锚点,把 65 行的闭合竖线吞进新行(同型错误今日第三次),已用"取 HEAD 原文整行还原 + 重插新行"修回,最终 `git diff --numstat -- README.md` = `1 0`。
 
+- [x] ✅(2026-09-22) **中英双语真机取证又挖出两处取词/语种缺陷(同日补修)**:①`?` 模态行表里 `key: '查看历史'` 是**当键位标签写的中文**(en/ja/ko 下直接漏中文)→ 改为 `labelKey: 'historyOpenExternal'`(复用现有 5 语言键,零新增键、零键序漂移);②**`<html lang>` 永不跟随语言切换** —— `app/layout.tsx:219` 服务端恒写 `zh-CN`(语言早已改为客户端 I18nProvider 驱动),而 `document.documentElement.lang` 是 **5 处取词口径的真值源**(`src/lib/number-format.ts:23` + ai-news 4 个组件),结果英文界面仍按 zh-CN 格式化数字、AT 读错语种 → 在 `I18nProvider` 加一条 `useEffect` 同步 `lang`,由 locale 驱动。真机双语言取证(私有 dev 8832,`NEXT_LOCALE` cookie 无效,正确机制是 localStorage `ihui-language` zustand persist):zh 模态 kbd 集合含「查看历史」且 `document.lang=zh-CN`,en 同一行渲染 **"View history"、整块 dialog 中文字符数 = 0、`lang=en`**,两语言均不再列 `Ctrl+1-5`。测试补一条"行表内不得有中文键位标签"(先命中哨兵再断言源码为空,防正则失配型假绿)→ 6 例全绿,全量 158 files / 2067 tests 绿。
+- 收尾自证一条:`.next dev` 是**监督进程**,`taskkill /T /F` 只打监听子进程会被重生(我已登记进记忆库),本轮 8832 用后台任务句柄整体停 + 等 14s 复采端口空闲 + 隔离 distDir 不再长回,三条齐才算收口。
+
 ### 普查落点(供复核,含我否掉的自身误判)
 
 第一轮"8 个只有监听没有生产者的事件名"是我用窄正则(`dispatchEvent(new CustomEvent('name'`)扫出来的**假阳性**:漏了模板字面量与换行写法。换判据逐名重 grep 后,`ihui:scroll-to-plan-step`、`ihui:toggle-reasoning`、`ihui:add-text-reference`、`ihui:insert-at-cursor` 等均有真实生产者(如 `timeline-event.tsx:349`、`MessageItem.tsx:628`、`markdown-stream.tsx:270`),**唯一**孤儿通道就是已删的 `ihui:jump-to-latest`。另:本轮为取真机证据两次重启本机 8802 API(它会被并行会话/僵尸清理任务打挂),收尾后保持运行未再关闭。
@@ -346,6 +349,18 @@
 - 本批验证:沙箱安装器编译 0 warning(含 `-DIHUI_TRACE=1` 分支)、`check-installer-assets` PASS、`desktop-nsis-template --check` OK、eslint 0 error、真包构建成功且产出有效 `.sig`;目录页/安装页/完成态/完成页四处均 computer-use 截图目检通过。
 
 **残余(未闭环,如实登记)**:① DPI > 192 的超高缩放屏只有数值证明,无真机截图;② 卸载进度页两处视觉修复与品牌开关已复验,但**真包**(非沙箱)的卸载器界面未跑过一次 —— 需在下个发版周期用真 installer 装完再卸载复核;③ updater 签名的端到端消费(客户端校验 `.sig` 并应用更新)本批未测。
+
+### 第六批(同日):真包卸载全链路复核 —— 揪出两处"沙箱永远测不到"的缺陷并收口
+
+承第五批残余②,本轮用**真签名包**装完再卸载逐页取证。两处缺陷都是沙箱测不到的盲区,且其中一处正是用户报「卸载程序怎么还挂在我电脑上」的真凶。
+
+- **缺陷 A:卸载器启动即弹原生「Installer Language」框**(模板补丁 U3)。根因链:本项目 `DISPLAYLANGUAGESELECTOR=false` → 安装侧 `MUI_LANGDLL_DISPLAY` 被 `!if` 整段编译掉 → 语言值**永不写入注册表** → 上游 `un.onInit` 的 `MUI_UNGETLANGUAGE` 读空后回落到 `MUI_LANGDLL_DISPLAY`,弹出 292×152 原生选择框(框里已预选"中文(简体)"却仍要用户点一次 OK)。**为什么沙箱和历次 /S 验证全部漏掉**:沙箱 `sandbox.nsi` 只注册一种语言(单语言 NSIS 不弹框);而该宏自带 `${unless} ${Silent}`,静默路径永远看不到它。改法 = 只读注册表、缺失即沿用核心按系统 UI 语言自动选中的结果,任何情况都不弹框;不新增注册表写入(选择器关闭时该值恒等于自动检测结果,重写只会给"取消安装"留残留)。
+- **缺陷 B:普通交互卸载跑完 instfiles 后永久挂死**。上游 Section 尾部只在 passive / 更新模式 `SetAutoClose true`,交互卸载会原地停住等用户点「关闭」,而那颗钮(原生 1)进页时已被 `IHUI_HIDE_ALL` 移屏、原生 2 在完成态被核心置 `disabled` 画成灰底。真包 UIA 实锤整页只剩两个 disabled 按钮;CPU 4 秒增量 **0.000s** → 纯等待而非死循环,只能 taskkill。**收口 = `NSIS_HOOK_POSTUNINSTALL` 无条件 `SetAutoClose true`**,真包复测:点「继续」后 2s 内进程自行退出,`D:\智汇AI` 清空、`HKCU\...\Uninstall` 匹配 0、`HKCU\Software\智汇AI` 不存在、Run 值已清,`com.ihui.desktop` 两处数据目录按开关 OFF 语义**有意保留**。
+- **卸载侧「完成页」三条路全部实测否决**(登记以免后人重试):① 裸 `UninstPage custom` 挂在 `MUI_UNPAGE_INSTFILES` 之后 → 页函数开头**无条件**写标记文件,20s 内标记从未出现 = 这张页根本不会被走到;② 改 `!insertmacro MUI_UNPAGE_FINISH` → 7.6s 标记出现(页确实被走到),但截图实锤 MUI 自带白底面板 + 蓝色向导头图 + 两行原生文字压不住(内层 dialog 1044 `GetDlgItem` 拿不到句柄 → resize 不生效,原生控件 ID 段 1000..1100 也扫不掉),成品比原生完成框更难看;③ Section 内无从等待点击(instfiles 页运行期间没有任何定时器)。排查记录同步落在 `ihui-uninstaller.nsi` 文件末尾。
+- **顺带清掉一处虚假文档**:`ihui-uninstaller.nsi` 头部登记的 `U3 un.onInit 尾部 !insertmacro IHUI_UNINIT` 指向一个**全仓不存在**的宏(臆造条目),已按 `desktop-nsis-template.mjs` 里 PATCHES 的真实 name 逐条重写;并修正 `un.IHUIUninstShow` 上方"核心卸完直接关窗"的错误假设。
+- **侧车补丁锚点收缩一处**:新增 U3 与残留补丁 R5 的锚点窗口重叠(`--check` 报 R5 命中 0 次),把 R5 的 upstream/ihui 两侧同时从 `MUI_UNGETLANGUAGE` 行之后起截,不再互相遮蔽。
+- 本批验证:`desktop-nsis-template --check` OK(27 处补丁)、`check-installer-assets` PASS(引用 17 / 打包 33 / 5 档)、真包 `makensis` 0 错误且产出有效 `.sig`;真包卸载三页(确认页 / 进度页 95% + 品牌条 / 无语言框)computer-use 截图目检通过。
+- **仍未闭环**:① DPI > 192 屏只有数值证明,无真机截图;② updater 签名端到端消费(客户端校验 `.sig` 并应用更新)需真实灰度周期。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
