@@ -349,7 +349,7 @@ graph TB
 | app-pool | 8C16G(ecs.g7.2xlarge / m6i.2xlarge) | 3 | Web + API + AI Service |
 | data-pool | 4C8G | 1 | 自建 PG/Redis(测试用;生产用托管) |
 
-**生产推荐**:数据库用托管 RDS(PostgreSQL 16 + pgvector 扩展),Redis 用 Tair / ElastiCache,对象存储用 OSS / S3,避免自建运维。
+**生产推荐**:数据库用托管 RDS(PostgreSQL 18 + pgvector 扩展),Redis 用 Tair / ElastiCache,对象存储用 OSS / S3,避免自建运维。
 
 ### 2.4 Docker Compose 一键起(单节点 / Demo / 小规模生产)
 
@@ -362,7 +362,7 @@ graph TB
 #   web:        镜像 ihui/web,        映射 8801:8801,  依赖 api
 #   api:        镜像 ihui/api,        映射 8802:8802,  依赖 postgres redis
 #   ai-service: 镜像 ihui/ai-service, 映射 8803:8803,  依赖 redis
-#   postgres:   镜像 pgvector/pgvector:pg16, 映射 8810:5432, 数据卷持久化
+#   postgres:   镜像 pgvector/pgvector:pg18, 映射 8810:5432, 数据卷持久化
 #   redis:      镜像 redis:7-alpine,  映射 8811:6379,  AOF 持久化
 ```
 
@@ -402,7 +402,7 @@ aliyun cs GET /clusters/<cluster-id>/kubeconfig
 helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
 
 # 4. 创建托管数据库
-#    RDS PostgreSQL 16 + 申请 pgvector 扩展(工单或控制台开启)
+#    RDS PostgreSQL 18 + 申请 pgvector 扩展(工单或控制台开启)
 #    Tair Redis 7 高可用版
 #    OSS Bucket(存储用户上传 / 知识库文档)
 
