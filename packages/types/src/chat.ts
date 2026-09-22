@@ -116,6 +116,10 @@ export interface ChatMessage {
    *  后端 knowledge_lookup 工具执行后,在 done 前下发 citations SSE 事件,
    *  前端按 messageId 写入本字段,MessageItem 渲染 CitationBar。 */
   citations?: Array<{ source: string; label: string; url?: string }>
+  /** 本轮上下文注入交代(D34,2026-09-22 立):后端在注入**真正生效后**、任何增量之前
+   *  下发 injection_applied 帧,前端按 messageId 追加到本字段,MessageItem 渲染 InjectionBar。
+   *  没有它,用户无法知道回答带了哪些私有上下文(竞品以此为可审计性的基本交代)。 */
+  injections?: Array<{ kind: string; collapsed: string; fullText?: string; count?: number }>
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }

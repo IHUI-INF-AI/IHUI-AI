@@ -41,6 +41,7 @@ import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
+import { InjectionBar } from '@/components/ai/progress-sections/injection-bar'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
 import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
@@ -960,6 +961,8 @@ const MessageItem = React.memo(function MessageItem({
             />
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* D34 上下文注入交代(2026-09-22 立):本轮回答实际带了哪些私有上下文 */}
+            {m.injections && m.injections.length > 0 && <InjectionBar injections={m.injections} />}
             {/* P1 #27 记忆更新可视化(2026-09-16 立):本轮新增长期记忆「已记住」提示条。
                 数据来自 done 事件 memoryUpdates(store 旁路,不落 ChatMessage 字段),
                 每轮限 1 条摘要 + 计数 + 管理入口。 */}

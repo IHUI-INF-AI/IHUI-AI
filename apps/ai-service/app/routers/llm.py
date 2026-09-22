@@ -342,6 +342,10 @@ def _sse_contract_warn(msg: str) -> None:
 # 终端输出随帧/随记录落库的字符上限(超出必须带 truncated + totalChars 交代)
 TERMINAL_OUTPUT_LIMIT = 8000
 
+# injection_applied 的 fullText 上限:超出就**整字段不发**(而不是发一段截断文本冒充全文),
+# 前端据此不给展开入口 —— "没有可看的内容"和"内容太长不在流里传"是两回事,但都不能骗人。
+INJECTION_FULLTEXT_LIMIT = 4000
+
 
 def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
     """D24(2026-09-19 立):从 run_command 类执行结果提取 (output, exit_code)。
@@ -2149,19 +2153,34 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         str(_m.get("content", "")) for _m in messages if _m.get("role") == "system"
     )
     injection_frames: list[dict[str, Any]] = []
+    # kind 是**前端本地化的键**(措辞由 5 语言词表给出),collapsed 只作未知 kind 的兜底文本。
+    # 因此:① kind 必须逐场景互不相同(曾把 Repo Wiki 与自动检索都写成 environments,
+    # 前端无法区分);② 改 kind 必须同步 apps/web 的 INJECTION_KIND_KEYS 与词表。
     if req.system_prompt and str(req.system_prompt).strip():
-        injection_frames.append(
-            {
-                "type": SSE_INJECTION_APPLIED,
-                "kind": "developer_instructions",
-                "collapsed": "已应用会话级自定义指令",
-            }
-        )
+        _instr_text = str(req.system_prompt)
+        # fullText 只在"能整段给出"时携带:不给 = 界面无可展开入口(不以截断文本冒充全文)
+        if len(_instr_text) <= INJECTION_FULLTEXT_LIMIT:
+            injection_frames.append(
+                {
+                    "type": SSE_INJECTION_APPLIED,
+                    "kind": "developer_instructions",
+                    "collapsed": "已应用会话级自定义指令",
+                    "fullText": _instr_text,
+                }
+            )
+        else:
+            injection_frames.append(
+                {
+                    "type": SSE_INJECTION_APPLIED,
+                    "kind": "developer_instructions",
+                    "collapsed": "已应用会话级自定义指令",
+                }
+            )
     if "<!-- workspace:" in _system_blob:
         injection_frames.append(
             {
                 "type": SSE_INJECTION_APPLIED,
-                "kind": "agents_md",
+                "kind": "workspace_memory",
                 "collapsed": "已注入工作区记忆 / AGENTS.md 上下文",
             }
         )
@@ -2169,7 +2188,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         injection_frames.append(
             {
                 "type": SSE_INJECTION_APPLIED,
-                "kind": "environments",
+                "kind": "repo_wiki",
                 "collapsed": "已注入 Repo Wiki 项目百科",
             }
         )
@@ -2177,8 +2196,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         injection_frames.append(
             {
                 "type": SSE_INJECTION_APPLIED,
-                "kind": "environments",
+                "kind": "auto_context",
                 "collapsed": f"已自动检索并注入 {auto_context_hits} 段代码上下文",
+                "count": auto_context_hits,
             }
         )
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)

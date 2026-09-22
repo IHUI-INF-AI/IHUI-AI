@@ -111,20 +111,21 @@ export type SSEEventPayload =
   // D34(2026-09-22):运行环境交代两帧(第三、四帧已收回,理由见 SSE_EVENTS 处注释)
   | SSEEventWithMeta<{
       type: 'injection_applied'
-      /** 被注入/生效的上下文类别;turn_aborted 表示中途引导终止 */
-      kind:
-        | 'goal'
-        | 'model_switch'
-        | 'permissions'
-        | 'agents_md'
-        | 'host_skills'
-        | 'environments'
-        | 'developer_instructions'
-        | 'turn_aborted'
-      /** 折叠态一行摘要(界面默认显示) */
+      /** 被注入/生效的上下文类别 —— **与后端一一对应**
+       *  (apps/ai-service `app/routers/llm.py` 的 injection_frames 四处 +
+       *  apps/web `components/ai/progress-sections/injection-bar.tsx` 的 INJECTION_KIND_KEYS)。
+       *  kind 只当"取哪个本地化文案"的键用,界面措辞一律出自 5 语言词表,
+       *  不渲染后端中文文本(collapsed 仅作未知 kind 的兜底)。
+       *  历史值 agents_md / environments 已于第 42 轮拆分:二者曾共用 environments,
+       *  前端无法区分"Repo Wiki 百科"与"自动检索上下文"。 */
+      kind: 'developer_instructions' | 'workspace_memory' | 'repo_wiki' | 'auto_context'
+      /** 折叠态一行摘要(界面默认显示;未知 kind 时的兜底文本) */
       collapsed: string
-      /** 展开全文;缺省时界面不显示"展开"控件 */
+      /** 展开全文;后端在超出可携带上限时**整字段省略**,界面据此不给"展开"控件
+       *  (不发截断文本冒充全文 —— 与 terminal_end 的 truncated 同一纪律的另一面) */
       fullText?: string
+      /** auto_context 专用:检索并注入的代码上下文段数(措辞走 ICU plural) */
+      count?: number
     }>
   | SSEEventWithMeta<{
       type: 'retry_scheduled'

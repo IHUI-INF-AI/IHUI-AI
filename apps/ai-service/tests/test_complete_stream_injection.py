@@ -134,3 +134,38 @@ class TestRetryScheduledForwarding:
         assert data["retryInMs"] == 0
         assert data["httpStatus"] == 429
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+class TestInjectionFullTextHonesty:
+    """fullText 上限纪律(第 42 轮):超限**整字段省略**,但交代帧本身必须仍在。
+
+    两件事不能混:① 告诉用户"这轮带了自定义指令"——任何长度都要说;
+    ② 把全文随流下发——只在可完整给出时才做。发一段截断文本冒充全文是骗人,
+    因长度超限就干脆不发帧也是骗人(方向相反)。
+    """
+
+    async def test_短自定义指令携带全文(self, client: AsyncClient, monkeypatch) -> None:
+
+        await _fake_gateway(monkeypatch)
+        prompt = "始终以简体中文回答,并保持简短。"
+        resp = await client.post(
+            "/api/llm/complete/stream",
+            json={"messages": [{"role": "user", "content": "test"}], "system_prompt": prompt},
+        )
+        data = [e["data"] for e in _parse_sse_events(resp.text) if e["event"] == "injection_applied"]
+        assert [d["kind"] for d in data] == ["developer_instructions"]
+        assert data[0]["fullText"] == prompt
+
+    async def test_超上限时省略全文但照常交代(self, client: AsyncClient, monkeypatch) -> None:
+        from app.routers import llm as llm_router
+
+        await _fake_gateway(monkeypatch)
+        long_prompt = "指" * (llm_router.INJECTION_FULLTEXT_LIMIT + 10)
+        resp = await client.post(
+            "/api/llm/complete/stream",
+            json={"messages": [{"role": "user", "content": "test"}], "system_prompt": long_prompt},
+        )
+        data = [e["data"] for e in _parse_sse_events(resp.text) if e["event"] == "injection_applied"]
+        assert len(data) == 1, "长度超限不得让交代帧一起消失"
+        assert data[0]["kind"] == "developer_instructions"
+        assert "fullText" not in data[0]
