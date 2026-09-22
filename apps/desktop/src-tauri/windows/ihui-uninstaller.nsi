@@ -89,22 +89,46 @@ Var UNDONE    ; 卸载资产已解压标记(0=未解压 1=已解压,只解一次
   ${EndIf}
 !macroend
 
-; ---- 卸载进度:与 IHUI_PROGRESS 同一份判据,只是控件句柄不同 ----
-; 三者(自绘条裁剪宽 / 百分比大字 / 阶段文案)永远取同一个入参,不再双真相。
-!macro IHUI_UNPROGRESS PCT TEXT
+; ---- 卸载进度:与 IHUI_PROGRESS 完全同一套判据(锚点 + 逐 1% 补间),只是控件句柄不同 ----
+; 条宽 / 百分比 / 阶段文案三者永远取同一个游标 $UNPLAST,不留双真相。
+!macro IHUI_UNPAINT_LAST
   ${If} $UNPB2 <> 0
     !insertmacro IHUI_PX $R1 ${IHUI_PB_W}
-    IntOp $R1 $R1 * ${PCT}
+    IntOp $R1 $R1 * $UNPLAST
     IntOp $R1 $R1 / 100
     !insertmacro IHUI_PX $R2 ${IHUI_PB_H}
     System::Call "gdi32::CreateRectRgn(i 0, i 0, i R1, i R2) p .R3"
     System::Call "user32::SetWindowRgn(p $UNPB2, p R3, i 1)"
   ${EndIf}
   ${If} $UNPCT <> 0
-    !insertmacro IHUI_SETTEXT $UNPCT "${PCT}%" ; 与安装侧同一口径:数字和 % 同一个 STATIC 排版
+    ; 数字与 `%` 同一个 STATIC(与安装侧同口径)
+    IntFmt $R4 "%d%%" $UNPLAST
+    System::Call "user32::SetWindowTextW(p $UNPCT, w R4)"
   ${EndIf}
+!macroend
+
+!macro IHUI_UNPROGRESS PCT TEXT
   ${If} $UNSTG <> 0
     !insertmacro IHUI_SETTEXT $UNSTG "${TEXT}"
+  ${EndIf}
+  ${If} $UNPB2 = 0
+  ${AndIf} $UNPCT = 0
+    ; 静默 / passive 卸载没有品牌进度页 → 只对齐游标,不画帧不耗时
+    StrCpy $UNPLAST ${PCT}
+  ${Else}
+    ${If} $UNPLAST > ${PCT}
+      StrCpy $UNPLAST ${PCT}
+    ${EndIf}
+    ${Do}
+      ${If} $UNPLAST >= ${PCT}
+        ${ExitDo}
+      ${EndIf}
+      IntOp $UNPLAST $UNPLAST + 1
+      !insertmacro IHUI_UNPAINT_LAST
+      Sleep ${IHUI_STEP_MS}
+    ${Loop}
+    StrCpy $UNPLAST ${PCT}
+    !insertmacro IHUI_UNPAINT_LAST
   ${EndIf}
 !macroend
 
@@ -302,6 +326,8 @@ Function un.IHUIUninstShow
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 700, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
   Pop $UNBIGF
   !insertmacro IHUI_TEXTCTL $UNPCT ${IHUI_PCT_STYLE} "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
+  ; 补间游标归零(与安装侧同处理)
+  StrCpy $UNPLAST 0
   SendMessage $UNPCT 0x0030 $UNBIGF 1
   !insertmacro IHUI_PX $8 ${IHUI_STG_PX}
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
