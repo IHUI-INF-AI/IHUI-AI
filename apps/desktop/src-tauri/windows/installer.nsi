@@ -676,8 +676,10 @@ Section Install
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
+  !insertmacro IHUI_PROGRESS 30 "正在复制主程序"
   File "${MAINBINARYSRCPATH}"
 
+  !insertmacro IHUI_PROGRESS 55 "正在写入运行资源"
   ; Copy resources
   {{#each resources_dirs}}
     CreateDirectory "$INSTDIR\\{{this}}"
@@ -706,6 +708,7 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 75 "正在登记卸载与系统信息"
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -749,6 +752,7 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
   !endif
 
+  !insertmacro IHUI_PROGRESS 92 "正在创建快捷方式"
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
     Call CreateOrUpdateStartMenuShortcut
