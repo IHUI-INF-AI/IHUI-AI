@@ -205,6 +205,18 @@
 - [x] ✅(2026-09-22) **hover 才显的 `opacity-0` 常驻按钮(web 侧 25 文件 / 26 处)已改聚焦即显形**:统一补 `group-focus-within:opacity-100`(宿主 `group` 均逐处读码确认在祖先行,非猜),覆盖 IDE 族(editor-tab-bar / source-control / search-panel / WatchSection / BreakpointSection / diff-file-list / applications-panel / terminal-session-list / terminal-tab-bar/TerminalTab / RecordingDrawer ×2)、媒体族(ImageViewer / VideoPlayer / LivePlayer / CodeViewer)、列表卡族(conversation-list / MemoryCard / ContentTemplateLibrary)、6 个 app 页面(favorites / member/favorites / subscriptions / search/history / settings/llm/GroupSidebar / edu meal)、UserAvatar。**刻意未用 `tabIndex=-1`/`aria-hidden`**(那对常驻操作等于剥夺键盘可达性)。两处偏离与理由:①两个终端关闭钮宿主本身是 `group-hover:opacity-60`,对齐成 `group-focus-within:opacity-60` 以免聚焦比悬停更亮;②`HeroCarousel` 不是 hover 显形问题(非当前 slide 的 CTA 全量渲染在 Tab 序里),改用 React 19 `inert={idx !== current}`(typecheck 已验证 `inert` 在本仓库 React 版本可用)。取证:全量 vitest 与 `pnpm --filter @ihui/web typecheck` 见本票;postcss 真编译产物含 `.group-focus-within\:opacity-100:is(:where(.group):focus-within *)` 与 `opacity-60` 两条规则。**过程自纠**:我先写的"纯新增自查脚本"产出了恒真 ✅(token 比对逻辑失效、文件数 30≠25),不可采信,已改为逐行读 26 处 diff 原文核对 `-`/`+` 前缀一致 + 追加类名,并确认他人 in-flight 的 21 个 `ai-generation/*.tsx` 与截图基线文件不在改动集内。(原 34 处里 `packages/ui-react` 那 3 处已随本票修完,见上一条 [x];`work-panel.tsx:548` 的非法嵌套另列为结构改造项)。**修法务必分清两类**:暂时性状态 affordance(如我已修的 `scroll-jump-buttons`)才用 `tabIndex=-1 + aria-hidden`;hover 才显的**常驻操作**绝不能用 `tabIndex=-1`(等于彻底不可达),正解是补 `group-focus-within:opacity-100` 让它显形。成批铺开前需先冻结各文件归属(并行会话正占用 apps/web 多处)。
 - [x] ✅(2026-09-22) **i18n 同义死键已清**:`chat.message.jumpToLatest`(跳至最新)、`chat.permission.jumpToLatest`(跳转到最新)全仓源码 0 引用(文件名 + 路径两种正则双查,含 8 端与 vue/jsx),已从 5 个 web 语言包行级删除;同票新增 `ai.pane.followEvents`。对称性核对:5 语言 diff 均 `1 2`、逐语言 added/removed 集合完全一致、叶子数 19722→19721、`i18n-apply --check` 与 `check-i18n-keys`(1451 文件 / 15747 键)、`scan-i18n-zh-residue ko`、`check-i18n-broken-en` 全绿。小程序离线包 `remote-locales.gen.ts` 经 `pnpm --filter miniapp gen:i18n` 重跑后**无变更**(该包不含 web 命名空间,符合预期)。
 - [x] ✅(2026-09-22) **残留已清**:pane 帮助面板不再声明 `?`,`ai.pane.shortcutShowHelp` 已随同票从 5 语言包删除(判据两条均达成:帮助面板 kbd 集合不含 `?`;`check-i18n-keys` 15751 键 / 5 语言 parity OK,grep 全仓 `shortcutShowHelp` 在 apps/ 与 packages/ 双落点 0 命中)。commit `00fa252da2`。
+### 第二轮收口(同日续做:把上一节所有"待办"清零时新查出的 6 项,均已修并取证)
+
+上一节登记项全部闭合后继续按同一形状外推,又查出并修掉 6 项(证据均取自私有 dev 8831 真机 DOM 数值,不采信截图):
+
+- [x] ✅(2026-09-22) **`Ctrl+/` 快捷键帮助面板永久空白(0 行)**:`use-global-shortcuts.ts` 把注册表在 effect 里写进 `shortcutsRef`,而 `shortcuts` 的 `useMemo` 只依赖 `[scope]` —— 首帧算出空数组后永不重算(`useSyncExternalStore` 只触发重渲染,不改 memo 结论)。修法 = 读回版本号并入依赖。真机取证:改前 `role=dialog` 内 `code` 计数 **0**,改后 **18**(= 注册表条目数)。**这是我上一轮报"面板没渲染"疑点的正解** —— 当时我用 `code` 选择器探到 0 却因 dev 进程中断没敢定论;复核后确认疑点为真,同时澄清 `?` 那条是我用错了探针(该模态用 `<kbd>`,实测 11 个键位行,功能正常)。
+- [x] ✅(2026-09-22) **`Ctrl+,` 双主**:注册表(跳 `/settings`)与 `use-ide-shortcuts` `case ','`(切 IDE 设置视图)在 IDE 页焦点不在输入框时同一次按下都执行。按"成族者不动、单点让位"口径把全局项改绑 `Ctrl+Shift+,`(复核空闲),`command-registry` 提示位与顶栏注释同票更新。真机:`Ctrl+Shift+,` → `/settings`;`Ctrl+,` 停留在 `/chat`(不再跳设置)。
+- [x] ✅(2026-09-22) **RichTextEditor 自有 `Ctrl+{K,1,2,3}` 与注册表双主**:编辑器在 textarea 上处理这些键但不截断冒泡,React 根容器早于 window → 一次按键既插标题/链接又切对话模式。改为按 `ACTIONS` 派生的自有 chord 集合 `stopPropagation`(键位集合与工具条标签同源不漂移)。新增 9 例单测把"自有 chord 不到达 window / 非自有 chord(Ctrl+P)照常到达 / 裸键不截断"钉死。
+- [x] ✅(2026-09-22) **view-switcher 五项标签说谎**:`document/browser/figma/code-changes/agent` 标 `Ctrl+1-5`,但全仓无任何处理器把这些键位接到视图切换(真实绑定是注册表的切模式)。删除该 5 个标签;`Ctrl+\``(terminal)与 `Ctrl+,`(settings)由 `use-ide-shortcuts` 真实绑定 → 保留。**守门边界一并记档**:`check-declared-shortcuts.mjs` 只能证"声明的键没人接",证不了"同一个键被别的功能接走"(故本次这条靠人工复核),该边界已写在脚本头部注释。
+- [x] ✅(2026-09-22) **activity-bar 6 枚图标钮无可访问名 + tooltip 只 hover 显形**:补 `aria-label={t(item.labelKey)}` + `aria-pressed`(选中态原本只有底色与 2px 竖条),tooltip 容器补 `group-focus-within:opacity-100`。真机取证:聚焦 → tooltip `opacity 0→1`,失焦 → 回 0;6 个按钮 `aria-label` 实测为 文件/搜索/源代码管理/调试/应用/设置。**过程自纠**:前两次探针 FAIL 都取到了不可聚焦的节点 —— IDE 路由挂出登录 `auth-shell` 模态(整棵内容被 `aria-hidden`),关掉模态后判据立即为真;另记一次探针里写进 `.mjs` 的 TS 断言语法(会 SyntaxError)已改纯 JS。
+- [x] ✅(2026-09-22) **注册表新增 chord 未补 `shortcutHelp.desc` → 面板回显硬编码中文**:`Ctrl+Shift+/`、`Ctrl+Shift+U`、`Ctrl+Shift+M` 三条无描述键,在非中文语言下会把 `DEFAULT_SHORTCUTS` 的中文 description 直接打在面板上。5 语言各补 3 键(纯新增 `3 0`,每键每语言出现次数 =1,`check-i18n-keys`/`i18n-apply --check`/`scan-i18n-zh-residue ko·zh-TW`/`check-i18n-broken-en` 全绿;`desc.ctrlComma` 键名保留不随 chord 改名),并加静态覆盖断言(注册表每条 chord 必须有 desc 键)防复发。
+- [x] ✅(2026-09-22) **终端与 native 侧键位复核为"无残留双主"**:`TerminalViewport` 用 `attachCustomKeyEventHandler` 自理 `Ctrl+F/Ctrl+R/Ctrl+Shift+{C,V,D,H}`,其宿主是 xterm 的 textarea → `use-ide-shortcuts` 的 `isInputFocused` 早退天然让位;`use-native-shortcuts.ts` 余下仅 F11/F12/F5/Ctrl+R/Ctrl+Q,注册表无同名项。故本轮不再改动他处。
+
 ### 普查落点(供复核,含我否掉的自身误判)
 
 第一轮"8 个只有监听没有生产者的事件名"是我用窄正则(`dispatchEvent(new CustomEvent('name'`)扫出来的**假阳性**:漏了模板字面量与换行写法。换判据逐名重 grep 后,`ihui:scroll-to-plan-step`、`ihui:toggle-reasoning`、`ihui:add-text-reference`、`ihui:insert-at-cursor` 等均有真实生产者(如 `timeline-event.tsx:349`、`MessageItem.tsx:628`、`markdown-stream.tsx:270`),**唯一**孤儿通道就是已删的 `ihui:jump-to-latest`。另:本轮为取真机证据两次重启本机 8802 API(它会被并行会话/僵尸清理任务打挂),收尾后保持运行未再关闭。
@@ -2777,6 +2789,23 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **剩余 2 处受并发阻塞,不得现在修**:`image-gen-zhipu.tsx` 与 `video-gen-jimeng.tsx` 均为 ` M`(并行会话正在编辑),
     按 AGENTS.md §12/§16 不可代改他人编辑中的文件。二者同样只需加 `// method: POST`(zhipu 若走模板注册则需展开模板路由,属门改进项)
     —— 待该两会话收尾后由任何后续会话补标注即可,门即归绿。守门 8 在此前保持 exit 1(staged 为空时回退全量口径,故非本次改动引入)。
+  - **守门 67 建好当日即修掉两处自身缺陷(基线仍为空 = 零迁移窗口,现在修成本最低)**:
+    ① **豁免 key 含起始行号 → 会静默失效**:原 `<路径>::<归一化窗口>` 依赖 `start`,调用点上方任何一行增删即令
+    已登记豁免漂移失效、提交突然变红且无线索。新 key = `路径::<kind>|<凭据证据>`(证据为排序去重的凭据实参 /
+    `via:<声明名>` / `literal:<令牌名>`),**刻意不含行号**,行号仍留在报错输出与 `excerpt` 供人看。
+    ② **跨行写法重复计数**:`.status(502).send(` 换行接 `error(502,…)` 有两个起点、窗口互相包含 → 同一物理外泄报 2 条;
+    改为"同 key 且窗口行区间重叠"才合并,故同文件两处不相交的重复外泄仍各计一条、不同凭据实参不同 key。
+    ③ 顺带修 `printHelp` 死代码(`main` 里 `if (--help) return 0` 从未调用它 → **`--help` 静默无输出**),
+    并补齐同族惯例的文件级 `/* eslint-disable no-console */`(原 14 个 warning)。
+    判据未变松未变紧**由差分探针证明**:HEAD 版与新版逐文件比对 6361 文件,violations 0/0、candidates 27/27 无差异;
+    测试 12 → **18 例**(新增:行号漂移仍豁免 + 未豁免时行号变仍报、实参改掉不再放行、跨行恰为 1、不相交各计一条、
+    双凭据证据点名、self-test 失败必须非 0),期望"不拦"的用例均配**链路哨兵**。eslint 0 问题、prettier clean、水印无残迹。
+  - **一条新的"假通过"陷阱(务必记住)**:对落在 `.ihui-agent/` 下的副本跑 `prettier --check` **恒报绿** ——
+    `.prettierignore` 第 15 行整体忽略 `.ihui-agent/`。做对照副本/临时验证文件时不能用该目录来验格式类判据。
+  - **守门 7(依赖碎片化)归因为存量依赖问题,本次不擅动**:实为 `webpack 5.109.2` 与 `5.91.0` 双版本共存
+    (Taro 4.2.1 / storybook 侧与主侧各引一套),连带 `@tarojs/components`、`html-webpack-plugin` 等一批可去重项;
+    解法是 `pnpm dedupe` 重写 `pnpm-lock.yaml`。lockfile 属高共享风险文件且会牵动小程序构建解析,
+    在并发会话频繁提交的窗口不做,留待专项评估(该门 `--staged` 亦回退全量口径,故持续红)。
   - 平台独占:仅 scripts 守门 + apps/api 一处安全修复 + 文档(§9 豁免;api 修复对外仅改变 502 文案文本,响应结构不变)。
   - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
