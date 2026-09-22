@@ -12,8 +12,9 @@
  * 前置:~/.tauri/ 更新签名密钥;git credential 含 gitee.com token。
  */
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs';
 
 const cwd0 = process.cwd();
 const ROOT = /apps[\\/]desktop$/.test(cwd0) ? path.resolve(cwd0, '../..') : cwd0;
@@ -91,6 +92,28 @@ if (!existsSync(exePath) || !existsSync(sigPath)) {
 }
 const exeSize = (statSync(exePath).size / 1e6).toFixed(1);
 console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
+
+// ── 2b. 单一产物不变量(强制):bundle 目录里**永远只允许存在当前版本这一个包** ──
+// 判据本身抽到 scripts/lib/desktop-artifact-invariant.mjs(纯函数,有单测钉住),
+// 这里只负责执行删除与失败退出 —— 别在脚本里再抄一份过滤逻辑。
+{
+  // 这里不取首轮 violations:缺包/缺 sig 已由上方 existsSync 拦住,多包就是下面要删的 stale,
+  // 真正有判定意义的是**清理后**那一轮。
+  const { keep, stale } = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  for (const f of stale) {
+    rmSync(path.join(NSIS_DIR, f), { force: true })
+    console.log(`🧹 清理旧产物: ${f}`)
+  }
+  const after = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  if (after.violations.length > 0) {
+    console.error(
+      `ERROR: 单一产物不变量被破坏 —— ${after.violations.join(';')}\n` +
+        `  目录 ${NSIS_DIR} 现存产物: ${after.keep.join(', ') || '(空)'}`,
+    )
+    process.exit(1)
+  }
+  console.log(`✅ 单一产物不变量成立: ${keep.length} 件(${exeName} + .sig),目录内无其他版本残留`)
+}
 
 // ── 3. Gitee 直传(python 实现:undici multipart 对 Gitee 报 401,urllib 实证可行)──
 const giteeScript = path.join(ROOT, '.github/scripts/gitee-release-attach.py');

@@ -55,6 +55,47 @@ function makeTranslator(locale: 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'): Transla
 }
 const tZh = makeTranslator('zh-CN')
 
+/** overview 标签键清单(与语言包 ai.pane.overview.* 已落好的键一一对应,不含状态键) */
+const OVERVIEW_LABEL_KEYS = [
+  'overview.title',
+  'overview.status',
+  'overview.error',
+  'overview.steps',
+  'overview.subagents',
+  'overview.active',
+  'overview.total',
+  'overview.dead',
+  'overview.terminals',
+  'overview.running',
+  'overview.changes',
+  'overview.files',
+  'overview.duration',
+  'overview.token',
+  'overview.rate',
+  'overview.eta',
+  'overview.context',
+] as const
+
+/**
+ * 探针式恒等 translator:key→键名原样回显,并记录每个真实被取词的键。
+ * - 任何标签回退硬编码中文 → 输出与键名字面量断言不符 + seen 集合缺键,双双变红;
+ * - 拼错键 / 未知键 → 立即抛错。以此证明"每键都真的走了取词链路"。
+ */
+function makeProbeTranslator(): { t: Translator; seen: Set<string> } {
+  const seen = new Set<string>()
+  const known = new Set<string>([
+    ...OVERVIEW_LABEL_KEYS,
+    ...Object.values(STATUS_LABEL_KEY),
+    ...Object.values(STATUS_LABEL_STREAMING_KEY),
+  ])
+  const t: Translator = (key) => {
+    if (!known.has(key)) throw new Error(`探针 translator 收到未知键: ${key}`)
+    seen.add(key)
+    return key
+  }
+  return { t, seen }
+}
+
 /** 组件侧注入 translator 后,Markdown 序列化入口的测试包装 */
 function mdZh(input: Omit<OverviewSummaryInput, 't'>): string {
   return buildOverviewSummaryMarkdown({ ...input, t: tZh })
@@ -92,6 +133,7 @@ describe('buildOverviewSummaryMarkdown', () => {
     })
     expect(md).toContain('# 任务总览')
     expect(md).toContain('状态: 运行中')
+    expect(md).toContain('耗时: 5.0m')
   })
 
   it('isStreaming=true 时追加"(流式中)"', () => {
@@ -121,7 +163,7 @@ describe('buildOverviewSummaryMarkdown', () => {
     })
     expect(md).toMatch(/步骤: 3\/5/)
     expect(md).toMatch(/子代理: 2 活跃 · 4 总/)
-    expect(md).toMatch(/终端: 1 运行中 · 1 总/)
+    expect(md).toMatch(/终端: 1 运行 · 1 总/)
     expect(md).toMatch(/变更: 6 文件/)
   })
 
@@ -249,30 +291,80 @@ describe('overview-summary 状态键表', () => {
 
 describe('buildStatLines', () => {
   it('空 totalSteps 时不输出步骤行', () => {
+    const { t } = makeProbeTranslator()
     const lines = buildStatLines({
       overview: { ...baseOverview, totalSteps: 0 },
       isStreaming: false,
       sessionStart: '2026-07-28T10:00:00Z',
+      t,
     })
-    expect(lines.some((l) => l.startsWith('步骤'))).toBe(false)
+    expect(lines.some((l) => l.includes('overview.steps'))).toBe(false)
   })
 
-  it('deadSubagents > 0 时追加 "N 死亡"', () => {
+  it('deadSubagents > 0 时追加 "N <dead>"(探针键名回显,硬编码中文会因不匹配变红)', () => {
+    const { t, seen } = makeProbeTranslator()
     const lines = buildStatLines({
       overview: { ...baseOverview, deadSubagents: 2 },
       isStreaming: false,
       sessionStart: '2026-07-28T10:00:00Z',
+      t,
     })
-    expect(lines.some((l) => l.includes('2 死亡'))).toBe(true)
+    expect(lines.some((l) => l.includes(`2 ${t('overview.dead')}`))).toBe(true)
+    expect(seen.has('overview.dead')).toBe(true)
   })
 
   it('totalChanges = 0 时不输出变更行', () => {
+    const { t } = makeProbeTranslator()
     const lines = buildStatLines({
       overview: { ...baseOverview, totalChanges: 0 },
       isStreaming: false,
       sessionStart: '2026-07-28T10:00:00Z',
+      t,
     })
-    expect(lines.some((l) => l.startsWith('变更'))).toBe(false)
+    expect(lines.some((l) => l.includes('overview.changes'))).toBe(false)
+  })
+})
+
+/**
+ * 接线证明(2026-09-23 立,统计行取词改造配套):
+ * 用探针 translator 驱动全字段渲染,逐行断言"标签=键名字面量",
+ * 并核对本应取词的全部标签键确实被取过 —— 任何一行回退硬编码中文都会变红。
+ */
+describe('overview 标签取词接线', () => {
+  it('探针自身可信:未知键必须抛错', () => {
+    const { t } = makeProbeTranslator()
+    expect(() => t('overview.notARealKey')).toThrow(/未知键/)
+  })
+
+  it('全字段渲染:每一行标签均经 t 取词,Markdown 骨架结构与改造前一致', () => {
+    const { t, seen } = makeProbeTranslator()
+    const md = buildOverviewSummaryMarkdown({
+      overview: { ...baseOverview, deadSubagents: 1, error: 'boom from backend' },
+      isStreaming: false,
+      sessionStart: '2026-07-28T10:00:00Z',
+      nowMs: Date.parse('2026-07-28T10:05:00Z'),
+      totalTokens: 1500,
+      tokenRate: 25,
+      etaMs: 1234,
+      contextUsage: 42,
+      t,
+    })
+    expect(md).toContain('# overview.title')
+    expect(md).toContain(`- overview.status: ${STATUS_LABEL_KEY.running}`)
+    expect(md).toContain('- overview.error: boom from backend')
+    expect(md).toContain('- overview.steps: 3/5')
+    expect(md).toContain(
+      '- overview.subagents: 2 overview.active · 4 overview.total · 1 overview.dead',
+    )
+    expect(md).toContain('- overview.terminals: 1 overview.running · 1 overview.total')
+    expect(md).toContain('- overview.changes: 6 overview.files')
+    expect(md).toContain('- overview.duration: 5.0m')
+    expect(md).toContain('- overview.token: 1.5k')
+    expect(md).toContain('- overview.rate: 25/s')
+    expect(md).toContain('- overview.eta: 1.2s')
+    expect(md).toContain('- overview.context: 42%')
+    // 17 个标签键 + 1 个状态键全部被取词,一个不漏
+    expect([...seen].sort()).toEqual([...OVERVIEW_LABEL_KEYS, STATUS_LABEL_KEY.running].sort())
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
