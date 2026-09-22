@@ -32,6 +32,16 @@ const PY_REGISTRY = 'apps/ai-service/app/core/permission_mode.py'
 const AGENT_LOOP = 'apps/ai-service/app/services/agent_loop_v2.py'
 
 /**
+ * 显式豁免的**非档位哨兵值**(共字段不同语义)。
+ *
+ * 'unset' 不是权限档,而是"该工作区从未配置过权限"的哨兵 —— 它复用了 checkWorkspace
+ * 返回体里的 mode 字段(本身是设计缺陷,已登记为 G-164:"mode 字段应为 PermissionMode,
+ * 未配置走独立布尔/枚举字段")。豁免写成数据而不是放宽正则:下一个人在这里加条目
+ * 时必须写 why,否则就是又一次把判据磨钝。
+ */
+const MODE_FIELD_SENTINELS = { unset: 'checkWorkspace 的"未配置"哨兵,非档位(G-164 待消除)' }
+
+/**
  * 消费点档案:**逐文件**声明"权限档存在哪个变量名里"。
  *
  * 为什么不用一条通用正则:实测 `mode == "debate"`(MoA 聚合档)、
@@ -45,6 +55,14 @@ const CONSUMER_PROFILES = [
   { file: 'apps/ai-service/app/routers/agents.py', vars: ['permission_mode'], kind: 'wire' },
   { file: 'apps/api/src/routes/workspace-permissions.ts', vars: ['mode'], kind: 'wire' },
   { file: 'apps/api/src/routes/v1-ai-core.ts', vars: ['permissionMode'], kind: 'wire' },
+  // G-163:授权门内部一律拿归一后的规范档比较(permMode),入参拼写不参与判断
+  { file: 'apps/api/src/services/workspace-ai-service.ts', vars: ['permMode'], kind: 'canonical' },
+  {
+    file: 'apps/api/src/routes/workspace-ai.ts',
+    vars: ['mode'],
+    kind: 'wire',
+    sentinels: MODE_FIELD_SENTINELS,
+  },
   { file: 'apps/cli/src/tools/permissions.ts', vars: ['permissionMode', 'mode'], kind: 'canonical' },
   { file: 'apps/cli/src/commands/settings.ts', vars: ['permissionMode'], kind: 'canonical' },
   { file: 'apps/cli/src/commands/repl.ts', vars: ['permissionMode'], kind: 'canonical' },
@@ -207,7 +225,9 @@ export function checkConsumers(files, registry) {
   const problems = []
   for (const { relPath, src } of files) {
     const profile = CONSUMER_PROFILES.find((p) => p.file === relPath)
+    const sentinels = profile?.sentinels ?? {}
     for (const hit of collectConsumerLiterals(relPath, src, profile)) {
+      if (sentinels[hit.value]) continue // 显式豁免(档案里带 why),不是把正则放宽
       if (!declared.has(hit.value)) {
         problems.push(
           `R3 ${relPath}:${hit.line} 出现注册表外的权限档取值 '${hit.value}'(${hit.why})`,
@@ -420,6 +440,30 @@ function selfTest() {
         {
           relPath: 'packages/types/src/workspace.ts',
           src: "export type WorkspacePermissionMode = 'default' | 'accept-edits'\n",
+        },
+      ],
+      baseTs,
+    ).length === 0,
+  )
+  t(
+    'R3 哨兵豁免只在其登记文件生效(unset 换到别处仍拦)',
+    checkConsumers(
+      [
+        {
+          relPath: 'apps/api/src/services/workspace-ai-service.ts',
+          src: 'if (permMode === "unset") return allowed\n',
+        },
+      ],
+      baseTs,
+    ).some((p) => p.includes('unset')),
+  )
+  t(
+    'R3 哨兵在其登记文件内放过(workspace-ai 的"未配置"判断)',
+    checkConsumers(
+      [
+        {
+          relPath: 'apps/api/src/routes/workspace-ai.ts',
+          src: "const code = decision.mode === 'unset' ? 401 : 403\n",
         },
       ],
       baseTs,
