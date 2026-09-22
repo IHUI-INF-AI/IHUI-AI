@@ -83,6 +83,7 @@ import {
   formatSSEError,
   getMessages,
   getTokenBalance,
+  getWorkspacePermissionDefault,
   listConversations,
   streamChat,
   type ConversationDetail,
@@ -97,6 +98,7 @@ import {
 import {
   applyStreamError,
   isErrorTurn,
+  permissionTierWordKeys,
   resendTargetText,
 } from '@ihui/shared/chat'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -869,6 +871,10 @@ export default function AiAssistantN8nScreen() {
   // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
   const [tokenBalance, setTokenBalance] = useState(0)
 
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+
   // 加载智汇值余额:失败静默保持 0(不阻塞页面,充值入口仍可用)
   useEffect(() => {
     let cancelled = false
@@ -882,6 +888,21 @@ export default function AiAssistantN8nScreen() {
         // 失败保持 0
       }
     })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        // 取数失败:保持 null,该行隐藏
+      })
     return () => {
       cancelled = true
     }
@@ -1529,6 +1550,16 @@ export default function AiAssistantN8nScreen() {
           onRecharge={() => navigation.navigate('AppTopup')}
         />
       </View>
+      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位) */}
+      {workspaceTier !== null ? (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 11, color: tokens.text.tertiary }}>
+            {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(workspaceTier).title)} · ${t(
+              permissionTierWordKeys(workspaceTier).desc,
+            )}`}
+          </Text>
+        </View>
+      ) : null}
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

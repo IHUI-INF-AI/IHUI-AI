@@ -2503,5 +2503,30 @@
     "statusSuccess": "成功",
     "statusPartial": "一部成功",
     "statusFailed": "失敗"
+  },
+  "permissionTier": {
+    "label": "権限モード",
+    "mode": {
+      "default": {
+        "title": "デフォルト",
+        "desc": "すべての操作に承認が必要(最も安全)"
+      },
+      "plan": {
+        "title": "読み取り専用プラン",
+        "desc": "読み取りと検索のみ許可。ファイル書き込みとコマンド実行は拒否"
+      },
+      "accept-edits": {
+        "title": "編集を許可",
+        "desc": "許可リスト内の操作は自動実行、その他は確認を求める"
+      },
+      "bypass-permissions": {
+        "title": "権限をバイパス",
+        "desc": "確認なしでフルアクセス(高リスク)"
+      },
+      "unknown": {
+        "title": "不明なモード",
+        "desc": "未対応の権限モード。デフォルトとして扱う"
+      }
+    }
   }
 }
