@@ -165,6 +165,8 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
+    "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+    "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
     "history": "历史对话",
     "title": "AI 对话",
     "exit": "退出",

@@ -165,6 +165,8 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
+    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
     "history": "History",
     "title": "AI Chat",
     "exit": "Exit",
