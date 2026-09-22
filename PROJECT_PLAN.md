@@ -2547,6 +2547,13 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - 验证:typecheck exit 0 ✅ + lint exit 0 ✅
   - 平台独占:仅 apps/miniapp-taro(§9 豁免,无跨端契约变更)
 - **P2-F.4**(评估触发):若适配层代码量 > 50% packages/app,启动 packages/app platform-agnostic 化重构评估
+- [x] ✅(2026-09-22) **P2-F.5 web→小程序 UI 复用路线终审(A 路线冒烟实测,P2-F.4 的结论替代项)**:针对"`@ihui/ui-react` 组件能否直接下沉 miniapp-taro(即免去双端各写一套)"做了一次**完整 weapp 编译冒烟**,四步改动(注册 `@tarojs/plugin-html` + 把 `packages/ui-react/src` 加进 weapp `compile.include` + 临时页 `pkg-about/about/ui-smoke` 引 `Button/Card/Input` + `app.config.ts` 注册),跑 `taro build --type weapp`,**测完已全部回滚,工作区零残留**。实测结论:
+  - **编译层成立** ✅:构建成功产出 `dist/pkg-about/about/ui-smoke.{js,wxml,wxss,json}`,日志 0 error;`ui-smoke.wxss` 内出现 ui-react 的 `.login-scope` / `--color-accent` 规则,证明 Tailwind → WXSS 链路面通。
+  - **体积代价不成立** ❌:单个冒烟页使 `pkg-about` 分包 **222KB → 401KB(+179KB)**,主包 +11KB;且 ui-react 是 barrel 全量导出,一次 import 会把 `login-form` 全家 + `lucide-react` 一并拖入分包(见 `ui-smoke.js.LICENSE.txt` 列出的 `lucide-react v1.37.0`)。
+  - **运行期存在混版隐患** ❌(未做真机验证,故不作"可用"结论):产物 `ui-smoke.js` 内出现 **React 19 独有 API 标识 `useEffectEvent`** 与 `react-jsx-runtime.production.js`,而 Taro 4.2.1 运行时绑 React 18(`vendors.js` 内仅 1 份 React 生产包)。即 ui-react 源码经 `packages/ui-react/node_modules` 解析到 **react@19 的 jsx-runtime**,与端内 React 18 并存 —— 编译不报错不等于运行时安全。
+  - **判定:A 路线不采纳为主线**,理由是"存量重复已被治理"而非"技术上不可能"。同轮以 `node scripts/check-shared-layer-duplication.mjs`(守门 40)全量复核,结果 **✅ 0 违规**,并抽验两处同名 hook 证实均为 §3 允许形态:`use-pagination`(shared 111 行是实现,web 27 行 / miniapp 9 行均为 re-export wrapper)、`use-ui-control-bridge`(miniapp 348 行首行即 §3 要求的 `// 平台特有:依赖 Taro 运行时` 标注)。**故"再抽一个 VM 到 shared 当样板"这一项无对象可做,不再列为待办。**
+  - **可复用的既有事实**(供后续讨论引用,免重复取证):miniapp-taro 自有组件 **88 个** `.tsx`;ui-react 顶层 32 个 `.tsx` 中 **19 个**无 Radix 无浏览器 API(18 pure + `button` 仅依赖 `@radix-ui/react-slot`)、**13 个**永久不可下沉(8 Radix 交互件 + 4 browser-only + `dialog` 两者皆有);本端 18 个适配器**实际仅 3 处页面接线**;`check-adapter-style-parity.mjs` 只守硬编码颜色、**不守"是否接线"**,所以"造好没装车"当前无闸可挡(若要加固,先按 §24 确认再建门,不在本次范围)。
+  - 平台独占:仅 apps/miniapp-taro + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
 - **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分
 
