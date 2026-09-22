@@ -2151,5 +2151,15 @@
       }
     },
     "vividTail": "，马上就好"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "授权范围",
+      "scopeOnce": "允许一次",
+      "scopeSession": "允许此对话",
+      "scopeAlways": "始终允许",
+      "reasonLabel": "原因(可选)",
+      "reasonPlaceholder": "填写原因,便于审计与追溯"
+    }
   }
 }
