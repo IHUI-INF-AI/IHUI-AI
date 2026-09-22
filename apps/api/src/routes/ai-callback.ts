@@ -60,6 +60,20 @@ const persistedPlanStepSchema = z.looseObject({
   status: z.string(),
 })
 
+// G-166(2026-09-22 立)交代帧持久化:citations / injections 与各自 SSE 帧同源
+// (ai-service 侧同一个 _collect_citations / 同一份 injection_frames 列表)。
+// 结构与 packages/types/src/chat.ts 的 ChatMessage.citations / .injections 对齐,
+// 其余字段(url / count / fullText…)按 loose 透传落库,回放时前端直接消费。
+const persistedCitationSchema = z.looseObject({
+  source: z.string(),
+  label: z.string(),
+})
+
+const persistedInjectionSchema = z.looseObject({
+  kind: z.string(),
+  collapsed: z.string(),
+})
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -72,6 +86,9 @@ const callbackSchema = z.object({
   terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
   // planSteps(2026-09-21 立):计划快照持久化通道(本轮无计划工具调用时不携带)
   planSteps: z.array(persistedPlanStepSchema).optional(),
+  // G-166:引用溯源 + 上下文注入交代持久化通道(本轮没有时不携带)
+  citations: z.array(persistedCitationSchema).optional(),
+  injections: z.array(persistedInjectionSchema).optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -124,6 +141,8 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         toolCalls,
         terminalTasks,
         planSteps,
+        citations,
+        injections,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -200,6 +219,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               // 且 worker 侧是浅合并({ ...prevMeta, ...metadata }),不写 key 就不会
               // 覆盖既有 metadata(toolCalls / pendingQuestion 等)。
               ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+              // G-166:交代帧同规则 —— 空数组不写 key("本轮无引用/无注入"),
+              // worker 侧浅合并因此不会把既有 key 抹掉。
+              ...(citations && citations.length > 0 ? { citations } : {}),
+              ...(injections && injections.length > 0 ? { injections } : {}),
               // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
               ...permissionMeta,
             },
