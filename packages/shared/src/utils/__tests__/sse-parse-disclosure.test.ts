@@ -71,5 +71,21 @@ describe('sse-parse 交代帧承接(D106)', () => {
     expect(evt?.injectionApplied?.fullText).toBe('第一条指令')
     expect(evt?.injectionApplied?.count).toBeUndefined()
   })
+
+  it('compaction 帧把 trigger 透传出去(G-150:incompressible 须能被界面区分)', () => {
+    const evt = one(
+      '{"compaction":{"triggered":true,"tokensBefore":9000,"tokensAfter":8800,"removedCount":0,"usageRatio":0.95,"trigger":"incompressible"}}',
+    )
+    expect(evt?.type).toBe('compaction')
+    expect(evt?.compaction?.trigger).toBe('incompressible')
+    expect(evt?.compaction?.usageRatio).toBe(0.95)
+  })
+
+  it('trigger 缺失时不造字段(不给界面一个假的 llm 标签)', () => {
+    const evt = one(
+      '{"compaction":{"triggered":true,"tokensBefore":9000,"tokensAfter":6000,"removedCount":3,"usageRatio":0.9}}',
+    )
+    expect(evt?.compaction && 'trigger' in evt.compaction).toBe(false)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

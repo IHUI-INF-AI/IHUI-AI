@@ -240,6 +240,9 @@ export type SSEEventPayload =
       tokensAfter?: number
       removedCount?: number
       usageRatio?: number
+      /** G-150:压缩触发来源(llm / truncated / incompressible …)。
+       *  incompressible = 已到上限仍压不下去,界面须给"开新对话/减少上下文"这类**动作**而非静默。 */
+      trigger?: string
     }>
   // 中途引导注入确认(Steer,2026-09-19 立):
   // 流式对话期间用户经 steer 端点提交引导文本,tool loop 每轮 LLM 调用前

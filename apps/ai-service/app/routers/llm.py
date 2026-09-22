@@ -706,6 +706,31 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
     return out
 
 
+def _compaction_frame(info: dict[str, Any] | None) -> str | None:
+    """构造 compaction SSE 帧;无需交代时返回 None。
+
+    G-150(WorkBuddy 一手对标):过去只在 `compressed=True` 时发帧,**压缩撞到上限
+    (incompressible:system/material 本身过大,截到最小仍超阈值)时用户完全无感** ——
+    界面上只是"回答变慢/变笨",而竞品会直说"已达上限,建议开新对话或减少上下文"。
+    现在 incompressible 同样发帧,并把 `trigger` 带出去供各端区分措辞与给动作。
+    """
+    if not info:
+        return None
+    trigger = str(info.get("trigger") or "")
+    compressed = bool(info.get("compressed"))
+    if not compressed and trigger != "incompressible":
+        return None
+    payload = {
+        "triggered": True,
+        "tokensBefore": info.get("original_tokens", 0),
+        "tokensAfter": info.get("compressed_tokens", 0),
+        "removedCount": info.get("removed_count", 0),
+        "usageRatio": info.get("usage_ratio", 0),
+        "trigger": trigger or "llm",
+    }
+    return f"data: {json.dumps({'compaction': payload}, ensure_ascii=False)}\n\n"
+
+
 def _format_citations_event(
     tool_calls_history: list[dict[str, Any]], message_id: str | None = None
 ) -> str | None:
@@ -2356,9 +2381,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
         _agent_tool_loop_ran = False
         try:
-            # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
-            if compaction_info and compaction_info.get("compressed"):
-                yield f"data: {json.dumps({'compaction': {'triggered': True, 'tokensBefore': compaction_info['original_tokens'], 'tokensAfter': compaction_info['compressed_tokens'], 'removedCount': compaction_info['removed_count'], 'usageRatio': compaction_info['usage_ratio']}}, ensure_ascii=False)}\n\n"
+            # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
+            _compaction_sse = _compaction_frame(compaction_info)
+            if _compaction_sse:
+                yield _compaction_sse
 
             # ===== Agent tool loop(2026-07-22 立,AI 浏览器/电脑控制)=====
             # 当请求携带 agent_tools(工具名列表)时:
