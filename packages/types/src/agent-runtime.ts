@@ -1335,14 +1335,13 @@ export interface AgentSSEEvent {
   type:
     | 'task_created' // 新任务入队
     | 'task_status_changed' // 状态流转
-    | 'task_progress' // 进度更新(in_progress 时)
     | 'task_completed' // 完成
     | 'task_failed' // 失败
-    | 'worker_status' // worker 状态变化
-    | 'dag_level_advanced' // DAG 层级推进
     | 'workspace_lock_acquired' // 工作区锁被获取(2-2)
     | 'workspace_lock_released' // 工作区锁被释放(2-2)
-    | 'log' // 日志输出
+    // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
+    // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
+    // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
   /** 关联任务 ID */
   taskId?: string
   /** 关联 worker ID */
