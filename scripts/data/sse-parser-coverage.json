@@ -1,0 +1,14 @@
+{
+  "$comment": "SSE 双解析器归属台账(守门 scripts/check-sse-parser-parity.mjs 读取)。parseCoverageBaseline = packages/shared/src/utils/sse-parse.ts 侧覆盖帧数的下限(ratchet,只挡倒退不挡增长);webOnly = packages/api-client 已解析、sse-parse 未解析的帧,以及「为什么只有该端消费」的理由。每在 sse-parse 补接一帧,就同步删除该登记项并上调 parseCoverageBaseline。",
+  "parseCoverageBaseline": 21,
+  "webOnly": [
+    {
+      "event": "question",
+      "why": "AI 主动提问需要「挂起输入 + 弹问题卡 + 作答后续流」整条交互闭环,当前只有 web 实现了(apps/web/src/hooks/use-chat/send-message.ts 的 onQuestion → setPendingQuestion → sendAnswer 续流,并持久化到 conversation.metadata 后 WS 广播);miniapp-taro 无问题卡组件也没有作答通道,只解析帧会让用户看到提问却无法回答,比不显示更糟。补齐须先做端内作答 UI,计划见 PROJECT_PLAN.md D106/G-148。"
+    },
+    {
+      "event": "thinking",
+      "why": "api-client 只把 thinking 帧的 content 投给 onReasoning(web/extension 有推理展示区),而 sse-parse 侧的 miniapp-taro 没有推理内容区。另有一类只带 message 的阶段帧(「正在思考…」「正在规划执行步骤…」「正在总结执行结果…」,见 apps/ai-service/app/services/langgraph_service.py)在**两端都没人消费**,属于生产了却没人看的字段,已单独立项(不靠本登记项掩盖)。"
+    }
+  ]
+}
