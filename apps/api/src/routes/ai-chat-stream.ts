@@ -15,7 +15,12 @@ import {
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
-import { createMessage, patchConversationMetadata, replaceMessages } from '../db/chat-queries.js'
+import {
+  bindConversationWorkspace,
+  createMessage,
+  patchConversationMetadata,
+  replaceMessages,
+} from '../db/chat-queries.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import {
   generateSemanticSummary,
@@ -609,6 +614,22 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         metadata,
       } = parsed.data
       const resolvedModel = model ?? modelId
+
+      // G-165:把"这次对话绑哪个工作区"记进会话 metadata,供异步回调侧查**服务端自己的**
+      // 权限记录给助手消息盖章(web 档位徽章因此可跨刷新/跨端存在)。
+      // 幂等(值没变不写),且绝不阻塞流式主链路 —— 失败只 warn。
+      if (workspacePath && metadata?.conversationId && request.userId) {
+        void bindConversationWorkspace(
+          metadata.conversationId,
+          request.userId,
+          workspacePath,
+        ).catch((e: unknown) => {
+          request.log.warn(
+            { err: e instanceof Error ? e.message : String(e) },
+            '[permission-stamp] 会话工作区绑定失败(不阻塞对话)',
+          )
+        })
+      }
 
       // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
       // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源

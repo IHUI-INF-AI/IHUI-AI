@@ -61,6 +61,12 @@ export interface ChatMessageMetadata {
    *  来源:ai-service plan_updated 同源快照 → /api/ai/callback → worker 浅合并落库;
    *  消费:web 历史水合映射回 message.planSteps(缺失 = 老消息,安静降级) */
   planSteps?: Array<Record<string, unknown>>
+  /** permissionMode(G-165 立):这条回答生成时**服务端自己的**权限档记录。
+   *  来源:ai-callback 侧按 会话 metadata.workspacePath → workspace_permissions 反查后盖章
+   *  (不采信客户端自报);拼写是 wire(kebab)值,与 @ihui/types/permission-mode 同源。
+   *  消费:web 历史水合映射回 message.permissionMode(徽章跨刷新/跨端可见),
+   *  小程序/RN 亦按同一 key 渲染档位行 —— 缺失 = 老消息或未绑定工作区,安静降级。 */
+  permissionMode?: string
   [key: string]: unknown
 }
 

@@ -6,7 +6,7 @@
 
 规范档:default / acceptEdits / bypassPermissions / plan / manual
 (TS 侧 packages/types/src/permission-mode.ts,Python 侧 app/core/permission_mode.py,
- 两侧由 guardian 第 67 项对账)。历史拼写 auto / accept-edits / read-only /
+ 两侧由 guardian 第 68 项对账)。历史拼写 auto / accept-edits / read-only /
  plan-only / accept-all 在边界归一,不再各说各话。
 
 对标 Claude Code permission modes:
