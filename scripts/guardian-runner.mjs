@@ -1475,6 +1475,30 @@ const checks = [
     args: ['--staged'],
     mode: 'blocking',
   },
+  // 整树删除事故的结构化拦截(2026-09-22 立)。同类事故已真实发生两次:
+  //   1ec8c7f0f3 / 05f049ba09 各带着"被清空的索引"提交,一次删掉 11,607 / 11,640 个文件,
+  //   事后各需一次索引层重建前向修复。当时**没有任何提交前闸**,只有事后人肉
+  //   `git ls-tree -r HEAD | wc -l`。本条把它变成结构性不可能。
+  // 判据:索引相对 HEAD 缺失 ≥1000 个文件,或缺失 ≥20% → 拦截;应急 IHUI_ALLOW_MASS_DELETION=1。
+  // 不加 stagedTriggers —— 恰恰在"暂存区被清空"时最需要它跑,任何提交都不得跳过。
+  {
+    id: '65',
+    label: '🧹 整树删除拦截(blocking,索引 vs HEAD 文件存续性)',
+    script: 'check-mass-deletion.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MASS_DELETION_GUARD',
+    onFailHint: [
+      '',
+      '  💡 索引相对 HEAD 大面积缺文件 = 提交会把它们从版本树里删掉。',
+      '     先分清成因(禁止用 reset --hard 抢救,那会连带抹掉并发会话的工作区改动):',
+      '       ① git ls-files | wc -l  与  git ls-tree -r HEAD | wc -l  差距大 → 索引被清空过',
+      '          (`git rm -r --cached .` 后未重加 / lint-staged 中断 / 索引被外部工具打残);',
+      '       ② 确属有意的大规模删除 → 影响范围写进提交信息,再 IHUI_ALLOW_MASS_DELETION=1;',
+      '       ③ 已经误提交 → 走索引层重建前向修复(见 PROJECT_PLAN 两次先例)。',
+      '     单独复验:node scripts/check-mass-deletion.mjs',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
