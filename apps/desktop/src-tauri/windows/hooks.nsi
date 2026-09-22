@@ -30,6 +30,8 @@
 ; 卸载清理:完成页"开机自动启动"写入的 HKCU Run 值
 ; (值名与 ihui-ui.nsi IHUI_RUNVALUE 一致,改动必须同步)
 !macro NSIS_HOOK_POSTUNINSTALL
+  ; 卸载进度末段(埋点 20/45/65/85 见模板 U 系列补丁,此处收口到 95%)
+  !insertmacro IHUI_UNPROGRESS 95 "正在完成卸载"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
 !macroend
 
