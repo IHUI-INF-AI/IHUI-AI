@@ -52,8 +52,7 @@ const wantHelp = argv.includes('--help') || argv.includes('-h')
  */
 function extractAdapterBindings(code) {
   const bindings = new Set()
-  const clauseRe =
-    /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g
+  const clauseRe = /(?:import|export)\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g
   for (const m of code.matchAll(clauseRe)) {
     if (!m[2].includes('adapters')) continue
     for (const raw of m[1].split(',')) {
@@ -122,7 +121,7 @@ function readBaseline() {
 function main() {
   if (wantHelp) {
     console.log(
-      '用法: node scripts/check-adapter-wiring.mjs [--update-baseline|--quiet|--self-test|--help]'
+      '用法: node scripts/check-adapter-wiring.mjs [--update-baseline|--quiet|--self-test|--help]',
     )
     return 0
   }
@@ -138,7 +137,7 @@ function main() {
     writeFileSync(
       BASELINE_PATH,
       `${JSON.stringify({ unwiredAdapters: [...unwired].sort() }, null, 2)}\n`,
-      'utf8'
+      'utf8',
     )
     console.log(`✅ 基线已收紧:${unwired.length} 个未接线条目写入 ${relative(ROOT, BASELINE_PATH)}`)
     return 0
@@ -147,7 +146,7 @@ function main() {
   if (!quiet) {
     console.log('[check-adapter-wiring] adapter 层接线基线守门...')
     console.log(
-      `  适配器 ${adapters.length} 个 | 已接线 ${wired.length} | 未接线 ${unwired.length}`
+      `  适配器 ${adapters.length} 个 | 已接线 ${wired.length} | 未接线 ${unwired.length}`,
     )
   }
 
@@ -164,9 +163,7 @@ function main() {
     return 1
   }
 
-  console.log(
-    `[PASS] RULE-1: 无新增未接线适配器(存量 ${unwired.length} 处基线内放行,只减不增)`
-  )
+  console.log(`[PASS] RULE-1: 无新增未接线适配器(存量 ${unwired.length} 处基线内放行,只减不增)`)
   if (stale.length) {
     console.warn(`⚠️  RULE-2: 基线中已不存在的条目 ${stale.length} 个: ${stale.join(', ')}`)
     console.warn('   已接线或已删除,建议 node scripts/check-adapter-wiring.mjs --update-baseline')
@@ -184,33 +181,29 @@ export function __selfTest() {
   assert(
     'barrel 具名 import 算接线',
     names("import { SectionHeader } from '@/components/adapters'"),
-    'SectionHeader'
+    'SectionHeader',
   )
   assert(
     'type import 算接线',
     names("import type { SelecterProps } from '@/components/adapters'"),
-    'SelecterProps'
+    'SelecterProps',
   )
   assert('as 别名取原名', names('import { TabBar as TB } from "./adapters"'), 'TabBar')
   assert(
     '默认导入(含 adapters 路径)算接线',
     names("import PayButton from '@/components/adapters/PayButton.taro'"),
-    'PayButton'
+    'PayButton',
   )
   assert(
     '端内同名自有组件的 import 不算适配器接线(防假阳性)',
     names("import { NavBar } from '@/components/NavBar'"),
-    ''
+    '',
   )
-  assert(
-    '注释里的组件名不算接线',
-    names('const x = 1 // 对齐 RN SettingsScreen 的 container'),
-    ''
-  )
+  assert('注释里的组件名不算接线', names('const x = 1 // 对齐 RN SettingsScreen 的 container'), '')
   assert(
     'JSX 注释里的组件名不算接线',
     names('{/* 对齐 RN MessageCenterScreen listBody */}\nexport default function P(){return null}'),
-    ''
+    '',
   )
   const bad = results.filter((r) => !r.ok)
   for (const r of results) {
