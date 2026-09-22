@@ -37,7 +37,7 @@
 | 8808 | Extension(预留) | apps/extension | — | — |
 | 8809 | API 私有验证实例(O17 外部 Agent 接入端到端证明,临时只读探测用;库指向隔离 `ihui_e2e`、Redis 走 db12,不占 `apps/api/.env`) | apps/api | 启动时环境变量 `PORT=8809` | ✅ |
 
-> 8806 现由 mobile-rn 的 Expo Web 预览占用(在浏览器打开手机 App:`cd apps/mobile-rn && node node_modules\expo\bin\cli start --web --port 8806`,须显式覆盖 `EXPO_PUBLIC_API_BASE_URL`,否则继承用户级变量直连生产而被浏览器 CORS 拦死)。原占用者 Desktop 已废弃,见上一行说明。
+> 8806 = mobile-rn 的 Expo Web 预览(浏览器打开手机 App),由 `scripts/dev-stack.mjs` 作为可选服务 `web-preview` 常驻托管:API 出口固定指向 8807 反代,若继承本机用户级 `EXPO_PUBLIC_API_BASE_URL=https://aizhs.top` 会被浏览器 CORS 拦死(表现为顶部「网络已断开」红条)。原占用者 Desktop 已废弃,见上一行说明。
 
 ### 2.2 基础设施(8810-8819)
 
