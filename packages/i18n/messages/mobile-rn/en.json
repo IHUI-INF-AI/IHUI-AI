@@ -370,12 +370,6 @@
     "planStatusInProgress": "In Progress",
     "planStatusCompleted": "Completed",
     "terminalTasks": "Terminal Tasks",
-    "citationTitle": "Sources",
-    "injectionTitle": "Context used in this turn",
-    "injectionKindDeveloper": "Custom instructions",
-    "injectionKindWorkspace": "Workspace memory",
-    "injectionKindRepoWiki": "Repository wiki",
-    "injectionKindAutoContext": "Auto-retrieved context",
     "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
@@ -500,6 +494,14 @@
       "message": "Screenshot generated",
       "shareBtn": "Share"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "Sources",
+    "injectionTitle": "Context used in this turn",
+    "kindDeveloper": "Custom instructions",
+    "kindWorkspace": "Workspace memory",
+    "kindRepoWiki": "Repository wiki",
+    "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
     "title": "Developer Portal",
@@ -2503,5 +2505,30 @@
     "statusSuccess": "Success",
     "statusPartial": "Partial",
     "statusFailed": "Failed"
+  },
+  "permissionTier": {
+    "label": "Permission tier",
+    "mode": {
+      "default": {
+        "title": "Default mode",
+        "desc": "Every action requires manual approval; safest"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Only reading and search allowed; file writes and commands are denied"
+      },
+      "accept-edits": {
+        "title": "Accept edits",
+        "desc": "Allowlisted actions run automatically; anything else asks first"
+      },
+      "bypass-permissions": {
+        "title": "Bypass permissions",
+        "desc": "Full access with no confirmations (high risk)"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as default"
+      }
+    }
   }
 }

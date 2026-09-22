@@ -28,7 +28,7 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 26)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 28)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
@@ -433,5 +433,26 @@ test('Python:F 的关键词与 dump 必须同行配对(实测 cnblogs 等 3 处�
 test('Python:# 注释行不得成为错误构造上下文(等价于 JS 的 // 豁免)', () => {
   const lines = ['# raise ProviderError(f"oauth token failed: {json.dumps(body)}")', 'x = 1']
   assert.deepEqual(G.findErrorContexts(lines), [])
+})
+
+test('F 通道②:两行式(上一行取体、下一行拼消息)必须命中,推荐修法必须归绿', () => {
+  const twoLine =
+    'const result = (await resp.json()) as TencentStsResponse\n' +
+    'const creds = result.Response?.Credentials\n' +
+    'if (!creds) {\n' +
+    '  const errMsg = result.Response?.Error?.Message ?? JSON.stringify(result)\n' +
+    '  throw new Error(`腾讯云 STS AssumeRole 失败: ${errMsg}`)\n' +
+    '}'
+  const r = G.scanSource(twoLine, 'apps/api/src/services/oss-sts-service.ts')
+  assert.equal(r.violations.length, 1, 'dump 与关键词分行时仍须咬住(腾讯云实测形状)')
+  assert.match(r.violations[0].evidence, /assumerole:result\(via errMsg\)/, '证据须点名变量链')
+
+  const fixed = twoLine
+    .replace(
+      '  const errMsg = result.Response?.Error?.Message ?? JSON.stringify(result)\n',
+      "  const code = result.Response?.Error?.Code ?? 'no_error_code'\n",
+    )
+    .replace('${errMsg}', '${code}')
+  assert.equal(G.scanSource(fixed, 'apps/api/src/services/oss-sts-service.ts').violations.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
