@@ -141,7 +141,7 @@
                   │
 ┌─────────────────▼───────────────────────┐
 │ 数据层(高可用集群)                       │
-│ - PostgreSQL 16 + 时序库 + Redis 7      │
+│ - PostgreSQL 18 + 时序库 + Redis 7      │
 │ - 浮动车 + 卡口历史 + GIS               │
 └─────────────────────────────────────────┘
 ```
@@ -150,7 +150,7 @@
 
 ### 智汇 AI 端到端能力(8 端覆盖)
 - **Web**(Next.js 16 + React 19):交通指挥大屏
-- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 16):实时路况接口
+- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):实时路况接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):多 Agent 协同
 - **桌面端**(Tauri 2):应急指挥工作站
 - **扩展**(WXT):地图侧实时信息
@@ -160,7 +160,7 @@
 
 ### 技术栈
 - 前端:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service:FastAPI + LangGraph + LiteLLM + MCP
 - 多端:Tauri 2 (桌面) / WXT (扩展) / React Native (移动) / Taro 4 (小程序) / Node.js CLI
 - 实时流:Kafka / Apache Flink
@@ -185,7 +185,7 @@
 | 平均回本周期 | 6 月 |
 | 12 月 ROI | 220% |
 
-(测试环境:企业版中型部署,3 节点,PostgreSQL 16,Redis 7,Kafka)
+(测试环境:企业版中型部署,3 节点,PostgreSQL 18,Redis 7,Kafka)
 
 ### 常见问题 FAQ
 - Q:数据延迟如何保证?
