@@ -241,6 +241,14 @@ function TerminalTaskItem({
           </View>
         </View>
       ) : null}
+      {/* 后端只下发截断后的文本,复制按钮拿到的也只是这段 → 必须交代原始长度 */}
+      {task.truncated ? (
+        <Text className="ai-card-term-truncated">
+          {t('ai.cards.terminal.truncated', {
+            total: task.totalChars ?? task.output?.length ?? 0,
+          })}
+        </Text>
+      ) : null}
       {task.status === 'failed' ? (
         <Text className="ai-card-term-error">
           {t('ai.cards.terminal.exitCode', { code: task.exitCode ?? 1 })}
