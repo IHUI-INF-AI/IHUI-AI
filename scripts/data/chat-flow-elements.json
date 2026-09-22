@@ -237,6 +237,10 @@
           "mustMatch": "readCitationsFromMetadata"
         },
         {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "meta?.citations"
+        },
+        {
           "file": "packages/api-client/src/client.ts",
           "mustMatch": "onCitations"
         },
@@ -368,6 +372,10 @@
         {
           "file": "apps/web/src/hooks/use-chat/history-message.ts",
           "mustMatch": "readInjectionsFromMetadata"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "meta?.injections"
         },
         {
           "file": "packages/api-client/src/client.ts",
