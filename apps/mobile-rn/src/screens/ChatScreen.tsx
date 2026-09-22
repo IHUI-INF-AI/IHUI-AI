@@ -120,6 +120,14 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
+// G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
+import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
+import {
+  appendCitationFrames,
+  applyInjectionFrame,
+  type MessageCitation,
+  type MessageInjection,
+} from '../utils/chat-render-model'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
@@ -184,6 +192,9 @@ interface ModelTypeConfig {
  */
 interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
   reasoning?: string
+  /** G-166 交代区:本轮引用来源 / 带了哪些上下文(与 @ihui/shared ChatMessage 同一形状) */
+  citations?: MessageCitation[]
+  injections?: MessageInjection[]
 }
 
 /**
@@ -206,6 +217,9 @@ const toChatScreenMessage = (m: ChatMessage): ChatScreenMessageWithReasoning => 
   content: m.content,
   // 推理过程随消息一起透传(历史/流式消息均可能带 reasoning,渲染思考过程展开块用)
   reasoning: m.reasoning,
+  // G-166:交代字段同样透传(历史消息由 metadata 水合,流式消息由 SSE 回调累积)
+  citations: m.citations,
+  injections: m.injections,
 })
 
 const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
@@ -663,6 +677,42 @@ export function ChatScreen() {
         } else {
           showToast('error', formatted.message)
         }
+      },
+      // G-166:交代帧在本屏此前 0 注册 —— 后端发了 citations / injection_applied,
+      // 端内回调表不认这两个 type 就什么都看不到(与"parser 有帧 ≠ 端内显示"同因)。
+      // 累积口径与 N8n 屏一致:引用**追加+去重**(整替会抹掉流首那批),注入按 kind 幂等追加。
+      onCitations: (event) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = {
+              ...last,
+              citations: appendCitationFrames(
+                last.citations,
+                (event.citations ?? []).map((x) => ({
+                  source: x.source,
+                  label: x.label,
+                  ...(typeof x.url === 'string' ? { url: x.url } : {}),
+                })),
+              ),
+            }
+          }
+          return next
+        })
+      },
+      onInjectionApplied: (event) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = {
+              ...last,
+              injections: applyInjectionFrame(last.injections, event),
+            }
+          }
+          return next
+        })
       },
       onDone: () => {
         setIsStreaming(false)
@@ -1477,6 +1527,15 @@ export function ChatScreen() {
                 )}
               </View>
             ) : null}
+            {/* G-166 交代区:本轮引用来源 + 带了哪些上下文(与 N8n 屏同一共享组件) */}
+            {isFailed ? null : (
+              <InjectionDisclosure
+                items={(item as ChatScreenMessageWithReasoning).injections ?? []}
+              />
+            )}
+            {isFailed ? null : (
+              <CitationList items={(item as ChatScreenMessageWithReasoning).citations ?? []} />
+            )}
           </View>
         </View>
       )
@@ -1781,13 +1840,48 @@ export function ChatScreen() {
     async (id: string): Promise<void> => {
       const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
       if (res.success) {
-        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => ({
-          id: `${m.id}-${idx}`,
-          role: m.role,
-          content: m.content,
-          // 历史消息思考过程透传(chat_messages.reasoning,供思考过程展开块渲染)
-          reasoning: m.reasoning,
-        }))
+        const loaded: ChatMessage[] = res.data.messages.map((m, idx) => {
+          // G-166:服务端已把引用/注入交代随回调落库(metadata),此前本屏只读
+          // id/role/content/reasoning → 重进历史会话时交代区整段消失。逐条类型守卫:
+          // 脏条目单条丢弃,缺 url 不造"点不动的假链接"。
+          const meta = m.metadata as { citations?: unknown; injections?: unknown } | null
+          const citations = Array.isArray(meta?.citations)
+            ? (meta?.citations as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.source === 'string' && typeof c.label === 'string'
+                  ? [
+                      {
+                        source: c.source,
+                        label: c.label,
+                        ...(typeof c.url === 'string' && c.url ? { url: c.url } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const injections = Array.isArray(meta?.injections)
+            ? (meta?.injections as Array<Record<string, unknown>>).flatMap((x) =>
+                typeof x?.kind === 'string' && typeof x.collapsed === 'string'
+                  ? [
+                      {
+                        kind: x.kind,
+                        collapsed: x.collapsed,
+                        ...(typeof x.fullText === 'string' ? { fullText: x.fullText } : {}),
+                        ...(typeof x.count === 'number' ? { count: x.count } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          return {
+            id: `${m.id}-${idx}`,
+            role: m.role,
+            content: m.content,
+            // 历史消息思考过程透传(chat_messages.reasoning,供思考过程展开块渲染)
+            reasoning: m.reasoning,
+            ...(citations && citations.length > 0 ? { citations } : {}),
+            ...(injections && injections.length > 0 ? { injections } : {}),
+          }
+        })
         setMessages(loaded)
         setPrompt('')
         setMaterialCards([])
