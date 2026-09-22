@@ -371,6 +371,7 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "執行中",
     "terminalTasks": "終端任務",
+    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
     "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
     "toolArgs": "參數",
     "toolCalls": "工具調用",
