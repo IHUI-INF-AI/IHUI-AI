@@ -3,6 +3,7 @@
     "notFound": "{target} が見つかりません"
   },
   "cli": {
+    "citationSources": "参考元：{sources}",
     "injectionApplied": "このターンで参照したコンテキスト：{sources}",
     "injectionSrcDeveloper": "カスタム指示",
     "injectionSrcWorkspace": "ワークスペースメモリ",
