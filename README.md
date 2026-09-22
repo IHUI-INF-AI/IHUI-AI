@@ -2715,11 +2715,13 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 详细清单见 [核心能力 E4 节](#e4-工程守门30-pre-commit--post-commit--11-迁移审计)。
 
-### 新增守门示例:第 64 项「适配层未接线即拦」(2026-09-22)
+### 新增守门示例:第 64 / 66 项「适配层未接线即拦」与「硬编码颜色基线」(2026-09-22)
 
-`scripts/check-adapter-wiring.mjs` 要求 `apps/miniapp-taro/src/components/adapters/*.taro.tsx` 必须被适配层**目录之外**的源文件从 adapters 路径 import,否则阻塞提交;存量未接线项落在 `scripts/adapter-wiring-baseline.json` 基线内放行,**只减不增**。
+`scripts/check-adapter-wiring.mjs`(第 64 项)要求 `apps/miniapp-taro/src/components/adapters/*.taro.tsx` 必须被适配层**目录之外**的源文件从 adapters 路径 import,否则阻塞提交;`scripts/adapter-style-parity-baseline.json` 同族的硬编码颜色门(第 66 项)此前**只挂在 `check:all`,从未进 pre-commit 链路**,本次一并注册。两者基线均**只减不增**,且共用 `stagedTriggers=['apps/miniapp-taro/src/components/adapters/']` 避免无关提交背成本。
 
-**成因**:此前 18 个适配器中的 9 个屏级文件(共 3078 行)从写下到删除始终零页面引用——既有 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import",所以"造好没装车"这类死代码无闸可挡。判据必须限定 import 的 specifier,否则端内同名自有组件(如 `components/NavBar.tsx`)会造成假阳性,把死适配器误判为已接线。
+**成因**:18 个适配器中有 9 个屏级文件(3078 行)从写下到删除始终零页面引用,而旧颜色门只守 hex/rgb、不守"是否被 import",所以"造好没装车"这类死代码无闸可挡。判据必须限定 import 的 specifier,否则端内同名自有组件(如 `components/NavBar.tsx`)会造成假阳性,把死适配器误判为已接线。
+
+**同日三批清理合计移除 4662 行零引用死代码**(一批 9 屏 3078 + 二批 PayButton/TabBar/Toolbar 与端内孤儿 PayButton 953 + 三批 Carousel/NavBar/UserInfoCard 631),适配层降至 **3 个且全部已接线**,第 64 项基线清零为**零豁免硬门**。三批的判据是一条可复用教训:**同名 + 有消费点都不构成"重复",必须逐字段比 props 契约**——`Carousel` 端内独有的 `variant='course'` + `courseMeta`、`NavBar` 端内独有的 `notification` / `variant='ai-home'`,接适配器上去就是静默掉功能。
 
 ---
 
