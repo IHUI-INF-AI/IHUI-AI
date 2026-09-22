@@ -228,6 +228,9 @@ report.json
 _tmp-*
 _tmp_*.html
 
+# Tauri 桌面端自动更新器下载落盘的安装包(2026-09-22:仓库根 downloads/ 出现 12MB setup.exe+sig+latest.json,纯本地产物)
+/downloads/
+
 # Agent 调试日志/审计产物(2026-07-22 立:apps/web + 根目录散落 150+ .log 文件回潮)
 *.log
 .dev-server*.log
