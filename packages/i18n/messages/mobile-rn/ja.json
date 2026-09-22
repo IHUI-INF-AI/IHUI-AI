@@ -371,6 +371,7 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "実行中",
     "terminalTasks": "ターミナルタスク",
+    "citationTitle": "参考元",
     "injectionTitle": "今回の回答で参照したコンテキスト",
     "injectionKindDeveloper": "カスタム指示",
     "injectionKindWorkspace": "ワークスペースメモリ",

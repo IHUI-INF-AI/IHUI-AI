@@ -371,6 +371,7 @@
     "terminalStatusFailed": "실패",
     "terminalStatusRunning": "실행 중",
     "terminalTasks": "터미널 작업",
+    "citationTitle": "참조 출처",
     "injectionTitle": "이번 응답에서 참조한 컨텍스트",
     "injectionKindDeveloper": "사용자 지정 지침",
     "injectionKindWorkspace": "워크스페이스 기억",

@@ -371,6 +371,7 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "執行中",
     "terminalTasks": "終端任務",
+    "citationTitle": "參考來源",
     "injectionTitle": "本輪參考的上下文",
     "injectionKindDeveloper": "自訂指令",
     "injectionKindWorkspace": "工作區記憶",
