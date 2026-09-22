@@ -14,6 +14,7 @@
     "injectionSrcWorkspace": "ワークスペースメモリ",
     "injectionSrcRepoWiki": "リポジトリ Wiki",
     "injectionSrcAutoContext": "{count} 件の検索コンテキスト",
+    "retryHint": "↑ で前回の質問を呼び出して再送信できます",
     "retryScheduled": "上流が一時的に利用できません：{attempt}/{max} 回目を {seconds} 秒後に再試行",
     "retryScheduledNow": "上流が一時的に利用できません：{attempt}/{max} 回目を直ちに再試行",
     "sessionResumed": "最近のセッションを復元: {id} ({count, plural, =0 {履歴なし} other {# 件の履歴}})",
