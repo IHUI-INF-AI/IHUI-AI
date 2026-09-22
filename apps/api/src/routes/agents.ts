@@ -168,6 +168,21 @@ const updateNeedTaskSchema = z.object({
 // 包含：agents CRUD / categories 分类 / settlement 结算 / examine 审核 / oauth-apps
 // =============================================================================
 
+/**
+ * /api/agents/<seg> 里的**静态子路由**段名:它们不是 agentId,必须保持鉴权,
+ * 不能被"公开详情"的兜底正则吞掉(见 preHandler 内 2026-09-23 注释)。
+ * 新增 /agents/<静态段> 的 GET 路由时必须同步登记到这里,否则会被当成游客详情放行。
+ */
+const AGENTS_PROTECTED_STATIC_SEGMENTS = new Set([
+  'health',
+  'list',
+  'my',
+  'need-tasks',
+  'stats',
+  'categories',
+  'manage',
+])
+
 export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     // 2026-07-21 安全审计加固:/callback/* 走 HMAC 签名校验,不走 JWT 鉴权
@@ -184,13 +199,18 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 详情 /agents/:agentId 的 GET 对游客开放(桌面端/首页未登录点进市场不再 401)。
     // 有有效登录态则照常注入 userId(完整视图);无凭据/凭据失效则静默按游客处理,
     // 由各 handler 强制"仅 published + sanitizePublicAgent 脱敏"。
-    // 注意:/agents/my 命中详情正则但 handler 自带未登录 401,行为不变。
+    //
+    // 2026-09-23 安全修正:详情**不得**用 `[^/]+` 兜底正则 —— 它会把 /agents/health、
+    // /agents/need-tasks、/agents/my 等静态子路由一并判成"公开详情"。其中 need-tasks 的
+    // handler 依赖 request.userId,游客走到它不是 401 而是 500(fail-open 到崩溃)。
+    // 静态段一律回到"必须鉴权",公开面只保留下面显式列出的路径 + 真正的 agentId 详情。
+    const detailMatch = /^\/api\/agents\/([^/]+)$/.exec(url)
     const isMarketPublicGet =
       request.method === 'GET' &&
       (url === '/api/agents' ||
         url === '/api/agents/list' ||
         url === '/api/categories/list' ||
-        /^\/api\/agents\/[^/]+$/.test(url))
+        (detailMatch !== null && !AGENTS_PROTECTED_STATIC_SEGMENTS.has(detailMatch[1] ?? '')))
     if (isMarketPublicGet) {
       try {
         await authenticate(request)
