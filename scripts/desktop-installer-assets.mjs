@@ -2,28 +2,36 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /* eslint-disable no-console -- 资产生成脚本为 CLI 工具,需 console 输出诊断信息 */
 // 桌面端 NSIS 安装器品牌视觉资产生成器。
 //
 // 产出(scale ∈ {1, 1.25, 1.5, 1.75, 2},对应 Windows 标准缩放 100%/125%/150%/175%/200%):
 //   installer-assets/assets-100|125|150|175|200/
-//     splash.bmp + splash1..7.bmp   开屏动画帧(AdvSplash 多帧序列,640x360 逻辑尺寸)
-//     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp   四个向导页满幅背景(880x600 逻辑)
-//     btn-*.bmp                     扁平位图按钮(主 CTA / 幽灵按钮 / 快捷方式开关)
+//     splash.bmp + splash1..15.bmp  开屏动画帧(AdvSplash 多帧序列,720x450 逻辑尺寸)
+//     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp / reinstall.bmp  五个向导页满幅背景(880x600 逻辑)
+//     btn-*.bmp                     位图按钮(主 CTA / 幽灵按钮 / 裸文字链接钮 / 快捷方式开关 / 窗口钮)
 //   windows/ihui-assets-path.nsh    资产根目录 define(ihui-ui.nsi 编译期 File 嵌入用)
 //   供 ihui-ui.nsi 在运行时按窗口 DPI 挑选对应档位从 $PLUGINSDIR 加载。
 //
-// 设计系统(2026-09-19 用户定稿:黑色主调 · 极简黑白杂志风,与 web 端 design-tokens 暗色模式统一):
+// 设计语言「墨光 · Ink Aurora」(2026-09-22 改版,取代 2026-09-19 的纯黑白杂志风):
+//   左侧 248px 品牌导轨(导轨底 = .dark --color-brand-accent-light #1e2e36)+ 四步进度指示器,
+//   内容区靠品牌灰蓝渐变(--color-brand-accent-grad-from → -grad-to)做唯一点缀色。
+//   导轨 + 步骤条是"去原生向导感"的主手段:页面身份、当前进度、版本号常驻同一视觉锚点,
+//   不再依赖 NSIS 经典的"上一步/下一步"底栏语义。
+//
 //   所有取值直接映射 @ihui/design-tokens tokens.css 暗色块(.dark),禁止自造色值:
-//   bg #242424(.dark --color-background hsl(0 0% 14%)) · card #1A1A1A(.dark --color-card)
-//   主文字 #FAFAFA(--color-foreground) · 正文 #D4D4D4(--color-text-medium)
-//   次级 #737373(--color-text-tertiary) · 描边 #525252(.dark --color-border-medium)
-//   CTA 纯白底黑字(.dark --color-primary/--color-primary-foreground,2026-07-24 用户定稿)
-//   唯一圆角 token:--global-border-radius = 8px(按钮/容器/窗口四角统一 8px)
-//   按钮高度唯一档位(web <Button> size 表):CTA lg = h-10 40px · 输入框 sm = h-8 32px
+//   bg #242424(--color-background) · card #1A1A1A(--color-card) · rail #1e2e36(--color-brand-accent-light)
+//   主文字 #FAFAFA · 正文 #D4D4D4 · 次级 #737373 · 描边 #525252 · 轨道 #3D3D3D
+//   accent #a3c4d6 / accent 前景 #16262e / 渐变 #b8d4e3→#a3c4d6 / tint 16% · 32%
+//   CTA 纯白底黑字(.dark --color-primary / --color-primary-foreground)
+//   唯一圆角 token:--global-border-radius = 8px(导轨步骤标记/按钮/输入容器/窗口四角统一 8px)
+//   按钮高度唯一档位(web <Button> size 表):CTA/浏览 lg = h-10 40px · 输入框 sm = h-8 32px
 //   开关 Switch = h-7 28px(与 web <Switch size="lg"> 逐像素对齐,见 switchScene)
-// 渲染管线:SVG(内嵌 icon.png 抠底 logo,系统字体微软雅黑) → sharp → RGB raw → 24bit BMP
+//   渲染管线:SVG(内嵌 icon.png 抠底 logo,系统字体微软雅黑) → sharp → RGB raw → 24bit BMP
+//
+// ⚠️ 版面几何(W/H/RAIL_W/C_L/C_R/BTN_Y/CTA_X/进度条与百分比槽位)与
+//    apps/desktop/src-tauri/windows/ihui-ui.nsi 的运行期控件坐标严格一一对应。
+//    改任何一处必须同步另一处,并跑 node scripts/check-installer-assets.mjs 对账。
 //
 // 用法:
 //   node scripts/desktop-installer-assets.mjs            # 生成资产(输出 BMP + %TEMP% PNG 预览)
@@ -48,23 +56,68 @@ const VERSION = JSON.parse(readFileSync(join(ROOT, 'apps/desktop/package.json'),
 // ---- 设计令牌(全部映射 @ihui/design-tokens tokens.css 暗色块,勿自造值) ----
 
 const C = {
-  bg: '#242424', // 页面底(.dark --color-background hsl(0 0% 14%))
-  card: '#1A1A1A', // 容器/面板(.dark --color-card hsl(0 0% 10%))
+  bg: '#242424', // 内容区底(.dark --color-background hsl(0 0% 14%))
+  card: '#1A1A1A', // 容器/输入框(.dark --color-card hsl(0 0% 10%))
+  rail: '#1e2e36', // 左侧品牌导轨(.dark --color-brand-accent-light)
   ink: '#FAFAFA', // 主文字(.dark --color-foreground)
   inkSoft: '#D4D4D4', // 正文(.dark --color-text-medium)
   muted: '#737373', // 次级文字(.dark --color-text-tertiary)
-  hairline: '#3D3D3D', // 细分隔线(white-10 于 bg 上合成)
-  ghost: '#2E2E2E', // 巨号页码水印
+  hairline: '#3D3D3D', // 次级线/进度轨道底(white-10 于 bg 上合成)
   primary: '#FFFFFF', // CTA 底(.dark --color-primary 纯白)
   primaryInk: '#000000', // CTA 文字(.dark --color-primary-foreground 纯黑)
   btnStroke: '#525252', // 幽灵按钮/容器描边(.dark --color-border-medium)
-  toggleOffTrack: '#2E2E2E', // 开关 off 轨道(旧胶囊方案遗留,已废弃)
-  toggleOffKnob: '#737373', // 开关 off 圆钮(旧胶囊方案遗留,已废弃)
-  accent: '#a3c4d6', // 高级灰蓝(.dark --color-brand-accent,Switch ON 填充)
+  accent: '#a3c4d6', // 品牌灰蓝(.dark --color-brand-accent)
+  accentInk: '#16262e', // accent 之上的前景(.dark --color-brand-accent-foreground)
+  gradFrom: '#b8d4e3', // 品牌渐变起(.dark --color-brand-accent-grad-from)
+  gradTo: '#a3c4d6', // 品牌渐变止(.dark --color-brand-accent-grad-to)
+  tint: 'rgba(163, 196, 214, 0.16)', // .dark --color-brand-accent-tint
+  tintStrong: 'rgba(163, 196, 214, 0.32)', // .dark --color-brand-accent-tint-strong
 };
 // 唯一圆角 token:web --global-border-radius = 8px(AGENTS.md 圆角梯度 rounded-lg)
 const RADIUS = 8;
 const FONT = 'Microsoft YaHei UI, Microsoft YaHei, PingFang SC, sans-serif';
+
+// ---- 版面几何(逻辑像素,100% 档;与 ihui-ui.nsi 运行期控件坐标一一对应) ----
+const W = 880;
+const H = 600;
+const RAIL_W = 248; // 品牌导轨宽
+const C_L = 288; // 内容区左界(导轨右缘 + 40 内边距)
+const C_R = 832; // 内容区右界
+const C_W = C_R - C_L; // 544 内容宽
+const BTN_Y = 500; // 底栏按钮行上沿(h-10=40 → 500..540)
+const BTN_H = 40;
+const CTA_W = 144;
+const CTA_X = C_R - CTA_W; // 688
+const CANCEL_W = 96;
+const WIN_SIZE = 36; // 窗口钮边长
+const WIN_MIN = [776, 20]; // 最小化钮槽位
+const WIN_CLOSE = [820, 20]; // 关闭钮槽位
+// 步骤导轨:4 步,首个标记上沿 168,步距 66
+const STEP_Y0 = 168;
+const STEP_GAP = 66;
+const STEPS = [
+  ['01', '欢迎', 'WELCOME'],
+  ['02', '安装位置', 'LOCATION'],
+  ['03', '正在安装', 'PROGRESS'],
+  ['04', '完成', 'DONE'],
+];
+// 安装页进度几何(与 ihui-ui.nsi IHUIInstShow 的进度条/百分比/阶段槽严格一致)
+const PB_X = C_L;
+const PB_Y = 300;
+const PB_W = C_W;
+const PB_H = 8;
+const PCT_SLOT = [632, 186, 200, 64]; // 百分比大字(运行期 STATIC 右对齐)
+const STAGE_SLOT = [C_L, 322, C_W, 22]; // 阶段文案(运行期 STATIC)
+
+// 品牌渐变定义(每份 SVG 内联一次)
+const GRAD_DEFS = `<defs>
+<linearGradient id="ihg" x1="0" y1="0" x2="1" y2="0">
+<stop offset="0" stop-color="${C.gradFrom}"/><stop offset="1" stop-color="${C.gradTo}"/>
+</linearGradient>
+<linearGradient id="ihgv" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="${C.gradFrom}"/><stop offset="1" stop-color="${C.gradTo}"/>
+</linearGradient>
+</defs>`;
 
 // ---- logo:icon.png 黑底 → 以亮度生成 alpha,输出透明底 PNG dataURI ----------
 
@@ -97,123 +150,219 @@ function esc(s) {
 }
 
 function svgDoc(w, h, body) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 880 600">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+${GRAD_DEFS}
 ${body}
 </svg>`;
 }
 
-// 巨号页码水印(杂志页码,超浅灰,置于版面右上)
-function ghostNumeral(n) {
-  return `<text x="816" y="268" font-family="${FONT}" font-size="200" font-weight="700" fill="${C.ghost}" text-anchor="end">${n}</text>`;
+// 页面用 880x600 画布(svgDoc 的 viewBox 即逻辑尺寸,再由 sharp 按 DPI 档缩放)
+function page(body) {
+  return svgDoc(W, H, body);
 }
 
-// 小节引导标签(字距拉开,杂志 kicker)
+// 小节引导标签(字距拉开,品牌灰蓝)
 function kicker(x, y, text) {
-  return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="11" fill="${C.muted}" letter-spacing="3">${esc(text)}</text>`;
+  return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="11" fill="${C.accent}" letter-spacing="3">${esc(text)}</text>`;
 }
 
-// 页面公共骨架:黑底 + 顶部品牌行 + 上下 hairline + 页脚
-function pageChrome(logo) {
+// 章节主标题
+function title(x, y, text, size = 34) {
+  return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" font-weight="700" fill="${C.ink}">${esc(text)}</text>`;
+}
+
+// 说明正文
+function body14(x, y, text, fill = C.muted, size = 14) {
+  return `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" fill="${fill}">${esc(text)}</text>`;
+}
+
+// 品牌装饰:同心"墨光"环(仅描边,非容器,不参与任何点击区)
+function auroraRings(cx, cy, r0, opacities) {
+  return opacities
+    .map((o, i) => {
+      const r = r0 + i * 22;
+      const stroke = i === 0 ? C.tintStrong : C.tint;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${stroke}" stroke-width="1.5"/>`;
+    })
+    .join('\n');
+}
+
+// ---- 左侧品牌导轨 -----------------------------------------------------------
+// active = 当前步索引(0..3);小于它的标"已完成",等于它的标"进行中"。
+function rail(logo, active) {
+  const items = STEPS.map(([, zh, en], i) => {
+    const my = STEP_Y0 + i * STEP_GAP;
+    const state = i < active ? 'done' : i === active ? 'active' : 'todo';
+    const marker =
+      state === 'active'
+        ? `<rect x="32" y="${my}" width="26" height="26" rx="${RADIUS}" fill="url(#ihgv)"/>
+<text x="45" y="${my + 18}" font-family="${FONT}" font-size="12" font-weight="700" fill="${C.accentInk}" text-anchor="middle">${String(i + 1).padStart(2, '0')}</text>`
+        : state === 'done'
+          ? `<rect x="32" y="${my}" width="26" height="26" rx="${RADIUS}" fill="${C.tint}" stroke="${C.accent}" stroke-width="1.2"/>
+<text x="45" y="${my + 19}" font-family="${FONT}" font-size="13" font-weight="700" fill="${C.accent}" text-anchor="middle">&#10003;</text>`
+          : `<rect x="32" y="${my}" width="26" height="26" rx="${RADIUS}" fill="none" stroke="${C.btnStroke}" stroke-width="1.2"/>
+<text x="45" y="${my + 18}" font-family="${FONT}" font-size="12" fill="${C.muted}" text-anchor="middle">${String(i + 1).padStart(2, '0')}</text>`;
+    const labelFill = state === 'active' ? C.ink : state === 'done' ? C.inkSoft : C.muted;
+    const subFill = state === 'active' ? C.accent : '#4C5B63';
+    // 连接线:仅在有下一步时画,已完成段用 accent,其余用描边色
+    const link =
+      i < STEPS.length - 1
+        ? `<rect x="44" y="${my + 30}" width="1.5" height="${STEP_GAP - 34}" fill="${i < active ? C.accent : C.btnStroke}"/>`
+        : '';
+    return `${marker}
+${link}
+<text x="70" y="${my + 18}" font-family="${FONT}" font-size="14" font-weight="${state === 'active' ? 700 : 400}" fill="${labelFill}">${esc(zh)}</text>
+<text x="70" y="${my + 33}" font-family="${FONT}" font-size="9" fill="${subFill}" letter-spacing="2">${esc(en)}</text>`;
+  }).join('\n');
+
   return `
-<rect width="880" height="600" fill="${C.bg}"/>
-<image href="${logo}" x="64" y="40" width="36" height="36"/>
-<text x="112" y="58" font-family="${FONT}" font-size="15" font-weight="700" fill="${C.ink}">智汇AI</text>
-<text x="112" y="76" font-family="${FONT}" font-size="9" fill="${C.muted}" letter-spacing="2.5">IHUI AI DESKTOP</text>
-<text x="760" y="58" font-family="${FONT}" font-size="10" fill="${C.muted}" letter-spacing="3" text-anchor="end">安装向导 / SETUP</text>
-<rect x="64" y="96" width="752" height="1" fill="${C.hairline}"/>
-<rect x="64" y="548" width="752" height="1" fill="${C.hairline}"/>
-<text x="64" y="572" font-family="${FONT}" font-size="11" fill="${C.muted}">© 2026 IHUI AI (智汇AI) · 李春川 · aizhs.top</text>
-<text x="816" y="572" font-family="${FONT}" font-size="11" fill="${C.muted}" text-anchor="end">v${VERSION}</text>`;
+<rect x="0" y="0" width="${RAIL_W}" height="${H}" fill="${C.rail}"/>
+<rect x="${RAIL_W - 2}" y="0" width="2" height="${H}" fill="url(#ihgv)" opacity="0.85"/>
+<image href="${logo}" x="32" y="32" width="40" height="40"/>
+<text x="84" y="51" font-family="${FONT}" font-size="16" font-weight="700" fill="${C.ink}">智汇AI</text>
+<text x="84" y="67" font-family="${FONT}" font-size="9" fill="${C.accent}" letter-spacing="2.5">IHUI AI DESKTOP</text>
+${items}
+<image href="${logo}" x="54" y="404" width="140" height="140" opacity="0.07"/>
+<text x="32" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}">v${VERSION}</text>
+<text x="216" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}" text-anchor="end">aizhs.top</text>`;
 }
 
-// ---- 四个向导页场景 ---------------------------------------------------------
+// 页面公共骨架:导轨 + 内容底 + 页脚 + 步骤计数
+function pageChrome(logo, active) {
+  const cur = String(active + 1).padStart(2, '0');
+  return `
+<rect width="${W}" height="${H}" fill="${C.bg}"/>
+${rail(logo, active)}
+<text x="${C_L}" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}">© 2026 IHUI AI (智汇AI) · 李春川 · aizhs.top</text>
+<text x="${C_R}" y="574" font-family="${FONT}" font-size="10" text-anchor="end"><tspan fill="${C.accent}" font-weight="700">${cur}</tspan><tspan fill="${C.muted}"> / ${String(STEPS.length).padStart(2, '0')}</tspan></text>`;
+}
+
+// ---- 向导页场景 -------------------------------------------------------------
 
 function sceneWelcome(logo) {
   const features = [
-    ['01', '云端智能体 · 桌面与网页无缝切换'],
-    ['02', '账号云同步 · 换机不丢任何数据'],
-    ['03', '自动保持最新 · 无需手动升级'],
+    '云端智能体 · 桌面与网页无缝切换',
+    '账号云同步 · 换机不丢任何数据',
+    '自动保持最新 · 无需手动升级',
   ];
-  return svgDoc(880, 600, `
-${pageChrome(logo)}
-${ghostNumeral('01')}
-${kicker(64, 176, 'INSTALLATION GUIDE — 桌面版安装向导')}
-<text x="64" y="252" font-family="${FONT}" font-size="54" font-weight="700" fill="${C.ink}">智汇AI 桌面版</text>
-<text x="64" y="294" font-family="${FONT}" font-size="17" fill="${C.muted}">连接你与 AI 智能体的专属工作台</text>
-${features.map(([no, t], i) => `
-<text x="64" y="${366 + i * 46}" font-family="${FONT}" font-size="11" fill="${C.muted}" letter-spacing="1">${no}</text>
-<text x="104" y="${367 + i * 46}" font-family="${FONT}" font-size="15" fill="${C.inkSoft}">${esc(t)}</text>
-<rect x="64" y="${380 + i * 46}" width="392" height="1" fill="${C.hairline}"/>`).join('')}
-<image href="${logo}" x="580" y="176" width="208" height="208"/>
+  return page(`
+${pageChrome(logo, 0)}
+${kicker(C_L, 176, 'WELCOME')}
+${title(C_L, 232, '智汇AI 桌面版', 40)}
+${body14(C_L, 268, '连接你与 AI 智能体的专属工作台', C.inkSoft, 15)}
+${features
+  .map(
+    (t, i) => `
+<rect x="${C_L}" y="${338 + i * 44}" width="3" height="18" rx="1.5" fill="url(#ihgv)"/>
+<text x="${C_L + 16}" y="${352 + i * 44}" font-family="${FONT}" font-size="15" fill="${C.inkSoft}">${esc(t)}</text>`,
+  )
+  .join('')}
+${auroraRings(712, 424, 74, [1, 1])}
+<image href="${logo}" x="652" y="364" width="120" height="120"/>
 `);
 }
 
+// 目录页:输入框自带容器;「浏览」为裸文字链接钮(底色 = 页面底,无任何容器/描边)。
 function sceneDir(logo) {
-  return svgDoc(880, 600, `
-${pageChrome(logo)}
-${ghostNumeral('02')}
-${kicker(64, 176, 'STEP 01 — 安装位置')}
-<text x="64" y="240" font-family="${FONT}" font-size="38" font-weight="700" fill="${C.ink}">选择安装位置</text>
-<text x="64" y="276" font-family="${FONT}" font-size="15" fill="${C.muted}">默认安装到 D:\\智汇AI,你也可以更改为其他目录。</text>
-<rect x="64" y="312" width="752" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
-<text x="64" y="416" font-family="${FONT}" font-size="12" fill="${C.muted}">体积轻巧 · 数据云端存储 · 卸载不留残余</text>
+  return page(`
+${pageChrome(logo, 1)}
+${kicker(C_L, 176, 'STEP 02')}
+${title(C_L, 232, '选择安装位置')}
+${body14(C_L, 262, '默认安装到 D:\\智汇AI,也可以更改为其他目录。')}
+<rect x="${C_L}" y="300" width="412" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+${body14(C_L, 380, '体积轻巧 · 数据云端存储 · 卸载不留残余', C.muted, 13)}
+${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…」选择目录。', C.muted, 13)}
 `);
 }
 
+// 安装页:百分比与阶段文案是运行期控件,位图只烧轨道底与静态文案。
 function sceneInstfiles(logo) {
-  return svgDoc(880, 600, `
-${pageChrome(logo)}
-${ghostNumeral('03')}
-${kicker(64, 176, 'STEP 02 — 正在安装')}
-<text x="64" y="240" font-family="${FONT}" font-size="38" font-weight="700" fill="${C.ink}">正在安装</text>
-<text x="64" y="276" font-family="${FONT}" font-size="15" fill="${C.muted}">智汇AI 正在写入你的电脑,请稍候…</text>
-<text x="64" y="408" font-family="${FONT}" font-size="9" fill="${C.muted}" letter-spacing="3">INSTALL PROGRESS</text>
-; 进度条无 BMP 外框: 原生进度条运行时以 SetWindowRgn 胶囊圆角化(轨道即 BMP 底色留白区 y=425 h=8)
-<text x="64" y="480" font-family="${FONT}" font-size="12" fill="${C.muted}">安装完成后可直接启动,你的数据始终保存在云端</text>
+  return page(`
+${pageChrome(logo, 2)}
+${kicker(C_L, 176, 'STEP 03')}
+${title(C_L, 232, '正在安装')}
+${body14(C_L, 262, '智汇AI 正在写入你的电脑,请稍候…')}
+<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="${C.hairline}"/>
+${body14(C_L, 400, '安装完成后可直接启动,你的数据始终保存在云端', C.muted, 13)}
+${auroraRings(712, 456, 58, [1, 1])}
 `);
 }
 
-// 完成页:三个开关行(完成后打开 / 开机自启 / 桌面快捷方式),开关控件为运行时叠加的位图按钮,
-// 标签烧入位图。行坐标与 ihui-ui.nsi IHUIFinishPage 的开关控件坐标一一对应,改动必须同步。
+// 完成页:三行开关(位图由运行期叠加),标签烧入位图。
 function sceneFinish(logo) {
   const rows = [
-    [396, '完成后立即打开智汇AI'],
-    [440, '开机自动启动'],
-    [484, '创建桌面快捷方式'],
+    [340, '完成后立即打开智汇AI'],
+    [392, '开机自动启动'],
+    [444, '创建桌面快捷方式'],
   ];
-  return svgDoc(880, 600, `
-${pageChrome(logo)}
-${ghostNumeral('04')}
-<image href="${logo}" x="392" y="140" width="96" height="96"/>
-<text x="440" y="312" font-family="${FONT}" font-size="42" font-weight="700" fill="${C.ink}" text-anchor="middle">安装完成</text>
-<text x="440" y="348" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="middle">欢迎来到智汇AI · aizhs.top</text>
-<rect x="340" y="384" width="200" height="1" fill="${C.hairline}"/>
+  return page(`
+${pageChrome(logo, 3)}
+${kicker(C_L, 176, 'STEP 04')}
+${title(C_L, 232, '安装完成', 36)}
+${body14(C_L, 264, '欢迎来到智汇AI,以下是你的偏好设置。', C.inkSoft, 14)}
 ${rows
   .map(
     ([y, label]) => `
-<text x="136" y="${y + 20}" font-family="${FONT}" font-size="15" fill="${C.inkSoft}">${esc(label)}</text>`,
+<text x="${C_L + 70}" y="${y + 20}" font-family="${FONT}" font-size="15" fill="${C.inkSoft}">${esc(label)}</text>`,
   )
   .join('')}
+${auroraRings(712, 424, 62, [1, 1])}
+<text x="712" y="438" font-family="${FONT}" font-size="30" font-weight="700" fill="${C.accent}" text-anchor="middle">&#10003;</text>
 `);
 }
 
-// ---- 开屏动画帧(640x360,坐标系按 640x360 设计) ----------------------------
+// 重装/升级确认页:动态标题与两个 radio 由 NSIS 原生控件承载,位图只留空白带。
+function sceneReinstall(logo) {
+  return page(`
+${pageChrome(logo, 1)}
+${kicker(C_L, 176, 'STEP 02')}
+${title(C_L, 232, '检测到已安装版本')}
+${body14(C_L, 262, '请选择保留配置升级,或先卸载再全新安装。')}
+${body14(C_L, 440, '你的账号与云端数据不受此选择影响。', C.muted, 13)}
+`);
+}
+
+// ---- 开屏动画帧(720x450,16 帧) --------------------------------------------
+// 时间轴(f = 0..15):
+//   f0-4  logo 由 0.86 缩放渐显至 1.0 并上浮
+//   f2-8  墨光双环自内向外显影
+//   f6-12 字标「智汇AI」字距由 22 收到 3(招牌动作)
+//   f9-13 标语显影
+//   f7-15 底部品牌渐变进度线自中心延展
+//   f12+  域名 kicker
+// AdvSplash 以 Delay/帧数 的节奏轮播 splash.bmp, splash1.bmp, …
+const SPLASH_W = 720;
+const SPLASH_H = 450;
+const SPLASH_FRAMES = 16;
+
+const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
+const easeOut = (x) => 1 - (1 - x) ** 3;
 
 function splashScene(frame, logo) {
-  // frame 0..7:logo 渐显 → 字标渐显 → 标语 → 底部白色细线延展(黑底杂志风开屏)
-  const markOp = frame === 0 ? 0.5 : 1;
-  const markSize = frame === 0 ? 78 : frame === 1 ? 86 : 92;
-  const wordOp = frame < 2 ? 0 : frame === 2 ? 0.45 : frame === 3 ? 0.75 : 1;
-  const tagOp = frame < 4 ? 0 : frame === 4 ? 0.55 : 1;
-  const lineW = frame < 5 ? 0 : frame === 5 ? 140 : frame === 6 ? 320 : 420;
-  const cy = 168;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
-<rect width="640" height="360" fill="${C.bg}"/>
-<image href="${logo}" x="${320 - markSize / 2}" y="${cy - markSize / 2}" width="${markSize}" height="${markSize}" opacity="${markOp}"/>
-<text x="320" y="268" font-family="${FONT}" font-size="38" font-weight="700" fill="${C.ink}" text-anchor="middle" opacity="${wordOp}">智汇AI</text>
-<text x="320" y="300" font-family="${FONT}" font-size="14" fill="${C.muted}" text-anchor="middle" opacity="${tagOp}">你的 AI 智能体工作台</text>
-<text x="320" y="322" font-family="${FONT}" font-size="10" fill="${C.muted}" text-anchor="middle" opacity="${tagOp}" letter-spacing="4">AIZHS.TOP</text>
-<rect x="${320 - lineW / 2}" y="338" width="${lineW}" height="2" fill="${C.primary}" opacity="0.9"/>
+  const f = frame;
+  const markIn = easeOut(clamp01(f / 5));
+  const markSize = Math.round((110 * (0.86 + 0.14 * markIn)) * 10) / 10;
+  const markOp = clamp01(f / 4);
+  const markY = Math.round((188 - 10 * markIn) * 10) / 10;
+  const ringOp = clamp01((f - 2) / 5);
+  const wordOp = clamp01((f - 6) / 4);
+  const wordSpacing = Math.round((22 - 19 * easeOut(clamp01((f - 6) / 6))) * 10) / 10;
+  const tagOp = clamp01((f - 9) / 3);
+  const lineW = Math.round(440 * easeOut(clamp01((f - 7) / 8)));
+  const domOp = clamp01((f - 12) / 3);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${SPLASH_W}" height="${SPLASH_H}" viewBox="0 0 ${SPLASH_W} ${SPLASH_H}">
+${GRAD_DEFS}
+<rect width="${SPLASH_W}" height="${SPLASH_H}" fill="${C.bg}"/>
+<rect x="0" y="0" width="${SPLASH_W}" height="3" fill="url(#ihg)" opacity="${ringOp}"/>
+<g opacity="${ringOp}">
+<circle cx="360" cy="188" r="${104 + 10 * ringOp}" fill="none" stroke="${C.tintStrong}" stroke-width="1.5"/>
+<circle cx="360" cy="188" r="${132 + 16 * ringOp}" fill="none" stroke="${C.tint}" stroke-width="1.5"/>
+</g>
+<image href="${logo}" x="${360 - markSize / 2}" y="${markY - markSize / 2}" width="${markSize}" height="${markSize}" opacity="${markOp}"/>
+<text x="360" y="300" font-family="${FONT}" font-size="46" font-weight="700" fill="${C.ink}" text-anchor="middle" letter-spacing="${wordSpacing}" opacity="${wordOp}">智汇AI</text>
+<text x="360" y="336" font-family="${FONT}" font-size="15" fill="${C.muted}" text-anchor="middle" opacity="${tagOp}">你的 AI 智能体工作台</text>
+<rect x="${360 - lineW / 2}" y="388" width="${lineW}" height="2" rx="1" fill="url(#ihg)"/>
+<text x="360" y="418" font-family="${FONT}" font-size="10" fill="${C.accent}" text-anchor="middle" letter-spacing="5" opacity="${domOp}">AIZHS.TOP</text>
 </svg>`;
 }
 
@@ -228,21 +377,21 @@ function splashScene(frame, logo) {
 // ⚠️ 2026-09-20 用户明令「不允许出现额外的样式」: 旧胶囊+圆钮方案已删除,
 //    任何胶囊/圆钮/自造配色回退一律视为回归。
 function switchScene(on) {
-  const W = 52;
-  const H = 28;
+  const W2 = 52;
+  const H2 = 28;
   const R = 6; // rounded-md
   const B = 1.5; // border-foreground
   const T = 20; // thumb h-5 w-5
   const TR = 3; // rounded-sm
   const SH = 3; // shadow offset
-  const CW = W + SH;
-  const CH = H + SH;
+  const CW = W2 + SH;
+  const CH = H2 + SH;
   const track = on ? C.accent : C.bg;
   const thumb = on ? C.bg : C.ink;
   const tx = on ? 4 + 23 : 4; // 1.5 描边 + 3 内边距 ≈ 4
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}">
-<rect x="${SH}" y="${SH}" width="${W}" height="${H}" rx="${R}" fill="${C.ink}"/>
-<rect x="${B / 2}" y="${B / 2}" width="${W - B}" height="${H - B}" rx="${R - B / 2}" fill="${track}" stroke="${C.ink}" stroke-width="${B}"/>
+<rect x="${SH}" y="${SH}" width="${W2}" height="${H2}" rx="${R}" fill="${C.ink}"/>
+<rect x="${B / 2}" y="${B / 2}" width="${W2 - B}" height="${H2 - B}" rx="${R - B / 2}" fill="${track}" stroke="${C.ink}" stroke-width="${B}"/>
 <rect x="${tx}" y="4" width="${T}" height="${T}" rx="${TR}" fill="${thumb}"/>
 </svg>`;
 }
@@ -253,36 +402,34 @@ function switchScene(on) {
 function buttonScene(kind, text, w, h, labelSize) {
   const r = RADIUS;
   const common = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  const baseline = h / 2 + labelSize * 0.36;
   switch (kind) {
     case 'primary':
       // 暗色 primary:纯白底黑字(.dark --color-primary / --color-primary-foreground)
       return `${common}
 <rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="${r}" fill="${C.primary}"/>
-<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" font-weight="600" fill="${C.primaryInk}" text-anchor="middle">${esc(text)}</text>
+<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" font-weight="600" fill="${C.primaryInk}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'ghost':
       return `${common}
 <rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${r}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.5"/>
-<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
+<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'browse':
-      // 裸文字按钮:无描边;底填容器同色(BMP 无透明通道,须与容器色一致才能视觉隐形)
+      // 裸文字链接钮(2026-09-22 用户明令「浏览按钮的背景色容器请取消」):
+      // 无填充容器、无描边,仅品牌色文字 + 同色下划线。BMP 无透明通道,
+      // 底必须铺页面底色 C.bg 才能与内容区无缝(此前误铺 C.card = 视觉上多出一块容器)。
       return `${common}
-<rect width="${w}" height="${h}" fill="${C.card}"/><text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
+<rect width="${w}" height="${h}" fill="${C.bg}"/>
+<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.accent}" text-anchor="middle">${esc(text)}</text>
+<rect x="${w / 2 - labelSize * 1.6}" y="${h / 2 + labelSize * 0.78}" width="${labelSize * 3.2}" height="1.5" rx="0.75" fill="${C.accent}"/>
 </svg>`;
     case 'close':
-      // 窗口关闭钮: 圆形幽灵底(背景色底+细描边),悬停语义由系统 X 字形承担;
-      // BMP 无透明通道 → 底填页面背景色 C.bg 融入页头。
-      return `${common}
-<circle cx="${w / 2}" cy="${h / 2}" r="${w / 2 - 1}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
-<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.muted}" text-anchor="middle">${esc(text)}</text>
-</svg>`;
     case 'min':
-      // 窗口最小化钮: 与 btn-close 完全同款(同圆同描边同字形档位),仅字形不同。
-      // 用户 2026-09-20 明令「最小化按钮没显示」→ 补齐,样式不得自成一套。
+      // 窗口钮:圆角方块幽灵底(唯一圆角 token 8px,禁纯圆),底填页面底色融入内容区。
       return `${common}
-<circle cx="${w / 2}" cy="${h / 2}" r="${w / 2 - 1}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
-<text x="${w / 2}" y="${h / 2 + labelSize * 0.36}" font-family="${FONT}" font-size="${labelSize}" fill="${C.muted}" text-anchor="middle">${esc(text)}</text>
+<rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${r}" fill="${C.bg}" stroke="${C.btnStroke}" stroke-width="1.2"/>
+<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.inkSoft}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'toggle-on':
       return switchScene(true);
@@ -351,20 +498,20 @@ async function render(svg, w, h, bmpPath, pngPath) {
 
 // ---- 主流程 -----------------------------------------------------------------
 
-const SPLASH_FRAMES = 8;
 // 高度档位对齐 web <Button> size 表:CTA/浏览 lg h-10=40px,开关 h-7=28px(唯一档位,禁 48px 自造值)
 const BUTTONS = [
   ['btn-start', 'primary', '开始安装', 144, 40, 15],
-  // btn-continue 统一 144×40:与 CTA 槽(672,500,144,40)同宽,
+  // btn-continue 统一 144×40:与 CTA 槽(688,500,144,40)同宽,
   // 消除 140 宽位图居中留 2px 缝(重装页/完成态曾因此漏系统蓝底)
   ['btn-continue', 'primary', '继续 ›', 144, 40, 15],
   ['btn-finish', 'primary', '完成', 120, 40, 15],
   ['btn-cancel', 'ghost', '取消', 96, 40, 14],
-  ['btn-browse', 'browse', '浏览…', 112, 40, 14],
+  // 浏览钮 104×40:裸文字链接样式(无容器),槽位 x 728..832
+  ['btn-browse', 'browse', '浏览…', 104, 40, 14],
   ['btn-toggle-on', 'toggle-on', '', 55, 31, 12],
   ['btn-toggle-off', 'toggle-off', '', 55, 31, 12],
-  ['btn-close', 'close', '✕', 36, 36, 12],
-  ['btn-min', 'min', '−', 36, 36, 12],
+  ['btn-close', 'close', '✕', 36, 36, 13],
+  ['btn-min', 'min', '−', 36, 36, 13],
 ];
 
 // 5 档 DPI 对应 Windows 标准系统缩放(100%/125%/150%/175%/200%);
@@ -377,6 +524,14 @@ const logo = await loadLogoDataUri();
 mkdirSync(ASSETS, { recursive: true });
 mkdirSync(PREVIEWS, { recursive: true });
 
+const PAGES = [
+  ['welcome', sceneWelcome],
+  ['dir', sceneDir],
+  ['instfiles', sceneInstfiles],
+  ['finish', sceneFinish],
+  ['reinstall', sceneReinstall],
+];
+
 let count = 0;
 for (const scale of SCALES) {
   const tag = Math.round(scale * 100);
@@ -384,17 +539,16 @@ for (const scale of SCALES) {
   const pngDir = join(PREVIEWS, `assets-${tag}`);
   if (mode === 'write') mkdirSync(dir, { recursive: true });
   mkdirSync(pngDir, { recursive: true });
-  const w = Math.round(880 * scale);
-  const h = Math.round(600 * scale);
-  const sw = Math.round(640 * scale);
-  const sh = Math.round(360 * scale);
+  const w = Math.round(W * scale);
+  const h = Math.round(H * scale);
+  const sw = Math.round(SPLASH_W * scale);
+  const sh = Math.round(SPLASH_H * scale);
 
   // 向导页
-  await render(sceneWelcome(logo), w, h, mode === 'write' ? join(dir, 'welcome.bmp') : null, join(pngDir, 'welcome.png'));
-  await render(sceneDir(logo), w, h, mode === 'write' ? join(dir, 'dir.bmp') : null, join(pngDir, 'dir.png'));
-  await render(sceneInstfiles(logo), w, h, mode === 'write' ? join(dir, 'instfiles.bmp') : null, join(pngDir, 'instfiles.png'));
-  await render(sceneFinish(logo), w, h, mode === 'write' ? join(dir, 'finish.bmp') : null, join(pngDir, 'finish.png'));
-  count += 4;
+  for (const [name, fn] of PAGES) {
+    await render(fn(logo), w, h, mode === 'write' ? join(dir, `${name}.bmp`) : null, join(pngDir, `${name}.png`));
+    count++;
+  }
 
   // 开屏帧
   for (let i = 0; i < SPLASH_FRAMES; i++) {
@@ -424,4 +578,4 @@ const perScale = count / SCALES.length;
 console.log(`[desktop-installer-assets] 完成:${count} 个资产(${SCALES.length} 档 DPI × ${perScale}/档),版本 v${VERSION}`);
 if (mode === 'write') console.log(`[desktop-installer-assets] 已生成 windows/ihui-assets-path.nsh → ${ASSETS}`);
 if (mode === 'previews') console.log(`[desktop-installer-assets] PNG 预览已输出到 ${PREVIEWS}`);
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
