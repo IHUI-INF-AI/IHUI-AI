@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   ChevronLeft,
   ChevronRight,
@@ -46,6 +47,7 @@ async function loadPdfjs(): Promise<AnyPdfLib> {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps) {
+  const t = useTranslations('a11y')
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const docRef = React.useRef<AnyPdfDoc | null>(null)
   const [numPages, setNumPages] = React.useState(0)
@@ -164,6 +166,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
+              aria-label={t('previous')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -176,6 +179,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
             <button
               onClick={() => setPage((p) => Math.min(numPages, p + 1))}
               disabled={page >= numPages}
+              aria-label={t('next')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
@@ -186,6 +190,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           <Tooltip content="缩小">
             <button
               onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+              aria-label={t('zoomOut')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ZoomOut className="h-4 w-4" />
@@ -195,6 +200,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
           <Tooltip content="放大">
             <button
               onClick={() => setScale((s) => Math.min(3, s + 0.2))}
+              aria-label={t('zoomIn')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent"
             >
               <ZoomIn className="h-4 w-4" />

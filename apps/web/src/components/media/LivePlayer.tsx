@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import type Hls from 'hls.js'
+import { useTranslations } from 'next-intl'
 import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,7 @@ export function LivePlayer({
   className,
   onTimeUpdate,
 }: LivePlayerProps) {
+  const t = useTranslations('a11y')
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const hlsRef = React.useRef<Hls | null>(null)
   const [playing, setPlaying] = React.useState(autoPlay)
@@ -202,14 +204,26 @@ export function LivePlayer({
       {!loading && !error && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <div className="flex items-center gap-2 text-white">
-            <button onClick={togglePlay} className="rounded p-1 hover:bg-white/20">
+            <button
+              onClick={togglePlay}
+              aria-label={playing ? t('pause') : t('play')}
+              className="rounded p-1 hover:bg-white/20"
+            >
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
-            <button onClick={toggleMute} className="rounded p-1 hover:bg-white/20">
+            <button
+              onClick={toggleMute}
+              aria-label={mutedState ? t('unmute') : t('mute')}
+              className="rounded p-1 hover:bg-white/20"
+            >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
             <span className="ml-1 text-xs">{isHlsStream(src) ? 'HLS 直播' : '点播'}</span>
-            <button onClick={fullscreen} className="ml-auto rounded p-1 hover:bg-white/20">
+            <button
+              onClick={fullscreen}
+              aria-label={t('fullscreen')}
+              className="ml-auto rounded p-1 hover:bg-white/20"
+            >
               <Maximize className="h-4 w-4" />
             </button>
           </div>
