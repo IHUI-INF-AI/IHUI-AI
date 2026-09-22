@@ -98,6 +98,53 @@ function launchDetached(exe, argList, cwd, name, envs = {}) {
   );
 }
 
+// —— 进程清理与守护自保(2026-09-22 根治「网络断开复发」三层防线之一) ——
+// pidAlive:tasklist CSV 判定 PID 是否仍是指定进程名。不按 INFO 文本判断
+// (中文系统本地化文案),只认首个引号段是否等于进程名。
+function pidAlive(pid, expectName = 'node.exe') {
+  const p = Number(pid);
+  if (!p || p <= 0) return false;
+  try {
+    const r = spawnSync('tasklist', ['/FI', `PID eq ${p}`, '/FO', 'CSV', '/NH'], {
+      windowsHide: true,
+      encoding: 'utf8',
+      timeout: 8000,
+    });
+    const m = (r.stdout || '').match(/^\s*"([^"]+)"/m);
+    return !!m && m[1].toLowerCase() === expectName.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function killTree(pid) {
+  try {
+    spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10000 });
+  } catch {
+    /* 杀不掉不阻塞重拉(端口已被假死进程让出时无碍) */
+  }
+}
+
+// 重拉前清掉同名服务的旧进程树:tsx watch/expo/next 父进程在子服务死后仍存活且
+// 不占端口(isUp 探不到),不清就无限堆积(实测 API 假死后父进程残留半日)。
+// postgres 走 Windows 服务无 pid 文件,天然跳过。
+function killStale(svc) {
+  const pidFile = path.join(LOG_DIR, `dev-stack-${svc.name}.pid`);
+  try {
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+    if (pidAlive(pid, path.basename(process.execPath))) killTree(pid);
+    fs.rmSync(pidFile, { force: true });
+  } catch {
+    /* 无 pid 文件 = 旧启动方式拉起的,无从清理,不影响 */
+  }
+}
+
+// ensure(首轮)与 tick(重拉)统一经此启动:先清僵尸再拉新
+function startSvc(svc) {
+  killStale(svc);
+  return svc.start();
+}
+
 const SERVICES = [
   {
     name: 'postgres',
@@ -310,7 +357,7 @@ async function ensure(svc, results) {
   }
   let child;
   try {
-    child = svc.start();
+    child = startSvc(svc);
   } catch (e) {
     results.push({
       name: svc.name,
@@ -375,13 +422,61 @@ async function run() {
 const code = await run();
 
 if (watchMode) {
+  // —— 单实例锁+心跳(2026-09-22 根治三层防线之二) ——
+  // 曾实测两个守护实例并发重拉互相打架(日志双份输出、互相截断);守护自身死亡后
+  // vbs 只在开机跑一次、无人复活 → 心跳文件兼任「锁」与「watchdog 巡检依据」:
+  // 心跳新鲜(<90s)且 pid 存活 = 已有实例在守护,本实例退出(防双开);
+  // 否则接管,每 tick 续写心跳。watchdog(scripts/dev-stack-watchdog.mjs)靠同一
+  // 文件判死活,心跳停更 → 2 分钟内自动复活本守护。
+  const HEARTBEAT_FILE = path.join(LOG_DIR, 'dev-stack-watcher.heartbeat.json');
+  const HEARTBEAT_FRESH_MS = 90_000;
+  const readHeartbeat = () => {
+    try {
+      return JSON.parse(fs.readFileSync(HEARTBEAT_FILE, 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+  const writeHeartbeat = () => {
+    try {
+      fs.mkdirSync(LOG_DIR, { recursive: true });
+      fs.writeFileSync(HEARTBEAT_FILE, JSON.stringify({ pid: process.pid, ts: Date.now() }));
+    } catch {
+      /* 心跳写失败不阻塞守护 */
+    }
+  };
+  const hb = readHeartbeat();
+  if (hb && Date.now() - Number(hb.ts) < HEARTBEAT_FRESH_MS && pidAlive(hb.pid)) {
+    console.log(`已有 dev-stack 守护进程(pid ${hb.pid})在运行,本实例退出(防双开)`);
+    process.exit(0);
+  }
+  writeHeartbeat();
   // 无论首轮成败都进入守护:首轮挂了更要盯着重拉,这才是「根治」。
   console.log(`守护中:每 ${intervalMs / 1000}s 复检,挂了自动重拉(Ctrl+C 退出)`);
   let lastDeviceMsg = null;
   // canStart 不过的服务(如 ai-service .venv 缺失)每个 tick 都报会刷爆日志:
   // 首次或状态由"能启动"变回"不能启动"时才报一次
   const cannotStartNotified = new Set();
+  // 「桌面零弹窗」全盘审计(2026-09-22 用户铁律"不允许出现任何窗口"):git-guardian 曾漂移成
+  // 直跑 node.exe 每 2 分钟闪黑窗;除其自身自检外,本守护每 10 分钟全盘扫一遍计划任务/
+  // 启动项/Run 键,交互会话直跑控制台程序的 IHUI 任务自动包成隐藏 VBS(保留触发器)。
+  // 异步派生不阻塞体检 tick;--check 不跑审计(CI 无副作用)。
+  const SILENT_AUDIT = path.join(ROOT, 'scripts', 'ensure-silent-tasks.mjs');
+  const SILENT_AUDIT_EVERY_TICKS = Math.max(1, Math.round(600000 / intervalMs)); // ≈10 分钟
+  let silentAuditTicks = 0;
+  const runSilentAudit = () => {
+    if (!fs.existsSync(SILENT_AUDIT)) return;
+    try {
+      const c = spawn(process.execPath, [SILENT_AUDIT], { stdio: 'ignore', windowsHide: true });
+      c.unref();
+    } catch {
+      /* 审计失败不阻塞守护 */
+    }
+  };
   const tick = async () => {
+    writeHeartbeat();
+    silentAuditTicks++;
+    if (silentAuditTicks % SILENT_AUDIT_EVERY_TICKS === 1) runSilentAudit();
     for (const svc of targets) {
       if (!(await isUp(svc))) {
         try {
@@ -394,7 +489,7 @@ if (watchMode) {
           }
           cannotStartNotified.delete(svc.name);
           console.log(`[${new Date().toLocaleTimeString()}] ${svc.name}(:${svc.port}) 掉线,重拉中...`);
-          const child = svc.start();
+          const child = startSvc(svc);
           if (child && typeof child.unref === 'function') child.unref();
           const ok = await waitReady(svc, 45000);
           console.log(`  ${svc.name} 重拉${ok ? '成功 ✅' : '失败 ❌(日志见 .tmp-sync)'}`);
