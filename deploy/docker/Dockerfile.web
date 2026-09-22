@@ -17,6 +17,8 @@ RUN npm install -g pnpm@11.18.0
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+# 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
+COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY apps/web/package.json ./apps/web/
 # 复制 @ihui/web 的 workspace 传递闭包(原清单引用了不存在的 packages/config、packages/ui、
 # packages/ui-primitives,且遗漏 app/i18n/ui-react/tsconfig → docker build 必挂,2026-09-10 修正)。
