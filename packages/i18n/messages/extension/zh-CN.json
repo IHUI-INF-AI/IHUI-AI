@@ -308,6 +308,13 @@
   },
   "content": {
     "translate": "翻译",
+    "typeLesson": "课程",
+    "typeLive": "直播",
+    "typeArticle": "文章",
+    "typeNews": "资讯",
+    "typeAsk": "问答",
+    "typeResource": "资源",
+    "typeExam": "试题",
     "highlight": "高亮",
     "vocab": "查词",
     "sendAi": "问 AI",
