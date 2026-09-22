@@ -178,6 +178,29 @@ const USER_LEGIT_PATTERNS = [
 ]
 
 /**
+ * 凭据库目录名:整目录不扫、不判污染、不 auto-clean(结构性豁免,2026-09-22 立)。
+ *
+ * 为什么必须做到目录层:USER_LEGIT_PATTERNS 只按 filename 判定,一个目录里有多少把
+ * 密钥就得逐条列举多少回。实测已两次命中同一陷阱(2026-09-12 ihui-release.keystore.说明.txt、
+ * 2026-09-22 D:/DevEnv/secrets/ihui-app-password.txt),而 --auto-clean 分支
+ * (本文件 unlinkSync 处)对强信号命中**无任何二次确认** —— 逐文件名打补丁 = 等着第三把
+ * 密钥被无声删除。`密钥/`(AGENTS.md §5d 模型密钥唯一权威源)一旦被扫到同样是整体蒸发。
+ *
+ * 代价(有意接受):往名为 secrets/密钥 的目录里塞垃圾可绕过本守门。数据蒸发风险
+ * 远高于漏检,且漏检仍可被 §25/§28 等其他守门兜住。
+ */
+const CREDENTIAL_DIR_NAMES = new Set([
+  'secrets',
+  'secret',
+  'credentials',
+  'credential',
+  '密钥',
+  'certs',
+  'certificates',
+  '.pybcrypt',
+])
+
+/**
  * 获取用户真实桌面路径(跨驱动器场景)。
  *
  * 历史教训(2026-07-25):用户桌面被重定向到 E:\桌面(跨驱动器,项目在 G:\IHUI-AI),
@@ -305,6 +328,8 @@ function findPollution(dir, recursive = false, depth = 0) {
     if (dir === PARENT_DIR && entry.name === PROJECT_NAME) continue
     // 跳过系统隐藏目录
     if (entry.name === 'System Volume Information' || entry.name === '$RECYCLE.BIN') continue
+    // 跳过凭据库目录:整目录不扫(见 CREDENTIAL_DIR_NAMES 注释——必须目录级,逐文件名豁免已被证明会漏)
+    if (entry.isDirectory() && CREDENTIAL_DIR_NAMES.has(entry.name.toLowerCase())) continue
 
     const full = join(dir, entry.name)
     const relPath = relative(ROOT, full).replace(/\\/g, '/')
