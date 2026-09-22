@@ -1568,6 +1568,33 @@ const checks = [
     ].join('\n'),
   },
 
+  // 快捷键"声明 ↔ 归属"对账(2026-09-22 立)。成因两例都是真实发生过的:
+  //   ① view-switcher 曾给 document/browser/figma/code-changes/agent 五个点选项标 Ctrl+1-5,
+  //      而这族键位实际被 use-global-shortcuts 注册表接走(按下去切 AI 对话模式) —— 标签说谎;
+  //   ② 注册表条目"有键无消费者"。判据两类:声明未绑(unbound)+ 同键被他功能接走(mislabelled),
+  //      后者只认 field 类声明(点选动作旁标的键位),<kbd>/正文描述类不纳入 —— 那类合法地在
+  //      描述**别的表面**的键位,纳进必假红。
+  {
+    id: '69',
+    label: '⌨️ 快捷键声明与归属对账(blocking,声明未绑 / 同键被他功能接走)',
+    script: 'check-declared-shortcuts.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_DECLARED_SHORTCUTS',
+    onFailHint: [
+      '',
+      '  💡 两类红点各自对应一种交付事故:',
+      '     ① 声明未绑:UI 上写了 `Ctrl+X` 但全仓没有处理器 → 要么把功能实现,要么把标签删掉。',
+      '     ② 同键被他功能接走:点选项标的键位其实归注册表里**另一个动作**(按下去干的不是这件事)。',
+      '        正解二选一:换标签/删标签;或让本组件独占该键(自有 handler + `e.stopPropagation()`)。',
+      '     全量审计与逐条定位:node scripts/check-declared-shortcuts.mjs',
+      '     自检:node --test scripts/tests/check-declared-shortcuts.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_DECLARED_SHORTCUTS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',

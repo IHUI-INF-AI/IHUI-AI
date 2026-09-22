@@ -1108,6 +1108,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
 - **桌面弹窗防护**(52):check-no-visible-spawn(派生控制台程序漏 `windowsHide` 检测,blocking,AGENTS.md §5b 机器级根治配套,2026-09-20 立;`--self-test` 14 例 + §22c 镜像测试)
 - **工具名本地化**(55/56):check-tool-name-display-coverage(注册表 `_TOOLS` × 词表 × 五语言 taskStatus 三方比对,blocking,拦"新增工具不补功能名");check-tool-display-resolvable(91 个功能名在 shared + 5 端合并视图 + 小程序离线包逐语言解析,拦两类静默失败:端内取词缺键回显 `toolReadFile`、忘跑 `pnpm gen:i18n` 致离线包过期;`node --test scripts/tests/check-tool-display-resolvable.test.mjs` 自检)。紧急跳过 `HUSKY_SKIP_TOOL_NAME_COVERAGE=1` / `HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE=1`
+- **快捷键声明与归属对账**(69):check-declared-shortcuts.mjs(blocking,2026-09-22 立并注册)——两类红点:① "声明未绑"(UI 标了 `Ctrl+X` 而全仓无处理器,含注册表"有键无消费者");② "同键被他功能接走"(`field` 类声明与全局注册表同键,但声明方拿不出持有证据;成因是 `view-switcher` 曾把 document/browser/figma/code-changes/agent 五项标成 `Ctrl+1-5`,而该族键位实际切 AI 对话模式)。合法证据三选一:本文件出现该条目 `event` 引号字面量 / 本文件自有同键 handler + `stopPropagation`(独占截断,`RichTextEditor` 的修法)/ 条目自身与注册表同义镜像(命令面板原样列出全局键位)。**刻意只认 `field`**:`<kbd>`/正文常合法描述**别的表面**的键位,纳进必假红。全量审计 `node scripts/check-declared-shortcuts.mjs`,自检 `node --test scripts/tests/check-declared-shortcuts.test.mjs`,紧急跳过 `HUSKY_SKIP_DECLARED_SHORTCUTS=1`
 
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
 
