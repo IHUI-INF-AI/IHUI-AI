@@ -57,6 +57,37 @@
 
 ---
 
+## P1 2026-09-22 对话列「跳到最新」浮动钮归一(单端:apps/web 浮动 affordance)
+
+用户要求把 AI 对话框里的按钮调到最合适位置。按要求先取证再定方案。
+
+### 一手取证(私有 dev 8823 + admin 真实会话 4 条消息,Playwright 量 DOM,非目测)
+
+改前面板宽度 300/480/720 三档扫描:按钮 28x28,`bottom-4 left-1/2`,**与消息区中心及正文列中心的偏移均为 0px**(Δanchor=0、ΔbodyCol=0)→ "偏心"假设被实测推翻,居中本身是准的;距消息区底边恒 16px、距 composer 顶边恒 69px;`QueryThumbRail` 实测 18x42 位于右侧垂直居中(cy=316)与底部带不相交;右下角 `ScrollJumpButtons` 列 32x72 底边同为 552,两列净距 88px(300 宽时)。
+
+真正的问题是**语义重复**:`scroll-jump-buttons.tsx` 的"跳底"按钮 `aria-label` 用的就是 `chat:jumpToLatest`,与 MessageList 内联那枚底部居中按钮同名同义,只是显隐条件不同(`isFarFromBottom` 距底>800px vs `userScrolledUp` 任意上滚)。于是同一条对话列底部并存两枚"跳到最新",且在 300px 最小宽度档下二者相距仅 88px。这与 2026-09-21 用户报过的"怎么有两个 nav"(两条 rail 并挂)是同一类缺陷,故按同一口径处理:合并,而不是挪位。
+
+### 方案与改法
+
+- 删除 MessageList 内联的居中按钮,把「跳到最新」合并进右下角既有 affordance 列(`ScrollJumpButtons`),列内 = [跳顶, 跳到最新],位置沿用 `bottom-4 right-4 z-20`(实测底边仍 552,与原居中环同一条水平线,无布局跳动)。
+- 显隐条件取并集:`hasMessages && (isFarFromBottom || userScrolledUp)` → 覆盖"浅上滚"(旧居中钮的场景)与"深离底"(旧跳底的场景),真在底部时恒不显。点击行为统一走 `handleJumpToLatest`(滚到底 + 广播 `ihui:jump-to-latest`,比原 `onJumpBottom` 仅 `scrollIntoView` 更完整,并保留对 MessageInput 侧的联动)。
+- 流式脉冲红点随合并后的按钮(`-right-0.5 -top-0.5` 装饰点,≤8px 属圆角守门豁免);图标统一 `ArrowDown`(原列用 `ChevronDown`,与"回到最新"语义弱)。
+- 不新增 i18n 文案键(复用 `chat:jumpToTop` / `chat:jumpToLatest`)→ 语言包 parity 零改动。
+
+### 验证证据(2026-09-22)
+
+- 新增契约测试 `apps/web/src/components/chat/message-list/scroll-jump-buttons.test.tsx`(7 例):全树仅 1 枚「跳到最新」、旧 `message-list-jump-latest` 为 null、显隐四组合矩阵、`hasMessages` 门控、跳顶互不影响、点击回调 1 次、红点随流式、列定位 token 仍含 `bottom-4 right-4 z-20 flex-col` 且不含 `left-1/2`。
+- 改写 `apps/web/tests/message-list.test.tsx` 的 "Jump-to-latest 浮动按钮" 段为归一后契约(4 例),两文件合跑 47 passed。
+- `pnpm --filter @ihui/web typecheck` → exit 0;`pnpm --filter @ihui/web test` 全量套件见本节提交时结果。
+- 真机复测(8823 同会话同法):`aria-label` 命中「跳到最新」的元素数 = **1**(改前 2)、`[data-testid="message-list-jump-latest"]` = **0**、合并钮矩形 32x32 @ (412,520)-(444,552) 底边 552 与原水平线一致、距 composer 顶 69px 不变、与最后一条消息矩形不相交(改前居中钮正压正文 `code`/`li`)、中心点命中自身;深色下 `bg rgb(36,36,36) / border rgb(56,56,56) / radius 6px`;点击后 `scrollTop 0→407`(容器 `scrollHeight 934 / clientHeight 504`)且按钮回到 `opacity-0 pointer-events-none`,显隐门控闭环成立。
+- 取证过程中两处探针自身缺陷已如实标注:①首轮 rail 选择器误命中页面另一枚 `absolute right-2` 元素(修正为 `data-testid="query-thumb-rail"` 后实测 18x42);②归一后 `merged.closest('.relative')` 会命中 Button 自身(base 类含 `relative`),故复测的 anchor 派生字段作废,容器底边沿用首轮有效值 568 判定(16px 间距不变)。
+
+### 多端与文档
+
+单端 `apps/web`:`QueryThumbRail`/`ScrollJumpButtons`/居中浮动环均为 web 端对话列专有,`apps/miniapp-taro` grep `jump-latest|jumpToLatest|scroll-to-latest` = 0 命中(小程序端无此 affordance,无跨端同步项);desktop/extension 复用 web 产物自动继承。§21 README 豁免(纯 UI 缺陷归一,不改对外能力清单)。
+
+---
+
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
@@ -71,8 +102,9 @@
 
 - **视觉系统重做**(`scripts/desktop-installer-assets.mjs`):新增 248px 左侧品牌导轨(底 = `.dark --color-brand-accent-light #1e2e36`)+ 四步进度指示器(01 欢迎 / 02 安装位置 / 03 正在安装 / 04 完成,当前步渐变实心、已完成打勾、未开始描边)+ 品牌渐变边条;点缀色唯一来源 `--color-brand-accent-grad-from → -grad-to`。全部取值映射 `packages/design-tokens/src/styles/tokens.css` 暗色块,零自造色值。新增独立 `reinstall.bmp`(重装页不再复用安装页位图,消除文字带交叠)。
 - **浏览钮去容器**:`sceneDir` 通栏面板收窄到输入框自身(288..700),`btn-browse` 底改铺页面底色 `C.bg` 并换成品牌色文字 + 下划线的裸链接样式。
-- **百分比**:`ihui-ui.nsi` 新增 `IHUI_PROGRESS 百分比 "阶段文案"` 宏 + 右对齐大字 STATIC(56px)+ 阶段文案 STATIC;`desktop-nsis-template.mjs` 加补丁 **P7**(4 个埋点:30% 复制主程序 / 55% 写入运行资源 / 75% 登记卸载与系统信息 / 92% 创建快捷方式),`hooks.nsi` PREINSTALL 打 8%,完成态 `IHUI_INST_DONE_THEME` 打 100%。进度条仍用原生 `msctls_progress32`(本仓库唯一验证过"能渲染能着色能被核心推进"的控件),移到与位图轨道逐像素重合的位置并胶囊圆角化。
-- **开屏**:16 帧真实动画(logo 缩放渐显 → 墨光双环 → 字标字距由 22 收到 3 → 标语 → 底部渐变进度线延展 → 域名),载体改为主窗口客户区满幅覆盖层逐帧 `STM_SETIMAGE`+`UpdateWindow`+`Sleep`(探针实测:顶层 STATIC 用 `hInstance=0` 创建返回 0,系统预定义类只能可靠作子窗口);创建失败时兜底回退 AdvSplash 单帧 1.6s,保证不比改版前更差。
+- **百分比与进度条(单一真相源)**:原生 `msctls_progress32` 在沙箱截图里被证实**与自绘位图争 Z 序且推进节奏由 NSIS 核心掌控**(会出现"原生条已 100%、数字还在 30%"的双真相),故隐藏并移出客户区(-4000),改由 `bar-fill.bmp`(品牌渐变胶囊)按同一份百分比做 `SetWindowRgn` 裁剪。`ihui-ui.nsi` 新增 `IHUI_PROGRESS 百分比 "阶段文案"` 宏,同时喂自绘条 + 右对齐 56px 大字 + 阶段文案三个节点;`desktop-nsis-template.mjs` 加补丁 **P7**(4 个埋点:30% 复制主程序 / 55% 写入运行资源 / 75% 登记卸载与系统信息 / 92% 创建快捷方式),`hooks.nsi` PREINSTALL 打 8%,完成态 `IHUI_INST_DONE_THEME` 打 100%。
+- **安装页按钮品牌化(改法换载体)**:原计划用 `IHUI_INST_OVERLAY` 自绘覆盖层,实测**打不赢核心托管的原生按钮**(Z 序每次重排都被盖回,截图仍是原生「取消 (C)」)。改为**直接给原生按钮本身换皮**:`IHUI_INST_SLOT` 对目标钮置 `BS_BITMAP`(0x40)+ `BM_SETIMAGE`(0x00F7)喂品牌位图 —— 载体就是那颗钮,不存在层级之争。⚠️ 不可"强行启用"来绕过禁用态灰皮:安装中启用「下一步」会开出提前推进的口子,故 EnableWindow 一律交回核心。
+- **开屏动画(16 帧真实逐帧,已截图取证)**:载体**不是** AdvSplash —— 反编译实锤它只加载 base 名一张图,且每进程只能调用一次(实测连调 5 次,第 2 次起全部立即返回、一帧都不显示)。最终实现:复用欢迎页背景 `STATIC $IHUIBG`(全站唯一被截图证实能满幅渲染的贴图位)当动画画布,`${NSD_CreateTimer}` 每 90ms 一拍 `STM_SETIMAGE` 换帧,播完 splash1..splash15 后落回 `welcome.bmp` 并 `ShowWindow` 显出 CTA/取消/关闭/最小化 —— 全程只有一个窗口,不再有"浮窗 + 主窗先后两跳"。帧 0 是空白起始帧(logo 透明度 0),不入播放序列。多屏异 DPI 致窗口档 != 解压档时自动放弃动画走静态欢迎页(尺寸会错)。
 - **运行期坐标单一真相源**:`ihui-ui.nsi` 新增「版面几何」define 块(`IHUI_C_L/IHUI_BTN_Y/IHUI_CTA_X/IHUI_EDIT_*/IHUI_BROWSE_*/IHUI_TGL_*/IHUI_PB_*/IHUI_PCT_*/IHUI_STG_*`),全部控件坐标改引用 define,不再散落字面量。
 
 ### 顺手根治的一条工程地雷(本人 `--write` 踩实)
@@ -80,21 +112,23 @@
 `installer.nsi` 里累积了 **11 段历史上直接手改、从未登记进 `desktop-nsis-template.mjs` PATCHES 的 IHUI 定制**(GetOptions 前缀误匹配根治、覆盖升级尊重桌面快捷方式现状、真实卸载清理安装位置键、`RestorePreviousInstallLocation` 防残留劫持 等)。后果:`--check` 恒绿,而 `--write` 会把这些定制**整体抹掉** —— 本人执行 `--write` 时真实触发,靠 `check-installer-assets.mjs` 的 GetOptions 附加判据抓到。
 根治:新增 `--emit-patches` 模式 + 侧车 `scripts/desktop-nsis-ihui-patches.json`,把"仓库文件 − 上游+P0-P7"逐字节导出成补丁并并入 PATCHES;同时修掉 `HEADER` 拼接时机(必须在打补丁前拼,否则头部锚点永不命中)与 `String.replace` 的 `$'`/`$&` 特殊替换模式隐患(改函数形式),并把锚点校验从 `.includes` 收紧为"恰好命中 1 次"。现 `--check` 绿、`--write` **幂等且逐字节可回放**(已用恢复基线比对验证)。
 
-### 验证证据(2026-09-22)
+### 验证证据(2026-09-22 两批合并)
 
-- `node scripts/desktop-nsis-template.mjs --check` → OK(22 处补丁);`--write` 回放与恢复基线**逐字节一致**;`git diff --numstat installer.nsi` = `4 0`(纯新增,零删除)。
-- `node scripts/check-installer-assets.mjs` → 引用 14 / 打包 30 / 5 档三方一致 PASS;GetOptions 判据 PASS。
-- `node scripts/watermark.mjs verify` → 9954/9954 完好;`check-no-emoji-icons.mjs` → 0 违规。
-- `pnpm exec tauri build --bundles nsis` → 产出 `智汇AI_0.1.43_x64-setup.exe`(仅缺 `TAURI_SIGNING_PRIVATE_KEY` 的签名告警,不影响产物)。
-- **运行期硬证据**(沙箱安装器 + `WM_GETTEXT` 读子控件):百分比控件文本 = `55%` 且矩形 = 相对 **(632,186)-(832,250)**、阶段文案 = `正在写入运行资源` 落在 **(288,322)-(832,344)**、`msctls_progress32` 落在 **(288,300)-(832,308)** —— 三者与位图槽位逐像素吻合。
-- 目录页/欢迎页截图实证:导轨 + 步骤条 + 裸文字「浏览…」(无背景容器)渲染正确。
+- `node scripts/desktop-nsis-template.mjs --check` → OK(**20 处**补丁);`--write` 回放与恢复基线**逐字节一致**;侧车 `desktop-nsis-ihui-patches.json` 由 11 条收敛到 9 条。
+- `node scripts/check-installer-assets.mjs` → 引用 15 / 打包 31 / 5 档三方一致 PASS;GetOptions 判据 PASS。
+- `node scripts/tests/installer-gates-wiring.test.mjs` → **6 例全绿**,含一条**注入变异**判据:临时副本里删掉一行 `File` 打包 → 门禁必须 exit 1(证明这道闸真的有效,而不是读它自己的"我已注册"声明)。
+- `node scripts/watermark.mjs verify` → 完好;`check-no-emoji-icons.mjs` → 0 违规。
+- **运行期硬证据(真实截图,`computer-use` Windows Graphics Capture)**:此前"本会话派生的 GUI 窗口不参与桌面合成"的结论**是错的** —— `CopyFromScreen` 与 `PrintWindow(PW_RENDERFULLCONTENT)` 确实取到陈旧位图(UIA 文本已 `55%` 而截图仍 `30%`),但 WGC 抓取正常。据此取证:
+  - 欢迎页:导轨 + 01/04 步骤条 + 品牌渐变边条渲染正确;
+  - 目录页:「浏览…」为裸文字 + 下划线,**无背景容器**(用户诉求②闭环);
+  - 安装页:92% / 100% 两帧截图,自绘条宽度、56px 百分比大字、阶段文案三者**数值一致**,按钮已是品牌皮(「继续 ›」「取消」),原生条不再抢跑(用户诉求③闭环);
+  - **开屏动画**:为排除"截图到达时动画已结束"的测量误差,把节拍临时调到 900ms 重编沙箱,取到**动画中间帧**(logo 显影 + 墨光双环扩散,无字标/无控件)与**收尾帧**(自动落回欢迎页)—— 用户诉求①的开屏部分闭环。取证后节拍已还原 90ms 并重新编译验证。
+- 载体可行性另有独立探针 `sweep-probe.nsi`:tick 落盘 `ticks=20 frame=3`(证明 nsDialogs 页定时器真在模态循环里派发)+ 截图见帧内容(证明换图真重绘)。此前两次判负是**测量问题**:一是覆盖层挂成了 `$HWNDPARENT` 裸子窗被内层 `#32770` 灰板盖住,二是动画仅 1.6s 而截图晚于动画。
 
 ### 残余(未闭环,如实登记)
 
-- **开屏动画的屏幕表现未取证**:本 agent 会话派生的 GUI 窗口不参与桌面合成(`IsWindowVisible=False`),`PrintWindow` 对不可合成窗口会取到陈旧位图(已被 `WM_GETTEXT=55%` 而截图仍显示 30% 实证)。开屏的代码路径(子窗口创建 / STM_SETIMAGE / For+Sleep 节奏)均有探针支撑,但**最终观感需用户在真实桌面跑一次新安装包确认**。
-- **卸载器仍是原生向导**:`MUI_UNPAGE_CONFIRM` / `MUI_UNPAGE_INSTFILES` 未主题化(全仓 `un.IHUI*` 零命中)。"完全不像原生窗口"这一目标只覆盖了安装侧。
-- 安装页品牌位图覆盖层(`IHUI_INST_OVERLAY`)在沙箱截图中被原生「取消 (C)」按钮盖住,该机制与改版前同源同实现(仅坐标变化),未判定为本次回归,但同样受上述取证限制。
-- `apps/desktop/src-tauri/README.md` 与 `apps/desktop/README.md` 仍写 `frontendDist = "../../web/out"`,实际已是 `"shell"`(陈旧文档,非本次引入)。
+- **卸载器仍是原生向导**:`MUI_UNPAGE_CONFIRM` / `MUI_UNPAGE_INSTFILES` 未主题化。"完全不像原生窗口"这一目标目前只覆盖安装侧。已定位的必要改点(下一批):`MUI_CUSTOMFUNCTION_GUIINIT` **不作用于卸载器**,须另加 `MUI_CUSTOMFUNCTION_UNGUIINIT`(且必须定义在首次 `MUI_LANGUAGE` 之前);`un.onInit` 既无 `InitPluginsDir` 也不解压资产;`IHUI_HIDE_ALL` 未覆盖控制 ID **1000 / 1029**(卸载确认页的目录文本),否则白条会浮在品牌位图上。
+- **安装包体积**:开屏帧由 720×450 改满幅 880×600 后,`installer-assets/` 落盘 135.4 MB → 379 MB(5 档全量随包,NSIS `File` 在 `${If}` 分支内仍会全部内嵌)。产物 exe 实际增幅待真包构建量化;若不可接受,解法是把 5 档改为"编译期按档位分别出包"或降帧数,不在本批混做。
 
 ---
 

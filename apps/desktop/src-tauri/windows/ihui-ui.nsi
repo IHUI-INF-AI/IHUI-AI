@@ -68,6 +68,8 @@ Var IHUIFINMODE    ; instfiles 完成页原地转换守卫(0=安装中 1=已转�
 Var IHUIRCTA       ; 重装页"继续"CTA 按钮
 Var IHUICLS        ; 页头右上角品牌关闭钮(X)
 Var IHUIMIN        ; 页头右上角品牌最小化钮(−,与关闭钮同款)
+Var IHUISPLA       ; 开屏动画装填标志(1=欢迎页进入时播放 0=不播/已播完)
+Var IHUISPLF         ; 开屏动画当前帧号(-1 起步,0..15 逐帧,>15 收尾)
 Var IHUIDRAGST     ; 窗口拖拽状态(0=空闲 1=拖拽中)
 Var IHUIDRAGPREV   ; 上一 tick 左键按下态(按下沿检测,避免半途抢拖)
 Var IHUIDRAGOX     ; 拖拽抓取偏移(光标相对窗口左上角,X)
@@ -84,7 +86,7 @@ Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明�
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
 Var IHUIPCT       ; 安装页百分比大字句柄(STATIC,右对齐)
 Var IHUISTG       ; 安装页阶段文案句柄(STATIC)
-Var IHUISPL       ; 开屏动画窗口句柄(自建顶层 STATIC,见 IHUI_SHOWSPLASH)
+Var IHUIPB2       ; 安装页自绘品牌进度条填充句柄(SS_BITMAP + region 裁宽)
 Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程退出随窗口消亡)
 
 ; =====================================================================
@@ -286,6 +288,15 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ; 参数: 百分比整数(0-100) / 阶段文案
 ; =====================================================================
 !macro IHUI_PROGRESS PCT TEXT
+  ${If} $IHUIPB2 <> 0
+    ; 填充宽 = 轨道宽 × PCT / 100(先按 DPI 换算轨道全宽物理值,再按比例缩)
+    !insertmacro IHUI_PX $R1 ${IHUI_PB_W}
+    IntOp $R1 $R1 * ${PCT}
+    IntOp $R1 $R1 / 100
+    !insertmacro IHUI_PX $R2 ${IHUI_PB_H}
+    System::Call "gdi32::CreateRectRgn(i 0, i 0, i R1, i R2) p .R3"
+    System::Call "user32::SetWindowRgn(p $IHUIPB2, p R3, i 1)"
+  ${EndIf}
   ${If} $IHUIPCT <> 0
     !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}%"
   ${EndIf}
@@ -337,8 +348,20 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ; 挂外层窗口 BN_CLICKED 核心不推进(r79/r81 焦点环实证),挂内层被核心吞;
 ; BS_BITMAP 视觉还会被核心 done 态重置打回文字态。唯一可靠通路是**原生按钮本体**
 ; 移到品牌槽位(r76 物理点击实证整页切换),视觉由点击穿透覆盖层承担。
-; 参数: 原生按钮 ID / X / Y / W / H(逻辑像素)
-!macro IHUI_INST_SLOT BTNID X Y W H
+; 参数: 原生按钮 ID / 位图名 / X / Y / W / H(逻辑像素)
+;
+; 2026-09-22 computer-use 真实截图实证: 旧"原生按钮 + 外层 STATIC 覆盖层抢
+; Z 序"的方案在实机上**失败**(UIA 控件树里没有覆盖层图像节点,槽位露出的是
+; 原生浅灰按钮 chrome「取消 (C)」/「下一步 (N) >」)—— 正是用户投诉的
+; "原生安装窗口的样子"。根因: 覆盖层与原生按钮同为 $HWNDPARENT 子窗口,
+; 核心在页面状态切换时会重新整理并提顶它自己的控件,脚本层抢 Z 序必输。
+;
+; 新方案: 不给覆盖层,直接把**原生按钮本体**做成位图按钮 ——
+;   BS_BITMAP(0x40) + BM_SETIMAGE(0x00F7, IMAGE_BITMAP=0)。
+;   点击通路不变(仍是核心亲儿子按钮,r76 实证可推进),视觉不再依赖竞争;
+;   位图尺寸与按钮槽位逐像素等大,故无居中留缝。
+;   核心 done 态若把样式打回文字态,由 IHUI_INST_DONE_THEME 重新走一遍本宏补回。
+!macro IHUI_INST_SLOT BTNID NAME X Y W H
   !insertmacro IHUI_PX $R1 ${X}
   !insertmacro IHUI_PX $R2 ${Y}
   !insertmacro IHUI_PX $R3 ${W}
@@ -349,6 +372,17 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     ; 必须显式可见: 隐藏或禁用的窗口会被 WindowFromPoint 直接跳过 → 点击被吞
     ; (EnableWindow 一律交给核心: 安装中强行启用"下一步"会开出提前推进的口子)
     ShowWindow $R5 5
+    ; BS_BITMAP = 0x00000040;保留原样式其余位
+    System::Call "user32::GetWindowLongW(p R5, i -16) p .r6"
+    IntOp $6 $6 & -65
+    IntOp $6 $6 | 64
+    System::Call "user32::SetWindowLongW(p R5, i -16, i r6)"
+    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r7"
+    ${If} $7 <> 0
+      ; BM_SETIMAGE = 0x00F7, wParam IMAGE_BITMAP(0), lParam = 位图句柄
+      System::Call "user32::SendMessageW(p R5, i 0x00F7, p 0, p r7)"
+    ${EndIf}
+    System::Call "user32::RedrawWindow(p R5, p 0, p 0, i 0x0005)"
   ${EndIf}
 !macroend
 
@@ -549,81 +583,6 @@ Function IHUIOnDragTick
   !insertmacro IHUI_LOG "drag_start"
 FunctionEnd
 
-; =====================================================================
-; 开屏动画(2026-09-22 重写)
-; 为什么不用 AdvSplash:反编译 NSIS\Plugins\x86-unicode\AdvSplash.dll,字符串表里只有
-;   ".bmp" 与 ".wav" 两个拼接串 —— 它只加载 base 名那一张图,没有任何多帧能力。
-;   旧代码解压的 splash1..7.bmp 从未被播放过,用户看到的"开屏"就是 570ms 的一张静图,
-;   这正是"没有开屏动画"投诉的真实成因。
-; 方案:自建顶层 STATIC(WS_POPUP|WS_EX_TOPMOST|WS_EX_TOOLWINDOW)+ 逐帧 STM_SETIMAGE,
-;   每帧 UpdateWindow 强制同步重绘 + Sleep 让出 —— 不需要定时器(instfiles 页那种
-;   拿不到消息循环的限制在这里不存在:.onInit 里我们自己就是唯一的驱动者)。
-; 帧数与 scripts/desktop-installer-assets.mjs 的 SPLASH_FRAMES 必须一致。
-; =====================================================================
-; 开屏动画(2026-09-22 重写,载体 = 主窗口客户区满幅覆盖层)
-; 两条实测结论(勿回退):
-;   1) AdvSplash 不支持多帧 —— 反编译 NSIS\Plugins\x86-unicode\AdvSplash.dll,
-;      字符串表只有 ".bmp" / ".wav" 两个拼接串,只加载 base 名那一张图。
-;      旧代码解压的 splash1..7.bmp 从未被播放,"开屏"= 570ms 一张静图,
-;      这就是"没有开屏动画"投诉的真实成因。
-;   2) 顶层 STATIC 建不出来 —— splash-probe.nsi 实测 CreateWindowExW
-;      (hInstance=0, hWndParent=0, "STATIC") 返回 0;系统预定义类只能可靠
-;      地作子窗口创建。故动画铺在 $HWNDPARENT 客户区上,而非另开弹窗。
-; 时序:必须在 IHUIGuiInit 里"无边框 + 定档 + 圆角"完成之后再铺,否则窗口
-;      尺寸/档位未定,位图会错位。帧数与 assets 生成器 SPLASH_FRAMES 一致。
-; =====================================================================
-!define IHUI_SPLASH_FRAMES 16
-!define IHUI_SPLASH_W 720
-!define IHUI_SPLASH_H 450
-!define IHUI_SPLASH_TICK 110
-
-!macro IHUI_SHOWSPLASH
-  ReadEnvStr $0 "IHUI_NOSPLASH"
-  ${If} $0 != "1"
-    ; 满幅覆盖层:WS_CHILD|WS_VISIBLE|SS_BITMAP|SS_CENTERIMAGE(位图居中,
-    ; 四周留页面底色)—— 子窗口创建是本仓库长期验证可行的通路
-    System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5000040E, i 0, i 0, i $IHUIWW, i $IHUIWH, p $HWNDPARENT, p 0, p 0, p 0) p .s"
-    Pop $IHUISPL
-    ${If} $IHUISPL <> 0
-      SetCtlColors $IHUISPL FAFAFA 242424
-      ; 覆盖层必须最先显示:窗口此刻还没进页面消息循环
-      ShowWindow $HWNDPARENT 5
-      ShowWindow $IHUISPL 5
-      System::Call "user32::UpdateWindow(p $HWNDPARENT)"
-      ${For} $R9 0 ${IHUI_SPLASH_FRAMES}
-        ${If} $R9 == 0
-          StrCpy $R5 "$PLUGINSDIR\splash.bmp"
-        ${Else}
-          StrCpy $R5 "$PLUGINSDIR\splash$R9.bmp"
-        ${EndIf}
-        System::Call "user32::LoadImage(p 0, w `$R5`, i 0, i 0, i 0, i 0x2010) p .r6"
-        ${If} $6 <> 0
-          ; STM_SETIMAGE 返回上一帧位图句柄 —— 立即 DeleteObject,16 帧不留 GDI 泄漏
-          SendMessage $IHUISPL 0x0172 0 $6 $7
-          ${If} $7 <> 0
-            System::Call "gdi32::DeleteObject(p r7)"
-          ${EndIf}
-          System::Call "user32::UpdateWindow(p $IHUISPL)"
-        ${EndIf}
-        ; 用户左键可提前跳过(不阻塞安装流程)
-        System::Call "user32::GetAsyncKeyState(i 1) i .r0"
-        IntOp $0 $0 & 0x8000
-        ${If} $0 <> 0
-          ${ExitFor}
-        ${EndIf}
-        Sleep ${IHUI_SPLASH_TICK}
-      ${Next}
-      Sleep 140
-      System::Call "user32::DestroyWindow(p $IHUISPL)"
-      StrCpy $IHUISPL 0
-    ${Else}
-      ; 覆盖层创建失败兜底:退回 AdvSplash 单帧(旧通路,但时长从 570ms 提到 1.6s)。
-      ; 载体替换不得让开屏比改版前更差,故保留这条降级路径。
-      AdvSplash::show 1600 0 220 -1 "$PLUGINSDIR\splash"
-      Pop $0
-    ${EndIf}
-  ${EndIf}
-!macroend
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
@@ -720,7 +679,6 @@ Function IHUIGuiInit
   ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   ; 开屏动画:窗口已无边框且定档完毕,铺满幅覆盖层逐帧播放后再进页面
-  !insertmacro IHUI_SHOWSPLASH
 FunctionEnd
 
 ; =====================================================================
@@ -728,6 +686,7 @@ FunctionEnd
 ;   (插入点 = 模板 .onInit 尾部; 此时 $PassiveMode/$UpdateMode 已就绪)
 ; =====================================================================
 !macro IHUI_INITSPLASH
+  StrCpy $IHUISPLA 0
   StrCpy $IHUI_LOGN 0   ; 打点序号归零(IntOp 依赖整数,不给初值会按空串参与运算)
   StrCpy $IHUISC 1
   ; 模板变量 → IHUI 别名(本宏展开于 .onInit,晚于模板 Var 声明,引用安全)
@@ -744,13 +703,106 @@ FunctionEnd
     ; GUIInit 会按窗口 DPI 重算 IHUIWTIER; 此处先按系统档解压,
     ; 若窗口档与系统档不一致(极少见的多屏异 DPI), 页面函数兜底补解压。
     !insertmacro IHUI_EXTRACTPAGESETS $IHUITIER
-    ; 开屏动画已移至 IHUIGuiInit 末尾(需先完成无边框定档,见 IHUI_SHOWSPLASH 注释)
+    ; ---- 开屏动画:此处只"装填",逐帧播放在欢迎页(IHUI_SPLASH_START) ----
+    ; 为什么不再用 AdvSplash:
+    ;   1. 插件反编译实锤只加载 base 名那一张图(字符串表仅 ".bmp"/".wav"),
+    ;      且每进程只能调用一次 —— 结构上做不出多帧动画;
+    ;   2. 无头/无人值守会话下 AdvSplash 失败会让进程静默退出(2026-09-19 记录)。
+    ; 16 帧序列由此全部真实使用(不再只有 splash15 一帧在跑)。
+    StrCpy $IHUISPLA 1
+    ; 验证 / 无人值守场景保留跳过开关
+    ReadEnvStr $0 "IHUI_NOSPLASH"
+    ${If} $0 == "1"
+      StrCpy $IHUISPLA 0
+    ${EndIf}
   ${EndIf}
 !macroend
 
-; ---- 开屏动画帧解压(16 帧 × 5 档)----
+; =====================================================================
+; 开屏动画(2026-09-22 定稿:欢迎页内逐帧,16 帧 / 约 1.5s)
+; 载体判据(实测探针 .ihui-agent/tmp/installer-redesign/sweep-probe.nsi):
+;   1. nsDialogs 自定义页里 ${NSD_CreateTimer} 在 nsDialogs::Show 模态循环内正常派发
+;      (探针落盘 ticks=20 frame=3 → 定时器确实在跑);
+;   2. 对满幅 STATIC 换 STM_SETIMAGE + InvalidateRect + UpdateWindow 重绘真实可见
+;      (探针截图已画出帧内容)。此前两次"覆盖层不显示"的判负是**测量**问题:
+;      一是把覆盖层挂成 $HWNDPARENT 的裸子窗(被内层 #32770 灰板盖住),
+;      二是动画只有约 1.6s,截图到达时早已播完 —— 看着像"没生效"。
+; 画布直接复用欢迎页背景 $IHUIBG(已由 nsDialogs::CreateControl 挂到内层,
+; 是全站唯一被截图证实能满幅渲染的 STATIC):动画期间把 CTA/取消/关闭/最小化
+; 四个控件 ShowWindow 隐藏,播完落回 welcome.bmp 再显出 —— 全程只有一个窗口,
+; 不再出现"AdvSplash 浮窗 + 主窗先后两跳"的观感割裂。
+; =====================================================================
+!define IHUI_SPLASH_FRAMES 15
+!define IHUI_SPLASH_TICK 90
+
+Function IHUIOnSplashTick
+  ${If} $IHUISPLA = 0
+    ${NSD_KillTimer} IHUIOnSplashTick
+    Return
+  ${EndIf}
+  IntOp $IHUISPLF $IHUISPLF + 1
+  ${If} $IHUISPLF > ${IHUI_SPLASH_FRAMES}
+    ; 收尾:背景落回欢迎页 → 交互控件登场 → 定时器自杀
+    StrCpy $IHUISPLA 0
+    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\welcome.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    ${If} $0 <> 0
+      SendMessage $IHUIBG 0x0172 0 $0 $1
+      ${If} $1 <> 0
+        System::Call "gdi32::DeleteObject(p r1)"
+      ${EndIf}
+    ${EndIf}
+    ShowWindow $IHUISTART 5
+    ShowWindow $IHUICANCEL 5
+    ShowWindow $IHUICLS 5
+    ShowWindow $IHUIMIN 5
+    System::Call "user32::InvalidateRect(p $IHUIBG, p 0, i 1)"
+    System::Call "user32::UpdateWindow(p $HWNDPARENT)"
+    ${NSD_KillTimer} IHUIOnSplashTick
+    Return
+  ${EndIf}
+  ; 寄存器大小写陷阱(与旧版 0x0 尺寸控件事故同源):System::Call 的输入串
+  ; 只能取寄存器(w r0 = $0),不能直接喂 Var;输出同样只能是寄存器。
+  StrCpy $0 "$PLUGINSDIR\splash$IHUISPLF.bmp"
+  System::Call "user32::LoadImage(p 0, w r0, i 0, i 0, i 0, i 0x2010) p .r1"
+  ${If} $1 <> 0
+    SendMessage $IHUIBG 0x0172 0 $1 $2
+    ${If} $2 <> 0
+      System::Call "gdi32::DeleteObject(p r2)"
+    ${EndIf}
+    System::Call "user32::InvalidateRect(p $IHUIBG, p 0, i 1)"
+    System::Call "user32::UpdateWindow(p $HWNDPARENT)"
+  ${EndIf}
+FunctionEnd
+
+; ---- 欢迎页进入时启动逐帧开屏(须在四个交互控件创建之后调用) ----
+!macro IHUI_SPLASH_START
+  ; 多屏异 DPI 时窗口档 != 解压档,帧图物理尺寸会错 → 放弃动画走静态欢迎页
+  ${If} $IHUIWTIER != $IHUITIER
+    StrCpy $IHUISPLA 0
+  ${EndIf}
+  ${If} $IHUISPLA = 1
+    ShowWindow $IHUISTART 0
+    ShowWindow $IHUICANCEL 0
+    ShowWindow $IHUICLS 0
+    ShowWindow $IHUIMIN 0
+    ; 起播帧号 0:帧 0 是空白起始帧(logo 透明度 0、字标未显),不入播放序列,
+    ; 故第一拍即 splash1.bmp —— 同时避免每轮一次必然失败的 splash0.bmp LoadImage。
+    StrCpy $IHUISPLF 0
+    ${NSD_CreateTimer} IHUIOnSplashTick ${IHUI_SPLASH_TICK}
+  ${EndIf}
+!macroend
+
+; ---- 离开欢迎页:掐掉可能仍在途的动画定时器 ----
+!macro IHUI_SPLASH_STOP
+  ${If} $IHUISPLA = 1
+    ${NSD_KillTimer} IHUIOnSplashTick
+    StrCpy $IHUISPLA 0
+  ${EndIf}
+!macroend
+
+; ---- 开屏动画帧解压(16 帧 x 5 档)----
 ; File 源路径必须编译期字面量 → 档位以字面量入参,运行期 ${If} 选档。
-; 首帧名 splash.bmp(AdvSplash 以 base 名 + 序号 1..N 轮播),故序号 0 特判。
+; 首帧名 splash.bmp(帧号 0),故 0 特判。
 !macro IHUI_EXTRACTSPLASH_SET LIT
   File "/oname=$PLUGINSDIR\splash.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash.bmp"
   File "/oname=$PLUGINSDIR\splash1.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\splash1.bmp"
@@ -801,6 +853,7 @@ FunctionEnd
   File "/oname=$PLUGINSDIR\btn-toggle-off.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-toggle-off.bmp"
   File "/oname=$PLUGINSDIR\btn-close.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-close.bmp"
   File "/oname=$PLUGINSDIR\btn-min.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-min.bmp"
+  File "/oname=$PLUGINSDIR\bar-fill.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\bar-fill.bmp"
 !macroend
 
 ; 包装宏:TIERVAR 为运行时变量名($IHUITIER / $IHUIWTIER),按其值选档解压
@@ -841,6 +894,7 @@ Function IHUIWelcomePage
   !insertmacro IHUI_CLOSEBTN
   !insertmacro IHUI_MINBTN
   !insertmacro IHUI_ZORDER $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN 0 0
+  !insertmacro IHUI_SPLASH_START
   !insertmacro IHUI_DRAG_START
   !insertmacro IHUI_PAGE_SHOW
   !insertmacro IHUI_LOG "welcome_shown"
@@ -848,6 +902,7 @@ FunctionEnd
 
 Function IHUIWelcomeLeave
   !insertmacro IHUI_LOG "welcomeLeave_entry"
+  !insertmacro IHUI_SPLASH_STOP
   !insertmacro IHUI_DRAG_STOP
   !insertmacro IHUI_DESTROY $IHUISTART $IHUICANCEL $IHUICLS $IHUIMIN $IHUIBG 0
   !insertmacro IHUI_LOG "welcomeLeave_exit"
@@ -1016,34 +1071,37 @@ Function IHUIInstShow
   ; IHUI_INST_DONE_THEME 接管,绝不再出现"看着能点其实不能点"的死按钮。
   StrCpy $IHUINXT 0
   StrCpy $IHUICNC 0
-  !insertmacro IHUI_INST_SLOT 2 ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
-  !insertmacro IHUI_INST_OVERLAY $IHUICNC btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
+  ; 2026-09-22 computer-use 真实截图实证:instfiles 全程原生取消钮被核心置为 disabled
+  ; (UIA 树 `按钮 (disabled) 取消(C) ID: 2`),而 BS_BITMAP 按钮在禁用态会被系统
+  ; 灰化 → 槽位变成一个灰色块,正是 r9/v10 明令根除的"看着能点其实不能点"死按钮。
+  ; 故本页不再摆取消钮,保持 IHUI_HIDE_ALL 的隐藏+移屏状态。退出通路 = 完成后「继续 ›」
+  ; 与窗口 WS_SYSMENU 下的 Alt+F4(与原生语义一致:文件复制中本就不允许取消)。
   !insertmacro IHUI_INST_HOLES 0
   ; ---- 进度区(2026-09-22「墨光」改版) ----
-  ; 视觉主体仍用原生 msctls_progress32:它是本仓库长期验证过"能渲染、能着色、
-  ; 能被核心推进"的唯一控件。自绘填充条要靠"空文本 STATIC + SetCtlColors 刷满
-  ; 客户区"这一未证实前提,故不采用。去主题 + 品牌配色 + 胶囊圆角 region。
+  ; 视觉主体 = 自绘品牌进度条(bar-fill.bmp + SetWindowRgn 按百分比裁宽)。
+  ; 原生 msctls_progress32 必须彻底退出视觉:它由 NSIS 核心自行推进,与阶段驱动
+  ; 的百分比数字不同源(实测 done 前已到 100% 而数字仍 30%),同位置叠放会在填充
+  ; 右端露出亮头。隐藏 + 移屏双保险(核心会自行恢复可见性,只隐藏不可靠 —— 与
+  ; 1006 白条同类的时序竞态,见 R65)。
   GetDlgItem $IHUIPB $1 1004
-  System::Call "uxtheme::SetWindowTheme(p $IHUIPB, w ``, w ``)"
-  System::Call "user32::SetWindowLongW(p $IHUIPB, i -16, p 0x50000001)"
-  SendMessage $IHUIPB 0x0401 0 0x00333333
-  SendMessage $IHUIPB 0x0409 0 0x00A3C4D6
-  !insertmacro IHUI_PX $2 ${IHUI_PB_X}
-  !insertmacro IHUI_PX $3 ${IHUI_PB_Y}
-  !insertmacro IHUI_PX $4 ${IHUI_PB_W}
-  !insertmacro IHUI_PX $5 ${IHUI_PB_H}
-  System::Call "user32::MoveWindow(p $IHUIPB, i r2, i r3, i r4, i r5, i 1)"
-  ; 胶囊圆角:region 参数为直径(2r),取轨道高度的 2 倍 => r = 半高
-  IntOp $6 $5 + $5
-  System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i r4, i r5, i r6, i r6) p .r0"
-  System::Call "user32::SetWindowRgn(p $IHUIPB, p r0, i 1)"
-  System::Call "user32::SetWindowPos(p $IHUIPB, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  ${If} $IHUIPB <> 0
+    ShowWindow $IHUIPB 0
+    System::Call "user32::MoveWindow(p $IHUIPB, i -4000, i -4000, i 8, i 8, i 1)"
+  ${EndIf}
   ; 百分比大字:右对齐 STATIC(带初值文本),与「正在安装」标题同水平带对位
   !insertmacro IHUI_TEXTCTL $IHUIPCT 0x50000002 "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
   SetCtlColors $IHUIPCT FAFAFA 242424
   ; 阶段文案:左对齐 STATIC(初值为空,由 IHUI_PROGRESS 立即写入文本)
   !insertmacro IHUI_TEXTCTL $IHUISTG 0x50000000 " " ${IHUI_STG_X} ${IHUI_STG_Y} ${IHUI_STG_W} ${IHUI_STG_H}
   SetCtlColors $IHUISTG D4D4D4 242424
+  ; 4) 自绘品牌进度条填充:满幅渐变位图 + 按百分比 SetWindowRgn 裁宽。
+  ;    原生 1004 已移屏退出视觉,所以条与百分比数字同源同值,不会再打架。
+  ;    控件尺寸 == 位图尺寸(SS_BITMAP 居中即精确贴合),region 从左侧裁剪。
+    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\bar-fill.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    !insertmacro IHUI_TEXTCTL $IHUIPB2 0x5400000E " " ${IHUI_PB_X} ${IHUI_PB_Y} ${IHUI_PB_W} ${IHUI_PB_H}
+    ${If} $IHUIPB2 <> 0
+      System::Call "user32::SendMessageW(p $IHUIPB2, i 0x0172, p 0, p r0)"
+    ${EndIf}
   ; 百分比专用大字号:lfHeight 取负 = 字符高度(不含内部 Leading),按窗口 DPI 换算
   !insertmacro IHUI_PX $8 ${IHUI_PCT_PX}
   IntOp $8 0 - $8
@@ -1055,8 +1113,8 @@ Function IHUIInstShow
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
   Pop $0
   SendMessage $IHUISTG 0x0030 $0 1
-  ; 三层提到最上(背景稍后统一压底)
-  System::Call "user32::SetWindowPos(p $IHUIPB, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
+  ; 三层提到最上(背景稍后统一压底):自绘进度条 / 百分比 / 阶段文案
+  System::Call "user32::SetWindowPos(p $IHUIPB2, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::SetWindowPos(p $IHUIPCT, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   System::Call "user32::SetWindowPos(p $IHUISTG, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
   !insertmacro IHUI_PROGRESS 6 "正在准备安装环境"
@@ -1102,17 +1160,14 @@ FunctionEnd
   StrCpy $IHUINXT 0
   ; ---- 2) 原生 1/2 摆进品牌槽位(点击通路 = 核心原生路由,r76 物理点击实证) ----
   ; 继续/完成(原生1): 逻辑 688,500 144x40 —— 与 btn-continue.bmp(144x40) 等大
-  !insertmacro IHUI_INST_SLOT 1 ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40
-  ; 取消(原生2): 逻辑 288,500 96x40 —— 与 btn-cancel.bmp(96x40) 等大
-  !insertmacro IHUI_INST_SLOT 2 ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
+  !insertmacro IHUI_INST_SLOT 1 btn-continue.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40
+  ; 取消(原生2):完成态仍被核心置为 disabled,不摆进槽位(理由见 IHUIInstShow 内注释)
   ; 原生 3(上一步): 完成态无意义,移出屏幕
   GetDlgItem $0 $HWNDPARENT 3
   ${If} $0 <> 0
     System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
   ${EndIf}
   ; ---- 3) 品牌位图覆盖层(STATIC 无 SS_NOTIFY → 鼠标穿透直达下层原生钮) ----
-  !insertmacro IHUI_INST_OVERLAY $IHUINXT btn-continue.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40
-  !insertmacro IHUI_INST_OVERLAY $IHUICNC btn-cancel.bmp ${IHUI_CANCEL_X} ${IHUI_BTN_Y} ${IHUI_CANCEL_W} 40
   ; ---- 4) 内层 dialog 挖洞(CTA+取消两槽) ----
   ;      Z 序无关: 核心 done 态再提顶内层也盖不住槽位;洞区透外层类背景刷。
   !insertmacro IHUI_INST_HOLES 1

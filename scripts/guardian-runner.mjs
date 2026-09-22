@@ -25,6 +25,12 @@
  *   blocking  失败 → 立即 exit(1),阻塞 commit
  *   warn      失败 → 打印警告,继续执行(不阻塞 commit)
  *   info      始终继续,只打印信息
+ *
+ * 条目可选字段:
+ *   skipEnv        环境变量名,值为 '1' 时跳过该项(应急放行,见执行循环)
+ *   onFailHint     失败时打印的修复指引
+ *   stagedTriggers 路径前缀数组;声明后该项**仅在暂存区触及这些路径时**执行(见执行循环),
+ *                  用于把与绝大多数提交无关的领域守门(桌面安装器等)挂上而不拖慢/误伤
  */
 import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -1320,6 +1326,83 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 61 (2026-09-22 接入 pre-commit,桌面安装器品牌资产三方对账,blocking) ---
+  // 背景:2026-09-20 真实事故 —— ihui-ui.nsi 新增「最小化」按钮引用 btn-min.bmp,却漏登记
+  //   IHUI_EXTRACTPAGESETS_SET 里的 File 行 → $PLUGINSDIR 里根本没有该文件 → LoadImage 返回 0
+  //   → STM_SETIMAGE 贴空位图 → 按钮**肉眼不可见**,而 makensis 零报错零警告(用户报「最小化
+  //   按钮没显示」)。守门脚本自写下后只被手动跑过,在 guardian-runner / .husky / .github
+  //   零命中 = 没有任何自动执行点,等于「记得跑才有保护」。本次正式接入。
+  // 判据(任一不通过 exit 1):① 引用 ⊆ 打包;② 打包 ⊆ 落盘(100/125/150/175/200 五档齐全);
+  //   ③ 引用/打包解析为零命中即失败(正则被改坏时不自愈放行);④ installer.nsi 的 GetOptions
+  //   不得直接吃 $CMDLINE(路径里的 /ns 段会前缀误匹配)。
+  // 条件触发:见 stagedTriggers —— 安装器目录或资产生成器进暂存区才跑,全量模式一律跑。
+  {
+    id: '61',
+    label: '🖥️  桌面安装器资产三方对账(blocking,引用↔打包↔5 档落盘)',
+    script: 'check-installer-assets.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/desktop/src-tauri/windows/', 'scripts/desktop-installer-assets.mjs'],
+    skipEnv: 'HUSKY_SKIP_INSTALLER_ASSETS_GUARD',
+    onFailHint: [
+      '',
+      '  💡 NSIS 脚本「引用的位图 ↔ File 打包清单 ↔ 磁盘 5 档 DPI 资产」三方不一致(编译期零报错,',
+      '     只有真机跑安装器才暴露 —— 静默失败必须在这里拦住):',
+      '     按报错项处置:',
+      '       ① “引用了但未打包: X.bmp” → 在 apps/desktop/src-tauri/windows/ihui-ui.nsi 的',
+      '          !macro IHUI_EXTRACTPAGESETS_SET 内补一行(与 btn-close.bmp 同处):',
+      '            File "/oname=$PLUGINSDIR\\X.bmp" "${IHUI_ASSETROOT}\\assets-${LIT}\\X.bmp"',
+      '       ② “打包了但档位缺文件” → 重跑资产导出:node scripts/desktop-installer-assets.mjs',
+      '          五档(100/125/150/175/200)缺一档,就在那个 DPI 档位下控件空白',
+      '       ③ “解析到 0 个引用 / 0 条 File” → 判据正则与 nsi 结构漂移,门禁已失效,',
+      '          必须修 scripts/check-installer-assets.mjs 的解析式,**禁止放宽判定**',
+      '     单独复验:node scripts/check-installer-assets.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_INSTALLER_ASSETS_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
+  // 背景:apps/desktop/src-tauri/windows/installer.nsi 是「Tauri CLI 内置模板 + IHUI 补丁集」
+  //   的副本(Tauri v2 只暴露四个 Section 内宏,改不了向导页面结构,唯一官方接管方式是
+  //   bundle.nsis.template 整体替换)。2026-09-22 实测:该文件里累积了 11 段历史上**直接手改、
+  //   从未登记进 PATCHES / 侧车 JSON** 的定制,于是 --check 恒绿而 --write 会把这些定制整体
+  //   抹掉 —— 已真实发生过一次回退。--check 正是拦这一类的,但此前同样零自动执行点。
+  // 已核实的宽松兜底(保持不改、不改成阻塞):工作区未安装 @tauri-apps/cli 原生模块时,脚本
+  //   打印「未找到 @tauri-apps/cli 原生模块,跳过校验」并 exit 0(源码 desktop-nsis-template.mjs
+  //   第 373-381 行)。干净 checkout / 部分 CI 属正常态,该项在这些环境**自动放行**;
+  //   本机已装 @tauri-apps/cli 2.11.4 → 实测走的是真比对(命中 20+ 处 IHUI 补丁)。
+  {
+    id: '62',
+    label: '🧩 桌面 NSIS 安装器模板漂移(blocking,installer.nsi == 上游模板 + 已登记补丁)',
+    script: 'desktop-nsis-template.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/desktop/src-tauri/windows/installer.nsi',
+      'scripts/desktop-nsis-template.mjs',
+      'scripts/desktop-nsis-ihui-patches.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_NSIS_TEMPLATE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 installer.nsi 已不等于「当前 Tauri CLI 内置模板 + 已登记补丁集」。两类成因处置不同:',
+      '     ① 直接手改了 installer.nsi(最常见)→ 把差量登记进侧车补丁,复验后随代码同 commit:',
+      '          node scripts/desktop-nsis-template.mjs --emit-patches',
+      '            (导出 scripts/desktop-nsis-ihui-patches.json)',
+      '          node scripts/desktop-nsis-template.mjs --check   # 应回到 OK',
+      '          git add scripts/desktop-nsis-ihui-patches.json',
+      '        不登记就提交,下次 --write 会把这段定制整体抹掉(已真实回退过一次)。',
+      '     ② 升级了 Tauri CLI(上游模板变了)→ 先 diff 上游与仓库两份模板、人工复核各补丁',
+      '        锚点是否仍成立,确认后再 --write,然后重跑 --check(必要时补 --emit-patches);',
+      '        **禁止盲目 --write**(会连带抹掉未登记定制)。',
+      '     注:未安装 @tauri-apps/cli 原生模块的环境里该脚本打印「跳过校验」并 exit 0,',
+      '         即本项在干净 checkout / 部分 CI 自动放行(既有宽松兜底,不是漏判)。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_NSIS_TEMPLATE_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1476,6 +1559,42 @@ let failed = 0
 let skipped = 0
 const startTime = Date.now()
 
+// ─── 条件触发(2026-09-22 立)───
+// 条目声明 stagedTriggers(路径前缀数组)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
+// 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
+// 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
+//   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
+//   (NSIS 少一行 File 编译零报错、--write 抹掉未登记定制)只有真拦住才有意义。
+// 全量模式(不带 --staged,手动 / CI)一律执行;拿不到暂存区(非 git 环境)按「触及」处理,
+//   宁误跑不误漏。结果缓存一次,多个条件项共用。
+// 边界:--staged 而暂存区为空(手动误跑该模式)按「未触及」跳过 —— 需要全量审计请不带 --staged。
+let stagedFilesCache = null
+function stagedFilesOrNull() {
+  if (stagedFilesCache) return stagedFilesCache
+  try {
+    stagedFilesCache = execFileSync('git', ['diff', '--cached', '--name-only'], {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+    })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch {
+    return null
+  }
+  return stagedFilesCache
+}
+
+function stagedPathsTouch(prefixes) {
+  const files = stagedFilesOrNull()
+  if (files === null) return true
+  return files.some((f) => {
+    const norm = f.replace(/\\/g, '/')
+    return prefixes.some((p) => norm.startsWith(p))
+  })
+}
+
 for (const check of effectiveChecks) {
   // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
   // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
@@ -1484,6 +1603,15 @@ for (const check of effectiveChecks) {
   if (check.skipEnv && process.env[check.skipEnv] === '1') {
     skipped++
     console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
+  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
+  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
+  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
+    skipped++
+    console.log(
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
+    )
     continue
   }
   const cmdArgs = [...check.args]
