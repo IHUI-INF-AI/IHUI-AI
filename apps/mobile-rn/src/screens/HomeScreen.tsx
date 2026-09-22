@@ -519,7 +519,7 @@ function toAgentShopItem(a: Agent): AgentShopItem {
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
-    tags: a.tags.length > 0 ? a.tags : undefined,
+    tags: a.tags?.length ? a.tags : undefined,
     isCollect: a.isFavorited,
     collectCount: a.favoriteCount,
     usageCount: a.useCount,
