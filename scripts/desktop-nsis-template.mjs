@@ -20,7 +20,7 @@
 //                          (MUI_FINISHPAGE_* 移除;快捷方式/启动逻辑移入 IHUIOnFinish/IHUIOnLaunch)
 //   P5 重装/升级确认页    → PageReinstall 内插 IHUI_REINSTALLTHEME 主题宏
 //   P6 .onInit 开屏      → 尾部插 IHUI_INITSPLASH(AdvSplash 多帧品牌动画 + 资产预解压)
-//   P7 安装页进度埋点   → Install Section 四阶段插 IHUI_PROGRESS(百分比 + 自绘品牌进度条 + 阶段文案)
+//   P7 安装页进度埋点   → Install Section 9 个真实步骤插 IHUI_PROGRESS(百分比 + 自绘品牌进度条 + 阶段文案)
 //   页面/宏/函数实现全部在 windows/ihui-ui.nsi,经 hooks.nsi include 接线。
 //
 // 用法:
@@ -52,7 +52,7 @@ const HEADER = [
   ';   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/',
   ';      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。',
   ';   P5 重装/升级确认页深色主题宏。',
-  ';   P7 Install Section 进度埋点:四阶段 IHUI_PROGRESS(安装页百分比数字 + 自绘品牌进度条 + 阶段文案)。',
+  ';   P7 Install Section 进度埋点:9 个真实步骤各报一次 IHUI_PROGRESS(百分比 + 品牌进度条 + 阶段文案)。',
   ';',
   '; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check',
   ';   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。',
@@ -202,12 +202,23 @@ const P6_IHUI = [
 //   "while calling another function")。百分比无法轮询原生进度条,唯一可靠通路是
 //   Section 跑到哪一步就报到哪一步。宏实现见 windows/ihui-ui.nsi 的 IHUI_PROGRESS:
 //   同一份数值同时驱动自绘品牌条宽度 / 百分比大字 / 阶段文案,三者永远一致。
-// 四个锚点在上游正文里各只出现一次(grep -Fc 已校验),故可逐条独立成补丁。
+// 锚点数量按"Section 里真实的工作单元"给足(2026-09-23 用户反馈"一跳一跳不像匀速"):
+// 结构上补间动画做不到(见上),所以能做的就是把每一段真实步骤都报出来 ——
+// 9 个锚点把最大跨步从 25% 压到 ~10%,观感上就是"连续爬"而不是"跳台阶"。
+// 每个锚点行在上游正文里各只出现一次(grep -Fc 已校验;故意避开
+// `; Copy main executable` / `CheckIfAppIsRunning` 这类**安装与卸载两段都有**的行)。
+// ⚠️ 这里的百分比集合必须与 scripts/desktop-installer-assets.mjs 的 PB_TICKS /
+//    sceneUninstfiles(meterTrack([...])) 一一对应 —— 轨道刻度就是锚点的位置。
 const P7_POINTS = [
-  ['  File "${MAINBINARYSRCPATH}"', 30, '正在复制主程序'],
-  ['  ; Copy resources', 55, '正在写入运行资源'],
-  ['  ; Create uninstaller', 75, '正在登记卸载与系统信息'],
-  ['  ; Create start menu shortcut', 92, '正在创建快捷方式'],
+  ['  File "${MAINBINARYSRCPATH}"', 12, '正在复制主程序'],
+  ['  ; Copy resources', 34, '正在写入运行资源'],
+  ['  ; Copy external binaries', 52, '正在写入外部组件'],
+  ['  ; Create file associations', 64, '正在登记文件关联'],
+  ['  ; Register deep links', 72, '正在登记深度链接'],
+  ['  ; Create uninstaller', 80, '正在生成卸载程序'],
+  ['  ; Save $INSTDIR in registry for future installations', 88, '正在登记安装位置'],
+  ['  ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2', 93, '正在统计占用'],
+  ['  ; Create start menu shortcut', 97, '正在创建快捷方式'],
 ];
 
 // 补丁集:name 用于诊断输出;apply 时严格断言锚点存在。
@@ -221,7 +232,7 @@ const PATCHES = [
   { name: 'P6 开屏动画', upstream: P6_UPSTREAM, ihui: P6_IHUI },
 ];
 
-// P7 拆成 4 条独立补丁(锚点分散在 Section 正文各处,不能合并成一段)
+// P7 拆成多条独立补丁(锚点分散在 Section 正文各处,不能合并成一段)
 for (const [upstream, pct, text] of P7_POINTS) {
   PATCHES.push({
     name: `P7 进度埋点 ${pct}%`,
@@ -308,11 +319,17 @@ const U3_IHUI = [
 PATCHES.push({ name: 'U3 卸载器语言去原生框', upstream: U3_UPSTREAM, ihui: U3_IHUI })
 
 // 只能 Section 跑到哪报到哪。四个锚点在上游正文里各只出现一次(grep -Fc 已校验)。
+// 卸载侧同口径:锚点 = Section 里真实的一段删除/清理工作,8 个锚点最大跨步 ~10%。
+// 刻度集合必须与 sceneUninstfiles 的 meterTrack([...]) 一致。
 const U_POINTS = [
   ['  ; Delete the app directory and its content from disk', 20, '正在删除程序文件'],
-  ['  ; Delete uninstaller', 45, '正在清理安装目录'],
-  ['  ; Remove shortcuts if not updating', 65, '正在移除快捷方式'],
-  ['  ; Remove registry information for add/remove programs', 85, '正在清理注册信息'],
+  ['  ; Delete resources', 34, '正在删除运行资源'],
+  ['  ; Delete external binaries', 46, '正在删除外部组件'],
+  ['  ; Delete app associations', 56, '正在解除文件关联'],
+  ['  ; Delete deep links', 66, '正在解除深度链接'],
+  ['  ; Delete uninstaller', 76, '正在清理安装目录'],
+  ['  ; Remove shortcuts if not updating', 86, '正在移除快捷方式'],
+  ['  ; Remove registry information for add/remove programs', 92, '正在清理注册信息'],
 ]
 for (const [upstream, pct, text] of U_POINTS) {
   PATCHES.push({
