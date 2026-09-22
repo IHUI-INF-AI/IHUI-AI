@@ -126,7 +126,7 @@ curl -s http://127.0.0.1:8802/api/health/ready
 
 | 服务 | 职责 |
 |---|---|
-| `IHUI-PG` / `IHUI-REDIS` | PostgreSQL 15 / Redis 7 |
+| `IHUI-PG` / `IHUI-REDIS` | PostgreSQL 18 / Redis 7 |
 | `IHUI-AI-SERVICE` | FastAPI 8803(uvicorn 源码直跑) |
 | `IHUI-API` | Fastify 8802(pwsh → tsx,目录 `D:\IHUI-AI\apps\api`) |
 | web(8801) | Next.js;由 `ihui-deploy.ps1` 拉起的常驻 Node 进程(非 nssm),重启机后由 deployloop 首轮部署恢复 |

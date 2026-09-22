@@ -129,7 +129,7 @@ server.publish()  // 一键上架到 MCP 市场
 #### 1. 完整技术架构(可直接评估)
 ```
 前端: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-后端: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+后端: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI: LangGraph + LiteLLM + MCP 协议
 部署: Docker Compose / Kubernetes / Helm Chart
 监控: Prometheus + Grafana + Sentry + Loki
@@ -487,7 +487,7 @@ CI/CD: GitHub Actions + Turborepo 远程缓存
 - 内置 bge-large-zh-v1.5 嵌入模型
 
 #### 3. 向量数据库(pgvector)
-- PostgreSQL 16 + pgvector 扩展
+- PostgreSQL 18 + pgvector 扩展
 - 无需独立向量库,运维简化
 - 支持 HNSW / IVFFlat 索引
 - 混合检索:向量 + BM25 + 重排

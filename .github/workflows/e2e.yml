@@ -49,7 +49,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18
         env:
           POSTGRES_USER: ihui
           POSTGRES_PASSWORD: ihui_test
