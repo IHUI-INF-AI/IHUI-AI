@@ -13,3 +13,7 @@ export * from './tool-activity'
 export * from './stream-error'
 // 工作区权限档展示(D111:档位行取词,web/extension/miniapp-taro/mobile-rn 共用)
 export * from './permission-tier'
+// D79 等待态文案池(分象限×分阶段轮换,seed 取模确定性,跨端共用)
+export * from './waiting-pool'
+// D55 步骤决策词汇表(15 个后端字面量的唯一映射,跨端共用;认不出不编造)
+export * from './step-decision'
