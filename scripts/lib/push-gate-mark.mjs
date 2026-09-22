@@ -1,0 +1,16 @@
+// 2026-09-22 弹窗根治配套:替代 pre-push 里裸跑的 `node -e "writeFileSync(...)"`。
+// 裸 node -e 在无 console 上下文(git-push-guard WMI 链等)触发 push 时会弹可见
+// 控制台窗口;统一走 scripts/hook-run-hidden.vbs 包装后,`-e` 代码串无法作为
+// 参数安全传递(引号嵌套),故固化为独立脚本。
+// 用法: node scripts/lib/push-gate-mark.mjs <exitCode>
+import { writeFileSync } from 'node:fs'
+const code = Number(process.argv[2] || 0)
+try {
+  writeFileSync(
+    '.workbuddy/push-gate-last-result.json',
+    JSON.stringify({ ts: Date.now(), code }),
+  )
+} catch {
+  /* 标记失败不阻塞(hook 侧本就 || true) */
+}
+process.exit(0)
