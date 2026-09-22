@@ -51,6 +51,11 @@ export type {
   UsageEvent,
   // Budget 用量分档提醒事件(2026-09-19 立,网关发,前端 onBudget toast 提示用量进度)
   BudgetEvent,
+  // D106(2026-09-22 立):这三帧的类型此前漏 re-export —— 端内要写 onSteer/onInjectionApplied/
+  // onRetryScheduled 回调就点不到参数类型,只能自己重抄一份或用 any(§3 类型零技术债禁止)。
+  SteerEvent,
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
 } from './client'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
