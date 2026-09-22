@@ -567,7 +567,7 @@ export const extendedMediaVendorRoutes5: FastifyPluginAsync = async (server) => 
       // 调用方轮询 /freepik/tasks/:taskId 时以 ?model= 原样传回
       const dataObj = data as Record<string, unknown>
       const items = Array.isArray(dataObj.data) ? dataObj.data : [dataObj]
-      if (items.some((it) => it != null && typeof it === 'object' && 'task_id' in it)) {
+      if (items.some((it) => typeof it === 'object' && it !== null && 'task_id' in it)) {
         return reply.send(success({ ...dataObj, poll_model: usedModel }))
       }
       return reply.send(success(data))

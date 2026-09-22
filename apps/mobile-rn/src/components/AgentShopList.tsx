@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     borderRadius: 12.5,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     padding: 12,
