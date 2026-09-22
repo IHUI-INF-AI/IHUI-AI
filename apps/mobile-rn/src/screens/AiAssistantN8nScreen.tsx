@@ -43,6 +43,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -422,23 +423,46 @@ function PlanStepList({
   )
 }
 
-/** #11 引用来源列表(来源标签 + 条目文字);RN 侧暂不接跳转(见 PROJECT_PLAN 残余) */
+/**
+ * #11 引用来源列表:来源标签 + 条目文字。
+ * 只有 **http(s)** 外链才给跳转(仓库相对路径在手机端没有可打开的目标,给了就是死链)。
+ */
 function CitationList({ items }: { items: readonly MessageCitation[] }): React.JSX.Element | null {
   const { t } = useI18n()
   if (!items.length) return null
   return (
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.citationTitle')}</Text>
-      {items.map((item, index) => (
-        <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
-          <View style={bubbleStyles.cardHead}>
+      {items.map((item, index) => {
+        const url = item.url
+        const external = typeof url === 'string' && /^https?:\/\//i.test(url)
+        const body = (
+          <>
             <Text style={bubbleStyles.cardMeta}>{item.source}</Text>
             <Text style={bubbleStyles.planText} numberOfLines={2}>
               {item.label}
             </Text>
+          </>
+        )
+        return (
+          <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
+            {external && url ? (
+              <Pressable
+                style={bubbleStyles.cardHead}
+                accessibilityRole="link"
+                accessibilityLabel={url}
+                onPress={() => {
+                  void Linking.openURL(url)
+                }}
+              >
+                {body}
+              </Pressable>
+            ) : (
+              <View style={bubbleStyles.cardHead}>{body}</View>
+            )}
           </View>
-        </View>
-      ))}
+        )
+      })}
     </View>
   )
 }
