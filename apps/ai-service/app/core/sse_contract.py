@@ -127,7 +127,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("fallback", ("primary_model", "backup_model", "reason")),
     SSEEventContract(
         "compaction",
-        ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio"),
+        ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio", "trigger"),
     ),
     # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),
