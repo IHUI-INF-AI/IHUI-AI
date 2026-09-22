@@ -1642,6 +1642,42 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 72 (2026-09-22 新增,Dockerfile 构建上下文对账) ---
+  // blocking:提交 79b906463f 给根 package.json 加了 postinstall(node scripts/fix-expo-metro-junction.mjs),
+  //   而 deploy/docker/Dockerfile.{api,web,cli,migrate} 只 COPY 清单文件就跑 pnpm install ⇒ 镜像里没有该脚本
+  //   ⇒ CI 上 build-api / build-web 同时红(`MODULE_NOT_FOUND`)。typecheck/lint/单测全绿也发现不了,
+  //   因为本机没有 docker、也没人跑 docker build。本门按 workflow 声明的 context 对账两件事:
+  //   A) 根上下文安装依赖的 Dockerfile 必须 COPY 生命周期钩子引用的脚本;
+  //   B) 每条 COPY 源必须在**提交内容**里存在(工作树可能被并行会话删而未暂存,故不信工作树)。
+  // 跳过方法:HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...
+  {
+    id: '72',
+    label: '🐳 Dockerfile 构建上下文对账(blocking,钩子脚本必须 COPY 进镜像 + COPY 源必须在提交里)',
+    script: 'check-dockerfile-copy-paths.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'deploy/docker/',
+      'deploy/saas/',
+      'apps/ai-service/Dockerfile',
+      'package.json',
+      '.github/workflows/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DOCKERFILE_COPY_GUARD',
+    onFailHint: [
+      '',
+      '  💡 本机跑不到 docker 时,这里是唯一能发现"镜像构建必挂"的防线:',
+      '     - lifecycle-script-not-copied → 根 package.json 的 preinstall/postinstall/prepare 里',
+      '       `node <file>` 引用的脚本没被 COPY 进 deps 阶段 ⇒ 在该 Dockerfile 的 RUN pnpm install',
+      '       之前加一行 `COPY <file> <目录>/`(只 COPY 单个文件,别 COPY 整个 scripts/,会毁层缓存)',
+      '     - copy-source-missing → COPY 的源路径在构建上下文的提交里不存在(拼写/已删/被 .dockerignore 排除)',
+      '       注:存在性按 HEAD 提交内容判,工作树里缺文件不算数(并行会话可能删了未暂存)',
+      '     自检:node scripts/check-dockerfile-copy-paths.mjs --self-test',
+      '           node --test scripts/tests/check-dockerfile-copy-paths.test.mjs',
+      '     紧急跳过(不推荐,本门挡的是"部署才炸"的缺陷):HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 
   // --- blocking (OpenAPI 契约) ---
   {
