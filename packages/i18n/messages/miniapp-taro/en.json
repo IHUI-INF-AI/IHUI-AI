@@ -593,11 +593,13 @@
       "downloadSuccess": "Saved to album",
       "downloading": "Downloading",
       "edit": "Edit",
+      "errorCardTitle": "Request failed",
       "favorited": "Favorited",
       "me": "Me",
       "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
       "noContent": "Nothing to copy",
       "regenerate": "Regenerate",
+      "retry": "Retry",
       "reuse": "Reuse",
       "share": "Share",
       "speak": "Speak",
@@ -4074,5 +4076,30 @@
   },
   "shareInformationItem": {
     "z1": "views"
+  },
+  "permissionTier": {
+    "label": "Permission tier",
+    "mode": {
+      "default": {
+        "title": "Default mode",
+        "desc": "Every action requires manual approval; safest"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Only reading and search allowed; file writes and commands are denied"
+      },
+      "accept-edits": {
+        "title": "Accept edits",
+        "desc": "Allowlisted actions run automatically; anything else asks first"
+      },
+      "bypass-permissions": {
+        "title": "Bypass permissions",
+        "desc": "Full access with no confirmations (high risk)"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as default"
+      }
+    }
   }
 }

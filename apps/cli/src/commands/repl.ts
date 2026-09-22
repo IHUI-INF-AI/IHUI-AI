@@ -45,12 +45,14 @@ import {
   describeToolActivityLine,
   injectionNoteText,
   citationNoteText,
+  permissionModeNote,
   retryNoteText,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
 } from './task-status-line.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
+import { t } from '../i18n/index.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -678,6 +680,18 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   capParts.push(`权限 ${permColor(opts.permissionMode ?? 'default')}`);
   capParts.push(`循环 ${opts.maxIterations}`);
   console.info(`  ${chalk.dim('能力:')} ${capParts.join(chalk.dim('  ·  '))}`);
+
+  // G-153:权限档的后果说明(只报档名 = 让用户盲选);未知档不打印
+  const permNote = permissionModeNote(opts.permissionMode ?? 'default');
+  if (permNote) {
+    const paint =
+      opts.permissionMode === 'bypassPermissions'
+        ? chalk.red
+        : opts.permissionMode === 'acceptEdits'
+          ? chalk.yellow
+          : chalk.dim;
+    console.info(`  ${chalk.dim('权限说明:')} ${paint(permNote)}`);
+  }
 
   // 模型切换 + 配置入口提示(用户反馈"不知道在哪里切换模型配置模型 不明显")
   console.info(`  ${chalk.dim('切换:')} ${chalk.cyan('/model')} 切模型  ${chalk.cyan('/config')} 改配置  ${chalk.cyan('/models')} 看列表`);
@@ -2356,6 +2370,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           title: 'Agent 错误',
         });
         for (const line of cardLines) console.error(line);
+        // G-152:错误必须带出口。终端形态没有"重试按钮",出口就是把上一条提问递到用户手上
+        // (readline 的 ↑ 历史是本端现成能力,此前只是没说)。
+        console.error(chalk.dim(`  ${t('cli.retryHint')}`));
       },
     });
 
@@ -2411,6 +2428,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       stack,
     });
     for (const line of cardLines) console.error(line);
+    console.error(chalk.dim(`  ${t('cli.retryHint')}`));
     throw err;
   } finally {
     // 状态行落终态:中止 → interrupted,其余由状态行按步骤/结果自行判定

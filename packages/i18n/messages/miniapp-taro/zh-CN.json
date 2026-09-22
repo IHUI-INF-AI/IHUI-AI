@@ -588,11 +588,13 @@
       "downloadSuccess": "下载成功",
       "downloading": "下载中...",
       "edit": "编辑",
+      "errorCardTitle": "请求出错",
       "favorited": "已收藏",
       "me": "我",
       "needAlbumAuth": "需要相册权限",
       "noContent": "暂无内容",
       "regenerate": "重新生成",
+      "retry": "重试",
       "reuse": "复用",
       "share": "分享",
       "speak": "朗读",
@@ -4042,5 +4044,30 @@
   },
   "shareInformationItem": {
     "z1": "浏览"
+  },
+  "permissionTier": {
+    "label": "权限档",
+    "mode": {
+      "default": {
+        "title": "默认模式",
+        "desc": "全部操作需人工确认,最安全"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+      },
+      "accept-edits": {
+        "title": "接受编辑",
+        "desc": "白名单内的操作自动放行,其他需确认"
+      },
+      "bypass-permissions": {
+        "title": "绕过权限",
+        "desc": "完全访问,无任何确认(高风险)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未识别的权限模式,已按默认档处理"
+      }
+    }
   }
 }

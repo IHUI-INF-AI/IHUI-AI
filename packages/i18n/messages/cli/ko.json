@@ -3,12 +3,18 @@
     "notFound": "{target}을(를) 찾을 수 없습니다"
   },
   "cli": {
+    "permNoteDefault": "모든 단계에서 확인을 요청합니다(가장 안전)",
+    "permNotePlan": "계획만: 승인 전까지 파일은 변경되지 않습니다",
+    "permNoteAcceptEdits": "파일 편집은 자동 승인, 명령과 위험 도구는 계속 확인합니다",
+    "permNoteBypass": "단계별 확인 없음 — AI 가 파일과 명령을 직접 실행합니다(고위험)",
+    "permNoteManual": "읽기 조회를 포함해 모든 작업이 수동 승인 필요합니다",
     "citationSources": "참조 출처: {sources}",
     "injectionApplied": "이번 턴의 참조 컨텍스트: {sources}",
     "injectionSrcDeveloper": "사용자 지정 지침",
     "injectionSrcWorkspace": "워크스페이스 기억",
     "injectionSrcRepoWiki": "저장소 Wiki",
     "injectionSrcAutoContext": "검색 컨텍스트 {count}개",
+    "retryHint": "↑ 를 눌러 이전 질문을 불러와 다시 보내세요",
     "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다: {attempt}/{max}회 재시도, {seconds}초 후 계속",
     "retryScheduledNow": "업스트림을 일시적으로 사용할 수 없습니다: {attempt}/{max}회 즉시 재시도",
     "sessionResumed": "최근 세션 복원: {id} ({count, plural, =0 {기록 없음} other {{count}개 기록}})",

@@ -36,6 +36,24 @@ export const CompressionDivider = React.memo(function CompressionDivider({
 }: CompressionDividerProps) {
   const t = useTranslations('chat')
 
+  // G-150(WorkBuddy 一手对标):压不动了必须换口径 —— 这里给一条低调分隔线是错的,
+  // 用户需要知道"已到上限"并拿到下一步(开新对话 / 减少上下文),而不是只看到"曾压缩过"。
+  if (compaction.trigger === 'incompressible') {
+    return (
+      <div
+        role="status"
+        data-testid={testId ?? 'compaction-ceiling'}
+        className={cn(
+          'my-1 flex flex-col gap-0.5 rounded-md border border-destructive/50 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive',
+          className,
+        )}
+      >
+        <span className="font-medium">{t('compaction.ceilingTitle')}</span>
+        <span>{t('compaction.ceilingHint')}</span>
+      </div>
+    )
+  }
+
   // 仅当压缩确实减少了 token 时才计算节省比例(压缩后须严格小于压缩前)
   const savedRatio =
     compaction.originalTokens > 0 && compaction.compressedTokens < compaction.originalTokens

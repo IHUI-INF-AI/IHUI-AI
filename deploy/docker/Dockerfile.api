@@ -17,6 +17,8 @@ RUN npm install -g pnpm@11.18.0
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+# 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
+COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY apps/api/package.json ./apps/api/
 # 仅复制 @ihui/api 的 workspace 传递闭包(pnpm frozen-lockfile 容忍"缺失项目",
 # 只需在场项目的 specifier 与锁文件一致)。原清单引用了不存在的 packages/config,

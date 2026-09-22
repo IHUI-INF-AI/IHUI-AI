@@ -32,7 +32,7 @@ const GIT_SYNC_META: Record<GitSyncState, { dot: string; tipKey: string }> = {
 export function StatusBar() {
   const t = useTranslations('ide')
   const { resolvedTheme, setTheme } = useTheme()
-  const { gitCurrentBranch } = useIDEWorkspace()
+  const { gitCurrentBranch, fetchDiffFiles } = useIDEWorkspace()
   const [themeAnim, setThemeAnim] = React.useState(false)
   const errors = 0
   const warnings = 0
@@ -60,9 +60,17 @@ export function StatusBar() {
           <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} />
         </Tooltip>
       </button>
-      <button className="flex items-center gap-1 hover:opacity-80">
+      {/* 2026-09-23 a11y 审计:原为无 onClick 的假按钮。接到 ide-workspace store 既有动作
+          fetchDiffFiles(重跑 git diff 刷新变更列表)。可见文案随之从"同步"(git pull/push,
+          本表面无实现)改为"刷新",与实际动作一致;文案复用既有键 ide.sourceControl.refresh。
+          同批的分支钮/错误/警告/通知/Check 仍是假按钮,见 tests/ide-no-fake-affordance.test.tsx 基线。 */}
+      <button
+        type="button"
+        onClick={() => void fetchDiffFiles()}
+        className="flex items-center gap-1 hover:opacity-80"
+      >
         <RefreshCw className="h-3 w-3" />
-        <span>{t('statusBar.sync')}</span>
+        <span>{t('sourceControl.refresh')}</span>
       </button>
       <div className="flex items-center gap-2">
         <button className="flex items-center gap-0.5 hover:opacity-80">
