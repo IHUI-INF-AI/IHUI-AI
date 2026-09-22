@@ -1,7 +1,3 @@
 {
-  "unwiredAdapters": [
-    "Carousel",
-    "NavBar",
-    "UserInfoCard"
-  ]
+  "unwiredAdapters": []
 }
