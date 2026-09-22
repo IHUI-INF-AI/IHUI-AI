@@ -887,6 +887,19 @@ export function createSendMessage(
               ) ?? []
           store.setMessageCitations(targetId, [...existing, ...evt.citations])
         },
+        // D34 上下文注入交代(2026-09-22 立):后端在注入真正生效后、任何增量前下发
+        // injection_applied,写入 message.injections,MessageItem 渲染 InjectionBar。
+        // 此前该帧在 api-client 里只被"不喷进正文"地丢弃 —— 生产了却没人看。
+        onInjectionApplied: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().appendMessageInjection(targetId, {
+            kind: evt.kind,
+            collapsed: evt.collapsed,
+            ...(evt.fullText ? { fullText: evt.fullText } : {}),
+            ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+          })
+        },
         // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
         // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。
         // messageId 缺省时回退到本条 assistant 消息 ID(done 必然属于当前流)。
