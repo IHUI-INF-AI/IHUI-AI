@@ -381,7 +381,25 @@ if (watchMode) {
   // canStart 不过的服务(如 ai-service .venv 缺失)每个 tick 都报会刷爆日志:
   // 首次或状态由"能启动"变回"不能启动"时才报一次
   const cannotStartNotified = new Set();
+  // 「桌面零弹窗」全盘审计(2026-09-22 用户铁律"不允许出现任何窗口"):git-guardian 曾漂移成
+  // 直跑 node.exe 每 2 分钟闪黑窗;除其自身自检外,本守护每 10 分钟全盘扫一遍计划任务/
+  // 启动项/Run 键,交互会话直跑控制台程序的 IHUI 任务自动包成隐藏 VBS(保留触发器)。
+  // 异步派生不阻塞体检 tick;--check 不跑审计(CI 无副作用)。
+  const SILENT_AUDIT = path.join(ROOT, 'scripts', 'ensure-silent-tasks.mjs');
+  const SILENT_AUDIT_EVERY_TICKS = Math.max(1, Math.round(600000 / intervalMs)); // ≈10 分钟
+  let silentAuditTicks = 0;
+  const runSilentAudit = () => {
+    if (!fs.existsSync(SILENT_AUDIT)) return;
+    try {
+      const c = spawn(process.execPath, [SILENT_AUDIT], { stdio: 'ignore', windowsHide: true });
+      c.unref();
+    } catch {
+      /* 审计失败不阻塞守护 */
+    }
+  };
   const tick = async () => {
+    silentAuditTicks++;
+    if (silentAuditTicks % SILENT_AUDIT_EVERY_TICKS === 1) runSilentAudit();
     for (const svc of targets) {
       if (!(await isUp(svc))) {
         try {

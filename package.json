@@ -21,6 +21,8 @@
     "dev:stack:device": "node scripts/dev-stack.mjs --device",
     "dev:stack:watch": "node scripts/dev-stack.mjs --watch",
     "dev:stack:autostart": "node scripts/install-dev-stack-autostart.mjs",
+    "silent:audit": "node scripts/ensure-silent-tasks.mjs",
+    "silent:audit:check": "node scripts/ensure-silent-tasks.mjs --check",
     "warm:routes": "node scripts/warm-dev-routes.mjs",
     "capabilities:export": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts",
     "capabilities:check": "pnpm --filter @ihui/api exec tsx scripts/export-capabilities.ts --check",
