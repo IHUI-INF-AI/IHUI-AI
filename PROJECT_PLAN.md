@@ -2958,6 +2958,19 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
 - **README 同步**:apps/miniapp-taro/src/components/adapters/README.md 已更新(表格 18 行 + 架构原则 3.4 节补充下拉刷新/文本截断/RN 专有 CSS 属性换算);§21 触发条件"跨端契约变化"未命中(平台独占),但 README 适配层文档同步属本任务交付物一部分
 
+- [x] ✅(2026-09-22) **P2-F.9 守门 67 判据补齐:从"认变量名"升级到"认响应体出处",同日再修两处同族真外泄**:
+  - **为什么要扩**:67 的 C 通道只匹配变量名/声明右侧/对象 key 里的 `token|secret|api_?key|…`,而 27 处"低置信候选"里恰恰藏着名字最无辜的真缺陷 —— 对全部候选逐条溯源(不是抽样)后定性为 **2 处真外泄 + 其余推理端点错误体 + 8 处本进程常量错误对象**。溯源判据按"变量最后一次赋值 → 响应变量 → fetch URL 字面量"三层回溯,并检查中间有无路由注册行(防跨处理器误配)。
+  - **缺陷① GitHub 设备码**(sha `99170c1460`):`workspace-ai.ts` 的 `POST /github/device-code` 把 `https://github.com/login/device/code` 整个响应体 `JSON.stringify(json).slice(0,200)` 拼进 400 message。`device_code` 按 **RFC 8628 §1.5 是 bearer 凭据**(拿到即可轮询换 access_token),而非 2xx 不经 `response-sanitizer` 打码。改为只回传 `error` 码 / `http_<status>`,与同文件 `device-token` 分支(那里早已是正确写法)同口径。
+  - **缺陷② PayPal 令牌体**(sha `b59e80bd1a`):`paypal.ts` 的 `getAccessToken()` 把 `${API_BASE}/v1/oauth2/token` 的**原始响应文本** `text.slice(0,200)` 拼进 `throw new Error(...)`。两条老判据同时失效:传输形态不是 `JSON.stringify` 而是裸插值,上下文形态不是 `reply.status()` 而是 `throw`。改为只回传状态码 + RFC 6749 `error` 码,响应体非 JSON 时连 error 都不给。
+  - **门侧结构补齐**:A 判据扩为「4xx/5xx 响应 ∪ `throw new Error` / `XxxError`」;B 判据扩为「`JSON.stringify(X)` ∪ 整对象插值 `${x}` / `${x.slice(…)}`」;新增 **D/E 来源证据通道**(`X=(await R.json()|R.text())` → `R=fetch('<令牌端点>')`,`TOKEN_ENDPOINT_RE` 覆盖 OAuth / `/token` / `/device/code` / `gettoken` / `tenant_access_token`,以路由注册行为处理器边界、窗口 ≤40 行,越界即放弃)。字段投影 `${json.error}` **明确不判**(那是推荐写法,配反例用例防止把修复判成违规)。
+  - **一处自己引入的假绿(不静默)**:`THROW_CTX_RE` 首版写成 `[A-Za-z_$][\w$]*Error`(前缀必需),裸 `throw new Error` **整条不匹配**;而 self-test 的正例恰好用了 `throw new ApiError(502,…)` ⇒ 18 例全绿、真缺陷却看不见。是逐层探针打印 `findThrowContexts() === []` 才暴露。修法:前缀改可选 `(?:[A-Za-z_$][\w$]*)?Error`,补三条用例钉死(裸 `Error` / `ApiError` / `TypeError` 三形态都命中、注释行不命中、`${json.error}` 投影零命中)。**推论:注入用正例必须取"真实代码里最常见的形状",不是挑一个能过的写。**
+  - **有效性证据链(全部实跑)**:① self-test 11 → 18 例全绿;② §22c 镜像测试 18 → 27 例全绿;③ **变异测试**:摘掉 D 通道 → 5 例转红而两条反例仍绿(证明反例不是靠 D 蒙过的);第一次变异因我自己写坏三元式(语法错)而证据作废,重做合法变异;④ **真实注入**:把 `luyala.ts` 代理基址临时改指 `/oauth2/client_token` → 门 exit 1 且证据链点名 `data←resp←…`,随后按 sha256 还原为字节相同;⑤ 全量差分:高危 0 处 / 扫描 6364 文件,候选 27 → 31(新增的都是 throw 形态人审项,无一升级为违规 ⇒ 未误伤)。
+  - **一轮假绿的连带纠正**:期间并发会话把主 index 截断到 2 条(`git ls-files` = 2),我在该窗口跑的一次全量守门返回 **exit 0 / 100 项全过** —— 实为各门文件清单来自 `git ls-files`、只扫到 1 个文件的"恒真"。暴露原因是 paypal 那次全量突然打印"扫描 1 文件"。当时并发了 5→10 个 `git.exe`,按 §12 未动 index,轮询约 10s 后其事务落地、index 自愈到 11812 条。**结论:引用任何全量守门结论前必须先 `git ls-files | wc -l` 断言量级(本仓现值 ≈ 11812),并在健康 index 上重跑。**
+  - **重跑后的终局(健康 index)**:100 项 / 通过 95 / 警告 3 / **失败 2**。`[30a]` 报的是 `git-sync-converge` 留下的悬空合并提交 `1cee9e325cc8`(非我方产生),按 §22/§29 既有流程打 `lost-commit/0922-dangling-1cee9e3-git-sync-converge-round1` 备份(tag 与 commit sha 回读一致)后 **exit 0**;`[30c]` 点名的 27 个文件此前已用 `comm -13` 证明全属并发会话的 43 条暂存集(我方 0 条),其提交落地后**自行归零**,归属结论未变。
+  - **§21 同步与一处偏差**:README「新增守门示例:第 67 项」节改写为 A∧B+C/D/E 五通道 + 三处同族事故 + 31 处候选的回溯口径;AGENTS.md 守门速查 67 条同步;`guardian-runner.mjs` 的 67 `onFailHint` 与门自身用法注释同步(`--staged` 只收窄文件清单、内容一律读工作树)。**偏差如实记录**:README/AGENTS 与代码分在两次提交(代码 `b59e80bd1a`,文档本次)——当日这两份文档长时间被并发会话持有为脏文件,只在收尾时拿到干净窗口;§21"同 commit"要求未满足,属分期而非遗漏。
+  - **一处不归我改的既有红**:`scripts/guardian-runner.mjs` 在 HEAD 上本就不过 prettier(实测 `git show HEAD:… | prettier --check` 为红,且早于本任务),P2-F.7 已注明"跑 prettier 会重排他人条目 28 行属暂存区污染"故刻意跳过 —— 本任务同样只改自己那 1 行 label,不做整文件重排。
+  - 平台独占:仅 apps/api 两处安全修复 + scripts 守门 + 文档(§9 豁免,无跨端契约变更;两处修复改变的是服务端错误 message 文本,前端仅展示不解析)
+
 ---
 
 ## IDE 可视化工作台路由接通 + Agent/MCP 面板深化(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注)
