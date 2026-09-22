@@ -375,6 +375,7 @@
     "terminalStatusFailed": "失败",
     "terminalExitCode": "退出码",
     "terminalOutput": "输出",
+    "terminalTruncated": "…(已截断,共 {total} 字符)",
     "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "aigcCover": {
