@@ -23,7 +23,13 @@ import json
 
 import pytest
 
-from app.routers.llm import _collect_citations, _fire_callback, _format_citations_event
+from app.routers.llm import (
+    _collect_citations,
+    _compaction_frame,
+    _compaction_payload,
+    _fire_callback,
+    _format_citations_event,
+)
 
 _FRAME_PREFIX = "event: citations\ndata: "
 
@@ -169,4 +175,51 @@ class TestFireCallbackDisclosureFrames:
         body = await _fire()
         assert "citations" not in body
         assert "injections" not in body
+        assert "compaction" not in body
+
+
+_COMPRESSED = {
+    "compressed": True,
+    "original_tokens": 48000,
+    "compressed_tokens": 12000,
+    "removed_count": 31,
+    "usage_ratio": 0.88,
+    "trigger": "ratio",
+}
+
+_INCOMPRESSIBLE = {
+    "compressed": False,
+    "original_tokens": 96000,
+    "compressed_tokens": 90000,
+    "removed_count": 0,
+    "usage_ratio": 1.0,
+    "trigger": "incompressible",
+}
+
+_NOTHING = {"compressed": False, "trigger": ""}
+
+
+class TestCompactionPersistence:
+    def test_payload_equals_sse_frame(self) -> None:
+        """落库 compaction 与 SSE compaction 帧逐字段等价(同一个 _compaction_payload)。"""
+        frame = _compaction_frame(_COMPRESSED)
+        assert frame is not None
+        payload = json.loads(frame[len("data: ") :])["compaction"]
+        assert _compaction_payload(_COMPRESSED) == payload
+
+    def test_incompressible_also_discloses(self) -> None:
+        """G-150:压不动(撞上限)同样要留痕,不能只在真压缩时才有交代。"""
+        assert _compaction_payload(_INCOMPRESSIBLE) is not None
+
+    def test_no_compaction_returns_none(self) -> None:
+        assert _compaction_payload(_NOTHING) is None
+        assert _compaction_payload(None) is None
+
+    async def test_body_carries_compaction(self) -> None:
+        body = await _fire(compaction_info=_COMPRESSED)
+        assert body["compaction"] == _compaction_payload(_COMPRESSED)
+
+    async def test_body_omits_compaction_when_nothing_happened(self) -> None:
+        body = await _fire(compaction_info=_NOTHING)
+        assert "compaction" not in body
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

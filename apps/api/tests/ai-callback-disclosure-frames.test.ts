@@ -119,4 +119,65 @@ describe('AI callback 交代帧持久化(citations / injections)', () => {
     expect(job.metadata.citations[0]).toEqual({ source: 's', label: 'l', noteKind: 'future' })
   })
 })
+
+/** 与 SSE compaction 帧同一载荷(ai-service _compaction_payload) */
+const COMPACTION = {
+  triggered: true,
+  tokensBefore: 48000,
+  tokensAfter: 12000,
+  removedCount: 31,
+  usageRatio: 0.88,
+  trigger: 'ratio',
+}
+
+describe('AI callback compaction 持久化(G-166 第②步)', () => {
+  const server = Fastify({ logger: false })
+  let mockAdd: ReturnType<typeof vi.fn>
+
+  beforeAll(async () => {
+    mockAdd = vi.fn().mockResolvedValue({ id: 'job-1' })
+    server.decorate('aiCallbackQueue', { add: mockAdd })
+    await server.register(aiCallbackRoutes)
+    await server.ready()
+  })
+
+  afterAll(async () => {
+    await server.close()
+  })
+
+  const post = (payload: Record<string, unknown>) =>
+    server.inject({
+      method: 'POST',
+      url: '/api/ai/callback',
+      headers: { 'x-internal-secret': 'test-secret' },
+      payload: {
+        content: 'AI 回复',
+        metadata: { conversationId: 'conv-1', userId: 'user-1', messageId: 'msg-1' },
+        ...payload,
+      },
+    })
+
+  it('compaction 入队到 metadata.compaction,字段逐字不动', async () => {
+    mockAdd.mockClear()
+    const res = await post({ compaction: COMPACTION })
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect(job.metadata.compaction).toEqual(COMPACTION)
+  })
+
+  it('本轮没压缩 → 不带字段(不清空已落库的压缩统计)', async () => {
+    mockAdd.mockClear()
+    const res = await post({})
+    expect(res.statusCode).toBe(202)
+    const job = mockAdd.mock.calls[0][1] as { metadata: Record<string, unknown> }
+    expect('compaction' in job.metadata).toBe(false)
+  })
+
+  it('triggered !== true 被拒(压缩没发生就不该留痕)', async () => {
+    mockAdd.mockClear()
+    const res = await post({ compaction: { ...COMPACTION, triggered: false } })
+    expect(res.statusCode).toBe(400)
+    expect(mockAdd).not.toHaveBeenCalled()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
