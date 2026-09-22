@@ -635,6 +635,11 @@ FunctionEnd
   ${If} $IHUIDPI < 96
     StrCpy $IHUIDPI 96
   ${EndIf}
+  ; 与 IHUI_GUIINIT_SIZE 同一条上限:系统 DPI 也钉在顶档 192,否则开屏帧会按
+  ; 更高的 DPI 出尺寸而资产只有 200% 档 → 拉伸发糊。
+  ${If} $IHUIDPI > 192
+    StrCpy $IHUIDPI 192
+  ${EndIf}
   !insertmacro IHUI_TIER_OF $IHUIDPI $IHUITIER
 !macroend
 
@@ -654,6 +659,13 @@ FunctionEnd
   IntOp $IHUIDPIW $IHUIDPIW + 0
   ${If} $IHUIDPIW < 96
     StrCpy $IHUIDPIW 96
+  ${EndIf}
+  ; 上限封顶在顶档 192(=200%):资产只烘到 200%,再高的话位图就小于客户区、
+  ; 被 STATIC 拉伸 → 重新发糊。与其为 225%/250% 再往仓库塞 ~223 MB 位图,
+  ; 不如把**布局 DPI** 钉在 192:窗口按 200% 出图,在 250% 屏上只是比系统缩放
+  ; 小一档,但永远 1:1 或降采样、绝不拉伸(清晰 > 尺寸合身)。
+  ${If} $IHUIDPIW > 192
+    StrCpy $IHUIDPIW 192
   ${EndIf}
   !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
   !insertmacro IHUI_PX $IHUIWW 880
