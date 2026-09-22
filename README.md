@@ -2746,6 +2746,8 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 同日实测出的**四处同族真缺陷**都已修:① IMS OAuth2 令牌响应体进 502(变量名 `tokenData`,C 抓);② GitHub `/login/device/code` 响应体进 400(变量名叫 `json`,`device_code` 按 RFC 8628 §1.5 是 bearer 凭据 —— C 全盲,靠 D 兜住);③ PayPal `/v1/oauth2/token` 的**原始响应文本**进 `throw new Error`(既非 stringify 又非 `reply.status()` —— 靠 A 扩展 + E 兜住);④ 阿里云 **STS `AssumeRole`** 的响应体进 `throw new Error`(`JSON.stringify(response.body)`,而成功体就是临时凭据 AccessKeyId / AccessKeySecret / SecurityToken)—— 它走 SDK `client.callApi`,**URL 字面量根本不在文件里**,D/E 的来源回溯结构上够不到,只能靠新增的 **F 通道**(消息自带凭据端点关键词 ∧ 整对象 dump 双条件)。反过来看:**每一代判据都会漏掉自己形态之外的那一种**,所以四通道是叠加而非替换。
 
+**覆盖两套语法**:JS/TS 与 **Python**(`apps/` + `packages/` 下 `.ts/.tsx/.js/.mjs/.py`,共 6956 文件)。纳入 `.py` 不是加个后缀就完事 —— 序列化(`json.dumps`)、整对象插值(f-string 的 `{x}` / `{x[:200]}`)、错误构造(`raise XError(...)` / `status_code=4xx`)、注释豁免(`#`)是四组**各不相同的语法锚点**,缺任一条该语言就整条空转。实测过程:第一轮纳入后 F 通道报出 3 处(cnblogs / oschina / segmentfault 三个发布适配器),判据是"上一行 return 的字符串里写着 `access_token expired`,下一行才倒出平台用户信息响应体"—— **跨行配对喂出来的假阳性**,遂把 F 收紧为"关键词与 dump 必须同一行",并把它写成一条专项反例用例。收紧后全量 **高危 0 / 候选 30**,Python 侧的有效性用未跟踪探针文件 + 临时索引走 `--staged` 真实入口取证(`raise RuntimeError(f"token exchange failed: {json.dumps(payload)}")` → exit 1,证据链 `payload←resp←…/oauth2/token`;同文件内的资源端点反例不被误伤),探针与临时索引已删除、`git status` 零残留。
+
 非令牌端点的上游错误体透传(`errData` / `genData` / `data`)只进"低置信候选"清单打印、不计失败 —— 现 30 处**逐个看明**(不是抽样):含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL,其全部调用点 path 均为推理接口;`throw` 形态新增的 4 处中 1 处就是上面的 STS 真缺陷(已修 + 由 F 拦),另 3 处经阅读确认不含凭据(cli installer 倒的是本地插件 source 描述符、cli browser 倒的是 CDP `exceptionDetails`、api-client coze 把上游文本装进 error 的**字段**而非 message 且属浏览器侧库)。一律拦就成了阻塞所有人的假阳性 —— 但"进候选清单"不等于"看过就没事",这 4 处正是靠逐条回溯才把第 4 处真缺陷挖出来的。
 
 ---
