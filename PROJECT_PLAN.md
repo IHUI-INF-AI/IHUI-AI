@@ -1511,7 +1511,13 @@
         ② **不知道就不写 key**:`permissionStamp` 对无记录/不可识别/`manual`(无落库语义)一律返回空对象,水合侧也不编 `default` —— 写默认值等于把"不知道"伪装成"知道且是默认档",与本轮消灭的那批静默失效同类。
       - 验证:`apps/api/tests/message-permission-stamp.test.ts`(wire/camel/别名归一、未知不写、非字符串不抛、`manual` 不盖)+ `apps/web/tests/history-message-permission.test.ts`(kebab/camel 都恢复、缺失留空、老消息 planSteps 仍是 undefined 不是空数组)全绿;`@ihui/api`/`@ihui/api-client`/`@ihui/web`/`@ihui/miniapp-taro` typecheck 全绿(api-client 改了公共 metadata 契约 → 按惯例重跑 build 让消费者的 `dist/*.d.ts` 同步);守门 57 为 `permission-mode-consequence` 增 2 条锚点(盖章服务 + 水合读回),让"徽章有真数据源"变成可 grep 的判据而不是口头承诺。
       - **G-165 剩余(下一步就做,顺序已排)**:① miniapp-taro / mobile-rn 把这一行渲染出来(数据源现已具备:消息 `metadata.permissionMode`;措辞走各端命名空间 + 未知档安静降级);② extension 侧后果说明;③ `workspace_permissions` 无记录时是否要回退到"用户全局默认档"(`GET /permission-default`)再盖第二优先级 —— 现在的答案是"不盖",需在 D111 设计里显式定论,别让它变成一个永远为空的字段。
-    - **D111 剩余(未闭环,别当已完)**:miniapp-taro 与 mobile-rn 的"档位行 + 后果说明"仍未实现(两端 `permissionMode` 命中数依旧 0),extension 仍只有审批结果无档位说明;移动端的取值现在必须走 G-161 注册表(`normalizePermissionMode`),渲染消息级档位则走 G-165 的 `metadata.permissionMode`,不得再抄第四套拼写、也不得从流式事件里凭空推断档位。
+    - **D111 前提被实测证伪,已更正(第 56 轮末,重要 —— 防后人照旧句造装饰性 UI)**:本条原把"三端 0 命中 `permissionMode`"记成**可见性缺口**并要求"两端各加档位行 + 后果说明"。实测结论相反 —— 那三端**没有会改文件/执行命令的能力**,档位在那儿不是一个存在的概念,照原句去加只会得到常量文案:
+      - miniapp-taro:`pkg-ai/ai/chat.tsx` 发流只带 `messages + model`,不传 `workspacePath`、不带 `agentTools`,历史走本机 localStorage(`ai_chat_history`)而非服务端会话;
+      - mobile-rn:`ChatScreen.tsx:612` 与 `AiAssistantN8nScreen.tsx:1078` 的 `agentTools` 全部来自 `uiControlToolsFor()`(AI 操控桥接,改的是 App 内 UI 状态),同样不带 workspacePath;
+      - extension:`apps/extension/src` 对 `workspacePath|agentTools|permissionMode|fsBridge|toolCalls` 全为 0 命中(含多路径复核),无工具执行面。
+      用户若在手机上看到"只读 / 自动 / 完全访问"可调,而它的 AI 连文件都改不了,这是**假接通,比不接更糟**,与本轮消灭的"发了≠生效"同源而方向相反(**显示了≠存在**)。
+      - 于是 D111 拆成两半:① **能力前提(需用户显式确认,§24)**:要在移动端对标竞品"风险档 + 批准入口"一等公民,先得让这几端真正接入工作区与文件/执行工具 —— 这是新端能力,不顺手做;② **真缺口(不需要新能力,继续推)**:三端"上一次回复失败 → 重发"仍缺(G-152 余项);消息级交代数据(注入来源 / 引用 / 重试提示 / 压缩)在 web 刷新即丢、三端完全没有 —— 照 G-165 已打通的"服务端盖章 → `ChatMessageMetadata` 契约 → 水合读回"范式做即可。
+      - 防回潮:守门 57 的 `permission-mode-consequence` 锚点**只**挂 web/cli/api 的真实落点,不为三端补装饰性锚点。
 
 - [x] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归 ✅(2026-09-13,2-18:golden-e2e CI run 34852081541 @ 4b3daefa = 41/41 通过率 100%(golden/review/checkpoint 三类各 41/41,--min-pass-rate 0.9 门槛通过);runner 每周回归 workflow_dispatch 已落地)
 - [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点(2026-09-14 终态:①指标 Redis 持久化(写穿+惰性恢复,跨重启保留已实测);②补全空输出根因修复(118 模型无 FIM 档位→auto 命中 step-router 空输出;stepfun/agnes 全 21 模型 3 轮实测后定案)+config.py env 白名单补漏+_strip_fences 混排加固;③**本地模型路径打通**——IHUI-OLLAMA nssm 常驻(OLLAMA_KEEP_ALIVE=24h)+qwen2.5-coder:1.5b 生产端到端 10/10 非空、0/10 污染,P50=798ms(短补全 234-400ms,较云端 agnes 5125ms 提升 6.4 倍);剩余差距为纯 CPU 生成速度本质约束(长补全 ~80 token≈2.4s),GPU 机型或专用 FIM 端点(/api/generate raw 模式跳 chat 模板)可进一步逼近 250ms,当前无工程待办)
