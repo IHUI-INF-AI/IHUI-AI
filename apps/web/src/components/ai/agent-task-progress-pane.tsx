@@ -29,6 +29,7 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { stepDecisionLabel } from '@ihui/shared/chat'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -561,6 +562,12 @@ function MinimizedSummaryBar({
 
 /** P0-5(2026-09-13):workbench plan-step 单行(状态图标 + 工具名 + 决策/原因) */
 function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
+  // D55(G-66):决策取词走共享词汇表,认不出原样显示(此前直显 security_blocked 等英文码)
+  const tDecision = useTranslations('stepDecision')
+  const decisionView =
+    typeof step.decision === 'string' && step.decision !== ''
+      ? stepDecisionLabel(step.decision, tDecision)
+      : null
   return (
     <div
       className="flex items-center gap-1.5 py-0.5 text-[11px]"
@@ -582,9 +589,12 @@ function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
         value={step.toolName}
         className="min-w-0 flex-1 font-mono text-foreground/80"
       />
-      {(step.decision || step.reason) && (
-        <span className="max-w-[40%] shrink-0 truncate text-muted-foreground/60">
-          {step.decision ?? step.reason}
+      {(decisionView || step.reason) && (
+        <span
+          className="max-w-[40%] shrink-0 truncate text-muted-foreground/60"
+          data-decision-state={decisionView?.state}
+        >
+          {decisionView?.text ?? step.reason}
         </span>
       )}
     </div>
