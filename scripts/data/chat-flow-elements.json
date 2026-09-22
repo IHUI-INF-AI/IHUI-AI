@@ -195,6 +195,10 @@
         {
           "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
           "mustMatch": "chatAlert.errorTitle"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "bubbleStyles.errorCard"
         }
       ]
     },
