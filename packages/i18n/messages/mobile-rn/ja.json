@@ -491,6 +491,8 @@
       "title": "コンテキストを自動圧縮しました",
       "message": "{before} → {after}({removed} 件の履歴を削除)"
     },
+    "errorTitle": "リクエストエラー",
+    "errorRetry": "再試行",
     "loginBtn": "ログインへ",
     "longPress": {
       "myTitle": "自分のメッセージ",
