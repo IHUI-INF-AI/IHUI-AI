@@ -316,6 +316,18 @@
 
 **残余**:签名私钥未参与本次本地构建(产物无 `.sig` 有效内容),发版走 CI 时才有;`tauri build` 的完整 `--bundles nsis` 在本机不含 Web 端构建(`frontendDist` 已是 `shell`)。
 
+### 第五批(同日):视觉精修三处 + 完成态空白块 + 探针清理 + DPI 封顶 + 签名链核实
+
+- **计量器构图**(用户:"进度条、文字都不好看没设计感"):百分比大字移到轨道正上方右对齐至 x=748,`%` 由位图烧在其右侧同基线(运行期文本不再自带 %,否则 "92% %");轨道 8→10px 加外描边与顶部内高光;阶段刻度 20/45/65/85/92 烧进轨道,填充经过时盖住 → 进度条自己在讲"过了几关"。欢迎页要点由"竖条+文本"改成 **01/02/03 编号列表**,与导轨步骤同一套数字语言。
+- **目录页三处**(用户附截图):路径容器 40→36 高、输入框 32→28 高并同基线(消掉"框下空一行");「浏览…」从"裸文字+下划线"改成正经**次级按钮**(卡底 + 1.5px 描边 + 8px 圆角 + ink 字),与 CTA 成主次对;「继续」钮周围"乱七八糟"= 原生主题边框 + 系统焦点虚线框两因叠加 → 样式补 `BS_FLAT(0x8000)` 去边框、清 `WS_TABSTOP(0x10000)` 让它拿不到焦点(点击仍走 BN_CLICKED,推进链不受影响)。
+- **完成态左下空白浅灰块**:洞还开着 + 核心 done 态把原生钮 2 重新置为可见 → 未贴皮按钮从洞里露出。`IHUI_INST_HOLES` 加 `INCLCANCEL` 参数(完成态只挖 CTA 洞)+ 原生 2 移屏(核心只改可见性不改坐标,时序无关)。
+- **删掉一枚随包发布的写死路径探针**:`IHUI_INST_DONE_THEME` 里的 `FileOpen "D:\caches\Temp\..."` 无任何条件包裹,每次安装完成都在用户机器上落一个文件(违 §15);`IHUI_LOG` 的 trace 路径同样写死(那处有 `!ifdef IHUI_TRACE` 守卫,非发布缺陷)→ 改用 NSIS 内置 `$TEMP`。全仓 `.nsi` 现已无硬编码盘符。
+- **DPI 天花板封顶**:上一批"向上取档"把模糊从小数缩放挪到了超高缩放。加 225/250 两档实测要再往 git 塞 ~223 MB(现有 5 档已 414 MB),不划算 → 改为把**布局 DPI** 钉在顶档 192(`IHUI_GUIINIT_SIZE` 与 `IHUI_PICKTIER` 各加一条 `> 192 → 192`,与既有 `< 96 → 96` 对称)。数值证明:DPI 96..480 全枚举,"位图 < 客户区"= **0 例**;96/120 行与改前逐值一致 → 本机零影响。>192 的屏本机不存在,该路径**只有数值证明、无截图证明**,如实登记。
+- **体积与签名链核实**:真包 `tauri build --bundles nsis` → **5.77 MB**(414 MB 落盘资产经 `/SOLID LZMA` 后整体不到 6 MB,"资产翻倍会撑爆安装包"的担心作废)。之前看到的 `A public key has been found, but no private key` **不是配置缺失**:私钥一直在 `~/.tauri/ihui-updater.key`(+ `.pub` + `-password.txt`),`scripts/release-desktop-local.mjs:66-78` 会读它并注入 `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)`,CI 走 `DESKTOP_TAURI_PRIVATE_KEY` secrets —— 是我直接跑裸 `tauri build` 绕过了发版脚本。带上环境变量重跑 → `Finished 1 updater signature`,并比对签名内 keyID 与配置公钥 keyID = **`08dbb1a27ee6d7b5` 逐字节一致**,证明确由该私钥签署。
+- 本批验证:沙箱安装器编译 0 warning(含 `-DIHUI_TRACE=1` 分支)、`check-installer-assets` PASS、`desktop-nsis-template --check` OK、eslint 0 error、真包构建成功且产出有效 `.sig`;目录页/安装页/完成态/完成页四处均 computer-use 截图目检通过。
+
+**残余(未闭环,如实登记)**:① DPI > 192 的超高缩放屏只有数值证明,无真机截图;② 卸载进度页两处视觉修复与品牌开关已复验,但**真包**(非沙箱)的卸载器界面未跑过一次 —— 需在下个发版周期用真 installer 装完再卸载复核;③ updater 签名的端到端消费(客户端校验 `.sig` 并应用更新)本批未测。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 > **平台独占豁免(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载线上 web(`tauri.conf.json` → `windows[0].url=https://aizhs.top/agents`),web 侧修复自动跟随;`packages/shared` 的 `buildSsoRedirectUrl` 为**新增**共享能力,不改变既有导出签名,其他端(cli/extension/miniapp-taro/mobile-rn)按需采纳,非多端同步漏做。
@@ -2751,6 +2763,19 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     pre-commit(lint-staged `--no-stash` + `guardian-runner --staged`),无一被我的改动卡死。
     另更正:本仓库 lint-staged 早在 2026-09-12 即强制 `--no-stash`(注释写明两次 gitdir 整体删除事故),
     故我上一轮"怕 stash 才不跑真钩子"的理由不成立。
+  - **守门 8 由"跑完再汇总"暴露,4 处经逐条诊断为全部门判据缺陷(0 处需新增端点、0 处前端路径 bug)**:
+    后端路由实测均存在,门看不到跨文件 wrapper / 模板注册 / 配置对象的真实 method →
+    ① `GET /api/ai/agnes/image`(后端 `POST /api/ai/agnes/image` @ `proxy-llm.ts:362`,`callApi` 固定 POST);
+    ② `POST /api/ai/zhipu/images`(后端模板串 `` `/${vendor}/images` `` @ `proxy-openai-compat.ts:278`);
+    ③ `POST /api/ai/jimeng4/video/tasks/:param`(后端为 `GET` @ `proxy-tools.ts:742`,前端未传 method 运行时即 GET);
+    ④ `POST /api/auth/oauth/oidc/redirect`(后端 `GET /api/auth/oauth/:provider/redirect` @ `auth-extended.ts:3455`)。
+    **修法用门自己的最高优先级显式标注**(第 184-190 行 `// method: GET|POST`,其注释写明正是为"跨文件 wrapper、
+    多行签名、自动推断失效"设计),**未放宽任何判据、未动 `.check-api-routes-ignore.json`**。
+    已修 2 处(所在文件工作区干净):`app/(main)/ai-generation/PageClient.tsx:52` 标 POST、
+    `src/lib/third-party-config.ts:252` 标 GET → 门实测 **4 处 → 2 处**,消失的正是这两条(标注生效的直接证据)。
+  - **剩余 2 处受并发阻塞,不得现在修**:`image-gen-zhipu.tsx` 与 `video-gen-jimeng.tsx` 均为 ` M`(并行会话正在编辑),
+    按 AGENTS.md §12/§16 不可代改他人编辑中的文件。二者同样只需加 `// method: POST`(zhipu 若走模板注册则需展开模板路由,属门改进项)
+    —— 待该两会话收尾后由任何后续会话补标注即可,门即归绿。守门 8 在此前保持 exit 1(staged 为空时回退全量口径,故非本次改动引入)。
   - 平台独占:仅 scripts 守门 + apps/api 一处安全修复 + 文档(§9 豁免;api 修复对外仅改变 502 文案文本,响应结构不变)。
   - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
