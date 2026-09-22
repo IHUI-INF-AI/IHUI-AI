@@ -1830,26 +1830,31 @@ IHUI-AI/
 
 #### B2. 企业级工作空间权限
 
-3 种权限模式 + 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
+权限模式(唯一真源 5 档,可落库 4 档)+ 7 端点运行时拦截 + 60s 审计超时 + 输入框安全护栏:
 
-| 模式                 | 行为                              |
-| -------------------- | --------------------------------- |
-| `default`            | 任何 FS 调用都触发人工审计弹窗    |
-| `accept-edits`       | 白名单规则匹配放行,不匹配触发弹窗 |
-| `bypass-permissions` | 全部放行(仅信任环境使用)          |
+| 模式                 | 行为                                                            |
+| -------------------- | --------------------------------------------------------------- |
+| `plan`               | **硬只读**:仅读取/检索,写文件与执行命令一律拒绝(不进审批门)     |
+| `default`            | 任何 FS 调用都触发人工审计弹窗                                  |
+| `accept-edits`       | 白名单规则匹配放行,不匹配触发弹窗                               |
+| `bypass-permissions` | 全部放行(仅信任环境使用,每次免批都写审计事件)                   |
 
+- 档位取值由 `packages/types/src/permission-mode.ts` ↔ `app/core/permission_mode.py` 两侧同一份
+  注册表判定(守门第 68 项对账):`auto` / `read-only` / `accept-edits` 等历史与文档拼写自动归一,
+  认不出的取值直接 400 —— 不再"客户端发了、服务端静默按 default 跑"
 - 7 个 FS 端点全部接入:`/fs/read` `/fs/write` `/fs/edit` `/fs/delete` `/fs/grep` `/fs/glob` `/fs/run`
 - WebSocket 实时推送权限请求,60s 不响应自动拒绝
 - workspace-ai-tasks schema 支持任务级权限隔离
 - **AI 输入框权限模式切换器**(深度对标 OpenAI Codex CLI approvalMode):
-  - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(3 单选卡 + 完全访问快捷链接)
-  - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3` 数字键直接选 ask/auto/full
+  - 盾牌图标按钮 + 当前模式短名,点击弹 Codex 风格 popover(4 单选卡 + 完全访问快捷链接)
+  - 键盘交互:`↑/↓` 循环切换焦点 · `Enter` 选中 · `1/2/3/4` 数字键直接选 plan/ask/auto/full
   - 模式切换撤销:切到 `bypass-permissions` 后 5s 内 toast 可一键回退
   - 高风险模式持久化视觉警告:触发器按钮琥珀色 + 输入框顶部警告横幅 + 标题栏模式徽章
-  - 斜杠命令集成:`/permission ask|auto|full` 一行切换模式
+  - 斜杠命令集成:`/permission plan|ask|auto|full` 一行切换模式
   - **首启确认弹窗**:首次启用完全访问必须勾选"我了解上述风险"才能继续(可勾"不再提醒")
   - **1 小时自动撤销**:高风险模式 1h 无操作后自动降级到 `default`,标题栏 + 顶部横幅实时倒计时,可取消或重新启用
-  - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog
+  - 三处触发源(popover / Shift+Tab / /permission)共享同一个 FullAccessConfirmDialog,
+    且 Shift+Tab 循环为 `default → accept-edits → bypass → plan → default`(绕完一圈落在最严档)
 - **AI 输入框「添加」下拉菜单整合**(2026-07-25,降噪):
   - 附加栏 3 个独立按钮(提示词模板 / 添加引用 / Skill 库)→ 1 个「添加」下拉,收纳 5 类动作
   - 统一 Popover 受控模式:外部 `open` + `onOpenChange` 双向绑定(新增 PopoverProps.open/onOpenChange)
