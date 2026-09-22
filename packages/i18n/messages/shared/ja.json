@@ -2022,6 +2022,11 @@
       "policyRequiresApproval": "ポリシーが承認を要求",
       "policyForbidsExecution": "ポリシーが実行を禁止"
     },
+    "perm": {
+      "allow": "許可しました",
+      "ask": "確認が必要です",
+      "deny": "拒否しました"
+    },
     "state": {
       "approved": "自動承認済み",
       "rejected": "拒否済み",

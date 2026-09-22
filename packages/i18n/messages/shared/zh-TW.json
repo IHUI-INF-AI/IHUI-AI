@@ -2022,6 +2022,11 @@
       "policyRequiresApproval": "策略要求審批",
       "policyForbidsExecution": "策略禁止執行"
     },
+    "perm": {
+      "allow": "已放行",
+      "ask": "需確認",
+      "deny": "已拒絕"
+    },
     "state": {
       "approved": "已自動批准",
       "rejected": "已拒絕",
