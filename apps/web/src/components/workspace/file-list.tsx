@@ -146,7 +146,7 @@ export function FileList({
                       </Tooltip>
                     )}
                     {onPreview && (
-                      <Tooltip content="预览">
+                      <Tooltip content={t('preview.title')}>
                         <Button variant="ghost" size="icon-sm" onClick={() => onPreview(file)}>
                           <Eye className="h-4 w-4" />
                         </Button>

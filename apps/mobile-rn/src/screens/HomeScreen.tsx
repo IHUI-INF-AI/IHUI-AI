@@ -7,6 +7,7 @@ import QrCodeImage from '../../assets/images/common/qewm.png'
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -20,10 +21,13 @@ import {
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
 import { Asset } from 'expo-asset'
 import {
   BookOpen,
   Bot,
+  Camera,
   Folder,
   SlidersHorizontal,
   Search,
@@ -50,6 +54,7 @@ import {
   Mic,
   Menu,
   Handshake,
+  MessageCircle,
 } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
@@ -70,6 +75,8 @@ import {
   getShareFirstStatus,
   getTokenBalance,
   fetchModels,
+  resolveFileUrl,
+  uploadFileMultipart,
   type Agent,
   type AgentCategoryItem,
   type Course,
@@ -99,12 +106,12 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
-import { VoiceInput } from '../components/VoiceInput'
+import { AddPanel } from '../components/AddPanel'
+import { useVoiceRecorder } from '../hooks/use-voice-recorder'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import MaterialList, {
   type MaterialCategory,
@@ -519,7 +526,7 @@ function toAgentShopItem(a: Agent): AgentShopItem {
     name: a.name,
     avatar: a.avatar ?? undefined,
     description: a.description,
-    tags: a.tags.length > 0 ? a.tags : undefined,
+    tags: a.tags?.length ? a.tags : undefined,
     isCollect: a.isFavorited,
     collectCount: a.favoriteCount,
     usageCount: a.useCount,
@@ -805,11 +812,13 @@ export function HomeScreen() {
     })
   }
 
-  // VoiceInput 语音转文字回填(对齐 Uniapp ai_index2.vue 行 436-451/601-618 搜索输入区
+  // 语音转文字回填(对齐 Uniapp ai_index2.vue 行 436-451/601-618 搜索输入区
   // :isVoiceInput + @toggle-voice-input:语音结果写入 prompt,随发送跳 Chat)
+  // 2026-09-22:录音/STT 逻辑改由 useVoiceRecorder 提供,麦克风内嵌 InputArea 大输入框
   const handleVoiceComplete = (text: string): void => {
     if (text) setInputValue(text)
   }
+  const voiceRecorder = useVoiceRecorder({ onComplete: handleVoiceComplete })
 
   // ── 模型类型按钮(对齐 Uniapp handleModelTypeClick / toggleSkillsPopup / toggleMaterialPopup) ──
   /** 点击类型按钮:同类型再点收起(对齐 Uniapp 第二次点击收起),不同类型切换 activeModelType 弹 Modal */
@@ -949,6 +958,94 @@ export function HomeScreen() {
     loadMaterials('all')
   }, [loadMaterials])
 
+  // ── 输入框「+」底部滑出菜单(对齐 Uniapp functionHandle → 图标按钮组:
+  //    相机 / 相册 / 本地文件 / 微信文件,与 ChatScreen BottomActionBar 图标组同款) ──
+  // 上传链路对齐 ChatScreen handleFileUpload:选择 → uploadFileMultipart 真实上传 →
+  // 结果以「[图片]/[文件] url」拼入输入框,随提交跳 Chat 发送,真实可消费不伪造。
+  const [plusPanelVisible, setPlusPanelVisible] = useState(false)
+  const [plusUploading, setPlusUploading] = useState(false)
+  /** 「+」切换:展开时收起键盘,避免软键盘遮挡底部滑出面板 */
+  const handlePlusToggle = (): void => {
+    if (!plusPanelVisible) Keyboard.dismiss()
+    setPlusPanelVisible(!plusPanelVisible)
+  }
+  const closePlusPanel = (): void => setPlusPanelVisible(false)
+  /** 相机(对齐 ChatScreen handleIconClick('camera'):相机拍摄待接入,占位提示) */
+  const handlePlusCamera = (): void => {
+    setPlusPanelVisible(false)
+    showToast('info', '相机拍摄待接入,请先用相册上传图片')
+  }
+  /** 相册选图 → 上传 → 拼入输入框 */
+  const handlePlusAlbum = async (): Promise<void> => {
+    setPlusPanelVisible(false)
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+      setPlusUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `image-${Date.now()}.jpg`,
+      })
+      if (up.success && up.data?.path) {
+        setInputValue((p) => `${p ? `${p}\n` : ''}[图片] ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', '图片已上传,发送后可在对话中使用')
+      } else {
+        showToast('warning', '图片上传失败')
+      }
+    } catch {
+      showToast('warning', '图片选择失败,请重试')
+    } finally {
+      setPlusUploading(false)
+    }
+  }
+  /** 本地文件 / 微信文件选择 → 上传 → 拼入输入框(对齐 ChatScreen handleFileUpload:
+   *  wxfile 与 file 走同一 DocumentPicker 链路) */
+  const handlePlusFile = async (): Promise<void> => {
+    setPlusPanelVisible(false)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]!
+      setPlusUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'application/octet-stream',
+        name: asset.name ?? `file-${Date.now()}`,
+      })
+      if (up.success && up.data?.path) {
+        const fileName = asset.name ?? '文件'
+        setInputValue(
+          (p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`,
+        )
+        showToast('success', `已上传:${fileName}`)
+      } else {
+        showToast('warning', '文件上传失败')
+      }
+    } catch {
+      showToast('warning', '文件选择失败,请重试')
+    } finally {
+      setPlusUploading(false)
+    }
+  }
+
   /** 切素材分类:先切 tab 再加载对应类型数据(对齐 Uniapp handleMaterialTabChange → loadMaterialContent) */
   const handleMaterialCategoryChange = useCallback(
     (key: string): void => {
@@ -1016,14 +1113,6 @@ export function HomeScreen() {
       return
     }
     rootNav?.navigate('AppTopup')
-  }
-  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
-  const handleCommissionPress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('Distribution')
   }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
@@ -1347,8 +1436,6 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
       <OfflineBanner isOnline={isOnline} />
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
-      <CommissionFloatingIcon onPress={handleCommissionPress} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
@@ -1632,11 +1719,8 @@ export function HomeScreen() {
           <Text style={shellStyles.creationEntryText}>我的创作</Text>
         </View>
       </TouchableOpacity>
-      {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
-          转文字回填输入框,随提交跳 Chat) */}
-      <View style={shellStyles.voiceInputWrap}>
-        <VoiceInput placeholder="按住说出你的问题" onComplete={handleVoiceComplete} />
-      </View>
+      {/* 语音输入已内嵌 InputArea 大输入框(麦克风长按录音,2026-09-22 用户定稿):
+          原独立 VoiceInput「按住说出你的问题」行移除,转文字回填输入框,随提交跳 Chat */}
       {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
        *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
       {materialCards.length > 0 ? (
@@ -1663,16 +1747,59 @@ export function HomeScreen() {
         </View>
       ) : null}
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
-       *  collapsible + defaultCollapsed:首屏默认折叠为右下角浮动 FAB,
-       *  点击 FAB 展开完整输入栏(对齐历史 Uniapp 抽屉式输入交互)。
+       *  常驻输入栏(2026-09-22 用户明令去掉折叠 FAB 加号球:collapsible/defaultCollapsed 均不传,
+       *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
+       *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
-        collapsible
-        defaultCollapsed
         value={inputValue}
         onChangeText={setInputValue}
-        placeholder="请输入您的问题,或选择模型开始对话"
+        placeholder="请输入您的问题,或长按说话"
         onSubmit={handleInputSubmit}
+        showVoiceMic
+        voiceRecording={voiceRecorder.recording}
+        voiceTranscribing={voiceRecorder.transcribing}
+        voiceDuration={voiceRecorder.duration}
+        onVoiceStart={voiceRecorder.start}
+        onVoiceEnd={() => void voiceRecorder.stop()}
+        onPlusToggle={handlePlusToggle}
+        plusActive={plusPanelVisible}
+      />
+      {/* 输入框「+」底部滑出菜单:统一走共享 AddPanel(图标按钮组:相机/相册/本地文件/微信文件,
+          与 BottomActionBar/ChatScreen 同源),上传结果拼入输入框随提交发送 */}
+      <AddPanel
+        visible={plusPanelVisible}
+        onClose={closePlusPanel}
+        items={[
+          {
+            key: 'camera',
+            label: '相机',
+            icon: <Camera size={24} color={tokens.text.secondary} />,
+            onPress: handlePlusCamera,
+          },
+          {
+            key: 'album',
+            label: '相册',
+            icon: plusUploading ? (
+              <ActivityIndicator size="small" color={tokens.text.secondary} />
+            ) : (
+              <ImageIcon size={24} color={tokens.text.secondary} />
+            ),
+            onPress: () => void handlePlusAlbum(),
+          },
+          {
+            key: 'file',
+            label: '本地文件',
+            icon: <Folder size={24} color={tokens.text.secondary} />,
+            onPress: () => void handlePlusFile(),
+          },
+          {
+            key: 'wxfile',
+            label: '微信文件',
+            icon: <MessageCircle size={24} color={tokens.text.secondary} />,
+            onPress: () => void handlePlusFile(),
+          },
+        ]}
       />
       {/* GlobalFloatBox 全局浮窗按钮(对齐 Uniapp App.vue 全局浮窗) */}
       <GlobalFloatBox
@@ -1956,8 +2083,6 @@ const shellStyles = {
   root: { flex: 1, backgroundColor: tokens.surface.light } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
-  // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
-  voiceInputWrap: { paddingHorizontal: rpx(24), paddingVertical: rpx(12) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
   carouselWrap: {
     marginTop: rpx(18),

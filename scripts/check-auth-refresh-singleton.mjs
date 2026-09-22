@@ -167,7 +167,10 @@ function scanFile(p) {
     // 排除: MCP OAuth 领域的 refreshAccessToken(oauthConfig, refreshToken) —— 两参签名,
     //   属 CLI 的 MCP 第三方 OAuth 令牌续期,与用户登录态 /auth/refresh 完全无关(不同域)。
     if (/refreshAccessToken\s*\(/.test(line) && !/refreshAccessTokenOnce/.test(line)) {
-      if (/export\s+(async\s+)?function\s+refreshAccessToken/.test(line)) continue
+      // 函数定义行不是调用:export 形式与模块内私有具名定义(如 mobile-rn lib/token.ts 的
+      // refreshAccessToken,经 bindTokenStoreToApiClient 注入 tokenProvider,web api.ts 同构)
+      // 均豁免;真实直发 /auth/refresh 由规则 2 兜底
+      if (/^(export\s+)?(async\s+)?function\s+refreshAccessToken\b/.test(trimmed)) continue
       if (isTokenProviderInjection(p, line)) continue
       // MCP OAuth: refreshAccessToken(oauthConfig, refreshToken) 或 refreshAccessToken(makeOAuthConfig(), ...)
       // 特征是第一个实参是 oauthConfig/makeOAuthConfig/config 对象,而非用户登录态的单 refreshToken 字符串

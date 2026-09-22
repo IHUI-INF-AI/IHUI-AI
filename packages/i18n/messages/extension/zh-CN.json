@@ -165,6 +165,7 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
+    "retryMessage": "重试",
     "citationTitle": "参考来源",
     "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
     "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
@@ -435,6 +436,31 @@
       "benefitsTitle": "包含权益",
       "note": "定价与权益以网页版实际展示为准。",
       "open": "前往网页版开通"
+    }
+  },
+  "permissionTier": {
+    "label": "权限档",
+    "mode": {
+      "default": {
+        "title": "默认模式",
+        "desc": "全部操作需人工确认,最安全"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+      },
+      "accept-edits": {
+        "title": "接受编辑",
+        "desc": "白名单内的操作自动放行,其他需确认"
+      },
+      "bypass-permissions": {
+        "title": "绕过权限",
+        "desc": "完全访问,无任何确认(高风险)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未识别的权限模式,已按默认档处理"
+      }
     }
   }
 }
