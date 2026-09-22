@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
   },
   modalCard: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(28),
   },

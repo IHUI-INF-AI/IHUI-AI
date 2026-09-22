@@ -1887,7 +1887,7 @@ const styles = StyleSheet.create({
   contentItem: {
     // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
     borderRadius: 10,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -2306,7 +2306,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
     fontSize: 14,
     color: tokens.text.primary,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   editProfileInputReadOnly: {
     backgroundColor: tokens.surface.muted,
@@ -2378,7 +2378,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(32),
   },
   levelIntroItem: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 8,
     // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
     padding: rpx(8),
@@ -2428,7 +2428,7 @@ const styles = StyleSheet.create({
   },
   unsubscribeCard: {
     width: '100%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(40),
     alignItems: 'center',

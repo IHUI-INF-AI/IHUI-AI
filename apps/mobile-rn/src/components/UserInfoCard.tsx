@@ -285,7 +285,7 @@ const newStyles = StyleSheet.create({
     height: rpx(163),
     borderRadius: rpx(15),
     overflow: 'hidden',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
   },
@@ -581,7 +581,7 @@ const oldStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   header: {
     flexDirection: 'row',

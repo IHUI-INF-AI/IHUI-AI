@@ -450,7 +450,7 @@ export default function NewsScreenWrapper() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.surface.muted,
+    backgroundColor: tokens.surface.bg,
   } as ViewStyle,
 })
 

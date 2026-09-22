@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   floatBox: {
     width: FLOAT_BOX_WIDTH,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: BORDER_RADIUS,
     paddingVertical: CONTENT_PADDING,
     alignItems: 'center',
