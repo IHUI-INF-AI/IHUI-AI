@@ -41,6 +41,15 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "compaction",
         "steer",
         "budget",
+        # D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
+        # 事件名为我方协议自定(与 plan_updated/terminal_end 同族 snake_case);
+        # 竞品实证部分只有字段形状(kind 八枚举 / collapsed+全文 / attempt+maxRetries+retryInMs+httpStatus /
+        # stdout+stderr+formattedOutput+exitCode+truncated)。必须与
+        # packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
+        "injection_applied",
+        "settings_applied",
+        "retry_scheduled",
+        "terminal_output",
     }
 )
 
@@ -81,6 +90,15 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract(
         "terminal_end",
         ("terminalId", "status", "endedAt", "durationMs", "output", "exitCode", "messageId"),
+    ),
+    # D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
+    # 事件名为我方协议自定;字段形状取自竞品一手观察(报告 §1.1 / §16.1)。
+    SSEEventContract("injection_applied", ("kind", "collapsed", "fullText")),
+    SSEEventContract("settings_applied", ("model", "reasoningEffort", "personality", "prev")),
+    SSEEventContract("retry_scheduled", ("attempt", "maxRetries", "retryInMs", "httpStatus")),
+    SSEEventContract(
+        "terminal_output",
+        ("stdout", "stderr", "formattedOutput", "exitCode", "truncated"),
     ),
     SSEEventContract("done", ("usage", "model", "stub")),
     # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
