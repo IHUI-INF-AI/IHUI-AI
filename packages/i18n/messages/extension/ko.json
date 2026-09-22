@@ -308,6 +308,13 @@
   },
   "content": {
     "translate": "번역",
+    "typeLesson": "강의",
+    "typeLive": "라이브",
+    "typeArticle": "기사",
+    "typeNews": "뉴스",
+    "typeAsk": "질의응답",
+    "typeResource": "자료",
+    "typeExam": "시험 문제",
     "highlight": "하이라이트",
     "vocab": "단어 조회",
     "sendAi": "AI에게 질문",
