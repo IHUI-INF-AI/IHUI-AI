@@ -2,66 +2,48 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
-import {
-  writeLocaleCookie,
-  readLocaleCookie,
-  isSupportedLocale,
-  type LocaleCode,
-} from '@/lib/locale-cookie'
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-/** 语言码集合以 @/lib/locale-cookie 为唯一定义处(SSR 侧要用同一份) */
-export type Language = LocaleCode
+/**
+ * 语言偏好的 **SSR 可见真值源**(2026-09-22 立)
+ *
+ * 本站语言是客户端驱动的(`useLanguageStore` + `I18nProvider`,见 app/layout.tsx 注释),
+ * 服务端渲染时读不到 localStorage ⇒ `<html lang>` 只能写死 zh-CN。而 `lang` 不是装饰:
+ * `src/lib/number-format.ts` 与 ai-news 4 个组件都拿 `document.documentElement.lang` 当取词口径,
+ * 搜索引擎/读屏也按它判定语种。故把偏好**同时镜像进 cookie**,layout 才能首帧就渲染正确 lang。
+ *
+ * 键名沿用仓库既有写入口径 `locale`(**不另起新名**,否则历史 cookie 与新 cookie 会分叉)。
+ * 本文件刻意不 import zustand:它要同时被 RSC(layout.tsx)与客户端 store 引用。
+ */
 
-interface LanguageState {
-  locale: Language
-  /** 是否已完成初始化（避免 hydration mismatch） */
-  initialized: boolean
-  setLocale: (locale: Language) => void
-  setInitialized: (v: boolean) => void
+export type LocaleCode = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ko'
+
+export const LOCALE_COOKIE = 'locale'
+
+export const SUPPORTED_LOCALES: readonly LocaleCode[] = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
+
+export const DEFAULT_LOCALE: LocaleCode = 'zh-CN'
+
+/** 校验任意来源(RSC cookie 值)的字符串是否为受支持语言 */
+export function isSupportedLocale(value: unknown): value is LocaleCode {
+  return typeof value === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(value)
 }
 
-/** 语言切换 Store，持久化语言偏好（与 next-intl 配合使用） */
-export const useLanguageStore = create<LanguageState>()(
-  persist(
-    (set) => ({
-      locale: 'zh-CN',
-      initialized: false,
-
-      setLocale: (locale) => {
-        set({ locale })
-        // 偏好必须同时落到 cookie,否则 SSR 首帧 lang 永远是 zh-CN(见 @/lib/locale-cookie)
-        writeLocaleCookie(locale)
-      },
-      setInitialized: (initialized) => set({ initialized }),
-    }),
-    {
-      name: 'ihui-language',
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined'
-          ? window.localStorage
-          : { getItem: () => null, setItem: () => {}, removeItem: () => {} },
-      ),
-    },
-  ),
-)
-
-// 冷启动播种:本地没有持久化偏好、但 cookie 里有语言(用户清过 localStorage / 换过 profile,
-// 而 cookie 是 SSR 唯一读得到的真值)时,以 cookie 为准。否则首帧服务端渲染 en、水合后 store
-// 默认 zh-CN 会把语言翻回去,并把 cookie 覆写回 zh-CN ⇒ 偏好静默丢失。
-// persist 用同步 localStorage,create 时已完成 rehydrate,此处 setState 不会被覆盖。
-if (typeof window !== 'undefined' && window.localStorage.getItem('ihui-language') === null) {
-  const seeded = readLocaleCookie()
-  if (isSupportedLocale(seeded)) useLanguageStore.getState().setLocale(seeded)
+/**
+ * 写 cookie:`path=/` 全站可读,`max-age=1 年` 与 localStorage 偏好同寿命,
+ * `samesite=lax` 跟随本站会话 cookie 口径(跨站子请求不带,避免偏好被第三方页读出)。
+ */
+export function writeLocaleCookie(locale: LocaleCode): void {
+  if (typeof document === 'undefined') return
+  document.cookie = `${LOCALE_COOKIE}=${locale};path=/;max-age=31536000;samesite=lax`
 }
 
-// 暴露给 E2E 测试用(window.__IHUI_LANGUAGE_STORE__),仅在非生产环境挂载,
-// 避免生产 bundle 多余的全局属性。E2E 通过 useLanguageStore.getState().setLocale()
-// 直接更新 locale,无需 reload 等待 zustand persist rehydrate。
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-  ;(
-    window as unknown as { __IHUI_LANGUAGE_STORE__?: typeof useLanguageStore }
-  ).__IHUI_LANGUAGE_STORE__ = useLanguageStore
+/** 读 SSR 侧可见的语言 cookie(无 cookie / 服务端渲染返回 undefined) */
+export function readLocaleCookie(): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`))
+  const raw = match?.[1]
+  return raw ? decodeURIComponent(raw) : undefined
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
