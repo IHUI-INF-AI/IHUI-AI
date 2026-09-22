@@ -12,6 +12,15 @@
 
 ---
 
+## P0 2026-09-22 桌面端窗口控制三按钮模态压暗 + 层级守门自动化(平台独占:apps/desktop + apps/web)
+
+> **平台独占豁免(AGENTS.md §9)**:Tauri 无边框窗口的最小化/最大化/关闭三按钮只存在于 `apps/desktop`(薄壳)+ `apps/web`(自绘标题栏宿主 `GlobalTopBar.tsx`);miniapp-taro / mobile-rn / extension / cli 无窗口控制按钮,属平台独占,不是多端同步漏做。
+
+- [x] ✅(2026-09-22) 防回潮守门补第 5 项:`scripts/check-z-index-guard.mjs` 断言 `GlobalTopBar.tsx` 同时含 `data-window-controls` 与 `data-window-controls-dim`(等效压暗层),标号统一 `/5`。理由已写进判据:`z-max(10003)` 不能降(须高于 8 方向 resize 抓手 `z-loading=10000`),层级压不住只能等效压暗,删掉 = 登录窗等 29+ 处遮罩下三按钮重新全亮。
+- [x] ✅(2026-09-22) 根治"守门从不执行"这条既有缺口:该脚本此前在 `package.json` / `.husky/pre-commit` / `.github/workflows` **0 命中**,同族 bug 因此三次复发(AI 面板发亮 → 登录框 → 窗口按钮)。现登记为 `guardian-runner` id **61**(blocking,紧急跳过 `HUSKY_SKIP_Z_INDEX_GUARD=1`),`GlobalTopBar.tsx` 一并纳入其 `--staged` 相关文件集。
+- [x] ✅(2026-09-22) 同批接入同族 `scripts/check-overlay-zindex.mjs` 为 id **62**(blocking;接入前实测全量 3775 文件 0 违规、耗时 0.5s,故不需降 warn;紧急跳过 `HUSKY_SKIP_OVERLAY_ZINDEX=1`)。
+- [x] ✅(2026-09-22) 等效压暗覆盖层与窗口失焦非活动态的**实现体由同日并行会话落盘**;守门判据已就位,`data-window-controls-dim` 未落库前 id 61 全量模式必红(设计如此,未放宽判据)。
+
 ## P0 2026-09-21 qwen/mimo 401 收口 + 并发回退丢失面全量回捞 + OpenAPI 漂移门禁修复
 
 - **mimo 401 根因不是密钥**:三处端点写的是算力计划域名 `token-plan-cn.xiaomimimo.com`(只认 `tp-` 前缀 key),官方 `api.xiaomimimo.com` 才收普通 key。已改 `free_provider_registry.py` / `ai-vendors/_shared.ts` / DB 配置行,`default_models` 由已下架的 MiMo-7B-RL 重写为在售 4 个(v2.5 / v2.5-pro / v2.5-asr / v2.5-tts)。另补 `model_availability._MODEL_PREFIX_TO_PROVIDER` 的 `("mimo-","mimo")` —— 官方 `/v1/models` 返回裸名,缺映射会按 fail-closed 被 `/llm/models` 过滤掉。
@@ -976,6 +985,8 @@
 - **D83 覆盖率闸已落地(2026-09-22 第 29 轮)**:`scripts/check-tool-activity-coverage.mjs`(guardian 第 **60** 项 blocking)两类判定——① **键形**:凡 `taskStatus.*Activity` 必须五语言齐,且值是含 `running{}/completed{}/other{}` 三支的 ICU select(半套措辞比不补更糟:某语言会恒显示"正在…"或整条空白),一律红;② **覆盖率 ratchet**:`scripts/data/tool-activity-coverage.json` 的 `floor=6`,只挡回落不挡增长,逐批补时上调 floor 并在提交说明写数量变化。`--scaffold` 输出待补清单(现 **85/91 待补**);`--self-test` 7 例覆盖三类必红与"未配置不算形错"必绿。抽取到的功能名数 **91** 与守门 56 报的"91 个工具功能名"互相印证(同一事实源)。UI 接线属 B2,须与 D34 的 item 级时间戳同批,否则活动条只有动词没有耗时。
 
 - **双时态措辞批次进度(守门 60 的 floor 为准,勿凭记忆报数)**:第 27 轮首批 6(read/edit/write/searchCodebase/webSearch/parseDocument)→ 第 30 轮第二批 8(listFiles/fileSearch/createFile/deleteFile/analyzeCode/knowledgeLookup/fetchUrl/generateChart)→ 第 32 轮第三批 10(**browser 全族**:navigate/clickElement/typeText/screenshot/extractDom/scroll/waitForElement/hover/closeTab/switchTab),**现 24/91,floor=24,余 67**。每批五语言齐且 running/completed 两支措辞**按各语言自身语法构造**(不是套中文模板):zh 正在/已、zh-TW 已等到元素出现、en 现在分词/过去式、ja する-动词用「〜中/〜しました」而閉じる・開く 类用「〜ています/〜ました」、ko 「〜 중/〜했습니다」。**parity 口径改好后自证有效**:shared 由 1,662 → **1,672 键路径**(第二批 8 + 第三批 10 键,数对得上);zh-TW 无简体残留、en 无破碎机翻、守门 56 报 3094 项可解析、守门 58/59 全绿。
+
+- **D34 开工 + 两处更正(2026-09-22 第 33 轮)**:① 四帧已入两份契约(TS `SSE_EVENTS` + `SSEEventPayload` 判别联合、PY `SSE_EVENTS` + `SSE_EVENT_CONTRACTS`),api-client `parseStreamLine` 在**兜底抽取链之前**显式分流四型(与 usage/steer/budget 同一历史坑位),并落 `packages/api-client/tests/sse-d34-frames.test.ts` 5 例(含"普通增量仍返回"的正例,防把 null 当成兜底失效)。测试侧同步:PY `test_sse_contract.py` 24→28 + 四帧子集断言(6 passed),TS `contract.test.ts` 24→28 + 四帧用例(11 passed)。**② 出处更正(不要继续误引)**:D34 原文写"Codex 实证字段名为准"**只对了一半** —— 实证的是**字段形状**(kind 八枚举 / collapsed+可展开全文 / attempt+maxRetries+retryInMs+httpStatus / stdout+stderr+formattedOutput+exitCode+truncated);**事件名是我方协议自定**(snake_case,同 `plan_updated`/`terminal_end` 家族)。核证:`injection_applied`/`retry_scheduled`/`formatted_output` 在报告 §16.1 里的身份是"**我方缺失项的条目名**",不是竞品报文原名;Codex asar 对六个候选名(含 `thread_settings_applied`)全部 0 命中。**③ 顺手根治一处守门脆弱性**:`check-agent-event-parity.mjs` 原以 `text.indexOf(')')` 取 frozenset 结尾,**注释里出现半角括号就会截断提取、静默漏读尾部事件名(假绿)** —— 我插入的说明注释正好踩中,导致它报"terminal_output 仅存在于 TS 侧"。已改为切到"独占一行的 `)`",并**注入违规复验**:删掉 PY 侧该名 → 闸 exit 1 精确指出缺失,还原后两端各 28 个(还原前后 md5 一致)。这条与既有记忆"判断闸有效性靠注入违规"同源。
 
 ### 本轮(第四轮)交付状态
 

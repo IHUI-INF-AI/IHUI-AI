@@ -50,6 +50,15 @@ export const SSE_EVENTS = {
   COMPACTION: 'compaction',
   STEER: 'steer',
   BUDGET: 'budget',
+  // D34(2026-09-22 立,G-40/G-43/G-44/G-52):四类"运行环境对用户的交代"帧。
+  // 事件名是**我方协议自定**(snake_case,与 plan_updated/terminal_end/subagent_spawn 同族);
+  // 实证部分只有**字段形状**(kind 八枚举 / collapsed + 可展开全文 / attempt+maxRetries+retryInMs+httpStatus /
+  // stdout+stderr+formattedOutput+exitCode+truncated),来自 Codex 一手观察(报告 §1.1、§16.1)。
+  // 不得把这些名字当成竞品报文原名 —— 该更正见 PROJECT_PLAN.md D34。
+  INJECTION_APPLIED: 'injection_applied',
+  SETTINGS_APPLIED: 'settings_applied',
+  RETRY_SCHEDULED: 'retry_scheduled',
+  TERMINAL_OUTPUT: 'terminal_output',
 } as const
 
 /** 全部 SSE 事件名的联合类型。 */
@@ -100,6 +109,48 @@ export type SSEEventPayload =
       type: 'tool-summary'
       // 待收紧:linesAdded/linesDeleted/callCount 等聚合字段
       summary: Record<string, unknown>
+    }>
+  // D34(2026-09-22):运行环境交代四帧 —— 字段名以 Codex 一手实证为准
+  | SSEEventWithMeta<{
+      type: 'injection_applied'
+      /** 被注入/生效的上下文类别;turn_aborted 表示中途引导终止 */
+      kind:
+        | 'goal'
+        | 'model_switch'
+        | 'permissions'
+        | 'agents_md'
+        | 'host_skills'
+        | 'environments'
+        | 'developer_instructions'
+        | 'turn_aborted'
+      /** 折叠态一行摘要(界面默认显示) */
+      collapsed: string
+      /** 展开全文;缺省时界面不显示"展开"控件 */
+      fullText?: string
+    }>
+  | SSEEventWithMeta<{
+      type: 'settings_applied'
+      model?: string
+      reasoningEffort?: string
+      personality?: string
+      /** 变更前的取值,用于显示"X → Y"式交代 */
+      prev?: Record<string, unknown>
+    }>
+  | SSEEventWithMeta<{
+      type: 'retry_scheduled'
+      attempt: number
+      maxRetries: number
+      retryInMs: number
+      httpStatus?: number
+    }>
+  | SSEEventWithMeta<{
+      type: 'terminal_output'
+      stdout?: string
+      stderr?: string
+      /** 后端已排版的输出(界面优先用它) */
+      formattedOutput?: string
+      exitCode?: number | null
+      truncated?: boolean
     }>
   // 引用溯源(#11,2026-09-13 立)
   | SSEEventWithMeta<{

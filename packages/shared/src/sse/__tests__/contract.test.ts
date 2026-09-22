@@ -6,7 +6,7 @@
  * SSE 事件契约单一事实源测试(#25,2026-09-16 立)
  *
  * 覆盖:
- * 1. SSE_EVENTS 事件名集合完整性(24 个:2026-09-19 补录 fallback/usage/steer/budget、
+ * 1. SSE_EVENTS 事件名集合完整性(28 个:2026-09-19 补录 fallback/usage/steer/budget、
  *    删 repair/resumed 孤儿事件)与无重复
  * 2. SSE_EVENT_NAMES 派生一致性
  * 3. isSSEEventName 类型守卫
@@ -27,9 +27,19 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 24 个契约事件', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(24)
-    expect(SSE_EVENT_NAMES).toHaveLength(24)
+  it('包含全部 28 个契约事件', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(28)
+    expect(SSE_EVENT_NAMES).toHaveLength(28)
+  })
+
+  // D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
+  // 事件名为我方协议自定;实证部分是字段形状(kind 八枚举 / collapsed+全文 /
+  // attempt+maxRetries+retryInMs+httpStatus / stdout+stderr+formattedOutput+exitCode+truncated)。
+  it('包含 D34 补录的 4 个运行环境交代事件', () => {
+    expect(SSE_EVENTS.INJECTION_APPLIED).toBe('injection_applied')
+    expect(SSE_EVENTS.SETTINGS_APPLIED).toBe('settings_applied')
+    expect(SSE_EVENTS.RETRY_SCHEDULED).toBe('retry_scheduled')
+    expect(SSE_EVENTS.TERMINAL_OUTPUT).toBe('terminal_output')
   })
 
   it('值无重复(事件判别名唯一)', () => {
@@ -119,6 +129,10 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   FALLBACK: 'fallback',
   // 2026-09-19 立:网关预算档位提醒(流首软提醒,80%~95% warning / 95%~100% critical)
   BUDGET: 'budget',
+  INJECTION_APPLIED: 'injection_applied',
+  SETTINGS_APPLIED: 'settings_applied',
+  RETRY_SCHEDULED: 'retry_scheduled',
+  TERMINAL_OUTPUT: 'terminal_output',
 }
 
 describe('SSEEventPayload 判别联合对齐', () => {
