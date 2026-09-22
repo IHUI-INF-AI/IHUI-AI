@@ -136,7 +136,7 @@ export function SpecBranchesTab({ p }: { p: SpecPanelApi }) {
                     BRANCH_STATUS_BADGE[b.status] || BRANCH_STATUS_BADGE.active,
                   )}
                 >
-                  {BRANCH_STATUS_LABEL[b.status] || b.status}
+                  {t(BRANCH_STATUS_LABEL[b.status] ?? b.status)}
                 </span>
                 <Tooltip content={b.specId}>
                   <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
