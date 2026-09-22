@@ -7,12 +7,38 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PERMISSION_MODES,
+  PERMISSION_MODE_WIRE,
   isReadonlyPermissionMode,
   normalizePermissionMode,
   permissionModeKey,
   permissionModePolicy,
+  permissionModeWire,
   skipsApprovalPermissionMode,
 } from '../src/permission-mode'
+
+describe('permissionModeWire(G-164:跨界只走 wire,判定只走规范档)', () => {
+  it('任意拼写都落到 workspace 的 kebab 拼写', () => {
+    expect(permissionModeWire('acceptEdits')).toBe('accept-edits')
+    expect(permissionModeWire('accept-edits')).toBe('accept-edits')
+    expect(permissionModeWire('auto')).toBe('accept-edits')
+    expect(permissionModeWire('bypassPermissions')).toBe('bypass-permissions')
+    expect(permissionModeWire('accept-all')).toBe('bypass-permissions')
+    expect(permissionModeWire('read-only')).toBe('plan')
+    expect(permissionModeWire('plan')).toBe('plan')
+  })
+
+  it('manual 没有落库语义 → wire 为 null(调用方必须显式处理,不能静默落库)', () => {
+    expect(permissionModeWire('manual')).toBeNull()
+    expect(permissionModeWire('yolo')).toBeNull()
+  })
+
+  it('wire 值域 ⊆ 历史 kebab 集合(不会把 camel 写进 DB 打破既有行)', () => {
+    const wires = Object.values(PERMISSION_MODE_WIRE)
+    for (const w of wires) {
+      expect(['default', 'plan', 'accept-edits', 'bypass-permissions']).toContain(w)
+    }
+  })
+})
 
 describe('normalizePermissionMode', () => {
   it('规范成员恒等归一', () => {

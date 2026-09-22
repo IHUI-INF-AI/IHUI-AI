@@ -5,7 +5,7 @@
 """权限模式唯一真源 —— Python 侧镜像(G-161,2026-09-22 立)。
 
 TS 侧在 ``packages/types/src/permission-mode.ts``。两侧成员与别名映射必须逐字
-一致,由 ``scripts/check-permission-mode-vocabulary.mjs``(guardian 第 67 项,
+一致,由 ``scripts/check-permission-mode-vocabulary.mjs``(guardian 第 68 项,
 blocking)对账 —— 跨语言复刻判定路径历史上已经造过一次假"生效"(见
 project memory: cross-language-replica-creates-phantom-bugs)。
 

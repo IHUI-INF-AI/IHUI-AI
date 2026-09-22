@@ -54,6 +54,8 @@ export interface LoadSessionData {
   sessionId: SessionId
 }
 
+import type { PermissionModeWire } from './permission-mode'
+
 export type PromptMode = 'default' | 'plan' | 'accept-edits' | 'bypass-permissions'
 
 export interface Attachment {
@@ -205,7 +207,17 @@ export interface PermissionDenyData {
   reason: string
 }
 
-export type PermissionMode = 'default' | 'plan' | 'accept-edits' | 'bypass-permissions'
+/**
+ * 工作区落库/REST 的权限档拼写(kebab)。
+ *
+ * G-164:此前这里是**独立抄的一份 4 值联合**,与 `@ihui/api-client` 的 3 值抄本、
+ * 服务端 z.enum 的 3 值抄本互不知情 —— `plan` 因此"类型里有、链路上不可达"。
+ * 现在 wire 拼写由 `permission-mode.ts` 的注册表单点定义(PermissionModeWire),
+ * 本文件只做别名,新增档位会在注册表处一次性暴露缺口。
+ * (PromptMode 是"提示模式"另一概念,恰好共用同一组拼写,未一并合并 —— 合并会把
+ *  两个语义绑死,留作 G-164 后续判断。)
+ */
+export type PermissionMode = PermissionModeWire
 
 // ============ 通用辅助类型 ============
 export interface UsageStats {
