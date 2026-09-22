@@ -49,7 +49,7 @@ export default function AiGenerationPageClient() {
             'media',
           )
         : provider === 'agnes'
-          ? callApi('/api/ai/agnes/image', { prompt, size }, 'media')
+          ? callApi('/api/ai/agnes/image', { prompt, size }, 'media') // method: POST
           : callApi('/api/ai/jimeng4/image', { prompt, width: 1024, height: 1024 }, 'media'))
     setLastImage(url)
     return url
