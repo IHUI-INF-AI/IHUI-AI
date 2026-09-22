@@ -21,6 +21,7 @@ import {
 } from '@ihui/ui-react'
 import type { TreeNode } from '@ihui/ui-react'
 import type { TagItem, TagForm } from './types'
+import { useTreeSelectLabels } from '@/hooks/use-tree-select-labels'
 
 interface Props {
   open: boolean
@@ -45,6 +46,7 @@ export function ResourceTagDialog({
   onSubmit,
   onClose,
 }: Props) {
+  const tsLabels = useTreeSelectLabels()
   const t = useTranslations('admin.resources')
   const treeData = React.useMemo<TreeNode[]>(
     () => tags.map((tag) => ({ id: tag.id, label: tag.name, pid: tag.pid })),
@@ -74,6 +76,7 @@ export function ResourceTagDialog({
               onChange={(v) => setForm({ ...form, pid: v ?? '' })}
               data={treeData}
               placeholder={t('rootTag')}
+              labels={tsLabels}
             />
           </div>
           <div className="space-y-2">
