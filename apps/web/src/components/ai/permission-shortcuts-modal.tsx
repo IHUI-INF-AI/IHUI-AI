@@ -15,6 +15,7 @@
  * - 标题栏:图标 + "权限模式快捷键" + 关闭按钮
  * - 3 分组:模式切换 / 高风险护栏 / 撤销与审计
  * - 每行:按键 + 动作描述
+ * - 底部交叉指引:完整键位清单(含对话模式切换)由全局 Ctrl+/ 面板承载,本模态不重复列
  *
  * 数据流:
  * - 受控:open + onClose 双向绑定
@@ -35,11 +36,6 @@ import {
   Hand,
   Undo2,
   SquareSlash,
-  Layers,
-  Hammer,
-  BookOpen,
-  Search,
-  FileText,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -85,36 +81,6 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
 ]
 
-/**
- * 对话模式切换分组(2026-07-28 立,补全 ChatMode 4态三通道可发现性)。
- *
- * 与 SHORTCUT_GROUPS 分离的设计考量:
- * - SHORTCUT_GROUPS 走 next-intl t() 渲染,本组中文硬编码,i18n key 由后续 PR 注入
- * - 视觉风格(分组标题/行/kbd)与现有分组完全一致,无新增组件抽象
- *
- * 三通道可发现性(2026-07-28 v2:移除 ModeSwitcher 4 按钮后更新):
- * - Ctrl+1/2/3/4 全局快捷键(use-global-shortcuts.ts)
- * - /build /plan /review /spec 斜杠命令(message-input.tsx 解析)
- * - AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
- * - 当前模式视觉指示:message-input.tsx CurrentModeBadge(小徽章,纯展示)
- */
-interface ModeSwitchRow {
-  /** 按键标签(如 "Ctrl+1" / "/build /plan /review /spec") */
-  key: string
-  /** 动作描述(中文硬编码,待 i18n) */
-  desc: string
-  /** 可选图标 */
-  icon?: React.ComponentType<{ className?: string }>
-}
-
-const MODE_SWITCH_ROWS: ModeSwitchRow[] = [
-  { key: 'Ctrl+1', desc: '切换到构建模式(正常执行,全工具开放)', icon: Hammer },
-  { key: 'Ctrl+2', desc: '切换到计划模式(只读分析,deny write 工具)', icon: BookOpen },
-  { key: 'Ctrl+3', desc: '切换到审查模式(只读审查 + 强化审查 prompt)', icon: Search },
-  { key: 'Ctrl+4', desc: '切换到规格模式(从代码反向生成 spec 文档)', icon: FileText },
-  { key: '/build /plan /review /spec', desc: '斜杠命令切换(也可用 Ctrl+1-4)', icon: SquareSlash },
-]
-
 export interface PermissionShortcutsModalProps {
   open: boolean
   onClose: () => void
@@ -139,36 +105,6 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道可发现性) */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Layers className="h-3 w-3" aria-hidden="true" />
-              <span>对话模式切换</span>
-            </div>
-            <ul className="space-y-1.5">
-              {MODE_SWITCH_ROWS.map((row) => {
-                const Icon = row.icon
-                return (
-                  <li
-                    key={row.key}
-                    className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
-                  >
-                    <kbd
-                      className={cn(
-                        'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
-                        'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
-                      )}
-                    >
-                      {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
-                      {row.key}
-                    </kbd>
-                    <span className="text-xs text-muted-foreground">{row.desc}</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-
           {SHORTCUT_GROUPS.map((group) => (
             <div key={group.titleKey} className="space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -201,6 +137,22 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
               </ul>
             </div>
           ))}
+
+          {/* 交叉指引:完整键位清单(含 ChatMode 切换)统一由全局 Ctrl+/ 面板承载,此处不重复列 */}
+          <div
+            className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1.5"
+            data-testid="permission-shortcuts-see-all"
+          >
+            <span className="text-xs text-muted-foreground">{t('shortcutsSeeAllKbd')}</span>
+            <kbd
+              className={cn(
+                'inline-flex min-w-[88px] items-center justify-center gap-1 rounded-md',
+                'border border-border/60 bg-muted/40 px-2 py-0.5 font-mono text-[11px] text-foreground',
+              )}
+            >
+              Ctrl+/
+            </kbd>
+          </div>
         </div>
 
         <div className="flex justify-end pt-1">
