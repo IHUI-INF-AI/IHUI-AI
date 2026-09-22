@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   } as ViewStyle,
   commentSheet: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: 14,
