@@ -21,13 +21,16 @@ import { CommandPalette } from '@/components/layout/CommandPalette'
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
 
+/** 设置页路由。桌面端托盘「打开设置」与 Ctrl+, 快捷键共用同一入口。 */
+const SETTINGS_PATH = '/settings'
+
 const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
   'global-shortcut:new-chat': '/chat',
   'global-shortcut:open-drama': '/drama',
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // Ctrl+, 直接打开设置(VS Code 标准,最高频入口,免命令面板搜索)
-  'global-shortcut:open-settings': '/settings',
+  'global-shortcut:open-settings': SETTINGS_PATH,
 }
 
 /** Ctrl+1/2/3/4 模式切换事件 → ChatMode(与 use-global-shortcuts DEFAULT_SHORTCUTS 对应)
@@ -119,7 +122,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
   // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
   useNativePushRegister()
-  const { setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 
   // 主题跨标签页同步:其他标签页修改 localStorage('theme')时,通过 setTheme 跟随
@@ -199,6 +202,42 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       }
     }
   }, [router, t])
+
+  // 桌面端托盘菜单「切换主题 / 打开设置」的消费点(2026-09-22 修复)
+  //
+  // 根因(全仓 grep 实证):use-desktop.ts 的 useDesktopEvents 把 Rust emit 的
+  // `desktop-tray-action` 转成 5 个 CustomEvent,其中 3 个有消费者:
+  //   new_chat     → global-shortcut:new-chat → SHORTCUT_ROUTES(本文件)
+  //   check_update → desktop-check-update     → use-updater.ts
+  //   quit         → desktop-quit-request     → use-quit-update-guard.ts
+  // 唯独 `desktop-theme-toggle` 与 `desktop-open-settings` 全仓零 addEventListener:
+  // dispatch 成功但无副作用 → 用户侧表现为"点击完全没反应"。Rust 侧
+  // `let _ = window.emit(...)` 又把错误吞掉,日志也查不到。
+  //
+  // 落点选在根 Provider(与 MODE_SHORTCUT_EVENTS 同一模式):根级 hydration 即生效,
+  // 不依赖 ai-side-panel 等深层组件挂载 —— 后者曾导致 global-shortcut:mode-* 在
+  // 非 /chat 页面或 hydration 未完成时按键静默丢失(见上方注释),此处不再重蹈。
+  React.useEffect(() => {
+    const onToggleTheme = () => {
+      // 承继 SidebarUserRow.handleToggleTheme 的底层加固:以 <html>.dark class 为
+      // 事实源取对立面,规避 system 主题尚未解析完成(resolvedTheme === undefined)
+      // 时"首次点击切错方向 / 要点两次"的时序问题。
+      const isDarkNow =
+        document.documentElement.classList.contains('dark') || resolvedTheme === 'dark'
+      setTheme(isDarkNow ? 'light' : 'dark')
+    }
+    const onOpenSettings = () => {
+      // 已在设置页时无需重复 push:Rust 侧已完成 show + set_focus,窗口会被唤起。
+      if (window.location.pathname === SETTINGS_PATH) return
+      router.push(SETTINGS_PATH)
+    }
+    window.addEventListener('desktop-theme-toggle', onToggleTheme)
+    window.addEventListener('desktop-open-settings', onOpenSettings)
+    return () => {
+      window.removeEventListener('desktop-theme-toggle', onToggleTheme)
+      window.removeEventListener('desktop-open-settings', onOpenSettings)
+    }
+  }, [router, resolvedTheme, setTheme])
 
   return (
     <>
