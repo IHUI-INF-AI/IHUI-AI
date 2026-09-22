@@ -29,7 +29,8 @@ type OptionItem = {
   icon: typeof FileText
   labelKey?: string
   label?: string
-  shortcut: string
+  // 可选:并非每个视图都有 chord;声明了就必须真有处理器(见 scripts/check-declared-shortcuts.mjs)
+  shortcut?: string
 }
 type OptionGroup = { titleKey: string; items: OptionItem[] }
 
@@ -48,7 +49,7 @@ const TAB_GROUPS: OptionGroup[] = [
       { id: 'terminal', icon: Terminal, labelKey: 'topBar.terminal', shortcut: 'Ctrl+`' },
       { id: 'code-changes', icon: GitCompare, labelKey: 'topBar.codeChanges', shortcut: 'Ctrl+4' },
       { id: 'agent', icon: Bot, labelKey: 'topBar.agent', shortcut: 'Ctrl+5' },
-      { id: 'mcp', icon: Plug, label: 'MCP', shortcut: 'Ctrl+6' },
+      { id: 'mcp', icon: Plug, label: 'MCP' },
     ],
   },
   {
@@ -140,7 +141,9 @@ export function ViewSwitcher() {
                 >
                   <opt.icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="flex-1 min-w-0 text-left">{itemLabel(opt)}</span>
-                  <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
+                  {opt.shortcut ? (
+                    <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
+                  ) : null}
                 </button>
               ))}
             </div>
