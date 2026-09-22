@@ -476,7 +476,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                 </span>
               </p>
             </button>
-            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
                 <span className="inline-flex">
                   <Button
