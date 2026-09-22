@@ -189,6 +189,7 @@
     "toolStatusError": "失败",
     "toolDetail": "调用详情",
     "terminal": "终端",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",
