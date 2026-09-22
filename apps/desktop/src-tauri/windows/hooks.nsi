@@ -32,12 +32,12 @@
 !macro NSIS_HOOK_POSTUNINSTALL
   ; 卸载进度末段(埋点 20/45/65/85 见模板 U 系列补丁,此处收口到 95%)
   !insertmacro IHUI_UNPROGRESS 95 "正在完成卸载"
-  ; ⚠️ 必须无条件 SetAutoClose —— 上游只在 passive / 更新模式里设它,普通交互卸载
-  ; 跑完 instfiles 就原地停住等用户点「关闭」,而那颗钮(原生 1)进页时已被
-  ; IHUI_HIDE_ALL 移屏、原生 2 在完成态被核心置 disabled 画成灰底,整页零个可点出口
-  ; → 卸载窗永久挂死只能 taskkill(2026-09-22 真包 UIA + CPU 增量 0 实锤)。
-  ; 完成页这条路三条写法全部实测否决,排查记录见 ihui-uninstaller.nsi 文件末尾。
-  SetAutoClose true
+  ; ⚠️ 这里**不设** SetAutoClose —— 卸载跑完要停在品牌完成页等用户点「完成」
+  ; (模板补丁 U4 的 MUI_UNPAGE_FINISH + un.IHUIFinishShow 负责那一页)。
+  ; passive / 更新模式由上游 Section 尾部自行 SetAutoClose true,无人值守不卡窗口。
+  ; 历史教训(2026-09-22):instfiles 跑完原地停住且整页零可点出口(原生 1 被
+  ; IHUI_HIDE_ALL 移屏、原生 2 完成态被置 disabled 画成灰底,真包 UIA + CPU 增量 0 实锤),
+  ; 当时在此无条件 SetAutoClose 只是把"没有完成页"这件事盖掉,真正的收口是把完成页做好。
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "IHUI-AI-Desktop"
 
   ; =====================================================================
