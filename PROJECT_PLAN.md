@@ -337,6 +337,11 @@
 - 本批全部验证:沙箱编译 0 warning、真包 `tauri build --bundles nsis` 成功(仅缺 `TAURI_SIGNING_PRIVATE_KEY` 的签名报错,不影响产物)、`check-installer-assets` PASS、`desktop-nsis-template --check` OK、接线测试 6/6。
 
 **残余**:签名私钥未参与本次本地构建(产物无 `.sig` 有效内容),发版走 CI 时才有;`tauri build` 的完整 `--bundles nsis` 在本机不含 Web 端构建(`frontendDist` 已是 `shell`)。
+> **该条已于同日第五批被推翻,保留原文以免后人重蹈误判**:本机 `tauri build` 只要经
+> `scripts/release-desktop-local.mjs`(或直接注入 `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)`,私钥在
+> `~/.tauri/ihui-updater.key`)就**产出有效 `.sig`**,且签名内 keyID 与 `tauri.conf.json`
+> 配置公钥逐字节一致。当时"无有效签名"的真实原因是**绕过了发版脚本直接跑裸 `tauri build`**,
+> 不是本机没有私钥。
 
 ### 第五批(同日):视觉精修三处 + 完成态空白块 + 探针清理 + DPI 封顶 + 签名链核实
 
@@ -375,6 +380,20 @@
 - **顺带发现(未动,属发版链路专项)**:`scripts/release-desktop-local.mjs:106` 传给 `gitee-release-attach.py` 的 `DESKTOP_FEED_OUT` 是**死变量**(该 py 全文不读它,只读 `GH_TOKEN`/`GITHUB_REPOSITORY`),而本机通道只给 `GITEE_TOKEN` → `replace_github_feed` 直接 return,即端点② `github.com/.../desktop-updater-feed/latest.json` 自本机发版通道起**不再更新**。端点① `aizhs.top/desktop-feed.json` 实测在线且返回 0.1.44 + 420 字符签名,是实际生效的那一条。
 - 本批验证:`cargo check` 0 错误、`cargo test --lib` **7 passed**、真反例/真正例双向命中、`~nsu*` 与本地 feed 服务无残留、桌面端已还原为真实发布版 **0.1.44** 并运行中。
 - **仍未闭环**:① DPI > 192 屏的真机截图 —— 本机 `GetDpiForWindow` 实测 144(沙箱 trace 实锤 `guiinit-sys-144-win-144-tier-150-wtier-150`),而"设置 → 缩放"下拉框在当前"仅在 2 上显示"双显示器状态下为 **disabled**,不为一张截图去强改用户显示配置;数值证明(DPI 96..480 穷举,"位图 < 客户区"0 例)仍然成立。
+  > **同日终局:该条取证路径已按用户指示永久放弃,不要再重试。** 三条可行路全被否:
+  > ① `__COMPAT_LAYER=DPI150/200/300/400SCALE` 对 **PerMonitorV2** 应用无效(实测沙箱
+  >    `win-144` 纹丝不动,该覆盖只作用于 legacy  unaware 应用);
+  > ② 改系统/每显示器缩放 —— 用户明确指示"别动显示配置",且当前缩放控件 disabled;
+  > ③ 接一台真 >200% 的屏 —— 本机物理上不存在(第二块屏是第三方
+  >    `GameViewer Virtual Display Adapter`,与本项目无关,亦不得改动)。
+  >    结论:**封顶逻辑的正确性以数值穷举为准**,该项不再计入未闭环。
+- **另已收口(同日)**:`scripts/release-desktop-local.mjs` 的 `DESKTOP_FEED_OUT` 死变量已删,
+  并更正其上方注释 —— 原注释把"GitHub/Gitee desktop-updater-feed 附件由 gitee-release-attach.py 维护"
+  记成本机通道的职责,实际 `replace_github_feed` 开头 `if not GH_TOKEN: return`,本机只传
+  `GITEE_TOKEN` ⇒ **本机这一条是空转**,GitHub feed 由 CI 的 `generate-latest-json.mjs` 维护,
+  站点主端点由 `resolve-desktop-download.mjs` 刷快照后随 Web 部署生效。
+  顺带更正第四批那条"本机构建无有效签名"的过期残余(真因是绕过了发版脚本)。
+
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
