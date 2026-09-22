@@ -118,6 +118,41 @@
 
 ---
 
+## P1 2026-09-22 同类隐患全仓普查(键盘归属 / 重复 affordance / 隐藏态可聚焦 / 孤儿事件通道)
+
+承接上两节,按四类可泛化形状做了一次全仓普查(3 路只读子代理 + 我自己逐条复核,子代理结论一律不当真)。
+
+### 当场已修(2 处,均已绿)
+
+- [x] ✅(2026-09-22) **全局 Enter 吞掉可交互元素的自身激活**:`use-message-list-scroll.ts` 的 window keydown 只挡了 INPUT/TEXTAREA/contenteditable,焦点 Tab 到任意 `<button>`/`<a>`/`[role=menuitem|tab]` 上按 Enter 会被它 `preventDefault`(按钮不激活)且顺带翻转聚焦消息的 reasoning。修法 = Enter 分支加 `e.target.closest('button, a[href], select, [role=button|menuitem|tab]')` 让位;↑/↓/Home/End 键域**未**收窄(消息聚焦仍可从任意非输入区触发,由对照用例锁住)。用例:`tests/message-list.test.tsx` 新增「Enter 焦点在 button 上」例;真机实测焦点在「跳到最新」上按 Enter → `scrollTop 0→407` 按钮自身生效、`ihui:toggle-reasoning` 计数 0,且失焦后按 ArrowDown 仍聚焦 1 条消息。
+- [x] ✅(2026-09-22) **孤儿自派发事件通道**:`handleJumpToLatest` 先直接 `scrollToBottom()` 再 `dispatchEvent('ihui:jump-to-latest')`,而同一 hook 又 `addEventListener` 该事件 → 每次点击跑两遍;注释声称"由 MessageInput 中的按钮触发""允许 timeline tab 同步",实测全仓(apps 8 端 + packages,含 py)该事件名除自身外零生产者零消费者。已整条删除(连带 `handleJumpToLatest` 这层纯别名),`onJumpLatest` 直连 `scrollToBottom`;用例改为断言 `scrollIntoView` 调用次数 = 1(把"跑两遍"钉死)。
+
+### 复核推翻的误报(1 条,未采纳、未改代码)
+
+- 审计代理报「`permission-mode-popover.tsx:277` document capture 无焦点守卫 → 聊天框敲 1/2/3 会误切权限、Enter 发不出消息」。我先按其建议加了守卫,随后真机取证(私有 dev 8824 + admin 会话,弹层实测 `radios=3`、checked=请求批准):**点击弹层外元素即关层**(实测点到 textarea 后 `[role=radio]` 计数归 0),而弹层内部无任何输入框 → "弹层开着且焦点在可编辑元素"不可达,守卫防的是不存在的场景。已回退该改动(不留投机性防御代码)。残留的真问题只是"弹层开着时 ↑/↓/Enter/数字被它持有",这本就是 Codex 风格设计意图,且 Esc / 外部点击两条退出路径齐备。
+
+### 登记待拍板(需要产品归属决策或成批铺开,本次一律未动他人/成体系代码)
+
+- [ ] **同文案双 affordance 尚余一处**:AI 面板内 `AgentTaskProgressPane`(与 MessageList **同容器**,`ai-side-panel.tsx:1300` 开、`:1342` 挂 pane)自带 `pane-jump-latest`(`agent-task-progress-pane.tsx:1762-1775`,`absolute bottom-2 left-1/2`,`ai.pane.jumpToLatest`),与对话列 `scroll-jump-bottom`(`chat.jumpToLatest`)在 en 语言包文案完全相同、zh 同为"跳到最新"一档,pane 打开 + pane 未贴底 + 列表已上滚即同屏。动作不等价(各滚自己容器),故属"文案歧义 + 叠压"而非重复按钮:pane 层 `z-sticky(990)` 高于列的 `z-20`,pane 可拖到右下时会吞掉列内按钮点击。解法二选一(需拍板):给 pane 那枚换语义文案(需新增 `ai.pane.*` 键 → 触发 §19 五语言流水线),或把 pane 的自动跟随改成 header 贴底开关。解阻判据:en/zh 两语下同一屏内不再出现两枚同名「跳到最新」,且 pane 拖至右下时列内按钮仍可点击。
+- [ ] **`?` 双主**:`use-permission-mode-cycle.ts:92`(document,有输入框守卫,开全局快捷键面板)与 `agent-task-progress-pane.tsx:937`(window,pane 开时,开 pane 帮助面板)在同一次按下中**同时生效** → 一次 `?` 开两个面板。pane 那枚有既有断言(`tests/agent-task-progress-pane-keyboard.test.tsx:185-194`),全局那枚亦有 e2e 判据,故必须人拍归属(建议 `?` 归全局,pane 帮助保留 header 按钮 `:1270`)。
+- [ ] **`Ctrl+Shift+A` 三主**:`use-global-shortcuts.ts:85`(提及文件)/ `use-ide-shortcuts.ts:44`(切 applications 视图)/ `use-native-shortcuts.ts:72`(开管理后台),三处各自 preventDefault 且无 stopPropagation → 一次按下三件事同时发生;同文件 `:72` 另有 `key === 'a' || key === 'a'` 重复字面量笔误(疑似丢了第二个 intended 键)。
+- [ ] **Esc 无层栈协议**:20+ 处 document/window Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 可能同时关遮罩、弹层、pane、搜索条。仓库已有做对的三处可照抄(`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`),正解是在共享层做"最上层消费"栈而非逐处补。
+- [ ] **`Alt+Arrow*`**:`SplitPaneContainer.tsx:57-66` window 监听既无 preventDefault 也无"pane 数 >1"挂载守卫 → 单 pane 时按 Alt+← 只触发浏览器后退。
+- [ ] **`Ctrl+1..5` / `Ctrl+Shift+J` 无焦点守卫**:`use-global-shortcuts.ts:73-78`、`agent-progress-trigger.tsx:113-118` → 中文输入法用 Ctrl+数字选候选词被整条吃掉。建议给注册表加"默认焦点/修饰守卫 + 单条白名单豁免",而非逐条补。
+- [ ] **hover 才显的 `opacity-0` 常驻按钮 34 处**(web 31 + `packages/ui-react` 3:`work-panel.tsx:430`、`:548`、`Upload.tsx:330`,其中 `:548` 还嵌在 `<button>` 内属非法 HTML)。**修法务必分清两类**:暂时性状态 affordance(如我已修的 `scroll-jump-buttons`)才用 `tabIndex=-1 + aria-hidden`;hover 才显的**常驻操作**绝不能用 `tabIndex=-1`(等于彻底不可达),正解是补 `group-focus-within:opacity-100` 让它显形。成批铺开前需先冻结各文件归属(并行会话正占用 apps/web 多处)。
+- [ ] **i18n 同义词死键**:`chat.message.jumpToLatest`(跳至最新)、`chat.permission.jumpToLatest`(跳转到最新)与 `chat.jumpToLatest`、`ai.pane.jumpToLatest` 四份同义并存,前两个全仓源码 0 引用 —— 这正是"再挂一枚重复按钮"的温床。清理要过 §19 五语言 parity + 小程序离线包重生成(`pnpm gen:i18n`)。
+- [ ] **`src/hooks/use-keyboard-shortcut.ts` 全库 0 调用方**(死代码)。
+
+### 普查落点(供复核,含我否掉的自身误判)
+
+第一轮"8 个只有监听没有生产者的事件名"是我用窄正则(`dispatchEvent(new CustomEvent('name'`)扫出来的**假阳性**:漏了模板字面量与换行写法。换判据逐名重 grep 后,`ihui:scroll-to-plan-step`、`ihui:toggle-reasoning`、`ihui:add-text-reference`、`ihui:insert-at-cursor` 等均有真实生产者(如 `timeline-event.tsx:349`、`MessageItem.tsx:628`、`markdown-stream.tsx:270`),**唯一**孤儿通道就是已删的 `ihui:jump-to-latest`。另:本轮为取真机证据两次重启本机 8802 API(它会被并行会话/僵尸清理任务打挂),收尾后保持运行未再关闭。
+
+### 多端与文档
+
+单端 `apps/web` 键盘与 affordance;`miniapp-taro`/`mobile-rn`/`cli` 无对应全局键监听(全端 grep `ArrowUp|ArrowDown` 仅命中 `apps/cli/src/tools/browser.ts` 的 CDP 键位映射表);desktop/extension 复用 web 产物自动继承。§21 README 豁免(缺陷修复与隐患登记,不改对外能力清单)。
+
+---
+
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
@@ -161,6 +196,19 @@
 - **安装包体积**:开屏帧由 720×450 改满幅 880×600 后,`installer-assets/` 落盘 135.4 MB → 379 MB(5 档全量随包,NSIS `File` 在 `${If}` 分支内仍会全部内嵌)。产物 exe 实际增幅待真包构建量化;若不可接受,解法是把 5 档改为"编译期按档位分别出包"或降帧数,不在本批混做。
 
 ---
+
+### 第二批(同日):卸载器全面主题化 + 两道门禁补扫描面
+
+- **卸载器不再是原生向导**。新文件 `apps/desktop/src-tauri/windows/ihui-uninstaller.nsi`(经 `ihui-ui.nsi` 末尾 `!include` 接线):
+  - `!define MUI_CUSTOMFUNCTION_UNGUIINIT un.IHUIGuiInit` —— **`MUI_CUSTOMFUNCTION_GUIINIT` 不作用于卸载器**(MUI2 两套独立页面栈)。无边框/定档/圆角三段逻辑抽成 `IHUI_GUIINIT_COMMON` 宏供两侧共用,不复制第二份。
+  - **确认页整页换成 `UninstPage custom`**(补丁 U1):上游那颗「删除应用数据」复选框是裸 `CreateWindowExW` 建的,视觉样式下标签用系统深色字,在 `#242424` 上不可读且无法主题化 → 撤页改品牌开关。⚠️ 撤页时必须 `!undef` 掉 `MUI_PAGE_CUSTOMFUNCTION_{SHOW,LEAVE,PRE}` 三个 define,否则它们会漏给下一个页面,其中 `un.SkipIfPassive` 当 instfiles 的 PRE 会 **Abort 掉整个卸载**(静默/被动卸载直接不跑)。
+  - **进度页保留 `MUI_UNPAGE_INSTFILES`** + SHOW 回调(补丁 U2),沿用 instfiles 那套已证实机制:内层 `#32770` 裸建满幅 STATIC 贴皮 + 原生钮 `BS_BITMAP` 换皮 + `IHUI_UNPROGRESS` 阶段驱动。百分比埋点 12/20/45/65/85/95(U3..U6 + `hooks.nsi` POSTUNINSTALL)。
+  - **拖拽 tick 函数体抽成 `IHUI_ONDRAGTICK_BODY` 宏**:NSIS 的 `un.` 代码段**无法引用非 un. 函数名**(实锤 `resolving uninstall function "IHUIOnDragTick" in function "un.IHUIConfirmPage"`)。
+  - **`$DeleteAppDataCheckboxState` 无法在页面代码里写**:它的 `Var` 声明在模板卸载页区,晚于 `ihui-ui.nsi` 的 include 点 → 编译期未知变量。改由补丁 U7 在**唯一消费点**改读 `$UNDATA`(锚点必须带第三行 `SetShellVarContext current`,上游有两处同名 `${If}`)。
+  - **资产按需解压**(`IHUI_UNENSURE_ASSETS` 放在页面 SHOW 而非 `un.onInit`):`/S` 与 `/P` 卸载不进品牌页,放 onInit 会把 ~50MB 位图白写一遍 `$PLUGINSDIR`,且省掉一条 un.onInit 补丁。
+- **两条实测缺陷(沙箱真跑卸载器 + WGC 截图)**:① 卸载窗最终停在 825×600 而非 880×600 —— MUI 在 `UNGUIINIT` **之后**仍按 dialog units 给卸载窗定尺寸,把我们的 `SetWindowPos` 盖回(同一构建两次分别得 880 与 825,非确定性)→ 补 `IHUI_UNFIX_SIZE`,并在页面收尾再钉一次;② 卸载器与安装器共用 `IHUI_EXTRACTPAGESETS` 时档位不一致会裸贴低档图 → 解压改按 `$IHUIWTIER`。
+- **门禁补扫描面**:`check-installer-assets.mjs` 原只读 `ihui-ui.nsi`,新卸载器文件的 `File` 清单看不见 → 会把 `unconfirm/uninstfiles` 误报「未被打包(冗余)」,而真漏登记也报不出来。并入 `ihui-uninstaller.nsi`(自测模式 `IHUI_NSI_PATH` 不并入,保持判据单一)。现 **引用 17 / 打包 33 / 5 档** 三方一致。
+- **取证证据**(真实截图,非推断):卸载确认页 880×600 完整渲染 —— 导轨 01 确认卸载(渐变实心)/ 02 正在卸载(描边)、`UNINSTALL` kicker、大字「卸载 智汇AI 桌面版」、说明行、品牌开关 + 「删除应用数据(配置、缓存与登录状态)」标签、「取消」/「继续 ›」/右上角 X、页脚 `01 / 02`;卸载进度页 —— 01 打勾 / 02 高亮、`STEP 02`、「正在卸载」、百分比 `85%`、阶段文案「正在清理注册信息」、页脚 `02 / 02`。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -1171,6 +1219,7 @@
   - **进度(第 43 轮)**:呈现层已沉共享组件 `@ihui/ui-react` 的 `ContextInjectionList`(取词函数 props 注入,组件内零 `useTranslations`),web 侧改为薄壳复用(既有 6 用例**一字未改全绿**,证提取保行为);**extension 已接通**(ChatPage 注册 `onInjectionApplied` + 枚举式合并里显式承接 + MessageContent 渲染,新增 4 例静态渲染用例,断言"出本地化文案、不出后端中文、多条默认只露第一条"),`injectionTitle/injectionKind*` 等 7 键 × 5 语言已入 extension 命名空间,守门 57 该元素锚点已到 6 处(后端/api-client/web/extension×2)。**剩余**:miniapp-taro、mobile-rn 两端的承接与词表;`citations` / `steer` 在四端仍为 0 命中。
   - **进度(第 44 轮 · C 层"双解析器漏接"根治 + 守门 63)**:量化出漏接的**结构成因**是同一协议被两处独立解析 —— `packages/api-client/src/client.ts`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro 经 `@ihui/shared` 单一真源使用;其端内 `src/utils/sse-parse.ts` 实测只是 7 行 re-export,故不存在第三解析器)。本轮把 sse-parse 漏接的四帧补齐(`steer`/`budget`/`injection_applied`/`retry_scheduled`,判据与 api-client 的 `tryParse*` 逐条对齐:无 `collapsed` 不产事件、`level` 非契约档位不产事件、`retryInMs` 缺省 0),覆盖数 **18 → 21**。**顺带修掉一条同族的第四层漏接**:`packages/api-client/src/index.ts` 的 re-export 清单里没有 `SteerEvent`/`InjectionAppliedEvent`/`RetryScheduledEvent`(只有 `BudgetEvent`/`CitationsEvent`),端内要写这三条回调就**点不到参数类型**,只能重抄一份或落 `any`(违 §3 类型零技术债)—— 已补 re-export 并重 build dist。**新增守门 63 `check-sse-parser-parity.mjs`(blocking,guardian-runner 已登记 + `stagedTriggers` 锁三个源文件与台账)**:① 抽不到事件名按失败处理;② sse-parse 覆盖数 ratchet(`parseCoverageBaseline=21`);③ 未接帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由拦、登记却已接也拦)。**判据强度不是自述而是实测**:先把 `steer` 守卫改成不匹配的字面量 → 本闸同时红两条(20<21 覆盖倒退 + `steer` 未登记),还原后 `grep -c` 归 0 且门禁绿;因此"只在类型联合里补一行 `'steer'`"和"守卫被删只剩 `return { type:'steer' }`"两种假覆盖形态都骗不过它(后者是我写第一版时自己发现的假绿口子,已收紧为"必须有守卫,`compaction`/`usage` 这类按 payload 形状识别的帧走显式白名单例外")。`--self-test` 10 例正反成对(含 4 条"必须不算覆盖"的反例)。**本闸刻意不覆盖的第三层**:parser 有帧 ≠ 端内显示 —— 各端 dispatch/回调表**不注册该 type 仍然什么都看不到**(miniapp-taro `src/api/index.ts`、mobile-rn `streamChat` 回调即此),这正是下方 D107 的主体。**残余敞口(未闭环,不称收口)**:`question` 已登记 webOnly(理由:作答需"挂起输入 + 问题卡 + sendAnswer 续流"整条闭环,当前只有 web 有 `apps/web/src/hooks/use-chat/send-message.ts:701` 的 `onQuestion`,miniapp-taro 无问题卡组件也无作答通道,只解析会让用户"看到提问却无法回答",比不显示更糟),`thinking` 已登记但**附带发现一条新缺陷**(见 D107b)。验证:shared tsc 0 错、shared 全量 22 文件 559 例、miniapp-taro SSE 相关 7 文件 113 例、新案 `packages/shared/src/utils/__tests__/sse-parse-disclosure.test.ts` 5 例(含"steer 不喷进正文增量"这条**显示错内容级**断言)、守门 57/59/60/63/parity/watermark 全绿。
   - **进度(第 45 轮 · D107a miniapp-taro 注册层)**:小程序端把交代帧从"parser 有"推到"界面上有"。四层同时落地:① `src/api/index.ts` 的 `StreamEventCallbacks` 补 `onInjectionApplied`/`onRetryScheduled`/`onCitations` 并在 `dispatch` switch 里注册三个 case(**parser 有帧但表里没 case = 依然静默丢**,这正是守门 63 覆盖不到的第 3 层);② `chat.tsx` 把注入帧累积进 `aiCards.injections`(按 kind+collapsed 去重;字段类型必填但**旧历史里运行时可能 undefined**,故保留 `?? []` 兜底并在注释说明),`retry_scheduled` 进流上活动条(`ai.stream.gatewayRetry`);③ 新增 `InjectionCard`:界面文本出自 `ai.cards.injection.kind.*`,**后端中文 `collapsed` 只在未知 kind 时兜底**,`fullText` 缺省即不给"展开"入口;④ `ChatMessageItem` 渲染门与总数计入 `injections`。零新增 CSS(复用既有 `ai-card-*` 类,避免把跨端样式 parity 面扩大)。**词表**:5 语言 × 11 键行级插入(纯新增 `12 0`,含点键与 `ai.cards.terminal.exitCode` 同风格),`pnpm gen:i18n` 重生成离线包(657.7KB→b64 394.8KB);对称性校验:5 份 `ai.cards` 叶子集合一致(20 个)。守门 57 该元素锚点 6 → 9,标题标注"三端已接"。**残余(不称收口)**:mobile-rn / cli 两端仍未接;miniapp 侧只有**静态锚点**没有渲染期用例(该端无组件测试设施,现有 `__tests__` 均为逻辑用例),即"锚点在"不等于"界面出",补运行期断言需先给该端搭 render 测试;`citations` 在 miniapp 只注册了回调、无呈现组件;`steer` 对无引导输入 UI 的端仍无意义。验证:miniapp-taro `tsc --noEmit` 0 错(过程中被 tsc 抓到一处:`Text` 不接受 `hoverClass`,已去掉)、shared 559 例、守门 57/63 与 `check-i18n-keys`(1451 文件 / 15747 键 / 5 语言 parity)全绿。
+  - **进度(第 46 轮 · D107a mobile-rn 注册层)**:RN 端同样从"parser 有"推到"界面上有"。① `src/utils/chat-render-model.ts` 新增纯函数 `applyInjectionFrame`(**追加** + 按 kind+collapsed 去重;整体替换会让流首与流中两批互相覆盖)与 `MessageInjection` 类型;② `AiAssistantN8nScreen.tsx` 注册 `onInjectionApplied`(写进最后一条 assistant 消息的 `injections`)与 `onRetryScheduled`(toast `aiAssistantN8n.gatewayRetry`),新增 `InjectionDisclosure` 渲染块 —— 措辞出自本端词表(`injectionKind*` 四键),**后端中文 `collapsed` 仅在未知 kind 时兜底**,`fullText` 缺省即不渲染展开入口,计数按 `cardMeta` 数字块显示;③ 词表 6 键 × 5 语言行级插入(每文件纯新增 `6 0`),对称性校验 `aiAssistantN8n` 叶子集合五语言一致(31 键)且逐语言取到值。守门 57 该元素锚点 9 → 11,标题标注"四端已接"。**残余(不称收口)**:cli 端仍未接(该端是终端态一行呈现,注入交代要与 `task-status-line.ts` 同批设计);mobile-rn 的 `citations` / `steer` 仍 0 命中(前者无引用卡组件,后者无引导输入 UI);`InjectionDisclosure` 只有**纯函数层**用例(4 例),渲染分支未断言 —— 该端无组件渲染测试设施,与本端既有做法一致。验证:mobile-rn `tsc --noEmit` 0 错、`tests/injection-disclosure.test.ts` + `terminal-truncation.test.ts` 7 例、prettier 绿、守门 57/63 绿。
 - [ ] **D107 交代帧的"端内注册层"与"阶段标签"缺口(第 44 轮实测新立)**:守门 63 只对齐到 parser 层,**帧到了各端 dispatch 表仍会二次静默丢弃**,本条覆盖剩下两层。
   - **D107a 各端注册层(与 D106 同源,主体不变)**:miniapp-taro `src/api/index.ts` 的事件分派 + `pkg-ai/ai/chat.tsx` 承接、mobile-rn `streamChat` 回调 + 渲染,补 `injection_applied`/`retry_scheduled`/`citations`/`steer`;验收沿用 D106 第④条(四端 0 命中变非 0)。
   - **D107b `thinking` 阶段帧"生产了没人看"(实测,两端都无消费)**:`apps/ai-service/app/services/langgraph_service.py`(754/861/974/1002 行)与 `agent_loop.py:563` 发出 `{"type":"thinking","message":"正在思考…|正在规划执行步骤…|正在总结执行结果…"}`,而两侧解析器都只认 **`content`** 字段(api-client `tryParseThinking` 第 2488 行 `if (typeof json.content !== 'string') return`)—— 这类**只带 `message` 的阶段帧被两港同时丢掉**,用户在长任务期看到的是"没有反馈",而竞品在此刻给的是显式阶段标签(规划/总结)。做法二选一并写进契约:① 后端把阶段文案改为规范字段(如 `injection_applied` 式的 `phase` 枚举 + 端内取词,**禁止把中文 `message` 当界面文本**,同第 42 轮纪律);② 若判定该帧属遗留通道,则从契约与发射点一并收回(不许留"发得出、没人接"的帧,同第 36 轮空契约帧判据)。验收:改后 web + miniapp-taro 各 1 条用例断言"阶段标签在界面上出现且为本地化文案",或 grep 证 `thinking` 的 `message`-only 发射点归零并同步处理契约项。

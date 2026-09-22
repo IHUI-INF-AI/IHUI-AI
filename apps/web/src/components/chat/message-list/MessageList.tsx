@@ -119,7 +119,7 @@ export function MessageList({
     computeCumulative,
     measureItem,
     handleScroll,
-    handleJumpToLatest,
+    scrollToBottom,
     userScrolledUp,
     focusedIndex,
     isFarFromTop,
@@ -428,7 +428,7 @@ export function MessageList({
       <QueryThumbRail messages={messages} containerRef={containerRef} />
       {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
           2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
-          现合并进 ScrollJumpButtons,行为沿用 handleJumpToLatest(滚到底 + 广播 ihui:jump-to-latest)。 */}
+          现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
       <ScrollJumpButtons
         isFarFromTop={isFarFromTop}
         isFarFromBottom={isFarFromBottom}
@@ -439,7 +439,7 @@ export function MessageList({
           const el = containerRef.current
           if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
         }}
-        onJumpLatest={handleJumpToLatest}
+        onJumpLatest={scrollToBottom}
       />
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu

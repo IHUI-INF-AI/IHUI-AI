@@ -527,19 +527,22 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       expect(container.querySelector('[data-testid="message-list-jump-latest"]')).toBeNull()
     })
 
-    it('点击合并后的「跳到最新」→ 派发 ihui:jump-to-latest 事件', async () => {
+    it('点击合并后的「跳到最新」→ 只执行一次滚到底并复位 userScrolledUp', async () => {
       const msg = makeAssistantMsg('m1', 'hi')
       const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
       await revealByScrollUp(container)
-      const handler = vi.fn()
-      window.addEventListener('ihui:jump-to-latest', handler)
-      Element.prototype.scrollIntoView = vi.fn()
+      // 2026-09-22:此按钮此前经 handleJumpToLatest 自派发 ihui:jump-to-latest,
+      // 而同一 hook 又监听该事件 ⇒ 一次点击 scrollToBottom 跑两遍。
+      // 孤儿通道已删,这里用调用次数=1 把它钉住(同时事件本身不再有生产者)。
+      const spy = vi.fn()
+      Element.prototype.scrollIntoView = spy
       const btn = await waitFor(() => latestAffordance(container))
       await act(async () => {
         fireEvent.click(btn)
       })
-      expect(handler).toHaveBeenCalled()
-      window.removeEventListener('ihui:jump-to-latest', handler)
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(isRevealed(btn)).toBe(false)
+      expect(mockChatStore.state.userScrolledUp).toBe(false)
     })
 
     it('isStreaming 时红点随合并后的按钮出现', async () => {
@@ -691,6 +694,30 @@ describe('MessageList — v2 深度优化(对标 AI 工作台)', () => {
       expect(
         document.querySelector('[data-message-id="u1"]')!.getAttribute('data-message-focused'),
       ).toBe('false')
+    })
+
+    // 2026-09-22 补:全局 Enter 不得吞掉"焦点本在可交互元素上"的原生激活。
+    // 旧行为:Tab 到右下角「跳到最新」钮后按 Enter ⇒ 既被 preventDefault 掉按钮激活,
+    // 又顺带翻动聚焦消息的 reasoning —— 一次按键干了两件都不是用户要的事。
+    it('Enter 焦点在 button 上:让位给按钮自身(不 preventDefault、不派发 toggle-reasoning)', () => {
+      const msgs = [makeAssistantMsg('a1', 'answer', { reasoning: 'thinking...' })]
+      const { container } = render(<MessageList {...baseProps} messages={msgs} />)
+      act(() => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+      })
+      const btn = container.querySelector('[data-testid="scroll-jump-bottom"]') as HTMLElement
+      expect(
+        document.querySelector('[data-message-id="a1"]')!.getAttribute('data-message-focused'),
+      ).toBe('true')
+      const handler = vi.fn()
+      window.addEventListener('ihui:toggle-reasoning', handler)
+      const evt = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      act(() => {
+        btn.dispatchEvent(evt)
+      })
+      expect(evt.defaultPrevented).toBe(false)
+      expect(handler).not.toHaveBeenCalled()
+      window.removeEventListener('ihui:toggle-reasoning', handler)
     })
   })
 
