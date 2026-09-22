@@ -204,11 +204,14 @@ test.describe('Sidebar 视觉守门', () => {
       )
       const sub = items[0]?.closest('[role="menu"]')
       const badge = items[0]?.querySelector('span[data-lang-code]')
+      // noUncheckedIndexedAccess:索引访问返回 T|undefined,三元判断与第二次索引是两次独立访问,
+      // 不产生跨访问收窄(TS2345)——先取局部变量再判空,窄化才生效
+      const lastItem = items[items.length - 1]
       return {
         count: items.length,
         badge: badge ? rect(badge) : null,
         first: items[0] ? rect(items[0]) : null,
-        last: items[items.length - 1] ? rect(items[items.length - 1]) : null,
+        last: lastItem ? rect(lastItem) : null,
         sub: sub ? rect(sub) : null,
         viewportHeight: window.innerHeight,
       }
