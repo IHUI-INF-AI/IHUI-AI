@@ -22,6 +22,8 @@
 ; 文件复制前确保 $INSTDIR 存在(向导"选择安装位置"页用户改过的路径同样覆盖)。
 ; 正常路径下 NSIS 会由 SetOutPath 自动建目录,这里显式创建以便路径被占用/异常时更早暴露。
 !macro NSIS_HOOK_PREINSTALL
+  ; 进度起点(安装页百分比为阶段驱动,见 ihui-ui.nsi IHUI_PROGRESS 注释)
+  !insertmacro IHUI_PROGRESS 8 "正在准备安装目录"
   CreateDirectory $INSTDIR
 !macroend
 

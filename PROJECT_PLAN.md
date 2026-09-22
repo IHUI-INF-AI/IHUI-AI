@@ -12,6 +12,47 @@
 
 ---
 
+## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
+
+用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
+
+### 三条根因(全部实测取证,非推测)
+
+1. **「浏览」有背景容器** = `desktop-installer-assets.mjs` 的 `sceneDir` 画了一条 752 宽通栏圆角面板,把输入框和浏览区一起包进去;`btn-browse` 位图又整块铺 `--color-card`,所以按钮看着像自带容器。
+2. **百分比不是"取不到数值",是压根没有这个节点**。且 NSIS 安装页(instfiles)**拿不到任何定时器**:`.ihui-agent/tmp/installer-timer-probe` 实测 Section 执行期间 `${NSD_CreateTimer}` 派发次数 = 0;System 插件回调按官方文档判死("a callback can only be called while calling another function")。→ 百分比只能由 Section 内显式阶段驱动。
+3. **"没有开屏动画"的真因**:反编译 `NSIS\Plugins\x86-unicode\AdvSplash.dll`,字符串表只有 `.bmp` / `.wav` 两个拼接串 —— **AdvSplash 不支持多帧**。旧代码解压的 `splash1..7.bmp` 从未被播放过,用户看到的"开屏"是 570ms 的一张静图。
+
+### 改法
+
+- **视觉系统重做**(`scripts/desktop-installer-assets.mjs`):新增 248px 左侧品牌导轨(底 = `.dark --color-brand-accent-light #1e2e36`)+ 四步进度指示器(01 欢迎 / 02 安装位置 / 03 正在安装 / 04 完成,当前步渐变实心、已完成打勾、未开始描边)+ 品牌渐变边条;点缀色唯一来源 `--color-brand-accent-grad-from → -grad-to`。全部取值映射 `packages/design-tokens/src/styles/tokens.css` 暗色块,零自造色值。新增独立 `reinstall.bmp`(重装页不再复用安装页位图,消除文字带交叠)。
+- **浏览钮去容器**:`sceneDir` 通栏面板收窄到输入框自身(288..700),`btn-browse` 底改铺页面底色 `C.bg` 并换成品牌色文字 + 下划线的裸链接样式。
+- **百分比**:`ihui-ui.nsi` 新增 `IHUI_PROGRESS 百分比 "阶段文案"` 宏 + 右对齐大字 STATIC(56px)+ 阶段文案 STATIC;`desktop-nsis-template.mjs` 加补丁 **P7**(4 个埋点:30% 复制主程序 / 55% 写入运行资源 / 75% 登记卸载与系统信息 / 92% 创建快捷方式),`hooks.nsi` PREINSTALL 打 8%,完成态 `IHUI_INST_DONE_THEME` 打 100%。进度条仍用原生 `msctls_progress32`(本仓库唯一验证过"能渲染能着色能被核心推进"的控件),移到与位图轨道逐像素重合的位置并胶囊圆角化。
+- **开屏**:16 帧真实动画(logo 缩放渐显 → 墨光双环 → 字标字距由 22 收到 3 → 标语 → 底部渐变进度线延展 → 域名),载体改为主窗口客户区满幅覆盖层逐帧 `STM_SETIMAGE`+`UpdateWindow`+`Sleep`(探针实测:顶层 STATIC 用 `hInstance=0` 创建返回 0,系统预定义类只能可靠作子窗口);创建失败时兜底回退 AdvSplash 单帧 1.6s,保证不比改版前更差。
+- **运行期坐标单一真相源**:`ihui-ui.nsi` 新增「版面几何」define 块(`IHUI_C_L/IHUI_BTN_Y/IHUI_CTA_X/IHUI_EDIT_*/IHUI_BROWSE_*/IHUI_TGL_*/IHUI_PB_*/IHUI_PCT_*/IHUI_STG_*`),全部控件坐标改引用 define,不再散落字面量。
+
+### 顺手根治的一条工程地雷(本人 `--write` 踩实)
+
+`installer.nsi` 里累积了 **11 段历史上直接手改、从未登记进 `desktop-nsis-template.mjs` PATCHES 的 IHUI 定制**(GetOptions 前缀误匹配根治、覆盖升级尊重桌面快捷方式现状、真实卸载清理安装位置键、`RestorePreviousInstallLocation` 防残留劫持 等)。后果:`--check` 恒绿,而 `--write` 会把这些定制**整体抹掉** —— 本人执行 `--write` 时真实触发,靠 `check-installer-assets.mjs` 的 GetOptions 附加判据抓到。
+根治:新增 `--emit-patches` 模式 + 侧车 `scripts/desktop-nsis-ihui-patches.json`,把"仓库文件 − 上游+P0-P7"逐字节导出成补丁并并入 PATCHES;同时修掉 `HEADER` 拼接时机(必须在打补丁前拼,否则头部锚点永不命中)与 `String.replace` 的 `$'`/`$&` 特殊替换模式隐患(改函数形式),并把锚点校验从 `.includes` 收紧为"恰好命中 1 次"。现 `--check` 绿、`--write` **幂等且逐字节可回放**(已用恢复基线比对验证)。
+
+### 验证证据(2026-09-22)
+
+- `node scripts/desktop-nsis-template.mjs --check` → OK(22 处补丁);`--write` 回放与恢复基线**逐字节一致**;`git diff --numstat installer.nsi` = `4 0`(纯新增,零删除)。
+- `node scripts/check-installer-assets.mjs` → 引用 14 / 打包 30 / 5 档三方一致 PASS;GetOptions 判据 PASS。
+- `node scripts/watermark.mjs verify` → 9954/9954 完好;`check-no-emoji-icons.mjs` → 0 违规。
+- `pnpm exec tauri build --bundles nsis` → 产出 `智汇AI_0.1.43_x64-setup.exe`(仅缺 `TAURI_SIGNING_PRIVATE_KEY` 的签名告警,不影响产物)。
+- **运行期硬证据**(沙箱安装器 + `WM_GETTEXT` 读子控件):百分比控件文本 = `55%` 且矩形 = 相对 **(632,186)-(832,250)**、阶段文案 = `正在写入运行资源` 落在 **(288,322)-(832,344)**、`msctls_progress32` 落在 **(288,300)-(832,308)** —— 三者与位图槽位逐像素吻合。
+- 目录页/欢迎页截图实证:导轨 + 步骤条 + 裸文字「浏览…」(无背景容器)渲染正确。
+
+### 残余(未闭环,如实登记)
+
+- **开屏动画的屏幕表现未取证**:本 agent 会话派生的 GUI 窗口不参与桌面合成(`IsWindowVisible=False`),`PrintWindow` 对不可合成窗口会取到陈旧位图(已被 `WM_GETTEXT=55%` 而截图仍显示 30% 实证)。开屏的代码路径(子窗口创建 / STM_SETIMAGE / For+Sleep 节奏)均有探针支撑,但**最终观感需用户在真实桌面跑一次新安装包确认**。
+- **卸载器仍是原生向导**:`MUI_UNPAGE_CONFIRM` / `MUI_UNPAGE_INSTFILES` 未主题化(全仓 `un.IHUI*` 零命中)。"完全不像原生窗口"这一目标只覆盖了安装侧。
+- 安装页品牌位图覆盖层(`IHUI_INST_OVERLAY`)在沙箱截图中被原生「取消 (C)」按钮盖住,该机制与改版前同源同实现(仅坐标变化),未判定为本次回归,但同样受上述取证限制。
+- `apps/desktop/src-tauri/README.md` 与 `apps/desktop/README.md` 仍写 `frontendDist = "../../web/out"`,实际已是 `"shell"`(陈旧文档,非本次引入)。
+
+---
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 > **平台独占豁免(AGENTS.md §9)**:desktop 为 Tauri 薄壳直载线上 web(`tauri.conf.json` → `windows[0].url=https://aizhs.top/agents`),web 侧修复自动跟随;`packages/shared` 的 `buildSsoRedirectUrl` 为**新增**共享能力,不改变既有导出签名,其他端(cli/extension/miniapp-taro/mobile-rn)按需采纳,非多端同步漏做。
@@ -53,7 +94,8 @@
 
 - [x] ✅(2026-09-22) 实现体:新建 `apps/web/src/lib/modal-overlay-watcher.ts`(DOM 实测遮罩色 + MutationObserver/rAF,穷尽全站 29+ 处遮罩,含 Drawer 双层陷阱与浅色 Sheet「变亮」),`GlobalTopBar.tsx` 加等效压暗覆盖层 `data-window-controls-dim`(激活方向 `duration-0`,对齐"遮罩 open 态禁 fade-in"既有 blocking 门)+ 失焦非活动态(`tauri-bridge.ts` 新增 `onWindowFocusChange`/`isWindowFocused`,零 Rust 改动);颜色不写死 `bg-black/80` 因各遮罩底色不同。
 - [x] ✅(2026-09-22) 顺带根治同链路可用性缺陷:Radix 模态 Dialog 经 `react-dismissable-layer` 给 `body` 内联写 `pointer-events:none`,三按钮继承后**在登录窗下点不动**(实测真实 `click()` 超时)→ 容器显式 `pointer-events-auto` 断掉继承链,模态期间 caption 仍可点(对齐 Windows 语义);8 方向 resize 抓手刻意不放开(会与"点遮罩关闭"抢点击)。
-- [x] ✅(2026-09-22) 防回潮判据:`scripts/check-z-index-guard.mjs` 新增第 5 项两组契约 —— 等效压暗层(`data-window-controls`+`data-window-controls-dim`)与失焦非活动态(`data-window-inactive`+`group/wc`+`group-data-[window-inactive=true]/wc:` 变体),裸标记加词边界防子串假绿;有效性靠 `--self-test` 内存断言(1 绿 + 5 红分支),并移除 `--fixture` 受控后门(它让"守门通过"≠"真实文件通过")。
+- [x] ✅(2026-09-22) 防回潮判据:`scripts/check-z-index-guard.mjs` 新增第 5 项两组契约(跨文件) —— 等效压暗层(`data-window-controls`+`data-window-controls-dim`+globals 的 `[data-modal-dim='1']` 瞬时规则)与失焦非活动态(`data-window-inactive`+globals 的 `[data-window-inactive='true']` 规则),裸标记加词边界防子串假绿;有效性靠 `--self-test` 内存断言(1 绿 + 5 红分支),并移除 `--fixture` 受控后门(它让"守门通过"≠"真实文件通过")。
+- [x] ✅(2026-09-22) **真机复验发现失焦态在线上无效并根治**:生产 JS chunk 已含新代码,但组件内新写的 Tailwind 任意变体 `group-data-[window-inactive=true]/wc:*` 与 `duration-0` **没进 CSS 产物**(用 `@tailwindcss/postcss` 单独编译 globals.css 复现 `window-inactive=0`;CDN 已排除,`cf-cache-status: MISS`)。两态样式因此改由 `globals.css` 显式规则承载(入口 CSS 变更必然重编译,不赌扫描/缓存),组件内不再依赖 Tailwind 变体;契约同步改为跨文件断言,并把"压暗必须第一帧到位"的 `transition-duration: 0s` 一并纳入契约。
 - [x] ✅(2026-09-22) 守门加固:两脚本本体自 2026-07-24 起即由 `guardian-runner` id **27/28**(blocking)自动执行(先前"0 命中从未执行"的判断只 grep 脚本名、漏查 runner 注册表,属误判已纠正),本轮为 27/28 补 `skipEnv`(`HUSKY_SKIP_Z_INDEX_GUARD` / `HUSKY_SKIP_OVERLAY_ZINDEX`)+ `onFailHint` 五类处置,`GlobalTopBar.tsx` 纳入 id 27 的 `--staged` 相关文件集。
 - [x] ✅(2026-09-22) 测试:单测 `apps/web/tests/modal-overlay-watcher.test.ts`(12 例,happy-dom 会静默丢 `oklab` 故按其能力边界取样)+ e2e `apps/web/e2e/desktop-window-controls-dim.spec.ts`(5 例真 Chromium,实测遮罩 computed = `oklab(0 0 0 / 0.8)` 且压暗层逐字相等、Sheet 变亮分支、多遮罩取最高 z、失焦两态色值、trial hit-test 可点)。
 
