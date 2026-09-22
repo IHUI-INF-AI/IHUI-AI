@@ -676,6 +676,29 @@ class AgentExecuteRequest(BaseModel):
     model: str | None = Field(None, description="指定模型,为空使用默认")
     max_iterations: int | None = Field(None, description="最大迭代次数")
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+    # G-161(2026-09-22):此字段此前**根本不存在**,apps/api 转发的 permission_mode
+    # 被 Pydantic 静默丢弃 —— 客户端以为设了权限档,服务端一直按 default 跑。
+    # 现声明并归一到唯一真源(app/core/permission_mode.py)。
+    permission_mode: str | None = Field(
+        None,
+        description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
+        "(历史别名 auto / accept-edits / accept-all / read-only / plan-only 自动归一)",
+    )
+
+
+def _resolved_permission_mode(raw: str | None) -> str | None:
+    """permission_mode → 规范标识;省略返回 None(交给 env/默认),认不出拒 400。
+
+    绝不静默回退 default —— "发了"与"生效"必须同义,这是 G-161 的立规依据。
+    """
+    if raw is None or not raw.strip():
+        return None
+    from ..core.permission_mode import normalize_permission_mode, permission_mode_error
+
+    mode = normalize_permission_mode(raw)
+    if mode is None:
+        raise HTTPException(status_code=400, detail=permission_mode_error(raw))
+    return mode
 
 
 class AgentResumeRequest(BaseModel):
@@ -824,6 +847,18 @@ async def execute_agent(
     ② run 期间把 session→user 登记进 run_ownership,供事件流按属主过滤,run 结束即释放。
     """
     owned: list[str] = []
+    # G-161:本端点走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
+    # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
+    # 客户端以为自己设了 bypassPermissions。宁可拒 400,也不允许"发了≠生效"。
+    resolved_mode = _resolved_permission_mode(req.permission_mode)
+    if resolved_mode is not None and resolved_mode != "default":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"permissionMode={resolved_mode} 仅在 POST /agents/execute/stream 生效"
+                "(非流式端点使用弃用的单轮执行器,不含审批门)"
+            ),
+        )
     if req.session_id:
         record_ownership(req.session_id, current_user)
         owned.append(req.session_id)
@@ -916,6 +951,9 @@ async def execute_agent_stream(
                     session_id=session_id,
                     max_iterations=req.max_iterations or 8,
                     enable_checkpoint=True,
+                    # G-161:此前根本没把请求里的 permission_mode 传进来 →
+                    # 端上选的权限档在这条主执行链上永远是 default。
+                    permission_mode=_resolved_permission_mode(req.permission_mode),
                     # O19:principal 贯通到执行路径 —— 高危工具审批条目据此登记属主
                     # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
                     # 记忆闭环的用户隔离。
