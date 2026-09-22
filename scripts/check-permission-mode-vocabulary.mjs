@@ -54,6 +54,7 @@ const CONSUMER_PROFILES = [
   { file: 'apps/ai-service/app/routers/agent_runtime.py', vars: ['mode'], kind: 'canonical' },
   { file: 'apps/ai-service/app/routers/agents.py', vars: ['permission_mode'], kind: 'wire' },
   { file: 'apps/api/src/routes/workspace-permissions.ts', vars: ['mode'], kind: 'wire' },
+  { file: 'apps/api/src/routes/workspace.ts', vars: ['mode'], kind: 'wire' },
   { file: 'apps/api/src/routes/v1-ai-core.ts', vars: ['permissionMode'], kind: 'wire' },
   // G-163:授权门内部一律拿归一后的规范档比较(permMode),入参拼写不参与判断
   { file: 'apps/api/src/services/workspace-ai-service.ts', vars: ['permMode'], kind: 'canonical' },
@@ -265,12 +266,17 @@ export function checkConsumers(files, registry) {
  * (新增第 6 档时它必然漏接,正是 G-161 五套拼写并存的成因)。
  * 刻意放过"子集声明":workspace 的 kebab wire 枚举是 REST 既有契约,不是副本。
  */
-export function checkNoSecondList(files, registry) {
+export function checkNoSecondList(files, registry, wireValues = []) {
   const problems = []
-  const members = new Set(registry.members)
+  const sets = [
+    { name: '规范档', members: new Set(registry.members) },
+    // wire(kebab)那份同样不能抄:G-164 实测 3 个路由文件里有 4 份互不同步的 kebab 清单,
+    // 其中一份少 plan → GET 读 DB 时把已存的 plan 静默归 null(存进去的档被读成"没配")。
+    wireValues.length > 0 ? { name: 'wire 档', members: new Set(wireValues) } : null,
+  ].filter(Boolean)
   const candidates = [
     /export type \w*PermissionMode\w*\s*=\s*([^;]*?)\n/g,
-    /\b(?:enumValues|VALID_MODES|PERMISSION_MODE_VALUES)\s*[:=]\s*(\[[^\]]*\])/g,
+    /\b(?:enumValues|VALID_MODES|PERMISSION_MODE_VALUES|PERMISSION_MODE_WIRE)\s*[:=]\s*(\[[^\]]*\])/g,
     /z\.enum\((\[[^\]]*\])\)/g,
   ]
   for (const { relPath, src } of files) {
@@ -279,15 +285,57 @@ export function checkNoSecondList(files, registry) {
       for (const m of src.matchAll(re)) {
         const lits = [...m[1].matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1])
         if (lits.length === 0) continue
-        const coversAll = [...members].every((v) => lits.includes(v))
-        if (coversAll) {
+        for (const set of sets) {
+          if (![...set.members].every((v) => lits.includes(v))) continue
           problems.push(
-            `R4 ${relPath}:${src.slice(0, m.index).split('\n').length} 抄了第二份完整档位清单 ` +
-              `(${lits.join(', ')}) —— 改 import @ihui/types/permission-mode 的 PERMISSION_MODES` +
+            `R4 ${relPath}:${src.slice(0, m.index).split('\n').length} 抄了第二份完整${set.name}清单 ` +
+              `(${lits.join(', ')}) —— 改 import @ihui/types/permission-mode 的 ` +
+              `${set.name === 'wire 档' ? 'PERMISSION_MODE_WIRE_VALUES' : 'PERMISSION_MODES'}` +
               `(新增档位时副本必漏接)`,
           )
         }
       }
+    }
+  }
+  return problems
+}
+
+/**
+ * R5:wire(kebab)清单的**跨语言镜像**对账。
+ *
+ * 为什么单列一条:Python 侧 `app/types/api_client.py(.pyi)` 里的
+ * `PromptMode = Literal["default","plan","accept-edits","bypass-permissions"]`
+ * 是我们自己的契约声明,而且 grep 全项目**没有任何运行时代码用它** ——
+ * 一份"没人消费、又不在 R1 对账范围内"的清单,漂移时不会有任何信号。
+ * 它不可能 import TS 注册表,所以判据只能是"值集合必须逐字相等"。
+ */
+const WIRE_MIRROR_FILES = [
+  'apps/ai-service/app/types/api_client.py',
+  'apps/ai-service/app/types/api_client.pyi',
+]
+
+export function parseTsWireValues(src) {
+  const m = /export const PERMISSION_MODE_WIRE_VALUES\s*=\s*\[([\s\S]*?)\]/.exec(src)
+  if (!m) throw new Error('未找到 TS PERMISSION_MODE_WIRE_VALUES 数组声明')
+  return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1])
+}
+
+export function checkWireMirrors(read, wireValues) {
+  const problems = []
+  const want = [...wireValues].sort().join(',')
+  for (const relPath of WIRE_MIRROR_FILES) {
+    const src = read(relPath)
+    const m = /PromptMode\s*=\s*Literal\[([\s\S]*?)\]/.exec(src)
+    if (!m) {
+      problems.push(`R5 ${relPath}: 找不到 PromptMode = Literal[...] 声明(镜像被删?`)
+      continue
+    }
+    const got = [...m[1].matchAll(/["']([^"']+)["']/g)].map((x) => x[1]).sort().join(',')
+    if (got !== want) {
+      problems.push(
+        `R5 ${relPath}: PromptMode 镜像与 TS wire 清单不一致 期望[${want}] 实际[${got}]` +
+          ' —— 改 @ihui/types/permission-mode 的 PERMISSION_MODE_WIRE_VALUES 后必须同步这里',
+      )
     }
   }
   return problems
@@ -300,6 +348,7 @@ export function checkNoSecondList(files, registry) {
 export function runChecks({ root = ROOT } = {}) {
   const read = (p) => readFileSync(join(root, p), 'utf8')
   const ts = parseTsRegistry(read(TS_REGISTRY))
+  const wireValues = parseTsWireValues(read(TS_REGISTRY))
   const py = parsePyRegistry(read(PY_REGISTRY))
   const files = KNOWN_CONSUMERS.map((relPath) => ({ relPath, src: read(relPath) }))
   const problems = [
@@ -307,9 +356,15 @@ export function runChecks({ root = ROOT } = {}) {
     ...checkAliasClosure(ts),
     ...checkAliasClosure(py),
     ...checkConsumers(files, ts),
-    ...checkNoSecondList(files, ts),
+    ...checkNoSecondList(files, ts, wireValues),
+    ...checkWireMirrors(read, wireValues),
   ]
-  return { problems, members: ts.members, aliasCount: Object.keys(ts.aliases).length }
+  return {
+    problems,
+    members: ts.members,
+    aliasCount: Object.keys(ts.aliases).length,
+    wireCount: wireValues.length,
+  }
 }
 
 /** 注入违规自证:证明每条规则各自真的咬得住(不靠脚本自述)。 */
@@ -319,6 +374,7 @@ function selfTest() {
 
   const baseTs = parseTsRegistry(readFileSync(join(ROOT, TS_REGISTRY), 'utf8'))
   const basePy = parsePyRegistry(readFileSync(join(ROOT, PY_REGISTRY), 'utf8'))
+  const wireValues = parseTsWireValues(readFileSync(join(ROOT, TS_REGISTRY), 'utf8'))
 
   t(
     'R1 咬住成员漂移',
@@ -469,6 +525,49 @@ function selfTest() {
       baseTs,
     ).length === 0,
   )
+  t(
+    'R4 咬住第二份 wire(kebab)清单副本',
+    checkNoSecondList(
+      [
+        {
+          relPath: 'apps/api/src/routes/workspace.ts',
+          src: "  mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),\n",
+        },
+      ],
+      baseTs,
+      wireValues,
+    ).some((p) => p.startsWith('R4') && p.includes('wire 档')),
+  )
+  t(
+    'R4 放过引用注册表常量的写法(z.enum(PERMISSION_MODE_WIRE_VALUES))',
+    checkNoSecondList(
+      [
+        {
+          relPath: 'apps/api/src/routes/workspace.ts',
+          src: '  mode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),\n',
+        },
+      ],
+      baseTs,
+      wireValues,
+    ).length === 0,
+  )
+  t(
+    'R5 咬住 Python wire 镜像少一档(它无人消费,漂移时不会有任何其它信号)',
+    checkWireMirrors(
+      (rel) =>
+        rel.endsWith('api_client.py')
+          ? 'PromptMode = Literal["default", "plan", "accept-edits"]\n'
+          : `PromptMode = Literal[${wireValues.map((v) => `"${v}"`).join(', ')}]\n`,
+      wireValues,
+    ).some((p) => p.startsWith('R5') && p.includes('api_client.py:')),
+  )
+  t(
+    'R5 两侧一致时放过(不是恒红判据)',
+    checkWireMirrors(
+      () => `PromptMode = Literal[${wireValues.map((v) => `"${v}"`).join(', ')}]\n`,
+      wireValues,
+    ).length === 0,
+  )
   // 现状必须干净:否则本门一上去就红,等于给并发会话添堵
   const live = runChecks()
   if (live.problems.length > 0) {
@@ -487,7 +586,7 @@ function main() {
   if (problems.length === 0) {
     console.log(
       `✅ 权限模式词汇对账通过:${members.length} 个规范档 / ${aliasCount} 个别名,` +
-        'TS↔Python 一致,消费侧无注册表外取值,无第二份档位清单',
+        'TS↔Python 一致,消费侧无注册表外取值,无第二份清单(含 wire),wire 跨语言镜像已对账',
     )
     return
   }
@@ -509,9 +608,12 @@ export const __test__ = {
   checkAliasClosure,
   checkConsumers,
   checkNoSecondList,
+  checkWireMirrors,
+  parseTsWireValues,
   collectConsumerLiterals,
   modeKey,
   runChecks,
+  WIRE_MIRROR_FILES,
   KNOWN_CONSUMERS,
   TS_REGISTRY,
   PY_REGISTRY,
