@@ -14,9 +14,11 @@
 //      整个响应体 `JSON.stringify(tokenData).slice(0, 400)` 拼进 502 message 回传客户端,
 //      而该体含 `access_token`。
 //
-// 判据刻意**窄**(宁漏不误报),命中需同一「错误构造表达式」内同时满足:
-//   A. 处于 4xx/5xx 响应构造上下文(`reply.status(5xx)` / `error(5xx, …)` / `{ code: 500 }` …);且
-//   B. 表达式里出现 `JSON.stringify(X)`;且
+// 判据刻意**窄**(宁漏不误报),命中需同一「错误构造表达式」窗口内满足 A∧B 且 C/D/E 至少一条:
+//   A. 处于错误构造上下文:4xx/5xx 响应(`reply.status(5xx)` / `error(5xx, …)` / `{ code: 500 }`)
+//      **或** `throw new Error(...)` / `throw new XxxError(...)` —— service 层的外泄走的是后者,
+//      只认前者会整条漏掉(paypal.ts 即此形状);且
+//   B. 窗口里有上游响应体外泄:`JSON.stringify(X)`,或整个对象被插值 `${x}` / `${x.slice(…)}`;且
 //   C. 凭据语义成立:X 的名字 / 其声明右侧 / X 是含凭据 key 的对象字面量
 //      —— 或 message 字面量里直接出现 access_token / refresh_token / id_token。
 //   D. **来源证据**(不认变量名,认响应体出处):`X = (await R.json())` 且 `R = await fetch('<令牌端点>')`
@@ -24,9 +26,15 @@
 //      加这条是因为 C 只认名字,而真实缺陷恰好藏在"名字最无辜"的变量上:
 //      workspace-ai.ts 把 GitHub `POST /login/device/code` 的整个响应体 stringify 进 400 message,
 //      `device_code` 按 RFC 8628 §1.5 是 bearer 凭据(拿到即可换 access_token)—— 2026-09-22 实测发现并修。
-// 仅 A∧B 而 C/D 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
-// 只进「低置信候选」清单供人审(打印但不计入失败)。现 26 处:8 处为本进程自造的常量错误对象
-// (不含任何上游数据),18 处为厂商**推理/生成端点**错误体透传 —— 已逐个回溯其 fetch 端点确认非令牌端点。
+//   E. 同 D 的来源判据,但传输形态是**裸插值**且响应变量取自 `.text()`(而非 `.json()`):
+//      paypal.ts 曾写 `throw new Error(\`PayPal OAuth2 token failed: ${resp.status} ${text.slice(0, 200)}\`)`,
+//      text ← `resp.text()` ← `${API_BASE}/v1/oauth2/token`,而该请求自带 Basic(client_id:client_secret)
+//      —— 2026-09-22 由 E 咬出并改为只回传状态码 + RFC 6749 error 码。字段投影(`${json.error}`)**不算**,
+//      那正是推荐写法(有反例用例钉住,防止把修复判成违规)。
+// 仅 A∧B 而 C/D/E 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
+// 只进「低置信候选」清单供人审(打印但不计入失败)。现 31 处:8 处为本进程自造的常量错误对象
+// (不含任何上游数据),其余为厂商**推理/生成端点**错误体透传 —— 已逐个回溯其 fetch 端点确认非令牌端点,
+// 含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL 情形(其全部调用点 path 均为推理接口)。
 // 这类透传属中低危(泄露的是上游错误描述),故本门不对其恒红。
 //
 // 用法:node scripts/check-credential-leak-in-message.mjs
@@ -87,6 +95,18 @@ export const TOKEN_ENDPOINT_RE =
 
 /** 路由注册行:来源链跨越它即视为进入另一个处理器,判定链断开(宁漏不误报)。 */
 const ROUTE_REG_RE = /\bserver\s*\.\s*(get|post|put|delete|patch|all|route)\s*\(/
+
+/**
+ * E 通道上下文:`throw new Error(...)` / `throw new XxxError(...)`(service 层外泄常走这条,不经 reply.status)。
+ * 前缀**必须可选** —— 写成 `[A-Za-z_$][\w$]*Error` 会漏掉最常见的裸 `Error`(实测 paypal.ts 即此形状)。
+ */
+const THROW_CTX_RE = /\bthrow\s+new\s+(?:[A-Za-z_$][\w$]*)?Error\s*\(/
+
+/**
+ * 模板里"整个响应体被插值"的形态:`${text}` / `${text.slice(0, 200)}`。
+ * 刻意不含 `${x.field}` —— 字段投影(如 `${json.error}`)正是推荐写法,不得误伤。
+ */
+const WHOLE_INTERP_RE = /\$\{\s*([A-Za-z_$][\w$]*)\s*(?:\.slice\([^)]*\))?\s*\}/g
 
 /** 跳过字符串字面量(含模板插值),返回结束下标(引号之后)。 */
 export function advanceQuoted(src, i) {
@@ -248,7 +268,7 @@ export function tokenEndpointProvenance(decls, lines, arg, usageLine) {
   if (!IDENT_RE.test(name)) return null
   const jsonEntry = resolveDeclaredEntry(decls, name, usageLine)
   if (!jsonEntry) return null
-  const m = jsonEntry.rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*json\s*\(/)
+  const m = jsonEntry.rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*(?:json|text)\s*\(/)
   if (!m) return null
   const respEntry = resolveDeclaredEntry(decls, m[1], jsonEntry.line)
   if (!respEntry) return null
@@ -266,14 +286,44 @@ export function tokenEndpointProvenance(decls, lines, arg, usageLine) {
 
 /** 找到所有 4xx/5xx 上下文所在行(排除注释行)。 */
 export function findStatusContexts(lines) {
+  return findContexts(lines, STATUS_CTX_RE)
+}
+
+function findContexts(lines, re) {
   const hits = []
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim()
     if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue
-    STATUS_CTX_RE.lastIndex = 0
-    if (STATUS_CTX_RE.test(lines[i])) hits.push(i)
+    re.lastIndex = 0
+    if (re.test(lines[i])) hits.push(i)
   }
   return hits
+}
+
+/** `throw new XxxError(...)` 所在行:service 层的外泄常走这条而非 reply.status()。 */
+export function findThrowContexts(lines) {
+  return findContexts(lines, THROW_CTX_RE)
+}
+
+/** 错误构造上下文全集(4xx/5xx 响应 + throw),A–E 五个证据通道统一在这些窗口内求解。 */
+export function findErrorContexts(lines) {
+  return [...findStatusContexts(lines), ...findThrowContexts(lines)].sort((a, b) => a - b)
+}
+
+/**
+ * E 通道的实参集合:窗口内**整个**被插值的对象(`${x}` / `${x.slice(…)}`),
+ * 且其来源是令牌端点响应体。用于没有 `JSON.stringify` 的透传写法
+ * (`throw new Error(\`... ${text.slice(0, 200)}\`)`,text 来自 `resp.text()`)。
+ */
+export function wholeInterpProvenance(decls, lines, text, usageLine) {
+  WHOLE_INTERP_RE.lastIndex = 0
+  const ids = [...text.matchAll(WHOLE_INTERP_RE)].map((m) => m[1])
+  return uniqueSorted(
+    ids
+      .map((id) => tokenEndpointProvenance(decls, lines, id, usageLine))
+      .filter(Boolean)
+      .map((p) => `endpoint:${p}`),
+  )
 }
 
 /** 从上下文行起向后取「同一错误构造表达式」窗口,直到圆括号配平或语句结束。 */
@@ -318,7 +368,7 @@ export function scanSource(src, file, exempt = new Set()) {
   const candidates = []
   /** key → { recs, ranges }:已报告的同一签名(用于把重叠窗口合并为 1 处) */
   const clusters = new Map()
-  for (const start of findStatusContexts(lines)) {
+  for (const start of findErrorContexts(lines)) {
     const { text, endIndex } = extractWindow(lines, start)
     const usageLine = start + 1
     const hasDirectStringify = /JSON\s*\.\s*stringify\s*\(/.test(text)
@@ -349,13 +399,17 @@ export function scanSource(src, file, exempt = new Set()) {
             .map((p) => `endpoint:${p}`),
         )
       : []
+    // E. 无 JSON.stringify 的整对象透传:`${text}` / `${text.slice(0, 200)}`,text 取自令牌端点响应
+    const interpE = hasDirectStringify ? [] : wholeInterpProvenance(decls, lines, text, usageLine)
     const evidence = credArgs.length
       ? credArgs
       : viaDecl.length
         ? viaDecl
         : literals.length
           ? literals
-          : provenance
+          : provenance.length
+            ? provenance
+            : interpE
     if (!evidence.length) {
       for (const arg of args) {
         // 同一文件内同一被序列化变量只记一次(同一条语句常有 status + error 两个上下文命中)
@@ -371,7 +425,9 @@ export function scanSource(src, file, exempt = new Set()) {
         ? 'stringify-cred-via-declaration'
         : literals.length
           ? 'token-literal-in-message'
-          : 'stringify-from-token-endpoint'
+          : provenance.length
+            ? 'stringify-from-token-endpoint'
+            : 'raw-body-from-token-endpoint-in-message'
     /** 稳定 key 后缀:只有 kind + 凭据证据,不含行号、不含整段窗口文本 */
     const snippet = `${kind}|${evidence.join(',')}`
     const key = `${file}::${snippet}`
@@ -548,6 +604,22 @@ export const SELFTEST_CASES = [
     src: "const resp = await fetch(authEndpointUrl(), { method: 'POST' })\nconst data = await resp.json()\nreturn reply.status(502).send(error(502, 'e' + JSON.stringify(data)))",
     want: 'candidate',
   },
+  // --- E 通道:throw 形态 + 无 JSON.stringify 的整对象透传 ---
+  {
+    name: 'E 通道:裸 throw new Error 透传令牌端点响应文本 → 违规(paypal.ts 真实形状)',
+    src: "const resp = await fetch(`${API_BASE}/v1/oauth2/token`, { method: 'POST' })\nconst text = await resp.text().catch(() => '')\nthrow new Error(`PayPal OAuth2 token failed: ${resp.status} ${text.slice(0, 200)}`)",
+    want: 'violation',
+  },
+  {
+    name: 'E 通道反例:只投影 error 字段(${json.error})是推荐写法 → 不判',
+    src: "const res = await fetch(`${BASE}/v1/oauth2/token`, { method: 'POST' })\nconst json = (await res.json()) as Record<string, unknown>\nif (!res.ok) throw new Error(`token failed: ${json.error}`)",
+    want: 'none',
+  },
+  {
+    name: 'E 通道反例:资源类端点(非令牌)响应文本透传 → 不判(锚在端点性质上)',
+    src: "const resp = await fetch(`${BASE}/v1/payments/payment`, { method: 'POST' })\nconst text = await resp.text()\nthrow new Error(`PayPal create failed: ${resp.status} ${text.slice(0, 200)}`)",
+    want: 'none',
+  },
 ]
 
 /** 对单条样例求解类别(violation / candidate / none),供 --self-test 与镜像测试复用。 */
@@ -669,6 +741,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
 export const __test__ = {
   scanSource,
   findStatusContexts,
+  findThrowContexts,
+  findErrorContexts,
   extractWindow,
   findStringifyArgs,
   firstArgOf,
@@ -679,6 +753,7 @@ export const __test__ = {
   resolveDeclaredRhs,
   resolveDeclaredEntry,
   tokenEndpointProvenance,
+  wholeInterpProvenance,
   classifyStringifyArg,
   evalCase,
   SELFTEST_CASES,
