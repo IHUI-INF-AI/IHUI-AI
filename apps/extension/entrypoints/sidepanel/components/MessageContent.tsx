@@ -699,6 +699,24 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           t={(key, values) => t(`chat.${key}`, values)}
         />
       ) : null}
+      {/* D39/D108 上游重试交代:不接就等于侧边栏里只表现为"停顿"。措辞出自 chat.retry* 词表 */}
+      {message.role === 'assistant' && message.retryNotice ? (
+        <div
+          data-testid="retry-notice"
+          className="mt-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
+        >
+          {message.retryNotice.retryInMs > 0
+            ? t('chat.retryScheduled', {
+                attempt: message.retryNotice.attempt,
+                max: message.retryNotice.maxRetries,
+                seconds: Math.round(message.retryNotice.retryInMs / 1000),
+              })
+            : t('chat.retryScheduledNow', {
+                attempt: message.retryNotice.attempt,
+                max: message.retryNotice.maxRetries,
+              })}
+        </div>
+      ) : null}
     </div>
   )
 }
