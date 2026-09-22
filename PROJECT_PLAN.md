@@ -3227,7 +3227,25 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
+    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):**`build-api` 与
+    `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
+    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
+    已被证明生效。
+  - **build-web 剩下的红是第三层、且不属于本任务(阻塞主体与解阻判据照实登记)**:失败点后移到
+    `Generating static pages (0/927)` ⇒ `Error: Route /models with \`dynamic = "error"\` couldn't be
+    rendered statically because it used \`cookies()\``(`/models`、`/admin/product-identity`、
+    `/context-compaction` 三条同因,Next 遇错即 `exiting the build`)。根因唯一:
+    `apps/web/app/layout.tsx:229` 在**根布局**里 `const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value`,
+    由并发会话 2026-09-22 的 `eabc82e8f3`(fix(web,i18n): 语言偏好补 cookie 真值源,SSR 首帧 `<html lang`)
+    引入 —— 而 `output:'export'` 等价于全路由 `dynamic="error"`,根布局读 cookie 会让**每一个**静态页
+    预渲染失败(docker web 镜像 / Tauri 桌面 / GH Pages 三条链共用 `build:static`,全被这一条打穿)。
+    **归属证据**:本任务 16 票的 26 个文件里 `apps/web` 命中数 = **0**;该文件工作区与 HEAD 一致(非 in-flight)。
+    **为何不代修**:改他人刚上线的功能语义属 §16 越权事故。**解阻判据**(任一即可,须由该功能持有者定):
+    ① 静态导出分支下不读 cookie(`process.env.EXPORT_STATIC === 'true'` 时直接走 `<html lang>` 客户端设定);
+    ② 把 locale 判定从根布局移到不被导出的边界(如 route handler / 客户端 effect);
+    ③ 该路由组改回服务端渲染。**取证补充**:同类三个更早的 run(`d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa`)
+    的 build-web 全部停在第一层 `Cannot find module '/app/scripts/fix-expo-metro-junction.mjs'`,
+    即 build-web 是**三层缺陷叠压**,前两层(A 钩子未 COPY / C 依赖被静默跳过)已在本任务收口。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
