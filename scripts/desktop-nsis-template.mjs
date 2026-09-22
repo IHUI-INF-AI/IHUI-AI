@@ -247,21 +247,32 @@ const U1_IHUI = [
 ].join('\n')
 
 // U2 给卸载进度页挂 SHOW 回调(品牌贴皮 + 百分比控件)
-// ⚠️ 卸载器**没有**完成页,这是排查后的结论而非疏漏(2026-09-22 三轮沙箱对照):
-//   ① 裸 `UninstPage custom` 放在 MUI_UNPAGE_INSTFILES 之后 → 页函数开头无条件写标记,
-//      20s 内标记从未出现 = 这张页根本不会被走到;
-//   ② 换成 `!insertmacro MUI_UNPAGE_FINISH` → SHOW 回调 7.6s 写了标记,页确实被走到,
-//      但截图实锤 MUI 自带那张白底面板 + 蓝色向导头图 + 两行原生文字压不住
-//      (内层 dialog 1044 拿不到句柄、resize 不生效,原生控件 ID 段也扫不掉),
-//      成品比"原生完成框"更难看,违背"零原生观感"的初衷。
-//   所以卸载侧收口 = hooks.nsi 的 NSIS_HOOK_POSTUNINSTALL 里 SetAutoClose true,
-//   Section 跑完即关窗(与 passive/更新模式上游本来的行为一致),
-//   根治"instfiles 原地停住、出口钮被隐藏、灰掉的取消钮还是 disabled"的永久挂死。
+// U4 在同一条补丁里于进度页**之后**追加完成页 —— 两页必须同窗登记。
+// 为什么非有完成页不可:上游 Section Uninstall 尾部只在 passive/更新模式 SetAutoClose true,
+// 普通交互卸载跑完 instfiles 就原地停住,而出口钮(原生 1)被 IHUI_HIDE_ALL 移屏、
+// 原生 2 完成态被核心置 disabled 画成灰底 → 整页零个可点出口,卸载窗永久挂死
+// (2026-09-22 真包 UIA + CPU 增量 0 实锤)。
+// ⚠️ 为什么用 MUI_UNPAGE_FINISH 而不是裸 `UninstPage custom`:沙箱同槽位对照实验里,
+//   裸 custom 页函数开头**无条件**写标记文件,20s 内标记从未出现;MUI_UNPAGE_FINISH 的
+//   SHOW 回调 7.6s 就写了标记 —— 卸载侧"instfiles 之后的下一张页"只认 MUI 登记过的链。
+// ⚠️ 原生观感是从**源头**消掉的,不是靠抢 Z 序:Finish.nsh:266 用
+//   `SetCtlColors $mui.FinishPage "" "${MUI_BGCOLOR}"` 给内层面板上色,所以这里把
+//   MUI_BGCOLOR 直接定义成品牌深色 242424、标题/正文置空、按钮文案改成「完成」。
+//   第一版反着做(留白底再往下面压一张位图)必然被白面板盖住,已失败过一次。
 const U2_UPSTREAM = ['; 2. Uninstalling Page', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
 const U2_IHUI = [
   '; 2. Uninstalling Page',
   '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow',
   '!insertmacro MUI_UNPAGE_INSTFILES',
+  '; U4 卸载完成页 —— 终屏 + 唯一可点出口(实现见 windows/ihui-uninstaller.nsi un.IHUIFinishShow)',
+  '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIFinishShow',
+  '!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.IHUIFinishLeave',
+  '!define /redef MUI_BGCOLOR "242424"',
+  '!define /redef MUI_TEXTCOLOR "FAFAFA"',
+  '!define MUI_FINISHPAGE_TITLE " "',
+  '!define MUI_FINISHPAGE_TEXT " "',
+  '!define MUI_FINISHPAGE_BUTTON "完成"',
+  '!insertmacro MUI_UNPAGE_FINISH',
 ].join('\n')
 
 for (const [name, upstream, ihui] of [

@@ -100,19 +100,33 @@ export type PermissionModeWire = (typeof PERMISSION_MODE_WIRE_VALUES)[number]
  * 在存值迁移完成之前,**跨界只走 wire、判定只走规范档** ——
  * 两头各比各的拼写,就是 G-164 登记的那次"改一侧、另一侧静默失效"的成因。
  */
-export const PERMISSION_MODE_WIRE: Readonly<
-  Partial<Record<PermissionModeId, PermissionModeWire>>
-> = {
-  default: 'default',
-  acceptEdits: 'accept-edits',
-  bypassPermissions: 'bypass-permissions',
-  plan: 'plan',
-}
+export const PERMISSION_MODE_WIRE: Readonly<Partial<Record<PermissionModeId, PermissionModeWire>>> =
+  {
+    default: 'default',
+    acceptEdits: 'accept-edits',
+    bypassPermissions: 'bypass-permissions',
+    plan: 'plan',
+  }
 
 /** 任意拼写 → workspace wire 拼写(认不出返回 null,由调用方拒掉,不静默兜底)。 */
 export function permissionModeWire(raw: unknown): PermissionModeWire | null {
   const id = normalizePermissionMode(raw)
   return id ? (PERMISSION_MODE_WIRE[id] ?? null) : null
+}
+
+/**
+ * 展示档键(D111 移动端/extension 档位行共用)。
+ *
+ * - `null`/`undefined`(未配置)→ `'default'`:未配置的生效行为就是默认档,如实显示;
+ * - 认不出的值 → `'unknown'`:**不得**静默显示成 default —— 用户配置了的高危档被显示成
+ *   "默认模式"是授权误导,与 G-163 fail-open 是同一类事故的展示层形态;
+ * - 其余(含历史 camel/kebab 拼写)归一到 wire 拼写,与 workspace.permission.mode.* 词表键一致。
+ */
+export function permissionModeDisplayKey(
+  raw: string | null | undefined,
+): PermissionModeWire | 'unknown' {
+  if (raw === null || raw === undefined) return 'default'
+  return permissionModeWire(raw) ?? 'unknown'
 }
 
 /** 该模式在审批门上的实际效果 —— 表现层与后端共用同一口径说明用。 */

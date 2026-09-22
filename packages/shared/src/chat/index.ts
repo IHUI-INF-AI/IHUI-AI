@@ -11,3 +11,5 @@ export * from './tool-display'
 export * from './tool-activity'
 // 流式失败的跨端标记规则(error 词汇单一真相:标记 / 尾位定位 / 失败轮判定 / 重发目标)
 export * from './stream-error'
+// 工作区权限档展示(D111:档位行取词,web/extension/miniapp-taro/mobile-rn 共用)
+export * from './permission-tier'

@@ -1,4 +1,15 @@
 {
+  "aiWs": {
+    "videoDone": "동영상 생성이 완료되었습니다",
+    "videoFailed": "동영상 생성에 실패했습니다. 다시 시도해 주세요",
+    "videoOneImageOnly": "동영상 생성은 이미지 1장만 지원합니다",
+    "sendFailed": "전송에 실패했습니다. 다시 시도해 주세요",
+    "connectFailed": "연결에 실패했습니다. 다시 시도해 주세요",
+    "connectFailedShort": "연결 실패",
+    "connectError": "연결 오류가 발생했습니다. 다시 시도해 주세요",
+    "creditLowTitle": "크레딧이 부족합니다",
+    "creditLowDesc": "크레딧 잔액이 {min} 미만이면 모델을 사용할 수 없습니다. 충전해 주세요"
+  },
   "treeSelect": {
     "placeholder": "선택하세요",
     "searchPlaceholder": "검색...",
@@ -7095,6 +7106,8 @@
       "nextStepsSummarize": "이 대화 진행 상황 요약",
       "nextStepsTitle": "다음 단계",
       "overview": {
+        "status": "상태",
+        "error": "오류",
         "active": "활성",
         "changes": "변경",
         "context": "컨텍스트",
