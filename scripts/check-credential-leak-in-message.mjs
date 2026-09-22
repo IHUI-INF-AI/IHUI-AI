@@ -19,18 +19,25 @@
 //   B. 表达式里出现 `JSON.stringify(X)`;且
 //   C. 凭据语义成立:X 的名字 / 其声明右侧 / X 是含凭据 key 的对象字面量
 //      —— 或 message 字面量里直接出现 access_token / refresh_token / id_token。
-// 变量名不含凭据语义的(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
-// 只进「低置信候选」清单供人审(打印但不计入失败)。这类"上游错误体透传"全仓 35 处 / 13 文件,
-// 透传的是生成/调用类上游错误体、不含我方凭据,属中低危,故本门不对其恒红。
+//   D. **来源证据**(不认变量名,认响应体出处):`X = (await R.json())` 且 `R = await fetch('<令牌端点>')`
+//      落在同一处理器内(以路由注册行为边界、窗口 ≤40 行)→ 即使 X 叫 `json` / `data` 也 BLOCK。
+//      加这条是因为 C 只认名字,而真实缺陷恰好藏在"名字最无辜"的变量上:
+//      workspace-ai.ts 把 GitHub `POST /login/device/code` 的整个响应体 stringify 进 400 message,
+//      `device_code` 按 RFC 8628 §1.5 是 bearer 凭据(拿到即可换 access_token)—— 2026-09-22 实测发现并修。
+// 仅 A∧B 而 C/D 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
+// 只进「低置信候选」清单供人审(打印但不计入失败)。现 26 处:8 处为本进程自造的常量错误对象
+// (不含任何上游数据),18 处为厂商**推理/生成端点**错误体透传 —— 已逐个回溯其 fetch 端点确认非令牌端点。
+// 这类透传属中低危(泄露的是上游错误描述),故本门不对其恒红。
 //
 // 用法:node scripts/check-credential-leak-in-message.mjs
 //       [--staged|--quiet|--self-test|--update-baseline|--help]
 // 退出码:0 通过 / 1 检出高危违规(或基线外新增)/ 2 脚本自身异常。
 // 存量豁免:scripts/credential-leak-baseline.json(只减不增;将来一次性整改时可登记)。
 //
-// 豁免 key 形态(2026-09-23 定稿,不含行号):`<路径>::<kind>|<凭据证据>`,
+// 豁免 key 形态(2026-09-22 定稿,不含行号):`<路径>::<kind>|<凭据证据>`,
 //   凭据证据 = 命中凭据语义的 JSON.stringify 实参集合(排序去重)/ 经声明外泄的变量名
-//   (`via:<名>`)/ message 里出现的令牌字面量(`literal:<名>`)。
+//   (`via:<名>`)/ message 里出现的令牌字面量(`literal:<名>`)/ D 通道的来源链
+//   (`endpoint:<变量>←<响应变量>←<令牌端点 URL>`)。
 //   之所以不带行号也不用窗口全文:调用点**上方**任何一行增删都是极常见的日常改动,
 //   一旦 key 依赖绝对行号或整段窗口文本,已登记的豁免会**静默失效**且无线索可查。
 //   行号仍出现在报错输出里(给人看),只是不进 key。
@@ -70,6 +77,16 @@ export const STATUS_CTX_RE = new RegExp(
   'g',
 )
 const IDENT_RE = /^[A-Za-z_$][\w$]*$/
+
+/**
+ * 令牌/授权类上游端点:响应体**本身**就是凭据(RFC 6749 access_token / RFC 8628 device_code)。
+ * 只列路径形态,不匹配 `application/json` 之类的媒体类型字面量,避免把请求头判成端点。
+ */
+export const TOKEN_ENDPOINT_RE =
+  /(\/login\/oauth|\/oauth2?\/[a-z_]*token|\/v\d+\/token|\/gettoken|\/get_token|\/tenant_access_token|\/device\/code|\/client_?tokens?|\/access_?token|\/api\/auth\/token|\/sts$|\/credentials\/get)/i
+
+/** 路由注册行:来源链跨越它即视为进入另一个处理器,判定链断开(宁漏不误报)。 */
+const ROUTE_REG_RE = /\bserver\s*\.\s*(get|post|put|delete|patch|all|route)\s*\(/
 
 /** 跳过字符串字面量(含模板插值),返回结束下标(引号之后)。 */
 export function advanceQuoted(src, i) {
@@ -194,16 +211,20 @@ export function collectDeclarations(src) {
   return map
 }
 
-/** 取 usageLine 之前最近一次同名声明的右侧文本(无则 null)。 */
-export function resolveDeclaredRhs(decls, name, usageLine) {
+/** 取 usageLine 之前最近一次同名声明(含行号;无则 null)。 */
+export function resolveDeclaredEntry(decls, name, usageLine) {
   const list = decls.get(name)
   if (!list || !list.length) return null
   let best = null
   for (const d of list) {
     if (d.line <= usageLine && (!best || d.line >= best.line)) best = d
   }
-  if (!best) best = list[0]
-  return best.rhs
+  return best ?? list[0]
+}
+
+/** 取 usageLine 之前最近一次同名声明的右侧文本(无则 null)。 */
+export function resolveDeclaredRhs(decls, name, usageLine) {
+  return resolveDeclaredEntry(decls, name, usageLine)?.rhs ?? null
 }
 
 /** 单个 stringify 实参是否命中凭据语义(名字 / 声明右侧 / 对象字面量 key)。 */
@@ -215,6 +236,32 @@ export function classifyStringifyArg(arg, decls, usageLine) {
     if (rhs && CRED_SEMANTIC_RE.test(rhs)) return true
   }
   return false
+}
+
+/**
+ * 来源证据(不依赖变量名):被序列化的变量是否取自**令牌端点响应体**。
+ * 回溯链 `<var> = await <resp>.json()` → `<resp> = await fetch('<url>')`,
+ * url 命中 TOKEN_ENDPOINT_RE 即成立;跨越路由注册行或窗口超 40 行则放弃(宁漏不误报)。
+ */
+export function tokenEndpointProvenance(decls, lines, arg, usageLine) {
+  const name = arg.replace(/\s+/g, ' ').trim()
+  if (!IDENT_RE.test(name)) return null
+  const jsonEntry = resolveDeclaredEntry(decls, name, usageLine)
+  if (!jsonEntry) return null
+  const m = jsonEntry.rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*json\s*\(/)
+  if (!m) return null
+  const respEntry = resolveDeclaredEntry(decls, m[1], jsonEntry.line)
+  if (!respEntry) return null
+  const from = respEntry.line - 1
+  const to = Math.min(lines.length - 1, usageLine - 1)
+  if (to <= from || to - from > 40) return null
+  // 边界必须整段先查:URL 常与 fetch 同一行(即 from),若边扫边判会在越界前就命中
+  for (let i = from + 1; i <= to; i++) if (ROUTE_REG_RE.test(lines[i])) return null
+  for (let i = from; i <= to; i++) {
+    const u = lines[i].match(/(['"`])([^'"`\s]+)\1/)
+    if (u && TOKEN_ENDPOINT_RE.test(u[2])) return `${name}←${m[1]}←${u[2].slice(0, 70)}`
+  }
+  return null
 }
 
 /** 找到所有 4xx/5xx 上下文所在行(排除注释行)。 */
@@ -293,7 +340,22 @@ export function scanSource(src, file, exempt = new Set()) {
     const literals = hasDirectStringify
       ? uniqueSorted(text.match(CRED_LITERAL_ALL_RE) || []).map((l) => `literal:${l}`)
       : []
-    const evidence = credArgs.length ? credArgs : viaDecl.length ? viaDecl : literals
+    // D. 来源证据:变量名毫无凭据语义,但值取自令牌端点响应体(device_code / access_token 场景)
+    const provenance = hasDirectStringify
+      ? uniqueSorted(
+          args
+            .map((a) => tokenEndpointProvenance(decls, lines, a, usageLine))
+            .filter(Boolean)
+            .map((p) => `endpoint:${p}`),
+        )
+      : []
+    const evidence = credArgs.length
+      ? credArgs
+      : viaDecl.length
+        ? viaDecl
+        : literals.length
+          ? literals
+          : provenance
     if (!evidence.length) {
       for (const arg of args) {
         // 同一文件内同一被序列化变量只记一次(同一条语句常有 status + error 两个上下文命中)
@@ -307,7 +369,9 @@ export function scanSource(src, file, exempt = new Set()) {
       ? 'stringify-cred-arg'
       : viaDecl.length
         ? 'stringify-cred-via-declaration'
-        : 'token-literal-in-message'
+        : literals.length
+          ? 'token-literal-in-message'
+          : 'stringify-from-token-endpoint'
     /** 稳定 key 后缀:只有 kind + 凭据证据,不含行号、不含整段窗口文本 */
     const snippet = `${kind}|${evidence.join(',')}`
     const key = `${file}::${snippet}`
@@ -463,6 +527,27 @@ export const SELFTEST_CASES = [
     src: "return reply.status(401).send(error(401, 'bad ' + JSON.stringify(bearerResponse)))",
     want: 'violation',
   },
+  // --- D 通道:来源证据(不认变量名,认响应体出处) ---
+  {
+    name: '来源证据:变量名无凭据语义但值取自设备码端点 → 违规(RFC 8628 device_code)',
+    src: "const res = await fetch('https://github.com/login/device/code', { method: 'POST' })\nconst json = (await res.json()) as Record<string, unknown>\nreturn reply.status(400).send(error(400, `设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))",
+    want: 'violation',
+  },
+  {
+    name: '来源证据反例:推理/生成端点响应体 → 仅候选(不含凭据)',
+    src: "const resp = await fetch('https://ark.cn-beijing.volces.com/api/v3/images/generations', { method: 'POST' })\nconst data = await resp.json().catch(() => ({}))\nreturn reply.status(502).send(error(502, `失败: ${JSON.stringify(data).slice(0, 400)}`))",
+    want: 'candidate',
+  },
+  {
+    name: '来源证据反例:fetch 与外泄点之间跨了路由注册行 → 判定链断开,仅候选',
+    src: "const res = await fetch('https://github.com/login/device/code')\nserver.post('/other', async (req, reply) => {\nconst json = await res.json()\nreturn reply.status(400).send(error(400, 'x' + JSON.stringify(json)))\n})",
+    want: 'candidate',
+  },
+  {
+    name: '来源证据反例:URL 由变量/函数拼出无字面量 → 仅候选(宁漏不误报)',
+    src: "const resp = await fetch(authEndpointUrl(), { method: 'POST' })\nconst data = await resp.json()\nreturn reply.status(502).send(error(502, 'e' + JSON.stringify(data)))",
+    want: 'candidate',
+  },
 ]
 
 /** 对单条样例求解类别(violation / candidate / none),供 --self-test 与镜像测试复用。 */
@@ -558,7 +643,7 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (!quiet && candidates.length) {
     console.log(
-      `ℹ️  低置信候选 ${candidates.length} 处(上游错误体透传,变量名不含凭据语义 → 不计入失败,仅供人审):`,
+      `ℹ️  低置信候选 ${candidates.length} 处(上游错误体透传:变量名无凭据语义 **且** 响应来源非令牌端点 → 不计入失败,仅供人审):`,
     )
     for (const c of candidates.slice(0, 40))
       console.log(`   ${c.file}:${c.line}  JSON.stringify(${c.arg})`)
@@ -592,6 +677,8 @@ export const __test__ = {
   advanceTemplateExpr,
   collectDeclarations,
   resolveDeclaredRhs,
+  resolveDeclaredEntry,
+  tokenEndpointProvenance,
   classifyStringifyArg,
   evalCase,
   SELFTEST_CASES,
@@ -602,6 +689,7 @@ export const __test__ = {
   CRED_SEMANTIC_RE,
   CRED_LITERAL_RE,
   STATUS_CTX_RE,
+  TOKEN_ENDPOINT_RE,
   BASELINE_PATH,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
