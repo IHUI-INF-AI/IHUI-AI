@@ -6,6 +6,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
+// G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
+import { findConversationById } from '../db/chat-queries.js'
+import { getPermission } from '../db/workspace-permission-queries.js'
+import {
+  permissionStamp,
+  workspacePathOfConversationMeta,
+} from '../services/message-permission-stamp.js'
 
 /**
  * AI 回调端点。
@@ -148,6 +155,24 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               }
             | undefined
           const tokens = usageObj?.total_tokens
+          // G-165:给助手消息盖**服务端自己的**权限档记录。
+          // 只认 workspace_permissions 表(经会话 metadata 里的 workspacePath 反查),
+          // 不接受客户端自报 —— 自报等于让调用方给审计记录贴金("我当时在只读档")。
+          // 取不到工作区/档位不可识别 → 不写 key(与"确实处于 default 档"是两回事)。
+          let permissionMeta: Record<string, string> = {}
+          try {
+            const conv = await findConversationById(conversationId)
+            const wsPath = workspacePathOfConversationMeta(conv?.metadata)
+            if (wsPath) {
+              const perm = await getPermission(userId, wsPath)
+              permissionMeta = permissionStamp(perm?.mode)
+            }
+          } catch (e) {
+            request.log.warn(
+              { err: e instanceof Error ? e.message : String(e), conversationId },
+              '[permission-stamp] 档位盖章失败(不影响消息落库)',
+            )
+          }
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
@@ -175,6 +200,8 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               // 且 worker 侧是浅合并({ ...prevMeta, ...metadata }),不写 key 就不会
               // 覆盖既有 metadata(toolCalls / pendingQuestion 等)。
               ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+              // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
+              ...permissionMeta,
             },
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))

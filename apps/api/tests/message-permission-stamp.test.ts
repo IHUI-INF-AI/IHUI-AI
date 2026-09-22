@@ -2,75 +2,69 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+// 助手消息权限档盖章(G-165)断言。
+//
+// 这里守的是两条"静默错"的入口:
+// ① 把"不知道档位"伪装成 'default'(用户以为当时是默认档,实际是没绑定工作区);
+// ② 采信客户端自报的档位(等于允许调用方给审计记录贴金)。
+import { describe, expect, it } from 'vitest'
 
-import * as React from 'react'
-import { Check, Copy } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
+import {
+  CONVERSATION_WORKSPACE_META_KEY,
+  MESSAGE_PERMISSION_META_KEY,
+  permissionStamp,
+  workspacePathOfConversationMeta,
+} from '../src/services/message-permission-stamp.js'
 
-interface CopyButtonProps {
-  /** 要复制的文本 */
-  text: string
-  /** 额外 className */
-  className?: string
-  /** aria-label */
-  'aria-label'?: string
-  /** data-testid */
-  'data-testid'?: string
-}
+describe('permissionStamp', () => {
+  it('wire 与 camel 与历史别名都盖章,且盖章值统一为 wire', () => {
+    expect(permissionStamp('accept-edits')).toEqual({
+      [MESSAGE_PERMISSION_META_KEY]: 'accept-edits',
+    })
+    expect(permissionStamp('acceptEdits')).toEqual({
+      [MESSAGE_PERMISSION_META_KEY]: 'accept-edits',
+    })
+    expect(permissionStamp('auto')).toEqual({ [MESSAGE_PERMISSION_META_KEY]: 'accept-edits' })
+    expect(permissionStamp('bypass-permissions')).toEqual({
+      [MESSAGE_PERMISSION_META_KEY]: 'bypass-permissions',
+    })
+    expect(permissionStamp('plan')).toEqual({ [MESSAGE_PERMISSION_META_KEY]: 'plan' })
+  })
 
-/**
- * CopyButton — 通用复制按钮(v11)
- *
- * 特征:
- * - 点击复制 text 到剪贴板
- * - 复制成功后显示 Check 图标 1.5s,然后恢复 Copy 图标
- * - 极小尺寸(h-4 w-4),适配紧凑布局
- * - memo 化:text 引用稳定时跳过重渲染
- */
-export const CopyButton = React.memo(function CopyButton({
-  text,
-  className,
-  'aria-label': ariaLabel,
-  'data-testid': testId,
-}: CopyButtonProps) {
-  const t = useTranslations('ai.pane')
-  const [copied, setCopied] = React.useState(false)
-  const resolvedLabel = ariaLabel ?? t('copy')
+  it('无记录 / 不可识别 → 不写 key(绝不伪造 default)', () => {
+    expect(permissionStamp(undefined)).toEqual({})
+    expect(permissionStamp(null)).toEqual({})
+    expect(permissionStamp('')).toEqual({})
+    expect(permissionStamp('   ')).toEqual({})
+    expect(permissionStamp('yolo-mode')).toEqual({})
+    // manual 无落库语义:盖上去会让前端显示一个 DB 里不可能存在的档
+    expect(permissionStamp('manual')).toEqual({})
+  })
 
-  const onCopy = React.useCallback(async () => {
-    if (!text) return
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // 剪贴板 API 不可用时静默失败(测试环境/jsdom)
-    }
-  }, [text])
-
-  const Icon = copied ? Check : Copy
-
-  return (
-    <Tooltip content={copied ? t('copied') : resolvedLabel}>
-      <button
-        type="button"
-        onClick={onCopy}
-        aria-label={resolvedLabel}
-        className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
-          copied && 'text-emerald-500',
-          className,
-        )}
-        data-testid={testId}
-      >
-        <Icon className="h-2.5 w-2.5" />
-      </button>
-    </Tooltip>
-  )
+  it('非字符串输入不抛异常(权限行来自 DB jsonb/varchar,类型不可信)', () => {
+    expect(permissionStamp(42)).toEqual({})
+    expect(permissionStamp({ mode: 'plan' })).toEqual({})
+  })
 })
 
-export default CopyButton
+describe('workspacePathOfConversationMeta', () => {
+  it('取到非空字符串才算绑定', () => {
+    expect(
+      workspacePathOfConversationMeta({ [CONVERSATION_WORKSPACE_META_KEY]: 'D:/proj/a' }),
+    ).toBe('D:/proj/a')
+    expect(
+      workspacePathOfConversationMeta({ [CONVERSATION_WORKSPACE_META_KEY]: '  /srv/x  ' }),
+    ).toBe('/srv/x')
+  })
+
+  it('缺失 / 空串 / 非字符串 / null metadata 一律视为未绑定', () => {
+    expect(workspacePathOfConversationMeta(null)).toBeNull()
+    expect(workspacePathOfConversationMeta(undefined)).toBeNull()
+    expect(workspacePathOfConversationMeta({})).toBeNull()
+    expect(workspacePathOfConversationMeta({ workspacePath: '' })).toBeNull()
+    expect(workspacePathOfConversationMeta({ workspacePath: '   ' })).toBeNull()
+    expect(workspacePathOfConversationMeta({ workspacePath: 7 })).toBeNull()
+    expect(workspacePathOfConversationMeta('D:/x')).toBeNull()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

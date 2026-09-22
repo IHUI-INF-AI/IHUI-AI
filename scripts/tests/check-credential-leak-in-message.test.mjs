@@ -19,12 +19,14 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'evalCase',
     'classifyStringifyArg',
     'findStringifyArgs',
+    'tokenEndpointProvenance',
+    'resolveDeclaredEntry',
     'main',
     'readBaselineRaw',
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 10)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 15)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
@@ -237,5 +239,66 @@ test('--self-test 的结论必须真的落到退出码上(防打印失败却 exi
     G.SELFTEST_CASES.pop()
   }
   assert.equal(await G.main(['--self-test']), 0, '还原后必须回到 0')
+})
+
+// --- D 通道:来源证据(不认变量名,认响应体出处) ---
+
+const DEVICE_CODE_SRC =
+  "const res = await fetch('https://github.com/login/device/code', { method: 'POST' })\n" +
+  'const json = (await res.json()) as Record<string, unknown>\n' +
+  'return reply.status(400).send(error(400, `设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))'
+
+test('D 通道:变量名毫无凭据语义,但值取自设备码端点 → 违规并点名来源 URL', () => {
+  const r = G.scanSource(DEVICE_CODE_SRC, 'apps/api/src/routes/workspace-ai.ts')
+  assert.equal(r.violations.length, 1, 'A/B/C 三通道都失效时 D 必须兜住')
+  assert.equal(r.candidates.length, 0, '已定性为违规不得再进候选')
+  assert.equal(r.violations[0].kind, 'stringify-from-token-endpoint')
+  assert.match(
+    r.violations[0].evidence,
+    /endpoint:json←res←https:\/\/github\.com\/login\/device\/code/,
+  )
+})
+
+test('D 通道反例:推理/生成端点响应体仍只是候选,不得误伤 18 处既有代理', () => {
+  const src =
+    "const resp = await fetch('https://ark.cn-beijing.volces.com/api/v3/images/generations', { method: 'POST' })\n" +
+    'const data = await resp.json().catch(() => ({}))\n' +
+    'return reply.status(502).send(error(502, `失败: ${JSON.stringify(data).slice(0, 400)}`))'
+  const r = G.scanSource(src, 'apps/api/src/routes/ai-vendors/proxy-extended-media3.ts')
+  assert.equal(r.violations.length, 0)
+  assert.equal(r.candidates.length, 1)
+})
+
+test('D 通道反例:fetch 与外泄点跨了路由注册行 → 判定链断开(防跨处理器误配)', () => {
+  const src =
+    "const res = await fetch('https://github.com/login/device/code')\n" +
+    "server.post('/other', async (req, reply) => {\n" +
+    'const json = await res.json()\n' +
+    "return reply.status(400).send(error(400, 'x' + JSON.stringify(json)))\n" +
+    '})'
+  const r = G.scanSource(src, 'apps/api/src/routes/cross-handler.ts')
+  assert.equal(r.violations.length, 0, '跨处理器的同名 res 不得配对')
+  assert.equal(r.candidates.length, 1)
+})
+
+test('D 通道新 kind 必须能被基线豁免(存量登记能力对所有通道生效)', () => {
+  const file = 'apps/api/src/routes/workspace-ai.ts'
+  const hit = G.scanSource(DEVICE_CODE_SRC, file)
+  assert.equal(hit.violations.length, 1)
+  const key = hit.violations[0].key
+  assert.ok(key.startsWith(`${file}::`), 'key 必须以路径开头')
+  assert.ok(key.includes('stringify-from-token-endpoint|'), 'key 形态为 路径::kind|证据')
+  assert.ok(!/\d/.test(key.split('::')[1].split('|')[0]), 'kind 段不得含行号(基线须跨行号稳定)')
+  const exempted = G.scanSource(DEVICE_CODE_SRC, file, new Set([key]))
+  assert.equal(exempted.violations.length, 0, '登记基线后应放行')
+  assert.equal(exempted.candidates.length, 0, '放行不得退化成候选(否则豁免无效)')
+})
+
+test('resolveDeclaredEntry 供窗口计算用:必须带行号(只回 rhs 无法判处理器边界)', () => {
+  const decls = G.collectDeclarations('const res = await fetch(u)\nconst a = 1\n')
+  const e = G.resolveDeclaredEntry(decls, 'res', 2)
+  assert.equal(e.line, 1)
+  assert.match(e.rhs, /await fetch\(u\)/)
+  assert.equal(G.resolveDeclaredEntry(decls, 'missing', 2), null)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
