@@ -91,12 +91,24 @@ export interface TerminalTaskView {
 }
 
 /**
- * 单条 assistant 消息携带的工具卡片聚合(计划 / 工具 / 终端),
+ * D34 上下文注入交代(第 45 轮承接):kind 是取词键,**禁止**把后端 collapsed 中文当界面文本
+ * (collapsed 只在 kind 未知时兜底显示),fullText 缺省即后端判定超限,不给假"展开"入口。
+ */
+export interface InjectionView {
+  kind: string
+  collapsed: string
+  fullText?: string
+  count?: number
+}
+
+/**
+ * 单条 assistant 消息携带的工具卡片聚合(计划 / 工具 / 终端 / 注入交代),
  * 由 SSE 事件累积写入,随消息历史持久化;对齐 web 端 planSteps/toolCalls/terminalTasks 消费方式。
  */
 export interface AICardsData {
   planSteps: PlanStepView[]
   toolCalls: ToolCallView[]
   terminalTasks: TerminalTaskView[]
+  injections: InjectionView[]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
