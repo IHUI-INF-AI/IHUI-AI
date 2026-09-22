@@ -206,6 +206,14 @@
         {
           "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
           "mustMatch": "InjectionBar"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "ContextInjectionList"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onInjectionApplied"
         }
       ]
     },

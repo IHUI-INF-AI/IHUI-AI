@@ -285,6 +285,29 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
+      onInjectionApplied: (evt) => {
+        // D34 跨端(第 43 轮):api-client 已有通道,端内必须显式承接 ——
+        // extension 的消息更新是枚举式合并,不写字段就等于静默丢弃。
+        // 按 kind+collapsed 去重(重连补发不得出现重复行),与 web #26 citations 同口径。
+        updateAssistantMessage((m) => {
+          const existing = m.injections ?? []
+          if (existing.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+            return m
+          }
+          return {
+            ...m,
+            injections: [
+              ...existing,
+              {
+                kind: evt.kind,
+                collapsed: evt.collapsed,
+                ...(evt.fullText ? { fullText: evt.fullText } : {}),
+                ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+              },
+            ],
+          }
+        }, evt.messageId)
+      },
     }
     try {
       await streamChat(opts)
