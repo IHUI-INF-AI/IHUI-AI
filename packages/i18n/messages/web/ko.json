@@ -9065,6 +9065,8 @@
         "archiveTitle": "보관된 대화",
         "viewArchived": "보관함 보기"
       },
+      "ceilingTitle": "컨텍스트 압축이 한도에 도달했습니다",
+      "ceilingHint": "새 대화를 시작하거나 컨텍스트를 줄이세요(불필요한 MCP 도구 / 스킬 비활성화 등).",
       "dividerTitle": "이전 기록이 요약으로 압축됨",
       "dividerDescription": "컨텍스트가 {before}토큰에서 {after}토큰으로 압축되어 이전 대화가 요약으로 접혔습니다",
       "dividerSaved": "{ratio}% 절약"

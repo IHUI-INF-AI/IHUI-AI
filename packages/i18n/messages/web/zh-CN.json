@@ -9065,6 +9065,8 @@
         "archiveTitle": "已归档会话",
         "viewArchived": "查看已归档"
       },
+      "ceilingTitle": "上下文压缩已达上限",
+      "ceilingHint": "建议开始新对话,或减少上下文(如禁用不必要的 MCP 工具 / 技能)。",
       "dividerTitle": "上方历史已压缩为摘要",
       "dividerDescription": "上下文已从 {before} tokens 压缩至 {after} tokens,更早的对话被折叠为摘要",
       "dividerSaved": "节省 {ratio}%"
