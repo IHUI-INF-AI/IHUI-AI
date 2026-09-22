@@ -782,7 +782,8 @@
         "title": "터미널",
         "copy": "복사",
         "copied": "복사됨",
-        "exitCode": "종료 코드: {code}"
+        "exitCode": "종료 코드: {code}",
+        "truncated": "…(잘림, 전체 {total}자)"
       },
       "status": {
         "running": "실행 중",
