@@ -2819,6 +2819,15 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     (Taro 4.2.1 / storybook 侧与主侧各引一套),连带 `@tarojs/components`、`html-webpack-plugin` 等一批可去重项;
     解法是 `pnpm dedupe` 重写 `pnpm-lock.yaml`。lockfile 属高共享风险文件且会牵动小程序构建解析,
     在并发会话频繁提交的窗口不做,留待专项评估(该门 `--staged` 亦回退全量口径,故持续红)。
+  - **守门 8 的假阳性已根治(不是绕过)**:剩最后 1 处 `POST /api/ai/zhipu/images` 时我先试了 method 标注,发现**无效并当场撤掉**——method 本来就是 POST,缺的是后端路由条目。
+    根因是门的后端路由提取器只认引号字面量,展开不了厂商矩阵变量化的模板注册
+    (`proxy-openai-compat.ts:276-278` `if (cap.images) server.post(\`/${vendor}/images\`)`,矩阵第 43 行 `zhipu images:true` —— 我已逐行自查确认路由真实存在,**不是臆造**)。
+    修法为给门增加"矩阵 + flag 求交"的模板路由展开能力(遇任何其他 if/else/switch 则整条跳过,不猜)。
+    差分证据:后端注册路由 4933 → 5100(**消失键 0**)、前端调用点 1902 不变、违规 1 → **0**、既有 2 条豁免行为不变;
+    独立解析器复核 68 行厂商矩阵(images=true 仅 openai/siliconflow/zhipu/xai)确认**零臆造条目**;
+    变异测试 M1(禁用展开)、M2(去掉矩阵求交)均 exit 1,反向哨兵(不存在的 `__probe_no_such_route__` 与 `deepseek/images`)仍被报 → 证明没把门改成"永远不报"。
+    self-test 9 例 + 既有 §22c 测试 20/20、eslint 0 error、水印无残迹;回滚件在 `.ihui-agent/tmp/api-routes-gate-fix/`。
+    该门遗留边界(仍不展开,方向是**保留假阳性而非漏报**):矩阵被跨文件 import、数组行含嵌套花括号、`${basePath}` 形参插值(故 ignore 第 1 条仍必要)、正则字面量内的 `{` 会让括号栈退化为不展开。
   - 平台独占:仅 scripts 守门 + apps/api 一处安全修复 + 文档(§9 豁免;api 修复对外仅改变 502 文案文本,响应结构不变)。
   - 平台独占:仅 apps/miniapp-taro + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 - **不需用户协调**:本任务无任何依赖其他 agent 的代码改动,无 schema 漂移,无多端契约变更,本 agent 独立闭环
