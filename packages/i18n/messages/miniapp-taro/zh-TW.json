@@ -777,7 +777,8 @@
         "title": "終端任務",
         "copy": "複製",
         "copied": "已複製",
-        "exitCode": "結束碼: {code}"
+        "exitCode": "結束碼: {code}",
+        "truncated": "…(已截斷,共 {total} 字符)"
       },
       "status": {
         "running": "執行中",

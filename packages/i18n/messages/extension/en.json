@@ -188,6 +188,7 @@
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
     "terminalStatusFailed": "Failed",
+    "terminalTruncated": "…(truncated, {total} characters in total)",
     "planStatusPending": "Pending",
     "planStatusInProgress": "In progress",
     "planStatusCompleted": "Completed",

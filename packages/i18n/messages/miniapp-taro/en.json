@@ -782,7 +782,8 @@
         "title": "Terminal",
         "copy": "Copy",
         "copied": "Copied",
-        "exitCode": "Exit code: {code}"
+        "exitCode": "Exit code: {code}",
+        "truncated": "…(truncated, {total} characters in total)"
       },
       "status": {
         "running": "Running",

@@ -541,6 +541,17 @@ function TerminalBlockView({
           {block.output}
         </pre>
       ) : null}
+      {/* 后端只下发截断后的文本:不交代总长就等于让用户把截断当完整(回放时没有 live 缓冲可比对) */}
+      {block.truncated ? (
+        <div
+          className="mt-0.5 font-mono text-[10px] text-muted-foreground"
+          data-testid={`terminal-truncated-${block.id}`}
+        >
+          {t('chat.terminalTruncated', {
+            total: block.totalChars ?? block.output?.length ?? 0,
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }

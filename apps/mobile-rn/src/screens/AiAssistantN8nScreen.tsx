@@ -464,6 +464,14 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
                       {t('aiAssistantN8n.terminalOutput')}
                     </Text>
                     <Text style={bubbleStyles.monoText}>{task.output}</Text>
+                    {/* 后端只下发截断文本:不交代总长就等于让用户把截断当完整 */}
+                    {task.truncated ? (
+                      <Text style={bubbleStyles.sectionLabel}>
+                        {t('aiAssistantN8n.terminalTruncated', {
+                          total: task.totalChars ?? task.output.length,
+                        })}
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
