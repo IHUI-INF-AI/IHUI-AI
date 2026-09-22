@@ -1,10 +1,19 @@
 #!/bin/sh
+# ─── 弹窗根治(2026-09-22,统一经 wscript 隐藏包装,详见 scripts/hook-run-hidden.vbs) ───
+# 原 2 处裸 node 在无 console 上下文触发 commit 时各弹一个可见控制台窗口。
+# 输出转入 .workbuddy/hook-logs/,每次调用后回显日志末尾,保证警告仍对用户可见。
+
 # 样式改动强制验证守门(AGENTS.md 第 19 节)
 # .css 改动时要求 commit message 附 Verified-DOM trailer
 # 跳过:HUSKY_SKIP_STYLE_VERIFY=1
-node scripts/check-style-verification.mjs "$1"
+# 原语义:失败不阻断 commit(仅警告),故 || true 后回显日志
+wscript //nologo scripts/hook-run-hidden.vbs commit-msg-style scripts/check-style-verification.mjs "$1" || true
+tail -5 .workbuddy/hook-logs/commit-msg-style.log >&2 || true
 
 # Commit scope 一致性预警(2026-07-26 立,AGENTS.md §16 配套)
 # 检测 commit message scope 与 staged 文件领域是否匹配,防止 git add -A 混入其他 agent 改动
-# warn-only,不阻塞 commit;跳过:HUSKY_SKIP_SCOPE_CHECK=1
-node scripts/check-commit-scope-consistency.mjs "$1"
+# 原语义:本 hook 的末命令,退出码即 hook 退出码(非零阻断);warn 输出回显保证可见
+wscript //nologo scripts/hook-run-hidden.vbs commit-msg-scope scripts/check-commit-scope-consistency.mjs "$1"
+_scope_rc=$?
+tail -5 .workbuddy/hook-logs/commit-msg-scope.log >&2 || true
+exit $_scope_rc
