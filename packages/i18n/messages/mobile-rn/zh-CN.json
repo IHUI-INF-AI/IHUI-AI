@@ -370,6 +370,7 @@
     "planStatusInProgress": "进行中",
     "planStatusCompleted": "已完成",
     "terminalTasks": "终端任务",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
     "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",

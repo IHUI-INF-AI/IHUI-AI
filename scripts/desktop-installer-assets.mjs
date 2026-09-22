@@ -107,12 +107,18 @@ const PB_X = C_L;
 const PB_Y = 306;
 const PB_W = C_W;
 const PB_H = 10;
-// 阶段刻度(与 desktop-nsis-template.mjs 的 P7/U 埋点一一对应):
+// 阶段刻度:与 desktop-nsis-template.mjs 的 P7 安装埋点一一对应(改一边必须改另一边)。
 // 烧进轨道,填充条经过时被盖住 → 天然表达"过了几关"。
-const PB_TICKS = [20, 45, 65, 85, 92];
-// 百分比大数字的右边界:数字右对齐到此,`%` 由位图烧在它的右侧
-const PCT_R = 748;
-const PCT_BASE = 288;
+const PB_TICKS = [12, 34, 52, 64, 72, 80, 88, 93, 97];
+// 卸载侧刻度 = U 埋点集合(20/34/46/56/66/76/86/92),见 sceneUninstfiles。
+// 百分比数字与 `%` 全部由运行期控件排版,位图侧不再保留任何百分比相关坐标。
+//
+// 进度页的"表盘":双环把百分比圈成一枚徽章,与页面标题(正在安装/正在卸载)**同一行**。
+// 环心必须与 ihui-ui.nsi 的 IHUI_PCT_X/Y/W/H 算出的控件矩形中心严格相等,否则数字不在环心;
+// 两处任一改动都要同步改另一处(控件用 SS_CENTER,数字位数变化不会再左右漂)。
+const PCT_CX = 740;
+const PCT_CY = 220;
+const PCT_RING = 56; // auroraRings 画 r 与 r+22 两道 → 内 56 / 外 78
 
 // 品牌渐变定义(每份 SVG 内联一次)
 const GRAD_DEFS = `<defs>
@@ -281,10 +287,10 @@ ${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…�
 `);
 }
 
-// 安装页:百分比与阶段文案是运行期控件,位图只烧轨道底与静态文案。
-// 计量器:轨道(底 + 描边 + 内高光 + 阶段刻度)与 `%` 字形。
-// 数字由运行期 STATIC 右对齐画在 PCT_R 之前,`%` 烧在位图里 → 两者永远成一套,
-// 不再是"一个大数字飘在右上角、一条线孤零零在中间"。
+// 计量器:轨道(底 + 描边 + 内高光 + 阶段刻度)。
+// ⚠️ 百分比数字与 `%` **都由运行期同一个 STATIC 排版**(见 ihui-ui.nsi IHUI_PROGRESS),
+//    位图里不再烧 `%` —— 之前烧在位图里,字号/基线是两套真相(数字 48px GDI、% 20px SVG),
+//    实机就是"数字和百分号错位、而且偏小"。让文字引擎去对齐,才是根源解。
 function meterTrack(ticks = PB_TICKS) {
   return [
     `<rect x="${PB_X - 1}" y="${PB_Y - 1}" width="${PB_W + 2}" height="${PB_H + 2}" rx="${(PB_H + 2) / 2}" fill="none" stroke="${C.hairline}" stroke-width="1"/>`,
@@ -294,7 +300,6 @@ function meterTrack(ticks = PB_TICKS) {
       (t) =>
         `<rect x="${Math.round(PB_X + (PB_W * t) / 100)}" y="${PB_Y}" width="2" height="${PB_H}" fill="${C.bg}"/>`,
     ),
-    `<text x="${PCT_R + 8}" y="${PCT_BASE}" font-family="${FONT}" font-size="20" font-weight="600" fill="${C.accent}">%</text>`,
   ].join("\n");
 }
 
@@ -306,7 +311,7 @@ ${title(C_L, 232, '正在安装')}
 ${body14(C_L, 262, '智汇AI 正在写入你的电脑,请稍候…')}
 ${meterTrack()}
 ${body14(C_L, 400, '安装完成后可直接启动,你的数据始终保存在云端', C.muted, 13)}
-${auroraRings(712, 456, 58, [1, 1])}
+${auroraRings(PCT_CX, PCT_CY, PCT_RING, [1, 1])}
 `);
 }
 
@@ -366,8 +371,8 @@ ${pageChrome(logo, 1, UNSTEPS)}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '正在卸载')}
 ${body14(C_L, 262, '智汇AI 正在从本机移除文件,请稍候…')}
-${meterTrack([20, 45, 65, 85])}
-${auroraRings(712, 456, 58, [1, 1])}
+${meterTrack([20, 34, 46, 56, 66, 76, 86, 92])}
+${auroraRings(PCT_CX, PCT_CY, PCT_RING, [1, 1])}
 `);
 }
 
