@@ -286,40 +286,43 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
  * 节流会让用户先看到"别的窗口已激活、本窗口按钮还全亮"的错觉。
  * 清理逻辑沿用 2026-07-28 的 cancelled flag + unlisten 泄漏兜底模板。
  *
+ * 双通道,缺一不可:
+ * - `desktop-window-focus`:Rust 在 WindowEvent::Focused 里显式 emit。**这是主通道** ——
+ *   真机实测薄壳加载远程 URL(https://aizhs.top)时内核自带的 tauri://focus|blur 收不到,
+ *   聚焦/失焦两态像素逐字相同;而 desktop-* 这条应用层通道已被托盘菜单验证可用。
+ * - `onFocusChanged`:内核事件,留作兜底(若某版本可用即生效;两路同值重复回调无害)。
+ *
  * 返回同步清理函数。非桌面端返回 no-op。
  */
 export function onWindowFocusChange(callback: (focused: boolean) => void): () => void {
   if (!isTauri()) return () => {}
   const win = getCurrentWindow()
   let cancelled = false
-  let unlistenFn: (() => void) | null = null
+  const cleanups: Array<() => void> = []
 
-  const promise = win.onFocusChanged(({ payload }) => {
-    if (!cancelled) callback(payload)
-  })
+  const track = (promise: Promise<() => void>) => {
+    promise
+      .then((fn) => {
+        // cleanup 已先于 Promise resolve → 立即取消订阅,不留悬挂监听
+        if (cancelled) fn()
+        else cleanups.push(fn)
+      })
+      .catch(() => {
+        /* 单个通道注册失败不影响另一通道 */
+      })
+  }
 
-  promise.then((fn: () => void) => {
-    if (cancelled) {
-      // cleanup 已先于 Promise resolve 调用 → 立即取消订阅
+  track(win.listen<boolean>('desktop-window-focus', ({ payload }) => callback(payload)))
+  track(win.onFocusChanged(({ payload }) => callback(payload)))
+
+  return () => {
+    cancelled = true
+    for (const fn of cleanups.splice(0)) {
       try {
         fn()
       } catch {
         /* ignore */
       }
-    } else {
-      unlistenFn = fn
-    }
-  })
-
-  return () => {
-    cancelled = true
-    if (unlistenFn) {
-      try {
-        unlistenFn()
-      } catch {
-        /* ignore */
-      }
-      unlistenFn = null
     }
   }
 }
