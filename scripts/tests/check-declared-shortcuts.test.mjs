@@ -149,4 +149,96 @@ test('collectDeclarations:注册表条目带 event,供消费者反查', () => {
 test('源脚本自测入口 runSelfTest 返回 0', () => {
   assert.equal(src.runSelfTest(), 0, 'runSelfTest 内部断言必须全绿')
 })
+
+// ---------------------------------------------------------------------------
+// mislabelled:field 声明与全局注册表同键时,声明方必须自证持有该键位
+// ---------------------------------------------------------------------------
+
+const OWNED_TEXT = [
+  'const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {',
+  '  if (!e.ctrlKey && !e.metaKey) return',
+  '  const k = e.key.toLowerCase()',
+  '  if (EDITOR_OWNED.has(k)) e.stopPropagation()',
+  "  else if (k === '2') { e.preventDefault() }",
+  '}',
+].join('\n')
+
+/** 注册表 Ctrl+2 = 切对话模式;另一文件却把 Ctrl+2 标成自己的点选动作 */
+const registryCtrl2 = () => ({
+  ...normalizeChord('Ctrl+2'),
+  kind: 'registry',
+  file: 'apps/web/src/hooks/use-global-shortcuts.ts',
+  event: 'global-shortcut:mode-plan',
+})
+const fieldCtrl2 = (kind = 'field', file = 'fixture') => [{ ...normalizeChord('Ctrl+2'), kind, file }, registryCtrl2()]
+const run = (decls, texts, hs = handlers()) =>
+  reconcile(decls, hs, "'global-shortcut:mode-plan'", new Map(texts))
+
+test('mislabelled 正例:field 声明被注册表同键接走,无持有证据 → 判缺陷并点名 file:line', () => {
+  const text = "const TOOLS = [\n  { id: 'h1', shortcut: 'Ctrl+2' },\n]\n"
+  const decls = collectDeclarations('/abs/apps/web/src/components/x/y.tsx', text)
+  assert.equal(decls.length, 1, '夹具应解析出 1 条 field 声明')
+  const r = reconcile([...decls, registryCtrl2()], handlers(), "'global-shortcut:mode-plan'", new Map([[decls[0].file, text]]))
+  assert.equal(r.mislabelled.length, 1)
+  assert.equal(r.mislabelled[0].event, 'global-shortcut:mode-plan')
+  assert.equal(r.mislabelled[0].line, 2, '报告须带声明行号')
+  assert.match(r.mislabelled[0].file, /components\/x\/y\.tsx$/)
+  assert.match(r.mislabelled[0].reason, /接走/)
+})
+
+test('mislabelled 反向哨兵①:本文件出现注册表 event 字面量 = 它就是生产/消费方 → 不报', () => {
+  const text = "const A = [{ shortcut: 'Ctrl+2' }]\nfire('global-shortcut:mode-plan')\n"
+  assert.equal(run(fieldCtrl2(), [['fixture', text]]).mislabelled.length, 0)
+})
+
+test('mislabelled 反向哨兵②:本文件有同键处理器 + stopPropagation 独占 → 不报;去掉截断必须复红', () => {
+  const hs = parseHandlers(FIX_FILE, OWNED_TEXT)
+  assert.ok(hs.some((h) => h.key === '2'), '夹具须解析出 Ctrl+2 处理器')
+  const owned = hs[0].file
+  assert.equal(run(fieldCtrl2('field', owned), [[owned, OWNED_TEXT]], hs).mislabelled.length, 0)
+  const noTruncate = OWNED_TEXT.replace('e.stopPropagation()', 'noop()')
+  assert.equal(run(fieldCtrl2('field', owned), [[owned, noTruncate]], hs).mislabelled.length, 1)
+  const noHandler = hs.filter((h) => h.key !== '2')
+  assert.equal(run(fieldCtrl2('field', owned), [[owned, OWNED_TEXT]], noHandler).mislabelled.length, 1)
+})
+
+test('mislabelled 不误伤:chord 不在注册表里(Ctrl+Shift+E)→ 不报', () => {
+  const decls = [{ ...normalizeChord('Ctrl+Shift+E'), kind: 'field', file: 'fixture' }, registryCtrl2()]
+  assert.equal(run(decls, [['fixture', "const A = [{ shortcut: 'Ctrl+Shift+E' }]\n"]]).mislabelled.length, 0)
+})
+
+test('mislabelled 只认 field:kbd/text 描述别的表面的键位合法,纳入必假红', () => {
+  assert.equal(run(fieldCtrl2('kbd'), [['fixture', '<kbd>Ctrl+2</kbd>']]).mislabelled.length, 0)
+  assert.equal(run(fieldCtrl2('text'), [['fixture', '按 Ctrl+2 可切换模式']]).mislabelled.length, 0)
+})
+
+test('mislabelled 不越界:文件文本缺失(未纳入扫描)时不凭猜测判缺陷', () => {
+  assert.equal(run(fieldCtrl2(), []).mislabelled.length, 0)
+})
+
+const registryCtrl1 = () => ({
+  ...normalizeChord('Ctrl+1'),
+  kind: 'registry',
+  file: 'apps/web/src/hooks/use-global-shortcuts.ts',
+  event: 'global-shortcut:mode-build',
+})
+const entryAt = (text) => {
+  const decls = collectDeclarations('/abs/apps/web/src/lib/command-registry.ts', text)
+  assert.equal(decls.length, 1, '夹具应解析出 1 条 field 声明')
+  return reconcile([...decls, registryCtrl1()], handlers(), "'global-shortcut:mode-build'", new Map([[decls[0].file, text]]))
+}
+
+test('mislabelled 证据③:命令面板原样镜像全局键位(条目内即该 event 的功能)→ 不报', () => {
+  const text = "const ITEMS = [\n  {\n    id: 'modeBuild',\n    action: { type: 'mode', mode: 'build' },\n    shortcut: 'Ctrl+1',\n  },\n]\n"
+  assert.equal(entryAt(text).mislabelled.length, 0)
+})
+
+test('mislabelled 证据③反向:同键位标在**另一件事**的条目上 → 必须报(比对严格限本条目)', () => {
+  const text = "const ITEMS = [\n  {\n    id: 'document',\n    action: { type: 'workPanel' },\n    shortcut: 'Ctrl+1',\n  },\n]\n"
+  const r = entryAt(text)
+  assert.equal(r.mislabelled.length, 1)
+  assert.equal(r.mislabelled[0].line, 5)
+})
+
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
