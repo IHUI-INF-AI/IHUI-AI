@@ -7,7 +7,8 @@
 import * as React from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
-import type { WorkPanelTabItem } from '@ihui/ui-react'
+import type { WorkPanelLabels, WorkPanelTabItem } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { openInGoogleChrome } from '@/lib/tauri-bridge'
@@ -28,6 +29,34 @@ import { CdpBrowserView } from './cdp-browser-view'
  */
 export function WebWorkPanel() {
   const mounted = useMounted()
+  const tw = useTranslations('workPanel')
+  // 不注入 labels 时 @ihui/ui-react 回退 DEFAULT_LABELS(简体)⇒ 英/日/韩界面整条内置浏览器
+  // 工具条、地址栏占位符与空态都是中文。20 键全量注入,新增键须同步 5 语言包。
+  const workPanelLabels = React.useMemo<WorkPanelLabels>(
+    () => ({
+      back: tw('back'),
+      forward: tw('forward'),
+      reload: tw('reload'),
+      stop: tw('stop'),
+      addressPlaceholder: tw('addressPlaceholder'),
+      favorite: tw('favorite'),
+      unfavorite: tw('unfavorite'),
+      favoritesAndHistory: tw('favoritesAndHistory'),
+      openExternal: tw('openExternal'),
+      closePanel: tw('closePanel'),
+      newTab: tw('newTab'),
+      removeFavorite: tw('removeFavorite'),
+      tabFavorites: tw('tabFavorites'),
+      tabHistory: tw('tabHistory'),
+      emptyFavorites: tw('emptyFavorites'),
+      emptyHistory: tw('emptyHistory'),
+      clearHistory: tw('clearHistory'),
+      dragInsertBefore: tw('dragInsertBefore'),
+      dragInsertAfter: tw('dragInsertAfter'),
+      closeTab: tw('closeTab'),
+    }),
+    [tw],
+  )
   // 性能修复(2026-07-25):原 25+ 字段全解构 `useWorkPanelStore()` 等价于订阅整个 state,
   // 任何字段(tabs 切换 / addressInput 输入 / recentUrls 追加)变化都会触发 WebWorkPanel 重渲染,
   // 内含 iframe/WebViewFrame 重建开销极大。改用 useShallow 浅比较,只对返回对象做浅层 diff,
@@ -282,6 +311,7 @@ export function WebWorkPanel() {
         onTabClose={closeTab}
         onTabReorder={reorderTabs}
         onNewTab={() => newTab()}
+        labels={workPanelLabels}
         className="border-l-0"
       >
         {isProxyMode && proxyUrl ? (
