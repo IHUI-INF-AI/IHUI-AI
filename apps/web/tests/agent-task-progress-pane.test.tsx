@@ -131,7 +131,6 @@ const { mockT } = vi.hoisted(() => {
     shortcutsGroupTrigger: '触发器',
     shortcutSectionNav: '折叠子区上下切换',
     shortcutSectionFirstLast: '跳到第一个/最后一个子区',
-    shortcutShowHelp: '打开/关闭快捷键帮助',
     shortcutCloseHelp: '关闭快捷键帮助',
     shortcutTogglePane: '切换面板开关',
     shortcutOpenPane: '在输入框打开面板',
@@ -2214,7 +2213,7 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('帮助面板含 3 个分组(导航 / 面板 / 触发器),每组 1-2 个快捷键', () => {
+  it('帮助面板含 3 个分组(导航 / 面板 / 触发器),不再声明 ? (键位唯一归全局面板)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
     fireEvent.click(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement)
@@ -2226,13 +2225,54 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     // 检查 kbd 元素(快捷键标识)
     const kbds = container.querySelectorAll('kbd')
     expect(kbds.length).toBeGreaterThan(0)
-    // 检查含 "?" 快捷键
+    // 检查快捷键集合
     const kbdTexts = Array.from(kbds)
       .map((k) => k.textContent)
       .join('')
-    expect(kbdTexts).toContain('?')
     expect(kbdTexts).toContain('Esc')
     expect(kbdTexts).toContain('Ctrl+Shift+J')
+    // 2026-09-22:`?` 已唯一归属全局快捷键面板 → 帮助面板不得再文档化它(误导)
+    expect(kbdTexts).not.toContain('?')
+    expect(container.textContent).not.toContain('打开/关闭快捷键帮助')
+  })
+
+  // 2026-09-22:pane 底边不得压住对话列右下角的浮动 affordance 列(z-sticky 990 覆盖 z-20)
+  it('拖拽底边 clamp:压住 affordance 列时回退到带沿,三种不该动的场景保持原值', async () => {
+    const mod = await import('../src/components/ai/agent-task-progress-pane')
+    const clamp = mod.clampPaneAboveAffordanceRail
+    const rail = document.createElement('div')
+    rail.setAttribute('data-testid', 'scroll-jump-buttons')
+    document.body.appendChild(rail)
+    const pane = document.createElement('div')
+    document.body.appendChild(pane)
+    const stub = (r: { left: number; top: number; right: number; bottom: number }) =>
+      (() => ({
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+        x: r.left,
+        y: r.top,
+        width: r.right - r.left,
+        height: r.bottom - r.top,
+        toJSON: () => ({}),
+      })) as unknown as () => DOMRect
+    // 实测复现值:pre-fix 持久化 translate(116px, 212px) → pane 288..568 × 174..297
+    // 完全罩住 rail 412..444 × 200..272
+    rail.getBoundingClientRect = stub({ left: 412, top: 200, right: 444, bottom: 272 })
+    pane.getBoundingClientRect = stub({ left: 288, top: 174, right: 568, bottom: 297 })
+    expect(clamp(pane, 116, 212)).toBe(115) // 212 - (297 - 200)
+    expect(pane.style.transform).toBe('translate(116px, 115px)')
+    // 反例 1:水平不重叠 → 不回退
+    pane.getBoundingClientRect = stub({ left: 600, top: 174, right: 880, bottom: 297 })
+    expect(clamp(pane, 600, 212)).toBe(212)
+    // 反例 2:底边本就在带沿之上 → 不回退
+    pane.getBoundingClientRect = stub({ left: 288, top: 40, right: 568, bottom: 180 })
+    expect(clamp(pane, 116, 40)).toBe(40)
+    // 反例 3:affordance 列不在 DOM(消息列表未挂载)→ 不回退
+    rail.remove()
+    expect(clamp(pane, 116, 212)).toBe(212)
+    pane.remove()
   })
 
   it('点击帮助面板的关闭按钮:关闭帮助面板', () => {

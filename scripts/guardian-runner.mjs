@@ -1438,6 +1438,54 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 68 (2026-09-22 新增,权限模式词汇对账,PROJECT_PLAN G-161 配套) ---
+  // blocking:同一语义曾有 5 套拼写并存(agent-runtime 5-camel / workspace 4-kebab /
+  //   api-client 3-kebab / AgentLoopV2 default+plan+auto / 对外文档 read-only+accept-all+plan-only),
+  //   非法值被 Pydantic 静默丢弃或在构造期 ValueError 打 500 —— 即"客户端发了 ≠ 服务端生效"。
+  //   判据:TS 注册表 ↔ Python 注册表成员/别名逐字一致 + 消费点取值必须已注册 +
+  //   决策位不得拿别名比较 + 不许自造档位白名单。有效性由 --self-test 注入违规自证(11 例)。
+  {
+    id: '68',
+    label: '🔐 权限模式词汇对账(blocking,跨语言注册表一致 + 消费点禁漂移)',
+    script: 'check-permission-mode-vocabulary.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/types/src/permission-mode.ts',
+      'packages/types/src/agent-runtime.ts',
+      'packages/types/src/workspace.ts',
+      'packages/api-client/src/endpoints/workspace.ts',
+      'apps/ai-service/app/core/permission_mode.py',
+      'apps/ai-service/app/services/agent_loop_v2.py',
+      'apps/ai-service/app/routers/agent_runtime.py',
+      'apps/ai-service/app/routers/agents.py',
+      'apps/api/src/routes/workspace-permissions.ts',
+      'apps/api/src/routes/v1-ai-core.ts',
+      'apps/cli/src/tools/permissions.ts',
+      'apps/cli/src/commands/settings.ts',
+      'apps/cli/src/commands/config-cmd.ts',
+      'apps/cli/src/commands/repl.ts',
+      'apps/cli/src/commands/status-cmd.ts',
+      'apps/cli/src/commands/agent.ts',
+      'packages/types/package.json',
+      'scripts/tests/check-permission-mode-vocabulary.test.mjs',
+      'docs/developer/api/agents.md',
+      'scripts/check-permission-mode-vocabulary.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_PERMISSION_VOCAB',
+    onFailHint: [
+      '',
+      '  💡 权限档有 5 套拼写时,"发了"和"生效"是两件事 —— 本门拦的就是这个。',
+      '     唯一真源:packages/types/src/permission-mode.ts ↔ app/core/permission_mode.py',
+      '     改法:先在两侧同时登记成员/别名(顺序反了就是 R1 红),再改消费点。',
+      '     决策位比较请用 is_readonly_permission_mode / skips_approval_permission_mode,',
+      '     不要写 `== "auto"` 这类别名比较(R3 拦)。',
+      '     自检:node scripts/check-permission-mode-vocabulary.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PERMISSION_VOCAB=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 64 (2026-09-22 新增,miniapp-taro 适配层「未接线即拦」,PROJECT_PLAN P2-F.5 配套) ---
   // blocking:适配层历史上 18 个 .taro.tsx 里的 9 个屏级(共 3078 行)从写下到删除始终零页面引用,
   //   而既有 check-adapter-style-parity.mjs 只守硬编码颜色、不守「是否被 import」,
@@ -1485,6 +1533,64 @@ const checks = [
       '       node scripts/check-adapter-style-parity.mjs --update-baseline 后随本次提交一起 add 基线文件',
       '     自检:node scripts/check-adapter-style-parity.mjs',
       '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_STYLE_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 67 (2026-09-22 新增,凭据经非2xx message 外泄对账,PROJECT_PLAN P2-F.8 配套) ---
+  // blocking:response-sanitizer.ts:496 明写非 2xx 响应原样返回(不打码),于是"把上游响应体
+  //   stringify 进 error message"构成脱敏体系的真实旁路 —— 已发生真实事故:
+  //   proxy-extended-media3.ts 曾把 Adobe IMS OAuth2 令牌端点整个响应体(含 access_token)
+  //   拼进 502 message 回传客户端(修复见 7384c92ed0)。本门把该类目变成结构性不可能。
+  // 判据刻意窄(宁漏不误报):仅在 4xx/5xx 构造上下文内、且被 stringify 的实参具备凭据语义时 BLOCK;
+  //   errData/genData/data 这类非凭据实参只进"低置信候选"清单打印、不计失败
+  //   (全仓此类历史写法 35 处 / 13 文件,一律拦会变成阻塞他人的假阳性)。
+  {
+    id: '67',
+    label: '🔐 凭据经非2xx message 外泄对账(blocking,拦上游令牌/密钥响应体被拼进错误消息)',
+    script: 'check-credential-leak-in-message.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/'],
+    skipEnv: 'HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE',
+    onFailHint: [
+      '',
+      '  💡 非 2xx 响应**不经** response-sanitizer(plugins/response-sanitizer.ts:496 直接 return payload),',
+      '     所以把上游响应体拼进 error message 等于绕过脱敏把凭据发出去。',
+      '     改法:message 只放厂商名 / HTTP 状态码 / RFC 6749 的 error 码等白名单字段,',
+      '            需要排查上游返回内容时改为记服务端日志(且日志亦不得含令牌原文)。',
+      '     低置信候选(实参名无凭据语义)不拦,仅供人审;确属长期豁免时:',
+      '       node scripts/check-credential-leak-in-message.mjs --update-baseline',
+      '     自检:node scripts/check-credential-leak-in-message.mjs --self-test',
+      '           node --test scripts/tests/check-credential-leak-in-message.test.mjs',
+      '     紧急跳过(不推荐,本门是安全门):HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 快捷键"声明 ↔ 归属"对账(2026-09-22 立)。成因两例都是真实发生过的:
+  //   ① view-switcher 曾给 document/browser/figma/code-changes/agent 五个点选项标 Ctrl+1-5,
+  //      而这族键位实际被 use-global-shortcuts 注册表接走(按下去切 AI 对话模式) —— 标签说谎;
+  //   ② 注册表条目"有键无消费者"。判据两类:声明未绑(unbound)+ 同键被他功能接走(mislabelled),
+  //      后者只认 field 类声明(点选动作旁标的键位),<kbd>/正文描述类不纳入 —— 那类合法地在
+  //      描述**别的表面**的键位,纳进必假红。
+  {
+    id: '69',
+    label: '⌨️ 快捷键声明与归属对账(blocking,声明未绑 / 同键被他功能接走)',
+    script: 'check-declared-shortcuts.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_DECLARED_SHORTCUTS',
+    onFailHint: [
+      '',
+      '  💡 两类红点各自对应一种交付事故:',
+      '     ① 声明未绑:UI 上写了 `Ctrl+X` 但全仓没有处理器 → 要么把功能实现,要么把标签删掉。',
+      '     ② 同键被他功能接走:点选项标的键位其实归注册表里**另一个动作**(按下去干的不是这件事)。',
+      '        正解二选一:换标签/删标签;或让本组件独占该键(自有 handler + `e.stopPropagation()`)。',
+      '     全量审计与逐条定位:node scripts/check-declared-shortcuts.mjs',
+      '     自检:node --test scripts/tests/check-declared-shortcuts.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_DECLARED_SHORTCUTS=1 git commit ...',
       '',
     ].join('\n'),
   },

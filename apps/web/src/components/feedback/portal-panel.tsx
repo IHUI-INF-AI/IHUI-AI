@@ -8,6 +8,7 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { PORTAL_PANEL_POSITION_STYLE, type PortalPanelAnchor } from '@/lib/portal-panel-position'
 import { usePortalPanelPosition } from '@/hooks/use-portal-panel-position'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { cn } from '@/lib/utils'
 
 /**
@@ -56,6 +57,12 @@ export interface PortalPanelProps extends PortalPanelAnchor {
   zIndexClassName?: string
   /** 需要在面板元素上做焦点管理/contains 判断时,透传面板 ref */
   panelRef?: React.RefObject<HTMLDivElement | null>
+  /**
+   * 层栈 id(可选):传入则内部 Esc 与调用方自己的 Esc 处理器可共用
+   * `isTopOverlay(overlayId)` 判定,实现"一次 Esc 只关最上层"。
+   * 不传时用组件自动生成的实例 id(仍是栈顶独占 Esc)。
+   */
+  overlayId?: string
   children: React.ReactNode
 }
 
@@ -69,6 +76,7 @@ export function PortalPanel({
   testId,
   zIndexClassName = 'z-popover',
   panelRef: externalPanelRef,
+  overlayId,
   side,
   align,
   gap,
@@ -76,6 +84,10 @@ export function PortalPanel({
 }: PortalPanelProps) {
   const innerPanelRef = React.useRef<HTMLDivElement>(null)
   const panelRef = externalPanelRef ?? innerPanelRef
+  // 层栈身份:优先用调用方给的稳定 id(便于其自有 Esc 处理器共用同一判定),
+  // 否则用 React 实例 id(同一组件多实例也互不相同)。
+  const autoId = React.useId()
+  const stackId = overlayId ?? `portal-panel:${autoId}`
   const coords = usePortalPanelPosition({
     anchorRef,
     panelRef,
@@ -83,11 +95,24 @@ export function PortalPanel({
     anchor: { side, align, gap },
   })
 
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  // pushOverlay 幂等,StrictMode 双跑 effect 不会产生重复项。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(stackId)
+    return () => popOverlay(stackId)
+  }, [open, stackId])
+
   // 统一关闭逻辑:Escape + 外点(mousedown/touchstart,排除面板与锚点内部)
   React.useEffect(() => {
     if (!open || !onClose) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层,其余保持打开
+      // (此前各层都在 document 上各挂一个监听器,一次 Esc 把所有层一起关掉)
+      if (e.key === 'Escape') {
+        if (!isTopOverlay(stackId)) return
+        onClose()
+      }
     }
     const onPointer = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node | null
@@ -104,7 +129,7 @@ export function PortalPanel({
       document.removeEventListener('mousedown', onPointer)
       document.removeEventListener('touchstart', onPointer)
     }
-  }, [open, onClose, anchorRef, panelRef])
+  }, [open, onClose, anchorRef, panelRef, stackId])
 
   if (!open || typeof document === 'undefined') return null
 
