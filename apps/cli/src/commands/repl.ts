@@ -45,6 +45,7 @@ import {
   describeToolActivityLine,
   injectionNoteText,
   citationNoteText,
+  permissionModeNote,
   retryNoteText,
   planStepsFromTodos,
   toolActivityLabel,
@@ -678,6 +679,18 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   capParts.push(`权限 ${permColor(opts.permissionMode ?? 'default')}`);
   capParts.push(`循环 ${opts.maxIterations}`);
   console.info(`  ${chalk.dim('能力:')} ${capParts.join(chalk.dim('  ·  '))}`);
+
+  // G-153:权限档的后果说明(只报档名 = 让用户盲选);未知档不打印
+  const permNote = permissionModeNote(opts.permissionMode ?? 'default');
+  if (permNote) {
+    const paint =
+      opts.permissionMode === 'bypassPermissions'
+        ? chalk.red
+        : opts.permissionMode === 'acceptEdits'
+          ? chalk.yellow
+          : chalk.dim;
+    console.info(`  ${chalk.dim('权限说明:')} ${paint(permNote)}`);
+  }
 
   // 模型切换 + 配置入口提示(用户反馈"不知道在哪里切换模型配置模型 不明显")
   console.info(`  ${chalk.dim('切换:')} ${chalk.cyan('/model')} 切模型  ${chalk.cyan('/config')} 改配置  ${chalk.cyan('/models')} 看列表`);

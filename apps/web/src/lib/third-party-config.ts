@@ -249,7 +249,7 @@ export const APP_CONFIG: ThirdPartyPlatformConfig = {
 export const OIDC_CONFIG: ThirdPartyPlatformConfig = {
   enabled: getEnvBool('NEXT_PUBLIC_OIDC_ENABLED', false),
   redirectUri: '',
-  proxyPath: '/api/auth/oauth/oidc/redirect',
+  proxyPath: '/api/auth/oauth/oidc/redirect', // method: GET
 }
 
 /** 平台 → 配置映射 */
