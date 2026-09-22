@@ -1097,7 +1097,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **工程约束**(12/13b/13c/15/19/21/22/23):交付报告 / PLAN 体积(warn)+防误删 / 迁移完整性 / staged 污染(warn)/ 多端同步(warn)/ README 同步(warn)/ staged 清单(info)
 - **Push/工作区**(25/26/29):项目外路径(阻塞)/ 父目录污染(阻塞)/ Push 同步(阻塞)
 - **防提交丢失**(30a):reflog reset 检测 + fsck 悬空 commit 检测 + lost-commit/* tag 备份清单(AGENTS.md §22 配套,blocking)
-- **适配层接线**(64):miniapp-taro `adapters/*.taro.tsx` 未被 adapters **目录外**源文件从 adapters 路径 import 即拦截(blocking,2026-09-22 立)。补 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import"的缺口——9 个屏级适配器 3078 行"造好没装车"直到删除始终无闸可挡,即本条成因。存量 3 项(Carousel/NavBar/UserInfoCard,端内确有消费点 3/4/1 处)走 `scripts/adapter-wiring-baseline.json` 基线只减不增;判据必须限定 specifier,否则端内同名自有组件(`components/NavBar.tsx` 等)会造成假阳性放过死代码。紧急跳过 `HUSKY_SKIP_ADAPTER_WIRING=1`,自检 `node --test scripts/tests/check-adapter-wiring.test.mjs`
+- **适配层接线**(64):miniapp-taro `adapters/*.taro.tsx` 未被 adapters **目录外**源文件从 adapters 路径 import 即拦截(blocking,2026-09-22 立)。补 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import"的缺口——9 个屏级适配器 3078 行"造好没装车"直到删除始终无闸可挡,即本条成因。存量基线已清零(`scripts/adapter-wiring-baseline.json` = `unwiredAdapters: []`),任何新增未接线适配器一律直接拦截;判据必须限定 specifier,否则端内同名自有组件(`components/NavBar.tsx` 等)会造成假阳性放过死代码。紧急跳过 `HUSKY_SKIP_ADAPTER_WIRING=1`,自检 `node --test scripts/tests/check-adapter-wiring.test.mjs`
 - **Python 类型**(35):mypy 检查(阻塞,防 ai-service Python 类型回退)
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
