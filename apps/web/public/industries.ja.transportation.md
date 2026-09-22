@@ -142,14 +142,14 @@
                      |
 +--------------------v--------------------+
 | データ層 (高可用クラスタ)                      |
-| - PostgreSQL 16 + 時系列 DB + Redis 7       |
+| - PostgreSQL 18 + 時系列 DB + Redis 7       |
 | - フローティングカー + チェックポイント履歴 + GIS |
 +-----------------------------------------+
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
 - **Web** (Next.js 16 + React 19): 交通指揮大型ディスプレー
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): リアルタイム路况 API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): リアルタイム路况 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): マルチエージェント協調
 - **デスクトップ** (Tauri 2): 緊急指揮ワークステーション
 - **拡張** (WXT): 地図側リアルタイム情報
@@ -159,7 +159,7 @@
 
 ### 技術スタック
 - フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI
 - リアルタイムストリーム: Kafka / Apache Flink
@@ -184,7 +184,7 @@
 | 平均投資回収周期 | 6 ヶ月 |
 | 12 ヶ月 ROI | 220% |
 
-(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 16、Redis 7、Kafka)
+(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 18、Redis 7、Kafka)
 
 ### よくある質問 FAQ
 - Q: データ遅延は?
