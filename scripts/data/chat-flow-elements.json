@@ -246,6 +246,38 @@
       ]
     },
     {
+      "id": "upstream-retry-disclosure",
+      "title": "上游重试交代行(第 N/M 次 + 多久后继续;立即重试不写\"0 秒\")",
+      "sourceTask": "D39/D108",
+      "events": ["retry_scheduled"],
+      "anchors": [
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "tryParseRetryScheduled"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/send-message.ts",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/retry-notice.tsx",
+          "mustMatch": "RetryNotice"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "onRetryScheduled"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "retryNoteText"
+        }
+      ]
+    },
+    {
       "id": "tool-row-bilingual-tense-wording",
       "title": "工具行双时态活动措辞(正在 X / 已 X;失败与撤回不声称已完成)",
       "sourceTask": "D81①/D83/D98",
