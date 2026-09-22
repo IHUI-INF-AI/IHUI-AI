@@ -155,11 +155,17 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_PB_Y       306
 !define IHUI_PB_W       544
 !define IHUI_PB_H       10
-!define IHUI_PCT_X      288   ; 百分比大字槽(右对齐至 748,右侧由位图烧 % 字形)
-!define IHUI_PCT_Y      240
-!define IHUI_PCT_W      460
-!define IHUI_PCT_H      58
-!define IHUI_PCT_PX     48    ; 百分比字号(逻辑像素)
+; 百分比徽章:数字与 `%` 由**同一个** STATIC 居中排版(见 IHUI_PROGRESS),位图侧不烧 `%`。
+; 矩形中心 = (IHUI_PCT_X + W/2, Y + H/2) = (740, 220),必须与
+; scripts/desktop-installer-assets.mjs 的 PCT_CX/PCT_CY 严格相等 —— 双环是位图烧的,
+; 数字是控件画的,只有两个中心对齐,数字才在环心。用 SS_CENTER 而非 SS_RIGHT:
+; 右对齐会让 "6%"→"100%" 在环里左右平移。
+!define IHUI_PCT_X      640
+!define IHUI_PCT_Y      187
+!define IHUI_PCT_W      200
+!define IHUI_PCT_H      66
+!define IHUI_PCT_PX     46    ; 百分比字号(逻辑像素,数字与 % 同字号同基线)
+!define IHUI_PCT_STYLE  0x50000001 ; SS_BLACKFRAME|SS_NOTIFY|SS_CENTER(居中于环心)
 !define IHUI_STG_X      288   ; 阶段文案槽
 !define IHUI_STG_Y      334
 !define IHUI_STG_W      544
@@ -298,9 +304,10 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     System::Call "user32::SetWindowRgn(p $IHUIPB2, p R3, i 1)"
   ${EndIf}
   ${If} $IHUIPCT <> 0
-    ; % 字形已烧在位图里(与数字同一条基线、同套配色),这里只写数字 ——
-    ; 否则运行期再补一个 % 会变成 "92% %"(2026-09-22 截图实锤)。
-    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}"
+    ; 数字与 `%` 一起写进同一个 STATIC:对齐交给文字引擎,不再有位图/控件两套真相。
+    ; (位图侧的 `%` 字形已删除 —— 它按 SVG 20px 基线 288 烧,而数字是 GDI 48px,
+    ;  两套度量必然错位,用户实机看到的就是"错位 + 偏小"。)
+    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}%"
   ${EndIf}
   ${If} $IHUISTG <> 0
     !insertmacro IHUI_SETTEXT $IHUISTG "${TEXT}"
@@ -425,22 +432,28 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ;   就会让未贴皮的原生按钮从洞里露出来(2026-09-22 截图实锤:左下一块空白浅灰矩形)。
 !macro IHUI_INST_HOLES INCLCTA INCLCANCEL
   System::Call "gdi32::CreateRectRgn(i 0, i 0, i $IHUIWW, i $IHUIWH) p .R1"
+  ; ⚠️ 洞必须与按钮矩形**逐像素等大**,不得外扩。
+  ;   2026-09-23 PrintWindow 像素取证:位图在槽位内 5760/5760 完全一致(换皮本身没问题),
+  ;   但紧贴按钮矩形外 1px 是一圈 #f0f0f0 —— 那是父对话框为 BUTTON 返回的**经典面色刷**
+  ;   (WM_CTLCOLORBTN),旧写法把洞外扩 2px,正好把这圈面色透出到品牌底上,
+  ;   用户看到的就是"完成按钮方形白边"。洞改成等大后,按钮向外多画的任何一像素
+  ;   都被内层 dialog(在按钮之上)盖住,白边从机制上不可能再出现。
   ${If} ${INCLCANCEL} = 1
-    ; 取消槽: 按钮盒 (288,500)-(384,540),洞区外扩 2px → (286,498)-(386,542)
-    !insertmacro IHUI_PX $R2 286
-    !insertmacro IHUI_PX $R3 498
-    !insertmacro IHUI_PX $R4 386
-    !insertmacro IHUI_PX $R5 542
+    ; 取消槽: 按钮盒 (288,500)-(384,540)
+    !insertmacro IHUI_PX $R2 288
+    !insertmacro IHUI_PX $R3 500
+    !insertmacro IHUI_PX $R4 384
+    !insertmacro IHUI_PX $R5 540
     System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
     System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
     System::Call "gdi32::DeleteObject(p R6)"
   ${EndIf}
   ${If} ${INCLCTA} = 1
-    ; CTA 槽: 按钮盒 (688,500)-(832,540),洞区外扩 2px → (686,498)-(834,542)
-    !insertmacro IHUI_PX $R2 686
-    !insertmacro IHUI_PX $R3 498
-    !insertmacro IHUI_PX $R4 834
-    !insertmacro IHUI_PX $R5 542
+    ; CTA 槽: 按钮盒 (688,500)-(832,540)
+    !insertmacro IHUI_PX $R2 688
+    !insertmacro IHUI_PX $R3 500
+    !insertmacro IHUI_PX $R4 832
+    !insertmacro IHUI_PX $R5 540
     System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
     System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
     System::Call "gdi32::DeleteObject(p R6)"
@@ -1141,8 +1154,8 @@ Function IHUIInstShow
     ShowWindow $IHUIPB 0
     System::Call "user32::MoveWindow(p $IHUIPB, i -4000, i -4000, i 8, i 8, i 1)"
   ${EndIf}
-  ; 百分比大字:右对齐 STATIC(带初值文本),与「正在安装」标题同水平带对位
-  !insertmacro IHUI_TEXTCTL $IHUIPCT 0x50000002 "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
+  ; 百分比徽章:居中对齐 STATIC,与位图烧的双环同中心(见 IHUI_PCT_* 注释)
+  !insertmacro IHUI_TEXTCTL $IHUIPCT ${IHUI_PCT_STYLE} "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
   SetCtlColors $IHUIPCT FAFAFA 242424
   ; 阶段文案:左对齐 STATIC(初值为空,由 IHUI_PROGRESS 立即写入文本)
   !insertmacro IHUI_TEXTCTL $IHUISTG 0x50000000 " " ${IHUI_STG_X} ${IHUI_STG_Y} ${IHUI_STG_W} ${IHUI_STG_H}

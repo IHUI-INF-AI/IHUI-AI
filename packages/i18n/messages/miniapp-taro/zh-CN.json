@@ -778,6 +778,7 @@
       },
       "terminal": {
         "title": "终端任务",
+        "isolation": "命令在隔离沙箱中执行，默认不开放网络",
         "copy": "复制",
         "copied": "已复制",
         "exitCode": "退出码:{code}",
