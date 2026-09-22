@@ -1691,6 +1691,17 @@ pub fn run() {
                     let _ = save_window_state(Some(label.clone()), app);
                 }
             }
+            // 窗口焦点变化推给前端(2026-09-22 立):窗口 decorations:false,标题栏与
+            // Min/Max/Close 三按钮全由前端自绘,DWM 不会替我们画"非活动窗口"的灰态。
+            // 内核自带的 tauri://focus|blur 在远程 URL 页面实测收不到(真机聚焦/失焦两态
+            // 像素逐字相同),所以走与 desktop-tray-action 同一条已被生产验证可用的应用层通道。
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if label == "main" || label == "admin" {
+                    if let Err(e) = window.emit("desktop-window-focus", focused) {
+                        log::warn!("[desktop-event] emit desktop-window-focus failed: {}", e);
+                    }
+                }
+            }
             // 窗口移动 / 缩放过程中防抖持久化(300ms 内合并,避免每次拖动都写盘)
             // 2026-07-27 立:扩展 admin 窗口也持久化位置/尺寸
             if let tauri::WindowEvent::Resized(_) = event {
