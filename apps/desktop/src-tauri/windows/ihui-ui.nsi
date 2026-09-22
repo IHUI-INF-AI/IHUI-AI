@@ -84,9 +84,11 @@ Var IHUIR6         ; region 计算临时量(宽-2)
 Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
-Var IHUIPCT       ; 安装页百分比大字句柄(STATIC,右对齐)
+Var IHUIPCT       ; 安装页百分比大字句柄(STATIC,居中于双环)
 Var IHUISTG       ; 安装页阶段文案句柄(STATIC)
 Var IHUIPB2       ; 安装页自绘品牌进度条填充句柄(SS_BITMAP + region 裁宽)
+Var IHUIPLAST     ; 安装页已显示的百分比(补间游标)
+Var UNPLAST       ; 卸载页已显示的百分比(补间游标)
 Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程退出随窗口消亡)
 
 ; =====================================================================
@@ -283,36 +285,58 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !macroend
 
 ; =====================================================================
-; 安装进度:阶段驱动(2026-09-22)
-; 为什么不是"实时读原生进度条":实测(.ihui-agent/tmp/installer-timer-probe)
-;   instfiles 页 Section 执行期间 ${NSD_CreateTimer} 派发次数 = 0;
-;   System 插件回调按官方文档判死("a callback can only be called while
-;   calling another function"),安装页拿不到任何定时器/消息钩子。
-; 结论:百分比只能由 Section 内的显式阶段调用驱动(补丁 P7 埋点)。
-;   同一份数值同时喂给自绘品牌条 + 百分比大字 + 阶段文案,三者永远一致,
-;   也不会再出现"原生条走到 100%、数字还停在 30%"的双真相。
+; 安装进度:阶段锚点 + 逐 1% 补间(2026-09-23 改)
+; 锚点仍由 Section 显式上报(补丁 P7)—— 因为实测 instfiles 页拿不到任何定时器:
+;   Section 执行期间 ${NSD_CreateTimer} 派发次数 = 0,System 插件回调亦被官方文档判死。
+; 但"柔和过渡"**不需要定时器**:补间由 Section 自己一步步画完 —— 条宽走 SetWindowRgn、
+;   数字走 SetWindowTextW,两者都在 UI 线程内同步生效,中间插一个 Sleep 就是动画。
+; 纪律:游标只会走到"已经真实完成的那一步"的锚点值,绝不越过目标 → 不是假进度。
 ; 参数: 百分比整数(0-100) / 阶段文案
 ; =====================================================================
-!macro IHUI_PROGRESS PCT TEXT
+!define IHUI_STEP_MS 25   ; 每 1% 的停顿(100% 全程 ≈ 2.5s;静默安装走下面那条零耗时分支)
+
+; 用游标 $IHUIPLAST 刷一次条宽与数字(终值与补间共用同一画法,不留两套真相)
+!macro IHUI_PAINT_LAST
   ${If} $IHUIPB2 <> 0
-    ; 填充宽 = 轨道宽 × PCT / 100(先按 DPI 换算轨道全宽物理值,再按比例缩)
     !insertmacro IHUI_PX $R1 ${IHUI_PB_W}
-    IntOp $R1 $R1 * ${PCT}
+    IntOp $R1 $R1 * $IHUIPLAST
     IntOp $R1 $R1 / 100
     !insertmacro IHUI_PX $R2 ${IHUI_PB_H}
     System::Call "gdi32::CreateRectRgn(i 0, i 0, i R1, i R2) p .R3"
     System::Call "user32::SetWindowRgn(p $IHUIPB2, p R3, i 1)"
   ${EndIf}
   ${If} $IHUIPCT <> 0
-    ; 数字与 `%` 一起写进同一个 STATIC:对齐交给文字引擎,不再有位图/控件两套真相。
-    ; (位图侧的 `%` 字形已删除 —— 它按 SVG 20px 基线 288 烧,而数字是 GDI 48px,
-    ;  两套度量必然错位,用户实机看到的就是"错位 + 偏小"。)
-    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}%"
+    ; 数字与 `%` 同一个 STATIC:对齐交给文字引擎(位图侧的 `%` 字形已删除)
+    IntFmt $R4 "%d%%" $IHUIPLAST
+    System::Call "user32::SetWindowTextW(p $IHUIPCT, w R4)"
   ${EndIf}
+!macroend
+
+!macro IHUI_PROGRESS PCT TEXT
   ${If} $IHUISTG <> 0
     !insertmacro IHUI_SETTEXT $IHUISTG "${TEXT}"
   ${EndIf}
+  ${If} $IHUIPB2 = 0
+  ${AndIf} $IHUIPCT = 0
+    ; 静默 / 更新模式下没有品牌进度页 → 只对齐游标,一帧都不画,不额外耗时间
+    StrCpy $IHUIPLAST ${PCT}
+  ${Else}
+    ${If} $IHUIPLAST > ${PCT}
+      StrCpy $IHUIPLAST ${PCT}   ; 锚点回退(不该发生)时直接对齐,不放倒动画
+    ${EndIf}
+    ${Do}
+      ${If} $IHUIPLAST >= ${PCT}
+        ${ExitDo}
+      ${EndIf}
+      IntOp $IHUIPLAST $IHUIPLAST + 1
+      !insertmacro IHUI_PAINT_LAST
+      Sleep ${IHUI_STEP_MS}
+    ${Loop}
+    StrCpy $IHUIPLAST ${PCT}
+    !insertmacro IHUI_PAINT_LAST
+  ${EndIf}
 !macroend
+
 ; ---- 页头右上角品牌窗口钮(最小化 / 关闭;自定义页专用,IHUI_BTN 同款 STATIC 机制) ----
 ; 位置: 关闭 (820,20,36,36) · 最小化 (776,20,36,36) —— 与页头位图右上留白对齐;
 ; 位图 kicker「安装向导 / SETUP」已由资产生成器下移到 y=76 避让控件位。
@@ -1156,6 +1180,8 @@ Function IHUIInstShow
   ${EndIf}
   ; 百分比徽章:居中对齐 STATIC,与位图烧的双环同中心(见 IHUI_PCT_* 注释)
   !insertmacro IHUI_TEXTCTL $IHUIPCT ${IHUI_PCT_STYLE} "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
+  ; 补间游标归零(Var 初值是空串,不归零会让第一次 IntOp 从空值起算)
+  StrCpy $IHUIPLAST 0
   SetCtlColors $IHUIPCT FAFAFA 242424
   ; 阶段文案:左对齐 STATIC(初值为空,由 IHUI_PROGRESS 立即写入文本)
   !insertmacro IHUI_TEXTCTL $IHUISTG 0x50000000 " " ${IHUI_STG_X} ${IHUI_STG_Y} ${IHUI_STG_W} ${IHUI_STG_H}
