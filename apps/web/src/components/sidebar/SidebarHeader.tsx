@@ -159,13 +159,25 @@ export function SidebarHeader({
         {/* 方形品牌logo:与 EmptyState 同源 /images/logo.png,36×36 原样显示。
             2026-09-21 用户要求去掉遮罩容器圆角:该 PNG 自身已是 22% 圆角 + 四角透明的成品图
             (2534px 上约 558px 半径,缩到 36px ≈ 8px),再套 rounded-xl(12px)比图自身更圆,
-            会把黑底四角切出缺口露出底色;button 包裹满足键盘可达性 */}
-        <button
-          type="button"
+            会把黑底四角切出缺口露出底色。
+            2026-09-22 与展开态统一:改用 span[role=button] 而非 <button> —— Tauri 拖拽脚本
+            跳过 img/button 等原生可交互标签(实测挂在 img 上零位移、挂在 div/span 上 1:1),
+            故把 img 置 pointer-events-none、拖窗属性与点击挂在本层 span;键盘可达性由
+            tabIndex + Enter/Space 补齐,不靠豁免 lint。 */}
+        <span
+          role="button"
+          tabIndex={0}
           aria-label="IHUI AI"
+          data-tauri-drag-region
           data-window-drag
           onClick={() => navigate('/')}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              navigate('/')
+            }
+          }}
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_img]:pointer-events-none"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
           <img
@@ -174,10 +186,9 @@ export function SidebarHeader({
             width={36}
             height={36}
             draggable={false}
-            data-tauri-drag-region
             className="h-9 w-9 select-none object-contain"
           />
-        </button>
+        </span>
         {/* 2026-09-21 修复(用户反馈"拉出按钮跟+号重合 + 按钮变长方形"):
             TOPBAR_BTN_BASE 内置 h-full,折叠态 header 是 flex-col 自动高度,循环百分比解析
             被 Chrome 一次性解析成 60px 高 → 按钮变 36×60 长方形并压住下方 + 新建任务按钮。
@@ -234,19 +245,34 @@ export function SidebarHeader({
           2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
       <span
         data-sidebar-logo
-        // 桌面端把 logo 当拖窗把手,必须掐掉 <img> 原生拖拽(否则浏览器起图片幽灵拖拽)
+        // 拖窗属性必须挂在"真正承接 mousedown 的元素"上:Tauri 的拖拽脚本会跳过
+        // img 这类原生可拖标签(实测挂在 img 上完全不生效),故把 img 置为
+        // pointer-events-none,让按下落到本 span;点击语义随之上移到本层。
+        // 用 span+role 而非 <button>:button 标签同样在 Tauri 拖拽脚本的跳过名单里。
+        data-tauri-drag-region
+        // 双保险:原生拖拽生效时模态循环会吃掉 mousemove(JS 路径自然不触发);
+        // 若 Tauri 也跳过 role=button,则退到 JS 位移阈值路径,不至于完全拖不动
+        data-window-drag
+        role="button"
+        tabIndex={0}
+        aria-label="IHUI AI"
         onDragStart={(e) => {
           if (isDesktop) e.preventDefault()
         }}
-        className="flex shrink-0"
+        onClick={() => navigate('/')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            navigate('/')
+          }
+        }}
+        className="flex shrink-0 cursor-pointer [&_img]:pointer-events-none"
       >
         <ThemeLogo
           clickable
-          dragRegion
           width={80}
           height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
+          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 transition-opacity hover:opacity-75"
         />
       </span>
       <Tooltip content={t('collapse')} side="right">

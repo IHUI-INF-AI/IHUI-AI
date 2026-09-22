@@ -110,7 +110,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
                 <Tooltip content={t('terminalTabBar.play')}>
                   <button
                     type="button"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       onPlay(rec.id)
@@ -124,7 +124,7 @@ export function RecordingDrawer({ recordings, onRefresh, onPlay, onDelete }: Rec
                 <Tooltip content={t('terminalTabBar.delete')}>
                   <button
                     type="button"
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       onDelete(rec.id)
