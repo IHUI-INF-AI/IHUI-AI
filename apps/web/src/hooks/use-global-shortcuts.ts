@@ -57,7 +57,7 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
-  // 2026-09-23 让位 IDE 家族:原 Ctrl+Shift+D 与 use-ide-shortcuts 的
+  // 2026-09-22 让位 IDE 家族:原 Ctrl+Shift+D 与 use-ide-shortcuts 的
   // `Ctrl+Shift+{E,F,G,D,A}` 视图切换族撞键(同一次按下既切 debug 视图又跳 /drama)。
   // IDE 族语义已固化在 activity-bar tooltip(迁移成本最高),故注册表改绑到
   // 本族已有的 Ctrl+Alt+{B,H,V} 语音族的 D 位(复核空闲:全仓无 Ctrl+Alt+D 处理器)。
@@ -67,8 +67,12 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
   // ③ 用户在面板内输入字符过滤 + ↑↓ 导航 + Enter 确认,完整覆盖 8 项菜单访问(2026-08-14 设置项已提取为顶栏独立按钮)
   { key: 'Ctrl+Shift+P', description: '命令面板(视图切换)', event: 'global-shortcut:open-plus' },
-  // VS Code 标准设置快捷键:Ctrl+, 直接打开设置页(高频入口,免命令面板搜索)
-  { key: 'Ctrl+,', description: '打开设置', event: 'global-shortcut:open-settings' },
+  // VS Code 标准设置快捷键改绑为 Ctrl+Shift+, (2026-09-22):原 Ctrl+, 与 use-ide-shortcuts
+  // 的 `case ','` → setActiveTopTab('settings') 同键双主 —— IDE 页面上焦点不在输入框时,
+  // 一次按键同时"切 IDE 设置视图"和"路由跳 /settings"(两个 window 级监听,互不截断)。
+  // IDE 族是编辑器内语义(VS Code 习惯),本项是跨页导航且顶栏/命令面板已有同名入口,
+  // 故本项让位改绑 Shift 位(复核空闲:全仓无 Ctrl+Shift+, 处理器)。
+  { key: 'Ctrl+Shift+,', description: '打开设置', event: 'global-shortcut:open-settings' },
   // 对话模式切换(2026-07-28 立,补全 ChatMode 4态三通道)
   // Ctrl+1/2/3/4 切换 build/plan/review/spec。此处统一做按键匹配 + preventDefault
   // (阻止浏览器 tab 切换),派发 `global-shortcut:mode-*` 事件由 GlobalHooksProvider
@@ -204,7 +208,10 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
     listenersRef.current.forEach((l) => l())
   }, [])
 
-  React.useSyncExternalStore(
+  // 版本号必须"被读出来并当作 useMemo 依赖":此前只 useSyncExternalStore 触发重渲染,
+  // 而 shortcuts 的依赖是 [scope] —— 注册发生在 effect 里(首帧 ref 还是空 Map),
+  // scope 又几乎不变,导致 memo 永不重算,Ctrl+/ 帮助面板永远渲染 0 行(真机取证)。
+  const shortcutsVersion = React.useSyncExternalStore(
     subscribe,
     () => versionRef.current,
     () => versionRef.current,
@@ -305,7 +312,7 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
         description: entry.description,
         active: entry.scope === 'global' || entry.scope === scope,
       })),
-    [scope],
+    [scope, shortcutsVersion],
   )
 
   return {
