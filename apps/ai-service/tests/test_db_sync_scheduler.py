@@ -25,6 +25,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import subprocess
+import sys
 import threading
 import time
 from datetime import UTC, datetime, timedelta, timezone
@@ -998,4 +1000,54 @@ class TestSyncHonestyContract:
         assert "i.indisunique" in src, "SQL_UNIQUE 未纳入唯一索引"
         assert "NOT i.indisprimary" in src, "SQL_UNIQUE 未排除主键索引"
         assert "i.indpred IS NULL" in src, "SQL_UNIQUE 未排除部分索引(不能做 arbiter)"
+
+    def test_env_switches_are_allowlisted(self) -> None:
+        """本票踩中的第 5 次「.env 静默失效」:白名单必须覆盖 DB_SYNC_ 前缀。
+
+        app/core/config.py 的 _sync_env_file_to_os() 只把白名单键从 .env 同步进
+        os.environ,而调度器用 os.environ.get 直读 DB_SYNC_*。不覆盖前缀 ⇒ .env 里
+        写了 DB_SYNC_ENABLED=true 也读不到 ⇒ enabled 恒 False ⇒ start() 静默返回,
+        程序内自动化永不运行,而日志只有一行「未启用」。
+        """
+        cfg = (
+            mod._ROOT / "apps" / "ai-service" / "app" / "core" / "config.py"
+        ).read_text(encoding="utf-8")
+        assert 'key.startswith(' in cfg, "白名单未使用前缀匹配"
+        assert '"DB_SYNC_"' in cfg, "白名单未覆盖 DB_SYNC_ 前缀"
+        # 约束范围:调度器引用的每个开关都必须是 DB_SYNC_ 前缀,前缀规则才能兜住
+        sched_src = Path(mod.__file__).read_text(encoding="utf-8")
+        names = set(re.findall(r'"(DB_SYNC_[A-Z_]+)"', sched_src))
+        assert names, "未解析到调度器的 DB_SYNC_* 开关"
+        assert all(n.startswith("DB_SYNC_") for n in names)
+
+    def test_env_switches_reach_os_environ_end_to_end(self) -> None:
+        """运行时实证(子进程内跑,避免 _sync_env_file_to_os 改动本会话 os.environ)。
+
+        本票实测:导入 app.core.config 之前 os.environ["DB_SYNC_ENABLED"] is None、
+        enabled is False,而 .env 该键确为 true —— 自动化会一直不启动。
+        """
+        ai_service = mod._ROOT / "apps" / "ai-service"
+        env_file = ai_service / ".env"
+        if not env_file.exists():
+            pytest.skip("apps/ai-service/.env 不存在")
+        raw = env_file.read_text(encoding="utf-8", errors="replace")
+        if "DB_SYNC_ENABLED" not in raw:
+            pytest.skip(".env 未配置 DB_SYNC_ENABLED")
+        out = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import app.core.config, os; "
+                "print(os.environ.get('DB_SYNC_ENABLED'))",
+            ],
+            cwd=str(ai_service),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        assert out.returncode == 0, f"子进程失败: {out.stderr[-500:]}"
+        assert out.stdout.strip().lower() == "true", (
+            f"DB_SYNC_ENABLED 未同步进 os.environ(实得 {out.stdout.strip()!r})"
+            " → 调度器开关静默失效,自动化永不运行"
+        )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
