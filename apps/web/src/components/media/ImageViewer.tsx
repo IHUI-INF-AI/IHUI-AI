@@ -95,7 +95,7 @@ export function ImageViewer({
           className="h-auto w-auto max-h-full max-w-full object-contain transition-transform"
           style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
         />
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           {controls}
         </div>
         {list.length > 1 && (

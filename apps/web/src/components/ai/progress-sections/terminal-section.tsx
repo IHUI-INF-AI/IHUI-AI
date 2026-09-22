@@ -76,7 +76,12 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
     if (showAllOutput || fullOutput.length <= OUTPUT_PREVIEW_LIMIT) return fullOutput
     return fullOutput.slice(0, OUTPUT_PREVIEW_LIMIT)
   }, [isRunning, fullOutput, showAllOutput])
-  const hiddenChars = Math.max(0, fullOutput.length - outputText.length)
+  // 服务端截断时 fullOutput 只是**前 8000 字符**,拿它的长度当"原文总长"会主动报错数,
+  // 也会让用户点完「显示更多」后看到一条"已完整"的假象 → 原文长度以 totalChars 为准。
+  const sourceTotal = Math.max(term.totalChars ?? 0, fullOutput.length)
+  const hiddenChars = Math.max(0, sourceTotal - outputText.length)
+  // 本地还有未显示的文本时才给「显示更多」;服务端截掉的部分本地没有,展开按钮救不回来
+  const hasMoreLocalOutput = fullOutput.length > outputText.length
 
   const statusText = statusLabel(status)
   const rowTitle = tStatus('toolRunCommand')
@@ -131,16 +136,18 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
           />
           {hiddenChars > 0 && (
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setShowAllOutput(true)}
-                className="rounded-sm px-1 py-px text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-                data-testid={`terminal-show-more-${term.id}`}
-              >
-                {tStatus('showMore')}
-              </button>
-              <StreamTag tone="neutral">
-                {t('terminal.truncated', { total: fullOutput.length })}
+              {hasMoreLocalOutput && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllOutput(true)}
+                  className="rounded-sm px-1 py-px text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                  data-testid={`terminal-show-more-${term.id}`}
+                >
+                  {tStatus('showMore')}
+                </button>
+              )}
+              <StreamTag tone="neutral" testId={`terminal-truncated-${term.id}`}>
+                {t('terminal.truncated', { total: sourceTotal })}
               </StreamTag>
             </div>
           )}

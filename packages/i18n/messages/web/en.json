@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+      "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
       "ariaLabel": "Agent Task Progress Panel",
       "celebrate": "All tasks complete",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "Expand Panel",
       "expandAll": "Expand All",
       "failureBanner": "{n} task(s) failed, click to view",
+      "followEvents": "Follow event stream",
       "helpClose": "Close",
       "helpPanelTitle": "Keyboard shortcuts",
       "helpToggle": "Keyboard shortcuts",
@@ -7101,6 +7104,13 @@
         "title": "Terminal Tasks",
         "truncated": "...(truncated, {total} characters total)"
       },
+      "injectionTitle": "{count, plural, one {# context source in this turn} other {# context sources in this turn}}",
+      "injectionExpand": "Show {count, plural, one {# more} other {# more}}",
+      "injectionCollapse": "Collapse",
+      "injectionKindDeveloper": "Session-level custom instructions applied",
+      "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
+      "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
+      "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
       "thinkingCharCountTitle": "{n} characters",
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",
@@ -7311,8 +7321,6 @@
         "total": "Total usage",
         "ariaLabel": "Message usage details"
       },
-      "retryBadge": "Retried {count}×",
-      "retryBadgeAria": "Auto-retried {count} time(s) after transient failure",
       "openInWorkPanel": "Open in Work Panel",
       "toolUnknownFile": "(unknown file)",
       "pendingTaskTitle": "Task in progress",
@@ -7323,7 +7331,6 @@
       "pendingRefresh": "Refresh",
       "pendingStopped": "Still not ready, auto-refresh stopped. Click Refresh to check again.",
       "pendingFailed": "The task failed or was canceled. Try another prompt.",
-      "planStepPending": "Pending",
       "planStepInProgress": "In progress",
       "planStepCompleted": "Done",
       "planStepFailed": "Failed"
@@ -8967,7 +8974,6 @@
     "cmdKouboScript": "Please help me generate 8 daily Douyin voice-over scripts. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script vocabulary / full validation / grammar / hot-topic coverage)\nRun the koubo-workflow pipeline (constraint-first writing method).",
     "cmdPolish": "Please polish the following text to make it more professional and fluent:",
     "cmdSummary": "Please summarize the above conversation and extract key information",
-    "viewNIntermediateSteps": "View {count} intermediate steps",
     "hideIntermediateSteps": "Hide intermediate steps",
     "batchDiff": {
       "acceptAll": "Accept All",
@@ -9177,7 +9183,6 @@
       "editAndRerun": "Save & Rerun",
       "editRollbackFiles": "Also rollback file changes",
       "hideContent": "Hide content",
-      "jumpToLatest": "Jump to latest",
       "like": "Like",
       "publishToCommunity": "Publish to community",
       "readAloud": "Read aloud",
@@ -9217,7 +9222,6 @@
     "modelCapReasoning": "Reasoning",
     "modelCapTools": "Tools",
     "modelCapFim": "FIM",
-    "stepsHoverPreview": "Hover to preview the last step; click to expand all",
     "modelCategoryAsr": "Speech to text",
     "modelCategoryChat": "Chat",
     "modelCategoryEmbedding": "Embedding",
@@ -9309,7 +9313,6 @@
       "historyStatsTitle": "Total usage",
       "historyTitle": "Permission mode history",
       "inputWarning": "Full access mode active: AI can use the internet and any file on your computer without asking",
-      "jumpToLatest": "Jump to latest",
       "kbdNavigate": "navigate",
       "latest": "Latest",
       "learnMore": "Learn more",
@@ -19328,6 +19331,7 @@
     "registerSuccess": "Registration successful",
     "registerTitle": "Unified Register",
     "sendCodeFailed": "Failed to send verification code",
+    "sessionExpired": "Your session has expired. Please sign in again.",
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
     "mobileAuth": {

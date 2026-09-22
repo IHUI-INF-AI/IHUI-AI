@@ -157,13 +157,16 @@ test.describe('消息流活动区设计系统', () => {
     await expect(page.getByText('已读取并完成汇总。').first()).toBeVisible({ timeout: 30000 })
   })
 
-  test('工具行显示本地化功能名 + 对象 + 结果度量,不出现英文工具码名', async ({
+  test('工具行显示双时态活动措辞 + 对象 + 结果度量,不出现英文工具码名', async ({
     adminPage: page,
   }) => {
     const readRow = page.locator('[data-testid="tool-call-row-call-read-1"]')
     await expect(readRow).toBeVisible()
     const rowText = (await readRow.textContent()) ?? ''
-    expect(rowText).toContain('读取文件内容')
+    // mock 已下发 tool-result ⇒ 必须是完成时(D98/D102);此前这里只有中性功能名,
+    // 状态全靠图标承载,对"看着界面读"的用户等于没有状态
+    expect(rowText).toContain('已读取文件')
+    expect(rowText).not.toContain('正在读取文件')
     expect(rowText).not.toContain('read_file')
 
     // 对象(文件路径)在 subject 槽,等宽字体
@@ -181,7 +184,7 @@ test.describe('消息流活动区设计系统', () => {
 
     // 检索工具行给命中数
     const searchRow = page.locator('[data-testid="tool-call-row-call-search-1"]')
-    expect(((await searchRow.textContent()) ?? '').includes('搜索网页')).toBe(true)
+    expect(((await searchRow.textContent()) ?? '').includes('已搜索网页')).toBe(true)
     expect(await searchRow.locator('[data-testid="stream-metric"]').textContent()).toBe('2 个结果')
   })
 
