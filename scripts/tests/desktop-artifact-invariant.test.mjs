@@ -6,7 +6,8 @@
 // 反例(不该被删的东西)与正例同权重 —— 判据只要误删过一次的签名/包,就是发版事故。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, writeFileSync, readdirSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -81,5 +82,53 @@ test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+// ── 构建期钩子 scripts/desktop-artifact-single.mjs 的行为(它比判据多做两件事:
+//    真删文件,以及"这次构建压根没产 nsis 时不许动手"的自缚条款)──
+const HOOK = new URL('../desktop-artifact-single.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+const runHook = (dir, expect) =>
+  execFileSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+
+test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件活下来', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ihui-artifact-hook-'))
+  try {
+    for (const n of [CUR, `${CUR}.sig`, '智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig', 'keep-me.log']) {
+      writeFileSync(join(dir, n), 'x')
+    }
+    const out = runHook(dir, CUR)
+    assert.ok(out.includes('唯一安装包'), out)
+    assert.deepEqual(readdirSync(dir).sort(), [CUR, `${CUR}.sig`, 'keep-me.log'].sort())
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('钩子反例:目录里没有"本次应产的包"时**一个文件都不许删**', () => {
+  // 这条自缚条款是钩子唯一危险的地方:若它按"缺当前包"就清空目录,
+  // 那么 `tauri build --bundles app`(不产 nsis)会把上一次 nsis 构建的包连带签名一起抹掉。
+  const dir = mkdtempSync(join(tmpdir(), 'ihui-artifact-hook2-'))
+  const others = ['智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig']
+  try {
+    for (const n of others) writeFileSync(join(dir, n), 'x')
+    const out = runHook(dir, CUR)
+    assert.ok(out.includes('按不产 nsis 处理'), out)
+    assert.deepEqual(readdirSync(dir).sort(), others.sort(), '不属于自己的目录必须原样保留')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('钩子反例:目录压根不存在 → 静默退出 0,不报错也不建目录', () => {
+  const missing = join(tmpdir(), `ihui-artifact-none-${Date.now()}`)
+  const out = execFileSync(process.execPath, [HOOK, '--dir', missing], {
+    encoding: 'utf8',
+    windowsHide: true,
+  })
+  assert.equal(out, '')
+  assert.equal(existsSync(missing), false)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
