@@ -113,6 +113,9 @@ export function AgentProgressTrigger({
   // 帮助面板 shortcutTogglePane),但从未实现 keydown 监听,用户按了无反应(真 bug)。
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // 输入法组合态放行(2026-09-22):候选词选择常用 Ctrl/Cmd+数字、Ctrl+字母,
+      // 组合中不得被应用快捷键吃掉。
+      if (e.isComposing) return
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault()
         togglePane()
