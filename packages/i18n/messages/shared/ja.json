@@ -2151,5 +2151,15 @@
       }
     },
     "vividTail": "、まもなくです"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "権限の範囲",
+      "scopeOnce": "今回のみ許可",
+      "scopeSession": "この会話で許可",
+      "scopeAlways": "常に許可",
+      "reasonLabel": "理由(任意)",
+      "reasonPlaceholder": "理由を入力すると監査と追跡に役立ちます"
+    }
   }
 }
