@@ -5,6 +5,8 @@
 // 平台特有:web 端会话历史水合(依赖 web chat store 的 ChatMessage 形状),
 // 各端 store 结构不同,不适合下沉共享层。
 import type { PlanStep } from '@ihui/types'
+// 权限档读侧归一(G-161/G-165):历史行拼写可能是 kebab/camel/别名
+import { permissionModeWire } from '@ihui/types/permission-mode'
 import type { ChatMessage } from '@/stores/chat'
 
 /**
@@ -64,6 +66,11 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     terminalTasks: (meta?.terminalTasks ?? undefined) as ChatMessage['terminalTasks'],
     // planSteps 回放(2026-09-21 立):缺失时 undefined,不得造出空数组
     planSteps: readPlanStepsFromMetadata(meta?.planSteps),
+    // G-165:档位徽章的数据源从"只在内存里"换成服务端盖章的 metadata.permissionMode。
+    // 经注册表归一后再落 store:库里历史行是 kebab,新链路可能送 camel/别名,
+    // 不归一就是"刷新后徽章安静消失"(与 D111 三端不可见是同一个根因)。
+    // 取不到就不写字段 —— 写 'default' 等于把"不知道"伪造成"当时是默认档"。
+    permissionMode: permissionModeWire(meta?.permissionMode) ?? undefined,
   }
 }
 
