@@ -200,7 +200,7 @@ export function LivePlayer({
       )}
 
       {!loading && !error && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <div className="flex items-center gap-2 text-white">
             <button onClick={togglePlay} className="rounded p-1 hover:bg-white/20">
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}

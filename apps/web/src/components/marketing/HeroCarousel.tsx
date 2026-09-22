@@ -94,6 +94,7 @@ export function HeroCarousel({
       {slides.map((slide, idx) => (
         <div
           key={idx}
+          inert={idx !== current}
           className={`absolute top-4 bottom-4 left-4 right-4 flex flex-col justify-center bg-gradient-to-br ${slide.gradient} px-6 transition-opacity duration-700 min-[768px]:px-16 ${
             idx === current ? 'opacity-100' : 'opacity-0'
           }`}
