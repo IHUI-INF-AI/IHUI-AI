@@ -63,8 +63,9 @@ export interface AgentShopListProps {
   scrollEnabled?: boolean
 }
 
-function keyExtractor(item: AgentShopItem): string {
-  return item.id
+function keyExtractor(item: AgentShopItem, index: number): string {
+  // index 兜底:后端个别条目 id 缺失时避免 FlatList cell 无 key(LogBox key 警告)
+  return item.id || `shop-idx-${index}`
 }
 
 function ShopAvatar({ name, avatar }: { name: string; avatar?: string }): React.JSX.Element {

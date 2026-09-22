@@ -8,6 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
+    "postinstall": "node scripts/fix-expo-metro-junction.mjs",
     "dev": "turbo run dev",
     "dev:safe": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
     "dev:safe:fast": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Fast",
