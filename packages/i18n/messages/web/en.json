@@ -19323,6 +19323,7 @@
     "registerSuccess": "Registration successful",
     "registerTitle": "Unified Register",
     "sendCodeFailed": "Failed to send verification code",
+    "sessionExpired": "Your session has expired. Please sign in again.",
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
     "mobileAuth": {
