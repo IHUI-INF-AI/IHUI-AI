@@ -2151,5 +2151,15 @@
       }
     },
     "vividTail": ", 금방 끝납니다"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "권한 범위",
+      "scopeOnce": "이번만 허용",
+      "scopeSession": "이 대화에서 허용",
+      "scopeAlways": "항상 허용",
+      "reasonLabel": "사유(선택)",
+      "reasonPlaceholder": "사유를 입력하면 감사와 추적에 도움이 됩니다"
+    }
   }
 }
