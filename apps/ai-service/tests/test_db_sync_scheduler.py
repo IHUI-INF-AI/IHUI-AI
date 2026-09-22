@@ -899,4 +899,77 @@ def test_cn_tz_offset() -> None:
     assert datetime(2026, 9, 22, tzinfo=_CN_TZ).utcoffset() == timedelta(hours=8)
     assert datetime(2026, 9, 22, tzinfo=UTC).astimezone(_CN_TZ).hour == 8
     assert timezone(timedelta(hours=8)) == _CN_TZ
+
+
+# =============================================================================
+# 15. 同步诚实性契约(2026-09-22 静默缺口事故的回归护栏)
+# =============================================================================
+
+
+class TestSyncHonestyContract:
+    """钉住 db_sync.py「未落地必须可见」的契约。
+
+    事故(真实 sync 实测):一轮以 exit 0 + 「已回灌 1350 行(失败 0 张)」收尾,
+    而 resources(待回灌 720、生产 0 行)、ai_world_items(4108 行)、
+    ai_model_config_models(500 行)整表一行都没进生产 —— 合计 4833 行缺口静默存在。
+    两个成因:
+      ① push_rows 把「系统性失败早退 / 大批量不重放」并入 skipped(报表写作
+         「冲突跳过」),与「该行生产已存在」无从区分;
+      ② do_sync 无条件 return 0,且 tables_touched 不论 written 是否为 0 都 +1,
+         于是「涉及 16 张表」把一行没进的表也算作已同步。
+    这正是用户要求「不可以再出现」的漏同步形态:报表乐观 + 退出码绿色 ⇒
+    调度器/CI/用户三方都看不见缺口。
+
+    db_sync.py 末尾是模块级 `sys.exit(asyncio.run(main()))`,import 即执行 main,
+    故沿用本文件既有做法(见 TestSingleton.test_json_prefix_matches_script)按源码断言。
+    """
+
+    @staticmethod
+    def _src() -> str:
+        script = mod._ROOT / "scripts" / "db" / "db_sync.py"
+        assert script.exists(), f"同步脚本不存在: {script}"
+        return script.read_text(encoding="utf-8")
+
+    def test_push_rows_separates_not_landed_from_conflict_skip(self) -> None:
+        """push_rows 必须把「未落地」独立成第三个返回值,不得与冲突跳过混算。"""
+        src = self._src()
+        assert "-> tuple[int, int, int, str]" in src, "push_rows 未返回 4 元组"
+        assert "return written, skipped, abandoned, first_err" in src, (
+            "push_rows 未返回 abandoned(未落地行数)"
+        )
+
+    def test_abandonment_not_counted_as_conflict_skip(self) -> None:
+        """早退与不重放两条路径都必须计入 abandoned。"""
+        src = self._src()
+        assert src.count("abandoned += len(chunk)") >= 2, (
+            "系统性失败早退 / 大批量不重放都要计入未落地"
+        )
+        assert "skipped += len(chunk)" not in src, (
+            "整批跳过被计成「冲突跳过」,缺口会从报表上消失"
+        )
+
+    def test_do_sync_names_undelivered_tables(self) -> None:
+        """整表零落地必须被点名(用户要求「哪几张没同步」能落到具体表)。"""
+        src = self._src()
+        assert "零落地" in src and "undelivered_names" in src
+
+    def test_do_sync_exit_code_reflects_gap(self) -> None:
+        """有缺口必须非 0 退出:调度器 run.ok 由退出码决定,否则不会告警/快速重试。"""
+        src = self._src()
+        assert re.search(r"if failed or undelivered:\s*\n\s*return 1", src), (
+            "do_sync 未把缺口反映到退出码"
+        )
+        sched = mod.__file__
+        assert sched
+        sched_src = Path(sched).read_text(encoding="utf-8")
+        assert "run.ok = (code == 0) and not timed_out" in sched_src, (
+            "调度器 run.ok 未跟随退出码"
+        )
+
+    def test_tables_touched_requires_actual_write(self) -> None:
+        """tables_touched 只在真写进去时 +1,否则「涉及 N 张表」会谎报同步范围。"""
+        src = self._src()
+        assert re.search(r"if written:\s*\n\s*tables_touched \+= 1", src), (
+            "tables_touched 未受 written 守卫"
+        )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
