@@ -630,13 +630,16 @@ export default function ChatMessageItem({
               {msg.images && msg.images.length > 0 ? (
                 <Image className="action-btn" src={downloadIcon} onClick={downloadImages} />
               ) : null}
-              {/* 分享(对标原 ai_assistant.vue .share-btn:Button openType=share 触发原生分享,View onClick 前置写入待分享消息) */}
-              <View className="share-btn" onClick={onShare} hoverClass="opacity-60">
-                <Button openType="share" className="share-button">
-                  {t('ai.chatMessageItem.share')}
-                </Button>
-                <Image className="share-icon" src={agentsharePng} mode="widthFix" />
-              </View>
+              {/* 分享(对标原 ai_assistant.vue .share-btn:Button openType=share 触发原生分享,View onClick 前置写入待分享消息)
+                  失败轮不给分享(它不是内容);复制保留,报错排查要用那段文字 */}
+              {isFailed ? null : (
+                <View className="share-btn" onClick={onShare} hoverClass="opacity-60">
+                  <Button openType="share" className="share-button">
+                    {t('ai.chatMessageItem.share')}
+                  </Button>
+                  <Image className="share-icon" src={agentsharePng} mode="widthFix" />
+                </View>
+              )}
               {/* 朗读 TTS(增强功能,历史项目无,保留) */}
               {onSpeak ? (
                 <View

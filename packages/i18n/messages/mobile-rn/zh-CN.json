@@ -491,6 +491,8 @@
       "title": "上下文已自动压缩",
       "message": "{before} → {after}(移除 {removed} 条历史)"
     },
+    "errorTitle": "请求出错",
+    "errorRetry": "重试",
     "loginBtn": "去登录",
     "longPress": {
       "myTitle": "我的消息",
@@ -2501,5 +2503,30 @@
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失败"
+  },
+  "permissionTier": {
+    "label": "权限档",
+    "mode": {
+      "default": {
+        "title": "默认模式",
+        "desc": "全部操作需人工确认,最安全"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+      },
+      "accept-edits": {
+        "title": "接受编辑",
+        "desc": "白名单内的操作自动放行,其他需确认"
+      },
+      "bypass-permissions": {
+        "title": "绕过权限",
+        "desc": "完全访问,无任何确认(高风险)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未识别的权限模式,已按默认档处理"
+      }
+    }
   }
 }
