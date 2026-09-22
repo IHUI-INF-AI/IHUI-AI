@@ -102,7 +102,7 @@ Turborepo 配置极简(`turbo.json` 几行),增量构建 + 远程缓存开箱即
 
 ### Q16:能否裸机部署?
 
-可以。安装 Node 20+ / Python 3.12+ / PostgreSQL 15+ / Redis 7+,pnpm install + build,用 systemd / pm2 管理进程。详见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
+可以。安装 Node 20+ / Python 3.12+ / PostgreSQL 18+ / Redis 7+,pnpm install + build,用 systemd / pm2 管理进程。详见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
 
 ### Q17:数据库能否用 MySQL / SQLite?
 
