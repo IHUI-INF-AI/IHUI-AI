@@ -2151,5 +2151,15 @@
       }
     },
     "vividTail": ", almost there"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "Scope",
+      "scopeOnce": "Allow once",
+      "scopeSession": "Allow this chat",
+      "scopeAlways": "Always allow",
+      "reasonLabel": "Reason (optional)",
+      "reasonPlaceholder": "Add a reason for audit trail"
+    }
   }
 }
