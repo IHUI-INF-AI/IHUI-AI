@@ -5,6 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 
@@ -105,7 +106,29 @@ const USER_LEGIT_PATTERNS = [
   /^desktop\.ini$/i,
   /^Thumbs\.db$/i,
   /^项目端口分析与维护成本优化\.md$/i,
+  /^check-stale-dist\.old\.mjs$/i,
+  /^inject_wb_i18n\.mjs$/i,
+  /^ihui-release\.keystore\.说明\.txt$/i,
+  /^ihui-app-password\.txt$/i,
 ]
+
+// 镜像源脚本 CREDENTIAL_DIR_NAMES(§22c 镜像常量)。2026-09-22 立:凭据库目录必须整目录
+// 不扫,逐文件名豁免已被证明会漏第三把密钥。改源脚本此集合必须同步这里。
+const CREDENTIAL_DIR_NAMES = new Set([
+  'secrets',
+  'secret',
+  'credentials',
+  'credential',
+  '密钥',
+  'certs',
+  'certificates',
+  '.pybcrypt',
+])
+
+// 镜像源脚本 findPollution 的目录跳过判定
+function isCredentialDir(name) {
+  return CREDENTIAL_DIR_NAMES.has(name.toLowerCase())
+}
 
 function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some(p => p.test(filename))
@@ -327,5 +350,48 @@ test('边界: 文件名强信号优先于内容扫描(短路判定)— 即使内
   // 反例:普通文件名 + 内容双信号 → 走内容扫描分支(源脚本逻辑)
   const normalFilename = 'config.ps1'
   assert.ok(!matchesAgentFilenamePattern(normalFilename), '普通文件名不命中强信号,需走内容扫描')
+})
+
+// ═══════════════════════════════════════════════════════════════
+// 7. 凭据库目录结构性豁免(2026-09-22 立,防第三把密钥被 auto-clean 无声删除)
+// ═══════════════════════════════════════════════════════════════
+
+test('凭据库:文件名强信号确实命中 — 证明没有目录豁免时它会被判定污染', () => {
+  // 这是本豁免存在的前提:D:/DevEnv/secrets/ihui-app-password.txt 因 `ihui-` 前缀
+  // 命中强信号,而 --auto-clean 对强信号命中直接 unlinkSync 无二次确认。
+  assert.ok(
+    matchesAgentFilenamePattern('ihui-app-password.txt'),
+    '文件名应命中强信号(否则本豁免无意义)',
+  )
+  assert.ok(!isUserLegit('ihui-app-password.txt.bak'), '非白名单变体不应被误豁免')
+})
+
+test('凭据库:secrets / 密钥 / credentials / certs 等目录整目录跳过', () => {
+  for (const name of ['secrets', 'secret', 'credentials', 'credential', '密钥', 'certs', 'certificates', '.pybcrypt']) {
+    assert.ok(isCredentialDir(name), `${name} 应被整目录豁免`)
+  }
+})
+
+test('凭据库:目录名大小写不敏感(Secrets / SECRETS 同样豁免)', () => {
+  assert.ok(isCredentialDir('Secrets'), '大写首字母应豁免')
+  assert.ok(isCredentialDir('SECRETS'), '全大写应豁免')
+})
+
+test('凭据库豁免不得扩大到普通目录(防把守门写成空门)', () => {
+  for (const name of ['tmp', 'logs', 'backup', 'Downloads', 'desktop', 'cache']) {
+    assert.ok(!isCredentialDir(name), `${name} 不是凭据库目录,不应豁免`)
+  }
+})
+
+test('§22c 镜像防漂移:源脚本 CREDENTIAL_DIR_NAMES 必须含测试镜像的每一项', () => {
+  const src = readFileSync(join(__dirname, '..', 'check-parent-pollution.mjs'), 'utf8')
+  assert.ok(src.includes('const CREDENTIAL_DIR_NAMES'), '源脚本缺少 CREDENTIAL_DIR_NAMES 定义')
+  assert.ok(
+    src.includes('CREDENTIAL_DIR_NAMES.has(entry.name.toLowerCase())'),
+    '源脚本 findPollution 未接入目录豁免(只定义不生效 = 空门)',
+  )
+  for (const name of CREDENTIAL_DIR_NAMES) {
+    assert.ok(src.includes(`'${name}',`), `源脚本集合缺少 '${name}',测试镜像已漂移`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
