@@ -114,8 +114,18 @@ WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public'
 ORDER BY tc.table_name, kcu.ordinal_position
 """
 
-# 业务唯一约束(不含主键):两端主键不同但业务键相同的行,只有以业务键为 upsert
-# 目标才可能合并;否则会撞唯一约束、整批失败(2026-09-22 实测 8 张表如此)
+# 业务唯一键(不含主键):两端主键不同但业务键相同的行,只有以业务键为 upsert
+# 目标才可能合并;否则会撞唯一约束、整批失败(2026-09-22 实测 8 张表如此)。
+#
+# 两类都必须收,缺一不可:
+#   ① 约束式(pg_constraint contype='u');
+#   ② 索引式(pg_index indisunique)—— 本仓迁移大量使用 CREATE UNIQUE INDEX,
+#      这类不落 pg_constraint。2026-09-22 实测只收 ① 的后果:registry_items /
+#      model_leaderboard / oauth_scope_meta / ai_relay_channel_groups 等表的业务键
+#      被整批漏掉,upsert 退回主键做冲突目标 ⇒ 同业务键、不同主键的行撞上唯一索引,
+#      整批失败(registry_items 244 行只落 18 行,其余 226 行被误记为"冲突跳过")。
+#      只收非部分索引(indpred IS NULL)、且列中不含表达式(indkey 无 0):
+#      这两类索引不能直接充当 ON CONFLICT 的 arbiter,收了反而会造出新的失败。
 SQL_UNIQUE = """
 SELECT c.relname AS tbl,
        array_agg(a.attname ORDER BY k.ord) AS cols
@@ -126,6 +136,18 @@ JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS k(attnum, ord) ON true
 JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.attnum
 WHERE con.contype = 'u' AND n.nspname = 'public'
 GROUP BY c.relname, con.conname
+UNION
+SELECT c.relname AS tbl,
+       array_agg(a.attname ORDER BY k.ord) AS cols
+FROM pg_index i
+JOIN pg_class c ON c.oid = i.indrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+WHERE i.indisunique AND NOT i.indisprimary AND i.indpred IS NULL
+  AND n.nspname = 'public'
+  AND NOT EXISTS (SELECT 1 FROM unnest(i.indkey) AS z WHERE z = 0)
+GROUP BY c.relname, i.indexrelid
 """
 
 
@@ -995,11 +1017,15 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
             continue
         after = await prod.fetchval(f'SELECT count(*) FROM {q(d.name)}')
         not_landed = conflicts + abandoned
+        net = after - d.prod_rows
         note = f',冲突跳过 {conflicts}' if conflicts else ''
         note += f',未落地 {abandoned}' if abandoned else ''
         if ferr:
             note += f' [首次失败 {ferr}]'
-        log(f'    → 已写入 {written} 行{note};生产现 {after} 行')
+        # 报"生产 before→after(净 ±Δ)"而不是只报提交行数:以业务唯一键为冲突目标时,
+        # 多条"不同主键、同业务键"的本地行会合并到同一条生产行(实测 resources 提交
+        # 720 行、生产 0→114 行),只写"已写入 720 行"会把合并说成落地,属新的乐观报告。
+        log(f'    → 已提交 {written} 行{note};生产 {d.prod_rows}→{after} 行(净 {net:+d})')
         total += written
         # tables_touched 只统计"真的写进去了"的表:此前不论 written 是否为 0 都 +1,
         # 于是"涉及 16 张表"里混进了 resources(0/720 行)这种一行没进的表,属于

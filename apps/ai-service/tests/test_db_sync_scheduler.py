@@ -972,4 +972,30 @@ class TestSyncHonestyContract:
         assert re.search(r"if written:\s*\n\s*tables_touched \+= 1", src), (
             "tables_touched 未受 written 守卫"
         )
+
+    def test_report_shows_net_delta_not_just_submitted(self) -> None:
+        """只报「已写入 N 行」在业务键合并场景下会说谎。
+
+        以业务唯一键为 upsert 冲突目标时,多条「不同主键、同业务键」的本地行会合并到
+        同一条生产行:实测 resources 提交 720 行、生产只 0→114 行。此时只写「已写入
+        720 行」等于把「合并」说成「落地」,是新的乐观报告 ⇒ 必须同时给
+        「生产 before→after(净 ±Δ)」。
+        """
+        src = self._src()
+        assert "已提交 {written} 行" in src, "提交行数措辞未改为「已提交」"
+        assert "净 {net:+d}" in src, "报告缺少净增量(生产 before→after)"
+
+    def test_unique_index_keys_are_collected(self) -> None:
+        """SQL_UNIQUE 必须把「索引式唯一键」也收进来。
+
+        本仓迁移大量用 `CREATE UNIQUE INDEX`(不落 pg_constraint)。只查
+        `con.contype='u'` 会让 registry_items / model_leaderboard 等表的业务键对
+        upsert 冲突目标不可见 ⇒ 退回主键 ⇒ 同业务键不同主键的行整批失败
+        (实测 registry_items 244 行只落 18 行)。同时必须排除主键、部分索引
+        (indpred)与含表达式列的索引(indkey 含 0)—— 这三类不能当 ON CONFLICT arbiter。
+        """
+        src = self._src()
+        assert "i.indisunique" in src, "SQL_UNIQUE 未纳入唯一索引"
+        assert "NOT i.indisprimary" in src, "SQL_UNIQUE 未排除主键索引"
+        assert "i.indpred IS NULL" in src, "SQL_UNIQUE 未排除部分索引(不能做 arbiter)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
