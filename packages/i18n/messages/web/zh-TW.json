@@ -1,4 +1,15 @@
 {
+  "aiWs": {
+    "videoDone": "視頻生成完成",
+    "videoFailed": "視頻生成失敗,請重試",
+    "videoOneImageOnly": "視頻生成僅支持上傳一張圖片",
+    "sendFailed": "發送失敗,請重試",
+    "connectFailed": "連接失敗,請重試",
+    "connectFailedShort": "連接失敗",
+    "connectError": "連接錯誤,請重試",
+    "creditLowTitle": "智匯值不足",
+    "creditLowDesc": "您的智匯值餘額小於 {min},無法使用大模型,請前往充值"
+  },
   "treeSelect": {
     "placeholder": "請選擇",
     "searchPlaceholder": "搜尋...",
@@ -7095,6 +7106,8 @@
       "nextStepsSummarize": "總結本次對話進展",
       "nextStepsTitle": "下一步推薦",
       "overview": {
+        "status": "狀態",
+        "error": "錯誤",
         "active": "活躍",
         "changes": "變更",
         "context": "上下文",
