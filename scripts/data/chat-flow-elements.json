@@ -184,6 +184,22 @@
           "mustMatch": "autoDesc"
         }
       ]
+    },
+    {
+      "id": "terminal-output-truncation-disclosure",
+      "title": "终端输出截断交代(truncated + totalChars,本地全文展开后仍持续交代)",
+      "sourceTask": "D40",
+      "events": ["terminal_end"],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
+          "mustMatch": "sourceTotal"
+        },
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_clip_terminal_output"
+        }
+      ]
     }
   ],
   "negativeList": [
