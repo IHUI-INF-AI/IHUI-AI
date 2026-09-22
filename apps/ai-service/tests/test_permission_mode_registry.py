@@ -91,7 +91,7 @@ def test_permission_mode_key_matches_typescript_rule() -> None:
 
 
 def test_python_registry_mirrors_typescript_truth_source() -> None:
-    """跨语言镜像逐字对账(guardian 第 67 项的运行时兜底,防有人绕过 pre-commit)。"""
+    """跨语言镜像逐字对账(guardian 第 68 项的运行时兜底,防有人绕过 pre-commit)。"""
     src = TS_REGISTRY.read_text(encoding="utf-8")
     ts_members = re.findall(r"'([^']+)'", re.search(
         r"export const PERMISSION_MODES\s*=\s*\[([\s\S]*?)\]", src
