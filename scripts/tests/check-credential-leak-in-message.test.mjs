@@ -20,13 +20,15 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'classifyStringifyArg',
     'findStringifyArgs',
     'tokenEndpointProvenance',
+    'credEndpointDumpEvidence',
+    'wholeInterpProvenance',
     'resolveDeclaredEntry',
     'main',
     'readBaselineRaw',
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 18)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 21)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
@@ -350,5 +352,38 @@ test('E 通道推荐写法(只投影 error 字段)必须零命中,防止把修�
   const r = G.scanSource(src, 'apps/api/src/services/paypal.ts')
   assert.equal(r.violations.length, 0)
   assert.equal(r.candidates.length, 0)
+})
+
+// --- F 通道:凭据端点关键词 ∧ 整对象 dump(走 SDK、URL 不在窗口内) ---
+
+const STS_DUMP_SRC =
+  'const response = await client.callApi(params, request, {})\n' +
+  'if (!creds) throw new Error(`STS AssumeRole 失败: ${JSON.stringify(response.body)}`)'
+
+test('F 通道双条件:关键词与整对象 dump 缺一不可(单条件即降级为不判/仅候选)', () => {
+  const both = G.credEndpointDumpEvidence(STS_DUMP_SRC)
+  assert.equal(both.length, 1, '关键词 + response.body 整体 dump 必须出证据')
+  assert.match(both[0], /^keyword:assumerole:response\.body$/, '证据须同时点名关键词与目标对象')
+  assert.deepEqual(
+    G.credEndpointDumpEvidence(
+      'const response = await client.callApi(params, request, {})\nthrow new Error(`AssumeRole 失败: ${response.Code}`)',
+    ),
+    [],
+    '字段投影不是整对象 dump',
+  )
+  assert.deepEqual(
+    G.credEndpointDumpEvidence('throw new Error(`Firefly 调用失败: ${JSON.stringify(data)}`)'),
+    [],
+    '无凭据端点关键词时不得扩大命中面',
+  )
+})
+
+test('F 通道经 scanSource 落地:kind 正确且新 kind 同样可被基线豁免', () => {
+  const file = 'apps/api/src/services/storage-service.ts'
+  const hit = G.scanSource(STS_DUMP_SRC, file)
+  assert.equal(hit.violations.length, 1, 'D/E 够不到的 SDK 形态必须由 F 兜住')
+  assert.equal(hit.violations[0].kind, 'cred-endpoint-keyword-with-body-dump')
+  const exempted = G.scanSource(STS_DUMP_SRC, file, new Set([hit.violations[0].key]))
+  assert.equal(exempted.violations.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
