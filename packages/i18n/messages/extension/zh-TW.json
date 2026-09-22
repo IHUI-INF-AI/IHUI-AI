@@ -165,6 +165,7 @@
     "emptyHint": "生詞本為空,查詢後點擊儲存"
   },
   "chat": {
+    "retryMessage": "重試",
     "citationTitle": "參考來源",
     "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
     "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
@@ -435,6 +436,31 @@
       "benefitsTitle": "包含權益",
       "note": "定價與權益以網頁版實際展示為準。",
       "open": "前往網頁版開通"
+    }
+  },
+  "permissionTier": {
+    "label": "權限檔",
+    "mode": {
+      "default": {
+        "title": "預設模式",
+        "desc": "全部操作需人工確認,最安全"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
+      },
+      "accept-edits": {
+        "title": "接受編輯",
+        "desc": "白名單內的操作自動放行,其他需確認"
+      },
+      "bypass-permissions": {
+        "title": "繞過權限",
+        "desc": "完全存取,無任何確認(高風險)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未識別的權限模式,已按預設檔處理"
+      }
     }
   }
 }
