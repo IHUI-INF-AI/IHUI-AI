@@ -3,6 +3,11 @@
     "notFound": "{target} が見つかりません"
   },
   "cli": {
+    "permNoteDefault": "すべての手順で確認を求めます(最も安全)",
+    "permNotePlan": "プランのみ:承認までファイルは変更されません",
+    "permNoteAcceptEdits": "ファイル編集は自動承認、コマンドと危険ツールは確認します",
+    "permNoteBypass": "手順ごとの確認なし。AI がファイルを直接変更しコマンドを実行します(高リスク)",
+    "permNoteManual": "読み取り照会も含め全操作を手動承認します",
     "citationSources": "参考元：{sources}",
     "injectionApplied": "このターンで参照したコンテキスト：{sources}",
     "injectionSrcDeveloper": "カスタム指示",
