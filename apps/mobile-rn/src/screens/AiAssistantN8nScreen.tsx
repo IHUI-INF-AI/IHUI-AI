@@ -61,6 +61,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import {
+  AlertTriangle,
   Bot,
   Brain,
   ChevronDown,
@@ -69,6 +70,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  RefreshCw,
   Settings,
   Share2,
 } from 'lucide-react-native'
@@ -92,6 +94,11 @@ import {
   describeToolCall,
   type ToolCallView,
 } from '@ihui/shared'
+import {
+  applyStreamError,
+  isErrorTurn,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
@@ -155,6 +162,9 @@ interface N8nMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** 失败轮标记(词汇与共享层 ChatMessage.error 同一份,不另立字段):
+   *  有此标记的回复渲染错误卡片 + 重试,且不算内容(不给分享)。 */
+  error?: boolean
   /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
   images?: string[]
   /** 对齐 Uniapp agent_content_list.total_tokens:回复消耗智汇值。
@@ -601,15 +611,21 @@ interface MessageBubbleProps {
   onPreviewImage: (url: string) => void
   /** 浮层提示(复用屏幕 showToast,对齐 Uniapp uni.showToast) */
   onToast: (type: FloatBoxType, message: string) => void
+  /** 失败轮重试:仅当该轮确实可重发时由父级传入;缺失即不渲染重试按钮 */
+  onRetry?: () => void
 }
 
 function MessageBubble({
   message,
   onPreviewImage,
   onToast,
+  onRetry,
 }: MessageBubbleProps): React.JSX.Element {
+  const { t } = useI18n()
   const isUser = message.role === 'user'
   const hasImages = !isUser && (message.images?.length ?? 0) > 0
+  // 失败轮:渲染错误卡片而非正文(与 web D22 / ChatScreen 同一形态)
+  const isFailed = !isUser && isErrorTurn(message)
   // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
   const [answerVisible, setAnswerVisible] = useState(true)
   // 思考过程展开/收起(对齐 Uniapp agent_con1)
@@ -676,7 +692,29 @@ function MessageBubble({
       ) : (
         <View style={bubbleStyles.msgCol}>
           <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAi]}>
-            {answerVisible && message.content ? (
+            {isFailed ? (
+              <View style={bubbleStyles.errorCard}>
+                <View style={bubbleStyles.errorHeader}>
+                  <AlertTriangle size={14} color={tokens.error.text} />
+                  <Text style={bubbleStyles.errorTitle}>{t('chatAlert.errorTitle')}</Text>
+                </View>
+                <Text style={bubbleStyles.errorBody} selectable>
+                  {message.content}
+                </Text>
+                {onRetry ? (
+                  <TouchableOpacity
+                    style={bubbleStyles.errorRetry}
+                    hitSlop={8}
+                    onPress={onRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chatAlert.errorRetry')}
+                  >
+                    <RefreshCw size={14} color={tokens.error.text} />
+                    <Text style={bubbleStyles.errorRetryText}>{t('chatAlert.errorRetry')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : answerVisible && message.content ? (
               <Text style={[bubbleStyles.text, bubbleStyles.textAi]}>{message.content}</Text>
             ) : null}
             {answerVisible && hasImages ? (
@@ -783,16 +821,19 @@ function MessageBubble({
                   <Download size={16} color={tokens.text.secondary} />
                 </TouchableOpacity>
               ) : null}
-              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content) */}
-              <TouchableOpacity
-                style={bubbleStyles.actionBtn}
-                hitSlop={6}
-                onPress={handleShare}
-                accessibilityRole="button"
-                accessibilityLabel="分享"
-              >
-                <Share2 size={16} color={tokens.text.secondary} />
-              </TouchableOpacity>
+              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content)
+                  失败轮不给分享(它不是内容);复制保留 —— 报错排查要用那段文字 */}
+              {isFailed ? null : (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={handleShare}
+                  accessibilityRole="button"
+                  accessibilityLabel="分享"
+                >
+                  <Share2 size={16} color={tokens.text.secondary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -1259,15 +1300,11 @@ export default function AiAssistantN8nScreen() {
           const formatted = formatSSEError(new Error(err), info)
           setSending(false)
           abortRef.current = null
-          // 空回复时填充错误提示
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant' && !last.content) {
-              next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-            }
-            return next
-          })
+          // 失败轮:标 error + 仅在正文为空时写错误文案(共享层同一标记规则,与 ChatScreen / web 一致)。
+          // 此前只填文案不打标 → 数据上与一次真回答同形,界面也只有一句普通文本、没有任何出口。
+          setMessages((prev) =>
+            applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+          )
           // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
           const errMsg = formatted.message
             ? `${formatted.title}: ${formatted.message}`
@@ -1296,14 +1333,9 @@ export default function AiAssistantN8nScreen() {
       const formatted = formatSSEError(err)
       setSending(false)
       abortRef.current = null
-      setMessages((prev) => {
-        const next = [...prev]
-        const last = next[next.length - 1]
-        if (last && last.role === 'assistant' && !last.content) {
-          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-        }
-        return next
-      })
+      setMessages((prev) =>
+        applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+      )
       const errMsg = formatted.message
         ? `${formatted.title}: ${formatted.message}`
         : formatted.title
@@ -1315,6 +1347,15 @@ export default function AiAssistantN8nScreen() {
     abortRef.current?.abort()
     abortRef.current = null
     setSending(false)
+  }
+
+  /** 失败轮重试:重发最后一条用户提问,并把失败气泡从视图撤掉。
+   *  本屏 send 只带"本轮 + systemPrompt"(不回放历史),所以无需像 ChatScreen 那样截断历史。 */
+  const retryLastTurn = (): void => {
+    const text = resendTargetText(messages)
+    if (!text) return
+    setMessages((prev) => prev.filter((m) => !isErrorTurn(m)))
+    void onSend(text)
   }
 
   // 模型切换(对齐 Uniapp pitchHandle:index → modelName)
@@ -1428,7 +1469,12 @@ export default function AiAssistantN8nScreen() {
   }
 
   const renderItem: ListRenderItem<N8nMessage> = ({ item }) => (
-    <MessageBubble message={item} onPreviewImage={handlePreviewImage} onToast={showToast} />
+    <MessageBubble
+      message={item}
+      onPreviewImage={handlePreviewImage}
+      onToast={showToast}
+      onRetry={isErrorTurn(item) && resendTargetText(messages) !== null ? retryLastTurn : undefined}
+    />
   )
 
   return (
@@ -1723,6 +1769,42 @@ const bubbleStyles = StyleSheet.create({
   text: { fontSize: 14, lineHeight: 20 },
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
+  // 失败轮错误卡片(与 web D22 / ChatScreen 同一形态:警示头 + 正文 + 重试出口)
+  errorCard: {
+    width: '100%',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.danger.light,
+    backgroundColor: tokens.error.bg,
+    overflow: 'hidden',
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: tokens.danger.light,
+  },
+  errorTitle: { fontSize: 12, fontWeight: '500', color: tokens.error.text },
+  errorBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.error.text,
+  },
+  errorRetry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  errorRetryText: { fontSize: 12, color: tokens.error.text },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
   imageGrid: {
     flexDirection: 'row',
