@@ -107,9 +107,10 @@ const PB_X = C_L;
 const PB_Y = 306;
 const PB_W = C_W;
 const PB_H = 10;
-// 阶段刻度(与 desktop-nsis-template.mjs 的 P7/U 埋点一一对应):
+// 阶段刻度:与 desktop-nsis-template.mjs 的 P7 安装埋点一一对应(改一边必须改另一边)。
 // 烧进轨道,填充条经过时被盖住 → 天然表达"过了几关"。
-const PB_TICKS = [20, 45, 65, 85, 92];
+const PB_TICKS = [12, 34, 52, 64, 72, 80, 88, 93, 97];
+// 卸载侧刻度 = U 埋点集合(20/34/46/56/66/76/86/92),见 sceneUninstfiles。
 // 百分比数字与 `%` 全部由运行期控件排版,位图侧不再保留任何百分比相关坐标。
 //
 // 进度页的"表盘":双环把百分比圈成一枚徽章,与页面标题(正在安装/正在卸载)**同一行**。
@@ -370,7 +371,7 @@ ${pageChrome(logo, 1, UNSTEPS)}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '正在卸载')}
 ${body14(C_L, 262, '智汇AI 正在从本机移除文件,请稍候…')}
-${meterTrack([20, 45, 65, 85])}
+${meterTrack([20, 34, 46, 56, 66, 76, 86, 92])}
 ${auroraRings(PCT_CX, PCT_CY, PCT_RING, [1, 1])}
 `);
 }
