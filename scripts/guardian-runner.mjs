@@ -1583,7 +1583,9 @@ guardian-runner.mjs — 守门脚本批量执行器
   info     (${info.length} 项): ${info.map((c) => c.id).join(', ')}
 
 执行逻辑:
-  blocking 失败 → 立即 exit(1),阻塞 commit
+  blocking 失败 → 记入清单并**继续跑完全部**,末尾列出全部失败门后 exit(1)
+                  (逃生舱 GUARDIAN_STOP_ON_FIRST=1 恢复旧的"首个失败立即 exit(1)")
+  子门 exit 75   → 视为中断而非检查结论,**立即**以 75 向上传播(hook → push guard 据此重试),不收敛成 1
   warn     失败 → 打印警告,继续执行
   info     →    始终继续,只打印信息
 `)
@@ -1668,6 +1670,29 @@ let warned = 0
 let failed = 0
 let skipped = 0
 const startTime = Date.now()
+// 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
+// —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
+// 本可一次看全的多处故障拆成多轮。改为一轮跑完、末尾列清单一次性退出。
+// 两条不变量:① exit 75(中断)仍**立即**向上传播,不收敛成 1(push guard 靠它决定重试);
+// ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
+const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
+/** blocking 失败门清单(末尾汇总用)。 */
+const failedGates = []
+
+/** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
+function printSummary(useStderr) {
+  const out = useStderr ? console.error : console.log
+  const executed = passed + warned + failed + skipped
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+  out('')
+  out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
+  out(`  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`)
+  out(`  ${C.green}通过: ${passed}${C.reset}`)
+  out(`  ${C.yellow}警告: ${warned}${C.reset}`)
+  out(`  ${C.red}失败: ${failed}${C.reset}`)
+  out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+  out(`  总耗时: ${totalTime}s`)
+}
 
 // ─── 条件触发(2026-09-22 立)───
 // 条目声明 stagedTriggers(路径前缀数组)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
@@ -1751,21 +1776,16 @@ for (const check of effectiveChecks) {
     //  silent-skip 仅在 stdio:pipe 但未读 stdout 的场景才可能发生,本 runner 不存在该风险)
     if (check.mode === 'blocking') {
       failed++
+      failedGates.push({ id: check.id, label: check.label, script: check.script })
       if (check.onFailHint) {
         console.log(check.onFailHint)
       }
       console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
-      // 打印汇总后退出
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
-      console.error('')
-      console.error(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-      console.error(`  总检查数: ${passed + warned + failed + (effectiveChecks.length - passed - warned - failed)}`)
-      console.error(`  ${C.green}通过: ${passed}${C.reset}`)
-      console.error(`  ${C.yellow}警告: ${warned}${C.reset}`)
-      console.error(`  ${C.red}失败: ${failed}${C.reset}`)
-      console.error(`  ${C.dim}跳过: ${skipped}${C.reset}`)
-      console.error(`  总耗时: ${totalTime}s`)
-      process.exit(1)
+      // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
+      if (stopOnFirst) {
+        printSummary(true)
+        process.exit(1)
+      }
     } else if (check.mode === 'warn') {
       warned++
       console.warn(`${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`)
@@ -1784,15 +1804,19 @@ for (const check of effectiveChecks) {
 
 // === 汇总 ===
 
-const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
-console.log('')
-console.log(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-console.log(`  总检查数: ${effectiveChecks.length}`)
-console.log(`  ${C.green}通过: ${passed}${C.reset}`)
-console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
-console.log(`  ${C.red}失败: ${failed}${C.reset}`)
-console.log(`  ${C.dim}跳过: ${skipped}${C.reset}`)
-console.log(`  总耗时: ${totalTime}s`)
+printSummary(false)
+if (failedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`
+  )
+  for (const g of failedGates) {
+    console.error(`   · [${g.id}] ${g.label}`)
+    console.error(`     单独复现:node scripts/${g.script}${passStaged ? ' --staged' : ''}`)
+  }
+  console.error(`  ${C.dim}(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)${C.reset}`)
+  process.exit(1)
+}
 
 // push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用,见执行段注释)
 if (pushGate && failed === 0) {
