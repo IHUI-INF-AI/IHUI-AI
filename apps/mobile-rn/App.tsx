@@ -26,6 +26,7 @@ import {
   type OAuthRedirectResult,
 } from './src/lib/oauth-deeplink'
 import { rnAuthStore } from './src/stores/auth-store'
+import { rnLightTokens } from '@ihui/design-tokens'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
@@ -149,7 +150,13 @@ function AppContent() {
   }, [])
 
   return (
-    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
+    // backgroundColor 兜底:悬浮 TabBar 留边/根节点透明的屏(ProfileScreen 等 Fragment 根)
+    // 会露出原生窗口黑底(#000000 splash)。主 tab 页均为静态浅色 token 渲染,
+    // 故取浅色 surface.bg 与页面底色一致;暗色主题全量落地时再随主题切换。
+    <View
+      className={resolvedTheme === 'dark' ? 'dark' : ''}
+      style={{ flex: 1, backgroundColor: rnLightTokens.surface.bg }}
+    >
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>
