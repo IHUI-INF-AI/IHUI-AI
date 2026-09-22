@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
+import { resolveApiBaseUrl } from '@/lib/api-base-url'
+import { buildSsoRedirectUrl } from '@ihui/shared'
 
 /**
  * A 套壳:output:export 不支持 cookies() + await fetch() + redirect() + searchParams: Promise SSR
@@ -19,22 +21,17 @@ import { Loader2 } from 'lucide-react'
  *  2. 已登录 → POST /api/auth/sso/code 换一次性 code;
  *  3. 未登录 → 跳 /sso/login。
  *
+ * 2026-09-22 修复桌面端 API 寻址漂移:本文件原先自带一份 detectApiBaseUrl() 复制实现
+ * (Tauri 运行时 → `NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'`),未随
+ * 2026-09-21 lib/api-base-url.ts 的寻址收口一起更新 —— 线上构建刻意把
+ * NEXT_PUBLIC_API_BASE_URL 置空(浏览器同源 /api/* 反代),`||` 会把它吞掉回退到本机
+ * 8802 → 桌面端薄壳窗口(加载 https://aizhs.top)在本页恒 ECONNREFUSED,直接跳到
+ * /?reauth=1&next=…。现统一改用 @/lib/api-base-url 的权威判定(远端窗口 → '' 同源,
+ * 仅本地壳才回本机 API);sso_code 附加改用共享 buildSsoRedirectUrl(幂等去重)。
+ *
  * 安全说明:URL 白名单校验在客户端执行(output:export 限制),
  * 真正的安全边界由 SSO code 生成 API(apps/api)服务端保证。
  */
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
-
-function detectApiBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    if ('__TAURI_INTERNALS__' in window) {
-      // 2026-09-04 桌面端 SaaS 化:与 lib/api.ts 同语义——NEXT_PUBLIC_API_BASE_URL
-      // (桌面构建注入的线上地址)优先,未注入(本地三端联调)回退 127.0.0.1:8802。
-      return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
-    }
-  }
-  return API_BASE
-}
 
 function isAllowedRedirect(url: string): boolean {
   if (!url) return false
@@ -70,7 +67,7 @@ export default function SsoRedirectPageClient() {
     let cancelled = false
     void (async () => {
       try {
-        const base = detectApiBaseUrl()
+        const base = resolveApiBaseUrl()
 
         // P2-18:登录态校验改走 /auth/me(httpOnly cookie 自动附带),不再读 document.cookie
         // 2026-09-09 0-5-f 豁免确认:SSO 认证自举场景——401 即"未登录需跳登录页"的
@@ -117,8 +114,8 @@ export default function SsoRedirectPageClient() {
 
         if (cancelled) return
         const ssoCode = data.data.code as string
-        const separator = targetUrl.includes('?') ? '&' : '?'
-        const finalUrl = `${targetUrl}${separator}sso_code=${ssoCode}`
+        // 幂等附加:剥离 targetUrl 里可能残留的 sso_code 再写入(2026-09-22 去重)
+        const finalUrl = buildSsoRedirectUrl(targetUrl, ssoCode)
         // Custom scheme(如 ihui://)需用 window.location.href 触发 OS deep-link handler,
         // router.replace 无法处理非 http/https 协议(2026-08-01 desktop SSO 闭环修复)
         const isCustomScheme =
