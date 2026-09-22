@@ -85,4 +85,59 @@ describe('hydrateHistoryMessage 交代帧回放', () => {
     expect(() => hydrateHistoryMessage(row(null))).not.toThrow()
   })
 })
+
+describe('hydrateHistoryMessage compaction 回放(G-166 第②步)', () => {
+  it('帧载荷 tokensBefore/After → store originalTokens/compressedTokens 逐字段换算', () => {
+    const msg = hydrateHistoryMessage(
+      row({
+        compaction: {
+          triggered: true,
+          tokensBefore: 48000,
+          tokensAfter: 12000,
+          removedCount: 31,
+          usageRatio: 0.88,
+          trigger: 'ratio',
+        },
+      }),
+    )
+    expect(msg.compaction).toEqual({
+      originalTokens: 48000,
+      compressedTokens: 12000,
+      removedCount: 31,
+      trigger: 'ratio',
+    })
+  })
+
+  it('incompressible(撞上限)同样回放 —— 分隔线不能只在真压缩时才出现', () => {
+    const msg = hydrateHistoryMessage(
+      row({
+        compaction: {
+          triggered: true,
+          tokensBefore: 96000,
+          tokensAfter: 90000,
+          removedCount: 0,
+          trigger: 'incompressible',
+        },
+      }),
+    )
+    expect(msg.compaction?.trigger).toBe('incompressible')
+    expect(msg.compaction?.removedCount).toBe(0)
+  })
+
+  it('triggered 非 true / 缺 token 统计 / 非对象 → 字段缺席(不渲染空分隔线)', () => {
+    expect(
+      hydrateHistoryMessage(
+        row({ compaction: { triggered: false, tokensBefore: 1, tokensAfter: 0 } }),
+      ).compaction,
+    ).toBeUndefined()
+    expect(
+      hydrateHistoryMessage(row({ compaction: { triggered: true } })).compaction,
+    ).toBeUndefined()
+    expect(hydrateHistoryMessage(row({ compaction: 'nonsense' })).compaction).toBeUndefined()
+  })
+
+  it('老消息没有该 key → 缺席而不是零值分隔线', () => {
+    expect(hydrateHistoryMessage(row({ model: 'x' })).compaction).toBeUndefined()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

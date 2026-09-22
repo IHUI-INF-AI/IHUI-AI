@@ -159,6 +159,18 @@
         {
           "file": "apps/web/src/components/ai/progress-sections/compression-divider.tsx",
           "mustMatch": "compaction-ceiling"
+        },
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_compaction_payload"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedCompactionSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readCompactionFromMetadata"
         }
       ]
     },
