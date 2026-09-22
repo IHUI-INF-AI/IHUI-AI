@@ -148,7 +148,9 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
   await page.waitForTimeout(500)
 
   // 2. 点击 ChevronDown 按钮
-  const chevronBtn = page.locator('button[title="收藏和历史"]')
+  // (2026-09-22:ToolbarButton 不再落原生 title(§4 禁原生提示),改渲染 aria-label + 包内 Tooltip,
+  //  故定位从 [title=] 换到 [aria-label=])
+  const chevronBtn = page.locator('button[aria-label="收藏和历史"]')
   await chevronBtn.click()
   await page.waitForTimeout(300)
 

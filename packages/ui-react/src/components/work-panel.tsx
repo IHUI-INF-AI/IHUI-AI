@@ -23,7 +23,7 @@ import { cn } from '../lib/utils'
 import { Input } from './input'
 import { CloseButton } from './close-button'
 import { ResizableHandle } from './resizable'
-import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
 
 /**
  * 工作展示区容器(通用,跨端共享)。
@@ -582,7 +582,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               })}
             </div>
             {onNewTab && (
-              <ToolbarButton onClick={onNewTab} title="新建标签页" size="sm">
+              <ToolbarButton onClick={onNewTab} title={labels.newTab} size="sm">
                 <Plus className="h-3.5 w-3.5" />
               </ToolbarButton>
             )}
@@ -609,19 +609,36 @@ WorkPanel.displayName = 'WorkPanel'
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md'
 }
+/**
+ * 工具条图标钮。`title` 在这里**不再落到原生属性**(AGENTS.md §4 禁原生提示窗),
+ * 而是:①作为缺省可访问名(调用方显式传 aria-label 时以其为准);②经包内 Tooltip 渲染成
+ * 与全站一致的提示样式。Radix Trigger 用 asChild,不额外插 DOM 节点 → 尺寸/布局零变化。
+ */
 const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
-  ({ className, size = 'md', ...props }, ref) => (
-    <button
-      ref={ref}
-      type="button"
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
-        size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
-        className,
-      )}
-      {...props}
-    />
-  ),
+  ({ className, size = 'md', title, ...props }, ref) => {
+    const button = (
+      <button
+        ref={ref}
+        type="button"
+        {...props}
+        aria-label={props['aria-label'] ?? (typeof title === 'string' ? title : undefined)}
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+          size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+          className,
+        )}
+      />
+    )
+    if (typeof title !== 'string' || title === '') return button
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent side="bottom">{title}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  },
 )
 ToolbarButton.displayName = 'ToolbarButton'
 
