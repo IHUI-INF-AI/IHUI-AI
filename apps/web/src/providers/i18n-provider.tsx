@@ -66,6 +66,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setInitialized(true)
   }, [setInitialized])
 
+  // 语言切换后同步 <html lang>:app/layout.tsx:219 服务端恒写 'zh-CN'(语言已改为客户端驱动),
+  // 而 `document.documentElement.lang` 是 5+ 处取词口径的真值源(number-format.ts:23 与
+  // ai-news 4 个组件都读它),不同步则英文界面仍按 zh-CN 格式化数字、AT 也读错语种。
+  useEffect(() => {
+    document.documentElement.lang = locale
+  }, [locale])
+
   // 2026-09-06 产品名本地化(用户决策:中文→智汇AI,其他→IHUI AI)。
   // 仅桌面端(Tauri)同步窗口标题与 document.title;web 端 SEO 标题由 Next metadata 管理,不动。
   // 启动时 Rust 端已按系统 UI 语言设置初始标题(lib.rs localized_app_name),
