@@ -348,7 +348,7 @@ const checks = [
       '        等效压暗层 data-window-controls + data-window-controls-dim:窗口控制三按钮挂',
       '        z-max(10003) 不能降(须高于 resize 抓手 z-loading=10000),遮罩永远盖不到它,',
       '        只能靠等效压暗覆盖层,删掉=登录窗等 29+ 处遮罩下三按钮重新全亮(同族第 3 次复发);',
-      '        失焦非活动态 data-window-inactive + group/wc + group-data-[window-inactive=true]/wc:',
+      '        失焦非活动态 data-window-inactive(容器) + globals.css 的 [data-window-controls][data-window-inactive]',
       '        无边框窗口拿不到 DWM 原生"非活动标题栏变灰",删掉即失焦时按钮不再降亮;',
       '     ⑤ 判闸有效性自查:node scripts/check-z-index-guard.mjs --self-test(内存断言,不落盘)',
       '     紧急跳过(不推荐):HUSKY_SKIP_Z_INDEX_GUARD=1 git commit ...',
