@@ -109,6 +109,12 @@ const CONSUMER_WHITELIST = [
       'hide 到托盘(webview 存活,React 状态不丢),真正退出走 tray.quit → desktop-quit-request' +
       '(已有 use-quit-update-guard 消费)。属设计意图已过时的通知事件,非功能断裂',
   },
+  {
+    name: 'desktop-updater-pending',
+    reason:
+      '更新倒计时启动时的可选广播;主消费方(UpdatePrompt)直接消费 useUpdater 的返回值而非监听本事件' +
+      '(见 use-updater.ts startRestartCountdown 注释)。属冗余通知,删除不影响既有行为',
+  },
 ]
 const CONSUMER_WHITELIST_SET = new Set(CONSUMER_WHITELIST.map((w) => w.name))
 
@@ -254,6 +260,20 @@ function addConsumer(name, source) {
   consumers.get(name).add(source)
 }
 
+/**
+ * 规则 D 用:apps/web/src 内部(非桥接文件)的 CustomEvent 派发点。
+ * 2026-09-22 立:规则 C 只盯 use-desktop.ts 一条桥接链,结果像 `ihui:retry-message`
+ * (消息气泡「重试」按钮)这类组件层派发到空气的缺陷照样溜出去 —— 与本 gate 守护的
+ * 托盘「切换主题/打开设置」是**同一个失效模式**(dispatch 成功、零副作用),故一并纳入守护。
+ */
+const webDispatches = new Map()
+function addWebDispatch(name, source) {
+  if (!webDispatches.has(name)) webDispatches.set(name, new Set())
+  webDispatches.get(name).add(source)
+}
+/** 正则命中偏移 → 行号 */
+const lineOf = (text, index) => text.slice(0, index).split('\n').length
+
 const WEB_SRC = path.join(ROOT, 'apps/web/src')
 const webFiles = walk(WEB_SRC, ['.ts', '.tsx']).filter((f) => rel(f) !== rel(BRIDGE_FILE))
 let literalListenerHits = 0
@@ -278,6 +298,10 @@ for (const f of webFiles) {
       addConsumer(k[1], `${rel(f)} (事件注册表常量)`)
       registryKeyHits++
     }
+  }
+  // 规则 D:同一文件内的派发点(dispatchEvent(new CustomEvent('xxx')))
+  for (const m of text.matchAll(/dispatchEvent\(\s*new CustomEvent\(\s*'([a-z][a-z0-9:-]*)'/g)) {
+    addWebDispatch(m[1], `${rel(f)}:${lineOf(text, m.index)}`)
   }
 }
 
@@ -322,6 +346,12 @@ const SANITY_MIN = [
     actual: literalListenerHits + registryKeyHits,
     min: 50,
     hint: '含 SHORTCUT_ROUTES / MODE_SHORTCUT_EVENTS 注册表',
+  },
+  {
+    label: 'web 组件层 CustomEvent 派发数',
+    actual: webDispatches.size,
+    min: 12,
+    hint: '规则 D 基线: ihui:regenerate/branch/edit/reply/retry/scroll-to 等',
   },
 ]
 for (const { label, actual, min, hint } of SANITY_MIN) {
@@ -412,6 +442,39 @@ if (ruleCHits === 0) {
   passed.push(`规则 C: 全部 ${allDispatches.size} 个 CustomEvent 均有前端消费方`)
 }
 
+// —— 规则 D: apps/web/src 全量 CustomEvent 派发都应有监听方(2026-09-22 增)——
+console.log(
+  `\n${C.cyan}规则 D: apps/web/src 组件层 CustomEvent ⊆ 消费方(规则 C 的泛化版)${C.reset}`,
+)
+let ruleDHits = 0
+let ruleDWhitelisted = 0
+for (const name of [...webDispatches.keys()].sort()) {
+  const points = consumers.get(name)
+  if (points && points.size > 0) continue // 已有监听方(含同文件自产自销)
+  if (CONSUMER_WHITELIST_SET.has(name)) {
+    const entry = CONSUMER_WHITELIST.find((w) => w.name === name)
+    warnings.push(`规则 D 豁免: CustomEvent "${name}" 无监听方 — ${entry?.reason ?? '见白名单'}`)
+    console.log(
+      `  ${C.yellow}○ ${name}: 白名单豁免${C.reset} ${C.dim}— ${entry?.reason ?? ''}${C.reset}`,
+    )
+    ruleDWhitelisted++
+    continue
+  }
+  const sites = [...(webDispatches.get(name) ?? [])].join(', ')
+  errors.push(
+    `链路断裂(规则 D): ${sites} 派发 CustomEvent "${name}",但 apps/web/src 全量无 addEventListener('${name}') — ` +
+      `用户触发该交互后零副作用(按钮点了没反应,与桌面托盘菜单同型)。` +
+      `修法二选一:① 在正确的挂载点补监听(MessageList / 根 Provider,别挂在会被卸载的深层组件);` +
+      `② 删掉这段死派发,直接调用目标能力(store action / router.push / hook 函数)。`,
+  )
+  console.log(`  ${C.red}✗ ${name}: 派发到空气${C.reset} ${C.dim}← ${sites}${C.reset}`)
+  ruleDHits++
+}
+if (ruleDHits === 0) {
+  console.log(`  ${C.green}✓ ${webDispatches.size} 个组件层 CustomEvent 派发全部有监听方${C.reset}`)
+  passed.push(`规则 D: apps/web/src ${webDispatches.size} 个 CustomEvent 派发全部有监听方`)
+}
+
 // ============================================================================
 // 汇总
 // ============================================================================
@@ -423,7 +486,7 @@ console.log(
   `层1 Rust emit: ${rustEmitHits} 处 / ${rustEmits.size} 事件 | 层2 桥接: ${listenPositions.length} listen | 层3 消费: ${consumers.size} 事件`,
 )
 console.log(`${C.green}通过检查: ${passed.length}${C.reset}`)
-console.log(`${C.yellow}白名单豁免(不阻断): ${ruleCWhitelisted}${C.reset}`)
+console.log(`${C.yellow}白名单豁免(不阻断): ${ruleCWhitelisted + ruleDWhitelisted}${C.reset}`)
 console.log(`${C.red}错误(阻断): ${errors.length}${C.reset}`)
 
 if (errors.length > 0) {
