@@ -25,7 +25,8 @@
  *       为什么只能"等效压暗"而不能降层级:三按钮挂在 z-max(10003),该值不能降 ——
  *       它必须高于 8 方向 resize 抓手的 z-loading(10000),否则无边框窗口拖拽失效。
  *       于是遮罩永远盖不住按钮本体,只能由同幅度压暗覆盖层在遮罩打开时把按钮一起压暗。
- *    5b 失焦非活动态:data-window-inactive + 容器 group/wc + group-data-[window-inactive=true]/wc: 变体
+ *    5b 失焦非活动态:容器 data-window-inactive(GlobalTopBar.tsx)
+ *       + 弱化规则 [data-window-controls][data-window-inactive='true'](globals.css)
  *       无边框窗口拿不到 DWM 原生的"非活动标题栏变灰",前端不接 tauri://focus|blur
  *       就永远全亮 —— 这条视觉链路只有这三个挂点,删掉任一即失效。
  *
@@ -40,7 +41,7 @@
  *   本脚本自 2026-07-24 立项即由 guardian-runner id 27(blocking)自动执行,
  *   缺的是判据覆盖面而不是牙齿 —— 本轮补第 5 项两组契约。
  *   删掉 data-window-controls-dim = 登录窗等 29+ 处遮罩下三按钮重新全亮。
- *   删掉 data-window-inactive / group/wc / group-data-[window-inactive=true]/wc: 变体
+ *   删掉 data-window-inactive(容器)或 globals.css 里的 [data-window-controls][data-window-inactive='true'] 规则
  *   = 窗口失去系统焦点时按钮不再降亮(2026-09-22 补 5b,此前该链路完全裸奔)。
  *
  * 用法:
@@ -88,8 +89,11 @@ const WINDOW_CONTROL_CONTRACT = [
   {
     name: '等效压暗层(遮罩打开时把三按钮一起压暗)',
     required: [
-      { token: 'data-window-controls', min: 1, boundary: true },
-      { token: 'data-window-controls-dim', min: 1, boundary: true },
+      { token: 'data-window-controls', min: 1, boundary: true, src: 'topbar' },
+      { token: 'data-window-controls-dim', min: 1, boundary: true, src: 'topbar' },
+      // 激活方向必须瞬时:遮罩 open 态禁 fade-in 是本项目既有 blocking 门(第 4 项),
+      // 压暗若跟着淡入,150ms 内按钮仍全亮 → 该规则必须待在入口 globals.css 里
+      { token: "[data-window-controls][data-modal-dim='1']", min: 1, src: 'globals' },
     ],
     why: [
       '为什么不能靠降层级解决:三按钮挂在 z-max(10003),该值不能降',
@@ -101,14 +105,16 @@ const WINDOW_CONTROL_CONTRACT = [
   {
     name: '失焦非活动态(窗口失去系统焦点时按钮降亮)',
     required: [
-      { token: 'data-window-inactive', min: 1, boundary: true },
-      { token: 'group/wc', min: 1, boundary: true },
-      { token: 'group-data-[window-inactive=true]/wc:', min: 1, boundary: false },
+      { token: 'data-window-inactive', min: 1, boundary: true, src: 'topbar' },
+      { token: "[data-window-controls][data-window-inactive='true']", min: 1, src: 'globals' },
     ],
     why: [
       '无边框窗口拿不到 DWM 原生的「非活动标题栏变灰」效果',
-      '  → 前端若不接 tauri://focus|blur 并落到这三个挂点,按钮永远全亮',
-      '挂点三件套:容器 group/wc + data-window-inactive="true" + 按钮 group-data-[window-inactive=true]/wc: 变体',
+      '  → 前端若不接 tauri://focus|blur 并落到挂点,按钮永远全亮',
+      '挂点两处:容器 data-window-inactive="true"(GlobalTopBar.tsx)+ 弱化规则(globals.css)',
+      '规则**必须**写在 globals.css 而不是组件内的 Tailwind 任意变体:',
+      '  实测生产构建里 JS chunk 已含新代码,但组件内新写的 group-data-[…]/wc: 变体没进 CSS 产物',
+      '  (用 @tailwindcss/postcss 单独编译可复现)→ 入口 CSS 变更必然重编译,才不受扫描/缓存影响',
       '删掉任一 = 聚焦/失焦视觉无差异(该条在 2026-09-22 之前完全裸奔,删了不会有任何守门变红)',
     ],
   },
@@ -125,12 +131,13 @@ function countContractToken(source, token, boundary) {
   return source.match(new RegExp(pattern, 'g'))?.length ?? 0
 }
 
-/** 返回缺失项清单 { group, token, min, found };空数组 = 两组契约齐全(判绿)。 */
-function findWindowControlViolations(source) {
+/** 返回缺失项清单 { group, token, min, found };空数组 = 两组契约齐全(判绿)。
+ *  sources = { topbar, globals } —— 契约项各自声明挂在哪个文件。 */
+function findWindowControlViolations(sources) {
   const violations = []
   for (const group of WINDOW_CONTROL_CONTRACT) {
-    for (const { token, min, boundary } of group.required) {
-      const found = countContractToken(source, token, boundary)
+    for (const { token, min, boundary, src = 'topbar' } of group.required) {
+      const found = countContractToken(sources[src] ?? '', token, boundary)
       if (found < min) violations.push({ group: group.name, token, min, found })
     }
   }
@@ -141,48 +148,52 @@ function findWindowControlViolations(source) {
 // --self-test:判闸有效性内存自检(不落盘 / 不读外部路径 / 不写任何文件)
 //   断言第 5 项判据的两个分支:含契约→判绿;逐项缺契约→判红且红在预期分组。
 // ============================================================
-const FT_LINES = {
-  groupCls: 'className="relative z-max group/wc flex h-full shrink-0 items-center"',
+const FT_TOPBAR = {
   controls: 'data-window-controls',
-  inactive: "data-window-inactive={windowFocused ? undefined : 'true'}",
   dim: 'data-window-controls-dim',
-  variant:
-    "'group-data-[window-inactive=true]/wc:text-muted-foreground group-data-[window-inactive=true]/wc:bg-card/50'",
+  inactive: "data-window-inactive={windowFocused ? undefined : 'true'}",
 }
-const ft = (...keys) => keys.map((k) => FT_LINES[k]).join('\n')
+const FT_GLOBALS = {
+  dimRule: "[data-window-controls][data-modal-dim='1'] > [data-window-controls-dim] {",
+  inactiveRule: "[data-window-controls][data-window-inactive='true'] > button:not(:hover) {",
+}
+const fts = (top = [], glo = []) => ({
+  topbar: top.map((k) => FT_TOPBAR[k]).join('\n'),
+  globals: glo.map((k) => FT_GLOBALS[k]).join('\n'),
+})
 const DIM_GROUP = WINDOW_CONTROL_CONTRACT[0].name
 const INACTIVE_GROUP = WINDOW_CONTROL_CONTRACT[1].name
 
 const SELF_TEST_CASES = [
   {
-    title: '两组契约齐全 → 判绿',
-    source: ft('groupCls', 'controls', 'inactive', 'dim', 'variant'),
+    title: '两组契约齐全(含 globals 两条规则) → 判绿',
+    sources: fts(['controls', 'dim', 'inactive'], ['dimRule', 'inactiveRule']),
     expectGreen: true,
   },
   {
     title: '缺 data-window-controls-dim(压暗覆盖层) → 判红',
-    source: ft('groupCls', 'controls', 'inactive', 'variant'),
+    sources: fts(['controls', 'inactive'], ['dimRule', 'inactiveRule']),
     expectRed: { group: DIM_GROUP, token: 'data-window-controls-dim' },
   },
   {
+    title: "缺 globals 的压暗瞬时规则(压暗会跟着 fade-in 淡入 150ms) → 判红",
+    sources: fts(['controls', 'dim', 'inactive'], ['inactiveRule']),
+    expectRed: { group: DIM_GROUP, token: "[data-window-controls][data-modal-dim='1']" },
+  },
+  {
     title: '缺 data-window-inactive(失焦挂点) → 判红',
-    source: ft('groupCls', 'controls', 'dim', 'variant'),
+    sources: fts(['controls', 'dim'], ['dimRule', 'inactiveRule']),
     expectRed: { group: INACTIVE_GROUP, token: 'data-window-inactive' },
   },
   {
-    title: '缺 group-data-[window-inactive=true]/wc: 变体 → 判红',
-    source: ft('groupCls', 'controls', 'inactive', 'dim'),
-    expectRed: { group: INACTIVE_GROUP, token: 'group-data-[window-inactive=true]/wc:' },
+    title: '失焦规则没落进 globals.css(退化成组件内 Tailwind 变体 = 生产 CSS 可能没它) → 判红',
+    sources: fts(['controls', 'dim', 'inactive'], ['dimRule']),
+    expectRed: { group: INACTIVE_GROUP, token: "[data-window-controls][data-window-inactive='true']" },
   },
   {
     title: '只剩 data-window-controls-dim、裸 data-window-controls 被删(防影子匹配) → 判红',
-    source: ft('groupCls', 'inactive', 'dim', 'variant'),
+    sources: fts(['inactive', 'dim'], ['dimRule', 'inactiveRule']),
     expectRed: { group: DIM_GROUP, token: 'data-window-controls' },
-  },
-  {
-    title: '缺容器 group/wc(变体失去 group 根) → 判红',
-    source: ft('controls', 'inactive', 'dim', 'variant'),
-    expectRed: { group: INACTIVE_GROUP, token: 'group/wc' },
   },
 ]
 
@@ -190,7 +201,7 @@ function runSelfTest() {
   console.log('🧪 check-z-index-guard --self-test(第 5 项判据内存自检,不落盘、不读外部路径)...')
   let failed = 0
   SELF_TEST_CASES.forEach((c, i) => {
-    const violations = findWindowControlViolations(c.source)
+    const violations = findWindowControlViolations(c.sources)
     let ok
     let detail
     if (c.expectGreen) {
@@ -403,9 +414,17 @@ if (existsSync(DIALOG_PATH)) {
 // 检查 5: 桌面端窗口控制三按钮必须有等效压暗层(2026-09-22 立,同族第 3 次复发)
 // ============================================================
 console.log('  [5/5] 检查窗口控制按钮两组契约(等效压暗层 + 失焦非活动态)...')
-if (existsSync(TOPBAR_PATH)) {
-  const tsx = readFileSync(TOPBAR_PATH, 'utf8')
-  const violations = findWindowControlViolations(tsx)
+if (!existsSync(TOPBAR_PATH) || !existsSync(GLOBALS_PATH)) {
+  console.log(
+    `${C.yellow}    ⚠️  契约文件缺失:${[TOPBAR_PATH, GLOBALS_PATH].filter((p) => !existsSync(p)).join(' / ')}${C.reset}`,
+  )
+  hasError = true
+} else {
+  const SRC_PATH = { topbar: TOPBAR_PATH, globals: GLOBALS_PATH }
+  const violations = findWindowControlViolations({
+    topbar: readFileSync(TOPBAR_PATH, 'utf8'),
+    globals: readFileSync(GLOBALS_PATH, 'utf8'),
+  })
 
   if (violations.length > 0) {
     for (const group of WINDOW_CONTROL_CONTRACT) {
@@ -414,7 +433,10 @@ if (existsSync(TOPBAR_PATH)) {
       console.log(
         `${C.red}    ❌ [${group.name}] 缺少契约标记:${own.map((v) => `${v.token}(实得 ${v.found},需 ≥${v.min})`).join(' / ')}${C.reset}`,
       )
-      console.log(`${C.dim}       路径:${TOPBAR_PATH}${C.reset}`)
+      for (const v of own) {
+        const item = group.required.find((r) => r.token === v.token)
+        console.log(`${C.dim}       缺失标记应位于:${SRC_PATH[item?.src ?? 'topbar']}${C.reset}`)
+      }
       for (const line of group.why) console.log(`${C.dim}       ${line}${C.reset}`)
     }
     hasError = true
@@ -424,9 +446,6 @@ if (existsSync(TOPBAR_PATH)) {
       `${C.green}    ✅ 两组契约齐全(等效压暗 + 失焦非活动态,共 ${total} 个标记:${WINDOW_CONTROL_CONTRACT.map((g) => g.required.map((r) => r.token).join('+')).join(' | ')})${C.reset}`,
     )
   }
-} else {
-  console.log(`${C.yellow}    ⚠️  GlobalTopBar.tsx 不存在: ${TOPBAR_PATH}${C.reset}`)
-  hasError = true
 }
 
 // ============================================================
