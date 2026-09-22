@@ -33,9 +33,11 @@
 | 8804 | 小程序 Taro H5 | apps/miniapp-taro | `apps/miniapp-taro/config/dev.ts` `port: 8804` | ✅ `strictPort:true` |
 | 8805 | Metro Bundler(RN/App) | apps/mobile-rn | `apps/mobile-rn/package.json` `--port 8805` | ✅ |
 | 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口。启动:`pwsh -File scripts/start-dev.ps1 -Desktop` = api+ai-service+desktop,desktop 自带 web 8801,脚本自动注入 cargo PATH,与 web 互斥)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
-| 8807 | CLI(预留) | apps/cli | — | — |
+| 8807 | 网页预览→生产 CORS 注入反代(`scripts/dev-prod-proxy.mjs`,127.0.0.1:8807 → `https://aizhs.top`,由 dev-stack 作为可选服务托管) | scripts | `scripts/dev-port-registry.json` `prod-proxy.port: 8807` | ✅ 仅绑 127.0.0.1 |
 | 8808 | Extension(预留) | apps/extension | — | — |
 | 8809 | API 私有验证实例(O17 外部 Agent 接入端到端证明,临时只读探测用;库指向隔离 `ihui_e2e`、Redis 走 db12,不占 `apps/api/.env`) | apps/api | 启动时环境变量 `PORT=8809` | ✅ |
+
+> 8806 现由 mobile-rn 的 Expo Web 预览占用(在浏览器打开手机 App:`cd apps/mobile-rn && node node_modules\expo\bin\cli start --web --port 8806`,须显式覆盖 `EXPO_PUBLIC_API_BASE_URL`,否则继承用户级变量直连生产而被浏览器 CORS 拦死)。原占用者 Desktop 已废弃,见上一行说明。
 
 ### 2.2 基础设施(8810-8819)
 
