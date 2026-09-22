@@ -3,6 +3,11 @@
     "notFound": "找不到 {target}"
   },
   "cli": {
+    "permNoteDefault": "每一步都會請求確認(最保守)",
+    "permNotePlan": "唯讀規劃:不會改動你的檔案,核准後才執行",
+    "permNoteAcceptEdits": "檔案編輯自動通過,命令與危險工具仍需確認",
+    "permNoteBypass": "不再逐步確認,AI 可直接改動檔案與執行命令(高風險)",
+    "permNoteManual": "全部操作轉人工確認,含唯讀查詢",
     "citationSources": "參考來源：{sources}",
     "injectionApplied": "本輪參考上下文：{sources}",
     "injectionSrcDeveloper": "自訂指令",
