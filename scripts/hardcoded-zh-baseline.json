@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T14:20:37.007Z",
+  "generatedAt": "2026-09-22T15:36:08.055Z",
   "targets": [
     "apps/web/app",
     "apps/web/src/components",
@@ -7,7 +7,7 @@
     "packages/ui-react/src",
     "packages/shared/src"
   ],
-  "total": 10790,
+  "total": 10759,
   "files": {
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/agent-frameworks-part1.ts": 559,
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/ai-coding-assistants.ts": 384,
@@ -156,7 +156,6 @@
     "apps/web/app/(main)/edu/edu-management/study-plan/StudyPlanToolbar.tsx": 14,
     "apps/web/app/(main)/settings/usage/page.tsx": 14,
     "apps/web/app/(main)/workflows/editor/nodes.tsx": 14,
-    "apps/web/src/components/ai/progress-sections/overview-summary.ts": 14,
     "apps/web/src/components/memory/MemoryForm.tsx": 14,
     "apps/web/src/components/rules/RuleAbTestDialog.tsx": 14,
     "apps/web/src/hooks/use-saas-tenant-mutations.ts": 14,
@@ -170,7 +169,6 @@
     "apps/web/src/components/publish/AiWritingAssistant.tsx": 13,
     "apps/web/src/components/rules/RuleKnowledgeGraphDialog.tsx": 13,
     "apps/web/src/components/subagents/SwarmTopologyView.tsx": 13,
-    "apps/web/src/hooks/use-ai-ws-business.ts": 13,
     "apps/web/app/(main)/agent-runtime/page.tsx": 12,
     "apps/web/app/(main)/developer/relay/subscriptions/page.tsx": 12,
     "apps/web/app/(main)/ko/use-cases/ai-edu/page.tsx": 12,
@@ -314,7 +312,6 @@
     "apps/web/src/components/subagents/QueueList.tsx": 7,
     "apps/web/src/hooks/use-chat/live-usage.ts": 7,
     "apps/web/src/hooks/use-registry.ts": 7,
-    "apps/web/src/hooks/use-user-menu.ts": 7,
     "packages/shared/src/utils/date-utils.ts": 7,
     "apps/web/app/(main)/agent-step-recorder/layout.tsx": 6,
     "apps/web/app/(main)/agents/categories/page.tsx": 6,
@@ -510,6 +507,7 @@
     "apps/web/src/components/sidebar/nav-data.ts": 3,
     "apps/web/src/components/sidebar/Sidebar.tsx": 3,
     "apps/web/src/components/user/UserDeveloper.tsx": 3,
+    "apps/web/src/hooks/use-ai-ws-business.ts": 3,
     "apps/web/src/hooks/use-inline-edit.ts": 3,
     "packages/shared/src/utils/role.ts": 3,
     "apps/web/app/(main)/agent-canvas/AgentCanvasClient.tsx": 2,
