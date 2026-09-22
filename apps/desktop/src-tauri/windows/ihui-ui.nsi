@@ -412,16 +412,21 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ; 洞区透出的是外层窗口类背景刷(已在 IHUIInstShow/done-theme 置为 #242424),
 ; 与位图底色一致 → 视觉无缝。
 ; 参数: INCLCTA 1=连 CTA 槽一起挖(完成态) 0=只挖取消槽(安装中)
-!macro IHUI_INST_HOLES INCLCTA
+; 参数: INCLCTA=是否挖 CTA 洞 / INCLCANCEL=是否挖取消洞。
+; ⚠️ 完成态必须传 INCLCANCEL=0:核心在 done 态会把原生钮 2 重新置为可见,洞还开着
+;   就会让未贴皮的原生按钮从洞里露出来(2026-09-22 截图实锤:左下一块空白浅灰矩形)。
+!macro IHUI_INST_HOLES INCLCTA INCLCANCEL
   System::Call "gdi32::CreateRectRgn(i 0, i 0, i $IHUIWW, i $IHUIWH) p .R1"
-  ; 取消槽: 按钮盒 (288,500)-(384,540),洞区外扩 2px → (286,498)-(386,542)
-  !insertmacro IHUI_PX $R2 286
-  !insertmacro IHUI_PX $R3 498
-  !insertmacro IHUI_PX $R4 386
-  !insertmacro IHUI_PX $R5 542
-  System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
-  System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
-  System::Call "gdi32::DeleteObject(p R6)"
+  ${If} ${INCLCANCEL} = 1
+    ; 取消槽: 按钮盒 (288,500)-(384,540),洞区外扩 2px → (286,498)-(386,542)
+    !insertmacro IHUI_PX $R2 286
+    !insertmacro IHUI_PX $R3 498
+    !insertmacro IHUI_PX $R4 386
+    !insertmacro IHUI_PX $R5 542
+    System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
+    System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
+    System::Call "gdi32::DeleteObject(p R6)"
+  ${EndIf}
   ${If} ${INCLCTA} = 1
     ; CTA 槽: 按钮盒 (688,500)-(832,540),洞区外扩 2px → (686,498)-(834,542)
     !insertmacro IHUI_PX $R2 686
@@ -1093,7 +1098,7 @@ Function IHUIInstShow
   ; 灰化 → 槽位变成一个灰色块,正是 r9/v10 明令根除的"看着能点其实不能点"死按钮。
   ; 故本页不再摆取消钮,保持 IHUI_HIDE_ALL 的隐藏+移屏状态。退出通路 = 完成后「继续 ›」
   ; 与窗口 WS_SYSMENU 下的 Alt+F4(与原生语义一致:文件复制中本就不允许取消)。
-  !insertmacro IHUI_INST_HOLES 0
+  !insertmacro IHUI_INST_HOLES 0 1
   ; ---- 进度区(2026-09-22「墨光」改版) ----
   ; 视觉主体 = 自绘品牌进度条(bar-fill.bmp + SetWindowRgn 按百分比裁宽)。
   ; 原生 msctls_progress32 必须彻底退出视觉:它由 NSIS 核心自行推进,与阶段驱动
@@ -1175,6 +1180,12 @@ FunctionEnd
   !insertmacro IHUI_DESTROY $IHUICNC 0 0 0 0 0
   StrCpy $IHUICNC 0
   StrCpy $IHUINXT 0
+  ; 原生 2(取消)移出屏幕:完成态它无意义,且核心会重新置为可见 —— 不移屏就会从没挖的
+  ; 洞区露出未贴皮的原生按钮。核心只改可见性不改坐标,故移屏时序无关、确定性生效。
+  GetDlgItem $0 $HWNDPARENT 2
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   ; ---- 2) 原生 1/2 摆进品牌槽位(点击通路 = 核心原生路由,r76 物理点击实证) ----
   ; 继续/完成(原生1): 逻辑 688,500 144x40 —— 与 btn-continue.bmp(144x40) 等大
   !insertmacro IHUI_INST_SLOT 1 btn-continue.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40
@@ -1187,7 +1198,7 @@ FunctionEnd
   ; ---- 3) 品牌位图覆盖层(STATIC 无 SS_NOTIFY → 鼠标穿透直达下层原生钮) ----
   ; ---- 4) 内层 dialog 挖洞(CTA+取消两槽) ----
   ;      Z 序无关: 核心 done 态再提顶内层也盖不住槽位;洞区透外层类背景刷。
-  !insertmacro IHUI_INST_HOLES 1
+  !insertmacro IHUI_INST_HOLES 1 0
   ; ---- 5) 内层压底(二重保险: 万一某系统上 region 挖洞对子窗口命中不生效,
   ;      压底仍能让槽位里的原生钮处于最上层可点状态) ----
   FindWindow $0 "#32770" "" $HWNDPARENT
