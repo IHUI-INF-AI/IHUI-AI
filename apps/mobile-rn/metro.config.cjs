@@ -648,7 +648,7 @@ config.transformer.babelTransformerPath = require.resolve('react-native-svg-tran
 
 // 2026-09-22 诊断 bundle 行号偏移:记录 dev client 的真实 bundle 请求 URL,
 // 用于复现 app 侧 bundle(其行号与本地 curl 的 URL 不一致,导致红屏堆栈对不上行)。
-config.server.enhanceMiddleware = (middleware, server) => {
+config.server.enhanceMiddleware = (middleware) => {
   return (req, res, next) => {
     if (req && req.url && req.url.includes('.bundle')) {
       console.error('[IHUI-REQ] ' + String(req.url).slice(0, 600))
