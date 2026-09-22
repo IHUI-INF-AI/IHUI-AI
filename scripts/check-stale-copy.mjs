@@ -49,6 +49,13 @@ const RED_FLAG_DELETE = [
 ]
 
 function main() {
+  // HUSKY_SKIP_STALE_COPY=1 紧急跳过 —— 头注/guardian-runner 30c 注释均立规的文档化逃生口。
+  // 2026-09-22 实测:该变量此前只在帮助文本里、代码未实现,merge 场景被自己的逃生口卡死
+  // (merge staged 的 blob 本就等于 origin/main 已审查 tip 的内容,属守门对 BASE 口径的误报)。
+  if (process.env.HUSKY_SKIP_STALE_COPY === '1') {
+    console.log('⏭  HUSKY_SKIP_STALE_COPY=1 — 跳过陈旧副本守门')
+    return
+  }
   // pre-commit 场景:只看 staged 区(git diff --cached),即本次要提交的内容
   // core.quotePath=false:中文路径不被引号转义,保证 slice(3) 定位准确
   const statusRaw = shSafe('git -c core.quotePath=false diff --cached --name-status')
