@@ -1,4 +1,15 @@
 {
+  "aiWs": {
+    "videoDone": "動画生成が完了しました",
+    "videoFailed": "動画生成に失敗しました。もう一度お試しください",
+    "videoOneImageOnly": "動画生成は画像 1 枚のみ対応しています",
+    "sendFailed": "送信に失敗しました。もう一度お試しください",
+    "connectFailed": "接続に失敗しました。もう一度お試しください",
+    "connectFailedShort": "接続に失敗しました",
+    "connectError": "接続エラーが発生しました。もう一度お試しください",
+    "creditLowTitle": "クレジットが不足しています",
+    "creditLowDesc": "クレジット残高が {min} を下回っているため、モデルを利用できません。チャージしてください"
+  },
   "treeSelect": {
     "placeholder": "選択してください",
     "searchPlaceholder": "検索...",
@@ -7095,6 +7106,8 @@
       "nextStepsSummarize": "この会話の進捗をまとめる",
       "nextStepsTitle": "次のステップ",
       "overview": {
+        "status": "状態",
+        "error": "エラー",
         "active": "アクティブ",
         "changes": "変更",
         "context": "コンテキスト",
