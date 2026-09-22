@@ -699,6 +699,26 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
           t={(key, values) => t(`chat.${key}`, values)}
         />
       ) : null}
+      {/* #11 引用溯源(第 52 轮):该端此前对 citations 帧 0 命中(只有注释提到它) */}
+      {message.role === 'assistant' && message.citations?.length ? (
+        <div data-testid="citation-list" className="mt-1">
+          <div className="text-[11px] text-muted-foreground">{t('chat.citationTitle')}</div>
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {message.citations.map((c, i) => (
+              <span
+                key={`${c.source}_${i}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              >
+                <span className="rounded-sm bg-muted px-1 py-px text-[9px] font-medium">
+                  {c.source}
+                </span>
+                <span className="truncate">{c.label}</span>
+                {c.url ? <span className="truncate opacity-60">{c.url}</span> : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {/* D39/D108 上游重试交代:不接就等于侧边栏里只表现为"停顿"。措辞出自 chat.retry* 词表 */}
       {message.role === 'assistant' && message.retryNotice ? (
         <div

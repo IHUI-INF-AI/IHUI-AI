@@ -139,6 +139,14 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "CitationList"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "onCitations"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "chat.citationTitle"
         }
       ]
     },
