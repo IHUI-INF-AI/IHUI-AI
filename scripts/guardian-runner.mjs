@@ -1595,6 +1595,35 @@ const checks = [
     ].join('\n'),
   },
 
+  // 硬编码中文 ratchet(2026-09-22 接线)。该脚本 2026-07-20 就写好了,但只登记在 scripts/README,
+  // 从未接入守门链 ⇒ 一年多里新增的硬编码中文无人拦(审计实测 web+ui-react+shared 已积到 900+ 文件)。
+  // 存量清不完也不该挡所有提交,故用"每文件额度基线":只拦比基线更多的命中,清理后 --update-baseline 下调。
+  {
+    id: '70',
+    label: '🈲 硬编码中文基线棘轮(blocking,新增界面文案必须走 t()/语言包)',
+    script: 'scan-hardcoded-zh.mjs',
+    args: ['--exit', '1'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/web/src/components/',
+      'apps/web/src/hooks/',
+      'packages/ui-react/src/',
+      'packages/shared/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_HARDCODED_ZH_GUARD',
+    onFailHint: [
+      '',
+      '  💡 本次改动在某个文件里**新增了**超过基线额度的硬编码中文行。',
+      '     正解:界面文案改用 useTranslations / 共享包的 t 注入(AGENTS.md §19),键落对应命名空间;',
+      '     定位:`node scripts/scan-hardcoded-zh.mjs --staged` 或全量 `node scripts/scan-hardcoded-zh.mjs`;',
+      '     若确属内容文案(示例数据/营销长文)或判据误报,先自行核实再下调基线:',
+      '       node scripts/scan-hardcoded-zh.mjs --update-baseline   # 全量重写,只能有人工确认时跑',
+      '     紧急跳过(不推荐):HUSKY_SKIP_HARDCODED_ZH_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',

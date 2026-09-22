@@ -249,6 +249,28 @@
     "regenerate": "再生成",
     "regenerateDisabledHint": "リポジトリフォルダが未選択か、ファイルが未収集のため生成できません。"
   },
+  "workPanel": {
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "更新",
+    "stop": "停止",
+    "addressPlaceholder": "URL または検索を入力...",
+    "favorite": "ブックマークに追加",
+    "unfavorite": "ブックマークを解除",
+    "favoritesAndHistory": "ブックマークと履歴",
+    "openExternal": "外部ブラウザで開く",
+    "closePanel": "パネルを閉じる",
+    "newTab": "新規タブ",
+    "removeFavorite": "ブックマークを削除",
+    "tabFavorites": "ブックマーク",
+    "tabHistory": "履歴",
+    "emptyFavorites": "ブックマークはありません",
+    "emptyHistory": "履歴はありません",
+    "clearHistory": "履歴を消去",
+    "dragInsertBefore": "ここに前に挿入",
+    "dragInsertAfter": "ここに後に挿入",
+    "closeTab": "タブを閉じる"
+  },
   "a11y": {
     "download": "ダウンロード",
     "downloadFile": "ファイルをダウンロード",

@@ -141,13 +141,13 @@
 | Data Layer                               |
 | - Agricultural knowledge graph + pest DB |
 | - Historical weather + soil database     |
-| - PostgreSQL 16 + time-series DB         |
+| - PostgreSQL 18 + time-series DB         |
 +-----------------------------------------+
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
 - **Web** (Next.js 16 + React 19): Field dashboard / decision cockpit
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Agricultural data APIs
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Agricultural data APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): Agricultural expert workstation (offline capable)
 - **Extension** (WXT): Browser-side market data collection
@@ -163,7 +163,7 @@
 
 ### Technology Stack
 - Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI
 - Edge inference: Ollama + Qwen2.5-72B (field cabinet)
@@ -189,7 +189,7 @@
 | Avg break-even period | 6 months |
 | 12-month ROI | 240% |
 
-(Test environment: enterprise mid-size deployment, includes edge nodes, PostgreSQL 16, time-series DB)
+(Test environment: enterprise mid-size deployment, includes edge nodes, PostgreSQL 18, time-series DB)
 
 ### FAQ
 - Q: What if there is no network in the field?
