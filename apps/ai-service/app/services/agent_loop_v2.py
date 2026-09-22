@@ -60,6 +60,21 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from ..core.permission_mode import (
+    PermissionModeId as _PermissionModeId,
+)
+from ..core.permission_mode import (
+    is_readonly_permission_mode as _is_readonly_mode,
+)
+from ..core.permission_mode import (
+    normalize_permission_mode as _normalize_permission_mode,
+)
+from ..core.permission_mode import (
+    permission_mode_error as _permission_mode_error,
+)
+from ..core.permission_mode import (
+    skips_approval_permission_mode as _skips_approval_mode,
+)
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
     AgentCheckpointManager,
@@ -1407,9 +1422,9 @@ class AgentLoopV2:
             tool_retry_max: 工具瞬时失败(timeout/connection/http_5xx)自动重试次数(默认 1,0=不重试;
                              http_4xx 业务错误与 unknown 不重试)
             tool_retry_backoff: 工具重试固定退避秒(默认 0.5,实际等待 = base * attempt)
-            permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
-                强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
-                再回退 "default";非法值 raise ValueError。
+            permission_mode: 权限档(G-161 起取唯一真源规范值 default / acceptEdits /
+                bypassPermissions / plan / manual;历史拼写 auto 与 kebab 别名自动归一)。
+                None 时取 env AGENT_PERMISSION_MODE,再回退 "default"。
             team_relay_enabled: 团队接力总开关(默认 None 取 env AGENT_TEAM_RELAY_ENABLED,
                 默认 off,与现状逐零差异)。on 时主导 agent 进入循环前注入团队上一轮摘要。
             team_context: 团队上一轮聚合上下文(结构化 dict 或纯文本 str),显式传递;
@@ -1456,19 +1471,22 @@ class AgentLoopV2:
         # 自定义高危工具集合(env 追加;实例级只读组合)
         self._extra_high_risk_tools: frozenset[str] = _high_risk_tools_from_env()
 
-        # 权限三模式(2026-09-02 立,对标 Claude Code permission modes)。
-        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default";非法值 raise ValueError。
-        _resolved_mode = (
+        # 权限模式(G-161 归一到唯一真源,2026-09-22)。
+        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default"。
+        # 历史上这里只认 default/plan/auto 三值,而前端发的是 acceptEdits /
+        # accept-edits / bypassPermissions —— 全部落在 raise 分支,一次 500。
+        # 现按 packages/types/src/permission-mode.ts 的注册表归一(别名 auto→
+        # acceptEdits、read-only|plan-only→plan、accept-all→bypassPermissions),
+        # 认不出的仍 fail-fast,不静默降级成 default。
+        _resolved_raw = (
             permission_mode
             if permission_mode is not None
             else os.environ.get("AGENT_PERMISSION_MODE", "default")
         )
-        if _resolved_mode not in ("default", "plan", "auto"):
-            raise ValueError(
-                f"非法 permission_mode: {_resolved_mode!r},"
-                " 取值必须为 'default' / 'plan' / 'auto'"
-            )
-        self._permission_mode: str = _resolved_mode
+        _resolved_mode = _normalize_permission_mode(_resolved_raw)
+        if _resolved_mode is None:
+            raise ValueError(_permission_mode_error(_resolved_raw))
+        self._permission_mode: _PermissionModeId = _resolved_mode
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
@@ -1524,7 +1542,7 @@ class AgentLoopV2:
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
-        if self._permission_mode == "plan":
+        if _is_readonly_mode(self._permission_mode):
             self._tools = {
                 name: td for name, td in self._tools.items() if name in READONLY_TOOLS
             }
@@ -4546,7 +4564,7 @@ class AgentLoopV2:
 
         # plan 模式:白名单外工具防御性拦截(不执行、不进审批流、直接 error 回填)。
         # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
-        if self._permission_mode == "plan" and not is_readonly_tool(tc.name):
+        if _is_readonly_mode(self._permission_mode) and not is_readonly_tool(tc.name):
             msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
             logger.info(
                 "plan 模式拦截工具 %s(不在只读白名单), session=%s",
@@ -4567,13 +4585,15 @@ class AgentLoopV2:
             )
 
         # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)。
-        # auto 模式:只读白名单工具免审批直接执行(跳过 _request_approval)。
+        # 免审批档(G-161 归一):acceptEdits(历史拼写 auto)只覆盖只读白名单工具;
+        # bypassPermissions 覆盖全部高危工具(与 cli 端同名档语义一致),且必留审计事件。
         gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
-        if self._permission_mode == "auto" and is_readonly_tool(tc.name):
+        if _skips_approval_mode(self._permission_mode) and is_readonly_tool(tc.name):
             if needs_approval:
                 logger.info(
-                    "auto 模式:只读工具 %s 免审批直接执行, session=%s",
+                    "%s 档:只读工具 %s 免审批直接执行, session=%s",
+                    self._permission_mode,
                     tc.name,
                     self._session_id or "",
                 )
@@ -4585,14 +4605,28 @@ class AgentLoopV2:
                     "auto 模式:只读工具免审批直接执行",
                 )
             needs_approval = False
+        elif self._permission_mode == "bypassPermissions" and needs_approval:
+            # 免批可以是政策,但不能是静默的 —— warning 级 + 审计事件 + 决策提示三处留痕。
+            logger.warning(
+                "bypassPermissions 档:高危工具 %s 免审批直接执行, session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            await self._emit_permission_mode_event(tc.name, "bypass_skip_approval")
+            self._decision_hints[tc.id] = (
+                "bypass_skip_approval",
+                "bypassPermissions 档:高危工具免审批直接执行",
+            )
+            needs_approval = False
 
-        # 批 39 接线:外部 MCP 工具注解审批(auto 模式专属判定,对标 Codex
+        # 批 39 接线:外部 MCP 工具注解审批(acceptEdits 档专属判定,历史拼写 auto,对标 Codex
         # requires_mcp_tool_approval 保守语义)。仅当工具携带 mcp_annotations
-        # 时生效——内部工具(注解恒 None)行为零变化;非 auto 模式不介入
-        # (default 模式保持回归红线)。判定为需批时不再走只读白名单免审,
+        # 时生效——内部工具(注解恒 None)行为零变化;其余档不介入
+        # (default 模式保持回归红线;bypassPermissions 已由上一分支全档免批,不再回插保守门)。
+        # 判定为需批时不再走只读白名单免审,
         # 未知注解(destructive/open_world 缺失)按最坏情况需批。
         if (
-            self._permission_mode == "auto"
+            self._permission_mode == "acceptEdits"
             and needs_approval is False
             and not gate_approved
         ):

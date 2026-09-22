@@ -26,6 +26,28 @@ const SOURCE_EXT = new Set(['.mjs', '.cjs', '.js', '.ts', '.tsx'])
 const TEST_PATH = /(\.test\.|\.spec\.|[\\/]tests?[\\/]|[\\/]e2e[\\/]|[\\/]bench[\\/])/
 const SKIP_DIR = /[\\/](node_modules|dist|build|\.next|\.turbo|coverage|android|ios)[\\/]/
 
+// 自我豁免(仅本文件):self-test 样例区里的 src 字段是**故意构造**的判据字符串,不是真实派生点。
+// 全量扫描若把样例当生产违规,这道门在 CI / 全量审计场景恒红。豁免严格限定为本脚本自身
+// (SELF_EXEMPT_FILE),且必须成对标记齐全;任何其他文件写同样标记一律无效 —— 判据不因此变松,
+// 真实代码里 spawn('git', ...) 漏 windowsHide 仍被 BLOCK(见 tests 的注入对照用例)。
+const SELF_EXEMPT_FILE = /(^|[\\/])check-no-visible-spawn\.mjs$/
+export const SELFTEST_BEGIN = '// ihui:selftest-samples:start'
+export const SELFTEST_END = '// ihui:selftest-samples:end'
+
+/** 把成对 self-test 标记之间的行清空(保留行数以维持行号)。标记缺失/不成对则不豁免(宁红不漏)。 */
+export function stripSelfTestRegions(src) {
+  const lines = src.split('\n')
+  const starts = []
+  const ends = []
+  lines.forEach((l, i) => {
+    const t = l.trim()
+    if (t === SELFTEST_BEGIN) starts.push(i)
+    else if (t === SELFTEST_END) ends.push(i)
+  })
+  if (starts.length !== 1 || ends.length !== 1 || ends[0] <= starts[0]) return src
+  return lines.map((l, i) => (i > starts[0] && i < ends[0] ? '' : l)).join('\n')
+}
+
 /** 跳过以 quote 起手的字符串字面量(含转义与模板插值),返回结束下标。 */
 export function skipQuoted(src, start, quote) {
   let i = start + 1
@@ -119,6 +141,7 @@ export function isConsoleTarget(argText) {
 
 /** 扫描单个源文件,返回违规项数组。 */
 export function scanSource(src, file) {
+  if (SELF_EXEMPT_FILE.test(file)) src = stripSelfTestRegions(src) // 仅本脚本 self-test 样例区豁免
   const violations = []
   FN_RE.lastIndex = 0 // 模块级正则跨文件必须重置,否则漏扫/串档
   let m
@@ -166,6 +189,9 @@ export function listCandidates(staged) {
 }
 
 function selfTest() {
+  // ihui:selftest-samples:start
+  // 下面每条 src 是故意构造的判据样例(有的带 windowsHide 应通过、有的不带应被抓住)。
+  // 本区间被 scanSource 的 SELF_EXEMPT_FILE 自我豁免覆盖,全量扫描不再把样例当生产违规。
   const cases = [
     { name: 'execSync git 缺参 → 违规', src: `execSync('git status', { encoding: 'utf8' })`, want: 1 },
     { name: 'execSync git 带参 → 通过', src: `execSync('git status', { encoding: 'utf8', windowsHide: true })`, want: 0 },
@@ -194,6 +220,7 @@ function selfTest() {
       want: 1,
     },
   ]
+  // ihui:selftest-samples:end
   let bad = 0
   for (const c of cases) {
     const got = scanSource(c.src, 'selftest.js').length
@@ -232,7 +259,18 @@ async function main() {
   process.exit(prod.length ? 1 : 0)
 }
 
-export const __test__ = { scanSource, scanCallEnd, skipQuoted, firstArg, isConsoleTarget, listCandidates, CONSOLE_LITERALS }
+export const __test__ = {
+  scanSource,
+  scanCallEnd,
+  skipQuoted,
+  firstArg,
+  isConsoleTarget,
+  listCandidates,
+  CONSOLE_LITERALS,
+  stripSelfTestRegions,
+  SELFTEST_BEGIN,
+  SELFTEST_END,
+}
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 if (isDirectRun) {
