@@ -374,6 +374,12 @@ interface ChatState {
     messageId: string,
     injection: { kind: string; collapsed: string; fullText?: string; count?: number },
   ) => void
+  /** D39/D108 上游重试交代(retry_scheduled 命名帧):整体替换为**最近一次**重试(第 N 次递增,
+   *  旧的"第 1 次"没有继续显示的价值),MessageItem 据此渲染一行提示。 */
+  setMessageRetryNotice: (
+    messageId: string,
+    notice: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number },
+  ) => void
   /** 2026-09-19 立:写入消息级上下文压缩信息(compaction 命名帧 → onCompaction 回调)。
    *  压缩发生时把统计挂到指定 assistant 消息,MessageItem 渲染 CompressionDivider。 */
   setMessageCompaction: (messageId: string, compaction: ChatMessage['compaction']) => void
@@ -1045,6 +1051,17 @@ export const useChatStore = create<ChatState>()(
           }
           const next = s.messages.slice()
           next[idx] = { ...target, injections: [...existing, injection] }
+          return { messages: next }
+        }),
+
+      setMessageRetryNotice: (messageId, notice) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, retryNotice: notice }
           return { messages: next }
         }),
 
