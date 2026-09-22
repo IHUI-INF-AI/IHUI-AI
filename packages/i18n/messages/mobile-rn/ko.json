@@ -366,6 +366,7 @@
     "planSteps": "실행 계획",
     "terminalExitCode": "종료 코드",
     "terminalOutput": "출력",
+    "terminalTruncated": "…(잘림, 전체 {total}자)",
     "terminalStatusCompleted": "완료",
     "terminalStatusFailed": "실패",
     "terminalStatusRunning": "실행 중",

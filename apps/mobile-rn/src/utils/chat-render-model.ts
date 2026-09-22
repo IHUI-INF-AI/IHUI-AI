@@ -89,6 +89,9 @@ export interface TerminalTaskItem {
   status: TerminalTaskStatus
   /** 命令输出 */
   output?: string
+  /** 后端截断标志与原始长度(RN 没有 live 输出缓冲,只能靠这两个字段交代"内容不完整") */
+  truncated?: boolean
+  totalChars?: number
   /** 退出码 */
   exitCode?: number
   /** 开始时间(ms epoch) */
@@ -210,6 +213,8 @@ export function applyTerminalEnd(
     command: current?.command ?? '',
     status: event.status,
     output: event.output ?? current?.output,
+    truncated: event.truncated ?? current?.truncated,
+    totalChars: event.totalChars ?? current?.totalChars,
     exitCode: event.exitCode ?? current?.exitCode,
     startedAtMs: current?.startedAtMs ?? toEpochMs(event.endedAt),
     durationMs:
