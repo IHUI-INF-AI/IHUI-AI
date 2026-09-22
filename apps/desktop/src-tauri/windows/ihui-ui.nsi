@@ -627,6 +627,11 @@ FunctionEnd
   ${EndIf}
 !macroend
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
+; 布局 DPI 上限(顶档 192 = 200%)。可被 makensis -DIHUI_DPI_CAP=96 等覆盖,
+; 用途:在普通屏上以低阈值复现"封顶生效"路径取证(位图恒 >= 客户区,永不拉伸)。
+!ifndef IHUI_DPI_CAP
+  !define IHUI_DPI_CAP 192
+!endif
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
   System::Call "user32::GetDpiForSystem() i .s"
@@ -637,8 +642,8 @@ FunctionEnd
   ${EndIf}
   ; 与 IHUI_GUIINIT_SIZE 同一条上限:系统 DPI 也钉在顶档 192,否则开屏帧会按
   ; 更高的 DPI 出尺寸而资产只有 200% 档 → 拉伸发糊。
-  ${If} $IHUIDPI > 192
-    StrCpy $IHUIDPI 192
+  ${If} $IHUIDPI > ${IHUI_DPI_CAP}
+    StrCpy $IHUIDPI ${IHUI_DPI_CAP}
   ${EndIf}
   !insertmacro IHUI_TIER_OF $IHUIDPI $IHUITIER
 !macroend
@@ -664,8 +669,8 @@ FunctionEnd
   ; 被 STATIC 拉伸 → 重新发糊。与其为 225%/250% 再往仓库塞 ~223 MB 位图,
   ; 不如把**布局 DPI** 钉在 192:窗口按 200% 出图,在 250% 屏上只是比系统缩放
   ; 小一档,但永远 1:1 或降采样、绝不拉伸(清晰 > 尺寸合身)。
-  ${If} $IHUIDPIW > 192
-    StrCpy $IHUIDPIW 192
+  ${If} $IHUIDPIW > ${IHUI_DPI_CAP}
+    StrCpy $IHUIDPIW ${IHUI_DPI_CAP}
   ${EndIf}
   !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
   !insertmacro IHUI_PX $IHUIWW 880
