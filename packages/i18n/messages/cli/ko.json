@@ -3,6 +3,7 @@
     "notFound": "{target}을(를) 찾을 수 없습니다"
   },
   "cli": {
+    "citationSources": "참조 출처: {sources}",
     "injectionApplied": "이번 턴의 참조 컨텍스트: {sources}",
     "injectionSrcDeveloper": "사용자 지정 지침",
     "injectionSrcWorkspace": "워크스페이스 기억",

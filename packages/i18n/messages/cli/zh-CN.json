@@ -3,6 +3,7 @@
     "notFound": "未找到 {target}"
   },
   "cli": {
+    "citationSources": "参考来源：{sources}",
     "injectionApplied": "本轮参考上下文：{sources}",
     "injectionSrcDeveloper": "自定义指令",
     "injectionSrcWorkspace": "工作区记忆",

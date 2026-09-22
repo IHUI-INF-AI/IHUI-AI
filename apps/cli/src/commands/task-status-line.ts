@@ -443,6 +443,16 @@ export function injectionNoteText(event: InjectionAppliedEvent): string {
 }
 
 /** D39 重试交代:retryInMs=0 是"换 key 立即重试",措辞不得写"0 秒后继续"这种假精确 */
+/**
+ * #11 引用溯源的终端一行。source/label 都是**内容**不是界面 chrome,故原样列出;
+ * 界面措辞(前缀"参考来源:")仍出自 cli.citationSources 词表,不写死中文。
+ */
+export function citationNoteText(items: readonly { source: string; label: string }[]): string {
+  return t('cli.citationSources', {
+    sources: items.map((x) => `${x.label}(${x.source})`).join(' · '),
+  });
+}
+
 export function retryNoteText(event: RetryScheduledEvent): string {
   return event.retryInMs > 0
     ? t('cli.retryScheduled', {
