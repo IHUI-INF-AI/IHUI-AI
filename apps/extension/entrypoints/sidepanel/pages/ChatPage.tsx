@@ -16,6 +16,7 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { pickRetryTarget } from './chat-send-utils'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { VoiceInput } from '../components/VoiceInput'
@@ -103,8 +104,9 @@ export default function ChatPage() {
     })
   }
 
-  const onSend = async () => {
-    const text = input.trim()
+  /** overrideText 用于 G-152「重试上一条」:错误后不要求用户重新输入同一句话。 */
+  const onSend = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim()
     if (!text || streaming) return
     setInput('')
     setError('')
@@ -353,6 +355,8 @@ export default function ChatPage() {
   }
 
   const lastMessageId = messages[messages.length - 1]?.id
+  // G-152:仅在有错误时找可重发的用户原文;没有就返回空串 → 界面不给按钮
+  const retryText = pickRetryTarget(messages, error !== '')
   // 任务状态条数据源:最后一条带 planSteps 的 assistant 消息(消息级权威快照)
   const taskMessage = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -440,6 +444,20 @@ export default function ChatPage() {
       {error ? (
         <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
           {error}
+          {/* G-152(WorkBuddy 一手对标):错误必须带**动作**,只说"请稍后重试"等于让用户自己重打 */}
+          {retryText ? (
+            <button
+              type="button"
+              data-testid="retry-last-turn"
+              className="ml-2 rounded-sm border border-destructive/60 px-1.5 py-px text-[11px] text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                setError('')
+                void onSend(retryText)
+              }}
+            >
+              {t('chat.retryMessage')}
+            </button>
+          ) : null}
         </div>
       ) : null}
       {/* 任务进度常驻状态条:plan_updated 驱动,流式时随事件自动刷新,空闲时零占位。

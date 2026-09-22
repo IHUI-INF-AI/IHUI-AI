@@ -165,6 +165,7 @@
     "emptyHint": "生詞本為空,查詢後點擊儲存"
   },
   "chat": {
+    "retryMessage": "重試",
     "citationTitle": "參考來源",
     "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
     "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
