@@ -131,6 +131,14 @@
         {
           "file": "apps/web/src/hooks/use-permission-mode-cycle.ts",
           "mustMatch": "CYCLE_LABEL_KEY"
+        },
+        {
+          "file": "apps/api/src/services/message-permission-stamp.ts",
+          "mustMatch": "permissionStamp"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "permissionModeWire"
         }
       ]
     },
@@ -447,6 +455,21 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "terminalTruncated"
+        }
+      ]
+    },
+    {
+      "id": "terminal-isolation-disclosure",
+      "title": "终端执行环境隔离交代(对标 G-154:命令在专用终端实例中运行;我方真值=os_sandbox allow_network 默认 False)",
+      "sourceTask": "D110",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
+          "mustMatch": "terminal.isolation"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/__tests__/terminal-section-isolation.test.tsx",
+          "mustMatch": "terminal-isolation"
         }
       ]
     }
