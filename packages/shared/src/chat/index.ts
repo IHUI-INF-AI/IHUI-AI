@@ -17,3 +17,5 @@ export * from './permission-tier'
 export * from './waiting-pool'
 // D55 步骤决策词汇表(15 个后端字面量的唯一映射,跨端共用;认不出不编造)
 export * from './step-decision'
+// D36 会话内输入历史栈(纯逻辑:push/去重/50 上限/游标导航;平台无关,web 接线在 use-prompt-history)
+export * from './prompt-history'
