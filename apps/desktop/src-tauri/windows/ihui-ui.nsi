@@ -525,7 +525,10 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
   StrCpy $IHUIDRAGPREV 0
 !macroend
 
-Function IHUIOnDragTick
+; 拖拽 tick 的**函数体**抽成宏:安装器与卸载器各建一个薄函数 insertmacro 它。
+; 原因见 windows/ihui-uninstaller.nsi —— un. 上下文无法引用非 un. 函数名。
+; 体内只用 Return 提前退出,不出现函数名自引用,故可安全共用同一份实现。
+!macro IHUI_ONDRAGTICK_BODY
   ; ---- 左键状态(VK_LBUTTON=0x01,取高位) ----
   System::Call "user32::GetAsyncKeyState(i 1) i .R0"
   IntOp $R0 $R0 & 0x8000
@@ -581,6 +584,10 @@ Function IHUIOnDragTick
   StrCpy $IHUIDRAGOY $R1
   StrCpy $IHUIDRAGST 1
   !insertmacro IHUI_LOG "drag_start"
+!macroend
+
+Function IHUIOnDragTick
+  !insertmacro IHUI_ONDRAGTICK_BODY
 FunctionEnd
 
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
@@ -647,7 +654,10 @@ FunctionEnd
   System::Call "user32::SetWindowPos(p $HWNDPARENT, p 0, i R2, i R3, i $IHUIWW, i $IHUIWH, i 0x0024)"
 !macroend
 
-Function IHUIGuiInit
+; 无边框化 + 定档定位 + 圆角,安装器与卸载器**共用同一份实现**(抽成宏而非复制:
+; 卸载器上下文只能引用 un. 函数,复制一份必然与安装侧漂移 —— 多屏异 DPI 两轮
+; 定档、WS_MINIMIZEBOX 保底、DWM 圆角回退这三条在两侧都是硬要求)。
+!macro IHUI_GUIINIT_COMMON
   ; 剥离标题栏/边框/最大最小化框(保留 WS_POPUP 基础上的可见裁剪位)
   System::Call "user32::GetWindowLongW(p $HWNDPARENT, i -16) p .R0"
   IntOp $R0 $R0 & -12869633
@@ -678,7 +688,11 @@ Function IHUIGuiInit
     System::Call "user32::SetWindowRgn(p $HWNDPARENT, p R0, i 1)"
   ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
-  ; 开屏动画:窗口已无边框且定档完毕,铺满幅覆盖层逐帧播放后再进页面
+!macroend
+
+Function IHUIGuiInit
+  !insertmacro IHUI_GUIINIT_COMMON
+  ; 开屏动画不在此处:定档完成后由欢迎页逐帧播放(见 IHUI_SPLASH_START)
 FunctionEnd
 
 ; =====================================================================
@@ -1442,3 +1456,9 @@ Function IHUIReinstallNext
   SendMessage $0 0x00F5 0 0
   !insertmacro IHUI_LOG "reinstallNext_afterBMClick"
 FunctionEnd
+
+; =====================================================================
+; 卸载器主题(必须放在本文件**最末**:它 insertmacro 了上面全部宏/define,
+; 而这些定义散落到 780+ 行;放前面会在宏未定义处展开直接编译失败)
+; =====================================================================
+!include "${IHUI_WIN_DIR}\ihui-uninstaller.nsi"

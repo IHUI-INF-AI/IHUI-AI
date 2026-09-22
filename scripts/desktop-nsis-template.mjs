@@ -230,6 +230,48 @@ for (const [upstream, pct, text] of P7_POINTS) {
   });
 }
 
+// ---- U 系列:卸载器主题化(实现见 windows/ihui-uninstaller.nsi) ----
+// U1 把 MUI_UNPAGE_CONFIRM 整页换成自定义品牌页。
+// ⚠️ 必须同时 !undef 掉前面对它的三个 SHOW/LEAVE/PRE 回调 define —— MUI 的
+// MUI_PAGE_CUSTOMFUNCTION_* 是"被下一个页面宏消费并自动 undef"的语义;页面被
+// 拿掉后这三个 define 会**漏给下一个页面**(MUI_UNPAGE_INSTFILES),其中
+// un.SkipIfPassive 作为 instfiles 的 PRE 会在 passive 卸载时 Abort 掉卸载页,
+// 即"静默/被动卸载直接不跑了"。这是本补丁最容易埋的雷,故在此写明。
+const U1_UPSTREAM = ['!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive', '!insertmacro MUI_UNPAGE_CONFIRM'].join('\n')
+const U1_IHUI = [
+  '!undef MUI_PAGE_CUSTOMFUNCTION_SHOW',
+  '!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE',
+  '!undef MUI_PAGE_CUSTOMFUNCTION_PRE',
+  '; U1 卸载确认页改自定义品牌页(原生向导外观 + 无法主题化的复选框一并弃用)',
+  'UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave',
+].join('\n')
+
+// U2 给卸载进度页挂 SHOW 回调(品牌贴皮 + 百分比控件)
+const U2_UPSTREAM = ['; 2. Uninstalling Page', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
+const U2_IHUI = ['; 2. Uninstalling Page', '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
+
+for (const [name, upstream, ihui] of [
+  ['U1 卸载确认页改自定义品牌页', U1_UPSTREAM, U1_IHUI],
+  ['U2 卸载进度页 SHOW 回调', U2_UPSTREAM, U2_IHUI],
+]) {
+  PATCHES.push({ name, upstream, ihui })
+}
+
+// 只能 Section 跑到哪报到哪。四个锚点在上游正文里各只出现一次(grep -Fc 已校验)。
+const U_POINTS = [
+  ['  ; Delete the app directory and its content from disk', 20, '正在删除程序文件'],
+  ['  ; Delete uninstaller', 45, '正在清理安装目录'],
+  ['  ; Remove shortcuts if not updating', 65, '正在移除快捷方式'],
+  ['  ; Remove registry information for add/remove programs', 85, '正在清理注册信息'],
+]
+for (const [upstream, pct, text] of U_POINTS) {
+  PATCHES.push({
+    name: `U 卸载进度埋点 ${pct}%`,
+    upstream,
+    ihui: '  !insertmacro IHUI_UNPROGRESS ' + pct + ' "' + text + '"\n' + upstream,
+  })
+}
+
 // ---- 残留定制侧车:历史上直接手改 installer.nsi、未登记进上方 PATCHES 的 IHUI 定制 ----
 // 2026-09-22 实锤的坑:installer.nsi 里累积了多处"绕过本脚本"的直接修改
 //   (GetOptions 前缀误匹配根治 / 覆盖升级尊重桌面快捷方式现状 / 真实卸载清理安装位置键 /
