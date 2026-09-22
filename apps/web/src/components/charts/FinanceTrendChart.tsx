@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
 import { CHART_GREEN, CHART_RED } from '@ihui/design-tokens'
@@ -31,15 +32,16 @@ const MOCK: FinanceTrendPoint[] = [
 ]
 
 export function FinanceTrendChart({ data = MOCK, height = 300 }: FinanceTrendChartProps) {
+  const t = useTranslations('statistics')
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'], top: 0 },
+    legend: { data: [t('revenue'), t('expense')], top: 0 },
     grid: { left: 50, right: 20, top: 40, bottom: 30 },
     xAxis: { type: 'category', data: data.map((d) => d.date), boundaryGap: false },
-    yAxis: { type: 'value', name: '元' },
+    yAxis: { type: 'value', name: t('axisYuan') },
     series: [
       {
-        name: '收入',
+        name: t('revenue'),
         type: 'line',
         smooth: true,
         data: data.map((d) => d.income),
@@ -47,7 +49,7 @@ export function FinanceTrendChart({ data = MOCK, height = 300 }: FinanceTrendCha
         areaStyle: { opacity: 0.1 },
       },
       {
-        name: '支出',
+        name: t('expense'),
         type: 'line',
         smooth: true,
         data: data.map((d) => d.expense),

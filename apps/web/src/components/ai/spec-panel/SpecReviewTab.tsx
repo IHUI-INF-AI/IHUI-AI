@@ -20,7 +20,7 @@ export function SpecReviewTab({ p }: { p: SpecPanelApi }) {
             STATUS_BADGE[p.currentStatus] || STATUS_BADGE.draft,
           )}
         >
-          {STATUS_LABEL[p.currentStatus] || p.currentStatus}
+          {t(STATUS_LABEL[p.currentStatus] ?? p.currentStatus)}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
