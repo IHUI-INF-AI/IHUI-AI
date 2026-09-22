@@ -29,6 +29,7 @@ from app.routers.llm import (
     _compaction_payload,
     _fire_callback,
     _format_citations_event,
+    _note_retry,
 )
 
 _FRAME_PREFIX = "event: citations\ndata: "
@@ -222,4 +223,50 @@ class TestCompactionPersistence:
     async def test_body_omits_compaction_when_nothing_happened(self) -> None:
         body = await _fire(compaction_info=_NOTHING)
         assert "compaction" not in body
+
+
+class TestRetryNoticePersistence:
+    """G-166 第⑥步:网关 retry_scheduled 记账进回调 body(此前只活在 SSE 流上)。"""
+
+    def test_note_retry_only_accepts_the_contract_frame(self) -> None:
+        sink: list[dict[str, object]] = []
+        _note_retry(sink, {"type": "chunk", "content": "x"})
+        _note_retry(sink, {"type": "retry_scheduled", "attempt": "2", "maxRetries": 3})
+        assert sink == []
+
+    def test_note_retry_normalises_fields(self) -> None:
+        sink: list[dict[str, object]] = []
+        _note_retry(
+            sink,
+            {"type": "retry_scheduled", "attempt": 2, "maxRetries": 3, "retryInMs": 1500},
+        )
+        _note_retry(
+            sink,
+            {
+                "type": "retry_scheduled",
+                "attempt": 3,
+                "maxRetries": 3,
+                "retryInMs": 0,
+                "httpStatus": 429,
+            },
+        )
+        assert sink == [
+            {"attempt": 2, "maxRetries": 3, "retryInMs": 1500},
+            {"attempt": 3, "maxRetries": 3, "retryInMs": 0, "httpStatus": 429},
+        ]
+
+    async def test_body_carries_last_retry_notice(self) -> None:
+        """同一轮重试多次 → 落**最后一条**(attempt 最大 = 最终那次)。"""
+        notices: list[dict[str, object]] = []
+        for attempt in (1, 2, 3):
+            _note_retry(
+                notices,
+                {"type": "retry_scheduled", "attempt": attempt, "maxRetries": 3, "retryInMs": 500},
+            )
+        body = await _fire(retry_notice=notices[-1])
+        assert body["retryNotice"] == {"attempt": 3, "maxRetries": 3, "retryInMs": 500}
+
+    async def test_body_omits_notice_when_no_retry_happened(self) -> None:
+        body = await _fire(retry_notice=None)
+        assert "retryNotice" not in body
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
