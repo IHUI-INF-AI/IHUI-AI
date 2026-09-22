@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     borderRadius: INPUT_BORDER_RADIUS,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.inputBg,
+    backgroundColor: tokens.surface.card,
     paddingHorizontal: INPUT_PADDING_HORIZONTAL,
     paddingVertical: 10,
     fontSize: INPUT_FONT_SIZE,

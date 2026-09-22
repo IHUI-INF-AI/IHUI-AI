@@ -47,6 +47,21 @@ describe('permissionStamp', () => {
   })
 })
 
+describe('G-165③ 回退定论:不回退到用户全局默认档(结构性防回潮)', () => {
+  it('函数只接受一个参数(工作区权限行)—— 给"用户全局默认档"留兜底参数前必须先推翻定论', () => {
+    // 定论见 message-permission-stamp.ts 头部:用户全局默认档是"偏好"不是"历史事实",
+    // 拿它兜底盖章 = 伪造"这条回答当时生效的档"。此断言钉死函数形状:
+    // 有人加第二个 userDefault 参数 → arity 变 2 → 这里红,逼其先读定论再显式翻案。
+    expect(permissionStamp.length).toBe(1)
+  })
+
+  it('无工作区行时输出为空对象——调用方拿不到任何可盖章的键,即"结构上无法回退"', () => {
+    // 结构性证明:输出只有 workspace 行一个输入决定,不存在第二条取值路径。
+    expect(permissionStamp(undefined)).toEqual({})
+    expect(permissionStamp(null)).toEqual({})
+  })
+})
+
 describe('workspacePathOfConversationMeta', () => {
   it('取到非空字符串才算绑定', () => {
     expect(
