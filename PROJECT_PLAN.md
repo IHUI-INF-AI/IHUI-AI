@@ -12,6 +12,36 @@
 
 ---
 
+## P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口)
+
+### 根因(实测,非推测)
+
+用户「node 窗口 / ai server 窗口总蹦出来」的源头不是防护失效,而是 `start-all.bat` 里
+`start "IHUI-ai-service-8803" cmd /k …` 等 4 行 —— `start` 动词的语义就是另开一扇**可见**控制台,
+SW_HIDE / `windowsHide` / 任何 Node 级钩子都拦不住它。常驻隐藏链路实测是干净的:真触发一次
+`IHUI-AI git-guardian`(LastResult=0 且日志确认跑了 refs 自愈),45s × 70ms 采样可见顶层窗口 = **0 扇**。
+
+### 改法
+
+- `start-all.bat` 重写为静默转发:`%~dp0` 派生路径 → `dev-stack-launch.mjs`(detached + windowsHide)
+  → `dev-stack.mjs`(无参数 = 体检 + 只补缺,幂等),与开机自启 `ihui-dev-stack.vbs` 共用同一条链。
+- 删除 3 个 09-12 G→D 迁移后仍写死 `G:\IHUI-AI` 的死脚本(`scripts/_ai_dev_independent.cmd` /
+  `_api_dev_independent.cmd` / `_dev_start_independent.cmd`);「关窗停服务」的替代 = `pnpm dev:safe:stop`(按端口归属杀进程)。
+
+### 验证证据(2026-09-23)
+
+- 隐藏派生一个 8s 长驻控制台进程 → 探针 `NEW-WINDOW` = 0。阳性对照:同一天改坏的那版被同一探针抓到 2 扇,证明仪器不是假阴性。
+- 新 bat `exit=0`;后台体检输出 8 个服务全 up「全部必需服务就绪 ✅」;`.tmp-sync/dev-stack-startall.err.log` 为空。
+- 途中自查并修掉两处**本次自己引入**的缺陷:① `%~dp0` 带尾反斜杠,`"D:\IHUI-AI\"` 把自身闭引号转义掉 →
+  argv 整体错位,exe 变成 `Files\nodejs\node.exe` ENOENT;② bat 注释里写中文 → cmd 按 GBK 解码破坏 `rem`
+  解析,把注释中那两行 `start "…" cmd /k` 当命令执行,真的弹了窗。bat 现全程纯 ASCII、注释内无引号。
+
+### 多端豁免声明(AGENTS.md §9)
+
+平台独占:仅 Windows 开发机本地启动入口,不触及任何跨端契约 / 共享层。
+
+---
+
 ## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
 
 用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
