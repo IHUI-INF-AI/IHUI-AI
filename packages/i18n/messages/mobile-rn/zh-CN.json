@@ -491,6 +491,8 @@
       "title": "上下文已自动压缩",
       "message": "{before} → {after}(移除 {removed} 条历史)"
     },
+    "errorTitle": "请求出错",
+    "errorRetry": "重试",
     "loginBtn": "去登录",
     "longPress": {
       "myTitle": "我的消息",
