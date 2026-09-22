@@ -2712,6 +2712,12 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 详细清单见 [核心能力 E4 节](#e4-工程守门30-pre-commit--post-commit--11-迁移审计)。
 
+### 新增守门示例:第 64 项「适配层未接线即拦」(2026-09-22)
+
+`scripts/check-adapter-wiring.mjs` 要求 `apps/miniapp-taro/src/components/adapters/*.taro.tsx` 必须被适配层**目录之外**的源文件从 adapters 路径 import,否则阻塞提交;存量未接线项落在 `scripts/adapter-wiring-baseline.json` 基线内放行,**只减不增**。
+
+**成因**:此前 18 个适配器中的 9 个屏级文件(共 3078 行)从写下到删除始终零页面引用——既有 `check-adapter-style-parity.mjs` 只守硬编码颜色、不守"是否被 import",所以"造好没装车"这类死代码无闸可挡。判据必须限定 import 的 specifier,否则端内同名自有组件(如 `components/NavBar.tsx`)会造成假阳性,把死适配器误判为已接线。
+
 ---
 
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
