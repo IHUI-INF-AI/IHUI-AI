@@ -1,0 +1,3 @@
+{
+  "unwiredAdapters": ["Carousel", "NavBar", "PayButton", "TabBar", "Toolbar", "UserInfoCard"]
+}
