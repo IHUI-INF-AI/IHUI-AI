@@ -370,6 +370,7 @@
     "planStatusInProgress": "In Progress",
     "planStatusCompleted": "Completed",
     "terminalTasks": "Terminal Tasks",
+    "citationTitle": "Sources",
     "injectionTitle": "Context used in this turn",
     "injectionKindDeveloper": "Custom instructions",
     "injectionKindWorkspace": "Workspace memory",

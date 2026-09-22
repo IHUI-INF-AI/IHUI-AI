@@ -116,11 +116,13 @@ import {
   applyPlanUpdate,
   applyTerminalEnd,
   applyInjectionFrame,
+  appendCitationFrames,
   applyTerminalStart,
   applyToolCallEvent,
   formatDurationMs,
   formatStructured,
   type MessageInjection,
+  type MessageCitation,
   type PlanStepItem,
   type TerminalTaskItem,
   type ToolCallItem,
@@ -174,6 +176,8 @@ interface N8nMessage {
   terminalTasks?: TerminalTaskItem[]
   /** D34 本轮上下文注入交代(第 45 轮):对齐 web message.injections。 */
   injections?: MessageInjection[]
+  /** #11 引用溯源(第 51 轮):答案带了哪些知识来源,对齐 web message.citations。 */
+  citations?: MessageCitation[]
 }
 
 /**
@@ -414,6 +418,27 @@ function PlanStepList({
           </View>
         )
       })}
+    </View>
+  )
+}
+
+/** #11 引用来源列表(来源标签 + 条目文字);RN 侧暂不接跳转(见 PROJECT_PLAN 残余) */
+function CitationList({ items }: { items: readonly MessageCitation[] }): React.JSX.Element | null {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View style={bubbleStyles.block}>
+      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.citationTitle')}</Text>
+      {items.map((item, index) => (
+        <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
+          <View style={bubbleStyles.cardHead}>
+            <Text style={bubbleStyles.cardMeta}>{item.source}</Text>
+            <Text style={bubbleStyles.planText} numberOfLines={2}>
+              {item.label}
+            </Text>
+          </View>
+        </View>
+      ))}
     </View>
   )
 }
@@ -663,6 +688,9 @@ function MessageBubble({
           {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
           {answerVisible && message.injections && message.injections.length > 0 ? (
             <InjectionDisclosure items={message.injections} />
+          ) : null}
+          {answerVisible && message.citations && message.citations.length > 0 ? (
+            <CitationList items={message.citations} />
           ) : null}
           {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
           {sikaoOpen && message.thinkingContent ? (
@@ -1138,6 +1166,28 @@ export default function AiAssistantN8nScreen() {
               next[next.length - 1] = {
                 ...last,
                 terminalTasks: applyTerminalEnd(last.terminalTasks, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // #11 引用溯源(第 51 轮):引用进消息,答案下方出来源列表
+        onCitations: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                citations: appendCitationFrames(
+                  last.citations,
+                  (event.citations ?? []).map((x) => ({
+                    source: x.source,
+                    label: x.label,
+                    ...(typeof x.url === 'string' ? { url: x.url } : {}),
+                  })),
+                ),
               }
             }
             return next

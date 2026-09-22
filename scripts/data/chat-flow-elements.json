@@ -131,6 +131,14 @@
         {
           "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
           "mustMatch": "ai.cards.citation.title"
+        },
+        {
+          "file": "apps/mobile-rn/src/utils/chat-render-model.ts",
+          "mustMatch": "appendCitationFrames"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "CitationList"
         }
       ]
     },
