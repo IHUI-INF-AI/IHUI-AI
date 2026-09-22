@@ -2723,6 +2723,12 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 **同日三批清理合计移除 4662 行零引用死代码**(一批 9 屏 3078 + 二批 PayButton/TabBar/Toolbar 与端内孤儿 PayButton 953 + 三批 Carousel/NavBar/UserInfoCard 631),适配层降至 **3 个且全部已接线**,第 64 项基线清零为**零豁免硬门**。三批的判据是一条可复用教训:**同名 + 有消费点都不构成"重复",必须逐字段比 props 契约**——`Carousel` 端内独有的 `variant='course'` + `courseMeta`、`NavBar` 端内独有的 `notification` / `variant='ai-home'`,接适配器上去就是静默掉功能。
 
+### 守门执行语义(2026-09-22 起:跑完再汇总)
+
+`scripts/guardian-runner.mjs` 不再在首个 blocking 门失败时中止 —— 一轮跑完全部 96 项,末尾输出「失败门清单 + 每道门的单独复现命令」再 `exit(1)`。改造动因是实测而非审美:同一工作区实测真实存在 **5 道门在红**,旧 fail-fast 只报 1 道、遮蔽另外 4 道,还会让人误判"刚注册的门没生效"(注册成功但从未被执行过 ≠ 门失效)。
+
+**两条保持不变的语义**:子门以 `exit 75` 退出仍**立即**向上传播 75(中断 ≠ 检查结论,push guard 据此决定带 hook 重试,不可收敛成 1);需要旧的快速失败时设 `GUARDIAN_STOP_ON_FIRST=1`。全绿路径耗时不变(原本就要跑完所有门),仅失败轮次变长。
+
 ---
 
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)

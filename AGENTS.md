@@ -1119,6 +1119,7 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 ### 守门手动触发 / 紧急跳过抽查
 
 - **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
+- **执行语义(2026-09-22 由 fail-fast 改为跑完再汇总)**:任一 blocking 门失败不再中断本轮 —— 全部 96 项跑完后末尾列「失败门清单 + 单独复现命令」再 exit(1)。原 fail-fast 会遮蔽其后所有门(实测同一工作区真实存在 5 道红,旧行为只显示 1 道,且让人误判"新注册的门没生效")。**两条不变量**:① 子门 `exit 75`(中断)仍**立即**以 75 向上传播,不收敛成 1(§5b ⑦ 的 push guard 重试链依赖它);② 逃生舱 `GUARDIAN_STOP_ON_FIRST=1` 完整恢复旧的"首个失败立即 exit(1)"。绿的路径耗时不变(原本就要跑完),仅失败轮次变长。
 - **commit 污染防护(scope 一致性)**:`.husky/commit-msg` 的 `check-commit-scope-consistency.mjs`(AGENTS.md §16 配套);紧急跳过 `HUSKY_SKIP_SCOPE_CHECK=1 git commit ...`。
 - **commit 丢失防护**:guardian 第 30a 项 `check-commit-loss-guard.mjs`(AGENTS.md §22 配套);紧急跳过 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`。
 
