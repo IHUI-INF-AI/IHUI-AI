@@ -113,7 +113,7 @@ jobs:
         # vector(1536) 列时抛 `type "vector" does not exist` 并回滚整个 DDL 事务
         # → 全库无表 → schema_check 大面积报"表不存在"。与 test-real-db.yml 对齐,
         # 统一用官方 pgvector 镜像(内置扩展文件,仍需 CREATE EXTENSION,见下方 step)。
-        image: pgvector/pgvector:pg17
+        image: pgvector/pgvector:pg18
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
