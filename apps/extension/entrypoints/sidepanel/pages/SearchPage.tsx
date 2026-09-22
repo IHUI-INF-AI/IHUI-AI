@@ -14,17 +14,19 @@ import { searchContent, type SearchResult } from '@ihui/api-client'
 import { Badge, Card, CardContent, CardHeader, CardTitle, SearchInput } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { openInWeb as openItemInWeb, openWebUrl } from '../../../lib/open-in-web'
+import { enumLabel } from '../components/MessageContent'
 
 type ItemType = 'lesson' | 'live' | 'article' | 'news' | 'ask' | 'resource' | 'exam'
 
-const TYPE_LABEL_ZH: Record<ItemType, string> = {
-  lesson: '课程',
-  live: '直播',
-  article: '文章',
-  news: '资讯',
-  ask: '问答',
-  resource: '资源',
-  exam: '试题',
+// ItemType 是契约层闭集,七类全部登记;后端若新增取值,enumLabel 会原样显示而非回显键名
+const TYPE_LABEL_KEY: Readonly<Record<ItemType, string>> = {
+  lesson: 'content.typeLesson',
+  live: 'content.typeLive',
+  article: 'content.typeArticle',
+  news: 'content.typeNews',
+  ask: 'content.typeAsk',
+  resource: 'content.typeResource',
+  exam: 'content.typeExam',
 }
 
 export default function SearchPage() {
@@ -124,7 +126,7 @@ export default function SearchPage() {
                       variant="secondary"
                       className="text-[10px] px-1.5 py-0 whitespace-nowrap"
                     >
-                      {TYPE_LABEL_ZH[it.type as ItemType] || it.type}
+                      {enumLabel(it.type, TYPE_LABEL_KEY, t)}
                     </Badge>
                     <CardTitle className="text-sm leading-snug line-clamp-2 flex-1">
                       {it.title}

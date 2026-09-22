@@ -2,6 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { describe, it, expect } from 'vitest'
 
 import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'
@@ -44,7 +47,7 @@ describe('enumLabel', () => {
 
 const LOCALES: Record<string, unknown> = { 'zh-CN': zhCN, en, ja, ko, 'zh-TW': zhTW }
 
-function resolve(locale: unknown, path: string): unknown {
+function resolveKey(locale: unknown, path: string): unknown {
   return path.split('.').reduce<unknown>((acc, seg) => {
     if (acc && typeof acc === 'object' && seg in (acc as Record<string, unknown>)) {
       return (acc as Record<string, unknown>)[seg]
@@ -67,10 +70,32 @@ describe('枚举映射表键可解析', () => {
     expect(allKeys.length).toBe(24)
   })
 
+  // SearchPage 的 ItemType 映射表:从源码文本里取键,不镜像常量(页面模块含 chrome 依赖,不适合在测试里 import)
+  it('SearchPage 内容类型映射表的键同样可解析', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../entrypoints/sidepanel/pages/SearchPage.tsx', import.meta.url)),
+      'utf8',
+    )
+    const block = src.match(/const TYPE_LABEL_KEY[^=]*=\s*\{([\s\S]*?)\n\}/)
+    const body = block?.[1] ?? ''
+    expect(body, '未找到 TYPE_LABEL_KEY 映射表').not.toBe('')
+    const keys = [...body.matchAll(/'([a-zA-Z][\w]*\.[A-Za-z0-9_]+)'/g)]
+      .map((m) => m[1])
+      .filter((k): k is string => Boolean(k))
+    expect(keys).toHaveLength(7)
+    for (const [lang, locale] of Object.entries(LOCALES)) {
+      const broken = keys.filter((key) => {
+        const v = resolveKey(locale, key)
+        return typeof v !== 'string' || v.trim() === '' || v === key
+      })
+      expect(broken, `${lang} 取不到值`).toEqual([])
+    }
+  })
+
   for (const [lang, locale] of Object.entries(LOCALES)) {
     it(`${lang}: 全部键取到非空文案且未回显键名`, () => {
       const broken = allKeys.filter((key) => {
-        const v = resolve(locale, key)
+        const v = resolveKey(locale, key)
         return typeof v !== 'string' || v.trim() === '' || v === key
       })
       expect(broken).toEqual([])
