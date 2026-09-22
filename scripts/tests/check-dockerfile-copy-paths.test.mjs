@@ -31,6 +31,10 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'scanDockerfile',
     'checkLifecycleCopies',
     'checkCopySourcesExist',
+    'checkPnpmFilterScripts',
+    'expandFilterSpec',
+    'logicalLines',
+    'workspaceGraph',
     'parseCopies',
     'lifecycleScriptRefs',
     'workflowContexts',
@@ -38,7 +42,7 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(G.SELFTEST_CASES.length >= 5)
+  assert.ok(G.SELFTEST_CASES.length >= 10)
 })
 
 test('判据样例表逐条与 want 一致(含"补上 COPY 必须放过"的修法有效性)', () => {
@@ -49,6 +53,15 @@ test('判据样例表逐条与 want 一致(含"补上 COPY 必须放过"的修�
         c.wantRefs,
         `样例失败: ${c.name}`,
       )
+      continue
+    }
+    if (c.graph) {
+      const gv = G.checkPnpmFilterScripts({
+        content: c.dockerfile,
+        rel: 'deploy/docker/Dockerfile.t',
+        graph: c.graph,
+      })
+      assert.equal(gv.length ? 'violation' : 'pass', c.want, `样例失败: ${c.name}`)
       continue
     }
     const v = G.checkLifecycleCopies({
@@ -128,6 +141,62 @@ test('接线断言:workflow 里必须真解析出 Dockerfile→context 映射(B 
 test('本仓真值:7 个 Dockerfile 全部通过(修完即绿,回归即红)', async () => {
   assert.equal(await G.main([]), 0)
   assert.equal(await G.main(['--self-test']), 0)
+})
+
+test('C 判据 @ 真仓包图:web 旧行必红且点名 api-client,修后写法归绿(同仓 api 作对照)', () => {
+  const graph = G.workspaceGraph(ROOT)
+  assert.ok(graph && graph.size >= 20, `workspaceGraph 未真正读到包图(size=${graph?.size})`)
+  const bad = G.checkPnpmFilterScripts({
+    content: 'FROM n\nRUN pnpm --filter @ihui/web... run build:static\n',
+    rel: 'deploy/docker/Dockerfile.web',
+    graph,
+  })
+  assert.equal(bad.length, 1, '旧行必须红 —— 这正是 2026-09-23 CI build-web 恒红的成因')
+  assert.equal(bad[0].kind, 'pnpm-filter-script-skipped')
+  assert.match(bad[0].detail, /@ihui\/api-client/)
+  assert.equal(
+    [...G.expandFilterSpec('@ihui/web...', graph)].filter(
+      (p) => graph.get(p).hasBuild && !graph.get(p).scripts.has('build:static'),
+    ).length,
+    7,
+    'web 闭包内"产出 dist 却没有 build:static"的包应恰为 7 个(判据点名的就是这 7 个)',
+  )
+  assert.deepEqual(
+    G.checkPnpmFilterScripts({
+      content:
+        'FROM n\nRUN pnpm --filter @ihui/web^... run build && pnpm --filter @ihui/web run build:static\n',
+      rel: 'deploy/docker/Dockerfile.web',
+      graph,
+    }),
+    [],
+    '修法必须归绿',
+  )
+  assert.deepEqual(
+    G.checkPnpmFilterScripts({
+      content: 'FROM n\nRUN pnpm --filter @ihui/api... run build\n',
+      rel: 'deploy/docker/Dockerfile.api',
+      graph,
+    }),
+    [],
+    '同仓对照:api 用 run build(人人都有)故恒绿 —— 两条 Dockerfile 只差脚本名',
+  )
+})
+
+test('expandFilterSpec 三形态 + logicalLines 续行折叠', () => {
+  const graph = new Map([
+    ['@t/app', { scripts: new Set(['build']), hasBuild: true, deps: ['@t/dep'] }],
+    ['@t/dep', { scripts: new Set(['build']), hasBuild: true, deps: [] }],
+  ])
+  assert.deepEqual([...G.expandFilterSpec('@t/app', graph)], ['@t/app'])
+  assert.deepEqual([...G.expandFilterSpec('@t/app...', graph)].sort(), ['@t/app', '@t/dep'])
+  assert.deepEqual([...G.expandFilterSpec('@t/app^...', graph)], ['@t/dep'])
+  assert.equal(G.expandFilterSpec('!@t/app', graph), null, '取反表达式应放过')
+  assert.equal(G.expandFilterSpec('...@t/app', graph), null, '上游方向应放过')
+  assert.equal(G.expandFilterSpec('@t/nope...', graph), null, '包名不在图里应放过')
+  const folded = G.logicalLines('RUN a \\\n  b \\\n  c\nRUN d\n')
+  assert.equal(folded.length, 2)
+  assert.equal(folded[0].line, 1, '折叠后仍报起始物理行号')
+  assert.equal(folded[0].text.replace(/\s+/g, ' ').trim(), 'RUN a b c')
 })
 
 test('parseCopies 正确剥离 flag 与续行,末 token 才是 dst', () => {
