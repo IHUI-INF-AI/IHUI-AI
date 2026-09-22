@@ -19290,6 +19290,7 @@
     "registerSuccess": "注册成功",
     "registerTitle": "统一注册",
     "sendCodeFailed": "验证码发送失败",
+    "sessionExpired": "登录状态已失效，请重新登录",
     "subtitle": "登录后将为 {clientId} 授权并跳转",
     "title": "统一登录",
     "mobileAuth": {
