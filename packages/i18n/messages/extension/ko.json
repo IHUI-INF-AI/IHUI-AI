@@ -165,6 +165,7 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
+    "retryMessage": "재시도",
     "citationTitle": "참조 출처",
     "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
     "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",

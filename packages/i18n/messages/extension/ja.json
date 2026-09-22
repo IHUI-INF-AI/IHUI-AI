@@ -165,6 +165,7 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
+    "retryMessage": "再試行",
     "citationTitle": "参考元",
     "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
     "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
