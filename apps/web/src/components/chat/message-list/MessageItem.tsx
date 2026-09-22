@@ -41,6 +41,8 @@ import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { TerminalSection } from '@/components/ai/progress-sections/terminal-section'
 import { PlanStepsCard } from '@/components/ai/progress-sections/plan-steps-card'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
+import { InjectionBar } from '@/components/ai/progress-sections/injection-bar'
+import { RetryNotice } from '@/components/ai/progress-sections/retry-notice'
 import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice-bar'
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
 import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
@@ -229,7 +231,7 @@ const MessageItem = React.memo(function MessageItem({
   // 原 gate 仅判 `m.toolCalls.length > 0`,导致"只有 planSteps / 终端任务 / subagent 活动
   // 而没有工具调用"的消息完全不渲染折叠区 —— plan 步骤永久不可见(tests/message-list
   // 的 PlanStepsCard 用例实证:纯 planSteps 消息 queryByTestId 恒为 null)。
-  // 现取四类区段总数:既做折叠区 gate,也做「查看 N 个中间步骤」计数,语义一致。
+  // 现取四类区段总数:既做折叠区 gate,也做组头「N 个步骤」计数,语义一致。
   const stepSectionsCount =
     (m.toolCalls?.length ?? 0) +
     (m.planSteps?.length ?? 0) +
@@ -237,7 +239,7 @@ const MessageItem = React.memo(function MessageItem({
     (m.subagentActivities?.length ?? 0)
 
   // 流式期间组头 = 此刻正在做的这一行(对标 Qoder / Trae / Codex:过程组头就是最新活动行,
-  // 而不是一句"查看 N 个中间步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
+  // 而不是一句"展开查看更多步骤"的哑标题);结束后组头回落到步数摘要(由 StreamGroup 渲染)。
   // 头行禁止出现英文工具码名 —— 映射不到的插件/MCP 名走 "调用 {tool}" 措辞。
   const activeToolCall =
     m.toolCalls?.find((tc) => tc.status === 'running') ?? m.toolCalls?.[m.toolCalls.length - 1]
@@ -747,7 +749,7 @@ const MessageItem = React.memo(function MessageItem({
               />
             )}
             {/* 2026-09-13 批次 2 #17:折叠中间步骤(工具卡 + plan 步骤 + 终端任务)
-                初始态由折叠策略驱动(D21,2026-09-19 立),点击"查看 N 个中间步骤"展开后显示完整内容
+                初始态由折叠策略驱动(D21,2026-09-19 立),点击组头「N 个步骤」展开后显示完整内容
                 2026-09-14 修正:gate 由"仅 toolCalls"改为四类区段总数(见 stepSectionsCount)
                 D21:key={foldPolicyMode} — 配置变更时重挂载,动画状态与新初始态一致 */}
             {stepSectionsCount > 0 && (
@@ -960,6 +962,10 @@ const MessageItem = React.memo(function MessageItem({
             />
             {/* #11 Citations 全链路(2026-09-13 立):引用溯源条 inline 到消息正文下方 */}
             {m.citations && m.citations.length > 0 && <CitationBar citations={m.citations} />}
+            {/* D34 上下文注入交代(2026-09-22 立):本轮回答实际带了哪些私有上下文 */}
+            {m.injections && m.injections.length > 0 && <InjectionBar injections={m.injections} />}
+            {/* D39/D108 上游重试交代:换 key / 退避重试时给一行"第 N/M 次重试,X 秒后继续" */}
+            {m.retryNotice && <RetryNotice notice={m.retryNotice} />}
             {/* P1 #27 记忆更新可视化(2026-09-16 立):本轮新增长期记忆「已记住」提示条。
                 数据来自 done 事件 memoryUpdates(store 旁路,不落 ChatMessage 字段),
                 每轮限 1 条摘要 + 计数 + 管理入口。 */}

@@ -924,6 +924,13 @@ export interface StreamChatOptions {
    *  下发 warning(80%~95%)/critical(95%~100%)提醒帧,前端 toast 提示用量进度;
    *  ≥100% 为 HTTP 429 硬中断(errorCode 'BUDGET_EXHAUSTED'),走 onError 路径。 */
   onBudget?: (event: BudgetEvent) => void
+  /** D34 运行环境交代(2026-09-22 立):后端在**真正生效**的上下文注入之后、任何增量之前
+   *  下发本帧,前端据此显示"本轮回答带了哪些注入"(自定义指令 / 工作区记忆 / Repo Wiki /
+   *  检索上下文)。此前该帧只被"不喷进正文"地丢弃,等于生产了却没人看。 */
+  onInjectionApplied?: (event: InjectionAppliedEvent) => void
+  /** D39 重试交代(2026-09-22 立):网关要换 key / 退避重试时下发,前端显示"第 N/M 次重试,
+   *  Xs 后继续"。没有它,用户在流上看到的只是"卡住"。 */
+  onRetryScheduled?: (event: RetryScheduledEvent) => void
   /** 2026-08-15 立:显式声明流式模式,默认 true。
    *  后端 detectStreamUsage 依赖 request.stream===true 才启用 usage chunk 注入,
    *  不传或传 false 会导致 usage 缺失,token 显示为 0。 */
@@ -1087,6 +1094,12 @@ export function parseStreamLine(line: string): string | null {
     // Budget(2026-09-19 立):网关用量分档提醒帧走专用通道(tryParseBudget)。
     // 不拦截同样会被下方兜底抽取链喷进正文增量(与 steer 同一坑位,必须在兜底前拦截)
     if (json?.type === 'budget') return null
+    // D34(2026-09-22 立):运行环境交代帧必须显式分流。injection_applied 带 collapsed/fullText、
+    // retry_scheduled 带 message —— 不拦截会被下方兜底抽取链喷进正文增量,
+    // 历史坑位与 usage/steer/budget 同一处。
+    // (settings_applied 与 terminal_output 两帧已于第 36 轮从契约收回,见 sse_contract.py)
+    if (json?.type === 'injection_applied') return null
+    if (json?.type === 'retry_scheduled') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
@@ -1203,6 +1216,40 @@ export interface BudgetEvent {
   tier?: string
   /** 限额重置时间(ISO,东八区次日 0 点,可选) */
   resetAt?: string
+}
+
+/**
+ * D34 上下文注入交代帧(2026-09-22 立)。
+ *
+ * SSE 事件格式:
+ *   event: injection_applied
+ *   data: {"type":"injection_applied","kind":"workspace_memory","collapsed":"AGENTS.md · 3 条",
+ *          "fullText":"…","messageId":"m-1"}
+ *
+ * kind 由后端定义(与 sse_contract.py 的 terminal_end/injection_applied 同一族);
+ * collapsed 是行内展示用的短标签,fullText 是展开后的全文(可缺省)。
+ */
+export interface InjectionAppliedEvent {
+  kind: string
+  /** 行内短标签(必填:没有它界面就无处可显示) */
+  collapsed: string
+  /** 展开全文;后端超出可携带上限时整字段省略(不给假的"展开"入口) */
+  fullText?: string
+  /** auto_context 场景的上下文段数(界面按 ICU plural 出措辞) */
+  count?: number
+  messageId?: string
+}
+
+/**
+ * D39 重试交代帧(2026-09-22 立)。attempt 从 1 起;retryInMs=0 表示立即重试
+ * (如号池换 key),>0 表示退避等待。
+ */
+export interface RetryScheduledEvent {
+  attempt: number
+  maxRetries: number
+  retryInMs: number
+  httpStatus?: number
+  messageId?: string
 }
 
 /**
@@ -1846,6 +1893,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       const hasSteer = typeof opts.onSteer === 'function'
       // Budget(用量分档提醒,2026-09-19 立):onBudget 存在时启用解析
       const hasBudget = typeof opts.onBudget === 'function'
+      const hasInjection = typeof opts.onInjectionApplied === 'function'
+      const hasRetryScheduled = typeof opts.onRetryScheduled === 'function'
       // hasCitations 被 tryParseCitations 的守护读取(消除 TS6133:声明未使用)
       void hasCitations
 
@@ -2663,7 +2712,76 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
        *  - usage:tryParseUsage(OpenAI 协议 usage chunk,基于 json.usage 字段,非 type)
        *  - steer:tryParseSteer(Steer 2026-09-19 立)
        *  - budget:tryParseBudget(Budget 用量分档提醒 2026-09-19 立,网关发)
+       *  - injection_applied / retry_scheduled:tryParseInjection / tryParseRetryScheduled
+       *    (D34/D39 2026-09-22 立;两帧都带文本字段,漏分流会喷进正文增量)
        */
+      /** D34/D39:上下文注入交代帧与重试交代帧(两帧都带文本字段,绝不能进兜底抽取链)。 */
+      const tryParseInjection = (line: string): void => {
+        if (!hasInjection) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'injection_applied') return
+          const collapsed = json.collapsed
+          const kind = json.kind
+          // 没有短标签就没有可显示的东西 ⇒ 不发回调(而不是发一条空行)
+          if (typeof collapsed !== 'string' || collapsed === '') return
+          if (typeof kind !== 'string' || kind === '') return
+          opts.onInjectionApplied!({
+            kind,
+            collapsed,
+            ...(typeof json.fullText === 'string' ? { fullText: json.fullText } : {}),
+            ...(typeof json.count === 'number' ? { count: json.count } : {}),
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 injection_applied 事件忽略 */
+        }
+      }
+
+      const tryParseRetryScheduled = (line: string): void => {
+        if (!hasRetryScheduled) return
+        if (!line || line.startsWith(':')) return
+        let data = line
+        if (line.startsWith('data:')) {
+          data = line.slice(5).replace(/^\s/, '')
+        } else if (
+          line.startsWith('event:') ||
+          line.startsWith('id:') ||
+          line.startsWith('retry:')
+        ) {
+          return
+        }
+        if (!data || data === '[DONE]') return
+        try {
+          const json = JSON.parse(data) as Record<string, unknown>
+          if (json?.type !== 'retry_scheduled') return
+          const attempt = json.attempt
+          const maxRetries = json.maxRetries
+          if (typeof attempt !== 'number' || typeof maxRetries !== 'number') return
+          opts.onRetryScheduled!({
+            attempt,
+            maxRetries,
+            retryInMs: typeof json.retryInMs === 'number' ? json.retryInMs : 0,
+            ...(typeof json.httpStatus === 'number' ? { httpStatus: json.httpStatus } : {}),
+            ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+          })
+        } catch {
+          /* 非 JSON 或非 retry_scheduled 事件忽略 */
+        }
+      }
+
       const routeLineByType = (line: string): string | null => {
         if (!line || line.startsWith(':')) return null
         if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
@@ -2723,6 +2841,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             // Budget(2026-09-19 立):网关用量分档提醒帧
             case 'budget':
               return 'budget'
+            // D34/D39(2026-09-22 立):运行环境交代与重试交代帧
+            case 'injection_applied':
+              return 'injection_applied'
+            case 'retry_scheduled':
+              return 'retry_scheduled'
             default:
               return null
           }
@@ -2763,6 +2886,10 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseSteer(line)
         } else if (route === 'budget') {
           tryParseBudget(line)
+        } else if (route === 'injection_applied') {
+          tryParseInjection(line)
+        } else if (route === 'retry_scheduled') {
+          tryParseRetryScheduled(line)
         } else {
           // fallback:无 type / 未知 type / 注释 / event:/id:/retry: / 非 JSON token 行。
           // 各 tryParse 内部第一道守护(`if (!hasXxx) return` + line 前缀检查)对非匹配行立即 return,
@@ -2782,6 +2909,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           tryParseThinking(line)
           tryParseSteer(line)
           tryParseBudget(line)
+          tryParseInjection(line)
+          tryParseRetryScheduled(line)
         }
       }
 
