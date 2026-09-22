@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import { StreamActivityCards } from './cards/ai-cards'
+import { isErrorTurn } from '@ihui/shared/chat'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
@@ -130,6 +131,8 @@ export default function ChatMessageItem({
   const [voicePlaying, setVoicePlaying] = useState(false)
   // 显示/隐藏答案(对标原 ai_assistant.vue toggleAnswerVisibility + eye-closed/eye-open.svg)
   const [answerHidden, setAnswerHidden] = useState(false)
+  // 失败轮:与 web 端 D22 同一形态走错误卡片,不再把错误文案伪装成一次正常回答
+  const isFailed = isErrorTurn(msg)
   // #12 小程序 AI 增强:工具卡片(计划 / 工具 / 终端)折叠态
   const [cardsExpanded, setCardsExpanded] = useState(true)
 
@@ -361,8 +364,41 @@ export default function ChatMessageItem({
       ) : (
         /* AI 消息:.agent-content-item 全宽灰色气泡(对标原 ai_assistant.vue) */
         <View className="agent-content-item">
-          {/* 答案显隐切换 */}
-          {!answerHidden ? (
+          {/* 失败轮 → 错误卡片(警示头 + 正文 + 重试出口),整块替换正文:失败不产出内容。
+              与 web 端 MessageItem D22 同一形态,跨端视觉一致。 */}
+          {isFailed ? (
+            <View className="w-full overflow-hidden rounded-lg border border-destructive/40 bg-destructive/5">
+              <View className="flex items-center bg-destructive/10 px-3 py-2">
+                <LineIcon
+                  name="triangle-alert"
+                  size={28}
+                  color="var(--color-destructive)"
+                  style={{ marginRight: '8rpx' }}
+                />
+                <Text className="text-xs font-medium text-destructive">
+                  {t('ai.chatMessageItem.errorCardTitle')}
+                </Text>
+              </View>
+              <Text className="block whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive">
+                {msg.content}
+              </Text>
+              {onRegenerate ? (
+                <View className="px-3 pb-2">
+                  <View className="inline-flex items-center" onClick={onRegenerate}>
+                    <LineIcon
+                      name="refresh-cw"
+                      size={24}
+                      color="var(--color-destructive)"
+                      style={{ marginRight: '6rpx' }}
+                    />
+                    <Text className="text-xs text-destructive">
+                      {t('ai.chatMessageItem.retry')}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+          ) : !answerHidden ? (
             <View className="content_agent_nei">
               {/* 段渲染:link 色 #1888ee,header 加粗块级 */}
               {segments.map((seg, idx) => {

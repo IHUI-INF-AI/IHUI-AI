@@ -9,3 +9,5 @@ export * from './task-status'
 // 工具码名 → i18n 键展示映射(界面禁止直显英文工具码名)
 export * from './tool-display'
 export * from './tool-activity'
+// 流式失败的跨端标记规则(error 词汇单一真相:标记 / 尾位定位 / 失败轮判定 / 重发目标)
+export * from './stream-error'

@@ -139,7 +139,7 @@ server.publish()  // ワンクリックで MCP マーケットに公開
 #### 1. 完全な技術アーキテクチャ(直接評価可能)
 ```
 フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-バックエンド:   Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+バックエンド:   Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:            LangGraph + LiteLLM + MCP プロトコル
 デプロイ:       Docker Compose / Kubernetes / Helm Chart
 監視:          Prometheus + Grafana + Sentry + Loki
