@@ -115,6 +115,41 @@ test('R3 哨兵豁免不外溢:unset 只在登记它的文件里被放过', () =
   assert.deepEqual(inside, [])
 })
 
+test('R4 咬住第二份 wire 清单副本,放过"引用注册表常量"的写法', () => {
+  const wire = gate.parseTsWireValues(read(gate.TS_REGISTRY))
+  const copy = gate.checkNoSecondList(
+    [
+      {
+        relPath: 'apps/api/src/routes/workspace.ts',
+        src: "  mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),\n",
+      },
+    ],
+    ts,
+    wire,
+  )
+  assert.ok(copy.some((p) => p.startsWith('R4') && p.includes('wire 档')), copy.join('\n'))
+  const referenced = gate.checkNoSecondList(
+    [
+      {
+        relPath: 'apps/api/src/routes/workspace.ts',
+        src: '  mode: z.enum(PERMISSION_MODE_WIRE_VALUES).optional(),\n',
+      },
+    ],
+    ts,
+    wire,
+  )
+  assert.deepEqual(referenced, [])
+})
+
+test('R5 咬住 Python wire 镜像缺档(该镜像无人消费,不查就永远没有信号)', () => {
+  const wire = gate.parseTsWireValues(read(gate.TS_REGISTRY))
+  const good = `PromptMode = Literal[${wire.map((v) => `"${v}"`).join(', ')}]\n`
+  assert.deepEqual(gate.checkWireMirrors(() => good, wire), [])
+  const missing = 'PromptMode = Literal["default", "plan", "accept-edits"]\n'
+  const problems = gate.checkWireMirrors((rel) => (rel.endsWith('.py') ? missing : good), wire)
+  assert.ok(problems.some((p) => p.startsWith('R5') && p.includes('api_client.py:')), problems.join('\n'))
+})
+
 test('当前工作区零违规(本门上去后不能给别人制造恒红)', () => {
   const { problems } = gate.runChecks({ root: ROOT })
   assert.deepEqual(problems, [])
