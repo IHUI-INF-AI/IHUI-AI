@@ -212,6 +212,9 @@ export function MessageList({
   // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage / editMessageAndRerun(复用既有流式发送逻辑)。
   // D22(2026-09-19 立):引用回复事件监听(MessageItem Reply 按钮派发)——
   // 从 store 查找目标消息快照写入 quotedMessage,MessageInput 渲染引用 chip,doSend 附加正文。
+  // 2026-09-22 修:重试事件(MessageItem 错误气泡「重试」按钮派发)此前全仓零监听 → 点击后
+  // dispatch 成功但无副作用,只弹 toast 却不真的重跑(与桌面托盘菜单同型的"派发到空气"缺陷)。
+  // 语义上"重试一条失败的 AI 回复" == "重新生成该消息",故复用 onRegenerate 的 regenerateMessage 闭环。
   React.useEffect(() => {
     const onRegenerate = (e: Event) => {
       const detail = (e as CustomEvent<{ messageId: string }>).detail
@@ -251,11 +254,15 @@ export function MessageList({
     window.addEventListener('ihui:branch-message', onBranch as EventListener)
     window.addEventListener('ihui:edit-message', onEdit as EventListener)
     window.addEventListener('ihui:reply-message', onReply as EventListener)
+    // 2026-09-22:错误气泡「重试」接同一闭环(regenerateMessage:调后端 /regenerate 截断历史
+    // + 复用 sendMessage 重跑前一条用户提问),此前该事件无任何监听方。
+    window.addEventListener('ihui:retry-message', onRegenerate as EventListener)
     return () => {
       window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
       window.removeEventListener('ihui:branch-message', onBranch as EventListener)
       window.removeEventListener('ihui:edit-message', onEdit as EventListener)
       window.removeEventListener('ihui:reply-message', onReply as EventListener)
+      window.removeEventListener('ihui:retry-message', onRegenerate as EventListener)
     }
   }, [])
 
