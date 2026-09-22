@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
 import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
@@ -31,22 +32,23 @@ const MOCK: UserGrowthPoint[] = [
 ]
 
 export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartProps) {
+  const t = useTranslations('statistics')
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['累计用户', '新增用户'], top: 0 },
+    legend: { data: [t('cumulativeUsers'), t('newUsers')], top: 0 },
     grid: { left: 50, right: 20, top: 40, bottom: 30 },
     xAxis: { type: 'category', data: data.map((d) => d.date) },
     yAxis: { type: 'value' },
     series: [
       {
-        name: '累计用户',
+        name: t('cumulativeUsers'),
         type: 'bar',
         data: data.map((d) => d.total),
         itemStyle: { color: CHART_BLUE },
         barGap: '10%',
       },
       {
-        name: '新增用户',
+        name: t('newUsers'),
         type: 'bar',
         data: data.map((d) => d.newCount),
         itemStyle: { color: CHART_GREEN },

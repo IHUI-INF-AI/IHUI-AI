@@ -20,6 +20,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 复制 workspace 配置
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml turbo.json ./
+# 根 package.json 的 postinstall 要跑这个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
+COPY scripts/fix-expo-metro-junction.mjs scripts/
 
 # 复制 packages 和 cli 源码(分层利用缓存)
 COPY packages/ ./packages/

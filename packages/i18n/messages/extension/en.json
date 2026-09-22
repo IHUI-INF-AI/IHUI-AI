@@ -165,6 +165,7 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
+    "retryMessage": "Retry",
     "citationTitle": "Sources",
     "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
     "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
@@ -435,6 +436,31 @@
       "benefitsTitle": "Included benefits",
       "note": "Pricing and benefits are subject to the web version.",
       "open": "Go to Web to Activate"
+    }
+  },
+  "permissionTier": {
+    "label": "Permission tier",
+    "mode": {
+      "default": {
+        "title": "Default mode",
+        "desc": "Every action requires manual approval; safest"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Only reading and search allowed; file writes and commands are denied"
+      },
+      "accept-edits": {
+        "title": "Accept edits",
+        "desc": "Allowlisted actions run automatically; anything else asks first"
+      },
+      "bypass-permissions": {
+        "title": "Bypass permissions",
+        "desc": "Full access with no confirmations (high risk)"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as default"
+      }
     }
   }
 }

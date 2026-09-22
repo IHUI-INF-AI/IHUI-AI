@@ -171,12 +171,6 @@ export function DesktopSettingsCard() {
               </kbd>
             </div>
             <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
-              <span className="min-w-0 flex-1 truncate text-muted-foreground">打开管理后台</span>
-              <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
-                Ctrl+Shift+A
-              </kbd>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2.5 py-1.5">
               <span className="min-w-0 flex-1 truncate text-muted-foreground">退出应用</span>
               <kbd className="shrink-0 rounded bg-background px-1.5 py-0.5 font-mono text-[10px] shadow-sm">
                 Ctrl+Q

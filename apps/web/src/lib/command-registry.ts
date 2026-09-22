@@ -98,7 +98,7 @@ export const BUILTIN_COMMANDS: CommandDef[] = [
     group: 'navigate',
     icon: Settings,
     action: { type: 'navigate', href: '/settings' },
-    shortcut: 'Ctrl+,',
+    shortcut: 'Ctrl+Shift+,',
   },
 
   // ---- view:视图(原 Plus 菜单 groupView 2 项) ----
