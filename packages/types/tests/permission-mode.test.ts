@@ -10,6 +10,7 @@ import {
   PERMISSION_MODE_WIRE,
   isReadonlyPermissionMode,
   normalizePermissionMode,
+  permissionModeDisplayKey,
   permissionModeKey,
   permissionModePolicy,
   permissionModeWire,
@@ -37,6 +38,27 @@ describe('permissionModeWire(G-164:跨界只走 wire,判定只走规范档)', ()
     for (const w of wires) {
       expect(['default', 'plan', 'accept-edits', 'bypass-permissions']).toContain(w)
     }
+  })
+})
+
+describe('permissionModeDisplayKey(D111 展示档键,三端共用)', () => {
+  it('未配置(null/undefined)如实显示为 default(未配置的生效行为就是默认档)', () => {
+    expect(permissionModeDisplayKey(null)).toBe('default')
+    expect(permissionModeDisplayKey(undefined)).toBe('default')
+  })
+
+  it('历史/跨端拼写归一到 wire 键(与 workspace.permission.mode.* 词表键一致)', () => {
+    expect(permissionModeDisplayKey('default')).toBe('default')
+    expect(permissionModeDisplayKey('plan')).toBe('plan')
+    expect(permissionModeDisplayKey('acceptEdits')).toBe('accept-edits')
+    expect(permissionModeDisplayKey('accept-edits')).toBe('accept-edits')
+    expect(permissionModeDisplayKey('bypass-permissions')).toBe('bypass-permissions')
+  })
+
+  it('认不出的值 → unknown,绝不静默显示成 default(高危档被显示成默认=授权误导)', () => {
+    expect(permissionModeDisplayKey('yolo')).toBe('unknown')
+    expect(permissionModeDisplayKey('')).toBe('unknown')
+    expect(permissionModeDisplayKey('accept-all-x')).toBe('unknown')
   })
 })
 
