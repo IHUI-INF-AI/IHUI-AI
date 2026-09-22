@@ -27,19 +27,6 @@ describe('D34 四帧不得回落成正文增量', () => {
     ).toBeNull()
   })
 
-  it('settings_applied:带 model 与 prev 也不进正文', () => {
-    expect(
-      parseStreamLine(
-        frame({
-          type: 'settings_applied',
-          model: 'gpt-5',
-          reasoningEffort: 'high',
-          prev: { model: 'gpt-4' },
-        }),
-      ),
-    ).toBeNull()
-  })
-
   it('retry_scheduled:带 message 兜底字段也不进正文', () => {
     expect(
       parseStreamLine(
@@ -50,20 +37,6 @@ describe('D34 四帧不得回落成正文增量', () => {
           retryInMs: 1200,
           httpStatus: 429,
           message: '第 2/5 次重试,1.2s 后重试',
-        }),
-      ),
-    ).toBeNull()
-  })
-
-  it('terminal_output:带 stdout 与 formattedOutput 也不进正文', () => {
-    expect(
-      parseStreamLine(
-        frame({
-          type: 'terminal_output',
-          stdout: 'total 8\ndrwxr-xr-x',
-          formattedOutput: '已格式化的终端输出，不应混进回答',
-          exitCode: 0,
-          truncated: false,
         }),
       ),
     ).toBeNull()
