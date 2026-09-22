@@ -706,6 +706,30 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
     return out
 
 
+def _note_retry(sink: list[dict[str, Any]], evt: dict[str, Any]) -> None:
+    """把网关的 retry_scheduled 帧记进累加器(只认契约声明的四字段,类型不符就不记)。
+
+    D39/G-44 的界面交代靠 SSE 实时下发;本函数只为**持久化**服务 —— 没有它,
+    刷新页面后"这轮上游重试过几次"就查不到了(与 citations/injections/compaction 同一族)。
+    """
+    if evt.get("type") != "retry_scheduled":
+        return
+    attempt = evt.get("attempt")
+    max_retries = evt.get("maxRetries")
+    if not isinstance(attempt, int) or not isinstance(max_retries, int):
+        return
+    retry_in_ms = evt.get("retryInMs")
+    http_status = evt.get("httpStatus")
+    sink.append(
+        {
+            "attempt": attempt,
+            "maxRetries": max_retries,
+            "retryInMs": retry_in_ms if isinstance(retry_in_ms, int) else 0,
+            **({"httpStatus": http_status} if isinstance(http_status, int) else {}),
+        }
+    )
+
+
 def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
     """构造 compaction 载荷 —— SSE 帧与落库字段的**同一真相源**。
 
@@ -2216,6 +2240,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         str(_m.get("content", "")) for _m in messages if _m.get("role") == "system"
     )
     injection_frames: list[dict[str, Any]] = []
+    # G-166 第⑥步:网关换 key / 退避重试的记账(逐条累积,落库取最后一条 = attempt 最大那条)
+    retry_notices: list[dict[str, Any]] = []
     # kind 是**前端本地化的键**(措辞由 5 语言词表给出),collapsed 只作未知 kind 的兜底文本。
     # 因此:① kind 必须逐场景互不相同(曾把 Repo Wiki 与自动检索都写成 environments,
     # 前端无法区分);② 改 kind 必须同步 apps/web 的 INJECTION_KIND_KEYS 与词表。
@@ -2506,6 +2532,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
+                                _note_retry(retry_notices, evt)
                                 if _evt_type == "chunk":
                                     # 逐 token 透传 + 提问标记解析(与 1144-1146 行格式一致)
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
@@ -2610,6 +2637,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         terminal_tasks_history=terminal_tasks_history,
                                     injections=injection_frames,
                                     compaction_info=compaction_info,
+                                    retry_notice=retry_notices[-1] if retry_notices else None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -2645,6 +2673,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
+                                _note_retry(retry_notices, evt)
                                 if _evt_type == "chunk":
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
                                     for q in questions:
@@ -2758,6 +2787,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         terminal_tasks_history=terminal_tasks_history,
                                     injections=injection_frames,
                                     compaction_info=compaction_info,
+                                    retry_notice=retry_notices[-1] if retry_notices else None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -3455,6 +3485,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     terminal_tasks_history=terminal_tasks_history,
                                 injections=injection_frames,
                                 compaction_info=compaction_info,
+                                retry_notice=retry_notices[-1] if retry_notices else None,
                                 ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
@@ -3517,6 +3548,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     logger.info("SSE client disconnected, stopping stream")
                     break
                 event_type = event.get("type", "message")
+                _note_retry(retry_notices, event)
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
                     raw_content = event.get("content", "")
@@ -3695,6 +3727,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 terminal_tasks_history=terminal_tasks_history,
             injections=injection_frames,
             compaction_info=compaction_info,
+            retry_notice=retry_notices[-1] if retry_notices else None,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3853,6 +3886,7 @@ async def _fire_callback(
     terminal_tasks_history: list[dict[str, Any]] | None = None,
     injections: list[dict[str, Any]] | None = None,
     compaction_info: dict[str, Any] | None = None,
+    retry_notice: dict[str, Any] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -3918,6 +3952,9 @@ async def _fire_callback(
     _persist_compaction = _compaction_payload(compaction_info)
     if _persist_compaction:
         body["compaction"] = _persist_compaction
+    # retryNotice(G-166 第⑥步):同一轮可能重试多次,落**最后一条**(attempt 最大 = 最终那次)
+    if retry_notice:
+        body["retryNotice"] = retry_notice
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
