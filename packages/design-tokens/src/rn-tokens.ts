@@ -62,6 +62,9 @@ export type RnVipTokens = {
 export const rnTokens = {
   brand: {
     DEFAULT: '#000000',
+    /** 品牌底(brand.DEFAULT)之上的前景色。深色下 brand.DEFAULT 翻成白,前景必须翻黑,
+     *  不得用 surface.light 代替(它在两态都是 #FFFFFF → 白底白字)。 */
+    foreground: '#FFFFFF',
     dark: '#34D399',
   },
   surface: {
@@ -147,7 +150,7 @@ export type RnThemeMode = 'light' | 'dark'
 
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
 export type RnThemeTokens = {
-  brand: { DEFAULT: string; dark: string }
+  brand: { DEFAULT: string; foreground: string; dark: string }
   surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
@@ -192,7 +195,7 @@ export type RnThemeTokens = {
  * - brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 消除绿色)。
  */
 export const rnLightTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#000000', dark: '#34D399' },
+  brand: { DEFAULT: '#000000', foreground: '#FFFFFF', dark: '#34D399' },
   surface: {
     bg: '#F5F5F5',
     light: '#FFFFFF',
@@ -257,7 +260,7 @@ export const rnLightTokens: RnThemeTokens = {
  * - text/border/error/status DEFAULT 对齐 web 暗色语义色。
  */
 export const rnDarkTokens: RnThemeTokens = {
-  brand: { DEFAULT: '#FFFFFF', dark: '#34D399' },
+  brand: { DEFAULT: '#FFFFFF', foreground: '#000000', dark: '#34D399' },
   surface: {
     bg: '#242424',
     light: '#FFFFFF',

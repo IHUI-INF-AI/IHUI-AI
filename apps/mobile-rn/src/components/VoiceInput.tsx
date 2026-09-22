@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     zIndex: 10,
     elevation: 4,
     shadowColor: tokens.gray.black,

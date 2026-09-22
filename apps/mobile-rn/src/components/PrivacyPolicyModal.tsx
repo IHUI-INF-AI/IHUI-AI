@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     width: CARD_WIDTH_RATIO,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: CARD_BORDER_RADIUS,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingTop: CARD_PADDING_VERTICAL,

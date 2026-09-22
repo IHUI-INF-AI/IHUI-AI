@@ -12,6 +12,65 @@
 
 ---
 
+## P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口)
+
+### 根因(实测,非推测)
+
+用户「node 窗口 / ai server 窗口总蹦出来」的源头不是防护失效,而是 `start-all.bat` 里
+`start "IHUI-ai-service-8803" cmd /k …` 等 4 行 —— `start` 动词的语义就是另开一扇**可见**控制台,
+SW_HIDE / `windowsHide` / 任何 Node 级钩子都拦不住它。常驻隐藏链路实测是干净的:真触发一次
+`IHUI-AI git-guardian`(LastResult=0 且日志确认跑了 refs 自愈),45s × 70ms 采样可见顶层窗口 = **0 扇**。
+
+### 改法
+
+- `start-all.bat` 重写为静默转发:`%~dp0` 派生路径 → `dev-stack-launch.mjs`(detached + windowsHide)
+  → `dev-stack.mjs`(无参数 = 体检 + 只补缺,幂等),与开机自启 `ihui-dev-stack.vbs` 共用同一条链。
+- 删除 3 个 09-12 G→D 迁移后仍写死 `G:\IHUI-AI` 的死脚本(`scripts/_ai_dev_independent.cmd` /
+  `_api_dev_independent.cmd` / `_dev_start_independent.cmd`);「关窗停服务」的替代 = `pnpm dev:safe:stop`(按端口归属杀进程)。
+
+### 验证证据(2026-09-23)
+
+- 隐藏派生一个 8s 长驻控制台进程 → 探针 `NEW-WINDOW` = 0。阳性对照:同一天改坏的那版被同一探针抓到 2 扇,证明仪器不是假阴性。
+- 新 bat `exit=0`;后台体检输出 8 个服务全 up「全部必需服务就绪 ✅」;`.tmp-sync/dev-stack-startall.err.log` 为空。
+- 途中自查并修掉两处**本次自己引入**的缺陷:① `%~dp0` 带尾反斜杠,`"D:\IHUI-AI\"` 把自身闭引号转义掉 →
+  argv 整体错位,exe 变成 `Files\nodejs\node.exe` ENOENT;② bat 注释里写中文 → cmd 按 GBK 解码破坏 `rem`
+  解析,把注释中那两行 `start "…" cmd /k` 当命令执行,真的弹了窗。bat 现全程纯 ASCII、注释内无引号。
+
+### 第二阶段(同日,用户追加硬要求:"一扇也不许弹 + 挂了要立刻重启")
+
+逐点补 `windowsHide` 走不通:服务重启的窗口来自 **tsx / uvicorn / pnpm 内部** 的 spawn(实测
+`tsx` dist 内 `windowsHide` 出现 0 次),那些调用点不在我们手里。改为换宿主会话:
+
+- `install-dev-stack-autostart.mjs` 由"启动夹 VBS 隐藏窗口"改为注册 **`IHUI-DevStack` 计划任务
+  (`LogonType=S4U`)** + AtLogon 触发,并删除旧启动夹 VBS、停掉 session 1 旧守护(防双守护抢拉)。
+- `dev-stack-watchdog.mjs --install` 同步改 S4U 并去掉 VBS 包装(其 `revive()` 本地派生与本任务
+  同会话 → 自动落 session 0);`scripts/dev-stack-watchdog-task.vbs` 随之删除。
+- `start-all.bat` 改为只发 `schtasks /Run /TN IHUI-DevStack`(任务缺失时才回退本地隐藏派生)。
+- **自愈频率一律未改**(仍 30s 体检重拉),没有加退避、没有降速。
+
+A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
+
+| 宿主     | 会话   | 探针 NEW-WINDOW          | 端口从 session 1 可达         |
+| -------- | ------ | ------------------------ | ----------------------------- |
+| 交互任务 | sess 1 | **1 扇**(00:47:10)     | —                             |
+| S4U 任务 | sess 0 | **0 扇**                 | ✅ `0.0.0.0:8899` 返回响应体  |
+
+迁移后 E2E:定向杀掉 session 1 的 api/web/ai-service/prod-proxy/web-preview 五个服务,等一个 30s tick
+→ 五者全部由 session 0 守护重新拉起(`8802/8801/8803/8807/8806` 归属 sess=0),**期间探针 0 扇新窗**;
+守护 pid 21132 sess=0、心跳 28s 内更新;任务动作进程退场后孤儿子进程存活。
+残留:redis 与 metro 仍在 session 1(不强杀 metro —— 有并发会话正连着手机在用),下次自然重启即落 session 0。
+
+探针自身的教训也记一笔:v1 无尺寸/存活判据(会把毫秒级幻影窗计数);给它加判据的 v2 在标定中连一扇
+已知可见的 6s 窗都没抓到 → 已废弃,不得拿 v2 的"0"当证据。另实测两处工具性陷阱:
+`Register-ScheduledTask` 无 `-LogonType` 参数(须走 `New-ScheduledTaskPrincipal`);`printf` 生成
+`.vbs` 会吃掉 `\a`/`\t`(`PowerShell\7`→`PowerShell`、`.ihui-agent\tmp`→`agent\mp`)。
+
+### 多端豁免声明(AGENTS.md §9)
+
+平台独占:仅 Windows 开发机本地启动入口,不触及任何跨端契约 / 共享层。
+
+---
+
 ## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
 
 用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
@@ -274,7 +333,7 @@
 
 同一套"存在即通过"的判据,在溯源水印层造成了与 2026-09 ai-service 载荷损坏事故**同构但相反**的失效:
 
-- [x] ✅(2026-09-22) **双横幅被永久冻结**:`injectFile` 只在"文件里已出现 `BANNER_ID` 或零宽字符"时才先 `clean` ⇒ 已经存在**裸两行版权头(无载荷)**的文件被直接前置一条新横幅;此后载荷恒完整 ⇒ 每次 `inject` 走 `skip-done`,重复头再也清不掉。实测 **141 个已跟踪文件命中,其中 119 个已进 main**。而 `verify` / `check-watermark-coverage` 的判据是"载荷存在且可解码 ⇒ 完好",对多出来的那条横幅**完全看不见** ⇒ 一个可见的卫生缺陷在门禁眼里是零信号。修法:① 判据补"存在任一横幅文本行即先清洗"(防回潮);② 118 个文件逐个删除冗余组(**逐文件三重回读断言**:现横幅恰 1 / HEAD 横幅 ≥2 / 剥零宽后保留行逐字节不变),`verify` 复采 10017/10017、残迹 0、载荷损坏 0。**口径更正**:该票 commit message 写"纯删除,零内容改动"说满了 —— 118 个文件里 117 个确为纯删除(0 增),但 `apps/api/tests/o4-isolation-proof.test.ts` 被 lint-staged 的 prettier 顺手重排了格式(`+35 / -22`);属仓库格式化器的正常行为,但不属我承诺的"零改动",故如实修正(对 118 文件整体跑 eslint 时该文件零命中,语法与规则均干净)。
+- [x] ✅(2026-09-22) **双横幅被永久冻结**:`injectFile` 只在"文件里已出现 `BANNER_ID` 或零宽字符"时才先 `clean` ⇒ 已经存在**裸两行版权头(无载荷)**的文件被直接前置一条新横幅;此后载荷恒完整 ⇒ 每次 `inject` 走 `skip-done`,重复头再也清不掉。实测 **141 个已跟踪文件命中,其中 119 个已进 main**。而 `verify` / `check-watermark-coverage` 的判据是"载荷存在且可解码 ⇒ 完好",对多出来的那条横幅**完全看不见** ⇒ 一个可见的卫生缺陷在门禁眼里是零信号。修法:① 判据补"存在任一横幅文本行即先清洗"(防回潮);② 118 个文件逐个删除冗余组(**逐文件三重回读断言**:现横幅恰 1 / HEAD 横幅 ≥2 / 剥零宽后保留行逐字节不变 ⇒ 纯删除零内容改动),`verify` 复采 10017/10017、残迹 0、载荷损坏 0。
 - [x] ✅(2026-09-22) **`clean` 的锚会吃掉源码说明行**:`BANNER_TEXT_RE` 的版权支 `©\s*\d{4}\s+IHUI\s+AI` 不带品牌段,于是 `apps/api/scripts/verify-carrier.ts` 的说明行 `// © 2026 IHUI AI · 运营商一键登录后端集成自检(…)` 会被 `clean` **整行删除**(实测跑了一次就掉一行,已即时按字节还原)。收紧为必须含 ` (智汇AI)` 品牌段:9201 条真实横幅 100% 满足 ⇒ 零误伤,并用两条探针做负向对照(裸横幅探针→inject 后恰 1 组;说明行探针→clean+inject 后该行存活)。
 - [x] ✅(2026-09-22) **把不可见缺陷显形**:`check-watermark-coverage.mjs` 加"双横幅"计数 warn 行(不阻塞,当前 **22 个**全部属并行会话在途文件,样例含 `apps/web/src/components/ai-generation/*`)。不升 blocking 的理由:那 22 个文件现在正被别人持有,升门等于逼他们 `HUSKY_SKIP_WATERMARK_GUARD=1`,而 §5c 的自愈路径已在新票里修好成因。
 - **本轮 `--no-verify` 的逐文件归因(第四枚起)**:lint-staged 报 `81 problems (1 error)`,唯一 error = `scripts/release-assets.mjs:142 @typescript-eslint/no-unused-vars 'cliVersion'` —— 已取 `53bbb7ab68^` 的**改前版本**比对确认该形参改前就在、且本票对它的 diff 只有 3 行纯注释删除 ⇒ 属他人线上存量,不越权代修(AGENTS.md §12)。它仍会拦下任何 staged 该文件的提交。
@@ -4801,3 +4860,32 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:三套受影响 e2e **23/23 全绿**;稳定性专测 语言子菜单 `--repeat-each=8 --retries=0` **8/8**、theme-toggle `--repeat-each=3` **15/15**;`pnpm --filter @ihui/web typecheck` 与 `@ihui/api typecheck` exit 0;eslint + prettier 改动文件 0 问题。README 免更(§21 豁免:未改对外能力清单,README 亦无该工具条条目)。
       - **守门 71 自愈面(第 57 轮续)**:`.husky/post-commit` 第 6 段每次提交后自动回捞被抹掉的登记行(`--heal --commit`,基线一律取 HEAD 不代收他人未提交内容,`IHUI_PLAN_HEAL_COMMIT=1` 防递归、`HUSKY_SKIP_PLAN_HEAL=1` 可跳)。必须有这一层而不是只靠 pre-commit 闸的原因:并发会话 routinely 用 `--no-verify` 提交,pre-commit #71 会被一并跳过,而今天一小时内"旧基线整文件提交"抹掉别人已入库登记行发生两次。新增 `collectMissing()`(扫最近 60 个提交收集登记行、报出当前缺失、归档目录命中则按 §1 放行)与 `healContent()`(插回历史里的前一行之后,邻居也缺席则追加;幂等不重复插)。判据有效性:self-test 8 例(原 5 + 邻居插回 / 追加兜底 / 幂等)+ 真实历史集成测试(从 HEAD 摘掉一条已知登记行喂 `collectMissing` → 恰检出 1 条且标记正确)。写闸过程又修掉两个自造假阳:① 标记重拼把 `D107b` 拆成源文本里不存在的 `D107 b`;② `**P2-F.4**(评估触发)…` 这类"编号后紧跟闭合星号"的行被吃进标记 —— **都是"判据自身缺陷产出假阳"这一族,与新写入记忆的 presence-only 幂等守卫同一母题**。
 - **2026-09-21 追加(同一侧边栏,用户即时报修)**:折叠态左上角 logo **去掉遮罩容器圆角**——`SidebarHeader.tsx` 折叠分支 button 原带 `overflow-hidden rounded-xl`、img 原带 `rounded-xl`,而 `/images/logo.png` 自身已是 22% 圆角 + 四角透明的成品图(2534px 上约 558px 半径,缩到 36px ≈ 8px),CSS 12px 半径比图自身更圆 → 黑底四角被切出缺口露出底色。两层圆角全部去掉,button 只保留尺寸与焦点环。取证:折叠态 aside=60px 下 `getComputedStyle` 实测 btn.radius=0px / overflow=visible / img.radius=0px(36×36,natural 2534×2534 已加载),亮暗两态截图核毕;平台独占(仅 web,desktop=Tauri 薄壳跟随,miniapp-taro/mobile-rn 无侧边栏形态)。
+
+---
+
+## 并发合并回捞(2026-09-23 `merge main`)
+
+> 下列登记行在本轮三方合并中被对方的旧基线写掉。`PROJECT_PLAN.md` 是多会话共享的追加型
+> 文档," honour 删除"就等于抹掉别人的已完成登记(AGENTS.md §22 / 守门 71 记的正是这类
+> 事故),故按前向恢复原则**原样补回**,不改任何一侧已有内容。
+
+### 来自本地 main `ddb78b1ca66`(14 行)
+
+- [ ] **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
+
+## P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/mobile-rn)
+
+> 用户诉求链(同一会话逐轮订正):①「按住说出你的问题」独立长条要去掉,麦克风图标进输入框、整行拉成一个大输入框 → ②不是长按麦克风,是**长按输入框本身**直接语音 → ③录音态波形要居中、样式重做、找回语音提示文字 → ④输入框内文字顶部被裁 → ⑤`0/500` 计数只在拉开多行时显示 → ⑥「我原来输入框里的加号呢?点击加号从底部滑出菜单」→ ⑦「项目里是不是让你搞出了好几个加号?把这些加号都整合好好设计成一个,别乱七八糟」。
+
+- [x] ✅(2026-09-22) **新建 `components/AddPanel.tsx` = 全项目加号单一真源**:`PlusButton`(激活 45° 旋转 + 品牌色高亮)+ `AddPanel`(BottomPops 底部滑出 + 图标组网格,相机/相册/本地文件/微信文件)。接入三处并全部真机验证:`HomeScreen` 大输入框、`ChatScreen`/`BottomActionBar`(原内嵌滑出图标组收敛为同款底部面板,`onIconClick` 契约不变、ChatScreen 零改动)、`AiAssistantN8nScreen`(**历史 Uniapp 迁移的 `onImageAdd` 加号从未接线**,本轮接上统一面板;顺带修 `showAddBtn = onImageAdd !== null` 恒真的潜在 bug → `!== undefined`)。上传链路为真:expo-image-picker / DocumentPicker → `uploadFileMultipart` → `[图片]/[文件] url` 拼入输入框随提交发送。
+- [x] ✅(2026-09-22) **`InputArea.tsx` 大输入框形态**(可选 props,不传则旧布局零变化,`ChangePhoneScreen` 等调用方不受影响):麦克风+文本+加号+发送同框;短按聚焦弹键盘、长按 450ms 直接录音(Pressable 恒挂载持有触摸序列,TextInput 包 `pointerEvents="none"` 纯展示);录音态整框浅红 + 波形/计时竖排居中,转写态红色 spinner + 「转写中…」。新建 `hooks/use-voice-recorder.ts` 从 `VoiceInput` 抽出录音+STT 核心逻辑供框内复用。
+- [x] ✅(2026-09-22) **死加号清零**:`VoiceInput` 的 `'＋'` 图片弹出层入口 `showImagePicker` 默认 `true → false`。判据是全站三处调用方(`AiAssistantN8nScreen`/`AgentChatScreen`/`ShareScreen`)**无一传入 `onImageSelected`**,即该弹出层点开是死控件,且与输入区加号并存成第二个加号(真机在 AI 助手页实测到两个)。能力保留,需时显式开启并接线。
+- [x] ✅(2026-09-22) **Metro 冷启动 bundle 500 / 启动红屏四层根因链全部修在 `metro.config.cjs`**(此前只靠一个"从未冷启动过"的旧 metro 实例热图掩盖,杀实例即暴露):① pnpm isolated 下 fallback 产物是 symlink 形式路径而 file-map 收录 target 真实路径 → `getOrComputeSha1` 500,修=产物统一 `realpathSync`;② `qrcode` 的 `browser` 是**映射对象**,`||` 短路把对象喂给 `path.resolve` → `paths[1]` TypeError,修=main 字段仅接受 string + 补 browser 映射重定向(否则走 node 入口连带 `pngjs → require('stream')`);③ Node 内置模块名被 `require.resolve` 原样返回给 metro → 500,修=upstream 抛错继续走默认链 + 内置模块名过滤;④ **通用病理**:pnpm 隔离目录内包的裸包名依赖,Metro 默认链沿 junction 形式 origin 向上会命中 monorepo 根的 hoisted 旧版(`react-devtools-core@5.3.2` 无 `initialize` → `undefined is not a function`;`react-native`/`react-native-svg` 多 peer 组合双实例 → `property is not writable` / `Tried to register two views with the same name RNSVGCircle`)。终态修法=隔离 origin 的裸包名请求**先查 `apps/mobile-rn/node_modules` 一级**(`resolveManual` 新增 `maxHops`,`maxHops=1` 时连 `.pnpm/node_modules` 虚拟存储都不查——它与 monorepo 根同属"版本任意"),查不到再回请求方自己隔离目录链(pnpm 精确版本语义)。
+- [x] ✅(2026-09-22) **真机复核新发现的两个缺陷**:① 主页 placeholder「请输入您的问题,或长按说出你的问题」在 720px 屏换两行被固定 48dp 框裁掉下半行 → 收短为「请输入您的问题,或长按说话」单行容纳;② Android `onContentSizeChange` 在文本收缩时不再回调,清空后输入框卡在多行高度且计数误显 `0/500` → `value` 清空时主动复位 `contentHeight`(同时满足⑤"计数只在拉开时显示")。
+- 验证(c12617dd 真机 + logcat):冷启动无红屏;三处加号逐一点开均为同款「添加」底部滑出面板(遮罩压暗 + 四项图标组),主页「相册」实测拉起系统 photo picker;加号面板关闭无残留遮罩;`ReactNative`/`ReactNativeJS` tag 过滤 0 error 0 warn;bundle 单实例体检 = `react@19.2.8` / `react-native@0.86.2_c6deaeca` / svg / reanimated / css-interop / worklets 各仅 1 份、`react-devtools-core@6.1.5`、`setUpFuseboxReactDevToolsDispatcher` 单份;`pnpm --filter @ihui/mobile-rn typecheck` exit 0。**平台独占豁免(§9)**:改动全在 RN 端 UI 与 metro 打包配置,不涉跨端契约;README 免更(§21 豁免:单端内部优化,未改对外能力清单)。
+- 并行会话提示(§12c 混合 commit 说明):`AiAssistantN8nScreen.tsx` 工作区版本同时含另一会话的交代区改动(`CitationList` 由 `components/ChatDisclosure` 内联进屏内、`applyStreamError` 用法移除),按文件粒度提交无法拆分,本 commit 一并收录,非本任务主体逻辑,未做任何改写。
+
+
+### 来自 origin/main `f4e25b8c358`(1 行)
+
+- [x] ✅(2026-09-22) **双横幅被永久冻结**:`injectFile` 只在"文件里已出现 `BANNER_ID` 或零宽字符"时才先 `clean` ⇒ 已经存在**裸两行版权头(无载荷)**的文件被直接前置一条新横幅;此后载荷恒完整 ⇒ 每次 `inject` 走 `skip-done`,重复头再也清不掉。实测 **141 个已跟踪文件命中,其中 119 个已进 main**。而 `verify` / `check-watermark-coverage` 的判据是"载荷存在且可解码 ⇒ 完好",对多出来的那条横幅**完全看不见** ⇒ 一个可见的卫生缺陷在门禁眼里是零信号。修法:① 判据补"存在任一横幅文本行即先清洗"(防回潮);② 118 个文件逐个删除冗余组(**逐文件三重回读断言**:现横幅恰 1 / HEAD 横幅 ≥2 / 剥零宽后保留行逐字节不变),`verify` 复采 10017/10017、残迹 0、载荷损坏 0。**口径更正**:该票 commit message 写"纯删除,零内容改动"说满了 —— 118 个文件里 117 个确为纯删除(0 增),但 `apps/api/tests/o4-isolation-proof.test.ts` 被 lint-staged 的 prettier 顺手重排了格式(`+35 / -22`);属仓库格式化器的正常行为,但不属我承诺的"零改动",故如实修正(对 118 文件整体跑 eslint 时该文件零命中,语法与规则均干净)。

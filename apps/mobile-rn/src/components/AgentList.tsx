@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 7.5,
     maxHeight: '70%',
   },
