@@ -148,6 +148,29 @@ for (let round = 1; round <= maxRounds; round++) {
     const mergeSha = git(['commit-tree', tree, '-p', 'HEAD', '-p', `origin/${branch}`, '-m', mergeMsg])
     git(['update-ref', `refs/heads/${branch}`, mergeSha])
     log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
+    // commit-tree 旁路**不跑钩子**,守门 71 的 post-commit 自愈因此永不触发。实测一枚收敛合并
+    // 把并发会话已入库的登记行合掉且无人知晓(2026-09-22/23 两次),故在落合并提交后就地补跑一次
+    // 自愈(只加不减;失败不阻断收敛,下一枚走钩子的提交仍会再兜一次)。
+    try {
+      const healOut = execFileSync(
+        'node',
+        ['scripts/check-plan-line-loss.mjs', '--heal', '--commit'],
+        {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          cwd: repoRoot,
+        },
+      )
+      for (const l of healOut.split(/\r?\n/).filter((x) => x.includes('登记行'))) {
+        log(C.yellow, `  ${l.trim()}`)
+      }
+    } catch (e) {
+      log(
+        C.yellow,
+        `  ⚠️ 计划登记行自愈未完成(不阻断收敛):${String(e?.stderr ?? e?.message ?? e).slice(0, 160)}`,
+      )
+    }
   }
 
   // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
