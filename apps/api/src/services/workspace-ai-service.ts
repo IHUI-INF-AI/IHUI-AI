@@ -14,8 +14,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
-import { normalizePermissionMode } from '@ihui/types/permission-mode'
-import type { PermissionModeId } from '@ihui/types/permission-mode'
+import { normalizePermissionMode, permissionModeWire } from '@ihui/types/permission-mode'
+import type { PermissionModeId, PermissionModeWire } from '@ihui/types/permission-mode'
 import {
   existsSync,
   mkdirSync,
@@ -1873,7 +1873,13 @@ class PermissionManager {
     workspacePath: string
     tool: string
     args: Record<string, unknown>
-  }): Promise<{ allowed: boolean; requestId?: string; mode?: string; reason?: string }> {
+  }): Promise<{
+    allowed: boolean
+    requestId?: string
+    mode: PermissionModeWire | null
+    configured: boolean
+    reason?: string
+  }> {
     return this.checkWorkspace(params)
   }
 
@@ -1973,7 +1979,10 @@ class PermissionManager {
     args: Record<string, unknown>
   }): Promise<{
     allowed: boolean
-    mode: string
+    /** 已归一化的 workspace 档位(wire 拼写)。未配置权限时为 null —— 不再用 'unset' 哨兵承载语义。 */
+    mode: PermissionModeWire | null
+    /** 该工作区是否已配置权限(perm 存在)。未配置 → configured=false,HTTP 侧据此给 401。 */
+    configured: boolean
     reason: string
     matchedRule?: string
     requestId?: string
@@ -1982,14 +1991,20 @@ class PermissionManager {
       await import('../db/workspace-permission-queries.js')
     const perm = await getPermission(params.userId, params.workspacePath)
 
-    // 未配置权限 → 拒绝,要求先 setup(由 /fs/open 触发)
+    // 未配置权限 → 拒绝,要求先 setup(由 /fs/open 触发)。
+    // 注意:G-164 已消除 'unset' 哨兵 —— 用 configured=false + mode=null 表达"未配置",
+    // 不再让非档位字面量污染 mode 字段。
     if (!perm) {
       return {
         allowed: false,
-        mode: 'unset',
+        mode: null,
+        configured: false,
         reason: '工作区权限未配置,请先完成首次设置',
       }
     }
+
+    // 归一后的 wire 档位;perm 存在即已配置(供下方各返回体复用)。
+    const permModeWire = permissionModeWire(perm.mode)
 
     // 同 checkWithDb:档位先过唯一真源归一,认不出按 default(最严)。
     // 本方法是 **Agent 工具执行的真实闸门**(routes/workspace-ai.ts checkWorkspace 调用),
@@ -2007,7 +2022,7 @@ class PermissionManager {
         decision: 'deny',
         reason: tierCeiling.reason,
       })
-      return { allowed: false, mode: perm.mode, reason: tierCeiling.reason }
+      return { allowed: false, mode: permModeWire, configured: true, reason: tierCeiling.reason }
     }
     // bypass-permissions → 直接放行 + 记录审计
     if (permMode === 'bypassPermissions') {
@@ -2019,7 +2034,7 @@ class PermissionManager {
         decision: 'allow',
         reason: 'bypass-permissions 模式自动放行',
       })
-      return { allowed: true, mode: perm.mode, reason: 'bypass-permissions 模式自动放行' }
+      return { allowed: true, mode: permModeWire, configured: true, reason: 'bypass-permissions 模式自动放行' }
     }
 
     // accept-edits → 查 DB 规则
@@ -2040,7 +2055,8 @@ class PermissionManager {
             })
             return {
               allowed: true,
-              mode: perm.mode,
+              mode: permModeWire,
+              configured: true,
               reason: `白名单 allow 匹配: ${r.pattern}`,
               matchedRule: r.pattern,
             }
@@ -2056,7 +2072,8 @@ class PermissionManager {
             })
             return {
               allowed: false,
-              mode: perm.mode,
+              mode: permModeWire,
+              configured: true,
               reason: `白名单 deny 匹配: ${r.pattern}`,
               matchedRule: r.pattern,
             }
@@ -2080,7 +2097,8 @@ class PermissionManager {
       })
       return {
         allowed: audit.allowed,
-        mode: perm.mode,
+        mode: permModeWire,
+        configured: true,
         reason: audit.reason,
       }
     }
@@ -2102,7 +2120,8 @@ class PermissionManager {
     })
     return {
       allowed: audit.allowed,
-      mode: perm.mode,
+      mode: permModeWire,
+      configured: true,
       reason: audit.reason,
     }
   }

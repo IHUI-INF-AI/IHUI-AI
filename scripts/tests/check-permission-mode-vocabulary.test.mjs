@@ -88,7 +88,7 @@ test('R4 咬住第二份完整档位清单,放过 kebab 子集', () => {
   assert.deepEqual(subset, [])
 })
 
-test('R3 哨兵豁免不外溢:unset 只在登记它的文件里被放过', () => {
+test('R3 哨兵机制已收掉:unset 在登记文件 workspace-ai-service.ts 与 workspace-ai.ts 内都被拦', () => {
   const outside = gate.checkConsumers(
     [
       {
@@ -109,7 +109,7 @@ test('R3 哨兵豁免不外溢:unset 只在登记它的文件里被放过', () =
     ],
     ts,
   )
-  assert.deepEqual(inside, [])
+  assert.ok(inside.some((p) => p.includes('unset')), inside.join('\n'))
 })
 
 test('R4 咬住第二份 wire 清单副本,放过"引用注册表常量"的写法', () => {
