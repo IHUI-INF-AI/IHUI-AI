@@ -1087,6 +1087,13 @@ export function parseStreamLine(line: string): string | null {
     // Budget(2026-09-19 立):网关用量分档提醒帧走专用通道(tryParseBudget)。
     // 不拦截同样会被下方兜底抽取链喷进正文增量(与 steer 同一坑位,必须在兜底前拦截)
     if (json?.type === 'budget') return null
+    // D34(2026-09-22 立):运行环境交代四帧必须显式分流。injection_applied 带 collapsed/fullText
+    // 文本字段、terminal_output 带 stdout/formattedOutput —— 不拦截会被下方兜底抽取链
+    // (json?.content ?? json?.delta ?? json?.text)喷进正文增量,历史坑位与 usage/steer/budget 同处。
+    if (json?.type === 'injection_applied') return null
+    if (json?.type === 'settings_applied') return null
+    if (json?.type === 'retry_scheduled') return null
+    if (json?.type === 'terminal_output') return null
     const choice = json?.choices?.[0]
     const delta =
       choice?.delta?.content ??
