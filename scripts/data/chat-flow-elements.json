@@ -109,8 +109,30 @@
     {
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
-      "sourceTask": "D27/G-70",
-      "events": ["citations"]
+      "sourceTask": "D27/G-70/D109",
+      "events": ["citations"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_citation_url"
+        },
+        {
+          "file": "packages/api-client/src/client.ts",
+          "mustMatch": "onCitations"
+        },
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageItem.tsx",
+          "mustMatch": "CitationBar"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/types.ts",
+          "mustMatch": "appendCitations"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai.cards.citation.title"
+        }
+      ]
     },
     {
       "id": "unified-task-dashboard",
