@@ -179,6 +179,14 @@
         {
           "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
           "mustMatch": "retry-last-turn"
+        },
+        {
+          "file": "packages/shared/src/chat/stream-error.ts",
+          "mustMatch": "export function markStreamError"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx",
+          "mustMatch": "ai.chatMessageItem.errorCardTitle"
         }
       ]
     },
