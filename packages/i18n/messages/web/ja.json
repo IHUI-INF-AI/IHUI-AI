@@ -199,7 +199,7 @@
     "contentLabel": "本文",
     "contentPlaceholder": "詳細:背景・結論・注意点",
     "tagsLabel": "タグ",
-    "tagsPlaceholder": "カンマ区切り 例:deploy,PG17",
+    "tagsPlaceholder": "カンマ区切り 例:deploy,PG18",
     "needScope": "先にスコープ ID を入力してください",
     "needTitle": "タイトルは必須です",
     "needContent": "本文は必須です",
@@ -250,6 +250,24 @@
     "regenerateDisabledHint": "リポジトリフォルダが未選択か、ファイルが未収集のため生成できません。"
   },
   "a11y": {
+    "download": "ダウンロード",
+    "downloadFile": "ファイルをダウンロード",
+    "exitFullscreen": "全画面を終了",
+    "seekBar": "再生位置",
+    "zoomIn": "拡大",
+    "zoomOut": "縮小",
+    "rotate": "回転",
+    "fullscreen": "全画面",
+    "previous": "前へ",
+    "next": "次へ",
+    "play": "再生",
+    "pause": "一時停止",
+    "seekBackward": "巻き戻し",
+    "seekForward": "早送り",
+    "mute": "ミュート",
+    "unmute": "ミュート解除",
+    "refresh": "更新",
+    "removeAttachment": "添付を削除",
     "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
     "breadcrumb": "パンくずナビ",
     "searchOption": "オプションを検索",
@@ -7099,6 +7117,7 @@
         "clearLive": "クリア",
         "copyOutput": "ターミナル出力をコピー",
         "failed": "{n} 失敗",
+        "isolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
         "live": "ライブ出力",
         "moreItems": "…あと {n} 件",
         "output": "出力",
@@ -9313,6 +9332,8 @@
       "loading": "読み込み中…",
       "me": "私",
       "mode": {
+        "plan": "読み取り専用プラン",
+        "planDesc": "閲覧と検索のみ可能。ファイル編集とコマンド実行は拒否されます",
         "ask": "毎回確認",
         "askDesc": "プロジェクト外のファイル編集やインターネット使用時に必ず確認します",
         "auto": "自動承認",
@@ -9409,6 +9430,7 @@
     },
     "permissionAlreadyActive": "現在は {mode} モードです",
     "permissionLabelAsk": "承認を求める",
+    "permissionLabelPlan": "読み取り専用プラン",
     "permissionLabelAuto": "自動承認",
     "permissionLabelFull": "完全アクセス",
     "permissionSwitchFailed": "権限モードの切り替えに失敗しました:{error}",
@@ -13480,7 +13502,6 @@
       "unstage": "ステージ解除"
     },
     "statusBar": {
-      "sync": "同期",
       "toggleTheme": "テーマ切替",
       "unsynced": "未同期"
     },
@@ -20666,6 +20687,10 @@
           "desc": "全操作は手動確認が必要、最も安全",
           "title": "デフォルトモード"
         },
+        "plan": {
+          "title": "読み取り専用プラン",
+          "desc": "閲覧と検索のみ許可。ファイル編集とコマンド実行は常に拒否されます"
+        },
         "unknown": {
           "desc": "認識できない権限モード",
           "title": "不明なモード"
@@ -21382,7 +21407,6 @@
     "skillsMarket": "Skill マーケット"
   },
   "statusBar": {
-    "sync": "同期",
     "toggleTheme": "テーマ切替"
   },
   "groups": {
