@@ -150,7 +150,8 @@ export function WebWorkPanel() {
 
   // Tab 栏数据(映射为 UI 组件需要的格式)
   const uiTabs: WorkPanelTabItem[] = React.useMemo(
-    () => tabs.map((t) => ({ id: t.id, title: t.title || t.url || '新标签页', type: t.type })),
+    () =>
+      tabs.map((t) => ({ id: t.id, title: t.title || t.url || tw('untitledTab'), type: t.type })),
     [tabs],
   )
 
@@ -187,7 +188,7 @@ export function WebWorkPanel() {
         // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 主流 AI IDE 浏览器)
         newTab(d.url)
       } else if (d.type === 'ihui-embed-proxy-error') {
-        onFailed(typeof d.message === 'string' ? d.message : '嵌入代理加载失败')
+        onFailed(typeof d.message === 'string' ? d.message : tw('embedProxyFailed'))
       }
     }
     window.addEventListener('message', onMessage)
@@ -197,7 +198,7 @@ export function WebWorkPanel() {
   // 代理 iframe 加载超时兜底:20s 未 onLoad(强反爬挑战页/网络挂起)→ 降级 CDP
   React.useEffect(() => {
     if (!isProxyMode || status !== 'loading') return
-    const timer = window.setTimeout(() => onFailed('嵌入代理加载超时,已切换到截图浏览'), 20000)
+    const timer = window.setTimeout(() => onFailed(tw('embedProxyTimeout')), 20000)
     return () => window.clearTimeout(timer)
   }, [isProxyMode, status, onFailed, proxyUrl])
 

@@ -40,16 +40,32 @@ interface InlineDiffCardProps {
   onApplyPartial?: (newContent: string) => Promise<void>
 }
 
-/** 顶部状态徽章配置 */
+/** 顶部状态徽章配置(labelKey 为 `ai.pane` 相对键,渲染处 `t(labelKey)` 取词) */
 const STATUS_BADGE: Record<
   DiffApplyStatus,
-  { label: string; className: string; icon?: React.ComponentType<{ className?: string }> }
+  { labelKey: string; className: string; icon?: React.ComponentType<{ className?: string }> }
 > = {
-  pending: { label: '待确认', className: 'bg-muted text-muted-foreground' },
-  applying: { label: '应用中', className: 'bg-muted text-muted-foreground', icon: Loader2 },
-  applied: { label: '已应用', className: 'bg-green-500/15 text-green-600', icon: Check },
-  rejected: { label: '已拒绝', className: 'bg-muted text-muted-foreground', icon: X },
-  error: { label: '应用失败', className: 'bg-red-500/15 text-red-600', icon: AlertCircle },
+  pending: { labelKey: 'diffStatus.pending', className: 'bg-muted text-muted-foreground' },
+  applying: {
+    labelKey: 'diffHunk.applyingSelected',
+    className: 'bg-muted text-muted-foreground',
+    icon: Loader2,
+  },
+  applied: {
+    labelKey: 'diffStatus.applied',
+    className: 'bg-green-500/15 text-green-600',
+    icon: Check,
+  },
+  rejected: {
+    labelKey: 'diffHunk.rejected',
+    className: 'bg-muted text-muted-foreground',
+    icon: X,
+  },
+  error: {
+    labelKey: 'diffStatus.error',
+    className: 'bg-red-500/15 text-red-600',
+    icon: AlertCircle,
+  },
 }
 
 export function InlineDiffCard({
@@ -139,7 +155,7 @@ export function InlineDiffCard({
             {diffInfo.file_path}
             {diffInfo.is_new_file && (
               <span className="ml-1.5 rounded-sm bg-blue-500/15 px-1 py-0.5 text-[10px] text-blue-600">
-                新文件
+                {t('changes.newFile')}
               </span>
             )}
           </CardTitle>
@@ -165,7 +181,7 @@ export function InlineDiffCard({
             )}
           >
             {BadgeIcon && <BadgeIcon className={cn('h-3 w-3', isApplying && 'animate-spin')} />}
-            <span>{badge.label}</span>
+            <span>{t(badge.labelKey)}</span>
           </span>
         </div>
       </CardHeader>
@@ -245,7 +261,7 @@ export function InlineDiffCard({
       <CardFooter className="flex items-center gap-2 p-3">
         {isTerminal ? (
           <span className="text-xs text-muted-foreground">
-            {applyStatus === 'applied' ? '改动已写入文件系统' : '已忽略本次改动'}
+            {applyStatus === 'applied' ? t('diffAppliedHint') : t('diffRejectedHint')}
           </span>
         ) : (
           <>
@@ -260,7 +276,7 @@ export function InlineDiffCard({
               ) : (
                 <Check className="h-3.5 w-3.5" />
               )}
-              <span>{isApplying ? '应用中' : 'Accept'}</span>
+              <span>{isApplying ? t('diffHunk.applyingSelected') : 'Accept'}</span>
             </button>
             <button
               type="button"
