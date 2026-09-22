@@ -15,19 +15,20 @@
 `onClick` → `onTap`,`overflowX:auto` → `ScrollView` 等),本目录为 Taro 端**薄适配层**,
 复用 `packages/app` 的 props 契约、状态机、主题 token 注入逻辑,仅替换 web 元素。
 
-## 2. 当前已迁移(P2-F 起步 4 通用 + 二批 5 通用)
+## 2. 当前已迁移(6 个通用件:起步 3 + 二批 3)
 
 | 共享组件                      | Taro 适配文件             | 行数 | 替换要点                                                                                        |
 | ----------------------------- | ------------------------- | ---- | ----------------------------------------------------------------------------------------------- |
 | `packages/app/SectionHeader`  | `SectionHeader.taro.tsx`  | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                                   |
 | `packages/app/ColorfulLoader` | `ColorfulLoader.taro.tsx` | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin`           |
-| `packages/app/PayButton`      | `PayButton.taro.tsx`      | ~290 | `button` → `View`;`onClick` → `onTap`;Modal 自绘;Toast → `Taro.showToast`                       |
 | `packages/app/Selecter`       | `Selecter.taro.tsx`       | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留            |
 | `packages/app/Carousel`       | `Carousel.taro.tsx`       | ~190 | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay |
 | `packages/app/NavBar`         | `NavBar.taro.tsx`         | ~120 | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传                      |
-| `packages/app/TabBar`         | `TabBar.taro.tsx`         | ~150 | 5 Tab 状态机 + active 配色;safe area bottom inset 适配                                          |
-| `packages/app/Toolbar`        | `Toolbar.taro.tsx`        | ~130 | 水平工具栏 + active 状态 + 分隔线;`ScrollView scrollX` 防溢出                                   |
 | `packages/app/UserInfoCard`   | `UserInfoCard.taro.tsx`   | ~180 | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                             |
+
+2026-09-22 二批清理另移除 `PayButton` / `TabBar` / `Toolbar` 三个适配器:端内支付按钮能力由
+`PayPopup` 承接(community + video-detail 在用),TabBar 走小程序原生 tabBar + `setTabBarStyle`,
+Toolbar 端内无对应物(仅职责不同的 `BottomActionBar`),三者均无接线对象。
 
 ## 3. 架构原则
 
@@ -71,10 +72,12 @@ pnpm --filter @ihui/miniapp-taro typecheck      # TS 严格类型 0 错误
 pnpm --filter @ihui/miniapp-taro lint           # ESLint 0 错误(含 no-explicit-any)
 ```
 
-> 当前适配层保留 9 个通用组件适配器(4 起步 + 5 二批),其中 SectionHeader/ColorfulLoader/Selecter 已在 page 接线
+> 当前适配层保留 6 个通用组件适配器(起步 3 + 二批 3),其中 SectionHeader/ColorfulLoader/Selecter 已在 page 接线
 > (`pkg-learn/course/list` + `course-planet` + `pkg-shop/wallet/commission` + `components/ModelConfigDialog`)。
-> 2026-09-22 移除 9 个屏级适配器共 3078 行(零引用死代码,小程序端对应屏已有自有页面在跑),取证与判定见 `PROJECT_PLAN.md` P2-F.5。
-> 后续动作见 `PROJECT_PLAN.md` 的 P2-F 章节。
+> 2026-09-22 两批清理零引用死代码:一批 9 个屏级适配器 3078 行(小程序端对应屏已有自有页面在跑),
+> 二批 PayButton/TabBar/Toolbar 732 行(支付能力由 `PayPopup` 承接、TabBar 走原生 tabBar、Toolbar 无对应物),
+> 同批连带端内零消费者的 `components/PayButton.tsx` 221 行,合计 4031 行。
+> 取证与判定见 `PROJECT_PLAN.md` P2-F.5/P2-F.6;新增适配器必须接线,由守门 64 `check-adapter-wiring.mjs` 强制。
 
 ## 5. 未来扩展(本批次不做)
 
