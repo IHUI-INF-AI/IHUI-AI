@@ -501,6 +501,14 @@
       "shareBtn": "分享"
     }
   },
+  "chatDisclosure": {
+    "citationTitle": "參考來源",
+    "injectionTitle": "本輪參考的上下文",
+    "kindDeveloper": "自訂指令",
+    "kindWorkspace": "工作區記憶",
+    "kindRepoWiki": "倉庫 Wiki",
+    "kindAutoContext": "自動檢索上下文"
+  },
   "developer": {
     "title": "開發者入口",
     "becomeDeveloper": "成為開發者",
