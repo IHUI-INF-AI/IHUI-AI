@@ -362,8 +362,11 @@ const pySharedContract = new Set();
     if (start === -1) {
       errors.push('apps/ai-service/app/core/sse_contract.py 未找到 SSE_EVENTS frozenset(契约被改名, 请同步本守门)');
     } else {
-      const end = text.indexOf(')', start);
-      const body = end === -1 ? text.slice(start, start + 2000) : text.slice(start, end);
+      // 不能用 indexOf(')'):frozenset 内部的**注释**里出现半角括号就会把 body 截断,
+      // 导致尾部事件名被静默漏读 → 契约漂移检不出(假绿)。改为切到"独占一行的 )"。
+      const closeLine = /\n\s*\)/.exec(text.slice(start));
+      const end = closeLine === null ? -1 : start + closeLine.index;
+      const body = end === -1 ? text.slice(start, start + 4000) : text.slice(start, end);
       for (const m of body.matchAll(PY_SHARED_CONTRACT_RE)) pySharedContract.add(m[1]);
     }
   }

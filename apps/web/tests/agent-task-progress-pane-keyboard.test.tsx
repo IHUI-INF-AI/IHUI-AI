@@ -14,7 +14,7 @@
  * - PlanStep Enter/Space 触发跳转(键盘无障碍 a11y)
  * - PlanStep role=button + tabIndex=0
  * - Esc 键优先级:help 打开时仅关 help,help 关闭时(unpin)关 pane
- * - ? 键切换 help 面板
+ * - 帮助面板只由 header 钮开关(2026-09-22:`?` 唯一归属全局快捷键面板,本面板不再监听)
  * - FoldableSection Header 含 data-section-header 标识(键盘导航锚点)
  * - Shift+Tab 焦点离开:符合键盘导航逻辑
  */
@@ -154,7 +154,7 @@ afterEach(() => {
 // ─── Header 拖拽手柄(键盘入口) ─────────────────────────────
 // 2026-08-06 移除:外部重构后 pane header 不再渲染 GripVertical 拖拽图标
 // (拖拽改由 header 空白区 onHandleMouseDown 触发),原断言为死断言。
-describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
+describe('AgentTaskProgressPane — Esc 关闭 / header 帮助钮', () => {
   it('pinned=true 时按 Esc 不关闭 pane(防误触)', () => {
     useAgentProgressPaneStore.getState().openPane()
     // 默认 pinned=true
@@ -177,7 +177,7 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('按 ? 切换帮助面板开关', () => {
+  it('点击 header 帮助按钮切换帮助面板开关(2026-09-22 起 ? 不再归本面板)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
 
@@ -185,13 +185,29 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
     expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
 
-    // 按 ? 打开
-    fireEvent.keyDown(window, { key: '?' })
+    // 点击 header 钮打开
+    fireEvent.click(helpToggle)
     expect(helpToggle.getAttribute('aria-expanded')).toBe('true')
 
-    // 再按 ? 关闭
+    // 再点关闭
+    fireEvent.click(helpToggle)
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('反向断言:pane 打开时 window 派发 ? 不得改变本面板帮助开关(键位唯一归全局)', () => {
+    useAgentProgressPaneStore.getState().openPane()
+    const { container } = render(<AgentTaskProgressPane />)
+    const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
+
     fireEvent.keyDown(window, { key: '?' })
     expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.keyDown(window, { key: '?', shiftKey: true })
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
+
+    // 对照:同一元素点 header 钮确实会变 true ⇒ 上面两条断言不是恒真
+    fireEvent.click(helpToggle)
+    expect(helpToggle.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('help 打开时按 Esc 仅关 help,pane 仍打开', () => {
@@ -199,9 +215,9 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     useAgentProgressPaneStore.getState().togglePin() // pinned=false
     const { container } = render(<AgentTaskProgressPane />)
 
-    // 打开 help
-    fireEvent.keyDown(window, { key: '?' })
+    // 打开 help(header 钮;? 已归属全局快捷键面板)
     const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
+    fireEvent.click(helpToggle)
     expect(helpToggle.getAttribute('aria-expanded')).toBe('true')
 
     // 按 Esc 关闭 help
@@ -215,8 +231,9 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 
-  it('INPUT / TEXTAREA 焦点时按 ? 不打开 help', () => {
+  it('INPUT / TEXTAREA 焦点时按键被守卫拦下(Esc 不关 pane / ? 不开 help)', () => {
     useAgentProgressPaneStore.getState().openPane()
+    useAgentProgressPaneStore.getState().togglePin() // pinned=false,否则 Esc 本就不关 pane ⇒ 断言恒真
     const { container } = render(
       <div>
         <input data-testid="fake-input" />
@@ -227,10 +244,17 @@ describe('AgentTaskProgressPane — Esc / ? 全局快捷键', () => {
     const input = container.querySelector('[data-testid="fake-input"]') as HTMLElement
     const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
 
-    // focus 在 input 上时按 ?
+    // focus 在 input 上时按键:help 不开、pane 不关(守卫早退)
     input.focus()
     fireEvent.keyDown(input, { key: '?' })
     expect(helpToggle.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    expect(useAgentProgressPaneStore.getState().open).toBe(true)
+
+    // 对照组:离开 input 后同一 Esc 必须真的关掉 pane(证明上一条不是恒真)
+    input.blur()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(useAgentProgressPaneStore.getState().open).toBe(false)
   })
 })
 

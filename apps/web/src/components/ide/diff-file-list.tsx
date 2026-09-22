@@ -166,7 +166,7 @@ function FileRow({
       </div>
       <div className="ml-auto flex shrink-0 items-center gap-1">
         {showActions && (
-          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               onClick={(e) => e.stopPropagation()}
               className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"

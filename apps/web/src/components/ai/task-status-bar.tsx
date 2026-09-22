@@ -13,7 +13,7 @@ import {
   computeFileChangesFromDiff,
   deriveTaskStatusBar,
   humanizeToolText,
-  toolDisplayKey,
+  describeToolActivity,
   type TaskStatusKind,
   type TaskStatusStepView,
 } from '@ihui/shared/chat'
@@ -147,10 +147,15 @@ export function TaskStatusBar() {
     if (!isStreaming) return ''
     switch (currentTask.kind) {
       case 'tool':
-        // 界面禁止直显英文工具码名:优先用工具功能名(如 read_file → "读取文件内容")
+        // 界面禁止直显英文工具码名:走双时态活动措辞(本条只在流式期间出现 → 恒为进行时)
         if (currentTask.toolName) {
-          const displayKey = toolDisplayKey(currentTask.toolName)
-          if (displayKey) return t(displayKey)
+          const activity = describeToolActivity({
+            toolName: currentTask.toolName,
+            state: 'running',
+            translate: (key, params) => t(key, params),
+          })
+          // 兜底会回原始码名,码名不得上界面 → 落到下面的 mcp/plugin/通用句式分支
+          if (activity !== currentTask.toolName) return activity
         }
         if (currentTask.mcpName) return t('activityMcp', { mcp: currentTask.mcpName })
         if (currentTask.pluginName) return t('activityPlugin', { plugin: currentTask.pluginName })

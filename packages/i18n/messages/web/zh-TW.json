@@ -6916,6 +6916,8 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
+      "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
       "ariaLabel": "Agent 任務進度面板",
       "celebrate": "全部任務完成",
       "changes": {
@@ -6960,6 +6962,7 @@
       "expand": "展開面板",
       "expandAll": "展開全部",
       "failureBanner": "{n} 個任務失敗,點擊查看",
+      "followEvents": "跟隨事件流",
       "helpClose": "關閉",
       "helpPanelTitle": "鍵盤快捷鍵",
       "helpToggle": "快捷鍵幫助",
@@ -7101,6 +7104,13 @@
         "title": "終端任務",
         "truncated": "…(已截斷,共 {total} 字符)"
       },
+      "injectionTitle": "本輪上下文:{count} 項",
+      "injectionExpand": "展開其餘 {count} 項",
+      "injectionCollapse": "收起",
+      "injectionKindDeveloper": "已套用工作階段級自訂指令",
+      "injectionKindWorkspace": "已注入工作區記憶 / AGENTS.md",
+      "injectionKindRepoWiki": "已注入 Repo Wiki 專案百科",
+      "injectionKindAutoContext": "{count, plural, other {已自動檢索並注入 {count} 段程式碼上下文}}",
       "thinkingCharCountTitle": "{n} 個字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
@@ -7311,8 +7321,6 @@
         "total": "總用量",
         "ariaLabel": "訊息用量詳情"
       },
-      "retryBadge": "重試{count}次",
-      "retryBadgeAria": "工具瞬時失敗後自動重試 {count} 次",
       "openInWorkPanel": "在工作展示區打開",
       "toolUnknownFile": "(未知檔案)",
       "pendingTaskTitle": "任務進行中",
@@ -7323,7 +7331,6 @@
       "pendingRefresh": "重新整理狀態",
       "pendingStopped": "長時間未完成,已停止自動重新整理;可點擊\"重新整理狀態\"繼續檢查。",
       "pendingFailed": "任務已失敗或取消,可換個提示詞重新產生。",
-      "planStepPending": "待執行",
       "planStepInProgress": "進行中",
       "planStepCompleted": "已完成",
       "planStepFailed": "失敗"
@@ -8957,7 +8964,6 @@
     "cmdKouboScript": "請幫我生成今日 8 篇抖音口播稿。要求:\n1. 日期:MMDD\n2. 選題方向:\n3. 雙門禁驗證(歧義壓縮 / 跨稿詞表 / 全量驗證 / 語病 / 熱點覆蓋)\n請走 koubo-workflow 流水線(約束優先寫作法)。",
     "cmdPolish": "請潤色以下文本，使其更專業流暢：",
     "cmdSummary": "請總結以上對話內容，提煉關鍵信息",
-    "viewNIntermediateSteps": "查看 {count} 個中間步驟",
     "hideIntermediateSteps": "隱藏中間步驟",
     "batchDiff": {
       "acceptAll": "全部接受",
@@ -9167,7 +9173,6 @@
       "editAndRerun": "儲存並重跑",
       "editRollbackFiles": "同時回滾檔案變更",
       "hideContent": "隱藏內容",
-      "jumpToLatest": "跳至最新",
       "like": "點讚",
       "publishToCommunity": "發佈到社區",
       "readAloud": "朗讀",
@@ -9207,7 +9212,6 @@
     "modelCapReasoning": "推理",
     "modelCapTools": "工具",
     "modelCapFim": "補全",
-    "stepsHoverPreview": "懸停預覽末段，點擊展開完整步驟",
     "modelCategoryAsr": "語音辨識",
     "modelCategoryChat": "對話推理",
     "modelCategoryEmbedding": "向量嵌入",
@@ -9299,7 +9303,6 @@
       "historyStatsTitle": "累計統計",
       "historyTitle": "權限模式歷史",
       "inputWarning": "當前為完全訪問模式:AI 可不受限制地訪問文件和網絡",
-      "jumpToLatest": "跳轉到最新",
       "kbdNavigate": "切換",
       "latest": "最新",
       "learnMore": "瞭解更多",
@@ -19295,6 +19298,7 @@
     "registerSuccess": "注冊成功",
     "registerTitle": "統一注冊",
     "sendCodeFailed": "驗證碼發送失敗",
+    "sessionExpired": "登入狀態已失效，請重新登入",
     "subtitle": "登錄後將為 {clientId} 授權並跳轉",
     "title": "統一登錄",
     "mobileAuth": {

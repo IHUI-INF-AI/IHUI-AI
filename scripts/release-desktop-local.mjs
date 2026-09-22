@@ -26,7 +26,17 @@ const GITEE_REPO = 'IHUI-AI';
 
 const NO_INSTALL = process.argv.includes('--no-install');
 const NO_PUSH = process.argv.includes('--no-push');
+const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
+
+// python 解析:Windows 上裸 `python` 会命中 Microsoft Store 的占位 stub
+// (执行即打印 "Python was not found" 并非零退出 → Gitee 发行阶段必挂),
+// 故优先仓库 venv 绝对路径,不依赖 PATH(AGENTS.md §5b 同一纪律)。
+const PYTHON_CANDIDATES = [
+  path.join(ROOT, 'apps/ai-service/.venv/Scripts/python.exe'),
+  path.join(ROOT, 'apps/ai-service/.venv/bin/python'),
+];
+const pythonBin = PYTHON_CANDIDATES.find((p) => existsSync(p)) ?? 'python3';
 
 const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inherit', encoding: 'utf8', windowsHide: true, ...opts });
 
@@ -34,13 +44,23 @@ const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inh
 const conf = JSON.parse(readFileSync(CONF, 'utf8'));
 const old = conf.version;
 const [maj, mid, pat] = old.split('.').map(Number);
-const version = BUMP === 'major' ? `${maj + 1}.0.0` : BUMP === 'minor' ? `${maj}.${mid + 1}.0` : `${maj}.${mid}.${pat + 1}`;
-conf.version = version;
-writeFileSync(CONF, JSON.stringify(conf, null, 2) + '\n');
-const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
-pkg.version = version;
-writeFileSync(PKG, JSON.stringify(pkg, null, 2) + '\n');
-console.log(`\n=== 版本 ${old} → ${version} ===`);
+const version = KEEP_VERSION
+  ? old
+  : BUMP === 'major'
+    ? `${maj + 1}.0.0`
+    : BUMP === 'minor'
+      ? `${maj}.${mid + 1}.0`
+      : `${maj}.${mid}.${pat + 1}`;
+if (!KEEP_VERSION) {
+  conf.version = version;
+  writeFileSync(CONF, JSON.stringify(conf, null, 2) + '\n');
+  const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
+  pkg.version = version;
+  writeFileSync(PKG, JSON.stringify(pkg, null, 2) + '\n');
+  console.log(`\n=== 版本 ${old} → ${version} ===`);
+} else {
+  console.log(`\n=== 复用当前版本 ${version}(--keep-version,产物已构建)===`);
+}
 
 // ── 2. tauri build(薄壳:前端跳过;env 经 spawnSync 传递,Windows cmd 不支持前缀变量)──
 const keyPath = path.join(process.env.USERPROFILE || '', '.tauri/ihui-updater.key');
@@ -81,7 +101,7 @@ const giteeTok = existsSync(GITEE_KEY_FILE)
   ? readFileSync(GITEE_KEY_FILE, 'utf8').trim()
   : process.env.GITEE_TOKEN;
 if (!giteeTok) { console.error('ERROR: 无法获取 gitee.com token(密钥文件与环境变量均无)'); process.exit(1); }
-const gr = spawnSync('python', [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
+const gr = spawnSync(pythonBin, [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
   stdio: 'inherit',
   env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000, windowsHide: true,
 });

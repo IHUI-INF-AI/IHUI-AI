@@ -50,6 +50,13 @@ export const SSE_EVENTS = {
   COMPACTION: 'compaction',
   STEER: 'steer',
   BUDGET: 'budget',
+  // D34(2026-09-22 立,G-40/G-44):运行环境交代两帧。
+  // 事件名是我方协议自定(snake_case,同 plan_updated/terminal_end 家族);
+  // 实证部分只有**字段形状**(kind 八枚举 / collapsed + 可展开全文 / attempt+maxRetries+retryInMs+httpStatus)。
+  // 上两批曾加的 settings_applied / terminal_output 已于第 36 轮收回(空契约与重复帧),
+  // 理由见 sse_contract.py 的"收回记录"注释与 PROJECT_PLAN.md D34 段。
+  INJECTION_APPLIED: 'injection_applied',
+  RETRY_SCHEDULED: 'retry_scheduled',
 } as const
 
 /** 全部 SSE 事件名的联合类型。 */
@@ -100,6 +107,32 @@ export type SSEEventPayload =
       type: 'tool-summary'
       // 待收紧:linesAdded/linesDeleted/callCount 等聚合字段
       summary: Record<string, unknown>
+    }>
+  // D34(2026-09-22):运行环境交代两帧(第三、四帧已收回,理由见 SSE_EVENTS 处注释)
+  | SSEEventWithMeta<{
+      type: 'injection_applied'
+      /** 被注入/生效的上下文类别 —— **与后端一一对应**
+       *  (apps/ai-service `app/routers/llm.py` 的 injection_frames 四处 +
+       *  apps/web `components/ai/progress-sections/injection-bar.tsx` 的 INJECTION_KIND_KEYS)。
+       *  kind 只当"取哪个本地化文案"的键用,界面措辞一律出自 5 语言词表,
+       *  不渲染后端中文文本(collapsed 仅作未知 kind 的兜底)。
+       *  历史值 agents_md / environments 已于第 42 轮拆分:二者曾共用 environments,
+       *  前端无法区分"Repo Wiki 百科"与"自动检索上下文"。 */
+      kind: 'developer_instructions' | 'workspace_memory' | 'repo_wiki' | 'auto_context'
+      /** 折叠态一行摘要(界面默认显示;未知 kind 时的兜底文本) */
+      collapsed: string
+      /** 展开全文;后端在超出可携带上限时**整字段省略**,界面据此不给"展开"控件
+       *  (不发截断文本冒充全文 —— 与 terminal_end 的 truncated 同一纪律的另一面) */
+      fullText?: string
+      /** auto_context 专用:检索并注入的代码上下文段数(措辞走 ICU plural) */
+      count?: number
+    }>
+  | SSEEventWithMeta<{
+      type: 'retry_scheduled'
+      attempt: number
+      maxRetries: number
+      retryInMs: number
+      httpStatus?: number
     }>
   // 引用溯源(#11,2026-09-13 立)
   | SSEEventWithMeta<{
@@ -159,6 +192,14 @@ export type SSEEventPayload =
       endedAt: string
       durationMs: number
       output?: string
+      /** 输出是否被截断(第 39 轮起后端真下发:仅在确实截断时为 true) */
+      truncated?: boolean
+      /** 截断前的原始字符数;未截断时等于 output 长度 */
+      totalChars?: number
+      /**
+       * formattedOutput 已于第 39 轮删除:我方无生产点也无消费方(后端不做输出排版,
+       * stdout/stderr 的结构化由 tool-result 帧分别承载),契约里不留空壳字段。
+       */
       exitCode?: number
       messageId?: string
     }>
