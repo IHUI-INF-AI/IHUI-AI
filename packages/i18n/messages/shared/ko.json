@@ -2003,5 +2003,30 @@
   },
   "topBar": {
     "capabilityMarket": "기능 마켓"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "계획이 차단되었습니다",
+      "securityBlocked": "보안 정책에 따라 차단됨",
+      "rejectedByUser": "본인이 거부함",
+      "approvalTimeout": "승인 시간이 초과됨",
+      "toolMissing": "도구를 찾을 수 없음",
+      "executeFailed": "실행 실패",
+      "executeRetried": "재시도함",
+      "executed": "실행함",
+      "approvalPersistHit": "저장된 승인 재사용",
+      "execPolicyApproved": "실행 정책에 따라 허용",
+      "autoSkipApproval": "자동 승인(심사 생략)",
+      "bypassSkipApproval": "심사 건너뜀",
+      "mcpRequiresApproval": "MCP 주석이 승인 필요",
+      "policyRequiresApproval": "정책상 승인 필요",
+      "policyForbidsExecution": "정책상 실행 금지"
+    },
+    "state": {
+      "approved": "자동 승인됨",
+      "rejected": "거부됨",
+      "needsUser": "사용자 승인 필요",
+      "unknown": "판단 불가"
+    }
   }
 }
