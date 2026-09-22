@@ -370,6 +370,7 @@
     "planStatusInProgress": "进行中",
     "planStatusCompleted": "已完成",
     "terminalTasks": "终端任务",
+    "citationTitle": "参考来源",
     "injectionTitle": "本轮参考的上下文",
     "injectionKindDeveloper": "自定义指令",
     "injectionKindWorkspace": "工作区记忆",
