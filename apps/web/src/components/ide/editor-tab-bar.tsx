@@ -197,7 +197,7 @@ export function EditorTabBar() {
                   e.stopPropagation()
                   closeTab(tab.id)
                 }}
-                className="rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                className="rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
                 aria-label={t('editorTabBar.closeTab')}
               >
                 <X className="h-3 w-3" />
