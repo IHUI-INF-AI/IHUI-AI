@@ -199,7 +199,7 @@
     "contentLabel": "내용",
     "contentPlaceholder": "상세: 배경, 결론, 주의사항",
     "tagsLabel": "태그",
-    "tagsPlaceholder": "쉼표 구분 예: deploy,PG17",
+    "tagsPlaceholder": "쉼표 구분 예: deploy,PG18",
     "needScope": "먼저 스코프 ID를 입력하세요",
     "needTitle": "제목은 필수입니다",
     "needContent": "내용은 필수입니다",
@@ -250,6 +250,24 @@
     "regenerateDisabledHint": "저장소 폴더가 선택되지 않았거나 수집된 파일이 없습니다."
   },
   "a11y": {
+    "download": "다운로드",
+    "downloadFile": "파일 다운로드",
+    "exitFullscreen": "전체 화면 종료",
+    "seekBar": "재생 진행률",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "rotate": "회전",
+    "fullscreen": "전체 화면",
+    "previous": "이전",
+    "next": "다음",
+    "play": "재생",
+    "pause": "일시정지",
+    "seekBackward": "되감기",
+    "seekForward": "빨리감기",
+    "mute": "음소거",
+    "unmute": "음소거 해제",
+    "refresh": "새로고침",
+    "removeAttachment": "첨부 삭제",
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
     "breadcrumb": "빵 부스러기 탐색",
     "searchOption": "옵션 검색",
@@ -7099,6 +7117,7 @@
         "clearLive": "지우기",
         "copyOutput": "터미널 출력 복사",
         "failed": "{n} 실패",
+        "isolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
         "live": "실시간 출력",
         "moreItems": "…{n}개 더",
         "output": "출력",
@@ -9313,6 +9332,8 @@
       "loading": "불러오는 중…",
       "me": "나",
       "mode": {
+        "plan": "읽기 전용 플랜",
+        "planDesc": "조회와 검색만 가능하며 파일 편집과 명령 실행은 거부됩니다",
         "ask": "승인 요청",
         "askDesc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인",
         "auto": "자동 승인",
@@ -9409,6 +9430,7 @@
     },
     "permissionAlreadyActive": "이미 {mode} 모드입니다",
     "permissionLabelAsk": "승인 요청",
+    "permissionLabelPlan": "읽기 전용 플랜",
     "permissionLabelAuto": "자동 승인",
     "permissionLabelFull": "전체 접근",
     "permissionSwitchFailed": "권한 모드 전환 실패:{error}",
@@ -13480,7 +13502,6 @@
       "unstage": "스테이징 해제"
     },
     "statusBar": {
-      "sync": "동기화",
       "toggleTheme": "테마 전환",
       "unsynced": "동기화 안 됨"
     },
@@ -20655,6 +20676,10 @@
           "desc": "모든 작업은 수동 확인 필요, 가장 안전",
           "title": "기본 모드"
         },
+        "plan": {
+          "title": "읽기 전용 플랜",
+          "desc": "조회와 검색만 허용됩니다. 파일 편집과 명령 실행은 항상 거부됩니다"
+        },
         "unknown": {
           "desc": "인식할 수 없는 권한 모드",
           "title": "알 수 없는 모드"
@@ -21371,7 +21396,6 @@
     "skillsMarket": "스킬 마켓"
   },
   "statusBar": {
-    "sync": "동기화",
     "toggleTheme": "테마 전환"
   },
   "groups": {

@@ -2,75 +2,53 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+// 历史水合的权限档恢复(G-165)。
+// 上一版徽章只存在于内存:刷新即丢,小程序/RN 完全看不到(D111 的根因之一)。
+// 这里锁住"从服务端盖章的 metadata 恢复"这条新链路,含两类静默错:
+// 把未知拼写丢掉、以及缺失时编造 'default'。
+import { describe, expect, it } from 'vitest'
 
-import * as React from 'react'
-import { Check, Copy } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
+import { hydrateHistoryMessage, type HistoryMessageRecord } from '@/hooks/use-chat/history-message'
 
-interface CopyButtonProps {
-  /** 要复制的文本 */
-  text: string
-  /** 额外 className */
-  className?: string
-  /** aria-label */
-  'aria-label'?: string
-  /** data-testid */
-  'data-testid'?: string
-}
+const row = (metadata: Record<string, unknown> | null): HistoryMessageRecord =>
+  ({
+    id: 'm-1',
+    conversationId: 'c-1',
+    role: 'assistant',
+    content: '回答',
+    tokens: 12,
+    metadata,
+    createdAt: '2026-09-22T10:00:00.000Z',
+  }) as HistoryMessageRecord
 
-/**
- * CopyButton — 通用复制按钮(v11)
- *
- * 特征:
- * - 点击复制 text 到剪贴板
- * - 复制成功后显示 Check 图标 1.5s,然后恢复 Copy 图标
- * - 极小尺寸(h-4 w-4),适配紧凑布局
- * - memo 化:text 引用稳定时跳过重渲染
- */
-export const CopyButton = React.memo(function CopyButton({
-  text,
-  className,
-  'aria-label': ariaLabel,
-  'data-testid': testId,
-}: CopyButtonProps) {
-  const t = useTranslations('ai.pane')
-  const [copied, setCopied] = React.useState(false)
-  const resolvedLabel = ariaLabel ?? t('copy')
+describe('hydrateHistoryMessage 的档位恢复', () => {
+  it('wire(kebab)盖章值恢复成徽章可用的档位', () => {
+    expect(hydrateHistoryMessage(row({ permissionMode: 'accept-edits' })).permissionMode).toBe(
+      'accept-edits',
+    )
+    expect(hydrateHistoryMessage(row({ permissionMode: 'plan' })).permissionMode).toBe('plan')
+  })
 
-  const onCopy = React.useCallback(async () => {
-    if (!text) return
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // 剪贴板 API 不可用时静默失败(测试环境/jsdom)
-    }
-  }, [text])
+  it('库里若是 camel 或历史别名也归一回 wire(不猜、不静默丢)', () => {
+    expect(hydrateHistoryMessage(row({ permissionMode: 'acceptEdits' })).permissionMode).toBe(
+      'accept-edits',
+    )
+    expect(hydrateHistoryMessage(row({ permissionMode: 'bypassPermissions' })).permissionMode).toBe(
+      'bypass-permissions',
+    )
+  })
 
-  const Icon = copied ? Check : Copy
+  it('没有盖章的老消息 → 字段留空,绝不编 default', () => {
+    expect(hydrateHistoryMessage(row(null)).permissionMode).toBeUndefined()
+    expect(hydrateHistoryMessage(row({})).permissionMode).toBeUndefined()
+    expect(hydrateHistoryMessage(row({ permissionMode: 'yolo' })).permissionMode).toBeUndefined()
+  })
 
-  return (
-    <Tooltip content={copied ? t('copied') : resolvedLabel}>
-      <button
-        type="button"
-        onClick={onCopy}
-        aria-label={resolvedLabel}
-        className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
-          copied && 'text-emerald-500',
-          className,
-        )}
-        data-testid={testId}
-      >
-        <Icon className="h-2.5 w-2.5" />
-      </button>
-    </Tooltip>
-  )
+  it('其余既有恢复逻辑不受影响(planSteps 缺失仍是 undefined 而非空数组)', () => {
+    const m = hydrateHistoryMessage(row({ permissionMode: 'plan' }))
+    expect(m.planSteps).toBeUndefined()
+    expect(m.role).toBe('assistant')
+    expect(m.content).toBe('回答')
+  })
 })
-
-export default CopyButton
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

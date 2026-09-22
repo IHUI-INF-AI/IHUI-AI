@@ -85,7 +85,7 @@ function matchRulesOnly(toolName: string, rules?: PermissionRules): PermissionDe
  *
  * 此前这里是第 6 套词表 `default|plan|auto`,并把
  * `acceptEdits`/`bypassPermissions` **都折叠成 `auto`** —— 那是"静默降档"陷阱:
- * 用户选的"全档免批"到服务端变成"只读免批"。第 67 项收口后服务端直接收规范档,
+ * 用户选的"全档免批"到服务端变成"只读免批"。第 68 项收口后服务端直接收规范档,
  * 折叠层已无必要(且有害),故改为恒等。函数保留是为了让"cli 档 ≠ 线上档"
  * 这类差异再次出现时,单测会先红。
  */

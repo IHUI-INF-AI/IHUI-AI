@@ -2,75 +2,41 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+/**
+ * 助手消息的"权限档"盖章(G-165)。
+ *
+ * 背景:AI 回答由异步回调落库(ai-callback → aiCallback worker),那条链路只有
+ * conversationId/userId,不知道这次对话绑的是哪个工作区,于是"这条回答在哪一档
+ * 权限下生成"服务端无法自证 —— web 的档位徽章只活在内存(刷新即丢),小程序/RN
+ * 更是完全看不到(D111 的根因之一)。
+ *
+ * 现在:流式入口把 workspacePath 记进会话 metadata(chat-queries.bindConversationWorkspace),
+ * 回调侧据此查 workspace_permissions 拿**服务端自己的**档位记录来盖章 ——
+ * 不接受客户端自报档位(自报=可以伪造"我在只读档"来给审计记录贴金)。
+ *
+ * 拼写一律过唯一真源归一(跨界只走 wire);认不出/未配置就**不写 key**,
+ * 而不是写个 'default' —— 写默认值等于把"不知道"伪装成"知道且是默认档"。
+ */
+import { permissionModeWire } from '@ihui/types/permission-mode'
 
-import * as React from 'react'
-import { Check, Copy } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
+/** 消息 metadata 里承载档位的键名(前端读它渲染徽章;跨端同源) */
+export const MESSAGE_PERMISSION_META_KEY = 'permissionMode'
 
-interface CopyButtonProps {
-  /** 要复制的文本 */
-  text: string
-  /** 额外 className */
-  className?: string
-  /** aria-label */
-  'aria-label'?: string
-  /** data-testid */
-  'data-testid'?: string
+/** 会话 metadata 里承载工作区路径的键名(与 ai-chat-stream 写入侧同源) */
+export const CONVERSATION_WORKSPACE_META_KEY = 'workspacePath'
+
+/** 权限行里的档位 → 要并入消息 metadata 的键;不可识别则返回空对象(不写 key)。 */
+export function permissionStamp(modeRow: unknown): Record<string, string> {
+  const wire = permissionModeWire(modeRow)
+  return wire ? { [MESSAGE_PERMISSION_META_KEY]: wire } : {}
 }
 
-/**
- * CopyButton — 通用复制按钮(v11)
- *
- * 特征:
- * - 点击复制 text 到剪贴板
- * - 复制成功后显示 Check 图标 1.5s,然后恢复 Copy 图标
- * - 极小尺寸(h-4 w-4),适配紧凑布局
- * - memo 化:text 引用稳定时跳过重渲染
- */
-export const CopyButton = React.memo(function CopyButton({
-  text,
-  className,
-  'aria-label': ariaLabel,
-  'data-testid': testId,
-}: CopyButtonProps) {
-  const t = useTranslations('ai.pane')
-  const [copied, setCopied] = React.useState(false)
-  const resolvedLabel = ariaLabel ?? t('copy')
-
-  const onCopy = React.useCallback(async () => {
-    if (!text) return
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // 剪贴板 API 不可用时静默失败(测试环境/jsdom)
-    }
-  }, [text])
-
-  const Icon = copied ? Check : Copy
-
-  return (
-    <Tooltip content={copied ? t('copied') : resolvedLabel}>
-      <button
-        type="button"
-        onClick={onCopy}
-        aria-label={resolvedLabel}
-        className={cn(
-          'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground',
-          copied && 'text-emerald-500',
-          className,
-        )}
-        data-testid={testId}
-      >
-        <Icon className="h-2.5 w-2.5" />
-      </button>
-    </Tooltip>
-  )
-})
-
-export default CopyButton
+/** 从会话 metadata 取工作区路径(必须是非空字符串,否则视为"未绑定工作区")。 */
+export function workspacePathOfConversationMeta(meta: unknown): string | null {
+  if (!meta || typeof meta !== 'object') return null
+  const raw = (meta as Record<string, unknown>)[CONVERSATION_WORKSPACE_META_KEY]
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed ? trimmed : null
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

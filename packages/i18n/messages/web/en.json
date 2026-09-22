@@ -199,7 +199,7 @@
     "contentLabel": "Content",
     "contentPlaceholder": "Details: context, conclusion, caveats",
     "tagsLabel": "Tags",
-    "tagsPlaceholder": "Comma separated, e.g. deploy,PG17",
+    "tagsPlaceholder": "Comma separated, e.g. deploy,PG18",
     "needScope": "Enter a scope identifier first",
     "needTitle": "Title is required",
     "needContent": "Content is required",
@@ -250,6 +250,24 @@
     "regenerateDisabledHint": "No repository folder selected or no files collected yet."
   },
   "a11y": {
+    "download": "Download",
+    "downloadFile": "Download file",
+    "exitFullscreen": "Exit fullscreen",
+    "seekBar": "Playback progress",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "rotate": "Rotate",
+    "fullscreen": "Fullscreen",
+    "previous": "Previous",
+    "next": "Next",
+    "play": "Play",
+    "pause": "Pause",
+    "seekBackward": "Seek backward",
+    "seekForward": "Seek forward",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "refresh": "Refresh",
+    "removeAttachment": "Remove attachment",
     "addAttachment": "Add attachment (image / video / file)",
     "breadcrumb": "Breadcrumb",
     "searchOption": "Search options",
@@ -7099,6 +7117,7 @@
         "clearLive": "Clear",
         "copyOutput": "Copy terminal output",
         "failed": "{n} failed",
+        "isolation": "Commands run in an isolated sandbox; network access is off by default",
         "live": "Live",
         "moreItems": "…{n} more",
         "output": "Output",
@@ -9323,6 +9342,8 @@
       "loading": "Loading…",
       "me": "Me",
       "mode": {
+        "plan": "Read-only plan",
+        "planDesc": "Reads and searches only; editing files and running commands are refused",
         "ask": "Ask for approval",
         "askDesc": "Always asks before editing files outside this project or using the internet",
         "auto": "Auto-approve edits",
@@ -9419,6 +9440,7 @@
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
+    "permissionLabelPlan": "Read-only plan",
     "permissionLabelAuto": "Auto-approve",
     "permissionLabelFull": "Full access",
     "permissionSwitchFailed": "Failed to switch permission mode: {error}",
@@ -13490,7 +13512,6 @@
       "unstage": "Unstage"
     },
     "statusBar": {
-      "sync": "Sync",
       "toggleTheme": "Toggle theme",
       "unsynced": "Unsynced"
     },
@@ -20676,6 +20697,10 @@
           "desc": "All operations require manual confirmation. Most secure.",
           "title": "Default"
         },
+        "plan": {
+          "title": "Read-only plan",
+          "desc": "Reads and searches only; edits and command execution are always refused"
+        },
         "unknown": {
           "desc": "Unrecognized permission mode",
           "title": "Unknown Mode"
@@ -21392,7 +21417,6 @@
     "skillsMarket": "Skill Market"
   },
   "statusBar": {
-    "sync": "Sync",
     "toggleTheme": "Toggle theme"
   },
   "groups": {

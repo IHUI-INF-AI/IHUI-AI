@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追�?(Apache-2.0 须保留本声明�?NOTICE)�?// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { create } from 'zustand'
+// 权限档 wire 类型唯一来源(G-164:本文件此前自抄了 3 份三值联合,补第四档时漏改即静默失配)
+import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
@@ -23,7 +25,7 @@ export interface ActiveWorkspace {
   path: string
   name: string
   /** 权限模式:default(默认需审计)/ accept-edits(自动接受编辑)/ bypass-permissions(完全跳过) */
-  mode?: 'default' | 'accept-edits' | 'bypass-permissions'
+  mode?: WorkspacePermissionMode
   /** 技术栈标签数组(逗号分隔�?techStack 字符串拆�?,用于 UI 显示技术栈 chip */
   techStack?: string[]
 }
@@ -60,7 +62,7 @@ interface AiPanelState {
    * - popover/Shift+Tab/斜杠命令在无 activeWorkspace 时写入此字段
    * - 绑定工作区时�?workspace-selector 应用�?activeWorkspace.mode 并清�?   * - 不持久化(会话�?刷新丢失可接�?与原 sessionStorage 行为一�?
    */
-  pendingPermissionMode: 'default' | 'accept-edits' | 'bypass-permissions' | null
+  pendingPermissionMode: WorkspacePermissionMode | null
   /** 浮窗模式:docked(flex �?�?floating(fixed 可拖�? */
   floatMode: boolean
   /** 浮窗最小化:只显�?FAB 按钮,点击展开完整面板 */
@@ -83,7 +85,7 @@ interface AiPanelState {
     v: { path: string; name: string; techStack?: string[] } | null,
   ) => void
   setPendingFullAccess: (v: boolean) => void
-  setPendingPermissionMode: (v: 'default' | 'accept-edits' | 'bypass-permissions' | null) => void
+  setPendingPermissionMode: (v: WorkspacePermissionMode | null) => void
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
   toggleWorkAreaCollapsed: () => void

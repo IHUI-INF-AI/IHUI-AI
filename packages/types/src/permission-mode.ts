@@ -14,7 +14,7 @@
 //
 // 本文件是**跨语言**注册表的 TS 侧;Python 侧镜像在
 // apps/ai-service/app/core/permission_mode.py,两侧成员与别名映射必须逐字一致,
-// 由 scripts/check-permission-mode-vocabulary.mjs(guardian 第 67 项,blocking)对账。
+// 由 scripts/check-permission-mode-vocabulary.mjs(guardian 第 68 项,blocking)对账。
 
 /** 规范标识(camelCase)。新增成员必须同时补 Python 侧 + 文档,否则守门拦截。 */
 export const PERMISSION_MODES = [
@@ -72,6 +72,47 @@ export function normalizePermissionMode(raw: unknown): PermissionModeId | null {
   const key = permissionModeKey(raw)
   if (key === '') return null
   return PERMISSION_MODE_ALIASES[key] ?? null
+}
+
+/**
+ * workspace 线协议/落库拼写的**唯一清单**(kebab)。
+ *
+ * 为什么单独把"值数组"也放注册表:`z.enum()` 需要一个字面量元组,如果各路由自己写,
+ * 就又长出副本(G-164 实测在 3 个路由文件里找到 4 份互不同步的清单,其中
+ * `workspace-permissions.ts` 那份还少 plan,导致读 DB 时把已存的 plan **静默归 null**)。
+ * 路由一律 `z.enum(PERMISSION_MODE_WIRE_VALUES)`,新增档位只需改注册表一处。
+ */
+export const PERMISSION_MODE_WIRE_VALUES = [
+  'default',
+  'plan',
+  'accept-edits',
+  'bypass-permissions',
+] as const
+
+/** workspace REST / DB 的 wire 拼写(kebab)。`manual` 无落库语义,故不在其中。 */
+export type PermissionModeWire = (typeof PERMISSION_MODE_WIRE_VALUES)[number]
+
+/**
+ * workspace REST / DB 的既有落库拼写(kebab)。
+ *
+ * 为什么注册表要带这个:`workspace_permissions` 表与 `PUT /permissions` 历史上只收 kebab,
+ * 而 web 的 3 处运行时比较(高风险徽章 / 确认桥 / 自动撤回)也拿 kebab 字面量。
+ * 在存值迁移完成之前,**跨界只走 wire、判定只走规范档** ——
+ * 两头各比各的拼写,就是 G-164 登记的那次"改一侧、另一侧静默失效"的成因。
+ */
+export const PERMISSION_MODE_WIRE: Readonly<
+  Partial<Record<PermissionModeId, PermissionModeWire>>
+> = {
+  default: 'default',
+  acceptEdits: 'accept-edits',
+  bypassPermissions: 'bypass-permissions',
+  plan: 'plan',
+}
+
+/** 任意拼写 → workspace wire 拼写(认不出返回 null,由调用方拒掉,不静默兜底)。 */
+export function permissionModeWire(raw: unknown): PermissionModeWire | null {
+  const id = normalizePermissionMode(raw)
+  return id ? (PERMISSION_MODE_WIRE[id] ?? null) : null
 }
 
 /** 该模式在审批门上的实际效果 —— 表现层与后端共用同一口径说明用。 */
