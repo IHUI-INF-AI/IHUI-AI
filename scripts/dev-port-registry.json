@@ -60,6 +60,15 @@
       "health": null,
       "timeout_sec": 60
     },
+    "prod-proxy": {
+      "_note": "网页预览(mobile-rn Expo web :8806)连生产专用:CORS 注入反代,127.0.0.1:8807 → https://aizhs.top。由 scripts/dev-stack.mjs 作为可选服务托管(prod-proxy),node scripts/dev-prod-proxy.mjs。头注见脚本。",
+      "cmd": "node",
+      "args": ["scripts/dev-prod-proxy.mjs"],
+      "cwd": ".",
+      "port": 8807,
+      "health": "http://localhost:8807/api/health",
+      "timeout_sec": 30
+    },
     "cli": {
       "cmd": "pnpm",
       "args": ["--filter", "@ihui/cli", "dev"],
