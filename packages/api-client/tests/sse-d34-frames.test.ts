@@ -1,0 +1,76 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { describe, expect, it } from 'vitest'
+
+import { parseStreamLine } from '../src/client'
+
+// D34(2026-09-22,G-40/G-43/G-44/G-52)守护:运行环境交代四帧带文本字段
+// (collapsed / fullText / stdout / formattedOutput / message),
+// 若不在兜底抽取链之前显式分流,就会被当成正文增量喷进回答里
+// —— 与 usage / steer / budget 同一历史坑位,故逐个钉死为"绝不落正文"。
+
+const frame = (payload: Record<string, unknown>) => `data: ${JSON.stringify(payload)}`
+
+describe('D34 四帧不得回落成正文增量', () => {
+  it('injection_applied:带 collapsed 与 fullText 也不进正文', () => {
+    expect(
+      parseStreamLine(
+        frame({
+          type: 'injection_applied',
+          kind: 'agents_md',
+          collapsed: '已应用 AGENTS.md 上下文',
+          fullText: '展开后的长文本，绝不能出现在正文里',
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('settings_applied:带 model 与 prev 也不进正文', () => {
+    expect(
+      parseStreamLine(
+        frame({
+          type: 'settings_applied',
+          model: 'gpt-5',
+          reasoningEffort: 'high',
+          prev: { model: 'gpt-4' },
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('retry_scheduled:带 message 兜底字段也不进正文', () => {
+    expect(
+      parseStreamLine(
+        frame({
+          type: 'retry_scheduled',
+          attempt: 2,
+          maxRetries: 5,
+          retryInMs: 1200,
+          httpStatus: 429,
+          message: '第 2/5 次重试,1.2s 后重试',
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('terminal_output:带 stdout 与 formattedOutput 也不进正文', () => {
+    expect(
+      parseStreamLine(
+        frame({
+          type: 'terminal_output',
+          stdout: 'total 8\ndrwxr-xr-x',
+          formattedOutput: '已格式化的终端输出，不应混进回答',
+          exitCode: 0,
+          truncated: false,
+        }),
+      ),
+    ).toBeNull()
+  })
+
+  it('正例:普通增量仍然正常返回(证明上面的 null 不是兜底失效)', () => {
+    expect(parseStreamLine(frame({ type: 'chunk', content: '正常正文' }))).toBe('正常正文')
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
