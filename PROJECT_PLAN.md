@@ -1563,6 +1563,9 @@
       - mobile-rn:`ChatScreen.tsx:612` 与 `AiAssistantN8nScreen.tsx:1078` 的 `agentTools` 全部来自 `uiControlToolsFor()`(AI 操控桥接,改的是 App 内 UI 状态),同样不带 workspacePath;
       - extension:`apps/extension/src` 对 `workspacePath|agentTools|permissionMode|fsBridge|toolCalls` 全为 0 命中(含多路径复核),无工具执行面。
       用户若在手机上看到"只读 / 自动 / 完全访问"可调,而它的 AI 连文件都改不了,这是**假接通,比不接更糟**,与本轮消灭的"发了≠生效"同源而方向相反(**显示了≠存在**)。
+    - **第 58 轮实施与两条分析的对撞收敛(2026-09-22,提交 `797b89318b`,origin=ALREADY;下一轮必读)**:
+      - 已落地:① `@ihui/types/permission-mode` 新增 `permissionModeDisplayKey()`(null→default 如实、认不出→unknown,**绝不静默显示成 default**);② 共享取词 `@ihui/shared/chat/permission-tier`(静态字面量映射,`permissionTier.{label,mode.<wire>.title|desc}` 五档+unknown 共 11 键 × 3 端命名空间 × 5 语言,taro 保格式文本注入防内联数组重排,gen:i18n 已同步);③ extension `WorkspacePermissionTierRow` 组件(独立可测)+ taro 页头交代行 + rn 智汇值卡下交代行;④ 测试 types 17 / shared 6 / extension 5 / taro 2 / rn 2,rn vitest 补 '@ihui/shared/chat' 与 '@ihui/types/permission-mode' 纯逻辑源码 alias(先例 app-control-intent);⑤ rn 同文件承载并行在途重试功能,以 hunk 级选择性暂存零卷带落地。
+      - **对撞(两条结论并存,未互相推翻)**:上一节的证伪说三端"没有会改文件/执行命令的能力";但本轮实测 **miniapp `ChatMessageItem` 渲染 toolCalls/terminalTasks 卡、rn `AiAssistantN8nScreen` 同样渲染终端任务(D40 已落)、extension `AgentRuntimePanel` 展示实时权限决策(decision/dangerLevel=服务端工具在跑)** —— 三个 surface 都有服务端工具执行痕迹,与"无能力"结论冲突。**当前裁定(不过度改判,防来回翻烧饼)**:交代行语义钉死为 **"工作区默认档"的账户级披露**(静态只读一行,非可切换控件,不构成"假接通");**G-165① 的正确形态是把这行的数据源从 workspace default 换成/叠加消息 `metadata.permissionMode`**(盖章链路已有真数据),词表/取词/行组件直接复用;extension `AgentRuntimePanel` 因确有 agent 执行面,其行已直接成立。下一轮做 G-165① 时按此收敛,勿再各建一套词表。
       - 于是 D111 拆成两半:① **能力前提(需用户显式确认,§24)**:要在移动端对标竞品"风险档 + 批准入口"一等公民,先得让这几端真正接入工作区与文件/执行工具 —— 这是新端能力,不顺手做;② **真缺口(不需要新能力,继续推)**:三端"上一次回复失败 → 重发"仍缺(G-152 余项);消息级交代数据(注入来源 / 引用 / 重试提示 / 压缩)在 web 刷新即丢、三端完全没有 —— 照 G-165 已打通的"服务端盖章 → `ChatMessageMetadata` 契约 → 水合读回"范式做即可。
       - 防回潮:守门 57 的 `permission-mode-consequence` 锚点**只**挂 web/cli/api 的真实落点,不为三端补装饰性锚点。
 
@@ -2983,6 +2986,39 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
   - **§21 同步与一处偏差**:README「新增守门示例:第 67 项」节改写为 A∧B+C/D/E 五通道 + 三处同族事故 + 31 处候选的回溯口径;AGENTS.md 守门速查 67 条同步;`guardian-runner.mjs` 的 67 `onFailHint` 与门自身用法注释同步(`--staged` 只收窄文件清单、内容一律读工作树)。**偏差如实记录**:README/AGENTS 与代码分在两次提交(代码 `b59e80bd1a`,文档本次)——当日这两份文档长时间被并发会话持有为脏文件,只在收尾时拿到干净窗口;§21"同 commit"要求未满足,属分期而非遗漏。
   - **一处不归我改的既有红**:`scripts/guardian-runner.mjs` 在 HEAD 上本就不过 prettier(实测 `git show HEAD:… | prettier --check` 为红,且早于本任务),P2-F.7 已注明"跑 prettier 会重排他人条目 28 行属暂存区污染"故刻意跳过 —— 本任务同样只改自己那 1 行 label,不做整文件重排。
   - 平台独占:仅 apps/api 两处安全修复 + scripts 守门 + 文档(§9 豁免,无跨端契约变更;两处修复改变的是服务端错误 message 文本,前端仅展示不解析)
+
+- [x] ✅(2026-09-22) **P2-F.10 凭据外泄族收口到第 5 处:守门 67 纳入 Python 语法 + F 通道两次自我纠正**:
+  - **第 5 处同族真缺陷**(sha `1963379f31`):`oss-sts-service.ts` 腾讯云分支兜底
+    `errMsg = …Error?.Message ?? JSON.stringify(result)`,而 `result.Response.Credentials` 含
+    `TmpSecretKey` / `Token` ⇒ 走兜底即把临时凭据整体送进错误消息(非 2xx 不经打码)。
+    改为只回传 `Error.Code` + `RequestId`,与同文件 AWS 分支同口径(AWS 侧早已是安全写法)。
+  - **第一次自我纠正:F 初版"同行配对"收得过紧**。为消掉 3 处跨行假阳性
+    (cnblogs / oschina / segmentfault 发布适配器:上一行 `return False, "access_token expired…"`
+    供关键词、下一行才倒平台用户信息体,两条语句无数据流关系),我把 F 限定成关键词与 dump 同行,
+    结果漏掉了**真实代码里更常见的两行式**(上行取体、下行拼消息)—— 第 5 处正是这么漏掉的。
+    终态配对只认两种有数据流关系的形状:**① 同行;② 关键词行插值的变量,其声明右侧正是那记 dump**
+    (证据串写 `result(via errMsg)` 点名链路);整窗任意配对仍禁止。四条用例钉住:
+    同行正例 / 跨行反例 / 两行式正例 / 推荐修法反例(证明"改成只回传 Code"确实归绿,而非靠放宽消红)。
+  - **纳入 Python 覆盖**(sha `99dcdeac37`):`apps/` + `packages/` 下加 `.py`,现扫 **6956 文件**。
+    教训是**加后缀 ≠ 覆盖**:`json.dumps(` ↔ `JSON.stringify(`、f-string `{x}` / `{x[:200]}` ↔
+    `${x}` / `${x.slice(…)}`、`raise XError(...)` ↔ `throw new XError(...)`、`status_code=4xx`、
+    `#` ↔ `//` 注释豁免,是五组独立语法锚点 —— 第一轮只加后缀时实测**仅 D 一条通道生效**(空转),
+    是 self-test 里 Python 用例的正反对照把它逼出来的。
+  - **有效性取证**:self-test 11 → 28 例、§22c 镜像测试 18 → 34 例全绿;摘 D 通道的变异测试
+    5 红且两条反例仍绿;真文件注入(luyala 代理基址改指 `/oauth2/client_token`)⇒ exit 1 后按 sha256 还原;
+    Python 侧用**未跟踪探针 .py + 临时索引跑 `--staged`** ⇒ exit 1、证据 `payload←resp←…/oauth2/token`,
+    同文件内资源端点反例不被误伤,探针与临时索引即删、`git status` 零残留。
+  - **api 测试 11 例红的归因**(不代修):8 个失败文件与本批 4 个改动模块**零交集** —— 成因是
+    `developerApiKeys` mock 漂移与 nginx/data-scope/vendor 初始化,属并发会话正在改的
+    `packages/database/src/schema/*`(其工作树当时为脏,vitest 读工作树);对照跑
+    `paypal.test.ts`(35 例)+ `oss.test.ts`(8 例)**全绿**,即我改动的两个服务自证无恙。
+  - **§21 与文档**:README(守门 67 节改为 A∧B＋C/D/E/F 五通道、五处事故、覆盖两套语法与配对规则)、
+    AGENTS.md 守门速查 67 条同步;`--staged` 语义(只收窄清单、内容读工作树)写进门自身注释。
+    **一处遗留偏差**:本轮文档同步与代码分在两次提交(`99dcdeac37` / `1963379f31`),
+    根因是 README/AGENTS/PLAN 当日长时间被并发会话持续持有为脏文件 —— 我**没有**在他们未提交的
+    PROJECT_PLAN 副本上追加(那会让他们的下一次提交静默覆盖我的条目,正是 §12/§22 与门 30c 要防的
+    "陈旧副本"形态),而是轮询到干净窗口(约 150s 后)才落这条 P2-F.10。
+  - 平台独占:仅 apps/api 一处安全修复 + scripts 守门 + 文档(§9 豁免,无跨端契约变更)
 
 ---
 
