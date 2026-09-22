@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   } as ViewStyle,
   sheet: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: CARD_BORDER_RADIUS,
     borderTopRightRadius: CARD_BORDER_RADIUS,
     paddingBottom: 24,
