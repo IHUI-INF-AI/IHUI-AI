@@ -106,7 +106,7 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ;    必须放文件头的无条件 Var 区(见 Var IHUICNC 之后)。
 !macro IHUI_LOG MSG
   IntOp $IHUI_LOGN $IHUI_LOGN + 1
-  FileOpen $8 "D:\caches\Temp\ihui-installer-verify\trace-$IHUI_LOGN-${MSG}.txt" w
+  FileOpen $8 "$TEMP\ihui-installer-verify\trace-$IHUI_LOGN-${MSG}.txt" w
   FileWrite $8 "${MSG}$\r$\n"
   FileClose $8
 !macroend
@@ -1177,10 +1177,6 @@ FunctionEnd
   ; 完成态:百分比与品牌条打满(阶段驱动的最后一级;POSTINSTALL hook 触发)
   !insertmacro IHUI_PROGRESS 100 "安装完成"
   !insertmacro IHUI_LOG "doneTheme_entry"
-  ; 决定性探针: 宏执行即写标记文件(r76-v6 全白疑云,判定宏是否真跑)
-  FileOpen $0 "D:\caches\Temp\ihui-installer-verify\done-theme-ran.txt" w
-  FileWrite $0 "IHUI_INST_DONE_THEME executed"
-  FileClose $0
   ; ---- 0) 外层窗口类背景刷换品牌黑(挖洞区透出的底色;安装期已设,此处兜底) ----
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
   System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
