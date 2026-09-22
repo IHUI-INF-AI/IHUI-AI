@@ -131,7 +131,7 @@ describe('ScrollJumpButtons — 跳到最新(归一后)', () => {
     expect(shownBtn.hasAttribute('aria-hidden')).toBe(false)
   })
 
-  it('点击「跳到最新」触发 onJumpLatest(合并后走 handleJumpToLatest 通道)', () => {
+  it('点击「跳到最新」只回调 onJumpLatest 一次(调用方接 hook 的 scrollToBottom)', () => {
     const onJumpLatest = vi.fn()
     const { container } = renderButtons({ userScrolledUp: true, isStreaming: true, onJumpLatest })
     fireEvent.click(latest(container))
