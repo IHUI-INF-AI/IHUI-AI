@@ -249,6 +249,28 @@
     "regenerate": "Regenerate",
     "regenerateDisabledHint": "No repository folder selected or no files collected yet."
   },
+  "workPanel": {
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "stop": "Stop",
+    "addressPlaceholder": "Enter address or search...",
+    "favorite": "Add bookmark",
+    "unfavorite": "Remove bookmark",
+    "favoritesAndHistory": "Bookmarks and history",
+    "openExternal": "Open in external browser",
+    "closePanel": "Close panel",
+    "newTab": "New tab",
+    "removeFavorite": "Remove bookmark",
+    "tabFavorites": "Bookmarks",
+    "tabHistory": "History",
+    "emptyFavorites": "No bookmarks yet",
+    "emptyHistory": "No history yet",
+    "clearHistory": "Clear history",
+    "dragInsertBefore": "Insert before here",
+    "dragInsertAfter": "Insert after here",
+    "closeTab": "Close tab"
+  },
   "a11y": {
     "download": "Download",
     "downloadFile": "Download file",
