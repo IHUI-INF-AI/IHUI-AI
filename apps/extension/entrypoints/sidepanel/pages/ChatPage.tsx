@@ -285,6 +285,22 @@ export default function ChatPage() {
           evt.messageId,
         )
       },
+      // D39/D108 上游重试交代(第 48 轮):api-client 有通道,端内不注册就是静默丢帧。
+      // 整体替换为最近一次(attempt 递增),与 web 同一口径。
+      onRetryScheduled: (evt) => {
+        updateAssistantMessage(
+          (m) => ({
+            ...m,
+            retryNotice: {
+              attempt: evt.attempt,
+              maxRetries: evt.maxRetries,
+              retryInMs: evt.retryInMs,
+              ...(typeof evt.httpStatus === 'number' ? { httpStatus: evt.httpStatus } : {}),
+            },
+          }),
+          evt.messageId,
+        )
+      },
       onInjectionApplied: (evt) => {
         // D34 跨端(第 43 轮):api-client 已有通道,端内必须显式承接 ——
         // extension 的消息更新是枚举式合并,不写字段就等于静默丢弃。
