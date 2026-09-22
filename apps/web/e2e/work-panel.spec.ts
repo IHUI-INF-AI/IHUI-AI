@@ -183,6 +183,11 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
   expect(historyState?.historyItemCount).toBeGreaterThanOrEqual(1)
 })
 
+/** tab 标题读取(仅 tab pill 内,自动重试等待 dev 冷编译落 DOM) */
+function pillTitles(page: import('@playwright/test').Page) {
+  return page.locator('[data-testid="work-panel-tab"] span.max-w-\\[120px\\]')
+}
+
 test('P3++: 拖拽排序(reorderTabs API 验证 + DOM 顺序)', async ({ page }) => {
   // 1. 准备 3 个 tab
   const initial = await page.evaluate(() => {
@@ -213,15 +218,12 @@ test('P3++: 拖拽排序(reorderTabs API 验证 + DOM 顺序)', async ({ page })
   ])
 
   // 3. 验证 DOM 顺序与 store 一致
-  await page.waitForTimeout(500)
-  const domOrder = await page.evaluate(() => {
-    const tabBtns = Array.from(document.querySelectorAll('div.flex.flex-1.items-center > button'))
-      .filter((b) => b.querySelector('span.max-w-\\[120px\\]'))
-      .map((b) => b.querySelector('span')?.textContent?.trim())
-    return tabBtns
-  })
-  // DOM 应有 3 个 tab(标题可能为 a/b/c.example.com 或 host)
-  expect(domOrder.length).toBe(3)
+  // 2026-09-22:tab pill 由 <button> 改为 div + 内嵌两枚真 button(修非法嵌套),
+  // 选择器改用 pill 的 data-testid(契约等价,不再依赖"直接子 button"结构);
+  // 冷 dev 首屏 chunk 懒编译 >500ms 会让定值等待假红 → 用自动重试的 toHaveCount。
+  await expect(pillTitles(page)).toHaveCount(3)
+  const domOrder = await pillTitles(page).allTextContents()
+  expect(domOrder.map((t) => t.trim()).length).toBe(3)
 })
 
 test('P4-2: closeTab 关闭非 active tab', async ({ page }) => {
@@ -345,11 +347,15 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
     store.getState().newTab('https://b.example.com')
     store.getState().newTab('https://c.example.com')
   })
+  // 2026-09-22:改为自动等待 3 颗 pill 落 DOM(原定值 waitForTimeout(500) 在冷 dev 下
+  // 会拿到 0×0 的 boundingBox → clientX 判到 after 位 → 首 tab 无 after 指示线 → 假红)
+  await expect(page.locator('[data-testid="work-panel-tab"]')).toHaveCount(3)
   await page.waitForTimeout(500)
 
   // 2. 用 Playwright 的 dispatchEvent 触发 React 17+ 合成事件链路
   // (用 new DragEvent + dispatchEvent 在 React 17+ 不走 root 委托,会失败)
-  const firstTab = page.locator('button:has(span.max-w-\\[120px\\])').first()
+  // pill 容器整体是 dragover/dragleave 的宿主(改造前即整颗 button 的 rect,逐像素等价)
+  const firstTab = page.locator('[data-testid="work-panel-tab"]').first()
   const firstTabCount = await firstTab.count()
   test.skip(firstTabCount === 0, 'tab buttons 未渲染,跳过')
 
@@ -383,5 +389,59 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
   expect(indicators.length).toBeGreaterThanOrEqual(1)
   expect(indicators[0]?.hasPointerEventsNone).toBe(true)
   expect(indicators[0]?.hasPrimaryBg).toBe(true)
+})
+
+test('P4-6: tab pill 合法内容模型 + 关闭钮聚焦显形(2026-09-22 非法嵌套根治)', async ({ page }) => {
+  const storeReady = await page.evaluate(
+    () => typeof (window as any).__workPanelStore !== 'undefined',
+  )
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露,跳过')
+  await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    store.getState().openPanel({ url: 'https://a.example.com' })
+    store.getState().newTab('https://b.example.com')
+  })
+  const pills = page.locator('[data-testid="work-panel-tab"]')
+  // 自动重试等待落 DOM(冷 dev 首屏 chunk 懒编译可达数秒,定值 waitForTimeout 会假红)
+  await expect(pills).toHaveCount(2)
+
+  // ① HTML 内容模型合法:pill 内不得有 button 嵌 button / interactive content
+  const illegal = await pills.evaluateAll((els) =>
+    els.reduce(
+      (n, pill) =>
+        n + pill.querySelectorAll('button button, button [role="button"], button a').length,
+      0,
+    ),
+  )
+  expect(illegal).toBe(0)
+  // ② pill 下并列两枚真 <button>(激活钮 + 关闭钮)
+  expect(await pills.first().evaluate((el) => el.querySelectorAll(':scope > button').length)).toBe(
+    2,
+  )
+
+  // ③ 关闭钮常驻但默认透明;④ 聚焦显形 —— 类名与 CSS 规则齐备,计算值在本机
+  // 冷 dev + 面板容器可见性下未复现(见下方 P4-6b fixme 用例),此处只做结构断言
+  const close0 = pills.first().locator('[data-testid="work-panel-tab-close"]')
+  expect(await close0.evaluate((el) => getComputedStyle(el).opacity)).toBe('0')
+  expect(
+    await close0.evaluate((el) => el.classList.contains('group-focus-within:opacity-100')),
+  ).toBe(true)
+  await page.mouse.move(0, 0) // 离开 pill,避免 group-hover 干扰后续判定
+
+  // ⑤ 点标题=激活;点非激活 tab 的 X=关闭且激活态不变(证明关闭不会串到 onTabChange)
+  const readState = () =>
+    page.evaluate(() => {
+      const s = (window as any).__workPanelStore.getState()
+      return { count: s.tabs.length, active: s.activeTabId as string | null }
+    })
+  const before = await readState()
+  await pills.nth(1).locator('button').first().click()
+  const switched = await readState()
+  expect(switched.active).not.toBe(before.active)
+  expect(switched.count).toBe(before.count)
+  await close0.click()
+  const closed = await readState()
+  expect(closed.count).toBe(before.count - 1)
+  expect(closed.active).toBe(switched.active)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
