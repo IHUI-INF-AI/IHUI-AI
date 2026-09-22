@@ -9313,6 +9313,8 @@
       "loading": "加载中…",
       "me": "我",
       "mode": {
+        "plan": "只读计划",
+        "planDesc": "仅读取与检索，写文件和执行命令都会被拒绝",
         "ask": "请求批准",
         "askDesc": "编辑外部文件和使用互联网时始终询问",
         "auto": "替我审批",
@@ -9409,6 +9411,7 @@
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
+    "permissionLabelPlan": "只读计划",
     "permissionLabelAuto": "自动审批",
     "permissionLabelFull": "完全访问",
     "permissionSwitchFailed": "切换权限模式失败:{error}",
@@ -20642,6 +20645,10 @@
         "default": {
           "desc": "全部操作需人工确认,最安全",
           "title": "默认模式"
+        },
+        "plan": {
+          "title": "只读计划",
+          "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
         },
         "unknown": {
           "desc": "未识别的权限模式",

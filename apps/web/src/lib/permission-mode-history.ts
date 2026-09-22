@@ -31,6 +31,9 @@
  */
 
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+// 读侧归一(G-164):localStorage 与调用方可能送不同拼写(kebab / camel / 别名),
+// 统计与徽章判定都必须先归一,否则错得很安静。
+import { permissionModeWire } from '@ihui/types/permission-mode'
 
 /** localStorage 键,与 full-access-acknowledged / auto-revert-bypass 同前缀保持一致 */
 export const PERMISSION_HISTORY_KEY = 'ihui:permission-mode-history'
@@ -168,14 +171,18 @@ export function getTotalDurationByMode(mode: WorkspacePermissionMode, sinceMs: n
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1]!
     const curr = sorted[i]!
-    if (prev.mode !== mode) continue
+    // 读侧归一(G-164):localStorage 里的历史条目是写入当时的拼写(kebab / 别名都可能),
+    // 不归一就会"某档累计时长恒 0" —— 统计口径静默错,界面上看不出任何异常。
+    if (permissionModeWire(prev.mode) !== permissionModeWire(mode)) continue
     const segStart = Math.max(prev.timestamp, sinceMs)
     const segEnd = curr.timestamp
     if (segEnd > segStart) totalMs += segEnd - segStart
   }
   // 最后一段(从最后一条到现在):如果最后一条的 mode 是目标 mode,累加到 now
   const last = sorted[sorted.length - 1]!
-  if (last.mode === mode) {
+  // 同一处判据不能"段间归一、最后一段裸比":那样历史里存 camel 时,
+  // 正在使用的这一档时长会恒 0(而段间部分是好的)——半截修复比没修更难查。
+  if (permissionModeWire(last.mode) === permissionModeWire(mode)) {
     const segStart = Math.max(last.timestamp, sinceMs)
     const segEnd = Date.now()
     if (segEnd > segStart) totalMs += segEnd - segStart
