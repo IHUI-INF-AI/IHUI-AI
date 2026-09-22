@@ -42,7 +42,9 @@ import { cn } from '@/lib/utils'
 
 interface ShortcutRow {
   /** 按键标签(纯展示,如 "Shift+Tab" / "?" / "/permission full") */
-  key: string
+  key?: string
+  /** 无键位、只有可点对象名时用 i18n 键(否则 kbd 里会漏硬编码中文) */
+  labelKey?: string
   /** 动作描述 i18n key */
   descKey: string
   /** 可选图标 */
@@ -76,7 +78,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     titleKey: 'shortcutsSectionAudit',
     rows: [
       { key: 'Undo 5s', descKey: 'shortcutsItemUndoKbd', icon: Undo2 },
-      { key: '查看历史', descKey: 'shortcutsItemHistoryKbd', icon: History },
+      { labelKey: 'historyOpenExternal', descKey: 'shortcutsItemHistoryKbd', icon: History },
     ],
   },
 ]
@@ -118,7 +120,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                   const Icon = row.icon
                   return (
                     <li
-                      key={row.key}
+                      key={row.labelKey ?? row.key ?? row.descKey}
                       className="flex items-center gap-2 rounded-md border border-border/60 bg-card/40 px-2 py-1.5"
                     >
                       <kbd
@@ -128,7 +130,7 @@ export function PermissionShortcutsModal({ open, onClose }: PermissionShortcutsM
                         )}
                       >
                         {Icon ? <Icon className="h-3 w-3" aria-hidden="true" /> : null}
-                        {row.key}
+                        {row.labelKey ? t(row.labelKey) : row.key}
                       </kbd>
                       <span className="text-xs text-muted-foreground">{t(row.descKey)}</span>
                     </li>
