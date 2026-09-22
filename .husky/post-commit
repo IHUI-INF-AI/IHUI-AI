@@ -87,5 +87,11 @@ fi
 # 别人尚未提交的内容),并交给 git-push-guard 推送。
 # 防递归:回捞提交带 IHUI_PLAN_HEAL_COMMIT=1;跳过:HUSKY_SKIP_PLAN_HEAL=1
 if [ "${IHUI_PLAN_HEAL_COMMIT:-0}" != "1" ] && [ "${HUSKY_SKIP_PLAN_HEAL:-0}" != "1" ]; then
-  IHUI_PLAN_HEAL_COMMIT=1 timeout 90 node scripts/check-plan-line-loss.mjs --heal --commit >/dev/null 2>&1 || true
+  # 结论必须留痕:上一版把输出丢进 /dev/null 并 `|| true`,而提交命令里 rev-parse/hash-object
+  # 未 .trim() 使自愈**自上线起一次都没成功过**却毫无声响(2026-09-23 才在临时仓库 A/B 抓到)。
+  IHUI_PLAN_HEAL_COMMIT=1 timeout 90 node scripts/check-plan-line-loss.mjs --heal --commit 2>&1 |
+    sed 's/^/[plan-heal] /' >>.workbuddy/plan-heal.log || true
+  # 每次提交都追加一行结论,不设上限会把日志撑大 → 只留最近 400 行
+  tail -n 400 .workbuddy/plan-heal.log >.workbuddy/plan-heal.log.tmp 2>/dev/null &&
+    mv -f .workbuddy/plan-heal.log.tmp .workbuddy/plan-heal.log
 fi
