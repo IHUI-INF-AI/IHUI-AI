@@ -228,6 +228,9 @@ report.json
 _tmp-*
 _tmp_*.html
 
+# Tauri 桌面端自动更新器下载落盘的安装包(2026-09-22:仓库根 downloads/ 出现 12MB setup.exe+sig+latest.json,纯本地产物)
+/downloads/
+
 # Agent 调试日志/审计产物(2026-07-22 立:apps/web + 根目录散落 150+ .log 文件回潮)
 *.log
 .dev-server*.log
@@ -449,3 +452,7 @@ deploy/win/.sct-notify-state.json
 # 构建失败冷却状态(生产运行时生成,不入库;脏工作树会让 merge --ff-only 失败)
 deploy/win/.build-fail-state.json
 deploy/win/.migrate-alert-state.json
+
+# IDE 安装目录误落仓库根(2026-09-23):`Qoder CN/` 是 M:\Qoder CN 的陈旧副本(现役实例在 M 盘,
+# 已核实无任何进程从本目录运行)。先忽略以杜绝 git add -A 把 1.4G 二进制写进历史,再移出工作区。
+Qoder CN/

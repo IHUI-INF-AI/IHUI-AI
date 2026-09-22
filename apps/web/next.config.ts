@@ -89,6 +89,12 @@ const nextConfig: NextConfig = {
     '@tauri-apps/plugin-dialog',
   ],
   turbopack: {
+    // 2026-09-22:本机把仓库根 node_modules 做成指向 D:\nm 的 junction(pnpm 隔离)后,
+    // turbopack 解析 apps/web/node_modules/next 的 realpath 落在仓库根之外,启动即报
+    // "Symlink ... points out of the filesystem root"。设 IHUI_TURBOPACK_ROOT=D:\ 把
+    // turbopack 的解析根抬到盘根以容纳 junction 目标;不设该变量时与原行为完全一致
+    // (CI / 其他机器不受影响)。由 scripts/dev-stack.mjs 在启动 web 时注入。
+    ...(process.env.IHUI_TURBOPACK_ROOT ? { root: process.env.IHUI_TURBOPACK_ROOT } : {}),
     resolveAlias: {
       'next-intl/config': './src/i18n/request.ts',
     },

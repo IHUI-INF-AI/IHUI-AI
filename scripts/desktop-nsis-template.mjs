@@ -247,8 +247,33 @@ const U1_IHUI = [
 ].join('\n')
 
 // U2 给卸载进度页挂 SHOW 回调(品牌贴皮 + 百分比控件)
+// U4 在同一条补丁里于进度页**之后**追加完成页 —— 两页必须同窗登记。
+// 为什么非有完成页不可:上游 Section Uninstall 尾部只在 passive/更新模式 SetAutoClose true,
+// 普通交互卸载跑完 instfiles 就原地停住,而出口钮(原生 1)被 IHUI_HIDE_ALL 移屏、
+// 原生 2 完成态被核心置 disabled 画成灰底 → 整页零个可点出口,卸载窗永久挂死
+// (2026-09-22 真包 UIA + CPU 增量 0 实锤)。
+// ⚠️ 为什么用 MUI_UNPAGE_FINISH 而不是裸 `UninstPage custom`:沙箱同槽位对照实验里,
+//   裸 custom 页函数开头**无条件**写标记文件,20s 内标记从未出现;MUI_UNPAGE_FINISH 的
+//   SHOW 回调 7.6s 就写了标记 —— 卸载侧"instfiles 之后的下一张页"只认 MUI 登记过的链。
+// ⚠️ 原生观感是从**源头**消掉的,不是靠抢 Z 序:Finish.nsh:266 用
+//   `SetCtlColors $mui.FinishPage "" "${MUI_BGCOLOR}"` 给内层面板上色,所以这里把
+//   MUI_BGCOLOR 直接定义成品牌深色 242424、标题/正文置空、按钮文案改成「完成」。
+//   第一版反着做(留白底再往下面压一张位图)必然被白面板盖住,已失败过一次。
 const U2_UPSTREAM = ['; 2. Uninstalling Page', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
-const U2_IHUI = ['; 2. Uninstalling Page', '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
+const U2_IHUI = [
+  '; 2. Uninstalling Page',
+  '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow',
+  '!insertmacro MUI_UNPAGE_INSTFILES',
+  '; U4 卸载完成页 —— 终屏 + 唯一可点出口(实现见 windows/ihui-uninstaller.nsi un.IHUIFinishShow)',
+  '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIFinishShow',
+  '!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.IHUIFinishLeave',
+  '!define /redef MUI_BGCOLOR "242424"',
+  '!define /redef MUI_TEXTCOLOR "FAFAFA"',
+  '!define MUI_FINISHPAGE_TITLE " "',
+  '!define MUI_FINISHPAGE_TEXT " "',
+  '!define MUI_FINISHPAGE_BUTTON "完成"',
+  '!insertmacro MUI_UNPAGE_FINISH',
+].join('\n')
 
 for (const [name, upstream, ihui] of [
   ['U1 卸载确认页改自定义品牌页', U1_UPSTREAM, U1_IHUI],
@@ -256,6 +281,31 @@ for (const [name, upstream, ihui] of [
 ]) {
   PATCHES.push({ name, upstream, ihui })
 }
+
+// U3 卸载器语言:消掉上游遗留的最后一个原生窗口。
+// 上游在 un.onInit 插 MUI_UNGETLANGUAGE,其展开为"读注册表语言值,读空则
+// !insertmacro MUI_LANGDLL_DISPLAY"。而本项目 DISPLAYLANGUAGESELECTOR=false,
+// 安装侧那段 MUI_LANGDLL_DISPLAY 被 !if 整段编译掉 → 语言值永不写入 →
+// 卸载器每次启动都弹原生「Installer Language」选择框。
+// 2026-09-22 真包实测复现(292x152 原生框,组合框已预选"中文(简体)"却仍要用户点 OK);
+// 此前所有验证都走 /S,而该宏自带 ${unless} ${Silent},故静默路径永远看不到它 ——
+// 沙箱同样漏掉,因为 sandbox.nsi 只注册了一种语言(单语言时 NSIS 不弹框)。
+// 改法:有登记值则采纳,没有则保持 NSIS 按系统 UI 语言自动选中的结果,任何情况都不弹框。
+// 不新增注册表写入:选择器关闭时该值恒等于自动检测结果,重写它只会给"取消安装"留残留。
+const U3_UPSTREAM = '  !insertmacro MUI_UNGETLANGUAGE'
+const U3_IHUI = [
+  '  ; ==== IHUI 定制:卸载器语言只读注册表,绝不弹原生选择框 ====',
+  '  !insertmacro MUI_LANGDLL_VARIABLES',
+  '  !ifdef MUI_LANGDLL_REGISTRY_ROOT & MUI_LANGDLL_REGISTRY_KEY & MUI_LANGDLL_REGISTRY_VALUENAME',
+  '    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"',
+  '    ${If} $mui.LangDLL.RegistryLanguage != ""',
+  '      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage',
+  '    ${EndIf}',
+  '  !endif',
+  '  ; ==== IHUI 定制结束 ====',
+].join('\n')
+
+PATCHES.push({ name: 'U3 卸载器语言去原生框', upstream: U3_UPSTREAM, ihui: U3_IHUI })
 
 // 只能 Section 跑到哪报到哪。四个锚点在上游正文里各只出现一次(grep -Fc 已校验)。
 const U_POINTS = [

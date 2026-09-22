@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,7 @@ const emptyDraft: StepDraft = {
 }
 
 export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }: PlanFormProps) {
+  const t = useTranslations('plan')
   const [title, setTitle] = React.useState(initial?.title ?? '')
   const [goal, setGoal] = React.useState(initial?.goal ?? '')
   const [scope, setScope] = React.useState(initial?.scope ?? '')
@@ -238,7 +240,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                   >
                     {PLAN_STEP_STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        {o.label}
+                        {t(o.labelKey)}
                       </option>
                     ))}
                   </select>
@@ -252,7 +254,7 @@ export function PlanForm({ initial, submitLabel = '保存', onSubmit, onCancel }
                   >
                     {PLAN_PRIORITY_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        {o.label}
+                        {t(o.labelKey)}
                       </option>
                     ))}
                   </select>

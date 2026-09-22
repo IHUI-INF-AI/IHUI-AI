@@ -38,13 +38,15 @@ export function Select({
   onChange,
   multiple = false,
   searchable = false,
-  placeholder = '请选择',
+  placeholder,
   label,
   error,
   disabled = false,
   className,
 }: SelectProps) {
   const t = useTranslations('a11y')
+  // 未传 placeholder 时由 a11y.selectPlaceholder 取词(原为硬编码中文默认值)
+  const resolvedPlaceholder = placeholder ?? t('selectPlaceholder')
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -80,15 +82,15 @@ export function Select({
   const displayLabel = React.useMemo(() => {
     if (multiple) {
       const arr = selected as (string | number)[]
-      if (!arr.length) return placeholder
+      if (!arr.length) return resolvedPlaceholder
       const labels = arr.map((v) => options.find((o) => o.value === v)?.label).filter(Boolean)
-      return labels.length > 2 ? `已选 ${labels.length} 项` : labels.join(', ')
+      return labels.length > 2 ? t('selectedCount', { count: labels.length }) : labels.join(', ')
     }
     const v = selected as string | number | undefined
     return v !== undefined
-      ? (options.find((o) => o.value === v)?.label ?? placeholder)
-      : placeholder
-  }, [selected, options, multiple, placeholder])
+      ? (options.find((o) => o.value === v)?.label ?? resolvedPlaceholder)
+      : resolvedPlaceholder
+  }, [selected, options, multiple, resolvedPlaceholder, t])
 
   const handleSelect = (val: string | number) => {
     if (multiple) {
@@ -214,12 +216,14 @@ export function Select({
                 aria-label={t('searchOption')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索..."
+                placeholder={t('searchOptionPlaceholder')}
                 wrapperClassName="mb-1"
               />
             )}
             {filtered.length === 0 ? (
-              <div className="py-4 text-center text-sm text-muted-foreground">无匹配项</div>
+              <div className="py-4 text-center text-sm text-muted-foreground">
+                {t('noMatchOption')}
+              </div>
             ) : (
               filtered.map((opt, idx) => (
                 <div

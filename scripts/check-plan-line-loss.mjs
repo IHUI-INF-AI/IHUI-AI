@@ -1,0 +1,403 @@
+#!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * PROJECT_PLAN.md 登记行防丢守门(2026-09-22 立,guardian-runner 第 71 项,blocking)
+ *
+ * 根因(同日实测两次):共享工作区里并发会话按"自己内存里那份旧计划文档"整文件提交,
+ * 把别的会话**已经入库**的登记行按旧基线回写掉 —— 一小时内 10 条 G-152/G-166/D107b
+ * 进度行被抹两次(第一次我自己也是肇事者,见项目记忆 safe-commit-index-race 第 22 条)。
+ * 既有 13c `check-project-plan-archive.mjs` 只守"### XXX(已完成 ✅) 任务条目"这一种行,
+ * 进度登记是条目内的 bullet,完全不在它视野内 → 补这一道。
+ *
+ * 判据(按**标记**而非整行,避免正常改写文案被误判):
+ *   1. 基线 = HEAD:PROJECT_PLAN.md 里的"登记行":bullet 行且含 `**G-<数字>` / `**D<数字>` /
+ *      `**P<数字>` / `**W<数字>` 这类加粗编号,且长度 ≥ 40(短行多为小标题,不算登记行)。
+ *   2. 取该行的**编号标记**(如 `G-166 第⑤步`),若在待提交内容里完全找不到 → 判丢失。
+ *   3. 允许两种正当情形:
+ *      a) 该登记行原文可在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里找到(§1 归档流程);
+ *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
+ *         "只从 HEAD 取基线"天然保证。
+ *
+ * 用法:
+ *   node scripts/check-plan-line-loss.mjs --staged   # pre-commit:比对暂存区内容
+ *   node scripts/check-plan-line-loss.mjs            # 手动:比对工作区内容
+ *   node scripts/check-plan-line-loss.mjs --self-test
+ * 退出码:0 通过 / 1 检出丢失 / 2 用法或读取失败
+ * 紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...(会把丢失写进历史,先确认为何丢)
+ */
+import { execFileSync, spawn } from 'node:child_process'
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const GIT = process.env.IHUI_GIT_BIN || 'git'
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const PLAN = 'PROJECT_PLAN.md'
+const ARCHIVE_DIR = path.join(ROOT, '.ihui-agent', 'archive')
+const MIN_LEN = 40
+
+const git = (args, cwd = ROOT) =>
+  execFileSync(GIT, ['-c', 'safe.directory=*', ...args], {
+    cwd,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    windowsHide: true,
+  })
+
+/** 登记行 → 编号标记(找不到返回 null) */
+export function markerOf(line) {
+  if (!/^\s*[-*]\s/.test(line)) return null
+  // 编号形态:G-166 / D107b / P2-F.10 / W18(字母后缀与点号都要容得下)
+  const m = line.match(/\*\*(G-\d+[a-z]?|D\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+)/)
+  if (!m) return null
+  if (line.trim().length < MIN_LEN) return null
+  // 标记 = 加粗头的**原文前缀**(不做任何重拼,否则 "D107b" 会被拆成 "D107 b" 这种
+  // 源文本里根本不存在的串,导致正常提交被误判为丢失);遇到下一个 `*` 即停 ——
+  // 不然 `**P2-F.4**(评估触发)…` 这种"编号后紧跟闭合星号"的行会把 `**` 吃进标记,
+  // 于是别人正常改写文案也被判成"登记行消失"(实测 1 例假阳)。
+  const tail = line.slice(m.index + 2)
+  const star = tail.indexOf('*')
+  return (star >= 0 ? tail.slice(0, star) : tail).slice(0, 18)
+}
+
+/** 从一份计划文档里抽出所有登记行(含其标记) */
+export function registeredLines(src) {
+  return src
+    .split(/\r?\n/)
+    .map((line) => ({ line, marker: markerOf(line) }))
+    .filter((x) => x.marker)
+}
+
+/** 基线里存在、待提交内容里彻底消失的标记 */
+export function lostMarkers(baselineSrc, candidateSrc) {
+  const out = []
+  for (const { line, marker } of registeredLines(baselineSrc)) {
+    // 按标记文本全文搜:登记行被改写(仍留编号)不算丢失,整行没了才算
+    if (!candidateSrc.includes(marker)) out.push({ marker, line })
+  }
+  return out
+}
+
+/** 归档目录里能否找到原文(§1 归档 = 正当删除) */
+export function archivedCopy(marker) {
+  if (!existsSync(ARCHIVE_DIR)) return null
+  for (const f of readdirSync(ARCHIVE_DIR)) {
+    if (!/^PROJECT_PLAN_.*\.md$/.test(f)) continue
+    const src = readFileSync(path.join(ARCHIVE_DIR, f), 'utf8')
+    if (src.includes(marker)) return f
+  }
+  return null
+}
+
+function candidateContent(isStaged) {
+  if (isStaged) {
+    // 暂存区里没有该文件(本次不改计划文档)→ 无需比对
+    try {
+      return git(['show', `:${PLAN}`])
+    } catch {
+      return null
+    }
+  }
+  return readFileSync(path.join(ROOT, PLAN), 'utf8')
+}
+
+export function runCheck(isStaged) {
+  const baseline = git(['show', `HEAD:${PLAN}`])
+  const candidate = candidateContent(isStaged)
+  if (candidate === null) return { ok: true, lost: [] }
+  const lost = lostMarkers(baseline, candidate).filter((x) => !archivedCopy(x.marker))
+  return { ok: lost.length === 0, lost }
+}
+
+/**
+ * 扫最近 N 个提交的计划版本,收集登记行,找出当前内容里已消失的那些。
+ * (并发"旧基线整文件提交"与 git-sync-converge 的索引层合并都可能把别人的行合掉;
+ *  本函数是"从历史里回捞"的通用手段,不依赖是谁、哪一枚提交弄丢的。)
+ * 同时记下每行在历史里的**前一行**,回插时用得上。
+ */
+export function collectMissing(targetSrc, depth = 60) {
+  const shas = git(['rev-list', `--max-count=${depth}`, 'HEAD'])
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+  const seen = new Map()
+  for (const sha of shas) {
+    let src
+    try {
+      src = git(['show', `${sha}:${PLAN}`])
+    } catch {
+      continue
+    }
+    const rows = src.split(/\r?\n/)
+    rows.forEach((line, i) => {
+      const marker = markerOf(line)
+      if (!marker) return
+      if (seen.has(marker)) return
+      let prev = null
+      for (let j = i - 1; j >= 0; j--) {
+        if (rows[j].trim()) {
+          prev = rows[j]
+          break
+        }
+      }
+      seen.set(marker, { line, marker, sha, prev })
+    })
+  }
+  const missing = []
+  for (const [marker, v] of seen) {
+    if (targetSrc.includes(marker)) continue
+    if (archivedCopy(marker)) continue
+    missing.push(v)
+  }
+  return { total: seen.size, missing }
+}
+
+/**
+ * 把丢失行插回:优先插到"它在历史里的前一行"之后(邻居今天还在 → 分组不散),
+ * 邻居也没了就直接追加到文件末尾 —— 宁可位置不理想,也绝不丢掉内容。
+ * 只改字符串,不碰工作区文件。
+ */
+export function healContent(targetSrc, missing) {
+  const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
+  const lines = targetSrc.split(eol)
+  let appended = 0
+  let inserted = 0
+  for (const { line, marker, prev } of missing) {
+    if (lines.some((l) => l.includes(marker))) continue
+    const clean = line.replace(/\r$/, '')
+    const at = prev
+      ? lines.findIndex((l) => l.replace(/\r$/, '') === prev.replace(/\r$/, ''))
+      : -1
+    if (at >= 0) {
+      lines.splice(at + 1, 0, clean)
+      inserted += 1
+    } else {
+      lines.splice(lines.length - 1, 0, clean)
+      appended += 1
+    }
+  }
+  return { out: lines.join(eol), inserted, appended }
+}
+
+function selfTest() {
+  const base = [
+    '### 某任务',
+    '  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键,细节见提交说明。**',
+    '  - **D107b 结案(第 57 轮):证据替换推测,该因果链不成立,留下的是防回潮锁而不是待办。**',
+    '  - 短行不带编号不该被当成登记行',
+    '  - **普通说明**:这行没有编号,丢了也不该报。',
+  ].join('\n')
+  const cases = []
+  const t = (name, fn) => cases.push({ name, pass: !!fn() })
+
+  t('登记行被删除 → 报两条', () => {
+    const cand = base.replace(/ {2}- \*\*G-166[^\n]*\n/, '').replace(/ {2}- \*\*D107b[^\n]*\n/, '')
+    return lostMarkers(base, cand).length === 2
+  })
+  t(
+    '改写文案但保留编号 → 不报(避免误伤正常编辑)',
+    () =>
+      lostMarkers(base, base.replace('N8n 屏改用共享交代组件并回收 6 个旧取词键', '换了个说法'))
+        .length === 0,
+  )
+  t(
+    '无编号行丢失 → 不报(不在本闸职责内)',
+    () =>
+      lostMarkers(base, base.replace('  - **普通说明**:这行没有编号,丢了也不该报。', '')).length ===
+      0,
+  )
+  t(
+    'markerOf 认 G-/D(含字母后缀)/P-x.n 编号并要求 bullet + 长度',
+    () =>
+      markerOf(
+        '  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键,细节见提交说明。**',
+      ) === 'G-166 第⑤步(第 57 轮续)' &&
+      markerOf(
+        '  - **D107b 结案(第 57 轮):证据替换推测,该因果链不成立,留下的是防回潮锁而不是待办。**',
+      ) === 'D107b 结案(第 57 轮):证' &&
+      markerOf(
+        '  - **P2-F.10 追加 —— 凭据外泄族收到第 5 处,F 通道两次自我纠正,Python 覆盖落地全绿。**',
+      ) === 'P2-F.10 追加 —— 凭据外泄' &&
+      markerOf('- **D12 短') === null &&
+      markerOf('**G-1 没有 bullet**这是一行足够长的但没有列表符号的内容,不该算登记行。') === null,
+  )
+  t('归档目录豁免路径可达(不抛异常即算通)', () => {
+    const v = archivedCopy('一个绝对不存在的标记 XYZ')
+    return v === null || typeof v === 'string'
+  })
+  t('healContent:邻居还在 → 插到邻居之后,分组不散', () => {
+    const target = ['### 段', '  - **G-166 第①步(第 57 轮):新立交代帧持久化,细节见提交说明。**', ''].join(
+      '\n',
+    )
+    const missing = [
+      {
+        marker: 'G-166 第⑤步(第 57',
+        line: '  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键。**',
+        prev: '  - **G-166 第①步(第 57 轮):新立交代帧持久化,细节见提交说明。**',
+      },
+    ]
+    const { out, inserted, appended } = healContent(target, missing)
+    const order = out.split('\n').map((l) => (l.includes('第①步') ? 1 : l.includes('第⑤步') ? 2 : 0)).filter(Boolean)
+    return inserted === 1 && appended === 0 && String(order) === '1,2'
+  })
+  t('healContent:邻居也没了 → 追加而不是丢弃', () => {
+    const target = ['### 段', '  - 别的行', ''].join('\n')
+    const missing = [
+      {
+        marker: 'D999z 结案',
+        line: '  - **D999z 结案(第 1 轮):这是一条足够长的登记行,邻居已经不存在于当前内容里。**',
+        prev: '  - 这一行在当前内容里已经不存在了',
+      },
+    ]
+    const { out, inserted, appended } = healContent(target, missing)
+    return inserted === 0 && appended === 1 && out.includes('D999z 结案')
+  })
+  t('healContent:幂等 —— 已存在的标记不会被二次插入', () => {
+    const line = '  - **D999z 结案(第 1 轮):这是一条足够长的登记行,重复插入会被本用例抓到。**'
+    const target = ['### 段', line, ''].join('\n')
+    const { inserted, appended, out } = healContent(target, [{ marker: 'D999z 结案', line, prev: null }])
+    return inserted === 0 && appended === 0 && out.split('D999z 结案').length - 1 === 1
+  })
+
+  let failed = 0
+  for (const c of cases) {
+    console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
+    if (!c.pass) failed++
+  }
+  console.log(`\nself-test: ${cases.length - failed}/${cases.length} 通过`)
+  return failed === 0 ? 0 : 1
+}
+
+/**
+ * 回捞 + (可选)前向恢复提交。
+ * 返回退出码:0 = 无需恢复或已恢复成功;1 = 恢复失败(不动历史,交人工)。
+ */
+function heal(commit) {
+  const head = git(['show', `HEAD:${PLAN}`])
+  // 基准优先取工作区:heal 只做"加法",绝不因为回捞而把别人**尚未提交**的新行写没。
+  // 工作区干净(与 HEAD 一致)时二者相同,无差别;工作区脏(有人在写)时以它为准。
+  const disk = readFileSync(path.join(ROOT, PLAN), 'utf8')
+  const cur = disk.trim().length >= head.trim().length ? disk : head
+  const { total, missing } = collectMissing(cur)
+  if (missing.length === 0) {
+    console.log(`✅ [plan-line-loss] 扫描 ${total} 条登记行:无缺失,无需回捞`)
+    return 0
+  }
+  const { out, inserted, appended } = healContent(cur, missing)
+  console.warn(
+    `⚠️  [plan-line-loss] 扫最近历史发现 ${missing.length} 条登记行已消失 → 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
+  )
+  for (const m of missing) console.warn(`     · ${m.marker}`)
+  if (cur === out) console.log('   基准内容已含全部登记行,无需写盘')
+  else writeFileSync(path.join(ROOT, PLAN), out, 'utf8')
+  if (!commit) {
+    console.log('   (未加 --commit:只写工作区,不建提交)')
+    return 0
+  }
+  const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
+  // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
+  // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
+  const healedHead = healContent(head, collectMissing(head).missing).out
+  writeFileSync(
+    msgFile,
+    `docs(plan): 自动回捞 ${missing.length} 条被并发旧基线提交抹掉的登记行\n\n` +
+      `由 scripts/check-plan-line-loss.mjs --heal --commit 生成:按最近历史逐条取回原文,` +
+      `插回各自邻居之后(邻居也缺席则追加到末尾)。只加不减。\n`,
+    'utf8',
+  )
+  const tmp = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.md`)
+  writeFileSync(tmp, healedHead, 'utf8')
+  const blob = git(['hash-object', '-w', tmp])
+  const parent = git(['rev-parse', 'HEAD'])
+  const idx = path.join(ROOT, '.ihui-agent/tmp', `index-plan-heal-${Date.now()}`)
+  const env2 = { ...process.env, GIT_INDEX_FILE: idx }
+  const g2 = (a, o = {}) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: env2,
+      maxBuffer: 256 * 1024 * 1024,
+      windowsHide: true,
+      ...o,
+    }).trim()
+  try {
+    g2(['read-tree', parent])
+    g2(['update-index', '--add', '--cacheinfo', `100644,${blob},${PLAN}`])
+    const tree = g2(['write-tree'])
+    const newCommit = execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', 'commit-tree', tree, '-p', parent, '-F', msgFile],
+      { cwd: ROOT, encoding: 'utf8', env: env2, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+    ).trim()
+    g2(['update-ref', 'refs/heads/main', newCommit, parent])
+    console.log(`   已建前向恢复提交 ${newCommit.slice(0, 11)}`)
+    try {
+      const child = spawn(process.execPath, [path.join(ROOT, 'scripts', 'git-push-guard.mjs')], {
+        cwd: ROOT,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true,
+      })
+      child.unref()
+    } catch {
+      /* 推送交后台守卫,失败不影响本次恢复 */
+    }
+  } catch (e) {
+    console.error(`❌ [plan-line-loss] 恢复提交失败:${e?.message ?? e}`)
+    return 1
+  } finally {
+    rmSync(idx, { force: true })
+    rmSync(tmp, { force: true })
+    rmSync(msgFile, { force: true })
+  }
+  return 0
+}
+
+
+const isDirectRun =
+  process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
+
+if (isDirectRun) {
+  const args = process.argv.slice(2)
+  if (args.includes('--self-test')) process.exit(selfTest())
+  if (args.includes('--heal')) {
+    // 从最近历史回捞被"旧基线整文件提交 / 索引层合并"抹掉的登记行,写回工作区文件。
+    // 默认只改工作区(由调用方决定何时提交);--commit 额外走一次"临时 index + commit-tree"
+    // 的前向恢复提交,并交给 git-push-guard 推送(绕过钩子的并发提交模式,与 AGENTS §12 一致)。
+    process.exit(heal(args.includes('--commit')))
+  }
+  if (process.env.HUSKY_SKIP_PLAN_LINE_LOSS === '1') {
+    console.warn('⚠️  HUSKY_SKIP_PLAN_LINE_LOSS=1,已跳过计划登记行防丢守门')
+    process.exit(0)
+  }
+  const isStaged = args.includes('--staged')
+  try {
+    const { ok, lost } = runCheck(isStaged)
+    if (ok) {
+      console.log(
+        `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(${isStaged ? '暂存区' : '工作区'})`,
+      )
+      process.exit(0)
+    }
+    console.error(
+      `❌ [plan-line-loss] ${lost.length} 条已入库的登记行在本次提交内容里彻底消失:\n` +
+        lost.map((x) => `   · ${x.marker}\n     ${x.line.trim().slice(0, 90)}…`).join('\n'),
+    )
+    console.error(
+      '\n  💡 这几乎总是"按内存里的旧计划文档整文件提交"造成的覆盖,不是有意删除:\n' +
+        '     1) 从原始提交逐字取回:`git log --all -S "<标记>" -- PROJECT_PLAN.md` 找到引入它\n' +
+        '        的提交,`git show <sha>:PROJECT_PLAN.md` 取整行,插回原锚点后再提交;\n' +
+        '     2) 确属归档 → 原文必须出现在 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸自动放行);\n' +
+        '     3) 提交计划文档前一律现取 HEAD 版本再插自己的行,别相信自己内存里的那份。\n' +
+        '     紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1(会把别人的登记行写没,慎用)\n',
+    )
+    process.exit(1)
+  } catch (e) {
+    console.error(`❌ [plan-line-loss] 检查失败:${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

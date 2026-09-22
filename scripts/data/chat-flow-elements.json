@@ -107,6 +107,118 @@
       ]
     },
     {
+      "id": "permission-mode-consequence",
+      "title": "权限档后果说明(不只报档名,要说清这一档会导致什么)",
+      "sourceTask": "G-153",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "permissionModeNote"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "permissionModeNote"
+        },
+        {
+          "file": "apps/web/src/components/ai/permission-mode-info-modal.tsx",
+          "mustMatch": "bypass-permissions"
+        },
+        {
+          "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
+          "mustMatch": "mode.planDesc"
+        },
+        {
+          "file": "apps/web/src/hooks/use-permission-mode-cycle.ts",
+          "mustMatch": "CYCLE_LABEL_KEY"
+        },
+        {
+          "file": "apps/api/src/services/message-permission-stamp.ts",
+          "mustMatch": "permissionStamp"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "permissionModeWire"
+        }
+      ]
+    },
+    {
+      "id": "context-compaction-ceiling",
+      "title": "上下文压缩撞到上限的警示行(带下一步,不再静默降级)",
+      "sourceTask": "G-150",
+      "events": ["compaction"],
+      "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_compaction_frame"
+        },
+        {
+          "file": "apps/ai-service/app/core/context_compaction.py",
+          "mustMatch": "incompressible"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/compression-divider.tsx",
+          "mustMatch": "compaction-ceiling"
+        },
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_compaction_payload"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedCompactionSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readCompactionFromMetadata"
+        }
+      ]
+    },
+    {
+      "id": "error-retry-action",
+      "title": "失败回复的「重试」动作(错误必须带出口,不只说请稍后重试)",
+      "sourceTask": "G-152",
+      "events": [],
+      "anchors": [
+        {
+          "file": "apps/web/src/components/chat/message-list/MessageList.tsx",
+          "mustMatch": "ihui:retry-message"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/chat-send-utils.ts",
+          "mustMatch": "pickRetryTarget"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
+          "mustMatch": "retry-last-turn"
+        },
+        {
+          "file": "packages/shared/src/chat/stream-error.ts",
+          "mustMatch": "export function markStreamError"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx",
+          "mustMatch": "ai.chatMessageItem.errorCardTitle"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "retryLastTurn"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "chatAlert.errorTitle"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "bubbleStyles.errorCard"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "cli.retryHint"
+        }
+      ]
+    },
+    {
       "id": "citation-sources",
       "title": "回复引用与来源锚点(行内编号引用,我方领先项)",
       "sourceTask": "D27/G-70/D109",
@@ -115,6 +227,18 @@
         {
           "file": "apps/ai-service/app/routers/llm.py",
           "mustMatch": "_citation_url"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedCitationSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readCitationsFromMetadata"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "meta?.citations"
         },
         {
           "file": "packages/api-client/src/client.ts",
@@ -139,6 +263,14 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "CitationList"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/ChatDisclosure.tsx",
+          "mustMatch": "export function CitationList"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "onCitations"
         },
         {
           "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
@@ -242,6 +374,18 @@
           "mustMatch": "injection_frames"
         },
         {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedInjectionSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readInjectionsFromMetadata"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "meta?.injections"
+        },
+        {
           "file": "packages/api-client/src/client.ts",
           "mustMatch": "onInjectionApplied"
         },
@@ -282,6 +426,14 @@
           "mustMatch": "InjectionDisclosure"
         },
         {
+          "file": "apps/mobile-rn/src/components/ChatDisclosure.tsx",
+          "mustMatch": "export function InjectionDisclosure"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
           "file": "apps/cli/src/commands/task-status-line.ts",
           "mustMatch": "injectionNoteText"
         },
@@ -297,6 +449,18 @@
       "sourceTask": "D39/D108",
       "events": ["retry_scheduled"],
       "anchors": [
+        {
+          "file": "apps/ai-service/app/routers/llm.py",
+          "mustMatch": "_note_retry"
+        },
+        {
+          "file": "apps/api/src/routes/ai-callback.ts",
+          "mustMatch": "persistedRetryNoticeSchema"
+        },
+        {
+          "file": "apps/web/src/hooks/use-chat/history-message.ts",
+          "mustMatch": "readRetryNoticeFromMetadata"
+        },
         {
           "file": "packages/api-client/src/client.ts",
           "mustMatch": "tryParseRetryScheduled"
@@ -379,6 +543,21 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "terminalTruncated"
+        }
+      ]
+    },
+    {
+      "id": "terminal-isolation-disclosure",
+      "title": "终端执行环境隔离交代(对标 G-154:命令在专用终端实例中运行;我方真值=os_sandbox allow_network 默认 False)",
+      "sourceTask": "D110",
+      "anchors": [
+        {
+          "file": "apps/web/src/components/ai/progress-sections/terminal-section.tsx",
+          "mustMatch": "terminal.isolation"
+        },
+        {
+          "file": "apps/web/src/components/ai/progress-sections/__tests__/terminal-section-isolation.test.tsx",
+          "mustMatch": "terminal-isolation"
         }
       ]
     }

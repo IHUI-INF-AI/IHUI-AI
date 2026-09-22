@@ -20,7 +20,14 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
   // 2026-09-02 默认追加 Tauri 桌面端 origin(comma 分隔白名单);即便部署未设 env,
   // server.ts 也会固定放行,此处仅保证本地/测试默认配置一致可查。
-  CORS_ORIGIN: z.string().default('http://localhost:8801,http://tauri.localhost,tauri://localhost'),
+  // 2026-09-22 追加 http://localhost:8806(mobile-rn Expo web 开发预览,`expo start --web
+  // --port 8806`):不加则浏览器端全部 API 调用被 CORS 拦截,OfflineBanner 误报"网络已断开"。
+  // localhost 开发源与既有 8801 同级信任;生产部署不监听该端口,无暴露面。
+  CORS_ORIGIN: z
+    .string()
+    .default(
+      'http://localhost:8801,http://localhost:8806,http://tauri.localhost,tauri://localhost',
+    ),
 
   DATABASE_URL: z.url(),
   DATABASE_READ_REPLICA_URL: z

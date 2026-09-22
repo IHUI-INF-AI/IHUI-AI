@@ -9,7 +9,7 @@
 services:
   # PostgreSQL(独立实例,数据隔离)
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg18
     container_name: customer-{{SLUG}}-db
     restart: unless-stopped
     environment:

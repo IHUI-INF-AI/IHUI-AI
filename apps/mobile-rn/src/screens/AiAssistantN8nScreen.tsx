@@ -42,6 +42,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -60,29 +61,39 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
 import {
   Bot,
   Brain,
+  Camera,
   ChevronDown,
   ChevronRight,
   Copy,
   Download,
   Eye,
   EyeOff,
+  Folder,
+  Image as ImageIcon,
+  MessageCircle,
   Settings,
   Share2,
 } from 'lucide-react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
+import { AddPanel } from '../components/AddPanel'
 import {
   deleteConversation,
   fetchModels,
   formatSSEError,
   getMessages,
   getTokenBalance,
+  getWorkspacePermissionDefault,
   listConversations,
+  resolveFileUrl,
   streamChat,
+  uploadFileMultipart,
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
@@ -820,6 +831,88 @@ export default function AiAssistantN8nScreen() {
   const [messages, setMessages] = useState<N8nMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+
+  // ── 输入区「+」添加面板(统一 AddPanel:相机/相册/本地文件/微信文件;
+  //    上传链路与 HomeScreen/ChatScreen 同源:选择 → uploadFileMultipart → 拼入 prompt) ──
+  const [addPanelVisible, setAddPanelVisible] = useState(false)
+  const [addUploading, setAddUploading] = useState(false)
+  const handleAddPanelToggle = (): void => {
+    if (!addPanelVisible) Keyboard.dismiss()
+    setAddPanelVisible(!addPanelVisible)
+  }
+  /** 相机(对齐 ChatScreen handleIconClick('camera'):相机拍摄待接入,占位提示) */
+  const handleAddCamera = (): void => {
+    setAddPanelVisible(false)
+    showToast('warning', '相机拍摄待接入,请先用相册上传图片')
+  }
+  /** 相册选图 → 上传 → 拼入输入框 */
+  const handleAddAlbum = async (): Promise<void> => {
+    setAddPanelVisible(false)
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+      setAddUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `image-${Date.now()}.jpg`,
+      })
+      if (up.success && up.data?.path) {
+        setInput((p) => `${p ? `${p}\n` : ''}[图片] ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', '图片已上传,发送后可在对话中使用')
+      } else {
+        showToast('warning', '图片上传失败')
+      }
+    } catch {
+      showToast('warning', '图片选择失败,请重试')
+    } finally {
+      setAddUploading(false)
+    }
+  }
+  /** 本地文件 / 微信文件选择 → 上传 → 拼入输入框(对齐 ChatScreen handleFileUpload:
+   *  wxfile 与 file 走同一 DocumentPicker 链路) */
+  const handleAddFile = async (): Promise<void> => {
+    setAddPanelVisible(false)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]!
+      setAddUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'application/octet-stream',
+        name: asset.name ?? `file-${Date.now()}`,
+      })
+      if (up.success && up.data?.path) {
+        const fileName = asset.name ?? '文件'
+        setInput((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', `已上传:${fileName}`)
+      } else {
+        showToast('warning', '文件上传失败')
+      }
+    } catch {
+      showToast('warning', '文件选择失败,请重试')
+    } finally {
+      setAddUploading(false)
+    }
+  }
   // 当前对话 ID(从路由传入或后续选择历史对话时更新,用于 streamChat metadata)
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(
     routeConversationId,
@@ -827,6 +920,13 @@ export default function AiAssistantN8nScreen() {
 
   // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
   const [tokenBalance, setTokenBalance] = useState(0)
+
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+  // G-165①:消息级盖章档位(服务端从 workspace_permissions 反查后写入消息 metadata,
+  // 不采信客户端自报)。undefined = 尚未见到已盖章消息;null = 明确无;string = 盖章值。
+  const [stampedTier, setStampedTier] = useState<string | null | undefined>(undefined)
 
   // 加载智汇值余额:失败静默保持 0(不阻塞页面,充值入口仍可用)
   useEffect(() => {
@@ -841,6 +941,21 @@ export default function AiAssistantN8nScreen() {
         // 失败保持 0
       }
     })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        // 取数失败:保持 null,该行隐藏
+      })
     return () => {
       cancelled = true
     }
@@ -976,6 +1091,20 @@ export default function AiAssistantN8nScreen() {
   const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
     const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
+      // G-165①:档位行数据源换挡 —— 取最近一条已盖章助手消息的 metadata.permissionMode
+      // (服务端从 workspace_permissions 反查盖章,不采信客户端自报)。盖章服务对
+      // "不知道"不写 key,所以这里只有 string 才算数,绝不编造 default。
+      const stampedMeta = [...res.data.messages]
+        .reverse()
+        .find(
+          (m) =>
+            m.role === 'assistant' &&
+            typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode ===
+              'string',
+        )
+      if (stampedMeta) {
+        setStampedTier((stampedMeta.metadata as { permissionMode: string }).permissionMode)
+      }
       // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
       // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
       // 使历史会话与实时流走同一活动行渲染口径(状态 · 功能名 · 对象 · 度量)。
@@ -1446,6 +1575,21 @@ export default function AiAssistantN8nScreen() {
           onRecharge={() => navigation.navigate('AppTopup')}
         />
       </View>
+      {/* D111/G-165①:权限档交代行 —— 数据源优先级:消息盖章值 > 工作区默认档;
+          两者皆缺(盖章不存在且取数失败)整行隐藏,不假装知道档位。 */}
+      {(() => {
+        const tierValue = stampedTier ?? workspaceTier
+        if (tierValue === null || tierValue === undefined) return null
+        return (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 11, color: tokens.text.tertiary }}>
+              {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(tierValue).title)} · ${t(
+                permissionTierWordKeys(tierValue).desc,
+              )}`}
+            </Text>
+          </View>
+        )
+      })()}
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1542,6 +1686,42 @@ export default function AiAssistantN8nScreen() {
           onStop={onStop}
           stopLabel={t('chat.stop')}
           sendLabel={t('aiAssistantN8n.send')}
+          onImageAdd={handleAddPanelToggle}
+        />
+        {/* 「+」底部滑出添加面板(统一 AddPanel,与 HomeScreen/ChatScreen 同源) */}
+        <AddPanel
+          visible={addPanelVisible}
+          onClose={() => setAddPanelVisible(false)}
+          items={[
+            {
+              key: 'camera',
+              label: '相机',
+              icon: <Camera size={24} color={tokens.text.secondary} />,
+              onPress: handleAddCamera,
+            },
+            {
+              key: 'album',
+              label: '相册',
+              icon: addUploading ? (
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
+              ) : (
+                <ImageIcon size={24} color={tokens.text.secondary} />
+              ),
+              onPress: () => void handleAddAlbum(),
+            },
+            {
+              key: 'file',
+              label: '本地文件',
+              icon: <Folder size={24} color={tokens.text.secondary} />,
+              onPress: () => void handleAddFile(),
+            },
+            {
+              key: 'wxfile',
+              label: '微信文件',
+              icon: <MessageCircle size={24} color={tokens.text.secondary} />,
+              onPress: () => void handleAddFile(),
+            },
+          ]}
         />
         {sending ? (
           <View style={styles.streamingBar}>

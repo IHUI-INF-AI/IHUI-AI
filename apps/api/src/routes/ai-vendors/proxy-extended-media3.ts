@@ -296,9 +296,8 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
       const creds = requireVendorKeys('firefly', reply)
       if (!creds) return
       const clientId = creds.key
-      const clientSecret = creds.secret
-      // 第一步:IMS OAuth2 client_credentials 换 access_token
-      let accessToken: string
+      // 第一步:IMS OAuth2 client_credentials 换取上游访问令牌(仅进上游请求头,绝不进响应)
+      let imsToken: string
       try {
         const tokenResp = await fetchWithTimeout(ADOBE_IMS_TOKEN_URL, {
           method: 'POST',
@@ -306,17 +305,18 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
           body: new URLSearchParams({
             grant_type: 'client_credentials',
             client_id: clientId,
-            client_secret: clientSecret,
+            client_secret: creds.secret,
             scope: ADOBE_FIREFLY_SCOPE,
           }),
         })
-        const tokenData = (await tokenResp.json().catch(() => ({}))) as { access_token?: string }
-        if (!tokenResp.ok || !tokenData.access_token) {
-          return reply.status(502).send(
-            error(502, `Firefly 令牌获取失败: ${tokenResp.status} ${JSON.stringify(tokenData).slice(0, 400)}`),
-          )
+        const tokenBody = (await tokenResp.json().catch(() => ({}))) as Record<string, unknown>
+        const { access_token: issuedToken, error: oauthErrorCode } = tokenBody
+        if (!tokenResp.ok || typeof issuedToken !== 'string' || issuedToken.length === 0) {
+          // 只回传 RFC 6749 错误码;不透传上游令牌端点响应体(失败体亦可能含凭据字段)
+          const detail = typeof oauthErrorCode === 'string' ? oauthErrorCode : ''
+          return reply.status(502).send(error(502, `Firefly 令牌获取失败: ${tokenResp.status} ${detail}`))
         }
-        accessToken = tokenData.access_token
+        imsToken = issuedToken
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
         return reply.status(502).send(error(502, `Firefly 令牌获取异常: ${msg}`))
@@ -328,7 +328,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${imsToken}`,
             'X-Api-Key': clientId,
           },
           body: JSON.stringify({
@@ -360,7 +360,7 @@ export const extendedMediaVendorRoutes3: FastifyPluginAsync = async (server) => 
             `${VENDORS.firefly!.baseUrl}/v3/images/${imageId}`,
             {
               method: 'GET',
-              headers: { Authorization: `Bearer ${accessToken}`, 'X-Api-Key': clientId },
+              headers: { Authorization: `Bearer ${imsToken}`, 'X-Api-Key': clientId },
             },
             60_000,
           )

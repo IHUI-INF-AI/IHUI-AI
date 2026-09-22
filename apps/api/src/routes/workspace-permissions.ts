@@ -28,6 +28,8 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+// 权限档唯一真源(G-161/G-164):本文件曾有 3 份档位清单,读侧还会把不认识的档位静默归 null
+import { PERMISSION_MODES, permissionModeWire } from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { permissionManager } from '../services/workspace-ai-service.js'
@@ -112,7 +114,15 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     }
   }
 
-  const PERMISSION_MODES = ['default', 'accept-edits', 'bypass-permissions'] as const
+  /**
+   * 用户全局默认档位的取值判定(G-164:消掉本文件第 4 份档位清单)。
+   *
+   * 上一版这里写着 `const PERMISSION_MODES = ['default','accept-edits','bypass-permissions']`,
+   * 后果有两处:① `PUT /permission-default` 拒收 plan;② **GET 读取时把不在清单里的值
+   * 静默归 null** —— 也就是"存进去的档位被读成没配",继承链凭空掉一级。
+   * 现统一走注册表:任意合法拼写(kebab / camel / 历史别名)读出为 wire,认不出才给 null。
+   */
+  const readWireMode = (raw: unknown): string | null => permissionModeWire(raw)
 
   // GET /permission-default — 用户全局默认权限模式(继承链第一级;工作区未显式配置时回退)
   server.get('/permission-default', async (request, reply) => {
@@ -121,8 +131,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     try {
       const { list } = await findUserPreferences(request.userId, 'agent')
       const row = list.find((r) => r.key === 'defaultPermissionMode')
-      const mode =
-        row?.value && (PERMISSION_MODES as readonly string[]).includes(row.value) ? row.value : null
+      const mode = readWireMode(row?.value)
       return reply.send(success({ mode }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
@@ -133,13 +142,25 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
   server.put('/permission-default', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const parsed = z.object({ mode: z.enum(PERMISSION_MODES) }).safeParse(request.body)
+    const parsed = z.object({ mode: z.string().min(1) }).safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // 无落库语义的档位(manual)显式拒绝,而不是"存进去然后每一处读取都当成没配"
+    const modeWire = permissionModeWire(parsed.data.mode)
+    if (!modeWire) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `非法权限档: ${parsed.data.mode}(可落库档位为 default / plan / accept-edits / bypass-permissions)`,
+          ),
+        )
+    }
     try {
-      await upsertUserPreference(request.userId, 'agent', 'defaultPermissionMode', parsed.data.mode)
-      return reply.send(success({ mode: parsed.data.mode }))
+      await upsertUserPreference(request.userId, 'agent', 'defaultPermissionMode', modeWire)
+      return reply.send(success({ mode: modeWire }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
     }
@@ -174,7 +195,10 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     workspacePath: z.string().min(1),
     name: z.string().min(1),
     techStack: z.string().optional(),
-    mode: z.enum(['default', 'accept-edits', 'bypass-permissions']),
+    // G-164:此前是 z.enum(3 档 kebab) —— 于是 `plan` 档"类型里有、链路上不可达"
+    // (客户端发 plan 直接被 400 挡回)。现交唯一真源归一:kebab/camel/历史别名都认,
+    // 认不出仍拒;落库继续用 wire(kebab)拼写,不改动既有行的语义。
+    mode: z.string().min(1),
     initializeDefaults: z.boolean().optional(),
   })
   server.put('/permissions', async (request, reply) => {
@@ -184,15 +208,26 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
+      const modeWire = permissionModeWire(parsed.data.mode)
+      if (!modeWire) {
+        return reply
+          .status(400)
+          .send(
+            error(
+              400,
+              `非法权限档: ${parsed.data.mode}(取值必须为 ${PERMISSION_MODES.join(' / ')} 或其别名)`,
+            ),
+          )
+      }
       const permission = await upsertPermission({
         userId: request.userId,
         workspacePath: parsed.data.workspacePath,
         name: parsed.data.name,
         techStack: parsed.data.techStack,
-        mode: parsed.data.mode,
+        mode: modeWire,
       })
-      // 首次设置 accept-edits 模式 → 创建预置安全模板
-      if (parsed.data.initializeDefaults && parsed.data.mode === 'accept-edits') {
+      // 首次设置 acceptEdits 模式 → 创建预置安全模板
+      if (parsed.data.initializeDefaults && modeWire === 'accept-edits') {
         await clearUserRules(request.userId, parsed.data.workspacePath)
         await createRulesBulk(
           request.userId,
@@ -205,7 +240,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
         workspacePath: parsed.data.workspacePath,
         toolName: 'permission-setup',
         decision: 'allow',
-        reason: `mode set to ${parsed.data.mode}`,
+        reason: `mode set to ${modeWire}`,
       })
       return reply.send(success({ permission }))
     } catch (e) {
