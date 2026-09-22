@@ -101,8 +101,31 @@ export interface InjectionView {
   count?: number
 }
 
+/** #11 引用溯源条目(后端只发 source+label;url 字段留位,当前无发射点) */
+export interface CitationView {
+  source: string
+  label: string
+  url?: string
+}
+
 /**
- * 单条 assistant 消息携带的工具卡片聚合(计划 / 工具 / 终端 / 注入交代),
+ * citations 帧累积:**追加** + 按 (source,label) 去重。
+ * 整替会让流中后到的引用把流首那批抹掉(web 端 #26 已踩过一次)。
+ */
+export function appendCitations(
+  list: readonly CitationView[] | undefined,
+  incoming: readonly CitationView[],
+): CitationView[] {
+  const next = list ? [...list] : []
+  for (const item of incoming) {
+    if (next.some((x) => x.source === item.source && x.label === item.label)) continue
+    next.push(item)
+  }
+  return next
+}
+
+/**
+ * 单条 assistant 消息携带的工具卡片聚合(计划 / 工具 / 终端 / 注入交代 / 引用溯源),
  * 由 SSE 事件累积写入,随消息历史持久化;对齐 web 端 planSteps/toolCalls/terminalTasks 消费方式。
  */
 export interface AICardsData {
@@ -110,5 +133,6 @@ export interface AICardsData {
   toolCalls: ToolCallView[]
   terminalTasks: TerminalTaskView[]
   injections: InjectionView[]
+  citations: CitationView[]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -497,13 +497,15 @@ export default function ChatMessageItem({
               msg.aiCards.planSteps.length +
                 msg.aiCards.toolCalls.length +
                 msg.aiCards.terminalTasks.length +
-                (msg.aiCards.injections?.length ?? 0) >
+                (msg.aiCards.injections?.length ?? 0) +
+                (msg.aiCards.citations?.length ?? 0) >
                 0 ? (
                 <StreamActivityCards
                   planSteps={msg.aiCards.planSteps}
                   toolCalls={msg.aiCards.toolCalls}
                   terminalTasks={msg.aiCards.terminalTasks}
                   injections={msg.aiCards.injections ?? []}
+                  citations={msg.aiCards.citations ?? []}
                   expanded={cardsExpanded}
                   onToggleExpand={() => setCardsExpanded((v) => !v)}
                 />

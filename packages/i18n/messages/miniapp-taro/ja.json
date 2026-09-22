@@ -786,6 +786,9 @@
         "exitCode": "終了コード: {code}",
         "truncated": "…(省略済み、全 {total} 文字)"
       },
+      "citation": {
+        "title": "参考元"
+      },
       "injection": {
         "title": "今回の回答で参照したコンテキスト",
         "kind": {
