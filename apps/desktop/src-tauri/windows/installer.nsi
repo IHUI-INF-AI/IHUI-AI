@@ -479,6 +479,15 @@ UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave
 ; 2. Uninstalling Page
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow
 !insertmacro MUI_UNPAGE_INSTFILES
+; U4 卸载完成页 —— 终屏 + 唯一可点出口(实现见 windows/ihui-uninstaller.nsi un.IHUIFinishShow)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIFinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.IHUIFinishLeave
+!define /redef MUI_BGCOLOR "242424"
+!define /redef MUI_TEXTCOLOR "FAFAFA"
+!define MUI_FINISHPAGE_TITLE " "
+!define MUI_FINISHPAGE_TEXT " "
+!define MUI_FINISHPAGE_BUTTON "完成"
+!insertmacro MUI_UNPAGE_FINISH
 
 ;Languages
 {{#each languages}}
