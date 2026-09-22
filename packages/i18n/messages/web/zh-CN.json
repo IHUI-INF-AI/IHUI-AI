@@ -199,7 +199,7 @@
     "contentLabel": "内容",
     "contentPlaceholder": "详细描述:背景、结论、注意事项",
     "tagsLabel": "标签",
-    "tagsPlaceholder": "逗号分隔,如:部署,PG17",
+    "tagsPlaceholder": "逗号分隔,如:部署,PG18",
     "needScope": "请先填写 Scope 标识",
     "needTitle": "标题不能为空",
     "needContent": "内容不能为空",
@@ -250,6 +250,24 @@
     "regenerateDisabledHint": "未选择仓库目录或尚未收集到文件,无法生成。"
   },
   "a11y": {
+    "download": "下载",
+    "downloadFile": "下载文件",
+    "exitFullscreen": "退出全屏",
+    "seekBar": "播放进度",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "rotate": "旋转",
+    "fullscreen": "全屏",
+    "previous": "上一张",
+    "next": "下一张",
+    "play": "播放",
+    "pause": "暂停",
+    "seekBackward": "快退",
+    "seekForward": "快进",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "refresh": "刷新",
+    "removeAttachment": "移除附件",
     "addAttachment": "添加附件（图片/视频/文件）",
     "breadcrumb": "面包屑导航",
     "searchOption": "搜索选项",
@@ -7099,6 +7117,7 @@
         "clearLive": "清空",
         "copyOutput": "复制终端输出",
         "failed": "{n} 失败",
+        "isolation": "命令在隔离沙箱中执行，默认不开放网络",
         "live": "实时输出",
         "moreItems": "…还有 {n} 项",
         "output": "输出",
@@ -9313,6 +9332,8 @@
       "loading": "加载中…",
       "me": "我",
       "mode": {
+        "plan": "只读计划",
+        "planDesc": "仅读取与检索，写文件和执行命令都会被拒绝",
         "ask": "请求批准",
         "askDesc": "编辑外部文件和使用互联网时始终询问",
         "auto": "替我审批",
@@ -9409,6 +9430,7 @@
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
+    "permissionLabelPlan": "只读计划",
     "permissionLabelAuto": "自动审批",
     "permissionLabelFull": "完全访问",
     "permissionSwitchFailed": "切换权限模式失败:{error}",
@@ -13480,7 +13502,6 @@
       "unstage": "取消暂存"
     },
     "statusBar": {
-      "sync": "同步",
       "toggleTheme": "切换主题",
       "unsynced": "未同步"
     },
@@ -20643,6 +20664,10 @@
           "desc": "全部操作需人工确认,最安全",
           "title": "默认模式"
         },
+        "plan": {
+          "title": "只读计划",
+          "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+        },
         "unknown": {
           "desc": "未识别的权限模式",
           "title": "未知模式"
@@ -21359,7 +21384,6 @@
     "skillsMarket": "Skill 市场"
   },
   "statusBar": {
-    "sync": "同步",
     "toggleTheme": "切换主题"
   },
   "groups": {
