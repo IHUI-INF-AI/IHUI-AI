@@ -558,6 +558,22 @@
         {
           "file": "apps/web/src/components/ai/progress-sections/__tests__/terminal-section-isolation.test.tsx",
           "mustMatch": "terminal-isolation"
+        },
+        {
+          "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
+          "mustMatch": "chat.terminalIsolation"
+        },
+        {
+          "file": "apps/extension/tests/message-content-terminal-isolation.test.tsx",
+          "mustMatch": "toHaveLength(1)"
+        },
+        {
+          "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+          "mustMatch": "aiAssistantN8n.terminalIsolation"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai.cards.terminal.isolation"
         }
       ]
     }
