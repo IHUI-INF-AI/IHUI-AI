@@ -366,6 +366,7 @@
     "planSteps": "実行計画",
     "terminalExitCode": "終了コード",
     "terminalOutput": "出力",
+    "terminalTruncated": "…(省略済み、全 {total} 文字)",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "実行中",

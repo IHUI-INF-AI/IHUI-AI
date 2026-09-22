@@ -188,6 +188,7 @@
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",
+    "terminalTruncated": "…(已截断,共 {total} 字符)",
     "planStatusPending": "待执行",
     "planStatusInProgress": "进行中",
     "planStatusCompleted": "已完成",

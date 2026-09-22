@@ -153,9 +153,11 @@ export default function ChatPage() {
         window.clearTimeout(timeoutId)
         updateAssistantMessage((m) => ({ ...m, reasoning: (m.reasoning ?? '') + delta }))
       },
-      onError: (msg) => {
+      onError: (msg, info) => {
         window.clearTimeout(timeoutId)
-        const formatted = formatSSEError(new Error(msg))
+        // info 必须透传给 formatSSEError:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据
+        // (ai-service 未登记该码的 HTTP 状态,实际仍回落默认 502,按状态码分类会误判)
+        const formatted = formatSSEError(new Error(msg), info)
         setMessages((cur) => {
           const copy = [...cur]
           const last = copy[copy.length - 1]
@@ -270,6 +272,9 @@ export default function ChatPage() {
                     ...task,
                     status: evt.status,
                     output: evt.output,
+                    // 缺省不覆盖:后端只在真截断时带 truncated,历史值要留住
+                    truncated: evt.truncated ?? task.truncated,
+                    totalChars: evt.totalChars ?? task.totalChars,
                     exitCode: evt.exitCode,
                     endedAt: evt.endedAt,
                     durationMs: evt.durationMs,

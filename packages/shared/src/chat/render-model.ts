@@ -121,6 +121,9 @@ export interface TerminalRenderBlock {
   command: string
   status: TerminalTaskStatus
   output?: string
+  /** 后端截断标志与原始长度(各端终端块都要能交代"内容不完整",不能只渲染 output) */
+  truncated?: boolean
+  totalChars?: number
   exitCode?: number
   durationMs?: number
 }
@@ -243,6 +246,8 @@ function toTerminalBlock(
     command: task.command,
     status: task.status,
     output: task.output,
+    truncated: task.truncated,
+    totalChars: task.totalChars,
     exitCode: task.exitCode,
     durationMs: task.durationMs,
   }

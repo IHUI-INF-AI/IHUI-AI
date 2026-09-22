@@ -83,6 +83,9 @@ export interface TerminalTaskView {
   command: string
   status: 'running' | 'completed' | 'failed'
   output?: string
+  /** 后端截断标志与原始长度:小程序拿不到 live 缓冲,不交代就等于把截断当完整 */
+  truncated?: boolean
+  totalChars?: number
   durationMs?: number
   exitCode?: number
 }
