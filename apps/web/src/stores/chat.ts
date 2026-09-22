@@ -367,6 +367,13 @@ interface ChatState {
    *  - 后端 knowledge_lookup 工具执行后 done 前下发,前端整体替换 message.citations
    *  - 用于消息气泡内 inline CitationBar(来源标签 + 可点击 URL) */
   setMessageCitations: (messageId: string, citations: CitationEntry[]) => void
+  /** D34 上下文注入交代(2026-09-22 立):把 injection_applied 帧追加到消息级 injections。
+   *  **追加而非整体替换**:一条流可能下发多帧(自定义指令 / AGENTS.md / Repo Wiki / 检索上下文各一帧),
+   *  并按 kind+collapsed 去重(后端重连或补发时不得出现重复行)。 */
+  appendMessageInjection: (
+    messageId: string,
+    injection: { kind: string; collapsed: string; fullText?: string; count?: number },
+  ) => void
   /** 2026-09-19 立:写入消息级上下文压缩信息(compaction 命名帧 → onCompaction 回调)。
    *  压缩发生时把统计挂到指定 assistant 消息,MessageItem 渲染 CompressionDivider。 */
   setMessageCompaction: (messageId: string, compaction: ChatMessage['compaction']) => void
@@ -1020,6 +1027,24 @@ export const useChatStore = create<ChatState>()(
           if (!target) return s
           const next = s.messages.slice()
           next[idx] = { ...target, citations }
+          return { messages: next }
+        }),
+
+      appendMessageInjection: (messageId, injection) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const existing = target.injections ?? []
+          // 同 kind + 同标签视为同一条(补发/重连幂等)
+          if (
+            existing.some((x) => x.kind === injection.kind && x.collapsed === injection.collapsed)
+          ) {
+            return s
+          }
+          const next = s.messages.slice()
+          next[idx] = { ...target, injections: [...existing, injection] }
           return { messages: next }
         }),
 
