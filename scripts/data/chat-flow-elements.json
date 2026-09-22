@@ -601,6 +601,22 @@
         {
           "file": "apps/web/src/components/ai/progress-sections/timeline-event.test.tsx",
           "mustMatch": "data-decision-state"
+        },
+        {
+          "file": "apps/web/src/components/ai/agent-runtime-panel.tsx",
+          "mustMatch": "permissionDecisionWord"
+        },
+        {
+          "file": "apps/mobile-rn/src/components/AgentRuntimePanel.tsx",
+          "mustMatch": "permissionDecisionWord"
+        },
+        {
+          "file": "apps/miniapp-taro/src/components/AgentRuntimePanel.tsx",
+          "mustMatch": "permissionDecisionWord"
+        },
+        {
+          "file": "apps/miniapp-taro/src/i18n/__tests__/step-decision-pack.test.ts",
+          "mustMatch": "mergeMessages"
         }
       ]
     }

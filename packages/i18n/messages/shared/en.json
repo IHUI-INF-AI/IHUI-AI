@@ -2022,6 +2022,11 @@
       "policyRequiresApproval": "Policy requires approval",
       "policyForbidsExecution": "Policy forbids execution"
     },
+    "perm": {
+      "allow": "Allowed",
+      "ask": "Needs confirmation",
+      "deny": "Denied"
+    },
     "state": {
       "approved": "Auto-approved",
       "rejected": "Rejected",
