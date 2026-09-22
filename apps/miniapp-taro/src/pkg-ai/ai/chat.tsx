@@ -38,7 +38,7 @@ import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import TaskStatusBar from './task-status-bar'
-import type { AICardsData } from './cards/types'
+import { appendCitations, type AICardsData } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -144,6 +144,7 @@ export default function ChatPage() {
         toolCalls: [],
         terminalTasks: [],
         injections: [],
+        citations: [],
       }
       const next = mutate(cur)
       const copy = prev.slice()
@@ -594,6 +595,15 @@ export default function ChatPage() {
             },
             // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
             // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            // #11 引用溯源(第 49 轮):parser 与回调表都给了通道,端内不注册 = 静默丢帧
+            onCitations: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                citations: appendCitations(
+                  c.citations,
+                  evt.citations.map((x) => ({ source: x.source, label: x.label })),
+                ),
+              })),
             onInjectionApplied: (evt) =>
               upsertCard((c) => {
                 const items = c.injections ?? []

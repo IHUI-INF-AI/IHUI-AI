@@ -339,12 +339,43 @@ export function InjectionCard({ items }: { items: readonly InjectionRowData[] })
   )
 }
 
+/* ===================== #11:引用溯源(答案带了哪些知识来源) ===================== */
+export function CitationCard({
+  items,
+}: {
+  items: readonly { source: string; label: string; url?: string }[]
+}) {
+  const { t } = useI18n()
+  if (!items.length) return null
+  return (
+    <View className="ai-card-section">
+      <View className="ai-card-section-head">
+        <LineIcon name="book-open" size={28} color="var(--color-primary)" />
+        <Text className="ai-card-section-title">{t('ai.cards.citation.title')}</Text>
+        <Text className="ai-card-section-count">{items.length}</Text>
+      </View>
+      {items.map((item, i) => (
+        <View className="ai-card-term-item" key={`${item.source}_${i}`}>
+          <View className="ai-card-term-cmd">
+            <Text className="ai-card-term-prompt">·</Text>
+            <Text className="ai-card-term-command">{item.label}</Text>
+          </View>
+          <View className="ai-card-term-meta">
+            <Text className="ai-card-term-duration">{item.source}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  )
+}
+
 /* ===================== 容器:折叠 / 三类卡片汇总 ===================== */
 export interface StreamActivityCardsProps {
   planSteps: PlanStepView[]
   toolCalls: ToolCallView[]
   terminalTasks: TerminalTaskView[]
   injections: readonly InjectionRowData[]
+  citations: readonly { source: string; label: string; url?: string }[]
   expanded: boolean
   onToggleExpand: () => void
 }
@@ -354,11 +385,17 @@ export function StreamActivityCards({
   toolCalls,
   terminalTasks,
   injections,
+  citations,
   expanded,
   onToggleExpand,
 }: StreamActivityCardsProps) {
   const { t } = useI18n()
-  const total = planSteps.length + toolCalls.length + terminalTasks.length + injections.length
+  const total =
+    planSteps.length +
+    toolCalls.length +
+    terminalTasks.length +
+    injections.length +
+    citations.length
   if (total === 0) return null
   return (
     <View className="ai-card-root">
@@ -380,6 +417,7 @@ export function StreamActivityCards({
           <ToolCallCard calls={toolCalls} />
           <TerminalCard tasks={terminalTasks} />
           <InjectionCard items={injections} />
+          <CitationCard items={citations} />
         </View>
       ) : null}
     </View>
