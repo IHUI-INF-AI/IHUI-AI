@@ -187,7 +187,7 @@
     },
     {
       "id": "context-injection-disclosure",
-      "title": "本轮上下文注入交代条(前端本地化 kind 标签 + 可展开全文 + 段数计数)",
+      "title": "本轮上下文注入交代条(web/extension/miniapp-taro 三端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
       "sourceTask": "D34/D45",
       "events": ["injection_applied"],
       "anchors": [
@@ -214,6 +214,18 @@
         {
           "file": "apps/extension/entrypoints/sidepanel/pages/ChatPage.tsx",
           "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/api/index.ts",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
+          "mustMatch": "onInjectionApplied"
+        },
+        {
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/cards/ai-cards.tsx",
+          "mustMatch": "ai.cards.injection.title"
         }
       ]
     },
