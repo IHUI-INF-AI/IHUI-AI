@@ -131,7 +131,7 @@ server.publish()  // One-click publish to the MCP marketplace
 #### 1. Complete technical architecture (directly evaluable)
 ```
 Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-Backend:  Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+Backend:  Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:       LangGraph + LiteLLM + MCP protocol
 Deploy:   Docker Compose / Kubernetes / Helm Chart
 Monitor:  Prometheus + Grafana + Sentry + Loki

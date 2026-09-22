@@ -21,7 +21,7 @@ const selfHostJsonLd = {
       datePublished: '2024-01-01',
       dateModified: '2026-08-01',
       proficiencyLevel: 'Expert',
-      dependencies: ['Docker 24+', 'Kubernetes 1.28+', 'PostgreSQL 16+', 'Redis 7+'],
+      dependencies: ['Docker 24+', 'Kubernetes 1.28+', 'PostgreSQL 18+', 'Redis 7+'],
     },
     {
       '@type': 'BreadcrumbList',
@@ -132,7 +132,7 @@ open http://localhost:8801
               <li><code className="rounded bg-muted px-1">8801</code> — Web 前端(Next.js 16)</li>
               <li><code className="rounded bg-muted px-1">3001</code> — API 后端(Fastify 5)</li>
               <li><code className="rounded bg-muted px-1">8000</code> — AI Service(FastAPI)</li>
-              <li><code className="rounded bg-muted px-1">5432</code> — PostgreSQL 16</li>
+              <li><code className="rounded bg-muted px-1">5432</code> — PostgreSQL 18</li>
               <li><code className="rounded bg-muted px-1">6379</code> — Redis 7</li>
             </ul>
           </div>

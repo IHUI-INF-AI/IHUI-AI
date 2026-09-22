@@ -4,6 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 // §22c:直接 import 源脚本导出的 __test__,不维护任何"镜像常量",杜绝源/测两份真相漂移。
 // §22d:源脚本的 main() 受 isDirectRun 守护,被 import 时不得有任何副作用。
@@ -12,7 +13,18 @@ import { __test__ as src } from '../check-no-visible-spawn.mjs'
 test('导入源模块不得触发 main() 副作用(§22d isDirectRun)', () => {
   // 若 main() 被误执行,进程会因 process.exit 在此处直接终止,断言根本跑不到;
   // 这里额外校验导出对象形状齐全。
-  for (const key of ['scanSource', 'scanCallEnd', 'skipQuoted', 'firstArg', 'isConsoleTarget', 'listCandidates', 'CONSOLE_LITERALS']) {
+  for (const key of [
+    'scanSource',
+    'scanCallEnd',
+    'skipQuoted',
+    'firstArg',
+    'isConsoleTarget',
+    'listCandidates',
+    'CONSOLE_LITERALS',
+    'stripSelfTestRegions',
+    'SELFTEST_BEGIN',
+    'SELFTEST_END',
+  ]) {
     assert.ok(key in src, `__test__ 缺少导出键 ${key}`)
   }
 })
@@ -134,5 +146,45 @@ test('scanSource: 违规项带文件名/行号/函数名,便于定位', () => {
   assert.equal(v.file, 'scripts/x.mjs')
   assert.equal(v.line, 2)
   assert.equal(v.fn, 'execSync')
+})
+
+// ---------- self-test 样例区自我豁免(2026-09-22 修"全量扫描恒红"引入) ----------
+
+const SAMPLE_INSIDE = `spawnSync('git', ['status'])`
+const SAMPLE_OUTSIDE = `execSync('git log -1')`
+function fixtureWithRegion() {
+  return [
+    `function selfTest() {`,
+    src.SELFTEST_BEGIN,
+    `  const cases = [{ src: \`${SAMPLE_INSIDE}\` }]`,
+    src.SELFTEST_END,
+    `  ${SAMPLE_OUTSIDE}`,
+    `}`,
+  ].join('\n')
+}
+
+test('stripSelfTestRegions: 成对标记内清空且保留行数;标记缺失/不成对不豁免(宁红不漏)', () => {
+  const f = fixtureWithRegion()
+  const stripped = src.stripSelfTestRegions(f)
+  assert.equal(stripped.split('\n').length, f.split('\n').length, '行数必须保持不变(行号不漂移)')
+  assert.ok(!stripped.includes(SAMPLE_INSIDE), '区间内样例应被清空')
+  assert.ok(stripped.includes(SAMPLE_OUTSIDE), '区间外代码必须原样保留')
+  assert.equal(src.stripSelfTestRegions(`a\n${src.SELFTEST_BEGIN}\nb`), `a\n${src.SELFTEST_BEGIN}\nb`, '缺 end 标记 → 不豁免')
+  assert.equal(src.stripSelfTestRegions('const x = 1'), 'const x = 1', '无标记 → 原样返回')
+  const dup = [src.SELFTEST_BEGIN, 'a', src.SELFTEST_END, src.SELFTEST_BEGIN, 'b', src.SELFTEST_END].join('\n')
+  assert.equal(src.stripSelfTestRegions(dup), dup, '标记不成对(多于 1 组) → 不豁免')
+})
+
+test('自我豁免仅对本脚本自身生效,其他文件写同样标记无法绕过(防判据变松)', () => {
+  const f = fixtureWithRegion()
+  assert.equal(src.scanSource(f, 'scripts/check-no-visible-spawn.mjs').length, 1, '自身:区间外那 1 处仍必须被抓')
+  assert.equal(src.scanSource(f, 'scripts/some-other.mjs').length, 2, '其他文件:标记无效,区间内外 2 处都抓')
+})
+
+test('真实源文件必须恰好含 1 组成对 self-test 标记(缺失即豁免失效/恒红,需人审)', () => {
+  const self = readFileSync(new URL('../check-no-visible-spawn.mjs', import.meta.url), 'utf8')
+  assert.equal(self.split('\n').filter((l) => l.trim() === src.SELFTEST_BEGIN).length, 1)
+  assert.equal(self.split('\n').filter((l) => l.trim() === src.SELFTEST_END).length, 1)
+  assert.equal(src.scanSource(self, 'scripts/check-no-visible-spawn.mjs').length, 0, '自我扫描必须 0 违规(全量恒红回归的直接判据)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

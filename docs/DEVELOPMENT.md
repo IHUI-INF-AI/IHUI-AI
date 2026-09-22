@@ -19,7 +19,7 @@
 | Node.js | `>=20.10.0`(LTS 20.x) | 全端 JS 运行时(api / web / cli / desktop / extension / mobile-rn) |
 | pnpm | `>=9.0.0`(项目固定 `pnpm@9.15.0`) | Monorepo 包管理器,`corepack enable` 激活 |
 | Python | `3.12+`(仅 `apps/ai-service`) | FastAPI + LangGraph + LiteLLM |
-| PostgreSQL | `15+`(compose 用 `pgvector/pgvector:pg15-alpine`) | 主库,含 pgvector 扩展 |
+| PostgreSQL | `18+`(compose 用 `pgvector/pgvector:pg18`) | 主库,含 pgvector 扩展 |
 | Redis | `7+`(compose 用 `redis:7-alpine`) | 缓存 / BullMQ 队列 / WebSocket Pub/Sub |
 | Docker | `24+` + Compose v2 | 一键拉起 db / redis / 监控栈 |
 | Git | `2.40+`,`core.autocrlf=false` | 项目强制 `endOfLine: lf` |
@@ -281,7 +281,7 @@ pnpm --filter @ihui/database seed
 
 | 步骤 | 命令 | 作用 |
 |---|---|---|
-| 1 | `docker compose up -d db redis` | 拉起 `pgvector/pgvector:pg15-alpine` + `redis:7-alpine` |
+| 1 | `docker compose up -d db redis` | 拉起 `pgvector/pgvector:pg18` + `redis:7-alpine` |
 | 2 | `pg_isready -U ihui` | 等待 DB 接受连接(最多 30 次重试) |
 | 3 | `db:generate` | 对比 `src/schema/` 与上一次迁移,生成 SQL 差异文件到 `drizzle/` |
 | 4 | `db:migrate` | 执行 `drizzle/*.sql` 迁移文件 |

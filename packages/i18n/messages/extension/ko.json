@@ -165,6 +165,7 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
+    "retryMessage": "재시도",
     "citationTitle": "참조 출처",
     "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
     "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
@@ -435,6 +436,31 @@
       "benefitsTitle": "포함된 혜택",
       "note": "가격과 혜택은 웹 버전의 실제 표시를 따릅니다.",
       "open": "웹 버전에서 개통"
+    }
+  },
+  "permissionTier": {
+    "label": "권한 등급",
+    "mode": {
+      "default": {
+        "title": "기본 모드",
+        "desc": "모든 작업에 수동 승인 필요(가장 안전)"
+      },
+      "plan": {
+        "title": "읽기 전용 계획",
+        "desc": "읽기와 검색만 허용, 파일 쓰기와 명령 실행은 거부"
+      },
+      "accept-edits": {
+        "title": "편집 허용",
+        "desc": "허용 목록 작업은 자동 실행, 나머지는 확인 요청"
+      },
+      "bypass-permissions": {
+        "title": "권한 우회",
+        "desc": "확인 없는 전체 접근(고위험)"
+      },
+      "unknown": {
+        "title": "알 수 없는 모드",
+        "desc": "인식되지 않은 권한 모드, 기본값으로 처리"
+      }
     }
   }
 }

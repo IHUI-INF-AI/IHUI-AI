@@ -45,7 +45,6 @@ const { mockT } = vi.hoisted(() => {
     shortcutsGroupTrigger: '触发器',
     shortcutSectionNav: '折叠子区上下切换',
     shortcutSectionFirstLast: '跳到第一个/最后一个子区',
-    shortcutShowHelp: '打开/关闭快捷键帮助',
     shortcutCloseHelp: '关闭快捷键帮助',
     shortcutTogglePane: '切换面板开关',
     shortcutOpenPane: '在输入框打开面板',

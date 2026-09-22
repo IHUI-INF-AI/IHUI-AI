@@ -106,7 +106,7 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ;    必须放文件头的无条件 Var 区(见 Var IHUICNC 之后)。
 !macro IHUI_LOG MSG
   IntOp $IHUI_LOGN $IHUI_LOGN + 1
-  FileOpen $8 "D:\caches\Temp\ihui-installer-verify\trace-$IHUI_LOGN-${MSG}.txt" w
+  FileOpen $8 "$TEMP\ihui-installer-verify\trace-$IHUI_LOGN-${MSG}.txt" w
   FileWrite $8 "${MSG}$\r$\n"
   FileClose $8
 !macroend
@@ -137,31 +137,31 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_CTA_W      144
 !define IHUI_CANCEL_X   288   ; 取消钮左缘(宽 96 → 288..384)
 !define IHUI_CANCEL_W   96
-!define IHUI_FINISH_X   712   ; 完成钮左缘(宽 120 → 712..832)
-!define IHUI_FINISH_W   120
-!define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14,上下各 4)
-!define IHUI_EDIT_Y     304
+!define IHUI_FINISH_X   688   ; 完成钮左缘(宽 144 → 688..832,与其余 CTA 同槽同宽)
+!define IHUI_FINISH_W   144
+!define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14)
+!define IHUI_EDIT_Y     306
 !define IHUI_EDIT_W     384
-!define IHUI_EDIT_H     32    ; 输入框 sm 档 h-8
-!define IHUI_BROWSE_X   728   ; 浏览钮(裸文字链接样式,无背景容器)728..832
-!define IHUI_BROWSE_Y   300
+!define IHUI_EDIT_H     28    ; xs 档 h-7:容器收成 36 高后与输入框同基线,不再"框下空一行"
+!define IHUI_BROWSE_X   728   ; 浏览钮(次级按钮:卡底 + 1.5px 描边)728..832
+!define IHUI_BROWSE_Y   302
 !define IHUI_BROWSE_W   104
-!define IHUI_BROWSE_H   40
+!define IHUI_BROWSE_H   36    ; 与路径容器同高同基线(302..338),两者读作一行控件
 !define IHUI_TGL_X      288   ; 完成页三行开关(与 finish.bmp 烧入标签同 y)
 !define IHUI_TGL_Y1     340
 !define IHUI_TGL_Y2     392
 !define IHUI_TGL_Y3     444
 !define IHUI_PB_X       288   ; 品牌进度条轨道(instfiles.bmp 已烧轨道底)
-!define IHUI_PB_Y       300
+!define IHUI_PB_Y       306
 !define IHUI_PB_W       544
-!define IHUI_PB_H       8
-!define IHUI_PCT_X      632   ; 百分比大字槽(右对齐至 832)
-!define IHUI_PCT_Y      186
-!define IHUI_PCT_W      200
-!define IHUI_PCT_H      64
-!define IHUI_PCT_PX     56    ; 百分比字号(逻辑像素)
+!define IHUI_PB_H       10
+!define IHUI_PCT_X      288   ; 百分比大字槽(右对齐至 748,右侧由位图烧 % 字形)
+!define IHUI_PCT_Y      240
+!define IHUI_PCT_W      460
+!define IHUI_PCT_H      58
+!define IHUI_PCT_PX     48    ; 百分比字号(逻辑像素)
 !define IHUI_STG_X      288   ; 阶段文案槽
-!define IHUI_STG_Y      322
+!define IHUI_STG_Y      334
 !define IHUI_STG_W      544
 !define IHUI_STG_H      22
 !define IHUI_STG_PX     13    ; 阶段文案字号(逻辑像素)
@@ -298,7 +298,9 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     System::Call "user32::SetWindowRgn(p $IHUIPB2, p R3, i 1)"
   ${EndIf}
   ${If} $IHUIPCT <> 0
-    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}%"
+    ; % 字形已烧在位图里(与数字同一条基线、同套配色),这里只写数字 ——
+    ; 否则运行期再补一个 % 会变成 "92% %"(2026-09-22 截图实锤)。
+    !insertmacro IHUI_SETTEXT $IHUIPCT "${PCT}"
   ${EndIf}
   ${If} $IHUISTG <> 0
     !insertmacro IHUI_SETTEXT $IHUISTG "${TEXT}"
@@ -374,8 +376,16 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     ShowWindow $R5 5
     ; BS_BITMAP = 0x00000040;保留原样式其余位
     System::Call "user32::GetWindowLongW(p R5, i -16) p .r6"
+    ; 样式四步(2026-09-22 用户反馈「继续」钮周围"乱七八糟"的根治):
+    ;   & -65 / | 64   → 清 BS_OWNERDRAW 等,置 BS_BITMAP(0x40) 让按钮画我们给的位图;
+    ;   | 32768        → BS_FLAT,去掉原生主题给按钮画的那圈边框。缺它时位图的圆角外
+    ;                    会漏出系统浅色底,看起来像"套了第二层框"。
+    ;   & -65537       → 清 WS_TABSTOP,按钮不再获取焦点 → 那圈系统焦点虚线框消失。
+    ;                    点击仍走 BN_CLICKED 原生路由,不依赖焦点,推进链不受影响。
     IntOp $6 $6 & -65
     IntOp $6 $6 | 64
+    IntOp $6 $6 | 32768
+    IntOp $6 $6 & -65537
     System::Call "user32::SetWindowLongW(p R5, i -16, i r6)"
     System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r7"
     ${If} $7 <> 0
@@ -410,16 +420,21 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ; 洞区透出的是外层窗口类背景刷(已在 IHUIInstShow/done-theme 置为 #242424),
 ; 与位图底色一致 → 视觉无缝。
 ; 参数: INCLCTA 1=连 CTA 槽一起挖(完成态) 0=只挖取消槽(安装中)
-!macro IHUI_INST_HOLES INCLCTA
+; 参数: INCLCTA=是否挖 CTA 洞 / INCLCANCEL=是否挖取消洞。
+; ⚠️ 完成态必须传 INCLCANCEL=0:核心在 done 态会把原生钮 2 重新置为可见,洞还开着
+;   就会让未贴皮的原生按钮从洞里露出来(2026-09-22 截图实锤:左下一块空白浅灰矩形)。
+!macro IHUI_INST_HOLES INCLCTA INCLCANCEL
   System::Call "gdi32::CreateRectRgn(i 0, i 0, i $IHUIWW, i $IHUIWH) p .R1"
-  ; 取消槽: 按钮盒 (288,500)-(384,540),洞区外扩 2px → (286,498)-(386,542)
-  !insertmacro IHUI_PX $R2 286
-  !insertmacro IHUI_PX $R3 498
-  !insertmacro IHUI_PX $R4 386
-  !insertmacro IHUI_PX $R5 542
-  System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
-  System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
-  System::Call "gdi32::DeleteObject(p R6)"
+  ${If} ${INCLCANCEL} = 1
+    ; 取消槽: 按钮盒 (288,500)-(384,540),洞区外扩 2px → (286,498)-(386,542)
+    !insertmacro IHUI_PX $R2 286
+    !insertmacro IHUI_PX $R3 498
+    !insertmacro IHUI_PX $R4 386
+    !insertmacro IHUI_PX $R5 542
+    System::Call "gdi32::CreateRectRgn(i R2, i R3, i R4, i R5) p .R6"
+    System::Call "gdi32::CombineRgn(p R1, p R1, p R6, i 4)"
+    System::Call "gdi32::DeleteObject(p R6)"
+  ${EndIf}
   ${If} ${INCLCTA} = 1
     ; CTA 槽: 按钮盒 (688,500)-(832,540),洞区外扩 2px → (686,498)-(834,542)
     !insertmacro IHUI_PX $R2 686
@@ -590,7 +605,33 @@ Function IHUIOnDragTick
   !insertmacro IHUI_ONDRAGTICK_BODY
 FunctionEnd
 
+; ---- 取档规则:选"最小且 ≥ 该 DPI"的档(向上取档),不是就近取档 ----
+; 旧规则按中点(108/132/156)就近取档 → 小数缩放(110%/112.5%/133%/144%)会落到**更低**一档,
+; 位图尺寸小于客户区,被 STATIC 拉伸铺满 → 整页发糊(用户报"安装包/卸载器图像像素低看不清")。
+; 向上取档后位图恒 ≥ 客户区,STATIC 做的是**降采样**;恰好落在整数档(96/120/144/168/192)时
+; 仍是 1:1,零代价。代价只有小数缩放屏上多解压一档体积(单档,不是全档)。
+; 两处判定(系统档 / 窗口档)必须同规则,否则每个品牌页都会触发"档位不一致补解压"。
+; NSIS 宏参数必须写成 ${NAME} 才会被替换;写成 $NAME 会被当成字面量变量
+;   → 报 unknown variable / StrCpy Usage(macroline 定位到宏体内,不指向真因)。
+!macro IHUI_TIER_OF DPIVAR TIENVAR
+  ${If} ${DPIVAR} <= 96
+    StrCpy ${TIENVAR} "100"
+  ${ElseIf} ${DPIVAR} <= 120
+    StrCpy ${TIENVAR} "125"
+  ${ElseIf} ${DPIVAR} <= 144
+    StrCpy ${TIENVAR} "150"
+  ${ElseIf} ${DPIVAR} <= 168
+    StrCpy ${TIENVAR} "175"
+  ${Else}
+    StrCpy ${TIENVAR} "200"
+  ${EndIf}
+!macroend
 ; ---- 系统档位推导(splash 用, .onInit 调用) ----
+; 布局 DPI 上限(顶档 192 = 200%)。可被 makensis -DIHUI_DPI_CAP=96 等覆盖,
+; 用途:在普通屏上以低阈值复现"封顶生效"路径取证(位图恒 >= 客户区,永不拉伸)。
+!ifndef IHUI_DPI_CAP
+  !define IHUI_DPI_CAP 192
+!endif
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
   System::Call "user32::GetDpiForSystem() i .s"
@@ -599,17 +640,12 @@ FunctionEnd
   ${If} $IHUIDPI < 96
     StrCpy $IHUIDPI 96
   ${EndIf}
-  ${If} $IHUIDPI > 168
-    StrCpy $IHUITIER "200"
-  ${ElseIf} $IHUIDPI > 156
-    StrCpy $IHUITIER "175"
-  ${ElseIf} $IHUIDPI > 132
-    StrCpy $IHUITIER "150"
-  ${ElseIf} $IHUIDPI > 108
-    StrCpy $IHUITIER "125"
-  ${Else}
-    StrCpy $IHUITIER "100"
+  ; 与 IHUI_GUIINIT_SIZE 同一条上限:系统 DPI 也钉在顶档 192,否则开屏帧会按
+  ; 更高的 DPI 出尺寸而资产只有 200% 档 → 拉伸发糊。
+  ${If} $IHUIDPI > ${IHUI_DPI_CAP}
+    StrCpy $IHUIDPI ${IHUI_DPI_CAP}
   ${EndIf}
+  !insertmacro IHUI_TIER_OF $IHUIDPI $IHUITIER
 !macroend
 
 ; =====================================================================
@@ -629,17 +665,14 @@ FunctionEnd
   ${If} $IHUIDPIW < 96
     StrCpy $IHUIDPIW 96
   ${EndIf}
-  ${If} $IHUIDPIW > 168
-    StrCpy $IHUIWTIER "200"
-  ${ElseIf} $IHUIDPIW > 156
-    StrCpy $IHUIWTIER "175"
-  ${ElseIf} $IHUIDPIW > 132
-    StrCpy $IHUIWTIER "150"
-  ${ElseIf} $IHUIDPIW > 108
-    StrCpy $IHUIWTIER "125"
-  ${Else}
-    StrCpy $IHUIWTIER "100"
+  ; 上限封顶在顶档 192(=200%):资产只烘到 200%,再高的话位图就小于客户区、
+  ; 被 STATIC 拉伸 → 重新发糊。与其为 225%/250% 再往仓库塞 ~223 MB 位图,
+  ; 不如把**布局 DPI** 钉在 192:窗口按 200% 出图,在 250% 屏上只是比系统缩放
+  ; 小一档,但永远 1:1 或降采样、绝不拉伸(清晰 > 尺寸合身)。
+  ${If} $IHUIDPIW > ${IHUI_DPI_CAP}
+    StrCpy $IHUIDPIW ${IHUI_DPI_CAP}
   ${EndIf}
+  !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
   !insertmacro IHUI_PX $IHUIWW 880
   !insertmacro IHUI_PX $IHUIWH 600
   ; 工作区(R5..R8 已由 IHUIGuiInit 读出)居中
@@ -688,6 +721,12 @@ FunctionEnd
     System::Call "user32::SetWindowRgn(p $HWNDPARENT, p R0, i 1)"
   ${EndIf}
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
+  ; 取证打点(仅 -DIHUI_TRACE=1;发布构建宏体为空,零副作用):
+  ; 把"系统档 DPI / 封顶后布局 DPI / 两个档位"塞进文件名,用来钉死 >192 封顶路径
+  ; —— 本机没有超高缩放屏,只能靠单进程 __COMPAT_LAYER=DPI400SCALE 造出来。
+  ; ⚠️ 这里只能放 $变量(文件名是运行期字符串);!define 的 ${IHUI_DPI_CAP}(=192)
+  ;    在宏实参里**不会被预处理器展开**,写进去只会在文件名里留下字面量(实测踩到)。
+  !insertmacro IHUI_LOG "guiinit-sys-$IHUIDPI-win-$IHUIDPIW-tier-$IHUITIER-wtier-$IHUIWTIER"
 !macroend
 
 Function IHUIGuiInit
@@ -1090,7 +1129,7 @@ Function IHUIInstShow
   ; 灰化 → 槽位变成一个灰色块,正是 r9/v10 明令根除的"看着能点其实不能点"死按钮。
   ; 故本页不再摆取消钮,保持 IHUI_HIDE_ALL 的隐藏+移屏状态。退出通路 = 完成后「继续 ›」
   ; 与窗口 WS_SYSMENU 下的 Alt+F4(与原生语义一致:文件复制中本就不允许取消)。
-  !insertmacro IHUI_INST_HOLES 0
+  !insertmacro IHUI_INST_HOLES 0 1
   ; ---- 进度区(2026-09-22「墨光」改版) ----
   ; 视觉主体 = 自绘品牌进度条(bar-fill.bmp + SetWindowRgn 按百分比裁宽)。
   ; 原生 msctls_progress32 必须彻底退出视觉:它由 NSIS 核心自行推进,与阶段驱动
@@ -1161,10 +1200,6 @@ FunctionEnd
   ; 完成态:百分比与品牌条打满(阶段驱动的最后一级;POSTINSTALL hook 触发)
   !insertmacro IHUI_PROGRESS 100 "安装完成"
   !insertmacro IHUI_LOG "doneTheme_entry"
-  ; 决定性探针: 宏执行即写标记文件(r76-v6 全白疑云,判定宏是否真跑)
-  FileOpen $0 "D:\caches\Temp\ihui-installer-verify\done-theme-ran.txt" w
-  FileWrite $0 "IHUI_INST_DONE_THEME executed"
-  FileClose $0
   ; ---- 0) 外层窗口类背景刷换品牌黑(挖洞区透出的底色;安装期已设,此处兜底) ----
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
   System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
@@ -1172,6 +1207,12 @@ FunctionEnd
   !insertmacro IHUI_DESTROY $IHUICNC 0 0 0 0 0
   StrCpy $IHUICNC 0
   StrCpy $IHUINXT 0
+  ; 原生 2(取消)移出屏幕:完成态它无意义,且核心会重新置为可见 —— 不移屏就会从没挖的
+  ; 洞区露出未贴皮的原生按钮。核心只改可见性不改坐标,故移屏时序无关、确定性生效。
+  GetDlgItem $0 $HWNDPARENT 2
+  ${If} $0 <> 0
+    System::Call "user32::MoveWindow(p r0, i -4000, i -4000, i 100, i 24, i 1)"
+  ${EndIf}
   ; ---- 2) 原生 1/2 摆进品牌槽位(点击通路 = 核心原生路由,r76 物理点击实证) ----
   ; 继续/完成(原生1): 逻辑 688,500 144x40 —— 与 btn-continue.bmp(144x40) 等大
   !insertmacro IHUI_INST_SLOT 1 btn-continue.bmp ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40
@@ -1184,7 +1225,7 @@ FunctionEnd
   ; ---- 3) 品牌位图覆盖层(STATIC 无 SS_NOTIFY → 鼠标穿透直达下层原生钮) ----
   ; ---- 4) 内层 dialog 挖洞(CTA+取消两槽) ----
   ;      Z 序无关: 核心 done 态再提顶内层也盖不住槽位;洞区透外层类背景刷。
-  !insertmacro IHUI_INST_HOLES 1
+  !insertmacro IHUI_INST_HOLES 1 0
   ; ---- 5) 内层压底(二重保险: 万一某系统上 region 挖洞对子窗口命中不生效,
   ;      压底仍能让槽位里的原生钮处于最上层可点状态) ----
   FindWindow $0 "#32770" "" $HWNDPARENT

@@ -163,7 +163,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
 
   // 桌面端快捷键全局监听(2026-07-26 迁移:从 NativeTopBar 移到 GlobalShell,
   // 因为 NativeTopBar 已删除,窗口控制按钮跟随 TagsView 一起搬到 MainShell 内部)
-  // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Shift+A / Ctrl+Q
+  // - 全局路由都能响应 Ctrl+R / F12 / Ctrl+Q
   // - 走 dispatchMenuAction 单一逻辑源
   useNativeShortcuts((id) => void dispatchMenuAction(id))
 

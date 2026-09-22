@@ -3,12 +3,18 @@
     "notFound": "{target} not found"
   },
   "cli": {
+    "permNoteDefault": "Every step asks for confirmation (safest)",
+    "permNotePlan": "Plan only: your files stay untouched until you approve",
+    "permNoteAcceptEdits": "File edits auto-approved; commands and dangerous tools still ask",
+    "permNoteBypass": "No per-step confirmation — the AI may edit files and run commands directly (high risk)",
+    "permNoteManual": "Everything needs manual approval, including read-only lookups",
     "citationSources": "Sources: {sources}",
     "injectionApplied": "Context for this turn: {sources}",
     "injectionSrcDeveloper": "custom instructions",
     "injectionSrcWorkspace": "workspace memory",
     "injectionSrcRepoWiki": "repository wiki",
     "injectionSrcAutoContext": "{count} retrieved context blocks",
+    "retryHint": "Press ↑ to recall your last message and resend it",
     "retryScheduled": "Upstream unavailable: retry {attempt} of {max} in {seconds}s",
     "retryScheduledNow": "Upstream unavailable: retry {attempt} of {max} now",
     "sessionResumed": "Resumed recent session: {id} ({count, plural, =0 {no messages} one {# message} other {# messages}})",

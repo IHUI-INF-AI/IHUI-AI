@@ -38,6 +38,7 @@ import {
 import type { TreeNode } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, ConfirmDialog } from '@/components/feedback'
+import { useTreeSelectLabels } from '@/hooks/use-tree-select-labels'
 
 /** 分类实体(与各域 types.ts 的 Category 结构一致;createdAt 非渲染必需,可选兼容各域) */
 export interface AdminCategory {
@@ -244,6 +245,7 @@ export function AdminCategoryDialog<T extends AdminCategory>({
   categories,
   labels,
 }: AdminCategoryDialogProps<T>) {
+  const tsLabels = useTreeSelectLabels()
   const treeData = React.useMemo<TreeNode[]>(
     () => categories.map((c) => ({ id: c.id, label: c.name, pid: c.pid })),
     [categories],
@@ -272,6 +274,7 @@ export function AdminCategoryDialog<T extends AdminCategory>({
               onChange={(v) => setForm({ ...form, pid: v ?? '' })}
               data={treeData}
               placeholder={labels.rootCategory}
+              labels={tsLabels}
             />
           </div>
           <div className="space-y-2">

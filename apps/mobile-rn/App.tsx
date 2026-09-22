@@ -4,7 +4,7 @@
 
 import './global.css'
 import { useCallback, useEffect, useState } from 'react'
-import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
+import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -15,6 +15,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
+import { DevErrorToast } from './src/components/DevErrorToast'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
@@ -25,6 +26,7 @@ import {
   type OAuthRedirectResult,
 } from './src/lib/oauth-deeplink'
 import { rnAuthStore } from './src/stores/auth-store'
+import { rnLightTokens } from '@ihui/design-tokens'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
@@ -50,6 +52,12 @@ const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+// dev 报错悬浮条(替换内核 LogBox,见 src/components/DevErrorToast.tsx):
+// 抑制 LogBox UI(metro 终端日志不受影响),报错统一走 DevErrorToast 展示
+if (__DEV__) {
+  LogBox.ignoreAllLogs()
+}
+
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
   return (
@@ -69,6 +77,7 @@ function AppInner() {
     <>
       <OfflineBanner isOnline={isOnline} />
       <ThemedNavigation />
+      <DevErrorToast />
     </>
   )
 }
@@ -141,7 +150,13 @@ function AppContent() {
   }, [])
 
   return (
-    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
+    // backgroundColor 兜底:悬浮 TabBar 留边/根节点透明的屏(ProfileScreen 等 Fragment 根)
+    // 会露出原生窗口黑底(#000000 splash)。主 tab 页均为静态浅色 token 渲染,
+    // 故取浅色 surface.bg 与页面底色一致;暗色主题全量落地时再随主题切换。
+    <View
+      className={resolvedTheme === 'dark' ? 'dark' : ''}
+      style={{ flex: 1, backgroundColor: rnLightTokens.surface.bg }}
+    >
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>

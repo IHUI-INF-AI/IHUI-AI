@@ -7,6 +7,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn(),
+  sendToolApprovalResponse: vi.fn(),
+  getWorkspacePermissionDefault: vi.fn(() => Promise.resolve({ success: false })),
 }))
 
 vi.mock('../src/i18n', () => ({
@@ -17,7 +19,10 @@ vi.mock('../src/i18n', () => ({
   }),
 }))
 
-import { AgentRuntimePanel } from '../entrypoints/sidepanel/components/AgentRuntimePanel'
+import {
+  AgentRuntimePanel,
+  WorkspacePermissionTierRow,
+} from '../entrypoints/sidepanel/components/AgentRuntimePanel'
 
 describe('AgentRuntimePanel', () => {
   it('mounts without crashing', () => {
@@ -32,6 +37,27 @@ describe('AgentRuntimePanel', () => {
     expect(html).toContain('agent-runtime-input')
     expect(html).toContain('agent-runtime-send')
     expect(html).toContain('agent-runtime-panel')
+  })
+})
+
+describe('WorkspacePermissionTierRow(D111:权限档交代行)', () => {
+  it('有档位时出档名与后果两段词表键(取词走共享 permissionTierWordKeys)', () => {
+    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="accept-edits" />)
+    expect(html).toContain('workspace-permission-tier')
+    expect(html).toContain('permissionTier.label')
+    expect(html).toContain('permissionTier.mode.accept-edits.title')
+    expect(html).toContain('permissionTier.mode.accept-edits.desc')
+  })
+
+  it('未知档落 unknown 键,绝不显示成 default 档(授权误导防线)', () => {
+    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="yolo" />)
+    expect(html).toContain('permissionTier.mode.unknown.title')
+    expect(html).not.toContain('permissionTier.mode.default.title')
+  })
+
+  it('tier=null(取数失败)整行不渲染 —— 不假装知道档位', () => {
+    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier={null} />)
+    expect(html).not.toContain('workspace-permission-tier')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

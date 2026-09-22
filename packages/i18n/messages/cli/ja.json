@@ -3,12 +3,18 @@
     "notFound": "{target} が見つかりません"
   },
   "cli": {
+    "permNoteDefault": "すべての手順で確認を求めます(最も安全)",
+    "permNotePlan": "プランのみ:承認までファイルは変更されません",
+    "permNoteAcceptEdits": "ファイル編集は自動承認、コマンドと危険ツールは確認します",
+    "permNoteBypass": "手順ごとの確認なし。AI がファイルを直接変更しコマンドを実行します(高リスク)",
+    "permNoteManual": "読み取り照会も含め全操作を手動承認します",
     "citationSources": "参考元：{sources}",
     "injectionApplied": "このターンで参照したコンテキスト：{sources}",
     "injectionSrcDeveloper": "カスタム指示",
     "injectionSrcWorkspace": "ワークスペースメモリ",
     "injectionSrcRepoWiki": "リポジトリ Wiki",
     "injectionSrcAutoContext": "{count} 件の検索コンテキスト",
+    "retryHint": "↑ で前回の質問を呼び出して再送信できます",
     "retryScheduled": "上流が一時的に利用できません：{attempt}/{max} 回目を {seconds} 秒後に再試行",
     "retryScheduledNow": "上流が一時的に利用できません：{attempt}/{max} 回目を直ちに再試行",
     "sessionResumed": "最近のセッションを復元: {id} ({count, plural, =0 {履歴なし} other {# 件の履歴}})",

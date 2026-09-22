@@ -6,6 +6,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
+// G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
+import { findConversationById } from '../db/chat-queries.js'
+import { getPermission } from '../db/workspace-permission-queries.js'
+import {
+  permissionStamp,
+  workspacePathOfConversationMeta,
+} from '../services/message-permission-stamp.js'
 
 /**
  * AI 回调端点。
@@ -53,6 +60,39 @@ const persistedPlanStepSchema = z.looseObject({
   status: z.string(),
 })
 
+// G-166(2026-09-22 立)交代帧持久化:citations / injections 与各自 SSE 帧同源
+// (ai-service 侧同一个 _collect_citations / 同一份 injection_frames 列表)。
+// 结构与 packages/types/src/chat.ts 的 ChatMessage.citations / .injections 对齐,
+// 其余字段(url / count / fullText…)按 loose 透传落库,回放时前端直接消费。
+const persistedCitationSchema = z.looseObject({
+  source: z.string(),
+  label: z.string(),
+})
+
+const persistedInjectionSchema = z.looseObject({
+  kind: z.string(),
+  collapsed: z.string(),
+})
+
+// compaction(G-166 第②步):与 SSE compaction 帧同一载荷(_compaction_payload 单一真相源)。
+// 只锁"能判定这轮压缩过/撞过上限"的两个字段,token 统计与 trigger 按 loose 透传。
+const persistedCompactionSchema = z
+  .looseObject({
+    triggered: z.boolean(),
+    trigger: z.string(),
+  })
+  .refine((v) => v.triggered === true, { message: 'compaction.triggered 必须为 true 才留痕' })
+
+// retryNotice(G-166 第⑥步):网关换 key / 退避重试的最终一条记账,四字段全部由契约钉死
+// (apps/ai-service/app/core/sse_contract.py 的 retry_scheduled)。attempt 必须 ≥ 1 ——
+// "重试了 0 次"不是一种交代,而是一种噪声,不该占 metadata。
+const persistedRetryNoticeSchema = z.looseObject({
+  attempt: z.number().int().min(1),
+  maxRetries: z.number().int().min(1),
+  retryInMs: z.number().int().min(0),
+  httpStatus: z.number().int().optional(),
+})
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -65,6 +105,11 @@ const callbackSchema = z.object({
   terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
   // planSteps(2026-09-21 立):计划快照持久化通道(本轮无计划工具调用时不携带)
   planSteps: z.array(persistedPlanStepSchema).optional(),
+  // G-166:引用溯源 + 上下文注入交代持久化通道(本轮没有时不携带)
+  citations: z.array(persistedCitationSchema).optional(),
+  injections: z.array(persistedInjectionSchema).optional(),
+  compaction: persistedCompactionSchema.optional(),
+  retryNotice: persistedRetryNoticeSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -117,6 +162,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         toolCalls,
         terminalTasks,
         planSteps,
+        citations,
+        injections,
+        compaction,
+        retryNotice,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -148,6 +197,24 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               }
             | undefined
           const tokens = usageObj?.total_tokens
+          // G-165:给助手消息盖**服务端自己的**权限档记录。
+          // 只认 workspace_permissions 表(经会话 metadata 里的 workspacePath 反查),
+          // 不接受客户端自报 —— 自报等于让调用方给审计记录贴金("我当时在只读档")。
+          // 取不到工作区/档位不可识别 → 不写 key(与"确实处于 default 档"是两回事)。
+          let permissionMeta: Record<string, string> = {}
+          try {
+            const conv = await findConversationById(conversationId)
+            const wsPath = workspacePathOfConversationMeta(conv?.metadata)
+            if (wsPath) {
+              const perm = await getPermission(userId, wsPath)
+              permissionMeta = permissionStamp(perm?.mode)
+            }
+          } catch (e) {
+            request.log.warn(
+              { err: e instanceof Error ? e.message : String(e), conversationId },
+              '[permission-stamp] 档位盖章失败(不影响消息落库)',
+            )
+          }
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
@@ -175,6 +242,14 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               // 且 worker 侧是浅合并({ ...prevMeta, ...metadata }),不写 key 就不会
               // 覆盖既有 metadata(toolCalls / pendingQuestion 等)。
               ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+              // G-166:交代帧同规则 —— 空数组不写 key("本轮无引用/无注入"),
+              // worker 侧浅合并因此不会把既有 key 抹掉。
+              ...(citations && citations.length > 0 ? { citations } : {}),
+              ...(injections && injections.length > 0 ? { injections } : {}),
+              ...(compaction ? { compaction } : {}),
+              ...(retryNotice ? { retryNotice } : {}),
+              // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
+              ...permissionMeta,
             },
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
