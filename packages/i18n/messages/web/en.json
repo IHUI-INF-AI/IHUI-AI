@@ -9075,6 +9075,8 @@
         "archiveTitle": "Archived conversations",
         "viewArchived": "View archived"
       },
+      "ceilingTitle": "Context compaction has reached its limit",
+      "ceilingHint": "Start a new conversation, or trim the context (e.g. disable unneeded MCP tools / skills).",
       "dividerTitle": "Earlier history compressed to summary",
       "dividerDescription": "Context compressed from {before} to {after} tokens; earlier messages were folded into a summary",
       "dividerSaved": "{ratio}% saved"
