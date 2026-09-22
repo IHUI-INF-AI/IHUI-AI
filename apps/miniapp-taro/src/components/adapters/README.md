@@ -15,20 +15,39 @@
 `onClick` → `onTap`,`overflowX:auto` → `ScrollView` 等),本目录为 Taro 端**薄适配层**,
 复用 `packages/app` 的 props 契约、状态机、主题 token 注入逻辑,仅替换 web 元素。
 
-## 2. 当前已迁移(6 个通用件:起步 3 + 二批 3)
+## 2. 当前已迁移(3 个,全部已在 page 接线)
 
-| 共享组件                      | Taro 适配文件             | 行数 | 替换要点                                                                                        |
-| ----------------------------- | ------------------------- | ---- | ----------------------------------------------------------------------------------------------- |
-| `packages/app/SectionHeader`  | `SectionHeader.taro.tsx`  | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                                   |
-| `packages/app/ColorfulLoader` | `ColorfulLoader.taro.tsx` | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin`           |
-| `packages/app/Selecter`       | `Selecter.taro.tsx`       | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留            |
-| `packages/app/Carousel`       | `Carousel.taro.tsx`       | ~190 | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay |
-| `packages/app/NavBar`         | `NavBar.taro.tsx`         | ~120 | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传                      |
-| `packages/app/UserInfoCard`   | `UserInfoCard.taro.tsx`   | ~180 | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                             |
+| 共享组件                      | Taro 适配文件             | 行数 | 替换要点                                                                              |
+| ----------------------------- | ------------------------- | ---- | -------------------------------------------------------------------------------------- |
+| `packages/app/SectionHeader`  | `SectionHeader.taro.tsx`  | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                         |
+| `packages/app/ColorfulLoader` | `ColorfulLoader.taro.tsx` | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin` |
+| `packages/app/Selecter`       | `Selecter.taro.tsx`       | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留  |
 
-2026-09-22 二批清理另移除 `PayButton` / `TabBar` / `Toolbar` 三个适配器:端内支付按钮能力由
-`PayPopup` 承接(community + video-detail 在用),TabBar 走小程序原生 tabBar + `setTabBarStyle`,
-Toolbar 端内无对应物(仅职责不同的 `BottomActionBar`),三者均无接线对象。
+接线点:`pkg-learn/course/list` + `course-planet` + `pkg-shop/wallet/commission`(SectionHeader /
+ColorfulLoader)+ `components/ModelConfigDialog`(Selecter)。
+
+### 三批清理台账(2026-09-22,合计移除 4662 行零引用死代码)
+
+| 批次 | 对象 | 行数 | 判据 |
+| ---- | ---- | ---- | ---- |
+| 一批 | 9 个屏级适配器(Feedback/Settings/Order/Wallet/MessageCenter/StudyPlan/Certificate/NoteList/NoteDetail) | 3078 | 小程序端 9 个对应屏均有自有页面在跑,接线即造第三份实现 |
+| 二批 | PayButton / TabBar / Toolbar 适配器 + 端内孤儿 `components/PayButton.tsx` | 953 | 支付能力由 `PayPopup` 承接;TabBar 走原生 tabBar + `setTabBarStyle`;Toolbar 仅有职责不同的 `BottomActionBar` |
+| 三批 | Carousel / NavBar / UserInfoCard 适配器 | 631 | **同名 ≠ 同契约**(见下) |
+
+**三批判据(本目录最重要的教训)**:适配器复用 `packages/app` 的 props 契约,而端内同名组件早在
+P2-F 立项前就已各自演进,两者是**不重叠的两套接口**,接线等于掉功能:
+
+- `Carousel`:端内 `items`/`interval`/`onItemClick` + **`variant:'default'|'course'` + `courseMeta`**;
+  适配器 `banner`/`autoplayInterval`/`onItemPress`,**`variant`/`courseMeta` 命中 0**
+  → `pkg-learn/course-planet` 的课程卡模式会直接失效。
+- `NavBar`:端内 `showBack`/`bgColor`/`textColor`/`rightText`/`onRightClick`/`notification`/
+  **`variant:'default'|'ai-home'`**/`onMenuClick`(4 个 tabbar 首页级在用);适配器只有
+  `title`/`subtitle`/`transparent`/`statusBarHeight`。
+- `UserInfoCard`:端内吃扁平字段(`level`/`growthValue`/`growthMax`/`tokenValue`/`identityType`);
+  适配器吃 `userInfo` 对象 + `onRecharge`/`onEdit`/`onLogin`。
+
+后续若要跨端共享这三个,正解是**先统一 props 契约再下沉**,而不是把适配器接上去。
+守门 64(`scripts/check-adapter-wiring.mjs`)基线已清零,新增未接线适配器一律 BLOCK。
 
 ## 3. 架构原则
 
@@ -72,12 +91,12 @@ pnpm --filter @ihui/miniapp-taro typecheck      # TS 严格类型 0 错误
 pnpm --filter @ihui/miniapp-taro lint           # ESLint 0 错误(含 no-explicit-any)
 ```
 
-> 当前适配层保留 6 个通用组件适配器(起步 3 + 二批 3),其中 SectionHeader/ColorfulLoader/Selecter 已在 page 接线
+> 当前适配层保留 **3 个**适配器(SectionHeader / ColorfulLoader / Selecter),**全部已在 page 接线**
 > (`pkg-learn/course/list` + `course-planet` + `pkg-shop/wallet/commission` + `components/ModelConfigDialog`)。
-> 2026-09-22 两批清理零引用死代码:一批 9 个屏级适配器 3078 行(小程序端对应屏已有自有页面在跑),
-> 二批 PayButton/TabBar/Toolbar 732 行(支付能力由 `PayPopup` 承接、TabBar 走原生 tabBar、Toolbar 无对应物),
-> 同批连带端内零消费者的 `components/PayButton.tsx` 221 行,合计 4031 行。
-> 取证与判定见 `PROJECT_PLAN.md` P2-F.5/P2-F.6;新增适配器必须接线,由守门 64 `check-adapter-wiring.mjs` 强制。
+> 2026-09-22 三批清理零引用死代码合计 **4662 行**:一批 9 个屏级适配器 3078 行、
+> 二批 PayButton/TabBar/Toolbar + 端内孤儿 PayButton 共 953 行、
+> 三批 Carousel/NavBar/UserInfoCard 共 631 行(**同名但 props 契约不重叠,接线即掉功能**)。
+> 取证与判定见 `PROJECT_PLAN.md` P2-F.5/P2-F.6;新增适配器必须接线,由守门 64 `check-adapter-wiring.mjs` 强制(基线已清零)。
 
 ## 5. 未来扩展(本批次不做)
 
