@@ -8,6 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
+  Compass,
   ChevronLeft,
   Loader2,
   Shield,
@@ -29,7 +30,10 @@ import type {
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
 
+// G-164:补 plan 档 —— 这两张表的键类型就是 WorkspacePermissionMode 本身,
+// 少一档就编译不过(上一版正是这样让 plan "类型里有、界面上永远没有")。
 const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: string }> = {
+  plan: { icon: Compass, color: 'text-sky-500' },
   default: { icon: ShieldAlert, color: 'text-muted-foreground' },
   'accept-edits': { icon: ShieldCheck, color: 'text-emerald-500' },
   'bypass-permissions': { icon: Shield, color: 'text-amber-500' },
@@ -37,6 +41,7 @@ const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: str
 
 /** i18n 静态映射表 — 用于消除 `tw(\`mode.${var}.title\`)` 动态拼接 */
 const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
+  plan: 'mode.plan.title',
   default: 'mode.default.title',
   'accept-edits': 'mode.accept-edits.title',
   'bypass-permissions': 'mode.bypass-permissions.title',
