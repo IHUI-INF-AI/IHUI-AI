@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowDown, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 import type { ChatMessage } from '@/stores/chat'
@@ -426,37 +426,21 @@ export function MessageList({
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
       <QueryThumbRail messages={messages} containerRef={containerRef} />
-      {/* D3(2026-09-18 立):右下角浮动跳顶/跳底按钮,距顶/距底 >800px 时渐显 */}
+      {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
+          2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
+          现合并进 ScrollJumpButtons,行为沿用 handleJumpToLatest(滚到底 + 广播 ihui:jump-to-latest)。 */}
       <ScrollJumpButtons
         isFarFromTop={isFarFromTop}
         isFarFromBottom={isFarFromBottom}
+        userScrolledUp={userScrolledUp}
+        hasMessages={messages.length > 0}
+        isStreaming={isStreaming}
         onJumpTop={() => {
           const el = containerRef.current
           if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
         }}
-        onJumpBottom={() => {
-          const el = bottomRef.current
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
-        }}
+        onJumpLatest={handleJumpToLatest}
       />
-      {userScrolledUp && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={handleJumpToLatest}
-          data-testid="message-list-jump-latest"
-          aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
-        >
-          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          {isStreaming && (
-            <span
-              data-testid="message-list-jump-latest-dot"
-              className="ml-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
-              aria-hidden
-            />
-          )}
-        </button>
-      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}
