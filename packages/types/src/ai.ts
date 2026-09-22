@@ -319,8 +319,12 @@ export interface TerminalTask {
   command: string
   /** 执行状态 */
   status: TerminalTaskStatus
-  /** 命令输出 */
+  /** 命令输出(超出上限时为截断后的文本) */
   output?: string
+  /** 输出是否被截断(回放/刷新时没有 live 缓冲,只能靠这个标志知道内容不完整) */
+  truncated?: boolean
+  /** 截断前的原始字符数 */
+  totalChars?: number
   /** 开始时间(ISO 8601) */
   startedAt: string
   /** 结束时间(ISO 8601) */
@@ -355,8 +359,12 @@ export interface TerminalEndEvent {
   terminalId: string
   /** 最终状态 */
   status: TerminalTaskStatus
-  /** 命令输出 */
+  /** 命令输出(超出上限时为截断后的文本) */
   output?: string
+  /** 输出是否被截断(与 TerminalTask 同口径,SSE 帧与落库记录一致) */
+  truncated?: boolean
+  /** 截断前的原始字符数 */
+  totalChars?: number
   /** 退出码 */
   exitCode?: number
   /** 结束时间(ISO 8601) */

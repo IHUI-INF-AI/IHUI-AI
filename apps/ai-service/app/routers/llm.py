@@ -339,6 +339,10 @@ def _sse_contract_warn(msg: str) -> None:
     warnings.warn(msg, RuntimeWarning, stacklevel=3)
 
 
+# 终端输出随帧/随记录落库的字符上限(超出必须带 truncated + totalChars 交代)
+TERMINAL_OUTPUT_LIMIT = 8000
+
+
 def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
     """D24(2026-09-19 立):从 run_command 类执行结果提取 (output, exit_code)。
 
@@ -367,6 +371,19 @@ def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
     return _output, _exit_code
 
 
+def _clip_terminal_output(output: str) -> tuple[str, bool, int]:
+    """终端输出截断,返回 (可见文本, 是否截断, 原始字符数)。
+
+    截断标志与原始长度**必须随帧/随记录一起下发**:SSE 与落库都只带截断后的文本,
+    刷新/回放时客户端没有 live 缓冲可比对,长度相等就看不出"后面还有内容没显示"
+    (对标 Codex/Trae 的 truncated + 总长度口径)。
+    """
+    total = len(output)
+    if total <= TERMINAL_OUTPUT_LIMIT:
+        return output, False, total
+    return output[:TERMINAL_OUTPUT_LIMIT], True, total
+
+
 def _format_terminal_end_event(
     terminal_id: str,
     exec_result: Any,
@@ -390,8 +407,12 @@ def _format_terminal_end_event(
         "durationMs": int((time.time() - started_ms) * 1000),
     }
     if _output:
-        # 截断:与 tool-result 的 4000 字符上限保持同一量级,避免事件体积膨胀
-        _evt["output"] = _output[:8000]
+        # 截断:超出上限时同时交代 truncated + totalChars(回放无 live 缓冲,只靠长度看不出来)
+        _shown, _truncated, _total = _clip_terminal_output(_output)
+        _evt["output"] = _shown
+        _evt["totalChars"] = _total
+        if _truncated:
+            _evt["truncated"] = True
     if _exit_code is not None:
         _evt["exitCode"] = _exit_code
     if message_id:
@@ -424,7 +445,13 @@ def _build_terminal_task(
         "durationMs": int((time.time() - started_ts) * 1000),
     }
     if _output:
-        _rec["output"] = _output[:8000]
+        # 与 SSE 帧同一截断口径:落库记录也必须带 truncated + totalChars,
+        # 否则刷新/回放后界面把 8000 字符当作完整输出(与 SSE 侧同一个缺陷)。
+        _shown, _truncated, _total = _clip_terminal_output(_output)
+        _rec["output"] = _shown
+        _rec["totalChars"] = _total
+        if _truncated:
+            _rec["truncated"] = True
     if _exit_code is not None:
         _rec["exitCode"] = _exit_code
     return _rec
