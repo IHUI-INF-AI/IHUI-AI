@@ -3,6 +3,7 @@
     "notFound": "{target} not found"
   },
   "cli": {
+    "citationSources": "Sources: {sources}",
     "injectionApplied": "Context for this turn: {sources}",
     "injectionSrcDeveloper": "custom instructions",
     "injectionSrcWorkspace": "workspace memory",

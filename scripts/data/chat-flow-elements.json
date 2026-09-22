@@ -147,6 +147,14 @@
         {
           "file": "apps/extension/entrypoints/sidepanel/components/MessageContent.tsx",
           "mustMatch": "chat.citationTitle"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "citationNoteText"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "onCitations"
         }
       ]
     },
