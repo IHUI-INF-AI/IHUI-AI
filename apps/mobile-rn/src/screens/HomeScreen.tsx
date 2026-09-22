@@ -2080,7 +2080,7 @@ export function HomeScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
+  root: { flex: 1, backgroundColor: tokens.surface.bg } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
@@ -2245,7 +2245,7 @@ const shellStyles = {
   materialSheet: {
     width: '100%',
     height: '80%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   } as const,
@@ -2254,7 +2254,7 @@ const shellStyles = {
     justifyContent: 'flex-end',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(12),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   } as const,
   materialSheetClose: {
     fontSize: 22,
@@ -2273,7 +2273,7 @@ const shellStyles = {
   detailDialogContent: {
     width: '84%',
     maxHeight: '70%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     overflow: 'hidden',
   } as const,
@@ -2355,7 +2355,7 @@ const shellStyles = {
   modelModalSheet: {
     width: '100%',
     maxHeight: '70%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: rpx(32),
@@ -2402,7 +2402,7 @@ const shellStyles = {
     width: '84%',
     maxWidth: 380,
     borderRadius: 12,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     paddingHorizontal: rpx(40),
     paddingTop: rpx(40),
     paddingBottom: rpx(48),
@@ -2422,7 +2422,7 @@ const shellStyles = {
   qrContent: {
     width: '80%',
     borderRadius: 12,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     paddingVertical: rpx(36),
     paddingHorizontal: rpx(24),
     alignItems: 'center',
