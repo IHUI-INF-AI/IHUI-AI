@@ -3084,6 +3084,46 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     "陈旧副本"形态),而是轮询到干净窗口(约 150s 后)才落这条 P2-F.10。
   - 平台独占:仅 apps/api 一处安全修复 + scripts 守门 + 文档(§9 豁免,无跨端契约变更)
 
+- [x] ✅(2026-09-22) **P2-F.11 与凭据族同批改掉的三类"没人跑到就永远不红"缺陷:Dockerfile 上下文对账(守门 72)+ agents 面公开化正则 fail-open + main 上 11 例长期红**:
+  - **守门 72 `scripts/check-dockerfile-copy-paths.mjs`**(sha `f9a264f25b`):提交 `79b906463f` 给**根** `package.json` 加了
+    `postinstall: node scripts/fix-expo-metro-junction.mjs`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}` 只 COPY 清单文件
+    就执行 `pnpm install` ⇒ 镜像里没有 `scripts/` ⇒ install 阶段 `MODULE_NOT_FOUND`,**五个镜像构建坏四个**。要害是这类失效
+    在本地零信号:typecheck / lint / 单测全绿也发现不了,因为没人跑 `docker build`。两条判据都只用仓库内信息(不需要知道
+    workflow 传的 context):**A 根上下文识别** —— 凡 COPY 行含 `pnpm-workspace.yaml`(根 monorepo 独有标记)的 Dockerfile,
+    其根 `preinstall/postinstall/prepare` 钩子里 `node <file>` 引用的每个脚本必须也出现在该文件某条 COPY 源里;
+    **B COPY 源存在性** —— 不带 `--from=`、不含通配/变量的源路径,按"Dockerfile 自身目录"与"仓库根"两种基准各试一次,
+    命中其一即通过(真上下文只有 workflow 知道,故刻意取并集,宁可漏不误报)。门号原登记为 71,与并发会话已占用的 71 撞号后
+    让位为 **72**,本轮把脚本与镜像测试里残留的旧门号一并订正。
+  - **接线取证(不读脚本自述)**:`--self-test` 5 例 + §22c 镜像测试 **8 例全绿**,其中两条是结构性的:"workflow 里必须真解析出
+    Dockerfile→context 映射"(B 判据的前提,解析不到即红)与"本仓真值 7 个 Dockerfile 全部通过"(修完即绿、回归即红)。
+  - **agents 面公开化正则 fail-open**(sha `3223dcbdde`):市场浏览公开化用 `/^\/api\/agents\/[^/]+$/` 放行"详情 GET",
+    这条正则**同样命中本插件内的静态段 GET** —— 逐个核到路由: `/api/agents/list`(269)、`/my`(273)、`/stats`(321)、
+    `/need-tasks`(1270)、`/health`(2108)五条全部被当游客处理。改为 `AGENTS_PROTECTED_STATIC_SEGMENTS` 显式列举;
+    集合里第六项 `categories` 是**防御性**登记(该路由实际在 `miniapp-compat-routes.ts:1171`,不吃 `agentsRoutes` 的
+    preHandler),当下无失效面,但同名静态段一旦在本插件补上就不会再被正则吞掉。并把判据上升为 **AGENTS.md §5 长期约束
+    "鉴权面公开化必须显式列举"**(sha `f041c9916f`):这是同族第三处,前两处是 O19(`.env` 一条前缀放开整个无鉴权 router)与
+    G-163(枚举里有 `plan` 而兜底 `{allowed:true}`)。
+  - **数据面网关把合法请求判成未知表**(同 sha `3223dcbdde`):drizzle 的 pg-core 编译器把表名**以字符串形态**下发(如
+    `'llm_call_logs'` / `'public.users'`),而 `resolveTableNamesFromMetadata` 只认表对象 ⇒ 该路径恒返回 `[]` ⇒ 按"未知表"
+    **缺省拒绝**。方向是 fail-closed(不是绕过),所以症状是"功能坏了"而非"门破了" —— 现两种形态都吃,字符串按 `.` 取尾段归一。
+  - **单机/SaaS 部署边缘零限流**(同 sha):`deploy/docker/nginx.web.conf` 此前一条 `limit_req` 都没有,只有蓝绿那套
+    `deploy/nginx/nginx-blue-green.conf` 有 ⇒ docker-compose/单机部署完全没有边缘限速。补 `docker_*` 前缀 zone(本文件与
+    `deploy/nginx/conf.d/*.conf` 可能落进同一个 http 上下文,**重名会让 nginx 启动即失败** duplicate zone)+
+    `limit_req_status 429`(默认 503 会被客户端误判为服务不可用,且不触发 SDK 退避)+ `error_page 429 = @rate_limited`
+    带 `Retry-After`,与蓝绿同口径。
+  - **main 上 11 例长期红清零**(同 sha,8 文件 / 5 个测试文件):api 全量 **7011 passed**。归因口径见 P2-F.10 末条
+    —— 8 个失败文件与本批 4 个改动模块**零交集**,成因是 `developerApiKeys` mock 漂移与 nginx/data-scope/vendor 初始化断言陈旧;
+    本批把这些**一并收口**,而不是留成"他人的问题"。
+  - **CI `lint` 作业红(本轮 2026-09-23 补)**:`apps/api` 的 lint 门就是 `eslint .`,而 main 上有两处自 `26975a4bfd`(09-21
+    "前向修复"批量恢复 11,640 文件)起长期存在的错误 —— `oauth-tokens.ts:347` 用 `import('fastify').FastifyInstance` 内联类型
+    (`consistent-type-imports` 禁),`proxy-extended-media5.ts:570` 用 `it != null`(`eqeqeq`)。任何触碰 apps/api 的推送都会
+    触发这个既有红,故就地改最小 3 行:`FastifyInstance` 提到 line 32 的类型导入、`!= null` 等价改写为
+    `typeof it === 'object' && it !== null`(先判型再判 null,对 `undefined`/`null` 的排除集合与原文一致)。
+    **`pnpm --filter @ihui/api typecheck` 与 `lint` 双双 exit 0** 为终态证据;prettier 不在 api 的门内(`lint: eslint .`),
+    故 `prettier --write` 带出的两处无关重排已 `git restore` 回退,本批 diff 恒为 3 行。
+  - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
+
+
 ---
 
 ## IDE 可视化工作台路由接通 + Agent/MCP 面板深化(2026-07-31 立,平台独占 web-only,AGENTS.md §9 显式标注)
