@@ -712,6 +712,7 @@
       "fallback": "已切换备用模型:{model}",
       "planUpdate": "执行计划已更新",
       "reconnect": "连接中断,{seconds}s 后第 {attempt} 次重连",
+      "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
       "subagent": "子任务:{phase}",
       "title": "执行过程",
       "toolCall": "调用工具:{name}",
@@ -777,7 +778,22 @@
         "title": "终端任务",
         "copy": "复制",
         "copied": "已复制",
-        "exitCode": "退出码:{code}"
+        "exitCode": "退出码:{code}",
+        "truncated": "…(已截断,共 {total} 字符)"
+      },
+      "citation": {
+        "title": "参考来源"
+      },
+      "injection": {
+        "title": "本轮参考的上下文",
+        "kind": {
+          "developer": "自定义指令",
+          "workspace": "工作区记忆",
+          "repoWiki": "仓库 Wiki",
+          "autoContext": "自动检索上下文"
+        },
+        "expand": "展开",
+        "collapse": "收起"
       },
       "status": {
         "running": "执行中",

@@ -57,15 +57,20 @@ export function SplitPaneContainer({
   // 容器级键盘事件(Alt+Arrow 焦点切换)
   React.useEffect(() => {
     const handle = (e: KeyboardEvent) => {
-      if (e.altKey && e.key.startsWith('Arrow')) {
-        // Alt+ArrowLeft/Up → prev;Alt+ArrowRight/Down → next
-        const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? 'prev' : 'next'
-        handleFocusSwitch(dir)
-      }
+      if (e.isComposing) return
+      if (!e.altKey || !e.key.startsWith('Arrow')) return
+      // 仅在真会切焦点时吃掉按键:单 pane 时 handleFocusSwitch 是 no-op,
+      // 但若无条件 preventDefault 会连带废掉浏览器 Alt+← 后退(2026-09-22 补)。
+      if (paneIds.length <= 1) return
+      e.preventDefault()
+      e.stopPropagation()
+      // Alt+ArrowLeft/Up → prev;Alt+ArrowRight/Down → next
+      const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? 'prev' : 'next'
+      handleFocusSwitch(dir)
     }
     window.addEventListener('keydown', handle)
     return () => window.removeEventListener('keydown', handle)
-  }, [handleFocusSwitch])
+  }, [handleFocusSwitch, paneIds.length])
 
   if (paneIds.length === 0) return null
 

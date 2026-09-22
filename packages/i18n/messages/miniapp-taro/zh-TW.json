@@ -755,6 +755,7 @@
       "fallback": "已切換備用模型:{model}",
       "planUpdate": "執行計劃已更新",
       "reconnect": "連線中斷,{seconds}s 後第 {attempt} 次重連",
+      "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
       "subagent": "子任務:{phase}",
       "title": "執行過程",
       "toolCall": "調用工具:{name}",
@@ -777,7 +778,22 @@
         "title": "終端任務",
         "copy": "複製",
         "copied": "已複製",
-        "exitCode": "結束碼: {code}"
+        "exitCode": "結束碼: {code}",
+        "truncated": "…(已截斷,共 {total} 字符)"
+      },
+      "citation": {
+        "title": "參考來源"
+      },
+      "injection": {
+        "title": "本輪參考的上下文",
+        "kind": {
+          "developer": "自訂指令",
+          "workspace": "工作區記憶",
+          "repoWiki": "倉庫 Wiki",
+          "autoContext": "自動檢索上下文"
+        },
+        "expand": "展開",
+        "collapse": "收起"
       },
       "status": {
         "running": "執行中",

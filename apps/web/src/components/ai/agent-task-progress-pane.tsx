@@ -933,11 +933,7 @@ export function AgentTaskProgressPane() {
         e.preventDefault()
         closePane()
       }
-      // v13: 按 ? (Shift+/) 切换帮助面板
-      if (e.key === '?') {
-        e.preventDefault()
-        setShowHelp((v) => !v)
-      }
+      // 2026-09-22 键位归属:`?` 唯一归全局快捷键面板(use-permission-mode-cycle),本面板帮助走 header 钮
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -1758,13 +1754,13 @@ export function AgentTaskProgressPane() {
             </FoldableSectionProvider>
           )}
 
-          {/* Phase 17: 跳到最新按钮 */}
+          {/* Phase 17: 跟随事件流按钮(2026-09-22 文案与对话列 chat.jumpToLatest 差异化,消同屏歧义) */}
           {showJumpToLatest && (
-            <Tooltip content={t('jumpToLatest')}>
+            <Tooltip content={t('followEvents')}>
               <button
                 type="button"
                 onClick={jumpToLatest}
-                aria-label={t('jumpToLatest')}
+                aria-label={t('followEvents')}
                 className="absolute bottom-2 left-1/2 inline-flex h-6 -translate-x-1/2 items-center gap-0.5 rounded-md border border-border bg-popover px-2 text-[10px] text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-accent-foreground"
                 data-testid="pane-jump-latest"
               >
