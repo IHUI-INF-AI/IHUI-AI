@@ -77,21 +77,16 @@ const C = {
 const RADIUS = 8;
 const FONT = 'Microsoft YaHei UI, Microsoft YaHei, PingFang SC, sans-serif';
 
-// ---- 版面几何(逻辑像素,100% 档;与 ihui-ui.nsi 运行期控件坐标一一对应) ----
+// ---- 版面几何(逻辑像素,100% 档)----
+// 这里只保留**本生成器真正用来画图**的常量;运行期控件坐标的真相在
+// `apps/desktop/src-tauri/windows/ihui-ui.nsi` 的「版面几何」define 块。
+// 两边同值的坐标改动时必须同批改,否则位图留白与控件槽位会错位。
 const W = 880;
 const H = 600;
 const RAIL_W = 248; // 品牌导轨宽
 const C_L = 288; // 内容区左界(导轨右缘 + 40 内边距)
 const C_R = 832; // 内容区右界
 const C_W = C_R - C_L; // 544 内容宽
-const BTN_Y = 500; // 底栏按钮行上沿(h-10=40 → 500..540)
-const BTN_H = 40;
-const CTA_W = 144;
-const CTA_X = C_R - CTA_W; // 688
-const CANCEL_W = 96;
-const WIN_SIZE = 36; // 窗口钮边长
-const WIN_MIN = [776, 20]; // 最小化钮槽位
-const WIN_CLOSE = [820, 20]; // 关闭钮槽位
 // 步骤导轨:4 步,首个标记上沿 168,步距 66
 const STEP_Y0 = 168;
 const STEP_GAP = 66;
@@ -101,13 +96,11 @@ const STEPS = [
   ['03', '正在安装', 'PROGRESS'],
   ['04', '完成', 'DONE'],
 ];
-// 安装页进度几何(与 ihui-ui.nsi IHUIInstShow 的进度条/百分比/阶段槽严格一致)
+// 安装页进度几何(与 ihui-ui.nsi IHUIInstShow 的进度条槽严格一致)
 const PB_X = C_L;
 const PB_Y = 300;
 const PB_W = C_W;
 const PB_H = 8;
-const PCT_SLOT = [632, 186, 200, 64]; // 百分比大字(运行期 STATIC 右对齐)
-const STAGE_SLOT = [C_L, 322, C_W, 22]; // 阶段文案(运行期 STATIC)
 
 // 品牌渐变定义(每份 SVG 内联一次)
 const GRAD_DEFS = `<defs>
