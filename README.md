@@ -2729,6 +2729,14 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 **两条保持不变的语义**:子门以 `exit 75` 退出仍**立即**向上传播 75(中断 ≠ 检查结论,push guard 据此决定带 hook 重试,不可收敛成 1);需要旧的快速失败时设 `GUARDIAN_STOP_ON_FIRST=1`。全绿路径耗时不变(原本就要跑完所有门),仅失败轮次变长。
 
+### 新增守门示例:第 67 项「凭据经非 2xx message 外泄对账」(2026-09-22)
+
+`scripts/check-credential-leak-in-message.mjs` 堵的是脱敏体系的一个真实旁路:`apps/api/src/plugins/response-sanitizer.ts:496` 写着 `if (reply.statusCode < 200 || reply.statusCode >= 300) return payload` —— **非 2xx 响应完全不打码**,所以"把上游响应体 `JSON.stringify` 进错误 message"等于绕过脱敏把凭据发出去。
+
+**成因是一起已提交进 main 的真实事故**:`proxy-extended-media3.ts` 曾把 Adobe IMS OAuth2 令牌端点的整个响应体(成功时含 `access_token`)拼进 502 的 message 回传客户端(修复见提交 `7384c92ed0`)。修这类问题的正确做法是**改正代码只回传状态码与 RFC 6749 错误码**,而不是加 `skipResponseSanitization` —— 后者是在为泄露关掉保护。
+
+判据刻意做窄(宁漏不误报):必须同时满足 4xx/5xx 构造上下文 + 被 stringify 的实参具备凭据语义(变量名 / 声明右侧 / 对象 key / message 字面量)才 BLOCK,并覆盖"经一层声明间接外泄"的写法;`errData` / `genData` 这类非凭据实参只进"低置信候选"清单不计失败 —— 全仓此类历史写法有 35 处 / 13 文件,一律拦就成了阻塞所有人的假阳性。
+
 ---
 
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
