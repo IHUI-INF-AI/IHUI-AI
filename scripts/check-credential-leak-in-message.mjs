@@ -4,6 +4,11 @@
 
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 
+// 覆盖 **JS/TS 与 Python 两套语法**(`apps/` + `packages/` 下 .ts/.tsx/.js/.mjs/.py):
+//   序列化认 `JSON.stringify(` 与 `json.dumps(`;整对象插值认 JS 的 `${x}` / `${x.slice(…)}`
+//   与 Python f-string 的 `{x}` / `{x[:200]}`(必须同行有 `f"` / `f'`);错误构造上下文认
+//   `reply.status(4xx/5xx)` / `throw new XError(...)` / Python `raise XError(...)` 与 `status_code=4xx`;
+//   注释豁免同时认 `//` 与 `#`。
 // 守门:拦截「上游**凭据/令牌类**响应体被 stringify 后塞进 4xx/5xx 错误 message」的外泄路径。
 //
 // 为什么需要(实测事实,非推测):
@@ -76,7 +81,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts', 'credential-leak-baseline.json')
 const SCAN_ROOTS = ['apps/', 'packages/']
-const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.mjs'])
+const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.py'])
 const SKIP_DIR =
   /[\\/](node_modules|dist|build|\.next|\.turbo|coverage|__tests__|tests?|e2e|bench)[\\/]/
 const TEST_PATH = /(\.test\.|\.spec\.|[\\/](tests?|__tests__|e2e)[\\/])/
@@ -94,7 +99,7 @@ export const STATUS_CTX_RE = new RegExp(
   [
     String.raw`\.\s*status\s*\(\s*[45]\d{2}\s*\)`,
     String.raw`\berror\s*\(\s*[45]\d{2}\b`,
-    String.raw`\b(?:statusCode|status|code)\s*[:=]+\s*[45]\d{2}\b`,
+    String.raw`\b(?:statusCode|status_code|status|code)\s*[:=]+\s*[45]\d{2}\b`,
     String.raw`\bthrow\s+new\s+\w*Error\s*\(\s*[45]\d{2}\b`,
   ].join('|'),
   'g',
@@ -115,7 +120,7 @@ const ROUTE_REG_RE = /\bserver\s*\.\s*(get|post|put|delete|patch|all|route)\s*\(
  * E 通道上下文:`throw new Error(...)` / `throw new XxxError(...)`(service 层外泄常走这条,不经 reply.status)。
  * 前缀**必须可选** —— 写成 `[A-Za-z_$][\w$]*Error` 会漏掉最常见的裸 `Error`(实测 paypal.ts 即此形状)。
  */
-const THROW_CTX_RE = /\bthrow\s+new\s+(?:[A-Za-z_$][\w$]*)?Error\s*\(/
+const THROW_CTX_RE = /(?:\bthrow\s+new|^[ \t]*raise)[ \t]+[\w$.]*(?:Error|Exception)[ \t]*\(/
 
 /**
  * 模板里"整个响应体被插值"的形态:`${text}` / `${text.slice(0, 200)}`。
@@ -139,19 +144,41 @@ const DUMP_TARGET_RE =
  * F 通道求解:返回"关键词 + 被整体倒出的对象路径"证据数组(无则空)。
  * @param {string} text 错误构造窗口文本
  */
-export function credEndpointDumpEvidence(text) {
-  CRED_CALL_KEYWORD_RE.lastIndex = 0
-  const kw = text.match(CRED_CALL_KEYWORD_RE)
-  if (!kw) return []
+/**
+ * Python f-string 里"整个变量被插值":`{x}` / `{x[:200]}` / `{data!r}`。
+ * 必须与 `f"` / `f'` 前缀同窗口出现才启用 —— 否则 JS 对象字面量 `{ detail }` 会被误配成整对象外泄。
+ */
+const PY_INTERP_RE = /\{\s*([A-Za-z_][\w.]*)\s*(?:![ar]|\[[^\]]*\])?\s*\}/g
+const FSTRING_RE = /\bf["']/
+
+/**
+ * F 通道求解:返回"关键词 + 被整体倒出的对象路径"证据数组(无则空)。
+ * @param {string} text 错误构造窗口文本
+ * @param {boolean} [py] 是否按 Python 形态识别(json.dumps 与 f-string 插值)
+ */
+export function credEndpointDumpEvidence(text, py = false) {
+  const serRe = py
+    ? /\bjson\s*\.\s*dumps\s*\(\s*([A-Za-z_][\w.]*)/g
+    : /JSON\s*\.\s*stringify\s*\(\s*([A-Za-z_$][\w$.]*)/g
+  const interpRe = py ? PY_INTERP_RE : WHOLE_INTERP_RE
   const dumps = new Set()
-  const re =
-    /JSON\s*\.\s*stringify\s*\(\s*([A-Za-z_$][\w$.]*)|\$\{\s*([A-Za-z_$][\w$.]*)\s*(?:\.slice\([^)]*\))?\s*\}/g
-  for (const m of text.matchAll(re)) {
-    const target = (m[1] ?? m[2] ?? '').trim()
-    if (target && DUMP_TARGET_RE.test(target)) dumps.add(target)
+  // 关键词与 dump **必须同一行**:整窗配对会被相邻语句的字符串字面量喂进假阳性
+  // (实测 cnblogs/oschina/segmentfault 三个 verify 适配器:上一行 return 里写着
+  //  "access_token expired or invalid (401)",下一行才倒出平台用户信息响应体)
+  for (const line of text.split('\n')) {
+    CRED_CALL_KEYWORD_RE.lastIndex = 0
+    const kw = line.match(CRED_CALL_KEYWORD_RE)
+    if (!kw) continue
+    const k = kw[1].toLowerCase()
+    serRe.lastIndex = 0
+    for (const m of line.matchAll(serRe))
+      if (m[1] && DUMP_TARGET_RE.test(m[1])) dumps.add(`${k}:${m[1]}`)
+    if (py && !FSTRING_RE.test(line)) continue
+    interpRe.lastIndex = 0
+    for (const m of line.matchAll(interpRe))
+      if (m[1] && DUMP_TARGET_RE.test(m[1])) dumps.add(`${k}:${m[1]}`)
   }
-  if (!dumps.size) return []
-  return uniqueSorted([...dumps].map((d) => `keyword:${kw[1].toLowerCase() + ':' + d}`))
+  return uniqueSorted([...dumps].map((d) => `keyword:${d}`))
 }
 
 /** 跳过字符串字面量(含模板插值),返回结束下标(引号之后)。 */
@@ -238,9 +265,16 @@ export function firstArgOf(inner) {
 }
 
 /** 收集 text 内所有 `JSON.stringify(X)` 的 X 表达式文本。 */
+/**
+ * "把对象序列化"的两语言形态:JS `JSON.stringify(` 与 Python `json.dumps(`。
+ * 两条通道(D 的来源回溯、C 的实参语义、F 的整对象 dump)都以它为锚,缺一即该语言整条空转。
+ */
+const SERIALIZE_SRC = String.raw`JSON\s*\.\s*stringify\s*\(|\bjson\s*\.\s*dumps\s*\(`
+const SERIALIZE_RE = new RegExp(SERIALIZE_SRC)
+
 export function findStringifyArgs(text) {
   const args = []
-  const re = /JSON\s*\.\s*stringify\s*\(/g
+  const re = new RegExp(SERIALIZE_SRC, 'g')
   let m
   while ((m = re.exec(text))) {
     const inner = text.slice(m.index + m[0].length)
@@ -266,13 +300,17 @@ export function findStringifyArgs(text) {
 /** 文件内 `const|let|var NAME = RHS` 声明表(名字 → [{ rhs, line }]）。 */
 export function collectDeclarations(src) {
   const map = new Map()
-  const re = /^\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(.+)$/gm
+  // 第二支是 Python 形态(无 const/let/var 关键字);`(?![=\w])` 排除 `==`/`>=` 等比较与 `x === y`
+  const re =
+    /^[ \t]*(?:const|let|var)[ \t]+([A-Za-z_$][\w$]*)[ \t]*=[ \t]*(.+)$|^[ \t]*([A-Za-z_][\w]*)[ \t]*=(?![=\w])[ \t]*(.+)$/gm
   let m
   while ((m = re.exec(src))) {
     const line = src.slice(0, m.index).split('\n').length
-    const list = map.get(m[1]) || []
-    list.push({ rhs: m[2].trim(), line })
-    map.set(m[1], list)
+    const name = m[1] ?? m[3]
+    const rhs = (m[2] ?? m[4] ?? '').trim()
+    const list = map.get(name) || []
+    list.push({ rhs, line })
+    map.set(name, list)
   }
   return map
 }
@@ -314,7 +352,7 @@ export function tokenEndpointProvenance(decls, lines, arg, usageLine) {
   if (!IDENT_RE.test(name)) return null
   const jsonEntry = resolveDeclaredEntry(decls, name, usageLine)
   if (!jsonEntry) return null
-  const m = jsonEntry.rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*(?:json|text)\s*\(/)
+  const m = jsonEntry.rhs.match(/\b([A-Za-z_$][\w$]*)\s*\.\s*(?:json|text)\s*(?:\(|$|[^\w(])/)
   if (!m) return null
   const respEntry = resolveDeclaredEntry(decls, m[1], jsonEntry.line)
   if (!respEntry) return null
@@ -339,7 +377,7 @@ function findContexts(lines, re) {
   const hits = []
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim()
-    if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue
+    if (t.startsWith('//') || t.startsWith('#') || t.startsWith('*') || t.startsWith('/*')) continue
     re.lastIndex = 0
     if (re.test(lines[i])) hits.push(i)
   }
@@ -361,9 +399,10 @@ export function findErrorContexts(lines) {
  * 且其来源是令牌端点响应体。用于没有 `JSON.stringify` 的透传写法
  * (`throw new Error(\`... ${text.slice(0, 200)}\`)`,text 来自 `resp.text()`)。
  */
-export function wholeInterpProvenance(decls, lines, text, usageLine) {
-  WHOLE_INTERP_RE.lastIndex = 0
-  const ids = [...text.matchAll(WHOLE_INTERP_RE)].map((m) => m[1])
+export function wholeInterpProvenance(decls, lines, text, usageLine, py = false) {
+  const re = py ? new RegExp(PY_INTERP_RE.source, 'g') : new RegExp(WHOLE_INTERP_RE.source, 'g')
+  if (py && !FSTRING_RE.test(text)) return []
+  const ids = [...text.matchAll(re)].map((m) => m[1])
   return uniqueSorted(
     ids
       .map((id) => tokenEndpointProvenance(decls, lines, id, usageLine))
@@ -409,6 +448,7 @@ function rangesOverlap(a, b) {
  */
 export function scanSource(src, file, exempt = new Set()) {
   const lines = src.split('\n')
+  const py = file.endsWith('.py')
   const decls = collectDeclarations(src)
   const violations = []
   const candidates = []
@@ -417,7 +457,7 @@ export function scanSource(src, file, exempt = new Set()) {
   for (const start of findErrorContexts(lines)) {
     const { text, endIndex } = extractWindow(lines, start)
     const usageLine = start + 1
-    const hasDirectStringify = /JSON\s*\.\s*stringify\s*\(/.test(text)
+    const hasDirectStringify = SERIALIZE_RE.test(text)
     const args = hasDirectStringify ? findStringifyArgs(text) : []
     // A. 被序列化的实参本身具备凭据语义(名字 / 声明右侧 / 对象字面量 key)
     const credArgs = uniqueSorted(args.filter((a) => classifyStringifyArg(a, decls, usageLine)))
@@ -426,7 +466,7 @@ export function scanSource(src, file, exempt = new Set()) {
     if (!credArgs.length) {
       for (const id of new Set(text.match(/[A-Za-z_$][\w$]*/g) || [])) {
         const rhs = resolveDeclaredRhs(decls, id, usageLine)
-        if (!rhs || !/JSON\s*\.\s*stringify\s*\(/.test(rhs)) continue
+        if (!rhs || !SERIALIZE_RE.test(rhs)) continue
         if (findStringifyArgs(rhs).some((a) => classifyStringifyArg(a, decls, usageLine)))
           viaDecl.push(`via:${id}`)
       }
@@ -446,9 +486,11 @@ export function scanSource(src, file, exempt = new Set()) {
         )
       : []
     // E. 无 JSON.stringify 的整对象透传:`${text}` / `${text.slice(0, 200)}`,text 取自令牌端点响应
-    const interpE = hasDirectStringify ? [] : wholeInterpProvenance(decls, lines, text, usageLine)
+    const interpE = hasDirectStringify
+      ? []
+      : wholeInterpProvenance(decls, lines, text, usageLine, py)
     // F. 凭据端点关键词 ∧ 整对象 dump:覆盖走 SDK、URL 不在窗口内、变量名/字段名都不像凭据的情形
-    const dumpEv = credEndpointDumpEvidence(text)
+    const dumpEv = credEndpointDumpEvidence(text, py)
     const evidence = credArgs.length
       ? credArgs
       : viaDecl.length
@@ -688,11 +730,42 @@ export const SELFTEST_CASES = [
     src: "const resp = await fetch(url, { method: 'POST' })\nconst data = await resp.json()\nif (!resp.ok) return reply.status(502).send(error(502, `Firefly 调用失败: ${JSON.stringify(data)}`))",
     want: 'candidate',
   },
+  // --- Python 形态(ai-service 纳入覆盖;序列化与插值都是另一套语法) ---
+  {
+    name: 'Python:json.dumps 令牌端点响应 → 违规(D 通道需认 json.dumps)',
+    src: 'resp = httpx.post("https://mcp.example.com/oauth2/token", data=p)\ndata = resp.json()\nraise ProviderError(f"令牌获取失败: {json.dumps(data)}")',
+    want: 'violation',
+    file: 'app/services/mcp_oauth.py',
+  },
+  {
+    name: 'Python:f-string 整对象 + AssumeRole 关键词 → 违规(F 通道)',
+    src: 'response = client.call_api(params, request, runtime)\nraise RuntimeError(f"AssumeRole 失败: {json.dumps(response.body)}")',
+    want: 'violation',
+    file: 'app/services/sts.py',
+  },
+  {
+    name: 'Python 反例:资源端点透传 resp.text 切片 → 不判(与 token6688 现状一致)',
+    src: 'resp = httpx.post("https://api.token6688.cn/v1/stt", json=b)\nraise ProviderError(f"Token6688 STT 调用失败: {resp.status_code} {resp.text[:300]}")',
+    want: 'none',
+    file: 'app/providers/token6688_provider.py',
+  },
+  {
+    name: 'Python 反例:# 注释行不参与判定',
+    src: '# raise ProviderError(f"oauth token failed: {json.dumps(body)}")\nx = 1',
+    want: 'none',
+    file: 'app/services/comment.py',
+  },
+  {
+    name: 'Python 反例:关键词在上一行、dump 在下一行 → 不判(F 须同行配对,系实测假阳性收口)',
+    src: 'if resp.status_code == 401:\n    return False, "access_token expired or invalid (401)"\nreturn False, f"verify failed: HTTP {resp.status_code} - {resp.text[:200]}"',
+    want: 'none',
+    file: 'app/services/publish/adapters/cnblogs.py',
+  },
 ]
 
 /** 对单条样例求解类别(violation / candidate / none),供 --self-test 与镜像测试复用。 */
-export function evalCase(src) {
-  const r = scanSource(src, 'selftest.ts')
+export function evalCase(src, file = 'selftest.ts') {
+  const r = scanSource(src, file)
   return r.violations.length ? 'violation' : r.candidates.length ? 'candidate' : 'none'
 }
 
@@ -700,7 +773,7 @@ function selfTest() {
   // 下面每条 src 是故意构造的判据样例(带 cred 语义应被抓住,不带的只做候选/放过)。
   let bad = 0
   for (const c of SELFTEST_CASES) {
-    const got = evalCase(c.src)
+    const got = evalCase(c.src, c.file)
     const ok = got === c.want
     if (!ok) bad++
     console.log(`${ok ? '✅' : '❌'} ${c.name}(期望 ${c.want},实得 ${got})`)
@@ -786,7 +859,7 @@ async function main(argv = process.argv.slice(2)) {
       `ℹ️  低置信候选 ${candidates.length} 处(上游错误体透传:变量名无凭据语义 **且** 响应来源非令牌端点 → 不计入失败,仅供人审):`,
     )
     for (const c of candidates.slice(0, 40))
-      console.log(`   ${c.file}:${c.line}  JSON.stringify(${c.arg})`)
+      console.log(`   ${c.file}:${c.line}  整对象序列化入消息: ${c.arg}`)
     if (candidates.length > 40) console.log(`   ... 其余 ${candidates.length - 40} 处`)
   }
   if (argv.includes('--update-baseline')) {

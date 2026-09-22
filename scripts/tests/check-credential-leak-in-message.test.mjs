@@ -28,12 +28,12 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 21)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 26)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
   for (const c of G.SELFTEST_CASES) {
-    assert.equal(G.evalCase(c.src), c.want, `样例失败: ${c.name}`)
+    assert.equal(G.evalCase(c.src, c.file), c.want, `样例失败: ${c.name}`)
   }
 })
 
@@ -385,5 +385,53 @@ test('F 通道经 scanSource 落地:kind 正确且新 kind 同样可被基线豁
   assert.equal(hit.violations[0].kind, 'cred-endpoint-keyword-with-body-dump')
   const exempted = G.scanSource(STS_DUMP_SRC, file, new Set([hit.violations[0].key]))
   assert.equal(exempted.violations.length, 0)
+})
+
+// --- Python 形态(ai-service 纳入覆盖) ---
+
+const PY_TOKEN_SRC =
+  'resp = await httpx.AsyncClient().post("https://idp.example.com/oauth2/token", data={"a": 1})\n' +
+  'payload = resp.json()\n' +
+  'if "access_token" not in payload:\n' +
+  '    raise RuntimeError(f"token exchange failed: {json.dumps(payload)}")\n'
+
+test('Python:D 通道必须认 json.dumps 与 resp.json(),否则 .py 纳入是空转', () => {
+  const r = G.scanSource(PY_TOKEN_SRC, 'apps/ai-service/app/_probe.py')
+  assert.equal(r.violations.length, 1, 'Python 令牌端点 dump 必须命中')
+  assert.equal(r.violations[0].kind, 'stringify-from-token-endpoint')
+  assert.match(
+    r.violations[0].evidence,
+    /endpoint:payload←resp←https:\/\/idp\.example\.com\/oauth2\/token/,
+  )
+})
+
+test('Python 反例:资源端点的 f-string 透传不得命中(与 token6688 现状同形)', () => {
+  const src =
+    'resp = await httpx.AsyncClient().post("https://api.example.com/v1/stt", json={"b": 2})\n' +
+    'raise ProviderError(f"stt failed: {resp.status_code} {resp.text[:300]}")'
+  assert.equal(G.scanSource(src, 'apps/ai-service/app/providers/x.py').violations.length, 0)
+})
+
+test('Python:F 的关键词与 dump 必须同行配对(实测 cnblogs 等 3 处适配器为跨行假阳性)', () => {
+  const crossLine =
+    'if resp.status_code == 401:\n' +
+    '    return False, "access_token expired or invalid (401)"\n' +
+    'return False, f"verify failed: HTTP {resp.status_code} - {resp.text[:200]}"'
+  assert.equal(
+    G.scanSource(crossLine, 'apps/ai-service/app/a/cnblogs.py').violations.length,
+    0,
+    '跨行不得配对',
+  )
+  const sameLine = 'raise RuntimeError(f"AssumeRole 失败: {json.dumps(response.body)}")'
+  assert.equal(
+    G.scanSource(sameLine, 'apps/ai-service/app/a/sts.py').violations.length,
+    1,
+    '同行必须命中',
+  )
+})
+
+test('Python:# 注释行不得成为错误构造上下文(等价于 JS 的 // 豁免)', () => {
+  const lines = ['# raise ProviderError(f"oauth token failed: {json.dumps(body)}")', 'x = 1']
+  assert.deepEqual(G.findErrorContexts(lines), [])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
