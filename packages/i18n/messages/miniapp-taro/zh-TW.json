@@ -519,7 +519,9 @@
       "needAlbumAuth": "需要相簿權限才能儲存圖片,請在設定中開啟",
       "collapse": "收起",
       "edit": "編輯",
-      "regenerate": "重新生成"
+      "errorCardTitle": "請求出錯",
+      "regenerate": "重新生成",
+      "retry": "重試"
     },
     "history": {
       "title": "歷史對話",

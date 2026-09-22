@@ -26,7 +26,7 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 15)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 18)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
@@ -300,5 +300,55 @@ test('resolveDeclaredEntry 供窗口计算用:必须带行号(只回 rhs 无法�
   assert.equal(e.line, 1)
   assert.match(e.rhs, /await fetch\(u\)/)
   assert.equal(G.resolveDeclaredEntry(decls, 'missing', 2), null)
+})
+
+// --- E 通道:throw 形态的错误构造 ---
+
+test('findThrowContexts 必须同时认裸 Error 与自定义 XxxError(漏裸 Error 会让整条 E 通道空转)', () => {
+  const lines = [
+    'throw new Error(`a ${text}`)',
+    'throw new ApiError(502, `b`)',
+    'throw new TypeError(`c`)',
+    'console.error(`not a throw`)',
+    '// throw new Error(注释里的不算)',
+  ]
+  assert.deepEqual(
+    G.findThrowContexts(lines).map((i) => i + 1),
+    [1, 2, 3],
+    '三种错误形态都要命中,注释行不得命中',
+  )
+})
+
+test('findErrorContexts 是 status 与 throw 的并集且按行升序(两类起点不得互相遮蔽)', () => {
+  const lines = [
+    'return reply.status(502).send(error(502, `x`))',
+    'const a = 1',
+    'throw new Error(`y`)',
+  ]
+  assert.deepEqual(G.findErrorContexts(lines), [0, 2])
+})
+
+test('E 通道:无 JSON.stringify 的整对象透传只在令牌端点成立,资源端点不得误伤', () => {
+  const token =
+    "const resp = await fetch(`${API_BASE}/v1/oauth2/token`, { method: 'POST' })\n" +
+    "const text = await resp.text().catch(() => '')\n" +
+    'throw new Error(`token failed: ${resp.status} ${text.slice(0, 200)}`)'
+  const hit = G.scanSource(token, 'apps/api/src/services/paypal.ts')
+  assert.equal(hit.violations.length, 1)
+  assert.equal(hit.violations[0].kind, 'raw-body-from-token-endpoint-in-message')
+
+  const resource = token.split('/v1/oauth2/token').join('/v1/payments/payment')
+  const miss = G.scanSource(resource, 'apps/api/src/services/paypal.ts')
+  assert.equal(miss.violations.length, 0, '资源类端点响应文本透传不属凭据外泄')
+})
+
+test('E 通道推荐写法(只投影 error 字段)必须零命中,防止把修复判成违规', () => {
+  const src =
+    "const resp = await fetch(`${API_BASE}/v1/oauth2/token`, { method: 'POST' })\n" +
+    'const json = (await resp.json()) as { error?: string }\n' +
+    'throw new Error(`token failed: ${resp.status} ${json.error}`)'
+  const r = G.scanSource(src, 'apps/api/src/services/paypal.ts')
+  assert.equal(r.violations.length, 0)
+  assert.equal(r.candidates.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

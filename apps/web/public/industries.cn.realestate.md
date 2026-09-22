@@ -146,7 +146,7 @@
 │ 数据层                                   │
 │ - 房源知识图谱 + 楼盘画像                │
 │ - 客户画像 + 合同库                      │
-│ - PostgreSQL 16 + 向量库                 │
+│ - PostgreSQL 18 + 向量库                 │
 └─────────────────────────────────────────┘
 ```
 
@@ -154,7 +154,7 @@
 
 ### 智汇 AI 端到端能力(8 端覆盖)
 - **Web**(Next.js 16 + React 19):销售管理后台 / 经纪人工作台
-- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 16):房源/合同接口
+- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):房源/合同接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):多 Agent 协同
 - **桌面端**(Tauri 2):VR 看房工作站 / 数字人直播
 - **扩展**(WXT):浏览器侧房源采集
@@ -164,7 +164,7 @@
 
 ### 技术栈
 - 前端:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service:FastAPI + LangGraph + LiteLLM + MCP
 - 多端:Tauri 2 (桌面) / WXT (扩展) / React Native (移动) / Taro 4 (小程序) / Node.js CLI
 - VR/3D:Three.js / WebGL / 数字人
@@ -189,7 +189,7 @@
 | 平均回本周期 | 4 月 |
 | 12 月 ROI | 280% |
 
-(测试环境:企业版中型部署,3 节点,PostgreSQL 16,Redis 7)
+(测试环境:企业版中型部署,3 节点,PostgreSQL 18,Redis 7)
 
 ### 常见问题 FAQ
 - Q:VR 讲解数字人形象能定制吗?

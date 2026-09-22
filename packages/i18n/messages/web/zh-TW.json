@@ -249,6 +249,28 @@
     "regenerate": "重新產生",
     "regenerateDisabledHint": "未選擇倉庫目錄或尚未收集到檔案,無法產生。"
   },
+  "workPanel": {
+    "back": "後退",
+    "forward": "前進",
+    "reload": "重新整理",
+    "stop": "停止",
+    "addressPlaceholder": "輸入網址或搜尋...",
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏",
+    "favoritesAndHistory": "收藏與歷史",
+    "openExternal": "在外部瀏覽器開啟",
+    "closePanel": "關閉面板",
+    "newTab": "新增分頁",
+    "removeFavorite": "移除收藏",
+    "tabFavorites": "收藏",
+    "tabHistory": "歷史",
+    "emptyFavorites": "尚無收藏",
+    "emptyHistory": "尚無歷史",
+    "clearHistory": "清空歷史",
+    "dragInsertBefore": "在此處之前插入",
+    "dragInsertAfter": "在此處之後插入",
+    "closeTab": "關閉分頁"
+  },
   "a11y": {
     "download": "下載",
     "downloadFile": "下載檔案",

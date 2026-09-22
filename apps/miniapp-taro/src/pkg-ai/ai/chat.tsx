@@ -23,6 +23,7 @@ import {
 } from '@/api'
 import { formatSSEError, getModelContextCapacity } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -647,12 +648,8 @@ export default function ChatPage() {
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
-          setMessages((prev) =>
-            prev.map((m, i) => {
-              if (i !== prev.length - 1) return m
-              return m.content ? m : { ...m, content: formatted.message }
-            }),
-          )
+          // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
+          setMessages((prev) => applyStreamError(prev, formatted.message))
           Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
         }
       } finally {
@@ -698,9 +695,11 @@ export default function ChatPage() {
       success: (res) => {
         if (res.confirm) {
           // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
-          if (messages.length > 0) {
-            const firstUserMsg = messages.find((m) => m.role === 'user')
-            const lastMsg = messages[messages.length - 1]
+          // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
+          const contentMsgs = messages.filter((m) => !isErrorTurn(m))
+          if (contentMsgs.length > 0) {
+            const firstUserMsg = contentMsgs.find((m) => m.role === 'user')
+            const lastMsg = contentMsgs[contentMsgs.length - 1]
             const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
             const preview = (lastMsg?.content || '').slice(0, 30)
             const entry: ChatHistoryEntry = {
@@ -708,7 +707,7 @@ export default function ChatPage() {
               title,
               preview,
               timestamp: Date.now(),
-              messages: [...messages],
+              messages: [...contentMsgs],
             }
             setChatHistories((prev) => {
               const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
@@ -845,39 +844,50 @@ export default function ChatPage() {
 
   const handleRegenerate = useCallback(() => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
-    if (lastUserIdx < 0) return
-    const lastUserMsg = messages[lastUserIdx]
-    if (!lastUserMsg?.content) return
+    const text = resendTargetText(messages)
+    if (lastUserIdx < 0 || !text) return
     setMessages((prev) => prev.slice(0, lastUserIdx))
-    setTimeout(() => sendMessage(lastUserMsg.content), 100)
+    setTimeout(() => sendMessage(text), 100)
   }, [messages, sendMessage])
 
   const handleLongPress = useCallback(
     (msg: ChatMessage, idx: number) => {
-      Taro.showActionSheet({
-        itemList: [
-          t('ai.messageAction.copy'),
-          t('ai.messageAction.reuse'),
-          t('ai.messageAction.delete'),
-          t('ai.chatMessageItem.share'),
-        ],
-        success: (res) => {
-          if (res.tapIndex === 0) {
-            Taro.setClipboardData({ data: msg.content })
-          } else if (res.tapIndex === 1) {
-            if (msg.role === 'user') handleReuse(msg.content)
-          } else if (res.tapIndex === 2) {
-            setMessages((prev) => prev.filter((_, i) => i !== idx))
-          } else if (res.tapIndex === 3) {
+      // 失败轮不是内容:不提供复制/分享(把错误文案当回答分享出去即为失真),改为置顶给"重试"出口
+      const failed = isErrorTurn(msg)
+      const actions: { label: string; run: () => void }[] = []
+      if (!failed) {
+        actions.push({
+          label: t('ai.messageAction.copy'),
+          run: () => Taro.setClipboardData({ data: msg.content }),
+        })
+      }
+      if (msg.role === 'user') {
+        actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
+      }
+      actions.push({
+        label: t('ai.messageAction.delete'),
+        run: () => setMessages((prev) => prev.filter((_, i) => i !== idx)),
+      })
+      if (!failed) {
+        actions.push({
+          label: t('ai.chatMessageItem.share'),
+          run: () => {
             // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
             Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
-          }
-        },
+          },
+        })
+      }
+      if (failed) {
+        actions.unshift({ label: t('ai.chatMessageItem.retry'), run: handleRegenerate })
+      }
+      Taro.showActionSheet({
+        itemList: actions.map((a) => a.label),
+        success: (res) => actions[res.tapIndex]?.run(),
       })
     },
-    [t, handleReuse],
+    [t, handleReuse, handleRegenerate],
   )
 
   const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
@@ -1087,14 +1097,16 @@ export default function ChatPage() {
             onLongPress={() => handleLongPress(msg, idx)}
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
             isFavorited={
-              msg.role === 'assistant' && msg.timestamp
+              msg.role === 'assistant' && !msg.error && msg.timestamp
                 ? favoritedMsgs.has(String(msg.timestamp))
                 : undefined
             }
             onToggleFavorite={
-              msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined
+              msg.role === 'assistant' && !msg.error && msg.timestamp
+                ? () => toggleFavorite(msg)
+                : undefined
             }
-            onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
+            onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
             onOpenReasoning={
               msg.role === 'assistant' && msg.reasoning
                 ? () => {
