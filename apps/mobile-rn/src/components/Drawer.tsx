@@ -896,7 +896,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.15,
     shadowRadius: 8,

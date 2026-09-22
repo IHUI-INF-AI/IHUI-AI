@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: SHEET_MAX_HEIGHT_PERCENT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
     paddingHorizontal: SHEET_PADDING_HORIZONTAL,

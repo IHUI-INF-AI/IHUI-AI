@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     height: GRID_GAP,
   },
   card: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     overflow: 'hidden',
   },
