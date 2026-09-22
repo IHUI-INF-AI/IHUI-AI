@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 守门脚本批量执行器。
@@ -423,8 +422,7 @@ const checks = [
   //   手工触发:node scripts/git-refs-heal.mjs [--refresh-remote]
   {
     id: '30a',
-    label:
-      '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
+    label: '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
@@ -447,8 +445,7 @@ const checks = [
   // 跳过方法:HUSKY_SKIP_STALE_COPY=1 git commit ...
   {
     id: '30c',
-    label:
-      '🛡️  陈旧副本守门(blocking,2026-09-14 338 快照事故配套,防 staged 区夹带历史版本回退)',
+    label: '🛡️  陈旧副本守门(blocking,2026-09-14 338 快照事故配套,防 staged 区夹带历史版本回退)',
     script: 'check-stale-copy.mjs',
     args: [],
     mode: 'blocking',
@@ -875,7 +872,6 @@ const checks = [
   //   删 file + guardian-runner 注册项,守卫器序列号顺延(2026-08-19 节点)
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
 
-
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
   // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
   //   包已修复导出,@ts-ignore 是无效历史遗留。warn 级别原因:@ts-ignore 有时是合理压制
@@ -1217,7 +1213,7 @@ const checks = [
       '  💡 有注册工具没有本地化功能名,或 taskStatus 里对应键缺某语言文案。',
       '     修复两步:',
       "       1) packages/shared/src/chat/tool-display.ts 的 TOOL_DISPLAY_KEYS 补 `工具名: 'toolXxx'`",
-      "       2) packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json 的 taskStatus 补 toolXxx",
+      '       2) packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json 的 taskStatus 补 toolXxx',
       '     自检:node scripts/check-tool-name-display-coverage.mjs --json',
       '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_NAME_COVERAGE=1 git commit ...',
       '',
@@ -1265,7 +1261,8 @@ const checks = [
 
   {
     id: '58',
-    label: '🈹 中文术语机翻残留守门(blocking,D104/H29:竞品自家 zh 包实测 list→挂牌/房源,我方 zh 侧此前无闸)',
+    label:
+      '🈹 中文术语机翻残留守门(blocking,D104/H29:竞品自家 zh 包实测 list→挂牌/房源,我方 zh 侧此前无闸)',
     script: 'check-zh-term-quality.mjs',
     args: [],
     mode: 'blocking',
@@ -1624,6 +1621,64 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    id: '71',
+    label: '🈲 计划登记行防丢(blocking,PROJECT_PLAN.md 已入库的 G-/D/P/W 编号行不得整行消失)',
+    script: 'check-plan-line-loss.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_PLAN_LINE_LOSS',
+    onFailHint: [
+      '',
+      '  💡 成因几乎总是"按内存里那份旧计划文档整文件提交",把别的会话(或更早的自己)',
+      '     **已经入库**的登记行按旧基线回写掉了。正解是前向恢复,不是 --no-verify:',
+      '       1) 找回原文:`git log --all -S "<提示里的标记>" -- PROJECT_PLAN.md`,',
+      '          再 `git show <那个提交>:PROJECT_PLAN.md` 取整行插回原锚点;',
+      '       2) 确属 §1 归档 → 原文必须在 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸自动放行);',
+      '       3) 以后改计划文档一律**提交前现取 HEAD 版本**再插自己的行(AGENTS.md §1 配套)。',
+      '     自检:node scripts/check-plan-line-loss.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 72 (2026-09-22 新增,Dockerfile 构建上下文对账) ---
+  // blocking:提交 79b906463f 给根 package.json 加了 postinstall(node scripts/fix-expo-metro-junction.mjs),
+  //   而 deploy/docker/Dockerfile.{api,web,cli,migrate} 只 COPY 清单文件就跑 pnpm install ⇒ 镜像里没有该脚本
+  //   ⇒ CI 上 build-api / build-web 同时红(`MODULE_NOT_FOUND`)。typecheck/lint/单测全绿也发现不了,
+  //   因为本机没有 docker、也没人跑 docker build。本门按 workflow 声明的 context 对账两件事:
+  //   A) 根上下文安装依赖的 Dockerfile 必须 COPY 生命周期钩子引用的脚本;
+  //   B) 每条 COPY 源必须在**提交内容**里存在(工作树可能被并行会话删而未暂存,故不信工作树)。
+  // 跳过方法:HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...
+  {
+    id: '72',
+    label: '🐳 Dockerfile 构建上下文对账(blocking,钩子脚本必须 COPY 进镜像 + COPY 源必须在提交里)',
+    script: 'check-dockerfile-copy-paths.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'deploy/docker/',
+      'deploy/saas/',
+      'apps/ai-service/Dockerfile',
+      'package.json',
+      '.github/workflows/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DOCKERFILE_COPY_GUARD',
+    onFailHint: [
+      '',
+      '  💡 本机跑不到 docker 时,这里是唯一能发现"镜像构建必挂"的防线:',
+      '     - lifecycle-script-not-copied → 根 package.json 的 preinstall/postinstall/prepare 里',
+      '       `node <file>` 引用的脚本没被 COPY 进 deps 阶段 ⇒ 在该 Dockerfile 的 RUN pnpm install',
+      '       之前加一行 `COPY <file> <目录>/`(只 COPY 单个文件,别 COPY 整个 scripts/,会毁层缓存)',
+      '     - copy-source-missing → COPY 的源路径在构建上下文的提交里不存在(拼写/已删/被 .dockerignore 排除)',
+      '       注:存在性按 HEAD 提交内容判,工作树里缺文件不算数(并行会话可能删了未暂存)',
+      '     自检:node scripts/check-dockerfile-copy-paths.mjs --self-test',
+      '           node --test scripts/tests/check-dockerfile-copy-paths.test.mjs',
+      '     紧急跳过(不推荐,本门挡的是"部署才炸"的缺陷):HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
@@ -1754,12 +1809,19 @@ function readPushGateCache() {
 /** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
 function computeGateFingerprint() {
   try {
-    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], { encoding: 'utf8', windowsHide: true }).trim()
-    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
-    const statusRaw = execFileSync('git', ['status', '--porcelain', '-z', '--', 'apps', 'packages'], {
+    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], {
       encoding: 'utf8',
+      windowsHide: true,
+    }).trim()
+    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
+    const statusRaw = execFileSync(
+      'git',
+      ['status', '--porcelain', '-z', '--', 'apps', 'packages'],
+      {
+        encoding: 'utf8',
         windowsHide: true,
-      })
+      },
+    )
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
@@ -1821,7 +1883,9 @@ function printSummary(useStderr) {
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
   out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-  out(`  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`)
+  out(
+    `  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`,
+  )
   out(`  ${C.green}通过: ${passed}${C.reset}`)
   out(`  ${C.yellow}警告: ${warned}${C.reset}`)
   out(`  ${C.red}失败: ${failed}${C.reset}`)
@@ -1902,7 +1966,9 @@ for (const check of effectiveChecks) {
     // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
     // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
     if (check.mode === 'blocking' && e && e.status === 75) {
-      console.error(`⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`)
+      console.error(
+        `⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`,
+      )
       process.exit(75)
     }
     // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
@@ -1923,7 +1989,9 @@ for (const check of effectiveChecks) {
       }
     } else if (check.mode === 'warn') {
       warned++
-      console.warn(`${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`)
+      console.warn(
+        `${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`,
+      )
       if (showTiming) {
         console.log(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
       }
@@ -1943,7 +2011,7 @@ printSummary(false)
 if (failedGates.length > 0) {
   console.error('')
   console.error(
-    `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`
+    `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`,
   )
   for (const g of failedGates) {
     console.error(`   · [${g.id}] ${g.label}`)
@@ -1961,7 +2029,9 @@ if (pushGate && failed === 0) {
       pushGateCacheFile,
       JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),
     )
-    console.log(`${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`)
+    console.log(
+      `${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`,
+    )
   } catch {
     /* 缓存写失败不影响放行 */
   }
