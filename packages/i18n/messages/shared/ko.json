@@ -1,5 +1,6 @@
 {
   "taskStatus": {
+    "toolGenericActivity": "{state, select, running {{name} 실행 중} completed {{name} 실행 완료} other {{name} 실행}}",
     "toolReadFileActivity": "{state, select, running {파일 내용 읽는 중} completed {파일을 읽었습니다} other {파일 내용 읽기}}",
     "toolEditFileActivity": "{state, select, running {파일 편집 중} completed {파일을 편집했습니다} other {파일 편집}}",
     "toolWriteFileActivity": "{state, select, running {파일 쓰기 중} completed {파일을 작성했습니다} other {파일 쓰기}}",
