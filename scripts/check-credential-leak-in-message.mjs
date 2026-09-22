@@ -45,6 +45,12 @@
 //      **双条件**命中。真实缺陷 `storage-service.ts` 即此形状:`throw new Error(\`STS AssumeRole 失败:
 //      ${JSON.stringify(response.body)}\`)`,而 AssumeRole 的成功体就是临时凭据
 //      (AccessKeyId / AccessKeySecret / SecurityToken)。字段投影 `${response.Code}` 不判。
+//      配对只认两种形状(见 credEndpointDumpEvidence):**①关键词与 dump 同行**,或
+//      **②关键词行插值的变量,其声明右侧就是那记 dump**(两行式)。刻意不做整窗任意配对,
+//      否则实测 3 处发布适配器(cnblogs/oschina/segmentfault)会被判成假阳性。
+//      真实缺陷第 5 处 `oss-sts-service.ts`(腾讯云 STS)即 ②:`errMsg = ...Error?.Message ??
+//      JSON.stringify(result)`,而 `result.Response.Credentials` 含 TmpSecretKey / Token ——
+//      首版 F 只认 ① 因而漏掉它,补上 ② 才咬住(同日第 3 次"判据形态之外必漏")。
 // 仅 A∧B 而 C/D/E/F 皆不成立(`JSON.stringify(errData)` / `(genData)` / `(data)`)→ **不拦**,
 // 只进「低置信候选」清单供人审(打印但不计入失败)。现 30 处:8 处为本进程自造的常量错误对象
 // (不含任何上游数据),其余为厂商**推理/生成端点**错误体透传 —— 已逐个回溯其 fetch 端点确认非令牌端点,
@@ -134,7 +140,7 @@ const WHOLE_INTERP_RE = /\$\{\s*([A-Za-z_$][\w$]*)\s*(?:\.slice\([^)]*\))?\s*\}/
  * 只能靠错误消息自带的端点名/动作名。故 F = 关键词 ∧ 整对象 dump 双条件,单条件一律不判。
  */
 export const CRED_CALL_KEYWORD_RE =
-  /(assumeRole|getsessiontoken|sts\.aliyuncs|tenant_access_token|client[_-]?token|oauth2?[\/.]|\/login\/oauth|device\/code|access[_-]?token|refresh[_-]?token|id_token|gettoken|session[_-]?token|signature[_-]?token|\/credential)/i
+  /(assumeRole|getsessiontoken|sts\.aliyuncs|sts\.tencentcloudapi|sts\.amazonaws|tenant_access_token|client[_-]?token|oauth2?[\/.]|\/login\/oauth|device\/code|access[_-]?token|refresh[_-]?token|id_token|gettoken|session[_-]?token|signature[_-]?token|\/credential)/i
 
 /** "整体倒进 message"的目标名:路径末段是响应体类名字才算,避免把 `${body.Code}` 这类字段投影判成违规。 */
 const DUMP_TARGET_RE =
@@ -156,27 +162,52 @@ const FSTRING_RE = /\bf["']/
  * @param {string} text 错误构造窗口文本
  * @param {boolean} [py] 是否按 Python 形态识别(json.dumps 与 f-string 插值)
  */
-export function credEndpointDumpEvidence(text, py = false) {
-  const serRe = py
-    ? /\bjson\s*\.\s*dumps\s*\(\s*([A-Za-z_][\w.]*)/g
-    : /JSON\s*\.\s*stringify\s*\(\s*([A-Za-z_$][\w$.]*)/g
+/**
+ * F 通道求解:返回"关键词 + 被整体倒出的对象路径"证据数组(无则空)。
+ * 配对只认两种真实形状(第三种必须放过,否则就是假阳性):
+ *   ① 同一行既有凭据端点关键词,又有整对象 dump;
+ *   ② 关键词行插值了一个变量,而该变量的声明右侧正是 `SERIALIZE(体)` —— 即"上一行取体、
+ *      下一行拼消息"的两行式(实测腾讯云 STS 即此形状)。
+ * 刻意**不**做"整窗任意配对":cnblogs / oschina / segmentfault 三个发布适配器是
+ * 上一行 `return False, "access_token expired…"` 提供关键词、下一行才倒出平台用户信息体,
+ * 两条语句毫无数据流关系,整窗配对会把它们判成违规(实测 3 处假阳性)。
+ * @param {string} text 错误构造窗口文本
+ * @param {boolean} [py] 按 Python 形态识别(json.dumps 与 f-string)
+ * @param {Map<string,Array<{rhs:string,line:number}>>} [decls] 声明表,用于 ② 的变量链
+ * @param {number} [usageLine] 窗口起始行(1 基),用于 ② 取"使用点之前最近一次声明"
+ */
+export function credEndpointDumpEvidence(text, py = false, decls = null, usageLine = 0) {
+  const dumpRe = new RegExp(
+    py
+      ? String.raw`\bjson\s*\.\s*dumps\s*\(\s*([A-Za-z_][\w.]*)`
+      : String.raw`JSON\s*\.\s*stringify\s*\(\s*([A-Za-z_$][\w$.]*)`,
+    'g',
+  )
   const interpRe = py ? PY_INTERP_RE : WHOLE_INTERP_RE
   const dumps = new Set()
-  // 关键词与 dump **必须同一行**:整窗配对会被相邻语句的字符串字面量喂进假阳性
-  // (实测 cnblogs/oschina/segmentfault 三个 verify 适配器:上一行 return 里写着
-  //  "access_token expired or invalid (401)",下一行才倒出平台用户信息响应体)
+  const dumpTargets = (s) => {
+    dumpRe.lastIndex = 0
+    const out = []
+    for (const m of s.matchAll(dumpRe)) if (m[1] && DUMP_TARGET_RE.test(m[1])) out.push(m[1])
+    return out
+  }
   for (const line of text.split('\n')) {
     CRED_CALL_KEYWORD_RE.lastIndex = 0
     const kw = line.match(CRED_CALL_KEYWORD_RE)
     if (!kw) continue
     const k = kw[1].toLowerCase()
-    serRe.lastIndex = 0
-    for (const m of line.matchAll(serRe))
-      if (m[1] && DUMP_TARGET_RE.test(m[1])) dumps.add(`${k}:${m[1]}`)
+    for (const t of dumpTargets(line)) dumps.add(`${k}:${t}`)
+    // ② 关键词行插值的变量,其声明右侧是否就是那记整对象 dump(两行式)
+    if (!decls) continue
     if (py && !FSTRING_RE.test(line)) continue
     interpRe.lastIndex = 0
-    for (const m of line.matchAll(interpRe))
-      if (m[1] && DUMP_TARGET_RE.test(m[1])) dumps.add(`${k}:${m[1]}`)
+    for (const m of line.matchAll(interpRe)) {
+      const id = m[1]
+      if (!id || id.includes('.')) continue
+      const rhs = resolveDeclaredRhs(decls, id, usageLine)
+      if (!rhs) continue
+      for (const t of dumpTargets(rhs)) dumps.add(`${k}:${t}(via ${id})`)
+    }
   }
   return uniqueSorted([...dumps].map((d) => `keyword:${d}`))
 }
@@ -490,7 +521,7 @@ export function scanSource(src, file, exempt = new Set()) {
       ? []
       : wholeInterpProvenance(decls, lines, text, usageLine, py)
     // F. 凭据端点关键词 ∧ 整对象 dump:覆盖走 SDK、URL 不在窗口内、变量名/字段名都不像凭据的情形
-    const dumpEv = credEndpointDumpEvidence(text, py)
+    const dumpEv = credEndpointDumpEvidence(text, py, decls, usageLine)
     const evidence = credArgs.length
       ? credArgs
       : viaDecl.length
@@ -731,6 +762,16 @@ export const SELFTEST_CASES = [
     want: 'candidate',
   },
   // --- Python 形态(ai-service 纳入覆盖;序列化与插值都是另一套语法) ---
+  {
+    name: 'F 通道②:上一行取体、下一行拼消息的两行式必须命中(腾讯云 STS 实测形状)',
+    src: 'const result = (await resp.json()) as TencentStsResponse\nconst creds = result.Response?.Credentials\nif (!creds) {\n  const errMsg = result.Response?.Error?.Message ?? JSON.stringify(result)\n  throw new Error(`腾讯云 STS AssumeRole 失败: ${errMsg}`)\n}',
+    want: 'violation',
+  },
+  {
+    name: 'F 通道②反例:改为只回传 Error.Code 后必须归绿(证明推荐修法真的有效)',
+    src: "const result = (await resp.json()) as TencentStsResponse\nconst creds = result.Response?.Credentials\nif (!creds) {\n  const code = result.Response?.Error?.Code ?? 'no_error_code'\n  throw new Error(`腾讯云 STS AssumeRole 失败: ${code}`)\n}",
+    want: 'none',
+  },
   {
     name: 'Python:json.dumps 令牌端点响应 → 违规(D 通道需认 json.dumps)',
     src: 'resp = httpx.post("https://mcp.example.com/oauth2/token", data=p)\ndata = resp.json()\nraise ProviderError(f"令牌获取失败: {json.dumps(data)}")',
