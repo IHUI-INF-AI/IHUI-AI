@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   } as ViewStyle,
   card: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: 12,
     shadowColor: tokens.gray.black,
