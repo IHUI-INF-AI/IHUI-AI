@@ -900,6 +900,18 @@ export function createSendMessage(
             ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
           })
         },
+        // D39/D108 上游重试交代:retry_scheduled → 本条 assistant 消息的一行提示。
+        // 不接就等于让 web 用户在退避期只看到"停顿"(该帧第 42 轮已入契约,当时只补了通道)。
+        onRetryScheduled: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().setMessageRetryNotice(targetId, {
+            attempt: evt.attempt,
+            maxRetries: evt.maxRetries,
+            retryInMs: evt.retryInMs,
+            ...(typeof evt.httpStatus === 'number' ? { httpStatus: evt.httpStatus } : {}),
+          })
+        },
         // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
         // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。
         // messageId 缺省时回退到本条 assistant 消息 ID(done 必然属于当前流)。
