@@ -43,6 +43,8 @@ import {
   asPlanUpdateSink,
   createTaskStatusLine,
   describeToolActivityLine,
+  injectionNoteText,
+  retryNoteText,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
@@ -2179,6 +2181,10 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
       // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
       onPlanUpdate: asPlanUpdateSink(state.statusLine),
+      // D34/D39 交代帧 → 终端一行。此前该端对这两帧 0 命中:流里确实发生了"带了哪些上下文"
+      // 与"上游换 key 退避重试",用户在终端里完全看不到(只会觉得卡住了)。
+      onInjectionApplied: (event) => state.statusLine.noteLine(injectionNoteText(event)),
+      onRetryScheduled: (event) => state.statusLine.noteLine(retryNoteText(event)),
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,

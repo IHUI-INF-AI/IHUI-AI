@@ -3,6 +3,13 @@
     "notFound": "{target}을(를) 찾을 수 없습니다"
   },
   "cli": {
+    "injectionApplied": "이번 턴의 참조 컨텍스트: {sources}",
+    "injectionSrcDeveloper": "사용자 지정 지침",
+    "injectionSrcWorkspace": "워크스페이스 기억",
+    "injectionSrcRepoWiki": "저장소 Wiki",
+    "injectionSrcAutoContext": "검색 컨텍스트 {count}개",
+    "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다: {attempt}/{max}회 재시도, {seconds}초 후 계속",
+    "retryScheduledNow": "업스트림을 일시적으로 사용할 수 없습니다: {attempt}/{max}회 즉시 재시도",
     "sessionResumed": "최근 세션 복원: {id} ({count, plural, =0 {기록 없음} other {{count}개 기록}})",
     "sessionResumedWithId": "세션 복원: {id} ({count}개 기록)",
     "noSessions": "최근 세션이 없습니다",

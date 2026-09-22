@@ -187,7 +187,7 @@
     },
     {
       "id": "context-injection-disclosure",
-      "title": "本轮上下文注入交代条(web/extension/miniapp-taro/mobile-rn 四端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
+      "title": "本轮上下文注入交代条(web/extension/miniapp-taro/mobile-rn/cli 五端已接;前端本地化 kind 标签 + 可展开全文 + 段数计数)",
       "sourceTask": "D34/D45",
       "events": ["injection_applied"],
       "anchors": [
@@ -234,6 +234,14 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "InjectionDisclosure"
+        },
+        {
+          "file": "apps/cli/src/commands/task-status-line.ts",
+          "mustMatch": "injectionNoteText"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "onInjectionApplied"
         }
       ]
     },
