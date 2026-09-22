@@ -14,10 +14,10 @@ import { test, expect, type Page } from '@playwright/test'
  *     `color(srgb …)` / 原样 `color-mix(...)`)决定 `readAlpha()` 是否返回 0。
  *     返回 0 → 压暗层恒 `opacity-0` → 整个修复在真机上等于没做。happy-dom 甚至会
  *     静默丢弃 oklab 赋值(见 tests/modal-overlay-watcher.test.ts 注释),单测绿不代表真机绿。
- *  2. Tailwind 4 的 named-group + data 变体
- *     (`group/wc` + `group-data-[window-inactive=true]/wc:text-muted-foreground` /
- *     `…/wc:bg-card/50`)拼错就**静默不产出 CSS 规则**,失焦态完全无效。只有
- *     getComputedStyle 数值能证明规则真落地。
+ *  2. 失焦两态的 CSS 规则是否真落地
+ *     规则写在 globals.css 的 `[data-window-controls][data-window-inactive='true'] > button`
+ *     (历史上曾写成组件内 Tailwind 任意变体 `group-data-[…]/wc:`,实测生产构建没把它编进
+ *     CSS 产物 → 真机两态无差异)。只有 getComputedStyle 数值能证明规则生效。
  *
  * 桌面环境怎么来的:`page.addInitScript()` 注入最小 Tauri 桩(`__TAURI_INTERNALS__`
  * 的 metadata / invoke / transformCallback / unregisterCallback),让 `isTauri()` 为真
@@ -286,7 +286,7 @@ async function probeTokenValues(page: Page): Promise<{
       focused: probe(
         'color: color-mix(in oklab, var(--color-foreground) 80%, transparent); background-color: var(--color-card);',
       ),
-      // group-data-[window-inactive=true]/wc: text-muted-foreground + bg-card/50
+      // globals.css 失焦规则: text-muted-foreground + bg-card/50
       inactive: probe(
         'color: var(--color-muted-foreground); background-color: color-mix(in oklab, var(--color-card) 50%, transparent);',
       ),

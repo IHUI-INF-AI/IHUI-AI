@@ -702,7 +702,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
               // 必须显式 auto:Radix 模态 Dialog 打开时把 body 内联置 pointer-events:none
               // (react-dismissable-layer 的 disableOutsidePointerEvents),容器/按钮继承即失效,
               // 未登录时被登录窗挡住就关不掉应用。压暗层自身 pointer-events-none 不会挡点击。
-              className="relative z-max group/wc pointer-events-auto flex h-full shrink-0 items-center gap-0.5 rounded-md"
+              className="relative z-max pointer-events-auto flex h-full shrink-0 items-center gap-0.5 rounded-md"
               data-window-controls
               data-modal-dim={dimActive ? '1' : undefined}
               data-window-inactive={windowFocused ? undefined : 'true'}
@@ -883,9 +883,8 @@ function WindowControlButton({
       className={cn(
         TOPBAR_BTN_BASE,
         TOPBAR_BTN_W9,
-        // 窗口失焦 → Windows caption 非活动态:图标/底色弱化但 hover 仍可点
-        // (未登录时用户必须还能关窗),依赖容器 group/wc + data-window-inactive
-        'group-data-[window-inactive=true]/wc:text-muted-foreground group-data-[window-inactive=true]/wc:bg-card/50',
+        // 窗口失焦的非活动态弱化不写在这里:见 globals.css 的
+        // [data-window-controls][data-window-inactive='true'] > button 规则(原因已在那处说明)
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一(默认 hover:bg-accent)
         //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-accent
