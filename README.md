@@ -2753,6 +2753,35 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ---
 
+### 新增守门示例:第 72 项「Dockerfile 构建上下文对账」(2026-09-22)
+
+有些缺陷**本地全绿也发现不了**:提交 `79b906463f` 给**根** `package.json` 加了
+`"postinstall": "node scripts/fix-expo-metro-junction.mjs"`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}`
+只 COPY 清单文件就执行 `pnpm install` —— 镜像里没有 `scripts/`,于是 CI 上 `build-api` 与 `build-web`
+同时以 `MODULE_NOT_FOUND` 挂掉(五个镜像坏四个)。typecheck / lint / 单测 / 守门 96 项**全都不会知道**,
+因为本机没有 docker、也没人在提交流程里跑 docker build。
+
+`scripts/check-dockerfile-copy-paths.mjs`(第 72 项,blocking)把这件事变成结构性不可能,两条判据都只用仓库内信息:
+
+- **A｜钩子脚本必须进镜像**:凡 COPY 了 `pnpm-workspace.yaml`(= 根 monorepo 上下文标记)的 Dockerfile,
+  其 `pnpm install` 会触发**根** package.json 的 `preinstall` / `postinstall` / `prepare`;
+  这些钩子里 `node <file>` 引用的每个脚本,必须出现在该文件某条 COPY 源里(只 COPY 单个文件,
+  不 COPY 整个 `scripts/` —— 那会让 308 个文件的改动击穿 deps 层缓存)。
+- **B｜COPY 源必须存在**:每条不带 `--from=`、不含通配符的 COPY 源,必须能在**构建上下文**里取到。
+  上下文不靠猜 —— 从 `.github/workflows/*.yml` 的 `context:` / `file:` 成对解析(现解析出 4 个);
+  没声明上下文的 Dockerfile 一律跳过并在结论行里如实报 `B 核了 N/M`,绝不假装全覆盖。
+
+一个实现上的坑值得记:**存在性必须按提交内容判、不能按工作树判**。本仓当时正有并行会话把
+`scripts/fix-expo-metro-junction.mjs` 从工作树删掉但未暂存,按 `existsSync` 会产出一条与真实构建结果
+相反的假阳性;改为读一次 `git ls-tree -r HEAD` 的提交清单后归零。同理 `COPY . .`(整个上下文)与
+`pnpm-lock.yaml*`(通配符)明确不参与判定。
+
+有效性取证:摘掉我加的那行 COPY ⇒ 门 exit 1 并给出可执行修法;往任一 Dockerfile 塞一条不存在的
+COPY 源 ⇒ `copy-source-missing` 命中;还原后 7 个 Dockerfile 全绿。self-test 5 例 + §22c 镜像测试 8 例。
+紧急跳过:`HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1`。
+
+---
+
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
 
 多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
