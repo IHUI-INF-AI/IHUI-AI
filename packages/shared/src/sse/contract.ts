@@ -191,11 +191,14 @@ export type SSEEventPayload =
       endedAt: string
       durationMs: number
       output?: string
-      /** 后端已排版的输出(界面优先用它,缺省回退 output)。
-       *  D34 第 36 轮:随 terminal_output 帧收回并入本帧,不再单列事件。 */
-      formattedOutput?: string
-      /** 输出是否被截断(截断时必须让用户知道还有内容没显示) */
+      /** 输出是否被截断(第 39 轮起后端真下发:仅在确实截断时为 true) */
       truncated?: boolean
+      /** 截断前的原始字符数;未截断时等于 output 长度 */
+      totalChars?: number
+      /**
+       * formattedOutput 已于第 39 轮删除:我方无生产点也无消费方(后端不做输出排版,
+       * stdout/stderr 的结构化由 tool-result 帧分别承载),契约里不留空壳字段。
+       */
       exitCode?: number
       messageId?: string
     }>
