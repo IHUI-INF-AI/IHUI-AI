@@ -861,6 +861,9 @@ export function createSendMessage(
           useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
             output: evt.output,
+            // 截断交代必须一起落 store:回放/刷新时没有 live 缓冲,长度相等看不出内容不完整
+            truncated: evt.truncated,
+            totalChars: evt.totalChars,
             exitCode: evt.exitCode,
             endedAt: evt.endedAt,
             durationMs: evt.durationMs,
