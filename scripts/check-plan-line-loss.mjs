@@ -29,7 +29,7 @@
  * 紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...(会把丢失写进历史,先确认为何丢)
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -50,8 +50,13 @@ const git = (args, cwd = ROOT) =>
 /** 登记行 → 编号标记(找不到返回 null) */
 export function markerOf(line) {
   if (!/^\s*[-*]\s/.test(line)) return null
-  // 编号形态:G-166 / D107b / P2-F.10 / W18(字母后缀与点号都要容得下)
-  const m = line.match(/\*\*(G-\d+[a-z]?|D\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+)/)
+  // 编号形态:G-166 / D107b / P2-F.10 / W18(字母后缀与点号都要容得下);
+  // 外加 `守门 NN` 一族 —— 各道闸门在计划里的登记行用的就是这个前缀(如
+  // `**守门 72 \`scripts/check-dockerfile-copy-paths.mjs\`(sha …)**`),2026-09-23 实测
+  // 有一枚并发暂存版本正整块删掉别人的守门登记,只认 G/D/P/W 会完全看不见。
+  const m = line.match(
+    /\*\*(G-\d+[a-z]?|D\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?)/,
+  )
   if (!m) return null
   if (line.trim().length < MIN_LEN) return null
   // 标记 = 加粗头的**原文前缀**(不做任何重拼,否则 "D107b" 会被拆成 "D107 b" 这种
@@ -118,7 +123,11 @@ export function runCheck(isStaged) {
  *  本函数是"从历史里回捞"的通用手段,不依赖是谁、哪一枚提交弄丢的。)
  * 同时记下每行在历史里的**前一行**,回插时用得上。
  */
-export function collectMissing(targetSrc, depth = 60) {
+/**
+ * 扫最近 N 个提交的计划版本,收集登记行(含每行在历史里的**前一行**,回插时用得上)。
+ * 单独拆出来是因为同一份历史要和两个目标比对:工作区、HEAD(见 heal)。
+ */
+export function historyMarkers(depth = 60) {
   const shas = git(['rev-list', `--max-count=${depth}`, 'HEAD'])
     .trim()
     .split(/\r?\n/)
@@ -146,12 +155,28 @@ export function collectMissing(targetSrc, depth = 60) {
       seen.set(marker, { line, marker, sha, prev })
     })
   }
+  return seen
+}
+
+/** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
+export function missingFrom(seen, targetSrc) {
   const missing = []
   for (const [marker, v] of seen) {
     if (targetSrc.includes(marker)) continue
     if (archivedCopy(marker)) continue
     missing.push(v)
   }
+  return missing
+}
+
+/**
+ * 扫最近 N 个提交的计划版本,找出当前内容里已消失的那些。
+ * (并发"旧基线整文件提交"与 git-sync-converge 的索引层合并都可能把别人的行合掉;
+ *  本函数是"从历史里回捞"的通用手段,不依赖是谁、哪一枚提交弄丢的。)
+ */
+export function collectMissing(targetSrc, depth = 60) {
+  const seen = historyMarkers(depth)
+  const missing = missingFrom(seen, targetSrc)
   return { total: seen.size, missing }
 }
 
@@ -222,11 +247,26 @@ function selfTest() {
         '  - **P2-F.10 追加 —— 凭据外泄族收到第 5 处,F 通道两次自我纠正,Python 覆盖落地全绿。**',
       ) === 'P2-F.10 追加 —— 凭据外泄' &&
       markerOf('- **D12 短') === null &&
-      markerOf('**G-1 没有 bullet**这是一行足够长的但没有列表符号的内容,不该算登记行。') === null,
+      markerOf('**G-1 没有 bullet**这是一行足够长的但没有列表符号的内容,不该算登记行。') === null &&
+      // `守门 NN` 登记行一族:认编号前缀,但"守门"后无数字的散文行不算
+      String(
+        markerOf(
+          '  - **守门 72 `scripts/check-dockerfile-copy-paths.mjs`(sha `f9a264f25b`)**:提交 `79b9` 给根 package.json 加 postinstall 而镜像没 COPY scripts。',
+        ),
+      ).startsWith('守门 72') &&
+      markerOf(
+        '  - **守门链的执行语义**:任一 blocking 门失败都跑完再汇总,这是工程约束不是登记行编号。',
+      ) === null,
   )
   t('归档目录豁免路径可达(不抛异常即算通)', () => {
     const v = archivedCopy('一个绝对不存在的标记 XYZ')
     return v === null || typeof v === 'string'
+  })
+  t('missingFrom 可分别喂工作区与 HEAD(旁路提交把 HEAD 合掉、工作区还留着时仍能发现)', () => {
+    const line = '  - **G-777 收口(第 60 轮):一条足够长的登记行,用来验证双目标比对逻辑。**'
+    const seen = new Map([['G-777 收口', { marker: 'G-777 收口', line, prev: null }]])
+    const withLine = `${base}\n${line}`
+    return missingFrom(seen, withLine).length === 0 && missingFrom(seen, base).length === 1
   })
   t('healContent:邻居还在 → 插到邻居之后,分组不散', () => {
     const target = ['### 段', '  - **G-166 第①步(第 57 轮):新立交代帧持久化,细节见提交说明。**', ''].join(
@@ -277,41 +317,67 @@ function selfTest() {
  */
 function heal(commit) {
   const head = git(['show', `HEAD:${PLAN}`])
-  // 基准优先取工作区:heal 只做"加法",绝不因为回捞而把别人**尚未提交**的新行写没。
-  // 工作区干净(与 HEAD 一致)时二者相同,无差别;工作区脏(有人在写)时以它为准。
   const disk = readFileSync(path.join(ROOT, PLAN), 'utf8')
-  const cur = disk.trim().length >= head.trim().length ? disk : head
-  const { total, missing } = collectMissing(cur)
-  if (missing.length === 0) {
-    console.log(`✅ [plan-line-loss] 扫描 ${total} 条登记行:无缺失,无需回捞`)
+  const seen = historyMarkers()
+  /**
+   * 工作区与 HEAD **分别**判缺失。只看工作区会留一个洞:并发会话走 commit-tree 旁路
+   * (git-sync-converge / 临时索引提交)时钩子根本不跑,它把某行从 HEAD 合掉后,
+   * 共享工作区里那一行往往还在 → 单一目标会"无缺失"提前返回,HEAD 从此永远缺着。
+   */
+  const diskMissing = missingFrom(seen, disk)
+  const headMissing = missingFrom(seen, head)
+  if (diskMissing.length === 0 && headMissing.length === 0) {
+    console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
   }
-  const { out, inserted, appended } = healContent(cur, missing)
-  console.warn(
-    `⚠️  [plan-line-loss] 扫最近历史发现 ${missing.length} 条登记行已消失 → 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
-  )
-  for (const m of missing) console.warn(`     · ${m.marker}`)
-  if (cur === out) console.log('   基准内容已含全部登记行,无需写盘')
-  else writeFileSync(path.join(ROOT, PLAN), out, 'utf8')
+  let inserted = 0
+  let appended = 0
+  if (diskMissing.length) {
+    const healed = healContent(disk, diskMissing)
+    inserted = healed.inserted
+    appended = healed.appended
+    console.warn(
+      `⚠️  [plan-line-loss] 工作区缺 ${diskMissing.length} 条登记行 → 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
+    )
+    for (const m of diskMissing) console.warn(`     · ${m.marker}`)
+    if (healed.out !== disk) writeFileSync(path.join(ROOT, PLAN), healed.out, 'utf8')
+  }
+  if (headMissing.length) {
+    console.warn(
+      `⚠️  [plan-line-loss] HEAD 缺 ${headMissing.length} 条登记行(被旁路提交合掉,工作区可能仍留着):`,
+    )
+    for (const m of headMissing) console.warn(`     · ${m.marker}`)
+  }
   if (!commit) {
     console.log('   (未加 --commit:只写工作区,不建提交)')
     return 0
   }
+  if (headMissing.length === 0) {
+    console.log('   HEAD 已含全部登记行,无需建恢复提交')
+    return 0
+  }
   const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
+  // post-commit 里这条链是 `... || true`,目录不存在会让恢复提交**静默失败** → 先确保目录在
+  mkdirSync(path.dirname(msgFile), { recursive: true })
   // 提交用的基线**必须是 HEAD**,不能用刚写盘的工作区内容 —— 工作区可能带着别人
   // 尚未提交的行,拿去建提交等于代收(§12 暂存区污染红线)。
-  const healedHead = healContent(head, collectMissing(head).missing).out
+  const healedHead = healContent(head, headMissing).out
+  if (healedHead === head) {
+    console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
+    return 0
+  }
   writeFileSync(
     msgFile,
-    `docs(plan): 自动回捞 ${missing.length} 条被并发旧基线提交抹掉的登记行\n\n` +
+    `docs(plan): 自动回捞 ${headMissing.length} 条被并发旧基线提交抹掉的登记行\n\n` +
       `由 scripts/check-plan-line-loss.mjs --heal --commit 生成:按最近历史逐条取回原文,` +
-      `插回各自邻居之后(邻居也缺席则追加到末尾)。只加不减。\n`,
+      `插回各自邻居之后(邻居也缺席则追加到末尾)。只加不减。\n` +
+      (diskMissing.length ? `(同轮工作区另回插 ${inserted}+${appended} 条,不入本次提交。)\n` : ''),
     'utf8',
   )
   const tmp = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.md`)
   writeFileSync(tmp, healedHead, 'utf8')
-  const blob = git(['hash-object', '-w', tmp])
-  const parent = git(['rev-parse', 'HEAD'])
+  const blob = git(['hash-object', '-w', tmp]).trim()
+  const parent = git(['rev-parse', 'HEAD']).trim()
   const idx = path.join(ROOT, '.ihui-agent/tmp', `index-plan-heal-${Date.now()}`)
   const env2 = { ...process.env, GIT_INDEX_FILE: idx }
   const g2 = (a, o = {}) =>

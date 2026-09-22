@@ -189,6 +189,7 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼び出し詳細",
     "terminal": "ターミナル",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalStatusRunning": "実行中",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",

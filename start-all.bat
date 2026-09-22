@@ -1,10 +1,13 @@
 @echo off
-rem IHUI-AI local full-stack launcher. SILENT BY DESIGN.
-rem Hands off to scripts\dev-stack-launch.mjs, which spawns dev-stack.mjs
-rem detached with windowsHide, so no service console window is ever created.
-rem dev-stack.mjs with no flags health-checks the stack and starts only what is
-rem missing, in dependency order, so this file is idempotent: if the login
-rem autostart watcher already holds the stack up, double-clicking changes nothing.
+rem IHUI-AI local full-stack launcher. ZERO WINDOWS BY STRUCTURE.
+rem Preferred path: start the IHUI-DevStack scheduled task. It is registered with
+rem LogonType S4U, so it runs in session 0, which has no desktop - no process in
+rem that tree (not tsx, not uvicorn, not pnpm internals) can put a window on your
+rem screen, regardless of how it spawns. Registered by: pnpm dev:stack:autostart
+rem Fallback path (task absent): hidden local dispatch through
+rem scripts\dev-stack-launch.mjs into scripts\dev-stack.mjs, which health-checks
+rem the stack and starts only what is missing, in dependency order. Idempotent:
+rem if the supervisor already holds the stack up, double-clicking changes nothing.
 rem Stop all: pnpm dev:safe:stop    Health check: pnpm dev:stack:check
 rem Keep this file plain ASCII with no quotes and no shell-looking text inside
 rem comments: cmd.exe decodes .bat through the ANSI codepage and mis-parses both.
@@ -24,14 +27,32 @@ if not defined NODEEXE (
 
 rem The cwd argument must not keep its trailing backslash: a quoted trailing
 rem backslash escapes the closing quote and shifts every later argument.
+set "TASK=IHUI-DevStack"
+schtasks /Query /TN "%TASK%" >nul 2>&1
+if errorlevel 1 goto :fallback
+rem Headless path: start the S4U supervisor task. It runs in session 0, which has
+rem no desktop, so nothing in its process tree can create a window on your screen.
+rem Task Scheduler ignores a second start while it is already running.
+schtasks /Run /TN "%TASK%" >nul 2>&1
+if errorlevel 1 (
+  echo [start-all] could not start task %TASK% - run: pnpm dev:stack:autostart
+  exit /b 1
+)
+echo [start-all] supervisor task %TASK% signalled; health check runs in session 0, no windows.
+goto :report
+
+:fallback
+rem Task not installed on this machine yet - fall back to a local hidden dispatch.
 "%NODEEXE%" "%ROOT%scripts\dev-stack-launch.mjs" startall "%LOGDIR%" "%ROOTC%" "%NODEEXE%" "%ROOT%scripts\dev-stack.mjs"
 if errorlevel 1 (
   echo [start-all] handoff failed - see "%LOGDIR%\dev-stack-startall.err.log"
   exit /b 1
 )
+echo [start-all] task %TASK% missing, used local dispatch. Make it headless: pnpm dev:stack:autostart
+goto :report
 
-echo [start-all] health-check dispatched in background; no windows by design.
+:report
 echo [start-all] web http://localhost:8801  api http://localhost:8802/health  ai-service http://localhost:8803/health
-echo [start-all] logs %LOGDIR%\dev-stack-startall.log   stop: pnpm dev:safe:stop
+echo [start-all] logs %LOGDIR%\dev-stack-watcher.log   stop: pnpm dev:safe:stop   check: pnpm dev:stack:check
 endlocal
 exit /b 0

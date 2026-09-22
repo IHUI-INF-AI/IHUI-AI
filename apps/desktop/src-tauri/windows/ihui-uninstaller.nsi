@@ -27,7 +27,7 @@
 ;              (必须走 MUI 的宏:裸 UninstPage custom 放在 uninstfiles 之后不会被走到)
 ;   U3 语言     un.onInit 只读注册表语言值,缺失即沿用核心按系统 UI 语言的选择,
 ;              绝不再走 MUI_UNGETLANGUAGE 的空值分支(那条会弹原生「Installer Language」框)
-;   U 埋点      Section Uninstall 内 4 个 `!insertmacro IHUI_UNPROGRESS`(20/45/65/85)
+;   U 埋点      Section Uninstall 内 8 个 `!insertmacro IHUI_UNPROGRESS`(20/34/46/56/66/76/86/92)
 ;   passive     不新增宏:各自定义页开头 `Call un.SkipIfPassive`(上游自带函数)
 ; =====================================================================
 
@@ -101,7 +101,7 @@ Var UNDONE    ; 卸载资产已解压标记(0=未解压 1=已解压,只解一次
     System::Call "user32::SetWindowRgn(p $UNPB2, p R3, i 1)"
   ${EndIf}
   ${If} $UNPCT <> 0
-    !insertmacro IHUI_SETTEXT $UNPCT "${PCT}" ; % 由位图烧出,见 ihui-ui.nsi IHUI_PROGRESS 注释
+    !insertmacro IHUI_SETTEXT $UNPCT "${PCT}%" ; 与安装侧同一口径:数字和 % 同一个 STATIC 排版
   ${EndIf}
   ${If} $UNSTG <> 0
     !insertmacro IHUI_SETTEXT $UNSTG "${TEXT}"
@@ -301,7 +301,7 @@ Function un.IHUIUninstShow
   !insertmacro IHUI_PX $8 ${IHUI_PCT_PX}
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 700, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
   Pop $UNBIGF
-  !insertmacro IHUI_TEXTCTL $UNPCT 0x50000002 "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
+  !insertmacro IHUI_TEXTCTL $UNPCT ${IHUI_PCT_STYLE} "0%" ${IHUI_PCT_X} ${IHUI_PCT_Y} ${IHUI_PCT_W} ${IHUI_PCT_H}
   SendMessage $UNPCT 0x0030 $UNBIGF 1
   !insertmacro IHUI_PX $8 ${IHUI_STG_PX}
   System::Call "gdi32::CreateFontW(i r8, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
