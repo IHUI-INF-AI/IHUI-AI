@@ -199,6 +199,10 @@
         {
           "file": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
           "mustMatch": "bubbleStyles.errorCard"
+        },
+        {
+          "file": "apps/cli/src/commands/repl.ts",
+          "mustMatch": "cli.retryHint"
         }
       ]
     },
