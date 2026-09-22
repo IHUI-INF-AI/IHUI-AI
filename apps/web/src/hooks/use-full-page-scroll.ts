@@ -23,10 +23,13 @@ export interface UseFullPageScrollReturn {
 
 /**
  * 首页全屏分页滚动 Hook
- * - 监听 wheel / touchstart / keydown 触发翻页
+ * - 监听 wheel / touchstart / 键盘(PageUp/PageDown)触发翻页
  * - 通过 scroll-snap + scrollIntoView 实现平滑滚动
  * - 节流锁避免连续触发
  * - SSR 安全(hydration 期间不绑定事件)
+ *
+ * 键位归属(2026-09-22 立,详见下方键盘 effect 注释):
+ * 整屏翻页只吃 PageUp/PageDown,↑/↓/Home/End 一律让给对话流消息导航。
  *
  * 使用方式:
  *   const { section, total, setTotal, scrollTo } = useFullPageScroll(5)
@@ -117,27 +120,33 @@ export function useFullPageScroll(initialTotal = 0): UseFullPageScrollReturn {
     }
   }, [triggerPage])
 
-  // 监听键盘事件(PageDown/PageUp/箭头)
+  // 监听键盘事件(PageUp/PageDown)
+  // 2026-09-22 键位归属改版:此前 ↑/↓/Home/End 也在这里 preventDefault 翻页,而
+  // use-message-list-scroll 用同一组键切换"聚焦消息"。/chat 复用本首页组件
+  // (app/(main)/chat/page.tsx 渲染 WorkAreaHomePage),两套 window keydown 同时生效 ⇒
+  // 一次按键既整屏翻页又跳消息焦点;焦点在输入框时方向键还被整屏吞掉(无法移光标)。
+  // 现定:方向键与首尾键归对话流,整屏翻页只保留 PageUp/PageDown(滚轮/触摸/分页指示器不变)。
+  // 焦点在可编辑元素内、或带 meta/ctrl/alt 修饰时全部放行,交还原生行为。
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'PageDown' || e.key === 'ArrowDown') {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (target) {
+        const tag = target.tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return
+      }
+      if (e.key === 'PageDown') {
         e.preventDefault()
         triggerPage('next')
-      } else if (e.key === 'PageUp' || e.key === 'ArrowUp') {
+      } else if (e.key === 'PageUp') {
         e.preventDefault()
         triggerPage('prev')
-      } else if (e.key === 'Home') {
-        e.preventDefault()
-        scrollTo(0)
-      } else if (e.key === 'End') {
-        e.preventDefault()
-        scrollTo(total - 1)
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [triggerPage, scrollTo, total])
+  }, [triggerPage])
 
   // 禁用浏览器自动恢复滚动位置
   React.useEffect(() => {

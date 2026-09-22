@@ -12,6 +12,51 @@
 
 ---
 
+## P1 2026-09-22 AI 对话框"两套上下键"键位归属切分(单端:apps/web 键盘交互)
+
+用户报障:AI 对话框里存在两套上下键在翻对话内容。
+
+### 根因(读源码 + 真浏览器取证,非推测)
+
+两个 `window` 级 keydown 监听同时持有 ↑/↓/Home/End,且都 `preventDefault`:
+
+1. `apps/web/src/components/chat/message-list/use-message-list-scroll.ts` — ↑/↓ 切换"聚焦消息"(ring + `scrollIntoView`),Home/End 跳首末条。**有**焦点/修饰键守卫。
+2. `apps/web/src/hooks/use-full-page-scroll.ts` — 首页整屏翻页,**原本无**任何焦点/修饰键守卫。
+
+撞车路径:`app/(main)/chat/page.tsx:34` 已登录态直接渲染 `WorkAreaHomePage`(= `app/(main)/home/page.tsx`,挂了翻页 hook),而对话面板是全局 docked 的 `AISidePanel` ⇒ `/chat` 与 `/home` 上两套监听并存。后果:① 一次 ↑ 既跳消息焦点又整屏翻页;② 焦点在输入框时翻页侧仍吞掉方向键(光标无法上下移)。已排除"面板收起时仍抢键"——`ai-side-panel.tsx:1031` 是 `if (!open) return` 早返回,`MessageList` 随卸载即注销监听。
+
+### 改法
+
+- **键位归属切分(不引入跨组件隐式仲裁状态)**:方向键与首尾键(↑/↓/Home/End)**唯一归属对话流**;整屏翻页只保留 PageUp/PageDown,滚轮/触摸/`PageIndicator` 点击三条通道不变。
+- 翻页 hook 的键盘 handler 补齐两条守卫:`metaKey||ctrlKey||altKey` 放行;`e.target` 为 `INPUT`/`TEXTAREA`/`isContentEditable` 放行(与消息侧既有判据逐字对齐,避免两套语义漂移)。
+- 消息侧只补注释登记"唯一持有者",行为零改动。
+- **顺手根治一条会被本次验证引爆的配置地雷**:`apps/web/tsconfig.json` 的 `exclude` 原本逐个列举 `.next` / `.next/dev` / `.next/types`,任何隔离 distDir(`IHUI_BUILD_DIST=.next-e2e*` / `.next-h12` / `.next-static-r2` …)里的生成物都会漏进 `tsc include`。实测本次私有 dev 目录 `.next-e2e-verify` 含 4 个 `.ts`、既有残留 `.next-static-r2` 含 13 个 `.ts`(monaco `.d.ts`)。已收为单条 `".next*"`,一次性消除该类误伤(不改真实源码目录语义)。
+
+### 验证证据(2026-09-22)
+
+- `pnpm --filter @ihui/web typecheck` → exit 0(tsconfig 收口后;改前被 `.next-e2e-verify/dev/types/routes.d.ts` 截断产物报 6 错)。
+- 新增单测 `apps/web/src/hooks/use-full-page-scroll.test.tsx`(10 例):含"回归四键不翻页 + `defaultPrevented=false`"、三态焦点守卫、三修饰键守卫(附"无修饰键可翻页"对照防假绿)、**跨 hook 一键一主联证**(同挂两 hook:ArrowDown 只动 `focusedIndex`、PageDown 只动 `section`)、末页不越界、total=0 不炸。`vitest run` → 10 passed;连带 `tests/message-list.test.tsx` 40 passed(50/50 全绿)。
+- 新增 e2e `apps/web/e2e/full-page-scroll-keyboard.spec.ts`(7 passed,0 failed,0 skipped,隔离 dev 8822):`/` 按 PageDown 激活点 `0→1`(几何 16px↔8px 实测),按 ↑/↓/Home/End 各等 1.2s 后激活点恒为 0 且探针记为 `native`(未被消费);textarea 聚焦时 PageDown = `native` 不翻页;`/chat` 用 admin 真实会话(4 条消息)按 ArrowDown 聚焦 `e3c35556…`@0 → ArrowDown 移到 `0a1ff0cf…`@1,期间翻页指示器保持 0。hydration 竞态用 `history.scrollRestoration==='manual'` 作确定性就绪判据(否则会在 SSR 帧按键而假过)。
+- 既有 e2e 回归:`keyboard-navigation.spec.ts` + `page-indicator-geometry.spec.ts` 与新 spec 同批跑,无因本次改动而新增失败。
+- eslint 触及文件 0 错误;`node scripts/watermark.mjs verify` 通过;零 `any`。
+
+### 多端豁免声明(AGENTS.md §9)
+
+单端 `apps/web`:整屏键盘翻页依赖 Next.js 页面级 `window` keydown 与 `history.scrollRestoration`,属 web 专有;`apps/desktop`(Tauri `devUrl:8801` 加载 web 产物)与 `apps/extension` 复用同一份 web 代码故**自动继承**本次修复;`miniapp-taro`/`mobile-rn`/`cli` 无整屏键盘翻页机制(全端 grep `ArrowUp|ArrowDown` 仅命中 `apps/cli/src/tools/browser.ts` 的 CDP 按键映射表,非界面行为)。§21 README 同步豁免:纯交互缺陷修复,不改变对外能力清单(且全仓文档从未描述过这套翻页键)。
+
+### 同批对照实跑暴露的两处既有红点(非本次引入,已用未改动的 8801 生产产物对照证明)
+
+- [ ] `apps/web/e2e/page-indicator-geometry.spec.ts` 7 例全红(含 HEAD 之外的 8801 旧产物同样全红):`beforeEach` 的 `INDICATOR_SELECTOR = '.group\\/indicator'` 已随 PageIndicator 改版失效(`05f049ba09` 一带),实际激活态几何是 16x8 竖向胶囊 / 8x8 圆点,而 spec 仍按 24x10 / 10x10 校准。**判据**:修好后 `playwright test e2e/page-indicator-geometry.spec.ts` 7 例转绿,或选择器与尺寸档重新对齐当前实现。**归因**:本次仅登记不越权修(§12)。
+- [ ] `apps/web/e2e/sidebar-visual.spec.ts:211` TS2345(见下节)。
+
+### 如实登记:一处非本任务的既有债务
+
+`apps/web/e2e/sidebar-visual.spec.ts:211` 在 **HEAD 即报** TS2345(`noUncheckedIndexedAccess` 下 `items[items.length-1]` 的三元真值判断不产生跨访问收窄),`scripts/typecheck-full.mjs` 第 165-185 行会把 e2e typecheck 并入全量门,故该红点早于本次改动存在。归因 commit `65ad63ed74`,文件本地无改动。**按 §12 不越权修改他人代码**,本次仅定位与登记;该文件不在本次改动范围内,push 门 `check-typecheck.mjs` 的 push-scope 判据据此降级。
+
+
+
+---
+
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
