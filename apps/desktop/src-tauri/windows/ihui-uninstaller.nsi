@@ -416,15 +416,21 @@ Function un.IHUIFinishTheme
   ;     · 在 **SHOW 回调**里 IHUI_BTN → 控件建出来了但位图没加载,成品是一块浅灰空矩形
   ;       (UIA 只剩两个"图像"节点、无按钮),不如原生钮方案。
   ;   原生钮 1 的 BN_CLICKED 由核心路由,是唯一被实证"截图对 + 真能点 + 点了真退出"的路。
-  ;   洞与钮必须同宽:CTA 洞 686..834(148),故完成钮位取标准 CTA 槽 688..832(144),
-  ;   btn-finish.bmp 也从 120 改成 144 宽 —— 之前 120 配 148 会在左侧漏出一条浅灰。
+  ;   槽位一律用安装侧同一组常量(IHUI_FINISH_X/W + IHUI_BTN_Y + 高 40 = 位图原尺寸),
+  ;   与 ihui-ui.nsi:1217 的 CTA 槽口径严格一致 —— 两个二进制里同一个位图只有一种摆法。
+  ;   (哨兵探针实测:把 MUI_FINISHPAGE_BUTTON 改成 ZZQQ,屏上出的仍是位图里的「完成」
+  ;    —— 证明 BS_BITMAP 确实生效,换皮不是没吃到位图。)
   !insertmacro IHUI_INST_HOLES 1 0
-  !insertmacro IHUI_INST_SLOT 1 btn-finish.bmp 686 498 148 44
-  ; 焦点虚框用**穿透覆盖层**盖掉:原生钮 1 保留在下面负责点击,
-  ; 上面压一张 IHUI_INST_OVERLAY(STATIC 不置 SS_NOTIFY → WM_NCHITTEST 返回
-  ; HTTRANSPARENT,鼠标继续下探落到原生钮,BN_CLICKED 仍由核心路由)。
-  ; ⚠️ SetFocus 到 $HWNDPARENT / 内层 #32770、WM_CHANGEUISTATE 均实测无效。
-    ; 无边框窗口的拖拽(自定义页有 nsDialogs 定时器,可挂)
+  !insertmacro IHUI_INST_SLOT 1 btn-finish.bmp ${IHUI_FINISH_X} ${IHUI_BTN_Y} ${IHUI_FINISH_W} 40
+  ; ⚠️ 已知残留(2026-09-22 三轮实测后如实登记,不再重试):原生钮载体无论怎么调样式,
+  ;   位图四周仍留一圈约 1px 的深色环,与自建位图钮(确认页「继续」)不是像素级一致。
+  ;   已实测**无效**的四种手段:① 外层 IHUI_INST_OVERLAY 穿透覆盖层(核心整理 Z 序必输,
+  ;   见 ihui-ui.nsi:355-359);② SetWindowTheme(hwnd,"","") 退出可视主题;③ 清
+  ;   BS_TYPEMASK 去掉 BS_DEFPUSHBUTTON 身份;④ BS_FLAT + 清 WS_TABSTOP(已在 SLOT 宏内)。
+  ;   环的来源是 BUTTON 控件自绘位图时的边框残留,NSIS 侧无可调项。
+  ;   取舍:载体换成自建 STATIC 会同时丢掉"点击可路由"这条唯一实证通路(两条自建路
+  ;   的失败证据见上),所以保留原生钮 + 这 1px 环。
+  ; 无边框窗口的拖拽(自定义页有 nsDialogs 定时器,可挂)
   !insertmacro IHUI_UNDRAG_START
   ; ⚠️ 一次性贴皮会被核心事后推翻:UIA 实锤核心在页面切换后把原生钮 1 重新摆回
   ;   原生位并提顶,外层窗口也被 MUI 按 dialog units 复位成 840 宽(与 ihui-ui.nsi:355
@@ -436,13 +442,12 @@ FunctionEnd
 Function un.IHUIFinishPin
   !insertmacro IHUI_UNFIX_SIZE
   !insertmacro IHUI_INST_HOLES 1 0
-  !insertmacro IHUI_INST_SLOT 1 btn-finish.bmp 686 498 148 44
-  ; 品牌底压到内层最底,原生钮 1 从洞里透出,覆盖层再提到最上
+  !insertmacro IHUI_INST_SLOT 1 btn-finish.bmp ${IHUI_FINISH_X} ${IHUI_BTN_Y} ${IHUI_FINISH_W} 40
+  ; 品牌底压到内层最底,原生钮 1 从洞里透出。
+  ; (这里曾挂着一枚 WM_NEXTDLGCTL 想"抹掉系统焦点虚框" —— 哨兵探针实测换皮本来就生效
+  ;  (把 MUI_FINISHPAGE_BUTTON 改成 ZZQQ,屏上出的仍是位图里的「完成」),那与焦点框无关,
+  ;  该消息对画面零影响,按"不留投机代码"删掉。)
   System::Call "user32::SetWindowPos(p $UNBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
-  ; 焦点从默认钮挪走 → 抹掉那圈系统焦点虚框。
-  ; ⚠️ 必须用 WM_NEXTDLGCTL(0x0021) 而不是 SetFocus:对对话框直接 SetFocus
-  ;   会被对话框管理器弹回默认控件(实测无效),WM_NEXTDLGCTL 才是正解。
-  System::Call "user32::SendMessageW(p $HWNDPARENT, i 0x0021, i 0, i 0)"
 FunctionEnd
 
 Function un.IHUIFinishLeave
