@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "build": "tauri build",
+    "build": "tauri build && node ../../scripts/desktop-artifact-single.mjs",
     "tauri": "tauri",
     "build:debug": "tauri build --debug",
     "icons:regen": "node scripts/make-rounded-icon.mjs && tauri icon src-tauri/icons/source-rounded.png",
