@@ -308,6 +308,13 @@
   },
   "content": {
     "translate": "翻訳",
+    "typeLesson": "講座",
+    "typeLive": "ライブ",
+    "typeArticle": "記事",
+    "typeNews": "ニュース",
+    "typeAsk": "Q&A",
+    "typeResource": "リソース",
+    "typeExam": "試験問題",
     "highlight": "ハイライト",
     "vocab": "辞書",
     "sendAi": "AI に質問",
