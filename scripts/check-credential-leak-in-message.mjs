@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
+
 // 守门:拦截「上游**凭据/令牌类**响应体被 stringify 后塞进 4xx/5xx 错误 message」的外泄路径。
 //
 // 为什么需要(实测事实,非推测):
@@ -25,6 +27,16 @@
 //       [--staged|--quiet|--self-test|--update-baseline|--help]
 // 退出码:0 通过 / 1 检出高危违规(或基线外新增)/ 2 脚本自身异常。
 // 存量豁免:scripts/credential-leak-baseline.json(只减不增;将来一次性整改时可登记)。
+//
+// 豁免 key 形态(2026-09-23 定稿,不含行号):`<路径>::<kind>|<凭据证据>`,
+//   凭据证据 = 命中凭据语义的 JSON.stringify 实参集合(排序去重)/ 经声明外泄的变量名
+//   (`via:<名>`)/ message 里出现的令牌字面量(`literal:<名>`)。
+//   之所以不带行号也不用窗口全文:调用点**上方**任何一行增删都是极常见的日常改动,
+//   一旦 key 依赖绝对行号或整段窗口文本,已登记的豁免会**静默失效**且无线索可查。
+//   行号仍出现在报错输出里(给人看),只是不进 key。
+// 同一物理外泄点只计一次:一条语句常有 `.status(502)` 与 `error(502, …)` 两个 4xx/5xx
+//   起点(跨行写法时各自成窗),窗口行区间相互重叠 → 合并为 1 处(`contexts` 记命中数);
+//   行区间不相交的同签名写法(不同函数里的重复外泄)仍分别成条,不互相顶掉。
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -35,7 +47,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts', 'credential-leak-baseline.json')
 const SCAN_ROOTS = ['apps/', 'packages/']
 const SOURCE_EXT = new Set(['.ts', '.tsx', '.js', '.mjs'])
-const SKIP_DIR = /[\\/](node_modules|dist|build|\.next|\.turbo|coverage|__tests__|tests?|e2e|bench)[\\/]/
+const SKIP_DIR =
+  /[\\/](node_modules|dist|build|\.next|\.turbo|coverage|__tests__|tests?|e2e|bench)[\\/]/
 const TEST_PATH = /(\.test\.|\.spec\.|[\\/](tests?|__tests__|e2e)[\\/])/
 const MAX_WINDOW_LINES = 12
 
@@ -44,6 +57,8 @@ export const CRED_SEMANTIC_RE =
   /(access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|credential|password|bearer)/i
 /** message 字面量里直接出现的令牌字段名(spec 指定的三个,严格 snake_case) */
 export const CRED_LITERAL_RE = /\b(access_token|refresh_token|id_token)\b/
+/** 同上带 `g` 标志的一份,用于把命中的令牌名**收全**(只用于生成稳定证据串,不改判据) */
+const CRED_LITERAL_ALL_RE = new RegExp(CRED_LITERAL_RE.source, 'g')
 /** 4xx/5xx 错误响应构造上下文 */
 export const STATUS_CTX_RE = new RegExp(
   [
@@ -232,11 +247,21 @@ export function extractWindow(lines, startIndex) {
 
 const norm = (s) => s.replace(/\s+/g, ' ').trim()
 
+/** 归一化 + 去重 + 排序:让证据串与语句内的书写顺序无关(稳定 key 的前提)。 */
+function uniqueSorted(items) {
+  return [...new Set(items.map(norm).filter(Boolean))].sort()
+}
+
+/** 两个窗口行区间是否重叠(同一物理外泄点常有 status + error 两个起点)。 */
+function rangesOverlap(a, b) {
+  return a[0] <= b[1] && b[0] <= a[1]
+}
+
 /**
  * 扫描单个源文件。
  * @param {string} src 文件内容
  * @param {string} file 仓库相对路径
- * @param {Set<string>} [exempt] 基线 key 集合
+ * @param {Set<string>} [exempt] 基线 key 集合(形态 `<路径>::<kind>|<证据>`,不含行号)
  * @returns {{ violations: Array<object>, candidates: Array<object> }}
  */
 export function scanSource(src, file, exempt = new Set()) {
@@ -244,52 +269,79 @@ export function scanSource(src, file, exempt = new Set()) {
   const decls = collectDeclarations(src)
   const violations = []
   const candidates = []
-  const seen = new Set()
+  /** key → { recs, ranges }:已报告的同一签名(用于把重叠窗口合并为 1 处) */
+  const clusters = new Map()
   for (const start of findStatusContexts(lines)) {
     const { text, endIndex } = extractWindow(lines, start)
-    const key = `${start}:${endIndex}:${norm(text)}`
-    if (seen.has(key)) continue
-    seen.add(key)
+    const usageLine = start + 1
     const hasDirectStringify = /JSON\s*\.\s*stringify\s*\(/.test(text)
     const args = hasDirectStringify ? findStringifyArgs(text) : []
-    const snippet = norm(text).slice(0, 160)
-    let decided = false
-    for (const arg of args) {
-      if (classifyStringifyArg(arg, decls, start + 1)) {
-        decided = true
-        break
-      }
-    }
-    // 经一层声明间接外泄:`const detail = JSON.stringify(tokenData)…` + 下游 error(502, `…${detail}`)
-    let viaDecl = false
-    if (!decided) {
+    // A. 被序列化的实参本身具备凭据语义(名字 / 声明右侧 / 对象字面量 key)
+    const credArgs = uniqueSorted(args.filter((a) => classifyStringifyArg(a, decls, usageLine)))
+    // B. 经一层声明间接外泄:`const detail = JSON.stringify(tokenData)…` + 下游 error(502, `…${detail}`)
+    const viaDecl = []
+    if (!credArgs.length) {
       for (const id of new Set(text.match(/[A-Za-z_$][\w$]*/g) || [])) {
-        const rhs = resolveDeclaredRhs(decls, id, start + 1)
+        const rhs = resolveDeclaredRhs(decls, id, usageLine)
         if (!rhs || !/JSON\s*\.\s*stringify\s*\(/.test(rhs)) continue
-        if (findStringifyArgs(rhs).some((a) => classifyStringifyArg(a, decls, start + 1))) {
-          viaDecl = true
-          break
-        }
+        if (findStringifyArgs(rhs).some((a) => classifyStringifyArg(a, decls, usageLine)))
+          viaDecl.push(`via:${id}`)
       }
     }
-    // message 字面量里直接出现令牌字段名
-    const literalHit = hasDirectStringify && CRED_LITERAL_RE.test(text)
-    if (decided || viaDecl || literalHit) {
-      const k = `${file}::${snippet}`
-      if (exempt.has(k)) continue
-      violations.push({
-        file,
-        line: start + 1,
-        kind: decided ? 'stringify-cred-arg' : viaDecl ? 'stringify-cred-via-declaration' : 'token-literal-in-message',
-        snippet,
-      })
+    viaDecl.sort()
+    // C. message 字面量里直接出现令牌字段名
+    const literals = hasDirectStringify
+      ? uniqueSorted(text.match(CRED_LITERAL_ALL_RE) || []).map((l) => `literal:${l}`)
+      : []
+    const evidence = credArgs.length ? credArgs : viaDecl.length ? viaDecl : literals
+    if (!evidence.length) {
+      for (const arg of args) {
+        // 同一文件内同一被序列化变量只记一次(同一条语句常有 status + error 两个上下文命中)
+        const k = `${file}::${norm(arg)}`
+        if (candidates.some((c) => c.key === k)) continue
+        candidates.push({ key: k, file, line: usageLine, arg: norm(arg).slice(0, 60) })
+      }
       continue
     }
-    for (const arg of args) {
-      // 同一文件内同一被序列化变量只记一次(同一条语句常有 status + error 两个上下文命中)
-      const k = `${file}::${norm(arg)}`
-      if (candidates.some((c) => c.key === k)) continue
-      candidates.push({ key: k, file, line: start + 1, arg: norm(arg).slice(0, 60) })
+    const kind = credArgs.length
+      ? 'stringify-cred-arg'
+      : viaDecl.length
+        ? 'stringify-cred-via-declaration'
+        : 'token-literal-in-message'
+    /** 稳定 key 后缀:只有 kind + 凭据证据,不含行号、不含整段窗口文本 */
+    const snippet = `${kind}|${evidence.join(',')}`
+    const key = `${file}::${snippet}`
+    if (exempt.has(key)) continue
+    const rec = {
+      file,
+      line: usageLine,
+      kind,
+      evidence: evidence.join(','),
+      snippet,
+      key,
+      /** 给人看的窗口原文摘录(不进 key) */
+      excerpt: norm(text).slice(0, 160),
+      /** 该物理点被几个 4xx/5xx 起点命中(跨行写法通常 2 个) */
+      contexts: 1,
+      lines: [usageLine],
+    }
+    violations.push(rec)
+    const cluster = clusters.get(key) || { recs: [], ranges: [] }
+    clusters.set(key, cluster)
+    cluster.recs.push(rec)
+    cluster.ranges.push([start, endIndex])
+    const merged = cluster.ranges.slice(0, -1).findIndex((r) => rangesOverlap(r, [start, endIndex]))
+    if (merged >= 0) {
+      // 同一物理外泄点的第二个起点 → 撤销刚追加的那条,并入前一条(计数只 +1)
+      violations.pop()
+      cluster.recs.pop()
+      cluster.ranges[merged] = [
+        Math.min(cluster.ranges[merged][0], start),
+        Math.max(cluster.ranges[merged][1], endIndex),
+      ]
+      const prev = cluster.recs[merged]
+      prev.contexts += 1
+      if (!prev.lines.includes(usageLine)) prev.lines.push(usageLine)
     }
   }
   return { violations, candidates }
@@ -347,7 +399,8 @@ export function readBaselineRaw() {
 
 export function writeBaseline(keys) {
   const payload = {
-    _comment: '存量豁免清单:key = "<repo相对路径>::<归一化窗口文本>"。只减不增;新增条目须说明理由。',
+    _comment:
+      '存量豁免清单:key = "<repo相对路径>::<kind>|<凭据证据>"(证据=凭据类 stringify 实参 / via:<声明名> / literal:<令牌名>,已排序去重)。**刻意不含行号**,故调用点上方增删行不会让豁免失效。只减不增;新增条目须说明理由。',
     exempt: [...new Set(keys)].sort(),
   }
   writeFileSync(BASELINE_PATH, JSON.stringify(payload, null, 2) + '\n', 'utf8')
@@ -357,12 +410,12 @@ export function writeBaseline(keys) {
 export const SELFTEST_CASES = [
   {
     name: '502 + JSON.stringify(tokenData) → 违规',
-    src: "return reply.status(502).send(error(502, `IMS 令牌失败: ${JSON.stringify(tokenData).slice(0, 400)}`))",
+    src: 'return reply.status(502).send(error(502, `IMS 令牌失败: ${JSON.stringify(tokenData).slice(0, 400)}`))',
     want: 'violation',
   },
   {
     name: '变量名无凭据语义(errData)→ 仅候选',
-    src: "return reply.status(502).send(error(502, `调用失败: ${JSON.stringify(errData).slice(0, 400)}`))",
+    src: 'return reply.status(502).send(error(502, `调用失败: ${JSON.stringify(errData).slice(0, 400)}`))',
     want: 'candidate',
   },
   {
@@ -382,27 +435,27 @@ export const SELFTEST_CASES = [
   },
   {
     name: '跨行拼接(status 在上一行,stringify 在下一行)→ 违规',
-    src: "return reply.status(502).send(\n  error(502, `失败: ${resp.status} ${JSON.stringify(clientSecretPayload).slice(0, 400)}`),\n)",
+    src: 'return reply.status(502).send(\n  error(502, `失败: ${resp.status} ${JSON.stringify(clientSecretPayload).slice(0, 400)}`),\n)',
     want: 'violation',
   },
   {
     name: '非凭据变量跨行 → 仅候选',
-    src: "return reply.status(502).send(\n  error(502, `失败: ${JSON.stringify(genData).slice(0, 400)}`),\n)",
+    src: 'return reply.status(502).send(\n  error(502, `失败: ${JSON.stringify(genData).slice(0, 400)}`),\n)',
     want: 'candidate',
   },
   {
     name: '经声明间接外泄(const detail = JSON.stringify(authToken))→ 违规',
-    src: "const detail = JSON.stringify(authToken).slice(0, 200)\nreturn reply.status(502).send(error(502, `失败 ${detail}`))",
+    src: 'const detail = JSON.stringify(authToken).slice(0, 200)\nreturn reply.status(502).send(error(502, `失败 ${detail}`))',
     want: 'violation',
   },
   {
     name: '2xx 上下文 → 不判(无 4xx/5xx 语义)',
-    src: "return reply.status(200).send(success(200, JSON.stringify(tokenData)))",
+    src: 'return reply.status(200).send(success(200, JSON.stringify(tokenData)))',
     want: 'none',
   },
   {
     name: '注释行 → 忽略',
-    src: "// return reply.status(502).send(error(502, JSON.stringify(tokenData)))\nconst a = 1",
+    src: '// return reply.status(502).send(error(502, JSON.stringify(tokenData)))\nconst a = 1',
     want: 'none',
   },
   {
@@ -453,13 +506,18 @@ function printHelp() {
 }
 
 async function main(argv = process.argv.slice(2)) {
-  if (argv.includes('--help')) return 0
+  if (argv.includes('--help')) {
+    printHelp()
+    return 0
+  }
   if (argv.includes('--self-test')) return selfTest() ? 0 : 1
   const staged = argv.includes('--staged')
   const quiet = argv.includes('--quiet')
   const baseline = readBaselineRaw()
   if (!baseline.ok) {
-    console.error('❌ 基线文件 scripts/credential-leak-baseline.json 解析失败(须为 { exempt: string[] })')
+    console.error(
+      '❌ 基线文件 scripts/credential-leak-baseline.json 解析失败(须为 { exempt: string[] })',
+    )
     return 2
   }
   const exempt = new Set(baseline.exempt)
@@ -476,15 +534,24 @@ async function main(argv = process.argv.slice(2)) {
   const mode = staged ? '--staged' : '全量'
   const { prod, test } = partitionByTestPath(violations)
   if (prod.length) {
-    console.log(`❌ [check-credential-leak-in-message ${mode}] ${prod.length} 处凭据体外泄进错误 message:`)
+    console.log(
+      `❌ [check-credential-leak-in-message ${mode}] ${prod.length} 处凭据体外泄进错误 message:`,
+    )
     for (const v of prod.slice(0, 40)) {
-      console.log(`   ${v.file}:${v.line} [${v.kind}]`)
-      console.log(`     ${v.snippet}`)
+      console.log(
+        `   ${v.file}:${v.line} [${v.kind}] 证据 ${v.evidence}` +
+          (v.contexts > 1 ? `(同一物理点 ${v.contexts} 个 4xx/5xx 起点,已合并)` : ''),
+      )
+      console.log(`     ${v.excerpt}`)
     }
     if (prod.length > 40) console.log(`   ... 其余 ${prod.length - 40} 处`)
-    console.log('   修复:message 只留厂商/状态码/白名单错误字段,上游响应体不得整体 stringify 回传。')
+    console.log(
+      '   修复:message 只留厂商/状态码/白名单错误字段,上游响应体不得整体 stringify 回传。',
+    )
   } else {
-    console.log(`✅ [check-credential-leak-in-message ${mode}] 扫描 ${files.length} 文件,凭据外泄高危 0 处`)
+    console.log(
+      `✅ [check-credential-leak-in-message ${mode}] 扫描 ${files.length} 文件,凭据外泄高危 0 处`,
+    )
   }
   if (test.length) {
     console.log(`⚠️  测试代码 ${test.length} 处命中(warn-only:mock 凭据非真实外泄路径)`)
@@ -493,11 +560,12 @@ async function main(argv = process.argv.slice(2)) {
     console.log(
       `ℹ️  低置信候选 ${candidates.length} 处(上游错误体透传,变量名不含凭据语义 → 不计入失败,仅供人审):`,
     )
-    for (const c of candidates.slice(0, 40)) console.log(`   ${c.file}:${c.line}  JSON.stringify(${c.arg})`)
+    for (const c of candidates.slice(0, 40))
+      console.log(`   ${c.file}:${c.line}  JSON.stringify(${c.arg})`)
     if (candidates.length > 40) console.log(`   ... 其余 ${candidates.length - 40} 处`)
   }
   if (argv.includes('--update-baseline')) {
-    writeBaseline(prod.map((v) => `${v.file}::${v.snippet}`))
+    writeBaseline(prod.map((v) => v.key))
     console.log(`✅ 基线已写入 ${prod.length} 条(只减不增,新增违规仍会被拦)`)
     return 0
   }
