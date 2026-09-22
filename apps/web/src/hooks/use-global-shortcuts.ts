@@ -57,7 +57,11 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
-  { key: 'Ctrl+Shift+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
+  // 2026-09-23 让位 IDE 家族:原 Ctrl+Shift+D 与 use-ide-shortcuts 的
+  // `Ctrl+Shift+{E,F,G,D,A}` 视图切换族撞键(同一次按下既切 debug 视图又跳 /drama)。
+  // IDE 族语义已固化在 activity-bar tooltip(迁移成本最高),故注册表改绑到
+  // 本族已有的 Ctrl+Alt+{B,H,V} 语音族的 D 位(复核空闲:全仓无 Ctrl+Alt+D 处理器)。
+  { key: 'Ctrl+Alt+D', description: '短剧编辑器', event: 'global-shortcut:open-drama' },
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // VS Code 标准命令面板快捷键:Ctrl+Shift+P 打开 Plus 命令面板(视图/工具/设置切换)
   // 设计依据:① VS Code 用户最熟悉 ② 不与项目已有 Ctrl+P(搜索)冲突(matchShortcut 修复后严格区分 shift)
@@ -78,11 +82,14 @@ const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
   { key: 'Ctrl+5', description: '切换到问答模式', event: 'global-shortcut:mode-ask' },
   // 输入工具栏收敛(2026-09-18 用户规则:"这里这么多按钮都重合了"):
   // - 斜杠命令面板:Ctrl+Shift+/ 触发(避开 Ctrl+/ 帮助,Ctrl+P 搜索,Ctrl+Shift+P 命令面板)
-  // - @ 提及文件:Ctrl+Shift+A(Ctrl+@ 字符歧义,匹配易失败,选 A 记 "At mention")
-  // - 截图:Ctrl+Shift+M(避开 Ctrl+Shift+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
+  // - @ 提及文件:Ctrl+Shift+U(原 Ctrl+Shift+A 与 use-ide-shortcuts 的 applications 视图、
+  //   use-native-shortcuts 的管理后台三方撞键,一次按下三件事同时发生。IDE 族保持不动,
+  //   本项让位改绑 U;Ctrl+@ 字符歧义匹配易失败,故仍走字母位。U 复核空闲:
+  //   全仓无 Ctrl+Shift+U 处理器,Chrome 的 Ctrl+U 查看源码不带 Shift)
+  // - 截图:Ctrl+Shift+M(避开 Ctrl+Alt+D 短剧、Ctrl+Shift+N 新建、Ctrl+Shift+P 命令面板)
   // 事件由 message-input.tsx 消费(setSlashOpen / setMentionOpen / fileInputRef.click)
   { key: 'Ctrl+Shift+/', description: '斜杠命令面板', event: 'global-shortcut:open-slash' },
-  { key: 'Ctrl+Shift+A', description: '提及文件', event: 'global-shortcut:mention-file' },
+  { key: 'Ctrl+Shift+U', description: '提及文件', event: 'global-shortcut:mention-file' },
   { key: 'Ctrl+Shift+M', description: '截图', event: 'global-shortcut:screenshot' },
   // 2026-09-18 语音三件套快捷键(用户规则:"请为这些组件添加快捷键支持"):
   // Ctrl+Alt+V 录音 / Ctrl+Alt+B 自动朗读 / Ctrl+Alt+H 连续对话
