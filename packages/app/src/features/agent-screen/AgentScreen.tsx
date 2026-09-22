@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { AgentScreenProps } from '../../types'
+import type { AgentScreenProps, AgentScreenItem } from '../../types'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps }
@@ -34,6 +34,7 @@ export function AgentScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
+  nestedInScrollView = false,
 }: AgentScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -56,6 +57,68 @@ export function AgentScreen({
     )
   }
 
+  /** 单张 Agent 卡片(nestedInScrollView 与 FlatList renderItem 共用,样式一致) */
+  const renderCard = (item: AgentScreenItem, index?: number) => (
+    <Pressable
+      key={item.id ?? `idx-${index ?? 0}`}
+      onPress={() => onPressItem(item.id)}
+      style={styles.card}
+      accessibilityRole="button"
+    >
+      {item.avatar ? (
+        <Image source={{ uri: item.avatar }} style={styles.avatar} resizeMode="cover" />
+      ) : (
+        <View style={styles.avatarFallback}>
+          <Text style={styles.avatarText}>{getInitial(item.name)}</Text>
+        </View>
+      )}
+      <View style={styles.cardMain}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {item.name}
+          </Text>
+          {item.isVipExclusive ? (
+            <View style={styles.vipBadge}>
+              <Text style={styles.vipText}>VIP</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.desc} numberOfLines={2}>
+          {item.description}
+        </Text>
+        {item.useCount !== undefined || item.rating !== undefined ? (
+          <Text style={styles.meta}>
+            {item.useCount !== undefined
+              ? `${t('agentScreen.useCount', { count: item.useCount })}`
+              : ''}
+            {item.useCount !== undefined && item.rating !== undefined ? ' · ' : ''}
+            {item.rating !== undefined
+              ? `${t('agentScreen.rating', { score: item.rating.toFixed(1) })}`
+              : ''}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  )
+
+  // 嵌套模式:宿主外层已是 ScrollView,FlatList 再嵌套会触发
+  // "VirtualizedLists should never be nested inside plain ScrollViews" 硬错误,
+  // 改普通 View + map(带 key)平铺;数量级为单分类智能体列表,无虚拟化需求
+  if (nestedInScrollView) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.nestedList}>
+          {items.map((item, index) => renderCard(item, index))}
+          {items.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>{t('common.empty')}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
@@ -64,7 +127,7 @@ export function AgentScreen({
       <Text style={styles.title}>{t('agentScreen.title')}</Text>
       <FlatList
         data={items}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item.id ?? `idx-${index}`}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -73,47 +136,7 @@ export function AgentScreen({
             <Text style={styles.emptyText}>{t('common.empty')}</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => onPressItem(item.id)}
-            style={styles.card}
-            accessibilityRole="button"
-          >
-            {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={styles.avatar} resizeMode="cover" />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarText}>{getInitial(item.name)}</Text>
-              </View>
-            )}
-            <View style={styles.cardMain}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.isVipExclusive ? (
-                  <View style={styles.vipBadge}>
-                    <Text style={styles.vipText}>VIP</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.desc} numberOfLines={2}>
-                {item.description}
-              </Text>
-              {item.useCount !== undefined || item.rating !== undefined ? (
-                <Text style={styles.meta}>
-                  {item.useCount !== undefined
-                    ? `${t('agentScreen.useCount', { count: item.useCount })}`
-                    : ''}
-                  {item.useCount !== undefined && item.rating !== undefined ? ' · ' : ''}
-                  {item.rating !== undefined
-                    ? `${t('agentScreen.rating', { score: item.rating.toFixed(1) })}`
-                    : ''}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
-        )}
+        renderItem={({ item }) => renderCard(item)}
       />
     </View>
   )
@@ -122,6 +145,9 @@ export function AgentScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
+    // nestedInScrollView 模式:对齐 FlatList 模式的 contentContainerStyle
+    // (padding:16/paddingBottom:32)+ ItemSeparator 高度 12(用 gap 实现)
+    nestedList: { gap: 12, padding: 16, paddingBottom: 32 },
     center: {
       flex: 1,
       alignItems: 'center',
