@@ -501,6 +501,14 @@
       "shareBtn": "共有"
     }
   },
+  "chatDisclosure": {
+    "citationTitle": "参考元",
+    "injectionTitle": "今回の回答で参照したコンテキスト",
+    "kindDeveloper": "カスタム指示",
+    "kindWorkspace": "ワークスペースメモリ",
+    "kindRepoWiki": "リポジトリ Wiki",
+    "kindAutoContext": "自動取得したコンテキスト"
+  },
   "developer": {
     "title": "開発者ポータル",
     "becomeDeveloper": "開発者になる",

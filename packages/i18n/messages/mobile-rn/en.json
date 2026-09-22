@@ -501,6 +501,14 @@
       "shareBtn": "Share"
     }
   },
+  "chatDisclosure": {
+    "citationTitle": "Sources",
+    "injectionTitle": "Context used in this turn",
+    "kindDeveloper": "Custom instructions",
+    "kindWorkspace": "Workspace memory",
+    "kindRepoWiki": "Repository wiki",
+    "kindAutoContext": "Auto-retrieved context"
+  },
   "developer": {
     "title": "Developer Portal",
     "becomeDeveloper": "Become a Developer",
