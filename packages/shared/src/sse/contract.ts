@@ -50,15 +50,13 @@ export const SSE_EVENTS = {
   COMPACTION: 'compaction',
   STEER: 'steer',
   BUDGET: 'budget',
-  // D34(2026-09-22 立,G-40/G-43/G-44/G-52):四类"运行环境对用户的交代"帧。
-  // 事件名是**我方协议自定**(snake_case,与 plan_updated/terminal_end/subagent_spawn 同族);
-  // 实证部分只有**字段形状**(kind 八枚举 / collapsed + 可展开全文 / attempt+maxRetries+retryInMs+httpStatus /
-  // stdout+stderr+formattedOutput+exitCode+truncated),来自 Codex 一手观察(报告 §1.1、§16.1)。
-  // 不得把这些名字当成竞品报文原名 —— 该更正见 PROJECT_PLAN.md D34。
+  // D34(2026-09-22 立,G-40/G-44):运行环境交代两帧。
+  // 事件名是我方协议自定(snake_case,同 plan_updated/terminal_end 家族);
+  // 实证部分只有**字段形状**(kind 八枚举 / collapsed + 可展开全文 / attempt+maxRetries+retryInMs+httpStatus)。
+  // 上两批曾加的 settings_applied / terminal_output 已于第 36 轮收回(空契约与重复帧),
+  // 理由见 sse_contract.py 的"收回记录"注释与 PROJECT_PLAN.md D34 段。
   INJECTION_APPLIED: 'injection_applied',
-  SETTINGS_APPLIED: 'settings_applied',
   RETRY_SCHEDULED: 'retry_scheduled',
-  TERMINAL_OUTPUT: 'terminal_output',
 } as const
 
 /** 全部 SSE 事件名的联合类型。 */
@@ -110,7 +108,7 @@ export type SSEEventPayload =
       // 待收紧:linesAdded/linesDeleted/callCount 等聚合字段
       summary: Record<string, unknown>
     }>
-  // D34(2026-09-22):运行环境交代四帧 —— 字段名以 Codex 一手实证为准
+  // D34(2026-09-22):运行环境交代两帧(第三、四帧已收回,理由见 SSE_EVENTS 处注释)
   | SSEEventWithMeta<{
       type: 'injection_applied'
       /** 被注入/生效的上下文类别;turn_aborted 表示中途引导终止 */
@@ -129,28 +127,11 @@ export type SSEEventPayload =
       fullText?: string
     }>
   | SSEEventWithMeta<{
-      type: 'settings_applied'
-      model?: string
-      reasoningEffort?: string
-      personality?: string
-      /** 变更前的取值,用于显示"X → Y"式交代 */
-      prev?: Record<string, unknown>
-    }>
-  | SSEEventWithMeta<{
       type: 'retry_scheduled'
       attempt: number
       maxRetries: number
       retryInMs: number
       httpStatus?: number
-    }>
-  | SSEEventWithMeta<{
-      type: 'terminal_output'
-      stdout?: string
-      stderr?: string
-      /** 后端已排版的输出(界面优先用它) */
-      formattedOutput?: string
-      exitCode?: number | null
-      truncated?: boolean
     }>
   // 引用溯源(#11,2026-09-13 立)
   | SSEEventWithMeta<{
@@ -210,6 +191,11 @@ export type SSEEventPayload =
       endedAt: string
       durationMs: number
       output?: string
+      /** 后端已排版的输出(界面优先用它,缺省回退 output)。
+       *  D34 第 36 轮:随 terminal_output 帧收回并入本帧,不再单列事件。 */
+      formattedOutput?: string
+      /** 输出是否被截断(截断时必须让用户知道还有内容没显示) */
+      truncated?: boolean
       exitCode?: number
       messageId?: string
     }>

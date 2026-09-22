@@ -5,7 +5,7 @@
 """SSE 事件契约单一事实源测试(#25,2026-09-16 立)。
 
 覆盖:
-- SSE_EVENTS 事件名集合完整性(24 个:2026-09-19 补录 fallback/usage/steer/budget、
+- SSE_EVENTS 事件名集合完整性(26 个:2026-09-19 补录 fallback/usage/steer/budget、
   删 repair/resumed 孤儿事件)与无重复
 - SSE_EVENT_CONTRACTS 清单与 SSE_EVENTS 集合严格对齐
 - #25 补录的 3 个对话流漂移事件(plan_updated/terminal_start/terminal_end)
@@ -20,9 +20,9 @@ from app.core.sse_contract import SSE_EVENT_CONTRACTS, SSE_EVENTS
 
 
 def test_sse_events_completeness() -> None:
-    """事件名集合共 28 个且无重复。"""
-    assert len(SSE_EVENTS) == 28
-    assert len(set(SSE_EVENTS)) == 28
+    """事件名集合共 26 个且无重复。"""
+    assert len(SSE_EVENTS) == 26
+    assert len(set(SSE_EVENTS)) == 26
 
 
 def test_sse_events_p4_d1_steer_members() -> None:
@@ -33,15 +33,10 @@ def test_sse_events_p4_d1_steer_members() -> None:
 def test_sse_events_contains_dialog_drift_events() -> None:
     """#25 补录的 3 个对话流漂移事件在契约内。"""
     assert {"plan_updated", "terminal_start", "terminal_end"} <= SSE_EVENTS
-    # D34(2026-09-22):运行环境交代四帧必须同时出现在两份契约里
+    # D34(2026-09-22):运行环境交代两帧必须同时出现在两份契约里
     # (事件名为我方协议自定,字段形状才是竞品实证部分;TS 侧见
-    #  packages/shared/src/sse/contract.ts 的同名用例)
-    assert {
-        "injection_applied",
-        "settings_applied",
-        "retry_scheduled",
-        "terminal_output",
-    } <= SSE_EVENTS
+    #  packages/shared/src/sse/__tests__/contract.test.ts 的同名用例)
+    assert {"injection_applied", "retry_scheduled"} <= SSE_EVENTS
 
 
 def test_sse_events_core_members() -> None:
