@@ -14,6 +14,7 @@
     "injectionSrcWorkspace": "工作区记忆",
     "injectionSrcRepoWiki": "仓库 Wiki",
     "injectionSrcAutoContext": "{count} 段检索上下文",
+    "retryHint": "按 ↑ 可调出上一条提问重发",
     "retryScheduled": "上游暂不可用：第 {attempt}/{max} 次重试，{seconds} 秒后继续",
     "retryScheduledNow": "上游暂不可用：第 {attempt}/{max} 次重试（立即继续）",
     "sessionResumed": "恢复最近会话: {id} ({count, plural, =0 {无历史} other {{count} 条历史}})",
