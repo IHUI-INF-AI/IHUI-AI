@@ -74,6 +74,15 @@ const persistedInjectionSchema = z.looseObject({
   collapsed: z.string(),
 })
 
+// compaction(G-166 第②步):与 SSE compaction 帧同一载荷(_compaction_payload 单一真相源)。
+// 只锁"能判定这轮压缩过/撞过上限"的两个字段,token 统计与 trigger 按 loose 透传。
+const persistedCompactionSchema = z
+  .looseObject({
+    triggered: z.boolean(),
+    trigger: z.string(),
+  })
+  .refine((v) => v.triggered === true, { message: 'compaction.triggered 必须为 true 才留痕' })
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -89,6 +98,7 @@ const callbackSchema = z.object({
   // G-166:引用溯源 + 上下文注入交代持久化通道(本轮没有时不携带)
   citations: z.array(persistedCitationSchema).optional(),
   injections: z.array(persistedInjectionSchema).optional(),
+  compaction: persistedCompactionSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -143,6 +153,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         planSteps,
         citations,
         injections,
+        compaction,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -223,6 +234,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               // worker 侧浅合并因此不会把既有 key 抹掉。
               ...(citations && citations.length > 0 ? { citations } : {}),
               ...(injections && injections.length > 0 ? { injections } : {}),
+              ...(compaction ? { compaction } : {}),
               // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
               ...permissionMeta,
             },

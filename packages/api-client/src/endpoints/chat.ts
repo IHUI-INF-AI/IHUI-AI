@@ -75,6 +75,18 @@ export interface ChatMessageMetadata {
    *  `injection_applied` 同一份列表落库(剥掉帧判别字 `type`)。
    *  消费:web 历史水合映射回 `ChatMessage.injections`(注入交代区),缺失安静降级。 */
   injections?: Array<Record<string, unknown>>
+  /** compaction(G-166 第②步立):这条回答生成前**发生过多少上下文压缩**的统计,
+   *  与 SSE `compaction` 帧同一载荷(ai-service `_compaction_payload` 单一真相源)。
+   *  消费:web 历史水合映射回 `ChatMessage.compaction`(CompressionDivider),
+   *  缺失 = 老消息 / 本轮未压缩也未撞上限 —— 不渲染分隔线。 */
+  compaction?: {
+    triggered?: boolean
+    tokensBefore?: number
+    tokensAfter?: number
+    removedCount?: number
+    usageRatio?: number
+    trigger?: string
+  }
   [key: string]: unknown
 }
 
