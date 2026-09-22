@@ -21,9 +21,18 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
-import { formatSSEError, getModelContextCapacity } from '@ihui/api-client'
+import {
+  formatSSEError,
+  getModelContextCapacity,
+  getWorkspacePermissionDefault,
+} from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
-import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import {
+  applyStreamError,
+  isErrorTurn,
+  permissionTierWordKeys,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -119,6 +128,24 @@ export default function ChatPage() {
   // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
   const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
   const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        /* 取数失败:保持 null,该行隐藏 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
   const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
   const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
@@ -1017,6 +1044,16 @@ export default function ChatPage() {
           ) : null}
         </View>
       </View>
+
+      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位) */}
+      {workspaceTier !== null ? (
+        <View className="permission-tier" style={{ padding: '8rpx 24rpx' }}>
+          <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
+            {t('permissionTier.label')}: {t(permissionTierWordKeys(workspaceTier).title)} ·{' '}
+            {t(permissionTierWordKeys(workspaceTier).desc)}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
