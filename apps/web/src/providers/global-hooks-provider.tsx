@@ -61,7 +61,9 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   'Ctrl+P': 'desc.ctrlP',
   'Ctrl+Shift+N': 'desc.ctrlShiftN',
   'Ctrl+/': 'desc.ctrlSlash',
-  'Ctrl+Shift+D': 'desc.ctrlShiftD',
+  // 键名跟随 chord:短剧编辑器原为 Ctrl+Shift+D,与 IDE debug 视图撞键后改绑 Ctrl+Alt+D
+  // (见 use-global-shortcuts.ts 注释)。i18n 描述键 desc.ctrlShiftD 是标识符,不随 chord 改名。
+  'Ctrl+Alt+D': 'desc.ctrlShiftD',
   'Ctrl+Shift+P': 'desc.ctrlShiftP',
   'Ctrl+,': 'desc.ctrlComma',
   'Ctrl+1': 'desc.ctrl1',
