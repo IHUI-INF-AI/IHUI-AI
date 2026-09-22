@@ -136,10 +136,14 @@ for (const f of scopeFiles) {
       continue
     }
     if (line.includes('/*') && !line.includes('*/')) { inBlockComment = true; continue }
-    if (!ZH_RE.test(line)) continue
-    if (SKIP_LINE_RE.test(line)) continue
-    if (SKIP_TOKEN_RE.test(line)) continue
-    hits.push({ line: i + 1, text: line.trim().slice(0, 200) })
+    // 剥掉**同行成对**的块注释:`{/* JSX 注释 */}` 与 `/* … */` 都是注释。
+    // 原实现只跟踪"跨行块注释",整行成对的形态会漏剥 ⇒ 中文注释被算成命中
+    // (实测 swarm-topology-view 18 处假阳),进而污染基线额度。
+    const code = line.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+    if (!ZH_RE.test(code)) continue
+    if (SKIP_LINE_RE.test(code)) continue
+    if (SKIP_TOKEN_RE.test(code)) continue
+    hits.push({ line: i + 1, text: code.trim().slice(0, 200) })
   }
   if (hits.length > 0) {
     totalHits += hits.length
