@@ -116,4 +116,31 @@ export function stateLabel(state: StepDecisionState, t: StepDecisionTranslate): 
   const word = t(key)
   return word === key ? state : word
 }
+
+/**
+ * `/agent-runtime` 通道的 permission 决策矩阵取值(producer 是
+ * `apps/ai-service/app/routers/agent_runtime.py::_check_permission`,与上面 15 值**不同源**)。
+ * 只登记已核实字面量 —— 审批语境下把 deny 误译成"已放行"会直接误导用户的授权决定。
+ */
+const PERMISSION_DECISION_KEY: Readonly<Record<string, string>> = {
+  allow: 'perm.allow',
+  ask: 'perm.ask',
+  deny: 'perm.deny',
+}
+
+/**
+ * 运行时权限决策的**唯一**取词入口(4 端共用):先认 15 值步骤决策集,再认 allow/ask/deny
+ * 权限矩阵,两条都不中 → 原样返回(不猜语义、不喷键名)。
+ */
+export function permissionDecisionWord(value: unknown, t: StepDecisionTranslate): string {
+  if (isStepDecision(value)) return stepDecisionLabel(value, t).text
+  if (typeof value === 'string' && value !== '') {
+    const key = PERMISSION_DECISION_KEY[value]
+    if (key !== undefined) {
+      const word = t(key)
+      return word === key ? value : word
+    }
+  }
+  return typeof value === 'string' ? value : ''
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -13,11 +13,12 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import {
-  STEP_DECISIONS,
   isStepDecision,
+  permissionDecisionWord,
   stateLabel,
   stepDecisionLabel,
   stepDecisionState,
+  STEP_DECISIONS,
 } from '../../src/chat/step-decision'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -119,6 +120,25 @@ describe('step-decision 词汇表(D55/G-66)', () => {
     const view = stepDecisionLabel(undefined, realT('zh-CN'))
     expect(view.state).toBe('unknown')
     expect(view.text).toBe('决策未知')
+  })
+
+  it('permissionDecisionWord 覆盖两条生产者:15 值步骤决策 + allow/ask/deny 权限矩阵', () => {
+    for (const lang of LOCALES) {
+      const t = realT(lang)
+      const stepWord = permissionDecisionWord('auto_skip_approval', t)
+      expect(stepWord).not.toBe('auto_skip_approval')
+      expect(stepWord).not.toContain('decision.')
+      expect(stepWord).toBe(stepDecisionLabel('auto_skip_approval', t).text)
+      expect(permissionDecisionWord('deny', t)).not.toBe('deny')
+      expect(permissionDecisionWord('deny', t)).not.toContain('perm.')
+      expect(permissionDecisionWord('allow', t)).not.toBe('allow')
+      expect(permissionDecisionWord('ask', t)).not.toBe('ask')
+    }
+    // 认不出的一律原样(审批语境下猜错语义 = 误导用户授权)
+    expect(permissionDecisionWord('maybe_allowed', realT('zh-CN'))).toBe('maybe_allowed')
+    expect(permissionDecisionWord(undefined, realT('zh-CN'))).toBe('')
+    // 缺词包时退回原始码,绝不把 perm.deny 这种键名喷到界面
+    expect(permissionDecisionWord('deny', (k) => k)).toBe('deny')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
