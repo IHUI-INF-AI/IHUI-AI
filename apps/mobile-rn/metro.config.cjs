@@ -124,6 +124,13 @@ config.server.rewriteRequestUrl = (url) => {
 // require.resolve(基于 originModulePath 的 realpath),Node 能正确处理 pnpm junction。
 config.resolver.unstable_enablePackageExports = false
 config.resolver.unstable_enableSymlinks = true
+// 2026-09-22 修复 Metro 冷启动 bundle 500 "Failed to get the SHA-1 for D:\nm\.pnpm\...":
+// node_modules 是 junction → D:\nm(pnpm 隔离存储),依赖真实路径在 watchFolders 之外。
+// @expo/metro-file-map fork 的 on-demand filesystem 可对 roots 外文件按需加载;
+// 但 scopeFallback 的 isDirectoryIn(metro-file-map包目录, serverRoot) 检查在本机
+// junction 结构下恒为 false(metro-file-map 也在 D:\nm),fallback 会被 scope 拦掉,
+// 必须显式 UNSTABLE_ALLOW_ALL 才能对 D:\nm 下文件按需计算 SHA-1。
+config.resolver.unstable_onDemandFilesystem = 'UNSTABLE_ALLOW_ALL'
 config.resolver.nodeModulesPaths = [
   ...config.resolver.nodeModulesPaths,
   require('path').resolve(__dirname, '../../node_modules/.pnpm/node_modules'),
@@ -149,6 +156,22 @@ config.resolver.blockList = [
 config.watchFolders = [
   __dirname, // apps/mobile-rn 自身(必须第一位:相对 entry 路径解析基准)
   require('path').resolve(__dirname, '../../packages'), // 共享 packages
+  // 2026-09-22 修复 Metro 冷启动 bundle 500 "Failed to get the SHA-1 for D:\nm\.pnpm\...":
+  // node_modules 是 junction → D:\nm(pnpm 隔离存储),依赖文件真实位置在
+  // node_modules/.pnpm/<pkg>@ver/node_modules/<dep>。旧 metro 实例靠 junction 创建前
+  // (2026-09-22 10:06)的旧 file-map 磁盘缓存掩盖;冷启动后 crawl roots 不覆盖 .pnpm,
+  // resolver 解析出的隔离路径在 file-map 无记录 → getOrComputeSha1 抛 500。
+  // 修复(续):crawler 以 junction 的 realpath 记录文件(跟随 symlink),而 resolver
+  // fallback(fs.realpathSync)输出的也是 D:\nm realpath 形式——两边必须同形式。
+  // 实测:crawl 是后台异步的(metro 先 listen 再慢慢 crawl),冷启动后需等 crawl
+  // 完成首个 bundle 才能出,期间请求会报 getOrComputeSha1 500,等待重试即可。
+  (function () {
+    try {
+      return require('fs').realpathSync(require('path').resolve(__dirname, 'node_modules'))
+    } catch (_e) {
+      return require('path').resolve(__dirname, 'node_modules')
+    }
+  })(),
 ]
 
 // pnpm isolated linker 兼容:Metro 默认解析失败时,fallback 到 Node 原生 require.resolve
@@ -233,6 +256,46 @@ function normalizeDirKey(p) {
   return String(p).replace(/[\\/]+/g, '/').replace(/\/\.?$/, '').toLowerCase()
 }
 const serverRootKey = normalizeDirKey(__dirname)
+
+// =============================================================================
+// 2026-09-22 修复 pnpm 隔离包依赖解析到 monorepo 根错误版本 → 启动红屏
+// "undefined is not a function"(rnet not ready)
+// =============================================================================
+// 病理:RN 0.86 的 setUpReactDevTools.js(位于 pnpm 隔离目录
+// D:\nm\.pnpm\react-native@0.86.2_*\node_modules\react-native\...)require
+// "react-devtools-core",需要 6.1.5(其隔离目录里有 symlink,提供 initialize/
+// connectWithCustomMessagingProtocol 新 API)。但 Metro 默认链沿 junction 形式
+// origin(apps/mobile-rn/node_modules/react-native/...)向上层级查找,在
+// monorepo 根 d:/IHUI-AI/node_modules 命中 react-devtools-core@5.3.2
+// (main=dist/backend.js,无 initialize 导出)→ 默认链"成功"返回,根本轮不到
+// 下方 fallback → bundle 打进 5.3.2 → 初始化 initialize(...) undefined → 红屏。
+// Node require.resolve 双对照实证:paths=[RN 隔离目录]→6.1.5;
+// paths=[apps/mobile-rn]→5.3.2。
+// 这是通用病理:任何 .pnpm 隔离目录内包的裸包名依赖,Metro 默认链用错误起点
+// (junction 形式向上)查找,可能命中 monorepo 根同名不同版包。
+// 修复:origin 目录 realpath 含 .pnpm 时(= 请求来自隔离包内部),先把 origin
+// realpath 化(D:\nm\... 形式),再优先走 resolveManual 的 Node 层级语义查找——
+// 从隔离目录向上必然命中该包自己的 node_modules(正确版本),并按
+// react-native > browser > main 选入口。失败返回 null 落回原链,零风险。
+// realpath 结果按 originDir 缓存,避免每请求 syscall。
+const pnpmOriginRealDirCache = new Map()
+function pnpmIsolatedOriginRealDir(originDir) {
+  if (pnpmOriginRealDirCache.has(originDir)) {
+    return pnpmOriginRealDirCache.get(originDir)
+  }
+  let result = null
+  try {
+    const real = fs.realpathSync(originDir)
+    if (String(real).split(path.sep).includes('.pnpm')) {
+      result = real
+    }
+  } catch (_e) {
+    result = null
+  }
+  pnpmOriginRealDirCache.set(originDir, result)
+  return result
+}
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   // Expo 虚拟入口双拼归一化(详见上方注释)
   if (
@@ -279,44 +342,153 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     const localReactPath = require.resolve(moduleName, {
       paths: [__dirname],
     })
-    return { type: 'sourceFile', filePath: localReactPath }
+    return { type: 'sourceFile', filePath: realpathOrNull(localReactPath) }
   }
-  // 1. 先尝试 Metro 默认解析(upstreamResolveRequest 或 context.resolveRequest)
-  try {
-    if (upstreamResolveRequest) {
+  // react-native 单实例去重(2026-09-22 修复 pnpm-isolated 优先分支引入的双实例):
+  // D:\nm\.pnpm 下存在两个 react-native@0.86.2 隔离目录(_@babel+_c6deaeca... 与
+  // _@babel+_efa7c6e...,peer 组合不同)。上面的 pnpm-isolated 分支让隔离包各自
+  // 解析到自己隔离目录的 react-native symlink → 指向不同物理目录 → metro 按路径
+  // 视为不同模块 → RN 源码(setUpFuseboxReactDevToolsDispatcher 等)双份打包,
+  // 第二份 Object.defineProperty(global, '__FUSEBOX_REACT_DEVTOOLS_DISPATCHER__',
+  // {writable:false}) → 红屏 "TypeError: property is not writable"。
+  // 修复:所有 react-native 裸包名/子路径请求统一解析到 apps/mobile-rn 本地实体
+  // (c6deaeca,与原生侧对齐)。模式与上面 react 去重一致。
+  if (moduleName === 'react-native' || moduleName.startsWith('react-native/')) {
+    const localRNPath = require.resolve(moduleName, {
+      paths: [__dirname],
+    })
+    return { type: 'sourceFile', filePath: realpathOrNull(localRNPath) }
+  }
+  // pnpm 隔离目录内包的裸包名依赖(详见上方 react-devtools-core 红屏修复注释):
+  // 两级解析——
+  // ① app 本地 node_modules 优先:react-native-svg 等共享包存在多个 peer 组合的
+  //    隔离目录,若各隔离包各自解析到自己目录的 symlink → metro 按路径视为不同
+  //    模块 → 双实例 → AppRegistry "Tried to register two views with the same
+  //    name RNSVGCircle" 红屏。app 依赖闭包内的包统一解析到 apps/mobile-rn 一份
+  //    (单实例化,RN 生态标准实践)。
+  //    必须 maxHops=1 严格只看 apps/mobile-rn/node_modules 第一级:不限级向上会
+  //    一路爬到 monorepo 根,再次命中 hoisted 的旧版包(react-devtools-core
+  //    5.3.2 教训——monorepo 根是工具依赖,版本任意),把本分支的修复成果抵消。
+  // ② 本地没有的传递依赖:从 origin realpath 的隔离目录向上层级查找(pnpm 精确
+  //    版本语义)。
+  // 仅拦裸包名,相对路径仍走 Metro 默认链(保留 asset 等特殊处理)。
+  if (!moduleName.startsWith('.') && !path.isAbsolute(moduleName)) {
+    const pnpmRealDir = pnpmIsolatedOriginRealDir(path.dirname(context.originModulePath))
+    if (pnpmRealDir) {
+      const localFirst = resolveManual(moduleName, __dirname, platform, { maxHops: 1 })
+      if (localFirst) {
+        return { type: 'sourceFile', filePath: realpathOrNull(localFirst) }
+      }
+      const isolated = resolveManual(moduleName, pnpmRealDir, platform)
+      if (isolated) {
+        if (process.env.METRO_DEBUG_RESOLVE) {
+          console.error(
+            `[resolveRequest pnpm-isolated] ${moduleName} origin=${context.originModulePath} -> ${isolated}`,
+          )
+        }
+        return { type: 'sourceFile', filePath: realpathOrNull(isolated) }
+      }
+    }
+  }
+  // 1. 先尝试 upstream(nativewind/expo),抛错不阻断 Metro 默认链:
+  // 2026-09-22 修复 'stream' 内置模块 500:upstream 对内置模块抛错时,旧结构
+  // try{upstream; context.resolveRequest}catch{fallback} 会连默认链一起跳过,
+  // 直接进 fallback,require.resolve('stream') 返回内置模块名(非路径)传给
+  // metro → getOrComputeSha1('stream') 500。内置模块应由 Metro 默认链返回
+  // empty 模块,upstream 失败必须继续走默认链。
+  if (upstreamResolveRequest) {
+    try {
       const result = upstreamResolveRequest(context, moduleName, platform)
       if (result) return result
+    } catch (_e1) {
+      // upstream 不可解析 → 落到 Metro 默认链(内置模块 empty stub 等)
     }
+  }
+  try {
     return context.resolveRequest(context, moduleName, platform)
   } catch (_e) {
     // 2. fallback:手动解析包名 + 子路径 + 扩展名
     // 不用 require.resolve(不支持 ESM exports 的 conditions 参数)
-    const originRealPath = fs.realpathSync(context.originModulePath)
-    const originDir = path.dirname(originRealPath)
+    // 2026-09-22 修复:origin 不做 realpathSync。node_modules 是 junction → D:\nm,
+    // realpath 会把 origin 变成 D:\nm\... 形式,解析产物(fileMap 查 SHA-1 的 key)
+    // 与 crawler 沿 junction 收录的 D:\IHUI-AI\... 形式不一致 → getOrComputeSha1 报
+    // "Failed to get the SHA-1"(bundle 500)。junction 路径对 fs 遍历完全透明,
+    // 保留原形式即可让解析产物与 file-map 收录路径同形式。
+    const originDir = path.dirname(context.originModulePath)
     const resolved = resolveManual(moduleName, originDir, platform)
     if (resolved) {
       if (process.env.METRO_DEBUG_RESOLVE) {
         console.error(`[resolveRequest fallback] resolved=${resolved}`)
       }
-      return { type: 'sourceFile', filePath: resolved }
+      return { type: 'sourceFile', filePath: realpathOrNull(resolved) }
     }
     // 3. 最终 fallback:Node 原生 require.resolve(仅适用于 CJS 包)
     try {
       const resolved2 = require.resolve(moduleName, {
         paths: [originDir],
       })
-      return { type: 'sourceFile', filePath: resolved2 }
+      // Node 内置模块(stream/fs/node:* 等)的 require.resolve 返回模块名本身
+      // 而非文件路径,返回给 metro 会 getOrComputeSha1 500;重抛原始错误,
+      // 让默认链的内置模块 empty stub 机制处理(正常情况下到不了这里)。
+      if (
+        typeof resolved2 !== 'string' ||
+        resolved2.startsWith('node:') ||
+        !resolved2.includes(path.sep)
+      ) {
+        throw _e
+      }
+      return { type: 'sourceFile', filePath: realpathOrNull(resolved2) }
     } catch (_e2) {
       throw _e
     }
   }
 }
 
+// 2026-09-22 修复 fallback 产物与 file-map 收录形式不一致导致 bundle 500:
+// "Failed to get the SHA-1 for: D:\nm\.pnpm\pretty-format@29.7.0\node_modules\ansi-styles\index.js"。
+// 根因:pnpm isolated 结构下 <pkg>@v/node_modules/<dep> 多为 symlink(@expo/metro-file-map
+// enableSymlinks 模式收录的是 target 真实路径),而 resolveManual/require.resolve 基于
+// fs 语义(透明跟随 symlink),会返回 symlink 形式路径(如
+// pretty-format@29.7.0\node_modules\ansi-styles\index.js)。该形式在 file-map 中
+// 无记录 → getOrComputeSha1 抛 500。修复:所有 fallback 产物统一 realpathSync,
+// 与 crawler 收录形式(D:\nm realpath)对齐;node_modules junction 同理 realpath。
+function realpathOrNull(p) {
+  try {
+    return fs.realpathSync(p)
+  } catch (_e) {
+    return p
+  }
+}
+
+// 2026-09-22 修复解析 qrcode 时 "The paths[1] argument must be of type string":
+// qrcode 的 exports['.'] 是嵌套条件对象({import:{node,default},require:...}),
+// 旧代码 entry.import 直接取到对象传给 path.resolve → ERR_INVALID_ARG_TYPE。
+// 修复:递归下钻条件对象,按 Metro 默认 conditions 优先级(react-native >
+// require > import > default > node > browser)取第一个 string 叶子值。
+const EXPORT_CONDITION_ORDER = ['react-native', 'require', 'import', 'default', 'node', 'browser']
+function resolveExportEntry(entry) {
+  if (typeof entry === 'string') return entry
+  if (entry && typeof entry === 'object') {
+    for (const cond of EXPORT_CONDITION_ORDER) {
+      if (cond in entry) {
+        const resolved = resolveExportEntry(entry[cond])
+        if (resolved) return resolved
+      }
+    }
+  }
+  return null
+}
+
 /**
  * 手动解析模块名:支持 npm 包名(含 scoped 子路径如 @ihui/shared/auth) + 相对路径 + 扩展名
  * 用于 Metro 默认解析 + require.resolve 都失败时的最终 fallback。
  */
-function resolveManual(moduleName, originDir, platform) {
+function resolveManual(moduleName, originDir, platform, opts) {
+  // maxHops:node_modules 层级查找的级数上限。默认 10(向上多级);传 1 表示
+  // 仅查 originDir 自己的 node_modules 一级——pnpm-isolated 分支用它做"app 本地
+  // 单实例"解析,防止向上命中 monorepo 根的 hoisted 旧版包(react-devtools-core
+  // 5.3.2 教训:monorepo 根是工具依赖,不是 RN 运行时依赖,版本任意)。
+  const maxHops = (opts && opts.maxHops) || 10
   let basePath
   if (path.isAbsolute(moduleName)) {
     basePath = moduleName
@@ -343,10 +515,10 @@ function resolveManual(moduleName, originDir, platform) {
         subPath = ''
       }
     }
-    // 在 originDir 的 node_modules 层级查找包
+    // 在 originDir 的 node_modules 层级查找包(级数受 maxHops 限制)
     let pkgDir = null
     let dir = originDir
-    for (let i = 0; i < 10 && dir; i++) {
+    for (let i = 0; i < maxHops && dir; i++) {
       const candidate = path.join(dir, 'node_modules', pkg)
       if (fs.existsSync(candidate)) {
         pkgDir = candidate
@@ -356,8 +528,10 @@ function resolveManual(moduleName, originDir, platform) {
       if (parent === dir) break
       dir = parent
     }
-    // 也尝试 .pnpm/node_modules
-    if (!pkgDir) {
+    // 也尝试 .pnpm/node_modules 虚拟存储。仅在允许向上多级查找时参与:
+    // 该目录是 pnpm 全量去重存储(每个包名只留一个任意版本),与 monorepo 根
+    // hoisted 属同一类版本任意风险,会抵消 maxHops=1 的"严格本地单实例"语义。
+    if (!pkgDir && maxHops > 1) {
       const pnpmCandidate = path.resolve(originDir, '../../node_modules/.pnpm/node_modules', pkg)
       if (fs.existsSync(pnpmCandidate)) pkgDir = pnpmCandidate
     }
@@ -410,9 +584,10 @@ function resolveManual(moduleName, originDir, platform) {
         }
       }
       if (entry) {
-        // entry 可能是字符串或对象 { import: '...', require: '...' }
-        const target =
-          typeof entry === 'string' ? entry : entry.import || entry.require || entry.default
+        // 2026-09-22:entry 可能是嵌套条件对象(如 qrcode import:{node,default}),
+        // resolveExportEntry 按 conditions 优先级递归取 string 叶子,严禁把对象
+        // 传给 path.resolve(会抛 ERR_INVALID_ARG_TYPE paths[1])。
+        const target = resolveExportEntry(entry)
         if (target) {
           const targetPath = path.resolve(pkgDir, target)
           const resolved = tryResolveWithExts(targetPath, originDir, platform)
@@ -422,7 +597,27 @@ function resolveManual(moduleName, originDir, platform) {
     }
     // 用 main 字段
     if (!subPath) {
-      const mainField = pkgJson['react-native'] || pkgJson['browser'] || pkgJson['main'] || 'index'
+      // 2026-09-22 修复 "The paths[1] argument must be of type string"(qrcode 实证):
+      // browser 字段可能是映射对象({"./lib/index.js":"./lib/browser.js",fs:false},
+      // 非 string 入口),|| 短路会把对象传给 path.resolve 抛 ERR_INVALID_ARG_TYPE。
+      // 修复:仅接受 string 类型的字段;browser 映射对象跳过(由 Metro 默认链的
+      // browser-mapping 处理,fallback 不复制该语义),落到 main。
+      let mainField =
+        [pkgJson['react-native'], pkgJson['browser'], pkgJson['main']].find(
+          (v) => typeof v === 'string' && v,
+        ) || 'index'
+      // 2026-09-22 补齐 browser 映射重定向(qrcode 实证):browser 为映射对象时,
+      // Metro 默认链会把 main 入口重定向到映射目标(qrcode lib/index.js →
+      // lib/browser.js)。fallback 不复制该语义会让包走 node 版入口,连带拉进
+      // pngjs → require('stream') 等 Node 专属依赖 → RN 平台 UnableToResolve 500。
+      const browserMap = pkgJson['browser']
+      if (browserMap && typeof browserMap === 'object' && !path.isAbsolute(mainField)) {
+        const relMain = './' + String(mainField).replace(/^\.?\//, '')
+        const redirected = browserMap[relMain]
+        if (typeof redirected === 'string' && redirected) {
+          mainField = redirected
+        }
+      }
       const mainPath = path.resolve(pkgDir, mainField)
       return tryResolveWithExts(mainPath, originDir, platform)
     }
@@ -450,6 +645,17 @@ const { assetExts, sourceExts } = config.resolver
 config.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg')
 config.resolver.sourceExts = [...sourceExts, 'svg']
 config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer')
+
+// 2026-09-22 诊断 bundle 行号偏移:记录 dev client 的真实 bundle 请求 URL,
+// 用于复现 app 侧 bundle(其行号与本地 curl 的 URL 不一致,导致红屏堆栈对不上行)。
+config.server.enhanceMiddleware = (middleware, server) => {
+  return (req, res, next) => {
+    if (req && req.url && req.url.includes('.bundle')) {
+      console.error('[IHUI-REQ] ' + String(req.url).slice(0, 600))
+    }
+    return middleware(req, res, next)
+  }
+}
 
 module.exports = withNativeWind(config, {
   input: './global.css',
