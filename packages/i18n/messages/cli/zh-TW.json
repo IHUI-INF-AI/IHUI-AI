@@ -14,6 +14,7 @@
     "injectionSrcWorkspace": "工作區記憶",
     "injectionSrcRepoWiki": "倉庫 Wiki",
     "injectionSrcAutoContext": "{count} 段檢索上下文",
+    "retryHint": "按 ↑ 可調出上一則提問重發",
     "retryScheduled": "上游暫不可用：第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
     "retryScheduledNow": "上游暫不可用：第 {attempt}/{max} 次重試（立即繼續）",
     "sessionResumed": "恢復最近工作階段: {id} ({count, plural, =0 {尚無紀錄} other {{count} 則紀錄}})",
