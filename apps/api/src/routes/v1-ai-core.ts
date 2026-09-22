@@ -64,7 +64,7 @@ import type {
   V1AgentParallelRequest,
   V1AgentParallelResponse,
 } from '@ihui/types'
-// G-161:权限模式唯一真源(跨端 + 跨语言对账由 guardian 第 67 项守)
+// G-161:权限模式唯一真源(跨端 + 跨语言对账由 guardian 第 68 项守)
 import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types'
 import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'

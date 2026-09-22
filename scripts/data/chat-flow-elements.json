@@ -123,6 +123,14 @@
         {
           "file": "apps/web/src/components/ai/permission-mode-info-modal.tsx",
           "mustMatch": "bypass-permissions"
+        },
+        {
+          "file": "apps/web/src/components/ai/permission-mode-popover.tsx",
+          "mustMatch": "mode.planDesc"
+        },
+        {
+          "file": "apps/web/src/hooks/use-permission-mode-cycle.ts",
+          "mustMatch": "CYCLE_LABEL_KEY"
         }
       ]
     },
