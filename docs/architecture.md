@@ -64,7 +64,7 @@
 ### 后端 API(`apps/api/`)
 - **Framework**: Fastify 5.1 + @fastify/jwt + @fastify/websocket + @fastify/rate-limit + @fastify/static + @fastify/cors
 - **ORM**: Drizzle ORM 0.38 + postgres-js 3.4
-- **DB**: PostgreSQL 15
+- **DB**: PostgreSQL 18
 - **缓存**: Redis 7
 - **认证**: @ihui/auth 共享包(JWT HS256 + token family + blacklist + OAuth2)
 - **验证**: Zod 3.24
@@ -108,7 +108,7 @@
 ## 2. 数据库架构
 
 ### 单库设计
-- **数据库**: PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域(public)
+- **数据库**: PostgreSQL 18,单库 `ihui`,通过 schema 隔离业务域(public)
 - **连接**: `DATABASE_URL` 环境变量,postgres-js 驱动
 - **ORM**: Drizzle ORM,schema 定义在 `packages/database/src/schema/`(100+ 文件,340 表)
 

@@ -140,13 +140,13 @@
 | データ層                                    |
 | - ニュースコーパス + ホットトピック KG      |
 | - ユーザープロファイル + コンテンツプロファイル |
-| - PostgreSQL 16 + pgvector                  |
+| - PostgreSQL 18 + pgvector                  |
 +-----------------------------------------+
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
 - **Web** (Next.js 16 + React 19): 編集ワークスペース / 选题ダッシュボード
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): コンテンツサービス API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): コンテンツサービス API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Agent オーケストレーション
 - **デスクトップ** (Tauri 2): オフライン執筆 + ローカル素材ライブラリ
 - **拡張** (WXT): ブラウザ側ホットトピック収集 / 翻訳
@@ -156,7 +156,7 @@
 
 ### 技術スタック
 - フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI
 - キャッシュ: Redis 7
@@ -181,7 +181,7 @@
 | 平均投資回収周期 | 4 ヶ月 |
 | 12 ヶ月 ROI | 320% |
 
-(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 16、Redis 7)
+(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 18、Redis 7)
 
 ### よくある質問 FAQ
 - Q: AI 執筆に事実誤りはありませんか?
