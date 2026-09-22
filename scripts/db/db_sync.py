@@ -812,18 +812,21 @@ async def build_uid_map(local: asyncpg.Connection, prod: asyncpg.Connection) -> 
 async def push_rows(prod: asyncpg.Connection, name: str, cols: list[str], pk: list[str],
                     rows: list[dict[str, Any]], has_updated_at: bool,
                     uid_map: dict[str, str], keyless: bool = False,
-                    conflict_cols: list[str] | None = None) -> tuple[int, int, str]:
-    """写入生产,返回 (成功行数, 被跳过的冲突行数)。
+                    conflict_cols: list[str] | None = None) -> tuple[int, int, int, str]:
+    """写入生产,返回 (成功行数, 冲突跳过行数, 未落地行数, 首次失败原因)。
 
-    分批 executemany;整批失败时降级为"逐行插入 + 冲突跳过"。原因:全表同步后出现
-    两类 ON CONFLICT(pk) 覆盖不到的冲突(2026-09-22 实测 18 张表失败):
-      - 唯一约束冲突:表除主键外还有业务唯一键,本地行的主键不同但唯一键与生产重复;
-      - 外键冲突:引用行(如 category_id)不在本次回灌集合里,生产 ihui 不是 superuser,
-        无法用 session_replication_role 绕过 FK 触发器。
-    这两类都不该让整批回滚,能同步的行必须落库。
+    "未落地"必须与"冲突跳过"分开计数(2026-09-22 实测教训):二者此前合并成一个
+    skipped,于是"整表一行都没写进生产"(resources 720 行、ai_world_items 4108 行)
+    在汇总里只表现为"冲突跳过",与"该行生产已存在"无从区分;叠加 do_sync 固定
+    return 0,最终输出"已回灌 1350 行 (失败 0 张)"这种乐观结论,而真实缺口是
+    4833 行 —— 正是用户要求"不可以再出现"的静默漏同步。
+    现在:① 系统性失败早退、② 大批量不重放,两类都单独计入 abandoned,
+    由 do_sync 点名"零落地"表并拉高退出码,让调度器/CI 能看见。
+    注意回放路径用的是无 arbiter 的 `ON CONFLICT DO NOTHING`,单行插入若报错必是
+    真失败(已存在的行会静默成功并计入 written),故回放失败也计入冲突跳过。
     """
     if not rows:
-        return 0, 0, ''
+        return 0, 0, 0, ''
     col_sql = ', '.join(q(c) for c in cols)
     ph = ', '.join(f'${i + 1}' for i in range(len(cols)))
     if keyless:
@@ -850,7 +853,7 @@ async def push_rows(prod: asyncpg.Connection, name: str, cols: list[str], pk: li
             row['user_id'] = uid_map[str(uid)]
         values.append(tuple(row.get(c) for c in cols))
 
-    written = skipped = 0
+    written = skipped = abandoned = 0
     first_err = ''
     failed_chunks = 0
     replay_deadline = time.monotonic() + REPLAY_MAX_SECONDS
@@ -871,12 +874,13 @@ async def push_rows(prod: asyncpg.Connection, name: str, cols: list[str], pk: li
         if failed_chunks >= SYSTEMIC_FAIL_CHUNKS:
             # 系统性失败:本表余下批次直接跳过,不再逐批试(每批都要付一次失败事务
             # + 外键校验的代价),否则整轮同步会被单表拖死。
-            skipped += len(chunk)
+            # 这些行是"没写进生产",不是"冲突跳过",单独计数,别让汇总乐观。
+            abandoned += len(chunk)
             continue
         if len(chunk) > VERIFY_ROW_LIMIT or time.monotonic() >= replay_deadline:
             # 大批量整体冲突(典型:外键指向生产不存在的父行):不做逐行重放,
-            # 数千次失败事务会拖垮隧道连接。整批计为跳过并保留失败原因。
-            skipped += len(chunk)
+            # 数千次失败事务会拖垮隧道连接。整批计为未落地并保留失败原因。
+            abandoned += len(chunk)
             continue
         async with prod.transaction():
             for row in chunk:
@@ -888,7 +892,7 @@ async def push_rows(prod: asyncpg.Connection, name: str, cols: list[str], pk: li
                     skipped += 1
                 if time.monotonic() >= replay_deadline:
                     break
-    return written, skipped, first_err
+    return written, skipped, abandoned, first_err
 
 
 async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
@@ -902,11 +906,14 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
         topo_sort([d.name for d in diffs], [(r['child'], r['parent']) for r in fk_rows]))}
     diffs.sort(key=lambda d: rank.get(d.name, 10 ** 6))
     total = tables_touched = skipped_guard = skipped_type = failed = 0
+    undelivered = partial = 0
     # 未同步表名清单:用户要求"所有表都要同步",那么"哪几张没同步、为什么"必须点名,
     # 否则汇总里的数字(护栏跳过 5 张 / 失败 15 张)无法落地到具体表。
     guard_names: list[str] = []
     type_names: list[str] = []
     failed_names: list[str] = []
+    undelivered_names: list[str] = []
+    partial_names: list[str] = []
 
     def conflict_target(name: str, common_pk: list[str]) -> list[str] | None:
         """优先用业务唯一键做 upsert 冲突目标。
@@ -920,7 +927,7 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
                 return list(cols)
         return None
 
-    async def write_one(diff: TableDiff) -> tuple[int, int, str]:
+    async def write_one(diff: TableDiff) -> tuple[int, int, int, str]:
         """写单表(闭包读外层 prod,连接重建后自动用新连接)。"""
         meta = ctx.prod[diff.name]
         common_cols = ctx.common_cols(diff.name)
@@ -967,7 +974,7 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
             continue
 
         try:
-            written, conflicts, ferr = await write_one(d)
+            written, conflicts, abandoned, ferr = await write_one(d)
         except asyncpg.exceptions.InterfaceError as e:
             # 隧道/生产连接中断:重建连接后重试本表(不重连会让后续每张表连环失败)
             log(f'    ⚠ 生产连接中断({str(e)[:60]}),重建连接后重试')
@@ -975,7 +982,7 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
                 await prod.close()
             try:
                 prod = await reconnect_prod(ctx.cfg)
-                written, conflicts, ferr = await write_one(d)
+                written, conflicts, abandoned, ferr = await write_one(d)
             except Exception as e2:  # noqa: BLE001
                 failed += 1
                 failed_names.append(d.name)
@@ -987,16 +994,30 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
             log(f'    ✗ 写入失败({type(e).__name__}): {str(e)[:150]}')
             continue
         after = await prod.fetchval(f'SELECT count(*) FROM {q(d.name)}')
+        not_landed = conflicts + abandoned
         note = f',冲突跳过 {conflicts}' if conflicts else ''
+        note += f',未落地 {abandoned}' if abandoned else ''
         if ferr:
             note += f' [首次失败 {ferr}]'
         log(f'    → 已写入 {written} 行{note};生产现 {after} 行')
         total += written
-        tables_touched += 1
+        # tables_touched 只统计"真的写进去了"的表:此前不论 written 是否为 0 都 +1,
+        # 于是"涉及 16 张表"里混进了 resources(0/720 行)这种一行没进的表,属于
+        # 把未同步说成已同步,已在 2026-09-22 实测中暴露,必须纠正。
+        if written:
+            tables_touched += 1
+        if not written:
+            # 有待回灌行却一行都没落地:这不是"冲突跳过"能解释的,点名 + 拉高退出码。
+            undelivered += 1
+            undelivered_names.append(d.name)
+        elif not_landed:
+            partial += 1
+            partial_names.append(f'{d.name}({not_landed})')
 
     verb = '已回灌' if apply else '待回灌'
     log(f'\n[sync] {verb} {total} 行,涉及 {tables_touched} 张表'
-        f'(护栏跳过 {skipped_guard} 张,类型漂移跳过 {skipped_type} 张,失败 {failed} 张)')
+        f'(护栏跳过 {skipped_guard} 张,类型漂移跳过 {skipped_type} 张,'
+        f'失败 {failed} 张,零落地 {undelivered} 张)')
     if guard_names:
         log(f'[sync] 护栏跳过({len(guard_names)}): {", ".join(sorted(guard_names))}')
         log('[sync]   ↑ 这些表本地待回灌量相对生产过大,疑本机观测噪音;'
@@ -1007,8 +1028,18 @@ async def do_sync(ctx: Ctx, local: asyncpg.Connection, prod: asyncpg.Connection,
     if failed_names:
         log(f'[sync] 写入失败({len(failed_names)}): {", ".join(sorted(failed_names))}')
         log('[sync]   ↑ 多为外键父行缺失 / 唯一键冲突;见各行 ✗ 明细')
+    if undelivered_names:
+        log(f'[sync] 零落地({len(undelivered_names)}): {", ".join(sorted(undelivered_names))}')
+        log('[sync]   ↑ 有待回灌行却一行都没进生产(唯一键/外键冲突或本地数据重复),'
+            '不计入"涉及张数";需先处置数据再复跑,否则缺口会一直静默存在')
+    if partial_names:
+        log(f'[sync] 部分未落地({len(partial_names)}): {", ".join(sorted(partial_names))}')
     if not apply and total:
         log('[sync] 这是 dry-run,加 --apply 才真正写入生产')
+    # 退出码必须反映"有没有真缺口":此前无条件 return 0,导致 resources 720 行
+    # 全数未进生产时仍是绿色退出,调度器/CI 与用户都看不见。
+    if failed or undelivered:
+        return 1
     return 0
 
 
