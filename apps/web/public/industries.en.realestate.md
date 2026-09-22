@@ -148,13 +148,13 @@
 | Data Layer                               |
 | - Property knowledge graph + project    |
 | - Customer profile + contract library   |
-| - PostgreSQL 16 + vector DB              |
+| - PostgreSQL 18 + vector DB              |
 +-----------------------------------------+
 ```
 
 ### IHUI AI End-to-End Capabilities (8-End Coverage)
 - **Web** (Next.js 16 + React 19): Sales management / agent workspace
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): Property / contract APIs
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): Property / contract APIs
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): Multi-agent collaboration
 - **Desktop** (Tauri 2): VR tour workstation / digital human live
 - **Extension** (WXT): Browser-side property data collection
@@ -164,7 +164,7 @@
 
 ### Technology Stack
 - Frontend: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- Backend: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - Multi-end: Tauri 2 (desktop) / WXT (extension) / React Native (mobile) / Taro 4 (mini-program) / Node.js CLI
 - VR/3D: Three.js / WebGL / digital human
@@ -189,7 +189,7 @@
 | Avg break-even period | 4 months |
 | 12-month ROI | 280% |
 
-(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 16, Redis 7)
+(Test environment: enterprise mid-size deployment, 3 nodes, PostgreSQL 18, Redis 7)
 
 ### FAQ
 - Q: Can the digital human avatar be customized?

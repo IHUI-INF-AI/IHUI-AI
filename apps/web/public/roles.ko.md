@@ -139,7 +139,7 @@ server.publish()  // 원클릭으로 MCP 마켓에 게시
 #### 1. 완전한 기술 아키텍처 (직접 평가 가능)
 ```
 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-백엔드:    Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+백엔드:    Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 AI:       LangGraph + LiteLLM + MCP 프로토콜
 배포:      Docker Compose / Kubernetes / Helm Chart
 모니터링:  Prometheus + Grafana + Sentry + Loki
