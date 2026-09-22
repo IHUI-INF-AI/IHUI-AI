@@ -4,7 +4,7 @@
 
 import './global.css'
 import { useCallback, useEffect, useState } from 'react'
-import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
+import { AppRegistry, LogBox, Platform, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -15,6 +15,7 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
+import { DevErrorToast } from './src/components/DevErrorToast'
 import { RootNavigator } from './src/navigation/RootNavigator'
 import { linking } from './src/navigation/linking'
 import { navigationRef, navigateTo } from './src/navigation/navigation-ref'
@@ -50,6 +51,12 @@ const GLOBAL_FONT_FAMILY = 'AlimamaFangYuanTiVF-Thin'
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
+// dev 报错悬浮条(替换内核 LogBox,见 src/components/DevErrorToast.tsx):
+// 抑制 LogBox UI(metro 终端日志不受影响),报错统一走 DevErrorToast 展示
+if (__DEV__) {
+  LogBox.ignoreAllLogs()
+}
+
 function ThemedNavigation() {
   const { resolvedTheme } = useTheme()
   return (
@@ -69,6 +76,7 @@ function AppInner() {
     <>
       <OfflineBanner isOnline={isOnline} />
       <ThemedNavigation />
+      <DevErrorToast />
     </>
   )
 }
