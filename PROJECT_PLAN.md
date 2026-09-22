@@ -72,14 +72,15 @@
 - 删除 MessageList 内联的居中按钮,把「跳到最新」合并进右下角既有 affordance 列(`ScrollJumpButtons`),列内 = [跳顶, 跳到最新],位置沿用 `bottom-4 right-4 z-20`(实测底边仍 552,与原居中环同一条水平线,无布局跳动)。
 - 显隐条件取并集:`hasMessages && (isFarFromBottom || userScrolledUp)` → 覆盖"浅上滚"(旧居中钮的场景)与"深离底"(旧跳底的场景),真在底部时恒不显。点击行为统一走 `handleJumpToLatest`(滚到底 + 广播 `ihui:jump-to-latest`,比原 `onJumpBottom` 仅 `scrollIntoView` 更完整,并保留对 MessageInput 侧的联动)。
 - 流式脉冲红点随合并后的按钮(`-right-0.5 -top-0.5` 装饰点,≤8px 属圆角守门豁免);图标统一 `ArrowDown`(原列用 `ChevronDown`,与"回到最新"语义弱)。
+- 顺带修掉本组件既有的一处可达性缺陷:`opacity-0` 隐藏态按钮默认可被 Tab 聚焦(右下角会偷走 Tab)。现隐藏态同时 `tabIndex={-1}` + `aria-hidden`(显示态回归 `tabIndex=0` 且不带 `aria-hidden`),该契约由单测与真机双向锁死。
 - 不新增 i18n 文案键(复用 `chat:jumpToTop` / `chat:jumpToLatest`)→ 语言包 parity 零改动。
 
 ### 验证证据(2026-09-22)
 
-- 新增契约测试 `apps/web/src/components/chat/message-list/scroll-jump-buttons.test.tsx`(7 例):全树仅 1 枚「跳到最新」、旧 `message-list-jump-latest` 为 null、显隐四组合矩阵、`hasMessages` 门控、跳顶互不影响、点击回调 1 次、红点随流式、列定位 token 仍含 `bottom-4 right-4 z-20 flex-col` 且不含 `left-1/2`。
-- 改写 `apps/web/tests/message-list.test.tsx` 的 "Jump-to-latest 浮动按钮" 段为归一后契约(4 例),两文件合跑 47 passed。
+- 新增契约测试 `apps/web/src/components/chat/message-list/scroll-jump-buttons.test.tsx`(8 例,含"隐藏态退出 Tab 序与无障碍树"):全树仅 1 枚「跳到最新」、旧 `message-list-jump-latest` 为 null、显隐四组合矩阵、`hasMessages` 门控、跳顶互不影响、点击回调 1 次、红点随流式、列定位 token 仍含 `bottom-4 right-4 z-20 flex-col` 且不含 `left-1/2`。
+- 改写 `apps/web/tests/message-list.test.tsx` 的 "Jump-to-latest 浮动按钮" 段为归一后契约(4 例),两文件合跑 48 passed。
 - `pnpm --filter @ihui/web typecheck` → exit 0;`pnpm --filter @ihui/web test` 全量套件见本节提交时结果。
-- 真机复测(8823 同会话同法):`aria-label` 命中「跳到最新」的元素数 = **1**(改前 2)、`[data-testid="message-list-jump-latest"]` = **0**、合并钮矩形 32x32 @ (412,520)-(444,552) 底边 552 与原水平线一致、距 composer 顶 69px 不变、与最后一条消息矩形不相交(改前居中钮正压正文 `code`/`li`)、中心点命中自身;深色下 `bg rgb(36,36,36) / border rgb(56,56,56) / radius 6px`;点击后 `scrollTop 0→407`(容器 `scrollHeight 934 / clientHeight 504`)且按钮回到 `opacity-0 pointer-events-none`,显隐门控闭环成立。
+- 真机复测(8823 同会话同法):`aria-label` 命中「跳到最新」的元素数 = **1**(改前 2)、`[data-testid="message-list-jump-latest"]` = **0**、合并钮矩形 32x32 @ (412,520)-(444,552) 底边 552 与原水平线一致、距 composer 顶 69px 不变、与最后一条消息矩形不相交(改前居中钮正压正文 `code`/`li`)、中心点命中自身;深色下 `bg rgb(36,36,36) / border rgb(56,56,56) / radius 6px`;点击后 `scrollTop 0→407`(容器 `scrollHeight 934 / clientHeight 504`)且按钮回到 `opacity-0 pointer-events-none`,显隐门控闭环成立;同批复采合并钮 `tabIndex` 显示态=0 → 点击后 =-1 且 `aria-hidden=true`,右/下边距各 16px(与 `bottom-4 right-4` 一致),浅色 `bg rgb(245,245,245) / border rgb(229,229,229)`,深色 `bg rgb(36,36,36) / border rgb(56,56,56) / radius 6px`。
 - 取证过程中两处探针自身缺陷已如实标注:①首轮 rail 选择器误命中页面另一枚 `absolute right-2` 元素(修正为 `data-testid="query-thumb-rail"` 后实测 18x42);②归一后 `merged.closest('.relative')` 会命中 Button 自身(base 类含 `relative`),故复测的 anchor 派生字段作废,容器底边沿用首轮有效值 568 判定(16px 间距不变)。
 
 ### 多端与文档
