@@ -1444,7 +1444,7 @@ const checks = [
   //   所以「造好没装车」这种死代码此前无闸可挡 —— 本门补的就是这一格。
   //   判据:新增适配器必须被 adapters 目录**之外**的源文件从 adapters 路径 import
   //   (端内存在同名自有组件,不限定 specifier 会把它们误判为已接线);
-  //   存量 6 个未接线项落在 scripts/adapter-wiring-baseline.json 内放行,只减不增。
+  //   基线已于同日三批清理后收紧为空数组 → 零豁免硬门。
   {
     id: '64',
     label: '🧩 [miniapp-taro] 适配层未接线即拦(防"造好没装车"死代码回升)',
@@ -1461,6 +1461,30 @@ const checks = [
       '     存量收紧基线:node scripts/check-adapter-wiring.mjs --update-baseline',
       '     自检:node --test scripts/tests/check-adapter-wiring.test.mjs',
       '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 66 (2026-09-22 补注册,miniapp-taro 适配层硬编码颜色基线门;65 已被「整树删除拦截」占用) ---
+  // 该脚本自 2026-09-03 起只挂在 package.json 的 check:all(手动/CI),**从未进 pre-commit 链路**,
+  //   所以新增硬编码颜色可以一路提交到 CI 才发现。本次适配层治理同族收口时补上这一格。
+  // 基线模式:存量 1 处/1 文件已在 scripts/adapter-style-parity-baseline.json 放行,只减不增。
+  {
+    id: '66',
+    label: '🎨 [miniapp-taro] 适配层硬编码颜色基线(防新增 hex/rgb 绕过 token)',
+    script: 'check-adapter-style-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_STYLE_PARITY',
+    onFailHint: [
+      '',
+      '  💡 adapters/*.taro.tsx 出现了基线之外的新增硬编码颜色,',
+      '     改法:用 getRnTokens(effectiveScheme).xxx 取 token(与 packages/app 主题同源)。',
+      '     确属合理保留(逐字沿用共享源的轮播点/HSL 等着色算法)时:',
+      '       node scripts/check-adapter-style-parity.mjs --update-baseline 后随本次提交一起 add 基线文件',
+      '     自检:node scripts/check-adapter-style-parity.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_STYLE_PARITY=1 git commit ...',
       '',
     ].join('\n'),
   },
