@@ -199,7 +199,7 @@
     "contentLabel": "內容",
     "contentPlaceholder": "詳細描述:背景、結論、注意事項",
     "tagsLabel": "標籤",
-    "tagsPlaceholder": "逗號分隔,如:部署,PG17",
+    "tagsPlaceholder": "逗號分隔,如:部署,PG18",
     "needScope": "請先填寫 Scope 標識",
     "needTitle": "標題不能為空",
     "needContent": "內容不能為空",
@@ -250,6 +250,24 @@
     "regenerateDisabledHint": "未選擇倉庫目錄或尚未收集到檔案,無法產生。"
   },
   "a11y": {
+    "download": "下載",
+    "downloadFile": "下載檔案",
+    "exitFullscreen": "離開全螢幕",
+    "seekBar": "播放進度",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "rotate": "旋轉",
+    "fullscreen": "全螢幕",
+    "previous": "上一張",
+    "next": "下一張",
+    "play": "播放",
+    "pause": "暫停",
+    "seekBackward": "快退",
+    "seekForward": "快進",
+    "mute": "靜音",
+    "unmute": "取消靜音",
+    "refresh": "重新整理",
+    "removeAttachment": "移除附件",
     "addAttachment": "添加附件（圖片/視頻/文件）",
     "breadcrumb": "麵包屑導航",
     "searchOption": "搜索選項",
@@ -7099,6 +7117,7 @@
         "clearLive": "清空",
         "copyOutput": "復制終端輸出",
         "failed": "{n} 失敗",
+        "isolation": "命令在隔離沙箱中執行，預設不開放網路",
         "live": "即時輸出",
         "moreItems": "…還有 {n} 項",
         "output": "輸出",
@@ -13483,7 +13502,6 @@
       "unstage": "取消暫存"
     },
     "statusBar": {
-      "sync": "同步",
       "toggleTheme": "切換主題",
       "unsynced": "未同步"
     },
@@ -21366,7 +21384,6 @@
     "skillsMarket": "Skill 市場"
   },
   "statusBar": {
-    "sync": "同步",
     "toggleTheme": "切換主題"
   },
   "groups": {
