@@ -188,6 +188,7 @@
     "terminalStatusRunning": "실행 중",
     "terminalStatusCompleted": "완료",
     "terminalStatusFailed": "실패",
+    "terminalTruncated": "…(잘림, 전체 {total}자)",
     "planStatusPending": "대기 중",
     "planStatusInProgress": "진행 중",
     "planStatusCompleted": "완료",
