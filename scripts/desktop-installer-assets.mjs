@@ -275,7 +275,7 @@ ${pageChrome(logo, 1)}
 ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '选择安装位置')}
 ${body14(C_L, 262, '默认安装到 D:\\智汇AI,也可以更改为其他目录。')}
-<rect x="${C_L}" y="300" width="412" height="40" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+<rect x="${C_L}" y="302" width="412" height="36" rx="${RADIUS}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
 ${body14(C_L, 380, '体积轻巧 · 数据云端存储 · 卸载不留残余', C.muted, 13)}
 ${body14(C_L, 404, '提示:直接编辑上方路径,或点击右侧「浏览…」选择目录。', C.muted, 13)}
 `);
@@ -465,13 +465,16 @@ function buttonScene(kind, text, w, h, labelSize) {
 <text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'browse':
-      // 裸文字链接钮(2026-09-22 用户明令「浏览按钮的背景色容器请取消」):
-      // 无填充容器、无描边,仅品牌色文字 + 同色下划线。BMP 无透明通道,
-      // 底必须铺页面底色 C.bg 才能与内容区无缝(此前误铺 C.card = 视觉上多出一块容器)。
+      // 次级按钮(2026-09-22 用户反馈"裸文字 + 下划线太难看"):卡底 #1A1A1A + 1.5px 描边
+      // + 8px 圆角 + ink 文字,与 CTA 主按钮(渐变实心)构成清晰的主次对。
+      // 之前那版"裸文字 + 下划线"是为了响应"去掉背景色容器",但下划线的链接感在桌面
+      // 工具里读起来像没做完 —— 用户要的其实是"别用实心色块",不是"别做成按钮"。
+      // BMP 无透明通道 → 圆角外那一圈必须铺页面底色 C.bg,否则漏出浅色底,
+      // 看起来就像套了第二层边框(正是用户报的"乱七八糟")。
       return `${common}
 <rect width="${w}" height="${h}" fill="${C.bg}"/>
-<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.accent}" text-anchor="middle">${esc(text)}</text>
-<rect x="${w / 2 - labelSize * 1.6}" y="${h / 2 + labelSize * 0.78}" width="${labelSize * 3.2}" height="1.5" rx="0.75" fill="${C.accent}"/>
+<rect x="0.75" y="0.75" width="${w - 1.5}" height="${h - 1.5}" rx="${RADIUS - 1}" fill="${C.card}" stroke="${C.btnStroke}" stroke-width="1.5"/>
+<text x="${w / 2}" y="${baseline}" font-family="${FONT}" font-size="${labelSize}" fill="${C.ink}" text-anchor="middle">${esc(text)}</text>
 </svg>`;
     case 'close':
     case 'min':
