@@ -778,8 +778,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="TopicList" component={TopicListScreen} />
             <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
             <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
-            {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局) */}
-            <UiControlBridgeLayer token={token} />
           </>
         ) : (
           <>
@@ -790,6 +788,9 @@ function RootNavigatorInner() {
           </>
         )}
       </RootStack.Navigator>
+      {/* agent-control 端侧桥接:仅登录态挂载一次(渲染 null,不影响布局)。
+          必须挂在 Navigator 之外 —— React Navigation 只允许 Screen/Group/Fragment 作为直接子节点 */}
+      {token ? <UiControlBridgeLayer token={token} /> : null}
       <NotificationPanel />
     </>
   )
