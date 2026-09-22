@@ -778,6 +778,7 @@
       },
       "terminal": {
         "title": "終端任務",
+        "isolation": "命令在隔離沙箱中執行，預設不開放網路",
         "copy": "複製",
         "copied": "已複製",
         "exitCode": "結束碼: {code}",

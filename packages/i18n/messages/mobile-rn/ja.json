@@ -371,6 +371,7 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "実行中",
     "terminalTasks": "ターミナルタスク",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
     "toolArgs": "引数",
     "toolCalls": "ツール呼び出し",
