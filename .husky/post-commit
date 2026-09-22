@@ -78,3 +78,14 @@ if [ "${HUSKY_SKIP_TAG_SYNC:-0}" != "1" ]; then
   timeout 60 wscript //nologo scripts/hook-run-hidden.vbs post-commit-tag-sync scripts/sync-lost-commit-tags.mjs --auto-push \
     || printf '%s\n' "⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)" >&2
 fi
+# ─── 6. 计划登记行自动回捞(2026-09-22 立,守门 71 的自愈面) ────────────────────
+# 为什么放 post-commit 而不是只靠 pre-commit:并发会话 routinely 用 --no-verify 提交,
+# pre-commit 那道闸(pre-commit #71)会被一起跳过;而"按内存里旧计划文档整文件提交"
+# 把别人已入库的登记行抹掉,一小时内就发生了两次(第三次靠人工回捞)。
+# post-commit 即使 --no-verify 也会跑 → 这里做自愈:扫最近历史,把消失的登记行
+# 按原文插回(只加不减),提交用 HEAD 基线的临时 index + commit-tree(不代收工作区里
+# 别人尚未提交的内容),并交给 git-push-guard 推送。
+# 防递归:回捞提交带 IHUI_PLAN_HEAL_COMMIT=1;跳过:HUSKY_SKIP_PLAN_HEAL=1
+if [ "${IHUI_PLAN_HEAL_COMMIT:-0}" != "1" ] && [ "${HUSKY_SKIP_PLAN_HEAL:-0}" != "1" ]; then
+  IHUI_PLAN_HEAL_COMMIT=1 timeout 90 node scripts/check-plan-line-loss.mjs --heal --commit >/dev/null 2>&1 || true
+fi
