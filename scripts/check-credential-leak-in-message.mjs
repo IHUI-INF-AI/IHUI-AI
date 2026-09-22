@@ -39,6 +39,9 @@
 //
 // 用法:node scripts/check-credential-leak-in-message.mjs
 //       [--staged|--quiet|--self-test|--update-baseline|--help]
+// 注意 `--staged` 的语义与仓内其它门一致:**只把文件清单收窄为暂存集,内容一律读工作树**
+//   (与 lint-staged 同形态)。因此它校验的是"即将被提交的那份工作树内容";若有人只改了索引
+//   而未同步工作树(并发会话的错配态),本门看不到差异 —— 那是 30c 陈旧副本门与 65 整树删除门的职责。
 // 退出码:0 通过 / 1 检出高危违规(或基线外新增)/ 2 脚本自身异常。
 // 存量豁免:scripts/credential-leak-baseline.json(只减不增;将来一次性整改时可登记)。
 //

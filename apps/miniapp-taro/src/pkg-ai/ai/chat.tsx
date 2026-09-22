@@ -400,13 +400,22 @@ export default function ChatPage() {
   )
 
   const sendMessage = useCallback(
-    async (overrideText?: string) => {
+    async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
       const text = (overrideText ?? '').trim()
       if (!text || thinking) return
       if (checkSpecialModel(text)) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
+      // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
+      // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
+      const history: ChatMessage[] = [
+        ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
+        userMsg,
+      ]
+      setMessages(
+        baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg, assistantMsg],
+      )
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
@@ -416,7 +425,7 @@ export default function ChatPage() {
       abortRef.current = controller
       try {
         await chatStream(
-          [...messages, userMsg],
+          history,
           sessionId,
           {
             model: currentModel || undefined,
@@ -846,21 +855,22 @@ export default function ChatPage() {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
     const text = resendTargetText(messages)
     if (lastUserIdx < 0 || !text) return
-    setMessages((prev) => prev.slice(0, lastUserIdx))
-    setTimeout(() => sendMessage(text), 100)
+    // 把截断后的历史显式交给 sendMessage:它闭包里的 messages 是"点击那一轮"的旧值,
+    // 只 setMessages 截断再延时重发,旧值里那条 user 会和重发的 userMsg 一起带进上下文(问题发两遍)
+    const base = messages.slice(0, lastUserIdx)
+    setMessages(base)
+    void sendMessage(text, base)
   }, [messages, sendMessage])
 
   const handleLongPress = useCallback(
     (msg: ChatMessage, idx: number) => {
-      // 失败轮不是内容:不提供复制/分享(把错误文案当回答分享出去即为失真),改为置顶给"重试"出口
+      // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
       const failed = isErrorTurn(msg)
       const actions: { label: string; run: () => void }[] = []
-      if (!failed) {
-        actions.push({
-          label: t('ai.messageAction.copy'),
-          run: () => Taro.setClipboardData({ data: msg.content }),
-        })
-      }
+      actions.push({
+        label: t('ai.messageAction.copy'),
+        run: () => Taro.setClipboardData({ data: msg.content }),
+      })
       if (msg.role === 'user') {
         actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
       }

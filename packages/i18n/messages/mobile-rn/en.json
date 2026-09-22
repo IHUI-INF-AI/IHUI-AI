@@ -491,6 +491,8 @@
       "title": "Context Auto-Compacted",
       "message": "{before} → {after} (removed {removed} messages)"
     },
+    "errorTitle": "Request failed",
+    "errorRetry": "Retry",
     "loginBtn": "Log in",
     "longPress": {
       "myTitle": "My Message",

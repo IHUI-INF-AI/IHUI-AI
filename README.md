@@ -2742,7 +2742,11 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 **成因是一起已提交进 main 的真实事故**:`proxy-extended-media3.ts` 曾把 Adobe IMS OAuth2 令牌端点的整个响应体(成功时含 `access_token`)拼进 502 的 message 回传客户端(修复见提交 `7384c92ed0`)。修这类问题的正确做法是**改正代码只回传状态码与 RFC 6749 错误码**,而不是加 `skipResponseSanitization` —— 后者是在为泄露关掉保护。
 
-判据刻意做窄(宁漏不误报):必须同时满足 4xx/5xx 构造上下文 + 被 stringify 的实参具备凭据语义(变量名 / 声明右侧 / 对象 key / message 字面量)才 BLOCK,并覆盖"经一层声明间接外泄"的写法;`errData` / `genData` 这类非凭据实参只进"低置信候选"清单不计失败 —— 全仓此类历史写法有 35 处 / 13 文件,一律拦就成了阻塞所有人的假阳性。
+判据刻意做窄(宁漏不误报):**A∧B ＋ C/D/E 至少一条**才 BLOCK。**A** 错误构造上下文 = 4xx/5xx 响应 **∪ `throw new Error(...)` / `throw new XxxError(...)`**(service 层的外泄走的是后者,只认 `reply.status()` 会整条盲);**B** 窗口里有上游响应体外泄 = `JSON.stringify(X)` **或整个对象被插值** `${x}` / `${x.slice(…)}`;**C** 凭据语义(变量名 / 声明右侧 / 对象 key / message 字面量);**D/E 来源证据**——不认变量名,沿 `X = (await R.json() 或 R.text())` → `R = await fetch('<令牌端点>')` 回溯,以路由注册行为处理器边界、窗口 ≤40 行,越界即放弃(宁漏不误报),命中令牌端点(`TOKEN_ENDPOINT_RE`:OAuth/`/token`/`/device/code`/`gettoken`/`tenant_access_token` …)即拦,因为这类响应体**本身就是凭据**。字段投影 `${json.error}` 明确**不算**——那正是推荐写法(有反例用例钉住,防止把修复判成违规)。
+
+同日实测出的**三处同族真缺陷**都已修:① IMS OAuth2 令牌响应体进 502(变量名 `tokenData`,C 抓);② GitHub `/login/device/code` 响应体进 400(变量名叫 `json`,`device_code` 按 RFC 8628 §1.5 是 bearer 凭据 —— C 全盲,靠 D 兜住);③ PayPal `/v1/oauth2/token` 的**原始响应文本**进 `throw new Error`(既非 stringify 又非 `reply.status()` —— 靠 A 扩展 + E 兜住)。反过来看:**名字类判据必然漏掉名字最无辜的那一处**,所以这道门必须有来源通道。
+
+非令牌端点的上游错误体透传(`errData` / `genData` / `data`)只进"低置信候选"清单打印、不计失败 —— 现存 31 处已逐个回溯其 fetch 端点确认非令牌端点(含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL,其全部调用点 path 均为推理接口),一律拦就成了阻塞所有人的假阳性。
 
 ---
 

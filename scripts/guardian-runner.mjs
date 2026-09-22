@@ -1559,7 +1559,7 @@ const checks = [
       '     所以把上游响应体拼进 error message 等于绕过脱敏把凭据发出去。',
       '     改法:message 只放厂商名 / HTTP 状态码 / RFC 6749 的 error 码等白名单字段,',
       '            需要排查上游返回内容时改为记服务端日志(且日志亦不得含令牌原文)。',
-      '     低置信候选(实参名无凭据语义)不拦,仅供人审;确属长期豁免时:',
+      '     低置信候选(实参名无凭据语义 **且** 响应来源非令牌端点)不拦,仅供人审;确属长期豁免时:',
       '       node scripts/check-credential-leak-in-message.mjs --update-baseline',
       '     自检:node scripts/check-credential-leak-in-message.mjs --self-test',
       '           node --test scripts/tests/check-credential-leak-in-message.test.mjs',
