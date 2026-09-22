@@ -139,14 +139,14 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_CANCEL_W   96
 !define IHUI_FINISH_X   712   ; 完成钮左缘(宽 120 → 712..832)
 !define IHUI_FINISH_W   120
-!define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14,上下各 4)
-!define IHUI_EDIT_Y     304
+!define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14)
+!define IHUI_EDIT_Y     306
 !define IHUI_EDIT_W     384
-!define IHUI_EDIT_H     32    ; 输入框 sm 档 h-8
-!define IHUI_BROWSE_X   728   ; 浏览钮(裸文字链接样式,无背景容器)728..832
-!define IHUI_BROWSE_Y   300
+!define IHUI_EDIT_H     28    ; xs 档 h-7:容器收成 36 高后与输入框同基线,不再"框下空一行"
+!define IHUI_BROWSE_X   728   ; 浏览钮(次级按钮:卡底 + 1.5px 描边)728..832
+!define IHUI_BROWSE_Y   302
 !define IHUI_BROWSE_W   104
-!define IHUI_BROWSE_H   40
+!define IHUI_BROWSE_H   36    ; 与路径容器同高同基线(302..338),两者读作一行控件
 !define IHUI_TGL_X      288   ; 完成页三行开关(与 finish.bmp 烧入标签同 y)
 !define IHUI_TGL_Y1     340
 !define IHUI_TGL_Y2     392
@@ -376,8 +376,16 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
     ShowWindow $R5 5
     ; BS_BITMAP = 0x00000040;保留原样式其余位
     System::Call "user32::GetWindowLongW(p R5, i -16) p .r6"
+    ; 样式四步(2026-09-22 用户反馈「继续」钮周围"乱七八糟"的根治):
+    ;   & -65 / | 64   → 清 BS_OWNERDRAW 等,置 BS_BITMAP(0x40) 让按钮画我们给的位图;
+    ;   | 32768        → BS_FLAT,去掉原生主题给按钮画的那圈边框。缺它时位图的圆角外
+    ;                    会漏出系统浅色底,看起来像"套了第二层框"。
+    ;   & -65537       → 清 WS_TABSTOP,按钮不再获取焦点 → 那圈系统焦点虚线框消失。
+    ;                    点击仍走 BN_CLICKED 原生路由,不依赖焦点,推进链不受影响。
     IntOp $6 $6 & -65
     IntOp $6 $6 | 64
+    IntOp $6 $6 | 32768
+    IntOp $6 $6 & -65537
     System::Call "user32::SetWindowLongW(p R5, i -16, i r6)"
     System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r7"
     ${If} $7 <> 0
