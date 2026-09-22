@@ -1,4 +1,15 @@
 {
+  "aiWs": {
+    "videoDone": "视频生成完成",
+    "videoFailed": "视频生成失败,请重试",
+    "videoOneImageOnly": "视频生成只支持上传一张图片",
+    "sendFailed": "发送失败,请重试",
+    "connectFailed": "连接失败,请重试",
+    "connectFailedShort": "连接失败",
+    "connectError": "连接错误,请重试",
+    "creditLowTitle": "智汇值不足",
+    "creditLowDesc": "您的智汇值余额小于 {min},无法使用大模型,请前往充值"
+  },
   "treeSelect": {
     "placeholder": "请选择",
     "searchPlaceholder": "搜索...",
@@ -7095,6 +7106,8 @@
       "nextStepsSummarize": "总结本次对话进展",
       "nextStepsTitle": "下一步推荐",
       "overview": {
+        "status": "状态",
+        "error": "错误",
         "active": "活跃",
         "changes": "变更",
         "context": "上下文",

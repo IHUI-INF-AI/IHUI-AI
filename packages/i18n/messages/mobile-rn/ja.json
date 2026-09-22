@@ -371,12 +371,6 @@
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "実行中",
     "terminalTasks": "ターミナルタスク",
-    "citationTitle": "参考元",
-    "injectionTitle": "今回の回答で参照したコンテキスト",
-    "injectionKindDeveloper": "カスタム指示",
-    "injectionKindWorkspace": "ワークスペースメモリ",
-    "injectionKindRepoWiki": "リポジトリ Wiki",
-    "injectionKindAutoContext": "自動取得したコンテキスト",
     "gatewayRetry": "{attempt}/{max} 回目を再試行中、{seconds} 秒後に続けます",
     "toolArgs": "引数",
     "toolCalls": "ツール呼び出し",
@@ -500,6 +494,14 @@
       "message": "スクリーンショットを生成しました",
       "shareBtn": "共有"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "参考元",
+    "injectionTitle": "今回の回答で参照したコンテキスト",
+    "kindDeveloper": "カスタム指示",
+    "kindWorkspace": "ワークスペースメモリ",
+    "kindRepoWiki": "リポジトリ Wiki",
+    "kindAutoContext": "自動取得したコンテキスト"
   },
   "developer": {
     "title": "開発者ポータル",
@@ -2503,5 +2505,30 @@
     "statusSuccess": "成功",
     "statusPartial": "一部成功",
     "statusFailed": "失敗"
+  },
+  "permissionTier": {
+    "label": "権限モード",
+    "mode": {
+      "default": {
+        "title": "デフォルト",
+        "desc": "すべての操作に承認が必要(最も安全)"
+      },
+      "plan": {
+        "title": "読み取り専用プラン",
+        "desc": "読み取りと検索のみ許可。ファイル書き込みとコマンド実行は拒否"
+      },
+      "accept-edits": {
+        "title": "編集を許可",
+        "desc": "許可リスト内の操作は自動実行、その他は確認を求める"
+      },
+      "bypass-permissions": {
+        "title": "権限をバイパス",
+        "desc": "確認なしでフルアクセス(高リスク)"
+      },
+      "unknown": {
+        "title": "不明なモード",
+        "desc": "未対応の権限モード。デフォルトとして扱う"
+      }
+    }
   }
 }
