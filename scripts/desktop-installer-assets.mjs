@@ -9,7 +9,7 @@
 //   installer-assets/assets-100|125|150|175|200/
 //     splash.bmp + splash1..15.bmp  开屏动画帧(AdvSplash 多帧序列,720x450 逻辑尺寸)
 //     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp / reinstall.bmp  五个安装向导页满幅背景(880x600 逻辑)
-//     unconfirm.bmp / uninstfiles.bmp  卸载器两页满幅背景(两步导轨,几何与安装页同源)
+//     unconfirm.bmp / uninstfiles.bmp / unfinish.bmp  卸载器三页满幅背景(两步导轨,几何与安装页同源)
 //     btn-*.bmp                     位图按钮(主 CTA / 幽灵按钮 / 裸文字链接钮 / 快捷方式开关 / 窗口钮)
 //   windows/ihui-assets-path.nsh    资产根目录 define(ihui-ui.nsi 编译期 File 嵌入用)
 //   供 ihui-ui.nsi 在运行时按窗口 DPI 挑选对应档位从 $PLUGINSDIR 加载。
@@ -234,8 +234,8 @@ ${items}
 }
 
 // 页面公共骨架:导轨 + 内容底 + 页脚 + 步骤计数(steps 决定导轨步数与总步数分母)
-function pageChrome(logo, active, steps = STEPS) {
-  const cur = String(active + 1).padStart(2, '0');
+function pageChrome(logo, active, steps = STEPS, curOverride) {
+  const cur = curOverride || String(active + 1).padStart(2, '0');
   return `
 <rect width="${W}" height="${H}" fill="${C.bg}"/>
 ${rail(logo, active, steps)}
@@ -368,6 +368,22 @@ ${title(C_L, 232, '正在卸载')}
 ${body14(C_L, 262, '智汇AI 正在从本机移除文件,请稍候…')}
 ${meterTrack([20, 45, 65, 85])}
 ${auroraRings(712, 456, 58, [1, 1])}
+`);
+}
+
+// 卸载完成页:两步导轨全部打勾(active 传 2 = 越界 → rail 把两步都判 done),
+// 页码计数器显式钉回 02/02,不得显示成 03/02。
+// 底部 CTA 带保持空白 —— 「完成」由**原生按钮 1** 换皮承载(见 ihui-uninstaller.nsi
+// un.IHUIFinishShow 的 IHUI_INST_SLOT 1),位图不得画按钮去抢位。
+function sceneUnfinish(logo) {
+  return page(`
+${pageChrome(logo, 2, UNSTEPS, '02')}
+${kicker(C_L, 176, 'DONE')}
+${title(C_L, 232, '卸载完成', 36)}
+${body14(C_L, 264, '智汇AI 桌面版已从本机移除,感谢使用。', C.inkSoft, 14)}
+${body14(C_L, 292, '如需再次使用,可随时重新安装,账号与云端数据不受影响。', C.muted, 13)}
+${auroraRings(712, 424, 62, [1, 1])}
+<text x="712" y="438" font-family="${FONT}" font-size="30" font-weight="700" fill="${C.accent}" text-anchor="middle">&#10003;</text>
 `);
 }
 
@@ -568,7 +584,7 @@ const BUTTONS = [
   // btn-continue 统一 144×40:与 CTA 槽(688,500,144,40)同宽,
   // 消除 140 宽位图居中留 2px 缝(重装页/完成态曾因此漏系统蓝底)
   ['btn-continue', 'primary', '继续 ›', 144, 40, 15],
-  ['btn-finish', 'primary', '完成', 120, 40, 15],
+  ['btn-finish', 'primary', '完成', 144, 40, 15],
   ['btn-cancel', 'ghost', '取消', 96, 40, 14],
   // 浏览钮 104×40:裸文字链接样式(无容器),槽位 x 728..832
   ['btn-browse', 'browse', '浏览…', 104, 40, 14],
@@ -596,6 +612,7 @@ const PAGES = [
   ['reinstall', sceneReinstall],
   ['unconfirm', sceneUnconfirm],
   ['uninstfiles', sceneUninstfiles],
+  ['unfinish', sceneUnfinish],
 ];
 
 let count = 0;

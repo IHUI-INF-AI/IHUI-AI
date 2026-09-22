@@ -2,62 +2,59 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
+// D111/G-164⑥:权限档展示取词逻辑(三端共用)。
+// 核心不变量:未配置如实显示 default;认不出的值显示 unknown —— **绝不静默显示成 default**
+// (用户配置的高危档被显示成"默认模式"是授权误导)。
+import { describe, expect, it } from 'vitest'
 
-vi.mock('@ihui/api-client', () => ({
-  executeAgentRuntimeStream: vi.fn(),
-  sendToolApprovalResponse: vi.fn(),
-  getWorkspacePermissionDefault: vi.fn(() => Promise.resolve({ success: false })),
-}))
+import { PERMISSION_MODE_WIRE, permissionModeDisplayKey } from '@ihui/types/permission-mode'
+import { PERMISSION_TIER_WORD_KEYS, permissionTierWordKeys } from '../permission-tier'
 
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({
-    t: (key: string) => key,
-    locale: 'zh-CN' as const,
-    setLocale: () => {},
-  }),
-}))
-
-import {
-  AgentRuntimePanel,
-  WorkspacePermissionTierRow,
-} from '../entrypoints/sidepanel/components/AgentRuntimePanel'
-
-describe('AgentRuntimePanel', () => {
-  it('mounts without crashing', () => {
-    const html = renderToStaticMarkup(<AgentRuntimePanel agentId="test-agent-1" />)
-    expect(typeof html).toBe('string')
-    expect(html.length).toBeGreaterThan(0)
-    expect(html).toContain('agent-runtime-panel')
+describe('permissionModeDisplayKey(展示档键)', () => {
+  it('未配置(null/undefined)如实显示为 default', () => {
+    expect(permissionModeDisplayKey(null)).toBe('default')
+    expect(permissionModeDisplayKey(undefined)).toBe('default')
   })
 
-  it('renders textarea and send button in idle state', () => {
-    const html = renderToStaticMarkup(<AgentRuntimePanel agentId="test-agent-2" />)
-    expect(html).toContain('agent-runtime-input')
-    expect(html).toContain('agent-runtime-send')
-    expect(html).toContain('agent-runtime-panel')
+  it('历史/跨端拼写归一到 wire 键', () => {
+    expect(permissionModeDisplayKey('default')).toBe('default')
+    expect(permissionModeDisplayKey('plan')).toBe('plan')
+    expect(permissionModeDisplayKey('acceptEdits')).toBe('accept-edits')
+    expect(permissionModeDisplayKey('accept-edits')).toBe('accept-edits')
+    expect(permissionModeDisplayKey('bypass-permissions')).toBe('bypass-permissions')
+  })
+
+  it('认不出的值 → unknown,绝不静默显示成 default', () => {
+    expect(permissionModeDisplayKey('yolo')).toBe('unknown')
+    expect(permissionModeDisplayKey('')).toBe('unknown')
   })
 })
 
-describe('WorkspacePermissionTierRow(D111:权限档交代行)', () => {
-  it('有档位时出档名与后果两段词表键(取词走共享 permissionTierWordKeys)', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="accept-edits" />)
-    expect(html).toContain('workspace-permission-tier')
-    expect(html).toContain('permissionTier.label')
-    expect(html).toContain('permissionTier.mode.accept-edits.title')
-    expect(html).toContain('permissionTier.mode.accept-edits.desc')
+describe('permissionTierWordKeys(取词键映射)', () => {
+  it('五档 + unknown 的词表键齐备且为静态字面量', () => {
+    const keys = Object.keys(PERMISSION_TIER_WORD_KEYS)
+    expect(keys.sort()).toEqual(
+      ['accept-edits', 'bypass-permissions', 'default', 'plan', 'unknown'].sort(),
+    )
+    for (const [, v] of Object.entries(PERMISSION_TIER_WORD_KEYS)) {
+      expect(typeof v.title).toBe('string')
+      expect(typeof v.desc).toBe('string')
+      expect(v.title.startsWith('permissionTier.mode.')).toBe(true)
+      expect(v.desc.startsWith('permissionTier.mode.')).toBe(true)
+    }
   })
 
-  it('未知档落 unknown 键,绝不显示成 default 档(授权误导防线)', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier="yolo" />)
-    expect(html).toContain('permissionTier.mode.unknown.title')
-    expect(html).not.toContain('permissionTier.mode.default.title')
+  it('wire 值域全部有对应取词键(注册表加档漏词表 = 这里红)', () => {
+    for (const wire of Object.values(PERMISSION_MODE_WIRE)) {
+      expect(PERMISSION_TIER_WORD_KEYS[wire]).toBeDefined()
+    }
   })
 
-  it('tier=null(取数失败)整行不渲染 —— 不假装知道档位', () => {
-    const html = renderToStaticMarkup(<WorkspacePermissionTierRow tier={null} />)
-    expect(html).not.toContain('workspace-permission-tier')
+  it('映射函数对各类输入都给得出键(不崩)', () => {
+    expect(permissionTierWordKeys(null).title).toContain('default')
+    expect(permissionTierWordKeys(undefined).title).toContain('default')
+    expect(permissionTierWordKeys('acceptEdits').title).toContain('accept-edits')
+    expect(permissionTierWordKeys('garbage-mode').title).toContain('unknown')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

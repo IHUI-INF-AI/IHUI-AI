@@ -1,4 +1,15 @@
 {
+  "aiWs": {
+    "videoDone": "Video generation complete",
+    "videoFailed": "Video generation failed, please try again",
+    "videoOneImageOnly": "Video generation supports only one image",
+    "sendFailed": "Send failed, please try again",
+    "connectFailed": "Connection failed, please try again",
+    "connectFailedShort": "Connection failed",
+    "connectError": "Connection error, please try again",
+    "creditLowTitle": "Not enough credits",
+    "creditLowDesc": "Your credit balance is below {min}, so models are unavailable. Please top up."
+  },
   "treeSelect": {
     "placeholder": "Select an option",
     "searchPlaceholder": "Search...",
@@ -7095,6 +7106,8 @@
       "nextStepsSummarize": "Summarize this conversation",
       "nextStepsTitle": "Next steps",
       "overview": {
+        "status": "Status",
+        "error": "Error",
         "active": "active",
         "changes": "Changes",
         "context": "Context",

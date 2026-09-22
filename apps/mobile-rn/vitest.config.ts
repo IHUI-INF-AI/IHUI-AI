@@ -58,6 +58,13 @@ export default defineConfig({
         'tests/__mocks__/ihui-shared-tasks-dispatch.ts',
       ),
       '@ihui/shared/constants': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
+      // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——
+      // 档位取词的价值就是"三端同源",给它写 mock 测的就是 mock。子路径 alias 必须在根 alias 前。
+      '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
+      '@ihui/types/permission-mode': resolve(
+        __dirname,
+        '../../packages/types/src/permission-mode.ts',
+      ),
       // Base alias last so it only catches direct @ihui/shared imports
       '@ihui/shared': resolve(__dirname, 'tests/__mocks__/ihui-shared.ts'),
       '@ihui/types': resolve(__dirname, 'tests/__mocks__/ihui-types.ts'),
