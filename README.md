@@ -2242,6 +2242,7 @@ IHUI-AI/
 | 65         | check-mass-deletion.mjs                                                  | 整树删除拦截:索引相对 HEAD 缺失 ≥1000 文件或 ≥20% 即拦(1ec8c7f0f3 / 05f049ba09 两次各删 11,6xx 文件的事故根治)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 69         | check-declared-shortcuts.mjs                                             | **快捷键"声明 ↔ 归属"对账(blocking)**,两类红点:① 声明未绑(UI 标了 `Ctrl+X` 而全仓无处理器,含注册表"有键无消费者");② 同键被他功能接走(点选项标的键位其实归全局注册表里另一个动作 —— `view-switcher` 曾标 `Ctrl+1-5` 而实际切 AI 模式)。持有证据三选一:本文件出现该 event 字面量 / 自有同键 handler + `stopPropagation` 独占 / 条目自身与注册表同义镜像                                                                                                                                                                                                                                                                    |
 | 70         | scan-hardcoded-zh.mjs                                                    | **硬编码中文基线棘轮(blocking)**:扫 `apps/web/{app,src/components,src/hooks}` + `packages/{ui-react,shared}/src`,按"每文件命中数 ≤ 基线额度"判定 —— 存量 900+ 文件的历史债冻结在 `scripts/hardcoded-zh-baseline.json`,**新增即拦**,清理后 `--update-baseline` 下调额度。该脚本 2026-07-20 就已存在,但一年多从未接入守门链,故这一族缺陷无人拦                                                                                                                                                                                                                                                                             |
+| 71         | check-plan-line-loss.mjs                                                 | **计划登记行防丢(blocking,`stagedTriggers=PROJECT_PLAN.md`)**:以 HEAD 为基线抽"登记行"(bullet + `**G-x`/`**Dx`/`**Px`/`**Wx` 编号 + 长度 ≥40),按**编号标记的原文前缀**在待提交内容里全文搜 —— 整行消失即拦,只改写文案保留编号不报(不误伤正常编辑),原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到则按 §1 归档放行。成因是共享工作区里并发会话按"内存中旧计划文档"整文件提交,把别人已入库的登记行按旧基线回写掉(2026-09-22 一小时内发生两次);13c 归档守卫只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。`--self-test` 5 例正反成对,紧急跳过 `HUSKY_SKIP_PLAN_LINE_LOSS=1`            |
 | 63         | check-sse-parser-parity.mjs                                              | **SSE 双解析器漏接对账(blocking,D106/G-148 配套)**:同一协议被 `packages/api-client`(web/extension/mobile-rn)与 `packages/shared/src/utils/sse-parse.ts`(miniapp-taro)两处独立解析。三类判定:① 抽不到事件名 = 判据失效**按失败处理**;② sse-parse 覆盖帧数 ratchet(`parseCoverageBaseline=21`,只挡倒退);③ api-client 已解析而未接的帧必须在 `scripts/data/sse-parser-coverage.json` 的 `webOnly` 写明"为什么只有该端消费"(空理由/已接却仍登记都拦)。判据强度实测:把 `steer` 守卫改坏 → 立即红两条(覆盖倒退 + 未登记),"只剩产出语句或只剩类型联合声明"都骗不过本闸。`--self-test` 10 例正反成对,`--report` 输出逐端补齐工单 |
 | 16d        | 条件 miniapp-taro dist 清理提示                                          | miniapp-taro/config 或 package.json staged 时输出清理提示(防 IDE 缓存混淆)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | 17-post    | git-push-guard.mjs(post-commit)                                          | 自动 push + 验证 local == remote(防遗漏)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -2749,6 +2750,35 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 **覆盖两套语法**:JS/TS 与 **Python**(`apps/` + `packages/` 下 `.ts/.tsx/.js/.mjs/.py`,共 6956 文件)。纳入 `.py` 不是加个后缀就完事 —— 序列化(`json.dumps`)、整对象插值(f-string 的 `{x}` / `{x[:200]}`)、错误构造(`raise XError(...)` / `status_code=4xx`)、注释豁免(`#`)是四组**各不相同的语法锚点**,缺任一条该语言就整条空转。实测过程:第一轮纳入后 F 通道报出 3 处(cnblogs / oschina / segmentfault 三个发布适配器),判据是"上一行 return 的字符串里写着 `access_token expired`,下一行才倒出平台用户信息响应体"—— **跨行配对喂出来的假阳性**,遂把 F 收紧为「**同行配对**，或**关键词行插值的变量其声明右侧正是那记 dump**（两行式）」，两种形状各留正反用例（同行正例 / 跨行反例 / 两行式正例 / 推荐修法反例）。收紧后全量 **高危 0 / 候选 30**,Python 侧的有效性用未跟踪探针文件 + 临时索引走 `--staged` 真实入口取证(`raise RuntimeError(f"token exchange failed: {json.dumps(payload)}")` → exit 1,证据链 `payload←resp←…/oauth2/token`;同文件内的资源端点反例不被误伤),探针与临时索引已删除、`git status` 零残留。
 
 非令牌端点的上游错误体透传(`errData` / `genData` / `data`)只进"低置信候选"清单打印、不计失败 —— 现 30 处**逐个看明**(不是抽样):含经 `callVendor` / `cozeRequest` / `callLuyala` 转发的动态 URL,其全部调用点 path 均为推理接口;`throw` 形态新增的 4 处中 1 处就是上面的 STS 真缺陷(已修 + 由 F 拦),另 3 处经阅读确认不含凭据(cli installer 倒的是本地插件 source 描述符、cli browser 倒的是 CDP `exceptionDetails`、api-client coze 把上游文本装进 error 的**字段**而非 message 且属浏览器侧库)。一律拦就成了阻塞所有人的假阳性 —— 但"进候选清单"不等于"看过就没事",这 4 处正是靠逐条回溯才把第 4 处真缺陷挖出来的。
+
+---
+
+### 新增守门示例:第 72 项「Dockerfile 构建上下文对账」(2026-09-22)
+
+有些缺陷**本地全绿也发现不了**:提交 `79b906463f` 给**根** `package.json` 加了
+`"postinstall": "node scripts/fix-expo-metro-junction.mjs"`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}`
+只 COPY 清单文件就执行 `pnpm install` —— 镜像里没有 `scripts/`,于是 CI 上 `build-api` 与 `build-web`
+同时以 `MODULE_NOT_FOUND` 挂掉(五个镜像坏四个)。typecheck / lint / 单测 / 守门 96 项**全都不会知道**,
+因为本机没有 docker、也没人在提交流程里跑 docker build。
+
+`scripts/check-dockerfile-copy-paths.mjs`(第 72 项,blocking)把这件事变成结构性不可能,两条判据都只用仓库内信息:
+
+- **A｜钩子脚本必须进镜像**:凡 COPY 了 `pnpm-workspace.yaml`(= 根 monorepo 上下文标记)的 Dockerfile,
+  其 `pnpm install` 会触发**根** package.json 的 `preinstall` / `postinstall` / `prepare`;
+  这些钩子里 `node <file>` 引用的每个脚本,必须出现在该文件某条 COPY 源里(只 COPY 单个文件,
+  不 COPY 整个 `scripts/` —— 那会让 308 个文件的改动击穿 deps 层缓存)。
+- **B｜COPY 源必须存在**:每条不带 `--from=`、不含通配符的 COPY 源,必须能在**构建上下文**里取到。
+  上下文不靠猜 —— 从 `.github/workflows/*.yml` 的 `context:` / `file:` 成对解析(现解析出 4 个);
+  没声明上下文的 Dockerfile 一律跳过并在结论行里如实报 `B 核了 N/M`,绝不假装全覆盖。
+
+一个实现上的坑值得记:**存在性必须按提交内容判、不能按工作树判**。本仓当时正有并行会话把
+`scripts/fix-expo-metro-junction.mjs` 从工作树删掉但未暂存,按 `existsSync` 会产出一条与真实构建结果
+相反的假阳性;改为读一次 `git ls-tree -r HEAD` 的提交清单后归零。同理 `COPY . .`(整个上下文)与
+`pnpm-lock.yaml*`(通配符)明确不参与判定。
+
+有效性取证:摘掉我加的那行 COPY ⇒ 门 exit 1 并给出可执行修法;往任一 Dockerfile 塞一条不存在的
+COPY 源 ⇒ `copy-source-missing` 命中;还原后 7 个 Dockerfile 全绿。self-test 5 例 + §22c 镜像测试 8 例。
+紧急跳过:`HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1`。
 
 ---
 
