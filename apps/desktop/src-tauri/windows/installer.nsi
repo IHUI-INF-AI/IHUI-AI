@@ -1,7 +1,7 @@
 ; ⚠️ 本文件是 Tauri v2 NSIS 安装器模板的定制副本,上游版权归 tauri-apps/tauri(MIT / Apache-2.0)。
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
-; IHUI 定制范围(补丁集 P0-P6,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
+; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
 ;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
 ;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
 ;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
@@ -9,6 +9,7 @@
 ;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
 ;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
 ;   P5 重装/升级确认页深色主题宏。
+;   P7 Install Section 进度埋点:四阶段 IHUI_PROGRESS(安装页百分比数字 + 自绘品牌进度条 + 阶段文案)。
 ;
 ; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
 ;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
