@@ -470,10 +470,14 @@ FunctionEnd
 Function un.ConfirmLeave
   SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
-!insertmacro MUI_UNPAGE_CONFIRM
+!undef MUI_PAGE_CUSTOMFUNCTION_SHOW
+!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+!undef MUI_PAGE_CUSTOMFUNCTION_PRE
+; U1 卸载确认页改自定义品牌页(原生向导外观 + 无法主题化的复选框一并弃用)
+UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave
 
 ; 2. Uninstalling Page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow
 !insertmacro MUI_UNPAGE_INSTFILES
 
 ;Languages
@@ -821,6 +825,7 @@ Section Uninstall
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
+  !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
@@ -851,6 +856,7 @@ Section Uninstall
   {{/each}}
 
 
+  !insertmacro IHUI_UNPROGRESS 45 "正在清理安装目录"
   ; Delete uninstaller
   Delete "$INSTDIR\uninstall.exe"
 
@@ -859,6 +865,7 @@ Section Uninstall
   {{/each}}
   RMDir "$INSTDIR"
 
+  !insertmacro IHUI_UNPROGRESS 65 "正在移除快捷方式"
   ; Remove shortcuts if not updating
   ${If} $UpdateMode <> 1
     !insertmacro DeleteAppUserModelId
@@ -888,6 +895,7 @@ Section Uninstall
     ${EndIf}
   ${EndIf}
 
+  !insertmacro IHUI_UNPROGRESS 85 "正在清理注册信息"
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
@@ -922,7 +930,9 @@ Section Uninstall
 
   ; Delete app data if the checkbox is selected
   ; and if not updating
-  ${If} $DeleteAppDataCheckboxState = 1
+  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,
+  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。
+  ${If} $UNDATA = 1
   ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"

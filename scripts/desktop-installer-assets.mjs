@@ -8,7 +8,8 @@
 // 产出(scale ∈ {1, 1.25, 1.5, 1.75, 2},对应 Windows 标准缩放 100%/125%/150%/175%/200%):
 //   installer-assets/assets-100|125|150|175|200/
 //     splash.bmp + splash1..15.bmp  开屏动画帧(AdvSplash 多帧序列,720x450 逻辑尺寸)
-//     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp / reinstall.bmp  五个向导页满幅背景(880x600 逻辑)
+//     welcome.bmp / dir.bmp / instfiles.bmp / finish.bmp / reinstall.bmp  五个安装向导页满幅背景(880x600 逻辑)
+//     unconfirm.bmp / uninstfiles.bmp  卸载器两页满幅背景(两步导轨,几何与安装页同源)
 //     btn-*.bmp                     位图按钮(主 CTA / 幽灵按钮 / 裸文字链接钮 / 快捷方式开关 / 窗口钮)
 //   windows/ihui-assets-path.nsh    资产根目录 define(ihui-ui.nsi 编译期 File 嵌入用)
 //   供 ihui-ui.nsi 在运行时按窗口 DPI 挑选对应档位从 $PLUGINSDIR 加载。
@@ -96,6 +97,11 @@ const STEPS = [
   ['03', '正在安装', 'PROGRESS'],
   ['04', '完成', 'DONE'],
 ];
+// 卸载导轨:两态进度(与 STEPS 同结构,复用同一 rail() 绘制路径,不另起一份实现)
+const UNSTEPS = [
+  ['01', '确认卸载', 'CONFIRM'],
+  ['02', '正在卸载', 'PROGRESS'],
+];
 // 安装页进度几何(与 ihui-ui.nsi IHUIInstShow 的进度条槽严格一致)
 const PB_X = C_L;
 const PB_Y = 300;
@@ -181,9 +187,10 @@ function auroraRings(cx, cy, r0, opacities) {
 }
 
 // ---- 左侧品牌导轨 -----------------------------------------------------------
-// active = 当前步索引(0..3);小于它的标"已完成",等于它的标"进行中"。
-function rail(logo, active) {
-  const items = STEPS.map(([, zh, en], i) => {
+// steps = 步骤清单([编号, 中文, 英文] 数组),默认安装四步;卸载页传入 UNSTEPS 走两步。
+// active = 当前步索引;小于它的标"已完成",等于它的标"进行中"。
+function rail(logo, active, steps = STEPS) {
+  const items = steps.map(([, zh, en], i) => {
     const my = STEP_Y0 + i * STEP_GAP;
     const state = i < active ? 'done' : i === active ? 'active' : 'todo';
     const marker =
@@ -199,7 +206,7 @@ function rail(logo, active) {
     const subFill = state === 'active' ? C.accent : '#4C5B63';
     // 连接线:仅在有下一步时画,已完成段用 accent,其余用描边色
     const link =
-      i < STEPS.length - 1
+      i < steps.length - 1
         ? `<rect x="44" y="${my + 30}" width="1.5" height="${STEP_GAP - 34}" fill="${i < active ? C.accent : C.btnStroke}"/>`
         : '';
     return `${marker}
@@ -220,14 +227,14 @@ ${items}
 <text x="216" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}" text-anchor="end">aizhs.top</text>`;
 }
 
-// 页面公共骨架:导轨 + 内容底 + 页脚 + 步骤计数
-function pageChrome(logo, active) {
+// 页面公共骨架:导轨 + 内容底 + 页脚 + 步骤计数(steps 决定导轨步数与总步数分母)
+function pageChrome(logo, active, steps = STEPS) {
   const cur = String(active + 1).padStart(2, '0');
   return `
 <rect width="${W}" height="${H}" fill="${C.bg}"/>
-${rail(logo, active)}
+${rail(logo, active, steps)}
 <text x="${C_L}" y="574" font-family="${FONT}" font-size="10" fill="${C.muted}">© 2026 IHUI AI (智汇AI) · 李春川 · aizhs.top</text>
-<text x="${C_R}" y="574" font-family="${FONT}" font-size="10" text-anchor="end"><tspan fill="${C.accent}" font-weight="700">${cur}</tspan><tspan fill="${C.muted}"> / ${String(STEPS.length).padStart(2, '0')}</tspan></text>`;
+<text x="${C_R}" y="574" font-family="${FONT}" font-size="10" text-anchor="end"><tspan fill="${C.accent}" font-weight="700">${cur}</tspan><tspan fill="${C.muted}"> / ${String(steps.length).padStart(2, '0')}</tspan></text>`;
 }
 
 // ---- 向导页场景 -------------------------------------------------------------
@@ -312,6 +319,33 @@ ${kicker(C_L, 176, 'STEP 02')}
 ${title(C_L, 232, '检测到已安装版本')}
 ${body14(C_L, 262, '请选择保留配置升级,或先卸载再全新安装。')}
 ${body14(C_L, 440, '你的账号与云端数据不受此选择影响。', C.muted, 13)}
+`);
+}
+
+// 卸载确认页:两步导轨,当前步 = 01 确认卸载。
+// 内容区**下半部刻意留空** —— 运行期在下方挂原生「删除应用数据」复选框与按钮,
+// 位图不得画容器/面板/背景块去抢位(与 sceneReinstall「留空白带」同一思路)。
+function sceneUnconfirm(logo) {
+  return page(`
+${pageChrome(logo, 0, UNSTEPS)}
+${kicker(C_L, 176, 'UNINSTALL')}
+${title(C_L, 232, '卸载 智汇AI 桌面版')}
+${body14(C_L, 262, '将从本机移除智汇AI 桌面版,并清理其注册信息。')}
+${body14(C_L + 70, 360, '删除应用数据(配置、缓存与登录状态)', C.inkSoft, 15)}
+`);
+}
+
+// 正在卸载页:与 sceneInstfiles 完全同构 —— 百分比大字与阶段文案都是运行期控件,
+// 位图只烧轨道底(PB_X/PB_Y/PB_W/PB_H = 288/300/544/8,rx=4,C.hairline #3D3D3D),
+// 轨道下方那一行阶段文案槽保持空白。两步导轨:01 已完成打勾,02 进行中高亮。
+function sceneUninstfiles(logo) {
+  return page(`
+${pageChrome(logo, 1, UNSTEPS)}
+${kicker(C_L, 176, 'STEP 02')}
+${title(C_L, 232, '正在卸载')}
+${body14(C_L, 262, '智汇AI 正在从本机移除文件,请稍候…')}
+<rect x="${PB_X}" y="${PB_Y}" width="${PB_W}" height="${PB_H}" rx="${PB_H / 2}" fill="${C.hairline}"/>
+${auroraRings(712, 456, 58, [1, 1])}
 `);
 }
 
@@ -534,6 +568,8 @@ const PAGES = [
   ['instfiles', sceneInstfiles],
   ['finish', sceneFinish],
   ['reinstall', sceneReinstall],
+  ['unconfirm', sceneUnconfirm],
+  ['uninstfiles', sceneUninstfiles],
 ];
 
 let count = 0;

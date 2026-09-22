@@ -25,7 +25,7 @@
   },
   {
     "upstream": "    DeleteRegValue HKCU \"${MANUPRODUCTKEY}\" \"Installer Language\"\n    DeleteRegKey /ifempty HKCU \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty HKCU \"${MANUKEY}\"\n\n    SetShellVarContext current\n    RmDir /r \"$APPDATA\\${BUNDLEID}\"\n    RmDir /r \"$LOCALAPPDATA\\${BUNDLEID}\"",
-    "ihui": "    DeleteRegValue HKCU \"${MANUPRODUCTKEY}\" \"Installer Language\"\n    DeleteRegKey /ifempty HKCU \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty HKCU \"${MANUKEY}\"\n  ${EndIf}\n\n  ; Delete app data if the checkbox is selected\n  ; and if not updating\n  ${If} $DeleteAppDataCheckboxState = 1\n  ${AndIf} $UpdateMode <> 1\n    SetShellVarContext current\n    RmDir /r \"$APPDATA\\${BUNDLEID}\"\n    RmDir /r \"$LOCALAPPDATA\\${BUNDLEID}\""
+    "ihui": "    DeleteRegValue HKCU \"${MANUPRODUCTKEY}\" \"Installer Language\"\n    DeleteRegKey /ifempty HKCU \"${MANUPRODUCTKEY}\"\n    DeleteRegKey /ifempty HKCU \"${MANUKEY}\"\n  ${EndIf}\n\n  ; Delete app data if the checkbox is selected\n  ; and if not updating\n  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,\n  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。\n  ${If} $UNDATA = 1\n  ${AndIf} $UpdateMode <> 1\n    SetShellVarContext current\n    RmDir /r \"$APPDATA\\${BUNDLEID}\"\n    RmDir /r \"$LOCALAPPDATA\\${BUNDLEID}\""
   },
   {
     "upstream": "SectionEnd\n\nFunction RestorePreviousInstallLocation\n  ReadRegStr $4 SHCTX \"${MANUPRODUCTKEY}\" \"\"\n  StrCmp $4 \"\" +2 0\n    StrCpy $INSTDIR $4",
