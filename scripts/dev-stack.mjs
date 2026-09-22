@@ -225,6 +225,17 @@ const SERVICES = [
       ),
     hint: 'apps/ai-service 的 .venv 未就绪,AI 能力不可用(不影响登录 / 主链路)',
   },
+  {
+    // 网页预览连生产专用:CORS 注入反代(mobile-rn Expo web 的 API 地址指向这里,
+    // 流量经回环转到 https://aizhs.top;浏览器跨源拦截靠它注入的头放行,头注见脚本)
+    name: 'prod-proxy',
+    port: 8807,
+    required: false,
+    probe: 'tcp',
+    describe: '网页预览→生产 CORS 反代(可选,8807→aizhs.top)',
+    start: () => launchDetached(NODE_EXE, [path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs')], ROOT, 'prod-proxy'),
+    hint: '网页预览连生产需要它(:8806 的 API 请求经此转发到 aizhs.top)',
+  },
 ];
 
 const args = process.argv.slice(2);
@@ -300,6 +311,7 @@ function canStart(svc) {
     return fs.existsSync(path.join(API_DIR, '.env')) && fs.existsSync(TSX_ENTRY);
   }
   if (svc.name === 'ai-service') return fs.existsSync(path.join(AI_DIR, '.venv'));
+  if (svc.name === 'prod-proxy') return fs.existsSync(path.join(ROOT, 'scripts', 'dev-prod-proxy.mjs'));
   return fs.existsSync(path.join(ROOT, 'apps', svc.name === 'metro' ? 'mobile-rn' : svc.name));
 }
 
