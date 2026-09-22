@@ -150,6 +150,7 @@ const { mockT } = vi.hoisted(() => {
     copyPlan: '复制任务计划',
     moreItems: '…还有 {n} 项',
     jumpToLatest: '跳到最新',
+    followEvents: '跟随事件流',
     latest: '最新',
     pinHintPinned: '已置顶,点击外部不关闭',
     pinHintUnpinned: '已取消置顶,点击外部关闭',
@@ -2167,21 +2168,22 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     expect(toggleBtn.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('按 ? (Shift+/) 键:切换帮助面板开关', () => {
+  it('点击 header 帮助钮:切换帮助面板开关(2026-09-22 起 ? 不再归本面板)', () => {
     useAgentProgressPaneStore.getState().openPane()
     const { container } = render(<AgentTaskProgressPane />)
+    const helpToggle = container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement
     // 初始关闭
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
 
-    // 按 ?
+    // 点击打开
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      helpToggle.click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
 
-    // 再按 ? 关闭
+    // 再点关闭
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      helpToggle.click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeNull()
   })
@@ -2191,9 +2193,9 @@ describe('AgentTaskProgressPane — v13 深度优化', () => {
     useAgentProgressPaneStore.getState().togglePin() // unpin 让 Esc 也能关 pane
     const { container } = render(<AgentTaskProgressPane />)
 
-    // 打开帮助
+    // 打开帮助(header 钮;? 已归属全局快捷键面板)
     act(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', bubbles: true }))
+      ;(container.querySelector('[data-testid="pane-help-toggle"]') as HTMLElement).click()
     })
     expect(container.querySelector('[data-testid="pane-help-panel"]')).toBeTruthy()
     expect(useAgentProgressPaneStore.getState().open).toBe(true)
