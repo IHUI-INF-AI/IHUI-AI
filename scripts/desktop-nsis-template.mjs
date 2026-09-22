@@ -247,8 +247,22 @@ const U1_IHUI = [
 ].join('\n')
 
 // U2 给卸载进度页挂 SHOW 回调(品牌贴皮 + 百分比控件)
+// ⚠️ 卸载器**没有**完成页,这是排查后的结论而非疏漏(2026-09-22 三轮沙箱对照):
+//   ① 裸 `UninstPage custom` 放在 MUI_UNPAGE_INSTFILES 之后 → 页函数开头无条件写标记,
+//      20s 内标记从未出现 = 这张页根本不会被走到;
+//   ② 换成 `!insertmacro MUI_UNPAGE_FINISH` → SHOW 回调 7.6s 写了标记,页确实被走到,
+//      但截图实锤 MUI 自带那张白底面板 + 蓝色向导头图 + 两行原生文字压不住
+//      (内层 dialog 1044 拿不到句柄、resize 不生效,原生控件 ID 段也扫不掉),
+//      成品比"原生完成框"更难看,违背"零原生观感"的初衷。
+//   所以卸载侧收口 = hooks.nsi 的 NSIS_HOOK_POSTUNINSTALL 里 SetAutoClose true,
+//   Section 跑完即关窗(与 passive/更新模式上游本来的行为一致),
+//   根治"instfiles 原地停住、出口钮被隐藏、灰掉的取消钮还是 disabled"的永久挂死。
 const U2_UPSTREAM = ['; 2. Uninstalling Page', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
-const U2_IHUI = ['; 2. Uninstalling Page', '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow', '!insertmacro MUI_UNPAGE_INSTFILES'].join('\n')
+const U2_IHUI = [
+  '; 2. Uninstalling Page',
+  '!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow',
+  '!insertmacro MUI_UNPAGE_INSTFILES',
+].join('\n')
 
 for (const [name, upstream, ihui] of [
   ['U1 卸载确认页改自定义品牌页', U1_UPSTREAM, U1_IHUI],
@@ -256,6 +270,31 @@ for (const [name, upstream, ihui] of [
 ]) {
   PATCHES.push({ name, upstream, ihui })
 }
+
+// U3 卸载器语言:消掉上游遗留的最后一个原生窗口。
+// 上游在 un.onInit 插 MUI_UNGETLANGUAGE,其展开为"读注册表语言值,读空则
+// !insertmacro MUI_LANGDLL_DISPLAY"。而本项目 DISPLAYLANGUAGESELECTOR=false,
+// 安装侧那段 MUI_LANGDLL_DISPLAY 被 !if 整段编译掉 → 语言值永不写入 →
+// 卸载器每次启动都弹原生「Installer Language」选择框。
+// 2026-09-22 真包实测复现(292x152 原生框,组合框已预选"中文(简体)"却仍要用户点 OK);
+// 此前所有验证都走 /S,而该宏自带 ${unless} ${Silent},故静默路径永远看不到它 ——
+// 沙箱同样漏掉,因为 sandbox.nsi 只注册了一种语言(单语言时 NSIS 不弹框)。
+// 改法:有登记值则采纳,没有则保持 NSIS 按系统 UI 语言自动选中的结果,任何情况都不弹框。
+// 不新增注册表写入:选择器关闭时该值恒等于自动检测结果,重写它只会给"取消安装"留残留。
+const U3_UPSTREAM = '  !insertmacro MUI_UNGETLANGUAGE'
+const U3_IHUI = [
+  '  ; ==== IHUI 定制:卸载器语言只读注册表,绝不弹原生选择框 ====',
+  '  !insertmacro MUI_LANGDLL_VARIABLES',
+  '  !ifdef MUI_LANGDLL_REGISTRY_ROOT & MUI_LANGDLL_REGISTRY_KEY & MUI_LANGDLL_REGISTRY_VALUENAME',
+  '    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"',
+  '    ${If} $mui.LangDLL.RegistryLanguage != ""',
+  '      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage',
+  '    ${EndIf}',
+  '  !endif',
+  '  ; ==== IHUI 定制结束 ====',
+].join('\n')
+
+PATCHES.push({ name: 'U3 卸载器语言去原生框', upstream: U3_UPSTREAM, ihui: U3_IHUI })
 
 // 只能 Section 跑到哪报到哪。四个锚点在上游正文里各只出现一次(grep -Fc 已校验)。
 const U_POINTS = [
