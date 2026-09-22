@@ -52,6 +52,7 @@ import {
   type TaskStatusLine,
 } from './task-status-line.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
+import { t } from '../i18n/index.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -2369,6 +2370,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           title: 'Agent 错误',
         });
         for (const line of cardLines) console.error(line);
+        // G-152:错误必须带出口。终端形态没有"重试按钮",出口就是把上一条提问递到用户手上
+        // (readline 的 ↑ 历史是本端现成能力,此前只是没说)。
+        console.error(chalk.dim(`  ${t('cli.retryHint')}`));
       },
     });
 
@@ -2424,6 +2428,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       stack,
     });
     for (const line of cardLines) console.error(line);
+    console.error(chalk.dim(`  ${t('cli.retryHint')}`));
     throw err;
   } finally {
     // 状态行落终态:中止 → interrupted,其余由状态行按步骤/结果自行判定

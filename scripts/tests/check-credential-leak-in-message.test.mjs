@@ -20,18 +20,20 @@ test('§22c 锚点:__test__ 暴露判据函数且样例表非空', () => {
     'classifyStringifyArg',
     'findStringifyArgs',
     'tokenEndpointProvenance',
+    'credEndpointDumpEvidence',
+    'wholeInterpProvenance',
     'resolveDeclaredEntry',
     'main',
     'readBaselineRaw',
   ]) {
     assert.ok(typeof G[k] === 'function', `__test__ 缺少 ${k}`)
   }
-  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 18)
+  assert.ok(Array.isArray(G.SELFTEST_CASES) && G.SELFTEST_CASES.length >= 26)
 })
 
 test('判据样例表逐条与 want 一致(含"非凭据变量不拦"的反例)', () => {
   for (const c of G.SELFTEST_CASES) {
-    assert.equal(G.evalCase(c.src), c.want, `样例失败: ${c.name}`)
+    assert.equal(G.evalCase(c.src, c.file), c.want, `样例失败: ${c.name}`)
   }
 })
 
@@ -350,5 +352,86 @@ test('E 通道推荐写法(只投影 error 字段)必须零命中,防止把修�
   const r = G.scanSource(src, 'apps/api/src/services/paypal.ts')
   assert.equal(r.violations.length, 0)
   assert.equal(r.candidates.length, 0)
+})
+
+// --- F 通道:凭据端点关键词 ∧ 整对象 dump(走 SDK、URL 不在窗口内) ---
+
+const STS_DUMP_SRC =
+  'const response = await client.callApi(params, request, {})\n' +
+  'if (!creds) throw new Error(`STS AssumeRole 失败: ${JSON.stringify(response.body)}`)'
+
+test('F 通道双条件:关键词与整对象 dump 缺一不可(单条件即降级为不判/仅候选)', () => {
+  const both = G.credEndpointDumpEvidence(STS_DUMP_SRC)
+  assert.equal(both.length, 1, '关键词 + response.body 整体 dump 必须出证据')
+  assert.match(both[0], /^keyword:assumerole:response\.body$/, '证据须同时点名关键词与目标对象')
+  assert.deepEqual(
+    G.credEndpointDumpEvidence(
+      'const response = await client.callApi(params, request, {})\nthrow new Error(`AssumeRole 失败: ${response.Code}`)',
+    ),
+    [],
+    '字段投影不是整对象 dump',
+  )
+  assert.deepEqual(
+    G.credEndpointDumpEvidence('throw new Error(`Firefly 调用失败: ${JSON.stringify(data)}`)'),
+    [],
+    '无凭据端点关键词时不得扩大命中面',
+  )
+})
+
+test('F 通道经 scanSource 落地:kind 正确且新 kind 同样可被基线豁免', () => {
+  const file = 'apps/api/src/services/storage-service.ts'
+  const hit = G.scanSource(STS_DUMP_SRC, file)
+  assert.equal(hit.violations.length, 1, 'D/E 够不到的 SDK 形态必须由 F 兜住')
+  assert.equal(hit.violations[0].kind, 'cred-endpoint-keyword-with-body-dump')
+  const exempted = G.scanSource(STS_DUMP_SRC, file, new Set([hit.violations[0].key]))
+  assert.equal(exempted.violations.length, 0)
+})
+
+// --- Python 形态(ai-service 纳入覆盖) ---
+
+const PY_TOKEN_SRC =
+  'resp = await httpx.AsyncClient().post("https://idp.example.com/oauth2/token", data={"a": 1})\n' +
+  'payload = resp.json()\n' +
+  'if "access_token" not in payload:\n' +
+  '    raise RuntimeError(f"token exchange failed: {json.dumps(payload)}")\n'
+
+test('Python:D 通道必须认 json.dumps 与 resp.json(),否则 .py 纳入是空转', () => {
+  const r = G.scanSource(PY_TOKEN_SRC, 'apps/ai-service/app/_probe.py')
+  assert.equal(r.violations.length, 1, 'Python 令牌端点 dump 必须命中')
+  assert.equal(r.violations[0].kind, 'stringify-from-token-endpoint')
+  assert.match(
+    r.violations[0].evidence,
+    /endpoint:payload←resp←https:\/\/idp\.example\.com\/oauth2\/token/,
+  )
+})
+
+test('Python 反例:资源端点的 f-string 透传不得命中(与 token6688 现状同形)', () => {
+  const src =
+    'resp = await httpx.AsyncClient().post("https://api.example.com/v1/stt", json={"b": 2})\n' +
+    'raise ProviderError(f"stt failed: {resp.status_code} {resp.text[:300]}")'
+  assert.equal(G.scanSource(src, 'apps/ai-service/app/providers/x.py').violations.length, 0)
+})
+
+test('Python:F 的关键词与 dump 必须同行配对(实测 cnblogs 等 3 处适配器为跨行假阳性)', () => {
+  const crossLine =
+    'if resp.status_code == 401:\n' +
+    '    return False, "access_token expired or invalid (401)"\n' +
+    'return False, f"verify failed: HTTP {resp.status_code} - {resp.text[:200]}"'
+  assert.equal(
+    G.scanSource(crossLine, 'apps/ai-service/app/a/cnblogs.py').violations.length,
+    0,
+    '跨行不得配对',
+  )
+  const sameLine = 'raise RuntimeError(f"AssumeRole 失败: {json.dumps(response.body)}")'
+  assert.equal(
+    G.scanSource(sameLine, 'apps/ai-service/app/a/sts.py').violations.length,
+    1,
+    '同行必须命中',
+  )
+})
+
+test('Python:# 注释行不得成为错误构造上下文(等价于 JS 的 // 豁免)', () => {
+  const lines = ['# raise ProviderError(f"oauth token failed: {json.dumps(body)}")', 'x = 1']
+  assert.deepEqual(G.findErrorContexts(lines), [])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

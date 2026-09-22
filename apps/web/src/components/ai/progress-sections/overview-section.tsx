@@ -19,7 +19,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
-import { buildOverviewSummaryMarkdown } from './overview-summary'
+import { buildOverviewSummaryMarkdown, STATUS_LABEL_KEY } from './overview-summary'
 import type { AgentOverview } from '@/hooks/use-agent-progress'
 
 interface OverviewSectionProps {
@@ -40,13 +40,6 @@ const STATUS_ICON: Record<AgentOverview['status'], React.ComponentType<{ classNa
   completed: CheckCircle2,
   failed: XCircle,
   interrupted: AlertCircle,
-}
-const STATUS_TKEY: Record<AgentOverview['status'], string> = {
-  idle: 'overview.statusIdle',
-  running: 'overview.statusRunning',
-  completed: 'overview.statusCompleted',
-  failed: 'overview.statusFailed',
-  interrupted: 'overview.statusInterrupted',
 }
 const STATUS_CLS: Record<AgentOverview['status'], string> = {
   idle: 'text-muted-foreground/60',
@@ -86,6 +79,7 @@ export const OverviewSection = React.memo(function OverviewSection({
       etaMs,
       contextUsage,
       sessionStart: overview.sessionStart,
+      t,
     })
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -98,7 +92,7 @@ export const OverviewSection = React.memo(function OverviewSection({
       // 忽略剪贴板权限错误
     }
     return undefined
-  }, [overview, isStreaming, totalTokens, tokenRate, etaMs, contextUsage])
+  }, [overview, isStreaming, totalTokens, tokenRate, etaMs, contextUsage, t])
 
   const hasData =
     overview.sessionStart !== null ||
@@ -216,7 +210,7 @@ export const OverviewSection = React.memo(function OverviewSection({
             )}
           />
           <span className={cn('font-medium', STATUS_CLS[overview.status])}>
-            {t(STATUS_TKEY[overview.status])}
+            {t(STATUS_LABEL_KEY[overview.status])}
           </span>
           {overview.error && (
             <Tooltip content={overview.error}>

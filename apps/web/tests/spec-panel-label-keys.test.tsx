@@ -2,59 +2,65 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
 
-import * as React from 'react'
-import { useTranslations } from 'next-intl'
-import type { EChartsOption } from 'echarts'
-import { EChart } from './EChart'
-import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
+// vitest 的 root 为 apps/web(见 RUN 行),用 cwd 相对定位仓库文件
+// 从 constants.ts 源码动态解析 i18n 键名清单(不手抄,防止常量表与测试漂移)
+const constantsSrc = readFileSync(
+  resolve(process.cwd(), 'src/components/ai/spec-panel/constants.ts'),
+  'utf8',
+)
 
-export interface UserGrowthPoint {
-  date: string
-  total: number
-  newCount: number
+function block(name: string, closer: '}' | ']'): string {
+  const re = new RegExp(`export const ${name}[\\s\\S]*?= [\\s\\S]*?\\n${closer}`)
+  const m = constantsSrc.match(re)
+  if (!m) throw new Error(`constants.ts 中未找到 export const ${name}`)
+  return m[0]
 }
 
-export interface UserGrowthChartProps {
-  data?: UserGrowthPoint[]
-  height?: number
-}
+/** 数组型常量:label: 'key' 形式的键名 */
+const arrayKeys = [block('SCOPE_OPTIONS', ']'), block('TAB_OPTIONS', ']')].flatMap((b) =>
+  [...b.matchAll(/label:\s*'([^']+)'/g)].map((m) => m[1]!),
+)
+/** Record 型常量:`xxx: 'key',` 的值位 */
+const recordKeys = ['STATUS_LABEL', 'RISK_LABEL', 'BRANCH_STATUS_LABEL'].flatMap((name) =>
+  [...block(name, '}').matchAll(/:\s*'([^']+)'/g)].map((m) => m[1]!),
+)
 
-const MOCK: UserGrowthPoint[] = [
-  { date: '07-08', total: 1200, newCount: 45 },
-  { date: '07-09', total: 1280, newCount: 80 },
-  { date: '07-10', total: 1320, newCount: 40 },
-  { date: '07-11', total: 1410, newCount: 90 },
-  { date: '07-12', total: 1485, newCount: 75 },
-  { date: '07-13', total: 1620, newCount: 135 },
-  { date: '07-14', total: 1780, newCount: 160 },
-]
+const allKeys = [...arrayKeys, ...recordKeys]
 
-export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartProps) {
-  const t = useTranslations('statistics')
-  const option: EChartsOption = {
-    tooltip: { trigger: 'axis' },
-    legend: { data: [t('cumulativeUsers'), t('newUsers')], top: 0 },
-    grid: { left: 50, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: data.map((d) => d.date) },
-    yAxis: { type: 'value' },
-    series: [
-      {
-        name: t('cumulativeUsers'),
-        type: 'bar',
-        data: data.map((d) => d.total),
-        itemStyle: { color: CHART_BLUE },
-        barGap: '10%',
-      },
-      {
-        name: t('newUsers'),
-        type: 'bar',
-        data: data.map((d) => d.newCount),
-        itemStyle: { color: CHART_GREEN },
-      },
-    ],
-  }
-  return <EChart option={option} height={height} />
-}
+/** 剥离注释后的纯代码(与硬编码中文扫描器口径一致:注释不计入) */
+const codeOnly = constantsSrc
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('\n')
+  .filter((line) => !line.trimStart().startsWith('//'))
+  .join('\n')
+
+describe('spec-panel constants 标签键化', () => {
+  it('解析出非空键名清单且格式合法(camelCase,不含点/中文)', () => {
+    expect(allKeys.length).toBeGreaterThanOrEqual(20)
+    expect(new Set(allKeys).size).toBe(allKeys.length)
+    for (const k of allKeys) {
+      expect(k, `非法键名: ${k}`).toMatch(/^[a-z][A-Za-z0-9]*$/)
+    }
+  })
+
+  it('constants.ts 非注释代码不再含 CJK 字符,且 label 值不再有中文字面量', () => {
+    expect(codeOnly).not.toMatch(/[\u4e00-\u9fff]/)
+    for (const labelMatch of codeOnly.matchAll(/label:\s*'([^']*)'/g)) {
+      expect(labelMatch[1]).not.toMatch(/[\u4e00-\u9fff]/)
+    }
+  })
+
+  it('每个键名都能在 web zh-CN 语言包 specPanel 命名空间解析到', () => {
+    const messages = JSON.parse(
+      readFileSync(resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json'), 'utf8'),
+    ) as { specPanel?: Record<string, unknown> }
+    const ns = messages.specPanel ?? {}
+    const missing = allKeys.filter((k) => typeof ns[k] !== 'string' || ns[k] === '')
+    expect(missing, `specPanel 命名空间缺键: ${missing.join(', ')}`).toEqual([])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

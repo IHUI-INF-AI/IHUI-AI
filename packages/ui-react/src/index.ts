@@ -63,7 +63,7 @@ export { Checkbox } from './components/checkbox'
 export { Switch } from './components/switch'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/tooltip'
 export { TreeSelect } from './components/tree-select'
-export type { TreeNode } from './components/tree-select'
+export type { TreeNode, TreeSelectLabels } from './components/tree-select'
 export { ThemeLogo } from './components/theme-logo'
 export { Sidebar, SidebarItem, SidebarGroup } from './components/sidebar'
 export { VipBadge } from './components/vip-badge'
@@ -103,7 +103,7 @@ export {
   DrawerDescription,
 } from './components/drawer'
 export { DataTable } from './components/data-table'
-export type { DataTableColumn, DataTableProps } from './components/data-table'
+export type { DataTableColumn, DataTableLabels, DataTableProps } from './components/data-table'
 // 工作展示区组件(2026-07-22 立,AI 对话内嵌浏览器)
 export { ResizableHandle } from './components/resizable'
 export type { ResizableHandleProps } from './components/resizable'

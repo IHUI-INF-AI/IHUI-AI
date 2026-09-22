@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Download, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -15,6 +16,7 @@ interface OfficeViewerProps {
 }
 
 export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
+  const t = useTranslations('a11y')
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState(false)
   const src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
@@ -32,14 +34,14 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
       <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-1.5">
-        <span className="text-xs text-muted-foreground">Office 在线预览</span>
+        <span className="text-xs text-muted-foreground">{t('officePreviewLabel')}</span>
         <a
           href={url}
           download={fileName}
           className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-primary"
         >
           <Download className="h-3 w-3" />
-          下载
+          {t('download')}
         </a>
       </div>
       <div className="relative flex-1 min-w-0">
@@ -51,14 +53,14 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
         {error ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
             <AlertCircle className="h-8 w-8" />
-            <p className="text-sm">预览加载超时</p>
+            <p className="text-sm">{t('previewTimeout')}</p>
             <a
               href={url}
               download={fileName}
               className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
             >
               <Download className="h-4 w-4" />
-              下载文件
+              {t('downloadFile')}
             </a>
           </div>
         ) : (

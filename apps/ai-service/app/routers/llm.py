@@ -706,13 +706,11 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
     return out
 
 
-def _compaction_frame(info: dict[str, Any] | None) -> str | None:
-    """构造 compaction SSE 帧;无需交代时返回 None。
+def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
+    """构造 compaction 载荷 —— SSE 帧与落库字段的**同一真相源**。
 
-    G-150(WorkBuddy 一手对标):过去只在 `compressed=True` 时发帧,**压缩撞到上限
-    (incompressible:system/material 本身过大,截到最小仍超阈值)时用户完全无感** ——
-    界面上只是"回答变慢/变笨",而竞品会直说"已达上限,建议开新对话或减少上下文"。
-    现在 incompressible 同样发帧,并把 `trigger` 带出去供各端区分措辞与给动作。
+    无需交代时返回 None:未压缩且没撞上限就不该留痕(与 _compaction_frame 同判据)。
+    G-166:此前只有 SSE 帧这一条出口,刷新页面 / 重拉历史后压缩分隔线整段消失。
     """
     if not info:
         return None
@@ -720,7 +718,7 @@ def _compaction_frame(info: dict[str, Any] | None) -> str | None:
     compressed = bool(info.get("compressed"))
     if not compressed and trigger != "incompressible":
         return None
-    payload = {
+    return {
         "triggered": True,
         "tokensBefore": info.get("original_tokens", 0),
         "tokensAfter": info.get("compressed_tokens", 0),
@@ -728,6 +726,21 @@ def _compaction_frame(info: dict[str, Any] | None) -> str | None:
         "usageRatio": info.get("usage_ratio", 0),
         "trigger": trigger or "llm",
     }
+
+
+def _compaction_frame(info: dict[str, Any] | None) -> str | None:
+    """构造 compaction SSE 帧;无需交代时返回 None。
+
+    G-150(WorkBuddy 一手对标):过去只在 `compressed=True` 时发帧,**压缩撞到上限
+    (incompressible:system/material 本身过大,截到最小仍超阈值)时用户完全无感** ——
+    界面上只是"回答变慢/变笨",而竞品会直说"已达上限,建议开新对话或减少上下文"。
+    现在 incompressible 同样发帧,并把 `trigger` 带出去供各端区分措辞与给动作。
+
+    载荷构造在 `_compaction_payload`(与落库字段同一真相源),本函数只负责包帧。
+    """
+    payload = _compaction_payload(info)
+    if payload is None:
+        return None
     return f"data: {json.dumps({'compaction': payload}, ensure_ascii=False)}\n\n"
 
 
@@ -2595,6 +2608,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
+                                    compaction_info=compaction_info,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -2741,6 +2756,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
+                                    compaction_info=compaction_info,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -3436,6 +3453,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     url, accumulated, req.metadata,
                                     tool_calls_history=tool_calls_history,
                                     terminal_tasks_history=terminal_tasks_history,
+                                injections=injection_frames,
+                                compaction_info=compaction_info,
                                 ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
@@ -3674,6 +3693,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 url, accumulated, req.metadata,
                 tool_calls_history=tool_calls_history,
                 terminal_tasks_history=terminal_tasks_history,
+            injections=injection_frames,
+            compaction_info=compaction_info,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3830,6 +3851,8 @@ async def _fire_callback(
     *,
     tool_calls_history: list[dict[str, Any]] | None = None,
     terminal_tasks_history: list[dict[str, Any]] | None = None,
+    injections: list[dict[str, Any]] | None = None,
+    compaction_info: dict[str, Any] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -3879,6 +3902,22 @@ async def _fire_callback(
     _persist_plan = _build_plan_snapshot(tool_calls_history or [])
     if _persist_plan:
         body["planSteps"] = _persist_plan
+    # G-166(2026-09-22 立)交代帧持久化:citations 与 SSE citations 事件**同一个
+    # _collect_citations** 产出(同源同去重同上限),injections 与 SSE injection_applied
+    # 帧同源(流内累积的同一份列表),落库后刷新页面 / 重拉历史仍能交代"引用了哪些来源、
+    # 带了哪些上下文"。空列表不写字段:与"本轮无引用/无注入"区分,也不覆盖 worker
+    # 已浅合并的其他 key。injections 里的 "type" 是 SSE 帧判别字,持久化记录不需要 → 剥掉。
+    _persist_citations = _collect_citations(tool_calls_history or [])
+    if _persist_citations:
+        body["citations"] = _persist_citations
+    _persist_injections = [{k: v for k, v in f.items() if k != "type"} for f in injections or []]
+    if _persist_injections:
+        body["injections"] = _persist_injections
+    # compaction(G-166 第②步):载荷与 SSE compaction 帧同一个 _compaction_payload,
+    # 未压缩且未撞上限时返回 None → 不写字段(与"本轮没压缩"语义一致)。
+    _persist_compaction = _compaction_payload(compaction_info)
+    if _persist_compaction:
+        body["compaction"] = _persist_compaction
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。

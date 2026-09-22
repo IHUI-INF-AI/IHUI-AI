@@ -2,59 +2,40 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-'use client'
-
-import * as React from 'react'
+import { useMemo } from 'react'
 import { useTranslations } from 'next-intl'
-import type { EChartsOption } from 'echarts'
-import { EChart } from './EChart'
-import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
+import type { DataTableLabels } from '@ihui/ui-react'
 
-export interface UserGrowthPoint {
-  date: string
-  total: number
-  newCount: number
-}
-
-export interface UserGrowthChartProps {
-  data?: UserGrowthPoint[]
-  height?: number
-}
-
-const MOCK: UserGrowthPoint[] = [
-  { date: '07-08', total: 1200, newCount: 45 },
-  { date: '07-09', total: 1280, newCount: 80 },
-  { date: '07-10', total: 1320, newCount: 40 },
-  { date: '07-11', total: 1410, newCount: 90 },
-  { date: '07-12', total: 1485, newCount: 75 },
-  { date: '07-13', total: 1620, newCount: 135 },
-  { date: '07-14', total: 1780, newCount: 160 },
-]
-
-export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartProps) {
-  const t = useTranslations('statistics')
-  const option: EChartsOption = {
-    tooltip: { trigger: 'axis' },
-    legend: { data: [t('cumulativeUsers'), t('newUsers')], top: 0 },
-    grid: { left: 50, right: 20, top: 40, bottom: 30 },
-    xAxis: { type: 'category', data: data.map((d) => d.date) },
-    yAxis: { type: 'value' },
-    series: [
-      {
-        name: t('cumulativeUsers'),
-        type: 'bar',
-        data: data.map((d) => d.total),
-        itemStyle: { color: CHART_BLUE },
-        barGap: '10%',
+/**
+ * DataTable 界面文案注入(简体中文以外的界面由此本地化)。
+ *
+ * `@ihui/ui-react` 不引 next-intl(被多端共用),组件内只留 DEFAULT_*_LABELS 中文兜底;
+ * 消费端必须传 labels,否则非中文界面整块回显中文。
+ */
+export function useDataTableLabels(): DataTableLabels {
+  const t = useTranslations('dataTable')
+  return useMemo<DataTableLabels>(
+    () => ({
+      searchPlaceholder: t('searchPlaceholder'),
+      emptyText: t('emptyText'),
+      loadingText: t('loadingText'),
+      perPage: t('perPage'),
+      perPageCountAriaLabel: t('perPageCountAriaLabel'),
+      rowsUnit: t('rowsUnit'),
+      sortAriaLabel: t('sortAriaLabel'),
+      sortDirections: {
+        asc: t('sortAsc'),
+        desc: t('sortDesc'),
+        none: t('sortNone'),
       },
-      {
-        name: t('newUsers'),
-        type: 'bar',
-        data: data.map((d) => d.newCount),
-        itemStyle: { color: CHART_GREEN },
-      },
-    ],
-  }
-  return <EChart option={option} height={height} />
+      columnFilterPlaceholder: t('columnFilterPlaceholder'),
+      columnFilterAriaLabel: t('columnFilterAriaLabel'),
+      paginationSummary: t('paginationSummary'),
+      prevPageAriaLabel: t('prevPageAriaLabel'),
+      pageAriaLabel: t('pageAriaLabel'),
+      nextPageAriaLabel: t('nextPageAriaLabel'),
+    }),
+    [t],
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

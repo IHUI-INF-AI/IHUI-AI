@@ -46,6 +46,75 @@ function readPlanStepsFromMetadata(raw: unknown): PlanStep[] | undefined {
 }
 
 /**
+ * 从 metadata.citations 还原引用溯源(G-166,2026-09-22 立)。
+ *
+ * 老消息 / 本轮无引用 → undefined:不挂字段,不给 CitationBar 造空态。
+ * 逐条守卫后只带确实存在的 url —— 脏数据里 url 缺失时不能渲染成点不动的"假链接"。
+ */
+function readCitationsFromMetadata(raw: unknown): ChatMessage['citations'] {
+  if (!Array.isArray(raw)) return undefined
+  const out = raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const rec = item as Record<string, unknown>
+    if (typeof rec.source !== 'string' || typeof rec.label !== 'string') return []
+    return [
+      {
+        source: rec.source,
+        label: rec.label,
+        ...(typeof rec.url === 'string' && rec.url ? { url: rec.url } : {}),
+      },
+    ]
+  })
+  return out.length > 0 ? out : undefined
+}
+
+/**
+ * 从 metadata.injections 还原"本轮带了哪些上下文"的交代(G-166)。
+ * kind 是前端取词键,缺失即整条丢弃(渲染不出可辨认的一行就别出现)。
+ */
+function readInjectionsFromMetadata(raw: unknown): ChatMessage['injections'] {
+  if (!Array.isArray(raw)) return undefined
+  const out = raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const rec = item as Record<string, unknown>
+    if (typeof rec.kind !== 'string' || typeof rec.collapsed !== 'string') return []
+    return [
+      {
+        kind: rec.kind,
+        collapsed: rec.collapsed,
+        ...(typeof rec.fullText === 'string' ? { fullText: rec.fullText } : {}),
+        ...(typeof rec.count === 'number' ? { count: rec.count } : {}),
+      },
+    ]
+  })
+  return out.length > 0 ? out : undefined
+}
+
+/**
+ * 从 metadata.compaction 还原"这条回答生成前压缩了多少上下文"(G-166 第②步)。
+ *
+ * 字段名换算:落库/SSE 用 tokensBefore / tokensAfter(契约侧命名),
+ * store 的 MessageCompaction 用 originalTokens / compressedTokens —— 逐字段显式映射,
+ * 不做"两个名字都塞进去"的偷懒透传。未 triggered / 非对象一律缺席(不渲染分隔线)。
+ */
+function readCompactionFromMetadata(raw: unknown): ChatMessage['compaction'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const rec = raw as Record<string, unknown>
+  if (rec.triggered !== true) return undefined
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' && Number.isFinite(v) ? v : undefined
+  const originalTokens = num(rec.tokensBefore)
+  const compressedTokens = num(rec.tokensAfter)
+  if (originalTokens === undefined || compressedTokens === undefined) return undefined
+  return {
+    originalTokens,
+    compressedTokens,
+    ...(num(rec.removedCount) !== undefined ? { removedCount: num(rec.removedCount) } : {}),
+    ...(typeof rec.trigger === 'string' ? { trigger: rec.trigger } : {}),
+  }
+}
+
+/**
  * 单条历史消息 → web store ChatMessage(D24 工具卡/终端区 + planSteps 计划快照)。
  *
  * 2026-09-21 立:plan_updated SSE 事件此前只写前端内存,刷新页面即丢。
@@ -71,6 +140,11 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     // 不归一就是"刷新后徽章安静消失"(与 D111 三端不可见是同一个根因)。
     // 取不到就不写字段 —— 写 'default' 等于把"不知道"伪造成"当时是默认档"。
     permissionMode: permissionModeWire(meta?.permissionMode) ?? undefined,
+    // G-166:交代帧此前只活在内存,刷新即丢 —— "引用了哪些来源 / 带了哪些上下文"
+    // 只在当轮看得见,回放时整段消失。服务端已按与 SSE 同源的两份列表落库,这里读回。
+    citations: readCitationsFromMetadata(meta?.citations),
+    injections: readInjectionsFromMetadata(meta?.injections),
+    compaction: readCompactionFromMetadata(meta?.compaction),
   }
 }
 
