@@ -39,6 +39,16 @@ try {
 child.on('error', (e) => {
   fs.writeSync(err, `[dev-stack-launch:${name}] spawn error: ${e instanceof Error ? e.message : String(e)}\n`);
 });
+// 记录服务进程 PID(2026-09-22 根治「假死进程堆积」):tsx watch / expo / next 这类
+// supervisor 型入口,子服务崩掉后父进程仍活着且不占端口 → dev-stack 重拉前读本文件
+// taskkill /T /F 清掉旧树,否则僵尸父进程无限堆积(实测 API 挂后残留到次日)。
+if (child.pid) {
+  try {
+    fs.writeFileSync(path.join(logDir, `dev-stack-${name}.pid`), String(child.pid));
+  } catch {
+    /* pid 记录失败不阻塞启动 */
+  }
+}
 child.unref();
 // 给 spawn error 一点暴露窗口后退出;服务进程已持有日志句柄,不受本进程退出影响
 setTimeout(() => process.exit(0), 800);
