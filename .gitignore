@@ -452,3 +452,7 @@ deploy/win/.sct-notify-state.json
 # 构建失败冷却状态(生产运行时生成,不入库;脏工作树会让 merge --ff-only 失败)
 deploy/win/.build-fail-state.json
 deploy/win/.migrate-alert-state.json
+
+# IDE 安装目录误落仓库根(2026-09-23):`Qoder CN/` 是 M:\Qoder CN 的陈旧副本(现役实例在 M 盘,
+# 已核实无任何进程从本目录运行)。先忽略以杜绝 git add -A 把 1.4G 二进制写进历史,再移出工作区。
+Qoder CN/
