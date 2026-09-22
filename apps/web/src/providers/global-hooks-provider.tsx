@@ -20,9 +20,13 @@ import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
-/** 设置页路由。桌面端托盘「打开设置」与 Ctrl+, 快捷键共用同一入口。 */
+/** 设置页路由。桌面端托盘「打开设置」与 Ctrl+Shift+, 快捷键共用同一入口。 */
 const SETTINGS_PATH = '/settings'
+
+/** 浮层层栈 id(见 @/lib/overlay-stack):Ctrl+/ 帮助面板是全页最上层 */
+const SHORTCUT_HELP_OVERLAY_ID = 'global-shortcut-help-panel'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
@@ -65,7 +69,14 @@ const SHORTCUT_DESC_KEYS: Record<string, string> = {
   // (见 use-global-shortcuts.ts 注释)。i18n 描述键 desc.ctrlShiftD 是标识符,不随 chord 改名。
   'Ctrl+Alt+D': 'desc.ctrlShiftD',
   'Ctrl+Shift+P': 'desc.ctrlShiftP',
-  'Ctrl+,': 'desc.ctrlComma',
+  // 2026-09-22:chord 改绑(Ctrl+, → Ctrl+Shift+,,让位 IDE 设置视图),i18n 描述键名
+  // desc.ctrlComma 是标识符不随 chord 改名(同 desc.ctrlShiftD 的先例)。
+  'Ctrl+Shift+,': 'desc.ctrlComma',
+  // 缺键的行会回显 DEFAULT_SHORTCUTS 里硬编码的中文 description(非中文语言下漏翻译),
+  // 故注册表新增 chord 必须同时补本表 + 5 语言 desc。
+  'Ctrl+Shift+/': 'desc.ctrlShiftSlash',
+  'Ctrl+Shift+U': 'desc.ctrlShiftU',
+  'Ctrl+Shift+M': 'desc.ctrlShiftM',
   'Ctrl+1': 'desc.ctrl1',
   'Ctrl+2': 'desc.ctrl2',
   'Ctrl+3': 'desc.ctrl3',
@@ -96,16 +107,23 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   const { showHelpPanel, toggleHelpPanel, shortcuts } = useGlobalShortcuts()
   const tHelp = useTranslations('shortcutHelp')
   // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
+  // 2026-09-22:接入浮层层栈 —— Ctrl+/ 面板是全页最上层,打开时下层的弹层(权限弹层/
+  // context ring 等)不得一起被一次 Esc 关掉。
   React.useEffect(() => {
     if (!showHelpPanel) return
+    pushOverlay(SHORTCUT_HELP_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (!isTopOverlay(SHORTCUT_HELP_OVERLAY_ID)) return
         e.preventDefault()
         toggleHelpPanel()
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      popOverlay(SHORTCUT_HELP_OVERLAY_ID)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [showHelpPanel, toggleHelpPanel])
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
@@ -247,16 +265,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       <CommandPalette open={showCommandPalette} onOpenChange={setShowCommandPalette} />
       {showHelpPanel && (
         <div
-          role="button"
-          aria-label="快捷键帮助"
-          tabIndex={0}
           onClick={toggleHelpPanel}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              toggleHelpPanel()
-            }
-          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -268,15 +277,10 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           }}
         >
           <div
-            role="button"
-            tabIndex={0}
+            role="dialog"
+            aria-modal="true"
+            aria-label={tHelp('title')}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            }}
             style={{
               background: 'var(--color-background, #fff)',
               color: 'var(--color-foreground, #000)',
