@@ -249,6 +249,28 @@
     "regenerate": "다시 생성",
     "regenerateDisabledHint": "저장소 폴더가 선택되지 않았거나 수집된 파일이 없습니다."
   },
+  "workPanel": {
+    "back": "뒤로",
+    "forward": "앞으로",
+    "reload": "새로고침",
+    "stop": "정지",
+    "addressPlaceholder": "주소 또는 검색어 입력...",
+    "favorite": "즐겨찾기 추가",
+    "unfavorite": "즐겨찾기 해제",
+    "favoritesAndHistory": "즐겨찾기 및 기록",
+    "openExternal": "외부 브라우저에서 열기",
+    "closePanel": "패널 닫기",
+    "newTab": "새 탭",
+    "removeFavorite": "즐겨찾기 삭제",
+    "tabFavorites": "즐겨찾기",
+    "tabHistory": "기록",
+    "emptyFavorites": "즐겨찾기 없음",
+    "emptyHistory": "기록 없음",
+    "clearHistory": "기록 지우기",
+    "dragInsertBefore": "여기 앞에 삽입",
+    "dragInsertAfter": "여기 뒤에 삽입",
+    "closeTab": "탭 닫기"
+  },
   "a11y": {
     "download": "다운로드",
     "downloadFile": "파일 다운로드",
