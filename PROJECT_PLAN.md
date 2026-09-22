@@ -25,6 +25,9 @@
 
 ### 机制(真源单一化,不做全库双向同步)
 
+> ⚠️ **本节机制已于同日被用户追加要求升级,见下方「同日升级」小节;此处保留原始决策记录。**
+> 当时的判断依据(8 表白名单 + 外部调度器)已被"所有表都要同步 + 自动化跑在自己程序内"取代。
+
 生产库 713 表 / 本机 592 表(schema 不同步)、本机 `ai_feed_snapshot` 88w 行,全库同步既无意义也无法收敛。改为:
 
 - **生产库 = 唯一真源**;`users` 表只允许 生产 → 本地 单向镜像(永不回灌),日志/快照类大表不进白名单。
@@ -38,6 +41,57 @@
 
 - 19 行迁入生产并用**生产密钥**回读解密成功;生产/本机 `publish_accounts` 均 19 行且归属 `30763d9f…`。
 - 首轮回灌 52 行(publish_tasks 10 / publish_history 11 / chat_conversations 3 / chat_messages 28),`drift` 现报**两端一致**;本地 `users` 镜像为生产 8 行(UUID 相同),本地 dev 可直接用生产账号登录。
+
+### 同日升级(用户追加要求:所有表都要同步 + 自动化跑在自己程序内)
+
+用户原话:「所有都要同步 并且在我们自己程序里做自动化」。两条决策被同时推翻:
+
+**① 8 表白名单 → 全表同步。** `scripts/db/db_sync.py` 重写为**动态枚举**两端
+`information_schema` / `pg_catalog`(不再硬编码表名),按物理能力自动分级策略:
+
+| 策略 | 触发条件 | 语义 |
+| --- | --- | --- |
+| `upsert-ts` | 有主键 + `updated_at` | `ON CONFLICT DO UPDATE ... WHERE EXCLUDED.updated_at > t.updated_at`(本地更新才覆盖) |
+| `insert-only` | 有主键、无 `updated_at` | `ON CONFLICT DO NOTHING`(只补缺、不改旧) |
+| `keyless-insert` | 无主键 | 全列指纹去重后插入(超 `KEYLESS_MAX_ROWS` 只镜像) |
+
+配套的**根因级**修正(均为实测暴露,非预防性猜测):
+
+- **业务唯一键优先做 upsert 目标**(`conflict_target`)——两端主键不同但业务键相同的行,
+  以主键为冲突目标会直接撞唯一约束、整批失败(实测 8 张表);改以业务唯一键合并后
+  `ai_vendor_configs` 113/113 全写入。
+- **类型漂移检测**(比较 `udt_name`)——如 `agent_meta_lessons.id` 本地 `uuid` / 生产 `int8`,
+  强写会 `DataError`;检出即跳过并点名,不猜。
+- **超大表快速路径**(`BIG_TABLE_ROWS = 100_000`)——`ai_feed_snapshot` 88w 行做全量主键 diff
+  会拖爆隧道并让整轮超 15 分钟;改为按行数差判护栏。
+- **FK 拓扑序**(`topo_sort`)——父表先写,避免子表撞外键。
+- **失败早退**(`SYSTEMIC_FAIL_CHUNKS = 2` + `REPLAY_MAX_SECONDS = 45`)——
+  `ai_world_items` 4108 行曾在此逐行 SAVEPOINT 重放磨掉 4 分钟以上(生产库同时段有
+  8 个会话在跑自己的 `ai_feed_hot_item` 定时任务,单行往返到秒级);现第 2 批起放弃。
+- **未同步表点名**——汇总除数字外点名"护栏跳过 / 类型漂移 / 写入失败"三类表名,
+  「所有表都要同步」才可核账。
+- **隧道自愈**(`ensure_tunnel` + `reconnect_prod`)——密集小事务下 ssh 进程偶发退出,
+  探到即重建再重试本表。
+
+**② 外部调度器 → 程序内调度器。** 新增 `apps/ai-service/app/services/db_sync_scheduler.py`
+(单例 + `main.py` lifespan 挂载,模式同 `news_scheduler` / `cookie_refresh_daemon`):
+
+- 由 `DB_SYNC_ENABLED` / `DB_SYNC_MODE` / `DB_SYNC_INTERVAL_MINUTES` / `DB_SYNC_MIRROR_AT`
+  等开关驱动(默认 **false**,不显式开启完全不挂任务);
+- 用 `sys.executable` 起子进程执行 `db_sync.py --json`,读回机器可读摘要(前缀
+  `__IHUI_DB_SYNC_JSON__`,跨进程契约由测试钉死);
+- **子进程走 `asyncio.to_thread` 而非 `asyncio.create_subprocess_exec`**——Windows + uvicorn
+  (`--reload`)下是 SelectorEventLoop,asyncio 子进程会抛 `NotImplementedError`
+  (与 `browser_render.py` 同一个坑);
+- **调度水位落盘**(`.ihui-agent/db-sync.state.json`)——开发机重启频繁,水位只在内存会让
+  间隔任务被重启风暴饿死;失败则 10 分钟后重试而非等满整周期;
+- **安全闸**:生产部署不含 `.ihui-agent/db-sync.local.json`(含生产 DSN,gitignore),
+  调度器探到配置缺失即静默待机,绝不误连;
+- 端点 `GET /api/db-sync/status`(只读)、`POST /api/db-sync/trigger`(仅 admin,
+  `roleId>=1`)、`GET /api/db-sync/drift`(排入后台体检)。
+
+单测 `apps/ai-service/tests/test_db_sync_scheduler.py` **80 例全绿**(覆盖开关/预检/
+生命周期/水位往返与损坏容错/超时/并发跳过/端点鉴权 401-403-400)。
 
 ---
 
@@ -144,7 +198,7 @@
 - [x] ✅(2026-09-22) **`src/hooks/use-keyboard-shortcut.ts` 零调用死代码**:文件名与 `useKeyboardShortcut` 符号双落点 grep 均为 0 引用(apps/packages/docs/README,无同名测试)→ 已删除。**复核更正**:登记时写的"无焦点守卫"这条我对 SplitPane 的判断不准确,已按上条修正。
 - [x] ✅(2026-09-22) **`packages/ui-react` 3 处 hover 才显的常驻按钮**(`work-panel.tsx:430` 移除收藏、`:548` tab 关闭、`Upload.tsx:330` 删除已上传)已补 `group-focus-within:opacity-100` 做**聚焦即显形**(刻意不用 `tabIndex=-1`/`aria-hidden`,那对常驻操作等于剥夺键盘可达性);真跑 postcss 取证确认产物含 `.group-focus-within\:opacity-100:is(:where(.group):focus-within *)`,且 `apps/web/app/globals.css:14` 的 `@source` 已覆盖 ui-react 源码。
 - [ ] **`work-panel.tsx:480-554` 非法 HTML 嵌套**:`<button>` 内含 `<span role="button" tabIndex={0}>`(button 内容模型禁止 interactive content,且构成双 Tab 停靠点)。本次刻意未重构 DOM,取证理由:①`onDragLeave` 依赖 `e.currentTarget.contains(e.relatedTarget)` 防拖拽指示线抖动,X 移出按钮后保护失效;②span 的 `stopPropagation` 依赖同按钮内冒泡压制 `onTabChange`;③`group`/`relative` 与 `scale-105` 动画、`DropIndicator` 兄弟位都挂在外层。正解:外层改 `div[role=group].group.relative` + 内部并列"激活 `<button>`"与"关闭 `<button>`",另票实施并同步 `apps/web/e2e/work-panel.spec.ts`。
-- [ ] **hover 才显的 `opacity-0` 常驻按钮尚余 web 31 处**(原 34 处里 `packages/ui-react` 那 3 处已随本票修完,见上一条 [x];`work-panel.tsx:548` 的非法嵌套另列为结构改造项)。**修法务必分清两类**:暂时性状态 affordance(如我已修的 `scroll-jump-buttons`)才用 `tabIndex=-1 + aria-hidden`;hover 才显的**常驻操作**绝不能用 `tabIndex=-1`(等于彻底不可达),正解是补 `group-focus-within:opacity-100` 让它显形。成批铺开前需先冻结各文件归属(并行会话正占用 apps/web 多处)。
+- [x] ✅(2026-09-22) **hover 才显的 `opacity-0` 常驻按钮(web 侧 25 文件 / 26 处)已改聚焦即显形**:统一补 `group-focus-within:opacity-100`(宿主 `group` 均逐处读码确认在祖先行,非猜),覆盖 IDE 族(editor-tab-bar / source-control / search-panel / WatchSection / BreakpointSection / diff-file-list / applications-panel / terminal-session-list / terminal-tab-bar/TerminalTab / RecordingDrawer ×2)、媒体族(ImageViewer / VideoPlayer / LivePlayer / CodeViewer)、列表卡族(conversation-list / MemoryCard / ContentTemplateLibrary)、6 个 app 页面(favorites / member/favorites / subscriptions / search/history / settings/llm/GroupSidebar / edu meal)、UserAvatar。**刻意未用 `tabIndex=-1`/`aria-hidden`**(那对常驻操作等于剥夺键盘可达性)。两处偏离与理由:①两个终端关闭钮宿主本身是 `group-hover:opacity-60`,对齐成 `group-focus-within:opacity-60` 以免聚焦比悬停更亮;②`HeroCarousel` 不是 hover 显形问题(非当前 slide 的 CTA 全量渲染在 Tab 序里),改用 React 19 `inert={idx !== current}`(typecheck 已验证 `inert` 在本仓库 React 版本可用)。取证:全量 vitest 与 `pnpm --filter @ihui/web typecheck` 见本票;postcss 真编译产物含 `.group-focus-within\:opacity-100:is(:where(.group):focus-within *)` 与 `opacity-60` 两条规则。**过程自纠**:我先写的"纯新增自查脚本"产出了恒真 ✅(token 比对逻辑失效、文件数 30≠25),不可采信,已改为逐行读 26 处 diff 原文核对 `-`/`+` 前缀一致 + 追加类名,并确认他人 in-flight 的 21 个 `ai-generation/*.tsx` 与截图基线文件不在改动集内。(原 34 处里 `packages/ui-react` 那 3 处已随本票修完,见上一条 [x];`work-panel.tsx:548` 的非法嵌套另列为结构改造项)。**修法务必分清两类**:暂时性状态 affordance(如我已修的 `scroll-jump-buttons`)才用 `tabIndex=-1 + aria-hidden`;hover 才显的**常驻操作**绝不能用 `tabIndex=-1`(等于彻底不可达),正解是补 `group-focus-within:opacity-100` 让它显形。成批铺开前需先冻结各文件归属(并行会话正占用 apps/web 多处)。
 - [x] ✅(2026-09-22) **i18n 同义死键已清**:`chat.message.jumpToLatest`(跳至最新)、`chat.permission.jumpToLatest`(跳转到最新)全仓源码 0 引用(文件名 + 路径两种正则双查,含 8 端与 vue/jsx),已从 5 个 web 语言包行级删除;同票新增 `ai.pane.followEvents`。对称性核对:5 语言 diff 均 `1 2`、逐语言 added/removed 集合完全一致、叶子数 19722→19721、`i18n-apply --check` 与 `check-i18n-keys`(1451 文件 / 15747 键)、`scan-i18n-zh-residue ko`、`check-i18n-broken-en` 全绿。小程序离线包 `remote-locales.gen.ts` 经 `pnpm --filter miniapp gen:i18n` 重跑后**无变更**(该包不含 web 命名空间,符合预期)。
 - [ ] **残留:pane 帮助面板正文仍把 `?` 写成"打开/关闭快捷键帮助"**(`ai.pane.shortcutShowHelp`,zh-TW/ja/ko/en 同存)。删该行会立刻造出一个新死键,必须同票清键 → 本次刻意未动(判据:帮助面板不再声明 `?`,且 5 语言包中该键已移除且 `check-i18n-keys` 绿)。
 ### 普查落点(供复核,含我否掉的自身误判)
@@ -1265,6 +1319,7 @@
   - **D108 上游重试交代在 web / extension 缺席(第 47 轮实测新立,反直觉)**:多落点 grep `onRetryScheduled` 得 **apps/web 0 命中、apps/extension 0 命中**,而 miniapp-taro(3)/ mobile-rn(1)/ cli(5)/ api-client(4)各有落点 —— 即**旗舰端反而看不到**"第 N/M 次重试,X 秒后继续",用户在 web 上遇到换 key 退避时看到的只是停顿。第 42 轮我当时把"api-client 有了通道 + web 有 injections 承接"当成该帧已交付,漏了重试那一半,属于"生产了没人看"判据的又一次自我违反。**做法**:web 在 `send-message.ts` 注册 `onRetryScheduled` → 写进当前 assistant 消息的 `retryNotice`(与 `injections` 同一承接纪律:逐字段显式合并),在进度区渲染一行;extension 复用同一措辞键;**禁止**把措辞写死中文。**验收**:守门 57 新增 `upstream-retry-disclosure` 元素并挂满 5 端锚点;web 一条用例断言"帧到 → 界面出本地化重试行、`retryInMs=0` 不出'0 秒'"。
 - [x] **D109 引用溯源(citations)在移动端的呈现(第 49 轮)**:实测各端命中数 web 50 / extension 1 / miniapp-taro 2(仅 dispatch case)/ mobile-rn 0 / cli 0 —— "答案带了哪些知识来源"只有 web 用户看得见,而 `citation-sources`(D27/G-70)被我方登记为**领先项**:领先项在最大流量端缺席,属清单与实况漂移。本轮做掉 miniapp-taro(提交 577f8e764):`cards/types.ts` 加 `CitationView` + 纯函数 `appendCitations`(**追加** + 按 (source,label) 去重;整替会让流中后到的引用抹掉流首那批,与 web #26 同因);`chat.tsx` 注册 `onCitations` 进 `aiCards.citations`;`ai-cards.tsx` 新增 `CitationCard`(复用 `ai-card-*` 类零新增 CSS,图标 `book-open` 经 LineIcon 注册表实核存在),`ChatMessageItem` 渲染门计入 citations;词表 `ai.cards.citation.title` 1 键 × 5 语言与代码同票(`ai.cards` 直接子键集合五语言一致 7 个),离线包重生成。**顺带记一条契约谎位(不在本票悄悄改)**:后端 `_collect_citations` 只发 `{source,label}`、**从不发 url**,而 `ChatMessage.citations[].url?` 与 `_format_citations_event` 的 docstring 都写着"可点击 URL" —— 该承诺在任何端都落不了地,须二选一:补真 url 发射,或删字段与注释(不留假字段,同第 36 轮空契约帧判据)。**验收补条**:守门 57 的 `citation-sources` 目前是**无锚点声明**(机检不到实现是否存在),下票补挂 api-client / web `CitationBar` / miniapp×2 四处锚点。**残余**:mobile-rn、cli、extension 三端未渲染引用;`url` 谎位未收口;本端只有累积层纯函数用例(4 例),无渲染期用例。
   - **进度(第 50 轮 · url 谎位收口 + 引用可点击溯源)**:先证伪再动手 —— 上一票记的"从不发 url"只对 **SSE citations 通道**成立,**deliverables 通道**(`agent_deliverables.build`)一直按 `(source,label,url)` 去重并在 url 为 None 时**省略键**,所以共享类型里的 `citations[].url?` 不是假字段,不能删(删了会把交付面已实现的能力打回)。真正的缺口是 **web 的引用 chip 点了没反应**:`_collect_citations` 只发 `{source,label}`,而 `CitationBar` 早就实现了三态分流(`#锚点` 滚动高亮 / `http(s)` 新窗口 / **其余相对路径 → WorkPanel 打开**)。做法:新增 `_citation_url(source, raw)`,**只认命中元数据里真实存在的目标** —— 任意源优先 `raw.url`;`codebase` 用 `raw.file_path|path` 并削成仓库相对路径(绝对路径直接进 href 会指向用户本机);取不到就**不发 url 键**(不给点不动的假链接),非 codebase 源的 `raw.path`(实体路径数组)一律不认。测试 7 例覆盖:相对路径外发、无目标省略键、显式 url 优先、绝对路径削首斜杠、graph 不误认、去重键不变、isError 工具跳过;`_format_citations_event` docstring 同步改为按通道说明可点击性。**守门 57 把 `citation-sources` 从"无锚点声明"补成 5 处锚点**(llm.py `_citation_url` / api-client / web CitationBar / miniapp×2),sourceTask 记 D27/G-70/D109。验证:pytest 7 例、mypy `app/routers/llm.py` 0 错、守门 57/63 绿。**残余**:mobile-rn / cli / extension 仍未渲染引用;miniapp 未渲染 url(该端无浏览器跳转语义,若要可考虑复制链接);deliverables 通道的引用尚未进同一渲染组件。
+  - **进度(第 51 轮 · mobile-rn 引用)**:RN 端补齐 `citations` —— `chat-render-model.ts` 加 `MessageCitation` + 纯函数 `appendCitationFrames`(追加 + 按 (source,label) 去重;**后端没给 url 时不写空字段**,让界面据此不给假链接);`AiAssistantN8nScreen` 注册 `onCitations` 并新增 `CitationList`(来源标签 + 条目文字,复用 `bubbleStyles` 零新增样式);词表 `aiAssistantN8n.citationTitle` 1 键 × 5 语言与代码同票(键集合五语言一致 32 个)。守门 57 `citation-sources` 锚点 5 → 7。**残余**:RN 未接点击跳转(该端无 `Linking` 接线,引用目前只读);cli / extension 仍未渲染引用;deliverables 通道的引用尚未进同一组件。
   - **进度(第 48 轮 · web 侧收口,extension 仍缺)**:web 四层一通 —— `packages/types/src/chat.ts` 加 `ChatMessage.retryNotice`(与 `injections` 同处同纪律);store 新增 `setMessageRetryNotice`(**整体替换为最近一次**:attempt 递增,旧的"第 1 次"没有继续显示的价值,与 injections 的"追加+去重"刻意不同并在注释写明原因);`send-message.ts` 注册 `onRetryScheduled`(`evt.messageId ?? assistantId`,缺 id 直接不写,不造假归属);新组件 `RetryNotice`(`ai.pane.retryScheduled` / `retryScheduledNow`,**立即重试走"立即继续"分支**,`httpStatus` 缺省不渲染)。词表 2 键 × 5 语言与代码**同票**提交,`ai.pane` 键集合五语言一致(165 键)。守门 57 新增 `upstream-retry-disclosure` 元素并挂 6 处锚点(api-client / web×2 / miniapp-taro / mobile-rn / cli)。**过程中被自己的工具链抓到两处错**:(a) `noUncheckedIndexedAccess` 下测试直接取 `panePack.retryScheduled` 报 possibly-undefined;(b) 误把 `cleanup()` 当 `RenderResult` 的方法用(应为 `unmount()`)—— 都是 tsc/vitest 先红,修后绿。用例断言用**整句等于词包插值结果**而非"包含",防"写死文案也能过"。验证:web `tsc --noEmit` 0 错、`retry-notice` 3 例 + `injection-bar` 6 例回归全绿、prettier 绿。**残余(不称收口)**:extension 对该帧仍 0 命中(未注册);web `retryNotice` 未持久化(刷新即失,属 S 层,与 D24 落库面同批)。
   - **进度(第 48 轮续 · extension 侧收口)**:extension 补齐同一帧 —— `ChatPage` 注册 `onRetryScheduled`(枚举式合并里显式写 `retryNotice`,缺字段=静默丢)、`MessageContent` 在 `ContextInjectionList` 下方渲染一行(`chat.retryScheduled` / `chat.retryScheduledNow`,立即重试走"立即继续");词表 2 键 × 5 语言与代码同票,`chat` 键集合五语言一致(48)。守门 57 `upstream-retry-disclosure` 锚点 6 → 8(五端齐)。**残余**:extension 该行为**内联实现**,与 web 的 `RetryNotice` 属同族两份小实现,应连 `ContextInjectionList` 一起收编进 `@ihui/ui-react`(与 D106 第④条"端内不得再抄渲染模型"同源,单立收编任务);extension 无该行的渲染期用例。
 
