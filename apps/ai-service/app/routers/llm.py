@@ -48,6 +48,7 @@ from ..services.agent_events import (
     SSE_DONE,
     SSE_ERROR,
     SSE_FALLBACK,
+    SSE_INJECTION_APPLIED,
     SSE_MESSAGE_DELTA,
     SSE_MESSAGE_START,
     SSE_MESSAGE_STOP,
@@ -2088,6 +2089,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # 开关:autoContext=false 关闭;IHUI_AUTO_CONTEXT_DISABLE=1 全局禁用(auto_context 模块内生效)。
     # 防重复:同一会话同一 query 60s 内不重复检索(auto_context 模块内 LRU)。
     # 全 try/except 静默降级:检索失败/异常绝不阻塞主聊天。
+    auto_context_hits = 0
     if (req.autoContext is not False) and req.workspace_path:
         try:
             from ..core.auto_context import auto_retrieve as _ac_retrieve
@@ -2102,6 +2104,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _ac_chunks = await _ac_retrieve(_ac_query, req.workspace_path, session_id=_ac_session_id)
                 _ac_block = _ac_format(_ac_chunks) if _ac_chunks else None
                 if _ac_block:
+                    auto_context_hits = len(_ac_chunks)
                     if messages and messages[0].get("role") == "system":
                         messages[0] = {
                             **messages[0],
@@ -2111,6 +2114,46 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D34(2026-09-22,G-40):把"本轮到底给模型注入了什么"交代成帧,在 gen() 首帧前发出。
+    # 判定只复用注入器既有的去重 marker 与请求字段,不给任何注入器加新状态:
+    # 手动 wiki `<!-- repo_wiki:{repo} -->` / 自动 wiki `<!-- repo-wiki-auto -->` /
+    # 工作区记忆 `<!-- workspace:{label} -->`;auto_context 命中数由上方块内记录。
+    _system_blob = "\n".join(
+        str(_m.get("content", "")) for _m in messages if _m.get("role") == "system"
+    )
+    injection_frames: list[dict[str, Any]] = []
+    if req.system_prompt and str(req.system_prompt).strip():
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "developer_instructions",
+                "collapsed": "已应用会话级自定义指令",
+            }
+        )
+    if "<!-- workspace:" in _system_blob:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "agents_md",
+                "collapsed": "已注入工作区记忆 / AGENTS.md 上下文",
+            }
+        )
+    if "<!-- repo_wiki:" in _system_blob or "<!-- repo-wiki-auto -->" in _system_blob:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "environments",
+                "collapsed": "已注入 Repo Wiki 项目百科",
+            }
+        )
+    if auto_context_hits:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "environments",
+                "collapsed": f"已自动检索并注入 {auto_context_hits} 段代码上下文",
+            }
+        )
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -2204,6 +2247,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 流收尾(finally)处据此计算 firstTokenMs / durationMs 并发出一帧 event: usage。
         _stream_started = time.perf_counter()
         _first_token_ts: float | None = None
+
+        # D34(2026-09-22,G-40):上下文注入交代帧必须是**流上最早的业务帧**(先于任何 chunk/工具帧),
+        # 前端才能把它排在"本轮开始"处;每帧补 messageId,与 plan_updated/terminal_* 同一守卫口径。
+        for _inj in injection_frames:
+            yield _sse(SSE_INJECTION_APPLIED, {**_inj, "messageId": message_id})
 
         def _mark_first_token() -> None:
             """记录首个正文(chunk)增量时间戳(幂等,仅首次调用生效)。"""
