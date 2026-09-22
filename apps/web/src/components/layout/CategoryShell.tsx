@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
@@ -88,6 +89,7 @@ export function CategoryShell({
   sidebarWidth = 'w-fit',
 }: CategoryShellProps) {
   const pathname = usePathname()
+  const t = useTranslations('a11y')
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
   // 2026-09-16 根治静态导出预渲染崩溃:移动端抽屉(Sheet=Radix Dialog)是纯交互组件,
   // React19 prerender 中 Radix 内部 context 断裂导致 SheetTrigger/DialogPortal 抛
@@ -164,7 +166,7 @@ export function CategoryShell({
                 <button
                   type="button"
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground min-[768px]:hidden"
-                  aria-label="打开导航菜单"
+                  aria-label={t('openNavMenu')}
                 >
                   <Menu className="h-4 w-4" />
                 </button>
