@@ -2595,6 +2595,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -2741,6 +2742,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -3436,6 +3438,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     url, accumulated, req.metadata,
                                     tool_calls_history=tool_calls_history,
                                     terminal_tasks_history=terminal_tasks_history,
+                                injections=injection_frames,
                                 ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
@@ -3674,6 +3677,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 url, accumulated, req.metadata,
                 tool_calls_history=tool_calls_history,
                 terminal_tasks_history=terminal_tasks_history,
+            injections=injection_frames,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3830,6 +3834,7 @@ async def _fire_callback(
     *,
     tool_calls_history: list[dict[str, Any]] | None = None,
     terminal_tasks_history: list[dict[str, Any]] | None = None,
+    injections: list[dict[str, Any]] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -3879,6 +3884,17 @@ async def _fire_callback(
     _persist_plan = _build_plan_snapshot(tool_calls_history or [])
     if _persist_plan:
         body["planSteps"] = _persist_plan
+    # G-166(2026-09-22 立)交代帧持久化:citations 与 SSE citations 事件**同一个
+    # _collect_citations** 产出(同源同去重同上限),injections 与 SSE injection_applied
+    # 帧同源(流内累积的同一份列表),落库后刷新页面 / 重拉历史仍能交代"引用了哪些来源、
+    # 带了哪些上下文"。空列表不写字段:与"本轮无引用/无注入"区分,也不覆盖 worker
+    # 已浅合并的其他 key。injections 里的 "type" 是 SSE 帧判别字,持久化记录不需要 → 剥掉。
+    _persist_citations = _collect_citations(tool_calls_history or [])
+    if _persist_citations:
+        body["citations"] = _persist_citations
+    _persist_injections = [{k: v for k, v in f.items() if k != "type"} for f in injections or []]
+    if _persist_injections:
+        body["injections"] = _persist_injections
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
