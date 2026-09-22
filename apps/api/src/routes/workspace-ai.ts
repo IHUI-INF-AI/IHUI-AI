@@ -89,8 +89,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       args: ctx.args,
     })
     if (decision.allowed) return null
-    // mode=unset → 401 引导用户先调 /fs/open 完成 setup;其他 → 403
-    const statusCode = decision.mode === 'unset' ? 401 : 403
+    // configured=false(未配置权限)→ 401 引导用户先调 /fs/open 完成 setup;其他 → 403
+    const statusCode = decision.configured ? 403 : 401
     reply.status(statusCode).send(error(statusCode, decision.reason))
     return new Error(decision.reason)
   }
