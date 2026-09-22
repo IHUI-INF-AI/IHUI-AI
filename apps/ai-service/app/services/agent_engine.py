@@ -100,6 +100,8 @@ from app.core.thread_originator import (
     originator_from_service_name,
 )
 from app.core.installation_id import INSTALLATION_ID_FILENAME
+from app.core.permission_mode import normalize_permission_mode
+from app.core.permission_mode import permission_mode_error
 from app.core.turn_metadata import (
     CodexResponsesMetadata,
     CodexResponsesRequestKind,
@@ -149,6 +151,21 @@ TOOL_NOT_FOUND = -32004
 HOST_TOOL_FAILED = -32005
 THREAD_CLOSED = -32006
 BUDGET_EXHAUSTED = -32007
+
+
+def _require_permission_mode(raw: object) -> str:
+    """客户端传入的 permissionMode → 规范标识(G-161 唯一真源)。
+
+    省略/空 → "default";认不出 → JSON-RPC -32602 并列出合法取值。
+    不在这里静默兜底成 default:那等于把"你要的权限档"和"实际生效的权限档"
+    分开发,正是本次要根治的静默失效。
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return "default"
+    normalized = normalize_permission_mode(raw)
+    if normalized is None:
+        raise JsonRpcError(INVALID_PARAMS, permission_mode_error(raw))
+    return normalized
 
 # 订阅的 agent 循环事件名(与 agent_loop_v2.AgentEventStream 的全部 emit 点一一对应)
 AGENT_EVENTS: tuple[str, ...] = (
@@ -2086,7 +2103,7 @@ class AgentEngine:
                 thread_id=thread_id,
                 session_id=str(md.get("sessionId") or thread_id),
                 model=md.get("model") if isinstance(md.get("model"), str) else None,
-                permission_mode=str(md.get("permissionMode") or "default"),
+                permission_mode=_require_permission_mode(md.get("permissionMode")),
                 max_iterations=int(md.get("maxIterations") or 8),
                 tool_names=list(md["toolNames"]) if isinstance(md.get("toolNames"), list) else None,
                 workspace=md.get("workspace") if isinstance(md.get("workspace"), str) else None,
@@ -2295,7 +2312,7 @@ class AgentEngine:
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
             model=params.get("model") if isinstance(params.get("model"), str) else None,
-            permission_mode=str(params.get("permissionMode") or "default"),
+            permission_mode=_require_permission_mode(params.get("permissionMode")),
             max_iterations=int(params.get("maxIterations") or 8),
             tool_names=list(tool_names) if isinstance(tool_names, list) else None,
             workspace=params.get("workspace")
@@ -4226,11 +4243,10 @@ class AgentEngine:
             or auto_compact_threshold <= 0
         ):
             raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为正整数")
-        permission_mode = settings.get("permissionMode")
-        if permission_mode is not None and (
-            not isinstance(permission_mode, str) or not permission_mode
-        ):
-            raise JsonRpcError(INVALID_PARAMS, "permissionMode 须为非空字符串")
+        permission_mode_raw = settings.get("permissionMode")
+        permission_mode = (
+            None if permission_mode_raw is None else _require_permission_mode(permission_mode_raw)
+        )
         model_params = settings.get("modelParams")
         if model_params is not None and not isinstance(model_params, dict):
             raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")

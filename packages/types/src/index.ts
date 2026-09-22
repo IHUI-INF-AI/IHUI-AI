@@ -31,6 +31,8 @@ export * from './api-contracts'
 // 显式 re-export 保持向后兼容;workspace 版本(kebab-case:accept-edits/bypass-permissions)
 // 通过 @ihui/types/workspace subpath 访问。
 export { type PermissionMode, type PermissionDecision } from './agent-runtime'
+// 权限模式唯一真源(G-161):跨端/跨语言注册表 + 别名归一,详见 permission-mode.ts 头注
+export * from './permission-mode'
 
 // 旧架构迁移补齐类型 (2026-07-22)
 // 来源: git commit 3ee96cf09 旧架构 client/src/api/* 中存在但新架构未独立导出的类型

@@ -8,6 +8,7 @@
     "pnpm": ">=11.0.0"
   },
   "scripts": {
+    "postinstall": "node scripts/fix-expo-metro-junction.mjs",
     "dev": "turbo run dev",
     "dev:safe": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
     "dev:safe:fast": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Fast",
@@ -52,6 +53,7 @@
     "check:dedupe": "node scripts/check-dedupe.mjs",
     "check:db-schema-drift": "node scripts/check-db-schema-drift.mjs",
     "db:drift": "apps\\ai-service\\.venv\\Scripts\\python.exe scripts/db/db_sync.py drift",
+    "db:parity": "apps\\ai-service\\.venv\\Scripts\\python.exe scripts/db/db_sync.py parity --fail",
     "db:sync": "apps\\ai-service\\.venv\\Scripts\\python.exe scripts/db/db_sync.py sync --apply",
     "db:mirror": "apps\\ai-service\\.venv\\Scripts\\python.exe scripts/db/db_sync.py mirror --yes",
     "check:migration-from-zero": "node scripts/check-migration-from-zero.mjs",

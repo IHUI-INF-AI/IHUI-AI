@@ -10,6 +10,7 @@ import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
+import { markStreamError } from '@ihui/shared/chat'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -590,7 +591,7 @@ export const useChatStore = create<ChatState>()(
           const target = s.messages[idx]
           if (!target) return { error }
           const next = s.messages.slice()
-          next[idx] = { ...target, error: true, content: target.content || error }
+          next[idx] = markStreamError(target, error)
           return { messages: next, error }
         }),
 

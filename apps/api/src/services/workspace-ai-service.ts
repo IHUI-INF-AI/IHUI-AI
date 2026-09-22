@@ -12,6 +12,10 @@
 import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+// 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
+// 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
+import { normalizePermissionMode } from '@ihui/types/permission-mode'
+import type { PermissionModeId } from '@ihui/types/permission-mode'
 import {
   existsSync,
   mkdirSync,
@@ -1571,7 +1575,102 @@ export const backgroundAgentManager = new BackgroundAgentManager()
 // 11. Permissions — Agent 权限确认（异步确认 + WebSocket 推送）
 // =============================================================================
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions'
+/**
+ * 权限档取值以唯一真源为准(G-161)。
+ *
+ * 本行此前是**第 7 套词表**:`'default'|'acceptEdits'|'plan'|'bypassPermissions'`
+ * —— 少了 manual,却带着 `plan`;而下面 check() 当时对 `plan` 的处置是"无规则即放行",
+ * 等于客户端一声明只读档就拿全权。现在类型与判定一起收口。
+ */
+export type PermissionMode = PermissionModeId
+
+/**
+ * 工具族(本服务 workspace 工具命名空间,与 matches() 里 Bash/Read/Edit/Write 的映射同源)。
+ *
+ * 刻意分成四族而不是三类:**认不出来的工具按最坏情况处理**。上一版 `check()` 的
+ * 兜底分支是 `{ allowed: true }`,任何新工具名一落地就自动免批 —— 授权判定的默认值
+ * 只能是"更严",不能是"更松"。
+ */
+export type PermissionToolFamily = 'read' | 'edit' | 'exec' | 'unknown'
+
+const READ_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'read',
+  'browse',
+  'glob',
+  'grep',
+  'ls',
+  'list',
+  'search',
+  'view',
+  'tree',
+  'stat',
+])
+
+const EDIT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'edit',
+  'write',
+  'patch',
+  'create',
+  'replace',
+  'multi_edit',
+  'notebook_edit',
+])
+
+/** 执行/删除类:改的是工作区之外的状态,任何档位都不该静默放行(除 bypassPermissions)。 */
+const EXEC_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'run',
+  'exec',
+  'bash',
+  'shell',
+  'command',
+  'delete',
+  'remove',
+  'move',
+  'mkdir',
+  'chmod',
+  'git',
+])
+
+export function permissionToolFamilyOf(tool: string): PermissionToolFamily {
+  const t = tool.trim().toLowerCase()
+  if (READ_TOOL_NAMES.has(t)) return 'read'
+  if (EDIT_TOOL_NAMES.has(t)) return 'edit'
+  if (EXEC_TOOL_NAMES.has(t)) return 'exec'
+  return 'unknown'
+}
+
+/**
+ * 档位 × 工具族 → 决策(穷尽,无 default-false 兜底)。
+ * 规则匹配仍先于本函数,但 `plan` 档是硬约束:allow 规则不得把非只读工具抬进来。
+ */
+export function decideByPermissionMode(
+  mode: PermissionMode,
+  tool: string,
+): { verdict: 'allow' | 'ask' | 'deny'; reason: string } {
+  const family = permissionToolFamilyOf(tool)
+  switch (mode) {
+    case 'bypassPermissions':
+      return { verdict: 'allow', reason: 'bypass-permissions 档:全部放行' }
+    case 'plan':
+      return family === 'read'
+        ? { verdict: 'allow', reason: 'plan 档只读工具放行' }
+        : {
+            verdict: 'deny',
+            reason: `plan 档为硬只读:拒绝 ${family} 类工具(要改动请切到 acceptEdits 或 default)`,
+          }
+    case 'acceptEdits':
+      if (family === 'read' || family === 'edit') {
+        return { verdict: 'allow', reason: `acceptEdits 档放行 ${family} 类工具` }
+      }
+      return { verdict: 'ask', reason: `acceptEdits 档不覆盖 ${family} 类工具,转人工确认` }
+    case 'default':
+    case 'manual':
+      return { verdict: 'ask', reason: `${mode} 档需人工确认` }
+    default:
+      // 认不出的档位(理论上已被路由层 z.enum 拦掉):按最严处理并要求确认,绝不 allow
+      return { verdict: 'ask', reason: `未知权限档 ${String(mode)},按最严转人工确认` }
+  }
+}
 export type PermissionAction = 'allow' | 'ask' | 'deny'
 
 export interface PermissionRule {
@@ -1629,6 +1728,10 @@ class PermissionManager {
 
   /**
    * 检查工具调用权限。ask 模式下发起异步确认请求（WebSocket 推送）。
+   *
+   * 收口前这里是 **fail-open**:非 `default` 档(含 `plan`、`acceptEdits`,以及任何
+   * 未识别值)在无规则匹配时一律 `{ allowed: true }` —— 客户端只要声明"只读计划",
+   * 写文件/跑命令就全放了。现改为查 decideByPermissionMode 的穷尽矩阵,兜底方向是"更严"。
    */
   async check(params: {
     userId: string
@@ -1636,21 +1739,44 @@ class PermissionManager {
     mode: PermissionMode
     tool: string
     args: Record<string, unknown>
-  }): Promise<{ allowed: boolean; requestId?: string }> {
-    if (params.mode === 'bypassPermissions') return { allowed: true }
+  }): Promise<{ allowed: boolean; requestId?: string; reason?: string }> {
+    const decision = decideByPermissionMode(params.mode, params.tool)
+
+    // deny 不再被 allow 规则翻案(档位是硬约束);allow 才继续查规则
+    if (decision.verdict === 'deny') return { allowed: false, reason: decision.reason }
 
     const rules = this.rules.get(params.workspacePath) ?? this.loadRules(params.workspacePath)
     for (const rule of rules) {
-      if (this.matches(rule, params.tool, params.args)) {
-        if (rule.action === 'allow') return { allowed: true }
-        if (rule.action === 'deny') return { allowed: false }
-        // ask → 发起确认请求
-        return this.requestConfirmation(params)
+      if (!this.matches(rule, params.tool, params.args)) continue
+      if (rule.action === 'deny') return { allowed: false, reason: `规则拒绝: ${rule.pattern}` }
+      if (rule.action === 'allow' && decision.verdict === 'allow') {
+        return { allowed: true, reason: `规则放行: ${rule.pattern}` }
       }
+      // ask 规则,或 allow 规则但档位本身不允许(如 plan 档命中 allow 规则)→ 交回矩阵结论
+      return this.confirmation(params, decision)
     }
-    // 无匹配规则：default 模式需确认，acceptEdits/plan 直接放行
-    if (params.mode === 'default') return this.requestConfirmation(params)
-    return { allowed: true }
+
+    if (decision.verdict === 'allow') return { allowed: true, reason: decision.reason }
+    return this.confirmation(params, decision)
+  }
+
+  /** 统一的人工确认出口(ask 与"规则要求确认"共用,避免两处返回形状漂移)。 */
+  private async confirmation(
+    params: {
+      userId: string
+      workspacePath: string
+      mode: PermissionMode
+      tool: string
+      args: Record<string, unknown>
+    },
+    decision: { reason: string },
+  ): Promise<{ allowed: boolean; requestId?: string; reason: string }> {
+    const result = this.requestConfirmation({
+      userId: params.userId,
+      tool: params.tool,
+      args: params.args,
+    })
+    return { allowed: false, requestId: result.requestId, reason: decision.reason }
   }
 
   resolve(requestId: string, approved: boolean): boolean {
@@ -1736,9 +1862,11 @@ class PermissionManager {
 
   /**
    * 基于 DB 持久化的权限配置 + 规则进行校验。
-   * 后续 fsBridge enforcement 调用此方法,自动从 DB 查 mode + rules。
    *
-   * @returns allowed=true 直接放行 / allowed=false + requestId 需人工确认 / allowed=false 无 requestId 拒绝
+   * G-163 收口:本方法此前是 checkWorkspace 的**逐字副本**(约 127 行同一条授权梯,
+   * 且零调用方 —— grep checkWithDb 只有定义与本注释)。两条同形梯子并存的下场必然是
+   * "改了一条忘了另一条",而这条被忘的那条随时可能被人接进 fsBridge enforcement。
+   * 现保留符号(契约不破)但实现委托给唯一活路径 checkWorkspace,重复梯子消除。
    */
   async checkWithDb(params: {
     userId: string
@@ -1746,109 +1874,7 @@ class PermissionManager {
     tool: string
     args: Record<string, unknown>
   }): Promise<{ allowed: boolean; requestId?: string; mode?: string; reason?: string }> {
-    const { getPermission, listRules, appendAuditLog } =
-      await import('../db/workspace-permission-queries.js')
-    const perm = await getPermission(params.userId, params.workspacePath)
-    if (!perm) {
-      // 未配置权限 → 视为 default 模式(最严格),要求人工确认
-      const result = this.requestConfirmation({
-        userId: params.userId,
-        tool: params.tool,
-        args: params.args,
-      })
-      await appendAuditLog({
-        userId: params.userId,
-        workspacePath: params.workspacePath,
-        toolName: params.tool,
-        args: JSON.stringify(params.args).slice(0, 1000),
-        decision: 'ask',
-        reason: 'workspace permission not configured',
-        requestId: result.requestId,
-      } as never)
-      return { allowed: false, requestId: result.requestId, mode: 'default' }
-    }
-
-    // bypass-permissions → 直接放行
-    if (perm.mode === 'bypass-permissions') {
-      await appendAuditLog({
-        userId: params.userId,
-        workspacePath: params.workspacePath,
-        toolName: params.tool,
-        args: JSON.stringify(params.args).slice(0, 1000),
-        decision: 'allow',
-        reason: 'bypass-permissions mode',
-      })
-      return { allowed: true, mode: perm.mode }
-    }
-
-    // accept-edits → 先查 DB 规则
-    if (perm.mode === 'accept-edits') {
-      const dbRules = await listRules(params.userId, params.workspacePath)
-      for (const r of dbRules) {
-        const action = r.decision === 'allow' ? 'allow' : 'deny'
-        const rule: PermissionRule = {
-          tool: r.ruleType === 'command' ? 'Bash' : r.ruleType === 'path' ? 'Read' : r.pattern,
-          pattern: r.pattern,
-          action: action as PermissionAction,
-        }
-        if (this.matches(rule, params.tool, params.args)) {
-          if (rule.action === 'allow') {
-            await appendAuditLog({
-              userId: params.userId,
-              workspacePath: params.workspacePath,
-              toolName: params.tool,
-              args: JSON.stringify(params.args).slice(0, 1000),
-              decision: 'allow',
-              reason: `rule matched: ${r.pattern}`,
-            })
-            return { allowed: true, mode: perm.mode }
-          }
-          // deny
-          await appendAuditLog({
-            userId: params.userId,
-            workspacePath: params.workspacePath,
-            toolName: params.tool,
-            args: JSON.stringify(params.args).slice(0, 1000),
-            decision: 'deny',
-            reason: `rule denied: ${r.pattern}`,
-          })
-          return { allowed: false, mode: perm.mode, reason: `规则拒绝: ${r.pattern}` }
-        }
-      }
-      // 无匹配 → 走人工
-      const result = this.requestConfirmation({
-        userId: params.userId,
-        tool: params.tool,
-        args: params.args,
-      })
-      await appendAuditLog({
-        userId: params.userId,
-        workspacePath: params.workspacePath,
-        toolName: params.tool,
-        args: JSON.stringify(params.args).slice(0, 1000),
-        decision: 'ask',
-        reason: 'no rule matched in accept-edits mode',
-        requestId: result.requestId,
-      } as never)
-      return { allowed: false, requestId: result.requestId, mode: perm.mode }
-    }
-
-    // default → 全部人工确认
-    const result = this.requestConfirmation({
-      userId: params.userId,
-      tool: params.tool,
-      args: params.args,
-    })
-    await appendAuditLog({
-      userId: params.userId,
-      workspacePath: params.workspacePath,
-      toolName: params.tool,
-      args: JSON.stringify(params.args).slice(0, 1000),
-      decision: 'ask',
-      reason: 'default mode requires confirmation',
-      requestId: result.requestId,
-    } as never)
-    return { allowed: false, requestId: result.requestId, mode: perm.mode }
+    return this.checkWorkspace(params)
   }
 
   // ===========================================================================
@@ -1930,11 +1956,14 @@ class PermissionManager {
 
   /**
    * workspace_permissions 系统的核心检查:FS Bridge enforcement 入口。
-   * - bypass-permissions → 直接放行
-   * - accept-edits + allow 规则匹配 → 放行
-   * - accept-edits + deny 规则匹配 → 拒绝
-   * - accept-edits 无匹配 → 走人工审计(block)
-   * - default → 全部走人工审计(block)
+   * - 入参档位先过唯一真源归一(DB 历史存 kebab,新链路送 camel/别名),认不出按 default
+   * - **档位是上限,规则是下限**:先查 decideByPermissionMode 的硬否决(= plan 档非只读工具
+   *   直接 deny),通过后再按 DB 规则判;矩阵的 allow 一律不采纳,免得绕过规则反而放宽
+   * - bypassPermissions → 直接放行
+   * - acceptEdits + allow 规则匹配 → 放行
+   * - acceptEdits + deny 规则匹配 → 拒绝
+   * - acceptEdits 无匹配 → 走人工审计(block)
+   * - default / manual → 全部走人工审计(block)
    * - 未配置权限 → 拒绝(前端应先调 /fs/open 触发 setup)
    */
   async checkWorkspace(params: {
@@ -1962,8 +1991,26 @@ class PermissionManager {
       }
     }
 
+    // 同 checkWithDb:档位先过唯一真源归一,认不出按 default(最严)。
+    // 本方法是 **Agent 工具执行的真实闸门**(routes/workspace-ai.ts checkWorkspace 调用),
+    // 所以这里的手势必须与 decideByPermissionMode 一致 —— 两处各写一份就是下一次漂移的成因。
+    const permMode: PermissionMode = normalizePermissionMode(perm.mode) ?? 'default'
+    // 档位是**上限**,规则是**下限**:这里只采纳矩阵的 deny(plan 档的硬只读),
+    // 不采纳它的 allow —— 否则等于绕过下面按 workspace 规则表做的判断,反而放宽。
+    const tierCeiling = decideByPermissionMode(permMode, params.tool)
+    if (tierCeiling.verdict === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: tierCeiling.reason,
+      })
+      return { allowed: false, mode: perm.mode, reason: tierCeiling.reason }
+    }
     // bypass-permissions → 直接放行 + 记录审计
-    if (perm.mode === 'bypass-permissions') {
+    if (permMode === 'bypassPermissions') {
       await appendAuditLog({
         userId: params.userId,
         workspacePath: params.workspacePath,
@@ -1976,7 +2023,7 @@ class PermissionManager {
     }
 
     // accept-edits → 查 DB 规则
-    if (perm.mode === 'accept-edits') {
+    if (permMode === 'acceptEdits') {
       const dbRules = await listRules(params.userId, params.workspacePath)
       for (const r of dbRules) {
         if (
