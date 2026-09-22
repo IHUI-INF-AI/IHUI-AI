@@ -207,11 +207,16 @@ export function WebWorkPanel() {
       }
       if (mod && (e.key === 'r' || e.key === 'R')) {
         e.preventDefault()
+        // 必须 stopPropagation:window 层还有 use-native-shortcuts 的 Ctrl+R → menu-actions
+        // 的 'view.reload'(web 端实现是 location.reload()),只 preventDefault 挡不住它,
+        // 结果"刷新内嵌页面"会把整个 SPA 一起重载掉。
+        e.stopPropagation()
         reload()
         return
       }
       if (e.key === 'F5') {
         e.preventDefault()
+        e.stopPropagation()
         reload()
         return
       }
