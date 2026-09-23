@@ -37,7 +37,7 @@ import {
   normalizeTier,
 } from '@ihui/shared'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { ChevronDown, ChevronUp, History, Search } from 'lucide-react-native'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
