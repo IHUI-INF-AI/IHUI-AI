@@ -150,6 +150,47 @@ function runGit(args, opts = {}) {
   return (r.stdout || '').trim()
 }
 
+/**
+ * 自愈:把"仅远端有、本地缺"的备份 tag 拉回来,并固化进 packed-refs。
+ *
+ * 为什么必须有:这类差异**不是 commit 丢失风险**(东西在远端,本地只是少一个引用),
+ * 但原先它直接 blocking —— 于是另一台机器每推一批 tag,本机每次提交都得先手工 fetch,
+ * 拉不到就一直红(2026-09-24 实测:另一台机推的 6 个 `lost-commit/filterbw-*` 把 [30a] 钉成恒红,
+ * 结果就是人人 `--no-verify`,连带跳过整条守门链)。
+ *
+ * 固化不可省:嵌套 `refs/tags/<ns>/*` 的松散文件会被宿主清理层删掉(AGENTS §5b),
+ * 只 fetch 不 pack 等于下一次提交又红一遍。
+ *
+ * @returns {{fetched:string[], stillMissing:string[], networkFailed:boolean, reason:string}}
+ */
+function healMissingRemoteTags(names) {
+  const CHUNK = 50
+  const MAX = Number(process.env.IHUI_TAG_HEAL_MAX || 400)
+  const TIMEOUT = Number(process.env.IHUI_TAG_HEAL_TIMEOUT_MS || 60_000)
+  const target = names.slice(0, MAX)
+  const fetched = []
+  let networkFailed = false
+  let reason = ''
+  for (let i = 0; i < target.length; i += CHUNK) {
+    const chunk = target.slice(i, i + CHUNK)
+    const refspecs = chunk.map((t) => `refs/tags/${t}:refs/tags/${t}`)
+    try {
+      runGit(['fetch', '--no-tags', 'origin', ...refspecs], { timeout: TIMEOUT })
+      for (const t of chunk) {
+        const sha = runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${t}`], { allowFail: true })
+        if (sha) fetched.push(t)
+      }
+    } catch (e) {
+      // 离线 / 超时 / 无凭据:如实记录,由调用方降级为警告,绝不把提交卡死
+      networkFailed = true
+      reason = String((e && (e.stderr || e.message)) || e).split('\n')[0].slice(0, 160)
+    }
+  }
+  if (fetched.length) runGit(['pack-refs', '--all', '--prune'], { allowFail: true })
+  const stillMissing = target.filter((t) => !fetched.includes(t))
+  return { fetched, stillMissing, networkFailed, reason, truncated: Math.max(0, names.length - target.length) }
+}
+
 function header(label) {
   return `\n${C.cyan}${C.bold}── ${label} ──${C.reset}`
 }
@@ -388,6 +429,28 @@ function main() {
     ? { onlyLocal: [], onlyRemote: [], both: [] }
     : compareTagSets(backups, remoteBackups)
 
+  // 「仅远端有、本地缺」→ 先自己 fetch 回来固化,拉不动才降级为警告(见 healMissingRemoteTags 注释)
+  let remoteHeal = { attempted: false, fetched: [], stillMissing: [], degraded: false, reason: '' }
+  {
+    const missing = [...lostTagDiff.onlyRemote, ...backupTagDiff.onlyRemote]
+    if (missing.length && !remoteCheckSkipped) {
+      const r = healMissingRemoteTags(missing)
+      remoteHeal = { attempted: true, fetched: r.fetched, stillMissing: r.stillMissing, degraded: r.networkFailed, reason: r.reason }
+      if (r.fetched.length) {
+        // 重取本地清单再对账(fetch 前拿的那份已经是旧的了)
+        try {
+          runGit(['pack-refs', '--all', '--prune'], { allowFail: true })
+        } catch {
+          /* 固化失败不改变判定,只是下次还得再拉 */
+        }
+        const nl = listLostCommitTags()
+        const nb = listBackups()
+        lostTagDiff.onlyRemote = compareTagSets(nl, remoteLostTags).onlyRemote
+        backupTagDiff.onlyRemote = compareTagSets(nb, remoteBackups).onlyRemote
+      }
+    }
+  }
+
   // ── 1. reflog reset 检测 ──
   console.log(header('1. reflog 最近 50 步 reset 操作检测'))
   if (resets.length === 0) {
@@ -521,6 +584,18 @@ function main() {
     if (lostTagDiff.onlyRemote.length > 0) {
       console.log(
         `    ${C.red}❌ 仅远端(${lostTagDiff.onlyRemote.length} 个,本地缺失 — 必须 fetch):${C.reset} ${briefList(lostTagDiff.onlyRemote)}`,
+      )
+    }
+  }
+  if (remoteHeal.attempted) {
+    if (remoteHeal.fetched.length) {
+      console.log(
+        `  ${C.green}✅ 自愈:已 fetch 并固化 ${remoteHeal.fetched.length} 个仅远端 tag${C.reset}${remoteHeal.stillMissing.length ? ` ${C.yellow}(仍缺 ${remoteHeal.stillMissing.length} 个)${C.reset}` : ''}`,
+      )
+    }
+    if (remoteHeal.degraded) {
+      console.log(
+        `  ${C.yellow}⚠️  自愈 fetch 未成功(${remoteHeal.reason || '网络/凭据不可用'})—— 这类差异不构成 commit 丢失风险,降为警告${C.reset}`,
       )
     }
   }
@@ -720,19 +795,22 @@ function main() {
   }
 
   // 2026-07-26 升级:远程 tag 完整性加入综合判定
-  // 仅远端缺失 / tag 对象不可达 → blocking(必须先 fetch 拉回)
-  // 仅本地缺失(远端没有)→ warn,可能是临时备份,不阻塞
+  // 2026-09-24 改版:仅远端缺失先由本门自己 fetch 固化(见 healMissingRemoteTags);
+  //   拉回来了 → 不再出现在差异里,自然不红;
+  //   拉不动(离线/无凭据/超时)→ 降为警告。理由:东西在**远端**,本地少一个引用不是 commit 丢失风险,
+  //   而恒红的唯一结局是人人 --no-verify,把真正防丢的那几条(reset/悬空/不可达)一起关掉。
+  // tag 对象不可达 → 仍是 blocking(那是"备份指向的对象快被 gc 吃掉",是真丢)。
   if (lostTagDiff.onlyRemote.length > 0) {
     issues.push(
-      `${lostTagDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失,需 fetch):${lostTagDiff.onlyRemote.join(', ')}`,
+      `${lostTagDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失)${remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
     )
-    blocking = true
+    if (!remoteHeal.degraded) blocking = true
   }
   if (backupTagDiff.onlyRemote.length > 0) {
     issues.push(
-      `${backupTagDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失,需 fetch):${backupTagDiff.onlyRemote.join(', ')}`,
+      `${backupTagDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失)${remoteHeal.degraded ? '—— fetch 未成功,已降级为警告' : ',需 fetch'}`,
     )
-    blocking = true
+    if (!remoteHeal.degraded) blocking = true
   }
   if (unreachableTags.length > 0) {
     issues.push(
