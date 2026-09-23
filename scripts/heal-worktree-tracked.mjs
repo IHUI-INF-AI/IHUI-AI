@@ -47,6 +47,27 @@ function makeGit(repoRoot) {
     })
 }
 
+/**
+ * 分批把路径列表喂给 `git ls-files --stage --`。
+ * 一次性传全部路径会撞 Windows 命令行长度上限(实测 5100 个滞后路径直接
+ * `spawnSync git ENAMETOOLONG`,自愈层在"工作区滞后最严重"时恰好崩掉 —— 而它正是为这种场景写的)。
+ * 150 个一批:按平均 60 字符/路径 ≈ 9KB,远低于 32767 上限。
+ */
+export function lsStageChunked(g, paths, chunkSize = 150) {
+  const lines = []
+  const seen = new Set()
+  for (let i = 0; i < paths.length; i += chunkSize) {
+    const batch = paths.slice(i, i + chunkSize)
+    if (!batch.length) continue
+    for (const l of g(['ls-files', '--stage', '--', ...batch]).split('\n').filter(Boolean)) {
+      if (seen.has(l)) continue
+      seen.add(l)
+      lines.push(l)
+    }
+  }
+  return lines
+}
+
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
 export function findOrphanedDeletions(repoRoot) {
   const g = makeGit(repoRoot)
@@ -70,7 +91,9 @@ export function findOrphanedDeletions(repoRoot) {
     }
     let headBlob = ''
     try {
-      headBlob = g(['rev-parse', `HEAD:${path}`]).trim()
+      // 路径可能不在 HEAD 里(新增文件);git 的 fatal 要静默 —— 本脚本每 2 分钟被守护跑一次,
+      // stderr 噪音会淹掉真正的自愈审计行
+      headBlob = g(['rev-parse', `HEAD:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim()
     } catch {
       headBlob = ''
     }
@@ -88,7 +111,7 @@ function isAncestorBlob(g, path, blob) {
     for (const c of anc) {
       let v = ''
       try {
-        v = g(['rev-parse', `${c}:${path}`]).trim()
+        v = g(['rev-parse', `${c}:${path}`], { stdio: ['ignore', 'pipe', 'ignore'] }).trim()
       } catch {
         v = ''
       }
@@ -120,7 +143,7 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const staged = g(['diff', '--name-only', 'HEAD', '--cached', '--no-renames']).split('\n').filter(Boolean)
   if (!staged.length) return { refreshed: 0, paths: [], held: 0 }
   const idxBlob = new Map()
-  for (const l of g(['ls-files', '--stage', '--', ...staged]).split('\n').filter(Boolean)) {
+  for (const l of lsStageChunked(g, staged)) {
     const meta = l.split('\t')[0].split(' ')
     if (meta.length >= 2) idxBlob.set(l.split('\t')[1], meta[1])
   }
@@ -191,7 +214,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const dirty = g(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
   if (!dirty.length) return { aligned: 0, paths: [], refreshed: refreshed.refreshed }
   // ① 索引 == HEAD 的路径才可对齐
-  const indexLines = g(['ls-files', '--stage', '--', ...dirty]).split('\n').filter(Boolean)
+  const indexLines = lsStageChunked(g, dirty)
   const indexBlob = new Map()
   for (const l of indexLines) {
     const meta = l.split('\t')[0].split(' ')
