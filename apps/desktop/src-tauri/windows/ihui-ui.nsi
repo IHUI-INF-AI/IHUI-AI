@@ -84,6 +84,7 @@ Var IHUIR6         ; region 计算临时量(宽-2)
 Var IHUIR7         ; region 计算临时量(高-2)
 Var IHUIPassive    ; 模板 PassiveMode 别名(本文件先于模板 Var 声明被编译,不能直接引用)
 Var IHUINOSC       ; 模板 NoShortcutMode 别名(/NS 静默不建快捷方式)
+Var IHUIFALL       ; 品牌资产不可用降级闸(0=品牌 UI 1=任一 LoadImage 最终失败 → 让原生向导接管)
 Var IHUIPCT       ; 安装页百分比大字句柄(STATIC,居中于双环)
 Var IHUISTG       ; 安装页阶段文案句柄(STATIC)
 Var IHUIPB2       ; 安装页自绘品牌进度条填充句柄(SS_BITMAP + region 裁宽)
@@ -267,32 +268,79 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
   ShowWindow $2 0
 !macroend
 
-; ---- 满幅背景: CreateControl 登记(挂内层) + STM_SETIMAGE + 物理像素满幅 ----
-; 前置: .onInit 已把对应档位位图解压到 $PLUGINSDIR; $IHUIBG 接收句柄
-; 注: CreateControl 坐标按 dialog units 换算, 创建后立刻 MoveWindow 矫正
-;
-; ⚠️ LoadImage 失败重试(2026-09-23 黑屏事故): 实机出现一次"整窗纯 #242424、
-;    无任何位图、进程健康空闲"的故障态(资产逐字节完整、UI 线程空闲) —— 全部
-;    位图 LoadImage 同时失败的唯一合理解释是解压后数秒内被外部瞬时锁定/拒绝
-;    (杀软扫描刚解压的大 BMP)。LoadImage 失败后 STM_SETIMAGE 传 0 → 整页空
-;    底,窗口表现为纯黑且永远等不到恢复。故此处失败后 Sleep 150ms 重试一次。
-;    重试仍失败按原样继续(与旧行为一致),不打断页面流。
-!macro IHUI_LOADIMG NAME OUTVAR
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .s"
-  Pop ${OUTVAR}
-  ${If} ${OUTVAR} = 0
-    Sleep 150
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .s"
-    Pop ${OUTVAR}
+; =====================================================================
+; 失败自证(发布构建同样生效)
+;   只在失败路径落一个标记文件。动机:2026-09-23 用户侧"整窗纯 #242424、进程健康
+;   空闲"的黑屏本机 5 次跑不出来,而 -DIHUI_TRACE 打点要专门编译才有 —— 复发时必须
+;   自动留下证据,否则永远钉不死。已否证的假设:内存/提交额度耗尽(本机 64GB、
+;   可用提交 63.6GB,故障时段无 Resource-Exhaustion 事件)、资产损坏(失败实例
+;   $PLUGINSDIR 与正常实例逐字节一致)。剩下的两类病因修法不同,靠错误码区分:
+;     err=8 / 1455 → 分配不到(桌面堆 / USER 对象配额)
+;     err=5 / 32 / 33 → 文件被占用(杀软扫刚解压的大 BMP)
+;     err=2 / 3 → 路径不存在(解压没到位 / 档位选错)
+;   ⚠️ 只用 $8/$9 两个寄存器(所有调用点此刻都不存活);成功路径零 IO。
+;   注入验证:makensis -DIHUI_DIAGTEST=1 会把页面底位图名改成不存在的文件,
+;   实跑一次应看到标记文件落地 —— 用它证明这条通道不是死代码。
+; =====================================================================
+!macro IHUI_DIAG WHAT
+  System::Call "kernel32::GetLastError() i .s"
+  Pop $9
+  CreateDirectory "$TEMP\ihui-installer-diag"
+  FileOpen $8 "$TEMP\ihui-installer-diag\${WHAT}-err$9-tier$IHUIWTIER-win$IHUIWW-$IHUIWH.txt" w
+  ${If} $8 >= 0
+    FileWrite $8 "${WHAT}$\r$\n"
+    FileClose $8
   ${EndIf}
 !macroend
 
+!ifdef IHUI_DIAGTEST
+  !define IHUI_DIAGTEST_SUFFIX -diagtest-missing
+!else
+  !define IHUI_DIAGTEST_SUFFIX ""
+!endif
+
+; ---- 位图加载唯一入口:失败重试一次 + 仍失败则自证 ----
+; ⚠️ LoadImage 失败重试(2026-09-23 黑屏事故):失败后 STM_SETIMAGE 传 0 → 整页空底,
+;    窗口表现为纯黑且永远等不到恢复。瞬时锁定类病因重试即可自愈,故重试一次;
+;    重试不成的写标记(见 IHUI_DIAG),不再无声无息。
+; ${NAME} 允许含运行期变量(如 splash$IHUISPLF.bmp):预处理只做字面替换,
+; 替换后的串仍由 NSIS 在运行期展开。
+!macro IHUI_LOADIMG NAME OUTVAR
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}${IHUI_DIAGTEST_SUFFIX}`, i 0, i 0, i 0, i 0x2010) p .s"
+  Pop ${OUTVAR}
+  ${If} ${OUTVAR} = 0
+    Sleep 150
+    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}${IHUI_DIAGTEST_SUFFIX}`, i 0, i 0, i 0, i 0x2010) p .s"
+    Pop ${OUTVAR}
+    ${If} ${OUTVAR} = 0
+      !insertmacro IHUI_DIAG "loadimg-${NAME}"
+      ; 任一位图最终加载失败 = 品牌 UI 已不可信,拉闸让原生向导接管(见 IHUIFALL)
+      StrCpy $IHUIFALL 1
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+; ---- 满幅背景: CreateControl 登记(挂内层) + STM_SETIMAGE + 物理像素满幅 ----
+; 前置: .onInit 已把对应档位位图解压到 $PLUGINSDIR; $IHUIBG 接收句柄
+; 注: CreateControl 坐标按 dialog units 换算, 创建后立刻 MoveWindow 矫正
+; 控件创建失败与位图加载失败是两类病因,各自重试一次并分别自证。
 !macro IHUI_PAGEBG NAME
   !insertmacro IHUI_LOADIMG ${NAME} $0
   nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
   Pop $IHUIBG
-  System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
-  SendMessage $IHUIBG 0x0172 0 $0
+  ${If} $IHUIBG = 0
+    Sleep 150
+    nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
+    Pop $IHUIBG
+    ${If} $IHUIBG = 0
+      !insertmacro IHUI_DIAG "pagebg-ctl-${NAME}"
+      StrCpy $IHUIFALL 1
+    ${EndIf}
+  ${EndIf}
+  ${If} $IHUIBG <> 0
+    System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
+    SendMessage $IHUIBG 0x0172 0 $0
+  ${EndIf}
 !macroend
 
 ; ---- STATIC 位图按钮: CreateControl 登记(挂内层,点击可路由) + STM_SETIMAGE
@@ -467,7 +515,7 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
     IntOp $6 $6 | 32768
     IntOp $6 $6 & -65537
     System::Call "user32::SetWindowLongW(p R5, i -16, i r6)"
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r7"
+    !insertmacro IHUI_LOADIMG ${NAME} $7
     ${If} $7 <> 0
       ; BM_SETIMAGE = 0x00F7, wParam IMAGE_BITMAP(0), lParam = 位图句柄
       System::Call "user32::SendMessageW(p R5, i 0x00F7, p 0, p r7)"
@@ -486,7 +534,7 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
   !insertmacro IHUI_PX $R2 ${Y}
   !insertmacro IHUI_PX $R3 ${W}
   !insertmacro IHUI_PX $R4 ${H}
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG ${NAME} $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5000000E, i R1, i R2, i R3, i R4, p $HWNDPARENT, p 0, p 0, p 0) p .s"
   Pop ${HANDLE}
   System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0172, p 0, p r0)"
@@ -826,15 +874,21 @@ FunctionEnd
 ; =====================================================================
 !macro IHUI_INITSPLASH
   StrCpy $IHUISPLA 0
+  StrCpy $IHUIFALL 0
   StrCpy $IHUI_LOGN 0   ; 打点序号归零(IntOp 依赖整数,不给初值会按空串参与运算)
   StrCpy $IHUISC 1
   ; 模板变量 → IHUI 别名(本宏展开于 .onInit,晚于模板 Var 声明,引用安全)
   StrCpy $IHUIPassive $PassiveMode
   StrCpy $IHUINOSC $NoShortcutMode
   !insertmacro IHUI_PICKTIER
+  ; 解压条件必须与"品牌页会不会渲染"严格同集 —— 欢迎/目录/完成页只在
+  ; Silent 与 Passive 下 Abort,**不看 UpdateMode**。旧写法多带一条
+  ; `${AndIf} $UpdateMode = 0`,于是 `/UPDATE`(不带 /P)会跳过解压却照常开品牌页:
+  ; 所有 LoadImage 找不到文件 → STM_SETIMAGE 传 0 → 整窗纯 #242424、按钮全不可见、
+  ; 进程健康空闲 = 用户报的"卡在黑屏"。2026-09-23 用同一发布版加 /UPDATE 确定性复现。
+  ; 静默升级(/UPDATE /P)仍走 Passive 分支不解压,零成本不变。
   ${IfNot} ${Silent}
   ${AndIf} $PassiveMode = 0
-  ${AndIf} $UpdateMode = 0
     InitPluginsDir
     ; ---- splash 帧(按系统档;16 帧动画,见 IHUI_EXTRACTSPLASH_SET) ----
     !insertmacro IHUI_EXTRACTSPLASH $IHUITIER
@@ -842,6 +896,16 @@ FunctionEnd
     ; GUIInit 会按窗口 DPI 重算 IHUIWTIER; 此处先按系统档解压,
     ; 若窗口档与系统档不一致(极少见的多屏异 DPI), 页面函数兜底补解压。
     !insertmacro IHUI_EXTRACTPAGESETS $IHUITIER
+    ; ---- 资产探针:降级必须在**任何页面渲染之前**定 ----
+    ; 页面函数一进来就 IHUI_HIDE_ALL 把原生 1/2/3 移屏,那时才发现位图加载不出来
+    ; 已经无路可退 —— 正是用户看到的"纯黑且点不动"。故此处先探一张:
+    ; 失败即由 IHUI_LOADIMG 拉 $IHUIFALL 闸,欢迎/目录/完成页 Abort,
+    ; instfiles 与重装页保留原生皮肤 = 品牌皮没了也照样能装完。
+    ; 探针位图用完立刻 DeleteObject,不留到页面里。
+    !insertmacro IHUI_LOADIMG welcome.bmp $0
+    ${If} $0 <> 0
+      System::Call "gdi32::DeleteObject(p r0)"
+    ${EndIf}
     ; ---- 开屏动画:此处只"装填",逐帧播放在欢迎页(IHUI_SPLASH_START) ----
     ; 为什么不再用 AdvSplash:
     ;   1. 插件反编译实锤只加载 base 名那一张图(字符串表仅 ".bmp"/".wav"),
@@ -883,7 +947,7 @@ Function IHUIOnSplashTick
   ${If} $IHUISPLF > ${IHUI_SPLASH_FRAMES}
     ; 收尾:背景落回欢迎页 → 交互控件登场 → 定时器自杀
     StrCpy $IHUISPLA 0
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\welcome.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    !insertmacro IHUI_LOADIMG welcome.bmp $0
     ${If} $0 <> 0
       SendMessage $IHUIBG 0x0172 0 $0 $1
       ${If} $1 <> 0
@@ -899,10 +963,9 @@ Function IHUIOnSplashTick
     ${NSD_KillTimer} IHUIOnSplashTick
     Return
   ${EndIf}
-  ; 寄存器大小写陷阱(与旧版 0x0 尺寸控件事故同源):System::Call 的输入串
-  ; 只能取寄存器(w r0 = $0),不能直接喂 Var;输出同样只能是寄存器。
-  StrCpy $0 "$PLUGINSDIR\splash$IHUISPLF.bmp"
-  System::Call "user32::LoadImage(p 0, w r0, i 0, i 0, i 0, i 0x2010) p .r1"
+  ; 帧名带运行期变量:直接交给 IHUI_LOADIMG(宏内是字面串 `$PLUGINSDIR\splash$IHUISPLF.bmp`,
+  ; NSIS 在运行期展开 $VARS,无需再先 StrCpy 进寄存器)。
+  !insertmacro IHUI_LOADIMG splash$IHUISPLF.bmp $1
   ${If} $1 <> 0
     SendMessage $IHUIBG 0x0172 0 $1 $2
     ${If} $2 <> 0
@@ -1026,6 +1089,10 @@ Function IHUIWelcomePage
   ${If} ${Silent}
     Abort
   ${EndIf}
+  ; 资产不可用 → 跳过品牌页,让原生向导接管(见 IHUI_INITSPLASH 探针)
+  ${If} $IHUIFALL = 1
+    Abort
+  ${EndIf}
   !insertmacro IHUI_PAGE_PRE
   ; (档位兜底已统一提入 IHUI_PAGE_PRE,见该宏注释)
   !insertmacro IHUI_PAGEBG welcome.bmp
@@ -1059,6 +1126,9 @@ Function IHUIDirPage
     Abort
   ${EndIf}
   ${If} ${Silent}
+    Abort
+  ${EndIf}
+  ${If} $IHUIFALL = 1
     Abort
   ${EndIf}
   !insertmacro IHUI_PAGE_PRE
@@ -1124,6 +1194,10 @@ FunctionEnd
 
 Function IHUIInstShow
   !insertmacro IHUI_LOG "instShow_entry"
+  ; 资产不可用:整页保持原生(进度条/原生钮都不动),否则 IHUI_HIDE_ALL 会把唯一出口移屏
+  ${If} $IHUIFALL = 1
+    Return
+  ${EndIf}
   StrCpy $IHUIFINMODE 0
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(instfiles 是原生页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
@@ -1196,7 +1270,7 @@ Function IHUIInstShow
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
   System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
   ; 背景位图挂内层 dialog
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\instfiles.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG instfiles.bmp $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
   Pop $IHUIBG
   SetCtlColors $IHUIBG FAFAFA 242424
@@ -1240,7 +1314,7 @@ Function IHUIInstShow
   ; 4) 自绘品牌进度条填充:满幅渐变位图 + 按百分比 SetWindowRgn 裁宽。
   ;    原生 1004 已移屏退出视觉,所以条与百分比数字同源同值,不会再打架。
   ;    控件尺寸 == 位图尺寸(SS_BITMAP 居中即精确贴合),region 从左侧裁剪。
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\bar-fill.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    !insertmacro IHUI_LOADIMG bar-fill.bmp $0
     !insertmacro IHUI_TEXTCTL $IHUIPB2 0x5400000E " " ${IHUI_PB_X} ${IHUI_PB_Y} ${IHUI_PB_W} ${IHUI_PB_H}
     ${If} $IHUIPB2 <> 0
       System::Call "user32::SendMessageW(p $IHUIPB2, i 0x0172, p 0, p r0)"
@@ -1287,6 +1361,9 @@ FunctionEnd
 ; 路由死结(r74 实锤): 品牌按钮挂内层 #32770 → BN_CLICKED 发内层被吞。
 ; =====================================================================
 !macro IHUI_INST_DONE_THEME
+  ; 降级态整页保持原生:本宏会移屏原生 1/2/3 + 在内层挖洞,资产不可用时跑它=自断出口
+  ; (故整段包在 ${If} $IHUIFALL = 0 内,配平 ${EndIf} 见本宏末尾)
+  ${If} $IHUIFALL = 0
   ; 完成态:百分比与品牌条打满(阶段驱动的最后一级;POSTINSTALL hook 触发)
   !insertmacro IHUI_PROGRESS 100 "安装完成"
   !insertmacro IHUI_LOG "doneTheme_entry"
@@ -1325,6 +1402,7 @@ FunctionEnd
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "doneTheme_exit"
+  ${EndIf}
 !macroend
 
 ; ⚠️ 完成时刻推进竞态(2026-09-20 R20 实锤): instfiles 完成时核心触发 LEAVE 回调并推进
@@ -1361,6 +1439,9 @@ Function IHUIFinishPage
     Abort
   ${EndIf}
   ${If} ${Silent}
+    Abort
+  ${EndIf}
+  ${If} $IHUIFALL = 1
     Abort
   ${EndIf}
   ; 安装页完成态遗留的两个品牌覆盖层必须显式销毁: 其 CTA 位图(672,500,144x40)
@@ -1407,10 +1488,10 @@ FunctionEnd
 !macro IHUI_TOGGLE_FLIP HANDLE VAR
   ${If} ${VAR} = 1
     StrCpy ${VAR} 0
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-toggle-off.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    !insertmacro IHUI_LOADIMG btn-toggle-off.bmp $0
   ${Else}
     StrCpy ${VAR} 1
-    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-toggle-on.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+    !insertmacro IHUI_LOADIMG btn-toggle-on.bmp $0
   ${EndIf}
   SendMessage ${HANDLE} 0x0172 0 $0
   System::Call "user32::InvalidateRect(p ${HANDLE}, p 0, i 1)"
@@ -1519,13 +1600,16 @@ FunctionEnd
 ;   还要用)/$R1/$R2/$R3/$R4 一律只读;DPI 分支临时覆写 $R2/$R3 前必须保存。
 ; =====================================================================
 !macro IHUI_RIND_SET HANDLE NAME
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG ${NAME} $0
   System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0172, p 0, p r0)"
   System::Call "user32::InvalidateRect(p ${HANDLE}, p 0, i 1)"
 !macroend
 
 !macro IHUI_REINSTALLTHEME
   !insertmacro IHUI_LOG "reinstallTheme_entry"
+  ; 降级态:这张页保留原生皮肤(它开头就 IHUI_HIDE_ALL 移屏原生钮 + 自建位图 CTA,
+  ; 位图加载失败时用户将没有任何可点出口)。${EndIf} 配平在本宏末尾。
+  ${If} $IHUIFALL = 0
   ; ---- 0) DPI 加固(R70)----
   StrCpy $0 96
   System::Call "user32::GetDpiForWindow(p $HWNDPARENT) i .s"
@@ -1561,7 +1645,7 @@ FunctionEnd
   System::Call "user32::MoveWindow(p $R4, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
   SetCtlColors $R4 FAFAFA 242424
   ; ---- 3) 满幅品牌背景(先建,天然位于后续控件之下) ----
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\reinstall.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG reinstall.bmp $0
   nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
   Pop $IHUIBG
   System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
@@ -1650,8 +1734,16 @@ FunctionEnd
   System::Call "user32::MoveWindow(p $IHUIRC2, i r2, i r3, i r4, i r5, i 1)"
   SetCtlColors $IHUIRC2 0xFFFFFF transparent
   ${NSD_OnClick} $IHUIRC2 PageReinstallCard2Click
-  ; ---- 10) 初始选中态($ReinstallPageCheck 照模板 BM_SETCHECK 的 1/2 约定) ----
-  ${If} $ReinstallPageCheck <> 2
+  ; ---- 10) 初始选中态 ----
+  ; ⚠️ 这里**不得**读 `$ReinstallPageCheck`:该 Var 声明在 installer.nsi:204,
+  ;    而本文件在第 ~51 行就被 include 进来 —— 声明在引用之后,NSIS 只报
+  ;    warning 6000 并把整个变量引用丢掉(本仓已记录过的"Var 顺序杀守卫"陷阱)。
+  ;    丢引用后 `${If} <> 2` 会静默恒假(不报错),`StrCpy 1` 则退化成单参数
+  ;    直接让 makensis 中止 —— 两种后果都由同一处越界引用产生。
+  ;    真相在 radio 自身:`PageLeaveReinstall` 读的就是 `${NSD_GetState} $R2`,
+  ;    且本页无"上一步"(IHUI_HIDE_ALL 已把原生 3 移屏),不存在重入丢选择。
+  ${NSD_GetState} $R2 $0
+  ${If} $0 == ${BST_CHECKED}
     !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-on.bmp
     !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-off.bmp
   ${Else}
@@ -1663,7 +1755,7 @@ FunctionEnd
   ; ---- 11) 品牌 CTA「继续 ›」(点击路由原生 1;R67 已验证通路) ----
   nsDialogs::CreateControl STATIC 0x5400010E 0 ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40 ""
   Pop $IHUIRCTA
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG btn-continue.bmp $0
   SendMessage $IHUIRCTA 0x0172 0 $0
   !insertmacro IHUI_PX $2 ${IHUI_CTA_X}
   !insertmacro IHUI_PX $3 ${IHUI_BTN_Y}
@@ -1678,6 +1770,7 @@ FunctionEnd
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "reinstallTheme_exit"
+  ${EndIf}
 !macroend
 
 ; ---- 卡片点击:写回隐藏 radio 的选中态 + 同步 $ReinstallPageCheck + 换指示器位图 ----
@@ -1687,7 +1780,8 @@ Function PageReinstallCard1Click
   !insertmacro IHUI_LOG "reinstallCard1"
   SendMessage $R2 0x00F1 1 0    ; BM_SETCHECK / BST_CHECKED
   SendMessage $R3 0x00F1 0 0    ; BM_SETCHECK / BST_UNCHECKED
-  StrCpy $ReinstallPageCheck 1
+  ; 不写 $ReinstallPageCheck —— 该 Var 在本文件不可见(见上方"初始选中态"注释),
+  ; 且 PageLeaveReinstall 判定读的就是 radio 状态,radio 即唯一真相。
   !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-on.bmp
   !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-off.bmp
 FunctionEnd
@@ -1703,7 +1797,7 @@ Function PageReinstallCard2Click
   ${EndIf}
   SendMessage $R2 0x00F1 0 0
   SendMessage $R3 0x00F1 1 0
-  StrCpy $ReinstallPageCheck 2
+  ; 不写 $ReinstallPageCheck(本文件不可见该 Var;radio 状态即真相)
   !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-off.bmp
   !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-on.bmp
 FunctionEnd
