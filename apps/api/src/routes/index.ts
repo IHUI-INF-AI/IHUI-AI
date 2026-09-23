@@ -224,6 +224,8 @@ import { adminAskRoutes } from './admin-asks.js'
 
 // 死表激活：敏感词 / 协议 / 汇率 / 私信管理
 import { adminSensitiveWordsRoutes } from './admin-sensitive-words.js'
+// O29 维护公告邮件发信入口(renderMaintenanceNoticeEmail 装车)
+import { adminMaintenanceNoticeRoutes } from './admin-maintenance-notice.js'
 import { agreementPublicRoutes, adminAgreementsRoutes } from './admin-agreements.js'
 import { exchangeRatePublicRoutes, adminExchangeRateRoutes } from './admin-exchange-rate.js'
 import { adminPrivateLettersRoutes } from './admin-private-letters.js'
@@ -900,6 +902,8 @@ export function registerRoutes(server: FastifyInstance) {
   // ===== 死表激活：敏感词 / 协议 / 汇率 / 私信管理 =====
   // 敏感词管理：/api/admin/sensitive-words CRUD + 内容过滤
   server.register(adminSensitiveWordsRoutes, { prefix: '/api/admin' })
+  // O29 维护公告邮件：/api/admin/maintenance-notice/email(requireAdmin 群发)
+  server.register(adminMaintenanceNoticeRoutes, { prefix: '/api/admin' })
   // 协议管理：/api/agreements/current（公共）+ /api/admin/agreements CRUD
   server.register(agreementPublicRoutes, { prefix: '/api' })
   server.register(adminAgreementsRoutes, { prefix: '/api/admin' })
