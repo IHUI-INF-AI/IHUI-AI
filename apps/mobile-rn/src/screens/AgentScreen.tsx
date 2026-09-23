@@ -35,7 +35,7 @@ import {
   type ConversationDetail,
 } from '@ihui/api-client'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
 import Drawer, {
   type DrawerConversationItem,

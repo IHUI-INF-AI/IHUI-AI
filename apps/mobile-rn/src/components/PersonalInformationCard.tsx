@@ -13,12 +13,12 @@
  * 兼容保留原「分销者卡」props(inviteCode / commissionRate / level 均改为可选),
  * 避免 DistributionScreen 等调用方报错;调用方未传收入字段时,收入卡按默认 0.00 展示。
  *
- * 设计原则(对齐 rnLightTokens,禁用 purple/indigo):
+ * 设计原则(对齐 主题 token 入口,禁用 purple/indigo):
  * - 背景用原图 bjcspNew.jpg(已拷贝至 assets/images/common),文字走 surface.light 对比白
  * - 金额字号 22,正文 14,rpx→dp 2:1
  * - 系统字体(不显式指定 fontFamily,走平台默认)
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   Image,
   ImageBackground,

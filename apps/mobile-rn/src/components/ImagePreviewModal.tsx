@@ -13,7 +13,7 @@
  */
 import { Image, Modal, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native'
 import { X } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface ImagePreviewModalProps {
   visible: boolean
