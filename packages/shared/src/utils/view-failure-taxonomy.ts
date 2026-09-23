@@ -224,8 +224,6 @@ export interface ViewFailureResolution {
   isFallback: boolean
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
-
 const asString = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
 
 const asFiniteNumber = (v: unknown): number | undefined =>
