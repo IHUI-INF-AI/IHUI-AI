@@ -8,7 +8,6 @@ import {
   Image,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -18,6 +17,8 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
+import type { CategoryItem } from '../../components/category/types'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
@@ -69,6 +70,11 @@ const STATUS_CHIPS: readonly StatusChip[] = [
   { label: '已完成', value: 'completed' },
   { label: '我的任务', value: 'mine' },
 ] as const
+
+const STATUS_CHIP_ITEMS: readonly CategoryItem[] = STATUS_CHIPS.map((c) => ({
+  id: c.value,
+  label: c.label,
+}))
 
 const CYCLE_UNITS: Readonly<Record<string, string>> = {
   '0': '日',
@@ -278,26 +284,15 @@ export function PlazaScreen({
         </View>
       ) : null}
       {/* 状态切换 chips */}
-      <View style={styles.chipsBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.chipsContent}>
-            {STATUS_CHIPS.map((chip) => {
-              const active = status === chip.value
-              return (
-                <Pressable
-                  key={chip.value}
-                  style={[styles.chip, active && styles.chipActive]}
-                  onPress={() => onStatusChange(chip.value)}
-                >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {chip.label}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </ScrollView>
-      </View>
+      <CategoryInlineBar
+        items={STATUS_CHIP_ITEMS}
+        selectedId={status}
+        onSelect={onStatusChange}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={12}
+        style={styles.chipsBar}
+      />
       {/* 列表 */}
       {initialLoading ? (
         <View style={styles.centerWrap}>
@@ -387,32 +382,6 @@ function createStyles(tk: AppThemeTokens) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: tk.border.light,
     } as ViewStyle,
-    chipsContent: {
-      flexDirection: 'row',
-      paddingHorizontal: 10,
-      gap: 12,
-      paddingVertical: 12,
-    } as ViewStyle,
-    chip: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.muted,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    } as ViewStyle,
-    chipActive: {
-      backgroundColor: tk.brand.ctaFill,
-      borderColor: tk.brand.ctaFill,
-    } as ViewStyle,
-    chipText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    } as TextStyle,
-    chipTextActive: {
-      color: tk.brand.ctaText,
-      fontWeight: '600',
-    } as TextStyle,
     listContent: {
       padding: 10,
       paddingBottom: 80,

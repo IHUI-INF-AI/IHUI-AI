@@ -157,6 +157,79 @@ export function readFileSyncOr(path) {
   }
 }
 
+/**
+ * 国内镜像活性(2026-09-23 补)。背景:我把 mirror-to-cn.yml 的触发从 push 改成每 20 分钟的 schedule,
+ * 结果实测该 schedule **4.5 小时零派生**(同仓其他 workflow 的每日 schedule 正常),而手动
+ * `workflow_dispatch` 立即 in_progress —— 即"额度/runner 都好,只有调度器不碰这条"。
+ * 结果镜像比改之前更饿,所以这里做两件事:①发现"超过 thresholdMin 没有一次运行"就判红;
+ * ②顺手用权威 token 发一次 dispatch 自愈(每轮最多一次,不叠加)。
+ * 判据取 API 的 `updated_at` 而非 `created_at`:schedule 派生的运行 created_at 会带排队提前量。
+ */
+const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
+const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
+
+function ghApi(method, path, body) {
+  const token = readText(process.env.IHUI_GH_KEY_FILE || 'D:/BaiduSyncdisk/密钥/git仓库/github key.txt').trim()
+  if (!token) return Promise.resolve({ status: 0, j: null, why: '未取到 GitHub 权威凭据文件' })
+  const payload = body ? JSON.stringify(body) : null
+  return new Promise((res) => {
+    const r = request({
+      host: 'api.github.com',
+      path,
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'ihui-credential-health',
+        Accept: 'application/vnd.github+json',
+        ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
+      },
+      timeout: 20000,
+    }, (rp) => {
+      let b = ''
+      rp.on('data', (d) => (b += d))
+      rp.on('end', () => {
+        let j = null
+        try {
+          j = JSON.parse(b || 'null')
+        } catch {
+          /* 非 JSON 响应只保留状态码 */
+        }
+        res({ status: rp.statusCode, j })
+      })
+    })
+    r.on('error', (e) => res({ status: 0, j: null, why: e.message }))
+    r.on('timeout', () => {
+      r.destroy()
+      res({ status: 0, j: null, why: '超时' })
+    })
+    r.end(payload)
+  })
+}
+
+async function mirrorLivenessCheck() {
+  const thresholdMin = Number(process.env.IHUI_MIRROR_STALL_MIN || 150)
+  const now = Date.now()
+  const runs = await ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`)
+  const list = runs.j?.workflow_runs
+  if (!list || !list.length) {
+    return [{ name: '国内镜像活性(mirror-to-cn)', level: runs.status === 0 ? 'unreachable' : 'unknown', detail: `取不到运行记录 http=${runs.status} ${runs.why || ''}` }]
+  }
+  const last = list[0]
+  const ageMin = (now - Date.parse(last.updated_at || last.created_at)) / 60000
+  const running = last.status === 'in_progress' || last.status === 'queued'
+  const head = `${last.event}/${last.status}/${last.conclusion ?? '-'} @ ${(last.updated_at || last.created_at).slice(11, 16)}Z,距今 ${ageMin.toFixed(0)} 分`
+  if (running) return [{ name: '国内镜像活性(mirror-to-cn)', level: 'ok', detail: `在跑:${head}` }]
+  if (ageMin <= thresholdMin) {
+    return [{ name: '国内镜像活性(mirror-to-cn)', level: 'ok', detail: `${head} ≤ 阈值 ${thresholdMin} 分` }]
+  }
+  // 自愈:补发一次 dispatch(成功则本轮记 limited 并提示下轮复验;失败才判红)
+  const d = await ghApi('POST', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches`, { ref: 'main' })
+  if (d.status === 204) {
+    return [{ name: '国内镜像活性(mirror-to-cn)', level: 'limited', detail: `${head} 超阈值 → **已补发 workflow_dispatch(http=204)**,下轮复验是否真跑成。schedule 腿自 09:07Z 起零派生,不要指望 cron 自愈。` }]
+  }
+  return [{ name: '国内镜像活性(mirror-to-cn)', level: 'fail', detail: `${head} 超阈值且补发失败 http=${d.status} ${d.why || ''}` }]
+}
+
 /** 主巡检:返回结果数组,不直接打印(便于 --json / 告警复用) */
 export async function runChecks() {
   const out = []
@@ -241,6 +314,7 @@ export async function runChecks() {
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),
   //    任何一种都可能再变出第三种;只有"线上产物是否等于当前 tip"是不会骗人的判据。
   out.push(...deployStallCheck())
+  out.push(...(await mirrorLivenessCheck()))
   return out
 }
 
@@ -253,8 +327,12 @@ function readText(p) {
   }
 }
 
-export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin }) {
+export function judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs, thresholdMin, inFlight = false }) {
   if (!tipSha) return { level: 'unknown', why: '取不到 origin/main tip,不判定' }
+  // 部署环**正在跑这一轮**时不得判停摆:2026-09-23 14:05 实测假阳性 —— 14:02 起在构建,
+  // 14:06:21 就成功了,而我按"距上次成功 > 阈值"判红并真发了一封邮件。
+  // 告警器乱叫就会被静音(邮件 10 封/天、Server酱 5 条/天),所以这一条是硬护栏。
+  if (inFlight) return { level: 'unknown', why: '部署环正在跑这一轮(日志有新活动且非失败态),不判定' }
   if (!liveSha) return { level: 'fail', why: `线上无构建标记(.next/IHUI_BUILD_SHA 缺失),最近成功部署=${lastSuccessIso || '未知'}` }
   if (liveSha === tipSha) return { level: 'ok', why: '线上构建 == origin/main tip' }
   if (!lastSuccessIso) return { level: 'fail', why: `线上 ${liveSha.slice(0, 9)} ≠ tip ${tipSha.slice(0, 9)},且日志里找不到一次成功部署` }
@@ -296,7 +374,17 @@ function deployStallCheck() {
     const m = String(lines[lines.length - 1]).match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
     if (m) lastSuccessIso = `${m[1].replace(' ', 'T')}${m[2]}`
   }
-  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin })
+  // 本轮是否"在飞":日志最后一行仍是轮次中间产物(未出现 轮询结束/部署完成 这类轮次边界),
+  // 且写于 20 分钟内。边界之后一律照判(冷却/失败都属于真停摆)。
+  const all = log.split(/\r?\n/).filter((l) => l.trim())
+  let inFlight = false
+  if (all.length) {
+    const last = String(all[all.length - 1])
+    const lm = last.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ([+-]\d{2}:\d{2})\]/)
+    const lastAge = lm ? (Date.now() - Date.parse(`${lm[1].replace(' ', 'T')}${lm[2]}`)) / 60000 : Infinity
+    inFlight = Number.isFinite(lastAge) && lastAge < 20 && !/轮询结束|部署完成/.test(last)
+  }
+  const r = judgeStall({ liveSha, tipSha, lastSuccessIso, nowMs: Date.now(), thresholdMin, inFlight })
   const diag = errs.length ? ` [诊断: ${errs.join(' ; ')}]` : ''
   return [{ name: '部署停摆(线上构建 vs origin/main)', level: r.level, detail: r.why + diag }]
 }
@@ -315,6 +403,9 @@ function selfTest() {
   eq('线上一致判 ok', judgeStall({ liveSha: 'A', tipSha: 'A', lastSuccessIso: '', nowMs: 0, thresholdMin: 45 }).level, 'ok')
   eq('落后且刚成功过不判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 10 * 60000, thresholdMin: 45 }).level, 'ok')
   eq('落后 2 小时判停摆', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45 }).level, 'fail')
+  // 在飞护栏(2026-09-23 14:05 假阳性实测:那轮 14:02 开始构建、14:06:21 成功,我却判红并发邮件)
+  eq('同一输入:本轮在飞 ⇒ 不判定', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: true }).level, 'unknown')
+  eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
   let bad = 0
