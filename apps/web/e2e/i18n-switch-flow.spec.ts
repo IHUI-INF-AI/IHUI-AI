@@ -29,10 +29,10 @@ import {
  *  - 切换后 localStorage 持久化(ihui-language store)
  *  - 切换过程无 5xx / 无控制台异常
  *
- * 切换机制(2026-09-22 起与 src/components/sidebar/SidebarUserRow.tsx:handleLocaleChange 一致):
- *  1. setLocale(zustand) —— 写 localStorage 持久化,**并由 setLocale 镜像写 `locale` cookie**
- *     (真值源与写入点收敛到 @/lib/locale-cookie,调用方不再各写一份 document.cookie)
- *  2. router.refresh() → 服务端重读 cookie → 首帧 <html lang> 跟随
+ * 切换机制(与 src/components/sidebar.tsx:handleLocaleChange 一致):
+ *  1. 写 document.cookie `locale=<code>;path=/;max-age=31536000`
+ *  2. setLocale(zustand)
+ *  3. router.refresh() → 服务端重读 cookie → next-intl 重渲染
  * 本 spec 直接复用此机制(避免依赖 UI 控件位置,降低脆弱性)。
  *
  * 关键约束:
