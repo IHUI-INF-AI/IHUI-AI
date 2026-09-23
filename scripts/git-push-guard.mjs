@@ -188,7 +188,7 @@ const checkDanglingRefs = () => {
     const r = spawnSync(
       'git',
       ['-c', 'safe.directory=*', 'for-each-ref', '--format=%(refname)%09%(objectname)'],
-      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 },
+      { encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024, timeout: 120_000 },
     )
     listed = { stdout: String(r.stdout || ''), stderr: String(r.stderr || '') }
   } catch {
@@ -207,6 +207,7 @@ const checkDanglingRefs = () => {
         encoding: 'utf8',
         windowsHide: true,
         maxBuffer: 64 * 1024 * 1024,
+        timeout: 300_000,
       }).stdout
       missing = new Set(String(out).split(/\r?\n/).filter((l) => /\bmissing\b/.test(l)).map((l) => l.split(' ')[0]))
     } catch {
