@@ -70,7 +70,12 @@ const TARGETS = {
   },
   cli: {
     localeDir: 'packages/i18n/messages/cli',
-    scanTargets: ['apps/cli/src'],
+    // 2026-09-24 补 `packages/shared/src/chat`:与上面 extension 同一先例同形 —— cli 的等待语只是
+    // `apps/cli/src/commands/waiting-text.ts` 把取词函数 t 注入进 shared 的
+    // `resolveWaitingText()`,真正拼键(`waiting.<象限>.<阶段>.<下标>` 与 `waiting.vividTail`)
+    // 发生在 packages/shared/src/chat/waiting-pool.ts;端 scanTargets 不含它 ⇒ 76 枚 waiting.* 恒被判死。
+    // 窄口径:只加 chat,不加 packages/app(照 extension 那条实测教训)。
+    scanTargets: ['apps/cli/src', 'packages/shared/src/chat'],
   },
   extension: {
     localeDir: 'packages/i18n/messages/extension',
@@ -100,8 +105,10 @@ function parseArgs(argv) {
     else if (a === '--target' || a.startsWith('--target=')) {
       // 同时支持 --target web(空格)和 --target=web(等号)两种形式
       const t = a.startsWith('--target=') ? a.slice('--target='.length) : argv[++i]
-      if (!TARGETS[t]) {
-        console.error(`[scan-dead-i18n-keys] 错误:未知 target '${t}',支持: ${Object.keys(TARGETS).join(', ')}`)
+      // 'all' 是本轮补的:CI 与 check:all 原先只跑 web 一端 ⇒ 其余四端的红点无人执行
+      // (实测 cli 的 76 枚 waiting.* 幻影死键恒红数日无人在意,正因没有一道入口跑它)。
+      if (t !== 'all' && !TARGETS[t]) {
+        console.error(`[scan-dead-i18n-keys] 错误:未知 target '${t}',支持: all, ${Object.keys(TARGETS).join(', ')}`)
         process.exit(1)
       }
       args.target = t
@@ -116,6 +123,7 @@ function printHelp() {
 
 用法:
   node scripts/scan-dead-i18n-keys.mjs                              # 默认 target=web
+  node scripts/scan-dead-i18n-keys.mjs --target all --exit 1        # 一次跑完所有有 JS 扫描面的端(推荐入口)
   node scripts/scan-dead-i18n-keys.mjs --target miniapp-taro        # 指定目标端
   node scripts/scan-dead-i18n-keys.mjs --target web --check         # 烟测模式(= --dry-run,不写报告)
   node scripts/scan-dead-i18n-keys.mjs --target web --dry-run       # 只打印统计
@@ -146,20 +154,41 @@ function printHelp() {
 const args = parseArgs(process.argv.slice(2))
 if (args.help) { printHelp(); process.exit(0) }
 
-const targetCfg = TARGETS[args.target]
-const outputPattern = args.target === 'web'
-  ? `.ihui-agent/tmp/i18n-dead-keys-${TODAY}.md`
-  : `.ihui-agent/tmp/i18n-dead-keys-${TODAY}-${args.target}.md`
+const names =
+  args.target === 'all'
+    ? Object.keys(TARGETS).filter((n) => TARGETS[n].scanTargets.length > 0)
+    : [args.target]
 
-const code = runScan({
-  name: args.target,
-  messagesPath: `${targetCfg.localeDir}/zh-CN.json`,
-  scanTargets: targetCfg.scanTargets,
-  outputPattern,
-  dryRun: args.dryRun,
-  exitOnDead: args.exitOnDead,
-  out: args.out,
-  scriptName: 'scan-dead-i18n-keys',
-})
-process.exit(code)
+if (args.target === 'all' && args.out) {
+  console.log('[scan-dead-i18n-keys] --target all 下忽略 --out(各端各写自己的报告,否则会互相覆盖)')
+}
+const skipped = Object.keys(TARGETS).filter((n) => TARGETS[n].scanTargets.length === 0)
+let worst = 0
+const verdicts = []
+for (const n of names) {
+  const targetCfg = TARGETS[n]
+  const outputPattern =
+    n === 'web'
+      ? `.ihui-agent/tmp/i18n-dead-keys-${TODAY}.md`
+      : `.ihui-agent/tmp/i18n-dead-keys-${TODAY}-${n}.md`
+  const code = runScan({
+    name: n,
+    messagesPath: `${targetCfg.localeDir}/zh-CN.json`,
+    scanTargets: targetCfg.scanTargets,
+    outputPattern,
+    dryRun: args.dryRun,
+    exitOnDead: args.exitOnDead,
+    out: args.target === 'all' ? null : args.out,
+    scriptName: 'scan-dead-i18n-keys',
+  })
+  verdicts.push(`${n}=${code === 0 ? 'ok' : `exit ${code}`}`)
+  // 取最大值而不是"最后一次不等就覆盖":否则前一端 exit 1、后端 exit 0 会把红点吞成绿。
+  worst = Math.max(worst, code)
+}
+if (args.target === 'all') {
+  // 结论必须逐端可见:只报一个总 exit 会让"某一端根本没被扫"看起来像全绿
+  console.log(`[scan-dead-i18n-keys] all → ${verdicts.join(' ')}`)
+  if (skipped.length) console.log(`[scan-dead-i18n-keys] 无 JS 扫描面,未计入:${skipped.join(', ')}`)
+}
+process.exit(worst)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
