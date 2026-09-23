@@ -45,7 +45,7 @@ import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
-import { appendCitations, type AICardsData } from './cards/types'
+import { appendCitations, appendSteerNotice, toSteerNotice, type AICardsData } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -658,6 +658,16 @@ export default function ChatPage() {
                   ],
                 }
               }),
+            // D106 Steer(中途引导):交代帧进 aiCards.steerNotices(随历史持久化)。
+            // 空文本在 toSteerNotice 拦截(不渲染空提示);上限 8 条对齐后端 _STEER_QUEUE_LIMIT。
+            onSteer: (evt) => {
+              const notice = toSteerNotice(evt)
+              if (!notice) return
+              upsertCard((c) => ({
+                ...c,
+                steerNotices: appendSteerNotice(c.steerNotices, notice),
+              }))
+            },
             onRetryScheduled: (evt) =>
               pushStreamActivity(
                 t('ai.stream.gatewayRetry', {

@@ -775,6 +775,10 @@
     "welcomeDesc": "무엇을 도와드릴까요?",
     "welcomeTitle": "안녕하세요, IHUI AI 어시스턴트입니다",
     "cards": {
+      "steer": {
+        "title": "{count}회 유도됨",
+        "more": "외 {count}건"
+      },
       "plan": {
         "title": "실행 계획"
       },
