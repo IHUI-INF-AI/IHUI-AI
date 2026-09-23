@@ -26,14 +26,14 @@
   align-items: center;
   padding: 28rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin-bottom: 20rpx;
 }
 /* RN logo: 64dp=128rpx 正圆(radius 32dp=64rpx);logoBody mb rpx(16) */
 .dc-avatar {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 64rpx;
+  border-radius: 64rpx; /* radius-exempt: 开发者头像正圆=宽高 128rpx 的一半 */
   margin-bottom: 16rpx;
   background: var(--color-muted);
 }
@@ -66,7 +66,7 @@
 .dc-become-btn {
   padding: 10rpx 40rpx;
   background: var(--color-primary);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   color: var(--color-primary-foreground);
   font-size: 28rpx;
   font-weight: 600;
@@ -83,7 +83,7 @@
   align-items: stretch;
   padding: 24rpx 0;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin-bottom: 20rpx;
 }
 .dc-entry-item {
@@ -104,7 +104,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-muted);
-  border-radius: 48rpx;
+  border-radius: 48rpx; /* radius-exempt: 入口图标底正圆=宽高 96rpx 的一半 */
 }
 .dc-entry-emoji {
   font-size: 56rpx; /* RN devIcon 28dp=56rpx */
@@ -120,7 +120,7 @@
 .dc-account-card {
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin-bottom: 20rpx;
   display: flex;
   flex-direction: column;
@@ -233,7 +233,7 @@
   box-sizing: border-box;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
 }
@@ -260,7 +260,7 @@
   align-self: flex-start;
   padding: 8rpx 24rpx;
   background: var(--color-primary);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   color: var(--color-primary-foreground);
   font-size: 26rpx; /* 13dp */
   font-weight: 500;

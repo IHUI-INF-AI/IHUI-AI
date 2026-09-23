@@ -33,7 +33,7 @@
   align-items: center;
   justify-content: center;
   height: 64rpx;
-  border-radius: 20rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-muted);
 }
 
@@ -73,7 +73,7 @@
   height: 64rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   flex-shrink: 0;
 }
 
@@ -121,7 +121,7 @@
   width: 220rpx;
   padding: 20rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   flex-shrink: 0;
   gap: 8rpx;
 }
@@ -130,7 +130,7 @@
 .ci-user-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 48rpx;
+  border-radius: 48rpx; /* radius-exempt: 圆形头像,半径=宽高一半 */
   background: var(--color-muted);
 }
 
@@ -165,7 +165,7 @@
   margin-top: 8rpx;
   padding: 8rpx 28rpx;
   background: var(--color-brand);
-  border-radius: 28rpx;
+  border-radius: var(--radius-xl);
 }
 
 /* 对齐 RN userFollowText:12dp→24rpx / 600 / surface.card */
@@ -198,7 +198,7 @@
   flex-direction: column;
   gap: 12rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
 }
 
@@ -217,7 +217,7 @@
 .ci-avatar {
   width: 56rpx;
   height: 56rpx;
-  border-radius: 28rpx;
+  border-radius: 28rpx; /* radius-exempt: 圆形头像,半径=宽高一半 */
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -270,7 +270,7 @@
 .ci-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 
@@ -332,7 +332,7 @@
   justify-content: center;
   padding: 16rpx 40rpx;
   background: var(--color-brand);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
 }
 
 /* 对齐 RN emptyBtnText:13dp→26rpx / 600 / surface.card */
@@ -383,7 +383,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-brand);
-  border-radius: 52rpx;
+  border-radius: 52rpx; /* radius-exempt: 圆形发布悬浮按钮,半径=宽高一半 */
   z-index: 10;
 }
 

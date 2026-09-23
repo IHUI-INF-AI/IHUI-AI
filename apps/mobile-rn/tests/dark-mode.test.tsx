@@ -53,28 +53,40 @@ describe('getTokens 动态 token 逻辑', () => {
     expect(getTokens('dark')).toBe(darkTokens)
   })
 
-  it("getTokens('light').surface.bg === '#FFFFFF'", () => {
-    expect(getTokens('light').surface.bg).toBe('#FFFFFF')
+  // 断言值 = packages/design-tokens/src/rn-tokens.ts 的真值。
+  // 2026-09-04 起浅色页面是 #F5F5F5(浅灰页面 + 白卡分层,对齐 web --color-background),
+  // 深色页面是 #242424(替换原蓝灰 #1F2937)。此前本文件断言的是替换前的旧值,
+  // 因为 @ihui/rn-app 测试替身里手抄了同一批旧字面值 ⇒ 色板改了几轮测试毫无反应。
+  it("getTokens('light').surface.bg === '#F5F5F5'", () => {
+    expect(getTokens('light').surface.bg).toBe('#F5F5F5')
   })
 
-  it("getTokens('dark').surface.bg === '#1F2937'", () => {
-    expect(getTokens('dark').surface.bg).toBe('#1F2937')
+  it("getTokens('dark').surface.bg === '#242424'", () => {
+    expect(getTokens('dark').surface.bg).toBe('#242424')
   })
 
   it('明暗模式 surface.bg 不同(核心:暗色模式真的不同)', () => {
     expect(getTokens('light').surface.bg).not.toBe(getTokens('dark').surface.bg)
   })
 
-  it("getTokens('dark').surface.bg === tokens.surface.dark(与 RootNavigator Tab Bar 一致)", () => {
-    expect(getTokens('dark').surface.bg).toBe(tokens.surface.dark)
+  // 卡片必须与页面分层(浅色白卡压灰页 / 深色深卡压浅一点的灰页),
+  // 这是"容器背景没统一"那批报修的反例锚点。
+  it('surface.card 与 surface.bg 两态均不同(卡片分层成立)', () => {
+    expect(getTokens('light').surface.card).toBe('#FFFFFF')
+    expect(getTokens('dark').surface.card).toBe('#1A1A1A')
+    expect(getTokens('light').surface.card).not.toBe(getTokens('light').surface.bg)
+    expect(getTokens('dark').surface.card).not.toBe(getTokens('dark').surface.bg)
+  })
+
+  // 旧断言 `dark.surface.bg === tokens.surface.dark` 已随 2026-09-04 色板对齐失效
+  // (深页 #242424 vs base surface.dark #262626),不再作为不变量维护;
+  // Tab Bar 取的是 base tokens.surface.dark,单独钉住它。
+  it("tokens.surface.dark === '#262626'(RootNavigator Tab Bar 仍用)", () => {
+    expect(tokens.surface.dark).toBe('#262626')
   })
 })
 
 describe('base tokens 保留(向后兼容 RootNavigator)', () => {
-  it("tokens.surface.dark === '#1F2937'(RootNavigator Tab Bar 仍用)", () => {
-    expect(tokens.surface.dark).toBe('#1F2937')
-  })
-
   it("tokens.surface.light === '#FFFFFF'", () => {
     expect(tokens.surface.light).toBe('#FFFFFF')
   })
@@ -105,24 +117,40 @@ function makeProps(overrides: Partial<SettingsScreenProps> = {}): SettingsScreen
   }
 }
 
+/** #RRGGBB → DOM 的 rgb(r, g, b) 写法 */
+function rgbOf(hex: string): string {
+  const n = hex.replace('#', '')
+  const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(n.slice(i, i + 2), 16))
+  return `rgb(${r}, ${g}, ${b})`
+}
+
 describe('SettingsScreen colorScheme prop 渲染', () => {
-  it('colorScheme="dark" → 根容器 backgroundColor 为 #1F2937', () => {
+  // 渲染层只钉"组件是否跟随 colorScheme 取 tk.surface.bg";色板**绝对值**由上面的
+  // getTokens 单元断言钉死(#F5F5F5 / #242424)。若在此再抄一份字面值,色板一改就假红。
+  it('colorScheme="dark" → 根容器 backgroundColor = 深色 surface.bg', () => {
     const { container } = render(<SettingsScreen {...makeProps({ colorScheme: 'dark' })} />)
     const root = container.firstChild as HTMLElement
-    expect(root.style.backgroundColor).toMatch(/rgb\(31,\s*41,\s*55\)/i)
+    expect(root.style.backgroundColor).toBe(rgbOf(getTokens('dark').surface.bg))
   })
 
-  it('colorScheme="light"(显式) → 根容器 backgroundColor 为 #FFFFFF(surface.bg)', () => {
+  it('colorScheme="light"(显式) → 根容器 backgroundColor = 浅色 surface.bg', () => {
     const { container } = render(<SettingsScreen {...makeProps({ colorScheme: 'light' })} />)
     const root = container.firstChild as HTMLElement
-    // 共享层 Settings createStyles:浅色 pageBg = tk.surface.bg(#FFFFFF,token 化迁移)
-    expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)
+    expect(root.style.backgroundColor).toBe(rgbOf(getTokens('light').surface.bg))
   })
 
-  it('不传 colorScheme(默认 light) → 根容器 backgroundColor 为 #FFFFFF(surface.bg)', () => {
+  it('不传 colorScheme(默认 light) → 根容器 backgroundColor = 浅色 surface.bg', () => {
     const { container } = render(<SettingsScreen {...makeProps()} />)
     const root = container.firstChild as HTMLElement
-    expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)
+    expect(root.style.backgroundColor).toBe(rgbOf(getTokens('light').surface.bg))
+  })
+
+  it('同一组件两态取到不同底色(colorScheme 真的生效)', () => {
+    const dark = render(<SettingsScreen {...makeProps({ colorScheme: 'dark' })} />)
+    const light = render(<SettingsScreen {...makeProps({ colorScheme: 'light' })} />)
+    expect((dark.container.firstChild as HTMLElement).style.backgroundColor).not.toBe(
+      (light.container.firstChild as HTMLElement).style.backgroundColor,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

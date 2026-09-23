@@ -209,7 +209,7 @@ export default function CoursePlanet() {
               {tt('coursePlanet.loadFailed', '加载失败')}
             </Text>
             <Text
-              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-primary-foreground text-center rounded-[12rpx] text-[28rpx]"
+              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-primary-foreground text-center rounded-md text-[28rpx]"
               onClick={loadData}
             >
               {t('common.retry')}
@@ -236,7 +236,7 @@ export default function CoursePlanet() {
             {CATEGORY_KEYS.map((cat) => (
               <Text
                 key={cat.key}
-                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[24rpx] font-semibold text-[var(--color-text-tertiary)] bg-card rounded-[24rpx] ${activeCategory === cat.key ? 'text-primary-foreground bg-primary' : ''}`}
+                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[24rpx] font-semibold text-[var(--color-text-tertiary)] bg-card rounded-xl ${activeCategory === cat.key ? 'text-primary-foreground bg-primary' : ''}`}
                 onClick={() => onCategoryChange(cat.key)}
               >
                 {tt(cat.label, cat.key)}
@@ -263,7 +263,7 @@ export default function CoursePlanet() {
               autoplay
               interval={4000}
               height={144}
-              className="rounded-[60rpx]"
+              className="rounded-2xl"
               onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
             />
           </View>
@@ -273,7 +273,7 @@ export default function CoursePlanet() {
             displayList.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-[24rpx] border border-border overflow-hidden mb-[24rpx]"
+                className="flex bg-card rounded-xl border border-border overflow-hidden mb-[24rpx]"
                 hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >

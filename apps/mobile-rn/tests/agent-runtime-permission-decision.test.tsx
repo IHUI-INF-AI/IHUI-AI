@@ -20,14 +20,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '../src/i18n'
 
-/** 端内权限事件形态(与 @ihui/shared 的 AgentRuntimePermissionEvent 对齐) */
-interface PermissionEvent {
-  mode: string
-  toolName?: string
-  dangerLevel?: string
-  decision: string
-}
-
 // vi.hoisted:工厂在模块初始化期执行,fixture 必须先于 vi.mock 工厂存在
 const fixture = vi.hoisted(() => ({
   permission: null as {

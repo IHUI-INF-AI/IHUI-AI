@@ -147,7 +147,7 @@ export default function TopicListPage() {
               {tabs.map((tab) => (
                 <View
                   key={tab.key}
-                  className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[20rpx] ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
+                  className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-lg ${activeTab === tab.key ? 'text-foreground bg-muted font-semibold' : 'text-[var(--color-text-tertiary)] bg-card'}`}
                   onClick={() => switchTab(tab.key)}
                   hoverClass="opacity-60"
                 >
@@ -162,18 +162,18 @@ export default function TopicListPage() {
                 {list.map((item) => (
                   <View
                     key={item.id}
-                    className="flex items-center bg-card rounded-[16rpx] p-[24rpx]"
+                    className="flex items-center bg-card rounded-lg p-[24rpx]"
                     hoverClass="opacity-85"
                     onClick={() => goDetail(item.id)}
                   >
                     {item.coverUrl ? (
                       <Image
-                        className="w-[100rpx] h-[100rpx] rounded-[12rpx] bg-muted shrink-0"
+                        className="w-[100rpx] h-[100rpx] rounded-md bg-muted shrink-0"
                         src={item.coverUrl}
                         mode="aspectFill"
                       />
                     ) : (
-                      <View className="w-[100rpx] h-[100rpx] rounded-[12rpx] bg-muted shrink-0 flex items-center justify-center">
+                      <View className="w-[100rpx] h-[100rpx] rounded-md bg-muted shrink-0 flex items-center justify-center">
                         {/* RN coverHash:fontSize 20dp→40rpx / 700 / text.primary→foreground */}
                         <Text className="text-[40rpx] font-bold text-foreground">#</Text>
                       </View>

@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useTranslations } from 'next-intl'
 import type { Dispatch, SetStateAction } from 'react'
 import type { DesignComment } from '@ihui/shared/design/element'
@@ -135,7 +137,7 @@ export function InspectorPanel({
                     fontSize: 11,
                     padding: '2px 8px',
                     border: '1px solid var(--border)',
-                    borderRadius: 4,
+                    borderRadius: rnRadius.sm,
                     background: 'transparent',
                     cursor: 'pointer',
                     color: 'var(--muted)',
@@ -226,7 +228,7 @@ export function InspectorPanel({
               style={{
                 padding: '6px 8px',
                 border: '1px solid var(--border)',
-                borderRadius: 6,
+                borderRadius: rnRadius.md,
                 background: 'var(--background, transparent)',
                 display: 'flex',
                 flexDirection: 'column',

@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 排行榜/Props 类型 re-export(单一来源 @ihui/types) */
 export type { RankingItem, RankingRange, RankingScreenProps }
 
@@ -184,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -204,25 +206,30 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     podiumFirst: { backgroundColor: tk.warning.amberLight },
     podiumAvatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 48 / 2, // radius-exempt: 领奖台头像几何正圆(48dp 直径/2)
       borderWidth: 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.bg,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: 8 },
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius.lg },
     avatarInitial: { fontSize: 22, fontWeight: '600', color: tk.text.secondary },
     podiumName: { marginTop: 8, fontSize: 14, fontWeight: '600', color: tk.text.primary },
     podiumPoints: { marginTop: 8, fontSize: 14, color: tk.success.DEFAULT },
-    rankBadge: { marginTop: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+    rankBadge: {
+      marginTop: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: rnRadius.lg,
+    },
     rankBadgeText: { fontSize: 11, color: tk.surface.light },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 8 },
@@ -230,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -240,7 +247,7 @@ function createStyles(tk: AppThemeTokens) {
     listAvatar: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 44 / 2, // radius-exempt: 榜单行头像几何正圆(44dp 直径/2)
       borderWidth: 1.5,
       alignItems: 'center',
       justifyContent: 'center',

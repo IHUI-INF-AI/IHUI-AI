@@ -22,6 +22,8 @@ import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-
 import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 interface DevErrorEntry {
   id: number
   message: string
@@ -41,7 +43,6 @@ const TOP_INSET = 12
 const AUTO_DISMISS_MS = 4000
 const Z_INDEX = 9999
 /** 圆角 8 对齐 web toastOptions borderRadius 8px(rounded-lg) */
-const BAR_BORDER_RADIUS = 8
 const BAR_PADDING_H = 12
 const BAR_PADDING_V = 10
 const FONT_SIZE = 13
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: BG_COLOR,
-    borderRadius: BAR_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: BAR_PADDING_H,
     paddingVertical: BAR_PADDING_V,
     // 投影(Android elevation / iOS shadow)
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
     maxHeight: STACK_MAX_HEIGHT,
     marginTop: 8,
     padding: 8,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   stackText: {
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
   badge: {
     minWidth: BADGE_SIZE,
     height: BADGE_SIZE,
-    borderRadius: BADGE_SIZE / 2,
+    borderRadius: BADGE_SIZE / 2, // radius-exempt: 计数徽章胶囊端=BADGE_SIZE 高度一半(几何圆表达式)
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',

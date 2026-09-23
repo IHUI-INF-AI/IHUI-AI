@@ -19,6 +19,8 @@ import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
 import { SearchInput } from '../../components/SearchInput'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // ── 类型定义(强类型,禁用 any;内联定义对齐 MessageChatScreen 模式) ──
 
 /** 媒体消息类型(对齐历史 mediaType 推断) */
@@ -342,9 +344,11 @@ function Avatar({
 }) {
   const initial = (name || '友').trim().charAt(0) || '友'
   if (uri) {
+    // radius-exempt: 成员头像正圆=直径一半(几何圆表达式,size/2 已是同源写法)
     return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2 }} />
   }
   return (
+    // radius-exempt: 头像兜底正圆=直径一半(几何圆表达式,与上方 Image 同规格)
     <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}>
       <Text style={[styles.avatarFallbackText, { fontSize: size / 2.4 }]}>{initial}</Text>
     </View>
@@ -411,16 +415,16 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 240, // 历史 .message-bubble max-width 480rpx
       paddingVertical: 10, // rpx(20)
       paddingHorizontal: 12, // rpx(24)
-      borderRadius: 6, // rpx(12)
+      borderRadius: rnRadius.md, // rpx(12)
     },
     bubbleUser: {
       backgroundColor: tk.vip.gold, // 历史 #FFD700
-      borderTopRightRadius: 2, // rpx(4)
+      borderTopRightRadius: rnRadius.xs, // rpx(4)
       marginHorizontal: 8, // 历史 avatar margin 16rpx
     },
     bubbleSeller: {
       backgroundColor: tk.surface.muted, // 历史 #f0f0f0
-      borderTopLeftRadius: 2, // rpx(4)
+      borderTopLeftRadius: rnRadius.xs, // rpx(4)
       marginHorizontal: 8, // 历史 avatar margin 16rpx
     },
     bubbleMedia: {
@@ -445,7 +449,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 160, // rpx(320)
       minWidth: 100, // rpx(200)
       minHeight: 100, // rpx(200)
-      borderRadius: 4, // 历史 8rpx
+      borderRadius: rnRadius.sm, // 历史 8rpx
       backgroundColor: tk.gray[100],
     },
     mediaRow: {
@@ -500,7 +504,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       height: 32, // rpx(64)
-      borderRadius: 16, // 历史 rounded 搜索框
+      borderRadius: rnRadius['2xl'], // 历史 rounded 搜索框
       backgroundColor: tk.surface.inputBg,
       paddingHorizontal: 12, // rpx(24)
       fontSize: 14, // rpx(28)
@@ -534,7 +538,7 @@ function createStyles(tk: AppThemeTokens) {
     unreadBadge: {
       minWidth: 16, // rpx(32)
       height: 16, // rpx(32)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

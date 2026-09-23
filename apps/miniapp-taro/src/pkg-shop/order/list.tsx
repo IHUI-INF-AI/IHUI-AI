@@ -246,7 +246,7 @@ export default function OrderList() {
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`px-[28rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+            className={`px-[28rpx] py-[12rpx] rounded-xl text-[28rpx] ${
               status === tab.value
                 ? 'bg-primary text-primary-foreground font-semibold'
                 : 'bg-card text-muted-foreground'
@@ -281,14 +281,14 @@ export default function OrderList() {
                 {/* 订单卡(对齐 RN card:padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白底 / mb 24rpx;
                     内部对齐 cardBodyRow:商品图 260rpx + 右侧 info[cardHead → metaRow → amountRow]) */}
                 <View
-                  className="bg-card rounded-[24rpx] border-[2rpx] border-border p-[24rpx] mb-[24rpx]"
+                  className="bg-card rounded-xl border-[2rpx] border-border p-[24rpx] mb-[24rpx]"
                   hoverClass="opacity-60"
                   onClick={() => goDetail(o.id)}
                 >
                   <View className="flex gap-[24rpx]">
                     {img ? (
                       <Image
-                        className="w-[260rpx] h-[260rpx] rounded-[20rpx] bg-card"
+                        className="w-[260rpx] h-[260rpx] rounded-lg bg-card"
                         src={img}
                         mode="aspectFill"
                         lazyLoad
@@ -303,7 +303,7 @@ export default function OrderList() {
                           {productName}
                         </Text>
                         <Text
-                          className={`px-[12rpx] py-[4rpx] rounded-[8rpx] text-[22rpx] font-medium ${info.badge}`}
+                          className={`px-[12rpx] py-[4rpx] rounded-sm text-[22rpx] font-medium ${info.badge}`}
                         >
                           {info.textKey ? t(info.textKey) : o.status}
                         </Text>

@@ -21,6 +21,8 @@ import { SearchInput } from '../../components/SearchInput'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
 export interface PlazaItem {
   id: string
@@ -342,15 +344,19 @@ export function PlazaScreen({
           }
         />
       )}
-      {/* 悬浮发布按钮 */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
-        onPress={onPublish}
-        accessibilityRole="button"
-        accessibilityLabel="发布需求"
-      >
-        <Text style={styles.fabIcon}>＋</Text>
-      </Pressable>
+      {/* 悬浮发布按钮:全宽 wrapper 居中(flex 居中,不用百分比/负 margin,各 Yoga 版本一致) + 内层 50dp 圆;wrapper pointerEvents 透传,触区仅圆钮 */}
+      <View style={styles.fabWrap} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
+          onPress={onPublish}
+          accessibilityRole="button"
+          accessibilityLabel="发布需求"
+        >
+          <View style={styles.fabCircle}>
+            <Text style={styles.fabIcon}>＋</Text>
+          </View>
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -369,7 +375,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       paddingVertical: 14,
@@ -390,21 +396,21 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
     } as ViewStyle,
     chipActive: {
-      backgroundColor: tk.brandAccent.DEFAULT,
-      borderColor: tk.brandAccent.DEFAULT,
+      backgroundColor: tk.brand.ctaFill,
+      borderColor: tk.brand.ctaFill,
     } as ViewStyle,
     chipText: {
       fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
-      color: tk.brand.foreground,
+      color: tk.brand.ctaText,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
@@ -442,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
@@ -473,18 +479,18 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 10,
-      borderRadius: 12,
-      backgroundColor: tk.brandAccent.DEFAULT,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.brand.ctaFill,
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: tk.brand.foreground,
+      color: tk.brand.ctaText,
       fontWeight: '600',
     } as TextStyle,
     card: {
       marginBottom: 9,
       padding: 12,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -501,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
     cardImage: {
       width: '100%',
       height: 160,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       marginBottom: 8,
     } as ImageStyle,
     cardDesc: {
@@ -528,7 +534,7 @@ function createStyles(tk: AppThemeTokens) {
     avatarWrap: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
     } as ViewStyle,
     avatarFallback: {
@@ -566,7 +572,7 @@ function createStyles(tk: AppThemeTokens) {
     chatBtn: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     chatBtnPressed: {
@@ -585,22 +591,30 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 11,
       color: tk.text.secondary,
     } as TextStyle,
-    fab: {
+    fabWrap: {
       position: 'absolute',
       bottom: 24,
       left: 0,
       right: 0,
       alignItems: 'center',
     } as ViewStyle,
+    fab: {
+      width: 50,
+      height: 50,
+    } as ViewStyle,
     fabPressed: {
       opacity: 0.8,
     } as ViewStyle,
-    fabIcon: {
+    fabCircle: {
       width: 50,
       height: 50,
-      borderRadius: 25,
-      backgroundColor: tk.brandAccent.DEFAULT,
-      color: tk.brand.foreground,
+      borderRadius: 50 / 2, // radius-exempt: 50dp 见方悬浮按钮,半径=边长一半为真圆,改方档会变成方块
+      backgroundColor: tk.brand.ctaFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+    fabIcon: {
+      color: tk.brand.ctaText,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,

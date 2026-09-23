@@ -67,21 +67,21 @@ export type {
 } from '../../../../packages/app/src/features/wallet/WalletScreen'
 export type { WithdrawScreenProps } from '../../../../packages/app/src/features/withdraw/WithdrawScreen'
 
-export const tokens = {
-  brand: { DEFAULT: '#000000' },
-  surface: { bg: '#FFFFFF', light: '#FFFFFF', dark: '#1F2937', muted: '#F9FAFB', card: '#F3F4F6' },
-} as const
-export const lightTokens = {
-  brand: { DEFAULT: '#000000', dark: '#34D399' },
-  surface: { bg: '#FFFFFF', light: '#FFFFFF', dark: '#1F2937', muted: '#F9FAFB', card: '#F3F4F6' },
-} as const
-export const darkTokens = {
-  brand: { DEFAULT: '#FFFFFF', dark: '#34D399' },
-  surface: { bg: '#1F2937', light: '#FFFFFF', dark: '#0F172A', muted: '#111827', card: '#374151' },
-} as const
-export function getTokens(theme: 'light' | 'dark') {
-  return theme === 'dark' ? darkTokens : lightTokens
-}
+/**
+ * 色板一律走真包,不得手抄。
+ *
+ * 此处原先手抄了 `tokens/lightTokens/darkTokens/getTokens` 的字面值,且抄的是
+ * **2026-09-04 已被明确替换掉的蓝灰旧值**(`surface.bg` 浅 #FFFFFF→真 #F5F5F5、
+ * 深 #1F2937→真 #242424,`card` #F3F4F6/#374151→真 #FFFFFF/#1A1A1A)。
+ * 而同一文件里的 `SettingsScreen` 又是 re-export 真实组件 —— 真组件配假色板,
+ * 结果就是 dark-mode 测试对一份不存在的色板断言全绿,色板改了几轮测试毫无反应。
+ */
+export {
+  tokens,
+  lightTokens,
+  darkTokens,
+  getTokens,
+} from '../../../../packages/app/src/theme/tokens'
 
 export { ModelPlazaScreen } from './model-plaza-mock'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

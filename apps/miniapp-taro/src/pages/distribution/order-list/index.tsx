@@ -164,7 +164,7 @@ export default function DistributionOrderList() {
           {TABS(tt).map((tab) => (
             <View
               key={tab.value}
-              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-[24rpx] ${activeTab === tab.value ? 'bg-primary' : 'bg-card'}`}
+              className={`flex-1 flex items-center justify-center py-[12rpx] rounded-xl ${activeTab === tab.value ? 'bg-primary' : 'bg-card'}`}
               onClick={() => switchTab(tab.value)}
               hoverClass="opacity-60"
             >
@@ -199,7 +199,7 @@ export default function DistributionOrderList() {
             return (
               <View
                 key={o.id}
-                className="rounded-[24rpx] bg-card p-[28rpx] flex flex-col gap-[16rpx]"
+                className="rounded-xl bg-card p-[28rpx] flex flex-col gap-[16rpx]"
                 onClick={() => onItemClick(o.id)}
                 hoverClass="opacity-60"
               >
@@ -208,7 +208,7 @@ export default function DistributionOrderList() {
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
                   </Text>
                   <Text
-                    className={`flex-shrink-0 px-[16rpx] py-[4rpx] rounded-[24rpx] text-[22rpx] ${statusInfo.cls}`}
+                    className={`flex-shrink-0 px-[16rpx] py-[4rpx] rounded-xl text-[22rpx] ${statusInfo.cls}`}
                   >
                     {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
                   </Text>
@@ -247,7 +247,7 @@ export default function DistributionOrderList() {
             {tt('distribution.orderList.error', '加载失败')}
           </Text>
           <View
-            className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
+            className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
             onClick={() => load(true)}
             hoverClass="opacity-60"
           >
