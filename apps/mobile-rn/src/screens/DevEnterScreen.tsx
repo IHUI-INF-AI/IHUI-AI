@@ -403,14 +403,14 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: rpx(20),
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   searchBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
@@ -492,11 +492,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
     borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   setBtnText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   } as TextStyle,
   statusText: {
