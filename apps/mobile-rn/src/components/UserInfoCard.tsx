@@ -254,7 +254,7 @@ const newStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -264,7 +264,7 @@ const newStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -343,7 +343,7 @@ const newStyles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tokens.surface.muted,
     borderRadius: 6,
   },
   tokenLabelWrap: {
@@ -447,7 +447,7 @@ const newStyles = StyleSheet.create({
   },
   copyBtnText: {
     fontSize: 11,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   // 等级弹窗
@@ -563,7 +563,7 @@ const oldStyles = StyleSheet.create({
     alignItems: 'center',
   },
   loginBtn: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 2,
     borderColor: tokens.text.primary,
     borderRadius: 12,
@@ -573,7 +573,7 @@ const oldStyles = StyleSheet.create({
   loginBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   card: {
     marginTop: 8,
@@ -603,7 +603,7 @@ const oldStyles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   membershipRow: {
     flexDirection: 'row',

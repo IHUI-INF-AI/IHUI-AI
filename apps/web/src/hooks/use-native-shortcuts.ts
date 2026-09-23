@@ -19,13 +19,8 @@ import type { MenuActionId } from '@/lib/tauri-bridge'
  * 快捷键映射(与原 Rust MenuItemBuilder.accelerator 一一对应):
  * - Ctrl+R / F5       → view.reload     (刷新 webview)
  * - F12               → view.devtools   (切换开发者工具)
+ * - Ctrl+Shift+A      → file.open_admin (唤起管理后台)
  * - Ctrl+Q            → file.quit       (真退出应用)
- *
- * 2026-09-23 移除:Ctrl+Shift+A → file.open_admin
- * - 该分支是从 Tauri 菜单 accelerator 移植来的,而 Rust 端对应 accelerator 早已删除;
- * - 它与 use-ide-shortcuts 的 `Ctrl+Shift+A`(applications 视图)、
- *   注册表 mention-file 三方撞键,一次按下三件事同时发生;
- * - 管理后台在顶栏/设置页均有正常入口,不需要快捷键承载。
  *
  * 兼容性:
  * - 焦点在 input/textarea/contenteditable 时不触发(让用户正常输入)
@@ -71,6 +66,12 @@ export function useNativeShortcuts(handler: (id: MenuActionId) => void) {
       if (key === 'f11' && !ctrl && !shift && !alt) {
         e.preventDefault()
         handlerRef.current('view.fullscreen')
+        return
+      }
+
+      if (ctrl && shift && (key === 'a' || key === 'a')) {
+        e.preventDefault()
+        handlerRef.current('file.open_admin')
         return
       }
 
