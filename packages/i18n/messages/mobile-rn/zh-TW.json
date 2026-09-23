@@ -159,7 +159,14 @@
     "payFailed": "支付失敗",
     "createFailed": "創建支付訂單失敗",
     "wechatNotInstalled": "未安裝微信客戶端",
-    "nativeUnavailable": "微信支付不可用,需重新構建應用"
+    "nativeUnavailable": "微信支付不可用,需重新構建應用",
+    "payType": {
+      "freeuse": "免費使用",
+      "freetime": "限時免費",
+      "hasbuy": "已購買",
+      "monthly": "每月"
+},
+    "recharge": "去充值"
   },
   "order": {
     "title": "訂單",

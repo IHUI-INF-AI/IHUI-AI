@@ -159,7 +159,14 @@
     "payFailed": "支払い失敗",
     "createFailed": "支払い注文作成失敗",
     "wechatNotInstalled": "WeChatがインストールされていません",
-    "nativeUnavailable": "WeChat Pay利用不可,リビルドが必要"
+    "nativeUnavailable": "WeChat Pay利用不可,リビルドが必要",
+    "payType": {
+      "freeuse": "無料で使う",
+      "freetime": "期間限定無料",
+      "hasbuy": "購入済み",
+      "monthly": "毎月"
+},
+    "recharge": "チャージする"
   },
   "order": {
     "title": "注文",

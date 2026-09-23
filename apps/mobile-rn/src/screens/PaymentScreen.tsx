@@ -174,7 +174,7 @@ export function PaymentScreen() {
         onBack={() => navigation.goBack()}
       />
       <View style={styles.rechargeWrap}>
-        <PayButton amount={0} label="去充值" onPress={handleRecharge} />
+        <PayButton amount={0} label={t('payment.recharge')} onPress={handleRecharge} />
       </View>
       {pendingProduct ? (
         <ConfirmPurchasePopUp
