@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * AiModelCard AI 模型卡片 (mobile-rn 端)
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 12,
     marginBottom: 8,
   },
@@ -280,7 +281,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.surface.card,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   tagText: {
     fontSize: 11,
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.warning.light,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   badgeText: {
     fontSize: 11,
@@ -367,7 +368,7 @@ const styles = StyleSheet.create({
   groupLogo: {
     width: 18,
     height: 18,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
     marginRight: 6,
   },
@@ -404,7 +405,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     backgroundColor: tokens.brand.ctaFill,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   buyBtnText: {
     fontSize: 12,
@@ -425,7 +426,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   settingBtnText: {
     fontSize: 14,
