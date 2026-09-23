@@ -184,14 +184,6 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - Drizzle ORM 0.38 + postgres-js。用 Zod 校验请求参数。复用 `packages/auth` 的 authenticate 函数;admin 路由用 preHandler 统一校验(roleId >= 1)。幂等操作用 `onConflictDoNothing`。slug 从 name 自动生成。API 响应统一 `{ code, message, data }` 格式。
 
-### 鉴权面公开化必须显式列举(强制,2026-09-23 立)
-
-- **禁止**用兜底正则把 `/api/<前缀>/[^/]+` 这类"参数路由"形态当作公开面 —— 它会连同**静态子路由**一起放行。实测 `agents.ts` 的 `^/api/agents/[^/]+$` 让 `/agents/health` 游客可访问,而 `/agents/need-tasks` 的 handler 依赖 `request.userId`,游客走到它不是 401 而是 **500**:fail-open 直接崩在鉴权层后面,比 401 更难发现。
-- 正确做法:**显式白名单列路径**(如 `/api/agents`、`/api/agents/list`、`/api/categories/list`),详情路由用正则时**必须**配一张静态段排除表(`AGENTS_PROTECTED_STATIC_SEGMENTS`)。**新增 `/agents/<静态段>` 的 GET 路由时必须同步登记该表**,否则会被当成游客详情放行。
-- 游客视图的公开数据由 handler 自证:强制 `status=published` + `sanitizePublicAgent` 脱敏,并且测试要断言"未发布读不到 + 脱敏字段不出现",不得只断言 200。
-- 改动 router 鉴权面前必须做**影响面核查**:全仓 grep 该路径(含 `packages/` 与各端)确认没有未登录调用方;本仓这两个端点的实际调用方为 0。
-- 部署侧 nginx 与蓝绿 nginx 是两份配置:边缘限流(`limit_req_zone` / `limit_req_status 429` / `error_page 429`)改一处必须同步另一处,docker 侧 zone 名须带 `docker_` 前缀以免与 `deploy/nginx/conf.d/*.conf` 重名(Nginx 同 http 上下文重名 zone 会**启动失败**)。静态自检:`apps/api/tests/o5-nginx-edge-ratelimit.test.ts`。
-
 ### 测试隔离铁律(强制,2026-09-12 立)
 
 - **测试一律禁止连生产库**。pytest 用例不得对生产 PostgreSQL(`8810`)/ Redis(`8811`)产生任何写入副作用;需要 DB 的路径必须 mock 或注入隔离实例。
@@ -601,42 +593,10 @@ pnpm dev                                       # 启动所有服务(web + api + 
 **守门脚本**:
 
 - `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
-- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)。**2026-09-23 结构性加固**:新增 `CREDENTIAL_DIR_NAMES` 共 8 项,对 `secrets`/`secret`/`credentials`/`credential`/`密钥`/`certs`/`certificates`/`.pybcrypt` **整目录不扫不删**(目录名按 `toLowerCase()` 比对,大小写不敏感;既往逐 `USER_LEGIT_PATTERNS` 按 filename 豁免已被证明会漏第三把密钥)。
+- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
 - `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
-- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。**⚠️ `--auto-clean` 对强信号命中直接 `unlinkSync` 实删文件、无任何二次确认** —— 清理类任务的铁律:先跑不带 `--auto-clean` 的 `node scripts/check-parent-pollution.mjs` 看命中清单并逐项验明身份,**命中项落在凭据/密钥目录内或名字含 key/secret/token 的,一律先补豁免再清理,顺序不可颠倒**(2026-09-22 实测用户口令表 `D:/DevEnv/secrets/ihui-app-password.txt` 因 `ihui-` 前缀被判为 agent 垃圾 —— 若不先补目录级豁免而直接跑 `pnpm hygiene:parent:clean`,它**会被无声删除**;该文件现仍完好,风险已在清理之前闭环)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
-
-### 15b. 项目外落点唯一制(强制,2026-09-23 立)
-
-用户规定:**任何文件都不得写在项目文件夹之外**,只允许下述四个经批准的落点;不再新增第五个。
-禁止在家目录、盘根、`AppData` 下随手建目录 —— 本机曾因此散落 `D:\tmp-*`、`D:\c`、`D:\d`、
-`D:\IHUI-AI-backup-*.tar`(8.3GB)等十几个游离项,已收口。
-
-| 落点                                 | 用途                                                                                                                                  | 依据 |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| `D:\IHUI-AI\`(含 `.ihui-agent\tmp\`) | 源码、构建产物、一切临时物                                                                                                            | §15  |
-| `D:\DevEnv\backups\`                 | **唯一备份目录**:`git\ sql\ deploy\ archives\ desktop\ pg\ env\ releases\`。项目内不得留备份(`backups/` 曾压 64MB DB 快照,已外迁)     | 本节 |
-| `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
-| `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
-
-**显式例外(不得搬、不得删,搬了就断链)**:
-
-1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
-   `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
-   `refs-manifest.json`。同族的 `IHUI-AI.git-backup-20260912` 与 `IHUI-AI-git-repo.broken-*` 由
-   `scripts/lib/gitdir.mjs:250` 按路径主动选读,一律禁删(守门 26 已把它们与前缀 `backups`、
-   `pg_archives`、`quarantine` 一起整目录豁免,防"卫生守门删掉数据备份")。
-2. `D:\BaiduSyncdisk\密钥\` —— 模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
-3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
-   `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
-   这类不属"我们的产物",只登记、不搬动。
-4. `~/.ihui`(1.2MB)—— 我们 CLI 的全局状态。**暂不改道**:仅 `IHUI_HOME` 被
-   `apps/cli/src/plugins/paths.ts:24` 等 3 处认,而 `workspace-ai-service.ts:38`、
-   `workspace-ai.ts:714/730/807`、`announcements/index.ts:117`、`refresh-cli-token.mjs:34` 四处硬编
-   `homedir()`,单设环境变量会造成**双根分裂**(token 读写不同路径)。必须先补这 4 处,再谈改道。
-
-**新写文件前的三问**:① 是源码/产物吗 → 项目内;② 是备份吗 → `D:\DevEnv\backups\<类>\`;
-③ 是临时物吗 → `TEMP`。三者都不是 → 停下来问用户,不得自建新目录。
+- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
 
 ---
 
@@ -1150,10 +1110,8 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **工具名本地化**(55/56):check-tool-name-display-coverage(注册表 `_TOOLS` × 词表 × 五语言 taskStatus 三方比对,blocking,拦"新增工具不补功能名");check-tool-display-resolvable(91 个功能名在 shared + 5 端合并视图 + 小程序离线包逐语言解析,拦两类静默失败:端内取词缺键回显 `toolReadFile`、忘跑 `pnpm gen:i18n` 致离线包过期;`node --test scripts/tests/check-tool-display-resolvable.test.mjs` 自检)。紧急跳过 `HUSKY_SKIP_TOOL_NAME_COVERAGE=1` / `HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE=1`
 - **快捷键声明与归属对账**(69):check-declared-shortcuts.mjs(blocking,2026-09-22 立并注册)——两类红点:① "声明未绑"(UI 标了 `Ctrl+X` 而全仓无处理器,含注册表"有键无消费者");② "同键被他功能接走"(`field` 类声明与全局注册表同键,但声明方拿不出持有证据;成因是 `view-switcher` 曾把 document/browser/figma/code-changes/agent 五项标成 `Ctrl+1-5`,而该族键位实际切 AI 对话模式)。合法证据三选一:本文件出现该条目 `event` 引号字面量 / 本文件自有同键 handler + `stopPropagation`(独占截断,`RichTextEditor` 的修法)/ 条目自身与注册表同义镜像(命令面板原样列出全局键位)。**刻意只认 `field`**:`<kbd>`/正文常合法描述**别的表面**的键位,纳进必假红。全量审计 `node scripts/check-declared-shortcuts.mjs`,自检 `node --test scripts/tests/check-declared-shortcuts.test.mjs`,紧急跳过 `HUSKY_SKIP_DECLARED_SHORTCUTS=1`
 - **硬编码中文基线棘轮**(70):scan-hardcoded-zh.mjs(blocking,2026-09-22 接线)—— 扫 `apps/web/{app,src/components,src/hooks}` + `packages/{ui-react,shared}/src`,排除注释/metadata/useTranslations 行/admin/测试。**每文件命中数与基线额度比较**(`scripts/hardcoded-zh-baseline.json`):只拦"比基线更多",存量债(900+ 文件)冻结、新增即拦;清理后 `node scripts/scan-hardcoded-zh.mjs --update-baseline` 下调额度(必须人工确认后再跑,禁止为过门而调高)。该脚本 2026-07-20 即存在但从未接入守门链,是"造好没装车"的第二个实例(第一个是本次同一批的 69)。`--staged` 由 runner 自动下发,暂存集为空时回退全量防"空暂存恒绿"。紧急跳过 `HUSKY_SKIP_HARDCODED_ZH_GUARD=1`
-- **计划登记行防丢**(71):check-plan-line-loss.mjs(blocking,2026-09-22 立,`stagedTriggers=PROJECT_PLAN.md`)—— 共享工作区里并发会话按"内存中那份旧计划文档"整文件提交,会把别人**已入库**的登记行按旧基线回写掉(2026-09-22 一小时内两次发生,本会话 10 条 G-152/G-166/D107b 进度行被抹)。既有 13c `check-project-plan-archive.mjs` 只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。**登记编号族含 `G-x`/`Dx`/`Px`/`Wx` 与 `守门 NN`**(2026-09-23 补最后一族:各道闸门在计划里的登记行用的正是 `**守门 NN …**` 前缀 —— 实测一枚并发暂存版本整块删掉别人的守门 72 登记(40 行),只认 G/D/P/W 完全看不见);自愈结论一律写 `.workbuddy/plan-heal.log`(旧版丢 `/dev/null` 配 `|| true`,再叠加未 `.trim()` 的 sha,自愈静默失效一整天)。判据按**编号标记的原文前缀**在待提交内容里全文搜:整行消失 → 拦;只改写文案、保留编号 → 不报(不误伤正常编辑);原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到(§1 归档)→ 放行。写闸过程中真修掉一个自造假阳:标记若按"编号 + 后续文本"重拼,`D107b` 会被拆成源文本里不存在的 `D107 b`,使正常提交被误判丢失。自检 `node scripts/check-plan-line-loss.mjs --self-test`(9 例正反成对,含 missingFrom 双目标比对);**自愈面**:`.husky/post-commit` 第 6 段每次提交后扫最近历史自动回捞(并发会话 routinely 用 `--no-verify` 绕过 pre-commit,故这一层必须有),手动 `--heal` 只写工作区、`--heal --commit` 顺带前向提交(基线一律取 HEAD,不代收别人未提交的内容)。**2026-09-23 两处加固(都是"本地全绿也发现不了"那一类)**:① 自愈比对改成**工作区与 HEAD 分别判缺失** —— commit-tree 旁路(`git-sync-converge` 索引层合并、临时索引提交)**不跑钩子**,它把已入库行从 HEAD 合掉时共享工作区常还留着那行,单目标会"无缺失"提前返回 → HEAD 永久缺行(本次 G-154 登记行即此因),现由 converge 落合并提交后就地补跑一次自愈;② `rev-parse`/`hash-object` 未 `.trim()`,尾部换行使 `read-tree` 报 `Not a valid object name`,**自愈提交自上线起从未成功过**,而 post-commit 写作 `|| true` 所以毫无声响 —— 判据只能在**独立仓库**做端到端取证才暴露(临时 repo 造一次真旁路合行 → A/B:旧版判"无缺失",新版识别并建前向恢复提交)。跳过 `HUSKY_SKIP_PLAN_HEAL=1`;紧急跳过本闸 `HUSKY_SKIP_PLAN_LINE_LOSS=1`(会把别人的登记行写没,慎用)
-- **Dockerfile 构建上下文对账**(72):check-dockerfile-copy-paths.mjs(blocking,2026-09-22 立)—— 堵的是"本地全绿也发现不了"的一类:提交 `79b906463f` 给根 package.json 加 `postinstall: node scripts/fix-expo-metro-junction.mjs`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}` 只 COPY 清单就跑 `pnpm install` ⇒ 镜像缺该脚本,CI 上 build-api/build-web 同时 `MODULE_NOT_FOUND`(本机无 docker,typecheck/lint/单测全都不会知道)。两条判据只用仓库内信息:**A** 凡 COPY `pnpm-workspace.yaml`(根上下文标记)的 Dockerfile,必须 COPY 钩子里 `node <file>` 引用的每个脚本(只 COPY 单文件,勿 COPY 整个 `scripts/` 以保层缓存);**B** 每条非通配、非 `--from=` 的 COPY 源必须存在于**构建上下文**,上下文由 `.github/workflows` 的 `context:`/`file:` 成对解析,解析不到即跳过并在结论行如实报 `B 核了 N/M`;**C** `pnpm --filter <spec> run <script>` 对闭包里**没有该脚本**的包是**静默跳过而非报错**,若被跳过的包自带 `build`(产出 dist)则下游按 `main`/`exports` 读 dist 必 `Module not found` —— 判据 = 从 workspace 包图展开闭包(`pkg`=自身、`pkg^...`=仅依赖、`pkg...`=自身+依赖,取反与上游方向放过),点名"有 build 却缺被调用脚本"的包。**A/B 修完 build-api 绿了,build-web 仍恒红就是 C 类**(Dockerfile.web 跑 `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖全都没有 `build:static` ⇒ 一个都没构建 ⇒ `@ihui/api-client` 解析失败;同仓 Dockerfile.api 用 `run build` 人人都有故一直绿,两条只差脚本名)。**存在性一律按提交内容(`git ls-tree -r HEAD`)判,不按工作树**——并行会话可能删了文件但未暂存,按 `existsSync` 会产出与真实构建相反的假阳性(实测踩过)。`COPY . .` 与 `pnpm-lock.yaml*` 不参与判定。自检 `--self-test`(10 例,含 C 的 5 例正反对照)+ `node --test scripts/tests/check-dockerfile-copy-paths.test.mjs`(10 例,含"真仓包图上旧行必红且点名 api-client、修后必绿、api 作同仓对照"与 `expandFilterSpec` 三形态);紧急跳过 `HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1`
-- **端内绕过 api-client 直连后端**(73):check-direct-backend-calls.mjs(blocking,基线 47 条只减不增)—— 判据是 **URL 污点**不是文件名:裸 `fetch/axios/Taro.request/XHR/sendBeacon/http.request` 的 URL 追到后端基址符号(`BASE_URL`/`API_*`/`apiBase|apiUrl`/`TARO_APP_API_BASE`/`NEXT_PUBLIC_API*`/`localhost:880[23]`/`api.aizhs.top`)或锚定 `/api/` 段即命中,不可解则跨文件回溯调用方实参。豁免两条各有硬前提:① 平台 adapter 需"URL 纯透传 + 从 `@ihui/api-client` import 契约 + 该导出被 `setTransport` 注册"三条同立(`api-client-transport.ts` 豁免;`mcp-manager.tsx` 里同名 React setter 不算证据);② Next 自有路由需 `app/api/<seg>/route.ts` **真实存在**(现仅 desktop-feed),其余 `/api/*` 走 next.config rewrites 仍计命中。**存量 47 处(cli 21/web 17/miniapp-taro 3/mobile-rn 2/shared 3/extension 1)已进基线**,其中两处本轮新发现:`crash-report.ts:37`(api-client 零该路由)与 `sse.ts:211/279`(api-client 无 chunked 通道 ⇒ 能力缺口)。迁移后跑 `--update-baseline` 收紧;自检 `--self-test`(8 例)+ `node --test scripts/tests/check-direct-backend-calls.test.mjs`(15 例);紧急跳过 `HUSKY_SKIP_DIRECT_BACKEND_CALLS=1`。
-- **词表键五语言可解析**(74):check-word-table-resolvable.mjs(blocking)—— 堵"改一处、别端静默回显键名":扫**值全为 i18n 键字面量的静态映射表**(候选 182 张 → 认定 50 张/235 键,未锚定跳过 132 张),W1 形状 / W2 锚定 / W3 逐键×5 语言×消费端合并视图 / **W4 小程序离线生成包(忘跑 `pnpm gen:i18n` 由这条拦)** / W5 共享层落点;**值==键名本身(静默回显)同样判缺**。刻意**不检**三类以防洪水:ns 相对取词的表(键不在根命名空间)、含函数/硬编码中文的表、模型名之类非 i18n 字面量(`MiniMax-M2.5`)。**W5 已由 failures 降为 notices 落点债**:它报"该端依赖共享包但尚未引用这张表",坏状态当前不可达(初版 5 条全属此类),计入 blocking 只会逼人 `--no-verify`;该端真接入后 W3/W4 逐键硬拦,防护不丢。自检 `--self-test`(25 例,含"从真语料删掉 permissionTier 一个 ko 键 → W3 判红"注入)+ `node --test scripts/tests/check-word-table-resolvable.test.mjs`(22 例);紧急跳过 `HUSKY_SKIP_WORD_TABLE_RESOLVABLE=1`。
+- **计划登记行防丢**(71):check-plan-line-loss.mjs(blocking,2026-09-22 立,`stagedTriggers=PROJECT_PLAN.md`)—— 共享工作区里并发会话按"内存中那份旧计划文档"整文件提交,会把别人**已入库**的登记行按旧基线回写掉(2026-09-22 一小时内两次发生,本会话 10 条 G-152/G-166/D107b 进度行被抹)。既有 13c `check-project-plan-archive.mjs` 只认 `### XXX(已完成 ✅)` 任务标题行,条目内 bullet 登记行不在其视野,故补此闸。判据按**编号标记的原文前缀**在待提交内容里全文搜:整行消失 → 拦;只改写文案、保留编号 → 不报(不误伤正常编辑);原文能在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 找到(§1 归档)→ 放行。写闸过程中真修掉一个自造假阳:标记若按"编号 + 后续文本"重拼,`D107b` 会被拆成源文本里不存在的 `D107 b`,使正常提交被误判丢失。自检 `node scripts/check-plan-line-loss.mjs --self-test`(5 例正反成对);紧急跳过 `HUSKY_SKIP_PLAN_LINE_LOSS=1`(会把别人的登记行写没,慎用)
+- **Dockerfile 构建上下文对账**(72):check-dockerfile-copy-paths.mjs(blocking,2026-09-22 立)—— 堵的是"本地全绿也发现不了"的一类:提交 `79b906463f` 给根 package.json 加 `postinstall: node scripts/fix-expo-metro-junction.mjs`,而 `deploy/docker/Dockerfile.{api,web,cli,migrate}` 只 COPY 清单就跑 `pnpm install` ⇒ 镜像缺该脚本,CI 上 build-api/build-web 同时 `MODULE_NOT_FOUND`(本机无 docker,typecheck/lint/单测全都不会知道)。两条判据只用仓库内信息:**A** 凡 COPY `pnpm-workspace.yaml`(根上下文标记)的 Dockerfile,必须 COPY 钩子里 `node <file>` 引用的每个脚本(只 COPY 单文件,勿 COPY 整个 `scripts/` 以保层缓存);**B** 每条非通配、非 `--from=` 的 COPY 源必须存在于**构建上下文**,上下文由 `.github/workflows` 的 `context:`/`file:` 成对解析,解析不到即跳过并在结论行如实报 `B 核了 N/M`。**存在性一律按提交内容(`git ls-tree -r HEAD`)判,不按工作树**——并行会话可能删了文件但未暂存,按 `existsSync` 会产出与真实构建相反的假阳性(实测踩过)。`COPY . .` 与 `pnpm-lock.yaml*` 不参与判定。自检 `--self-test`(5 例)+ `node --test scripts/tests/check-dockerfile-copy-paths.test.mjs`(8 例);紧急跳过 `HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1`
 
 ### 计划任务与 .vbs 的硬约束(2026-09-20 立,由本人引入的弹窗回归收口)
 
@@ -1191,41 +1149,19 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ### 开发工具缓存路径强制规则(强制)
 
-**所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(2026-09-23 全量实测校正 —— 下表旧版写的
-`D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
-当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
+**所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(已通过用户环境变量永久配置):
 
-| 工具                | 环境变量 / 配置                           | 实测路径                                                         |
-| ------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
-| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                     |
-| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                |
-| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                            |
-| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                            |
-| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                             |
-| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                |
-| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                               |
-| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                   |
-| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}` |
-| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                      |
-| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                             |
-| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                 |
-| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                     |
-
-**改道机制定为 junction,不env优先**:`robocopy <src> <dst> /E /MOVE` → `mklink /J <旧路径> <新路径>`。
-理由:家目录状态常有**硬编码**读取方(如 `~/.cargo\bin` 在 `HKCU\Environment\Path` 首位、守门脚本按
-`%USERPROFILE%` 拼路径),junction 让旧路径继续可解析,因此**不需要也不允许**去改 `Path` 或逐个改码;
-改环境变量反而会造出"双根分裂"。校验方法:`rustup show home`、`reg query HKCU\Environment`、
-`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。新增工具的缓存落点一律走
-`D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
-
-**已知未办(有客观阻碍,不是遗漏)**:`~/.ollama` 2.7GB 的 `IHUI-OLLAMA` 服务正在运行且持锁,
-整目录 junction 需先停服务(会中断本地模型推理),故保留在 C 盘;`~/.workbuddy` 3.1GB 内含
-`binaries\PortableGit`(被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析)不得搬,其
-`logs`/`traces` 约 2GB 可再生但属该 IDE 自管;`.qoder-cn`/`.qoder` 是本会话宿主状态,改道即丢记忆。
-`scripts/kill-git-selector-hidden.vbs` 已改为随自身目录定位目标脚本,但其包装的
-`kill-git-selector.ps1` **在仓库里并不存在**,该计划任务链是死代码(任务也未注册)。
-`scripts/release-desktop-local.mjs:67,74` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,本机无 `.tauri`
-→ 桌面端发布在此机必 `exit 1`(需发布机或补生成密钥)。
+| 工具       | 环境变量 / 配置                     | 路径                                        |
+| ---------- | ----------------------------------- | ------------------------------------------- |
+| Temp/TMP   | `TEMP` / `TMP` / `TMPDIR`           | `D:\caches\Temp`                            |
+| pnpm       | `PNPM_HOME` + `pnpm config`         | `D:\caches\pnpm\{store,global,cache,state}` |
+| npm        | `npm config`                        | `D:\caches\npm\{cache,prefix}`              |
+| pip        | `pip config`                        | `D:\caches\pip`                             |
+| uv         | `UV_CACHE_DIR`                      | `D:\caches\uv`                              |
+| Cargo      | `CARGO_HOME`                        | `D:\caches\cargo`                           |
+| Rustup     | `RUSTUP_HOME`                       | `D:\caches\rustup`                          |
+| Go         | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\caches\go{,\pkg\mod,-build}`            |
+| Playwright | `PLAYWRIGHT_BROWSERS_PATH`          | `D:\caches\playwright`                      |
 
 **禁止 agent 在代码或脚本中硬编码 C 盘路径**作为写入目标:
 
@@ -1242,7 +1178,7 @@ C 盘 120 GB 频繁告急,根因排查发现:
 | `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
 
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
-**查看日志**:`D:\DevEnv\logs\c-drive-maintain.log`(旧文档写 `D:\caches\...`,该目录本机不存在,日志从未写出)
+**查看日志**:`D:\caches\c-drive-maintain.log`
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
 
 ### 守门(已实现,guardian-runner 第 45 项)
@@ -1325,7 +1261,6 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 2. **禁止在一级目录生成 `.log` / `.html` / `cookies*` / 截图 / ad-hoc 脚本**:临时产物一律进 `tmp/` 或 `logs/`,测试产物进 `test-results/` 或对应子目录。
 3. **新增合法根目录文件/目录必须显式审批**:把条目加进 `scripts/check-root-dir-clean.mjs` 白名单并随 commit 提交,禁止绕过白名单。
 4. **任务收尾必查**:交付前跑 `node scripts/check-root-dir-clean.mjs --staged`,0 违规才算完成。
-5. **忽略产物也纳入视野(2026-09-23 补)**:守门原对"被 git 忽略的一级目录条目"整体跳过(该豁免必要 —— 忽略条目本由 `.gitignore` 承接,若一并拦截则各类构建产物与本地目录会让每次提交皆红;注意 `tmp/`、`logs/` 等已在 `ALLOWED_DIRS`,驱动这条豁免的是"未进白名单却被忽略"的产物),致本规则第 2 条的禁令对被忽略文件零覆盖 —— 实测一次性翻出 14 个静默残留(`_knip.log`/`.tmp-tsc.log`/`build-oidc.log` 等),`git status` 与守门都看不见。现新增**只告警层**(不计失败、不改退出语义:全量恒 0,`--staged` 仍只对非忽略违规 exit 1)。看到该告警即删除或移入 `tmp/`、`logs/`。
 
 ### 守门(blocking)
 
