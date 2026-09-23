@@ -74,10 +74,13 @@
  */
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+
+// 判据里「值缺失」一律 null 与 undefined 同待:eqeqeq 禁 `== null`,而拆成 `=== null` 会只挡一半(典型误修)。
+const isNil = (v) => v === null || v === undefined
 
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_REL = 'scripts/direct-backend-calls-baseline.json'
@@ -86,8 +89,22 @@ const BASELINE_REL = 'scripts/direct-backend-calls-baseline.json'
 const EXCLUDED_WORKSPACES = new Set(['apps/api', 'apps/ai-service', 'packages/api-client'])
 /** 构建产物 / 厂商打包资源 / 测试目录(脚本特有,叠加在共享清单之上) */
 const EXTRA_EXCLUDED_DIRS = new Set([
-  'public', 'static', 'assets', 'resources', 'vendor', 'android', 'ios', 'webview',
-  'wwwroot', 'playwright-report', '__tests__', '__mocks__', 'tests', 'test', 'e2e', 'fixtures',
+  'public',
+  'static',
+  'assets',
+  'resources',
+  'vendor',
+  'android',
+  'ios',
+  'webview',
+  'wwwroot',
+  'playwright-report',
+  '__tests__',
+  '__mocks__',
+  'tests',
+  'test',
+  'e2e',
+  'fixtures',
 ])
 const SOURCE_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 const SKIP_FILE_RE = /(\.test\.|\.spec\.|\.d\.ts$|\.min\.(js|mjs|cjs|jsx)$|\.gen\.ts$)/
@@ -100,15 +117,21 @@ const ENV_BACKEND_RE =
 /** 自家后端 host(docs/port-management.md:8802=api、8803=ai-service;**8801 是 web 自身**,
  *  写 880\d 会把 getPublicBaseUrl() 回退的 localhost:8801 也当后端 → playground 那类
  *  "同源 + /v1/... 打中继"的调用被误判,故只认 api/ai-service 两个端口) */
-const OWN_HOST_RE = /localhost:880[23]|127\.0\.0\.1:880[23]|0\.0\.0\.0:880[23]|api\.aizhs\.top|api\.ihui\.ai/
+const OWN_HOST_RE =
+  /localhost:880[23]|127\.0\.0\.1:880[23]|0\.0\.0\.0:880[23]|api\.aizhs\.top|api\.ihui\.ai/
 /** 第三方正式 URL(host 非本仓)→ 排除,不让 discord 这类 IdP 端点被当成本仓后端 */
-const ABS_THIRD_PARTY_RE = /['"`]https?:\/\/(?!localhost:880[23]|127\.0\.0\.1:880[23]|api\.aizhs\.top|api\.ihui\.ai)[^/'"`]+/
+const ABS_THIRD_PARTY_RE =
+  /['"`]https?:\/\/(?!localhost:880[23]|127\.0\.0\.1:880[23]|api\.aizhs\.top|api\.ihui\.ai)[^/'"`]+/
 /** 锚定在本仓后端语义的 /api/ 路径段 */
 const API_PATH_RE = /\/api\/[A-Za-z0-9_.$-]/
 const URL_ARG_KEYS = new Set(['url', 'uri', 'href', 'endpoint'])
 
 const CALL_PATTERNS = [
-  { kind: 'fetch', re: /(?<![\w$])(?:globalThis\.|window\.|self\.)?fetch\s*\(/g, argMode: 'first-positional' },
+  {
+    kind: 'fetch',
+    re: /(?<![\w$])(?:globalThis\.|window\.|self\.)?fetch\s*\(/g,
+    argMode: 'first-positional',
+  },
   { kind: 'axios', re: /(?<![\w$])axios(?:\.\w+)?\s*\(/g, argMode: 'first-positional' },
   {
     kind: 'miniapp-request',
@@ -361,7 +384,7 @@ function splitTopLevel(inner) {
 
 /** 对象字面量文本里取 url/uri/href/endpoint 属性的值表达式 */
 function objectUrlProp(objText) {
-  if (objText == null) return null
+  if (isNil(objText)) return null
   let body = objText.trim()
   if (body.startsWith('{') && body.endsWith('}')) body = body.slice(1, -1) // 外层花括号要让顶层逗号可见
   for (const entry of splitTopLevel(body)) {
@@ -379,7 +402,7 @@ function xhrOpenUrl(text, fromIdx) {
   const m = re.exec(text)
   if (!m) return null
   const [inner] = readBalanced(text, m.index + m[0].length - 1)
-  if (inner == null) return null
+  if (isNil(inner)) return null
   const args = splitTopLevel(inner)
   return args[1] ?? null
 }
@@ -395,17 +418,17 @@ export function findCallSites(text, mask) {
       let expr = null
       if (pat.argMode === 'first-positional' || pat.argMode === 'auto') {
         const [inner] = readBalanced(text, openIdx)
-        expr = inner == null ? null : (splitTopLevel(inner)[0] ?? null)
+        expr = isNil(inner) ? null : (splitTopLevel(inner)[0] ?? null)
         if (pat.argMode === 'auto' && expr && expr.trim().startsWith('{')) {
           expr = objectUrlProp(expr)
         }
       } else if (pat.argMode === 'object-url') {
         const [inner] = readBalanced(text, openIdx)
-        expr = inner == null ? null : objectUrlProp(inner)
+        expr = isNil(inner) ? null : objectUrlProp(inner)
       } else if (pat.argMode === 'xhr-open') {
         expr = xhrOpenUrl(text, openIdx)
       }
-      if (expr == null) continue
+      if (isNil(expr)) continue
       sites.push({
         kind: pat.kind,
         line: lineOf(text, m.index),
@@ -446,11 +469,13 @@ function purePassthrough(expr) {
 
 function baseSymHit(expr) {
   if (ENV_BACKEND_RE.test(expr) || OWN_HOST_RE.test(expr)) return true
-  if (ABS_THIRD_PARTY_RE.test(expr) && !BASE_SYM_RE.test(expr) && !API_PATH_RE.test(expr)) return false
+  if (ABS_THIRD_PARTY_RE.test(expr) && !BASE_SYM_RE.test(expr) && !API_PATH_RE.test(expr))
+    return false
   if (BASE_SYM_RE.test(expr)) {
     // baseUrl/baseURL 常是"任意 HTTP 客户端"的基址(discord/coze 等第三方),
     // 只有同一表达式里还有 /api/ 路径段或自家 host 才算本仓后端 —— 宁漏第三方不误伤本仓。
-    if (/baseUrl|baseURL|apiPath/i.test(expr) && !API_PATH_RE.test(expr) && !OWN_HOST_RE.test(expr)) return false
+    if (/baseUrl|baseURL|apiPath/i.test(expr) && !API_PATH_RE.test(expr) && !OWN_HOST_RE.test(expr))
+      return false
     return true
   }
   return false
@@ -461,15 +486,17 @@ function isWebOwnRoute(expr, file, webOwnSegs) {
   if (!file.startsWith('apps/web/')) return false
   if (/['"`]https?:\/\//.test(expr)) return false // 绝对 URL 不是同源相对路由
   const seg = firstApiSegment(expr)
-  return seg != null && webOwnSegs.has(seg)
+  return !isNil(seg) && webOwnSegs.has(seg)
 }
 
 /** 表达式表面是否有后端路径/基址特征 */
 function surfaceTaint(expr, file, webOwnSegs) {
-  if (isWebOwnRoute(expr, file, webOwnSegs)) return { tainted: false, evidence: 'Next 自有路由(app/api 下存在 route handler)' }
+  if (isWebOwnRoute(expr, file, webOwnSegs))
+    return { tainted: false, evidence: 'Next 自有路由(app/api 下存在 route handler)' }
   if (baseSymHit(expr)) return { tainted: true, evidence: 'URL 含后端基址符号/环境变量/自家 host' }
   if (API_PATH_RE.test(expr)) {
-    if (ABS_THIRD_PARTY_RE.test(expr)) return { tainted: false, evidence: '/api/ 段属第三方域名(非本仓后端)' }
+    if (ABS_THIRD_PARTY_RE.test(expr))
+      return { tainted: false, evidence: '/api/ 段属第三方域名(非本仓后端)' }
     return { tainted: true, evidence: 'URL 含本仓后端 /api/ 路径段' }
   }
   return { tainted: false, evidence: null }
@@ -546,7 +573,18 @@ function collectImports(text) {
   return out
 }
 
-const RESOLVE_EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '/index.ts', '/index.tsx', '/index.js']
+const RESOLVE_EXTS = [
+  '',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  '/index.ts',
+  '/index.tsx',
+  '/index.js',
+]
 
 /** 解析 import specifier 到语料内 relPath;包名/外部模块/文件不存在都返回 null
  *  (必须做**存在性**校验:'@/lib/sse' 光靠后缀猜测会返回无扩展名路径,与语料 key 对不上,
@@ -593,7 +631,7 @@ export function collectRegisteredTransports(corpus) {
     for (const m of text.matchAll(/setTransport\s*\(/g)) {
       const openIdx = m.index + m[0].length - 1
       const [inner] = readBalanced(text, openIdx)
-      if (inner == null) continue
+      if (isNil(inner)) continue
       for (const idMatch of inner.matchAll(/([A-Za-z_$][\w$]*)\s*(?:\(\))?/g)) {
         const name = idMatch[1]
         const binding = imports.find((i) => i.local === name)
@@ -629,7 +667,7 @@ function paramMapOf(text, declIdx) {
   const [inner] = readBalanced(text, openIdx)
   const positional = new Map()
   const props = new Set()
-  if (inner == null) return { positional, props }
+  if (isNil(inner)) return { positional, props }
   const params = splitTopLevel(inner)
   params.forEach((p, i) => {
     const trimmed = p.trim()
@@ -673,7 +711,7 @@ function findCallerArgs(corpus, file, name, webOwnSegs, cache) {
     for (const m of text.matchAll(re)) {
       const openIdx = m.index + m[0].length - 1
       const [inner] = readBalanced(text, openIdx)
-      if (inner == null) continue
+      if (isNil(inner)) continue
       hits.push({ args: splitTopLevel(inner), file: other })
     }
   }
@@ -693,7 +731,7 @@ function taintOf(expr, file, ctx, depth = 0, seen = new Set()) {
   seen.add(key)
 
   const text = ctx.corpus.get(file)
-  if (text == null) return clean(null)
+  if (isNil(text)) return clean(null)
 
   const surface = surfaceTaint(expr, file, ctx.webOwnSegs)
   if (surface.tainted || surface.evidence) return surface
@@ -718,7 +756,8 @@ function taintOf(expr, file, ctx, depth = 0, seen = new Set()) {
     for (const d of defs) {
       if (!d.expr) continue
       const r = taintOf(d.expr, file, ctx, depth + 1, seen)
-      if (r.tainted) return { tainted: true, evidence: `${ident} = ${d.expr.slice(0, 60)} → ${r.evidence}` }
+      if (r.tainted)
+        return { tainted: true, evidence: `${ident} = ${d.expr.slice(0, 60)} → ${r.evidence}` }
     }
   }
   // 同文件内定义的函数: 复核其 return 表达式(getBridgeBaseUrl() → `${_apiBaseUrl}/api/...`)
@@ -726,7 +765,11 @@ function taintOf(expr, file, ctx, depth = 0, seen = new Set()) {
   if (fnText) {
     for (const m of fnText.matchAll(/return\s+([\s\S]{0,300}?)(?:\n\s{0,6}\}|$)/g)) {
       const r = taintOf(m[1].trim(), file, ctx, depth + 1, seen)
-      if (r.tainted) return { tainted: true, evidence: `${ident}() 返回 ${m[1].trim().slice(0, 50)} → ${r.evidence}` }
+      if (r.tainted)
+        return {
+          tainted: true,
+          evidence: `${ident}() 返回 ${m[1].trim().slice(0, 50)} → ${r.evidence}`,
+        }
     }
   }
   // import 进来的符号: 跨包/跨端跟随到定义文件复核(apiUrl / getApiBase 等)
@@ -735,14 +778,24 @@ function taintOf(expr, file, ctx, depth = 0, seen = new Set()) {
     const target = resolveSpecifier(imp.spec, file, (p) => ctx.corpus.has(p))
     if (!target || !ctx.corpus.has(target)) return clean('符号来自外部包,无源可追')
     const r = taintOfDefinitionOf(target, imp.imported, ctx, depth + 1, seen)
-    if (r.tainted) return { tainted: true, evidence: `import {${imp.imported}} from '${imp.spec}' → ${r.evidence}` }
+    if (r.tainted)
+      return {
+        tainted: true,
+        evidence: `import {${imp.imported}} from '${imp.spec}' → ${r.evidence}`,
+      }
   }
   // 形参且文件内无可解定义 → 跨文件回溯调用方
   const enclosing = enclosingExported(text, firstUsageIndex(text, ident))
   if (enclosing) {
     const { positional } = paramMapOf(text, enclosing.idx)
     const info = positional.get(ident)
-    const callerHits = findCallerArgs(ctx.corpus, file, enclosing.name, ctx.webOwnSegs, ctx.callerCache)
+    const callerHits = findCallerArgs(
+      ctx.corpus,
+      file,
+      enclosing.name,
+      ctx.webOwnSegs,
+      ctx.callerCache,
+    )
     for (const hit of callerHits) {
       let argExpr = null
       if (info && info.destructured) {
@@ -777,21 +830,26 @@ function taintOf(expr, file, ctx, depth = 0, seen = new Set()) {
 /** 目标符号在另一文件里的"定义即值":赋值 / 函数 return / 同名的对象属性初始化 */
 function taintOfDefinitionOf(target, name, ctx, depth, seen) {
   const text = ctx.corpus.get(target)
-  if (text == null) return { tainted: false, evidence: null }
+  if (isNil(text)) return { tainted: false, evidence: null }
   const assigns = ctx.assignments(target)
   const defs = assigns.get(name)
   if (defs) {
     for (const d of defs) {
       if (!d.expr) continue
       const r = taintOf(d.expr, target, ctx, depth + 1, seen)
-      if (r.tainted) return { tainted: true, evidence: `${name} = ${d.expr.slice(0, 50)} → ${r.evidence}` }
+      if (r.tainted)
+        return { tainted: true, evidence: `${name} = ${d.expr.slice(0, 50)} → ${r.evidence}` }
     }
   }
   const fn = functionBodyOf(text, name)
   if (fn) {
     for (const m of fn.matchAll(/return\s+([\s\S]{0,300}?)(?:\n\s{0,6}\}|$)/g)) {
       const r = taintOf(m[1].trim(), target, ctx, depth + 1, seen)
-      if (r.tainted) return { tainted: true, evidence: `${name}() 返回 ${m[1].trim().slice(0, 50)} → ${r.evidence}` }
+      if (r.tainted)
+        return {
+          tainted: true,
+          evidence: `${name}() 返回 ${m[1].trim().slice(0, 50)} → ${r.evidence}`,
+        }
     }
   }
   return { tainted: false, evidence: null }
@@ -845,7 +903,8 @@ export function analyzeCorpus(corpus, root = DEFAULT_ROOT) {
     callerCache: new Map(),
     _assignCache: new Map(),
     assignments(file) {
-      if (!this._assignCache.has(file)) this._assignCache.set(file, collectAssignments(stripped.get(file) ?? ''))
+      if (!this._assignCache.has(file))
+        this._assignCache.set(file, collectAssignments(stripped.get(file) ?? ''))
       return this._assignCache.get(file)
     },
   }
@@ -913,12 +972,16 @@ function readBaseline(root) {
 function stagedFiles(root) {
   try {
     return new Set(
-      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMRD'], {
-        cwd: root,
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
+      execFileSync(
+        'git',
+        ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only', '--diff-filter=ACMRD'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'ignore'],
+        },
+      )
         .split('\n')
         .map((s) => s.trim().replace(/\\/g, '/'))
         .filter(Boolean),
@@ -952,9 +1015,11 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
   if (injectedCorpus) corpus = injectedCorpus
   else {
     corpus = buildCorpus(root)
-  }  // 空输入绝不判绿:列不到文件属于"扫描器没跑起来",必须显式失败
+  } // 空输入绝不判绿:列不到文件属于"扫描器没跑起来",必须显式失败
   if (corpus.size === 0) {
-    console.error('[check-direct-backend-calls] ❌ 扫描语料为空(apps/* 与 packages/* 一个源文件都没列到),拒绝判绿')
+    console.error(
+      '[check-direct-backend-calls] ❌ 扫描语料为空(apps/* 与 packages/* 一个源文件都没列到),拒绝判绿',
+    )
     return 2
   }
 
@@ -969,13 +1034,24 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
         if (set.has(f)) scoped.set(f, text)
       }
       if (scoped.size === 0) {
-        console.log(`[check-direct-backend-calls] 暂存区无 in-scope 源码文件,跳过(全语料 ${corpus.size} 文件已解析)`)
+        console.log(
+          `[check-direct-backend-calls] 暂存区无 in-scope 源码文件,跳过(全语料 ${corpus.size} 文件已解析)`,
+        )
         return 0
       }
       const full = analyzeCorpus(corpus, root)
       const reportable = full.hits.filter((h) => set.has(h.file))
       effective = corpus
-      return report({ ...full, hits: reportable }, { root, scopedTo: set.size, scanned: corpus.size, quiet: flags.has('--quiet') || flags.has('-q'), list: flags.has('--list') })
+      return report(
+        { ...full, hits: reportable },
+        {
+          root,
+          scopedTo: set.size,
+          scanned: corpus.size,
+          quiet: flags.has('--quiet') || flags.has('-q'),
+          list: flags.has('--list'),
+        },
+      )
     }
     console.log('[check-direct-backend-calls] --staged 但暂存集为空 → 回退全量口径(防空暂存恒绿)')
   }
@@ -1022,7 +1098,19 @@ function report(result, opts) {
   if (opts.jsonOut) {
     writeFileSync(
       resolve(opts.root, opts.jsonOut),
-      JSON.stringify({ scannedFiles: opts.scanned, total: hits.length, inBaseline: hits.length - added.length, added: added.length, exempt: exempt.length, hits, exemptList: exempt }, null, 2),
+      JSON.stringify(
+        {
+          scannedFiles: opts.scanned,
+          total: hits.length,
+          inBaseline: hits.length - added.length,
+          added: added.length,
+          exempt: exempt.length,
+          hits,
+          exemptList: exempt,
+        },
+        null,
+        2,
+      ),
       'utf8',
     )
   }
@@ -1030,16 +1118,22 @@ function report(result, opts) {
   if (opts.list || !opts.quiet) {
     for (const h of hits) {
       const mark = addedSet.has(h) ? '🆕 基线外' : allowed.has(h.key) ? '☑ 基线内' : '?'
-      if (opts.list) console.log(`  ${mark} ${h.file}:${h.line} <${h.kind}> ${h.urlExpr.slice(0, 90)}\n         依据: ${h.evidence}`)
+      if (opts.list)
+        console.log(
+          `  ${mark} ${h.file}:${h.line} <${h.kind}> ${h.urlExpr.slice(0, 90)}\n         依据: ${h.evidence}`,
+        )
     }
     for (const e of exempt) {
-      if (opts.list) console.log(`  🚫 豁免 ${e.file}:${e.line} <${e.kind}> ${e.urlExpr} → ${e.reason}`)
+      if (opts.list)
+        console.log(`  🚫 豁免 ${e.file}:${e.line} <${e.kind}> ${e.urlExpr} → ${e.reason}`)
     }
   }
 
   console.log(
     `[check-direct-backend-calls] 扫了 ${opts.scanned ?? hits.length} 个源文件 | 后端直连命中 ${hits.length} 处(基线内 ${hits.length - added.length} / 新增 ${added.length})| adapter 豁免 ${exempt.length} 处` +
-      (opts.scopedTo ? ` | 本轮为 --staged 口径:只报告暂存集(${opts.scopedTo} 个文件)内的命中,污点回溯仍用全语料` : '') +
+      (opts.scopedTo
+        ? ` | 本轮为 --staged 口径:只报告暂存集(${opts.scopedTo} 个文件)内的命中,污点回溯仍用全语料`
+        : '') +
       (baseline.missing ? ' | ⚠️ 基线文件缺失,按零额度处理' : ''),
   )
 
@@ -1184,10 +1278,15 @@ export function __selfTest() {
       "import { BASE_URL } from '@/cfg'\n// fetch(`${BASE_URL}/ghost`)\nexport const x = 1\n/* fetch('/api/ghost2') */\n",
     'apps/x-app/src/cfg.ts': "export const BASE_URL = '/api'\n",
   })
-  assert('注释里的 fetch(BASE_URL) 不得判命中', commented.hits.length === 0, JSON.stringify(commented.hits.map((h) => `${h.file}:${h.line}`)))
+  assert(
+    '注释里的 fetch(BASE_URL) 不得判命中',
+    commented.hits.length === 0,
+    JSON.stringify(commented.hits.map((h) => `${h.file}:${h.line}`)),
+  )
 
   const bad = results.filter((r) => !r.ok)
-  for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.label}${r.ok ? '' : `\n     ${r.extra}`}`)
+  for (const r of results)
+    console.log(`${r.ok ? '✅' : '❌'} ${r.label}${r.ok ? '' : `\n     ${r.extra}`}`)
   return bad.length === 0
 }
 
@@ -1227,4 +1326,4 @@ export const __test__ = {
   selfTest: __selfTest,
   excludedWorkspaces: () => [...EXCLUDED_WORKSPACES],
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠/** 本仓判据里 "值缺失" 一律 null|undefined 同待:eqeqeq 下不能写 == null,也不许拆成 === null 只挡一半。 */
