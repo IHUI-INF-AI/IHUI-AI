@@ -462,14 +462,14 @@ client.memory.forget({"memoryId": "mem-123"})
 ## 消息模块
 
 ```python
-# 发布消息
+# 发布消息(channel 只能是 im / websocket / webhook / sms)
 client.messages.publish(
-    {"channel": "updates", "content": "新版本发布", "recipients": ["user-1", "user-2"]}
+    {"channel": "webhook", "content": "新版本发布", "recipients": ["user-1", "user-2"]}
 )
 
 # 订阅 Webhook
 sub = client.messages.subscribe(
-    {"channel": "updates", "callbackUrl": "https://example.com/webhook"}
+    {"channel": "webhook", "callbackUrl": "https://example.com/webhook"}
 )
 
 # 取消订阅
