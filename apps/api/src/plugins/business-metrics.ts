@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import fp from 'fastify-plugin'
 import { ttftMonitor, type TtftStats } from '../utils/ttft-monitor.js'
 import { authenticate } from '../plugins/auth.js'
+import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 
 /**
@@ -515,8 +516,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
             .status(statusCode)
             .send(error(statusCode, (e as Error).message || 'Authentication required'))
         }
-        const roleId = request.jwtPayload?.roleId ?? 0
-        if (roleId < 1) {
+        // O13b:特权判定走集中谓词(刻意不换 requireAdminRouteGuard —— 那会附带
+        // requireActiveUser,属行为收紧,不在本票额度收敛范围内)
+        if (!isSystemAdmin(request, { includeInternalChannel: false })) {
           return reply.status(403).send(error(403, '需要管理员权限'))
         }
       },
