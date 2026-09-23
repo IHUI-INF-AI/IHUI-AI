@@ -34,3 +34,15 @@ export * from './worktree-lifecycle'
 export * from './writing-block'
 // D82 就地润色与失败保稿四相位(成功替换草稿 / 失败草稿字节级不变 / 二次可重试;不新建提示词栈)
 export * from './prompt-polish'
+// D71 十态 turn 状态词汇表(排队中/准备中/思考中/使用工具/等待确认/后台执行中/正在停止/已完成/失败/已停止;
+// 等待确认 waitsUser 与后台执行中 offTurn 十态各唯一,不得退化成思考中/运行中的别名)
+export * from './turn-status'
+// D71 errorCode → 中文标题 + 建议动作 映射表(104 条,分类复用 D92 ViewFailureKind 不另立第二套;
+// 未收录返回 null,零「未知错误」兜底;覆盖率由 scripts/check-error-code-coverage.mjs 守)
+export * from './error-catalog'
+// D94 失败诊断脱敏交接包四段式(诊断方法/已尝试步骤/已脱敏证据/产品界面;脱敏走 shared/utils/redact.ts,
+// 本地确定性规则优先,外部服务 down 仅作辅助信号;无网络时降级不阻断)
+export * from './handoff-package'
+// D75 侧边任务生命周期四态(running/completed/expired/cleaned,仅 cleaned 为终态)+ 临时性显式声明
+// + 过期批量清理 + 并行运行位置 + 文件变更计数 + 关闭前确认判据;不触碰 /side 队列语义(W27 预备消息优先)
+export * from './side-task-lifecycle'
