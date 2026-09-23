@@ -12,7 +12,7 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Modal, Pressable, StyleSheet, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 
 export interface SideMenuItem {

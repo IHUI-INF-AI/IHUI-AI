@@ -29,7 +29,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import type { CarouselItem } from '@ihui/ui-native'
 import Carousel from '../components/Carousel'
