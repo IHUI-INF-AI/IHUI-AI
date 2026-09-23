@@ -42,6 +42,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -59,16 +60,22 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
+import * as ImagePicker from 'expo-image-picker'
+import * as DocumentPicker from 'expo-document-picker'
 import {
   AlertTriangle,
   Bot,
   Brain,
+  Camera,
   ChevronDown,
   ChevronRight,
   Copy,
   Download,
   Eye,
   EyeOff,
+  Folder,
+  Image as ImageIcon,
+  MessageCircle,
   RefreshCw,
   Settings,
   Share2,
@@ -76,6 +83,7 @@ import {
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
+import { AddPanel } from '../components/AddPanel'
 import {
   deleteConversation,
   fetchModels,
@@ -84,7 +92,9 @@ import {
   getTokenBalance,
   getWorkspacePermissionDefault,
   listConversations,
+  resolveFileUrl,
   streamChat,
+  uploadFileMultipart,
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
@@ -763,6 +773,88 @@ export default function AiAssistantN8nScreen() {
   const [messages, setMessages] = useState<N8nMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+
+  // ── 输入区「+」添加面板(统一 AddPanel:相机/相册/本地文件/微信文件;
+  //    上传链路与 HomeScreen/ChatScreen 同源:选择 → uploadFileMultipart → 拼入 prompt) ──
+  const [addPanelVisible, setAddPanelVisible] = useState(false)
+  const [addUploading, setAddUploading] = useState(false)
+  const handleAddPanelToggle = (): void => {
+    if (!addPanelVisible) Keyboard.dismiss()
+    setAddPanelVisible(!addPanelVisible)
+  }
+  /** 相机(对齐 ChatScreen handleIconClick('camera'):相机拍摄待接入,占位提示) */
+  const handleAddCamera = (): void => {
+    setAddPanelVisible(false)
+    showToast('warning', '相机拍摄待接入,请先用相册上传图片')
+  }
+  /** 相册选图 → 上传 → 拼入输入框 */
+  const handleAddAlbum = async (): Promise<void> => {
+    setAddPanelVisible(false)
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+      setAddUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `image-${Date.now()}.jpg`,
+      })
+      if (up.success && up.data?.path) {
+        setInput((p) => `${p ? `${p}\n` : ''}[图片] ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', '图片已上传,发送后可在对话中使用')
+      } else {
+        showToast('warning', '图片上传失败')
+      }
+    } catch {
+      showToast('warning', '图片选择失败,请重试')
+    } finally {
+      setAddUploading(false)
+    }
+  }
+  /** 本地文件 / 微信文件选择 → 上传 → 拼入输入框(对齐 ChatScreen handleFileUpload:
+   *  wxfile 与 file 走同一 DocumentPicker 链路) */
+  const handleAddFile = async (): Promise<void> => {
+    setAddPanelVisible(false)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]!
+      setAddUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'application/octet-stream',
+        name: asset.name ?? `file-${Date.now()}`,
+      })
+      if (up.success && up.data?.path) {
+        const fileName = asset.name ?? '文件'
+        setInput((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', `已上传:${fileName}`)
+      } else {
+        showToast('warning', '文件上传失败')
+      }
+    } catch {
+      showToast('warning', '文件选择失败,请重试')
+    } finally {
+      setAddUploading(false)
+    }
+  }
   // 当前对话 ID(从路由传入或后续选择历史对话时更新,用于 streamChat metadata)
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(
     routeConversationId,
@@ -1579,6 +1671,42 @@ export default function AiAssistantN8nScreen() {
           onStop={onStop}
           stopLabel={t('chat.stop')}
           sendLabel={t('aiAssistantN8n.send')}
+          onImageAdd={handleAddPanelToggle}
+        />
+        {/* 「+」底部滑出添加面板(统一 AddPanel,与 HomeScreen/ChatScreen 同源) */}
+        <AddPanel
+          visible={addPanelVisible}
+          onClose={() => setAddPanelVisible(false)}
+          items={[
+            {
+              key: 'camera',
+              label: '相机',
+              icon: <Camera size={24} color={tokens.text.secondary} />,
+              onPress: handleAddCamera,
+            },
+            {
+              key: 'album',
+              label: '相册',
+              icon: addUploading ? (
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
+              ) : (
+                <ImageIcon size={24} color={tokens.text.secondary} />
+              ),
+              onPress: () => void handleAddAlbum(),
+            },
+            {
+              key: 'file',
+              label: '本地文件',
+              icon: <Folder size={24} color={tokens.text.secondary} />,
+              onPress: () => void handleAddFile(),
+            },
+            {
+              key: 'wxfile',
+              label: '微信文件',
+              icon: <MessageCircle size={24} color={tokens.text.secondary} />,
+              onPress: () => void handleAddFile(),
+            },
+          ]}
         />
         {sending ? (
           <View style={styles.streamingBar}>
