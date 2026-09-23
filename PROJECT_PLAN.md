@@ -295,6 +295,39 @@
 当前缓解手段(已由本次验证有效):任一会话跑一次 `node scripts/git-sync-converge.mjs` 使
 本地==远端,部署环下一轮即可 `behind=0` 走"构建新鲜度"通道上线。
 
+### 三条机制化收口(2026-09-23 补,针对"就是要不可能再出现")
+
+上面的放大器归部署脚本作者所有,本次**不改其主体逻辑**,而是**在其之外**建独立观测与提交前拦截:
+
+1. **守门 78 `check-workspace-dep-links.mjs`(blocking,已注册)** —— 当天 11:04 起的那轮停摆
+   既不是凭据也不是并发未提交:`apps/extension/package.json` 声明了 `@ihui/design-tokens: workspace:*`
+   而 `node_modules` 里没有该链接(§12e 的 `pnpm install --filter` 后遗症)。rollup 报
+   `failed to resolve import` → `pnpm -r build` 4 次全红 → 30 分钟冷却循环,线上停在旧提交,
+   而 **typecheck/lint/单测全绿**(TS 走 tsconfig paths,不看 node_modules 链接)。
+   实测全仓 25 个包中 **2 处**中招(`@ihui/extension`→design-tokens、`@ihui/cli`→i18n),
+   全量 `pnpm install` 后归零,扩展 `wxt build` 4.127s 通过。
+   判据:每个包声明的 `workspace:*` 依赖必须在 `<pkg>/node_modules` 或根 `node_modules` 可解析
+   (跟随符号链接,悬空即红);扫不到包时 `exit 1` 而非报绿(自测里就抓到过一次"扫 0 个却绿灯")。
+   取证含**反向对照**:临时改名真链接 → 闸报 `rc=1` 并点名 `@ihui/extension 缺 @ihui/design-tokens`,复原后归零。
+   `--self-test` 9 例 + `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含"装车证明")。
+2. **`scripts/check-credential-health.mjs` 独立巡检(计划任务 `IHUI credential-health`,每 6 小时)** ——
+   它不看部署脚本自己怎么说,只看**外部地面真相**:① nssm 服务环境块里的口令 vs 权威口令表
+   (指纹比对,永不回显);② 真跑一次门禁用的登录入口;③ GitHub/Gitee token 形状与有效性;
+   ④ **线上构建 sha vs `origin/main` tip + 最后一次成功部署时间** 的停摆判定(阈值默认 45 分钟,
+   `IHUI_DEPLOY_STALL_MIN` 可调)。前三项全绿时不做登录探测(避免白烧"剩余 N 次重试"预算)。
+   首跑即抓到一个真实停摆:`线上 576df1085 ≠ tip 1ef879015 且 1.1 小时无成功部署`。
+3. **告警通道自身不允许静默失败** —— 首跑就暴露了新短板:Server 酱回
+   `[AUTH]超过当天的发送次数限制`(免费 5 条/天),即"发现了故障但没人收到"。已改为
+   **多通道投递 Server酱 → Resend 邮件兜底**(§5e 的 `IHUI-AI@aizhs.top` → `502319984@qq.com`),
+   并且:全通道失败时写 `credential-health-alert-UNDELIVERED.json` 标记,**下一轮巡检把"上轮有
+   故障未能通报"本身作为一项 `fail` 判红**(即通道故障会持续出现在退出码与输出里);
+   无论投递成败,告警正文一律先追加进 `.workbuddy/credential-health-alerts.log` 本地台账。
+   `--test-alert` 提供通道自证入口(真发一条标明"非故障"的自测并回读每通结果)。
+
+**仍然存在的客观限制(不粉饰)**:部署脚本内部那条 12h 同签名去重(放大器 1)未改,归其作者定夺;
+本次是**在其之外**加了每 6 小时一次的独立观测 + 提交前的结构性拦截,把"两天无人知"压到"最多 6 小时"。
+若要把上限进一步压到分钟级,需要把巡检频率提进 `IHUI-DEPLOYLOOP` 的同一轮询里,那属脚本改动。
+
 ### 顺带纠正的文档与判据
 
 - `AGENTS.md §5b`:原文"origin 已固化为 `ssh://git@ssh.github.com:443/…` + 仓库级 `core.sshCommand`,
