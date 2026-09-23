@@ -1874,6 +1874,7 @@ const checks = [
       '     单独复验:node scripts/check-stale-revert.mjs --staged',
     ].join('\n'),
   },
+
   // --- info (1 项) ---
   {
     id: '23',
