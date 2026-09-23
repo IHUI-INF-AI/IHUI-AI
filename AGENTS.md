@@ -97,7 +97,8 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **类名语义按 web 对齐(修文档漂移)**:v3 preset 曾把 `rounded-sm` 定成 2px、web v4 是 4px,同名不同值即"手机上圆角和全局不一致"的根因;现 `sm=4px`,2px 由 **`rounded-xs`** 承载。裸 `rounded` 全端统一 8px(web 现实)。旧条目里"`rounded-sm`(2px)"作废。
 - **禁止绕档**:每文件自定 `const *_RADIUS = <数字>`、用 `rpx()` 算圆角、`rounded-[任意值]`、StyleSheet 里写数字字面量。
 - **真圆/胶囊豁免**:头像 / 装饰点 / 红点 / 进度环 / Switch 拇指 / 半高胶囊输入框**不得方档化把形状改坏**。优先 `size / 2` 表达式;确需保留数值必须在同行或紧邻上行写 `radius-exempt: <一句话原因>`(JS/TSX 用 `//`,CSS 用 `/* */`),不得静默写死。
-- **守门**:`scripts/check-radius-single-source.mjs`(guardian 第 **77** 项,blocking)双判据 —— A 档位表四处对账(改一处忘改另一处即红)、B 端内取用必须引用档位(存量走 `scripts/radius-single-source-baseline.json` 棘轮只减不增);紧急跳过 `HUSKY_SKIP_RADIUS_GUARD=1`,自检 `--self-test`(18 例,含真实表端到端对账)。容器纯圆违规仍由 `scripts/check-rounded-full.mjs`(第 11 项)管,两条互补不互替。
+- **生成式 HTML / 注入式 CSS 字符串**(cli 分享页、`packages/shared/src/design/design-templates.ts`、扩展 content script、任何 `return \`<style>…\`\`**):这类页面拿不到应用 `:root`,不得写死数字 —— 用同表插值 `border-radius: ${RADIUS_CSS_PX.md}`(值仍来自 `radius.js`),不新增第二份真相。
+- **守门**:`scripts/check-radius-single-source.mjs`(guardian 第 **77** 项,blocking)双判据 —— A 档位表四处对账(改一处忘改另一处即红)、B 端内取用必须引用档位(存量走 `scripts/radius-single-source-baseline.json` 棘轮只减不增;判据不锚定行首,故 `width:16px; border-radius:50%` 同行多声明与 TS 模板里的 CSS 一样可见);紧急跳过 `HUSKY_SKIP_RADIUS_GUARD=1`,自检 `--self-test`(20 例,含真实表端到端对账 + TS 内嵌 CSS 正例),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`。容器纯圆违规仍由 `scripts/check-rounded-full.mjs`(第 11 项)管,两条互补不互替。
 
 ### Button 高度档位守门(强制,2026-09-07 立)
 

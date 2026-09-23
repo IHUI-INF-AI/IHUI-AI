@@ -126,34 +126,31 @@ export function scanText(rel, text, table) {
   lines.forEach((line, i) => {
     const t = line.trim()
     if (/^(\/\/|\*|\/\*|<!--|#\s|;;)/.test(t)) return
-    if (isCss(rel) || /\.html$/.test(rel)) {
+    const isDocLike = /\.html$/i.test(rel)
+    if (isCss(rel) || isDocLike || isJsx(rel)) {
+      // 不锚定行首:一行里可能有 `width: 16px; border-radius: 50%` 多声明,
+      // 且 .ts 里会内嵌生成的 HTML/CSS(cli 分享页),两类都得看见
       if (TABLE_FILES.test(rel)) return
-      const m = /^(\s*border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n]+)/.exec(line)
+      const m = /(^|[;{}\s])(border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n'"]+)/.exec(line)
       if (m) {
-        const val = m[2].trim()
-        if (/var\(--radius|inherit|none/.test(val)) return
-        const parts = val.split(/\s+/)
-        for (const part of parts) {
-          if (part === '0' || part === '0px' || part === '0rem') continue
-          const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
-          if (!mm) {
-            if (/50%|9999px/.test(part) && !marked(i)) bad.push({ line: i + 1, rule: 'B3-circle', raw: part, hint: '真圆/胶囊须加 /* radius-exempt: 原因 */' })
-            continue
+        const val = m[3].trim()
+        if (!/var\(--radius|inherit|none/.test(val)) {
+          if (/50%|9999px/.test(val)) {
+            if (!marked(i)) bad.push({ line: i + 1, rule: 'B3-circle', raw: val, hint: '真圆/胶囊须加 /* radius-exempt: 原因 */' })
+          } else {
+            for (const part of val.split(/\s+/)) {
+              const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
+              if (!mm) continue
+              const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
+              if (px === 0) continue
+              if (!marked(i)) {
+                if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
+                else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
+              }
+            }
           }
-          const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
-          if (steps.includes(px) && !marked(i)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) || px})` })
-          else if (!steps.includes(px) && !marked(i)) bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
         }
       }
-      const mh = /style=|border-radius/.test(line) && !isCss(rel) ? null : null
-      void mh
-      const arb = /\brounded(?:-[a-z0-9]+)*-\[([^\]]+)\]/g
-      let a
-      while ((a = arb.exec(line))) {
-        if (/var\(--radius/.test(a[1]) || marked(i)) continue
-        bad.push({ line: i + 1, rule: 'B4', raw: a[0], hint: '任意值须换档位类 rounded-<step>' })
-      }
-      return
     }
     if (!isJsx(rel)) return
     // RN / 内联 style
@@ -240,6 +237,8 @@ async function selfTest() {
     { name: 'B3 tokens.css 自身定义行放行', f: 'packages/design-tokens/src/styles/tokens.css', s: '  border-radius: 8px;', red: false },
     { name: 'B4 任意值必拦', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[24rpx]" />', red: true },
     { name: 'B4 var 形式放行', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[var(--radius-lg)]" />', red: false },
+    { name: 'B3 一行多声明也要看见(width…; border-radius: 50%)', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 16px; border-radius: 50%;', red: true },
+    { name: 'B3 TS 模板里生成的 CSS 字面量必拦', f: 'apps/cli/src/commands/share.ts', s: '  .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; }', red: true },
     { name: '档位类放行', f: 'apps/web/src/a.tsx', s: '<div className="rounded-lg p-2" />', red: false },
   ]
   let fail = 0
