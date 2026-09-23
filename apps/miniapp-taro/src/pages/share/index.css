@@ -114,31 +114,13 @@
 /* ===== Tabs(对标原 TitleSwitch;视觉对齐 RN SquareScreen SingleTypeBar 分类胶囊:
    categoryBar padding 8/10 → 16/20rpx,typeItem padding 6/12 → 12/24rpx、圆角 8 → 16rpx、
    描边 1 → 2rpx,active 为 brand 底 + 对比白字) ===== */
+/* Tabs 条容器:仅页面级留白。chips 本身由统一分类条 CategoryBar 组件负责
+   (与 web packages/ui-react category-bar / RN CategoryInlineBar 同形同档)。
+   原 card 底与静止态 chip 的 card 底同色会看不见,故铺页底 background 做对比。 */
 .share-tabs {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  background: var(--color-card);
   padding: 16rpx 20rpx;
-}
-.share-tab {
-  padding: 12rpx 24rpx;
-  text-align: center;
-  border-radius: var(--radius-lg);
-  border: 2rpx solid var(--color-border);
-  background: var(--color-card);
-  font-size: 28rpx;
-  font-weight: 600;
-  color: var(--color-muted-foreground);
-  transition: all 0.2s;
-}
-.share-tab:active {
-  opacity: 0.85;
-}
-.share-tab.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: var(--color-background);
+  box-sizing: border-box;
 }
 
 /* ===== 资讯列表(对齐 RN listContent:paddingHorizontal 10 → 20rpx,paddingVertical 12 → 24rpx;

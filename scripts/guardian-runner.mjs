@@ -1902,7 +1902,7 @@ const checks = [
   // R2 走 baseline 棘轮(overlay-on-media 等合法场景冻结存量,只拦新增);R1 全量拦截。
   // 自检:node scripts/check-brand-foreground.mjs --self-test;紧急跳过 HUSKY_SKIP_BRAND_FOREGROUND=1。
   {
-    id: '75',
+    id: '83',
     label: '📱 [mobile-rn] 深色模式前景/容器守门(品牌底白字 blocking + 浅色容器 ratchet)',
     script: 'check-brand-foreground.mjs',
     args: [],
@@ -1924,7 +1924,7 @@ const checks = [
   // >300 文件跳过(性能护栏,避免逼人 --no-verify 把全部守门一起关)。
   // 演练:node scripts/check-stale-revert.mjs --self-test(8 例,含"写回 v1 必判红"阳性对照)。
   {
-    id: '76',
+    id: '84',
     label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
     script: 'check-stale-revert.mjs',
     args: [],
@@ -2103,7 +2103,7 @@ const effectiveChecks = pushGate ? pushGateChecks : checks
 
 // ── 守门 id 唯一性自检(2026-09-23 立,不阻塞) ──────────────────────────────
 // 成因:同日实测两道 blocking 门撞同号 —— 77 曾被 check-radius-single-source 与
-// check-no-conflict-markers 并用(后者已让号到 79),而 75/76 现各存在两处。同号本身
+// check-no-conflict-markers 并用(后者已让号到 79),而 75/76 曾各存在两处(2026-09-24 由后落地方让号至 83/84)。同号本身
 // 不报错,但会把 skipEnv 语义与"哪道门失败"的归因搅在一起,且逃过一次就没人再看见。
 // 这里只打印、不改退出码:让每次运行都显形,由归属会话各自让号(后落地者让号)。
 {

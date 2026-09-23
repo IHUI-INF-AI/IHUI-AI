@@ -4,8 +4,8 @@
 
 'use client'
 
-import { Input } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
+import { useMemo } from 'react'
+import { CategoryBar, Input, type CategoryBarItem } from '@ihui/ui-react'
 import { RANGES, type Range } from './helpers'
 
 interface Props {
@@ -27,24 +27,20 @@ export function TokenValueFilters({
   onCustomFrom,
   onCustomTo,
 }: Props) {
+  const items = useMemo<CategoryBarItem[]>(
+    () => RANGES.map((opt) => ({ id: opt.key, label: t(opt.labelKey) })),
+    [t],
+  )
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex rounded-lg border p-0.5">
-        {RANGES.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => onRange(opt.key)}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              range === opt.key
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-            )}
-          >
-            {t(opt.labelKey)}
-          </button>
-        ))}
-      </div>
+      <CategoryBar
+        items={items}
+        value={range}
+        onChange={(id) => {
+          const matched = RANGES.find((opt) => opt.key === id)
+          if (matched) onRange(matched.key)
+        }}
+      />
       {range === 'custom' && (
         <div className="flex items-center gap-2">
           <Input
