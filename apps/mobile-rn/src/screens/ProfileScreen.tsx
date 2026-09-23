@@ -121,6 +121,9 @@ import { rpx } from '../utils/rpx'
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
+/** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
+const PROFILE_LOAD_TIMEOUT_MS = 12000
+
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310) */
 const MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
   { id: 'ai-free', icon: Bot, title: 'AI助手免费次数增加', desc: '每日赠送免费对话次数' },
@@ -188,6 +191,8 @@ export function ProfileScreen() {
   const [orderCount, setOrderCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [loadTimedOut, setLoadTimedOut] = useState(false)
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loginPromptVisible, setLoginPromptVisible] = useState(false)
   const [agreeChecked, setAgreeChecked] = useState(false)
   // FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />)
@@ -221,28 +226,42 @@ export function ProfileScreen() {
     rootNav?.navigate('Login')
   }
 
+  /**
+   * 加载统计 + 订单数。调接口层没有超时,慢响应就是无限转圈,
+   * 故超过 PROFILE_LOAD_TIMEOUT_MS 先转「超时 + 点击重试」;慢响应回来仍会覆盖提示。
+   */
+  const loadProfileStats = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    setError('')
+    setLoadTimedOut(false)
+    if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
+    loadTimerRef.current = setTimeout(() => setLoadTimedOut(true), PROFILE_LOAD_TIMEOUT_MS)
+    const [statsRes, orderRes] = await Promise.all([
+      getUserStatistics(),
+      getOrders({ page: 1, pageSize: 1 }),
+    ])
+    if (loadTimerRef.current) {
+      clearTimeout(loadTimerRef.current)
+      loadTimerRef.current = null
+    }
+    if (statsRes.success) setStats(statsRes.data)
+    if (orderRes.success) setOrderCount(orderRes.data.total)
+    if (!statsRes.success && !orderRes.success) {
+      setError(statsRes.error || orderRes.error || t('error.network'))
+    }
+    setLoading(false)
+  }, [t])
+
   useEffect(() => {
     if (!ready) return
-    let cancelled = false
-    void (async () => {
-      setLoading(true)
-      setError('')
-      const [statsRes, orderRes] = await Promise.all([
-        getUserStatistics(),
-        getOrders({ page: 1, pageSize: 1 }),
-      ])
-      if (cancelled) return
-      if (statsRes.success) setStats(statsRes.data)
-      if (orderRes.success) setOrderCount(orderRes.data.total)
-      if (!statsRes.success && !orderRes.success) {
-        setError(statsRes.error || orderRes.error || t('error.network'))
-      }
-      setLoading(false)
-    })()
+    void loadProfileStats()
     return () => {
-      cancelled = true
+      if (loadTimerRef.current) {
+        clearTimeout(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
     }
-  }, [ready, t])
+  }, [ready, loadProfileStats])
 
   /**
    * 加载 Drawer 历史对话(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)。
@@ -515,9 +534,22 @@ export function ProfileScreen() {
         scrollEventThrottle={16}
       >
         {loading ? (
-          <View style={styles.loaderWrap}>
-            <ColorfulLoader size={48} />
-          </View>
+          loadTimedOut ? (
+            <View style={styles.tabErrorWrap}>
+              <Text style={styles.tabErrorText}>加载超时,请检查网络后重试</Text>
+              <TouchableOpacity
+                onPress={() => void loadProfileStats()}
+                style={styles.tabRetryBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.tabRetryText}>点击重试</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.loaderWrap}>
+              <ColorfulLoader size={48} />
+            </View>
+          )
         ) : (
           <>
             {userInfoForCard ? (
@@ -2220,12 +2252,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.brand.foreground,
+    color: tokens.brandAccent.foreground,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2238,7 +2270,7 @@ const styles = StyleSheet.create({
   },
   levelIntroBtnText: {
     fontSize: 12,
-    color: tokens.text.secondary,
+    color: tokens.text.medium,
   },
   // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
   editProfileOverlay: {

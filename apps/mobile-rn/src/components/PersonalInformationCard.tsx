@@ -14,7 +14,7 @@
  * 避免 DistributionScreen 等调用方报错;调用方未传收入字段时,收入卡按默认 0.00 展示。
  *
  * 设计原则(对齐 主题 token 入口,禁用 purple/indigo):
- * - 背景用原图 bjcspNew.jpg(已拷贝至 assets/images/common),文字走 surface.light 对比白
+ * - 背景用原图 bjcspNew.jpg(已拷贝至 assets/images/common),文字恒白(见 MEDIA_TEXT)
  * - 金额字号 22,正文 14,rpx→dp 2:1
  * - 系统字体(不显式指定 fontFamily,走平台默认)
  */
@@ -66,6 +66,12 @@ const AVATAR_HEIGHT = 32
 const AVATAR_RADIUS = 4
 const CARD_RADIUS = 12
 const CARD_PADDING = 16
+
+/**
+ * 衬底是固定图片 bjcspNew.jpg(不随主题换),故文字须恒白。
+ * 不得改用 tokens.surface.light —— 该 token 深色态已是 #262626,压在上面片图上不可读。
+ */
+const MEDIA_TEXT = '#FFFFFF'
 
 /** 对齐原版 utils/time.js formatPrice:分 → 元,保留两位小数 */
 function formatPrice(value?: number | string): string {
@@ -181,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   avatar: {
     width: AVATAR_WIDTH,
@@ -210,13 +216,13 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   incomeLabel: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   incomeValue: {
     marginLeft: 8,
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawRow: {
     flexDirection: 'row',
@@ -230,13 +236,13 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   withdrawLabel: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawValue: {
     marginLeft: 8,
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawBtn: {
     width: 60,

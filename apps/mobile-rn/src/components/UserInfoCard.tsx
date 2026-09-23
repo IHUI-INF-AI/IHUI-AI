@@ -312,7 +312,7 @@ const newStyles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: 'rgba(195, 190, 255, 0.15)',
+    backgroundColor: tokens.surface.card,
   },
   header: {
     flexDirection: 'row',
@@ -376,7 +376,7 @@ const newStyles = StyleSheet.create({
   roleBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: tokens.surface.card,
+    backgroundColor: tokens.surface.muted,
     borderRadius: 2,
   },
   roleBadgeVip: {
@@ -385,7 +385,7 @@ const newStyles = StyleSheet.create({
   roleText: {
     fontSize: 11,
     fontWeight: '500',
-    color: tokens.gray[600],
+    color: tokens.text.secondary,
   },
   roleTextVip: {
     color: tokens.warning.DEFAULT,
