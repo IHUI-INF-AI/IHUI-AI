@@ -15,6 +15,7 @@ import {
   updateDeveloperApplicationStatus,
 } from '../../db/developer-queries.js'
 import { parseIdParam } from './_shared.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 
 const developerRoutes: FastifyPluginAsync = async (server) => {
   server.get('/developer/info', async (request, reply) => {
@@ -44,8 +45,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/developer/:id/audit', async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const id = parseIdParam(request, reply)
     if (id === null) return
     const body = z
