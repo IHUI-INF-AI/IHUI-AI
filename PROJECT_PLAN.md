@@ -3937,3 +3937,34 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **量化结果**:`Test Files` 加载失败 **14 → 1**,实际执行断言 **255 → 382**(+127 条此前从未跑过的测试),**断言失败 8 → 0**。typecheck 0 错,14 个改动文件 eslint 0 错 0 警。
 - **剩余 1 个文件未修(有意不碰)**:`tests/agent-runtime-permission-decision.test.tsx` 与本票②同因(内联 mock 缺 `Appearance`),但它此刻是**他人未提交状态**(` M`)—— 补那 4 行会把别人在飞的改动卷进我的 commit(§12 事故形态),故只登记不代改。**判据**:该文件转干净后,在其 `vi.mock('react-native', …)` 工厂返回对象里加 `Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) }, DevSettings: { reload: () => {} },` 即恢复(与本票 7 个文件同一改法)。
 - **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 测试基建与 RN 主题单例,不改任何端运行时契约。
+
+## P1 :8806 Expo Web 预览白屏:四条假设逐一实测否证(2026-09-23 未闭环,已定位到"需断点级调试"这一步)
+
+> 承「测试面根治」一节。用户把像素复验路线定为 Web 预览,前提是 :8806 能渲染出来 —— 它渲染不出来。
+> 本节记录**已排除**的路径与各自的取证方式,避免下一个会话重走这四条死路。
+
+**现象**:`http://localhost:8806/` 空白。`#root` 的 `childElementCount === 0`、`Object.keys(root)` 为空数组
+(即 React **从未在其上建根**,不是"渲染出 null"),控制台无 error。
+
+- **否证 ①「`fontsLoaded` 门卡死」**:`App.tsx` 的 `if (!fontsLoaded) return null` 在 web 下确实恒真
+  (RNWeb `require(ttf)` 返回资产 id 而非 URL,expo-font web loader 不 resolve),已改为
+  `Platform.OS !== 'web' && !fontsLoaded` 并入 `086988dc1`。改后仍空白 ⇒ 它是**必要非充分**条件。
+- **否证 ②「`active-tokens` 模块级 `new File(Paths.document,…)` 在 web 抛错」**:出包实证
+  expo-file-system 的 web shim(`FileSystemFile`/`FileSystemDirectory` 构造体)**只 `console.warn` 不抛**,
+  `modeFile` 只是惰性空壳,`persistedMode()` 又包在 try/catch 里 ⇒ 不会中断模块求值。
+- **否证 ③「缺 `AppRegistry.runApplication`」**:`App.tsx:210-214` 早已在 `Platform.OS === 'web'` 分支调用;
+  且浏览器**当前实际取到的那份脚本**(在页面内 `fetch` 同源脚本再 `includes` 校验,与我 curl 的不是同一份缓存)
+  同时含 `runApplication('main'`、`Platform.OS !== 'web' && !fontsLoaded` 与我临时加的探针串 ⇒ 代码是新的、就是这份。
+- **否证 ④「`LogBox.ignoreAllLogs()` 吞掉了渲染期报错」**:做了一次**仪器校准** —— 在页面里
+  `console.error('PROBE-ERR-XYZ')`,该条确实出现在控制台列表里 ⇒ 观测面没有漏 error;
+  再临时摘掉 `ignoreAllLogs()` 重载(包行号 599560→600275 证明新包生效),依然零 error。探针已完整撤销
+  (`git status` 对 `App.tsx` 为空)。
+- **已确认的事实**:`__r(6545); __r(0);` 中 module 0 **就是 App.tsx**(其尾部 `$RefreshReg$` 注册了
+  `ThemedNavigation/AppInner/AppContent/App`),即入口模块被执行;包内 `Platform = { OS: 'web', … }` 解析正常
+  (`react-native-web/dist/exports/Platform` 出现 47 次,`Platform.android.js` 0 次)。
+- **下一步判据(为什么停在这里)**:"模块执行 + 无异常 + 容器上没有任何 React 根键"三者同时成立,
+  只剩 `AppRegistry.runApplication` 内部未把 `rootTag` 交给 `createRoot` 这一类**需要断点**才能分辨的分支
+  (DevTools 在 `runApplication` 与 `createRoot` 处下断点,看 `rootTag` 实参与是否被提前 return)。
+  这属独立调试票,不在本会话可闭环范围内 —— 因此**像素级复验至今仍未完成,不以"已修复"表述**。
+- 相关:本会话已把 `apps/mobile-rn/tests/__mocks__/expo-file-system.ts` 与共享 stub 的 `Appearance`/`DevSettings`
+  补齐(见「测试面根治」一节),Web 预览若要进 CI 冒烟,这两处替身同样用得上。
