@@ -37,6 +37,20 @@ export interface CategoryDropdownProps {
   backdropA11yLabel?: string
   /** 面板最大高度(选填,默认 320) */
   panelMaxHeight?: number
+  /**
+   * 未选中时触发器显示的文案(选填)。
+   * 必须由调用方传(组件内不留中文默认):SetNeedScreen 一类表单选择器依赖
+   * `form.cycle || '周期数'` 这种占位文案,没有这一档时它们的字段会渲染成空白触发器。
+   */
+  placeholder?: string
+  /** 面板标题(选填,同样由调用方传 i18n 文案;PlazaScreen 的弹层标题属可见内容) */
+  panelTitle?: string
+  /** 受控开关(选填):传入即由外部持有开合态(供 NavBar 动作这类外部触发点使用) */
+  visible?: boolean
+  /** 受控开合回调(选填,与 visible 配套) */
+  onVisibleChange?: (next: boolean) => void
+  /** 只渲染面板、不渲染触发器(选填):外部已有触发入口(如顶栏图标)时置 true */
+  hideTrigger?: boolean
   /** 容器外层样式(选填) */
   style?: StyleProp<ViewStyle>
   /** 测试标识(选填) */
@@ -63,6 +77,11 @@ export function CategoryDropdown({
   triggerA11yLabel,
   backdropA11yLabel,
   panelMaxHeight = 320,
+  placeholder,
+  panelTitle,
+  visible,
+  onVisibleChange,
+  hideTrigger = false,
   style,
   testID,
 }: CategoryDropdownProps) {
@@ -70,22 +89,39 @@ export function CategoryDropdown({
   const styles = useMemo(() => createStyles(tk), [tk])
   const { width: screenWidth, height: screenHeight } = useWindowDimensions()
   const triggerRef = useRef<View>(null)
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [anchor, setAnchor] = useState<AnchorRect | null>(null)
   const fade = useRef(new Animated.Value(0)).current
   const scale = useRef(new Animated.Value(0.96)).current
 
+  // 受控/非受控两用:传 visible 即由外部(如顶栏 NavBar 图标动作)持有开合态
+  const isControlled = visible !== undefined
+  const open = isControlled ? visible : internalOpen
+  const setOpen = useCallback(
+    (next: boolean) => {
+      if (!isControlled) setInternalOpen(next)
+      onVisibleChange?.(next)
+    },
+    [isControlled, onVisibleChange],
+  )
+
   const selected = items.find((it) => it.id === selectedId) ?? null
 
   const openPanel = useCallback(() => {
+    if (hideTrigger) {
+      // 无触发器 ⇒ 没有可锚定的节点,直接走顶部面板回退
+      setAnchor(null)
+      setOpen(true)
+      return
+    }
     triggerRef.current?.measureInWindow((x, y, width, height) => {
       const valid = Number.isFinite(x) && Number.isFinite(y) && width > 0 && height > 0
       setAnchor(valid ? { x, y, width, height } : null)
       setOpen(true)
     })
-  }, [])
+  }, [hideTrigger, setOpen])
 
-  const closePanel = useCallback(() => setOpen(false), [])
+  const closePanel = useCallback(() => setOpen(false), [setOpen])
 
   // 开合动画
   useEffect(() => {
@@ -146,31 +182,39 @@ export function CategoryDropdown({
       onSelect(id)
       setOpen(false)
     },
-    [onSelect],
+    [onSelect, setOpen],
   )
 
   return (
     <View style={style} testID={testID}>
-      <Pressable
-        onPress={openPanel}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={triggerA11yLabel ?? selected?.a11yLabel ?? selected?.label}
-        style={({ pressed }) => (pressed ? styles.triggerPressed : null)}
-      >
-        {/* 视觉不挂在 Pressable 的函数式 style 上(同 CategoryInlineBar 的真机取证) */}
-        <View ref={triggerRef} collapsable={false} style={styles.trigger}>
-          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.triggerText}>
-            {selected?.label}
-          </Text>
-          {typeof selected?.count === 'number' ? (
-            <View style={styles.countWrap}>
-              <Text style={styles.countText}>{selected.count}</Text>
-            </View>
-          ) : null}
-          <ChevronDown size={16} color={tk.text.secondary} />
-        </View>
-      </Pressable>
+      {hideTrigger ? null : (
+        <Pressable
+          onPress={openPanel}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={
+            triggerA11yLabel ?? selected?.a11yLabel ?? selected?.label ?? placeholder
+          }
+          style={({ pressed }) => (pressed ? styles.triggerPressed : null)}
+        >
+          {/* 视觉不挂在 Pressable 的函数式 style 上(同 CategoryInlineBar 的真机取证) */}
+          <View ref={triggerRef} collapsable={false} style={styles.trigger}>
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.triggerText, selected ? null : styles.triggerTextPlaceholder]}
+            >
+              {selected?.label ?? placeholder}
+            </Text>
+            {typeof selected?.count === 'number' ? (
+              <View style={styles.countWrap}>
+                <Text style={styles.countText}>{selected.count}</Text>
+              </View>
+            ) : null}
+            <ChevronDown size={16} color={tk.text.secondary} />
+          </View>
+        </Pressable>
+      )}
       <Modal visible={open} transparent animationType="none" onRequestClose={closePanel}>
         <Animated.View style={[styles.backdrop, { opacity: fade }]}>
           <Pressable
@@ -192,6 +236,11 @@ export function CategoryDropdown({
             contentContainerStyle={styles.panelList}
             showsVerticalScrollIndicator={false}
           >
+            {panelTitle ? (
+              <Text accessibilityRole="header" style={styles.panelTitle}>
+                {panelTitle}
+              </Text>
+            ) : null}
             {items.length === 0 ? (
               <View style={styles.emptyBox} />
             ) : (
@@ -258,6 +307,9 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       color: tk.text.primary,
     },
+    triggerTextPlaceholder: {
+      color: tk.text.tertiary,
+    },
     countWrap: {
       height: 16,
       minWidth: 16,
@@ -293,6 +345,14 @@ function createStyles(tk: AppThemeTokens) {
     panelList: {
       padding: 4,
       gap: 2,
+    },
+    panelTitle: {
+      paddingHorizontal: 12,
+      paddingTop: 6,
+      paddingBottom: 4,
+      fontSize: 13,
+      fontWeight: '600',
+      color: tk.text.secondary,
     },
     emptyBox: {
       height: 48,

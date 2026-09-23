@@ -34,7 +34,7 @@ export function AgreementCheckbox({ checked, onChange, error }: AgreementCheckbo
           onChange(!checked)
         }}
         className={[
-          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-all duration-200',
           error
             ? 'border-destructive'
             : checked

@@ -152,7 +152,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Input
-            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx] text-[32rpx] text-foreground"
+            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-xl text-[32rpx] text-foreground"
             type="text"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
@@ -165,7 +165,7 @@ export default function ExamAnswer() {
       return (
         <ThemeRoot>
           <Textarea
-            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx] text-[32rpx] text-foreground min-h-[320rpx]"
+            className="w-full py-[16rpx] px-[28rpx] border-[2rpx] border-[var(--color-border)] rounded-xl text-[32rpx] text-foreground min-h-[320rpx]"
             placeholder={t('exam.answer.answerPlaceholder')}
             value={typeof ans === 'string' ? ans : ''}
             onInput={(e) => select(e.detail.value)}
@@ -189,7 +189,7 @@ export default function ExamAnswer() {
               选中 border/文字 success + bg success.light */}
           <View
             key={i}
-            className={`flex items-center p-[28rpx] border-[2rpx] rounded-[24rpx] mb-[16rpx] ${
+            className={`flex items-center p-[28rpx] border-[2rpx] rounded-xl mb-[16rpx] ${
               selected
                 ? 'border-[var(--color-success)] bg-[var(--color-success-light)]'
                 : 'border-[var(--color-border)]'
@@ -198,7 +198,7 @@ export default function ExamAnswer() {
             onClick={() => select(val)}
           >
             <View
-              className={`w-[56rpx] h-[56rpx] leading-[56rpx] text-center border-[2rpx] rounded-[12rpx] text-[28rpx] ${
+              className={`w-[56rpx] h-[56rpx] leading-[56rpx] text-center border-[2rpx] rounded-md text-[28rpx] ${
                 selected
                   ? 'border-[var(--color-success)] text-[var(--color-success)]'
                   : 'border-[var(--color-border)] text-[var(--color-text-medium)]'
@@ -249,7 +249,7 @@ export default function ExamAnswer() {
         <View className="mt-[32rpx] flex gap-[16rpx]">
           {currentIdx > 0 && (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-card"
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-card"
               hoverClass="opacity-60"
               onClick={prev}
             >
@@ -260,7 +260,7 @@ export default function ExamAnswer() {
           )}
           {currentIdx < questions.length - 1 ? (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-card"
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-card"
               hoverClass="opacity-60"
               onClick={next}
             >
@@ -270,7 +270,7 @@ export default function ExamAnswer() {
             </View>
           ) : (
             <View
-              className="h-[100rpx] flex-1 flex items-center justify-center rounded-[24rpx] bg-primary"
+              className="h-[100rpx] flex-1 flex items-center justify-center rounded-xl bg-primary"
               hoverClass="opacity-60"
               onClick={onSubmit}
             >

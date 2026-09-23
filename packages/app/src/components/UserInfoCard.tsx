@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../theme/tokens'
@@ -77,7 +78,7 @@ const viewStyles = {
     borderWidth: 2,
     borderStyle: 'solid',
     borderColor: tk.text.primary,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     paddingTop: 14,
     paddingBottom: 14,
     paddingLeft: 32,
@@ -87,7 +88,7 @@ const viewStyles = {
   card: (tk: AppThemeTokens): CSSProperties => ({
     marginTop: 8,
     padding: 8,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
@@ -102,7 +103,7 @@ const viewStyles = {
   avatarWrap: (tk: AppThemeTokens): CSSProperties => ({
     width: 56,
     height: 56,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
     backgroundColor: tk.surface.light,
     borderWidth: 1,
@@ -141,7 +142,7 @@ const viewStyles = {
     paddingTop: 2,
     paddingBottom: 2,
     backgroundColor: isVip ? tk.warning.light : tk.surface.card,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   }),
   tokenRow: (tk: AppThemeTokens): CSSProperties => ({
     display: 'flex',
@@ -154,7 +155,7 @@ const viewStyles = {
     paddingTop: 6,
     paddingBottom: 6,
     backgroundColor: tk.surface.muted,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   }),
   tokenLabelWrap: (): CSSProperties => ({
     display: 'flex',
@@ -167,7 +168,7 @@ const viewStyles = {
     paddingTop: 4,
     paddingBottom: 4,
     backgroundColor: tk.brand.DEFAULT,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     cursor: 'pointer',
   }),
 }
