@@ -299,7 +299,9 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
     typeTextActive: {
-      color: tk.surface.light,
+      // brand.DEFAULT 做底色(深色=白),前景必须用 brand.foreground(深色=黑),
+      // 不得用 surface.light(两态皆白 → 深色白底白字不可见)
+      color: tk.brand.foreground,
     } as TextStyle,
     centerWrap: {
       flex: 1,
@@ -324,7 +326,9 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
-      color: tk.surface.light,
+      // retryButton 底色用 brand.DEFAULT(深色=白),文字必须用 brand.foreground(深色=黑),
+      // 不得用 surface.light(两态皆白 → 深色白底白字不可见)
+      color: tk.brand.foreground,
       fontSize: 16,
       fontWeight: '600',
     } as TextStyle,
