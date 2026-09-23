@@ -555,7 +555,11 @@ mcpCmd
         auth,
       });
       console.info(chalk.green(t('cliEntry.mcpAdded', { name: server.name })));
-      console.info(t('cliEntry.mcpTransportLine', { transport: server.transport }));
+      // McpServer.transport 类型为 MCPTransport | undefined,而 t() 的 params 值是
+      // Record<string, string | number>(不接受 undefined)。addMcpServer 恒写入
+      // `options?.transport ?? 'stdio'`,返回值运行期永不为 undefined,故此处 `?? 'stdio'`
+      // 仅是与 addMcpServer 同一默认值对齐的类型收窄,不改变任何实际输出。
+      console.info(t('cliEntry.mcpTransportLine', { transport: server.transport ?? 'stdio' }));
       if (server.transport === 'stdio') {
         console.info(t('cliEntry.mcpCommandLine', { command: server.command ?? '' }));
       } else {
