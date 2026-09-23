@@ -10,30 +10,6 @@
     "creditLowTitle": "智汇值不足",
     "creditLowDesc": "您的智汇值余额小于 {min},无法使用大模型,请前往充值"
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "请求批准",
-        "desc": "编辑外部文件和使用互联网时始终询问"
-      },
-      "plan": {
-        "title": "只读计划",
-        "desc": "仅读取与检索，写文件和执行命令都会被拒绝"
-      },
-      "accept-edits": {
-        "title": "替我审批",
-        "desc": "仅对检测到的风险操作请求批准"
-      },
-      "bypass-permissions": {
-        "title": "完全访问权限",
-        "desc": "可不受限制地访问互联网和您电脑上的任何文件"
-      },
-      "unknown": {
-        "title": "未知模式",
-        "desc": "无法识别的权限模式，已按默认档处理"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "请选择",
     "searchPlaceholder": "搜索...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "改动已写入文件系统",
       "diffRejectedHint": "已忽略本次改动",
-      "timelineTabInline": "对话流"
+      "timelineTabInline": "对话流",
+      "reviewStats": {
+        "title": "自动审查统计",
+        "accepted": "已接受 {n}",
+        "rejected": "已拒绝 {n}",
+        "noReason": "未提供理由 {n}",
+        "commandHistory": "命令历史",
+        "noReasonText": "自动审查未提供理由",
+        "noDecision": "暂无自动审查记录",
+        "expandAria": "命令历史(展开/收起)"
+      }
     },
     "permissionConfirm": {
       "allow": "允许",
@@ -7514,7 +7500,10 @@
       "pendingFailed": "任务已失败或取消,可换个提示词重新生成。",
       "planStepInProgress": "进行中",
       "planStepCompleted": "已完成",
-      "planStepFailed": "失败"
+      "planStepFailed": "失败",
+      "rollbackAdded": "将被添加",
+      "rollbackModified": "将修改",
+      "rollbackDeleted": "将删除"
     },
     "tokenUsage": {
       "promptTokens": "提示词",
@@ -8045,7 +8034,22 @@
     "murekaMusicTitle": "Mureka 音乐生成",
     "murekaMusicSubtitle": "使用 Mureka 生成音乐",
     "elevenlabsMusicTitle": "ElevenLabs 音乐生成",
-    "elevenlabsMusicSubtitle": "使用 ElevenLabs 生成音乐"
+    "elevenlabsMusicSubtitle": "使用 ElevenLabs 生成音乐",
+    "typeAuto": "自动",
+    "typeImage": "图像",
+    "typeVideo": "视频",
+    "type3d": "3D",
+    "typeVision": "视觉",
+    "typeVoice": "语音",
+    "typeMusic": "音乐",
+    "statusAccepted": "已受理",
+    "statusGenerating": "生成中",
+    "imageMaxSize": "图片不能超过 {max}MB",
+    "selectImageFile": "请选择图片文件",
+    "metaTitle": "AI 内容生成 — 文本 / 图像 / 视频 / 音乐 / 3D | 智汇 AI",
+    "metaDescription": "智汇 AI 内容生成:一键生成文本、图像、视频、音乐、3D 模型。集成 DALL-E / Stable Diffusion / Sora / Suno 等顶级生成模型,支持多模态混合创作。",
+    "metaOgTitle": "AI 内容生成 — 文本 / 图像 / 视频 / 音乐 / 3D",
+    "metaOgDescription": "多模态 AI 创作平台,集成 DALL-E / SD / Sora / Suno"
   },
   "aiNews": {
     "apiRelays": {
@@ -9259,6 +9263,8 @@
       "copyText": "复制文本",
       "deleteMessage": "删除消息",
       "feedback": "反馈",
+      "likeMessage": "点赞",
+      "dislikeMessage": "点踩",
       "regenerate": "重新生成",
       "branch": "从此处分支"
     },
@@ -9838,6 +9844,8 @@
       "copiedMarkdown": "已复制 Markdown",
       "copiedText": "已复制文本",
       "feedbackRecorded": "已记录反馈,感谢支持",
+      "feedbackSaved": "反馈已记录",
+      "feedbackFailed": "反馈提交失败",
       "messageDeleted": "已删除消息",
       "operationFailed": "操作失败",
       "regenerating": "正在重新生成…",
@@ -10104,7 +10112,10 @@
     "title": "任务列表",
     "unfavorite": "取消收藏",
     "viewAll": "查看全部",
-    "viewFavorites": "查看收藏"
+    "viewFavorites": "查看收藏",
+    "attentionWaiting": "等待你处理",
+    "attentionUnread": "有 {count} 条未读更新",
+    "batchAttentionSummary": "其中等待处理 {waiting} · 未读 {unread}"
   },
   "chatSettingsPage": {
     "back": "返回",
@@ -11157,7 +11168,94 @@
     "title": "开发者中心",
     "urlRequired": "请输入回调 URL",
     "webhooks": "Webhook",
-    "whCreateSuccess": "Webhook 创建成功"
+    "whCreateSuccess": "Webhook 创建成功",
+    "relayKeys": {
+      "scopeChat": "对话补全",
+      "scopeModels": "模型列表",
+      "scopeEmbeddings": "向量",
+      "scopeImages": "图片生成",
+      "scopeAudio": "语音",
+      "scopeVideos": "视频生成",
+      "unlimitedQuota": "无限额度",
+      "exhausted": "已耗尽",
+      "revokedToast": "Key 已吊销",
+      "enabledToast": "Key 已启用",
+      "resetToast": "Key 已重置,请保存新的 Secret",
+      "windowsCleared": "已清除 {count} 条窗口计数",
+      "title": "API Key 管理",
+      "subtitle": "创建、吊销与重置中转站 API Key",
+      "createKey": "新建 Key",
+      "statusActive": "启用",
+      "enableAction": "启用",
+      "toggleVisibility": "切换显示",
+      "tokenBalance": "Token 余额:",
+      "costBalance": "成本余额:",
+      "tokenUsed": "已用 Token:",
+      "costUsed": "已用成本:",
+      "createdOn": "创建 {time}",
+      "use": "使用",
+      "resetWindowsConfirm": "确认重置该 Key 的窗口用量?将清空当前限流窗口计数",
+      "resetWindows": "重置窗口",
+      "reset": "重置",
+      "revokeConfirm": "确认吊销该 Key?吊销后可随时重新启用",
+      "revoke": "吊销",
+      "createKeyTitle": "新建 API Key",
+      "keyNameLabel": "Key 名称",
+      "keyNamePlaceholder": "如:生产环境 Key",
+      "scopesLabel": "权限范围",
+      "scopesHint": "不勾选任何权限时,新建 Key 将默认携带「{chat} + {models}」权限",
+      "create": "创建",
+      "secretResetTitle": "Secret 已重置",
+      "keyCreatedTitle": "Key 创建成功",
+      "saveSecretNow": "请立即保存 Secret",
+      "secretOnceHint": "Secret 仅在创建时显示一次,关闭后无法再次查看。",
+      "keyIdLabel": "Key 标识",
+      "gatewayHintA": "调用网关时,请求头使用",
+      "gatewayHintB": "(即 ihui_ 开头的 Key 标识;Secret 请妥善保管,勿放进请求头)。",
+      "savedClose": "我已保存,关闭"
+},
+    "relayUsage": {
+      "title": "用量明细",
+      "subtitle": "按模型或按日查看中转站 / BYOK 调用统计",
+      "modeAll": "全部",
+      "modeRelay": "中转站",
+      "modeMixed": "混合",
+      "callMode": "调用模式",
+      "grouping": "分组",
+      "groupByModel": "按模型",
+      "groupByDay": "按日",
+      "startDate": "起始日期",
+      "endDate": "结束日期",
+      "clear": "清除",
+      "totalCalls": "总调用",
+      "totalTokens": "总 Token",
+      "totalCost": "总消耗",
+      "byokCalls": "BYOK 调用",
+      "byokUpstreamCost": "BYOK 上游成本",
+      "byokPlatformFee": "BYOK 平台服务费",
+      "colDate": "日期",
+      "colModel": "模型",
+      "calls": "调用",
+      "colSuccess": "成功",
+      "colFailure": "失败",
+      "colCostYuan": "消耗(元)",
+      "colUpstreamCostYuan": "上游成本(元)",
+      "colPlatformFeeYuan": "平台服务费(元)",
+      "csvCalls": "调用次数",
+      "csvTotalTokens": "总Token",
+      "csvPromptTokens": "PromptToken",
+      "csvCompletionTokens": "CompletionToken",
+      "csvByokCalls": "BYOK调用",
+      "csvRelayCalls": "中转站调用",
+      "exportedCsv": "已导出 CSV",
+      "exportFailed": "导出失败",
+      "modelOptional": "模型(可选)",
+      "modelFilter": "模型筛选",
+      "apiKeyFilter": "API Key 筛选",
+      "allApiKeys": "全部 API Key",
+      "cacheRead": "读 {count}",
+      "cacheWrite": "写 {count}"
+}
   },
   "developerApiDocsPage": {
     "colDesc": "说明",
@@ -11458,7 +11556,140 @@
     "examplePlaceholder": "示例…",
     "roleDescPlaceholder": "描述角色职责…",
     "taskDescPlaceholder": "描述任务详情…",
-    "taskGoalPlaceholder": "描述任务目标…"
+    "taskGoalPlaceholder": "描述任务目标…",
+    "dispatchAction": "派发",
+    "autoPlan": "智能规划",
+    "customRolesTab": "自定义角色",
+    "evolutionTab": "Agent 演化",
+    "dispatching": "派发中…",
+    "dispatchSuccess": "派发成功",
+    "dispatchAnother": "再派一个",
+    "edit": "编辑",
+    "saving": "保存中…",
+    "roles": {
+      "researcher": "研究助手",
+      "coder": "代码助手",
+      "reviewer": "审查助手",
+      "architect": "架构师",
+      "debugger": "调试助手"
+},
+    "subRoles": {
+      "researcher": "研究员",
+      "coder": "编码员",
+      "reviewer": "评审员",
+      "debugger": "调试员"
+},
+    "orch": {
+      "parallel": "并行",
+      "pipeline": "串行",
+      "decomposed": "分解式",
+      "debate": "辩论",
+      "vote": "投票",
+      "critique": "批判",
+      "withCommunication": "协作通信"
+},
+    "subOrch": {
+      "pipeline": "流水线",
+      "critique": "批评",
+      "decomposed": "分解",
+      "withCommunication": "带通信"
+},
+    "orchDesc": {
+      "parallel": "多个 agent 并行处理同一任务",
+      "pipeline": "多个 agent 串行传递结果",
+      "decomposed": "任务分解为 DAG 子步骤执行",
+      "debate": "5 个 agent 独立处理 → LLM 仲裁选最佳 + 合并",
+      "vote": "5 个 agent 独立处理 → 互相投票(1-5 分)选最佳",
+      "critique": "多 agent 互相批判优化(3 轮:生成→批判→修订)",
+      "withCommunication": "agent 间 Redis 消息总线通信(3 轮协作)"
+},
+    "priority": {
+      "low": "低",
+      "normal": "普通",
+      "high": "高",
+      "urgent": "紧急"
+},
+    "fields": {
+      "goal": "任务目标",
+      "agentRole": "Agent 角色",
+      "orchestration": "编排模式",
+      "priority": "优先级",
+      "affectedFiles": "受影响文件(每行一个绝对路径)",
+      "affectedFilesPerLine": "受影响文件(每行一个)",
+      "forbidden": "禁止修改",
+      "forbiddenPerLine": "禁止修改(每行一个)",
+      "verifyCommands": "验证命令(每行一个)",
+      "constraints": "约束边界",
+      "constraintsOptional": "约束(可选)",
+      "deliverables": "交付物",
+      "taskDesc": "任务描述",
+      "roleKey": "角色技术名(kebab-case)",
+      "displayName": "显示名",
+      "skills": "技能标签(逗号分隔)",
+      "recommendedTasks": "推荐任务类型(逗号分隔)",
+      "retryCount": "重试次数",
+      "retryDelayMs": "重试延迟(ms)",
+      "timeoutMs": "超时(ms)",
+      "tokenQuota": "Token 上限",
+      "tokenQuotaForm": "Token 配额",
+      "maxRetries": "最大重试"
+},
+    "defaultForbidden": "任何不在上述清单的文件",
+    "defaultDagNodeTask": "调研需求",
+    "dagTitle": "DAG 依赖图",
+    "dagNodes": "节点",
+    "dagEdges": "边",
+    "dagEdgesOptional": "边(条件可选)",
+    "dagAddNode": "+ 节点",
+    "dagAddEdge": "+ 边",
+    "addNodeButton": "添加节点",
+    "addEdgeButton": "添加边",
+    "dagEditorTitle": "DAG 节点 / 边编辑器",
+    "retrySection": "失败重试",
+    "interval": "间隔",
+    "quotasSection": "资源配额",
+    "retryQuotaSummary": "重试 / 资源配额",
+    "formDefaultOption": "默认",
+    "formConditionPlaceholder": "condition(可选)",
+    "goalPlaceholder": "一句话描述任务目标",
+    "constraintsPlaceholder": "API 契约/类型/样式/行为约束",
+    "deliverablesPlaceholder": "完整代码 + 自验通过 + 一句话总结",
+    "formSubmitting": "派单中...",
+    "formSubmit": "提交派单",
+    "toastConcurrencyLimit": "并发派单数已达上限",
+    "toastConcurrencyLimitDesc": "请等待或用 urgent 优先级抢占",
+    "toastBadRequest": "参数错误",
+    "toastDispatchFailed": "派发失败",
+    "toastResponseMissing": "响应数据缺失",
+    "toastDispatched": "已派发 Subagent",
+    "toastPriorityDesc": "优先级:{priority}",
+    "autoPlanFailed": "智能规划失败",
+    "autoPlanDone": "智能规划完成",
+    "maxAgentsLabel": "最大 agent 数:",
+    "llmPlanning": "LLM 规划中…",
+    "estimateSummary": "预估 {duration} · {cost}",
+    "recommendedAgents": "推荐 Agent 组合",
+    "reasoningLabel": "推理:",
+    "topologyStatsTitle": "历史编排统计",
+    "topologyStatLine": "{orchestration}:成功率 {rate}%({samples} 次)",
+    "autoGenTitle": "LLM 自动生成角色",
+    "llmGenerating": "LLM 生成中…",
+    "autoGenAndSave": "自动生成并保存",
+    "customRolesCount": "自定义角色({n})",
+    "manualCreate": "+ 手动创建",
+    "rolesEmpty": "暂无自定义角色",
+    "roleDeleted": "已删除",
+    "roleDeleteFailed": "删除失败",
+    "roleAutoGenFailed": "自动生成失败",
+    "roleGenerated": "已生成角色定义",
+    "roleSaved": "已保存自定义角色",
+    "roleUpdated": "已更新",
+    "roleCreated": "已创建",
+    "roleSaveFailed": "保存失败",
+    "editRole": "编辑角色",
+    "createRole": "创建角色",
+    "displayNameExample": "Drizzle 迁移专家",
+    "recommendedTasksExample": "schema 变更, 数据迁移"
   },
   "distribution": {
     "activeMembers": "活跃成员",
@@ -13166,7 +13397,8 @@
     "phaseReview": "评审",
     "phaseApproved": "已批准",
     "phaseExecuting": "执行中",
-    "phaseDone": "已完成"
+    "phaseDone": "已完成",
+    "viewPullRequest": "查看拉取请求"
   },
   "floatingChat": {
     "openclaw": {
@@ -13923,7 +14155,33 @@
       "groupView": "视图",
       "noMatch": "无匹配项",
       "searchPlaceholder": "搜索视图..."
-    }
+    },
+    "diffReview": {
+      "copyGitApply": "复制 git apply",
+      "copyGitApplyToast": "git apply 命令已复制到剪贴板",
+      "copyGitApplyFailed": "git apply 命令复制失败",
+      "copyGitApplyEmpty": "没有可导出的改动",
+      "markAsViewed": "标记为已审阅",
+      "markAsUnviewed": "标记为未审阅",
+      "markedAsViewed": "已审阅",
+      "markAllViewed": "全部标记为已审阅",
+      "unmarkAll": "取消全部标记",
+      "reviewedCount": "已审阅 {viewed}/{total}",
+      "jumpToFile": "跳转到文件",
+      "jumpToFileEmpty": "无匹配文件",
+      "renderError": "文件行渲染失败",
+      "retry": "重试",
+      "loading": "加载中...",
+      "loadFailedAfterRetrying": "重试后仍加载失败",
+      "fullContentLoadFailed": "完整内容加载失败",
+      "hideGenerated": "隐藏生成文件",
+      "copyPath": "复制路径",
+      "pathCopied": "路径已复制",
+      "openWithSplit": "对比视图打开",
+      "openWithUnified": "合并视图打开",
+      "openInEditor": "在编辑器中打开",
+      "viewPullRequest": "查看拉取请求"
+}
   },
   "imageGenPage": {
     "download": "下载",
@@ -20637,7 +20895,12 @@
     "refresh": "刷新",
     "status": "状态",
     "taskList": "任务列表",
-    "title": "即梦视频任务"
+    "title": "即梦视频任务",
+    "volcanoTaskId": "火山 Task ID",
+    "updatedAt": "更新时间",
+    "message": "消息",
+    "noVideoUrlExtracted": "任务标记为完成但未提取到视频 URL",
+    "syncingStatus": "同步状态中..."
   },
   "vip": {
     "active": "生效中",
@@ -24197,13 +24460,37 @@
     },
     "vividTail": "，马上就好"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "请求批准",
+        "desc": "编辑外部文件和使用互联网时始终询问"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅读取与检索，写文件和执行命令都会被拒绝"
+      },
+      "accept-edits": {
+        "title": "替我审批",
+        "desc": "仅对检测到的风险操作请求批准"
+      },
+      "bypass-permissions": {
+        "title": "完全访问权限",
+        "desc": "可不受限制地访问互联网和您电脑上的任何文件"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "无法识别的权限模式，已按默认档处理"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "文件超过大小上限:{name}",
     "uploadFailedWithReason": "上传失败:{error}",
     "unknownError": "未知错误",
     "missingFileId": "上传响应缺少 file.id",
     "maxAttachmentsReached": "最多 {count} 个附件"
-},
+  },
   "eduScheduling": {
     "title": "智能排课",
     "description": "管理排课规则、教师时间表及调课申请",
@@ -24216,17 +24503,17 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "status": {
       "pending": "待审批",
       "approved": "已批准",
       "rejected": "已驳回"
-},
+    },
     "tabs": {
       "rules": "排课规则",
       "teachers": "教师时间表",
       "changes": "调课管理"
-},
+    },
     "form": {
       "class": "班级",
       "subject": "科目",
@@ -24240,7 +24527,7 @@
       "selectTeacher": "选择教师",
       "selectTerm": "选择学期",
       "subjectPlaceholder": "数学"
-},
+    },
     "actions": {
       "edit": "编辑",
       "add": "添加",
@@ -24253,18 +24540,18 @@
       "autoSchedule": "自动排课",
       "checkConflicts": "冲突检测",
       "addTimeEntry": "添加时间条目"
-},
+    },
     "loading": {
       "text": "加载中...",
       "rules": "加载排课规则...",
       "teachers": "加载教师时间表...",
       "changes": "加载调课申请..."
-},
+    },
     "empty": {
       "rules": "暂无排课规则",
       "teachers": "暂无教师时间表",
       "changes": "暂无调课申请"
-},
+    },
     "columns": {
       "time": "时间",
       "timeSlot": "时间段",
@@ -24276,22 +24563,22 @@
       "status": "状态",
       "applicant": "申请人",
       "actions": "操作"
-},
+    },
     "ruleDialog": {
       "editTitle": "编辑排课规则",
       "addTitle": "添加排课规则"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "编辑时间条目",
       "addTitle": "添加时间条目",
       "available": "可用",
       "unavailable": "不可用"
-},
+    },
     "conflictDialog": {
       "title": "冲突检测结果",
       "noConflicts": "未检测到冲突"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "成绩管理",
     "pageSubtitle": "管理学生考试成绩、排名和统计分析",
@@ -24360,7 +24647,7 @@
     "avgScoreStat": "平均分: {score}",
     "scoreRateStat": "得分率: {percentage}%",
     "examCountStat": "考试次数: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "父亲",
     "relationshipMother": "母亲",
@@ -24436,7 +24723,7 @@
     "confirmDelete": "确认删除",
     "confirmDeleteContent": "确定要解除该绑定关系吗？此操作不可撤销。",
     "cancel": "取消"
-},
+  },
   "eduSchedule": {
     "title": "课程表管理",
     "description": "管理学期的课程安排，支持周视图和月视图",
@@ -24448,7 +24735,7 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "colors": {
       "blue": "蓝色",
       "green": "绿色",
@@ -24458,7 +24745,7 @@
       "teal": "青色",
       "indigo": "靛蓝",
       "rose": "玫瑰红"
-},
+    },
     "form": {
       "courseName": "课程名称",
       "courseNamePlaceholder": "例如：高等数学",
@@ -24469,7 +24756,7 @@
       "classroom": "教室",
       "classroomPlaceholder": "例如：A101",
       "colorMark": "颜色标记"
-},
+    },
     "editCourseTitle": "编辑课程",
     "addCourseTitle": "添加课程",
     "delete": "删除",
@@ -24514,7 +24801,7 @@
     "copyFailed": "复制失败",
     "exportFailed": "导出失败",
     "exportFilePrefix": "课程表"
-},
+  },
   "eduHomework": {
     "pageTitle": "作业管理",
     "pageSubtitle": "管理学生作业提交、批改和评分",
@@ -24549,14 +24836,14 @@
     "submittedAtLabel": "提交时间：",
     "commentPlaceholder": "可选，批改评语",
     "submitGrade": "提交批改"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "早餐",
       "lunch": "午餐",
       "dinner": "晚餐",
       "snack": "加餐"
-},
+    },
     "weekdays": {
       "weekdayMon": "周一",
       "weekdayTue": "周二",
@@ -24565,12 +24852,12 @@
       "weekdayFri": "周五",
       "weekdaySat": "周六",
       "weekdaySun": "周日"
-},
+    },
     "views": {
       "day": "日",
       "week": "周",
       "month": "月"
-},
+    },
     "mealDialog": {
       "editTitle": "编辑菜谱",
       "addTitle": "添加菜谱",
@@ -24589,7 +24876,7 @@
       "delete": "删除",
       "save": "保存",
       "add": "添加"
-},
+    },
     "template": {
       "title": "模板管理",
       "newTitle": "新建模板",
@@ -24608,7 +24895,7 @@
       "selectTemplate": "选择模板",
       "startDate": "起始日期（周一）",
       "apply": "应用"
-},
+    },
     "page": {
       "title": "菜谱管理",
       "subtitle": "管理每日菜谱，支持日/周/月视图",
@@ -24623,7 +24910,7 @@
       "generateFailed": "生成采购清单失败",
       "nutritionAnalysis": "营养分析",
       "shoppingList": "采购清单"
-},
+    },
     "nutrition": {
       "title": "营养分析汇总",
       "totalCalories": "总热量 (kcal)",
@@ -24636,7 +24923,7 @@
       "protein": "蛋白质",
       "carbs": "碳水",
       "empty": "暂无营养数据"
-},
+    },
     "shopping": {
       "title": "食材采购清单",
       "summary": "日期范围: {start} ~ {end} · 共 {count} 种食材",
@@ -24644,8 +24931,8 @@
       "appearsIn": "出现在 {count} 道菜",
       "involvedDishes": "涉及菜品",
       "generating": "生成中..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "食堂采购记账",
     "pageDescription": "AI 拍照识别小票 · 三轮交叉核对(抽取→比对→仲裁)· 台账 / 供应商 / 统计一站式管理,移动端同步",
@@ -24654,7 +24941,7 @@
       "ledger": "采购台账",
       "supplier": "供应商",
       "stats": "统计分析"
-},
+    },
     "status": {
       "draft": "草稿",
       "aiExtracted": "AI已识别",
@@ -24662,10 +24949,10 @@
       "aiConflict": "AI存疑",
       "confirmed": "已记账",
       "voided": "已作废"
-},
+    },
     "statusFilter": {
       "all": "全部状态"
-},
+    },
     "supplierCategory": {
       "vegetable": "蔬菜",
       "meatPoultry": "肉禽",
@@ -24674,12 +24961,12 @@
       "seasoning": "调味",
       "frozen": "冻品",
       "other": "其他"
-},
+    },
     "verifyType": {
       "extract": "第1轮 · 结构化抽取",
       "verify": "第2轮 · 独立交叉核对",
       "arbitrate": "第3轮 · 差异仲裁"
-},
+    },
     "common": {
       "noData": "暂无数据",
       "startDate": "开始日期",
@@ -24693,7 +24980,7 @@
       "notes": "备注",
       "pleaseSelect": "请选择",
       "confidence": "置信度"
-},
+    },
     "stats": {
       "exportXlsx": "Excel 已导出",
       "exportCsv": "CSV 已导出(UTF-8 BOM,Excel 可直接打开)",
@@ -24713,7 +25000,7 @@
       "monthlyTrend": "月度趋势",
       "countItem": "条目",
       "countDoc": "单"
-},
+    },
     "ai": {
       "doneToast": "小票识别完成:{status}",
       "errNotImage": "请选择图片文件",
@@ -24745,7 +25032,7 @@
       "conflictNote": "三轮核对后仍有分歧:请对照左侧原图人工核对明细,修正后在台账中\"记账\"。",
       "verifiedNote": "两轮独立识别一致且数学自检通过,可在台账中一键记账。",
       "noItems": "未识别到明细,请在台账编辑中手工补录"
-},
+    },
     "detail": {
       "supplierLabel": "供应商:",
       "dateLabel": "采购日期:",
@@ -24770,7 +25057,7 @@
       "arbitrationNote": "(仲裁:{resolution})",
       "reverify": "重新核对",
       "arbitrateBtn": "差异仲裁"
-},
+    },
     "table": {
       "itemName": "品名",
       "category": "类别",
@@ -24779,7 +25066,7 @@
       "unitPrice": "单价",
       "subtotal": "小计",
       "check": "核对"
-},
+    },
     "col": {
       "date": "日期",
       "supplier": "供应商",
@@ -24789,21 +25076,21 @@
       "status": "状态",
       "aiRounds": "AI轮次",
       "actions": "操作"
-},
+    },
     "unit": {
       "rounds": "{rounds} 轮",
       "items": "{count} 条"
-},
+    },
     "ledger": {
       "totalCount": "共 {total} 单"
-},
+    },
     "action": {
       "detail": "详情",
       "edit": "编辑",
       "confirm": "记账",
       "void": "作废",
       "delete": "删除"
-},
+    },
     "toast": {
       "deleted": "已删除",
       "confirmSuccess": "记账成功",
@@ -24813,7 +25100,7 @@
       "supplierDeleted": "供应商已删除",
       "supplierUpdated": "供应商已更新",
       "supplierCreated": "供应商已创建"
-},
+    },
     "confirm": {
       "titleConfirm": "确认记账",
       "titleVoid": "确认作废",
@@ -24821,18 +25108,18 @@
       "descConfirm": "记账后将计入统计口径(总额 {amount}),仍可作废。",
       "descVoid": "作废后不再计入统计,单据保留可查。",
       "descDelete": "删除为软删除,后台可恢复,前端不再显示。"
-},
+    },
     "filter": {
       "allSuppliers": "全部供应商",
       "keyword": "关键字",
       "keywordPlaceholder": "供应商/单号"
-},
+    },
     "badge": {
       "manual": "人工",
       "passed": "通过",
       "failed": "失败",
       "differed": "差异"
-},
+    },
     "edit": {
       "title": "编辑采购单",
       "dateLabel": "采购日期",
@@ -24846,7 +25133,7 @@
       "addRow": "加一行",
       "deleteRow": "删除该行",
       "itemsHint": "品名留空的行保存时自动忽略;数量×单价会自动算小计;总额留空按明细合计。"
-},
+    },
     "supplier": {
       "colName": "名称",
       "colCategory": "分类",
@@ -24868,8 +25155,8 @@
       "license": "资质证照",
       "licensePlaceholder": "营业执照/食品经营许可",
       "address": "地址"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "正常",
     "statusLate": "迟到",
@@ -24954,7 +25241,23 @@
     "reason": "原因",
     "daysWithUnit": "{count}天",
     "approveAction": "审批"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "编号：{no}",
+    "empty": "暂无证书",
+    "statusRevoked": "已撤销",
+    "statusValid": "有效",
+    "subtitle": "查看已获得的全部证书",
+    "title": "我的证书",
+    "view": "查看"
+  },
+  "eduCourses": {
+    "backToCourses": "返回课程列表",
+    "chaptersTitle": "章节目录",
+    "detail": "详情",
+    "notFound": "课程不存在",
+    "studentsCount": "{count} 人学习"
+  },
   "eduStudyPlan": {
     "add": "添加",
     "addFirstItem": "添加第一个条目",
@@ -25054,22 +25357,90 @@
     "weekdaySun": "日",
     "weekdayThu": "四",
     "weekdayTue": "二",
-    "weekdayWed": "三"
+    "weekdayWed": "三",
+    "pageTitle": "学习计划管理",
+    "pageSubtitle": "管理班级的学习计划，支持月计划自动拆解为周计划",
+    "loadTermsFailed": "加载学期数据失败，请稍后重试"
+  },
+  "apiKeyPerms": {
+    "agentsRead": "读取智能体",
+    "agentsCall": "调用智能体",
+    "chatRead": "读取对话",
+    "chatWrite": "发起对话",
+    "modelsRead": "读取模型",
+    "modelsWrite": "管理自定义模型",
+    "embeddingsWrite": "生成 Embedding",
+    "filesRead": "读取文件",
+    "filesWrite": "上传文件",
+    "audioRead": "读取音色",
+    "audioWrite": "语音合成/识别",
+    "imagesWrite": "生成/编辑图片",
+    "videosWrite": "生成/编排视频",
+    "videosRead": "查询视频任务",
+    "threedWrite": "生成 3D 模型",
+    "generationWrite": "生成队列入队/查询",
+    "knowledgeRead": "读取知识库",
+    "knowledgeWrite": "管理知识库",
+    "toolsRead": "读取工具/资源",
+    "toolsCall": "调用工具",
+    "memoryRead": "读取记忆",
+    "memoryWrite": "写入记忆",
+    "messagesRead": "查询消息状态",
+    "messagesWrite": "发布/订阅消息",
+    "userRead": "读取当前用户",
+    "workspaceRead": "读取工作区",
+    "workflowsRead": "读取工作流",
+    "workflowsWrite": "执行工作流",
+    "statsRead": "读取使用量统计",
+    "assistantsRead": "读取助手",
+    "assistantsWrite": "管理助手",
+    "threadsRead": "读取会话线程",
+    "threadsWrite": "创建/删除线程",
+    "runsRead": "读取 Run 状态",
+    "runsWrite": "创建/取消 Run",
+    "batchesRead": "读取批任务",
+    "batchesWrite": "创建/取消批任务",
+    "responsesWrite": "Responses 协议",
+    "realtimeConnect": "实时语音连接",
+    "rerankWrite": "重排序",
+    "moderationWrite": "内容审核",
+    "codebaseRead": "代码库语义检索",
+    "codebaseWrite": "代码库索引管理",
+    "diffApply": "补丁落盘",
+    "sandboxRun": "沙箱命令执行",
+    "browserOperate": "浏览器自动化",
+    "computerOperate": "本机 GUI 控制",
+    "webFetch": "URL 抓取",
+    "searchWeb": "网页搜索/爬取",
+    "webhooksManage": "Webhook 管理",
+    "connectorsRead": "读取连接器",
+    "connectorsWrite": "管理连接器",
+    "skillsRead": "读取技能",
+    "skillsWrite": "管理技能",
+    "eduRead": "读取教育内容",
+    "eduWrite": "写入教育内容",
+    "imSend": "对外发送消息",
+    "publishOperate": "社媒内容发布",
+    "billingRead": "读取账单额度",
+    "oauthManage": "OAuth 应用管理",
+    "mcpConnect": "MCP Server 接入",
+    "opsExecute": "运维操作执行"
 },
-  "eduCertificates": {
-    "certificateNo": "编号：{no}",
-    "empty": "暂无证书",
+  "apiKeysPage": {
+    "title": "我的 API 密钥",
+    "createKey": "创建密钥",
+    "loadFailedDetail": "加载失败:{message}",
+    "emptyTitle": "尚未创建 API 密钥",
+    "emptyHint": "点击右上角「创建密钥」生成您的第一把密钥",
+    "statusActive": "启用",
     "statusRevoked": "已撤销",
-    "statusValid": "有效",
-    "subtitle": "查看已获得的全部证书",
-    "title": "我的证书",
-    "view": "查看"
-},
-  "eduCourses": {
-    "backToCourses": "返回课程列表",
-    "chaptersTitle": "章节目录",
-    "detail": "详情",
-    "notFound": "课程不存在",
-    "studentsCount": "{count} 人学习"
+    "lastUsedAt": "最近使用:{time}",
+    "lastUsedNever": "最近使用:从未",
+    "rateLimitPerMinute": "速率 {rateLimit}/分钟",
+    "rotateSecret": "轮换 secret",
+    "rotateSecretTitle": "轮换密钥 Secret",
+    "rotateSecretDesc": "轮换「{name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?",
+    "deleteKeyTitle": "删除 API 密钥",
+    "deleteKeyDesc": "确定删除「{name}」?删除后该密钥立即失效,且无法恢复。"
 }
 }
