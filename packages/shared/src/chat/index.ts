@@ -21,5 +21,7 @@ export * from './waiting-pool'
 export * from './step-decision'
 // D36 会话内输入历史栈(纯逻辑:push/去重/50 上限/游标导航;平台无关,web 接线在 use-prompt-history)
 export * from './prompt-history'
+// D105 PR 检查状态与动作卡(六态 + 聚合三态/空态的唯一判定层;不取数,数据面复用既有 PR 通道)
+export * from './pr-checks'
 // D99 消息串内富文本动作锚点(标签白名单 + 跨端唯一解析器;非白名单一律按文本,严禁打开裸 HTML)
 export * from './rich-anchors'
