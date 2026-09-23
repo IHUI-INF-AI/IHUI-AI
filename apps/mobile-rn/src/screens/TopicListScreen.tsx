@@ -31,7 +31,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -253,7 +253,7 @@ const createStyles = (tk: RnThemeTokens) =>
       marginBottom: rpx(20),
       paddingHorizontal: rpx(20),
       height: rpx(72),
-      borderRadius: rpx(24),
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     searchInput: {
@@ -273,7 +273,7 @@ const createStyles = (tk: RnThemeTokens) =>
       height: rpx(64),
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rpx(20),
+      borderRadius: rnRadius.lg, // 原 rpx(20)=10,R1 吸附至 lg(8)
       backgroundColor: tk.surface.card,
     },
     tabActive: {
@@ -293,7 +293,7 @@ const createStyles = (tk: RnThemeTokens) =>
       marginHorizontal: rpx(24),
       marginBottom: rpx(16),
       padding: rpx(24),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardPressed: {
@@ -302,7 +302,7 @@ const createStyles = (tk: RnThemeTokens) =>
     cover: {
       width: rpx(100),
       height: rpx(100),
-      borderRadius: rpx(12),
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     coverFallback: {

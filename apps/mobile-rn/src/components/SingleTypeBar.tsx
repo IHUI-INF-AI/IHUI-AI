@@ -31,6 +31,8 @@ import {
 import { tokens } from '../theme/active-tokens'
 import { useUiTextField } from '../lib/use-ui-text-field'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface SingleTypeBarItem {
   id: string
   label: string
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -272,7 +274,7 @@ const styles = StyleSheet.create({
     width: 214,
     alignItems: 'center',
     paddingVertical: 20,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     backgroundColor: tokens.surface.card,
@@ -288,7 +290,7 @@ const styles = StyleSheet.create({
     height: 28,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: 6,
     fontSize: 14,
     color: tokens.text.primary,
@@ -299,13 +301,13 @@ const styles = StyleSheet.create({
     height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   customizeConfirmText: {
     fontSize: 14,
     fontWeight: '700',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
 })
 

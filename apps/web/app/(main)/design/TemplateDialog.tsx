@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useTranslations } from 'next-intl'
 import { DESIGN_TEMPLATES } from '@/lib/design/design-templates'
 import { TEMPLATE_CATEGORY_KEY } from './css-config'
@@ -40,7 +42,7 @@ export function TemplateDialog({ open, onClose, onApplyTemplate }: TemplateDialo
           overflow: 'auto',
           background: 'var(--card)',
           border: '1px solid var(--border)',
-          borderRadius: 8,
+          borderRadius: rnRadius.lg,
           padding: 16,
           display: 'flex',
           flexDirection: 'column',
@@ -86,7 +88,7 @@ export function TemplateDialog({ open, onClose, onApplyTemplate }: TemplateDialo
                 padding: 10,
                 textAlign: 'left',
                 border: '1px solid var(--border)',
-                borderRadius: 6,
+                borderRadius: rnRadius.md,
                 background: 'var(--card)',
                 cursor: 'pointer',
                 color: 'var(--text, inherit)',

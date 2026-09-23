@@ -300,7 +300,7 @@ export default function AgentPage() {
       {/* ===== 轮播图(对齐原项目 tools/index.vue Carousel 组件;RN carouselWrap: mt18/mx20/圆角30rpx)===== */}
       <View className="px-[20rpx] pt-[18rpx] pb-[8rpx]">
         <Carousel
-          className="rounded-[30rpx]"
+          className="rounded-2xl"
           items={[
             {
               id: 'b1',
@@ -344,7 +344,7 @@ export default function AgentPage() {
             return (
               <View
                 key={tb.key}
-                className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-[16rpx] mr-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
+                className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-lg mr-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                 onClick={() => onSwitchQuickTab(tb.key)}
                 hoverClass="opacity-80"
               >
@@ -374,7 +374,7 @@ export default function AgentPage() {
                   return (
                     <View
                       key={cat.key}
-                      className={`inline-block px-[28rpx] py-[12rpx] mr-[16rpx] rounded-[16rpx] ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
+                      className={`inline-block px-[28rpx] py-[12rpx] mr-[16rpx] rounded-lg ${active ? 'bg-[var(--color-brand)]' : 'bg-[var(--color-muted)]'}`}
                       onClick={() => setActiveCategory(cat.key)}
                       hoverClass="opacity-60"
                     >
@@ -479,12 +479,12 @@ export default function AgentPage() {
               <ThemeRoot key={agent.id}>
                 {/* 卡片对齐 RN SharedAgentScreen card:row/居中/内边距28rpx/圆角24rpx/白卡面/1px 描边 */}
                 <View
-                  className="flex flex-row items-center p-[28rpx] mb-[24rpx] rounded-[24rpx] bg-[var(--color-surface-light)] border border-[var(--color-border)]"
+                  className="flex flex-row items-center p-[28rpx] mb-[24rpx] rounded-xl bg-[var(--color-surface-light)] border border-[var(--color-border)]"
                   onClick={() => goDetail(agent.id)}
                   hoverClass="opacity-60"
                 >
                   <Image
-                    className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-muted"
+                    className="w-[96rpx] h-[96rpx] rounded-xl bg-muted"
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
@@ -494,7 +494,7 @@ export default function AgentPage() {
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
-                        <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-[8rpx] bg-[var(--color-warning-amber)]">
+                        <View className="ml-[12rpx] px-[12rpx] py-[8rpx] rounded-sm bg-[var(--color-warning-amber)]">
                           <Text className="text-[20rpx] text-[var(--color-surface-light)] font-semibold">
                             VIP
                           </Text>
@@ -508,7 +508,7 @@ export default function AgentPage() {
                     )}
                     <View className="flex flex-row items-center mt-[16rpx]">
                       {agent.category && agent.category !== 'other' && (
-                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-[8rpx] bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
+                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-[12rpx] rounded-sm bg-[var(--color-black-6)] text-[var(--color-muted-foreground)]">
                           {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
                         </Text>
                       )}

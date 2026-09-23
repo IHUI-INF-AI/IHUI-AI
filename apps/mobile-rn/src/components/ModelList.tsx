@@ -40,6 +40,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 排名第一徽章金色(design-tokens 无同值金色,复刻 rankone 用;文字用品牌对比白) */
 const RANK_GOLD_BG = '#F5B301'
 const RANK_GOLD_TEXT = tokens.surface.light
@@ -366,7 +368,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 40,
     height: 44,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -396,7 +398,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: rnRadius.xs,
     backgroundColor: RANK_GOLD_BG,
   },
   rankBadgeText: {
@@ -409,7 +411,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 3,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   },
   newBadgeText: {
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
   freeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.success.lighter,
   },
   freeBadgeText: {
@@ -431,7 +433,7 @@ const styles = StyleSheet.create({
   paidBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.warning.amberLight,
   },
   paidBadgeText: {
@@ -441,13 +443,13 @@ const styles = StyleSheet.create({
   check: {
     width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: 10, // radius-exempt: 20x20 圆形勾选底,半径=边长一半
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkText: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,

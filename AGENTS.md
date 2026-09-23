@@ -82,9 +82,23 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - compact 紧凑、elegant 优雅。hover 用 subtle 颜色变化,**不要蓝色发光边框**。复用 `packages/ui-react` 的 Card/Button/Input/Dialog。每个页面 < 250 行。时间用 `Intl.DateTimeFormat`,头像用 initials。状态徽章:draft 灰 / published 绿。积分正数绿色,负数红色。
 
-### 圆角守门(强制)
+### 圆角单一源头(强制,2026-09-23 全端收口)
 
-- **禁止**纯圆形 / 胶囊容器:`rounded-full` / `rounded-pill` / `border-radius: 9999px` / `50%`。尺寸梯度:`rounded-sm`(2px)/ `rounded`(4px)/ `rounded-md`(6px)/ `rounded-lg`(8px)/ `rounded-xl`(12px)/ `rounded-2xl`(16px)。豁免:头像 / 装饰点 / 红点 / Switch 拇指。守门:`scripts/check-rounded-full.mjs` + pre-commit 第 11 项。
+- **唯一真相源**:`packages/design-tokens/src/radius.js` 的 `RADIUS_STEPS` = `xs 2 / sm 4 / md 6 / lg 8 / xl 12 / 2xl 16`(px;`DEFAULT`=8 对齐 web `--radius: 0.5rem`)。改档位只改这一处。`tailwind-preset.js` 必须写 `borderRadius: RADIUS_REM`,`tokens.css` / `app.css` 的 `--radius-*` 必须与之逐档同值。
+- **各端取用形态(不得自创写法)**:
+
+  | 场景                                         | 唯一写法                                                                      |
+  | -------------------------------------------- | ----------------------------------------------------------------------------- |
+  | web / ui-react / extension(Tailwind v4 类名) | `rounded-xs` ~ `rounded-2xl`;CSS 里 `var(--radius-<step>)`                    |
+  | miniapp-taro / mobile-rn(NativeWind v3 类名) | 同上,**禁止** `rounded-[24rpx]` 这类任意值                                    |
+  | RN StyleSheet / 任意内联 style               | `borderRadius: rnRadius.lg`(`import { rnRadius } from '@ihui/design-tokens'`) |
+  | `.css/.scss/.html` 任何端                    | `border-radius: var(--radius-lg)`,禁止 px/rpx 字面量                          |
+
+- **类名语义按 web 对齐(修文档漂移)**:v3 preset 曾把 `rounded-sm` 定成 2px、web v4 是 4px,同名不同值即"手机上圆角和全局不一致"的根因;现 `sm=4px`,2px 由 **`rounded-xs`** 承载。裸 `rounded` 全端统一 8px(web 现实)。旧条目里"`rounded-sm`(2px)"作废。
+- **禁止绕档**:每文件自定 `const *_RADIUS = <数字>`、用 `rpx()` 算圆角、`rounded-[任意值]`、StyleSheet 里写数字字面量。
+- **真圆/胶囊豁免**:头像 / 装饰点 / 红点 / 进度环 / Switch 拇指 / 半高胶囊输入框**不得方档化把形状改坏**。优先 `size / 2` 表达式;确需保留数值必须在同行或紧邻上行写 `radius-exempt: <一句话原因>`(JS/TSX 用 `//`,CSS 用 `/* */`),不得静默写死。
+- **生成式 HTML / 注入式 CSS 字符串**(cli 分享页、`packages/shared/src/design/design-templates.ts`、扩展 content script、任何 `return \`<style>…\`\`**):这类页面拿不到应用 `:root`,不得写死数字 —— 用同表插值 `border-radius: ${RADIUS_CSS_PX.md}`(值仍来自 `radius.js`),不新增第二份真相。
+- **守门**:`scripts/check-radius-single-source.mjs`(guardian 第 **77** 项,blocking)双判据 —— A 档位表四处对账(改一处忘改另一处即红)、B 端内取用必须引用档位(存量走 `scripts/radius-single-source-baseline.json` 棘轮只减不增;判据不锚定行首,故 `width:16px; border-radius:50%` 同行多声明与 TS 模板里的 CSS 一样可见);紧急跳过 `HUSKY_SKIP_RADIUS_GUARD=1`,自检 `--self-test`(20 例,含真实表端到端对账 + TS 内嵌 CSS 正例),镜像测试 `node --test scripts/tests/check-radius-single-source.test.mjs`。容器纯圆违规仍由 `scripts/check-rounded-full.mjs`(第 11 项)管,两条互补不互替。
 
 ### Button 高度档位守门(强制,2026-09-07 立)
 
@@ -264,7 +278,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **禁止**删除/清理 `D:/IHUI-AI-git-repo`、`D:/IHUI-AI.git-backup-20260912`,以及两目录的 `*.broken-*` 归档。
 - **禁止**手工 `git init` 抢修`:git` 消失 —— 先等守护(≤2 分钟;急可 `schtasks /run /tn "IHUI-AI git-guardian"` 立即触发),再查 `.workbuddy/git-guardian.log`(健康时**不写行**,别把「无日志」当没跑)。
 - git 调用**不得依赖环境**:脚本一律 `execFileSync(<绝对路径 git>, ['-c','safe.directory=*', ...])`;服务账户(LocalSystem)与交互账户的 `safe.directory` 互不相通。
-- **提交/推送**:`origin`(GitHub,唯一权威源)已固化为 `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git` + 仓库级 `core.sshCommand`(部署私钥),本地 `git push origin main` 直连可用、无需代理。⚠️ `~/.git-credentials` 在本机**并不存在**,不要按它取 token(HTTPS 走的是凭据管理器)。本机**不直推 Gitee/GitCode**,交给 `mirror-to-cn.yml` 镜像收敛。自 2026-09-12 15:30 起 gitdir 已移出工作区(仅剩 28 字节指针),本地 git 写操作不再暴露给宿主批量删除层。
+- **提交/推送**:**本机就是生产机**(`IHUI-API` 的 nssm `AppDirectory=D:\IHUI-AI\apps\api`、`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI`,部署日志实测)。`origin` 实测为 **HTTPS** `https://github.com/IHUI-INF-AI/IHUI-AI.git`,且 **HTTPS 直连 `github.com:443` 时通时不通**(同一分钟内 `git fetch` 可成功而 `git push`/`git ls-remote` 连拒 4 次)。唯一稳定通道是**本机代理 `http://127.0.0.1:7897`** —— `deploy/win/ihui-deploy.ps1` 每轮就是用它 fetch(日志行 `git 网络走代理 http://127.0.0.1:7897`),所以"部署环能取到远端而 agent 推不动"不是玄学,是**没走代理**。旧文档写的 `ssh://git@ssh.github.com:443/...` + 仓库级 `core.sshCommand` 形态**在本机从未成立**:`core.sshCommand` 未设置,`ssh.github.com` 握手可通但 `~/.ssh/id_ed25519`、`id_remote_control` 逐把 `git ls-remote` 均 `Permission denied (publickey)`(无任何已登记公钥,登记属账号侧动作)。⚠️ `~/.git-credentials` 在本机**并不存在**,不要按它取 token(HTTPS 走的是凭据管理器)。**agent 需要 git 网络时的两种写法**:临时用 `export http_proxy=http://127.0.0.1:7897 https_proxy=…`(或 `git -c http.proxy=…`);**本机已另配仓库级持久代理** `git config --local http.proxy/https.proxy = http://127.0.0.1:7897`(2026-09-23 立),因为 post-commit 的 `git-push-guard` 与其后台 worker 是钩子派生的 git 进程、**不继承任何 shell 的 env**,没有仓库级配置就仍然直连撞墙(此前"commit 成功、push 反复 failed"的真因即此)。该配置落在指针文件指向的 `D:/IHUI-AI-git-repo/config` 里,**不在工作树内 ⇒ 不受"旧基线整文件回写"影响**,也不会被并发会话抹掉;换网或代理关停时用 `git config --local --unset http.proxy` 撤销即可。新克隆/新机需重跑一次这条配置。本机**不直推 Gitee/GitCode**,交给 `mirror-to-cn.yml` 镜像收敛。自 2026-09-12 15:30 起 gitdir 已移出工作区(仅剩 28 字节指针),本地 git 写操作不再暴露给宿主批量删除层。
   - **🚫 agent 禁止手写 `git push`(2026-09-18 立,"已推完还在等"事故根治)**:①origin 的推送由 post-commit 钩子 `git-push-guard.mjs` 自动完成(内置 ahead 检测+推送+回读验证,幂等)——commit 落地即已推送,**手动盲推必撞 already-pushed 非快进报错**并诱发后台反复干等;②Gitee/GitCode 由 `mirror-to-cn.yml` CI 在 push 后自动镜像(+每日 2 次兜底),**本地手推镜像仓=违反架构**且制造 DIVERGED 竞态。③收尾核验同步状态**只允许** `node scripts/git-push-converge.mjs`(只读判定,六态 ALREADY/PUSHING/PUSHED/SKIP/BEHIND/DIVERGED,不做任何非必要推送);仅在 guard/CI 均失效的应急场景才人工推,且必须先跑该脚本确认状态。多会话并发期:本会话交付已被远端包含(merge-base --is-ancestor 验证)即为完成,本地 HEAD 落后不追、不与并发会话抢 reset/ff。
   - **⚡ 推送异步化(2026-09-18 立,根治第二段)**:guard 检测到 ahead 时默认 spawn 后台 worker 推送(pre-push 质量门不降级,实测单遍 216.8s)并立即返回——**commit 命令秒回,不再被推送拖住**;状态在 `.workbuddy/push-state.json`(running/done/failed,失败由下次 guard 自动重试),converge 读该状态显示 PUSHING;核验若见 PUSHING=正在推,等 1-2 分钟再查即可,勿手动干预。强制同步推送:GUARD_ASYNC=0。(2026-09-18 晚修复:异步 spawn 的 fd 误用 `out.close()` 必抛 TypeError→静默回退同步推送+双重推送竞态,已改 `closeSync`;push-gate 缓存改**内容指纹键控**(HEAD:apps/HEAD:packages 子树+脏文件内容 hash),合并/文档提交不再重跑全量门。)
   - **🔄 主动收敛(2026-09-18 晚立,根治第三段)**:推送遇 non-FF(并发会话推力)时**禁止手工 fetch/merge/push 循环**(实测 3 轮 25 分钟),统一跑 `node scripts/git-sync-converge.mjs`(默认 3 轮:fetch→祖先判定→`merge-tree --write-tree` 索引层合并(**零触碰他人未提交文件**)+commit-tree+update-ref→guard 推送,直至收敛;冲突才需人工)。只读核验仍用 `git-push-converge.mjs`。
@@ -273,6 +287,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
   - **🔒 机制守门(2026-09-20 同日补,防第 5 次复发)**:`scripts/check-no-visible-spawn.mjs`(guardian-runner 第 **52** 项,blocking)——括号配平提取 `spawn/spawnSync/exec/execSync/execFile/execFileSync/fork` 调用,**首参可"肯定"为控制台程序**(白名单含 git/node/pnpm/cmd/pwsh/schtasks/ffmpeg…,并覆盖绝对路径与"路径+参数"两种形态)且 options 缺 `windowsHide` 即拦截。刻意**宁漏不误报**(未知变量名一律放过),避免阻塞他人提交;测试代码路径降为 warn(测试由终端 runner 派生,子进程继承已有控制台不新分配窗口)。`--staged` 供 pre-commit 用(runner 自动下发),`node scripts/check-no-visible-spawn.mjs` 为全量审计,`--self-test` 跑 14 例逻辑自检。§22c 镜像测试:`scripts/tests/check-no-visible-spawn.test.mjs`。
   - **🔗 异步推送配套适配(2026-09-18 晚)**:①check-push-sync(pre-commit #29)遇 push-state running(未过期)放行——否则每次 commit 后 270s 窗口内的下一次 commit 必被 #29 阻塞→--no-verify→80 项守门全跳过;②guard worker 串行化:在途 worker 未落定时新 worker 先等后跑,杜绝多个 270s typecheck 并行打满 CPU。③**推送门中断分类(2026-09-18 深夜)**:typecheck 进程被外部杀死(CTRL_C 注入/宿主清树,exit 3221225786/141/143/130/137,实测日志 39 次)≠ 类型检查结论——check-typecheck 按**临时失败 exit 75** 退出→guardian-runner 原样传播→pre-push 写 `.workbuddy/push-gate-last-result.json` 标记+exit 75→guard worker 见新鲜 75 标记**先带 hook 重试**拿真实结论,仍失败才按用户规则 --no-verify 兜底(此前"被杀"被误判成"他人代码失败"直接绕过真实门禁)。④降级判据第三兜底 `head-diff`:push-scope 与暂存区均为空时用 `git diff --name-only origin/main HEAD` 推断推送范围(实测 4 例"无可判定改动范围,无降级"硬拦);⑤push-state 死 pid 自愈:guard 启动发现 running+死 pid → 顺手改写 failed 终态。⑥**typecheck 再入守卫(2026-09-18 深夜,WMI 实测 24.6 万 cmd/2min fork 风暴根治)**:根包 `pnpm typecheck`=typecheck-full.mjs,pnpm -r 一旦把根包纳入执行即无限递归(每层再起 pnpm -r,指数级进程树,实测 ~2000 cmd/秒持续 26 分钟,即用户"一直闪弹 cmd"的主源);typecheck-full 已加 `IHUI_TYPECHECK_FULL_CHILD` 环境变量再入守卫(子层检测到立即 exit 0),勿删。
 - **工作区存续自愈(2026-09-23 立,与 `.git` / 嵌套 ref 同源问题)**:宿主清理层同样会**成批删除工作区里的已跟踪目录**(实测同日三轮 137 → 27 → 1 个,命中 `tests/`、`__tests__/` 整目录与安装器位图资源)。缺失只体现为 `git status` 一片 ` D`,而**下一次提交就会把这些文件从版本树里删掉**(等价一次静默回滚)——`.git` 与 refs 早有分层自愈,工作区存续性此前无人管。自愈脚本 `scripts/heal-worktree-tracked.mjs` 判据三条同时成立才恢复:① 工作区缺该文件;② **索引 blob == HEAD blob**(⇒ 无人对它暂存过任何改动,含 `git rm` 的暂存删除);③ HEAD 中该路径存在。故恢复内容按定义零独有数据,他人已暂存的删除**只报数、不代裁**。触发点挂在 `git-guardian` 巡检的**健康轮次早退之前**(计划任务实跑 `main()` 单轮,`startDaemon` 未启用 —— 挂错位置等于永不执行);`--check` 口径保持零副作用,派生一律带 `windowsHide`(§5b)。手动:`node scripts/heal-worktree-tracked.mjs [--dry-run|--json|--self-test]`;跳过 `IHUI_SKIP_WORKTREE_HEAL=1`。故障演练:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 文件自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」。
+- **同一自愈的第二、三层(2026-09-23 补)**:`alignDrifts()` 对齐**幻影漂移**(索引==HEAD 且 工作区内容==该路径某祖先版本 ⇒ 才动;判据直接复用守门 76,单一真相源);`refreshStaleIndex()` 刷新**落后索引** —— CAS / converge 用 commit-tree + update-ref 推进 HEAD 却**不动主索引**(`git status` 首列 `M `,实测同日 14 个路径),此时一次不带 pathspec 的普通 commit 就把整批文件写回旧版;三条判据同时成立才刷新(① index≠HEAD ② 索引 blob 确为该路径历史版本 ③ 工作区==索引),且**只逐路径 `update-index`,绝不做全局 `git reset`**(会连带 unstage 他人真正的暂存)。挂点:`git-sync-converge` 的成功出口自动调 `--align-drift`(真仓实测已生效)。`--self-test` 共 12 例,含三条反向对照:真编辑不覆盖 / 暂存后又有改动不刷新 / 他人真暂存不刷新。
 - **禁止 `git pull --rebase`**:2026-09-12 15:2x 一次 rebase 崩溃导致真 gitdir 目录被原生删除。同步一律用 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`。
 
 **诊断**:
@@ -577,6 +592,12 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ---
 
+### 12e. workspace 加依赖禁用 `pnpm install --filter`(2026-09-23 立,自伤实测)
+
+- 实测:为 `apps/extension` 加 `@ihui/design-tokens` workspace 依赖时跑 `pnpm install --filter @ihui/extension`,pnpm 按"只装被选中项目所需"重链接,**顺带剪掉根 `node_modules` 里未被该包引用的链接** —— `lint-staged` 就此消失,`.husky/pre-commit` 第一步即崩,每次 commit 都失败并逼出 `--no-verify`,连带 109 道守门全废(而 `git status` 与 typecheck 都看不出依赖树被削)。
+- **规则**:本仓任何"新增/调整 workspace 依赖"一律跑**全量 `pnpm install`**(不带 `--filter`);改完必须验证 `node_modules/lint-staged/bin/lint-staged.js` 与 `node_modules/.bin` 关键入口在位,再提交。
+- 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
+
 ## 13. 文件修改持久化强制规则(强制)
 
 - 任何文件修改后**必须立即用 Read 验证**修改已落地(防止文件系统缓存不一致)。
@@ -627,6 +648,14 @@ pnpm dev                                       # 启动所有服务(web + api + 
    `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
    `refs-manifest.json`。同族的 `IHUI-AI.git-backup-20260912` 与 `IHUI-AI-git-repo.broken-*` 由
    `scripts/lib/gitdir.mjs:250` 按路径主动选读,一律禁删。
+   **但"必须在盘根"只是历史状态**:2026-09-23 起,gitdir 的**备份与现场归档**统一落
+   `D:\DevEnv\backups\git\`(单一真相源 `gitArchiveDir()` / `gitdirArchivePath()`),
+   因为旧写法 `${GITDIR}.broken-<ts>` 每次守护/重建归档都必然在盘根长一个新目录(实测累计 3 个 /
+   1.94GB)。盘根因此从 6 项收口到 2 项(项目 + 活 gitdir);回归测试
+   `scripts/tests/gitdir-archive-paths.test.mjs`(4 例,含"调用点必须真用该出口"的装车断言)。
+   **改这类路径必须同批改 `resolveBackupDir`**:它曾只认写死的 `D:/IHUI-AI.git-backup-20260912`,
+   目录一迁走就解析到不存在路径,表现为 `git-guardian --status` 的 `backupOk:false` —— 本地恢复源
+   静默失效且无告警(与同日生产部署冻结同属"凭据/路径过期只以下游门禁失败形态出现")。
 2. `D:\BaiduSyncdisk\密钥\` —— 模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
 3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
    `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。

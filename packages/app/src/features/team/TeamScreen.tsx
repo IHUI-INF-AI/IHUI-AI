@@ -24,6 +24,8 @@ import type {
   TeamScreenProps,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { TeamMemberStatus, TeamRelation, TeamTab, TeamStats, TeamMember, TeamScreenProps }
 
 const TAB_KEYS: TeamTab[] = ['all', 'direct', 'indirect']
@@ -248,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
     statsCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -258,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
     contributionBox: {
       marginTop: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.bg,
       alignItems: 'center',
     },
@@ -268,7 +270,7 @@ function createStyles(tk: AppThemeTokens) {
     searchRow: { paddingHorizontal: 10, paddingBottom: 8 },
     searchInput: {
       height: 40,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -279,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -292,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -300,11 +302,12 @@ function createStyles(tk: AppThemeTokens) {
     avatarBox: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 22, // radius-exempt: 成员头像 44×44 正圆(直径一半)
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    // radius-exempt: 头像图片随父盒 44×44 正圆(直径一半)
     avatarImg: { width: '100%', height: '100%', borderRadius: 22 },
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
@@ -313,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     relationBadge: {
       paddingHorizontal: 6,
       paddingVertical: 1,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     relationDirect: { backgroundColor: tk.success.light },
@@ -321,7 +324,12 @@ function createStyles(tk: AppThemeTokens) {
     memberMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     memberRight: { alignItems: 'flex-end' },
     contributionText: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
-    statusBadge: { marginTop: 8, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
+    statusBadge: {
+      marginTop: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: rnRadius.lg,
+    },
     statusActive: { backgroundColor: tk.success.light },
     statusInactive: { backgroundColor: tk.surface.card },
     statusText: { fontSize: 10, color: tk.text.secondary },
@@ -330,7 +338,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 14 },

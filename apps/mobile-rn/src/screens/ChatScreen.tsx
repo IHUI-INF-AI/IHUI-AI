@@ -155,6 +155,8 @@ import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
 import { parseMessageContent } from '../utils/message-parse'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // ── 类型定义(强类型,禁用 any) ──
 
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -2777,7 +2779,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: rpx(8),
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
     marginBottom: rpx(8),
   },
@@ -2786,14 +2788,14 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   tishiCardWrap: {
-    borderRadius: rpx(12),
+    borderRadius: rnRadius.md,
     overflow: 'hidden',
   },
   // ── 上下文自动压缩提示条(chatAlert.compaction.*) ──
   compactionBanner: {
     marginBottom: rpx(16),
     padding: rpx(12),
-    borderRadius: rpx(8),
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   compactionTitle: {
@@ -2844,7 +2846,7 @@ const styles = StyleSheet.create({
     maxWidth: '78%',
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(20),
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
   },
   msgBubbleUser: {
     backgroundColor: tokens.brand.DEFAULT,
@@ -2908,7 +2910,7 @@ const styles = StyleSheet.create({
   // ── 消息富内容:图片(点击全屏预览) ──
   msgImageWrap: {
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
     alignSelf: 'flex-start',
     maxWidth: 220,
@@ -2921,7 +2923,7 @@ const styles = StyleSheet.create({
   // ── 消息富内容:代码块(展开/收起 + 复制,对齐 ai_index2 code-block) ──
   codeBlock: {
     marginVertical: 6,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.gray[800],
     overflow: 'hidden',
   },
@@ -2966,7 +2968,7 @@ const styles = StyleSheet.create({
   // 用浅灰/中性色区分代码块(深色底):思考过程是半成品,别和最终代码混淆
   thinkingBlock: {
     marginBottom: 6,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   },
@@ -3012,7 +3014,7 @@ const styles = StyleSheet.create({
     right: 20,
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 18, // radius-exempt: 36dp 圆形图片预览关闭按钮,取边长一半
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3022,7 +3024,7 @@ const styles = StyleSheet.create({
     width: '88%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   materialPopupHeader: {
@@ -3049,7 +3051,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 56,
     backgroundColor: tokens.surface.card,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
     justifyContent: 'center',
@@ -3060,7 +3062,7 @@ const styles = StyleSheet.create({
     right: 2,
     width: 16,
     height: 16,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.text.tertiary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3087,7 +3089,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 48,
     height: 48,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
   },
   imgsListClose: {
@@ -3096,7 +3098,7 @@ const styles = StyleSheet.create({
     right: -4,
     width: 16,
     height: 16,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.danger.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3116,7 +3118,7 @@ const styles = StyleSheet.create({
     gap: rpx(8),
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     height: 30,
     minWidth: 100,
@@ -3152,7 +3154,7 @@ const styles = StyleSheet.create({
   inputIconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3166,7 +3168,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.card,
     fontSize: 14,
     color: tokens.text.primary,
@@ -3182,7 +3184,7 @@ const styles = StyleSheet.create({
   qrCodeContent: {
     width: 320,
     backgroundColor: tokens.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
   },
@@ -3192,7 +3194,7 @@ const styles = StyleSheet.create({
     right: 10,
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.gray.black,
     alignItems: 'center',
@@ -3204,7 +3206,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     marginBottom: rpx(24),
   },
   qrCodeTitle: {
@@ -3224,7 +3226,7 @@ const styles = StyleSheet.create({
   shareContent: {
     width: 300,
     backgroundColor: tokens.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(48),
     alignItems: 'center',
   },
@@ -3254,12 +3256,12 @@ const styles = StyleSheet.create({
   shareBtn: {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
-    borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.ctaFill,
   },
   shareBtnText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   },
   shareBtnSecondary: {
@@ -3270,7 +3272,7 @@ const styles = StyleSheet.create({
     width: '88%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
   },
   listDialogHeader: {
@@ -3331,7 +3333,7 @@ const styles = StyleSheet.create({
   detailDialogRetryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
   },
   detailDialogRetryText: {
@@ -3359,7 +3361,7 @@ const styles = StyleSheet.create({
     marginHorizontal: rpx(32),
     marginTop: rpx(16),
     height: 48,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -3405,15 +3407,15 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   fangdaSendBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    backgroundColor: tokens.brand.ctaFill,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
   },
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.ctaText,
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {
@@ -3434,7 +3436,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(28),
     backgroundColor: tokens.surface.muted,
     marginHorizontal: rpx(32),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
   },
   ttsOptionText: {
@@ -3453,14 +3455,14 @@ const styles = StyleSheet.create({
   urlInputField: {
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     fontSize: 14,
     color: tokens.text.primary,
   },
   urlInputConfirmBtn: {
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
   },
@@ -3487,7 +3489,7 @@ const styles = StyleSheet.create({
   fileUploadTypeBadge: {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   fileUploadTypeText: {
@@ -3500,7 +3502,7 @@ const styles = StyleSheet.create({
   },
   fileUploadConfirmBtn: {
     backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     marginTop: rpx(8),

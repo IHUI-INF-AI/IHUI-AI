@@ -25,6 +25,8 @@ import {
   type AnchorSnapshot,
   type ToolbarPlacement,
 } from '../../src/content/position-memory'
+import { RADIUS_CSS_PX } from '@ihui/design-tokens'
+
 
 export type ToolbarAction = 'translate' | 'highlight' | 'vocab' | 'send'
 
@@ -88,7 +90,7 @@ export class ContentToolbar {
       'background:var(--color-card)',
       'color:var(--color-foreground)',
       'border:1px solid var(--color-border)',
-      'border-radius:6px',
+      'border-radius:${RADIUS_CSS_PX.md}',
       'box-shadow:var(--shadow-toolbar)',
       'font:12px/1 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif',
       'pointer-events:auto',
@@ -226,7 +228,7 @@ export class ContentToolbar {
       'background:transparent',
       'color:inherit',
       'border:1px solid var(--color-accent-strong)',
-      'border-radius:4px',
+      'border-radius:${RADIUS_CSS_PX.sm}',
       'padding:4px 8px',
       'font:inherit',
       'cursor:pointer',
@@ -269,7 +271,7 @@ export class ContentToolbar {
         background: var(--color-warning);
         color: inherit;
         padding: 0 1px;
-        border-radius: 2px;
+        border-radius: ${RADIUS_CSS_PX.xs};
       }
       .ihui-tx { animation: ihui-tx-fade 240ms ease-out; }
       @keyframes ihui-tx-fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
@@ -294,7 +296,7 @@ export class ContentToolbar {
         background: var(--color-card);
         color: var(--color-foreground);
         border: 1px solid var(--color-border);
-        border-radius: 6px;
+        border-radius: ${RADIUS_CSS_PX.md};
         box-shadow: var(--shadow-popup);
         font: 12px/1.5 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
         animation: ihui-ctx-pop 160ms ease-out;
@@ -330,7 +332,7 @@ export class ContentToolbar {
         background: transparent;
         color: var(--color-foreground);
         border: 1px solid var(--color-accent-strong);
-        border-radius: 4px;
+        border-radius: ${RADIUS_CSS_PX.sm};
         padding: 3px 8px;
         font: inherit;
         cursor: pointer;

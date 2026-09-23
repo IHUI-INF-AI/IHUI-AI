@@ -42,6 +42,8 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 function toVipLevel(l: VipLevel): VipLevelItem2 {
@@ -673,18 +675,15 @@ export function VipScreen() {
 }
 
 // ── 样式常量(圆角守门:仅 2/4/6/8/12/16,无 rounded-full) ──
-const ENTRY_CARD_RADIUS = 8
 const ENTRY_BUTTON_PADDING_V = 10
 const ENTRY_TITLE_FONT_SIZE = 13
 const ENTRY_BUTTON_FONT_SIZE = 13
 
-const TAB_RADIUS = 6
 const TAB_FONT_SIZE = 13
 const TAB_PADDING_V = 8
 
-const PLAN_CARD_RADIUS = 8
 // 对齐 Uniapp 20rpx(≈10px)价格卡片圆角
-const PLAN_ITEM_RADIUS = 10
+const PLAN_ITEM_RADIUS = rnRadius.lg
 // 对齐 Uniapp 30rpx(≈15px)价格卡片内边距
 const PLAN_ITEM_PADDING = 15
 const PLAN_ITEM_GAP = 10
@@ -694,31 +693,24 @@ const PLAN_AMOUNT_FONT_SIZE = 22
 const PLAN_DEF_AMOUNT_FONT_SIZE = 12
 const PLAN_DURATION_FONT_SIZE = 12
 const TAG_FONT_SIZE = 10
-const TAG_RADIUS = 4
 const TAG_PADDING_H = 6
 const TAG_PADDING_V = 2
 const AGREEMENT_FONT_SIZE = 10
 
-const LEVEL_BANNER_RADIUS = 8
 const DIAMOND_FONT_SIZE = 24
 const LEVEL_BANNER_TITLE_FONT_SIZE = 13
 const LEVEL_BANNER_HINT_FONT_SIZE = 11
 
-const SERVICE_CARD_RADIUS = 8
-const QR_BOX_RADIUS = 8
 const SERVICE_TITLE_FONT_SIZE = 15
 const SERVICE_HINT_FONT_SIZE = 12
 
 const SUBSCRIBE_BUTTON_HEIGHT = 36
-const SUBSCRIBE_BUTTON_RADIUS = 8
 const SUBSCRIBE_BUTTON_FONT_SIZE = 13
 
-const TRADER_BANNER_RADIUS = 8
 const TRADER_TITLE_FONT_SIZE = 15
 const TRADER_SUBTITLE_FONT_SIZE = 12
 
 const QR_CLOSE_BUTTON_HEIGHT = 40
-const QR_CLOSE_BUTTON_RADIUS = 8
 const QR_CLOSE_FONT_SIZE = 13
 
 // 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量(仅作底色;前景文字用 foreground)
@@ -734,7 +726,7 @@ const styles = StyleSheet.create({
     paddingTop: rpx(24),
     paddingBottom: rpx(20),
     backgroundColor: tokens.surface.card,
-    borderRadius: ENTRY_CARD_RADIUS,
+    borderRadius: rnRadius.lg,
   } as ViewStyle,
   entryTitle: {
     fontSize: ENTRY_TITLE_FONT_SIZE,
@@ -749,7 +741,7 @@ const styles = StyleSheet.create({
   entryButton: {
     flex: 1,
     paddingVertical: ENTRY_BUTTON_PADDING_V,
-    borderRadius: ENTRY_CARD_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -768,19 +760,19 @@ const styles = StyleSheet.create({
     marginTop: rpx(20),
     marginHorizontal: rpx(32),
     backgroundColor: tokens.surface.card,
-    borderRadius: PLAN_CARD_RADIUS,
+    borderRadius: rnRadius.lg,
     padding: rpx(28),
   } as ViewStyle,
   tabBar: {
     flexDirection: 'row',
     backgroundColor: tokens.surface.muted,
-    borderRadius: TAB_RADIUS,
+    borderRadius: rnRadius.md,
     padding: rpx(6),
   } as ViewStyle,
   tab: {
     flex: 1,
     paddingVertical: TAB_PADDING_V,
-    borderRadius: TAB_RADIUS,
+    borderRadius: rnRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -841,7 +833,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   discountTag: {
     backgroundColor: tokens.danger.light,
-    borderRadius: TAG_RADIUS,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: TAG_PADDING_H,
     paddingVertical: TAG_PADDING_V,
   } as ViewStyle,
@@ -853,7 +845,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   trialTag: {
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: TAG_RADIUS,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: TAG_PADDING_H,
     paddingVertical: TAG_PADDING_V,
   } as ViewStyle,
@@ -895,7 +887,7 @@ const styles = StyleSheet.create({
   subscribeButton: {
     marginTop: rpx(16),
     height: SUBSCRIBE_BUTTON_HEIGHT,
-    borderRadius: SUBSCRIBE_BUTTON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',
@@ -923,7 +915,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(20),
     backgroundColor: tokens.brandAccent.light,
-    borderRadius: LEVEL_BANNER_RADIUS,
+    borderRadius: rnRadius.lg,
   } as ViewStyle,
   diamondIcon: {
     fontSize: DIAMOND_FONT_SIZE,
@@ -950,7 +942,7 @@ const styles = StyleSheet.create({
     marginHorizontal: rpx(32),
     marginTop: rpx(20),
     backgroundColor: ACCENT_COLOR,
-    borderRadius: TRADER_BANNER_RADIUS,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(20),
   } as ViewStyle,
@@ -974,7 +966,7 @@ const styles = StyleSheet.create({
   serviceCard: {
     width: '100%',
     backgroundColor: tokens.surface.muted,
-    borderRadius: SERVICE_CARD_RADIUS,
+    borderRadius: rnRadius.lg,
     padding: rpx(28),
     alignItems: 'center',
   } as ViewStyle,
@@ -994,7 +986,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(32),
     width: 220,
     height: 220,
-    borderRadius: QR_BOX_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1018,7 +1010,7 @@ const styles = StyleSheet.create({
   qrCloseButton: {
     marginTop: rpx(24),
     height: QR_CLOSE_BUTTON_HEIGHT,
-    borderRadius: QR_CLOSE_BUTTON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: ACCENT_COLOR,
     alignItems: 'center',
     justifyContent: 'center',

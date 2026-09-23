@@ -26,6 +26,7 @@
   .sub { font-size: 15px; color: #9a9a9a; margin-bottom: 36px; }
   .status { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #cfcfcf; }
   .spinner {
+    /* radius-exempt: 16px 加载指示点正圆(spinner,半径=直径一半),非容器圆角 */
     width: 16px; height: 16px; border-radius: 50%;
     border: 2px solid #4a4a4a; border-top-color: #7c6cff;
     animation: spin 0.9s linear infinite;

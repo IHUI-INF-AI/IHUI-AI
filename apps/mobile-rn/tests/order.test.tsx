@@ -64,6 +64,10 @@ vi.mock('react-native', async () => {
     )
   }
   return {
+    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
+    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
+    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    DevSettings: { reload: () => {} },
     View: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),
