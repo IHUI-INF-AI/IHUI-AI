@@ -10,7 +10,7 @@
  * - threat-detector: 基于 IP 信誉 SCORE 主动封禁(proactive,不只 reactive)
  *
  * 能力:
- * 1. onRequest 检查 IP 是否已被封禁(快速路径,getBlockInfo)
+ * 1. onRequest 检查 IP 是否已被封禁(快速路径,isIpBlocked)
  * 2. 采样检查 IP 信誉评分(每 30s 每 IP 最多查一次,避免 Redis 压力)
  * 3. 评分超阈值(>=80)自动封禁 + 递增封禁时长(1h→24h→7d→30d)
  * 4. 评分中风险(>=60)告警日志(允许通过但标记监控)
@@ -18,14 +18,13 @@
  *
  * 协同:
  * - sqli-guard / xss-protection / anti-automation 调用 recordBadEvent → 评分升高
- * - 本插件消费评分 → 自动封禁 → 后续请求被已有封禁拦截
+ * - 本插件消费评分 → 自动封禁 → 后续请求被 isIpBlocked 拦截
  */
 
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import type { Redis } from 'ioredis'
 import { getIpReputationService, isPrivateIp } from '../services/ip-reputation.js'
-import { isBlockExemptPath } from '../utils/block-exempt-paths.js'
 import { logger } from '../utils/logger.js'
 
 /** 信誉评分阈值:>= 此值自动封禁 */
@@ -44,6 +43,9 @@ const PROGRESSIVE_BLOCK_DURATIONS = [
   7 * 86400, // 3rd: 7 天
   30 * 86400, // 4th+: 30 天
 ]
+
+/** 健康检查 / 监控路径白名单 */
+const SKIP_PATHS = new Set(['/api/health', '/api/ready', '/api/metrics', '/business-metrics'])
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -109,7 +111,7 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
 
   server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
-    if (isBlockExemptPath(path)) return
+    if (SKIP_PATHS.has(path)) return
 
     const ip = request.ip
     if (!ip) return
@@ -120,13 +122,12 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
     totalChecks++
 
     // 1. 快速路径:检查是否已被封禁
-    const blockInfo = await ipRep.getBlockInfo(ip)
-    if (blockInfo) {
+    const isBlocked = await ipRep.isIpBlocked(ip)
+    if (isBlocked) {
       reply
         .status(403)
         .header('X-Block-Reason', 'threat-detector-blocked')
-        .header('Retry-After', String(blockInfo.remainingSec))
-        .send({ code: 403, message: '访问被拒绝', retryAfterSec: blockInfo.remainingSec })
+        .send({ code: 403, message: '访问被拒绝' })
       return
     }
 
@@ -151,7 +152,7 @@ const threatDetectorPlugin: FastifyPluginAsync = async (server: FastifyInstance)
       const blockDuration = PROGRESSIVE_BLOCK_DURATIONS[durationIdx] ?? 3600
       const durationLabel = ['1小时', '24小时', '7天', '30天'][durationIdx] ?? '1小时'
 
-      await ipRep.blockIp(ip, blockDuration, 'high-threat-score')
+      await ipRep.blockIp(ip, blockDuration)
       totalAutoBlocks++
 
       // 记录最近封禁
