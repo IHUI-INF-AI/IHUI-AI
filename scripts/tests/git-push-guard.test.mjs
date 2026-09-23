@@ -5,10 +5,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync } from 'node:fs'
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -16,7 +17,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'git-push-guard.mjs')
 
 // ─── 辅助:创建临时 git 仓库(含初始 commit) ──────────────
 function createTempRepo() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-push-'))
+  const dir = mkScratch('ihui-push-')
   execSync('git init -b main', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.email test@test.com', { cwd: dir, stdio: 'pipe' })
   execSync('git config user.name test', { cwd: dir, stdio: 'pipe' })
@@ -29,7 +30,7 @@ function createTempRepo() {
 
 // 辅助:创建临时 bare 仓库(作为 origin)
 function createTempBareOrigin() {
-  const dir = mkdtempSync(join(tmpdir(), 'ihui-origin-'))
+  const dir = mkScratch('ihui-origin-')
   execSync('git init --bare -b main', { cwd: dir, stdio: 'pipe' })
   return dir
 }
@@ -93,7 +94,7 @@ test('CLI: 无参数运行(默认 branch=main,无 origin) → exit 2', () => {
     assert.equal(r.status, 2, `无 origin 应 exit 2,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /未配置 origin|origin remote/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -105,7 +106,7 @@ test('CLI: --branch=dev 参数解析(stdout 含 dev)', () => {
     assert.equal(r.status, 2)
     assert.match(r.stdout, /dev/, 'stdout 应含 --branch 参数值 dev')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -117,7 +118,7 @@ test('CLI: --help 不崩溃(脚本未实现 --help,按默认运行)', () => {
     assert.ok(r.status === 2 || r.status === 0 || r.status === 1, `--help 不应 crash,实际 exit ${r.status}`)
     assert.ok(!r.stderr.includes('Error:'), `--help 不应产生未捕获 Error`)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -128,8 +129,8 @@ test('CLI: HUSKY_SKIP_PUSH=1 → stdout 显示 "仅检测" 模式', () => {
     // synced 状态 → exit 0,但 stdout 应显示 "仅检测" 模式
     assert.match(r.stdout, /仅检测/, '应显示仅检测模式')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -142,8 +143,8 @@ test('同步: 本地 HEAD == origin/main → exit 0', () => {
     assert.equal(r.status, 0, `同步状态应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /已同步|无需 push/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -155,8 +156,8 @@ test('ahead: 本地 ahead + HUSKY_SKIP_PUSH=1 → exit 1(仅检测不推送)', (
     assert.equal(r.status, 1, `ahead + skipPush 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /ahead|未推送|仅检测/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -172,8 +173,8 @@ test('behind: 本地 behind origin → exit 1 + 提示 pull --rebase', () => {
     assert.equal(r.status, 1, `behind 应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /pull --rebase|落后/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -186,7 +187,7 @@ test('无 origin: 仓库无 origin remote → exit 2', () => {
     assert.equal(r.status, 2, `无 origin 应 exit 2,实际 ${r.status}`)
     assert.match(r.stdout, /未配置 origin|origin remote/)
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
@@ -200,8 +201,8 @@ test('detached HEAD: git checkout <hash> → exit 2', () => {
     assert.equal(r.status, 2, `detached HEAD 应 exit 2,实际 ${r.status}`)
     assert.match(r.stdout, /detached/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -219,8 +220,8 @@ test('AGENT_SCOPE: commit 含越界文件 + AGENT_SCOPE=apps/api → exit 1', ()
     assert.equal(r.status, 1, `AGENT_SCOPE 越界应 exit 1,实际 ${r.status}`)
     assert.match(r.stdout, /非本 agent 范围|AGENT_SCOPE|越界|范围文件/)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -236,8 +237,8 @@ test('AGENT_SCOPE_OVERRIDE=1: 越界但强制推送 → push 成功 exit 0', () 
     assert.equal(r.status, 0, `AGENT_SCOPE_OVERRIDE=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /强制推送|FORCE|override/i)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -259,8 +260,8 @@ test('JSON 截断: HEAD json 行数 < HEAD~1 × 50% 且减少 > 100 → exit 1',
     assert.equal(r.status, 1, `JSON 截断应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /截断|完整性预检失败|truncat/i)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -283,8 +284,8 @@ test('AUTO_PUSH_CONFIRM=1: 跳过 JSON 截断预检 → push 成功 exit 0', () 
     assert.equal(r.status, 0, `AUTO_PUSH_CONFIRM=1 + push 成功应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /AUTO_PUSH_CONFIRM|跳过完整性预检|强制推送/i)
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -302,8 +303,8 @@ test('push 成功: ahead + 自动 push → exit 0 + local == remote', () => {
     const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
     assert.equal(localHead, remoteHead, 'push 后 local HEAD 应 == origin/main')
   } finally {
-    rmSync(work, { recursive: true, force: true })
-    rmSync(origin, { recursive: true, force: true })
+    rmScratch(work)
+    rmScratch(origin)
   }
 })
 
@@ -315,7 +316,7 @@ test('push 成功: ahead + 自动 push → exit 0 + local == remote', () => {
 // 三条夹具的同步推送由 runScript 默认注入 GUARD_ASYNC=0 保证(见文件上方注释),
 // 故此处可直接断言"拦下 ⇒ 远端未含本地 commit"。
 function forceRemove(dir) {
-  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 })
+  rmScratch(dir)
 }
 
 function createAheadRepoWithPartialClone() {
