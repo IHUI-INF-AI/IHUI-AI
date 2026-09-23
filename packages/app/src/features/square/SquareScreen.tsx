@@ -7,6 +7,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +56,8 @@ export interface SquareScreenProps {
   onBackToTop: () => void
   onListRef?: (ref: unknown) => void
   onBack?: () => void
+  /** 隐藏自带 header(调用方已有 NavBar 时用,防双标题;默认 false 保持原行为) */
+  hideHeader?: boolean
 }
 
 /** 单选分类条(共享层内联实现,对齐 mobile-rn SingleTypeBar) */
@@ -73,27 +76,31 @@ function SingleTypeBar({
   const styles = createStyles(tk)
   return (
     <View style={styles.categoryBar}>
-      {items.map((item) => {
-        const active = item.id === selectedId
-        return (
-          <Pressable
-            key={item.id}
-            style={({ pressed }) => [
-              styles.typeItem,
-              active ? styles.typeItemActive : null,
-              pressed ? styles.typeItemPressed : null,
-            ]}
-            onPress={() => onSelect(item.id)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={item.label}
-          >
-            <Text style={[styles.typeText, active ? styles.typeTextActive : null]}>
-              {item.label}
-            </Text>
-          </Pressable>
-        )
-      })}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.categoryContent}>
+          {items.map((item) => {
+            const active = item.id === selectedId
+            return (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.typeItem,
+                  active ? styles.typeItemActive : null,
+                  pressed ? styles.typeItemPressed : null,
+                ]}
+                onPress={() => onSelect(item.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={item.label}
+              >
+                <Text style={[styles.typeText, active ? styles.typeTextActive : null]}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </View>
+      </ScrollView>
     </View>
   )
 }
@@ -115,6 +122,7 @@ export function SquareScreen({
   onBackToTop,
   onListRef,
   onBack,
+  hideHeader = false,
 }: SquareScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -180,6 +188,7 @@ export function SquareScreen({
 
   return (
     <View style={styles.container}>
+      {hideHeader ? null : (
       <View style={styles.header}>
         {onBack ? (
           <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -188,6 +197,7 @@ export function SquareScreen({
         ) : null}
         <Text style={styles.navTitle}>{t('square.title') || '广场'}</Text>
       </View>
+      )}
       <SingleTypeBar
         items={categories}
         selectedId={selectedCategory}
@@ -271,12 +281,14 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     } as TextStyle,
     categoryBar: {
+      backgroundColor: tk.surface.card,
+    } as ViewStyle,
+    categoryContent: {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 8,
       paddingHorizontal: 10,
       gap: 8,
-      backgroundColor: tk.surface.card,
     } as ViewStyle,
     typeItem: {
       paddingVertical: 6,
