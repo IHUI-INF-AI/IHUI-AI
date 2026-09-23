@@ -526,15 +526,7 @@ export function resolveTableNamesFromMetadata(metadata: unknown): string[] {
   if (!metadata || typeof metadata !== 'object') return []
   const tables = (metadata as { tables?: unknown }).tables
   if (!Array.isArray(tables)) return []
-  return uniqueNames(
-    tables.map((entry) =>
-      // drizzle 的 pg-core 编译器把表名**以字符串形态**下发(如 'llm_call_logs' / 'public.users'),
-      // 只认表对象会让这条路径恒返回 [] ⇒ 数据面网关按"未知表"缺省拒绝合法请求。
-      typeof entry === 'string'
-        ? (entry.split('.').pop() ?? '').trim().toLowerCase()
-        : tableNameFromTableObject(entry),
-    ),
-  )
+  return uniqueNames(tables.map((entry) => tableNameFromTableObject(entry)))
 }
 
 /** FROM/JOIN/INTO/UPDATE 后的标识符(schema 限定取表名段)。 */
