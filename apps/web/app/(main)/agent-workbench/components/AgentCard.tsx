@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Play, Square, Pause, Copy, Trash2 } from 'lucide-react'
 import { Card, CardContent, cn } from '@ihui/ui-react'
 
@@ -42,22 +43,27 @@ export interface RawAgent {
   systemPrompt?: string
 }
 
-export const ROLE_LABEL: Record<string, string> = {
-  researcher: '研究员',
-  coder: '编码员',
-  reviewer: '审查员',
-  tester: '测试员',
-  custom: '自定义',
+/** role → i18n 键(全路径字面量,供静态扫描/清单对账可见) */
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  researcher: 'card.roleResearcher',
+  coder: 'card.roleCoder',
+  reviewer: 'card.roleReviewer',
+  tester: 'card.roleTester',
+  custom: 'card.roleCustom',
 }
 
-const STATUS_BADGE: Record<AgentStatus, { label: string; className: string }> = {
+/** 状态徽章 labelKey 复用页面筛选键(agentWorkbench.filter*,同词同键,不造第二套) */
+const STATUS_BADGE: Record<AgentStatus, { labelKey: string; className: string }> = {
   running: {
-    label: '运行中',
+    labelKey: 'filterRunning',
     className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   },
-  paused: { label: '已暂停', className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
-  stopped: { label: '已停止', className: 'bg-muted text-muted-foreground' },
-  error: { label: '异常', className: 'bg-destructive/10 text-destructive' },
+  paused: {
+    labelKey: 'filterPaused',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+  },
+  stopped: { labelKey: 'filterStopped', className: 'bg-muted text-muted-foreground' },
+  error: { labelKey: 'filterError', className: 'bg-destructive/10 text-destructive' },
 }
 
 const dateFmt = new Intl.DateTimeFormat('zh-CN', {
@@ -70,7 +76,7 @@ const dateFmt = new Intl.DateTimeFormat('zh-CN', {
 export function normalizeAgent(a: RawAgent): Agent {
   return {
     id: a.id ?? a.agentId ?? '',
-    name: a.name ?? '未命名',
+    name: a.name ?? '',
     role: a.role ?? 'custom',
     model: a.model ?? 'default',
     status: (a.status ?? 'stopped') as AgentStatus,
@@ -92,8 +98,11 @@ interface CardProps {
 }
 
 export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
+  const t = useTranslations('agentWorkbench')
+  const tc = useTranslations('common')
   const badge = STATUS_BADGE[agent.status] ?? STATUS_BADGE.stopped
-  const roleLabel = ROLE_LABEL[agent.role] ?? agent.role
+  const roleKey = ROLE_LABEL_KEYS[agent.role]
+  const roleLabel = roleKey ? t(roleKey) : agent.role
   const fmt = (v: string) => {
     const d = new Date(v)
     return Number.isNaN(d.getTime()) ? '-' : dateFmt.format(d)
@@ -122,7 +131,7 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1">
-            <h3 className="truncate text-sm font-medium">{agent.name}</h3>
+            <h3 className="truncate text-sm font-medium">{agent.name || t('card.unnamed')}</h3>
             <p className="truncate text-xs text-muted-foreground">
               {roleLabel} · {agent.model}
             </p>
@@ -133,31 +142,33 @@ export function AgentCard({ agent, selected, onSelect, onAction }: CardProps) {
               badge.className,
             )}
           >
-            {badge.label}
+            {t(badge.labelKey)}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">最后活跃 {fmt(agent.lastActiveAt)}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('card.lastActive', { time: fmt(agent.lastActiveAt) })}
+          </span>
           <div className="flex items-center gap-0.5">
             {agent.status !== 'running' && (
-              <ActionButton label="启动" onClick={stop(() => onAction('start'))}>
+              <ActionButton label={t('card.actionStart')} onClick={stop(() => onAction('start'))}>
                 <Play className="h-3.5 w-3.5" />
               </ActionButton>
             )}
             {agent.status === 'running' && (
-              <ActionButton label="暂停" onClick={stop(() => onAction('pause'))}>
+              <ActionButton label={t('card.actionPause')} onClick={stop(() => onAction('pause'))}>
                 <Pause className="h-3.5 w-3.5" />
               </ActionButton>
             )}
             {(agent.status === 'running' || agent.status === 'paused') && (
-              <ActionButton label="停止" onClick={stop(() => onAction('stop'))}>
+              <ActionButton label={t('card.actionStop')} onClick={stop(() => onAction('stop'))}>
                 <Square className="h-3.5 w-3.5" />
               </ActionButton>
             )}
-            <ActionButton label="复制配置" onClick={stop(() => onAction('copy'))}>
+            <ActionButton label={t('card.actionCopyConfig')} onClick={stop(() => onAction('copy'))}>
               <Copy className="h-3.5 w-3.5" />
             </ActionButton>
-            <ActionButton label="删除" danger onClick={stop(() => onAction('delete'))}>
+            <ActionButton label={tc('delete')} danger onClick={stop(() => onAction('delete'))}>
               <Trash2 className="h-3.5 w-3.5" />
             </ActionButton>
           </div>
@@ -172,14 +183,16 @@ interface DetailProps {
 }
 
 export function AgentDetailCard({ agent }: DetailProps) {
+  const t = useTranslations('agentWorkbench')
+  const roleKey = ROLE_LABEL_KEYS[agent.role]
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
-            <h2 className="truncate text-lg font-semibold">{agent.name}</h2>
+            <h2 className="truncate text-lg font-semibold">{agent.name || t('card.unnamed')}</h2>
             <p className="text-xs text-muted-foreground">
-              {ROLE_LABEL[agent.role] ?? agent.role} · {agent.model}
+              {roleKey ? t(roleKey) : agent.role} · {agent.model}
             </p>
           </div>
           <span className="shrink-0 text-xs text-muted-foreground">
@@ -188,23 +201,23 @@ export function AgentDetailCard({ agent }: DetailProps) {
         </div>
         {agent.tools && agent.tools.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {agent.tools.map((t) => (
+            {agent.tools.map((tool) => (
               <span
-                key={t}
+                key={tool}
                 className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
               >
-                {t}
+                {tool}
               </span>
             ))}
           </div>
         )}
         <div className="grid grid-cols-1 gap-2 text-xs min-[768px]:grid-cols-2">
           <div className="rounded-md border p-2">
-            <div className="text-muted-foreground">权限模式</div>
+            <div className="text-muted-foreground">{t('card.permissionMode')}</div>
             <div className="mt-0.5 font-medium">{agent.permissionMode ?? 'default'}</div>
           </div>
           <div className="rounded-md border p-2">
-            <div className="text-muted-foreground">最大迭代</div>
+            <div className="text-muted-foreground">{t('card.maxIterations')}</div>
             <div className="mt-0.5 font-medium">{agent.maxIterations ?? 25}</div>
           </div>
         </div>

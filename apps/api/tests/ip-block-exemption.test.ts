@@ -77,6 +77,8 @@ describe('isBlockExemptPath', () => {
     // 管理员解封/信誉查询带参数段,必须按前缀命中(它们由 requireAdmin 兜底)
     expect(isBlockExemptPath('/api/security/block-ip/1.2.3.4')).toBe(true)
     expect(isBlockExemptPath('/api/security/ip-reputation/8.8.8.8')).toBe(true)
+    // 挑战端点要过 CSRF 校验:拿不到 token 的被封客户端会在第 0 步卡死
+    expect(isBlockExemptPath('/api/csrf-token')).toBe(true)
   })
 
   it('上报端点不豁免 —— 它无认证且能给任意 IP 记坏事件,豁免=给攻击者投毒通道', () => {

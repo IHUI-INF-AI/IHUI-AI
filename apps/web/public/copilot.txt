@@ -136,7 +136,7 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 - Local: Ollama, LM Studio, vLLM
 
 ### Storage
-- PostgreSQL 16+ (with pgvector)
+- PostgreSQL 18+ (with pgvector)
 - MySQL 8+
 - Redis 7+
 - MinIO / S3-compatible
@@ -196,7 +196,7 @@ IHUI AI is an open-source, full-stack AI operating system that lets enterprises 
 | Tool Calling Success Rate | 96.0% |
 | Uptime SLA | 99.95% |
 
-(Measured on Azure Standard D8s v3 × 3 nodes, GPT-4o, PostgreSQL 16, Redis 7)
+(Measured on Azure Standard D8s v3 × 3 nodes, GPT-4o, PostgreSQL 18, Redis 7)
 
 ---
 

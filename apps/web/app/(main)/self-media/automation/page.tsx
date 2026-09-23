@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
+import { richAnchorRenderer } from '@/components/chat/rich-anchor-text'
 import { fetchApi } from '@/lib/api'
 import {
   Card,
@@ -617,7 +618,7 @@ export default function AutomationPage() {
                 <li>{t('note4')}</li>
                 <li>
                   {t.rich('note5', {
-                    code: (chunks) => <code>{chunks}</code>,
+                    code: richAnchorRenderer('code'),
                   })}
                 </li>
               </ul>

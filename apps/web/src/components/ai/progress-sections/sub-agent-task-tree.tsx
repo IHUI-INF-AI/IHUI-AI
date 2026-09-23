@@ -20,6 +20,7 @@ import {
   Check as CheckIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Checklist, type ChecklistItemData } from './checklist'
 import {
   SUBAGENT_COLOR_CLASS,
@@ -111,6 +112,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const flashTimerRef = React.useRef<number | null>(null)
+  // 层栈身份:同组件多实例互不相同
+  const autoId = React.useId()
+  const stackId = `sub-agent-task-tree-menu:${autoId}`
 
   const StatusIcon = STATUS_ICON[subagent.status] ?? Clock
   const colorCls = SUBAGENT_COLOR_CLASS[subagent.color]
@@ -213,6 +217,8 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
   // 点击外部 / 右键其他位置 关闭菜单
   React.useEffect(() => {
     if (!menu.visible) return
+    // 层栈注册:menu.visible → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(stackId)
     const onMouseDown = (e: MouseEvent) => {
       const el = menuRef.current
       if (el && !el.contains(e.target as Node)) closeMenu()
@@ -222,7 +228,11 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
       if (el && !el.contains(e.target as Node)) closeMenu()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMenu()
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(stackId)) return
+        closeMenu()
+      }
     }
     const id = window.setTimeout(() => {
       document.addEventListener('mousedown', onMouseDown)
@@ -234,8 +244,9 @@ export const SubAgentTaskTree = React.memo(function SubAgentTaskTree({
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('contextmenu', onContextMenu)
       document.removeEventListener('keydown', onKey)
+      popOverlay(stackId)
     }
-  }, [menu.visible, closeMenu])
+  }, [menu.visible, closeMenu, stackId])
 
   return (
     <div

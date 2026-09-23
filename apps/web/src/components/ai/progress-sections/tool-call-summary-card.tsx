@@ -10,7 +10,14 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { ShowMoreList } from './show-more-list'
 import { toolDisplayKey } from '@ihui/shared/chat'
+import { useAnalytics } from '@/hooks/use-analytics'
+import {
+  aggregateCategoryRuns,
+  summarizeCategoriesByTool,
+  type CategoryRun,
+} from '@/components/chat/message-list/fold-policy'
 import type { ToolCallSummary } from '@ihui/types/ai'
 
 /**
@@ -205,6 +212,79 @@ function StatChip({
  * - 折叠态:一行 chip 展示 5 项核心统计(文件搜索 / 网页搜索 / 文件修改 / +行 / -行 / 耗时)
  * - 展开态:完整 6 项 + 工具分类列表(toolsByCategory 按调用次数排序)
  */
+// ─── D58 类目卡(单个类目 → 一张折叠卡,含折叠点击埋点) ──
+
+type TFn = (key: string, values?: Record<string, string | number>) => string
+
+interface CategoryCardProps {
+  run: CategoryRun
+  t: TFn
+  tStatus: TFn
+  toolDisplayKeyFn: (toolName: string) => string | null
+}
+
+/**
+ * CategoryCard — D58 单个类目卡。
+ * 沿用既有 FoldableSection(不新建折叠组件),仅在其 onOpenChange 上补折叠点击埋点:
+ *   cardType / group_key / children_count 三字段,经既有 useAnalytics 通道上报。
+ * 受控展开态由本组件内部 state 维护,用户显式展开/收起即更新,不被任何自动策略覆盖(D21 规则①)。
+ */
+function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) {
+  const { track } = useAnalytics()
+  const [open, setOpen] = React.useState(run.expandStrategy === 'expand')
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    // 折叠点击埋点(D58 验收):cardType / group_key / children_count,复用既有通道
+    track({
+      name: 'tool_category_toggle',
+      category: 'ai',
+      label: run.categoryKey,
+      props: {
+        cardType: 'tool_category',
+        group_key: run.categoryKey,
+        children_count: run.totalCount,
+      },
+    })
+  }
+
+  // 词包键缺失时(主会话统一入库前)回退到类目键,避免 next-intl 抛错中断渲染
+  let title: string
+  try {
+    title = t(run.labelKey)
+  } catch {
+    title = run.categoryKey
+  }
+
+  return (
+    <FoldableSection
+      title={title}
+      count={run.countable ? run.totalCount : undefined}
+      open={open}
+      onOpenChange={handleOpenChange}
+      defaultOpen={run.expandStrategy === 'expand'}
+      data-testid={`tool-call-category-${run.categoryKey}`}
+    >
+      <div className="space-y-0.5 rounded-sm bg-muted/15 px-2 py-0.5 text-[11px]">
+        {run.tools.map((tool, i) => {
+          const dk = toolDisplayKeyFn(tool.toolName)
+          return (
+            <div
+              key={`${tool.toolName}-${i}`}
+              className="flex items-center justify-between gap-2 text-muted-foreground/70"
+            >
+              <span className="truncate">{dk ? tStatus(dk) : tool.toolName}</span>
+              {tool.count > 1 && (
+                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{tool.count}</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </FoldableSection>
+  )
+}
+
 export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
   summary,
   toolCalls,
@@ -231,16 +311,22 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 fingerprint 比较,避免引用变化触发重算
   }, [summary, toolCallsFingerprint])
 
-  // 工具分类列表(按调用次数降序)。必须无条件调用(Hook 规则),用可选链防御
-  // effectiveSummary 为 null —— 该 useMemo 原位置在所有条件 return 之后,违反
-  // rules-of-hooks(2026-08-06 修复)。
-  const categoryEntries = React.useMemo(
-    () =>
-      Object.entries(effectiveSummary?.toolsByCategory ?? {})
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 12), // 最多展示 12 项,避免过长
-    [effectiveSummary],
-  )
+  // D58 工具类目聚合层(2026-09-23 · G-71/G-72):
+  // 把工具调用按"类目"聚合(同类连续步骤合并成一张卡)。
+  //  1. 优先用有序 toolCalls:保留时序,实现"同类连续 → 一卡 / 被中断 → 断卡"
+  //  2. 仅在有聚合计数(toolsByCategory)而无 toolCalls 时,退化为每类目单一 run
+  //     (无顺序信息,无法做连续判断)。
+  // 必须无条件调用(Hook 规则);effectiveSummary 为 null 时返回空数组。
+  const categoryRuns = React.useMemo<CategoryRun[]>(() => {
+    if (toolCalls && toolCalls.length > 0) {
+      return aggregateCategoryRuns(toolCalls.map((tc) => ({ toolName: tc.toolName, count: 1 })))
+    }
+    if (effectiveSummary?.toolsByCategory) {
+      return summarizeCategoriesByTool(effectiveSummary.toolsByCategory)
+    }
+    return []
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 effectiveSummary / fingerprint 比较
+  }, [effectiveSummary, toolCallsFingerprint])
 
   // 流式中且无 summary 时,不渲染卡片(等首个 summary 到达再显示)
   if (!effectiveSummary) {
@@ -359,25 +445,25 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             )}
         </div>
 
-        {/* 工具分类列表(展开态显示) */}
-        {categoryEntries.length > 0 && (
-          <div
-            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/20 px-2 py-0.5 text-[11px]"
-            data-testid="tool-call-summary-categories"
-          >
-            {categoryEntries.map(([name, count]) => {
-              // 分类计数按功能名显示,映射不到的插件/MCP 动态名保留原名
-              const displayKey = toolDisplayKey(name)
-              return (
-                <div
-                  key={name}
-                  className="flex items-center justify-between gap-2 text-muted-foreground/70"
-                >
-                  <span className="truncate">{displayKey ? tStatus(displayKey) : name}</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground/60">×{count}</span>
-                </div>
-              )
-            })}
+        {/* D58 类目聚合层:按类目分组渲染(同类连续步骤聚合成一张卡) */}
+        {categoryRuns.length > 0 && (
+          <div className="space-y-1" data-testid="tool-call-summary-categories">
+            <ShowMoreList
+              items={categoryRuns}
+              initialCount={6}
+              testId="tool-call-summary-category-list"
+              moreLabel={t('toolSummaryShowMore')}
+              lessLabel={t('toolSummaryShowLess')}
+              renderItem={(run) => (
+                <CategoryCard
+                  key={run.categoryKey}
+                  run={run}
+                  t={t}
+                  tStatus={tStatus}
+                  toolDisplayKeyFn={toolDisplayKey}
+                />
+              )}
+            />
           </div>
         )}
 

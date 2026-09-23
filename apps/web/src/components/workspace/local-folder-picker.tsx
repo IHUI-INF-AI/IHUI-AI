@@ -382,9 +382,12 @@ function PathNav({
       <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <IconButton onClick={onRefresh} disabled={isRefreshing} aria-label={t('refresh')}>
-              <RefreshCw className={cn(isRefreshing && 'animate-spin')} />
-            </IconButton>
+            {/* disabled 的 IconButton 收不到 pointer 事件 → 由 span 承接 trigger */}
+            <span className="inline-flex">
+              <IconButton onClick={onRefresh} disabled={isRefreshing} aria-label={t('refresh')}>
+                <RefreshCw className={cn(isRefreshing && 'animate-spin')} />
+              </IconButton>
+            </span>
           </TooltipTrigger>
           <TooltipContent>{t('refresh')}</TooltipContent>
         </Tooltip>

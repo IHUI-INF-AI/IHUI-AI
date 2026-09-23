@@ -2375,6 +2375,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 各 terminal_end SSE 产出点同步 append(_build_terminal_task 构造,
         # 与 SSE 事件同源同截断),流收尾随 _fire_callback 落库到 metadata.terminalTasks。
         terminal_tasks_history: list[dict[str, Any]] = []
+        # D33(2026-09-23 立):过程性信息持久化补全 —— fallback / memoryUpdates / usageDetail
+        # 收集器(与 toolCalls / planSteps 同一套 keyword-only 扩参落库语义)。
+        # - fallback_records:tool loop 每轮 drain 的 SSE fallback 事件(最后一个即最终降级),
+        #   流收尾随 _fire_callback 落库到 metadata.fallback。
+        # - _mem_updates:done 前同步提炼的长期记忆条目(done.memoryUpdates 同源),落库供回放。
+        # - _usage_detail:流收尾 usage 帧同源的用量明细(token 分项 + 计时 + 成本),落库供回放。
+        fallback_records: list[dict[str, Any]] = []
+        _mem_updates: list[str] = []
+        _usage_detail: dict[str, Any] | None = None
         # W1(2026-09-12 立):前端 assistant 消息 ID。plan_updated / terminal_* 事件必须携带,
         # 否则前端 onPlanUpdate/onTerminalStart/onTerminalEnd 回调的 messageId 守卫会丢弃事件。
         message_id = _resolve_message_id(req.metadata)
@@ -2564,6 +2573,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # chunk/reasoning/tool_calls/done/error 五类,事件被静默
                                     # 丢弃,前端 onFallback 永不触发。原样转发(与非 tool-loop
                                     # 路径的兜底 yield _sse(event_type, event) 行为对齐)。
+                                    # D33(2026-09-23 立):fallback 事件同步入收集器,流收尾随
+                                    # _fire_callback 落库到 metadata.fallback(与 SSE 同源同字段)。
+                                    fallback_records.append(evt)
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与 1113-1119 行一致)
@@ -2704,6 +2716,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):同第一轮 —— 此前后续轮次的
                                     # fallback 事件同样被静默丢弃,原样转发给前端。
+                                    # D33(2026-09-23 立):fallback 事件同步入收集器,流收尾随
+                                    # _fire_callback 落库到 metadata.fallback(与 SSE 同源同字段)。
+                                    fallback_records.append(evt)
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与第一轮一致)
@@ -3708,6 +3723,34 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     "model": accumulated.get("model"),
                     "costUsd": None,
                 }
+                # D33(2026-09-23 立):usageDetail 持久化通道(与 event: usage 同源同字段)。
+                # 成本经 model_pricing.estimate_cost_usd 推算(与 ai-cost 扣费同口径);
+                # 失败/未计费降级为 None,绝不阻塞主链路。仅当确有 token 用量时才构建,
+                # 否则保持 None(空值不写 key)。
+                if _total is not None or _prompt is not None or _completion is not None:
+                    _cost_usd: float | None = None
+                    try:
+                        from ..core.model_pricing import estimate_cost_usd
+
+                        if accumulated.get("model"):
+                            _cost_usd = estimate_cost_usd(
+                                str(accumulated.get("model")),
+                                int(_prompt or 0),
+                                int(_completion or 0),
+                            ).get("cost_usd")
+                    except Exception as _cost_err:
+                        _cost_usd = None
+                        logger.warning("usageDetail cost estimate failed: %s", _cost_err)
+                    _usage_detail = {
+                        "promptTokens": _prompt,
+                        "completionTokens": _completion,
+                        "totalTokens": _total,
+                        "reasoningTokens": _reasoning,
+                        "firstTokenMs": _first_ms,
+                        "durationMs": _duration_ms,
+                        "model": accumulated.get("model"),
+                        "costUsd": _cost_usd,
+                    }
                 yield _sse(SSE_USAGE, _usage_frame)
             except GeneratorExit:
                 # 客户端断开/取消:放弃计量帧,保持生成器关闭语义(不吞没 GeneratorExit)
@@ -3728,6 +3771,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             injections=injection_frames,
             compaction_info=compaction_info,
             retry_notice=retry_notices[-1] if retry_notices else None,
+            usage_detail=_usage_detail,
+            fallback=fallback_records[-1] if fallback_records else None,
+            memory_updates=_mem_updates if _mem_updates else None,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3887,6 +3933,9 @@ async def _fire_callback(
     injections: list[dict[str, Any]] | None = None,
     compaction_info: dict[str, Any] | None = None,
     retry_notice: dict[str, Any] | None = None,
+    usage_detail: dict[str, Any] | None = None,
+    fallback: dict[str, Any] | None = None,
+    memory_updates: list[str] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -3955,6 +4004,15 @@ async def _fire_callback(
     # retryNotice(G-166 第⑥步):同一轮可能重试多次,落**最后一条**(attempt 最大 = 最终那次)
     if retry_notice:
         body["retryNotice"] = retry_notice
+    # D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 过程性信息持久化。
+    # 与 citations / compaction 同一套"非空才写字段"语义:空值(None/空数组)不写 key,
+    # worker 侧浅合并因此不会覆盖已合并的其他 key(与 planSteps 同口径)。
+    if usage_detail:
+        body["usageDetail"] = usage_detail
+    if fallback:
+        body["fallback"] = fallback
+    if memory_updates:
+        body["memoryUpdates"] = memory_updates
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。

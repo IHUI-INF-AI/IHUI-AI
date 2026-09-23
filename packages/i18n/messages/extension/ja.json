@@ -141,7 +141,8 @@
     "orUseAccount": "またはアカウントでログイン",
     "ssoCancelled": "SSO ログインがキャンセルされました",
     "ssoLoading": "SSO 認証中...",
-    "ssoLogin": "SSO ワンクリックログイン"
+    "ssoLogin": "SSO ワンクリックログイン",
+    "ssoFailed": "SSO ログインに失敗しました"
   },
   "popup": {
     "copyFailed": "コピー失敗",
@@ -165,10 +166,6 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
-    "retryMessage": "再試行",
-    "citationTitle": "参考元",
-    "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
-    "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
     "history": "履歴",
     "title": "AI チャット",
     "exit": "終了",
@@ -189,10 +186,19 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼び出し詳細",
     "terminal": "ターミナル",
-    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalStatusRunning": "実行中",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",
+    "planStatusPending": "待機中",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "完了",
+    "subagentTools": "サブエージェントツール ×{count}",
+    "usage": "使用量",
+    "retryMessage": "再試行",
+    "citationTitle": "参考元",
+    "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
+    "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalTruncated": "…(省略済み、全 {total} 文字)",
     "injectionTitle": "今回のコンテキスト:{count} 件",
     "injectionExpand": "他 {count} 件を表示",
@@ -201,11 +207,6 @@
     "injectionKindWorkspace": "ワークスペースメモリ / AGENTS.md を注入しました",
     "injectionKindRepoWiki": "Repo Wiki プロジェクト百科を注入しました",
     "injectionKindAutoContext": "{count, plural, other {自動検索したコードコンテキスト {count} 件を注入しました}}",
-    "planStatusPending": "待機中",
-    "planStatusInProgress": "進行中",
-    "planStatusCompleted": "完了",
-    "subagentTools": "サブエージェントツール ×{count}",
-    "usage": "使用量",
     "subagentRoleValidator": "検証役",
     "subagentRoleReviewer": "レビュー役",
     "subagentRoleExplorer": "探索役",
@@ -215,7 +216,19 @@
     "subagentRoleResearcher": "リサーチャー",
     "subagentRoleOptimizer": "最適化役",
     "subagentRoleDebugger": "デバッガー",
-    "subagentRoleRefactorer": "リファクタリング役"
+    "subagentRoleRefactorer": "リファクタリング役",
+    "modelCategoryChat": "対話・推論",
+    "modelCategoryVision": "画像理解",
+    "modelCategoryEmbedding": "埋め込み",
+    "modelCategoryRerank": "リランク",
+    "modelCategoryTts": "音声合成",
+    "modelCategoryAsr": "音声認識",
+    "modelCategoryImage": "画像生成",
+    "modelCategoryVideo": "動画生成",
+    "modelCategoryGuard": "安全性審査",
+    "modelCategoryOcr": "文字認識",
+    "modelCategoryOther": "その他",
+    "modelHistoryToggle": "過去のモデル"
   },
   "settings": {
     "language": "インターフェース言語",
@@ -437,6 +450,10 @@
       "benefitsTitle": "含まれる特典",
       "note": "価格と特典はウェブ版の実際の表示に準じます。",
       "open": "ウェブ版で開通"
+    },
+    "topics": {
+      "discussions": "{count}件の討論",
+      "followers": "{count}人のフォロワー"
     }
   },
   "permissionTier": {

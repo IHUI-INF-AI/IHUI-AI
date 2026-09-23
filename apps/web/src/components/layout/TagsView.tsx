@@ -11,8 +11,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
+
+/** 层栈 id(见 @/lib/overlay-stack):TagsView 搜索弹层的 Esc 只在栈顶时被消费 */
+const TAGS_VIEW_OVERLAY_ID = 'tags-view-search'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec, resolvePathIcon } from '@/lib/path-labels'
@@ -130,12 +134,20 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
     setOpen(false)
   }, [pathname, searchParamsStr])
 
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(TAGS_VIEW_OVERLAY_ID)
+    return () => popOverlay(TAGS_VIEW_OVERLAY_ID)
+  }, [open])
+
   // Esc 关闭弹层
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation()
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(TAGS_VIEW_OVERLAY_ID)) return
         setOpen(false)
       }
     }
