@@ -500,7 +500,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       top: 8,
       right: 8,
-      backgroundColor: tk.brand.ctaFill,
+      backgroundColor: tk.brand.DEFAULT,
       paddingHorizontal: 6,
       paddingVertical: 2,
       borderRadius: rnRadius.md,
@@ -508,7 +508,7 @@ function createStyles(tk: AppThemeTokens) {
     vipBadgeText: {
       fontSize: 10,
       fontWeight: '600',
-      color: tk.brand.ctaText,
+      color: tk.brand.foreground,
     } as TextStyle,
     popularBody: {
       padding: 10,
