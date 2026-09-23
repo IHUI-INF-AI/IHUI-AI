@@ -5,14 +5,15 @@
 name: Release SDK
 
 # 4 语言 SDK 统一发布 CI(参考 release-cli.yml 模式)
-# 触发:push tag v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
+# 触发:push tag sdk-v* 或 workflow_dispatch 手动触发(含 dry-run 选项)
+#   标签前缀与 cli-v* / desktop-v* 对齐;裸 v* 会与仓库其他发版标签互相误触发,故不用。
 # 发布:npm(@ihui/sdk)+ PyPI(ihui-ai)+ Maven Central(com.ihui:ihui-ai-java)+ Go module(github.com/.../sdk/go)
 # 鉴权:优先 OIDC trusted publishing(npm/PyPI/Maven),无 OIDC 时回退 NPM_TOKEN/PYPI_TOKEN/MAVEN_TOKEN
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'sdk-v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -27,6 +28,14 @@ on:
         options:
           - 'true'
           - 'false'
+      confirm_real_release:
+        description: '真发布二次确认:只有 dry_run=false 且此项=yes 才会真的发布'
+        required: false
+        default: 'no'
+        type: choice
+        options:
+          - 'no'
+          - 'yes'
       language:
         description: '选择要发布的语言(all = 全部)'
         required: false
@@ -63,7 +72,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.parse.outputs.version }}
-      dry_run: ${{ steps.parse.outputs.dry_run }}
+      tag: ${{ steps.parse.outputs.tag }}
+      # ⚠️ 这里原先写的是 steps.parse.outputs.dry_run,但 dry_run 是**下一步**(id: dry)
+      # 产出的 → 输出恒为空 → 所有 `if: dry_run == 'false'` 的**真实发布步骤**与
+      # `if: dry_run == 'true'` 的 dry-run 校验步骤双双不执行,job 却仍然是绿的。
+      # 2026-09-20 由 CI 实跑揭穿(run 35521187478, step10/step11 同时 skipped)。
+      dry_run: ${{ steps.dry.outputs.dry_run }}
       is_tag: ${{ steps.parse.outputs.is_tag }}
     steps:
       - name: Parse tag and version
@@ -82,8 +96,13 @@ jobs:
             exit 1
           fi
 
-          # 去除前缀 v → 版本号
-          VERSION="${TAG#v}"
+          # 去前缀 sdk-v / v → 版本号(tag 触发与 dispatch 触发都兼容)
+          VERSION="$(printf '%s' "$TAG" | sed -E 's/^sdk-v//; s/^v//')"
+          # 版本号必须是 semver,否则后续 npm/pypi/maven 会拿到垃圾版本污染注册表
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-].*)?$'; then
+            echo "❌ tag $TAG 解析出的版本号 '$VERSION' 不是合法 semver(期望 sdk-v1.2.3)"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "is_tag=true" >> "$GITHUB_OUTPUT"
@@ -98,14 +117,159 @@ jobs:
           if [ "${{ github.event_name }}" = "push" ]; then
             DRY="false"
           fi
+          # 保险:值只能是 true|false。空值会让下游 `== 'false'`(发布)与 `== 'true'`(校验)
+          # 同时不成立 → job 全绿却什么都没发(本 workflow 踩过这个坑)。
+          case "$DRY" in
+            true|false) ;;
+            *) echo "❌ dry_run 解析得到非法值 '$DRY'(必须是 true|false),拒绝继续"; exit 1 ;;
+          esac
           echo "dry_run=$DRY" >> "$GITHUB_OUTPUT"
           echo "✅ Dry-run mode: $DRY (event: ${{ github.event_name }})"
+
+  # ---------- Job 0b: 发布硬闸 —— 模式判定 + 凭据可用性证明 ----------
+  # 三条件硬闸的落地位置:条件 1(凭据可用)在此证明,条件 2(产物干净)在各语言
+  # job 的 pack/build 后扫描,条件 3(dry-run 全流程)由 dry_run=true 跑同一条链路。
+  # 任一条不成立 → 本 job exit 1 → 4 个发布 job 全部不执行(它们 needs 含 gate)。
+  gate:
+    name: Release gate (mode + credentials)
+    needs: extract
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.sanity.outputs.mode }}
+    steps:
+      - name: Decide release mode (fail closed)
+        id: sanity
+        shell: bash
+        env:
+          DRY: ${{ needs.extract.outputs.dry_run }}
+          EVENT: ${{ github.event_name }}
+          CONFIRM: ${{ github.event.inputs.confirm_real_release }}
+        run: |
+          # dry_run 必须是字面量 true|false;空值/未知值一律 exit 1。
+          # 本 workflow 踩过 outputs 指错 step 导致 dry_run 恒为空的坑:所有真发布步骤
+          # 与所有 dry-run 校验步骤双双 skipped,job 却全绿 —— 那正是"把未发布写成已交付"
+          # 在 CI 里的生成机制。宁可红,不可"绿着什么都没做"。
+          case "$DRY" in
+            true)
+              MODE="dry-run"
+              ;;
+            false)
+              # dispatch 触发的真发布必须显式 confirm_real_release=yes
+              # (push sdk-v* 本身就是人工动作,不再叠加确认)
+              if [ "$EVENT" = "workflow_dispatch" ] && [ "$CONFIRM" != "yes" ]; then
+                echo "❌ dry_run=false 但 confirm_real_release='$CONFIRM'(必须为 yes)—— 拒绝真发布"
+                exit 1
+              fi
+              MODE="real"
+              ;;
+            *)
+              echo "❌ dry_run 值非法('$DRY'),无法判定发布模式 —— 拒绝以未知模式继续"
+              exit 1
+              ;;
+          esac
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "✅ 发布模式判定:$MODE(event=$EVENT)"
+
+      - name: Prove registry credentials are usable (real mode only)
+        if: steps.sanity.outputs.mode == 'real'
+        shell: bash
+        env:
+          LANGUAGE: ${{ github.event.inputs.language }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # push 事件没有 language 入参 → 视为全量
+          LANG="${LANGUAGE:-all}"
+          need() { [ "$LANG" = "all" ] || [ "$LANG" = "$1" ]; }
+          fail=0
+
+          {
+            echo "### 凭据硬闸(real 模式)"
+            echo ""
+            echo "- 本次选择语言:\`$LANG\`"
+            echo '- 判定口径:**能证明可用才算有凭据**;secrets 非空 ≠ 可用。'
+            echo ''
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if need npm; then
+            if [ -z "$NPM_TOKEN" ]; then
+              echo "❌ npm:secrets.NPM_TOKEN 为空"
+              echo "   (OIDC trusted publishing 要求 npm 上先存在同名包才能登记 publisher,"
+              echo "    当前 @ihui/sdk 在 registry 是 404 → 首次发布只能走 token)"
+              fail=1
+            else
+              echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > "$HOME/.npmrc"
+              chmod 600 "$HOME/.npmrc"
+              if WHO="$(npm whoami --registry=https://registry.npmjs.org/ 2>&1)"; then
+                echo "✅ npm:凭据可用(whoami=$WHO)—— 真实鉴权调用通过,非"名字存在""
+              else
+                echo "❌ npm:凭据不可用,真实鉴权调用失败:$WHO"
+                fail=1
+              fi
+            fi
+          fi
+
+          if need pypi; then
+            # PyPI 没有任何"只校验 token 不上传"的官方端点 —— 能探测的通道就是不可逆的
+            # 上传通道。所以这里只判定 token 存在,并在 summary 里显式声明这不构成
+            # "可用"证明;真正的判据是发布后 pypi.org JSON API 回读(回读失败判红)。
+            if [ -z "$PYPI_TOKEN" ]; then
+              echo "❌ PyPI:secrets.PYPI_TOKEN 为空"
+              fail=1
+            else
+              echo "⚠️ PyPI:PYPI_TOKEN 非空,但 token 有效性无法在不上传的前提下探测;"
+              echo "   以发布后 https://pypi.org/pypi/ihui-ai/<version>/json 回读为唯一判据。"
+            fi
+          fi
+
+          if need maven; then
+            if [ -z "$MAVEN_USERNAME" ] || [ -z "$MAVEN_TOKEN" ]; then
+              echo "❌ Maven:secrets.MAVEN_USERNAME / MAVEN_TOKEN 未同时配置"
+              fail=1
+            else
+              # Central 的用户名是 Sonatype 令牌前缀,密码是令牌本体;两者都可能填错,
+              # 这里只判定"非空",有效性同样交给发布后 repo1 回读判红兜底。
+              echo "⚠️ Maven:凭据非空,有效性以发布后 repo1.maven.org 回读为唯一判据。"
+            fi
+          fi
+
+          if need go; then
+            # Go 的"发布"= 往 origin 推 packages/sdk/go/v* tag,用的就是自带 GITHUB_TOKEN。
+            # 只读探测 tag 列表接口(不把 token 拼进 URL,避免泄漏进 git 输出/日志)。
+            if curl -fsS --max-time 30 \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/tags?per_page=1" -o /dev/null; then
+              echo "✅ Go/Git:GITHUB_TOKEN 可访问 origin tag 列表(推 tag 的前置读权限已证)"
+            else
+              echo "❌ Go/Git:GITHUB_TOKEN 无法访问 origin tag 列表 —— permissions.contents 未开放 write?"
+              fail=1
+            fi
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          [ "$fail" = 0 ] || {
+            echo "❌ 凭据硬闸未通过 —— 三条件之条件 1 不成立,不进入任何发布步骤" >> "$GITHUB_STEP_SUMMARY"
+            echo "- 结论:**仍不可发布**" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+          echo "- 结论:凭据硬闸通过" >> "$GITHUB_STEP_SUMMARY"
 
   # ---------- Job 1: npm @ihui/sdk 发布 ----------
   npm-publish:
     name: Publish to npm
-    needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'npm')
+    needs: [extract, gate]
+    outputs:
+      proof: ${{ steps.npm-readback.outputs.proof }}
+    # 门控:tag 触发(push sdk-v*)必跑;workflow_dispatch 按 language 选择。
+    # 旧写法 `dry_run == 'true' || language == 'all' || ...` 在 push 事件下三个条件
+    # 全为 false(language 是 dispatch 专属入参)→ 真发布永远被跳过,只 green 不发布。
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'npm')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -130,42 +294,76 @@ jobs:
       - name: Build SDK (tsc → dist/)
         run: pnpm --filter @ihui/sdk build
 
-      - name: Strip workspace deps & set version
+      - name: Set publish version
         working-directory: packages/sdk
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          # 用 node 改写 package.json(原子操作)
+          # package.json 本身已是"可发布形态"(入口指 dist / files 白名单 / 无 workspace 依赖 /
+          # publishConfig.registry 锁定 npmjs.org),CI 只需对齐 tag 里的版本号。
+          # 过去在这里顺手重写 main/types/exports 并剥 @ihui/* 依赖,是因为仓库里那份不可安装;
+          # 现在把修复前移到仓库,本地 `npm pack` 与 CI 产物就完全一致了。
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
           node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = process.argv[1];
-            // 删除 workspace 依赖(类型已在 dist/*.d.ts 中,运行时无需)
-            pkg.dependencies = Object.fromEntries(
-              Object.entries(pkg.dependencies || {}).filter(([k]) => !k.startsWith('@ihui/'))
+            const p = require('./package.json');
+            const errs = [];
+            if (p.private) errs.push('private=true 会直接拒绝发布');
+            if (!p.license) errs.push('缺少 license(Apache-2.0 发行必须声明)');
+            if (!p.publishConfig?.registry?.includes('registry.npmjs.org'))
+              errs.push('publishConfig.registry 未锁定 npmjs.org —— 仓库根 .npmrc 指向 npmmirror,项目级配置优先级更高,漏了这一条会把包推给第三方镜像');
+            for (const [f, v] of Object.entries({ main: p.main, types: p.types }))
+              if (String(v).includes('/src/')) errs.push(\`\${f}=\${v} 指向 src,外部装了用不了\`);
+            for (const [d, s] of Object.entries(p.dependencies || {}))
+              if (d.startsWith('@ihui/') || String(s).startsWith('workspace:'))
+                errs.push(\`dependencies 含未发布内部包 \${d}@\${s},消费者 npm i 必 404\`);
+            if (!Array.isArray(p.files) || !p.files.includes('dist'))
+              errs.push('files 白名单缺失/不含 dist,会打进 src/其他语言 SDK/.turbo 日志等噪音');
+            if (errs.length) { console.error('❌ 发布前置校验失败:\n  - ' + errs.join('\n  - ')); process.exit(1); }
+            console.log(\`✅ \${p.name}@\${p.version} 发布前置校验通过\`);
+          "
+
+      - name: Inspect tarball (fail on junk / missing license)
+        working-directory: packages/sdk
+        shell: bash
+        run: |
+          # 真发布前把 tarball 清单摊开:杜绝源码 / 其他语言 SDK / 构建产物噪音与任何密钥外流
+          npm pack --dry-run --json > /tmp/sdk-pack.json 2>/tmp/sdk-pack.err || { cat /tmp/sdk-pack.err; exit 1; }
+          node -e "
+            const e = JSON.parse(require('fs').readFileSync('/tmp/sdk-pack.json','utf8'))[0];
+            const paths = e.files.map((f) => f.path);
+            const junk = paths.filter((p) =>
+              /^(src|java|go|dotnet|python|tests|\.turbo|\.git)\//.test(p) ||
+              /tsbuildinfo|node_modules|\.env(\.|$)|\.npmrc|\.pem$|\.key$|id_rsa|credential|secret|\.token$/i.test(p),
             );
-            // 重写入口指向 dist/
-            pkg.main = './dist/index.js';
-            pkg.module = './dist/index.js';
-            pkg.types = './dist/index.d.ts';
-            pkg.exports = {
-              '.': {
-                types: './dist/index.d.ts',
-                import: './dist/index.js',
-                require: './dist/index.js',
-              },
-            };
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-            console.log('✅ Patched package.json for npm publish');
-          " "$VERSION"
+            console.log(\`  files=\${paths.length} tarball=\${(e.size/1024).toFixed(1)}KB unpacked=\${(e.unpackedSize/1024/1024).toFixed(2)}MB\`);
+            if (junk.length) { console.error('❌ tarball 混入不该有的条目:', junk.slice(0, 10)); process.exit(1); }
+            for (const need of ['LICENSE', 'NOTICE', 'dist/index.js', 'dist/index.d.ts'])
+              if (!paths.includes(need)) { console.error('❌ tarball 缺少', need); process.exit(1); }
+            console.log('✅ tarball 干净且自包含(dist + LICENSE + NOTICE)');
+          "
 
       - name: Publish to npm (OIDC trusted publishing)
+        id: npm-readback
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
           echo "📦 Publishing @ihui/sdk@$VERSION to npm (OIDC)..."
           npm publish --access public --provenance
+          # 回读验证:registry 拿不到就等于没发布,绝不用"命令没报错"当结论。
+          # registry 传播有延迟,故轮询而非单次 sleep —— 超时仍是判红,不降级为警告。
+          PUBLISHED=""
+          for i in $(seq 1 12); do
+            PUBLISHED="$(npm view @ihui/sdk version --registry=https://registry.npmjs.org/ 2>/dev/null || echo '')"
+            [ "$PUBLISHED" = "$VERSION" ] && break
+            echo "  …第 $i 次回读=$PUBLISHED,10s 后重试"
+            sleep 10
+          done
+          echo "registry 回读 version=$PUBLISHED (期望 $VERSION)"
+          [ "$PUBLISHED" = "$VERSION" ] || { echo "❌ 发布后回读失败:npm registry 查不到 @ihui/sdk@$VERSION"; exit 1; }
+          # proof 非空 = 已用 registry 回读证实;release-summary 据此判定,缺 proof 即判红
+          echo "proof=@ihui/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
+          echo "✅ @ihui/sdk@$VERSION 已在 npm registry 可见"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # OIDC 失败时回退
 
@@ -188,8 +386,12 @@ jobs:
   # ---------- Job 2: PyPI ihui-ai 发布 ----------
   pypi-publish:
     name: Publish to PyPI
-    needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'pypi')
+    needs: [extract, gate]
+    outputs:
+      proof: ${{ steps.pypi-readback.outputs.proof }}
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'pypi')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -218,16 +420,81 @@ jobs:
       - name: Build wheel + sdist
         working-directory: packages/sdk/python
         run: |
+          # Apache-2.0 第 4 条要求分发副本附带许可证与 NOTICE 全文;
+          # pyproject 的 license-files = ["LICENSE","NOTICE"] 按 glob 取包内文件,
+          # 故构建前从仓库根复制(不提交副本,避免法律文本漂移)。
+          # ⚠️ 路径修复(2026-09-21):原先写 `cp ../../LICENSE ../../NOTICE .`,而
+          # working-directory 是 packages/sdk/python —— ../../ 只到 packages/,
+          # 仓库根的 LICENSE/NOTICE 在 ../../../。结果该 cp 在 dry-run 与真发布两种模式下
+          # **必定失败**,pypi-publish job 从来没绿过的可能性为 100%。改用 $GITHUB_WORKSPACE
+          # 绝对定位,不再靠相对层级数。
+          test -s "$GITHUB_WORKSPACE/LICENSE" || { echo "❌ 仓库根 LICENSE 缺失"; exit 1; }
+          test -s "$GITHUB_WORKSPACE/NOTICE" || { echo "❌ 仓库根 NOTICE 缺失"; exit 1; }
+          cp "$GITHUB_WORKSPACE/LICENSE" "$GITHUB_WORKSPACE/NOTICE" .
+          test -s LICENSE && test -s NOTICE || { echo "❌ 未取到 LICENSE / NOTICE"; exit 1; }
           python -m build
           echo "📦 Build artifacts:"
           ls -lh dist/
+          # 条件 2 的 PyPI 侧:发行包清单必须摊开查,任何 .env / 私钥 / 源码噪音即判红
+          python - <<'PY'
+          import glob, re, sys, tarfile, zipfile
+          pat = re.compile(r'(\.env|\.pem$|\.key$|id_rsa|credential|secret|\.npmrc|node_modules|__pycache__)')
+          arts = glob.glob('dist/*.whl') + glob.glob('dist/*.tar.gz')
+          if not arts:
+              sys.exit('❌ dist/ 里没有任何 wheel / sdist —— 构建产物为空')
+          total = 0
+          for a in arts:
+              if a.endswith('.whl'):
+                  names = zipfile.ZipFile(a).namelist()
+              else:
+                  with tarfile.open(a) as t:
+                      names = [m.name for m in t.getmembers() if m.isfile()]
+              total += len(names)
+              bad = [n for n in names if pat.search(n)]
+              print(f'  {a}: {len(names)} 个文件')
+              if bad:
+                  sys.exit(f'❌ {a} 混入敏感/噪音条目: {bad[:10]}')
+          print(f'✅ 发行包共 {total} 个文件,无 .env / 私钥 / 依赖目录外流')
+          PY
+          python - <<'PY'
+          import glob, zipfile, sys
+          whl = glob.glob('dist/*.whl')[0]
+          names = zipfile.ZipFile(whl).namelist()
+          have = [n for n in names if 'licenses/' in n]
+          print('  packaged license files:', have)
+          if not any('LICENSE' in n.upper() for n in have) or not any('NOTICE' in n.upper() for n in have):
+              sys.exit('❌ wheel 未附带 LICENSE / NOTICE')
+          PY
 
       - name: Publish to PyPI (OIDC trusted publishing)
+        id: pypi-readback
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk/python
         run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          # 上传前先 twine check:元数据/长描述不合法就不该去打 PyPI 的不可撤销动作
+          python -m twine check dist/*
           echo "📦 Publishing ihui-ai to PyPI (OIDC)..."
-          python -m twine upload dist/*
+          python -m twine upload --non-interactive dist/*
+          # 回读验证:PyPI JSON API 为准(与"命令没报错"无关);传播有延迟 → 轮询后仍查不到判红
+          ok=0
+          for i in $(seq 1 12); do
+            if curl -fsS "https://pypi.org/pypi/ihui-ai/$VERSION/json" -o /tmp/ihui-pypi.json; then
+              ok=1
+              break
+            fi
+            echo "  …第 $i 次回读未命中,10s 后重试"
+            sleep 10
+          done
+          [ "$ok" = 1 ] || { echo "❌ PyPI 回读失败:ihui-ai@$VERSION 在 pypi.org 查不到"; exit 1; }
+          node -e "
+            const j=require('/tmp/ihui-pypi.json');
+            const lic=j.info.license_expression || j.info.license;
+            if (j.info.version !== process.argv[1]) { console.error('❌ 回读版本不符:', j.info.version); process.exit(1); }
+            console.log('✅ PyPI 回读成功:', j.info.name, j.info.version, '| license:', lic);
+            if (!lic || !/Apache/i.test(lic)) { console.error('❌ 回读到许可证不是 Apache-2.0,元数据漂移'); process.exit(1); }
+          " "$VERSION"
+          echo "proof=ihui-ai==$VERSION (PyPI JSON API 回读确认)" >> "$GITHUB_OUTPUT"
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }} # OIDC 失败时回退
@@ -250,8 +517,12 @@ jobs:
   # ---------- Job 3: Maven Central com.ihui:ihui-ai-java 发布 ----------
   maven-publish:
     name: Publish to Maven Central
-    needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'maven')
+    needs: [extract, gate]
+    outputs:
+      proof: ${{ steps.maven-readback.outputs.proof }}
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'maven')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -301,12 +572,27 @@ jobs:
           echo "✅ Dry-run passed — artifact would deploy to Maven Central"
 
       - name: Deploy to Maven Central
+        id: maven-readback
         if: needs.extract.outputs.dry_run == 'false'
         working-directory: packages/sdk/java
+        shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
           echo "📦 Deploying com.ihui:ihui-ai-java:$VERSION to Maven Central..."
           mvn -B clean deploy -DskipTests=true
+          # 回读验证:repo1 上取不到 pom = 没发布。deploy 退出码不算证据。
+          POM="https://repo1.maven.org/maven2/com/ihui/ihui-ai-java/$VERSION/ihui-ai-java-$VERSION.pom"
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 20 "$POM" -o /tmp/ihui-maven.pom; then ok=1; break; fi
+            echo "  …第 $i 次回读未命中(Central 索引有延迟),20s 后重试"
+            sleep 20
+          done
+          [ "$ok" = 1 ] || { echo "❌ Maven 回读失败:10 分钟内在 repo1 查不到 $POM"; exit 1; }
+          grep -q "<version>$VERSION</version>" /tmp/ihui-maven.pom \
+            || { echo "❌ 回读到的 pom 版本号与 $VERSION 不符"; exit 1; }
+          echo "✅ Maven Central 回读成功:$POM"
+          echo "proof=com.ihui:ihui-ai-java:$VERSION (repo1 pom 回读确认)" >> "$GITHUB_OUTPUT"
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
@@ -328,8 +614,12 @@ jobs:
   # ---------- Job 4: Go module github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go 发布 ----------
   go-publish:
     name: Publish Go module
-    needs: extract
-    if: needs.extract.outputs.is_tag == 'true' && (needs.extract.outputs.dry_run == 'true' || github.event.inputs.language == 'all' || github.event.inputs.language == 'go')
+    needs: [extract, gate]
+    outputs:
+      proof: ${{ steps.go-readback.outputs.proof }}
+    if: >-
+      (startsWith(github.ref, 'refs/tags/sdk-v') || github.event_name == 'workflow_dispatch') &&
+      (github.event_name == 'push' || github.event.inputs.language == 'all' || github.event.inputs.language == 'go')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -344,11 +634,19 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          # Go 模块使用 git tag 作为版本号,创建 sdk/v$VERSION tag
-          # 已有 v* tag(主仓库),再打一个 sdk/v$VERSION 子 tag
-          git tag -d "sdk/v$VERSION" 2>/dev/null || true
-          git tag "sdk/v$VERSION" HEAD
-          echo "✅ Created tag sdk/v$VERSION pointing to HEAD"
+          # Go 对「仓库子目录模块」要求 tag 前缀 = 完整次目录路径:
+          #   module github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go
+          #   → tag 必须是 packages/sdk/go/v$VERSION
+          # 公开对照样本:open-telemetry/opentelemetry-go-contrib 的
+          #   instrumentation/github.com/gorilla/mux/otelmux/v0.71.0
+          # 旧形态 sdk/v$VERSION 前缀与次目录 packages/sdk/go 不符,Go 解析器永不认领
+          #   ⇒ tag 推上去也永远 go get 不到(O14b)。
+          # 注意:CI 自身的触发标签仍是 sdk-v*(见 on.push.tags),与本标签互不影响;
+          #   packages/sdk/go/v* 不匹配 sdk-v*,不会自触发。
+          TAG="packages/sdk/go/v$VERSION"
+          git tag -d "$TAG" 2>/dev/null || true
+          git tag "$TAG" HEAD
+          echo "✅ Created tag $TAG pointing to HEAD"
 
       - name: Verify Go build
         working-directory: packages/sdk/go
@@ -359,13 +657,61 @@ jobs:
           echo "✅ Go SDK builds successfully"
 
       - name: Push Go module tag (real release)
+        id: go-readback
         if: needs.extract.outputs.dry_run == 'false'
         shell: bash
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
-          echo "📦 Pushing sdk/v$VERSION tag to origin..."
-          git push origin "sdk/v$VERSION"
-          echo "✅ Go proxy (proxy.golang.org) will pick up sdk/v$VERSION within minutes"
+          TAG="packages/sdk/go/v$VERSION"
+          SHA="$(git rev-parse HEAD)"
+          # 幂等:origin 已有同名 tag 就跳过推送(严禁任何 force —— Go tag 不可变)
+          EXISTING="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          if [ -n "$EXISTING" ]; then
+            echo "ℹ️ origin 已存在 $TAG -> $EXISTING(幂等跳过推送)"
+            [ "$EXISTING" = "$SHA" ] \
+              || { echo "❌ $TAG 已指向 $EXISTING,本次 HEAD=$SHA —— 拒绝覆盖(不使用 --force)"; exit 1; }
+            echo "proof=go module tag $TAG @ $SHA(origin 已存在,幂等复用)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "📦 Pushing $TAG tag to origin..."
+          git push origin "refs/tags/$TAG"
+          # 回读验证 ①(权威):tag 没落到 origin = 没发布。git push 退出码不算证据。
+          REMOTE_SHA="$(git ls-remote --tags origin "refs/tags/$TAG" | awk '{print $1}')"
+          echo "origin 回读 $TAG -> ${REMOTE_SHA:-<无>} (期望 $SHA)"
+          [ "$REMOTE_SHA" = "$SHA" ] \
+            || { echo "❌ Go 发布回读失败:origin 上没有 sha 匹配的 $TAG tag"; exit 1; }
+          echo "proof=go module tag $TAG @ $SHA(origin ls-remote 回读确认)" >> "$GITHUB_OUTPUT"
+
+      - name: Read back published Go tag from origin (判红)
+        if: needs.extract.outputs.dry_run == 'false'
+        shell: bash
+        run: |
+          VERSION="${{ needs.extract.outputs.version }}"
+          TAG="packages/sdk/go/v$VERSION"
+          SHA="$(git rev-parse HEAD)"
+          # 回读验证 ③(发布后 glob 判红):用与 Go 解析器一致的 glob 形态枚举,
+          # 必须能读到刚推的那个 sha 且与本地 HEAD 一致,否则判红 exit 1。
+          echo "$ git ls-remote --tags origin refs/tags/packages/sdk/go/v*"
+          git ls-remote --tags origin "refs/tags/packages/sdk/go/v*" || true
+          MATCH="$(git ls-remote --tags origin "refs/tags/packages/sdk/go/v*" | awk -v t="refs/tags/$TAG" '$2 == t { print $1 }')"
+          if [ -z "$MATCH" ]; then
+            echo "❌ 回读判红:glob refs/tags/packages/sdk/go/v* 匹配不到 $TAG"
+            exit 1
+          fi
+          if [ "$MATCH" != "$SHA" ]; then
+            echo "❌ 回读判红:$TAG 在 origin 指向 $MATCH,与本地 HEAD $SHA 不一致"
+            exit 1
+          fi
+          echo "✅ 回读判红通过:$TAG @ $MATCH"
+          # 回读 ④(best-effort,不当判据):proxy.golang.org 收录要几分钟到几小时。
+          # 子目录模块在 proxy 上的版本号是「去掉次目录前缀」后的 v$VERSION。
+          # 取不到只记状态,不判红 —— 但也不得写成"已可 go get"。
+          MP="github.com/!i!h!u!i-!i!n!f-!a!i/!i!h!u!i-!a!i/packages/sdk/go"
+          if curl -fsS --max-time 20 "https://proxy.golang.org/$MP/@v/v$VERSION.info" -o /tmp/go-proxy.json; then
+            echo "✅ Go proxy 已收录:$(cat /tmp/go-proxy.json)" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ Go proxy 尚未收录 $TAG(索引延迟,非失败判据;tag 已在 origin)" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Dry-run verification
         if: needs.extract.outputs.dry_run == 'true'
@@ -373,7 +719,7 @@ jobs:
         run: |
           echo "🔍 Dry-run: validate Go module config..."
           echo "Module path: github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go"
-          echo "Version: sdk/v${{ needs.extract.outputs.version }}"
+          echo "Version tag: packages/sdk/go/v${{ needs.extract.outputs.version }}"
           echo "✅ Dry-run passed — module would be published to Go proxy"
 
       - name: Summary
@@ -381,31 +727,52 @@ jobs:
           VERSION="${{ needs.extract.outputs.version }}"
           echo "### Go module SDK 发布" >> $GITHUB_STEP_SUMMARY
           echo "- 模块: \`github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 版本: \`sdk/v$VERSION\`" >> $GITHUB_STEP_SUMMARY
-          echo "- 安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 版本 tag: \`packages/sdk/go/v$VERSION\`(子目录模块必须带次目录前缀)" >> $GITHUB_STEP_SUMMARY
+          echo "- 安装: \`go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v$VERSION\`" >> $GITHUB_STEP_SUMMARY
 
   # ---------- Job 5: 发布总结 ----------
   release-summary:
     name: Release Summary
-    needs: [extract, npm-publish, pypi-publish, maven-publish, go-publish]
+    needs: [extract, gate, npm-publish, pypi-publish, maven-publish, go-publish]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Generate summary
+        env:
+          PROOF_NPM: ${{ needs.npm-publish.outputs.proof }}
+          PROOF_PYPI: ${{ needs.pypi-publish.outputs.proof }}
+          PROOF_MAVEN: ${{ needs.maven-publish.outputs.proof }}
+          PROOF_GO: ${{ needs.go-publish.outputs.proof }}
+          RESULT_NPM: ${{ needs.npm-publish.result }}
+          RESULT_PYPI: ${{ needs.pypi-publish.result }}
+          RESULT_MAVEN: ${{ needs.maven-publish.result }}
+          RESULT_GO: ${{ needs.go-publish.result }}
+          RESULT_GATE: ${{ needs.gate.result }}
+          LANGUAGE: ${{ github.event.inputs.language }}
         run: |
           VERSION="${{ needs.extract.outputs.version }}"
+          TAG="${{ needs.extract.outputs.tag }}"
           DRY="${{ needs.extract.outputs.dry_run }}"
-          echo "## 🎉 SDK Release Summary" >> $GITHUB_STEP_SUMMARY
+          # 模式判定必须三态明确。原实现是 `[ "$DRY" = "true" ] && Dry-run || Real release`,
+          # 一旦 dry_run 为空(就是上面那个 id 打错的 bug),会**打印 "Real release"**
+          # 而实际上什么都没发布 —— 这正是"把未发布写成已交付"在 CI 里的生成机制。
+          MMODE=""
+          case "$DRY" in
+            true)  MMODE="dry-run"; MODE="🔍 Dry-run(未发布任何产物)" ;;
+            false) MMODE="real";    MODE="📦 Real release" ;;
+            *) echo "❌ dry_run 为空/非法('$DRY'),无法判定发布模式 —— 拒绝出总结"; exit 1 ;;
+          esac
+          echo "## SDK Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag**: \`v$VERSION\`  " >> $GITHUB_STEP_SUMMARY
-          echo "**Mode**: $([ "$DRY" = "true" ] && echo "🔍 Dry-run (no publish)" || echo "📦 Real release")" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag**: \`$TAG\`  " >> $GITHUB_STEP_SUMMARY
+          echo "**Mode**: $MODE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status | 包名 / 坐标 |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|-------------|" >> $GITHUB_STEP_SUMMARY
           echo "| npm \`@ihui/sdk\` | ${{ needs.npm-publish.result }} | @ihui/sdk@$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| PyPI \`ihui-ai\` | ${{ needs.pypi-publish.result }} | ihui-ai==$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "| Maven Central | ${{ needs.maven-publish.result }} | com.ihui:ihui-ai-java:$VERSION |" >> $GITHUB_STEP_SUMMARY
-          echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go sdk/v$VERSION |" >> $GITHUB_STEP_SUMMARY
+          echo "| Go module | ${{ needs.go-publish.result }} | github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go tag=packages/sdk/go/v$VERSION |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 4 语言安装命令" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
@@ -416,7 +783,61 @@ jobs:
           echo "# Java (Maven)" >> $GITHUB_STEP_SUMMARY
           echo "mvn dependency:get -Dartifact=com.ihui:ihui-ai-java:$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "# Go" >> $GITHUB_STEP_SUMMARY
-          echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/sdk@v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "go get github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go@v$VERSION" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # ---------- 回读证据硬闸 ----------
+          # "已发布"这个结论只能由 registry / origin 的回读证据推出,不能由"job 是绿的"推出。
+          # real 模式:被选中的每个语言 job 必须 success **且** 交出非空 proof,否则判红。
+          # dry-run 模式:被选中的 job 必须 success **且** proof 为空 —— dry-run 里出现
+          #              proof 说明不可逆动作真的发生了,同样判红。
+          LANG="${LANGUAGE:-all}"
+          selected() { [ "$LANG" = "all" ] || [ "$LANG" = "$1" ]; }
+          bad=""
+          {
+            echo ""
+            echo "### 回读证据(已发布的唯一判据)"
+            echo ""
+            echo "| 通道 | job 结果 | 回读证据 | 判定 |"
+            echo "|------|----------|----------|------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          check() {
+            local name="$1" proof="$2" result="$3" verdict
+            selected "$name" || { echo "| $name | $result | — | ⏭️ 本次未选择 |" >> "$GITHUB_STEP_SUMMARY"; return 0; }
+            if [ "$result" != "success" ]; then
+              verdict="❌ job 未成功($result)"; bad="$bad $name"
+            elif [ "$MMODE" = "real" ] && [ -z "$proof" ]; then
+              verdict="❌ 无 registry 回读证据"; bad="$bad $name"
+            elif [ "$MMODE" = "dry-run" ] && [ -n "$proof" ]; then
+              verdict="❌ dry-run 却产出发布证据"; bad="$bad $name"
+            elif [ "$MMODE" = "real" ]; then
+              verdict="✅ 已回读证实"
+            else
+              verdict="✅ dry-run 未发布(符合预期)"
+            fi
+            echo "| $name | $result | ${proof:-—} | $verdict |" >> "$GITHUB_STEP_SUMMARY"
+          }
+          check npm "$PROOF_NPM" "$RESULT_NPM"
+          check pypi "$PROOF_PYPI" "$RESULT_PYPI"
+          check maven "$PROOF_MAVEN" "$RESULT_MAVEN"
+          check go "$PROOF_GO" "$RESULT_GO"
+
+          if [ "$RESULT_GATE" != "success" ]; then
+            echo "❌ 前置硬闸(gate)未通过:$RESULT_GATE" >> "$GITHUB_STEP_SUMMARY"
+            bad="$bad gate"
+          fi
+
+          if [ -n "$bad" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ❌ 结论:**未发布 / 不可声明已交付** —— 缺证据项:$bad" >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ 回读证据不完整:$bad —— job 判红,禁止把本轮写成'已交付'"
+            exit 1
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$MMODE" = "real" ]; then
+            echo "### ✅ 结论:所选通道均已由 registry / origin 回读证实" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### ✅ 结论:dry-run 全流程通过,**未发布任何产物**(不得写成已交付)" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

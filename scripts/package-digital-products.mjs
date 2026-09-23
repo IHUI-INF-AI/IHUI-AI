@@ -194,7 +194,7 @@ async function createZip(version) {
     const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
-    ], { encoding: 'utf-8', cwd: PROJECT_ROOT, timeout: 60000 });
+    ], { encoding: 'utf-8', cwd: PROJECT_ROOT, timeout: 60000, windowsHide: true });
 
     if (!output.includes('ZIP_CREATED')) {
       err(`zip 创建失败，输出: ${output}`);
@@ -239,7 +239,7 @@ async function verifyZip(zipPath, manifestPath) {
     const output = execFileSync('pwsh.exe', [
       '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
       '-Command', psCommand
-    ], { encoding: 'utf-8', timeout: 30000 });
+    ], { encoding: 'utf-8', timeout: 30000, windowsHide: true });
 
     const match = output.match(/ENTRIES:(\d+)/);
     if (!match) {

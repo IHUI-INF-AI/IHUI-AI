@@ -17,7 +17,7 @@ import { spawn } from 'node:child_process'
 
 // shell:true so Windows resolves `taro` -> `taro.cmd` automatically
 const taro = spawn('taro', ['build', '--type', 'weapp', '--watch'],
-  { stdio: 'inherit', shell: true })
+  { stdio: 'inherit', shell: true, windowsHide: true })
 
 taro.on('exit', (code) => {
   console.log(`[dev-weapp] taro exited with ${code}`)

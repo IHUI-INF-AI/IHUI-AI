@@ -24,7 +24,9 @@ from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
 
 _DASHSCOPE_API_BASE = "https://dashscope.aliyuncs.com"
-_WAN_DEFAULT_MODEL = "wan2.1-t2v-turbo"
+# 万相文生视频默认模型:官方在售已升级到 wan2.5-t2v-plus(2026-09 实测厂商 /v1/models
+# 与 DB 清单均无 wan2.1-t2v-turbo),旧值会直接 400。
+_WAN_DEFAULT_MODEL = "wan2.5-t2v-plus"
 
 
 class AlibabaDashscopeProvider(OpenAIProvider):

@@ -67,10 +67,10 @@ interface FormState {
   name: string
   prompt: string
   scheduleType: AutomationScheduleType
-  scheduledAt: string // datetime-local 原始值(仅 once)
+  scheduledAt: string // raw datetime-local value (once only)
   frequency: Frequency
-  time: string // HH:MM(仅 daily/weekly)
-  days: string[] // MO/TU/... (仅 weekly)
+  time: string // HH:MM (daily/weekly only)
+  days: string[] // MO/TU/... (weekly only)
 }
 
 const EMPTY_FORM: FormState = {

@@ -11,6 +11,7 @@ import * as MediaLibrary from 'expo-media-library'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -38,6 +39,12 @@ export function ImageGenCreateScreen() {
   const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [prompt, setPrompt] = useState('')
+  useUiTextField({
+    label: t('imageGen.promptPlaceholder'),
+    value: prompt,
+    setValue: setPrompt,
+    multiline: true,
+  })
   const [size, setSize] = useState('1024x1024')
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState<GenResult | null>(null)

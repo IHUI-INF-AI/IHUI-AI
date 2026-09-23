@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
@@ -12,7 +12,7 @@ const fileIcon = aizhsUrl('remote-images/file.png')
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
 const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -21,8 +21,13 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
-import { formatSSEError, getModelContextCapacity } from '@ihui/api-client'
+import {
+  formatSSEError,
+  getModelContextCapacity,
+  getWorkspacePermissionDefault,
+} from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -37,7 +42,10 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
-import type { AICardsData } from './cards/types'
+import { resolvePermissionTierText } from './permission-tier-text'
+import TaskStatusBar from './task-status-bar'
+import { appendCitations, type AICardsData } from './cards/types'
+import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
@@ -65,6 +73,7 @@ const MATERIAL_PAGE_SIZE = 20
 export default function ChatPage() {
   const router = useRouter()
   const { t, tList } = useI18n()
+  const tt = useTt()
   const suggestions = tList('ai.suggestions')
   const user = useUserStore((s) => s.user)
   const routeAgentId = router.params.agentId || ''
@@ -116,6 +125,24 @@ export default function ChatPage() {
   // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
   const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
   const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        /* 取数失败:保持 null,该行隐藏 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
   const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
   const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
@@ -137,7 +164,13 @@ export default function ChatPage() {
       if (idx < 0) return prev
       const m = prev[idx]
       if (!m || m.role !== 'assistant') return prev
-      const cur: AICardsData = m.aiCards ?? { planSteps: [], toolCalls: [], terminalTasks: [] }
+      const cur: AICardsData = m.aiCards ?? {
+        planSteps: [],
+        toolCalls: [],
+        terminalTasks: [],
+        injections: [],
+        citations: [],
+      }
       const next = mutate(cur)
       const copy = prev.slice()
       copy[idx] = { ...m, aiCards: next }
@@ -146,6 +179,15 @@ export default function ChatPage() {
   }, [])
 
   const activeAgentId = currentAgentId || routeAgentId
+
+  // 任务进度状态条数据源:最后一条 assistant 消息的 aiCards(plan_updated / 工具事件由 upsertCard 累积写入)
+  const lastAssistantCards = useMemo<AICardsData | undefined>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.aiCards
+    }
+    return undefined
+  }, [messages])
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
@@ -382,13 +424,22 @@ export default function ChatPage() {
   )
 
   const sendMessage = useCallback(
-    async (overrideText?: string) => {
+    async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
       const text = (overrideText ?? '').trim()
       if (!text || thinking) return
       if (checkSpecialModel(text)) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
-      setMessages((prev) => [...prev, userMsg, assistantMsg])
+      // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
+      // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
+      // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
+      const history: ChatMessage[] = [
+        ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
+        userMsg,
+      ]
+      setMessages(
+        baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg, assistantMsg],
+      )
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
@@ -398,7 +449,7 @@ export default function ChatPage() {
       abortRef.current = controller
       try {
         await chatStream(
-          [...messages, userMsg],
+          history,
           sessionId,
           {
             model: currentModel || undefined,
@@ -457,6 +508,7 @@ export default function ChatPage() {
           // fallback / usage / 断线重连等事件提供最小可用渲染(统一压入执行过程列表)
           {
             onToolCallStart: (evt) => {
+              const startedAt = Date.now()
               upsertCard((c) => ({
                 ...c,
                 toolCalls: [
@@ -466,26 +518,54 @@ export default function ChatPage() {
                     name: evt.toolName,
                     status: 'running',
                     serverSource: evt.serverSource,
+                    // 入参一并落卡:共享层 describeToolCall 靠它取"对象"
+                    args: evt.args,
+                    startedAt,
                   },
                 ],
               }))
-              pushStreamActivity(t('ai.stream.toolCall', { name: evt.toolName }))
+              pushStreamActivity(
+                toolActivityText(
+                  { id: evt.toolCallId, name: evt.toolName, status: 'running', args: evt.args },
+                  t,
+                ),
+              )
             },
             onToolResult: (evt) => {
+              // result / isError 只存在于 tool-result 变体,先收窄再取(另一变体不给结果)
+              const resultEvent = evt.type === 'tool-result' ? evt : null
+              const isError = resultEvent?.isError === true
+              const status = isError ? 'error' : 'done'
               upsertCard((c) => ({
                 ...c,
                 toolCalls: c.toolCalls.map((x) =>
                   x.id === evt.toolCallId
                     ? {
                         ...x,
-                        // isError 只在 tool-result 变体上存在,收窄后取值
-                        status: evt.type === 'tool-result' && evt.isError ? 'error' : 'done',
-                        isError: evt.type === 'tool-result' ? evt.isError : x.isError,
+                        status,
+                        // result 是结果度量(行数 / 命中数)与写类工具 ± 行数的唯一数据源
+                        args: evt.args ?? x.args,
+                        result: resultEvent?.result ?? x.result,
+                        isError,
+                        durationMs:
+                          typeof x.startedAt === 'number' ? Date.now() - x.startedAt : x.durationMs,
                       }
                     : x,
                 ),
               }))
-              pushStreamActivity(t('ai.stream.toolResult', { name: evt.toolName }))
+              pushStreamActivity(
+                toolActivityText(
+                  {
+                    id: evt.toolCallId,
+                    name: evt.toolName,
+                    status,
+                    args: evt.args,
+                    result: resultEvent?.result,
+                  },
+                  t,
+                  { withMetric: true },
+                ),
+              )
             },
             onSubagentSpawn: (evt) =>
               pushStreamActivity(t('ai.stream.subagent', { phase: evt.role })),
@@ -496,7 +576,12 @@ export default function ChatPage() {
             onToolSummary: (evt) =>
               pushStreamActivity(t('ai.stream.toolSummary', { calls: evt.totalCalls })),
             onToolDelegate: (evt) =>
-              pushStreamActivity(t('ai.stream.toolCall', { name: evt.tool_name })),
+              pushStreamActivity(
+                toolActivityText(
+                  { id: '', name: evt.tool_name, status: 'running', args: evt.args },
+                  t,
+                ),
+              ),
             onPlanUpdate: (evt) => {
               upsertCard((c) => ({
                 ...c,
@@ -531,6 +616,9 @@ export default function ChatPage() {
                         ...x,
                         status: evt.status,
                         output: evt.output,
+                        // 截断交代必须一起承接:小程序没有 live 输出缓冲,只能靠这两个字段
+                        truncated: evt.truncated ?? x.truncated,
+                        totalChars: evt.totalChars ?? x.totalChars,
                         exitCode: evt.exitCode,
                         durationMs: evt.durationMs,
                       }
@@ -539,6 +627,44 @@ export default function ChatPage() {
               }))
               pushStreamActivity(t('ai.stream.terminal', { status: evt.status }))
             },
+            // D34/D39 第 45 轮:交代帧进 aiCards(随历史持久化)。injections 在旧历史里不存在,
+            // 类型上必填但运行时可能为 undefined,故保留 ?? [] 兜底。
+            // #11 引用溯源(第 49 轮):parser 与回调表都给了通道,端内不注册 = 静默丢帧
+            onCitations: (evt) =>
+              upsertCard((c) => ({
+                ...c,
+                citations: appendCitations(
+                  c.citations,
+                  evt.citations.map((x) => ({ source: x.source, label: x.label })),
+                ),
+              })),
+            onInjectionApplied: (evt) =>
+              upsertCard((c) => {
+                const items = c.injections ?? []
+                if (items.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+                  return { ...c, injections: items }
+                }
+                return {
+                  ...c,
+                  injections: [
+                    ...items,
+                    {
+                      kind: evt.kind,
+                      collapsed: evt.collapsed,
+                      fullText: evt.fullText,
+                      count: evt.count,
+                    },
+                  ],
+                }
+              }),
+            onRetryScheduled: (evt) =>
+              pushStreamActivity(
+                t('ai.stream.gatewayRetry', {
+                  attempt: evt.attempt,
+                  max: evt.maxRetries,
+                  seconds: Math.max(1, Math.round(evt.retryInMs / 1000)),
+                }),
+              ),
             onFallback: (evt) =>
               pushStreamActivity(t('ai.stream.fallback', { model: evt.backupModel })),
             onUsage: (info) => {
@@ -555,12 +681,8 @@ export default function ChatPage() {
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
-          setMessages((prev) =>
-            prev.map((m, i) => {
-              if (i !== prev.length - 1) return m
-              return m.content ? m : { ...m, content: formatted.message }
-            }),
-          )
+          // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
+          setMessages((prev) => applyStreamError(prev, formatted.message))
           Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
         }
       } finally {
@@ -606,9 +728,11 @@ export default function ChatPage() {
       success: (res) => {
         if (res.confirm) {
           // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
-          if (messages.length > 0) {
-            const firstUserMsg = messages.find((m) => m.role === 'user')
-            const lastMsg = messages[messages.length - 1]
+          // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
+          const contentMsgs = messages.filter((m) => !isErrorTurn(m))
+          if (contentMsgs.length > 0) {
+            const firstUserMsg = contentMsgs.find((m) => m.role === 'user')
+            const lastMsg = contentMsgs[contentMsgs.length - 1]
             const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
             const preview = (lastMsg?.content || '').slice(0, 30)
             const entry: ChatHistoryEntry = {
@@ -616,7 +740,7 @@ export default function ChatPage() {
               title,
               preview,
               timestamp: Date.now(),
-              messages: [...messages],
+              messages: [...contentMsgs],
             }
             setChatHistories((prev) => {
               const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
@@ -753,39 +877,51 @@ export default function ChatPage() {
 
   const handleRegenerate = useCallback(() => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
-    if (lastUserIdx < 0) return
-    const lastUserMsg = messages[lastUserIdx]
-    if (!lastUserMsg?.content) return
-    setMessages((prev) => prev.slice(0, lastUserIdx))
-    setTimeout(() => sendMessage(lastUserMsg.content), 100)
+    const text = resendTargetText(messages)
+    if (lastUserIdx < 0 || !text) return
+    // 把截断后的历史显式交给 sendMessage:它闭包里的 messages 是"点击那一轮"的旧值,
+    // 只 setMessages 截断再延时重发,旧值里那条 user 会和重发的 userMsg 一起带进上下文(问题发两遍)
+    const base = messages.slice(0, lastUserIdx)
+    setMessages(base)
+    void sendMessage(text, base)
   }, [messages, sendMessage])
 
   const handleLongPress = useCallback(
     (msg: ChatMessage, idx: number) => {
-      Taro.showActionSheet({
-        itemList: [
-          t('ai.messageAction.copy'),
-          t('ai.messageAction.reuse'),
-          t('ai.messageAction.delete'),
-          t('ai.chatMessageItem.share'),
-        ],
-        success: (res) => {
-          if (res.tapIndex === 0) {
-            Taro.setClipboardData({ data: msg.content })
-          } else if (res.tapIndex === 1) {
-            if (msg.role === 'user') handleReuse(msg.content)
-          } else if (res.tapIndex === 2) {
-            setMessages((prev) => prev.filter((_, i) => i !== idx))
-          } else if (res.tapIndex === 3) {
+      // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
+      const failed = isErrorTurn(msg)
+      const actions: { label: string; run: () => void }[] = []
+      actions.push({
+        label: t('ai.messageAction.copy'),
+        run: () => Taro.setClipboardData({ data: msg.content }),
+      })
+      if (msg.role === 'user') {
+        actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
+      }
+      actions.push({
+        label: t('ai.messageAction.delete'),
+        run: () => setMessages((prev) => prev.filter((_, i) => i !== idx)),
+      })
+      if (!failed) {
+        actions.push({
+          label: t('ai.chatMessageItem.share'),
+          run: () => {
             // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
             Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
-          }
-        },
+          },
+        })
+      }
+      if (failed) {
+        actions.unshift({ label: t('ai.chatMessageItem.retry'), run: handleRegenerate })
+      }
+      Taro.showActionSheet({
+        itemList: actions.map((a) => a.label),
+        success: (res) => actions[res.tapIndex]?.run(),
       })
     },
-    [t, handleReuse],
+    [t, handleReuse, handleRegenerate],
   )
 
   const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
@@ -864,6 +1000,9 @@ export default function ChatPage() {
     }
   }, [])
 
+  // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
+  const tierText = resolvePermissionTierText(workspaceTier, tt)
+
   return (
     <ThemeRoot className="page">
       <View
@@ -905,6 +1044,15 @@ export default function ChatPage() {
           ) : null}
         </View>
       </View>
+
+      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位;缺键用端内中文兜底) */}
+      {workspaceTier !== null ? (
+        <View className="permission-tier" style={{ padding: '8rpx 24rpx' }}>
+          <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
+            {tierText.label}: {tierText.title} · {tierText.desc}
+          </Text>
+        </View>
+      ) : null}
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
@@ -995,14 +1143,16 @@ export default function ChatPage() {
             onLongPress={() => handleLongPress(msg, idx)}
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
             isFavorited={
-              msg.role === 'assistant' && msg.timestamp
+              msg.role === 'assistant' && !msg.error && msg.timestamp
                 ? favoritedMsgs.has(String(msg.timestamp))
                 : undefined
             }
             onToggleFavorite={
-              msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined
+              msg.role === 'assistant' && !msg.error && msg.timestamp
+                ? () => toggleFavorite(msg)
+                : undefined
             }
-            onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
+            onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
             onOpenReasoning={
               msg.role === 'assistant' && msg.reasoning
                 ? () => {
@@ -1122,6 +1272,9 @@ export default function ChatPage() {
           </ScrollView>
         </View>
       ) : null}
+
+      {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
+      <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
 
       <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">

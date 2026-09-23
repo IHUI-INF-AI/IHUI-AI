@@ -242,6 +242,7 @@ function measureCheck(check, runs, thresholdMs) {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: DEFAULT_TIMEOUT_MS,
+        windowsHide: true,
       })
       const elapsed = performance.now() - start
       times.push(elapsed)

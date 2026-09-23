@@ -5,8 +5,10 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertCircle, CheckCircle2, ChevronDown, Clock, XCircle } from 'lucide-react'
 
+import { toolDisplayKey } from '@ihui/shared/chat'
 import { cn } from '@/lib/utils'
 
 interface TraceToolCall {
@@ -46,19 +48,22 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-function stopReasonLabel(reason: string): string {
+/** 终止原因 → 本地化措辞;映射不到保留原值(不猜语义,不误译) */
+function stopReasonLabel(reason: string, t: (key: string) => string): string {
   const map: Record<string, string> = {
-    completed: '正常完成',
-    max_iterations: '达到最大迭代数',
-    error: '执行出错',
-    no_tools: '无可用工具',
-    paused: '已暂停',
-    cancelled: '已取消',
+    completed: t('traceStopCompleted'),
+    max_iterations: t('traceStopMaxIterations'),
+    error: t('traceStopError'),
+    no_tools: t('traceStopNoTools'),
+    paused: t('traceStopPaused'),
+    cancelled: t('traceStopCancelled'),
   }
   return map[reason] ?? reason
 }
 
 export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
+  const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [showAllReasoning, setShowAllReasoning] = React.useState(false)
 
@@ -95,20 +100,24 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                 trace.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive',
               )}
             >
-              {trace.success ? '执行成功' : '执行失败'}
+              {t(trace.success ? 'traceSuccess' : 'traceFailed')}
             </span>
           </div>
           <span className="text-xs text-muted-foreground">
-            {stopReasonLabel(trace.stop_reason)}
+            {stopReasonLabel(trace.stop_reason, t)}
           </span>
         </div>
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
-            总耗时: {formatDuration(trace.total_duration_ms)}
+            {t('traceTotalDuration')}: {formatDuration(trace.total_duration_ms)}
           </span>
-          <span>总轮数: {trace.iterations.length}</span>
-          <span>会话: {trace.session_id.slice(0, 12)}...</span>
+          <span>
+            {t('traceTotalIterations')}: {trace.iterations.length}
+          </span>
+          <span>
+            {t('traceSession')}: {trace.session_id.slice(0, 12)}…
+          </span>
         </div>
       </div>
 
@@ -139,12 +148,16 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   >
                     {it.iteration}
                   </span>
-                  <span className="text-sm font-medium">第 {it.iteration} 轮</span>
+                  <span className="text-sm font-medium">
+                    {tStatus('roundNumber', { n: it.iteration })}
+                  </span>
                   {hasErrorInIter && <AlertCircle className="h-3.5 w-3.5 text-destructive" />}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground">
-                    {it.tool_calls.length > 0 ? `${it.tool_calls.length} 个工具` : '无工具调用'}
+                    {it.tool_calls.length > 0
+                      ? t('traceToolsCount', { n: it.tool_calls.length })
+                      : t('traceNoToolCalls')}
                     {' · '}
                     {formatDuration(it.duration_ms)}
                   </span>
@@ -162,7 +175,9 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {/* 推理内容 */}
                   {it.reasoning && (
                     <div>
-                      <p className="mb-1 text-xs font-medium text-muted-foreground">推理</p>
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        {t('traceReasoning')}
+                      </p>
                       <div
                         className={cn(
                           'rounded-md bg-muted/40 p-3 text-sm',
@@ -179,7 +194,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                           onClick={() => setShowAllReasoning(!showAllReasoning)}
                           className="mt-1 text-xs text-primary hover:underline"
                         >
-                          {showAllReasoning ? '收起' : '展开全部'}
+                          {showAllReasoning ? t('traceCollapse') : t('traceExpandAll')}
                         </button>
                       )}
                     </div>
@@ -189,7 +204,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {it.tool_calls.length > 0 && (
                     <div>
                       <p className="mb-1 text-xs font-medium text-muted-foreground">
-                        工具调用 ({it.tool_calls.length})
+                        {t('traceToolCallsTitle', { n: it.tool_calls.length })}
                       </p>
                       <div className="space-y-1.5">
                         {it.tool_calls.map((tc) => {
@@ -205,7 +220,13 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                               )}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{tc.name}</span>
+                                <span className="text-sm font-medium">
+                                  {/* 工具显示名走共享映射;映射不到的插件/MCP 动态名保留原码名 */}
+                                  {(() => {
+                                    const key = toolDisplayKey(tc.name)
+                                    return key ? tStatus(key) : tc.name
+                                  })()}
+                                </span>
                                 {result?.error ? (
                                   <AlertCircle className="h-3.5 w-3.5 text-destructive" />
                                 ) : (
@@ -230,7 +251,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
                   {/* 耗时 */}
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
-                    本轮耗时: {formatDuration(it.duration_ms)}
+                    {t('traceRoundDuration')}: {formatDuration(it.duration_ms)}
                   </div>
                 </div>
               )}

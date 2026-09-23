@@ -32,9 +32,20 @@ import { eq } from 'drizzle-orm'
  * dotenv 会兜底读 apps/api/.env(生产 ihui_dev),本地跑 Playwright 时若忘记
  * 显式覆盖 DATABASE_URL,测试账号会被 seed 进生产库。CI 场景 e2e.yml 显式传
  * CI 容器库 + CI=true,不受影响;本地显式传 ihui_e2e 也放行。
+ *
+ * 判据必须是「库名」而非整串(2026-09-21 修):本机开发库 `ihui` 的口令前缀恰为
+ * `ihui_dev_`,整串 includes 把它误判成生产库 → seed 恒拒绝 → global-setup 只 warn
+ * → test@aizhs.top 永不存在 → 全部 authenticatedPage 用例死在 fixture 登录。
+ * URL 解析不了时退回整串匹配,保持 fail-closed。
  */
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
-if (DATABASE_URL.includes('ihui_dev') && process.env.CI !== 'true') {
+let prodDbNameMatched: boolean
+try {
+  prodDbNameMatched = new URL(DATABASE_URL).pathname.replace(/^\//, '') === 'ihui_dev'
+} catch {
+  prodDbNameMatched = DATABASE_URL.includes('ihui_dev')
+}
+if (prodDbNameMatched && process.env.CI !== 'true') {
   console.error(
     '[seed-test-users] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',

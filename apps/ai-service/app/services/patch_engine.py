@@ -29,6 +29,23 @@ from typing import Union
 
 PathLike = Union[str, "os.PathLike[str]"]
 
+# 批58(接线):patch_diff 展示层开关 —— 默认 off,开启后 apply_patch 回执附带
+# unified diff 文本;关闭时对外 dict 键集与接线前完全一致。
+def _patch_diff_enabled() -> bool:
+    return os.environ.get("PATCH_DIFF_ENABLED", "false").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _log_patch_diff_warning(msg: str, exc: BaseException) -> None:
+    """降级告警(本模块无 logger,沿用 warnings 通道,不新增依赖)。"""
+    import warnings
+
+    warnings.warn(f"{msg}: {exc}", RuntimeWarning, stacklevel=2)
+
 # ---------------------------------------------------------------------------
 # 常量与异常
 # ---------------------------------------------------------------------------
@@ -134,6 +151,10 @@ class FileResult:
     hunks: list[HunkResult] = field(default_factory=list)
     added: int = 0
     deleted: int = 0
+    # 批58(接线):unified diff 展示文本(对标 codex apply-patch 展示层)。
+    # 恒为 None 除非 PATCH_DIFF_ENABLED 开启 —— to_dict 仅在非 None 时输出该键,
+    # 因此开关关闭时对外 dict 与接线前逐字节等价。
+    unified_diff: str | None = None
 
 
 @dataclass
@@ -151,25 +172,30 @@ class PatchResult:
             "ok": self.ok,
             "dry_run": self.dry_run,
             "error": self.error,
-            "files": [
-                {
-                    "path": f.path,
-                    "kind": f.kind,
-                    "added": f.added,
-                    "deleted": f.deleted,
-                    "hunks": [
-                        {
-                            "index": h.index,
-                            "strategy": h.strategy.value,
-                            "confidence": h.confidence,
-                            "position": h.position,
-                        }
-                        for h in f.hunks
-                    ],
-                }
-                for f in self.files
-            ],
+            "files": [_file_to_dict(f) for f in self.files],
         }
+
+
+def _file_to_dict(f: FileResult) -> dict[str, object]:
+    """单个文件结果 → dict(批58:unified_diff 仅在开启时并入,保证 off 时键集不变)。"""
+    d: dict[str, object] = {
+        "path": f.path,
+        "kind": f.kind,
+        "added": f.added,
+        "deleted": f.deleted,
+        "hunks": [
+            {
+                "index": h.index,
+                "strategy": h.strategy.value,
+                "confidence": h.confidence,
+                "position": h.position,
+            }
+            for h in f.hunks
+        ],
+    }
+    if f.unified_diff is not None:
+        d["unified_diff"] = f.unified_diff
+    return d
 
 
 # ---------------------------------------------------------------------------
@@ -663,6 +689,25 @@ def _plan_file(root: Path, patch: FilePatch) -> _FileChange:
     result.hunks = hunk_results
     result.added = sum(h.added_count() for h in patch.hunks)
     result.deleted = sum(h.deleted_count() for h in patch.hunks)
+    # 批58(接线):patch_diff 展示层(对标 codex apply-patch 的 diff 展示)。
+    # 默认 off;on 时把本次 hunk 序列渲染为 unified diff 供回执展示,失败静默降级。
+    if _patch_diff_enabled():
+        try:
+            from app.core.apply_patch import UpdateFileChunk
+            from app.core.patch_diff import unified_diff_from_chunks
+
+            chunks = [
+                UpdateFileChunk(
+                    old_lines=h.old_lines(),
+                    new_lines=[ln.text for ln in h.lines if ln.kind != "delete"],
+                )
+                for h in patch.hunks
+            ]
+            result.unified_diff = unified_diff_from_chunks(
+                patch.path, chunks, old_text
+            ).unified_diff
+        except Exception as e:  # noqa: BLE001 - diff 展示失败不阻断补丁应用
+            _log_patch_diff_warning("patch_diff 渲染失败(降级不展示 diff)", e)
     validate_syntax(patch.path, new_text)
     return _FileChange(patch.path, full, before, _encode_text(new_text, newline, has_bom), result)
 

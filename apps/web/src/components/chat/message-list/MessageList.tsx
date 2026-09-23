@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowDown, ArrowUp, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import type { FallbackEvent } from '@ihui/api-client'
 import type { ChatMessage } from '@/stores/chat'
@@ -16,11 +16,11 @@ import {
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
-import { ConversationLocatorRail } from './conversation-locator-rail'
 import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
 import { EmptyState } from './EmptyState'
@@ -105,6 +105,10 @@ export function MessageList({
 }: MessageListProps) {
   const t = useTranslations('chat')
 
+  // D39 免费额度心智边界:非 VIP 即免费档可用 → 不向该用户渲染付费诱导
+  const user = useAuthStore((s) => s.user)
+  const freeTierAvailable = !user?.isVip
+
   const scroll = useMessageListScroll({
     messages,
     isStreaming,
@@ -120,10 +124,8 @@ export function MessageList({
     computeCumulative,
     measureItem,
     handleScroll,
-    handleJumpToLatest,
+    scrollToBottom,
     userScrolledUp,
-    userScrolledToTop,
-    setUserScrolledToTop,
     focusedIndex,
     isFarFromTop,
     isFarFromBottom,
@@ -215,6 +217,9 @@ export function MessageList({
   // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage / editMessageAndRerun(复用既有流式发送逻辑)。
   // D22(2026-09-19 立):引用回复事件监听(MessageItem Reply 按钮派发)——
   // 从 store 查找目标消息快照写入 quotedMessage,MessageInput 渲染引用 chip,doSend 附加正文。
+  // 2026-09-22 修:重试事件(MessageItem 错误气泡「重试」按钮派发)此前全仓零监听 → 点击后
+  // dispatch 成功但无副作用,只弹 toast 却不真的重跑(与桌面托盘菜单同型的"派发到空气"缺陷)。
+  // 语义上"重试一条失败的 AI 回复" == "重新生成该消息",故复用 onRegenerate 的 regenerateMessage 闭环。
   React.useEffect(() => {
     const onRegenerate = (e: Event) => {
       const detail = (e as CustomEvent<{ messageId: string }>).detail
@@ -254,11 +259,15 @@ export function MessageList({
     window.addEventListener('ihui:branch-message', onBranch as EventListener)
     window.addEventListener('ihui:edit-message', onEdit as EventListener)
     window.addEventListener('ihui:reply-message', onReply as EventListener)
+    // 2026-09-22:错误气泡「重试」接同一闭环(regenerateMessage:调后端 /regenerate 截断历史
+    // + 复用 sendMessage 重跑前一条用户提问),此前该事件无任何监听方。
+    window.addEventListener('ihui:retry-message', onRegenerate as EventListener)
     return () => {
       window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
       window.removeEventListener('ihui:branch-message', onBranch as EventListener)
       window.removeEventListener('ihui:edit-message', onEdit as EventListener)
       window.removeEventListener('ihui:reply-message', onReply as EventListener)
+      window.removeEventListener('ihui:retry-message', onRegenerate as EventListener)
     }
   }, [])
 
@@ -338,6 +347,7 @@ export function MessageList({
             fallbackNotice={fallbackNotice}
             onClearFallbackNotice={onClearFallbackNotice}
             t={t}
+            freeTierAvailable={freeTierAvailable}
           />
         )}
         {/* #8 顶部加载更多历史指示器 */}
@@ -417,57 +427,26 @@ export function MessageList({
         currentIndex={searchCurrentIndex}
         onNavigate={handleSearchNavigate}
       />
-      {userScrolledToTop && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={() => {
-            const el = containerRef.current
-            if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
-            setUserScrolledToTop(false)
-          }}
-          data-testid="message-list-jump-top"
-          aria-label={t('jumpToTop') === 'jumpToTop' ? 'Jump to top' : t('jumpToTop')}
-          className="pointer-events-auto absolute top-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
-        >
-          <ArrowUp className="h-3.5 w-3.5" aria-hidden />
-        </button>
-      )}
       {inlinePanelNode}
-      {/* #18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问 */}
-      <QueryThumbRail messages={messages} />
-      {/* D3(2026-09-18 立):对话快速定位器(右侧细轨,按用户消息分节,点击跳转到对应消息) */}
-      <ConversationLocatorRail messages={messages} containerRef={containerRef} />
-      {/* D3(2026-09-18 立):右下角浮动跳顶/跳底按钮,距顶/距底 >800px 时渐显 */}
+      {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
+          2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
+          右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}
+      <QueryThumbRail messages={messages} containerRef={containerRef} />
+      {/* D3(2026-09-18 立):右下角浮动 affordance 列(跳顶 / 跳到最新)。
+          2026-09-22 归一:原先此处另有一枚底部居中的「跳到最新」,与列内「跳底」同义重复,
+          现合并进 ScrollJumpButtons,行为沿用 scrollToBottom(滚到底 + 复位 userScrolledUp)。 */}
       <ScrollJumpButtons
         isFarFromTop={isFarFromTop}
         isFarFromBottom={isFarFromBottom}
+        userScrolledUp={userScrolledUp}
+        hasMessages={messages.length > 0}
+        isStreaming={isStreaming}
         onJumpTop={() => {
           const el = containerRef.current
           if (el) el.scrollTo({ top: 0, behavior: 'smooth' })
         }}
-        onJumpBottom={() => {
-          const el = bottomRef.current
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
-        }}
+        onJumpLatest={scrollToBottom}
       />
-      {userScrolledUp && messages.length > 0 && (
-        <button
-          type="button"
-          onClick={handleJumpToLatest}
-          data-testid="message-list-jump-latest"
-          aria-label={t('jumpToLatest') === 'jumpToLatest' ? 'Jump to latest' : t('jumpToLatest')}
-          className="pointer-events-auto absolute bottom-4 left-1/2 z-20 -translate-x-1/2 inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-background/95 shadow-md backdrop-blur transition-colors hover:bg-accent"
-        >
-          <ArrowDown className="h-3.5 w-3.5" aria-hidden />
-          {isStreaming && (
-            <span
-              data-testid="message-list-jump-latest-dot"
-              className="ml-0.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"
-              aria-hidden
-            />
-          )}
-        </button>
-      )}
       {/* Phase 19: MessageContextMenu(全局单实例,visible/position 由 hook 控制) */}
       <MessageContextMenu
         visible={contextMenu.visible}

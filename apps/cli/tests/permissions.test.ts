@@ -38,11 +38,13 @@ describe('parsePermissionMode', () => {
     expect(parsePermissionMode('\tmanual\n')).toBe('manual');
   });
 
-  it('非法值返回 undefined', () => {
+  it('非法值返回 undefined(G-161 后仍拒绝真·未知值)', () => {
     expect(parsePermissionMode('invalid')).toBeUndefined();
     expect(parsePermissionMode('readonly')).toBeUndefined();
-    expect(parsePermissionMode('auto')).toBeUndefined();
-    expect(parsePermissionMode('PLAN')).toBeUndefined();
+    // 'auto' 与 'PLAN' 不再是非法值:前者是唯一真源登记的别名(→ acceptEdits),
+    // 后者是大小写归一。真·非法(如少一个 s 的 'bypass-permission')必须仍然拒。
+    expect(parsePermissionMode('bypass-permission')).toBeUndefined();
+    expect(parsePermissionMode('accept-edit')).toBeUndefined();
   });
 
   it('空值与非字符串返回 undefined', () => {

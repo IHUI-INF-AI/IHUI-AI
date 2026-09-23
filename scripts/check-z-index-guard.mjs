@@ -19,20 +19,48 @@
  *    (运行时 inline style 优先级高于 stylesheet,覆盖 第三方 IDE 注入)
  * 4. dialog.tsx 遮罩不得有 open 态 fade-in 动画
  *    (fade-in 让遮罩从 opacity:0 渐显,期间 AI 面板全亮度暴露 = "发亮")
+ * 5. 桌面端窗口控制三按钮必须具备「等效压暗」+「失焦非活动态」两组契约
+ *    (GlobalTopBar.tsx 两组标记缺一不可,详见 WINDOW_CONTROL_CONTRACT)
+ *    5a 等效压暗:data-window-controls + data-window-controls-dim
+ *       为什么只能"等效压暗"而不能降层级:三按钮挂在 z-max(10003),该值不能降 ——
+ *       它必须高于 8 方向 resize 抓手的 z-loading(10000),否则无边框窗口拖拽失效。
+ *       于是遮罩永远盖不住按钮本体,只能由同幅度压暗覆盖层在遮罩打开时把按钮一起压暗。
+ *    5b 失焦非活动态:容器 data-window-inactive(GlobalTopBar.tsx)
+ *       + 弱化规则 [data-window-controls][data-window-inactive='true'](globals.css)
+ *       无边框窗口拿不到 DWM 原生的"非活动标题栏变灰",前端不接 tauri://focus|blur
+ *       就永远全亮 —— 这条视觉链路只有这三个挂点,删掉任一即失效。
  *
  * 历史教训(2026-07-24):
  *   v1 修复用 !important 违反项目禁令(project_memory.md 第 6 行),
  *   v2 改用 layout.tsx inline script 运行时 setProperty,合规且更可靠。
  *
+ * 历史教训(2026-09-22,补第 5 项的直接原因):同族问题已第 3 次复发
+ *   (① AI 面板跟着登录窗发亮 → ② 登录框本体 → ③ 桌面端右上角最小化/最大化/关闭三按钮)。
+ *   ①② 当年是"改被遮元素自己"绕过的,判据没覆盖"高层级元素遮不住"这一类,所以③又漏了:
+ *   窗口按钮容器挂 z-max(10003) 不能降(须高于 resize 抓手 z-loading=10000),只能等效压暗。
+ *   本脚本自 2026-07-24 立项即由 guardian-runner id 27(blocking)自动执行,
+ *   缺的是判据覆盖面而不是牙齿 —— 本轮补第 5 项两组契约。
+ *   删掉 data-window-controls-dim = 登录窗等 29+ 处遮罩下三按钮重新全亮。
+ *   删掉 data-window-inactive(容器)或 globals.css 里的 [data-window-controls][data-window-inactive='true'] 规则
+ *   = 窗口失去系统焦点时按钮不再降亮(2026-09-22 补 5b,此前该链路完全裸奔)。
+ *
  * 用法:
- *   node scripts/check-z-index-guard.mjs          (全量检查, exit 0/1)
- *   node scripts/check-z-index-guard.mjs --staged  (仅 staged 涉及时检查)
+ *   node scripts/check-z-index-guard.mjs            (全量检查, exit 0/1)
+ *   node scripts/check-z-index-guard.mjs --staged   (仅 staged 涉及时检查)
+ *   node scripts/check-z-index-guard.mjs --self-test
+ *       (判闸有效性自查:在内存字符串常量上跑第 5 项判据的两个分支 ——
+ *        契约齐全判绿 / 逐项缺契约判红,共 6 条断言。
+ *        不落盘、不注入、不读任何外部路径,因此第 5 项永远只检查真实的
+ *        GlobalTopBar.tsx;历史上曾有 --fixture=<path> 后门可让第 5 项去读
+ *        任意文件,已于 2026-09-22 移除(受控后门即使"不放宽判据"也不该留在
+ *        blocking 守门里:它让"守门通过"与"真实文件通过"不再等价)。)
  */
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
+const isSelfTest = process.argv.includes('--self-test')
 
 const C = {
   red: '\x1b[31m',
@@ -46,6 +74,163 @@ const TOKENS_PATH = join(ROOT, 'packages/design-tokens/src/styles/tokens.css')
 const GLOBALS_PATH = join(ROOT, 'apps/web/app/globals.css')
 const LAYOUT_PATH = join(ROOT, 'apps/web/app/layout.tsx')
 const DIALOG_PATH = join(ROOT, 'packages/ui-react/src/components/dialog.tsx')
+// 第 5 项检查的**唯一**真实路径:不提供任何覆盖入口(见头部 --self-test 说明)
+const TOPBAR_PATH = join(ROOT, 'apps/web/src/components/layout/GlobalTopBar.tsx')
+
+/**
+ * 第 5 项契约表:桌面端窗口控制三按钮的两组视觉链路挂点。
+ * 两组是**并列必查**,任一 group 下任一 token 计数不足即 hasError=true。
+ *
+ * boundary=true 的用途(防影子匹配):裸 `data-window-controls` 是
+ * `data-window-controls-dim` 的前缀,若做纯子串判断,则容器标记被删后
+ * 只要 -dim 还在就仍然判绿 → 判据形同虚设。加词边界后必须真存在裸标记。
+ */
+const WINDOW_CONTROL_CONTRACT = [
+  {
+    name: '等效压暗层(遮罩打开时把三按钮一起压暗)',
+    required: [
+      { token: 'data-window-controls', min: 1, boundary: true, src: 'topbar' },
+      { token: 'data-window-controls-dim', min: 1, boundary: true, src: 'topbar' },
+      // 激活方向必须瞬时:遮罩 open 态禁 fade-in 是本项目既有 blocking 门(第 4 项),
+      // 压暗若跟着淡入,150ms 内按钮仍全亮 → 该规则必须待在入口 globals.css 里
+      { token: "[data-window-controls][data-modal-dim='1']", min: 1, src: 'globals' },
+    ],
+    why: [
+      '为什么不能靠降层级解决:三按钮挂在 z-max(10003),该值不能降',
+      '  — 必须高于 8 方向 resize 抓手的 z-loading(10000),否则无边框窗口拖拽失效',
+      '层级压不住 → 只能靠等效压暗覆盖层(data-window-controls-dim)在遮罩打开时同幅度压暗',
+      '删掉它 = 登录窗等 29+ 处遮罩下三按钮重新全亮(同族第 3 次复发,勿再回退)',
+    ],
+  },
+  {
+    name: '失焦非活动态(窗口失去系统焦点时按钮降亮)',
+    required: [
+      { token: 'data-window-inactive', min: 1, boundary: true, src: 'topbar' },
+      { token: "[data-window-controls][data-window-inactive='true']", min: 1, src: 'globals' },
+    ],
+    why: [
+      '无边框窗口拿不到 DWM 原生的「非活动标题栏变灰」效果',
+      '  → 前端若不接 tauri://focus|blur 并落到挂点,按钮永远全亮',
+      '挂点两处:容器 data-window-inactive="true"(GlobalTopBar.tsx)+ 弱化规则(globals.css)',
+      '规则**必须**写在 globals.css 而不是组件内的 Tailwind 任意变体:',
+      '  实测生产构建里 JS chunk 已含新代码,但组件内新写的 group-data-[…]/wc: 变体没进 CSS 产物',
+      '  (用 @tailwindcss/postcss 单独编译可复现)→ 入口 CSS 变更必然重编译,才不受扫描/缓存影响',
+      '删掉任一 = 聚焦/失焦视觉无差异(该条在 2026-09-22 之前完全裸奔,删了不会有任何守门变红)',
+    ],
+  },
+]
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 统计标记出现次数(纯函数,不触碰磁盘 —— 供真实检查与 --self-test 共用同一实现,
+ * 避免"测试镜像常量"两份真相,见 AGENTS.md §22c)。
+ */
+function countContractToken(source, token, boundary) {
+  const pattern = boundary ? `${escapeRe(token)}(?![\\w-])` : escapeRe(token)
+  return source.match(new RegExp(pattern, 'g'))?.length ?? 0
+}
+
+/** 返回缺失项清单 { group, token, min, found };空数组 = 两组契约齐全(判绿)。
+ *  sources = { topbar, globals } —— 契约项各自声明挂在哪个文件。 */
+function findWindowControlViolations(sources) {
+  const violations = []
+  for (const group of WINDOW_CONTROL_CONTRACT) {
+    for (const { token, min, boundary, src = 'topbar' } of group.required) {
+      const found = countContractToken(sources[src] ?? '', token, boundary)
+      if (found < min) violations.push({ group: group.name, token, min, found })
+    }
+  }
+  return violations
+}
+
+// ============================================================
+// --self-test:判闸有效性内存自检(不落盘 / 不读外部路径 / 不写任何文件)
+//   断言第 5 项判据的两个分支:含契约→判绿;逐项缺契约→判红且红在预期分组。
+// ============================================================
+const FT_TOPBAR = {
+  controls: 'data-window-controls',
+  dim: 'data-window-controls-dim',
+  inactive: "data-window-inactive={windowFocused ? undefined : 'true'}",
+}
+const FT_GLOBALS = {
+  dimRule: "[data-window-controls][data-modal-dim='1'] > [data-window-controls-dim] {",
+  inactiveRule: "[data-window-controls][data-window-inactive='true'] > button:not(:hover) {",
+}
+const fts = (top = [], glo = []) => ({
+  topbar: top.map((k) => FT_TOPBAR[k]).join('\n'),
+  globals: glo.map((k) => FT_GLOBALS[k]).join('\n'),
+})
+const DIM_GROUP = WINDOW_CONTROL_CONTRACT[0].name
+const INACTIVE_GROUP = WINDOW_CONTROL_CONTRACT[1].name
+
+const SELF_TEST_CASES = [
+  {
+    title: '两组契约齐全(含 globals 两条规则) → 判绿',
+    sources: fts(['controls', 'dim', 'inactive'], ['dimRule', 'inactiveRule']),
+    expectGreen: true,
+  },
+  {
+    title: '缺 data-window-controls-dim(压暗覆盖层) → 判红',
+    sources: fts(['controls', 'inactive'], ['dimRule', 'inactiveRule']),
+    expectRed: { group: DIM_GROUP, token: 'data-window-controls-dim' },
+  },
+  {
+    title: "缺 globals 的压暗瞬时规则(压暗会跟着 fade-in 淡入 150ms) → 判红",
+    sources: fts(['controls', 'dim', 'inactive'], ['inactiveRule']),
+    expectRed: { group: DIM_GROUP, token: "[data-window-controls][data-modal-dim='1']" },
+  },
+  {
+    title: '缺 data-window-inactive(失焦挂点) → 判红',
+    sources: fts(['controls', 'dim'], ['dimRule', 'inactiveRule']),
+    expectRed: { group: INACTIVE_GROUP, token: 'data-window-inactive' },
+  },
+  {
+    title: '失焦规则没落进 globals.css(退化成组件内 Tailwind 变体 = 生产 CSS 可能没它) → 判红',
+    sources: fts(['controls', 'dim', 'inactive'], ['dimRule']),
+    expectRed: { group: INACTIVE_GROUP, token: "[data-window-controls][data-window-inactive='true']" },
+  },
+  {
+    title: '只剩 data-window-controls-dim、裸 data-window-controls 被删(防影子匹配) → 判红',
+    sources: fts(['inactive', 'dim'], ['dimRule', 'inactiveRule']),
+    expectRed: { group: DIM_GROUP, token: 'data-window-controls' },
+  },
+]
+
+function runSelfTest() {
+  console.log('🧪 check-z-index-guard --self-test(第 5 项判据内存自检,不落盘、不读外部路径)...')
+  let failed = 0
+  SELF_TEST_CASES.forEach((c, i) => {
+    const violations = findWindowControlViolations(c.sources)
+    let ok
+    let detail
+    if (c.expectGreen) {
+      ok = violations.length === 0
+      detail = ok ? '判绿(符合预期)' : `意外判红:${violations.map((v) => v.token).join(' / ')}`
+    } else {
+      const hit = violations.some((v) => v.group === c.expectRed.group && v.token === c.expectRed.token)
+      ok = violations.length > 0 && hit
+      detail = ok
+        ? `判红且红在「${c.expectRed.group}」/ ${c.expectRed.token}`
+        : `期望判红 ${c.expectRed.token},实得 ${violations.length === 0 ? '判绿(判据漏网)' : violations.map((v) => v.token).join(' / ')}`
+    }
+    if (!ok) failed += 1
+    console.log(`${ok ? C.green : C.red}  ${ok ? '✅' : '❌'} [${i + 1}/${SELF_TEST_CASES.length}] ${c.title}${C.reset}`)
+    console.log(`${C.dim}       ${detail}${C.reset}`)
+  })
+  console.log('')
+  if (failed > 0) {
+    console.log(`${C.red}❌ 自检失败:${failed}/${SELF_TEST_CASES.length} 条断言未通过 → 第 5 项判据已不可信${C.reset}`)
+    process.exit(1)
+  }
+  console.log(`${C.green}✅ 自检通过:${SELF_TEST_CASES.length} 条断言全绿(1 绿分支 + 5 红分支,均在内存字符串上)${C.reset}`)
+  process.exit(0)
+}
+
+if (isSelfTest) {
+  runSelfTest()
+}
+
 
 // --staged 模式:只在相关文件被 staged 时才检查
 if (isStaged) {
@@ -54,6 +239,7 @@ if (isStaged) {
     const staged = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     const files = staged.split('\n').filter(Boolean)
     const relevant = files.some(
@@ -61,7 +247,8 @@ if (isStaged) {
         f.includes('design-tokens/src/styles/tokens.css') ||
         f.includes('apps/web/app/globals.css') ||
         f.includes('apps/web/app/layout.tsx') ||
-        f.includes('ui-react/src/components/dialog.tsx'),
+        f.includes('ui-react/src/components/dialog.tsx') ||
+        f.includes('layout/GlobalTopBar.tsx'),
     )
     if (!relevant) {
       console.log(`${C.dim}⏭  z-index 层叠防护守门(无相关 staged 改动, 跳过)${C.reset}`)
@@ -73,7 +260,9 @@ if (isStaged) {
 }
 
 let hasError = false
-console.log('🛡️  z-index 层叠防护守门(禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)...')
+console.log(
+  '🛡️  z-index 层叠防护守门(禁 !important + inline script 覆盖 + 遮罩 fade-in 回归 + 窗口按钮等效压暗 + 失焦非活动态)...',
+)
 
 // ============================================================
 // 检查 1: tokens.css 中 z-index 变量禁止 !important
@@ -92,7 +281,7 @@ const CHECK_VARS = [
   { name: '--z-loading', value: '10000' },
 ]
 
-console.log('  [1/4] 检查 tokens.css z-index 变量无 !important...')
+console.log('  [1/5] 检查 tokens.css z-index 变量无 !important...')
 if (existsSync(TOKENS_PATH)) {
   const css = readFileSync(TOKENS_PATH, 'utf8')
   for (const { name, value } of CHECK_VARS) {
@@ -127,7 +316,7 @@ if (existsSync(TOKENS_PATH)) {
 // ============================================================
 const CHECK_UTILITIES = ['.z-sticky', '.z-modal', '.z-popover', '.z-notification', '.z-max']
 
-console.log('  [2/4] 检查 globals.css z-index 工具类无 !important...')
+console.log('  [2/5] 检查 globals.css z-index 工具类无 !important...')
 if (existsSync(GLOBALS_PATH)) {
   const css = readFileSync(GLOBALS_PATH, 'utf8')
   for (const cls of CHECK_UTILITIES) {
@@ -152,7 +341,7 @@ if (existsSync(GLOBALS_PATH)) {
 // ============================================================
 // 检查 3: layout.tsx inline script 必须设置 z-index 变量
 // ============================================================
-console.log('  [3/4] 检查 layout.tsx inline script 设置 z-index 变量...')
+console.log('  [3/5] 检查 layout.tsx inline script 设置 z-index 变量...')
 if (existsSync(LAYOUT_PATH)) {
   const tsx = readFileSync(LAYOUT_PATH, 'utf8')
 
@@ -190,7 +379,7 @@ if (existsSync(LAYOUT_PATH)) {
 // ============================================================
 // 检查 4: dialog.tsx 遮罩不得有 open 态 fade-in 动画
 // ============================================================
-console.log('  [4/4] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
+console.log('  [4/5] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
 if (existsSync(DIALOG_PATH)) {
   const tsx = readFileSync(DIALOG_PATH, 'utf8')
 
@@ -222,6 +411,44 @@ if (existsSync(DIALOG_PATH)) {
 }
 
 // ============================================================
+// 检查 5: 桌面端窗口控制三按钮必须有等效压暗层(2026-09-22 立,同族第 3 次复发)
+// ============================================================
+console.log('  [5/5] 检查窗口控制按钮两组契约(等效压暗层 + 失焦非活动态)...')
+if (!existsSync(TOPBAR_PATH) || !existsSync(GLOBALS_PATH)) {
+  console.log(
+    `${C.yellow}    ⚠️  契约文件缺失:${[TOPBAR_PATH, GLOBALS_PATH].filter((p) => !existsSync(p)).join(' / ')}${C.reset}`,
+  )
+  hasError = true
+} else {
+  const SRC_PATH = { topbar: TOPBAR_PATH, globals: GLOBALS_PATH }
+  const violations = findWindowControlViolations({
+    topbar: readFileSync(TOPBAR_PATH, 'utf8'),
+    globals: readFileSync(GLOBALS_PATH, 'utf8'),
+  })
+
+  if (violations.length > 0) {
+    for (const group of WINDOW_CONTROL_CONTRACT) {
+      const own = violations.filter((v) => v.group === group.name)
+      if (own.length === 0) continue
+      console.log(
+        `${C.red}    ❌ [${group.name}] 缺少契约标记:${own.map((v) => `${v.token}(实得 ${v.found},需 ≥${v.min})`).join(' / ')}${C.reset}`,
+      )
+      for (const v of own) {
+        const item = group.required.find((r) => r.token === v.token)
+        console.log(`${C.dim}       缺失标记应位于:${SRC_PATH[item?.src ?? 'topbar']}${C.reset}`)
+      }
+      for (const line of group.why) console.log(`${C.dim}       ${line}${C.reset}`)
+    }
+    hasError = true
+  } else {
+    const total = WINDOW_CONTROL_CONTRACT.reduce((n, g) => n + g.required.length, 0)
+    console.log(
+      `${C.green}    ✅ 两组契约齐全(等效压暗 + 失焦非活动态,共 ${total} 个标记:${WINDOW_CONTROL_CONTRACT.map((g) => g.required.map((r) => r.token).join('+')).join(' | ')})${C.reset}`,
+    )
+  }
+}
+
+// ============================================================
 // 汇总
 // ============================================================
 if (hasError) {
@@ -230,6 +457,8 @@ if (hasError) {
   console.log(`${C.dim}   历史教训:2026-07-24 AI 面板"跟着登录窗发亮"问题${C.reset}`)
   console.log(`${C.dim}   v1 用 !important 违反项目禁令,v2 改用 inline script 运行时覆盖${C.reset}`)
   console.log(`${C.dim}   防护:layout.tsx setProperty + 无 fade-in + 禁止 !important${C.reset}`)
+  console.log(`${C.dim}   2026-09-22 追加:窗口控制三按钮等效压暗层 + 失焦非活动态两组契约(同族第 3 次复发)${C.reset}`)
+  console.log(`${C.dim}   判据有效性自查(内存,不落盘):node scripts/check-z-index-guard.mjs --self-test${C.reset}`)
   process.exit(1)
 } else {
   console.log(`${C.green}✅ z-index 层叠防护守门通过${C.reset}`)

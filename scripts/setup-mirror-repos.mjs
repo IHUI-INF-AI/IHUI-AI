@@ -92,7 +92,7 @@ async function firstPush({ label, remote, token, owner }) {
   // 1. 先推 LFS 对象（GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在；
   //    Gitee 不支持 LFS 会失败，try-catch 容错跳过）
   try {
-    execSync(`git lfs push --all "${url}"`, { stdio: 'inherit', env });
+    execSync(`git lfs push --all "${url}"`, { stdio: 'inherit', env, windowsHide: true });
     console.log(`[${label}] ✅ LFS 对象推送完成`);
   } catch (_e) {
     console.warn(`[${label}] ⚠️ LFS 推送跳过（平台不支持或无 LFS 对象）`);
@@ -102,6 +102,7 @@ async function firstPush({ label, remote, token, owner }) {
     execSync(`git push --force --prune "${url}" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"`, {
       stdio: 'inherit',
       env,
+      windowsHide: true,
     });
     console.log(`[${label}] ✅ 首次镜像推送完成`);
   } catch (e) {

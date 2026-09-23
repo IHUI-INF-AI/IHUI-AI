@@ -28,6 +28,29 @@ const envSchema = z.object({
     .optional()
     .transform((v) => (v === '' ? undefined : v))
     .pipe(z.url().optional()),
+  /**
+   * O13(2026-09-21):**受控出口专用**的应用角色连接串(非超级用户,如 `ihui_app`)。
+   *
+   * 为什么要有它:`dbScoped()` / `dbReadScoped()` 上的数据闸对 scoped-* 能力有
+   * fail-closed 断言「连接必须被证实非超级用户」,而 `DATABASE_URL` 那条连接历史上
+   * 就是超级用户 ⇒ 已接线的开放面读路径在生产恒 503 DATA_ISOLATION_UNAVAILABLE。
+   * 角色与逐表 GRANT 由迁移 20260921160000_scoped_app_role_owner_rls.sql 落。
+   *
+   * 语义(向后兼容优先):
+   *  - 未配置(空 / 缺省)→ 受控出口仍与 `db` 同池、探针仍打在主库连接上,
+   *    行为与今天逐字节一致,只是启动时会 **明确告警**「隔离前提不成立」;
+   *  - 配置了 → 受控出口 + 超级用户探针都改挂到这条连接上(探针必须测**服务 scoped
+   *    查询的那条连接**,测主池等于测了个不相干的超级用户);
+   *  - 它**只**服务受控出口,`db` / `dbRead` 一律不动 ⇒ 存量第一方链路零回归。
+   *
+   * 部署要求:该角色只能拿到开放面实际触达表的 DML(见上面那份迁移),
+   * 且 `NOSUPERUSER NOBYPASSRLS`;密码由运维在库上 `ALTER ROLE` 设置,不落仓。
+   */
+  DATABASE_APP_URL: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v))
+    .pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
   // 文件 CDN 域名(可选):上传接口返回的 path 自动加前缀,生产可指向 file.aizhs.top
   // (需 Nginx 反代 /uploads 到本服务;未配置时返回相对路径 /uploads/<id>)

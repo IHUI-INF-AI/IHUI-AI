@@ -178,20 +178,30 @@ const errorResponseSchema = {
 // 静态降级数据 + 模型缓存
 // =============================================================================
 
-/** ai-service 不可用时的最终兜底模型清单(只在 live + cache 均失败时使用)。 */
+/** ai-service 不可用时的最终兜底模型清单(只在 live + cache 均失败时使用)。
+ *  2026-09-21 刷新为当期官方主流模型(每厂 1-2 个),替代 gpt-4o/claude-3.5 时代旧清单。 */
 const FALLBACK_MODELS: V1ModelsResponse = {
   object: 'list',
   data: [
-    { id: 'gpt-4o', object: 'model', created: 1700000000, owned_by: 'openai' },
-    { id: 'gpt-4o-mini', object: 'model', created: 1700000000, owned_by: 'openai' },
-    { id: 'gpt-4-turbo', object: 'model', created: 1700000000, owned_by: 'openai' },
-    { id: 'claude-3-5-sonnet', object: 'model', created: 1700000000, owned_by: 'anthropic' },
-    { id: 'claude-3-5-haiku', object: 'model', created: 1700000000, owned_by: 'anthropic' },
-    { id: 'glm-4', object: 'model', created: 1700000000, owned_by: 'zhipu' },
-    { id: 'glm-4-flash', object: 'model', created: 1700000000, owned_by: 'zhipu' },
+    { id: 'gpt-5.1', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'gpt-5', object: 'model', created: 1700000000, owned_by: 'openai' },
+    { id: 'claude-sonnet-4.5', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'claude-opus-4.1', object: 'model', created: 1700000000, owned_by: 'anthropic' },
+    { id: 'gemini-2.5-pro', object: 'model', created: 1700000000, owned_by: 'google' },
+    { id: 'gemini-2.5-flash', object: 'model', created: 1700000000, owned_by: 'google' },
+    { id: 'qwen3-max', object: 'model', created: 1700000000, owned_by: 'alibaba' },
+    { id: 'qwen-max', object: 'model', created: 1700000000, owned_by: 'alibaba' },
     { id: 'deepseek-chat', object: 'model', created: 1700000000, owned_by: 'deepseek' },
-    { id: 'qwen-plus', object: 'model', created: 1700000000, owned_by: 'alibaba' },
-    { id: 'moonshot-v1-8k', object: 'model', created: 1700000000, owned_by: 'moonshot' },
+    { id: 'deepseek-reasoner', object: 'model', created: 1700000000, owned_by: 'deepseek' },
+    { id: 'glm-4.7', object: 'model', created: 1700000000, owned_by: 'zhipu' },
+    { id: 'kimi-k2-thinking', object: 'model', created: 1700000000, owned_by: 'moonshot' },
+    { id: 'doubao-seed-1-6', object: 'model', created: 1700000000, owned_by: 'doubao' },
+    { id: 'grok-4.1', object: 'model', created: 1700000000, owned_by: 'xai' },
+    { id: 'minimax-m2', object: 'model', created: 1700000000, owned_by: 'minimax' },
+    { id: 'ernie-5.0', object: 'model', created: 1700000000, owned_by: 'baidu' },
+    { id: 'hunyuan-turbos-latest', object: 'model', created: 1700000000, owned_by: 'tencent' },
+    { id: 'mistral-large-latest', object: 'model', created: 1700000000, owned_by: 'mistral' },
+    { id: 'llama-4-maverick', object: 'model', created: 1700000000, owned_by: 'meta' },
   ],
 }
 

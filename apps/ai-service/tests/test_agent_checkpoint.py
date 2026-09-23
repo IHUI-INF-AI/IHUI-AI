@@ -356,6 +356,50 @@ async def test_checkpoint_metadata():
 
 
 # =============================================================================
+# 11b. O19:checkpoint 属主(owner_user_id)随 metadata 持久化
+# =============================================================================
+
+
+async def test_checkpoint_owner_roundtrip():
+    """带 owner_user_id 保存 → load 后 owner_user_id 可读(跨进程判属主的数据基础)。"""
+    mgr = _make_manager()
+    cid = await mgr.save_checkpoint(
+        "s-owner", 1, _sample_messages(), {}, "running", owner_user_id="user-42"
+    )
+    cp = await mgr.load_checkpoint(cid)
+    assert cp is not None
+    assert cp.owner_user_id == "user-42"
+
+
+async def test_checkpoint_owner_none_when_absent():
+    """无 owner(旧数据/无 principal 上下文)→ owner_user_id 为 None,不得伪造属主。"""
+    mgr = _make_manager()
+    cid = await mgr.save_checkpoint("s-noowner", 1, _sample_messages(), {}, "running")
+    cp = await mgr.load_checkpoint(cid)
+    assert cp is not None
+    assert cp.owner_user_id is None
+    assert "owner_user_id" not in cp.metadata
+
+
+async def test_checkpoint_owner_survives_metadata_merge():
+    """owner 与既有 metadata 并存时互不覆盖,且 owner 不被空值清除。"""
+    mgr = _make_manager()
+    cid = await mgr.save_checkpoint(
+        "s-merge",
+        1,
+        _sample_messages(),
+        {},
+        "running",
+        metadata={"model": "m1"},
+        owner_user_id="user-7",
+    )
+    cp = await mgr.load_checkpoint(cid)
+    assert cp is not None
+    assert cp.owner_user_id == "user-7"
+    assert cp.metadata["model"] == "m1"
+
+
+# =============================================================================
 # 12. 并发保存不冲突
 # =============================================================================
 

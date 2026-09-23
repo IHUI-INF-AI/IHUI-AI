@@ -109,7 +109,7 @@ async function runStep(task: ComposeTask, step: StepName, reply: FastifyReply): 
         reply,
         {
           method: 'POST',
-          body: JSON.stringify({ prompt: scriptText, model: task.model ?? 'wanx2.1-t2v-turbo' }),
+          body: JSON.stringify({ prompt: scriptText, model: task.model ?? 'wan2.5-t2v-plus' }),
         },
       )
     } else {

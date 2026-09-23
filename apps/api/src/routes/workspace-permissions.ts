@@ -28,9 +28,21 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+// 权限档唯一真源(G-161/G-164):本文件曾有 3 份档位清单,读侧还会把不认识的档位静默归 null
+import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_PERSISTABLE_IDS,
+  PERMISSION_MODE_WIRE,
+  PERMISSION_MODE_WIRE_VALUES,
+  normalizePermissionMode,
+  permissionModeWire,
+  type PermissionModeId,
+  type PermissionModeWire,
+} from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { permissionManager } from '../services/workspace-ai-service.js'
+import type { WorkspacePermission } from '@ihui/database'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import {
   getPermission,
@@ -46,6 +58,76 @@ import {
   appendAuditLog,
   listAuditLogs,
 } from '../db/workspace-permission-queries.js'
+
+// =============================================================================
+// 权限档取值面(存值迁移第①步 · 写侧:落库翻正到规范档,出参仍是 wire)
+// =============================================================================
+
+/**
+ * 入参可接受的拼写 = wire(kebab)∪ 规范档(camel)。
+ *
+ * 两份清单都从 `@ihui/types/permission-mode` 派生,本文件不再出现第二份字面量,
+ * 注册表新增档位时这里自动跟上。`manual` 属于规范档但**没有** wire 映射,
+ * 因此它在 `resolvePersistableMode` 处仍被拒(见该函数),不会因为"接受 camel"而漏放行。
+ */
+const PERMISSION_MODE_INPUT_VALUES = [
+  ...new Set<string>([...PERMISSION_MODE_WIRE_VALUES, ...PERMISSION_MODES]),
+]
+
+const modeInputSchema = z.enum(PERMISSION_MODE_INPUT_VALUES, {
+  error: (iss) =>
+    `非法权限档: ${String(iss.input)}(取值 ${PERMISSION_MODE_INPUT_VALUES.join(' / ')})`,
+})
+
+/** 一次归一同时给出落库值与出参值,避免两个分支各自归一后跑偏。 */
+interface ResolvedPermissionMode {
+  /** 规范档(camel)—— 写库用 */
+  id: PermissionModeId
+  /** wire(kebab)—— 出参用,与迁移前的 REST 契约逐字一致 */
+  wire: PermissionModeWire
+}
+
+/**
+ * 任意合法拼写 → { id 规范档, wire 出参 };认不出 / 无落库语义 → null(由调用方拒掉)。
+ *
+ * 为什么**存值**翻正成 camel 而**出参**保持 kebab:kebab 是 workspace REST 与 8 端运行时
+ * 比较的历史契约,改它要跨端联动;而 `workspace_permissions.mode` 的写入口只有本路由一处,
+ * 先把存值统一到规范档,判定侧就不再"两头各比各的拼写"(G-164 登记的静默失效成因)。
+ * 读侧一律经 `permissionModeWire` 归一 → 遗留 kebab 行与新 camel 行都能读出同一个 wire,
+ * 这正是第②步幂等回填的安全网。
+ */
+const resolvePersistableMode = (raw: unknown): ResolvedPermissionMode | null => {
+  const id = normalizePermissionMode(raw)
+  if (!id) return null
+  // manual 在审批门里有语义(每次都问),但这两个档位字段从未承载它:
+  // 存进去会让每一处读取都把它当成"未配置",故 PERMISSION_MODE_WIRE 无它 → 拒。
+  const wire = PERMISSION_MODE_WIRE[id]
+  return wire ? { id, wire } : null
+}
+
+/**
+ * 400 文案用的"可落库档位"清单(wire 拼写)。
+ *
+ * 旧写法 `Object.values(PERMISSION_MODE_WIRE)` 因映射表是 Partial 而带 `undefined` 类型,
+ * 注册表一旦新增无 wire 映射的档,undefined 会被原文拼进给用户看的文案。
+ * 现从 `PERMISSION_MODE_PERSISTABLE_IDS`(有 wire 映射的档)派生,类型与值都确定。
+ */
+const PERSISTABLE_WIRE_TEXT = PERMISSION_MODE_PERSISTABLE_IDS.map((id) => PERMISSION_MODE_WIRE[id])
+  .filter((wire): wire is PermissionModeWire => wire !== undefined)
+  .join(' / ')
+
+/**
+ * 库行 → 对外 DTO:mode 归一成 wire(kebab)。
+ *
+ * 必须显式归一:GET /permissions、GET /permission、PUT /permissions 都是**直接把库行**
+ * 吐给客户端的(packages/api-client 的 `WorkspacePermission.mode` 声明为 kebab 4 值)。
+ * 存值翻正成 camel 后不过这层的调用方会拿到 camel 而静默比不中。
+ * 归一不出时原样吐库值 —— 与迁移前行为逐字一致,不给历史脏行新增失败模式。
+ */
+const toWirePermission = (row: WorkspacePermission): WorkspacePermission => ({
+  ...row,
+  mode: permissionModeWire(row.mode) ?? row.mode,
+})
 
 // =============================================================================
 // 预置安全模板 (24 条规则)
@@ -112,7 +194,18 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     }
   }
 
-  const PERMISSION_MODES = ['default', 'accept-edits', 'bypass-permissions'] as const
+  /**
+   * 用户全局默认档位的**读**判定(G-164:消掉本文件第 4 份档位清单)。
+   *
+   * 上一版这里写着 `const PERMISSION_MODES = ['default','accept-edits','bypass-permissions']`,
+   * 后果有两处:① `PUT /permission-default` 拒收 plan;② **GET 读取时把不在清单里的值
+   * 静默归 null** —— 也就是"存进去的档位被读成没配",继承链凭空掉一级。
+   * 现统一走注册表:任意合法拼写(kebab / camel / 历史别名)读出为 wire,认不出才给 null。
+   *
+   * 存值迁移期间这里**必须**继续走归一而不是直读库值:同一条 preference 既可能是回填前的
+   * kebab,也可能是回写后的 camel,两条都要读出同一个 wire。
+   */
+  const readWireMode = (raw: unknown): string | null => permissionModeWire(raw)
 
   // GET /permission-default — 用户全局默认权限模式(继承链第一级;工作区未显式配置时回退)
   server.get('/permission-default', async (request, reply) => {
@@ -121,8 +214,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     try {
       const { list } = await findUserPreferences(request.userId, 'agent')
       const row = list.find((r) => r.key === 'defaultPermissionMode')
-      const mode =
-        row?.value && (PERMISSION_MODES as readonly string[]).includes(row.value) ? row.value : null
+      const mode = readWireMode(row?.value)
       return reply.send(success({ mode }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
@@ -133,13 +225,26 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
   server.put('/permission-default', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const parsed = z.object({ mode: z.enum(PERMISSION_MODES) }).safeParse(request.body)
+    const parsed = z.object({ mode: modeInputSchema }).safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // 无落库语义的档位(manual)显式拒绝,而不是"存进去然后每一处读取都当成没配"
+    const resolved = resolvePersistableMode(parsed.data.mode)
+    if (!resolved) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `非法权限档: ${parsed.data.mode}(可落库档位为 ${PERSISTABLE_WIRE_TEXT};manual 无落库语义)`,
+          ),
+        )
+    }
     try {
-      await upsertUserPreference(request.userId, 'agent', 'defaultPermissionMode', parsed.data.mode)
-      return reply.send(success({ mode: parsed.data.mode }))
+      await upsertUserPreference(request.userId, 'agent', 'defaultPermissionMode', resolved.id)
+      // 出参仍是 wire:客户端 `setWorkspacePermissionDefault` 的返回类型是 kebab 4 值
+      return reply.send(success({ mode: resolved.wire }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
     }
@@ -157,7 +262,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const permissions = await listPermissionsByUser(request.userId)
-    return reply.send(success({ permissions }))
+    return reply.send(success({ permissions: permissions.map(toWirePermission) }))
   })
 
   // GET /permission?workspacePath=xxx — 获取指定工作区权限
@@ -166,7 +271,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { workspacePath } = z.object({ workspacePath: z.string() }).parse(request.query)
     const permission = await getPermission(request.userId, workspacePath)
-    return reply.send(success({ permission: permission ?? null }))
+    return reply.send(success({ permission: permission ? toWirePermission(permission) : null }))
   })
 
   // PUT /permissions — upsert 权限
@@ -174,7 +279,10 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     workspacePath: z.string().min(1),
     name: z.string().min(1),
     techStack: z.string().optional(),
-    mode: z.enum(['default', 'accept-edits', 'bypass-permissions']),
+    // G-164:此前是 z.enum(3 档 kebab) —— 于是 `plan` 档"类型里有、链路上不可达"
+    // (客户端发 plan 直接被 400 挡回)。现交唯一真源派生:kebab / camel 两种拼写都收,
+    // 认不出仍拒;落库走规范档 camel(存值迁移第①步),出参继续吐 wire。
+    mode: modeInputSchema,
     initializeDefaults: z.boolean().optional(),
   })
   server.put('/permissions', async (request, reply) => {
@@ -184,15 +292,26 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     try {
+      const resolved = resolvePersistableMode(parsed.data.mode)
+      if (!resolved) {
+        return reply
+          .status(400)
+          .send(
+            error(
+              400,
+              `非法权限档: ${parsed.data.mode}(可落库档位为 ${PERSISTABLE_WIRE_TEXT};manual 无落库语义)`,
+            ),
+          )
+      }
       const permission = await upsertPermission({
         userId: request.userId,
         workspacePath: parsed.data.workspacePath,
         name: parsed.data.name,
         techStack: parsed.data.techStack,
-        mode: parsed.data.mode,
+        mode: resolved.id,
       })
-      // 首次设置 accept-edits 模式 → 创建预置安全模板
-      if (parsed.data.initializeDefaults && parsed.data.mode === 'accept-edits') {
+      // 首次设置 acceptEdits 模式 → 创建预置安全模板(判定走规范档,不比拼写)
+      if (parsed.data.initializeDefaults && resolved.id === 'acceptEdits') {
         await clearUserRules(request.userId, parsed.data.workspacePath)
         await createRulesBulk(
           request.userId,
@@ -205,9 +324,10 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
         workspacePath: parsed.data.workspacePath,
         toolName: 'permission-setup',
         decision: 'allow',
-        reason: `mode set to ${parsed.data.mode}`,
+        // 审计流水是给人看的对外文案,与出参同口径吐 wire,不把 camel 泄进 reason
+        reason: `mode set to ${resolved.wire}`,
       })
-      return reply.send(success({ permission }))
+      return reply.send(success({ permission: toWirePermission(permission) }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message))
     }

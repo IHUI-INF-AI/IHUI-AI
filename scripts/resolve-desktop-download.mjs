@@ -226,6 +226,19 @@ async function resolveFromGitee() {
         size = 0
       }
     }
+    // 2026-09-21(0.1.43 run 35562703606 实测):CI 环境对 Gitee 302 链 HEAD 拿不到
+    // content-length(size=0)→ 下载页显示 "-"。Range GET(bytes=0-0)取
+    // content-range 总长兜底(206 响应头形如 "bytes 0-0/4070601")。
+    if (!size) {
+      try {
+        const ranged = await fetch(href, { headers: { Range: 'bytes=0-0' }, redirect: 'follow' })
+        const cr = ranged.headers.get('content-range') || ''
+        const total = cr.split('/')[1]
+        if (total && /^\d+$/.test(total)) size = Number(total)
+      } catch {
+        size = size || 0
+      }
+    }
     const mapped = mapAsset({ name: asset.name, browser_download_url: href, size }, version)
     if (mapped) {
       // 2026-09-17:同步抓取 .sig 签名内容(几 KB)→ 供 /api/desktop-feed 输出 updater 格式
@@ -235,35 +248,28 @@ async function resolveFromGitee() {
   }
   if (assets.length === 0) return null
   // 2026-09-18(实测):Gitee 同步失败/部分完成时该 release 可能只有个别资产
-  // (desktop-v0.1.36 实测只有 1 个 Windows 条目),而无条件采纳会把下载页降级成
-  // 「单平台」—— macOS/Linux 下载项整体消失且无任何告警。此处要求三平台齐全才
-  // 采纳 Gitee 源,否则返回 null 由 GitHub 源兜底(完整四平台)。
+  // (desktop-v0.1.36 实测只有 1 个 Windows 条目),当时要求三平台齐全才采纳。
+  // 2026-09-21(实测 0.1.42 重演):本机一键发版通道只传 Windows 到 Gitee,
+  // 「三平台齐全」门槛把 Gitee 源整单弃用 → 全量回退 GitHub → 更新器 feed 的
+  // 下载 URL 指向 github.com,国内直连被重置(本机实测 curl exit 56),
+  // 自动更新对中国用户整体失效。改为:不再整单回退,返回部分资产,交由
+  // resolveOnline 按 format+arch 与 GitHub 源合并(Gitee 命中的平台国内直链
+  // 可达,缺失平台由 GitHub 补齐,下载页与 feed 永不缺平台)。
   const families = new Set(assets.map((a) => String(a.format).split(' ')[0]))
   const complete = families.has('Windows') && families.has('macOS') && families.has('Linux')
   if (!complete) {
     console.warn(
-      `[resolve] Gitee ${release.tag_name} 资产不完整(${assets.length} 个:${[...families].join('/')}),回退 GitHub 源`,
+      `[resolve] Gitee ${release.tag_name} 资产不完整(${assets.length} 个:${[...families].join('/')}),交由合并逻辑用 GitHub 补齐`,
     )
-    return null
   }
   return { version, releaseDate, giteeReleasesUrl: `https://gitee.com/${owner}/${repo}/releases`, resolvedFromTag: release.tag_name, assets }
 }
 
 /**
- * 从 GitHub API 解析最新 desktop release 快照。
+ * 从 GitHub API 解析最新 desktop release 快照(原 resolveOnline 的 GitHub 段抽出)。
  * @returns {Promise<{ version: string; releaseDate: string; githubReleasesUrl: string; resolvedFromTag: string; resolvedAt: string; assets: Array<{ href: string; sizeBytes: number; format: string; arch?: string }> }>}
  */
-async function resolveOnline() {
-  // 2026-09-17:Gitee 优先(本机极速发版的版本仅存在于 Gitee;国内直链下载也更快)
-  const fromGitee = await resolveFromGitee()
-  if (fromGitee) {
-    console.log(`[resolve] Gitee 源命中: ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产)`)
-    return {
-      ...fromGitee,
-      resolvedAt: new Date().toISOString(),
-      githubReleasesUrl: fromGitee.giteeReleasesUrl,
-    }
-  }
+async function resolveFromGithub() {
   const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
   const token = process.env.GITHUB_TOKEN
@@ -315,9 +321,20 @@ async function resolveOnline() {
     throw new Error(`No install assets found in release ${release.tag_name} for version ${version}`)
   }
 
-  // 平台优先级:Windows(exe→msi)→ macOS(dmg x64→aarch64)→ Linux(AppImage→deb)
+  return {
+    version,
+    releaseDate,
+    githubReleasesUrl: RELEASES_PAGE,
+    resolvedFromTag: release.tag_name,
+    resolvedAt: new Date().toISOString(),
+    assets,
+  }
+}
+
+/** 平台优先级排序:Windows(exe→msi)→ macOS(dmg x64→aarch64)→ Linux(AppImage→deb) */
+function sortAssets(assets) {
   const order = ['Windows NSIS exe', 'Windows MSI', 'macOS DMG', 'Linux AppImage', 'Linux DEB']
-  assets.sort((a, b) => {
+  return assets.sort((a, b) => {
     const ai = order.indexOf(a.format)
     const bi = order.indexOf(b.format)
     if (ai !== bi) return ai - bi
@@ -327,14 +344,64 @@ async function resolveOnline() {
     if (b.arch === 'x64') return 1
     return (a.arch || '') < (b.arch || '') ? -1 : 1
   })
+}
+
+/**
+ * 总解析入口:Gitee 优先 + GitHub 兜底,**按 format+arch 合并**。
+ * 2026-09-21:由「Gitee 三平台齐全才采纳,否则整单回退 GitHub」改为按平台合并 ——
+ * 根治 0.1.42 实测事故:本机一键发版通道只传 Windows 到 Gitee,Gitee 源被整单弃用,
+ * feed 下载 URL 全量指向 github.com,国内直连被重置(curl exit 56),自动更新失效。
+ * 合并规则:
+ *   - Gitee 命中的平台用 Gitee 直链(国内可达);
+ *   - Gitee 缺失平台由 GitHub 补齐(下载页全平台永不缺失);
+ *   - Gitee 资产签名缺失时用 GitHub 同平台签名兜底(同一 CI 产物上传两端,字节一致);
+ *   - 跨版本窗口期(本机发版后 CI 未跑完):Gitee=新 / GitHub=旧 时会混入旧版
+ *     macOS/Linux 资产,输出 warn;CI sync-downloads 跑完后自动归一。
+ */
+async function resolveOnline() {
+  const fromGitee = await resolveFromGitee()
+  let fromGithub = null
+  try {
+    fromGithub = await resolveFromGithub()
+  } catch (err) {
+    if (!fromGitee) throw err
+    console.warn(
+      `[resolve] GitHub 源解析失败(${err instanceof Error ? err.message : String(err)}),仅用 Gitee 源 ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产)`,
+    )
+    return {
+      ...fromGitee,
+      resolvedAt: new Date().toISOString(),
+      githubReleasesUrl: fromGitee.giteeReleasesUrl,
+    }
+  }
+  if (!fromGitee) {
+    console.log(`[resolve] Gitee 源未命中,使用 GitHub 源: ${fromGithub.resolvedFromTag}(${fromGithub.assets.length} 个资产)`)
+    return fromGithub
+  }
+  if (fromGitee.version !== fromGithub.version) {
+    console.warn(
+      `[resolve] 两源版本不一致:Gitee=${fromGitee.version} / GitHub=${fromGithub.version},合并将混入 GitHub 旧版资产(发版窗口期正常,CI 完成后自动归一)`,
+    )
+  }
+
+  console.log(`[resolve] Gitee 源命中: ${fromGitee.resolvedFromTag}(${fromGitee.assets.length} 个资产),与 GitHub 源按平台合并`)
+  const keyOf = (a) => `${a.format}|${a.arch || ''}`
+  const giteeMap = new Map(fromGitee.assets.map((a) => [keyOf(a), a]))
+  const merged = fromGithub.assets.map((a) => {
+    const g = giteeMap.get(keyOf(a))
+    if (!g) return a
+    giteeMap.delete(keyOf(a))
+    return { ...g, signature: g.signature || a.signature }
+  })
+  for (const g of giteeMap.values()) merged.push(g)
 
   return {
-    version,
-    releaseDate,
-    githubReleasesUrl: RELEASES_PAGE,
-    resolvedFromTag: release.tag_name,
+    version: fromGitee.version,
+    releaseDate: fromGitee.releaseDate,
+    githubReleasesUrl: fromGitee.giteeReleasesUrl,
+    resolvedFromTag: fromGitee.resolvedFromTag,
     resolvedAt: new Date().toISOString(),
-    assets,
+    assets: sortAssets(merged),
   }
 }
 

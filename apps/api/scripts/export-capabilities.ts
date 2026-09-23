@@ -58,7 +58,17 @@ function main(): number {
       console.error('[capabilities] ✗ 产物缺失，请运行 pnpm capabilities:export')
       return 1
     }
-    const same = JSON.stringify(JSON.parse(current), null, 2) === JSON.stringify(manifest, null, 2)
+    // `generatedAt` 每次构建必然变化（时间戳），把它计入比对会让 `--check` 恒红，
+    // 于是这道"产物是否与目录一致"的门形同虚设（2026-09-21 O8b 实测：HEAD 产物
+    // generatedAt=2026-09-20T09:24，任何后续 --check 都判漂移）。除时间戳外全字段严格比对。
+    const stableText = (raw: string): string => {
+      const parsed: unknown = JSON.parse(raw)
+      if (!parsed || typeof parsed !== 'object') return raw
+      const copy = parsed as Record<string, unknown>
+      delete copy.generatedAt
+      return JSON.stringify(copy, null, 2)
+    }
+    const same = stableText(current) === stableText(JSON.stringify(manifest))
     if (!same) {
       console.error('[capabilities] ✗ 产物与目录漂移，请重新生成并提交')
       return 1
@@ -76,6 +86,7 @@ function main(): number {
       [join(repoRoot, 'scripts', 'watermark.mjs'), 'inject', outFile],
       {
         stdio: 'pipe',
+        windowsHide: true,
       },
     )
   } catch {

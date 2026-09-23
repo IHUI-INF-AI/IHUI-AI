@@ -55,23 +55,23 @@ export const PRIORITY_BADGE: Record<Priority, string> = {
 }
 
 export const STATUS_KEY: Record<FeedbackStatus, string> = {
-  pending: 'status_pending',
-  reviewing: 'status_reviewing',
-  resolved: 'status_resolved',
-  closed: 'status_closed',
+  pending: 'statusPending',
+  reviewing: 'statusReviewing',
+  resolved: 'statusResolved',
+  closed: 'statusClosed',
 }
 
 export const TYPE_KEY: Record<FeedbackType, string> = {
-  bug: 'type_bug',
-  feature: 'type_feature',
-  improvement: 'type_improvement',
-  other: 'type_other',
+  bug: 'typeBug',
+  feature: 'typeFeature',
+  improvement: 'typeImprovement',
+  other: 'typeOther',
 }
 
 export const PRIORITY_KEY: Record<Priority, string> = {
-  low: 'priority_low',
-  medium: 'priority_medium',
-  high: 'priority_high',
+  low: 'priorityLow',
+  medium: 'priorityMedium',
+  high: 'priorityHigh',
 }
 
 export async function api<T>(url: string, options?: RequestInit): Promise<T> {

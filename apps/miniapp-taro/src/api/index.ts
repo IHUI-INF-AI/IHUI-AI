@@ -13,6 +13,7 @@ import type { SSEEvent } from '../utils/sse-parse'
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
 // W5:chatStream 传输层收敛到 src/lib/sse.ts(enableChunked + H5 fetch + 断点续传 + 指数退避 + 读超时 + AbortSignal)
 import { streamSSE } from '@/lib/sse'
+import { resolveAgentTools } from '@/lib/ui-control-tools'
 import type {
   FetchModelsResult,
   AgentPermission,
@@ -32,6 +33,9 @@ import type {
   ChatOptions,
   ChatResult,
   // W5:流式事件负载类型(复用 api-client 导出,禁止本端重复定义,保证字段与 web 端一致)
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
+  CitationsEvent,
   ToolCallEvent,
   ToolSummaryEvent,
   FallbackEvent,
@@ -314,6 +318,12 @@ export interface StreamEventCallbacks {
   }) => void
   /** 断点重连通知(指数退避重试前触发,attempt 从 1 起) */
   onReconnect?: (attempt: number, delayMs: number) => void
+  /** D34 上下文注入交代(第 45 轮承接):本轮回答真正带上了哪些注入 */
+  onInjectionApplied?: (evt: InjectionAppliedEvent) => void
+  /** D39 重试交代:网关换 key / 退避重试时下发,没有它用户看到的只是"卡住" */
+  onRetryScheduled?: (evt: RetryScheduledEvent) => void
+  /** #11 引用溯源 */
+  onCitations?: (evt: CitationsEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -448,10 +458,23 @@ export const chatStream = async (
       case 'usage':
         if (evt.usage) callbacks?.onUsage?.(evt.usage)
         break
+      // ===== D106 第 45 轮:parser 已补齐,这里注册到端内回调表(不注册就等于没接) =====
+      case 'injection_applied':
+        if (evt.injectionApplied) callbacks?.onInjectionApplied?.(evt.injectionApplied)
+        break
+      case 'retry_scheduled':
+        if (evt.retryScheduled) callbacks?.onRetryScheduled?.(evt.retryScheduled)
+        break
+      case 'citations':
+        if (evt.citations) callbacks?.onCitations?.(evt.citations)
+        break
       default:
         break
     }
   }
+
+  // AI 操控本站(2026-09-21):调用方没显式指定时,按"这一句是不是在要求操作程序"预筛本端工具。
+  const agentTools = resolveAgentTools(options.agentTools, messages)
 
   // W5:请求体(两分支共用,避免字段漂移;对齐 apps/api chatStreamSchema 的 11 个字段)
   const buildBody = () => ({
@@ -462,7 +485,7 @@ export const chatStream = async (
     materialContent: options.materialContent,
     contextLimit: options.contextLimit ?? 0,
     workspaceContext: options.workspaceContext,
-    agentTools: options.agentTools,
+    agentTools,
     plan_mode: options.plan_mode,
     tools: options.tools,
     tool_choice: options.tool_choice,

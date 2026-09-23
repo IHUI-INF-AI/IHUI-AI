@@ -7,25 +7,57 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import React from 'react'
 import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, params?: { count?: number }) => {
-    const fmt = (label: string, count: number) => `${label} (${count})`
-    switch (key) {
-      case 'plan':
-        return fmt('计划', params?.count ?? 0)
-      case 'reference':
-        return fmt('引用', params?.count ?? 0)
-      case 'toolCallStats':
-        return `工具调用 (${params?.count ?? 0} 次)`
-      case 'moreItems':
-        return `还有 ${params?.count ?? 0} 个`
-      case 'parameters':
-        return '参数'
-      default:
-        return key
-    }
-  },
-}))
+vi.mock('next-intl', () => {
+  // 与 packages/i18n/messages/{shared,web}/zh-CN.json 的同名键保持一致
+  const ZH: Record<string, string> = {
+    plan: '计划 ({count})',
+    reference: '引用 ({count})',
+    toolCallStats: '工具调用 ({count} 次)',
+    moreItems: '还有 {count} 个',
+    parameters: '参数',
+    openInWorkPanel: '在工作展示区打开',
+    toolUnknownFile: '(未知文件)',
+    planStepCompleted: '已完成',
+    planStepInProgress: '进行中',
+    planStepFailed: '失败',
+    argsLabel: '参数',
+    resultLabel: '结果',
+    errorLabel: '错误',
+    statusSkipped: '已跳过',
+    statusRunning: '执行中',
+    statusSuccess: '已完成',
+    statusFailed: '执行失败',
+    roundNumber: '第 {n} 轮',
+    retriedTimes: '重试 {n} 次',
+    sourcePlugin: '插件',
+    sourceMcp: 'MCP 服务',
+    unitLines: '{n} 行',
+    unitResults: '{n} 个结果',
+    unitFiles: '{n} 个文件',
+    addedCount: '+{n}',
+    removedCount: '-{n}',
+    toolReadFile: '读取文件内容',
+    toolWriteFile: '写入文件',
+    toolEditFile: '编辑文件',
+    toolWebSearch: '搜索网页',
+    toolSearchCodebase: '搜索代码库',
+    toolSummarizeArtifacts: '汇总任务产物',
+    toolImageGeneration: '生成图片',
+    toolImageEdit: '编辑图片',
+    toolMusicGeneration: '生成音乐',
+    toolVoiceTts: '文字转语音',
+    toolVideoGeneration: '生成视频',
+  }
+  const translate = (key: string, params?: Record<string, number>) => {
+    const template = ZH[key] ?? key
+    if (!params) return template
+    return template.replace(/\{(\w+)\}/g, (_m, name) => String(params[name] ?? ''))
+  }
+  return { useTranslations: () => translate }
+})
+
+/** 活动行的稳定标识:工具码名只存在于 data-testid,界面文案一律本地化 */
+const rowOf = (toolName: string) => screen.getByTestId(`tool-call-row-${toolName}`)
 
 import { ToolCallCard } from '../tool-call-card'
 
@@ -84,7 +116,7 @@ describe('ToolCallCard repeated 徽章渲染', () => {
     expect(screen.queryByText('已跳过')).toBeNull()
   })
 
-  it('repeated 徽章带 aria-label 提供无障碍说明', () => {
+  it('repeated 时整行 aria-label 带上跳过状态(无障碍说明不丢)', () => {
     render(
       <ToolCallCard
         toolName="search_codebase"
@@ -93,8 +125,8 @@ describe('ToolCallCard repeated 徽章渲染', () => {
         repeated
       />,
     )
-    const badge = screen.getByText('已跳过')
-    expect(badge.getAttribute('aria-label')).toBe('LLM 试图重复调用同参数工具,被去重机制跳过')
+    // 状态说明从"徽章自带 aria-label"上移到整行 aria-label(行是唯一可点击对象)
+    expect(rowOf('search_codebase').getAttribute('aria-label')).toContain('已跳过')
   })
 
   it('repeated 徽章与 iteration 徽章共存时都渲染', () => {
@@ -108,7 +140,7 @@ describe('ToolCallCard repeated 徽章渲染', () => {
       />,
     )
     // iteration 徽章(第3轮)+ repeated 徽章(已跳过)都应渲染
-    expect(screen.getByText('第3轮')).toBeTruthy()
+    expect(screen.getByText('第 3 轮')).toBeTruthy()
     expect(screen.getByText('已跳过')).toBeTruthy()
   })
 })
@@ -133,7 +165,7 @@ describe('ToolCallCard image rendering', () => {
       />,
     )
     // 展开卡片
-    fireEvent.click(screen.getByText('image_generation').closest('button')!)
+    fireEvent.click(rowOf('image_generation'))
     // img 存在 + alt="一只猫"(jsdom 不触发 onLoad,img 仍在 DOM,只是 opacity-0)
     const img = screen.getByAltText('一只猫')
     expect(img).toBeTruthy()
@@ -144,7 +176,7 @@ describe('ToolCallCard image rendering', () => {
     render(
       <ToolCallCard toolName="image_generation" args={{ prompt: '一只猫' }} status="success" />,
     )
-    fireEvent.click(screen.getByText('image_generation').closest('button')!)
+    fireEvent.click(rowOf('image_generation'))
     // 无 img
     expect(screen.queryByRole('img')).toBeNull()
     // 回退到 JSON args 渲染(参数 label 存在)
@@ -160,7 +192,7 @@ describe('ToolCallCard image rendering', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    fireEvent.click(rowOf('read_file'))
     // imageUrl 仅对 image_generation 生效,read_file 不渲染 img
     expect(screen.queryByRole('img')).toBeNull()
   })
@@ -182,18 +214,18 @@ describe('ToolCallCard summary rendering', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    fireEvent.click(rowOf('summarize_artifacts'))
     expect(screen.getByText('计划 (1)')).toBeTruthy()
     expect(screen.getByText('引用 (1)')).toBeTruthy()
     expect(screen.getByText('工具调用 (5 次)')).toBeTruthy()
     // by_tool 徽章
-    expect(screen.getByText('read_file × 3')).toBeTruthy()
-    expect(screen.getByText('write_file × 2')).toBeTruthy()
+    expect(screen.getByText('读取文件内容 × 3')).toBeTruthy()
+    expect(screen.getByText('写入文件 × 2')).toBeTruthy()
   })
 
   it('summarize_artifacts 无 summaryData 时回退到 JSON', () => {
     render(<ToolCallCard toolName="summarize_artifacts" args={{}} status="success" />)
-    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    fireEvent.click(rowOf('summarize_artifacts'))
     // 无聚合视图标题
     expect(screen.queryByText(/^计划/)).toBeNull()
     // 回退到 JSON(参数 label)
@@ -210,7 +242,7 @@ describe('ToolCallCard summary rendering', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    fireEvent.click(rowOf('summarize_artifacts'))
     // 前 5 个 ref 渲染 + "... 还有 2 个" 提示
     expect(screen.getByText('file0.ts')).toBeTruthy()
     expect(screen.getByText('file4.ts')).toBeTruthy()
@@ -228,11 +260,11 @@ describe('ToolCallCard summary rendering', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
-    const badge = screen.getByText('completed')
+    fireEvent.click(rowOf('summarize_artifacts'))
+    const badge = screen.getByText('已完成')
     expect(badge).toBeTruthy()
-    // 绿色徽章类含 green-600
-    expect(badge.getAttribute('class')).toContain('green-600')
+    // 完成态徽章走 StreamTag success 档(emerald-600)
+    expect(badge.getAttribute('class')).toContain('emerald-600')
   })
 
   it('image 和 summary 都不存在时仍渲染 JSON', () => {
@@ -244,7 +276,7 @@ describe('ToolCallCard summary rendering', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    fireEvent.click(rowOf('read_file'))
     // args/result JSON 渲染(参数 + 结果 label)
     expect(screen.getByText('参数')).toBeTruthy()
     expect(screen.getByText('结果')).toBeTruthy()
@@ -269,7 +301,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('music_generation').closest('button')!)
+    fireEvent.click(rowOf('music_generation'))
     const audio = screen.getByTestId('tool-media-audio')
     expect(audio).toBeTruthy()
     expect(audio.getAttribute('src')).toBe('https://cdn.example.com/song.mp3')
@@ -284,7 +316,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('voice_tts').closest('button')!)
+    fireEvent.click(rowOf('voice_tts'))
     const audio = screen.getByTestId('tool-media-audio')
     expect(audio).toBeTruthy()
     expect(audio.getAttribute('src')).toBe('data:audio/mpeg;base64,SUQzZmFrZQ==')
@@ -299,7 +331,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('voice_tts').closest('button')!)
+    fireEvent.click(rowOf('voice_tts'))
     expect(screen.queryByTestId('tool-media-audio')).toBeNull()
     expect(screen.getByText('参数')).toBeTruthy()
   })
@@ -313,7 +345,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('video_generation').closest('button')!)
+    fireEvent.click(rowOf('video_generation'))
     const video = screen.getByTestId('tool-media-video')
     expect(video).toBeTruthy()
     expect(video.getAttribute('src')).toBe('https://cdn.example.com/clip.mp4')
@@ -328,7 +360,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('music_generation').closest('button')!)
+    fireEvent.click(rowOf('music_generation'))
     expect(screen.queryByTestId('tool-media-audio')).toBeNull()
     expect(screen.getByText('参数')).toBeTruthy()
   })
@@ -342,7 +374,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('video_generation').closest('button')!)
+    fireEvent.click(rowOf('video_generation'))
     expect(screen.queryByTestId('tool-media-video')).toBeNull()
     expect(screen.getByText('参数')).toBeTruthy()
   })
@@ -357,7 +389,7 @@ describe('ToolCallCard media rendering (music/video)', () => {
         status="success"
       />,
     )
-    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    fireEvent.click(rowOf('read_file'))
     expect(screen.queryByTestId('tool-media-audio')).toBeNull()
     expect(screen.queryByTestId('tool-media-video')).toBeNull()
   })

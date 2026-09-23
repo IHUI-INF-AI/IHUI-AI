@@ -8,6 +8,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
+  Compass,
   ChevronLeft,
   Loader2,
   Shield,
@@ -28,23 +29,24 @@ import type {
   WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
+import { permissionTierText } from '@/lib/permission-tier-text'
+// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
+
+// G-164:补 plan 档 —— 本表键类型就是 WorkspacePermissionMode 本身,少一档就编译不过
+// (上一版正是这样让 plan "类型里有、界面上永远没有")。
+// 档名不在这里(G-166):一律经 permissionTierText() 走跨端共享词表。
 const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: string }> = {
+  plan: { icon: Compass, color: 'text-sky-500' },
   default: { icon: ShieldAlert, color: 'text-muted-foreground' },
   'accept-edits': { icon: ShieldCheck, color: 'text-emerald-500' },
   'bypass-permissions': { icon: Shield, color: 'text-amber-500' },
 }
 
-/** i18n 静态映射表 — 用于消除 `tw(\`mode.${var}.title\`)` 动态拼接 */
-const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
-  default: 'mode.default.title',
-  'accept-edits': 'mode.accept-edits.title',
-  'bypass-permissions': 'mode.bypass-permissions.title',
-}
-
 export default function WorkspacePermissionsPage() {
   const t = useTranslations('workspace.permissionsPage')
-  const tw = useTranslations('workspace.permission')
+  // G-166:档位名走跨端共享词表(permissionTier),不再用 workspace.permission.mode.*
+  const tTier = useTranslations()
   const { data: permissions, isLoading } = useAllWorkspacePermissions()
   const deleteMutation = useDeleteWorkspacePermission()
   const [editing, setEditing] = React.useState<WorkspacePermission | null>(null)
@@ -109,7 +111,7 @@ export default function WorkspacePermissionsPage() {
                             : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {tw(MODE_TITLE_KEY[perm.mode] ?? 'mode.unknown.title')}
+                      {permissionTierText(perm.mode, tTier).title}
                     </span>
                   </div>
                   <p className="font-mono text-xs text-muted-foreground truncate">

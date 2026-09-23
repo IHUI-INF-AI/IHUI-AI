@@ -4,6 +4,7 @@
 
 'use client'
 
+import * as React from 'react'
 import { Check } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -41,55 +42,52 @@ export function AgreementCheckbox({
   privacyHref = '/agreement/privacy-policy',
   className,
 }: AgreementCheckboxProps) {
+  const labelId = React.useId()
   return (
-    // 注意:此处用 <label> 作为视觉容器但**不关联任何 <input>**。
-    // 原因:之前用 <label> 包裹 <span role="checkbox"> + sr-only <input> 模式时,
-    // 浏览器在 click 后会通过 label 的 default 行为把焦点转移给 hidden input,
-    // 导致用户在密码框外按 Enter 触发的是 input 的 native toggle(取消勾选),
-    // 而不是 form submit。
-    // 现在让 <label> 自身充当 checkbox(无 labeled control,label 没有 default 行为):
-    //   - click label:不转移焦点(label 没有 associated control,label 的 default 行为是 focus/click input,此处不适用)
-    //   - Enter on label:onKeyDown 触发 form.requestSubmit() 走 form submit
-    //   - a11y:role="checkbox" + aria-checked + tabIndex={0} 由 label 直接提供
-    // 配套:内嵌 <a> 链接用 e.stopPropagation() 阻止冒泡到 label.onClick,
-    //      避免点击链接时 toggle 复选框。
+    // 2026-09-22 非法嵌套根治:原 <label role="checkbox" tabIndex={0}> 把"勾选控件"的语义压在
+    // 整块文字上,内部两枚 <a href> 遂成 interactive-in-interactive,且 role=checkbox 缺 aria-checked
+    // 之外的名字。现按 apps/web 版同口径把 role/aria-checked/tabIndex 下放到真正表示勾选框的内层
+    // span,外层 <label> 只留点击代理职责(不再有任何 role/tabIndex)。
+    // 点文字切换勾选走 label ↔ sr-only input 的原生关联(不再靠 stopPropagation 维持正确性);
+    // 两枚 <a> 因是 label 的 interactive content 后代,浏览器本就不会把点击转发给控件。
     <label
-      role="checkbox"
-      tabIndex={0}
-      aria-checked={checked}
       data-testid="agreement-checkbox"
-      onClick={(e) => {
-        // 阻止内部 <a> 链接冒泡(链接自带 onClick stopPropagation,
-        // 这里防御性再处理一次,避免第三方代码改动打破隔离)
-        if ((e.target as HTMLElement).closest('a')) return
-        e.preventDefault()
-        onChange(!checked)
-      }}
-      onKeyDown={(e) => {
-        if (e.key === ' ') {
-          // Space:标准 checkbox 切换行为
-          e.preventDefault()
-          onChange(!checked)
-        } else if (e.key === 'Enter') {
-          // Enter:提交所在表单(等于点击登录按钮),不 toggle 复选框。
-          // 这是用户期望的核心交互:账号/密码填完 + 勾选协议 + Enter 等同点击「登录」按钮。
-          e.preventDefault()
-          const form = e.currentTarget.closest('form')
-          if (form instanceof HTMLFormElement) form.requestSubmit()
-        }
-      }}
       className={cn(
-        'group flex cursor-pointer items-start gap-2 select-none rounded-sm outline-none',
-        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        'group flex cursor-pointer items-start gap-2 select-none rounded-sm',
         className,
       )}
     >
       <span
-        aria-hidden="true"
+        role="checkbox"
+        aria-checked={checked}
+        aria-labelledby={labelId}
+        tabIndex={0}
+        data-testid="agreement-checkbox-box"
+        onClick={(e) => {
+          // preventDefault 掐掉 label 的默认转发(否则 sr-only input 会被再点一次 → 双切换),
+          // 同时避免焦点被交给隐藏 input(历史回归:焦点落在 input 上后在别处按 Enter
+          // 触发的是 input 的 native toggle,而不是 form submit)。
+          e.preventDefault()
+          onChange(!checked)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === ' ') {
+            // Space:标准 checkbox 切换行为
+            e.preventDefault()
+            onChange(!checked)
+          } else if (e.key === 'Enter') {
+            // Enter:提交所在表单(等于点击登录按钮),不 toggle 复选框。
+            // 这是用户期望的核心交互:账号/密码填完 + 勾选协议 + Enter 等同点击「登录」按钮。
+            e.preventDefault()
+            const form = e.currentTarget.closest('form')
+            if (form instanceof HTMLFormElement) form.requestSubmit()
+          }
+        }}
         className={cn(
+          'mt-[1px] flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border outline-none transition-all duration-200',
+          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           // 2026-08-13 修订:勾选态改为 border-transparent
           // 与共享 Checkbox 保持全局一致(避免 1px 描边感,完全靠 bg-primary 填充提供视觉边界)
-          'mt-[1px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
           error
             ? 'border-destructive'
             : checked
@@ -99,7 +97,15 @@ export function AgreementCheckbox({
       >
         {checked && <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />}
       </span>
-      <span className="text-xs leading-5 text-muted-foreground">
+      {/* 真实可标记控件:承载 label 的点击代理与 accessible name 计算,不参与 Tab 序列 */}
+      <input
+        type="checkbox"
+        className="sr-only"
+        tabIndex={-1}
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span id={labelId} className="text-xs leading-5 text-muted-foreground">
         {t('auth.agreePrefix')}
         <a
           href={termsHref}

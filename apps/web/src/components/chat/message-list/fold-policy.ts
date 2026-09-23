@@ -86,4 +86,42 @@ export function resolveInitialStepsOpen(mode: FoldPolicyMode, input: FoldPolicyI
   if (mode === 'expanded') return true
   return !shouldCollapseSteps(input)
 }
+
+// ─── D58 工具类目聚合层接入(2026-09-23 · G-71/G-72) ─────────────────
+// 不新建第二套分组逻辑:类目映射与纯函数全部来自唯一入口 tool-category.ts,
+// 此处仅做"展开策略与 D21 折叠策略联动"的整合,供 tool-call-summary-card.tsx 复用。
+
+export {
+  CATEGORY_TABLE,
+  CATEGORY_TABLE_BY_KEY,
+  resolveToolCategory,
+  aggregateCategoryRuns,
+  summarizeCategoriesByTool,
+  sortRuns,
+  type CategoryKey,
+  type CategoryDef,
+  type ExpandStrategy,
+  type CategoryRun,
+  type ToolNameCount,
+} from '@/components/ai/progress-sections/tool-category'
+
+import type { ExpandStrategy } from '@/components/ai/progress-sections/tool-category'
+
+/**
+ * 类目卡的"默认展开态"决策(与 shouldCollapseSteps 同源,不另起判定):
+ * - 'expand'   → 恒展开(对标 Qoder 全程可见偏好)
+ * - 'collapse' → 恒收起(思考/结束等阶段标记,默认让位正文)
+ * - 'auto'     → 跟随 D21 自适应策略(轻任务展开、重任务折叠)
+ *
+ * 返回的是"默认初值";用户显式操作(D21 规则①)永远最高优先,此处结果不被用于覆盖它。
+ * 纯函数,可单测。
+ */
+export function resolveCategoryInitialOpen(
+  strategy: ExpandStrategy,
+  input: FoldPolicyInput,
+): boolean {
+  if (strategy === 'expand') return true
+  if (strategy === 'collapse') return false
+  return !shouldCollapseSteps(input)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

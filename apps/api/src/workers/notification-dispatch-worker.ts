@@ -12,6 +12,7 @@ import {
   type Job,
 } from '../plugins/queue.js'
 import { sendEmail } from '../services/email-service.js'
+import { renderNoticeEmail } from '../services/email-templates.js'
 import { sendSmsMessage } from '../services/sms.js'
 import { db } from '../db/index.js'
 
@@ -35,11 +36,17 @@ export function startNotificationDispatchWorker(server: FastifyInstance): Worker
 
       try {
         if (channel === 'email') {
+          const rendered = renderNoticeEmail({
+            tag: 'SYSTEM // NOTICE',
+            title,
+            userName: nickname ?? undefined,
+            content,
+          })
           const result = await sendEmail({
             to: email!,
-            subject: title,
-            html: `<h2>Hi ${nickname ?? email},</h2><p>${content}</p>`,
-            text: content,
+            subject: rendered.subject,
+            html: rendered.html,
+            text: rendered.text,
           })
           if (result.sent) {
             status = 'sent'

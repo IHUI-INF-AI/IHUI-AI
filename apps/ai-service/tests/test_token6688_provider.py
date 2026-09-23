@@ -142,7 +142,7 @@ async def test_generate_image_body_error_on_200_raises():
         await p.generate_image("x")
 
 
-async def test_generate_image_default_model_gpt_image_2():
+async def test_generate_image_default_model_gpt_image_2_5_flare():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(200, {"data": [{"url": "https://x/y.png"}]}))
@@ -151,7 +151,7 @@ async def test_generate_image_default_model_gpt_image_2():
     args, kwargs = client.request.call_args
     assert args[0] == "POST"
     assert args[1] == "https://k.token6688.com/v1/images/generations"
-    assert kwargs["json"]["model"] == "gpt-image-2"
+    assert kwargs["json"]["model"] == "gpt-image-2.5-flare"
 
 
 async def test_generate_image_empty_raises():
@@ -1005,7 +1005,7 @@ async def test_media_generate_sync_image_shape():
     client = MagicMock()
     client.request = AsyncMock(return_value=_json_resp(200, {"url": "https://cdn.example.com/i.png"}))
     with _patch_http_client(client):
-        out = await p.media_generate("gpt-image-2", "一只猫", params={"mode": "text-to-image"})
+        out = await p.media_generate("gpt-image-2.5-flare", "一只猫", params={"mode": "text-to-image"})
     assert out["status"] == "completed"
     assert out["media_url"] == "https://cdn.example.com/i.png"
 
