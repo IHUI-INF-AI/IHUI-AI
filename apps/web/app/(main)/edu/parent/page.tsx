@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import {
   Users,
   UserPlus,
@@ -134,20 +133,24 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /* ─── Constants ─── */
 
-const RELATIONSHIP_OPTIONS = ['father', 'mother', 'guardian', 'other']
+const RELATIONSHIP_OPTIONS = [
+  { value: 'father', label: '父亲' },
+  { value: 'mother', label: '母亲' },
+  { value: 'guardian', label: '监护人' },
+  { value: 'other', label: '其他' },
+]
 
-/** 关系码 → eduParent 取词键;渲染处 t(key),未知码回退原码 */
-const RELATIONSHIP_LABEL_KEYS: Record<string, string> = {
-  father: 'relationshipFather',
-  mother: 'relationshipMother',
-  guardian: 'relationshipGuardian',
-  other: 'relationshipOther',
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  father: '父亲',
+  mother: '母亲',
+  guardian: '监护人',
+  other: '其他',
 }
 
-const BINDING_STATUS_KEYS: Record<string, string> = {
-  pending: 'bindingStatusPending',
-  confirmed: 'bindingStatusConfirmed',
-  rejected: 'bindingStatusRejected',
+const BINDING_STATUS_LABELS: Record<string, string> = {
+  pending: '待确认',
+  confirmed: '已确认',
+  rejected: '已拒绝',
 }
 
 const BINDING_STATUS_STYLES: Record<string, string> = {
@@ -156,30 +159,22 @@ const BINDING_STATUS_STYLES: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
 }
 
-const WEEKDAY_KEYS = [
-  'weekdayMon',
-  'weekdayTue',
-  'weekdayWed',
-  'weekdayThu',
-  'weekdayFri',
-  'weekdaySat',
-  'weekdaySun',
-]
+const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
-const MEAL_TYPE_KEYS: Record<string, string> = {
-  breakfast: 'mealBreakfast',
-  lunch: 'mealLunch',
-  dinner: 'mealDinner',
-  snack: 'mealSnack',
+const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: '早餐',
+  lunch: '午餐',
+  dinner: '晚餐',
+  snack: '加餐',
 }
 
 const MEAL_TYPE_ORDER = ['breakfast', 'lunch', 'dinner', 'snack']
 
-const STUDY_PLAN_STATUS_KEYS: Record<string, string> = {
-  draft: 'planStatusDraft',
-  active: 'planStatusActive',
-  completed: 'planStatusCompleted',
-  archived: 'planStatusArchived',
+const STUDY_PLAN_STATUS_LABELS: Record<string, string> = {
+  draft: '草稿',
+  active: '进行中',
+  completed: '已完成',
+  archived: '已归档',
 }
 
 const STUDY_PLAN_STATUS_STYLES: Record<string, string> = {
@@ -189,12 +184,12 @@ const STUDY_PLAN_STATUS_STYLES: Record<string, string> = {
   archived: 'bg-amber-100 text-amber-700',
 }
 
-const ATTENDANCE_STATUS_KEYS: Record<string, string> = {
-  present: 'attendancePresent',
-  late: 'attendanceLate',
-  early: 'attendanceEarly',
-  absent: 'attendanceAbsent',
-  leave: 'attendanceLeave',
+const ATTENDANCE_STATUS_LABELS: Record<string, string> = {
+  present: '正常',
+  late: '迟到',
+  early: '早退',
+  absent: '缺勤',
+  leave: '请假',
 }
 
 const ATTENDANCE_STATUS_STYLES: Record<string, string> = {
@@ -205,20 +200,9 @@ const ATTENDANCE_STATUS_STYLES: Record<string, string> = {
   leave: 'bg-blue-100 text-blue-700',
 }
 
-/* ─── i18n Helper ─── */
-
-type Translator = (key: string) => string
-
-/** 码 → 取词键 → 本地化文案;未知码回退原码(与后端比对的全是英文码,不参与中文匹配) */
-function codeLabel(t: Translator, keys: Record<string, string>, code: string): string {
-  const key = keys[code]
-  return key ? t(key) : code
-}
-
 /* ─── Main Page ─── */
 
 export default function ParentPortalPage() {
-  const t = useTranslations('eduParent')
   const [activeTab, setActiveTab] = React.useState('children')
   const [selectedChildId, setSelectedChildId] = React.useState<string | null>(null)
   const [childSubTab, setChildSubTab] = React.useState('courses')
@@ -242,19 +226,19 @@ export default function ParentPortalPage() {
     <div className="space-y-4 px-4 py-4">
       <BackButton />
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">家长门户</h1>
+        <p className="text-xs text-muted-foreground">查看孩子信息、管理绑定关系</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="children">
             <Users className="mr-1.5 h-4 w-4" />
-            {t('tabMyChildren')}
+            我的孩子
           </TabsTrigger>
           <TabsTrigger value="bindings">
             <Link2 className="mr-1.5 h-4 w-4" />
-            {t('tabBindings')}
+            绑定管理
           </TabsTrigger>
         </TabsList>
 
@@ -299,21 +283,19 @@ function ChildrenListView({
   error: Error | null
   onSelectChild: (id: string) => void
 }) {
-  const t = useTranslations('eduParent')
-
   if (isLoading) {
     return (
       <Card>
         <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
+          加载中...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('childrenLoadFailed')} />
+    return <Alert variant="danger" description="加载孩子信息失败，请稍后重试" />
   }
 
   if (items.length === 0) {
@@ -321,8 +303,8 @@ function ChildrenListView({
       <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed py-12">
         <Users className="h-12 w-12 text-muted-foreground" />
         <div className="text-center">
-          <p className="text-sm font-medium">{t('emptyNoChildren')}</p>
-          <p className="text-xs text-muted-foreground">{t('emptyNoChildrenHint')}</p>
+          <p className="text-sm font-medium">暂无已绑定的孩子</p>
+          <p className="text-xs text-muted-foreground">请先在"绑定管理"标签页中添加并确认绑定</p>
         </div>
       </div>
     )
@@ -343,7 +325,7 @@ function ChildrenListView({
             <div className="flex-1">
               <p className="text-sm font-medium">{child.studentId}</p>
               <p className="text-xs text-muted-foreground">
-                {codeLabel(t, RELATIONSHIP_LABEL_KEYS, child.relationship)}
+                {RELATIONSHIP_LABELS[child.relationship] ?? child.relationship}
               </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
@@ -367,16 +349,15 @@ function ChildDetailView({
   onSubTabChange: (tab: string) => void
   onBack: () => void
 }) {
-  const t = useTranslations('eduParent')
   const childId = child.studentId
-  const relationship = codeLabel(t, RELATIONSHIP_LABEL_KEYS, child.relationship)
+  const relationship = RELATIONSHIP_LABELS[child.relationship] ?? child.relationship
 
   const SUB_TABS = [
-    { value: 'courses', labelKey: 'subTabCourses', icon: BookOpen },
-    { value: 'meals', labelKey: 'subTabMeals', icon: UtensilsCrossed },
-    { value: 'study-plans', labelKey: 'subTabStudyPlans', icon: ClipboardList },
-    { value: 'grades', labelKey: 'subTabGrades', icon: Award },
-    { value: 'attendance', labelKey: 'subTabAttendance', icon: CalendarCheck },
+    { value: 'courses', label: '课程表', icon: BookOpen },
+    { value: 'meals', label: '菜谱', icon: UtensilsCrossed },
+    { value: 'study-plans', label: '学习计划', icon: ClipboardList },
+    { value: 'grades', label: '成绩', icon: Award },
+    { value: 'attendance', label: '考勤', icon: CalendarCheck },
   ]
 
   return (
@@ -406,7 +387,7 @@ function ChildDetailView({
           {SUB_TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
               <tab.icon className="mr-1.5 h-4 w-4" />
-              {t(tab.labelKey)}
+              {tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -438,7 +419,6 @@ function ChildDetailView({
 /* ─── Courses View ─── */
 
 function CoursesView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
     queryFn: () =>
@@ -456,34 +436,34 @@ function CoursesView({ childId }: { childId: string }) {
       <Card>
         <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingCourses')}
+          加载课程表...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('coursesLoadFailed')} />
+    return <Alert variant="danger" description="加载课程表失败" />
   }
 
   if (courses.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <BookOpen className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoCourses')}</p>
+        <p className="text-sm text-muted-foreground">暂无课程安排</p>
       </div>
     )
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
-      {WEEKDAY_KEYS.map((dayKey, idx) => {
+      {WEEKDAY_LABELS.map((dayLabel, idx) => {
         const dayCourses = grouped[idx + 1]
         if (!dayCourses) return null
         return (
           <Card key={idx}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">{t(dayKey)}</CardTitle>
+              <CardTitle className="text-sm font-medium">{dayLabel}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {dayCourses.map((c) => (
@@ -523,7 +503,6 @@ function CoursesView({ childId }: { childId: string }) {
 /* ─── Meals View ─── */
 
 function MealsView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'meals'],
     queryFn: () =>
@@ -541,21 +520,21 @@ function MealsView({ childId }: { childId: string }) {
       <Card>
         <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingMeals')}
+          加载菜谱...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('mealsLoadFailed')} />
+    return <Alert variant="danger" description="加载菜谱失败" />
   }
 
   if (meals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <UtensilsCrossed className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoMeals')}</p>
+        <p className="text-sm text-muted-foreground">暂无菜谱信息</p>
       </div>
     )
   }
@@ -569,7 +548,7 @@ function MealsView({ childId }: { childId: string }) {
           <Card key={type}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">
-                {codeLabel(t, MEAL_TYPE_KEYS, type)}
+                {MEAL_TYPE_LABELS[type] ?? type}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -593,7 +572,6 @@ function MealsView({ childId }: { childId: string }) {
 /* ─── Study Plans View ─── */
 
 function StudyPlansView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'study-plans'],
     queryFn: () =>
@@ -609,21 +587,21 @@ function StudyPlansView({ childId }: { childId: string }) {
       <Card>
         <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingStudyPlans')}
+          加载学习计划...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('studyPlansLoadFailed')} />
+    return <Alert variant="danger" description="加载学习计划失败" />
   }
 
   if (plans.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <ClipboardList className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoStudyPlans')}</p>
+        <p className="text-sm text-muted-foreground">暂无学习计划</p>
       </div>
     )
   }
@@ -643,7 +621,7 @@ function StudyPlansView({ childId }: { childId: string }) {
                 {p.title}
               </CardTitle>
               <Badge className={STUDY_PLAN_STATUS_STYLES[p.status] ?? ''}>
-                {codeLabel(t, STUDY_PLAN_STATUS_KEYS, p.status)}
+                {STUDY_PLAN_STATUS_LABELS[p.status] ?? p.status}
               </Badge>
             </div>
           </CardHeader>
@@ -665,7 +643,6 @@ function StudyPlansView({ childId }: { childId: string }) {
 /* ─── Grades View ─── */
 
 function GradesView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'grades'],
     queryFn: () =>
@@ -691,21 +668,21 @@ function GradesView({ childId }: { childId: string }) {
       <Card>
         <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingGrades')}
+          加载成绩...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('gradesLoadFailed')} />
+    return <Alert variant="danger" description="加载成绩失败" />
   }
 
   if (grades.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Award className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoGrades')}</p>
+        <p className="text-sm text-muted-foreground">暂无成绩记录</p>
       </div>
     )
   }
@@ -741,7 +718,7 @@ function GradesView({ childId }: { childId: string }) {
                   style={{ width: `${s.percentage}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{t('examCount', { count: s.count })}</p>
+              <p className="text-xs text-muted-foreground">{s.count} 次考试</p>
             </CardContent>
           </Card>
         ))}
@@ -749,7 +726,7 @@ function GradesView({ childId }: { childId: string }) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{t('gradeDetails')}</CardTitle>
+          <CardTitle className="text-sm font-medium">成绩明细</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -797,7 +774,6 @@ function GradesView({ childId }: { childId: string }) {
 /* ─── Attendance View ─── */
 
 function AttendanceView({ childId }: { childId: string }) {
-  const t = useTranslations('eduParent')
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'attendance'],
     queryFn: () =>
@@ -822,21 +798,21 @@ function AttendanceView({ childId }: { childId: string }) {
       <Card>
         <CardContent className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loadingAttendance')}
+          加载考勤...
         </CardContent>
       </Card>
     )
   }
 
   if (error) {
-    return <Alert variant="danger" description={t('attendanceLoadFailed')} />
+    return <Alert variant="danger" description="加载考勤记录失败" />
   }
 
   if (records.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <CalendarCheck className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t('emptyNoAttendance')}</p>
+        <p className="text-sm text-muted-foreground">暂无考勤记录</p>
       </div>
     )
   }
@@ -847,38 +823,38 @@ function AttendanceView({ childId }: { childId: string }) {
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-2xl font-bold">{attendanceRate}%</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceRate')}</p>
+            <p className="text-xs text-muted-foreground">出勤率</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
-            <p className="text-xs text-muted-foreground">{t('attendancePresent')}</p>
+            <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.present}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceLate')}</p>
+            <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.late}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceAbsent')}</p>
+            <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.absent}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="min-[640px]:p-3 p-3 text-center">
             <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
-            <p className="text-xs text-muted-foreground">{t('attendanceLeave')}</p>
+            <p className="text-xs text-muted-foreground">{ATTENDANCE_STATUS_LABELS.leave}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{t('checkInRecords')}</CardTitle>
+          <CardTitle className="text-sm font-medium">签到记录</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -890,7 +866,7 @@ function AttendanceView({ childId }: { childId: string }) {
                 <div className="flex items-center gap-3">
                   <div className="text-sm font-medium">{r.date}</div>
                   <Badge className={ATTENDANCE_STATUS_STYLES[r.status] ?? ''}>
-                    {codeLabel(t, ATTENDANCE_STATUS_KEYS, r.status)}
+                    {ATTENDANCE_STATUS_LABELS[r.status] ?? r.status}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -925,7 +901,6 @@ function AttendanceView({ childId }: { childId: string }) {
 /* ─── Bindings Management ─── */
 
 function BindingsManagement() {
-  const t = useTranslations('eduParent')
   const queryClient = useQueryClient()
 
   const [studentId, setStudentId] = React.useState('')
@@ -1000,21 +975,21 @@ function BindingsManagement() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
             <UserPlus className="h-4 w-4 text-primary" />
-            {t('addBinding')}
+            添加绑定
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('studentIdLabel')}</p>
+              <p className="text-sm font-medium">学生ID</p>
               <Input
                 value={studentId}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStudentId(e.target.value)}
-                placeholder={t('studentIdPlaceholder')}
+                placeholder="请输入学生ID"
               />
             </div>
             <div className="space-y-2">
-              <p className="text-sm font-medium">{t('relationshipField')}</p>
+              <p className="text-sm font-medium">关系</p>
               <select
                 value={relationship}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
@@ -1022,9 +997,9 @@ function BindingsManagement() {
                 }
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {RELATIONSHIP_OPTIONS.map((value) => (
-                  <option key={value} value={value}>
-                    {codeLabel(t, RELATIONSHIP_LABEL_KEYS, value)}
+                {RELATIONSHIP_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
                   </option>
                 ))}
               </select>
@@ -1035,13 +1010,13 @@ function BindingsManagement() {
               ) : (
                 <Link2 className="mr-2 h-4 w-4" />
               )}
-              {t('submitBinding')}
+              提交绑定
             </Button>
             {createMutation.isError && (
               <Alert variant="danger" description={(createMutation.error as Error).message} />
             )}
             {createMutation.isSuccess && (
-              <Alert variant="success" description={t('bindingSubmitted')} />
+              <Alert variant="success" description="绑定请求已提交，等待确认" />
             )}
           </form>
         </CardContent>
@@ -1052,7 +1027,7 @@ function BindingsManagement() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Link2 className="h-4 w-4 text-primary" />
-            {t('bindingRecords')}
+            绑定记录
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -1061,7 +1036,7 @@ function BindingsManagement() {
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : bindings.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('emptyNoBindings')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">暂无绑定记录</p>
           ) : (
             <div className="space-y-3">
               {bindings.map((b) => (
@@ -1073,18 +1048,19 @@ function BindingsManagement() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{b.studentId}</span>
                       <Badge className={BINDING_STATUS_STYLES[b.status] ?? ''}>
-                        {codeLabel(t, BINDING_STATUS_KEYS, b.status)}
+                        {BINDING_STATUS_LABELS[b.status] ?? b.status}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {t('relationshipPrefix')}{' '}
-                      {codeLabel(t, RELATIONSHIP_LABEL_KEYS, b.relationship)}
+                      关系:{' '}
+                      {RELATIONSHIP_OPTIONS.find((o) => o.value === b.relationship)?.label ??
+                        b.relationship}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {b.status === 'pending' && (
                       <>
-                        <Tooltip content={t('actionConfirm')}>
+                        <Tooltip content="确认">
                           <button
                             onClick={() => confirmMutation.mutate(b.id)}
                             className="rounded-lg p-2 text-emerald-600 transition-colors hover:bg-emerald-50"
@@ -1092,7 +1068,7 @@ function BindingsManagement() {
                             <CheckCircle2 className="h-4 w-4" />
                           </button>
                         </Tooltip>
-                        <Tooltip content={t('actionReject')}>
+                        <Tooltip content="拒绝">
                           <button
                             onClick={() => rejectMutation.mutate(b.id)}
                             className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
@@ -1102,7 +1078,7 @@ function BindingsManagement() {
                         </Tooltip>
                       </>
                     )}
-                    <Tooltip content={t('actionDelete')}>
+                    <Tooltip content="删除">
                       <button
                         onClick={() => setShowDeleteId(b.id)}
                         className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent"
@@ -1121,11 +1097,11 @@ function BindingsManagement() {
       {/* 删除确认对话框 */}
       <ConfirmDialog
         open={showDeleteId !== null}
-        title={t('confirmDelete')}
-        content={t('confirmDeleteContent')}
+        title="确认删除"
+        content="确定要解除该绑定关系吗？此操作不可撤销。"
         variant="danger"
-        confirmText={t('confirmDelete')}
-        cancelText={t('cancel')}
+        confirmText="确认删除"
+        cancelText="取消"
         loading={deleteMutation.isPending}
         onConfirm={() => showDeleteId && deleteMutation.mutate(showDeleteId)}
         onCancel={() => setShowDeleteId(null)}
