@@ -149,7 +149,7 @@ export function ArticleListScreen({
           ListEmptyComponent={
             /* P2 修复:空状态添加 Newspaper 图标 + 引导文字 + 刷新按钮 */
             <View style={styles.centerWrap}>
-              <Newspaper size={48} color={tk.text.tertiary} />
+              <Newspaper size={48} color={tk.text.secondary} />
               <Text style={styles.emptyText}>{t('articleList.empty')}</Text>
               <Pressable
                 style={styles.refreshBtn}
@@ -195,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
       gap: 12,
     },
-    backText: { fontSize: 16, color: tk.text.medium },
+    backText: { fontSize: 16, color: tk.text.primary },
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
     listBody: { padding: 10 },
     separator: { height: 12 },
@@ -237,8 +237,8 @@ function createStyles(tk: AppThemeTokens) {
       padding: 24,
       gap: 12,
     },
-    /* 空态文字(P2) */
-    emptyText: { fontSize: 16, color: tk.text.tertiary },
+    /* 空态文字(P2)— text.secondary 保证深色下可读(tertiary 在深色下过暗) */
+    emptyText: { fontSize: 16, color: tk.text.secondary },
     /* 错误态文字(P3) */
     errorText: {
       fontSize: 15,
