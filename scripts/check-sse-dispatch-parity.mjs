@@ -143,6 +143,7 @@ export function collectHitMap(data, callbacks) {
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
     })
   } catch (e) {
     raw = typeof e?.stdout === 'string' ? e.stdout : ''
