@@ -237,7 +237,7 @@ describe('PermissionManager.checkWorkspace', () => {
     expect(result.reason).toContain('拒绝')
   })
 
-  it('case 6: 未配置权限(perm=null)→ mode=unset + allowed=false', async () => {
+  it('case 6: 未配置权限(perm=null)→ configured=false + mode=null + allowed=false', async () => {
     setPermissionMode(null)
     const result = await permissionManager.checkWorkspace({
       userId: USER,
@@ -246,11 +246,41 @@ describe('PermissionManager.checkWorkspace', () => {
       args: { path: '/workspace/a.ts' },
     })
     expect(result.allowed).toBe(false)
-    expect(result.mode).toBe('unset')
+    expect(result.configured).toBe(false)
+    expect(result.mode).toBeNull()
     expect(result.reason).toContain('未配置')
     expect(result.requestId).toBeUndefined()
     // 不应触发人工审计(perm 不存在直接拒绝,引导先 setup)
     expect(mockPushFn).not.toHaveBeenCalled()
+  })
+
+  it('case 6b: 未配置 → HTTP 401,已配置拒绝 → HTTP 403(消费侧语义不变)', async () => {
+    // 消费点逻辑:const statusCode = decision.configured ? 403 : 401
+    setPermissionMode(null)
+    const unset = await permissionManager.checkWorkspace({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'fs.read',
+      args: { path: '/workspace/a.ts' },
+    })
+    expect(unset.configured).toBe(false)
+    expect(unset.mode).toBeNull() // 不得再回退 'unset' 哨兵字面量
+    expect(unset.configured ? 403 : 401).toBe(401) // 未配置 → 401 引导先 setup
+
+    // 已配置但拒绝:default 档对 fs.delete 走人工审计,解锁 deny
+    setPermissionMode('default')
+    const promise = permissionManager.checkWorkspace({
+      userId: USER,
+      workspacePath: WORKSPACE,
+      tool: 'fs.delete',
+      args: { path: '/workspace/unknown.txt' },
+    })
+    await flushTick()
+    const pendingReq = permissionManager.listWorkspacePending(USER)[0]!
+    permissionManager.resolveWorkspace(pendingReq.requestId, USER, false, '敏感路径,拒绝')
+    const denied = await promise
+    expect(denied.configured).toBe(true)
+    expect(denied.configured ? 403 : 401).toBe(403) // 已配置拒绝 → 403
   })
 
   it('case 7: 60s 超时自动拒绝', async () => {
