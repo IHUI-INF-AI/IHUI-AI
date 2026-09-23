@@ -18,7 +18,7 @@
  * 兼容:保留旧版「32×32 工具按钮阵列」props 契约(items/separators/activeKey/style),
  * 当 items 非空时在其上渲染横向工具条,确保既有调用方(HomeScreen)不破坏。
  *
- * 配色走 web token(rnLightTokens):brand 黑 / success 绿 / warning 橙 / danger 红,禁用 purple/indigo。
+ * 配色走 web token(主题 token 入口):brand 黑 / success 绿 / warning 橙 / danger 红,禁用 purple/indigo。
  * 尺寸 rpx→dp 2:1,标题 16 / 正文 14 / 辅助 12。字体已全局生效,不设 fontFamily。
  */
 import { useEffect, useMemo, useRef } from 'react'
@@ -33,7 +33,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   Bot,
   Film,

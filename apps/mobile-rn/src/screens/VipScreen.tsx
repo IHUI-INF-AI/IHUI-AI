@@ -16,7 +16,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { QrCode } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   checkPaymentStatus,
   createOrder,
