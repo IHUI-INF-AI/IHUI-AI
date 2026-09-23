@@ -82,30 +82,37 @@ curl -X POST https://api.example.com/v1/webhooks \
 
 ### 签名验证
 
-Webhook请求包含签名，用于验证请求来源：
+**仅适用于开发者平台的 relay 事件订阅**(`POST /api/developer/webhooks/subscriptions`)。
+平台发送的头是 `X-IHUI-Signature: sha256=<hex>`,签名对象为**请求体的原始字节串**,
+Secret 只在创建订阅时返回一次(丢失需重建订阅)。
+证据:`apps/api/src/services/webhook-relay-notifier.ts:84-96`(带头)、`:159-165`(签名对象)、
+`apps/api/src/routes/developer/webhooks.ts:200-221`(secret 一次性下发)。
 
 ```javascript
 const crypto = require('crypto')
 
-function verifyWebhookSignature(payload, signature, secret) {
-  const hmac = crypto.createHmac('sha256', secret)
-  const digest = hmac.update(payload).digest('hex')
-  return digest === signature
+function verifyWebhookSignature(rawBody, header, secret) {
+  if (typeof header !== 'string' || !header.startsWith('sha256=')) return false
+  const received = header.slice('sha256='.length)
+  if (received.length !== 64) return false // 先判长度,避免把任意输入喂进比对
+  const digest = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest()
+  // 必须比原始字节:JSON.stringify(req.body) 重排键序或改动空白都会让签名对不上
+  return crypto.timingSafeEqual(digest, Buffer.from(received, 'hex'))
 }
 
-app.post('/webhook', (req, res) => {
-  const signature = req.headers['x-webhook-signature']
-  const payload = JSON.stringify(req.body)
-  
-  if (!verifyWebhookSignature(payload, signature, WEBHOOK_SECRET)) {
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!verifyWebhookSignature(req.body, req.headers['x-ihui-signature'], WEBHOOK_SECRET)) {
     return res.status(401).send('Invalid signature')
   }
-  
-  // 处理事件
-  handleWebhookEvent(req.body)
+  handleWebhookEvent(JSON.parse(req.body.toString('utf8')))
   res.status(200).send('OK')
 })
 ```
+
+> **不要把它挂到 `/v1/messages/subscribe` 上。** 消息总线的回调**不附带任何签名头**
+> (`apps/ai-service/app/services/message_bus.py:392` 的投递只有 `client.post(url, json=payload)`),
+> 按上面这套验签会把 100% 真实回调判为无效。该链路的可用校验手段见
+> `docs/developer/best-practices.md` 的「`/v1/messages/subscribe` 的回调不附带任何签名头」一节。
 
 ## 重试机制
 

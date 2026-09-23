@@ -968,6 +968,25 @@
       "fieldTitle": "タイトル",
       "fieldType": "タイプ",
       "loading": "読み込み中...",
+      "maintenanceNotice": {
+        "action": "メンテナンス通知メール",
+        "desc": "「IHUI Bulletin」のメンテナンス通知レイアウトで、ステータスが正常でメールアドレスを登録済みのユーザーに一斉送信します",
+        "downtimePlaceholder": "例: 2時間",
+        "dryRun": "テスト実行（受信者数だけ集計し、実際には送信しません）",
+        "fieldDowntime": "想定停止時間",
+        "fieldLimit": "初回バッチ送信上限",
+        "fieldScope": "影響範囲",
+        "fieldWindow": "メンテナンス時間帯",
+        "limitInvalid": "初回バッチ送信上限は正の整数で入力してください",
+        "limitPlaceholder": "空欄の場合は全員に送信",
+        "required": "メンテナンス時間帯・影響範囲・想定停止時間をすべて入力してください",
+        "resultDryRun": "テスト実行完了：{total} 人の受信者に「{subject}」が届く予定です",
+        "resultSent": "送信完了：成功 {sent} 通 / 失敗 {failed} 通 / 通道未設定のため未送信 {stubbed} 通",
+        "scopePlaceholder": "例: API とコンソール",
+        "send": "送信",
+        "title": "メンテナンス通知メールを送信",
+        "windowPlaceholder": "例: 2026-09-25 02:00–04:00"
+      },
       "no": "いいえ",
       "noData": "なしデータ",
       "published": "公開済み",
@@ -7057,9 +7076,15 @@
     "pane": {
       "agentActions": {
         "title": "マルチエージェント操作",
-        "header": { "count": "{count, plural, other {# 個のエージェント}}" },
-        "row": { "agent": "{action} {agent}{stateSuffix}" },
-        "meta": { "prompt": "入力：{prompt}" },
+        "header": {
+          "count": "{count, plural, other {# 個のエージェント}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "入力：{prompt}"
+        },
         "action": {
           "spawn": {
             "label": "作成",
