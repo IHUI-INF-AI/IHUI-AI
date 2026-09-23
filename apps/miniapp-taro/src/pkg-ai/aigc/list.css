@@ -56,7 +56,7 @@
 .category-chip {
   flex: none;
   padding: 12rpx 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-card);
 }
 .category-chip.active {
@@ -91,7 +91,7 @@
 /* ===== 媒体卡片(RN mediaCard:flex1 radius12 border surface.light;cover 3:4)===== */
 .media-card {
   width: calc((100% - 24rpx) / 2);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
@@ -130,7 +130,7 @@
   top: 16rpx;
   left: 16rpx;
   padding: 8rpx 16rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-scrim);
   z-index: 2;
 }
@@ -168,7 +168,7 @@
 .text-card {
   width: 100%;
   padding: 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
   box-sizing: border-box;
@@ -214,7 +214,7 @@
   flex-direction: row;
   align-items: center;
   padding: 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
   box-sizing: border-box;
@@ -222,7 +222,7 @@
 .audio-cover {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   background: var(--color-border);
   flex-shrink: 0;
@@ -258,7 +258,7 @@
   align-items: center;
   justify-content: center;
   padding: 8rpx 20rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-success-light);
 }
 .audio-play-icon {

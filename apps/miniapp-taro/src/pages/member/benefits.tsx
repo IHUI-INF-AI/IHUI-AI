@@ -329,7 +329,7 @@ export default function BenefitsPage() {
             {list.map((b) => (
               <View
                 key={b.id}
-                className="bg-card border border-[var(--color-border)] rounded-[24rpx] p-[28rpx]"
+                className="bg-card border border-[var(--color-border)] rounded-xl p-[28rpx]"
               >
                 {b.icon ? (
                   <Text className="block text-[48rpx]">{b.icon}</Text>
@@ -366,7 +366,7 @@ export default function BenefitsPage() {
         {TIERS.map((tier) => (
           <View
             key={tier.key}
-            className="bg-card border border-[var(--color-border)] rounded-[24rpx] overflow-hidden mb-[24rpx]"
+            className="bg-card border border-[var(--color-border)] rounded-xl overflow-hidden mb-[24rpx]"
           >
             <View className={`flex items-center px-[28rpx] py-[24rpx] ${TIER_HEAD_CLASS}`}>
               {isImagePath(tier.icon) ? (
