@@ -130,6 +130,25 @@ function isCredentialDir(name) {
   return CREDENTIAL_DIR_NAMES.has(name.toLowerCase())
 }
 
+// 镜像源脚本 BACKUP_DIR_NAMES / BACKUP_DIR_PREFIXES(§22c 镜像常量)。
+// 2026-09-23 立:备份按用户策略集中到项目外唯一目录后,该目录正落在本守门 2 层扫描深度内,
+// 不整目录跳过的话,--auto-clean 会把备份里的 *.txt/*.log/*.tmp 当 agent 垃圾实删。
+const BACKUP_DIR_NAMES = new Set(['backups', 'pg_archives', 'archives', 'archive', 'quarantine'])
+const BACKUP_DIR_PREFIXES = [
+  'ihui-ai-git-repo',
+  'ihui-ai.git-backup',
+  'ihui-ai-backup',
+  'ihui-ai_workbak',
+  'ihui-ai-out-of-tree-artifacts',
+  'bak-inflight',
+]
+
+function isBackupDataDir(name) {
+  const n = name.toLowerCase()
+  if (BACKUP_DIR_NAMES.has(n)) return true
+  return BACKUP_DIR_PREFIXES.some((p) => n.startsWith(p))
+}
+
 function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some(p => p.test(filename))
 }
@@ -381,6 +400,44 @@ test('凭据库豁免不得扩大到普通目录(防把守门写成空门)', () 
   for (const name of ['tmp', 'logs', 'backup', 'Downloads', 'desktop', 'cache']) {
     assert.ok(!isCredentialDir(name), `${name} 不是凭据库目录,不应豁免`)
   }
+})
+
+test('备份目录:backups / pg_archives / quarantine / archives 整目录跳过', () => {
+  for (const n of ['backups', 'pg_archives', 'quarantine', 'archives', 'archive']) {
+    assert.ok(isBackupDataDir(n), `${n} 应被整目录豁免(防卫生守门删掉数据备份)`)
+  }
+})
+
+test('备份目录:§5b 禁删的 gitdir 与快照按前缀豁免(它们都带 IHUI- 前缀,天然命中强信号)', () => {
+  for (const n of [
+    'IHUI-AI-git-repo',
+    'IHUI-AI-git-repo.broken-1789311803691',
+    'IHUI-AI.git-backup-20260912',
+    'IHUI-AI-backup-20260911.git',
+    'IHUI-AI_workbak_20260910',
+    'IHUI-AI-out-of-tree-artifacts-20260912',
+    'Bak-inflight-20260912.tgz',
+  ]) {
+    assert.ok(isBackupDataDir(n), `${n} 应被豁免`)
+  }
+})
+
+test('备份豁免不得扩大到普通目录名(防把守门写成空门)', () => {
+  for (const n of ['tmp', 'Temp', 'logs', 'cache', 'tools', 'data', 'runtimes', 'Downloads', 'desktop']) {
+    assert.ok(!isBackupDataDir(n), `${n} 不是备份目录,不应豁免`)
+  }
+})
+
+test('§22c 镜像防漂移:源脚本备份豁免集合必须定义齐全且真接入 findPollution', () => {
+  const src = readFileSync(join(__dirname, '..', 'check-parent-pollution.mjs'), 'utf8')
+  assert.ok(src.includes('const BACKUP_DIR_NAMES'), '源脚本缺少 BACKUP_DIR_NAMES 定义')
+  assert.ok(src.includes('const BACKUP_DIR_PREFIXES'), '源脚本缺少 BACKUP_DIR_PREFIXES 定义')
+  assert.ok(
+    src.includes('isBackupDataDir(entry.name)'),
+    '源脚本 findPollution 未接入备份目录豁免(只定义不生效 = 空门)',
+  )
+  for (const n of BACKUP_DIR_NAMES) assert.ok(src.includes(`'${n}'`), `源脚本集合缺少 '${n}',测试镜像已漂移`)
+  for (const p of BACKUP_DIR_PREFIXES) assert.ok(src.includes(`'${p}'`), `源脚本前缀缺少 '${p}',测试镜像已漂移`)
 })
 
 test('§22c 镜像防漂移:源脚本 CREDENTIAL_DIR_NAMES 必须含测试镜像的每一项', () => {
