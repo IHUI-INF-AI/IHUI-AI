@@ -268,8 +268,6 @@ export function TerminalCard({ tasks }: { tasks: TerminalTaskView[] }) {
         <Text className="ai-card-section-title">{t('ai.cards.terminal.title')}</Text>
         <Text className="ai-card-section-count">{tasks.length}</Text>
       </View>
-      {/* 与 web terminal-section 同一句真值(os_sandbox allow_network 默认 False),措辞逐字同源于语言包 */}
-      <Text className="ai-card-section-note">{t('ai.cards.terminal.isolation')}</Text>
       {tasks.map((task, i) => (
         <TerminalTaskItem task={task} t={t} key={task.id || `term_${i}`} />
       ))}

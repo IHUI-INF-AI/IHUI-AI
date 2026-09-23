@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedIconText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,
