@@ -3336,6 +3336,17 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     → 已在 `f9a264f25b` 收口;②第二层 C 判据类(依赖被 `run build:static` 静默跳过)→ 本票收口并经
     CI 证明编译通过;③第三层根布局 cookies() → `856f5f1b4c` 收口;其后又叠了并发会话的漏加(第四因),
     已按归属如实登记。
+  - **终证被挡的确切范围(实测量化,不是"等一等"的托词)**:全仓扫"被**已提交**代码引用的**未跟踪**源码文件"
+    得 **9 个**:`packages/shared/src/chat/prompt-history.ts`(被已提交的 `chat/index.ts:21` `export *` 引用)另
+    `apps/web` 侧 8 个(`use-prompt-history.ts`←已提交 `message-input.tsx:53`、`plan-version-history.ts` /
+    `PlanVersionDiff.tsx` / `PlanVersionSwitcher.tsx`←已提交 `plan/[id]/PageClient.tsx`、`diff-staging.ts`←
+    `inline-diff-card.tsx`、`reply-annotation.tsx`←`MessageItem.tsx`、`use-upload-labels.ts`←`ImageUpload.tsx`、
+    `use-web-view-frame-labels.ts`←`web-work-panel.tsx`)。CI 只 checkout 已跟踪文件 ⇒ 编译面在他人补交前
+    不可能绿;把这 9 个半成品收进我名下即 §16 越权 + 可能引入未写完的逻辑,故不做,**逐个点名以留可核对清单**。
+  - **本地拿得到的最强替代取证(判据等价性,静态可核)**:`next.config.ts:23` 定义
+    `isStaticExport = EXPORT_STATIC==='true' || GITHUB_PAGES==='true'`,而 `:51` 正是用这同一个变量决定是否
+    `output:'export'`;我在 `app/layout.tsx` 用的是**同一表达式**(未另造开关),故"导出模式 ⇒ 不调 `cookies()`"
+    与"导出模式 ⇒ `output:'export'`"由同一真值驱动,不存在第二套判据漂移的空间。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
