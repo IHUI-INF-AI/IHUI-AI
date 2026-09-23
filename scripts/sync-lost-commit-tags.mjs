@@ -56,7 +56,7 @@
  *   - 手动验证: git gc 后跑 --fetch 拉回 + --check 确认一致
  *   - 定时任务: 每周一检查 tag 完整性(见 docs/lost-commit-archive.md 防护机制)
  */
-import { execSync } from 'node:child_process'
+import { execSync, execFileSync } from 'node:child_process'
 
 const C = {
   red: '\x1b[31m',
@@ -149,25 +149,56 @@ function listLocalBackupTags() {
   return out.split('\n').filter(Boolean).sort()
 }
 
+function lsRemoteTagNames(pattern) {
+  // IHUI_TAG_REMOTE 是**测试接缝**:注入一个不存在的远端名即可验证"取不到远端真值"这条
+  // fail-closed 分支(实测用 GIT_CONFIG_* 覆盖 remote.origin.url 不生效,故留这个开关)。
+  const remote = process.env.IHUI_TAG_REMOTE || 'origin'
+  try {
+    const out = execFileSync('git', ['-c', 'safe.directory=*', 'ls-remote', '--tags', remote, pattern], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 180000,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    return out
+      .split('\n')
+      .map((l) => l.split('\t')[1])
+      .filter(Boolean)
+      .map((n) => n.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, ''))
+  } catch (e) {
+    console.error(
+      `${C.red}❌ git ls-remote ${pattern} 失败,拿不到远端 tag 真值:${e?.message ?? e}${C.reset}`,
+    )
+    return null
+  }
+}
+
 function listRemoteLostTags() {
-  const out = run('git ls-remote origin "refs/tags/lost-commit/*"', { allowFail: true })
-  return parseRemoteTagOutput(out)
+  return lsRemoteTagNames('refs/tags/lost-commit/*')
 }
 
 function listRemoteBackupTags() {
-  const out = run('git ls-remote origin "refs/tags/backup/*"', { allowFail: true })
-  return parseRemoteTagOutput(out)
+  return lsRemoteTagNames('refs/tags/backup/*')
 }
 
-function parseRemoteTagOutput(stdout) {
-  if (!stdout) return []
-  return stdout
-    .split('\n')
-    .filter((l) => l && !l.endsWith('^{}'))
-    .map((l) => l.split('\t')[1] || '')
-    .filter(Boolean)
-    .map((ref) => ref.replace(/^refs\/tags\//, ''))
-    .sort()
+/**
+ * 取远端 tag 真值,**取不到就拒绝继续**(exit 2)。
+ * 为什么必须拒绝:此前失败会被 `allowFail` 吞成空串 ⇒ 空集被当成"远端一个 tag 都没有"
+ * ⇒ 4283 枚本地 tag 全判成"待推",再撞上积压阈值就"跳过不推" —— 远端备份这条防线
+ * 静默失效(实测同一段代码 --dry-run 报 10、真跑报 4253 两个互相矛盾的结论)。
+ * 判"缺失"必须有真值;拿不到真值时宁可 exit 2 让人来看,绝不带着假结论往下走。
+ */
+function requireRemoteTagSets(label) {
+  const lost = listRemoteLostTags()
+  const backup = listRemoteBackupTags()
+  if (lost === null || backup === null) {
+    console.error(
+      `${C.red}❌ [${label}] 远端 tag 真值不可得 ⇒ 不做任何增量判定/推送(宁可停,绝不把全部本地 tag 判成"缺失")${C.reset}`,
+    )
+    process.exit(2)
+  }
+  return { lost, backup }
 }
 
 function diffTagSets(local, remote) {
@@ -207,11 +238,10 @@ function checkMode() {
 
   const localLost = listLocalLostTags()
   const localBackup = listLocalBackupTags()
-  const remoteLost = listRemoteLostTags()
-  const remoteBackup = listRemoteBackupTags()
-
-  const lostDiff = diffTagSets(localLost, remoteLost)
-  const backupDiff = diffTagSets(localBackup, remoteBackup)
+  const remoteSets = requireRemoteTagSets('check')
+  const { lost: remoteLost, backup: remoteBackup } = remoteSets
+  const lostDiff = diffTagSets(localLost, remoteSets.lost)
+  const backupDiff = diffTagSets(localBackup, remoteSets.backup)
 
   // 可达性检查
   const allLocalTags = [...localLost, ...localBackup]
@@ -406,7 +436,10 @@ function autoPushMode() {
   }
 
   // ── 增量:只推远端缺失的 tag(2026-09-17 根治全量推 10+ 分钟阻塞)──
-  const remoteAll = new Set([...listRemoteLostTags(), ...listRemoteBackupTags()])
+  // 远端真值取不到 ⇒ 直接 exit 2:**绝不**把"拿不到清单"当成"远端什么都没有",
+  // 那会让 4283 枚本地 tag 全判成待推、再撞积压阈值静默跳过(远端备份形同虚设)。
+  const remotePushSets = requireRemoteTagSets('auto-push')
+  const remoteAll = new Set([...remotePushSets.lost, ...remotePushSets.backup])
   let missing = allLocal.filter((t) => !remoteAll.has(t))
   // 2026-09-24 加 IHUI_TAG_ONLY:剩余缺失项里大多数是**空壳 tag**(对象已不在本机),
   // 逐枚推 = 每枚都要跑一遍推送门再被远端拒收(实测 109 枚要约 3 小时),而可推的只有个位数。
