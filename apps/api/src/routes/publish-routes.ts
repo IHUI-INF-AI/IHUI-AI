@@ -621,6 +621,11 @@ export const publishRoutes: FastifyPluginAsync = async (server) => {
     await proxyToAiService(request, reply, '/accounts/batch-template')
   })
 
+  // 健康度 + 风险批量视图:替代前端按账号数扇出的两组轮询(2026-09-23 IP 封禁事故)
+  server.get('/publish/accounts/health-summary', async (request, reply) => {
+    await proxyToAiService(request, reply, '/accounts/health-summary')
+  })
+
   server.post('/publish/accounts/batch-import', async (request, reply) => {
     await proxyToAiService(request, reply, '/accounts/batch-import')
   })
