@@ -12,6 +12,10 @@
 import { createElement, type ReactNode } from 'react'
 
 const flattenStyle = (style: unknown): unknown => {
+  // RN 的 Pressable 允许 `style={({pressed}) => [...]}`;DOM 拿到函数会直接抛
+  // "expects a mapping … not a string"(typeof function !== object)。
+  if (typeof style === 'function')
+    return flattenStyle((style as (s: { pressed: boolean }) => unknown)({ pressed: false }))
   if (!Array.isArray(style)) return style
   return Object.assign({}, ...style.filter(Boolean).map(flattenStyle))
 }
@@ -47,7 +51,34 @@ export const Text = mk('span')
 export const Pressable = mk('button')
 export const TouchableOpacity = mk('button')
 export const ScrollView = mk('div')
-export const FlatList = mk('div')
+/**
+ * FlatList 必须是"真渲染"的 stub:`mk('div')` 直接吐掉 data/renderItem,任何把内容
+ * 放进列表的组件在测试里都渲染成空壳 —— 断言照常通过,覆盖率为 0(假绿)。
+ * 分类条 CategoryInlineBar 换成 FlatList 横向条后,order.test 15 例断言不到 tab 文案,
+ * 就是这条被暴露出来,而不是那条断言写错了。
+ */
+export function FlatList(props: {
+  data?: readonly unknown[]
+  renderItem?: (info: { item: unknown; index: number }) => ReactNode
+  keyExtractor?: (item: unknown, index: number) => string
+  style?: unknown
+  onPress?: unknown
+  [k: string]: unknown
+}) {
+  const { data, renderItem, keyExtractor, style, onPress, children, ...rest } = props
+  const rows = (data ?? []).map((item, index) =>
+    createElement(
+      'div',
+      { key: keyExtractor ? keyExtractor(item, index) : index },
+      renderItem ? renderItem({ item, index }) : null,
+    ),
+  )
+  return createElement(
+    'div',
+    { ...rest, onClick: onPress, style: flattenStyle(style) },
+    rows.length ? rows : (children as ReactNode | undefined),
+  )
+}
 export const TextInput = mk('input')
 export const Image = mk('img')
 export const ActivityIndicator = () => createElement('div', null, 'loading')
