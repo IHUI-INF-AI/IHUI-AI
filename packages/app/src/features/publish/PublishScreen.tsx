@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -370,7 +371,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statCard: {
       flex: 1,
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       padding: 8, // p-2
     },
     statLabel: {
@@ -409,7 +410,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary, // text-gray-500
     },
     retryBtn: {
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.gray[200], // bg-gray-200
@@ -438,7 +439,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 任务卡 */
     card: {
       marginBottom: 12, // mb-3
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: 16, // p-4
@@ -457,7 +458,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     badge: {
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 8, // px-2
       paddingVertical: 2, // py-0.5
     },
@@ -486,7 +487,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8, // gap-2
     },
     actionBtn: {
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 10, // px-2.5
       paddingVertical: 4, // py-1
     },
