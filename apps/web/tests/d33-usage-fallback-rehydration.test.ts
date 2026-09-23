@@ -1,10 +1,16 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * @vitest-environment node
  */
 // D33 过程性信息持久化 · web 读回层用例(2026-09-23 立):
-// usageDetail / fallback / memoryUpdates 三类生产帧与 /api/ai/callback 早已落库,
-// 但历史水合只读回 planSteps/citations/injections/compaction/retryNotice —— 刷新后
+// usageDetail / fallback / memoryUpdates 三类生产帧 llm.py 早已发送、web 读回早已就绪,
+// 但 api 侧 /api/ai/callback 曾仅校验不落库(断链,2026-09-24 修复接线)—— 刷新后
 // 「这轮用了多少 token / 是否降级过模型 / 记住了什么」整段消失。
+// steerApplied(D33 剩余类,2026-09-24 立)为中途引导注入记录,读回灌回
+// 「⚡ 引导已生效」badge 既有渲染位。
 // 本文件钉住读回语义:与 SSE 契约同形状、脏数据缺席而非造假、seed 只灌真值行。
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -41,7 +47,11 @@ const USAGE_FULL = {
 }
 
 beforeEach(() => {
-  useChatStore.setState({ usageByMessageId: {}, memoryUpdateNotices: [] })
+  useChatStore.setState({
+    usageByMessageId: {},
+    memoryUpdateNotices: [],
+    steerNoticesByMessageId: {},
+  })
 })
 
 describe('usageDetail → MessageUsage 读回', () => {
@@ -135,3 +145,40 @@ describe('memoryUpdates → store.memoryUpdateNotices seed', () => {
     expect(s.memoryUpdateNotices).toEqual([])
   })
 })
+
+describe('steerApplied → steerNoticesByMessageId seed(D33 剩余类,2026-09-24 立)', () => {
+  it('注入记录灌回既有「⚡ 引导已生效」badge 渲染位(与 live onSteer 同一 store 通道)', () => {
+    seedHistoryProcessInfoFrames([
+      row({
+        steerApplied: [
+          { text: '先跑测试再改', timestamp: '2026-09-24T10:00:00Z' },
+          { text: '聚焦 o21 文件' },
+        ],
+      }),
+    ])
+    expect(useChatStore.getState().steerNoticesByMessageId[ID]).toEqual([
+      { text: '先跑测试再改', timestamp: '2026-09-24T10:00:00Z' },
+      { text: '聚焦 o21 文件' },
+    ])
+  })
+
+  it('坏项逐条剔除(text 缺失/空白),好项保留;全坏 → 不 seed', () => {
+    seedHistoryProcessInfoFrames([
+      row({ steerApplied: [{ text: '  ' }, 'junk', { text: '有效引导', timestamp: 42 }] }, 'a'),
+      row({ steerApplied: [{ timestamp: 'x' }, null] }, 'b'),
+    ])
+    const s = useChatStore.getState().steerNoticesByMessageId
+    expect(s.a).toEqual([{ text: '有效引导' }]) // timestamp 非字符串不采,不造半截字段
+    expect(s.b).toBeUndefined()
+  })
+
+  it('空数组 / 非数组 / 无 key → 一律不 seed(不造空态)', () => {
+    seedHistoryProcessInfoFrames([
+      row({ steerApplied: [] }, 'a'),
+      row({ steerApplied: 'nope' }, 'b'),
+      row(null),
+    ])
+    expect(useChatStore.getState().steerNoticesByMessageId).toEqual({})
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
