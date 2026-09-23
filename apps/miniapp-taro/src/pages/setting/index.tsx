@@ -64,10 +64,10 @@ export default function SettingIndexPage() {
           上下留白对齐 body paddingTop 12dp→24rpx / paddingBottom 24dp→48rpx */}
       <View className="min-h-screen bg-background pb-[48rpx] pt-[24rpx]">
         {user.nickname ? (
-          <View className="mx-[20rpx] flex items-center gap-[24rpx] rounded-[16rpx] bg-muted p-[28rpx]">
+          <View className="mx-[20rpx] flex items-center gap-[24rpx] rounded-lg bg-muted p-[28rpx]">
             {/* 头像对齐 RN avatar: 48dp→96rpx + 圆角 8dp→16rpx */}
             <Image
-              className="w-[96rpx] h-[96rpx] rounded-[16rpx] bg-background"
+              className="w-[96rpx] h-[96rpx] rounded-lg bg-background"
               src={user.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
@@ -91,7 +91,7 @@ export default function SettingIndexPage() {
             {tt('setting.account', '账号与安全')}
           </Text>
           {/* sectionCard 对齐 RN: 圆角 8dp→16rpx + divider(border.light)背景 + 行间 hairline(2rpx)分隔 */}
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pkg-user/user/profile')}
@@ -131,7 +131,7 @@ export default function SettingIndexPage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.general', '通用')}
           </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pages/setting/cache')}
@@ -169,7 +169,7 @@ export default function SettingIndexPage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.other', '其他')}
           </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
             <View
               className="flex min-h-[120rpx] items-center justify-between bg-card px-[24rpx] py-[28rpx] dark:bg-muted"
               onClick={() => navigate('/pkg-user/user/feedback')}
@@ -207,7 +207,7 @@ export default function SettingIndexPage() {
             文字 16dp→32rpx semibold + danger(对齐 RN danger.DEFAULT,亮暗随 --color-danger);
             上边距 logoutBtn marginTop 8dp + body gap 16dp = 24dp→48rpx */}
         <Button
-          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-[16rpx] bg-card text-[32rpx] font-semibold dark:bg-muted"
+          className="mx-[20rpx] mt-[48rpx] flex h-[100rpx] items-center justify-center rounded-lg bg-card text-[32rpx] font-semibold dark:bg-muted"
           style={{ color: 'var(--color-danger)' }}
           onClick={onLogout}
         >
