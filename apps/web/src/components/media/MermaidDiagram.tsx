@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 
@@ -46,7 +45,6 @@ class MermaidErrorBoundary extends React.Component<
  * - SVG 容器 overflow-x-auto,长图表可横向滚动
  */
 function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
-  const t = useTranslations('a11y')
   const { resolvedTheme } = useTheme()
   const [svg, setSvg] = React.useState<string | null>(null)
   const [error, setError] = React.useState<Error | null>(null)
@@ -105,9 +103,7 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
 
   // 渲染中占位
   if (svg === null) {
-    return (
-      <div className="animate-pulse text-xs text-muted-foreground">{t('diagramRendering')}</div>
-    )
+    return <div className="animate-pulse text-xs text-muted-foreground">渲染中…</div>
   }
 
   // 渲染成功,展示 SVG(横向滚动以适配长图表)
@@ -122,12 +118,11 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
  * 导出的 Mermaid 图表组件,内部已用 ErrorBoundary 包裹。
  */
 export function MermaidDiagram(props: MermaidDiagramProps): React.ReactElement {
-  const t = useTranslations('a11y')
   return (
     <MermaidErrorBoundary
       fallback={
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs">
-          <p className="text-destructive">{t('mermaidRenderFailed')}</p>
+          <p className="text-destructive">Mermaid 渲染失败</p>
           <pre className="mt-2 text-xs text-muted-foreground">{props.code}</pre>
         </div>
       }
