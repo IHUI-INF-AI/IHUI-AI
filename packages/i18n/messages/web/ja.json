@@ -24107,8 +24107,6 @@
     "metaDescription": "OpenAI 互換 API をオンラインでテスト:モデル選択、マルチターンメッセージ構築、パラメータ調整、ストリーミング SSE 描画、コード生成(cURL/Python/Node.js)、履歴。",
     "pageDesc": "API Key で /v1/chat/completions を直接呼び出せます。ストリーミング描画・パラメータ調整・コード生成に対応し、/chat へ移動する必要はありません。"
   },
-  "upload": {},
-  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {
