@@ -318,6 +318,38 @@ export function collectMissing(targetSrc, depth = 60) {
  * 邻居也没了就直接追加到文件末尾 —— 宁可位置不理想,也绝不丢掉内容。
  * 只改字符串,不碰工作区文件。
  */
+/**
+ * 规模安全闸阈值:一次回捞的"缺失登记行"占扫描总数超过此比例,即判为**基线异常**而非真丢。
+ * 可用 IHUI_PLAN_HEAL_MAX_MISSING_RATIO 覆盖(0<r≤1);非法值回落默认,绝不因配置错而放行。
+ */
+export function healSuspectRatio() {
+  const raw = process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO
+  if (raw === undefined || raw === '') return 0.4
+  const v = Number(raw)
+  return Number.isFinite(v) && v > 0 && v <= 1 ? v : 0.4
+}
+
+/**
+ * 2026-09-23 立,由本仓一次真实自伤事故反推(登记见 PROJECT_PLAN 的 O24 段):
+ * 有会话对活文档做"全量 union 回补",独有行判据用整行文本差集 —— PLAN 在两分钟窗口内被
+ * 并发重排改写措辞,使同一内容的新旧两个版本全落到"缺失"一侧,勘察时 59 行、执行时暴涨成
+ * 1505 行,插回去就是 1543 行重复入库。**"零损失断言"只保证不删,不保证不重复**。
+ * 本闸补的正是这后半句:真丢通常是几条到几十条(本日实测 1/2/4 条),一次丢"四成以上"
+ * 几乎必然是比对基线错了,此时写盘的回捞只会把文档搅成两份真相 ⇒ 拒绝,交人工判。
+ */
+export function assessHealScale(missingCount, seenCount, ratio = healSuspectRatio()) {
+  if (!(seenCount > 0)) return { ok: true, ratio: 0, reason: '无登记行可比对,规模闸不启用' }
+  const r = missingCount / seenCount
+  if (r > ratio) {
+    return {
+      ok: false,
+      ratio: r,
+      reason: `缺失 ${missingCount}/${seenCount} 条 = ${(r * 100).toFixed(1)}%,超阈值 ${(ratio * 100).toFixed(0)}%`,
+    }
+  }
+  return { ok: true, ratio: r, reason: '' }
+}
+
 export function healContent(targetSrc, missing) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
@@ -623,6 +655,32 @@ function selfTest() {
     ])
     return inserted === 0 && appended === 0 && out.split('D999z 结案').length - 1 === 1
   })
+  // 规模安全闸正反例(2026-09-23 O24 事故反推):"丢得太多"必判基线异常,正常量必放行。
+  t('规模闸:缺失占四成以上 → 判基线异常(拒绝回捞)', () => {
+    const s = assessHealScale(120, 240, 0.4)
+    return s.ok === false && s.reason.includes('50.0%')
+  })
+  t('规模闸:正常量(几条 / 恰好卡在阈值)→ 放行,不误伤真实丢失', () => {
+    return assessHealScale(4, 240, 0.4).ok === true && assessHealScale(96, 240, 0.4).ok === true
+  })
+  t('规模闸:扫描数为 0 时不得判异常(无分母即不启用,避免空文档恒红)', () => {
+    return assessHealScale(7, 0, 0.4).ok === true
+  })
+  t('规模闸阈值:env 非法值回落 0.4,合法的 0.9 生效', () => {
+    const prev = process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO
+    try {
+      process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO = 'not-a-number'
+      const bad = healSuspectRatio()
+      process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO = '5'
+      const over = healSuspectRatio()
+      process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO = '0.9'
+      const okv = healSuspectRatio()
+      return bad === 0.4 && over === 0.4 && okv === 0.9
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO
+      else process.env.IHUI_PLAN_HEAL_MAX_MISSING_RATIO = prev
+    }
+  })
 
   let failed = 0
   for (const c of cases) {
@@ -651,6 +709,19 @@ function heal(commit) {
   if (diskMissing.length === 0 && headMissing.length === 0) {
     console.log(`✅ [plan-line-loss] 扫描 ${seen.size} 条登记行:无缺失,无需回捞`)
     return 0
+  }
+  // 规模安全闸:回捞量异常 ⇒ 判为基线错(活文档被并发重排/改写措辞),拒绝自动写盘。
+  const scale = assessHealScale(Math.max(diskMissing.length, headMissing.length), seen.size)
+  if (!scale.ok) {
+    console.error(`❌ [plan-line-loss] 规模安全闸拦截 —— ${scale.reason}`)
+    console.error(
+      '   一次回捞四成以上登记行,几乎不可能是"真的全丢了",而是比对基线已变(并发会话重排了文档、\n' +
+        '   或把同一条登记改写了措辞)。此时照单回捞 = 把同一内容的两个版本都留下,造出两份真相。\n' +
+        '   请先人工确认:① HEAD 与工作区哪个是期望形态;② 缺失行的原文能否在 archive 里找到(§1 归档)。\n' +
+        '   确认确为真实丢失后再临时放行:IHUI_PLAN_HEAL_MAX_MISSING_RATIO=1 node scripts/check-plan-line-loss.mjs --heal\n' +
+        '   (紧急跳过整道自愈:HUSKY_SKIP_PLAN_HEAL=1)',
+    )
+    return 1
   }
   let inserted = 0
   let appended = 0
