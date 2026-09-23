@@ -789,6 +789,30 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
 
+
+### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
+
+我没有照抄代理结论,而是先逐条复核 —— 结果当场证伪:`dead-taro` 代理给出"delete 39",
+但 `packages/app/src/components/PayButton.tsx:313` 定义 `const tr = (key, fallback) => (t ? t(key) : fallback)`
+(t 由 props 注入,:23 注释自述),:314-319 用 `tr('pay.defaultName'|'pay.subscribeTip'|'pay.priceLabel'|
+'pay.perMonth'|'pay.countLabel'|'pay.payNow', …)` 真实取词。**若照做,6 处在线文案会被静默删词。**
+
+- **根治**:`_i18n-scan-helpers.mjs` 三处动词组 `(?:t|tt)\(` → `(?:t|tt|tr)\(`。方向安全(扩消费者识别只会减少
+  假死键,不会造出假死键);`\b` 锚定使 `extra(` / `transform(` 不命中,已写成反例用例。
+  实测 web / extension / mobile-rn 死键保持 0(零连带回归),镜像用例 141/141、分端扫描器 14/14。
+- **taro 仍 39 的原因不是判据旧洞**,而是 `packages/app/src` 不在 taro 端 scanTargets 内 ——
+  代理当初反对把 `packages/app` 加白是对的(会把 RN 专属键倒灌成 taro 假 wire)。
+- **结论改判**:taro 那 39 枚至少 6 枚确证在线;其余 33 枚属"RN 共享包词表被镜像进 taro 包而 taro 侧无消费者"。
+  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只覆盖 waiting 族,
+  对 pay.* 无约束 ⇒ "删掉 vs 保留镜像"是 taro/RN 包设计的归属判断,**不是机械摘叶动作**。本票一枚 taro 键都没删。
+- **可复用的判据(写死在此)**:任何"死键可删"结论落地前,必须额外查两种形态 ——
+  ① 包装器取词(`const tr/t2 = (k, …) => t(k)` 这类先字面量传给本地函数、再由它转调注入的 `t`);
+  ② 跨包镜像(taro/rn 共享包 `packages/app`、`packages/ui-react` 内的字面量取词,常在端 scanTargets 之外)。
+- 上一票两件遗留状态:**per-end ja 阻塞门仍未做** —— 原因依旧是文件竞争:`scripts/guardian-runner.mjs`
+  被并发会话持有(` M`,内容是其删除自己守门 80 注册块共 35 行);三端 ja 实测全 ✅、片段与零碰撞 id
+  已备在 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs`(2o-shared / 2o-miniapp-taro / 2o-mobile-rn)。
+  **web 端 5 枚孤儿键已摘完**(死键 5→0,commit `5cd864697`),本会话全部提交已验证在 `origin/main`。
+
 ### 第十五批:web 端 5 枚孤儿键摘除(死键 5→0)+ 一桩"看着像污染其实只是 0.2MB"的核账(2026-09-24,commit `5cd864697`)
 
 上一票(第十四批)留下的三件待办,本轮状态逐条交代:
