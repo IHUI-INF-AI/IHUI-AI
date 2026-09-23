@@ -39,6 +39,9 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   input_price: 0,
 }))
 
+// D106(2026-09-24):单消息 steer 交代上限,对齐后端 _STEER_QUEUE_LIMIT 与 web appendSteerNotice
+const STEER_NOTICE_MAX = 8
+
 export default function ChatPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { t, locale } = useI18n()
@@ -338,6 +341,28 @@ export default function ChatPage() {
                 collapsed: evt.collapsed,
                 ...(evt.fullText ? { fullText: evt.fullText } : {}),
                 ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+              },
+            ],
+          }
+        }, evt.messageId)
+      },
+      // D106(2026-09-24):steer 交代帧 —— 中途引导注入确认,同枚举式合并纪律,
+      // 逐字段显式承接,空文本防御,单消息 8 条封顶(对齐后端 _STEER_QUEUE_LIMIT)。
+      onSteer: (evt) => {
+        if (evt.phase !== 'injected') return
+        const text = evt.text.trim()
+        if (!text) return
+        updateAssistantMessage((m) => {
+          const existing = m.steerNotices ?? []
+          if (existing.length >= STEER_NOTICE_MAX) return m
+          return {
+            ...m,
+            steerNotices: [
+              ...existing,
+              {
+                phase: evt.phase,
+                text,
+                ...(evt.timestamp ? { timestamp: evt.timestamp } : {}),
               },
             ],
           }
