@@ -121,12 +121,14 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 // G-166:交代区(RN 端共享组件)—— 引用来源 + 本轮上下文注入,与 N8n 屏同一实现
-import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
+import { CitationList, InjectionDisclosure, SteerNoticeList } from '../components/ChatDisclosure'
 import {
   appendCitationFrames,
   applyInjectionFrame,
+  appendSteerFrames,
   type MessageCitation,
   type MessageInjection,
+  type SteerNotice,
 } from '../utils/chat-render-model'
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
@@ -197,6 +199,9 @@ interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
   /** G-166 交代区:本轮引用来源 / 带了哪些上下文(与 @ihui/shared ChatMessage 同一形状) */
   citations?: MessageCitation[]
   injections?: MessageInjection[]
+  /** D106 Steer(中途引导):本轮被用户注入的引导交代,对齐 web steerNoticesByMessageId。
+   *  执行期瞬时态不落库(web 同口径),故历史水合不还原。 */
+  steerNotices?: SteerNotice[]
 }
 
 /**
@@ -712,6 +717,25 @@ export function ChatScreen() {
             next[next.length - 1] = {
               ...last,
               injections: applyInjectionFrame(last.injections, event),
+            }
+          }
+          return next
+        })
+      },
+      // D106 Steer(中途引导):ai-service 在 tool loop 边界注入引导后下发 steer 事件,
+      // 这里逐字段承接(phase/text/timestamp/messageId)累积到最后一条 assistant 消息;
+      // 空文本帧由 appendSteerFrames 整帧丢弃,不渲染空交代(与 N8n 屏同一累积口径)。
+      onSteer: (event) => {
+        // steerNotices 是端内瞬时态:@ihui/shared ChatMessage 无此字段(types 包只读不扩),
+        // 流式期间以本地交集类型承载,不落库(web steerNoticesByMessageId 同口径)。
+        type StreamMessageWithSteer = ChatMessage & { steerNotices?: SteerNotice[] }
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1] as StreamMessageWithSteer | undefined
+          if (last && last.role === 'assistant') {
+            const notices = appendSteerFrames(last.steerNotices, event)
+            if (notices.length > 0) {
+              next[next.length - 1] = { ...last, steerNotices: notices } as StreamMessageWithSteer
             }
           }
           return next
@@ -1538,6 +1562,12 @@ export function ChatScreen() {
             )}
             {isFailed ? null : (
               <CitationList items={(item as ChatScreenMessageWithReasoning).citations ?? []} />
+            )}
+            {/* D106 Steer(中途引导)交代:本轮被注入了哪些引导文本 */}
+            {isFailed ? null : (
+              <SteerNoticeList
+                items={(item as ChatScreenMessageWithReasoning).steerNotices ?? []}
+              />
             )}
           </View>
         </View>
