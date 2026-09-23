@@ -96,22 +96,13 @@ interface RuleResolveConflictsResult {
   message?: string
 }
 
-// 效果预测建议:ai-service 下发的**协议字面值**(非界面文案,不得翻译),
-// 以 \u 转义书写避免界面硬编码中文进入语言包之外的通道;展示处按 key 映射走 t()。
-const RECOMMENDATION_ENABLE = '\u542f\u7528'
-const RECOMMENDATION_DISABLE = '\u4e0d\u542f\u7528'
-const RECOMMENDATION_NEUTRAL = '\u4e2d\u6027'
-
-type RulePredictRecommendation =
-  typeof RECOMMENDATION_ENABLE | typeof RECOMMENDATION_DISABLE | typeof RECOMMENDATION_NEUTRAL
-
 interface RulePredictEffectResult {
   withRule: string
   withoutRule: string
   tokenDelta: number
   similarityDelta: number
   qualityScore: number
-  recommendation: RulePredictRecommendation
+  recommendation: '启用' | '不启用' | '中性'
   degraded: boolean
   message?: string
 }
@@ -131,7 +122,6 @@ interface RuleKnowledgeGraph {
   }>
 }
 
-export { RECOMMENDATION_ENABLE, RECOMMENDATION_DISABLE, RECOMMENDATION_NEUTRAL }
 export type {
   RuleConflict,
   RuleConflictsResponse,
