@@ -38,6 +38,12 @@ interface Family {
   sources: string[]
   /** 源码里出现过的取词键下限,防"改动整体丢失 ⇒ 判据空转" */
   minReferenced: number
+  /**
+   * 允许残留的硬编码中文命中上限,缺省 0。
+   * 只给"与后端/协议做字面匹配的值"用(翻译即断历史数据,例如采购分类 value 同时写进 API 与台账列)。
+   * 写成额度而不是把该族整个移出测试:多一处就红,比一刀切豁免严。
+   */
+  maxHits?: number
 }
 
 const FAMILIES: Family[] = [
@@ -126,6 +132,79 @@ const FAMILIES: Family[] = [
     sources: ['app/(main)/edu/parent/page.tsx'],
     minReferenced: 45,
   },
+  {
+    name: 'eduSchedule',
+    nsLiteral: 'eduSchedule',
+    nsPath: ['eduSchedule'],
+    sources: ['app/(main)/edu/edu-management/schedule/page.tsx'],
+    minReferenced: 55,
+  },
+  {
+    name: 'eduHomework',
+    nsLiteral: 'eduHomework',
+    nsPath: ['eduHomework'],
+    sources: ['app/(main)/edu/edu-management/homework/PageClient.tsx'],
+    minReferenced: 25,
+  },
+  {
+    name: 'eduMeal',
+    nsLiteral: 'eduMeal',
+    nsPath: ['eduMeal'],
+    sources: ['app/(main)/edu/edu-management/meal/page.tsx'],
+    minReferenced: 60,
+  },
+  {
+    name: 'eduProcurement',
+    nsLiteral: 'eduProcurement',
+    nsPath: ['eduProcurement'],
+    sources: ['app/(main)/edu/edu-management/procurement/page.tsx'],
+    minReferenced: 150,
+    /**
+     * 7 处 = SUPPLIER_CATEGORIES 的 value(蔬菜/肉禽/水产/粮油/调味/冻品/其他)。
+     * 它们既写进 API `supplier.category`,又被台账列、按类统计、CSV 导出原样回读比对,
+     * 翻了就断历史数据 —— 故只把展示侧改成 labelKey 取词,value 必须留中文。
+     */
+    maxHits: 7,
+  },
+  {
+    name: 'eduAttendance',
+    nsLiteral: 'eduAttendance',
+    nsPath: ['eduAttendance'],
+    sources: ['app/(main)/edu/edu-management/attendance/PageClient.tsx'],
+    minReferenced: 60,
+  },
+  {
+    name: 'eduStudyPlan',
+    nsLiteral: 'eduStudyPlan',
+    nsPath: ['eduStudyPlan'],
+    sources: [
+      'app/(main)/edu/edu-management/study-plan/types.ts',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanDetail.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanEditDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanToolbar.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanList.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanStatsDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/StudyPlanTimelineDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/PlanItemEditDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/TermDialog.tsx',
+      'app/(main)/edu/edu-management/study-plan/ClassDialog.tsx',
+    ],
+    minReferenced: 80,
+  },
+  {
+    name: 'eduCertificates',
+    nsLiteral: 'eduCertificates',
+    nsPath: ['eduCertificates'],
+    sources: ['app/(main)/edu/certificates/page.tsx'],
+    minReferenced: 6,
+  },
+  {
+    name: 'eduCourses',
+    nsLiteral: 'eduCourses',
+    nsPath: ['eduCourses'],
+    sources: ['app/(main)/edu/courses/[id]/PageClient.tsx'],
+    minReferenced: 4,
+  },
 ]
 
 const packCache = new Map<string, Record<string, unknown>>()
@@ -185,6 +264,13 @@ function referencedKeys(src: string, famNs: string): Set<string> {
   }
   for (const block of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*\[([\s\S]*?)\n\]/g)) {
     for (const m of (block[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
+  }
+  /**
+   * **单行**形态的键表:`const AI_STEP_KEYS = ['ai.step1','ai.step2'] as const`。
+   * 上面两条要求 `]` / `}` 另起一行,单行表整表采不到,会把在用键误判成孤儿键(实测咬过 eduProcurement)。
+   */
+  for (const m of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*[[{]([^\]}]*)[\]}]/g)) {
+    for (const q of (m[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(q[1] as string)
   }
   return new Set([...keys, ...dynRoots])
 }
@@ -305,12 +391,13 @@ describe.each(FAMILIES)('家族 $name 取词契约', (fam: Family) => {
     expect(unused, `${fam.name} 孤儿键 ${unused.join(', ')} —— 要么补引用要么删键`).toEqual([])
   })
 
-  it('守门 70 实测:族内源码文件命中全部归零(直接调权威脚本,不复刻判据)', () => {
+  it('守门 70 实测:族内命中不超过申报额度(默认必须归零;直接调权威脚本,不复刻判据)', () => {
+    const cap = fam.maxHits ?? 0
     const counts = gate70Counts()
     const bad = fam.sources
       .map((f) => ({ f, n: counts.get(`apps/web/${f}`) ?? 0 }))
-      .filter((r) => r.n > 0)
-    expect(bad, `仍有硬编码中文:${bad.map((b) => `${b.f}=${b.n}`).join(' ')}`).toEqual([])
+      .filter((r) => r.n > cap)
+    expect(bad, `硬编码中文越过申报额度 ${cap}:${bad.map((b) => `${b.f}=${b.n}`).join(' ')}`).toEqual([])
   })
 })
 
