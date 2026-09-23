@@ -89,7 +89,6 @@ import {
   formatSSEError,
   getMessages,
   getTokenBalance,
-  getWorkspacePermissionDefault,
   listConversations,
   resolveFileUrl,
   streamChat,
@@ -103,7 +102,7 @@ import {
   describeToolCall,
   type ToolCallView,
 } from '@ihui/shared'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -545,10 +544,6 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
   return (
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.terminalTasks')}</Text>
-      {/* 与 web/extension/小程序同一句执行环境交代(os_sandbox allow_network 默认 False) */}
-      <Text style={bubbleStyles.blockHint} testID="terminal-isolation">
-        {t('aiAssistantN8n.terminalIsolation')}
-      </Text>
       {tasks.map((task) => {
         const statusLabel =
           task.status === 'completed'
@@ -925,13 +920,6 @@ export default function AiAssistantN8nScreen() {
   // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
   const [tokenBalance, setTokenBalance] = useState(0)
 
-  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
-  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
-  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
-  // G-165①:消息级盖章档位(服务端从 workspace_permissions 反查后写入消息 metadata,
-  // 不采信客户端自报)。undefined = 尚未见到已盖章消息;null = 明确无;string = 盖章值。
-  const [stampedTier, setStampedTier] = useState<string | null | undefined>(undefined)
-
   // 加载智汇值余额:失败静默保持 0(不阻塞页面,充值入口仍可用)
   useEffect(() => {
     let cancelled = false
@@ -945,21 +933,6 @@ export default function AiAssistantN8nScreen() {
         // 失败保持 0
       }
     })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
-  useEffect(() => {
-    let cancelled = false
-    getWorkspacePermissionDefault()
-      .then((res) => {
-        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
-      })
-      .catch(() => {
-        // 取数失败:保持 null,该行隐藏
-      })
     return () => {
       cancelled = true
     }
@@ -1095,20 +1068,6 @@ export default function AiAssistantN8nScreen() {
   const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
     const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
-      // G-165①:档位行数据源换挡 —— 取最近一条已盖章助手消息的 metadata.permissionMode
-      // (服务端从 workspace_permissions 反查盖章,不采信客户端自报)。盖章服务对
-      // "不知道"不写 key,所以这里只有 string 才算数,绝不编造 default。
-      const stampedMeta = [...res.data.messages]
-        .reverse()
-        .find(
-          (m) =>
-            m.role === 'assistant' &&
-            typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode ===
-              'string',
-        )
-      if (stampedMeta) {
-        setStampedTier((stampedMeta.metadata as { permissionMode: string }).permissionMode)
-      }
       // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
       // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
       // 使历史会话与实时流走同一活动行渲染口径(状态 · 功能名 · 对象 · 度量)。
@@ -1579,21 +1538,6 @@ export default function AiAssistantN8nScreen() {
           onRecharge={() => navigation.navigate('AppTopup')}
         />
       </View>
-      {/* D111/G-165①:权限档交代行 —— 数据源优先级:消息盖章值 > 工作区默认档;
-          两者皆缺(盖章不存在且取数失败)整行隐藏,不假装知道档位。 */}
-      {(() => {
-        const tierValue = stampedTier ?? workspaceTier
-        if (tierValue === null || tierValue === undefined) return null
-        return (
-          <View style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 11, color: tokens.text.tertiary }}>
-              {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(tierValue).title)} · ${t(
-                permissionTierWordKeys(tierValue).desc,
-              )}`}
-            </Text>
-          </View>
-        )
-      })()}
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1905,7 +1849,7 @@ const bubbleStyles = StyleSheet.create({
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
   text: { fontSize: 14, lineHeight: 20 },
-  textUser: { color: tokens.surface.light },
+  textUser: { color: tokens.brand.foreground },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
   imageGrid: {
