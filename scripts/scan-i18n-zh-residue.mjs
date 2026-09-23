@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 通用 i18n 中文残留守门工具。
  * 替代 scan-zh-tw-simp.mjs (zh-TW) 与 scan-ko-zh-residue.mjs (ko) 两个专用脚本，
@@ -58,16 +57,34 @@ const LOCALE_CONFIG = {
 }
 
 const HAN_RE = /[\u4e00-\u9fff]/
-// 匹配 i18n json 行: `  "key": "value",` (value 内不含转义双引号场景，与现有脚本一致)
-const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/
+/**
+ * 匹配 i18n json 行: `  "key": "value",`
+ * 取值部分必须允许 **转义双引号** `\"`。旧写法 `[^"]*` 遇到含引号的值(如
+ * `確認刪除「{name}」?` 里嵌的 `\"記賬\"`)整行匹配失败 ⇒ 该行**永久漏检**,
+ * 而"已清零"的结论看着是全绿的(2026-09-23 实测:门报 10 处,值级 opencc 全扫 11 处)。
+ * 放宽后按 decode 再比对,否则会拿 `"台賬\"記賬\""` 这种带反斜杠的原文去过 opencc/白名单。
+ */
+const LINE_RE = /^(\s+)"([^"]+)":\s+"((?:[^"\\]|\\.)*)"\s*,?\s*$/
+/** 把 JSON 字符串字面量的内容解回真实文本;解不动就原样返回(宁可多报也不漏检) */
+function decodeJson(raw) {
+  try {
+    return JSON.parse(`"${raw}"`)
+  } catch {
+    return raw
+  }
+}
 
 // 语言原生名称(autoglossonym)白名单 — 语言选择器中显示各语言的本名,
 // 即使在非中文 locale 文件中也保留原文字符(如 ko.json 中 "ja": "日本語")。
 // 这些值含汉字但非"中文残留",应跳过检测。
 // 典型场景:extension 端语言选择器显示 "简体中文/繁體中文/日本語" 等本名。
 const LANGUAGE_AUTOGLOSSONYMS = new Set([
-  '简体中文', '繁體中文', '繁体中文', '中文',
-  '日本語', '日本语',
+  '简体中文',
+  '繁體中文',
+  '繁体中文',
+  '中文',
+  '日本語',
+  '日本语',
 ])
 
 // 品牌名白名单(从 scripts/brand-glossary.json 的 brands 段加载)
@@ -106,8 +123,14 @@ function parseArgs(argv) {
       isReadme = true
     } else if (arg.startsWith('--target=')) {
       const val = arg.split('=')[1]
-      if (val === 'web' || val === 'extension' || val === 'shared') {
-        target = val
+      // 未知 target 以前会被静默丢掉 → 变成"扫 web",还打印"web/xx.json 无中文残留",
+      // 让人以为已经校验过 mobile-rn / miniapp-taro(2026-09-21 两个会话先后踩到)。
+      // 现在:支持全部语言包目录,未知值直接报错退出。
+      const ALLOWED = ['web', 'extension', 'shared', 'miniapp-taro', 'mobile-rn', 'cli', 'api']
+      if (ALLOWED.includes(val)) target = val
+      else {
+        console.error(`未知 --target=${val};可选:${ALLOWED.join(' | ')}(不再静默回落到 web)`)
+        process.exit(2)
       }
     } else if (arg.startsWith('--')) {
       // 忽略未知 flag，避免误判
@@ -142,7 +165,7 @@ function scanZhTw(text) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (!HAN_RE.test(value)) continue
@@ -163,7 +186,7 @@ function scanCharRange(text, localRe) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (isWhitelistedBrand(value)) continue
@@ -187,7 +210,7 @@ function scanWarnOnly(text) {
     const m = lines[i].match(LINE_RE)
     if (!m) continue
     const key = m[2]
-    const value = m[3]
+    const value = decodeJson(m[3])
     if (!value) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (isWhitelistedBrand(value)) continue
@@ -260,7 +283,9 @@ function main() {
   const { locale, isStaged, isReadme, target } = parseArgs(process.argv.slice(2))
 
   if (!locale) {
-    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]')
+    console.error(
+      '用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension|shared]',
+    )
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
     console.error('  --readme: 扫描根目录 README.<locale>.md')
     console.error('  --target: web (默认) | extension | shared')
@@ -273,16 +298,16 @@ function main() {
   if (isReadme) {
     relPath = `README.${locale}.md`
     fileLabel = `README.${locale}.md`
-  } else if (target === 'extension') {
-    relPath = `packages/i18n/messages/extension/${locale}.json`
-    fileLabel = `extension/${locale}.json`
-  } else if (target === 'shared') {
-    relPath = `packages/i18n/messages/shared/${locale}.json`
-    fileLabel = `shared/${locale}.json`
-  } else {
+  } else if (target === 'web') {
     // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
     relPath = `packages/i18n/messages/web/${locale}.json`
     fileLabel = `web/${locale}.json`
+  } else {
+    // 其余端(shared / extension / miniapp-taro / mobile-rn / cli / api)同构:
+    // packages/i18n/messages/<target>/<locale>.json。以前只有 3 个 target 有分支,
+    // 传 miniapp-taro / mobile-rn 会静默落到 web 路径并报"无残留"。
+    relPath = `packages/i18n/messages/${target}/${locale}.json`
+    fileLabel = `${target}/${locale}.json`
   }
   const file = path.resolve(relPath)
 

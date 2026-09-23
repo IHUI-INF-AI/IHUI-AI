@@ -888,7 +888,7 @@ I wanted one repo covering all 8 platforms + 176 LLMs + commercial layer, Apache
 
 ## Stack
 
-- API: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15
+- API: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - Web: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
 - AI: FastAPI + LangGraph + LiteLLM + MCP
 - Mobile: Taro 4 + React Native

@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import {
   UserCheck,
   ClipboardList,
@@ -103,45 +104,60 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /* ─── Constants ─── */
 
+/** 考勤状态码 → eduAttendance 取词键;value 是与后端比对的协议码,不得取词 */
 const ATTENDANCE_STATUS = [
-  { value: 'present', label: '正常', color: 'bg-green-500' },
-  { value: 'late', label: '迟到', color: 'bg-yellow-500' },
-  { value: 'early', label: '早退', color: 'bg-orange-500' },
-  { value: 'absent', label: '缺勤', color: 'bg-red-500' },
-  { value: 'leave', label: '请假', color: 'bg-blue-500' },
+  { value: 'present', labelKey: 'statusPresent', color: 'bg-green-500' },
+  { value: 'late', labelKey: 'statusLate', color: 'bg-yellow-500' },
+  { value: 'early', labelKey: 'statusEarly', color: 'bg-orange-500' },
+  { value: 'absent', labelKey: 'statusAbsent', color: 'bg-red-500' },
+  { value: 'leave', labelKey: 'statusLeave', color: 'bg-blue-500' },
 ] as const
 
-const ATTENDANCE_STATUS_MAP: Map<string, string> = new Map(
-  ATTENDANCE_STATUS.map((s) => [s.value, s.label]),
+const ATTENDANCE_STATUS_KEY_MAP: Map<string, string> = new Map(
+  ATTENDANCE_STATUS.map((s) => [s.value, s.labelKey]),
 )
 const ATTENDANCE_COLOR_MAP: Map<string, string> = new Map(
   ATTENDANCE_STATUS.map((s) => [s.value, s.color]),
 )
 
 const LEAVE_TYPES = [
-  { value: 'sick', label: '病假' },
-  { value: 'personal', label: '事假' },
-  { value: 'emergency', label: '紧急' },
-  { value: 'other', label: '其他' },
+  { value: 'sick', labelKey: 'leaveTypeSick' },
+  { value: 'personal', labelKey: 'leaveTypePersonal' },
+  { value: 'emergency', labelKey: 'leaveTypeEmergency' },
+  { value: 'other', labelKey: 'leaveTypeOther' },
 ] as const
 
-const LEAVE_TYPE_MAP = new Map<string, string>(LEAVE_TYPES.map((t) => [t.value, t.label]))
+const LEAVE_TYPE_KEY_MAP: Map<string, string> = new Map(
+  LEAVE_TYPES.map((item) => [item.value, item.labelKey]),
+)
 
 const LEAVE_STATUS = [
-  { value: 'pending', label: '待审批', color: 'bg-yellow-500' },
-  { value: 'approved', label: '已批准', color: 'bg-green-500' },
-  { value: 'rejected', label: '已驳回', color: 'bg-red-500' },
-  { value: 'cancelled', label: '已取消', color: 'bg-gray-500' },
+  { value: 'pending', labelKey: 'leaveStatusPending', color: 'bg-yellow-500' },
+  { value: 'approved', labelKey: 'leaveStatusApproved', color: 'bg-green-500' },
+  { value: 'rejected', labelKey: 'leaveStatusRejected', color: 'bg-red-500' },
+  { value: 'cancelled', labelKey: 'leaveStatusCancelled', color: 'bg-gray-500' },
 ] as const
 
-const LEAVE_STATUS_MAP = new Map<string, string>(LEAVE_STATUS.map((s) => [s.value, s.label]))
-const LEAVE_STATUS_COLOR_MAP = new Map<string, string>(LEAVE_STATUS.map((s) => [s.value, s.color]))
+const LEAVE_STATUS_KEY_MAP: Map<string, string> = new Map(
+  LEAVE_STATUS.map((s) => [s.value, s.labelKey]),
+)
+const LEAVE_STATUS_COLOR_MAP: Map<string, string> = new Map(
+  LEAVE_STATUS.map((s) => [s.value, s.color]),
+)
 
-const CHECK_IN_METHODS: Record<string, string> = {
-  manual: '教师代签',
-  face: '人脸识别',
-  qrcode: '扫码签到',
-  self: '学生自签',
+/** 签到方式码 → eduAttendance 取词键;对象 key 是后端 checkInMethod 协议字面值 */
+const CHECK_IN_METHOD_KEYS: Record<string, string> = {
+  manual: 'methodManual',
+  face: 'methodFace',
+  qrcode: 'methodQrcode',
+  self: 'methodSelf',
+}
+
+/** 统计周期 → eduAttendance 取词键;对象 key 是 statsPeriod 协议字面值 */
+const STATS_PERIOD_KEYS: Record<'daily' | 'weekly' | 'monthly', string> = {
+  daily: 'periodDaily',
+  weekly: 'periodWeekly',
+  monthly: 'periodMonthly',
 }
 
 function formatDate(d: Date): string {
@@ -176,6 +192,7 @@ function CheckInDialog({
   defaultDate: string
   onSave: (data: CheckInFormData) => Promise<void>
 }) {
+  const t = useTranslations('eduAttendance')
   const [form, setForm] = React.useState<CheckInFormData>({
     studentId: '',
     classId,
@@ -215,39 +232,39 @@ function CheckInDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>签到</DialogTitle>
+          <DialogTitle>{t('checkIn')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>学生ID</Label>
+            <Label>{t('studentId')}</Label>
             <Input
               value={form.studentId}
               onChange={(e) => update('studentId', e.target.value)}
-              placeholder="请输入学生ID"
+              placeholder={t('studentIdPlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>日期</Label>
+            <Label>{t('date')}</Label>
             <Input type="date" value={form.date} onChange={(e) => update('date', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>签到方式</Label>
+              <Label>{t('checkInMethod')}</Label>
               <Select value={form.checkInMethod} onValueChange={(v) => update('checkInMethod', v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(CHECK_IN_METHODS).map(([key, label]) => (
+                  {Object.entries(CHECK_IN_METHOD_KEYS).map(([key, labelKey]) => (
                     <SelectItem key={key} value={key}>
-                      {label}
+                      {t(labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>状态</Label>
+              <Label>{t('status')}</Label>
               <Select value={form.status} onValueChange={(v) => update('status', v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -255,7 +272,7 @@ function CheckInDialog({
                 <SelectContent>
                   {ATTENDANCE_STATUS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
-                      {s.label}
+                      {t(s.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -263,18 +280,18 @@ function CheckInDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>备注</Label>
+            <Label>{t('remark')}</Label>
             <Input
               value={form.remark}
               onChange={(e) => update('remark', e.target.value)}
-              placeholder="可选，备注信息"
+              placeholder={t('remarkPlaceholder')}
             />
           </div>
         </div>
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving || !form.studentId.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            确认签到
+            {t('confirmCheckIn')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -306,6 +323,7 @@ function LeaveDialog({
   classId: string
   onSave: (data: LeaveFormData) => Promise<void>
 }) {
+  const t = useTranslations('eduAttendance')
   const [form, setForm] = React.useState<LeaveFormData>({
     studentId: '',
     classId,
@@ -358,27 +376,27 @@ function LeaveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>提交请假申请</DialogTitle>
+          <DialogTitle>{t('leaveDialogTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>学生ID</Label>
+            <Label>{t('studentId')}</Label>
             <Input
               value={form.studentId}
               onChange={(e) => update('studentId', e.target.value)}
-              placeholder="请输入学生ID"
+              placeholder={t('studentIdPlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>请假类型</Label>
+            <Label>{t('leaveType')}</Label>
             <Select value={form.leaveType} onValueChange={(v) => update('leaveType', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {LEAVE_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {LEAVE_TYPES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {t(item.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -386,7 +404,7 @@ function LeaveDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>开始日期</Label>
+              <Label>{t('startDate')}</Label>
               <Input
                 type="date"
                 value={form.startDate}
@@ -394,7 +412,7 @@ function LeaveDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>结束日期</Label>
+              <Label>{t('endDate')}</Label>
               <Input
                 type="date"
                 value={form.endDate}
@@ -403,23 +421,23 @@ function LeaveDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>请假天数</Label>
+            <Label>{t('leaveDays')}</Label>
             <Input type="number" value={form.totalDays} readOnly className="bg-muted" />
           </div>
           <div className="grid gap-1.5">
-            <Label>请假原因</Label>
+            <Label>{t('leaveReason')}</Label>
             <Input
               value={form.reason}
               onChange={(e) => update('reason', e.target.value)}
-              placeholder="请输入请假原因"
+              placeholder={t('leaveReasonPlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>附件链接</Label>
+            <Label>{t('attachment')}</Label>
             <Input
               value={form.attachment}
               onChange={(e) => update('attachment', e.target.value)}
-              placeholder="可选，病假条等附件链接"
+              placeholder={t('attachmentPlaceholder')}
             />
           </div>
         </div>
@@ -435,7 +453,7 @@ function LeaveDialog({
             }
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            提交申请
+            {t('submitApplication')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -456,6 +474,7 @@ function ApproveDialog({
   leave: LeaveRequest | null
   onApprove: (id: string, status: 'approved' | 'rejected', remark: string) => Promise<void>
 }) {
+  const t = useTranslations('eduAttendance')
   const [remark, setRemark] = React.useState('')
   const [processing, setProcessing] = React.useState(false)
 
@@ -474,34 +493,44 @@ function ApproveDialog({
     }
   }
 
+  /** 请假类型码取词:未知码(后端新增值)原样回显,不吞数据 */
+  const leaveTypeLabel = (leaveType: string): string => {
+    const key = LEAVE_TYPE_KEY_MAP.get(leaveType)
+    return key ? t(key) : leaveType
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>审批请假申请</DialogTitle>
+          <DialogTitle>{t('approveDialogTitle')}</DialogTitle>
         </DialogHeader>
         {leave && (
           <div className="space-y-3 py-2">
             <div className="rounded-md border p-3 text-sm space-y-1">
               <p>
-                <span className="text-muted-foreground">类型：</span>
-                {LEAVE_TYPE_MAP.get(leave.leaveType) ?? leave.leaveType}
+                <span className="text-muted-foreground">{t('typeLabel')}</span>
+                {leaveTypeLabel(leave.leaveType)}
               </p>
               <p>
-                <span className="text-muted-foreground">日期：</span>
-                {leave.startDate} ~ {leave.endDate} ({leave.totalDays}天)
+                <span className="text-muted-foreground">{t('dateLabel')}</span>
+                {t('dateRangeDays', {
+                  start: leave.startDate,
+                  end: leave.endDate,
+                  days: leave.totalDays,
+                })}
               </p>
               <p>
-                <span className="text-muted-foreground">原因：</span>
+                <span className="text-muted-foreground">{t('reasonLabel')}</span>
                 {leave.reason}
               </p>
             </div>
             <div className="grid gap-1.5">
-              <Label>审批意见</Label>
+              <Label>{t('approveRemark')}</Label>
               <Input
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
-                placeholder="可选，审批意见"
+                placeholder={t('approveRemarkPlaceholder')}
               />
             </div>
           </div>
@@ -517,7 +546,7 @@ function ApproveDialog({
             ) : (
               <XCircle className="mr-1 h-4 w-4" />
             )}
-            驳回
+            {t('reject')}
           </Button>
           <Button variant="default" onClick={() => handleAction('approved')} disabled={processing}>
             {processing ? (
@@ -525,7 +554,7 @@ function ApproveDialog({
             ) : (
               <CheckCircle2 className="mr-1 h-4 w-4" />
             )}
-            批准
+            {t('approve')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -536,6 +565,7 @@ function ApproveDialog({
 /* ─── Main Page ─── */
 
 export default function AttendancePage() {
+  const t = useTranslations('eduAttendance')
   const queryClient = useQueryClient()
 
   /* ── State ── */
@@ -690,30 +720,46 @@ export default function AttendancePage() {
   const stats = statsQuery.data
   const presentCount = stats?.statusBreakdown.find((s) => s.status === 'present')?.count ?? 0
 
+  /* ── 取词解析:未知码(后端新增值)原样回显,不吞协议数据 ── */
+  const attendanceStatusLabel = (status: string): string => {
+    const key = ATTENDANCE_STATUS_KEY_MAP.get(status)
+    return key ? t(key) : status
+  }
+  const checkInMethodLabel = (method: string): string => {
+    const key = CHECK_IN_METHOD_KEYS[method]
+    return key ? t(key) : method
+  }
+  const leaveStatusLabel = (status: string): string => {
+    const key = LEAVE_STATUS_KEY_MAP.get(status)
+    return key ? t(key) : status
+  }
+  const leaveTypeLabel = (leaveType: string): string => {
+    const key = LEAVE_TYPE_KEY_MAP.get(leaveType)
+    return key ? t(key) : leaveType
+  }
+
   return (
     <div className="space-y-4">
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">考勤管理</h1>
-        <p className="text-xs text-muted-foreground">
-          管理学生签到/签退、查看考勤统计、处理请假申请
-        </p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
+        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="check">
             <UserCheck className="mr-1.5 h-4 w-4" />
-            签到/签退
+            <span>{t('tabCheck')}</span>
           </TabsTrigger>
           <TabsTrigger value="stats">
             <BarChart3 className="mr-1.5 h-4 w-4" />
-            考勤统计
+            <span>{t('tabStats')}</span>
           </TabsTrigger>
           <TabsTrigger value="leave">
             <ClipboardList className="mr-1.5 h-4 w-4" />
-            请假管理
+            <span>{t('tabLeave')}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -732,43 +778,43 @@ export default function AttendancePage() {
               </div>
               <Select value={attendanceStatusFilter} onValueChange={setAttendanceStatusFilter}>
                 <SelectTrigger className="w-32">
-                  <SelectValue placeholder="全部状态" />
+                  <SelectValue placeholder={t('allStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="all">{t('allStatus')}</SelectItem>
                   {ATTENDANCE_STATUS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
-                      {s.label}
+                      {t(s.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <Button size="sm" onClick={() => setCheckInOpen(true)}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                签到
+                {t('checkIn')}
               </Button>
               {attendanceQuery.isLoading && (
                 <div className="ml-auto flex items-center text-xs text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </div>
               )}
             </CardContent>
           </Card>
 
           {attendanceQuery.error ? (
-            <Alert variant="danger" description="加载签到记录失败，请稍后重试" />
+            <Alert variant="danger" description={t('loadRecordsFailed')} />
           ) : attendanceQuery.isLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                加载签到记录...
+                {t('loadingRecords')}
               </CardContent>
             </Card>
           ) : records.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                暂无签到记录
+                {t('emptyRecords')}
               </CardContent>
             </Card>
           ) : (
@@ -779,25 +825,25 @@ export default function AttendancePage() {
                     <thead>
                       <tr className="border-b">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          学生ID
+                          {t('studentId')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          签到时间
+                          {t('checkInTime')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          签退时间
+                          {t('checkOutTime')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          状态
+                          {t('status')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          签到方式
+                          {t('checkInMethod')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          备注
+                          {t('remark')}
                         </th>
                         <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                          操作
+                          {t('actions')}
                         </th>
                       </tr>
                     </thead>
@@ -841,11 +887,11 @@ export default function AttendancePage() {
                                 ATTENDANCE_COLOR_MAP.get(r.status) ?? 'bg-gray-500',
                               )}
                             >
-                              {ATTENDANCE_STATUS_MAP.get(r.status) ?? r.status}
+                              {attendanceStatusLabel(r.status)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
-                            {CHECK_IN_METHODS[r.checkInMethod] ?? r.checkInMethod}
+                            {checkInMethodLabel(r.checkInMethod)}
                           </td>
                           <td className="max-w-[120px] truncate px-4 py-3 text-xs text-muted-foreground">
                             {r.remark ?? '-'}
@@ -861,7 +907,7 @@ export default function AttendancePage() {
                                   disabled={checkOutMutation.isPending}
                                 >
                                   <Clock className="mr-1 h-3 w-3" />
-                                  签退
+                                  {t('checkOut')}
                                 </Button>
                               )}
                               {!r.checkInTime && (
@@ -874,7 +920,7 @@ export default function AttendancePage() {
                                   }}
                                 >
                                   <UserCheck className="mr-1 h-3 w-3" />
-                                  补签
+                                  {t('makeUpCheckIn')}
                                 </Button>
                               )}
                               <Button
@@ -884,7 +930,7 @@ export default function AttendancePage() {
                                 onClick={() => deleteAttendanceMutation.mutate(r.id)}
                                 disabled={deleteAttendanceMutation.isPending}
                               >
-                                删除
+                                {t('deleteAction')}
                               </Button>
                             </div>
                           </td>
@@ -910,7 +956,7 @@ export default function AttendancePage() {
                     size="sm"
                     onClick={() => setStatsPeriod(p)}
                   >
-                    {p === 'daily' ? '日' : p === 'weekly' ? '周' : '月'}
+                    {t(STATS_PERIOD_KEYS[p])}
                   </Button>
                 ))}
               </div>
@@ -937,12 +983,12 @@ export default function AttendancePage() {
           </Card>
 
           {statsQuery.error ? (
-            <Alert variant="danger" description="加载考勤统计失败，请稍后重试" />
+            <Alert variant="danger" description={t('loadStatsFailed')} />
           ) : statsQuery.isLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                加载统计...
+                {t('loadingStats')}
               </CardContent>
             </Card>
           ) : stats ? (
@@ -951,7 +997,7 @@ export default function AttendancePage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      总记录数
+                      {t('statsTotal')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -961,7 +1007,7 @@ export default function AttendancePage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      出勤率
+                      {t('statsAttendanceRate')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -971,7 +1017,7 @@ export default function AttendancePage() {
                 <Card>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
-                      正常出勤
+                      {t('statsNormalAttendance')}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -982,7 +1028,7 @@ export default function AttendancePage() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm font-medium">状态分布</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('statusDistribution')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -995,7 +1041,7 @@ export default function AttendancePage() {
                           <div className="flex items-center justify-between text-xs">
                             <span className="flex items-center gap-1.5">
                               <span className={cn('inline-block h-2 w-2 rounded-sm', s.color)} />
-                              {s.label}
+                              {t(s.labelKey)}
                             </span>
                             <span className="text-muted-foreground">
                               {count} ({pct}%)
@@ -1017,7 +1063,7 @@ export default function AttendancePage() {
               {stats.periodBreakdown.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm font-medium">趋势</CardTitle>
+                    <CardTitle className="text-sm font-medium">{t('trend')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
@@ -1025,14 +1071,14 @@ export default function AttendancePage() {
                         <thead>
                           <tr className="border-b">
                             <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                              时段
+                              {t('period')}
                             </th>
                             {ATTENDANCE_STATUS.map((s) => (
                               <th
                                 key={s.value}
                                 className="px-3 py-2 text-right font-medium text-muted-foreground"
                               >
-                                {s.label}
+                                {t(s.labelKey)}
                               </th>
                             ))}
                           </tr>
@@ -1071,7 +1117,7 @@ export default function AttendancePage() {
                                 colSpan={6}
                                 className="py-4 text-center text-xs text-muted-foreground"
                               >
-                                暂无趋势数据
+                                {t('emptyTrend')}
                               </td>
                             </tr>
                           )}
@@ -1094,13 +1140,13 @@ export default function AttendancePage() {
                 onValueChange={(v) => setLeaveStatusFilter(v === 'all' ? '' : v)}
               >
                 <SelectTrigger className="w-32">
-                  <SelectValue placeholder="全部状态" />
+                  <SelectValue placeholder={t('allStatus')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
+                  <SelectItem value="all">{t('allStatus')}</SelectItem>
                   {LEAVE_STATUS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>
-                      {s.label}
+                      {t(s.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1123,30 +1169,30 @@ export default function AttendancePage() {
               </div>
               <Button size="sm" onClick={() => setLeaveOpen(true)}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                提交请假
+                {t('submitLeave')}
               </Button>
               {leaveQuery.isLoading && (
                 <div className="ml-auto flex items-center text-xs text-muted-foreground">
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  加载中...
+                  {t('loading')}
                 </div>
               )}
             </CardContent>
           </Card>
 
           {leaveQuery.error ? (
-            <Alert variant="danger" description="加载请假记录失败，请稍后重试" />
+            <Alert variant="danger" description={t('loadLeavesFailed')} />
           ) : leaveQuery.isLoading ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                加载请假记录...
+                {t('loadingLeaves')}
               </CardContent>
             </Card>
           ) : leaves.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                暂无请假记录
+                {t('emptyLeaves')}
               </CardContent>
             </Card>
           ) : (
@@ -1157,25 +1203,25 @@ export default function AttendancePage() {
                     <thead>
                       <tr className="border-b">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          学生ID
+                          {t('studentId')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          类型
+                          {t('type')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          日期范围
+                          {t('dateRange')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          天数
+                          {t('days')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          原因
+                          {t('reason')}
                         </th>
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                          状态
+                          {t('status')}
                         </th>
                         <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                          操作
+                          {t('actions')}
                         </th>
                       </tr>
                     </thead>
@@ -1185,13 +1231,13 @@ export default function AttendancePage() {
                           <td className="px-4 py-3 text-xs font-mono">
                             {l.studentId.slice(0, 8)}...
                           </td>
-                          <td className="px-4 py-3 text-xs">
-                            {LEAVE_TYPE_MAP.get(l.leaveType) ?? l.leaveType}
-                          </td>
+                          <td className="px-4 py-3 text-xs">{leaveTypeLabel(l.leaveType)}</td>
                           <td className="px-4 py-3 text-xs">
                             {l.startDate} ~ {l.endDate}
                           </td>
-                          <td className="px-4 py-3 text-xs">{l.totalDays}天</td>
+                          <td className="px-4 py-3 text-xs">
+                            {t('daysWithUnit', { count: l.totalDays })}
+                          </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             <TruncatedText value={l.reason} className="max-w-[150px]" />
                           </td>
@@ -1203,7 +1249,7 @@ export default function AttendancePage() {
                                 LEAVE_STATUS_COLOR_MAP.get(l.status) ?? 'bg-gray-500',
                               )}
                             >
-                              {LEAVE_STATUS_MAP.get(l.status) ?? l.status}
+                              {leaveStatusLabel(l.status)}
                             </Badge>
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1219,7 +1265,7 @@ export default function AttendancePage() {
                                   }}
                                 >
                                   <CheckCircle2 className="mr-1 h-3 w-3" />
-                                  审批
+                                  {t('approveAction')}
                                 </Button>
                               )}
                               <Button
@@ -1229,7 +1275,7 @@ export default function AttendancePage() {
                                 onClick={() => handleDeleteLeave(l.id)}
                                 disabled={deleteLeaveMutation.isPending}
                               >
-                                删除
+                                {t('deleteAction')}
                               </Button>
                             </div>
                           </td>

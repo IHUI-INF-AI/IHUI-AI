@@ -467,7 +467,7 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
 
     // 校验 Key 归属权
     const [existing] = await dbRead
-      .select({ id: developerApiKeys.id, userId: developerApiKeys.userId })
+      .select({ id: developerApiKeys.id, userId: developerApiKeys.userId, name: developerApiKeys.name })
       .from(developerApiKeys)
       .where(eq(developerApiKeys.id, p.data.id))
       .limit(1)
@@ -482,6 +482,36 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
         parsed.data.costDeltaCents ?? 0,
       )
       if (!result) return reply.status(404).send(error(404, 'API Key 不存在'))
+      // 钱包充值成功邮件通知(fire-and-forget,失败不阻塞充值)
+      try {
+        const [{ findUserById }, { sendEmail }, { renderWalletRechargeEmail, resolveWebOrigin }] =
+          await Promise.all([
+            import('../db/queries.js'),
+            import('../services/email-service.js'),
+            import('../services/email-templates.js'),
+          ])
+        const user = await findUserById(userId)
+        if (user?.email) {
+          const mail = renderWalletRechargeEmail({
+            userName: user.nickname ?? undefined,
+            keyName: existing.name,
+            costYuan: (((parsed.data.tokenDelta ?? 0) + (parsed.data.costDeltaCents ?? 0)) / 100).toFixed(2),
+            creditTokens: parsed.data.tokenDelta ?? 0,
+            newTokenBalance: result.tokenBalance,
+            keysUrl: `${resolveWebOrigin()}/models/keys`,
+          })
+          void sendEmail({
+            to: user.email,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            scene: 'notification',
+            userId,
+          }).catch(() => {})
+        }
+      } catch {
+        /* 充值成功邮件失败不阻塞充值 */
+      }
       return reply.send(success({ id: p.data.id, ...result }))
     } catch (e) {
       if (
@@ -526,6 +556,35 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
           msg: result.reason ?? '兑换失败',
         }
         return reply.status(mapped.status).send(error(mapped.status, mapped.msg))
+      }
+      // 兑换成功邮件通知(fire-and-forget,失败不阻塞兑换)
+      try {
+        const [{ findUserById }, { sendEmail }, { renderRedeemSuccessEmail, resolveWebOrigin }] =
+          await Promise.all([
+            import('../db/queries.js'),
+            import('../services/email-service.js'),
+            import('../services/email-templates.js'),
+          ])
+        const user = await findUserById(userId)
+        if (user?.email) {
+          const mail = renderRedeemSuccessEmail({
+            userName: user.nickname ?? undefined,
+            code: parsed.data.code,
+            tokenAmount: result.tokenAmount ?? 0,
+            newTokenBalance: result.newTokenBalance ?? 0,
+            keysUrl: `${resolveWebOrigin()}/models/keys`,
+          })
+          void sendEmail({
+            to: user.email,
+            subject: mail.subject,
+            html: mail.html,
+            text: mail.text,
+            scene: 'notification',
+            userId,
+          }).catch(() => {})
+        }
+      } catch {
+        /* 兑换成功邮件失败不阻塞兑换 */
       }
       return reply.send(
         success({

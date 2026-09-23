@@ -10,6 +10,11 @@ export { Input } from './components/input'
 // SearchInput 全项目统一搜索框(2026-09-15 立,圆角输入井唯一视觉来源,web + extension 共用)
 export { SearchInput, searchInputWellClassName } from './components/search-input'
 export type { SearchInputProps } from './components/search-input'
+export { ContextInjectionList } from './components/context-injection-list'
+export type {
+  ContextInjectionItem,
+  ContextInjectionListProps,
+} from './components/context-injection-list'
 export { Label } from './components/label'
 export {
   Card,
@@ -58,12 +63,13 @@ export { Checkbox } from './components/checkbox'
 export { Switch } from './components/switch'
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './components/tooltip'
 export { TreeSelect } from './components/tree-select'
-export type { TreeNode } from './components/tree-select'
+export type { TreeNode, TreeSelectLabels } from './components/tree-select'
 export { ThemeLogo } from './components/theme-logo'
 export { Sidebar, SidebarItem, SidebarGroup } from './components/sidebar'
 export { VipBadge } from './components/vip-badge'
 export { Upload } from './components/Upload'
 export type { UploadProps } from './components/Upload'
+export type { UploadLabels } from './components/Upload'
 export { Badge, badgeVariants } from './components/badge'
 export type { BadgeProps } from './components/badge'
 export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './components/collapsible'
@@ -98,14 +104,15 @@ export {
   DrawerDescription,
 } from './components/drawer'
 export { DataTable } from './components/data-table'
-export type { DataTableColumn, DataTableProps } from './components/data-table'
+export type { DataTableColumn, DataTableLabels, DataTableProps } from './components/data-table'
 // 工作展示区组件(2026-07-22 立,AI 对话内嵌浏览器)
 export { ResizableHandle } from './components/resizable'
 export type { ResizableHandleProps } from './components/resizable'
 export { WebViewFrame } from './components/webview-frame'
 export type { WebViewFrameProps, WebViewMode, WebViewStatus } from './components/webview-frame'
+export type { WebViewFrameLabels } from './components/webview-frame'
 export { WorkPanel } from './components/work-panel'
-export type { WorkPanelProps, WorkPanelTabItem } from './components/work-panel'
+export type { WorkPanelProps, WorkPanelTabItem, WorkPanelLabels } from './components/work-panel'
 // AuthShell 统一登录弹窗外壳(2026-07-26 抽取到共享包,web + extension 共用)
 export { AuthShell, AuthShellCompact } from './components/auth-shell'
 export type { AuthShellProps } from './components/auth-shell'

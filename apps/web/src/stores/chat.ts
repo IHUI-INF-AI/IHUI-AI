@@ -8,8 +8,14 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
+import type {
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+  FallbackEvent,
+} from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
+import { markStreamError } from '@ihui/shared/chat'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
 export type { ChatRole } from '@ihui/shared'
@@ -143,6 +149,17 @@ export interface SideQueueItem {
 }
 
 /**
+ * D60 发送可靠性状态族(2026-09-23 立):
+ * persistMessageSafe 把持久化失败归一化为这四态,调用方(输入框/重试按钮)据此渲染。
+ * - failed_retryable:网络/5xx 等可重试失败,草稿保留 + 可重发
+ * - idempotent_conflict:幂等键已存在但内容与当前输入不一致,请作为新消息发送
+ * - archived:会话已归档,无法继续发送(草稿保留,取消归档后可重发)
+ * - deleted:会话/任务已删除(404),无法继续发送(草稿保留,需新建会话)
+ */
+export type SendReliabilityStatus =
+  'failed_retryable' | 'idempotent_conflict' | 'archived' | 'deleted'
+
+/**
  * Web 前端 chat store UI 状态消息类型。
  *
  * 继承 @ihui/shared 的 ChatMessage 通用基类(id/role/content/createdAt?/model?/error?/reasoning?/toolCalls?/meta?),
@@ -172,6 +189,11 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    *  compaction 命名帧 → onCompaction 回调写入;MessageItem 在消息内容区顶部
    *  渲染 CompressionDivider,提示"本消息之前的上下文已压缩为摘要"。 */
   compaction?: MessageCompaction
+  /** D33(2026-09-23 立):该回答实际**换过模型**的交代(主模型失败→备用模型)。
+   *  live:顶部 FallbackBanner(瞬态);历史:metadata.fallback(snake)经水合换算挂到消息,
+   *  MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级交代行。
+   *  缺失 = 本轮未降级或老消息 —— 不渲染。 */
+  fallback?: FallbackEvent
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)
@@ -200,8 +222,6 @@ interface ChatState {
   conversationId: string | null
   /** 用户是否已手动向上滚动(暂停自动滚动到底部) */
   userScrolledUp: boolean
-  /** 用户是否已手动滚动到顶部(驱动 jump-to-top 按钮显隐) */
-  userScrolledToTop: boolean
   /** 模板选择等外部输入填充值；MessageInput 消费后置 null */
   draftInput: string | null
   /** 外部触发(如首页「立即体验」CTA)预填后是否自动发送;MessageInput 消费后置 false。
@@ -275,6 +295,13 @@ interface ChatState {
    *  持久化:排队问题跨刷新保留(用户排队后刷新再回来仍可补答),故纳入 partialize。 */
   sideQueueByConversation: Record<string, SideQueueItem[]>
 
+  /** D60 发送可靠性草稿保全(2026-09-23 立):最近一次持久化失败时保留的用户输入正文。
+   *  只增字段:不参与既有消息/草稿(draftInput)语义;输入框读取后由 clearFailedDraft 消费。
+   *  null = 无待恢复草稿。持久化(跨刷新不丢,见 partialize)。 */
+  failedDraft: string | null
+  /** D60:failedDraft 对应的失败状态(见 SendReliabilityStatus);null = 无失败态 */
+  failedDraftStatus: SendReliabilityStatus | null
+
   /** 设置引用回复目标(null=清除,输入区引用 chip 随之消失) */
   setQuotedMessage: (q: { id: string; role: ChatMessage['role']; content: string } | null) => void
   /** 设置网页搜索开关(同步 localStorage 'ihui_web_search_enabled' 供 SSR 前恢复) */
@@ -299,8 +326,6 @@ interface ChatState {
   setConversationId: (id: string | null) => void
   /** 设置用户是否向上滚动(由 MessageList scroll handler 调用) */
   setUserScrolledUp: (v: boolean) => void
-  /** 设置用户是否已偏离顶部(由 MessageList scroll handler 调用) */
-  setUserScrolledToTop: (v: boolean) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
   /** MessageInput 消费 draftAutoSend 后调用,置 false 避免重复触发自动发送 */
@@ -371,6 +396,19 @@ interface ChatState {
    *  - 后端 knowledge_lookup 工具执行后 done 前下发,前端整体替换 message.citations
    *  - 用于消息气泡内 inline CitationBar(来源标签 + 可点击 URL) */
   setMessageCitations: (messageId: string, citations: CitationEntry[]) => void
+  /** D34 上下文注入交代(2026-09-22 立):把 injection_applied 帧追加到消息级 injections。
+   *  **追加而非整体替换**:一条流可能下发多帧(自定义指令 / AGENTS.md / Repo Wiki / 检索上下文各一帧),
+   *  并按 kind+collapsed 去重(后端重连或补发时不得出现重复行)。 */
+  appendMessageInjection: (
+    messageId: string,
+    injection: { kind: string; collapsed: string; fullText?: string; count?: number },
+  ) => void
+  /** D39/D108 上游重试交代(retry_scheduled 命名帧):整体替换为**最近一次**重试(第 N 次递增,
+   *  旧的"第 1 次"没有继续显示的价值),MessageItem 据此渲染一行提示。 */
+  setMessageRetryNotice: (
+    messageId: string,
+    notice: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number },
+  ) => void
   /** 2026-09-19 立:写入消息级上下文压缩信息(compaction 命名帧 → onCompaction 回调)。
    *  压缩发生时把统计挂到指定 assistant 消息,MessageItem 渲染 CompressionDivider。 */
   setMessageCompaction: (messageId: string, compaction: ChatMessage['compaction']) => void
@@ -393,6 +431,10 @@ interface ChatState {
   removeSideQuestion: (conversationId: string, id: string) => void
   /** D28 快速侧问:出队指定会话桶的队首一条(流结束自动补答时调用);桶空返回 null */
   shiftSideQuestion: (conversationId: string) => SideQueueItem | null
+  /** D60 发送可靠性草稿保全(2026-09-23 立):写入失败保留草稿 + 状态;draft 为 null 时清空 */
+  setFailedDraft: (draft: string | null, status?: SendReliabilityStatus | null) => void
+  /** D60:清空失败保留草稿(输入框消费恢复后调用) */
+  clearFailedDraft: () => void
   /** 终端实时输出追加(2026-09-18 立):命令执行期间逐块追加 stdout/stderr 增量。
    *  单键累计上限 20000 字符(超出保留尾部),避免长命令把 localStorage/内存撑爆。 */
   appendTerminalOutput: (terminalId: string, text: string) => void
@@ -475,7 +517,6 @@ export const useChatStore = create<ChatState>()(
       error: null,
       conversationId: null,
       userScrolledUp: false,
-      userScrolledToTop: false,
       draftInput: null,
       draftAutoSend: false,
       pendingQuestion: null,
@@ -505,6 +546,9 @@ export const useChatStore = create<ChatState>()(
       inputHistory: [],
       // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
       sideQueueByConversation: {},
+      // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
+      failedDraft: null,
+      failedDraftStatus: null,
 
       // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
       // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
@@ -582,7 +626,7 @@ export const useChatStore = create<ChatState>()(
           const target = s.messages[idx]
           if (!target) return { error }
           const next = s.messages.slice()
-          next[idx] = { ...target, error: true, content: target.content || error }
+          next[idx] = markStreamError(target, error)
           return { messages: next, error }
         }),
 
@@ -678,8 +722,6 @@ export const useChatStore = create<ChatState>()(
       setConversationId: (id) => set({ conversationId: id }),
 
       setUserScrolledUp: (v) => set({ userScrolledUp: v }),
-
-      setUserScrolledToTop: (v) => set({ userScrolledToTop: v }),
 
       clearDraftInput: () => set({ draftInput: null }),
 
@@ -1030,6 +1072,35 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
+      appendMessageInjection: (messageId, injection) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const existing = target.injections ?? []
+          // 同 kind + 同标签视为同一条(补发/重连幂等)
+          if (
+            existing.some((x) => x.kind === injection.kind && x.collapsed === injection.collapsed)
+          ) {
+            return s
+          }
+          const next = s.messages.slice()
+          next[idx] = { ...target, injections: [...existing, injection] }
+          return { messages: next }
+        }),
+
+      setMessageRetryNotice: (messageId, notice) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, retryNotice: notice }
+          return { messages: next }
+        }),
+
       // 2026-09-19 立:写入消息级上下文压缩统计(compaction 命名帧 → onCompaction
       // 回调 → send-message 映射为 MessageCompaction),整体替换;MessageItem 在
       // 消息内容区顶部渲染 CompressionDivider。
@@ -1136,6 +1207,17 @@ export const useChatStore = create<ChatState>()(
         })
         return head
       },
+
+      // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
+      // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
+      setFailedDraft: (draft, status) =>
+        set(() => {
+          if (draft === null) return { failedDraft: null, failedDraftStatus: null }
+          if (!draft.trim()) return { failedDraft: null, failedDraftStatus: null }
+          return { failedDraft: draft, failedDraftStatus: status ?? null }
+        }),
+
+      clearFailedDraft: () => set({ failedDraft: null, failedDraftStatus: null }),
 
       // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
       // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
@@ -1265,6 +1347,9 @@ export const useChatStore = create<ChatState>()(
         sideQueueByConversation: Object.fromEntries(
           Object.entries(s.sideQueueByConversation).map(([k, v]) => [k, v.slice(-20)]),
         ),
+        // D60(2026-09-23):失败保留草稿持久化 —— 发送失败后刷新页面,输入框仍可回填重发。
+        failedDraft: s.failedDraft,
+        failedDraftStatus: s.failedDraftStatus,
         // D22(2026-09-19):网页搜索开关用户偏好持久化(初始 state 已有 localStorage 双保险)
         webSearchEnabled: s.webSearchEnabled,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除

@@ -141,7 +141,8 @@
     "orUseAccount": "Or use account login",
     "ssoCancelled": "SSO sign-in cancelled",
     "ssoLoading": "SSO authorizing...",
-    "ssoLogin": "SSO one-click sign-in"
+    "ssoLogin": "SSO one-click sign-in",
+    "ssoFailed": "SSO login failed"
   },
   "popup": {
     "copyFailed": "Copy failed",
@@ -165,6 +166,10 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
+    "retryMessage": "Retry",
+    "citationTitle": "Sources",
+    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
     "history": "History",
     "title": "AI Chat",
     "exit": "Exit",
@@ -185,14 +190,45 @@
     "toolStatusError": "Failed",
     "toolDetail": "Call details",
     "terminal": "Terminal",
+    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
     "terminalStatusFailed": "Failed",
+    "terminalTruncated": "…(truncated, {total} characters in total)",
+    "injectionTitle": "{count, plural, one {# context source in this turn} other {# context sources in this turn}}",
+    "injectionExpand": "Show {count, plural, one {# more} other {# more}}",
+    "injectionCollapse": "Collapse",
+    "injectionKindDeveloper": "Session-level custom instructions applied",
+    "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
+    "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
+    "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
     "planStatusPending": "Pending",
     "planStatusInProgress": "In progress",
     "planStatusCompleted": "Completed",
     "subagentTools": "Sub-agent tools ×{count}",
-    "usage": "Usage"
+    "usage": "Usage",
+    "subagentRoleValidator": "Validator",
+    "subagentRoleReviewer": "Reviewer",
+    "subagentRoleExplorer": "Explorer",
+    "subagentRoleImplementer": "Implementer",
+    "subagentRolePlanner": "Planner",
+    "subagentRoleTester": "Tester",
+    "subagentRoleResearcher": "Researcher",
+    "subagentRoleOptimizer": "Optimizer",
+    "subagentRoleDebugger": "Debugger",
+    "subagentRoleRefactorer": "Refactorer",
+    "modelCategoryChat": "Chat",
+    "modelCategoryVision": "Vision",
+    "modelCategoryEmbedding": "Embedding",
+    "modelCategoryRerank": "Rerank",
+    "modelCategoryTts": "Text to speech",
+    "modelCategoryAsr": "Speech to text",
+    "modelCategoryImage": "Image generation",
+    "modelCategoryVideo": "Video generation",
+    "modelCategoryGuard": "Safety guard",
+    "modelCategoryOcr": "OCR",
+    "modelCategoryOther": "Other",
+    "modelHistoryToggle": "Legacy models"
   },
   "settings": {
     "language": "Interface language",
@@ -245,7 +281,21 @@
     "approvalSubmitting": "Submitting...",
     "approvalSent": "Submitted",
     "approvalFailed": "Submit failed",
-    "approvalUnavailable": "Online approval is not supported on this channel"
+    "approvalUnavailable": "Online approval is not supported on this channel",
+    "decisionAllow": "Allowed",
+    "decisionAsk": "Approval needed",
+    "decisionDeny": "Blocked",
+    "levelRead": "Read-only",
+    "levelWrite": "Write",
+    "levelDangerous": "Dangerous",
+    "levelHigh": "High risk",
+    "levelMedium": "Medium risk",
+    "levelLow": "Low risk",
+    "modeDefault": "Default",
+    "modePlan": "Plan mode",
+    "modeAcceptEdits": "Auto-accept edits",
+    "modeBypassPermissions": "Allow everything",
+    "modeManual": "Manual approval"
   },
   "course": {
     "title": "Courses",
@@ -284,6 +334,13 @@
   },
   "content": {
     "translate": "Translate",
+    "typeLesson": "Lesson",
+    "typeLive": "Live",
+    "typeArticle": "Article",
+    "typeNews": "News",
+    "typeAsk": "Q&A",
+    "typeResource": "Resource",
+    "typeExam": "Exam",
     "highlight": "Highlight",
     "vocab": "Dictionary",
     "sendAi": "Ask AI",
@@ -393,6 +450,153 @@
       "benefitsTitle": "Included benefits",
       "note": "Pricing and benefits are subject to the web version.",
       "open": "Go to Web to Activate"
+    },
+    "topics": {
+      "discussions": "{count} discussions",
+      "followers": "{count} followers"
+}
+  },
+  "permissionTier": {
+    "label": "Permission tier",
+    "mode": {
+      "default": {
+        "title": "Default mode",
+        "desc": "Every action requires manual approval; safest"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Only reading and search allowed; file writes and commands are denied"
+      },
+      "accept-edits": {
+        "title": "Accept edits",
+        "desc": "Allowlisted actions run automatically; anything else asks first"
+      },
+      "bypass-permissions": {
+        "title": "Bypass permissions",
+        "desc": "Full access with no confirmations (high risk)"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as default"
+      }
     }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "Preparing a reply…",
+        "1": "Organizing my thoughts…",
+        "2": "Got it, thinking through a response…",
+        "3": "Generating a reply for you…",
+        "4": "Question received, working on it…"
+      },
+      "middle": {
+        "0": "Still working on it…",
+        "1": "Picking up where we left off…",
+        "2": "Putting together the rest of the reply…",
+        "3": "Following up on your question…",
+        "4": "Generating what comes next…"
+      },
+      "followup": {
+        "0": "Reading your follow-up…",
+        "1": "Thinking it through with context…",
+        "2": "Organizing a reply to your follow-up…",
+        "3": "Follow-up received, on it…",
+        "4": "Adding to my answer…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "Allocating compute…",
+        "1": "Initializing the runtime…",
+        "2": "Starting the pipeline…",
+        "3": "Spinning up processing…",
+        "4": "Running the first pass…"
+      },
+      "middle": {
+        "0": "Executing…",
+        "1": "Crunching the numbers…",
+        "2": "Working through intermediate results…",
+        "3": "Still running, making progress…",
+        "4": "Computing, one moment…"
+      },
+      "followup": {
+        "0": "Recomputing…",
+        "1": "Continuing with your new input…",
+        "2": "Processing the addition…",
+        "3": "Updating the results…",
+        "4": "Handling the follow-up request…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "Reviewing conversation context…",
+        "1": "Loading relevant context…",
+        "2": "Sorting through background…",
+        "3": "Recalling related details…",
+        "4": "Gathering context…"
+      },
+      "middle": {
+        "0": "Connecting with earlier context…",
+        "1": "Thinking with context in mind…",
+        "2": "Glancing back at the thread…",
+        "3": "Context ready, working on it…",
+        "4": "Cross-checking previous messages…"
+      },
+      "followup": {
+        "0": "Reading your follow-up in context…",
+        "1": "Looking back at relevant context…",
+        "2": "Linking to earlier discussion…",
+        "3": "Checking against the thread…",
+        "4": "Working on it with context…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "Drafting a plan…",
+        "1": "Breaking down your request…",
+        "2": "Mapping out the steps…",
+        "3": "Analyzing the key points…",
+        "4": "Outlining the reply…"
+      },
+      "middle": {
+        "0": "Working through the plan…",
+        "1": "Moving to the next step…",
+        "2": "Plan in progress…",
+        "3": "Processing step by step…",
+        "4": "Carrying out the remaining steps…"
+      },
+      "followup": {
+        "0": "Adjusting the plan…",
+        "1": "Updating steps for your follow-up…",
+        "2": "Replanning…",
+        "3": "Filling in plan details…",
+        "4": "Following up on the new ask…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "Preparing a detailed answer…",
+        "1": "Organizing the details…",
+        "2": "Sorting the key points…",
+        "3": "Generating an in-depth reply…",
+        "4": "Fleshing out the answer…"
+      },
+      "middle": {
+        "0": "Adding details…",
+        "1": "Expanding the explanation…",
+        "2": "Polishing what comes next…",
+        "3": "Details in progress…",
+        "4": "Refining the reply…"
+      },
+      "followup": {
+        "0": "Adding the details you asked for…",
+        "1": "Expanding on your follow-up…",
+        "2": "Fleshing out the explanation…",
+        "3": "Preparing a supplement…",
+        "4": "Rounding out the follow-up answer…"
+      }
+    },
+    "vividTail": ", almost there"
   }
 }

@@ -18,16 +18,32 @@ import { ImageGenDoubao } from '@/components/ai-generation/image-gen-doubao'
 import { ImageGenJimeng } from '@/components/ai-generation/image-gen-jimeng'
 import { ImageGenAgnes } from '@/components/ai-generation/image-gen-agnes'
 import { ImageGenX5m5x } from '@/components/ai-generation/image-gen-x5m5x'
+import { ImageGenGemini } from '@/components/ai-generation/image-gen-gemini'
+import { ImageGenZhipu } from '@/components/ai-generation/image-gen-zhipu'
+import { ImageGenIdeogram } from '@/components/ai-generation/image-gen-ideogram'
+import { ImageGenRecraft } from '@/components/ai-generation/image-gen-recraft'
+import { ImageGenFal } from '@/components/ai-generation/image-gen-fal'
+import { ImageGenFreepik } from '@/components/ai-generation/image-gen-freepik'
 import { ImageEditQwen } from '@/components/ai-generation/image-edit-qwen'
 import { VideoGenKling } from '@/components/ai-generation/video-gen-kling'
 import { VideoGenQwen } from '@/components/ai-generation/video-gen-qwen'
+import { VideoGenJimeng } from '@/components/ai-generation/video-gen-jimeng'
+import { VideoGenVidu } from '@/components/ai-generation/video-gen-vidu'
+import { VideoGenRunway } from '@/components/ai-generation/video-gen-runway'
+import { VideoGenLuma } from '@/components/ai-generation/video-gen-luma'
+import { VideoGenPixverse } from '@/components/ai-generation/video-gen-pixverse'
+import { VideoGenZhipu } from '@/components/ai-generation/video-gen-zhipu'
+import { VideoGenVeo } from '@/components/ai-generation/video-gen-veo'
 import { VideoGenOneClick } from '@/components/ai-generation/video-gen-one-click'
 import { VideoGenSora2 } from '@/components/ai-generation/video-gen-sora2'
 import { VideoGenAgnes } from '@/components/ai-generation/video-gen-agnes'
 import { ChatGenAgnes } from '@/components/ai-generation/chat-gen-agnes'
 import { ChatGenX5m5x } from '@/components/ai-generation/chat-gen-x5m5x'
 import { ChatGenX5m5xSubscribe } from '@/components/ai-generation/chat-gen-x5m5x-subscribe'
+import { ChatGenOpenAICompat } from '@/components/ai-generation/chat-gen-openai-compat'
 import { MusicGenSuno } from '@/components/ai-generation/music-gen-suno'
+import { MusicGenMureka } from '@/components/ai-generation/music-gen-mureka'
+import { MusicGenElevenlabs } from '@/components/ai-generation/music-gen-elevenlabs'
 import { Model3dGenHunyuan } from '@/components/ai-generation/model-3d-gen-hunyuan'
 
 interface Props {
@@ -67,6 +83,7 @@ export function AiGenerationContent({
       if (autoMode === 'agnes-chat') return <ChatGenAgnes />
       if (autoMode === 'x5m5x-chat') return <ChatGenX5m5x />
       if (autoMode === 'x5m5x-subscribe') return <ChatGenX5m5xSubscribe />
+      if (autoMode === 'openai-compat') return <ChatGenOpenAICompat />
       return <TextGenerator onGenerate={onGenerateText} />
     case 'image':
       switch (imageMode) {
@@ -76,6 +93,18 @@ export function AiGenerationContent({
           return <ImageGenDoubao />
         case 'jimeng':
           return <ImageGenJimeng />
+        case 'gemini':
+          return <ImageGenGemini />
+        case 'zhipu':
+          return <ImageGenZhipu />
+        case 'ideogram':
+          return <ImageGenIdeogram />
+        case 'recraft':
+          return <ImageGenRecraft />
+        case 'fal':
+          return <ImageGenFal />
+        case 'freepik':
+          return <ImageGenFreepik />
         case 'agnes':
           return <ImageGenAgnes />
         case 'x5m5x':
@@ -91,6 +120,20 @@ export function AiGenerationContent({
           return <VideoGenKling />
         case 'qwen':
           return <VideoGenQwen />
+        case 'jimeng':
+          return <VideoGenJimeng />
+        case 'vidu':
+          return <VideoGenVidu />
+        case 'runway':
+          return <VideoGenRunway />
+        case 'luma':
+          return <VideoGenLuma />
+        case 'pixverse':
+          return <VideoGenPixverse />
+        case 'zhipu-video':
+          return <VideoGenZhipu />
+        case 'veo':
+          return <VideoGenVeo />
         case 'one-click':
           return <VideoGenOneClick />
         case 'sora2':
@@ -105,6 +148,10 @@ export function AiGenerationContent({
     case 'music':
       return musicMode === 'suno' ? (
         <MusicGenSuno />
+      ) : musicMode === 'mureka' ? (
+        <MusicGenMureka />
+      ) : musicMode === 'elevenlabs' ? (
+        <MusicGenElevenlabs />
       ) : (
         <MusicGenerator onGenerate={onGenerateMusic} />
       )

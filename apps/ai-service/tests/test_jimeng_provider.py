@@ -219,7 +219,9 @@ async def test_ark_image_non_seedream_model_falls_back_to_env_default():
     p = JimengProvider("ark-key")
     with patch.object(p, "_post_ark", new=AsyncMock(return_value={"data": [{"url": "u"}]})):
         result = await p.generate_image("cat", "jimeng-wrong-model", size="1024x1024")
-    assert result["model"] == "doubao-seedream-4-0"
+    # 兜底默认值随厂商在售清单升级(2026-09:doubao-seedream-4-0 → 5-0),
+    # 与 app/providers/jimeng_provider.py 的 ARK_IMAGE_MODEL 缺省值保持一致
+    assert result["model"] == "doubao-seedream-5-0"
 
 
 async def test_ark_image_missing_url_raises():

@@ -8,8 +8,18 @@ import * as React from 'react'
 import { Pause, Play, RotateCcw, Route, SkipForward } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { describeToolCall } from '@ihui/shared/chat'
+import { StreamRow, type StreamStatus } from '@/components/chat/stream/stream-ui'
 import type { ToolCall } from '@ihui/types'
 import { advancePlayback, initialPlayback, traceStepDuration } from '@/lib/trace-replay'
+
+/** 回放步骤状态 → 活动行统一状态词汇 */
+const TRACE_STATUS: Partial<Record<ToolCall['status'], StreamStatus>> = {
+  running: 'running',
+  success: 'success',
+  error: 'error',
+  cancelled: 'skipped',
+}
 
 /**
  * TraceReplay — 执行轨迹回放(P3 #39 执行轨迹即文档,2026-09-16 立,对标 Codex
@@ -25,6 +35,7 @@ import { advancePlayback, initialPlayback, traceStepDuration } from '@/lib/trace
  */
 export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
   const t = useTranslations('traceReplay')
+  const tStream = useTranslations('taskStatus')
   const [pb, setPb] = React.useState(() => initialPlayback(toolCalls.length))
   const timerRef = React.useRef<number | null>(null)
 
@@ -128,39 +139,32 @@ export function TraceReplay({ toolCalls }: { toolCalls: ToolCall[] }) {
           const isCurrent = i === pb.cursor
           const isDone = i < pb.cursor
           const dimmed = active && !isCurrent && !isDone
+          const view = describeToolCall({ toolName: call.toolName, args: call.args })
+          const title = view.nameKey ? tStream(view.nameKey) : view.codeName
           return (
             <li
               key={call.id || i}
               data-testid={`trace-step-${i}`}
               data-trace-state={isCurrent ? 'current' : isDone ? 'done' : 'pending'}
-              className={cn(
-                'flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs transition-all duration-200',
-                isCurrent && 'bg-primary/10 font-medium text-foreground',
-                isDone && 'text-muted-foreground',
-                dimmed && 'opacity-45',
-                !active && 'text-muted-foreground',
-              )}
             >
-              <span className="w-5 shrink-0 text-right tabular-nums text-[10px] text-muted-foreground/60">
-                {i + 1}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{call.toolName}</span>
-              {call.durationMs !== undefined && (
-                <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
-                  {call.durationMs}ms
-                </span>
-              )}
-              <span
+              {/* 回放步骤并入消息流活动行模板:同一字号/行高/状态图标,禁止再自配 9/10/11px 档,
+                  也不得把 read_file 这类英文码名摆在界面上 */}
+              <StreamRow
+                status={TRACE_STATUS[call.status] ?? 'pending'}
+                title={title}
+                subject={view.subject}
+                subjectKind={view.subjectKind}
+                leading={`${i + 1}.`}
+                elapsedMs={call.durationMs}
+                trailing={t(`status_${call.status}` as 'status_success')}
                 className={cn(
-                  'shrink-0 rounded-sm px-1 py-0.5 text-[9px] font-medium',
-                  call.status === 'success' && 'bg-green-500/10 text-green-600 dark:text-green-400',
-                  call.status === 'error' && 'bg-red-500/10 text-red-600 dark:text-red-400',
-                  (call.status === 'running' || call.status === 'cancelled') &&
-                    'bg-muted text-muted-foreground',
+                  'rounded-sm px-1.5',
+                  isCurrent && 'bg-primary/10 font-medium',
+                  (isDone || !active) && 'text-muted-foreground',
+                  dimmed && 'opacity-45',
                 )}
-              >
-                {t(`status_${call.status}` as 'status_success')}
-              </span>
+                testId={`trace-row-${i}`}
+              />
             </li>
           )
         })}

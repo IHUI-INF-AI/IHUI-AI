@@ -140,6 +140,7 @@ export function TerminalTab({
           'ml-0.5 flex h-4 w-4 items-center justify-center rounded opacity-0 transition-opacity',
           'hover:bg-destructive/15 hover:text-destructive',
           'group-hover:opacity-60',
+          'group-focus-within:opacity-60',
         )}
         onClick={(e) => {
           e.stopPropagation()

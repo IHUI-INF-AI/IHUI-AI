@@ -650,7 +650,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
       }
       const {
         prompt,
-        model_name = 'kling-v1',
+        model_name = 'kling-v3',
         duration = '5',
         mode = 'std',
         aspect_ratio = '16:9',
@@ -685,7 +685,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
       }
       const {
         image,
-        model_name = 'kling-v1',
+        model_name = 'kling-v3',
         prompt,
         negative_prompt,
         duration = '5',
@@ -712,7 +712,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
       }
       const {
         prompt,
-        model_name = 'kling-v1',
+        model_name = 'kling-v3',
         n = 1,
         aspect_ratio = '1:1',
         negative_prompt,

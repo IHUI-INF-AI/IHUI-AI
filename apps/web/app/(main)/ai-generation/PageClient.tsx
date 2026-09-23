@@ -37,14 +37,20 @@ export default function AiGenerationPageClient() {
             : undefined
 
   const onGenerateText = (prompt: string) =>
-    callApi('/api/ai/dashscope/chat', { prompt, model: 'qwen-max' }, 'text')
+    callApi('/api/ai/dashscope/chat', { prompt, model: 'qwen3-max' }, 'text')
 
   const onGenerateImage = async (prompt: string, provider: ImageProvider, size: string) => {
     const url = await (provider === 'qwen'
-      ? callApi('/api/ai/dashscope/image', { prompt, model: 'wanx-v1', size, n: 1 }, 'media')
+      ? callApi('/api/ai/dashscope/image', { prompt, model: 'wan2.6-t2i', size, n: 1 }, 'media')
       : provider === 'doubao'
-        ? callApi('/api/ai/doubao/image', { prompt, model: 'doubao-pro', size }, 'media')
-        : callApi('/api/ai/jimeng4/image', { prompt, width: 1024, height: 1024 }, 'media'))
+        ? callApi(
+            '/api/ai/doubao/image',
+            { prompt, model: 'doubao-seedream-3-0-t2i-250415', size },
+            'media',
+          )
+        : provider === 'agnes'
+          ? callApi('/api/ai/agnes/image', { prompt, size }, 'media') // method: POST
+          : callApi('/api/ai/jimeng4/image', { prompt, width: 1024, height: 1024 }, 'media'))
     setLastImage(url)
     return url
   }
@@ -56,7 +62,7 @@ export default function AiGenerationPageClient() {
           { prompt, duration: '5', resolution: '720p' },
           'media',
         )
-      : callApi('/api/ai/dashscope/video', { prompt, model: 'wanx2.1-t2v-turbo' }, 'media'))
+      : callApi('/api/ai/dashscope/video', { prompt, model: 'wan2.5-t2v-plus' }, 'media'))
     setLastVideo(url)
     return url
   }
@@ -70,7 +76,7 @@ export default function AiGenerationPageClient() {
   const onGenerateCode = (prompt: string, language: string) =>
     callApi(
       '/api/ai/dashscope/chat',
-      { prompt: `Generate ${language} code: ${prompt}`, model: 'qwen-max' },
+      { prompt: `Generate ${language} code: ${prompt}`, model: 'qwen3-max' },
       'text',
     )
 

@@ -57,8 +57,24 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional, cast
 
+from ..core.permission_mode import (
+    PermissionModeId as _PermissionModeId,
+)
+from ..core.permission_mode import (
+    is_readonly_permission_mode as _is_readonly_mode,
+)
+from ..core.permission_mode import (
+    normalize_permission_mode as _normalize_permission_mode,
+)
+from ..core.permission_mode import (
+    permission_mode_error as _permission_mode_error,
+)
+from ..core.permission_mode import (
+    skips_approval_permission_mode as _skips_approval_mode,
+)
 from ..core.usage_cache import normalize_usage
 from .agent_checkpoint import (
     AgentCheckpointManager,
@@ -257,6 +273,38 @@ def _rollout_budget_limit_from_env() -> int:
         return 0
 
 
+def _token_budget_thresholds_from_env() -> tuple[int, ...] | None:
+    """批58(接线):token 预算显式阈值(env AGENT_TOKEN_BUDGET_THRESHOLDS)。
+
+    对标 codex config TokenBudgetConfig.reminder_threshold_tokens + resolve
+    语义:逗号分隔正整数列表(如 "12000,4000")视为显式设置,validate 通过后
+    覆盖 RolloutBudget 默认阈值 (10000, 2000);未配置/非法值返回 None →
+    走现状默认阈值,与接线前逐字节等价。解析/校验失败降级 None 并告警。
+    """
+    raw = os.environ.get("AGENT_TOKEN_BUDGET_THRESHOLDS", "").strip()
+    if not raw:
+        return None
+    try:
+        from app.core.token_budget_config import TokenBudgetConfig
+
+        parts = [p.strip() for p in raw.split(",") if p.strip()]
+        values = [int(p) for p in parts]
+        if not values:
+            return None
+        if any(v <= 0 for v in values):
+            return None
+        # 经 TokenBudgetConfig.validate 走 codex 同款校验(threshold 必须为正;
+        # 模板字段以占位符满足非空校验,不产生实际模板)。
+        TokenBudgetConfig(
+            reminder_threshold_tokens=max(values),
+            reminder_message_template="remaining {remaining} tokens",
+        ).validate()
+        return tuple(sorted(values, reverse=True))
+    except Exception as e:  # noqa: BLE001 - 非法配置降级为默认阈值
+        logger.warning("AGENT_TOKEN_BUDGET_THRESHOLDS 非法(降级默认阈值): %s", e)
+        return None
+
+
 def _agent_budget_pillar_from_env() -> str:
     """Agent 主循环预算支柱(env AGENT_BUDGET_PILLAR)。
 
@@ -325,9 +373,48 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 
 
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
-#   approval_id -> (asyncio.Event, decision|None)
+#   approval_id -> _ApprovalEntry(event, decision, owner_user_id)
 # 决策值:"approve" / "reject"。等待方超时/完成后由 _request_approval 清理条目(防内存泄漏)。
-_approval_registry: dict[str, tuple[asyncio.Event, str | None]] = {}
+#
+# O19 端点级属主鉴权(2026-09-21 立):条目必须带属主,否则"知道 approval_id"就等于
+# "能替别人批准高危工具"。owner_user_id 由 _request_approval 从 self._user_id 登记
+# (路由层 → 执行路径 → loop 构造参数,全链路显式传递,不读全局、不猜)。
+# None = 创建时就没有可证明的 principal(非 HTTP 上下文,如引擎未带 userId 的线程、
+# 直接以库方式调用 AgentLoopV2 的测试),此类条目**不允许**被 HTTP 审批端点解析掉
+# (HTTP 侧永远传真实 principal,与 None 不等 ⇒ 403),但引擎 JSON-RPC 通道在自身
+# principal 同为 None 时仍可结算(见 agent_engine._handle_approval_respond 的信任边界注释)。
+@dataclass
+class _ApprovalEntry:
+    """审批条目:唤醒事件 + 已写入的决策 + 属主(D84 补作用域与原因)。"""
+
+    event: asyncio.Event
+    decision: str | None = None
+    owner_user_id: str | None = None
+    # D84(2026-09-23):用户选择的作用域("once"|"session"|"always")。
+    # None = 旧客户端未携带(兼容路径),结算侧按历史行为处理(批准即授 session)。
+    scope: str | None = None
+    # D84:用户随决策附带的原因(拒绝理由为主,可选;仅进审计/决策提示,不参与判定)。
+    reason: str | None = None
+
+
+# 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
+# _ApprovalEntry(owner=None),不要求所有写入方同步改造(见 _as_entry)。
+_ApprovalRecord = _ApprovalEntry | tuple[asyncio.Event, str | None]
+
+_approval_registry: dict[str, _ApprovalRecord] = {}
+
+
+def _as_entry(approval_id: str) -> _ApprovalEntry | None:
+    """取注册表条目并归一为 _ApprovalEntry(二元组就地升级,保证后续写入生效在同一对象上)。"""
+    record = _approval_registry.get(approval_id)
+    if record is None:
+        return None
+    if isinstance(record, _ApprovalEntry):
+        return record
+    event, decision = record
+    entry = _ApprovalEntry(event=event, decision=decision, owner_user_id=None)
+    _approval_registry[approval_id] = entry
+    return entry
 
 
 # 批 53(2026-09-20):审批 persist 持久键旁路登记(approval_id → cache_key)。
@@ -335,6 +422,29 @@ _approval_registry: dict[str, tuple[asyncio.Event, str | None]] = {}
 # 按 id 取回 key 落盘 always/session 级授权(批 52 仅写 session);finally 清理防内存泄漏。
 # 与 _approval_registry 同期登记/清理:两者都仅在人工弹窗等待窗口内存在。
 _approval_persist_keys: dict[str, str] = {}
+
+
+def grant_scope_for_approval(scope: str | None) -> str | None:
+    """D84:把用户选择的审批作用域映射为持久层落盘档位(纯函数,供测试缝合)。
+
+    Args:
+        scope: "once" | "session" | "always";None = 旧客户端未携带。
+
+    Returns:
+        "session" | "always" = 应落盘的档位;None = 不落任何授权(once 或非法值)。
+
+    映射规则:
+    - once → None(最小特权:仅本次执行,绝不落盘;旧版无条件授 session 已收窄);
+    - session → "session"(同键本会话免弹窗,服务重启/过期即失效);
+    - always → "always"(同键跨会话免弹窗,approval_grants.db 持久行);
+    - None(旧客户端兼容路径)→ "session"(保持批 52 历史行为,批准即授会话级);
+    - 非法值(路由层已校验,防御性兜底)→ None,绝不放大授权。
+    """
+    if scope == "always":
+        return "always"
+    if scope == "session" or scope is None:
+        return "session"
+    return None
 
 
 def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
@@ -365,24 +475,80 @@ def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
     return True
 
 
-def resolve_approval_response(approval_id: str, decision: str) -> bool:
-    """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点调用)。
+class ApprovalOutcome(str, Enum):
+    """审批决策回填的三态结论(供路由层区分 403 与 404)。"""
+
+    APPLIED = "applied"
+    NOT_FOUND = "not_found"
+    FORBIDDEN = "forbidden"
+
+
+def resolve_approval_for_requester(
+    approval_id: str,
+    decision: str,
+    requester_user_id: str | None,
+    scope: str | None = None,
+    reason: str | None = None,
+) -> ApprovalOutcome:
+    """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
+
+    Args:
+        approval_id: 审批请求 id
+        decision: "approve" 或 "reject"(其他值由调用方归一后再传入)
+        requester_user_id: 调用方能证明的 principal。None 表示"无可证明身份",
+            只能结算同样无属主的条目(非 HTTP 上下文创建的历史行为)。
+        scope: D84 作用域("once"|"session"|"always");None=旧客户端未携带。
+            合法性由调用方(路由层 zod/pydantic)校验,此处仅透传。
+        reason: 用户附带原因(可选,拒绝理由为主)。
+
+    Returns:
+        APPLIED   = 属主匹配,决策已写入且协程被唤醒;
+        NOT_FOUND = approval_id 不存在(已超时清理或从未发起);
+        FORBIDDEN = id 存在但属主与请求者不符(跨用户决策尝试)。
+
+    判定只有一种:**精确相等**(含 None==None)。不区分"部分匹配"/前缀匹配,
+    也不因属主缺失而放行 —— 缺失属主的条目对带身份的请求者一律 FORBIDDEN。
+    """
+    entry = _as_entry(approval_id)
+    if entry is None:
+        return ApprovalOutcome.NOT_FOUND
+    if entry.owner_user_id != requester_user_id:
+        logger.warning(
+            "[security] 审批决策被拒:approval_id=%s 请求者=%s 属主=%s",
+            approval_id,
+            requester_user_id,
+            entry.owner_user_id,
+        )
+        return ApprovalOutcome.FORBIDDEN
+    entry.decision = decision
+    entry.scope = scope
+    entry.reason = reason
+    with contextlib.suppress(Exception):
+        entry.event.set()
+    return ApprovalOutcome.APPLIED
+
+
+def resolve_approval_response(
+    approval_id: str,
+    decision: str,
+    requester_user_id: str | None = None,
+) -> bool:
+    """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点/引擎通道调用)。
 
     Args:
         approval_id: 审批请求 id
         decision: "approve" 或 "reject"(其他值视为 reject)
+        requester_user_id: 调用方 principal;缺省 None 保持"仅无属主条目可结算"的
+            历史语义(直接以库方式驱动循环的测试/脚本),对带属主的条目返回 False。
 
     Returns:
-        True=决策已写入且协程被唤醒;False=approval_id 不存在(已超时清理或从未发起)
+        True=决策已写入且协程被唤醒;False=id 不存在 **或** 属主不符。
+        需要区分这两类时改用 resolve_approval_for_requester()。
     """
-    entry = _approval_registry.get(approval_id)
-    if entry is None:
-        return False
-    ev, _ = entry
-    _approval_registry[approval_id] = (ev, decision)
-    with contextlib.suppress(Exception):
-        ev.set()
-    return True
+    return (
+        resolve_approval_for_requester(approval_id, decision, requester_user_id)
+        is ApprovalOutcome.APPLIED
+    )
 
 
 # 批 52(2026-09-20):工具审批持久键 + 撤销口(对标 codex-rs PERSIST_SESSION /
@@ -938,6 +1104,210 @@ def _compaction_context_limit_from_env() -> int:
         return 0
 
 
+def _build_reasoning_effort_pin_from_env() -> Any | None:
+    """构造推理努力档位钉扎(批58十九,对标 codex state/session.rs ReasoningEffortPin)。
+
+    两道门都满足才启用(任一不满足 → None,采样参数与现状逐零差异):
+    ① ``AGENT_REASONING_EFFORT_PIN_ENABLED`` 为真;
+    ② ``AGENT_REASONING_EFFORT_PIN_MODELS`` 配置了非空模型白名单(逗号分隔)。
+    """
+    if os.environ.get(
+        "AGENT_REASONING_EFFORT_PIN_ENABLED", "false"
+    ).strip().lower() not in ("on", "1", "true", "yes"):
+        return None
+    raw_models = os.environ.get("AGENT_REASONING_EFFORT_PIN_MODELS", "")
+    models = frozenset(part.strip() for part in raw_models.split(",") if part.strip())
+    if not models:
+        return None
+    from app.core.reasoning_effort_pin import ReasoningEffortPin
+
+    return ReasoningEffortPin(override_enabled=True, allowed_models=models)
+
+
+def _compaction_retention_budget_enabled_from_env() -> bool:
+    """保留区逐组预算精修开关(env AGENT_COMPACTION_RETENTION_BUDGET_ENABLED)。
+
+    默认 off:压缩产物保留区原样(与现状逐零差异);on/1/true/yes 时按 token 预算
+    从新到旧逐组纳入保留区、超长 agent 消息截断(对标 codex compact_remote_v2)。
+    """
+    return os.environ.get(
+        "AGENT_COMPACTION_RETENTION_BUDGET_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _compaction_retention_budget_tokens_from_env() -> int:
+    """保留区 token 预算(env AGENT_COMPACTION_RETENTION_BUDGET_TOKENS)。
+
+    未配置 → codex RETAINED_MESSAGE_TOKEN_BUDGET 默认值;非法/负值同样回退默认。
+    """
+    from app.core.compaction_retention import RETAINED_MESSAGE_TOKEN_BUDGET
+
+    try:
+        value = int(
+            os.environ.get(
+                "AGENT_COMPACTION_RETENTION_BUDGET_TOKENS",
+                str(RETAINED_MESSAGE_TOKEN_BUDGET),
+            )
+        )
+    except ValueError:
+        return RETAINED_MESSAGE_TOKEN_BUDGET
+    return value if value > 0 else RETAINED_MESSAGE_TOKEN_BUDGET
+
+
+def _compaction_retention_image_budget_from_env() -> bool:
+    """图片是否计入保留区预算(env AGENT_COMPACTION_RETENTION_IMAGE_BUDGET)。
+
+    默认 off = codex RetainedImageBudget::Disabled(图片不计入保留判定)。
+    """
+    return os.environ.get(
+        "AGENT_COMPACTION_RETENTION_IMAGE_BUDGET", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _compaction_retention_max_agent_tokens_from_env() -> int:
+    """单条 agent 消息 token 上限(env AGENT_COMPACTION_RETENTION_MAX_AGENT_TOKENS)。
+
+    未配置 → codex MAX_RETAINED_AGENT_MESSAGE_TOKENS(10000);0 或负值 → 不截断。
+    """
+    from app.core.compaction_retention import MAX_RETAINED_AGENT_MESSAGE_TOKENS
+
+    try:
+        value = int(
+            os.environ.get(
+                "AGENT_COMPACTION_RETENTION_MAX_AGENT_TOKENS",
+                str(MAX_RETAINED_AGENT_MESSAGE_TOKENS),
+            )
+        )
+    except ValueError:
+        return MAX_RETAINED_AGENT_MESSAGE_TOKENS
+    return value if value >= 0 else MAX_RETAINED_AGENT_MESSAGE_TOKENS
+
+
+def _auto_compact_window_enabled_from_env() -> bool:
+    """自动压缩窗口账本开关(env AGENT_AUTO_COMPACT_WINDOW_ENABLED)。
+
+    对标 codex state/auto_compact_window.rs。默认 off:不持有 AutoCompactWindow
+    实例,usage 记账/prefill 观测/压缩推进与现状逐零差异。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_AUTO_COMPACT_WINDOW_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _build_auto_compact_window_from_env() -> Any | None:
+    """按 env 构造 AutoCompactWindow 实例;开关关闭或构造异常时为 None(零行为变化)。"""
+    if not _auto_compact_window_enabled_from_env():
+        return None
+    try:
+        from app.core.auto_compact_window import AutoCompactWindow
+
+        return AutoCompactWindow()
+    except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+        logger.warning("auto_compact_window 构造失败(降级不启用): %s", e)
+        return None
+
+
+def _tool_call_trace_enabled_from_env() -> bool:
+    """工具调用追踪开关(env AGENT_TOOL_CALL_TRACE_ENABLED)。
+
+    对标 codex tools/call_trace.rs。默认 off:不发任何 trace 里程碑
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_TOOL_CALL_TRACE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _world_state_sections_enabled_from_env() -> bool:
+    """世界状态片段开关(env AGENT_WORLD_STATE_SECTIONS_ENABLED)。
+
+    对标 codex model.rs / context_window_guidance.rs / token_budget_context.rs。
+    默认 off:不注入任何 developer 片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_WORLD_STATE_SECTIONS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _additional_context_enabled_from_env() -> bool:
+    """附加上下文存储开关(env AGENT_ADDITIONAL_CONTEXT_ENABLED)。
+
+    对标 codex state/additional_context.rs。默认 off:不持有存储实例、不注入任何
+    片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_ADDITIONAL_CONTEXT_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _context_fragments_enabled_from_env() -> bool:
+    """上下文片段组装开关(env AGENT_CONTEXT_FRAGMENTS_ENABLED)。
+
+    对标 codex context-fragments crate。默认 off:不注入任何 recap/answered_question
+    片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_CONTEXT_FRAGMENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _session_prefix_enabled_from_env() -> bool:
+    """Session 前缀片段开关(env AGENT_SESSION_PREFIX_ENABLED)。
+
+    对标 codex session_prefix.rs / inter_agent_message.rs。默认 off:不注入任何
+    inter-agent 完成片段(与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_SESSION_PREFIX_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _instructional_fragments_enabled_from_env() -> bool:
+    """指令片段构造开关(env AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED)。
+
+    对标 codex core/src/context/*_instructions.rs。默认 off:不注入任何指令片段
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_INSTRUCTIONAL_FRAGMENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _startup_prewarm_enabled_from_env() -> bool:
+    """会话启动预热开关(env AGENT_STARTUP_PREWARM_ENABLED)。
+
+    对标 codex session_startup_prewarm.rs。默认 off:不发起预热、不兑现(与现状
+    逐零差异,首回合零额外延迟)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_STARTUP_PREWARM_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _stream_events_enabled_from_env() -> bool:
+    """流事件工具/回合项映射开关(env AGENT_STREAM_EVENTS_ENABLED)。
+
+    对标 codex event_mapping.rs parse_turn_item。默认 off:不调用任何流事件归一化
+    (与现状逐零差异)。on/1/true/yes 时启用。
+    """
+    return os.environ.get(
+        "AGENT_STREAM_EVENTS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _build_additional_context_store_from_env() -> Any | None:
+    """按 env 构造 AdditionalContextStore;开关关闭或构造异常时为 None(零行为变化)。"""
+    if not _additional_context_enabled_from_env():
+        return None
+    try:
+        from app.core.additional_context_store import AdditionalContextStore
+
+        return AdditionalContextStore()
+    except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+        logger.warning("additional_context_store 构造失败(降级不启用): %s", e)
+        return None
+
+
 def _resolve_compaction_decision_for(session_id: str | None) -> "CompactionDecision":
     """1-3 灰度决策接入(2026-09-12 立):AGENT_COMPACTION_MODE + CANARY_PERCENT。
 
@@ -1089,9 +1459,9 @@ class AgentLoopV2:
             tool_retry_max: 工具瞬时失败(timeout/connection/http_5xx)自动重试次数(默认 1,0=不重试;
                              http_4xx 业务错误与 unknown 不重试)
             tool_retry_backoff: 工具重试固定退避秒(默认 0.5,实际等待 = base * attempt)
-            permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
-                强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
-                再回退 "default";非法值 raise ValueError。
+            permission_mode: 权限档(G-161 起取唯一真源规范值 default / acceptEdits /
+                bypassPermissions / plan / manual;历史拼写 auto 与 kebab 别名自动归一)。
+                None 时取 env AGENT_PERMISSION_MODE,再回退 "default"。
             team_relay_enabled: 团队接力总开关(默认 None 取 env AGENT_TEAM_RELAY_ENABLED,
                 默认 off,与现状逐零差异)。on 时主导 agent 进入循环前注入团队上一轮摘要。
             team_context: 团队上一轮聚合上下文(结构化 dict 或纯文本 str),显式传递;
@@ -1138,19 +1508,22 @@ class AgentLoopV2:
         # 自定义高危工具集合(env 追加;实例级只读组合)
         self._extra_high_risk_tools: frozenset[str] = _high_risk_tools_from_env()
 
-        # 权限三模式(2026-09-02 立,对标 Claude Code permission modes)。
-        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default";非法值 raise ValueError。
-        _resolved_mode = (
+        # 权限模式(G-161 归一到唯一真源,2026-09-22)。
+        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default"。
+        # 历史上这里只认 default/plan/auto 三值,而前端发的是 acceptEdits /
+        # accept-edits / bypassPermissions —— 全部落在 raise 分支,一次 500。
+        # 现按 packages/types/src/permission-mode.ts 的注册表归一(别名 auto→
+        # acceptEdits、read-only|plan-only→plan、accept-all→bypassPermissions),
+        # 认不出的仍 fail-fast,不静默降级成 default。
+        _resolved_raw = (
             permission_mode
             if permission_mode is not None
             else os.environ.get("AGENT_PERMISSION_MODE", "default")
         )
-        if _resolved_mode not in ("default", "plan", "auto"):
-            raise ValueError(
-                f"非法 permission_mode: {_resolved_mode!r},"
-                " 取值必须为 'default' / 'plan' / 'auto'"
-            )
-        self._permission_mode: str = _resolved_mode
+        _resolved_mode = _normalize_permission_mode(_resolved_raw)
+        if _resolved_mode is None:
+            raise ValueError(_permission_mode_error(_resolved_raw))
+        self._permission_mode: _PermissionModeId = _resolved_mode
 
         # 工具级审批策略(构造期校验,非法值 fail-fast)
         _VALID_APPROVAL_POLICIES = ("never", "on-request", "always")
@@ -1185,11 +1558,19 @@ class AgentLoopV2:
             try:
                 from ..core.rollout_budget import RolloutBudget, RolloutBudgetConfig
 
+                # 批58(接线):token_budget_config 显式阈值(对标 codex
+                # features.token_budget.reminder_threshold_tokens)。未配置/非法
+                # 时保持默认 (10000, 2000),与接线前逐字节等价。
+                _tb_thresholds = _token_budget_thresholds_from_env()
                 _rb = RolloutBudget()
                 _rb.configure(
                     RolloutBudgetConfig(
                         limit_tokens=_rb_limit,
-                        reminder_at_remaining_tokens=(10000, 2000),
+                        reminder_at_remaining_tokens=(
+                            _tb_thresholds
+                            if _tb_thresholds is not None
+                            else (10000, 2000)
+                        ),
                     )
                 )
                 self._rollout_budget = _rb
@@ -1198,7 +1579,7 @@ class AgentLoopV2:
 
         # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
         # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
-        if self._permission_mode == "plan":
+        if _is_readonly_mode(self._permission_mode):
             self._tools = {
                 name: td for name, td in self._tools.items() if name in READONLY_TOOLS
             }
@@ -1232,6 +1613,69 @@ class AgentLoopV2:
             else max(0, int(compaction_context_limit))
         )
         self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs)——开关关闭或
+        # 未配置模型白名单时为 None,采样请求参数与现状逐零差异(不注入覆盖)。
+        self._reasoning_effort_pin: Any | None = _build_reasoning_effort_pin_from_env()
+        # 批58(十三):保留区逐组预算精修(对标 codex compact_remote_v2)。默认 off
+        # 与现状逐零差异;三参数与 codex RetainedImageBudget / 单条 agent 消息上限对齐。
+        self._retention_budget_enabled: bool = _compaction_retention_budget_enabled_from_env()
+        self._retention_budget_tokens: int = _compaction_retention_budget_tokens_from_env()
+        self._retention_image_budget: bool = _compaction_retention_image_budget_from_env()
+        self._retention_max_agent_tokens: int = _compaction_retention_max_agent_tokens_from_env()
+        # 批58(接线):自动压缩窗口账本(对标 codex state/auto_compact_window.rs)。
+        # 默认 off → None;usage 记账/prefill 观测/压缩推进与现状逐零差异。
+        self._auto_compact_window: Any | None = _build_auto_compact_window_from_env()
+        # 批58(接线):工具调用追踪(对标 codex tools/call_trace.rs)。
+        # 默认 off:不发任何 trace 里程碑事件,与现状逐零差异。
+        self._tool_call_trace_enabled: bool = _tool_call_trace_enabled_from_env()
+        # 批58(接线):本轮已执行工具调用记录器(对标 codex executed_tool_calls.rs)。
+        # 默认 off:不记录、不回灌,与现状逐零差异。on 时 per-turn 生命周期
+        # (run 入口 reset,单轮内 accumulate,回灌条目经 request metadata 透传)。
+        self._executed_tool_calls_enabled: bool = os.environ.get(
+            "AGENT_EXECUTED_TOOL_CALLS_ENABLED", "false"
+        ).strip().lower() in ("on", "1", "true", "yes")
+        self._executed_tool_calls: Any | None = None
+        if self._executed_tool_calls_enabled:
+            try:
+                from app.core.executed_tool_calls import ExecutedToolCalls
+
+                self._executed_tool_calls = ExecutedToolCalls()
+            except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+                logger.warning("executed_tool_calls 构造失败(降级不启用): %s", e)
+        # 批58(接线):世界状态片段(对标 codex model.rs 等)。默认 off 不注入片段。
+        self._world_state_sections_enabled: bool = _world_state_sections_enabled_from_env()
+        # 批58(接线):附加上下文存储(对标 codex state/additional_context.rs)。
+        # 默认 off → 无实例、无片段;set_additional_context 在 off 时为空操作。
+        self._additional_context_enabled: bool = _additional_context_enabled_from_env()
+        self._additional_context_store: Any | None = _build_additional_context_store_from_env()
+        self._additional_context_desired: dict[str, Any] = {}
+        # 批58(接线):guardian 安全审查策略片段(对标 codex context/guardian_*.rs)。
+        # 默认 off(env AGENT_GUARDIAN_POLICY 非空才启用);注入失败隔离不阻塞回合。
+        self._guardian_policy_text: str = (
+            os.environ.get("AGENT_GUARDIAN_POLICY", "").strip()
+        )
+        self._guardian_review_reminder: bool = os.environ.get(
+            "AGENT_GUARDIAN_REVIEW_REMINDER", "false"
+        ).strip().lower() in ("on", "1", "true", "yes")
+        # 批58(接线):上下文片段组装(对标 codex context-fragments crate)。
+        # 默认 off:不注入任何 recap/answered_question 片段,与现状逐零差异。
+        self._context_fragments_enabled: bool = _context_fragments_enabled_from_env()
+        # 批58(接线):Session 前缀片段(对标 codex session_prefix.rs)。
+        # 默认 off:不注入任何 inter-agent 完成片段,与现状逐零差异。
+        self._session_prefix_enabled: bool = _session_prefix_enabled_from_env()
+        # 批58(接线):指令片段构造(对标 codex core/src/context/*_instructions.rs)。
+        # 默认 off:不注入任何指令片段,与现状逐零差异。
+        self._instructional_fragments_enabled: bool = _instructional_fragments_enabled_from_env()
+        # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
+        # 默认 off:不发起预热、不兑现,首回合零额外延迟,与现状逐零差异。
+        self._startup_prewarm_enabled: bool = _startup_prewarm_enabled_from_env()
+        self._startup_prewarm_timeout: float = 10.0
+        self._startup_prewarm_handle: Any | None = None
+        self._startup_prewarm_resolution: Any | None = None
+        # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+        # 默认 off:不调用任何流事件归一化,与现状逐零差异。
+        self._stream_events_enabled: bool = _stream_events_enabled_from_env()
+        self._last_stream_turn_item: Any | None = None
         # 1-3 灰度机制(2026-09-12 立):构造参数未显式给 compaction_enabled 时,
         # 生效开关由灰度决策(AGENT_COMPACTION_MODE/CANARY_PERCENT 按 session_id
         # 稳定哈希)决定;决策懒解析(session_id 可能在 run 时才生成,保证哈希稳定)。
@@ -1325,6 +1769,13 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 批58(接线):executed_tool_calls per-turn 生命周期——新轮次清空
+        # (对标 codex 对齐 per-turn 语义);off/None 零副作用,异常隔离。
+        if self._executed_tool_calls is not None:
+            try:
+                self._executed_tool_calls.reset()
+            except Exception as e:  # noqa: BLE001 - 重置失败降级跳过
+                logger.debug("executed_tool_calls.reset 失败(降级跳过): %s", e)
         # 批 44:steer 队列跨 run 清空(running 时才可 steer,run 间不应残留)
         self._pending_steers = []
         # 1-5:rollback 证据引用的 checkpoint id 跨 run 不复用
@@ -1423,6 +1874,12 @@ class AgentLoopV2:
         enabled, llm_enabled = self._effective_compaction_settings()
         if not enabled or self._compaction_context_limit <= 0:
             return messages
+        # 批 58 接线:new_context 工具请求开新窗时跳过摘要压缩(对标 codex
+        # request_new_context_window 信号——模型主动放弃摘要,直接截断开新窗)。
+        if getattr(self, "_new_context_window_requested", False):
+            self._new_context_window_requested = False
+            logger.info("new_context 请求生效:本轮跳过摘要压缩,直接截断开新窗")
+            return messages
         started = time.perf_counter()
         try:
             if llm_enabled:
@@ -1461,6 +1918,21 @@ class AgentLoopV2:
                     "carried": chain_meta.get("carried"),
                 }
                 info["reasoning_retention"] = chain_meta.get("reasoning_retention") or {}
+            # 批58(十三):保留区逐组预算精修 —— 对标 codex compact_remote_v2 保留区语义
+            # (从新到旧逐组纳入预算/图片预算开·关/单条 agent 消息 token 上限)。作用于
+            # 压缩产物的保留区段,前缀(系统+摘要)原位不动。开关默认 off 与现状逐零差异。
+            compressed, retention_meta = self._apply_retention_budget(compressed)
+            if retention_meta.get("applied"):
+                info["retention_budget"] = retention_meta
+            # 批58(十九):压缩成功 → 档位钉扎退役为 Compacted(允许新窗重建请求基线)
+            self._retire_effort_pin_on_compaction()
+            # 批58(接线):压缩成功 → auto_compact_window 推进编号(对标 codex advance)。
+            # 窗 id 轮换,新窗重新记账;失败隔离不影响压缩主链路(降级跳过)。
+            if self._auto_compact_window is not None:
+                try:
+                    self._auto_compact_window.advance()
+                except Exception as e:  # noqa: BLE001 - 推进失败隔离
+                    logger.warning("auto_compact_window 推进失败(降级跳过): %s", e)
             self._compaction_events.append(
                 {
                     "iteration": self._current_iteration,
@@ -1469,6 +1941,9 @@ class AgentLoopV2:
                     "removed_count": info.get("removed_count"),
                     "trigger": "llm" if info.get("llm_summary") else "deterministic",
                     "decision_chain_entries": int(chain_meta.get("entries") or 0),
+                    "retention_dropped_groups": int(
+                        retention_meta.get("dropped_groups") or 0
+                    ),
                 }
             )
             # W9#5(2026-09-18):压缩发生即经 hook_engine 发 SSE 通知(此前压缩结果只进
@@ -1505,6 +1980,121 @@ class AgentLoopV2:
             # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
             logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
             return messages
+
+    def _apply_retention_budget(
+        self, compressed: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """批58(十三):压缩保留区逐组预算精修(对标 codex compact_remote_v2)。
+
+        codex 保留区语义:压缩后保留的历史消息按 token 预算**从新到旧逐组**纳入,
+        整组不 fit 即淘汰该组及更旧;图片按 RetainedImageBudget 开关决定是否计入;
+        单条 agent 消息超上限按 token 截断。
+
+        接线面:作用于压缩产物的保留区段(摘要/系统前缀原位不动),纯确定性零 LLM。
+        降级语义:开关关闭(AGENT_COMPACTION_RETENTION_BUDGET_ENABLED 默认 off)/
+        无保留区/预算内无需淘汰/任何异常 → 原样返回,与未接入前逐零差异。
+        保守护栏:预算极小会把保留区整体淘汰时不动产物(宁可保留也不清空活上下文)。
+        """
+        if not self._retention_budget_enabled:
+            return compressed, {"enabled": False}
+        try:
+            from app.core.compaction_retention import truncate_retained_messages
+            from app.core.context_compaction import SUMMARY_MARKER
+
+            prefix_len = 0
+            for msg in compressed:
+                if not isinstance(msg, dict):
+                    break
+                content = msg.get("content")
+                is_summary = isinstance(content, str) and content.startswith(SUMMARY_MARKER)
+                if msg.get("role") == "system" or is_summary:
+                    prefix_len += 1
+                else:
+                    break
+            prefix, retained = compressed[:prefix_len], compressed[prefix_len:]
+            if not retained:
+                return compressed, {"enabled": True, "applied": False, "reason": "no_retained"}
+            new_retained, stats = truncate_retained_messages(
+                retained,
+                max_tokens=self._retention_budget_tokens,
+                image_budget=self._retention_image_budget,
+                max_agent_message_tokens=self._retention_max_agent_tokens,
+            )
+            if not new_retained:
+                # 保守护栏:预算过小导致保留区被整体淘汰 → 不动产物
+                return compressed, {
+                    "enabled": True,
+                    "applied": False,
+                    "reason": "budget_would_drop_all_retained",
+                    "budget_tokens": self._retention_budget_tokens,
+                }
+            dropped_groups = int(stats.get("groups_total", 0)) - int(
+                stats.get("groups_retained", 0)
+            )
+            meta: dict[str, Any] = {
+                "enabled": True,
+                "applied": True,
+                "budget_tokens": self._retention_budget_tokens,
+                "dropped_groups": dropped_groups,
+                "groups_total": int(stats.get("groups_total", 0)),
+                "groups_retained": int(stats.get("groups_retained", 0)),
+                "truncated_messages": int(stats.get("truncated_messages", 0)),
+                "estimated_tokens": int(stats.get("estimated_tokens", 0)),
+            }
+            if dropped_groups or meta["truncated_messages"]:
+                logger.info(
+                    "[agent-loop] 保留区预算精修:淘汰 %s/%s 组,截断 %s 条超长 agent 消息(预算 %s tokens)",
+                    dropped_groups,
+                    meta["groups_total"],
+                    meta["truncated_messages"],
+                    self._retention_budget_tokens,
+                )
+            return [*prefix, *new_retained], meta
+        except Exception as e:  # noqa: BLE001 - 精修失败绝不阻塞压缩主链路
+            logger.warning("[agent-loop] 保留区预算精修失败(降级原产物): %s", e)
+            return compressed, {"enabled": True, "applied": False, "reason": "error"}
+
+    def _resolve_effort_for_request(self, selected_effort: Any) -> str | None:
+        """批58(十九):采样请求的推理努力档位解析(对标 codex reasoning_effort_for_request)。
+
+        - 未启用钉扎(None)→ 返回 None(不注入覆盖,参数透传面零差异);
+        - 模型名取 modelParams.model → env AGENT_MODEL_NAME → "default"(单模型场景);
+        - 有效档位由 core.reasoning_effort_pin 的三道门判定(总开关/模型白名单/
+          已知后端模式),未知档位不注入(注入项有界于已知模式);
+        - 采样成功后钉扎粘滞:同窗内后续请求返回既有档位(封顶模型漂移)。
+        """
+        pin = getattr(self, "_reasoning_effort_pin", None)
+        if pin is None:
+            return None
+        model = str(
+            self._model_params.get("model")
+            or os.environ.get("AGENT_MODEL_NAME")
+            or "default"
+        )
+        selected = selected_effort if isinstance(selected_effort, str) else None
+        # 先过"有效档位"三道门:门不满足(模型不在白名单/档位非法/无档位)时既不建立
+        # 钉扎也不注入覆盖——避免把同一非法值重复写回参数面(与现有透传行为零差异)。
+        if pin.effort_for_configuration_update(model, selected) is None:
+            return None
+        from app.core.reasoning_effort_pin import RequestEffortUsage
+
+        resolved = pin.reasoning_effort_for_request(
+            model, selected, RequestEffortUsage.SAMPLING
+        )
+        return resolved if isinstance(resolved, str) else None
+
+    def _retire_effort_pin_on_compaction(self) -> None:
+        """压缩成功 → 退役档位钉扎(对标 codex 压缩落账内联的 ReasoningEffortPin::Compacted)。
+
+        未启用钉扎时为 no-op;异常隔离(退役失败不影响压缩主链路)。
+        """
+        pin = getattr(self, "_reasoning_effort_pin", None)
+        if pin is None:
+            return
+        try:
+            pin.retire_on_compaction()
+        except Exception:  # noqa: BLE001 - 退役失败仅影响档位精度
+            pass
 
     def _inject_decision_chain(
         self, compressed: list[dict[str, Any]], source_messages: list[dict[str, Any]]
@@ -1584,6 +2174,7 @@ class AgentLoopV2:
                 status=status,
                 metadata=metadata,
                 file_snapshots=file_snapshots,
+                owner_user_id=self._user_id,
             )
             # 1-5:跟踪最新 checkpoint id(供 tool.after 事件与 step 录制的
             # rollback 证据引用;失败/None 时保留上一个)
@@ -1810,6 +2401,9 @@ class AgentLoopV2:
         )
         self._ensure_session_id()
         self._messages = messages
+        # 批58(接线):会话启动预热(对标 codex session_startup_prewarm.rs)。
+        # 后台发起预热任务;关闭时零动作、首回合零额外延迟,与现状逐零差异。
+        await self._maybe_start_startup_prewarm()
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
@@ -1873,6 +2467,8 @@ class AgentLoopV2:
                     messages.insert(0, {"role": "system", "content": goal_line})
             except Exception as e:
                 logger.warning("线程目标注入失败(降级): %s", e)
+        # 批58(接线):首回合前限时兑现启动预热(绝不无限阻塞,失败静默降级)。
+        await self._resolve_startup_prewarm()
         result = await self._run_loop(
             messages=messages,
             start_iteration=1,
@@ -2400,6 +2996,28 @@ class AgentLoopV2:
         self._stream_retry_state = None
         # 2026-09-18 第二批:生成参数透传(空 dict 时不加 kwargs,签名与现状逐零差异)
         extra_params: dict[str, Any] = self._model_params or {}
+        # 批58(十九):推理努力档位钉扎(对标 codex reasoning_effort.rs——采样可建立
+        # 钉扎,同一上下文窗内粘滞不变)。开关关闭/模型不在白名单/档位非法 → 不注入,
+        # 与现状逐零差异;压缩成功由 _maybe_compact_context 退役为 Compacted。
+        _pinned_effort = self._resolve_effort_for_request(
+            extra_params.get("reasoning_effort")
+        )
+        if _pinned_effort is not None:
+            extra_params = {**extra_params, "reasoning_effort": _pinned_effort}
+        if self._executed_tool_calls is not None:
+            # 批58(接线):executed_tool_calls 回灌(对标 codex
+            # request_metadata.rs internal_chat_message_metadata_passthrough)。
+            # 空条目不注入(与现状逐零差异);非空经保留键透传,消费侧按
+            # build_request_metadata 形态解析。异常隔离不阻塞请求。
+            try:
+                from app.core.executed_tool_calls import build_request_metadata
+
+                _etcb = self._executed_tool_calls.bound_for_prompt(64)
+                _etcm = build_request_metadata(_etcb) if _etcb else None
+                if _etcm is not None:
+                    extra_params = {**extra_params, "executed_tool_calls_metadata": _etcm}
+            except Exception as e:  # noqa: BLE001 - 回灌失败降级跳过
+                logger.debug("executed_tool_calls 回灌失败(降级跳过): %s", e)
         for attempt in range(self.llm_retry_max + 1):
             try:
                 on_chunk: Callable[[str], Awaitable[None]] | None = None
@@ -2823,6 +3441,16 @@ class AgentLoopV2:
                             messages.append(_env_frag)
                     except Exception as e:  # noqa: BLE001 - 环境采集失败隔离
                         logger.warning("environment_context 注入异常(降级跳过): %s", e)
+                # 批58(接线):世界状态片段 + 附加上下文注入(同 environment_context 拼接点)。
+                # 二者各自内部已做开关判定与异常隔离,关闭时零片段、零差异。
+                self._inject_world_state_sections(messages)
+                self._inject_additional_context(messages)
+                self._inject_guardian_context(messages)
+                # 批58(接线):上下文片段 / Session 前缀 / 指令片段 注入(同 developer
+                # 片段拼接区)。三者各自内部已做开关判定与异常隔离,关闭时零片段、零差异。
+                self._inject_context_fragments(messages)
+                self._inject_session_prefix(messages)
+                self._inject_instructional_fragments(messages)
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -2836,6 +3464,10 @@ class AgentLoopV2:
 
                 content = llm_response.get("content", "")
                 tool_calls_raw = llm_response.get("tool_calls")
+                # 批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+                # 开关关闭时零产出(与现状逐零差异);开启时把本轮 LLM 响应归一化为回合项,
+                # 仅作内部观测,不回灌模型、不改动 messages/事件流。
+                self._record_stream_turn_item(llm_response)
                 # 内部标记取出后即消费,不随响应 dict 外泄(检查点/事件零差异)
                 streamed = bool(llm_response.pop("_streamed", False))
 
@@ -2895,6 +3527,11 @@ class AgentLoopV2:
                             )
                     except Exception as e:  # noqa: BLE001 - 预算提醒失败隔离
                         logger.warning("rollout_budget 记账/提醒失败(降级跳过): %s", e)
+                # 批58(接线):auto_compact_window prefill 观测(对标 codex
+                # ensure_server_observed_prefill_from_usage)。即便 rollout_budget 未启用,
+                # 只要本开关开启就从本轮 usage 取 input_tokens 喂账本(首次样本恒优先)。
+                # 失败隔离,不阻塞回合。
+                self._observe_auto_compact_prefill(llm_response.get("usage") or {})
 
                 # P0-①(2026-09-18):主循环 LLM 调用录为 type=llm 步骤——
                 # 主链路 token/成本此前只入 budget governor(内存口径),recorder/
@@ -3382,7 +4019,12 @@ class AgentLoopV2:
 
         approval_id = f"appr_{uuid.uuid4().hex[:12]}"
         ev = asyncio.Event()
-        _approval_registry[approval_id] = (ev, None)
+        # O19:登记属主。self._user_id 由构造参数注入(路由层/引擎线程显式传入),
+        # 为 None 时该审批只能被同样无可证明身份的通道(引擎无 userId 线程)结算,
+        # HTTP 审批端点会返回 403 —— 这是 fail-closed,不是漏判。
+        _approval_registry[approval_id] = _ApprovalEntry(
+            event=ev, decision=None, owner_user_id=self._user_id
+        )
         # 批 53:登记 persist 旁路键(供引擎侧 approval.respond 携带 persist 时取回落盘)
         _approval_persist_keys[approval_id] = key
         try:
@@ -3406,16 +4048,25 @@ class AgentLoopV2:
                 await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
             except TimeoutError:
                 return "approval_timeout"
-            _, decision = _approval_registry.get(approval_id, (None, None))
+            settled = _as_entry(approval_id)
+            decision = settled.decision if settled is not None else None
             if decision == "approve":
-                # 批 52:批准后落盘 session 级授权(下次同键免弹窗)。
-                # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None。
-                try:
-                    from . import approval_persistence as _ap
-                    _ap.grant("session", key, "mcp_tool")
-                except Exception:
-                    pass
+                # D84(2026-09-23):按用户选择的作用域落盘授权(映射见 grant_scope_for_approval):
+                # once 不落盘(最小特权)/ session 本会话 / always 跨会话 / None 保持批 52 兼容。
+                # 授权键是 (工具+参数归一) 精确匹配,任何作用域都不放大到全局。
+                _scope = grant_scope_for_approval(settled.scope if settled is not None else None)
+                if _scope is not None:
+                    try:
+                        from . import approval_persistence as _ap
+                        _ap.grant(_scope, key, "mcp_tool")
+                    except Exception:
+                        pass  # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None
                 return None
+            if decision == "reject":
+                # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
+                _reason = settled.reason if settled is not None else None
+                if _reason:
+                    self._decision_hints[tc.id] = ("user_rejected_reason", _reason)
             return "user_rejected"
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
@@ -3650,6 +4301,15 @@ class AgentLoopV2:
 
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
+        # 批58(接线):记录本轮模型尝试过的工具调用(对标 codex
+        # executed_tool_calls.rs)。幂等(同 call_id 只记一次);off/None 零副作用;
+        # 异常隔离不阻塞执行。回灌在下一次 LLM 请求的 metadata 里透出。
+        if self._executed_tool_calls is not None:
+            for _tc in tool_calls:
+                try:
+                    self._executed_tool_calls.record(_tc.id, _tc.name)
+                except Exception as e:  # noqa: BLE001 - 记录失败降级跳过
+                    logger.debug("executed_tool_calls.record 失败(降级跳过): %s", e)
         # P0-5(2026-09-13):plan.step 事件——本批每工具执行前发 started、录制后发
         # completed(成对);拦截/审批路径不发 blocked(由 tool.after/error 承载)。
         # decision/reason 取结果可见路径推导(_derive_step_decision),auto 免审批
@@ -3949,7 +4609,7 @@ class AgentLoopV2:
 
         # plan 模式:白名单外工具防御性拦截(不执行、不进审批流、直接 error 回填)。
         # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
-        if self._permission_mode == "plan" and not is_readonly_tool(tc.name):
+        if _is_readonly_mode(self._permission_mode) and not is_readonly_tool(tc.name):
             msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
             logger.info(
                 "plan 模式拦截工具 %s(不在只读白名单), session=%s",
@@ -3970,13 +4630,15 @@ class AgentLoopV2:
             )
 
         # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)。
-        # auto 模式:只读白名单工具免审批直接执行(跳过 _request_approval)。
+        # 免审批档(G-161 归一):acceptEdits(历史拼写 auto)只覆盖只读白名单工具;
+        # bypassPermissions 覆盖全部高危工具(与 cli 端同名档语义一致),且必留审计事件。
         gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
-        if self._permission_mode == "auto" and is_readonly_tool(tc.name):
+        if _skips_approval_mode(self._permission_mode) and is_readonly_tool(tc.name):
             if needs_approval:
                 logger.info(
-                    "auto 模式:只读工具 %s 免审批直接执行, session=%s",
+                    "%s 档:只读工具 %s 免审批直接执行, session=%s",
+                    self._permission_mode,
                     tc.name,
                     self._session_id or "",
                 )
@@ -3988,14 +4650,28 @@ class AgentLoopV2:
                     "auto 模式:只读工具免审批直接执行",
                 )
             needs_approval = False
+        elif self._permission_mode == "bypassPermissions" and needs_approval:
+            # 免批可以是政策,但不能是静默的 —— warning 级 + 审计事件 + 决策提示三处留痕。
+            logger.warning(
+                "bypassPermissions 档:高危工具 %s 免审批直接执行, session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            await self._emit_permission_mode_event(tc.name, "bypass_skip_approval")
+            self._decision_hints[tc.id] = (
+                "bypass_skip_approval",
+                "bypassPermissions 档:高危工具免审批直接执行",
+            )
+            needs_approval = False
 
-        # 批 39 接线:外部 MCP 工具注解审批(auto 模式专属判定,对标 Codex
+        # 批 39 接线:外部 MCP 工具注解审批(acceptEdits 档专属判定,历史拼写 auto,对标 Codex
         # requires_mcp_tool_approval 保守语义)。仅当工具携带 mcp_annotations
-        # 时生效——内部工具(注解恒 None)行为零变化;非 auto 模式不介入
-        # (default 模式保持回归红线)。判定为需批时不再走只读白名单免审,
+        # 时生效——内部工具(注解恒 None)行为零变化;其余档不介入
+        # (default 模式保持回归红线;bypassPermissions 已由上一分支全档免批,不再回插保守门)。
+        # 判定为需批时不再走只读白名单免审,
         # 未知注解(destructive/open_world 缺失)按最坏情况需批。
         if (
-            self._permission_mode == "auto"
+            self._permission_mode == "acceptEdits"
             and needs_approval is False
             and not gate_approved
         ):
@@ -4082,6 +4758,20 @@ class AgentLoopV2:
             )
 
         tool = self._tools.get(tc.name)
+        if self._tool_call_trace_enabled:
+            # 批58(接线):trace 里程碑 received(对标 codex tools/call_trace.rs)。
+            # 仅含标识符与工具名,绝不含参数或输出(红线);异常隔离不阻塞执行。
+            try:
+                from app.core.tool_call_trace import received as _trace_received
+
+                _trace_received(
+                    self._session_id or "",
+                    tc.name,
+                    tc.id,
+                    source="direct",
+                )
+            except Exception as e:  # noqa: BLE001 - trace 失败降级跳过
+                logger.debug("tool_call received trace 失败(降级跳过): %s", e)
         if not tool:
             return ToolResult(
                 tool_call_id=tc.id,
@@ -4179,6 +4869,22 @@ class AgentLoopV2:
                     )
                     if tr_override is not None:
                         return tr_override
+                    if self._tool_call_trace_enabled:
+                        # 批58(接线):trace 里程碑 result_ready(仅标识符,无参数/输出)。
+                        try:
+                            from app.core.tool_call_trace import (
+                                result_ready as _trace_result_ready,
+                            )
+
+                            _trace_result_ready(
+                                self._session_id or "",
+                                None,
+                                tc.name,
+                                tc.id,
+                                source="direct",
+                            )
+                        except Exception as e:  # noqa: BLE001 - trace 失败降级跳过
+                            logger.debug("tool_result_ready trace 失败(降级跳过): %s", e)
                     return ToolResult(
                         tool_call_id=tc.id,
                         name=tc.name,
@@ -4318,4 +5024,292 @@ class AgentLoopV2:
         except Exception:  # noqa: BLE001 - 查询失败降级为未知
             pass
         return None
+
+    def set_additional_context(self, key: str, value: str, kind: str) -> None:
+        """批58(接线):生产侧写入附加上下文(对标 codex state/additional_context.rs)。
+
+        开关关闭(无存储实例)时为空操作。kind ∈ {"Untrusted","Application"}:
+        Untrusted → 后续每轮注入渲染为 user 角色 + ``<external_{key}>`` 标记;
+        Application → developer 角色、无标记。同值重复写入由 merge 自然去重
+        (不重复产出片段)。非法 kind 仅告警并忽略,不抛异常阻断调用方。
+        """
+        if self._additional_context_store is None:
+            return
+        if kind not in ("Untrusted", "Application"):
+            logger.warning("set_additional_context 非法 kind=%r,已忽略(%s)", kind, key)
+            return
+        from app.core.additional_context_store import AdditionalContextEntry
+
+        self._additional_context_desired[key] = AdditionalContextEntry(kind=kind, value=value)
+
+    def _inject_world_state_sections(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):世界状态片段注入(对标 codex model.rs / context_window_guidance.rs
+        / token_budget_context.rs)。开关关闭时直接返回(与现状逐零差异)。
+
+        注入 developer 片段:剩余 token 预算(始终,取 rollout_budget.tokens_left();
+        未知为 None);上下文窗元数据 ``<context_window>``(仅当 auto_compact_window
+        实例存在时,用真实窗 id,不得伪造)。窗 id 缺失时仅注入上述静态片段,绝不报错。
+        """
+        if not self._world_state_sections_enabled:
+            return
+        try:
+            from app.core.world_state_sections import (
+                TokenBudgetRemainingContext,
+                build_context_window_fragment,
+            )
+
+            # 剩余 token 片段(始终注入,developer 角色)
+            messages.append(
+                TokenBudgetRemainingContext(tokens_left=self._context_tokens_left()).render()
+            )
+            # 上下文窗元数据片段(依赖 auto_compact_window 真实窗 id,缺失则跳过)
+            _acw = getattr(self, "_auto_compact_window", None)
+            if _acw is not None:
+                _ids = _acw.ids
+                messages.append(
+                    build_context_window_fragment(
+                        agent_name=self._session_id or "ihui-agent",
+                        first_window_id=_ids.first_window_id,
+                        previous_window_id=_ids.previous_window_id,
+                        window_id=_ids.window_id,
+                        thread_hint=None,
+                    )
+                )
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("world_state_sections 注入异常(降级跳过): %s", e)
+
+    def _inject_additional_context(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):附加上下文注入(对标 codex state/additional_context.rs)。
+
+        开关关闭或无存储实例时直接返回(零片段)。每轮把生产侧期望的完整映射经
+        merge 取「值变化」片段(Untrusted→user + ``<external_{key}>``;Application→
+        developer 无标记)追加;空映射不产生任何片段;同值重复 merge 不重复产出。
+        """
+        _store = getattr(self, "_additional_context_store", None)
+        if _store is None:
+            return
+        try:
+            _fragments = _store.merge(self._additional_context_desired)
+            for _f in _fragments:
+                messages.append(_f)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("additional_context 注入异常(降级跳过): %s", e)
+
+    def _inject_guardian_context(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):guardian 安全审查上下文片段(对标 codex context/guardian_*.rs)。
+
+        开关 off(env AGENT_GUARDIAN_POLICY 为空且 reminder 未开)直接返回,与现状
+        逐零差异。on 时追加:guardian_policy 片段(env 提供策略文本,developer 角色);
+        followup_review_reminder 片段(独立开关)。注入失败隔离不阻塞回合。
+        """
+        if not self._guardian_policy_text and not self._guardian_review_reminder:
+            return
+        try:
+            from app.core.guardian_context import (
+                build_guardian_followup_review_reminder_fragment,
+                build_guardian_policy_fragment,
+            )
+
+            if self._guardian_policy_text:
+                _pf = build_guardian_policy_fragment(self._guardian_policy_text)
+                if _pf is not None:
+                    messages.append(_pf)
+            if self._guardian_review_reminder:
+                _rf = build_guardian_followup_review_reminder_fragment()
+                if _rf is not None:
+                    messages.append(_rf)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.warning("guardian_context 注入异常(降级跳过): %s", e)
+
+    def _observe_auto_compact_prefill(self, usage: dict[str, Any]) -> None:
+        """批58(接线):auto_compact_window prefill 观测(对标 codex
+        ensure_server_observed_prefill_from_usage)。把本轮服务端归一的 input_tokens
+        喂给账本(首次样本恒优先)。开关关闭/无实例时不操作;观测失败隔离,不阻塞。
+        """
+        _acw = getattr(self, "_auto_compact_window", None)
+        if _acw is None:
+            return
+        try:
+            from ..core.rollout_budget import normalize_rollout_usage
+
+            _acw_usage = normalize_rollout_usage(usage or {})
+            if _acw_usage:
+                _acw.ensure_server_observed_prefill_from_usage(
+                    int(_acw_usage.get("input_tokens", 0))
+                )
+        except Exception as e:  # noqa: BLE001 - 观测失败隔离
+            logger.warning("auto_compact_window prefill 观测失败(降级跳过): %s", e)
+
+    # ------------------------------------------------------------------
+    # 批58(接线):上下文片段 / Session 前缀 / 指令片段 / 启动预热 / 流事件映射
+    # ------------------------------------------------------------------
+    def _derive_recap_history(self, messages: list[dict[str, Any]]) -> str:
+        """从消息列表提取可读历史文本(供 context_fragments.build_recap_prompt 使用)。
+
+        仅取 role/content 文本;content 为字符串直接拼接,为列表则取 input_text/
+        output_text/text 片段。失败返回空串(降级为零历史,模块侧自行兜底)。
+        """
+        try:
+            parts: list[str] = []
+            for _m in messages or []:
+                if not isinstance(_m, dict):
+                    continue
+                _role = _m.get("role", "")
+                _content = _m.get("content", "")
+                if isinstance(_content, str):
+                    _text = _content
+                elif isinstance(_content, list):
+                    _text = "".join(
+                        str(_c.get("text", "") or "")
+                        for _c in _content
+                        if isinstance(_c, dict)
+                        and _c.get("type") in ("input_text", "output_text", "text")
+                    )
+                else:
+                    _text = ""
+                if _text:
+                    parts.append(f"{_role}: {_text}")
+            return "\n".join(parts)
+        except Exception:  # noqa: BLE001 - 历史提取失败降级
+            return ""
+
+    def _inject_context_fragments(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):上下文片段组装注入(对标 codex context-fragments crate)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时用本轮对话历史经
+        build_recap_prompt 生成有界补课提示词,作为 developer 片段追加;注入失败
+        隔离,不阻塞回合。
+        """
+        if not self._context_fragments_enabled:
+            return
+        try:
+            from app.core.context_fragments import build_recap_prompt
+
+            _history = self._derive_recap_history(messages)
+            _recap = build_recap_prompt(_history)
+            if _recap:
+                messages.append({"role": "developer", "content": _recap})
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("context_fragments 注入异常(降级跳过): %s", e)
+
+    def _inject_session_prefix(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):Session 前缀片段注入(对标 codex session_prefix.rs)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时经
+        build_inter_agent_completion_fragment 产出 inter-agent 完成片段并追加;
+        返回空 dict 时不追加;注入失败隔离,不阻塞回合。
+        """
+        if not self._session_prefix_enabled:
+            return
+        try:
+            from app.core.session_prefix import build_inter_agent_completion_fragment
+
+            _task = self._session_id or "ihui-agent"
+            _frag = build_inter_agent_completion_fragment(
+                task_name=_task, sender=_task, status="completed", message=None
+            )
+            if _frag:
+                messages.append(_frag)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("session_prefix 注入异常(降级跳过): %s", e)
+
+    def _inject_instructional_fragments(self, messages: list[dict[str, Any]]) -> None:
+        """批58(接线):指令片段构造注入(对标 codex core/src/context/*_instructions.rs)。
+
+        开关关闭时直接返回(零片段、与现状逐零差异)。开启时注入一组参数无关、低风险的
+        指令片段(apps/plugins/environments/user_verification);逐条失败不影响其余片段;
+        返回空则不追加;整体异常隔离,不阻塞回合。
+        """
+        if not self._instructional_fragments_enabled:
+            return
+        try:
+            from app.core.instructional_fragments import (
+                build_apps_instructions_fragment,
+                build_available_plugins_instructions_fragment,
+                build_environments_instructions_fragment,
+                build_user_verification_notice_fragment,
+            )
+
+            for _builder in (
+                build_apps_instructions_fragment,
+                build_available_plugins_instructions_fragment,
+                build_environments_instructions_fragment,
+                build_user_verification_notice_fragment,
+            ):
+                _frag = _builder()
+                if _frag:
+                    messages.append(_frag)
+        except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞回合
+            logger.debug("instructional_fragments 注入异常(降级跳过): %s", e)
+
+    async def _prewarm_factory(self) -> None:
+        """最佳努力的网关连接预热占位(对标 codex 预热体)。
+
+        默认空操作:真实预热体由调用方注入的实现扩展(本仓 LLM 网关连接已随首次
+        请求自然建立)。本方法仅用于驱动 startup_prewarm 的机械(发起→限时兑现),
+        不引入外部依赖、不调用模型。
+        """
+        await asyncio.sleep(0)
+
+    async def _maybe_start_startup_prewarm(self) -> None:
+        """批58(接线):后台发起会话启动预热(对标 codex session_startup_prewarm.rs)。
+
+        仅开关开启且尚未发起时调用;在运行事件循环内创建后台 task。发起失败静默降级,
+        不阻塞主链路。关闭时零动作,与现状逐零差异。
+        """
+        if not self._startup_prewarm_enabled or self._startup_prewarm_handle is not None:
+            return
+        try:
+            from app.core.startup_prewarm import start_startup_prewarm
+
+            self._startup_prewarm_handle = start_startup_prewarm(
+                self._prewarm_factory, timeout=self._startup_prewarm_timeout
+            )
+        except Exception as e:  # noqa: BLE001 - 预热发起失败静默降级
+            logger.debug("startup_prewarm 发起失败(降级跳过): %s", e)
+            self._startup_prewarm_handle = None
+
+    async def _resolve_startup_prewarm(self) -> None:
+        """批58(接线):首回合前限时兑现预热(对标 codex resolve 语义)。
+
+        无句柄时直接返回(零延迟)。有句柄时 await 其 resolve(),并加外层 wait_for 保险,
+        确保绝不无限阻塞;兑现结果(status/耗时)存入 _startup_prewarm_resolution 供观测;
+        任何失败静默降级,不阻塞主链路。
+        """
+        _handle = self._startup_prewarm_handle
+        if _handle is None:
+            return
+        try:
+            # 外层保险:即使 handle.resolve 内部超时逻辑异常,也绝不无限阻塞首回合
+            self._startup_prewarm_resolution = await asyncio.wait_for(
+                _handle.resolve(), timeout=self._startup_prewarm_timeout + 1.0
+            )
+        except Exception as e:  # noqa: BLE001 - 兑现失败静默降级
+            logger.debug("startup_prewarm 兑现失败(降级跳过): %s", e)
+            self._startup_prewarm_resolution = None
+
+    def _record_stream_turn_item(self, llm_response: dict[str, Any]) -> None:
+        """批58(接线):流事件回合项映射(对标 codex event_mapping.rs parse_turn_item)。
+
+        开关关闭时直接返回(零产出、与现状逐零差异)。开启时把本轮 LLM 响应构造为
+        ResponseItem 并归一化为回合项,仅作内部观测(存 _last_stream_turn_item),
+        不回灌模型、不改动 messages/事件流。异常隔离,不阻塞回合。
+        """
+        if not self._stream_events_enabled:
+            return
+        try:
+            from app.core.stream_events import parse_turn_item
+
+            _content = llm_response.get("content", "") or ""
+            if not isinstance(_content, str):
+                _content = ""
+            _item = {
+                "type": "message",
+                "role": "assistant",
+                "id": llm_response.get("id"),
+                "content": [{"type": "output_text", "text": _content}],
+            }
+            self._last_stream_turn_item = parse_turn_item(_item)
+        except Exception as e:  # noqa: BLE001 - 映射失败隔离,不阻塞回合
+            logger.debug("stream_events 回合项映射失败(降级跳过): %s", e)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

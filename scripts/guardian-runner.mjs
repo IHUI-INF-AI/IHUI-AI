@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 守门脚本批量执行器。
@@ -25,6 +24,12 @@
  *   blocking  失败 → 立即 exit(1),阻塞 commit
  *   warn      失败 → 打印警告,继续执行(不阻塞 commit)
  *   info      始终继续,只打印信息
+ *
+ * 条目可选字段:
+ *   skipEnv        环境变量名,值为 '1' 时跳过该项(应急放行,见执行循环)
+ *   onFailHint     失败时打印的修复指引
+ *   stagedTriggers 路径前缀数组;声明后该项**仅在暂存区触及这些路径时**执行(见执行循环),
+ *                  用于把与绝大多数提交无关的领域守门(桌面安装器等)挂上而不拖慢/误伤
  */
 import { execSync, execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -59,6 +64,11 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-21 补应急通道:[2] 与 [2n-web] 同用 check-i18n-keys.mjs,full 模式同样会跑
+    // parity(见脚本 837 行 label 分支),因此与 2n-web 共用同一应急变量 —— 并发会话
+    // 未提交的 i18n WIP 造成的 parity 漂移属"非本 commit 范畴"假阳性。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
   {
     id: '2b',
@@ -317,26 +327,55 @@ const checks = [
     script: 'check-parent-pollution.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门惯例对齐,此前遗漏):
+    // 本项巡查"项目父目录及其非项目子目录"的运行时产物,与 staged 内容无关 ——
+    // 只要工作环境里存在**其他会话/其他任务**正在使用的项目外临时文件,本次提交即被
+    // 阻塞(实测 2026-09-21 09:5x:G:\tmp-probe 下有并发会话 2 分钟前才创建的审计脚本,
+    // 而官方清理工具 pnpm hygiene:parent:clean 会直接删掉对方正在使用的文件)。
+    // 应急放行:HUSKY_SKIP_PARENT_POLLUTION=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_PARENT_POLLUTION',
   },
   {
     id: '27',
-    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归)',
+    label: '🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归 + 窗口按钮等效压暗)',
     script: 'check-z-index-guard.mjs',
     args: [],
     mode: 'blocking',
+    // 2026-09-22 补:此前无应急通道,与其余门惯例对齐
+    skipEnv: 'HUSKY_SKIP_Z_INDEX_GUARD',
+    onFailHint: [
+      '',
+      '  💡 五类命中处置:',
+      '     ① tokens.css / globals.css 出现 !important → 项目禁令,改走 layout.tsx inline script setProperty;',
+      '     ② layout.tsx inline script 少设 --z-* 变量 → 补回 11 个 setProperty;',
+      '     ③ dialog.tsx 遮罩加了 open 态 fade-in → 删掉 animate-in / fade-in-0(渐显期间内容全亮);',
+      '     ④ GlobalTopBar.tsx 两组契约缺任一标记 ——',
+      '        等效压暗层 data-window-controls + data-window-controls-dim:窗口控制三按钮挂',
+      '        z-max(10003) 不能降(须高于 resize 抓手 z-loading=10000),遮罩永远盖不到它,',
+      '        只能靠等效压暗覆盖层,删掉=登录窗等 29+ 处遮罩下三按钮重新全亮(同族第 3 次复发);',
+      '        失焦非活动态 data-window-inactive(容器) + globals.css 的 [data-window-controls][data-window-inactive]',
+      '        无边框窗口拿不到 DWM 原生"非活动标题栏变灰",删掉即失焦时按钮不再降亮;',
+      '     ⑤ 判闸有效性自查:node scripts/check-z-index-guard.mjs --self-test(内存断言,不落盘)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_Z_INDEX_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
   },
   {
     id: '28',
     label: '🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发)',
     script: 'check-overlay-zindex.mjs',
+    // 脚本无 --staged 语义(全量扫 apps/web + packages/ui-react,实测 0 违规才接入)
     args: [],
     mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_OVERLAY_ZINDEX',
     onFailHint: [
       '',
       '  💡 fixed inset-0 全屏遮罩用了 z-50/z-40/z-30 等低数字 Tailwind 类(值 < 100),',
       '     低于 AISidePanel 的 z-sticky=990,会被压在下面 = AI 面板露在遮罩之上。',
       '     修复:把 z-50 改为 z-modal(=2000, 引用 --z-modal CSS 变量)。',
       '     透明点击捕获层(无 bg-black)不在本守门范围。',
+      '     全量清单:node scripts/check-overlay-zindex.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_OVERLAY_ZINDEX=1 git commit ...',
       '',
     ].join('\n'),
   },
@@ -383,8 +422,7 @@ const checks = [
   //   手工触发:node scripts/git-refs-heal.mjs [--refresh-remote]
   {
     id: '30a',
-    label:
-      '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
+    label: '🛡️  Commit 丢失防护(blocking,AGENTS.md §22,防 reset / drop stash 误丢 commit)',
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
@@ -407,8 +445,7 @@ const checks = [
   // 跳过方法:HUSKY_SKIP_STALE_COPY=1 git commit ...
   {
     id: '30c',
-    label:
-      '🛡️  陈旧副本守门(blocking,2026-09-14 338 快照事故配套,防 staged 区夹带历史版本回退)',
+    label: '🛡️  陈旧副本守门(blocking,2026-09-14 338 快照事故配套,防 staged 区夹带历史版本回退)',
     script: 'check-stale-copy.mjs',
     args: [],
     mode: 'blocking',
@@ -722,6 +759,13 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--parity-only'],
     mode: 'blocking',
+    // 2026-09-21 补应急通道(与其余 10+ 门的 HUSKY_SKIP_* 惯例对齐,此前遗漏):
+    // 本项 --parity-only 是"每次 commit 都跑全量 parity",且 parity 漂移**没有** WIP 降级
+    // 通道(check-i18n-keys.mjs 的 wipMissingKeyIssues 只覆盖 missing key,不覆盖 parity)。
+    // 后果:只要工作区存在"并发会话新增 zh-CN 键、4 语言尚未补齐"的未提交 WIP,
+    // --- 即使本次提交完全不含 packages/i18n/** --- 全仓 commit 一律被阻塞(实测 2026-09-21)。
+    // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
+    skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
   // --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
   // mobile-rn 是 5 端中唯一无显式 parity 守门的端(仅靠死 key 扫描内置 5 语言 JSON 加载做隐式校验)。
@@ -827,7 +871,6 @@ const checks = [
   //   原 verify-auth-shell.mjs 只是兼容 shim,2026-08-19 完成迁移后无任何 caller 依赖,
   //   删 file + guardian-runner 注册项,守卫器序列号顺延(2026-08-19 节点)
   //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
-
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
   // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
@@ -1077,14 +1120,717 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- info (2 项) ---
+  // --- 52 (2026-09-20 新增,桌面弹窗复发守门,AGENTS.md §5b「机器级根治 windowsHide 默认值」配套) ---
+  // blocking:派生控制台程序(git/node/pnpm/cmd/pwsh/schtasks…)却漏 windowsHide 的调用点。
+  // 根因:Node v24 该方法默认 false,无控制台父进程(agent GUI 宿主 / detached worker / 计划任务)
+  // 派生时 Windows 必新分配可见控制台 → 用户桌面闪黑窗。此问题历史复发 4 次,改为机制拦截。
+  // 采用"宁漏不误报"策略:仅首参可**肯定**是控制台程序时判违规,避免误阻塞他人提交。
+  {
+    id: '52',
+    label: '🪟 派生弹窗守门(blocking,AGENTS.md §5b windowsHide 默认值配套)',
+    script: 'check-no-visible-spawn.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到派生控制台程序但漏 windowsHide → 无控制台父进程下必弹可见黑窗。',
+      '     修复:在该调用的 options 里加 `windowsHide: true`;',
+      '           无 options 则补 `{ windowsHide: true }`;带 args 数组补在 args 之后;',
+      '           末位是 callback 的把 options 插在 callback 之前。',
+      '     自检:node scripts/check-no-visible-spawn.mjs --self-test',
+      '     全量:node scripts/check-no-visible-spawn.mjs',
+      '     开发机静默兜底:node scripts/install-console-window-hook.mjs --verify',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 53 (2026-09-21 新增,O13b admin 面特权判定收敛守门,warn 级起步) ---
+  // warn-only 理由:存量 34 文件/74 处裸 roleId 比较刚完成一次性白名单登记(文件级
+  //   count 上限),白名单口径与 --staged 判据需先观察一轮误报率(动态拼出的判定、
+  //   注释行计数偏差等);存量清零或稳定一周后再升 blocking。
+  // 判据:裸 roleId 数值比较(集中封装 plugins/require-permission.ts 之外)条数只减
+  //   不增;本地重定义 requireAdmin 禁止回升;capability-catalog dataClass=platform
+  //   条目 thirdPartyEligible 必须为 false(机器凭据 403 不变量)。详见脚本头注释与
+  //   docs/developer/admin-permission-mapping.md。
+  // 跳过方法:HUSKY_SKIP_ADMIN_GATE_GUARD=1 git commit ...(应急,不建议)
+  {
+    id: '53',
+    label: '🛡️  admin 面特权判定一致性(warn-only,O13b roleId>=1 收敛)',
+    script: 'check-admin-gate-consistency.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 apps/api 出现新的裸 `roleId >= 1` 式判定 / 本地重定义 requireAdmin / platform 数据类别误开放。',
+      '     修复:preHandler 统一走 plugins/require-permission.ts 的 requirePermission / requireAnyPermission /',
+      '           requireAdmin;能力面 scope 的机器可见性以 capability-catalog 的 thirdPartyEligible 为准。',
+      '     自检:node scripts/check-admin-gate-consistency.mjs --self-test',
+      '     全量:node scripts/check-admin-gate-consistency.mjs',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
+  // 背景:同日两次功能丢失 —— 并行会话执行 git checkout/reset,把另一会话**已验证但
+  //   尚未 commit** 的工作树改动整体还原(一次要重做,一次连带丢失两条常驻防漂移测试)。
+  //   stash 侧已有 30b 兜住,「留在工作树里没提交」这一整类此前无任何机制覆盖。
+  // warn-only 理由:共享工作树里并行会话常态存在超龄未提交改动(实测本仓当前 21 个,
+  //   最老 21 天),一上来 blocking 会把别人未完成的工作变成我的提交阻塞;先观察一轮,
+  //   等并行会话收敛后再评估升级。判据/阈值见 scripts/check-uncommitted-age.mjs 头注释。
+  {
+    id: '54',
+    label: '⏳ 未提交源码改动年龄守门(warn-only,B14 防工作树改动被并行 checkout 抹掉)',
+    script: 'check-uncommitted-age.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 有源码改动停留在未提交状态超过阈值(默认 45 分钟)。工作树不是暂存区:',
+      '     任何一次并行的 git checkout / reset / clean 都会把它整体抹掉且不留痕迹。',
+      '     处置:node scripts/safe-commit.mjs -m "<本次改动说明>" -- <file>(改完即提交)',
+      '           或按 AGENTS.md §12d 用 git worktree 隔离并行开发。',
+      '     自检:node scripts/check-uncommitted-age.mjs --self-test',
+      '     全量:node scripts/check-uncommitted-age.mjs --json',
+      '     调阈值:IHUI_UNCOMMITTED_AGE_MIN=<分钟> 或 --threshold-min <分钟>',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 55 (2026-09-21 新增,D54/H16 工具名显示覆盖率收口,blocking) ---
+  // 判据:mcp_server._TOOLS 每个注册工具名都要在 packages/shared 的 TOOL_DISPLAY_KEYS 有映射,
+  //   且该 key 在五语言 messages/shared/*.json 的 taskStatus 里真有值。
+  // 为什么 blocking:界面禁止直显 read_file / browser_click_element 这类英文码名;运行时的
+  //   "回落原展示"兜底恰恰会让新增工具**静默地**带着码名上线,只有静态比对拦得住。
+  {
+    id: '55',
+    label: '🈶 工具名显示覆盖率守门(blocking,D54/H16 界面禁直显英文工具码名)',
+    script: 'check-tool-name-display-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_NAME_COVERAGE',
+    onFailHint: [
+      '',
+      '  💡 有注册工具没有本地化功能名,或 taskStatus 里对应键缺某语言文案。',
+      '     修复两步:',
+      "       1) packages/shared/src/chat/tool-display.ts 的 TOOL_DISPLAY_KEYS 补 `工具名: 'toolXxx'`",
+      '       2) packages/i18n/messages/shared/{zh-CN,zh-TW,en,ja,ko}.json 的 taskStatus 补 toolXxx',
+      '     自检:node scripts/check-tool-name-display-coverage.mjs --json',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_NAME_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '59',
+    label: '🈳 ICU 语法跨端可用性守门(blocking,D101:非 web 端取词引擎只支持四形子集)',
+    script: 'check-icu-locale-support.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 语言包里出现了某端渲染不了的 ICU 形态 —— 界面会直接显示 `{state, select, …}` 语法残,',
+      '     或与 web(next-intl 全量 ICU)静默渲染成不同文本。实测背景:next-intl 只挂在 apps/web。',
+      '     三种正解,按优先级:',
+      '       1) 拆成普通键(如 toolRunning / toolCompleted),不用 ICU',
+      '       2) 用共享子集解释器支持的四形:plural / select / selectordinal / number(plain style)',
+      '       3) 确需 `::` skeleton 或 cli 端要用 ICU → 先完成 PROJECT_PLAN.md D101 第④⑥项再解锁',
+      '     自检:node scripts/check-icu-locale-support.mjs --self-test',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '57',
+    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:锚点漂移·契约事件两端不齐·清单条目倒退)',
+    script: 'check-chat-element-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 三类违规各有解法:',
+      '     ① 锚点漂移 = 该元素已在库内,其渲染位文件/关键标识被删或被改名 → 恢复实现,',
+      '        或确属重命名时同 PR 更新 scripts/data/chat-flow-elements.json 并说明理由',
+      '     ② 事件不齐 = 元素声明的 SSE 事件必须同时出现在 apps/ai-service/app/core/sse_contract.py',
+      '        与 packages/shared/src/sse/contract.ts(两端契约是一份事实源的两份拷贝)',
+      '     ③ 条目倒退 = 清单条目数低于 entryCountBaseline → 撤销误删的任务行,或在计划里说明撤销理由',
+      '     自检:node scripts/check-chat-element-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CHAT_ELEMENT_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '58',
+    label:
+      '🈹 中文术语机翻残留守门(blocking,D104/H29:竞品自家 zh 包实测 list→挂牌/房源,我方 zh 侧此前无闸)',
+    script: 'check-zh-term-quality.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 判据是「键名英文词根 ∧ 值内高置信错误译法」双条件,单条件一律放过(宁漏不误报)。',
+      '     两种正当处置:',
+      '       ① 确为误译 → 改成正确术语(如 list 类键里出现 房源/挂牌)',
+      '       ② 确为业务用词(真在做房产/港口类文案)→ 在 scripts/data/zh-term-glossary.json',
+      '          给该规则补 expect 词或收紧 keyRoot 定义,并在提交说明里写清理由',
+      '     误伤回归:node scripts/check-zh-term-quality.mjs(现存语言包须 0 命中才可加新判据)',
+      '     自检:node scripts/check-zh-term-quality.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ZH_TERM_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '60',
+    label: '🕐 工具活动行双时态覆盖守门(blocking,D81①/D83/H28:键形合规 + 覆盖率 ratchet)',
+    script: 'check-tool-activity-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 两类失败,处置不同:',
+      '     ① 键形不合规(半套措辞)→ 五语言必须齐,且每个 *Activity 值必须是含',
+      '        running{} / completed{} / other{} 三支的 ICU select。半套比不补更糟:',
+      '        某语言会恒显示"正在…"或整条空白。',
+      '     ② 覆盖率低于 floor → 有人删了/改名了已配置的措辞键,补回;确属撤销才调',
+      '        scripts/data/tool-activity-coverage.json 的 floor,并在提交说明写数量变化。',
+      '     逐批补齐清单:node scripts/check-tool-activity-coverage.mjs --scaffold',
+      '     自检:node scripts/check-tool-activity-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_ACTIVITY_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 56 (2026-09-21 新增,工具功能名"各端取得到值"覆盖守门,blocking) ---
+  // 拦两类静默失败:① 词表加了映射但某语言/某端语言包没有该 taskStatus 键 →
+  //   端内点号取词器缺键回显键名,把 read_file 显示成 toolReadFile(断言"不含 read_file"照样绿);
+  // ② 改了 shared 却忘了跑 pnpm gen:i18n → 小程序离线包整块过期(实测曾 13 vs 139 键)。
+  {
+    id: '56',
+    label: '🔤 工具功能名各端可解析守门(blocking,防取词回显与离线包过期)',
+    script: 'check-tool-display-resolvable.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE',
+    onFailHint: [
+      '',
+      '  💡 有工具功能名在某语言 / 某端语言包 / 小程序离线包里取不到值。',
+      '     修复:1) 补齐 packages/i18n/messages/shared/<lang>.json 的 taskStatus 键(5 语言齐全)',
+      '           2) cd apps/miniapp-taro && pnpm gen:i18n  重生成离线语言包',
+      '     全量:node scripts/check-tool-display-resolvable.mjs --json',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 61 (2026-09-22 接入 pre-commit,桌面安装器品牌资产三方对账,blocking) ---
+  // 背景:2026-09-20 真实事故 —— ihui-ui.nsi 新增「最小化」按钮引用 btn-min.bmp,却漏登记
+  //   IHUI_EXTRACTPAGESETS_SET 里的 File 行 → $PLUGINSDIR 里根本没有该文件 → LoadImage 返回 0
+  //   → STM_SETIMAGE 贴空位图 → 按钮**肉眼不可见**,而 makensis 零报错零警告(用户报「最小化
+  //   按钮没显示」)。守门脚本自写下后只被手动跑过,在 guardian-runner / .husky / .github
+  //   零命中 = 没有任何自动执行点,等于「记得跑才有保护」。本次正式接入。
+  // 判据(任一不通过 exit 1):① 引用 ⊆ 打包;② 打包 ⊆ 落盘(100/125/150/175/200 五档齐全);
+  //   ③ 引用/打包解析为零命中即失败(正则被改坏时不自愈放行);④ installer.nsi 的 GetOptions
+  //   不得直接吃 $CMDLINE(路径里的 /ns 段会前缀误匹配)。
+  // 条件触发:见 stagedTriggers —— 安装器目录或资产生成器进暂存区才跑,全量模式一律跑。
+  {
+    id: '61',
+    label: '🖥️  桌面安装器资产三方对账(blocking,引用↔打包↔5 档落盘)',
+    script: 'check-installer-assets.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/desktop/src-tauri/windows/', 'scripts/desktop-installer-assets.mjs'],
+    skipEnv: 'HUSKY_SKIP_INSTALLER_ASSETS_GUARD',
+    onFailHint: [
+      '',
+      '  💡 NSIS 脚本「引用的位图 ↔ File 打包清单 ↔ 磁盘 5 档 DPI 资产」三方不一致(编译期零报错,',
+      '     只有真机跑安装器才暴露 —— 静默失败必须在这里拦住):',
+      '     按报错项处置:',
+      '       ① “引用了但未打包: X.bmp” → 在 apps/desktop/src-tauri/windows/ihui-ui.nsi 的',
+      '          !macro IHUI_EXTRACTPAGESETS_SET 内补一行(与 btn-close.bmp 同处):',
+      '            File "/oname=$PLUGINSDIR\\X.bmp" "${IHUI_ASSETROOT}\\assets-${LIT}\\X.bmp"',
+      '       ② “打包了但档位缺文件” → 重跑资产导出:node scripts/desktop-installer-assets.mjs',
+      '          五档(100/125/150/175/200)缺一档,就在那个 DPI 档位下控件空白',
+      '       ③ “解析到 0 个引用 / 0 条 File” → 判据正则与 nsi 结构漂移,门禁已失效,',
+      '          必须修 scripts/check-installer-assets.mjs 的解析式,**禁止放宽判定**',
+      '     单独复验:node scripts/check-installer-assets.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_INSTALLER_ASSETS_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
+  // 背景:apps/desktop/src-tauri/windows/installer.nsi 是「Tauri CLI 内置模板 + IHUI 补丁集」
+  //   的副本(Tauri v2 只暴露四个 Section 内宏,改不了向导页面结构,唯一官方接管方式是
+  //   bundle.nsis.template 整体替换)。2026-09-22 实测:该文件里累积了 11 段历史上**直接手改、
+  //   从未登记进 PATCHES / 侧车 JSON** 的定制,于是 --check 恒绿而 --write 会把这些定制整体
+  //   抹掉 —— 已真实发生过一次回退。--check 正是拦这一类的,但此前同样零自动执行点。
+  // 已核实的宽松兜底(保持不改、不改成阻塞):工作区未安装 @tauri-apps/cli 原生模块时,脚本
+  //   打印「未找到 @tauri-apps/cli 原生模块,跳过校验」并 exit 0(源码 desktop-nsis-template.mjs
+  //   第 373-381 行)。干净 checkout / 部分 CI 属正常态,该项在这些环境**自动放行**;
+  //   本机已装 @tauri-apps/cli 2.11.4 → 实测走的是真比对(命中 20+ 处 IHUI 补丁)。
+  {
+    id: '62',
+    label: '🧩 桌面 NSIS 安装器模板漂移(blocking,installer.nsi == 上游模板 + 已登记补丁)',
+    script: 'desktop-nsis-template.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/desktop/src-tauri/windows/installer.nsi',
+      'scripts/desktop-nsis-template.mjs',
+      'scripts/desktop-nsis-ihui-patches.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_NSIS_TEMPLATE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 installer.nsi 已不等于「当前 Tauri CLI 内置模板 + 已登记补丁集」。两类成因处置不同:',
+      '     ① 直接手改了 installer.nsi(最常见)→ 把差量登记进侧车补丁,复验后随代码同 commit:',
+      '          node scripts/desktop-nsis-template.mjs --emit-patches',
+      '            (导出 scripts/desktop-nsis-ihui-patches.json)',
+      '          node scripts/desktop-nsis-template.mjs --check   # 应回到 OK',
+      '          git add scripts/desktop-nsis-ihui-patches.json',
+      '        不登记就提交,下次 --write 会把这段定制整体抹掉(已真实回退过一次)。',
+      '     ② 升级了 Tauri CLI(上游模板变了)→ 先 diff 上游与仓库两份模板、人工复核各补丁',
+      '        锚点是否仍成立,确认后再 --write,然后重跑 --check(必要时补 --emit-patches);',
+      '        **禁止盲目 --write**(会连带抹掉未登记定制)。',
+      '     注:未安装 @tauri-apps/cli 原生模块的环境里该脚本打印「跳过校验」并 exit 0,',
+      '         即本项在干净 checkout / 部分 CI 自动放行(既有宽松兜底,不是漏判)。',
+      '     紧急跳过(不推荐):HUSKY_SKIP_NSIS_TEMPLATE_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 63 (2026-09-22 接入 pre-commit,SSE 双解析器漏接对账,blocking,D106/G-148 配套) ---
+  // 背景(实测非推测):同一份 SSE 协议在库内被两处独立解析 —— packages/api-client/src/client.ts
+  // (web/extension/mobile-rn)与 packages/shared/src/utils/sse-parse.ts(miniapp-taro 经 @ihui/shared
+  // 单一真源使用,其端内 utils/sse-parse.ts 只是 re-export)。每加一帧要在两处各写一遍分支、
+  // 再在每端回调表注册一次;历史上 citations/steer 就是"一侧有、另一侧 0 命中"被静默遗忘,
+  // injection_applied/retry_scheduled 第 42 轮也只补了 api-client 一侧。
+  // 判据强度(实测):把 sse-parse 的 steer 守卫改成不匹配的字面量 → 本闸立即红两条
+  // (ratchet 20<21 + steer 未登记),证明"只剩产出语句/只剩类型联合声明"都骗不过它。
+  {
+    id: '63',
+    label: '🔀 SSE 双解析器漏接对账(blocking,帧覆盖 ratchet + 未接帧须交代归属)',
+    script: 'check-sse-parser-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/shared/src/sse/contract.ts',
+      'packages/api-client/src/client.ts',
+      'packages/shared/src/utils/sse-parse.ts',
+      'scripts/data/sse-parser-coverage.json',
+      'scripts/check-sse-parser-parity.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SSE_PARSER_PARITY',
+    onFailHint: [
+      '',
+      '  💡 同一协议两处解析,漏接是**静默**的:小程序拿不到帧,界面上看起来就是"没这个功能"。',
+      '     看清单:node scripts/check-sse-parser-parity.mjs --report',
+      '     补接一帧后:删 scripts/data/sse-parser-coverage.json 里对应的 webOnly 登记项,',
+      '                并把 parseCoverageBaseline 上调到新实测值(降回去就是在倒退)。',
+      '     确实只有 web 消费:必须在该文件 webOnly 里写明**为什么**(空理由同样拦)。',
+      '     自检:node scripts/check-sse-parser-parity.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_SSE_PARSER_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 68 (2026-09-22 新增,权限模式词汇对账,PROJECT_PLAN G-161 配套) ---
+  // blocking:同一语义曾有 5 套拼写并存(agent-runtime 5-camel / workspace 4-kebab /
+  //   api-client 3-kebab / AgentLoopV2 default+plan+auto / 对外文档 read-only+accept-all+plan-only),
+  //   非法值被 Pydantic 静默丢弃或在构造期 ValueError 打 500 —— 即"客户端发了 ≠ 服务端生效"。
+  //   判据:TS 注册表 ↔ Python 注册表成员/别名逐字一致 + 消费点取值必须已注册 +
+  //   决策位不得拿别名比较 + 不许自造档位白名单。有效性由 --self-test 注入违规自证(11 例)。
+  {
+    id: '68',
+    label: '🔐 权限模式词汇对账(blocking,跨语言注册表一致 + 消费点禁漂移)',
+    script: 'check-permission-mode-vocabulary.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/types/src/permission-mode.ts',
+      'packages/types/src/agent-runtime.ts',
+      'packages/types/src/workspace.ts',
+      'packages/api-client/src/endpoints/workspace.ts',
+      'apps/ai-service/app/core/permission_mode.py',
+      'apps/ai-service/app/services/agent_loop_v2.py',
+      'apps/ai-service/app/routers/agent_runtime.py',
+      'apps/ai-service/app/routers/agents.py',
+      'apps/api/src/routes/workspace-permissions.ts',
+      'apps/api/src/routes/v1-ai-core.ts',
+      'apps/cli/src/tools/permissions.ts',
+      'apps/cli/src/commands/settings.ts',
+      'apps/cli/src/commands/config-cmd.ts',
+      'apps/cli/src/commands/repl.ts',
+      'apps/cli/src/commands/status-cmd.ts',
+      'apps/cli/src/commands/agent.ts',
+      'packages/types/package.json',
+      'scripts/tests/check-permission-mode-vocabulary.test.mjs',
+      'docs/developer/api/agents.md',
+      'scripts/check-permission-mode-vocabulary.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_PERMISSION_VOCAB',
+    onFailHint: [
+      '',
+      '  💡 权限档有 5 套拼写时,"发了"和"生效"是两件事 —— 本门拦的就是这个。',
+      '     唯一真源:packages/types/src/permission-mode.ts ↔ app/core/permission_mode.py',
+      '     改法:先在两侧同时登记成员/别名(顺序反了就是 R1 红),再改消费点。',
+      '     决策位比较请用 is_readonly_permission_mode / skips_approval_permission_mode,',
+      '     不要写 `== "auto"` 这类别名比较(R3 拦)。',
+      '     自检:node scripts/check-permission-mode-vocabulary.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PERMISSION_VOCAB=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 64 (2026-09-22 新增,miniapp-taro 适配层「未接线即拦」,PROJECT_PLAN P2-F.5 配套) ---
+  // blocking:适配层历史上 18 个 .taro.tsx 里的 9 个屏级(共 3078 行)从写下到删除始终零页面引用,
+  //   而既有 check-adapter-style-parity.mjs 只守硬编码颜色、不守「是否被 import」,
+  //   所以「造好没装车」这种死代码此前无闸可挡 —— 本门补的就是这一格。
+  //   判据:新增适配器必须被 adapters 目录**之外**的源文件从 adapters 路径 import
+  //   (端内存在同名自有组件,不限定 specifier 会把它们误判为已接线);
+  //   基线已于同日三批清理后收紧为空数组 → 零豁免硬门。
+  {
+    id: '64',
+    label: '🧩 [miniapp-taro] 适配层未接线即拦(防"造好没装车"死代码回升)',
+    script: 'check-adapter-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_WIRING',
+    onFailHint: [
+      '',
+      '  💡 apps/miniapp-taro/src/components/adapters/*.taro.tsx 里有新增的无人 import 适配器。',
+      "     接线:页面里 import { X } from '@/components/adapters'",
+      '     或删除:确认端内已有自有实现后 rm(先过 AGENTS.md §7 删除三问)',
+      '     存量收紧基线:node scripts/check-adapter-wiring.mjs --update-baseline',
+      '     自检:node --test scripts/tests/check-adapter-wiring.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_WIRING=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 66 (2026-09-22 补注册,miniapp-taro 适配层硬编码颜色基线门;65 已被「整树删除拦截」占用) ---
+  // 该脚本自 2026-09-03 起只挂在 package.json 的 check:all(手动/CI),**从未进 pre-commit 链路**,
+  //   所以新增硬编码颜色可以一路提交到 CI 才发现。本次适配层治理同族收口时补上这一格。
+  // 基线模式:存量 1 处/1 文件已在 scripts/adapter-style-parity-baseline.json 放行,只减不增。
+  {
+    id: '66',
+    label: '🎨 [miniapp-taro] 适配层硬编码颜色基线(防新增 hex/rgb 绕过 token)',
+    script: 'check-adapter-style-parity.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/src/components/adapters/'],
+    skipEnv: 'HUSKY_SKIP_ADAPTER_STYLE_PARITY',
+    onFailHint: [
+      '',
+      '  💡 adapters/*.taro.tsx 出现了基线之外的新增硬编码颜色,',
+      '     改法:用 getRnTokens(effectiveScheme).xxx 取 token(与 packages/app 主题同源)。',
+      '     确属合理保留(逐字沿用共享源的轮播点/HSL 等着色算法)时:',
+      '       node scripts/check-adapter-style-parity.mjs --update-baseline 后随本次提交一起 add 基线文件',
+      '     自检:node scripts/check-adapter-style-parity.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ADAPTER_STYLE_PARITY=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 67 (2026-09-22 新增,凭据经非2xx message 外泄对账,PROJECT_PLAN P2-F.8 配套) ---
+  // blocking:response-sanitizer.ts:496 明写非 2xx 响应原样返回(不打码),于是"把上游响应体
+  //   stringify 进 error message"构成脱敏体系的真实旁路 —— 已发生真实事故:
+  //   proxy-extended-media3.ts 曾把 Adobe IMS OAuth2 令牌端点整个响应体(含 access_token)
+  //   拼进 502 message 回传客户端(修复见 7384c92ed0)。本门把该类目变成结构性不可能。
+  // 判据刻意窄(宁漏不误报):仅在 4xx/5xx 构造上下文内、且被 stringify 的实参具备凭据语义时 BLOCK;
+  //   errData/genData/data 这类非凭据实参只进"低置信候选"清单打印、不计失败
+  //   (全仓此类历史写法 35 处 / 13 文件,一律拦会变成阻塞他人的假阳性)。
+  {
+    id: '67',
+    label: '🔐 凭据经非2xx message 外泄对账(blocking,拦上游令牌/密钥响应体被拼进错误消息)',
+    script: 'check-credential-leak-in-message.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/'],
+    skipEnv: 'HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE',
+    onFailHint: [
+      '',
+      '  💡 非 2xx 响应**不经** response-sanitizer(plugins/response-sanitizer.ts:496 直接 return payload),',
+      '     所以把上游响应体拼进 error message 等于绕过脱敏把凭据发出去。',
+      '     改法:message 只放厂商名 / HTTP 状态码 / RFC 6749 的 error 码等白名单字段,',
+      '            需要排查上游返回内容时改为记服务端日志(且日志亦不得含令牌原文)。',
+      '     低置信候选(实参名无凭据语义 **且** 响应来源非令牌端点)不拦,仅供人审;确属长期豁免时:',
+      '       node scripts/check-credential-leak-in-message.mjs --update-baseline',
+      '     自检:node scripts/check-credential-leak-in-message.mjs --self-test',
+      '           node --test scripts/tests/check-credential-leak-in-message.test.mjs',
+      '     紧急跳过(不推荐,本门是安全门):HUSKY_SKIP_CREDENTIAL_LEAK_IN_MESSAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 快捷键"声明 ↔ 归属"对账(2026-09-22 立)。成因两例都是真实发生过的:
+  //   ① view-switcher 曾给 document/browser/figma/code-changes/agent 五个点选项标 Ctrl+1-5,
+  //      而这族键位实际被 use-global-shortcuts 注册表接走(按下去切 AI 对话模式) —— 标签说谎;
+  //   ② 注册表条目"有键无消费者"。判据两类:声明未绑(unbound)+ 同键被他功能接走(mislabelled),
+  //      后者只认 field 类声明(点选动作旁标的键位),<kbd>/正文描述类不纳入 —— 那类合法地在
+  //      描述**别的表面**的键位,纳进必假红。
+  {
+    id: '69',
+    label: '⌨️ 快捷键声明与归属对账(blocking,声明未绑 / 同键被他功能接走)',
+    script: 'check-declared-shortcuts.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/'],
+    skipEnv: 'HUSKY_SKIP_DECLARED_SHORTCUTS',
+    onFailHint: [
+      '',
+      '  💡 两类红点各自对应一种交付事故:',
+      '     ① 声明未绑:UI 上写了 `Ctrl+X` 但全仓没有处理器 → 要么把功能实现,要么把标签删掉。',
+      '     ② 同键被他功能接走:点选项标的键位其实归注册表里**另一个动作**(按下去干的不是这件事)。',
+      '        正解二选一:换标签/删标签;或让本组件独占该键(自有 handler + `e.stopPropagation()`)。',
+      '     全量审计与逐条定位:node scripts/check-declared-shortcuts.mjs',
+      '     自检:node --test scripts/tests/check-declared-shortcuts.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_DECLARED_SHORTCUTS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 硬编码中文 ratchet(2026-09-22 接线)。该脚本 2026-07-20 就写好了,但只登记在 scripts/README,
+  // 从未接入守门链 ⇒ 一年多里新增的硬编码中文无人拦(审计实测 web+ui-react+shared 已积到 900+ 文件)。
+  // 存量清不完也不该挡所有提交,故用"每文件额度基线":只拦比基线更多的命中,清理后 --update-baseline 下调。
+  {
+    id: '70',
+    label: '🈲 硬编码中文基线棘轮(blocking,新增界面文案必须走 t()/语言包)',
+    script: 'scan-hardcoded-zh.mjs',
+    args: ['--exit', '1'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/app/',
+      'apps/web/src/components/',
+      'apps/web/src/hooks/',
+      'packages/ui-react/src/',
+      'packages/shared/src/',
+    ],
+    skipEnv: 'HUSKY_SKIP_HARDCODED_ZH_GUARD',
+    onFailHint: [
+      '',
+      '  💡 本次改动在某个文件里**新增了**超过基线额度的硬编码中文行。',
+      '     正解:界面文案改用 useTranslations / 共享包的 t 注入(AGENTS.md §19),键落对应命名空间;',
+      '     定位:`node scripts/scan-hardcoded-zh.mjs --staged` 或全量 `node scripts/scan-hardcoded-zh.mjs`;',
+      '     若确属内容文案(示例数据/营销长文)或判据误报,先自行核实再下调基线:',
+      '       node scripts/scan-hardcoded-zh.mjs --update-baseline   # 全量重写,只能有人工确认时跑',
+      '     紧急跳过(不推荐):HUSKY_SKIP_HARDCODED_ZH_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '71',
+    label: '🈲 计划登记行防丢(blocking,PROJECT_PLAN.md 已入库的 G-/D/P/W 编号行不得整行消失)',
+    script: 'check-plan-line-loss.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_PLAN_LINE_LOSS',
+    onFailHint: [
+      '',
+      '  💡 成因几乎总是"按内存里那份旧计划文档整文件提交",把别的会话(或更早的自己)',
+      '     **已经入库**的登记行按旧基线回写掉了。正解是前向恢复,不是 --no-verify:',
+      '       1) 找回原文:`git log --all -S "<提示里的标记>" -- PROJECT_PLAN.md`,',
+      '          再 `git show <那个提交>:PROJECT_PLAN.md` 取整行插回原锚点;',
+      '       2) 确属 §1 归档 → 原文必须在 .ihui-agent/archive/PROJECT_PLAN_*.md 里(本闸自动放行);',
+      '       3) 以后改计划文档一律**提交前现取 HEAD 版本**再插自己的行(AGENTS.md §1 配套)。',
+      '     自愈面:.husky/post-commit 第 6 段会在每次提交后扫历史并回捞(--no-verify 也照跑);',
+      '     手动执行:`node scripts/check-plan-line-loss.mjs --heal`(只写工作区)或',
+      '              `node scripts/check-plan-line-loss.mjs --heal --commit`(顺带前向提交)。',
+      '     自检:node scripts/check-plan-line-loss.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  // --- 72 (2026-09-22 新增,Dockerfile 构建上下文对账) ---
+  // blocking:提交 79b906463f 给根 package.json 加了 postinstall(node scripts/fix-expo-metro-junction.mjs),
+  //   而 deploy/docker/Dockerfile.{api,web,cli,migrate} 只 COPY 清单文件就跑 pnpm install ⇒ 镜像里没有该脚本
+  //   ⇒ CI 上 build-api / build-web 同时红(`MODULE_NOT_FOUND`)。typecheck/lint/单测全绿也发现不了,
+  //   因为本机没有 docker、也没人跑 docker build。本门按 workflow 声明的 context 对账两件事:
+  //   A) 根上下文安装依赖的 Dockerfile 必须 COPY 生命周期钩子引用的脚本;
+  //   B) 每条 COPY 源必须在**提交内容**里存在(工作树可能被并行会话删而未暂存,故不信工作树)。
+  // 跳过方法:HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...
+  {
+    id: '72',
+    label: '🐳 Dockerfile 构建上下文对账(blocking,钩子脚本必须 COPY 进镜像 + COPY 源必须在提交里)',
+    script: 'check-dockerfile-copy-paths.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'deploy/docker/',
+      'deploy/saas/',
+      'apps/ai-service/Dockerfile',
+      'package.json',
+      '.github/workflows/',
+    ],
+    skipEnv: 'HUSKY_SKIP_DOCKERFILE_COPY_GUARD',
+    onFailHint: [
+      '',
+      '  💡 本机跑不到 docker 时,这里是唯一能发现"镜像构建必挂"的防线:',
+      '     - lifecycle-script-not-copied → 根 package.json 的 preinstall/postinstall/prepare 里',
+      '       `node <file>` 引用的脚本没被 COPY 进 deps 阶段 ⇒ 在该 Dockerfile 的 RUN pnpm install',
+      '       之前加一行 `COPY <file> <目录>/`(只 COPY 单个文件,别 COPY 整个 scripts/,会毁层缓存)',
+      '     - copy-source-missing → COPY 的源路径在构建上下文的提交里不存在(拼写/已删/被 .dockerignore 排除)',
+      '       注:存在性按 HEAD 提交内容判,工作树里缺文件不算数(并行会话可能删了未暂存)',
+      '     自检:node scripts/check-dockerfile-copy-paths.mjs --self-test',
+      '           node --test scripts/tests/check-dockerfile-copy-paths.test.mjs',
+      '     紧急跳过(不推荐,本门挡的是"部署才炸"的缺陷):HUSKY_SKIP_DOCKERFILE_COPY_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '73',
+    label: '🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增)',
+    script: 'check-direct-backend-calls.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/',
+      'packages/',
+      'scripts/direct-backend-calls-baseline.json',
+      'scripts/check-direct-backend-calls.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_DIRECT_BACKEND_CALLS',
+    onFailHint: [
+      '',
+      '  💡 AGENTS.md §3:端内(apps/* 与 packages/*,除 api / ai-service / api-client 自身)',
+      '     不得用裸 fetch / axios / Taro.request / XMLHttpRequest / sendBeacon / http.request',
+      '     直连本仓后端(URL 污点追到后端基址或锚定 /api/ 段即命中)。',
+      '     正确做法:走 @ihui/api-client 的 endpoint;确实需要平台差异时,把它做成',
+      '     Transport 并在 app 启动处 setTransport 注册(豁免需三条同立:URL 纯透传 +',
+      '     从 @ihui/api-client import 契约 + 该导出确实被 setTransport 注册)。',
+      '     存量 47 处已进 scripts/direct-backend-calls-baseline.json,迁移后跑',
+      '     `node scripts/check-direct-backend-calls.mjs --update-baseline` 收紧(只减不增)。',
+      '     自检:node scripts/check-direct-backend-calls.mjs --self-test',
+      '           node --test scripts/tests/check-direct-backend-calls.test.mjs',
+      '           node scripts/check-direct-backend-calls.mjs --list   # 逐条看基线',
+      '     紧急跳过(不推荐):HUSKY_SKIP_DIRECT_BACKEND_CALLS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '74',
+    label: '🈴 词表键五语言可解析(blocking,静态映射缺语言/小程序离线包过期即红;W5 落点债只告警)',
+    script: 'check-word-table-resolvable.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['packages/', 'apps/', 'packages/i18n/messages/'],
+    skipEnv: 'HUSKY_SKIP_WORD_TABLE_RESOLVABLE',
+    onFailHint: [
+      '',
+      '  💡 判据:一张"值全是 i18n 键字面量"的静态映射表(如 PERMISSION_TIER_WORD_KEYS /',
+      '     _TOOLS / ERROR_CODE_TO_I18N_KEY),每个键必须在 5 语言 × 消费端合并视图里取到值,',
+      '     小程序侧还要能在**离线生成包**里取到(忘跑 `pnpm gen:i18n` 就是这一条拦)。',
+      '     值是键名本身(静默回显)同样判缺 —— 那正是"界面显示 permissionTier.mode.plan.title"的成因。',
+      '     修法:补进 packages/i18n/messages/<shared|端>/<lang>.json 五语言齐(共享层词表优先沉到 shared);',
+      '     改完跑 `cd apps/miniapp-taro && pnpm gen:i18n` 重生成离线包。',
+      '     W5「落点债」= 某端依赖该包但尚未引用这张表 ⇒ 今天没有界面会回显键名,只报不计失败',
+      '     (计入会把门长期红在别人未接入的存量上);该端真接入后由 W3/W4 逐键硬拦。',
+      '     自检:node scripts/check-word-table-resolvable.mjs --self-test',
+      '           node --test scripts/tests/check-word-table-resolvable.test.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_WORD_TABLE_RESOLVABLE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 75 (2026-09-23 新增,O20d 配置表名存在性机械门,blocking) ---
+  // 背景:生产 COMPUTE_ALLOWED_TABLES 含不存在的表名(api_key_usage_windows 计划已知 +
+  //   agent_runs 本轮机械门首跑新发现),compute 能力 DB 白名单指向空表 = DATA_ACCESS_DENIED
+  //   而 typecheck/单测全绿。判据:清单里每个表名必须存在于 drizzle schema,不存在即红;
+  //   存量 2 个真实幽灵表按"白名单棘轮 + 条数只减不增"豁免,新增即拦。详见脚本头注释。
+  {
+    id: '75',
+    label: '🗄️  配置表名存在性(blocking,O20d:COMPUTE_ALLOWED_TABLES 必须与 drizzle schema 对齐)',
+    script: 'check-config-table-existence.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/types/src/capability-catalog.ts',
+      'packages/database/src/schema/',
+      'scripts/check-config-table-existence.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_CONFIG_TABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 COMPUTE_ALLOWED_TABLES(packages/types/src/capability-catalog.ts)含不存在的表名 ——',
+      '     运行时 compute 能力白名单指向空表,真实表改名后清单未跟上。',
+      '     修法:改为 packages/database/src/schema 中的真实表名,或从清单删除;',
+      '           若属存量已登记幽灵表,见脚本 KNOWN_GHOST_TABLES(条数只减不增,修后删行)。',
+      '     自检:node scripts/check-config-table-existence.mjs --self-test',
+      '     全量:node scripts/check-config-table-existence.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CONFIG_TABLE_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 76 (2026-09-23 新增,O20e 迁移账本带外对象防回潮,warn 级) ---
+  // 背景:生产迁移账本曾有 7 个迁移的数据库对象带外存在(对象在库但 __drizzle_migrations
+  //   无对应行)。判据:journal 序号全集 vs 账本行全集(行数与水位序),缺行/多余行即告警;
+  //   按序号界定不按 hash(改历史文件会让按 hash 判定误报)。
+  // warn 理由:连库门进 pre-commit 会拖慢/断网误红;主用途是部署后独立调用
+  //   (node scripts/check-migration-ledger-drift.mjs --dsn <url> [--strict])。
+  //   本机库可达时顺带对账,不可达时脚本自身降级 SKIP 并如实打印(不假装通过)。
+  {
+    id: '76',
+    label: '📋  迁移账本带外对象防回潮(warn-only,O20e:journal 序号全集 vs 账本行全集)',
+    script: 'check-migration-ledger-drift.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: ['packages/database/drizzle/'],
+    skipEnv: 'HUSKY_SKIP_MIGRATION_LEDGER_GUARD',
+    onFailHint: [
+      '',
+      '  💡 drizzle 迁移账本行数与 journal 序号全集不一致 —— 有迁移的数据库对象带外存在',
+      '     (对象在库但 __drizzle_migrations 无对应行),或 journal 被裁剪/账本被污染。',
+      '     主用途:部署后独立调用 node scripts/check-migration-ledger-drift.mjs --dsn "$DATABASE_URL" [--strict]',
+      '     (DSN 来源优先级 --dsn > IHUI_LEDGER_DSN > DATABASE_URL;输出一律脱敏)',
+      '     连不上库时默认降级 SKIP(--strict 时按失败);本门 warn 级不阻塞 commit。',
+      '     自检:node scripts/check-migration-ledger-drift.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_MIGRATION_LEDGER_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- blocking (OpenAPI 契约) ---
   {
     id: '10',
-    label: '📋 OpenAPI spec(informational)',
+    label: '📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级)',
     script: 'openapi-check.mjs',
-    args: [],
-    mode: 'info',
+    // --staged:仅当本轮暂存触及 apps/api/src/routes/**、契约产物或能力清单时才判定,
+    // 否则无关提交也要背 3.5MB 产物的比对成本。判据本身见 scripts/openapi-check.mjs。
+    args: ['--staged'],
+    mode: 'blocking',
   },
+  // 整树删除事故的结构化拦截(2026-09-22 立)。同类事故已真实发生两次:
+  //   1ec8c7f0f3 / 05f049ba09 各带着"被清空的索引"提交,一次删掉 11,607 / 11,640 个文件,
+  //   事后各需一次索引层重建前向修复。当时**没有任何提交前闸**,只有事后人肉
+  //   `git ls-tree -r HEAD | wc -l`。本条把它变成结构性不可能。
+  // 判据:索引相对 HEAD 缺失 ≥1000 个文件,或缺失 ≥20% → 拦截;应急 IHUI_ALLOW_MASS_DELETION=1。
+  // 不加 stagedTriggers —— 恰恰在"暂存区被清空"时最需要它跑,任何提交都不得跳过。
+  {
+    id: '65',
+    label: '🧹 整树删除拦截(blocking,索引 vs HEAD 文件存续性)',
+    script: 'check-mass-deletion.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MASS_DELETION_GUARD',
+    onFailHint: [
+      '',
+      '  💡 索引相对 HEAD 大面积缺文件 = 提交会把它们从版本树里删掉。',
+      '     先分清成因(禁止用 reset --hard 抢救,那会连带抹掉并发会话的工作区改动):',
+      '       ① git ls-files | wc -l  与  git ls-tree -r HEAD | wc -l  差距大 → 索引被清空过',
+      '          (`git rm -r --cached .` 后未重加 / lint-staged 中断 / 索引被外部工具打残);',
+      '       ② 确属有意的大规模删除 → 影响范围写进提交信息,再 IHUI_ALLOW_MASS_DELETION=1;',
+      '       ③ 已经误提交 → 走索引层重建前向修复(见 PROJECT_PLAN 两次先例)。',
+      '     单独复验:node scripts/check-mass-deletion.mjs',
+    ].join('\n'),
+  },
+  // --- info (1 项) ---
   {
     id: '23',
     label: '📋 staged 文件清单(info)',
@@ -1144,7 +1890,9 @@ guardian-runner.mjs — 守门脚本批量执行器
   info     (${info.length} 项): ${info.map((c) => c.id).join(', ')}
 
 执行逻辑:
-  blocking 失败 → 立即 exit(1),阻塞 commit
+  blocking 失败 → 记入清单并**继续跑完全部**,末尾列出全部失败门后 exit(1)
+                  (逃生舱 GUARDIAN_STOP_ON_FIRST=1 恢复旧的"首个失败立即 exit(1)")
+  子门 exit 75   → 视为中断而非检查结论,**立即**以 75 向上传播(hook → push guard 据此重试),不收敛成 1
   warn     失败 → 打印警告,继续执行
   info     →    始终继续,只打印信息
 `)
@@ -1178,12 +1926,19 @@ function readPushGateCache() {
 /** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
 function computeGateFingerprint() {
   try {
-    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], { encoding: 'utf8', windowsHide: true }).trim()
-    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
-    const statusRaw = execFileSync('git', ['status', '--porcelain', '-z', '--', 'apps', 'packages'], {
+    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], {
       encoding: 'utf8',
+      windowsHide: true,
+    }).trim()
+    // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
+    const statusRaw = execFileSync(
+      'git',
+      ['status', '--porcelain', '-z', '--', 'apps', 'packages'],
+      {
+        encoding: 'utf8',
         windowsHide: true,
-      })
+      },
+    )
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
@@ -1227,9 +1982,89 @@ if (pushGate && !cliArgs.includes('--no-cache') && process.env.HUSKY_SKIP_PUSHGA
 let passed = 0
 let warned = 0
 let failed = 0
+let skipped = 0
 const startTime = Date.now()
+// 跑完再汇总(2026-09-22 改版):原先任一 blocking 门失败即 exit(1),会遮蔽其后所有门的结论
+// —— 既让人误判"刚注册的门没生效"(实测两次被 id 6 / id 30c 的在途失败截断),也会把
+// 本可一次看全的多处故障拆成多轮。改为一轮跑完、末尾列清单一次性退出。
+// 两条不变量:① exit 75(中断)仍**立即**向上传播,不收敛成 1(push guard 靠它决定重试);
+// ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
+const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
+/** blocking 失败门清单(末尾汇总用)。 */
+const failedGates = []
+
+/** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
+function printSummary(useStderr) {
+  const out = useStderr ? console.error : console.log
+  const executed = passed + warned + failed + skipped
+  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
+  out('')
+  out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
+  out(
+    `  总检查数: ${effectiveChecks.length}(已执行 ${executed}${executed < effectiveChecks.length ? ' ← 提前中止' : ''})`,
+  )
+  out(`  ${C.green}通过: ${passed}${C.reset}`)
+  out(`  ${C.yellow}警告: ${warned}${C.reset}`)
+  out(`  ${C.red}失败: ${failed}${C.reset}`)
+  out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
+  out(`  总耗时: ${totalTime}s`)
+}
+
+// ─── 条件触发(2026-09-22 立)───
+// 条目声明 stagedTriggers(路径前缀数组)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
+// 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
+// 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
+//   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
+//   (NSIS 少一行 File 编译零报错、--write 抹掉未登记定制)只有真拦住才有意义。
+// 全量模式(不带 --staged,手动 / CI)一律执行;拿不到暂存区(非 git 环境)按「触及」处理,
+//   宁误跑不误漏。结果缓存一次,多个条件项共用。
+// 边界:--staged 而暂存区为空(手动误跑该模式)按「未触及」跳过 —— 需要全量审计请不带 --staged。
+let stagedFilesCache = null
+function stagedFilesOrNull() {
+  if (stagedFilesCache) return stagedFilesCache
+  try {
+    stagedFilesCache = execFileSync('git', ['diff', '--cached', '--name-only'], {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+    })
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  } catch {
+    return null
+  }
+  return stagedFilesCache
+}
+
+function stagedPathsTouch(prefixes) {
+  const files = stagedFilesOrNull()
+  if (files === null) return true
+  return files.some((f) => {
+    const norm = f.replace(/\\/g, '/')
+    return prefixes.some((p) => norm.startsWith(p))
+  })
+}
 
 for (const check of effectiveChecks) {
+  // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
+  // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
+  // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
+  // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
+  if (check.skipEnv && process.env[check.skipEnv] === '1') {
+    skipped++
+    console.log(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
+    continue
+  }
+  // 条件触发(2026-09-22 立,见上方 stagedPathsTouch):暂存区未触及声明路径 → 不执行。
+  // 与 skipEnv 同计入"跳过",并打印触发清单,避免"静默没跑"。
+  if (check.stagedTriggers && passStaged && !stagedPathsTouch(check.stagedTriggers)) {
+    skipped++
+    console.log(
+      `⏭  [${check.id}] ${check.label}(暂存区未触及:${check.stagedTriggers.join(' / ')},跳过)`,
+    )
+    continue
+  }
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
   const cmd = `node scripts/${check.script}${cmdArgs.length > 0 ? ' ' + cmdArgs.join(' ') : ''}`
@@ -1248,7 +2083,9 @@ for (const check of effectiveChecks) {
     // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
     // 必须原样向上传播(hook → push guard 据此带 hook 重试),不得收敛成 1。
     if (check.mode === 'blocking' && e && e.status === 75) {
-      console.error(`⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`)
+      console.error(
+        `⏭️ [${check.id}] ${check.label} 被中断(exit 75 临时失败)—— 非检查结论,以 75 向上传播`,
+      )
       process.exit(75)
     }
     // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
@@ -1257,23 +2094,21 @@ for (const check of effectiveChecks) {
     //  silent-skip 仅在 stdio:pipe 但未读 stdout 的场景才可能发生,本 runner 不存在该风险)
     if (check.mode === 'blocking') {
       failed++
+      failedGates.push({ id: check.id, label: check.label, script: check.script })
       if (check.onFailHint) {
         console.log(check.onFailHint)
       }
       console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
-      // 打印汇总后退出
-      const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
-      console.error('')
-      console.error(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-      console.error(`  总检查数: ${passed + warned + failed + (effectiveChecks.length - passed - warned - failed)}`)
-      console.error(`  ${C.green}通过: ${passed}${C.reset}`)
-      console.error(`  ${C.yellow}警告: ${warned}${C.reset}`)
-      console.error(`  ${C.red}失败: ${failed}${C.reset}`)
-      console.error(`  总耗时: ${totalTime}s`)
-      process.exit(1)
+      // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
+      if (stopOnFirst) {
+        printSummary(true)
+        process.exit(1)
+      }
     } else if (check.mode === 'warn') {
       warned++
-      console.warn(`${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`)
+      console.warn(
+        `${C.yellow}⚠️ [${check.id}] ${check.label} 失败 (warn-only,不阻塞 commit)${C.reset}`,
+      )
       if (showTiming) {
         console.log(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
       }
@@ -1289,14 +2124,19 @@ for (const check of effectiveChecks) {
 
 // === 汇总 ===
 
-const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
-console.log('')
-console.log(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-console.log(`  总检查数: ${effectiveChecks.length}`)
-console.log(`  ${C.green}通过: ${passed}${C.reset}`)
-console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
-console.log(`  ${C.red}失败: ${failed}${C.reset}`)
-console.log(`  总耗时: ${totalTime}s`)
+printSummary(false)
+if (failedGates.length > 0) {
+  console.error('')
+  console.error(
+    `${C.bold}${C.red}🚫 ${failedGates.length} 道 blocking 门失败 —— 本轮已跑完全部 ${effectiveChecks.length} 项,未提前中止:${C.reset}`,
+  )
+  for (const g of failedGates) {
+    console.error(`   · [${g.id}] ${g.label}`)
+    console.error(`     单独复现:node scripts/${g.script}${passStaged ? ' --staged' : ''}`)
+  }
+  console.error(`  ${C.dim}(紧急只跑首个即停:GUARDIAN_STOP_ON_FIRST=1)${C.reset}`)
+  process.exit(1)
+}
 
 // push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用,见执行段注释)
 if (pushGate && failed === 0) {
@@ -1306,7 +2146,9 @@ if (pushGate && failed === 0) {
       pushGateCacheFile,
       JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),
     )
-    console.log(`${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`)
+    console.log(
+      `${C.dim}⚡ [push-gate] 结果已缓存(类型相关内容一致时 10 分钟内重复推送免重跑)${C.reset}`,
+    )
   } catch {
     /* 缓存写失败不影响放行 */
   }

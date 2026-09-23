@@ -87,7 +87,7 @@ export function FeedbackEditDialog({
               <SelectContent>
                 {STATUS_OPTIONS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {tf(STATUS_KEY[s] ?? 'status_unknown')}
+                    {tf(STATUS_KEY[s] ?? 'statusUnknown')}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -105,7 +105,7 @@ export function FeedbackEditDialog({
               <SelectContent>
                 {PRIORITY_OPTIONS.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {tf(PRIORITY_KEY[p] ?? 'priority_unknown')}
+                    {tf(PRIORITY_KEY[p] ?? 'priorityUnknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

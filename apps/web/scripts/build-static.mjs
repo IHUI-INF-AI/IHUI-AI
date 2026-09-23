@@ -103,6 +103,7 @@ try {
     stdio: 'inherit',
     shell: false,
     env: process.env,
+    windowsHide: true, // 防 Windows 弹可见控制台窗口
   })
 
   if (r.error) {

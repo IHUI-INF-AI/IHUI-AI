@@ -12,13 +12,14 @@ import { Badge } from '@/components/data'
 
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled' | 'refunded'
 
+/** 状态标签指向 shared `order.status.*`(五语齐备),避免与订单页产生两份真相 */
 const ORDER_STATUS_KEYS: Record<OrderStatus, string> = {
-  pending: 'orderStatus.pending',
-  paid: 'orderStatus.paid',
-  shipped: 'orderStatus.shipped',
-  completed: 'orderStatus.completed',
-  cancelled: 'orderStatus.cancelled',
-  refunded: 'orderStatus.refunded',
+  pending: 'status.pending',
+  paid: 'status.paid',
+  shipped: 'status.shipped',
+  completed: 'status.completed',
+  cancelled: 'status.cancelled',
+  refunded: 'status.refunded',
 }
 
 interface OrderItemProps {
@@ -55,6 +56,7 @@ function OrderItemImpl({
   className,
 }: OrderItemProps) {
   const t = useTranslations('common')
+  const tOrder = useTranslations('order')
   const statusInfo = statusVariantMap[status]
   return (
     <div
@@ -79,7 +81,7 @@ function OrderItemImpl({
         </span>
         <div className="flex items-center gap-2">
           {createdAt && <span className="text-xs">{createdAt}</span>}
-          <Badge variant={statusInfo.variant}>{t(ORDER_STATUS_KEYS[status]!)}</Badge>
+          <Badge variant={statusInfo.variant}>{tOrder(ORDER_STATUS_KEYS[status]!)}</Badge>
         </div>
       </div>
       <div className="flex items-center gap-3 py-3">

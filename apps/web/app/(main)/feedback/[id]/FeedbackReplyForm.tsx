@@ -68,7 +68,7 @@ export function FeedbackReplyForm({
                 <SelectContent>
                   {STATUSES.map((v) => (
                     <SelectItem key={v} value={v}>
-                      {t(STATUS_KEY[v] ?? 'status_unknown')}
+                      {t(STATUS_KEY[v] ?? 'statusUnknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -85,7 +85,7 @@ export function FeedbackReplyForm({
                 <SelectContent>
                   {PRIORITIES.map((v) => (
                     <SelectItem key={v} value={v}>
-                      {t(PRIORITY_KEY[v] ?? 'priority_unknown')}
+                      {t(PRIORITY_KEY[v] ?? 'priorityUnknown')}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -5,45 +5,48 @@
 'use client'
 
 import * as React from 'react'
-import { TerminalSquare, Loader2, Check, X, ChevronRight } from 'lucide-react'
+import { TerminalSquare } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
-import { FoldableSection, formatDuration } from './foldable-section'
+import { FoldableSection } from './foldable-section'
 import { CopyButton } from './copy-button'
 import { useChatStore } from '@/stores/chat'
 import type { TerminalTask } from '@/hooks/use-agent-progress'
+import {
+  StreamCode,
+  StreamDetail,
+  StreamLabel,
+  StreamRow,
+  StreamTag,
+  useLiveElapsed,
+  useStreamStatusLabel,
+  type StreamStatus,
+} from '@/components/chat/stream/stream-ui'
 
 interface TerminalSectionProps {
   terminals: TerminalTask[]
 }
 
-const TERMINAL_STATUS_ICON: Record<
-  TerminalTask['status'],
-  React.ComponentType<{ className?: string }>
-> = {
-  running: Loader2,
-  completed: Check,
-  failed: X,
-}
-const TERMINAL_STATUS_CLS: Record<TerminalTask['status'], string> = {
-  running: 'text-primary',
-  completed: 'text-emerald-500',
-  failed: 'text-red-500',
+/**
+ * 终端状态 → 消息流统一状态语义(与工具行同一口径)。
+ * exit code 非 0 视为失败:命令跑完但返回非 0,对用户而言就是"这次没成"。
+ */
+function toStreamStatus(status: TerminalTask['status'], exitCode?: number): StreamStatus {
+  if (status === 'running') return 'running'
+  if (status === 'failed') return 'error'
+  if (exitCode !== undefined && exitCode !== 0) return 'error'
+  return 'success'
 }
 
-/** 截断超长输出(最大 500 字符)
- *  truncatedSuffix:由调用方通过 i18n 提供的截断提示文案(含 total 信息) */
-function truncateOutput(s: string, truncatedSuffix: string, max = 500): string {
-  if (s.length <= max) return s
-  return s.slice(0, max) + '\n' + truncatedSuffix
-}
+/** 输出预览上限:超出部分折叠,由「显示更多」显式展开(禁止渐变遮罩) */
+const OUTPUT_PREVIEW_LIMIT = 2000
 
-/** v11: 单个终端任务项(可点击展开 output) */
+/** 单个终端任务:一条命令 = 一行 StreamRow,展开后是 StreamDetail + StreamCode */
 const TerminalItem = React.memo(function TerminalItem({ term }: { term: TerminalTask }) {
   const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
+  const statusLabel = useStreamStatusLabel()
   const [expanded, setExpanded] = React.useState(false)
-  const Icon = TERMINAL_STATUS_ICON[term.status]
+  const [showAllOutput, setShowAllOutput] = React.useState(false)
   // 2026-09-18 立(对标 Codex/Trae 实时 stdout 行流):命令执行期间后端逐块下发
   // terminal_delta,由 send-message.ts 写入 store.terminalOutputs(键 = terminalId)。
   // 这里按 id 精确订阅(返回原始字符串,引用稳定,zustand selector 安全)。
@@ -55,125 +58,100 @@ const TerminalItem = React.memo(function TerminalItem({ term }: { term: Terminal
     liveOutput && liveOutput.length > (term.output?.length ?? 0) ? liveOutput : term.output
   const hasOutput = !!effectiveOutput
   const isRunning = term.status === 'running'
-  const preRef = React.useRef<HTMLPreElement | null>(null)
+  const status = toStreamStatus(term.status, term.exitCode)
+  // 运行中用 useLiveElapsed 实时计时;结束后由后端权威 durationMs 接管(拿不到则不显示)
+  const elapsedMs = useLiveElapsed(isRunning, term.durationMs ?? null)
+  const exitCodeShown =
+    term.exitCode !== undefined && term.exitCode !== 0 ? term.exitCode : undefined
 
   // 运行中默认展开(实时可见是本次改造的目的),结束后回到手动展开
   React.useEffect(() => {
     if (isRunning && liveOutput) setExpanded(true)
   }, [isRunning, liveOutput])
 
-  // 新内容到达时贴底滚动(命令输出的关注点永远在最后几行)
-  React.useEffect(() => {
-    if (!expanded || !isRunning) return
-    const el = preRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [liveOutput, expanded, isRunning])
+  const fullOutput = isRunning ? (liveOutput ?? '') : (effectiveOutput ?? '')
+  // 运行中保留最新尾部(关注点永远在最后几行);结束后从头截,尾部由「显示更多」给出
+  const outputText = React.useMemo(() => {
+    if (isRunning) return fullOutput.slice(-OUTPUT_PREVIEW_LIMIT)
+    if (showAllOutput || fullOutput.length <= OUTPUT_PREVIEW_LIMIT) return fullOutput
+    return fullOutput.slice(0, OUTPUT_PREVIEW_LIMIT)
+  }, [isRunning, fullOutput, showAllOutput])
+  // 服务端截断时 fullOutput 只是**前 8000 字符**,拿它的长度当"原文总长"会主动报错数,
+  // 也会让用户点完「显示更多」后看到一条"已完整"的假象 → 原文长度以 totalChars 为准。
+  const sourceTotal = Math.max(term.totalChars ?? 0, fullOutput.length)
+  const hiddenChars = Math.max(0, sourceTotal - outputText.length)
+  // 本地还有未显示的文本时才给「显示更多」;服务端截掉的部分本地没有,展开按钮救不回来
+  const hasMoreLocalOutput = fullOutput.length > outputText.length
 
-  const toggleExpand = () => {
-    if (hasOutput) setExpanded((v) => !v)
-  }
+  const statusText = statusLabel(status)
+  const rowTitle = tStatus('toolRunCommand')
 
   return (
-    <div className="rounded-sm transition-colors hover:bg-accent/40">
-      <div
-        className={cn('flex items-center gap-1.5 px-1 py-0.5', hasOutput && 'cursor-pointer')}
-        onClick={toggleExpand}
-        role={hasOutput ? 'button' : undefined}
-        aria-expanded={hasOutput ? expanded : undefined}
-        tabIndex={hasOutput ? 0 : undefined}
-        onKeyDown={(e) => {
-          if (hasOutput && (e.key === 'Enter' || e.key === ' ')) {
-            e.preventDefault()
-            toggleExpand()
-          }
-        }}
-        data-testid={`terminal-item-${term.id}`}
-      >
-        {hasOutput && (
-          <ChevronRight
-            className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
-              expanded && 'rotate-90',
-            )}
-          />
-        )}
-        {!hasOutput && <span className="w-2 shrink-0" />}
-        <Icon
-          className={cn(
-            'h-2.5 w-2.5 shrink-0',
-            TERMINAL_STATUS_CLS[term.status],
-            term.status === 'running' && 'animate-spin',
-          )}
-        />
-        <code className="flex-1 break-all font-mono text-[10px] text-muted-foreground">
-          {term.command}
-        </code>
-        {term.status === 'completed' && term.exitCode !== undefined && term.exitCode !== 0 && (
-          <Tooltip content={`exit ${term.exitCode}`}>
-            <span className="shrink-0 text-[10px] text-red-500">exit:{term.exitCode}</span>
-          </Tooltip>
-        )}
-        {term.durationMs !== undefined && term.status !== 'running' && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-            {formatDuration(term.durationMs)}
-          </span>
-        )}
-      </div>
-      {hasOutput && (
-        <div
-          className="grid transition-[grid-template-rows] duration-150 ease-out"
-          style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
+    <div>
+      <StreamRow
+        status={status}
+        title={rowTitle}
+        subject={term.command}
+        subjectKind="command"
+        elapsedMs={elapsedMs}
+        trailing={
+          exitCodeShown === undefined ? undefined : (
+            <StreamTag tone="danger">{tStatus('exitCode', { n: exitCodeShown })}</StreamTag>
+          )
+        }
+        onClick={hasOutput ? () => setExpanded((v) => !v) : undefined}
+        expanded={expanded}
+        ariaLabel={[rowTitle, term.command, statusText].join(' · ')}
+        testId={`terminal-item-${term.id}`}
+      />
+      {hasOutput && expanded && (
+        <StreamDetail
+          className="animate-in fade-in-0 slide-in-from-top-1 duration-150"
+          testId={`terminal-detail-${term.id}`}
         >
-          <div className="overflow-hidden">
-            <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
-              <div className="flex items-center gap-1">
-                <span className="font-medium text-muted-foreground/60">{t('terminal.output')}</span>
-                {isRunning && liveOutput && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] text-primary">
-                    <span className="h-1 w-1 animate-pulse rounded-full bg-primary" />
-                    <span>{t('terminal.live')}</span>
-                  </span>
-                )}
-                <CopyButton
-                  text={effectiveOutput ?? ''}
-                  aria-label={t('terminal.copyOutput')}
-                  data-testid={`terminal-copy-output-${term.id}`}
-                />
-                {liveOutput && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      clearTerminalOutput(term.id)
-                    }}
-                    className="rounded-sm px-1 text-[10px] text-muted-foreground/60 transition-colors hover:bg-accent/60 hover:text-foreground"
-                    aria-label={t('terminal.clearLive')}
-                    data-testid={`terminal-clear-live-${term.id}`}
-                  >
-                    {t('terminal.clearLive')}
-                  </button>
-                )}
-              </div>
-              <pre
-                ref={preRef}
-                className={cn(
-                  'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
-                  term.status === 'failed'
-                    ? 'bg-red-500/10 text-red-500/90'
-                    : 'bg-muted/60 text-muted-foreground/90',
-                )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StreamLabel>{t('terminal.output')}</StreamLabel>
+            {isRunning && liveOutput && <StreamTag tone="running">{t('terminal.live')}</StreamTag>}
+            <CopyButton
+              text={fullOutput}
+              aria-label={t('terminal.copyOutput')}
+              data-testid={`terminal-copy-output-${term.id}`}
+            />
+            {liveOutput && (
+              <button
+                type="button"
+                onClick={() => clearTerminalOutput(term.id)}
+                className="rounded-sm px-1 text-xs text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
+                aria-label={t('terminal.clearLive')}
+                data-testid={`terminal-clear-live-${term.id}`}
               >
-                {isRunning
-                  ? // 运行中:显示实时增量(可能超 500 字符,截尾部保留最新输出)
-                    (liveOutput ?? '').slice(-2000)
-                  : truncateOutput(
-                      effectiveOutput ?? '',
-                      t('terminal.truncated', { total: (effectiveOutput ?? '').length }),
-                    )}
-              </pre>
-            </div>
+                {t('terminal.clearLive')}
+              </button>
+            )}
           </div>
-        </div>
+          <StreamCode
+            text={outputText}
+            autoScrollToBottom={isRunning}
+            testId={`terminal-output-${term.id}`}
+          />
+          {hiddenChars > 0 && (
+            <div className="flex items-center gap-1.5">
+              {hasMoreLocalOutput && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllOutput(true)}
+                  className="rounded-sm px-1 py-px text-xs text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                  data-testid={`terminal-show-more-${term.id}`}
+                >
+                  {tStatus('showMore')}
+                </button>
+              )}
+              <StreamTag tone="neutral" testId={`terminal-truncated-${term.id}`}>
+                {t('terminal.truncated', { total: sourceTotal })}
+              </StreamTag>
+            </div>
+          )}
+        </StreamDetail>
       )}
     </div>
   )
@@ -192,13 +170,9 @@ export const TerminalSection = React.memo(function TerminalSection({
   if (terminals.length === 0) return null
 
   const runningCount = terminals.filter((term) => term.status === 'running').length
-  const failedCount = terminals.filter((term) => term.status === 'failed').length
-
-  const summaryParts: string[] = []
-  if (runningCount > 0) summaryParts.push(t('terminal.running', { n: runningCount }))
-  if (failedCount > 0) summaryParts.push(t('terminal.failed', { n: failedCount }))
-  const summary = summaryParts.join(' · ')
-
+  const failedCount = terminals.filter(
+    (term) => toStreamStatus(term.status, term.exitCode) === 'error',
+  ).length
   const recentTerminals = terminals.slice(-10)
 
   return (
@@ -208,13 +182,25 @@ export const TerminalSection = React.memo(function TerminalSection({
       icon={TerminalSquare}
       data-testid="terminal-section"
     >
-      <div className="space-y-0.5 text-[11px] leading-relaxed">
-        {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1 px-1">
+          {/* G-154(对标 Codex「命令在专用终端实例中运行」):执行环境必须交代,且必须是真实陈述 ——
+              os_sandbox.py 的 allow_network 默认 False(H5 三平台验收),故"默认不开放网络"不是营销话术。 */}
+          <StreamTag tone="neutral" testId="terminal-isolation">
+            {t('terminal.isolation')}
+          </StreamTag>
+          {runningCount > 0 && (
+            <StreamTag tone="running">{t('terminal.running', { n: runningCount })}</StreamTag>
+          )}
+          {failedCount > 0 && (
+            <StreamTag tone="danger">{t('terminal.failed', { n: failedCount })}</StreamTag>
+          )}
+        </div>
         {recentTerminals.map((term) => (
           <TerminalItem key={term.id} term={term} />
         ))}
         {terminals.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/60">
+          <div className="px-1 text-[11px] text-muted-foreground/60">
             {t('terminal.moreItems', { n: terminals.length - 10 })}
           </div>
         )}

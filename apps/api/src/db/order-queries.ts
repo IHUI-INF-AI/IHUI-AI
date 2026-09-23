@@ -205,6 +205,23 @@ export async function findOrders(
   return { list, total, page, pageSize }
 }
 
+/**
+ * 金额以订单为准做上限:路由侧 `payAmount` / `refundAmount` 由客户端携带,
+ * `priceSchema` 只验格式(`/^\d+(\.\d{1,2})?$/`)不验上限,故原样入库等于"用户自定退款/支付金额"。
+ * 这里允许下调(部分支付/部分退款照旧),越界一律回落到订单自身金额。
+ */
+export function capToOrderAmount(
+  requested: string | null | undefined,
+  orderAmount: string | null | undefined,
+): string | null {
+  if (requested === undefined || requested === null) return orderAmount ?? null
+  const value = Number(requested)
+  if (!Number.isFinite(value) || value <= 0) return orderAmount ?? null
+  const cap = Number(orderAmount ?? 0)
+  if (!Number.isFinite(cap) || value <= cap) return requested
+  return orderAmount ?? null
+}
+
 // =============================================================================
 // Payments 支付
 // =============================================================================
@@ -225,7 +242,7 @@ export async function createPayment(
     const orderRows = await tx
       .select()
       .from(eduOrders)
-      .where(eq(eduOrders.id, data.orderId))
+      .where(and(eq(eduOrders.id, data.orderId), eq(eduOrders.userId, data.userId)))
       .for('update')
       .limit(1)
     const order = orderRows[0]
@@ -240,7 +257,7 @@ export async function createPayment(
         orderType: order.orderType,
         userId: data.userId,
         payType: data.payType,
-        payAmount: data.payAmount ?? order.payAmount,
+        payAmount: capToOrderAmount(data.payAmount, order.payAmount) ?? order.payAmount,
         payUrl: data.payUrl,
         status: 'created',
       })
@@ -323,7 +340,7 @@ export async function applyRefund(
     const orderRows = await tx
       .select()
       .from(eduOrders)
-      .where(eq(eduOrders.id, data.orderId))
+      .where(and(eq(eduOrders.id, data.orderId), eq(eduOrders.userId, data.userId)))
       .for('update')
       .limit(1)
     const order = orderRows[0]
@@ -338,7 +355,7 @@ export async function applyRefund(
         orderNo: order.orderNo,
         userId: data.userId,
         reason: data.reason,
-        refundAmount: data.refundAmount ?? order.payAmount,
+        refundAmount: capToOrderAmount(data.refundAmount, order.payAmount) ?? order.payAmount,
         refundType: data.refundType ?? 'original',
         status: 'pending',
         applyTime: new Date(),
@@ -374,7 +391,49 @@ export async function processRefund(
       and(eq(eduRefunds.id, id), inArray(eduRefunds.status, ['pending', 'approved', 'rejected'])),
     )
     .returning()
+  // 审核拒绝邮件通知(信号红 + 原因;fire-and-forget)
+  if (rows[0] && status === 'rejected') {
+    notifyRefundResult(rows[0], 'rejected')
+  }
   return rows[0]
+}
+
+/**
+ * 退款结果邮件通知(fire-and-forget,失败不阻塞退款主流程)。
+ * 动态 import 避免与 db 层循环依赖;completed 绿,rejected/failed 红。
+ */
+function notifyRefundResult(
+  refund: EduRefund | undefined,
+  status: 'completed' | 'rejected' | 'failed',
+): void {
+  if (!refund) return
+  void (async () => {
+    const [{ findUserById }, { sendEmail }, { renderRefundResultEmail, resolveWebOrigin }] =
+      await Promise.all([
+        import('./queries.js'),
+        import('../services/email-service.js'),
+        import('../services/email-templates.js'),
+      ])
+    const user = await findUserById(refund.userId)
+    if (!user?.email) return
+    const mail = renderRefundResultEmail({
+      userName: user.nickname ?? undefined,
+      orderNo: refund.orderNo,
+      refundAmountYuan: refund.refundAmount,
+      status,
+      reason: refund.handleMessage ?? refund.processMessage ?? undefined,
+      finishedAt: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      ordersUrl: `${resolveWebOrigin()}/orders`,
+    })
+    await sendEmail({
+      to: user.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      scene: 'notification',
+      userId: refund.userId,
+    })
+  })().catch(() => {})
 }
 
 /** 管理员处理退款(processing/completed/failed)。completed 时同步订单为 refunded。事务保证退款+订单状态原子更新。
@@ -387,7 +446,7 @@ export async function handleRefund(
   status: 'processing' | 'completed' | 'failed',
   handleMessage?: string | null,
 ): Promise<EduRefund | undefined> {
-  return db.transaction(async (tx) => {
+  const refund = await db.transaction(async (tx) => {
     const rows = await tx
       .update(eduRefunds)
       .set({
@@ -418,6 +477,11 @@ export async function handleRefund(
     }
     return refund
   })
+  // 退款结果邮件通知(completed 退款成功 / failed 退款失败;fire-and-forget)
+  if (refund && status !== 'processing') {
+    notifyRefundResult(refund, status)
+  }
+  return refund
 }
 
 export interface ListRefundsOpts {

@@ -31,11 +31,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import { recordAuditLog } from '../services/audit-log-service.js'
 // 复用 log-sanitizer 插件 Proxy 递归脱敏所用的同一套规则函数(不另起一套)。
-import {
-  buildSensitiveKeySet,
-  isSensitiveKey,
-  sanitizeData,
-} from './response-sanitizer.js'
+import { buildSensitiveKeySet, isSensitiveKey, sanitizeData } from './response-sanitizer.js'
 
 /**
  * 审计用的敏感 key 集合 = 全局规则 + 审计面专属补充。

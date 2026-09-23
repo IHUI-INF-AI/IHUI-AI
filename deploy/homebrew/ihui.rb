@@ -5,6 +5,23 @@
 # IHUI AI CLI — Homebrew Formula
 # 用法: brew install ihui (需先 brew tap ihui/ihui)
 # 手动测试: brew install --build-from-source ./deploy/homebrew/ihui.rb
+#
+# ⚠️ 发布状态 2026-09-21 实测(O14):本 formula 当前**装不上**,三个独立原因,逐个说明:
+#   1) url 里的 tag `cli-v1.0.0` 在 origin 不存在。`git ls-remote --tags origin` 只有
+#      `desktop-v*` / `nightly-*` / `backup/*` / `lost-commit/*`,无 `cli-v*` → 下载 404。
+#   2) 资产名 `ihui-src-1.0.0.tar.gz` **没有任何生产者**:`.github/workflows/release-cli.yml`
+#      的 matrix 只产出 ihui-{linux,macos,windows}-{x64,arm64}.{tar.gz,zip};全仓 grep
+#      `ihui-src` 只命中本文件与 .ihui-agent 归档副本 → CI 永远不会上传这个名字。
+#   3) 即便补上同名资产,`git archive` 出的源码包也**不满足下方 install 块**:它只含
+#      apps/cli 源码(无 dist/、无 node_modules),而公式要执行 libexec/dist/index.js。
+#      → 必须挂"已构建的 bundle"(pnpm --filter @ihui/cli build + 生产依赖),不是源码 tar。
+#
+# sha256 填法(不得提前猜):对**最终上传到那个 release 的同一个文件**执行
+#   `sha256sum ihui-src-1.0.0.tar.gz` 原样粘贴。本地产物名与 CI 产物名不重叠(CI 无此名),
+#   所以由 `node scripts/release-assets.mjs` 产出的那份即为权威来源;但源码 tar 不满足 3),
+#   在补齐"构建产物打包"步骤之前 sha 一律保持占位,禁止先填后补。
+# 另需:tap 仓库布局(ihui/homebrew-ihui 的 Formula/ihui.rb 或 deploy/homebrew/ihui.rb +
+#   `tokio` 风格 tap 声明),当前 deploy/homebrew 不在任何 tap 仓库中。
 
 class Ihui < Formula
   desc "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex"

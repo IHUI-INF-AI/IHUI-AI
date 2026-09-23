@@ -5,21 +5,20 @@
 'use client'
 
 import * as React from 'react'
-import {
-  AlertCircle,
-  Check,
-  Clock,
-  Copy,
-  ListTodo,
-  Loader2,
-  ChevronDown,
-  X,
-  SkipForward,
-} from 'lucide-react'
+import { Check, Copy, ListTodo } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
-import { Tooltip as FeedbackTooltip } from '@/components/feedback'
+import { humanizeToolText } from '@ihui/shared/chat'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import {
+  StreamDetail,
+  StreamRow,
+  StreamStatusIcon,
+  StreamTag,
+  planStepStreamStatus,
+  useLiveElapsed,
+  useStreamStatusLabel,
+} from '@/components/chat/stream/stream-ui'
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
@@ -34,32 +33,11 @@ interface PlanStepsCardProps {
   isStreaming?: boolean
 }
 
-const STATUS_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
-  pending: Clock,
-  in_progress: Loader2,
-  completed: Check,
-  failed: X,
-  skipped: SkipForward,
-}
-
-/** 状态 → 图标颜色(精美化:in_progress 主色旋转,completed 翠绿,pending 柔灰) */
-const STATUS_CLS: Record<PlanStepStatus, string> = {
-  pending: 'text-muted-foreground/40',
-  in_progress: 'text-primary',
-  completed: 'text-emerald-500',
-  failed: 'text-red-500',
-  skipped: 'text-muted-foreground/60',
-}
-
-/** 状态 → 步骤点背景(时间线圆点) */
-const STATUS_DOT_CLS: Record<PlanStepStatus, string> = {
-  // 修复 #8:加 ring 让 pending 圆点在 bg-muted/40 容器上可见
-  pending: 'bg-muted-foreground/25 ring-2 ring-muted-foreground/30',
-  in_progress: 'bg-primary/15 ring-2 ring-ring/20',
-  completed: 'bg-emerald-500/15',
-  failed: 'bg-red-500/15',
-  skipped: 'bg-muted-foreground/15',
-}
+/**
+ * 计划步骤五态 → 消息流统一状态词汇与状态词一律由基元决定:
+ * `planStepStreamStatus(step)` 做状态收敛(error=true 与显式 failed 归一为 error),
+ * `useStreamStatusLabel()` 出中文状态词 —— 本文件不再自配映射表与状态词函数。
+ */
 
 /** 状态 → 分段进度条颜色(对标 折叠态摘要设计 状态色) */
 const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
@@ -77,19 +55,24 @@ const STATUS_BAR_CLS: Record<PlanStepStatus, string> = {
 const LONG_REASONING_THRESHOLD = 120
 
 /**
- * PlanStepsCard — 内联计划步骤卡片(深度对标 OpenAI Codex /plan + 折叠态摘要设计)
+ * 后端旧协议下发的思考步骤字面量(用于识别"这一步是思考",非界面文案)。
+ * 新协议请用 i18n 键 plan.stepThinking 的本地化值比对。
+ */
+const LEGACY_THINKING_TEXT = '思考'
+
+/**
+ * PlanStepsCard — 内联计划步骤卡片
  *
- * 2026-07-31 深度优化:
- * - 时间线风格:每个步骤左侧圆点 + 连接线,形成视觉流程
- * - 错误状态:error=true 或 status=failed 时用 AlertCircle 图标 + 红色样式;skipped 删除线弱化(v2 五态)
- * - 分段进度条:每个步骤对应一段,直观显示每步状态
- * - 步骤分组:同 sourceMessageId 同组,组间视觉分隔
- * - 点击跳转:有 sourceMessageId 时点击跳转消息(ProgressJumpStore)
- * - hover 联动:hover 步骤时同步高亮对应消息(ProgressJumpStore)
- * - 复制 reasoning:思考步骤展开后显示复制按钮
- * - streaming 自动展开:isStreaming=true 且有 in_progress 时 defaultOpen=true
- * - 可访问性:role=list + aria-live=polite + aria-label
- * - i18n 集成:所有文案走 chat.plan.* 命名空间
+ * 2026-09-22 接入消息流统一设计基元(`stream-ui`):此前每个步骤自带一套时间线圆点 +
+ * 连接线 + 9/10/11px 字号,与同气泡里的工具卡互不相干。现在每个步骤就是一条
+ * `StreamRow`(状态图标 · 序号 · 步骤全文 · 状态词 · 耗时),字号 / 图标 / 状态色全部由基元决定。
+ *
+ * 保留的能力:分段进度条、展开明细(reasoning / 思考过程)、复制 reasoning、
+ * 点击跳转消息 + hover 联动(ProgressJumpStore)、组间分隔、streaming 自动展开、
+ * 折叠态摘要、aria-live / aria-label、全套 data-testid。
+ *
+ * 行的槽位约定:步骤全文是这一行的主体(`titleMode="primary"`),序号走 `leading` 槽,
+ * 状态词走 `trailing`(与工具行的"度量在尾"同一优先级),耗时由基元排在其后。
  */
 export function PlanStepsCard({
   steps,
@@ -98,11 +81,22 @@ export function PlanStepsCard({
   isStreaming = false,
 }: PlanStepsCardProps) {
   const t = useTranslations('chat')
+  // 步骤标题可能含英文工具码名前缀(如 "read_file: path"),渲染为本地化功能名
+  const tStatus = useTranslations('taskStatus')
+  const statusLabel = useStreamStatusLabel()
   const rootTestId = testId ?? 'plan-steps-card'
 
   // streaming 中有 in_progress 步骤时自动展开(用户可手动折叠)
   const hasInProgress = steps.some((s) => s.status === 'in_progress')
   const autoOpen = isStreaming && hasInProgress
+
+  const doneCount = steps.filter((s) => s.status === 'completed').length
+  // 2026-09-19 v2:error 标记与显式 failed 状态均计入失败数(兼容归一化)
+  const errorCount = steps.filter((s) => s.error || s.status === 'failed').length
+  const totalDurationMs = steps.reduce((sum, s) => sum + (s.durationMs ?? 0), 0)
+  const progressPct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0
+  // 组级耗时:流式中实时 tick,终态由累计 durationMs 接管(与 StreamGroup 头同一措辞)
+  const liveElapsed = useLiveElapsed(isStreaming, totalDurationMs > 0 ? totalDurationMs : null)
 
   // ProgressJumpStore:点击跳转 + hover 联动
   const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
@@ -111,41 +105,24 @@ export function PlanStepsCard({
 
   if (steps.length === 0) return null
 
-  const doneCount = steps.filter((s) => s.status === 'completed').length
-  // 2026-09-19 v2:error 标记与显式 failed 状态均计入失败数(兼容归一化)
-  const errorCount = steps.filter((s) => s.error || s.status === 'failed').length
-  const totalDurationMs = steps.reduce((sum, s) => sum + (s.durationMs ?? 0), 0)
-  const progressPct = steps.length > 0 ? Math.round((doneCount / steps.length) * 100) : 0
-
-  // 折叠态摘要(借鉴 折叠态摘要设计):优先 in_progress → error → 全完成
-  // 让用户不展开即可知道当前状态
-  let summary: string | undefined
-  if (errorCount > 0) {
-    summary = `${t('plan.summaryErrorCount', { count: errorCount })} · ${doneCount}/${steps.length}`
-  } else {
-    const currentStep = steps.find((s) => s.status === 'in_progress')
-    if (currentStep) {
-      summary = `${t('plan.statusInProgress')}:${currentStep.step}`
-    } else if (doneCount === steps.length) {
-      summary = t('plan.summaryAllDone')
-    } else {
-      const lastStep = steps[steps.length - 1]
-      summary = lastStep ? `${t('plan.statusPending')}:${lastStep.step}` : undefined
-    }
-  }
-
-  // 总耗时徽章(深度对标 Codex /plan header 统计)
-  const totalDurationBadge = totalDurationMs > 0 && (
-    <span
-      className="shrink-0 rounded px-1 text-[10px] tabular-nums text-muted-foreground/60 bg-muted/40"
-      data-testid={`${rootTestId}-total-duration`}
-    >
-      {t('plan.totalDuration', { duration: formatDuration(totalDurationMs) })}
-    </span>
-  )
+  // 折叠态摘要:步数 + 当前态(+ 正在做的这一步),让用户不展开也能读懂进度
+  const currentStep = steps.find((s) => s.status === 'in_progress')
+  const summary = [
+    tStatus('stepCount', { n: steps.length }),
+    errorCount > 0
+      ? t('plan.summaryErrorCount', { count: errorCount })
+      : currentStep
+        ? statusLabel('running')
+        : doneCount === steps.length
+          ? t('plan.summaryAllDone')
+          : statusLabel('pending'),
+    currentStep ? humanizeToolText(currentStep.step, tStatus) : undefined,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part !== '')
+    .join(' · ')
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider>
       <FoldableSection
         title={t('plan.title')}
         count={steps.length}
@@ -155,7 +132,13 @@ export function PlanStepsCard({
         aria-label={t('plan.title')}
         data-testid={rootTestId}
         summary={summary}
-        headerExtra={totalDurationBadge}
+        headerExtra={
+          liveElapsed !== null && liveElapsed > 0 ? (
+            <StreamTag testId={`${rootTestId}-total-duration`}>
+              {tStatus('workedFor', { time: formatDuration(liveElapsed) })}
+            </StreamTag>
+          ) : null
+        }
       >
         {/* 分段进度条(每个步骤一段 + 百分比) */}
         <SegmentedProgressBar
@@ -163,17 +146,17 @@ export function PlanStepsCard({
           rootTestId={rootTestId}
           progressPct={progressPct}
           className="mb-1.5"
+          translate={tStatus}
         />
 
         <ol
-          className={cn('relative space-y-0.5 pl-1', className)}
+          className={cn('relative space-y-0.5', className)}
           aria-live="polite"
           aria-label={t('plan.ariaLabel')}
           data-testid={`${rootTestId}-list`}
         >
           {steps.map((s, idx) => {
-            const isLast = idx === steps.length - 1
-            // 组间分隔:不同 groupIndex 之间加 pt-1.5(空隙分隔,非分割线)
+            // 组间分隔:不同 groupIndex 之间加 mt-1.5(空隙分隔,非分割线)
             const prevStep = idx > 0 ? steps[idx - 1] : undefined
             const isGroupBoundary =
               prevStep &&
@@ -184,7 +167,6 @@ export function PlanStepsCard({
               <PlanStepItem
                 key={s.id}
                 step={s}
-                isLast={isLast}
                 rootTestId={rootTestId}
                 index={idx + 1}
                 isGroupBoundary={!!isGroupBoundary}
@@ -206,6 +188,7 @@ interface SegmentedProgressBarProps {
   rootTestId: string
   progressPct: number
   className?: string
+  translate: (key: string) => string
 }
 
 function SegmentedProgressBar({
@@ -213,11 +196,13 @@ function SegmentedProgressBar({
   rootTestId,
   progressPct,
   className,
+  translate,
 }: SegmentedProgressBarProps) {
   const t = useTranslations('chat')
+  const statusLabel = useStreamStatusLabel()
   return (
     <div
-      className={cn('flex items-center gap-1', className)}
+      className={cn('flex items-center gap-1.5', className)}
       data-testid={`${rootTestId}-segmented-progress`}
     >
       <div
@@ -226,68 +211,53 @@ function SegmentedProgressBar({
         aria-hidden
       >
         {steps.map((s) => {
-          // 2026-09-19 v2:五态标签(skipped/failed 独立文案,error 兼容归入 stepError)
-          const statusLabel = s.error
-            ? t('plan.stepError')
-            : s.status === 'in_progress'
-              ? t('plan.statusInProgress')
-              : s.status === 'completed'
-                ? t('plan.statusCompleted')
-                : s.status === 'skipped'
-                  ? t('plan.statusSkipped')
-                  : s.status === 'failed'
-                    ? t('plan.statusFailed')
-                    : t('plan.statusPending')
+          // 五态与状态词全部走基元(与 StreamRow 同一口径)
+          const rowStatus = planStepStreamStatus(s)
+          const label = statusLabel(rowStatus)
           const durationText =
             s.durationMs !== undefined && s.durationMs > 0
               ? ` · ${formatDuration(s.durationMs)}`
               : ''
           return (
-            <Tooltip key={s.id}>
-              <TooltipTrigger asChild>
-                <div
-                  className={cn(
-                    'h-full flex-1 rounded-sm transition-all duration-300 cursor-help',
-                    s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
-                    s.status === 'in_progress' && !s.error && 'animate-pulse',
-                  )}
-                  data-testid={`${rootTestId}-segment-${s.id}`}
-                />
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6} className="text-[11px] leading-relaxed">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={cn(
-                      'inline-block h-1.5 w-1.5 rounded-full',
-                      s.error ? 'bg-red-500' : STATUS_BAR_CLS[s.status],
-                    )}
-                    aria-hidden
-                  />
-                  <span className="font-medium">{s.step}</span>
+            <Tooltip
+              key={s.id}
+              side="bottom"
+              content={
+                <div className="max-w-[280px] space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <StreamStatusIcon status={rowStatus} />
+                    <span className="font-medium">{humanizeToolText(s.step, translate)}</span>
+                  </div>
+                  <div className="text-muted-foreground/80">
+                    {label}
+                    {durationText}
+                  </div>
                 </div>
-                <div className="text-muted-foreground/80">
-                  {statusLabel}
-                  {durationText}
-                </div>
-              </TooltipContent>
+              }
+            >
+              <div
+                className={cn(
+                  'h-full flex-1 rounded-sm transition-all duration-300 cursor-help',
+                  s.error ? 'bg-red-500/70' : STATUS_BAR_CLS[s.status],
+                  s.status === 'in_progress' && !s.error && 'animate-pulse',
+                )}
+                data-testid={`${rootTestId}-segment-${s.id}`}
+              />
             </Tooltip>
           )
         })}
       </div>
-      <span
-        className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground/70"
-        data-testid={`${rootTestId}-progress-percent`}
-      >
-        {progressPct}%
-      </span>
+      {/* 数字计数徽章:基元 StreamTag(strong)已内置 §4 确定性居中模板 */}
+      <StreamTag strong testId={`${rootTestId}-progress-percent`}>
+        {t('plan.progressPercent', { percent: progressPct })}
+      </StreamTag>
     </div>
   )
 }
 
-/** 单个步骤项(可点击展开 reasoning + 跳转消息 + hover 联动) */
+/** 单个步骤项:一条 StreamRow(可展开 reasoning 明细 + 跳转消息 + hover 联动) */
 interface PlanStepItemProps {
   step: PlanStep
-  isLast: boolean
   rootTestId: string
   /** 步骤编号(1-based) */
   index: number
@@ -303,7 +273,6 @@ interface PlanStepItemProps {
 
 function PlanStepItem({
   step: s,
-  isLast,
   rootTestId,
   index,
   isGroupBoundary,
@@ -312,21 +281,31 @@ function PlanStepItem({
   isHighlightedByHover,
 }: PlanStepItemProps) {
   const t = useTranslations('chat')
+  const tStatus = useTranslations('taskStatus')
+  const statusLabel = useStreamStatusLabel()
   // reasoning 可点击展开(超过阈值才有展开价值)
   const [expanded, setExpanded] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
   const copyTimerRef = React.useRef<number | null>(null)
 
-  const hasLongExplanation = (s.explanation?.length ?? 0) > LONG_REASONING_THRESHOLD
-  const isThinking = s.step === t('plan.stepThinking') || s.step === '思考'
+  const explanation = s.explanation
+  const hasLongExplanation = (explanation?.length ?? 0) > LONG_REASONING_THRESHOLD
+  const isThinking = s.step === t('plan.stepThinking') || s.step === LEGACY_THINKING_TEXT
   const isClickable = hasLongExplanation || isThinking
-  // 有 sourceMessageId 时整个 li 可点击跳转
+  // 有 sourceMessageId 时整行可点击跳转(可展开的行优先展开,跳转让位,与改造前一致)
   const isJumpable = !!s.sourceMessageId
 
-  // 2026-09-19 v2:failed 统一视觉(error=true 兼容归一化 / 显式 status=failed 均显示红色错误样式)
-  const isFailed = s.error === true || s.status === 'failed'
-  // 错误状态优先用 AlertCircle 图标(替代原状态图标)
-  const Icon = isFailed ? AlertCircle : STATUS_ICON[s.status]
+  const rowStatus = planStepStreamStatus(s)
+  const label = statusLabel(rowStatus)
+  // 禁止把 read_file 这类英文码名直接渲染给用户
+  const stepText = humanizeToolText(s.step, tStatus)
+  // 执行中的步骤本地 tick;已结束的步骤用后端权威 durationMs
+  const liveElapsed = useLiveElapsed(rowStatus === 'running', s.durationMs ?? null)
+  const elapsedText =
+    liveElapsed !== null && liveElapsed > 0 ? formatDuration(liveElapsed) : undefined
+  const rowAriaLabel = [`${index}. ${stepText}`, label, elapsedText]
+    .filter((part): part is string => typeof part === 'string' && part !== '')
+    .join(' · ')
 
   // 点击步骤:跳转消息(若有 sourceMessageId)
   const handleClickStep = React.useCallback(() => {
@@ -348,13 +327,13 @@ function PlanStepItem({
     async (e: React.MouseEvent) => {
       e.stopPropagation()
       e.preventDefault()
-      if (!s.explanation) return
+      if (!explanation) return
       try {
         if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(s.explanation)
+          await navigator.clipboard.writeText(explanation)
         } else {
           const ta = document.createElement('textarea')
-          ta.value = s.explanation
+          ta.value = explanation
           ta.setAttribute('readonly', '')
           ta.style.position = 'absolute'
           ta.style.left = '-9999px'
@@ -375,7 +354,7 @@ function PlanStepItem({
         })
       }
     },
-    [s.explanation, t],
+    [explanation, t],
   )
 
   // 卸载清理 timer
@@ -388,164 +367,87 @@ function PlanStepItem({
     }
   }, [])
 
+  // 长 reasoning 用 MarkdownViewer(支持代码块/列表),思考步骤始终用 MarkdownViewer;
+  // 字号交给容器(stream-ui 的 StreamDetail / text-xs),此处不再自配 10/11px
+  const markdownCls = '!text-xs prose-p:my-0.5 prose-pre:my-1 prose-code:!px-1 prose-code:!py-0'
+  const explanationNode =
+    hasLongExplanation || isThinking ? (
+      <MarkdownViewer content={explanation ?? ''} className={markdownCls} />
+    ) : (
+      explanation
+    )
+  const copyReasoningButton =
+    isThinking && expanded && explanation ? (
+      <div className="flex justify-end">
+        <Tooltip side="bottom" content={t('plan.copyReasoning')}>
+          <button
+            type="button"
+            onClick={handleCopyReasoning}
+            onMouseDown={(e) => e.stopPropagation()}
+            aria-label={t('plan.copyReasoning')}
+            data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
+            className={cn(
+              'inline-flex h-6 items-center gap-1 rounded-sm px-1.5 text-xs',
+              'text-muted-foreground/70 transition-colors',
+              'hover:bg-accent/60 hover:text-foreground',
+              'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            )}
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
+            ) : (
+              <Copy className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span>{copied ? t('copied') : t('plan.copyReasoning')}</span>
+          </button>
+        </Tooltip>
+      </div>
+    ) : null
+
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- li 作为可点击项是常见 UI 模式(列表项跳转),键盘交互由内部步骤标题 div 提供
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events -- li 作为可点击项是常见 UI 模式(列表项跳转),键盘交互由行内 StreamRow 按钮提供
     <li
       className={cn(
-        'group relative flex items-start gap-2 rounded-sm py-1 px-1 -mx-1 transition-colors',
+        'group -mx-1 rounded-sm px-1 transition-colors',
         // 组间分隔(空隙,非分割线)
-        isGroupBoundary && 'mt-1.5 pt-1.5',
-        // 可跳转步骤 hover 高亮
-        isJumpable && 'cursor-pointer hover:bg-accent/20',
+        isGroupBoundary && 'mt-1.5',
         // 被对应消息 hover 时反向高亮
         isHighlightedByHover && 'bg-accent/20 ring-1 ring-accent/40',
-        // 时间线连接线(最后一个不显示)
-        !isLast &&
-          'before:absolute before:left-[7px] before:top-3 before:bottom-0 before:w-px before:bg-border/50',
       )}
-      aria-label={s.step}
+      aria-label={rowAriaLabel}
       data-status={s.status}
       data-error={s.error ? 'true' : undefined}
+      data-stream-status={rowStatus}
       data-testid={`${rootTestId}-item-${s.id}`}
-      onClick={isJumpable ? handleClickStep : undefined}
+      onClick={isJumpable && !isClickable ? handleClickStep : undefined}
       onMouseEnter={isJumpable ? () => handleStepHover(true) : undefined}
       onMouseLeave={isJumpable ? () => handleStepHover(false) : undefined}
     >
-      {/* 时间线圆点(带状态背景 + 图标) */}
-      <span
-        className={cn(
-          'relative z-10 mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full transition-all',
-          isFailed ? 'bg-red-500/15 ring-2 ring-red-500/30' : STATUS_DOT_CLS[s.status],
-          isJumpable && 'group-hover:scale-110',
-        )}
-        aria-hidden
-      >
-        <Icon
-          className={cn(
-            'h-2.5 w-2.5 transition-colors',
-            isFailed ? 'text-red-500' : STATUS_CLS[s.status],
-            s.status === 'in_progress' && !s.error && 'animate-spin',
-          )}
-        />
-      </span>
-
-      {/* 步骤内容 */}
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            'flex items-center gap-1.5 text-xs leading-snug',
-            isClickable && 'cursor-pointer select-none',
-          )}
-          onClick={
-            isClickable
-              ? (e) => {
-                  // 若 li 已绑定跳转,内部点击不重复触发跳转(只切换 expanded)
-                  e.stopPropagation()
-                  setExpanded((v) => !v)
-                }
-              : undefined
-          }
-          role={isClickable ? 'button' : undefined}
-          tabIndex={isClickable ? 0 : undefined}
-          onKeyDown={
-            isClickable
-              ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    setExpanded((v) => !v)
-                  }
-                }
-              : undefined
-          }
-        >
-          {/* 步骤编号(借鉴 Codex plan 编号显示,提升可读性) */}
-          <span
-            className="shrink-0 tabular-nums text-[10px] font-medium text-muted-foreground/40"
-            aria-hidden
-          >
-            {index}.
-          </span>
-          <span
-            className={cn(
-              'flex-1 break-all transition-colors',
-              isFailed
-                ? 'font-medium text-red-600 dark:text-red-400'
-                : s.status === 'in_progress'
-                  ? 'font-medium text-foreground'
-                  : s.status === 'completed'
-                    ? 'text-foreground/80'
-                    : // 2026-09-19 v2:skipped 删除线弱化显示
-                      s.status === 'skipped'
-                      ? 'text-muted-foreground/50 line-through'
-                      : 'text-muted-foreground/60',
-            )}
-          >
-            {s.step}
-          </span>
-          {s.durationMs !== undefined && s.durationMs > 0 && (
-            <span className="shrink-0 rounded px-1 text-[10px] tabular-nums text-muted-foreground/50 bg-muted/40">
-              {formatDuration(s.durationMs)}
-            </span>
-          )}
-          {isClickable && (
-            <ChevronDown
-              className={cn(
-                'h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform duration-150',
-                expanded && 'rotate-180',
-              )}
-              aria-hidden
-            />
-          )}
+      <StreamRow
+        status={rowStatus}
+        title={stepText}
+        titleMode="primary"
+        leading={`${index}.`}
+        trailing={label}
+        elapsedMs={liveElapsed !== null && liveElapsed > 0 ? liveElapsed : null}
+        onClick={isClickable ? () => setExpanded((v) => !v) : undefined}
+        expanded={expanded}
+        ariaLabel={rowAriaLabel}
+        testId={`${rootTestId}-row-${s.id}`}
+      />
+      {/* 短说明常驻显示;长说明收进 StreamDetail,点行展开(替代原 line-clamp-2 截断) */}
+      {explanation && !hasLongExplanation && (
+        <div className="ml-5 mt-0.5 break-words text-xs leading-relaxed text-muted-foreground/70">
+          {explanationNode}
+          {copyReasoningButton}
         </div>
-
-        {/* explanation:短文本直接显示,长文本用 MarkdownViewer 渲染(支持代码块/列表等)
-         *  思考步骤始终用 MarkdownViewer(对标 折叠态摘要设计 代码块渲染) */}
-        {s.explanation && (
-          <div
-            className={cn(
-              'mt-0.5 break-words text-[11px] leading-relaxed text-muted-foreground/70',
-              hasLongExplanation && !expanded && 'line-clamp-2',
-            )}
-          >
-            {hasLongExplanation || isThinking ? (
-              <MarkdownViewer
-                content={s.explanation}
-                className="!text-[11px] prose-p:my-0.5 prose-pre:my-1 prose-code:!text-[10px] prose-code:!px-1 prose-code:!py-0"
-              />
-            ) : (
-              s.explanation
-            )}
-          </div>
-        )}
-
-        {/* 复制 reasoning 按钮:思考步骤展开后显示(对标 折叠态摘要设计) */}
-        {isThinking && expanded && s.explanation && (
-          <div className="mt-1 flex justify-end">
-            <FeedbackTooltip content={t('plan.copyReasoning')}>
-              <button
-                type="button"
-                onClick={handleCopyReasoning}
-                onMouseDown={(e) => e.stopPropagation()}
-                aria-label={t('plan.copyReasoning')}
-                data-testid={`${rootTestId}-copy-reasoning-${s.id}`}
-                className={cn(
-                  'inline-flex h-5 items-center gap-1 rounded-sm px-1.5 text-[10px]',
-                  'text-muted-foreground/70 transition-colors',
-                  'hover:bg-accent/60 hover:text-foreground',
-                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                )}
-              >
-                {copied ? (
-                  <Check className="h-2.5 w-2.5 text-emerald-500" aria-hidden />
-                ) : (
-                  <Copy className="h-2.5 w-2.5" aria-hidden />
-                )}
-                <span>{copied ? t('copied') : t('plan.copyReasoning')}</span>
-              </button>
-            </FeedbackTooltip>
-          </div>
-        )}
-      </div>
+      )}
+      {explanation && hasLongExplanation && expanded && (
+        <StreamDetail testId={`${rootTestId}-detail-${s.id}`}>
+          {explanationNode}
+          {copyReasoningButton}
+        </StreamDetail>
+      )}
     </li>
   )
 }

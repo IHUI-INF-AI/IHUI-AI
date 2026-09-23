@@ -27,14 +27,14 @@ export const MODEL_TYPES: ModelTypeConfig[] = [
 ]
 
 const MODEL_TYPE_KEY: Record<string, string> = {
-  skills: 'modelType.skills',
-  talk: 'modelType.talk',
-  image: 'modelType.image',
-  video: 'modelType.video',
-  audio: 'modelType.audio',
-  videoa: 'modelType.videoa',
-  other: 'modelType.other',
-  sck: 'modelType.sck',
+  skills: 'ModelTypeButtonGroup.m1',
+  talk: 'aigc.list.catText',
+  image: 'modelPlaza.tabImage',
+  video: 'aigc.list.catVideo',
+  audio: 'ModelTypeButtonGroup.m2',
+  videoa: 'ai.chatMessageItem.digitalHuman',
+  other: 'ModelList.d2',
+  sck: 'ModelTypeButtonGroup.m3',
 }
 
 export interface ModelTypeButtonGroupProps {
@@ -80,7 +80,7 @@ export default function ModelTypeButtonGroup({
               <ModelTypeButton
                 key={cfg.type}
                 type={cfg.type}
-                label={tt(MODEL_TYPE_KEY[cfg.type] ?? 'modelType.other', cfg.label)}
+                label={tt(MODEL_TYPE_KEY[cfg.type] ?? 'ModelList.d2', cfg.label)}
                 icon={cfg.icon}
                 active={activeType === cfg.type}
                 onClick={onSelect}
@@ -101,7 +101,7 @@ export default function ModelTypeButtonGroup({
           <ModelTypeButton
             key={cfg.type}
             type={cfg.type}
-            label={tt(MODEL_TYPE_KEY[cfg.type] ?? 'modelType.other', cfg.label)}
+            label={tt(MODEL_TYPE_KEY[cfg.type] ?? 'ModelList.d2', cfg.label)}
             icon={cfg.icon}
             active={activeType === cfg.type}
             onClick={onSelect}

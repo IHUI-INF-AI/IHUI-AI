@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { updateUserNickname, getProfile } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import './nickname.css'
@@ -34,6 +35,15 @@ export default function Nickname() {
   const [nickname, setNickname] = useState('')
   const [original, setOriginal] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // AI 操控通道(2026-09-21):昵称输入框交出它已绑定的 setter(onInput={onInput} 内部同样 setNickname);
+  // 保存按钮不注册,由用户自己点。
+  useUiField({
+    kind: 'input',
+    label: t('user.nickname.newNickname'),
+    placeholder: t('user.nickname.nicknamePlaceholder'),
+    readValue: () => nickname,
+    setValue: setNickname,
+  })
 
   const load = useCallback(async () => {
     try {

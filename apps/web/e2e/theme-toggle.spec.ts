@@ -13,12 +13,53 @@ import { test, expect, type Page } from '@playwright/test'
  *
  * 本 spec 模拟 OS 明暗(browser.newContext({ colorScheme })),验证「一次点击即切换」。
  * 注意:colorScheme 必须在 newContext 时传入(test.use 在 test 体内不生效);
- * 未登录即可测(侧边栏 SidebarActions 对未登录用户也渲染)。
+ * 未登录即可测(用户行下拉菜单对未登录用户也渲染工具项)。
  *
- * aria-label 来源:packages/i18n/messages/web/zh-CN.json themeToggle.lightMode="浅色" /
- * darkMode="深色" — 当前为暗色时按钮显示"浅色"(点击后切到浅色的语义)。
+ * 2026-09-21 适配:主题切换从侧边栏底部图标按钮迁入用户行下拉菜单(Qoder 风格),
+ * 交互变为:点击用户行 trigger → 菜单打开 → 点击"深色/浅色"菜单项(点击后菜单自动关闭)。
+ *
+ * 菜单项文案来源:packages/i18n/messages/web/zh-CN.json themeToggle.lightMode="浅色" /
+ * darkMode="深色" — 当前为暗色时菜单项显示"浅色"(点击后切到浅色的语义)。
  */
-const THEME_BTN = 'button[aria-label="浅色"], button[aria-label="深色"]'
+const USER_TRIGGER = 'button[aria-label="登录"]'
+
+/**
+ * 打开用户菜单(未登录态 trigger 即"登录"按钮)并等主题菜单项可见。
+ *
+ * 2026-09-21 修(实测 flaky 1 例 / 冷启动首屏):trigger 由 SSR 渲染,DOM 里一开始就"可见",
+ * 但 React 水合完成前点击会被事件系统丢弃(委托监听找不到 handler),菜单永不出现,
+ * 5s 断言报 "element(s) not found"。固定 sleep 只压概率、不消除。
+ * 判据用 trigger 自身的 aria-expanded(Radix 打开时置 true):它证明"这一次点击真的被接住",
+ * 因此不会像"看菜单可见性"那样把已开着的菜单再次点关。超时 15s 需明显小于 30s 用例上限。
+ */
+async function openUserMenu(page: Page) {
+  const trigger = page.locator(USER_TRIGGER).first()
+  await expect
+    .poll(
+      async () => {
+        await trigger.click()
+        return (await trigger.getAttribute('aria-expanded')) === 'true'
+      },
+      { timeout: 15000, intervals: [500] },
+    )
+    .toBe(true)
+  await expect(page.getByRole('menuitem', { name: /浅色|深色/ }).first()).toBeVisible({
+    timeout: 5000,
+  })
+}
+
+/** 一次"打开菜单 → 点主题项"的完整切换动作(Radix 菜单选中后自动关闭) */
+async function toggleTheme(page: Page) {
+  await openUserMenu(page)
+  await page
+    .getByRole('menuitem', { name: /浅色|深色/ })
+    .first()
+    .click()
+  // 菜单关闭(避免下次 toggle 命中残留菜单)
+  await expect(page.getByRole('menuitem', { name: /浅色|深色/ }).first()).toBeHidden({
+    timeout: 5000,
+  })
+}
 
 async function createPage(
   browser: import('@playwright/test').Browser,
@@ -31,8 +72,8 @@ async function createPage(
     else localStorage.setItem('theme', t)
   }, opts.presetTheme ?? null)
   await page.goto('/')
-  // 等 hydration 完成:主题按钮出现且 aria-label 脱离 SSR 占位态
-  await expect(page.locator(THEME_BTN).first()).toBeVisible({ timeout: 30000 })
+  // 等 hydration 完成:用户行 trigger 出现
+  await expect(page.locator(USER_TRIGGER).first()).toBeVisible({ timeout: 30000 })
   await page.waitForTimeout(800)
   return page
 }
@@ -41,16 +82,16 @@ test.describe('侧边栏主题切换(一次点击即生效)', () => {
   test('OS 暗色 + system 默认:点一下即从暗切亮 [报修场景]', async ({ browser }) => {
     const page = await createPage(browser, { colorScheme: 'dark' })
 
-    // 前置:system 解析为暗色
+    // 前置:system 解析为暗色;菜单项语义为"切到浅色"
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
-    // 暗色下按钮语义为"切到浅色"
-    await expect(page.locator(THEME_BTN).first()).toHaveAttribute('aria-label', '浅色')
+    await openUserMenu(page)
+    await expect(page.getByRole('menuitem', { name: '浅色' }).first()).toBeVisible()
+    await page.keyboard.press('Escape')
 
-    // 一次点击 → 立即变亮(DOM class + 持久化 + 图标语义三重断言)
-    await page.locator(THEME_BTN).first().click()
+    // 一次点击 → 立即变亮(DOM class + 持久化双重断言)
+    await toggleTheme(page)
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
-    await expect(page.locator(THEME_BTN).first()).toHaveAttribute('aria-label', '深色')
     await page.context().close()
   })
 
@@ -58,7 +99,7 @@ test.describe('侧边栏主题切换(一次点击即生效)', () => {
     const page = await createPage(browser, { colorScheme: 'dark', presetTheme: 'dark' })
 
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
     await page.context().close()
@@ -68,7 +109,7 @@ test.describe('侧边栏主题切换(一次点击即生效)', () => {
     const page = await createPage(browser, { colorScheme: 'dark', presetTheme: 'system' })
 
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
     await page.context().close()
@@ -78,9 +119,11 @@ test.describe('侧边栏主题切换(一次点击即生效)', () => {
     const page = await createPage(browser, { colorScheme: 'light' })
 
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/)
-    await expect(page.locator(THEME_BTN).first()).toHaveAttribute('aria-label', '深色')
+    await openUserMenu(page)
+    await expect(page.getByRole('menuitem', { name: '深色' }).first()).toBeVisible()
+    await page.keyboard.press('Escape')
 
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark')
     await page.context().close()
@@ -91,13 +134,13 @@ test.describe('侧边栏主题切换(一次点击即生效)', () => {
 
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/)
     // 第 1 次:暗 → 亮
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     // 第 2 次:亮 → 暗
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     // 第 3 次:暗 → 亮
-    await page.locator(THEME_BTN).first().click()
+    await toggleTheme(page)
     await expect(page.locator('html')).not.toHaveClass(/(^|\s)dark(\s|$)/, { timeout: 5000 })
     expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('light')
     await page.context().close()

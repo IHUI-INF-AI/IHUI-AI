@@ -23,6 +23,13 @@ import { llmVendorRoutes, llmVendorV2Routes } from './ai-vendors/proxy-llm.js'
 import { mediaVendorRoutes } from './ai-vendors/proxy-media.js'
 import { toolsVendorRoutes } from './ai-vendors/proxy-tools.js'
 import { extendedVendorRoutes, adminAiVendorRoutes } from './ai-vendors/proxy-extended.js'
+import { extendedMediaVendorRoutes } from './ai-vendors/proxy-extended-media.js'
+import { extendedMediaVendorRoutes2 } from './ai-vendors/proxy-extended-media2.js'
+import { extendedMediaVendorRoutes3 } from './ai-vendors/proxy-extended-media3.js'
+import { extendedMediaVendorRoutes4 } from './ai-vendors/proxy-extended-media4.js'
+import { extendedMediaVendorRoutes5 } from './ai-vendors/proxy-extended-media5.js'
+import { openaiCompatVendorRoutes } from './ai-vendors/proxy-openai-compat.js'
+import { anthropicVendorRoutes } from './ai-vendors/proxy-anthropic.js'
 
 export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -33,6 +40,13 @@ export const aiVendorRoutes: FastifyPluginAsync = async (server) => {
   await server.register(mediaVendorRoutes)
   await server.register(toolsVendorRoutes)
   await server.register(extendedVendorRoutes)
+  await server.register(openaiCompatVendorRoutes)
+  await server.register(anthropicVendorRoutes)
+  await server.register(extendedMediaVendorRoutes)
+  await server.register(extendedMediaVendorRoutes2)
+  await server.register(extendedMediaVendorRoutes3)
+  await server.register(extendedMediaVendorRoutes4)
+  await server.register(extendedMediaVendorRoutes5)
 }
 
 export { adminAiVendorRoutes }

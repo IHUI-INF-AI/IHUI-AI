@@ -11,6 +11,10 @@ import type {
   SubagentEndEvent,
   SubagentProgressEvent,
   CitationsEvent,
+  SteerEvent,
+  BudgetEvent,
+  InjectionAppliedEvent,
+  RetryScheduledEvent,
 } from '@ihui/api-client'
 import type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 
@@ -45,6 +49,11 @@ export interface SSEEvent {
     | 'terminal_end'
     // #11 Citations 全链路(2026-09-13 立):knowledge_lookup 工具执行后下发引用溯源
     | 'citations'
+    // ===== D106 补齐(2026-09-22 立):api-client 早已解析、本解析器漏接的四帧 =====
+    | 'steer'
+    | 'budget'
+    | 'injection_applied'
+    | 'retry_scheduled'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
@@ -58,6 +67,8 @@ export interface SSEEvent {
     tokensAfter: number
     removedCount: number
     usageRatio: number
+    /** G-150:incompressible = 压缩已撞到上限,界面须改口径并给"开新对话"出口 */
+    trigger?: string
   }
   /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发) */
   usage?: {
@@ -90,6 +101,15 @@ export interface SSEEvent {
   terminalEnd?: TerminalEndEvent
   /** #11 Citations 全链路:引用溯源事件(knowledge_lookup 工具执行后下发) */
   citations?: CitationsEvent
+  // ===== D106 补齐:api-client 早已解析、本解析器漏接的四帧(小程序侧因此静默丢帧) =====
+  /** Steer 中途引导确认帧(steer) */
+  steer?: SteerEvent
+  /** 网关预算分档提醒帧(budget) */
+  budget?: BudgetEvent
+  /** D34 上下文注入交代帧(injection_applied) */
+  injectionApplied?: InjectionAppliedEvent
+  /** D39 重试交代帧(retry_scheduled) */
+  retryScheduled?: RetryScheduledEvent
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -224,6 +244,67 @@ function parseLine(line: string): SSEEvent | null {
       applyErrorMeta(evt, json)
       return evt
     }
+    // ===== D106 补齐:四帧必须在下方兜底抽取链(content/delta/text)之前分流,
+    // 否则 steer.text 会被喷成正文增量(与 client.ts 同一历史坑位) =====
+    if (json?.type === 'steer' && typeof json.text === 'string') {
+      return {
+        type: 'steer',
+        steer: {
+          phase: 'injected',
+          text: json.text,
+          timestamp: typeof json.timestamp === 'string' ? json.timestamp : undefined,
+          messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
+        },
+      }
+    }
+    if (json?.type === 'budget' && (json.level === 'warning' || json.level === 'critical')) {
+      return {
+        type: 'budget',
+        budget: {
+          level: json.level,
+          percent: typeof json.percent === 'number' ? json.percent : undefined,
+          usedTokens: typeof json.usedTokens === 'number' ? json.usedTokens : undefined,
+          limitTokens: typeof json.limitTokens === 'number' ? json.limitTokens : undefined,
+          tier: typeof json.tier === 'string' ? json.tier : undefined,
+          resetAt: typeof json.resetAt === 'string' ? json.resetAt : undefined,
+        },
+      }
+    }
+    // 无 collapsed 就没有可显示的东西 ⇒ 不产出事件(而不是产一条空行),与 tryParseInjection 同判据
+    if (
+      json?.type === 'injection_applied' &&
+      typeof json.kind === 'string' &&
+      json.kind !== '' &&
+      typeof json.collapsed === 'string' &&
+      json.collapsed !== ''
+    ) {
+      return {
+        type: 'injection_applied',
+        injectionApplied: {
+          kind: json.kind,
+          collapsed: json.collapsed,
+          ...(typeof json.fullText === 'string' ? { fullText: json.fullText } : {}),
+          ...(typeof json.count === 'number' ? { count: json.count } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        },
+      }
+    }
+    if (
+      json?.type === 'retry_scheduled' &&
+      typeof json.attempt === 'number' &&
+      typeof json.maxRetries === 'number'
+    ) {
+      return {
+        type: 'retry_scheduled',
+        retryScheduled: {
+          attempt: json.attempt,
+          maxRetries: json.maxRetries,
+          retryInMs: typeof json.retryInMs === 'number' ? json.retryInMs : 0,
+          ...(typeof json.httpStatus === 'number' ? { httpStatus: json.httpStatus } : {}),
+          ...(typeof json.messageId === 'string' ? { messageId: json.messageId } : {}),
+        },
+      }
+    }
     const choices = json?.choices as Array<Record<string, unknown>> | undefined
     const choice = choices?.[0]
     if (choice) {
@@ -278,6 +359,7 @@ function parseLine(line: string): SSEEvent | null {
           tokensAfter: Number(compaction.tokensAfter ?? 0),
           removedCount: Number(compaction.removedCount ?? 0),
           usageRatio: Number(compaction.usageRatio ?? 0),
+          ...(typeof compaction.trigger === 'string' ? { trigger: compaction.trigger } : {}),
         },
       }
     }

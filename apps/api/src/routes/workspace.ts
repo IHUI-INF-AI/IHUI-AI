@@ -49,6 +49,13 @@ import type {
   WorkspaceRequest,
   WorkspaceEvent,
 } from '@ihui/types'
+// 权限档 wire 清单唯一来源(G-164:此前本文件两处 z.enum 各抄了一份,加档位必漏)
+import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_WIRE_VALUES,
+  permissionModeWire,
+  type PermissionModeWire,
+} from '@ihui/types/permission-mode'
 import { buildResponseSchema } from '../utils/api-schemas.js'
 
 // =============================================================================
@@ -666,6 +673,24 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   // 渐进式迁移:新端点用 workspace.ts wire 类型,旧端点保持
   // ===========================================================================
 
+  /**
+   * ACP 端点权限档入参面 = wire(kebab)∪ 规范档(camel),与 workspace-permissions.ts
+   * 存值迁移第①步同形态。此前 `z.enum(PERMISSION_MODE_WIRE_VALUES)` 只收 kebab,
+   * camel 客户端一律 400。两份清单都从注册表派生,本文件不再出现第二份字面量;
+   * 归一规则同第①步:判定/落库走规范档,出参与对下游转发走 wire。
+   * `manual` 有规范档语义但无 wire 映射 → 仍拒,不因"接受 camel"而漏放行。
+   */
+  const acpModeInputValues = [
+    ...new Set<string>([...PERMISSION_MODE_WIRE_VALUES, ...PERMISSION_MODES]),
+  ]
+  const acpModeInputSchema = z.enum(acpModeInputValues, {
+    error: (iss) => `非法权限档: ${String(iss.input)}(取值 ${acpModeInputValues.join(' / ')})`,
+  })
+
+  /** 可选 mode → wire 拼写:未提供保持 undefined;null = 合法但无 wire 映射(manual),调用方须 400。 */
+  const resolveAcpSessionMode = (raw: string | undefined): PermissionModeWire | null | undefined =>
+    raw === undefined ? undefined : permissionModeWire(raw)
+
   const beginPromptSchema = z.object({
     sessionId: z.string().min(1),
     prompt: z.string().min(1),
@@ -679,7 +704,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
       .optional(),
-    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
+    mode: acpModeInputSchema.optional(),
   })
 
   const endPromptSchema = z.object({
@@ -690,7 +715,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     workspaceRoot: z.string().min(1),
     initialPrompt: z.string().optional(),
     modelId: z.string().optional(),
-    mode: z.enum(['default', 'plan', 'accept-edits', 'bypass-permissions']).optional(),
+    mode: acpModeInputSchema.optional(),
   })
 
   // POST /workspace/acp/sessions - 创建 ACP 会话
@@ -704,7 +729,14 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    const data: CreateSessionData = parsed.data
+    const modeWire = resolveAcpSessionMode(parsed.data.mode)
+    if (modeWire === null) {
+      return reply
+        .status(400)
+        .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
+    }
+    // 跨界前归一:CreateSessionData.mode 只允许 wire 拼写,camel 入参不得原样泄进下游
+    const data: CreateSessionData = { ...parsed.data, mode: modeWire }
     const sessionId = randomUUID()
     const now = Date.now()
 
@@ -734,7 +766,14 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    const data: BeginPromptData = parsed.data
+    const modeWire = resolveAcpSessionMode(parsed.data.mode)
+    if (modeWire === null) {
+      return reply
+        .status(400)
+        .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
+    }
+    // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写,日志/转发的 wireReq 同样不得带 camel
+    const data: BeginPromptData = { ...parsed.data, mode: modeWire }
     const promptId = randomUUID()
     const now = Date.now()
 

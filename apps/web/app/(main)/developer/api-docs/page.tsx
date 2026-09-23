@@ -52,35 +52,67 @@ const METHOD_CLASS: Record<string, string> = {
   PATCH: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
 }
 
-const QUICK_ENDPOINTS: Array<{ method: 'POST' | 'GET'; path: string; desc: string }> = [
-  { method: 'POST', path: '/v1/chat/completions', desc: 'OpenAI 兼容对话' },
-  { method: 'POST', path: '/v1/anthropic/messages', desc: 'Anthropic 兼容对话' },
-  { method: 'GET', path: '/v1/models', desc: '查询可用模型' },
+/** 接口说明的 i18n 键(模块级常量表不得调 hook,由渲染处 t() 取词);method/path 是协议字面量,不入语言包 */
+type EndpointDescKey =
+  | 'endpoints.chatCompletions'
+  | 'endpoints.anthropicMessages'
+  | 'endpoints.listModels'
+  | 'endpoints.rerank'
+  | 'endpoints.moderations'
+  | 'endpoints.realtime'
+  | 'endpoints.midjourneyImagine'
+  | 'endpoints.mcpToolsCall'
+  | 'endpoints.responses'
+  | 'endpoints.batch'
+  | 'endpoints.assistants'
+  | 'endpoints.audioTranslations'
+  | 'endpoints.fineTuningJobs'
+  | 'endpoints.files'
+  | 'endpoints.statusOverview'
+  | 'endpoints.statusModels'
+  | 'endpoints.statusIncidents'
+  | 'endpoints.apiKeyShares'
+  | 'endpoints.exportOrdersCsv'
+  | 'endpoints.exportRelayLogsCsv'
+  | 'endpoints.developerConversations'
+
+const QUICK_ENDPOINTS: Array<{ method: 'POST' | 'GET'; path: string; descKey: EndpointDescKey }> = [
+  { method: 'POST', path: '/v1/chat/completions', descKey: 'endpoints.chatCompletions' },
+  { method: 'POST', path: '/v1/anthropic/messages', descKey: 'endpoints.anthropicMessages' },
+  { method: 'GET', path: '/v1/models', descKey: 'endpoints.listModels' },
   // P0 第二批次(2026-07-31 立):4 个新端点
-  { method: 'POST', path: '/v1/rerank', desc: 'Cohere/Jina 兼容重排序' },
-  { method: 'POST', path: '/v1/moderations', desc: 'OpenAI 兼容内容审核' },
-  { method: 'GET', path: '/v1/realtime', desc: 'Realtime WebSocket 实时对话' },
-  { method: 'POST', path: '/v1/midjourney/imagine', desc: 'Midjourney-Proxy 标准接口' },
-  { method: 'POST', path: '/v1/mcp/tools/call', desc: 'MCP 网关工具调用' },
+  { method: 'POST', path: '/v1/rerank', descKey: 'endpoints.rerank' },
+  { method: 'POST', path: '/v1/moderations', descKey: 'endpoints.moderations' },
+  { method: 'GET', path: '/v1/realtime', descKey: 'endpoints.realtime' },
+  { method: 'POST', path: '/v1/midjourney/imagine', descKey: 'endpoints.midjourneyImagine' },
+  { method: 'POST', path: '/v1/mcp/tools/call', descKey: 'endpoints.mcpToolsCall' },
   // P0 第三批次(2026-08-01 立):OpenAI 协议补齐
-  { method: 'POST', path: '/v1/responses', desc: 'OpenAI Responses API(Cursor/Codex 兼容)' },
-  { method: 'POST', path: '/v1/batch', desc: 'OpenAI 批量异步 API(50% 折扣)' },
-  { method: 'POST', path: '/v1/assistants', desc: 'Assistants API v2(第三方 SDK 直连)' },
-  { method: 'POST', path: '/v1/audio/translations', desc: 'Whisper 语音翻译' },
-  { method: 'POST', path: '/v1/fine_tuning/jobs', desc: '微调任务管理' },
-  { method: 'GET', path: '/v1/files', desc: '文件管理 CRUD' },
+  { method: 'POST', path: '/v1/responses', descKey: 'endpoints.responses' },
+  { method: 'POST', path: '/v1/batch', descKey: 'endpoints.batch' },
+  { method: 'POST', path: '/v1/assistants', descKey: 'endpoints.assistants' },
+  { method: 'POST', path: '/v1/audio/translations', descKey: 'endpoints.audioTranslations' },
+  { method: 'POST', path: '/v1/fine_tuning/jobs', descKey: 'endpoints.fineTuningJobs' },
+  { method: 'GET', path: '/v1/files', descKey: 'endpoints.files' },
   // P0 第四批次(2026-08-01 立):状态页 + 分享 + 导出 + 会话历史
-  { method: 'GET', path: '/api/public/status/overview', desc: '公开状态页-系统总览' },
-  { method: 'GET', path: '/api/public/status/models', desc: '公开状态页-模型可用性' },
-  { method: 'GET', path: '/api/public/status/incidents', desc: '公开状态页-事件列表' },
+  { method: 'GET', path: '/api/public/status/overview', descKey: 'endpoints.statusOverview' },
+  { method: 'GET', path: '/api/public/status/models', descKey: 'endpoints.statusModels' },
+  { method: 'GET', path: '/api/public/status/incidents', descKey: 'endpoints.statusIncidents' },
   {
     method: 'POST',
     path: '/api/developer/api-keys/:id/shares',
-    desc: 'API Key 临时分享(限时 token)',
+    descKey: 'endpoints.apiKeyShares',
   },
-  { method: 'GET', path: '/api/admin/export/orders.csv', desc: '充值订单 CSV 导出' },
-  { method: 'GET', path: '/api/admin/export/relay-logs.csv', desc: '调用日志 CSV 导出' },
-  { method: 'GET', path: '/api/developer/conversations', desc: '中转站会话历史列表' },
+  { method: 'GET', path: '/api/admin/export/orders.csv', descKey: 'endpoints.exportOrdersCsv' },
+  {
+    method: 'GET',
+    path: '/api/admin/export/relay-logs.csv',
+    descKey: 'endpoints.exportRelayLogsCsv',
+  },
+  {
+    method: 'GET',
+    path: '/api/developer/conversations',
+    descKey: 'endpoints.developerConversations',
+  },
 ]
 
 function Section({
@@ -162,18 +194,19 @@ export default function ApiDocsPage() {
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
 
-      <Section icon={Rocket} title="快速开始(5 分钟接入)">
+      <Section icon={Rocket} title={t('sections.quickStart')}>
         <ol className="space-y-1 text-xs text-muted-foreground">
           <li>
-            <span className="font-medium text-foreground">1. 注册登录</span> — 完成账号注册并登录
+            <span className="font-medium text-foreground">{t('steps.step1Title')}</span>{' '}
+            {t('steps.step1Desc')}
           </li>
           <li>
-            <span className="font-medium text-foreground">2. 生成 Key</span> — 开发者中心 → 密钥管理
-            → 新建密钥
+            <span className="font-medium text-foreground">{t('steps.step2Title')}</span>{' '}
+            {t('steps.step2Desc')}
           </li>
           <li>
-            <span className="font-medium text-foreground">3. 调用接口</span> — 替换下方 sk-xxx
-            即可发起首次请求
+            <span className="font-medium text-foreground">{t('steps.step3Title')}</span>{' '}
+            {t('steps.step3Desc')}
           </li>
         </ol>
         {/* 2026-08-17 P3:dark 模式代码块用 zinc-950,light 用 zinc-100(原实现 light 比 dark 更深,已修正) */}
@@ -185,14 +218,15 @@ export default function ApiDocsPage() {
         </pre>
       </Section>
 
-      <Section icon={KeyRound} title="认证方式">
+      <Section icon={KeyRound} title={t('sections.auth')}>
         <p className="text-xs text-muted-foreground">
-          请求需在 Header 携带
+          {t('auth.descPrefix')}
           <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">
             Authorization: Bearer ihui_xxx
           </code>
-          (Anthropic 端点亦支持
-          <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">x-api-key</code>)。
+          {t('auth.descMid')}
+          <code className="mx-1 rounded bg-muted px-1 py-0.5 font-mono">x-api-key</code>
+          {t('auth.descSuffix')}
         </p>
         <ul className="space-y-1 text-xs">
           {QUICK_ENDPOINTS.map((e) => (
@@ -206,13 +240,13 @@ export default function ApiDocsPage() {
                 {e.method}
               </span>
               <code className="font-mono">{e.path}</code>
-              <span className="text-muted-foreground">— {e.desc}</span>
+              <span className="text-muted-foreground">— {t(e.descKey)}</span>
             </li>
           ))}
         </ul>
       </Section>
 
-      <Section icon={Code} title="端点列表">
+      <Section icon={Code} title={t('sections.endpointList')}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -326,41 +360,44 @@ export default function ApiDocsPage() {
       <SdkExamples />
       <CurlPlayground />
 
-      <Section icon={Zap} title="速率限制">
+      <Section icon={Zap} title={t('sections.rateLimit')}>
         <ul className="space-y-1 text-xs">
-          <li>免费 20 QPM · 基础 60 QPM · 专业 200 QPM · 企业 1000 QPM</li>
+          <li>{t('rateLimit.tiers')}</li>
           <li className="text-muted-foreground">
-            超限返回错误码 <code className="font-mono">1004</code>(HTTP 429)。
+            {t('rateLimit.overLimitPrefix')} <code className="font-mono">1004</code>
+            {t('rateLimit.overLimitSuffix')}
           </li>
         </ul>
       </Section>
 
-      <Section icon={Coins} title="计费说明">
+      <Section icon={Coins} title={t('sections.billing')}>
         <ul className="space-y-1 text-xs text-muted-foreground">
           <li>
-            · <span className="font-medium text-foreground">Prompt Cache 折扣</span>:命中缓存的输入
-            token 按 0.1 倍计价。
+            · <span className="font-medium text-foreground">{t('billing.promptCacheTerm')}</span>
+            {t('billing.promptCacheDesc')}
           </li>
           <li>
-            · <span className="font-medium text-foreground">响应缓存(Redis)</span>:非流式 chat
-            completions 命中缓存时成本为 0(响应头 <code className="font-mono">X-Cache: HIT</code>
-            ),用 <code className="font-mono">X-Cache-Bypass: true</code> 跳过缓存。
+            · <span className="font-medium text-foreground">{t('billing.responseCacheTerm')}</span>
+            {t('billing.responseCacheDesc1')} <code className="font-mono">X-Cache: HIT</code>
+            {t('billing.responseCacheDesc2')}{' '}
+            <code className="font-mono">X-Cache-Bypass: true</code>{' '}
+            {t('billing.responseCacheDesc3')}
           </li>
           <li>
-            · <span className="font-medium text-foreground">阶梯计价</span>:单次请求 token
-            越多,单价越低(详见价格页)。
+            · <span className="font-medium text-foreground">{t('billing.tieredTerm')}</span>
+            {t('billing.tieredDesc')}
           </li>
           <li>
-            · <span className="font-medium text-foreground">分组倍率</span>
-            :不同模型分组按倍率计费(如 Claude 1.2x、GPT-4o 1.0x)。
+            · <span className="font-medium text-foreground">{t('billing.groupRateTerm')}</span>
+            {t('billing.groupRateDesc')}
           </li>
           <li>
-            · <span className="font-medium text-foreground">rerank/moderations</span>:按 input
-            tokens 计费,output tokens 为 0。
+            · <span className="font-medium text-foreground">rerank/moderations</span>
+            {t('billing.rerankDesc')}
           </li>
           <li>
-            · 计费单位为 Token,1 Token ≈ 0.75 字符(中文);余额不足返回{' '}
-            <code className="font-mono">1005</code>。
+            · {t('billing.unit')} <code className="font-mono">1005</code>
+            {t('billing.unitSuffix')}
           </li>
         </ul>
       </Section>

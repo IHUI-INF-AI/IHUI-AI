@@ -141,7 +141,8 @@
     "orUseAccount": "またはアカウントでログイン",
     "ssoCancelled": "SSO ログインがキャンセルされました",
     "ssoLoading": "SSO 認証中...",
-    "ssoLogin": "SSO ワンクリックログイン"
+    "ssoLogin": "SSO ワンクリックログイン",
+    "ssoFailed": "SSO ログインに失敗しました"
   },
   "popup": {
     "copyFailed": "コピー失敗",
@@ -165,6 +166,10 @@
     "emptyHint": "単語帳は空です,単語を検索して保存してください"
   },
   "chat": {
+    "retryMessage": "再試行",
+    "citationTitle": "参考元",
+    "retryScheduled": "上流が一時的に利用できません。{attempt}/{max} 回目を {seconds} 秒後に再試行します",
+    "retryScheduledNow": "上流チャネルを切り替え中。{attempt}/{max} 回目をすぐに再試行します",
     "history": "履歴",
     "title": "AI チャット",
     "exit": "終了",
@@ -185,14 +190,45 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼び出し詳細",
     "terminal": "ターミナル",
+    "terminalIsolation": "コマンドは分離されたサンドボックス内で実行され、既定ではネットワークにアクセスしません",
     "terminalStatusRunning": "実行中",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",
+    "terminalTruncated": "…(省略済み、全 {total} 文字)",
+    "injectionTitle": "今回のコンテキスト:{count} 件",
+    "injectionExpand": "他 {count} 件を表示",
+    "injectionCollapse": "閉じる",
+    "injectionKindDeveloper": "セッションレベルのカスタム指示を適用しました",
+    "injectionKindWorkspace": "ワークスペースメモリ / AGENTS.md を注入しました",
+    "injectionKindRepoWiki": "Repo Wiki プロジェクト百科を注入しました",
+    "injectionKindAutoContext": "{count, plural, other {自動検索したコードコンテキスト {count} 件を注入しました}}",
     "planStatusPending": "待機中",
     "planStatusInProgress": "進行中",
     "planStatusCompleted": "完了",
     "subagentTools": "サブエージェントツール ×{count}",
-    "usage": "使用量"
+    "usage": "使用量",
+    "subagentRoleValidator": "検証役",
+    "subagentRoleReviewer": "レビュー役",
+    "subagentRoleExplorer": "探索役",
+    "subagentRoleImplementer": "実装役",
+    "subagentRolePlanner": "計画役",
+    "subagentRoleTester": "テスト役",
+    "subagentRoleResearcher": "リサーチャー",
+    "subagentRoleOptimizer": "最適化役",
+    "subagentRoleDebugger": "デバッガー",
+    "subagentRoleRefactorer": "リファクタリング役",
+    "modelCategoryChat": "対話・推論",
+    "modelCategoryVision": "画像理解",
+    "modelCategoryEmbedding": "埋め込み",
+    "modelCategoryRerank": "リランク",
+    "modelCategoryTts": "音声合成",
+    "modelCategoryAsr": "音声認識",
+    "modelCategoryImage": "画像生成",
+    "modelCategoryVideo": "動画生成",
+    "modelCategoryGuard": "安全性審査",
+    "modelCategoryOcr": "文字認識",
+    "modelCategoryOther": "その他",
+    "modelHistoryToggle": "過去のモデル"
   },
   "settings": {
     "language": "インターフェース言語",
@@ -245,7 +281,21 @@
     "approvalSubmitting": "送信中...",
     "approvalSent": "送信済み",
     "approvalFailed": "送信に失敗しました",
-    "approvalUnavailable": "このチャネルはオンライン承認に対応していません"
+    "approvalUnavailable": "このチャネルはオンライン承認に対応していません",
+    "decisionAllow": "許可済み",
+    "decisionAsk": "承認待ち",
+    "decisionDeny": "拒否済み",
+    "levelRead": "読み取り専用",
+    "levelWrite": "書き込み",
+    "levelDangerous": "危険",
+    "levelHigh": "高リスク",
+    "levelMedium": "中リスク",
+    "levelLow": "低風險",
+    "modeDefault": "既定",
+    "modePlan": "プランモード",
+    "modeAcceptEdits": "編集を自動承認",
+    "modeBypassPermissions": "すべて許可",
+    "modeManual": "手動承認"
   },
   "course": {
     "title": "コース",
@@ -284,6 +334,13 @@
   },
   "content": {
     "translate": "翻訳",
+    "typeLesson": "講座",
+    "typeLive": "ライブ",
+    "typeArticle": "記事",
+    "typeNews": "ニュース",
+    "typeAsk": "Q&A",
+    "typeResource": "リソース",
+    "typeExam": "試験問題",
     "highlight": "ハイライト",
     "vocab": "辞書",
     "sendAi": "AI に質問",
@@ -393,6 +450,153 @@
       "benefitsTitle": "含まれる特典",
       "note": "価格と特典はウェブ版の実際の表示に準じます。",
       "open": "ウェブ版で開通"
+    },
+    "topics": {
+      "discussions": "{count}件の討論",
+      "followers": "{count}人のフォロワー"
+}
+  },
+  "permissionTier": {
+    "label": "権限モード",
+    "mode": {
+      "default": {
+        "title": "デフォルト",
+        "desc": "すべての操作に承認が必要(最も安全)"
+      },
+      "plan": {
+        "title": "読み取り専用プラン",
+        "desc": "読み取りと検索のみ許可。ファイル書き込みとコマンド実行は拒否"
+      },
+      "accept-edits": {
+        "title": "編集を許可",
+        "desc": "許可リスト内の操作は自動実行、その他は確認を求める"
+      },
+      "bypass-permissions": {
+        "title": "権限をバイパス",
+        "desc": "確認なしでフルアクセス(高リスク)"
+      },
+      "unknown": {
+        "title": "不明なモード",
+        "desc": "未対応の権限モード。デフォルトとして扱う"
+      }
     }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "返答を準備しています…",
+        "1": "回答の構成を考えています…",
+        "2": "承知しました、返答を検討中です…",
+        "3": "返答を生成しています…",
+        "4": "質問を受け付けました、処理中です…"
+      },
+      "middle": {
+        "0": "引き続き処理しています…",
+        "1": "前の内容を踏まえて考えています…",
+        "2": "残りの返答をまとめています…",
+        "3": "ご質問に対応中です…",
+        "4": "次の返答を生成しています…"
+      },
+      "followup": {
+        "0": "追加のご質問を確認しています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "追加質問への返答をまとめています…",
+        "3": "追加質問を受け付けました…",
+        "4": "回答を補足しています…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "計算リソースを確保しています…",
+        "1": "実行環境を初期化しています…",
+        "2": "処理を開始しています…",
+        "3": "演算を割り当てています…",
+        "4": "初回計算を実行しています…"
+      },
+      "middle": {
+        "0": "実行中です…",
+        "1": "計算しています、少々お待ちください…",
+        "2": "中間結果を処理しています…",
+        "3": "中断なく進行しています…",
+        "4": "演算中です…"
+      },
+      "followup": {
+        "0": "再計算しています…",
+        "1": "新しい入力で処理を続けています…",
+        "2": "追加分を処理しています…",
+        "3": "結果を更新しています…",
+        "4": "追加リクエストに対応しています…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "会話の文脈を確認しています…",
+        "1": "関連する文脈を読み込んでいます…",
+        "2": "背景情報を整理しています…",
+        "3": "関連する記憶を呼び起こしています…",
+        "4": "文脈を準備しています…"
+      },
+      "middle": {
+        "0": "前文と関連付けて続けています…",
+        "1": "文脈を踏まえて考えています…",
+        "2": "前のメッセージを振り返っています…",
+        "3": "文脈の準備ができました、処理中です…",
+        "4": "履歴メッセージと照合しています…"
+      },
+      "followup": {
+        "0": "文脈と合わせて追加質問を理解しています…",
+        "1": "関連する文脈を振り返っています…",
+        "2": "以前の議論と結び付けています…",
+        "3": "前文と照合して補足しています…",
+        "4": "文脈を踏まえて処理しています…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "対応プランを立てています…",
+        "1": "ご要望を分解しています…",
+        "2": "実行手順を計画しています…",
+        "3": "タスクの要点を分析しています…",
+        "4": "返答の概要を作成しています…"
+      },
+      "middle": {
+        "0": "プランを進めています…",
+        "1": "次の手順に移っています…",
+        "2": "プラン実行中です…",
+        "3": "手順どおりに処理しています…",
+        "4": "残りの手順を実行しています…"
+      },
+      "followup": {
+        "0": "プランを調整しています…",
+        "1": "追加質問に合わせて手順を更新しています…",
+        "2": "再計画しています…",
+        "3": "プランの詳細を補っています…",
+        "4": "新しいご要望に対応しています…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "詳しい説明を準備しています…",
+        "1": "詳細をまとめています…",
+        "2": "要点を整理しています…",
+        "3": "詳細な返答を生成しています…",
+        "4": "回答の詳細を整えています…"
+      },
+      "middle": {
+        "0": "詳細を補足しています…",
+        "1": "説明を広げています…",
+        "2": "後続の内容を整えています…",
+        "3": "詳細を整理中です…",
+        "4": "返答を磨き上げています…"
+      },
+      "followup": {
+        "0": "ご質問の詳細を補足しています…",
+        "1": "追加質問の要点を広げています…",
+        "2": "説明を詳しくしています…",
+        "3": "補足内容を準備しています…",
+        "4": "追加質問への回答をまとめています…"
+      }
+    },
+    "vividTail": "、まもなくです"
   }
 }

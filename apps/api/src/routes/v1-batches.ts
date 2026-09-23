@@ -39,7 +39,19 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { requireApiKeyAuth } from '../plugins/api-key-auth.js'
+import { config } from '../config/index.js'
 import { requireCapabilityRules } from '../utils/capability-guard.js'
+import {
+  CURSOR_KIND,
+  clampLimit,
+  pageOf,
+  readCursorPageRequest,
+  resolveAfter,
+  wantsCursorPageFormat,
+  withNextCursor,
+  type CursorBinding,
+  type PageRequest,
+} from '../utils/cursor-page.js'
 import { error } from '../utils/response.js'
 import {
   type BatchTaskStatus,
@@ -96,21 +108,24 @@ const anthropicCreateBatchSchema = z.object({
 })
 
 // =============================================================================
-// 列表查询辅助(SCAN + 过滤,按创建时间降序)
+// 列表查询辅助(SCAN + 过滤,按创建时间降序)+ 分页参数解析(O10b)
 // =============================================================================
 
+/** 分页边界:与路由里既有的 20/100 一字不改,只是搬来给两种模式共用。 */
+const PAGE_LIMITS = { def: 20, max: 100 } as const
+
 /**
- * 列出指定 API Key 的任务(SCAN + 过滤,按创建时间降序)。
+ * 扫出本 API Key 的全部任务(SCAN + 过滤,按创建时间降序)。
+ *
  * @param filter 类型过滤函数(区分 OpenAI/Anthropic)
- * @param limit 分页大小
- * @param afterId 游标(上一页最后一条任务 ID,返回此 ID 之后的任务)
+ * @param limit 扫描预算 —— 与改造前同一条 `results.length < limit * 2` 收口条件,
+ *              切片动作已交给 `pageOf`,这里只决定"扫到哪儿为止"。
  */
-async function listTasksByUser<T extends OpenAIBatchTask | AnthropicBatchTask>(
+async function collectTasksByUser<T extends OpenAIBatchTask | AnthropicBatchTask>(
   redis: Parameters<FastifyPluginAsync>[0]['redis'],
   apiKeyId: string,
   filter: (task: T) => boolean,
   limit: number,
-  afterId: string | null,
 ): Promise<T[]> {
   const results: T[] = []
   let cursor = '0'
@@ -144,14 +159,36 @@ async function listTasksByUser<T extends OpenAIBatchTask | AnthropicBatchTask>(
     const tb = typeof b.created_at === 'number' ? b.created_at : Date.parse(b.created_at)
     return tb - ta
   })
+  return results
+}
 
-  // 分页:afterId 之后的任务
-  let startIdx = 0
-  if (afterId) {
-    const idx = results.findIndex((t) => t.id === afterId)
-    if (idx >= 0) startIdx = idx + 1
+/** 列表分页解析结果(与 v1-assistants 同形,两条来路的差别只在 limit 判据与是否发游标)。 */
+type BatchPageRead =
+  { ok: true; request: PageRequest; cursorMode: boolean } | { ok: false; message: string }
+
+/**
+ * 读 `/v1/batches` 的分页参数。
+ * - 默认(旧):`limit` 由路由上的 Ajv querystring 校验兜住,这里只留同一条夹紧兜底;
+ *   `after` 是裸任务 id —— 响应不新增任何键,逐字节不变。
+ * - `page_format=cursor`(新):走 `readCursorPageRequest`,`limit` 越界改为夹紧,
+ *   响应末尾追加 `next_cursor`。
+ * 两条路都过 `resolveAfter`:游标串解不开就 400,绝不悄悄退回第一页。
+ */
+function readBatchPage(query: Record<string, unknown>, binding: CursorBinding): BatchPageRead {
+  const secret = config.JWT_SECRET
+  if (wantsCursorPageFormat(query)) {
+    const parsed = readCursorPageRequest({ query, binding, secret, limits: PAGE_LIMITS })
+    return parsed.ok
+      ? { ok: true, request: parsed.request, cursorMode: true }
+      : { ok: false, message: parsed.message }
   }
-  return results.slice(startIdx, startIdx + limit)
+  const after = resolveAfter(query.after, binding, secret)
+  if (!after.ok) return after
+  return {
+    ok: true,
+    request: { limit: clampLimit(query.limit, PAGE_LIMITS), afterId: after.afterId },
+    cursorMode: false,
+  }
 }
 
 // =============================================================================
@@ -359,7 +396,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // 5. GET /batches — 列出任务(分页 limit/after)
+  // 5. GET /batches — 列出任务(分页 limit/after;page_format=cursor 走不透明游标)
   server.get(
     '/batches',
     {
@@ -370,36 +407,61 @@ const v1Batches: FastifyPluginAsync = async (server) => {
           type: 'object',
           properties: {
             limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
-            after: { type: 'string', description: '游标(上一页最后一条任务 ID)' },
+            after: {
+              type: 'string',
+              description: '游标(上一页 last_id,或 next_cursor 的不透明串)',
+            },
+            page_format: {
+              type: 'string',
+              enum: ['cursor'],
+              description: '传 cursor 时 after 收不透明游标,响应追加 next_cursor',
+            },
           },
         },
       },
       preHandler: [requireApiKeyAuth, batchCapabilityGate],
     },
     async (request, reply) => {
-      const query = request.query as { limit?: number; after?: string }
-      const limit = Math.min(100, Math.max(1, query.limit ?? 20))
-      const after = query.after ?? null
       const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
       if (!apiKey) {
         return reply.status(401).send(error(401, 'API key authentication required'))
       }
-
-      const tasks = await listTasksByUser<OpenAIBatchTask>(
+      // 归属维度就是这条列表实际用来过滤的那个字段(_apiKeyId),游标因此只能在本 key 自己的
+      // 任务列表里往前翻 —— 别的 key / 别的列表族拿它来翻页一律解不开。
+      const binding: CursorBinding = {
+        kind: CURSOR_KIND.batches,
+        ownerKey: `key:${apiKey.id}`,
+      }
+      const page = readBatchPage(request.query as Record<string, unknown>, binding)
+      if (!page.ok) return reply.status(400).send(error(400, page.message))
+      const tasks = await collectTasksByUser<OpenAIBatchTask>(
         redis,
         apiKey.id,
         (t) => t.object === 'batch',
-        limit,
-        after,
+        page.request.limit,
       )
-      const data = tasks.map(toOpenAIBatchResponse)
-      return reply.send({
-        object: 'list',
-        data,
-        has_more: data.length === limit,
-        first_id: (data[0]?.id as string | undefined) ?? null,
-        last_id: (data[data.length - 1]?.id as string | undefined) ?? null,
+      const outcome = pageOf(tasks, {
+        request: page.request,
+        idOf: (t) => t.id,
+        hasMoreRule: 'page-full',
+        cursor: page.cursorMode ? { binding, secret: config.JWT_SECRET } : null,
       })
+      if (page.cursorMode && outcome.anchor_missing) {
+        return reply.status(400).send(error(400, 'Invalid or expired cursor'))
+      }
+      const data = outcome.data.map(toOpenAIBatchResponse)
+      return reply.send(
+        withNextCursor(
+          {
+            object: 'list',
+            data,
+            has_more: outcome.has_more,
+            first_id: outcome.first_id,
+            last_id: outcome.last_id,
+          },
+          outcome.next_cursor,
+        ),
+      )
     },
   )
 

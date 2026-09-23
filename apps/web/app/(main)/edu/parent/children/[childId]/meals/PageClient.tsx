@@ -31,16 +31,26 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const MEAL_TYPE_LABELS: Record<string, string> = {
-  breakfast: '早餐',
-  lunch: '午餐',
-  dinner: '晚餐',
-  snack: '加餐',
+/** 餐次码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码,中文只是展示侧) */
+const MEAL_TYPE_KEYS: Record<string, string> = {
+  breakfast: 'mealBreakfast',
+  lunch: 'mealLunch',
+  dinner: 'mealDinner',
+  snack: 'mealSnack',
+}
+
+type Translator = (key: string) => string
+
+/** 码 → 取词键 → 本地化文案;未知码回退原码 */
+function codeLabel(t: Translator, keys: Record<string, string>, code: string): string {
+  const key = keys[code]
+  return key ? t(key) : code
 }
 
 export default function ChildMealsPage() {
   const t = useTranslations('parentPortal')
   const tc = useTranslations('common')
+  const tParent = useTranslations('eduParent')
   const params = useParams()
   const childId = params.childId as string
 
@@ -87,7 +97,7 @@ export default function ChildMealsPage() {
               <Card key={type}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {MEAL_TYPE_LABELS[type] ?? type}
+                    {codeLabel(tParent, MEAL_TYPE_KEYS, type)}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">

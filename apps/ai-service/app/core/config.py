@@ -360,11 +360,24 @@ def _sync_env_file_to_os() -> None:
             "API_INTERNAL_BASE_URL",
             "UI_ACTION_TOOLS",
             "UI_ACTION_TIMEOUT",
+            # 服务端自主注入操控工具(2026-09-21):control_autonomy 用 os.environ.get 直读,
+            # 不进白名单则 .env 里设了也不生效(与上面那几个键同一类静默失效)。
+            "CONTROL_AUTONOMY",
             # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
             # 代理变量,.env 值必须同步进环境才会生效。NO_PROXY 保证国内 Provider
             # 与本机服务直连。
             "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
             "http_proxy", "https_proxy", "no_proxy",
+        ) or key.startswith(
+            # 生产⇄开发 全表同步调度器(2026-09-22):db_sync_scheduler 以 os.environ.get
+            # 直读 11 个 DB_SYNC_* 开关。不进白名单 → .env 里写了 DB_SYNC_ENABLED=true
+            # 也读不到 → enabled 恒 False → start() 静默返回,程序内自动化永不运行,
+            # 而日志只留一行"未启用",排查时极易误判成"开关没配"。
+            # 属本文件反复记录过的同一类"静默失效"(第 5 次)。
+            # 本机实测:导入本模块后 os.environ["DB_SYNC_ENABLED"] is None、
+            # db_sync_scheduler.enabled is False,而 .env 里该键确为 true。
+            # 用前缀而非逐个列键:后续新增 DB_SYNC_* 开关自动覆盖。
+            "DB_SYNC_",
         ):
             os.environ.setdefault(key, value)
 

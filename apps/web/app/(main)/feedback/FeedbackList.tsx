@@ -80,7 +80,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
                 TYPE_BADGE[fb.type],
               )}
             >
-              {t(TYPE_KEY[fb.type] ?? 'type_unknown')}
+              {t(TYPE_KEY[fb.type] ?? 'typeUnknown')}
             </span>
             <span
               className={cn(
@@ -88,7 +88,7 @@ export function FeedbackList({ list, isLoading, error }: Props) {
                 STATUS_BADGE[fb.status],
               )}
             >
-              {t(STATUS_KEY[fb.status] ?? 'status_unknown')}
+              {t(STATUS_KEY[fb.status] ?? 'statusUnknown')}
             </span>
           </Link>
         )

@@ -10,6 +10,14 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { FoldableSection, formatDuration } from './foldable-section'
+import { ShowMoreList } from './show-more-list'
+import { toolDisplayKey } from '@ihui/shared/chat'
+import { useAnalytics } from '@/hooks/use-analytics'
+import {
+  aggregateCategoryRuns,
+  summarizeCategoriesByTool,
+  type CategoryRun,
+} from '@/components/chat/message-list/fold-policy'
 import type { ToolCallSummary } from '@ihui/types/ai'
 
 /**
@@ -184,46 +192,17 @@ function StatChip({
     <Tooltip content={label}>
       <span
         className={cn(
-          'inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70',
+          'inline-flex h-4 min-w-4 shrink-0 items-center gap-1 rounded-sm bg-muted/50 px-1 text-[11px] leading-none tabular-nums text-muted-foreground',
           colorClass,
         )}
         aria-label={label}
         data-testid={testId}
       >
-        <Icon className="h-2 w-2" aria-hidden />
+        <Icon className="h-3 w-3" aria-hidden />
         <span className="font-medium">{value}</span>
       </span>
     </Tooltip>
   )
-}
-
-// ─── i18n 动态 key 包装(与 timeline-tab.tsx 一致,允许新 key 缺失时回退) ──
-
-const warnedSummaryKeys = new Set<string>()
-type LooseTranslator = (key: string, values?: Record<string, unknown>) => string
-
-function safeT(
-  t: ReturnType<typeof useTranslations<'ai.pane'>>,
-  key: string,
-  fallback: string,
-  values?: Record<string, unknown>,
-): string {
-  const looseT = t as unknown as LooseTranslator
-  try {
-    const v = looseT(key, values)
-    if (v === key || !v) {
-      if (!warnedSummaryKeys.has(key)) {
-        warnedSummaryKeys.add(key)
-        console.warn(
-          `[tool-call-summary-card] i18n key 'ai.pane.${key}' missing, using fallback: "${fallback}"`,
-        )
-      }
-      return fallback
-    }
-    return v
-  } catch {
-    return fallback
-  }
 }
 
 /**
@@ -233,6 +212,79 @@ function safeT(
  * - 折叠态:一行 chip 展示 5 项核心统计(文件搜索 / 网页搜索 / 文件修改 / +行 / -行 / 耗时)
  * - 展开态:完整 6 项 + 工具分类列表(toolsByCategory 按调用次数排序)
  */
+// ─── D58 类目卡(单个类目 → 一张折叠卡,含折叠点击埋点) ──
+
+type TFn = (key: string, values?: Record<string, string | number>) => string
+
+interface CategoryCardProps {
+  run: CategoryRun
+  t: TFn
+  tStatus: TFn
+  toolDisplayKeyFn: (toolName: string) => string | null
+}
+
+/**
+ * CategoryCard — D58 单个类目卡。
+ * 沿用既有 FoldableSection(不新建折叠组件),仅在其 onOpenChange 上补折叠点击埋点:
+ *   cardType / group_key / children_count 三字段,经既有 useAnalytics 通道上报。
+ * 受控展开态由本组件内部 state 维护,用户显式展开/收起即更新,不被任何自动策略覆盖(D21 规则①)。
+ */
+function CategoryCard({ run, t, tStatus, toolDisplayKeyFn }: CategoryCardProps) {
+  const { track } = useAnalytics()
+  const [open, setOpen] = React.useState(run.expandStrategy === 'expand')
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    // 折叠点击埋点(D58 验收):cardType / group_key / children_count,复用既有通道
+    track({
+      name: 'tool_category_toggle',
+      category: 'ai',
+      label: run.categoryKey,
+      props: {
+        cardType: 'tool_category',
+        group_key: run.categoryKey,
+        children_count: run.totalCount,
+      },
+    })
+  }
+
+  // 词包键缺失时(主会话统一入库前)回退到类目键,避免 next-intl 抛错中断渲染
+  let title: string
+  try {
+    title = t(run.labelKey)
+  } catch {
+    title = run.categoryKey
+  }
+
+  return (
+    <FoldableSection
+      title={title}
+      count={run.countable ? run.totalCount : undefined}
+      open={open}
+      onOpenChange={handleOpenChange}
+      defaultOpen={run.expandStrategy === 'expand'}
+      data-testid={`tool-call-category-${run.categoryKey}`}
+    >
+      <div className="space-y-0.5 rounded-sm bg-muted/15 px-2 py-0.5 text-[11px]">
+        {run.tools.map((tool, i) => {
+          const dk = toolDisplayKeyFn(tool.toolName)
+          return (
+            <div
+              key={`${tool.toolName}-${i}`}
+              className="flex items-center justify-between gap-2 text-muted-foreground/70"
+            >
+              <span className="truncate">{dk ? tStatus(dk) : tool.toolName}</span>
+              {tool.count > 1 && (
+                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{tool.count}</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </FoldableSection>
+  )
+}
+
 export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
   summary,
   toolCalls,
@@ -240,6 +292,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
   'data-testid': testId,
 }: ToolCallSummaryCardProps) {
   const t = useTranslations('ai.pane')
+  const tStatus = useTranslations('taskStatus')
 
   // toolCalls fingerprint:基于内容(toolName + status)生成稳定字符串。
   // 父级每次 setMessages 会创建新数组引用(即使内容相同),直接依赖 toolCalls 引用
@@ -258,16 +311,22 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 fingerprint 比较,避免引用变化触发重算
   }, [summary, toolCallsFingerprint])
 
-  // 工具分类列表(按调用次数降序)。必须无条件调用(Hook 规则),用可选链防御
-  // effectiveSummary 为 null —— 该 useMemo 原位置在所有条件 return 之后,违反
-  // rules-of-hooks(2026-08-06 修复)。
-  const categoryEntries = React.useMemo(
-    () =>
-      Object.entries(effectiveSummary?.toolsByCategory ?? {})
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 12), // 最多展示 12 项,避免过长
-    [effectiveSummary],
-  )
+  // D58 工具类目聚合层(2026-09-23 · G-71/G-72):
+  // 把工具调用按"类目"聚合(同类连续步骤合并成一张卡)。
+  //  1. 优先用有序 toolCalls:保留时序,实现"同类连续 → 一卡 / 被中断 → 断卡"
+  //  2. 仅在有聚合计数(toolsByCategory)而无 toolCalls 时,退化为每类目单一 run
+  //     (无顺序信息,无法做连续判断)。
+  // 必须无条件调用(Hook 规则);effectiveSummary 为 null 时返回空数组。
+  const categoryRuns = React.useMemo<CategoryRun[]>(() => {
+    if (toolCalls && toolCalls.length > 0) {
+      return aggregateCategoryRuns(toolCalls.map((tc) => ({ toolName: tc.toolName, count: 1 })))
+    }
+    if (effectiveSummary?.toolsByCategory) {
+      return summarizeCategoriesByTool(effectiveSummary.toolsByCategory)
+    }
+    return []
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 有意基于 effectiveSummary / fingerprint 比较
+  }, [effectiveSummary, toolCallsFingerprint])
 
   // 流式中且无 summary 时,不渲染卡片(等首个 summary 到达再显示)
   if (!effectiveSummary) {
@@ -279,9 +338,9 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           data-testid={testId ?? 'tool-call-summary-card'}
           data-state="streaming"
         >
-          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground/60">
+          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/60">
             <Clock className="h-2.5 w-2.5 animate-pulse" aria-hidden />
-            {safeT(t, 'toolSummaryStreaming', '统计工具调用中…')}
+            {t('toolSummaryStreaming')}
           </span>
         </div>
       )
@@ -298,35 +357,35 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
       key: 'filesSearched',
       Icon: FileSearch,
       value: effectiveSummary.filesSearched,
-      label: safeT(t, 'toolSummaryFilesSearched', '搜索文件'),
+      label: t('toolSummaryFilesSearched'),
       colorClass: 'text-blue-500/80',
     },
     {
       key: 'webSearched',
       Icon: Globe,
       value: effectiveSummary.webSearched,
-      label: safeT(t, 'toolSummaryWebSearched', '搜索网页'),
+      label: t('toolSummaryWebSearched'),
       colorClass: 'text-cyan-500/80',
     },
     {
       key: 'filesModified',
       Icon: FilePen,
       value: effectiveSummary.filesModified,
-      label: safeT(t, 'toolSummaryFilesModified', '修改文件'),
+      label: t('toolSummaryFilesModified'),
       colorClass: 'text-amber-500/80',
     },
     {
       key: 'linesAdded',
       Icon: Plus,
       value: effectiveSummary.linesAdded,
-      label: safeT(t, 'toolSummaryLinesAdded', '新增行数'),
+      label: t('toolSummaryLinesAdded'),
       colorClass: 'text-emerald-500/80',
     },
     {
       key: 'linesDeleted',
       Icon: Minus,
       value: effectiveSummary.linesDeleted,
-      label: safeT(t, 'toolSummaryLinesDeleted', '删除行数'),
+      label: t('toolSummaryLinesDeleted'),
       colorClass: 'text-rose-500/80',
     },
   ]
@@ -338,7 +397,7 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
     .map((c) => `${c.label} ${c.value}`)
     .join(' · ')
 
-  const title = safeT(t, 'toolSummaryTitle', '工具调用汇总')
+  const title = t('toolSummaryTitle')
   const allChipsHidden = visibleChips.length === 0 && !effectiveSummary.totalDurationMs
 
   // 全部统计为 0 + 无耗时 → 不渲染卡片
@@ -371,13 +430,13 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
           })}
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
-              <Tooltip content={safeT(t, 'toolSummaryDuration', '总耗时')}>
+              <Tooltip content={t('toolSummaryDuration')}>
                 <span
-                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[9px] tabular-nums text-muted-foreground/70"
-                  aria-label={safeT(t, 'toolSummaryDuration', '总耗时')}
+                  className="inline-flex shrink-0 items-center gap-0.5 rounded-sm bg-muted/50 px-1 py-0.5 text-[11px] tabular-nums text-muted-foreground/70"
+                  aria-label={t('toolSummaryDuration')}
                   data-testid="tool-call-summary-chip-duration"
                 >
-                  <Clock className="h-2 w-2" aria-hidden />
+                  <Clock className="h-3 w-3" aria-hidden />
                   <span className="font-medium">
                     {formatDuration(effectiveSummary.totalDurationMs)}
                   </span>
@@ -386,37 +445,40 @@ export const ToolCallSummaryCard = React.memo(function ToolCallSummaryCard({
             )}
         </div>
 
-        {/* 工具分类列表(展开态显示) */}
-        {categoryEntries.length > 0 && (
-          <div
-            className="grid grid-cols-2 gap-x-3 gap-y-0.5 rounded-sm bg-muted/20 px-2 py-0.5 text-[9px]"
-            data-testid="tool-call-summary-categories"
-          >
-            {categoryEntries.map(([name, count]) => (
-              <div
-                key={name}
-                className="flex items-center justify-between gap-2 text-muted-foreground/70"
-              >
-                <span className="truncate font-mono">{name}</span>
-                <span className="shrink-0 tabular-nums text-muted-foreground/60">×{count}</span>
-              </div>
-            ))}
+        {/* D58 类目聚合层:按类目分组渲染(同类连续步骤聚合成一张卡) */}
+        {categoryRuns.length > 0 && (
+          <div className="space-y-1" data-testid="tool-call-summary-categories">
+            <ShowMoreList
+              items={categoryRuns}
+              initialCount={6}
+              testId="tool-call-summary-category-list"
+              moreLabel={t('toolSummaryShowMore')}
+              lessLabel={t('toolSummaryShowLess')}
+              renderItem={(run) => (
+                <CategoryCard
+                  key={run.categoryKey}
+                  run={run}
+                  t={t}
+                  tStatus={tStatus}
+                  toolDisplayKeyFn={toolDisplayKey}
+                />
+              )}
+            />
           </div>
         )}
 
         {/* 总览(展开态显示) */}
         <div
-          className="flex items-center gap-3 text-[9px] text-muted-foreground/60"
+          className="flex items-center gap-3 text-[11px] text-muted-foreground/60"
           data-testid="tool-call-summary-overview"
         >
           <span>
-            {safeT(t, 'toolSummaryTotalCalls', '总调用')}: {effectiveSummary.totalCalls}
+            {t('toolSummaryTotalCalls')}: {effectiveSummary.totalCalls}
           </span>
           {effectiveSummary.totalDurationMs !== undefined &&
             effectiveSummary.totalDurationMs > 0 && (
               <span>
-                {safeT(t, 'toolSummaryDuration', '总耗时')}:{' '}
-                {formatDuration(effectiveSummary.totalDurationMs)}
+                {t('toolSummaryDuration')}: {formatDuration(effectiveSummary.totalDurationMs)}
               </span>
             )}
         </div>

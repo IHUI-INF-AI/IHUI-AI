@@ -47,7 +47,11 @@ export async function claimRefreshToken(token: string): Promise<ClaimedRefreshTo
     })
   const row = rows[0]
   if (!row) return null
-  return { userId: row.userId ?? null, familyId: row.familyId ?? null, expiresAt: row.expiresAt ?? null }
+  return {
+    userId: row.userId ?? null,
+    familyId: row.familyId ?? null,
+    expiresAt: row.expiresAt ?? null,
+  }
 }
 
 /**

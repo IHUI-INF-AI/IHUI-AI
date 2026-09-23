@@ -45,8 +45,29 @@ $WinDir   = Join-Path $Root 'deploy\win'
 $LockFile = Join-Path $WinDir '.deploy-loop.lock'
 $LogFile  = Join-Path $WinDir 'deploy-loop.log'
 
-function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m) }
+# ── 日志时间戳带时区(2026-09-21 根治):生产机时钟为 UTC,裸时间曾导致人工误判
+#    「日志停更 7.5 小时」(实为 UTC)。一律带 +偏移,人眼可辨时区。
+function LogLine { param([string]$m) ("[{0}] {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'), $m) }
 function Log     { param([string]$m) Add-Content -Path $LogFile -Value (LogLine $m) }
+
+# ── 日志轮转(2026-09-21 根治):deploy-loop.log 只增不滚,两个月积到 53MB,排查时
+#    -Tail 变慢且历史噪音淹没有效信息。每轮部署轮询前检查:超过 50MB 即重命名为
+#    带时间戳归档,保留最近 5 份。Add-Content 每次按路径重新打开,轮转后自动建新
+#    文件,无需重启守护;轮转异常只跳过,不影响部署。
+$LogMaxBytes = 50MB
+$LogKeep     = 5
+function Invoke-LogRotate {
+    try {
+        if (-not (Test-Path $LogFile)) { return }
+        if ((Get-Item $LogFile -ErrorAction Stop).Length -lt $LogMaxBytes) { return }
+        $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+        Move-Item $LogFile (Join-Path $WinDir "deploy-loop-$stamp.log") -Force
+        Get-ChildItem (Join-Path $WinDir 'deploy-loop-*.log') -File -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending | Select-Object -Skip $LogKeep |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+        Log "日志已轮转: deploy-loop.log → deploy-loop-$stamp.log(保留最近 $LogKeep 份)"
+    } catch {}
+}
 
 # ── pwsh 解析(2026-09-13 加固,实测):SYSTEM 上下文 PATH 不含 PowerShell 7,
 #    裸 `pwsh` 会 command-not-found → 循环静默哑火。必须 PS7 —— PS5.1 在本机缺
@@ -75,8 +96,11 @@ function Invoke-PollOnce {
     try {
         # ---- 2) 调真实部署脚本(不带 -deployLatest:落后才部署,behind=0 优雅退出) ----
         Log "———— 部署轮询开始 ————"
-        $out = & $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') 2>&1
-        foreach ($line in $out) { Log "[deploy] $line" }
+        # 流式落盘(2026-09-21 根治):旧写法 `$out = & pwsh ... 2>&1` 先在内存攒完子进程
+        # 全部输出再统一落盘,部署全程(最长 30+ 分钟)日志零写入 —— 「日志停更」无法
+        # 区分是故障还是正常构建中(本次事故排查的主要干扰源)。改管道逐行实时落盘。
+        & $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') 2>&1 |
+            ForEach-Object { Log "[deploy] $_" }
         Log "———— 部署轮询结束(exit=$LASTEXITCODE) ————"
     } finally {
         Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
@@ -86,10 +110,12 @@ function Invoke-PollOnce {
 if ($Daemon) {
     Log "==== 部署守护启动(pid=$PID, interval=${IntervalSeconds}s, pwsh=$PwshExe) ===="
     while ($true) {
+        Invoke-LogRotate
         Invoke-PollOnce
         Start-Sleep -Seconds $IntervalSeconds
     }
 } else {
+    Invoke-LogRotate
     Invoke-PollOnce
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

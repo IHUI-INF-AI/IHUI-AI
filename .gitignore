@@ -210,6 +210,11 @@ grafanadata/
 !apps/miniapp-taro/src/index.html
 i18n-report*.json
 openapi.json
+# O8(2026-09-21):apps/api 的契约产物**必须入库** —— 它此前被上面这条全局规则顺手
+# 忽略掉,导致 openapi-check 只能"产物不存在→跳过",形成恒绿假门禁,也让 [E] 漂移比对
+# 没有 committed 基线可比。negation 必须写在 `openapi.json` **之后**(git 取最后一条
+# 匹配的规则生效,写前面等于没写)。其余目录生成的 openapi.json 仍按忽略处理。
+!apps/api/openapi.json
 openapi_problems.json
 report.json
 .html-share-packages/
@@ -441,3 +446,6 @@ apps/web/public/downloads/extension/*.zip
 
 # Server酱部署告警当日计数(生产运行时生成,不入库)
 deploy/win/.sct-notify-state.json
+# 构建失败冷却状态(生产运行时生成,不入库;脏工作树会让 merge --ff-only 失败)
+deploy/win/.build-fail-state.json
+deploy/win/.migrate-alert-state.json

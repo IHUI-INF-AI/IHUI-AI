@@ -24,6 +24,7 @@ import pytest
 
 from app.services.model_catalog import (
     LEGACY_RELEASE_DAYS,
+    PROVIDER_TOP_GEN_REASON,
     ModelCategory,
     ModelTier,
     annotate_models,
@@ -159,6 +160,17 @@ def test_openai_o_series_needs_left_boundary() -> None:
 )
 def test_latest_alias_is_curated(model_id: str) -> None:
     assert _tier_of(model_id, "openrouter") == ModelTier.LATEST.value
+
+
+def test_mimo_flagship_curated_but_specialized_variants_are_not() -> None:
+    """MiMo 官方回裸名(mimo-v2.5 而非 xiaomi/mimo-*),白名单要按裸名命中;
+    同代次的 tts/asr 属专用模型,不能被抬进聊天默认区。"""
+    assert _tier_of("mimo-v2.5", "mimo") == ModelTier.LATEST.value
+    assert _tier_of("mimo-v2.5-pro", "mimo") == ModelTier.LATEST.value
+    assert _cat_of("mimo-v2.5", "mimo") == "chat"
+    for specialized in ("mimo-v2.5-tts", "mimo-v2.5-asr", "mimo-v2.5-tts-voiceclone"):
+        assert _tier_of(specialized, "mimo") != ModelTier.LATEST.value
+    assert _tier_of("mimo-v2.5-free", "mimo") != ModelTier.LATEST.value
 
 
 def test_latest_alias_of_old_generation_still_demoted() -> None:
@@ -451,4 +463,201 @@ def test_annotate_models_explicit_capabilities_preset_wins() -> None:
     annotate_models(models)
     assert models[0]["capabilities"]["vision"] is True
     assert "bogus" not in models[0]["capabilities"]
+
+
+# ---------------------------------------------------------------------------
+# 零 curated 厂商兜底(2026-09-25 立)
+#
+# 起因:CURATED_LATEST 逐厂商手补不可持续 —— agnes / siliconcloud 这类免费/中转厂商
+# 一条白名单都没有,整家 chat 模型全被 `unclassified-default` 判成 standard,聊天选择器
+# 里一个字都不显示。兜底只抬"本批次内零 curated 命中"厂商的最高代次 chat 模型。
+# ---------------------------------------------------------------------------
+
+#: 同一家虚构零白名单厂商的完整矩阵:2.5 是最高代次,1.8 是同系列旧代次,
+#: pulsar-1.2 是厂商内更低的另一个系列,四类豁免各一条,外加一条版本不可解析。
+_UNLISTED_VENDOR_BATCH = (
+    "fakevendor/nova-2.5-flash",
+    "fakevendor/nova-2.5-pro",
+    "fakevendor/nova-1.8-plus",
+    "fakevendor/pulsar-1.2-chat",
+    "fakevendor/nova-2.5-flash-free",
+    "fakevendor/nova-2.5-flash-0813",
+    "fakevendor/nova-2.5-exp",
+    "fakevendor/nova-2.5-vision",
+    "fakevendor/nova-2.5-embed",
+    "fakevendor/mystic-chat",
+)
+
+
+def _annotate(ids: tuple[str, ...] | list[str], provider: str) -> dict[str, str]:
+    models = [_mk(str(i), provider) for i in ids]
+    annotate_models(models, now=NOW)
+    return {str(m["id"]): str(m["model_tier"]) for m in models}
+
+
+def test_zero_curated_provider_top_generation_is_promoted() -> None:
+    """零白名单厂商:最高代次的 chat 模型抬进默认列表,reason 可独立断言。"""
+    tiers = _annotate(_UNLISTED_VENDOR_BATCH, "zzvendor")
+    for mid in ("fakevendor/nova-2.5-flash", "fakevendor/nova-2.5-pro"):
+        assert tiers[mid] == ModelTier.LATEST.value, f"{mid} 应被兜底抬起"
+
+    models = [_mk(str(i), "zzvendor") for i in _UNLISTED_VENDOR_BATCH]
+    annotate_models(models, now=NOW)
+    by_id = {str(m["id"]): m for m in models}
+    promoted = [i for i, m in by_id.items() if m["classify_reason"] == PROVIDER_TOP_GEN_REASON]
+    assert sorted(promoted) == ["fakevendor/nova-2.5-flash", "fakevendor/nova-2.5-pro"]
+    # 抬级发生在代次比较之后 → capabilities 按终态 latest 派生(reasoning 兜底为 True)
+    assert by_id["fakevendor/nova-2.5-flash"]["capabilities"]["reasoning"] is True
+
+
+def test_zero_curated_provider_older_generations_stay_suppressed() -> None:
+    """兜底不能变成"整家放出":同系列旧代次、厂商内次高系列仍留在折叠区。"""
+    tiers = _annotate(_UNLISTED_VENDOR_BATCH, "zzvendor")
+    # 同系列旧主版本 → 第二趟已压成 legacy,兜底不认它
+    assert tiers["fakevendor/nova-1.8-plus"] == ModelTier.LEGACY.value
+    # 另一系列但版本低于厂商最高代次 → 保持 standard
+    assert tiers["fakevendor/pulsar-1.2-chat"] == ModelTier.STANDARD.value
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "fakevendor/nova-2.5-flash-free",  # -free 价格变体
+        "fakevendor/nova-2.5-flash:batch",  # :batch 渠道变体
+        "fakevendor/nova-2.5-flash-0813",  # 日期快照
+        "fakevendor/nova-2.5-exp",  # 实验版
+        "fakevendor/nova-2.5-preview",  # 预览版
+        "fakevendor/nova-2.5-vision",  # 视觉理解(非 chat 用途)
+        "fakevendor/nova-2.5-embed",  # 嵌入(非对话)
+        "fakevendor/nova-2.5-tts",  # 语音合成(非对话)
+    ],
+)
+def test_fallback_never_lifts_exempt_variants(model_id: str) -> None:
+    """四类豁免(变体标记 / 快照 / experimental / 非 chat)在零白名单厂商里也不抬。"""
+    tiers = _annotate((_UNLISTED_VENDOR_BATCH[0], model_id), "zzvendor")
+    assert tiers[model_id] != ModelTier.LATEST.value, f"{model_id} 不得被兜底抬成 latest"
+
+
+def test_fallback_skips_unparseable_versions() -> None:
+    """整家版本都解析不出来 → 一个都不抬(宁缺毋滥,不做无依据的猜测)。"""
+    tiers = _annotate(("mystery/a-chat", "mystery/b-instruct", "mystery/top-model"), "zzvendor")
+    assert all(t == ModelTier.STANDARD.value for t in tiers.values()), tiers
+
+
+def test_fallback_disabled_for_provider_with_curated_hit() -> None:
+    """厂商只要有一条 curated 命中,兜底整厂失效 —— 老代次不得借道回默认列表。"""
+    ids = ["fakevendor/nova-2.5-flash", "fakevendor/orbit-latest"]  # orbit-latest 命中 `-latest$`
+    assert _annotate(ids, "zzvendor")["fakevendor/nova-2.5-flash"] == ModelTier.STANDARD.value
+    # 去掉那条 curated 命中后,同一条模型才被兜底抬起(证明上一行的抑制来自 curated 判据)
+    assert _annotate(["fakevendor/nova-2.5-flash"], "zzvendor")["fakevendor/nova-2.5-flash"] == (
+        ModelTier.LATEST.value
+    )
+
+
+def test_fallback_ignores_models_without_provider() -> None:
+    """provider 缺失时无法归属厂商(跨厂商比版本没有意义)→ 不参与兜底。"""
+    models = [{"id": "orphan-2.5-chat"}]
+    annotate_models(models, now=NOW)
+    assert models[0]["model_tier"] == ModelTier.STANDARD.value
+
+
+def test_fallback_respects_preset_tier() -> None:
+    """default_models.json 手工标注为 standard 的模型不被兜底改成 latest。"""
+    models = [
+        {"id": "fakevendor/nova-2.5-flash", "provider": "zzvendor", "model_tier": "standard"},
+        _mk("fakevendor/nova-2.5-pro", "zzvendor"),
+    ]
+    annotate_models(models, now=NOW)
+    assert models[0]["model_tier"] == ModelTier.STANDARD.value
+    assert models[0]["classify_reason"].startswith("preset:")
+    assert models[1]["model_tier"] == ModelTier.LATEST.value
+
+
+@pytest.mark.parametrize(
+    "provider,anchor,old_ids",
+    [
+        # 真实批次里,这些厂商都自带一条 curated 命中 → 兜底整厂不生效
+        ("qwen", "qwen3.8-max", ["qwen2.5-7b-instruct", "qwen-turbo"]),
+        (
+            "openrouter",
+            "openrouter/meta-llama/Llama-4-Maverick",
+            ["openrouter/meta-llama/Llama-3.1-8B-Instruct", "openrouter/meta-llama/Llama-3.2-3B"],
+        ),
+        ("zhipu", "glm-5", ["glm-4-plus", "GLM-4-Long"]),
+        ("deepseek", "deepseek-v4-pro", ["deepseek-v3", "deepseek-ai/DeepSeek-V2"]),
+        (
+            "gemini",
+            "gemini/gemini-3.1-flash",
+            ["gemini/gemini-2.5-flash-native-audio-latest"],
+        ),
+    ],
+)
+def test_fallback_does_not_resurface_known_old_models(
+    provider: str, anchor: str, old_ids: list[str]
+) -> None:
+    """回归:已有 curated 覆盖的厂商,老代次模型既不被第二趟豁免也不被兜底抬起。"""
+    models = [_mk(mid, provider) for mid in [anchor, *old_ids]]
+    annotate_models(models, now=NOW)
+    tiers = {str(m["id"]): str(m["model_tier"]) for m in models}
+    assert tiers[anchor] == ModelTier.LATEST.value, f"锚点 {anchor} 应在默认列表"
+    for mid in old_ids:
+        assert tiers[mid] != ModelTier.LATEST.value, f"{mid} 不该因兜底回到默认列表:{tiers}"
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    [
+        "qwen2.5-7b-instruct",
+        "qwen-turbo",
+        "llama-3.1-8b",
+        "glm-4-plus",
+        "deepseek-v3",
+    ],
+)
+def test_classify_model_single_id_baseline_unchanged(model_id: str) -> None:
+    """单模型口径(兜底只作用于 annotate 批量层,这里必须逐条保持非 latest)。
+
+    `gemini-2.5-flash-native-audio-latest` 不在此列:它命中 `-latest$` 白名单,
+    单模型口径本就是 latest,靠批量代次比较压级(见上一条参数化用例)。
+    """
+    assert classify_model(model_id, "openrouter", now=NOW).tier is not ModelTier.LATEST
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_fallback_uses_cross_provider_family_knowledge() -> None:
+    """兜底不能把"别家已知道是老代次"的模型抬回默认列表。
+
+    cf_zero 自己没 curated 命中(它的 llama-4 是 curated → 整厂跳过),但 free_host 一家
+    只收录了 llama-3.1:按"厂商内最高版本"它会是冠军,而 llama-4 已由别家证明是当前代次。
+    """
+    models = [
+        _mk("@cf/meta/llama-4-scout-17b-16e-instruct", "cf_zero"),
+        _mk("free-host/llama-3.1-8b-instruct", "free_host"),
+    ]
+    annotate_models(models, now=NOW)
+    tiers = {str(m["id"]): str(m["model_tier"]) for m in models}
+    assert tiers["@cf/meta/llama-4-scout-17b-16e-instruct"] == ModelTier.LATEST.value
+    assert tiers["free-host/llama-3.1-8b-instruct"] != ModelTier.LATEST.value, tiers
+
+
+def test_provider_wide_identical_release_date_is_treated_as_seed_artifact() -> None:
+    """整厂同一个 release_date 是灌数据的常量,不能据此把全厂判成"超期 legacy"。
+
+    真实动因:agnes 全厂 release_date=2021-07-20T10:40:00Z,而它是当前唯一免充值可用的通道。
+    """
+    seed = "2021-07-20T10:40:00+00:00"
+    models = [_mk(f"freev-{v}.0", "freev", release_date=seed) for v in (1, 2, 3)]
+    annotate_models(models, now=NOW)
+    by_id = {str(m["id"]): m for m in models}
+    assert by_id["freev-3.0"]["model_tier"] == ModelTier.LATEST.value, by_id["freev-3.0"]
+    assert by_id["freev-1.0"]["model_tier"] != ModelTier.LATEST.value
+
+    real_old = [
+        _mk("oldv-1.0", "oldv", release_date="2021-01-05T00:00:00+00:00"),
+        _mk("oldv-2.0", "oldv", release_date="2021-06-11T00:00:00+00:00"),
+    ]
+    annotate_models(real_old, now=NOW)
+    by_real = {str(m["id"]): m for m in real_old}
+    assert all(m["model_tier"] != ModelTier.LATEST.value for m in real_old), by_real
+    # 日期各不相同 → 时间窗照常生效(最高代次那条也是被"超期"判下,而不是被代次比较压下)
+    assert str(by_real["oldv-2.0"]["classify_reason"]).startswith("released >365d"), by_real["oldv-2.0"]

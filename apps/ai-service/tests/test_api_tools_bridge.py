@@ -411,6 +411,22 @@ async def test_setup_all_mode_registers_writes(monkeypatch: pytest.MonkeyPatch) 
     assert {"api_createorder", "api_deleteorder"} <= names
 
 
+async def test_default_mode_is_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """没配 API_TOOLS_MODE 时必须默认 all —— 否则"AI 操控本站"在默认部署下写不了。
+
+    放开的是可见面不是授权面:写操作的 __user_role>=1 闸门另有用例覆盖。
+    """
+    monkeypatch.delenv("API_TOOLS_MODE", raising=False)
+
+    async def fake_spec(force: bool = False) -> dict[str, Any]:
+        return _SPEC
+
+    monkeypatch.setattr(bridge, "fetch_openapi_spec", fake_spec)
+    await bridge.setup_api_tools_bridge()
+    names = {t.name for t in bridge.mcp_server.list_tools()}
+    assert {"api_listorders", "api_createorder"} <= names
+
+
 async def test_long_tail_endpoint_callable_despite_cap(
     monkeypatch: pytest.MonkeyPatch, captured: list[dict[str, Any]]
 ) -> None:
