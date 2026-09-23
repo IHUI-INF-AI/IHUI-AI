@@ -72,12 +72,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
   },
   tabTextActive: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
   },
   tabTextInactive: {
     fontSize: 16,
