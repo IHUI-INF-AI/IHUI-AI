@@ -85,6 +85,12 @@ export interface ChatMessage {
   model?: string
   /** 该消息是否有错误(错误文本写入 content) */
   error?: boolean
+  /**
+   * D92/D71②:产生该错误消息的后端 `errorCode`(ai-service / api 的业务错误码)。
+   * 只作**分类输入**,渲染侧一律经 `view-failure-taxonomy` 归类后再取词;
+   * 缺失时归 unknown 回落态,不得据此猜因。
+   */
+  errorCode?: string
   /** 推理过程文本(reasoning model 输出) */
   reasoning?: string
   /** 工具调用列表(SSE tool-call 事件累加) */
@@ -127,6 +133,9 @@ export interface ChatMessage {
   /** D39/D108 上游重试交代:网关换 key 或退避重试时下发 retry_scheduled 帧。
    *  没有它,用户在 web 上看到的只是"停顿"(小程序 / RN / cli 均已交代,旗舰端此前缺席)。 */
   retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
+  /** D106 中途引导交代(2026-09-24 立):steer SSE 帧(phase=injected)按 messageId 累积,
+   *  渲染"引导已生效"badge。单消息 8 条封顶(对齐后端 _STEER_QUEUE_LIMIT)。 */
+  steerNotices?: Array<{ phase: 'injected'; text: string; timestamp?: string; messageId?: string }>
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }

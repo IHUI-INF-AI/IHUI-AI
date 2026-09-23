@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * git-push-guard.mjs — 杜绝"commit 后忘记 push"协作事故
@@ -32,7 +31,15 @@
  *   - 手动收尾验证       agent 交付前自验
  */
 import { execSync, execFileSync, spawnSync, spawn } from 'node:child_process'
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync, openSync, closeSync, statfsSync } from 'node:fs'
+import {
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  mkdirSync,
+  openSync,
+  closeSync,
+  statfsSync,
+} from 'node:fs'
 import { resolve } from 'node:path'
 
 const C = {
@@ -51,6 +58,45 @@ function log(level, msg) {
   const color = C[colorMap[level]]
   const icon = iconMap[level]
   console.log(`${color}${icon} ${msg}${C.reset}`)
+}
+
+/**
+ * 推送被 push protection 拒收时,把"是哪几枚未推送 commit 的哪个位置出现凭据形状"直接点名出来。
+ * 有界:最多 60 枚 commit / 每枚最多 400 个文本文件 —— 这段跑在失败分支上,绝不能反过来拖住钩子。
+ * 只报 sha + 文件:行 + 前 10 字符,绝不回显完整串(AGENTS §5d 密钥卫生)。
+ */
+const CREDENTIAL_SHAPE_RE =
+  /xox[bapsre]-[A-Za-z0-9-]{8,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----/
+function findCredentialShapes(fromSha, toSha) {
+  const found = []
+  if (!fromSha || !toSha) return ['  (无法定位:远端 sha 或本地 HEAD 取不到)']
+  const range = run(`git rev-list ${fromSha}..${toSha}`, { allowFail: true }) || ''
+  const shas = range.split('\n').filter(Boolean).slice(0, 60)
+  for (const sha of shas) {
+    if (found.length >= 8) break
+    const files = (run(`git show --name-only --format= ${sha}`, { allowFail: true }) || '')
+      .split('\n')
+      .filter((f) => /\.(ts|tsx|js|mjs|cjs|md|json|py|yml|yaml|go|sh)$/.test(f))
+      .slice(0, 400)
+    for (const f of files) {
+      const body = run(`git show ${sha}:${f}`, { allowFail: true })
+      if (body === null) continue
+      const lines = body.split('\n')
+      for (let i = 0; i < lines.length; i++) {
+        const m = lines[i].match(CREDENTIAL_SHAPE_RE)
+        if (m) {
+          found.push(
+            `${sha.slice(0, 11)} ${f}:${i + 1} → ${m[0].slice(0, 10)}…(${m[0].length} 字符,只报形状不回显)`,
+          )
+          if (found.length >= 8) break
+        }
+      }
+      if (found.length >= 8) break
+    }
+  }
+  if (found.length === 0)
+    found.push('  (未推送区间里没扫到已知凭据形状 —— 可能是远端规则的其他项,如文件体积)')
+  return found
 }
 
 function run(cmd, opts = {}) {
@@ -101,7 +147,11 @@ try {
 // --worker:后台推送 worker 模式(由主模式 detached spawn;真正执行推送+验证+写状态)
 const isWorkerMode = process.argv.includes('--worker') || process.env.GUARD_WORKER === '1'
 
-log('info', `git-push-guard 启动 → 分支: ${C.bold}${targetBranch}${C.reset} | 模式: ${skipPush ? C.yellow + '仅检测' : C.green + '检测+自动推送'}` + C.reset)
+log(
+  'info',
+  `git-push-guard 启动 → 分支: ${C.bold}${targetBranch}${C.reset} | 模式: ${skipPush ? C.yellow + '仅检测' : C.green + '检测+自动推送'}` +
+    C.reset,
+)
 
 // ─── 1. 基础环境检查 ────────────────────────────────────────
 const repoRoot = run('git rev-parse --show-toplevel', { allowFail: true })
@@ -118,7 +168,10 @@ if (!currentBranch) {
 }
 
 if (currentBranch !== targetBranch) {
-  log('warn', `当前分支 ${C.yellow}${currentBranch}${C.reset} 与目标分支 ${C.yellow}${targetBranch}${C.reset} 不一致,改用当前分支`)
+  log(
+    'warn',
+    `当前分支 ${C.yellow}${currentBranch}${C.reset} 与目标分支 ${C.yellow}${targetBranch}${C.reset} 不一致,改用当前分支`,
+  )
 }
 
 const branch = currentBranch
@@ -194,9 +247,15 @@ const checkDanglingRefs = () => {
   } catch {
     return { skipped: true }
   }
-  const rows = listed.stdout.split(/\r?\n/).filter(Boolean).map((l) => l.split('\t'))
+  const rows = listed.stdout
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((l) => l.split('\t'))
   // ② 松散坏 ref:只活在 stderr 的 ignoring 行里
-  const looseBroken = [...listed.stderr.matchAll(/ignoring broken ref (\S+)/g)].map((m) => [m[1], ''])
+  const looseBroken = [...listed.stderr.matchAll(/ignoring broken ref (\S+)/g)].map((m) => [
+    m[1],
+    '',
+  ])
   if (rows.length === 0 && looseBroken.length === 0) return { skipped: true } // 读不到清单:不拦(宁漏不误伤推送)
   const shas = [...new Set(rows.map(([, s]) => s).filter((s) => /^[0-9a-f]{7,40}$/.test(s)))]
   let missing = new Set()
@@ -209,7 +268,12 @@ const checkDanglingRefs = () => {
         maxBuffer: 64 * 1024 * 1024,
         timeout: 300_000,
       }).stdout
-      missing = new Set(String(out).split(/\r?\n/).filter((l) => /\bmissing\b/.test(l)).map((l) => l.split(' ')[0]))
+      missing = new Set(
+        String(out)
+          .split(/\r?\n/)
+          .filter((l) => /\bmissing\b/.test(l))
+          .map((l) => l.split(' ')[0]),
+      )
     } catch {
       return { skipped: true }
     }
@@ -220,13 +284,26 @@ const checkDanglingRefs = () => {
 if (!process.env.GUARD_SKIP_DANGLING_REF_CHECK) {
   const dk = checkDanglingRefs()
   if (!dk.skipped && dk.dang.length > 0) {
-    log('err', `检出 ${dk.dang.length} 枚 ref 指向已不存在的对象(共判 ${dk.total} 条 ref)—— 这会让每次 git fetch 直接 fatal,推送必然推不动`)
-    for (const [ref, sha] of dk.dang.slice(0, 8)) log('info', `  · ${ref} -> ${sha ? sha.slice(0, 12) + '…' : '(对象不可解析,松散坏 ref)'}`)
+    log(
+      'err',
+      `检出 ${dk.dang.length} 枚 ref 指向已不存在的对象(共判 ${dk.total} 条 ref)—— 这会让每次 git fetch 直接 fatal,推送必然推不动`,
+    )
+    for (const [ref, sha] of dk.dang.slice(0, 8))
+      log('info', `  · ${ref} -> ${sha ? sha.slice(0, 12) + '…' : '(对象不可解析,松散坏 ref)'}`)
     if (dk.dang.length > 8) log('info', `  · …另 ${dk.dang.length - 8} 条`)
     log('info', '修复顺序(不可颠倒:先清坏指针,再刷备份,否则把坏指针复制进"恢复源"):')
-    log('info', '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing,名字+sha 先落 .workbuddy/dangling-tags.txt 留证')
-    log('info', '  2) 直删松散文件 .git/refs/<路径>(update-ref -d 对 depth>=2 的嵌套 tag 会返回 0 却不落盘)')
-    log('info', '  3) git fetch origin <branch> 复验;再 git fetch --force origin "+refs/tags/*:refs/tags/*" 从远端取回真 tag')
+    log(
+      'info',
+      '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing,名字+sha 先落 .workbuddy/dangling-tags.txt 留证',
+    )
+    log(
+      'info',
+      '  2) 直删松散文件 .git/refs/<路径>(update-ref -d 对 depth>=2 的嵌套 tag 会返回 0 却不落盘)',
+    )
+    log(
+      'info',
+      '  3) git fetch origin <branch> 复验;再 git fetch --force origin "+refs/tags/*:refs/tags/*" 从远端取回真 tag',
+    )
     log('info', '  4) robocopy .git <仓名>.git-backup-<date> /MIR 重做守护的本地恢复源')
     log('info', '紧急绕过(自行承担失败推送):GUARD_SKIP_DANGLING_REF_CHECK=1')
     process.exit(1)
@@ -250,10 +327,15 @@ if (localHead === remoteHead) {
 // 不用 `--get-regexp` —— 正则里的 `^ ( ) $` 经 execSync 的 shell(cmd.exe)会被吃掉,
 // 故改为两次 `--get`(键名仅含点,跨 shell 安全)。
 const promisorCfg = run('git config --local --get remote.origin.promisor', { allowFail: true })
-const filterCfg = run('git config --local --get remote.origin.partialclonefilter', { allowFail: true })
+const filterCfg = run('git config --local --get remote.origin.partialclonefilter', {
+  allowFail: true,
+})
 if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
   log('err', '本仓处于 partial-clone 状态(对象库不完整),push 必然失败,已拦在推送之前')
-  log('info', `命中配置: remote.origin.promisor=${promisorCfg ?? '(未设置)'} remote.origin.partialclonefilter=${filterCfg ?? '(未设置)'}`)
+  log(
+    'info',
+    `命中配置: remote.origin.promisor=${promisorCfg ?? '(未设置)'} remote.origin.partialclonefilter=${filterCfg ?? '(未设置)'}`,
+  )
   log('info', '修复三步:')
   log('info', '  git config --local --unset remote.origin.partialclonefilter')
   log('info', '  git config --local --unset remote.origin.promisor')
@@ -367,10 +449,12 @@ if (process.argv.includes('--watchdog')) {
       process.exit(0)
     }
     const st = readPushState()
-    const workerAlive =
-      st && st.status === 'running' && st.headSha === lh && isPidAlive(st.pid)
+    const workerAlive = st && st.status === 'running' && st.headSha === lh && isPidAlive(st.pid)
     if (workerAlive) continue
-    log('warn', `watchdog: 本地 ahead 且无存活 worker(残留状态 ${st ? st.status : '无'}),触发同步推送自愈`)
+    log(
+      'warn',
+      `watchdog: 本地 ahead 且无存活 worker(残留状态 ${st ? st.status : '无'}),触发同步推送自愈`,
+    )
     const res = spawnSync(
       process.execPath,
       [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`],
@@ -431,7 +515,10 @@ if (isWorkerMode) {
     ) {
       break
     }
-    log('info', `另一后台推送在途(HEAD ${String(prev.headSha).slice(0, 7)}),等待其落定后串行执行...`)
+    log(
+      'info',
+      `另一后台推送在途(HEAD ${String(prev.headSha).slice(0, 7)}),等待其落定后串行执行...`,
+    )
     await new Promise((r) => setTimeout(r, 10_000))
   }
   writePushState('running', localHead)
@@ -450,8 +537,13 @@ if (isWorkerMode) {
   const WORKER_MAX_LIFETIME_MS = 25 * 60 * 1000 // 硬寿命上限:防网络挂起+心跳把 running 永远续下去
   const workerLog = (msg) => {
     try {
-      appendFileSync(resolve(process.cwd(), '.workbuddy/git-push-guard-async.log'), `[${new Date().toISOString()}] [worker ${process.pid}] ${msg}\n`)
-    } catch { /* 日志失败不影响主流程 */ }
+      appendFileSync(
+        resolve(process.cwd(), '.workbuddy/git-push-guard-async.log'),
+        `[${new Date().toISOString()}] [worker ${process.pid}] ${msg}\n`,
+      )
+    } catch {
+      /* 日志失败不影响主流程 */
+    }
   }
   /** 终态写入:只改写「自己名下的 running」——别人的状态/已落终态绝不碰 */
   const terminalize = (status) => {
@@ -461,7 +553,9 @@ if (isWorkerMode) {
       if (s && s.status === 'running' && s.pid === process.pid) {
         writePushState(status, s.headSha)
       }
-    } catch { /* 终态写失败不影响退出 */ }
+    } catch {
+      /* 终态写失败不影响退出 */
+    }
   }
   const heartbeat = setInterval(() => {
     try {
@@ -476,19 +570,21 @@ if (isWorkerMode) {
         s.ts = Date.now()
         writeFileSync(pushStateFile, JSON.stringify(s))
       }
-    } catch { /* 心跳失败不影响主流程 */ }
+    } catch {
+      /* 心跳失败不影响主流程 */
+    }
   }, 15_000)
   // 任何 JS 可见的死法都先落终态:exit 钩子兜底所有 process.exit 路径;
   // uncaughtException/unhandledRejection 兜底运行时异常;信号兜底外部终止。
   process.on('exit', (code) => terminalize(code === 0 ? 'done' : 'failed'))
   process.on('uncaughtException', (e) => {
-    workerLog(`uncaughtException: ${e instanceof Error ? (e.stack || e.message) : String(e)}`)
+    workerLog(`uncaughtException: ${e instanceof Error ? e.stack || e.message : String(e)}`)
     console.error('[worker] uncaughtException:', e)
     terminalize('failed')
     process.exit(1)
   })
   process.on('unhandledRejection', (e) => {
-    workerLog(`unhandledRejection: ${e instanceof Error ? (e.stack || e.message) : String(e)}`)
+    workerLog(`unhandledRejection: ${e instanceof Error ? e.stack || e.message : String(e)}`)
     console.error('[worker] unhandledRejection:', e)
     terminalize('failed')
     process.exit(1)
@@ -513,7 +609,10 @@ if (isWorkerMode) {
   // 必须早于本分叉生效:此前分叉在 skipPush 判断(文件下方)之前,于是"仅检测"
   // 仍会 spawn 后台 worker 去真推送并写 running 状态 —— 逃生舱的承诺被绕过。
   if (existingState && existingState.status === 'failed' && existingState.headSha !== localHead) {
-    log('warn', `上次后台推送失败(HEAD ${String(existingState.headSha).slice(0, 7)}),本次随新提交一并重推`)
+    log(
+      'warn',
+      `上次后台推送失败(HEAD ${String(existingState.headSha).slice(0, 7)}),本次随新提交一并重推`,
+    )
   }
   // 磁盘水位自检(主模式):满盘直接拒绝,不 spawn worker(它会无声崩死)
   if (!assertDiskOk()) {
@@ -531,7 +630,12 @@ if (isWorkerMode) {
       process.execPath,
       [resolve(process.cwd(), 'scripts/git-push-guard.mjs'), `--branch=${branch}`, '--worker'],
       // windowsHide 必须带:Windows 下 detached+控制台程序会弹新 cmd 窗口(用户实测"莫名弹窗"根因)
-      { detached: true, windowsHide: true, stdio: ['ignore', out, out], env: { ...process.env, GUARD_WORKER: '1' } },
+      {
+        detached: true,
+        windowsHide: true,
+        stdio: ['ignore', out, out],
+        env: { ...process.env, GUARD_WORKER: '1' },
+      },
     )
     child.unref()
     try {
@@ -550,8 +654,7 @@ if (isWorkerMode) {
     if (process.platform === 'win32') {
       try {
         // 命令行里含空格路径 → 整体加双引号;嵌入 PS 单引号字符串前转义单引号
-        const cmdLine =
-          `"${process.execPath}" "${resolve(process.cwd(), 'scripts/git-push-guard.mjs')}" --branch=${branch} --watchdog`
+        const cmdLine = `"${process.execPath}" "${resolve(process.cwd(), 'scripts/git-push-guard.mjs')}" --branch=${branch} --watchdog`
         // 2026-09-20 弹窗根治(用户反馈"git 上传时总弹 cmd 窗口,应后台静默"):
         // WMI Win32_Process.Create 默认给新进程分配**可见的新控制台**(node.exe 是
         // 控制台程序),watchdog 一活 40 分钟 → 每次 commit 后弹一个黑窗且久挂不退。
@@ -586,7 +689,9 @@ if (isWorkerMode) {
 }
 
 // 检查 ahead/behind
-const revList = run(`git rev-list --left-right --count ${remoteHead}...${localHead}`, { allowFail: true })
+const revList = run(`git rev-list --left-right --count ${remoteHead}...${localHead}`, {
+  allowFail: true,
+})
 let ahead = 0
 let behind = 0
 if (revList) {
@@ -627,7 +732,10 @@ if (agentScope) {
     .filter(Boolean)
   const committedRaw = run('git show --name-only --pretty=format: HEAD', { allowFail: true })
   const committedFiles = committedRaw
-    ? committedRaw.split('\n').filter(Boolean).map((f) => f.replace(/\\/g, '/'))
+    ? committedRaw
+        .split('\n')
+        .filter(Boolean)
+        .map((f) => f.replace(/\\/g, '/'))
     : []
   const outOfScope = committedFiles.filter((f) => {
     return !scopeDirs.some((scope) => f.startsWith(scope + '/') || f === scope)
@@ -635,7 +743,8 @@ if (agentScope) {
   if (outOfScope.length > 0) {
     log('err', `HEAD commit 包含 ${C.red}${outOfScope.length}${C.reset} 个非本 agent 范围文件:`)
     for (const f of outOfScope.slice(0, 5)) console.log(`     ${C.red}× ${f}${C.reset}`)
-    if (outOfScope.length > 5) console.log(`     ${C.dim}... 等 ${outOfScope.length - 5} 个${C.reset}`)
+    if (outOfScope.length > 5)
+      console.log(`     ${C.dim}... 等 ${outOfScope.length - 5} 个${C.reset}`)
     log('err', `AGENT_SCOPE=${C.yellow}{${agentScope}}${C.reset}`)
     log('err', `这是污染事故! 中止 push, 建议:`)
     log('err', `  1. git reset HEAD~1 撤销最近 commit`)
@@ -678,29 +787,40 @@ if (headJsonFiles.length === 0) {
       const parentLines = parentContent.split('\n').length
 
       // 阈值:HEAD 行数 < HEAD~1 行数 × 0.5 且减少量 > 100 行
-      if (parentLines > 0 && headLines < parentLines * 0.5 && (parentLines - headLines) > 100) {
+      if (parentLines > 0 && headLines < parentLines * 0.5 && parentLines - headLines > 100) {
         const decreasePercent = (((parentLines - headLines) / parentLines) * 100).toFixed(1)
         truncationIssues.push({ file, parentLines, headLines, decreasePercent })
       }
     }
 
     if (truncationIssues.length > 0) {
-      log('err', `commit 完整性预检失败!检测到 ${C.red}${truncationIssues.length}${C.reset} 个 json 文件疑似被截断:`)
+      log(
+        'err',
+        `commit 完整性预检失败!检测到 ${C.red}${truncationIssues.length}${C.reset} 个 json 文件疑似被截断:`,
+      )
       for (const issue of truncationIssues) {
         console.log(`     ${C.red}× ${issue.file}${C.reset}`)
-        console.log(`       ${C.dim}${issue.parentLines} 行 → ${issue.headLines} 行(减少 ${issue.decreasePercent}%)${C.reset}`)
+        console.log(
+          `       ${C.dim}${issue.parentLines} 行 → ${issue.headLines} 行(减少 ${issue.decreasePercent}%)${C.reset}`,
+        )
       }
       log('err', `可能是 lint-staged/prettier 解析失败导致截断,建议:`)
       log('err', `  1. git reset HEAD~1 撤销此 commit`)
       log('err', `  2. git restore --staged --worktree <文件> 恢复`)
       log('err', `  3. 重新编辑后 commit`)
-      log('warn', `逃生通道:设置 AUTO_PUSH_CONFIRM=1 可跳过此预检强制 push(仅在人工确认非事故时使用)`)
+      log(
+        'warn',
+        `逃生通道:设置 AUTO_PUSH_CONFIRM=1 可跳过此预检强制 push(仅在人工确认非事故时使用)`,
+      )
       if (process.env.AUTO_PUSH_CONFIRM !== '1') {
         process.exit(1)
       }
       log('warn', `⚠️  AUTO_PUSH_CONFIRM=1 已设置, 跳过完整性预检, 强制推送(请确认非事故)`)
     } else {
-      log('ok', `commit 完整性预检通过(${C.cyan}${headJsonFiles.length}${C.reset} 个 json 文件行数正常)`)
+      log(
+        'ok',
+        `commit 完整性预检通过(${C.cyan}${headJsonFiles.length}${C.reset} 个 json 文件行数正常)`,
+      )
     }
   }
 }
@@ -712,6 +832,7 @@ log('info', `执行 git push origin ${branch} ...`)
 // 900s 足够宽裕;无上限的挂起会配合心跳把 running 状态永远续下去。
 const PUSH_TIMEOUT_MS = 900_000
 
+let lastPushRaw = ''
 let pushResult = spawnSync('git', ['push', 'origin', branch], {
   stdio: 'inherit',
   cwd: repoRoot,
@@ -748,12 +869,16 @@ if (pushResult.status !== 0) {
     log('info', `按用户规则"hook 失败因其他 agent 代码 → --no-verify 跳过"重试...`)
 
     pushResult = spawnSync('git', ['push', '--no-verify', 'origin', branch], {
-      stdio: 'inherit',
-      cwd: repoRoot,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      encoding: 'utf8', // 必须管道+解码:原来 stdio:'inherit' 时 pushResult.stdout/stderr 恒为 null,
+      cwd: repoRoot, //   任何"按远端回显文字分类失败原因"的判据都拿不到文本(2026-09-24 实测空转)。
       env: process.env,
       timeout: PUSH_TIMEOUT_MS,
       windowsHide: true,
     })
+    lastPushRaw = `${pushResult.stdout || ''}${pushResult.stderr || ''}`
+    if (lastPushRaw.trim())
+      process.stdout.write(lastPushRaw.endsWith('\n') ? lastPushRaw : lastPushRaw + '\n')
 
     if (pushResult.status === 0) {
       log('warn', `⚠️  首次 push 因 pre-push hook 失败,已用 --no-verify 重试成功`)
@@ -765,7 +890,36 @@ if (pushResult.status !== 0) {
 if (pushResult.status !== 0) {
   log('err', `git push 最终失败(exit code: ${pushResult.status},即使 --no-verify 也无法推送)`)
   writePushState('failed', localHead)
-  console.log(`${C.dim}   可能原因: (a) 远端有更新的 commit,需先同步 —— git fetch origin main && git merge --ff-only FETCH_HEAD(本机禁用 pull --rebase);(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`)
+  const pushOut = `${lastPushRaw || ''}${pushResult.stderr ? String(pushResult.stderr) : ''}\n${pushResult.stdout ? String(pushResult.stdout) : ''}`
+  // 分类:GitHub push protection 拦的是"提交内容里出现凭据形状的字符串",与网络/凭据/分支保护
+  // 都无关 —— 旧提示只列那四条,于是每个人都会先去查代理和权限(2026-09-24 实测整条 main 被
+  // 计划正文里引用的占位串卡死,报错原文只有一句 repository rule violations)。
+  if (/repository rule violations|secret-scanning|Secret scanning|push declined/i.test(pushOut)) {
+    log(
+      'err',
+      '  归类:推送保护(push protection)—— 未推送 commit 里有**凭据形状**的字符串(真假不论)',
+    )
+    for (const h of findCredentialShapes(remoteHead, localHead)) log('err', `    ${h}`)
+    log('info', '  两条合法出路(都不是 agent 能代做的):')
+    log(
+      'info',
+      '    ① 仓库管理员走远端回显的 …/security/secret-scanning/unblock-secret/<id> 放行链接;',
+    )
+    log('info', '    ② 由**该作者自己**改写那枚未推送 commit(把样本改成运行时拼装或明显占位拼写)。')
+    log(
+      'info',
+      '  ⚠️ 前向修复(把字符串改掉再提交)解不开本次阻塞 —— 扫描的是"本次推送区间内的每一枚 commit"。',
+    )
+    log(
+      'info',
+      '  防后续同类卡门:测试夹具里的假凭据请**分两段拼装**(前缀与后缀不在同一字面量里连成串),不要写成一行完整的 Slack/AWS/GitHub 形状字符串 —— 扫描器真假不论,连注释与文档里引用的示例串一起拦。',
+    )
+  } else {
+    log(
+      'info',
+      `${C.dim}   可能原因: (a) 远端有更新的 commit,需先同步 —— git fetch origin main && git merge --ff-only FETCH_HEAD(本机禁用 pull --rebase);(b) 分支保护规则需 PR;(c) 凭据失效;(d) 网络问题${C.reset}`,
+    )
+  }
   process.exit(1)
 }
 
@@ -774,9 +928,7 @@ const newLocalHead = run('git rev-parse HEAD', { allowFail: true })
 const newRemoteLs = run(`git ls-remote origin refs/heads/${branch}`, { allowFail: true })
 const newRemoteHead = run(`git rev-parse origin/${branch}`, { allowFail: true })
 // 同前述:ls-remote 是网络真值,优先级高于本地 tracking ref(本机后者可能过期,会造成"假失败")
-const verifiedRemote = newRemoteLs
-  ? newRemoteLs.split('\t')[0].trim()
-  : newRemoteHead
+const verifiedRemote = newRemoteLs ? newRemoteLs.split('\t')[0].trim() : newRemoteHead
 
 if (!verifiedRemote) {
   log('err', 'push 后无法验证远端状态(请手动检查)')
@@ -787,10 +939,16 @@ if (!verifiedRemote) {
 if (newLocalHead === verifiedRemote) {
   log('ok', `push 成功 + 验证通过!local HEAD === origin/${branch} HEAD`)
   writePushState('done', localHead)
-  log('ok', `commit: ${C.green}${newLocalHead.substring(0, 7)}${C.reset} ${C.dim}(local == remote,已落地)${C.reset}`)
+  log(
+    'ok',
+    `commit: ${C.green}${newLocalHead.substring(0, 7)}${C.reset} ${C.dim}(local == remote,已落地)${C.reset}`,
+  )
   process.exit(0)
 } else {
-  log('err', `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}`)
+  log(
+    'err',
+    `push 报告成功但验证失败:local=${newLocalHead?.substring(0, 7)} vs remote=${verifiedRemote.substring(0, 7)}`,
+  )
   writePushState('failed', localHead)
   process.exit(1)
 }

@@ -23,6 +23,7 @@
  *   node scripts/heal-worktree-tracked.mjs --dry-run    # 只报告不写盘
  *   node scripts/heal-worktree-tracked.mjs --self-test  # 独立临时仓端到端演练
  *   node scripts/heal-worktree-tracked.mjs --json       # 供 git-guardian 巡检读取
+ *   node scripts/heal-worktree-tracked.mjs --check      # 只判不改 + 有可恢复项即 exit 1(CI/巡检口径)
  *   node scripts/heal-worktree-tracked.mjs --align-drift # 额外对齐"幻影漂移"(索引==HEAD 且内容==祖先版本)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
  */
@@ -30,7 +31,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-// 判据复用守门 76(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
+// 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
 import { analyze } from './check-stale-revert.mjs'
 
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -200,12 +201,12 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
 /**
  * 幻影漂移对齐(比缺失恢复更严的判据,供 `--align-drift` 与 git-sync-converge 调用):
  * 只对齐**同时满足**三条的路径 —— ① 索引 blob == HEAD blob(该路径上无人暂存过任何东西);
- * ② 工作区内容 != HEAD;③ 守门 76 判定工作区内容**字节级等于该路径某祖先提交版本**
+ * ② 工作区内容 != HEAD;③ 守门 84 判定工作区内容**字节级等于该路径某祖先提交版本**
  * (⇒ 不含任何独有内容)。会话真实未提交编辑必然打破 ① 或 ③,故不会被覆盖。
  *
  * 为什么需要它:§12d 的 converge 用 merge-tree/commit-tree 只推进 HEAD 与 index、从不 checkout,
  * HEAD 每前进一次,工作区就多一批落后文件(实测 503 个文件落后 486 个提交)。这些文件被
- * `git add` 提交出去就是静默回滚 —— 守门 76 会拦,但拦住之后仍要有人手工对齐,故在此自动化。
+ * `git add` 提交出去就是静默回滚 —— 守门 84 会拦,但拦住之后仍要有人手工对齐,故在此自动化。
  */
 export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
@@ -379,29 +380,34 @@ async function main() {
   if (argv.includes('--self-test')) return selfTestRun()
   const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
   if (process.env[SKIP_ENV]) return 0
+  // `--check` 必须是**只判不改**的巡检口径(AGENTS.md §5b 承诺"零副作用"):
+  // 旧实现只认 `--dry-run`,`--check` 会一路落到真恢复分支,把他人**有意**的未暂存删除
+  // 直接 `git restore` 复活(2026-09-24 差点咬掉并发会话正在收口的 4 个分类栏文件)。
+  const checkOnly = argv.includes('--check')
+  const dryRun = argv.includes('--dry-run') || checkOnly
   // --align-drift:跳过缺失恢复,只做幻影漂移对齐(git-sync-converge 推进 HEAD 后调用)
   if (argv.includes('--align-drift')) {
-    const d = alignDrifts(repoRoot, { dryRun: argv.includes('--dry-run') })
+    const d = alignDrifts(repoRoot, { dryRun })
     if (argv.includes('--json')) console.log(JSON.stringify(d))
-    else if (d.aligned) console.log(`✅ 幻影漂移对齐 ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`)
+    else if (d.aligned) console.log(`${dryRun ? '[check] 可对齐' : '✅ 幻影漂移对齐'} ${d.aligned} 个文件(索引==HEAD 且内容==祖先版本)`)
     else console.log(`✅ 无需对齐(可判定 ${d.paths ? d.paths.length : 0} 个,已跳过有暂存的 ${d.skippedStaged || 0} 个)`)
-    return 0
+    return d.aligned && checkOnly ? 1 : 0
   }
-  const res = heal(repoRoot, { dryRun: argv.includes('--dry-run') })
+  const res = heal(repoRoot, { dryRun })
   if (argv.includes('--json')) {
     console.log(JSON.stringify(res))
-    return 0
+    return checkOnly && res.paths.length ? 1 : 0
   }
   if (!res.restored && !res.paths.length && !res.held) {
     console.log('✅ 工作区已跟踪文件存续正常')
     return 0
   }
   console.log(
-    `${res.dryRun ? '[dry-run] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
+    `${dryRun ? '[check] 可恢复' : '已恢复'} ${res.restored || res.paths.length} 个被外部删除的跟踪文件` +
       (res.held ? `;另有 ${res.held} 个他人已暂存的删除(不碰)` : ''),
   )
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
-  return 0
+  return checkOnly && res.paths.length ? 1 : 0
 }
 
 export const healTrackedFiles = heal
