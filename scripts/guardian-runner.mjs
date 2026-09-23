@@ -662,6 +662,30 @@ const checks = [
     args: ['ja'],
     mode: 'blocking',
   },
+  // 2026-09-24 补 per-end ja 门:2d 只跑 web 口径(args 无 --target),
+  // 而 shared / miniapp-taro / mobile-rn 三端 ja.json 同样承载界面文案,此前无人守。
+  // 装门前实测三端全 ✅(零命中),故升 blocking 不误伤在途提交;判据与豁免同 2d(见 scripts/joyo-kanji.json)。
+  {
+    id: '2o-shared',
+    label: '🔍 [shared] ja.json 中文简体残留(blocking,常用汉字表精确判据)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja', '--target=shared'],
+    mode: 'blocking',
+  },
+  {
+    id: '2o-miniapp-taro',
+    label: '🔍 [miniapp-taro] ja.json 中文简体残留(blocking,常用汉字表精确判据)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja', '--target=miniapp-taro'],
+    mode: 'blocking',
+  },
+  {
+    id: '2o-mobile-rn',
+    label: '🔍 [mobile-rn] ja.json 中文简体残留(blocking,常用汉字表精确判据)',
+    script: 'scan-i18n-zh-residue.mjs',
+    args: ['ja', '--target=mobile-rn'],
+    mode: 'blocking',
+  },
   {
     id: '2f-ext',
     label: '🌐 [extension] i18n 键完整性(warn-only)',
