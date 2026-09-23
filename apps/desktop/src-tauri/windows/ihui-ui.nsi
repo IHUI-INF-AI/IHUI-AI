@@ -153,9 +153,11 @@ Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
 !define IHUI_FINISH_X   688   ; 完成钮左缘(宽 144 → 688..832,与其余 CTA 同槽同宽)
 !define IHUI_FINISH_W   144
 !define IHUI_EDIT_X     302   ; 目录页输入框(容器 288..700 内缩 14)
-!define IHUI_EDIT_Y     306
+!define IHUI_EDIT_Y     309   ; 容器 302..338(高 36)内垂直居中:302+(36-22)/2
 !define IHUI_EDIT_W     384
-!define IHUI_EDIT_H     28    ; xs 档 h-7:容器收成 36 高后与输入框同基线,不再"框下空一行"
+!define IHUI_EDIT_H     22    ; 单行 Edit **顶对齐文字**:控件比行高多出的部分全落在下方
+                              ; (旧值 28 → 文字贴顶、框底空一行,即用户报的"没居中")。
+                              ; 收到 22 ≈ 15px 字 + 上下余量,文字自然落在容器中线。
 !define IHUI_BROWSE_X   728   ; 浏览钮(次级按钮:卡底 + 1.5px 描边)728..832
 !define IHUI_BROWSE_Y   302
 !define IHUI_BROWSE_W   104
