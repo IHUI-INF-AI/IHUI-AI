@@ -13,26 +13,15 @@ import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confi
 import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-// 读侧归一(G-164):循环起点来自 store/localStorage,拼写可能不是 kebab,归一后再查循环表
-import { permissionModeWire } from '@ihui/types/permission-mode'
-import { permissionTierText } from '@/lib/permission-tier-text'
-// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 /** 模式循环顺序(2026-07-25 深化,深度对标 Codex CLI Shift+Tab 循环切换)
- * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → plan(只读) → default
- *
- * 两条排序依据,别随手调整:
- * 1. 前三档保持"每次按键往更放开走一格",bypass-permissions 是高风险仍排在最后;
- * 2. G-164 新增的 plan 接在 bypass 之后 —— 绕完一圈的最严档才是真正的安全落点
- *    (plan 由服务端硬拒写入/执行,比 default 的"会问你"更严),而不是把用户丢回 default。
- * 注意:改这个数组等于改肌肉记忆,连同注释里的顺序一起核。 */
+ * default(请求批准) → accept-edits(替我审批) → bypass-permissions(完全访问) → default
+ * 注意:bypass-permissions 是高风险,放在最后便于"按 3 次回正" */
 const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
   'default',
   'accept-edits',
   'bypass-permissions',
-  'plan',
 ]
-
 
 /** localStorage 键(2026-07-25 深化,跨刷新记忆用户上次主动选择的权限模式)
  * 仅记忆非默认模式;首次绑定工作区时如果 store 没指定,优先用这个值 */
@@ -74,7 +63,6 @@ export function usePermissionModeCycle(): {
   cyclePermissionMode: () => Promise<void>
 } {
   const t = useTranslations('chat.permission')
-  const tTier = useTranslations()
   // 当前工作区权限模式 + 切换 store
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
@@ -155,7 +143,7 @@ export function usePermissionModeCycle(): {
 
   // 切到下一个模式(Shift+Tab 循环)
   const cyclePermissionMode = React.useCallback(async () => {
-    const current = permissionModeWire(activeWorkspaceMode ?? 'default') ?? 'default'
+    const current = (activeWorkspaceMode ?? 'default') as WorkspacePermissionMode
     const idx = PERMISSION_CYCLE.indexOf(current)
     const next = PERMISSION_CYCLE[(idx + 1) % PERMISSION_CYCLE.length] ?? 'default'
     if (next === current) return
@@ -213,15 +201,13 @@ export function usePermissionModeCycle(): {
         },
       })
     } else {
-      // 上一版这里是一张端内标签键表(三档映射 + 一个占位值):一旦循环里多出任何一档
-      // (G-164 加了 plan),它就可能被显示成"替我审批",也就是**提示文案与真实档位不一致**
-      // (用户以为自己在自动审批档)。G-166 起取词收口到共享词表:按档归一,认不出落
-      // unknown 档,端内不再留第二张映射表。
-      toast.success(t('cycledTo', { mode: permissionTierText(next, tTier).title }), {
+      // default / accept-edits → 短提示
+      const labelKey = next === 'default' ? 'mode.ask' : 'mode.auto'
+      toast.success(t('cycledTo', { mode: t(labelKey) }), {
         duration: INFO_TOAST_DURATION,
       })
     }
-  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t, tTier])
+  }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
 
   const openShortcuts = React.useCallback(() => setShortcutsOpen(true), [])
   const closeShortcuts = React.useCallback(() => setShortcutsOpen(false), [])
