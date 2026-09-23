@@ -775,6 +775,10 @@
       "confirm": "切り替えを確認"
     },
     "cards": {
+      "steer": {
+        "title": "{count} 回誘導済み",
+        "more": "他 {count} 件"
+      },
       "plan": {
         "title": "実行計画"
       },

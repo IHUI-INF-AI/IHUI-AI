@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息 */
 /**
  * git-sync-converge.mjs — 主动推送收敛器(2026-09-18 晚立,根治"推不动→手工循环"卡点)。
@@ -43,7 +42,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const C = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m', reset: '\x1b[0m' }
+const C = {
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  dim: '\x1b[2m',
+  reset: '\x1b[0m',
+}
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
 
 /** 轮询 push-state.json 至 done/failed(guard 异步推送是后台跑的,须等落定再决策) */
@@ -60,13 +65,20 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
       /* 无状态文件 */
     }
     if (Date.now() > deadline) return 'timeout'
-    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], { stdio: 'ignore', windowsHide: true })
+    execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},3000)'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
   }
 }
 
 function git(args, { allowFail = false } = {}) {
   try {
-    return execFileSync('git', args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true }).trim()
+    return execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    }).trim()
   } catch (e) {
     if (allowFail) return null
     throw e
@@ -76,7 +88,11 @@ function git(args, { allowFail = false } = {}) {
 /** a 是否为 b 的祖先(merge-base --is-ancestor 靠 exit code 判定) */
 function isAncestor(a, b) {
   try {
-    execFileSync('git', ['merge-base', '--is-ancestor', a, b], { stdio: 'ignore', windowsHide: true, timeout: 60_000 })
+    execFileSync('git', ['merge-base', '--is-ancestor', a, b], {
+      stdio: 'ignore',
+      windowsHide: true,
+      timeout: 60_000,
+    })
     return true
   } catch {
     return false
@@ -155,14 +171,27 @@ function assertNoSilentRevert({ base, local, remote, mergedTree, cwd }) {
 function tgit(cwd, args, opts = {}) {
   return execFileSync(
     'git',
-    ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', '-c', 'commit.gpgsign=false', ...args],
+    [
+      '-c',
+      'user.name=ihui-test',
+      '-c',
+      'user.email=t@t.local',
+      '-c',
+      'commit.gpgsign=false',
+      ...args,
+    ],
     { encoding: 'utf8', cwd, windowsHide: true, ...opts },
   ).trim()
 }
 
 /** 文本式 ls-tree 行(供 mktree 拼篡改树) */
 function lsTreeLines(treeish, cwd) {
-  return execFileSync('git', ['ls-tree', treeish], { encoding: 'utf8', cwd, windowsHide: true, timeout: 300_000 })
+  return execFileSync('git', ['ls-tree', treeish], {
+    encoding: 'utf8',
+    cwd,
+    windowsHide: true,
+    timeout: 300_000,
+  })
     .trim()
     .split('\n')
 }
@@ -217,11 +246,15 @@ function selfTest() {
     tgit(repo, ['add', '-A'])
     tgit(repo, ['commit', '-qm', 'remote add'])
     const base = tgit(repo, ['merge-base', 'side-local', 'side-remote'])
-    const goodTree = execFileSync('git', ['merge-tree', '--write-tree', 'side-local', 'side-remote'], {
-      encoding: 'utf8',
-      cwd: repo,
-      windowsHide: true,
-    })
+    const goodTree = execFileSync(
+      'git',
+      ['merge-tree', '--write-tree', 'side-local', 'side-remote'],
+      {
+        encoding: 'utf8',
+        cwd: repo,
+        windowsHide: true,
+      },
+    )
       .trim()
       .split('\n')[0]
       .trim()
@@ -266,17 +299,23 @@ function selfTest() {
     tgit(repo, ['add', '-A'])
     tgit(repo, ['commit', '-qm', 'remote add'])
     const base2 = tgit(repo, ['merge-base', 'del-local', 'del-remote'])
-    const goodTree2 = execFileSync('git', ['merge-tree', '--write-tree', 'del-local', 'del-remote'], {
-      encoding: 'utf8',
-      cwd: repo,
-      windowsHide: true,
-    })
+    const goodTree2 = execFileSync(
+      'git',
+      ['merge-tree', '--write-tree', 'del-local', 'del-remote'],
+      {
+        encoding: 'utf8',
+        cwd: repo,
+        windowsHide: true,
+      },
+    )
       .trim()
       .split('\n')[0]
       .trim()
     const resurrected = mktree(
       repo,
-      lsTreeLines(goodTree2, repo).concat(lsTreeLines(base2, repo).filter((ln) => ln.endsWith('\tkeep.txt'))),
+      lsTreeLines(goodTree2, repo).concat(
+        lsTreeLines(base2, repo).filter((ln) => ln.endsWith('\tkeep.txt')),
+      ),
     )
     const v3 = assertNoSilentRevert({
       base: base2,
@@ -299,7 +338,8 @@ function selfTest() {
     }
     ok(
       '用例 4:双边互异跳过(零违反)',
-      verifySingleSided(bothMaps.base, bothMaps.local, bothMaps.remote, bothMaps.merged).length === 0,
+      verifySingleSided(bothMaps.base, bothMaps.local, bothMaps.remote, bothMaps.merged).length ===
+        0,
     )
     // 用例 5:纯 mode 变更(mode 相同 blob 不同 entry)被拦截
     const modeMaps = {
@@ -323,199 +363,237 @@ function selfTest() {
 
 // ─── 主流程(§22d:仅 direct-run 执行,被 import 时零副作用) ──
 function main() {
-const argv = process.argv.slice(2)
-if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
-const getOpt = (name, dflt) => {
-  const i = argv.indexOf(name)
-  return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt
-}
-const branch = getOpt('--branch', 'main')
-const maxRounds = Number(getOpt('--rounds', 3))
-const dryRun = argv.includes('--dry-run')
+  const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
+  const getOpt = (name, dflt) => {
+    const i = argv.indexOf(name)
+    return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt
+  }
+  const branch = getOpt('--branch', 'main')
+  const maxRounds = Number(getOpt('--rounds', 3))
+  const dryRun = argv.includes('--dry-run')
 
-const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
-if (!repoRoot) {
-  log(C.red, '❌ 不在 git 仓库中')
-  process.exit(2)
-}
+  const repoRoot = git(['rev-parse', '--show-toplevel'], { allowFail: true })
+  if (!repoRoot) {
+    log(C.red, '❌ 不在 git 仓库中')
+    process.exit(2)
+  }
 
-// 2026-09-19:收敛前清理 stale 锁(根治 index.lock 卡死)。
-// 收敛器做 fetch/merge-tree/commit-tree/update-ref 等写操作,stale index.lock 会全挂。
-try {
-  execFileSync('node', ['scripts/git-lock.mjs', 'clean'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    cwd: repoRoot,
-  })
-} catch {
-  /* 清理失败不阻塞收敛 */
-}
-
-/**
- * 收敛成功后顺手对齐工作区幻影漂移(2026-09-23 立)。
- * 本器走 merge-tree/commit-tree/update-ref,只推进 HEAD 与 index、**从不 checkout**(§12d
- * "零触碰他人未提交文件"),于是每收敛一次,工作区就多一批落后文件 —— 实测本仓曾累计
- * 503 个文件落后 486 个提交,任何会话 `git add <file>` 都会把别人的改动静默回滚。
- * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
- * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
- * 失败只记日志,绝不影响收敛结论(推送已成功)。
- */
-function alignWorktreeAfterHeadMove() {
+  // 2026-09-19:收敛前清理 stale 锁(根治 index.lock 卡死)。
+  // 收敛器做 fetch/merge-tree/commit-tree/update-ref 等写操作,stale index.lock 会全挂。
   try {
-    const out = execFileSync(
-      process.execPath,
-      ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, cwd: repoRoot },
-    )
-      .trim()
-      .split('\n')
-      .pop()
-    const r = JSON.parse(out || '{}')
-    if (r.aligned) {
-      log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
-    }
-  } catch (e) {
-    log(C.yellow, '  工作区漂移对齐未完成(不影响收敛结论): ' + String((e && e.message) || e).slice(0, 140))
-  }
-}
-
-for (let round = 1; round <= maxRounds; round++) {
-  log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
-  git(['fetch', 'origin', branch])
-  const remoteHead = git(['rev-parse', `origin/${branch}`])
-  const localHead = git(['rev-parse', 'HEAD'])
-
-  if (remoteHead === localHead) {
-    log(C.green, `✅ 已收敛:本地 === 远端(${remoteHead.slice(0, 11)})`)
-    process.exit(0)
-  }
-  if (isAncestor(localHead, remoteHead)) {
-    // 远端已包含本地 → 并发期"被远端包含即为完成"
-    log(C.green, `✅ 本地提交已被远端包含(${localHead.slice(0, 11)}),按并发纪律视为完成,不推送`)
-    process.exit(0)
-  }
-  if (isAncestor(remoteHead, localHead)) {
-    // 本地纯领先(可 fast-forward):直接 guard 推送,禁止 merge-tree——
-    // 否则会造出冗余合并提交(历史噪音 + 新 headSha 使 push-gate 内容缓存失效)。
-    log(C.yellow, `本地领先远端(FF 可达),跳过合并直接推送(${localHead.slice(0, 11)})`)
-    if (dryRun) {
-      log(C.dim, '  --dry-run:到此为止,不推送')
-      process.exit(0)
-    }
-  } else {
-    log(C.yellow, `分叉:本地 ${localHead.slice(0, 11)} / 远端 ${remoteHead.slice(0, 11)} → 索引层合并(不触碰工作区)`)
-    if (dryRun) {
-      log(C.dim, '  --dry-run:到此为止,不合并不推送')
-      process.exit(0)
-    }
-    // 输入新鲜度:合并且只用刚解析的 SHA,不用 ref 名 —— fetch→merge 窗口内若有并发
-    // 推进了本地/远端引用,用旧 ref 名会合出"过期输入"的正确合并(静默丢变更)。
-    const freshLocal = git(['rev-parse', 'HEAD'])
-    const freshRemote = git(['rev-parse', `origin/${branch}`])
-    if (freshLocal !== localHead || freshRemote !== remoteHead) {
-      log(C.yellow, '  本轮内引用已前移,重读输入后转下一轮(不合并不推送)')
-      continue
-    }
-    const mergeBase = git(['merge-base', freshLocal, freshRemote])
-    // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
-    let tree
-    try {
-      const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
-        encoding: 'utf8',
-        windowsHide: true,
-      })
-      tree = out.trim().split('\n')[0].trim()
-      if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
-    } catch (e) {
-      log(C.red, `❌ 合并冲突或 merge-tree 失败,需人工介入:\n${e.stdout ?? e.message}`)
-      process.exit(1)
-    }
-    log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
-    // 单边变更保持守门(fail-closed):任一单边变更丢失即拒绝推进,绝不 update-ref/推送。
-    const violations = assertNoSilentRevert({
-      base: mergeBase,
-      local: freshLocal,
-      remote: freshRemote,
-      mergedTree: tree,
+    execFileSync('node', ['scripts/git-lock.mjs', 'clean'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
       cwd: repoRoot,
     })
-    if (violations.length > 0) {
-      log(C.red, `❌ 合并树静默回退 ${violations.length} 处,拒绝推进(fail-closed):`)
-      for (const v of violations.slice(0, 20)) {
-        log(C.red, `   ${v.side === 'local' ? '本地' : '远端'}独改 ${v.path} 期望 ${v.expected ?? '(删除)'} 实得 ${v.actual ?? '(删除)'}`)
-      }
-      process.exit(1)
-    }
+  } catch {
+    /* 清理失败不阻塞收敛 */
+  }
 
-    const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
-    const mergeSha = git(['commit-tree', tree, '-p', freshLocal, '-p', freshRemote, '-m', mergeMsg])
-    // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
-    // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
-    const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], { allowFail: true })
-    if (cas === null) {
-      log(C.yellow, '  本地 HEAD 被并发推进,本轮作废,转下一轮重来')
-      continue
-    }
-    log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
-    // commit-tree 旁路**不跑钩子**,守门 71 的 post-commit 自愈因此永不触发。实测一枚收敛合并
-    // 把并发会话已入库的登记行合掉且无人知晓(2026-09-22/23 两次),故在落合并提交后就地补跑一次
-    // 自愈(只加不减;失败不阻断收敛,下一枚走钩子的提交仍会再兜一次)。
+  /**
+   * 收敛成功后顺手对齐工作区幻影漂移(2026-09-23 立)。
+   * 本器走 merge-tree/commit-tree/update-ref,只推进 HEAD 与 index、**从不 checkout**(§12d
+   * "零触碰他人未提交文件"),于是每收敛一次,工作区就多一批落后文件 —— 实测本仓曾累计
+   * 503 个文件落后 486 个提交,任何会话 `git add <file>` 都会把别人的改动静默回滚。
+   * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
+   * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
+   * 失败只记日志,绝不影响收敛结论(推送已成功)。
+   */
+  function alignWorktreeAfterHeadMove() {
     try {
-      const healOut = execFileSync(
-        'node',
-        ['scripts/check-plan-line-loss.mjs', '--heal', '--commit'],
-        {
-          encoding: 'utf8',
-          stdio: ['ignore', 'pipe', 'pipe'],
-          windowsHide: true,
-          cwd: repoRoot,
-        },
+      const out = execFileSync(
+        process.execPath,
+        ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, cwd: repoRoot },
       )
-      for (const l of healOut.split(/\r?\n/).filter((x) => x.includes('登记行'))) {
-        log(C.yellow, `  ${l.trim()}`)
+        .trim()
+        .split('\n')
+        .pop()
+      const r = JSON.parse(out || '{}')
+      if (r.aligned) {
+        log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
       }
     } catch (e) {
       log(
         C.yellow,
-        `  ⚠️ 计划登记行自愈未完成(不阻断收敛):${String(e?.stderr ?? e?.message ?? e).slice(0, 160)}`,
+        '  工作区漂移对齐未完成(不影响收敛结论): ' + String((e && e.message) || e).slice(0, 140),
       )
     }
   }
 
-  // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
-  execFileSync('node', ['scripts/git-push-guard.mjs'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    cwd: repoRoot,
-  })
+  for (let round = 1; round <= maxRounds; round++) {
+    log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
+    git(['fetch', 'origin', branch])
+    const remoteHead = git(['rev-parse', `origin/${branch}`])
+    const localHead = git(['rev-parse', 'HEAD'])
 
-  // 等待后台推送落定再决策(2026-09-18 晚修复:此前立即查远端,推送还在 270s 门里
-  // 未完成即误判"远端又前移",3 轮全空转)
-  const myHead = git(['rev-parse', 'HEAD'])
-  const result = waitForPushState(myHead)
-  log(C.dim, `  后台推送结果: ${result}`)
-  if (result === 'done') {
-    log(C.green, `✅ 推送收敛成功:${myHead.slice(0, 11)}`)
-    alignWorktreeAfterHeadMove()
-    process.exit(0)
-  }
-  if (result === 'superseded') {
-    log(C.yellow, '  推送状态已被更新的 HEAD 覆盖(并发会话推进了本地),继续下一轮')
+    if (remoteHead === localHead) {
+      log(C.green, `✅ 已收敛:本地 === 远端(${remoteHead.slice(0, 11)})`)
+      process.exit(0)
+    }
+    if (isAncestor(localHead, remoteHead)) {
+      // 远端已包含本地 → 并发期"被远端包含即为完成"
+      log(C.green, `✅ 本地提交已被远端包含(${localHead.slice(0, 11)}),按并发纪律视为完成,不推送`)
+      process.exit(0)
+    }
+    if (isAncestor(remoteHead, localHead)) {
+      // 本地纯领先(可 fast-forward):直接 guard 推送,禁止 merge-tree——
+      // 否则会造出冗余合并提交(历史噪音 + 新 headSha 使 push-gate 内容缓存失效)。
+      log(C.yellow, `本地领先远端(FF 可达),跳过合并直接推送(${localHead.slice(0, 11)})`)
+      if (dryRun) {
+        log(C.dim, '  --dry-run:到此为止,不推送')
+        process.exit(0)
+      }
+    } else {
+      log(
+        C.yellow,
+        `分叉:本地 ${localHead.slice(0, 11)} / 远端 ${remoteHead.slice(0, 11)} → 索引层合并(不触碰工作区)`,
+      )
+      if (dryRun) {
+        log(C.dim, '  --dry-run:到此为止,不合并不推送')
+        process.exit(0)
+      }
+      // 输入新鲜度:合并且只用刚解析的 SHA,不用 ref 名 —— fetch→merge 窗口内若有并发
+      // 推进了本地/远端引用,用旧 ref 名会合出"过期输入"的正确合并(静默丢变更)。
+      const freshLocal = git(['rev-parse', 'HEAD'])
+      const freshRemote = git(['rev-parse', `origin/${branch}`])
+      if (freshLocal !== localHead || freshRemote !== remoteHead) {
+        log(C.yellow, '  本轮内引用已前移,重读输入后转下一轮(不合并不推送)')
+        continue
+      }
+      const mergeBase = git(['merge-base', freshLocal, freshRemote])
+      // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
+      let tree
+      try {
+        const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
+          encoding: 'utf8',
+          windowsHide: true,
+        })
+        tree = out.trim().split('\n')[0].trim()
+        if (!/^[0-9a-f]{40}$/.test(tree)) throw new Error(out)
+      } catch (e) {
+        log(C.red, `❌ 合并冲突或 merge-tree 失败,需人工介入:\n${e.stdout ?? e.message}`)
+        process.exit(1)
+      }
+      log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
+      // 单边变更保持守门(fail-closed):任一单边变更丢失即拒绝推进,绝不 update-ref/推送。
+      const violations = assertNoSilentRevert({
+        base: mergeBase,
+        local: freshLocal,
+        remote: freshRemote,
+        mergedTree: tree,
+        cwd: repoRoot,
+      })
+      if (violations.length > 0) {
+        log(C.red, `❌ 合并树静默回退 ${violations.length} 处,拒绝推进(fail-closed):`)
+        for (const v of violations.slice(0, 20)) {
+          log(
+            C.red,
+            `   ${v.side === 'local' ? '本地' : '远端'}独改 ${v.path} 期望 ${v.expected ?? '(删除)'} 实得 ${v.actual ?? '(删除)'}`,
+          )
+        }
+        process.exit(1)
+      }
+
+      const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
+      const mergeSha = git([
+        'commit-tree',
+        tree,
+        '-p',
+        freshLocal,
+        '-p',
+        freshRemote,
+        '-m',
+        mergeMsg,
+      ])
+      // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
+      // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
+      const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], {
+        allowFail: true,
+      })
+      if (cas === null) {
+        log(C.yellow, '  本地 HEAD 被并发推进,本轮作废,转下一轮重来')
+        continue
+      }
+      log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
+      // commit-tree 旁路**不跑钩子**,守门 71 的 post-commit 自愈因此永不触发。实测一枚收敛合并
+      // 把并发会话已入库的登记行合掉且无人知晓(2026-09-22/23 两次),故在落合并提交后就地补跑一次
+      // 自愈(只加不减;失败不阻断收敛,下一枚走钩子的提交仍会再兜一次)。
+      try {
+        const healOut = execFileSync(
+          'node',
+          ['scripts/check-plan-line-loss.mjs', '--heal', '--commit'],
+          {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true,
+            cwd: repoRoot,
+          },
+        )
+        for (const l of healOut.split(/\r?\n/).filter((x) => x.includes('登记行'))) {
+          log(C.yellow, `  ${l.trim()}`)
+        }
+      } catch (e) {
+        log(
+          C.yellow,
+          `  ⚠️ 计划登记行自愈未完成(不阻断收敛):${String(e?.stderr ?? e?.message ?? e).slice(0, 160)}`,
+        )
+      }
+    }
+
+    // 官方通道推送(guard 异步化:命令秒回,推送在后台 worker 执行)
+    execFileSync('node', ['scripts/git-push-guard.mjs'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      cwd: repoRoot,
+    })
+
+    // 等待后台推送落定再决策(2026-09-18 晚修复:此前立即查远端,推送还在 270s 门里
+    // 未完成即误判"远端又前移",3 轮全空转)
+    const myHead = git(['rev-parse', 'HEAD'])
+    const result = waitForPushState(myHead)
+    log(C.dim, `  后台推送结果: ${result}`)
+    if (result === 'done') {
+      log(C.green, `✅ 推送收敛成功:${myHead.slice(0, 11)}`)
+      alignWorktreeAfterHeadMove()
+      process.exit(0)
+    }
+    if (result === 'superseded') {
+      log(C.yellow, '  推送状态已被更新的 HEAD 覆盖(并发会话推进了本地),继续下一轮')
+    }
+
+    const nowRemote = git(['rev-parse', `origin/${branch}`])
+    if (nowRemote === git(['rev-parse', 'HEAD'])) {
+      log(C.green, `✅ 推送收敛成功:${nowRemote.slice(0, 11)}`)
+      alignWorktreeAfterHeadMove()
+      process.exit(0)
+    }
+    log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)
   }
 
-  const nowRemote = git(['rev-parse', `origin/${branch}`])
-  if (nowRemote === git(['rev-parse', 'HEAD'])) {
-    log(C.green, `✅ 推送收敛成功:${nowRemote.slice(0, 11)}`)
-    alignWorktreeAfterHeadMove()
-    process.exit(0)
+  log(C.red, `❌ ${maxRounds} 轮未收敛,稍后重跑: node scripts/git-sync-converge.mjs`)
+  const lastState = (() => {
+    try {
+      return JSON.parse(readFileSync(resolve(process.cwd(), '.workbuddy/push-state.json'), 'utf8'))
+    } catch {
+      return null
+    }
+  })()
+  if (lastState?.status === 'failed') {
+    // 2026-09-24 实测:这句话原来无论何因都写"并发推力过大",而真实原因是**远端拒收推送**
+    // (push protection 拦凭据形状)—— 于是每个人都去查并发/网络,没人去看拒绝原文。
+    log(
+      C.red,
+      '   上一轮推送结论是 failed ⇒ 多半不是并发,而是**推送被远端拒收**。看归类与卡门 commit:',
+    )
+    log(C.red, '     GUARD_ASYNC=0 node scripts/git-push-guard.mjs')
+  } else {
+    log(C.yellow, '   (并发推力过大:远端在每次推送前又被推进;重跑即可)')
   }
-  log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)
-}
-
-log(C.red, `❌ ${maxRounds} 轮未收敛(并发推力过大),稍后重跑: node scripts/git-sync-converge.mjs`)
-process.exit(1)
+  process.exit(1)
 } // ← function main() 结束(§22d:以下 export/守卫在 import 时执行,main 体不执行)
 
 export const __test__ = {
@@ -526,7 +604,8 @@ export const __test__ = {
   selfTest,
 }
 
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 if (isDirectRun) {
   try {
     main()
