@@ -12,8 +12,6 @@ export type ContextMenuAction =
   | 'regenerate'
   | 'branch'
   | 'feedback'
-  | 'likeMessage'
-  | 'dislikeMessage'
   | 'share'
   | 'collapseToPlan'
   | 'delete'
