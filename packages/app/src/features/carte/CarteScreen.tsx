@@ -8,6 +8,8 @@ import { Heart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CarteCreator, CarteScreenProps, CarteWork } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 创客名片共享屏 — props 注入式跨端组件 */
 export type { CarteCreator, CarteScreenProps, CarteWork }
 
@@ -173,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     errorBar: {
       marginBottom: 12,
       padding: 8,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.light,
     },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
@@ -181,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 48x48 圆形头像底,半径=边长一半
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -208,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       marginTop: 12,
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -231,14 +233,14 @@ function createStyles(tk: AppThemeTokens) {
     skillBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     skillText: { fontSize: 14, color: tk.brand.DEFAULT },
     card: {
       flexDirection: 'row',
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -246,7 +248,7 @@ function createStyles(tk: AppThemeTokens) {
     workThumb: {
       width: 64,
       height: 64,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -270,7 +272,7 @@ function createStyles(tk: AppThemeTokens) {
     tagBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     tagText: { fontSize: 10, color: tk.text.secondary },
@@ -279,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

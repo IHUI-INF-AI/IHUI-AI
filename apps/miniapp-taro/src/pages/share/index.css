@@ -61,7 +61,7 @@
   gap: 8rpx;
   padding: 16rpx 28rpx;
   background: var(--color-primary);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .share-rank-enter-text {
   font-size: 26rpx;
@@ -81,7 +81,7 @@
   margin: 0 24rpx 32rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: 20rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 8rpx 24rpx var(--color-black-6);
 }
@@ -124,7 +124,7 @@
 .share-tab {
   padding: 12rpx 24rpx;
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
   font-size: 28rpx;
@@ -170,7 +170,7 @@
   width: 12rpx;
   height: 12rpx;
   background: var(--color-primary);
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 12rpx 加载动画装饰圆点 */
   animation: shareLoadingBounce 1.4s ease-in-out infinite both;
 }
 .share-loading-dot:nth-child(1) {
@@ -296,7 +296,7 @@
   justify-content: center;
   margin: 0 auto;
   background: var(--color-brand-accent);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   /* 对齐 RN elevation 2 / shadowOpacity 0.15 */
   box-shadow: 0 2rpx 4rpx var(--color-black-15);
   transition: all 0.2s ease;

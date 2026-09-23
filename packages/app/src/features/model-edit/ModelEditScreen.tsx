@@ -15,6 +15,8 @@ import type {
   ModelEditSaleType,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 模型编辑共享屏 — props 注入式表单型跨端组件 */
 export type {
   ModelEditAudience,
@@ -275,7 +277,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 模型头像 48×48 正圆(直径一半)
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -296,7 +298,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 14,
       height: 36,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -306,13 +308,18 @@ function createStyles(tk: AppThemeTokens) {
     chipActive: { borderColor: tk.brand.DEFAULT, backgroundColor: tk.surface.muted },
     chipText: { fontSize: 14, color: tk.text.medium },
     chipTextActive: { color: tk.text.primary, fontWeight: '600' },
-    paidCard: { marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: tk.surface.muted },
+    paidCard: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.surface.muted,
+    },
     priceRow: {
       flexDirection: 'row',
       alignItems: 'center',
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       backgroundColor: tk.surface.bg,
     },
@@ -321,7 +328,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       marginTop: 28,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

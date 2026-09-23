@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FollowingItem, FollowingScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 关注列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FollowingItem, FollowingScreenProps }
 
@@ -151,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -159,13 +161,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 48x48 圆形头像底,半径=边长一半
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: 24 },
+    avatarImg: { width: '100%', height: '100%', borderRadius: 24 }, // radius-exempt: 跟随 48x48 父容器裁剪为真圆
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
@@ -174,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     unfollowBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,

@@ -36,7 +36,7 @@
   flex: 1;
   padding: 32rpx 0;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   text-align: center;
   position: relative;
   border: 1rpx solid var(--color-border);
@@ -54,7 +54,7 @@
   color: var(--color-danger-foreground);
   font-size: 20rpx;
   padding: 2rpx 12rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .plan-name {
   display: block;
@@ -79,7 +79,7 @@
   padding: 28rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   box-sizing: border-box;
 }
 .rights-title {
@@ -103,7 +103,7 @@
   flex: 1;
   padding: 20rpx 0;
   text-align: center;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 1rpx solid var(--color-border);
   background: var(--color-card);
   box-sizing: border-box;
@@ -125,7 +125,7 @@
   line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 30rpx;
+  border-radius: var(--radius-2xl);
   font-size: 32rpx;
   font-weight: 600;
   border: none;
