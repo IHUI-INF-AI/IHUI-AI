@@ -7055,6 +7055,29 @@
       "rollbackConfirmConfirm": "복원"
     },
     "pane": {
+      "agentActions": {
+        "title": "멀티 에이전트 작업",
+        "header": { "count": "{count, plural, other {#개 에이전트}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "입력: {prompt}" },
+        "action": {
+          "spawn": { "label": "생성", "inProgress": "생성 중", "completed": "생성됨", "failed": "생성 실패" },
+          "resume": { "label": "재개", "inProgress": "재개 중", "completed": "재개됨", "failed": "재개 실패" },
+          "sendInput": { "label": "입력 전송", "inProgress": "전송 중", "completed": "전송됨", "failed": "전송 실패" },
+          "interrupt": { "label": "중단", "inProgress": "중단 중", "completed": "중단됨", "failed": "중단 실패" },
+          "close": { "label": "닫기", "inProgress": "닫는 중", "completed": "닫힘", "failed": "닫을 수 없음" },
+          "list": { "label": "목록", "inProgress": "불러오는 중", "completed": "불러옴", "failed": "불러오기 실패" }
+        },
+        "state": {
+          "running": "실행 중",
+          "completed": "완료",
+          "errored": "오류",
+          "interrupted": "중단됨",
+          "pendingInit": "준비 중",
+          "shutdown": "종료됨",
+          "notFound": "찾을 수 없음"
+        }
+      },
       "prChecks": {
         "title": "CI 검사",
         "summary": {
