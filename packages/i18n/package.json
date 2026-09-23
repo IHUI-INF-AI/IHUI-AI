@@ -28,13 +28,16 @@
     "build": "tsc --noEmit",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rimraf dist .turbo node_modules"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@ihui/tsconfig": "workspace:*",
+    "intl-messageformat": "11.2.13",
     "rimraf": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top",

@@ -21,8 +21,18 @@ import { useTranslations } from 'next-intl'
 import { SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { FoldableSection, formatDuration } from './foldable-section'
-import { describeToolActivityByStatus } from '@ihui/shared/chat'
+import { FoldableSection } from './foldable-section'
+import {
+  describeToolActivityByStatus,
+  describeToolCategoryActivity,
+  toolActivitySearchQuery,
+} from '@ihui/shared/chat'
+import {
+  ActivityCodeBlock,
+  ActivityDuration,
+  ActivitySearchQuery,
+  ActivityCanceledLabel,
+} from '../tool-activity-line'
 import { CopyButton } from './copy-button'
 import type { AgentToolCall, PlanStep } from '@/hooks/use-agent-progress'
 

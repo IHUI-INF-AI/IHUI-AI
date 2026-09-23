@@ -24,6 +24,14 @@ jobs:
       - name: Provenance watermark check
         run: node scripts/watermark.mjs verify
 
+      # 守门 77 的远端面(2026-09-23 接):本地 pre-commit 拦得住"成对 <<<<====>>>> 冲突标记入树",
+      # 但本机 .git 被宿主清除那类场面多个会话用 --no-verify 提交,整条本地钩子链失效
+      # (实测 apps/cli/tests/file-edit.test.ts 带标记进 HEAD 树)。CI 是唯一的第二道防线。
+      # 必须用 --rev HEAD(判刚被 push/合并出来的提交树);**禁止**改成 --staged —— CI 没有
+      # 暂存区,索引恒等于 HEAD,那会退化成永远判绿。零依赖(纯 node + git),故前置到 install 之前。
+      - name: Conflict marker check (committed tree)
+        run: node scripts/check-no-conflict-markers.mjs --rev HEAD
+
       - name: Install pnpm
         uses: pnpm/action-setup@v6
 

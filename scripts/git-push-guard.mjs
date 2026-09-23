@@ -31,7 +31,7 @@
  *   - .husky/post-commit  自动触发(commit 后立即 push)
  *   - 手动收尾验证       agent 交付前自验
  */
-import { execSync, spawnSync, spawn } from 'node:child_process'
+import { execSync, execFileSync, spawnSync, spawn } from 'node:child_process'
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync, openSync, closeSync, statfsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -83,9 +83,15 @@ const skipPush = process.env.HUSKY_SKIP_PUSH === '1'
 // 2026-09-19:推送前清理 stale 锁(根治 index.lock 卡死)。
 // post-commit 已持锁(IHUI_GIT_LOCK_UNIT)时 acquire 会清理;直接调用 push-guard
 // 的场景(agent 手动收尾)无锁保护,在此显式清理 index.lock/ihui-git-write.lock(死 PID)。
+// 2026-09-23 修两处:① 路径不得依赖 cwd —— 原 `'node scripts/git-lock.mjs'` 只在
+//   "从仓库根调用"时成立,隔离临时仓(git-push-guard.test.mjs 的全部夹具)里必抛
+//   MODULE_NOT_FOUND;改由本脚本自身位置推导,与被调用方同目录即恒成立。
+//   ② stdio 不得 inherit —— 它把上述报错原文灌进本脚本 stderr,而测试断言
+//   "stderr 无未捕获 Error",于是 8 条既有用例恒红(与本次改动无关的假红)。
+//   本调用只是尽力清理,其输出对 push 结论无意义,故收进 pipe 并忽略。
 try {
-  execSync('node scripts/git-lock.mjs clean', {
-    stdio: 'inherit',
+  execFileSync(process.execPath, [resolve(import.meta.dirname, 'git-lock.mjs'), 'clean'], {
+    stdio: 'pipe',
     cwd: process.cwd(),
     windowsHide: true,
   })
@@ -165,6 +171,29 @@ if (localHead === remoteHead) {
   log('ok', `本地与 origin/${branch} 已同步,无需 push`)
   writePushState('done', localHead)
   process.exit(0)
+}
+
+// ─── 2.9 partial-clone 预检(2026-09-23 立,根治 "not our ref" 五分钟空转) ──
+// 背景:partial clone(`remote.origin.promisor` + `partialclonefilter=blob:none`)下
+//      本地对象库缺 blob。commit 照常成功,但 push 时远端 upload-pack 要求补齐
+//      本地并不存在的对象 → `remote error: upload-pack: not our ref <sha>` +
+//      `pack-objects died`,单趟实测耗时 ~5 分钟后才报错。异步 worker 还会把
+//      这个必然失败的推送写进 running 状态,让后续核验一路显示 PUSHING。
+// 判据:只看 local config 的两个键,零网络开销;命中即拦在分叉之前。
+// 不用 `--get-regexp` —— 正则里的 `^ ( ) $` 经 execSync 的 shell(cmd.exe)会被吃掉,
+// 故改为两次 `--get`(键名仅含点,跨 shell 安全)。
+const promisorCfg = run('git config --local --get remote.origin.promisor', { allowFail: true })
+const filterCfg = run('git config --local --get remote.origin.partialclonefilter', { allowFail: true })
+if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
+  log('err', '本仓处于 partial-clone 状态(对象库不完整),push 必然失败,已拦在推送之前')
+  log('info', `命中配置: remote.origin.promisor=${promisorCfg ?? '(未设置)'} remote.origin.partialclonefilter=${filterCfg ?? '(未设置)'}`)
+  log('info', '修复三步:')
+  log('info', '  git config --local --unset remote.origin.partialclonefilter')
+  log('info', '  git config --local --unset remote.origin.promisor')
+  log('info', `  git fetch --refetch origin ${branch}   # 回补全量对象,期间仍不可推`)
+  log('info', '过渡期(无法 refetch)只能把改动作为远端 tip 的直接子提交落地,勿携带他人不可达对象。')
+  log('info', '紧急绕过(自行承担失败推送):GUARD_SKIP_PARTIAL_CLONE_CHECK=1')
+  process.exit(1)
 }
 
 // ─── 3.0 异步推送分叉(2026-09-18 立,"已推完还在等"根治最终刀) ──
@@ -412,7 +441,10 @@ if (isWorkerMode) {
 } else if (workerActive) {
   log('ok', `已有后台推送进行中(HEAD ${localShort},PID ${existingState.pid}),不重复触发`)
   process.exit(0)
-} else if (GUARD_ASYNC) {
+} else if (GUARD_ASYNC && !skipPush) {
+  // skipPush(HUSKY_SKIP_PUSH=1)= AGENTS.md §20 明示的"仅检测不推送"逃生舱,
+  // 必须早于本分叉生效:此前分叉在 skipPush 判断(文件下方)之前,于是"仅检测"
+  // 仍会 spawn 后台 worker 去真推送并写 running 状态 —— 逃生舱的承诺被绕过。
   if (existingState && existingState.status === 'failed' && existingState.headSha !== localHead) {
     log('warn', `上次后台推送失败(HEAD ${String(existingState.headSha).slice(0, 7)}),本次随新提交一并重推`)
   }
