@@ -22,7 +22,7 @@
 .member-header {
   margin: 32rpx; /* RN marginHorizontal/marginTop 16 → 32rpx */
   padding: 28rpx; /* RN padding 14 → 28rpx */
-  border-radius: 24rpx; /* RN radius 12 → 24rpx */
+  border-radius: var(--radius-xl);
   /* RN backgroundColor gray.800(#262626,明暗同值)→ --color-vip-card */
   background: var(--color-vip-card);
 }
@@ -33,7 +33,7 @@
 .member-avatar {
   width: 120rpx;
   height: 120rpx;
-  border-radius: 50%;
+  border-radius: 50%; /* radius-exempt: 用户头像真圆 */
   background: var(--color-muted);
   margin-right: 24rpx;
   flex-shrink: 0;
@@ -63,7 +63,7 @@
   font-size: 24rpx; /* RN 12 → 24rpx */
   font-weight: 600;
   padding: 4rpx 16rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   margin-right: 12rpx;
 }
 .member-vip-expire {
@@ -81,7 +81,7 @@
   padding: 28rpx; /* RN card padding 14 → 28rpx */
   background: var(--color-background); /* RN card bg = tk.surface.bg */
   border: 2rpx solid var(--color-border); /* RN borderWidth 1 + tk.border.light */
-  border-radius: 16rpx; /* RN radius 8 → 16rpx */
+  border-radius: var(--radius-lg);
 }
 .member-card-title {
   display: block;
@@ -103,7 +103,7 @@
   padding: 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
 }
 .member-level-current {
@@ -176,7 +176,7 @@
   padding: 16rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   box-sizing: border-box;
 }
 .member-benefit-icon {
@@ -184,7 +184,7 @@
   height: 56rpx;
   margin-right: 12rpx;
   background: var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -230,7 +230,7 @@
   padding: 28rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .member-vip-info {
   margin-bottom: 24rpx;
@@ -284,7 +284,7 @@
   line-height: 100rpx;
   font-size: 32rpx; /* RN 16 → 32rpx */
   font-weight: 700;
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
 }
 .member-cta-outlined {
   background: transparent;
@@ -324,7 +324,7 @@
   margin: 0 20rpx 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .member-menu-item {

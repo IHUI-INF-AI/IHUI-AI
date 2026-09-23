@@ -20,6 +20,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface SetNeedScreenProps {
   t: TFunction
   form: {
@@ -276,7 +278,7 @@ function createStyles(tk: AppThemeTokens) {
     required: { fontSize: 16, color: tk.danger.DEFAULT } as TextStyle,
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -287,7 +289,7 @@ function createStyles(tk: AppThemeTokens) {
     priceInput: { flex: 1 } as TextStyle,
     priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
     imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
-    imagePreview: { width: 72, height: 72, borderRadius: 8 } as ImageStyle,
+    imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
     pickerText: { fontSize: 16, color: tk.text.primary } as TextStyle,
     modalBackdrop: {
       flex: 1,
@@ -299,8 +301,8 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16,
       paddingTop: 16,
       paddingBottom: 28,
-      borderTopLeftRadius: 18,
-      borderTopRightRadius: 18,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
     } as ViewStyle,
     pickerTitle: {
       fontSize: 18,
@@ -316,7 +318,7 @@ function createStyles(tk: AppThemeTokens) {
     pickerOptionText: { fontSize: 16, color: tk.text.primary } as TextStyle,
     submitBtn: {
       backgroundColor: tk.brand.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingVertical: 15,
       alignItems: 'center',
       marginTop: 16,

@@ -62,6 +62,8 @@ import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -850,7 +852,7 @@ const styles = StyleSheet.create({
   carouselWrap: {
     marginTop: rpx(18),
     marginHorizontal: rpx(20),
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     overflow: 'hidden',
   },
   sectionWrap: { marginHorizontal: rpx(24), marginTop: rpx(16) },
@@ -865,7 +867,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
@@ -880,7 +882,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(12),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(10),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   },
   modelSelectionText: {
@@ -892,7 +894,7 @@ const styles = StyleSheet.create({
   modelStartBtn: {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(8),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.ctaFill,
   },
   modelStartBtnText: { fontSize: 13, color: tokens.brand.ctaText, fontWeight: '600' },
@@ -902,7 +904,7 @@ const styles = StyleSheet.create({
     right: 16,
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 17, // radius-exempt: 34dp 圆形回顶按钮,取边长一半
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -923,14 +925,14 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(10),
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: rnRadius.xl,
+    borderBottomRightRadius: rnRadius.xl,
   },
   trackBtn: {
     paddingHorizontal: rpx(8),
     height: 22,
     justifyContent: 'center',
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.surface.light,
     backgroundColor: 'transparent',

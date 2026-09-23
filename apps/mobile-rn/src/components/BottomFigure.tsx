@@ -16,6 +16,7 @@ import { tokens as tk } from '../theme/active-tokens'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
 import Carousel from './Carousel'
 import type { CarouselItem } from '@ihui/ui-native'
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface BottomFigureItem extends CarouselItem {
   id: number
@@ -79,7 +80,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 16,
     overflow: 'hidden',
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     backgroundColor: tk.surface.muted,
   } as ViewStyle,
 })
