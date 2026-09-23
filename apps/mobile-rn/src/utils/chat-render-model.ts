@@ -297,6 +297,29 @@ export function appendSteerFrames(
   ]
 }
 
+/**
+ * 从 metadata.steerApplied 还原"这轮中途引导注入了哪些条"(D106 收尾,2026-09-24 立)。
+ *
+ * api 侧落库形状 [{text, timestamp?}](chat_messages.metadata.steerApplied),
+ * 守卫对齐 web readSteerAppliedFromMetadata:数组才采;逐条 text 必须非空字符串,
+ * timestamp 仅 string 才带;复用 appendSteerFrames 累积(空文本帧整帧丢弃、8 条封顶、
+ * phase 恒 'injected')。老消息 / 无 steer / 全坏 → undefined,不写字段不渲染空态。
+ */
+export function readSteerAppliedFromMetadata(raw: unknown): SteerNotice[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  let out: SteerNotice[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    out = appendSteerFrames(out, {
+      phase: 'injected',
+      text: typeof rec.text === 'string' ? rec.text : '',
+      ...(typeof rec.timestamp === 'string' ? { timestamp: rec.timestamp } : {}),
+    })
+  }
+  return out.length > 0 ? out : undefined
+}
+
 export function applyTerminalEnd(
   list: readonly TerminalTaskItem[] | undefined,
   event: TerminalEndEvent,
