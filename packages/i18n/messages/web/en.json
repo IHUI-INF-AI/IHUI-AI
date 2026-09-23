@@ -7484,7 +7484,90 @@
         "expandAria": "Command history (expand/collapse)"
       },
       "toolSummaryShowMore": "More",
-      "toolSummaryShowLess": "Collapse"
+      "toolSummaryShowLess": "Collapse",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "Creating",
+          "ready": "Created",
+          "initFailed": "Initialization failed",
+          "timeout": "Timed out",
+          "cleaned": "This task's worktree has been cleaned up to free disk space.",
+          "restoring": "Restoring",
+          "restored": "Restored",
+          "restoreFailed": "Unable to restore"
+        },
+        "hint": {
+          "timeout": "Please check the repository status",
+          "cleaned": "Restore this worktree to continue the task, or reclaim disk space.",
+          "singleWriter": "Only one active worktree is allowed per task at a time."
+        },
+        "action": {
+          "reclaimDisk": "Reclaim disk space",
+          "restore": "Restore worktree",
+          "retryRestore": "Retry restore",
+          "dismiss": "Got it"
+        },
+        "ariaLabel": "Worktree lifecycle"
+      },
+      "writingBlock": {
+        "title": "Writing block",
+        "ariaLabel": "Writing block",
+        "empty": "No writing blocks in this message",
+        "status": {
+          "idle": "Idle",
+          "editing": "Editing",
+          "accepted": "Accepted",
+          "reverted": "Reverted",
+          "failed": "Unable to update this writing block"
+        },
+        "action": {
+          "accept": "Accept",
+          "acceptAll": "Accept all",
+          "revert": "Revert"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "Accepting",
+            "completed": "Accepted",
+            "failed": "Unable to accept this writing block"
+          },
+          "acceptAll": {
+            "inProgress": "Accepting all",
+            "completed": "All accepted",
+            "failed": "Unable to accept all writing blocks"
+          },
+          "revert": {
+            "inProgress": "Reverting",
+            "completed": "Reverted",
+            "failed": "Unable to revert this writing block"
+          }
+        },
+        "openIn": {
+          "label": "Open with",
+          "email": "Open email in your default email app",
+          "browser": "Open the page in your default browser"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "Polish",
+        "ariaLabel": "Polish prompt",
+        "phase": {
+          "idle": "Not polished",
+          "polishing": "Polishing…",
+          "succeeded": "Polished",
+          "failed": "Polish failed"
+        },
+        "action": {
+          "polish": "Polish",
+          "retry": "Retry"
+        },
+        "failureDraftKept": "Can't polish the prompt right now. Your draft has been kept.",
+        "rejection": {
+          "emptyDraft": "The draft is empty. Enter some text before polishing."
+        },
+        "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
+      }
     },
     "permissionConfirm": {
       "allow": "Allow",
