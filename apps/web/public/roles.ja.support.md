@@ -156,7 +156,7 @@ assist.on('suggestion', (suggestion) => {
 ### 技術スタック
 
 - **フロントエンド**:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- **バックエンド**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18 + Redis 7
+- **バックエンド**:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16 + Redis 7
 - **AI サービス**:FastAPI + LangGraph + LiteLLM + MCP
 - **デスクトップアプリ**:Tauri 2(スタッフワークスペース)
 - **ミニプログラム**:Taro 4(WeChat / Alipay / Douyin、サポートチャネル)
