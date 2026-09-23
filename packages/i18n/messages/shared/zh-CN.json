@@ -188,7 +188,14 @@
     "send": "发送",
     "showPassword": "显示密码",
     "slashCommand": "斜杠命令",
-    "uploadAvatar": "上传头像"
+    "uploadAvatar": "上传头像",
+    "previewSnapshotBadge": "工具记录内容",
+    "previewSnapshotReadAt": "读取于 {time}",
+    "previewSnapshotNotice": "无法读取当前文件，已展示工具记录中的内容。",
+    "previewIncompleteChange": "这次文件变更没有记录完整内容。",
+    "previewNoContent": "没有可预览内容。",
+    "previewFileUpdated": "文件已更新",
+    "previewFileUpdatedAction": "刷新以查看最新内容"
   },
   "about": {
     "loading": "加载中...",
@@ -2161,5 +2168,73 @@
       "reasonLabel": "原因(可选)",
       "reasonPlaceholder": "填写原因,便于审计与追溯"
     }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "资源未找到",
+      "action": "该 MCP 资源可能已被删除或未在资源列表中声明，请刷新列表后重新选择。"
+    },
+    "runtimeException": {
+      "title": "运行时异常",
+      "action": "服务端处理本次请求时抛出异常，请重新加载插件视图；若持续失败请查看该服务的运行日志。"
+    },
+    "entrypointNotRegistered": {
+      "title": "未注册启动入口",
+      "action": "该插件视图没有注册可用的启动入口，请在设置中重新添加或启用对应的服务。"
+    },
+    "entrypointInvalid": {
+      "title": "启动入口无效",
+      "action": "服务的命令或地址不可执行，请检查配置中的 command、url 与传输方式。"
+    },
+    "dependencyModuleMissing": {
+      "title": "依赖模块未提供",
+      "action": "该服务依赖的模块尚未安装，请补齐依赖后重新加载插件视图。"
+    },
+    "resourceLimitExceeded": {
+      "title": "资源超出限制",
+      "action": "请求体或返回内容过大、调用过于频繁，请缩小范围或稍后重试。"
+    },
+    "environmentInitFailed": {
+      "title": "环境初始化失败",
+      "action": "服务尚未完成初始化或运行环境未就绪，请确认服务已启动后重新加载。"
+    },
+    "disabled": {
+      "title": "已停用",
+      "action": "该服务或插件当前处于停用状态，请先启用再查看内容。"
+    },
+    "backendTimeout": {
+      "title": "后端响应超时",
+      "action": "服务端在限定时间内未返回结果，可稍候重试；若经常超时请下调请求规模。"
+    },
+    "backendExited": {
+      "title": "后端已退出",
+      "action": "服务进程已结束或连接被关闭，请重新加载插件视图以重新拉起服务。"
+    },
+    "capabilityNotOffered": {
+      "title": "未提供所需能力",
+      "action": "该服务在能力声明中未提供此功能，请改选其支持的能力。"
+    },
+    "backendCrashed": {
+      "title": "服务异常崩溃",
+      "action": "服务进程意外终止，请重新加载插件视图，并查看该服务的运行日志。"
+    },
+    "protocolMismatch": {
+      "title": "协议版本不匹配",
+      "action": "客户端与该服务协商的协议版本不受支持，请升级服务或使用兼容的客户端版本。"
+    },
+    "authForbidden": {
+      "title": "授权失败",
+      "action": "访问凭据无效或已过期，请重新登录后再查看该服务。"
+    },
+    "invalidResponse": {
+      "title": "返回内容无效",
+      "action": "服务返回的内容无法解析或不符合约定格式，请重新加载；若持续失败请联系服务提供方。"
+    },
+    "unknown": {
+      "title": "未能判定失败原因",
+      "action": "暂时无法确定失败原因，请重新加载插件视图；如仍失败，请查看服务运行日志。"
+    },
+    "reloadView": "重新加载插件视图",
+    "errorCodeLabel": "错误码：{errorCode}"
   }
 }
