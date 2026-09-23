@@ -133,6 +133,11 @@
 - 死代码上报:`scripts/kill-git-selector-hidden.vbs` 包装的 `kill-git-selector.ps1` 仓库里不存在;
   `scripts/release-desktop-local.mjs:67,74` 依赖的 `%USERPROFILE%\.tauri\ihui-updater.key` 本机缺失
   → 桌面端发布在此机必失败,需发布机或补生成密钥。
+- **本节被并发提交整块抹掉过一次(第 4 次同类事故,已在合并中手工回捞)**:`42ef92b2c`
+  ("chore(scripts): O20d/O20e 守门落地")以旧基线写 `PROJECT_PLAN.md`,删掉本节 44 行只留 1 行,
+  归档目录无副本 ⇒ 不是 §1 归档而是真丢。本次 `git merge` 显式冲突,取"两侧并集"手工复原并逐项
+  回读验证。**守门 71 对这种形态仍瞎**:旁路提交(commit-tree / `git-sync-converge`)不跑任何钩子,
+  post-commit 自愈也就没有触发机会 —— 该闸只在"走钩子的提交"上有效,别把它的绿当成全仓保证。
 
 ---
 
@@ -893,7 +898,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 **取证存档**:`.ihui-agent/tmp/installer-redesign/{maint-probe2.cjs, shot-maint2.png, enum-maint.txt}`(enum 显示主题宏完整执行:radio 已重定位 288,350/386、全幅底 1204、CTA 1203、窗钮 1205/1206 都在 —— 缺陷不在"没跑",在渲染结果不符合统一标准)。
 
-## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;已收口)
+## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;防御已落地,根因未钉死,复发走 trace 通道)
 
 用户实测:安装包(智汇AI_0.1.44_x64-setup.exe)窗口整窗纯黑、卡住不动(10:32:59 启动的实例)。
 
