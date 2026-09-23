@@ -5,16 +5,20 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Activity, History, Loader2, ThumbsDown, ThumbsUp, TrendingUp } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { rulesApi } from './rules-api'
-import type {
-  RuleDiffResponse,
-  RuleHistoryEntry,
-  RuleHistoryResponse,
-  RulePredictEffectResult,
-  RuleStats,
+import {
+  RECOMMENDATION_DISABLE,
+  RECOMMENDATION_ENABLE,
+  RECOMMENDATION_NEUTRAL,
+  type RuleDiffResponse,
+  type RuleHistoryEntry,
+  type RuleHistoryResponse,
+  type RulePredictEffectResult,
+  type RuleStats,
 } from './types'
 import type { Rule } from '@ihui/types'
 import { Button, CloseButton } from '@ihui/ui-react'
@@ -25,7 +29,15 @@ interface RuleDetailDialogProps {
   onClose: () => void
 }
 
+const RECOMMENDATION_LABEL_KEYS = {
+  [RECOMMENDATION_ENABLE]: 'enabled',
+  [RECOMMENDATION_DISABLE]: 'recDisable',
+  [RECOMMENDATION_NEUTRAL]: 'recNeutral',
+} as const
+
 function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
   const [tab, setTab] = React.useState<'stats' | 'history' | 'predict'>('stats')
   const [stats, setStats] = React.useState<RuleStats | null>(null)
   const [history, setHistory] = React.useState<RuleHistoryEntry[]>([])
@@ -69,9 +81,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
       const res = await rulesApi<RuleDiffResponse>(
         `/api/rules/${encodeURIComponent(rule.id)}/diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
       )
-      setDiff(res.diff || '(无差异)')
+      setDiff(res.diff || t('diffNone'))
     } catch {
-      setDiff('加载失败')
+      setDiff(t('loadFailed'))
     }
   }
 
@@ -82,9 +94,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         `/api/rules/${encodeURIComponent(rule.id)}/rollback?version=${encodeURIComponent(version)}`,
         { method: 'POST' },
       )
-      setFeedbackMsg('回滚成功')
+      setFeedbackMsg(t('rollbackSuccess'))
     } catch (e) {
-      setFeedbackMsg(`回滚失败:${(e as Error).message}`)
+      setFeedbackMsg(t('rollbackFailed', { msg: (e as Error).message }))
     } finally {
       setRollingBack(null)
     }
@@ -96,9 +108,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         method: 'POST',
         body: JSON.stringify({ feedback }),
       })
-      setFeedbackMsg('反馈已记录')
+      setFeedbackMsg(t('feedbackRecorded'))
     } catch (e) {
-      setFeedbackMsg(`反馈失败:${(e as Error).message}`)
+      setFeedbackMsg(t('feedbackFailed', { msg: (e as Error).message }))
     }
   }
 
@@ -122,9 +134,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         tokenDelta: 0,
         similarityDelta: 0,
         qualityScore: 0,
-        recommendation: '中性',
+        recommendation: RECOMMENDATION_NEUTRAL,
         degraded: true,
-        message: `预测失败:${(e as Error).message}`,
+        message: t('predictFailed', { msg: (e as Error).message }),
       })
     } finally {
       setPredictLoading(false)
@@ -140,9 +152,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
           body: JSON.stringify({ feedback, context: predictPrompt.slice(0, 200) }),
         },
       )
-      setLearnFeedbackMsg('学习反馈已记录')
+      setLearnFeedbackMsg(t('learnFeedbackRecorded'))
     } catch (e) {
-      setLearnFeedbackMsg(`反馈失败:${(e as Error).message}`)
+      setLearnFeedbackMsg(t('feedbackFailed', { msg: (e as Error).message }))
     }
   }
 
@@ -154,8 +166,8 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">规则详情:{rule.name}</span>
-          <CloseButton aria-label="关闭" onClick={onClose} />
+          <span className="text-sm font-semibold">{t('ruleDetailTitle', { name: rule.name })}</span>
+          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 
         <div className="flex items-center gap-1">
@@ -170,7 +182,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             )}
           >
             <Activity className="mr-1 inline h-3 w-3" />
-            效果统计
+            {t('tabStats')}
           </button>
           <button
             type="button"
@@ -183,7 +195,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             )}
           >
             <History className="mr-1 inline h-3 w-3" />
-            版本历史({history.length})
+            {t('tabHistoryCount', { n: history.length })}
           </button>
           <button
             type="button"
@@ -196,47 +208,47 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             )}
           >
             <TrendingUp className="mr-1 inline h-3 w-3" />
-            效果预测
+            {t('tabPredict')}
           </button>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            加载中...
+            {tCommon('loading')}
           </div>
         ) : tab === 'stats' ? (
           stats && (
             <div className="thin-scroll space-y-3 overflow-y-auto">
               <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-4">
-                <StatCard label="命中次数" value={String(stats.matchCount)} />
-                <StatCard label="7天命中" value={String(stats.hits7d)} />
-                <StatCard label="30天命中" value={String(stats.hits30d)} />
-                <StatCard label="平均 token" value={stats.avgTokenDelta.toFixed(1)} />
+                <StatCard label={t('statMatchCount')} value={String(stats.matchCount)} />
+                <StatCard label={t('statHits7d')} value={String(stats.hits7d)} />
+                <StatCard label={t('statHits30d')} value={String(stats.hits30d)} />
+                <StatCard label={t('statAvgToken')} value={stats.avgTokenDelta.toFixed(1)} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5 rounded-md border border-border bg-background p-2.5">
-                  <p className="text-[10px] text-muted-foreground">命中率对比</p>
+                  <p className="text-[10px] text-muted-foreground">{t('hitRateCompare')}</p>
                   <HitsBarChart hits7d={stats.hits7d} hits30d={stats.hits30d} />
                 </div>
                 <div className="space-y-1.5 rounded-md border border-border bg-background p-2.5">
                   <p className="text-[10px] text-muted-foreground">
-                    满意度({stats.satisfactionRate.toFixed(0)}%)
+                    {t('satisfactionPercent', { pct: stats.satisfactionRate.toFixed(0) })}
                   </p>
                   <SatisfactionPie positive={stats.positiveFeedback} total={stats.totalFeedback} />
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">反馈:</span>
+                <span className="text-[10px] text-muted-foreground">{t('feedbackLabel')}</span>
                 <button
                   type="button"
                   onClick={() => handleFeedback('thumbs_up')}
                   className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                 >
                   <ThumbsUp className="h-3 w-3" />
-                  有用
+                  {t('useful')}
                 </button>
                 <button
                   type="button"
@@ -244,7 +256,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                 >
                   <ThumbsDown className="h-3 w-3" />
-                  无用
+                  {t('useless')}
                 </button>
                 {feedbackMsg && (
                   <span className="text-[10px] text-muted-foreground">{feedbackMsg}</span>
@@ -255,7 +267,9 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         ) : tab === 'history' ? (
           <div className="thin-scroll space-y-2 overflow-y-auto">
             {history.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">暂无版本历史</p>
+              <p className="py-4 text-center text-xs text-muted-foreground">
+                {t('noVersionHistory')}
+              </p>
             ) : (
               history.map((entry, idx) => (
                 <div
@@ -276,7 +290,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                           onClick={() => handleDiff(history[idx - 1]!.timestamp, entry.timestamp)}
                           className="rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                         >
-                          对比上一版
+                          {t('compareToPrev')}
                         </button>
                       )}
                       <button
@@ -285,7 +299,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                         disabled={rollingBack !== null}
                         className="rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                       >
-                        {rollingBack === entry.timestamp ? '回滚中...' : '回滚'}
+                        {rollingBack === entry.timestamp ? t('rollingBack') : t('rollback')}
                       </button>
                     </div>
                   </div>
@@ -303,13 +317,11 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
           </div>
         ) : (
           <div className="thin-scroll space-y-3 overflow-y-auto">
-            <p className="text-[10px] text-muted-foreground">
-              输入测试 prompt,dry-run 对比应用规则 vs 不应用规则的 LLM 输出
-            </p>
+            <p className="text-[10px] text-muted-foreground">{t('predictHint')}</p>
             <textarea
               value={predictPrompt}
               onChange={(e) => setPredictPrompt(e.target.value)}
-              placeholder="输入测试 prompt..."
+              placeholder={t('predictPromptPlaceholder')}
               rows={3}
               className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
             />
@@ -319,7 +331,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 onClick={handlePredict}
                 disabled={predictLoading || !predictPrompt.trim()}
               >
-                {predictLoading ? '预测中...' : '运行预测'}
+                {predictLoading ? t('predicting') : t('runPredict')}
               </Button>
             </div>
             {predictResult && (
@@ -329,46 +341,52 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 )}
                 <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
                   <StatCard
-                    label="Token 差异"
+                    label={t('statTokenDelta')}
                     value={
                       predictResult.tokenDelta > 0
                         ? `+${predictResult.tokenDelta}`
                         : String(predictResult.tokenDelta)
                     }
                   />
-                  <StatCard label="输出差异度" value={predictResult.similarityDelta.toFixed(3)} />
-                  <StatCard label="质量评分" value={predictResult.qualityScore.toFixed(3)} />
+                  <StatCard
+                    label={t('statOutputDiff')}
+                    value={predictResult.similarityDelta.toFixed(3)}
+                  />
+                  <StatCard
+                    label={t('statQualityScore')}
+                    value={predictResult.qualityScore.toFixed(3)}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">建议:</span>
+                  <span className="text-[10px] text-muted-foreground">{t('suggestionLabel')}</span>
                   <span
                     className={cn(
                       'rounded-sm px-2 py-1 text-[10px]',
-                      predictResult.recommendation === '启用'
+                      predictResult.recommendation === RECOMMENDATION_ENABLE
                         ? 'bg-green-500/10 text-green-600'
-                        : predictResult.recommendation === '不启用'
+                        : predictResult.recommendation === RECOMMENDATION_DISABLE
                           ? 'bg-red-500/10 text-red-600'
                           : 'bg-muted text-muted-foreground',
                     )}
                   >
-                    {predictResult.recommendation}
+                    {t(RECOMMENDATION_LABEL_KEYS[predictResult.recommendation])}
                   </span>
                   {predictResult.degraded && (
                     <span className="rounded-sm bg-yellow-500/10 px-1 text-[10px] text-yellow-600">
-                      降级模式
+                      {t('degradedMode')}
                     </span>
                   )}
                 </div>
                 {predictResult.withRule && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
-                      <p className="text-[10px] text-muted-foreground">不应用规则</p>
+                      <p className="text-[10px] text-muted-foreground">{t('withoutRule')}</p>
                       <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withoutRule}
                       </pre>
                     </div>
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
-                      <p className="text-[10px] text-muted-foreground">应用规则</p>
+                      <p className="text-[10px] text-muted-foreground">{t('withRule')}</p>
                       <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withRule}
                       </pre>
@@ -376,14 +394,16 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">学习反馈:</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {t('learnFeedbackLabel')}
+                  </span>
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('helpful')}
                     className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                   >
                     <ThumbsUp className="h-3 w-3" />
-                    有帮助
+                    {t('helpful')}
                   </button>
                   <button
                     type="button"
@@ -391,14 +411,14 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                     className="flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[10px] transition-colors hover:bg-accent"
                   >
                     <ThumbsDown className="h-3 w-3" />
-                    无帮助
+                    {t('unhelpful')}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('harmful')}
                     className="flex items-center gap-1 rounded-md border border-destructive/30 px-2 py-0.5 text-[10px] text-destructive transition-colors hover:bg-destructive/10"
                   >
-                    有害
+                    {t('harmful')}
                   </button>
                   {learnFeedbackMsg && (
                     <span className="text-[10px] text-muted-foreground">{learnFeedbackMsg}</span>
@@ -411,7 +431,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
 
         <div className="flex items-center justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
-            关闭
+            {tCommon('close')}
           </Button>
         </div>
       </div>
