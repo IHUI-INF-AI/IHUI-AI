@@ -76,6 +76,16 @@ function formatTokens(n: number): string {
   return String(v)
 }
 
+function formatCountdown(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}小时${m}分`
+  if (m > 0) return `${m}分${sec}秒`
+  return `${sec}秒`
+}
+
 function windowPercent(used: number, limit: number): number {
   if (!Number.isFinite(limit) || limit <= 0) return 0
   return Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
@@ -96,17 +106,6 @@ export default function DeveloperHomePageClient() {
   const numFmt = new Intl.NumberFormat(locale)
 
   const tDash = useTranslations('developer')
-
-  // 倒计时文案走词包(原为模块级函数拼中文,模块级拿不到 t 且只有这一个调用点)
-  const formatCountdown = (seconds: number): string => {
-    const s = Math.max(0, Math.floor(seconds))
-    const h = Math.floor(s / 3600)
-    const m = Math.floor((s % 3600) / 60)
-    const sec = s % 60
-    if (h > 0) return tDash('dashboard.countdownHoursMinutes', { h, m })
-    if (m > 0) return tDash('dashboard.countdownMinutesSeconds', { m, sec })
-    return tDash('dashboard.countdownSecondsOnly', { sec })
-  }
 
   // 今日成本:复用 /api/developer/relay/usage(groupBy=day + startDate=今天)。
   // 该接口仅返回 totalCostCents(实付/平台计费),无"官方价折算"字段,
