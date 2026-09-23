@@ -20,12 +20,13 @@
  *   - 类型零 any
  */
 import { tokens } from '../theme/active-tokens'
+import { formatDate } from '@ihui/shared/utils/date-utils'
+import { CategoryInlineBar } from '@ihui/rn-app'
 import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react-native'
 import {
   FlatList,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,6 +34,8 @@ import {
   type ListRenderItem,
 } from 'react-native'
 import { useCallback, useEffect, useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 素材类型(文本/图片/视频/音频;doc 保留向后兼容,供 AigcList/Assistant 屏使用) */
 export type MaterialType = 'text' | 'image' | 'video' | 'audio' | 'doc'
@@ -150,7 +153,7 @@ function MaterialRow({
   onDetail?: (item: MaterialItem) => void
 }): React.JSX.Element {
   const title = item.title || defaultTitleForType(item.type)
-  const time = item.createdAt ?? ''
+  const time = item.createdAt ? formatDate(item.createdAt) : ''
 
   // 文本:标题 + 时间 + 30 字预览(无缩略图)
   if (item.type === 'text') {
@@ -224,6 +227,7 @@ export default function MaterialList({
   loading = false,
   hasMore = true,
 }: MaterialListProps): React.JSX.Element {
+  const { resolvedTheme } = useTheme()
   /** 触底触发标记:仅当 useEffect 看到 trigger=true 且 loading 翻 false 才真正派发回调 */
   const [endReachedTrigger, setEndReachedTrigger] = useState<boolean>(false)
 
@@ -266,27 +270,14 @@ export default function MaterialList({
       </View>
 
       {/* 分类 tab(对齐原版 material-tabs,由 categories 驱动) */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabBar}
-      >
-        {categories.map((cat) => {
-          const isActive = cat.key === activeCategory
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              activeOpacity={0.7}
-              onPress={() => onCategoryChange(cat.key)}
-              style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
-            >
-              <Text style={isActive ? styles.chipTextActive : styles.chipTextInactive}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+      <CategoryInlineBar
+        items={categories.map((cat) => ({ id: cat.key, label: cat.label }))}
+        selectedId={activeCategory}
+        onSelect={onCategoryChange}
+        colorScheme={resolvedTheme}
+        contentPaddingHorizontal={10}
+        itemGap={8}
+      />
 
       {/* 单列列表(对齐原版 scroll-view 单列) */}
       <FlatList
@@ -319,31 +310,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
-  },
-  tabBar: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  chipActive: {
-    backgroundColor: tokens.brand.DEFAULT,
-  },
-  chipInactive: {
-    backgroundColor: tokens.surface.muted,
-  },
-  chipTextActive: {
-    fontSize: 13,
-    color: tokens.brand.foreground,
-    fontWeight: '600',
-  },
-  chipTextInactive: {
-    fontSize: 13,
-    color: tokens.text.secondary,
   },
   listContent: {
     paddingHorizontal: 10,
@@ -386,7 +352,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   detailBtnText: {
@@ -402,7 +368,7 @@ const styles = StyleSheet.create({
   thumb: {
     width: 50,
     height: 50,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   thumbPlaceholder: {

@@ -6,6 +6,7 @@ import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * FloatBox 浮动组件 — 对齐原项目 FloatBox.vue
@@ -76,7 +77,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           width: '118rpx',
           minHeight: '340rpx',
           backgroundColor: 'var(--color-card)',
-          borderRadius: '30rpx',
+          borderRadius: rnRadius['2xl'],
           boxShadow: '0 1px 3px var(--color-black-6)',
           transition: 'right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1)',
           zIndex: 1005,

@@ -11,6 +11,7 @@ import { isErrorTurn } from '@ihui/shared/chat'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
+import { rnRadius } from '@ihui/design-tokens'
 const sikaoIcon = aizhsUrl('remote-images/sikao_icon.png')
 const downloadIcon = aizhsUrl('remote-images/download.png')
 const copyIcon = aizhsUrl('remote-images/copy.png')
@@ -439,7 +440,10 @@ export default function ChatMessageItem({
                       alignItems: 'center',
                       padding: '12rpx 16rpx',
                       background: 'var(--color-muted)',
-                      borderRadius: '8rpx 8rpx 0 0',
+                      borderTopLeftRadius: rnRadius.sm,
+                      borderTopRightRadius: rnRadius.sm,
+                      borderBottomRightRadius: 0,
+                      borderBottomLeftRadius: 0,
                     }}
                     onClick={() => setCodeCollapsed((v) => !v)}
                     hoverClass="opacity-60"
@@ -466,7 +470,10 @@ export default function ChatMessageItem({
                         fontSize: '24rpx',
                         color: 'var(--color-foreground)',
                         background: 'var(--color-muted)',
-                        borderRadius: '0 0 8rpx 8rpx',
+                        borderTopLeftRadius: 0,
+                        borderTopRightRadius: 0,
+                        borderBottomRightRadius: rnRadius.sm,
+                        borderBottomLeftRadius: rnRadius.sm,
                         borderTop: '1rpx solid var(--color-border)',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-all',
@@ -486,7 +493,7 @@ export default function ChatMessageItem({
                     marginTop: '12rpx',
                     padding: '12rpx 20rpx',
                     background: 'var(--color-muted)',
-                    borderRadius: '30rpx',
+                    borderRadius: rnRadius['2xl'],
                     color: 'var(--color-foreground)',
                   }}
                   onClick={playVoice}
@@ -513,7 +520,7 @@ export default function ChatMessageItem({
                     marginTop: '12rpx',
                     padding: '10rpx 20rpx',
                     background: 'var(--color-link)',
-                    borderRadius: '15rpx',
+                    borderRadius: rnRadius.lg,
                     color: 'var(--color-card)',
                     display: 'inline-block',
                   }}

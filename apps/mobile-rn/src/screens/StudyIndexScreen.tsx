@@ -60,8 +60,7 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import ModelList, { type ModelListGroup } from '../components/ModelList'
-import { SearchInput } from '@ihui/rn-app'
-import { SingleTypeBar } from '../components/SingleTypeBar'
+import { SearchInput, CategoryInlineBar } from '@ihui/rn-app'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -532,10 +531,12 @@ export function StudyIndexScreen() {
 
       {/* 赛道分类切换(对齐 Uniapp scroll_title,复用 SingleTypeBar 共享组件) */}
       <View style={styles.scrollTitleWrap}>
-        <SingleTypeBar
+        <CategoryInlineBar
           items={TRACK_CATEGORIES.map((c) => ({ id: c.id, label: c.name }))}
           selectedId={activeCategory}
           onSelect={setActiveCategory}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
         />
       </View>
 
