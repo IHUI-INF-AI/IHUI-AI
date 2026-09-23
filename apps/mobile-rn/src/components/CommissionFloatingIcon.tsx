@@ -92,14 +92,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   label: {
     fontSize: LABEL_FONT_SIZE,
-    color: tk.surface.light,
+    color: tk.brand.foreground,
     opacity: 0.85,
   } as TextStyle,
   amount: {
     marginTop: AMOUNT_MARGIN_TOP,
     fontSize: AMOUNT_FONT_SIZE,
     fontWeight: '700',
-    color: tk.surface.light,
+    color: tk.brand.foreground,
   } as TextStyle,
 })
 
