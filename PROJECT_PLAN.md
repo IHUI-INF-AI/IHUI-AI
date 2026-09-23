@@ -1509,6 +1509,17 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **顺带修可观测性**:`sync-lost-commit-tags.mjs` 的失败回显从 stderr 末尾 3 行放宽到 **12 行 / 1200 字符** —— GitHub 的 `remote:` 前言是多行的,3 行窗口第一轮只装得下 `! [remote rejected] … (failed)` 而把真正那句 `fatal: unable to read <sha>` 挤掉了,等于白修一次。
 - **残余(不称收口)**:① 空壳 tag 的**精确总数**没算 —— 要一次全图 `git fsck --connectivity-only`(分钟级)才能数出来,这个代价不适合进 pre-commit,故只按 warn 事实陈述,不做成闸门;② `git-refs-heal.mjs` 的 `writeLooseRef` 前对象存在性校验仍被四个他人脏文件挡住(§16 不代改);③ 工作区 `PROJECT_PLAN.md` 仍是他人那次整文件重写的产物。
 
+
+### 第二十八批(2026-09-24):守门 70 行尾 `//` 注释盲区清零 + PriceChart 取词化 —— 并登记"整条主线被他人一枚 commit 卡在远端 push-protection 之外"
+
+- **两类红点同源但解法不同**:HEAD 上门 70 恒红三处(`PriceChart.tsx` 6>4、`TerminalStatusIndicators.tsx` 1>0、`TerminalTab.tsx` 1>0),经逐行归因**全是假阳** —— 挂在代码行尾的 `// radius-exempt: …` 免检说明被当成硬编码中文。扫描器只剥"跨行块注释/整行行注释/同行成对块注释",从不剥**行尾** `//`,谁碰这三个文件谁被拦。
+- **门本身改法**(commit `7b9a579320e`):新增 `lineCommentAt(probe)`,在 `bareOf`(字符串内容已空白化)结果上找注释起点;命中判定只看注释前的代码,**豁免判定仍看含行尾注释的整行**。第二句是必需的:`preview-degradation-copy.ts` 整表 7 行靠行尾 `// next-intl 缺词兜底` 声明自己是缺词兜底译文,连标记一起剥等于咬断他人豁免通道(第一版就踩了,由 HEAD 复扫抓到并改回)。`://` 也不得当注释起点 —— 跨行模板里的裸 URL(`docs/api/page.tsx:74`)会被误切造假绿;判据用 TS parser 独立取证(反引号奇偶启发式在 `repl.ts` 5 处误报,故不作结论依据)。
+- **顺带救活一份"造好没装车"的自测**:`scripts/tests/scan-hardcoded-zh.test.mjs` 14 例里 **13 例恒红且无人跑** —— 夹具只改 spawn 的 cwd,而脚本 ROOT 故意由自身位置推导(防"从子包 cwd 调用 ⇒ 静默扫不到文件而恒绿"),断言于是全在比对真仓数据。现补 `--root` 显式注入(仅此例外,默认口径不变)+ `process.execPath` + `windowsHide`,15/15 绿。
+- **四路自证**:① 变异自检 3/3 咬住(M1 不切行尾 → `trailing-exempt` 变 1;M2 去 `://` 保护 → `url-in-template` 变 0;M3 豁免改看剥离后文本 → `tail-exemption` 变 1);② 注入验证:真新增中文必拦且点名、纯注释形态不误拦、`'请输入//以逗号分隔'` 仍算命中、清场后复绿;③ HEAD 干净检出双向复跑:改前 928 文件/13321 命中/3 越线 → 改后 886/13045/0 越线,`--exit 1` 与 `--staged` 均 0;④ 台账**定向**下调(禁 `--update-baseline` 整体重写):927→887 条,下调 65 / 归零删除 40 / **调高 0 / 动他人持有文件 0**,total 13324→13061 且等于 sum(files);四个被并发会话持有的文件(`repl.ts` 250→245、`ChatScreen.tsx` 156→154、`agent.ts` 58→56、`SingleTypeBar.tsx` 7→0)额度**原样保留**,不替他人平账也不给他人制造假红。
+- **真债那部分当场清掉**(commit `803ed75b8a8`):PriceChart 剩的 4 处是真界面中文(两处 `<title>` 提示 + 图例 输入/输出)。新键 `aiNews.priceChart.{inputPrice,outputPrice,legendInput,legendOutput}` 五语各 +6 行,ICU 走 `{name}`/`{price}` 插值,术语沿用同族 `leaderboard.colInputPrice` 口径不另造译法;该文件台账额度 4→条目删除,`total` 13061→13057。语言包当时正被并发会话暂存改写,故按 **HEAD + 只插本批 6 行** 在对象空间造 blob(落地脚本对当前 HEAD 复验差异形状恰为 `+6 -0`,形状一变即放弃),提交后把主索引对齐工作区,避免对方按索引提交时把我的键静默回退。隔离检出复跑:`check-i18n-keys --target=web` 通过 / 死键 0 / zh-TW·ko·ja 无残留 / broken-en 0 / 门 70 `--exit 1` 0。
+- **⛔ 交付阻塞(非本票成因,需人工)**:origin 拒绝接收 `7b2c7f006e5`(并发会话)—— GitHub push protection 在 `packages/shared/src/utils/__tests__/redact.test.ts:103` 命中"Slack API Token",而该行实为脱敏单测的**合成样本** `xoxb-123456789012-123456789012-abcdefghijklmnopqrstuvwx`。该 commit 在未推送链上,故其后的 `803ed75b8a8` 与本轮全部本地提交一起进不了 origin(`git-push-converge` = PUSH_FAILED)。解法只有两条,均需仓库管理员:走 `…/unblock-secret/3JkFo70RDq9pz6AVZGGLPj4ZgZM` 放行,或由该会话自己改写历史(AGENTS §22 禁止我代做 reset/rebase)。**本票两枚 commit 已本地落地并全绿,不称已推送。**
+- **其余三项残余(不称收口)**:① 门 70 在 HEAD 上因 `packages/shared/src/chat/handoff-package.ts` 49 处命中 > 基线 0 而红,属该文件持有方(其界面中文应走词表,不是调额度);② 守门 41 仍拦 `gh/main` —— 它是与 origin **同 URL 的第二 remote 镜像 ref**,不是开发分支,`--prune` 清不掉(本轮已 prune 掉三条真失效引用 `origin/batch-58`/`origin/desktop-feed`/`origin/feat/relay-sell-productization`,报错从 3 条降到 1 条),建议门 41 放行"与 origin 同 fetch URL 的 remote 别名";③ 上一项里保留的四个他人额度(共 16 行假阳空间)由其持有方下次清理时自行下调。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
