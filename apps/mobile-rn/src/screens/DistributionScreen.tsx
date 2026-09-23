@@ -8,7 +8,7 @@ import QRCode from 'react-native-qrcode-svg'
 import { captureRef } from 'react-native-view-shot'
 import { Asset, requestPermissionsAsync } from 'expo-media-library'
 import Clipboard from '@react-native-clipboard/clipboard'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -446,7 +446,7 @@ const shellStyles = {
   shareBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as const,
   qrContent: {
     alignItems: 'center',
@@ -459,7 +459,7 @@ const shellStyles = {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
@@ -489,7 +489,7 @@ const shellStyles = {
   saveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as const,
   saveBtnDisabled: {
     opacity: 0.5,

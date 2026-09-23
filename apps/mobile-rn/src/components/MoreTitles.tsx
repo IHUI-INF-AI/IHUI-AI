@@ -15,7 +15,7 @@
  *   interface MoreTitlesProps { title: string; moreText?: string; onMore?: () => void }
  */
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 
 export interface MoreTitlesProps {
   title: string

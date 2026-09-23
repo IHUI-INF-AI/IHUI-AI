@@ -12,7 +12,7 @@
  * - Modal 底部上滑弹层(对齐 Uniapp translateY + rotateX 动画),最高 80% 高度
  * - 顶部标题 + 可选副标题(content),中部权益列表(ScrollView),更多权益文案,版权,底部按钮
  * - 4 变体差异:index 基础单按钮 / indexs 双按钮 / levelIndex 等级权益+levelText / privateAdvisory 5 项权益
- * - 浅色优雅风,rnLightTokens;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
+ * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(gap 间距)
  */
 import { useState } from 'react'
 import {
@@ -27,7 +27,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 // 装饰图(拷贝自原 uniapp static/images,require 内联避免类型声明问题)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxHeight: SHEET_MAX_HEIGHT_PERCENT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: SHEET_RADIUS,
     borderTopRightRadius: SHEET_RADIUS,
     paddingHorizontal: SHEET_PADDING_HORIZONTAL,
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: BUTTON_HEIGHT,
     borderRadius: BUTTON_RADIUS,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.brand.DEFAULT,
     borderWidth: 1,
     borderColor: tokens.border.light,
     alignItems: 'center',
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: BUTTON_FONT_SIZE,
     lineHeight: BUTTON_FONT_SIZE + 2,
-    color: tokens.text.primary,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   secondaryButtonText: {

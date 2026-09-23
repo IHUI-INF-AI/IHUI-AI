@@ -16,7 +16,7 @@
  * - 逐项 slideUp 入场动画(animateEntrance,默认开启,反向 stagger)
  * - 单选 / 多选:selectionMode = 'single' | 'multiple'
  * - 加载更多:onEndReached
- * - 浅色优雅风,无霓虹 / 无渐变 / 无 ttf;颜色走 @ihui/design-tokens 的 rnLightTokens
+ * - 浅色优雅风,无霓虹 / 无渐变 / 无 ttf;颜色走 theme/active-tokens 的主题 token
  * - 类型零 any,精确标注
  *
  * 2026-08-29 增补:ModelListItem 增加 category / modelTier 两个可选字段,
@@ -24,7 +24,7 @@
  * (ai-service model_catalog),本组件只透传字段,不重复实现分类规则。
  */
 import { useEffect, useRef } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
 import {
@@ -133,7 +133,7 @@ function EmptyState(): React.ReactElement {
 function Check(): React.ReactElement {
   return (
     <View style={styles.check}>
-      <CheckIcon size={12} color={tokens.surface.light} />
+      <CheckIcon size={12} color={tokens.brand.foreground} />
     </View>
   )
 }
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 12,
     fontWeight: '700',
     lineHeight: 14,

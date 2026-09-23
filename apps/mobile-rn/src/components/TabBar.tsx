@@ -7,17 +7,16 @@
  * 对齐历史项目 customTabBar/index.vue 5 主 Tab 结构与 static/tabbar/ 图标:
  *   - AI应用商店 (tabbar_1) / 广场 (tabbar_2) / 智汇AI (tabbar_3) /
  *     动态 (tabbar_4) / 我的 (tabbar_5)
- * 浅色优雅风 — 顶部 1px 边框 + 表面卡色背景,系统字体,无霓虹无渐变。
+ * 悬浮胶囊风(对齐 Telegram/钉钉 App 底部导航) — 圆角胶囊脱离屏幕边缘,
+ * 左右留边 + 投影,底部按 safe-area 悬浮避开手势区。
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { tabBarStyleSheet } from './TabBar.styles'
-
-/** TabBar 高度覆盖(对齐 Uniapp 100rpx = 50dp,取 52dp;原 styles.ts 中 56dp) */
-const TAB_BAR_HEIGHT_OVERRIDE = 52
+import { tokens } from '../theme/active-tokens'
+import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 
 // ── tabbar 图片资源(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
@@ -83,34 +82,42 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
   return (
     <View
       style={[
-        tabBarStyleSheet.container,
-        { height: TAB_BAR_HEIGHT_OVERRIDE, paddingBottom: insets.bottom },
+        tabBarStyleSheet.wrapper,
+        // 悬浮高度:有效 safe-area 一半 + 小间距,不足则用最小间距兜底(对齐 Telegram 手势区避让)
+        { marginBottom: Math.max(TAB_BAR_FLOAT_GAP_BOTTOM_MIN, insets.bottom * 0.5 + 4) },
       ]}
     >
-      {TABS.map((tab) => {
-        const isActive = tab.key === activeTab
-        return (
-          <Pressable
-            key={tab.key}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isActive }}
-            accessibilityLabel={tab.label}
-            onPress={handlePress(tab.key)}
-            style={[tabBarStyleSheet.item, { height: TAB_BAR_HEIGHT_OVERRIDE }]}
-          >
-            <TabBarIcon tab={tab} isActive={isActive} />
-            <Text
-              style={[
-                tabBarStyleSheet.label,
-                isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
-              ]}
-              numberOfLines={1}
+      <View style={tabBarStyleSheet.container}>
+        {TABS.map((tab) => {
+          const isActive = tab.key === activeTab
+          return (
+            <Pressable
+              key={tab.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={tab.label}
+              onPress={handlePress(tab.key)}
+              style={tabBarStyleSheet.item}
             >
-              {labels?.[tab.key] ?? tab.label}
-            </Text>
-          </Pressable>
-        )
-      })}
+              {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高品牌强调色,左右留边圆角)。
+                  原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 品牌色文字 + 粗体三重区分。 */}
+              {isActive ? <View style={localStyles.activeIndicator} /> : null}
+              <TabBarIcon tab={tab} isActive={isActive} />
+              <Text
+                style={[
+                  tabBarStyleSheet.label,
+                  isActive
+                    ? [tabBarStyleSheet.labelActive, localStyles.labelActiveOverride]
+                    : tabBarStyleSheet.labelInactive,
+                ]}
+                numberOfLines={1}
+              >
+                {labels?.[tab.key] ?? tab.label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
     </View>
   )
 }
@@ -121,9 +128,36 @@ interface TabBarIconProps {
 }
 
 function TabBarIcon({ tab, isActive }: TabBarIconProps) {
-  // 双图模式:各自独立 inactive/active 资源(对齐原 tabbar_1~5 图标)
+  // 双图模式:各自独立 inactive/active 资源(对齐原 tabbar_1~5 图标)。
+  // 2026-09-23 修复 P1:选中态加 tintColor 品牌强调色,让图标也呈现品牌色高亮。
   return (
-    <Image source={isActive ? tab.iconActive : tab.iconInactive} style={tabBarStyleSheet.icon} />
+    <Image
+      source={isActive ? tab.iconActive : tab.iconInactive}
+      style={tabBarStyleSheet.icon}
+      tintColor={isActive ? tokens.brandAccent.deep : undefined}
+    />
   )
 }
+
+/**
+ * 本地内联样式(覆盖 TabBar.styles.ts 中无法修改的 labelActive)。
+ * TabBar.styles.ts 不在本任务可修改文件清单,故在此覆盖。
+ */
+const localStyles = StyleSheet.create({
+  /** 选中态顶部指示条:3px 高,品牌强调色,左右各留 12dp 边距,小圆角 */
+  activeIndicator: {
+    position: 'absolute',
+    top: 0,
+    left: 12,
+    right: 12,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: tokens.brandAccent.deep,
+  },
+  /** 选中态文字覆盖:品牌强调色 + 粗体,替代原白色 brand.DEFAULT */
+  labelActiveOverride: {
+    color: tokens.brandAccent.deep,
+    fontWeight: '600',
+  },
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

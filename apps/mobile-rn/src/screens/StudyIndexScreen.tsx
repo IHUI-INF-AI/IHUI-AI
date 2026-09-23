@@ -16,7 +16,7 @@
  * - 数据加载:fetchApi 拉取 /api/study/videos(分页 + 搜索)+ fetchModels 加载模型
  * - 下拉刷新 + 上拉分页 + 空态(Empty)+ 加载态(Loading)+ 错误重试
  * - 悬浮发布按钮(对齐 .vue floating-publish-btn → /pagesA/study/publish)
- * - 浅色优雅风,rnLightTokens;圆角守门(无 rounded-full);无分割线(gap 间距)
+ * - 浅色优雅风,主题 token 入口;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -48,7 +48,7 @@ import {
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import { NavBar } from '../components/NavBar'
 import FloatingActionButton from '../components/FloatingActionButton'
@@ -1008,7 +1008,7 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 13,
     fontWeight: '600',
-    color: tk.surface.light,
+    color: tk.brand.foreground,
   } as TextStyle,
 })
 

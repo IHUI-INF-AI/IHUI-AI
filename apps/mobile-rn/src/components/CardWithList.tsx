@@ -25,7 +25,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
 
@@ -131,7 +131,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: tk.surface.light,
+    backgroundColor: tk.surface.card,
     borderRadius: CARD_RADIUS,
     padding: CARD_PADDING,
   } as ViewStyle,

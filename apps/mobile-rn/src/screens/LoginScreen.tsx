@@ -41,7 +41,8 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { OAUTH_BRAND_COLORS, rnLightTokens as tokens, withAlpha } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -1227,7 +1228,7 @@ const styles = StyleSheet.create({
   },
   carrierWebTopBar: {
     height: 44,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     alignItems: 'flex-end',
@@ -1254,7 +1255,7 @@ const styles = StyleSheet.create({
   },
   agreementModalCard: {
     width: rpx(580),
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: rpx(24),
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: rpx(12) },
@@ -1309,7 +1310,7 @@ const styles = StyleSheet.create({
     height: rpx(88),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: rpx(24),
@@ -1328,7 +1329,7 @@ const styles = StyleSheet.create({
   },
   agreementModalConfirmText: {
     fontSize: rpx(32),
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

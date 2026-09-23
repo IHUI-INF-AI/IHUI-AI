@@ -19,10 +19,10 @@
  * (name/company/field1/attention/rankingUndulation/rankingUndulationNum/undulation/undulationNum),
  * 展示名取 name ?? nickname,头像优先 field1 图标、回退首字符。
  *
- * 颜色全部走 @ihui/design-tokens 的 rnLightTokens,涨红(danger)/跌绿(success),禁用 purple/indigo。
+ * 颜色全部走 theme/active-tokens 的主题 token,涨红(danger)/跌绿(success),禁用 purple/indigo。
  * 系统字体,无 any,精确类型。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { ListRenderItem } from 'react-native'
 
@@ -90,7 +90,7 @@ interface RankBadgeStyle {
 
 function rankBadgeStyle(rank: number): RankBadgeStyle {
   if (rank === 1) {
-    return { backgroundColor: tokens.brand.DEFAULT, color: tokens.surface.light }
+    return { backgroundColor: tokens.brand.DEFAULT, color: tokens.brand.foreground }
   }
   if (rank === 2) {
     return { backgroundColor: tokens.warning.DEFAULT, color: tokens.surface.light }

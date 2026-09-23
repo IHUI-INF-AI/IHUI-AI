@@ -8,7 +8,8 @@
 # 用法:由计划任务自动调用,也可手动 pwsh -File 此脚本
 
 $ErrorActionPreference = 'Continue'
-$logFile = "D:\caches\c-drive-maintain.log"
+# 维护日志落统一外置根的 logs 下。原写 D:\caches\ 属死路径(本机不存在该目录,日志从未写出)。
+$logFile = "D:\DevEnv\logs\c-drive-maintain.log"
 
 function Log {
   param([string]$msg, [string]$level = "INFO")
