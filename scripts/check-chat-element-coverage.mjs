@@ -302,7 +302,7 @@ function main(argv) {
   return 1
 }
 
-export const __test__ = { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks }
+export const __test__ = { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks, pickSource, contentAt }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main(process.argv.slice(2)))
