@@ -1193,20 +1193,21 @@ C 盘 120 GB 频繁告急,根因排查发现:
 `D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
 当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
 
-| 工具                | 环境变量 / 配置                     | 实测路径                                          |
-| ------------------- | ----------------------------------- | ------------------------------------------------- |
-| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`           | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)      |
-| pnpm                | `PNPM_HOME` + `pnpm store path`     | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11` |
-| npm                 | `npm config`                        | `D:\DevEnv\cache\npm`                             |
-| pip                 | `PIP_CACHE_DIR`                     | `D:\DevEnv\cache\pip`                             |
-| uv                  | `UV_CACHE_DIR`                      | `D:\DevEnv\cache\uv`                              |
-| Cargo               | junction(`%USERPROFILE%\.cargo`)    | `D:\DevEnv\cache\userhome\.cargo`                 |
-| Rustup              | junction(`%USERPROFILE%\.rustup`)   | `D:\DevEnv\cache\userhome\.rustup`                |
-| Maven/.m2           | junction(`%USERPROFILE%\.m2`)       | `D:\DevEnv\cache\userhome\.m2`                    |
-| Codex/.cache/.codex | junction                            | `D:\DevEnv\cache\userhome\{.cache,.codex}`        |
-| Trae                | junction(`%USERPROFILE%\.trae`)     | `D:\DevEnv\cache\userhome\.trae`                  |
-| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`  |
-| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`          | `D:\DevEnv\cache\playwright`                      |
+| 工具                | 环境变量 / 配置                           | 实测路径                                                         |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                     |
+| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                |
+| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                            |
+| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                            |
+| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                             |
+| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                |
+| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                               |
+| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                   |
+| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}` |
+| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                      |
+| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                             |
+| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                 |
+| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                     |
 
 **改道机制定为 junction,不env优先**:`robocopy <src> <dst> /E /MOVE` → `mklink /J <旧路径> <新路径>`。
 理由:家目录状态常有**硬编码**读取方(如 `~/.cargo\bin` 在 `HKCU\Environment\Path` 首位、守门脚本按
