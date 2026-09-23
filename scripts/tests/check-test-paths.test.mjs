@@ -228,4 +228,72 @@ test('批量扫描: 多个 __tests__/ (block) + 多个 *.tmp (warn) → exit 1 +
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// ─── 反忽略与文件级探查(2026-09-24 补,两条都是"旧判据必红"的负向对照) ───
+
+test('反忽略到位(`!` 放开目录 + 放开内容)不得判成被忽略 —— 真仓 billing/__tests__ 假阳性对照', () => {
+  // 旧实现只看 `git check-ignore -v` 输出是否非空,而 git 对否定规则同样打印命中行,
+  // 于是"已被 `!` 反忽略"的目录会被判 BLOCK,卡死所有无关提交(真仓 billing/__tests__ 实测)。
+  // git 不能重新包含"父目录已被排除"里的文件,所以完整反忽略要两条同时到位(见下一个用例)。
+  const dir = createTempGitRepo('__*\n!__tests__/\n!**/__tests__/**\n')
+  try {
+    writeDir(dir, 'apps/web/__tests__')
+    writeFile(dir, 'apps/web/__tests__/a.test.ts', 'export {}')
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `反忽略到位后不应 block\nstdout: ${r.out}`)
+    assert.match(r.out, /未命中 ignore 规则/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('半个反忽略(只放开内容、没放开目录)→ 仍必须 BLOCK', () => {
+  // 只写 `!**/__tests__/**` 是无效反忽略:目录本身仍被 `__*` 排除,git add 实测报 ignored。
+  // 此例钉住"加了个 ! 就安全了"的错觉,防止有人照它改 .gitignore 后测试永久丢失。
+  const dir = createTempGitRepo('__*\n!**/__tests__/**\n')
+  try {
+    writeDir(dir, 'apps/web/__tests__')
+    writeFile(dir, 'apps/web/__tests__/a.test.ts', 'export {}')
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `父目录仍被排除时应 block\nstdout: ${r.out}`)
+    assert.match(r.out, /BLOCK/)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('目录未命中但里面的 .spec.ts 被规则吞掉 → 必须 BLOCK 并点名该文件', () => {
+  // 只查目录本身会漏这一类:`**/__tests__/*.spec.ts` 对目录路径不成立、对文件成立。
+  const dir = createTempGitRepo('**/__tests__/*.spec.ts\n')
+  try {
+    writeDir(dir, 'apps/web/__tests__')
+    writeFile(dir, 'apps/web/__tests__/a.spec.ts', 'export {}')
+    const r = runScript(dir)
+    assert.equal(r.status, 1, `文件级被吞应 exit 1\nstdout: ${r.out}`)
+    assert.match(r.out, /BLOCK/)
+    assert.match(r.out, /a\.spec\.ts/, '必须点名到具体不会被跟踪的文件')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('parseCheckIgnoreLine:否定规则 / 普通规则 / 空输出 / 含盘符冒号的来源', async () => {
+  const { parseCheckIgnoreLine } = await import('../check-test-paths.mjs')
+  assert.deepEqual(
+    parseCheckIgnoreLine('.gitignore:245:!**/__tests__/**\tapps/web/src/x/__tests__/'),
+    { ignored: false, rule: '.gitignore:245:!**/__tests__/**' },
+  )
+  assert.equal(parseCheckIgnoreLine('.gitignore:154:__*\tapps/web/__tests__/').ignored, true)
+  assert.equal(parseCheckIgnoreLine('').ignored, false)
+  // Windows 全局忽略文件来源形如 C:\Users\...\.gitignore_global:3:foo —— 取最后一个冒号段
+  assert.equal(
+    parseCheckIgnoreLine('C:\\Users\\me\\.gitignore_global:3:__tests__\tapps/x/__tests__/').ignored,
+    true,
+  )
+  assert.equal(
+    parseCheckIgnoreLine('C:\\Users\\me\\.gitignore_global:3:!__tests__\tapps/x/__tests__/').ignored,
+    false,
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

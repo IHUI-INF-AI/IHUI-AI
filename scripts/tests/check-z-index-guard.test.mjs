@@ -14,12 +14,13 @@ import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-z-index-guard.mjs')
 
-// ─── Fixtures:4 个合规文件(全绿基线)─────────────────────
-// 源脚本检查 4 个固定路径文件:
+// ─── Fixtures:5 个合规文件(全绿基线)─────────────────────
+// 源脚本检查 5 个固定路径文件(check-z-index-guard.mjs:73-78):
 //   packages/design-tokens/src/styles/tokens.css  (11 个 z-index 变量,无 !important)
-//   apps/web/app/globals.css                       (5 个工具类,无 !important)
+//   apps/web/app/globals.css                       (5 个工具类无 !important + 第 5 项两条弱化规则)
 //   apps/web/app/layout.tsx                        (inline script 含 11 个 setProperty)
 //   packages/ui-react/src/components/dialog.tsx   (遮罩无 open 态 fade-in)
+//   apps/web/src/components/layout/GlobalTopBar.tsx (第 5 项容器标记挂点,2026-09-22 新增)
 const VALID_TOKENS_CSS = `:root {
   --z-base: 1;
   --z-sticky: 990;
@@ -35,11 +36,35 @@ const VALID_TOKENS_CSS = `:root {
 }
 `
 
+// 第 5 项两组契约的 globals 侧挂点(2026-09-22 起 blocking):
+// 弱化/瞬时规则必须落在入口 CSS,不能退化成组件内 Tailwind 任意变体。
 const VALID_GLOBALS_CSS = `.z-sticky { z-index: var(--z-sticky); }
 .z-modal { z-index: var(--z-modal); }
 .z-popover { z-index: var(--z-popover); }
 .z-notification { z-index: var(--z-notification); }
 .z-max { z-index: var(--z-max); }
+
+/* 等效压暗层:遮罩 open 时把窗口三按钮一起压暗,且不得跟 fade-in */
+[data-window-controls][data-modal-dim='1'] > [data-window-controls-dim] {
+  opacity: 0.32;
+  transition: none;
+}
+
+/* 失焦非活动态:窗口失去焦点时按钮降亮 */
+[data-window-controls][data-window-inactive='true'] > button:not(:hover) {
+  opacity: 0.55;
+}
+`
+
+// 第 5 项两组契约的组件侧挂点:容器标记 + 压暗覆盖层 + 失焦标记
+const VALID_TOPBAR_TSX = `export function GlobalTopBar({ windowFocused }) {
+  return (
+    <div data-window-controls className="flex">
+      <span data-window-controls-dim aria-hidden />
+      <button data-window-inactive={windowFocused ? undefined : 'true'}>—</button>
+    </div>
+  )
+}
 `
 
 const VALID_LAYOUT_TSX = `export default function RootLayout() {
@@ -81,9 +106,10 @@ const DEFAULT_FILES = {
   'apps/web/app/globals.css': VALID_GLOBALS_CSS,
   'apps/web/app/layout.tsx': VALID_LAYOUT_TSX,
   'packages/ui-react/src/components/dialog.tsx': VALID_DIALOG_TSX,
+  'apps/web/src/components/layout/GlobalTopBar.tsx': VALID_TOPBAR_TSX,
 }
 
-// ─── 辅助:创建临时项目目录(默认 4 文件,overrides 可覆盖/置 null 删除) ───
+// ─── 辅助:创建临时项目目录(默认 5 文件,overrides 可覆盖/置 null 删除) ───
 function createTempProject(overrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-zguard-'))
   const files = { ...DEFAULT_FILES }
@@ -134,12 +160,40 @@ function initGitRepo(dir) {
 // 检查 1:tokens.css z-index 变量(无 !important + 值精确匹配)
 // ============================================================
 
-// ─── 1. 合法:4 文件全部合规 → exit 0 ───
-test('合法: 4 文件全部合规 → exit 0', () => {
+// ─── 1. 合法:5 文件全部合规 → exit 0 ───
+test('合法: 5 文件全部合规(含第 5 项两组契约)→ exit 0', () => {
   const dir = createTempProject()
   try {
     const r = runScript(dir)
     assertPass(r)
+    // 第 5 项必须真的判绿,而不是"没跑到"(缺文件只 warn)
+    assert.match(r.stdout, /两组契约齐全/, `stdout 应含第 5 项判绿\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 1b. 违规: 第 5 项契约文件缺失 / 标记被删 → exit 1(blocking,非 warn) ───
+test('违规: GlobalTopBar.tsx 缺失 → exit 1(第 5 项契约文件缺失是 blocking)', () => {
+  const dir = createTempProject({ 'apps/web/src/components/layout/GlobalTopBar.tsx': null })
+  try {
+    const r = runScript(dir)
+    assertFail(r)
+    assert.match(r.stdout, /契约文件缺失/, `stdout 应点名契约文件缺失\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('违规: 压暗覆盖层标记被删(只剩裸 data-window-controls)→ exit 1', () => {
+  const stripped = VALID_TOPBAR_TSX.replace('<span data-window-controls-dim aria-hidden />', '<span aria-hidden />')
+  const dir = createTempProject({
+    'apps/web/src/components/layout/GlobalTopBar.tsx': stripped,
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r)
+    assert.match(r.stdout, /data-window-controls-dim/, `stdout 应点名缺失标记\nstdout: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
