@@ -231,7 +231,7 @@ open http://localhost:8801
 
 - Monorepo: pnpm workspace
 - Stack: Next.js 15 + Fastify 5 + FastAPI + LangGraph
-- Database: PostgreSQL 16 + Drizzle ORM
+- Database: PostgreSQL 18 + Drizzle ORM
 - See [Developer Portal](https://aizhs.top/developer) and [API Reference](https://aizhs.top/docs/api)
 
 ---
@@ -316,7 +316,7 @@ A: Hosted version: data in China (Aliyun) with full encryption at rest and in tr
 │ APIs│     │  DB     │   │ Storage │
 └─────┘     └─────────┘   └─────────┘
 
-Database: PostgreSQL 16 + Drizzle ORM
+Database: PostgreSQL 18 + Drizzle ORM
 Cache: Redis 7
 Queue: BullMQ
 Search: Meilisearch

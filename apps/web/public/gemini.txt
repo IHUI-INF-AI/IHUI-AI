@@ -27,7 +27,7 @@
 **Last updated**: 2026-07-26
 **Programming languages**: TypeScript, Python, Rust
 **Frameworks**: Next.js 15, React 19, Fastify 5, FastAPI, LangGraph, Tauri 2, Taro 4, WXT, React Native
-**Databases**: PostgreSQL 16, Redis 7
+**Databases**: PostgreSQL 18, Redis 7
 **License**: Apache 2.0
 **Download URL**: https://github.com/ihui-ai
 **Homepage**: https://aizhs.top

@@ -107,6 +107,20 @@ pre-commit / commit-msg / pre-push 钩子使用的 `check-*` 守门脚本(含 `o
 | check-nativewind-status.mjs           | NativeWind 升级就绪监控(等 5.0 stable)                                                                                                                                                                                                                                            | —              | 监控 npm registry                          |
 | check-rn-global-css-sync.mjs          | mobile-rn/global.css 颜色变量与 tokens.css 同步                                                                                                                                                                                                                                   | —              | NativeWind 4.x 手动复制变量                |
 
+### 守门 77 `check-no-conflict-markers.mjs` 的三条执行路径(2026-09-23 接齐 CI)
+
+这道门判"被提交的内容含成对 Git 冲突标记(`<<<<<<< ` / `>>>>>>> `)"。它拦的正是本地钩子失效的场面——2026-09-23 本机 `.git` 被宿主清除期间,多个会话用 `--no-verify` 提交,pre-commit 整链一跳未跑,`apps/cli/tests/file-edit.test.ts` 带着标记一路进 HEAD 树。所以三条路径缺一不可:
+
+| 路径            | 入口                                                                                     | 命令                                                    | 判据对象                                   |
+| --------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------ |
+| 本地 pre-commit | `scripts/guardian-runner.mjs` id `77`(blocking,`HUSKY_SKIP_CONFLICT_MARKERS=1` 应急跳过) | `node scripts/check-no-conflict-markers.mjs --staged`   | 索引内容(`git show :<path>`)+ U 未合并路径 |
+| **CI**          | `.github/workflows/ci.yml` job `lint-typecheck-test` step "Conflict marker check"        | `node scripts/check-no-conflict-markers.mjs --rev HEAD` | 刚被 push / PR 合并出来的**提交树**        |
+| 本地聚合        | 根 `package.json`:`pnpm check:conflict-markers`,并作为**首门**接入 `pnpm check:all`      | `node scripts/check-no-conflict-markers.mjs`            | 全部跟踪文件的工作区内容                   |
+
+- **CI 侧必须是 `--rev HEAD`,不得改用 `--staged`**:CI 检出没有暂存区(索引恒等于 HEAD),`--staged` 在那儿恒绿,等于把这道门在远端形同虚设。`--rev HEAD` 在 push 事件下判被推的那棵树,在 pull_request 事件下 actions/checkout 检出的是 PR 与 base 的 merge ref,故判的是"合进来之后"的树——两种触发都覆盖。
+- 该 step 放在 `pnpm install` **之前**(与 "Provenance watermark check" 同一位置):本门零第三方依赖、纯 node + git,前置可让失败在几十秒内暴露,且不受依赖安装波动影响。blocking —— 未设 `continue-on-error`,红即 CI 红。
+- 三种模式共用同一判据与同一套护栏(自豁免 / >2MB / 二进制 / E1 合法 `<<<<<<< SEARCH`-`>>>>>>> REPLACE` 补丁格式对),所以"CI 绿"与"本地绿"不会因为口径不同而打架。判据变更须同步 `--self-test`(临时仓端到端取证,不触碰真实仓;2026-09-23 实跑全绿)。
+
 ---
 
 ## 四、构建/部署(2 个)

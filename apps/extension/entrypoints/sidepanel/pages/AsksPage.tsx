@@ -11,17 +11,18 @@
 import { useEffect, useState } from 'react'
 import { getAsks, type Ask } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@ihui/ui-react'
+import { formatCompact } from '@ihui/shared/utils'
 import { useI18n } from '../../../src/i18n'
 import { fmtDateOnly as fmtDate } from '../../../lib/date-utils'
 import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
-function fmtCount(n: number | undefined): string {
+function fmtCount(n: number | undefined, locale: string): string {
   if (typeof n !== 'number') return '0'
-  return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n)
+  return formatCompact(n, locale) || '0'
 }
 
 export default function AsksPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [items, setItems] = useState<Ask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -92,12 +93,14 @@ export default function AsksPage() {
             <CardContent className="px-3 pb-2 -mt-1">
               <div className="flex items-center justify-between text-[11px] text-muted-foreground gap-2">
                 <span className="flex items-center gap-1.5 truncate">
-                  {a.isResolved ? <Badge variant="secondary">已解决</Badge> : null}
+                  {a.isResolved ? (
+                    <Badge variant="secondary">{t('feedback.statusResolved')}</Badge>
+                  ) : null}
                   <span className="truncate">{a.author?.nickname || '—'}</span>
                 </span>
                 <span className="flex items-center gap-2 whitespace-nowrap">
-                  <span>{fmtCount(a.answerCount)} 回答</span>
-                  <span>{fmtCount(a.viewCount)} 浏览</span>
+                  <span>{t('askList.answers', { count: fmtCount(a.answerCount, locale) })}</span>
+                  <span>{t('askList.views', { count: fmtCount(a.viewCount, locale) })}</span>
                   <span>{fmtDate(a.createdAt)}</span>
                 </span>
               </div>

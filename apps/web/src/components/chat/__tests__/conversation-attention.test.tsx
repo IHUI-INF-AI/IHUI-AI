@@ -52,9 +52,7 @@ describe('ConversationAttentionBadges 四态', () => {
   afterEach(() => cleanup())
 
   it('idle:零占位,不渲染任何徽章', () => {
-    const { container } = render(
-      <ConversationAttentionBadges state="idle" unreadCount={0} />,
-    )
+    const { container } = render(<ConversationAttentionBadges state="idle" unreadCount={0} />)
     expect(container.firstChild).toBeNull()
   })
 
@@ -65,8 +63,13 @@ describe('ConversationAttentionBadges 四态', () => {
     expect(screen.queryByTestId('attention-badge-unread')).toBeNull()
   })
 
+  // unread 徽章现走项目 Tooltip(§4 禁原生提示窗)→ 与文件内既有写法一致,需 provider 包裹
   it('unread:渲染未读数徽章(确定性居中模板类)', () => {
-    render(<ConversationAttentionBadges state="unread" unreadCount={7} />)
+    render(
+      <TooltipProvider>
+        <ConversationAttentionBadges state="unread" unreadCount={7} />
+      </TooltipProvider>,
+    )
     const badge = screen.getByTestId('attention-badge-unread')
     expect(badge.textContent).toContain('7')
     // AGENTS.md 数字徽章强制模板:inline-flex + 定高 + 最小宽 + 双向居中 + leading-none + 等宽数字
@@ -86,15 +89,37 @@ describe('ConversationAttentionBadges 四态', () => {
   })
 
   it('waiting-unread:两徽章并排', () => {
-    render(<ConversationAttentionBadges state="waiting-unread" unreadCount={2} />)
+    render(
+      <TooltipProvider>
+        <ConversationAttentionBadges state="waiting-unread" unreadCount={2} />
+      </TooltipProvider>,
+    )
     expect(screen.getByTestId('attention-badge-waiting')).toBeTruthy()
     const badge = screen.getByTestId('attention-badge-unread')
     expect(badge.textContent).toContain('2')
   })
 
   it('未读超 99 封顶 99+', () => {
-    render(<ConversationAttentionBadges state="unread" unreadCount={150} />)
+    render(
+      <TooltipProvider>
+        <ConversationAttentionBadges state="unread" unreadCount={150} />
+      </TooltipProvider>,
+    )
     expect(screen.getByTestId('attention-badge-unread').textContent).toContain('99+')
+  })
+
+  it('未读徽章由项目 Tooltip 承载提示,不再挂原生 title(§4)', () => {
+    render(
+      <TooltipProvider>
+        <ConversationAttentionBadges state="unread" unreadCount={7} />
+      </TooltipProvider>,
+    )
+    const badge = screen.getByTestId('attention-badge-unread')
+    expect(badge.getAttribute('title')).toBeNull()
+    // Radix Trigger 用 asChild 合到本 span:aria-describedby 在关闭态也已挂,
+    // 足以证明 hover 提示已由项目 Tooltip 接管(无需模拟 hover → 不受 300ms 时延抖动影响)。
+    expect(badge.getAttribute('aria-describedby')).toBeTruthy()
+    expect(badge.getAttribute('aria-label')).toBe('有 7 条未读更新')
   })
 })
 
@@ -102,9 +127,7 @@ describe('BatchAttentionSummaryLine 多选条文案', () => {
   afterEach(() => cleanup())
 
   it('两项皆 0 时零占位', () => {
-    const { container } = render(
-      <BatchAttentionSummaryLine waitingCount={0} unreadCount={0} />,
-    )
+    const { container } = render(<BatchAttentionSummaryLine waitingCount={0} unreadCount={0} />)
     expect(container.firstChild).toBeNull()
   })
 

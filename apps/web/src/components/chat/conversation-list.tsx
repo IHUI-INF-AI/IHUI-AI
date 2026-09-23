@@ -119,16 +119,19 @@ export function ConversationAttentionBadges({
         </span>
       )}
       {unread && (
-        <span
-          data-testid="attention-badge-unread"
-          role="status"
-          aria-label={t('attentionUnread', { count: unreadCount })}
-          title={t('attentionUnread', { count: unreadCount })}
-          className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
-        >
-          <Bell className="mr-0.5 h-3 w-3" />
-          {formatUnreadCount(unreadCount)}
-        </span>
+        // §4 禁原生提示窗:title 属性交回项目 Tooltip(与同文件收藏钮同款用法);
+        // aria-label 保留 —— 它是无障碍朗读,不是原生 tooltip。
+        <Tooltip content={t('attentionUnread', { count: unreadCount })}>
+          <span
+            data-testid="attention-badge-unread"
+            role="status"
+            aria-label={t('attentionUnread', { count: unreadCount })}
+            className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
+          >
+            <Bell className="mr-0.5 h-3 w-3" />
+            {formatUnreadCount(unreadCount)}
+          </span>
+        </Tooltip>
       )}
     </span>
   )
@@ -572,172 +575,172 @@ export function ConversationList({
           const attentionState = attentionStateOf(item)
           const unread = unreadOf(item)
           return (
-          <li
-            key={item.id}
-            className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
-          >
-            <Checkbox
-              checked={selectedIds.has(item.id)}
-              onCheckedChange={(checked) => toggleSelection(item.id, checked === true)}
-              aria-label={t('select')}
-              data-testid={`conversation-checkbox-${item.id}`}
-            />
-            <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <button
-              type="button"
-              onClick={() => {
-                // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
-                // 1) 写入 store 作为当前会话  2) 打开面板
-                // 3) 跳回 /,首页是营销落地页 + 右侧 AI 面板作为对话入口
-                useChatStore.getState().setConversationId(item.id)
-                useAiPanelStore.getState().openPanel()
-                router.push('/')
-              }}
-              className="min-w-0 flex-1 text-left"
+            <li
+              key={item.id}
+              className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
             >
-              <p className="truncate text-sm font-medium">{item.title}</p>
-              <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
-                <span className="min-w-0 truncate">{item.model}</span>
-                <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
-                  <Clock className="h-3 w-3" />
-                  {dateFmt.format(new Date(item.lastMessageAt))}
-                </span>
-                <span className="shrink-0 whitespace-nowrap tabular-nums">
-                  {t('messageCount', { count: item.messageCount })}
-                </span>
-                <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
-              </p>
-            </button>
-            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
-                <span className="inline-flex">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => favMutation.mutate(item.id)}
-                    // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
-                    // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
-                    disabled={favMutation.isPending && favMutation.variables === item.id}
-                    aria-label={item.favorite ? t('unfavorite') : t('favorite')}
-                  >
-                    <Star
-                      className={cn(
-                        'h-3.5 w-3.5',
-                        item.favorite && 'fill-amber-400 text-amber-400',
+              <Checkbox
+                checked={selectedIds.has(item.id)}
+                onCheckedChange={(checked) => toggleSelection(item.id, checked === true)}
+                aria-label={t('select')}
+                data-testid={`conversation-checkbox-${item.id}`}
+              />
+              <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <button
+                type="button"
+                onClick={() => {
+                  // AI 对话是全局 docked 面板,与 Sidebar 同性质:点击历史项只触发
+                  // 1) 写入 store 作为当前会话  2) 打开面板
+                  // 3) 跳回 /,首页是营销落地页 + 右侧 AI 面板作为对话入口
+                  useChatStore.getState().setConversationId(item.id)
+                  useAiPanelStore.getState().openPanel()
+                  router.push('/')
+                }}
+                className="min-w-0 flex-1 text-left"
+              >
+                <p className="truncate text-sm font-medium">{item.title}</p>
+                <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                  <span className="min-w-0 truncate">{item.model}</span>
+                  <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular-nums">
+                    <Clock className="h-3 w-3" />
+                    {dateFmt.format(new Date(item.lastMessageAt))}
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap tabular-nums">
+                    {t('messageCount', { count: item.messageCount })}
+                  </span>
+                  <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
+                </p>
+              </button>
+              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <Tooltip content={item.favorite ? t('unfavorite') : t('favorite')}>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => favMutation.mutate(item.id)}
+                      // 2026-08-02 修复: Bug 12 — 仅禁用当前正在 mutate 的 item,避免重复点击导致乐观更新叠加;
+                      // 其他 item 不受影响(原 disabled={favMutation.isPending} 会一刀切禁用全部 item)。
+                      disabled={favMutation.isPending && favMutation.variables === item.id}
+                      aria-label={item.favorite ? t('unfavorite') : t('favorite')}
+                    >
+                      <Star
+                        className={cn(
+                          'h-3.5 w-3.5',
+                          item.favorite && 'fill-amber-400 text-amber-400',
+                        )}
+                      />
+                    </Button>
+                  </span>
+                </Tooltip>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={busyId === item.id}
+                      aria-label={tc('actions.menu')}
+                      data-testid="conversation-more-menu"
+                    >
+                      {busyId === item.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <MoreVertical className="h-3.5 w-3.5" />
                       )}
-                    />
-                  </Button>
-                </span>
-              </Tooltip>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={busyId === item.id}
-                    aria-label={tc('actions.menu')}
-                    data-testid="conversation-more-menu"
-                  >
-                    {busyId === item.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <MoreVertical className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 space-y-0.5">
-                  <DropdownMenuItem
-                    onClick={() => handleRename(item)}
-                    disabled={busyId === item.id}
-                  >
-                    <Pencil className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.rename')}</span>
-                  </DropdownMenuItem>
-                  {/* 2026-08-30 立:置顶/取消置顶 */}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setBusyId(item.id)
-                      pinMutation.mutate(
-                        { id: item.id, pinned: !item.pinned },
-                        {
-                          onSettled: () => setBusyId(null),
-                          onSuccess: () =>
-                            success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
-                        },
-                      )
-                    }}
-                    disabled={busyId === item.id}
-                    data-testid="conversation-pin-action"
-                  >
-                    {item.pinned ? (
-                      <>
-                        <PinOff className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.unpin')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Pin className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.pin')}</span>
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleArchiveToggle(item)}
-                    disabled={busyId === item.id}
-                  >
-                    {item.archivedAt ? (
-                      <>
-                        <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.unarchive')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Archive className="mr-2 h-3.5 w-3.5" />
-                        <span>{tc('actions.archive')}</span>
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport(item, 'md')}
-                    disabled={busyId === item.id}
-                  >
-                    <FileCode className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.exportMd')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleExport(item, 'txt')}
-                    disabled={busyId === item.id}
-                  >
-                    <FileText className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.exportTxt')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleCompress(item, 200000)}
-                    disabled={busyId === item.id}
-                  >
-                    <Shrink className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.compressTo200k')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleCompress(item, 1000000)}
-                    disabled={busyId === item.id}
-                  >
-                    <Shrink className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.compressTo1m')}</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setPendingDeleteId(item.id)}
-                    disabled={busyId === item.id}
-                    className="text-destructive focus:bg-destructive/20 focus:text-destructive"
-                    data-testid="conversation-delete-action"
-                  >
-                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                    <span>{tc('actions.delete')}</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </li>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 space-y-0.5">
+                    <DropdownMenuItem
+                      onClick={() => handleRename(item)}
+                      disabled={busyId === item.id}
+                    >
+                      <Pencil className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.rename')}</span>
+                    </DropdownMenuItem>
+                    {/* 2026-08-30 立:置顶/取消置顶 */}
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setBusyId(item.id)
+                        pinMutation.mutate(
+                          { id: item.id, pinned: !item.pinned },
+                          {
+                            onSettled: () => setBusyId(null),
+                            onSuccess: () =>
+                              success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
+                          },
+                        )
+                      }}
+                      disabled={busyId === item.id}
+                      data-testid="conversation-pin-action"
+                    >
+                      {item.pinned ? (
+                        <>
+                          <PinOff className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.unpin')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Pin className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.pin')}</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleArchiveToggle(item)}
+                      disabled={busyId === item.id}
+                    >
+                      {item.archivedAt ? (
+                        <>
+                          <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.unarchive')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="mr-2 h-3.5 w-3.5" />
+                          <span>{tc('actions.archive')}</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport(item, 'md')}
+                      disabled={busyId === item.id}
+                    >
+                      <FileCode className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.exportMd')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleExport(item, 'txt')}
+                      disabled={busyId === item.id}
+                    >
+                      <FileText className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.exportTxt')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleCompress(item, 200000)}
+                      disabled={busyId === item.id}
+                    >
+                      <Shrink className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.compressTo200k')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleCompress(item, 1000000)}
+                      disabled={busyId === item.id}
+                    >
+                      <Shrink className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.compressTo1m')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setPendingDeleteId(item.id)}
+                      disabled={busyId === item.id}
+                      className="text-destructive focus:bg-destructive/20 focus:text-destructive"
+                      data-testid="conversation-delete-action"
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />
+                      <span>{tc('actions.delete')}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
           )
         })}
       </ul>

@@ -141,7 +141,8 @@
     "orUseAccount": "或使用帳號登入",
     "ssoCancelled": "SSO 登入已取消",
     "ssoLoading": "SSO 授權中...",
-    "ssoLogin": "SSO 一鍵登入"
+    "ssoLogin": "SSO 一鍵登入",
+    "ssoFailed": "SSO 登入失敗"
   },
   "popup": {
     "copyFailed": "複製失敗",
@@ -165,10 +166,6 @@
     "emptyHint": "生詞本為空,查詢後點擊儲存"
   },
   "chat": {
-    "retryMessage": "重試",
-    "citationTitle": "參考來源",
-    "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
-    "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
     "history": "歷史對話",
     "title": "AI 對話",
     "exit": "登出",
@@ -189,10 +186,19 @@
     "toolStatusError": "失敗",
     "toolDetail": "呼叫詳情",
     "terminal": "終端機",
-    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
     "terminalStatusRunning": "執行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失敗",
+    "planStatusPending": "待執行",
+    "planStatusInProgress": "進行中",
+    "planStatusCompleted": "已完成",
+    "subagentTools": "子代理工具 ×{count}",
+    "usage": "用量",
+    "retryMessage": "重試",
+    "citationTitle": "參考來源",
+    "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
+    "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
+    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
     "terminalTruncated": "…(已截斷,共 {total} 字符)",
     "injectionTitle": "本輪上下文:{count} 項",
     "injectionExpand": "展開其餘 {count} 項",
@@ -201,11 +207,6 @@
     "injectionKindWorkspace": "已注入工作區記憶 / AGENTS.md",
     "injectionKindRepoWiki": "已注入 Repo Wiki 專案百科",
     "injectionKindAutoContext": "{count, plural, other {已自動檢索並注入 {count} 段程式碼上下文}}",
-    "planStatusPending": "待執行",
-    "planStatusInProgress": "進行中",
-    "planStatusCompleted": "已完成",
-    "subagentTools": "子代理工具 ×{count}",
-    "usage": "用量",
     "subagentRoleValidator": "校驗者",
     "subagentRoleReviewer": "評審者",
     "subagentRoleExplorer": "探索者",
@@ -215,7 +216,19 @@
     "subagentRoleResearcher": "研究員",
     "subagentRoleOptimizer": "優化者",
     "subagentRoleDebugger": "調試者",
-    "subagentRoleRefactorer": "重構者"
+    "subagentRoleRefactorer": "重構者",
+    "modelCategoryChat": "對話推理",
+    "modelCategoryVision": "視覺理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "語音合成",
+    "modelCategoryAsr": "語音辨識",
+    "modelCategoryImage": "圖像生成",
+    "modelCategoryVideo": "影片生成",
+    "modelCategoryGuard": "安全審核",
+    "modelCategoryOcr": "文字辨識",
+    "modelCategoryOther": "其他",
+    "modelHistoryToggle": "歷史模型"
   },
   "settings": {
     "language": "介面語言",
@@ -437,6 +450,10 @@
       "benefitsTitle": "包含權益",
       "note": "定價與權益以網頁版實際展示為準。",
       "open": "前往網頁版開通"
+    },
+    "topics": {
+      "discussions": "{count} 討論",
+      "followers": "{count} 關注"
     }
   },
   "permissionTier": {

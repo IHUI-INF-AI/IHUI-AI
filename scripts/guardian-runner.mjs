@@ -653,10 +653,14 @@ const checks = [
   },
   {
     id: '2d',
-    label: '🔍 ja.json 中文残留(warn-only)',
+    // 2026-09-23 升阻塞:判据已从"任何汉字都 warn"(web/ja 实测 15132 处噪音,等于没判)
+    // 换成**字形与繁体不同 ∧ 不在 2010 常用汉字表 2136 字内**的精确判定,
+    // 并补两条必须存在的豁免(法定备案号 / 平台品牌名),276 处真账已由 `aa0286afeb8` 清零,
+    // 六端 ja 全绿 ⇒ 此刻升阻塞不会误伤任何在途提交。判据见 scripts/scan-i18n-zh-residue.mjs + scripts/joyo-kanji.json。
+    label: '🔍 ja.json 中文简体残留(blocking,常用汉字表精确判据)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2f-ext',
@@ -1932,6 +1936,36 @@ const checks = [
       '     单独复验:node scripts/check-workspace-dep-links.mjs',
       '     自检:node scripts/check-workspace-dep-links.mjs --self-test(9 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_WORKSPACE_DEP_LINKS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
+  // 共享工作区跑了真实 `git merge`,留下 103 个未合并路径 + 94 个带字面标记的工作区文件,而
+  // 全链守门**没有一道**看"被提交的内容含 <<<<====>>>> 标记",于是带标记的文件一路进 HEAD 树,
+  // 整轮 merge 结束都无人察觉。判据 = 同文件内**成对**的行首 `<<<<<<< ` 与 `>>>>>>> `
+  // (中间可夹整行 `=======`);单行不判(`=======` 在 setext 标题/表格/ASCII 图里合法,
+  // 只判单行会满天假红)。三模式:--staged 判索引内容(git show :<path>,取不到退回工作区;
+  // 未合并 U 路径也在清单内)、缺省判全量跟踪文件工作区内容、--rev 判提交树。护栏:自豁免
+  // (本门脚本与测试必含字面量)/ >2MB / 二进制,三类均如实计数不静默。
+  // 自检:node scripts/check-no-conflict-markers.mjs --self-test(26 例含正反成对对照 + E1 豁免与混搭反例 + 真实 merge 未合并路径现场)。
+  {
+    id: '77',
+    label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
+    script: 'check-no-conflict-markers.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CONFLICT_MARKERS',
+    onFailHint: [
+      '',
+      '  💡 成对的 Git 冲突标记被提交进来了 —— 说明 merge/rebase 没真正归并就 add 了。',
+      '     正确做法:',
+      '       ① 取一侧真实内容:`git checkout --ours <文件>` 或 `git checkout --theirs <文件>`,',
+      '          或按 AGENTS.md §12b 协作收尾流程重新归并后再 add;',
+      '       ② **禁止**只手删 `<<<<====>>>>` 三行当作已解决(那会静默丢掉一侧改动);',
+      '       ③ 事后核验历史提交:node scripts/check-no-conflict-markers.mjs --rev HEAD。',
+      '     单独复现:node scripts/check-no-conflict-markers.mjs --staged',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CONFLICT_MARKERS=1 git commit ...',
       '',
     ].join('\n'),
   },

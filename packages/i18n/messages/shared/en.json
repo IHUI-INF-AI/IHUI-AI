@@ -158,7 +158,21 @@
     "toolVendorModelInfo": "List vendor models",
     "toolVendorUploadFile": "Upload a vendor file",
     "toolVendorCancelTask": "Cancel a vendor task",
-    "toolVendorVoiceClone": "Clone a voice"
+    "toolVendorVoiceClone": "Clone a voice",
+    "fileActivity": "{state, select, running {Processing file} completed {Processed file} other {Process file}}",
+    "imageActivity": "{state, select, running {Processing image} completed {Processed image} other {Process image}}",
+    "searchActivity": "{state, select, running {Searching} completed {Searched} other {Search}}",
+    "thinkingActivity": "{state, select, running {Analyzing} completed {Analyzed} other {Analyze}}",
+    "customActivity": "{state, select, running {Running} completed {Ran} other {Run}}",
+    "workedForDuration": "Took {duration}",
+    "searchWithQuery": "Query: {query}",
+    "showAllLines": "Show all",
+    "hideLines": "Collapse",
+    "sourcesButton": "Sources",
+    "canceled": "Canceled",
+    "canceledItemLabel": "Canceled: {name}",
+    "readingConnector": "Read from {connector}",
+    "writingConnector": "Written to {connector}"
   },
   "a11y": {
     "addAttachment": "Add attachment (image/video/file)",
@@ -422,7 +436,13 @@
     "captchaRefresh": "Refresh captcha"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {Stream running, no tools pending} one {Stream running, {count} tool scheduled} other {Stream running, {count} tools scheduled}}} paused {Stream paused} failed {Execution failed: <b>{reason}</b>}}"
+    },
     "send": "Send"
+  },
+  "richAnchorProbe": {
+    "flow": "<action>Injecting</action> <detail>{target}</detail>"
   },
   "common": {
     "accepted": "Accepted",

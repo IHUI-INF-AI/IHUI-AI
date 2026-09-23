@@ -16,6 +16,8 @@ import {
   ListTodo,
   ChevronsUpDown,
   ChevronsDownUp,
+  ChevronDown,
+  ChevronRight,
   ArrowDown,
   Sparkles,
   HelpCircle,
@@ -29,7 +31,16 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { stepDecisionLabel } from '@ihui/shared/chat'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/**
+ * 层栈 id(见 @/lib/overlay-stack):
+ * - AGENT_TASK_PANE_ID:面板本身(unpin 状态下 Esc 关闭)
+ * - AGENT_TASK_HELP_ID:帮助浮层(打开时 Esc 优先关帮助,是内层/栈顶)
+ */
+const AGENT_TASK_PANE_ID = 'agent-task-progress-pane'
+const AGENT_TASK_HELP_ID = 'agent-task-progress-pane-help'
+import { stepDecisionLabel, stepDecisionState } from '@ihui/shared/chat'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -601,6 +612,158 @@ function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
   )
 }
 
+// ─── D85(G-116):自动审查统计聚合条 + 命令历史展开 ──────────────────────────
+// 与 D55 决策徽章同源(验收硬判据):统计与逐条徽章都从同一份 runtimePlanSteps 派生,
+// 分类复用 @ihui/shared/chat 的 stepDecisionState —— 组件内不存在第二份独立计数状态。
+// Trae 有代批无统计、Codex 有统计无逐条理由文案;本聚合条一次补齐「统计 + 逐条理由缺省」。
+
+/** 自动审查聚合摘要(纯函数,从 steps 派生,单一真相源) */
+export interface ReviewStatsSummary {
+  /** 含非空 decision 的步骤数(已发生自动审查) */
+  hasDecision: number
+  /** 决策态 = approved(已接受) */
+  accepted: number
+  /** 决策态 = rejected(已拒绝) */
+  rejected: number
+  /** 决策态 = needsUser(待用户) */
+  needsUser: number
+  /** 决策态 = unknown(未知/原样) */
+  unknown: number
+  /** 有决策但缺 reason 的步骤数(自动审查未提供理由) */
+  noReason: number
+}
+
+/** 同源派生:遍历 steps,复用 stepDecisionState 分类,与逐条徽章 stepDecisionLabel 同一套语义 */
+export function deriveReviewStats(steps: readonly AgentPlanStepEvent[]): ReviewStatsSummary {
+  const acc: ReviewStatsSummary = {
+    hasDecision: 0,
+    accepted: 0,
+    rejected: 0,
+    needsUser: 0,
+    unknown: 0,
+    noReason: 0,
+  }
+  for (const step of steps) {
+    if (typeof step.decision !== 'string' || step.decision === '') continue
+    acc.hasDecision += 1
+    const state = stepDecisionState(step.decision)
+    if (state === 'approved') acc.accepted += 1
+    else if (state === 'rejected') acc.rejected += 1
+    else if (state === 'needsUser') acc.needsUser += 1
+    else acc.unknown += 1
+    if (!step.reason || step.reason === '') acc.noReason += 1
+  }
+  return acc
+}
+
+/** D85 聚合条:决策区块顶部一行摘要 + 可展开的「命令历史」紧凑时间线 */
+export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[] }) {
+  const t = useTranslations('ai.pane')
+  const tDecision = useTranslations('stepDecision')
+  const [expanded, setExpanded] = React.useState<boolean>(false)
+
+  // 同源:统计从同一份 steps 派生,无第二份计数状态
+  const stats = React.useMemo(() => deriveReviewStats(steps), [steps])
+  // 仅列出已发生自动审查(含非空 decision)的步骤,避免把 in_progress 噪声塞进时间线
+  const decided = React.useMemo(
+    () => steps.filter((s) => typeof s.decision === 'string' && s.decision !== ''),
+    [steps],
+  )
+
+  return (
+    <div
+      className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px]"
+      data-testid="review-stats-bar"
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls="review-stats-history"
+        aria-label={t('reviewStats.expandAria')}
+        className="flex w-full items-center gap-1.5 rounded-sm text-left transition-colors hover:bg-accent/30"
+        data-testid="review-stats-toggle"
+      >
+        <span className="font-medium text-foreground/80">{t('reviewStats.title')}</span>
+        <span className="text-muted-foreground/50">·</span>
+        {stats.hasDecision === 0 ? (
+          <span className="text-muted-foreground/60">{t('reviewStats.noDecision')}</span>
+        ) : (
+          <>
+            <span className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">
+              {t('reviewStats.accepted', { n: stats.accepted })}
+            </span>
+            <span className="text-muted-foreground/40">/</span>
+            <span className="font-medium tabular-nums text-red-600 dark:text-red-400">
+              {t('reviewStats.rejected', { n: stats.rejected })}
+            </span>
+            {stats.noReason > 0 && (
+              <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
+                {t('reviewStats.noReason', { n: stats.noReason })}
+              </span>
+            )}
+          </>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground/50">
+          <span>{t('reviewStats.commandHistory')}</span>
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" aria-hidden />
+          ) : (
+            <ChevronRight className="h-3 w-3" aria-hidden />
+          )}
+        </span>
+      </button>
+      {expanded && (
+        <div
+          id="review-stats-history"
+          role="list"
+          className="mt-1 space-y-0.5 border-t border-border/60 pt-1"
+          data-testid="review-stats-history"
+        >
+          {decided.length === 0 ? (
+            <div className="text-muted-foreground/50">{t('reviewStats.noDecision')}</div>
+          ) : (
+            decided.map((step) => {
+              const view = stepDecisionLabel(step.decision, tDecision)
+              return (
+                <div
+                  key={`${step.runId}-${step.stepIndex}`}
+                  role="listitem"
+                  className="flex items-center gap-1.5"
+                >
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-sm px-1 text-[10px] font-medium',
+                      view.state === 'approved' &&
+                        'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                      view.state === 'rejected' && 'bg-red-500/10 text-red-600 dark:text-red-400',
+                      view.state === 'needsUser' &&
+                        'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+                      view.state === 'unknown' && 'bg-muted text-muted-foreground/70',
+                    )}
+                    data-decision-state={view.state}
+                  >
+                    {view.text}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-foreground/70">
+                    {step.toolName}
+                  </span>
+                  {/* 决策无 reason → 显式缺省文案(非空白、非"-") */}
+                  <span className="max-w-[45%] shrink-0 truncate text-muted-foreground/60">
+                    {step.reason && step.reason !== ''
+                      ? step.reason
+                      : t('reviewStats.noReasonText')}
+                  </span>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function AgentTaskProgressPane() {
   const t = useTranslations('ai.pane')
   const open = useAgentProgressPaneStore((s) => s.open)
@@ -949,6 +1112,20 @@ export function AgentTaskProgressPane() {
     [hoveredPlanStepId, hoveredMessageId],
   )
 
+  // 层栈注册:面板 open → 入栈;帮助 showHelp → 入栈(成为栈顶,内层)。
+  // close/unmount → 出栈。pushOverlay 幂等,StrictMode 双跑 effect 不会产生重复项。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(AGENT_TASK_PANE_ID)
+    return () => popOverlay(AGENT_TASK_PANE_ID)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open || !showHelp) return
+    pushOverlay(AGENT_TASK_HELP_ID)
+    return () => popOverlay(AGENT_TASK_HELP_ID)
+  }, [open, showHelp])
+
   // Esc 关闭(unpin 状态下生效) + 帮助面板关闭
   React.useEffect(() => {
     if (!open) return
@@ -960,14 +1137,17 @@ export function AgentTaskProgressPane() {
           return
         }
       }
-      // 帮助面板打开时,Esc 优先关帮助,避免冒泡到外层 closePane
+      // 帮助面板打开时,Esc 优先关帮助(帮助是栈顶内层)
       if (e.key === 'Escape' && showHelp) {
+        // 只让栈顶那一层消费 Esc:帮助是栈顶时才关帮助
+        if (!isTopOverlay(AGENT_TASK_HELP_ID)) return
         e.preventDefault()
-        e.stopPropagation()
         setShowHelp(false)
         return
       }
       if (e.key === 'Escape' && !pinned) {
+        // 只让栈顶那一层消费 Esc:面板是栈顶时才关面板(帮助关闭后面板成为栈顶)
+        if (!isTopOverlay(AGENT_TASK_PANE_ID)) return
         e.preventDefault()
         closePane()
       }
@@ -1596,15 +1776,14 @@ export function AgentTaskProgressPane() {
           {/* P0-5(2026-09-13):workbench plan-step 时间线(命名 SSE 事件,step_index 幂等);
               仅当运行时链路有步骤时渲染,复用 planListLabel 文案 */}
           {runtimePlanSteps.length > 0 && (
-            <div
-              className="mx-2 mt-1.5"
-              role="list"
-              aria-label={t('planListLabel')}
-              data-testid="pane-runtime-steps"
-            >
-              {runtimePlanSteps.map((step) => (
-                <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
-              ))}
+            <div className="mx-2 mt-1.5 space-y-1" data-testid="pane-runtime-steps">
+              {/* D85(G-116):聚合条位于决策区块顶部,与逐条徽章同源(runtimePlanSteps 派生) */}
+              <ReviewStatsBar steps={runtimePlanSteps} />
+              <div role="list" aria-label={t('planListLabel')}>
+                {runtimePlanSteps.map((step) => (
+                  <RuntimeStepRow key={`${step.runId}-${step.stepIndex}`} step={step} />
+                ))}
+              </div>
             </div>
           )}
 
