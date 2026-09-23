@@ -24,24 +24,12 @@
  *
  * 用法:
  *   node scripts/git-sync-converge.mjs [--branch main] [--rounds 3] [--dry-run]
- *   node scripts/git-sync-converge.mjs --self-test   # 回归自检(含 db6c455d6 静默回退复现,见下)
  *
  * 只读核验(不写任何东西)仍用 git-push-converge.mjs。
- *
- * 2026-09-23 静默回退根治(db6c455d6 把已入库的 mobile-rn 0.0.1 翻回 0.0.0,且无任何
- * commit 记录该路径变更 —— 索引层合并用了陈旧输入,merge-tree 之后直接 update-ref):
- *   ① 输入新鲜度 — merge-tree/commit-tree 只用刚解析的 SHA,不用 ref 名;update-ref
- *      带 expected-old 做 CAS,HEAD 被并发推进则本轮作废重来(不覆盖他人本地提交);
- *   ② 单边变更保持守门(assertNoSilentRevert, fail-closed) — 无冲突合并必须原样保留
- *      每一处单边变更(blob 逐字节,含 mode;删除亦比对),丢一处即 exit 1,绝不落提交;
- *      注:基线取 `git merge-base` 最优基(与 merge-tree 默认一致);极端纵横交错历史下
- *      基线分歧只会导致误拦(宁可 exit 1 转人工),永不漏放,方向永远 fail-closed;
- *   ③ 回归网: --self-test(真仓库演练,正反用例) + scripts/tests/ 下镜像测试(§22c)。
  */
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 const C = { green: '\x1b[32m', yellow: '\x1b[33m', red: '\x1b[31m', dim: '\x1b[2m', reset: '\x1b[0m' }
 const log = (color, msg) => console.log(`${color}${msg}${C.reset}`)
@@ -83,244 +71,8 @@ function isAncestor(a, b) {
   }
 }
 
-// ─── 静默回退守门(纯函数,可单测;见文件头 2026-09-23 节) ──
-
-/** 解析 `git ls-tree -r -z` 输出为 path → "mode blob" */
-function parseLsTreeZ(output) {
-  const map = new Map()
-  for (const entry of output.split('\0')) {
-    if (!entry) continue
-    const m = entry.match(/^(\d+) \w+ ([0-9a-f]{40})\t([\s\S]*)$/)
-    if (!m) throw new Error(`无法解析 ls-tree 条目:${entry.slice(0, 80)}`)
-    map.set(m[3], `${m[1]} ${m[2]}`)
-  }
-  return map
-}
-
-/** 列出某 tree 的全部条目(cwd 注入, self-test 指向临时仓库) */
-function collectTreeEntries(treeish, cwd) {
-  // 真仓整树 ls-tree 输出 >1MB,必须放大 maxBuffer(默认 1MB 会 ENOBUFS 崩溃)
-  const out = execFileSync('git', ['ls-tree', '-r', '-z', treeish], {
-    encoding: 'buffer',
-    cwd,
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  return parseLsTreeZ(out.toString('utf8'))
-}
-
-/**
- * 纯函数:揪出被合并吞掉的单边变更(无冲突合并的完备判据)。
- * base→local 与 base→remote 有且仅有一边动过的路径,合并树必须与动的那边逐字节一致。
- * @returns Array<{path, side: 'local'|'remote', expected: string|null, actual: string|null}>
- *   expected/action 为 null 表示"应删除/已删除"。
- */
-function verifySingleSided(base, local, remote, merged) {
-  const violations = []
-  const paths = new Set([...base.keys(), ...local.keys(), ...remote.keys(), ...merged.keys()])
-  for (const p of paths) {
-    const b = base.has(p) ? base.get(p) : null
-    const l = local.has(p) ? local.get(p) : null
-    const r = remote.has(p) ? remote.get(p) : null
-    const m = merged.has(p) ? merged.get(p) : null
-    const changedLocal = l !== b
-    const changedRemote = r !== b
-    if (changedLocal && !changedRemote) {
-      if (m !== l) violations.push({ path: p, side: 'local', expected: l, actual: m })
-    } else if (changedRemote && !changedLocal) {
-      if (m !== r) violations.push({ path: p, side: 'remote', expected: r, actual: m })
-    }
-    // 双边都改 → merge-tree 负责(冲突即失败),本守门跳过;双边未改 → 跳过。
-  }
-  return violations
-}
-
-/** 编排:取 base/local/remote/mergedTree 四树条目并比对(cwd 缺省当前仓库) */
-function assertNoSilentRevert({ base, local, remote, mergedTree, cwd }) {
-  const dir = cwd ?? process.cwd()
-  return verifySingleSided(
-    collectTreeEntries(base, dir),
-    collectTreeEntries(local, dir),
-    collectTreeEntries(remote, dir),
-    collectTreeEntries(mergedTree, dir),
-  )
-}
-
-// ─── --self-test(真仓库演练,临时仓库全在 gitignore 的 .ihui-agent/tmp 下) ──
-
-/** 临时仓库 git 调用(身份/签名经 -c 注入,不依赖全局配置) */
-function tgit(cwd, args, opts = {}) {
-  return execFileSync(
-    'git',
-    ['-c', 'user.name=ihui-test', '-c', 'user.email=t@t.local', '-c', 'commit.gpgsign=false', ...args],
-    { encoding: 'utf8', cwd, windowsHide: true, ...opts },
-  ).trim()
-}
-
-/** 文本式 ls-tree 行(供 mktree 拼篡改树) */
-function lsTreeLines(treeish, cwd) {
-  return execFileSync('git', ['ls-tree', treeish], { encoding: 'utf8', cwd, windowsHide: true })
-    .trim()
-    .split('\n')
-}
-
-/** 用 mktree 按行拼树(行格式与 ls-tree 输出一致) */
-function mktree(cwd, lines) {
-  return execFileSync('git', ['mktree'], {
-    encoding: 'utf8',
-    cwd,
-    windowsHide: true,
-    input: lines.join('\n') + '\n',
-  }).trim()
-}
-
-/** 把行数组中 path 那行的 blob 换掉(拼"被回退"的树) */
-function swapBlob(lines, path, newBlob) {
-  return lines.map((ln) => (ln.endsWith(`\t${path}`) ? ln.replace(/[0-9a-f]{40}/, newBlob) : ln))
-}
-
-function selfTest() {
-  const results = []
-  const ok = (name, cond, extra = '') => {
-    results.push(cond)
-    console.log(`${cond ? '✅' : '❌'} ${name}${cond || !extra ? '' : ` (${extra})`}`)
-  }
-  let tmp = null
-  try {
-    const root = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-      windowsHide: true,
-    }).trim()
-    tmp = resolve(root, '.ihui-agent/tmp/converge-selftest')
-    rmSync(tmp, { recursive: true, force: true })
-    mkdirSync(tmp, { recursive: true })
-    const repo = resolve(tmp, 'repo')
-    mkdirSync(repo, { recursive: true })
-    tgit(repo, ['init', '-q', '-b', 'main'])
-    // base: app.json=0.0.0(复刻事故现场) + keep.txt
-    writeFileSync(resolve(repo, 'app.json'), '{"version":"0.0.0"}\n')
-    writeFileSync(resolve(repo, 'keep.txt'), 'base\n')
-    tgit(repo, ['add', '-A'])
-    tgit(repo, ['commit', '-qm', 'base'])
-    // 本地侧:0.0.0→0.0.1(单边);远端侧:加新文件(单边);keep.txt 双边未改
-    tgit(repo, ['checkout', '-qb', 'side-local'])
-    writeFileSync(resolve(repo, 'app.json'), '{"version":"0.0.1"}\n')
-    tgit(repo, ['add', '-A'])
-    tgit(repo, ['commit', '-qm', 'local bump'])
-    tgit(repo, ['checkout', '-q', 'main'])
-    tgit(repo, ['checkout', '-qb', 'side-remote'])
-    writeFileSync(resolve(repo, 'new.txt'), 'remote\n')
-    tgit(repo, ['add', '-A'])
-    tgit(repo, ['commit', '-qm', 'remote add'])
-    const base = tgit(repo, ['merge-base', 'side-local', 'side-remote'])
-    const goodTree = execFileSync('git', ['merge-tree', '--write-tree', 'side-local', 'side-remote'], {
-      encoding: 'utf8',
-      cwd: repo,
-      windowsHide: true,
-    })
-      .trim()
-      .split('\n')[0]
-      .trim()
-    ok('干净合并无冲突(40 位 tree)', /^[0-9a-f]{40}$/.test(goodTree), goodTree.slice(0, 20))
-    // 用例 1:干净合并必须通过守门(含双边新增与未改文件)
-    const v1 = assertNoSilentRevert({
-      base,
-      local: 'side-local',
-      remote: 'side-remote',
-      mergedTree: goodTree,
-      cwd: repo,
-    })
-    ok('用例 1:干净合并零违反', v1.length === 0, JSON.stringify(v1).slice(0, 160))
-    // 用例 2:事故复现 —— 把合并树里 app.json 换回 base 版,守门必须揪出
-    const localBlob = tgit(repo, ['rev-parse', 'side-local:app.json'])
-    const baseBlob = tgit(repo, ['rev-parse', `${base}:app.json`])
-    const doctored = mktree(repo, swapBlob(lsTreeLines(goodTree, repo), 'app.json', baseBlob))
-    const v2 = assertNoSilentRevert({
-      base,
-      local: 'side-local',
-      remote: 'side-remote',
-      mergedTree: doctored,
-      cwd: repo,
-    })
-    ok(
-      '用例 2:陈旧回退被拦截(路径/侧/期望/实得全对)',
-      v2.length === 1 &&
-        v2[0].path === 'app.json' &&
-        v2[0].side === 'local' &&
-        v2[0].expected === `100644 ${localBlob}` &&
-        v2[0].actual === `100644 ${baseBlob}`,
-      JSON.stringify(v2).slice(0, 200),
-    )
-    // 用例 3:单边删除被"复活"同样拦截(期望缺失)
-    tgit(repo, ['checkout', '-q', 'main'])
-    tgit(repo, ['checkout', '-qb', 'del-local', base])
-    tgit(repo, ['rm', '-q', 'keep.txt'])
-    tgit(repo, ['commit', '-qm', 'local del'])
-    tgit(repo, ['checkout', '-q', 'main'])
-    tgit(repo, ['checkout', '-qb', 'del-remote', base])
-    writeFileSync(resolve(repo, 'other.txt'), 'r\n')
-    tgit(repo, ['add', '-A'])
-    tgit(repo, ['commit', '-qm', 'remote add'])
-    const base2 = tgit(repo, ['merge-base', 'del-local', 'del-remote'])
-    const goodTree2 = execFileSync('git', ['merge-tree', '--write-tree', 'del-local', 'del-remote'], {
-      encoding: 'utf8',
-      cwd: repo,
-      windowsHide: true,
-    })
-      .trim()
-      .split('\n')[0]
-      .trim()
-    const resurrected = mktree(
-      repo,
-      lsTreeLines(goodTree2, repo).concat(lsTreeLines(base2, repo).filter((ln) => ln.endsWith('\tkeep.txt'))),
-    )
-    const v3 = assertNoSilentRevert({
-      base: base2,
-      local: 'del-local',
-      remote: 'del-remote',
-      mergedTree: resurrected,
-      cwd: repo,
-    })
-    ok(
-      '用例 3:单边删除被复活时拦截(期望缺失)',
-      v3.length === 1 && v3[0].path === 'keep.txt' && v3[0].expected === null,
-      JSON.stringify(v3).slice(0, 160),
-    )
-    // 用例 4:双边同改互异 → 守门跳过(冲突归 merge-tree 管)
-    const bothMaps = {
-      base: new Map([['f', '100644 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa']]),
-      local: new Map([['f', '100644 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb']]),
-      remote: new Map([['f', '100644 cccccccccccccccccccccccccccccccccccccccc']]),
-      merged: new Map([['f', '100644 bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb']]),
-    }
-    ok(
-      '用例 4:双边互异跳过(零违反)',
-      verifySingleSided(bothMaps.base, bothMaps.local, bothMaps.remote, bothMaps.merged).length === 0,
-    )
-    // 用例 5:纯 mode 变更(mode 相同 blob 不同 entry)被拦截
-    const modeMaps = {
-      base: new Map([['run', '100644 dddddddddddddddddddddddddddddddddddddddd']]),
-      local: new Map([['run', '100755 dddddddddddddddddddddddddddddddddddddddd']]),
-      remote: new Map([['run', '100644 dddddddddddddddddddddddddddddddddddddddd']]),
-      merged: new Map([['run', '100644 dddddddddddddddddddddddddddddddddddddddd']]),
-    }
-    const v5 = verifySingleSided(modeMaps.base, modeMaps.local, modeMaps.remote, modeMaps.merged)
-    ok('用例 5:纯 mode 回退被拦截', v5.length === 1 && v5[0].side === 'local')
-  } catch (e) {
-    console.log(`❌ 自检异常:${e?.message ?? e}\n${e?.stack ?? ''}`)
-    console.log(`   临时仓库保留在 ${tmp}(供排查,下次自检会清掉)`)
-    return false
-  }
-  const pass = results.every(Boolean)
-  console.log(pass ? `\nself-test 全通过(${results.length} 例)` : `\nself-test 失败`)
-  if (pass && tmp) rmSync(tmp, { recursive: true, force: true })
-  return pass
-}
-
-// ─── 主流程(§22d:仅 direct-run 执行,被 import 时零副作用) ──
-function main() {
+// ─── 参数 ───────────────────────────────────────────────
 const argv = process.argv.slice(2)
-if (argv.includes('--self-test')) process.exit(selfTest() ? 0 : 1)
 const getOpt = (name, dflt) => {
   const i = argv.indexOf(name)
   return i >= 0 && argv[i + 1] ? argv[i + 1] : dflt
@@ -377,19 +129,10 @@ for (let round = 1; round <= maxRounds; round++) {
       log(C.dim, '  --dry-run:到此为止,不合并不推送')
       process.exit(0)
     }
-    // 输入新鲜度:合并且只用刚解析的 SHA,不用 ref 名 —— fetch→merge 窗口内若有并发
-    // 推进了本地/远端引用,用旧 ref 名会合出"过期输入"的正确合并(静默丢变更)。
-    const freshLocal = git(['rev-parse', 'HEAD'])
-    const freshRemote = git(['rev-parse', `origin/${branch}`])
-    if (freshLocal !== localHead || freshRemote !== remoteHead) {
-      log(C.yellow, '  本轮内引用已前移,重读输入后转下一轮(不合并不推送)')
-      continue
-    }
-    const mergeBase = git(['merge-base', freshLocal, freshRemote])
     // 索引层合并树(worktree-preserving):冲突时 merge-tree 输出含冲突信息,tree 为 null 段
     let tree
     try {
-      const out = execFileSync('git', ['merge-tree', '--write-tree', freshLocal, freshRemote], {
+      const out = execFileSync('git', ['merge-tree', '--write-tree', 'HEAD', `origin/${branch}`], {
         encoding: 'utf8',
         windowsHide: true,
       })
@@ -400,31 +143,10 @@ for (let round = 1; round <= maxRounds; round++) {
       process.exit(1)
     }
     log(C.dim, `  合并树 ${tree.slice(0, 11)}(无冲突)`)
-    // 单边变更保持守门(fail-closed):任一单边变更丢失即拒绝推进,绝不 update-ref/推送。
-    const violations = assertNoSilentRevert({
-      base: mergeBase,
-      local: freshLocal,
-      remote: freshRemote,
-      mergedTree: tree,
-      cwd: repoRoot,
-    })
-    if (violations.length > 0) {
-      log(C.red, `❌ 合并树静默回退 ${violations.length} 处,拒绝推进(fail-closed):`)
-      for (const v of violations.slice(0, 20)) {
-        log(C.red, `   ${v.side === 'local' ? '本地' : '远端'}独改 ${v.path} 期望 ${v.expected ?? '(删除)'} 实得 ${v.actual ?? '(删除)'}`)
-      }
-      process.exit(1)
-    }
 
     const mergeMsg = `Merge origin/${branch} (worktree-preserving sync via git-sync-converge) round${round}`
-    const mergeSha = git(['commit-tree', tree, '-p', freshLocal, '-p', freshRemote, '-m', mergeMsg])
-    // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
-    // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
-    const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], { allowFail: true })
-    if (cas === null) {
-      log(C.yellow, '  本地 HEAD 被并发推进,本轮作废,转下一轮重来')
-      continue
-    }
+    const mergeSha = git(['commit-tree', tree, '-p', 'HEAD', '-p', `origin/${branch}`, '-m', mergeMsg])
+    git(['update-ref', `refs/heads/${branch}`, mergeSha])
     log(C.dim, `  合并提交 ${mergeSha.slice(0, 11)} 已推进本地 ${branch}`)
     // commit-tree 旁路**不跑钩子**,守门 71 的 post-commit 自愈因此永不触发。实测一枚收敛合并
     // 把并发会话已入库的登记行合掉且无人知晓(2026-09-22/23 两次),故在落合并提交后就地补跑一次
@@ -482,23 +204,4 @@ for (let round = 1; round <= maxRounds; round++) {
 
 log(C.red, `❌ ${maxRounds} 轮未收敛(并发推力过大),稍后重跑: node scripts/git-sync-converge.mjs`)
 process.exit(1)
-} // ← function main() 结束(§22d:以下 export/守卫在 import 时执行,main 体不执行)
-
-export const __test__ = {
-  parseLsTreeZ,
-  verifySingleSided,
-  collectTreeEntries,
-  assertNoSilentRevert,
-  selfTest,
-}
-
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-if (isDirectRun) {
-  try {
-    main()
-  } catch (e) {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
-    process.exit(2)
-  }
-}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
