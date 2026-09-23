@@ -425,7 +425,7 @@
 | Legal | ¥500K | ¥30K | 4 months | 320% |
 | Government | ¥1,500K | ¥80K | 8 months | 180% |
 
-(Test environment: Enterprise edition mid-size deployment, 3 nodes, PostgreSQL 18, Redis 7)
+(Test environment: Enterprise edition mid-size deployment, 3 nodes, PostgreSQL 16, Redis 7)
 
 ---
 
@@ -457,7 +457,7 @@
                   │
 ┌─────────────────▼───────────────────────┐
 │ Data Layer (Industry-adapted)           │
-│ - PostgreSQL 18 (primary + pgvector)    │
+│ - PostgreSQL 16 (primary + pgvector)    │
 │ - Redis 7 (cache + event stream)        │
 │ - Object storage (MinIO/S3/OSS)         │
 │ - Industry data: Healthcare EMR / Education LMS / Finance core │
