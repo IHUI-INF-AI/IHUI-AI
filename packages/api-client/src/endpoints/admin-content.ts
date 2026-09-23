@@ -769,4 +769,43 @@ export async function listZhsUser(params: PageQuery = {}): Promise<ApiResult<Pag
 export async function delZhsUser(id: string): Promise<ApiResult<DeleteResult>> {
   return fetchApi<DeleteResult>(`/api/admin/zhs-user/${id}`, { method: 'DELETE' })
 }
+
+// ===================== maintenance-notice(维护公告邮件,O29) =====================
+
+/** 维护公告邮件请求(收件人由服务端圈定,请求侧不传邮箱列表) */
+export interface MaintenanceNoticeEmailInput {
+  /** 维护窗口,如 "2026-09-25 02:00–04:00" */
+  window: string
+  /** 影响范围,如 "API 与控制台" */
+  scope: string
+  /** 预计停机时长,如 "2 小时" */
+  downtime: string
+  /** 只统计收件人不发送,默认 false */
+  dryRun?: boolean
+  /** 首批发送量上限(缺省全量) */
+  limit?: number
+}
+
+/** 维护公告邮件发送回执 */
+export interface MaintenanceNoticeEmailResult {
+  dryRun: boolean
+  /** 本次纳入范围的收件人数 */
+  total: number
+  /** 全量可推送收件人池 */
+  pool: number
+  /** 实发统计(dryRun 时缺省);sent 按通道真实回执计数 */
+  stats?: { sent: number; failed: number; stubbed: number }
+  /** 邮件主题(结果回执展示用) */
+  subject: string
+}
+
+/** 群发「智汇通报」维护公告邮件 — POST /api/admin/maintenance-notice/email(admin) */
+export async function sendMaintenanceNoticeEmail(
+  body: MaintenanceNoticeEmailInput,
+): Promise<ApiResult<MaintenanceNoticeEmailResult>> {
+  return fetchApi<MaintenanceNoticeEmailResult>('/api/admin/maintenance-notice/email', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

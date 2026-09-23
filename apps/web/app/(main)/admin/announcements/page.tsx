@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl'
 import { AnnouncementFilter } from './AnnouncementFilter'
 import { AnnouncementTable } from './AnnouncementTable'
 import { AnnouncementDialog } from './AnnouncementDialog'
+import { MaintenanceNoticeDialog } from './MaintenanceNoticeDialog'
 import { api, fetchList, EMPTY_FORM, announcementToForm } from './helpers'
 import type { Announcement, AnnouncementForm } from './types'
 import { BackButton } from '@/components/common'
@@ -19,6 +20,7 @@ export default function AdminAnnouncementsPage() {
   const t = useTranslations('admin.announcements')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
+  const [noticeOpen, setNoticeOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Announcement | null>(null)
   const [form, setForm] = React.useState<AnnouncementForm>(EMPTY_FORM)
   const [err, setErr] = React.useState<string | null>(null)
@@ -86,7 +88,7 @@ export default function AdminAnnouncementsPage() {
   return (
     <div className="space-y-4 px-4 py-4">
       <BackButton />
-      <AnnouncementFilter onCreate={openCreate} />
+      <AnnouncementFilter onCreate={openCreate} onSendNotice={() => setNoticeOpen(true)} />
 
       <AnnouncementTable
         list={list}
@@ -107,6 +109,8 @@ export default function AdminAnnouncementsPage() {
         onSubmit={submit}
         onClose={close}
       />
+
+      <MaintenanceNoticeDialog open={noticeOpen} onClose={() => setNoticeOpen(false)} />
     </div>
   )
 }

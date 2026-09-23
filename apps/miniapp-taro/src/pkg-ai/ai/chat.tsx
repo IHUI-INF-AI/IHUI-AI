@@ -45,7 +45,13 @@ import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
-import { appendCitations, appendSteerNotice, toSteerNotice, type AICardsData } from './cards/types'
+import {
+  appendCitations,
+  appendSteerNotice,
+  backfillSteerNoticesFromMetadata,
+  toSteerNotice,
+  type AICardsData,
+} from './cards/types'
 import { toolActivityText } from './cards/tool-line'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import AgentTipDialog from './AgentTipDialog'
@@ -347,7 +353,9 @@ export default function ChatPage() {
             (h) => h.id === routeSessionId && Array.isArray(h.messages) && h.messages.length > 0,
           )
           if (target) {
-            setMessages(target.messages)
+            // D106 收尾:历史恢复时从 metadata.steerApplied 重建 aiCards.steerNotices
+            // (live 已写的不覆盖;无 metadata 不写空数组,不渲染空态)
+            setMessages(backfillSteerNoticesFromMetadata(target.messages))
             setSessionId('')
             setImgsList([])
             setInputValue('')
@@ -946,7 +954,8 @@ export default function ChatPage() {
    *  恢复时清空当前输入态(附件/输入框/选中素材),开始新对话上下文 */
   const handleSelectHistory = useCallback(
     (h: ChatHistoryEntry) => {
-      setMessages(h.messages || [])
+      // D106 收尾:同上,历史恢复链路统一走 metadata.steerApplied 读回
+      setMessages(backfillSteerNoticesFromMetadata(h.messages || []))
       setSessionId('')
       setImgsList([])
       setInputValue('')
