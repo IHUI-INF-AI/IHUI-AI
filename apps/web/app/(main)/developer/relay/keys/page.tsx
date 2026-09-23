@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale, useTranslations } from 'next-intl'
+import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Key, Plus, Trash2, RotateCcw, Copy, Eye, EyeOff, Loader2, Power } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
@@ -49,15 +49,13 @@ interface KeysData {
 
 // 2026-09-13 修复:原先的 read/write/admin/billing/webhook 不是合法权限点,
 // 会被后端 isValidApiKeyPermission 全部过滤掉,导致新建 Key permissions 为空
-// 2026-09-23 i18n 接线:本表只存 `developer.relayKeys` 族内的取词键名(渲染处 t(s.labelKey)),
-// value 是后端权限点字面值,不得改动。
-const SCOPES: Array<{ value: string; labelKey: string }> = [
-  { value: 'chat:write', labelKey: 'scopeChat' },
-  { value: 'models:read', labelKey: 'scopeModels' },
-  { value: 'embeddings:write', labelKey: 'scopeEmbeddings' },
-  { value: 'images:write', labelKey: 'scopeImages' },
-  { value: 'audio:write', labelKey: 'scopeAudio' },
-  { value: 'videos:write', labelKey: 'scopeVideos' },
+const SCOPES: Array<{ value: string; label: string }> = [
+  { value: 'chat:write', label: '对话补全' },
+  { value: 'models:read', label: '模型列表' },
+  { value: 'embeddings:write', label: '向量' },
+  { value: 'images:write', label: '图片生成' },
+  { value: 'audio:write', label: '语音' },
+  { value: 'videos:write', label: '视频生成' },
 ]
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -71,36 +69,21 @@ function maskKey(k: string): string {
   return k.slice(0, 4) + '****' + k.slice(-4)
 }
 
-/** 额度三态文案(取词在组件内完成,模块层不取词) */
-interface QuotaLabels {
-  unlimited: string
-  exhausted: string
+function formatToken(n: number): { text: string; danger: boolean } {
+  if (n === -1) return { text: '无限额度', danger: false }
+  if (n === 0) return { text: '已耗尽', danger: true }
+  return { text: n.toLocaleString(), danger: false }
 }
 
-interface QuotaCell {
-  text: string
-  danger: boolean
-}
-
-function formatToken(n: number, labels: QuotaLabels, num: Intl.NumberFormat): QuotaCell {
-  if (n === -1) return { text: labels.unlimited, danger: false }
-  if (n === 0) return { text: labels.exhausted, danger: true }
-  return { text: num.format(n), danger: false }
-}
-
-function formatBalance(cents: number, labels: QuotaLabels, money: Intl.NumberFormat): QuotaCell {
-  if (cents === -1) return { text: labels.unlimited, danger: false }
-  if (cents === 0) return { text: labels.exhausted, danger: true }
-  return { text: money.format(cents / 100), danger: false }
+function formatBalance(cents: number): { text: string; danger: boolean } {
+  if (cents === -1) return { text: '无限额度', danger: false }
+  if (cents === 0) return { text: '已耗尽', danger: true }
+  return { text: (cents / 100).toFixed(2) + ' 元', danger: false }
 }
 
 export default function RelayKeysPage() {
   const { confirm, ConfirmDialogRenderer } = useConfirm()
   const locale = useLocale()
-  const t = useTranslations('developer.relayKeys')
-  // 复用开发者中心既有词表(developer.*)与通用词表(common.*),不造第二套
-  const td = useTranslations('developer')
-  const tc = useTranslations('common')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
@@ -118,18 +101,6 @@ export default function RelayKeysPage() {
   const [useOpen, setUseOpen] = React.useState(false)
   const [useTarget, setUseTarget] = React.useState<{ id: string; name: string } | null>(null)
   const dateFmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
-  const num = new Intl.NumberFormat(locale)
-  // 金额一律走 Intl:币种符号由 locale 决定,不焊进文案
-  const money = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'CNY',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-  const quotaLabels: QuotaLabels = {
-    unlimited: t('unlimitedQuota'),
-    exhausted: t('exhausted'),
-  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['developer', 'relay', 'keys'],
@@ -165,7 +136,7 @@ export default function RelayKeysPage() {
     mutationFn: (id: string) => api(`/api/developer/relay/keys/${id}/revoke`, { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
-      toast.success(t('revokedToast'))
+      toast.success('Key 已吊销')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -178,7 +149,7 @@ export default function RelayKeysPage() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
-      toast.success(t('enabledToast'))
+      toast.success('Key 已启用')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -194,7 +165,7 @@ export default function RelayKeysPage() {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
       setCreated({ mode: 'reset', ...data })
       setSecretVisible(false)
-      toast.success(t('resetToast'))
+      toast.success('Key 已重置,请保存新的 Secret')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -206,15 +177,15 @@ export default function RelayKeysPage() {
       }),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['developer', 'relay', 'keys'] })
-      toast.success(t('windowsCleared', { count: data.cleared }))
+      toast.success(`已清除 ${data.cleared} 条窗口计数`)
     },
     onError: (e: Error) => toast.error(e.message),
   })
 
   function copyKey(k: string) {
     navigator.clipboard?.writeText(k).then(
-      () => toast.success(td('bootstrap.copied')),
-      () => toast.error(td('bootstrap.copyFailed')),
+      () => toast.success('已复制'),
+      () => toast.error('复制失败'),
     )
   }
   function toggleScope(s: string) {
@@ -228,13 +199,13 @@ export default function RelayKeysPage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Key className="h-6 w-6 text-primary" />
-            {t('title')}
+            API Key 管理
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">创建、吊销与重置中转站 API Key</p>
         </div>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus className="h-4 w-4" />
-          {t('createKey')}
+          新建 Key
         </Button>
       </div>
 
@@ -244,15 +215,15 @@ export default function RelayKeysPage() {
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {td('loading')}
+            加载中...
           </div>
         ) : list.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">{td('noData')}</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">暂无数据</p>
         ) : (
           <div className="space-y-2 p-3">
             {list.map((k) => {
-              const tok = formatToken(k.tokenBalance, quotaLabels, num)
-              const bal = formatBalance(k.costBalanceCents, quotaLabels, money)
+              const tok = formatToken(k.tokenBalance)
+              const bal = formatBalance(k.costBalanceCents)
               return (
                 <div key={k.id} className="rounded-md bg-muted/40 p-3">
                   <div className="flex items-start gap-3">
@@ -267,9 +238,7 @@ export default function RelayKeysPage() {
                               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
                           )}
                         >
-                          {k.status === 'active'
-                            ? t('statusActive')
-                            : td('capabilities.keyRevoked')}
+                          {k.status === 'active' ? '启用' : '已吊销'}
                         </span>
                         <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                           {k.rateLimit}/min
@@ -290,7 +259,7 @@ export default function RelayKeysPage() {
                         <button
                           onClick={() => setVisible((v) => ({ ...v, [k.id]: !v[k.id] }))}
                           className="text-muted-foreground hover:text-foreground"
-                          aria-label={t('toggleVisibility')}
+                          aria-label="切换显示"
                         >
                           {visible[k.id] ? (
                             <EyeOff className="h-3 w-3" />
@@ -301,14 +270,14 @@ export default function RelayKeysPage() {
                         <button
                           onClick={() => copyKey(k.key)}
                           className="text-muted-foreground hover:text-foreground"
-                          aria-label={td('bootstrap.copy')}
+                          aria-label="复制"
                         >
                           <Copy className="h-3 w-3" />
                         </button>
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                         <span>
-                          {t('tokenBalance')}
+                          Token 余额:
                           <span
                             className={cn(
                               'ml-0.5 font-medium',
@@ -319,7 +288,7 @@ export default function RelayKeysPage() {
                           </span>
                         </span>
                         <span>
-                          {t('costBalance')}
+                          成本余额:
                           <span
                             className={cn(
                               'ml-0.5 font-medium',
@@ -330,28 +299,21 @@ export default function RelayKeysPage() {
                           </span>
                         </span>
                         <span>
-                          {t('tokenUsed')}
+                          已用 Token:
                           <span className="ml-0.5 font-medium text-foreground">
-                            {num.format(k.tokenUsedTotal)}
+                            {k.tokenUsedTotal.toLocaleString()}
                           </span>
                         </span>
                         <span>
-                          {t('costUsed')}
+                          已用成本:
                           <span className="ml-0.5 font-medium text-foreground">
-                            {money.format(k.costUsedTotalCents / 100)}
+                            {(k.costUsedTotalCents / 100).toFixed(2)} 元
                           </span>
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {t('createdOn', { time: dateFmt.format(new Date(k.createdAt)) })}
-                        {k.lastUsedAt && (
-                          <>
-                            {' · '}
-                            {td('capabilities.lastUsedAt', {
-                              time: dateFmt.format(new Date(k.lastUsedAt)),
-                            })}
-                          </>
-                        )}
+                        创建 {dateFmt.format(new Date(k.createdAt))}
+                        {k.lastUsedAt && ` · 最近使用 ${dateFmt.format(new Date(k.lastUsedAt))}`}
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
@@ -364,7 +326,7 @@ export default function RelayKeysPage() {
                         }}
                       >
                         <Key className="h-3.5 w-3.5" aria-hidden />
-                        <span>{t('use')}</span>
+                        <span>使用</span>
                       </Button>
                       <Button
                         size="sm"
@@ -372,7 +334,7 @@ export default function RelayKeysPage() {
                         onClick={async () => {
                           if (
                             await confirm({
-                              title: t('resetWindowsConfirm'),
+                              title: '确认重置该 Key 的窗口用量?将清空当前限流窗口计数',
                               variant: 'destructive',
                             })
                           ) {
@@ -382,7 +344,7 @@ export default function RelayKeysPage() {
                         disabled={resetWindowsMut.isPending}
                       >
                         <RotateCcw className="h-3.5 w-3.5" aria-hidden />
-                        {t('resetWindows')}
+                        重置窗口
                       </Button>
                       <Button
                         size="sm"
@@ -391,7 +353,7 @@ export default function RelayKeysPage() {
                         disabled={resetMut.isPending}
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
-                        {t('reset')}
+                        重置
                       </Button>
                       {k.status === 'active' ? (
                         <Button
@@ -400,7 +362,7 @@ export default function RelayKeysPage() {
                           onClick={async () => {
                             if (
                               await confirm({
-                                title: t('revokeConfirm'),
+                                title: '确认吊销该 Key?吊销后可随时重新启用',
                                 variant: 'destructive',
                               })
                             ) {
@@ -411,7 +373,7 @@ export default function RelayKeysPage() {
                           className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          {t('revoke')}
+                          吊销
                         </Button>
                       ) : (
                         <Button
@@ -421,7 +383,7 @@ export default function RelayKeysPage() {
                           disabled={restoreMut.isPending}
                         >
                           <Power className="h-3.5 w-3.5" />
-                          {t('enableAction')}
+                          启用
                         </Button>
                       )}
                     </div>
@@ -436,19 +398,19 @@ export default function RelayKeysPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('createKeyTitle')}</DialogTitle>
+            <DialogTitle>新建 API Key</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1">
-              <Label className="text-sm">{t('keyNameLabel')}</Label>
+              <Label className="text-sm">Key 名称</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={t('keyNamePlaceholder')}
+                placeholder="如:生产环境 Key"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-sm">{t('scopesLabel')}</Label>
+              <Label className="text-sm">权限范围</Label>
               <div className="flex flex-wrap gap-2">
                 {SCOPES.map((s) => (
                   <button
@@ -462,25 +424,25 @@ export default function RelayKeysPage() {
                         : 'text-muted-foreground hover:bg-accent',
                     )}
                   >
-                    {t(s.labelKey)}
+                    {s.label}
                   </button>
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                {t('scopesHint', { chat: t('scopeChat'), models: t('scopeModels') })}
+                不勾选任何权限时,新建 Key 将默认携带「对话补全 + 模型列表」权限
               </p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
-              {tc('cancel')}
+              取消
             </Button>
             <Button
               onClick={() => createMut.mutate()}
               disabled={!name.trim() || createMut.isPending}
             >
               {createMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-              {t('create')}
+              创建
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -491,13 +453,17 @@ export default function RelayKeysPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {created?.mode === 'reset' ? t('secretResetTitle') : t('keyCreatedTitle')}
+              {created?.mode === 'reset' ? 'Secret 已重置' : 'Key 创建成功'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <Alert variant="warning" title={t('saveSecretNow')} description={t('secretOnceHint')} />
+            <Alert
+              variant="warning"
+              title="请立即保存 Secret"
+              description="Secret 仅在创建时显示一次,关闭后无法再次查看。"
+            />
             <div className="space-y-1">
-              <Label className="text-sm">{t('keyIdLabel')}</Label>
+              <Label className="text-sm">Key 标识</Label>
               <div className="flex items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2 py-1.5 text-xs">
                   {created?.apiKey.key}
@@ -520,7 +486,7 @@ export default function RelayKeysPage() {
                 <button
                   onClick={() => setSecretVisible((v) => !v)}
                   className="text-muted-foreground hover:text-foreground"
-                  aria-label={t('toggleVisibility')}
+                  aria-label="切换显示"
                 >
                   {secretVisible ? (
                     <EyeOff className="h-3.5 w-3.5" />
@@ -539,15 +505,15 @@ export default function RelayKeysPage() {
             </div>
             {/* 2026-09-13 实测闭环补注:网关鉴权 Bearer 用 Key 标识(ihui_ 开头),sk_ Secret 仅用于 X-Api-Secret 辅助校验——不注明用户拿 sk_ 调用会 401 */}
             <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {t('gatewayHintA')}
+              调用网关时,请求头使用
               <code className="mx-1 rounded bg-background px-1 py-0.5">
-                Authorization: Bearer &lt;{t('keyIdLabel')}&gt;
+                Authorization: Bearer &lt;Key 标识&gt;
               </code>
-              {t('gatewayHintB')}
+              (即 ihui_ 开头的 Key 标识;Secret 请妥善保管,勿放进请求头)。
             </p>
           </div>
           <DialogFooter>
-            <Button onClick={() => setCreated(null)}>{t('savedClose')}</Button>
+            <Button onClick={() => setCreated(null)}>我已保存,关闭</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
