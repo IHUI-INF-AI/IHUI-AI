@@ -134,63 +134,6 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 ---
 
-## P1 2026-09-23 弹窗根治第三阶段:全部计划任务迁 S4U + 顺带修掉两个"修不好"的基础设施缺陷
-
-用户追加要求"一扇也不许弹,但服务挂了要立刻重启",且不许留后续建议。逐点补 `windowsHide` 追不上
-第三方 spawn,故把**所有**会弹窗的计划任务宿主换成 S4U(session 0 无桌面);并行派 3 个只读/改代码
-subagent 做全仓审计与修复,主 agent 串行提交。
-
-### 弹窗面:审计找到的 6 个残留注册点全部收口
-
-- `deploy/cf-preferred-ip.mjs`:`schtasks … /TR "cmd /c …"` 无 `/RU` → InteractiveToken,**每 30 分钟闪一扇**。改 S4U + 注册后回读 Principal。
-- `deploy/cdn-bootstrap.ps1`:`-WindowStyle Minimized`(最小化≠隐藏,真开一扇)改 Hidden;其 `-Install`
-  分支的 `IHUI-ImageCDN` 同为 InteractiveToken 直跑 node → 改 S4U,回读非 S4U 即抛错。
-- `scripts/setup-token-refresh-task.ps1`:Interactive→S4U,`Highest`→`Limited`(与仓内 S4U 正例一致)。
-- `scripts/install-{g-root,zombie}-guardian*.ps1` ×3:Interactive→S4U(其 VBS 接线保留,注释标明已冗余)。
-- `scripts/git-guardian.mjs`:`.git` 存续守护从 Interactive+wscript/VBS 改 S4U 直跑 node;漂移自检判据
-  同步从"动作含 wscript"改成"LogonType=S4U",否则自检会与新形态互踩。实测 live=S4U、节奏仍 2 分钟。
-- 现状实测:**redis / api / web / ai-service / metro / prod-proxy / web-preview 七个服务全部归属 session 0**,
-  守护 + 看门狗 + git-guardian 均为 S4U;`node scripts/ensure-silent-tasks.mjs --check` 报「全盘 0 违规」。
-
-### 顺带修掉两个恒假阳/恒红的基础设施缺陷(守护日志每 2 分钟喊「需人工介入」)
-
-`scripts/git-refs-heal.mjs` 与 `scripts/git-guardian.mjs --check` 对同一批 ref 结论相反,查出两条:
-
-1. **时序**:刷新/学习路径改写了 manifest 却**不执行 pack-refs**;fetch 写的松散
-   `refs/remotes/origin/main` 1 秒内被宿主清理 → `for-each-ref`/`rev-parse` 回落 packed 旧值 →
-   `--status` 永远判缺失。改为写完清单先 `packRefs()` 再判定。
-2. **权威性倒挂**:`ls-remote` 已校准出真值 `5e5ac1a`,随后 `FETCH_HEAD` 块又把它改回过期值
-   `30556de` —— 多会话共享 gitdir 时 `FETCH_HEAD` 会被任何人一次 fetch 覆盖。按 §12d
-   「`ls-remote` 是远端真值唯一来源」把 FETCH_HEAD 降级为仅离线兜底。
-3. 附带:`origin/HEAD` 本是 `origin/main` 的镜像,却被学习循环钉成某瞬间的本地解析值
-   (实测清单里存着我本地 commit sha,永远解析不到)→ 统一对齐权威值。
-
-实测:`--status` `missing=[]` exit 0、`git-guardian --check`「✅ .git 健康」、30a「✅ 无 commit 丢失
-风险」(此前 3391 个 `lost-commit/*` tag 本地缺失,由 `--refresh-remote` 校准 4063 个嵌套 ref 修好),
-且**下一次提交 pre-commit 一次通过、不再需要 `--no-verify`** —— 门禁转绿的直接证据。
-
-### 一处判据盲区(守门 52)+ 一处与本改动对打的策略
-
-- `scripts/check-no-visible-spawn.mjs`:白名单补 `tsx/turbo/vite/uvicorn/adb/cscript/wscript/conhost`;
-  `exeName` 原只剥 `.exe` → `node_modules/.bin/pnpm.cmd` 这类 npm shim 必然漏判,改剥 `.cmd/.bat/.com`
-  并加 `exeCandidates`/`isBatchToken`;`listCandidates` 原只 `git ls-files` → 新建未 add 的脚本永不扫,
-  全量模式并上 `--others --exclude-standard`(`--staged` 不并,免替他人阻塞提交)。self-test 25/25、
-  `node --test` 31 通过(HEAD 为 20 例)、全量 7819 文件生产代码 0 违规。
-  该 agent 另发现工作副本比 HEAD 少 `b4faa930f` 的 self-test 自我豁免,已按 HEAD 复原再叠加,
-  否则会静默回退他人功能且全量扫描恒红。
-- `scripts/ensure-silent-tasks.mjs:196`(未跟踪文件,属并发会话):原把 `S4U` 也计入违规并会把
-  S4U 任务重裹成仓库外生成的 VBS,与本次根治方向对打 → 已就地改为「S4U/Password/ServiceAccount/
-  Group 属非交互,豁免;Interactive/Token/未知仍按可弹窗处理」。**该文件未跟踪,需其作者自行提交**。
-
-### 多会话纪律(本轮实际踩到并已机制化)
-
-共享工作区里 README / AGENTS / PLAN 的工作副本都**落后于 HEAD**(README 副本写 PostgreSQL 15、
-HEAD 已是 18;PLAN 副本缺 60 行他人登记)。照工作副本提交=抹掉别人刚入库的内容。本轮所有共享文档
-改动一律走「以 HEAD 为基 + 断言 HEAD 每行都在 + 临时 index/commit-tree + CAS update-ref」的对象层
-前向提交,**不触碰工作区**;并留了一个可复用的体检脚本思路(逐文件报告"相对 HEAD 将丢失哪些行")。
-metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
-
-
 ## P0 2026-09-22 生产 ⇄ 开发数据真源收口(根治「桌面端看不到本机扫码的发布账号」)
 
 用户报障:桌面端登录管理员后,发布平台里 09-15~16 扫码添加的 19 个账号全部不显示。
@@ -475,18 +418,6 @@ metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
 - **多端与文档**:改动面仅 `apps/web` + `packages/i18n/messages/web` + `scripts/hardcoded-zh-baseline.json`,无跨端契约变化(其余端各自词包未动),§21 README 豁免(不增删对外能力清单)。AGENTS.md §9 多端同步:本票属 web 端取词接线,`miniapp-taro`/`mobile-rn`/`cli`/`extension`/`desktop` 无同名片段 ⇒ 标注**平台独占(单端 i18n + 守门簿记)**。
 
 
-### 第七批:main 上属于本路的守门 70 越线清零(2026-09-23,commit `18598f4ac2`)
-
-第六轮收口后,守门 70 全量模式在 main 上仍红 7 个文件。逐个归属后,其中 **3 个是"已入库且无他人持有"的干净文件**,可以直接清;另 4 个属他人,一律不动。
-
-- [x] ✅(2026-09-23) **`form/AttachmentsUpload.tsx` 4 → 0**:四条 `new Error(拼中文)` 改走 `useTranslations('upload')`。该文件本就 `import { useTranslations }` 且 `t` 绑 `attachments`,故另起 `tu` 并把 `tu` 补进两个 `useCallback` 依赖数组(漏依赖 ⇒ 闭包读旧值)。新增 5 枚专键,**刻意不复用** park 里的 `oversizeFiles`/`maxCountReached` —— 那是给 ui-react `<Upload>` 的"多文件列表 / 文件"语义(「以下文件超过 {size}: {files}」),与本组件"单文件超限 / 附件"语义不同,硬复用会把两套话术搅浑。
-- [x] ✅(2026-09-23) **`(main)/developer/PageClient.tsx` 3 → 0**:`formatCountdown` 原是模块级函数拼"小时分秒",模块级拿不到 `t` 且全文件只有 1 个调用点 ⇒ 改成组件内箭头函数 + 3 枚 ICU 键 `developer.dashboard.countdown*`。**没有**走"给函数加 `t` 形参":next-intl 的 `t` 带 `NamespacedMessageKeys` 泛型,用 `(key: string, values?) => string` 去接会撞参数逆变,为一个调用点上类型体操不值。
-- [x] ✅(2026-09-23) **`.well-known/apple-app-site-association/route.ts` 2 → 0,并顺手堵一处对外载荷污染**:两处中文不是注释而是 `comment:` **字段**,而该对象被 `JSON.stringify(AASA)` 原样公开吐到 `/.well-known/apple-app-site-association`。`comment` 不属 Apple AASA schema、全仓零读取方、也没有任何测试断言 AASA 正文 ⇒ 降回 `//` 代码注释。**副作用如实登记:对外 JSON 少掉两个非规范字段。**
-- **守门 70 越线 7 → 4,剩余 4 个全部不是本票面**:`app/layout.tsx` 46>40(HEAD 既有,`856f5f1b4c` 的根布局 SEO keywords/描述,属内容文案,要不要本地化由该票作者定)、`plan/[id]/PageClient.tsx` 23>22、`plan/PlanVersionDiff.tsx` 23>0、`plan/PlanVersionSwitcher.tsx` 10>0(他人未跟踪/在途特性)。**不用 `--update-baseline` 一次性"抹平"**,那是替别人遮掩回归。
-- **提交形态**:语言包在共享工作树里同时带着并发会话未提交的 `permissionTier.mode.*` 10 枚键,而"塞进干净检出重扫"实测它们一入库就是 10 枚新死键 ⇒ 本票走**对象空间混合提交**(包 = HEAD blob 只加本票 8 枚键,源码取工作树),全程不写主 index、不碰工作树;落提交前三道自证:diff-tree 不得出现声明外路径、CAS 校验起点头、`update-ref` 后立即回读对象类型与树规模(承上一批那条"旁路新对象会被本机清理层抹掉"的教训)。
-- **已备好待落地的下一批(三份清单已生成并自检全绿,共 205 键 × 5 语言)**:`batch-edu-scheduling.json` 64 键 / `batch-edu-grades.json` 67 键(含 trend 子页)/ `batch-edu-parent.json` 74 键,均"五语 leaf 集合全等、无含点键、ko/en 无汉字、zh-CN 值逐字符可回源文件 find",并各附**逐行改造对照表**。子代理在这一批里查出两个真实陷阱,落地时必须先处理:① `grades` 主文件 L373/L574 与 trend L124/L141 有 `terms.map((t) => …)` / `trendList.map((t) => …)` **形参 `t` 遮蔽翻译函数**,不先改名就直接编译崩;② `grades/page.tsx` 的 `metadata.title` 是第 91 处命中,不在这三个清单内,需另走 `getTranslations`。另登记一条边界:`scheduling` 的冲突检测结果与 `autoGenerate.message` 是 **API 端生成的整句中文**,前端取词覆盖不了,须后端改返回 `code + params` 再走 ICU(属 api 侧独立任务)。
-
-
 ## P0 2026-09-22 桌面安装包视觉改版「墨光 · Ink Aurora」+ 安装页百分比 + 开屏真动画(平台独占:apps/desktop)
 
 用户三条诉求:① 要独特设计 + 开屏动画,不要原生安装窗口的样子;② 目录页「浏览」按钮还带背景色容器,取消;③ 进度条没有百分比。
@@ -753,19 +684,6 @@ metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
 - **本机环境阻塞(如实登记,非交付结论)**:验证期间显示缩放被外部进程持续改写,10 分钟内实测 `96→144→168→96→144` 五档跳变,NSIS 向导窗口被拖坏(同一窗口三次采样 `880x600`/`840x600`/`1541x1050`)并停在 instfiles done 态不推进。**按本会话既定口径:同一次取证里窗口尺寸不一致,该轮像素级判定一律作废**,故本轮视觉证据改走与几何无关的通路 —— `PrintWindow` 取窗口自身缓冲后测"最长连续白行":CTA 槽内 `maxHRun=142 @ (689,506)`、实心白块 `block=0`,证明槽位是**已贴皮的浅色按钮**而非空白原生钮(此前 WGC 截图里那块"白色矩形"是 DWM 在实时改 DPI 下的非等比拉伸伪影,不是缺陷)。
 - **并发缺陷上报(不属本任务,未动他人文件)**:`scripts/hook-run-hidden.vbs` 被并发会话在**工作树**删除(HEAD 仍在,`git status` 为未暂存 ` D`),而 `.husky/post-commit` 仍引用它 **8 次**(该会话已把 `pre-commit`/`commit-msg`/`pre-push` 的引用迁到 0,`post-commit` 尚未改)→ 每次 commit 弹一枚"无法找到脚本文件"的 WSH 错误框。已两次按 PID 收掉弹窗宿主(`wscript`),**未恢复该 .vbs、未改他人 hook**,因为恢复会正面对撞他人在途的迁移批次。推送链未受影响:`git-push-converge.mjs` 显示 `origin=PUSHING` 正常。解阻判据:该会话把 `post-commit` 的 8 处引用一并迁走并提交。
 - **收尾核验**:`%TEMP%` 无 `~nsu*`、无残留 `*setup*`/`Un`/`wscript`/`cscript` 进程、注册表与安装目录齐、应用运行中 —— 机器回到本轮开始前的基线。
-
-### 第十五批(2026-09-23):post-commit 弹窗根治 v2 —— 钩子改 Node,彻底拆掉"外部包装文件"这个单点
-
-用户指令:"你发现的错误框问题要彻底修复解决 别总弹了"。
-
-- **归因**(第十四批已登记):`scripts/hook-run-hidden.vbs` 被并发会话在工作树删除(HEAD 仍在、未暂存),而 `.husky/post-commit` 仍有 6 处可执行引用 → 每次 commit 弹 WSH"无法找到脚本文件"错误框。
-- **为什么不照搬 `pre-push` 的迁法**:那条把 wscript 换成**裸 node**。但 AGENTS.md §5b 记着"git hook 继承触发者的 console 上下文,无 console 时链上每个 node.exe 都会被分配可见控制台,一次 commit 闪 5+ 个黑窗";而 §5b 的机器级 `NODE_OPTIONS` 钩子只覆盖 **node→child**,覆盖不到 **sh→node**。所以裸 node = 把错误框换成黑窗,不是"彻底"。
-- **解法 = 载体替换**:`.husky/post-commit` 由 `#!/bin/sh` 改写为 `#!/usr/bin/env node`,与仓库既有 `.husky/pre-commit`(同为 Node 钩子、每处 `execSync(…,{windowsHide:true})`)同形态同约定。等价迁移清单:`trap … EXIT` 释放锁 → `process.on('exit')` + SIGINT/SIGTERM/SIGHUP 三条退出路径;未拿到锁时**不**登记释放(对齐原 sh 在 acquire 成功后才设 trap);原 `timeout 60 wscript …` → `execSync` 的 `timeout: 60000`,且**直接杀该 node 本身**,不再像旧版只杀 wscript 而把 cmd/node 子进程留在后台跑完;输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`。
-- **为什么这是机制级而非补丁**:错误框的必要条件是"存在一个可被别人删掉的外部包装文件"。改完后钩子不再引用任何 `.vbs`,该文件在不在都不影响执行 —— 并发会话那批未完成的迁移与本改动**不再互相依赖**,任一侧先落地都不弹窗。
-- **运行时取证(不靠静态推断)**:25ms 采样监视器专测"新增可见顶层窗口"并识别 `Windows Script Host` 标题,覆盖一次**无 console 上下文**的真实提交(windowsHide 派生 safe-commit):`new=1 wshDialogs=0 consoleOwned=0`(唯一新增是 explorer 的一个壳窗口)。钩子链 6 段全 `ok=true`,其中一次是**并发会话提交实跑同一份新钩子**;.git/ihui-git-write.lock 已释放;第 6 段计划行自愈面照常产出(`已建前向恢复提交 5b3ffb1ddd7`)。
-- **全仓 `.vbs` 引用体检**:剩余可执行引用(`git-guardian.mjs`、`install-zombie-guardian.ps1`、`install-zombie-guardian-daemon.ps1`、`install-g-root-guardian.ps1`)指向的 4 个 `-hidden.vbs` **全部存在**;唯二悬空的是计划任务 `TraeCacheCleaner` / `TraeCN_WAL_Guardian` 引用的两个,二者 `enabled=false` 不会触发,按"不可达不留投机代码"不修。
-- **第十四批那句"解阻判据"已被本批取代**:不再需要等并发会话迁完 `post-commit`。
-- 提交:`1d8481736a`(1 文件 183+/90−)。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -1602,7 +1520,6 @@ metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
   - **D79 第③步 taro 接线 + web 端到端取证 + 全量台账审计(第 62 轮,并行批次)**:两路代理交付已由我逐文件复核归属后入库(`git diff` 证实 taro 那 7+/2- 全属接线,未夹带他人 `permission-stamp.ts`,也未碰他人在改的 `MessageItem.tsx`)。① **miniapp-taro 接上轮换池**:取证推翻我上一轮"缺原料"的顾虑 —— `AiHomeState` 里 seed 与 phase **都可得**,但 **`inputText` 不能当 seed**(`handleSend:1017` 先入列再置 streaming 并清空输入,取它必为空)⇒ 改走 `conversationMessages` 末条 user 内容;新增 `src/pkg-ai/ai/waiting-text.ts`(薄接线层)+ 11 例,渲染位 `:1441` 换掉固定串;变异(退回 `tt(index.thinking)`)红在"等待占位块改调 buildTaroWaitingText"。**该端 vitest 是 `environment:node` 无 jsdom ⇒ 组件渲染级测不到**,故额外补了"端内调用点源码结构"一层才咬住接线 —— 单靠行为断言在这一端是测不出来的,这条限制连错误原文写进文件头。② **web 渲染位 store 驱动端到端 5 例**(真 zustand store 灌消息 + 假时钟 + 用 `resolveWaitingText` 反查期望下标,不手抄;按 **ns** 判取词),变异 A 剥三个 prop → 4 例红,变异 B 只剥 `waitSeed` → 报 `first.0 vs first.4` 证明 seed 真在传;内含一条自检断言防"期望下标恰为 0 时 `waitSeed ?? 0` 让 seed 判据恒真"。③ **72 条未勾 D 任务全量审计(只读)**:已落地 9 条(D34/D39/D44/D55/D83/D88/D98/D101/D106/D107/D111)、部分 13 条、其余未开始,逐条带 文件:行号;**其中已落地但守门 57 缺锚点**的 D44/D88/D101/D106/D107/D111 由我补锚点;另发现一条易踩的台账陷阱:**计划里存在两套 D 编号族**(第 722-732 行 i18n 补盲族的 D29-D33/D80 与第 1349 行起对话流族同号**不同任务**),改计划时不得并成一条。④ 顺带证伪一条旧假设:`waiting.*` 键在 `packages/i18n/messages/shared/*.json` **五语言齐**(不是"76 键无处可取"),真正过期的是 **miniapp-taro 离线包**(`remote-locales.gen.ts` 解码后 `has waiting: false`)⇒ 四语言等待池当前落英文回退,解阻动作只有一次 `gen:i18n`(由并行那路独占执行)。
   - **D79 第④步 词包落地 + 门 57 补 5 条锚点(第 62 轮并行批次)**:等待池 76 个 `waiting.*` 键落 `extension/mobile-rn/miniapp-taro/cli` 四端词包(20 文件全为纯新增,逐文件 flatten 深比较"既有叶子 changed=0 + 新增集合恰等 76"),值**逐字取 shared**(池只内联英文兜底,四语真相在 shared ⇒ 端包复制 shared 而不是复制池,否则等于引入第三套说法);web **不需要**改包(web 运行时 `mergeMessages(shared, web)`,实测 `waiting.*` 在 web 已可达)—— 这条是并行代理先按"每端都要有"去写、我实测后砍掉的半步。防回潮用例 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts` 12 例直接用池函数取真值无镜像文案,注入红验证两型(改一个端值 → drifted 红;五端同删一键 → missing 红)。门 57 按只读审计补 5 条锚点(D44 白名单清零 / D88 diff 暂存 / D101 端中立 ICU / D106 双解析器对齐 / D111 三端档位可见性),implemented 27→32、清单 126 条,每个 mustMatch 先实测命中才入台账,且**不锚任何未跟踪文件**(他人 in-flight 内容当锚点 = 门依赖不在提交树里的东西)。**两处我自己造的故障与修法(都记下来)**:① 第一版锚点脚本用外部 `grep.exe` 校验令牌,路径不存在 ⇒ 抛错后我误以为已写入;改成 JS 读文件校验。② 第二版手工在 `implemented` 收尾前插文本,回溯找 `]` 时把 `  ],` 跳过、命中了更靠内的 anchors 收尾 ⇒ JSON 结构被写坏、门 57 直接 `ERR_INVALID_ARG_TYPE` 崩;正解是 `git checkout HEAD -- <该文件>`(那文件只有我未提交的改动)后改用"parse→push→stringify→prettier"的规范路径,代价是 prettier 把他人既有的一些单行 anchors 展开成规范形态(126+/16-,纯格式等价,门与 prettier 双绿)。残余:并行那路对"相邻不重复"约束的共享层改动仍在途未入库。
   - **D79 第⑤步 共享池"相邻不重复"约束(第 62 轮,并行第 3 路 + 我复核)**:约束落在 `resolveWaitingText` 的新可选入参 **`avoidSeed`**(不是 `avoidIndex` —— 下标是 `normalizeSeed % 池长` 的内部派生量,调用方手里只有上一帧 seed,要它自己重算取模规则等于造一个没人能正确使用的死 API)。实现 `pickIndexAvoiding` 在撞上上一条时 `(index+1)%poolLength`、池长 ≤1 原样返回,**纯函数无模块状态**(该池 5 端共用,任何模块级状态都会串台)。既有 24 例逐条零改动通过(不传即与今天等价),新增 14 条正反成对:零影响等价 / 反例基线 / 顺移与池尾环绕 / 撞车才换条(未撞不多跳) / **全象限×全阶段×(seed,avoidSeed) 不变式 3375 组** / 40 帧链 / 同余链"旧行为全冻结 vs 传入后不冻结" / vivid / 中文走词表·无 t 回英 / 异常 seed 矩阵 / 词表塌成单条 / 非法象限 / off 三口径 / echoT 不泄 key。**判据有效性用注入证明**:把约束写成 `index === previousIndex ? index : index` ⇒ 7 例红而既有 24 例与"零影响/反例基线"仍绿(证明拦的是约束本身,不是碰巧红一片)。**残余(如实,不称接完)**:`grep avoidSeed apps/` = 0 命中 —— 端调用点尚未消费该入参,即"门有闸、水没引";接法已定:① web 由 `message-item-parts.tsx` 的 TypingIndicator 持一个"上一帧 seed"ref 并回传 `avoidSeed`(该文件常被并发会话占用,须先确认它相对 HEAD 干净);② cli 传上一轮 prompt。本轮因 `message-item-parts.tsx` 与 rn 两屏仍属他人 in-flight,未越权接线。
-  - **权限档存值迁移状态定档(第 62 轮,承 commit `6e495bb3`)**:**第①步写侧已翻正** —— `apps/api/src/routes/workspace-permissions.ts` 入参 `z.enum` 同时接受 kebab∪camel(两份清单派生自 `packages/types` 真源,零抄写),落库经 `normalizePermissionMode` 写 camel,新增 `toWirePermission()` 把此前直吐库行原值的 GET/PUT 三处显式归一 ⇒ 对外契约不变;`manual` 继续 400;混合态安全网 `apps/api/tests/workspace-permissions-mode-storage.test.ts` 23 例(遗留 kebab 行与新 camel 行出参同为 kebab、脏值不降级 default),双向变异各咬 5 红。**第②步工具已就位并主动按住** —— `scripts/perm-wire-backfill.mjs` + 17 例:默认只生成 SQL、UPDATE 前同事务导出 `(id,before,after)` CSV、`--rollback` 按 id+当前值双限定、SQL 无 DDL/INSERT/DELETE 且不触 `__drizzle_migrations`/journal,三闸各自拒(缺 `--confirm` 精确串 / dsn 命中 `aizhs|8810`(须 `--target=prod --window`)/ 缺 `--since` 观察窗口起点),不连库时估算段自己写明"行数=需连库,禁止估算",判据有效性由内置变异断言(摘掉 confirm 校验必红)。**四段顺序不可颠倒,当前状态:① 已完、②"旧拼写新增写入=0"未量到 ⇒ ③ 回填不执行;生产库本轮零连接。** 待 owner 定档:`packages/types` 是否导出 `permissionModeId()` 与 `PERMISSION_MODE_PERSISTABLE_IDS`(现由调用方 `Object.values(PERMISSION_MODE_WIRE)` 拼 400 文案,Partial 使值含 undefined);ACP 侧 `workspace.ts:684,695` 仍只收 kebab;真库混合行的 HTTP 实盘取证须在回填前后各跑一次。
   - **第⑥步 avoidSeed 已进消费端 + 第⑦步 wire 副本收敛 + D78 审计线索更正(第 62 轮,三路并行收尾)**:① **avoidSeed 不再是"有闸没引水"** —— web 由 `TypingIndicator` 持 `useRef` 记"上一帧实际渲染的池 seed"、render 只读 / `useEffect` 写(不在 render 阶段写 ref、无新增 state、无模块级状态,SSR 首帧无 prev ⇒ 与接线前逐字节一致),cli 加可选 `previousPrompt` 并由 `repl.ts:2137` 从 `state.history.findLast(user)` 派生(不新造状态源)。三处变异各自咬红:摘 web 透传 → 新用例 2 红;摘 cli 透传 → 1 红;摘 repl 传参 → 静态取证例红;`md5sum -c` 证还原。② **wire 档位词表收敛**:`apps/api/src/services/clawdbot/permission-guard.ts` 是全仓最后一份**同角色**(wire/规范档)手抄副本(5 camel 与真源集合逐字相同 ⇒ 零行为变更),改 import `PermissionModeId`+`PERMISSION_MODE_SET`;新增 `packages/types/tests/permission-mode-vocabulary.test.ts` 用**发现式全仓扫描**(不写死文件名,免得像守门 68 的 `KNOWN_CONVERSANTS` 那样漏扫新消费者)+ wire↔规范**双射/无遗漏/无多余/"无落库语义"差异必须显式声明**,注入回退副本 + 删一条映射 ⇒ 3 条断言同时红并点名文件行号。**未合并的两类不同角色**(合并会把两个概念绑死):`types/workspace.ts:59` 的 `PromptMode`(提示模式)与 `apps/web/src/hooks/use-permission-mode-cycle.ts:27` 的 4 值数组 —— 后者承载的是**轮转顺序**不是词表,留待 owner 定档,只登记测试基线。③ **D78 判改**:审计线索"extension 词包 `reconnect` 有键无取词"**经实测不成立**(extension 五语言 0 命中,那个行号指 web 包;shared `chatReconnecting` 是 WS 聊天重连且有消费面)⇒ 严禁按错误线索回收一个活键;extension 全目录 `connector|connectorName|reconnect` 0 命中,该端**没有连接器授权面**,D78 对 extension 改判"未开始"。④ 我自己的一次回修:`message-item-waiting-wiring.test.tsx` 带着 2 处 TS2322(`matched![1]` 是 `string | undefined`)**已经躺在 HEAD 里** —— 本地 typecheck 当时全绿是因为 tsc 读工作区不是提交树(项目记忆第 11 条同一类错第四次),现改为真实窄化(`if (!matched || typeof matched[1] !== "string" ...) throw`)而非 `as` 断言。**残余**:web 侧未做 §17 浏览器运行时自验(纯文案池,已由 jsdom 渲染级钉住);`apps/api` 的 12 条 typecheck 错误全在他人 in-flight 的 `ai-callback.ts` 等文件,不属本票。
 
 - [ ] **D56 额度与权益元素族(G-67,与 G-45 合并实施)**:补额度恢复后"是否继续刚才中断的任务?"续跑询问、优先通道/速通徽章、按 token vs 按次计费口径透出、企业用量四分账视图。落点 `session-usage-badge.tsx` + `FallbackBanner.tsx`。**验收**:四元素各一用例 + **不得破坏 2026-09-21 三轮"不充值可用心智"边界**(免费档可用时不弹付费诱导)
@@ -1746,6 +1663,8 @@ metro 未强杀(当时有真机 c12617dd 连着,后自行迁至 session 0)。
   - **D84 收口(第 62 轮,提交 `2236c92f68`,origin=ALREADY)**:全链五层落地 —— types `ToolApprovalScope` 契约、ai-service `grant_scope_for_approval` 纯函数 + 结算按作用域落盘(旧版"批准即授 session"收窄为 once 不落盘)、api 代理透传、api-client 扩参、web 弹窗作用域三档(默认 once=最小特权,新请求重置)+ 原因输入(空值不携带);拒绝不携带 scope(拒绝不落任何授权)。i18n 6 键 ×5 语言落 **shared 包**(web 包正被并行缓冲高频回写,两次注入被抹;mergeMessages 深合并下键存活,键检器+运行时合并双验证)。验证:新测试 12/12(含"持久授权不回退成全局"用例)、批 51/52/59 回归 59 例、web 组件 5/5+变异 2 例转红、types/api-client/web tsc 0 错。
 - [ ] **D85 自动审查统计条(G-116,与 D55 合批)**:在 D55 决策徽章之上加**聚合**——`自动审查统计`、`已接受 N / 已拒绝 N`、`命令历史` 展开、**`自动审查未提供理由`** 显式缺省(Trae 有代批无统计、Codex 有统计无逐条理由文案,我方一次做完可同超两家)。**验收**:统计计数与逐条徽章同源(不许两套数)+ 无理由缺省用例
 - [ ] **D86 钩子摘要卡(G-117;D65 口径升级为三家同证)**:Qoder `hook_non_blocking_error` + Trae `enterpriseHooks.toolFailure` + **Codex `assistantMessage.hookStats`**(运行/错误/已阻止/· 运行了 N 次 + **来源归属枚举 管理员/用户/项目/插件/会话**)。我方 hook 体系已有 source 语义 → 属"数据在手未上屏",**先自证再开工**的判定已完成(三家证据齐)。**验收**:摘要卡五态 + 来源枚举 + 折叠进活动条不抢主流程
+- [ ] **D87 回复文本批注双向锚点(G-118)**:把注释**锚在 AI 回复的具体选区**上(`注释 {n}`、`注释 {n}:{selectedText}`、多行 `所选注释文本,{lineCount} 行`),且可再次编辑/删除(`编辑注释`/`无法删除注释`/`目前无法编辑此批注`),并作为上下文回流。我方 D22 只有"圈选→引用回复"单向,缺**持久锚点 + 再编辑 + 失效态**。**验收**:锚点跨刷新可定位 + 文本变化后走失效态 + 删除失败反馈
+- [ ] **D88 diff 暂存语义(G-120,IDE 刚需)**:对标 `diff.actionButton.{stageFile,stageHunk,stageSection,unstageFile,unstageHunk,unstageSection,revertFile,revertHunk,revertSection}`——我方 W5 已做 hunk 接受/拒绝,**缺"暂存/取消暂存"这层与 git 工作区对齐的语义**(多 hunk 分批交付时是刚需)。**验收**:三级(文件/hunk/全部)× 两操作(暂存/还原)矩阵用例 + 与既有 hunk 选择模型不冲突
 - [x] ✅(2026-09-23) **D87 回复文本批注双向锚点(G-118)**:把注释**锚在 AI 回复的具体选区**上(`注释 {n}`、`注释 {n}:{selectedText}`、多行 `所选注释文本,{lineCount} 行`),且可再次编辑/删除(`编辑注释`/`无法删除注释`/`目前无法编辑此批注`),并作为上下文回流。我方 D22 只有"圈选→引用回复"单向,缺**持久锚点 + 再编辑 + 失效态**。**验收**:锚点跨刷新可定位 + 文本变化后走失效态 + 删除失败反馈
   - **D87 收口(第 63 轮,提交 `17b77ba64d`,origin=ALREADY)**:lib/annotations.ts 纯模块(指纹三态定位:精确命中=valid/前缀兜底=invalid 可估锚/不可定位)+ reply-annotation.tsx(选区→添加注释→高亮标记→失效态→再编辑/删除失败反馈)+ MessageItem 接线;i18n 10 键×5 语言;回流块 buildAnnotationContext 导出待 use-message-send 解冻接线。测试 16/16。
 - [x] ✅(2026-09-23) **D88 diff 暂存语义(G-120,IDE 刚需)**:对标 `diff.actionButton.{stageFile,stageHunk,stageSection,unstageFile,unstageHunk,unstageSection,revertFile,revertHunk,revertSection}`——我方 W5 已做 hunk 接受/拒绝,**缺"暂存/取消暂存"这层与 git 工作区对齐的语义**(多 hunk 分批交付时是刚需)。**验收**:三级(文件/hunk/全部)× 两操作(暂存/还原)矩阵用例 + 与既有 hunk 选择模型不冲突

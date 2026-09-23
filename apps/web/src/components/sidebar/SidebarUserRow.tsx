@@ -76,7 +76,7 @@ export function SidebarUserRow({
   // 语言切换:store 更新 → I18nProvider 重新渲染 → NextIntlClientProvider 拿到新 locale+messages。
   const handleLocaleChange = (code: Language) => {
     if (code === locale) return
-    // setLocale 内部会镜像写 `locale` cookie 供 SSR 首帧取用(见 @/lib/locale-cookie)
+    document.cookie = `locale=${code};path=/;max-age=31536000`
     setLocale(code)
   }
 
