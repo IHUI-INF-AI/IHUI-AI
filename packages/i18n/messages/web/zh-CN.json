@@ -21725,11 +21725,6 @@
   },
   "permission": {
     "inputWarning": "检测到高风险操作，建议确认后继续",
-    "mode": {
-      "full": "完整权限",
-      "auto": "自动",
-      "ask": "询问"
-    },
     "dangerousCommandTitle": "检测到危险命令",
     "dangerousCommandDesc": "检测到危险命令「{pattern}」：{reason}。是否仍然继续执行？",
     "dangerousCommandProceed": "仍然执行",
@@ -21741,7 +21736,6 @@
     "copyText": "复制文本",
     "copyMarkdown": "复制 Markdown",
     "regenerate": "重新生成",
-    "feedback": "反馈",
     "deleteMessage": "删除消息"
   },
   "activityBar": {
@@ -22654,7 +22648,6 @@
     "copiedText": "已复制文本",
     "copiedMarkdown": "已复制 Markdown",
     "regenerating": "正在重新生成",
-    "feedbackRecorded": "已记录反馈",
     "messageDeleted": "消息已删除",
     "operationFailed": "操作失败"
   },
