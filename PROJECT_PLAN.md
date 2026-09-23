@@ -75,51 +75,6 @@
 
 ---
 
-## P0 2026-09-23 项目外落点唯一制:10.3GB 游离备份收口 + 家目录 5.7GB 改道 + 守门防自删(已完成 ✅)
-
-用户策略:任何文件不得写在项目外;备份必须集中在项目外**唯一**一个备份目录。本轮把它立成规矩并落地。
-
-- **D 盘根清场**:原散落 `IHUI-AI-backup-20260911-034405.tar`(8.3G)、`IHUI-AI-backup-20260911.git`(727M)、
-  `IHUI-AI_workbak_20260910`(537M)、`out-of-tree-artifacts`、`Bak-inflight-*.tgz`、两个根 `.sql`、
-  `IHUI AI Desktop`(94M)、误产物 `D:\c`/`D:\d`/`D:\nonexistent-root`/`D:\tmp*`(~150M,115 文件)
-  全部 `mv` 进 `D:\DevEnv\backups\{git,archives,sql,desktop}` 与 `D:\DevEnv\tmp\quarantine-20260923`
-  (同卷改名,零复制;每步回读"源已无 + 目标体积一致")。**共 11G 集中在唯一备份目录**。
-  误产物只隔离不删 —— 零代码引用已由子代理逐条 grep 证明,但删除仍属不可逆,交你处置。
-- **C 盘回收 7.6GB**(20G→27.6G 可用):删 `.deepseek` 内 4×580,911,116B 的 `tmp_pack_*`(2026-05-08
-  中断的 git gc 临时包,纯垃圾)、`.chromium-browser-snapshots` 739M(puppeteer 系遗留,仓库只用
-  Playwright,零引用)、`@genieworkbuddy-desktop-updater` 508M(单个 installer.exe 落盘副本)、
-  `.cache/codex-runtime-install-*` 162M 中断安装残留。
-- **家目录工具态改道(junction,不改 Path 不改环境变量)**:`.rustup` 1.65G、`.cargo` 0.84G、`.m2` 0.59G、
-  `.cache` 1.17G、`.trae` 0.1G 已 `robocopy /MOVE` 至 `D:\DevEnv\cache\userhome\` 并原位建 junction,
-  `rustup 1.29.1` / `cargo 1.98.0` 冒烟通过。`.codex` 因 `IHUI-`? 实为 codex 沙箱服务持锁 rc=9,
-  内容其实已完整搬走(593M / 9766 文件,`auth.json`+`config.toml`+`sessions` 齐),脚本未补 junction
-  → 由我手动 `mklink /J` 补齐并核对,**无凭据丢失**。
-- **守门 26 再加一层结构性保护**:新增 `BACKUP_DIR_NAMES`(backups/pg_archives/archives/quarantine)
-  与前缀表 `BACKUP_DIR_PREFIXES`(`IHUI-AI-git-repo`、`IHUI-AI.git-backup`、`IHUI-AI-backup`、
-  `_workbak`、`Bak-inflight` 等),整目录不扫 —— 否则备份集中到 `D:\DevEnv\backups` 后正落在
-  该守门 2 层扫描深度内,`--auto-clean` 会把备份里的 `*.txt/*.log` 当 agent 垃圾实删。
-  双向实验:同名必命中文件放 `backups\` 不被抓、放对照目录被抓,守门恰好报 1 项。
-  测试镜像 + "只定义不生效=空门"锚点断言,`node --test` 24/24 绿。
-- **AGENTS.md 立规**:新增 §15b「项目外落点唯一制」(四落点白名单 + 四条显式例外 + 新写文件三问);
-  重写 §26 缓存表为实测值 —— 旧表 `D:\caches\*` 是死路径且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
-  从未设置,属"文档说已迁、实际还在 C 盘"的纸面合规,正是本次根因。
-- **修掉三处指向不存在路径的活 bug**:`c-drive-auto-maintain.ps1:11` 日志路径、`start-dev.ps1:578`
-  cargo PATH 注入(desktop 启动从未生效)、`kill-git-selector-hidden.vbs:20` 目标脚本绝对路径
-  → 改为自己定位 + 缺失即静默退出(`cscript` 实跑 exit 0)。
-
-### 客观阻碍导致未办(不是遗漏)
-
-- `~/.ollama` 2.7G:`IHUI-OLLAMA` 服务运行中且持锁,junction 须先停服务(会中断本地模型推理)。
-- `~/.workbuddy` 3.1G:内含 `binaries\PortableGit`,被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析,搬走=守护/钩子链失去 git;其余 logs/traces 约 2G 属该 IDE 自管。
-- `.qoder-cn` / `.qoder`:本会话宿主状态(含记忆),改道即丢。
-- `~/.ihui` 1.2M:4 处 `homedir()` 硬编(`workspace-ai-service.ts:38`、`workspace-ai.ts:714/730/807`、
-  `announcements/index.ts:117`、`refresh-cli-token.mjs:34`)与 `IHUI_HOME` 并存,单改环境会双根分裂,须先改码。
-- 死代码上报:`scripts/kill-git-selector-hidden.vbs` 包装的 `kill-git-selector.ps1` 仓库里不存在;
-  `scripts/release-desktop-local.mjs:67,74` 依赖的 `%USERPROFILE%\.tauri\ihui-updater.key` 本机缺失
-  → 桌面端发布在此机必失败,需发布机或补生成密钥。
-
----
-
 ## P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口)
 
 ### 根因(实测,非推测)
