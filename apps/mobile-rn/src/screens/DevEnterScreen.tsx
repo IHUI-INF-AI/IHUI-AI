@@ -49,6 +49,8 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 一级 Tab(对齐 Uniapp headTypes:待发布/审核中/已发布) */
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
   headTab: {
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(10),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   } as ViewStyle,
   headTabActive: {
@@ -402,15 +404,15 @@ const styles = StyleSheet.create({
   searchBtn: {
     height: 38,
     paddingHorizontal: rpx(20),
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
   searchBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
   subTab: {
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   } as ViewStyle,
   subTabActive: {
     backgroundColor: tokens.surface.muted,
@@ -443,7 +445,7 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.gray[300],
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     marginTop: rpx(18),
     backgroundColor: tokens.surface.card,
     padding: rpx(20),
@@ -457,7 +459,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: rpx(184) / 2,
     height: rpx(184) / 2,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   } as ImageStyle,
   avatarFallback: {
     backgroundColor: tokens.surface.muted,
@@ -491,12 +493,12 @@ const styles = StyleSheet.create({
   setBtn: {
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brand.ctaFill,
   } as ViewStyle,
   setBtnText: {
     fontSize: 12,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '500',
   } as TextStyle,
   statusText: {
@@ -534,7 +536,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   promptDialog: {
     width: rpx(431) / 2,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     paddingVertical: rpx(36),
     paddingHorizontal: rpx(24),
@@ -555,7 +557,7 @@ const styles = StyleSheet.create({
   promptBtn: {
     width: rpx(143) / 2,
     height: rpx(54) / 2,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,

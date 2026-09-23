@@ -21,6 +21,8 @@ import type {
   AssistantTab,
 } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 助手管理共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AssistantItem, AssistantScreenProps, AssistantStatus, AssistantSubTab, AssistantTab }
 
@@ -251,13 +253,13 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       marginHorizontal: 16,
       padding: 4,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     tabItem: {
       flex: 1,
       height: 34,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -273,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
@@ -285,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -294,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 44,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -304,7 +306,7 @@ function createStyles(tk: AppThemeTokens) {
     cardMain: { flex: 1 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     name: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+    badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: rnRadius.xl },
     badgeText: { fontSize: 11, fontWeight: '600' },
     prologue: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 10 },
@@ -313,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     actionPrimary: {
       paddingHorizontal: 16,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -322,7 +324,7 @@ function createStyles(tk: AppThemeTokens) {
     actionDanger: {
       paddingHorizontal: 16,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.brandAccent.deep,
       alignItems: 'center',

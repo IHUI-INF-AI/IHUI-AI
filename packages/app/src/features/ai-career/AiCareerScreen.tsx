@@ -7,6 +7,8 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiCareerScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AI 生涯指导 — 孩子学业问卷共享屏(props 注入式跨端组件,纯 UI,不依赖平台 API) */
 export type { AiCareerScreenProps }
 
@@ -127,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
     questionCard: {
       padding: 16,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -146,7 +148,7 @@ function createStyles(tk: AppThemeTokens) {
     optionItem: {
       paddingVertical: 12,
       paddingHorizontal: 14,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -172,7 +174,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       paddingVertical: 12,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -181,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
     inputField: {
       height: 44,
       paddingHorizontal: 14,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -191,7 +193,7 @@ function createStyles(tk: AppThemeTokens) {
     textareaInput: {
       minHeight: 120,
       padding: 12,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -207,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       width: '100%',
       height: 48,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

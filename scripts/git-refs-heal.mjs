@@ -35,7 +35,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { resolveGitBin, resolveWorktree, resolveGitdir } from './lib/gitdir.mjs'
+import { resolveGitBin, resolveWorktree, resolveGitdir, refExpectationSatisfied } from './lib/gitdir.mjs'
 
 // 工作树 / 真实 gitdir 动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 const WORKTREE = resolveWorktree()
@@ -177,7 +177,7 @@ function status() {
   const cur = currentRefs()
   const map = readManifest()
   const entries = Object.entries(map)
-  const missing = entries.filter(([ref, sha]) => cur[ref] !== sha).map(([ref]) => ref)
+  const missing = entries.filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref])).map(([ref]) => ref)
   return { gitdir: GITDIR, manifestCount: entries.length, currentCount: Object.keys(cur).length, missing }
 }
 
@@ -236,10 +236,12 @@ function main() {
   packRefs()
 
   // 2) 清单里与当前解析值不符的(缺失 or 旧值残留)→ 按清单重建
+  //    移动型 refs/remotes/<remote>/HEAD 不比 sha(见 lib/gitdir.mjs refExpectationSatisfied),
+  //    否则每轮都会拿旧值去"重建"它 —— 既恒红,又可能把默认分支指回旧 commit。
   const broken = Object.entries(map).filter(([ref, sha]) => {
     if (!refResolvable(ref)) return true
     const resolved = git(['rev-parse', ref], true)
-    return !!resolved && resolved !== sha
+    return !refExpectationSatisfied(ref, sha, resolved)
   })
   if (broken.length === 0) {
     console.log(`[refs-heal] ✅ 清单内 ${Object.keys(map).length} 个嵌套 ref 全部与清单一致`)
@@ -257,7 +259,7 @@ function main() {
   const still = Object.entries(map)
     .filter(([ref, sha]) => {
       const resolved = git(['rev-parse', ref], true)
-      return !resolved || resolved !== sha
+      return !refExpectationSatisfied(ref, sha, resolved)
     })
     .map(([ref]) => ref)
   if (still.length) {

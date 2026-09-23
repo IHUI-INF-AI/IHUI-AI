@@ -22,6 +22,8 @@ import { Animated, Image, Pressable, StyleSheet, Text, View, type ViewStyle } fr
 import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface GlobalFloatBoxProps {
   /** 赚米按钮回调(分享/推广) */
   onPromote?: () => void
@@ -44,7 +46,7 @@ const ICON_FANKUI = require('../../assets/images/common/yijianfankui.png')
 const FLOAT_BOX_WIDTH = 59 // 118rpx
 const ARROW_WIDTH = 36 // 2026-09-04:双箭头 30dp + gap + 竖线 3dp,原 20 放不下大箭头
 const ARROW_HEIGHT = 50 // 100rpx
-const BORDER_RADIUS = 15 // 30rpx
+const BORDER_RADIUS = rnRadius['2xl'] // 原 30rpx(15),吸附 16dp 档位
 const ICON_SIZE = 36 // 72rpx
 const LABEL_FONT_SIZE = 14 // 28rpx
 const ITEM_MARGIN = 2 // 5rpx
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
   arrowBar: {
     width: 3,
     height: 40,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: ARROW_GRAY,
   },
   floatBox: {

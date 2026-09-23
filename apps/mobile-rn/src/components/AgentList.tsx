@@ -21,6 +21,8 @@ import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View }
 import { tokens } from '../theme/active-tokens'
 import { Check } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
 export interface AgentListItem {
   id: string
@@ -175,12 +177,12 @@ const styles = StyleSheet.create({
   },
   inner: {
     width: '100%',
-    borderRadius: 7.5,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   content: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 7.5,
+    borderRadius: rnRadius.lg,
     maxHeight: '70%',
   },
   contentBody: {
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 40,
-    borderRadius: 7.5,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: 2,
     borderColor: tokens.border.medium,
@@ -218,7 +220,7 @@ const styles = StyleSheet.create({
   icon: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
   },
   iconFallback: {
     backgroundColor: tokens.surface.muted,
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: tokens.surface.light,
     backgroundColor: tokens.danger.DEFAULT,
-    borderRadius: 3,
+    borderRadius: rnRadius.xs,
     paddingHorizontal: 4,
     paddingVertical: 1,
     marginLeft: 6,
@@ -258,13 +260,13 @@ const styles = StyleSheet.create({
   selectedIcon: {
     width: 16,
     height: 16,
-    borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   selectedIconText: {
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,

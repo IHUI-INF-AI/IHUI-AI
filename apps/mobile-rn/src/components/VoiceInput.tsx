@@ -35,6 +35,8 @@ import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
 
@@ -357,7 +359,7 @@ const styles = StyleSheet.create({
   imageToggleBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -373,7 +375,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: tokens.surface.muted,
@@ -394,7 +396,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   bar: {
     width: 3,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.danger.DEFAULT,
   } as ViewStyle,
   recordingText: {
@@ -413,7 +415,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -431,7 +433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
     padding: 8,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
