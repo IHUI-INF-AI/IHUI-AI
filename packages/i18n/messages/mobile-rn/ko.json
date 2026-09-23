@@ -159,7 +159,14 @@
     "payFailed": "결제 실패",
     "createFailed": "결제 주문 생성 실패",
     "wechatNotInstalled": "위챗이 설치되지 않음",
-    "nativeUnavailable": "위챗페이 사용 불가, 재빌드 필요"
+    "nativeUnavailable": "위챗페이 사용 불가, 재빌드 필요",
+    "payType": {
+      "freeuse": "무료 사용",
+      "freetime": "기간 한정 무료",
+      "hasbuy": "구매 완료",
+      "monthly": "매월"
+},
+    "recharge": "충전하기"
   },
   "order": {
     "title": "주문",

@@ -403,6 +403,57 @@
    - 计划任务本身已由本轮 `--install` 恢复(`每 2 分钟`、经 `git-guardian-hidden.vbs` 静默启动,已回读 XML 确认)。**残留**:两个任务都是 `InteractiveToken`,
      即**无人交互登录时(开机后未登录/被注销)两者都不跑** —— 要彻底免疫需改成 S4U/服务托管,而本机 pwsh 缺 cmdlet 正是当前做不到的原因,记为待决。
 
+### 部署脚本三项机制化加固(2026-09-23 晚,用户授权代改;已真跑验证)
+
+上面 C 档第 1 条(生产跑在共享工作树 ⇒ 任何会话留未提交文件就 `ff-only` 失败)此前被判为
+"须脚本作者定夺"。本次经用户明确授权后直接改,并已**在生产轮次里真跑通**,不是静态推断:
+
+1. **ff-only 前置现场对齐**:脏树时先跑 `node scripts/heal-worktree-tracked.mjs --align-drift`
+   (保守判据:仅"索引==HEAD 且 工作树==该路径某祖先版本"才动,**不碰真在写的文件**),再重试 ff-only。
+2. **成因分类**:对齐后仍脏 ⇒ 打印 `BLOCKED-WIP 有 N 个被跟踪文件存在真实未提交改动(非幻影漂移)`
+   并附文件名 ⇒ 运维一眼分得清"别人在写"还是"机器坏了"。**脚本内不出现任何销毁性 git 写法**。
+3. **告警去重改周期重发**:同签名由"12h 静音"改为每 4 小时重发(正文带"已持续 X 小时/第 N 次"),
+   换签名立即发 ⇒ 今天那条"放大器 1"结构性关闭。
+4. **健康门禁降频 + 429 不误判**:整轮共用一把令牌(5 次探针只登录 1 次)、最多 2 次登录;
+   探针三态 `pass/fail/unknown`,**429 与传输不可达不再被当成部署失败**(避免无谓回滚),
+   但"全 pass 才通过"的成功条件未放宽;`BackendLogin-Token` 的 catch 不再静默吞异常。
+
+**验证方式(全绿)**:`pwsh` `Parser::ParseFile` 0 错;新增 `apps/api/tests/o6-deploy-script-invariants.test.ts`
+4 例(含对**上一版脚本**跑同一组判据 ⇒ 四条全红,证明护栏不是空转);隔离运行期自检 18 项
+(假探针服务 + 桩化发送,**不触碰生产端点**);真跑:19:51 `next build 完成` →
+`健康门禁 第 1/8 轮: web=pass api=pass llm=pass` → `部署完成 HEAD=04cb81086`(= 当时 origin tip),
+且 19:45:33 真实触发过一次 `BLOCKED-WIP` 分类输出。
+
+**残留风险(如实)**:①`--align-drift` 的真实写动作只在生产那一轮经由守护链路走过,
+我这边另做了 dry-run 计时(2032ms,不会拖慢 68s 轮询);②"unknown 放行"是有意换来的新风险面:
+若新版 web 真挂且表现为**传输层不可达**(而非 5xx),门禁会按未知放行不回滚,已要求日志留 2 行 WARN;
+③迁移告警 `Note-MigrateFailure` 自带 12h 同签名门未动(超出本次授权范围,其下游仍受新 4 小时重发约束)。
+
+### 混合提交说明(2026-09-23 19:5x,我的操作失误,内容零丢失)
+
+提交 `356340953`(纯文档)时我用了**不带 pathspec 的 `git commit`**,把并发会话**已经 staged** 的
+`AGENTS.md`(±3 行)与 `README.md`(±132 行)一起卷进了我的提交 —— 违 §12「commit 阶段只 add 本任务
+相关文件」。核实与处置:
+
+- **无内容丢失**:被卷入的是他们**已暂存**的那部分,现已完整进入 HEAD;他们**未暂存**的后续修改
+  仍在工作树里(`git status` 复核 `AGENTS.md`/`README.md`/`notify-deploy-failure.ts` 等仍在)。
+- 按 §12c「接受混合 commit」:**不 amend、不 reset**(那会连他们的改动一起回退),只补本条说明。
+- 教训落点:即便索引里已有别人 staged 的内容,`git commit` 也必须带 pathspec ——
+  safe-commit 的"staged 集合必须等于声明集合"这道校验正是为此;我这次绕过了它(用裸 `git commit`)
+  才让这类污染成为可能。**后续任何提交一律走 safe-commit 或显式 `git commit -- <路径>`。**
+
+### 需要你拍板的两件事(我不擅自做)
+
+1. **Gitee 配额要真正解开,必须删镜像上的内部备份标签并触发 GC** —— 本仓已做到"不再推这 4061 个
+   `lost-commit/*`/`nightly-*`/`backup/*` 标签"(GitHub 侧一份未删,§22/§29 用途不受影响),但 Gitee
+   仓库**现存体积 1156MB 已超 1024MB 硬配额**,不删旧副本、不做服务端 git-gc 就永远推不上去。
+   删除对象是**第三方服务上的 4061 个 ref**,属外部共享系统的破坏性动作,且能否降到配额线下未实测
+   (Gitee 的 GC 需其控制台/工单侧触发)。要我做就说一声,我会先零损失备份 tag 清单再动。
+2. **两个计划任务都是 `InteractiveToken`** ⇒ 无人交互登录时(重启后未登录/被注销)`git-guardian`
+   与凭据巡检**都不跑**,保护与报警同时失效。改成 S4U 是结构解,但本机 pwsh 无 ScheduledTasks cmdlet
+   (这正是今天 guardian 自检空转的同一成因),且 S4U 下 HKCU 环境变量(`SERVERCHAN_SENDKEY` 等)
+   能否被读到需实测 —— 有把告警通道弄坏的风险,故未擅改。
+
 **仍然存在的客观限制(不粉饰)**:部署脚本内部那条 12h 同签名去重(放大器 1)未改,归其作者定夺;
 本次是**在其之外**加了每 6 小时一次的独立观测 + 提交前的结构性拦截,把"两天无人知"压到"最多 6 小时"。
 若要把上限进一步压到分钟级,需要把巡检频率提进 `IHUI-DEPLOYLOOP` 的同一轮询里,那属脚本改动。
@@ -820,6 +871,83 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
 
+
+
+
+
+### 第十九批:守门 70 覆盖补齐三端(2026-09-24,commit `cd505a437`)
+
+承第十八批发现的"端内组件写死中文却无门可拦",把棘轮铺到此前**零覆盖**的三端:
+`apps/mobile-rn/src`、`apps/extension/{entrypoints,src,lib}`、`apps/cli/src`(共 627 个源文件)。
+
+- 台账首次入账 **291 条 / 4248 行**,636 → 927 文件、total 9076 → 13324。
+- 入账口径三条,缺一条就不配叫"只入账不掩垢":① 计数取自 **HEAD 的干净检出**(`git archive HEAD` 内跑同一判据),
+  不取工作树 ⇒ 不把他人未提交的中文冻成额度,且与 CI 所见同结论;② 只往 `files` 里**新增**,
+  逐条断言既有 636 条"改动 0 / 删除 0",不满足即拒写;③ 落库前在新鲜 HEAD 检出复跑,
+  **三端新覆盖违规 = 0**,证明确实是"入账"而不是"把别人的洞算成我的额度"。
+- 剩余 3 处越线全在 web(`ai-news/components/PriceChart.tsx` 6>4、
+  `ide/terminal-panel/TerminalStatusIndicators.tsx` 1>0、`ide/terminal-tab-bar/TerminalTab.tsx` 1>0),
+  属他人已入库提交超出自己冻结额度(后两个文件台账里根本没有条目)。**本票不替他们平账**,原样留归属会话。
+- 两个自伤记此防复发:① 台账是 `{generatedAt,targets,total,files}`,我第一版把新键写在**顶层**
+  (门读 `raw.files`),当场造出"三端 285 文件越线"的假象,差点顺势去扩大基线;
+  ② `npx --no-install prettier` 在本机必崩,格式化要走 `node node_modules/prettier/bin/prettier.cjs`。
+  ③ 中途一次 `git diff` 报 `9 +/81 -` 也是同一类信号(工作树落后 HEAD),见第十八批。
+
+### 第十八批:修正第十七批的因果判断,并把 RN 付费按钮真缺陷修掉(2026-09-24)
+
+第十七批我写的结论"**RN 共享屏取不到 `pay.*` ⇒ 静默走中文 fallback**"是**错的**,本轮查清并改判:
+
+- `packages/app/src/components/PayButton.tsx`(即 `tr('pay.*')` 所在那个)**没有任何端挂载** ——
+  RN 的 PaymentScreen 在 `:22` 引的是**端内**组件 `../components/PayButton`,taro 侧只在
+  `adapters/README.md` 被提及。所以 taro 包里那 6 枚 `pay.*` 是"为一个从未挂载的组件镜像进来的孤儿词",
+  不存在"运行时候取不到词"这回事。**我上一票据"存在 `tr()` 调用点"就推断"RN 在用",漏了验证调用点所属组件是否被挂载** —— 这是
+  "有引用 ≠ 有消费"的又一种形态(前两种:注释里提到、测试 mock 里写)。
+- 真正的用户可见缺陷在**端内组件**:`apps/mobile-rn/src/components/PayButton.tsx` 的 `TYPE_META`
+  四档文案(免费使用/限时免费/已购买/每月)与默认金额文案 `立即支付 ${x}` 全是字面量中文,
+  `PaymentScreen:177` 还有 `label="去充值"`;而守门 70 的 TARGETS 不含 `apps/mobile-rn` ⇒ 这笔债此前**无门可见**。
+
+修复(同端既有先例 `import { useI18n } from '../i18n'`,BottomActionBar 等 5 组件同形):
+`TYPE_META.text` → `textKey` 并在渲染处 `t(meta.textKey)`(含 `accessibilityLabel`,读屏一并本地化);
+默认金额文案改用**已存在**的 `payment.payNow`(值"去支付",不另立同义词,故按钮由"立即支付 ¥12.00"变"去支付 ¥12.00");
+`label="去充值"` → `t('payment.recharge')`;mobile-rn 包五语各 +5 键
+(`payment.payType.{freeuse,freetime,hasbuy,monthly}` + `payment.recharge`),
+ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko 纯 Hangul、zh-TW 全繁体。
+验证:本票两文件 `tsc --noEmit` 零错误(该包另有 10 处 `ctaFill` 报错属他人未提交 token 改动);
+`check-i18n-keys --target=mobile-rn` 通过、`--parity-only` 通过、`scan-mobile-rn-dead-i18n-keys` 死键 0(=新键确有消费者)。
+
+**顺带逮住并拆掉一个静默回滚陷阱**:我第一版把清单 merge 进工作区包时 `git diff` 报 `9 +/81 -`,
+原因是**工作区那份 mobile-rn 包落后于 HEAD 与索引**(缺 `conversationImport`/`sectionOrder`/`nativeUnavailable` 等 76 键,
+正是守门 76 描述的"幻影漂移"形态)。照那版提交就会替并发会话把这 76 键从版本树抹掉,而 diff 只显"改了几行"。
+处置:改为"从 `git show HEAD:` 重新播种 → 临时目录 merge → 回装",复验成 `8 +/1 -` 且唯一"删除"是给末位成员补逗号。
+
+**由此得出两条可复用判据(写死在此)**:① 判断"某词表键是否在线"必须查到**组件是否被挂载**,不能停在"有 `t()` 调用点";
+② 任何往共享包做批量写入的脚本,落盘后必须立刻以 `git diff --numstat` 对 HEAD 复核"插入数/删除数"形状,
+出现意外删除数即说明基线不是 HEAD,须重播种而不是继续提交。
+
+### 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24)
+
+上一票把"taro 33 枚镜像键删还是留"挂成待拍板。本轮按证据查完,**结论是两件事都不该做**,真问题在第三个地方:
+
+- 溯源:39 枚全部由 `02b2d353ad5`(2026-09-14,"fix(ai-service): 保留 W-batch ChatMode 注入…")
+  一次性灌进 taro 包 —— 提交主题与这些键无关,是混合提交里的词表顺带产物。
+- taro 侧无消费者:`apps/miniapp-taro/src/components/adapters/` 实际只有
+  `Selecter / SectionHeader / ColorfulLoader / index.ts` 四个适配器,
+  **不存在** `adaptersCarousel|FeedbackScreen|OrderScreen|PayButton|UserInfoCard` 对应适配器;
+  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只钉 waiting 族,对这批无约束。
+- **决定性一条**:`pay.payNow / pay.defaultName / pay.subscribeTip / pay.priceLabel / pay.perMonth / pay.countLabel`
+  在**六端包里只有 taro 有**,web / shared / extension / cli / mobile-rn 全部没有;
+  而唯一调用点 `packages/app/src/components/PayButton.tsx:313-319` 是 RN 共享屏
+  (`tr = (key, fallback) => (t ? t(key) : fallback)`,t 由 props 注入)。
+  ⇒ RN 运行时**取不到这六个键**,永远走 `fallback` 里写死的中文 ——
+  即"partial props + 中文默认值静默不本地化"同一形态的真缺陷,而不是"该不该摘孤儿键"。
+  上一票若非我先复核代理结论(动词组补 `tr` 那枚门 `44a81a6162e`),这六枚连 taro 里的那份也会被删掉,
+  届时**全仓再无这六个日语词条**,修 RN 时只能重译。
+- 所以本票动作:**零删除**。已做的两件事是 ① 把判据盲区补上(`tr()` 注入式包装器,已落 `44a81a6162e`),
+  ② 把"删 39"改判为"RN 付费按钮本地化缺失 + taro 承载从未开建屏幕的孤儿词表"并登记。
+- **正确修向(需动他人功能面,不属本会话代改)**:把 `pay.*` 六键按端补齐到 RN 真正加载的消息集
+  (mobile-rn 或 shared,取 RN `i18n` 合并链为准),并让 `packages/app` 的 PayButton 在 RN 侧真拿到 `t`;
+  验收判据 = 五语下 `pay.payNow` 可解析且 `fallback` 中文不再出现(可用 `check-word-table-resolvable.mjs` 同型断言钉)。
+  而 taro 侧那 33 枚属于"为未开建屏幕预留的词表",要删须由适配器接线程序(gate 64 那条线)确认不再需要后一并处理。
 
 ### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
 
@@ -1316,7 +1444,27 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **三个复活入口逐个查零**:① `refs-manifest.json` —— 在 `.git`、仓根、备份 gitdir 三处全量扫 `manifest` 文件名,**一份都不存在**,所以离线重建没有"期望值"可复原(下一次只会由 `--refresh-remote` 从 origin 的真实 sha 重建);② 本地恢复源 `G:/IHUI-AI.git-backup-20260912` —— 逐枚读出 4212 个松散 tag 文件的目标 sha 送 `cat-file --batch-check`,**指向死对象 = 0 枚**(顺序使然:第二十二批是"先清坏指针、再 `robocopy /MIR` 重做备份",若反过来就是把 1692 枚坏指针复制进恢复源);③ 主 gitdir `packed-refs` 795 条 + 全部 tag ref —— 死行 **0**、悬空 ref **0**,`git fetch origin main` 复测通过。
 - **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
 - **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
+### 第二十四批(2026-09-23):重装页 DPI 重锚补齐"两轮定档"并与 GUIINIT 同口径 —— 顺带钉出一条会把窗口甩出屏外的顺序陷阱
 
+- **收掉第二十一批自列的残余**:"重锚分支只跑一轮 `IHUI_GUIINIT_SIZE`(GUIINIT 是两轮),跨屏搬迁差一轮收敛"。现 `ihui-ui.nsi:1665-1666` 两轮**紧邻**执行、`IHUI_WINDOW_RGN` 收尾,注释同步从"一轮"改口径。`$R2/$R3`(PageLeave 还要用的 radio 句柄)仍由分支首尾的 `$1/$2` 保存-写回兜住;`$R5..$R8`(工作区矩形)在定档过程只读不写,故第二轮无需重跑 `SystemParametersInfoW`。
+- **过程中新发现的顺序陷阱(比原残余更严重)**:若在两轮 `IHUI_GUIINIT_SIZE` **中间**调 `IHUI_WINDOW_RGN`,该宏会把 `$R6/$R7` 当临时量用(区域句柄 / 圆角直径),第二轮读到的就是**被覆写的脏工作区矩形** ⇒ 窗口被摆到屏幕外。故顺序是硬约束:`SIZE → SIZE → RGN`,已同时落在注释(`:1654-1663`)与守门判据里。
+- **删两枚死变量**:`Var IHUIR6` / `Var IHUIR7`(`:83-84`,编译一直报 warning 6001 "not referenced or never set")。删前对 `windows/*.nsi` 与渲染出的 `target/release/nsis/x64/` 逐处 grep 确认零引用 —— 本仓有实测过的 NSIS 陷阱"**后置 `Var` 在 Function 体里被引用只报 warning 6000 并静默丢引用**"(第十七批那条),所以删声明必须先证明无人引用,不能靠编译"过了"当证据。
+- **把两条都装进闸(守门 61 第 7 条不变量扩判据)**:`scripts/check-installer-assets.mjs:528-553` 新增 ① 重锚分支的 `IHUI_GUIINIT_SIZE` 轮数 < 2 即红;② `IHUI_WINDOW_RGN` 出现在两轮之间即红。测试 16 → **19 例**:改回单轮必红、region 夹中间必红、只加注释保持多轮必绿;夹具用 `mutateReanchorBranch` 动态定位分支并在基线不满足前提时**自报"夹具失效"** —— 上一批刚因夹具写死存量把自己测红包过红一次。
+- **验证(主 agent 逐条自己复跑,不采信代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → `tests 19 / pass 19 / fail 0`;`node scripts/check-installer-assets.mjs` → `PASS —— …重装页 DPI 重锚走完窗口框+裁剪区域且两轮紧邻定档…七条跨文件不变量成立`;沙箱 `makensis` → `COMPILE OK`、**warning 6000 = 0**、总警告 6 → **4**(消失的两条正是 6001 死变量)。另校一处事实错误:代理注释把日期写成 `2026-09-25`,已改回 2026-09-23(只改笔误,不改结论)。
+- **残余(不称收口)**:① **仍未做真机像素/跨屏复验** —— 该分支只在"窗口 DPI ≠ 布局 DPI"(跨屏异 DPI 或缩放被改)时触发,而取证需要动显示缩放设置,已被明令永久放弃;故本批只有编译级 + 守门级证据,没有像素级证据。② `scripts/check-installer-assets.mjs` 与它的测试文件在 HEAD 存量本就不满足 prettier 全量格式(试跑 `--write` 产生 114 行无关重排,已回退,只保留本票改动行)—— 意味着任何会话对这些文件跑 lint-staged 都会带一大片排版噪声,属存量债,不在本票范围。
+
+### 第二十五批(2026-09-23):补上"批次正文找回"这条命令 —— 门 71 只保登记行,标题下的正文 bullet 此前无人能捞
+
+- **敞口是实测的,不是假设**:并发会话按内存里的旧计划文档整文件重写工作区 `PROJECT_PLAN.md`(HEAD 4450 行 → 工作区 3901 行,140 条 bullet 消失且不在归档里)。门 71 的 `--heal` 把带编号的登记行(本会话第二十四批标题、他人"守门 81")回捞回来了,但**批次标题下面不带编号的正文 bullet 仍在缺口**:本会话第二十四批缺 6 行、第二十三批缺 4 行 —— 同一场事故连中两次。
+- **为什么有意不把它做成 blocking 门**:门 13c 只认 `### XXX(已完成 ✅)` 任务标题,门 71 刻意只认"带编号标记的行",因为正文被改写是本仓常态(第十九到二十四批里就有"改判"式重写他人定性)。对正文做"缺失即拦"会让一次正常改写产出假红,逼人 `--no-verify` 而连带关掉全部守门。所以本批补的是**能力**而非**禁令**:点名权留给操作员,工具只做零风险动作。
+- **落点 `scripts/restore-plan-batch-block.mjs`**:从 `--from`(默认 HEAD)切出 `### 第N批` 整块,把目标缺失的整行**纯插入**回去 —— 绝不改动、绝不删除目标任何一行(共享文档里装的是他人在飞改动);`assertPureInsertion`(超序列 + 行数差双断言)把这条语义钉死,不成立即抛、宁可不写;`--check` 只报数(缺则 exit 1,供巡检);幂等(已存在的行永不重复插);`extractBlock` 在下一个 2–3 级标题处收口并剥掉块间空行。
+- **取证(不信自写脚本的"恒真")**:单测 10 例 `node --test scripts/tests/restore-plan-batch-block.test.mjs`,含两条负向对照(整块已齐在 → 零改动;他人批次正文不被吞)+ `--self-test 5/5`;**独立临时仓端到端 8/8** —— 造一个"标题在、3 行正文没了、另含他人一行未提交在飞改动"的真 git 仓库跑 CLI,断言找回 3 行、他人在飞行一行不少、`git diff --numstat HEAD` 恰为 `1 0`(纯插入)、再跑一次文件字节不变;临时仓同轮删除,不留嵌套 `.git`。
+- **卫生**:两文件 `watermark verify` 完整、`prettier --check` 通过、`eslint` 0 error(仅 `no-console` warning,与同目录脚本同口径)、`check-no-visible-spawn` 对新脚本零命中(git 走 `resolveGitBin()` 绝对路径 + `windowsHide: true`)。
+- **残余(不称收口)**:① 工作区 `PROJECT_PLAN.md` 仍是他人那次 549 行整文件重写的结果(140 条 bullet 未归档),归属该会话处置,本批只把自己点名的六批补齐、不代裁他人内容;② 正文 bullet 盲区按上文判断**故意不建闸**,再遇到就用本工具回捞。
+
+- **登记后立即被自己的工具咬住一次真冲突(正向实证)**:本票旁路落地时远端已在同一锚点("第二十四批"之后)插入"部署脚本三项机制化加固"一节,`git-sync-converge` 如实报 `CONFLICT (content): PROJECT_PLAN.md` 并交人工。解法在对象空间完成、零触碰工作区:`merge-tree --write-tree` 取回其余路径的自动合并树 → 只把冲突 blob 换成 `git merge-file --union` 的解 → 临时索引 `update-index --cacheinfo` → `commit-tree` 双父 → CAS `update-ref`。落地前五条断言全过:ours 新增 7 行零丢失、theirs 新增 41 行零丢失、零冲突标记、三处标题各恰 1 枚。
+- **一处自造假警报的更正(记法,别再来)**:回读时我用未锚定的 `/(<{7}|>{7}) /` 判"提交里有标记",而权威门 77 `check-no-conflict-markers.mjs --rev HEAD` 判"无成对标记";`git grep` 的 2 处命中实为 `apps/cli/tests/file-edit.test.ts` 里 SEARCH/REPLACE 补丁格式夹具(门 77 已按合法豁免如实计数)。**结论一律走权威入口,自拼正则只配当线索**。
+- **顺带实证工具在真仓可用**:落地后对真工作区点名六批 → `--check` 报"全部齐在";把新写的第二十五批整块(7 行)回捞进仍是旧基线的工作区 → 纯插入 7 行、再跑 `--check` 归零,门 71 复判"无登记行丢失"。
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
