@@ -145,6 +145,24 @@ import { getUserId, mintInternalJwt, jsonInit, asObj } from './v1-shared.js'
 /** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
 const INTERNAL_BASE = `http://localhost:${process.env.PORT || 8802}`
 
+/**
+ * ai-service message-bus 的通道取值域,抄自
+ * apps/ai-service/app/services/message_bus.py 的 `ChannelType`(改那边必须同步改这边)。
+ * 对账由 apps/api/tests/v1-message-bus-contract.test.ts 从 Python 源码解析枚举值逐值比对,
+ * 任一侧漂移即红;email 已从该枚举删除,不得回升。
+ * 注:`packages/types` 的 `MessageChannel`(feishu/dingtalk/telegram/…)是 apps/api 自有的
+ * 6 厂商 IM 总线(apps/api/src/routes/message-bus.ts + services/message-bus/),与 ai-service
+ * 的传输通道不是同一语义域,故此处不复用、也不另起第二份真相。
+ */
+const MESSAGE_BUS_CHANNELS = ['im', 'websocket', 'webhook', 'sms'] as const
+type MessageBusChannel = (typeof MESSAGE_BUS_CHANNELS)[number]
+
+/**
+ * ai-service `PublishRequest.priority` 默认档位(抄自该字段描述 high/normal/low)。
+ * v1 对外契约不含 priority,也不在此新增(属已发布契约变更),故出站固定用 ai-service 自身默认值。
+ */
+const MESSAGE_BUS_DEFAULT_PRIORITY = 'normal' as const
+
 /** /knowledge/documents/upload 单文件大小上限 10MB(Excel 大文件应走数据导入) */
 const UPLOAD_MAX_SIZE = 10 * 1024 * 1024
 
@@ -291,14 +309,15 @@ const forgetMemorySchema = z.object({
 })
 
 const publishMessageSchema = z.object({
-  channel: z.string().min(1),
+  // 非法通道名在本地就 400,不再透传给 ai-service 换 422→503(错误体还带下游响应原文)
+  channel: z.enum(MESSAGE_BUS_CHANNELS),
   content: z.string().min(1),
   recipients: z.array(z.string()).max(100).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
 const subscribeMessageSchema = z.object({
-  channel: z.string().min(1),
+  channel: z.enum(MESSAGE_BUS_CHANNELS),
   callbackUrl: z.url(),
 })
 
@@ -495,6 +514,99 @@ async function forwardAiService(
       return reply.status(502).send(error(502, msg))
     }
     return reply.send(mapper ? mapper(data) : data)
+  } catch (e) {
+    return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
+  }
+}
+
+// =============================================================================
+// ai-service message-bus 出站契约映射(2026-09-23 立)
+//
+// 背景:/v1/messages* 是对外发布能力,但此前把 v1 入参原样 POST 给 ai-service,
+// 而两端字段名与嵌套层数完全不同 ⇒ ai-service 稳定 422 ⇒ 网关映射成 503,
+// 该能力对所有通道实际不可用。出站形态以
+// apps/ai-service/app/api/message_bus.py 的 pydantic 模型为准,逐字段映射如下。
+// =============================================================================
+
+/**
+ * ai-service `MessagePayload`(v1 只能填到 content + metadata;
+ * template_id / template_vars 无对应入参,不发明字段)。
+ */
+interface AiServiceMessagePayload {
+  content: string
+  metadata: Record<string, unknown>
+}
+
+/** ai-service `PublishRequest`。 */
+interface AiServicePublishRequest {
+  message: AiServiceMessagePayload
+  channels: MessageBusChannel[]
+  priority: typeof MESSAGE_BUS_DEFAULT_PRIORITY
+}
+
+/** ai-service `SubscribeRequest`(蛇形,与 v1 的 callbackUrl 不同名)。 */
+interface AiServiceSubscribeRequest {
+  channel: MessageBusChannel
+  webhook_url: string
+}
+
+/**
+ * v1 入站 → ai-service PublishRequest。
+ * - `channel`(单值)→ `channels`(数组):ai-service 侧是 `list[ChannelType]` 且支持多通道
+ *   降级;v1 契约定格在单通道,故只包一层数组,不新增数组入参(会破坏已发布契约)。
+ * - `recipients` **不透传**:ai-service `MessagePayload` 无该字段,通道寻址由服务端按 channel
+ *   决定。静默丢弃会让调用方误以为已投递到指定收件人,故在此留痕,并由契约测试钉住出站键集合。
+ * - `priority`:v1 契约无此字段,固定 ai-service 默认档位。
+ */
+function toMessageBusPublishRequest(
+  input: z.infer<typeof publishMessageSchema>,
+): AiServicePublishRequest {
+  return {
+    message: { content: input.content, metadata: input.metadata ?? {} },
+    channels: [input.channel],
+    priority: MESSAGE_BUS_DEFAULT_PRIORITY,
+  }
+}
+
+/** v1 入站 → ai-service SubscribeRequest:`callbackUrl` → `webhook_url` 是唯一差异(此前被 pydantic 当额外字段丢弃,订阅静默不带回调地址)。 */
+function toMessageBusSubscribeRequest(
+  input: z.infer<typeof subscribeMessageSchema>,
+): AiServiceSubscribeRequest {
+  return { channel: input.channel, webhook_url: input.callbackUrl }
+}
+
+/**
+ * message-bus 专用转发:该路由族每个端点都返回 `{ code, message, data }` 壳
+ * (apps/ai-service/app/api/message_bus.py),而 `forwardAiService` 假设裸 JSON ——
+ * 不拆壳时 `data.messageId` 永远读不到,对外返回空串 id。
+ * 业务失败(ai-service 各 except 分支)仍是 HTTP 200 + code=500,故必须判 code,
+ * 否则失败被当成功。缺 `code` 说明上游不再是这个形状,按 502 报出而非静默返回空 id。
+ */
+async function forwardMessageBus(
+  reply: FastifyReply,
+  path: string,
+  init: RequestInit,
+  mapper: (data: Record<string, unknown>) => unknown,
+): Promise<void> {
+  try {
+    const resp = await aiServiceSystemFetch(path, init)
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '')
+      return reply
+        .status(503)
+        .send(error(503, `AI service unavailable (${resp.status}): ${txt.slice(0, 200)}`))
+    }
+    if (resp.status === 204) return reply.status(204).send()
+    const shell = asObj((await resp.json().catch(() => null)) as unknown)
+    if (typeof shell.code !== 'number') {
+      return reply.status(502).send(error(502, 'AI service message-bus response has no code field'))
+    }
+    if (shell.code !== 0) {
+      const msg =
+        typeof shell.message === 'string' && shell.message ? shell.message : 'AI service error'
+      return reply.status(502).send(error(502, msg))
+    }
+    return reply.send(mapper(asObj(shell.data)))
   } catch (e) {
     return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
   }
@@ -2294,20 +2406,21 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(reply, '/api/message-bus/publish', jsonInit(parsed.data), (data) => {
-        const d = asObj(data)
-        const result: V1PublishMessageResponse = {
-          messageId: String(d.messageId ?? d.message_id ?? d.id ?? ''),
-          status: 'published' as const,
-          subscriberCount:
-            typeof d.subscriberCount === 'number'
-              ? d.subscriberCount
-              : typeof d.subscriber_count === 'number'
-                ? d.subscriber_count
-                : 0,
-        }
-        return result
-      })
+      return forwardMessageBus(
+        reply,
+        '/api/message-bus/publish',
+        jsonInit(toMessageBusPublishRequest(parsed.data)),
+        (data) => {
+          const result: V1PublishMessageResponse = {
+            messageId: String(data.messageId ?? ''),
+            status: 'published',
+            // ai-service PublishResult 只有 deliveredChannels/failedChannels/fallbackUsed/error,
+            // 无订阅者计数来源;v1 契约保留该字段故恒为 0,不用 deliveredChannels 伪造。
+            subscriberCount: 0,
+          }
+          return result
+        },
+      )
     },
   )
 
@@ -2345,15 +2458,14 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      return forwardAiService(
+      return forwardMessageBus(
         reply,
         '/api/message-bus/subscribe',
-        jsonInit(parsed.data),
+        jsonInit(toMessageBusSubscribeRequest(parsed.data)),
         (data) => {
-          const d = asObj(data)
           const result: V1SubscribeMessageResponse = {
-            subscriptionId: String(d.subscriptionId ?? d.subscription_id ?? d.id ?? ''),
-            status: 'subscribed' as const,
+            subscriptionId: String(data.subscriptionId ?? ''),
+            status: 'subscribed',
           }
           return result
         },
@@ -2374,7 +2486,9 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
           required: ['id'],
         },
         response: {
-          200: { type: 'object' },
+          // 必须显式声明属性:Fastify 的 fast-json-stringify 对只有 { type:'object' } 的
+          // schema 会把整个响应体序列化成 {}(2026-09-23 实测),拆壳结果到不了调用方。
+          200: { type: 'object', properties: { unsubscribed: { type: 'boolean' } } },
           204: { type: 'null' },
           401: errorResponseSchema,
           503: errorResponseSchema,
@@ -2384,23 +2498,14 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      try {
-        const resp = await aiServiceSystemFetch(
-          `/api/message-bus/subscribe/${encodeURIComponent(id)}`,
-          { method: 'DELETE' },
-        )
-        if (!resp.ok) {
-          const txt = await resp.text().catch(() => '')
-          return reply
-            .status(503)
-            .send(error(503, `AI service unavailable (${resp.status}): ${txt.slice(0, 200)}`))
-        }
-        if (resp.status === 204) return reply.status(204).send()
-        const data = await resp.json().catch(() => ({}))
-        return reply.send(data)
-      } catch (e) {
-        return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
-      }
+      // 出站只需路径参数;响应必须拆壳,此前把 ai-service 的 { code, message, data } 整壳
+      // 直接回给 v1 调用方,与同族其它端点(返回裸对象)不一致。
+      return forwardMessageBus(
+        reply,
+        `/api/message-bus/subscribe/${encodeURIComponent(id)}`,
+        { method: 'DELETE' },
+        (data) => ({ unsubscribed: data.unsubscribed === true }),
+      )
     },
   )
 
@@ -2433,27 +2538,26 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { id } = request.params as { id: string }
-      return forwardAiService(
+      return forwardMessageBus(
         reply,
         `/api/message-bus/status/${encodeURIComponent(id)}`,
         { method: 'GET' },
         (data) => {
-          const d = asObj(data)
+          // ai-service DeliveryStatus 给的是 perChannel: { 通道 → 'pending'|'delivered'|'failed'|'rate_limited' },
+          // v1 契约是单一 status + 成功/失败计数,故按通道态聚合。
+          const perChannel = asObj(data.perChannel)
+          const states = Object.values(perChannel).filter(
+            (s): s is 'pending' | 'delivered' | 'failed' | 'rate_limited' => typeof s === 'string',
+          )
+          const deliveredCount = states.filter((s) => s === 'delivered').length
+          const failedCount = states.filter((s) => s === 'failed').length
           const result: V1MessageStatusResponse = {
-            messageId: String(d.messageId ?? d.message_id ?? id),
-            status: (d.status as 'pending' | 'delivered' | 'failed') ?? 'pending',
-            deliveredCount:
-              typeof d.deliveredCount === 'number'
-                ? d.deliveredCount
-                : typeof d.delivered_count === 'number'
-                  ? d.delivered_count
-                  : 0,
-            failedCount:
-              typeof d.failedCount === 'number'
-                ? d.failedCount
-                : typeof d.failed_count === 'number'
-                  ? d.failed_count
-                  : 0,
+            messageId: String(data.messageId ?? id),
+            // rate_limited 在 v1 三态里没有槽位(改契约属对外变更),既不计成功也不计失败
+            status:
+              deliveredCount > 0 ? 'delivered' : failedCount > 0 ? 'failed' : ('pending' as const),
+            deliveredCount,
+            failedCount,
           }
           return result
         },
