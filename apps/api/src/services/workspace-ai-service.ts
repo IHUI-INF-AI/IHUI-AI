@@ -15,7 +15,7 @@ import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
 import { normalizePermissionMode, permissionModeWire } from '@ihui/types/permission-mode'
-import type { PermissionModeId, PermissionModeWire } from '@ihui/types/permission-mode'
+import type { PermissionModeId } from '@ihui/types/permission-mode'
 import {
   existsSync,
   mkdirSync,
@@ -1876,7 +1876,8 @@ class PermissionManager {
   }): Promise<{
     allowed: boolean
     requestId?: string
-    mode: PermissionModeWire | null
+    // 纯委托 checkWorkspace,故与其同契约同类型:归一成 wire 优先,归一不出时回显库中原值。
+    mode: string | null
     configured: boolean
     reason?: string
   }> {
@@ -1979,8 +1980,13 @@ class PermissionManager {
     args: Record<string, unknown>
   }): Promise<{
     allowed: boolean
-    /** 已归一化的 workspace 档位(wire 拼写)。未配置权限时为 null —— 不再用 'unset' 哨兵承载语义。 */
-    mode: PermissionModeWire | null
+    /**
+     * 已归一化的 workspace 档位(wire 拼写);**归一不出时回显库中原值** —— 与路由
+     * toWirePermission 逐字同契约(其 mode 域即 string,见 db/workspace-permission-queries.ts:58),
+     * 故此处不声明成 4 值并集,否则脏行会被悄悄改写成 null。
+     * 未配置权限时为 null —— 不再用 'unset' 哨兵承载语义(G-164)。
+     */
+    mode: string | null
     /** 该工作区是否已配置权限(perm 存在)。未配置 → configured=false,HTTP 侧据此给 401。 */
     configured: boolean
     reason: string
@@ -2004,7 +2010,9 @@ class PermissionManager {
     }
 
     // 归一后的 wire 档位;perm 存在即已配置(供下方各返回体复用)。
-    const permModeWire = permissionModeWire(perm.mode)
+    // 与 routes/workspace-permissions.ts 的 toWirePermission 同一契约:归一成 wire(kebab)优先,
+    // 归一不出时**回显库中原值** —— 不给历史脏行新增失败模式,对外契约不变(G-163)。
+    const permModeWire = permissionModeWire(perm.mode) ?? perm.mode
 
     // 同 checkWithDb:档位先过唯一真源归一,认不出按 default(最严)。
     // 本方法是 **Agent 工具执行的真实闸门**(routes/workspace-ai.ts checkWorkspace 调用),
@@ -2034,7 +2042,12 @@ class PermissionManager {
         decision: 'allow',
         reason: 'bypass-permissions 模式自动放行',
       })
-      return { allowed: true, mode: permModeWire, configured: true, reason: 'bypass-permissions 模式自动放行' }
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: 'bypass-permissions 模式自动放行',
+      }
     }
 
     // accept-edits → 查 DB 规则
