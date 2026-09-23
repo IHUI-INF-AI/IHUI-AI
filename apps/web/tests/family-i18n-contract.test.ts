@@ -101,6 +101,31 @@ const FAMILIES: Family[] = [
     ],
     minReferenced: 25,
   },
+  {
+    name: 'eduScheduling',
+    nsLiteral: 'eduScheduling',
+    nsPath: ['eduScheduling'],
+    sources: ['app/(main)/edu/edu-management/scheduling/PageClient.tsx'],
+    minReferenced: 55,
+  },
+  {
+    name: 'eduGrades',
+    nsLiteral: 'eduGrades',
+    nsPath: ['eduGrades'],
+    sources: [
+      'app/(main)/edu/edu-management/grades/PageClient.tsx',
+      'app/(main)/edu/edu-management/grades/trend/[studentId]/PageClient.tsx',
+      'app/(main)/edu/edu-management/grades/page.tsx',
+    ],
+    minReferenced: 55,
+  },
+  {
+    name: 'eduParent',
+    nsLiteral: 'eduParent',
+    nsPath: ['eduParent'],
+    sources: ['app/(main)/edu/parent/page.tsx'],
+    minReferenced: 45,
+  },
 ]
 
 const packCache = new Map<string, Record<string, unknown>>()
@@ -148,9 +173,18 @@ function referencedKeys(src: string, famNs: string): Set<string> {
       dynRoots.add(m[1] as string)
   }
   // 非组件常量表:任何 *Key 字段的值(labelKey / titleKey / descKey… 渲染处 t(x.key) 取词)
-  for (const m of src.matchAll(/\b\w*[Kk]ey:\s*'([A-Za-z0-9_]+)'/g)) keys.add(m[1] as string)
-  for (const block of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*=\s*\{([\s\S]*?)\n\}/g)) {
-    for (const m of (block[1] ?? '').matchAll(/:\s*'([A-Za-z0-9_]+)'/g)) keys.add(m[1] as string)
+  // 允许带点:`scheduling` 族把嵌套路径整体存进表里('weekdays.weekdayMon'),那样扫描器才看得见字面键
+  for (const m of src.matchAll(/\b\w*[Kk]ey:\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
+  /**
+   * 常量表两种形态:对象表与数组表,且**允许带类型标注**
+   * (`const MEAL_TYPE_KEYS: Record<string, string> = { … }` —— 不带这条就会把 16 个在用键误判成孤儿键)。
+   */
+  for (const block of src.matchAll(/const\s+([A-Z0-9_]*KEYS[A-Z0-9_]*)\s*(?::[^=\n]+)?=\s*\{([\s\S]*?)\n\}/g)) {
+    /** 加了"名字"捕获组之后,内容组下标从 1 变成 2 —— 写错会让采集静默变空并把在用键打成孤儿键 */
+    for (const m of (block[2] ?? '').matchAll(/:\s*'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
+  }
+  for (const block of src.matchAll(/const\s+[A-Z0-9_]*KEYS[A-Z0-9_]*\s*(?::[^=\n]+)?=\s*\[([\s\S]*?)\n\]/g)) {
+    for (const m of (block[1] ?? '').matchAll(/'([A-Za-z0-9_.]+)'/g)) keys.add(m[1] as string)
   }
   return new Set([...keys, ...dynRoots])
 }
