@@ -446,7 +446,7 @@ const shellStyles = {
   shareBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as const,
   qrContent: {
     alignItems: 'center',
@@ -489,7 +489,7 @@ const shellStyles = {
   saveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as const,
   saveBtnDisabled: {
     opacity: 0.5,
