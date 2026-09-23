@@ -22,6 +22,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
+import { useI18n } from '../i18n'
 
 /** 购买图标形态(对齐 Uniapp pay_btn itemData.type) */
 export type PayButtonType = 'freeuse' | 'freetime' | 'hasbuy' | 'monthly'
@@ -42,14 +43,16 @@ export interface PayButtonProps {
   onPress: () => void
 }
 
-/** 购买形态文案与主色。
+/** 购买形态文案键与主色。
  *  约束:禁用 purple/indigo,改走 主题 token 入口 语义色
- *  (免费=success 绿 / 限时=danger 红 / 已购买=brand 黑 / 每月=warning 橙)。 */
-const TYPE_META: Record<PayButtonType, { text: string; color: string }> = {
-  freeuse: { text: '免费使用', color: tokens.success.DEFAULT },
-  freetime: { text: '限时免费', color: tokens.danger.DEFAULT },
-  hasbuy: { text: '已购买', color: tokens.brand.DEFAULT },
-  monthly: { text: '每月', color: tokens.warning.DEFAULT },
+ *  (免费=success 绿 / 限时=danger 红 / 已购买=brand 黑 / 每月=warning 橙)。
+ *  文案走词表键(五语齐)而非字面量 —— 本组件由 PaymentScreen 直接挂载,
+ *  写死中文会让 RN 付费按钮在四种非中文语言下永远是中文。 */
+const TYPE_META: Record<PayButtonType, { textKey: string; color: string }> = {
+  freeuse: { textKey: 'payment.payType.freeuse', color: tokens.success.DEFAULT },
+  freetime: { textKey: 'payment.payType.freetime', color: tokens.danger.DEFAULT },
+  hasbuy: { textKey: 'payment.payType.hasbuy', color: tokens.brand.DEFAULT },
+  monthly: { textKey: 'payment.payType.monthly', color: tokens.warning.DEFAULT },
 }
 
 export function PayButton({
@@ -61,12 +64,14 @@ export function PayButton({
   loading,
   onPress,
 }: PayButtonProps): React.JSX.Element {
+  const { t } = useI18n()
   const displayAmount = currency + (amount / 100).toFixed(2)
-  const buttonText = label ?? `立即支付 ${displayAmount}`
+  const buttonText = label ?? `${t('payment.payNow')} ${displayAmount}`
   const isBlocked = disabled || loading
 
   if (type) {
     const meta = TYPE_META[type]
+    const typeText = t(meta.textKey)
     return (
       <Pressable
         style={({ pressed }) => [
@@ -77,9 +82,9 @@ export function PayButton({
         onPress={onPress}
         disabled={isBlocked}
         accessibilityRole="button"
-        accessibilityLabel={meta.text}
+        accessibilityLabel={typeText}
       >
-        <Text style={[styles.typeText, { color: meta.color }]}>{meta.text}</Text>
+        <Text style={[styles.typeText, { color: meta.color }]}>{typeText}</Text>
       </Pressable>
     )
   }
