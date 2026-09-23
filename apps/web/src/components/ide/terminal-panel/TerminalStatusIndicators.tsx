@@ -41,7 +41,7 @@ export function TerminalStatusIndicators({
             'inline-block h-1.5 w-1.5',
             connected ? 'bg-green-500' : wsError ? 'bg-red-500' : 'bg-muted-foreground',
           )}
-          style={{ borderRadius: '50%' }}
+          style={{ borderRadius: '50%' }} // radius-exempt: 6×6 连接状态指示圆点(装饰点几何正圆,方档化会变方块)
         />
         <span>
           {connected

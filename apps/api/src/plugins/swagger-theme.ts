@@ -37,6 +37,8 @@ import {
   CHART_BG_LIGHT,
   COLOR_BLACK,
   withAlpha,
+  RADIUS_CSS_PX,
+  rnRadius,
 } from '@ihui/design-tokens'
 
 /**
@@ -73,11 +75,11 @@ function buildThemeCss(): string {
     `}`,
     `.swagger-ui .topbar { background: linear-gradient(135deg, var(--ihui-primary) 0%, var(--ihui-primary-dark) 100%); padding: 14px 0; }`,
     `.swagger-ui .topbar .download-url-wrapper { display: none; }`,
-    `.swagger-ui .info { background: var(--ihui-bg); border-radius: 8px; padding: 20px 24px; margin: 20px 0; }`,
+    `.swagger-ui .info { background: var(--ihui-bg); border-radius: ${RADIUS_CSS_PX.lg}; padding: 20px 24px; margin: 20px 0; }`,
     `.swagger-ui .info .title { color: var(--ihui-primary-dark); }`,
-    `.swagger-ui .scheme-container { background: ${CHART_BG_LIGHT}; border-radius: 8px; box-shadow: 0 1px 3px ${withAlpha(COLOR_BLACK, 0.06)}; padding: 12px 20px; }`,
+    `.swagger-ui .scheme-container { background: ${CHART_BG_LIGHT}; border-radius: ${RADIUS_CSS_PX.lg}; box-shadow: 0 1px 3px ${withAlpha(COLOR_BLACK, 0.06)}; padding: 12px 20px; }`,
     `.swagger-ui .opblock-tag { font-size: 16px; border-bottom: 1px solid ${CHART_AXIS_LIGHT}; }`,
-    `.swagger-ui .opblock .opblock-summary { border-radius: 6px; }`,
+    `.swagger-ui .opblock .opblock-summary { border-radius: ${RADIUS_CSS_PX.md}; }`,
     `.swagger-ui .btn.execute { background: var(--ihui-primary); border-color: var(--ihui-primary); }`,
     `.swagger-ui .btn.execute:hover { background: var(--ihui-primary-dark); border-color: var(--ihui-primary-dark); }`,
     `.swagger-ui a { color: var(--ihui-primary-dark); }`,
@@ -129,7 +131,7 @@ function buildThemeJs(): string {
 function buildFaviconSvg(): string {
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">',
-    `<rect width="16" height="16" rx="3" fill="${BRAND_PRIMARY}"/>`,
+    `<rect width="16" height="16" rx="${rnRadius.xs}" fill="${BRAND_PRIMARY}"/>`,
     `<text x="8" y="11" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="${CHART_BG_LIGHT}" text-anchor="middle">I</text>`,
     '</svg>',
   ].join('')
