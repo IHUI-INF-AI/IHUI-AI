@@ -43,6 +43,16 @@ const TARGETS = [
   path.join(ROOT, 'apps/web/src/hooks'),
   path.join(ROOT, 'packages/ui-react/src'),
   path.join(ROOT, 'packages/shared/src'),
+  // 2026-09-24 补三端覆盖:这三处此前**完全不在本棘轮视野内**,于是"新增写死中文"不会红,
+  // 而 §4/§9 的跨端一致要求照样适用。直接触发实例:RN 端内 PayButton 的 TYPE_META 四档文案
+  // 与 PaymentScreen 的 label="去充值" 全是字面量中文,没有任何一道门看得见(修于 a8da2c2a413,
+  // 登记于 PROJECT_PLAN 第十八批)。存量按 HEAD 提交面**首次入账**(不改任何既有额度、只新增条目),
+  // 之后与其他端同规则:只拦"比基线更多",清理后下调。
+  path.join(ROOT, 'apps/mobile-rn/src'),
+  path.join(ROOT, 'apps/extension/entrypoints'),
+  path.join(ROOT, 'apps/extension/src'),
+  path.join(ROOT, 'apps/extension/lib'),
+  path.join(ROOT, 'apps/cli/src'),
 ]
 const BASELINE_FILE = path.join(ROOT, 'scripts/hardcoded-zh-baseline.json')
 const EXCLUDE_DIRS = new Set([

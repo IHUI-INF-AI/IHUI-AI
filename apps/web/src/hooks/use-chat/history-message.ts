@@ -8,8 +8,7 @@ import type { PlanStep } from '@ihui/types'
 // 权限档读侧归一(G-161/G-165):历史行拼写可能是 kebab/camel/别名
 import { permissionModeWire } from '@ihui/types/permission-mode'
 // D33 过程性信息读回(2026-09-23):fallback 交代与 SSE 帧同一类型;memory/usage seed 走真 store
-import type { FallbackEvent } from '@ihui/api-client'
-import { useChatStore, type ChatMessage, type MessageUsage } from '@/stores/chat'
+import { useChatStore, type ChatMessage, type MessageUsage, type SteerNotice } from '@/stores/chat'
 
 /**
  * 后端 chat_messages 行的水合输入(结构最小集)。
@@ -205,6 +204,27 @@ function readMemoryUpdatesFromMetadata(raw: unknown): string[] | undefined {
 }
 
 /**
+ * 从 metadata.steerApplied 还原"这轮中途引导注入了哪些条"(D33 剩余类,2026-09-24 立)。
+ * 落库为 {text, timestamp?} 数组(api 侧 persistedSteerAppliedSchema 只钉死 text),
+ * 与 web SteerNotice 同形;坏项逐条剔除(徽章是逐条 append 的累积通道,无"半截"误解),
+ * 全坏/空 → undefined,不渲染空态。
+ */
+function readSteerAppliedFromMetadata(raw: unknown): SteerNotice[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: SteerNotice[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    if (typeof rec.text !== 'string' || !rec.text.trim()) continue
+    out.push({
+      text: rec.text,
+      ...(typeof rec.timestamp === 'string' ? { timestamp: rec.timestamp } : {}),
+    })
+  }
+  return out.length > 0 ? out : undefined
+}
+
+/**
  * 历史水合后把"旁路型"过程信息灌回既有渲染位(D33,2026-09-23 立)。
  *
  * usageDetail → store.usageByMessageId(MessageUsageMetrics 既有渲染位)、
@@ -226,6 +246,11 @@ export function seedHistoryProcessInfoFrames(rows: readonly HistoryProcessInfoRo
     if (usage) store.setMessageUsage(row.id, usage)
     const memories = readMemoryUpdatesFromMetadata(meta?.memoryUpdates)
     if (memories) store.appendMemoryNotice(row.id, memories)
+    // D33 剩余类(2026-09-24 立):steer 注入记录灌回「⚡ 引导已生效」badge ——
+    // live 通道 appendSteerNotice 单消息上限 8(= 后端 _STEER_QUEUE_LIMIT),
+    // 历史行不会超(后端已拒绝第 9 条入队),逐条 append 即可,不新增 store 状态。
+    const steers = readSteerAppliedFromMetadata(meta?.steerApplied)
+    if (steers) for (const notice of steers) store.appendSteerNotice(row.id, notice)
   }
 }
 
