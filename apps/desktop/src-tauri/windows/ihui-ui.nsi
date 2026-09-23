@@ -768,8 +768,21 @@ FunctionEnd
 !endif
 ; 窗口逻辑尺寸(=96dpi 下的像素)。降档公式与出图必须共用这一处定义,否则"按屏幕降 DPI"
 ; 会跟实际窗口大小脱钩(2026-09-24 矩阵实测:1366x768 屏 @200% 时 1760x1200 只有 47% 可见)。
-!define IHUI_LOG_W 880
-!define IHUI_LOG_H 600
+; 可被 makensis -DIHUI_LOG_W=... 覆盖 —— 用途只有一个:在大屏机器上**注入**一个超出工作区的
+; 逻辑尺寸,把"按工作区降档"分支真实跑出来取证(本机 3440x1356,正常尺寸永远碰不到该分支)。
+; 生产构建永不传参,默认值即真值。
+!ifndef IHUI_LOG_W
+  !define IHUI_LOG_W 880
+!endif
+!ifndef IHUI_LOG_H
+  !define IHUI_LOG_H 600
+!endif
+; 工作区自适应降档的总开关。默认 1(生效);makensis -DIHUI_WA_FIT=0 可编出**不做降档**的对照包,
+; 用于真实运行时 A/B 取证(证明这条适配确实改变窗口边界)。与 IHUI_DPI_CAP 同一用途:不改用户设置
+; 也能复现"窗口比工作区大"的路径。生产构建永不传 0。
+!ifndef IHUI_WA_FIT
+  !define IHUI_WA_FIT 1
+!endif
 !macro IHUI_PICKTIER
   StrCpy $IHUIDPI 96
   System::Call "user32::GetDpiForSystem() i .s"
@@ -815,6 +828,7 @@ FunctionEnd
   ; 或降采样、绝不拉伸。只封顶到 192 不够 —— 2026-09-24 用"DPI × 工作区"矩阵实测:
   ; 1366x768@192dpi 会出 1760x1200 的窗,居中后左上角 (-197,-236),标题栏与完成按钮都在屏外。
   ; 临时量只用 $R9:$R0..$R4 归重装页版本比较,$R5..$R8 是工作区,$R2/$R3 是本次要算的坐标。
+  !if ${IHUI_WA_FIT} != 0
   IntOp $R9 $R7 - $R5
   IntOp $R9 $R9 * 96
   IntOp $R9 $R9 / ${IHUI_LOG_W}
@@ -832,6 +846,7 @@ FunctionEnd
   ${If} $IHUIDPIW < 48
     StrCpy $IHUIDPIW 48
   ${EndIf}
+  !endif
   !insertmacro IHUI_TIER_OF $IHUIDPIW $IHUIWTIER
   !insertmacro IHUI_PX $IHUIWW ${IHUI_LOG_W}
   !insertmacro IHUI_PX $IHUIWH ${IHUI_LOG_H}
@@ -844,6 +859,11 @@ FunctionEnd
   IntOp $R3 $R3 - $IHUIWH
   IntOp $R3 $R3 / 2
   IntOp $R3 $R6 + $R3
+  ; 运行期自证:把"有效布局 DPI + 最终窗口尺寸 + 降档开关 + 当次读到的工作区四值"落一枚打点文件,
+  ; 这样 A/B(-DIHUI_WA_FIT=0/1)不需要抓窗口句柄也能证明降档是否真的发生。
+  ; ⚠️ Var 只能用 $NAME 语法取,${NAME} 是 !define 取法(写错会得到字面量,本次就这样骗过我一次)。
+  ; 仅 IHUI_TRACE 构建下有实体(发布构建宏体为空),生产零副作用。
+  !insertmacro IHUI_LOG "size-dpi-$IHUIDPIW-fit${IHUI_WA_FIT}-w$IHUIWW-h$IHUIWH-wa$R5-$R6-$R7-$R8"
   System::Call "user32::SetWindowPos(p $HWNDPARENT, p 0, i R2, i R3, i $IHUIWW, i $IHUIWH, i 0x0024)"
 !macroend
 
