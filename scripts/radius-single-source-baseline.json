@@ -28,16 +28,6 @@
       "raw": "15"
     },
     {
-      "file": "apps/mobile-rn/src/components/StudyBar.tsx",
-      "rule": "B1",
-      "raw": "8"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/StudyBar.tsx",
-      "rule": "B1",
-      "raw": "8"
-    },
-    {
       "file": "apps/mobile-rn/src/components/UserMembershipBenefits.tsx",
       "rule": "B1",
       "raw": "12"

@@ -69,7 +69,6 @@ export { Sidebar, SidebarItem, SidebarGroup } from './components/sidebar'
 export { VipBadge } from './components/vip-badge'
 export { Upload } from './components/Upload'
 export type { UploadProps } from './components/Upload'
-export type { UploadLabels } from './components/Upload'
 export { Badge, badgeVariants } from './components/badge'
 export type { BadgeProps } from './components/badge'
 export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './components/collapsible'
@@ -175,6 +174,10 @@ export type { RememberedCredentials } from './lib/remember-credentials'
 // web + extension + desktop 共用 header/sidebar/main/footer app shell 结构)
 export { PageShell } from './page-shell'
 export type { PageShellProps } from './page-shell'
+// CategoryBar 统一分类条(横滑单选 chip 条,RN 侧 CategoryInlineBar 的 web 同形实现,
+// 各端筛选条一律走本组件,禁止端内再手搓 chip)
+export { CategoryBar } from './components/category-bar'
+export type { CategoryBarItem, CategoryBarProps } from './components/category-bar'
 
 // AuthShell + LoginForm 共享样式(单一来源,web + extension globals.css 都 @import 这份)
 import './styles/auth-shell.css'
