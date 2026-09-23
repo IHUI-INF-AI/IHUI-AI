@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import {
@@ -30,6 +31,7 @@ export function ClassDialog({
   classes: EduClass[]
   onSave: (data: { name: string; grade: string }) => Promise<void>
 }) {
+  const t = useTranslations('eduStudyPlan')
   const [name, setName] = React.useState('')
   const [grade, setGrade] = React.useState('')
   const [saving, setSaving] = React.useState(false)
@@ -56,12 +58,12 @@ export function ClassDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>班级管理</DialogTitle>
+          <DialogTitle>{t('classManagement')}</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {classes.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">暂无班级</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">{t('noClasses')}</p>
           ) : (
             classes.map((c) => (
               <div
@@ -80,21 +82,21 @@ export function ClassDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">新建班级</p>
+          <p className="text-sm font-medium">{t('newClassTitle')}</p>
           <div className="grid gap-1.5">
-            <Label>班级名称</Label>
+            <Label>{t('className')}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如：计算机科学1班"
+              placeholder={t('classNamePlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>年级</Label>
+            <Label>{t('grade')}</Label>
             <Input
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              placeholder="例如：2024级"
+              placeholder={t('gradePlaceholder')}
             />
           </div>
         </div>
@@ -102,7 +104,7 @@ export function ClassDialog({
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving || !name.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            创建班级
+            {t('createClass')}
           </Button>
         </DialogFooter>
       </DialogContent>
