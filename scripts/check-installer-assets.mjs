@@ -179,8 +179,12 @@ function parseHoleRects(uiSrc) {
   const grab = (label) => {
     const i = body.indexOf(label)
     if (i < 0) return null
-    const nums = [...body.slice(i, i + 700).matchAll(/!insertmacro IHUI_PX \$R\d+ (-?\d+)/g)].map((m) => Number(m[1]))
-    return nums.length >= 4 ? { left: nums[0], top: nums[1], right: nums[2], bottom: nums[3] } : null
+    const nums = [...body.slice(i, i + 700).matchAll(/!insertmacro IHUI_PX \$R\d+ (-?\d+)/g)].map(
+      (m) => Number(m[1]),
+    )
+    return nums.length >= 4
+      ? { left: nums[0], top: nums[1], right: nums[2], bottom: nums[3] }
+      : null
   }
   return { cancel: grab('取消槽'), cta: grab('CTA 槽') }
 }
@@ -192,19 +196,37 @@ function parseHoleRects(uiSrc) {
  * 洞小 → 切掉位图边缘。两种都只能靠这条静态断言拦住。
  */
 export function checkHoleEqualsButton({ uiSrc }) {
-  const d = parseDefines(uiSrc, ['IHUI_BTN_Y', 'IHUI_CTA_X', 'IHUI_CTA_W', 'IHUI_CANCEL_X', 'IHUI_CANCEL_W'])
+  const d = parseDefines(uiSrc, [
+    'IHUI_BTN_Y',
+    'IHUI_CTA_X',
+    'IHUI_CTA_W',
+    'IHUI_CANCEL_X',
+    'IHUI_CANCEL_W',
+  ])
   if (d.error) return [d.error]
   const rects = parseHoleRects(uiSrc)
   if (rects.error) return [rects.error]
   // 按钮高度:从 CTA 槽的 IHUI_INST_SLOT 调用里取实参,不写死 40
-  const slotH = uiSrc.match(/!insertmacro IHUI_INST_SLOT\s+1\s+btn-continue\.bmp\s+\$\{IHUI_CTA_X\}\s+\$\{IHUI_BTN_Y\}\s+\$\{IHUI_CTA_W\}\s+(\d+)/)
+  const slotH = uiSrc.match(
+    /!insertmacro IHUI_INST_SLOT\s+1\s+btn-continue\.bmp\s+\$\{IHUI_CTA_X\}\s+\$\{IHUI_BTN_Y\}\s+\$\{IHUI_CTA_W\}\s+(\d+)/,
+  )
   if (!slotH) return ['找不到 CTA 槽 IHUI_INST_SLOT(btn-continue) 调用,无法确定按钮高度']
   const H = Number(slotH[1])
   const v = []
   const LABEL = { cta: 'CTA 槽', cancel: '取消槽' }
   const want = {
-    cta: { left: d.defines.IHUI_CTA_X, top: d.defines.IHUI_BTN_Y, right: d.defines.IHUI_CTA_X + d.defines.IHUI_CTA_W, bottom: d.defines.IHUI_BTN_Y + H },
-    cancel: { left: d.defines.IHUI_CANCEL_X, top: d.defines.IHUI_BTN_Y, right: d.defines.IHUI_CANCEL_X + d.defines.IHUI_CANCEL_W, bottom: d.defines.IHUI_BTN_Y + H },
+    cta: {
+      left: d.defines.IHUI_CTA_X,
+      top: d.defines.IHUI_BTN_Y,
+      right: d.defines.IHUI_CTA_X + d.defines.IHUI_CTA_W,
+      bottom: d.defines.IHUI_BTN_Y + H,
+    },
+    cancel: {
+      left: d.defines.IHUI_CANCEL_X,
+      top: d.defines.IHUI_BTN_Y,
+      right: d.defines.IHUI_CANCEL_X + d.defines.IHUI_CANCEL_W,
+      bottom: d.defines.IHUI_BTN_Y + H,
+    },
   }
   for (const key of ['cta', 'cancel']) {
     const got = rects[key]
@@ -243,7 +265,10 @@ export function checkBadgeConcentric({ uiSrc, genSrc }) {
   const v = []
   if (cx !== g.PCT_CX) v.push(`百分比控件水平中心 ${cx} != 环心 PCT_CX ${g.PCT_CX}`)
   if (cy !== g.PCT_CY) v.push(`百分比控件垂直中心 ${cy} != 环心 PCT_CY ${g.PCT_CY}`)
-  if (!/\$\{IHUI_PCT_STYLE\}/.test(uiSrc)) v.push('百分比控件未使用 IHUI_PCT_STYLE(必须 SS_CENTER,SS_RIGHT 下位数变化会让数字在环里左右漂)')
+  if (!/\$\{IHUI_PCT_STYLE\}/.test(uiSrc))
+    v.push(
+      '百分比控件未使用 IHUI_PCT_STYLE(必须 SS_CENTER,SS_RIGHT 下位数变化会让数字在环里左右漂)',
+    )
   return v
 }
 
@@ -262,7 +287,8 @@ export function checkAnchorsMatchTicks({ installerSrc, genSrc }) {
   const unTicks = unM[1].split(',').map((s) => Number(s.trim()))
   const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
   const v = []
-  if (!eq(inst, instTicks)) v.push(`安装埋点集合 [${inst.join(',')}] != 轨道刻度 [${instTicks.join(',')}]`)
+  if (!eq(inst, instTicks))
+    v.push(`安装埋点集合 [${inst.join(',')}] != 轨道刻度 [${instTicks.join(',')}]`)
   if (!eq(un, unTicks)) v.push(`卸载埋点集合 [${un.join(',')}] != 卸载刻度 [${unTicks.join(',')}]`)
   return v
 }
@@ -307,7 +333,8 @@ export function checkVarScopeOrder({ installerSrc, sources }) {
   lines.forEach((l, i) => {
     if (includeAt < 0 && /^\s*!include\s+"(\{\{[^}]+\}\}|[^"]*hooks\.nsi)"/i.test(l)) includeAt = i
   })
-  if (includeAt < 0) return ['installer.nsi 里找不到 hooks.nsi 的 !include 行,无法建立 Var 作用域基线']
+  if (includeAt < 0)
+    return ['installer.nsi 里找不到 hooks.nsi 的 !include 行,无法建立 Var 作用域基线']
   const lateVars = []
   lines.forEach((l, i) => {
     const m = l.match(/^\s*Var\s+([A-Za-z_]\w*)/)
@@ -347,7 +374,8 @@ export function checkVarScopeOrder({ installerSrc, sources }) {
 export function checkReinstallCards({ uiSrc, genSrc, assetRoot }) {
   const v = []
   const defs = {}
-  for (const m of uiSrc.matchAll(/^!define\s+(IHUI_[A-Z0-9_]+)\s+(-?\d+)/gm)) defs[m[1]] = Number(m[2])
+  for (const m of uiSrc.matchAll(/^!define\s+(IHUI_[A-Z0-9_]+)\s+(-?\d+)/gm))
+    defs[m[1]] = Number(m[2])
 
   // ① 卡片几何:define == 生成器常量
   const CARD_KEYS = ['X', 'Y1', 'Y2', 'W', 'H']
@@ -363,7 +391,9 @@ export function checkReinstallCards({ uiSrc, genSrc, assetRoot }) {
       continue
     }
     if (got !== defs[dn]) {
-      v.push(`重装页卡片几何漂移:${dn}=${defs[dn]} != 生成器 RCARD_${k}=${got}(位图烧入框与运行期 overlay/文字会错位)`)
+      v.push(
+        `重装页卡片几何漂移:${dn}=${defs[dn]} != 生成器 RCARD_${k}=${got}(位图烧入框与运行期 overlay/文字会错位)`,
+      )
     }
   }
 
@@ -375,13 +405,17 @@ export function checkReinstallCards({ uiSrc, genSrc, assetRoot }) {
     const pop = uiSrc.indexOf(`Pop $${handle}`)
     if (pop < 0) return null
     const cc = [
-      ...uiSrc.slice(0, pop).matchAll(/nsDialogs::CreateControl\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/g),
+      ...uiSrc
+        .slice(0, pop)
+        .matchAll(/nsDialogs::CreateControl\s+\S+\s+\S+\s+\S+\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)/g),
     ]
     if (!cc.length) return null
     // `${NAME}` 前缀 2 字符、后缀 `}` 1 字符 → slice(2, -1)。
     // 写成 -2 会连名字末位一起吃掉(IHUI_RIND_X → IHUI_RIND),查表恒 undefined;
     // 旧实现里这条路径因"取不到 4 条 IHUI_PX"提前 return,把这个笔误掩盖成了"解析不到矩形"。
-    return cc[cc.length - 1].slice(1).map((tok) => (tok.startsWith('${') ? defs[tok.slice(2, -1)] : Number(tok)))
+    return cc[cc.length - 1]
+      .slice(1)
+      .map((tok) => (tok.startsWith('${') ? defs[tok.slice(2, -1)] : Number(tok)))
   }
   for (const handle of ['IHUIRI1', 'IHUIRI2']) {
     const rect = grabRect(handle)
@@ -420,9 +454,13 @@ function parseDirPageContainer(genSrc) {
   const next = genSrc.indexOf('\nfunction ', at + 1)
   const body = genSrc.slice(at, next < 0 ? genSrc.length : next)
   const m = body.match(/<rect\s+x="([^"]*)"\s+y="([^"]*)"\s+width="([^"]*)"\s+height="([^"]*)"/)
-  if (!m) return { error: '解析不到目录页容器矩形:sceneDir 内没有 <rect x y width height> 输入框容器' }
+  if (!m)
+    return { error: '解析不到目录页容器矩形:sceneDir 内没有 <rect x y width height> 输入框容器' }
   const num = (tok) => {
-    const inner = tok.trim().replace(/^\$\{(.+)\}$/, '$1').trim()
+    const inner = tok
+      .trim()
+      .replace(/^\$\{(.+)\}$/, '$1')
+      .trim()
     if (/^-?\d+$/.test(inner)) return Number(inner)
     const v = resolveGenConst(genSrc, inner)
     return typeof v === 'number' && Number.isFinite(v) ? v : null
@@ -499,16 +537,22 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
   const fn = installerSrc.match(/Function\s+PageReinstall\b[\s\S]*?\nFunctionEnd/)
   if (!fn) return ['installer.nsi 里找不到 Function PageReinstall,无法建立重锚接线基线']
   const at = fn[0].indexOf('!insertmacro IHUI_REINSTALLTHEME')
-  if (at < 0) v.push('installer.nsi 的 PageReinstall 未插入 IHUI_REINSTALLTHEME —— 整条 DPI 重锚链(含窗口框/裁剪区域重算)静默失效')
+  if (at < 0)
+    v.push(
+      'installer.nsi 的 PageReinstall 未插入 IHUI_REINSTALLTHEME —— 整条 DPI 重锚链(含窗口框/裁剪区域重算)静默失效',
+    )
   const show = fn[0].indexOf('nsDialogs::Show')
-  if (at >= 0 && show >= 0 && at > show) v.push('IHUI_REINSTALLTHEME 插在 nsDialogs::Show 之后 —— 页面已进入才重锚,首帧按旧档绘制')
+  if (at >= 0 && show >= 0 && at > show)
+    v.push('IHUI_REINSTALLTHEME 插在 nsDialogs::Show 之后 —— 页面已进入才重锚,首帧按旧档绘制')
 
   // ② 重锚分支:从 DPI 不一致判定到其 ${EndIf},必须同时定窗框与定裁剪区域
   const theme = bodyOf('IHUI_REINSTALLTHEME')
   if (!theme) return v.concat(['ihui-ui.nsi 里找不到 IHUI_REINSTALLTHEME 宏体'])
   const from = theme.indexOf('${If} $0 != $IHUIDPIW')
   if (from < 0) {
-    v.push('IHUI_REINSTALLTHEME 里没有"窗口 DPI ≠ 布局 DPI"的重锚分支 —— 外部改显示缩放后本页不会再定档')
+    v.push(
+      'IHUI_REINSTALLTHEME 里没有"窗口 DPI ≠ 布局 DPI"的重锚分支 —— 外部改显示缩放后本页不会再定档',
+    )
   } else {
     const stop = theme.indexOf('${EndIf}', from)
     const branch = theme.slice(from, stop < 0 ? theme.length : stop)
@@ -529,7 +573,10 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
     // 只跑一轮 = 跨屏搬迁时档位/控件坐标整体错一档(2026-09-19 真机 125%/150% 双屏实锤)。
     // 只数**行首锚定**的插入行(注释里提到宏名不计),故夹注释、改缩进都不会误红。
     const insertAt = (src, macro) => {
-      const re = new RegExp(`^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`, 'gim')
+      const re = new RegExp(
+        `^[ \\t]*!insertmacro[ \\t]+${macro}\\b[ \\t]*(?:;[^\\r\\n]*)?\\r?$`,
+        'gim',
+      )
       const hits = []
       let m
       while ((m = re.exec(src)) !== null) hits.push(m.index)
@@ -554,14 +601,20 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
   // ③ 同源实现:IHUI_WINDOW_RGN 必须存在、被 GUIINIT_COMMON 一起用、几何取自 $IHUIWW/$IHUIWH
   const rgn = bodyOf('IHUI_WINDOW_RGN')
   if (!rgn) {
-    v.push('ihui-ui.nsi 里找不到 IHUI_WINDOW_RGN 宏 —— 圆角/裁剪区域没有可共用的单一实现,定窗与重锚必然各自漂移')
+    v.push(
+      'ihui-ui.nsi 里找不到 IHUI_WINDOW_RGN 宏 —— 圆角/裁剪区域没有可共用的单一实现,定窗与重锚必然各自漂移',
+    )
   } else {
     const common = bodyOf('IHUI_GUIINIT_COMMON')
     if (!common || !/!insertmacro\s+IHUI_WINDOW_RGN\b/.test(common)) {
-      v.push('IHUI_GUIINIT_COMMON 未调用 IHUI_WINDOW_RGN —— 该宏成了只给重锚用的副本,定窗侧仍会各自演化')
+      v.push(
+        'IHUI_GUIINIT_COMMON 未调用 IHUI_WINDOW_RGN —— 该宏成了只给重锚用的副本,定窗侧仍会各自演化',
+      )
     }
     if (!/\$IHUIWW/.test(rgn) || !/\$IHUIWH/.test(rgn)) {
-      v.push('IHUI_WINDOW_RGN 没按 $IHUIWW/$IHUIWH 取尺寸(写死字面量 → 重锚后 region 与实际窗口框脱钩)')
+      v.push(
+        'IHUI_WINDOW_RGN 没按 $IHUIWW/$IHUIWH 取尺寸(写死字面量 → 重锚后 region 与实际窗口框脱钩)',
+      )
     }
     if (!/SetWindowRgn\(p \$HWNDPARENT/.test(rgn)) {
       v.push('IHUI_WINDOW_RGN 里没有 SetWindowRgn(p $HWNDPARENT …) —— 裁剪区域根本没落到窗口上')
@@ -581,9 +634,86 @@ export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
   return v
 }
 
+/**
+ * 第 8 条跨文件不变量 —— 小屏 × 高 DPI 的"布局 DPI 按工作区降档"(2026-09-24 矩阵实测引入)。
+ * 背景:只把布局 DPI 封顶到 192 不够。窗口 = 逻辑尺寸 × dpi/96,1760x1200 放到 1366x768 屏上
+ * 居中后左上角是 (-197,-236):标题栏与"完成"按钮都在屏外(可见面积仅 47%)。跨屏异 DPI 分支
+ * 永远无法在单机取证(禁令),所以用**确定性矩阵**代替像素:解析源码里的常量与公式跑 72 组合。
+ * 本函数只守结构(便宜、可进钩子);数值矩阵在 scripts/tests/check-installer-assets-geo.test.mjs。
+ */
+export function checkWorkAreaDownshift({ uiSrc }) {
+  const v = []
+  const need = (ok, msg) => {
+    if (!ok) v.push(msg)
+  }
+  // 宏名后必须紧跟空白/换行:否则改名成 IHUI_GUIINIT_SIZE_V2 也会被前缀匹配顺带命中,判据就悄悄瞎了(变异测试实测到)。
+  const size = (uiSrc.match(/!macro IHUI_GUIINIT_SIZE[ 	]*\r?\n([\s\S]*?)!macroend/) || [])[1] || ''
+
+  for (const nm of ['IHUI_LOG_W', 'IHUI_LOG_H']) {
+    const defs = [...uiSrc.matchAll(new RegExp(`!define ${nm} (\\d+)`, 'g'))]
+    need(defs.length === 1, `${nm} 必须恰好定义一次(现在 ${defs.length} 次)—— 逻辑尺寸单一来源`)
+  }
+  const w = Number(uiSrc.match(/!define IHUI_LOG_W (\d+)/)?.[1])
+  const h = Number(uiSrc.match(/!define IHUI_LOG_H (\d+)/)?.[1])
+  need(Number.isInteger(w) && w > 0 && Number.isInteger(h) && h > 0, 'IHUI_LOG_W/H 解析不到正整数')
+
+  // 出图必须引用宏,不许再写字面量(否则降档公式与实际窗口大小脱钩)
+  const px = [...size.matchAll(/!insertmacro IHUI_PX \$(IHUIWW|IHUIWH) (\S+)/g)]
+  need(px.length === 2, `窗口宽高应各有一次 IHUI_PX 出图(现在 ${px.length} 次)`)
+  for (const [, tgt, arg] of px) {
+    need(
+      /^\$\{IHUI_LOG_[WH]\}$/.test(arg),
+      `IHUI_PX ${tgt} 用的是 "${arg}",必须改成 \${IHUI_LOG_W/H} 宏`,
+    )
+  }
+
+  // 双轴降档:宽一条、高一条
+  const axes = [
+    ...size.matchAll(
+      /IntOp \$R9 \$R\d - \$R\d\s*\n\s*IntOp \$R9 \$R9 \* 96\s*\n\s*IntOp \$R9 \$R9 \/ \$\{IHUI_LOG_([WH])\}/g,
+    ),
+  ]
+  need(axes.length === 2, `工作区降档必须"宽/高"两条轴各一次(现在 ${axes.length} 条)`)
+  need(
+    new Set(axes.map((a) => a[1])).size === 2,
+    '两条降档轴必须分别按 LOG_W 与 LOG_H(只按一条会纵向溢出)',
+  )
+
+  // 顺序:降档要在 IHUI_TIER_OF 之前,否则位图档位与实际布局 DPI 不一致(发糊/错档)。
+  // 注意比的是**降档轴自身**的位置 —— 不能用 IHUI_LOG_H 字样(后面出图那行也含它)。
+  const tierAt = size.indexOf('!insertmacro IHUI_TIER_OF')
+  const lastAxis = axes.length ? Math.max(...axes.map((a) => a.index)) : -1
+  need(
+    tierAt >= 0 && lastAxis >= 0 && lastAxis < tierAt,
+    '降档必须发生在 IHUI_TIER_OF 之前(档位要跟着有效 DPI 走)',
+  )
+
+  // 病态兜底:工作区读数异常时不许把 DPI 压成 0(会算出 0x0 窗口)
+  need(
+    /\$\{If\} \$IHUIDPIW < \d+/.test(
+      size.slice(tierAt > 0 ? size.indexOf('/ ${IHUI_LOG_H}') : 0, tierAt),
+    ),
+    '缺少 DPI 下限兜底(工作区为 0 时会出 0x0 窗口)',
+  )
+
+  // 寄存器纪律:降档临时量只能用 $R9($R0..$R8 都有主)
+  const temps = new Set([...size.matchAll(/IntOp \$(R\d) /g)].map((m) => m[1]))
+  for (const r of temps)
+    need(
+      r === 'R9' || r === 'R2' || r === 'R3',
+      `IHUI_GUIINIT_SIZE 用了 $${r} 作临时量(会踩工作区/版本比较寄存器)`,
+    )
+  return v
+}
 const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
-const INSTALLER_SRC_FOR_GEO = readFileSync(process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'), 'utf8')
-const GEN_SRC_FOR_GEO = readFileSync(process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'), 'utf8')
+const INSTALLER_SRC_FOR_GEO = readFileSync(
+  process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'),
+  'utf8',
+)
+const GEN_SRC_FOR_GEO = readFileSync(
+  process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'),
+  'utf8',
+)
 
 const geoFail = [
   ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
@@ -596,16 +726,19 @@ const geoFail = [
   }),
   ...checkEditInContainerCentered({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
   ...checkDpiReanchorCompleteness({ uiSrc: UI_SRC_FOR_GEO, installerSrc: INSTALLER_SRC_FOR_GEO }),
+  ...checkWorkAreaDownshift({ uiSrc: UI_SRC_FOR_GEO }),
 ]
 if (geoFail.length > 0) {
-  console.error(`\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`)
+  console.error(
+    `\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`,
+  )
   for (const m of geoFail) console.error(`  - ${m}`)
   process.exit(1)
 }
 console.log(
   '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
     'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
-    '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 七条跨文件不变量成立',
+    '且两轮紧邻定档(与 GUIINIT 同口径,region 宏收尾) 八条跨文件不变量成立',
 )
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
