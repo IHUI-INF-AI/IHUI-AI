@@ -329,7 +329,7 @@
    无论投递成败,告警正文一律先追加进 `.workbuddy/credential-health-alerts.log` 本地台账。
    `--test-alert` 提供通道自证入口(真发一条标明"非故障"的自测并回读每通结果)。
 
-4. **守门 79 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
+4. **守门 80 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
    起因是当天 `check-port-registry.mjs` 里一处 `execSync('git ls-files')` 没有 `timeout`,在共享工作区
    挂住 **80 分钟而 CPU 只用了 2.84s**(等锁/等 IO 型挂起),`git status` 与 typecheck 都看不出任何异常。
    全仓首参锚定实测 **159 处** git 派生调用**无一带 timeout** ⇒ 这是"没有约束",不是"个别疏忽"。
@@ -340,6 +340,10 @@
    ③ 只判只读动词表内的调用。`timeout` 的简写属性 `{ timeout }` 也算已封顶(真仓首跑就是被这条假红的)。
    **存量随本门一并清零**(runner 3 处 + converge 4 处 + commit-loss-guard 默认值 1 处),不留基线债;
    被改的 `git-sync-converge` 跑自身 `--self-test` 6/6 仍全绿,证明加超时未改行为。
+   **口径更正(写给接手的人,别把断言当证据)**:我在登记提交里写过"同号不影响执行、两扇门各自都会跑",当时**只有静态接线证据**
+   (`node scripts/guardian-runner.mjs --help` 的清单尾部确有 `78, 80, 79`),没有该轮 pre-commit 的执行行 ——
+   那一轮日志里 [79]/[80] 都没出现,最合理解释是并发会话按旧基线回写过 runner(§12 已知风险)。
+   教训:门的"装上了"必须同时给出 ①清单探针 ②一轮真实执行行,缺②就只能写成待证,不得写成结论。
    自检 9 例里有一例专门钉"测试夹具/注释里的 git 字符串不得判红" —— 这个缺陷是自检自己抓出来的,
    修法是 `markHidden`(字符串/注释区间掩码),不是调正则;镜像测试 7 例含**装车证明**。
 
