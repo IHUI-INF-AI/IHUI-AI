@@ -20,6 +20,8 @@ import {
   useWindowDimensions,
   type ImageSourcePropType,
 } from 'react-native'
+
+import { rnRadius } from '@ihui/design-tokens'
 // 分享图兜底资源(require 写法对齐项目惯例,如 BusinessLicenseScreen)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const SHARE_FALLBACK_IMAGE: ImageSourcePropType = require('../../assets/images/common/default/vip_message.jpg')
@@ -1396,7 +1398,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                 {posterUrl ? (
                   <Image
                     source={{ uri: posterUrl }}
-                    style={{ width: w, height: h, borderRadius: 8 }}
+                    style={{ width: w, height: h, borderRadius: rnRadius.lg }}
                     resizeMode="cover"
                   />
                 ) : (
@@ -1770,7 +1772,7 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
                 style={{
                   width: videoWidth,
                   height: videoHeight,
-                  borderRadius: 8,
+                  borderRadius: rnRadius.lg,
                   overflow: 'hidden',
                 }}
               >
@@ -1855,7 +1857,7 @@ const styles = StyleSheet.create({
     bottom: 76, // TabBar 上方
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 17, // radius-exempt: 返回顶部按钮 34×34 正圆(直径一半)
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1892,7 +1894,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     marginTop: rpx(16),
   },
   membershipHeaderText: {
@@ -1928,8 +1930,8 @@ const styles = StyleSheet.create({
     height: 12,
   },
   contentItem: {
-    // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
-    borderRadius: 10,
+    // 原 Uniapp border-radius:20rpx(≈10px)→ 档位 lg(8px);padding:28rpx(≈14px) border:1px #EEEEEE
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
@@ -1940,7 +1942,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(24),
     paddingVertical: rpx(16),
     paddingHorizontal: rpx(32),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   copyLinkText: {
@@ -1978,22 +1980,22 @@ const styles = StyleSheet.create({
     gap: rpx(16),
   },
   imageColumnItem: {
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   imageColumnImg: {
     width: '100%',
     height: 200,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   },
   videoPosterContainer: {
     position: 'relative',
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
   },
   videoPosterPlaceholder: {
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   },
   videoPlayIcon: {
     // 对齐 Uniapp 圆形 border-radius:50%(60/2=30 圆形,头像类豁免)
@@ -2004,7 +2006,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-60),
     width: 60,
     height: 60,
-    borderRadius: 30,
+    borderRadius: 30, // radius-exempt: 视频播放按钮 60×60 正圆(直径一半,对齐 Uniapp 50%)
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2022,7 +2024,7 @@ const styles = StyleSheet.create({
   audioPlayBtn: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2035,14 +2037,14 @@ const styles = StyleSheet.create({
   audioProgressTrack: {
     flex: 1,
     height: 6,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.border.light,
     justifyContent: 'center',
     overflow: 'hidden',
   },
   audioProgressFill: {
     height: 6,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
   },
   audioTime: {
@@ -2054,7 +2056,7 @@ const styles = StyleSheet.create({
   audioDownloadBtn: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2076,7 +2078,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     height: 40,
     paddingHorizontal: rpx(28),
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2092,7 +2094,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2126,7 +2128,7 @@ const styles = StyleSheet.create({
   videoModalClose: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2161,7 +2163,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
   },
@@ -2171,7 +2173,7 @@ const styles = StyleSheet.create({
     right: 10,
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2194,7 +2196,7 @@ const styles = StyleSheet.create({
   sharePopupImage: {
     width: '100%',
     height: 240,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   },
   sharePopupBtnRow: {
     flexDirection: 'row',
@@ -2205,7 +2207,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2218,7 +2220,7 @@ const styles = StyleSheet.create({
   },
   sharePopupShareBtn: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2251,13 +2253,13 @@ const styles = StyleSheet.create({
   tabRetryBtn: {
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
-    borderRadius: 8,
-    backgroundColor: tokens.brandAccent.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.brandAccent.foreground,
+    color: tokens.brand.ctaText,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2265,7 +2267,7 @@ const styles = StyleSheet.create({
     marginTop: rpx(16),
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   levelIntroBtnText: {
@@ -2280,8 +2282,8 @@ const styles = StyleSheet.create({
   },
   editProfileCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     padding: rpx(40),
     paddingBottom: rpx(64),
   },
@@ -2302,7 +2304,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 72,
     height: 72,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
   },
   editProfileAvatar: {
@@ -2316,15 +2318,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 22,
     height: 22,
-    borderBottomRightRadius: 12,
-    borderTopLeftRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderBottomRightRadius: rnRadius.xl,
+    borderTopLeftRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2344,7 +2346,7 @@ const styles = StyleSheet.create({
   editProfileInput: {
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(20),
     fontSize: 14,
@@ -2365,7 +2367,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2377,8 +2379,8 @@ const styles = StyleSheet.create({
   },
   editProfileSaveBtn: {
     flex: 1,
-    backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    backgroundColor: tokens.brand.ctaFill,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2386,7 +2388,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2404,8 +2406,8 @@ const styles = StyleSheet.create({
   },
   levelIntroCard: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     padding: rpx(40),
     paddingBottom: rpx(64),
     maxHeight: '80%',
@@ -2422,7 +2424,7 @@ const styles = StyleSheet.create({
   },
   levelIntroItem: {
     backgroundColor: tokens.surface.card,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
     padding: rpx(8),
     marginBottom: rpx(20),
@@ -2450,8 +2452,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   levelIntroCloseBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
-    borderRadius: 8,
+    backgroundColor: tokens.brand.ctaFill,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2459,7 +2461,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
@@ -2472,14 +2474,14 @@ const styles = StyleSheet.create({
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
     alignItems: 'center',
   },
   unsubscribeIconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.danger.light,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2513,7 +2515,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
@@ -2526,7 +2528,7 @@ const styles = StyleSheet.create({
   unsubscribeConfirmBtn: {
     flex: 1,
     backgroundColor: tokens.danger.DEFAULT,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',

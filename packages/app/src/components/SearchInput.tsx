@@ -46,7 +46,7 @@ import {
   type NativeSyntheticEvent,
   type TextInputSubmitEditingEventData,
 } from 'react-native'
-import { getRnTokens } from '@ihui/design-tokens'
+import { getRnTokens, rnRadius } from '@ihui/design-tokens'
 import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 
 export interface SearchInputProps {
@@ -73,7 +73,6 @@ export interface SearchInputProps {
 
 const CONTAINER_HEIGHT = 40
 const CONTAINER_PADDING_HORIZONTAL = 12
-const CONTAINER_BORDER_RADIUS = 8
 const CONTAINER_BORDER_WIDTH = 1
 const CONTAINER_GAP = 8
 const ICON_FONT_SIZE = 16
@@ -260,7 +259,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: CONTAINER_HEIGHT,
     paddingHorizontal: CONTAINER_PADDING_HORIZONTAL,
-    borderRadius: CONTAINER_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: CONTAINER_BORDER_WIDTH,
     gap: CONTAINER_GAP,
   },
@@ -273,7 +272,7 @@ const styles = StyleSheet.create({
   clearButton: {
     width: CLEAR_BUTTON_SIZE,
     height: CLEAR_BUTTON_SIZE,
-    borderRadius: CLEAR_BUTTON_SIZE / 2,
+    borderRadius: CLEAR_BUTTON_SIZE / 2, // radius-exempt: 16dp 圆形清除按钮,取边长一半
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -288,7 +287,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: CONTAINER_BORDER_RADIUS / 2,
+    borderRadius: rnRadius.lg / 2,
   },
   voiceAreaText: {
     fontSize: INPUT_FONT_SIZE,

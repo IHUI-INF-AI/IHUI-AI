@@ -14,6 +14,8 @@ import type {
 } from '../../types'
 import { MessageInput } from './MessageInput'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { ChatScreenMessage, ChatScreenModel, ChatScreenNavItem, ChatScreenProps }
 
 /**
@@ -271,11 +273,11 @@ function createStyles(tk: AppThemeTokens) {
     msgStart: { alignItems: 'flex-start' },
     bubble: {
       maxWidth: '80%',
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'], // 原 15,R1 吸附至 2xl(16)
       paddingHorizontal: 10,
       paddingVertical: 10,
     },
-    bubbleUser: { backgroundColor: tk.surface.muted, borderRadius: 12 },
+    bubbleUser: { backgroundColor: tk.surface.muted, borderRadius: rnRadius.xl },
     bubbleAi: {
       backgroundColor: tk.surface.light,
       borderWidth: 1,

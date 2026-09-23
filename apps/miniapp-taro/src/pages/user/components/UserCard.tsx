@@ -61,7 +61,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
           <ThemeRoot key={item.key}>
             <View
               key={item.key}
-              className={`flex items-center px-[24rpx] py-[20rpx] rounded-[20rpx] mb-[14rpx] bg-card border-[2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
+              className={`flex items-center px-[24rpx] py-[20rpx] rounded-lg mb-[14rpx] bg-card border-[2rpx] border-border ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               onClick={() => {
                 const userInfodata = Taro.getStorageSync('data')
                 if (!userInfodata) {
