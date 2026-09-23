@@ -3839,3 +3839,12 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:`node scripts/watermark.mjs verify` **10134/10134 完整、载荷损坏 0**(批量改写未伤零宽溯源链,§5c);design-tokens typecheck 0 错;mobile-rn typecheck 源码 0 错(仅剩已登记的他人测试 `TS6196`);24 文件 eslint exit 0;守门 75 全量 R1=0 / R2 ≤ 基线。
 - **像素级复验改走 Web 预览(用户选定)**:设备 release 包路线已放弃;`:8806` Expo Web 预览实测 React 已加载但 `#root` 为空(渲染不出),**须先修预览链路才能作为像素证据**,当前不可依赖。
 - **平台独占豁免依据(§9)**:改动全在 RN 专用色板(`rn-tokens.ts`)与 RN 端取色层,不触 web/miniapp-taro 的 CSS 变量链路;新字段无其他端消费者。
+
+## P1 mobile-rn :8806 Web 预览白屏排查(2026-09-23 部分闭环:消掉一个必然阻塞,预览仍空白,不称已修)
+
+> 承上节"像素复验改走 Web 预览"。要让 :8806 能当像素证据,先得让它渲染出来。
+
+- [x] ✅(2026-09-23) **消掉一个必然阻塞**:`App.tsx` 的 `if (!fontsLoaded) return null` 在 web 下**恒真** —— react-native-web 的 `require('./x.ttf')` 返回资产 id 而非可加载 URL,expo-font 的 web loader 永不 resolve ⇒ 整棵树返回 null。改为 `Platform.OS !== 'web' && !fontsLoaded`,原生路径逐字不变(仍等字体防闪烁)。
+- **仍未闭环(两次假设都被实测否证,记下来省后人一轮)**:改后 `#root` 依然 0 子节点、控制台 0 error。① 猜 `active-tokens` 模块级 `new File(Paths.document, …)` 在 web 抛错 —— **出包实证**:expo-file-system 的 web shim 只 `console.warn('expo-file-system is not supported on web')` **不抛**,`FileSystemFile`/`FileSystemDirectory` 构造体是空壳,`modeFile` 只是惰性桩,`persistedMode()` 走 try/catch 返回 null,不致崩。② 猜缺 `AppRegistry.runApplication` —— 实际 `App.tsx:210-214` 早已在 `Platform.OS === 'web'` 分支调用;且我改的门条件在包内正确发射为 `Platform.default.OS !== 'web'`(`Platform` 经 `_interopDefault` 包裹,`.default.OS` 解析正常)。**下一步判据**:`App.tsx:137` 的 `if (__DEV__) LogBox.ignoreAllLogs()` 会把渲染期报错全吞 —— 这正是"零 error + 零 DOM"这对矛盾现象的最可能成因,须先临时摘掉该行取一次真实堆栈,再定位 ThemeProvider / NavigationContainer / RootNavigator 的 web 兼容点。
+- 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩已登记的他人测试 `TS6196`)。
+- **平台独占豁免依据(§9)**:改动仅 `apps/mobile-rn/App.tsx` 入口的 web 分支门条件,不触他端。
