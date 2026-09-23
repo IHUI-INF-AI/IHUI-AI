@@ -275,9 +275,7 @@ services:
 
   # PostgreSQL 数据库(启用 pgvector 扩展,支撑 RAG 知识库语义检索)
   db:
-    # 2026-09-22 基线 pg15 → pg18(与生产/CI 对齐)。旧 pgdata 卷是 15.x 数据目录,
-    # 不能被 18 直接挂载:升级后需 `docker compose down -v` 重建卷,再重新迁移 + 导入数据。
-    image: pgvector/pgvector:pg18
+    image: pgvector/pgvector:pg15-alpine
     container_name: ihui-db
     restart: unless-stopped
     environment:
