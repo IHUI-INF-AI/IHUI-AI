@@ -40,6 +40,7 @@ export function LiveListScreen({
 }: LiveListScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const showError: boolean = error !== '' && items.length === 0
 
   const statusColor = (status: LiveStatus) => {
     if (status === 'ongoing') return tk.brand.DEFAULT
@@ -78,7 +79,7 @@ export function LiveListScreen({
         })}
       </View>
 
-      {error ? (
+      {showError ? (
         <View style={styles.errorBar}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={onRefresh}>
@@ -99,9 +100,11 @@ export function LiveListScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('liveList.empty')}</Text>
-            </View>
+            showError ? null : (
+              <View style={styles.center}>
+                <Text style={styles.emptyText}>{t('liveList.empty')}</Text>
+              </View>
+            )
           }
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => onPressItem(item)} activeOpacity={0.7}>
