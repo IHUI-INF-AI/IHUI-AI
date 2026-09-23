@@ -10929,7 +10929,10 @@
       "buyCreditDesc": "Top up balance or subscribe to a plan",
       "viewUsage": "View usage",
       "viewUsageDesc": "Usage details by model / date",
-      "noSubscription": "No active plan, no balance windows"
+      "noSubscription": "No active plan, no balance windows",
+      "countdownHoursMinutes": "{h}h {m}m",
+      "countdownMinutesSeconds": "{m}m {sec}s",
+      "countdownSecondsOnly": "{sec}s"
     },
     "errorCodes": {
       "title": "API Error Codes",
@@ -24234,5 +24237,12 @@
       }
     },
     "vividTail": ", almost there"
-  }
+  },
+  "upload": {
+    "oversizeSingle": "File exceeds the size limit: {name}",
+    "uploadFailedWithReason": "Upload failed: {error}",
+    "unknownError": "Unknown error",
+    "missingFileId": "Upload response is missing file.id",
+    "maxAttachmentsReached": "At most {count} attachments allowed"
+}
 }

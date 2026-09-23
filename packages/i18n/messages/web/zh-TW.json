@@ -10919,7 +10919,10 @@
       "buyCreditDesc": "儲值餘額或訂閱方案",
       "viewUsage": "查看用量",
       "viewUsageDesc": "依模型 / 日期查看明細",
-      "noSubscription": "未訂閱方案,暫無額度視窗"
+      "noSubscription": "未訂閱方案,暫無額度視窗",
+      "countdownHoursMinutes": "{h}小時{m}分",
+      "countdownMinutesSeconds": "{m}分{sec}秒",
+      "countdownSecondsOnly": "{sec}秒"
     },
     "errorCodes": {
       "title": "API 錯誤碼",
@@ -24201,5 +24204,12 @@
       }
     },
     "vividTail": "，馬上就好"
-  }
+  },
+  "upload": {
+    "oversizeSingle": "檔案超過大小上限:{name}",
+    "uploadFailedWithReason": "上傳失敗:{error}",
+    "unknownError": "未知錯誤",
+    "missingFileId": "上傳響應缺少 file.id",
+    "maxAttachmentsReached": "最多 {count} 個附件"
+}
 }
