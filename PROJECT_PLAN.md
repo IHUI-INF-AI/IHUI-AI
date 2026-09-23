@@ -832,7 +832,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 **取证存档**:`.ihui-agent/tmp/installer-redesign/{maint-probe2.cjs, shot-maint2.png, enum-maint.txt}`(enum 显示主题宏完整执行:radio 已重定位 288,350/386、全幅底 1204、CTA 1203、窗钮 1205/1206 都在 —— 缺陷不在"没跑",在渲染结果不符合统一标准)。
 
-## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;已收口)
+## P0 2026-09-23 桌面安装器"卡黑屏"取证 + LoadImage 失败重试加固(平台独占:apps/desktop;防御已落地,根因未钉死,复发走 trace 通道)
 
 用户实测:安装包(智汇AI_0.1.44_x64-setup.exe)窗口整窗纯黑、卡住不动(10:32:59 启动的实例)。
 
