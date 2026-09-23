@@ -1,4 +1,179 @@
 {
+  "taskStatus": {
+    "toolGenericActivity": "{state, select, running {正在執行：{name}} completed {已完成：{name}} other {執行：{name}}}",
+    "toolReadFileActivity": "{state, select, running {正在讀取檔案} completed {已讀取檔案} other {讀取檔案}}",
+    "toolEditFileActivity": "{state, select, running {正在編輯檔案} completed {已編輯檔案} other {編輯檔案}}",
+    "toolWriteFileActivity": "{state, select, running {正在寫入檔案} completed {已寫入檔案} other {寫入檔案}}",
+    "toolSearchCodebaseActivity": "{state, select, running {正在搜尋程式碼庫} completed {已搜尋程式碼庫} other {搜尋程式碼庫}}",
+    "toolWebSearchActivity": "{state, select, running {正在搜尋網頁} completed {已搜尋網頁} other {搜尋網頁}}",
+    "toolParseDocumentActivity": "{state, select, running {正在解析文件} completed {已解析文件} other {解析文件}}",
+    "toolListFilesActivity": "{state, select, running {正在列出目錄檔案} completed {已列出目錄檔案} other {列出目錄檔案}}",
+    "toolFileSearchActivity": "{state, select, running {正在檢索檔案} completed {已檢索檔案} other {檢索檔案}}",
+    "toolCreateFileActivity": "{state, select, running {正在建立檔案} completed {已建立檔案} other {建立檔案}}",
+    "toolDeleteFileActivity": "{state, select, running {正在刪除檔案} completed {已刪除檔案} other {刪除檔案}}",
+    "toolAnalyzeCodeActivity": "{state, select, running {正在分析程式碼} completed {已分析程式碼} other {分析程式碼}}",
+    "toolKnowledgeLookupActivity": "{state, select, running {正在查詢知識庫} completed {已查詢知識庫} other {查詢知識庫}}",
+    "toolFetchUrlActivity": "{state, select, running {正在讀取網頁內容} completed {已讀取網頁內容} other {讀取網頁內容}}",
+    "toolGenerateChartActivity": "{state, select, running {正在產生圖表} completed {已產生圖表} other {產生圖表}}",
+    "toolBrowserNavigateActivity": "{state, select, running {正在開啟網頁} completed {已開啟網頁} other {開啟網頁}}",
+    "toolBrowserClickElementActivity": "{state, select, running {正在點擊網頁元素} completed {已點擊網頁元素} other {點擊網頁元素}}",
+    "toolBrowserTypeTextActivity": "{state, select, running {正在輸入網頁文字} completed {已輸入網頁文字} other {輸入網頁文字}}",
+    "toolBrowserScreenshotActivity": "{state, select, running {正在網頁截圖} completed {已完成網頁截圖} other {網頁截圖}}",
+    "toolBrowserExtractDomActivity": "{state, select, running {正在擷取網頁內容} completed {已擷取網頁內容} other {擷取網頁內容}}",
+    "toolBrowserScrollActivity": "{state, select, running {正在捲動網頁} completed {已捲動網頁} other {捲動網頁}}",
+    "toolBrowserWaitForElementActivity": "{state, select, running {正在等待元素出現} completed {已等到元素出現} other {等待元素出現}}",
+    "toolBrowserHoverActivity": "{state, select, running {正在懸停網頁元素} completed {已懸停網頁元素} other {懸停網頁元素}}",
+    "toolBrowserCloseTabActivity": "{state, select, running {正在關閉網頁分頁} completed {已關閉網頁分頁} other {關閉網頁分頁}}",
+    "toolBrowserSwitchTabActivity": "{state, select, running {正在切換網頁分頁} completed {已切換網頁分頁} other {切換網頁分頁}}",
+    "toolReadFile": "讀取檔案內容",
+    "toolEditFile": "編輯檔案",
+    "toolWriteFile": "寫入檔案",
+    "toolCreateFile": "建立檔案",
+    "toolDeleteFile": "刪除檔案",
+    "toolListFiles": "列出目錄檔案",
+    "toolFileSearch": "檢索檔案",
+    "toolSearchCodebase": "搜尋程式碼庫",
+    "toolAnalyzeCode": "分析程式碼",
+    "toolWebSearch": "搜尋網頁",
+    "toolKnowledgeLookup": "查詢知識庫",
+    "toolParseDocument": "解析文件",
+    "toolGenerateChart": "產生圖表",
+    "toolSummarizeArtifacts": "彙整任務產物",
+    "activityMcp": "呼叫 {mcp} MCP",
+    "activityPlugin": "呼叫 {plugin} 外掛",
+    "activityPlanning": "規劃進度",
+    "activityRunning": "執行中",
+    "activitySubagent": "子代理 {name}",
+    "activityTerminal": "執行終端機命令",
+    "activityTool": "呼叫 {tool}",
+    "collapseDetail": "收合任務明細",
+    "expandDetail": "展開任務明細",
+    "filesChanged": "{n} 個檔案已修改",
+    "idle": "閒置",
+    "steps": "步驟 {current}/{total}",
+    "waiting": "等待任務開始",
+    "toolIndexCodebase": "索引程式碼庫",
+    "toolGenerateTest": "產生測試程式碼",
+    "toolRunCommand": "執行命令",
+    "toolGitOperations": "執行 Git 操作",
+    "toolFetchUrl": "讀取網頁內容",
+    "toolCrawlSite": "抓取網站頁面",
+    "toolScreenshot": "網頁截圖",
+    "toolContextRecall": "回憶歷史上下文",
+    "toolImageGeneration": "產生圖片",
+    "toolImageEdit": "編輯圖片",
+    "toolVideoGeneration": "產生影片",
+    "toolMusicGeneration": "產生音樂",
+    "toolVoiceTts": "文字轉語音",
+    "toolAudioTranscription": "音訊轉文字",
+    "toolVisionAnalyze": "辨識圖片內容",
+    "toolDispatchSubagent": "派遣子代理",
+    "toolScheduleTask": "建立排程任務",
+    "toolBgTaskStatus": "查詢背景任務",
+    "toolUiDescribe": "讀取頁面控制項",
+    "toolUiNavigate": "開啟頁面",
+    "toolUiClick": "點擊頁面元素",
+    "toolUiFill": "填寫輸入框",
+    "toolUiSubmit": "提交表單",
+    "toolUiRead": "讀取頁面內容",
+    "toolUiInvoke": "觸發頁面操作",
+    "toolApiSearch": "檢索後臺介面",
+    "toolApiCall": "呼叫後臺介面",
+    "toolEduListStudents": "查詢學生名單",
+    "toolEduListArrears": "查詢欠費名單",
+    "toolEduListReminders": "查詢催繳記錄",
+    "toolEduListPayments": "查詢繳費記錄",
+    "toolEduPaymentSummary": "彙總繳費情況",
+    "toolEduTuitionFees": "查詢學費標準",
+    "toolEduMyBills": "查詢我的帳單",
+    "toolEduListRefunds": "查詢退費申請",
+    "toolEduCreateRefund": "發起退費申請",
+    "toolEduApproveRefund": "批准退費",
+    "toolEduRejectRefund": "駁回退費",
+    "toolEduSendReminder": "發送催繳提醒",
+    "toolEduSendReminderBatch": "批次發送催繳提醒",
+    "toolEduCreatePayment": "登記繳費記錄",
+    "statusSuccess": "已完成",
+    "statusFailed": "執行失敗",
+    "statusRunning": "執行中",
+    "statusSkipped": "已跳過",
+    "roundNumber": "第 {n} 輪",
+    "retriedTimes": "重試 {n} 次",
+    "sourcePlugin": "外掛",
+    "sourceMcp": "MCP 服務",
+    "errorTimeout": "超時",
+    "errorHttp4xx": "請求被拒絕",
+    "errorHttp5xx": "服務異常",
+    "errorConnection": "連線失敗",
+    "errorCancelled": "已取消",
+    "unitLines": "{n} 行",
+    "unitResults": "{n} 個結果",
+    "unitFiles": "{n} 個檔案",
+    "addedCount": "+{n}",
+    "removedCount": "-{n}",
+    "workedFor": "用時 {time}",
+    "stepCount": "{n} 個步驟",
+    "expandSteps": "展開執行過程",
+    "collapseSteps": "收起執行過程",
+    "argsLabel": "入參",
+    "resultLabel": "結果",
+    "errorLabel": "錯誤",
+    "toolCallCount": "{n} 次工具呼叫",
+    "showMore": "顯示更多",
+    "noOutput": "無回傳內容",
+    "stepPending": "待開始",
+    "exitCode": "退出碼 {n}",
+    "toolBrowserNavigate": "開啟網頁",
+    "toolBrowserClickElement": "點擊網頁元素",
+    "toolBrowserTypeText": "輸入網頁文字",
+    "toolBrowserScroll": "捲動網頁",
+    "toolBrowserHover": "懸停網頁元素",
+    "toolBrowserSelectOption": "選擇下拉項目",
+    "toolBrowserGetAttribute": "讀取元素屬性",
+    "toolBrowserExtractDom": "擷取網頁內容",
+    "toolBrowserWaitForElement": "等待元素出現",
+    "toolBrowserScreenshot": "網頁截圖",
+    "toolBrowserSwitchTab": "切換網頁分頁",
+    "toolBrowserCloseTab": "關閉網頁分頁",
+    "toolBrowserSelfcheck": "頁面自我檢查",
+    "toolBrowserSelfcheckScreenshot": "頁面自我檢查截圖",
+    "toolComputerScreenshotScreen": "截取螢幕",
+    "toolComputerMouseClick": "點擊滑鼠",
+    "toolComputerMouseMove": "移動滑鼠",
+    "toolComputerMouseScroll": "捲動滑鼠",
+    "toolComputerKeyboardType": "鍵入文字",
+    "toolComputerKeyboardPress": "按下鍵盤",
+    "toolComputerKeyboardHotkey": "按下快速鍵",
+    "toolComputerClipboardGet": "讀取剪貼簿",
+    "toolComputerClipboardSet": "寫入剪貼簿",
+    "toolComputerActiveWindow": "讀取現行視窗",
+    "toolDbQuery": "查詢資料庫",
+    "toolDocumentTables": "讀取表格結構",
+    "toolExtractDocumentAssets": "擷取文件附件",
+    "toolGetToolSchema": "檢視工具參數說明",
+    "toolProactiveSuggestion": "產生主動建議",
+    "toolResolveConflict": "解決衝突",
+    "toolReviewPr": "審閱合併請求",
+    "toolVendorBalance": "查詢廠商餘額",
+    "toolVendorModelInfo": "查詢廠商模型資訊",
+    "toolVendorUploadFile": "上傳廠商檔案",
+    "toolVendorCancelTask": "取消廠商任務",
+    "toolVendorVoiceClone": "複製聲紋",
+    "fileActivity": "{state, select, running {正在處理檔案} completed {已處理檔案} other {處理檔案}}",
+    "imageActivity": "{state, select, running {正在處理圖像} completed {已處理圖像} other {處理圖像}}",
+    "searchActivity": "{state, select, running {正在檢索} completed {已檢索} other {檢索}}",
+    "thinkingActivity": "{state, select, running {正在分析} completed {已分析} other {分析}}",
+    "customActivity": "{state, select, running {正在執行} completed {已執行} other {執行}}",
+    "workedForDuration": "用時 {duration}",
+    "searchWithQuery": "查詢：{query}",
+    "showAllLines": "展開全部",
+    "hideLines": "收起",
+    "sourcesButton": "來源",
+    "canceled": "已取消",
+    "canceledItemLabel": "已取消：{name}",
+    "readingConnector": "讀取自 {connector}",
+    "writingConnector": "寫入到 {connector}"
+  },
   "a11y": {
     "addAttachment": "新增附件(圖片/影片/檔案)",
     "barChart": "柱狀圖",
@@ -27,7 +202,14 @@
     "send": "發送",
     "showPassword": "顯示密碼",
     "slashCommand": "斜線命令",
-    "uploadAvatar": "上傳頭像"
+    "uploadAvatar": "上傳頭像",
+    "previewSnapshotBadge": "工具記錄內容",
+    "previewSnapshotReadAt": "讀取於 {time}",
+    "previewSnapshotNotice": "無法讀取目前檔案，已顯示工具記錄中的內容。",
+    "previewIncompleteChange": "此次檔案變更沒有記錄完整內容。",
+    "previewNoContent": "沒有可預覽內容。",
+    "previewFileUpdated": "檔案已更新",
+    "previewFileUpdatedAction": "重新整理以查看最新內容"
   },
   "about": {
     "loading": "載入中...",
@@ -254,7 +436,13 @@
     "captchaRefresh": "重新整理驗證碼"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {對話流執行中，暫無待處理工具} other {對話流執行中，已排程 {count} 個工具}}} paused {對話流已暫停} failed {執行失敗：<b>{reason}</b>}}"
+    },
     "send": "發送"
+  },
+  "richAnchorProbe": {
+    "flow": "<action>正在注入</action><detail>{target}</detail>"
   },
   "common": {
     "accepted": "已採納",
@@ -444,9 +632,15 @@
     "fieldTitle": "標題",
     "loading": "載入中...",
     "notFound": "反饋不存在或無權存取",
+    "priorityHigh": "高",
+    "priorityLow": "低",
+    "priorityMedium": "中",
+    "priorityUnknown": "未設定優先級",
     "statusClosed": "已關閉",
     "statusPending": "待處理",
     "statusResolved": "已解決",
+    "statusReviewing": "審核中",
+    "statusUnknown": "未知狀態",
     "submit": "提交",
     "submitting": "提交中...",
     "subtitle": "提交反饋與建議",
@@ -454,9 +648,12 @@
     "title": "反饋中心",
     "type": "類型",
     "typeBug": "Bug",
+    "typeFeature": "功能需求",
+    "typeImprovement": "改進建議",
     "typeOther": "其他",
     "typeQuestion": "問題",
-    "typeSuggestion": "建議"
+    "typeSuggestion": "建議",
+    "typeUnknown": "未知類型"
   },
   "feedbackHistory": {
     "createdAt": "建立時間",
@@ -1833,5 +2030,231 @@
   },
   "topBar": {
     "capabilityMarket": "能力市場"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "計畫受阻",
+      "securityBlocked": "被安全策略攔截",
+      "rejectedByUser": "你已拒絕",
+      "approvalTimeout": "審批超時",
+      "toolMissing": "工具不存在",
+      "executeFailed": "執行失敗",
+      "executeRetried": "已重試",
+      "executed": "已執行",
+      "approvalPersistHit": "沿用你儲存的批准",
+      "execPolicyApproved": "執行策略放行",
+      "autoSkipApproval": "自動批准(免審批)",
+      "bypassSkipApproval": "已跳過審批",
+      "mcpRequiresApproval": "MCP 標註要求確認",
+      "policyRequiresApproval": "策略要求審批",
+      "policyForbidsExecution": "策略禁止執行"
+    },
+    "perm": {
+      "allow": "已放行",
+      "ask": "需確認",
+      "deny": "已拒絕"
+    },
+    "state": {
+      "approved": "已自動批准",
+      "rejected": "已拒絕",
+      "needsUser": "請求用戶確認",
+      "unknown": "決策未知"
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在準備回覆…",
+        "1": "正在組織回答思路…",
+        "2": "收到，正在思考如何回覆…",
+        "3": "正在為你生成回覆…",
+        "4": "已收到問題，正在處理…"
+      },
+      "middle": {
+        "0": "正在繼續處理…",
+        "1": "正在接著上文思考…",
+        "2": "正在整理後續回覆…",
+        "3": "正在跟進你的問題…",
+        "4": "正在生成接下來的回覆…"
+      },
+      "followup": {
+        "0": "正在理解你的追問…",
+        "1": "結合上文，正在思考…",
+        "2": "正在針對追問組織回覆…",
+        "3": "收到追問，正在處理…",
+        "4": "正在補充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在調度計算資源…",
+        "1": "正在初始化執行環境…",
+        "2": "正在啟動處理流程…",
+        "3": "正在分配算力處理…",
+        "4": "正在執行初始計算…"
+      },
+      "middle": {
+        "0": "正在執行中…",
+        "1": "計算進行中，請稍候…",
+        "2": "正在處理中間結果…",
+        "3": "執行未中斷，正在推進…",
+        "4": "正在運算，請稍候…"
+      },
+      "followup": {
+        "0": "正在重新計算…",
+        "1": "正在基於新輸入繼續執行…",
+        "2": "正在追加處理…",
+        "3": "正在更新計算結果…",
+        "4": "正在處理追加請求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顧對話上下文…",
+        "1": "正在加載相關上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在檢索相關記憶…",
+        "4": "正在準備上下文…"
+      },
+      "middle": {
+        "0": "正在關聯上文繼續…",
+        "1": "正在結合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就緒，正在處理…",
+        "4": "正在對照歷史消息…"
+      },
+      "followup": {
+        "0": "正在結合前文理解追問…",
+        "1": "正在回看相關上下文…",
+        "2": "正在關聯歷史追問…",
+        "3": "正在對照上文補充…",
+        "4": "結合上下文，正在處理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定處理計劃…",
+        "1": "正在拆解你的需求…",
+        "2": "正在規劃執行步驟…",
+        "3": "正在分析任務要點…",
+        "4": "正在擬定回覆提綱…"
+      },
+      "middle": {
+        "0": "正在推進計劃步驟…",
+        "1": "正在執行下一步…",
+        "2": "計劃進行中，請稍候…",
+        "3": "正在按步驟處理…",
+        "4": "正在落實後續步驟…"
+      },
+      "followup": {
+        "0": "正在調整計劃…",
+        "1": "正在根據追問更新步驟…",
+        "2": "正在重新規劃…",
+        "3": "正在補充計劃細節…",
+        "4": "正在跟進新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在準備詳細說明…",
+        "1": "正在組織細節內容…",
+        "2": "正在梳理要點…",
+        "3": "正在生成詳細回覆…",
+        "4": "正在完善回答細節…"
+      },
+      "middle": {
+        "0": "正在補充細節…",
+        "1": "正在展開說明…",
+        "2": "正在完善後續內容…",
+        "3": "詳情整理中，請稍候…",
+        "4": "正在細化回覆…"
+      },
+      "followup": {
+        "0": "正在補充你問的細節…",
+        "1": "正在展開追問的要點…",
+        "2": "正在細化相關說明…",
+        "3": "正在準備補充內容…",
+        "4": "正在完善追問的答覆…"
+      }
+    },
+    "vividTail": "，馬上就好"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "授權範圍",
+      "scopeOnce": "允許一次",
+      "scopeSession": "允許此對話",
+      "scopeAlways": "始終允許",
+      "reasonLabel": "原因(可選)",
+      "reasonPlaceholder": "填寫原因,便於審計與追溯"
+    }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "資源未找到",
+      "action": "該 MCP 資源可能已被刪除或未在資源清單中宣告，請重新整理清單後重新選擇。"
+    },
+    "runtimeException": {
+      "title": "執行期異常",
+      "action": "伺服器處理本次請求時拋出例外，請重新載入外掛檢視；若持續失敗請查看該服務的執行日誌。"
+    },
+    "entrypointNotRegistered": {
+      "title": "未註冊啟動入口",
+      "action": "該外掛檢視沒有註冊可用的啟動入口，請在設定中重新新增或啟用對應的服務。"
+    },
+    "entrypointInvalid": {
+      "title": "啟動入口無效",
+      "action": "伺服器的命令或地址不可執行，請檢查設定中的 command、url 與傳輸方式。"
+    },
+    "dependencyModuleMissing": {
+      "title": "相依模組未提供",
+      "action": "該服務相依的模組尚未安裝，請補齊相依後重新載入外掛檢視。"
+    },
+    "resourceLimitExceeded": {
+      "title": "資源超出限制",
+      "action": "請求體或回傳內容過大、呼叫過於頻繁，請縮小範圍或稍後重試。"
+    },
+    "environmentInitFailed": {
+      "title": "環境初始化失敗",
+      "action": "服務尚未完成初始化或執行環境未就緒，請確認服務已啟動後重新載入。"
+    },
+    "disabled": {
+      "title": "已停用",
+      "action": "該服務或外掛目前處於停用狀態，請先啟用再檢視內容。"
+    },
+    "backendTimeout": {
+      "title": "後端回應逾時",
+      "action": "伺服器在限定時間內未回傳結果，可稍後重試；若經常逾時請下調請求規模。"
+    },
+    "backendExited": {
+      "title": "後端已退出",
+      "action": "服務程序已結束或連線被關閉，請重新載入外掛檢視以重新啟動服務。"
+    },
+    "capabilityNotOffered": {
+      "title": "未提供所需能力",
+      "action": "該服務在能力宣告中未提供此功能，請改選其支援的能力。"
+    },
+    "backendCrashed": {
+      "title": "服務異常當機",
+      "action": "服務程序意外終止，請重新載入外掛檢視，並查看該服務的執行日誌。"
+    },
+    "protocolMismatch": {
+      "title": "協議版本不相符",
+      "action": "客戶端與該服務協商的協議版本不受支援，請升級服務或使用相容的客戶端版本。"
+    },
+    "authForbidden": {
+      "title": "授權失敗",
+      "action": "存取憑證無效或已過期，請重新登入後再檢視該服務。"
+    },
+    "invalidResponse": {
+      "title": "回傳內容無效",
+      "action": "服務回傳的內容無法解析或不符合約定格式，請重新載入；若持續失敗請聯絡服務提供方。"
+    },
+    "unknown": {
+      "title": "無法判定失敗原因",
+      "action": "暫時無法確定失敗原因，請重新載入外掛檢視；如仍失敗，請查看服務執行日誌。"
+    },
+    "reloadView": "重新載入外掛檢視",
+    "errorCodeLabel": "錯誤碼：{errorCode}"
   }
 }

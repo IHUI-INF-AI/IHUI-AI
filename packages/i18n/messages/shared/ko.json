@@ -1,4 +1,179 @@
 {
+  "taskStatus": {
+    "toolGenericActivity": "{state, select, running {{name} 실행 중} completed {{name} 실행 완료} other {{name} 실행}}",
+    "toolReadFileActivity": "{state, select, running {파일 내용 읽는 중} completed {파일을 읽었습니다} other {파일 내용 읽기}}",
+    "toolEditFileActivity": "{state, select, running {파일 편집 중} completed {파일을 편집했습니다} other {파일 편집}}",
+    "toolWriteFileActivity": "{state, select, running {파일 쓰기 중} completed {파일을 작성했습니다} other {파일 쓰기}}",
+    "toolSearchCodebaseActivity": "{state, select, running {코드베이스 검색 중} completed {코드베이스를 검색했습니다} other {코드베이스 검색}}",
+    "toolWebSearchActivity": "{state, select, running {웹 검색 중} completed {웹을 검색했습니다} other {웹 검색}}",
+    "toolParseDocumentActivity": "{state, select, running {문서 파싱 중} completed {문서를 파싱했습니다} other {문서 파싱}}",
+    "toolListFilesActivity": "{state, select, running {디렉터리 파일 나열 중} completed {디렉터리 파일을 나열했습니다} other {디렉터리 파일 나열}}",
+    "toolFileSearchActivity": "{state, select, running {파일 검색 중} completed {파일을 검색했습니다} other {파일 검색}}",
+    "toolCreateFileActivity": "{state, select, running {파일 생성 중} completed {파일을 생성했습니다} other {파일 생성}}",
+    "toolDeleteFileActivity": "{state, select, running {파일 삭제 중} completed {파일을 삭제했습니다} other {파일 삭제}}",
+    "toolAnalyzeCodeActivity": "{state, select, running {코드 분석 중} completed {코드를 분석했습니다} other {코드 분석}}",
+    "toolKnowledgeLookupActivity": "{state, select, running {지식 베이스 조회 중} completed {지식 베이스를 조회했습니다} other {지식 베이스 조회}}",
+    "toolFetchUrlActivity": "{state, select, running {웹 페이지 가져오기 중} completed {웹 페이지를 가져왔습니다} other {웹 페이지 가져오기}}",
+    "toolGenerateChartActivity": "{state, select, running {차트 생성 중} completed {차트를 생성했습니다} other {차트 생성}}",
+    "toolBrowserNavigateActivity": "{state, select, running {웹 페이지 열기 중} completed {웹 페이지를 열었습니다} other {웹 페이지 열기}}",
+    "toolBrowserClickElementActivity": "{state, select, running {페이지 요소 클릭 중} completed {페이지 요소를 클릭했습니다} other {페이지 요소 클릭}}",
+    "toolBrowserTypeTextActivity": "{state, select, running {페이지 입력 중} completed {페이지에 입력했습니다} other {페이지에 입력}}",
+    "toolBrowserScreenshotActivity": "{state, select, running {페이지 스크린샷 촬영 중} completed {페이지 스크린샷을 촬영했습니다} other {페이지 스크린샷}}",
+    "toolBrowserExtractDomActivity": "{state, select, running {페이지 내용 추출 중} completed {페이지 내용을 추출했습니다} other {페이지 내용 추출}}",
+    "toolBrowserScrollActivity": "{state, select, running {페이지 스크롤 중} completed {페이지를 스크롤했습니다} other {페이지 스크롤}}",
+    "toolBrowserWaitForElementActivity": "{state, select, running {요소 대기 중} completed {요소를 기다렸습니다} other {요소 대기}}",
+    "toolBrowserHoverActivity": "{state, select, running {페이지 요소 호버 중} completed {페이지 요소에 호버했습니다} other {페이지 요소 호버}}",
+    "toolBrowserCloseTabActivity": "{state, select, running {탭 닫는 중} completed {탭을 닫았습니다} other {탭 닫기}}",
+    "toolBrowserSwitchTabActivity": "{state, select, running {탭 전환 중} completed {탭을 전환했습니다} other {탭 전환}}",
+    "toolReadFile": "파일 내용 읽기",
+    "toolEditFile": "파일 편집",
+    "toolWriteFile": "파일 쓰기",
+    "toolCreateFile": "파일 생성",
+    "toolDeleteFile": "파일 삭제",
+    "toolListFiles": "디렉터리 파일 나열",
+    "toolFileSearch": "파일 검색",
+    "toolSearchCodebase": "코드베이스 검색",
+    "toolAnalyzeCode": "코드 분석",
+    "toolWebSearch": "웹 검색",
+    "toolKnowledgeLookup": "지식 베이스 조회",
+    "toolParseDocument": "문서 파싱",
+    "toolGenerateChart": "차트 생성",
+    "toolSummarizeArtifacts": "산출물 요약",
+    "activityMcp": "{mcp} MCP 호출",
+    "activityPlugin": "{plugin} 플러그인 호출",
+    "activityPlanning": "계획 수립 중",
+    "activityRunning": "실행 중",
+    "activitySubagent": "서브 에이전트 {name}",
+    "activityTerminal": "터미널 명령 실행",
+    "activityTool": "{tool} 호출",
+    "collapseDetail": "작업 세부 정보 접기",
+    "expandDetail": "작업 세부 정보 펼치기",
+    "filesChanged": "{n}개 파일 수정됨",
+    "idle": "대기",
+    "steps": "단계 {current}/{total}",
+    "waiting": "작업 시작을 기다리는 중",
+    "toolIndexCodebase": "코드베이스 색인",
+    "toolGenerateTest": "테스트 코드 생성",
+    "toolRunCommand": "명령 실행",
+    "toolGitOperations": "Git 작업 실행",
+    "toolFetchUrl": "웹 페이지 가져오기",
+    "toolCrawlSite": "사이트 크롤링",
+    "toolScreenshot": "스크린샷 촬영",
+    "toolContextRecall": "과거 맥락 회상",
+    "toolImageGeneration": "이미지 생성",
+    "toolImageEdit": "이미지 편집",
+    "toolVideoGeneration": "영상 생성",
+    "toolMusicGeneration": "음악 생성",
+    "toolVoiceTts": "음성 합성",
+    "toolAudioTranscription": "음성 텍스트 변환",
+    "toolVisionAnalyze": "이미지 분석",
+    "toolDispatchSubagent": "서브 에이전트 파견",
+    "toolScheduleTask": "예약 작업 생성",
+    "toolBgTaskStatus": "백그라운드 작업 확인",
+    "toolUiDescribe": "페이지 컨트롤 읽기",
+    "toolUiNavigate": "페이지 열기",
+    "toolUiClick": "요소 클릭",
+    "toolUiFill": "입력창 작성",
+    "toolUiSubmit": "폼 제출",
+    "toolUiRead": "페이지 내용 읽기",
+    "toolUiInvoke": "페이지 동작 실행",
+    "toolApiSearch": "엔드포인트 검색",
+    "toolApiCall": "엔드포인트 호출",
+    "toolEduListStudents": "학생 명단 조회",
+    "toolEduListArrears": "미납 명단 조회",
+    "toolEduListReminders": "독촉 기록 조회",
+    "toolEduListPayments": "납부 기록 조회",
+    "toolEduPaymentSummary": "납부 현황 집계",
+    "toolEduTuitionFees": "등록금 기준 조회",
+    "toolEduMyBills": "내 청구서 조회",
+    "toolEduListRefunds": "환불 신청 조회",
+    "toolEduCreateRefund": "환불 신청 생성",
+    "toolEduApproveRefund": "환불 승인",
+    "toolEduRejectRefund": "환불 반려",
+    "toolEduSendReminder": "독촉 알림 발송",
+    "toolEduSendReminderBatch": "독촉 알림 일괄 발송",
+    "toolEduCreatePayment": "납부 기록 등록",
+    "statusSuccess": "완료",
+    "statusFailed": "실패",
+    "statusRunning": "실행 중",
+    "statusSkipped": "건너뜀",
+    "roundNumber": "{n}번째 순번",
+    "retriedTimes": "{n}회 재시도",
+    "sourcePlugin": "플러그인",
+    "sourceMcp": "MCP 서비스",
+    "errorTimeout": "시간 초과",
+    "errorHttp4xx": "요청 거부",
+    "errorHttp5xx": "서버 오류",
+    "errorConnection": "연결 실패",
+    "errorCancelled": "취소됨",
+    "unitLines": "{n}줄",
+    "unitResults": "결과 {n}건",
+    "unitFiles": "파일 {n}개",
+    "addedCount": "+{n}",
+    "removedCount": "-{n}",
+    "workedFor": "소요 {time}",
+    "stepCount": "단계 {n}개",
+    "expandSteps": "실행 과정 보기",
+    "collapseSteps": "실행 과정 숨기기",
+    "argsLabel": "입력",
+    "resultLabel": "결과",
+    "errorLabel": "오류",
+    "toolCallCount": "도구 호출 {n}회",
+    "showMore": "더 보기",
+    "noOutput": "출력 없음",
+    "stepPending": "대기 중",
+    "exitCode": "종료 코드 {n}",
+    "toolBrowserNavigate": "웹 페이지 열기",
+    "toolBrowserClickElement": "페이지 요소 클릭",
+    "toolBrowserTypeText": "페이지에 입력",
+    "toolBrowserScroll": "페이지 스크롤",
+    "toolBrowserHover": "페이지 요소 호버",
+    "toolBrowserSelectOption": "옵션 선택",
+    "toolBrowserGetAttribute": "요소 속성 읽기",
+    "toolBrowserExtractDom": "페이지 내용 추출",
+    "toolBrowserWaitForElement": "요소 대기",
+    "toolBrowserScreenshot": "페이지 스크린샷",
+    "toolBrowserSwitchTab": "탭 전환",
+    "toolBrowserCloseTab": "탭 닫기",
+    "toolBrowserSelfcheck": "페이지 자가 점검",
+    "toolBrowserSelfcheckScreenshot": "자가 점검 스크린샷",
+    "toolComputerScreenshotScreen": "화면 캡처",
+    "toolComputerMouseClick": "마우스 클릭",
+    "toolComputerMouseMove": "마우스 이동",
+    "toolComputerMouseScroll": "마우스 스크롤",
+    "toolComputerKeyboardType": "텍스트 입력",
+    "toolComputerKeyboardPress": "키 누르기",
+    "toolComputerKeyboardHotkey": "단축키 누르기",
+    "toolComputerClipboardGet": "클립보드 읽기",
+    "toolComputerClipboardSet": "클립보드 쓰기",
+    "toolComputerActiveWindow": "최전방 창 읽기",
+    "toolDbQuery": "데이터베이스 조회",
+    "toolDocumentTables": "표 구조 읽기",
+    "toolExtractDocumentAssets": "문서 첨부 추출",
+    "toolGetToolSchema": "도구 사양 확인",
+    "toolProactiveSuggestion": "선제 제안",
+    "toolResolveConflict": "충돌 해결",
+    "toolReviewPr": "PR 검토",
+    "toolVendorBalance": "공급사 잔액 확인",
+    "toolVendorModelInfo": "공급사 모델 정보",
+    "toolVendorUploadFile": "공급사 파일 업로드",
+    "toolVendorCancelTask": "공급사 작업 취소",
+    "toolVendorVoiceClone": "음성 복제",
+    "fileActivity": "{state, select, running {파일 처리 중} completed {파일 처리 완료} other {파일 처리}}",
+    "imageActivity": "{state, select, running {이미지 처리 중} completed {이미지 처리 완료} other {이미지 처리}}",
+    "searchActivity": "{state, select, running {검색 중} completed {검색 완료} other {검색}}",
+    "thinkingActivity": "{state, select, running {분석 중} completed {분석 완료} other {분석}}",
+    "customActivity": "{state, select, running {실행 중} completed {실행 완료} other {실행}}",
+    "workedForDuration": "소요 시간 {duration}",
+    "searchWithQuery": "쿼리: {query}",
+    "showAllLines": "모두 펼치기",
+    "hideLines": "접기",
+    "sourcesButton": "출처",
+    "canceled": "취소됨",
+    "canceledItemLabel": "취소됨: {name}",
+    "readingConnector": "{connector}에서 읽기",
+    "writingConnector": "{connector}에 쓰기"
+  },
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/동영상/파일)",
     "barChart": "막대 차트",
@@ -27,7 +202,14 @@
     "send": "전송",
     "showPassword": "비밀번호 표시",
     "slashCommand": "슬래시 명령",
-    "uploadAvatar": "아바타 업로드"
+    "uploadAvatar": "아바타 업로드",
+    "previewSnapshotBadge": "도구 기록 내용",
+    "previewSnapshotReadAt": "읽은 시간: {time}",
+    "previewSnapshotNotice": "현재 파일을 읽을 수 없습니다. 도구 기록의 내용을 표시합니다.",
+    "previewIncompleteChange": "이 파일 변경은 전체 내용을 기록하지 않았습니다.",
+    "previewNoContent": "미리 볼 수 있는 내용이 없습니다.",
+    "previewFileUpdated": "파일이 업데이트되었습니다",
+    "previewFileUpdatedAction": "새로고침하여 최신 내용 보기"
   },
   "about": {
     "loading": "로딩 중...",
@@ -254,7 +436,13 @@
     "captchaRefresh": "인증 코드 새로고침"
   },
   "chat": {
+    "icuProbe": {
+      "flowState": "{state, select, running {{count, plural, =0 {스트림 실행 중, 대기 도구 없음} other {스트림 실행 중, {count}개 도구 예약됨}}} paused {스트림 일시 중지} failed {실행 실패: <b>{reason}</b>}}"
+    },
     "send": "전송"
+  },
+  "richAnchorProbe": {
+    "flow": "<detail>{target}</detail> <action>주입 중</action>"
   },
   "common": {
     "accepted": "채택됨",
@@ -444,9 +632,15 @@
     "fieldTitle": "제목",
     "loading": "로딩 중...",
     "notFound": "피드백이 존재하지 않거나 접근 권한이 없습니다",
+    "priorityHigh": "높음",
+    "priorityLow": "낮음",
+    "priorityMedium": "보통",
+    "priorityUnknown": "우선순위 없음",
     "statusClosed": "종료됨",
     "statusPending": "대기 중",
     "statusResolved": "해결됨",
+    "statusReviewing": "검토 중",
+    "statusUnknown": "상태 알 수 없음",
     "submit": "제출",
     "submitting": "제출 중...",
     "subtitle": "피드백 및 제안 제출",
@@ -454,9 +648,12 @@
     "title": "피드백 센터",
     "type": "유형",
     "typeBug": "버그",
+    "typeFeature": "기능 요청",
+    "typeImprovement": "개선 제안",
     "typeOther": "기타",
     "typeQuestion": "질문",
-    "typeSuggestion": "제안"
+    "typeSuggestion": "제안",
+    "typeUnknown": "유형 알 수 없음"
   },
   "feedbackHistory": {
     "createdAt": "생성 시간",
@@ -1833,5 +2030,231 @@
   },
   "topBar": {
     "capabilityMarket": "기능 마켓"
+  },
+  "stepDecision": {
+    "decision": {
+      "planBlocked": "계획이 차단되었습니다",
+      "securityBlocked": "보안 정책에 따라 차단됨",
+      "rejectedByUser": "본인이 거부함",
+      "approvalTimeout": "승인 시간이 초과됨",
+      "toolMissing": "도구를 찾을 수 없음",
+      "executeFailed": "실행 실패",
+      "executeRetried": "재시도함",
+      "executed": "실행함",
+      "approvalPersistHit": "저장된 승인 재사용",
+      "execPolicyApproved": "실행 정책에 따라 허용",
+      "autoSkipApproval": "자동 승인(심사 생략)",
+      "bypassSkipApproval": "심사 건너뜀",
+      "mcpRequiresApproval": "MCP 주석이 승인 필요",
+      "policyRequiresApproval": "정책상 승인 필요",
+      "policyForbidsExecution": "정책상 실행 금지"
+    },
+    "perm": {
+      "allow": "허용함",
+      "ask": "확인 필요",
+      "deny": "거부함"
+    },
+    "state": {
+      "approved": "자동 승인됨",
+      "rejected": "거부됨",
+      "needsUser": "사용자 승인 필요",
+      "unknown": "판단 불가"
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "답변을 준비하고 있습니다…",
+        "1": "답변 구성을 생각하고 있습니다…",
+        "2": "알겠습니다, 답변을 고민 중입니다…",
+        "3": "답변을 생성하고 있습니다…",
+        "4": "질문을 받았습니다, 처리 중입니다…"
+      },
+      "middle": {
+        "0": "계속 처리하고 있습니다…",
+        "1": "앞 내용을 이어서 생각하고 있습니다…",
+        "2": "나머지 답변을 정리하고 있습니다…",
+        "3": "질문에 대응하고 있습니다…",
+        "4": "다음 답변을 생성하고 있습니다…"
+      },
+      "followup": {
+        "0": "추가 질문을 확인하고 있습니다…",
+        "1": "맥락을 고려해 생각하고 있습니다…",
+        "2": "추가 질문에 대한 답변을 정리하고 있습니다…",
+        "3": "추가 질문을 받았습니다…",
+        "4": "답변을 보충하고 있습니다…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "연산 리소스를 확보하고 있습니다…",
+        "1": "실행 환경을 초기화하고 있습니다…",
+        "2": "처리를 시작하고 있습니다…",
+        "3": "연산을 할당하고 있습니다…",
+        "4": "초기 계산을 실행하고 있습니다…"
+      },
+      "middle": {
+        "0": "실행 중입니다…",
+        "1": "계산하고 있습니다, 잠시만 기다려 주세요…",
+        "2": "중간 결과를 처리하고 있습니다…",
+        "3": "중단 없이 진행하고 있습니다…",
+        "4": "연산 중입니다…"
+      },
+      "followup": {
+        "0": "다시 계산하고 있습니다…",
+        "1": "새 입력으로 처리를 이어가고 있습니다…",
+        "2": "추가분을 처리하고 있습니다…",
+        "3": "결과를 업데이트하고 있습니다…",
+        "4": "추가 요청에 대응하고 있습니다…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "대화 맥락을 확인하고 있습니다…",
+        "1": "관련 맥락을 불러오고 있습니다…",
+        "2": "배경 정보를 정리하고 있습니다…",
+        "3": "관련 기억을 떠올리고 있습니다…",
+        "4": "맥락을 준비하고 있습니다…"
+      },
+      "middle": {
+        "0": "앞 내용과 연결해 이어가고 있습니다…",
+        "1": "맥락을 고려해 생각하고 있습니다…",
+        "2": "이전 메시지를 되돌아보고 있습니다…",
+        "3": "맥락 준비 완료, 처리 중입니다…",
+        "4": "이전 메시지와 대조하고 있습니다…"
+      },
+      "followup": {
+        "0": "맥락과 함께 추가 질문을 이해하고 있습니다…",
+        "1": "관련 맥락을 되돌아보고 있습니다…",
+        "2": "이전 논의와 연결하고 있습니다…",
+        "3": "앞 내용과 대조해 보충하고 있습니다…",
+        "4": "맥락을 바탕으로 처리하고 있습니다…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "대응 계획을 세우고 있습니다…",
+        "1": "요청을 분해하고 있습니다…",
+        "2": "실행 단계를 계획하고 있습니다…",
+        "3": "작업 요점을 분석하고 있습니다…",
+        "4": "답변 개요를 만들고 있습니다…"
+      },
+      "middle": {
+        "0": "계획을 진행하고 있습니다…",
+        "1": "다음 단계로 넘어가고 있습니다…",
+        "2": "계획 실행 중입니다…",
+        "3": "단계대로 처리하고 있습니다…",
+        "4": "남은 단계를 실행하고 있습니다…"
+      },
+      "followup": {
+        "0": "계획을 조정하고 있습니다…",
+        "1": "추가 질문에 맞춰 단계를 업데이트하고 있습니다…",
+        "2": "다시 계획하고 있습니다…",
+        "3": "계획 세부 사항을 보충하고 있습니다…",
+        "4": "새로운 요청에 대응하고 있습니다…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "자세한 설명을 준비하고 있습니다…",
+        "1": "세부 사항을 정리하고 있습니다…",
+        "2": "요점을 정리하고 있습니다…",
+        "3": "자세한 답변을 생성하고 있습니다…",
+        "4": "답변 세부 사항을 다듬고 있습니다…"
+      },
+      "middle": {
+        "0": "세부 사항을 보충하고 있습니다…",
+        "1": "설명을 확장하고 있습니다…",
+        "2": "후속 내용을 다듬고 있습니다…",
+        "3": "세부 사항을 정리하는 중입니다…",
+        "4": "답변을 다듬고 있습니다…"
+      },
+      "followup": {
+        "0": "질문하신 세부 사항을 보충하고 있습니다…",
+        "1": "추가 질문의 요점을 확장하고 있습니다…",
+        "2": "설명을 자세히 다듬고 있습니다…",
+        "3": "보충 내용을 준비하고 있습니다…",
+        "4": "추가 질문에 대한 답변을 마무리하고 있습니다…"
+      }
+    },
+    "vividTail": ", 금방 끝납니다"
+  },
+  "editor": {
+    "toolApproval": {
+      "scopeLabel": "권한 범위",
+      "scopeOnce": "이번만 허용",
+      "scopeSession": "이 대화에서 허용",
+      "scopeAlways": "항상 허용",
+      "reasonLabel": "사유(선택)",
+      "reasonPlaceholder": "사유를 입력하면 감사와 추적에 도움이 됩니다"
+    }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "리소스를 찾을 수 없음",
+      "action": "해당 MCP 리소스가 삭제되었거나 리소스 목록에 선언되지 않았을 수 있습니다. 목록을 새로 고친 후 다시 선택해 주세요."
+    },
+    "runtimeException": {
+      "title": "런타임 오류",
+      "action": "서버가 이 요청을 처리하는 동안 예외가 발생했습니다. 플러그인 뷰를 다시 로드해 주세요. 문제가 지속되면 해당 서비스의 실행 로그를 확인하세요."
+    },
+    "entrypointNotRegistered": {
+      "title": "시작 엔트리가 등록되지 않음",
+      "action": "이 플러그인 뷰에는 사용할 수 있는 시작 엔트리가 등록되지 않았습니다. 설정에서 해당 서비스를 다시 추가하거나 활성화해 주세요."
+    },
+    "entrypointInvalid": {
+      "title": "시작 엔트리가 유효하지 않음",
+      "action": "서비스의 명령어나 주소를 실행할 수 없습니다. 설정의 command, url, 전송 방식을 확인해 주세요."
+    },
+    "dependencyModuleMissing": {
+      "title": "의존 모듈이 제공되지 않음",
+      "action": "이 서비스에 필요한 모듈이 설치되지 않았습니다. 의존성을 설치한 후 플러그인 뷰를 다시 로드해 주세요."
+    },
+    "resourceLimitExceeded": {
+      "title": "리소스 제한 초과",
+      "action": "요청 본문이나 응답 내용이 너무 크거나 호출이 지나치게 빈번합니다. 범위를 줄이거나 잠시 후 다시 시도해 주세요."
+    },
+    "environmentInitFailed": {
+      "title": "환경 초기화 실패",
+      "action": "서비스가 초기화를 완료하지 않았거나 런타임 환경이 준비되지 않았습니다. 서비스가 실행 중인지 확인한 후 다시 로드해 주세요."
+    },
+    "disabled": {
+      "title": "비활성화됨",
+      "action": "이 서비스 또는 플러그인은 현재 비활성화 상태입니다. 먼저 활성화한 후 콘텐츠를 확인해 주세요."
+    },
+    "backendTimeout": {
+      "title": "백엔드 응답 시간 초과",
+      "action": "서버가 제한된 시간 내에 결과를 반환하지 않았습니다. 잠시 후 다시 시도해 주세요. 시간이 초과되는 일이 잦다면 요청 규모를 줄이세요."
+    },
+    "backendExited": {
+      "title": "백엔드 종료",
+      "action": "서비스 프로세스가 종료되었거나 연결이 닫혔습니다. 플러그인 뷰를 다시 로드해 서비스를 다시 시작해 주세요."
+    },
+    "capabilityNotOffered": {
+      "title": "필요한 기능 미제공",
+      "action": "이 서비스는 기능 선언에 해당 기능을 제공하지 않습니다. 서비스가 지원하는 다른 기능을 선택해 주세요."
+    },
+    "backendCrashed": {
+      "title": "서비스 충돌",
+      "action": "서비스 프로세스가 예상치 못하게 종료되었습니다. 플러그인 뷰를 다시 로드하고 해당 서비스의 실행 로그를 확인해 주세요."
+    },
+    "protocolMismatch": {
+      "title": "프로토콜 버전 불일치",
+      "action": "클라이언트와 이 서비스가 협상한 프로토콜 버전을 지원하지 않습니다. 서비스를 업그레이드하거나 클라이언트 버전을 낮춰 주세요."
+    },
+    "authForbidden": {
+      "title": "인증 실패",
+      "action": "접근 자격 증명이 유효하지 않거나 만료되었습니다. 다시 로그인한 후 해당 서비스를 확인해 주세요."
+    },
+    "invalidResponse": {
+      "title": "응답 내용 유효하지 않음",
+      "action": "서비스가 반환한 내용을 해석할 수 없거나 합의된 형식에 맞지 않습니다. 다시 로드해 주세요. 문제가 지속되면 서비스 제공자에게 문의하세요."
+    },
+    "unknown": {
+      "title": "실패 원인 확인되지 않음",
+      "action": "실패 원인을 일시적으로 확정할 수 없습니다. 플러그인 뷰를 다시 로드해 주세요. 그래도 실패하면 서비스 실행 로그를 확인해 주세요."
+    },
+    "reloadView": "플러그인 뷰 다시 로드",
+    "errorCodeLabel": "오류 코드: {errorCode}"
   }
 }
