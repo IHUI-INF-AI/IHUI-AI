@@ -5,9 +5,9 @@
 """多通道消息总线测试(app/api/message_bus.py + app/services/message_bus.py)。
 
 测试覆盖:
-1. 消息发送到指定通道(IM/WebSocket/Webhook/Email/SMS)
+1. 消息发送到指定通道(IM/WebSocket/Webhook/SMS)
 2. 通道降级(主通道失败 → 自动尝试更低优先级通道)
-3. 优先级排序(IM > WebSocket > Webhook > Email > SMS)
+3. 优先级排序(IM > WebSocket > Webhook > SMS)
 4. 批量发送(batch_publish)
 5. 限流(token bucket,超限拒绝)
 6. 模板渲染(变量替换 + 未知模板/缺失变量异常)
@@ -18,7 +18,7 @@
 设计:
 - 服务层测试用 fresh MessageBus 实例(隔离单例污染)。
 - API 层测试用 httpx ASGITransport client + autouse fixture 重置单例状态。
-- 不依赖真实 IM/SMTP/SMS/Webhook 外部服务(stub 实现)。
+- 不依赖真实 IM/SMS/Webhook 外部服务(stub 实现)。
 """
 
 from __future__ import annotations
@@ -100,41 +100,6 @@ def _mock_http_client(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", _factory)
 
 
-class _FakeSMTP:
-    """smtplib.SMTP 的替身:不真正连网,记录调用以便断言。
-
-    每次实例化会追加到类级 instances,测试可通过最后一个实例断言
-    sendmail 的收件人与邮件内容。
-    """
-
-    instances: list[_FakeSMTP] = []
-
-    def __init__(self, host, port=0, timeout=10, **kwargs):
-        self.host = host
-        self.port = port
-        self.calls: list = []
-        self.sent_mail: list[tuple] = []
-        type(self).instances.append(self)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def ehlo(self):
-        self.calls.append("ehlo")
-
-    def starttls(self):
-        self.calls.append("starttls")
-
-    def login(self, user, password):
-        self.calls.append(("login", user))
-
-    def sendmail(self, from_addr, to_addrs, msg):
-        self.sent_mail.append((from_addr, to_addrs, msg))
-
-
 def _make_message(
     content: str = "hello",
     msg_id: str = "test-msg-1",
@@ -192,44 +157,6 @@ async def test_publish_to_webhook_no_urls_succeeds() -> None:
     msg = _make_message(content="hook-msg", msg_id="m-wh-1")
     result = await bus.publish(msg, [ChannelType.WEBHOOK])
     assert ChannelType.WEBHOOK in result.delivered_channels
-
-
-@pytest.mark.asyncio
-async def test_publish_to_email_without_recipient_fails() -> None:
-    """发布到 Email 通道(metadata 无 'to')→ 失败。"""
-    bus = MessageBus(rate_limit_per_sec=100)
-    msg = _make_message(content="email-msg", msg_id="m-em-1", metadata={})
-    result = await bus.publish(msg, [ChannelType.EMAIL])
-    assert ChannelType.EMAIL in result.failed_channels
-    assert result.delivered_channels == []
-    assert result.error == "所有通道投递失败"
-
-
-@pytest.mark.asyncio
-async def test_publish_to_email_with_recipient_succeeds(monkeypatch) -> None:
-    """发布到 Email 通道(metadata 有 'to' + SMTP 配置)→ 成功。"""
-    import smtplib
-
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_PORT", "587")
-    monkeypatch.setenv("SMTP_USER", "bot@example.com")
-    monkeypatch.setenv("SMTP_PASSWORD", "secret")
-    monkeypatch.setenv("SMTP_FROM", "IHUI <notify@example.com>")
-    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
-    bus = MessageBus(rate_limit_per_sec=100)
-    msg = _make_message(
-        content="email-msg", msg_id="m-em-2", metadata={"to": "user@example.com"}
-    )
-    result = await bus.publish(msg, [ChannelType.EMAIL])
-    assert ChannelType.EMAIL in result.delivered_channels
-    # 验证真实 SMTP 发送被调用:收件人 + 邮件头部
-    assert _FakeSMTP.instances, "SMTP 未实例化,说明没走真实发送路径"
-    sent = _FakeSMTP.instances[-1].sent_mail
-    assert sent, "sendmail 未被调用"
-    assert sent[0][1] == ["user@example.com"]
-    # MIMEText 正文按 base64 编码,直接断言头部与收件人即可
-    assert "To: user@example.com" in sent[0][2]
-    assert "From: IHUI <notify@example.com>" in sent[0][2]
 
 
 @pytest.mark.asyncio
@@ -311,8 +238,8 @@ async def test_publish_fallback_cascades_to_sms() -> None:
     assert result.delivered_channels == []
     assert result.fallback_used is False
     assert result.error == "所有通道投递失败"
-    # 应尝试了所有 5 个通道(IM + 4 个降级)
-    assert len(result.failed_channels) == 5
+    # 应尝试了所有 4 个通道(IM + 3 个降级)
+    assert len(result.failed_channels) == 4
 
 
 @pytest.mark.asyncio
@@ -339,10 +266,9 @@ async def test_publish_fallback_stops_at_first_success() -> None:
     assert ChannelType.IM in result.failed_channels
     assert ChannelType.WEBSOCKET in result.delivered_channels
     assert result.fallback_used is True
-    # IM 先调用,WebSocket 降级成功,不应继续尝试 Webhook/Email/SMS
+    # IM 先调用,WebSocket 降级成功,不应继续尝试 Webhook/SMS
     assert ChannelType.WEBSOCKET in call_log
     assert ChannelType.WEBHOOK not in call_log
-    assert ChannelType.EMAIL not in call_log
     assert ChannelType.SMS not in call_log
 
 
@@ -353,7 +279,7 @@ async def test_publish_fallback_stops_at_first_success() -> None:
 
 @pytest.mark.asyncio
 async def test_publish_priority_order_im_first() -> None:
-    """发布到 [SMS, IM, Email](乱序)→ 按 priority 排序后 IM 先调用。"""
+    """发布到 [SMS, IM, Webhook](乱序)→ 按 priority 排序后 IM 先调用。"""
     bus = MessageBus(rate_limit_per_sec=1000)
     call_order: list[ChannelType] = []
 
@@ -368,20 +294,19 @@ async def test_publish_priority_order_im_first() -> None:
         adapter.send = _fake_send
 
     msg = _make_message(content="priority-test", msg_id="m-prio-1")
-    await bus.publish(msg, [ChannelType.SMS, ChannelType.IM, ChannelType.EMAIL])
+    await bus.publish(msg, [ChannelType.SMS, ChannelType.IM, ChannelType.WEBHOOK])
 
-    # IM (priority 1) → EMAIL (priority 4) → SMS (priority 5)
+    # IM (priority 1) → WEBHOOK (priority 3) → SMS (priority 4)
     assert call_order[0] == ChannelType.IM
-    assert call_order[1] == ChannelType.EMAIL
+    assert call_order[1] == ChannelType.WEBHOOK
     assert call_order[2] == ChannelType.SMS
 
 
 def test_channel_priority_values() -> None:
-    """通道优先级数值正确:IM < WebSocket < Webhook < Email < SMS。"""
+    """通道优先级数值正确:IM < WebSocket < Webhook < SMS。"""
     assert CHANNEL_PRIORITY[ChannelType.IM] < CHANNEL_PRIORITY[ChannelType.WEBSOCKET]
     assert CHANNEL_PRIORITY[ChannelType.WEBSOCKET] < CHANNEL_PRIORITY[ChannelType.WEBHOOK]
-    assert CHANNEL_PRIORITY[ChannelType.WEBHOOK] < CHANNEL_PRIORITY[ChannelType.EMAIL]
-    assert CHANNEL_PRIORITY[ChannelType.EMAIL] < CHANNEL_PRIORITY[ChannelType.SMS]
+    assert CHANNEL_PRIORITY[ChannelType.WEBHOOK] < CHANNEL_PRIORITY[ChannelType.SMS]
 
 
 def test_channel_type_enum_values() -> None:
@@ -389,7 +314,6 @@ def test_channel_type_enum_values() -> None:
     assert ChannelType.IM.value == "im"
     assert ChannelType.WEBSOCKET.value == "websocket"
     assert ChannelType.WEBHOOK.value == "webhook"
-    assert ChannelType.EMAIL.value == "email"
     assert ChannelType.SMS.value == "sms"
 
 
@@ -811,8 +735,8 @@ async def test_get_delivery_status_records_failed_channels() -> None:
     status = await bus.get_delivery_status("st-2")
     assert status is not None
     assert status.per_channel[ChannelType.IM] == "failed"
-    # 降级尝试了 4 个通道(WS/WH/EM/SMS)
-    assert status.total_attempts == 5
+    # 降级尝试了 3 个通道(WS/WH/SMS)
+    assert status.total_attempts == 4
 
 
 # =============================================================================
