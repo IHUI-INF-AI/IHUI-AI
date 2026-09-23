@@ -767,6 +767,23 @@ export function MessageContent({ message, streaming = false }: MessageContentPro
               })}
         </div>
       ) : null}
+      {/* D106(2026-09-24)中途引导交代:steer 帧逐条累积,渲染"已引导 N 次"计数 + 引导原文。
+          措辞出自 chat.steerNoticeTitle 词表(与 web steerNoticeBar 逐字同源),text 是内容非 chrome。 */}
+      {message.role === 'assistant' && message.steerNotices?.length ? (
+        <div
+          data-testid="steer-notice"
+          className="mt-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground"
+        >
+          <div className="font-medium">{t('chat.steerNoticeTitle', { count: message.steerNotices.length })}</div>
+          <ul className="mt-0.5 list-disc pl-4">
+            {message.steerNotices.map((s, i) => (
+              <li key={`${s.timestamp ?? 'steer'}_${i}`} className="truncate">
+                {s.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   )
 }
