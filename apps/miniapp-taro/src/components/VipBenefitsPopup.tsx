@@ -7,6 +7,7 @@ import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { getSystemInfoCompat } from '@/utils/system-info'
+import { rnRadius } from '@ihui/design-tokens'
 // 对勾图标(对齐原项目 UserMembershipBenefits.vue 的 pigeona.png)
 const pigeonaImg = aizhsUrl('remote-images/pigeona.png')
 
@@ -398,7 +399,7 @@ export default function VipBenefitsPopup({
         className="relative w-full overflow-hidden"
         style={{
           height: cfg.height,
-          borderRadius: '20rpx',
+          borderRadius: rnRadius.lg,
           background: popupBg,
           boxShadow:
             '0 5px 15px var(--color-black-20), inset 0 -1px 2px var(--color-white-70), inset 0 1px 1px var(--color-white-70)',
@@ -427,7 +428,7 @@ export default function VipBenefitsPopup({
                   style={{
                     border: '1px solid var(--color-border)',
                     padding: '8rpx',
-                    borderRadius: '15rpx',
+                    borderRadius: rnRadius.lg,
                     fontSize: '28rpx',
                     color: 'var(--color-foreground)',
                   }}
@@ -475,7 +476,7 @@ export default function VipBenefitsPopup({
                 style={{
                   width: '356rpx',
                   height: '80rpx',
-                  borderRadius: '30rpx',
+                  borderRadius: rnRadius['2xl'],
                   margin: '20rpx auto',
                   fontSize: '30rpx',
                   fontWeight: 500,
@@ -497,7 +498,7 @@ export default function VipBenefitsPopup({
                 style={{
                   width: '356rpx',
                   height: '80rpx',
-                  borderRadius: '30rpx',
+                  borderRadius: rnRadius['2xl'],
                   margin: '20rpx auto',
                   fontSize: '30rpx',
                   fontWeight: 500,
@@ -531,7 +532,7 @@ export default function VipBenefitsPopup({
               className="relative"
               style={{
                 padding: '20rpx',
-                borderRadius: '30rpx',
+                borderRadius: rnRadius['2xl'],
                 background: 'var(--color-card)',
                 backdropFilter: 'blur(10px)',
                 boxShadow: '0px 6px 12px 0px var(--color-black-15)',
@@ -546,7 +547,7 @@ export default function VipBenefitsPopup({
                   style={{
                     width: '100%',
                     height: '411rpx',
-                    borderRadius: '30rpx',
+                    borderRadius: rnRadius['2xl'],
                     marginBottom: '16rpx',
                   }}
                   src="/static/images/default/mingpian.png"
@@ -554,7 +555,7 @@ export default function VipBenefitsPopup({
                 />
                 <Image
                   className="block mx-auto"
-                  style={{ width: '100%', borderRadius: '8rpx' }}
+                  style={{ width: '100%', borderRadius: rnRadius.sm }}
                   src="/static/images/erweima.png"
                   mode="widthFix"
                   showMenuByLongpress

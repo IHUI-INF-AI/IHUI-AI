@@ -16,6 +16,7 @@ import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { fetchApi } from '@ihui/api-client'
 import type { SearchScreenItem } from '@ihui/types'
+import { rnRadius } from '@ihui/design-tokens'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 
@@ -74,7 +75,7 @@ const viewStyles: Record<string, CSSProperties> = {
     paddingRight: '28rpx',
     paddingTop: '16rpx',
     paddingBottom: '16rpx',
-    borderRadius: '24rpx',
+    borderRadius: rnRadius.xl,
     backgroundColor: 'var(--color-primary)',
     flexShrink: 0,
   },
@@ -102,7 +103,7 @@ const viewStyles: Record<string, CSSProperties> = {
     paddingRight: '24rpx',
     paddingTop: '24rpx',
     paddingBottom: '24rpx',
-    borderRadius: '24rpx',
+    borderRadius: rnRadius.xl,
     border: '1rpx solid var(--color-border)',
   },
   // RN cardHead:marginBottom 8
@@ -118,7 +119,7 @@ const viewStyles: Record<string, CSSProperties> = {
     paddingRight: '12rpx',
     paddingTop: '4rpx',
     paddingBottom: '4rpx',
-    borderRadius: '8rpx',
+    borderRadius: rnRadius.sm,
     backgroundColor: 'var(--color-success-light)',
     overflow: 'hidden',
     flexShrink: 0,
