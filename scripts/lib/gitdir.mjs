@@ -25,7 +25,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -243,14 +243,54 @@ export function needsGitdirPointer(worktree, gitdir) {
 }
 
 /**
- * 本地 gitdir 备份目录(兜底恢复用):与旧 D: 备份路径保持兼容 —— 旧路径存在时优先,
- * 否则按仓根同级推导(如 `G:/IHUI-AI.git-backup-20260912`)。
+ * gitdir 类归档在项目外的**唯一**落点(AGENTS.md §15b)。按工作树所在盘动态推导、不写死盘符:
+ * 工作树 `X:/IHUI-AI` ⇒ 归档根 `X:/DevEnv/backups/git`。不可用时返回 null 由调用方兜底。
+ */
+export function gitArchiveDir() {
+  const wt = resolveWorktree()
+  const root = join(resolve(wt, '..', '..'), 'DevEnv', 'backups', 'git')
+  try {
+    mkdirSync(root, { recursive: true })
+  } catch {
+    /* 换机/只读环境下退回兄弟命名 */
+  }
+  return existsSync(root) ? root.replace(/\\/g, '/') : null
+}
+
+/**
+ * gitdir 现场归档目标路径(git-guardian 与 git-rebuild-local 共用,单一真相源)。
+ *
+ * 根因:两处原来都写成 `${GITDIR}.broken-<ts>`,而 GITDIR = `D:/IHUI-AI-git-repo`
+ * ⇒ 每次守护/重建归档**必然在盘根长出一个新兄弟目录**(实测累计 3 个 / 1.94GB),
+ * 违反 §15b「项目外落点唯一制」。现统一落 `DevEnv/backups/git/`;拿不到该目录时才退回旧命名。
+ * @param {string} baseName 形如 `IHUI-AI-git-repo.broken-2026-09-23T…`
+ */
+export function gitdirArchivePath(baseName) {
+  const root = gitArchiveDir()
+  return root ? `${root}/${baseName}` : null
+}
+
+/**
+ * 本地 gitdir 备份目录(兜底恢复用)。优先级:§15b 唯一备份目录下的新位置 →
+ * 仓根同级推导(迁移前的旧位置);任一处存在 `HEAD` 即采用。
+ * 旧版只查写死的 `D:/IHUI-AI.git-backup-20260912`,而该目录 2026-09-23 已迁入 §15b 目录
+ * ⇒ 旧代码会解析到一个不存在的路径,使 git-guardian 报 `backupOk:false`(本地恢复源形同失效)。
  */
 export function resolveBackupDir(worktree) {
-  const legacy = 'D:/IHUI-AI.git-backup-20260912'
-  if (existsSync(join(legacy, 'HEAD'))) return legacy
   const wt = worktree || resolveWorktree()
-  return join(dirname(wt), `${basename(wt)}.git-backup-20260912`).replace(/\\/g, '/')
+  const name = `${basename(wt)}.git-backup-20260912`
+  const cands = []
+  const root = gitArchiveDir()
+  if (root) cands.push(`${root}/${name}`)
+  cands.push(join(dirname(wt), name))
+  for (const c of cands) {
+    try {
+      if (existsSync(join(c, 'HEAD'))) return c.replace(/\\/g, '/')
+    } catch {
+      /* 单个候选不可读不影响继续下探 */
+    }
+  }
+  return cands[0].replace(/\\/g, '/')
 }
 
 /**
