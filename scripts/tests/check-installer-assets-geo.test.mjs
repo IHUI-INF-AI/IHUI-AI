@@ -114,4 +114,37 @@ test('判据必须能解析生成器的符号常量(RCARD_X = C_L,不是字面�
   assert.match(r.text, /重装页卡片几何漂移:IHUI_RCARD_X=288 != 生成器 RCARD_X=300/)
   assert.doesNotMatch(r.text, /缺少可解析的常量 RCARD_X/)
 })
+
+// ─── 不变量 F(目录页输入框垂直居中)的注入回归 ─────────────────────
+// 这条闸的由来:用户报"安装路径容器内的文字没有居中,下面空了很多",根因是 Win32
+// 单行 Edit 顶对齐文字、控件比字行高多出的部分全落在下方。修复 commit 57e4443bd6
+// (IHUI_EDIT_H 28→22、IHUI_EDIT_Y 306→309)本身无闸 —— 下面三例逐条证明它会变红。
+
+test('注入违规:目录页输入框退回旧的顶对齐几何(Y=306)必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_EDIT_Y     309', '!define IHUI_EDIT_Y     306')
+  assert.notEqual(mutated, ui, '注入失败:找不到 !define IHUI_EDIT_Y 309')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /垂直居中/)
+  assert.match(r.text, /Y 应为 309,实际 306/)
+})
+
+test('注入违规:生成器容器矩形改了而 define 不动必须被拦(证明它在跟位图对账)', () => {
+  // 只动位图侧(容器高 36→18),define 保持 309/22 → 垂直居中与"高不超出容器"两条同时红。
+  // 若判据只是"define 自比"而不读生成器,这一例必然假绿。
+  const mutated = gen.replace('y="302" width="412" height="36"', 'y="302" width="412" height="18"')
+  assert.notEqual(mutated, gen, '注入失败:找不到目录页容器 <rect> 的 y/height')
+  const r = withFixtures({ 'gen.mjs': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /垂直居中/)
+  assert.match(r.text, /输入框高度 22 超出容器高 18/)
+})
+
+test('注入违规:目录页输入框宽度顶穿容器右缘必须被拦', () => {
+  const mutated = ui.replace('!define IHUI_EDIT_W     384', '!define IHUI_EDIT_W     420')
+  assert.notEqual(mutated, ui, '注入失败:找不到 !define IHUI_EDIT_W 384')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /水平越出容器/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

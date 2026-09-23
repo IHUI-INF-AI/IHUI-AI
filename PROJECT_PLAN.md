@@ -861,6 +861,17 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **仍未闭环(如实登记)**:本机显示缩放被外部进程持续改写,实测该页在 150% 档下内容按 1.5× 布局而**窗口框未跟着重算**,截图右侧/下侧溢出(缺陷②只修了一半:位置重锚了,窗口尺寸没重锚)。解法方向 = 该页 DPI 重锚时同步重算 `$IHUIWW/$IHUIWH` 并 `MoveWindow` 外框,与 GUIINIT 的定窗逻辑同源;需一次带稳定缩放的复验,故不在本票内下"已修完"的结论。
 - 本票交付已由并发会话随批收编入库(HEAD 内可查到 `不写 $ReinstallPageCheck` 与 `checkVarScopeOrder`);工作区仍留 `.husky` 之外他人未提交的 `ihui-uninstaller.nsi`,未代收。
 
+### 第十八批(2026-09-23):目录页输入框垂直居中 —— 单行 Edit 顶对齐文字,并给这条修复立跨文件闸
+
+用户实测报障:"安装路径容器内的文字没有居中,下面空了很多"。
+
+- **几何其实早就是居中的**:`dir.bmp` 烧入容器 = 逻辑 (288,302) 412×36,旧输入框 = (302,306) 384×28,中线都是 320。红在别处 —— **Win32 单行 Edit 顶对齐文字**,控件比字行高多出的部分全落在下方,于是"文字贴顶 + 框底空一截"。
+- **修法**:`IHUI_EDIT_H` 28→22、`IHUI_EDIT_Y` 306→309(= 302+(36−22)/2),并在 define 旁写明该控件特性防回改。提交 `57e4443bd6`。
+- **运行期实证(不是推算)**:真包目录页枚举到 Edit 实际矩形 = 逻辑 (302,309) 384×22,与容器上下各余 7px,中线差 **Δ=0**。取证脚本 `.ihui-agent/tmp/installer-redesign/dir-center-proof.cjs`。
+- **配闸(本票新增,不变量 F)**:`checkEditInContainerCentered` —— 容器矩形从生成器 `sceneDir` 的 `<rect>` 解析(`x="${C_L}"` 复用 `resolveGenConst`,解析不到必须显式报错、禁止静默跳过),断言 ① 垂直居中 ② 水平不越容器 ③ 高不超容器。PASS 结论文案同步改为"六条",文件头计数漂移一并修正。
+- **注入回归 3 例**(基线用例先 `assert.notEqual` 防"注入失败导致假通过"):Edit Y 回退 306 → 红;只改生成器容器 height 36→18 而 define 不动 → 同时报"应为 300 实际 309"和"高 22 超出容器 18"(证明它真在跟**位图**对账,不是自比);Edit W 撑到 420 → 报水平越界。`node --test` = **11/11**,守门六条全 PASS。
+- **同批已立的不变量 E**(`checkVarScopeOrder`)把第十七批那个"Function 体引用后置 Var → warning 6000 静默丢引用 → makensis 中止"的陷阱泛化成闸,不再靠人记住 include 顺序。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
@@ -991,7 +1002,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 > 背景:D28 收尾审计翻出 web 语言包 84 个含点键。2026-09-09 的 F6-F8 那轮把它判成"日志级噪音"留置,
 > 本轮用真实 formatter 实测推翻该结论:**含点键不是噪音,是渲染缺陷**。
 
-- [ ] **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
+- [ ]（进行中） **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
 - [x] ✅(2026-09-21) **D31 mobile-rn 四屏页签回显原始键名,零新增文案修好**:上一批"补 5 个键"的做法经复核**方向就是错的** —— 词典里同命名空间下早有 plain 驼峰叶键(`coupon.available`=未使用、`profileEdit.genderMale`=男、`ranking.weekly`=周榜、`liveList.all`=全部,五语齐),是代码的映射值多写了一层 `tab_` / `gender_` / `range_` 前缀。改 4 个共享屏的映射值指向既有键(commit `43b3daf9b6`,已按内容复核四处均在 HEAD),**不新造任何键、不产生两份真相**;其中 `range_allTime` 对应 `ranking.total`(总榜/All-time)而非字面压平的 `allTime`,逐条实查五语才定下来。`@ihui/rn-app` typecheck 0 错、prettier 0 漂移,65 个字面键复核不可达 0。另核查确认 `messageCenter.tab.${tab}` 与 `income.tab.${tab}` 本来就正确(词典五语齐),写进档案免得下轮重复排查。
 - [x] ✅(2026-09-21) **D32 web 118 处动态键收口:根因是 `4b28879f01` 静态清理误删,131/178 原样恢复零新造**:三代理并行分片(bucket0/shardA/shardB)+ 我单点写入。判据用 HEAD 提交树 `git show` 五语下钻,不信工作区。**① 恢复**:档案 178 条唯一路径中 131 条在 `4b28879f01^`(清理提交前一版)五语原样可取 → 按最深已存在祖先插回真嵌套,`check-i18n-messages-exist` 同构无损断言 = 每语新增 162 键、丢失 0、改值 0、零宽字符不减。**② 恢复前置修脏**:历史值里 13 处本身就是坏值(ja 截断残片 `み/れ/せるみ/その/しい` 9 处、ja 直接躺简体字 2 处 `拥有者`/`待接受`、ko `관리게`、`announcements.types.update` ja=`しい`),照抄=把 bug 搬回来,全部按全库既有写法替换并逐条留 donor 依据。**③ 改代码而非补词典**(20 条):`nav.group.*`→既有 `nav.adminGroup.*`(12 组名五语齐,`nav.group` 从未存在过,是代码自己造的前缀)、`common.orderStatus.*`→`shared order.status.*`、`learn.topic.type.{lesson,premium}.tip`→`learnTopicPage.{courseTip,premiumTip}`、miniapp `live.all`→`liveList.all`。**④ 死兜底删除**(4 处,类型层证明不可达):`Record<StatKey/Mode/Plan['id']/TargetType,string>` 按同类型联合取值,删 `?? 'x.unknown'` 后 web `tsc --noEmit` 0 错。**⑤ 真需新造**:仅 8 条 `.unknown`/`tabs.category` 兜底(键来自接口/DB 的 `Record<string,…>`),值全部 donor 溯源。**两条方法论**:子代理"新发现"必须自己复核命名空间前提 —— shardA 报的 `orchestration.{running,healthy,unhealthy,unknown}` 五语全缺**是假的**,那页 `useTranslations('eduAi.orch')`,四个键在 `eduAi.orch.*` 全可达,险些为它造 1 个垃圾键;并行会话在 `web/zh-CN.json` 有 42 个 in-flight 键(另一功能,五语只有 zh-CN 有),直接提交会把它吞进我的提交并让 HEAD parity 恒红,故走 `GIT_INDEX_FILE` 临时索引 + `commit-tree` + CAS `update-ref`(blob 只含 HEAD+我的键),worktree 保留其 42 键原样,提交后按 blob/工作区双份复核。
 
@@ -1094,7 +1105,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 ### P2 广度产品化（生态）
 
-- [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
+- [ ]（进行中） O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
 - **进度(2026-09-23 试点批)**:earnings/security/health 3 文件已收敛集中 `requireAdmin`（白名单 34→31，LOCAL 清零），11 条契约测试全绿；沉淀两套范式（全 admin 用 preHandler、混合路由用 handler 内 `reply.sent`）；后续 31 文件按 T0(16 个纯删条目)/T1(8 个)/T2(4 个)/T3(1 个 groups)排序推进。
 - **进度(2026-09-23 T1批)**:`finance.ts`(6)/`finance-extended.ts`(5)/`user/withdrawal-routes.ts`(2)/`user/developer-routes.ts`(1)共 **14 处真闸门**按试点范式收进集中 `requireAdmin`(handler 内 `await requireAdmin(request, reply)` + `if (reply.sent) return`),白名单 **15→11 文件 / 42→26 处**,全仓裸 roleId 比较 **34→20**,门 53 全量绿 + `--self-test` 绿;新增契约测试 `apps/api/tests/o13b-batch2-admingate-contract.test.ts` 7 例(无 JWT→401 / roleId=0→403 且 body 逐字节 `{code:403,message:'需要管理员权限'}` / roleId>=1→落业务分支)。**两处对外文案变化**:`finance-extended` 的 403 文案 `无管理员权限`→集中封装的 `需要管理员权限`(形状不变,全仓已无其他引用),401 文案改由集中封装出具。**三条"清不掉"的定性(不得再派收敛任务)**:① `admin-sys/role-routes.ts` 5 处实为 `q.roleId`/body roleId **入参校验**(400 `roleId 无效`),迁 requireAdmin 会把参数错变鉴权拒绝 → 白名单 reason「roleId===1 超管保护」与代码不符,应改判为②类保留;② `agents.ts` 4 处是「owner **或** admin」混判,集中封装无此档位,改 preHandler 会把属主拒掉(第 5 处 webhook 密钥为专有 403 文案,登记 count 6 实为 5);③ `menu-routers-routes.ts` 是「管理员看全部菜单」的数据视图分支,无拒绝路径。**故 ④「第 53 项升 blocking」的前置**是把"入参校验/视图分支"从判据里显式排除(否则一升就把 `400 roleId 无效` 这类非鉴权行永久锁成红点),不得为凑绿而放宽语义。
 - **进度(2026-09-23 T0批)**:16 个"实测 0 处裸比较"文件的白名单条目已整体删除(白名单 **31→15 文件 / 68→42 处**),门 53 全量 `✅ 无新增违规` + `--self-test` 全绿。判据由守门自证:未登记文件只要残留 1 处裸 roleId 比较即被 RULE-1 点名,故"绿"等价于这 16 个文件已零裸比较。**一处纠偏**:`admin-sys/menu-routers-routes.ts` 实有 1 处 `if (roleId >= 1)`,不属 T0(纯删条目)而被一并删了条目 → 门当场报红,已把条目写回(该处实为数据视图分支,定性见下一条 T1 批)。剩余 15 文件 = T1 待收敛 10 个(finance 7/agents 6/role-routes 6/finance-extended 5/withdrawal 3/menu-routers 1/developer-routes 1/trader 1/oss 1/student-profile-routes 1) + ②类非请求鉴权路径 5 个(groups/business-metrics/rbac-queries/idor-guard/auth,白名单 reason 已定性保留),后者不得为"清零"而改语义。
@@ -3613,7 +3624,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 
 ### 来自本地 main `ddb78b1ca66`(14 行)
 
-- [ ] **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
+- [ ]（进行中） **Esc 无层栈协议**(方案已定稿,待实施):20+ 处 document/window 的 Esc 监听各自为政且普遍不 `stopPropagation` → 一次 Esc 同时关掉遮罩、弹层、pane、搜索条。**正解不是逐处补 `stopPropagation`**(跨层顺序不可控),而是:①新增 `apps/web/src/lib/overlay-stack.ts` —— `pushOverlay(id)/popOverlay(id)/isTopOverlay(id)`(模块级数组,注册幂等,卸载必 pop);②每个浮层在 open 时 push、close 时 pop,其 Esc 处理器首行 `if (!isTopOverlay(myId)) return`;③`packages/ui-react` 的 Dialog/Popover 家族优先内建该注册(一处接全部端),web 端自绘 portal 层逐个接入;④已有正例可参照其消费写法:`GlobalTopBar.tsx:366`、`TagsView.tsx:135`、`hover-preview-card.tsx:44`(已用 stopPropagation 的三层)。解阻判据:构造"遮罩 + 弹层 + pane 三层叠开"场景按一次 Esc,只有最上层关闭(真机 `aria-expanded`/`data-state` 逐层断言)。注意 `work-panel.tsx` 属共享包,须与结构改造项同票评估。
 
 ## P1 移动端输入框大框化 + 全项目加号统一 AddPanel(2026-09-22 立并完成 ✅,平台独占:apps/mobile-rn)
 
