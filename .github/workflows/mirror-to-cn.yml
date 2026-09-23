@@ -77,7 +77,25 @@ jobs:
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
-          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
+          #
+          # 2026-09-23 实测必改:全量 `refs/tags/*` 会把**内部备份标签**一起推给国内镜像。
+          # 本地 4222 个标签里 `lost-commit/*` + `nightly-*` + `backup/*` 占 4172 个,正是它们
+          # 把 Gitee 仓库体积推到 1156MB、撞上 1024MB **硬配额** ⇒ 服务端 pre-receive 连 `main`
+          # 一起拒(`Push rejected for repository [size exceeds limit]`,gitee.com/help/articles/4232),
+          # 结果是"每 20 分钟跑一次、连续一天一条都没落地"。
+          # 这些标签的用途是防本地/origin 的 git gc 回收悬空 commit(AGENTS.md §22/§29),
+          # **GitHub 侧一份不少**;国内镜像不需要它们。删镜像上的既有副本属破坏性动作,
+          # 需人工确认后才做(见 PROJECT_PLAN 的"残余")。
+          EXCLUDE_RE='^refs/tags/(lost-commit|nightly|backup)/'
+          SPEC=()
+          while IFS= read -r r; do
+            case "$r" in
+              '') ;;
+              *) SPEC+=("$r:$r") ;;
+            esac
+          done < <(git for-each-ref --format='%(refname)' refs/tags | grep -Ev "$EXCLUDE_RE")
+          echo "推送分支 + ${#SPEC[@]} 个标签(已排除内部备份标签;被排除数=$(git for-each-ref --format='%(refname)' refs/tags | grep -Ec "$EXCLUDE_RE"))"
+          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "${SPEC[@]}" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
           echo "✅ Gitee 镜像推送完成"
 
       - name: 镜像到 GitCode
