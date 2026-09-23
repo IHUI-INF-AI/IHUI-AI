@@ -968,6 +968,25 @@
       "fieldTitle": "Title",
       "fieldType": "Type",
       "loading": "Loading...",
+      "maintenanceNotice": {
+        "action": "Maintenance Notice Email",
+        "desc": "Send a maintenance notice in the IHUI Bulletin layout to all active users with an email on file",
+        "downtimePlaceholder": "e.g., 2 hours",
+        "dryRun": "Dry run (count recipients only, do not actually send)",
+        "fieldDowntime": "Estimated Downtime",
+        "fieldLimit": "First Batch Limit",
+        "fieldScope": "Affected Scope",
+        "fieldWindow": "Maintenance Window",
+        "limitInvalid": "The first batch limit must be a positive integer",
+        "limitPlaceholder": "Leave empty to send to everyone",
+        "required": "Maintenance window, affected scope, and estimated downtime are required",
+        "resultDryRun": "Dry run complete: {total} recipients will receive \"{subject}\"",
+        "resultSent": "Send complete: {sent} succeeded / {failed} failed / {stubbed} not sent (channel not configured)",
+        "scopePlaceholder": "e.g., API and Console",
+        "send": "Send",
+        "title": "Send Maintenance Notice Email",
+        "windowPlaceholder": "e.g., 2026-09-25 02:00-04:00"
+      },
       "no": "No",
       "noData": "No announcements",
       "published": "Published",
@@ -7057,9 +7076,15 @@
     "pane": {
       "agentActions": {
         "title": "Multi-agent actions",
-        "header": { "count": "{count, plural, one {1 agent} other {# agents}}" },
-        "row": { "agent": "{action} {agent}{stateSuffix}" },
-        "meta": { "prompt": "Input: {prompt}" },
+        "header": {
+          "count": "{count, plural, one {1 agent} other {# agents}}"
+        },
+        "row": {
+          "agent": "{action} {agent}{stateSuffix}"
+        },
+        "meta": {
+          "prompt": "Input: {prompt}"
+        },
         "action": {
           "spawn": {
             "label": "Create",
@@ -25316,12 +25341,6 @@
       "selectTerm": "Select term",
       "subjectPlaceholder": "Math"
     },
-    "loading": {
-      "text": "Loading...",
-      "rules": "Loading scheduling rules...",
-      "teachers": "Loading teacher schedules...",
-      "changes": "Loading change requests..."
-    },
     "actions": {
       "edit": "Edit",
       "add": "Add",
@@ -25334,6 +25353,12 @@
       "autoSchedule": "Auto Schedule",
       "checkConflicts": "Check Conflicts",
       "addTimeEntry": "Add Time Entry"
+    },
+    "loading": {
+      "text": "Loading...",
+      "rules": "Loading scheduling rules...",
+      "teachers": "Loading teacher schedules...",
+      "changes": "Loading change requests..."
     },
     "empty": {
       "rules": "No scheduling rules yet",
