@@ -38,7 +38,6 @@ import { Avatar } from '@/components/data/Avatar'
 import { cn } from '@/lib/utils'
 
 import type { AdminUser } from './types'
-import { useDataTableLabels } from '@/hooks/use-data-table-labels'
 
 interface UserTableProps {
   users: AdminUser[]
@@ -250,7 +249,6 @@ export function UserTable({
   onStatusToggle,
   onDelete,
 }: UserTableProps) {
-  const dtLabels = useDataTableLabels()
   const t = useTranslations('admin.users')
 
   const sensors = useSensors(
@@ -367,7 +365,6 @@ export function UserTable({
               onDelete={onDelete}
             />
           )}
-          labels={dtLabels}
         />
       </SortableContext>
     </DndContext>
