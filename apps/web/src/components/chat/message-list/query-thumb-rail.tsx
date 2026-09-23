@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import type { RefObject } from 'react'
 import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
 import { floatIndicatorRailCls, FloatIndicatorDot } from '@/components/ui/float-indicator'
@@ -30,6 +31,8 @@ interface MapNode {
 
 interface QueryThumbRailProps {
   messages: ChatMessage[]
+  /** 滚动容器 ref(用于滚动联动高亮 + 点击 scrollIntoView) */
+  containerRef: RefObject<HTMLDivElement | null>
 }
 
 /** 提取纯文本预览(截断 80 字符) */
@@ -55,7 +58,7 @@ const KIND_CLS: Record<MapNodeKind, { shape: string; color: string }> = {
   error: { shape: ROUND_SHAPE, color: 'bg-rose-500' },
 }
 
-export function QueryThumbRail({ messages }: QueryThumbRailProps) {
+export function QueryThumbRail({ messages, containerRef }: QueryThumbRailProps) {
   const t = useTranslations('chat')
   // W18:三类节点 —— 用户消息 / 工具卡(assistant 含 toolCalls 且无正文) / 错误消息
   const nodes = React.useMemo<MapNode[]>(() => {
@@ -76,11 +79,68 @@ export function QueryThumbRail({ messages }: QueryThumbRailProps) {
     }
     return out
   }, [messages])
-  // 当前高亮的节点(最近一次点击),滚动联动由 MessageItem isFocused/isHighlighted 承担
-  // 2026-09-17:默认激活首个节点 —— 与首页 PageIndicator(始终有一个胶囊)视觉一致,
-  // 修复"不点击时 rail 无激活胶囊、两处样式看着不一样"的问题
+  // 当前高亮的节点:滚动联动自动推算 + 点击覆盖(2026-09-21 合并 ConversationLocatorRail/D3 归一:
+  // 原"仅点击激活、默认首个"升级为 rAF 阅读线联动,两 rail 二合一,消除右侧双列圆点)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const [hoveredId, setHoveredId] = React.useState<string | null>(null)
+  // 滚动联动状态机(2026-09-21 点击锁定,修"点第一个圆亮了第二个圆"):
+  //   idle  — 实时滚动联动(阅读线算法)
+  //   locked — 点击跳转中:程序化平滑滚动触发的 scroll 事件不覆盖点击高亮
+  //   armed — 落点保持:跳转停稳后仍保持点击节点激活,直到下一次滚动恢复 idle。
+  // 背景:短分节(如"继续")的落点处阅读线已越过下一节,不加锁时阅读线会把
+  // 点击目标覆盖成下一节,用户看到"点了第一个圆却亮了第二个圆"
+  const linkPhaseRef = React.useRef<'idle' | 'locked' | 'armed'>('idle')
+  const settleTimerRef = React.useRef(0)
+  const armFallbackRef = React.useRef(0)
+  // 节点最新值 ref + id 签名(基本类型):nodes 每次派生都是新数组引用,
+  // 若直接作为 effect 依赖,父级任一重渲染都会重挂监听并触发重挂 update(),
+  // 按容器当前位置重算激活,把点击高亮覆盖掉(用户实测"点第一个圆亮了第二个/最后一个圆"的根因)
+  const nodesRef = React.useRef(nodes)
+  nodesRef.current = nodes
+  const nodeIdsKey = nodes.map((n) => n.id).join('\n')
+
+  // 滚动联动高亮:rAF 节流,仅在激活节点变化时才 setState(避免每帧重算/重渲染)。
+  // 取容器顶部下 30% 处为"当前阅读线",最后一个越过该线的节点为激活节(承 D3 定稿算法)
+  React.useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const currentNodes = nodesRef.current
+      if (currentNodes.length === 0) return
+      const rect = el.getBoundingClientRect()
+      const line = rect.top + rect.height * 0.3
+      let current = currentNodes[0]?.id ?? null
+      for (const n of currentNodes) {
+        const node = el.querySelector(`[data-message-id="${n.id}"]`)
+        if (!node) continue
+        if ((node as HTMLElement).getBoundingClientRect().top <= line) current = n.id
+      }
+      setActiveId((prev) => (prev === current ? prev : current))
+    }
+    const onScroll = () => {
+      if (linkPhaseRef.current === 'locked') {
+        // 跳转动画中:每帧滚动都顺延停稳判定,静默 160ms 视为落定 → armed
+        window.clearTimeout(settleTimerRef.current)
+        settleTimerRef.current = window.setTimeout(() => {
+          linkPhaseRef.current = 'armed'
+        }, 160)
+        return
+      }
+      if (linkPhaseRef.current === 'armed') linkPhaseRef.current = 'idle'
+      if (!raf) raf = requestAnimationFrame(update)
+    }
+    el.addEventListener('scroll', onScroll)
+    // 挂载同步一次;点击锁定/落点保持期不覆盖点击高亮
+    if (linkPhaseRef.current === 'idle') update()
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      if (raf) cancelAnimationFrame(raf)
+      window.clearTimeout(settleTimerRef.current)
+      window.clearTimeout(armFallbackRef.current)
+    }
+  }, [containerRef, nodeIdsKey])
 
   if (nodes.length < 2) return null
 
@@ -88,6 +148,13 @@ export function QueryThumbRail({ messages }: QueryThumbRailProps) {
 
   const jump = (messageId: string) => {
     setActiveId(messageId)
+    linkPhaseRef.current = 'locked'
+    window.clearTimeout(settleTimerRef.current)
+    window.clearTimeout(armFallbackRef.current)
+    // 兜底:若点击时已在落点(不产生滚动事件),1s 后自动进入 armed,避免永久锁死联动
+    armFallbackRef.current = window.setTimeout(() => {
+      if (linkPhaseRef.current === 'locked') linkPhaseRef.current = 'armed'
+    }, 1000)
     window.dispatchEvent(new CustomEvent('ihui:scroll-to-message', { detail: { messageId } }))
   }
 

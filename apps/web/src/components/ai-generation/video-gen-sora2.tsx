@@ -25,6 +25,12 @@ import {
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { type AsyncTask, extractMediaUrls } from '@/lib/ai-media'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
 
 const DURATIONS = ['5', '10', '20'] as const
 const RESOLUTIONS = ['720p', '1080p', '4K'] as const
@@ -35,6 +41,31 @@ const SIZE_MAP: Record<string, string> = {
   '4K': '3840x2160',
 }
 
+// Sora2(OpenAI videos)官方参数:model/seconds/aspect_ratio/input_reference
+const SORA2_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  {
+    key: 'model',
+    label: 'model',
+    type: 'select',
+    options: [
+      { value: 'sora-2', label: 'sora-2' },
+      { value: 'sora-2-pro', label: 'sora-2-pro' },
+    ],
+  },
+  { key: 'seconds', label: 'duration', type: 'number', step: 1, placeholder: '-' },
+  {
+    key: 'aspect_ratio',
+    label: 'aspectRatio',
+    type: 'select',
+    options: [
+      { value: '16:9', label: '16:9' },
+      { value: '9:16', label: '9:16' },
+      { value: '1:1', label: '1:1' },
+    ],
+  },
+  { key: 'input_reference', label: 'inputReference', type: 'text', placeholder: 'https://...' },
+]
+
 const TEXTAREA_CLS =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
@@ -43,10 +74,11 @@ export function VideoGenSora2() {
   const [prompt, setPrompt] = React.useState('')
   const [duration, setDuration] = React.useState<string>(DURATIONS[0])
   const [resolution, setResolution] = React.useState<string>(RESOLUTIONS[0])
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
   const [taskId, setTaskId] = React.useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: async (payload: { prompt: string; duration: number; size: string }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<{ taskId: string; status: string }>('/api/ai/sora2/generate', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -102,6 +134,8 @@ export function VideoGenSora2() {
       prompt: prompt.trim(),
       duration: Number(duration),
       size: SIZE_MAP[resolution] ?? '1280x720',
+      resolution,
+      ...parseParamValues(advanced, SORA2_FIELDS),
     })
   }
 
@@ -155,6 +189,7 @@ export function VideoGenSora2() {
             </Select>
           </div>
         </div>
+        <AdvancedParamsPanel fields={SORA2_FIELDS} values={advanced} onChange={setAdvanced} />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}

@@ -45,6 +45,7 @@ import {
   TouchableOpacity,
 } from 'react-native'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, Mic, Music, Plus, Square, X } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -444,6 +445,32 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
     variables,
     handleVariableChange,
   } = props
+
+  useUiTextField({
+    label: 'Temperature',
+    value: String(config.temperature),
+    setValue: (v) => update({ temperature: Number(v) || 0 }),
+    keyboardType: 'numeric',
+  })
+  useUiTextField({
+    label: 'Max Tokens',
+    value: String(config.maxTokens),
+    setValue: (v) => update({ maxTokens: Number(v) || 0 }),
+    keyboardType: 'numeric',
+  })
+  useUiTextField({
+    label: 'Top P',
+    value: String(config.topP),
+    setValue: (v) => update({ topP: Number(v) || 0 }),
+    keyboardType: 'numeric',
+  })
+  useUiTextField({
+    label: '请输入系统提示词',
+    value: config.systemPrompt,
+    setValue: (v) => update({ systemPrompt: v }),
+    multiline: true,
+  })
+
   return (
     <>
       <Row label="Temperature">

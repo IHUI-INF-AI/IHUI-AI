@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
   getExamPaper,
@@ -39,6 +40,27 @@ export default function ExamAnswer() {
 
   const judgmentOptions = tList('exam.answer.judgmentOptions')
   const current = useMemo(() => questions[currentIdx], [questions, currentIdx])
+  // AI 操控通道(2026-09-21):填空题 / 主观题的作答框(renderAnswer 里按题型分支渲染,
+  // 同一屏只有一个作答框)。写入走与 onInput 同一个 select(current) 通道。
+  // 选择/判断题的选项是 View onClick、非输入框,不在本轮范围。
+  const answerType =
+    current?.type === 'fill_blank' || current?.type === 'subjective' ? current.type : ''
+  useUiField(
+    answerType
+      ? {
+          kind: answerType === 'subjective' ? 'textarea' : 'input',
+          label: t('exam.answer.answerPlaceholder'),
+          placeholder: t('exam.answer.answerPlaceholder'),
+          inputType: 'text',
+          ...(answerType === 'subjective' ? { maxLength: 1000 } : {}),
+          readValue: () => {
+            const ans = current ? answers[current.id] : undefined
+            return typeof ans === 'string' ? ans : ''
+          },
+          setValue: (next) => select(next),
+        }
+      : null,
+  )
 
   const formatTime = useCallback((s: number) => {
     const m = Math.floor(s / 60)

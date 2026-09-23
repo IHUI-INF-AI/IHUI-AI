@@ -34,6 +34,7 @@ import { fetchApi } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { useTheme } from '../context/ThemeContext'
 import { usePaginatedList } from '../hooks'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -74,6 +75,11 @@ export function TopicListScreen() {
   const onPickTopic = route.params?.onPickTopic
 
   const [searchText, setSearchText] = useState('')
+  useUiTextField({
+    label: t('topic.list.searchPlaceholder'),
+    value: searchText,
+    setValue: setSearchText,
+  })
   const [keyword, setKeyword] = useState('')
   const [activeTab, setActiveTab] = useState<TabKey>('recommend')
 

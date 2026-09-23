@@ -416,7 +416,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.new_chat" => {
                 // emit 事件给前端,前端处理新建对话(切到 /agents + 重置 chat store)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "new_chat");
+                    if let Err(e) = window.emit("desktop-tray-action", "new_chat") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -435,7 +437,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.theme" => {
                 // emit 事件给前端,前端切换主题(light/dark)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "toggle_theme");
+                    if let Err(e) = window.emit("desktop-tray-action", "toggle_theme") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -443,7 +447,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.settings" => {
                 // emit 事件给前端,前端跳转 /settings
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "open_settings");
+                    if let Err(e) = window.emit("desktop-tray-action", "open_settings") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -451,7 +457,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
             "tray.update" => {
                 // emit 事件给前端,前端调 updater plugin 检查更新(带 UI 反馈)
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "check_update");
+                    if let Err(e) = window.emit("desktop-tray-action", "check_update") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
@@ -466,7 +474,9 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
                 let _ = save_window_state(Some("main".to_string()), app.clone());
                 let _ = save_window_state(Some("admin".to_string()), app.clone());
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.emit("desktop-tray-action", "quit");
+                    if let Err(e) = window.emit("desktop-tray-action", "quit") {
+                        log::warn!("[desktop-event] emit desktop-tray-action failed: {}", e);
+                    }
                 } else {
                     // 主窗口不存在(异常状态),直接退出
                     app.exit(0);
@@ -1289,7 +1299,7 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
         }
     } else {
         // 无持久化记录(首次安装 / reset_window_state 后):按屏幕可用区
-        // clamp tauri.conf.json 默认尺寸,避免 1800x900 在低分辨率屏幕上超屏。
+        // clamp tauri.conf.json 默认尺寸,避免 2700x900 在低分辨率屏幕上超屏。
         // 2026-09-01 接入:此前 adapt_window_to_screen 仅定义未调用。
         let _ = adapt_window_to_screen(&window);
     }
@@ -1353,7 +1363,7 @@ fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<Ok
 /// 背景:用户反馈"安装后初始打开的尺寸太窄"——(a) 默认 1200 宽在侧边栏 160px +
 /// AI 面板 380px 的布局下内容区仅 ~660px;(b) 旧版本遗留的 window-state.json 可能
 /// 保存过更窄的尺寸,升级后 restore 直接恢复导致窗口过窄;(c) 低分辨率屏幕(如
-/// 1366x768)上默认 1800x900 会超出屏幕。统一在此 clamp:
+/// 1366x768)上默认 2700x900 会超出屏幕。统一在此 clamp:
 /// - 下限:窗口 min_inner_size(tauri.conf.json 的 minWidth/minHeight)
 /// - 上限:窗口所在显示器可用区的 92%(去掉任务栏/缩放余量)
 /// 返回 clamp 后的物理像素尺寸。
@@ -1400,7 +1410,7 @@ fn clamp_window_size(
 
 /// 启动时把窗口尺寸适配到屏幕(2026-09-01 立)。
 /// 无持久化窗口状态(首次安装/重置后)时,tauri.conf.json 的默认尺寸
-/// (1800x900)在低分辨率屏幕上会超出可见区,这里按屏幕可用区 clamp。
+/// (2700x900)在低分辨率屏幕上会超出可见区,这里按屏幕可用区 clamp。
 /// 有持久化状态时由 restore_window_state 恢复(其内部同样 clamp)。
 fn adapt_window_to_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
     let current = window.outer_size().map_err(|e| e.to_string())?;
@@ -1666,7 +1676,9 @@ pub fn run() {
                     // 2026-07-29 #12:emit before-close 事件给前端,前端保存正在编辑的消息
                     // emit 是同步派发,前端 listen 异步处理;前端保存完不需要回调 Rust,
                     // 窗口立即隐藏(保存仍在进行,可接受)
-                    let _ = window.emit("desktop-before-close", ());
+                    if let Err(e) = window.emit("desktop-before-close", ()) {
+                        log::warn!("[desktop-event] emit desktop-before-close failed: {}", e);
+                    }
                     let _ = window.hide();
                     // 隐藏到托盘时持久化窗口状态
                     let app = window.app_handle().clone();
@@ -1677,6 +1689,17 @@ pub fn run() {
                     // 且 debounce 300ms 窗口内最后一次 Moved 位置可能被跳过 → 落点漏存。
                     let app = window.app_handle().clone();
                     let _ = save_window_state(Some(label.clone()), app);
+                }
+            }
+            // 窗口焦点变化推给前端(2026-09-22 立):窗口 decorations:false,标题栏与
+            // Min/Max/Close 三按钮全由前端自绘,DWM 不会替我们画"非活动窗口"的灰态。
+            // 内核自带的 tauri://focus|blur 在远程 URL 页面实测收不到(真机聚焦/失焦两态
+            // 像素逐字相同),所以走与 desktop-tray-action 同一条已被生产验证可用的应用层通道。
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if label == "main" || label == "admin" {
+                    if let Err(e) = window.emit("desktop-window-focus", focused) {
+                        log::warn!("[desktop-event] emit desktop-window-focus failed: {}", e);
+                    }
                 }
             }
             // 窗口移动 / 缩放过程中防抖持久化(300ms 内合并,避免每次拖动都写盘)
@@ -1725,7 +1748,9 @@ pub fn run() {
                         if let Some(first_url) = event.urls().first() {
                             let url_str = first_url.as_str().to_string();
                             log::info!("[desktop] deep-link received: {}", url_str);
-                            let _ = window.emit("desktop-deep-link", url_str);
+                            if let Err(e) = window.emit("desktop-deep-link", url_str) {
+                                log::warn!("[desktop-event] emit desktop-deep-link failed: {}", e);
+                            }
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
@@ -1778,7 +1803,9 @@ pub fn run() {
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+N", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.emit("desktop-shortcut", "new_chat");
+                        if let Err(e) = window.emit("desktop-shortcut", "new_chat") {
+                            log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
+                        }
                         let _ = window.show();
                         let _ = window.set_focus();
                     }
@@ -1788,7 +1815,9 @@ pub fn run() {
             let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+S", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.emit("desktop-shortcut", "quick_screenshot");
+                        if let Err(e) = window.emit("desktop-shortcut", "quick_screenshot") {
+                            log::warn!("[desktop-event] emit desktop-shortcut failed: {}", e);
+                        }
                         let _ = window.show();
                         let _ = window.set_focus();
                     }

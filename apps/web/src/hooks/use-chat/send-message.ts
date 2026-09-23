@@ -42,6 +42,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
+import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
@@ -50,13 +51,15 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { eduToolsFor, mergeAgentTools } from './tool-config'
+import { eduToolsFor, fileToolsFor, mergeAgentTools, uiControlToolsFor } from './tool-config'
 import {
+  clearCompactionPreview,
   createToolCallHandler,
   createToolSummaryHandler,
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
+  localizeQuotaExhausted,
 } from './stream-handlers'
 import { createSmoothDeltaBatcher } from './smooth-delta-batcher'
 import { estimateLiveUsage } from './live-usage'
@@ -550,11 +553,14 @@ export function createSendMessage(
       })
     }
     try {
-      // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
-      useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
-
       // 2026-08-16 立:强制传 contextLimit,后端根据该值判断是否触发 88% 自动压缩。
       const resolvedContextLimit = getModelContextCapacity(effectiveModel)
+      // 2026-09-21 修复:"正在压缩上下文"预告必须与后端触发口径一致。原实现每次发送无条件
+      // 点亮 compacting(与是否压缩无关),且仅靠 onResponse 清除 —— 请求在响应头之前
+      // 失败/被 abort 时永久常驻。现在:① 占用率未达 88% 阈值不显示;② finally 兜底回收。
+      if (isContextAtCompactionThreshold(store.messages, resolvedContextLimit)) {
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+      }
       logger.debug(
         '[Compaction] sendMessage contextLimit=',
         resolvedContextLimit,
@@ -733,10 +739,7 @@ export function createSendMessage(
         // 2026-08-16 立:收到响应后立即清除压缩中状态(无论是否触发压缩)
         onResponse: () => {
           clearTimeout(timeout15sId)
-          const status = useChatStore.getState().compactionStatus
-          if (status?.phase === 'compacting') {
-            useChatStore.getState().setCompactionStatus(null)
-          }
+          clearCompactionPreview()
         },
         onUsage: (usage) => {
           // P1 token 用量写入消息 meta(2026-08-15 立):后端 SSE 流末尾发送 usage chunk,
@@ -858,6 +861,9 @@ export function createSendMessage(
           useChatStore.getState().updateMessageTerminalTask(evt.messageId, evt.terminalId, {
             status: evt.status,
             output: evt.output,
+            // 截断交代必须一起落 store:回放/刷新时没有 live 缓冲,长度相等看不出内容不完整
+            truncated: evt.truncated,
+            totalChars: evt.totalChars,
             exitCode: evt.exitCode,
             endedAt: evt.endedAt,
             durationMs: evt.durationMs,
@@ -880,6 +886,31 @@ export function createSendMessage(
                 (c) => !evt.citations.some((n) => n.source === c.source && n.label === c.label),
               ) ?? []
           store.setMessageCitations(targetId, [...existing, ...evt.citations])
+        },
+        // D34 上下文注入交代(2026-09-22 立):后端在注入真正生效后、任何增量前下发
+        // injection_applied,写入 message.injections,MessageItem 渲染 InjectionBar。
+        // 此前该帧在 api-client 里只被"不喷进正文"地丢弃 —— 生产了却没人看。
+        onInjectionApplied: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().appendMessageInjection(targetId, {
+            kind: evt.kind,
+            collapsed: evt.collapsed,
+            ...(evt.fullText ? { fullText: evt.fullText } : {}),
+            ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+          })
+        },
+        // D39/D108 上游重试交代:retry_scheduled → 本条 assistant 消息的一行提示。
+        // 不接就等于让 web 用户在退避期只看到"停顿"(该帧第 42 轮已入契约,当时只补了通道)。
+        onRetryScheduled: (evt) => {
+          const targetId = evt.messageId ?? assistantId
+          if (!targetId) return
+          useChatStore.getState().setMessageRetryNotice(targetId, {
+            attempt: evt.attempt,
+            maxRetries: evt.maxRetries,
+            retryInMs: evt.retryInMs,
+            ...(typeof evt.httpStatus === 'number' ? { httpStatus: evt.httpStatus } : {}),
+          })
         },
         // P1 #27 记忆更新可视化(2026-09-16 立):后端 done 事件 payload 携带 memoryUpdates,
         // 写入 message 级提示条数据,MessageItem 在本条 assistant 消息下方渲染「已记住」提示条。
@@ -958,8 +989,17 @@ export function createSendMessage(
         // 2026-08-29 修复:仅当用户显式启用插件工具时才携带 agentTools。
         // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
         // 2026-09-19:消息含教育管理意图(催费/欠费/学费/缴费/退费/账单)时条件携带对应 edu_* 工具
+        // 2026-09-21:消息在"要求操作本站"(打开/点击/填写/查后台…)时条件携带 web_ui_* / api_* ——
+        //   否则端侧操控桥在普通对话里永远进不了模型视野(llm.py 无 agentTools 就不进 tool loop)。
         ...(() => {
-          const agentTools = [...new Set([...mergeAgentTools(), ...eduToolsFor(content)])]
+          const agentTools = [
+            ...new Set([
+              ...mergeAgentTools(),
+              ...eduToolsFor(content),
+              ...uiControlToolsFor(content),
+              ...fileToolsFor(content),
+            ]),
+          ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
         onError: (errMsg, info) => {
@@ -970,21 +1010,25 @@ export function createSendMessage(
           // W28 Hooks 事件:error(SSE 流式错误)
           emitAgentHook('error', { summary: errMsg?.slice(0, 120) })
           const formatted = formatSSEError(errMsg, info)
+          // 前端错误码透出(P1,2026-07-22 立):errorCode 是唯一可靠判据(见 localizeQuotaExhausted)
+          const ec = info?.errorCode
+          // 厂商账号额度耗尽(2026-09-22 批次 60):人话化 + 不给 retry(重试必然再撞)
+          const quotaNotice = localizeQuotaExhausted(ec, t)
           // Budget 三态·硬中断档(2026-09-19 立):网关判定日用量 ≥100% 时返回 429 +
           // errorCode='BUDGET_EXHAUSTED'(响应体含 percent/usedTokens/limitTokens/resetAt)。
           // 与普通限频区分:预算要到次日 0 点才重置,通用「频率超限,60 秒后重试」文案会误导。
-          const isBudgetBlock = info?.errorCode === 'BUDGET_EXHAUSTED'
+          const isBudgetBlock = ec === 'BUDGET_EXHAUSTED'
           const budgetBlockMessage = '今日 token 预算已用尽,明日 0 点重置后可继续对话'
-          useChatStore
-            .getState()
-            .setMessageError(assistantId, isBudgetBlock ? budgetBlockMessage : formatted.message)
-          useChatStore.getState().setError(isBudgetBlock ? budgetBlockMessage : formatted.message)
+          const displayMessage = isBudgetBlock
+            ? budgetBlockMessage
+            : (quotaNotice?.message ?? formatted.message)
+          useChatStore.getState().setMessageError(assistantId, displayMessage)
+          useChatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
-          // 前端错误码透出(P1,2026-07-22 立):toast description 前缀 [errorCode],
-          // 让用户直接定位问题(MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
-          const ec = info?.errorCode
+          // toast description 前缀 [errorCode],让用户直接定位问题
+          // (MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
           const toastDesc =
             formatted.severity === 'auth'
               ? formatted.message
@@ -995,6 +1039,11 @@ export function createSendMessage(
             // Budget 硬中断档 toast:预算次日 0 点才重置,立即重试必然再 429,故不给 retry 按钮
             toast.error('今日 AI 用量已达上限', {
               description: budgetBlockMessage,
+            })
+          } else if (quotaNotice) {
+            // 额度耗尽档:全部候选通道都已失败,立即重试必然再撞,故不给 retry 按钮(同 Budget 档理由)
+            toast.error(quotaNotice.title, {
+              description: toastDesc,
             })
           } else if (formatted.severity === 'ratelimit') {
             toast.warning(formatted.title, { description: toastDesc })
@@ -1081,6 +1130,9 @@ export function createSendMessage(
       // 或把新会话正在跑的 agent 流误标完成。batcher 为流私有,无需守卫。
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
+        // 2026-09-21 修复:兜底回收"压缩中"预告态。onResponse 之前失败(HTTP 4xx/5xx throw)、
+        // 超时 abort、主动 stop 都不会触发 onResponse,不清则灰条全站常驻(状态在全局 store)。
+        clearCompactionPreview()
         useChatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立):流收尾同步清除流式消息 ID。
         // 代际守卫内清理,防止被「切换会话」abort 的旧流清掉新流的指向。

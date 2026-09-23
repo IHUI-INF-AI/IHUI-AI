@@ -19,6 +19,7 @@ import type { FastifyReply } from 'fastify'
 import { resolveVendor, getVendorCredentials } from './ai-vendor-config-service.js'
 import { authStrategyFactory } from './vendor-auth-strategies.js'
 import { VendorErrorHandler } from './vendor-error-handler.js'
+import { VENDORS } from '../routes/ai-vendors/_shared.js'
 import { generateCompactId } from '../utils/crypto-random.js'
 
 /** 调用上下文 */
@@ -63,6 +64,15 @@ export async function callVendor(
   ctx: CallVendorContext,
   reply: FastifyReply,
 ): Promise<unknown | null> {
+  // 0. 厂商白名单：V1 VENDORS 注册表键集动态放行（单一事实源，新增厂商零维护）
+  if (!VENDORS[vendorCode]) {
+    reply.status(400).send({
+      code: 400,
+      message: `不支持的厂商: ${vendorCode}`,
+    })
+    return null
+  }
+
   // 1. 解析厂商配置（DB 优先，FALLBACK 兜底）
   const vendor = await resolveVendor(vendorCode)
   if (!vendor) {
@@ -103,7 +113,9 @@ export async function callVendor(
   }
 
   // 4. 构建签名 / header
+  // vendorCode 注入 config：custom_headers 策略据此从 VENDORS 注册表取鉴权头
   const mergedConfig: Record<string, unknown> = {
+    vendorCode,
     ...(vendor.configJson ?? {}),
     ...(ctx.configOverride ?? {}),
   }

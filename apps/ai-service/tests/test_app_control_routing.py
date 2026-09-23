@@ -22,6 +22,8 @@ from app.services.conversation import (
 )
 
 select = ConversationService._app_control_intent_tools
+# 身份门(2026-09-21):无 user_id 一律不注入,故这些用例都带一个身份
+_UID = "u-routing-owner"
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +47,7 @@ select = ConversationService._app_control_intent_tools
     ],
 )
 def test_positive_intents(text: str, expected: set[str]) -> None:
-    got = set(select(text))
+    got = set(select(text, _UID))
     assert expected <= got, f"{text} → {got}"
 
 
@@ -67,7 +69,7 @@ def test_positive_intents(text: str, expected: set[str]) -> None:
     ],
 )
 def test_negative_intents(text: str) -> None:
-    assert select(text) == []
+    assert select(text, _UID) == []
 
 
 # ---------------------------------------------------------------------------
@@ -75,24 +77,31 @@ def test_negative_intents(text: str) -> None:
 # ---------------------------------------------------------------------------
 
 def test_action_without_describe_gets_describe_added() -> None:
-    got = select("点击提交按钮")
+    got = select("点击提交按钮", _UID)
     assert "web_ui_click" in got
     assert "web_ui_describe" in got  # 动作靠 describe 返回的 id 定位,缺它即断链
 
 
 def test_pure_read_does_not_pull_describe() -> None:
-    got = select("看一下当前页面显示了什么")
+    got = select("看一下当前页面显示了什么", _UID)
     assert "web_ui_read" in got
     assert "web_ui_describe" not in got
 
 
 def test_api_entry_tools_always_paired() -> None:
-    got = select("调用 api 查一下")
+    got = select("调用 api 查一下", _UID)
     assert set(_API_ENTRY_TOOLS) <= set(got)
 
 
+def test_no_identity_injects_nothing() -> None:
+    """没有可核验身份时连命中句式也不发工具:发出去只会在 _ui_call 的 fail-closed 分支
+    拿 PERMISSION_DENIED,而模型很可能据此谎称"已经操作过了"。"""
+    assert select("帮我打开设置页面") == []
+    assert select("帮我打开设置页面", "   ") == []
+
+
 def test_result_has_no_duplicates() -> None:
-    got = select("打开设置页面并填写邮箱,再提交表单,顺便调用接口列出所有用户列表")
+    got = select("打开设置页面并填写邮箱,再提交表单,顺便调用接口列出所有用户列表", _UID)
     assert len(got) == len(set(got))
 
 

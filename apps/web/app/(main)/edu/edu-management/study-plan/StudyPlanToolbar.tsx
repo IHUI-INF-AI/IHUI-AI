@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Plus, School, Users, Calendar, ListChecks } from 'lucide-react'
 
 import {
@@ -50,6 +51,8 @@ export function StudyPlanToolbar({
   onOpenTermDialog: () => void
   onOpenClassDialog: () => void
 }) {
+  const t = useTranslations('eduStudyPlan')
+
   return (
     <Card>
       <CardContent className="min-[640px]:p-3 flex flex-wrap items-center gap-3 p-3">
@@ -58,13 +61,13 @@ export function StudyPlanToolbar({
           <School className="h-4 w-4 text-muted-foreground" />
           <Select value={selectedTermId} onValueChange={onTermChange}>
             <SelectTrigger className="w-44">
-              <SelectValue placeholder="选择学期" />
+              <SelectValue placeholder={t('selectTerm')} />
             </SelectTrigger>
             <SelectContent>
-              {terms.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                  {t.isCurrent ? ' (当前)' : ''}
+              {terms.map((term) => (
+                <SelectItem key={term.id} value={term.id}>
+                  {term.name}
+                  {term.isCurrent ? t('currentTermSuffix') : ''}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -85,7 +88,11 @@ export function StudyPlanToolbar({
             <SelectTrigger className="w-44">
               <SelectValue
                 placeholder={
-                  classesLoading ? '加载中...' : selectedTermId ? '选择班级' : '请先选择学期'
+                  classesLoading
+                    ? t('loading')
+                    : selectedTermId
+                      ? t('selectClass')
+                      : t('selectTermFirst')
                 }
               />
             </SelectTrigger>
@@ -117,12 +124,12 @@ export function StudyPlanToolbar({
             disabled={!selectedTermId || !selectedClassId}
           >
             <SelectTrigger className="w-28">
-              <SelectValue placeholder="类型筛选" />
+              <SelectValue placeholder={t('typeFilter')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              <SelectItem value="monthly">月计划</SelectItem>
-              <SelectItem value="weekly">周计划</SelectItem>
+              <SelectItem value="all">{t('allTypes')}</SelectItem>
+              <SelectItem value="monthly">{t('planTypeMonthly')}</SelectItem>
+              <SelectItem value="weekly">{t('planTypeWeekly')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -136,14 +143,14 @@ export function StudyPlanToolbar({
             disabled={!selectedTermId || !selectedClassId}
           >
             <SelectTrigger className="w-32">
-              <SelectValue placeholder="状态筛选" />
+              <SelectValue placeholder={t('statusFilter')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="draft">草稿</SelectItem>
-              <SelectItem value="active">进行中</SelectItem>
-              <SelectItem value="completed">已完成</SelectItem>
-              <SelectItem value="archived">已归档</SelectItem>
+              <SelectItem value="all">{t('allStatuses')}</SelectItem>
+              <SelectItem value="draft">{t('statusDraft')}</SelectItem>
+              <SelectItem value="active">{t('statusActive')}</SelectItem>
+              <SelectItem value="completed">{t('statusCompleted')}</SelectItem>
+              <SelectItem value="archived">{t('statusArchived')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -152,7 +159,7 @@ export function StudyPlanToolbar({
         <div className="ml-auto">
           <Button size="sm" onClick={onAddPlan} disabled={!selectedTermId || !selectedClassId}>
             <Plus className="mr-1 h-3.5 w-3.5" />
-            创建月计划
+            {t('createMonthlyPlan')}
           </Button>
         </div>
       </CardContent>

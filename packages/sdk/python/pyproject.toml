@@ -3,7 +3,8 @@
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+# setuptools>=77:支持 PEP 639 的 [project] license-files(把 LICENSE / NOTICE 打进发行包)
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,14 +12,16 @@ name = "ihui-ai"
 version = "0.1.0"
 description = "IHUI AI Platform Python SDK - 105 endpoints across 13 modules"
 requires-python = ">=3.10"
-license = { text = "MIT" }
-authors = [{ name = "IHUI-AI" }]
+# 版权与许可证以仓库根 LICENSE / NOTICE 为准(Apache-2.0,非 MIT)。
+# 旧值 `license = { text = "MIT" }` 与仓库实际许可不符,且该写法已被 PEP 639 废弃。
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "李春川 (Li Chunchuan) · IHUI AI (智汇AI)" }]
 readme = "README.md"
 keywords = ["ihui", "ai", "sdk", "llm", "openai", "agents", "rag"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -27,8 +30,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ihui-ai/ihui-ai"
-Repository = "https://github.com/ihui-ai/ihui-ai"
+Homepage = "https://aizhs.top"
+Repository = "https://github.com/IHUI-INF-AI/IHUI-AI"
+Documentation = "https://github.com/IHUI-INF-AI/IHUI-AI/tree/main/packages/sdk"
+Issues = "https://github.com/IHUI-INF-AI/IHUI-AI/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -62,6 +62,8 @@ function collectFiles() {
       const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
         encoding: 'utf8',
         cwd: ROOT,
+        // 防 Windows 弹可见控制台窗口
+        windowsHide: true,
       })
       return output
         .split('\n')

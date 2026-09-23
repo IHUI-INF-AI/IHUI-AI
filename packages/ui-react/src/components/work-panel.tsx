@@ -23,7 +23,7 @@ import { cn } from '../lib/utils'
 import { Input } from './input'
 import { CloseButton } from './close-button'
 import { ResizableHandle } from './resizable'
-import { Tooltip, TooltipTrigger, TooltipContent } from './tooltip'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
 
 /**
  * 工作展示区容器(通用,跨端共享)。
@@ -111,14 +111,14 @@ export interface WorkPanelProps {
    * - position='before' (默认):从 fromId 移到 toId 位置(原行为)
    * - position='after':从 fromId 移到 toId 之后 */
   onTabReorder?: (fromId: string, toId: string, position?: 'before' | 'after') => void
-  /** i18n 文案(P4-3:不传则用中文默认值,跨端共享友好) */
+  /** i18n 文案(P4-3:不传则回退英文默认值,跨端共享友好;各端应注入本地化 labels) */
   labels?: Partial<WorkPanelLabels>
   /** 内容区(各端注入 WebViewFrame 或自定义实现) */
   children?: React.ReactNode
   className?: string
 }
 
-/** i18n 文案接口(P4-3:统一收口所有中文硬编码,跨端/跨语言注入) */
+/** i18n 文案接口(P4-3:统一收口界面文案,供跨端/跨语言注入) */
 export interface WorkPanelLabels {
   back: string
   forward: string
@@ -140,29 +140,32 @@ export interface WorkPanelLabels {
   /** P4-5:拖拽指示线 a11y 标签 */
   dragInsertBefore: string
   dragInsertAfter: string
+  /** 关闭单个 tab 的按钮 a11y 标签(改造前是无名 span[role=button],现降生为真 button 必须有名) */
+  closeTab: string
 }
 
-/** i18n 默认值(不传 labels 时回退到简体中文) */
+/** i18n 默认值(不传 labels 时回退到英文;界面语言文案一律由调用端 labels 注入) */
 const DEFAULT_LABELS: WorkPanelLabels = {
-  back: '后退',
-  forward: '前进',
-  reload: '刷新',
-  stop: '停止',
-  addressPlaceholder: '输入网址或搜索...',
-  favorite: '添加收藏',
-  unfavorite: '取消收藏',
-  favoritesAndHistory: '收藏和历史',
-  openExternal: '在外部浏览器打开',
-  closePanel: '关闭面板',
-  newTab: '新建标签页',
-  removeFavorite: '移除收藏',
-  tabFavorites: '收藏',
-  tabHistory: '历史',
-  emptyFavorites: '暂无收藏',
-  emptyHistory: '暂无历史',
-  clearHistory: '清空历史',
-  dragInsertBefore: '在此处之前插入',
-  dragInsertAfter: '在此处之后插入',
+  back: 'Back',
+  forward: 'Forward',
+  reload: 'Reload',
+  stop: 'Stop',
+  addressPlaceholder: 'Enter URL or search...',
+  favorite: 'Add bookmark',
+  unfavorite: 'Remove bookmark',
+  favoritesAndHistory: 'Bookmarks & history',
+  openExternal: 'Open in external browser',
+  closePanel: 'Close panel',
+  newTab: 'New tab',
+  removeFavorite: 'Remove bookmark',
+  tabFavorites: 'Bookmarks',
+  tabHistory: 'History',
+  emptyFavorites: 'No bookmarks yet',
+  emptyHistory: 'No history yet',
+  clearHistory: 'Clear history',
+  dragInsertBefore: 'Insert before this tab',
+  dragInsertAfter: 'Insert after this tab',
+  closeTab: 'Close tab',
 }
 
 export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
@@ -205,7 +208,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     },
     ref,
   ) => {
-    // P4-3:合并 labels(传参 > 默认中文),一次解析到处用
+    // P4-3:合并 labels(传参 > 英文默认),一次解析到处用
     const labels = React.useMemo<WorkPanelLabels>(
       () => ({ ...DEFAULT_LABELS, ...labelsProp }),
       [labelsProp],
@@ -427,7 +430,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                               e.stopPropagation()
                               onRemoveFavorite(item.url)
                             }}
-                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 group-focus-within:opacity-100"
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -476,9 +479,16 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                     {isDropTarget && dropPosition === 'before' && (
                       <DropIndicator aria-label={labels.dragInsertBefore} />
                     )}
-                    <button
-                      type="button"
-                      onClick={() => onTabChange(tab.id)}
+                    {/* 2026-09-22 非法嵌套根治:原外层 <button> 内嵌 <span role="button">
+                        (button 内容模型禁止 interactive content,且形成双 Tab 停靠点)。
+                        外层降级为承载 hover/drag/drop 语义的容器 div,内部并列两个真 <button>:
+                        激活钮 + 关闭钮。
+                        关键:拖拽五件套 handler 与 draggable 必须留在**外层容器**,
+                        这样 onDragLeave 的 contains(relatedTarget) 判定域 == 改造前的整颗 pill
+                        (鼠标移到关闭钮上仍算"在 tab 内",指示线不抖);
+                        onDragOver 的 rect/中点取位也与改造前逐像素等价。 */}
+                    <div
+                      data-testid="work-panel-tab"
                       draggable={!!onTabReorder}
                       onDragStart={(e) => {
                         if (!onTabReorder) return
@@ -536,21 +546,33 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                         !isDragging && isDropTarget && 'bg-muted text-foreground scale-105',
                       )}
                     >
-                      <span className="max-w-[120px] truncate">{tab.title}</span>
+                      {/* 激活钮:承载改造前外层 button 的 onClick + 标题,类名为原 pill 的内联布局子集,
+                          pill 的背景/圆角/padding/hover/scale 仍留在外层容器上 → 视觉零变化 */}
+                      <button
+                        type="button"
+                        onClick={() => onTabChange(tab.id)}
+                        className="inline-flex items-center"
+                      >
+                        <span className="max-w-[120px] truncate">{tab.title}</span>
+                      </button>
                       {onTabClose && (
-                        <span
-                          role="button"
-                          tabIndex={0}
+                        <button
+                          type="button"
+                          data-testid="work-panel-tab-close"
+                          aria-label={labels.closeTab}
                           onClick={(e) => {
+                            // 保留 stopPropagation:改造前它压制的是外层 button 的 onTabChange;
+                            // 改造后激活钮是关闭钮的**兄弟**(同属这颗 pill),冒泡链上本就不会再经过它,
+                            // 该调用成为"点击关闭绝不触发激活"的第二重保险,语义与改造前一致。
                             e.stopPropagation()
                             onTabClose(tab.id)
                           }}
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 group-focus-within:opacity-100"
                         >
                           <X className="h-3 w-3" />
-                        </span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                     {/* P4-5:after 侧 drop indicator(只对最后一个 tab 显示,作为"放到末尾"位置) */}
                     {isDropTarget && dropPosition === 'after' && idx === tabs.length - 1 && (
                       <DropIndicator aria-label={labels.dragInsertAfter} />
@@ -560,7 +582,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               })}
             </div>
             {onNewTab && (
-              <ToolbarButton onClick={onNewTab} title="新建标签页" size="sm">
+              <ToolbarButton onClick={onNewTab} title={labels.newTab} size="sm">
                 <Plus className="h-3.5 w-3.5" />
               </ToolbarButton>
             )}
@@ -587,19 +609,36 @@ WorkPanel.displayName = 'WorkPanel'
 interface ToolbarButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md'
 }
+/**
+ * 工具条图标钮。`title` 在这里**不再落到原生属性**(AGENTS.md §4 禁原生提示窗),
+ * 而是:①作为缺省可访问名(调用方显式传 aria-label 时以其为准);②经包内 Tooltip 渲染成
+ * 与全站一致的提示样式。Radix Trigger 用 asChild,不额外插 DOM 节点 → 尺寸/布局零变化。
+ */
 const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
-  ({ className, size = 'md', ...props }, ref) => (
-    <button
-      ref={ref}
-      type="button"
-      className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
-        size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
-        className,
-      )}
-      {...props}
-    />
-  ),
+  ({ className, size = 'md', title, ...props }, ref) => {
+    const button = (
+      <button
+        ref={ref}
+        type="button"
+        {...props}
+        aria-label={props['aria-label'] ?? (typeof title === 'string' ? title : undefined)}
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40',
+          size === 'sm' ? 'h-6 w-6' : 'h-7 w-7',
+          className,
+        )}
+      />
+    )
+    if (typeof title !== 'string' || title === '') return button
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent side="bottom">{title}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  },
 )
 ToolbarButton.displayName = 'ToolbarButton'
 

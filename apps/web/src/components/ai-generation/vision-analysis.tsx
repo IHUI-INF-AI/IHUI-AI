@@ -17,6 +17,47 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '
 import { fetchApi } from '@/lib/api'
 import { extractText } from '@/lib/ai-media'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'
+import {
+  AdvancedParamsPanel,
+  parseParamValues,
+  type ParamFieldSpec,
+  type ParamValues,
+} from './vendor-models'
+
+// Dashscope qwen-vl 多模态官方参数(model/top_k/top_p/temperature/max_tokens/seed/result_format/vl_high_resolution_images)
+const QWEN_VL_FIELDS: ReadonlyArray<ParamFieldSpec> = [
+  {
+    key: 'model',
+    label: 'model',
+    type: 'select',
+    options: [
+      { value: 'qwen-vl-max', label: 'qwen-vl-max' },
+      { value: 'qwen-vl-plus', label: 'qwen-vl-plus' },
+      { value: 'qwen-vl-ocr', label: 'qwen-vl-ocr' },
+      { value: 'qvq-max', label: 'qvq-max' },
+    ],
+  },
+  { key: 'top_k', label: 'topK', type: 'number', step: 1, placeholder: '-' },
+  { key: 'top_p', label: 'topP', type: 'number', step: 0.1, placeholder: '-' },
+  { key: 'temperature', label: 'temperature', type: 'number', step: 0.1, placeholder: '-' },
+  { key: 'max_tokens', label: 'maxTokens', type: 'number', step: 1, placeholder: '-' },
+  { key: 'seed', label: 'seed', type: 'number', step: 1, placeholder: '-' },
+  {
+    key: 'result_format',
+    label: 'resultFormat',
+    type: 'select',
+    options: [
+      { value: 'message', label: 'message' },
+      { value: 'text', label: 'text' },
+    ],
+  },
+  {
+    key: 'vl_high_resolution_images',
+    label: 'vlHighResolution',
+    type: 'boolean',
+    placeholder: '-',
+  },
+]
 
 // MermaidDiagram 仅在客户端加载,不影响首屏 bundle
 const MermaidDiagram = dynamic(() => import('@/components/media/MermaidDiagram'), {
@@ -35,12 +76,10 @@ export function VisionAnalysis() {
   const [imageUrl, setImageUrl] = React.useState('')
   const [question, setQuestion] = React.useState('')
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [advanced, setAdvanced] = React.useState<ParamValues>({})
 
   const mutation = useMutation({
-    mutationFn: async (payload: {
-      model: string
-      messages: Array<{ role: string; content: Array<Record<string, string>> }>
-    }) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const res = await fetchApi<unknown>('/api/ai/dashscope/multimodal', {
         method: 'POST',
         body: JSON.stringify(payload),
@@ -58,12 +97,12 @@ export function VisionAnalysis() {
     if (!file) return
     // 大小校验:防止超大文件 base64 进 state 导致 OOM
     if (file.size > MAX_IMAGE_SIZE) {
-      toast.error(`图片不能超过 ${MAX_IMAGE_SIZE / 1024 / 1024}MB`)
+      toast.error(t('imageMaxSize', { max: MAX_IMAGE_SIZE / 1024 / 1024 }))
       return
     }
     // 类型校验:只允许图片,防 .exe/.html/.svg 等
     if (!file.type.startsWith('image/')) {
-      toast.error('请选择图片文件')
+      toast.error(t('selectImageFile'))
       return
     }
     const reader = new FileReader()
@@ -76,14 +115,16 @@ export function VisionAnalysis() {
       toast.error(t('promptRequired'))
       return
     }
+    const advancedValues = parseParamValues(advanced, QWEN_VL_FIELDS)
     mutation.mutate({
-      model: 'qwen-vl-max',
       messages: [
         {
           role: 'user',
           content: [{ image: imageUrl.trim() }, { text: question.trim() }],
         },
       ],
+      ...advancedValues,
+      model: (advancedValues.model as string | undefined) ?? 'qwen-vl-max',
     })
   }
 
@@ -131,6 +172,7 @@ export function VisionAnalysis() {
             className={TEXTAREA_CLS}
           />
         </div>
+        <AdvancedParamsPanel fields={QWEN_VL_FIELDS} values={advanced} onChange={setAdvanced} />
         <Button onClick={onSubmit} disabled={mutation.isPending} aria-busy={mutation.isPending}>
           {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? t('generating') : t('generate')}

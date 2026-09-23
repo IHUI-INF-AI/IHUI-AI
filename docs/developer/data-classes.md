@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # 数据分级(dataClass)与「开放功能、不开放数据」
 
 > 面向第三方 Agent 开发者。回答一个问题:**你把 API Key 交出来之后,平台到底给了你什么、没给你什么。**
@@ -61,6 +67,77 @@
 - `read-owned` / `write-owned` → 语句必须带 owner 谓词,否则 `OWNER_FILTER_REQUIRED`;
 - **表名不可判定(裸 SQL / CTE / 存储过程)→ 默认拒绝**,绝不静默放行
   (`apps/api/src/utils/scoped-guard.ts:24` 及 `:79-87`)。
+
+### 3.1 闸门站在哪条连接上:非超级用户角色与行级策略的真实现状(O13,2026-09-21)
+
+`read-owned` / `write-owned` 有一句硬前提:**数据库连接不能是超级用户** —— 超级用户绕过
+一切 RLS,"声明了行级隔离却给不出隔离"会被 fail-closed 断言直接判 503
+`DATA_ISOLATION_UNAVAILABLE`(`assertNonSuperuserForScopedMode`)。这条断言在生产一直是
+常亮状态,因为受控出口 `dbScoped()` / `dbReadScoped()` 与 `db` 同池,而那条池子是超级用户。
+
+现在的落点(逐条可查,不靠承诺):
+
+| 层次 | 现状 | 载体 |
+| ---- | ---- | ---- |
+| 应用层数据闸 | **生效中**(唯一真正在按 dataClass 挡的一层) | `apps/api/src/utils/scoped-guard.ts` |
+| 连接角色 | 新增非超级用户应用角色 `ihui_app`(`NOSUPERUSER NOBYPASSRLS NOINHERIT`),配 `DATABASE_APP_URL` 后受控出口与超级用户探针一起切到它 | 迁移 `packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql` + `apps/api/src/db/index.ts` |
+| 表级权限 | 只授"开放面实际触达的 4 张表 × 实际用到的 DML"(见下表);不在清单里的表,DB 层直接 permission denied | 同上 |
+| 行级策略 | 已**建好**(owner 维度),但**未 `ENABLE ROW LEVEL SECURITY`** | 同上 |
+| 会话变量 | `app.user_id` 等写在**主池**;受控出口那条池拿不到,行级强制因此还不能开 | `apps/api/src/plugins/rls-context.ts` |
+
+GRANT 清单(不是一把梭,`GRANT ALL ON SCHEMA` 一律不许):
+
+| 表 | 归属列 | 授给 `ihui_app` 的 DML | 调用点 |
+| -- | ------ | ---------------------- | ------ |
+| `content_generation_tasks` | `user_id` | SELECT, INSERT | `db/content-generation-queries.ts` |
+| `webhook_subscriptions` | `user_id` | SELECT, INSERT, UPDATE, DELETE | `routes/developer/webhooks.ts` |
+| `zhs_ai_user_model_chat_config` | `user_id` | SELECT, INSERT, UPDATE, DELETE | `routes/v1-ai-core.ts`(`/v1/user/models` 族) |
+| `messages` | `sender_id` / `receiver_id`(无 `user_id` 列) | **仅 SELECT** | `routes/other/v1-customer-service-routes.ts` |
+
+**拿不到权限、也没有策略的表(有意为之)**:
+
+- 无 owner 列的全站共享面 `content_generation_templates`、`zhs_faq` —— 压根不走受控出口,
+  给它们授权等于把"读全库"的口子重新开给应用角色,给它们写策略更没有归属列可依据;
+- `compute` 白名单的自有运行记录表(`llm_call_logs` / `agent_runs` / `agent_checkpoints` /
+  `api_key_usage_windows` / `webhook_delivery_logs` / `audit_logs` / `security_logs`)——
+  今天的写入走 `db` 而不是 `dbScoped()`,所以一张都不授;哪天把 compute 写路径接到受控
+  出口,**必须连同 GRANT 一起做**,否则那条路会在应用层放行、在 DB 层 permission denied;
+- `users` 及其余一切表 —— 一张都不授。`content_generation_tasks.user_id` 等虽然 FK 到
+  `users`,但 PostgreSQL 的外键完整性检查走被引用表的属主上下文,不做表级 ACL 也不套 RLS,
+  所以授权给 `users` 既不必要也绝不该有。
+
+行级强制**为什么先不开**,以及怎么开:
+
+1. 策略读 `app.user_id`,而它只写在主池 —— 应用池上的策略恒为假,开了就是全量 0 行;
+2. 即便给应用池补一次 SET,池化 session 变量与后续语句**不保证同一条物理连接**
+   (`plugins/rls-context.ts` 已自述),要钉死必须事务级 `SET LOCAL`,那需要改调用点。
+
+失败方向顺带说清楚:策略与语句自带的 WHERE / 写入值取**交集**,所以上下文丢了/串了只会
+"更窄"(0 行、写入被拒),**不会**把别人的行放行 —— 最坏是可用性事故,不是越权事故。
+激活由 `node packages/database/scripts/owner-rls.mjs enable` 承担:它先查 catalog 前置
+(角色非超级用户、非 BYPASSRLS、不是表 owner、策略齐),再 `ENABLE`,最后拿一条
+"陌生主体必须读到 0 行"的负向断言验收(只 SELECT、事务必回滚),断言不过当场回退。
+回滚是同一条命令的 `disable`(`DISABLE ROW LEVEL SECURITY` + `DROP POLICY IF EXISTS`)。
+
+**上线顺序清单(O13,按序执行,缺一不可)**:
+
+1. **跑迁移**:`packages/database/drizzle/20260921160000_scoped_app_role_owner_rls.sql`
+   (部署时自动执行,幂等)—— 建 `ihui_app` 角色 + 逐表 GRANT + owner 策略;迁移**刻意不
+   `ENABLE ROW LEVEL SECURITY**(见该文件 :22 与 :188-197 的说明),真正挡数据的是应用闸。
+2. **运维在库上设密码**:`ALTER ROLE ihui_app PASSWORD '<随机强密码>';` —— 密码不落仓
+   (不进 `.env` 提交、不进 git),与 §5d 密钥引导同口径。
+3. **配 `DATABASE_APP_URL`**:apps/api 的环境变量,DSN 指向 `ihui_app` 角色。启动期会做一次
+   有界超时(≤2s)的 `SELECT 1` 探测,配错只 warn 不 crash(见 `apps/api/src/db/index.ts`)。
+4. **验证**:`node packages/database/scripts/owner-rls.mjs status`(全程只读,不写库)——
+   角色非超级用户 / 非 BYPASSRLS / 策略齐 / GRANT 齐时 exit 0;任何漂移 exit 1。
+   CI 侧自动化同口径:`.github/workflows/db-owner-rls.yml`(临时 PG,绝不碰生产库)。
+5. **后置阶段才考虑 `ENABLE ROW LEVEL SECURITY`**:前置是应用池侧 `app.user_id` 会话变量
+   改为事务级 `SET LOCAL`(见上文 1、2 两条原因),届时走
+   `node packages/database/scripts/owner-rls.mjs enable`(断言 + `--apply` 两段式)。
+
+> ⚠️ 未做 1–3 时,开放面 `scoped-*` 能力返回 503 `DATA_ISOLATION_UNAVAILABLE` —— 这是
+> 有意的 fail-closed("给不出隔离就拒绝服务"),不是缺陷,更不是回退到"假装隔离";
+> 第一方链路(`db`/`dbRead`)全程不受影响。
 
 ## 4. 真实 scope 举例(取自 `capabilities.json`)
 
@@ -218,3 +295,4 @@ node scripts/check-capability-catalog.mjs --json   # 四项检查(产物一致/�
 - 错误码:[error-codes.md](./error-codes.md)
 - 滥用与封禁:[abuse-policy.md](./abuse-policy.md)
 - 合规与数据留存:[compliance.md](./compliance.md)
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

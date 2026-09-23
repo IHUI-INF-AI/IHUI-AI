@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { getAuthCookie } from '@/lib/cookie-utils'
 import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
+import { resolveApiBaseUrl, resolveStreamApiBaseUrl } from '@/lib/api-base-url'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
@@ -49,68 +50,24 @@ setTokenProvider({
   },
 })
 
-// A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api
-// - Tauri 环境:直连 http://127.0.0.1:8802(本地 API server)
-// - 浏览器 dev 环境(localhost:8801):走同源 /api/*(Next.js dev rewrites 代理到 8802),
-//   避免跨端口 POST 触发 SameSite=Lax cookie 不附带 → /auth/refresh 等鉴权 POST 接口 400
-// - 浏览器生产/其他:用 NEXT_PUBLIC_API_BASE_URL 环境变量;未设置时空字符串依赖同源反代
+// A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api。
+// 寻址判定已收口到 lib/api-base-url.ts(2026-09-21 根治"桌面端连不上生产后端"),
+// 要点:**按窗口实际 origin 判定,而不是按"是不是 Tauri 运行时"** —— 桌面端是薄壳,
+// 主窗口加载线上 https://aizhs.top/agents,必须走同源 /api/*;只有本地 dev(8801)/
+// 本地壳(tauri.localhost / offline 兜底页)才回退本机 8802。
+// 历史教训:旧逻辑 `'__TAURI_INTERNALS__' in window ? env || 'http://127.0.0.1:8802'`
+// 把 Tauri 等同于"本地三端联调",线上构建的空 env(scripts/build-next-prod.ps1 刻意为空)
+// 被 `||` 吞掉 → 桌面端全部请求打到用户本机 8802:无本地后端=连接被拒,有 dev 后端=
+// 打到本地库,生产账号登录必失败。
 // 只在客户端执行(build/SSR 时跳过,避免循环依赖导致模块导出未初始化)
 function detectApiBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
-    if ('__TAURI_INTERNALS__' in window) {
-      return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
-    }
-    // 2026-08-14 P0 修复:浏览器 dev 环境强制走同源 /api/* —— Next.js dev rewrites
-    // (next.config.ts:188-300)已配齐全部 /api/* → 8802/8803 代理。同源 POST 自动带 cookie,
-    // 解决"自动登录 /auth/refresh 永远 400"问题(跨端口 8801→8802 时 SameSite=Lax 不带 cookie)。
-    // 显式设置 NEXT_PUBLIC_API_BASE_URL 时仍优先(支持需要直连 8802 的特殊场景,如 cookie 调试)。
-    if (
-      window.location.hostname === 'localhost' &&
-      window.location.port === '8801' &&
-      !process.env.NEXT_PUBLIC_API_BASE_URL
-    ) {
-      return ''
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_BASE_URL || ''
+  return resolveApiBaseUrl()
 }
 
-// 2026-07-27 修复 SSE 流被 Next.js dev proxy 中断:
-// Next.js dev server 的 rewrite 代理对 SSE 流式响应有超时/缓冲问题,导致 net::ERR_ABORTED。
-// streamChat 用独立的 streamBaseUrl 直连 API 服务器,绕过 dev proxy。
-// 检测策略(按优先级):
-// 1. Tauri 环境:直连 http://localhost:8802
-// 2. 开发环境(localhost:8801):直连 http://localhost:8802(绕过 Next.js dev proxy)
-// 3. 显式 env 配置:NEXT_PUBLIC_STREAM_API_BASE_URL
-// 4. 生产环境:留空走同源(baseUrl 复用)
-// 2026-07-27 修复:用 localhost 替代 127.0.0.1 — Chrome 系统代理/PAC 文件常把 127.0.0.1
-// 路由到代理服务器导致 ERR_CONNECTION_REFUSED,而 localhost 走 bypass 列表能正常访问。
+// SSE 流被 Next.js dev proxy 中断(超时/缓冲 → net::ERR_ABORTED),故 dev 直连本机绕过;
+// 生产与桌面端(窗口加载远端站点)一律同源复用 baseUrl。判定收口同 lib/api-base-url.ts。
 function detectStreamBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    // Tauri 2 环境 IPC 桥(2026-07-29:withGlobalTauri 关闭后只检测此标识)
-    if ('__TAURI_INTERNALS__' in window) {
-      return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || 'http://localhost:8802'
-    }
-    // 开发环境:Next.js dev server 运行在 localhost:8801
-    // SSE 流直连 API 服务器 localhost:8802,绕过 dev proxy 的超时/缓冲
-    // 2026-09-14 根因修复(2-18 CI):必须叠加 NODE_ENV==='development' 门控。
-    // process.env.NODE_ENV 在客户端 bundle 构建期内联——生产构建(含 CI e2e 的
-    // next build)此分支被死代码消除,回归同源;否则 CI 的 web 同样跑在
-    // localhost:8801,被误判成 dev → 跨源直连 http://localhost:8802 → 被 CSP
-    // connect-src 'self' https: wss: ws: 拦截(Fetch cannot load),streamChat
-    // 无限重试 → SSE 相关用例全灭(phase-21 ×9 / ai-chat / share,run 34839041078
-    // error-context + trace console 铁证)。生产 aizhs.top 非 localhost 本就不触发。
-    if (
-      process.env.NODE_ENV === 'development' &&
-      window.location.hostname === 'localhost' &&
-      window.location.port === '8801'
-    ) {
-      return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || 'http://localhost:8802'
-    }
-  }
-  // 生产环境或显式配置(留空则复用 baseUrl,走同源反代)
-  return process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || ''
+  return resolveStreamApiBaseUrl()
 }
 
 if (typeof window !== 'undefined') {

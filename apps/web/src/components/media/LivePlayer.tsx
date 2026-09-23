@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import type Hls from 'hls.js'
+import { useTranslations } from 'next-intl'
 import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +35,7 @@ export function LivePlayer({
   className,
   onTimeUpdate,
 }: LivePlayerProps) {
+  const t = useTranslations('a11y')
   const videoRef = React.useRef<HTMLVideoElement>(null)
   const hlsRef = React.useRef<Hls | null>(null)
   const [playing, setPlaying] = React.useState(autoPlay)
@@ -69,7 +71,7 @@ export function LivePlayer({
       setError(null)
 
       if (isFlvStream(url)) {
-        setError('FLV 协议需额外依赖 flv.js,暂不支持')
+        setError(t('flvUnsupported'))
         setLoading(false)
         return
       }
@@ -106,7 +108,7 @@ export function LivePlayer({
               } else if (data.type === HlsImpl.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError()
               } else {
-                setError(`直播流错误: ${data.details}`)
+                setError(t('liveStreamError', { details: data.details }))
                 setLoading(false)
               }
             }
@@ -118,7 +120,7 @@ export function LivePlayer({
             if (autoPlay) video.play().catch(() => {})
           }
         } else {
-          setError('当前浏览器不支持 HLS 直播')
+          setError(t('hlsNotSupported'))
           setLoading(false)
         }
       } else {
@@ -128,7 +130,7 @@ export function LivePlayer({
           if (autoPlay) video.play().catch(() => {})
         }
         video.onerror = () => {
-          setError('视频加载失败')
+          setError(t('videoLoadFailed'))
           setLoading(false)
         }
       }
@@ -200,16 +202,30 @@ export function LivePlayer({
       )}
 
       {!loading && !error && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <div className="flex items-center gap-2 text-white">
-            <button onClick={togglePlay} className="rounded p-1 hover:bg-white/20">
+            <button
+              onClick={togglePlay}
+              aria-label={playing ? t('pause') : t('play')}
+              className="rounded p-1 hover:bg-white/20"
+            >
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
-            <button onClick={toggleMute} className="rounded p-1 hover:bg-white/20">
+            <button
+              onClick={toggleMute}
+              aria-label={mutedState ? t('unmute') : t('mute')}
+              className="rounded p-1 hover:bg-white/20"
+            >
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
-            <span className="ml-1 text-xs">{isHlsStream(src) ? 'HLS 直播' : '点播'}</span>
-            <button onClick={fullscreen} className="ml-auto rounded p-1 hover:bg-white/20">
+            <span className="ml-1 text-xs">
+              {isHlsStream(src) ? t('hlsLiveLabel') : t('onDemandLabel')}
+            </span>
+            <button
+              onClick={fullscreen}
+              aria-label={t('fullscreen')}
+              className="ml-auto rounded p-1 hover:bg-white/20"
+            >
               <Maximize className="h-4 w-4" />
             </button>
           </div>

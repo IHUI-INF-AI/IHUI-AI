@@ -16,6 +16,7 @@
 import asyncio
 import json
 import logging
+import os
 import time
 import uuid
 from collections import Counter
@@ -47,6 +48,7 @@ from ..services.agent_events import (
     SSE_DONE,
     SSE_ERROR,
     SSE_FALLBACK,
+    SSE_INJECTION_APPLIED,
     SSE_MESSAGE_DELTA,
     SSE_MESSAGE_START,
     SSE_MESSAGE_STOP,
@@ -177,13 +179,15 @@ def _resolve_message_id(metadata: Any) -> str | None:
     return None
 
 
-def _format_plan_updated_event(
+def _build_plan_snapshot(
     tool_calls_history: list[dict[str, Any]],
-    *,
-    explanation: str,
-    message_id: str | None,
-) -> str:
-    """W1(2026-09-12 立):把 tool loop 的工具调用历史格式化为 plan_updated SSE 事件。
+) -> list[dict[str, Any]]:
+    """W1(2026-09-12 立):把 tool loop 的工具调用历史构造为权威 plan 快照数组。
+
+    单一真相源(2026-09-21 抽取):本函数同时服务两条出口 ——
+    ① SSE `plan_updated` 事件(_format_plan_updated_event 的 plan 字段);
+    ② 会话持久化(_fire_callback body 的 planSteps → chat_messages.metadata.planSteps)。
+    两者必须逐字段等价,否则刷新页面后回放的计划会与流式期间所见不同。
 
     链路 A(普通对话 /api/ai/chat/stream)此前没有任何 plan 生产者,
     前端只能基于 reasoning/toolCalls/content 伪派生步骤
@@ -205,13 +209,17 @@ def _format_plan_updated_event(
     - result 存在且记录 isError → failed(附 "error": true)
     - result 存在无 error → completed
 
-    空历史返回空串:调用点可无条件 yield(空串不产生 SSE 输出),
-    同时避免发出空 plan 数组把前端 message.planSteps 清空。
+    空历史返回空数组:调用方据此决定不发 SSE 帧、不写 metadata 字段
+    (避免用空 plan 把前端 message.planSteps / 已落库计划清空)。
     """
     if not tool_calls_history:
-        return ""
+        return []
     _steps: list[dict[str, Any]] = []
     for _i, _rec in enumerate(tool_calls_history):
+        # 容错:调用方历史数组可能混入非 dict 脏记录(与 _build_persisted_tool_calls
+        # 同口径跳过),不得让 SSE 事件或回调落库因此抛 AttributeError
+        if not isinstance(_rec, dict):
+            continue
         _done = _rec.get("result") is not None
         _failed = _done and bool(_rec.get("isError"))
         _name = str(_rec.get("toolName") or "tool")
@@ -257,6 +265,25 @@ def _format_plan_updated_event(
                 _step["durationMs"] = _dur
         _steps.append(_step)
 
+    return _steps
+
+
+def _format_plan_updated_event(
+    tool_calls_history: list[dict[str, Any]],
+    *,
+    explanation: str,
+    message_id: str | None,
+) -> str:
+    """W1(2026-09-12 立):把 tool loop 历史格式化为 plan_updated SSE 事件帧。
+
+    plan 快照由 _build_plan_snapshot 统一构造(与落库的 metadata.planSteps 同源)。
+    空快照返回空串:调用点可无条件 yield(空串不产生 SSE 输出),同时避免发出
+    空 plan 数组把前端 message.planSteps 清空。
+    """
+    _steps = _build_plan_snapshot(tool_calls_history)
+    if not _steps:
+        return ""
+
     _evt: dict[str, Any] = {
         "type": "plan_updated",
         "plan": _steps,
@@ -268,9 +295,56 @@ def _format_plan_updated_event(
     return f"event: plan_updated\ndata: {json.dumps(_evt, ensure_ascii=False)}\n\n"
 
 
+def _sse_contract_enabled() -> bool:
+    """批58(接线):SSE 契约校验开关 —— 默认 off(与接线前逐字节等价)。
+
+    开启后按 app/core/sse_contract.py 的 SSE_EVENT_CONTRACTS 校验事件名与 payload
+    必填字段,漂移只告警(不改写帧内容、不阻断流式输出)。
+    """
+    return os.environ.get("SSE_CONTRACT_VALIDATE_ENABLED", "false").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def _sse(evt: str, payload: Any) -> str:
-    """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。"""
+    """SSE 帧构造(事件契约 agent_events.SSE_* 单一事实源)。
+
+    批58(接线):开关开启时经 sse_contract 做跨端契约漂移诊断(仅告警)。
+    """
+    if _sse_contract_enabled():
+        try:
+            from app.core.sse_contract import SSE_EVENT_CONTRACTS
+
+            contract = next((c for c in SSE_EVENT_CONTRACTS if c.name == evt), None)
+            if contract is None:
+                _sse_contract_warn(f"SSE 事件未在契约清单中登记: {evt}")
+            elif isinstance(payload, dict):
+                missing = [f for f in contract.payload_fields if f not in payload]
+                if missing:
+                    _sse_contract_warn(
+                        f"SSE 事件 {evt} 缺少契约字段 {missing}",
+                    )
+        except Exception as e:  # noqa: BLE001 - 契约诊断失败不影响帧产出
+            _sse_contract_warn(f"SSE 契约诊断异常(降级跳过): {e}")
     return f"event: {evt}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _sse_contract_warn(msg: str) -> None:
+    """契约漂移告警(warnings 通道,不阻断流式输出)。"""
+    import warnings
+
+    warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+# 终端输出随帧/随记录落库的字符上限(超出必须带 truncated + totalChars 交代)
+TERMINAL_OUTPUT_LIMIT = 8000
+
+# injection_applied 的 fullText 上限:超出就**整字段不发**(而不是发一段截断文本冒充全文),
+# 前端据此不给展开入口 —— "没有可看的内容"和"内容太长不在流里传"是两回事,但都不能骗人。
+INJECTION_FULLTEXT_LIMIT = 4000
 
 
 def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
@@ -301,6 +375,19 @@ def _extract_terminal_output(exec_result: Any) -> tuple[str, int | None]:
     return _output, _exit_code
 
 
+def _clip_terminal_output(output: str) -> tuple[str, bool, int]:
+    """终端输出截断,返回 (可见文本, 是否截断, 原始字符数)。
+
+    截断标志与原始长度**必须随帧/随记录一起下发**:SSE 与落库都只带截断后的文本,
+    刷新/回放时客户端没有 live 缓冲可比对,长度相等就看不出"后面还有内容没显示"
+    (对标 Codex/Trae 的 truncated + 总长度口径)。
+    """
+    total = len(output)
+    if total <= TERMINAL_OUTPUT_LIMIT:
+        return output, False, total
+    return output[:TERMINAL_OUTPUT_LIMIT], True, total
+
+
 def _format_terminal_end_event(
     terminal_id: str,
     exec_result: Any,
@@ -324,8 +411,12 @@ def _format_terminal_end_event(
         "durationMs": int((time.time() - started_ms) * 1000),
     }
     if _output:
-        # 截断:与 tool-result 的 4000 字符上限保持同一量级,避免事件体积膨胀
-        _evt["output"] = _output[:8000]
+        # 截断:超出上限时同时交代 truncated + totalChars(回放无 live 缓冲,只靠长度看不出来)
+        _shown, _truncated, _total = _clip_terminal_output(_output)
+        _evt["output"] = _shown
+        _evt["totalChars"] = _total
+        if _truncated:
+            _evt["truncated"] = True
     if _exit_code is not None:
         _evt["exitCode"] = _exit_code
     if message_id:
@@ -358,7 +449,13 @@ def _build_terminal_task(
         "durationMs": int((time.time() - started_ts) * 1000),
     }
     if _output:
-        _rec["output"] = _output[:8000]
+        # 与 SSE 帧同一截断口径:落库记录也必须带 truncated + totalChars,
+        # 否则刷新/回放后界面把 8000 字符当作完整输出(与 SSE 侧同一个缺陷)。
+        _shown, _truncated, _total = _clip_terminal_output(_output)
+        _rec["output"] = _shown
+        _rec["totalChars"] = _total
+        if _truncated:
+            _rec["truncated"] = True
     if _exit_code is not None:
         _rec["exitCode"] = _exit_code
     return _rec
@@ -552,9 +649,30 @@ def _format_tool_summary_event(tool_calls_history: list[dict[str, Any]]) -> str 
 
 
 
+def _citation_url(source: Any, raw: Any) -> str | None:
+    """从命中元数据里取**真实**存在的跳转目标,取不到就返回 None(绝不合成链接)。
+
+    - 任意源:raw 里显式给了 url 就用;
+    - codebase:给仓库相对路径 —— web 端 CitationBar 把非 http/非 # 的 url 交给 WorkPanel 打开,
+      因此文件路径就是可用的溯源深链;小程序/终端不渲染链接,不受影响。
+    """
+    if not isinstance(raw, dict):
+        return None
+    url = raw.get("url")
+    if isinstance(url, str) and url.strip():
+        return url.strip()
+    if source == "codebase":
+        file_path = raw.get("file_path") or raw.get("path")
+        if isinstance(file_path, str) and file_path.strip():
+            return file_path.strip().lstrip("/\\")
+    return None
+
+
 def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[str, str]]:
     """#11 Citations 全链路(2026-09-13 立):从 tool_calls_history 提取 knowledge_lookup
-    的引用溯源条目,按 (source, label) 去重,最多 10 条避免事件体积膨胀。"""
+    的引用溯源条目,按 (source, label) 去重,最多 10 条避免事件体积膨胀。
+    第 50 轮补:命中元数据里**确实存在**的 url / 仓库相对路径一并带出(web 据此可点击溯源),
+    没有就不发该键 —— 不给界面一个点不动的"假链接"。"""
     seen: set[tuple[str, str]] = set()
     out: list[dict[str, str]] = []
     for tc in tool_calls_history:
@@ -570,6 +688,7 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
             if not isinstance(h, dict):
                 continue
             source = h.get("source") or "knowledge"
+            url = _citation_url(source, h.get("raw"))
             for c in h.get("citations") or []:
                 if not isinstance(c, str) or not c.strip():
                     continue
@@ -578,10 +697,75 @@ def _collect_citations(tool_calls_history: list[dict[str, Any]]) -> list[dict[st
                 if key in seen:
                     continue
                 seen.add(key)
-                out.append({"source": str(source), "label": label})
+                entry = {"source": str(source), "label": label}
+                if url:
+                    entry["url"] = url
+                out.append(entry)
                 if len(out) >= 10:
                     return out
     return out
+
+
+def _note_retry(sink: list[dict[str, Any]], evt: dict[str, Any]) -> None:
+    """把网关的 retry_scheduled 帧记进累加器(只认契约声明的四字段,类型不符就不记)。
+
+    D39/G-44 的界面交代靠 SSE 实时下发;本函数只为**持久化**服务 —— 没有它,
+    刷新页面后"这轮上游重试过几次"就查不到了(与 citations/injections/compaction 同一族)。
+    """
+    if evt.get("type") != "retry_scheduled":
+        return
+    attempt = evt.get("attempt")
+    max_retries = evt.get("maxRetries")
+    if not isinstance(attempt, int) or not isinstance(max_retries, int):
+        return
+    retry_in_ms = evt.get("retryInMs")
+    http_status = evt.get("httpStatus")
+    sink.append(
+        {
+            "attempt": attempt,
+            "maxRetries": max_retries,
+            "retryInMs": retry_in_ms if isinstance(retry_in_ms, int) else 0,
+            **({"httpStatus": http_status} if isinstance(http_status, int) else {}),
+        }
+    )
+
+
+def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
+    """构造 compaction 载荷 —— SSE 帧与落库字段的**同一真相源**。
+
+    无需交代时返回 None:未压缩且没撞上限就不该留痕(与 _compaction_frame 同判据)。
+    G-166:此前只有 SSE 帧这一条出口,刷新页面 / 重拉历史后压缩分隔线整段消失。
+    """
+    if not info:
+        return None
+    trigger = str(info.get("trigger") or "")
+    compressed = bool(info.get("compressed"))
+    if not compressed and trigger != "incompressible":
+        return None
+    return {
+        "triggered": True,
+        "tokensBefore": info.get("original_tokens", 0),
+        "tokensAfter": info.get("compressed_tokens", 0),
+        "removedCount": info.get("removed_count", 0),
+        "usageRatio": info.get("usage_ratio", 0),
+        "trigger": trigger or "llm",
+    }
+
+
+def _compaction_frame(info: dict[str, Any] | None) -> str | None:
+    """构造 compaction SSE 帧;无需交代时返回 None。
+
+    G-150(WorkBuddy 一手对标):过去只在 `compressed=True` 时发帧,**压缩撞到上限
+    (incompressible:system/material 本身过大,截到最小仍超阈值)时用户完全无感** ——
+    界面上只是"回答变慢/变笨",而竞品会直说"已达上限,建议开新对话或减少上下文"。
+    现在 incompressible 同样发帧,并把 `trigger` 带出去供各端区分措辞与给动作。
+
+    载荷构造在 `_compaction_payload`(与落库字段同一真相源),本函数只负责包帧。
+    """
+    payload = _compaction_payload(info)
+    if payload is None:
+        return None
+    return f"data: {json.dumps({'compaction': payload}, ensure_ascii=False)}\n\n"
 
 
 def _format_citations_event(
@@ -2023,6 +2207,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # 开关:autoContext=false 关闭;IHUI_AUTO_CONTEXT_DISABLE=1 全局禁用(auto_context 模块内生效)。
     # 防重复:同一会话同一 query 60s 内不重复检索(auto_context 模块内 LRU)。
     # 全 try/except 静默降级:检索失败/异常绝不阻塞主聊天。
+    auto_context_hits = 0
     if (req.autoContext is not False) and req.workspace_path:
         try:
             from ..core.auto_context import auto_retrieve as _ac_retrieve
@@ -2037,6 +2222,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _ac_chunks = await _ac_retrieve(_ac_query, req.workspace_path, session_id=_ac_session_id)
                 _ac_block = _ac_format(_ac_chunks) if _ac_chunks else None
                 if _ac_block:
+                    auto_context_hits = len(_ac_chunks)
                     if messages and messages[0].get("role") == "system":
                         messages[0] = {
                             **messages[0],
@@ -2046,6 +2232,64 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D34(2026-09-22,G-40):把"本轮到底给模型注入了什么"交代成帧,在 gen() 首帧前发出。
+    # 判定只复用注入器既有的去重 marker 与请求字段,不给任何注入器加新状态:
+    # 手动 wiki `<!-- repo_wiki:{repo} -->` / 自动 wiki `<!-- repo-wiki-auto -->` /
+    # 工作区记忆 `<!-- workspace:{label} -->`;auto_context 命中数由上方块内记录。
+    _system_blob = "\n".join(
+        str(_m.get("content", "")) for _m in messages if _m.get("role") == "system"
+    )
+    injection_frames: list[dict[str, Any]] = []
+    # G-166 第⑥步:网关换 key / 退避重试的记账(逐条累积,落库取最后一条 = attempt 最大那条)
+    retry_notices: list[dict[str, Any]] = []
+    # kind 是**前端本地化的键**(措辞由 5 语言词表给出),collapsed 只作未知 kind 的兜底文本。
+    # 因此:① kind 必须逐场景互不相同(曾把 Repo Wiki 与自动检索都写成 environments,
+    # 前端无法区分);② 改 kind 必须同步 apps/web 的 INJECTION_KIND_KEYS 与词表。
+    if req.system_prompt and str(req.system_prompt).strip():
+        _instr_text = str(req.system_prompt)
+        # fullText 只在"能整段给出"时携带:不给 = 界面无可展开入口(不以截断文本冒充全文)
+        if len(_instr_text) <= INJECTION_FULLTEXT_LIMIT:
+            injection_frames.append(
+                {
+                    "type": SSE_INJECTION_APPLIED,
+                    "kind": "developer_instructions",
+                    "collapsed": "已应用会话级自定义指令",
+                    "fullText": _instr_text,
+                }
+            )
+        else:
+            injection_frames.append(
+                {
+                    "type": SSE_INJECTION_APPLIED,
+                    "kind": "developer_instructions",
+                    "collapsed": "已应用会话级自定义指令",
+                }
+            )
+    if "<!-- workspace:" in _system_blob:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "workspace_memory",
+                "collapsed": "已注入工作区记忆 / AGENTS.md 上下文",
+            }
+        )
+    if "<!-- repo_wiki:" in _system_blob or "<!-- repo-wiki-auto -->" in _system_blob:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "repo_wiki",
+                "collapsed": "已注入 Repo Wiki 项目百科",
+            }
+        )
+    if auto_context_hits:
+        injection_frames.append(
+            {
+                "type": SSE_INJECTION_APPLIED,
+                "kind": "auto_context",
+                "collapsed": f"已自动检索并注入 {auto_context_hits} 段代码上下文",
+                "count": auto_context_hits,
+            }
+        )
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -2131,6 +2375,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 各 terminal_end SSE 产出点同步 append(_build_terminal_task 构造,
         # 与 SSE 事件同源同截断),流收尾随 _fire_callback 落库到 metadata.terminalTasks。
         terminal_tasks_history: list[dict[str, Any]] = []
+        # D33(2026-09-23 立):过程性信息持久化补全 —— fallback / memoryUpdates / usageDetail
+        # 收集器(与 toolCalls / planSteps 同一套 keyword-only 扩参落库语义)。
+        # - fallback_records:tool loop 每轮 drain 的 SSE fallback 事件(最后一个即最终降级),
+        #   流收尾随 _fire_callback 落库到 metadata.fallback。
+        # - _mem_updates:done 前同步提炼的长期记忆条目(done.memoryUpdates 同源),落库供回放。
+        # - _usage_detail:流收尾 usage 帧同源的用量明细(token 分项 + 计时 + 成本),落库供回放。
+        fallback_records: list[dict[str, Any]] = []
+        _mem_updates: list[str] = []
+        _usage_detail: dict[str, Any] | None = None
         # W1(2026-09-12 立):前端 assistant 消息 ID。plan_updated / terminal_* 事件必须携带,
         # 否则前端 onPlanUpdate/onTerminalStart/onTerminalEnd 回调的 messageId 守卫会丢弃事件。
         message_id = _resolve_message_id(req.metadata)
@@ -2139,6 +2392,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 流收尾(finally)处据此计算 firstTokenMs / durationMs 并发出一帧 event: usage。
         _stream_started = time.perf_counter()
         _first_token_ts: float | None = None
+
+        # D34(2026-09-22,G-40):上下文注入交代帧必须是**流上最早的业务帧**(先于任何 chunk/工具帧),
+        # 前端才能把它排在"本轮开始"处;每帧补 messageId,与 plan_updated/terminal_* 同一守卫口径。
+        for _inj in injection_frames:
+            yield _sse(SSE_INJECTION_APPLIED, {**_inj, "messageId": message_id})
 
         def _mark_first_token() -> None:
             """记录首个正文(chunk)增量时间戳(幂等,仅首次调用生效)。"""
@@ -2171,9 +2429,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
         _agent_tool_loop_ran = False
         try:
-            # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
-            if compaction_info and compaction_info.get("compressed"):
-                yield f"data: {json.dumps({'compaction': {'triggered': True, 'tokensBefore': compaction_info['original_tokens'], 'tokensAfter': compaction_info['compressed_tokens'], 'removedCount': compaction_info['removed_count'], 'usageRatio': compaction_info['usage_ratio']}}, ensure_ascii=False)}\n\n"
+            # 若发生压缩(或压缩已撞到上限),通过 SSE 首事件通知调用方
+            _compaction_sse = _compaction_frame(compaction_info)
+            if _compaction_sse:
+                yield _compaction_sse
 
             # ===== Agent tool loop(2026-07-22 立,AI 浏览器/电脑控制)=====
             # 当请求携带 agent_tools(工具名列表)时:
@@ -2182,12 +2441,27 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 3. 如有 tool_calls:推送 SSE 事件 → 执行工具 → 回灌结果 → 继续 astream 生成最终回复
             # 4. 如无 tool_calls:推送 content + done,跳过 astream
             # ask 模式(2026-09-13 矩阵 A #24):纯问答禁工具,即使携带 agent_tools 也跳过 tool loop
-            if req.agent_tools and chat_mode != "ask":
+            #
+            # 服务端自主补全(2026-09-21 立):原先"要不要给 AI 操控本站的工具"完全由客户端
+            # 一张关键词表决定(agent_tools 为空就根本不进本 if),用户没说中那几个词整条链静默
+            # 失效。现在服务端自己也判一次 —— 意图复用 conversation 的强信号正则,工具族只给
+            # **该用户此刻真在线的端**(查 status 得到),查不到就一律不加,绝不为这一步打断聊天。
+            # ask 模式下保持 None ⇒ 与原语义逐字一致(纯问答永不进 tool loop)。
+            agent_tools: list[str] | None = None
+            if chat_mode != "ask":
+                from ..services.control_autonomy import augment_agent_tools
+
+                agent_tools = await augment_agent_tools(
+                    req.agent_tools,
+                    _last_user_text(messages),
+                    _resolve_owner_uuid(request),
+                )
+            if agent_tools:
                 from ..services.mcp_server import mcp_server as _mcp
                 all_tools = _mcp.list_tools()
                 tool_map = {t.name: t for t in all_tools}
                 openai_tools: list[dict[str, Any]] = []
-                for _name in req.agent_tools:
+                for _name in agent_tools:
                     _t = tool_map.get(_name)
                     if _t:
                         openai_tools.append({
@@ -2205,7 +2479,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 当 dispatch_subagent 在 agent_tools 中时,在 tool loop 开始前注入引导 system message,
                     # 引导 LLM 在复杂任务时主动派发子智能体。注入只发生一次,不随 iteration 重复。
                     # 注入策略与 _inject_workspace_memory 一致:messages[0] 为 system 则追加,否则在开头插入。
-                    if "dispatch_subagent" in req.agent_tools:
+                    if "dispatch_subagent" in agent_tools:
                         _subagent_prompt = _build_subagent_orchestration_prompt()
                         if messages and messages[0].get("role") == "system":
                             _existing = messages[0].get("content", "")
@@ -2267,6 +2541,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
+                                _note_retry(retry_notices, evt)
                                 if _evt_type == "chunk":
                                     # 逐 token 透传 + 提问标记解析(与 1144-1146 行格式一致)
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
@@ -2298,6 +2573,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # chunk/reasoning/tool_calls/done/error 五类,事件被静默
                                     # 丢弃,前端 onFallback 永不触发。原样转发(与非 tool-loop
                                     # 路径的兜底 yield _sse(event_type, event) 行为对齐)。
+                                    # D33(2026-09-23 立):fallback 事件同步入收集器,流收尾随
+                                    # _fire_callback 落库到 metadata.fallback(与 SSE 同源同字段)。
+                                    fallback_records.append(evt)
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与 1113-1119 行一致)
@@ -2369,6 +2647,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
+                                    compaction_info=compaction_info,
+                                    retry_notice=retry_notices[-1] if retry_notices else None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -2404,6 +2685,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
+                                _note_retry(retry_notices, evt)
                                 if _evt_type == "chunk":
                                     clean_text, questions = question_parser.feed(evt.get("content", ""))
                                     for q in questions:
@@ -2434,6 +2716,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "fallback":
                                     # P4-2(2026-09-19 修复):同第一轮 —— 此前后续轮次的
                                     # fallback 事件同样被静默丢弃,原样转发给前端。
+                                    # D33(2026-09-23 立):fallback 事件同步入收集器,流收尾随
+                                    # _fire_callback 落库到 metadata.fallback(与 SSE 同源同字段)。
+                                    fallback_records.append(evt)
                                     yield _sse(SSE_FALLBACK, evt)
                                 elif _evt_type == "error":
                                     # 流式错误(与第一轮一致)
@@ -2515,6 +2800,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         url, accumulated, req.metadata,
                                         tool_calls_history=tool_calls_history,
                                         terminal_tasks_history=terminal_tasks_history,
+                                    injections=injection_frames,
+                                    compaction_info=compaction_info,
+                                    retry_notice=retry_notices[-1] if retry_notices else None,
                                     ))
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
@@ -3210,6 +3498,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     url, accumulated, req.metadata,
                                     tool_calls_history=tool_calls_history,
                                     terminal_tasks_history=terminal_tasks_history,
+                                injections=injection_frames,
+                                compaction_info=compaction_info,
+                                retry_notice=retry_notices[-1] if retry_notices else None,
                                 ))
                                 _pending_callbacks.add(task)
                                 task.add_done_callback(_pending_callbacks.discard)
@@ -3272,6 +3563,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     logger.info("SSE client disconnected, stopping stream")
                     break
                 event_type = event.get("type", "message")
+                _note_retry(retry_notices, event)
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
                     raw_content = event.get("content", "")
@@ -3431,6 +3723,34 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     "model": accumulated.get("model"),
                     "costUsd": None,
                 }
+                # D33(2026-09-23 立):usageDetail 持久化通道(与 event: usage 同源同字段)。
+                # 成本经 model_pricing.estimate_cost_usd 推算(与 ai-cost 扣费同口径);
+                # 失败/未计费降级为 None,绝不阻塞主链路。仅当确有 token 用量时才构建,
+                # 否则保持 None(空值不写 key)。
+                if _total is not None or _prompt is not None or _completion is not None:
+                    _cost_usd: float | None = None
+                    try:
+                        from ..core.model_pricing import estimate_cost_usd
+
+                        if accumulated.get("model"):
+                            _cost_usd = estimate_cost_usd(
+                                str(accumulated.get("model")),
+                                int(_prompt or 0),
+                                int(_completion or 0),
+                            ).get("cost_usd")
+                    except Exception as _cost_err:
+                        _cost_usd = None
+                        logger.warning("usageDetail cost estimate failed: %s", _cost_err)
+                    _usage_detail = {
+                        "promptTokens": _prompt,
+                        "completionTokens": _completion,
+                        "totalTokens": _total,
+                        "reasoningTokens": _reasoning,
+                        "firstTokenMs": _first_ms,
+                        "durationMs": _duration_ms,
+                        "model": accumulated.get("model"),
+                        "costUsd": _cost_usd,
+                    }
                 yield _sse(SSE_USAGE, _usage_frame)
             except GeneratorExit:
                 # 客户端断开/取消:放弃计量帧,保持生成器关闭语义(不吞没 GeneratorExit)
@@ -3448,6 +3768,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 url, accumulated, req.metadata,
                 tool_calls_history=tool_calls_history,
                 terminal_tasks_history=terminal_tasks_history,
+            injections=injection_frames,
+            compaction_info=compaction_info,
+            retry_notice=retry_notices[-1] if retry_notices else None,
+            usage_detail=_usage_detail,
+            fallback=fallback_records[-1] if fallback_records else None,
+            memory_updates=_mem_updates if _mem_updates else None,
             ))
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
@@ -3604,6 +3930,12 @@ async def _fire_callback(
     *,
     tool_calls_history: list[dict[str, Any]] | None = None,
     terminal_tasks_history: list[dict[str, Any]] | None = None,
+    injections: list[dict[str, Any]] | None = None,
+    compaction_info: dict[str, Any] | None = None,
+    retry_notice: dict[str, Any] | None = None,
+    usage_detail: dict[str, Any] | None = None,
+    fallback: dict[str, Any] | None = None,
+    memory_updates: list[str] | None = None,
 ) -> None:
     """异步 POST 推理结果到 callback_url。
 
@@ -3615,6 +3947,12 @@ async def _fire_callback(
     terminalTasks 字段,API 侧落库到 chat_messages.metadata,恢复会话/
     回放/审计时还原工具卡与终端区。非流式端点(/llm/complete)无 tool loop,
     不传即缺省 None(不带字段,向后兼容)。
+
+    planSteps 持久化(2026-09-21 立):同一份 tool_calls_history 还经
+    _build_plan_snapshot 生成 body.planSteps,与 SSE plan_updated 的 plan 数组
+    逐字段同源。API 侧 /api/ai/callback 收到后浅合并进
+    chat_messages.metadata.planSteps(已有 jsonb 列,零 schema 迁移),使刷新页面 /
+    重拉历史后输入框上方任务状态条与消息流 PlanStepsCard 均可回放。
 
     健壮性:
     - 若配置 ai_callback_secret,携带 X-Internal-Secret 头(与后端共享密钥校验)
@@ -3640,6 +3978,41 @@ async def _fire_callback(
         body["toolCalls"] = _persist_calls
     if terminal_tasks_history:
         body["terminalTasks"] = terminal_tasks_history
+    # planSteps 持久化(2026-09-21 立,零 schema 迁移):与 plan_updated SSE 事件
+    # 逐字段同源(_build_plan_snapshot 单一真相源),API 侧浅合并进
+    # chat_messages.metadata.planSteps,jsonb 已有列,不新增字段/不改表结构。
+    # 空快照不写字段:与"本轮无计划"语义区分,也不会覆盖 worker 已合并的其他 key。
+    _persist_plan = _build_plan_snapshot(tool_calls_history or [])
+    if _persist_plan:
+        body["planSteps"] = _persist_plan
+    # G-166(2026-09-22 立)交代帧持久化:citations 与 SSE citations 事件**同一个
+    # _collect_citations** 产出(同源同去重同上限),injections 与 SSE injection_applied
+    # 帧同源(流内累积的同一份列表),落库后刷新页面 / 重拉历史仍能交代"引用了哪些来源、
+    # 带了哪些上下文"。空列表不写字段:与"本轮无引用/无注入"区分,也不覆盖 worker
+    # 已浅合并的其他 key。injections 里的 "type" 是 SSE 帧判别字,持久化记录不需要 → 剥掉。
+    _persist_citations = _collect_citations(tool_calls_history or [])
+    if _persist_citations:
+        body["citations"] = _persist_citations
+    _persist_injections = [{k: v for k, v in f.items() if k != "type"} for f in injections or []]
+    if _persist_injections:
+        body["injections"] = _persist_injections
+    # compaction(G-166 第②步):载荷与 SSE compaction 帧同一个 _compaction_payload,
+    # 未压缩且未撞上限时返回 None → 不写字段(与"本轮没压缩"语义一致)。
+    _persist_compaction = _compaction_payload(compaction_info)
+    if _persist_compaction:
+        body["compaction"] = _persist_compaction
+    # retryNotice(G-166 第⑥步):同一轮可能重试多次,落**最后一条**(attempt 最大 = 最终那次)
+    if retry_notice:
+        body["retryNotice"] = retry_notice
+    # D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 过程性信息持久化。
+    # 与 citations / compaction 同一套"非空才写字段"语义:空值(None/空数组)不写 key,
+    # worker 侧浅合并因此不会覆盖已合并的其他 key(与 planSteps 同口径)。
+    if usage_detail:
+        body["usageDetail"] = usage_detail
+    if fallback:
+        body["fallback"] = fallback
+    if memory_updates:
+        body["memoryUpdates"] = memory_updates
     # 2026-08-06 修复(配套):API 侧 /api/ai/callback 已改为 fail-closed
     # (未配置 AI_CALLBACK_SECRET 直接 401 拒绝)。此处未配置 ai_callback_secret
     # 时回调必然被拒,跳过发送并记录明确错误,避免无效网络请求 + 静默丢回调。
@@ -3762,7 +4135,7 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
     {
         "object": "list",
         "data": [{"object": "embedding", "index": 0, "embedding": [0.1, ...]}],
-        "model": "text-embedding-ada-002",
+        "model": "text-embedding-3-small",
         "usage": {"prompt_tokens": 10, "total_tokens": 10}
     }
     """
@@ -3773,7 +4146,7 @@ async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any] | JSONResp
             content={"code": "INVALID_INPUT", "message": "input must not be empty", "model": req.model},
         )
 
-    used_model = req.model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+    used_model = req.model or getattr(settings, "embedding_model", "text-embedding-3-small")
 
     # stub 模式:逐条调 llm_gateway.embed(返回确定性哈希向量,无真实 usage)
     if llm_gateway._is_stub_mode():

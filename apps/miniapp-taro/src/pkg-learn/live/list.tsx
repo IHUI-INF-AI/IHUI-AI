@@ -35,7 +35,7 @@ export default function LiveList() {
   const statusText = useCallback((s: Live['status']) => t(STATUS_KEY[s]), [t])
 
   const tabs = [
-    { key: '', labelKey: 'live.all' },
+    { key: '', labelKey: 'liveList.all' },
     { key: 'living', labelKey: 'live.liveNow' },
     { key: 'upcoming', labelKey: 'live.preview' },
     { key: 'ended', labelKey: 'live.replay' },

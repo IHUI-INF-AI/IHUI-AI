@@ -20,6 +20,7 @@
 
 import { exchangeSsoCode, extractSsoCode, SSO_CLIENT_IDS } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
+import { resolveApiBaseUrl } from '@/lib/api-base-url'
 import type { AuthUser } from '@ihui/api-client'
 
 const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
@@ -29,15 +30,6 @@ const DESKTOP_CLIENT_ID = SSO_CLIENT_IDS.DESKTOP
  * 导致重复 exchange 请求(2026-08-01 P1-1 inbound 防护加固)。
  */
 let lastProcessedCode: string | null = null
-
-function detectApiBaseUrl(): string {
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    // 2026-09-02 SaaS 化:打包注入 NEXT_PUBLIC_API_BASE_URL(线上)时优先,
-    // 未注入(本地 dev 三端联调)回退 127.0.0.1:8802。与 lib/api.ts 同语义。
-    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
-  }
-  return process.env.NEXT_PUBLIC_API_BASE_URL || ''
-}
 
 /**
  * 处理 desktop deep-link URL,完成 SSO 闭环。
@@ -52,7 +44,7 @@ export async function handleDesktopDeepLink(url: string): Promise<boolean> {
   // 去重:OS 可能重复派发同一 deep-link,跳过已处理的 sso_code(2026-08-01 P1-1)
   if (code === lastProcessedCode) return true
 
-  const apiBase = detectApiBaseUrl()
+  const apiBase = resolveApiBaseUrl()
   const tokenData = await exchangeSsoCode(apiBase, code, DESKTOP_CLIENT_ID)
   if (!tokenData) return false
 

@@ -7,8 +7,12 @@ import ReactDOM from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import SidepanelApp from './SidepanelApp'
 import { I18nProvider } from '../../src/i18n'
+import { initExtUiListener } from './ext-ui-listener'
 import './globals.css'
 import './style.css'
+
+// ext_ui 第五族:sidepanel 侧监听 background 转发的 AI 操控指令(七动词,见 lib/ui-action-registry.ts)
+initExtUiListener()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

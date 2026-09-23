@@ -199,6 +199,44 @@ async function findOrderById(orderId: string) {
   return rows[0]
 }
 
+/**
+ * 发票结果邮件通知(fire-and-forget,失败不阻塞开票主流程)。
+ * 收件人 = 用户指定的收票邮箱(invoice.email,开票申请必填);
+ * issued 品牌绿(发票号/下载链接),rejected 信号红(驳回原因)。
+ */
+function notifyInvoiceResult(invoice: RelayInvoiceRequest, status: 'issued' | 'rejected'): void {
+  void (async () => {
+    const [{ findUserById }, { sendEmail }, { renderInvoiceResultEmail, resolveWebOrigin }] =
+      await Promise.all([
+        import('../db/queries.js'),
+        import('./email-service.js'),
+        import('./email-templates.js'),
+      ])
+    const user = await findUserById(invoice.userId)
+    const mail = renderInvoiceResultEmail({
+      userName: user?.nickname ?? undefined,
+      invoiceType: invoice.invoiceType as 'plain' | 'vat_special',
+      title: invoice.title,
+      amountYuan: (invoice.amountCents / 100).toFixed(2),
+      orderNo: invoice.orderNo,
+      status,
+      invoiceNo: invoice.invoiceNo ?? undefined,
+      invoiceUrl: invoice.invoiceUrl ?? undefined,
+      reason: invoice.rejectReason ?? undefined,
+      finishedAt: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+      ordersUrl: `${resolveWebOrigin()}/orders`,
+    })
+    await sendEmail({
+      to: invoice.email,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      scene: 'notification',
+      userId: invoice.userId,
+    })
+  })().catch(() => {})
+}
+
 export async function issueInvoice(
   id: string,
   issuerId: string,
@@ -226,7 +264,9 @@ export async function issueInvoice(
     })
     .where(eq(relayInvoiceRequests.id, id))
     .returning()
-  return { success: true, data: updated[0]! }
+  const issued = updated[0]!
+  notifyInvoiceResult(issued, 'issued')
+  return { success: true, data: issued }
 }
 
 export async function rejectInvoice(
@@ -248,7 +288,9 @@ export async function rejectInvoice(
     .set({ status: 'rejected', rejectReason: reason, updatedAt: new Date() })
     .where(eq(relayInvoiceRequests.id, id))
     .returning()
-  return { success: true, data: updated[0]! }
+  const rejected = updated[0]!
+  notifyInvoiceResult(rejected, 'rejected')
+  return { success: true, data: rejected }
 }
 
 export async function listInvoices(filters: {

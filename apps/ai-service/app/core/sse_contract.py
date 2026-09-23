@@ -41,6 +41,21 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "compaction",
         "steer",
         "budget",
+        # D34(2026-09-22,G-40/G-44):运行环境交代两帧。事件名为我方协议自定
+        # (与 plan_updated/terminal_end 同族 snake_case);竞品实证部分只有**字段形状**
+        # (kind 八枚举 / collapsed+可展开全文 / attempt+maxRetries+retryInMs+httpStatus)。
+        # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
+        #
+        # 收回记录(2026-09-22 第 36 轮自查:上两批我多加了两帧,判定为契约设计错误,不留空心帧)
+        # - terminal_output:与既有 terminal_end 重复(后者已带 output/exitCode/durationMs);
+        #   其唯一新增语义 formattedOutput/truncated 改为 terminal_end 的字段,不再单列事件。
+        # - settings_applied:服务端没有"流中途改设置"的触发点(模型与 personality 切换在
+        #   web 客户端状态与 HTTP 变更接口,降级由 fallback 帧承担);竞品侧 Codex 的
+        #   thread_settings_applied 在我方 importer 里亦按"非对话项"忽略
+        #   (app/services/importers/codex.py:20)。改登记为 D43/R 层:前端把用户切换
+        #   写成流内留痕条并支持撤销,不再是协议事件。
+        "injection_applied",
+        "retry_scheduled",
     }
 )
 
@@ -80,8 +95,26 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("terminal_start", ("terminalId", "command", "status", "startedAt", "messageId")),
     SSEEventContract(
         "terminal_end",
-        ("terminalId", "status", "endedAt", "durationMs", "output", "exitCode", "messageId"),
+        (
+            "terminalId",
+            "status",
+            "endedAt",
+            "durationMs",
+            "output",
+            "exitCode",
+            "messageId",
+            # D34 收回 terminal_output 后,截断语义并到本帧(第 39 轮补齐生产点):
+            # truncated 仅在真被截断时为 true,totalChars 恒为原始长度。
+            # formattedOutput 已删 —— 它只有竞品形状、我方无生产点也无消费方(后端不做排版,
+            # stdout/stderr 的结构化在 tool-result 帧里已分开),不留空壳字段。
+            "truncated",
+            "totalChars",
+        ),
     ),
+    # D34(2026-09-22,G-40/G-43/G-44/G-52):运行环境交代四帧。
+    # 事件名为我方协议自定;字段形状取自竞品一手观察(报告 §1.1 / §16.1)。
+    SSEEventContract("injection_applied", ("kind", "collapsed", "fullText", "count")),
+    SSEEventContract("retry_scheduled", ("attempt", "maxRetries", "retryInMs", "httpStatus")),
     SSEEventContract("done", ("usage", "model", "stub")),
     # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
     SSEEventContract(
@@ -94,7 +127,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("fallback", ("primary_model", "backup_model", "reason")),
     SSEEventContract(
         "compaction",
-        ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio"),
+        ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio", "trigger"),
     ),
     # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出
     SSEEventContract("steer", ("phase", "text", "timestamp", "messageId")),

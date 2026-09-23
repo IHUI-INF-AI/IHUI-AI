@@ -3,6 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { EventEmitter } from 'node:events'
+import { PERMISSION_MODE_SET } from '@ihui/types/permission-mode'
+import type { PermissionModeId } from '@ihui/types/permission-mode'
 import { logger } from './logger.js'
 
 export type PermissionAction = 'read' | 'write' | 'execute' | 'delete' | 'admin'
@@ -130,19 +132,23 @@ export function getPermissionGuard(): PermissionGuard {
   return instance
 }
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'manual'
+/**
+ * 权限档词汇的唯一真源是 `@ihui/types/permission-mode`(G-161)。
+ *
+ * 本行此前是**残留的第 8 套副本**:`'default'|'acceptEdits'|'bypassPermissions'|'plan'|'manual'`
+ * 五值手抄。守门第 68 项的 R4 只扫 `KNOWN_CONSUMERS` 硬编码清单,本文件不在其中,
+ * 所以这份副本一直没被咬到 —— 新增第 6 档时这里必漏接(静默 `parsePermissionMode` 返回
+ * undefined,即"客户端发了但服务端当没发")。改 `PermissionModeId` 后漂移会以 tsc 报错
+ * 的形式暴露,并由 `packages/types/tests/permission-mode-vocabulary.test.ts` 全仓兜底。
+ */
+export type PermissionMode = PermissionModeId
 
 export type PermissionDecision = 'allow' | 'deny' | 'ask'
 
 export type DangerLevel = 'read' | 'write' | 'dangerous'
 
-const VALID_PERMISSION_MODES: ReadonlySet<string> = new Set([
-  'default',
-  'acceptEdits',
-  'bypassPermissions',
-  'plan',
-  'manual',
-])
+/** 与注册表同一 Set 实例(取值集合逐字不变:仍是 5 个规范档精确匹配,不做归一)。 */
+const VALID_PERMISSION_MODES: ReadonlySet<string> = PERMISSION_MODE_SET
 
 export function parsePermissionMode(s: string | undefined | null): PermissionMode | undefined {
   if (!s || typeof s !== 'string') return undefined

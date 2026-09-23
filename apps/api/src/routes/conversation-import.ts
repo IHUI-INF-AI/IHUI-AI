@@ -150,110 +150,114 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
     // 全局 bodyLimit 10MiB 会让大会话直接 413 且前端只显示"导入失败",故为本路由放宽。
     { bodyLimit: COMMIT_BODY_LIMIT_BYTES },
     async (request, reply) => {
-    const userId = request.userId!
-    const parsed = commitSchema.safeParse(request.body)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const data = parsed.data
-    const importId = crypto.randomUUID()
-
-    // 保留原始时间戳:会话/消息时间缺省或非法时回退导入时刻
-    const now = new Date()
-    const conversationCreatedAt = parseTimestamp(data.createdAt, now)
-    const messageTimestamps = data.messages.map((m) =>
-      parseTimestamp(m.createdAt, conversationCreatedAt),
-    )
-    const lastMessageAt = messageTimestamps.reduce(
-      (acc, d) => (d > acc ? d : acc),
-      conversationCreatedAt,
-    )
-
-    try {
-      const conversationId = await db.transaction(async (tx) => {
-        const [conversation] = await tx
-          .insert(chatConversations)
-          .values({
-            userId,
-            title: data.title ?? '新对话',
-            model: data.model ?? 'gpt-4o-mini',
-            metadata: {
-              importedFrom: data.source,
-              importedVia: 'conversation-import',
-              fileName: data.fileName ?? null,
-            },
-            createdAt: conversationCreatedAt,
-            updatedAt: now,
-            lastMessageAt,
-          })
-          .returning({ id: chatConversations.id })
-        if (!conversation) throw new Error('会话创建失败')
-
-        await tx.insert(chatMessages).values(
-          data.messages.map((m, i) => ({
-            conversationId: conversation.id,
-            role: m.role,
-            content: m.content,
-            reasoning: m.reasoning ?? null,
-            tokens: m.tokens ?? null,
-            // 原始时间戳(缺省回退会话创建时间)
-            createdAt: messageTimestamps[i]!,
-          })),
-        )
-        return conversation.id
-      })
-
-      // 写导入批次记录(失败不阻塞交付,与 cli-import 同语义)
-      try {
-        await db.insert(conversationImports).values({
-          id: importId,
-          ownerUuid: userId,
-          source: data.source,
-          conversationId,
-          fileName: data.fileName ?? null,
-          parsedCount: data.messages.length,
-          importedCount: data.messages.length,
-          failedCount: 0,
-          status: 'success',
-          errorMessage: null,
-        })
-      } catch (err) {
-        request.log.error({ err, importId }, '[conversation-import] failed to write history')
+      const userId = request.userId!
+      const parsed = commitSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
+      const data = parsed.data
+      const importId = crypto.randomUUID()
 
-      request.log.info(
-        { userId, importId, source: data.source, conversationId, count: data.messages.length },
-        '[conversation-import] commit done',
+      // 保留原始时间戳:会话/消息时间缺省或非法时回退导入时刻
+      const now = new Date()
+      const conversationCreatedAt = parseTimestamp(data.createdAt, now)
+      const messageTimestamps = data.messages.map((m) =>
+        parseTimestamp(m.createdAt, conversationCreatedAt),
       )
-      return reply
-        .status(201)
-        .send(success({ importId, conversationId, importedMessages: data.messages.length }))
-    } catch (err) {
-      request.log.error({ err, userId, source: data.source }, '[conversation-import] commit failed')
-      // 失败也必须留痕:否则 conversation_imports.status 的 partial|failed 两态永不可达,
-      // 而 web / CLI / mobile-rn 三端都在渲染失败徽标 —— 不留痕就是死 UI。
+      const lastMessageAt = messageTimestamps.reduce(
+        (acc, d) => (d > acc ? d : acc),
+        conversationCreatedAt,
+      )
+
       try {
-        await db.insert(conversationImports).values({
-          id: importId,
-          ownerUuid: userId,
-          source: data.source,
-          conversationId: null,
-          fileName: data.fileName ?? null,
-          parsedCount: data.messages.length,
-          importedCount: 0,
-          failedCount: data.messages.length,
-          status: 'failed',
-          errorMessage: `${(err as Error).message}`.slice(0, 500),
+        const conversationId = await db.transaction(async (tx) => {
+          const [conversation] = await tx
+            .insert(chatConversations)
+            .values({
+              userId,
+              title: data.title ?? '新对话',
+              model: data.model ?? 'gpt-4o-mini',
+              metadata: {
+                importedFrom: data.source,
+                importedVia: 'conversation-import',
+                fileName: data.fileName ?? null,
+              },
+              createdAt: conversationCreatedAt,
+              updatedAt: now,
+              lastMessageAt,
+            })
+            .returning({ id: chatConversations.id })
+          if (!conversation) throw new Error('会话创建失败')
+
+          await tx.insert(chatMessages).values(
+            data.messages.map((m, i) => ({
+              conversationId: conversation.id,
+              role: m.role,
+              content: m.content,
+              reasoning: m.reasoning ?? null,
+              tokens: m.tokens ?? null,
+              // 原始时间戳(缺省回退会话创建时间)
+              createdAt: messageTimestamps[i]!,
+            })),
+          )
+          return conversation.id
         })
-      } catch (historyErr) {
-        request.log.error(
-          { err: historyErr, importId },
-          '[conversation-import] failed to write failure history',
+
+        // 写导入批次记录(失败不阻塞交付,与 cli-import 同语义)
+        try {
+          await db.insert(conversationImports).values({
+            id: importId,
+            ownerUuid: userId,
+            source: data.source,
+            conversationId,
+            fileName: data.fileName ?? null,
+            parsedCount: data.messages.length,
+            importedCount: data.messages.length,
+            failedCount: 0,
+            status: 'success',
+            errorMessage: null,
+          })
+        } catch (err) {
+          request.log.error({ err, importId }, '[conversation-import] failed to write history')
+        }
+
+        request.log.info(
+          { userId, importId, source: data.source, conversationId, count: data.messages.length },
+          '[conversation-import] commit done',
         )
+        return reply
+          .status(201)
+          .send(success({ importId, conversationId, importedMessages: data.messages.length }))
+      } catch (err) {
+        request.log.error(
+          { err, userId, source: data.source },
+          '[conversation-import] commit failed',
+        )
+        // 失败也必须留痕:否则 conversation_imports.status 的 partial|failed 两态永不可达,
+        // 而 web / CLI / mobile-rn 三端都在渲染失败徽标 —— 不留痕就是死 UI。
+        try {
+          await db.insert(conversationImports).values({
+            id: importId,
+            ownerUuid: userId,
+            source: data.source,
+            conversationId: null,
+            fileName: data.fileName ?? null,
+            parsedCount: data.messages.length,
+            importedCount: 0,
+            failedCount: data.messages.length,
+            status: 'failed',
+            errorMessage: `${(err as Error).message}`.slice(0, 500),
+          })
+        } catch (historyErr) {
+          request.log.error(
+            { err: historyErr, importId },
+            '[conversation-import] failed to write failure history',
+          )
+        }
+        return reply.status(500).send(error(500, `导入落库失败: ${(err as Error).message}`))
       }
-      return reply.status(500).send(error(500, `导入落库失败: ${(err as Error).message}`))
-    }
-  })
+    },
+  )
 
   // -------------------------------------------------------------------------
   // 3. GET /conversation-import/history — 用户导入历史

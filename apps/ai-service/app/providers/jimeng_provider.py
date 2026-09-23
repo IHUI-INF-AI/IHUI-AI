@@ -19,7 +19,7 @@
 ARK_API_BASE(默认 https://ark.cn-beijing.volces.com)、
 JIMENG_API_BASE(默认 https://visual.volcengineapi.com)、
 JIMENG_IMAGE_REQ_KEY(默认 high_aes_general_v21)、
-ARK_IMAGE_MODEL(默认 doubao-seedream-4-0)、ARK_VIDEO_MODEL(默认 doubao-seedance-1-0-pro)
+ARK_IMAGE_MODEL(默认 doubao-seedream-5-0)、ARK_VIDEO_MODEL(默认 doubao-seedance-2-0)
 """
 
 from __future__ import annotations
@@ -261,7 +261,7 @@ class JimengProvider(BaseProvider):
     async def _ark_image(self, prompt: str, model: str, size: str, **kwargs: Any) -> dict[str, Any]:
         used = (model or "").removeprefix("jimeng-")
         if not used or "seedream" not in used:
-            used = os.environ.get("ARK_IMAGE_MODEL", "doubao-seedream-4-0")
+            used = os.environ.get("ARK_IMAGE_MODEL", "doubao-seedream-5-0")
         body: dict[str, Any] = {
             "model": used,
             "prompt": prompt,
@@ -349,7 +349,7 @@ class JimengProvider(BaseProvider):
     ) -> dict[str, Any]:
         used = (model or "").removeprefix("jimeng-")
         if not used or "seedance" not in used:
-            used = os.environ.get("ARK_VIDEO_MODEL", "doubao-seedance-1-0-pro")
+            used = os.environ.get("ARK_VIDEO_MODEL", "doubao-seedance-2-0")
         text = f"{prompt} --dur {int(duration)}"
         ratio = kwargs.get("aspect_ratio")
         if ratio:

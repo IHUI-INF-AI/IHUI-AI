@@ -1037,20 +1037,20 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   adminSkillBatch: 'nav.adminSkillBatch',
 }
 
-/** i18n 静态映射表 — 用于消除 `t(`nav.group.${groupKey}`)` 动态拼接 */
+/** i18n 静态映射表 — 指向既有 nav.adminGroup.*(五语齐备,不新造第二份组名) */
 const NAV_GROUP_KEY: Record<AdminGroupKey, string> = {
-  operation: 'nav.group.operation',
-  moderation: 'nav.group.moderation',
-  finance: 'nav.group.finance',
-  aiAgent: 'nav.group.aiAgent',
-  marketing: 'nav.group.marketing',
-  courseExam: 'nav.group.courseExam',
-  analytics: 'nav.group.analytics',
-  support: 'nav.group.support',
-  community: 'nav.group.community',
-  resource: 'nav.group.resource',
-  developer: 'nav.group.developer',
-  saas: 'nav.group.saas',
+  operation: 'nav.adminGroup.operation',
+  moderation: 'nav.adminGroup.moderation',
+  finance: 'nav.adminGroup.finance',
+  aiAgent: 'nav.adminGroup.aiAgent',
+  marketing: 'nav.adminGroup.marketing',
+  courseExam: 'nav.adminGroup.courseExam',
+  analytics: 'nav.adminGroup.analytics',
+  support: 'nav.adminGroup.support',
+  community: 'nav.adminGroup.community',
+  resource: 'nav.adminGroup.resource',
+  developer: 'nav.adminGroup.developer',
+  saas: 'nav.adminGroup.saas',
 }
 
 const STORAGE_KEY = 'adminNav.collapsed'
@@ -1159,7 +1159,7 @@ export function AdminNav({ children }: { children: React.ReactNode }) {
         >
           <GroupIcon className="h-3.5 w-3.5 shrink-0" />
           <TruncatedText
-            value={t(NAV_GROUP_KEY[group.groupKey] ?? 'nav.group.unknown')}
+            value={t(NAV_GROUP_KEY[group.groupKey])}
             className="min-w-0 flex-1 text-left whitespace-nowrap"
           />
           <span className="text-[10px] tabular-nums text-muted-foreground/70">
