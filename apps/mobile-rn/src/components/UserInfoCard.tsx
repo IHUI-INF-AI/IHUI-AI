@@ -447,7 +447,7 @@ const newStyles = StyleSheet.create({
   },
   copyBtnText: {
     fontSize: 11,
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
     fontWeight: '500',
   },
   // 等级弹窗
@@ -603,7 +603,7 @@ const oldStyles = StyleSheet.create({
   editBtnText: {
     fontSize: 12,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   membershipRow: {
     flexDirection: 'row',
