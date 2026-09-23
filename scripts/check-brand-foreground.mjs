@@ -27,7 +27,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
-const TARGET_DIR = path.join(ROOT, 'apps', 'mobile-rn', 'src')
 const BASELINE_PATH = path.join(__dirname, 'brand-foreground-baseline.json')
 
 const SKIP_ENV = 'HUSKY_SKIP_BRAND_FOREGROUND'
