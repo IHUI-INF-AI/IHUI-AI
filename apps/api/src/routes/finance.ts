@@ -5,6 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   getBalance,
@@ -54,11 +55,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   // P1-4 修复:/finance/margin/* 资金操作全部加 admin 权限校验(roleId >= 1),禁止普通用户自助调用
   server.post('/finance/margin/deduct', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { quantity, remark } = z
       .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
       .parse(request.query)
@@ -68,11 +66,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/finance/margin/recharge', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { quantity, outTradeNo } = z
       .object({ quantity: z.coerce.number(), outTradeNo: z.string() })
       .parse(request.query)
@@ -98,11 +93,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/finance/margin/expire', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { quantity, source } = z
       .object({ quantity: z.coerce.number(), source: z.string().optional().default('到期清零') })
       .parse(request.query)
@@ -112,11 +104,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/finance/margin/commission', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { quantity, invitedUserId, source } = z
       .object({
         quantity: z.coerce.number(),
@@ -131,11 +120,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/finance/margin/refund', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { quantity, remark, orderNo } = z
       .object({
         quantity: z.coerce.number(),
@@ -326,11 +312,8 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
   // body: { status: 'approved' | 'rejected', remark?: string }
   // DB withdrawal_flows.status:0=pending 1=processing 2=completed 3=failed
   server.put('/admin/finance/withdrawal/:id/audit', async (request, reply) => {
-    await authenticate(request)
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < 1) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsedParams = z.object({ id: z.uuid({ error: '无效的 ID' }) }).safeParse(request.params)
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
