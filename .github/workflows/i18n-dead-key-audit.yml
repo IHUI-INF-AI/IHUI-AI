@@ -26,6 +26,11 @@ on:
       - 'apps/web/src/**'
       - 'apps/miniapp-taro/src/**'
       - 'apps/cli/src/**'
+      # 2026-09-24:本 job 改跑 --target all(五端全覆盖),触发路径必须覆盖被扫的目录,
+      # 否则改了 extension/mobile-rn/shared 消费方时这道门根本不跑。
+      - 'apps/extension/**'
+      - 'apps/mobile-rn/**'
+      - 'packages/shared/src/chat/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
       - 'scripts/_i18n-scan-helpers.mjs'
       - 'scripts/tests/**'
@@ -37,6 +42,11 @@ on:
       - 'apps/web/src/**'
       - 'apps/miniapp-taro/src/**'
       - 'apps/cli/src/**'
+      # 2026-09-24:本 job 改跑 --target all(五端全覆盖),触发路径必须覆盖被扫的目录,
+      # 否则改了 extension/mobile-rn/shared 消费方时这道门根本不跑。
+      - 'apps/extension/**'
+      - 'apps/mobile-rn/**'
+      - 'packages/shared/src/chat/**'
       - 'scripts/scan-dead-i18n-keys.mjs'
       - 'scripts/_i18n-scan-helpers.mjs'
       - 'scripts/tests/**'
@@ -95,8 +105,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: 扫描死 key(失败即阻塞 PR)
-        run: node scripts/scan-dead-i18n-keys.mjs --exit 1
+      - name: 扫描死 key(失败即阻塞 PR;五端全扫,不再只跑 web)
+        run: node scripts/scan-dead-i18n-keys.mjs --target all --exit 1
 
       - name: 上传死 key 审计报告
         if: always()
