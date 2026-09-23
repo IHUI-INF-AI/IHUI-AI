@@ -109,7 +109,11 @@ function isAncestorBlob(g, path, blob) {
  * 连带 unstage 他人真正的暂存):
  *   ① 索引 blob != HEAD blob;
  *   ② 索引 blob 确为该路径的某个**历史版本**(⇒ 不是新做的暂存);
- *   ③ 工作区内容 == 索引内容(该路径上没有未暂存的改动,刷新不会覆盖任何现场)。
+ *   ③ 该路径上没有"现场":工作区 == 索引(无未暂存改动),**或**工作区 == HEAD
+ *      (旁路提交后工作区已跟上 HEAD,刷索引只是把 index 补齐 —— 不覆盖任何东西)。
+ *   ③ 的后一形态是 CAS/`commit-tree` 提交后最常见的残留(本仓 2026-09-23 实测 4 个路径),
+ *   只写"工作区==索引"会把它永久漏掉:那些陈旧 index blob 会一直躺在暂存区里,
+ *   等任何人一次不带 pathspec 的普通 commit 把文件写回旧版。
  */
 export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
@@ -146,8 +150,10 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
       held++
       continue
     }
-    const wtUnchanged = !wtBlob.size || wtBlob.get(p) === ib
-    if (wtUnchanged && isAncestorBlob(g, p, ib)) refreshable.push([p, hb])
+    // ③ 无现场:工作区==索引(无未暂存改动)或 工作区==HEAD(旁路提交后工作区已跟上)
+    const wt = wtBlob.get(p)
+    const noLocalState = !wtBlob.size || wt === ib || wt === hb
+    if (noLocalState && isAncestorBlob(g, p, ib)) refreshable.push([p, hb])
     else held++
   }
   if (!refreshable.length) return { refreshed: 0, paths: [], held }
@@ -284,6 +290,21 @@ function selfTestRun() {
     check('⑨ 落后索引被逐路径刷新', r1.refreshed === 1)
     alignDrifts(tmp)
     check('⑩ 刷新后工作区随之对齐到 HEAD', readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v9\n')
+
+    // ⑫ 旁路提交(commit-tree + update-ref)后的真实残留形态:HEAD 与工作区都已前进,
+    //    **只有索引停在祖先版本**(本仓 2026-09-23 实测 4 个路径即此态,原判据③漏掉它)。
+    writeFileSync(join(tmp, 'keep.ts'), 'v11\n')
+    g(['commit', '-qam', 'E: v11'])
+    const ancestorBlob = g(['rev-parse', 'HEAD~1:keep.ts']).trim()
+    g(['update-index', '--cacheinfo', `100644,${ancestorBlob},keep.ts`]) // 人为把 index 退回祖先版本
+    const r1b = refreshStaleIndex(tmp)
+    const indexAfter = g(['ls-files', '-s', '--', 'keep.ts']).split(/\s+/)[1]
+    check(
+      '⑫ 工作区==HEAD 而索引停在祖先版本 ⇒ 刷新 index 且不动工作区',
+      r1b.refreshed === 1 &&
+        indexAfter === g(['rev-parse', 'HEAD:keep.ts']).trim() &&
+        readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v11\n',
+    )
 
     // ⑪ 他人真暂存的新内容(blob 不是任何历史版本)⇒ 绝不刷新
     writeFileSync(join(tmp, 'keep.ts'), '他人暂存的新工作\n')
