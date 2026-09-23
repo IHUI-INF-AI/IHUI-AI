@@ -8962,6 +8962,12 @@
     },
     "metaDescription": "국내외 41개 권위 있는 출처(웨이보/즈후/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 등)를 통합, 6시간마다 자동 수집, 모델/제품/업계/논문 카테고리와 트렌드 신호를 실시간 업데이트.",
     "metaTitle": "AI 뉴스 · 전네트워크 실시간 통합 스트림",
+    "priceChart": {
+      "inputPrice": "{name} · 입력 가격: {price}",
+      "outputPrice": "{name} · 출력 가격: {price}",
+      "legendInput": "입력",
+      "legendOutput": "출력"
+    },
     "trendChart": {
       "days": "일",
       "hotValue": "인기도",
