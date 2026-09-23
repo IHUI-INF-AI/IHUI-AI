@@ -6903,6 +6903,21 @@
       "statusSuccess": "成功",
       "title": "工具調用鏈",
       "waiting": "等待工具調用..."
+    },
+    "card": {
+      "roleResearcher": "研究員",
+      "roleCoder": "編碼員",
+      "roleReviewer": "審查員",
+      "roleTester": "測試員",
+      "roleCustom": "自定義",
+      "unnamed": "未命名",
+      "lastActive": "最後活躍 {time}",
+      "actionStart": "啟動",
+      "actionPause": "暫停",
+      "actionStop": "停止",
+      "actionCopyConfig": "複製配置",
+      "permissionMode": "權限模式",
+      "maxIterations": "最大迭代"
     }
   },
   "agents": {
@@ -7040,6 +7055,83 @@
       "rollbackConfirmConfirm": "確認恢復"
     },
     "pane": {
+      "agentActions": {
+        "title": "多智能體操作",
+        "header": { "count": "{count, plural, one {1 個智能體} other {# 個智能體}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "輸入：{prompt}" },
+        "action": {
+          "spawn": {
+            "label": "建立",
+            "inProgress": "建立中",
+            "completed": "已建立",
+            "failed": "建立失敗"
+          },
+          "resume": {
+            "label": "恢復",
+            "inProgress": "恢復中",
+            "completed": "已恢復",
+            "failed": "恢復失敗"
+          },
+          "sendInput": {
+            "label": "傳送輸入",
+            "inProgress": "傳送中",
+            "completed": "已傳送",
+            "failed": "傳送失敗"
+          },
+          "interrupt": {
+            "label": "中斷",
+            "inProgress": "正在中斷",
+            "completed": "已中斷",
+            "failed": "中斷未成功"
+          },
+          "close": {
+            "label": "關閉",
+            "inProgress": "正在關閉",
+            "completed": "已關閉",
+            "failed": "無法關閉"
+          },
+          "list": {
+            "label": "列出",
+            "inProgress": "載入中",
+            "completed": "已載入",
+            "failed": "載入失敗"
+          }
+        },
+        "state": {
+          "running": "執行中",
+          "completed": "已完成",
+          "errored": "發生錯誤",
+          "interrupted": "已中斷",
+          "pendingInit": "準備中",
+          "shutdown": "已關閉",
+          "notFound": "找不到"
+        }
+      },
+      "prChecks": {
+        "title": "CI 檢查",
+        "summary": {
+          "failing": "檢查未通過",
+          "pending": "檢查待處理",
+          "successful": "檢查已通過",
+          "none": "無 CI 檢查"
+        },
+        "state": {
+          "failed": "測試失敗",
+          "passed": "測試已通過",
+          "pending": "待測試",
+          "skipped": "已跳過的測試",
+          "neutral": "中性測試",
+          "unknown": "測試狀態未知"
+        },
+        "action": {
+          "checksFix": "修復",
+          "checksRemove": "移除",
+          "commentsAddress": "新增到對話",
+          "commentsRemove": "移除"
+        },
+        "countLabel": "{passed}/{total} 項通過"
+      },
       "retryScheduled": "上游暫不可用，第 {attempt}/{max} 次重試，{seconds} 秒後繼續",
       "retryScheduledNow": "上游正在切換通道，第 {attempt}/{max} 次重試（立即繼續）",
       "ariaLabel": "Agent 任務進度面板",
@@ -7390,6 +7482,91 @@
         "noReasonText": "自動審查未提供理由",
         "noDecision": "暫無自動審查記錄",
         "expandAria": "命令歷史(展開/收起)"
+      },
+      "toolSummaryShowMore": "更多",
+      "toolSummaryShowLess": "收起",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "建立中",
+          "ready": "已建立",
+          "initFailed": "初始化失敗",
+          "timeout": "逾時",
+          "cleaned": "此任務的 Worktree 已被清理以釋放磁碟空間。",
+          "restoring": "還原中",
+          "restored": "已還原",
+          "restoreFailed": "無法還原"
+        },
+        "hint": {
+          "timeout": "請檢查倉庫狀態",
+          "cleaned": "可還原該 Worktree 以繼續此任務,或回收磁碟空間。",
+          "singleWriter": "同一任務同時僅允許一個使用中的 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁碟空間",
+          "restore": "還原 Worktree",
+          "retryRestore": "重試還原",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命週期"
+      },
+      "writingBlock": {
+        "title": "寫作區塊",
+        "ariaLabel": "寫作區塊",
+        "empty": "此訊息暫無寫作區塊",
+        "status": {
+          "idle": "待處理",
+          "editing": "編輯中",
+          "accepted": "已接受",
+          "reverted": "已還原",
+          "failed": "無法更新此寫作區塊"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤銷"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "無法接受此寫作區塊"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "無法全部接受此寫作區塊"
+          },
+          "revert": {
+            "inProgress": "正在撤銷",
+            "completed": "已撤銷",
+            "failed": "無法撤銷此寫作區塊"
+          }
+        },
+        "openIn": {
+          "label": "開啟方式",
+          "email": "使用預設電子郵件應用程式開啟電子郵件",
+          "browser": "使用預設瀏覽器開啟網頁"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "潤色",
+        "ariaLabel": "潤色提示詞",
+        "phase": {
+          "idle": "未潤色",
+          "polishing": "正在潤色…",
+          "succeeded": "潤色完成",
+          "failed": "潤色失敗"
+        },
+        "action": {
+          "polish": "潤色",
+          "retry": "重試"
+        },
+        "failureDraftKept": "暫時無法潤色提示詞，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿為空，請先輸入內容再潤色。"
+        },
+        "restartHint": "潤色服務需重新啟動後生效，草稿已保留。"
       }
     },
     "permissionConfirm": {
@@ -11213,7 +11390,7 @@
       "gatewayHintA": "呼叫網關時,請求頭使用",
       "gatewayHintB": "(即 ihui_ 開頭的 Key 標識;Secret 請妥善保管,勿放進請求頭)。",
       "savedClose": "我已保存,關閉"
-},
+    },
     "relayUsage": {
       "title": "用量明細",
       "subtitle": "按模型或按日查看中轉站 / BYOK 呼叫統計",
@@ -11255,7 +11432,7 @@
       "allApiKeys": "全部 API Key",
       "cacheRead": "讀 {count}",
       "cacheWrite": "寫 {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "說明",
@@ -11572,13 +11749,13 @@
       "reviewer": "審查助手",
       "architect": "架構師",
       "debugger": "調試助手"
-},
+    },
     "subRoles": {
       "researcher": "研究員",
       "coder": "編碼員",
       "reviewer": "評審員",
       "debugger": "調試員"
-},
+    },
     "orch": {
       "parallel": "並行",
       "pipeline": "串行",
@@ -11587,13 +11764,13 @@
       "vote": "投票",
       "critique": "批判",
       "withCommunication": "協作通信"
-},
+    },
     "subOrch": {
       "pipeline": "流水線",
       "critique": "批評",
       "decomposed": "分解",
       "withCommunication": "帶通信"
-},
+    },
     "orchDesc": {
       "parallel": "多個 agent 並行處理同一任務",
       "pipeline": "多個 agent 串行傳遞結果",
@@ -11602,13 +11779,13 @@
       "vote": "5 個 agent 獨立處理 → 互相投票(1-5 分)選最佳",
       "critique": "多 agent 互相批判優化(3 輪:生成→批判→修訂)",
       "withCommunication": "agent 間 Redis 消息總線通信(3 輪協作)"
-},
+    },
     "priority": {
       "low": "低",
       "normal": "普通",
       "high": "高",
       "urgent": "緊急"
-},
+    },
     "fields": {
       "goal": "任務目標",
       "agentRole": "Agent 角色",
@@ -11633,7 +11810,7 @@
       "tokenQuota": "Token 上限",
       "tokenQuotaForm": "Token 配額",
       "maxRetries": "最大重試"
-},
+    },
     "defaultForbidden": "任何不在上述清單的文件",
     "defaultDagNodeTask": "調研需求",
     "dagTitle": "DAG 依賴圖",
@@ -14181,7 +14358,7 @@
       "openWithUnified": "合併視圖打開",
       "openInEditor": "在編輯器中打開",
       "viewPullRequest": "查看拉取請求"
-}
+    }
   },
   "imageGenPage": {
     "download": "下載",
@@ -14281,7 +14458,9 @@
     "summaryPlaceholder": "一句話描述文章內容",
     "tagsLabel": "標簽",
     "titleLabel": "標題",
-    "titlePlaceholder": "輸入文章標題"
+    "titlePlaceholder": "輸入文章標題",
+    "tagInputPlaceholder": "輸入標籤後回車",
+    "add": "添加"
   },
   "kbEditPage": {
     "backToArticle": "返回文章",
@@ -14386,7 +14565,11 @@
     },
     "title": "知識庫",
     "edit": "編輯知識",
-    "search": "搜索知識"
+    "search": "搜索知識",
+    "metaTitle": "RAG 知識檢索 — 向量 + BM25 + 知識圖譜 | 智匯 AI",
+    "metaDescription": "智匯 AI RAG 知識檢索:文檔分塊、向量化、混合檢索(向量 + BM25 + 知識圖譜),支持實時搜索與引用追溯。企業級 RAG 管理平臺。",
+    "metaOgTitle": "RAG 知識檢索 — 向量 + BM25 + 知識圖譜",
+    "metaOgDescription": "文檔分塊 + 向量化 + 混合檢索 + 引用追溯"
   },
   "learn": {
     "allCategories": "全部分類",
@@ -14874,7 +15057,15 @@
         "temperatureHelp": "採樣溫度,0~2,越低越確定,越高越發散",
         "title": "默認參數",
         "topP": "Top P",
-        "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token"
+        "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token",
+        "presetPrecise": "Precise(精確)",
+        "presetPreciseDesc": "低溫度,適合代碼 / 事實問答",
+        "presetBalanced": "Balanced(均衡)",
+        "presetBalancedDesc": "默認配置,適合日常對話",
+        "presetCreative": "Creative(創意)",
+        "presetCreativeDesc": "高溫度,適合寫作 / 頭腦風暴",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "結構化輸出,適合 API 集成"
       },
       "modelsCount": "{count} 個模型",
       "more": "共 {total} 個,展開省略",
@@ -14952,7 +15143,30 @@
       "testSuccessWithTime": "成功 {ms}ms · {date}",
       "testTimeOnly": "耗時 {ms}ms",
       "untested": "未測試",
-      "usage30d": "30 天 Token"
+      "usage30d": "30 天 Token",
+      "byok": {
+        "modeLabel": "BYOK 模式",
+        "modeDesc": ":你配置的 API Key 加密存儲(AES-256-GCM),調用時直接使用你的 Key 訪問大廠。平臺只收 5-20% 服務費,Cloudflare / GitHub Models / HuggingFace 等免費 provider 不收費。",
+        "viewGuide": "查看引導",
+        "welcomeTitle": "歡迎使用 BYOK 平臺模式",
+        "welcomeDesc": "自帶 API Key 調用大廠模型,平臺僅收 5-20% 服務費",
+        "whyTitle": "為什麼選擇 BYOK?",
+        "whyDesc": "BYOK(Bring Your Own Key)讓你自帶大廠 API Key 調用模型,大廠直接扣你的賬戶,平臺只收 5-20% 服務費。相比傳統中轉站,你無需付中間商加價。",
+        "freeProvidersTitle": "免費 Provider 推薦",
+        "cfDesc": "@cf/ · 免費,無需 API Key",
+        "githubDesc": "github/ · 免費,用 GitHub token",
+        "hfDesc": "huggingface/ · 免費,用 HF token",
+        "pollinationsDesc": "pollinations/ · 免費,無需 API Key",
+        "llm7Desc": "llm7/ · 免費,無需 API Key",
+        "freeNote": "以上免費 provider 平臺完全不收費(0 服務費)",
+        "stepsTitle": "操作步驟",
+        "step1": "點擊左側「添加 Provider」按鈕",
+        "step2": "選擇廠商(如 OpenAI / DeepSeek / 智譜)或免費 provider(如 cloudflare)",
+        "step3": "填入你的 API Key(AES-256-GCM 加密存儲,平臺無法看到明文)",
+        "step4": "添加你要用的模型",
+        "step5": "調用時系統自動優先使用你的 Key",
+        "gotIt": "知道了"
+      }
     }
   },
   "market": {
@@ -24489,7 +24703,22 @@
     "uploadFailedWithReason": "上傳失敗:{error}",
     "unknownError": "未知錯誤",
     "missingFileId": "上傳響應缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 個附件"
+    "maxAttachmentsReached": "最多 {count} 個附件",
+    "placeholder": "點選或拖拽檔案到此處上傳",
+    "done": "已完成",
+    "cancelUpload": "取消上傳",
+    "removeUploadedAriaLabel": "刪除已上傳檔案",
+    "removeItemAriaLabel": "移除上傳項",
+    "sizeLimitHint": "單檔案不超過 {size}",
+    "maxCountReached": "已達上限 {max} 個檔案",
+    "oversizeFiles": "以下檔案超過 {size}: {files}",
+    "uploadFailed": "上傳失敗",
+    "uploadFailedWithStatus": "上傳失敗:HTTP {status}",
+    "invalidJsonResponse": "回應不是合法 JSON",
+    "noUrlField": "回應中未找到可用的 URL 欄位",
+    "networkError": "網路錯誤",
+    "uploadCancelled": "上傳已取消",
+    "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {
     "title": "智能排課",
@@ -25425,7 +25654,7 @@
     "oauthManage": "OAuth 應用管理",
     "mcpConnect": "MCP Server 接入",
     "opsExecute": "運維操作執行"
-},
+  },
   "apiKeysPage": {
     "title": "我的 API 密鑰",
     "createKey": "創建密鑰",
@@ -25442,5 +25671,57 @@
     "rotateSecretDesc": "輪換「{name}」的 secret 後,舊 secret 立即失效,使用舊 secret 的應用需更新。確認繼續?",
     "deleteKeyTitle": "刪除 API 密鑰",
     "deleteKeyDesc": "確定刪除「{name}」?刪除後該密鑰立即失效,且無法恢復。"
-}
+  },
+  "knowledgeList": {
+    "title": "知識庫",
+    "subtitle": "通過語義搜索檢索記憶庫中的知識內容",
+    "searchPlaceholder": "搜索知識庫...",
+    "searchAriaLabel": "搜索知識庫",
+    "empty": "暫無搜索結果",
+    "searchHint": "輸入關鍵詞搜索知識庫內容",
+    "resultCount": "共 {count} 條結果"
+  },
+  "knowledgeBase": {
+    "backToList": "返回列表",
+    "searchPlaceholder": "搜索知識庫文章...",
+    "metaTitle": "知識庫 — 企業 RAG 知識管理系統 | 智匯 AI",
+    "metaDescription": "智匯 AI 知識庫:支持 30+ 數據源接入,混合檢索(向量 + BM25 + 知識圖譜),引用追溯,細粒度權限管控。幫企業把散落文檔變成可對話的 AI 知識大腦。",
+    "metaOgTitle": "企業知識庫 RAG — 智匯 AI",
+    "metaOgDescription": "30+ 數據源 + 混合檢索 + 引用追溯 + 權限管控",
+    "list": {
+      "title": "知識庫",
+      "subtitle": "瀏覽、搜索與管理知識庫文章",
+      "allCategories": "全部分類",
+      "empty": "暫無文章"
+    },
+    "detail": {
+      "notFound": "文章不存在",
+      "viewCount": "{count} 次瀏覽",
+      "toc": "目錄",
+      "prev": "上一篇",
+      "next": "下一篇"
+    },
+    "search": {
+      "backToKb": "返回知識庫",
+      "title": "搜索結果",
+      "resultSummary": "關鍵詞「{q}」共找到 {count} 條結果",
+      "inputKeyword": "請輸入搜索關鍵詞",
+      "searching": "搜索中...",
+      "noResult": "未找到相關文章"
+    },
+    "create": {
+      "title": "新建知識庫文章",
+      "subtitle": "撰寫新的知識庫文章併發布"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "加載中...",
+    "screenshotNotice": "該網站禁止嵌入,已切換到截圖模式",
+    "blockedTitle": "URL 不安全,已攔截",
+    "failedTitle": "加載失敗",
+    "externalTitle": "無法在面板內嵌入",
+    "retry": "重試",
+    "openExternal": "在外部瀏覽器開啟",
+    "idlePlaceholder": "輸入網址或點擊 AI 訊息中的連結以開啟"
+  }
 }

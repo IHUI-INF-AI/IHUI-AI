@@ -6903,6 +6903,21 @@
       "statusSuccess": "成功",
       "title": "工具调用链",
       "waiting": "等待工具调用..."
+    },
+    "card": {
+      "roleResearcher": "研究员",
+      "roleCoder": "编码员",
+      "roleReviewer": "审查员",
+      "roleTester": "测试员",
+      "roleCustom": "自定义",
+      "unnamed": "未命名",
+      "lastActive": "最后活跃 {time}",
+      "actionStart": "启动",
+      "actionPause": "暂停",
+      "actionStop": "停止",
+      "actionCopyConfig": "复制配置",
+      "permissionMode": "权限模式",
+      "maxIterations": "最大迭代"
     }
   },
   "agents": {
@@ -7040,6 +7055,83 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "agentActions": {
+        "title": "多智能体操作",
+        "header": { "count": "{count, plural, one {1 个智能体} other {# 个智能体}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "输入：{prompt}" },
+        "action": {
+          "spawn": {
+            "label": "创建",
+            "inProgress": "创建中",
+            "completed": "已创建",
+            "failed": "创建失败"
+          },
+          "resume": {
+            "label": "恢复",
+            "inProgress": "恢复中",
+            "completed": "已恢复",
+            "failed": "恢复失败"
+          },
+          "sendInput": {
+            "label": "发送输入",
+            "inProgress": "发送中",
+            "completed": "已发送",
+            "failed": "发送失败"
+          },
+          "interrupt": {
+            "label": "中断",
+            "inProgress": "正在中断",
+            "completed": "已中断",
+            "failed": "中断未成功"
+          },
+          "close": {
+            "label": "关闭",
+            "inProgress": "正在关闭",
+            "completed": "已关闭",
+            "failed": "无法关闭"
+          },
+          "list": {
+            "label": "列出",
+            "inProgress": "加载中",
+            "completed": "已加载",
+            "failed": "加载失败"
+          }
+        },
+        "state": {
+          "running": "运行中",
+          "completed": "已完成",
+          "errored": "出错",
+          "interrupted": "已中断",
+          "pendingInit": "准备中",
+          "shutdown": "已关闭",
+          "notFound": "找不到"
+        }
+      },
+      "prChecks": {
+        "title": "CI 检查",
+        "summary": {
+          "failing": "检查未通过",
+          "pending": "检查待处理",
+          "successful": "检查已通过",
+          "none": "无 CI 检查"
+        },
+        "state": {
+          "failed": "测试失败",
+          "passed": "测试已通过",
+          "pending": "待测试",
+          "skipped": "已跳过的测试",
+          "neutral": "中性测试",
+          "unknown": "测试状态未知"
+        },
+        "action": {
+          "checksFix": "修复",
+          "checksRemove": "移除",
+          "commentsAddress": "添加到对话",
+          "commentsRemove": "移除"
+        },
+        "countLabel": "{passed}/{total} 项通过"
+      },
       "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
       "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
       "ariaLabel": "Agent 任务进度面板",
@@ -7390,6 +7482,91 @@
         "noReasonText": "自动审查未提供理由",
         "noDecision": "暂无自动审查记录",
         "expandAria": "命令历史(展开/收起)"
+      },
+      "toolSummaryShowMore": "更多",
+      "toolSummaryShowLess": "收起",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "创建中",
+          "ready": "已创建",
+          "initFailed": "初始化失败",
+          "timeout": "超时",
+          "cleaned": "此任务的 Worktree 已被清理以释放磁盘空间。",
+          "restoring": "恢复中",
+          "restored": "已恢复",
+          "restoreFailed": "无法恢复"
+        },
+        "hint": {
+          "timeout": "请检查仓库状态",
+          "cleaned": "可恢复该 Worktree 以继续此任务,或回收磁盘空间。",
+          "singleWriter": "同一任务同时仅允许一个活跃 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁盘空间",
+          "restore": "恢复 Worktree",
+          "retryRestore": "重试恢复",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命周期"
+      },
+      "writingBlock": {
+        "title": "写作块",
+        "ariaLabel": "写作块",
+        "empty": "此消息暂无写作块",
+        "status": {
+          "idle": "待处理",
+          "editing": "编辑中",
+          "accepted": "已接受",
+          "reverted": "已撤销",
+          "failed": "无法更新此写作块"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤销"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "无法接受此写作块"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "无法全部接受此写作块"
+          },
+          "revert": {
+            "inProgress": "正在撤销",
+            "completed": "已撤销",
+            "failed": "无法撤销此写作块"
+          }
+        },
+        "openIn": {
+          "label": "打开方式",
+          "email": "使用默认电子邮箱应用打开电子邮件",
+          "browser": "使用默认浏览器打开网页"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "润色",
+        "ariaLabel": "润色提示词",
+        "phase": {
+          "idle": "未润色",
+          "polishing": "正在润色…",
+          "succeeded": "润色完成",
+          "failed": "润色失败"
+        },
+        "action": {
+          "polish": "润色",
+          "retry": "重试"
+        },
+        "failureDraftKept": "暂时无法润色提示词，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿为空，请先输入内容再润色。"
+        },
+        "restartHint": "润色服务需重启后生效，草稿已保留。"
       }
     },
     "permissionConfirm": {
@@ -11213,7 +11390,7 @@
       "gatewayHintA": "调用网关时,请求头使用",
       "gatewayHintB": "(即 ihui_ 开头的 Key 标识;Secret 请妥善保管,勿放进请求头)。",
       "savedClose": "我已保存,关闭"
-},
+    },
     "relayUsage": {
       "title": "用量明细",
       "subtitle": "按模型或按日查看中转站 / BYOK 调用统计",
@@ -11255,7 +11432,7 @@
       "allApiKeys": "全部 API Key",
       "cacheRead": "读 {count}",
       "cacheWrite": "写 {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "说明",
@@ -11572,13 +11749,13 @@
       "reviewer": "审查助手",
       "architect": "架构师",
       "debugger": "调试助手"
-},
+    },
     "subRoles": {
       "researcher": "研究员",
       "coder": "编码员",
       "reviewer": "评审员",
       "debugger": "调试员"
-},
+    },
     "orch": {
       "parallel": "并行",
       "pipeline": "串行",
@@ -11587,13 +11764,13 @@
       "vote": "投票",
       "critique": "批判",
       "withCommunication": "协作通信"
-},
+    },
     "subOrch": {
       "pipeline": "流水线",
       "critique": "批评",
       "decomposed": "分解",
       "withCommunication": "带通信"
-},
+    },
     "orchDesc": {
       "parallel": "多个 agent 并行处理同一任务",
       "pipeline": "多个 agent 串行传递结果",
@@ -11602,13 +11779,13 @@
       "vote": "5 个 agent 独立处理 → 互相投票(1-5 分)选最佳",
       "critique": "多 agent 互相批判优化(3 轮:生成→批判→修订)",
       "withCommunication": "agent 间 Redis 消息总线通信(3 轮协作)"
-},
+    },
     "priority": {
       "low": "低",
       "normal": "普通",
       "high": "高",
       "urgent": "紧急"
-},
+    },
     "fields": {
       "goal": "任务目标",
       "agentRole": "Agent 角色",
@@ -11633,7 +11810,7 @@
       "tokenQuota": "Token 上限",
       "tokenQuotaForm": "Token 配额",
       "maxRetries": "最大重试"
-},
+    },
     "defaultForbidden": "任何不在上述清单的文件",
     "defaultDagNodeTask": "调研需求",
     "dagTitle": "DAG 依赖图",
@@ -14181,7 +14358,7 @@
       "openWithUnified": "合并视图打开",
       "openInEditor": "在编辑器中打开",
       "viewPullRequest": "查看拉取请求"
-}
+    }
   },
   "imageGenPage": {
     "download": "下载",
@@ -14281,7 +14458,9 @@
     "summaryPlaceholder": "一句话描述文章内容",
     "tagsLabel": "标签",
     "titleLabel": "标题",
-    "titlePlaceholder": "输入文章标题"
+    "titlePlaceholder": "输入文章标题",
+    "tagInputPlaceholder": "输入标签后回车",
+    "add": "添加"
   },
   "kbEditPage": {
     "backToArticle": "返回文章",
@@ -14386,7 +14565,11 @@
     },
     "title": "知识库",
     "edit": "编辑知识",
-    "search": "搜索知识"
+    "search": "搜索知识",
+    "metaTitle": "RAG 知识检索 — 向量 + BM25 + 知识图谱 | 智汇 AI",
+    "metaDescription": "智汇 AI RAG 知识检索:文档分块、向量化、混合检索(向量 + BM25 + 知识图谱),支持实时搜索与引用追溯。企业级 RAG 管理平台。",
+    "metaOgTitle": "RAG 知识检索 — 向量 + BM25 + 知识图谱",
+    "metaOgDescription": "文档分块 + 向量化 + 混合检索 + 引用追溯"
   },
   "learn": {
     "allCategories": "全部分类",
@@ -14874,7 +15057,15 @@
         "temperatureHelp": "采样温度,0~2,越低越确定,越高越发散",
         "title": "默认参数",
         "topP": "Top P",
-        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token"
+        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token",
+        "presetPrecise": "Precise(精确)",
+        "presetPreciseDesc": "低温度,适合代码 / 事实问答",
+        "presetBalanced": "Balanced(均衡)",
+        "presetBalancedDesc": "默认配置,适合日常对话",
+        "presetCreative": "Creative(创意)",
+        "presetCreativeDesc": "高温度,适合写作 / 头脑风暴",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "结构化输出,适合 API 集成"
       },
       "modelsCount": "{count} 个模型",
       "more": "共 {total} 个,展开省略",
@@ -14952,7 +15143,30 @@
       "testSuccessWithTime": "成功 {ms}ms · {date}",
       "testTimeOnly": "耗时 {ms}ms",
       "untested": "未测试",
-      "usage30d": "30 天 Token"
+      "usage30d": "30 天 Token",
+      "byok": {
+        "modeLabel": "BYOK 模式",
+        "modeDesc": ":你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20% 服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。",
+        "viewGuide": "查看引导",
+        "welcomeTitle": "欢迎使用 BYOK 平台模式",
+        "welcomeDesc": "自带 API Key 调用大厂模型,平台仅收 5-20% 服务费",
+        "whyTitle": "为什么选择 BYOK?",
+        "whyDesc": "BYOK(Bring Your Own Key)让你自带大厂 API Key 调用模型,大厂直接扣你的账户,平台只收 5-20% 服务费。相比传统中转站,你无需付中间商加价。",
+        "freeProvidersTitle": "免费 Provider 推荐",
+        "cfDesc": "@cf/ · 免费,无需 API Key",
+        "githubDesc": "github/ · 免费,用 GitHub token",
+        "hfDesc": "huggingface/ · 免费,用 HF token",
+        "pollinationsDesc": "pollinations/ · 免费,无需 API Key",
+        "llm7Desc": "llm7/ · 免费,无需 API Key",
+        "freeNote": "以上免费 provider 平台完全不收费(0 服务费)",
+        "stepsTitle": "操作步骤",
+        "step1": "点击左侧「添加 Provider」按钮",
+        "step2": "选择厂商(如 OpenAI / DeepSeek / 智谱)或免费 provider(如 cloudflare)",
+        "step3": "填入你的 API Key(AES-256-GCM 加密存储,平台无法看到明文)",
+        "step4": "添加你要用的模型",
+        "step5": "调用时系统自动优先使用你的 Key",
+        "gotIt": "知道了"
+      }
     }
   },
   "market": {
@@ -24489,7 +24703,22 @@
     "uploadFailedWithReason": "上传失败:{error}",
     "unknownError": "未知错误",
     "missingFileId": "上传响应缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 个附件"
+    "maxAttachmentsReached": "最多 {count} 个附件",
+    "placeholder": "点击或拖拽文件到此处上传",
+    "done": "已完成",
+    "cancelUpload": "取消上传",
+    "removeUploadedAriaLabel": "删除已上传文件",
+    "removeItemAriaLabel": "移除上传项",
+    "sizeLimitHint": "单文件不超过 {size}",
+    "maxCountReached": "已达上限 {max} 个文件",
+    "oversizeFiles": "以下文件超过 {size}: {files}",
+    "uploadFailed": "上传失败",
+    "uploadFailedWithStatus": "上传失败:HTTP {status}",
+    "invalidJsonResponse": "响应不是合法 JSON",
+    "noUrlField": "响应中未找到可用的 URL 字段",
+    "networkError": "网络错误",
+    "uploadCancelled": "上传已取消",
+    "imagePlaceholder": "点击或拖拽上传图片"
   },
   "eduScheduling": {
     "title": "智能排课",
@@ -25425,7 +25654,7 @@
     "oauthManage": "OAuth 应用管理",
     "mcpConnect": "MCP Server 接入",
     "opsExecute": "运维操作执行"
-},
+  },
   "apiKeysPage": {
     "title": "我的 API 密钥",
     "createKey": "创建密钥",
@@ -25442,5 +25671,57 @@
     "rotateSecretDesc": "轮换「{name}」的 secret 后,旧 secret 立即失效,使用旧 secret 的应用需更新。确认继续?",
     "deleteKeyTitle": "删除 API 密钥",
     "deleteKeyDesc": "确定删除「{name}」?删除后该密钥立即失效,且无法恢复。"
-}
+  },
+  "knowledgeList": {
+    "title": "知识库",
+    "subtitle": "通过语义搜索检索记忆库中的知识内容",
+    "searchPlaceholder": "搜索知识库...",
+    "searchAriaLabel": "搜索知识库",
+    "empty": "暂无搜索结果",
+    "searchHint": "输入关键词搜索知识库内容",
+    "resultCount": "共 {count} 条结果"
+  },
+  "knowledgeBase": {
+    "backToList": "返回列表",
+    "searchPlaceholder": "搜索知识库文章...",
+    "metaTitle": "知识库 — 企业 RAG 知识管理系统 | 智汇 AI",
+    "metaDescription": "智汇 AI 知识库:支持 30+ 数据源接入,混合检索(向量 + BM25 + 知识图谱),引用追溯,细粒度权限管控。帮企业把散落文档变成可对话的 AI 知识大脑。",
+    "metaOgTitle": "企业知识库 RAG — 智汇 AI",
+    "metaOgDescription": "30+ 数据源 + 混合检索 + 引用追溯 + 权限管控",
+    "list": {
+      "title": "知识库",
+      "subtitle": "浏览、搜索与管理知识库文章",
+      "allCategories": "全部分类",
+      "empty": "暂无文章"
+    },
+    "detail": {
+      "notFound": "文章不存在",
+      "viewCount": "{count} 次浏览",
+      "toc": "目录",
+      "prev": "上一篇",
+      "next": "下一篇"
+    },
+    "search": {
+      "backToKb": "返回知识库",
+      "title": "搜索结果",
+      "resultSummary": "关键词「{q}」共找到 {count} 条结果",
+      "inputKeyword": "请输入搜索关键词",
+      "searching": "搜索中...",
+      "noResult": "未找到相关文章"
+    },
+    "create": {
+      "title": "新建知识库文章",
+      "subtitle": "撰写新的知识库文章并发布"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "加载中...",
+    "screenshotNotice": "该网站禁止嵌入,已切换到截图模式",
+    "blockedTitle": "URL 不安全,已拦截",
+    "failedTitle": "加载失败",
+    "externalTitle": "无法在面板内嵌入",
+    "retry": "重试",
+    "openExternal": "在外部浏览器打开",
+    "idlePlaceholder": "输入网址或点击 AI 消息中的链接以打开"
+  }
 }

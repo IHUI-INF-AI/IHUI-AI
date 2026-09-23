@@ -123,6 +123,51 @@ export type PersonaContracts = Record<string, PersonaContract>
 
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
 
+/**
+ * D103 子智能体实例七态(P 协议层;对标 Codex `localConversation.multiAgentAction.agentState`)。
+ *
+ * **与 `SessionStatus` 的分工(不另建第二套枚举)**:
+ *   · `SessionStatus` 是**会话级**四态(粗粒度,用于会话列表/生命周期);
+ *   · 本枚举是**实例级**七态(细粒度),含会话级**完全没有**的三个终态 ——
+ *     `pendingInit`(已受理、尚未就绪)、`shutdown`(已关闭)、`notFound`(找不到;竞品有而我方此前无处表达)。
+ *   · 两者经 `sessionStatusFromInstance()` **单向下映射**;禁止两套各自演化后再互相比较。
+ *
+ * 现状取证(2026-09-23):运行时只产出 `subagentStart` / `subagentStop` 两个事件,故本枚举是**新增能力**,
+ * 消费方在事件落到七态之前不得假装已有细粒度状态。
+ */
+export const AGENT_INSTANCE_STATES = [
+  'running',
+  'completed',
+  'errored',
+  'interrupted',
+  'pendingInit',
+  'shutdown',
+  'notFound',
+] as const
+
+/** 子智能体实例态 */
+export type AgentInstanceState = (typeof AGENT_INSTANCE_STATES)[number]
+
+/**
+ * 实例七态 → 会话级四态(**唯一映射**;新增实例态时本函数会因 switch 不穷尽而编译失败,防漏改)。
+ * `pendingInit` 归 `running`(已受理未就绪仍处活动期);`shutdown` / `notFound` 归 `cancelled`。
+ */
+export function sessionStatusFromInstance(state: AgentInstanceState): SessionStatus {
+  switch (state) {
+    case 'running':
+    case 'pendingInit':
+      return 'running'
+    case 'completed':
+      return 'completed'
+    case 'errored':
+      return 'failed'
+    case 'interrupted':
+    case 'shutdown':
+    case 'notFound':
+      return 'cancelled'
+  }
+}
+
 export interface SessionMessage {
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string

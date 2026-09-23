@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 
 /**
  * Drawer 抽屉组件(关闭时焦点归还约束)
@@ -69,6 +70,16 @@ export function Drawer({
   const panelRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLElement | null>(null)
   const titleId = React.useId()
+  // 层栈身份:同组件多实例互不相同
+  const autoId = React.useId()
+  const stackId = `drawer:${autoId}`
+
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(stackId)
+    return () => popOverlay(stackId)
+  }, [open, stackId])
 
   React.useEffect(() => {
     if (!open) return
@@ -76,6 +87,8 @@ export function Drawer({
 
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(stackId)) return
         onClose()
         return
       }
@@ -107,7 +120,7 @@ export function Drawer({
       document.removeEventListener('keydown', handler)
       triggerRef.current?.focus()
     }
-  }, [open, onClose])
+  }, [open, onClose, stackId])
 
   if (!open) return null
 
