@@ -77,7 +77,7 @@ export default function CategoryDetailPage() {
           </Text>
           {/* RN tab: paddingHorizontal 10dp=20rpx, paddingVertical 6dp=12rpx, radius 6dp=12rpx, bg surface.card */}
           <View
-            className="flex items-center px-[20rpx] py-[12rpx] rounded-[12rpx] bg-card"
+            className="flex items-center px-[20rpx] py-[12rpx] rounded-md bg-card"
             hoverClass="opacity-60"
             onClick={toggleSort}
           >
@@ -91,7 +91,7 @@ export default function CategoryDetailPage() {
           <View className="px-[20rpx] py-[32rpx]">
             {Array.from({ length: 4 }).map((_, i) => (
               <View key={i} className="flex items-center gap-[24rpx] py-[24rpx] animate-pulse">
-                <View className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-muted" />
+                <View className="w-[96rpx] h-[96rpx] rounded-md bg-muted" />
                 <View className="flex-1 space-y-2">
                   <View className="h-3 w-1/3 rounded bg-muted" />
                   <View className="h-2.5 w-2/3 rounded bg-muted" />
@@ -108,18 +108,18 @@ export default function CategoryDetailPage() {
             {list.map((agent) => (
               <View
                 key={agent.id}
-                className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-[12rpx]"
+                className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-md"
                 hoverClass="opacity-60"
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
                   <Image
-                    className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-muted"
+                    className="w-[96rpx] h-[96rpx] rounded-md bg-muted"
                     src={agent.avatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="flex items-center justify-center w-[96rpx] h-[96rpx] rounded-[12rpx] bg-muted">
+                  <View className="flex items-center justify-center w-[96rpx] h-[96rpx] rounded-md bg-muted">
                     <Text className="text-[32rpx] font-medium text-muted-foreground">
                       {agent.name.charAt(0)}
                     </Text>

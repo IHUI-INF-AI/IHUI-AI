@@ -59,7 +59,7 @@
 .refund-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   padding: 28rpx;
 }
 .refund-card-head {

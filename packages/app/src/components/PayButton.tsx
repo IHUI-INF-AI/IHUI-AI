@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useState, useCallback } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
@@ -110,7 +111,7 @@ const viewStyles = {
     paddingRight: 12,
     paddingTop: 6,
     paddingBottom: 6,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: bg,
     color: text,
     opacity: disabled ? 0.5 : 1,
@@ -130,7 +131,7 @@ const viewStyles = {
   }),
   dialog: (tk: AppThemeTokens): CSSProperties => ({
     backgroundColor: tk.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginLeft: 24,
     marginRight: 24,
     width: '100%',
@@ -146,7 +147,7 @@ const viewStyles = {
   avatarFallback: (tk: AppThemeTokens): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 12,
     backgroundColor: tk.gray[200],
     display: 'flex',
@@ -166,7 +167,7 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     border: `1px solid ${tk.border.light}`,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
@@ -177,7 +178,7 @@ const viewStyles = {
     width: '100%',
     paddingTop: 12,
     paddingBottom: 12,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     textAlign: 'center',
     backgroundColor: tk.brand.DEFAULT,
     color: tk.surface.light,
@@ -239,7 +240,7 @@ const imageStyles = {
   avatar: (): CSSProperties => ({
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     marginRight: 12,
     objectFit: 'cover',
   }),

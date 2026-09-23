@@ -60,12 +60,12 @@
 .card-preview {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   padding: 28rpx;
 }
 .card-image {
   width: 100%;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   display: block;
 }
 /* 操作按钮(RN actionBtn:高44 / 圆角12 / 描边 border-light / text-medium) */
@@ -83,7 +83,7 @@
   background: transparent;
   color: var(--color-text-medium);
   font-size: 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
 }
 .action-btn::after {
@@ -99,7 +99,7 @@
   padding: 120rpx 30rpx;
   background: var(--color-card);
   border: 2rpx dashed var(--color-border-medium);
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
 }
 .upload-icon {
   font-size: 80rpx;

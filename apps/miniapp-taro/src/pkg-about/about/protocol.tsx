@@ -525,7 +525,7 @@ export default function ProtocolPage() {
           {sections.map((section, sIdx) => (
             <View
               key={sIdx}
-              className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx]"
+              className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]"
             >
               <Text className="block text-[32rpx] font-semibold text-foreground mb-[8rpx]">
                 {section.subtitle}
