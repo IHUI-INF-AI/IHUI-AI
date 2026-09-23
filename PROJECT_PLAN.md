@@ -162,20 +162,59 @@
 
 | 文件 | 内容(不含值) | 实测可用性 | 用途判定 |
 | --- | --- | --- | --- |
-| `github key.txt` | fine-grained PAT,前缀 `github_pat_`,长 93 | **401 Bad credentials**(`api.github.com` 已失效/被撤销) | **不可用**;谁拿它去推都会被拒 |
+| `github key.txt` | **classic PAT**,前缀 `ghp_`,40 字符(按字节验:无 BOM、无零宽 Cf) | **可用且有写权限**:`/user` → login `IHUI-INF-AI`;`/repos/IHUI-INF-AI/IHUI-AI` → `permissions={admin:true, push:true}`;`X-OAuth-Scopes` 含 `repo`/`workflow`/`admin:org` | **GitHub 侧权威凭据**(推送通道之外,排障/回填以它为准) |
 | `Github应用apikey.txt` | OAuth App `Client ID`(20) + `Client secret`(40) | 未测(结构上不是 git 口令) | 走 OAuth 设备流换 token 才用得上 |
-| `gitee apikey.txt` | 32 位 hex token | 未测 | 镜像仓;**本机禁止直推**(§5b),由 `mirror-to-cn.yml` 收敛 |
-| `gitcode apikey.txt` | 24 字符 token | 未测 | 同上 |
+| `gitee apikey.txt` | 32 位 hex token | **有效**:`GET /api/v5/user?access_token=…` → 200,login `JLSLSSZWHYXGS_0`(与工作流注释里的 OWNER 一致);`/repos/JLSLSSZWHYXGS_0/IHUI-AI` → 200,`private=false`,默认分支 main | 镜像仓;**本机仍禁止直推**(§5b),由 `mirror-to-cn.yml` 收敛 |
+| `gitcode apikey.txt` | 24 字符 token | **有效**:`gitcode.com/api/v5/user` → 200(返回真实用户体) | 同上(仅镜像,本机不直推) |
 
-**当前真正在用的 GitHub 写入凭据 = Windows 凭据管理器里那份**(证据:同日多次 `git-push-guard` 推成功 +
-生产 `08:24:40 部署完成 HEAD=ce70f8660` 需真实写入;`~/.git-credentials` 在本机不存在,§5b 已记)。
-网络侧则是**仓库级代理** `127.0.0.1:7897`(见上方 §5b 纠正)。
+> **本表首次登记时这行是我写错的,教训单独记**(2026-09-23):第一次实测读到的是文件**当时的** 93 字符
+> `github_pat_…` 内容并返回 `401 Bad credentials`,而我按 `readdirSync` **批量输出的行序**做归因,
+> 把同目录另一个文件的长度安到了 `github key.txt` 头上 ⇒ 得出"该文件已失效"的错误结论并入了库。
+> 换发后的 classic token 实测四个端点全 200,**并已用内置浏览器在 GitHub 设置页核对身份**:
+> **并且:该账号名下"没有任何 fine-grained token"**(`settings/personal-access-tokens` 原文
+> "No fine-grained tokens created",内置浏览器已登录实测)⇒ 我第一次量到的 93 字符
+> `github_pat_…` 串**在这个账号上根本不存在**,那次 401 不是"你给了旧 key",而是我读到了
+> 一个不该存在的字节串。最可能的来源:**这是网盘同步盘**(`D:\BaiduSyncdisk\`),
+> 同目录里就有 `gitee apikey_冲突文件_Administrator_20260908180839.txt` 这种**同步冲突副本**先例
+> ⇒ 当时拿到的可能是未同步完成/冲突版本。
+> **可复用判据**:从同步盘取凭据前,先用"文件名 + mtime + 字节数 + 前缀"四元组确认是哪一份;
+> 见到 `_冲突文件_` / `conflict copy` 同级文件就默认存在覆盖风险,取用后必须与账号侧核对身份
+> (GitHub 看 `/user` 与仓库 `permissions`;Gitee 看 `/api/v5/user` 的 login 是否等于预期 OWNER)。
 
-**换发新 PAT 时的硬要求(写给下一次接手的人)**:仓库 `IHUI-INF-AI/IHUI-AI`、
-Contents = **Read and write**;写回本目录同名文件即可,**不要**贴进任何 tracked 文件、日志或会话回显。
-本次两天冻结事故的根因正是"某处凭据过期而无人知道"(服务环境块里的 admin 口令),
-所以**任何凭据过期都只会表现为下游门禁失败**(这里表现为部署永远回滚)——
-排查顺序固定为:先验证凭据本身对不对(单次最小请求),再看下游门禁,最后才怀疑网络。
+> token 名 **`IHUI-full-access`**、**"This token has no expiration date."(永不过期)**、
+> **"Last used within the last week"(确在被实际使用)** ⇒ 它不可能静默过期;将来若出现 401,
+> 第一嫌疑是"读错了文件/字段",不是"这把 key 过期"。**判据**:多份凭据同时归因时,必须**逐文件单独读、
+> 并把"文件名 + 前缀 + 长度"一起打印**,否则就是把 A 的失败写成 B 已失效 —— 与今天全天在打的"归属失真"同类。
+
+**GitHub 鉴权有两条源,分工不同,别再混为一谈**:
+- **实际在跑的** = Windows 凭据管理器里那份(证据:同日多次 `git-push-guard` 推成功 +
+  生产 `08:44:26 部署轮询 exit=0 / 部署完成 HEAD=50f9aafc4` 需真实写入;`~/.git-credentials` 在本机不存在,§5b 已记)。
+- **可随时回填的权威值** = 本目录 `github key.txt` 的 classic `ghp_` token(**admin 级**,实测有 push)。
+  凭据管理器那份若过期/被清,以它重填即可;**只写进凭据管理器,不进任何 tracked 文件、不进日志、不回显**。
+网络侧与鉴权侧正交:可达性靠**仓库级代理** `127.0.0.1:7897`(§5b 已纠正为实测口径),token 只解决"能不能写"。
+
+**凭据轮换与排查的硬要求(写给下一次接手的人)**:
+- 现在这把已是 **admin 级** classic token ⇒ 若只为"能推代码"而再换发,请优先改用
+  **fine-grained + 单仓 + Contents=Read and write**(最小特权);继续用 admin token 能跑,但爆炸半径是全账号。
+- 任何情况下**不要**把 token 贴进 tracked 文件、commit message、日志或会话回显;存放位置就是本目录 + 凭据管理器。
+- **本次两天生产冻结的同类教训**:凭据过期只会以"下游门禁失败"的形态出现(这里=部署每轮回滚)。
+  固定排查顺序:①单次最小请求验凭据本身 —— 且**必须区分 `401`(凭据无效)与 `403/429`(限流或权限不足)**,
+  两者处置完全不同,混起来就会像我第一次那样把"读错文件"当成"凭据已失效";②再看下游门禁;③最后才怀疑网络。
+
+### 国内镜像已被饿死 3 天(2026-09-23 实测并修复触发方式)
+
+查凭据时顺带做的地面真相检查,结果比 CI 表面状态严重得多:
+
+- `mirror-to-cn.yml` 最近 **30 次运行 = 27 `cancelled` / 1 `failure` / 0 `success`**;
+- Gitee 侧 `main` 的**最后一次提交时间 = 2026-09-20 23:16** ⇒ 国内镜像**落后约 3 天**,
+  而运行列表看着"一直在跑"(全是 cancelled/pending,没有红色失败)⇒ **无人报警**。
+- 成因是 GitHub 并发语义与提交频率的冲突,不是凭据问题:`on: push: branches:[main]` +
+  `concurrency.cancel-in-progress: false` 下,**排队中的旧 run 仍会被新 run 挤掉**(只保留最新一个);
+  本仓自 09-21 多会话并发后每 2-3 分钟一次 push,而单轮镜像要推数千 commit + 数千 tag 回国内(历史上
+  两次实测 60min 被强杀,故 `timeout-minutes` 已提到 240)⇒ 任务永远跑不完就被顶掉。
+- 修复:`.github/workflows/mirror-to-cn.yml` 触发由 **push 改为 `*/20` cron + workflow_dispatch**
+  (并发面从"每 push 一次"降到"最多一个排队"),文件内已写死这段实测取证与"勿改回 push 触发"的理由。
+  代价是有意的:镜像延迟 0 → ≤20 分钟。GitHub 侧仍是每次 push 即时上线,不受影响。
 
 ### 复发风险(结构性,已量化,待作者定方案)
 
@@ -3888,21 +3927,3 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩已登记的他人测试 `TS6196`)。
 - **平台独占豁免依据(§9)**:改动仅 `apps/mobile-rn/App.tsx` 入口的 web 分支门条件,不触他端。
 - [x] ✅(2026-09-23) **守门 30a 恒红一并消除**:`check-commit-loss-guard` 报 445 个 `lost-commit/*` tag 仅本地未推 + 1 个 `backup/*` 仅远端未回捞 ⇒ 每次提交都被拦(又一道逼各会话 `--no-verify` 的系统性红门)。按 §22「自动化 tag 同步」跑 `sync-lost-commit-tags.mjs --fetch` + `--auto-push`(不使用 `--force`)。复测:未检测到 reset、无未备份悬空 commit、**4506 个 tag 对象全可达且本地+远端完全一致**,30a 真实退出码 0。**本会话累计消除的系统性红门:44(根目录白名单)/ 30a(tag 未同步)/ refsOk 假红(判据缺陷)**,当前仅剩 57 —— 属他人半编辑态,见下条。
-
-## P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:scripts + README)
-
-> 承「主 CTA 深色档立档」一节。那节留下一个结构性风险:立了 `brand.ctaFill` 却**没有任何闸**
-> 阻止新代码继续用 `brand.DEFAULT` 作填充 —— 即"造好没装车"的第三种形态。本票补这道闸,
-> 并在补闸过程中发现并修掉 R1 的一个真实盲区。
-
-- [x] ✅(2026-09-23) **R1 补盲(真缺陷,非增强)**:原判据 `R1_BG=/backgroundColor:\s*tokens\.brand\.DEFAULT\b/` **只认 `tokens.` 前缀**,而 `packages/app` 共享组件一律写 `tk.`(`createStyles(tk)`)⇒ **整个共享包从未在 R1 视野内**。已泛化为 `(?:tokens|tk)` 并把扫描范围扩到 `packages/app/src`(552 文件,原 332)。**补盲后实测现存违规 0 处** —— 用守门自己导出的 `extractStyleChunks` 复算"同块共现"语义得 0;先前用 ±6 行窗口粗估出的"144 处"是**假数**(语义与 R1 不同),已按真实语义校正。**这是补漏不是放宽**。
-- [x] ✅(2026-09-23) **R3 纯白填充棘轮(新立)**:`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT` 每文件计数对 `brand-foreground-baseline.json` 新增键 `ctaCounts` 只减不增。存量 **154 文件 / 260 处**冻结。R2 的 `counts` 保持原口径(仅 `apps/mobile-rn/src`),**没有**顺手扩范围——扩了会把未登记的存量一律判红。
-- [x] ✅(2026-09-23) **基线一律按 HEAD 建,不取工作区**:直接跑 `--update-baseline` 会做两件错事 —— ① 按**工作区**重算 R2 基线,而工作区里有他人**未提交**的深色在飞改动(计划已点名 `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),等于替别人的在飞工作**调高基线**(§70 明禁);② 与 `--staged` 同用时拿暂存子集覆盖全量基线,未暂存文件下次恒红。故本次基线用一次性脚本按 `git show HEAD:<path>` 生成并**逐字校验 R2 `counts` 未变**;同时给 `--update-baseline` 加了拒绝 `--staged` 的硬闸。
-- [x] ✅(2026-09-23) **有效性取证(不采信"应该能用")**:
-  - **A/B 变异**:同一 `tk.brand.DEFAULT` + `tk.surface.light` 块喂给 **HEAD 版**守门 → 命中 **0**(盲区实锤);喂给新版 → 命中 **1**。
-  - **注入探针**:新建含 1 处 `brand.DEFAULT` 填充的临时文件 → R3 点名 `__r3-probe.tsx: 1 > 基线 0` 判红;删除探针 → 全量回绿。探针已清除且 `git status` 无残留。
-  - `--self-test` 由 10 例增至 **18 例**(补盲 3 + R3 5),全绿。
-- [x] ✅(2026-09-23) **README 同步(§21 触发:守门规则新增)**:第 75 项小节改写为 R1/R2/R3 三条判据 + 补盲说明 + 基线口径。**顺带校正一处文档漂移**:原文写"`--self-test` 11 例",HEAD 实际 assert 数是 **10**;现按 18 例如实登记。README 工作副本**落后于 HEAD**(连第 75 小节都没有),故同样走"HEAD blob + 精确替换 + 前向提交",未整份取工作副本。
-- **判据边界(为什么 R3 是棘轮而非零容忍)**:260 处存量里真正该改的是"主 CTA / 选中态"族,其余(徽章、描边、媒体浮层底)语义各异,须逐处判衬底 —— 另一个会话正在做这份 244 处决策表。R3 的作用是把**增量**堵住,使存量只能随复核推进而单调下降;若一上来就零容忍,等于逼所有人 `HUSKY_SKIP_BRAND_FOREGROUND=1`,反而废掉全部守门(见 §"一道红门会废掉全部守门")。
-- 验证:`node scripts/check-brand-foreground.mjs --self-test` exit 0;全量 `✅ 552 文件,R1=0,R2/R3 全部 ≤ 基线`;`node --check` 通过;水印 `verify` 完整。
-- **紧急跳过**:`HUSKY_SKIP_BRAND_FOREGROUND=1`(不变);**基线收紧**:`node scripts/check-brand-foreground.mjs --update-baseline`(仅全量口径,人工确认后)。
