@@ -88,6 +88,7 @@ interface ModeOption {
   risk: 'low' | 'medium' | 'high'
 }
 
+
 // 移到组件外避免每次 render 重新创建(2026-07-25 深化)
 //
 // G-164 补 `plan` 档:共享类型 `WorkspacePermissionMode` 一直声明 4 档,而这里只给 3 档

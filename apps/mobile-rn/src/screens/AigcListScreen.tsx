@@ -14,7 +14,7 @@ import {
   type AigcListItem,
   type AigcListScreenProps,
 } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import MaterialList, {
   type MaterialCategory,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
   },
   viewport: {

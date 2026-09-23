@@ -27,7 +27,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { voiceSttFromReactNative } from '@ihui/api-client'
@@ -45,7 +45,12 @@ export interface VoiceInputProps extends VoiceInputMinimalProps {
   language?: string
   /** 图片弹出层选择回调(预留:相机/相册/文件,不引入原生图片选择依赖) */
   onImageSelected?: (type: VoiceImageSource) => void
-  /** 是否显示图片弹出层入口(默认 true,对齐原版 search-add 按钮) */
+  /**
+   * 是否显示图片弹出层入口。默认 false:添加入口统一归输入区
+   * (PlusButton + AddPanel),而本弹出层全站无调用方接线(onImageSelected
+   * 无人传入),开着就是与输入区加号并存的第二个死加号。
+   * 需要时显式传 true 并接上真实上传链路。
+   */
   showImagePicker?: boolean
   /** 是否显示清除按钮(默认 true,清除最近一次语音结果) */
   showClear?: boolean
@@ -71,7 +76,7 @@ export function VoiceInput({
   aiServiceUrl = 'http://localhost:8803',
   language = 'zh',
   onImageSelected,
-  showImagePicker = true,
+  showImagePicker = false,
   showClear = true,
 }: VoiceInputProps) {
   const { t } = useI18n()
@@ -429,7 +434,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     zIndex: 10,
     elevation: 4,
     shadowColor: tokens.gray.black,
