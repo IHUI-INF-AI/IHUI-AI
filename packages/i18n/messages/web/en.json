@@ -21758,11 +21758,6 @@
   },
   "permission": {
     "inputWarning": "High-risk operation detected. Please confirm before continuing",
-    "mode": {
-      "full": "Full",
-      "auto": "Auto",
-      "ask": "Ask"
-    },
     "dangerousCommandTitle": "Dangerous command detected",
     "dangerousCommandDesc": "Dangerous command \"{pattern}\" detected: {reason}. Continue anyway?",
     "dangerousCommandProceed": "Continue anyway",
@@ -21774,7 +21769,6 @@
     "copyText": "Copy text",
     "copyMarkdown": "Copy as Markdown",
     "regenerate": "Regenerate",
-    "feedback": "Feedback",
     "deleteMessage": "Delete message"
   },
   "activityBar": {
@@ -22687,7 +22681,6 @@
     "copiedText": "Text copied",
     "copiedMarkdown": "Markdown copied",
     "regenerating": "Regenerating",
-    "feedbackRecorded": "Feedback recorded",
     "messageDeleted": "Message deleted",
     "operationFailed": "Operation failed"
   },
