@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import { useTranslations } from 'next-intl'
 import {
   FileText,
   Link as LinkIcon,
@@ -41,7 +40,6 @@ const TYPE_META: Record<
 }
 
 export function ContextReferencePanel({ references, onRemove }: ContextReferencePanelProps) {
-  const t = useTranslations('chat')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
 
   const toggle = (id: string) => {
@@ -56,13 +54,11 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
   return (
     <div className="rounded-xl border bg-card">
       <div className="border-b px-4 py-2.5">
-        <h3 className="text-sm font-semibold">{t('contextUsage.referenceTitle')}</h3>
+        <h3 className="text-sm font-semibold">上下文引用</h3>
       </div>
       <ul className="space-y-1">
         {references.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t('contextUsage.noReferences')}
-          </p>
+          <p className="py-8 text-center text-sm text-muted-foreground">暂无引用</p>
         ) : (
           references.map((ref) => {
             const meta = TYPE_META[ref.type]
@@ -103,23 +99,23 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                     <span className="break-words">{ref.label}</span>
                   </button>
                   {/* 矩阵 A #19:附件上传状态指示(uploading 转圈 / error 红色警示)。
-                      文案走 chat 命名空间取词,SVG 无原生 title 提示,外包一层 span 承载 */}
+                      面板文案与既有风格一致用中文,SVG 无原生 title 提示,外包一层 span 承载 */}
                   {ref.uploadState === 'uploading' && (
-                    <Tooltip content={t('contextUsage.uploading')}>
+                    <Tooltip content="附件上传中">
                       <span className="shrink-0">
                         <Loader2
                           className="h-3.5 w-3.5 animate-spin text-muted-foreground"
-                          aria-label={t('contextUsage.uploading')}
+                          aria-label="附件上传中"
                         />
                       </span>
                     </Tooltip>
                   )}
                   {ref.uploadState === 'error' && (
-                    <Tooltip content={t('attachUploadFailed')}>
+                    <Tooltip content="附件上传失败,请移除后重新添加">
                       <span className="shrink-0">
                         <TriangleAlert
                           className="h-3.5 w-3.5 text-destructive"
-                          aria-label={t('contextUsage.uploadFailed')}
+                          aria-label="附件上传失败"
                         />
                       </span>
                     </Tooltip>
