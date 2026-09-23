@@ -1462,6 +1462,9 @@ ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko �
 - **卫生**:两文件 `watermark verify` 完整、`prettier --check` 通过、`eslint` 0 error(仅 `no-console` warning,与同目录脚本同口径)、`check-no-visible-spawn` 对新脚本零命中(git 走 `resolveGitBin()` 绝对路径 + `windowsHide: true`)。
 - **残余(不称收口)**:① 工作区 `PROJECT_PLAN.md` 仍是他人那次 549 行整文件重写的结果(140 条 bullet 未归档),归属该会话处置,本批只把自己点名的六批补齐、不代裁他人内容;② 正文 bullet 盲区按上文判断**故意不建闸**,再遇到就用本工具回捞。
 
+- **登记后立即被自己的工具咬住一次真冲突(正向实证)**:本票旁路落地时远端已在同一锚点("第二十四批"之后)插入"部署脚本三项机制化加固"一节,`git-sync-converge` 如实报 `CONFLICT (content): PROJECT_PLAN.md` 并交人工。解法在对象空间完成、零触碰工作区:`merge-tree --write-tree` 取回其余路径的自动合并树 → 只把冲突 blob 换成 `git merge-file --union` 的解 → 临时索引 `update-index --cacheinfo` → `commit-tree` 双父 → CAS `update-ref`。落地前五条断言全过:ours 新增 7 行零丢失、theirs 新增 41 行零丢失、零冲突标记、三处标题各恰 1 枚。
+- **一处自造假警报的更正(记法,别再来)**:回读时我用未锚定的 `/(<{7}|>{7}) /` 判"提交里有标记",而权威门 77 `check-no-conflict-markers.mjs --rev HEAD` 判"无成对标记";`git grep` 的 2 处命中实为 `apps/cli/tests/file-edit.test.ts` 里 SEARCH/REPLACE 补丁格式夹具(门 77 已按合法豁免如实计数)。**结论一律走权威入口,自拼正则只配当线索**。
+- **顺带实证工具在真仓可用**:落地后对真工作区点名六批 → `--check` 报"全部齐在";把新写的第二十五批整块(7 行)回捞进仍是旧基线的工作区 → 纯插入 7 行、再跑 `--check` 归零,门 71 复判"无登记行丢失"。
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
