@@ -1589,7 +1589,8 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 #### B3 策略与形态(1 个月,根因层 O)
 
 - [ ] **D45 会话详情聚合档位 + 环境建议条(G-53/G-54)**:① 步骤视图/命令视图/叙述视图三档(与 D21 fold-policy 合流但语义正交:fold 管展开,档位管信息聚合粒度,对标 Codex `conversationDetailMode=STEPS_COMMANDS`);② ambient suggestions(按项目根生成 next-action 建议,采纳/忽略,可关)。**验收**:三档持久化 + 建议条不侵入正文(禁渐变遮罩/禁原生 title 提示)
-- [ ] **D46 对话内受控图表卡(G-57)**:把 ChartArtifactBlock 的自由 HTML 升级为**模板白名单 + design-tokens 驱动**(对标 Trae `dynamic-ui` 16 模板:甘特/桑基/雷达/热力/漏斗/时序图/树流/对比卡 + scenes 分类 + visual-tokens)。**验收**:模板清单测试 + 主题(明暗)与 8 端 token 同源 + 圆角/字体规范守门全过
+- [x] ✅(2026-09-23) **D46 对话内受控图表卡(G-57)**:把 ChartArtifactBlock 的自由 HTML 升级为**模板白名单 + design-tokens 驱动**(对标 Trae `dynamic-ui` 16 模板:甘特/桑基/雷达/热力/漏斗/时序图/树流/对比卡 + scenes 分类 + visual-tokens)。**验收**:模板清单测试 + 主题(明暗)与 8 端 token 同源 + 圆角/字体规范守门全过
+  - **D46 收口(第 65 轮,提交见 git log feat(web,design-tokens),origin=ALREADY)**:design-tokens/chart-templates.ts 注册表(8 模板 + scenes 六类 + requiredFields 契约 + parseChartTemplatePayload 严格守卫:任一行缺必填字段整体拒绝);chart-template-card.tsx 8 种 SVG 渲染器(明暗 useTheme 一刀切、色值零新增全走 chart-colors 同源、rx=2/零 font-family 内联=规范守门结构性通过);artifact-canvas 接线(模板 JSON → 受控渲染,自由 HTML 保持 iframe 不变)。测试 22/22。**两条渲染路并存零破坏**:自由 HTML 与受控 JSON 各走各的降级。
 - [ ] **D47 检查点载体与"轮内两段式"对齐评估(G-58 前提已被第 4 轮补证推翻,须先出决策不直接改)**:Trae `snapshot/<sessionId>/v2/.git` 实测每 commit **只跟踪 `base/version_file_first_graph.json`(版本图元数据),不存任何文件内容**、工作树不 checkout,commit 语义单位=**一轮问答**(`before-chat-turn-<turnId>`)且同轮**两段式**(base + `-refresh`)。故原立项理由「用 git 原生 diff/log 审计文件」**不成立**,不得再作为依据。本任务改评三点:①我方是否引入"轮内刷新"第二档回退点(现仅轮次边界);②版本图与文件快照/checkpoint-impact(D4)的分工;③与工作区 `.git` 存续治理(§5b)、git 写锁(§12)的冲突面。**验收**:结论写回本条并明确"做/不做 + 理由",未拍板前禁止实施
 - [ ] **D48 本地会话数据主权与加密(G-56)**:桌面端本地缓存加密(对标 Trae SQLCipher;我方优势:导入侧已有 redact_secrets 实测 0.07% 命中)。**验收**:静态盘 grep 明文会话为 0 + 解锁失败降级可读空态不崩 + 密钥不落仓(§5d)
 
