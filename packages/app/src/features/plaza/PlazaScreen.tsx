@@ -342,15 +342,19 @@ export function PlazaScreen({
           }
         />
       )}
-      {/* 悬浮发布按钮 */}
-      <Pressable
-        style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
-        onPress={onPublish}
-        accessibilityRole="button"
-        accessibilityLabel="发布需求"
-      >
-        <Text style={styles.fabIcon}>＋</Text>
-      </Pressable>
+      {/* 悬浮发布按钮:全宽 wrapper 居中(flex 居中,不用百分比/负 margin,各 Yoga 版本一致) + 内层 50dp 圆;wrapper pointerEvents 透传,触区仅圆钮 */}
+      <View style={styles.fabWrap} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [styles.fab, pressed ? styles.fabPressed : null]}
+          onPress={onPublish}
+          accessibilityRole="button"
+          accessibilityLabel="发布需求"
+        >
+          <View style={styles.fabCircle}>
+            <Text style={styles.fabIcon}>＋</Text>
+          </View>
+        </Pressable>
+      </View>
     </View>
   )
 }
@@ -396,15 +400,15 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     } as ViewStyle,
     chipActive: {
-      backgroundColor: tk.brandAccent.DEFAULT,
-      borderColor: tk.brandAccent.DEFAULT,
+      backgroundColor: tk.brand.ctaFill,
+      borderColor: tk.brand.ctaFill,
     } as ViewStyle,
     chipText: {
       fontSize: 14,
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
-      color: tk.brand.foreground,
+      color: tk.brand.ctaText,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
@@ -474,11 +478,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 24,
       paddingVertical: 10,
       borderRadius: 12,
-      backgroundColor: tk.brandAccent.DEFAULT,
+      backgroundColor: tk.brand.ctaFill,
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: tk.brand.foreground,
+      color: tk.brand.ctaText,
       fontWeight: '600',
     } as TextStyle,
     card: {
@@ -585,22 +589,30 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 11,
       color: tk.text.secondary,
     } as TextStyle,
-    fab: {
+    fabWrap: {
       position: 'absolute',
       bottom: 24,
       left: 0,
       right: 0,
       alignItems: 'center',
     } as ViewStyle,
+    fab: {
+      width: 50,
+      height: 50,
+    } as ViewStyle,
     fabPressed: {
       opacity: 0.8,
     } as ViewStyle,
-    fabIcon: {
+    fabCircle: {
       width: 50,
       height: 50,
       borderRadius: 25,
-      backgroundColor: tk.brandAccent.DEFAULT,
-      color: tk.brand.foreground,
+      backgroundColor: tk.brand.ctaFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    } as ViewStyle,
+    fabIcon: {
+      color: tk.brand.ctaText,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,
