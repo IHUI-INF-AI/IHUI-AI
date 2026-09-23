@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type {
   TokenRecordType,
   TokenValueBalance,
@@ -20,6 +21,8 @@ import type {
   TokenValueRecord,
   TokenValueScreenProps,
 } from '../../types'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 /** TokenValue 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type {
@@ -62,6 +65,10 @@ export function TokenValueScreen({
 }: TokenValueScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const tabItems = useMemo(
+    () => TABS.map((tab) => ({ id: tab, label: t(`tokenValue.tab.${tab}`) })),
+    [t],
+  )
 
   const balanceValue = balance?.balance ?? 0
   const frozen = balance?.frozen ?? 0
@@ -132,23 +139,15 @@ export function TokenValueScreen({
             </ScrollView>
 
             <Text style={styles.sectionTitle}>{t('tokenValue.recordsTitle')}</Text>
-            <View style={styles.tabRow}>
-              {TABS.map((tab) => {
-                const active = tab === activeTab
-                return (
-                  <TouchableOpacity
-                    key={tab}
-                    style={[styles.tabItem, active && styles.tabItemActive]}
-                    onPress={() => onSelectTab(tab)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                      {t(`tokenValue.tab.${tab}`)}
-                    </Text>
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
+            <CategoryInlineBar
+              items={tabItems}
+              selectedId={activeTab}
+              onSelect={onSelectTab}
+              colorScheme={colorScheme}
+              contentPaddingHorizontal={0}
+              itemGap={8}
+              style={styles.tabRow}
+            />
             {error ? (
               <View style={{ paddingHorizontal: 4, paddingBottom: 4 }}>
                 <Text style={styles.errorText}>{error}</Text>
@@ -208,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 16, color: tk.text.medium },
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    balanceCard: { padding: 14, borderRadius: 12, backgroundColor: tk.brand.DEFAULT },
+    balanceCard: { padding: 14, borderRadius: rnRadius.xl, backgroundColor: tk.brand.DEFAULT },
     balanceLabel: { fontSize: 14, color: tk.surface.light },
     balanceValue: {
       marginTop: 8,
@@ -236,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
     pkgCard: {
       width: 130,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1.5,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -246,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     popularBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     popularText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },
@@ -262,24 +261,13 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       height: 28,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     pkgPrice: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     tabRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-    tabItem: {
-      paddingHorizontal: 14,
-      height: 30,
-      borderRadius: 12,
-      backgroundColor: tk.surface.card,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    tabItemActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     errorText: { color: tk.brandAccent.deep, fontSize: 14 },
     empty: { alignItems: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
@@ -287,7 +275,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -295,7 +283,7 @@ function createStyles(tk: AppThemeTokens) {
     recordIcon: {
       width: 32,
       height: 32,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: 10,

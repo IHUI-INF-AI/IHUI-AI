@@ -40,7 +40,15 @@ vi.mock('react-native', async () => {
   const mk = (tag: string) =>
     function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
       const { style, onPress, ...rest } = props
-      const mergedStyle = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style
+      // Pressable 的 style 可以是 `({pressed}) => StyleProp` 函数;直接塞给 DOM 会抛
+      // "expects a mapping … not a string"。与全局 stub 同口径先求值再展平。
+      const resolved =
+        typeof style === 'function'
+          ? (style as (s: { pressed: boolean }) => unknown)({ pressed: false })
+          : style
+      const mergedStyle = Array.isArray(resolved)
+        ? Object.assign({}, ...resolved.filter(Boolean))
+        : resolved
       return createElement(tag, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
     }
   const FlatList = (props: {
@@ -71,6 +79,10 @@ vi.mock('react-native', async () => {
     View: mk('div'),
     Text: mk('span'),
     TouchableOpacity: mk('button'),
+    // 统一分类条 CategoryInlineBar 用 Pressable 作项、Image 作可选前置图,
+    // 本地 mock 少这两个导出会让整文件 15 例在渲染期直接抛错。
+    Pressable: mk('button'),
+    Image: mk('img'),
     ScrollView: mk('div'),
     FlatList,
     RefreshControl: () => null,
