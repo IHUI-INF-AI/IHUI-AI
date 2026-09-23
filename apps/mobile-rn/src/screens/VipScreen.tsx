@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   tabActive: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.muted,
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.08,
     shadowRadius: 4,
