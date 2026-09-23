@@ -4,7 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
-import { permissionDecisionWord, useAgentRuntime } from '@ihui/shared'
+import { useAgentRuntime } from '@ihui/shared'
 import type { AgentRuntimePanelProps } from '@ihui/types'
 import LineIcon from '@/components/LineIcon'
 
@@ -74,8 +74,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
           {permission && (
             <View className="mb-3 p-3 rounded-md bg-[var(--color-warning-light)] border border-[var(--color-warning-amber-light)]">
               <Text className="block mb-1.5 text-xs font-medium text-[var(--color-warning-amber-text)]">
-                {t('ai.agentDetail.runtimePermission')}:{' '}
-                {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
+                {t('ai.agentDetail.runtimePermission')}: {permission.decision}
               </Text>
               <Text className="block text-xs text-foreground">
                 {t('ai.agentDetail.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
