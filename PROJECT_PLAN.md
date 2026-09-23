@@ -790,6 +790,32 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 
 
+
+### 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24)
+
+上一票把"taro 33 枚镜像键删还是留"挂成待拍板。本轮按证据查完,**结论是两件事都不该做**,真问题在第三个地方:
+
+- 溯源:39 枚全部由 `02b2d353ad5`(2026-09-14,"fix(ai-service): 保留 W-batch ChatMode 注入…")
+  一次性灌进 taro 包 —— 提交主题与这些键无关,是混合提交里的词表顺带产物。
+- taro 侧无消费者:`apps/miniapp-taro/src/components/adapters/` 实际只有
+  `Selecter / SectionHeader / ColorfulLoader / index.ts` 四个适配器,
+  **不存在** `adaptersCarousel|FeedbackScreen|OrderScreen|PayButton|UserInfoCard` 对应适配器;
+  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只钉 waiting 族,对这批无约束。
+- **决定性一条**:`pay.payNow / pay.defaultName / pay.subscribeTip / pay.priceLabel / pay.perMonth / pay.countLabel`
+  在**六端包里只有 taro 有**,web / shared / extension / cli / mobile-rn 全部没有;
+  而唯一调用点 `packages/app/src/components/PayButton.tsx:313-319` 是 RN 共享屏
+  (`tr = (key, fallback) => (t ? t(key) : fallback)`,t 由 props 注入)。
+  ⇒ RN 运行时**取不到这六个键**,永远走 `fallback` 里写死的中文 ——
+  即"partial props + 中文默认值静默不本地化"同一形态的真缺陷,而不是"该不该摘孤儿键"。
+  上一票若非我先复核代理结论(动词组补 `tr` 那枚门 `44a81a6162e`),这六枚连 taro 里的那份也会被删掉,
+  届时**全仓再无这六个日语词条**,修 RN 时只能重译。
+- 所以本票动作:**零删除**。已做的两件事是 ① 把判据盲区补上(`tr()` 注入式包装器,已落 `44a81a6162e`),
+  ② 把"删 39"改判为"RN 付费按钮本地化缺失 + taro 承载从未开建屏幕的孤儿词表"并登记。
+- **正确修向(需动他人功能面,不属本会话代改)**:把 `pay.*` 六键按端补齐到 RN 真正加载的消息集
+  (mobile-rn 或 shared,取 RN `i18n` 合并链为准),并让 `packages/app` 的 PayButton 在 RN 侧真拿到 `t`;
+  验收判据 = 五语下 `pay.payNow` 可解析且 `fallback` 中文不再出现(可用 `check-word-table-resolvable.mjs` 同型断言钉)。
+  而 taro 侧那 33 枚属于"为未开建屏幕预留的词表",要删须由适配器接线程序(gate 64 那条线)确认不再需要后一并处理。
+
 ### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
 
 我没有照抄代理结论,而是先逐条复核 —— 结果当场证伪:`dead-taro` 代理给出"delete 39",
