@@ -47,6 +47,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   resolveGitBin,
   gitVersion,
@@ -397,6 +398,40 @@ function refsOk() {
   return missingRefs().length === 0
 }
 
+/**
+ * 工作区已跟踪文件存续自愈(2026-09-23 立)。宿主清理层会成批删除工作区目录
+ * (实测同日三轮:137 个 → 27 个 → 1 个,命中 tests/ 与 __tests__/ 整目录、
+ * installer-assets 下 assets-NNN 的 bmp、4 个在役守门脚本)。`.git` 与嵌套 ref 早有分层自愈,
+ * 工作区存续性此前无人管:缺失只体现为 `git status` 一片 ` D`,下一次提交就把它们从版本树删掉
+ * (= 静默回滚)。判据与恢复动作在 scripts/heal-worktree-tracked.mjs:只恢复
+ * "索引 blob == HEAD blob 且文件不在"的项,他人已暂存的删除一律不碰。
+ * 不改 status()/退出码语义 —— 纯多一层自愈,失败也只记日志不阻断其余守护。
+ */
+function healWorktreeTracked() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'heal-worktree-tracked.mjs')
+  if (!existsSync(script)) return
+  try {
+    const out = execFileSync(process.execPath, [script, '--json'], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true, // §5b:漏此参数在计划任务下必弹控制台窗
+      maxBuffer: 1 << 24,
+    })
+      .trim()
+      .split('\n')
+      .pop()
+    const r = JSON.parse(out || '{}')
+    if (r.restored) {
+      const head = (r.paths || []).slice(0, 3).join(', ')
+      log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${head}${(r.paths || []).length > 3 ? ' …' : ''})`)
+    } else if (r.held) {
+      log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+    }
+  } catch (e) {
+    log('工作区存续自愈失败(不阻断其余守护): ' + String(e && e.message ? e.message : e).slice(0, 160))
+  }
+}
+
 /** 破坏性覆盖前先归档现场(保留可回溯副本;同一轮只归档一次) */
 let ARCHIVED_PATH = null
 
@@ -523,6 +558,63 @@ function anomalyLine(h) {
   return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
 }
 
+// —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
+// 本守护自己就是「弹窗」的高频嫌疑:它以独立进程跑,而计划任务若注册成 InteractiveToken +
+// 直跑控制台程序(node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗
+// (2026-09-20 实测踩坑;2026-09-22 复发:安装器早已修对,但活任务仍是直跑 node.exe 的旧版,
+// 没人重注册)。因此除 --install 外,常规巡检也核对活任务的 LogonType,漂移即自动重注册,不靠人记。
+// 2026-09-23 起形态改为 S4U(见 registerTask):任务跑在 session 0,没有桌面,弹窗这件事
+// 从"每个派生点都要记得隐藏"变成"结构上不可能"。
+
+function registerTask() {
+  // 2026-09-23:改注 S4U 非交互任务(session 0,无桌面)取代 InteractiveToken + wscript/VBS。
+  // 旧链路靠 SW_HIDE,一旦 Windows Terminal 委托回来(AGENTS.md §5b 记的 09-18 事故)或那个
+  // ASCII-only 的 .vbs 被删/被写入非 ASCII 文本(会弹 WSH 错误框),这层保护就连同我们最关键的
+  // .git 存续守护一起失效。S4U 是结构性的:无论任务里跑什么程序都开不出窗口。
+  const ps = [
+    `$action = New-ScheduledTaskAction -Execute '${process.execPath.replace(/'/g, "''")}' -Argument '"${join(WORKTREE, 'scripts', 'git-guardian.mjs').replace(/'/g, "''")}"'`,
+    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 2) -RepetitionDuration (New-TimeSpan -Days 3650)`,
+    `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)`,
+    `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited`,
+    `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null`,
+    `$p = (Get-ScheduledTask -TaskName '${TASK_NAME}').Principal`,
+    `Write-Output ('LOGON=' + $p.LogonType)`,
+  ].join('\n')
+  let out = ''
+  try {
+    out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 90_000,
+    })
+  } catch (e) {
+    log(`注册任务计划失败(需管理员权限?): ${String(e.message || e).slice(0, 300)}`)
+    return false
+  }
+  if (!/LOGON=S4U/.test(out)) {
+    log(`注册后回读 LogonType 非 S4U,拒绝当成成功:${out.trim().split('\n').slice(-3).join(' | ')}`)
+    return false
+  }
+  log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,LogonType=S4U → session 0,结构上无弹窗)`)
+  return true
+}
+
+/** 活任务是否仍是 S4U 非交互形态(防「被人改回 InteractiveToken / 任务被删」的漂移)。 */
+function taskActionOk() {
+  const ps = `$t = Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction SilentlyContinue; if ($t) { 'LOGON=' + $t.Principal.LogonType } else { 'MISSING' }`
+  let out = ''
+  try {
+    out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+    })
+  } catch {
+    return true // pwsh 不可用时不下判断,避免在巡检里反复重注册(宁不改也不误改)
+  }
+  return /LOGON=S4U/.test(out)
+}
+
 function main() {
   if (INSTALL) {
     // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
@@ -568,6 +660,7 @@ function main() {
       process.exit(1)
     }
     return 0
+    return registerTask() ? 0 : 1
   }
 
   const before = status()
@@ -576,8 +669,21 @@ function main() {
     return 0
   }
 
+  // 任务漂移自检(2026-09-22 立):活任务曾被改回直跑 node.exe → Interactive 会话每 2 分钟
+  // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
+  // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
+  if (!CHECK_ONLY && !taskActionOk()) {
+    log('⚠️ 计划任务形态漂移(非 S4U 非交互,可能在桌面弹出控制台),自动重注册')
+    registerTask()
+  }
+
   const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
   if (coreOk && before.refsOk) {
+    // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
+    // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
+    // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
+    // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
+    if (!CHECK_ONLY) healWorktreeTracked()
     if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
@@ -628,6 +734,9 @@ function startDaemon() {
           `⚠️ 检测到嵌套 ref 缺失 ${(h.refsMissing || []).length} 个: ${(h.refsMissing || []).join(', ')}`,
         )
         healRefs()
+      } else {
+        // 核心与 ref 都健康时,才轮到工作区存续性(宿主成批删工作区文件,实测高频)
+        healWorktreeTracked()
       }
     } catch (e) {
       log('巡检异常(忽略): ' + String(e.message || e))

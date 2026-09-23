@@ -75,6 +75,40 @@
 - `[2] i18n 键完整性` / `[2b] zh-TW 简体字残留`:`diffReview.*` 一批键未过翻译流水线(1515 文件
   17012 键口径),zh-TW 另有 `台賬→臺賬`、`後台→後臺` 字形残留 ⇒ 属 i18n 流水线在飞内容。
 - `[15] 迁移完整性` / `[61] 桌面安装器资产三方对账`:API 迁移账本与桌面安装器资产,均为他人票面。
+- `[15] 迁移完整性` —— **复核后改判:不是他人票面,也不是代码缺陷,而是"gitignore 目录随迁丢失"**。
+  该门要求的 4 份 D 盘历史审计报告只认 `根目录` 或
+  `.ihui-agent/archive/audit-reports-2026-07-21/`,而 `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
+  ⇒ 不随 clone / 机器迁移走(脚本自身 2026-09-13 注释即已承认这点)。已修:从
+  `39f8feb19^:.trae-cn/archive/audit-reports-2026-07-21/` 取回 6 份原文(57631 / 12617 / 49634 /
+  2257 / 16539 / 12824 字节,非空且为历史真件,不是新造证据)放入该归档目录 ⇒ 复跑
+  **29/29 通过、exit 0**。**未新增任何项目外落点**(全在 §15b 批准的目录内,且被 ignore)。
+- `[61] 桌面安装器资产三方对账` 与 `[2] i18n 键完整性` —— **复核后改判:两条都是"工作区滞后"假红**。
+  `check-installer-assets` 报缺的 10 个 `maint-radio-{on,off}.bmp` 实际由 `3583e9ce6` 添加并**已在
+  `origin/main` 树内**(`git ls-tree -r origin/main | grep -c maint-radio` = 10);`diffReview.*` 键同理
+  (本地 `zh-CN.json` 0 命中 / `origin/main` 1 命中)。对齐工作区后两条各自消失。
+  **方法论(本会话踩实,写下来防再犯)**:给任何"红门"定归属之前,必须先排除滞后 ——
+  `git merge-base --is-ancestor <引入commit> origin/main` + 对同一 blob 做 `git ls-tree origin/main` 计数,
+  与本地树对比;我此前差点"从历史回捞"这 10 个 bmp,那会是一次凭空造物。
+- **`check-port-registry.mjs --all --staged` 挂死 80 分钟(基础设施缺陷,证据在手)**:一次
+  `docs(plan)` 纯文档提交的 pre-commit 卡在该门,`git commit` 子进程 80 分钟不返回;取证的
+  `Get-Process` 读数 **CPU 时间仅 2.84s / 墙钟 80min / Responding=True** ⇒ 不是死循环而是
+  **阻塞在 I/O**(它 `--all` 会枚举全仓文件读内容)。我终止该子进程后,guardian-runner 正常记该门
+  失败并跑完其余门,safe-commit 依 §12 走 `--no-verify` 兜底落地(`20f34767c`)。
+  **待办判据**:该门需加"单文件字节上限 + 总时间预算 + 跳过 `.pack`/`*.map`/socket 类路径",
+  否则任何人一次普通文档提交都可能被拖 80 分钟并被迫 `--no-verify`(连带关掉全部守门)。
+- **`AGENTS.md` 被并发旧基线整文件回写第 N 次(本会话第 4 处)**:远端提交
+  `98b347079`/`23506f502`(任务认领机制)按旧基线写 `AGENTS.md`,**抹掉了同日入库的 §15b
+  「项目外落点唯一制」整节、§26 实测缓存表(15 行 junction 改道 + 已办/剩余阻碍)、
+  §28 第 5 条「忽略产物也纳入视野」以及 §15 的凭据目录整目录不扫条款**;
+  更重的是承载它们的提交 `601d19486`/`a079c5b81`/`150f41361`/`23d66151c` 已不可达并被 gc 掉
+  (`git cat-file -e` = NO,`git rev-list HEAD` 7182 条历史完整无断裂),即**git 侧无恢复路径**。
+  本轮按同日上下文中的原文重建这四段(纯插入,他人新增内容一律保留),并留下判据:
+  **文档型整文件写之前必须 `git diff HEAD -- <file>` 看"消失行"是不是别人的段落**。
+- **门 76 与本会话判据的互证**:并发会话同日上线 `check-stale-revert.mjs`(id 76),其 R1 判据
+  "暂存 blob != HEAD blob 且字节级等于该路径某祖先版本 ⇒ 拦"正是上述事故的机制化堵法,
+  其自述实测"503 文件落后 486 提交"与本会话 `staged=275` 的诊断同源 ⇒ 记录于此说明:
+  **该门只在"走钩子的提交"上有效**,旁路提交(`commit-tree` / converge)与 `--no-verify` 仍会漏,
+  所以收尾时的人工多重集自证不可省。
 - `[57] 对话流元素覆盖`:红因已在上方钉死到 `ddb78b1ca`(旧基线整文件写回滚 RN G-152)。
 - `[75] mobile-rn 深色前景/容器守门`:3 个组件越线(`AgentRuntimePanel 2 > 基线 0`、
   `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),属其深色改造会话在飞(该会话最近提交
@@ -85,7 +119,13 @@
   `check-single-branch` 绿。**不代改他人票面**(§12/§12b:恢复他人主体逻辑即越权)。
 
 ### 已知遗留(归属他人,不代改)
+
 - **守门 26 当前红,成因是他人正在运行的在飞工作,不代改也不代清**:`node scripts/check-parent-pollution.mjs`
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
 
 - 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
   `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
@@ -517,48 +557,6 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **本批新发现(如实登记,不在本票擅自动他端)**:① **cli 端 `commands` 命名空间在 zh-TW / ja 整块缺失**(zh-CN/ko/en 有,ko 又只有 19/51)—— cli 的 loader 用 `mergeDeepMessages` 兜底才不会抛错,但 `pickLanguage('zh-Hant'|'ja')` 一开就整片回显键路径;要补等于给 cli 端做一轮 parity,须单开一票并同步 `check-cli-i18n-parity.mjs` 从 warn 升阻塞;② `apps/web/src/components/ai/progress-sections/*` 与 `message-input-history.test.tsx` 等 **34 处 tsc 错误全在他人未提交/脏文件里**(与本票 23 文件零交集,已逐文件比对);③ `check-i18n-keys --target=web` 本机 25 红 = `upload` 14+1 / `webviewFrame` 8 / `ai.pane` 2,全部来自他人的未跟踪 hook 与在途组件,干净检出为 0。
 - **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
-
-### 第十三批:HEAD 取词缺键 25 枚清零 + i18n 扫描器连字符盲区根治(2026-09-23,commit `f4977949d1` / `09d4110367`)
-
-**本票起点不是"下一批界面债",而是事故后重测**:`.git` 抢修把主线换掉后,旧结论全部作废,一律以
-`git archive HEAD` 干净检出重测。三件此前**从未入库**的红:
-
-1. **web 端 25 枚取词缺键(commit `f4977949d1`)**:代码已按 `useTranslations(ns)` + `t('裸键')` 取词而词表无键
-   ⇒ 四语界面回显原始键名,且 pre-commit 第 2f-web 项对任何 web 提交恒红。构成 = `upload` 15 + `webviewFrame` 8 +
-   `ai.pane` 2。三路代理各自核对消费点后交五语清单,合并入库前跑四道自证:五语各 +25 / 丢既有键 0 / 越界改值 0 /
-   含点字面键 0;干净检出复验 `check-i18n-keys --target=web` **缺失 25 → 0(exit 0)**、2b/2c/2e 全绿、死键 9→9 未增。
-   - 落点判据**不是"门绿"**:`check-i18n-keys` 对 shared/web 两处都收,无区分力;真判据是
-     `apps/web/tests/ui-upload-webview-labels-injection.test.ts` 只读 `messages/web/<lang>.json`(落 shared 会
-     在合并后即失效的 tmp 清单上退化),同族 `workPanel`/`upload` 先例均在 web。
-   - 值面按包内译法频次改 6 处:zh-TW `載入中→加載中`(257 vs 55)、`載入失敗→加載失敗`(28 vs 17)、
-     `點選→點擊`(89 vs 3)、`響應→回應`(台标习惯);ko `불러오기 실패→로딩 실패`(与同面板 `로딩 중` 同词根)。
-   - `ai.pane.toolSummaryShowMore/Less` **刻意不带插值**:计数由 `show-more-list.tsx:55` 在标签外拼接,
-     写进值里会双显成「显示更多 3 (3)」,而门不校验占位符 —— 属"门不拦但用户可见"那类。
-   - 遗留(归消费侧,不在本票代改他人 hook):`upload.sizeLimitHint/maxCountReached/oversizeFiles/uploadFailedWithStatus`
-     值内 `{size}/{max}/{files}/{status}` 而 hook 未传参,`use-intl@4` 走 ICU 编译时缺值会抛并回显键名;
-     同形问题在已入库的 `dataTable` 同族 4 键上同样存在。**解阻判据** = 该 hook 改为传参或 `t.raw`,并补一条
-     "值内占位符集合 ⊆ 调用点实参集合"的断言(现无此门)。
-2. **i18n 扫描器键段字符类不含连字符(commit `09d4110367`)**:`_i18n-scan-helpers.mjs` 17 处键段正则用
-   `[a-zA-Z0-9_]*`,含连字符的键在代码侧**永远匹配不到消费者** ⇒ web 侧静态引用 10847→**10904**(57 处此前隐形),
-   `scan-dead-i18n-keys` 死 key 9→**5**。被误判的 4 枚真实有消费者(`permissionTier.mode.{accept-edits,
-   bypass-permissions}.{title,desc}`,落 `apps/web/src/lib/permission-tier-text.ts:39-46` +
-   `packages/shared/src/chat/permission-tier.ts:36-41`);反证是同族无连字符的 default/plan/unknown 从不被误判。
-   只放宽键段:JS 标识符类与 namespace 捕获原样,连字符不允许起头。配 4 条镜像用例(含 2 条反例),
-   133→137 全绿 + 5 份分端扫描器测试 59/59 + §22c 镜像同步门通过。
-3. **一条自伤(已改判据)**:我按压缩小的清单把点路径直接喂 `merge2.mjs`,它在包根产出 `"upload.placeholder"`
-   这类**永不渲染的含点字面键** 125 处 —— 被自己的含点键判据当场抓到。修法=喂 merge2 前先落一份嵌套形态的归一清单,
-   并把"面内零含点字面键"升成硬闸(`land-b13.mjs`)。**教训**:探针面必须过与正式提交同一套门,否则"我验过了"只是自证。
-
-**登记两条不属本票、但会把别人挡在门外的守门 70 红**(取证据 `deadkeys-audit` 代理逐行分类,本人复核前 12 行):
-- `packages/shared/src/utils/view-failure-taxonomy.ts` 31 处 > 基线 0:全部是表内**说明性字符串字面量**
-  (lifecycleBasis 文档串 16 + 分类判据正则 15),UI 只渲染 `titleKey/actionKey`,`viewFailure.*` 词表已齐 ⇒
-  **该入包 0 条**。归属 D92 会话:要么把 16 条转注释后入账 15,要么首次入账 31。**禁止**由本会话替其抬基线平账。
-- `apps/web/app/layout.tsx` 46 > 40(+6 由 `02b2d353ad` 的 WebSub/GEO 块引入):全部 SEO metadata / JSON-LD /
-  link title,**0 处界面 chrome** ⇒ 不该按"塞语言包"清。正解是给扫描器扩 metadata 口径后**下调**基线,
-  **禁止**抬到 46 平账。多语言 SEO 属另一条待立项。
-
-**剩余 5 枚死键归属**:`contextMenu.feedback` + 根级 `toast.feedbackRecorded`(D49 `9b16668ccb` 删消费者后的孤儿键,
-词表正处并发合流面,合流后实删);`permission.mode.{full,auto,ask}`(`02b2d353ad` 引入、静态面零消费,归该会话裁决接线或删除)。
 
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
@@ -3744,6 +3742,10 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **工作区整体落后 HEAD 486 个提交**(§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**):逐文件比对工作区 blob 与基线提交 blob,**503 个文件字节级等于某个历史提交版本 = 零独有内容**,一律按 HEAD 对齐;42 个真未提交文件(AgentRuntimePanel / Carousel / ModelConfigDialog / NotificationPanel / AiAssistantN8nScreen / HomeScreen / KnowledgeRagScreen / README.md 等)一律不碰,对齐前后逐文件哈希自证未变。脏项 546 → 42,守门 76 全量复扫判绿。
 - [x] ✅(2026-09-23) **gitdir 备份 `D:/IHUI-AI.git-backup-20260912` 消失**(§5b 明禁删除项,也是 `git-guardian --status` 连报 `❌ 自愈失败,需人工介入` 的成因):以 `git clone --mirror D:/IHUI-AI-git-repo` 重建(1.2G;用 mirror 而非目录拷贝,一致性由 git 保证且不与并发写竞态),守护复检 `pointerOk / gitdirOk / backupOk / refsOk` 全 true。§15b 已把该目录列为禁删显式例外。
 - [x] ✅(2026-09-23) **新增守门 76 `check-stale-revert.mjs`**(注册 guardian-runner blocking):第二类故障此前**无任何提交前闸**(71 只护 PLAN 登记行,README/AGENTS 无人守)。判据、三条豁免护栏与取证见 AGENTS.md 守门速查 76 条 + README「第 75 / 76 项」小节。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
 - **遗留(非本票引入,按 §12 不代修,已上报待裁)**:HEAD 上两处类型错 —— ① `packages/shared/src/chat/index.ts:21` `export * from './prompt-history'` 指向**任何提交都不存在**的模块(由 `23613a68c` 引入,全仓零消费者,单行悬空 export 即打红 mobile-rn typecheck);② `apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx:24` `PermissionEvent` 声明未用(TS6196)。二者在本票对齐工作区**之前**就存在于 HEAD,只是此前相关测试文件处于缺失状态、把报错遮住了。
 - 验证:`node scripts/check-stale-revert.mjs --self-test`(8 例全绿)+ 临时 index 端到端演练 3/3 + `git status --porcelain | grep '^ D'` 为空 + `node scripts/git-guardian.mjs --status` 全 true + `node scripts/git-push-converge.mjs` 收敛。
 
@@ -3797,15 +3799,17 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **补的两族(受保护形态从一种扩到三种)**:① 既有"加粗 bullet"(`- **G-166 …**`)语义原样不动;② **复选任务行裸编号** `- [ ] O13b …` / `- [x] ✅(2026-09-23) …`,须逐层剥掉复选框之后的状态装饰(`（进行中）` / `✅(日期)`)再取编号 —— 计划里真有 `- [ ]（进行中） O13b 第二段(…)`,只剥一层会正好漏掉本票要救的那一行(注入实锤);③ **批次标题行** `### 第十四批(…):…`,刻意只认"批",不认轮/次/阶段(`第二轮` 这种串全文必撞,纳进只会往基线塞永不报丢的空条目)。
 - [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)
 
-
-<!-- 真源血统合并回补(2026-09-23 事故恢复):以下行来自 GitCode 血统 31702b7a33,快照中缺失,union 保留 -->
-- [ ] **H28 前置验证任务(必须先于 D83/D54/D90/D91 的措辞实现)**:对话流状态类措辞一律用 **ICU `select`/`plural`**(一种语义一个键,否则 27 工具 × 3 状态 × 带参 × 5 语言 = 词表爆炸)。我方现状实测:全仓 ICU 仅 **5 处 plural、`select` 零使用** → 先跑通一条真链路:在 `packages/i18n/messages/**/zh-CN.json` 放一个含 `{state, select, …}` 的键,过 `check-i18n-keys.mjs`(含**含点键**与 parity 规则)、next-intl 渲染、e2e 断言渲染出中文态文本,五语言齐了才算通;**不通则改方案**(如自写小解析器)并回到本节记录结论,不得带着未验证假设进实现
-- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
-- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
-- [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
 ## P1 mobile-rn 我的页深色复核第二轮:离板色/低对比前景收口 + 首屏超时真重试(2026-09-23 立并完成 ✅,平台独占:apps/mobile-rn)
+> 承接「P1 mobile-rn 深色复核收尾」一节。上一轮派单把问题清单(来自截图分析)与文件清单错配:
+> 「文本/图片/视频/音频 Tab」实际在 `apps/mobile-rn/src/components/StudyBar.tsx`,「等级介绍」在
+> `apps/mobile-rn/src/screens/ProfileScreen.tsx`,**都不在被允许的 4 个文件内** ⇒ 子代理只能在白名单里
+> 反复自问"Tab 到底在哪"直到算力耗尽。本轮按**实测 WCAG 比值**重判,改判据不改猜测。
 - [x] ✅(2026-09-23) **UserInfoCard 三处**:`card` 底 `rgba(195,190,255,0.15)`(深色下与 #242424 混成 `#3c3b45`,离板浅紫)→ `surface.card`;`roleBadge` 底 `surface.card`→`surface.muted`(卡底改后二者同色会隐形);`roleText` `gray[600]`→`text.secondary`,**实测 1.41:1 → 6.00:1**(旧值压在浅紫面板上几乎不可读,即用户报的"普通用户标签对比度不足")。
 - [x] ✅(2026-09-23) **StudyBar 选中/未选中**:选中态 `brand.DEFAULT`(深色档案=纯白)+ `brand.foreground` → `brandAccent.DEFAULT`+`brandAccent.foreground`(与广场页 `971e21517` 同判据:纯白胶囊压深底即"刺眼",量化为白底对 #242424 达 15.52:1);未选中 `text.tertiary`→`text.secondary`,**3.67:1 → 6.90:1**。
 - [x] ✅(2026-09-23) **UserMembershipBenefits**:`expireText`/`tierNormal` `text.tertiary`→`text.secondary`(**3.67:1→6.90:1** / **3.19:1→6.00:1**);`openBtn` 纯白底+黑字 → brandAccent 对(白底对 #1A1A1A 卡面 **17.40:1**,改后 8.46:1 深色 / 5.65:1 浅色,仍在 AA 之上)。
 - [x] ✅(2026-09-23) **PersonalInformationCard 图片衬底前景**(仅 `DistributionScreen` 用,列在本票文件清单内):5 处 `color: tokens.surface.light` → 模块常量 `MEDIA_TEXT='#FFFFFF'`。**根因**:`f13afd966` 把 `surface.light` 深色值由 #FFFFFF 改成 #262626 后,压在固定图 `bjcspNew.jpg`(不随主题换)上的文字变深灰不可读 —— 属上节登记的"114 处 `surface.light` 前景须逐处判衬底"残余,本票消掉 5 处并留注释禁止回改。
 - [x] ✅(2026-09-23) **首屏超时+重试改到真正生效的层**(承 task 3 ③):上一轮把超时 UI 加在 `packages/app` 共享 `ProfileScreen`,但 RN 侧对该组件**写死 `loading={false}`** 且自带 loading 分支 ⇒ 那 58 行永不执行;且其 `handleRetry` 只重置计时器、不重新请求 = **假重试**。已回退该未提交改动(能力未丢,只换层),改在 `apps/mobile-rn/src/screens/ProfileScreen.tsx` 的 `loadProfileStats`(按同文件既有 `loadTabContent` 惯用法抽出)加 12s 超时 + 复用既有 `tabErrorWrap`/`tabRetryBtn` 真重试;同屏纯白 CTA `tabRetryBtn` 一并改 brandAccent 对。
+- 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩本节下方已登记的他人测试文件 TS6196);5 文件 eslint 0 错 0 警;守门 75 `check-brand-foreground` 全量 R1=0 / R2 ≤ 基线;Metro 出包 grep 证旧值 `rgba(195, 190, 255, 0.15)` 已从包内消失、`PROFILE_LOAD_TIMEOUT_MS`/`MEDIA_TEXT` 已入包。commit `150155d3a`。
+- **未做像素级"改后"复验(如实说明,不称已复验)**:设备 c12617dd 现装的是 13:30 的 **release** 构建(`flags` 无 DEBUGGABLE,JS 内嵌不吃 Metro),换装 debug 包与它签名不同 ⇒ 需 uninstall,会清掉用户 App 数据与登录态,未经批准不动。改前缺陷现场已截图留证(`.ihui-agent/tmp/rn-profile-dark-r6/04-profile.png`:浅紫面板 / 普通用户徽章 / 「文本」纯白胶囊三处可见)。
+- **顺带发现,不在本票范围未动**:智汇AI 首页「分享领智汇值」弹层两个按钮仍是纯白底(`02-home.png`),同属"深色下纯白 CTA 突兀"族,待另票统一(全端仍有 `brand.DEFAULT` 作 CTA 底的用法,须先定"主 CTA 是否一律走 brandAccent"再批量改,避免逐处打补丁)。
+- **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与 RN 屏内加载态,不触他端契约、不改跨端类型。
