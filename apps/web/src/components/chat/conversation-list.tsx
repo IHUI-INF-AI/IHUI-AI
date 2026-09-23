@@ -11,7 +11,9 @@ import { useTranslations, useLocale } from 'next-intl'
 import {
   Archive,
   ArchiveRestore,
+  Bell,
   Clock,
+  Hourglass,
   Pin,
   PinOff,
   Shrink,
@@ -58,6 +60,13 @@ import {
   unarchiveConversation,
   type BatchConversationAction,
 } from '@ihui/api-client'
+import {
+  buildBatchAttentionSummary,
+  formatUnreadCount,
+  isWaitingForConversation,
+  resolveConversationAttention,
+  type ConversationAttentionState,
+} from '@/hooks/use-sidebar'
 
 export interface Conversation {
   id: string
@@ -69,10 +78,91 @@ export interface Conversation {
   archivedAt?: string | null
   /** 2026-08-30 立:会话置顶标记 */
   pinned?: boolean
+  /** D53 会话注意力态(G-64):该行未读更新数(>0 显示未读徽章);后端暂无字段时由 attentionById 覆盖 */
+  unreadCount?: number
+  /** D53:该行显式等待态(备用通道,主链路走 attentionById + pendingQuestion 联动) */
+  hasPendingQuestion?: boolean
+}
+
+/** D53 注意力覆盖表:行数据无未读/等待字段时的扩展通道(派生,不碰 store)。 */
+export type ConversationAttentionById = Readonly<
+  Record<string, { waiting?: boolean; unread?: number }>
+>
+
+/**
+ * D53 会话注意力徽章(G-64):「等待你处理 / 有未读更新」两态。
+ * waiting-unread 时两徽章并排(等待优先在左)。数字徽章用确定性居中模板
+ * (inline-flex + h-4 min-w-4 + items-center justify-center + leading-none + tabular-nums)。
+ * 文案键(chatHistory.attentionWaiting/attentionUnread/batchAttentionSummary)由主 agent 统一入词表,
+ * 本任务只引用不建键(见交付物词表键清单)。
+ */
+export function ConversationAttentionBadges({
+  state,
+  unreadCount,
+}: {
+  state: ConversationAttentionState
+  unreadCount: number
+}) {
+  const t = useTranslations('chatHistory')
+  if (state === 'idle') return null
+  const waiting = state === 'waiting' || state === 'waiting-unread'
+  const unread = state === 'unread' || state === 'waiting-unread'
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1">
+      {waiting && (
+        <span
+          data-testid="attention-badge-waiting"
+          className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1 py-px text-[10px] font-medium leading-4 text-amber-700 dark:text-amber-400"
+        >
+          <Hourglass className="h-3 w-3" />
+          <span>{t('attentionWaiting')}</span>
+        </span>
+      )}
+      {unread && (
+        <span
+          data-testid="attention-badge-unread"
+          role="status"
+          aria-label={t('attentionUnread', { count: unreadCount })}
+          title={t('attentionUnread', { count: unreadCount })}
+          className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-primary"
+        >
+          <Bell className="mr-0.5 h-3 w-3" />
+          {formatUnreadCount(unreadCount)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * D53 多选条注意力汇总行:选中集里的等待/未读计数文案(批量条文案断言落点)。
+ * 两项皆 0 时零占位(不渲染),避免干扰既有 selectedCount 文案。
+ */
+export function BatchAttentionSummaryLine({
+  waitingCount,
+  unreadCount,
+}: {
+  waitingCount: number
+  unreadCount: number
+}) {
+  const t = useTranslations('chatHistory')
+  if (waitingCount <= 0 && unreadCount <= 0) return null
+  return (
+    <span data-testid="batch-attention-summary" className="text-xs text-muted-foreground">
+      {t('batchAttentionSummary', { waiting: waitingCount, unread: unreadCount })}
+    </span>
+  )
 }
 
 /** history 与 favorites 页共用的对话行列表,含删除 / 收藏切换 / 重命名 / 归档 / 导出 / 压缩 */
-export function ConversationList({ items }: { items: Conversation[] }) {
+export function ConversationList({
+  items,
+  attentionById,
+}: {
+  items: Conversation[]
+  /** D53 注意力覆盖表(可选,派生输入,不碰 store) */
+  attentionById?: ConversationAttentionById
+}) {
   const t = useTranslations('chatHistory')
   const tCommon = useTranslations('common')
   const tc = useTranslations('aiChat')
@@ -80,6 +170,9 @@ export function ConversationList({ items }: { items: Conversation[] }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { success, error } = useToast()
+  // D53 联动(store 只读):挂起的提问归属当前会话 → 当前行自动进入等待态
+  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
+  const currentConversationId = useChatStore((s) => s.conversationId)
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [pendingRenameId, setPendingRenameId] = useState<string | null>(null)
@@ -249,6 +342,36 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     })
   }
 
+  // D53 注意力派生(行数据字段优先,attentionById 次之,pendingQuestion 联动当前会话归属行)
+  const unreadOf = (item: Conversation): number => {
+    const raw = attentionById?.[item.id]?.unread ?? item.unreadCount ?? 0
+    return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0
+  }
+  const waitingOf = (item: Conversation): boolean =>
+    isWaitingForConversation({
+      conversationId: item.id,
+      currentConversationId,
+      hasPendingQuestion: pendingQuestion !== null,
+      explicitWaiting: attentionById?.[item.id]?.waiting ?? item.hasPendingQuestion,
+    })
+  const attentionStateOf = (item: Conversation): ConversationAttentionState =>
+    resolveConversationAttention({
+      hasPendingQuestion: waitingOf(item),
+      unreadCount: unreadOf(item),
+    })
+
+  const batchAttention = buildBatchAttentionSummary({
+    selectedIds,
+    isWaiting: (id) => {
+      const item = items.find((i) => i.id === id)
+      return item ? waitingOf(item) : false
+    },
+    unreadOf: (id) => {
+      const item = items.find((i) => i.id === id)
+      return item ? unreadOf(item) : 0
+    },
+  })
+
   const runBatch = (action: BatchConversationAction) => {
     const ids = [...selectedIds]
     if (ids.length === 0) return
@@ -373,6 +496,10 @@ export function ConversationList({ items }: { items: Conversation[] }) {
           <span className="text-sm font-medium tabular-nums">
             {t('selectedCount', { count: selectedIds.size })}
           </span>
+          <BatchAttentionSummaryLine
+            waitingCount={batchAttention.waitingCount}
+            unreadCount={batchAttention.unreadCount}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -440,7 +567,11 @@ export function ConversationList({ items }: { items: Conversation[] }) {
         </div>
       )}
       <ul className="space-y-1 rounded-lg border p-1">
-        {items.map((item) => (
+        {items.map((item) => {
+          // D53:每行注意力态独立派生,pendingQuestion 只联动当前会话行
+          const attentionState = attentionStateOf(item)
+          const unread = unreadOf(item)
+          return (
           <li
             key={item.id}
             className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
@@ -474,6 +605,7 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                 <span className="shrink-0 whitespace-nowrap tabular-nums">
                   {t('messageCount', { count: item.messageCount })}
                 </span>
+                <ConversationAttentionBadges state={attentionState} unreadCount={unread} />
               </p>
             </button>
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -606,7 +738,8 @@ export function ConversationList({ items }: { items: Conversation[] }) {
               </DropdownMenu>
             </div>
           </li>
-        ))}
+          )
+        })}
       </ul>
 
       <ConfirmDialog

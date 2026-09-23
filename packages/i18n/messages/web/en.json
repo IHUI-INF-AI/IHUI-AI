@@ -7071,7 +7071,13 @@
         "rejectBlock": "Reject this change",
         "rejected": "Rejected",
         "resetSelection": "Reset selection",
-        "selectedSummary": "{accepted}/{total} selected"
+        "selectedSummary": "{accepted}/{total} selected",
+        "stageFile": "Stage all",
+        "unstageFile": "Unstage all",
+        "stageHunk": "Stage",
+        "unstageHunk": "Unstage",
+        "staged": "Staged",
+        "unstaged": "Unstaged"
       },
       "dragHandle": "Drag to reposition",
       "elapsedTitle": "Elapsed {time}",
@@ -7326,6 +7332,18 @@
         "targetFile": "Comment on this change",
         "close": "Cancel",
         "pendingBanner": "{count} code review comments pending"
+      },
+      "annotation": {
+        "placeholder": "Annotate this reply…",
+        "save": "Save",
+        "edit": "Edit annotation",
+        "delete": "Delete annotation",
+        "deleteFailed": "Could not delete annotation",
+        "invalid": "This annotation can no longer be edited",
+        "countSummary": "Annotations on this reply: {n}",
+        "badge": "Note",
+        "lineUnit": "lines",
+        "cancel": "Cancel"
       },
       "runtimeStatusResuming": "Resuming…",
       "runtimeStatusPausing": "Pausing…",
@@ -11149,7 +11167,70 @@
     "title": "API Docs",
     "toastCopied": "Path copied",
     "toastCopyFailed": "Copy failed",
-    "yes": "Yes"
+    "yes": "Yes",
+    "endpoints": {
+      "chatCompletions": "OpenAI-compatible chat",
+      "anthropicMessages": "Anthropic-compatible chat",
+      "listModels": "List available models",
+      "rerank": "Cohere/Jina-compatible rerank",
+      "moderations": "OpenAI-compatible content moderation",
+      "realtime": "Realtime WebSocket live chat",
+      "midjourneyImagine": "Midjourney-Proxy standard endpoint",
+      "mcpToolsCall": "MCP gateway tool call",
+      "responses": "OpenAI Responses API (Cursor/Codex compatible)",
+      "batch": "OpenAI batch async API (50% discount)",
+      "assistants": "Assistants API v2 (direct third-party SDK access)",
+      "audioTranslations": "Whisper speech translation",
+      "fineTuningJobs": "Fine-tuning job management",
+      "files": "File management CRUD",
+      "statusOverview": "Public status page - system overview",
+      "statusModels": "Public status page - model availability",
+      "statusIncidents": "Public status page - incident list",
+      "apiKeyShares": "Temporary API Key sharing (time-limited token)",
+      "exportOrdersCsv": "Top-up orders CSV export",
+      "exportRelayLogsCsv": "Request logs CSV export",
+      "developerConversations": "Relay conversation history list"
+    },
+    "sections": {
+      "quickStart": "Quick start (connect in 5 minutes)",
+      "auth": "Authentication",
+      "endpointList": "Endpoint list",
+      "rateLimit": "Rate limits",
+      "billing": "Billing"
+    },
+    "steps": {
+      "step1Title": "1. Sign up and sign in",
+      "step1Desc": "— Register an account and sign in",
+      "step2Title": "2. Generate a Key",
+      "step2Desc": "— Developer center → Key management → New key",
+      "step3Title": "3. Call the API",
+      "step3Desc": "— Replace sk-xxx below to send your first request"
+    },
+    "auth": {
+      "descPrefix": "Requests must carry ",
+      "descMid": " (Anthropic endpoints also support ",
+      "descSuffix": ")."
+    },
+    "rateLimit": {
+      "tiers": "Free 20 QPM · Basic 60 QPM · Pro 200 QPM · Enterprise 1000 QPM",
+      "overLimitPrefix": "Exceeding the limit returns error code",
+      "overLimitSuffix": " (HTTP 429)."
+    },
+    "billing": {
+      "promptCacheTerm": "Prompt Cache discount",
+      "promptCacheDesc": ": cached input tokens are billed at 0.1x.",
+      "responseCacheTerm": "Response cache (Redis)",
+      "responseCacheDesc1": ": non-streaming chat completions that hit the cache cost 0 (response header",
+      "responseCacheDesc2": "), use",
+      "responseCacheDesc3": "to skip the cache.",
+      "tieredTerm": "Tiered pricing",
+      "tieredDesc": ": the more tokens in one request, the lower the unit price (see the pricing page).",
+      "groupRateTerm": "Group multiplier",
+      "groupRateDesc": ": model groups are billed by multiplier (e.g. Claude 1.2x, GPT-4o 1.0x).",
+      "rerankDesc": ": billed on input tokens, output tokens are 0.",
+      "unit": "Billing unit is Token, 1 Token ≈ 0.75 characters (Chinese); insufficient balance returns",
+      "unitSuffix": "."
+    }
   },
   "developerBillingPage": {
     "add": "Add",
@@ -14084,7 +14165,61 @@
     "total": "{total} total",
     "buyConfirm": "Buy Confirm",
     "paymentConfirm": "Payment Confirm",
-    "review": "Review"
+    "review": "Review",
+    "tutor": {
+      "title": "AI Tutor",
+      "subject": "Subject",
+      "mode": "Mode",
+      "subjectMath": "Math",
+      "subjectPhysics": "Physics",
+      "subjectChemistry": "Chemistry",
+      "subjectBiology": "Biology",
+      "subjectEnglish": "English",
+      "subjectHistory": "History",
+      "subjectGeography": "Geography",
+      "modeExplain": "Explain",
+      "modeHint": "Hint",
+      "modeQuiz": "Quiz",
+      "quizDirection": "Quiz focus (optional)",
+      "yourQuestion": "Your question",
+      "quizPlaceholder": "e.g. properties of a quadratic graph",
+      "questionPlaceholder": "e.g. How is the Pythagorean theorem proved?",
+      "generateQuiz": "Generate questions",
+      "ask": "Ask",
+      "knowledgePoints": "Key points",
+      "followUp": "Take it further",
+      "nextStep": "Next step",
+      "quizCount": "Generated {count} practice questions",
+      "answerValue": "Answer: {answer}",
+      "emptyHint": "Choose a subject and a mode, then ask your question."
+    },
+    "dailyReview": {
+      "loading": "Loading…",
+      "title": "Review for today",
+      "subtitle": "Built on the SM-2 spaced repetition algorithm to lock in long-term memory.",
+      "qualityForgotten": "Completely forgotten",
+      "qualityFailed": "Failed",
+      "qualityUncertain": "Barely",
+      "qualityGood": "Good",
+      "qualityPerfect": "Perfect",
+      "statDue": "Still due",
+      "statReviewedToday": "Reviewed today",
+      "statStreak": "Day streak",
+      "statAvgDifficulty": "Average difficulty",
+      "finishedTitle": "You are done for today",
+      "finishedHint": "You completed {count} cards - keep the rhythm going!",
+      "questionProgress": "Card {current} of {total}",
+      "questionLabel": "Card",
+      "selfAssess": "Recall it, then rate yourself",
+      "submitting": "Submitting…",
+      "answerLabel": "Answer",
+      "explanationLabel": "Explanation",
+      "nextReview": "Next review",
+      "intervalDays": "Interval (days)",
+      "easeFactor": "Ease factor",
+      "nextQuestion": "Next card",
+      "progressLine": "Review progress: {done} / {total}"
+    }
   },
   "learnBuyConfirmPage": {
     "actualPay": "Actual Pay",
@@ -15324,10 +15459,9 @@
     "apiDocs": {
       "auth": {
         "desc": "All API requests must include a Bearer Token in the Header. Tokens can be created on the API Keys page.",
-        "title": "Authentication"
+        "title": "Authentication",
+        "headerFormat": "# Header format"
       },
-      "copyCodeAriaLabel": "Copy code",
-      "curlPlaceholder": "Enter cURL command to test…",
       "endpoints": {
         "audio": "Audio Synthesis",
         "chat": "Chat Completion",
@@ -15345,7 +15479,6 @@
         "python": "Python",
         "title": "Call Example"
       },
-      "searchPlaceholder": "Search APIs…",
       "subtitle": "Complete API integration documentation and examples",
       "title": "API Documentation"
     },
@@ -23129,8 +23262,153 @@
     "description": "n8n automated workflow Agent"
   },
   "rules": {
-    "title": "Rules",
-    "description": "Platform rules and regulations"
+    "totalRulesSorted": "Total {n} rules, sorted by priority descending",
+    "autoGenerate": "Auto-generate",
+    "detectConflicts": "Detect conflicts",
+    "knowledgeGraph": "Knowledge graph",
+    "abTest": "A/B test",
+    "globalStats": "Global statistics",
+    "templateLibrary": "Template library",
+    "newRule": "New rule",
+    "emptyHint": "No rules yet. Click \"New rule\" to create one",
+    "disabled": "Disabled",
+    "enabled": "Enabled",
+    "hitCount": "Matched {n} times",
+    "detail": "Details",
+    "test": "Test",
+    "edit": "Edit",
+    "confirmDelete": "Confirm deletion",
+    "cancelDelete": "Cancel deletion",
+    "hit": "Matched",
+    "noMatch": "No match",
+    "noMatchNoOutput": "(No match, no output)",
+    "ruleA": "Rule A",
+    "selectRuleA": "Select rule A",
+    "ruleB": "Rule B",
+    "selectRuleB": "Select rule B",
+    "testMessage": "Test message",
+    "inputTestMessage": "Enter a test message...",
+    "testing": "Testing...",
+    "runTest": "Run test",
+    "autoGenerateTitle": "Auto-generate rules",
+    "autoGenerateHint": "An LLM distils candidate rules from your behaviour patterns over the last 7 days; tick them to create in bulk",
+    "startAnalyzeBehavior": "Start behaviour analysis",
+    "analyzingBehavior": "The LLM is analysing behaviour patterns...",
+    "degradedNoCandidates": "Degraded mode: LLM unavailable, returning an empty candidate list",
+    "analyzedGenerated": "Analysed {behaviors} behaviour records and generated {candidates} candidate rules",
+    "noCandidates": "No candidate rules (not enough behaviour data, or LLM unavailable)",
+    "confidencePercent": "Confidence {pct}%",
+    "selectedOfTotal": "{selected} of {total} selected",
+    "creating": "Creating...",
+    "batchCreateCount": "Create in bulk ({n})",
+    "negotiationFailed": "Negotiation failed: {msg}",
+    "conflictNameConflict": "Name conflict",
+    "conflictSemanticDuplicate": "Semantic duplicate",
+    "conflictPriorityCollision": "Priority collision",
+    "conflictDetectTitle": "Rule conflict detection",
+    "detecting": "Detecting...",
+    "noConflict": "No conflicts detected — the rule set looks healthy",
+    "detectedConflictsHint": "{n} conflicts detected. Add context to let the LLM negotiate",
+    "arbitrationContextLabel": "Negotiation context (current conversation / code snippet)",
+    "arbitrationContextPlaceholder": "Enter context for the LLM to arbitrate...",
+    "negotiating": "Negotiating...",
+    "llmNegotiate": "LLM negotiation",
+    "arbitrationResult": "Arbitration result:",
+    "noneLabel": "None",
+    "degraded": "Degraded",
+    "mergeSuggestion": "Merge suggestion: {text}",
+    "axisDays30": "30 d",
+    "axisDays7": "7 d",
+    "positiveCount": "Positive {n}",
+    "negativeCount": "Negative {n}",
+    "totalRows": "{n} in total",
+    "diffNone": "(no difference)",
+    "loadFailed": "Failed to load",
+    "rollbackSuccess": "Rollback succeeded",
+    "rollbackFailed": "Rollback failed: {msg}",
+    "feedbackRecorded": "Feedback recorded",
+    "feedbackFailed": "Feedback failed: {msg}",
+    "predictFailed": "Prediction failed: {msg}",
+    "learnFeedbackRecorded": "Learning feedback recorded",
+    "ruleDetailTitle": "Rule details: {name}",
+    "tabStats": "Effectiveness stats",
+    "tabHistoryCount": "Version history ({n})",
+    "tabPredict": "Effect prediction",
+    "statMatchCount": "Match count",
+    "statHits7d": "Matches (7 days)",
+    "statHits30d": "Matches (30 days)",
+    "statAvgToken": "Average tokens",
+    "hitRateCompare": "Hit-rate comparison",
+    "satisfactionPercent": "Satisfaction ({pct}%)",
+    "feedbackLabel": "Feedback:",
+    "useful": "Useful",
+    "useless": "Not useful",
+    "noVersionHistory": "No version history yet",
+    "compareToPrev": "Compare with previous version",
+    "rollingBack": "Rolling back...",
+    "rollback": "Roll back",
+    "predictHint": "Enter a test prompt to dry-run the LLM output with and without the rule",
+    "predictPromptPlaceholder": "Enter a test prompt...",
+    "predicting": "Predicting...",
+    "runPredict": "Run prediction",
+    "statTokenDelta": "Token delta",
+    "statOutputDiff": "Output divergence",
+    "statQualityScore": "Quality score",
+    "suggestionLabel": "Recommendation:",
+    "recDisable": "Do not enable",
+    "recNeutral": "Neutral",
+    "degradedMode": "Degraded mode",
+    "withoutRule": "Without the rule",
+    "withRule": "With the rule",
+    "learnFeedbackLabel": "Learning feedback:",
+    "helpful": "Helpful",
+    "unhelpful": "Not helpful",
+    "harmful": "Harmful",
+    "editRuleTitle": "Edit rule",
+    "fieldLabelName": "Name",
+    "ruleNamePlaceholder": "Rule name",
+    "fieldLabelDescription": "Description (optional)",
+    "briefDescriptionPlaceholder": "Short description",
+    "fieldLabelScope": "Scope",
+    "scopeGlobal": "Global",
+    "scopeWorkspace": "Workspace",
+    "fieldLabelPriority": "Priority",
+    "fieldLabelMatchType": "Match type",
+    "matchAlways": "Always inject",
+    "matchKeyword": "Keyword",
+    "matchRegex": "Regex",
+    "matchSemantic": "Semantic",
+    "fieldLabelMatchPattern": "Match pattern",
+    "matchPatternKeywordPlaceholder": "keyword1,keyword2",
+    "matchPatternRegexPlaceholder": "Regular expression",
+    "matchPatternSemanticPlaceholder": "Natural-language description",
+    "fieldLabelContent": "Rule body",
+    "contentPlaceholder": "Rule body (markdown, injected into the agent as a prompt)...",
+    "saving": "Saving...",
+    "statTotalRules": "Total rules",
+    "statActiveRules7d": "Active rules (7 days)",
+    "topRulesTitle": "Top {n} most used rules",
+    "ruleList": "Rule list",
+    "noHitRecords": "No match records yet",
+    "timesCount": "{n} times",
+    "knowledgeGraphTitle": "Rule knowledge graph",
+    "buildingGraph": "Building the graph...",
+    "kgConflict": "Conflict",
+    "kgDuplicate": "Duplicate",
+    "kgComplementary": "Complementary",
+    "graphNodeEdgeCounts": "{nodes} nodes / {edges} edges",
+    "noRulesToBuildGraph": "No rules yet, so there is nothing to graph",
+    "relationList": "Relations",
+    "templateLibraryTitle": "Rule template library",
+    "loadingTemplates": "Loading templates...",
+    "templateCountHint": "{n} built-in templates — click \"Use\" to create a rule in one step",
+    "use": "Use",
+    "testRuleTitle": "Test rule: {name}",
+    "inputMessage": "Enter a message",
+    "matchHit": "Pattern matched",
+    "pageTitle": "Rule management",
+    "metaDescription": "Manage user-defined rules that constrain AI agent behaviour at runtime",
+    "pageSubtitle": "A user-editable rule set that is injected into the system prompt at agent runtime according to its match conditions"
   },
   "automations": {
     "delete": "Delete",
@@ -23669,5 +23947,292 @@
     "goSettings": "model settings",
     "securityNote": "Your key is stored only in your own account config and used to connect directly to the provider. The platform will not use your key for anything else. Never share your key publicly.",
     "startChat": "Done — start chatting"
+  },
+  "apiDocs": {
+    "curlPlaceholder": "Enter cURL command to test…",
+    "searchPlaceholder": "Search APIs…",
+    "copyCodeAriaLabel": "Copy code",
+    "sampleUserText": "Hello",
+    "sampleStoryText": "Tell me a story",
+    "sampleProdNote": "// Replace with UI rendering in production",
+    "parseFailed": "Unable to parse the curl command. Check the format (a -d JSON body is required).",
+    "curlLinkTitle": "curl → Playground link",
+    "curlLinkDesc": "Paste a curl command; model / messages / temperature / max_tokens are parsed automatically and opened in Playground.",
+    "resetSample": "Reset sample",
+    "openInPlayground": "Open in Playground",
+    "errorCodesTitle": "Error codes",
+    "errorCodesDesc": "Meanings and suggested fixes for every API error code and HTTP status, searchable.",
+    "meaningCol": "Meaning",
+    "fixCol": "Suggested fix",
+    "noMatchedErrorCodes": "No matching error codes",
+    "sdkExamplesTitle": "SDK examples",
+    "codeCopied": "Code copied",
+    "copyFailed": "Copy failed",
+    "hideKey": "Hide key",
+    "showKey": "Show key",
+    "keyFilledHint": "Your API Key is filled into the examples{state}.",
+    "keyStatePlain": " (plain text)",
+    "keyStateMasked": " (masked — replace it with the full key after copying)",
+    "exampleBasicOpenai": "Basic call (OpenAI format)",
+    "exampleStreaming": "Streaming response",
+    "exampleAnthropic": "Anthropic format",
+    "errorCodes": {
+      "c1000": {
+        "meaning": "Invalid API Key",
+        "fix": "Check the Authorization: Bearer ihui_xxx header"
+      },
+      "c1001": {
+        "meaning": "API Key has expired",
+        "fix": "Regenerate the key or ask an administrator to renew it"
+      },
+      "c1002": {
+        "meaning": "IP is not in the allow list",
+        "fix": "Add the IP in the key settings"
+      },
+      "c1003": {
+        "meaning": "Model is not in the allow list",
+        "fix": "Add the model in the key settings"
+      },
+      "c1004": {
+        "meaning": "QPM limit exceeded",
+        "fix": "Upgrade your subscription or call less frequently"
+      },
+      "c1005": {
+        "meaning": "Insufficient balance",
+        "fix": "Top up, or redeem a voucher code"
+      },
+      "c1006": {
+        "meaning": "Token limit exceeded in one request",
+        "fix": "Lower max_tokens or split the request"
+      },
+      "c1007": {
+        "meaning": "Per-model RPM limit exceeded",
+        "fix": "Call this model less often or upgrade your group"
+      },
+      "c1008": {
+        "meaning": "Per-model TPM limit exceeded",
+        "fix": "Reduce token usage for this model or upgrade your group"
+      },
+      "c1009": {
+        "meaning": "API Key does not belong to this tenant",
+        "fix": "Check the binding between the key and the tenant"
+      },
+      "c1010": {
+        "meaning": "Key-level window (5h/1d/7d) call limit exceeded",
+        "fix": "Back off and retry using Retry-After and X-RateLimit-*, or lower the rate inside the window"
+      },
+      "secretRequired": {
+        "meaning": "Missing X-Api-Secret header (required by default)",
+        "fix": "Send the secret returned once when the key was created or rotated; during the transition a server can relax this with API_KEY_REQUIRE_SECRET=false"
+      },
+      "rateBackendUnavailable": {
+        "meaning": "Rate-limit backend unavailable, request rejected fail-close",
+        "fix": "Retry after Retry-After (5s by default); only billed or high-risk capabilities fail closed, low-risk read-only ones degrade open"
+      },
+      "dataAccessDenied": {
+        "meaning": "This capability's dataClass may not touch this table (or the table name is undecidable)",
+        "fix": "Check dataClass in the capability catalog: compute only writes run records, reading business data must go through scoped-read"
+      },
+      "dataScopeDenied": {
+        "meaning": "Statement crosses the ownership boundary (missing owner predicate or another owner’s resource ID)",
+        "fix": "Query and write only the caller’s own resources; cross owner/tenant access is forbidden"
+      },
+      "dataIsolationUnavailable": {
+        "meaning": "Data isolation precondition not met (connection is a superuser or cannot be proven otherwise)",
+        "fix": "The server must connect as a non-superuser; contact an administrator instead of retrying from the client"
+      },
+      "c2001": {
+        "meaning": "Upstream service unavailable",
+        "fix": "Retry later; the system fails over automatically"
+      },
+      "c2002": {
+        "meaning": "Upstream timed out",
+        "fix": "Lower max_tokens or check the network"
+      },
+      "c2003": {
+        "meaning": "Upstream overloaded",
+        "fix": "Retry later"
+      },
+      "c2004": {
+        "meaning": "Realtime WebSocket upstream error",
+        "fix": "Check that the model supports realtime and that the network is connected"
+      },
+      "c2005": {
+        "meaning": "Midjourney upstream error",
+        "fix": "Check that midjourney-proxy is online and review the task parameters"
+      },
+      "c2006": {
+        "meaning": "MCP tool call failed",
+        "fix": "Check the MCP server status and whether the tool name exists"
+      },
+      "c3001": {
+        "meaning": "Invalid request parameters",
+        "fix": "Check the messages format"
+      },
+      "c3002": {
+        "meaning": "Model does not exist",
+        "fix": "List available models with GET /v1/models"
+      },
+      "c5013": {
+        "meaning": "Upstream channel not configured",
+        "fix": "Ask an administrator to configure the rerank/moderations upstream"
+      }
+    }
+  },
+  "playground": {
+    "needApiKey": "Enter an API Key first",
+    "needModel": "Select or type a model",
+    "needValidMessage": "Enter at least one non-empty message",
+    "callFailed": "Request failed",
+    "send": "Send",
+    "modeSse": "· SSE",
+    "modeNonStream": "· Non-streaming",
+    "messageList": "Messages",
+    "messageCount": "{n} messages",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "deleteMessage": "Delete message",
+    "inputRoleContent": "Type the {role} message…",
+    "addMessage": "Add message",
+    "modelsFetchFailed": "Failed to load the model list",
+    "apiKeyHint": "Stored locally, used for this request only",
+    "modelLabel": "Model",
+    "refreshModelsAria": "Refresh model list",
+    "selectModelPlaceholder": "Select a model",
+    "inputModelOrRefresh": "Type a model name or refresh the list",
+    "streamLabel": "stream (SSE)",
+    "tabResponse": "Response",
+    "tabCode": "Code",
+    "tabHistory": "History ({n})",
+    "waitingResponse": "Waiting for the response…",
+    "clickSendHint": "Click “Send” to see the response",
+    "latencyLabel": "Latency",
+    "costLabel": "Cost",
+    "apiKeyShownAs": "API Key is shown as",
+    "noHistory": "No history yet",
+    "unknownModel": "Unknown model",
+    "restoreAria": "Restore",
+    "emptyResponse": "(empty response)",
+    "metaTitle": "API Playground — IHUI AI",
+    "metaDescription": "Test the OpenAI-compatible API online: model selection, multi-turn messages, parameter tuning, streaming SSE rendering, code generation (cURL/Python/Node.js) and history.",
+    "pageDesc": "Call /v1/chat/completions directly with your API Key — streaming, parameter tuning and code generation, without leaving for /chat."
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "Preparing a reply…",
+        "1": "Organizing my thoughts…",
+        "2": "Got it, thinking through a response…",
+        "3": "Generating a reply for you…",
+        "4": "Question received, working on it…"
+      },
+      "middle": {
+        "0": "Still working on it…",
+        "1": "Picking up where we left off…",
+        "2": "Putting together the rest of the reply…",
+        "3": "Following up on your question…",
+        "4": "Generating what comes next…"
+      },
+      "followup": {
+        "0": "Reading your follow-up…",
+        "1": "Thinking it through with context…",
+        "2": "Organizing a reply to your follow-up…",
+        "3": "Follow-up received, on it…",
+        "4": "Adding to my answer…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "Allocating compute…",
+        "1": "Initializing the runtime…",
+        "2": "Starting the pipeline…",
+        "3": "Spinning up processing…",
+        "4": "Running the first pass…"
+      },
+      "middle": {
+        "0": "Executing…",
+        "1": "Crunching the numbers…",
+        "2": "Working through intermediate results…",
+        "3": "Still running, making progress…",
+        "4": "Computing, one moment…"
+      },
+      "followup": {
+        "0": "Recomputing…",
+        "1": "Continuing with your new input…",
+        "2": "Processing the addition…",
+        "3": "Updating the results…",
+        "4": "Handling the follow-up request…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "Reviewing conversation context…",
+        "1": "Loading relevant context…",
+        "2": "Sorting through background…",
+        "3": "Recalling related details…",
+        "4": "Gathering context…"
+      },
+      "middle": {
+        "0": "Connecting with earlier context…",
+        "1": "Thinking with context in mind…",
+        "2": "Glancing back at the thread…",
+        "3": "Context ready, working on it…",
+        "4": "Cross-checking previous messages…"
+      },
+      "followup": {
+        "0": "Reading your follow-up in context…",
+        "1": "Looking back at relevant context…",
+        "2": "Linking to earlier discussion…",
+        "3": "Checking against the thread…",
+        "4": "Working on it with context…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "Drafting a plan…",
+        "1": "Breaking down your request…",
+        "2": "Mapping out the steps…",
+        "3": "Analyzing the key points…",
+        "4": "Outlining the reply…"
+      },
+      "middle": {
+        "0": "Working through the plan…",
+        "1": "Moving to the next step…",
+        "2": "Plan in progress…",
+        "3": "Processing step by step…",
+        "4": "Carrying out the remaining steps…"
+      },
+      "followup": {
+        "0": "Adjusting the plan…",
+        "1": "Updating steps for your follow-up…",
+        "2": "Replanning…",
+        "3": "Filling in plan details…",
+        "4": "Following up on the new ask…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "Preparing a detailed answer…",
+        "1": "Organizing the details…",
+        "2": "Sorting the key points…",
+        "3": "Generating an in-depth reply…",
+        "4": "Fleshing out the answer…"
+      },
+      "middle": {
+        "0": "Adding details…",
+        "1": "Expanding the explanation…",
+        "2": "Polishing what comes next…",
+        "3": "Details in progress…",
+        "4": "Refining the reply…"
+      },
+      "followup": {
+        "0": "Adding the details you asked for…",
+        "1": "Expanding on your follow-up…",
+        "2": "Fleshing out the explanation…",
+        "3": "Preparing a supplement…",
+        "4": "Rounding out the follow-up answer…"
+      }
+    },
+    "vividTail": ", almost there"
   }
 }
