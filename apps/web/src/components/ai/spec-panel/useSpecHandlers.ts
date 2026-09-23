@@ -384,7 +384,7 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
         setResult((prev) => (prev ? { ...prev, spec: r.data!.spec } : prev))
       }
       toast.success(t('reviewSubmitted'), {
-        description: `状态: ${t(STATUS_LABEL[r.data.status] ?? r.data.status)}`,
+        description: `状态: ${STATUS_LABEL[r.data.status] || r.data.status}`,
       })
     } catch (e) {
       toast.error(t('submitReviewFailed'), {
@@ -706,14 +706,14 @@ export function useSpecHandlers(deps: SpecPanelDeps) {
       }
       setImpactResult(r.data)
       toast.success('影响分析完成', {
-        description: `风险: ${t(RISK_LABEL[r.data.riskLevel] ?? r.data.riskLevel)} · 文件 ${r.data.affectedFiles.length}`,
+        description: `风险: ${RISK_LABEL[r.data.riskLevel]} · 文件 ${r.data.affectedFiles.length}`,
       })
     } catch (e) {
       toast.error('影响分析失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setImpactLoading(false)
     }
-  }, [activeWorkspacePath, impactInput, currentScope, t])
+  }, [activeWorkspacePath, impactInput, currentScope])
 
   // 版本树:刷新分支列表
   const refreshBranches = React.useCallback(async () => {
