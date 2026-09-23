@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   labelPromote: {
-    color: '#ff0000',
+    color: tokens.danger.DEFAULT,
   },
 })
 
