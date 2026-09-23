@@ -30,7 +30,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-// 判据复用守门 76(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
+// 判据复用守门 84(§22d 已把 CLI 入口与导出分离,import 不会触发副作用)
 import { analyze } from './check-stale-revert.mjs'
 
 const GIT = process.env.IHUI_GIT_BIN || 'git'
@@ -200,12 +200,12 @@ export function refreshStaleIndex(repoRoot, { dryRun = false } = {}) {
 /**
  * 幻影漂移对齐(比缺失恢复更严的判据,供 `--align-drift` 与 git-sync-converge 调用):
  * 只对齐**同时满足**三条的路径 —— ① 索引 blob == HEAD blob(该路径上无人暂存过任何东西);
- * ② 工作区内容 != HEAD;③ 守门 76 判定工作区内容**字节级等于该路径某祖先提交版本**
+ * ② 工作区内容 != HEAD;③ 守门 84 判定工作区内容**字节级等于该路径某祖先提交版本**
  * (⇒ 不含任何独有内容)。会话真实未提交编辑必然打破 ① 或 ③,故不会被覆盖。
  *
  * 为什么需要它:§12d 的 converge 用 merge-tree/commit-tree 只推进 HEAD 与 index、从不 checkout,
  * HEAD 每前进一次,工作区就多一批落后文件(实测 503 个文件落后 486 个提交)。这些文件被
- * `git add` 提交出去就是静默回滚 —— 守门 76 会拦,但拦住之后仍要有人手工对齐,故在此自动化。
+ * `git add` 提交出去就是静默回滚 —— 守门 84 会拦,但拦住之后仍要有人手工对齐,故在此自动化。
  */
 export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   const g = makeGit(repoRoot)
