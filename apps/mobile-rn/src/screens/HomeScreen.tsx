@@ -144,6 +144,8 @@ import { rpx } from '../utils/rpx'
 // 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -2120,7 +2122,7 @@ const shellStyles = {
   carouselWrap: {
     marginTop: rpx(18),
     marginBottom: rpx(16),
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     overflow: 'hidden',
   } as const,
   toolbarWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
@@ -2142,7 +2144,7 @@ const shellStyles = {
     bottom: 150,
     width: 34,
     height: 34,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: 'rgba(147, 210, 243, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2172,7 +2174,7 @@ const shellStyles = {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
     marginRight: rpx(12),
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.muted,
   } as const,
   modelTypeBtnActive: {
@@ -2198,7 +2200,7 @@ const shellStyles = {
     marginTop: rpx(0),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(8),
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brandAccent.light,
   } as const,
   selectedChipText: {
@@ -2223,7 +2225,7 @@ const shellStyles = {
   configBtn: {
     marginLeft: rpx(16),
     padding: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   } as const,
   // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
@@ -2253,7 +2255,7 @@ const shellStyles = {
     paddingLeft: rpx(20),
     paddingRight: rpx(6),
     paddingVertical: rpx(10),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   } as const,
   materialCardTitle: {
@@ -2279,8 +2281,8 @@ const shellStyles = {
     width: '100%',
     height: '80%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
   } as const,
   materialSheetBar: {
     flexDirection: 'row',
@@ -2307,7 +2309,7 @@ const shellStyles = {
     width: '84%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
   } as const,
   detailDialogHeader: {
@@ -2371,7 +2373,7 @@ const shellStyles = {
   detailDialogRetryBtn: {
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(12),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
   } as const,
   detailDialogRetryText: {
@@ -2389,8 +2391,8 @@ const shellStyles = {
     width: '100%',
     maxHeight: '70%',
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     paddingTop: rpx(32),
     paddingBottom: rpx(16),
   } as const,
@@ -2434,7 +2436,7 @@ const shellStyles = {
   shareContent: {
     width: '84%',
     maxWidth: 380,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     paddingHorizontal: rpx(40),
     paddingTop: rpx(40),
@@ -2454,7 +2456,7 @@ const shellStyles = {
   // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
   qrContent: {
     width: '80%',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     paddingVertical: rpx(36),
     paddingHorizontal: rpx(24),
@@ -2464,7 +2466,7 @@ const shellStyles = {
   qrImage: {
     width: 240,
     height: 240,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   } as const,
   qrTitle: {
     marginTop: rpx(20),
@@ -2502,7 +2504,7 @@ const shellStyles = {
   shareBtn: {
     paddingHorizontal: rpx(48),
     paddingVertical: rpx(20),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.ctaFill,
     minWidth: '70%',
     alignItems: 'center',

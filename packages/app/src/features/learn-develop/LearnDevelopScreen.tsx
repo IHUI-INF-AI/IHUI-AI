@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { LearnDevelopEntry, LearnDevelopScreenProps }
 
 /**
@@ -102,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     entryCard: {
       width: '47%',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       padding: 14,
@@ -123,7 +125,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 187,
       height: 38,
       marginTop: 24,
-      borderRadius: 30,
+      borderRadius: 30, // radius-exempt: 高 38 的胶囊按钮,半径≥高度一半,渲染为完整胶囊,吸附方档会破坏形状
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.warning.amber,

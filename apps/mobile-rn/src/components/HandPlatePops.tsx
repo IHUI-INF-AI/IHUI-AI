@@ -46,6 +46,8 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface HandPlatePaymentMethod {
   id: string
   name: string
@@ -101,10 +103,8 @@ const ANIM_DURATION_MS = 300
 const SHEET_HIDDEN_OFFSET = SCREEN_HEIGHT
 const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 
-const SHEET_BORDER_RADIUS = 12
 const HANDLE_WIDTH = 36
 const HANDLE_HEIGHT = 4
-const HANDLE_RADIUS = 2
 const HANDLE_AREA_PADDING_V = 12
 const HEADER_PADDING_H = 20
 const HEADER_PADDING_V = 8
@@ -434,8 +434,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: SHEET_BORDER_RADIUS,
-    borderTopRightRadius: SHEET_BORDER_RADIUS,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     overflow: 'hidden',
     shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   handle: {
     width: HANDLE_WIDTH,
     height: HANDLE_HEIGHT,
-    borderRadius: HANDLE_RADIUS,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.border.medium,
   } as ViewStyle,
   header: {
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   purchasePaymentIcon: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   radio: {
     width: RADIO_SIZE,
     height: RADIO_SIZE,
-    borderRadius: RADIO_SIZE / 2,
+    borderRadius: RADIO_SIZE / 2, // radius-exempt: 支付方式单选项几何正圆(18dp 直径/2)
     borderWidth: 1.5,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: 10 / 2, // radius-exempt: 选中态圆点正圆(10dp 直径/2)
     backgroundColor: tokens.success.DEFAULT,
   } as ViewStyle,
   purchaseAgreement: {
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   checkbox: {
     width: CHECKBOX_SIZE,
     height: CHECKBOX_SIZE,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   purchasePayBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',

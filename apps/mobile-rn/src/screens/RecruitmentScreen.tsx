@@ -32,6 +32,8 @@ import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 原页面图片资源(CDN,与 Uniapp 一致) */
 const BG_IMAGE =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/recruitment/bigtp@2x.png'
@@ -118,14 +120,14 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(10),
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     backgroundColor: '#9395E4',
   } as ViewStyle,
   avatar: {
     width: 50,
     height: 50,
-    borderRadius: 25,
+    borderRadius: 50 / 2, // radius-exempt: 圆形头像,半径=宽高一半(50dp)
   } as ImageStyle,
   bottomTopText: {
     flex: 1,
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
   buyBtn: {
     width: 125,
     height: 42,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.danger.bright,
     alignItems: 'center',
     justifyContent: 'center',

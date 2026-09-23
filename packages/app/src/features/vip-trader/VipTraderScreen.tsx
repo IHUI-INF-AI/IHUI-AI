@@ -34,6 +34,8 @@ import {
   Zap,
 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
 export interface VipTraderStat {
   label: string
@@ -227,14 +229,14 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginTop: 8,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.dark,
     },
     heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     heroBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: 'rgba(255,215,0,0.18)',
     },
     heroBadgeText: { fontSize: 11, fontWeight: '600', color: tk.warning.amber },
@@ -244,7 +246,7 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 16,
       marginTop: 12,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       flexDirection: 'row',
@@ -266,7 +268,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       marginHorizontal: 8,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
@@ -287,14 +289,14 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     featureIcon: {
       width: 36,
       height: 36,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -327,7 +329,7 @@ function createStyles(tk: AppThemeTokens) {
     buyBtn: {
       paddingHorizontal: 22,
       height: 44,
-      borderRadius: 15,
+      borderRadius: rnRadius['2xl'], // 原 15,R1 吸附至 2xl(16)
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
