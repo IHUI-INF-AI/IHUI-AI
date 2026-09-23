@@ -1875,6 +1875,36 @@ const checks = [
     ].join('\n'),
   },
 
+  // 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
+  // 共享工作区跑了真实 `git merge`,留下 103 个未合并路径 + 94 个带字面标记的工作区文件,而
+  // 全链守门**没有一道**看"被提交的内容含 <<<<====>>>> 标记",于是带标记的文件一路进 HEAD 树,
+  // 整轮 merge 结束都无人察觉。判据 = 同文件内**成对**的行首 `<<<<<<< ` 与 `>>>>>>> `
+  // (中间可夹整行 `=======`);单行不判(`=======` 在 setext 标题/表格/ASCII 图里合法,
+  // 只判单行会满天假红)。三模式:--staged 判索引内容(git show :<path>,取不到退回工作区;
+  // 未合并 U 路径也在清单内)、缺省判全量跟踪文件工作区内容、--rev 判提交树。护栏:自豁免
+  // (本门脚本与测试必含字面量)/ >2MB / 二进制,三类均如实计数不静默。
+  // 自检:node scripts/check-no-conflict-markers.mjs --self-test(23 例含正反成对对照 + 真实 merge 未合并路径现场)。
+  {
+    id: '77',
+    label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
+    script: 'check-no-conflict-markers.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CONFLICT_MARKERS',
+    onFailHint: [
+      '',
+      '  💡 成对的 Git 冲突标记被提交进来了 —— 说明 merge/rebase 没真正归并就 add 了。',
+      '     正确做法:',
+      '       ① 取一侧真实内容:`git checkout --ours <文件>` 或 `git checkout --theirs <文件>`,',
+      '          或按 AGENTS.md §12b 协作收尾流程重新归并后再 add;',
+      '       ② **禁止**只手删 `<<<<====>>>>` 三行当作已解决(那会静默丢掉一侧改动);',
+      '       ③ 事后核验历史提交:node scripts/check-no-conflict-markers.mjs --rev HEAD。',
+      '     单独复现:node scripts/check-no-conflict-markers.mjs --staged',
+      '     紧急跳过(不推荐):HUSKY_SKIP_CONFLICT_MARKERS=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
