@@ -22,7 +22,7 @@
  * - AGENTS.md §3:禁 any,onModelConfigChange 用 unknown 类型
  */
 import { useEffect, useRef } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +41,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
+import { AddPanel, PlusButton } from './AddPanel'
 import {
   Camera,
   ChevronDown,
@@ -50,7 +51,6 @@ import {
   MessageCircle,
   Mic,
   Paperclip,
-  Plus,
   Scissors,
   Settings,
 } from 'lucide-react-native'
@@ -173,9 +173,18 @@ const VOICE_BTN_SIZE = 36
 const SECONDARY_BTN_SIZE = 36
 const SECONDARY_BTN_EMOJI_SIZE = 18
 
-const ICON_GROUP_ITEM_SIZE = 72
-const ICON_GROUP_ITEM_EMOJI_SIZE = 24
-const ICON_GROUP_ITEM_RADIUS = 8
+/** 图标按钮组标准项(相机/相册/本地文件/微信文件,对齐 Uniapp isShowIcon 图标组;
+ *  面板渲染统一走共享 AddPanel,此处仅声明项定义) */
+const ICON_GROUP_ITEMS: ReadonlyArray<{
+  type: BottomActionBarIconType
+  label: string
+  Icon: typeof Camera
+}> = [
+  { type: 'camera', label: '相机', Icon: Camera },
+  { type: 'album', label: '相册', Icon: ImageIcon },
+  { type: 'file', label: '本地文件', Icon: Folder },
+  { type: 'wxfile', label: '微信文件', Icon: MessageCircle },
+]
 
 const IMAGE_PREVIEW_SIZE = 48
 const IMAGE_PREVIEW_RADIUS = 6
@@ -556,20 +565,9 @@ function ChatInputBar(props: BottomActionBarProps) {
         />
 
         {/* 「+」按钮(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换滑出区;
-            激活时旋转 45° + 品牌色高亮,对齐 Uniapp rotate-icon 动画) */}
+            视觉统一走共享 PlusButton,面板统一走共享 AddPanel) */}
         {onPlusToggle !== undefined ? (
-          <Pressable
-            style={[styles.plusBtn, plusActive ? styles.plusBtnActive : null]}
-            onPress={onPlusToggle}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={plusActive ? '收起面板' : '展开面板'}
-            accessibilityState={{ expanded: plusActive }}
-          >
-            <View style={{ transform: [{ rotate: plusActive ? '45deg' : '0deg' }] }}>
-              <Plus size={20} color={plusActive ? tokens.surface.light : tokens.text.secondary} />
-            </View>
-          </Pressable>
+          <PlusButton active={plusActive} onPress={onPlusToggle} />
         ) : null}
 
         {onSend !== undefined ? (
@@ -582,7 +580,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityLabel={isLoading ? '加载中' : '发送'}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.foreground} />
             ) : (
               <Text style={styles.sendLabel} numberOfLines={1}>
                 {'发送'}
@@ -672,54 +670,19 @@ function ChatInputBar(props: BottomActionBarProps) {
         </View>
       ) : null}
 
-      {/* 图标按钮组:相机 / 相册 / 文件 / 微信文件 */}
-      {showIconGroup ? (
-        <View style={styles.iconGroup}>
-          <Pressable
-            style={styles.iconGroupItem}
-            onPress={() => onIconClick('camera')}
-            accessibilityRole="button"
-            accessibilityLabel="相机"
-          >
-            <Camera size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'相机'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={styles.iconGroupItem}
-            onPress={() => onIconClick('album')}
-            accessibilityRole="button"
-            accessibilityLabel="相册"
-          >
-            <ImageIcon size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'相册'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={styles.iconGroupItem}
-            onPress={() => onIconClick('file')}
-            accessibilityRole="button"
-            accessibilityLabel="本地文件"
-          >
-            <Folder size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'本地文件'}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={styles.iconGroupItem}
-            onPress={() => onIconClick('wxfile')}
-            accessibilityRole="button"
-            accessibilityLabel="微信文件"
-          >
-            <MessageCircle size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'微信文件'}
-            </Text>
-          </Pressable>
-        </View>
+      {/* 图标按钮组:相机 / 相册 / 本地文件 / 微信文件(统一走共享 AddPanel 底部滑出面板;
+          onIconClick('camera'|'album'|'file'|'wxfile') 契约不变,ChatScreen/AssistantScreen 零改动) */}
+      {onIconClick !== undefined ? (
+        <AddPanel
+          visible={showIconGroup}
+          onClose={() => onPlusToggle?.()}
+          items={ICON_GROUP_ITEMS.map((item) => ({
+            key: item.type,
+            label: item.label,
+            icon: <item.Icon size={24} color={tokens.text.secondary} />,
+            onPress: () => onIconClick(item.type),
+          }))}
+        />
       ) : null}
     </View>
   )
@@ -800,7 +763,7 @@ const styles = StyleSheet.create({
     lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
     fontWeight: '500',
     letterSpacing: LABEL_LETTER_SPACING,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   } as TextStyle,
   secondaryButton: {
@@ -909,7 +872,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   } as TextStyle,
   toggleChipLabelActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──
@@ -977,7 +940,7 @@ const styles = StyleSheet.create({
     borderRadius: INPUT_BORDER_RADIUS,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.inputBg,
+    backgroundColor: tokens.surface.card,
     paddingHorizontal: INPUT_PADDING_HORIZONTAL,
     paddingVertical: 10,
     fontSize: INPUT_FONT_SIZE,
@@ -992,28 +955,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
-  // 「+」按钮(滑出区开关;激活态品牌色底,对齐 Uniapp search-box2 active)
-  plusBtn: {
-    width: SECONDARY_BTN_SIZE,
-    height: SECONDARY_BTN_SIZE,
-    borderRadius: SECONDARY_BTN_SIZE / 2,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  plusBtnActive: {
-    backgroundColor: tokens.brand.DEFAULT,
-    borderColor: tokens.brand.DEFAULT,
-  } as ViewStyle,
   sendBtnDisabled: {
     opacity: 0.6,
   } as ViewStyle,
   sendLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
 
   // ── 新模式:辅助按钮行 ──
@@ -1050,32 +998,6 @@ const styles = StyleSheet.create({
   secondaryEmoji: {
     fontSize: SECONDARY_BTN_EMOJI_SIZE,
     lineHeight: SECONDARY_BTN_EMOJI_SIZE + 2,
-  } as TextStyle,
-
-  // ── 新模式:图标按钮组 ──
-  iconGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 12,
-  } as ViewStyle,
-  iconGroupItem: {
-    width: ICON_GROUP_ITEM_SIZE,
-    height: ICON_GROUP_ITEM_SIZE,
-    borderRadius: ICON_GROUP_ITEM_RADIUS,
-    backgroundColor: tokens.surface.muted,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  iconGroupEmoji: {
-    fontSize: ICON_GROUP_ITEM_EMOJI_SIZE,
-    lineHeight: ICON_GROUP_ITEM_EMOJI_SIZE + 2,
-  } as TextStyle,
-  iconGroupLabel: {
-    fontSize: 11,
-    color: tokens.text.secondary,
-    marginTop: 2,
   } as TextStyle,
 })
 
