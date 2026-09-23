@@ -175,7 +175,6 @@ const SOURCE_BADGE_KEY: Record<UnifiedSource, string> = {
  */
 export function UnifiedTaskDashboard() {
   const t = useTranslations('unifiedDashboard')
-  const tA11y = useTranslations('a11y')
   const toast = useToast()
   const queryClient = useQueryClient()
 
@@ -671,7 +670,6 @@ export function UnifiedTaskDashboard() {
                   <button
                     type="button"
                     onClick={() => setMentions((cur) => cur.filter((x) => x.taskId !== m.taskId))}
-                    aria-label={tA11y('close')}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>

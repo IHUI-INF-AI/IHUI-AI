@@ -21,7 +21,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Check, Loader2, ShieldAlert } from 'lucide-react'
 import { sendToolApprovalResponse } from '@ihui/api-client'
-import type { ToolApprovalRequest, ToolApprovalScope } from '@ihui/types'
+import type { ToolApprovalRequest } from '@ihui/types'
 import { AGENT_TASK_EVENTS, parseToolApprovalEvent } from '@ihui/shared'
 import { Modal } from '@/components/feedback'
 
@@ -64,33 +64,23 @@ export function ToolApprovalDialog() {
     })
   }, [])
 
-  const handleDecision = React.useCallback(
-    async (decision: 'approve' | 'reject', scope: ToolApprovalScope, reason: string) => {
-      const current = stateRef.current.current
-      if (!current || stateRef.current.sending) return
-      setState((prev) => ({ ...prev, sending: true }))
-      try {
-        await sendToolApprovalResponse({
-          approvalId: current.approvalId,
-          decision,
-          // 作用域仅在批准时有意义(拒绝不落任何授权);once 显式传,防旧默认(session)意外放大授权
-          ...(decision === 'approve' ? { scope } : {}),
-          // 空原因不携带(与后端"空值不写 key"语义一致)
-          ...(reason.trim() !== '' ? { reason: reason.trim() } : {}),
-        })
-      } catch (e) {
-        // 响应失败不阻塞后续:关闭当前审批,让后端按超时处理(安全兜底)
-        console.error('[tool-approval] 审批响应失败', e)
-      } finally {
-        setState((prev) => {
-          const queue = [...prev.queue]
-          const next = queue.shift() ?? null
-          return { current: next, queue, sending: false }
-        })
-      }
-    },
-    [],
-  )
+  const handleDecision = React.useCallback(async (decision: 'approve' | 'reject') => {
+    const current = stateRef.current.current
+    if (!current || stateRef.current.sending) return
+    setState((prev) => ({ ...prev, sending: true }))
+    try {
+      await sendToolApprovalResponse({ approvalId: current.approvalId, decision })
+    } catch (e) {
+      // 响应失败不阻塞后续:关闭当前审批,让后端按超时处理(安全兜底)
+      console.error('[tool-approval] 审批响应失败', e)
+    } finally {
+      setState((prev) => {
+        const queue = [...prev.queue]
+        const next = queue.shift() ?? null
+        return { current: next, queue, sending: false }
+      })
+    }
+  }, [])
 
   // 通道 1:EventSource 订阅 /api/agents/tasks/stream(tool-approval SSE 事件)
   React.useEffect(() => {
@@ -123,21 +113,6 @@ export function ToolApprovalDialog() {
   const current = state.current
   const pendingCount = state.queue.length
 
-  // D84:作用域选择(批准时生效,默认"允许一次"=最小特权)与原因输入;
-  // 新请求入栈时重置,避免上一条的授权范围/原因串到下一条。
-  const [scope, setScope] = React.useState<ToolApprovalScope>('once')
-  const [reason, setReason] = React.useState('')
-  React.useEffect(() => {
-    setScope('once')
-    setReason('')
-  }, [current?.approvalId])
-
-  const SCOPE_OPTIONS: ReadonlyArray<{ value: ToolApprovalScope; labelKey: string }> = [
-    { value: 'once', labelKey: 'scopeOnce' },
-    { value: 'session', labelKey: 'scopeSession' },
-    { value: 'always', labelKey: 'scopeAlways' },
-  ]
-
   return (
     <Modal
       open={!!current}
@@ -155,7 +130,7 @@ export function ToolApprovalDialog() {
         <>
           <button
             type="button"
-            onClick={() => void handleDecision('reject', scope, reason)}
+            onClick={() => void handleDecision('reject')}
             disabled={state.sending}
             data-testid="tool-approval-reject"
             className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
@@ -165,7 +140,7 @@ export function ToolApprovalDialog() {
           </button>
           <button
             type="button"
-            onClick={() => void handleDecision('approve', scope, reason)}
+            onClick={() => void handleDecision('approve')}
             disabled={state.sending}
             data-testid="tool-approval-approve"
             className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
@@ -193,55 +168,6 @@ export function ToolApprovalDialog() {
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/40 p-2.5 font-mono text-xs leading-relaxed">
               {current.argsPreview || '{}'}
             </pre>
-          </div>
-          {/* D84:审批作用域(批准时生效;授权按 工具+参数 精确匹配,不放大到全局) */}
-          <div>
-            <div className="mb-1 text-xs font-medium text-muted-foreground">
-              {t('scopeLabel')}
-            </div>
-            <div
-              className="flex gap-1"
-              role="radiogroup"
-              aria-label={t('scopeLabel')}
-              data-testid="tool-approval-scope"
-            >
-              {SCOPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={scope === opt.value}
-                  onClick={() => setScope(opt.value)}
-                  data-testid={`tool-approval-scope-${opt.value}`}
-                  className={`inline-flex h-7 items-center rounded-md border px-2.5 text-xs font-medium transition-colors ${
-                    scope === opt.value
-                      ? 'border-primary/40 bg-primary/10 text-primary'
-                      : 'border-border bg-background text-muted-foreground hover:bg-accent'
-                  }`}
-                >
-                  {t(opt.labelKey)}
-                </button>
-              ))}
-            </div>
-          </div>
-          {/* D84:原因输入(可选,拒绝理由为主;随决策透传审计) */}
-          <div>
-            <label
-              htmlFor="tool-approval-reason"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
-            >
-              {t('reasonLabel')}
-            </label>
-            <textarea
-              id="tool-approval-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={t('reasonPlaceholder')}
-              maxLength={500}
-              rows={2}
-              data-testid="tool-approval-reason"
-              className="w-full resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-border"
-            />
           </div>
           {pendingCount > 0 && (
             <div className="text-xs text-muted-foreground" data-testid="tool-approval-pending">
