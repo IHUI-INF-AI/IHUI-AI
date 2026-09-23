@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Building2, Coins, Loader2, Receipt, Zap } from 'lucide-react'
+import { Coins, Loader2 } from 'lucide-react'
 
 import {
   getAgentTokenUsage,
@@ -39,39 +39,6 @@ export interface SessionUsageBadgeProps {
   isStreaming: boolean
   /** 当前会话模型(预留展示位,统计口径以 usage 接口返回为准) */
   model?: string
-  /** D56③ 计费口径:按 token 还是按次(缺省不透出,保持旧徽章形态) */
-  billingMode?: BillingMode
-  /** D56③ 按次单价(元/次,仅 billingMode=per_request 时展示) */
-  perRequestPriceCny?: number
-  /** D56② 优先通道/速通生效中 */
-  isExpressLane?: boolean
-  /** D56④ 企业用量四分账(个人/团队/免费模型/计费组,缺省不展示) */
-  enterpriseUsage?: EnterpriseUsageSlice[]
-}
-
-/** D56③ 计费口径:token = 按 Token 计费,per_request = 按次计费 */
-export type BillingMode = 'token' | 'per_request'
-
-/** D56④ 企业用量单账(used/quota 均为 token 数,percent 由 used/quota 派生) */
-export interface EnterpriseUsageSlice {
-  /** 分账键(personal/team/free/billing_group,未知键原样显示) */
-  key: string
-  /** 已用 */
-  used: number
-  /** 配额(<=0 时不算百分比,只显示已用) */
-  quota: number
-}
-
-/** 模板插值 fallback({var} 替换,缺值保留原占位) */
-export function interpolateTemplate(
-  template: string,
-  values?: Record<string, string | number>,
-): string {
-  if (!values) return template
-  return template.replace(/\{(\w+)\}/g, (m, k: string) => {
-    const v: string | number | undefined = values[k]
-    return v === undefined ? m : String(v)
-  })
 }
 
 /**
@@ -80,15 +47,7 @@ export function interpolateTemplate(
  * hover 展开明细(输入 / 输出 / 请求数 / 估算口径)。数据源 checkpoint 逐轮估算,
  * 会话切换拉取一次;流式结束后再刷新兜底。
  */
-export function SessionUsageBadge({
-  conversationId,
-  isStreaming,
-  model,
-  billingMode,
-  perRequestPriceCny,
-  isExpressLane = false,
-  enterpriseUsage,
-}: SessionUsageBadgeProps) {
+export function SessionUsageBadge({ conversationId, isStreaming, model }: SessionUsageBadgeProps) {
   const t = useTranslations('chat.sessionUsage')
   const [usage, setUsage] = React.useState<AgentTokenUsageSummary | null>(null)
   const [loading, setLoading] = React.useState(false)
@@ -182,55 +141,6 @@ export function SessionUsageBadge({
           : quotaUsedRatio >= 0.5
             ? 'text-amber-500'
             : 'text-muted-foreground'
-
-  // D56(2026-09-23 立):额度与权益元素族,全部可选 props,缺省保持旧徽章形态。
-  // D56 英文过渡(词表释放后换中文键):packages/i18n 词表被占用,fallback 先用英文过渡
-  // (见 D56 键清单 en 列),词表可用后换回中文;过渡串不得含充值/购买/付费/升级诱导。
-  // 心智边界:所有 fallback 不得含 充值/购买/付费/升级/必须充值 等诱导,免费额度仍可继续使用。
-  const pickText = (
-    key: string,
-    fallback: string,
-    values?: Record<string, string | number>,
-  ): string => {
-    const raw: string = values
-      ? t(key, values as Record<string, string | number | Date>)
-      : (t(key) as unknown as string)
-    if (raw === key) return interpolateTemplate(fallback, values)
-    return raw
-  }
-  const expressLabel = pickText('expressLane', 'Express')
-  const expressDetail = pickText('expressLaneDetail', 'Express lane active, no queue in busy hours')
-  const billingTokenLabel = pickText('billingToken', 'Per token')
-  const billingPerRequestLabel = pickText('billingPerRequest', 'Per request')
-  const billingDetailToken = pickText(
-    'billingDetailToken',
-    'Billed per token, usage estimated, bill is authoritative',
-  )
-  const billingDetailPerRequest =
-    billingMode === 'per_request' && typeof perRequestPriceCny === 'number'
-      ? pickText(
-          'billingDetailPerRequest',
-          'Billed per request ¥{price}/request, usage estimated, bill is authoritative',
-          {
-            price: perRequestPriceCny.toFixed(2),
-          },
-        )
-      : pickText(
-          'billingDetailPerRequestNoPrice',
-          'Billed per request, usage estimated, bill is authoritative',
-        )
-  const enterpriseTitle = pickText('enterpriseTitle', 'Enterprise usage')
-  const freeHint = pickText('freeHint', 'Free quota remains available')
-  const enterpriseSliceLabel = (key: string): string => {
-    if (key === 'personal') return pickText('enterprisePersonal', 'Personal')
-    if (key === 'team') return pickText('enterpriseTeam', 'Team')
-    if (key === 'free') return pickText('enterpriseFree', 'Free models')
-    if (key === 'billing_group') return pickText('enterpriseBillingGroup', 'Billing group')
-    return key
-  }
-  const hasD56Extras =
-    isExpressLane || billingMode !== undefined || (enterpriseUsage?.length ?? 0) > 0
-  const enterpriseSlices: EnterpriseUsageSlice[] = enterpriseUsage ?? []
   return (
     <Tooltip
       content={
@@ -298,71 +208,6 @@ export function SessionUsageBadge({
             <span className="text-muted-foreground">{t('noPriceHint')}</span>
           )}
           <span className="text-muted-foreground">{t('estimateHint')}</span>
-          {/* D56② 速通明细行(hover 展开,本体徽章见下方) */}
-          {isExpressLane && (
-            <span data-testid="session-usage-express-detail" className="tabular-nums">
-              <span>{expressDetail}</span>
-            </span>
-          )}
-          {/* D56③ 计费口径透出行 */}
-          {billingMode !== undefined && (
-            <span data-testid="session-usage-billing-detail" className="tabular-nums">
-              <span>
-                {billingMode === 'per_request' ? billingDetailPerRequest : billingDetailToken}
-              </span>
-            </span>
-          )}
-          {/* D56④ 企业用量四分账视图(hover 展开,每账一行用量条) */}
-          {enterpriseSlices.length > 0 && (
-            <div data-testid="session-usage-enterprise" className="mt-1 flex w-44 flex-col gap-1">
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                <span>{enterpriseTitle}</span>
-              </span>
-              {enterpriseSlices.map((slice) => {
-                const ratio =
-                  slice.quota > 0 ? Math.min(1, Math.max(0, slice.used / slice.quota)) : null
-                const percent = ratio === null ? null : Math.round(ratio * 100)
-                return (
-                  <div
-                    key={slice.key}
-                    data-testid={`session-usage-enterprise-${slice.key}`}
-                    className="flex flex-col gap-0.5"
-                  >
-                    <span className="flex items-center justify-between gap-2 tabular-nums text-[10px]">
-                      <span>{enterpriseSliceLabel(slice.key)}</span>
-                      <span>
-                        {formatNumber(slice.used)}
-                        {slice.quota > 0 ? ` / ${formatNumber(slice.quota)}` : ''}
-                      </span>
-                    </span>
-                    {ratio !== null && percent !== null && (
-                      <span className="flex items-center gap-1">
-                        <span className="h-1.5 w-full overflow-hidden rounded-sm bg-muted-foreground/20">
-                          <span
-                            className="block h-full rounded-sm bg-primary transition-all"
-                            style={{ width: `${Math.max(2, percent)}%` }}
-                          />
-                        </span>
-                        <span
-                          data-testid={`session-usage-enterprise-percent-${slice.key}`}
-                          className="inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold leading-none tabular-nums text-foreground"
-                        >
-                          <span>{percent}%</span>
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {/* D56 心智边界锚点:有权益元素时明示免费仍可用,不暗示充值 */}
-          {hasD56Extras && (
-            <span data-testid="session-usage-free-hint" className="text-muted-foreground">
-              <span>{freeHint}</span>
-            </span>
-          )}
         </div>
       }
     >
@@ -388,43 +233,6 @@ export function SessionUsageBadge({
             className={cn('whitespace-nowrap font-semibold', quotaTextClass)}
           >
             {Math.round(quotaUsedRatio * 100)}%
-          </span>
-        )}
-        {/* D56② 速通徽章(确定性居中模板,琥珀底) */}
-        {isExpressLane && (
-          <span
-            data-testid="session-usage-express"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-amber-500/15 px-1 text-[10px] font-semibold leading-none tabular-nums text-amber-600 dark:text-amber-400"
-          >
-            <Zap className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>{expressLabel}</span>
-          </span>
-        )}
-        {/* D56③ 计费口径微标(按 Token / 按次) */}
-        {billingMode !== undefined && (
-          <span
-            data-testid="session-usage-billing-mode"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
-          >
-            <Receipt className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>
-              {billingMode === 'per_request'
-                ? billingPerRequestLabel +
-                  (typeof perRequestPriceCny === 'number'
-                    ? ` ¥${perRequestPriceCny.toFixed(2)}/request`
-                    : '')
-                : billingTokenLabel}
-            </span>
-          </span>
-        )}
-        {/* D56④ 企业用量总览微标(hover 看四分账) */}
-        {enterpriseSlices.length > 0 && (
-          <span
-            data-testid="session-usage-enterprise-summary"
-            className="inline-flex h-4 min-w-4 items-center justify-center gap-0.5 rounded bg-background px-1 text-[10px] font-medium leading-none tabular-nums text-muted-foreground"
-          >
-            <Building2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>{enterpriseTitle}</span>
           </span>
         )}
       </span>
