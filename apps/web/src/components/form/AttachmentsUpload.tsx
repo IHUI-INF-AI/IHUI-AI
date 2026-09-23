@@ -75,6 +75,7 @@ export function AttachmentsUpload({
   onError,
 }: AttachmentsUploadProps) {
   const t = useTranslations('attachments')
+  const tu = useTranslations('upload')
   const [uploading, setUploading] = React.useState(false)
   const [dragOver, setDragOver] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -82,7 +83,7 @@ export function AttachmentsUpload({
   const uploadOne = React.useCallback(
     async (file: File): Promise<AttachmentItem | null> => {
       if (file.size > maxSize) {
-        onError?.(new Error(`文件超过大小上限:${file.name}`))
+        onError?.(new Error(tu('oversizeSingle', { name: file.name })))
         return null
       }
       const formData = new FormData()
@@ -101,12 +102,12 @@ export function AttachmentsUpload({
           timeoutMs: 120_000,
         })
         if (!res.success) {
-          onError?.(new Error(`上传失败:${res.error ?? '未知错误'}`))
+          onError?.(new Error(tu('uploadFailedWithReason', { error: res.error ?? tu('unknownError') })))
           return null
         }
         const f = res.data?.file
         if (!f?.id) {
-          onError?.(new Error('上传响应缺少 file.id'))
+          onError?.(new Error(tu('missingFileId')))
           return null
         }
         return {
@@ -120,7 +121,7 @@ export function AttachmentsUpload({
         return null
       }
     },
-    [endpoint, maxSize, onError],
+    [endpoint, maxSize, onError, tu],
   )
 
   const handleFiles = React.useCallback(
@@ -128,7 +129,7 @@ export function AttachmentsUpload({
       if (!fileList || fileList.length === 0) return
       const remaining = maxCount - value.length
       if (remaining <= 0) {
-        onError?.(new Error(`最多 ${maxCount} 个附件`))
+        onError?.(new Error(tu('maxAttachmentsReached', { count: maxCount })))
         return
       }
       const files = Array.from(fileList).slice(0, remaining)
@@ -143,7 +144,7 @@ export function AttachmentsUpload({
         setUploading(false)
       }
     },
-    [maxCount, onChange, onError, uploadOne, value],
+    [maxCount, onChange, onError, tu, uploadOne, value],
   )
 
   const handleRemove = React.useCallback(
