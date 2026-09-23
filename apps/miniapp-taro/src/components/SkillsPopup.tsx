@@ -10,6 +10,7 @@ import type { Agent } from '@ihui/api-client'
 import { useState, useMemo, useCallback } from 'react'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
+import CategoryBar from './CategoryBar'
 
 export type SkillCategory = 'all' | 'text' | 'image' | 'video' | 'audio'
 
@@ -85,20 +86,12 @@ export default function SkillsPopup({
         />
       </View>
 
-      <ScrollView scrollX className="whitespace-nowrap mb-2">
-        <View className="px-3 py-2">
-          {CATEGORIES.map((c) => (
-            <View
-              key={c.key}
-              className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
-              onClick={() => setCategory(c.key)}
-              hoverClass="opacity-60"
-            >
-              <Text>{t(c.labelKey)}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+      <CategoryBar
+        className="mb-2 px-3 py-2"
+        value={category}
+        onChange={(id) => setCategory(id as SkillCategory)}
+        items={CATEGORIES.map((c) => ({ id: c.key, label: t(c.labelKey) }))}
+      />
 
       <ScrollView scrollY className="flex-1" style={{ maxHeight: '50vh' }}>
         {loading ? (

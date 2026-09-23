@@ -11,6 +11,7 @@ import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import CategoryBar from '@/components/CategoryBar'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -283,20 +284,15 @@ export default function PlazaIndex() {
         ) : null}
 
         {/* 状态筛选 tab */}
-        <ScrollView scrollX className="pza-tabs">
-          {STATUS_TABS.map((tab) => (
-            <View
-              key={tab.key}
-              className={`pza-tab${status === tab.key ? ' active' : ''}`}
-              onClick={() => onStatusChange(tab.key)}
-              hoverClass="opacity-60"
-            >
-              <Text>
-                {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+        <CategoryBar
+          className="pza-tabs"
+          value={String(status)}
+          onChange={(id) => onStatusChange(Number(id))}
+          items={STATUS_TABS.map((tab) => ({
+            id: String(tab.key),
+            label: tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成'),
+          }))}
+        />
 
         {/* 瀑布流双列 */}
         <ScrollView scrollY className="pza-scroll">

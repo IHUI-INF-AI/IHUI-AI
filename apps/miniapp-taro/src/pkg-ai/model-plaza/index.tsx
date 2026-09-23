@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 import ThemeRoot from '@/components/ThemeRoot'
+import CategoryBar from '@/components/CategoryBar'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -261,19 +262,13 @@ export default function ModelPlazaIndex() {
           </Text>
         </View>
 
-        {/* type tab */}
-        <View className="type-tabs">
-          {TYPE_TABS.map((tab) => (
-            <View
-              key={tab.key}
-              className={`type-tab${typeFilter === tab.key ? ' active' : ''}`}
-              onClick={() => setTypeFilter(tab.key)}
-              hoverClass="opacity-60"
-            >
-              <Text>{tab.label}</Text>
-            </View>
-          ))}
-        </View>
+        {/* type tab(统一分类条:与 web / RN 同形同档,原"暗井"选中语言归一为 primary 填充) */}
+        <CategoryBar
+          className="type-tabs"
+          value={typeFilter}
+          onChange={(id) => setTypeFilter(id as TypeFilter)}
+          items={TYPE_TABS.map((tab) => ({ id: tab.key, label: tab.label }))}
+        />
 
         {/* 模型列表 */}
         <View className="model-list">
