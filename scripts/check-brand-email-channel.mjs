@@ -632,7 +632,11 @@ function selfTestRun() {
   check('24 棘轮:基线 key 实发归零 → 收缩提示不判红', stC.baselineShrinkKeys.length === 1)
 
   // ── 临时仓:--staged / 全量 / 空暂存退化 ──
-  const root = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'brand-mail-drill-'))
+  // 落点仍是仓内 .ihui-agent/tmp(AGENTS §15),但干净 checkout / CI runner 上该目录不存在,
+  // mkdtempSync 会直接 ENOENT —— recursive mkdir 幂等,已存在不报错。
+  const tmpRoot = join(ROOT, '.ihui-agent', 'tmp')
+  mkdirSync(tmpRoot, { recursive: true })
+  const root = mkdtempSync(join(tmpRoot, 'brand-mail-drill-'))
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) => git(['-C', repo, ...args])
