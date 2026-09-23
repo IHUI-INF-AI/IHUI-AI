@@ -5,7 +5,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import { Check, X } from 'lucide-react-native'
-import { permissionDecisionWord, useAgentRuntime, toolDisplayKey } from '@ihui/shared'
+import { useAgentRuntime, toolDisplayKey } from '@ihui/shared'
 import { useI18n } from '../i18n'
 
 import { Input, Loading } from '@ihui/ui-native'
@@ -36,11 +36,16 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
     : 'unknown'
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-row items-center border-b border-gray-100 px-3 py-2">
-        <Text className="text-sm font-semibold text-gray-800">{t('agent.runtimeTitle')}</Text>
+    <View className="flex-1" style={{ backgroundColor: tokens.surface.card }}>
+      <View
+        className="flex-row items-center border-b px-3 py-2"
+        style={{ borderColor: tokens.border.light }}
+      >
+        <Text className="text-sm font-semibold" style={{ color: tokens.text.secondary }}>
+          {t('agent.runtimeTitle')}
+        </Text>
         {sessionId ? (
-          <Text className="ml-2 text-xs text-gray-400" numberOfLines={1}>
+          <Text className="ml-2 text-xs" style={{ color: tokens.text.tertiary }} numberOfLines={1}>
             #{sessionId.slice(0, 8)}
           </Text>
         ) : null}
@@ -51,29 +56,39 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         <Pressable
           onPress={handleClear}
           disabled={status === 'running'}
-          className="rounded-md bg-gray-50 px-2 py-1"
+          className="rounded-md px-2 py-1"
+          style={{ backgroundColor: tokens.surface.muted }}
         >
-          <Text className="text-xs text-gray-500">{t('agent.runtimeClear')}</Text>
+          <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
+            {t('agent.runtimeClear')}
+          </Text>
         </Pressable>
       </View>
 
       <ScrollView className="flex-1 px-3 py-3">
         {plan ? (
-          <View className="mb-3 rounded-md border border-gray-100 bg-gray-50 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500">
+          <View
+            className="mb-3 rounded-md border p-3"
+            style={{ borderColor: tokens.border.light, backgroundColor: tokens.surface.muted }}
+          >
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimePlan')}
             </Text>
-            <Text className="text-xs leading-relaxed text-gray-700">{plan}</Text>
+            <Text className="text-xs leading-relaxed" style={{ color: tokens.text.secondary }}>
+              {plan}
+            </Text>
           </View>
         ) : null}
 
         {permission ? (
-          <View className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-            <Text className="mb-1.5 text-xs font-medium text-amber-700">
-              {t('agent.runtimePermission')}:{' '}
-              {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
+          <View
+            className="mb-3 rounded-md border border-amber-200 p-3"
+            style={{ backgroundColor: tokens.warning.amberLight }}
+          >
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.warning.amberText }}>
+              {t('agent.runtimePermission')}: {permission.decision}
             </Text>
-            <Text className="text-xs text-gray-600">
+            <Text className="text-xs" style={{ color: tokens.text.secondary }}>
               {t('agent.runtimePermissionTool')}: {permToolLabel} ·{' '}
               {t('agent.runtimePermissionLevel')}: {permission.dangerLevel ?? 'read'} ·{' '}
               {t('agent.runtimePermissionMode')}: {permission.mode}
@@ -83,10 +98,12 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
 
         {output ? (
           <View className="mb-3">
-            <Text className="mb-1.5 text-xs font-medium text-gray-500">
+            <Text className="mb-1.5 text-xs font-medium" style={{ color: tokens.text.tertiary }}>
               {t('agent.runtimeOutput')}
             </Text>
-            <Text className="text-sm leading-relaxed text-gray-800">{output}</Text>
+            <Text className="text-sm leading-relaxed" style={{ color: tokens.text.secondary }}>
+              {output}
+            </Text>
           </View>
         ) : null}
 

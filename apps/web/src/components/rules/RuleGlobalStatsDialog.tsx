@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { BarChart3, Loader2 } from 'lucide-react'
 
 import { rulesApi } from './rules-api'
@@ -47,8 +46,6 @@ function TopRulesChart({
 }
 
 function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
-  const t = useTranslations('rules')
-  const tCommon = useTranslations('common')
   const [stats, setStats] = React.useState<RuleGlobalStats | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -84,15 +81,15 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
             <BarChart3 className="mr-1 inline h-3.5 w-3.5" />
-            {t('globalStats')}
+            全局统计
           </span>
-          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {tCommon('loading')}
+            加载中...
           </div>
         ) : error ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -101,24 +98,22 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
         ) : stats ? (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              <StatCard label={t('statTotalRules')} value={String(stats.totalRules)} />
-              <StatCard label={t('statActiveRules7d')} value={String(stats.activeRules7d)} />
+              <StatCard label="总规则数" value={String(stats.totalRules)} />
+              <StatCard label="7天活跃规则" value={String(stats.activeRules7d)} />
             </div>
 
             <div className="space-y-1.5">
               <p className="text-[10px] text-muted-foreground">
-                {t('topRulesTitle', { n: stats.topRules.length })}
+                最常用规则 Top {stats.topRules.length}
               </p>
               <TopRulesChart topRules={stats.topRules} />
             </div>
 
             <div className="space-y-1">
-              <p className="text-[10px] text-muted-foreground">{t('ruleList')}</p>
+              <p className="text-[10px] text-muted-foreground">规则列表</p>
               <div className="thin-scroll max-h-48 space-y-1 overflow-y-auto">
                 {stats.topRules.length === 0 ? (
-                  <p className="py-2 text-center text-[10px] text-muted-foreground">
-                    {t('noHitRecords')}
-                  </p>
+                  <p className="py-2 text-center text-[10px] text-muted-foreground">暂无命中记录</p>
                 ) : (
                   stats.topRules.map((r, idx) => (
                     <div
@@ -130,7 +125,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-xs">{r.name}</span>
                       <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
-                        {t('timesCount', { n: r.matchCount })}
+                        {r.matchCount} 次
                       </span>
                     </div>
                   ))
@@ -142,7 +137,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
 
         <div className="flex items-center justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
-            {tCommon('close')}
+            关闭
           </Button>
         </div>
       </div>
