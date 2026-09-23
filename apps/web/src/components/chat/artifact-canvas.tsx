@@ -2,9 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-
 'use client'
 
 import * as React from 'react'
@@ -16,6 +13,8 @@ import { Tooltip } from '@/components/feedback'
 import { CenteredText } from '@/components/common/CenteredText'
 import { useClipboard } from '@/hooks/use-clipboard'
 import { useCanvasStore } from '@/stores/canvas-store'
+import { parseChartTemplateJson } from '@ihui/design-tokens'
+import { ChartTemplateCard } from '@/components/ai/chart-template-card'
 import { CanvasVersionMenu } from './canvas-overlay'
 
 /**
@@ -109,7 +108,11 @@ export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
   }, [content, pushVersion])
 
   const canPreview = isInteractivePreviewArtifact(artifact) && content.length > 0
-  const codeOnly = isCodeOnlyArtifact(artifact)
+  // D46:content 为受控图表 JSON(命中模板白名单)→ 走受控渲染而非自由 HTML iframe
+  const chartPayload = React.useMemo(() => parseChartTemplateJson(content), [content])
+  const isChartTpl = chartPayload !== null
+  const canPreviewEff = (canPreview || isChartTpl) && content.length > 0
+  const codeOnly = isCodeOnlyArtifact(artifact) && !isChartTpl
   const dirty = draft !== applied
 
   const handleCopy = React.useCallback(() => {
@@ -137,7 +140,7 @@ export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
   // 仅 path 无内联 content:文件型产物由 ChartArtifactBlock 负责,这里不渲染
   if (!content && !artifact.path) return null
 
-  const showTabs = canPreview && !codeOnly
+  const showTabs = canPreviewEff && !codeOnly
   const activeTab: TabKey = showTabs ? tab : 'code'
 
   const copyLabel = clipboard.copied ? t('copied') : t('copy')
@@ -168,7 +171,7 @@ export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
           )}
         </div>
         <div className="flex items-center gap-0.5">
-          {canPreview && <CanvasVersionMenu versions={versions} onRevert={handleRevert} />}
+          {canPreviewEff && <CanvasVersionMenu versions={versions} onRevert={handleRevert} />}
           <Tooltip content={copyLabel}>
             <button
               type="button"
@@ -192,13 +195,20 @@ export function ArtifactCanvas({ artifact }: ArtifactCanvasProps) {
         </div>
       </div>
 
-      {activeTab === 'preview' && canPreview ? (
-        <iframe
-          title={artifact.name ?? 'artifact-preview'}
-          sandbox="allow-scripts"
-          srcDoc={applied}
-          className={cn(PREVIEW_HEIGHT, 'w-full bg-background')}
-        />
+      {activeTab === 'preview' && canPreviewEff ? (
+        isChartTpl && chartPayload !== null ? (
+          // D46:受控模板渲染(design-tokens 驱动,白名单守卫在 parseChartTemplateJson)
+          <div className={cn(PREVIEW_HEIGHT, 'w-full overflow-auto bg-background p-2')}>
+            <ChartTemplateCard payload={chartPayload} />
+          </div>
+        ) : (
+          <iframe
+            title={artifact.name ?? 'artifact-preview'}
+            sandbox="allow-scripts"
+            srcDoc={applied}
+            className={cn(PREVIEW_HEIGHT, 'w-full bg-background')}
+          />
+        )
       ) : (
         <div>
           <div className="flex items-center justify-end gap-2 bg-muted/30 px-2 py-1">

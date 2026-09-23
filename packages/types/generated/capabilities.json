@@ -1,8 +1,18 @@
 {
   "version": "0.0.0",
-  "generatedAt": "2026-09-20T09:24:11.980Z",
-  "dataClasses": ["compute", "scoped-read", "scoped-write", "platform"],
-  "risks": ["low", "medium", "high", "critical"],
+  "generatedAt": "2026-09-21T02:08:18.900Z",
+  "dataClasses": [
+    "compute",
+    "scoped-read",
+    "scoped-write",
+    "platform"
+  ],
+  "risks": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "rateProfiles": {
     "low": {
       "rpm": 600,
@@ -52,7 +62,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "读取调用者可见的 Agent 清单与详情",
-      "routes": ["GET /v1/agents", "GET /v1/agents/:id"],
+      "routes": [
+        "GET /v1/agents",
+        "GET /v1/agents/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -76,7 +89,9 @@
         "POST /v1/agents/:id/call",
         "POST /v1/agents/execute/stream"
       ],
-      "tools": ["dispatch_subagent"],
+      "tools": [
+        "dispatch_subagent"
+      ],
       "rate": {
         "rpm": 30,
         "burst": 10,
@@ -94,7 +109,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "读取自有会话历史",
-      "routes": ["GET /v1/chat/sessions"],
+      "routes": [
+        "GET /v1/chat/sessions"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -113,8 +130,15 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "对话补全/视觉/MoA(直接产生模型费用)",
-      "routes": ["POST /v1/chat/completions", "POST /v1/chat/vision", "POST /v1/chat/moa"],
-      "tools": ["vision_analyze", "proactive_suggestion"],
+      "routes": [
+        "POST /v1/chat/completions",
+        "POST /v1/chat/vision",
+        "POST /v1/chat/moa"
+      ],
+      "tools": [
+        "vision_analyze",
+        "proactive_suggestion"
+      ],
       "rate": {
         "rpm": 30,
         "burst": 10,
@@ -132,8 +156,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "可用模型清单(公开元数据)",
-      "routes": ["GET /v1/models", "GET /v1/models/:id"],
-      "tools": ["list_models"],
+      "routes": [
+        "GET /v1/models",
+        "GET /v1/models/:id"
+      ],
+      "tools": [
+        "list_models"
+      ],
       "rate": {
         "rpm": 600,
         "burst": 120,
@@ -175,7 +204,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "向量化(计费)",
-      "routes": ["POST /v1/embeddings"],
+      "routes": [
+        "POST /v1/embeddings"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -194,7 +225,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "读取自有文件元数据与内容",
-      "routes": ["GET /v1/files", "GET /v1/files/:id", "GET /v1/files/:id/content"],
+      "routes": [
+        "GET /v1/files",
+        "GET /v1/files/:id",
+        "GET /v1/files/:id/content"
+      ],
       "tools": [
         "read_file",
         "list_files",
@@ -221,8 +256,16 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "上传/删除自有文件",
-      "routes": ["POST /v1/files", "DELETE /v1/files/:id", "POST /v1/files/upload-init"],
-      "tools": ["write_file", "file_edit", "resolve_conflict"],
+      "routes": [
+        "POST /v1/files",
+        "DELETE /v1/files/:id",
+        "POST /v1/files/upload-init"
+      ],
+      "tools": [
+        "write_file",
+        "file_edit",
+        "resolve_conflict"
+      ],
       "rate": {
         "rpm": 30,
         "burst": 10,
@@ -240,7 +283,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "音色/声纹清单",
-      "routes": ["GET /v1/audio/voices", "GET /v1/audio/speakers"],
+      "routes": [
+        "GET /v1/audio/voices",
+        "GET /v1/audio/speakers"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -259,7 +305,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "TTS/ASR/声纹注册",
-      "routes": ["POST /v1/audio/speech", "POST /v1/audio/transcriptions"],
+      "routes": [
+        "POST /v1/audio/speech",
+        "POST /v1/audio/transcriptions"
+      ],
       "tools": [
         "voice_tts",
         "audio_transcription",
@@ -285,8 +334,15 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "文生图/编辑/修复/风格迁移",
-      "routes": ["POST /v1/images/generations", "POST /v1/images/edits"],
-      "tools": ["image_generation", "image_edit", "generate_chart"],
+      "routes": [
+        "POST /v1/images/generations",
+        "POST /v1/images/edits"
+      ],
+      "tools": [
+        "image_generation",
+        "image_edit",
+        "generate_chart"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -304,8 +360,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "视频生成/编排",
-      "routes": ["POST /v1/videos/generations", "POST /v1/videos/compose"],
-      "tools": ["video_generation"],
+      "routes": [
+        "POST /v1/videos/generations",
+        "POST /v1/videos/compose"
+      ],
+      "tools": [
+        "video_generation"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -323,7 +384,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "自有生成任务状态查询",
-      "routes": ["GET /v1/videos/tasks/:id"],
+      "routes": [
+        "GET /v1/videos/tasks/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -342,7 +405,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "3D 资产生成",
-      "routes": ["POST /v1/3d/generations"],
+      "routes": [
+        "POST /v1/3d/generations"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -384,8 +449,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "自有知识库检索/RAG",
-      "routes": ["GET /v1/knowledge/documents", "POST /v1/knowledge/search"],
-      "tools": ["knowledge_lookup"],
+      "routes": [
+        "GET /v1/knowledge/documents",
+        "POST /v1/knowledge/search"
+      ],
+      "tools": [
+        "knowledge_lookup"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -403,7 +473,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "文档入库/删除/知识图谱",
-      "routes": ["POST /v1/knowledge/documents", "DELETE /v1/knowledge/documents/:id"],
+      "routes": [
+        "POST /v1/knowledge/documents",
+        "DELETE /v1/knowledge/documents/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -422,8 +495,19 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "工具/资源/提示词清单",
-      "routes": ["GET /v1/tools", "GET /v1/resources", "GET /v1/prompts", "GET /v1/mcp/tools"],
-      "tools": ["list_tools", "list_resources", "get_tool_schema"],
+      "routes": [
+        "GET /v1/tools",
+        "GET /v1/resources",
+        "GET /v1/resources/:uri",
+        "GET /v1/prompts",
+        "GET /v1/mcp/tools",
+        "POST /v1/mcp/resources/read"
+      ],
+      "tools": [
+        "list_tools",
+        "list_resources",
+        "get_tool_schema"
+      ],
       "rate": {
         "rpm": 600,
         "burst": 120,
@@ -441,7 +525,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "MCP 工具调用(逐工具二次授权,见 requiredScopeOfTool)",
-      "routes": ["POST /v1/tools/call", "POST /v1/mcp/tools/call", "POST /v1/sampling"],
+      "routes": [
+        "POST /v1/tools/call",
+        "POST /v1/mcp/tools/call",
+        "POST /v1/sampling"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -460,7 +548,12 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "作为 MCP server 被外部 agent 长连接接入",
-      "routes": ["POST /api/mcp", "POST /api/mcp/export/streamable", "GET /api/mcp/export/sse"],
+      "routes": [
+        "POST /api/mcp",
+        "POST /api/mcp/export/streamable",
+        "GET /api/mcp/export/sse"
+      ],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -479,8 +572,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "记忆召回(用户长期记忆属敏感数据,需显式授予)",
-      "routes": ["GET /v1/memory", "POST /v1/memory/search"],
-      "tools": ["context_recall"],
+      "routes": [
+        "GET /v1/memory",
+        "POST /v1/memory/search"
+      ],
+      "tools": [
+        "context_recall"
+      ],
       "rate": {
         "rpm": 30,
         "burst": 10,
@@ -498,7 +596,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "记忆保存/遗忘/Dream",
-      "routes": ["POST /v1/memory", "DELETE /v1/memory", "POST /v1/memory/dream"],
+      "routes": [
+        "POST /v1/memory",
+        "DELETE /v1/memory",
+        "POST /v1/memory/dream"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -517,7 +619,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "消息投递状态查询",
-      "routes": ["GET /v1/messages/:id/status"],
+      "routes": [
+        "GET /v1/messages/:id/status"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -536,7 +640,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "平台内消息发布/订阅",
-      "routes": ["POST /v1/messages", "POST /v1/messages/subscribe"],
+      "routes": [
+        "POST /v1/messages",
+        "POST /v1/messages/subscribe"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -555,7 +662,10 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "以调用者身份向外部渠道(IM/邮件)发送消息 —— 触达真人,不对第三方 key 开放",
-      "routes": ["POST /api/im-gateway/send", "POST /api/message-bus/send"],
+      "routes": [
+        "POST /api/im-gateway/send",
+        "POST /api/message-bus/send"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -574,7 +684,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "当前凭据归属主体资料",
-      "routes": ["GET /v1/me"],
+      "routes": [
+        "GET /v1/me"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -593,7 +705,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "工作区项目与文件树",
-      "routes": ["GET /v1/projects", "GET /v1/projects/:id/files"],
+      "routes": [
+        "GET /v1/projects",
+        "GET /v1/projects/:id/files"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -612,7 +727,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "工作流定义查询",
-      "routes": ["GET /v1/workflows/:id"],
+      "routes": [
+        "GET /v1/workflows/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -631,7 +748,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "工作流实例执行(可能触发外部动作)",
-      "routes": ["POST /v1/workflows/instances", "POST /v1/workflows/coze/run"],
+      "routes": [
+        "POST /v1/workflows/instances",
+        "POST /v1/workflows/coze/run"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -650,7 +770,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "自身用量统计",
-      "routes": ["GET /v1/usage", "GET /v1/usage/:vendor"],
+      "routes": [
+        "GET /v1/usage",
+        "GET /v1/usage/:vendor"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -669,8 +792,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "自身余额/账单读取",
-      "routes": ["GET /v1/billing/balance", "GET /v1/billing/invoices"],
-      "tools": ["token6688_balance", "token6688_model_info"],
+      "routes": [],
+      "tools": [
+        "token6688_balance",
+        "token6688_model_info"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -688,7 +814,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "Assistants 协议:助手读取",
-      "routes": ["GET /v1/assistants", "GET /v1/assistants/:id"],
+      "routes": [
+        "GET /v1/assistants",
+        "GET /v1/assistants/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -707,7 +836,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "Assistants 协议:创建/更新/删除自有助手",
-      "routes": ["POST /v1/assistants", "PATCH /v1/assistants/:id", "DELETE /v1/assistants/:id"],
+      "routes": [
+        "POST /v1/assistants",
+        "POST /v1/assistants/:id",
+        "DELETE /v1/assistants/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -726,7 +859,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "会话线程与消息读取(含历史内容)",
-      "routes": ["GET /v1/threads/:id", "GET /v1/threads/:id/messages"],
+      "routes": [
+        "GET /v1/threads/:id",
+        "GET /v1/threads/:id/messages"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -745,7 +881,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "线程创建/删除/追加消息",
-      "routes": ["POST /v1/threads", "DELETE /v1/threads/:id", "POST /v1/threads/:id/messages"],
+      "routes": [
+        "POST /v1/threads",
+        "DELETE /v1/threads/:id",
+        "POST /v1/threads/:id/messages"
+      ],
       "tools": [],
       "rate": {
         "rpm": 120,
@@ -766,7 +906,9 @@
       "description": "Run 与 Step 状态查询",
       "routes": [
         "GET /v1/threads/:id/runs/:runId",
-        "GET /v1/threads/:id/runs/:runId/steps/:stepId"
+        "GET /v1/threads/:id/runs/:runId/steps",
+        "GET /v1/run-refs/:ref",
+        "GET /v1/threads/runs/by-external-id/:externalId"
       ],
       "tools": [],
       "rate": {
@@ -785,11 +927,9 @@
       "billable": true,
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
-      "description": "Run 创建/取消/中断回复",
+      "description": "Run 创建(取消/中断回复端点尚未实现)",
       "routes": [
-        "POST /v1/threads/:id/runs",
-        "POST /v1/threads/:id/runs/:runId/cancel",
-        "POST /v1/threads/:id/runs/:runId/submit"
+        "POST /v1/threads/:id/runs"
       ],
       "tools": [],
       "rate": {
@@ -809,7 +949,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "批任务清单与状态",
-      "routes": ["GET /v1/batches", "GET /v1/batches/:id"],
+      "routes": [
+        "GET /v1/batches",
+        "GET /v1/batch/:id"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -828,7 +971,10 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "批任务创建/取消(批量模型调用,费用放大风险)",
-      "routes": ["POST /v1/batches", "POST /v1/batches/:id/cancel"],
+      "routes": [
+        "POST /v1/batch",
+        "POST /v1/batch/:id/cancel"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -847,7 +993,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "OpenAI Responses 协议补全",
-      "routes": ["POST /v1/responses"],
+      "routes": [
+        "POST /v1/responses"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -866,7 +1014,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "实时语音/多模态长连接(占用并发槽)",
-      "routes": ["WS /v1/realtime"],
+      "routes": [
+        "WS /v1/realtime"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -885,7 +1035,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "重排序",
-      "routes": ["POST /v1/rerank"],
+      "routes": [
+        "POST /v1/rerank"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -904,7 +1056,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "内容审核(上游 moderation 模型)",
-      "routes": ["POST /v1/moderations"],
+      "routes": [
+        "POST /v1/moderations"
+      ],
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -923,8 +1077,16 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "代码库语义检索(索引内容属调用者)",
-      "routes": ["POST /api/v1/codebase/search", "GET /api/v1/codebase/stats"],
-      "tools": ["search_codebase", "index_codebase", "analyze_code", "generate_test"],
+      "routes": [
+        "POST /api/v1/codebase/search",
+        "GET /api/v1/codebase/stats"
+      ],
+      "tools": [
+        "search_codebase",
+        "index_codebase",
+        "analyze_code",
+        "generate_test"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -965,7 +1127,9 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "把生成内容全量写入磁盘文件 —— 写文件系统,不对第三方 key 开放",
-      "routes": ["POST /api/v1/ai/apply-diff"],
+      "routes": [
+        "POST /api/v1/ai/apply-diff"
+      ],
       "tools": [],
       "rate": {
         "rpm": 5,
@@ -984,8 +1148,15 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "沙箱内执行命令;开放前提=强制 docker --network=none 后端 + 管理员显式签发",
-      "routes": ["POST /api/sandbox/run"],
-      "tools": ["run_command", "run_in_background", "bg_task_status"],
+      "routes": [
+        "POST /api/sandbox/run"
+      ],
+      "host": "ai-service",
+      "tools": [
+        "run_command",
+        "run_in_background",
+        "bg_task_status"
+      ],
       "rate": {
         "rpm": 5,
         "burst": 2,
@@ -1003,7 +1174,10 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "浏览器自动化(可触达外部站点与真实账号)",
-      "routes": ["POST /api/browser-hub/*"],
+      "routes": [
+        "POST /api/browser/*"
+      ],
+      "host": "ai-service",
       "tools": [
         "browser_navigate",
         "browser_click",
@@ -1039,7 +1213,10 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "本机 GUI 控制(键鼠/剪贴板)—— 永不开放给外部 key",
-      "routes": ["POST /api/computer-use/*"],
+      "routes": [
+        "POST /api/computer-use/*"
+      ],
+      "host": "ai-service",
       "tools": [
         "computer_screenshot_screen",
         "computer_mouse_move",
@@ -1069,8 +1246,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "URL 抓取(SSRF 面,必须过出口白名单)",
-      "routes": ["POST /api/web/fetch"],
-      "tools": ["fetch_url", "fetch_readable", "extract_web", "screenshot_url"],
+      "routes": [],
+      "tools": [
+        "fetch_url",
+        "fetch_readable",
+        "extract_web",
+        "screenshot_url"
+      ],
       "rate": {
         "rpm": 30,
         "burst": 10,
@@ -1088,8 +1270,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "联网搜索与整站爬取(资源密集)",
-      "routes": ["POST /api/web/search", "POST /api/web/crawl"],
-      "tools": ["web_search", "search_web", "map_site", "crawl_site"],
+      "routes": [],
+      "tools": [
+        "web_search",
+        "search_web",
+        "map_site",
+        "crawl_site"
+      ],
       "rate": {
         "rpm": 120,
         "burst": 40,
@@ -1130,7 +1317,11 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "外部连接器/MCP server 清单与能力",
-      "routes": ["GET /api/connectors", "GET /api/mcp/external/servers"],
+      "routes": [
+        "GET /api/connectors",
+        "GET /api/mcp/external/servers"
+      ],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 600,
@@ -1149,7 +1340,11 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "注册/启停外部 MCP server —— 等于注入可执行工具,不对第三方 key 开放",
-      "routes": ["POST /api/mcp/external/servers", "POST /api/mcp/external/connect"],
+      "routes": [
+        "POST /api/mcp/external/servers",
+        "POST /api/mcp/external/servers/{name}/connect"
+      ],
+      "host": "ai-service",
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -1168,8 +1363,13 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "技能清单与说明",
-      "routes": ["GET /api/skills", "GET /v1/skills"],
-      "tools": ["list_skills"],
+      "routes": [
+        "GET /api/skills",
+        "GET /v1/skills"
+      ],
+      "tools": [
+        "list_skills"
+      ],
       "rate": {
         "rpm": 600,
         "burst": 120,
@@ -1187,7 +1387,7 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "安装/启停技能(注入 agent 行为)",
-      "routes": ["POST /api/skills/install", "POST /api/skills/:id/enable"],
+      "routes": [],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -1206,7 +1406,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": false,
       "description": "教育内容与题库读取",
-      "routes": ["GET /api/edu/*"],
+      "routes": [
+        "GET /api/edu/*"
+      ],
       "tools": [
         "edu_get_course",
         "edu_list_questions",
@@ -1236,7 +1438,9 @@
       "thirdPartyEligible": true,
       "idempotencyRequired": true,
       "description": "教育内容维护",
-      "routes": ["POST /api/edu/*"],
+      "routes": [
+        "POST /api/edu/*"
+      ],
       "tools": [
         "edu_create_question",
         "edu_create_payment_record",
@@ -1263,8 +1467,12 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "内容发布到第三方社媒 —— 对外可见行为,仅自有账号体系可用",
-      "routes": ["POST /api/publish/*"],
-      "tools": ["publish_article"],
+      "routes": [
+        "POST /api/publish/*"
+      ],
+      "tools": [
+        "publish_article"
+      ],
       "rate": {
         "rpm": 5,
         "burst": 2,
@@ -1282,7 +1490,10 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": true,
       "description": "OAuth 应用注册与密钥轮转(自助 DCR 需另走 /connect/register)",
-      "routes": ["POST /api/auth/oauth/apps/create", "DELETE /api/auth/oauth/apps/:clientId"],
+      "routes": [
+        "POST /api/auth/oauth/apps/create",
+        "DELETE /api/auth/oauth/apps/:clientId"
+      ],
       "tools": [],
       "rate": {
         "rpm": 30,
@@ -1301,7 +1512,7 @@
       "thirdPartyEligible": false,
       "idempotencyRequired": false,
       "description": "平台内部运维能力(直连数据库/git 写/定时任务/PR 审查)—— 机器凭据永不放行",
-      "routes": ["POST /api/ops/*"],
+      "routes": [],
       "tools": [
         "db_query",
         "git_operations",

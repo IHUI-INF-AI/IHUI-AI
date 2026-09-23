@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useChatStore } from '@/stores/chat'
+import { createAppControlToolSelector } from '@ihui/shared/utils/app-control-intent'
 
 /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
  *  传入 streamChat → api /ai/chat/stream → ai-service /api/llm/complete/stream
@@ -370,6 +371,68 @@ export function mergeAgentTools(): string[] {
  * 且顺带携带关联读工具(如催费前常需先查欠费名单拿 enrollmentId)。
  * LLM 侧另有 _EDU_RENDER_PROMPT 强制写操作二次确认,api 侧 RBAC 兜底权限。
  */
+/**
+ * 操控本站所需的工具族(2026-09-21 立)。
+ *
+ * 为什么需要这个函数而不是直接把 AGENT_TOOLS 全发:mergeAgentTools() 在"未选插件且未开
+ * 网页搜索"时刻意返回 [] (2026-08-29 修"回复一次性全显"),而 llm.py 的 tool loop 入口是
+ * `if req.agent_tools` —— 于是普通对话里 web_ui_* / api_* 全都进不了模型视野,
+ * 端侧桥接写得再对也是死代码。这里按"用户在要求操作本站"做强信号预筛,
+ * 与同文件 eduToolsFor 完全同一范式:命中才带,普通问答仍返回 [] 保住打字机流式。
+ * (与 ai-service conversation._app_control_intent_tools 同思路,客户端这份负责主链 llm.py。)
+ */
+export const WEB_UI_CONTROL_TOOLS = [
+  'web_ui_describe',
+  'web_ui_read',
+  'web_ui_navigate',
+  'web_ui_click',
+  'web_ui_fill',
+  'web_ui_submit',
+  'web_ui_invoke',
+] as const
+
+export const API_CONTROL_TOOLS = ['api_endpoints_search', 'api_endpoint_call'] as const
+
+/**
+ * 操控本站意图 → 本端工具名(2026-09-21)。
+ *
+ * 判断逻辑与关键词表在 @ihui/shared/utils/app-control-intent:web/desktop/RN/小程序要在同一处
+ * 闸门上做同一个判断,各端复制必然漂移。本端只注入"命中后带哪些名字"。
+ */
+export const uiControlToolsFor = createAppControlToolSelector({
+  ui: WEB_UI_CONTROL_TOOLS,
+  api: API_CONTROL_TOOLS,
+})
+
+/**
+ * 文件工具族 → 文件/代码意图条件携带(2026-09-21,用户实测"请调用 read_file 读取 xxx"
+ * 模型只能干答):普通对话不携带 agentTools 时,后端 llm.py 根本不进 tool loop,
+ * 模型永远没有 read_file 可调,任务进度状态条也永远无步骤可显示。
+ * 只读族宽松召回(读/看/分析/搜 文件·代码·路径);写族仅明确修改动词才携带。
+ */
+const FILE_READ_TOOLS: readonly string[] = [
+  'read_file',
+  'list_files',
+  'file_search',
+  'search_codebase',
+  'analyze_code',
+]
+const FILE_WRITE_TOOLS: readonly string[] = ['write_file', 'edit_file']
+
+const FILE_READ_INTENT_RE =
+  /(读取|读一下|读出|看一下|看看|查看|打开|分析|总结|检查|搜索|找一下|列出)[^。\n]{0,24}(文件|代码|目录|配置|项目|仓库)|(package|src|apps|packages|components|hooks|stores|lib)[\\/][\w./\\-]+\.\w{1,8}|[\w-]+\.(tsx?|jsx?|py|json|md|css|ya?ml)\b|read_file|list_files/i
+
+const FILE_WRITE_INTENT_RE =
+  /(修改|改动|改一下|改掉|编辑|写入|写一个|新增|添加|删除|创建|修复|重构|实现|补齐)[^。\n]{0,24}(文件|代码|逻辑|功能|组件|接口|样式|错误|报错|类型|参数|路径|方法|函数)/i
+
+export function fileToolsFor(content: string): string[] {
+  if (!content) return []
+  if (!FILE_READ_INTENT_RE.test(content)) return []
+  // 文件上下文已成立(路径/扩展名/读文件动词)时,出现修改动词即加写族
+  if (FILE_WRITE_INTENT_RE.test(content)) return [...FILE_READ_TOOLS, ...FILE_WRITE_TOOLS]
+  return [...FILE_READ_TOOLS]
+}
+
 export function eduToolsFor(content: string): string[] {
   if (!content) return []
   const text = content.toLowerCase()

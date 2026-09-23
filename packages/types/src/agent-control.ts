@@ -181,17 +181,56 @@ export interface ComputerClipboardSetParams {
 // ================== Web UI Control(由 web 前端执行,2026-09-20 立)==================
 
 /**
- * 移动端(React Native)可控动作类别(2026-09-21 立,§9 多端同步)。
+ * 移动端(React Native)可控动作类别(2026-09-21 立,同日补齐 click/fill/submit)。
  *
- * 与 web 的 UiControlActionType 不相交:RN 没有 DOM,click/fill/submit 不成立,
- * 只保留"导航到已注册 Screen / 读当前路由 / 调用 setter 型命令 / 列举可去处"四个动作。
+ * 七个动词与 web 同形,但**定位方式完全不同**:web 靠 DOM 查询,RN 渲染原生视图没有 DOM,
+ * click/fill 只能靠组件在挂载时把 onPress / 写入通道交给端内控件注册表
+ * (apps/mobile-rn/src/lib/ui-field-registry.ts)。注册表里没有对应控件、或组件没交出通道,
+ * 就如实返回 UNSUPPORTED_ACTION —— 不存在"回了 ok 而界面没动"。
  * 单独占一个 category('app_ui')而非复用 'ui',是因为 api 侧 category→endpoint 是一对一,
  * 同一用户 web 与 RN 同时在线时必须各投各的端(否则指令会被随机一端吃掉)。
  */
-export type AppUiActionType = 'describe' | 'navigate' | 'read' | 'invoke'
+export type AppUiActionType =
+  'describe' | 'navigate' | 'read' | 'invoke' | 'click' | 'fill' | 'submit'
 
-/** 小程序端(Taro)可控动作:与 RN 同四项,但单独占 category='miniapp_ui'(见上段注释的 1:1 择端约束) */
+/** 小程序端(Taro)可控动作:与 RN 同七项,但单独占 category='miniapp_ui'(见上段注释的 1:1 择端约束) */
 export type TaroUiActionType = AppUiActionType
+
+/**
+ * 浏览器扩展**自有界面**(sidepanel / popup)可控动作(2026-09-21 立,第五族 `ext_ui`)。
+ *
+ * 为什么不能复用 `browser`:该 category 已按 1:1 择端映射到 endpoint='extension',语义是
+ * "通过 content script 操控用户正在看的外部网页"。扩展自己的 `chrome-extension://` 页面
+ * content script 进不去,却要同一 endpoint 承载两种完全不同的执行面 —— 若仍挂在 `browser` 上,
+ * `findEndpointByCategory('browser')` 就会在"外部网页"和"扩展面板"之间二选一(随机吃掉一侧指令)。
+ * 故单开 category,endpoint 仍是 extension:一个扩展注册一次能力,两族动作各走各的 category。
+ * 执行端有真实同源 DOM,所以动作集与 web 同形(七动词)。
+ */
+export type ExtUiActionType = AppUiActionType
+/**
+ * 无 DOM 端describe 交出的**控件**条目(与 web 的 elements 同形,便于模型同一套用法)。
+ * 只有真正挂载并交出通道的控件才会出现在这里;敏感框(密码/验证码)根本不入表。
+ */
+export interface AppUiElement {
+  /** 稳定 id(如 'fld:input#3'),单调递增且永不复用 —— 卸载后重填会如实报未找到 */
+  id: string
+  /**
+   * 控件类型。协议上保持 string:各端的取值集合不同且会各自演进
+   * (web 另有 richtext/code/file,RN 只有 input/button/form,小程序还有 textarea/number/select/switch)。
+   * 端内一律用自己的窄联合类型产出,消费方按字面量窄化。
+   */
+  kind: string
+  label: string
+  value?: string
+  /** 约束提示,如 'multiline' / 'maxLength=50' / 'keyboardType=numeric' */
+  constraint?: string
+  group?: string
+  disabled?: boolean
+  /** fill 是否可用:组件没交出合法写入 path 时为 false */
+  writable?: boolean
+  /** click 是否可用:没挂 onPress 时为 false */
+  pressable?: boolean
+}
 
 /** RN 端 web_ui_describe 的应答快照:路由清单 + 可调用命令 + 当前路由 */
 export interface AppUiSnapshot {
@@ -201,6 +240,10 @@ export interface AppUiSnapshot {
   commands: { id: string; label: string; group: string }[]
   /** 未登录时只挂 3 条 Screen,其余会静默失败 —— 用该字段告诉模型真实可用面 */
   authed: boolean
+  /** 当前屏上可操控的控件(输入框/按钮/表单);没挂注册表的旧端缺省不返回 */
+  elements?: AppUiElement[]
+  /** 超出快照上限被挤掉的控件数:让模型知道"还有,只是没列出来",而不是以为页面就这么大 */
+  suppressed?: number
 }
 
 /**
@@ -270,6 +313,48 @@ export interface UiElementDescriptor {
   group: string
   /** 是否禁用 */
   disabled?: boolean
+  /** 2026-09-21 立:kind='link' 时回传 a[href] 指向(截断至 120 字符),模型据此知道"这条链接通向哪" */
+  target?: string
+}
+
+/**
+ * web_ui_describe 的全站路由检索摘要(2026-09-21 立,令牌成本硬约束)。
+ *
+ * 879 条路由全量绝不进回执:冷 describe 只带 total/navigable/groups(按顶级前缀的
+ * 计数摘要,≤25 桶);模型再用 web_ui_describe(query=…) 拿回 top-N(≤40)命中,
+ * 然后用 web_ui_navigate 跳转。matches[].path 是唯一会出现完整路径的字段,且仅按需。
+ */
+export interface UiRouteGroupCount {
+  /** 路由组(顶级路径段;根路径为 'root';溢出尾桶为 '…others') */
+  prefix: string
+  /** 该组可导航路由条数 */
+  count: number
+}
+
+/** describe(query=…) 的单条命中 */
+export interface UiRouteMatch {
+  path: string
+  /** 路由分组(生成器 group) */
+  group: string
+  /** 是否含 :param 段(导航前须把 :id 替换为真实值) */
+  param: boolean
+}
+
+export interface UiRouteIndex {
+  /** 生成器产出的全部路由条数(含禁跳段) */
+  total: number
+  /** AI 可导航条数(剔除 login/sso/api 等禁跳前缀后) */
+  navigable: number
+  /** 按顶级前缀的计数摘要 */
+  groups: UiRouteGroupCount[]
+  /** 恒 true:web_ui_describe 接受可选 query 做全站检索 */
+  queryable: true
+  /** 带 query 检索时回显检索词 */
+  query?: string
+  /** 带 query 检索时的命中(top ≤40) */
+  matches?: UiRouteMatch[]
+  /** 命中总数(matches 可能截断于它) */
+  matchTotal?: number
 }
 
 /** web_ui_describe 返回的表单描述符 */
@@ -301,6 +386,8 @@ export interface UiRegistrySnapshot {
   elements: UiElementDescriptor[]
   /** 被安全策略排除的元素数量(如密码框),供 AI 知悉而非静默丢弃 */
   suppressed: number
+  /** 全站路由检索摘要(2026-09-21 立):冷回执只含计数分组,完整路径仅随 query 检索返回 */
+  routes?: UiRouteIndex
   reportedAt: number
 }
 
@@ -311,7 +398,7 @@ export interface AgentActionRequest {
   /** 唯一请求 ID,用于结果回传配对 */
   requestId: string
   /** 控制类别 */
-  category: 'browser' | 'computer' | 'ui' | 'app_ui' | 'miniapp_ui'
+  category: 'browser' | 'computer' | 'ui' | 'app_ui' | 'miniapp_ui' | 'ext_ui' | 'ext_ui'
   /** 具体 action 类型 */
   action:
     | BrowserControlActionType
@@ -319,6 +406,7 @@ export interface AgentActionRequest {
     | UiControlActionType
     | AppUiActionType
     | TaroUiActionType
+    | ExtUiActionType
   /** action 参数(根据 action 类型不同) */
   params: Record<string, unknown>
   /** 来源 MCP tool 调用 ID */
@@ -404,6 +492,8 @@ export interface AgentControlCapability {
   appUiActions?: AppUiActionType[]
   /** 支持的小程序 action 列表(2026-09-21 立,miniapp-taro 上报) */
   taroUiActions?: TaroUiActionType[]
+  /** 支持的扩展自有界面 action 列表(2026-09-21 立,sidepanel/popup 上报) */
+  extUiActions?: ExtUiActionType[]
   /** 端版本 */
   version?: string
   /** 上报时间 ISO */

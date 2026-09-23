@@ -20,7 +20,12 @@ import * as React from 'react'
 import { RefreshCw, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { getCookieHealth, refreshAccountCookie, type CookieHealthLevel } from '@ihui/api-client'
+import {
+  getCookieHealth,
+  refreshAccountCookie,
+  type CookieHealthInfo,
+  type CookieHealthLevel,
+} from '@ihui/api-client'
 import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
 
@@ -35,6 +40,17 @@ export type CookieHealthVariant = 'badge+button' | 'badge' | 'button'
 export interface CookieHealthIndicatorProps {
   readonly accountId: number
   readonly initialLevel?: CookieHealthLevel
+  /**
+   * 页面批量端点取回的健康度。
+   * 与 `managed` 配套:`managed` 为真时本组件永不自行请求,只渲染这份数据。
+   */
+  readonly health?: CookieHealthInfo | null
+  /**
+   * 该实例由页面的 `/accounts/health-summary` 批量请求统一供数。
+   * 必须显式声明 —— 否则首帧批量尚未返回,每张卡片都会各自发一次 cookie-health,
+   * 19 个账号仍是 19 次扇出(2026-09-23 IP 封禁事故的正是这条路径)。
+   */
+  readonly managed?: boolean
   readonly compact?: boolean
   readonly onRefreshed?: () => void
   readonly variant?: CookieHealthVariant
@@ -70,40 +86,45 @@ const TIME_FMT = new Intl.DateTimeFormat('zh-CN', {
 export function CookieHealthIndicator({
   accountId,
   initialLevel,
+  health,
+  managed,
   compact,
   onRefreshed,
   variant = 'badge+button',
 }: CookieHealthIndicatorProps) {
   const t = useTranslations('publish')
   const toast = useToast()
-  const [level, setLevel] = React.useState<CookieHealthLevel>(initialLevel ?? 'expired')
-  const [detail, setDetail] = React.useState<{
-    lastVerified: string | null
-    predictedExpiry: string | null
-    daysSince: number | null
-  } | null>(null)
+  // 非托管模式下组件自己拉到的那份;托管模式一律用页面批量供的 health
+  const [fetched, setFetched] = React.useState<CookieHealthInfo | null>(null)
   const [refreshing, setRefreshing] = React.useState(false)
   const [hovered, setHovered] = React.useState(false)
+
+  const data = health ?? fetched
+  const level: CookieHealthLevel = data?.level ?? initialLevel ?? 'expired'
+  const detail = data
+    ? {
+        lastVerified: data.last_verified_at,
+        predictedExpiry: data.predicted_expiry,
+        daysSince: data.days_since_verified,
+      }
+    : null
 
   const loadHealth = React.useCallback(async () => {
     try {
       const r = await getCookieHealth(accountId)
-      if (r.success && r.data) {
-        setLevel(r.data.level)
-        setDetail({
-          lastVerified: r.data.last_verified_at,
-          predictedExpiry: r.data.predicted_expiry,
-          daysSince: r.data.days_since_verified,
-        })
-      }
+      if (r.success && r.data) setFetched(r.data)
     } catch {
       // 静默失败,不影响主界面
     }
   }, [accountId])
 
+  // 托管模式(页面批量供数)与 variant='button'(不渲染徽章)都不得自己发请求 ——
+  // 省掉的正是那批随账号数线性增长的请求(2026-09-23 IP 封禁事故)。
+  const needsOwnFetch = !managed && variant !== 'button' && !health
   React.useEffect(() => {
+    if (!needsOwnFetch) return
     void loadHealth()
-  }, [loadHealth])
+  }, [needsOwnFetch, loadHealth])
 
   async function handleRefresh(e: React.MouseEvent) {
     e.stopPropagation()
@@ -113,8 +134,8 @@ export function CookieHealthIndicator({
       if (r.success && r.data) {
         if (r.data.success) {
           toast.success(t('cookieHealth.refreshSuccess'))
-          setLevel('healthy')
-          await loadHealth()
+          // 托管模式由页面 reload() 走批量端点供数,不再逐账号补一发请求
+          if (!managed) await loadHealth()
           onRefreshed?.()
         } else {
           toast.error(r.data.message || t('cookieHealth.refreshFailed'))
@@ -130,7 +151,8 @@ export function CookieHealthIndicator({
   }
 
   const cfg = LEVEL_CONFIG[level]
-  const showBadge = variant !== 'button'
+  // 托管模式下批量尚未返回时不渲染徽章,避免先闪一帧红色"已过期"
+  const showBadge = variant !== 'button' && (!managed || !!health)
   const showButton = variant !== 'badge'
 
   return (
@@ -173,7 +195,7 @@ export function CookieHealthIndicator({
       )}
 
       {hovered && detail && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-2 text-xs shadow-md">
+        <div className="absolute bottom-full left-0 z-50 mb-1 w-48 rounded-md border border-border bg-popover p-3 text-xs shadow-md">
           <div className="space-y-1">
             <div className="flex justify-between gap-2">
               <span className="text-muted-foreground">{t('cookieHealth.lastVerified')}</span>

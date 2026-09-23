@@ -299,6 +299,47 @@ async def test_email_channel_sends_smtp_success(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_email_channel_branded_dispatch_html(monkeypatch) -> None:
+    """HTML 部分走「智汇通报」版式(与 TS email-templates 同源),正文转义,纯文本兜底。"""
+    import email as _email_mod
+    import smtplib
+    from email import policy
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "465")
+    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
+
+    channel = EmailChannel()
+    msg = Message(
+        id="em-6",
+        content="余额 <script>alert(1)</script> 不足",
+        metadata={"to": "user@example.com", "subject": "测试告警", "tag": "BILLING // LOW_BALANCE"},
+    )
+    ok, status = await channel.send(msg, {})
+    assert ok is True
+    raw = _FakeSMTP.instances[-1].sent_mail[0][2]
+    parsed = _email_mod.message_from_string(raw, policy=policy.default)
+    # multipart/alternative:纯文本兜底 + 品牌版式 HTML
+    assert parsed.get_content_type() == "multipart/alternative"
+    parts = list(parsed.walk())
+    html_body = next(p for p in parts if p.get_content_type() == "text/html").get_content()
+    plain_body = next(p for p in parts if p.get_content_type() == "text/plain").get_content()
+    assert "余额" in plain_body
+    # 品牌版式关键元素(Logo + 二维码)
+    assert "IHUI." in html_body
+    assert "THE&nbsp;MECHANICAL&nbsp;DISPATCH" in html_body
+    assert 'alt="IHUI AI"' in html_body
+    assert "/images/logo.png" in html_body
+    assert "/footer/erweima/wechat-vx.png" in html_body
+    assert "BILLING // LOW_BALANCE" in html_body
+    assert "background:#050506" in html_body
+    assert "#B4FF00" in html_body
+    # 正文被转义(XSS 防护)
+    assert "<script>alert" not in html_body
+    assert "&lt;script&gt;" in html_body
+
+
+@pytest.mark.asyncio
 async def test_email_channel_no_starttls_on_plain_port(monkeypatch) -> None:
     """非 587 端口(如 25)不调用 starttls。"""
     import smtplib

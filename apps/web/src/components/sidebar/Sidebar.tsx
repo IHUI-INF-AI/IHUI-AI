@@ -17,7 +17,6 @@ import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
 import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
 import type { SidebarProps, NavItem, RegisterRef } from './types'
-import { SidebarActions } from './SidebarActions'
 import { SidebarUserRow } from './SidebarUserRow'
 import { NavGroupSection } from './NavGroupSection'
 import { SidebarHeader } from './SidebarHeader'
@@ -37,11 +36,9 @@ import {
 // 但下列子组件的 props 全部是稳定引用(布尔字面量 / 组件内 useCallback([]) 产生的共享回调),
 // 与路由毫无关系 —— 不 memo 的话每次导航都会被连带重渲染:
 //   - SidebarChatHistory(639 行,会话列表,侧栏最重子组件)
-//   - SidebarActions(679 行,底部操作区)
 //   - SidebarQuickActions / SidebarUserRow / SidebarHeader
 // memo 后仅在自身 props 或自身 store/context 订阅变化时才重渲染;Context 更新可穿透 memo,不会漏更新。
 const SidebarChatHistoryMemo = React.memo(SidebarChatHistory)
-const SidebarActionsMemo = React.memo(SidebarActions)
 const SidebarQuickActionsMemo = React.memo(SidebarQuickActions)
 const SidebarUserRowMemo = React.memo(SidebarUserRow)
 const SidebarHeaderMemo = React.memo(SidebarHeader)
@@ -409,35 +406,31 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   )
 
   /**
-   * 桌面端 sidebar footer:语言/下载/消息/主题/设置 + 用户行/登录按钮。
-   * 2026-09-05 修复:原 `hidden min-[1024px]:block` 在 768-1023px(平板/窄窗口)区间
-   * 把整组底部按钮隐藏,60px 折叠条下半部空白(用户反馈"收回状态下底部菜单按钮图标没显示")。
-   * 现在 footer 常驻渲染:<768px 桌面 aside 本就被 CSS display:none(不影响);
-   * 768-1023px 强制 collapsed 图标竖排(适配 60px 宽);≥1024px 跟随用户折叠偏好。
+   * 桌面端 sidebar footer:只剩用户行(2026-09-21 迁移:语言/下载/消息/主题/设置
+   * 已全部收进 SidebarUserRow 的下拉菜单,Qoder 风格)。
+   * 2026-09-05 修复(历史):原 `hidden min-[1024px]:block` 在 768-1023px 区间
+   * 把整组底部按钮隐藏,60px 折叠条下半部空白;现在 footer 常驻渲染。
+   * - <768px 桌面 aside 本就被 CSS display:none(不影响);
+   * - 768-1023px 强制 collapsed(60px 条,用户行只显示头像);
+   * - ≥1024px 跟随用户折叠偏好。
    */
-  // hook SSR/首帧默认 false → SSR 输出展开态(横排),与桌面首帧一致;
-  // 2026-09-09 修复"展开时先显示竖向过一会再变回横向":
-  // 旧公式 `!isDesktopViewport || collapsed` 在 SSR/首帧恒为 true(媒体查询 hook SSR 默认 false),
-  // 导致桌面端刷新页面时 footer 先渲染竖排、hydration 后才切回横排,产生可见闪烁。
+  // hook SSR/首帧默认 false → SSR 输出展开态,与桌面首帧一致;
+  // 2026-09-09 修复"展开时先显示竖向过一会再变回横向"(历史):
   // 新公式与上方 effectiveCollapsed 完全同源(SSR 均为 false),首帧恒展开态:
   // - 桌面(≥1024px):跟随用户折叠偏好 collapsed
-  // - 平板(768-1023px):isTabletViewport 强制折叠(hydration 后生效;
-  //   hydration 前由 globals.css 对 .sidebar-actions 的媒体查询强制竖排兜底)
+  // - 平板(768-1023px):isTabletViewport 强制折叠(hydration 后生效)
   // - 手机(<768px):桌面 aside 被 CSS display:none,footer 不可见,无需处理
   const footerCollapsed = collapsed || isTabletViewport
   const desktopFooter = (
     <div className="shrink-0">
-      <SidebarActionsMemo collapsed={footerCollapsed} />
       <SidebarUserRowMemo collapsed={footerCollapsed} onCloseMobile={onCloseMobile} />
     </div>
   )
 
   /** 移动端 drawer footer(2026-09-09 统一):恒展开布局,不接用户折叠偏好。
-   *  抽屉宽 160px+(sidebarWidth),竖排 5 按钮的折叠态语义仅属于桌面 60px 条;
-   *  桌面折叠过的用户(collapsed=true 持久化)打开手机抽屉也应看到完整 footer。 */
+   *  2026-09-21 迁移:footer 只剩用户行(工具项已收进用户菜单)。 */
   const mobileFooter = (
     <div className="shrink-0">
-      <SidebarActionsMemo collapsed={false} />
       <SidebarUserRowMemo collapsed={false} onCloseMobile={onCloseMobile} />
     </div>
   )

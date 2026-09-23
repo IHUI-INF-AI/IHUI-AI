@@ -2681,3 +2681,22 @@ async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
     assert api_base == "https://apihub.agnes-ai.com/v1"
     assert litellm_model == "openai/gpt-4o-mini"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
+def test_resolve_provider_handles_bare_agnes_model_ids(monkeypatch):
+    """裸名 agnes 模型必须解析到 agnes 的 key/base,否则"选得到、一调用即 LiteLLM Provider NOT provided"。
+
+    agnes 是 2026-09-21 逐通道实测中少数免充值真能出字的通道,而解析表里此前只有 `agnes/` 前缀。
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(
+        settings,
+        "llm_providers",
+        json.dumps({"agnes": {"api_key": "sk-agnes-test", "api_base": "https://apihub.agnes-ai.com/v1"}}),
+    )
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("agnes-3.0-flash")
+    assert api_key == "sk-agnes-test"
+    assert api_base == "https://apihub.agnes-ai.com/v1"
+    assert litellm_model == "openai/agnes-3.0-flash"

@@ -7,6 +7,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
+// 仅类型导入:check() 返回的 Update 对象类型(运行时仍动态 import,避免浏览器端加载插件)
+import type { Update } from '@tauri-apps/plugin-updater'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
 
@@ -273,6 +275,69 @@ export function onMaximizeChange(callback: (maximized: boolean) => void): () => 
       }
       unlistenFn = null
     }
+  }
+}
+
+/**
+ * 监听窗口系统焦点变化(2026-09-22 立:桌面端 decorations:false 时窗口失焦,
+ * 自绘的 Min/Max/Close 三按钮要降亮为"非活动态",对齐 Windows caption 语义)。
+ *
+ * 与 onMaximizeChange 不同,**刻意不加节流** —— 切窗时必须立刻变暗,
+ * 节流会让用户先看到"别的窗口已激活、本窗口按钮还全亮"的错觉。
+ * 清理逻辑沿用 2026-07-28 的 cancelled flag + unlisten 泄漏兜底模板。
+ *
+ * 双通道,缺一不可:
+ * - `desktop-window-focus`:Rust 在 WindowEvent::Focused 里显式 emit。**这是主通道** ——
+ *   真机实测薄壳加载远程 URL(https://aizhs.top)时内核自带的 tauri://focus|blur 收不到,
+ *   聚焦/失焦两态像素逐字相同;而 desktop-* 这条应用层通道已被托盘菜单验证可用。
+ * - `onFocusChanged`:内核事件,留作兜底(若某版本可用即生效;两路同值重复回调无害)。
+ *
+ * 返回同步清理函数。非桌面端返回 no-op。
+ */
+export function onWindowFocusChange(callback: (focused: boolean) => void): () => void {
+  if (!isTauri()) return () => {}
+  const win = getCurrentWindow()
+  let cancelled = false
+  const cleanups: Array<() => void> = []
+
+  const track = (promise: Promise<() => void>) => {
+    promise
+      .then((fn) => {
+        // cleanup 已先于 Promise resolve → 立即取消订阅,不留悬挂监听
+        if (cancelled) fn()
+        else cleanups.push(fn)
+      })
+      .catch(() => {
+        /* 单个通道注册失败不影响另一通道 */
+      })
+  }
+
+  track(win.listen<boolean>('desktop-window-focus', ({ payload }) => callback(payload)))
+  track(win.onFocusChanged(({ payload }) => callback(payload)))
+
+  return () => {
+    cancelled = true
+    for (const fn of cleanups.splice(0)) {
+      try {
+        fn()
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+/**
+ * 当前窗口是否持有系统焦点(用于挂载时取初值,事件只报变化不报现状)。
+ * 失败/非桌面端一律返回 true:主窗口以 visible:false 创建、由 auto_refresh 才 show,
+ * 拿不到结论时宁可"亮着"也不要一打开就死灰。
+ */
+export async function isWindowFocused(): Promise<boolean> {
+  if (!isTauri()) return true
+  try {
+    return await getCurrentWindow().isFocused()
+  } catch {
+    return true
   }
 }
 
@@ -694,9 +759,10 @@ export interface UpdateSession {
 /**
  * 检查应用更新(非桌面端返回 null)。
  * 调用 Tauri updater plugin 的 check(),访问 tauri.conf.json 配置的 endpoints。
- * 返回 UpdateSession(含版本/说明 + 下载安装句柄)或 null(已是最新/检查失败)。
+ * 返回 UpdateSession(含版本/说明 + 下载安装句柄)或 null(已是最新)。
  *
- * check() 失败(网络错误/签名校验失败)会捕获后返回 null,避免调用方 try/catch。
+ * 检查失败(网络错误/超时/签名校验失败)抛 Error('check_failed'|'check_timeout'),
+ * 调用方据此区分「失败」与「已是最新」(2026-09-21 根治"托盘检查更新点了没反应")。
  *
  * 2026-09-01 修复"检查更新一直转圈":
  * 之前 check() 无超时——updater endpoint 指向 GitHub,国内网络下请求可永久挂起
@@ -706,11 +772,14 @@ export interface UpdateSession {
  */
 const CHECK_UPDATE_TIMEOUT_MS = 15_000
 
-/** 给 Promise 加超时:超时返回 null,不抛异常,settle 后清理计时器。 */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+/** withTimeout 超时哨兵:与「Promise 正常返回 null」(updater 无更新)区分。 */
+const TIMEOUT_SENTINEL = Symbol('withTimeoutTimeout')
+
+/** 给 Promise 加超时:超时返回 TIMEOUT_SENTINEL 哨兵(不抛异常),settle 后清理计时器。 */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT_SENTINEL> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), ms)
+  const timeout = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+    timer = setTimeout(() => resolve(TIMEOUT_SENTINEL), ms)
   })
   return Promise.race([promise, timeout]).finally(() => {
     if (timer) clearTimeout(timer)
@@ -719,49 +788,60 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 
 export async function checkForUpdates(): Promise<UpdateSession | null> {
   if (!isTauri()) return null
+  let update: Update | null
   try {
     const { check } = await import('@tauri-apps/plugin-updater')
-    const update = await withTimeout(check(), CHECK_UPDATE_TIMEOUT_MS)
-    if (update === null) {
+    const result = await withTimeout(check(), CHECK_UPDATE_TIMEOUT_MS)
+    if (result === TIMEOUT_SENTINEL) {
+      // 2026-09-01 修复"检查更新一直转圈":updater endpoint 国内网络下请求可永久挂起,
+      // 超时视为检查失败(与「无更新返回 null」区分,2026-09-21 起上抛)。
       console.warn(
         `[updater] check() 超过 ${CHECK_UPDATE_TIMEOUT_MS}ms 未返回(网络挂起),按检查失败处理`,
       )
-      return null
+      throw new Error('check_timeout')
     }
-    if (!update) return null
-    return {
-      info: {
-        version: update.version,
-        date: update.date,
-        notes: update.body,
-      },
-      downloadAndInstall: async (onProgress) => {
-        let downloaded = 0
-        let total = 0
-        await update.downloadAndInstall((event) => {
-          switch (event.event) {
-            case 'Started': {
-              const d = event.data as { contentLength?: number }
-              total = d.contentLength ?? 0
-              onProgress?.({ downloaded: 0, total })
-              break
-            }
-            case 'Progress': {
-              const d = event.data as { chunkLength?: number }
-              downloaded += d.chunkLength ?? 0
-              onProgress?.({ downloaded, total })
-              break
-            }
-            case 'Finished':
-              onProgress?.({ downloaded: total || downloaded, total })
-              break
-          }
-        })
-      },
-    }
+    update = result
   } catch (e) {
+    // 2026-09-21 根治"托盘检查更新点了没反应":检查失败(网络/权限/插件异常)必须
+    // 与「已是最新」(check() 正常返回 null)区分——此前一律吞成 null,上层无法给出
+    // 失败反馈。调用方:useUpdater.checkForUpdate(按 error 状态展示)、
+    // quitAndUpdateIfNeeded(已有 catch 兜底,失败→正常退出,行为不变)。
+    if (e instanceof Error && (e.message === 'check_timeout' || e.message === 'check_failed')) {
+      throw e
+    }
     console.warn('[updater] check failed:', e)
-    return null
+    throw new Error('check_failed')
+  }
+  if (!update) return null
+  return {
+    info: {
+      version: update.version,
+      date: update.date,
+      notes: update.body,
+    },
+    downloadAndInstall: async (onProgress) => {
+      let downloaded = 0
+      let total = 0
+      await update.downloadAndInstall((event) => {
+        switch (event.event) {
+          case 'Started': {
+            const d = event.data as { contentLength?: number }
+            total = d.contentLength ?? 0
+            onProgress?.({ downloaded: 0, total })
+            break
+          }
+          case 'Progress': {
+            const d = event.data as { chunkLength?: number }
+            downloaded += d.chunkLength ?? 0
+            onProgress?.({ downloaded, total })
+            break
+          }
+          case 'Finished':
+            onProgress?.({ downloaded: total || downloaded, total })
+            break
+        }
+      })
+    },
   }
 }
 

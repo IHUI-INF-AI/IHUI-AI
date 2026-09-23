@@ -100,6 +100,10 @@ export interface ChatMessage {
   startedAt?: number
   durationMs?: number
   toolCallCount?: number
+  /** 服务端落库的消息元数据(G-165:ai-callback 侧按 workspace_permissions 反查盖章的
+   *  permissionMode 等随历史接口原样下发;客户端自报不采信 —— 缺失 = 老消息/未绑定
+   *  工作区,安静降级,不得据此编造 default)。结构对齐 api-client ChatMessageMetadata。 */
+  metadata?: Record<string, unknown>
   /** 2026-07-31 立,AI 对话可视化深度接入 Phase 2:消息级 subagent 工作内容
    *  - 后端 subagent_spawn/progress/end SSE 事件携带 messageId 时,前端按消息分组写入
    *  - 用于在消息气泡内 inline SubagentSection,实时刷新 subagent 生命周期 */
@@ -116,6 +120,13 @@ export interface ChatMessage {
    *  后端 knowledge_lookup 工具执行后,在 done 前下发 citations SSE 事件,
    *  前端按 messageId 写入本字段,MessageItem 渲染 CitationBar。 */
   citations?: Array<{ source: string; label: string; url?: string }>
+  /** 本轮上下文注入交代(D34,2026-09-22 立):后端在注入**真正生效后**、任何增量之前
+   *  下发 injection_applied 帧,前端按 messageId 追加到本字段,MessageItem 渲染 InjectionBar。
+   *  没有它,用户无法知道回答带了哪些私有上下文(竞品以此为可审计性的基本交代)。 */
+  injections?: Array<{ kind: string; collapsed: string; fullText?: string; count?: number }>
+  /** D39/D108 上游重试交代:网关换 key 或退避重试时下发 retry_scheduled 帧。
+   *  没有它,用户在 web 上看到的只是"停顿"(小程序 / RN / cli 均已交代,旗舰端此前缺席)。 */
+  retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
 }

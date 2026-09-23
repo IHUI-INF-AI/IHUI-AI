@@ -1989,6 +1989,27 @@
       "when": 1789966800000,
       "tag": "20260921130000_llm_call_logs_raw_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1789977600000,
+      "tag": "20260921160000_scoped_app_role_owner_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1789992000000,
+      "tag": "20260921200000_vip_levels_dedupe_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1790137658554,
+      "tag": "20260923120000_chat_message_feedbacks",
+      "breakpoints": true
     }
   ]
 }

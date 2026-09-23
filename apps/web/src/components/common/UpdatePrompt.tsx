@@ -43,11 +43,13 @@ export function UpdatePrompt() {
   const { status, session, progress, downloaded, total, error, retryCount, maxRetries } = updater
   const { restartNow, postponeRestart, restartCountdown } = updater
   // 强制更新:弹窗始终可见(不可关闭),直到更新完成自动重启或失败后自动重试/自动消失
+  // up-to-date(2026-09-21):托盘手动检查发现已是最新时的反馈提示,4 秒后自动消失
   const visible =
     status === 'available' ||
     status === 'downloading' ||
     status === 'installing' ||
     status === 'done' ||
+    status === 'up-to-date' ||
     status === 'error'
 
   if (!visible) return null
@@ -83,7 +85,7 @@ export function UpdatePrompt() {
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 status === 'error'
                   ? 'bg-red-500/10 text-red-500'
-                  : status === 'done'
+                  : status === 'done' || status === 'up-to-date'
                     ? 'bg-green-500/10 text-green-500'
                     : 'bg-primary/10 text-primary',
                 isAnimated && 'animate-update-icon-pulse',
@@ -91,7 +93,7 @@ export function UpdatePrompt() {
             >
               {status === 'error' ? (
                 <AlertCircle className="h-4 w-4" />
-              ) : status === 'done' ? (
+              ) : status === 'done' || status === 'up-to-date' ? (
                 <Check className="h-4 w-4" />
               ) : (
                 <Sparkles className="h-4 w-4" />
@@ -100,7 +102,13 @@ export function UpdatePrompt() {
 
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold leading-tight text-foreground">
-                {status === 'error' ? t('error') : status === 'done' ? t('done') : t('available')}
+                {status === 'error'
+                  ? t('error')
+                  : status === 'up-to-date'
+                    ? t('upToDate')
+                    : status === 'done'
+                      ? t('done')
+                      : t('available')}
               </p>
               {version && status !== 'error' && (
                 <p className="text-xs text-muted-foreground leading-tight mt-0.5">v{version}</p>
@@ -126,6 +134,12 @@ export function UpdatePrompt() {
 
           {/* 状态展示区(强制更新:无按钮,纯展示进度) */}
           <div className="mt-3.5 flex items-center gap-2.5">
+            {status === 'up-to-date' && (
+              <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-green-600/10 px-4">
+                <span className="text-sm font-medium text-green-600">{t('upToDateDesc')}</span>
+              </div>
+            )}
+
             {status === 'available' && (
               <div className="flex h-9 flex-1 items-center justify-center gap-2.5 rounded-lg bg-primary/10 px-4">
                 <RefreshCw className="h-4 w-4 animate-spin text-primary" />

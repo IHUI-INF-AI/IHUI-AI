@@ -26,6 +26,7 @@
 import { createHmac } from 'node:crypto'
 import nodemailer from 'nodemailer'
 import { pino, type Logger } from 'pino'
+import { renderSystemAlertEmail } from './email-templates.js'
 
 const logger: Logger = pino({
   name: 'alert-notification-service',
@@ -436,10 +437,21 @@ async function pushEmail(
   title: string,
   message: string,
   severity: string,
+  source: string,
 ): Promise<boolean> {
   if (!cfg.host || !cfg.user || cfg.to.length === 0) {
     return false
   }
+
+  // 渲染「智汇通报」品牌模板(与事务邮件同一设计语言);severity 白名单外按 warning 处理
+  const known = severity === 'info' || severity === 'critical' ? severity : 'warning'
+  const rendered = renderSystemAlertEmail({
+    severity: known,
+    source,
+    time: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+    title,
+    message,
+  })
 
   const transporter = nodemailer.createTransport({
     host: cfg.host,
@@ -459,8 +471,9 @@ async function pushEmail(
         await transporter.sendMail({
           from: cfg.user,
           to: cfg.to.join(','),
-          subject: `[${severity.toUpperCase()}] ${title}`,
-          html: `<h2>${title}</h2><pre>${message}</pre>`,
+          subject: rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
         })
         return true
       } catch (e) {
@@ -516,7 +529,7 @@ export async function pushAlertWithResult(
     tasks.push(['feishu', pushFeishu(cfg.feishu.webhook, title, message)])
   }
   if (cfg.email.host && cfg.email.user && cfg.email.to.length > 0) {
-    tasks.push(['email', pushEmail(cfg.email, title, message, severity)])
+    tasks.push(['email', pushEmail(cfg.email, title, message, severity, source)])
   }
   if (cfg.pagerduty.routingKey) {
     tasks.push([

@@ -74,7 +74,7 @@ export function FeedbackForm({
               <SelectContent>
                 {TYPES.map((v) => (
                   <SelectItem key={v} value={v}>
-                    {t(TYPE_KEY[v] ?? 'type_unknown')}
+                    {t(TYPE_KEY[v] ?? 'typeUnknown')}
                   </SelectItem>
                 ))}
               </SelectContent>

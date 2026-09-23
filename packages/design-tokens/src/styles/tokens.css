@@ -112,6 +112,11 @@
      原 bg-muted/40 在暗色下实际显示 14.5% L,几乎与 background 重合,容器完全看不出。 */
   --color-streamed-container-bg: hsl(0 0% 92%);
   --color-streamed-container-bg-hover: hsl(0 0% 88%);
+  /* 2026-09-21 立:全局浮动指示条容器背景(PageIndicator / QueryThumbRail 等 floatIndicatorRailCls
+     共用)。此前 9 处调用方引用 bg-float-indicator-bg 但 @theme 从未定义该 token,
+     Tailwind v4 对未知 token 不生成 CSS → 容器背景透明(用户反馈"一个透明一个不透明"的根因)。
+     亮色纯白 / 暗色 11% L(比 background 14% L 深一档,浮层"沉底"区分),纯色不透明(去透明化原则)。 */
+  --color-float-indicator-bg: hsl(0 0% 100%);
 
   /* 统一元素动效 token(2026-09-09 立,用户强制指令"全项目统一 不允许出现别的速率"):
      出现/消失/移动类动效(弹层/对话框/抽屉/路由过渡/淡入滑入等)唯一速率 = 1000ms + easeInOutCubic。
@@ -511,6 +516,8 @@ select:-webkit-autofill:focus {
   /* 2026-08-07 立:暗色 markdown 流式容器 18% L(比 background 14% L 高 4% L,微提亮) */
   --color-streamed-container-bg: hsl(0 0% 18%);
   --color-streamed-container-bg-hover: hsl(0 0% 22%);
+  /* 暗色 11% L(与上方亮色纯白成对):比 background 14% L 深一档,浮层"沉底"区分 */
+  --color-float-indicator-bg: hsl(0 0% 11%);
 
   /* 图表色板暗色覆盖(2026-07-27):8 主色沿用亮色,仅文字/轴线色下调 */
   --chart-text: #64748b;

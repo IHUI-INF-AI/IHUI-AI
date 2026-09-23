@@ -34,7 +34,7 @@ from typing import Any
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from ..core.jwt_auth import verify_access_token
+from ..core.jwt_auth import resolve_request_user_id, verify_access_token
 from ..services.agent_engine import INVALID_REQUEST, PARSE_ERROR, AgentEngine
 
 logger = logging.getLogger(__name__)
@@ -222,6 +222,22 @@ async def _sse_stream(payload: dict[str, Any]) -> Any:
                 await task
 
 
+def _bind_principal(message: Any, principal: str | None) -> Any:
+    """O19(2026-09-21):把**连接层已验证的身份**写入 params.userId,覆盖客户端自述值。
+
+    引擎 `thread.start` 的 userId 原本是客户端自述 ⇒ 谎报他人 id 即可解他人审批
+    (approval.respond 以 thread.user_id 为 principal)。绑定后:线程属主只可能是
+    这条连接证明过的身份。principal 为 None(未鉴权/dev 通道)时原样返回,不新增
+    任何权限 —— 那类通道创建的线程 owner 仍为自述值,与其结算通道同一信任级。
+    """
+    if not principal or not isinstance(message, dict):
+        return message
+    params = message.get("params")
+    if isinstance(params, dict):
+        params["userId"] = principal
+    return message
+
+
 @router.post("/rpc")
 async def engine_rpc(request: Request) -> Any:
     """JSON-RPC 2.0 单发入口;流式方法自动升级为 SSE。
@@ -229,6 +245,7 @@ async def engine_rpc(request: Request) -> Any:
     请求体:单个 JSON-RPC 报文对象,或报文数组(批量:逐条处理并按序返回数组;
     批量中不允许出现流式方法 —— JSON-RPC 批量语义无法承载 SSE,返回 -32600)。
     """
+    principal = resolve_request_user_id(request)
     try:
         body = await request.json()
     except Exception as e:  # noqa: BLE001 - 非法 JSON 按标准解析错误返回
@@ -239,6 +256,12 @@ async def engine_rpc(request: Request) -> Any:
                 "error": {"code": PARSE_ERROR, "message": f"JSON 解析失败: {e}"},
             }
         )
+
+    # O19:连接层身份绑定覆盖全部三种分支(批量 / 流式 SSE / 单发)
+    if isinstance(body, list):
+        body = [_bind_principal(message, principal) for message in body]
+    else:
+        body = _bind_principal(body, principal)
 
     if isinstance(body, list):
         results: list[Any] = []
@@ -312,14 +335,21 @@ def _ws_token(ws: WebSocket) -> str:
 
 
 async def _handle_ws_frame(
-    raw: str, emit: Any, tasks: set[asyncio.Task[Any]]
+    raw: str, emit: Any, tasks: set[asyncio.Task[Any]], principal: str | None
 ) -> None:
-    """处理一帧报文(独立任务:长跑的 prompt 不阻塞 interrupt/approval 帧)。"""
+    """处理一帧报文(独立任务:长跑的 prompt 不阻塞 interrupt/approval 帧)。
+
+    O19:principal 为**握手时 verify_access_token 已证明的身份**,逐帧写入 params.userId
+    覆盖客户端自述值 —— 否则攻击者可在已认证连接上谎报他人 id 解他人审批。
+    """
     current = asyncio.current_task()
     if current is not None:
         tasks.add(current)
     try:
-        response = await ENGINE.handle_message(raw, emit)
+        message: Any = raw
+        with contextlib.suppress(ValueError, UnicodeDecodeError):
+            message = _bind_principal(json.loads(raw), principal)
+        response = await ENGINE.handle_message(message, emit)
         if response is not None:
             await emit(response)
     finally:
@@ -345,10 +375,15 @@ async def engine_ws(ws: WebSocket) -> None:
             await ws.send_text(json.dumps(message, ensure_ascii=False))
 
     logger.info("[engine] WS 连接建立 user=%s", payload.get("userId") or payload.get("sub"))
+    # O19:握手已验证的身份即本连接全部帧的 principal(与上面日志同源字段)
+    ws_principal = payload.get("userId") or payload.get("sub")
+    principal = ws_principal if isinstance(ws_principal, str) and ws_principal else None
     try:
         while True:
             text = await ws.receive_text()
-            task = asyncio.ensure_future(_handle_ws_frame(text, _emit, local_tasks))
+            task = asyncio.ensure_future(
+                _handle_ws_frame(text, _emit, local_tasks, principal)
+            )
             local_tasks.add(task)
     except WebSocketDisconnect:
         pass

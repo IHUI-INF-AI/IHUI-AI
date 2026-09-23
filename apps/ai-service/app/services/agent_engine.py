@@ -76,7 +76,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from app.core.command_safety import dangerous_command_match as _dangerous_command_match
 from app.core.image_preparation import (
@@ -85,8 +85,28 @@ from app.core.image_preparation import (
 from app.core.image_preparation import (
     load_data_url_for_prompt as _load_data_url_for_prompt,
 )
+from app.core.agents_md_state import AgentsMdState  # 批58:AGENTS.md 状态机(对标 codex agents_md.rs)
+from app.core.retained_context import RetainedContext, RetainedUserMessage  # 批58:宿主事实账本(对标 codex retained_context.rs)
 from app.core.output_cleaning import strip_ansi as _strip_ansi
 from app.core.sandbox_policy import PROTECTED_METADATA_PATH_NAMES as _PROTECTED_METADATA_PATH_NAMES
+# 批58 接线:5 个已写但零生产引用的模块(假覆盖 → 真接线)。
+# 各模块仅纯函数/数据结构,导入无副作用;运行行为仍由各自 env 开关门控。
+from app.core.git_workspaces_metadata import (
+    collect_git_workspaces,
+    workspaces_to_metadata_value,
+)
+from app.core.thread_originator import (
+    effective_originator_value,
+    originator_from_service_name,
+)
+from app.core.installation_id import INSTALLATION_ID_FILENAME
+from app.core.permission_mode import normalize_permission_mode
+from app.core.permission_mode import permission_mode_error
+from app.core.turn_metadata import (
+    CodexResponsesMetadata,
+    CodexResponsesRequestKind,
+)
+from app.core.feature_flags import FeatureRegistry, FeatureSpec
 
 from .session_store import ItemBase, SessionStore
 
@@ -131,6 +151,21 @@ TOOL_NOT_FOUND = -32004
 HOST_TOOL_FAILED = -32005
 THREAD_CLOSED = -32006
 BUDGET_EXHAUSTED = -32007
+
+
+def _require_permission_mode(raw: object) -> str:
+    """客户端传入的 permissionMode → 规范标识(G-161 唯一真源)。
+
+    省略/空 → "default";认不出 → JSON-RPC -32602 并列出合法取值。
+    不在这里静默兜底成 default:那等于把"你要的权限档"和"实际生效的权限档"
+    分开发,正是本次要根治的静默失效。
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return "default"
+    normalized = normalize_permission_mode(raw)
+    if normalized is None:
+        raise JsonRpcError(INVALID_PARAMS, permission_mode_error(raw))
+    return normalized
 
 # 订阅的 agent 循环事件名(与 agent_loop_v2.AgentEventStream 的全部 emit 点一一对应)
 AGENT_EVENTS: tuple[str, ...] = (
@@ -391,6 +426,134 @@ while True:
 '''
 
 
+# ---------------------------------------------------------------------------
+# 批58 接线 env 开关(默认 off,与现状逐字节等价)
+# ---------------------------------------------------------------------------
+
+
+def _agents_md_state_enabled_from_env() -> bool:
+    """AGENTS.md 状态机增量注入开关(对标 codex context/world_state/agents_md.rs)。
+
+    默认 off:保留原纯字符串拼接注入(逐字节不变);设为 on/1/true/yes 时启用
+    AgentsMdState 状态机,内容变更发 REPLACEMENT、文件删除发 REMOVAL 通知。
+    """
+    return os.environ.get("IHUI_AGENTS_MD_STATE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _turn_token_usage_enabled_from_env() -> bool:
+    """turn token 直方图开关(对标 codex state/turn_token_usage.rs)。
+
+    默认 off:不产生任何新事件(逐字节等价);设为 on/1/true/yes 时按模型分组
+    聚合本轮用量并发出 turn_token_usage 指标事件。
+    """
+    return os.environ.get("IHUI_TURN_TOKEN_USAGE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_git_metadata_enabled_from_env() -> bool:
+    """git workspaces 元数据采集开关(模块1,对标 codex turn_metadata.rs git enrichment)。
+
+    默认 off:不采集 git 信息(逐字节等价);设为 on/1/true/yes 时于 turn telemetry
+    组装处采集 repo_root → {remote_urls 脱敏 / head hash / has_changes} 附加事件。
+    """
+    return os.environ.get("ENGINE_GIT_METADATA_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_thread_originator_enabled_from_env() -> bool:
+    """线程来源 originator 解析开关(模块2,对标 codex thread_manager.rs)。
+
+    默认 off:线程不持有 originator(逐字节等价);设为 on/1/true/yes 时于线程
+    创建/恢复处经 effective_originator_value 解析并归一挂到 thread。
+    """
+    return os.environ.get("ENGINE_THREAD_ORIGINATOR_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_installation_id_enabled_from_env() -> bool:
+    """安装实例 ID 纳入 telemetry 开关(模块3,read-only 不写文件)。
+
+    默认 off:不读取/不附加安装实例 ID(逐字节等价);设为 on/1/true/yes 时于
+    turn telemetry 处读取既有 installation_id 文件(若存在且合法)附加事件。
+    约束:绝不调用写文件的 resolve_installation_id,只读不创建。
+    """
+    return os.environ.get("ENGINE_INSTALLATION_ID_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_turn_metadata_enabled_from_env() -> bool:
+    """Codex 会话元数据键与请求元数据构建开关(模块4,对标 responses_metadata.rs)。
+
+    默认 off:不构建 Codex 元数据(逐字节等价);设为 on/1/true/yes 时于 turn
+    telemetry 处经 CodexResponsesMetadata 构建 client_metadata 投影附加事件。
+    """
+    return os.environ.get("ENGINE_TURN_METADATA_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_message_history_enabled_from_env() -> bool:
+    """批58 接线(对标 codex message_history.rs):宿主历史账本追加。
+
+    默认 off:不落任何历史文件(逐字节等价);设为 on/1/true/yes 且配置了
+    IHUI_MESSAGE_HISTORY_PATH 时,于 turn.start 落盘处追加(多进程安全)用户指令。
+    """
+    return os.environ.get("ENGINE_MESSAGE_HISTORY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_rollout_archive_enabled_from_env() -> bool:
+    """批58 接线(对标 codex rollout 压缩 worker):导出后冷文件归档。
+
+    默认 off:导出后不压缩(逐字节等价);设为 on/1/true/yes 时对同一目录下的
+    冷导出 *.jsonl 做 gzip 归档(原子写 + 保留 mtime,单文件失败不抛出)。
+    """
+    return os.environ.get("ENGINE_ROLLOUT_ARCHIVE_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_rollout_truncation_enabled_from_env() -> bool:
+    """批58 接线(对标 codex rollout truncation):导出按 turn_id 截断。
+
+    默认 off:导出全量(逐字节等价);设为 on/1/true/yes 且入参带
+    truncateAfterTurnId 时,只导出该 turn 及其之前的内容。
+    """
+    return os.environ.get("ENGINE_ROLLOUT_TRUNCATION_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_file_watcher_enabled_from_env() -> bool:
+    """批58 接线(对标 codex file_watcher.rs):文件变更事件路由。
+
+    默认 off:不持有路由器、不分发任何事件(逐字节等价);设为 on/1/true/yes 时
+    引擎持有 FileWatcherRouter,补丁落盘后把变更路径分发给命中订阅方。
+    仅启用纯路由层(订阅/分发),不启动轮询任务,不引入后台生命周期。
+    """
+    return os.environ.get("ENGINE_FILE_WATCHER_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _engine_feature_flags_enabled_from_env() -> bool:
+    """集中式特性开关注册表开关(模块5,对标 codex features crate)。
+
+    默认 off:引擎不咨询注册表,各特性判定走现有直读 env 路径(逐字节等价);
+    设为 on/1/true/yes 时于 initialize 处经注册表解析生效集并暴露给客户端。
+    """
+    return os.environ.get("ENGINE_FEATURE_FLAGS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 @dataclass
 class EngineThread:
     """引擎线程 = 持久会话(对话历史 + 状态机 + 待回填请求)。"""
@@ -454,6 +617,9 @@ class EngineThread:
     # 跨回合累计 session_tokens_used,达到 token_budget 即拒起新轮
     token_budget: int | None = None
     session_tokens_used: int = 0
+    # AGENTS.md 模型可见状态机(2026-09-20 批58,对标 codex agents_md.rs):
+    # 按 thread 持有,内容变更/删除经 maybe_fragment 增量通知,避免重复注入。
+    agents_md_state: AgentsMdState = field(default_factory=AgentsMdState)
     # 自动压缩(2026-09-18 第四批,对标 Codex compact_token_budget):
     # 每轮结束后估算 token 超阈值即确定性压缩(发 context.compacted, trigger=auto)
     auto_compact: bool = False
@@ -478,6 +644,14 @@ class EngineThread:
     # 回合净 diff 跟踪器(2026-09-19 第四十一批接线,对标 Codex TurnDiffTracker):
     # 补丁提交时累计净变更,inexact 即整体失效;turn.diff 优先取净 diff
     turn_diff_tracker: Any = None
+    # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+    # 默认 None(off,零行为变化);IHUI_RETAINED_CONTEXT_ENABLED=1 时每轮记录
+    # 已投递用户指令,压缩不过期它们,指令边界回滚才清除。
+    retained_context: RetainedContext | None = None
+    # 批58(接线):线程来源(originator)解析结果(对标 codex thread_manager.rs)。
+    # 默认 None(off,零行为变化);ENGINE_THREAD_ORIGINATOR_ENABLED=on 时于线程
+    # 创建/恢复处经 effective_originator_value 解析并归一挂到线程。
+    originator: str | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -562,6 +736,64 @@ def _resolve_approval_policy(policies: dict[str, str], tool_name: str) -> str | 
     return policies.get("*")
 
 
+# 批58(十五):工具审批策略 → codex AskForApproval 档位映射(对标 exec_policy.rs)。
+# ihui 值域 never/on-request/always;未配置等价"按需询问"(ON_REQUEST)。
+_APPROVAL_POLICY_TO_ASK: dict[str, str] = {
+    "never": "never",
+    "on-request": "on_request",
+    "always": "unless_trusted",
+}
+
+
+def _unmatched_command_decision_meta(
+    policies: dict[str, str], tool_name: str
+) -> dict[str, Any]:
+    """危险命令拦截回执的审批决策矩阵(对标 codex render_decision_for_unmatched_command)。
+
+    接线面:命令已命中危险分类器硬门(拦截行为不变),本函数只把"拦截背后的策略
+    语义"结构化进回执——
+    - decision: allow/prompt/forbidden(危险命令恒非 allow);
+    - approval_policy:生效策略档位;
+    - policy_reason:策略层禁止提示时的 codex 原文(如 never 档的 PROMPT_CONFLICT_REASON)。
+
+    任何异常/未知档位 → 返回空 dict(回执与接线前逐零差异),绝不放松拦截。
+    """
+    try:
+        from app.core.exec_policy_decision import (
+            AskForApproval,
+            Decision,
+            GranularApproval,
+            SandboxKind,
+            UnmatchedCommandContext,
+            prompt_is_rejected_by_policy,
+            render_decision_for_unmatched_command,
+        )
+
+        raw = _resolve_approval_policy(dict(policies or {}), tool_name) or ""
+        policy = AskForApproval(
+            _APPROVAL_POLICY_TO_ASK.get(str(raw).strip().lower(), "on_request")
+        )
+        decision = render_decision_for_unmatched_command(
+            True,
+            UnmatchedCommandContext(
+                approval_policy=policy,
+                granular=GranularApproval(),
+                sandbox_kind=SandboxKind.RESTRICTED,
+            ),
+        )
+        meta: dict[str, Any] = {
+            "decision": Decision(decision).value,
+            "approval_policy": policy.value,
+        }
+        if decision is Decision.FORBIDDEN:
+            reason = prompt_is_rejected_by_policy(policy, True)
+            if reason:
+                meta["policy_reason"] = reason
+        return meta
+    except Exception:  # noqa: BLE001 - 决策面失败绝不影响拦截本体
+        return {}
+
+
 # ---------------------------------------------------------------------------
 # 生成参数 / 推理配置 / 负向工具过滤(2026-09-18 第二批,对标 Codex model_reasoning
 # 与 per-app omit_tools_from 配置面):thread.start 可带 modelParams(白名单键 +
@@ -610,6 +842,11 @@ BUILTIN_ENGINE_TOOLS: tuple[str, ...] = (
     "apply_patch",
     "run_code",
     "web_search",
+    "new_context",
+    "clock_sleep",
+    "clock_curr_time",
+    "send_message_to_user_async",
+    "request_user_input_async",
 )
 # 子代理嵌套深度上限(spawn_subagent 防递归失控)
 _MAX_SUBAGENT_DEPTH = 2
@@ -1540,6 +1777,15 @@ class AgentEngine:
         # 连接级文件监视订阅(2026-09-20 批 50,对标 codex fs/watch):
         # watchId → 扫描任务,与线程级 _workspace_watchers 互不相干
         self._fs_watchers: dict[str, asyncio.Task[None]] = {}
+        # 批58 接线:文件变更事件路由器(纯路由层,惰性创建;off 时恒为 None)
+        self._file_watcher_router: Any = None
+        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # 注册已知特性(含本批各 env 开关);off 时引擎不咨询注册表,判定路径与
+        # 现状逐字节一致;on 时经注册表解析生效集(见 _resolve_engine_features)。
+        self._feature_registry: Any = self._build_feature_registry()
+        # 安装实例 ID 读取目录(模块3,read-only;不写文件)。
+        # 仅当配置 IHUI_INSTALLATION_ID_DIR 且文件存在时才纳入 telemetry;否则跳过。
+        self._installation_id_dir: str | None = os.environ.get("IHUI_INSTALLATION_ID_DIR")
         self._handlers: dict[str, Callable[[dict[str, Any], Emitter], Any]] = {
             "engine.initialize": self._handle_initialize,
             "engine.ping": self._handle_ping,
@@ -1762,6 +2008,18 @@ class AgentEngine:
             store.append_item(
                 turn.turn_id, UserMessageItem(content=user_text), thread_id=thread.thread_id
             )
+            # 批58:宿主历史账本追加(需同时开开关并配路径;失败仅告警)
+            if _engine_message_history_enabled_from_env():
+                hist_path = os.environ.get("IHUI_MESSAGE_HISTORY_PATH", "").strip()
+                if hist_path:
+                    try:
+                        from app.core.message_history import append_history
+
+                        append_history(
+                            Path(hist_path), thread.session_id or thread.thread_id, user_text
+                        )
+                    except Exception as e:  # noqa: BLE001 - 账本失败不阻断持久化
+                        logger.warning("[engine] message_history 追加失败(降级跳过): %s", e)
             thread.current_turn_id = turn.turn_id
             return turn.turn_id
         except Exception as e:
@@ -1845,7 +2103,7 @@ class AgentEngine:
                 thread_id=thread_id,
                 session_id=str(md.get("sessionId") or thread_id),
                 model=md.get("model") if isinstance(md.get("model"), str) else None,
-                permission_mode=str(md.get("permissionMode") or "default"),
+                permission_mode=_require_permission_mode(md.get("permissionMode")),
                 max_iterations=int(md.get("maxIterations") or 8),
                 tool_names=list(md["toolNames"]) if isinstance(md.get("toolNames"), list) else None,
                 workspace=md.get("workspace") if isinstance(md.get("workspace"), str) else None,
@@ -1879,6 +2137,29 @@ class AgentEngine:
             if md.get("role") in _AGENT_ROLE_TEMPLATES:
                 thread.role = str(md["role"])
             self._threads[thread_id] = thread
+            # 批58(接线):线程来源 originator 恢复(模块2)。off → None;on →
+            # 优先取持久化 metadata 中的 originator,否则按现来源默认。
+            if _engine_thread_originator_enabled_from_env():
+                try:
+                    persisted = (
+                        str(md["originator"])
+                        if isinstance(md.get("originator"), str)
+                        else None
+                    )
+                    svc = (
+                        str(md["serviceName"])
+                        if isinstance(md.get("serviceName"), str)
+                        else None
+                    )
+                    thread.originator = effective_originator_value(
+                        originator_from_service_name(svc) if svc else None,
+                        None,
+                        persisted,
+                        None,
+                        "ihui_engine",
+                    )
+                except Exception as e:  # noqa: BLE001 - 恢复失败降级不挂
+                    logger.warning("thread originator 恢复失败(降级跳过): %s", e)
             logger.info(
                 "[engine] thread restored from store %s (items=%s)", thread_id, t.item_count
             )
@@ -1909,7 +2190,7 @@ class AgentEngine:
         self, params: dict[str, Any], emit: Emitter
     ) -> dict[str, Any]:
         """能力握手:声明协议版本与全部能力(客户端据此决定可用方法集)。"""
-        return {
+        resp: dict[str, Any] = {
             "protocolVersion": PROTOCOL_VERSION,
             "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
             "capabilities": {
@@ -1954,6 +2235,14 @@ class AgentEngine:
                 "压缩时决策链保留(thread.state.compactionEvents)",
             ],
         }
+        # 批58 接线:集中式特性开关注册表(模块5,对标 codex features crate)。
+        # off 时不咨询注册表(判定路径与现状逐字节一致);on 时把解析生效集经
+        # capabilities.featureFlags 暴露给客户端(仅 on 时新增该键)。
+        if _engine_feature_flags_enabled_from_env():
+            flags = self._resolve_engine_features()
+            if flags:
+                resp["capabilities"]["featureFlags"] = flags
+        return resp
 
     async def _handle_ping(self, params: dict[str, Any], emit: Emitter) -> dict[str, Any]:
         return {"pong": True, "time": time.time(), "threads": len(self._threads)}
@@ -2017,28 +2306,19 @@ class AgentEngine:
                 f"{messages[0]['content']}\n\n[角色模板] {_AGENT_ROLE_TEMPLATES[role]}"
             )
         # 项目文档注入(2026-09-19 第二十八批,对标 Codex agents_md.rs discovery):
-        # workspace 内从项目根(.git 标记)到 cwd 逐层收集 AGENTS.md 拼入 system;
-        # AGENTS.override.md 优先;32KiB 字节预算截断;失败静默降级不阻塞开线程。
+        # 实际注入逻辑见 _inject_agents_md(批58 状态机增量注入开关);thread 构造后调用。
         _agents_workspace = params.get("workspace")
-        if isinstance(_agents_workspace, str) and _agents_workspace.strip():
-            with contextlib.suppress(Exception):
-                from app.core.agents_md import load_project_instructions
-
-                _agents_md = load_project_instructions(_agents_workspace)
-                if not _agents_md.is_empty():
-                    messages[0]["content"] = (
-                        f"{messages[0]['content']}\n\n[项目文档 AGENTS.md]\n{_agents_md.content}"
-                    )
         thread = EngineThread(
             thread_id=thread_id,
             session_id=str(params.get("sessionId") or thread_id),
             model=params.get("model") if isinstance(params.get("model"), str) else None,
-            permission_mode=str(params.get("permissionMode") or "default"),
+            permission_mode=_require_permission_mode(params.get("permissionMode")),
             max_iterations=int(params.get("maxIterations") or 8),
             tool_names=list(tool_names) if isinstance(tool_names, list) else None,
             workspace=params.get("workspace")
             if isinstance(params.get("workspace"), str)
             else None,
+            # userId 已在承载层被绑定为已验证身份(routers/engine.py::_bind_principal)
             user_id=params.get("userId") if isinstance(params.get("userId"), str) else None,
             conversation_id=params.get("conversationId")
             if isinstance(params.get("conversationId"), str)
@@ -2057,6 +2337,34 @@ class AgentEngine:
             messages=messages,
         )
         self._threads[thread_id] = thread
+        # 批58(接线):线程来源 originator 解析(模块2,对标 codex thread_manager.rs)。
+        # off → None(零行为变化);on → 经 effective_originator_value 解析并挂到 thread。
+        if _engine_thread_originator_enabled_from_env():
+            try:
+                thread.originator = effective_originator_value(
+                    str(params["serviceName"])
+                    if isinstance(params.get("serviceName"), str)
+                    else None,
+                    str(params["originator"])
+                    if isinstance(params.get("originator"), str)
+                    else None,
+                    None,
+                    None,
+                    "ihui_engine",
+                )
+            except Exception as e:  # noqa: BLE001 - 解析失败降级不挂
+                logger.warning("thread originator 解析失败(降级跳过): %s", e)
+        # 批58(接线):retained context 宿主事实账本(对标 codex retained_context.rs)。
+        # off → None(零行为变化);on → 线程持有账本,每轮记录已投递用户指令。
+        if os.environ.get("IHUI_RETAINED_CONTEXT_ENABLED", "false").strip().lower() in (
+            "on", "1", "true", "yes",
+        ):
+            try:
+                thread.retained_context = RetainedContext()
+            except Exception as e:  # noqa: BLE001 - 构造失败降级不启用
+                logger.warning("retained_context 构造失败(降级不启用): %s", e)
+        # 项目文档注入(批58 状态机增量注入开关):开关 off 时与原纯字符串拼接逐字节等价。
+        self._inject_agents_md(thread)
         # 固化起始请求的出站通道:workspace watcher 等引擎自产事件在无活动
         # prompt 时也有推送目标(prompt 轮内会被 _run_prompt_turn 刷新)。
         thread.emit = emit
@@ -2187,6 +2495,21 @@ class AgentEngine:
         # Turn Timing(2026-09-18 第四批,对标 Codex turn_timing)
         turn_started_at = time.time()
         thread.last_turn_timing = {"startedAt": turn_started_at}
+        # 批58(接线):retained context 记录(对标 codex retained_context.rs)。
+        # 每轮把已投递用户指令存入宿主账本(模型不可见;压缩不过期,指令边界
+        # 回滚才清除)。off/None/异常均零行为变化,不阻塞回合。
+        if thread.retained_context is not None and text.strip():
+            try:
+                thread.retained_context.record_user_message(
+                    RetainedUserMessage(
+                        turn_id=thread.current_turn_id or str(uuid.uuid4().hex),
+                        message_id=f"{thread.thread_id}:{int(turn_started_at * 1000)}",
+                        text=text,
+                        complete=True,
+                    )
+                )
+            except Exception as e:  # noqa: BLE001 - 记录失败降级跳过
+                logger.warning("retained_context 记录失败(降级跳过): %s", e)
         before_files = await self._workspace_dirty_files(thread)
         # 非 git 工作区兜底:回合前 mtime 快照(第十四批,对标 Codex 在无 git
         # 仓库下仍能给出回合变更清单;上限 2000 项,失败静默降级为空)
@@ -2554,6 +2877,54 @@ class AgentEngine:
                 await self._emit_engine_event(
                     thread, emit, "turn.usage", dict(payload.get("usage") or {})
                 )
+            # turn_token_usage 直方图(批58,对标 codex state/turn_token_usage.rs):
+            # 开关 on 时按模型分组聚合本轮用量并逐样本发指标事件;off 时不产生
+            # 任何新事件(逐字节等价)。分桶数据取自逐迭代精确 usage,无精确
+            # 分项时只用总量(不伪造分项,与 _turn_usage 同原则)。
+            if _turn_token_usage_enabled_from_env():
+                with contextlib.suppress(Exception):
+                    from app.core.turn_token_usage import TurnTokenUsage
+
+                    ledger = TurnTokenUsage()
+                    for it in getattr(result, "iterations", []) or []:
+                        # iterations 元素双形态:LoopIteration dataclass 或 dict
+                        # (测试替身/历史序列化形态),统一取值。
+                        if isinstance(it, dict):
+                            usage = it.get("usage")
+                            it_model = it.get("model")
+                        else:
+                            usage = getattr(it, "usage", None)
+                            it_model = getattr(it, "model", None)
+                        if not (isinstance(usage, dict) and usage):
+                            continue
+                        model = str(it_model or thread.model or "default")
+                        ledger.record(
+                            model,
+                            telemetry={"model": model},
+                            total_tokens=int(usage.get("total_tokens", 0) or 0),
+                            input_tokens=int(usage.get("input_tokens", 0) or 0),
+                            cached_input_tokens=int(
+                                usage.get("cached_input_tokens", 0)
+                                or usage.get("cached_tokens", 0)
+                                or 0
+                            ),
+                            output_tokens=int(usage.get("output_tokens", 0) or 0),
+                        )
+                    # 无任何精确分项:仅总量一枚样本,挂 fallback telemetry。
+                    fallback = (
+                        {"model": thread.model or "default"} if thread.model else None
+                    )
+                    for sample in ledger.samples(fallback):
+                        await self._emit_engine_event(
+                            thread,
+                            emit,
+                            "turn_token_usage",
+                            sample,
+                        )
+            # 批58 接线(模块1/3/4):turn 元数据/telemetry 组装增强。
+            # off 时整体零行为(逐字节等价);on 时经各自 env 开关采集并附加事件;
+            # 异常由各子方法隔离,主流程照常返回 payload。
+            await self._enrich_turn_telemetry(thread, emit)
             return payload
         finally:
             elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
@@ -2659,6 +3030,316 @@ class AgentEngine:
         if per_iteration:
             out["perIteration"] = per_iteration
         return out
+
+    # ------------------------------------------------------------------
+    # 批58 接线:5 个模块的 turn 元数据/telemetry 组装与特性注册表
+    # (默认全部 off,与现状逐字节等价;on 时经各自 env 开关生效;异常隔离)
+    # ------------------------------------------------------------------
+
+    def _build_feature_registry(self) -> Any:
+        """构建集中式特性注册表(模块5,对标 codex features crate)。
+
+        注册本仓已知特性(含批58 各 env 开关),供 ENGINE_FEATURE_FLAGS_ENABLED
+        开启时统一解析生效集;构造失败降级为 None(不阻塞引擎启动)。
+        """
+        try:
+            reg = FeatureRegistry()
+            reg.register(
+                FeatureSpec(
+                    key="agents_md_state",
+                    stage="stable",
+                    default=False,
+                    description="AGENTS.md 状态机增量注入",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="turn_token_usage",
+                    stage="stable",
+                    default=False,
+                    description="turn token 直方图",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="retained_context",
+                    stage="stable",
+                    default=False,
+                    description="宿主事实账本",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="git_metadata",
+                    stage="experimental",
+                    default=False,
+                    experimental_menu_name="Git 元数据",
+                    experimental_menu_description="git workspaces 元数据采集",
+                    description="git workspaces 元数据采集",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="thread_originator",
+                    stage="stable",
+                    default=False,
+                    description="线程来源解析",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="installation_id",
+                    stage="stable",
+                    default=False,
+                    description="安装实例 ID",
+                )
+            )
+            reg.register(
+                FeatureSpec(
+                    key="turn_metadata",
+                    stage="stable",
+                    default=False,
+                    description="Codex 会话元数据",
+                )
+            )
+            return reg
+        except Exception as e:  # noqa: BLE001 - 注册失败降级(off 路径不受限)
+            logger.warning("特性注册表构建失败(降级为 None): %s", e)
+            return None
+
+    def _resolve_engine_features(
+        self, overrides: dict[str, bool] | None = None
+    ) -> dict[str, bool] | None:
+        """经注册表解析生效集(模块5)。
+
+        off(ENGINE_FEATURE_FLAGS_ENABLED 未开)直接返回 None,引擎沿用现有直读
+        env 判定路径(逐字节一致);on 时返回解析生效集,任何未知/非法 env 均
+        被捕获降级为 None(不阻塞握手)。
+        """
+        if not _engine_feature_flags_enabled_from_env():
+            return None
+        reg = self._feature_registry
+        if reg is None:
+            return None
+        try:
+            resolved = reg.resolve_features(overrides or {}, env=os.environ)
+            return cast("dict[str, bool] | None", resolved)
+        except Exception as e:  # noqa: BLE001 - 解析失败降级
+            logger.warning("特性注册表解析失败(降级返回 None): %s", e)
+            return None
+
+    async def _enrich_turn_telemetry(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """批58 接线(模块1/3/4):turn 元数据/telemetry 组装增强。
+
+        仅当各自 env 开关 on 时分别采集并附加到 turn telemetry;off 时整体零
+        行为(逐字节等价)。任一模块抛异常均被各自子方法隔离,主流程照常返回。
+        """
+        if _engine_git_metadata_enabled_from_env():
+            await self._emit_git_metadata_event(thread, emit)
+        if _engine_installation_id_enabled_from_env():
+            await self._emit_installation_id_event(thread, emit)
+        if _engine_turn_metadata_enabled_from_env():
+            await self._emit_codex_metadata_event(thread, emit)
+
+    async def _emit_git_metadata_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块1:采集 git workspaces 元数据并附加 turn.git_metadata 事件。
+
+        collect_git_workspaces 本身对 git 失败静默降级返回空;此处再包一层
+        try/except 隔离非预期异常(logger.warning 降级跳过,绝不阻塞)。
+        """
+        try:
+            cwd = thread.workspace or os.getcwd()
+            snapshot = collect_git_workspaces(cwd)
+            if not snapshot:
+                return
+            value = workspaces_to_metadata_value(snapshot)
+            if value:
+                await self._emit_engine_event(
+                    thread, emit, "turn.git_metadata", {"workspaces": value}
+                )
+        except Exception as e:  # noqa: BLE001 - 采集失败降级跳过
+            logger.warning("git 元数据采集失败(降级跳过): %s", e)
+
+    async def _emit_installation_id_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块3:读取既有 installation_id 文件(read-only)并附加 turn.installation_id 事件。
+
+        约束:绝不调用写文件的 resolve_installation_id;仅当 IHUI_INSTALLATION_ID_DIR
+        配置且文件存在且内容为合法 UUID 时才附加;任何失败均降级跳过。
+        """
+        try:
+            base_dir = self._installation_id_dir
+            if not base_dir:
+                return
+            path = Path(base_dir) / INSTALLATION_ID_FILENAME
+            if not path.is_file():
+                return
+            raw = path.read_text(encoding="utf-8", errors="replace").strip()
+            try:
+                inst_id = str(uuid.UUID(raw))
+            except (ValueError, AttributeError):
+                return
+            await self._emit_engine_event(
+                thread, emit, "turn.installation_id", {"installationId": inst_id}
+            )
+        except Exception as e:  # noqa: BLE001 - 读取失败降级跳过
+            logger.warning("installation_id 读取失败(降级跳过): %s", e)
+
+    async def _emit_codex_metadata_event(
+        self, thread: EngineThread, emit: Emitter | None
+    ) -> None:
+        """模块4:经 CodexResponsesMetadata 构建请求元数据(client_metadata 投影)并附加事件。
+
+        installation_id 真实值由模块3 独立提供;此处仅构建会话元数据键与投影。
+        任何失败均降级跳过,绝不阻塞主流程。
+        """
+        try:
+            meta = CodexResponsesMetadata.new(
+                installation_id="",
+                session_id=thread.session_id,
+                thread_id=thread.thread_id,
+                window_id="",
+            )
+            meta.request_kind = CodexResponsesRequestKind("turn")
+            client = meta.client_metadata()
+            await self._emit_engine_event(
+                thread, emit, "turn.codex_metadata", client
+            )
+        except Exception as e:  # noqa: BLE001 - 构建失败降级跳过
+            logger.warning("Codex 会话元数据构建失败(降级跳过): %s", e)
+
+    def _file_watcher_router_or_none(self) -> Any | None:
+        """批58:取文件变更事件路由器;off 或构造失败返回 None(惰性,零副作用)。"""
+        if not _engine_file_watcher_enabled_from_env():
+            return None
+        if self._file_watcher_router is None:
+            try:
+                from app.core.file_watcher import FileWatcherRouter
+
+                self._file_watcher_router = FileWatcherRouter()
+            except Exception as e:  # noqa: BLE001 - 构造失败降级不路由
+                logger.warning("file_watcher 路由器构造失败(降级不路由): %s", e)
+                return None
+        return self._file_watcher_router
+
+    def subscribe_file_changes(self, paths: list[str]) -> Any | None:
+        """批58:订阅文件变更(off 返回 None;调用方需判空)。"""
+        router = self._file_watcher_router_or_none()
+        if router is None:
+            return None
+        try:
+            return router.subscribe(paths)
+        except Exception as e:  # noqa: BLE001 - 订阅失败降级返回 None
+            logger.warning("file_watcher 订阅失败(降级返回 None): %s", e)
+            return None
+
+    def dispatch_file_change(self, paths: list[str]) -> int:
+        """批58:把变更路径分发给命中订阅方;off 恒为 0,异常降级 0。"""
+        router = self._file_watcher_router_or_none()
+        if router is None or not paths:
+            return 0
+        try:
+            from app.core.file_watcher import FileWatcherEvent
+
+            return int(router.dispatch(FileWatcherEvent(paths=tuple(paths))))
+        except Exception as e:  # noqa: BLE001 - 分发失败降级 0
+            logger.warning("file_watcher 分发失败(降级返回 0): %s", e)
+            return 0
+
+    def reset_agents_md_state(self, thread: EngineThread) -> None:
+        """重置 thread 的 AGENTS.md 状态机(压缩后强制重注入;批58,异常隔离)。"""
+        with contextlib.suppress(Exception):
+            thread.agents_md_state.reset()
+
+    def retained_context_entries(self, thread: EngineThread) -> list[dict[str, Any]]:
+        """读线程宿主事实账本的用户指令条目(批58,off/None 返回空;异常隔离)。
+
+        对标 codex retained_context.rs:宿主持有的模型不可见事实,供委托审查
+        与诊断;不经模型上下文暴露,仅服务端/管理面可读。
+        """
+        if thread.retained_context is None:
+            return []
+        try:
+            return [
+                {"message_id": e.value.message_id, "text": e.value.text}
+                for e in thread.retained_context.user_messages
+            ]
+        except Exception:  # noqa: BLE001 - 读取失败降级为空
+            return []
+
+    def rollback_retained_context(
+        self, thread: EngineThread, turn_ids: list[str]
+    ) -> bool:
+        """指令边界回滚:按原用户消息边界清除账本条目(批58,异常隔离)。
+
+        对标 codex retained_context.rs::rollback —— 指令边界回滚(如 queue
+        回退/线程分支)时清除其后的事实;压缩不过期它们。
+        """
+        if thread.retained_context is None:
+            return False
+        try:
+            thread.retained_context.rollback(list(turn_ids), None)
+            return True
+        except Exception:  # noqa: BLE001 - 回滚失败降级
+            return False
+
+    def _inject_agents_md(self, thread: EngineThread) -> None:
+        """项目文档 AGENTS.md 注入(2026-09-20 批58,对标 codex agents_md.rs)。
+
+        双模式:
+        - 开关 off(IHUI_AGENTS_MD_STATE_ENABLED 未开启,默认):沿用原纯字符串
+          拼接,与接线前逐字节等价;但注入后同步记录 thread.agents_md_state
+          快照,保证后续升级开关时状态连续。
+        - 开关 on:AgentsMdState 状态机增量注入——首次有内容发普通片段,同内容
+          不再注入,内容变更发 REPLACEMENT 通知,文件删除发 REMOVAL 通知;
+          片段正文原样采用 agents_md_state 产出,不再自拼 [项目文档 AGENTS.md]。
+        失败静默降级不阻塞开线程(与原实现同规格)。
+        """
+        workspace = thread.workspace
+        if not (isinstance(workspace, str) and workspace.strip()):
+            return
+        try:
+            from app.core.agents_md import load_project_instructions
+
+            md = load_project_instructions(workspace)
+            has_text = not md.is_empty()
+            text = md.content if has_text else None
+            if not _agents_md_state_enabled_from_env():
+                # 关闭态:原逻辑逐字节等价(有内容才拼接)。
+                if has_text:
+                    thread.messages[0]["content"] = (
+                        f"{thread.messages[0]['content']}\n\n"
+                        f"[项目文档 AGENTS.md]\n{md.content}"
+                    )
+                    with contextlib.suppress(Exception):
+                        # 记录快照保持状态连续(仅内存,不影响行为)。
+                        thread.agents_md_state.maybe_fragment(workspace, md.content)
+                return
+            # 开启态:状态机决定本轮注入内容。
+            from app.core.agents_md_state import (
+                build_agents_md_fragment,
+                build_agents_md_removal_fragment,
+                build_agents_md_replacement_fragment,
+            )
+
+            frag = thread.agents_md_state.maybe_fragment(workspace, text)
+            if frag is None:
+                return
+            rendered = frag["content"][0]["text"]
+            thread.messages[0]["content"] = (
+                f"{thread.messages[0]['content']}\n\n{rendered}"
+            )
+            # 增量语义已由状态机承载;构建函数仅在需要独立产出片段时使用,
+            # 此处保留引用以防未来需要"片段化注入"(不参与运行时)。
+            _ = (build_agents_md_fragment, build_agents_md_replacement_fragment,
+                 build_agents_md_removal_fragment)
+        except Exception as exc:  # noqa: BLE001 - 降级不阻塞开线程
+            logger.warning("AGENTS.md 注入异常(降级跳过): %s", exc)
 
     async def _handle_thread_interrupt(
         self, params: dict[str, Any], emit: Emitter
@@ -3027,6 +3708,28 @@ class AgentEngine:
                 lines.append(
                     json.dumps({"type": "message", **m}, ensure_ascii=False, default=str)
                 )
+        # 批58:ENGINE_ROLLOUT_TRUNCATION_ENABLED on 时按 truncateAfterTurnId 截断导出
+        if _engine_rollout_truncation_enabled_from_env():
+            cut_at = params.get("truncateAfterTurnId")
+            if isinstance(cut_at, str) and cut_at.strip():
+                try:
+                    from app.core.rollout_truncation import truncate_after_turn_id
+
+                    records: list[dict[str, Any]] = []
+                    for ln in lines:
+                        with contextlib.suppress(json.JSONDecodeError):
+                            records.append(json.loads(ln))
+                    if records:
+                        cut = truncate_after_turn_id(
+                            records,
+                            cut_at.strip(),
+                            lambda r: r.get("turn_id") if isinstance(r, dict) else None,
+                        )
+                        lines = [
+                            json.dumps(r, ensure_ascii=False, default=str) for r in cut
+                        ]
+                except Exception as e:  # noqa: BLE001 - 截断失败降级导出全量
+                    logger.warning("[engine] 导出截断失败(降级导出全量): %s", e)
         path = params.get("path")
         written: str | None = None
         if isinstance(path, str) and path.strip():
@@ -3034,6 +3737,14 @@ class AgentEngine:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("\n".join(lines) + "\n", encoding="utf-8")
             written = str(target)
+            # 批58:导出后对同目录冷导出做 gzip 归档(仅 on 时)
+            if _engine_rollout_archive_enabled_from_env():
+                try:
+                    from app.core.rollout_archive import compress_cold_exports
+
+                    compress_cold_exports(target.parent, marker_dir=target.parent)
+                except Exception as e:  # noqa: BLE001 - 归档失败不阻断导出
+                    logger.warning("[engine] 冷导出归档失败(降级跳过): %s", e)
         return {
             "threadId": thread.thread_id,
             "format": "jsonl",
@@ -3532,11 +4243,10 @@ class AgentEngine:
             or auto_compact_threshold <= 0
         ):
             raise JsonRpcError(INVALID_PARAMS, "autoCompactThreshold 须为正整数")
-        permission_mode = settings.get("permissionMode")
-        if permission_mode is not None and (
-            not isinstance(permission_mode, str) or not permission_mode
-        ):
-            raise JsonRpcError(INVALID_PARAMS, "permissionMode 须为非空字符串")
+        permission_mode_raw = settings.get("permissionMode")
+        permission_mode = (
+            None if permission_mode_raw is None else _require_permission_mode(permission_mode_raw)
+        )
         model_params = settings.get("modelParams")
         if model_params is not None and not isinstance(model_params, dict):
             raise JsonRpcError(INVALID_PARAMS, "modelParams 须为对象")
@@ -4216,6 +4926,11 @@ class AgentEngine:
             "apply_patch": self._apply_patch_tool,
             "run_code": self._run_code_tool,
             "web_search": self._web_search_tool,
+            "new_context": self._new_context_tool,
+            "clock_sleep": self._clock_sleep_tool,
+            "clock_curr_time": self._clock_curr_time_tool,
+            "send_message_to_user_async": self._send_message_to_user_async_tool,
+            "request_user_input_async": self._request_user_input_async_tool,
         }
         definitions: list[Any] = []
         for name in BUILTIN_ENGINE_TOOLS:
@@ -4447,6 +5162,34 @@ class AgentEngine:
                         f"{prepared.source_width}x{prepared.source_height}"
                         f"->{prepared.width}x{prepared.height}"
                     )
+                    # 批 58 接线:缩放事实以 developer 片段回灌历史(对标 codex
+                    # image_resize_notice.rs——模型须知道看到的非原图,防误判细节)。
+                    # tool output 来源;append 进 loop 消息流,异常静默降级。
+                    try:
+                        from app.core.image_preparation import (
+                            ResizedImage,
+                            build_image_resize_notice_fragment,
+                        )
+                        _frag = build_image_resize_notice_fragment(
+                            [
+                                ResizedImage(
+                                    image_number=1,
+                                    image_count=1,
+                                    source_width=prepared.source_width,
+                                    source_height=prepared.source_height,
+                                    prepared_width=prepared.width,
+                                    prepared_height=prepared.height,
+                                )
+                            ],
+                            source="tool output",
+                        )
+                        _loop = thread.loop
+                        if _frag is not None and _loop is not None:
+                            _msgs = getattr(_loop, "_messages", None)
+                            if isinstance(_msgs, list):
+                                _msgs.append(_frag)
+                    except Exception:
+                        pass
             except Exception:
                 prepared_note = ""
             with contextlib.suppress(Exception):
@@ -4709,6 +5452,11 @@ class AgentEngine:
                     {"path": rel, "action": "unchanged", "changed": False}
                 )
             changed_files = [r for r in results if r.get("changed")]
+            # 批58:ENGINE_FILE_WATCHER_ENABLED on 时把本次变更路径分发给订阅方
+            if _engine_file_watcher_enabled_from_env():
+                self.dispatch_file_change(
+                    [str((base / str(r.get("path", ""))).resolve()) for r in changed_files]
+                )
             thread.touch()
             # 批 41 接线:补丁提交进回合净 diff 跟踪器(对标 Codex TurnDiffTracker;
             # tracker 初始化/记录失败降级跳过,不影响补丁主链路)。
@@ -5289,9 +6037,12 @@ class AgentEngine:
             command = args.get("command")
             if not isinstance(command, str) or not command.strip():
                 return {"error": "unified_exec 需要非空 command"}
-            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety):
-            # 新建会话的首条命令经分类器判定;命中即拦截并回执分级说明,
-            # 模型须向用户明确确认后才允许重试(升级审批,不静默放行)
+            # 危险命令硬门(2026-09-19 第二十一批,对标 codex command_safety;
+            # 批 58 补齐 stdin_approval 语义:续用 sessionId 写 stdin 的命令
+            # 与新会话首条命令同门复查——在跑进程的沙箱不变,但命令本身
+            # 必须逐条过分类器,防借持久会话绕过首条硬门):
+            # 命中即拦截并回执分级说明,模型须向用户明确确认后才允许重试
+            # (升级审批,不静默放行)
             try:
                 _tokens = shlex.split(command)
             except ValueError:
@@ -5299,13 +6050,30 @@ class AgentEngine:
             _hit = _dangerous_command_match(_tokens)
             if _hit is not None:
                 label = "强制删除(rm 系 force 旗标)" if _hit == "forced_rm" else "高危操作"
-                return {
-                    "error": (
+                # 批58(十五):把拦截背后的审批决策矩阵结构化进回执(对标 codex
+                # exec_policy.rs render_decision_for_unmatched_command)。决策=
+                # forbidden(never 档:策略层禁提示)时文案升级为"策略禁止",不再
+                # 引导模型走用户确认;决策=prompt 时维持既有"先确认再重试"语义。
+                _decision = _unmatched_command_decision_meta(
+                    thread.approval_policies, "unified_exec"
+                )
+                _forbidden = _decision.get("decision") == "forbidden"
+                if _forbidden:
+                    _reason = _decision.get("policy_reason") or "策略禁止提示用户审批"
+                    _msg = (
+                        f"命令被安全分类器拦截:判定为{label}({_hit}),且当前审批策略"
+                        f"(approval_policy=never)禁止向用户申请放行({_reason})。"
+                        "该命令在本会话内不可执行;若确需执行,请先调整审批策略。"
+                    )
+                else:
+                    _msg = (
                         f"命令被安全分类器拦截:判定为{label}({_hit})。"
                         "如确属用户明确要求的操作,请先向用户复述风险并获得确认,"
                         "再由用户在宿主审批后以等效但明确的方式执行。"
-                    ),
-                    "safety": {"classification": _hit},
+                    )
+                return {
+                    "error": _msg,
+                    "safety": {"classification": _hit, **_decision},
                 }
             _prune_sessions()
             session_id = args.get("sessionId")
@@ -5404,6 +6172,279 @@ class AgentEngine:
                 "受线程工具审批策略约束;会话空闲超时自动回收。"
             ),
             parameters=parameters,
+            executor=_exec,
+        )
+
+    def _new_context_tool(self, thread: EngineThread) -> Any:
+        """new_context:模型主动放弃摘要直接开新上下文窗口(批58,对标 Codex
+        tools/handlers/new_context_window.rs)。设置 loop 标志,压缩走不摘要截断分支。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            thread.touch()
+            loop = thread.loop
+            if loop is not None:
+                # 批58 接线:标记请求开新窗;_maybe_compact_context 见标志跳过摘要压缩
+                with contextlib.suppress(Exception):
+                    setattr(loop, "_new_context_window_requested", True)
+            return {"status": "context_window_requested"}
+
+        return ToolDefinition(
+            name="new_context",
+            description=(
+                "Start a new context window. Does not clear, reset, or otherwise "
+                "affect environment state."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _clock_sleep_tool(self, thread: EngineThread) -> Any:
+        """clock_sleep:模型可调用等待(批58,对标 Codex tools/handlers/sleep.rs);
+        新输入(steer/queue)提前唤醒,返回实际 wall-clock。"""
+        import asyncio as _asyncio
+
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            duration_ms = args.get("duration_ms")
+            if not isinstance(duration_ms, (int, float)) or isinstance(duration_ms, bool):
+                return {"error": "duration_ms must be a number", "slept_ms": 0, "interrupted": False}
+            if not (1 <= duration_ms <= 12 * 60 * 60 * 1000):
+                return {
+                    "error": f"duration_ms must be between 1 and {12 * 60 * 60 * 1000}",
+                    "slept_ms": 0,
+                    "interrupted": False,
+                }
+            loop = thread.loop
+            wake_event: asyncio.Event | None = getattr(
+                loop, "steer_wake_event", None
+            ) if loop is not None else None
+            started = time.monotonic()
+            interrupted = False
+            try:
+                if wake_event is not None:
+                    wake_task = _asyncio.ensure_future(wake_event.wait())
+                    sleep_task = _asyncio.ensure_future(
+                        _asyncio.sleep(duration_ms / 1000.0)
+                    )
+                    done, _pending = await _asyncio.wait(
+                        {wake_task, sleep_task},
+                        return_when=_asyncio.FIRST_COMPLETED,
+                    )
+                    interrupted = wake_task in done and wake_event.is_set()
+                    for t in (wake_task, sleep_task):
+                        if t not in done:
+                            t.cancel()
+                    with contextlib.suppress(Exception):
+                        await _asyncio.wait(
+                            [t for t in (wake_task, sleep_task) if not t.done()],
+                            timeout=1,
+                        )
+                else:
+                    await _asyncio.sleep(duration_ms / 1000.0)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+            slept_ms = round((time.monotonic() - started) * 1000)
+            thread.touch()
+            return {"slept_ms": slept_ms, "interrupted": interrupted}
+
+        return ToolDefinition(
+            name="clock_sleep",
+            description=(
+                "Pause execution for a specified duration. The sleep ends early when "
+                "new input arrives for the active turn. Returns the elapsed "
+                "wall-clock time."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "duration_ms": {
+                        "type": "number",
+                        "description": (
+                            "How long to sleep in milliseconds. Must be between 1 "
+                            f"and {12 * 60 * 60 * 1000}."
+                        ),
+                    }
+                },
+                "required": ["duration_ms"],
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _clock_curr_time_tool(self, thread: EngineThread) -> Any:
+        """clock_curr_time:模型主动查询当前时间(批58,对标 Codex
+        tools/handlers/current_time.rs);输出 "YYYY-MM-DD HH:MM:SS UTC"。"""
+        from datetime import datetime, timezone as _tz
+
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            now = datetime.now(_tz.utc)
+            thread.touch()
+            return {
+                "current_time": now.strftime("%Y-%m-%d %H:%M:%S") + " UTC",
+                "timezone": "UTC",
+            }
+
+        return ToolDefinition(
+            name="clock_curr_time",
+            description="Return the current time in UTC.",
+            parameters={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _send_message_to_user_async_tool(self, thread: EngineThread) -> Any:
+        """send_message_to_user_async:长任务不打断轮次主动告知用户(批58,对标
+        Codex tools/handlers/send_message_to_user_async.rs);立即返回 {"accepted": true},
+        消息经 elicitation 通知通道投递,回复经 thread.enqueue 作为新用户消息到达。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            message = args.get("message")
+            if not isinstance(message, str) or not message.strip():
+                return {"error": "message must not be empty"}
+            thread.touch()
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "user_message_async",
+                        "params": {
+                            "threadId": thread.thread_id,
+                            "message": message.strip(),
+                        },
+                    }
+                )
+            except Exception:
+                logger.warning(
+                    "send_message_to_user_async 通知投递失败(降级,不阻塞轮次)"
+                )
+            return {"accepted": True}
+
+        return ToolDefinition(
+            name="send_message_to_user_async",
+            description=(
+                "Send a concise message that needs the user's attention during "
+                "ongoing work. The tool returns immediately without ending the turn "
+                "or waiting for a reply; any reply arrives asynchronously as a new "
+                "user message. Use this tool to report a critical blocker or a "
+                "finding that may change the task's direction, or to answer a user "
+                "question or status request received while work is still in "
+                "progress. Use clear formatting, such as bolding questions, to make "
+                "requests easy to notice and answer."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "The concise question or update to send to the user.",
+                    }
+                },
+                "required": ["message"],
+                "additionalProperties": False,
+            },
+            executor=_exec,
+        )
+
+    def _request_user_input_async_tool(self, thread: EngineThread) -> Any:
+        """request_user_input_async:批量非阻塞提问(批58,对标 Codex
+        tools/handlers/request_user_input_async.rs);立即返回,回答异步到达。"""
+        from .agent_loop_v2 import ToolDefinition
+
+        async def _exec(args: dict[str, Any]) -> Any:
+            questions = args.get("questions")
+            if not isinstance(questions, list) or not questions:
+                return {"error": "questions must not be empty"}
+            items: list[dict[str, Any]] = []
+            seen_titles: set[str] = set()
+            for q in questions:
+                if not isinstance(q, dict):
+                    return {"error": "each question must be an object"}
+                title = str(q.get("title") or "").strip()
+                if not title:
+                    return {"error": "each question must have a non-empty title"}
+                if title in seen_titles:
+                    return {"error": "question titles must be unique"}
+                seen_titles.add(title)
+                options = q.get("options")
+                entry: dict[str, Any] = {"title": title}
+                if options is not None:
+                    if not isinstance(options, list) or not options:
+                        return {"error": "options must be a non-empty array when present"}
+                    entry["options"] = [str(o) for o in options]
+                items.append(entry)
+            thread.touch()
+            try:
+                await (thread.emit or _noop_emitter)(
+                    {
+                        "jsonrpc": "2.0",
+                        "method": "user_input_async",
+                        "params": {"threadId": thread.thread_id, "questions": items},
+                    }
+                )
+            except Exception:
+                logger.warning("request_user_input_async 通知投递失败(降级)")
+            return {"accepted": True, "questions": items}
+
+        return ToolDefinition(
+            name="request_user_input_async",
+            description=(
+                "Ask the user one or more self-contained questions without ending "
+                "the turn; the tool returns immediately and answers arrive "
+                "asynchronously as new user messages."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "questions": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": (
+                            "One or more self-contained questions to present "
+                            "together, in display order."
+                        ),
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {
+                                    "type": "string",
+                                    "description": (
+                                        "The complete question shown to the user, "
+                                        "including any context needed to answer it."
+                                    ),
+                                },
+                                "options": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {"type": "string"},
+                                    "description": (
+                                        "Suggested answers, in display order. Put "
+                                        "the recommended answer first; the first "
+                                        "option is preselected by default."
+                                    ),
+                                },
+                            },
+                            "required": ["title"],
+                            "additionalProperties": False,
+                        },
+                    }
+                },
+                "required": ["questions"],
+                "additionalProperties": False,
+            },
             executor=_exec,
         )
 
@@ -5832,7 +6873,30 @@ class AgentEngine:
             resolve_approval_response,
         )
 
-        applied = bool(resolve_approval_response(approval_id, normalized))
+        # O19(2026-09-21)审批属主校验 —— 本通道的信任边界必须写清楚:
+        # 这里**不在 HTTP 请求上下文**(JSON-RPC over MCP / engine WS),拿不到
+        # request.state.user_id。引擎能自证的 principal 只有 threadId 所绑定线程的
+        # EngineThread.user_id(线程创建时写入,后续审批条目的属主也正是同一个值 ——
+        # 见 agent_loop_v2._request_approval 用 self._user_id 登记)。
+        # 传 principal 的效果:① 盲猜 approval_id 解不掉他人审批;② A 线程解 B 用户
+        # 的审批 → owner != principal → 不生效(applied=False)。
+        # 不传 threadId 时 principal 退化为 None,此时只能结算同样无属主的条目
+        # (非 HTTP 上下文创建的历史审批),不会因此开出新口子。
+        # 敞口收口(2026-09-21 同日晚于本注释落地):thread.start 的 userId 曾由客户端
+        # 自述,谎报即可解他人审批;现承载层 routers/engine.py::_bind_principal 把
+        # **已验证身份**(HTTP request.state.user_id / WS 握手 token 的 sub)写回
+        # params.userId,自述值在进入引擎前被丢弃。仅剩"未鉴权通道"(principal=None,
+        # 如 dev 态)仍按自述值建线程 —— 那类通道本身无身份可谎报,信任级不变。
+        # 测试:tests/test_engine_principal_binding_59.py
+        thread_id = params.get("threadId")
+        principal: str | None = None
+        if isinstance(thread_id, str) and thread_id:
+            bound_thread = self._threads.get(thread_id)
+            if bound_thread is not None:
+                principal = bound_thread.user_id
+        applied = bool(
+            resolve_approval_response(approval_id, normalized, principal)
+        )
         # request_permissions 工具的待决请求同路结算(2026-09-18 第三批)
         perm_future = self._permission_requests.get(approval_id)
         if perm_future is not None and not perm_future.done():

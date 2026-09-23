@@ -125,7 +125,7 @@ export default function HistoryPage() {
                   <Button
                     variant="ghost"
                     size="icon-xs"
-                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                     onClick={() => deleteOneMutation.mutate(item.id)}
                     disabled={deleteOneMutation.isPending}
                   >

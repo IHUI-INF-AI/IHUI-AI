@@ -68,30 +68,47 @@ const ACTION_BADGE_CLASS: Record<HookActionType, string> = {
     'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900',
 }
 
-const ACTION_LABEL: Record<HookActionType, string> = {
-  webhook: 'Webhook',
-  script: '脚本',
-  log: '日志',
-  notify: '通知',
+/** 动作徽章文案 → 存 `hooks` 命名空间下的 i18n 键名,渲染处 `t(key)` 取词 */
+const ACTION_LABEL_KEY: Record<HookActionType, string> = {
+  webhook: 'action.webhook',
+  script: 'action.script',
+  log: 'action.log',
+  notify: 'action.notify',
 }
 
 // ====================== 事件下拉选项 ======================
 
-const EVENT_OPTIONS: { value: HookTriggerEvent; label: string }[] = [
-  { value: 'tool.before', label: '工具调用前' },
-  { value: 'tool.after', label: '工具调用后' },
-  { value: 'message.send', label: '用户发消息' },
-  { value: 'message.receive', label: 'AI 回复消息' },
-  { value: 'session.start', label: '会话开始' },
-  { value: 'session.end', label: '会话结束' },
-  { value: 'error', label: '错误事件' },
+/** labelKey 为 `hooks` 命名空间相对键,组件内 `t(labelKey)` 解析(常量留在模块级避免重渲染) */
+const EVENT_OPTIONS: readonly { value: HookTriggerEvent; labelKey: string }[] = [
+  { value: 'tool.before', labelKey: 'event.toolBefore' },
+  { value: 'tool.after', labelKey: 'event.toolAfter' },
+  { value: 'message.send', labelKey: 'event.messageSend' },
+  { value: 'message.receive', labelKey: 'event.messageReceive' },
+  { value: 'session.start', labelKey: 'event.sessionStart' },
+  { value: 'session.end', labelKey: 'event.sessionEnd' },
+  { value: 'error', labelKey: 'event.error' },
 ]
 
-const ACTION_TYPE_OPTIONS: { value: HookActionType; label: string }[] = [
-  { value: 'log', label: '日志' },
-  { value: 'webhook', label: 'Webhook' },
-  { value: 'script', label: '脚本' },
-  { value: 'notify', label: '通知' },
+const ACTION_TYPE_OPTIONS: readonly { value: HookActionType; labelKey: string }[] = [
+  { value: 'log', labelKey: 'action.log' },
+  { value: 'webhook', labelKey: 'action.webhook' },
+  { value: 'script', labelKey: 'action.script' },
+  { value: 'notify', labelKey: 'action.notify' },
+]
+
+const NOTIFY_CHANNEL_OPTIONS: readonly {
+  value: 'toast' | 'notification' | 'email'
+  labelKey: string
+}[] = [
+  { value: 'toast', labelKey: 'channel.toast' },
+  { value: 'notification', labelKey: 'channel.notification' },
+  { value: 'email', labelKey: 'channel.email' },
+]
+
+const HTTP_METHOD_OPTIONS: readonly { value: 'GET' | 'POST' | 'PUT'; label: string }[] = [
+  { value: 'POST', label: 'POST' },
+  { value: 'GET', label: 'GET' },
+  { value: 'PUT', label: 'PUT' },
 ]
 
 // ====================== 主组件 ======================
@@ -182,17 +199,17 @@ export function HooksManager() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          <span>加载中</span>
+          <span>{t('loading')}</span>
         </div>
       ) : hooks.length === 0 ? (
         <Empty
           icon={ScrollText}
-          title="暂无 Hook 配置"
-          description="创建第一个 Hook 以在 agent 行为事件触发时自动执行自定义动作"
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
           action={
             <Button onClick={() => store.openCreate()} size="sm">
               <Plus className="h-4 w-4" />
-              <span>新建 Hook</span>
+              <span>{t('create')}</span>
             </Button>
           }
         />
@@ -238,17 +255,16 @@ export function HooksManager() {
 // ====================== Header ======================
 
 function HooksHeader({ count, onCreate }: { count: number; onCreate: () => void }) {
+  const t = useTranslations('hooks')
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold leading-none">Hook 管理</h2>
-        <p className="text-xs text-muted-foreground">
-          在 agent 行为事件触发时执行自定义动作(共 {count} 个)
-        </p>
+        <h2 className="text-lg font-semibold leading-none">{t('manageTitle')}</h2>
+        <p className="text-xs text-muted-foreground">{t('manageSubtitle', { count })}</p>
       </div>
       <Button onClick={onCreate} size="sm">
         <Plus className="h-4 w-4" />
-        <span>新建 Hook</span>
+        <span>{t('create')}</span>
       </Button>
     </div>
   )
@@ -265,6 +281,8 @@ interface HookRowProps {
 }
 
 function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps) {
+  const t = useTranslations('hooks')
+  const tc = useTranslations('common')
   return (
     <Card className="px-3 py-2.5 shadow-none">
       <div className="flex items-center gap-3">
@@ -274,7 +292,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
             <span className="truncate text-sm font-medium">{hook.name}</span>
             {!hook.enabled && (
               <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                已禁用
+                {t('disabled')}
               </span>
             )}
           </div>
@@ -287,20 +305,24 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
         <Badge className={EVENT_BADGE_CLASS[hook.event]}>{hook.event}</Badge>
         {/* action badge */}
         <Badge className={ACTION_BADGE_CLASS[hook.action.type]}>
-          {ACTION_LABEL[hook.action.type]}
+          {t(ACTION_LABEL_KEY[hook.action.type])}
         </Badge>
 
         {/* 启用开关 */}
         <div className="flex items-center gap-1.5">
-          <Switch checked={hook.enabled} onCheckedChange={onToggle} aria-label="启用/禁用" />
+          <Switch
+            checked={hook.enabled}
+            onCheckedChange={onToggle}
+            aria-label={t('toggleEnabled')}
+          />
         </div>
 
         {/* 操作按钮 */}
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" onClick={onViewLogs} aria-label="查看日志">
+          <Button variant="ghost" size="icon-sm" onClick={onViewLogs} aria-label={t('viewLogs')}>
             <ScrollText className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="编辑">
+          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={t('edit')}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
@@ -308,7 +330,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
             size="icon-sm"
             className="hover:text-destructive"
             onClick={onDelete}
-            aria-label="删除"
+            aria-label={tc('delete')}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -358,13 +380,24 @@ function HookEditor({
   onSave,
   onTest,
 }: HookEditorProps) {
+  const t = useTranslations('hooks')
+  const tc = useTranslations('common')
+  const eventOptions = React.useMemo(
+    () => EVENT_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  )
+  const actionTypeOptions = React.useMemo(
+    () => ACTION_TYPE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  )
   const isEdit = mode === 'edit'
+  const editorTitle = isEdit ? t('editorTitleEdit') : t('editorTitleCreate')
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={isEdit ? '编辑 Hook' : '新建 Hook'}
+      aria-label={editorTitle}
       className="fixed inset-0 z-modal flex items-center justify-center bg-white/60 p-3 dark:bg-black/60"
       onClick={onClose}
     >
@@ -375,51 +408,46 @@ function HookEditor({
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
-            <h3 className="text-base font-semibold leading-none">
-              {isEdit ? '编辑 Hook' : '新建 Hook'}
-            </h3>
-            <p className="text-xs text-muted-foreground">在事件触发时执行自定义动作</p>
+            <h3 className="text-base font-semibold leading-none">{editorTitle}</h3>
+            <p className="text-xs text-muted-foreground">{t('editorSubtitle')}</p>
           </div>
-          <CloseButton aria-label="关闭" onClick={onClose} />
+          <CloseButton aria-label={tc('close')} onClick={onClose} />
         </div>
 
         {/* 内容区(滚动) */}
         <div className="flex-1 overflow-y-auto px-5 py-4 thin-scroll">
           <div className="flex flex-col gap-4">
             {/* 名称 */}
-            <Field label="名称" required>
+            <Field label={t('fieldName')} required>
               <Input
                 value={draft.name}
                 onChange={(e) => onChange({ name: e.target.value })}
-                placeholder="例如:写文件前通知"
+                placeholder={t('namePlaceholder')}
                 maxLength={200}
               />
             </Field>
 
             {/* 描述 */}
-            <Field label="描述">
+            <Field label={t('fieldDescription')}>
               <Input
                 value={draft.description}
                 onChange={(e) => onChange({ description: e.target.value })}
-                placeholder="可选,简单说明 Hook 用途"
+                placeholder={t('descriptionPlaceholder')}
                 maxLength={2000}
               />
             </Field>
 
             {/* 事件 */}
-            <Field label="触发事件" required>
+            <Field label={t('fieldEvent')} required>
               <NativeSelect
                 value={draft.event}
                 onChange={(v) => onChange({ event: v as HookTriggerEvent })}
-                options={EVENT_OPTIONS}
+                options={eventOptions}
               />
             </Field>
 
             {/* 条件表达式 */}
-            <Field
-              label="条件表达式(JSONLogic,可选)"
-              hint='示例:{"==":["tool","write_file"]} 匹配 tool 字段等于 write_file'
-            >
+            <Field label={t('fieldCondition')} hint={t.raw('conditionHint') as string}>
               <textarea
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={draft.condition}
@@ -431,11 +459,11 @@ function HookEditor({
             </Field>
 
             {/* 动作类型 */}
-            <Field label="动作类型" required>
+            <Field label={t('fieldActionType')} required>
               <NativeSelect
                 value={draft.actionType}
                 onChange={(v) => onChange({ actionType: v as HookActionType })}
-                options={ACTION_TYPE_OPTIONS}
+                options={actionTypeOptions}
               />
             </Field>
 
@@ -447,7 +475,7 @@ function HookEditor({
           {testResult && (
             <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-xs font-semibold">测试结果</span>
+                <span className="text-xs font-semibold">{t('testResultTitle')}</span>
                 <Badge
                   className={
                     testResult.triggered
@@ -455,7 +483,7 @@ function HookEditor({
                       : 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:border-zinc-800'
                   }
                 >
-                  {testResult.triggered ? '已触发' : '未匹配'}
+                  {testResult.triggered ? t('testTriggered') : t('testNotMatched')}
                 </Badge>
               </div>
               {testResult.logs.length > 0 ? (
@@ -465,7 +493,7 @@ function HookEditor({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">条件未匹配,无日志产生</p>
+                <p className="text-xs text-muted-foreground">{t('testNoLogs')}</p>
               )}
             </div>
           )}
@@ -486,17 +514,17 @@ function HookEditor({
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-                <span>测试</span>
+                <span>{t('test')}</span>
               </Button>
             )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={onClose}>
-              <span>取消</span>
+              <span>{tc('cancel')}</span>
             </Button>
             <Button size="sm" onClick={onSave} disabled={isSaving || !draft.name.trim()}>
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              <span>{isEdit ? '保存' : '创建'}</span>
+              <span>{isEdit ? tc('save') : tc('create')}</span>
             </Button>
           </div>
         </div>
@@ -514,6 +542,11 @@ function HookActionConfigForm({
   draft: HookDraft
   onChange: (patch: Partial<HookDraft>) => void
 }) {
+  const t = useTranslations('hooks')
+  const notifyChannelOptions = React.useMemo(
+    () => NOTIFY_CHANNEL_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t],
+  )
   if (draft.actionType === 'webhook') {
     return (
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
@@ -526,18 +559,14 @@ function HookActionConfigForm({
             type="url"
           />
         </Field>
-        <Field label="HTTP 方法">
+        <Field label={t('fieldHttpMethod')}>
           <NativeSelect
             value={draft.webhookMethod}
             onChange={(v) => onChange({ webhookMethod: v as 'GET' | 'POST' | 'PUT' })}
-            options={[
-              { value: 'POST', label: 'POST' },
-              { value: 'GET', label: 'GET' },
-              { value: 'PUT', label: 'PUT' },
-            ]}
+            options={HTTP_METHOD_OPTIONS}
           />
         </Field>
-        <Field label="请求头(JSON)">
+        <Field label={t('fieldHeaders')}>
           <textarea
             className="flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookHeaders}
@@ -545,7 +574,7 @@ function HookActionConfigForm({
             spellCheck={false}
           />
         </Field>
-        <Field label="请求体模板" hint="支持 {{event}} {{tool}} {{args}} {{result}} 变量">
+        <Field label={t('fieldBodyTemplate')} hint={t.raw('bodyTemplateHint') as string}>
           <textarea
             className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.webhookBody}
@@ -559,11 +588,7 @@ function HookActionConfigForm({
   if (draft.actionType === 'script') {
     return (
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
-        <Field
-          label="Shell 命令"
-          required
-          hint="沙箱内执行,超时 10s,环境变量 HOOK_EVENT / HOOK_CONTEXT 可用"
-        >
+        <Field label={t('fieldShellCommand')} required hint={t('shellCommandHint')}>
           <textarea
             className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             value={draft.scriptCommand}
@@ -579,22 +604,18 @@ function HookActionConfigForm({
   if (draft.actionType === 'notify') {
     return (
       <div className="flex flex-col gap-3 rounded-md border border-border p-3">
-        <Field label="通知渠道">
+        <Field label={t('fieldNotifyChannel')}>
           <NativeSelect
             value={draft.notifyChannel}
             onChange={(v) => onChange({ notifyChannel: v as 'toast' | 'notification' | 'email' })}
-            options={[
-              { value: 'toast', label: 'Toast(轻提示)' },
-              { value: 'notification', label: '系统通知' },
-              { value: 'email', label: '邮件' },
-            ]}
+            options={notifyChannelOptions}
           />
         </Field>
-        <Field label="消息模板" hint="支持 {{event}} {{tool}} {{args}} 变量">
+        <Field label={t('fieldNotifyMessage')} hint={t.raw('notifyMessageHint') as string}>
           <Input
             value={draft.notifyMessage}
             onChange={(e) => onChange({ notifyMessage: e.target.value })}
-            placeholder="{{event}} 已触发"
+            placeholder={t.raw('notifyMessagePlaceholder') as string}
             maxLength={2048}
           />
         </Field>
@@ -604,7 +625,7 @@ function HookActionConfigForm({
   // log
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border p-3">
-      <Field label="日志消息模板" hint="支持 {{event}} {{tool}} {{args}} 变量,写入 logs/hooks.log">
+      <Field label={t('fieldLogMessage')} hint={t.raw('logMessageHint') as string}>
         <Input
           value={draft.logMessage}
           onChange={(e) => onChange({ logMessage: e.target.value })}
@@ -620,12 +641,14 @@ function HookActionConfigForm({
 
 function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => void }) {
   const { logs, isLoading } = useHookLogs(hookId)
+  const t = useTranslations('hooks')
+  const tc = useTranslations('common')
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Hook 日志"
+      aria-label={t('logsAria')}
       className="fixed inset-0 z-modal flex items-center justify-center bg-white/60 p-3 dark:bg-black/60"
       onClick={onClose}
     >
@@ -635,19 +658,19 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
       >
         <div className="flex items-center justify-between px-5 py-3">
           <div className="flex flex-col gap-0.5">
-            <h3 className="text-base font-semibold leading-none">Hook 执行日志</h3>
-            <p className="text-xs text-muted-foreground">最近 100 条触发记录</p>
+            <h3 className="text-base font-semibold leading-none">{t('logsTitle')}</h3>
+            <p className="text-xs text-muted-foreground">{t('logsSubtitle')}</p>
           </div>
-          <CloseButton aria-label="关闭" onClick={onClose} />
+          <CloseButton aria-label={tc('close')} onClick={onClose} />
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3 thin-scroll">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              <span>加载中</span>
+              <span>{t('loading')}</span>
             </div>
           ) : logs.length === 0 ? (
-            <Empty title="暂无日志" description="该 Hook 还未被触发过" />
+            <Empty title={t('logsEmptyTitle')} description={t('logsEmptyDescription')} />
           ) : (
             <div className="flex flex-col gap-2">
               {logs.map((log, idx) => (
@@ -664,6 +687,7 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
 // ====================== 单条日志 ======================
 
 function LogRow({ log, showHookId = true }: { log: HookLog; showHookId?: boolean }) {
+  const t = useTranslations('hooks')
   return (
     <div
       className={cn(
@@ -683,7 +707,7 @@ function LogRow({ log, showHookId = true }: { log: HookLog; showHookId?: boolean
               : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
           )}
         >
-          {log.success ? '成功' : '失败'}
+          {log.success ? t('logSuccess') : t('logFailure')}
         </span>
         <span className="text-muted-foreground">{log.duration} ms</span>
         <span className="text-muted-foreground">{formatDate(log.triggeredAt)}</span>
@@ -731,7 +755,7 @@ function NativeSelect<T extends string>({
 }: {
   value: T
   onChange: (v: T) => void
-  options: { value: T; label: string }[]
+  options: readonly { value: T; label: string }[]
 }) {
   return (
     <select

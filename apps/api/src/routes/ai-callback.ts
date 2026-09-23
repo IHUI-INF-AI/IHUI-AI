@@ -6,6 +6,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
+// G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
+import { findConversationById } from '../db/chat-queries.js'
+import { getPermission } from '../db/workspace-permission-queries.js'
+import {
+  permissionStamp,
+  workspacePathOfConversationMeta,
+} from '../services/message-permission-stamp.js'
 
 /**
  * AI 回调端点。
@@ -43,6 +50,98 @@ const persistedTerminalTaskSchema = z.looseObject({
   exitCode: z.number().optional(),
 })
 
+// planSteps(2026-09-21 立,零 schema 迁移):ai-service 侧与 SSE plan_updated
+// 事件同源的权威计划快照( packages/types/src/ai.ts 的 PlanStep[])。
+// 只校验关键字段,其余(startedAt/endedAt/toolCallIds/error/durationMs…)透传落库,
+// 回放时前端按 PlanStep 消费 —— 与 toolCalls 通道保持一致的 loose 策略。
+const persistedPlanStepSchema = z.looseObject({
+  id: z.string(),
+  step: z.string(),
+  status: z.string(),
+})
+
+// G-166(2026-09-22 立)交代帧持久化:citations / injections 与各自 SSE 帧同源
+// (ai-service 侧同一个 _collect_citations / 同一份 injection_frames 列表)。
+// 结构与 packages/types/src/chat.ts 的 ChatMessage.citations / .injections 对齐,
+// 其余字段(url / count / fullText…)按 loose 透传落库,回放时前端直接消费。
+const persistedCitationSchema = z.looseObject({
+  source: z.string(),
+  label: z.string(),
+})
+
+const persistedInjectionSchema = z.looseObject({
+  kind: z.string(),
+  collapsed: z.string(),
+})
+
+// compaction(G-166 第②步):与 SSE compaction 帧同一载荷(_compaction_payload 单一真相源)。
+// 只锁"能判定这轮压缩过/撞过上限"的两个字段,token 统计与 trigger 按 loose 透传。
+const persistedCompactionSchema = z
+  .looseObject({
+    triggered: z.boolean(),
+    trigger: z.string(),
+  })
+  .refine((v) => v.triggered === true, { message: 'compaction.triggered 必须为 true 才留痕' })
+
+// retryNotice(G-166 第⑥步):网关换 key / 退避重试的最终一条记账,四字段全部由契约钉死
+// (apps/ai-service/app/core/sse_contract.py 的 retry_scheduled)。attempt 必须 ≥ 1 ——
+// "重试了 0 次"不是一种交代,而是一种噪声,不该占 metadata。
+const persistedRetryNoticeSchema = z.looseObject({
+  attempt: z.number().int().min(1),
+  maxRetries: z.number().int().min(1),
+  retryInMs: z.number().int().min(0),
+  httpStatus: z.number().int().optional(),
+})
+
+// D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 过程性信息持久化。
+// 与 citations / compaction 同一套 loose 透传语义:只锁关键字段,其余按 loose 落库,
+// 回放时前端直接消费;空值不写 key(worker 浅合并不覆盖既有 key)。
+// usageDetail:与 event: usage 同源的用量明细(token 分项 + 计时 + 成本 + 模型),
+// 子字段类型宽松(部分 provider 不给 reasoningTokens / 成本),全部透传落库。
+const persistedUsageDetailSchema = z.looseObject({
+  promptTokens: z.unknown().optional(),
+  completionTokens: z.unknown().optional(),
+  totalTokens: z.unknown().optional(),
+  reasoningTokens: z.unknown().optional(),
+  firstTokenMs: z.unknown().optional(),
+  durationMs: z.unknown().optional(),
+  model: z.string().nullable().optional(),
+  costUsd: z.unknown().optional(),
+})
+
+// fallback:主模型失败切换备用模型的交代,与 SSE fallback 帧同源(primary_model/backup_model/reason)。
+// 三个字段全部由契约钉死(SSE 事件必带),缺一不落库(降级提示渲染不出可辨认的一行就别出现)。
+const persistedFallbackSchema = z.looseObject({
+  primary_model: z.string(),
+  backup_model: z.string(),
+  reason: z.string(),
+})
+
+// memoryUpdates:本轮对话同步提炼出的长期记忆条目摘要数组(done.memoryUpdates 同源),
+// 每项一条字符串摘要;其余按 loose 透传。
+const persistedMemoryUpdatesSchema = z.array(z.string())
+
+// D33(2026-09-23 立):单条 metadata 序列化体积护栏。
+// 任一结构化值(JSON)超过 64KB 即降级为标注文本 { truncated: true, originalBytes },
+// 不丢字段(键保留)、不整条丢弃 —— 超大 citations/toolCalls/usageDetail 等仍能落库,
+// 只是超大那一项变成可识别占位,避免一条巨消息撑爆 jsonb 行。
+const METADATA_VALUE_MAX_BYTES = 64 * 1024
+function capMetadataObject(meta: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(meta)) {
+    if (value === null || typeof value !== 'object') {
+      out[key] = value
+      continue
+    }
+    const serialized = JSON.stringify(value)
+    out[key] =
+      serialized.length <= METADATA_VALUE_MAX_BYTES
+        ? value
+        : { truncated: true, originalBytes: serialized.length }
+  }
+  return out
+}
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -53,6 +152,17 @@ const callbackSchema = z.object({
   // D24(2026-09-19 立):工具调用与终端任务持久化通道(无工具调用时不携带)
   toolCalls: z.array(persistedToolCallSchema).optional(),
   terminalTasks: z.array(persistedTerminalTaskSchema).optional(),
+  // planSteps(2026-09-21 立):计划快照持久化通道(本轮无计划工具调用时不携带)
+  planSteps: z.array(persistedPlanStepSchema).optional(),
+  // G-166:引用溯源 + 上下文注入交代持久化通道(本轮没有时不携带)
+  citations: z.array(persistedCitationSchema).optional(),
+  injections: z.array(persistedInjectionSchema).optional(),
+  compaction: persistedCompactionSchema.optional(),
+  retryNotice: persistedRetryNoticeSchema.optional(),
+  // D33(2026-09-23 立):用量明细 / 模型降级 / 记忆提炼过程性信息持久化通道
+  usageDetail: persistedUsageDetailSchema.optional(),
+  fallback: persistedFallbackSchema.optional(),
+  memoryUpdates: persistedMemoryUpdatesSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -104,6 +214,14 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         stub,
         toolCalls,
         terminalTasks,
+        planSteps,
+        citations,
+        injections,
+        compaction,
+        retryNotice,
+        usageDetail,
+        fallback,
+        memoryUpdates,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -135,6 +253,24 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               }
             | undefined
           const tokens = usageObj?.total_tokens
+          // G-165:给助手消息盖**服务端自己的**权限档记录。
+          // 只认 workspace_permissions 表(经会话 metadata 里的 workspacePath 反查),
+          // 不接受客户端自报 —— 自报等于让调用方给审计记录贴金("我当时在只读档")。
+          // 取不到工作区/档位不可识别 → 不写 key(与"确实处于 default 档"是两回事)。
+          let permissionMeta: Record<string, string> = {}
+          try {
+            const conv = await findConversationById(conversationId)
+            const wsPath = workspacePathOfConversationMeta(conv?.metadata)
+            if (wsPath) {
+              const perm = await getPermission(userId, wsPath)
+              permissionMeta = permissionStamp(perm?.mode)
+            }
+          } catch (e) {
+            request.log.warn(
+              { err: e instanceof Error ? e.message : String(e), conversationId },
+              '[permission-stamp] 档位盖章失败(不影响消息落库)',
+            )
+          }
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
@@ -152,13 +288,9 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
             // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
-            metadata: {
-              model,
-              usage,
-              stub,
-              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
-              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
-            },
+            // D33(2026-09-23 立):体积护栏 —— 入队前对 metadata 各值做 64KB 上限降级,
+            // 超限项变 { truncated: true, originalBytes } 占位(键保留,不丢字段不整条丢)。
+            metadata: capMetadataObject(metadata),
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
         }

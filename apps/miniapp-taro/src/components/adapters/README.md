@@ -15,28 +15,39 @@
 `onClick` → `onTap`,`overflowX:auto` → `ScrollView` 等),本目录为 Taro 端**薄适配层**,
 复用 `packages/app` 的 props 契约、状态机、主题 token 注入逻辑,仅替换 web 元素。
 
-## 2. 当前已迁移(P2-F 起步 + 二批深化 + 三批 9 屏)
+## 2. 当前已迁移(3 个,全部已在 page 接线)
 
-| 共享组件                           | Taro 适配文件                  | 行数 | 替换要点                                                                                            |
-| ---------------------------------- | ------------------------------ | ---- | --------------------------------------------------------------------------------------------------- |
-| `packages/app/SectionHeader`       | `SectionHeader.taro.tsx`       | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                                       |
-| `packages/app/ColorfulLoader`      | `ColorfulLoader.taro.tsx`      | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin`               |
-| `packages/app/PayButton`           | `PayButton.taro.tsx`           | ~290 | `button` → `View`;`onClick` → `onTap`;Modal 自绘;Toast → `Taro.showToast`                           |
-| `packages/app/Selecter`            | `Selecter.taro.tsx`            | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留                |
-| `packages/app/Carousel`            | `Carousel.taro.tsx`            | ~190 | `div` → `View/ScrollView scrollX`;`onScroll/onMomentumScrollEnd` 状态机;indicator dots;autoplay     |
-| `packages/app/NavBar`              | `NavBar.taro.tsx`              | ~120 | 状态栏高度 + 返回按钮 + 标题/副标题 + 右侧动作 slot;`statusBarHeight` 透传                          |
-| `packages/app/TabBar`              | `TabBar.taro.tsx`              | ~150 | 5 Tab 状态机 + active 配色;safe area bottom inset 适配                                              |
-| `packages/app/Toolbar`             | `Toolbar.taro.tsx`             | ~130 | 水平工具栏 + active 状态 + 分隔线;`ScrollView scrollX` 防溢出                                       |
-| `packages/app/UserInfoCard`        | `UserInfoCard.taro.tsx`        | ~180 | 未登录/已登录态 + 角色 badge + 智汇值格式化(Intl.NumberFormat 兜底)                                 |
-| `packages/app/FeedbackScreen`      | `FeedbackScreen.taro.tsx`      | ~309 | `TextInput` → `Textarea`/`Input`;`TouchableOpacity` → `View+onTap`;类型选择 + 内容输入 + 提交状态机 |
-| `packages/app/SettingsScreen`      | `SettingsScreen.taro.tsx`      | ~545 | RN `Switch` → Taro `Switch`;RN `Modal` → 自绘 View 弹层;密码修改 + 通知开关 + 账户跳转              |
-| `packages/app/OrderScreen`         | `OrderScreen.taro.tsx`         | ~360 | `RefreshControl` → `ScrollView refresher*`;tab 切换 + 卡片列表 + 下拉刷新;状态徽章配色              |
-| `packages/app/WalletScreen`        | `WalletScreen.taro.tsx`        | ~258 | 余额卡片 + 交易列表 + 下拉刷新;`getRnTokens` 主题注入;`toRpx` 全量换算                              |
-| `packages/app/MessageCenterScreen` | `MessageCenterScreen.taro.tsx` | ~366 | tab 切换 + 消息列表 + 下拉刷新;`numberOfLines` → CSS `line-clamp`;i18n 三级降级                     |
-| `packages/app/StudyPlanScreen`     | `StudyPlanScreen.taro.tsx`     | ~333 | 状态徽章(active/paused/completed/overdue)+ 进度条 clamp + 卡片列表 + 下拉刷新                       |
-| `packages/app/CertificateScreen`   | `CertificateScreen.taro.tsx`   | ~273 | 状态徽章(issued/expired/revoked)+ 卡片列表 + 下拉刷新;`getRnTokens` 主题注入                        |
-| `packages/app/NoteListScreen`      | `NoteListScreen.taro.tsx`      | ~239 | 卡片列表 + 创建按钮 + 下拉刷新;`numberOfLines` → CSS `ellipsis`/`line-clamp`                        |
-| `packages/app/NoteDetailScreen`    | `NoteDetailScreen.taro.tsx`    | ~238 | 内容 + 元信息 + 返回;`paddingHorizontal` → 标准 CSS `paddingLeft/Right`;i18n 三级降级               |
+| 共享组件                      | Taro 适配文件             | 行数 | 替换要点                                                                              |
+| ----------------------------- | ------------------------- | ---- | -------------------------------------------------------------------------------------- |
+| `packages/app/SectionHeader`  | `SectionHeader.taro.tsx`  | ~95  | `div`/`span` → `View`/`Text`;`onClick` → `onTap`;rpx 单位转换                         |
+| `packages/app/ColorfulLoader` | `ColorfulLoader.taro.tsx` | ~88  | `div`/`span` → `View`;HSL 着色算法保留;`document` keyframes → Tailwind `animate-spin` |
+| `packages/app/Selecter`       | `Selecter.taro.tsx`       | ~280 | `div + overflowX:auto` → `ScrollView scrollX`;`onClick` → `onTap`;5 种 type 行为保留  |
+
+接线点:`pkg-learn/course/list` + `course-planet` + `pkg-shop/wallet/commission`(SectionHeader /
+ColorfulLoader)+ `components/ModelConfigDialog`(Selecter)。
+
+### 三批清理台账(2026-09-22,合计移除 4662 行零引用死代码)
+
+| 批次 | 对象 | 行数 | 判据 |
+| ---- | ---- | ---- | ---- |
+| 一批 | 9 个屏级适配器(Feedback/Settings/Order/Wallet/MessageCenter/StudyPlan/Certificate/NoteList/NoteDetail) | 3078 | 小程序端 9 个对应屏均有自有页面在跑,接线即造第三份实现 |
+| 二批 | PayButton / TabBar / Toolbar 适配器 + 端内孤儿 `components/PayButton.tsx` | 953 | 支付能力由 `PayPopup` 承接;TabBar 走原生 tabBar + `setTabBarStyle`;Toolbar 仅有职责不同的 `BottomActionBar` |
+| 三批 | Carousel / NavBar / UserInfoCard 适配器 | 631 | **同名 ≠ 同契约**(见下) |
+
+**三批判据(本目录最重要的教训)**:适配器复用 `packages/app` 的 props 契约,而端内同名组件早在
+P2-F 立项前就已各自演进,两者是**不重叠的两套接口**,接线等于掉功能:
+
+- `Carousel`:端内 `items`/`interval`/`onItemClick` + **`variant:'default'|'course'` + `courseMeta`**;
+  适配器 `banner`/`autoplayInterval`/`onItemPress`,**`variant`/`courseMeta` 命中 0**
+  → `pkg-learn/course-planet` 的课程卡模式会直接失效。
+- `NavBar`:端内 `showBack`/`bgColor`/`textColor`/`rightText`/`onRightClick`/`notification`/
+  **`variant:'default'|'ai-home'`**/`onMenuClick`(4 个 tabbar 首页级在用);适配器只有
+  `title`/`subtitle`/`transparent`/`statusBarHeight`。
+- `UserInfoCard`:端内吃扁平字段(`level`/`growthValue`/`growthMax`/`tokenValue`/`identityType`);
+  适配器吃 `userInfo` 对象 + `onRecharge`/`onEdit`/`onLogin`。
+
+后续若要跨端共享这三个,正解是**先统一 props 契约再下沉**,而不是把适配器接上去。
+守门 64(`scripts/check-adapter-wiring.mjs`)基线已清零,新增未接线适配器一律 BLOCK。
 
 ## 3. 架构原则
 
@@ -80,24 +91,28 @@ pnpm --filter @ihui/miniapp-taro typecheck      # TS 严格类型 0 错误
 pnpm --filter @ihui/miniapp-taro lint           # ESLint 0 错误(含 no-explicit-any)
 ```
 
-> 当前适配层已完成 18 个组件(4 起步通用 + 5 二批通用 + 9 三批屏共享),尚未在 page 实际替换旧组件。
-> 后续动作见 `PROJECT_PLAN.md` 的 P2-F 章节。
+> 当前适配层保留 **3 个**适配器(SectionHeader / ColorfulLoader / Selecter),**全部已在 page 接线**
+> (`pkg-learn/course/list` + `course-planet` + `pkg-shop/wallet/commission` + `components/ModelConfigDialog`)。
+> 2026-09-22 三批清理零引用死代码合计 **4662 行**:一批 9 个屏级适配器 3078 行、
+> 二批 PayButton/TabBar/Toolbar + 端内孤儿 PayButton 共 953 行、
+> 三批 Carousel/NavBar/UserInfoCard 共 631 行(**同名但 props 契约不重叠,接线即掉功能**)。
+> 取证与判定见 `PROJECT_PLAN.md` P2-F.5/P2-F.6;新增适配器必须接线,由守门 64 `check-adapter-wiring.mjs` 强制(基线已清零)。
 
 ## 5. 未来扩展(本批次不做)
 
-- 剩余屏共享组件适配(ProfileScreen / AboutScreen / HelpScreen 等)— 见 `packages/types/src/app.ts`
-- 适配层在 page 实际替换旧组件(course/list 用 SectionHeader,pay-result 用 PayButton 等)
-- 适配层单元测试(`*.test.tsx` 用 `@tarojs/test-utils` mock View/Text/ScrollView)
-- 适配层 Storybook(@storybook/react-native + taro-rn preset)
-- `packages/app` 升级为支持 H5 + 小程序 + RN 三端 — 当前仅 RN;web 端需先迁移到 `packages/ui-react`
+- ~~剩余 6 个通用件在 page 替换端内同名旧实现~~ — **本条已作废(2026-09-22 三批清理)**:实测两侧 props 契约不重叠(见 §2 台账),替换即掉功能而非去重;真要共享须**先统一契约再下沉**。
+- 屏级适配层不再新增:小程序端 9 个对应屏(settings / order / message / plan / certificate / note / feedback / wallet)均有自有页面在跑,再造第二份即第三份实现。
+- 适配层单元测试(`*.test.tsx` 用 `@tarojs/test-utils` mock View/Text/ScrollView)— 仅对现存 3 个适配器有意义
+- `packages/app` 若将来要支持 H5 + 小程序 + RN 三端:前提是 web 端先迁到 `packages/ui-react`,且必须先解决本目录踩过的契约分叉问题(适配器与端内组件平行演进,同名不同接口)。A 路线(直引 ui-react)已实测否决,见 `PROJECT_PLAN.md` P2-F.5。
 
 ## 6. 守门
 
 - 禁止在适配层引入 `any`(AGENTS.md §3 TypeScript 类型零技术债强制)
 - 禁止把 `useTt()` 替换为 `useTranslation`(后者依赖 next-intl,web 端专用)
-- 禁止硬编码颜色 hex/rgb,统一用 `getTokens(colorScheme).*` 注入
+- 禁止硬编码颜色 hex/rgb,统一用 `getTokens(colorScheme).*` 注入 — 现由**守门 66** `check-adapter-style-parity.mjs` 在 pre-commit 拦截(基线只减不增)
 - 禁止新增 `onClick` / `onMouseDown` / `onKeyDown`(Taro 端统一 `onTap`)
-- 禁止复用旧 Taro 端 SectionHeader/ColorfulLoader/PayButton/Selecter 业务实现
-  (那 4 个文件在 `apps/miniapp-taro/src/components/` 根目录,属"待迁移"阶段)
+- 新增适配器必须**接线**且与 `packages/app` 契约一致 — 由**守门 64** `check-adapter-wiring.mjs` 强制(基线已清零,零豁免)
+- 端内同名组件**不必然**要被适配器替换:三批清理的结论是,当两侧 props 契约不重叠时,端内版才是页面真正依赖的实现,
+  正确处置是删适配器(现存 3 个 SectionHeader / ColorfulLoader / Selecter 是契约确实一致的那批),而不是反过来迁就适配器。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

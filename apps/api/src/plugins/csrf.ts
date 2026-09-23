@@ -26,6 +26,22 @@ const CSRF_COOKIE_NAME = 'XSRF-TOKEN'
 const CSRF_HEADER_NAME = 'x-csrf-token'
 const CSRF_TOKEN_TTL = 12 * 3600 // 12 小时（秒）
 
+/**
+ * Bearer 头的凭据**形态**判定(不是真伪校验):`ihui_` 前缀 API Key,或三段 base64url 的 JWT。
+ *
+ * 为什么需要它:CSRF 钩子早于路由侧鉴权执行,原先"看见 `Bearer ` 前缀就豁免"等于给
+ * 任何乱码头发了免死金牌 —— O17 三通道实跑用 `Authorization: Bearer garbage` 实测把
+ * RFC 7591 动态注册从 403 打成 201。形态不成立的头不再享受豁免,真伪仍由鉴权判定。
+ */
+export function isPlausibleBearerCredential(header: string): boolean {
+  const trimmed = header.trim()
+  if (!/^bearer\s+\S+/i.test(trimmed)) return false
+  const token = trimmed.slice(trimmed.indexOf(' ') + 1).trim()
+  if (token.startsWith('ihui_')) return true
+  const parts = token.split('.')
+  return parts.length === 3 && parts.every((p) => p.length > 0 && /^[A-Za-z0-9_-]+$/.test(p))
+}
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /** 公开白名单路径前缀（无需 CSRF 校验）。 */
@@ -36,6 +52,15 @@ const PUBLIC_PREFIXES = [
   '/api/sms-proxy/',
   // OAuth2 token 端点（RFC 6749）
   '/api/oauth/',
+  // O7 RFC 7591 动态注册 + OAuth 2.1 token/introspect/revoke:这些是**机器接口**,凭
+  // client_id/secret 自证,与浏览器 cookie 会话无关 ⇒ CSRF 在此没有防护对象(防线是
+  // grant/凭据校验 + 洪泛闸)。2026-09-21 O17 三通道实跑:先只放开了 `/oauth/register`,
+  // 结果 discovery 指出的 `POST /oauth/token` 仍被 403 拦死 ⇒ client_credentials 换不到
+  // token,OAuth 通道照样走不通。故整族放开;此前它"能通"只是因为假 Bearer 触发了下面的
+  // Bearer 豁免,那是绕过而不是设计。
+  '/oauth/',
+  // /.well-known/* 发现文档(OAuth/OIDC/A2A 均要求匿名可读)
+  '/.well-known/',
   // 服务回调（HMAC/共享密钥，无 JWT）
   '/api/ai/callback',
   // 支付服务端回调（P2 修复 2026-08-06:豁免最小化,仅保留纯回调路径,且入口均有签名/密钥验签）:
@@ -172,9 +197,13 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     if (matchesAnyPrefix(url, publicPrefixes)) {
       return
     }
-    // Bearer JWT 请求豁免（JWT 本身防 CSRF）
+    // Bearer 请求豁免（JWT 本身防 CSRF）
+    // 2026-09-21 O17 三通道实跑收紧:原来只判前缀,任何 `Authorization: Bearer 乱码`
+    // 都能整块跳过 CSRF —— 对"公开但要写状态"的端点(如 RFC 7591 动态注册)这就成了
+    // 免死金牌。现在要求**凭据形态**成立才豁免(三段 JWT 或 `ihui_` 前缀 API Key);
+    // 真伪仍由路由侧鉴权判定,本钩子只拒绝拿乱码头换豁免。
     const auth = request.headers.authorization ?? ''
-    if (auth.toLowerCase().startsWith('bearer ')) return
+    if (isPlausibleBearerCredential(auth)) return
 
     // auth_token cookie 鉴权豁免（与 auth 插件一致）
     // cookie token 也是 JWT，且 SameSite=Lax 已阻止跨站 POST 带 cookie，安全性与 Bearer 豁免一致

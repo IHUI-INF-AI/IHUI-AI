@@ -11,9 +11,10 @@
  * - 正文字号 ≥17px,标题 ≥27px,验证码 ≥36px 等宽加字距;
  * - 禁蓝色系;品牌色 = 酸绿 #B4FF00,安全告警 = 信号红 #FF3B2F;
  * - 所有插值必须 escapeHtml,链接域名取 CORS_ORIGIN 首项(与 payment-gateway 同约定)。
+ *
+ * 本模块保持零副作用(不 import config):CI 脚本(如部署失败通知)可在
+ * 无完整环境变量的进程中直接 import 复用品牌版式,CORS_ORIGIN 直读 env。
  */
-
-import { config } from '../config/index.js'
 
 /** 品牌色板 — 机械风(禁蓝) */
 export const DISPATCH_TOKENS = {
@@ -27,9 +28,9 @@ export const DISPATCH_TOKENS = {
   hairline: '#3A3A40',
 } as const
 
-/** 从 CORS_ORIGIN 取 web 站点根(与 payment-gateway 同一约定) */
+/** 从 CORS_ORIGIN 取 web 站点根(与 payment-gateway 同一约定;直读 env 保持模块零副作用) */
 export function resolveWebOrigin(): string {
-  const first = (config.CORS_ORIGIN ?? '').split(',')[0]?.trim()
+  const first = (process.env.CORS_ORIGIN ?? '').split(',')[0]?.trim()
   return first && first.length > 0 ? first.replace(/\/+$/, '') : 'https://aizhs.top'
 }
 
@@ -86,6 +87,8 @@ function bulletproofButton(
 export const FOUNDER_QR_PATH = '/footer/erweima/wechat-vx.png'
 /** 创始人微信号(与 SiteFooter QRS copyValue 同源) */
 export const FOUNDER_WECHAT_ID = 'ok502319984'
+/** 品牌图片 Logo(黑底渐变,与邮件深黑卡片底色融合;PNG 保证 Outlook/Gmail 兼容) */
+export const BRAND_LOGO_PATH = '/images/logo.png'
 
 /** 通用版式:品牌刊头(纯 HTML) + 内容 + 按钮 + 创始人直联 + 页脚 */
 export function renderDispatchEmail(input: DispatchLayoutInput): string {
@@ -110,7 +113,7 @@ export function renderDispatchEmail(input: DispatchLayoutInput): string {
 <body style="margin:0;padding:0;background:${t.pageBg};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.pageBg}"><tr><td align="center" style="padding:24px 8px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.cardBg}" style="width:600px;max-width:600px;background:${t.cardBg};">
-  <tr><td style="padding:28px 36px 0;font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td></tr>
+  <tr><td style="padding:28px 36px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="font-family:Consolas,'Courier New',monospace;font-size:14px;color:${t.dim};letter-spacing:2px;">43.82°N&nbsp;125.32°E&nbsp;&nbsp;//&nbsp;&nbsp;IHUI-CORE<span style="color:${accent};">&nbsp;&nbsp;//&nbsp;&nbsp;${escapeHtml(input.tag)}</span></td><td width="64" align="right" valign="top"><img src="${origin}${BRAND_LOGO_PATH}" width="56" height="56" alt="IHUI AI" style="display:block;border:1px solid ${t.hairline};"></td></tr></table></td></tr>
   <tr><td style="padding:14px 36px 0;font-family:Impact,'Arial Black','Microsoft YaHei',sans-serif;font-size:64px;line-height:70px;font-weight:bold;color:${t.ink};letter-spacing:3px;">IHUI<span style="color:${accent};">.</span></td></tr>
   <tr><td style="padding:10px 36px 0;font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:5px;">智汇AI&nbsp;·&nbsp;THE&nbsp;MECHANICAL&nbsp;DISPATCH</td></tr>
   <tr><td style="padding:16px 36px 0;"><div style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</div></td></tr>
@@ -436,6 +439,630 @@ export function renderLaunchEmail(input: LaunchEmailInput): DispatchEmail {
       footNote: `上线版本:v${input.version}`,
     }),
     text: `${input.productName} v${input.version} 正式上线。特性:${input.features.map((f) => f.title).join(' / ')}。立即体验:${origin}${cta}`,
+  }
+}
+
+/** 运维系统告警输入(message 为多行纯文本,按行渲染,整体转义) */
+export interface SystemAlertEmailInput {
+  severity: 'info' | 'warning' | 'critical'
+  source: string
+  time: string
+  title: string
+  message: string
+}
+
+const SEVERITY_LABEL: Record<SystemAlertEmailInput['severity'], string> = {
+  info: 'INFO',
+  warning: 'WARNING',
+  critical: 'CRITICAL',
+}
+
+/** 多行纯文本 → 逐行 div(先整体转义,空行以 &nbsp; 保位) */
+function multiLineHtml(text: string): string {
+  return escapeHtml(text)
+    .split(/\r?\n/)
+    .map((line) => `<div>${line || '&nbsp;'}</div>`)
+    .join('')
+}
+
+/** 渲染运维系统告警邮件(critical/warning 信号红,info 品牌绿) */
+export function renderSystemAlertEmail(input: SystemAlertEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const tone = input.severity === 'info' ? 'accent' : 'danger'
+  const accent = tone === 'danger' ? t.danger : t.accent
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:17px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  // message 整体转义后按行拆分渲染,空行以 &nbsp; 保位
+  const messageHtml = multiLineHtml(input.message)
+  const body = `
+    ${para(input.severity === 'info' ? '系统监测到以下事件,供知悉:' : '系统监测到异常,请值班操作员立即关注:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell(
+            'SEVERITY',
+            `<span style="color:${accent};">[ ${SEVERITY_LABEL[input.severity]} ]</span>`,
+            accent,
+            { right: true },
+          ),
+          cell('SOURCE', escapeHtml(input.source), accent, { right: true, valueStyle: mono }),
+          cell('TIME', escapeHtml(input.time), accent, { valueStyle: mono }),
+        ]),
+        metaRow([
+          `<td colspan="3" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;margin-bottom:8px;">MESSAGE</div><div style="font-family:Consolas,'Courier New',monospace;font-size:16px;line-height:1.9;color:#F5F5F0;">${messageHtml}</div></td>`,
+        ]),
+      ],
+      accent,
+    )}
+    ${note('本邮件由系统自动派发,无需回复。请前往服务器日志定位根因后再恢复。')}`
+  return {
+    subject: `[${SEVERITY_LABEL[input.severity]}] ${input.title}`,
+    html: renderDispatchEmail({
+      tag: `SYSTEM // ALERT_${SEVERITY_LABEL[input.severity]}`,
+      title: input.title,
+      bodyHtml: body,
+      tone,
+    }),
+    text: `[${SEVERITY_LABEL[input.severity]}] ${input.title}\n${input.message}\n来源:${input.source} · 时间:${input.time}`,
+  }
+}
+
+/** 余额不足邮件输入 */
+export interface LowBalanceEmailInput {
+  userName?: string
+  keyName: string
+  tokenBalance: number
+  costBalanceCents: number
+  thresholdCents: number
+  /** 充值落地页完整 URL(调用方负责提供真实存在路径,杜绝 404) */
+  purchaseUrl: string
+}
+
+/** 渲染 API Key 余额不足提醒(品牌绿 + 真实可点击充值按钮) */
+export function renderLowBalanceEmail(input: LowBalanceEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const yuan = (input.costBalanceCents / 100).toFixed(2)
+  const thresholdYuan = (input.thresholdCents / 100).toFixed(2)
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.danger};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const body = `
+    ${para(`您的 API Key <b style="color:${t.ink};">「${escapeHtml(input.keyName)}」</b> 余额已不足,为避免调用中断请尽快充值:`)}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('TOKEN_BALANCE', escapeHtml(String(input.tokenBalance)), t.accent, {
+            right: true,
+            valueStyle: mono,
+          }),
+          cell('BALANCE', `¥${yuan}`, t.accent, { right: true, valueStyle: impact }),
+          cell('THRESHOLD', `¥${thresholdYuan}`, t.accent, { valueStyle: mono }),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: '【智汇AI】您的 API Key 余额不足,请及时充值',
+    html: renderDispatchEmail({
+      tag: 'BILLING // LOW_BALANCE',
+      title: 'API Key 余额不足',
+      bodyHtml: body,
+      button: { href: input.purchaseUrl, label: '立即充值 →' },
+      footNote: `余额耗尽后该 Key 将无法继续调用,充值即时到账。${
+        input.userName ? `(操作员:${input.userName})` : ''
+      }`,
+    }),
+    text: `您的 API Key「${input.keyName}」余额不足(Token 余额 ${input.tokenBalance},¥${yuan},阈值 ¥${thresholdYuan})。立即充值:${input.purchaseUrl}`,
+  }
+}
+
+/** 通用系统通知输入(content 为多行纯文本,整体转义) */
+export interface NoticeEmailInput {
+  /** 栏目眉,如 SYSTEM // NOTICE */
+  tag: string
+  title: string
+  userName?: string
+  content: string
+}
+
+/** 渲染通用系统通知邮件(品牌绿朴素版式;内容为纯文本自动转义,不含按钮) */
+export function renderNoticeEmail(input: NoticeEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const greeting = input.userName ? `${escapeHtml(input.userName)},` : ''
+  const body = `
+    ${para(`${greeting}您有一条新的系统通知:`)}
+    <div style="font-family:'Microsoft YaHei',sans-serif;font-size:17px;line-height:1.9;color:${t.ink};border:1px dashed ${t.accent};padding:18px 22px;margin:0 0 24px;">${multiLineHtml(input.content)}</div>`
+  return {
+    subject: input.title,
+    html: renderDispatchEmail({
+      tag: input.tag,
+      title: input.title,
+      bodyHtml: body,
+    }),
+    text: input.content,
+  }
+}
+
+/** 支付成功收据输入(amountYuan 由调用方按 numeric(10,2) 元格式传入) */
+export interface PaymentReceiptEmailInput {
+  userName?: string
+  orderNo: string
+  productTitle: string
+  quantity: number
+  amountYuan: string
+  payType: string
+  paidAt: string
+  /** 订单/订阅落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  subscriptionUrl: string
+}
+
+/** 渲染支付成功收据(品牌绿喜庆版式 + Impact 金额大字) */
+export function renderPaymentReceiptEmail(input: PaymentReceiptEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const productValue = `${escapeHtml(input.productTitle)}${input.quantity > 1 ? ` <span style="color:#8A8A85;">×${input.quantity}</span>` : ''}`
+  const body = `
+    ${para('您的订单已支付成功,权益将即时到账。以下为您的电子收据,请留存:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('ORDER_NO', escapeHtml(input.orderNo), t.accent, { right: true, valueStyle: mono }),
+          cell('PAID_AT', escapeHtml(input.paidAt), t.accent, { valueStyle: mono }),
+        ]),
+        metaRow([
+          `<td colspan="2" style="border-top:1px dashed ${t.accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">PRODUCT</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;">${productValue}</div></td>`,
+          cell('AMOUNT', `¥${escapeHtml(input.amountYuan)}`, t.accent, { valueStyle: impact }),
+        ]),
+        metaRow([
+          cell('PAY_TYPE', escapeHtml(input.payType || '—'), t.accent, { right: true }),
+          cell(
+            'STATUS',
+            `<span style="color:${t.accent};">[ 已支付 / PAID ]</span>`,
+            t.accent,
+            {},
+          ),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: `【智汇AI】支付成功收据 · 订单 ${input.orderNo}`,
+    html: renderDispatchEmail({
+      tag: 'BILLING // RECEIPT',
+      title: '支付成功',
+      bodyHtml: body,
+      button: { href: input.subscriptionUrl, label: '查看我的订阅 →' },
+      footNote: '本收据由系统自动派发,可作为支付凭证留存;如遇资产未到账,请通过下方创始人直联联系我们处理。',
+    }),
+    text: `您的订单已支付成功。订单号 ${input.orderNo};商品 ${input.productTitle}${input.quantity > 1 ? ` ×${input.quantity}` : ''};金额 ¥${input.amountYuan};支付方式 ${input.payType};时间 ${input.paidAt}。查看:${input.subscriptionUrl}`,
+  }
+}
+
+// ================= 资金/权益结果通知 =================
+
+/** 退款结果通知输入(refundAmountYuan 由调用方按 numeric(10,2) 元格式传入) */
+export interface RefundResultEmailInput {
+  userName?: string
+  orderNo: string
+  refundAmountYuan: string
+  status: 'completed' | 'rejected' | 'failed'
+  reason?: string
+  finishedAt: string
+  /** 订单列表落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  ordersUrl: string
+}
+
+const REFUND_STATUS_LABEL: Record<RefundResultEmailInput['status'], string> = {
+  completed: '退款成功',
+  rejected: '退款未通过',
+  failed: '退款失败',
+}
+
+const REFUND_STATUS_TAG: Record<RefundResultEmailInput['status'], string> = {
+  completed: 'BILLING // REFUND_COMPLETED',
+  rejected: 'BILLING // REFUND_REJECTED',
+  failed: 'BILLING // REFUND_FAILED',
+}
+
+/** 渲染退款结果通知(completed 品牌绿,rejected/failed 信号红) */
+export function renderRefundResultEmail(input: RefundResultEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const ok = input.status === 'completed'
+  const accent = ok ? t.accent : t.danger
+  const tone = ok ? 'accent' : 'danger'
+  const label = REFUND_STATUS_LABEL[input.status]
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const reasonRow = input.reason
+    ? [
+        metaRow([
+          `<td colspan="2" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">REASON</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:18px;line-height:1.8;color:${t.ink};margin-top:7px;">${escapeHtml(input.reason)}</div></td>`,
+        ]),
+      ]
+    : []
+  const body = `
+    ${para(
+      ok
+        ? '您的退款申请已处理完成,款项将按原支付路径退回,请注意查收:'
+        : '很抱歉,您的退款申请未能完成,订单资产状态保持不变:',
+    )}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('ORDER_NO', escapeHtml(input.orderNo), accent, { right: true, valueStyle: mono }),
+          cell(
+            'STATUS',
+            `<span style="color:${accent};">[ ${label} ]</span>`,
+            accent,
+            {},
+          ),
+        ]),
+        metaRow([
+          cell('REFUND_AMOUNT', `¥${escapeHtml(input.refundAmountYuan)}`, accent, {
+            right: true,
+            top: true,
+            valueStyle: impact,
+          }),
+          cell('FINISHED_AT', escapeHtml(input.finishedAt), accent, { top: true, valueStyle: mono }),
+        ]),
+        ...reasonRow,
+      ],
+      accent,
+    )}`
+  return {
+    subject: `【智汇AI】${label} · 订单 ${input.orderNo}`,
+    html: renderDispatchEmail({
+      tag: REFUND_STATUS_TAG[input.status],
+      title: label,
+      bodyHtml: body,
+      button: {
+        href: input.ordersUrl,
+        label: '查看我的订单 →',
+        kind: ok ? 'accent' : 'ghost',
+      },
+      tone,
+      footNote: ok
+        ? '退款按原路退回,到账时间以支付渠道为准(通常 1-3 个工作日);如逾期未到账请通过下方创始人直联联系我们。'
+        : '如对处理结果有异议,请通过下方创始人直联联系我们复核。',
+    }),
+    text: `${label}:订单 ${input.orderNo},退款金额 ¥${input.refundAmountYuan}${
+      input.reason ? `,原因:${input.reason}` : ''
+    },时间 ${input.finishedAt}。查看订单:${input.ordersUrl}`,
+  }
+}
+
+/** 提现结果通知输入(amountYuan/feeYuan 由调用方按 分→元 换算传入) */
+export interface WithdrawalResultEmailInput {
+  userName?: string
+  amountYuan: string
+  feeYuan: string
+  method: string
+  status: 'approved' | 'rejected'
+  rejectReason?: string
+  processedAt: string
+  /** 提现记录落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  withdrawUrl: string
+}
+
+/** 渲染提现结果通知(approved 品牌绿,rejected 信号红 + 驳回原因) */
+export function renderWithdrawalResultEmail(input: WithdrawalResultEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const ok = input.status === 'approved'
+  const accent = ok ? t.accent : t.danger
+  const tone = ok ? 'accent' : 'danger'
+  const statusText = ok ? '打款处理中' : '已驳回'
+  const statusEn = ok ? 'PROCESSING' : 'REJECTED'
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const reasonRow = input.rejectReason
+    ? [
+        metaRow([
+          `<td colspan="2" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">REASON</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:18px;line-height:1.8;color:${t.ink};margin-top:7px;">${escapeHtml(input.rejectReason)}</div></td>`,
+        ]),
+      ]
+    : []
+  const body = `
+    ${para(
+      ok
+        ? '您的提现申请已审核通过,打款正在处理中,到账后请留意收款账户:'
+        : '您的提现申请被驳回,冻结金额已原路退回您的可用余额:',
+    )}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('AMOUNT', `¥${escapeHtml(input.amountYuan)}`, accent, {
+            right: true,
+            valueStyle: impact,
+          }),
+          cell('METHOD', escapeHtml(input.method), accent, { valueStyle: mono }),
+        ]),
+        metaRow([
+          cell('FEE', `¥${escapeHtml(input.feeYuan)}`, accent, { right: true, top: true }),
+          cell(
+            'STATUS',
+            `<span style="color:${accent};">[ ${statusText} / ${statusEn} ]</span>`,
+            accent,
+            { top: true },
+          ),
+        ]),
+        ...reasonRow,
+      ],
+      accent,
+    )}`
+  return {
+    subject: ok
+      ? '【智汇AI】提现审核通过,打款处理中'
+      : '【智汇AI】提现申请被驳回,金额已退回余额',
+    html: renderDispatchEmail({
+      tag: ok ? 'BILLING // WITHDRAWAL_APPROVED' : 'BILLING // WITHDRAWAL_REJECTED',
+      title: ok ? '提现审核通过' : '提现申请被驳回',
+      bodyHtml: body,
+      button: {
+        href: input.withdrawUrl,
+        label: '查看提现记录 →',
+        kind: ok ? 'accent' : 'ghost',
+      },
+      tone,
+      footNote: ok
+        ? '打款到账时间以收款渠道为准;如长期未到账请通过下方创始人直联联系我们。'
+        : '调整后可重新发起提现;如有疑问请通过下方创始人直联联系我们。',
+    }),
+    text: `${ok ? '提现审核通过' : '提现申请被驳回'}:到账 ¥${input.amountYuan}(手续费 ¥${input.feeYuan}),方式 ${input.method},时间 ${input.processedAt}${
+      input.rejectReason ? `,驳回原因:${input.rejectReason}` : ''
+    }。查看记录:${input.withdrawUrl}`,
+  }
+}
+
+/** 兑换码成功通知输入(newTokenBalance 为 -1 时表示无限额度) */
+export interface RedeemSuccessEmailInput {
+  userName?: string
+  code: string
+  tokenAmount: number
+  newTokenBalance: number
+  /** API Key 落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  keysUrl: string
+}
+
+/** 渲染兑换码成功通知(品牌绿喜庆版式 + Impact +token 大字) */
+export function renderRedeemSuccessEmail(input: RedeemSuccessEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const balanceText =
+    input.newTokenBalance === -1 ? '∞ 无限' : escapeHtml(String(input.newTokenBalance))
+  const body = `
+    ${para('兑换码兑换成功,Token 已实时到账您的 API Key:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('CODE', escapeHtml(input.code), t.accent, { right: true, valueStyle: mono }),
+          cell('TOKENS', `+${input.tokenAmount}`, t.accent, { valueStyle: impact }),
+        ]),
+        metaRow([
+          cell('BALANCE', balanceText, t.accent, { right: true, top: true, valueStyle: mono }),
+          cell(
+            'STATUS',
+            `<span style="color:${t.accent};">[ 兑换成功 / OK ]</span>`,
+            t.accent,
+            { top: true },
+          ),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: `【智汇AI】兑换成功,Token +${input.tokenAmount} 已到账`,
+    html: renderDispatchEmail({
+      tag: 'BILLING // REDEEM_OK',
+      title: '兑换码兑换成功',
+      bodyHtml: body,
+      button: { href: input.keysUrl, label: '查看我的 API Key →' },
+      footNote: 'Token 余额实时生效,可直接用于模型调用;如未到账请通过下方创始人直联联系我们。',
+    }),
+    text: `兑换码 ${input.code} 兑换成功,Token +${input.tokenAmount} 已到账,当前余额 ${
+      input.newTokenBalance === -1 ? '无限' : input.newTokenBalance
+    }。查看:${input.keysUrl}`,
+  }
+}
+
+/** VIP 过期通知输入 */
+export interface VipExpireEmailInput {
+  userName?: string
+  vipName?: string
+  expiredAt: string
+  /** 续费落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  renewUrl: string
+}
+
+/** 渲染 VIP 会员过期通知(信号红警示 + 真实续费按钮) */
+export function renderVipExpireEmail(input: VipExpireEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const vipName = input.vipName ? `<b style="color:${t.ink};">${escapeHtml(input.vipName)}</b>` : 'VIP 会员'
+  const body = `
+    ${para(`您的${vipName}已于 <b style="color:${t.danger};">${escapeHtml(input.expiredAt)}</b> 到期失效,会员特权已停止:专属折扣、优先算力、专属客服等权益将按普通用户标准执行。`)}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('EXPIRED_AT', escapeHtml(input.expiredAt), t.danger, {
+            right: true,
+            valueStyle: mono,
+          }),
+          cell(
+            'STATUS',
+            `<span style="color:${t.danger};">[ 已失效 / EXPIRED ]</span>`,
+            t.danger,
+            {},
+          ),
+        ]),
+      ],
+      t.danger,
+    )}
+    ${note('· 续费后特权<b style="color:' + t.ink + ';">立即恢复</b>,历史数据与配置完整保留。<br>· 您的数据与余额不受影响,仅权益降级为普通用户标准。')}`
+  return {
+    subject: '【智汇AI】您的 VIP 会员已到期,续费立即恢复特权',
+    html: renderDispatchEmail({
+      tag: 'BILLING // VIP_EXPIRED',
+      title: 'VIP 会员已到期',
+      bodyHtml: body,
+      button: { href: input.renewUrl, label: '立即续费 →', kind: 'danger' },
+      tone: 'danger',
+      footNote: '到期后专属折扣与优先算力已停用;续费遇到问题请通过下方创始人直联联系我们。',
+    }),
+    text: `您的 VIP 会员已于 ${input.expiredAt} 到期失效。续费立即恢复特权:${input.renewUrl}`,
+  }
+}
+
+/** 发票结果通知输入(amountYuan 由调用方按 分→元 换算传入;收件人=用户指定收票邮箱) */
+export interface InvoiceResultEmailInput {
+  userName?: string
+  invoiceType: 'plain' | 'vat_special'
+  /** 发票抬头 */
+  title: string
+  amountYuan: string
+  orderNo: string
+  status: 'issued' | 'rejected'
+  invoiceNo?: string
+  invoiceUrl?: string
+  reason?: string
+  finishedAt: string
+  /** 订单列表落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  ordersUrl: string
+}
+
+const INVOICE_TYPE_LABEL: Record<InvoiceResultEmailInput['invoiceType'], string> = {
+  plain: '电子普通发票',
+  vat_special: '增值税专用发票',
+}
+
+/** 渲染发票结果通知(issued 品牌绿+发票号/下载,rejected 信号红+原因) */
+export function renderInvoiceResultEmail(input: InvoiceResultEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const ok = input.status === 'issued'
+  const accent = ok ? t.accent : t.danger
+  const tone = ok ? 'accent' : 'danger'
+  const statusText = ok ? '开具完成' : '未通过'
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const rows: string[] = [
+    metaRow([
+      cell('TYPE', escapeHtml(INVOICE_TYPE_LABEL[input.invoiceType]), accent, {
+        right: true,
+        valueStyle: mono,
+      }),
+      cell('AMOUNT', `¥${escapeHtml(input.amountYuan)}`, accent, { valueStyle: impact }),
+    ]),
+    metaRow([
+      cell('TITLE', escapeHtml(input.title), accent, { right: true, top: true }),
+      cell(
+        'STATUS',
+        `<span style="color:${accent};">[ ${statusText} ]</span>`,
+        accent,
+        { top: true },
+      ),
+    ]),
+  ]
+  if (ok && input.invoiceNo) {
+    rows.push(
+      metaRow([
+        cell('INVOICE_NO', escapeHtml(input.invoiceNo), accent, {
+          right: true,
+          top: true,
+          valueStyle: mono,
+        }),
+        cell('ORDER_NO', escapeHtml(input.orderNo), accent, { top: true, valueStyle: mono }),
+      ]),
+    )
+  }
+  if (input.reason) {
+    rows.push(
+      metaRow([
+        `<td colspan="2" style="border-top:1px dashed ${accent};padding:16px 22px;"><div style="font-family:Consolas,monospace;font-size:12px;color:#8A8A85;letter-spacing:3px;">REASON</div><div style="font-family:'Microsoft YaHei',sans-serif;font-size:18px;line-height:1.8;color:${t.ink};margin-top:7px;">${escapeHtml(input.reason)}</div></td>`,
+      ]),
+    )
+  }
+  const body = `
+    ${para(
+      ok
+        ? '您申请的发票已开具完成,请及时查收下载:'
+        : '很抱歉,您的开票申请未能通过,可修正后重新提交:',
+    )}
+    ${metaGrid(rows, accent)}`
+  const button = ok && input.invoiceUrl
+    ? { href: input.invoiceUrl, label: '下载发票 →', kind: 'accent' as const }
+    : { href: input.ordersUrl, label: '查看我的订单 →', kind: (ok ? 'accent' : 'ghost') as 'accent' | 'ghost' }
+  return {
+    subject: ok
+      ? `【智汇AI】发票已开具 · ${INVOICE_TYPE_LABEL[input.invoiceType]}`
+      : '【智汇AI】开票申请未通过',
+    html: renderDispatchEmail({
+      tag: ok ? 'BILLING // INVOICE_ISSUED' : 'BILLING // INVOICE_REJECTED',
+      title: ok ? '发票开具完成' : '开票申请未通过',
+      bodyHtml: body,
+      button,
+      tone,
+      footNote: ok
+        ? '电子发票与纸质发票具有同等法律效力;如未收到或信息有误请通过下方创始人直联联系我们。'
+        : '请核对抬头与税号信息后重新提交;如有疑问请通过下方创始人直联联系我们。',
+    }),
+    text: `${ok ? '发票已开具' : '开票申请未通过'}:${INVOICE_TYPE_LABEL[input.invoiceType]},抬头 ${input.title},金额 ¥${input.amountYuan}${
+      ok && input.invoiceNo ? `,发票号 ${input.invoiceNo}` : ''
+    }${input.reason ? `,原因:${input.reason}` : ''}。查看订单:${input.ordersUrl}`,
+  }
+}
+
+/** 钱包充值 API Key 通知输入(newTokenBalance 为 -1 时表示无限额度;costYuan=钱包扣款 分→元) */
+export interface WalletRechargeEmailInput {
+  userName?: string
+  keyName: string
+  costYuan: string
+  creditTokens: number
+  newTokenBalance: number
+  /** API Key 落地页完整 URL(调用方保证真实存在,杜绝 404) */
+  keysUrl: string
+}
+
+/** 渲染钱包充值 API Key 成功通知(品牌绿,钱包扣款 + Key 到账) */
+export function renderWalletRechargeEmail(input: WalletRechargeEmailInput): DispatchEmail {
+  const t = DISPATCH_TOKENS
+  const impact = `font-family:Impact,'Arial Black',sans-serif;font-size:26px;font-weight:bold;color:${t.accent};margin-top:4px;`
+  const mono = `font-family:Consolas,'Courier New',monospace;font-size:19px;font-weight:bold;color:${t.ink};margin-top:7px;`
+  const balanceText =
+    input.newTokenBalance === -1 ? '∞ 无限' : escapeHtml(String(input.newTokenBalance))
+  const body = `
+    ${para('钱包扣款成功,额度已实时到账 API Key:')}
+    ${metaGrid(
+      [
+        metaRow([
+          cell('KEY', escapeHtml(input.keyName), t.accent, { right: true, valueStyle: mono }),
+          cell('CREDIT', `+${input.creditTokens}`, t.accent, { valueStyle: impact }),
+        ]),
+        metaRow([
+          cell('COST', `¥${escapeHtml(input.costYuan)}`, t.accent, {
+            right: true,
+            top: true,
+          }),
+          cell(
+            'BALANCE',
+            balanceText,
+            t.accent,
+            { top: true, valueStyle: mono },
+          ),
+        ]),
+      ],
+      t.accent,
+    )}`
+  return {
+    subject: `【智汇AI】充值成功,额度 +${input.creditTokens} 已到账`,
+    html: renderDispatchEmail({
+      tag: 'BILLING // WALLET_RECHARGE_OK',
+      title: '充值到账成功',
+      bodyHtml: body,
+      button: { href: input.keysUrl, label: '查看我的 API Key →' },
+      footNote: '额度实时生效,可直接用于模型调用;如未到账请通过下方创始人直联联系我们。',
+    }),
+    text: `API Key「${input.keyName}」充值成功:钱包扣款 ¥${input.costYuan},额度 +${input.creditTokens},当前余额 ${
+      input.newTokenBalance === -1 ? '无限' : input.newTokenBalance
+    }。查看:${input.keysUrl}`,
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

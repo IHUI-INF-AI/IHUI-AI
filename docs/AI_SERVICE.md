@@ -648,7 +648,7 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `CREDENTIALS_ENCRYPTION_KEY` | (空) | 凭据加密密钥(与 apps/api 共享,≥32 字符) |
 | `JWT_SECRET` | (空) | JWT 密钥(与 apps/api 共享,SSO 跨服务) |
 | `JWT_ISSUER` | `ihui-ai` | JWT 签发者 |
-| `JWT_PUBLIC_PATHS` | `/api/health,/api/legacy,/health,/metrics` | JWT 不验签白名单 |
+| `JWT_PUBLIC_PATHS` | `/api/health,/api/legacy/,/health,/metrics,/api/publish/scan-login/platforms,/api/admin/news/status,/api/voice/stt,/api/voice/tts,/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,/.well-known/agent.json,/.well-known/agent-card.json` | JWT 不验签白名单(整串替换,见下节三条硬边界) |
 | `AGENT_CONTROL_INTERNAL_SECRET` | (空) | agent_control 内部调用密钥 |
 | `MCP_WORKSPACE_ROOTS` | `os.getcwd()` | MCP 文件操作白名单根目录(`os.pathsep` 分隔) |
 | `SELF_MEDIA_CRON_ENABLED` | `false` | 自媒体定时任务开关 |
@@ -658,6 +658,34 @@ Pydantic Settings,字段名统一小写(与 services/routers 既有代码一致)
 | `OTEL_TRACES_SAMPLER` | `traceidratio` | 采样器 |
 | `OTEL_TRACES_SAMPLER_ARG` | `0.1` | 采样率(10%) |
 | `AGENT_EXECUTOR` | `langgraph` | Agent 执行器开关,`loop_v2` 启用 AgentLoopV2(见下) |
+
+#### JWT_PUBLIC_PATHS 的三条**不由部署配置决定**的边界(2026-09-21 立,O17 + O19 收口)
+
+`apps/ai-service/.env` 里的 `JWT_PUBLIC_PATHS` 是**整串替换**而非增量合并(pydantic-settings 以 `.env` 为权威值),
+而 `.env` 被根 `.gitignore`(`**/.env`)永久忽略 —— 一台机器的配置手误,就等于一次未申报的授权变更。
+2026-09-21 本机实测:`.env` 比代码默认值多出的一条 `/api/agents/`,使 `/api/agents` router 全部端点匿名可达
+(列全站会话、抵达人工审批决策写入点、订阅他人会话实时工具事件)。因此 `app/core/jwt_auth.py` 把下面三条
+边界钉进代码,**任何 `.env` 都改不动**:
+
+| 边界 | 载体 | 内容与撤销理由 |
+| ---- | ---- | -------------- |
+| ① 发现文档必须公开 | `_ALWAYS_PUBLIC` | `/.well-known/agent.json`、`/.well-known/agent-card.json` 无条件补齐。为什么公开:A2A / OAuth 标准规定发现文档在客户端拿到凭据**之前**必须可匿名抓取,卡片内容不含内网主机与密钥;若 `.env` 覆盖把它们挤掉,外部 agent 就发现不了本服务的能力,是标准合规失败(而非安全问题)。**撤销方式**:不存在撤销场景,删除即破坏 O11 收口的 A2A 接入。 |
+| ② 特权 router 根不得匿名放行 | `_NEVER_PUBLIC_ROOTS` | 命中该前缀的条目(含精确到单个端点的写法)在解析期强制剔除并 `logger.error`。清单内容**以该常量源码为唯一真相,本文故意不复制**(手抄表必然漂移,AGENTS.md §4 有先例);截至立规时为 MCP JSON-RPC 入口与 Agent 执行面两个 router 根。为什么不得放行:这两个 router **自身零端点级鉴权**(无 `Depends`、无属主校验),安全性完全寄托在本中间件上,故一条目录前缀会静默覆盖该 router 现在与将来的每一个端点。**撤销方式**:确需公开其中某个端点 → 优先在 router 内为该端点自建凭据门禁;若必须动清单,改 `_NEVER_PUBLIC_ROOTS` 并走 code review,**不得**靠 `.env` 静默重开。 |
+| ③ 兜底放行写法一律剔除 | `_CATCH_ALL_PUBLIC_ENTRIES` | `/`、`/api`、`/api/` 会让整条鉴权链失效(等同于关掉中间件),出现在配置任何一侧都直接剔除。**撤销方式**:无合理撤销场景;若自认为有,说明中间件模型已变,须先重写本节并同步 `jwt_auth.py` 的注释。 |
+
+**运行时无害 ≠ 配置债已清**。上述剔除只保证该条目当下不生效,不消除 `.env` 里那条错误配置本身:`.env` 不进 git,
+换机 / 重装 / 重新 clone 后不留任何痕迹;而一旦有人删掉剔除逻辑(理由会是"反正 `.env` 里那条会被兜住"),
+就是既成越权。因此 `pnpm check:agent-access`(`scripts/e2e-agent-access.mjs`)按 **`.env` 原文**判定,命中即 blocking:
+
+- `OFF-02a`:两份边界清单从 `jwt_auth.py` 的元组字面量**动态解析**(解析不到 → FAIL 退出,禁止静默跳过);
+- `OFF-02`:代码默认白名单不含特权条目;
+- `OFF-02c`:部署态 `.env` 原文不含特权条目(违规 → exit 1,逐条点名所属 router 根与"为什么不得匿名放行");
+- `OFF-02d`:`.env` 独占(代码默认值里没有)的条目须逐条人工认领 —— 在全仓 ts/tsx/js/mjs 检索零消费方即判为死条目
+  (本机实例:`/api/admin/news/scheduler-status`,零调用方的匿名放行没有任何保留理由 → 要么删掉,要么写进
+  `config.py` 默认值并在注释注明鉴权方式,让这个决定进 git 而不是留在某台机器)。
+
+配套镜像测试:`scripts/tests/e2e-agent-access-never-public.test.mjs`,含"往清单里加一个根 → 守门立即跟随变红"
+与"判据函数签名不接受『代码侧是否已净化』这个入参"两条结构性断言,专门防止 fail-safe 把违规洗成绿色。
 
 #### Agent 执行器开关(AGENT_EXECUTOR,2026-08-12 立)
 

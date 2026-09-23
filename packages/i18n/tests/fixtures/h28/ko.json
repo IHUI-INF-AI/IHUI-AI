@@ -1,0 +1,5 @@
+{
+  "taskStatus": {
+    "syncState": "{state, select, running {동기화 중: {name}} completed {동기화 완료: {name}} other {동기화 대기: {name}}}"
+  }
+}

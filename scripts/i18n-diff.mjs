@@ -133,6 +133,7 @@ function readMessageJson(absPath) {
       cwd: ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
     })
     return JSON.parse(blob)
   }
@@ -174,6 +175,7 @@ function getStagedLocales() {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: ROOT,
+      windowsHide: true,
     })
     const staged = output.split('\n').filter(Boolean)
     const locales = new Set()

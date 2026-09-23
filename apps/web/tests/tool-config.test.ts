@@ -16,7 +16,14 @@ vi.mock('@/stores/chat', () => ({
     getState: () => storeState.state,
   },
 }))
-import { AGENT_TOOLS, mergeAgentTools } from '../src/hooks/use-chat/tool-config'
+import {
+  AGENT_TOOLS,
+  API_CONTROL_TOOLS,
+  WEB_UI_CONTROL_TOOLS,
+  fileToolsFor,
+  mergeAgentTools,
+  uiControlToolsFor,
+} from '../src/hooks/use-chat/tool-config'
 describe('mergeAgentTools — D22 网页搜索开关消费(2026-09-19 立)', () => {
   beforeEach(() => {
     storeState.state.selectedTools = []
@@ -47,4 +54,55 @@ describe('mergeAgentTools — D22 网页搜索开关消费(2026-09-19 立)', () 
     expect(tools).toEqual([...AGENT_TOOLS])
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('uiControlToolsFor — 操控本站意图预筛(2026-09-21 立)', () => {
+  it('普通问答不带任何工具:否则 2026-08-29 的打字机流式修复会被打破', () => {
+    expect(uiControlToolsFor('帮我写一封请假邮件')).toEqual([])
+    expect(uiControlToolsFor('什么是向量数据库')).toEqual([])
+    expect(uiControlToolsFor('')).toEqual([])
+  })
+  it('要求操作页面时整族带上(动作类必须有 describe 的 id/target 才能定位)', () => {
+    const t = uiControlToolsFor('帮我打开设置页面')
+    expect(t).toContain('web_ui_navigate')
+    expect(t).toContain('web_ui_describe')
+    expect(new Set(t)).toEqual(new Set(WEB_UI_CONTROL_TOOLS))
+  })
+  it('填写类意图带 fill 族;查后台数据带 api 成对入口', () => {
+    expect(uiControlToolsFor('把充值金额填成 100')).toContain('web_ui_fill')
+    expect(uiControlToolsFor('查一下所有用户列表')).toEqual([...API_CONTROL_TOOLS])
+    const both = uiControlToolsFor('点击提交按钮,然后列出所有订单列表')
+    expect(both).toEqual(expect.arrayContaining([...WEB_UI_CONTROL_TOOLS, ...API_CONTROL_TOOLS]))
+  })
+  it('返回值无重复(Set 语义)', () => {
+    const t = uiControlToolsFor('打开页面并查接口接口接口')
+    expect(t.length).toBe(new Set(t).size)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('fileToolsFor - 文件意图条件携带(2026-09-21,用户实测 read_file 不可达后补)', () => {
+  it('明确要求读文件 → 携带只读族(用户实测失败的原句必须命中)', () => {
+    const out = fileToolsFor(
+      '请调用 read_file 工具读取 packages/types/package.json,然后只回答 exports 有几个键。',
+    )
+    expect(out).toEqual(expect.arrayContaining(['read_file', 'list_files']))
+    expect(out).not.toContain('write_file')
+  })
+  it('文件路径/扩展名出现即命中(用户不会总说"读取文件")', () => {
+    expect(fileToolsFor('看看 apps/web/src/components/ai/task-status-bar.tsx 写了什么')).toContain(
+      'read_file',
+    )
+    expect(fileToolsFor('分析一下 package.json 的依赖')).toContain('read_file')
+    expect(fileToolsFor('读一下 README.md')).toContain('read_file')
+  })
+  it('明确修改动词 → 额外携带写族', () => {
+    const out = fileToolsFor('修复 send-message.ts 里的类型错误')
+    expect(out).toContain('edit_file')
+    expect(out).toContain('write_file')
+  })
+  it('纯闲聊/纯问答 → 不携带(保打字机流式,不付 tool loop 开销)', () => {
+    expect(fileToolsFor('你好')).toEqual([])
+    expect(fileToolsFor('帮我写一首关于春天的诗')).toEqual([])
+    expect(fileToolsFor('')).toEqual([])
+  })
+})

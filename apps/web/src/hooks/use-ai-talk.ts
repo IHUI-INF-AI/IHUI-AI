@@ -19,7 +19,7 @@ export interface UseAiTalkReturn {
   handleKeling: (idstring: string, zidingyican?: unknown) => Promise<void>
   handleSora2: (idstring: string, zidingyican?: unknown) => Promise<void>
   handleVolcengineT2v: (idstring: string, zidingyican?: unknown) => Promise<void>
-  handleDoubaoSeedream40: (idstring: string, zidingyican?: unknown) => Promise<void>
+  handleDoubaoSeedream50: (idstring: string, zidingyican?: unknown) => Promise<void>
   handleQwenImage: (idstring: string, zidingyican?: unknown) => Promise<void>
   handleQwenImageEdit: (idstring: string, zidingyican?: unknown) => Promise<void>
   handleWan25I2vPreview: (idstring: string, zidingyican?: unknown) => Promise<void>
@@ -199,15 +199,15 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
     [helpers, buildIhuiLlmBody],
   )
 
-  const handleDoubaoSeedream40 = React.useCallback(
+  const handleDoubaoSeedream50 = React.useCallback(
     async (idstring: string, _zidingyican?: unknown) => {
       const body = buildIhuiLlmBody(idstring)
-      // M-63 备注: POST /api/ai/llm/chat (doubao-seedream-4.0) 已在 ai-extended.ts 真实化,前端按 check_guard_final5.log 校准
+      // M-63 备注: POST /api/ai/llm/chat (doubao-seedream-5-0-pro) 已在 ai-extended.ts 真实化,前端按 check_guard_final5.log 校准
       const res = await fetchApi<{ image_url?: string }>('/api/ai/llm/chat', {
         method: 'POST',
         body: JSON.stringify({
           ...body,
-          model_id: helpers.getModelCodeByName('doubao-seedream-4.0') || body.model_id,
+          model_id: helpers.getModelCodeByName('doubao-seedream-5-0-pro') || body.model_id,
         }),
       })
       if (!res.success) {
@@ -459,8 +459,8 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
             return await handleSora2(idstring, zidingyican)
           case 'volcengine-t2v':
             return await handleVolcengineT2v(idstring, zidingyican)
-          case 'doubao-seedream-4.0':
-            return await handleDoubaoSeedream40(idstring, zidingyican)
+          case 'doubao-seedream-5-0-pro':
+            return await handleDoubaoSeedream50(idstring, zidingyican)
           case 'qwen-image':
             return await handleQwenImage(idstring, zidingyican)
           case 'qwen-image-Edit':
@@ -494,7 +494,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
       handleKeling,
       handleSora2,
       handleVolcengineT2v,
-      handleDoubaoSeedream40,
+      handleDoubaoSeedream50,
       handleQwenImage,
       handleQwenImageEdit,
       handleWan25I2vPreview,
@@ -512,7 +512,7 @@ export function useAiTalk(options: UseAiHelpersOptions = {}): UseAiTalkReturn {
     handleKeling,
     handleSora2,
     handleVolcengineT2v,
-    handleDoubaoSeedream40,
+    handleDoubaoSeedream50,
     handleQwenImage,
     handleQwenImageEdit,
     handleWan25I2vPreview,

@@ -1,0 +1,78 @@
+{
+  "$comment": "中文 UI 术语机翻残留判据(PROJECT_PLAN.md D104 / H29)。判据形状 = (键名英文词根 ∧ 值内高置信错误译法) 双条件命中才报,单条件一律放过 —— 宁漏不误报。起源:第 24 轮在竞品自家中文包里抓到 list 被机翻成 挂牌 / 房源(同族 list.failed=列出未成功 却正确),而我方 §19 只有 en 破碎机翻闸、zh 侧无任何术语判据。新增词根前必须:① 该译法在 UI 语境下几乎必错;② 跑 --no-false-positive 全语言包回归零命中。",
+  "localesChecked": ["zh-CN", "zh-TW"],
+  "rules": [
+    {
+      "keyRoot": "list",
+      "forbidden": ["房源", "挂牌", "掛牌", "清單表"],
+      "expect": ["列表", "清單", "清单"],
+      "note": "list 在界面语境是\"列表/清单\";房产术语必为误译"
+    },
+    {
+      "keyRoot": "port",
+      "forbidden": ["港口", "码头", "碼頭"],
+      "expect": ["端口", "連接埠", "连接埠"],
+      "note": "port 在技术语境是端口"
+    },
+    {
+      "keyRoot": "table",
+      "forbidden": ["桌子", "桌椅"],
+      "expect": ["表", "表格"],
+      "note": "table 在数据语境是表/表格"
+    },
+    {
+      "keyRoot": "branch",
+      "forbidden": ["树枝", "树支"],
+      "expect": ["分支"],
+      "note": "branch 在版本控制语境是分支"
+    },
+    {
+      "keyRoot": "shell",
+      "forbidden": ["贝壳", "貝殼"],
+      "expect": ["Shell", "命令行", "終端", "终端"],
+      "note": "shell 指命令行/终端"
+    },
+    {
+      "keyRoot": "mouse",
+      "forbidden": ["老鼠"],
+      "expect": ["鼠标", "滑鼠"],
+      "note": "mouse 指输入设备"
+    },
+    {
+      "keyRoot": "fork",
+      "forbidden": ["餐叉", "叉子"],
+      "expect": ["复刻", "派生", "分叉"],
+      "note": "fork 在代码/会话语境是分叉或派生"
+    },
+    {
+      "keyRoot": "watch",
+      "forbidden": ["手表", "手錶"],
+      "expect": ["监听", "監視", "观察"],
+      "note": "watch 在代码语境是监听文件/表达式"
+    },
+    {
+      "keyRoot": "commit",
+      "forbidden": ["道歉", "犯罪", "犯意"],
+      "expect": ["提交"],
+      "note": "commit 在版本控制语境是提交"
+    },
+    {
+      "keyRoot": "pin",
+      "forbidden": ["别针", "大頭針"],
+      "expect": ["固定", "置顶", "釘選"],
+      "note": "pin 在界面语境是固定/置顶"
+    },
+    {
+      "keyRoot": "drag",
+      "forbidden": ["拖曳重物", "拖拉機"],
+      "expect": ["拖拽", "拖曳", "拖動"],
+      "note": "drag 指拖拽手势;拖拉机为典型机翻事故"
+    },
+    {
+      "keyRoot": "refresh",
+      "forbidden": ["使清新", "提神"],
+      "expect": ["刷新"],
+      "note": "refresh 指刷新操作"
+    }
+  ]
+}

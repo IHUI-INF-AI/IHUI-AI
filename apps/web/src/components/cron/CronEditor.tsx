@@ -195,7 +195,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                     )}
                     onClick={() => update(cfg.key, { mode })}
                   >
-                    {t(MODE_KEY[mode] ?? 'mode.unknown')}
+                    {t(MODE_KEY[mode])}
                   </Button>
                 ))}
               </div>

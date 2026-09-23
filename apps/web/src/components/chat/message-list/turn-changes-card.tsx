@@ -7,106 +7,59 @@
 import * as React from 'react'
 import { RotateCcw, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import { computeFileChanges, describeToolCall, summarizeFileChanges } from '@ihui/shared/chat'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import type { ChatMessage, ToolCall } from '@/stores/chat'
 import { listCheckpoints, restoreCheckpoint } from '@/api/checkpoint-api'
 import { toast } from '@/components/common'
 import { cn } from '@/lib/utils'
+import {
+  STREAM_ROW_CLASS,
+  StreamCode,
+  StreamDelta,
+  StreamDetail,
+  StreamRow,
+  StreamStatusIcon,
+  StreamTag,
+} from '@/components/chat/stream/stream-ui'
 
-// 写类工具白名单(对应 MessageItem FILE_MODIFY_TOOLS + 任务描述 apply_diff/patch/replace_in_file)
-const WRITE_TOOLS = new Set<string>([
-  'write_file',
-  'apply_diff',
-  'edit_file',
-  'file_edit',
-  'create_file',
-  'delete_file',
-  'patch',
-  'replace_in_file',
-])
+/** 路径比较统一成正斜杠(与 describeToolCall 的 subject 归一化口径一致) */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').trim()
+}
 
-const PATH_ARG_KEYS = ['path', 'file_path', 'filePath', 'file', 'filename']
+/** 本轮变更卡的文件动作(键在 chat.turnChanges.* 下) */
+type TurnFileAction = 'changedFile' | 'createdFile' | 'deletedFile'
 
-function pickPath(args: Record<string, unknown> | undefined): string {
-  if (!args) return ''
-  for (const k of PATH_ARG_KEYS) {
-    const v = args[k]
-    if (typeof v === 'string' && v.trim()) return v.trim()
+/** 写类工具码名 → 动作;未列出的写类工具一律按"修改文件"表述 */
+function turnFileAction(toolName: string): TurnFileAction {
+  if (toolName === 'create_file') return 'createdFile'
+  if (toolName === 'delete_file') return 'deletedFile'
+  return 'changedFile'
+}
+
+/**
+ * 文件路径 → 该文件的写类动作(chat.turnChanges.* 三键之一)。
+ * ±行数一律由 computeFileChanges 给出(单一口径),这里只取"这个文件当时在做什么",
+ * 同一文件多次写入保留首次命中的动作。
+ */
+function actionKeyByPath(toolCalls: readonly ToolCall[] | undefined): Map<string, TurnFileAction> {
+  const map = new Map<string, TurnFileAction>()
+  if (!toolCalls) return map
+  for (const call of toolCalls) {
+    if (call.status !== 'success' || call.error) continue
+    const view = describeToolCall({
+      toolName: call.toolName,
+      args: call.args,
+      result: call.result,
+      status: call.status,
+    })
+    if (!view.writesFile || view.subject === '') continue
+    const key = normalizePath(view.subject)
+    if (!map.has(key)) map.set(key, turnFileAction(call.toolName))
   }
-  return ''
-}
-
-function basename(p: string): string {
-  const norm = p.replace(/\\/g, '/')
-  const idx = norm.lastIndexOf('/')
-  return idx === -1 ? norm : norm.slice(idx + 1)
-}
-
-function countLines(s: string): number {
-  return s ? s.split('\n').length : 0
-}
-
-function strField(args: Record<string, unknown>, keys: string[]): string {
-  for (const k of keys) {
-    const v = args[k]
-    if (typeof v === 'string') return v
-  }
-  return ''
-}
-
-// 从 result 中提取可能的 diff 文本(统一 diff 字段或纯字符串结果)
-function extractDiffText(result: unknown): string {
-  if (typeof result === 'string') return result
-  if (result && typeof result === 'object') {
-    const obj = result as Record<string, unknown>
-    for (const k of ['diff', 'diff_text', 'unified_diff', 'patch']) {
-      const v = obj[k]
-      if (typeof v === 'string' && v.trim()) return v
-    }
-  }
-  return ''
-}
-
-interface ChangeFile {
-  path: string
-  name: string
-  added: number // -1 表示拿不到,显示 「—」
-  removed: number
-}
-
-function computeChanges(toolCalls: ToolCall[] | undefined): ChangeFile[] {
-  const seen = new Set<string>()
-  const out: ChangeFile[] = []
-  if (!toolCalls) return out
-  for (const tc of toolCalls) {
-    if (!WRITE_TOOLS.has(tc.toolName)) continue
-    if (tc.status !== 'success' || tc.error) continue
-    const p = pickPath(tc.args)
-    if (!p || seen.has(p)) continue
-    seen.add(p)
-    const args = (tc.args ?? {}) as Record<string, unknown>
-    const newContent = strField(args, ['newText', 'newContent', 'content'])
-    const oldContent = strField(args, ['oldText', 'oldContent'])
-    let added = -1
-    let removed = -1
-    if (newContent !== '' || oldContent !== '') {
-      added = countLines(newContent)
-      removed = countLines(oldContent)
-    } else {
-      const diff = extractDiffText(tc.result)
-      if (diff) {
-        const a = (diff.match(/^\+(?!\+\+)/gm) ?? []).length
-        const r = (diff.match(/^-(?!--)/gm) ?? []).length
-        if (a + r > 0) {
-          added = a
-          removed = r
-        }
-      }
-    }
-    out.push({ path: p, name: basename(p), added, removed })
-  }
-  return out
+  return map
 }
 
 export interface TurnChangesCardProps {
@@ -116,7 +69,17 @@ export interface TurnChangesCardProps {
 
 export function TurnChangesCard({ message, conversationId }: TurnChangesCardProps) {
   const t = useTranslations('chat')
-  const changes = React.useMemo(() => computeChanges(message.toolCalls), [message.toolCalls])
+  const tStatus = useTranslations('taskStatus')
+  // ±行数与文件清单的唯一口径来自 @ihui/shared/chat(不在端内重复数行)
+  const changes = React.useMemo(() => computeFileChanges(message.toolCalls), [message.toolCalls])
+  const summary = React.useMemo(() => summarizeFileChanges(changes), [changes])
+  const actionKeys = React.useMemo(() => actionKeyByPath(message.toolCalls), [message.toolCalls])
+  // 文件动作词单一口径:chat.turnChanges.{changedFile|createdFile|deletedFile}
+  const actionText: Record<TurnFileAction, string> = {
+    changedFile: t('turnChanges.changedFile'),
+    createdFile: t('turnChanges.createdFile'),
+    deletedFile: t('turnChanges.deletedFile'),
+  }
   const [open, setOpen] = React.useState(true)
   const [expanded, setExpanded] = React.useState<string | null>(null)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
@@ -169,50 +132,64 @@ export function TurnChangesCard({ message, conversationId }: TurnChangesCardProp
   if (changes.length === 0) return null
 
   return (
-    <div
-      className="rounded-md border border-border/60 bg-muted/30"
-      data-testid={`turn-changes-${message.id}`}
-    >
+    <div className="min-w-0" data-testid={`turn-changes-${message.id}`}>
       <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent/40">
+        <CollapsibleTrigger
+          className={cn(
+            STREAM_ROW_CLASS,
+            'gap-1.5 rounded-sm px-1 text-left transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none',
+          )}
+          data-testid={`turn-changes-trigger-${message.id}`}
+        >
+          <StreamStatusIcon status="success" />
+          <span className="min-w-0 flex-1 truncate text-foreground/80">
+            {t('turnChanges.title')}
+          </span>
+          <StreamTag tone="neutral" strong testId="turn-changes-file-count">
+            {tStatus('filesChanged', { n: summary.files })}
+          </StreamTag>
+          <StreamDelta
+            added={summary.linesKnown ? summary.added : -1}
+            removed={summary.linesKnown ? summary.removed : -1}
+          />
           <ChevronDown
             className={cn(
-              'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+              'h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-transform',
               open && 'rotate-180',
             )}
+            aria-hidden
           />
-          <span className="flex-1 truncate text-sm font-medium">
-            {t('turnChanges.title')} ({changes.length})
-          </span>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="space-y-1 px-3 pb-3">
-            {changes.map((c) => (
-              <div key={c.path}>
-                <button
-                  type="button"
-                  onClick={() => setExpanded((prev) => (prev === c.path ? null : c.path))}
-                  aria-label={c.path}
-                  data-testid={`turn-change-row-${c.name}`}
-                  className="flex w-full items-center gap-2 rounded-sm px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/50"
-                >
-                  <span className="flex-1 truncate font-mono">{c.name}</span>
-                  {c.added < 0 ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
-                      <span className="text-green-600">+{c.added}</span>
-                      <span className="text-red-600">-{c.removed}</span>
-                    </span>
+          <div className="space-y-0.5">
+            {changes.map((c) => {
+              const action = actionKeys.get(normalizePath(c.path)) ?? 'changedFile'
+              const rowTitle = actionText[action]
+              return (
+                <div key={c.path}>
+                  <StreamRow
+                    status="success"
+                    title={rowTitle}
+                    subject={c.name}
+                    subjectKind="path"
+                    added={c.added}
+                    removed={c.removed}
+                    onClick={() => setExpanded((prev) => (prev === c.path ? null : c.path))}
+                    expanded={expanded === c.path}
+                    ariaLabel={c.path}
+                    testId={`turn-change-row-${c.name}`}
+                  />
+                  {expanded === c.path && (
+                    <StreamDetail
+                      className="animate-in fade-in-0 slide-in-from-top-1 duration-150"
+                      testId={`turn-change-path-${c.name}`}
+                    >
+                      <StreamCode text={c.path} />
+                    </StreamDetail>
                   )}
-                </button>
-                {expanded === c.path && (
-                  <p className="truncate px-1.5 pb-1 font-mono text-[10px] text-muted-foreground/70">
-                    {c.path}
-                  </p>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
             <div className="pt-1">
               <Button
                 size="sm"

@@ -48,6 +48,11 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
+from app.services.publish.account_state import (
+    cookie_health_payload,
+    days_until_expiry,
+    risk_cookie_status,
+)
 from app.services.publish.ai_assistant import ai_writing_service
 from app.services.publish.base_adapter import (
     PublishContent,
@@ -395,6 +400,57 @@ async def batch_template() -> dict[str, Any]:
     return _wrap_ok({"csv": buf.getvalue()})
 
 
+@router.get("/accounts/health-summary")
+async def accounts_health_summary(request: Request) -> dict[str, Any]:
+    """全部账号的 Cookie 健康度 + 风险评分,一次返回。
+
+    存在的理由是**限流自救**:「平台账号管理」页原先按账号数扇出
+    `/accounts/:id/cookie-health` 与 `/accounts/:id/risk` 两组请求,
+    生产实测 19 个账号即 ~163 次/分钟,叠加 subagents 轮询后单页就能越过
+    anti-automation 的 200 次/分钟封禁阈值(2026-09-23 事故)。本端点把 2N 次压成 1 次。
+
+    必须注册在 `/accounts/{user_id}` **之前** —— FastAPI 按声明顺序匹配,
+    否则 "health-summary" 会被当成 user_id 路径参数劫持(同 batch_template 的教训,
+    见上方注释)。
+
+    口径与两个单账号端点严格一致:共用 `account_state` 的阈值与 `cookie_health_payload`,
+    风险评分共用 `_risk_block`。
+    """
+    user_id = _get_user_id(request)
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        rows = await conn.fetch(
+            "SELECT id, platform, status, last_verified_at, last_verify_msg "
+            "FROM publish_accounts WHERE user_id=$1 ORDER BY created_at DESC",
+            user_id,
+        )
+        now = datetime.now(UTC)
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            account_id = row["id"]
+            platform = row["platform"]
+            last_verified = row["last_verified_at"]
+            items.append(
+                {
+                    "accountId": account_id,
+                    "platform": platform,
+                    "cookieHealth": cookie_health_payload(
+                        account_id,
+                        platform,
+                        row["status"],
+                        last_verified,
+                        row["last_verify_msg"],
+                        now,
+                    ),
+                    "risk": _risk_block(account_id, platform, last_verified),
+                }
+            )
+        return _wrap_ok({"items": items, "count": len(items)})
+    finally:
+        await conn.close()
+
+
 @router.get("/accounts/{user_id}")
 async def list_accounts(
     request: Request,
@@ -600,6 +656,37 @@ async def verify_account(account_id: int, request: Request) -> dict[str, Any]:
         await conn.close()
 
 
+def _risk_cookie_health(last_verified: Any) -> dict[str, Any] | None:
+    """风险评分的 Cookie 因子;从未验证过则不参与评分(沿用既有行为)。"""
+    if not last_verified:
+        return None
+    until = days_until_expiry(last_verified, time.time())
+    return {"status": risk_cookie_status(until), "days_until_expiry": round(until, 1)}
+
+
+def _risk_block(account_id: int, platform: str, last_verified: Any) -> dict[str, Any]:
+    """账号风险评分载荷。单账号端点与批量端点共用,避免两处口径漂移。"""
+    # 延迟 import 避免循环依赖
+    from app.services.publish.anti_risk.risk_scoring import get_instance as get_risk_scorer
+
+    result = get_risk_scorer().calculate_risk_score(
+        str(account_id),
+        platform,
+        publish_history=None,
+        cookie_health=_risk_cookie_health(last_verified),
+    )
+    cooldown_until = result.cooldown_until
+    return {
+        "score": result.score,
+        "level": result.level,
+        "factors": result.factors,
+        "cooldownUntil": cooldown_until,
+        "cooldownRemaining": (
+            max(0, cooldown_until - time.time()) if cooldown_until is not None else 0
+        ),
+    }
+
+
 @router.get("/accounts/{account_id}/risk")
 async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
     """账号风险评分(2026-08-17 新增)。
@@ -629,45 +716,10 @@ async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail=f"account not found: {account_id}")
 
         platform = row["platform"]
-        cookie_health: dict[str, Any] | None = None
-        last_verified = row["last_verified_at"]
-        if last_verified:
-            now_ts = time.time()
-            days_until_expiry = (last_verified.timestamp() + 14 * 86400 - now_ts) / 86400
-            if days_until_expiry <= 0:
-                cookie_status = "expired"
-            elif days_until_expiry <= 7:
-                cookie_status = "expiring_soon"
-            else:
-                cookie_status = "healthy"
-            cookie_health = {
-                "status": cookie_status,
-                "days_until_expiry": round(days_until_expiry, 1),
-            }
-
-        # 延迟 import 避免循环依赖
-        from app.services.publish.anti_risk.risk_scoring import get_instance as get_risk_scorer
-
-        scorer = get_risk_scorer()
-        result = scorer.calculate_risk_score(
-            str(account_id),
-            platform,
-            publish_history=None,
-            cookie_health=cookie_health,
-        )
-        now_ts = time.time()
-        cooldown_until = result.cooldown_until
-        cooldown_remaining = (
-            max(0, cooldown_until - now_ts) if cooldown_until is not None else 0
-        )
         return _wrap_ok({
             "accountId": account_id,
             "platform": platform,
-            "score": result.score,
-            "level": result.level,
-            "factors": result.factors,
-            "cooldownUntil": cooldown_until,
-            "cooldownRemaining": cooldown_remaining,
+            **_risk_block(account_id, platform, row["last_verified_at"]),
         })
     finally:
         await conn.close()

@@ -214,11 +214,15 @@ function buildRegistry(): OpenCapabilityEntry[] {
     const paths: readonly string[] = declaration.paths
     if (paths.length === 0) throw new Error(`[open-capability-registry] ${key}: paths 为空`)
     if (paths.some((p) => !p.startsWith('/api/'))) {
-      throw new Error(`[open-capability-registry] ${key}: 本表只管 /api/* 业务面,/v1 协议面由能力目录就地闸口负责`)
+      throw new Error(
+        `[open-capability-registry] ${key}: 本表只管 /api/* 业务面,/v1 协议面由能力目录就地闸口负责`,
+      )
     }
     // 结构性防线:通配一律拒绝(默认拒绝不允许前缀继承,新端点必须逐条显式登记)。
     if (paths.some((p) => p.includes('*'))) {
-      throw new Error(`[open-capability-registry] ${key}: paths 不得含 "*" —— 请逐条枚举精确路径/参数化路径`)
+      throw new Error(
+        `[open-capability-registry] ${key}: paths 不得含 "*" —— 请逐条枚举精确路径/参数化路径`,
+      )
     }
     for (const p of paths) {
       const badSegment = p.split('/').find((s) => s.includes(':') && !PARAM_SEGMENT.test(s))
@@ -246,7 +250,9 @@ function buildRegistry(): OpenCapabilityEntry[] {
         const id = `${method} ${path}`
         const previous = seen.get(id)
         if (previous) {
-          throw new Error(`[open-capability-registry] ${id} 同时被 ${previous} 与 ${entry.key} 登记`)
+          throw new Error(
+            `[open-capability-registry] ${id} 同时被 ${previous} 与 ${entry.key} 登记`,
+          )
         }
         seen.set(id, entry.key)
       }

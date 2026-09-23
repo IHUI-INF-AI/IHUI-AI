@@ -5,6 +5,7 @@
 // @ihui/i18n loader 工具 — 各端 I18nProvider 共享的翻译查找 + 占位符替换
 
 import type { Locale, Messages } from './types'
+import { formatIcu, hasIcuSyntax } from './icu'
 
 /** 按点分路径查找原始值(支持 string / 对象 / 数组等任意类型) */
 export function getValueByPath(obj: unknown, path: string): unknown {
@@ -24,9 +25,16 @@ export function getValueByPath(obj: unknown, path: string): unknown {
 export interface TranslateOptions {
   fallback?: Messages
   params?: Record<string, string | number>
+  /** ICU plural/number 所依 locale;缺省 zh-CN */
+  locale?: string
 }
 
-function interpolate(text: string, params: Record<string, string | number>): string {
+function interpolate(
+  text: string,
+  params: Record<string, string | number>,
+  locale?: string,
+): string {
+  if (hasIcuSyntax(text)) return formatIcu(text, params, { locale })
   return text
     .replace(/\{\{(\w+)\}\}/g, (_, name: string) => {
       const v = params[name]
@@ -46,10 +54,13 @@ export function translate(messages: Messages, key: string, options?: TranslateOp
   if (typeof value !== 'string') {
     if (!options?.params) return key
     // 当 key 未找到且有 params 时,对 key 本身做插值(如 t('hello {{name}}', {name:'IHUI'}))
-    return interpolate(key, options.params)
+    return interpolate(key, options.params, options.locale)
   }
-  if (!options?.params) return value
-  return interpolate(value, options.params)
+  if (!options?.params) {
+    // 无 params 也走一次 ICU:否则 plural/select 键在非 web 端会把语法原样吐成文案
+    return hasIcuSyntax(value) ? formatIcu(value, {}, { locale: options?.locale }) : value
+  }
+  return interpolate(value, options.params, options.locale)
 }
 
 export function resolveList(messages: Messages, key: string, fallback?: Messages): string[] {

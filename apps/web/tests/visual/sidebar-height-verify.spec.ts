@@ -11,8 +11,8 @@ import path from 'node:path'
  * 改动:主导航层 h-10(40px)→h-9(36px);header 按钮 h-7(28px)→h-[26px](26px)
  * 2026-08-07 升级:底部工具栏按钮 h-[26px] w-[26px] + svg 18×18
  *   → h-7 w-7 (28×28) + svg h-5 w-5 (20×20),与 NavLink / 新建任务 / 折叠按钮图标一致
- * 2026-09-09 注释更正:工具栏现为 5 按钮(语言/下载客户端/站内消息/深色/设置),28×28;
- *   折叠态(60px 条)为 flex-col 竖排(见 L111 按 aria-label 列出的 5 按钮)。
+ * 2026-09-21 变更:底部工具栏 5 按钮(语言/下载客户端/站内消息/深色/设置)已收进
+ *   用户行下拉菜单,footer 只剩用户行(h-9)。
  *
  * 本脚本用 headless chromium 实际渲染 + 读 DOM 数值 + 4 态截图,
  * 完全独立于 主流 AI IDE 内置浏览器面板。
@@ -109,15 +109,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
         }
       }
 
-      // 底部工具栏 icon 按钮(语言/下载/消息/主题/设置) — SidebarActions 容器
-      // (flex gap-0.5 rounded-md p-1,见 sidebar.tsx SidebarActions),精确锚定避免误选 header
-      const actionContainer = aside.querySelector(
-        '[class*="gap-0.5"][class*="rounded-md"][class*="p-1"]',
-      )
-      const allBtns2 = actionContainer ? actionContainer.querySelectorAll('button') : []
-      r.footerBtnCount = allBtns2.length
-      r.footerBtn_heights = Array.from(allBtns2).map((b) => b.getBoundingClientRect().height)
-      r.footerBtn_classes = Array.from(allBtns2).map((b) => b.className.substring(0, 80))
+      // 底部用户行(2026-09-21 起底部工具栏 5 按钮已收进用户菜单,footer 只剩 SidebarUserRow)
+      const footerRow = aside.querySelector('.group\\/row') as HTMLElement | null
+      r.footerRow_height = footerRow ? footerRow.getBoundingClientRect().height : 0
+      r.footerRow_class = footerRow ? footerRow.className.substring(0, 80) : ''
 
       r.htmlClass = document.documentElement.className
       r.url = window.location.href
@@ -134,10 +129,10 @@ test.describe('侧边栏按钮高度统一验证', () => {
     expect(data.newTask_height).toBe(36)
     // 2026-08-27:header 折叠按钮已从 26px(h-[26px])升级为 36px(h-9),与导航项对齐
     expect(data.collapseBtn_height).toBe(36)
-    // 底部工具栏 icon 按钮:2026-08-07 升级为 28×28 (h-7 w-7)
-    const footerHeights = (data.footerBtn_heights as number[]).filter((h) => h > 0)
-    expect(footerHeights.length).toBeGreaterThanOrEqual(1)
-    expect(footerHeights.every((h) => h === 28)).toBe(true)
+    // 底部用户行:已登录态 36(h-9,与导航项同高);未登录态 footer 是登录按钮,跳过
+    if ((data.footerRow_height as number) > 0) {
+      expect(data.footerRow_height).toBe(36)
+    }
   })
 
   test('hover 态', async ({ page }) => {
@@ -217,25 +212,15 @@ test.describe('侧边栏按钮高度统一验证', () => {
     console.info('=== dark mode 初始 ===')
     console.info('initial html class:', initialClass)
 
-    // 主题切换按钮:light 下 aria-label="深色模式"(显示 Moon),dark 下 aria-label="浅色模式"(显示 Sun)
-    // 直接用 aria-label 精确匹配(避免 filter 链导致 click 不触发)
-    // 中文环境:"深色模式" / "浅色模式";英文环境:"Dark mode" / "Light mode"
-    const themeBtn = page
-      .locator(
-        `${DESKTOP_ASIDE} button[aria-label="深色模式"], ${DESKTOP_ASIDE} button[aria-label="Dark mode"]`,
-      )
+    // 2026-09-21 迁移:主题切换已从底部图标按钮收进用户行下拉菜单
+    // (未登录态 trigger 即"登录"行按钮)。打开菜单后点击"深色"菜单项。
+    const userTrigger = page
+      .locator('aside button[aria-label="登录"], aside button[aria-label="Log in"]')
       .first()
-
-    const btnCount = await themeBtn.count()
-    console.info('themeBtn count:', btnCount)
-
-    if (btnCount === 0) {
-      // 兜底:直接选含 Moon svg 的 button(light 态显示 Moon)
-      const fallback = page.locator(`${DESKTOP_ASIDE} button:has(svg.lucide-moon)`).first()
-      await fallback.click({ force: true })
-    } else {
-      await themeBtn.click({ force: true })
-    }
+    await userTrigger.click()
+    const themeItem = page.getByRole('menuitem', { name: /深色|Dark/ }).first()
+    await expect(themeItem).toBeVisible({ timeout: 5000 })
+    await themeItem.click()
 
     // next-themes 在 headless 下偶发不响应 click,双保险:
     // 1. 先等 Playwright expect 重试 5 秒
