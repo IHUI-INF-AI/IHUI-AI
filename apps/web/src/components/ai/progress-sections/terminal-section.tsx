@@ -183,19 +183,16 @@ export const TerminalSection = React.memo(function TerminalSection({
       data-testid="terminal-section"
     >
       <div className="space-y-0.5">
-        <div className="flex items-center gap-1 px-1">
-          {/* G-154(对标 Codex「命令在专用终端实例中运行」):执行环境必须交代,且必须是真实陈述 ——
-              os_sandbox.py 的 allow_network 默认 False(H5 三平台验收),故"默认不开放网络"不是营销话术。 */}
-          <StreamTag tone="neutral" testId="terminal-isolation">
-            {t('terminal.isolation')}
-          </StreamTag>
-          {runningCount > 0 && (
-            <StreamTag tone="running">{t('terminal.running', { n: runningCount })}</StreamTag>
-          )}
-          {failedCount > 0 && (
-            <StreamTag tone="danger">{t('terminal.failed', { n: failedCount })}</StreamTag>
-          )}
-        </div>
+        {(runningCount > 0 || failedCount > 0) && (
+          <div className="flex items-center gap-1 px-1">
+            {runningCount > 0 && (
+              <StreamTag tone="running">{t('terminal.running', { n: runningCount })}</StreamTag>
+            )}
+            {failedCount > 0 && (
+              <StreamTag tone="danger">{t('terminal.failed', { n: failedCount })}</StreamTag>
+            )}
+          </div>
+        )}
         {recentTerminals.map((term) => (
           <TerminalItem key={term.id} term={term} />
         ))}
