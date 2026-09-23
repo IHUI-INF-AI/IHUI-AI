@@ -82,7 +82,7 @@ export default function CompanyPage() {
       </View>
 
       {/* 对齐 RN TeamScreen statsCard:success.light 底 + 20dp→40rpx bold success 数值 + deepText 标签 */}
-      <View className="mx-[20rpx] rounded-[24rpx] p-[28rpx] bg-[var(--color-success-light)]">
+      <View className="mx-[20rpx] rounded-xl p-[28rpx] bg-[var(--color-success-light)]">
         <View className="flex flex-row justify-between">
           <View className="flex-1 flex flex-col items-center">
             <Text className="text-[40rpx] font-bold text-[var(--color-success)]">
@@ -126,12 +126,12 @@ export default function CompanyPage() {
             {Array.from({ length: 3 }).map((_, i) => (
               <View
                 key={i}
-                className="flex flex-row items-center rounded-[24rpx] border border-border p-[28rpx]"
+                className="flex flex-row items-center rounded-xl border border-border p-[28rpx]"
               >
                 <View className="w-[88rpx] h-[88rpx] rounded-full bg-[var(--color-muted)] flex-shrink-0" />
                 <View className="flex-1 ml-[20rpx] mr-[16rpx]">
-                  <View className="h-[24rpx] w-[60%] rounded-[8rpx] bg-[var(--color-muted)]" />
-                  <View className="h-[20rpx] w-[40%] rounded-[8rpx] bg-[var(--color-muted)] mt-[16rpx]" />
+                  <View className="h-[24rpx] w-[60%] rounded-sm bg-[var(--color-muted)]" />
+                  <View className="h-[20rpx] w-[40%] rounded-sm bg-[var(--color-muted)] mt-[16rpx]" />
                 </View>
               </View>
             ))}
@@ -147,7 +147,7 @@ export default function CompanyPage() {
             {members.map((m) => (
               <View
                 key={m.id}
-                className="flex flex-row items-center rounded-[24rpx] border border-border bg-background p-[28rpx]"
+                className="flex flex-row items-center rounded-xl border border-border bg-background p-[28rpx]"
                 onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
                 hoverClass="opacity-60"
               >
@@ -172,7 +172,7 @@ export default function CompanyPage() {
                     {t('distribution.company.joinTime', { time: m.joinTime })}
                   </Text>
                 </View>
-                <Text className="px-[12rpx] py-[2rpx] rounded-[16rpx] bg-card text-[20rpx] text-muted-foreground flex-shrink-0">
+                <Text className="px-[12rpx] py-[2rpx] rounded-lg bg-card text-[20rpx] text-muted-foreground flex-shrink-0">
                   V{m.level}
                 </Text>
               </View>
@@ -182,10 +182,10 @@ export default function CompanyPage() {
       </View>
 
       {/* 菜单卡 — 小程序特有导航入口(无 RN 对应),按 RN 卡片语言:白卡 + 描边 + 24rpx 圆角 */}
-      <View className="mx-[20rpx] mt-[24rpx] rounded-[24rpx] border border-border bg-card p-[28rpx]">
+      <View className="mx-[20rpx] mt-[24rpx] rounded-xl border border-border bg-card p-[28rpx]">
         <View className="flex flex-row gap-[16rpx]">
           <View
-            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-xl bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/team')}
             hoverClass="opacity-60"
           >
@@ -195,7 +195,7 @@ export default function CompanyPage() {
             </Text>
           </View>
           <View
-            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-xl bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/commission')}
             hoverClass="opacity-60"
           >
@@ -205,7 +205,7 @@ export default function CompanyPage() {
             </Text>
           </View>
           <View
-            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-[24rpx] bg-[var(--color-muted)]"
+            className="flex-1 flex flex-col items-center gap-[8rpx] py-[24rpx] rounded-xl bg-[var(--color-muted)]"
             onClick={() => navigateTo('/pages/distribution/withdraw')}
             hoverClass="opacity-60"
           >

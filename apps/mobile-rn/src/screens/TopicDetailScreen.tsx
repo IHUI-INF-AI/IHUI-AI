@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * TopicDetailScreen 话题详情页(mobile-rn 端)
@@ -338,7 +339,7 @@ const createStyles = (tk: RnThemeTokens) =>
     followBtn: {
       paddingHorizontal: rpx(32),
       paddingVertical: rpx(12),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.DEFAULT,
     },
     followBtnActive: {
@@ -382,7 +383,7 @@ const createStyles = (tk: RnThemeTokens) =>
     post: {
       gap: rpx(12),
       padding: rpx(24),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardPressed: {
@@ -396,7 +397,7 @@ const createStyles = (tk: RnThemeTokens) =>
     avatar: {
       width: rpx(64),
       height: rpx(64),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {},
@@ -430,7 +431,7 @@ const createStyles = (tk: RnThemeTokens) =>
     postImg: {
       width: rpx(200),
       height: rpx(200),
-      borderRadius: rpx(12),
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     imgMore: {
