@@ -59,7 +59,7 @@
 | 20 | 🎯 Tailwind class 冲突 | check-tailwind-class-conflict.mjs | — | — |
 | 24a | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs | — | — |
 | 25 | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs | — | — |
-| 26 | 🛡️  项目父目录污染巡查(blocking;2026-09-23 起 `CREDENTIAL_DIR_NAMES` 对 secrets/密钥/credentials/certs/.pybcrypt 整目录不扫 — `--auto-clean` 直接 unlinkSync 实删文件且无二次确认,曾会连用户凭据库一起删掉;命中凭据目录时先补豁免再清理) | check-parent-pollution.mjs | — | — |
+| 26 | 🛡️  项目父目录污染巡查(blocking;2026-09-23 起 `CREDENTIAL_DIR_NAMES` 8 项(secrets/secret/credentials/credential/密钥/certs/certificates/.pybcrypt)整目录不扫 — `--auto-clean` 对"仅文件名强信号命中"直接 unlinkSync 实删文件且无二次确认(内容双信号命中只告警),曾会连用户凭据库一起删掉;命中凭据目录时先补豁免再清理) | check-parent-pollution.mjs | — | — |
 | 27 | 🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs | — | — |
 | 28 | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs | — | 有 |
 | 29 | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs | — | 有 |
@@ -83,7 +83,7 @@
 | 9 | 🔍 safeParse 静默忽略(blocking,2026-07-26 升级) | check-safe-parse.mjs | — | 有 |
 | 33 | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs | — | 有 |
 | 42 | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs | — | 有 |
-| 44 | 🧹 根目录整洁守门(一级目录白名单 blocking;另面对"被 git 忽略的根级临时产物 .log/.html/cookies/截图/ad-hoc 脚本"只告警 — 2026-09-23 补,原实现对忽略条目整体跳过致根目录静默累积 14 个) | check-root-dir-clean.mjs | — | 有 |
+| 44 | 🧹 根目录整洁守门(一级目录白名单 blocking;另对"被 git 忽略的根级临时产物 .log/.html/cookies/截图/ad-hoc 脚本"只告警 — 2026-09-23 补,原实现对忽略条目整体跳过致根目录静默累积 14 个) | check-root-dir-clean.mjs | — | 有 |
 | 46 | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs | — | 有 |
 | 47 | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs | — | 有 |
 | 48 | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs | — | 有 |
@@ -403,7 +403,7 @@
 
 ```
 
-> 2026-09-23 补第二层:对**被 git 忽略**但形态属 §28 禁令的根级临时产物(`*.log` / `*.html` / `cookies*` / 截图 / ad-hoc 脚本)点名**只告警**。由来:原实现对忽略条目整体 `continue`(该豁免必要,否则 `tmp/` 与构建产物会让每次提交皆红),使 §28 规则 2 的禁令对被忽略文件零覆盖 —— 实测根目录静默累积 14 个,守门与 `git status` 双双看不见。退出语义不变:全量模式恒 0,`--staged` 仍只对非忽略违规 exit 1。
+> 2026-09-23 补第二层:对**被 git 忽略**但形态属 §28 禁令的根级临时产物(`*.log` / `*.html` / `cookies*` / 截图 / ad-hoc 脚本)点名**只告警**。由来:原实现对忽略条目整体 `continue`(该豁免必要 —— 忽略条目本由 `.gitignore` 承接,若一并拦截则各类构建产物与本地目录会让每次提交皆红;`tmp/`、`logs/` 本身已在 `ALLOWED_DIRS`,驱动豁免的是"未进白名单却被忽略"的产物),使 §28 规则 2 的禁令对被忽略文件零覆盖 —— 实测根目录静默累积 14 个,守门与 `git status` 双双看不见。退出语义不变:全量模式恒 0,`--staged` 仍只对非忽略违规 exit 1。
 
 #### [46] 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back)
 
@@ -564,7 +564,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 20 | `ui/tailwind-class-conflict` | 🎯 Tailwind class 冲突 | check-tailwind-class-conflict.mjs |
 | 24a | `ui/sidebar-width` | 📏 侧边栏宽度一致性 | check-sidebar-width-consistency.mjs |
 | 25 | `workspace/external-paths` | 🧹 项目外路径违规(blocking) | check-workspace-hygiene.mjs |
-| 26 | `workspace/parent-pollution` | 🛡️  项目父目录污染巡查(blocking;2026-09-23 起 `CREDENTIAL_DIR_NAMES` 对 secrets/密钥/credentials/certs/.pybcrypt 整目录不扫 — `--auto-clean` 直接 unlinkSync 实删文件且无二次确认,曾会连用户凭据库一起删掉;命中凭据目录时先补豁免再清理) | check-parent-pollution.mjs |
+| 26 | `workspace/parent-pollution` | 🛡️  项目父目录污染巡查(blocking;2026-09-23 起 `CREDENTIAL_DIR_NAMES` 8 项(secrets/secret/credentials/credential/密钥/certs/certificates/.pybcrypt)整目录不扫 — `--auto-clean` 对"仅文件名强信号命中"直接 unlinkSync 实删文件且无二次确认(内容双信号命中只告警),曾会连用户凭据库一起删掉;命中凭据目录时先补豁免再清理) | check-parent-pollution.mjs |
 | 27 | `ui/z-index` | 🛡️  z-index 层叠防护(防第三方 IDE 注入 + 遮罩 fade-in 回归) | check-z-index-guard.mjs |
 | 28 | `ui/overlay-zindex` | 🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发) | check-overlay-zindex.mjs |
 | 29 | `push/sync` | 🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线) | check-push-sync.mjs |
@@ -603,7 +603,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 34 | `code-quality/ts-ignore` | 🔍 @ts-ignore 新增检测(warn-only,防 215 处历史遗留复发) | check-ts-ignore.mjs |
 | 33 | `llm/provider-schema` | 🛡️  LLM provider schema 守门 (blocking,阶段 3 主体已落地) | check-llm-provider-schema.mjs |
 | 42 | `—（待补充）` | 🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发) | check-event-closure-leak.mjs |
-| 44 | `—（待补充）` | 🧹 根目录整洁守门(一级目录白名单 blocking;另面对"被 git 忽略的根级临时产物 .log/.html/cookies/截图/ad-hoc 脚本"只告警 — 2026-09-23 补,原实现对忽略条目整体跳过致根目录静默累积 14 个) | check-root-dir-clean.mjs |
+| 44 | `—（待补充）` | 🧹 根目录整洁守门(一级目录白名单 blocking;另对"被 git 忽略的根级临时产物 .log/.html/cookies/截图/ad-hoc 脚本"只告警 — 2026-09-23 补,原实现对忽略条目整体跳过致根目录静默累积 14 个) | check-root-dir-clean.mjs |
 | 46 | `—（待补充）` | 🔙 统一返回键防私接守门(禁页面私写 router.back/history.back) | check-inline-back-button.mjs |
 | 47 | `—（待补充）` | 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区) | check-watermark-coverage.mjs |
 | 48 | `—（待补充）` | 🧩 GitHub Actions 步骤顺序守门(setup-node cache:pnpm 必须在 pnpm/action-setup 之后) | check-workflow-step-order.mjs |
