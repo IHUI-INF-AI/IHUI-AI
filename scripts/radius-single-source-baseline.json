@@ -3,16 +3,6 @@
   "note": "存量圆角取用未迁移清单,只减不增;修一处删一行(禁止为过门而新增)",
   "sites": [
     {
-      "file": "apps/mobile-rn/src/components/MaterialList.tsx",
-      "rule": "B1",
-      "raw": "4"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/MaterialList.tsx",
-      "rule": "B1",
-      "raw": "4"
-    },
-    {
       "file": "apps/mobile-rn/src/components/NotificationPanel.tsx",
       "rule": "B1",
       "raw": "10"

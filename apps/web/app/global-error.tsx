@@ -6,6 +6,7 @@
 
 import { useEffect } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 全局错误边界(Next.js 要求)。
@@ -55,7 +56,7 @@ export default function GlobalError({
               alignItems: 'center',
               gap: '8px',
               padding: '8px 16px',
-              borderRadius: '6px',
+              borderRadius: rnRadius.md,
               border: '1px solid var(--color-border)',
               background: '#fff',
               cursor: 'pointer',

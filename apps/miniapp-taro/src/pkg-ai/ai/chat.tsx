@@ -13,6 +13,7 @@ const fileIcon = aizhsUrl('remote-images/file.png')
 const recordBackIcon = '/static/images/record_back.png'
 import Taro, { useRouter, useDidHide, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 import {
   chatStream,
   type ChatMessage,
@@ -1216,7 +1217,7 @@ export default function ChatPage() {
                     width: `${Math.floor(thinkingProgress)}%`,
                     height: '100%',
                     background: 'var(--color-primary)',
-                    borderRadius: '4rpx',
+                    borderRadius: rnRadius.xs,
                     transition: 'width 120ms linear',
                   }}
                 />
@@ -1398,7 +1399,7 @@ export default function ChatPage() {
               width: 'calc(100% - 80rpx)',
               maxHeight: '50vh',
               background: 'var(--color-card)',
-              borderRadius: '20rpx',
+              borderRadius: rnRadius.lg,
               padding: '20rpx',
               overflow: 'auto',
             }}

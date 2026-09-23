@@ -197,7 +197,6 @@ export type { PlazaScreenProps } from './features/plaza/PlazaScreen'
 export { SquareScreen } from './features/square/SquareScreen'
 export type { SquareScreenProps } from './features/square/SquareScreen'
 export type { ArticleItem } from './features/square/SquareScreen'
-export type { CategoryItem } from './features/square/SquareScreen'
 export { SetNeedScreen } from './features/set-need/SetNeedScreen'
 export { StudyPublishScreen } from './features/study-publish/StudyPublishScreen'
 export type { StudyPublishScreenProps } from './features/study-publish/StudyPublishScreen'
@@ -237,6 +236,10 @@ export type {
   SelecterOption,
   SearchInputProps,
 } from './components'
+
+/** 统一分类栏(横滑条 + 点击下拉窗),两端共用;文案与图标一律由调用方 items 传入 */
+export { CategoryInlineBar, CategoryDropdown } from './components'
+export type { CategoryInlineBarProps, CategoryDropdownProps, CategoryItem } from './components'
 
 export { tokens, lightTokens, darkTokens, getTokens } from './theme/tokens'
 export type { AppTokens, AppThemeMode, AppThemeTokens } from './theme/tokens'

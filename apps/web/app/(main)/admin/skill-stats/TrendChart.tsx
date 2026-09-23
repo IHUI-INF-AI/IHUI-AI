@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { rnRadius } from '@ihui/design-tokens'
 import type { TrendDataPoint, TrendRange } from './types'
 
 interface TrendChartProps {
@@ -99,7 +100,7 @@ export function TrendChart({ data, range, onRangeChange }: TrendChartProps) {
                 y={y}
                 width={barWidth}
                 height={barHeight}
-                rx={2}
+                rx={rnRadius.xs}
                 className="fill-primary/70 hover:fill-primary/90 transition-colors"
               />
               <text

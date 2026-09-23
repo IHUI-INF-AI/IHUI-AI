@@ -11,6 +11,7 @@ import { BarChart3, Loader2 } from 'lucide-react'
 import { rulesApi } from './rules-api'
 import type { RuleGlobalStats } from './types'
 import { Button, CloseButton } from '@ihui/ui-react'
+import { rnRadius } from '@ihui/design-tokens'
 import { StatCard } from './RuleDetailCharts'
 
 interface RuleGlobalStatsDialogProps {
@@ -35,7 +36,14 @@ function TopRulesChart({
             <text x="0" y={y + 9} className="fill-muted-foreground text-[7px]">
               {r.name.slice(0, 8)}
             </text>
-            <rect x="50" y={y} width={w} height="10" rx="2" className="fill-foreground/20" />
+            <rect
+              x="50"
+              y={y}
+              width={w}
+              height="10"
+              rx={rnRadius.xs}
+              className="fill-foreground/20"
+            />
             <text x={54 + w} y={y + 9} className="fill-muted-foreground text-[7px]">
               {r.matchCount}
             </text>

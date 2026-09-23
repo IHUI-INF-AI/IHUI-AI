@@ -2,101 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { View, Text } from '@tarojs/components'
-import { useState, type CSSProperties } from 'react'
-import { rnRadius } from '@ihui/design-tokens'
-
-export interface StudyBarItem {
-  id: number
-  name: string
-}
-
-export interface StudyBarProps {
-  barList: StudyBarItem[]
-  onChange?: (item: StudyBarItem) => void
-  className?: string
-}
-
-const styles: Record<string, CSSProperties> = {
-  headBar: {
-    width: '100%',
-    boxSizing: 'border-box',
-    marginBottom: '18rpx',
-  },
-  colorBg: {
-    padding: '2rpx',
-    borderRadius: rnRadius.lg,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  colorCont: {
-    width: '100%',
-    backgroundColor: 'var(--color-muted)',
-    backgroundSize: '100% 100%',
-    backgroundRepeat: 'no-repeat',
-    borderRadius: rnRadius.lg,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '4rpx 0',
-    border: '1px solid var(--color-border)',
-  },
-  barItem: {
-    flex: 1,
-    margin: '0 6rpx',
-    height: '52rpx',
-    borderRadius: rnRadius.lg,
-    color: 'var(--color-muted-foreground)',
-    fontSize: '28rpx',
-    fontWeight: 'normal',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as CSSProperties,
-  barItemSelect: {
-    flex: 1,
-    margin: '0 6rpx',
-    height: '52rpx',
-    borderRadius: rnRadius.lg,
-    color: 'var(--color-foreground)',
-    fontSize: '28rpx',
-    fontWeight: 'bold',
-    background: 'var(--color-card)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as CSSProperties,
-}
+import type { ImageSourcePropType } from 'react-native'
+import type { LucideIcon } from 'lucide-react-native'
 
 /**
- * StudyBar 组件 — 对齐原项目 components/study/bar.vue
- * 水平标签栏，选中项高亮背景，点击切换。
+ * 统一分类项(跨 RN 复用的唯一文案源在调用方,组件内零中文常量)。
+ * icon 仅接受 lucide 组件引用或静态图片源,禁止 emoji/手绘品牌图标。
  */
-export default function StudyBar({ barList, onChange, className = '' }: StudyBarProps) {
-  const [selectIndex, setSelectIndex] = useState(0)
-
-  function handleSelect(item: StudyBarItem, index: number) {
-    setSelectIndex(index)
-    onChange?.(item)
-  }
-
-  return (
-    <View style={styles.headBar} className={className}>
-      <View style={styles.colorBg}>
-        <View style={styles.colorCont}>
-          {barList.map((item, index) => (
-            <View
-              key={item.id}
-              style={selectIndex === index ? styles.barItemSelect : styles.barItem}
-              onClick={() => handleSelect(item, index)}
-              hoverClass="opacity-60"
-            >
-              <Text>{item.name}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  )
+export interface CategoryItem {
+  /** 唯一标识(必填) */
+  id: string
+  /** 显示文案(必填,调用方传入 i18n 取词结果) */
+  label: string
+  /** 前置图标(选填,lucide 组件引用) */
+  icon?: LucideIcon
+  /** 前置图片(选填,与 icon 二选一,icon 优先) */
+  image?: ImageSourcePropType
+  /** 计数徽章(选填,按确定性居中模板渲染) */
+  count?: number
+  /** 无障碍标签(选填,默认复用 label,不拼后缀) */
+  a11yLabel?: string
 }
+
+export type ColorSchemeName = 'light' | 'dark'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

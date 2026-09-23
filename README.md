@@ -1291,6 +1291,17 @@ cd IHUI-AI && docker compose up -d
 - **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 23 key)+ 新增 about/menu namespace(11 key)
 - **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / shared-demo web 集成验证
 
+### RN 统一分类栏(CategoryInlineBar / CategoryDropdown,2026-09-23 立)
+
+> 用户反馈"所有的菜单栏分类栏没有设计好 / 不统一"。此前 RN 侧同类控件有 7 种各写各的实现(等宽分段、圆角胶囊 chip、11px 小字、`brand.DEFAULT` 底配 `surface.light` 字等),同一语义在 13 个屏上长 13 个样。现收敛为共享层两个形态,文案/图标一律由调用方 `items` 注入(组件内零中文常量,§19 不破)。
+
+- **落点**:`packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown,types}.tsx`,经 `@ihui/rn-app` 包根导出。
+  - `CategoryInlineBar` — 横滑单选条(左右滑动),高 32 / `rnRadius.md` / 选中态 `brand.ctaFill`+`brand.ctaText` 成对;选中项变化只按**下标**滚入视野(避免调用方内联 `items={x.map()}` 的新数组把用户手滑位置拽回)。
+  - `CategoryDropdown` — 触发器 + 下拉面板(点击开下拉窗),`measureInWindow` 锚定、下方空间不足则上翻、遮罩点击与 Android 返回键关闭、尺寸变化即关;面板用 `ScrollView`,选项再多也不被 `maxHeight` 裁切。
+- **已迁移 15 处**:共享层 `packages/app/src/features/` 9 屏 — square(文章分类条)/ plaza(任务状态 chip)/ order / team / ranking / recruitment / token-value / study-index / study-publish(动态赛道选择改用**下拉形态**);端内 `apps/mobile-rn/src/` 6 屏 — ProfileScreen / TokenValueScreen / TopicListScreen / MaterialList / StudyIndexScreen / AgentScreen 赛道弹层两横滑行(顺带删掉违规 hairline `trackDivider`)。
+- **一并消掉的重复实现**:各屏本地 `tab/tabActive/chip/chipText…` 样式键在确认零引用后删除;`apps/mobile-rn/src/components/StudyBar.tsx` 与 `SingleTypeBar.tsx` 已**无任何调用点**(仍留在仓内,删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,留作下一步)。
+- **验证**:`@ihui/rn-app` + `@ihui/mobile-rn` `tsc --noEmit` 0 错;eslint 0 诊断;`apps/mobile-rn` vitest 382 例全过;`node scripts/check-radius-single-source.mjs` 绿;release 包(v0.0.4 / versionCode 5)已装机并确认新代码进包(Hermes bundle 内命中 `CategoryInlineBar` / `agent-track-bar`)。**真机逐屏回归未完成**:首轮取证即发现"选中 chip 底色未落上"的可见缺陷(详见 PROJECT_PLAN 该条目),修复后设备 USB 掉线,复验待设备回线。
+
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
 > **为什么公开标注各端完成度**:让 AI 检索工具和开发者拿到**真实**状态,而不是看到"8 端全覆盖"后去 grep 代码发现差异,从而判定"项目夸大宣传"。各端完成度不均是我们的现状,我们选择透明。

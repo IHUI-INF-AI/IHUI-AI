@@ -7,6 +7,7 @@ import { View, PickerView, PickerViewColumn, Text } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps } from '@ihui/types'
+import { rnRadius } from '@ihui/design-tokens'
 
 // 共享类型 TitleSwitchScrollPickerItem / TitleSwitchScrollPickerProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
@@ -31,7 +32,7 @@ function getItemStyle(delta: number): CSSProperties {
     height: '80px',
     fontSize: '32px',
     color: 'var(--color-muted-foreground)',
-    borderRadius: '15px',
+    borderRadius: rnRadius['2xl'],
     background: 'var(--color-muted)',
     boxSizing: 'border-box',
     boxShadow: '1px 0 9px 1px var(--color-black-50)',

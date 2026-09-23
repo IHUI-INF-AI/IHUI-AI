@@ -48,6 +48,7 @@ import {
   CHART_GREEN,
   CHART_ORANGE,
   CHART_BLUE,
+  rnRadius,
 } from '@ihui/design-tokens'
 import type {
   SwarmTopologyV2,
@@ -442,7 +443,7 @@ export function SwarmTopologyView({
                       y="-3"
                       width={nodeSize + 6}
                       height={nodeSize + 6}
-                      rx="8"
+                      rx={rnRadius.lg}
                       className="fill-blue-500/10 stroke-blue-500/30"
                       style={{
                         animation: 'topo-pulse 1.6s ease-in-out infinite',
@@ -454,8 +455,8 @@ export function SwarmTopologyView({
                     y="0"
                     width={nodeSize}
                     height={nodeSize}
-                    rx="6"
-                    ry="6"
+                    rx={rnRadius.md}
+                    ry={rnRadius.md}
                     className={cn(style.fill, dagStroke)}
                     strokeWidth={isSelected || isHovered ? 2.5 : arbiterStrokeWidth}
                     opacity={isDimmed ? 0.4 : 1}
