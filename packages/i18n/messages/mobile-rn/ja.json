@@ -583,6 +583,8 @@
     }
   },
   "chatDisclosure": {
+    "steerTitle": "{count} 回誘導済み",
+    "steerMore": "他 {count} 件",
     "citationTitle": "参考元",
     "injectionTitle": "今回の回答で参照したコンテキスト",
     "kindDeveloper": "カスタム指示",
