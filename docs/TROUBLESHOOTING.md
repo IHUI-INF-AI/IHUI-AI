@@ -380,7 +380,7 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | **症状** | 向量记忆服务报 `embedding error` / 记忆检索返回空 / `vector_memory` 降级内存模式 |
 | **根因** | 嵌入 API 调用失败(key 无效 / 限流)/ Redis 向量存储不可用 / pgvector 扩展未安装 |
 | **排查命令** | `docker compose exec db psql -U ihui -c "SELECT extname FROM pg_extension WHERE extname = 'vector'"`(pgvector 是否安装);ai-service 日志的 embedding 错误;`app/services/vector_memory.py` 的 `_use_redis` 状态 |
-| **修复方案** | 1. pgvector 未装:`CREATE EXTENSION IF NOT EXISTS vector;`(Docker 镜像 `pgvector/pgvector:pg18` 已内置)<br>2. 嵌入 API 限流:增加重试 / 降级到本地嵌入模型<br>3. Redis 不可用:自动降级内存模式(`_use_redis = False`)<br>4. 测试环境:conftest 的 `_isolate_vector_memory` fixture 强制内存模式 |
+| **修复方案** | 1. pgvector 未装:`CREATE EXTENSION IF NOT EXISTS vector;`(Docker 镜像 `pgvector/pgvector:pg15-alpine` 已内置)<br>2. 嵌入 API 限流:增加重试 / 降级到本地嵌入模型<br>3. Redis 不可用:自动降级内存模式(`_use_redis = False`)<br>4. 测试环境:conftest 的 `_isolate_vector_memory` fixture 强制内存模式 |
 | **预防** | `test_vector_memory.py` 覆盖 Redis / 内存双模式;`test_rag.py` 覆盖嵌入调用 |
 
 ---

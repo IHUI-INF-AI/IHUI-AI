@@ -539,7 +539,7 @@ export function MessageInput({
   // 输入工具栏的 / / @ / 截图 三个独立按钮已移除,改用 use-global-shortcuts.ts 派发的
   // 三个 window CustomEvent 触发等价行为(见 DEFAULT_SHORTCUTS 新增项):
   //   · Ctrl+Shift+/  → open-slash  → 打开 SlashCommandPalette
-  //   · Ctrl+Shift+U  → mention-file → 末尾插入 @ 字符 + 打开 FileMentionPopover
+  //   · Ctrl+Shift+A  → mention-file → 末尾插入 @ 字符 + 打开 FileMentionPopover
   //   · Ctrl+Shift+M  → screenshot  → 复用 handleScreenshot(file 选择器 + toast)
   // 监听挂载在 window:整个 message-input 生命周期内始终可用,不受 textarea 是否聚焦影响
   // (与 ai-side-panel 的 Alt+P 处理一致,均用 window.addEventListener 消费事件)。
@@ -1042,7 +1042,7 @@ export function MessageInput({
               {/* 斜杠 / @ / 截图 三个独立按钮已移除(2026-09-18 用户规则:"这里这么多按钮都重合了"):
                   改用全局快捷键呼出(见 use-global-shortcuts.ts DEFAULT_SHORTCUTS):
                     · Ctrl+Shift+/  → global-shortcut:open-slash  → 打开 SlashCommandPalette
-                    · Ctrl+Shift+U  → global-shortcut:mention-file → 插入 @ 并弹出 FileMentionPopover
+                    · Ctrl+Shift+A  → global-shortcut:mention-file → 插入 @ 并弹出 FileMentionPopover
                     · Ctrl+Shift+M  → global-shortcut:screenshot  → 触发 fileInputRef + 提示 Ctrl+V
                   SlashCommandPalette 仍挂载但换用隐藏 anchor:面板 PortalPanel 需要 anchor 定位,
                   这里挂一个 0 尺寸的绝对定位 span 锚定在工具栏左上角,视觉不占位。 */}
