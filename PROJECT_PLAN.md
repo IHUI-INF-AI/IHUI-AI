@@ -18,9 +18,10 @@
 
 - **守门 26 目录级凭据库豁免**(sha `7071c39df`,前向补 `072d6cd06` 单文件名豁免):
   `check-parent-pollution.mjs` 的 `--auto-clean` 对「文件名强信号命中」直接 `unlinkSync` 且无二次确认,
-  实测会把 `D:/DevEnv/secrets/ihui-app-password.txt`(用户凭据库)删掉。同类陷阱第二次命中
-  (前例 `ihui-release.keystore.说明.txt`),故从"逐 filename 打补丁"升级为
-  `CREDENTIAL_DIR_NAMES` 整目录不扫(`secrets`/`密钥`/`credentials`/`certs`/`.pybcrypt`)。
+  若不先补豁免而直接清理,会把 `D:/DevEnv/secrets/ihui-app-password.txt`(用户凭据库)无声删除
+  —— 该文件现仍完好,风险在清理之前已闭环。同类陷阱第二次命中(前例 `ihui-release.keystore.说明.txt`),
+  故从"逐 filename 打补丁"升级为 `CREDENTIAL_DIR_NAMES` **8 项**整目录不扫:
+  `secrets`/`secret`/`credentials`/`credential`/`密钥`/`certs`/`certificates`/`.pybcrypt`(小写比对)。
   隔离实验证实目录规则单独即足够(sed 剥掉 filename 规则跑副本仍全绿);测试镜像按 §22c 同步
   并加"只定义不生效=空门"锚点断言,`node --test` 20/20 绿。
 - **守门 44 忽略产物告警面**(sha `a3f860c36`):`check-root-dir-clean.mjs` 第 240 行原对 git 忽略条目
@@ -33,6 +34,22 @@
   即红(定向取证 `user_shell_command.py` 载荷损坏、`compaction_retention.py` 未覆盖)。逐行按 Unicode Cf
   判据复判 78/78 纯水印、0 行业务代码;落地时 lint-staged 的 prettier 重排已在勘正提交中如实记录。
   `check-watermark-coverage --no-fix` 现全仓 ✅ 零告警。
+
+### 文档同步与独立审查后的补正(§21 + 子代理只读复核)
+
+- `7be98e04d` 把守门 26/44 的行为变更同步进 `README.md`(E4 表,44 项此前**整条缺位**,补行)、
+  `scripts/README.md`、`docs/guardian-reference.md`、`AGENTS.md`(§15 写明 `--auto-clean` 会实删文件 +
+  "先补豁免再清理"顺序铁律;§28 新增第 5 条);`00cf1f902` 修回被批量扩写撑成整句的 `#### [44]` 标题;
+  `7715c1387` 补齐守门 47 自愈发现的 2 个新落地测试文件载荷(逐行判据:真实内容差异 0 行)。
+- **独立复核抓出我 4 处不实/破坏,已全部纠正**:
+  ① **prettier 在我的文档提交中改坏了别人的行** —— `README.md` 守门 71 行原为 `` `|| true` ``,重排后变成
+  `` ` |     | true` ``,裸管道符切断单元格(6 管道 vs 表头 4)。已复原为转义形式并复验列数;
+  ② 6 处文档只列 5/7 项目录名,与代码 8 项不符 → 全部补全;
+  ③ `AGENTS.md` §15"跑一次 `pnpm hygiene:parent:clean` 即蒸发"把**风险**写成**既成事实**(该文件完好无损),
+  已改为条件式表述;④ 漏掉"仅文件名强信号命中才实删(内容双信号只告警)"限定、"另面对"笔误 3 处、
+  §28 第 5 条例证误引 `tmp/`(它本就在 `ALLOWED_DIRS`)。
+- 沉淀的教训:批量文本改写(`allow_multiple`)与格式化器(prettier 表格重排)都会在无人复核时静默改坏内容;
+  文档大改后必做两道机器校验 —— **折叠空白后逐行比对消失行** + **表格管道数/列数守恒**。
 
 ### 环境收口(非仓库内容,记录以免重复排查)
 
