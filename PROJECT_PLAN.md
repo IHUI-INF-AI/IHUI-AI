@@ -158,6 +158,48 @@
 `/api/health` uptime 从 31 小时归零为 5 分钟(进程确已重启)、8801 与 `https://aizhs.top` 均 200。
 **即:包括"用户被误封 IP"那四票(`b27e7ebf4a`/`5acd14bc20`/`d21397a48b`/`f03903b1d1`)在内的两天提交,此刻才真正对用户生效。**
 
+### git 凭据权威地图(`D:\BaiduSyncdisk\密钥\git仓库\`,2026-09-23 逐项实测)
+
+| 文件 | 内容(不含值) | 实测可用性 | 用途判定 |
+| --- | --- | --- | --- |
+| `github key.txt` | fine-grained PAT,前缀 `github_pat_`,长 93 | **401 Bad credentials**(`api.github.com` 已失效/被撤销) | **不可用**;谁拿它去推都会被拒 |
+| `Github应用apikey.txt` | OAuth App `Client ID`(20) + `Client secret`(40) | 未测(结构上不是 git 口令) | 走 OAuth 设备流换 token 才用得上 |
+| `gitee apikey.txt` | 32 位 hex token | 未测 | 镜像仓;**本机禁止直推**(§5b),由 `mirror-to-cn.yml` 收敛 |
+| `gitcode apikey.txt` | 24 字符 token | 未测 | 同上 |
+
+**当前真正在用的 GitHub 写入凭据 = Windows 凭据管理器里那份**(证据:同日多次 `git-push-guard` 推成功 +
+生产 `08:24:40 部署完成 HEAD=ce70f8660` 需真实写入;`~/.git-credentials` 在本机不存在,§5b 已记)。
+网络侧则是**仓库级代理** `127.0.0.1:7897`(见上方 §5b 纠正)。
+
+**换发新 PAT 时的硬要求(写给下一次接手的人)**:仓库 `IHUI-INF-AI/IHUI-AI`、
+Contents = **Read and write**;写回本目录同名文件即可,**不要**贴进任何 tracked 文件、日志或会话回显。
+本次两天冻结事故的根因正是"某处凭据过期而无人知道"(服务环境块里的 admin 口令),
+所以**任何凭据过期都只会表现为下游门禁失败**(这里表现为部署永远回滚)——
+排查顺序固定为:先验证凭据本身对不对(单次最小请求),再看下游门禁,最后才怀疑网络。
+
+### 复发风险(结构性,已量化,待作者定方案)
+
+冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
+
+1. **告警去重把持续性故障压成静默**:失败告警有"同签名 12h 内只推一次"的去重
+   (`ihui-deploy.ps1:186-198`),而轮询每 68 秒重放同一失败 ⇒ 第二天起**再无通知**。
+   去重该按"签名 + 持续时长/次数"升级,而不是无条件 12h 静音。
+2. **门禁要登录生产 admin 账号**:健康门禁每轮最多 8 次 `POST /auth/login/username`
+   (`auth-extended.ts:678` 限流 `max:10/1min`),既会**自己把自己打进 429**,又在账号侧
+   消耗"剩余 N 次即锁定"的重试预算(本次实测提示"剩余 3 次")——一个自动化探针不该持有管理员口令。
+
+**根上的冲突**:生产服务直接跑在 `D:\IHUI-AI` 这棵**多智能体共享工作树**里,而部署要求
+`git merge --ff-only` 成功 ⇒ 只要有任何会话把文件留在未提交状态(本次实测是
+`apps/mobile-rn/app.json`、`apps/mobile-rn/package.json`、`mcp-prompt-manager.tsx` 等),
+部署就永久停在 `FAIL git merge --ff-only`,且**构建产物会与 HEAD 不同步**(07:2x 那次
+`next build` 连撞 4 次正是"HEAD 已前进、工作树滞后"的混合态)。
+可选解法(均需部署脚本作者定夺,本次不代改其主体逻辑):
+① 从 `git worktree add --detach <目录> <sha>` 的**干净检出**里构建再切流(§12d 已许可 worktree);
+② 构建前强制 `git checkout HEAD -- <待构建子树>` 并把它作为门禁的一部分(风险:覆盖他人在飞文件,须先判 §12);
+③ 退而求其次:ff 失败连续 N 轮即升级为**独立告警签名**(区别于构建失败)并写进 `--diagnose` 判定提示。
+当前缓解手段(已由本次验证有效):任一会话跑一次 `node scripts/git-sync-converge.mjs` 使
+本地==远端,部署环下一轮即可 `behind=0` 走"构建新鲜度"通道上线。
+
 ### 顺带纠正的文档与判据
 
 - `AGENTS.md §5b`:原文"origin 已固化为 `ssh://git@ssh.github.com:443/…` + 仓库级 `core.sshCommand`,
@@ -3751,9 +3793,6 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
 - [x] ✅(2026-09-23) **工作区存续自愈做成机制**(取代本会话的一次性临时脚本):`scripts/heal-worktree-tracked.mjs` 三条判据同时成立才恢复 —— ① 工作区缺失 ② 索引 blob == HEAD blob(⇒ 无人对它暂存过任何改动,含 `git rm`)③ HEAD 中存在;他人已暂存的删除只报数不代裁。接入 `git-guardian` **健康轮次早退之前**(计划任务实跑 `main()` 单轮、`startDaemon` 未启用 ⇒ 挂错位置等于永不执行);`--check` 零副作用,派生带 `windowsHide`(§5b)。故障演练实测:删 `scripts/brand-foreground-baseline.json` → 跑一轮守护 → 自动找回并写审计行「✅ 工作区存续自愈:恢复 1 个被外部删除的跟踪文件」;`--self-test` 5 例(含反向对照"他人暂存删除不被恢复")全绿。判据与演练细节见 AGENTS.md §5b「工作区存续自愈」条 + README 同名小节。
 - [x] ✅(2026-09-23) **工作区自愈再补两层并挂进收敛器**:`alignDrifts()`(索引==HEAD 且 工作区内容==该路径某祖先版本才对齐,判据复用守门 76 ⇒ 单一真相源)+ `refreshStaleIndex()`(① index!=HEAD ② 索引 blob 确为该路径历史版本 ③ 工作区==索引,三条同立才**逐路径 update-index**,**绝不做全局 `git reset`** —— 那会连带 unstage 他人真正的暂存)。后者补上此前漏掉的一类静默回滚:CAS/converge 推进 HEAD 后**主索引仍停在旧 tree**(`git status` 首列 `M `,实测同日 14 个路径),任何人一次不带 pathspec 的普通 commit 就把这批文件整体写回旧版。`git-sync-converge` 两个成功出口统一调 `--align-drift`(先刷新再对齐),失败只记日志不改收敛结论。`--self-test` 由 5 例扩到 **12 例**(反向对照:真编辑不覆盖 / 暂存后又有改动不刷新 / 他人真暂存不刷新;阳性对照:落后索引被刷新并随之对齐)。真仓实测:刷新 14 个落后索引 + 对齐 10 个漂移,守门 76 全量复扫判绿。
-- [x] ✅(2026-09-23) **`refsOk` 永久假红的根因修正 —— 健康判据把"移动量"钉成了常量**:`refs-manifest.json` 里 `refs/remotes/origin/HEAD` 的期望值停在 `1b32becf9a25`,而它按定义跟随远端默认分支推进(实际 `538561b57992`),且该 ref 在 `packed-refs` 中解析一直正常 ⇒ 三条后果:① `refsOk` 恒 false;② 守护每轮徒劳"重建";③ **重建是按清单旧值写回松散 ref,等于有机会把默认分支指回旧 commit**。`origin/main` 早有 FETCH_HEAD 权威值特例,默认分支这一项漏了。修法:`scripts/lib/gitdir.mjs` 新增 `refExpectationSatisfied(ref, expected, actual)` —— 解析不到一律算缺失;`refs/remotes/<remote>/HEAD` 能解析即满足;其余仍严格比 sha。三处判定统一走它(单一真相源,不再各写一份 sha 比较):`git-guardian` 的 `missingRefs` + `healRefs` 待修集、`git-refs-heal` 的 `status` / `broken` / 回读校验。验证:helper 判据 6/6(含"真解析不到的默认分支项仍算红"反向对照)+ 真仓 `missing: []` + `git-guardian --check` 退出码 0。
-- [x] ✅(2026-09-23) **守门 30a 恒红一并消除**:`check-commit-loss-guard` 报 445 个 `lost-commit/*` tag 仅本地未推 + 1 个 `backup/*` 仅远端未回捞 ⇒ 每次提交都被拦(又一道逼各会话 `--no-verify` 的系统性红门)。按 §22「自动化 tag 同步」跑 `sync-lost-commit-tags.mjs --fetch` + `--auto-push`(不使用 `--force`)。复测:未检测到 reset、无未备份悬空 commit、**4506 个 tag 对象全可达且本地+远端完全一致**,30a 真实退出码 0。**本会话累计消除的系统性红门:44(根目录白名单)/ 30a(tag 未同步)/ refsOk 假红(判据缺陷)**,当前仅剩 57 —— 属他人半编辑态,见下条。
-- [x] ✅(2026-09-23) **`refsOk` 假红的完整根因与终版判据**:清单 `refs-manifest.json` 里 `refs/remotes/` 下的项(默认分支 HEAD 与 main)都是**跟随 push/fetch 移动的量**,被按 sha 钉成期望值 ⇒ ① `refsOk` 恒 false;② 守护每轮徒劳重建;③ 更糟:`healRefs` 按清单旧值写回松散 ref,等于**把远端镜像指回旧 commit**。终版 `scripts/lib/gitdir.mjs` `refExpectationSatisfied()`:解析不到仍算红(真故障);`refs/remotes/**` 能解析即满足;`refs/tags/**`(含 `backup/`、`lost-commit/` 嵌套)与 `refs/heads/**` 不可变 ⇒ 仍严格比 sha。三处判定统一走它(guardian `missingRefs` + `healRefs` 待修集、refs-heal 的 `status`/`broken`/回读校验),不再各写一份 sha 比较。验证:helper 判据 7/7(含"remote 解析不到仍算红""tag sha 不符仍算红"两个反向对照);真仓 `git-guardian --check` 连续两轮 exit 0、`refs-heal --status` missing 为空。
 - **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
 - **遗留(非本票引入,按 §12 不代修,已上报待裁)**:HEAD 上两处类型错 —— ① `packages/shared/src/chat/index.ts:21` `export * from './prompt-history'` 指向**任何提交都不存在**的模块(由 `23613a68c` 引入,全仓零消费者,单行悬空 export 即打红 mobile-rn typecheck);② `apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx:24` `PermissionEvent` 声明未用(TS6196)。二者在本票对齐工作区**之前**就存在于 HEAD,只是此前相关测试文件处于缺失状态、把报错遮住了。
 - 验证:`node scripts/check-stale-revert.mjs --self-test`(8 例全绿)+ 临时 index 端到端演练 3/3 + `git status --porcelain | grep '^ D'` 为空 + `node scripts/git-guardian.mjs --status` 全 true + `node scripts/git-push-converge.mjs` 收敛。
@@ -3848,3 +3887,4 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **仍未闭环(两次假设都被实测否证,记下来省后人一轮)**:改后 `#root` 依然 0 子节点、控制台 0 error。① 猜 `active-tokens` 模块级 `new File(Paths.document, …)` 在 web 抛错 —— **出包实证**:expo-file-system 的 web shim 只 `console.warn('expo-file-system is not supported on web')` **不抛**,`FileSystemFile`/`FileSystemDirectory` 构造体是空壳,`modeFile` 只是惰性桩,`persistedMode()` 走 try/catch 返回 null,不致崩。② 猜缺 `AppRegistry.runApplication` —— 实际 `App.tsx:210-214` 早已在 `Platform.OS === 'web'` 分支调用;且我改的门条件在包内正确发射为 `Platform.default.OS !== 'web'`(`Platform` 经 `_interopDefault` 包裹,`.default.OS` 解析正常)。**下一步判据**:`App.tsx:137` 的 `if (__DEV__) LogBox.ignoreAllLogs()` 会把渲染期报错全吞 —— 这正是"零 error + 零 DOM"这对矛盾现象的最可能成因,须先临时摘掉该行取一次真实堆栈,再定位 ThemeProvider / NavigationContainer / RootNavigator 的 web 兼容点。
 - 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩已登记的他人测试 `TS6196`)。
 - **平台独占豁免依据(§9)**:改动仅 `apps/mobile-rn/App.tsx` 入口的 web 分支门条件,不触他端。
+- [x] ✅(2026-09-23) **守门 30a 恒红一并消除**:`check-commit-loss-guard` 报 445 个 `lost-commit/*` tag 仅本地未推 + 1 个 `backup/*` 仅远端未回捞 ⇒ 每次提交都被拦(又一道逼各会话 `--no-verify` 的系统性红门)。按 §22「自动化 tag 同步」跑 `sync-lost-commit-tags.mjs --fetch` + `--auto-push`(不使用 `--force`)。复测:未检测到 reset、无未备份悬空 commit、**4506 个 tag 对象全可达且本地+远端完全一致**,30a 真实退出码 0。**本会话累计消除的系统性红门:44(根目录白名单)/ 30a(tag 未同步)/ refsOk 假红(判据缺陷)**,当前仅剩 57 —— 属他人半编辑态,见下条。
