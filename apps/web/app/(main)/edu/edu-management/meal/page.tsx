@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import {
   Calendar,
   CalendarDays,
@@ -92,25 +91,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 /* ─── Constants ─── */
 
 const MEAL_TYPES = [
-  { value: 'breakfast', labelKey: 'mealTypes.breakfast' },
-  { value: 'lunch', labelKey: 'mealTypes.lunch' },
-  { value: 'dinner', labelKey: 'mealTypes.dinner' },
-  { value: 'snack', labelKey: 'mealTypes.snack' },
+  { value: 'breakfast', label: '早餐' },
+  { value: 'lunch', label: '午餐' },
+  { value: 'dinner', label: '晚餐' },
+  { value: 'snack', label: '加餐' },
 ] as const
 
-const MEAL_TYPE_LABEL_KEY_MAP: Map<string, string> = new Map(
-  MEAL_TYPES.map((m) => [m.value, m.labelKey] as const),
-)
+const MEAL_TYPE_MAP = new Map(MEAL_TYPES.map((m) => [m.value, m.label]))
 
-const WEEKDAY_KEYS = [
-  'weekdays.weekdayMon',
-  'weekdays.weekdayTue',
-  'weekdays.weekdayWed',
-  'weekdays.weekdayThu',
-  'weekdays.weekdayFri',
-  'weekdays.weekdaySat',
-  'weekdays.weekdaySun',
-] as const
+const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 
 const MEAL_COLORS = {
   breakfast: 'bg-blue-500',
@@ -188,7 +177,6 @@ function MealEditDialog({
   onSave: (data: MealFormData) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
-  const t = useTranslations('eduMeal')
   const [form, setForm] = React.useState<MealFormData>(emptyMealForm)
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -243,14 +231,12 @@ function MealEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>
-            {initial ? t('mealDialog.editTitle') : t('mealDialog.addTitle')}
-          </DialogTitle>
+          <DialogTitle>{initial ? '编辑菜谱' : '添加菜谱'}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('mealDialog.date')}</Label>
+              <Label>日期</Label>
               <Input
                 type="date"
                 value={form.date}
@@ -258,7 +244,7 @@ function MealEditDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('mealDialog.mealType')}</Label>
+              <Label>餐类型</Label>
               <Select value={form.mealType} onValueChange={(v) => update('mealType', v)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -266,7 +252,7 @@ function MealEditDialog({
                 <SelectContent>
                   {MEAL_TYPES.map((mt) => (
                     <SelectItem key={mt.value} value={mt.value}>
-                      {t(mt.labelKey)}
+                      {mt.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -274,43 +260,43 @@ function MealEditDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('mealDialog.dishName')}</Label>
+            <Label>菜品名</Label>
             <Input
               value={form.dishName}
               onChange={(e) => update('dishName', e.target.value)}
-              placeholder={t('mealDialog.dishNamePlaceholder')}
+              placeholder="例如：红烧排骨"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('mealDialog.ingredients')}</Label>
+            <Label>配料</Label>
             <Input
               value={form.ingredients}
               onChange={(e) => update('ingredients', e.target.value)}
-              placeholder={t('mealDialog.ingredientsPlaceholder')}
+              placeholder="例如：排骨500g, 姜, 蒜"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('mealDialog.nutrition')}</Label>
+            <Label>营养信息</Label>
             <Input
               value={form.nutrition}
               onChange={(e) => update('nutrition', e.target.value)}
-              placeholder={t('mealDialog.nutritionPlaceholder')}
+              placeholder="例如：热量450kcal, 蛋白质25g"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('mealDialog.imageUrl')}</Label>
+            <Label>图片URL</Label>
             <Input
               value={form.imageUrl}
               onChange={(e) => update('imageUrl', e.target.value)}
-              placeholder={t('mealDialog.imageUrlPlaceholder')}
+              placeholder="可选，图片链接"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('mealDialog.notes')}</Label>
+            <Label>备注</Label>
             <Input
               value={form.notes}
               onChange={(e) => update('notes', e.target.value)}
-              placeholder={t('mealDialog.notesPlaceholder')}
+              placeholder="可选，备注信息"
             />
           </div>
         </div>
@@ -322,12 +308,12 @@ function MealEditDialog({
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              {t('mealDialog.delete')}
+              删除
             </Button>
           )}
           <Button onClick={handleSave} disabled={saving || !form.dishName.trim() || !form.date}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {initial ? t('mealDialog.save') : t('mealDialog.add')}
+            {initial ? '保存' : '添加'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -363,7 +349,6 @@ function TemplateDialog({
   onDeleteTemplate: (name: string) => Promise<void>
   onApplyTemplate: (name: string, startDate: string) => Promise<void>
 }) {
-  const t = useTranslations('eduMeal')
   const [mode, setMode] = React.useState<'list' | 'create' | 'apply'>('list')
   const [templateName, setTemplateName] = React.useState('')
   const [selectedTemplate, setSelectedTemplate] = React.useState('')
@@ -410,7 +395,7 @@ function TemplateDialog({
   }
 
   const handleEditTemplate = (name: string) => {
-    const nameEntries = templates.filter((tpl) => tpl.name === name)
+    const nameEntries = templates.filter((t) => t.name === name)
     const entries = initEntries()
     for (const ne of nameEntries) {
       const idx = entries.findIndex((e) => e.weekday === ne.weekday && e.mealType === ne.mealType)
@@ -481,11 +466,11 @@ function TemplateDialog({
           <DialogTitle>
             {mode === 'create'
               ? templateName
-                ? t('template.editTitle', { name: templateName })
-                : t('template.newTitle')
+                ? `编辑模板：${templateName}`
+                : '新建模板'
               : mode === 'apply'
-                ? t('template.applyTitle')
-                : t('template.title')}
+                ? '应用模板'
+                : '模板管理'}
           </DialogTitle>
         </DialogHeader>
 
@@ -494,7 +479,7 @@ function TemplateDialog({
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleStartCreate}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
-                {t('template.newTitle')}
+                新建模板
               </Button>
               <Button
                 size="sm"
@@ -507,18 +492,16 @@ function TemplateDialog({
                 disabled={templateNames.length === 0}
               >
                 <ClipboardList className="mr-1 h-3.5 w-3.5" />
-                {t('template.applyTitle')}
+                应用模板
               </Button>
             </div>
 
             {templateNames.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                {t('template.empty')}
-              </p>
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无模板</p>
             ) : (
               <div className="space-y-1">
                 {templateNames.map((name) => {
-                  const count = templates.filter((tpl) => tpl.name === name).length
+                  const count = templates.filter((t) => t.name === name).length
                   return (
                     <div
                       key={name}
@@ -528,12 +511,12 @@ function TemplateDialog({
                         <ClipboardList className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm font-medium">{name}</span>
                         <Badge variant="outline" className="text-[10px]">
-                          {t('template.itemCount', { count })}
+                          {count} 项
                         </Badge>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleEditTemplate(name)}>
-                          {t('template.edit')}
+                          编辑
                         </Button>
                         <Button
                           variant="ghost"
@@ -559,11 +542,11 @@ function TemplateDialog({
         {mode === 'create' && (
           <div className="space-y-4">
             <div className="grid gap-1.5">
-              <Label>{t('template.name')}</Label>
+              <Label>模板名称</Label>
               <Input
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
-                placeholder={t('template.namePlaceholder')}
+                placeholder="例如：一周健康食谱"
               />
             </div>
 
@@ -572,9 +555,9 @@ function TemplateDialog({
                 {/* Header row */}
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
                   <div className="p-1.5 text-xs font-medium text-muted-foreground" />
-                  {WEEKDAY_KEYS.map((key) => (
-                    <div key={key} className="border-b p-1.5 text-center text-xs font-medium">
-                      {t(key)}
+                  {WEEKDAY_LABELS.map((label) => (
+                    <div key={label} className="border-b p-1.5 text-center text-xs font-medium">
+                      {label}
                     </div>
                   ))}
                 </div>
@@ -583,7 +566,7 @@ function TemplateDialog({
                 {MEAL_TYPES.map((mt) => (
                   <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
                     <div className="flex items-center gap-1 border-b p-1.5 text-xs font-medium text-muted-foreground">
-                      {t(mt.labelKey)}
+                      {mt.label}
                     </div>
                     {Array.from({ length: 7 }, (_, i) => {
                       const weekday = i + 1
@@ -597,7 +580,7 @@ function TemplateDialog({
                         >
                           <Input
                             className="h-7 text-xs"
-                            placeholder={t('template.dishPlaceholder')}
+                            placeholder="菜品名"
                             value={entry?.dishName ?? ''}
                             onChange={(e) =>
                               updateEntry(weekday, mt.value, 'dishName', e.target.value)
@@ -607,7 +590,7 @@ function TemplateDialog({
                             <div className="mt-0.5 space-y-0.5">
                               <Input
                                 className="h-6 text-[10px]"
-                                placeholder={t('template.ingredientsPlaceholder')}
+                                placeholder="配料"
                                 value={entry.ingredients}
                                 onChange={(e) =>
                                   updateEntry(weekday, mt.value, 'ingredients', e.target.value)
@@ -615,7 +598,7 @@ function TemplateDialog({
                               />
                               <Input
                                 className="h-6 text-[10px]"
-                                placeholder={t('template.nutritionPlaceholder')}
+                                placeholder="营养"
                                 value={entry.nutrition}
                                 onChange={(e) =>
                                   updateEntry(weekday, mt.value, 'nutrition', e.target.value)
@@ -633,11 +616,11 @@ function TemplateDialog({
 
             <DialogFooter>
               <Button variant="outline" onClick={() => setMode('list')}>
-                {t('template.cancel')}
+                取消
               </Button>
               <Button onClick={handleSave} disabled={saving || !templateName.trim()}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {t('template.saveTemplate')}
+                保存模板
               </Button>
             </DialogFooter>
           </div>
@@ -646,10 +629,10 @@ function TemplateDialog({
         {mode === 'apply' && (
           <div className="space-y-4">
             <div className="grid gap-1.5">
-              <Label>{t('template.selectTemplate')}</Label>
+              <Label>选择模板</Label>
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t('template.selectTemplate')} />
+                  <SelectValue placeholder="选择模板" />
                 </SelectTrigger>
                 <SelectContent>
                   {templateNames.map((name) => (
@@ -661,7 +644,7 @@ function TemplateDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('template.startDate')}</Label>
+              <Label>起始日期（周一）</Label>
               <Input
                 type="date"
                 value={applyStartDate}
@@ -670,7 +653,7 @@ function TemplateDialog({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setMode('list')}>
-                {t('template.cancel')}
+                取消
               </Button>
               <Button
                 onClick={handleApply}
@@ -681,7 +664,7 @@ function TemplateDialog({
                 ) : (
                   <Check className="mr-1 h-4 w-4" />
                 )}
-                {t('template.apply')}
+                应用
               </Button>
             </DialogFooter>
           </div>
@@ -694,7 +677,6 @@ function TemplateDialog({
 /* ─── Main Page ─── */
 
 export default function MealPage() {
-  const t = useTranslations('eduMeal')
   const queryClient = useQueryClient()
 
   /* ── State ── */
@@ -851,7 +833,7 @@ export default function MealPage() {
   const saveTemplate = useMutation({
     mutationFn: ({ name, entries }: { name: string; entries: TemplateEntryForm[] }) => {
       // Delete existing entries with same name, then create new ones
-      const existingIds = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
+      const existingIds = templates.filter((t) => t.name === name).map((t) => t.id)
       const deletePromises = existingIds.map((id) =>
         api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
       )
@@ -879,7 +861,7 @@ export default function MealPage() {
 
   const deleteTemplateMutation = useMutation({
     mutationFn: (name: string) => {
-      const ids = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
+      const ids = templates.filter((t) => t.name === name).map((t) => t.id)
       return Promise.all(
         ids.map((id) => api(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' })),
       )
@@ -947,7 +929,7 @@ export default function MealPage() {
       setShoppingListData(data)
       setShoppingListOpen(true)
     } catch (e: unknown) {
-      toast.error((e as { message?: string }).message ?? t('page.generateFailed'))
+      toast.error((e as { message?: string }).message ?? '生成采购清单失败')
     } finally {
       setGeneratingShopping(false)
     }
@@ -1016,7 +998,8 @@ export default function MealPage() {
 
   const renderMealTypeSection = (date: string, mealType: string) => {
     const mealsForType = mealsByDateAndType.get(date)?.get(mealType) ?? []
-    const mtLabelKey = MEAL_TYPE_LABEL_KEY_MAP.get(mealType)
+    const mtLabel =
+      MEAL_TYPE_MAP.get(mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? mealType
     const Icon = MEAL_ICONS[mealType as keyof typeof MEAL_ICONS]
 
     return (
@@ -1024,7 +1007,7 @@ export default function MealPage() {
         <div className="mb-1.5 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
-            <span className="text-xs font-medium">{mtLabelKey ? t(mtLabelKey) : mealType}</span>
+            <span className="text-xs font-medium">{mtLabel}</span>
           </div>
           <button
             type="button"
@@ -1035,9 +1018,7 @@ export default function MealPage() {
           </button>
         </div>
         {mealsForType.length === 0 ? (
-          <p className="py-2 text-center text-[10px] text-muted-foreground">
-            {t('page.emptyMeal')}
-          </p>
+          <p className="py-2 text-center text-[10px] text-muted-foreground">暂无菜谱</p>
         ) : (
           <div className="space-y-1">{mealsForType.map((m) => renderMealCard(m))}</div>
         )}
@@ -1051,19 +1032,19 @@ export default function MealPage() {
     const types = Array.from(byDate.keys())
     return (
       <div className="mt-1 flex flex-wrap gap-1">
-        {types.map((mealType) => {
-          const labelKey = MEAL_TYPE_LABEL_KEY_MAP.get(mealType)
-          return (
-            <Tooltip key={mealType} content={labelKey ? t(labelKey) : mealType}>
-              <span
-                className={cn(
-                  'inline-block h-2 w-2 rounded-sm',
-                  MEAL_COLORS[mealType as keyof typeof MEAL_COLORS] ?? 'bg-gray-500',
-                )}
-              />
-            </Tooltip>
-          )
-        })}
+        {types.map((t) => (
+          <Tooltip
+            key={t}
+            content={MEAL_TYPE_MAP.get(t as 'breakfast' | 'lunch' | 'dinner' | 'snack') ?? t}
+          >
+            <span
+              className={cn(
+                'inline-block h-2 w-2 rounded-sm',
+                MEAL_COLORS[t as keyof typeof MEAL_COLORS] ?? 'bg-gray-500',
+              )}
+            />
+          </Tooltip>
+        ))}
       </div>
     )
   }
@@ -1073,7 +1054,7 @@ export default function MealPage() {
     return (
       <div className="space-y-4 px-4 py-4">
         <BackButton />
-        <Alert variant="danger" description={t('page.loadError')} />
+        <Alert variant="danger" description="加载菜谱数据失败，请稍后重试" />
       </div>
     )
   }
@@ -1084,8 +1065,8 @@ export default function MealPage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('page.title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('page.subtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">菜谱管理</h1>
+        <p className="text-xs text-muted-foreground">管理每日菜谱，支持日/周/月视图</p>
       </header>
 
       {/* Toolbar */}
@@ -1098,31 +1079,28 @@ export default function MealPage() {
               size="sm"
               onClick={() => setViewMode('day')}
             >
-              <Calendar className="mr-1 h-3.5 w-3.5" />
-              {t('views.day')}
+              <Calendar className="mr-1 h-3.5 w-3.5" />日
             </Button>
             <Button
               variant={viewMode === 'week' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('week')}
             >
-              <CalendarDays className="mr-1 h-3.5 w-3.5" />
-              {t('views.week')}
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />周
             </Button>
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('month')}
             >
-              <List className="mr-1 h-3.5 w-3.5" />
-              {t('views.month')}
+              <List className="mr-1 h-3.5 w-3.5" />月
             </Button>
           </div>
 
           {/* Template button */}
           <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
             <ClipboardList className="mr-1 h-3.5 w-3.5" />
-            {t('template.title')}
+            模板管理
           </Button>
 
           {/* Nutrition & Shopping list */}
@@ -1135,7 +1113,7 @@ export default function MealPage() {
             }}
           >
             <BarChart3 className="mr-1 h-3.5 w-3.5" />
-            {t('page.nutritionAnalysis')}
+            营养分析
           </Button>
           <Button
             variant="outline"
@@ -1148,14 +1126,14 @@ export default function MealPage() {
             ) : (
               <ShoppingCart className="mr-1 h-3.5 w-3.5" />
             )}
-            {t('page.shoppingList')}
+            采购清单
           </Button>
 
           {/* Loading indicator */}
           {mealsLoading && (
             <div className="ml-auto flex items-center text-xs text-muted-foreground">
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              {t('page.loading')}
+              加载中...
             </div>
           )}
         </CardContent>
@@ -1178,7 +1156,7 @@ export default function MealPage() {
                   onClick={() => setDayOffset(0)}
                   disabled={dayOffset === 0}
                 >
-                  {t('page.today')}
+                  今天
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setDayOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -1190,7 +1168,7 @@ export default function MealPage() {
               {mealsLoading ? (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {t('page.loadingMeals')}
+                  加载菜谱...
                 </div>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1218,7 +1196,7 @@ export default function MealPage() {
                   onClick={() => setWeekOffset(0)}
                   disabled={weekOffset === 0}
                 >
-                  {t('page.thisWeek')}
+                  本周
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -1231,25 +1209,25 @@ export default function MealPage() {
               {mealsLoading ? (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {t('page.loadingMeals')}
+                  加载菜谱...
                 </div>
               ) : (
                 <div className="min-w-[600px]">
                   {/* Header row */}
                   <div className="grid grid-cols-[60px_repeat(7,1fr)]">
                     <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
-                    {WEEKDAY_KEYS.map((key, i) => {
+                    {WEEKDAY_LABELS.map((label, i) => {
                       const d = weekDays[i]
                       const isToday = d && formatDate(d) === formatDate(today)
                       return (
                         <div
-                          key={key}
+                          key={label}
                           className={cn(
                             'border-b border-r p-2 text-center text-xs font-medium',
                             isToday && 'bg-primary/5',
                           )}
                         >
-                          <div>{t(key)}</div>
+                          <div>{label}</div>
                           <div className={cn('text-muted-foreground', isToday && 'text-primary')}>
                             {d ? d.getDate() : ''}
                           </div>
@@ -1265,7 +1243,7 @@ export default function MealPage() {
                       <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)]">
                         <div className="flex items-center gap-1 border-b bg-background p-2 text-xs font-medium text-muted-foreground">
                           {Icon && <Icon className="h-3 w-3" />}
-                          <span>{t(mt.labelKey)}</span>
+                          <span>{mt.label}</span>
                         </div>
                         {Array.from({ length: 7 }, (_, i) => {
                           const weekday = i + 1
@@ -1308,10 +1286,7 @@ export default function MealPage() {
             {/* Month navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
-                {t('page.monthLabel', {
-                  year: currentMonth.getFullYear(),
-                  month: currentMonth.getMonth() + 1,
-                })}
+                {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
               </CardTitle>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setMonthOffset((o) => o - 1)}>
@@ -1323,7 +1298,7 @@ export default function MealPage() {
                   onClick={() => setMonthOffset(0)}
                   disabled={monthOffset === 0}
                 >
-                  {t('page.thisMonth')}
+                  本月
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setMonthOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -1336,17 +1311,17 @@ export default function MealPage() {
               {mealsLoading ? (
                 <div className="flex items-center justify-center py-12 text-muted-foreground">
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {t('page.loadingMeals')}
+                  加载菜谱...
                 </div>
               ) : (
                 <div className="min-w-[600px]">
                   <div className="grid grid-cols-7">
-                    {WEEKDAY_KEYS.map((key) => (
+                    {WEEKDAY_LABELS.map((label) => (
                       <div
-                        key={key}
+                        key={label}
                         className="border-b border-r p-2 text-center text-xs font-medium text-muted-foreground"
                       >
-                        {t(key)}
+                        {label}
                       </div>
                     ))}
                     {monthGrid.map((cell, i) => {
@@ -1415,13 +1390,13 @@ export default function MealPage() {
       <Dialog open={nutritionOpen} onOpenChange={setNutritionOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('nutrition.title')}</DialogTitle>
+            <DialogTitle>营养分析汇总</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {nutritionQuery.isFetching ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                {t('page.loading')}
+                加载中...
               </div>
             ) : nutritionQuery.data ? (
               <>
@@ -1432,9 +1407,7 @@ export default function MealPage() {
                       <span className="text-2xl font-bold text-orange-500">
                         {nutritionQuery.data.summary.totalCalories}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('nutrition.totalCalories')}
-                      </span>
+                      <span className="text-xs text-muted-foreground">总热量 (kcal)</span>
                     </CardContent>
                   </Card>
                   <Card>
@@ -1442,9 +1415,7 @@ export default function MealPage() {
                       <span className="text-2xl font-bold text-blue-500">
                         {nutritionQuery.data.summary.totalProtein}g
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('nutrition.totalProtein')}
-                      </span>
+                      <span className="text-xs text-muted-foreground">总蛋白质</span>
                     </CardContent>
                   </Card>
                   <Card>
@@ -1452,50 +1423,44 @@ export default function MealPage() {
                       <span className="text-2xl font-bold text-green-500">
                         {nutritionQuery.data.summary.totalCarbs}g
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {t('nutrition.totalCarbs')}
-                      </span>
+                      <span className="text-xs text-muted-foreground">总碳水</span>
                     </CardContent>
                   </Card>
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  {t('nutrition.summary', {
-                    meals: nutritionQuery.data.totalMeals,
-                    start: dateRange.startDate,
-                    end: dateRange.endDate,
-                  })}
+                  共 {nutritionQuery.data.totalMeals} 餐 · 日期范围: {dateRange.startDate} ~{' '}
+                  {dateRange.endDate}
                 </p>
 
                 {/* By meal type breakdown */}
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium">{t('nutrition.byTypeTitle')}</h4>
+                  <h4 className="text-sm font-medium">按餐类型统计</h4>
                   {nutritionQuery.data.byType.map((type) => {
-                    const typeLabelKey = MEAL_TYPE_LABEL_KEY_MAP.get(type.mealType)
+                    const typeLabel =
+                      MEAL_TYPE_MAP.get(
+                        type.mealType as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+                      ) ?? type.mealType
                     return (
                       <div key={type.mealType} className="rounded-md border p-3">
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium">
-                            {typeLabelKey ? t(typeLabelKey) : type.mealType}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {t('nutrition.mealCount', { count: type.count })}
-                          </span>
+                          <span className="text-sm font-medium">{typeLabel}</span>
+                          <span className="text-xs text-muted-foreground">{type.count} 餐</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2 text-center text-xs">
                           <div>
                             <span className="block font-medium text-orange-500">
                               {type.calories}
                             </span>
-                            <span className="text-muted-foreground">{t('nutrition.calories')}</span>
+                            <span className="text-muted-foreground">热量</span>
                           </div>
                           <div>
                             <span className="block font-medium text-blue-500">{type.protein}g</span>
-                            <span className="text-muted-foreground">{t('nutrition.protein')}</span>
+                            <span className="text-muted-foreground">蛋白质</span>
                           </div>
                           <div>
                             <span className="block font-medium text-green-500">{type.carbs}g</span>
-                            <span className="text-muted-foreground">{t('nutrition.carbs')}</span>
+                            <span className="text-muted-foreground">碳水</span>
                           </div>
                         </div>
                       </div>
@@ -1504,9 +1469,7 @@ export default function MealPage() {
                 </div>
               </>
             ) : (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                {t('nutrition.empty')}
-              </p>
+              <p className="py-4 text-center text-sm text-muted-foreground">暂无营养数据</p>
             )}
           </div>
         </DialogContent>
@@ -1516,21 +1479,16 @@ export default function MealPage() {
       <Dialog open={shoppingListOpen} onOpenChange={setShoppingListOpen}>
         <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t('shopping.title')}</DialogTitle>
+            <DialogTitle>食材采购清单</DialogTitle>
           </DialogHeader>
           {shoppingListData ? (
             <div className="space-y-3 py-2">
               <p className="text-xs text-muted-foreground">
-                {t('shopping.summary', {
-                  start: dateRange.startDate,
-                  end: dateRange.endDate,
-                  count: shoppingListData.totalIngredients,
-                })}
+                日期范围: {dateRange.startDate} ~ {dateRange.endDate} · 共{' '}
+                {shoppingListData.totalIngredients} 种食材
               </p>
               {shoppingListData.shoppingList.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  {t('shopping.empty')}
-                </p>
+                <p className="py-4 text-center text-sm text-muted-foreground">暂无食材数据</p>
               ) : (
                 <div className="space-y-1">
                   {shoppingListData.shoppingList.map((item, i) => (
@@ -1544,7 +1502,7 @@ export default function MealPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
-                          {t('shopping.appearsIn', { count: item.count })}
+                          出现在 {item.count} 道菜
                         </Badge>
                       </div>
                     </div>
@@ -1553,9 +1511,7 @@ export default function MealPage() {
               )}
               {shoppingListData.shoppingList.length > 0 && (
                 <div className="rounded-md bg-muted/30 p-3">
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">
-                    {t('shopping.involvedDishes')}
-                  </p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">涉及菜品</p>
                   <div className="flex flex-wrap gap-1">
                     {Array.from(
                       new Set(shoppingListData.shoppingList.flatMap((s) => s.dishes)),
@@ -1571,7 +1527,7 @@ export default function MealPage() {
           ) : (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {t('shopping.generating')}
+              生成中...
             </div>
           )}
         </DialogContent>

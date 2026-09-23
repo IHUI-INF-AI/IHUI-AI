@@ -44,7 +44,7 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
-import { getAccountsHealthSummary, type CookieHealthInfo } from '@ihui/api-client'
+import { fetchApi, isAbortError } from '@/lib/api'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
@@ -67,6 +67,17 @@ import { AccountGroupManager } from '@/components/publish/AccountGroupManager'
 interface AccountWithRisk extends PublishAccount {
   readonly riskScore?: number
   readonly riskLevel?: RiskLevel
+  readonly cooldownRemaining?: number
+}
+
+/** GET /api/publish/accounts/{id}/risk 返回结构(2026-08-17 新增) */
+interface RiskData {
+  readonly accountId: number
+  readonly platform: string
+  readonly score: number
+  readonly level: RiskLevel
+  readonly factors?: readonly unknown[]
+  readonly cooldownUntil?: string | null
   readonly cooldownRemaining?: number
 }
 
@@ -119,7 +130,6 @@ export default function AccountsPage() {
   )
   const [batchOpen, setBatchOpen] = React.useState(false)
   const [riskMap, setRiskMap] = React.useState<Record<number, RiskView>>({})
-  const [healthMap, setHealthMap] = React.useState<Record<number, CookieHealthInfo>>({})
 
   const pendingPlatforms = React.useMemo(() => {
     const configured = new Set(accounts.map((a) => a.platform))
@@ -133,33 +143,42 @@ export default function AccountsPage() {
     [pendingPlatforms],
   )
 
-  // 风控评分 + Cookie 健康度:一次批量拉取(失败静默,保持"未评估")。
-  // 原先按账号数并行扇出 —— 生产实测 19 个账号即 38 次/屏、叠加轮询 ~163 次/分钟,
-  // 单独这一页就能越过服务端 200 次/分钟的 IP 封禁阈值(2026-09-23 事故)。
+  // 2026-08-17:风控评分并行拉取(失败静默,保持"未评估")
   React.useEffect(() => {
     if (accounts.length === 0) {
       setRiskMap({})
-      setHealthMap({})
       return
     }
+    const controller = new AbortController()
     let cancelled = false
-    void getAccountsHealthSummary().then((r) => {
-      if (cancelled || !r.success || !r.data) return
-      const nextRisk: Record<number, RiskView> = {}
-      const nextHealth: Record<number, CookieHealthInfo> = {}
-      for (const item of r.data.items) {
-        nextRisk[item.accountId] = {
-          score: item.risk.score,
-          level: item.risk.level,
-          cooldownRemaining: item.risk.cooldownRemaining,
+    void Promise.all(
+      accounts.map((a) =>
+        fetchApi<RiskData>(`/api/publish/accounts/${a.id}/risk`, { signal: controller.signal })
+          .then((r) => (r.success && r.data ? ([a.id, r.data] as const) : null))
+          .catch((e) => {
+            if (!isAbortError(e)) {
+              return null
+            }
+            throw e
+          }),
+      ),
+    ).then((results) => {
+      if (cancelled) return
+      const next: Record<number, RiskView> = {}
+      for (const item of results) {
+        if (item) {
+          next[item[0]] = {
+            score: item[1].score,
+            level: item[1].level,
+            cooldownRemaining: item[1].cooldownRemaining,
+          }
         }
-        nextHealth[item.accountId] = item.cookieHealth
       }
-      setRiskMap(nextRisk)
-      setHealthMap(nextHealth)
+      setRiskMap(next)
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [accounts])
 
@@ -401,8 +420,6 @@ export default function AccountsPage() {
                               accountId={a.id}
                               compact={false}
                               variant="badge"
-                              managed
-                              health={healthMap[a.id]}
                             />
                           </div>
                         </div>
