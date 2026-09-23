@@ -248,6 +248,7 @@ function Separator(): React.JSX.Element {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   header: {
     flexDirection: 'row',
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   vipBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   info: {
     paddingTop: 8,
