@@ -24117,8 +24117,6 @@
     "metaDescription": "Test the OpenAI-compatible API online: model selection, multi-turn messages, parameter tuning, streaming SSE rendering, code generation (cURL/Python/Node.js) and history.",
     "pageDesc": "Call /v1/chat/completions directly with your API Key — streaming, parameter tuning and code generation, without leaving for /chat."
   },
-  "upload": {},
-  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {
