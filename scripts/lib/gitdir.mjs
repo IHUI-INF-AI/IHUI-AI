@@ -25,18 +25,83 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // ── git 可执行文件解析:不依赖 PATH(服务账户如 LocalSystem 可能没有 PATH) ──
+// D57 卫生项:旧硬编码 `.../PortableGit/versions/1.2.0/cmd/git.exe` 版本升级即失效,
+// 改为三层候选:① IHUI_PORTABLE_GIT 环境变量;② versions/ 目录多版本扫描(current 文件优先,
+// 语义版本倒序);③ 旧 1.2.0 路径仅作最后兜底。
+const PORTABLE_VERSIONS_ROOT = 'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions'
+const LEGACY_PORTABLE_GIT = 'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe'
 export const GIT_CANDIDATES = [
   process.env.GIT_BIN,
   'git',
   'C:/Program Files/Git/cmd/git.exe',
   'C:/Program Files (x86)/Git/cmd/git.exe',
-  'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe',
 ].filter(Boolean)
+
+/** 语义版本倒序比较(1.2.10 > 1.2.0),仅用于 versions/ 子目录排序 */
+function compareVersionDesc(a, b) {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  const n = Math.max(pa.length, pb.length)
+  for (let i = 0; i < n; i++) {
+    const da = pa[i] ?? 0
+    const db = pb[i] ?? 0
+    if (da !== db) return db - da
+  }
+  return 0
+}
+
+/** 扫描单个 versions 根目录:current 文件优先,其次语义版本倒序,每版取 cmd/bin 各一 */
+function scanVersionsRoot(root) {
+  const found = []
+  try {
+    try {
+      const cur = readFileSync(join(root, 'current'), 'utf8').trim().split(/\s+/)[0]
+      if (cur && !cur.includes('/') && !cur.includes('\\')) {
+        found.push(join(root, cur, 'cmd/git.exe'))
+        found.push(join(root, cur, 'bin/git.exe'))
+      }
+    } catch {
+      /* 无 current 文件则跳过 */
+    }
+    const entries = readdirSync(root, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && /^\d+\.\d+(\.\d+)?$/.test(e.name))
+      .map((e) => e.name)
+      .sort(compareVersionDesc)
+    for (const v of entries) {
+      found.push(join(root, v, 'cmd/git.exe'))
+      found.push(join(root, v, 'bin/git.exe'))
+    }
+  } catch {
+    /* 目录不存在则返回空 */
+  }
+  return found
+}
+
+/**
+ * PortableGit 动态候选(有序,去重):环境变量 > 默认 versions 根扫描 > 旧 1.2.0 兜底。
+ * IHUI_PORTABLE_GIT 可指向 git.exe 本体、某版本目录(含 cmd/git.exe)或 versions 根(含 current/版本子目录)。
+ */
+export function resolvePortableGitCandidates() {
+  const out = []
+  const push = (p) => {
+    if (p && !out.includes(p)) out.push(p)
+  }
+  const envRoot = (process.env.IHUI_PORTABLE_GIT || '').trim()
+  if (envRoot) {
+    push(envRoot)
+    push(join(envRoot, 'cmd/git.exe'))
+    push(join(envRoot, 'bin/git.exe'))
+    for (const p of scanVersionsRoot(envRoot)) push(p)
+  }
+  for (const p of scanVersionsRoot(PORTABLE_VERSIONS_ROOT)) push(p)
+  push(LEGACY_PORTABLE_GIT)
+  return out
+}
 
 let _GIT_BIN = null
 let _GIT_VERSION = null
@@ -44,7 +109,11 @@ let _GIT_VERSION = null
 /** 解析可用的 git 可执行文件(带缓存;绝对路径优先,服务账户下仍可定位 PortableGit) */
 export function resolveGitBin() {
   if (_GIT_BIN) return _GIT_BIN
-  for (const c of GIT_CANDIDATES) {
+  const all = []
+  for (const c of [...resolvePortableGitCandidates(), ...GIT_CANDIDATES]) {
+    if (c && !all.includes(c)) all.push(c)
+  }
+  for (const c of all) {
     try {
       const v = execFileSync(c, ['--version'], {
         encoding: 'utf8',
