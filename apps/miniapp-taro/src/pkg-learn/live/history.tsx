@@ -124,7 +124,7 @@ export default function LiveHistory() {
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[var(--color-border)] rounded-[12rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[var(--color-border)] rounded-md${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
@@ -142,7 +142,7 @@ export default function LiveHistory() {
               /* 对齐 RN card:padding 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border),无卡片底色 */
               <ThemeRoot key={item.id}>
                 <View
-                  className="p-[24rpx] rounded-[24rpx] border-[2rpx] border-[var(--color-border)]"
+                  className="p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]"
                   onClick={() => goDetail(item.id)}
                   hoverClass="opacity-60"
                 >

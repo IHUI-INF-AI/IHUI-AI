@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * PersonalInformationCard 个人信息卡片 (mobile-rn 端)
@@ -63,8 +64,6 @@ export interface PersonalInformationCardProps {
 
 const AVATAR_WIDTH = 36
 const AVATAR_HEIGHT = 32
-const AVATAR_RADIUS = 4
-const CARD_RADIUS = 12
 const CARD_PADDING = 16
 
 /**
@@ -171,12 +170,12 @@ export function PersonalInformationCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
     overflow: 'hidden',
   } as ViewStyle,
   cardImage: {
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
   } as ImageStyle,
   header: {
     flexDirection: 'row',
@@ -192,14 +191,14 @@ const styles = StyleSheet.create({
   avatar: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: AVATAR_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   } as ImageStyle,
   // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
   avatarFallback: {
     width: AVATAR_WIDTH,
     height: AVATAR_HEIGHT,
-    borderRadius: AVATAR_RADIUS,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

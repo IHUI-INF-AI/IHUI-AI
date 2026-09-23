@@ -93,7 +93,7 @@ export default function IntegralPage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background">
         {/* 余额卡(对齐 RN 共享 PointsRecordScreen balanceCard:success-light 底 + 深绿文字) */}
-        <View className="mx-[20rpx] mt-[20rpx] rounded-[24rpx] bg-[var(--color-success-light)] py-[28rpx] px-[28rpx] text-center">
+        <View className="mx-[20rpx] mt-[20rpx] rounded-xl bg-[var(--color-success-light)] py-[28rpx] px-[28rpx] text-center">
           <Text className="block text-[28rpx] text-[var(--color-success-deep-text)]">
             {tt('member.integral.current', '当前积分')}
           </Text>
@@ -105,7 +105,7 @@ export default function IntegralPage() {
           {list.map((it) => (
             <View
               key={it.id}
-              className="mb-[16rpx] rounded-[24rpx] border border-[var(--color-border)] bg-background px-[28rpx] py-[28rpx]"
+              className="mb-[16rpx] rounded-xl border border-[var(--color-border)] bg-background px-[28rpx] py-[28rpx]"
             >
               <View className="flex justify-between items-center">
                 <Text className="flex-1 mr-[16rpx] text-[32rpx] font-semibold text-foreground">

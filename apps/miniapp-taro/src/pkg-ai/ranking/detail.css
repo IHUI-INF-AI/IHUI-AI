@@ -94,7 +94,7 @@
   flex-direction: column;
   gap: 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx;
 }
 
@@ -109,7 +109,7 @@
 .logo {
   width: 128rpx;
   height: 128rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -180,7 +180,7 @@
   gap: 8rpx;
   padding: 20rpx 8rpx;
   background: var(--color-muted);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 
 .info-label {
@@ -204,7 +204,7 @@
   gap: 24rpx;
   padding: 24rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 
 .field-item {
@@ -243,7 +243,7 @@
 /* 图片(白卡之外,独立圆角) */
 .img-card {
   margin-top: 24rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 
@@ -259,7 +259,7 @@
   gap: 20rpx;
   padding: 24rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 
 .content-title {

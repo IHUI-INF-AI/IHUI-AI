@@ -28,7 +28,7 @@
   margin-right: 16rpx;
   background: var(--color-surface-light);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   vertical-align: middle;
 }
 .tab-active {
@@ -118,7 +118,7 @@
   display: flex;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
 }
 .item-read {

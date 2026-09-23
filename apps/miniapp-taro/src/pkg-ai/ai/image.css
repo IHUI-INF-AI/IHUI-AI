@@ -20,7 +20,7 @@
 .result-img {
   max-width: 100%;
   max-height: 600rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .empty {
   flex: 1;
@@ -53,7 +53,7 @@
 .ex-item {
   padding: 12rpx 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -66,7 +66,7 @@
   min-height: 120rpx;
   padding: 20rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   box-sizing: border-box;
 }
@@ -84,7 +84,7 @@
 .size {
   padding: 8rpx 16rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -95,7 +95,7 @@
 .btn {
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   padding: 0 32rpx;
 }
