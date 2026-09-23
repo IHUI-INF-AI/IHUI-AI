@@ -913,7 +913,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **注入回归 3 例**(补上"造好没装车"缺口):卡片 define 与烧入框错开、指示器矩形与位图不等大、以及**反证符号解析**(把 `RCARD_X = C_L` 改成 300 必须报"漂移 288 != 300"而不是"缺少可解析的常量")。`node --test scripts/tests/check-installer-assets-geo.test.mjs` = **8/8 绿**;守门五条不变量全 PASS。
 - **带 updater 签名重建真包**:`智汇AI_0.1.44_x64-setup.exe` 6,169,910B + `.sig` 420B,`desktop-artifact-single` 确认目录内唯一安装包。裸 `pnpm build` 不带 `TAURI_SIGNING_PRIVATE_KEY` 会在 bundle 成功后报"A public key has been found, but no private key" —— 那是调用缺 env,不是工程缺陷。
 - **新包 PrintWindow 实测**:轨道已改为「01 已完成 ✓ / 02..04 未激活」(第十六批缺陷③消除)、两张选项卡框已烧入、动态版本行已是品牌无衬线字体(缺陷①消除)。
-- **仍未闭环(如实登记)**:本机显示缩放被外部进程持续改写,实测该页在 150% 档下内容按 1.5× 布局而**窗口框未跟着重算**,截图右侧/下侧溢出(缺陷②只修了一半:位置重锚了,窗口尺寸没重锚)。解法方向 = 该页 DPI 重锚时同步重算 `$IHUIWW/$IHUIWH` 并 `MoveWindow` 外框,与 GUIINIT 的定窗逻辑同源;需一次带稳定缩放的复验,故不在本票内下"已修完"的结论。
+- **仍未闭环(2026-09-23 第二十一批改判)**:此处原文是"内容按 1.5× 布局而窗口框未跟着重算 / 位置重锚了、窗口尺寸没重锚"。该定性**在写下它的时点是成立的**(当时那条分支确实没有重锚代码,`git show 236734e934` 可核),但现场保全提交 `e09d866222` 已把框补上 —— 重锚分支现在就走 `!insertmacro IHUI_GUIINIT_SIZE`,宏内 `SetWindowPos` 带上新算出的 `$IHUIWW/$IHUIWH`。**真缺口挪到第三步**:DWM 圆角失败时回退分支的 `SetWindowRgn` 被钉在调用当时的尺寸上,框放大后 region 不跟随。已由第二十一批抽 `IHUI_WINDOW_RGN` 同源宏在定窗/重锚两点共调补掉,并被守门 61 的第七条跨文件不变量钉住;残余=未做真机像素复验(改缩放取证已被明令永久放弃),详见该批。
 - 本票交付已由并发会话随批收编入库(HEAD 内可查到 `不写 $ReinstallPageCheck` 与 `checkVarScopeOrder`);工作区仍留 `.husky` 之外他人未提交的 `ihui-uninstaller.nsi`,未代收。
 
 ### 第十八批(2026-09-23):目录页输入框垂直居中 —— 单行 Edit 顶对齐文字,并给这条修复立跨文件闸
@@ -936,6 +936,14 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **验证**:自测 14 → 17 例(`headIdOf` 三形态正反 + 散文引用/短编号反例 + "整行删但标题被原样引用必报红"专项 + `healContent` 判据一致性);**真实计划**注入 5/5 咬住(第十八批 / 第十六批 / `O13b` / `O14` / `D13` 各删整行必报且只报 1 条),改写编号后正文的对照组仍 0 报;误伤回归 HEAD vs 工作区、HEAD vs 暂存区双向 0 报(登记行基数 329 条)。
 - **本批自伤一条(如实记)**:核验时误跑 `git update-index --add --cacheinfo <旧 blob> scripts/check-plan-line-loss.mjs`,把**上一版**门文件塞进了共享暂存索引 —— 若下一枚提交恰好带上这个路径,就是一次静默回滚(守门 76 的 R1 正是为此而设)。已 `git reset -- <该路径>` 撤销并回读确认 index 那份不含 `stillRegistered`、工作区那份含 4 处。**教训**:核验类命令一律只读,任何 `update-index`/`read-tree` 必须走临时 `GIT_INDEX_FILE`,不得碰主 index。
 - **残余**:① 短编号(`P0`/`D6`/`H2`/`W1`)仍不受保护 —— 全文必撞,给它们"身份"只会制造永不报丢的空条目;② 只把编号写在句中、整行不以任何形态开头的登记行不在本闸视野内(按定义就不是登记行);③ 真正的兜底仍是"提交计划文档前现取 HEAD 版本再插自己的行",本批只保证漏做时被拦住,不保证自动合对。
+
+### 第二十一批(2026-09-23):重装页 DPI 重锚的敞口**改判** —— 窗口框一直在跟,真正没跟的是窗口裁剪区域
+
+- **先把第十四批那句残余改过来**(PLAN 现 916 行):当时记的是"内容按 1.5× 布局而**窗口框未跟着重算**,位置重锚了、窗口尺寸没重锚"。**那句在它写下的时点是成立的**(该分支当时确实没有重锚代码,`git show 236734e934` 可核),但现场保全提交 `e09d866222` 已把框补上 —— 现分支里就调 `!insertmacro IHUI_GUIINIT_SIZE`,该宏内部既重算 `$IHUIWW/$IHUIWH`(812-813)又 `SetWindowPos` 带上新尺寸(823),背景 `$IHUIBG` 与内层宿主也按新档重建。**现在的真缺口在第三步**:`IHUI_GUIINIT_COMMON` 里 DWM 圆角失败时的回退分支把 `SetWindowRgn` **钉死在调用当时的尺寸**上,窗口框后来被放大不会自动跟随 → 右/下多出来那条永不参与绘制,用户看到的仍是"内容溢出/被切",只是成因不是框。
+- **做法(同源化,不是补丁)**:把圆角/裁剪区域抽成 `IHUI_WINDOW_RGN`(`ihui-ui.nsi:826-846`),定窗(869-873)与重锚(1653-1658)两个调用点共用同一份实现 —— 复制两份必然漂移,与卸载器共用 `IHUI_GUIINIT_COMMON` 是同一个理由。**顺手堵掉一条潜在踩雷**:旧写法用 `$R9` 收返回值、`$R0` 收区域句柄,而该宏一旦在 `PageReinstall` 里被复用,`$R0` 正是 `PageLeaveReinstall` 还要用的版本比较结果(第十九批那条 Var/寄存器纪律的同族问题),现固定走 `$R6/$R7`。
+- **给这条修复装闸(第七条跨文件不变量)**:`checkDpiReanchorCompleteness` 四项同时成立才绿 —— installer.nsi 必须真的接线该重锚分支、分支内必须**同时**含 `IHUI_GUIINIT_SIZE` 与 `IHUI_WINDOW_RGN` 两个宏调用、region 必须按 `$IHUIWW/$IHUIWH` 现算、临时量不得落回 `$R0..$R4`。测试 11 → 16 例:四条"故意改坏"必红(丢 region 重算 / 退回只定窗 / 临时量挪回 `$R0` / 宏根本没接线)+ 一条"无关改动"必绿,夹具用 `mutateReanchorBranch` 动态定位分支,不把存量文本写死。
+- **验证(全部自己复跑,不是转抄代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → 16/16;`node scripts/check-installer-assets.mjs` → `PASS —— …七条跨文件不变量成立`;`makensis` 真编 → `COMPILE OK`、**warning 6000 = 0**(其余 6 条:6155×1、6010×3 先前已在,6001×2 是 `Var IHUIR6/IHUIR7` 两枚先前就存在的死声明,本票未新增引用);`watermark verify` 10168/10168 完好;eslint 0 error。
+- **残余(不称收口)**:① **未做真机复验** —— 该缺陷只在"无 DWM 系统圆角的 Win10 回退支"显形,而取证需要改显示缩放,已按用户"别动了"永久禁止,故本票只给编译级 + 守门级证据,不给像素级证据;② 重锚分支只跑**一轮** `IHUI_GUIINIT_SIZE`(GUIINIT 因多屏异 DPI 是两轮),跨屏搬迁时理论上差一轮收敛 —— 需要双屏异 DPI 机器才能验,本机不具备,保持登记不修;③ `IHUIR6/IHUIR7` 两枚死 `Var` 属先前遗留,删除会牵动 Var 声明顺序纪律,本票不动。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -3822,3 +3830,10 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **未做像素级"改后"复验(如实说明,不称已复验)**:设备 c12617dd 现装的是 13:30 的 **release** 构建(`flags` 无 DEBUGGABLE,JS 内嵌不吃 Metro),换装 debug 包与它签名不同 ⇒ 需 uninstall,会清掉用户 App 数据与登录态,未经批准不动。改前缺陷现场已截图留证(`.ihui-agent/tmp/rn-profile-dark-r6/04-profile.png`:浅紫面板 / 普通用户徽章 / 「文本」纯白胶囊三处可见)。
 - **顺带发现,不在本票范围未动**:智汇AI 首页「分享领智汇值」弹层两个按钮仍是纯白底(`02-home.png`),同属"深色下纯白 CTA 突兀"族,待另票统一(全端仍有 `brand.DEFAULT` 作 CTA 底的用法,须先定"主 CTA 是否一律走 brandAccent"再批量改,避免逐处打补丁)。
 - **平台独占豁免依据(§9)**:全部改动在 apps/mobile-rn 取色层与 RN 屏内加载态,不触他端契约、不改跨端类型。
+
+## P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 立并完成 ✅,单端工程治理:scripts + web + 文档)
+
+- [x] ✅(2026-09-23) **守门 77 check-no-conflict-markers.mjs**(blocking,`skipEnv=HUSKY_SKIP_CONFLICT_MARKERS`)—— 立项实证:15:49 `.git` 被宿主清除后,并发会话在共享工作区跑真实 `git merge`,留下 103 个未合并路径 / 94 个带字面标记的工作区文件,而**全链 106 道门无一拦得住标记入树**。判据 = 同文件内**成对**行首 `<<<<<<< ` + `>>>>>>> `(强制成对:单行 `=======` 在 setext 标题下划线/表格分隔里合法,只判单行必满天假红);三模式 `--staged`(判索引内容,`git show :<path>`,路径清单含 `U` 未合并态)/ 缺省全量(16561 候选 1.5s)/ `--rev <sha>`(事后核验提交树)。护栏三条:E1 豁免 `<<<<<<< SEARCH … >>>>>>> REPLACE` 补丁格式对并**如实计数**(本仓 CLI patch 语法与之同形,`apps/cli/src/tools/file-edit.ts:164` + `apps/cli/tests/file-edit.test.ts` 夹具是真实误伤源,不豁免则本门对合法测试恒红)、>2MB、二进制。取证 `--self-test` **26 例**(含 4b 豁免/4c 混搭不豁免/4d 真标记仍红 三例正反对照 + 真实 merge 未合并路径现场)+ §22c 镜像测试 11 例。**判据有效性实测**:`--rev HEAD` 由 exit 1 转 exit 0 且打印 `E1 合法豁免=1`,全量同步转绿。
+- [x] ✅(2026-09-23) **纠错一条(本会话自己的误判)**:先前据 `git grep -Il "^<<<<<<< " HEAD` 的单命中就断言"`apps/cli/tests/file-edit.test.ts` 被 merge 残迹污染、推前必须清理" —— 读文件后证伪:那是 `it('patch 参数支持多个 SEARCH/REPLACE 块')` 里的**合法夹具**,且闭合行是 `>>>>>>> REPLACE\`;`(带模板串尾巴)。**教训**:存在性 grep 命中 ≠ 性质判定,标记类判据必须读实现侧(本仓恰好有一套复用 git 字形的 patch 语法)。因此**未做任何"前向清理"提交**,改为给守门 77 补 E1 豁免。
+- [x] ✅(2026-09-23) **Esc 无层栈协议落地**(计划 L3666 认领项):新增 `apps/web/src/lib/overlay-stack.ts`(`pushOverlay`/`popOverlay`/`isTopOverlay`,push 幂等、pop 可重复、**对未注册 id fail-open** ⇒ 未接入的 Radix 层行为零变化)+ 19 处 web 自绘 portal 层接入;`vitest` 7/7、全量 `tsc` 34 条报错中本票 21 文件命中 0、`eslint` 0 error、水印 verify 21/21。**残余两项未做**(故该项仍留进行中):`packages/ui-react` 家族内建、"三层叠开一次 Esc 只关最上层"的真机逐层断言。
+- **本批仍存敞口(不写作收口)**:① 事故当日约 15 条未推送 commit 的**对象已永久丢失**(远端两侧均不含,归档只有 refs 无 objects),内容以工作区形态存活,取证清单 `.ihui-agent/tmp/git-recovery-20260923/RECOVERY-NOTES.md`;② 本机 main 曾落到 gitee 镜像基线,收敛回 GitHub 权威线由 §5b `git-sync-converge` 持续处理;③ 守门 77 只拦"标记入库",不溯已入库的历史标记(本批 E1 已证当前 HEAD 无真残迹)。

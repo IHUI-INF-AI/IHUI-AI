@@ -823,6 +823,29 @@ FunctionEnd
   System::Call "user32::SetWindowPos(p $HWNDPARENT, p 0, i R2, i R3, i $IHUIWW, i $IHUIWH, i 0x0024)"
 !macroend
 
+; ---- 窗口圆角/裁剪区域(定窗与 DPI 重锚共用同一份实现) ----
+; 首选 Win11 DWM 系统圆角(DWMWCP_ROUND,抗锯齿,系统圆角半径与 8px token 同档);
+; 调用失败(Win10 旧版无此属性)回退 CreateRoundRectRgn 硬裁切区域。
+; ⚠️ 回退分支把窗口 region **钉死在调用当时的 $IHUIWW/$IHUIWH 上**:窗口框之后被
+; SetWindowPos 放大(外部改显示缩放 → 重装页 DPI 重锚)时 region 不会自动跟随,
+; 右/下多出来的那条就再也不参与绘制 —— 用户看到的正是"内容溢出/被切"。故重锚路径
+; 必须与定窗路径调用同一个宏,而不是只重算控件坐标。
+; 寄存器纪律:临时量固定用 $R6(区域句柄)/ $R7(圆角直径)。**不得**用 $R0..$R4 ——
+; IHUI_REINSTALLTHEME 展开在 PageReinstall 内,$R0(版本比较结果)/$R1/$R2/$R3/$R4
+; 是 PageLeaveReinstall 与后续绘制还要用的存活数据(旧写法用 $R0 收区域句柄,一旦
+; 该宏被重锚路径复用就会把版本比较结果清掉)。$R5..$R8 只在 IHUI_GUIINIT_SIZE 消费完
+; 工作区矩形之后才算死,故本宏**必须排在定档定位之后**调用(两个调用点皆如此)。
+!macro IHUI_WINDOW_RGN
+  System::Call "dwmapi::DwmSetWindowAttribute(p $HWNDPARENT, i 33, *i 2, i 4) i .R6"
+  ${If} $R6 != 0
+    !insertmacro IHUI_PX $R7 8
+    IntOp $R7 $R7 + $R7
+    System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i $IHUIWW + 1, i $IHUIWH + 1, i rR7, i rR7) p .R6"
+    ; SetWindowRgn 成功后区域归系统所有,不得再 DeleteObject
+    System::Call "user32::SetWindowRgn(p $HWNDPARENT, p R6, i 1)"
+  ${EndIf}
+!macroend
+
 ; 无边框化 + 定档定位 + 圆角,安装器与卸载器**共用同一份实现**(抽成宏而非复制:
 ; 卸载器上下文只能引用 un. 函数,复制一份必然与安装侧漂移 —— 多屏异 DPI 两轮
 ; 定档、WS_MINIMIZEBOX 保底、DWM 圆角回退这三条在两侧都是硬要求)。
@@ -847,15 +870,8 @@ FunctionEnd
   !insertmacro IHUI_GUIINIT_SIZE
   System::Free $R4
   ; ---- 窗口四边圆角(唯一 token --global-border-radius=8px) ----
-  ; 首选 Win11 DWM 系统圆角(DWMWCP_ROUND,抗锯齿,系统圆角半径与 8px token 同档);
-  ; 调用失败(Win10 旧版无此属性)回退 CreateRoundRectRgn 硬裁切区域。
-  System::Call "dwmapi::DwmSetWindowAttribute(p $HWNDPARENT, i 33, *i 2, i 4) i .R9"
-  ${If} $R9 != 0
-    !insertmacro IHUI_PX $R9 8
-    IntOp $R9 $R9 + $R9
-    System::Call "gdi32::CreateRoundRectRgn(i 0, i 0, i $IHUIWW + 1, i $IHUIWH + 1, i rR9, i rR9) p .R0"
-    System::Call "user32::SetWindowRgn(p $HWNDPARENT, p R0, i 1)"
-  ${EndIf}
+  ; 实现抽到 IHUI_WINDOW_RGN:重装页 DPI 重锚后必须用**同一份**实现重算(见该宏注释)。
+  !insertmacro IHUI_WINDOW_RGN
   System::Call "user32::InvalidateRect(p $HWNDPARENT, p 0, i 1)"
   ; 取证打点(仅 -DIHUI_TRACE=1;发布构建宏体为空,零副作用):
   ; 把"系统档 DPI / 封顶后布局 DPI / 两个档位"塞进文件名,用来钉死 >192 封顶路径
@@ -1597,9 +1613,12 @@ FunctionEnd
 ;   + 文字 STATIC(品牌字体,文案进入页面时从 radio 原文字读出)。
 ;   DPI 加固:重取 GetDpiForWindow,与 GUIINIT 时不一致(显示缩放被外部改变,
 ;   DefWindowProc 已按建议矩形改了窗口尺寸)则重跑一轮定档定位刷新 $IHUIDPIW/
-;   $IHUIWW/$IHUIWH/$IHUIWTIER —— 无变化时整段跳过,其他页行为零改变。
+;   $IHUIWW/$IHUIWH/$IHUIWTIER,并**同步重算窗口裁剪区域**(IHUI_WINDOW_RGN;
+;   DWM 圆角不可用的回退分支会把 region 钉在旧档尺寸上,只重摆控件 = 右/下被裁)
+;   —— 无变化时整段跳过,其他页行为零改变。
 ;   ⚠️ 寄存器纪律: 本宏展开在 PageReinstall 内,$R0(版本比较结果,PageLeave
 ;   还要用)/$R1/$R2/$R3/$R4 一律只读;DPI 分支临时覆写 $R2/$R3 前必须保存。
+;   重锚链上任何被调宏的临时量只允许走 $R5..$R8(故 IHUI_WINDOW_RGN 用 $R6/$R7)。
 ; =====================================================================
 !macro IHUI_RIND_SET HANDLE NAME
   !insertmacro IHUI_LOADIMG ${NAME} $0
@@ -1634,6 +1653,11 @@ FunctionEnd
     System::Call "*$3(i .R5, i .R6, i .R7, i .R8)"
     System::Free $3
     !insertmacro IHUI_GUIINIT_SIZE
+    ; 裁剪区域必须跟窗口框一起重算:IHUI_GUIINIT_COMMON 的回退分支(Win10 无 DWM
+    ; 圆角时)把窗口 region 硬钉在当时的 $IHUIWW/$IHUIWH 上,SetWindowPos 放大窗口
+    ; 不会让 region 跟随 → 右/下被裁,控件"位置对了但内容仍缺一块"。Win11 上 DWM
+    ; 调用成功、不设 region,本宏幂等无副作用。
+    !insertmacro IHUI_WINDOW_RGN
     StrCpy $R2 $1
     StrCpy $R3 $2
   ${EndIf}
