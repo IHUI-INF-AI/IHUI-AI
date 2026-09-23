@@ -3470,6 +3470,38 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     "整片被旧基线抹掉",会连真丢一起放过 ⇒ 以扩面换救回不成立。**因此本段这类续行内容的存活只靠一条自证
     动作:提交后立刻 `git show <origin-sha>:PROJECT_PLAN.md | grep -c "<关键串>"` 回读远端 tip**(已进项目记忆)。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
+- [x] ✅(2026-09-23) **P2-F.12 权限档"两张表"接回共享真相源 + 装两道跨端一致性门(73/74)**:
+  - **实测到的问题**(不是推测):同一个权限档在 web 内部就有两套叫法 —— chat 面读
+    `chat.permission.mode.{ask,auto,full,plan}{,Desc}`(对标 Codex 口径:请求批准/替我审批/完整权限/只读计划),
+    workspace 面读 `workspace.permission.mode.{default,plan,accept-edits,bypass-permissions,unknown}.{title,desc}`
+    (直译口径:默认模式/接受编辑/绕过权限);而跨端共享表 `packages/shared/src/chat/permission-tier.ts` 的
+    `PERMISSION_TIER_WORD_KEYS`(10 键)**只有 taro/extension/rn 在吃,web 完全绕过** ⇒ 新增档位时 web
+    静默缺显示,与 G-163/G-164 同族。三路并行调查各自独立撞到同一根因,本轮收口。
+  - **改法**(commit `5bb12b7ffa`,12 文件):① 新增 `apps/web/src/lib/permission-tier-text.ts` 一份
+    `permissionTierText(mode, tTier)`,10 个键全部写成**实参为字面量**的 `tTier()` 调用(静态守门只认字面量,
+    传变量等于关掉校验),分支比对走**对象同一性** ⇒ 共享表改值时各消费点同时失配落 unknown,不会静默错位;
+    ② 6 个消费文件删掉各自端点映射(`ModeKey`/`ModeDescKey`/`MODE_KEY_MAP`/`CYCLE_LABEL_KEY`/
+    `MODE_TITLE_KEY`/`MODE_DESC_KEY` 与 `tw()` 动态拼接),未识别档由"回显英文拼写"改显 unknown;
+    ③ web 五语包新增 `permissionTier` 10 叶(值逐字搬 chat 面口径 ⇒ **chat 面可见文案零变化**),回收因此
+    彻底无人引用的 18 叶(逐键 grep 引用数 = 0 才删,删后 JSON 可解析 + 未删行逐行原样)。子代理按任务书
+    在 6 文件各存了一份逐字节相同副本(sha `ccaacfaf`,258 行重复),本轮收成 1 份。
+  - **可见变化如实登记**:workspace 弹窗与 `/workspace/permissions` 页由直译口径统一到对标口径
+    (默认模式→请求批准、接受编辑→替我审批、绕过权限→完整权限)。**跨端**文案差异(web 对标 vs taro 直译)
+    本次不动 —— 那是各端消息源自持的内容决策,不是代码重复,不擅自替产品改用户可见命名。
+  - **两道门**(commit `061171a6ba`,与本登记同票):73「端内绕过 api-client 直连后端」(URL 污点判据 +
+    基线 47 条只减不增;三证 = 全量 exit 0 / 权威入口 `--root` 夹具注入 0→1→0 且空语料 exit 2 / Transport
+    反例 hits=0 exempt=1;self-test 8 + 镜像测试 15)。74「词表键五语言可解析」(认定 50 张表 / 235 键 ×
+    5 语言 × 消费端合并视图 + 小程序离线包;值是键名亦判缺;self-test 25 + 镜像测试 22)。
+    **74 的 W5 由 failures 降为 notices**:它报"该端依赖共享包但尚未引用这张表",坏状态当前不可达
+    (初版 5 条全属此类,含 cli 对 permissionTier 引用数 0 却整块缺键);计入 blocking 只会长期红在别人
+    未接入的存量上、逼出 `--no-verify`,真接入后由 W3/W4 逐键硬拦,防护不丢。
+  - **顺序是硬的**:74 一装就红在"web 缺 permissionTier 10 键"上 ⇒ 必须先落取词接表 + 补包,再装门。
+  - **两处自伤已记**:`git apply` 收 3 个非连续 hunk 时因目标偏移错位**静默零改动**(靠"重建文件必须含
+    我的调用且不含他人内容"的断言挡住,否则会提交一份没改的 message-input.tsx),改为手工 3 处编辑后
+    核对 `+5/-5、promptHistory=0`;另一处是本次登记的"防重复"守卫把 `add` 数组里的空行也拿去 `includes`
+    ⇒ 恒真 ⇒ README/PLAN 被误判"已登记"而跳过,故本段单独补登记(守卫应只比非空行)。
+  - 多端与豁免:apps/web + packages/i18n/messages/web + scripts 守门(§9 标注;**共享表与 taro/rn/extension
+    消费侧零改动**,不构成跨端契约变更);README/AGENTS 已同步登记(§21)。
 
 
 ---

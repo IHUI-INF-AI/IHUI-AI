@@ -2795,6 +2795,26 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
   `--filter @ihui/web... run build:static`,而 web 的 7 个可构建依赖全都只有 `build`、没有
   `build:static` ⇒ 依赖一个都没构建 ⇒ `@ihui/api-client`(`main: ./dist/index.js`)解析失败;
   同仓 `Dockerfile.api` 用 `run build`(人人都有)所以一直绿 —— 两条 Dockerfile 只差一个脚本名。
+### 守门 73｜端内绕过 `@ihui/api-client` 直连后端(blocking,基线只减不增)
+
+AGENTS.md §3 早就写了"端内不得裸 `fetch`/`axios`/`Taro.request` 调后端",但**没有任何一道闸执行它**
+(全量 grep `scripts/check-*.mjs` 对 `Taro.request` 命中 0)—— 所以这类绕过会持续再生。
+`scripts/check-direct-backend-calls.mjs` 用 **URL 污点分析**而不是文件名白名单来判:调用原语的 URL 追到
+后端基址符号或锚定 `/api/` 段即命中;本地解不出就跨文件回溯调用方实参。平台 adapter 的豁免要三条同立
+(URL 纯透传 + 从 api-client import 契约 + 该导出被 `setTransport` 注册),Next 自有路由要 `route.ts` 真存在。
+存量 47 处进 `scripts/direct-backend-calls-baseline.json`(cli 21 / web 17 / miniapp-taro 3 / mobile-rn 2 /
+shared 3 / extension 1),**只减不增**;其中 `crash-report.ts:37`(api-client 无该路由)与 `sse.ts:211/279`
+(api-client 尚无 chunked 通道)是本轮新发现的两处真绕过。
+
+### 守门 74｜词表键必须五语言可解析(blocking,W5 落点债只告警)
+
+"代码引用了新键、语言包在下一票"或"改了词表忘重生成小程序离线包"都会让界面**直接回显键名**
+(本仓发生过 44 处含点键永不渲染的事故)。`scripts/check-word-table-resolvable.mjs` 扫"值全为 i18n
+键字面量的静态映射表"(认定 50 张 / 235 键),逐键断言在 **5 语言 × 消费端合并视图**可解析,小程序侧
+还要能在**离线生成包**里取到;值等于键名本身也算缺(那正是静默回显)。为防误报洪水,ns 相对取词的表、
+含函数/硬编码中文的表、模型名类字面量一律不检;W5"某端依赖该包但尚未引用这张表"属**落点债**,只列
+notices 不计失败 —— 否则门会长期红在别人未接入的存量上,逼出 `--no-verify`。
+
 
 一个实现上的坑值得记:**存在性必须按提交内容判、不能按工作树判**。本仓当时正有并行会话把
 `scripts/fix-expo-metro-junction.mjs` 从工作树删掉但未暂存,按 `existsSync` 会产出一条与真实构建结果
