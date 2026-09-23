@@ -7504,6 +7504,490 @@
       },
       "toolSummaryShowMore": "更多",
       "toolSummaryShowLess": "收起",
+      "handoff": {
+        "title": "失败诊断交接单",
+        "ariaLabel": "失败诊断交接单",
+        "section": {
+          "diagnosis": "诊断方法",
+          "fixSteps": "已尝试的修复步骤",
+          "evidence": "已脱敏证据：",
+          "productSurface": "产品界面"
+        },
+        "source": {
+          "local": "本地判据",
+          "external": "辅助信号"
+        },
+        "externalCaveat": "外部服务返回 down 仅作辅助信号,未单独作为结论依据(§5d:网络不可达 ≠ 失败)。",
+        "localUnknown": "本地暂无确定性判据,未下结论",
+        "empty": {
+          "fixSteps": "未尝试任何修复步骤",
+          "evidence": "无可用证据",
+          "productSurface": "未提供产品界面信息",
+          "incidents": "暂无可能相关的事件"
+        },
+        "incidentLine": "状态：可能相关的事件：{incidentNames}",
+        "truncated": "已截断 {count} 字符",
+        "degraded": "数据源不可达,以下交接单仅含本地已得信息(§5d:网络不可达 ≠ 失败)",
+        "redacted": "本交接单已过脱敏(密钥 / 令牌 / 邮箱 / IP 已替换)",
+        "copy": "复制交接单",
+        "copied": "已复制交接单"
+      },
+      "turnStatus": {
+        "title": "轮次状态",
+        "state": {
+          "queued": "排队中",
+          "preparing": "准备中",
+          "thinking": "思考中",
+          "usingTool": "使用工具",
+          "waitingConfirm": "等待确认",
+          "backgroundRunning": "后台执行中",
+          "stopping": "正在停止",
+          "completed": "已完成",
+          "failed": "失败",
+          "stopped": "已停止"
+        },
+        "aria": {
+          "queued": "本轮正在排队,前面的请求完成后才会开始",
+          "preparing": "正在为本轮准备上下文",
+          "thinking": "模型正在思考",
+          "usingTool": "正在使用工具",
+          "waitingConfirm": "本轮已暂停,等你确认后才会继续",
+          "backgroundRunning": "本轮已转入后台执行,你可以继续输入新的内容",
+          "stopping": "正在停止本轮",
+          "completed": "本轮已完成",
+          "failed": "本轮失败,可重试",
+          "stopped": "本轮已停止,可继续"
+        },
+        "hint": {
+          "queued": "前面的请求完成后本轮会自动开始",
+          "waitingConfirm": "已暂停等你确认;不确认本轮不会继续",
+          "backgroundRunning": "已在后台继续执行,不会阻塞你的新输入",
+          "stopping": "正在收尾,稍后即停"
+        },
+        "action": {
+          "stop": "停止",
+          "retry": "重试",
+          "resume": "继续"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "账户受限",
+          "action": "联系管理员"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "接口桥接调用失败",
+          "action": "稍后重试"
+        },
+        "BAD_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "CAPTURE_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "CDP_DISABLED": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "浏览器调试通道不可用",
+          "action": "开启后重试"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "DELEGATE_ERROR": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "DEP_MISSING": {
+          "title": "依赖缺失",
+          "action": "安装依赖后重试"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "DUAL_MODE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_AUDIO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_DIFF": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "EMPTY_RESULT": {
+          "title": "没有可展示的结果",
+          "action": "修改后重试"
+        },
+        "EMPTY_TASKS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "ENCODING_ERROR": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        },
+        "ENGINE_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTION_FAILED": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "该功能已停用",
+          "action": "联系管理员"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "FALLBACK_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成失败",
+          "action": "重试"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部服务调用失败",
+          "action": "稍后重试"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "图片过大",
+          "action": "压缩图片后重试"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "INTERNAL_ERROR": {
+          "title": "服务内部处理错误",
+          "action": "重试"
+        },
+        "INVALID_ARGS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_CONFIG": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_DATA": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PARAMS": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PR": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_PROVIDER": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "INVALID_REPO": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "INVALID_TRIGGER": {
+          "title": "定时配置无效",
+          "action": "修改定时配置后重试"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "LLM_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "LLM_FAILED": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "媒体文件数量超出限制",
+          "action": "精简附件后重试"
+        },
+        "MISSING_DATA": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PARAMS": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MISSING_SECRET": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MISSING_TITLE": {
+          "title": "缺少必填参数",
+          "action": "补充参数后重试"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "MODEL_REFUSED": {
+          "title": "当前模型拒绝了本次请求",
+          "action": "换模型"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "结构层级超出可处理范围",
+          "action": "简化后重试"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "NETWORK_ERROR": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "参数不完整或无效",
+          "action": "修改后重试"
+        },
+        "NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "路径不在允许的范围内",
+          "action": "更换路径后重试"
+        },
+        "PERMISSION_DENIED": {
+          "title": "没有执行该操作的权限",
+          "action": "联系管理员"
+        },
+        "PROVIDER_ERROR": {
+          "title": "模型服务暂时不可用",
+          "action": "换模型或稍后重试"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "未配置可用的模型服务",
+          "action": "先配置模型服务"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "PR_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RATE_LIMITED": {
+          "title": "请求过于频繁",
+          "action": "稍后重试"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "需要确认后才会执行",
+          "action": "去确认"
+        },
+        "SCHEME_REJECTED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "该操作已被安全策略拦截",
+          "action": "修改后重试"
+        },
+        "SSRF_BLOCKED": {
+          "title": "该地址不被允许访问",
+          "action": "更换地址后重试"
+        },
+        "STEP_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TASK_FAILED": {
+          "title": "子任务执行失败",
+          "action": "重试"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "上下文过长",
+          "action": "精简上下文"
+        },
+        "TIMEOUT": {
+          "title": "请求超时",
+          "action": "重试"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "登录已过期",
+          "action": "重新登录"
+        },
+        "TOOL_FAILED": {
+          "title": "工具执行失败",
+          "action": "重试"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "TOO_LARGE": {
+          "title": "文件过大",
+          "action": "精简文件后重试"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "额度已用尽",
+          "action": "稍后再试或换用免费模型"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "未找到目标资源",
+          "action": "检查后重试"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "不支持该文件格式",
+          "action": "更换文件格式后重试"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "文件版本不可用",
+          "action": "选择版本后重试"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "版本过低",
+          "action": "升级到最新版本"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "网络请求失败",
+          "action": "检查网络后重试"
+        },
+        "WRITE_FAILED": {
+          "title": "文件读写失败",
+          "action": "检查文件后重试"
+        }
+      },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -7528,6 +8012,49 @@
           "dismiss": "知道了"
         },
         "ariaLabel": "Worktree 生命周期"
+      },
+      "sideTask": {
+        "title": "侧边任务",
+        "ariaLabel": "侧边任务生命周期",
+        "ephemeralNotice": "这是临时任务,关闭后即消失,不会保留到下次打开。",
+        "empty": "暂无侧边任务",
+        "state": {
+          "running": "运行中",
+          "completed": "已完成",
+          "expired": "已过期",
+          "cleaned": "已清理"
+        },
+        "aria": {
+          "running": "侧边任务运行中",
+          "completed": "侧边任务已完成",
+          "expired": "侧边任务已过期",
+          "cleaned": "侧边任务已清理"
+        },
+        "hint": {
+          "expired": "已超过临时任务的保留时限,可被清理。",
+          "cleaned": "内容已不可取,仅保留标题。"
+        },
+        "location": {
+          "label": "运行位置",
+          "sameFolder": "与主任务在同一文件夹",
+          "sameEnvironment": "与主任务在同一运行环境"
+        },
+        "cleanedFrom": "来自已清理的 {title}",
+        "files": {
+          "label": "文件变更",
+          "changedCount": "已改动 {count} 个文件",
+          "empty": "本次侧边任务没有改动任何文件"
+        },
+        "action": {
+          "close": "关闭任务",
+          "cleanup": "清理过期任务"
+        },
+        "closeConfirm": {
+          "title": "关闭这个侧边任务?",
+          "desc": "这个临时任务有 {artifacts} 个未落盘产物、{children} 个仍在运行的子进程,关闭后即消失且无法恢复。",
+          "confirm": "仍要关闭",
+          "cancel": "暂不"
+        }
       },
       "writingBlock": {
         "title": "写作块",
@@ -8454,6 +8981,12 @@
     },
     "metaDescription": "聚合国内外 41 个权威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。",
     "metaTitle": "AI 资讯 · 全网实时聚合流",
+    "priceChart": {
+      "inputPrice": "{name} · 输入价: {price}",
+      "outputPrice": "{name} · 输出价: {price}",
+      "legendInput": "输入",
+      "legendOutput": "输出"
+    },
     "trendChart": {
       "days": "天",
       "hotValue": "热度值",

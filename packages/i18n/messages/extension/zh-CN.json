@@ -196,6 +196,7 @@
     "usage": "用量",
     "retryMessage": "重试",
     "citationTitle": "参考来源",
+    "steerNoticeTitle": "已引导 {count} 次",
     "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
     "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
     "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
