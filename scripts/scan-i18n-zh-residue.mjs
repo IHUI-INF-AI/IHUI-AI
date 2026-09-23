@@ -44,6 +44,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import * as OpenCC from 'opencc-js'
 
 // locale 配置表：mode 决定检测策略，localRe 为该语言的本地字符范围
@@ -51,12 +52,18 @@ import * as OpenCC from 'opencc-js'
 const LOCALE_CONFIG = {
   'zh-TW': { mode: 'opencc' },
   ko: { mode: 'charRange', localRe: /[\uac00-\ud7af]/ }, // 韩语 Hangul
-  // ja: 日文汉字词 (登録/確認/削除等) 太多，charRange 启发式假阳性海量 (4747+ 处)
-  // 改为 warnOnly 模式：所有汉字只 warn 不阻塞，避免无效拦截
-  ja: { mode: 'warnOnly' },
+  // ja: 2026-09-23 起改 **joyo 精确判据**(旧 warnOnly 把"任何汉字"都报,实测 15132 处噪音,等于没判)。
+  // 嫌疑 = 字形与繁体不同(中国简化字特征)∧ 不在 2010 版常用汉字表 2136 字内。
+  // 表源 `scripts/joyo-kanji.json`(文化庁官方 PDF 主源 + 两源交叉,对称差仅 𠮟/叱 一对)。
+  // 之所以必须带表:気/会/図/点/写/台 等日本新字体与中文简化字**同码位**,只看字形会满天假阳。
+  ja: { mode: 'joyo' },
 }
 
 const HAN_RE = /[\u4e00-\u9fff]/
+// 逐字枚举用(含 Ext-A 与兼容表意文字;常用汉字表唯一的非 BMP 字种 𠮟 U+20B9F 落在扩展区,
+// 不在本字符类内 ⇒ 只会被"跳过"而非误报,方向安全)
+const HAN_ALL_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g
+const HERE = path.dirname(fileURLToPath(import.meta.url))
 /**
  * 匹配 i18n json 行: `  "key": "value",`
  * 取值部分必须允许 **转义双引号** `\"`。旧写法 `[^"]*` 遇到含引号的值(如
@@ -220,6 +227,46 @@ function scanWarnOnly(text) {
   return { pure: [], half }
 }
 
+// ── ja 精确判据(2026-09-23)──────────────────────────────────────────────
+// 常用汉字表(2010 版 2136 字)。缺文件/缺字符时**不猜**:整轮回退到旧 warnOnly 并如实说明。
+let _joyo = null
+function joyoSet() {
+  if (_joyo) return _joyo
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(HERE, 'joyo-kanji.json'), 'utf8'))
+    const set = new Set([...raw.chars])
+    if (set.size < 2000) return null
+    _joyo = { set, converter: OpenCC.Converter({ from: 'cn', to: 'tw' }) }
+    return _joyo
+  } catch {
+    return null
+  }
+}
+
+/** 一值内的"中国简化字残留"字种集合:字形与繁体不同 ∧ 不在常用汉字表内 */
+function joyoSuspects(value, tab) {
+  const out = []
+  for (const c of new Set(value.match(HAN_ALL_RE) || [])) if (!tab.set.has(c) && tab.converter(c) !== c) out.push(c)
+  return out
+}
+
+function scanJoyo(text) {
+  const tab = joyoSet()
+  if (!tab) return { pure: [], half: scanWarnOnly(text).half }
+  const lines = text.split('\n')
+  const pure = []
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(LINE_RE)
+    if (!m) continue
+    const value = decodeJson(m[3])
+    if (!value || !HAN_RE.test(value)) continue
+    if (LANGUAGE_AUTOGLOSSONYMS.has(value) || isWhitelistedBrand(value)) continue
+    const s = joyoSuspects(value, tab)
+    if (s.length) pure.push({ line: i + 1, key: m[2], value, suspects: s.join('') })
+  }
+  return { pure, half: [] }
+}
+
 // Markdown 模式: 扫描 README.<locale>.md 检测中文残留
 // 跳过: ``` 代码块 / HTML 注释 / 图片标签 / 链接 URL 部分(仅扫描 [text])
 // 策略与 JSON 模式一致:
@@ -267,6 +314,13 @@ function scanMarkdown(text, config) {
       }
     } else if (config.mode === 'warnOnly') {
       half.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120) })
+    } else if (config.mode === 'joyo') {
+      // 与 JSON 侧同一判据;缺表时不报(不得把日文汉字当残留)
+      const tab = joyoSet()
+      if (tab) {
+        const s = joyoSuspects(trimmed, tab)
+        if (s.length) pure.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120), suspects: s.join('') })
+      }
     } else {
       // charRange 模式
       if (config.localRe && config.localRe.test(cleaned)) {
@@ -333,6 +387,8 @@ function main() {
     result = scanZhTw(text)
   } else if (config.mode === 'warnOnly') {
     result = scanWarnOnly(text)
+  } else if (config.mode === 'joyo') {
+    result = scanJoyo(text)
   } else {
     result = scanCharRange(text, config.localRe)
   }
@@ -341,10 +397,16 @@ function main() {
   let failed = false
 
   if (pure.length > 0) {
-    const label = config.mode === 'opencc' ? '简体字残留' : '纯中文残留'
+    const label =
+      config.mode === 'opencc'
+        ? '简体字残留'
+        : config.mode === 'joyo'
+          ? '中文简体字残留(判据 = 字形与繁体不同 ∧ 不在常用汉字表 2136 字内)'
+          : '纯中文残留'
     console.error(`❌ ${fileLabel} 发现 ${pure.length} 处${label}:`)
     for (const it of pure) {
       console.error(`  L${it.line}: "${it.key}": "${it.value}"`)
+      if (it.suspects) console.error(`       嫌疑字: ${it.suspects}`)
       if (it.converted) {
         console.error(`       → "${it.converted}"`)
       }
