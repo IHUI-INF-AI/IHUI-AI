@@ -384,7 +384,8 @@ function SwipeableConversationItem({
       {/* 内容(上层,跟随手势平移) */}
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
         <Pressable
-          className="flex-row items-center px-4 py-3 bg-white"
+          className="flex-row items-center px-4 py-3"
+          style={{ backgroundColor: tokens.surface.card }}
           onPress={handleSelect}
           android_ripple={{ color: tokens.surface.muted }}
         >
