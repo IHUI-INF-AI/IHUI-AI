@@ -27,3 +27,10 @@ export * from './pr-checks'
 export * from './agent-actions'
 // D99 消息串内富文本动作锚点(标签白名单 + 跨端唯一解析器;非白名单一律按文本,严禁打开裸 HTML)
 export * from './rich-anchors'
+// D72 Worktree 生命周期八态(创建中/已创建/初始化失败/超时/已清理/恢复中/已恢复/无法恢复;与 §12d
+// 收编三阶段 cherry-pick→remove→prune 状态一致,含单写者守卫;不为卡片取数,onAction 注入)
+export * from './worktree-lifecycle'
+// D96 对话内写作块三动作(accept/acceptAll/revert)+ 失败态;撤销可逆,复用 artifact-canvas 版本栈
+export * from './writing-block'
+// D82 就地润色与失败保稿四相位(成功替换草稿 / 失败草稿字节级不变 / 二次可重试;不新建提示词栈)
+export * from './prompt-polish'
