@@ -75,15 +75,9 @@ describe('O13 迁移 20260921160000:应用角色 + owner 策略', () => {
   it('迁移文件已登记进 journal(手写迁移不登记 = drizzle-kit migrate 静默跳过)', () => {
     const journal = JSON.parse(
       readFileSync(resolve(PKG_DIR, 'drizzle', 'meta', '_journal.json'), 'utf8'),
-    ) as { entries: Array<{ tag: string; idx: number; when: number }> }
+    ) as { entries: Array<{ tag: string }> }
     expect(journal.entries.some((e) => e.tag === ownerRls.MIGRATION_TAG)).toBe(true)
-    // 2026-09-22 修:原断言「O13 必须是 journal 最后一条」只在下一次迁移落库之前成立 ——
-    // 20260921200000_vip_levels_dedupe_unique 落库后它必然变红(存量红,与本迁移无关)。
-    // 换成 drizzle-kit 真正依赖的结构不变量:`when` 恒升序 + `idx` 与位置一一对应。
-    // 这比「排最后」更严:有人把迁移插到中间(导致 when 乱序)照样被拦下。
-    const whens = journal.entries.map((e) => e.when)
-    expect([...whens].sort((a, b) => a - b)).toEqual(whens)
-    expect(journal.entries.every((e, i) => e.idx === i + 1)).toBe(true)
+    expect(journal.entries.at(-1)?.tag).toBe(ownerRls.MIGRATION_TAG)
   })
 
   it('整份只有一个 dollar-quoted DO 块:任何语句分割器看到的都是单条语句', () => {
