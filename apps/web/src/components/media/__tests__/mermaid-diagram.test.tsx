@@ -12,17 +12,6 @@ vi.mock('next-themes', () => ({
   useTheme: () => ({ resolvedTheme: 'light' }),
 }))
 
-// mock next-intl:MermaidDiagram 现走 useTranslations('a11y') 取词,按 zh-CN 词表回值(断言查中文值)
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string) =>
-    (
-      ({ diagramRendering: '渲染中…', mermaidRenderFailed: 'Mermaid 渲染失败' }) as Record<
-        string,
-        string
-      >
-    )[key] ?? key,
-}))
-
 // mock mermaid 模块,避免依赖真实渲染(测试不依赖真实 mermaid)
 const mockMermaidRender = vi.fn()
 const mockMermaidInitialize = vi.fn()
