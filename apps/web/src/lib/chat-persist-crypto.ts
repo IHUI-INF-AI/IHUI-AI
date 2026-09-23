@@ -31,7 +31,13 @@
  */
 
 import type { PersistStorage, StorageValue } from 'zustand/middleware'
-import { isDesktopEnv, openVaultText, sealVaultText, type VaultEntryChannel } from './local-vault'
+import {
+  isDesktopEnv,
+  openVaultText,
+  sealVaultText,
+  type VaultDomain,
+  type VaultEntryChannel,
+} from './local-vault'
 
 /** 注入用的最小 kv 形态(生产传 window.localStorage;测试传内存实现) */
 export interface VaultKvStore {
@@ -48,6 +54,8 @@ export interface ChatVaultStorageOptions<S> {
   isDesktop?: boolean
   /** 密钥通道注入点(默认 Tauri store) */
   channel?: VaultEntryChannel
+  /** HKDF 派生域:默认 'chat-persist';新增被加密的 store 时**必须开新域**,不得共用一把子密钥 */
+  domain?: VaultDomain
 }
 
 /** 解不开时把原密文挪到旁路键,随后写新数据会清掉它 —— 不留游离的旧 blob */
@@ -100,6 +108,7 @@ export function createVaultBackedPersistStorage<S>(
   const isDesktop = options.isDesktop ?? isDesktopEnv()
   if (!isDesktop || !kv) return base
   const channel = options.channel
+  const domain = options.domain ?? 'chat-persist'
   /** 加密把写入变成了异步,得自己保住"后写覆盖先写"的顺序(同步 localStorage 原本天然有序) */
   const pendingWrites = new Map<string, Promise<void>>()
 
@@ -108,7 +117,7 @@ export function createVaultBackedPersistStorage<S>(
       const stored = safeRead(kv, name)
       if (stored === null) return null
 
-      const opened = await openVaultText('chat-persist', stored, channel)
+      const opened = await openVaultText(domain, stored, channel)
       if (opened.kind === 'unreadable') {
         // 密钥丢了/密文坏了:保留现场供取证,对外一律可读空态(要求 1)
         if (safeRead(kv, `${name}${UNREADABLE_SUFFIX}`) === null)
@@ -118,11 +127,11 @@ export function createVaultBackedPersistStorage<S>(
 
       if (opened.kind === 'sealed' && opened.layers > 1) {
         // 双重包裹(并发窗口/历史产物):归正为"恰一份",不得再往上叠层
-        const normalized = await sealVaultText('chat-persist', opened.text, channel)
+        const normalized = await sealVaultText(domain, opened.text, channel)
         if (normalized !== null) safeWrite(kv, name, normalized)
       } else if (opened.kind === 'plain') {
         // 一次性迁移。seal 失败(拿不到可用密钥)⇒ 保持明文,原文照旧可用(要求 2)
-        const sealed = await sealVaultText('chat-persist', opened.text, channel)
+        const sealed = await sealVaultText(domain, opened.text, channel)
         if (sealed !== null) safeWrite(kv, name, sealed)
       }
 
@@ -132,7 +141,7 @@ export function createVaultBackedPersistStorage<S>(
     setItem: (name: string, value: StorageValue<S>): Promise<void> => {
       const write = async (): Promise<void> => {
         const json = JSON.stringify(value)
-        const sealed = await sealVaultText('chat-persist', json, channel)
+        const sealed = await sealVaultText(domain, json, channel)
         // sealed === null 表示这一轮没有可用密钥 ⇒ 写明文(等价改造前),绝不静默丢数据
         safeWrite(kv, name, sealed ?? json)
         safeRemove(kv, `${name}${UNREADABLE_SUFFIX}`)
@@ -174,6 +183,17 @@ export function createChatPersistStorage<S>(
   return createVaultBackedPersistStorage({
     base,
     kv: resolveBrowserKv(),
+  })
+}
+
+/** goal store 的唯一入口(独立 HKDF 域,与 chat 密文互不可解) */
+export function createGoalPersistStorage<S>(
+  base: PersistStorage<S> | undefined,
+): PersistStorage<S> | undefined {
+  return createVaultBackedPersistStorage({
+    base,
+    kv: resolveBrowserKv(),
+    domain: 'goal-persist',
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
