@@ -23,5 +23,7 @@ export * from './step-decision'
 export * from './prompt-history'
 // D105 PR 检查状态与动作卡(六态 + 聚合三态/空态的唯一判定层;不取数,数据面复用既有 PR 通道)
 export * from './pr-checks'
+// D103 流内多智能体批量动作卡的动作矩阵(六动作 × 三态;相位与实例状态两个正交维度各只有一个定义处)
+export * from './agent-actions'
 // D99 消息串内富文本动作锚点(标签白名单 + 跨端唯一解析器;非白名单一律按文本,严禁打开裸 HTML)
 export * from './rich-anchors'
