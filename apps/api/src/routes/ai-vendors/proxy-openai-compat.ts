@@ -351,9 +351,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         const errData = await resp.json().catch(() => ({}))
         return reply
           .status(502)
-          .send(
-            error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
-          )
+          .send(error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`))
       }
       const format = body.response_format ?? 'mp3'
       const buf = Buffer.from(await resp.arrayBuffer())
@@ -396,11 +394,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!file) return reply.status(400).send(error(400, '缺少音频文件(字段名 file)'))
       const buffer = await file.toBuffer()
       const form = new FormData()
-      form.append(
-        'file',
-        new Blob([new Uint8Array(buffer)], { type: file.mimetype }),
-        file.filename,
-      )
+      form.append('file', new Blob([new Uint8Array(buffer)], { type: file.mimetype }), file.filename)
       form.append('model', body.model ?? 'whisper-1')
       if (body.language) form.append('language', body.language)
       if (body.prompt) form.append('prompt', body.prompt)
@@ -423,10 +417,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           return reply
             .status(502)
             .send(
-              error(
-                502,
-                `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`,
-              ),
+              error(502, `OpenAI 调用失败: ${resp.status} ${JSON.stringify(errData).slice(0, 500)}`),
             )
         }
         const ct = resp.headers.get('content-type') ?? ''
