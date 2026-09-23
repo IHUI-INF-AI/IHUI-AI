@@ -176,7 +176,8 @@ function Invoke-BrandMail {
     try {
         if (-not (Test-Path $BrandNotifyMsgDir)) { New-Item -ItemType Directory -Path $BrandNotifyMsgDir -Force | Out-Null }
         # 必须显式无 BOM:Set-Content -Encoding utf8 在 PowerShell 5.1 下写出的是**带 BOM** 的
-        # UTF-8,BOM 会跟着进正文首行(TS 侧不剥),邮件第一行就成了 "<feff>[降级纯文本]"。
+        # UTF-8,BOM 会排在正文第一个字符前。TS 侧如今也补了一道 stripBom,但那是第二层兜底 ——
+        # 写入方不得依赖读取方擦屁股(任何不经该兜底的读取者都会带上 BOM),故仍用无 BOM 编码。
         $text = if ($Plain) { "[降级纯文本]`n$BodyText" } else { $BodyText }
         $msgFile = Join-Path $BrandNotifyMsgDir "$((Get-Date).ToString('yyyyMMdd-HHmmss-fff')).txt"
         [System.IO.File]::WriteAllText($msgFile, $text, [System.Text.UTF8Encoding]::new($false))
