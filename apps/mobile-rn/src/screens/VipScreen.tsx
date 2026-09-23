@@ -27,6 +27,7 @@ import {
   type VipLevel,
 } from '@ihui/api-client'
 import {
+  CategoryInlineBar,
   VipScreen as SharedVipScreen,
   type VipLevelItem2,
   type VipMembershipInfo,
@@ -461,28 +462,14 @@ export function VipScreen() {
       {/* 会员权益价格卡片 + 连续/按月 Tab(对齐 Uniapp introduce-popup/index.vue 行 26-119) */}
       <View style={styles.planCard}>
         {/* Tab 切换(连续包月 vs 按月) */}
-        <View style={styles.tabBar} accessibilityRole="tablist">
-          {TABS.map((tab) => {
-            const active = planTab === tab.key
-            return (
-              <Pressable
-                key={tab.key}
-                style={({ pressed }) => [
-                  styles.tab,
-                  active ? styles.tabActive : null,
-                  pressed ? styles.tabPressed : null,
-                ]}
-                onPress={() => setPlanTab(tab.key)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={active ? styles.tabTextActive : styles.tabText}>
-                  {t(tab.labelKey)}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <CategoryInlineBar
+          items={TABS.map((tabItem) => ({ id: tabItem.key, label: t(tabItem.labelKey) }))}
+          selectedId={planTab}
+          onSelect={(id) => setPlanTab(id as PlanTab)}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+          testID="vip-plan-tab-bar"
+        />
 
         {/* 价格卡片列表 */}
         <ScrollView
@@ -679,9 +666,6 @@ const ENTRY_BUTTON_PADDING_V = 10
 const ENTRY_TITLE_FONT_SIZE = 13
 const ENTRY_BUTTON_FONT_SIZE = 13
 
-const TAB_FONT_SIZE = 13
-const TAB_PADDING_V = 8
-
 // 对齐 Uniapp 20rpx(≈10px)价格卡片圆角
 const PLAN_ITEM_RADIUS = rnRadius.lg
 // 对齐 Uniapp 30rpx(≈15px)价格卡片内边距
@@ -763,42 +747,6 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     padding: rpx(28),
   } as ViewStyle,
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.md,
-    padding: rpx(6),
-  } as ViewStyle,
-  tab: {
-    flex: 1,
-    paddingVertical: TAB_PADDING_V,
-    borderRadius: rnRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  tabActive: {
-    backgroundColor: tokens.surface.muted,
-    shadowColor: tokens.gray.black,
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  } as ViewStyle,
-  tabPressed: {
-    opacity: 0.7,
-  } as ViewStyle,
-  tabText: {
-    fontSize: TAB_FONT_SIZE,
-    lineHeight: TAB_FONT_SIZE + 2,
-    color: tokens.text.secondary,
-    fontWeight: '500',
-  } as TextStyle,
-  tabTextActive: {
-    fontSize: TAB_FONT_SIZE,
-    lineHeight: TAB_FONT_SIZE + 2,
-    color: tokens.text.primary,
-    fontWeight: '600',
-  } as TextStyle,
   // ── 价格卡片列表 ──
   planScroll: {
     marginTop: rpx(20),

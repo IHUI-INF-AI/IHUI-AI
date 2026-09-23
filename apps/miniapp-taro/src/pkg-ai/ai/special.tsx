@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
+import CategoryBar from '@/components/CategoryBar'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -215,7 +216,7 @@ export default function SpecialModelsPage() {
   }, [tt])
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx] box-border">
+    <ThemeRoot className="min-h-screen bg-background pb-[60rpx] box-border">
       {/* Banner */}
       <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] rounded-2xl overflow-hidden bg-card">
         <View
@@ -279,29 +280,13 @@ export default function SpecialModelsPage() {
         </View>
       ) : null}
 
-      {/* 分类 Tab */}
-      <ScrollView scrollX className="whitespace-nowrap mb-[16rpx]" enhanced showScrollbar={false}>
-        <View className="whitespace-nowrap px-[24rpx]">
-          {categories.map((c) => {
-            const active = activeCategory === c.key
-            return (
-              <ThemeRoot
-                key={c.key}
-                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[28rpx] mr-[12rpx] rounded-lg align-middle ${active ? 'bg-primary' : 'bg-muted'}`}
-              >
-                <View key={c.key} onClick={() => setActiveCategory(c.key)} hoverClass="opacity-60">
-                  <Image src={c.icon} className="w-[32rpx] h-[32rpx]" mode="aspectFit" />
-                  <Text
-                    className={`text-[26rpx] ${active ? 'text-[var(--color-surface-light)] font-semibold' : 'text-muted-foreground'}`}
-                  >
-                    {c.label}
-                  </Text>
-                </View>
-              </ThemeRoot>
-            )
-          })}
-        </View>
-      </ScrollView>
+      {/* 分类 Tab:统一分类条(与 web / RN 同形同档) */}
+      <CategoryBar
+        className="mb-[16rpx] px-[24rpx]"
+        value={activeCategory}
+        onChange={(id) => setActiveCategory(id as CategoryKey | 'all')}
+        items={categories.map((c) => ({ id: c.key, label: c.label, icon: c.icon }))}
+      />
 
       {/* 应用列表 */}
       {filtered.length > 0 ? (
@@ -377,7 +362,7 @@ export default function SpecialModelsPage() {
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       ) : null}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

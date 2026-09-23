@@ -115,27 +115,13 @@
 
 /* ===== 类型 tab(RN typeTabs:gap 8 paddingH 12 paddingV 10 bg surface.muted;
  * typeTab:paddingH 14 height 34 radius 16 bg surface.bg + shadowSoft;active rgba(0,0,0,0.08))===== */
+/* type tab 条容器:仅页面级留白 + muted 底(chips 由统一分类条 CategoryBar 组件负责,
+   与 web packages/ui-react category-bar / RN CategoryInlineBar 同形同档;
+   原 .type-tab 独有的"暗井"选中语言已归一为 primary 填充) */
 .type-tabs {
-  display: flex;
-  gap: 16rpx;
   padding: 20rpx 24rpx;
   background: var(--color-muted);
-}
-.type-tab {
-  padding: 0 28rpx;
-  height: 68rpx;
-  line-height: 68rpx;
-  font-size: 32rpx;
-  color: var(--color-muted-foreground);
-  background: var(--color-background);
-  border-radius: var(--radius-2xl);
-  box-shadow: 0 2rpx 8rpx var(--color-black-4);
-  transition: all 0.2s ease;
-}
-.type-tab.active {
-  background: var(--color-black-8);
-  color: var(--color-primary);
-  font-weight: 600;
+  box-sizing: border-box;
 }
 
 /* ===== 模型卡片列表(RN listBody:paddingH 10 paddingT 12 paddingB 32;separator 12)===== */
