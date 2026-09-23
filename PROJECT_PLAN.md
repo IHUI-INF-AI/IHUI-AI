@@ -12,6 +12,52 @@
 
 ---
 
+## P1 2026-09-23 磁盘清理 13.9GB + 三道守门加固 + 凭据库防误删(单端:工程治理/守门脚本,已完成 ✅)
+
+### 交付(全部已推 origin)
+
+- **守门 26 目录级凭据库豁免**(sha `7071c39df`,前向补 `072d6cd06` 单文件名豁免):
+  `check-parent-pollution.mjs` 的 `--auto-clean` 对「文件名强信号命中」直接 `unlinkSync` 且无二次确认,
+  实测会把 `D:/DevEnv/secrets/ihui-app-password.txt`(用户凭据库)删掉。同类陷阱第二次命中
+  (前例 `ihui-release.keystore.说明.txt`),故从"逐 filename 打补丁"升级为
+  `CREDENTIAL_DIR_NAMES` 整目录不扫(`secrets`/`密钥`/`credentials`/`certs`/`.pybcrypt`)。
+  隔离实验证实目录规则单独即足够(sed 剥掉 filename 规则跑副本仍全绿);测试镜像按 §22c 同步
+  并加"只定义不生效=空门"锚点断言,`node --test` 20/20 绿。
+- **守门 44 忽略产物告警面**(sha `a3f860c36`):`check-root-dir-clean.mjs` 第 240 行原对 git 忽略条目
+  整体 continue,致 §28 规则 2「禁止在一级目录生成 .log/.html/cookies/截图/ad-hoc 脚本」对被忽略文件
+  零覆盖 —— 实测根目录静默累积 14 个。补只告警一层(不改退出语义),落地即又抓出 3 个变体
+  (`.tmp_pytest.log`/`_mypy.log`/`.pstore-cleanup.log`)。
+- **`f4e25b8c3` 纳管企业微信域名归属校验文件**:此前未跟踪 → 不进构建产物 → 平台按根路径拉取必 404。
+  已在运行中的 8801 端到端验证:`GET /WW_verify_pXVnh4m6pm1IciK1.txt` = 200 且内容与文件逐字节一致。
+- **水印载荷重注 78 文件**(sha `2c9de4f13` + 勘正 `1a1800000`):`0f800b76f` 改口径后 HEAD 自身
+  即红(定向取证 `user_shell_command.py` 载荷损坏、`compaction_retention.py` 未覆盖)。逐行按 Unicode Cf
+  判据复判 78/78 纯水印、0 行业务代码;落地时 lint-staged 的 prettier 重排已在勘正提交中如实记录。
+  `check-watermark-coverage --no-fix` 现全仓 ✅ 零告警。
+
+### 环境收口(非仓库内容,记录以免重复排查)
+
+- 释放 ~13.9GB:`.ihui-agent/tmp` 412 项 11G(含 `Trash/` 7.3G 废弃 e2e 构建)、`D:\.pnpm-store` 1.4G
+  孤儿(现用 store=v11 实证)、C 盘 pnpm 元数据缓存 1.1G、Trae 安装包 443M、项目缓存 208M、44 个空 `_tmp_*`。
+- `TEMP/TMP/TMPDIR` 由 HKCU 显式 C 盘值迁至 `D:\DevEnv\Temp`,旧值备份 `D:\DevEnv\Temp\env-backup.json`
+  (生效边界:需新开终端/重启 IDE 才继承)。AGENTS.md §26 表格与本机实态不符,已在 agent 记忆登记。
+- **悬挂部署锁自愈**:`pid 130524` 已死仍持有 `.deploy.lock` 9 小时,会挡住后续 web 构建与 `pnpm dev`。
+- **分支清理做到持久**:`refs-manifest.json` 把 `origin/{batch-58,desktop-feed,feat/relay-sell-productization}`
+  登记为期望值,守护每 2 分钟复活已删 ref → 必须先摘期望值(已 `.bak-20260922` 备份)再删 ref。
+  四条分支尖删除前均已 tag 本地+远端双备份(含唯一未合并补丁 `193bed31b` desktop updater feed 0.1.27)。
+- **悬空 commit `9fd0c53e6` 已救回**(fix(web): api-client 断链导出 + ChatState/MessageList 缺口):
+  打 `lost-commit/wip-9fd0c53e6` 并推 origin,守门 30a 由红转绿。
+- **坏指针打断 fetch 的教训**:`git-refs-heal --refresh-remote` 离线重建只补指针不保证对象存在,
+  4028 个坏 ref 使 `git fetch` 整体失败(bad object + did not send all necessary objects)。
+  处置:删坏指针(fetch 即复)→ `sync-lost-commit-tags --fetch` 连对象完整拉回 → 现 4217 tag / 0 坏指针。
+
+### 已知遗留(归属他人,不代改)
+
+- 守门 57 `check-chat-element-coverage`:条目倒退属其他会话在飞内容,代其决定"恢复还是撤销"即越权(§12)。
+- 本机 `origin` 实为 HTTPS `github.com`(§5b 文档记 `ssh.github.com:443` + 仓库级 `core.sshCommand`),
+  且 `github.com:443` 今日反复瞬时不可达(同期 `api.github.com` 正常)——环境事实,未改任何 git config。
+
+---
+
 ## P1 2026-09-23 弹窗根治:`start-all.bat` 改静默转发 dev-stack(平台独占:Windows 开发机启动入口)
 
 ### 根因(实测,非推测)
