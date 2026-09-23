@@ -7071,7 +7071,13 @@
         "rejectBlock": "拒絕此改動塊",
         "rejected": "已拒絕",
         "resetSelection": "重設選擇",
-        "selectedSummary": "已選 {accepted}/{total}"
+        "selectedSummary": "已選 {accepted}/{total}",
+        "stageFile": "全部暫存",
+        "unstageFile": "全部還原",
+        "stageHunk": "暫存",
+        "unstageHunk": "取消暫存",
+        "staged": "已暫存",
+        "unstaged": "未暫存"
       },
       "dragHandle": "拖動以調整面板位置",
       "elapsedTitle": "已耗時 {time}",
@@ -7326,6 +7332,18 @@
         "targetFile": "評論本次改動",
         "close": "取消",
         "pendingBanner": "有 {count} 條程式碼改動意見待傳送"
+      },
+      "annotation": {
+        "placeholder": "對這段回覆加註解…",
+        "save": "儲存",
+        "edit": "編輯註釋",
+        "delete": "刪除註釋",
+        "deleteFailed": "無法刪除註釋",
+        "invalid": "目前無法編輯此批註",
+        "countSummary": "關於此回覆的批註：{n} 條",
+        "badge": "註釋",
+        "lineUnit": "行",
+        "cancel": "取消"
       },
       "runtimeStatusResuming": "正在恢復執行…",
       "runtimeStatusPausing": "正在暫停…",
@@ -11139,7 +11157,70 @@
     "title": "API 文檔",
     "toastCopied": "已復制路徑",
     "toastCopyFailed": "復制失敗",
-    "yes": "是"
+    "yes": "是",
+    "endpoints": {
+      "chatCompletions": "OpenAI 兼容對話",
+      "anthropicMessages": "Anthropic 兼容對話",
+      "listModels": "查詢可用模型",
+      "rerank": "Cohere/Jina 兼容重排序",
+      "moderations": "OpenAI 兼容內容審核",
+      "realtime": "Realtime WebSocket 實時對話",
+      "midjourneyImagine": "Midjourney-Proxy 標準接口",
+      "mcpToolsCall": "MCP 網關工具調用",
+      "responses": "OpenAI Responses API(Cursor/Codex 兼容)",
+      "batch": "OpenAI 批量異步 API(50% 折扣)",
+      "assistants": "Assistants API v2(第三方 SDK 直連)",
+      "audioTranslations": "Whisper 語音翻譯",
+      "fineTuningJobs": "微調任務管理",
+      "files": "文件管理 CRUD",
+      "statusOverview": "公開狀態頁-系統總覽",
+      "statusModels": "公開狀態頁-模型可用性",
+      "statusIncidents": "公開狀態頁-事件列表",
+      "apiKeyShares": "API Key 臨時分享(限時 token)",
+      "exportOrdersCsv": "充值訂單 CSV 導出",
+      "exportRelayLogsCsv": "調用日誌 CSV 導出",
+      "developerConversations": "中轉站會話歷史列表"
+    },
+    "sections": {
+      "quickStart": "快速開始(5 分鐘接入)",
+      "auth": "認證方式",
+      "endpointList": "端點列表",
+      "rateLimit": "速率限制",
+      "billing": "計費說明"
+    },
+    "steps": {
+      "step1Title": "1. 註冊登錄",
+      "step1Desc": "— 完成賬號註冊並登錄",
+      "step2Title": "2. 生成 Key",
+      "step2Desc": "— 開發者中心 → 密鑰管理 → 新建密鑰",
+      "step3Title": "3. 調用接口",
+      "step3Desc": "— 替換下方 sk-xxx 即可發起首次請求"
+    },
+    "auth": {
+      "descPrefix": "請求需在 Header 攜帶",
+      "descMid": "(Anthropic 端點亦支持",
+      "descSuffix": ")。"
+    },
+    "rateLimit": {
+      "tiers": "免費 20 QPM · 基礎 60 QPM · 專業 200 QPM · 企業 1000 QPM",
+      "overLimitPrefix": "超限返回錯誤碼",
+      "overLimitSuffix": "(HTTP 429)。"
+    },
+    "billing": {
+      "promptCacheTerm": "Prompt Cache 折扣",
+      "promptCacheDesc": ":命中緩存的輸入 token 按 0.1 倍計價。",
+      "responseCacheTerm": "響應緩存(Redis)",
+      "responseCacheDesc1": ":非流式 chat completions 命中緩存時成本為 0(響應頭",
+      "responseCacheDesc2": "),用",
+      "responseCacheDesc3": "跳過緩存。",
+      "tieredTerm": "階梯計價",
+      "tieredDesc": ":單次請求 token 越多,單價越低(詳見價格頁)。",
+      "groupRateTerm": "分組倍率",
+      "groupRateDesc": ":不同模型分組按倍率計費(如 Claude 1.2x、GPT-4o 1.0x)。",
+      "rerankDesc": ":按 input tokens 計費,output tokens 為 0。",
+      "unit": "計費單位為 Token,1 Token ≈ 0.75 字符(中文);餘額不足返回",
+      "unitSuffix": "。"
+    }
   },
   "developerBillingPage": {
     "add": "添加",
@@ -14074,7 +14155,61 @@
     "total": "共 {total} 節",
     "buyConfirm": "購買確認",
     "paymentConfirm": "支付確認",
-    "review": "評價"
+    "review": "評價",
+    "tutor": {
+      "title": "AI 助教",
+      "subject": "學科",
+      "mode": "模式",
+      "subjectMath": "數學",
+      "subjectPhysics": "物理",
+      "subjectChemistry": "化學",
+      "subjectBiology": "生物",
+      "subjectEnglish": "英語",
+      "subjectHistory": "歷史",
+      "subjectGeography": "地理",
+      "modeExplain": "講解",
+      "modeHint": "提示",
+      "modeQuiz": "出題",
+      "quizDirection": "出題方向(可選)",
+      "yourQuestion": "你的問題",
+      "quizPlaceholder": "如:二次函數圖像性質",
+      "questionPlaceholder": "如:勾股定理怎麼證明?",
+      "generateQuiz": "生成題目",
+      "ask": "提問",
+      "knowledgePoints": "知識點",
+      "followUp": "延伸思考",
+      "nextStep": "下一步",
+      "quizCount": "生成 {count} 道練習題",
+      "answerValue": "答:{answer}",
+      "emptyHint": "選擇學科與模式,提出你的問題。"
+    },
+    "dailyReview": {
+      "loading": "加載中…",
+      "title": "今日複習",
+      "subtitle": "基於 SM-2 間隔重複算法,鞏固長期記憶。",
+      "qualityForgotten": "完全忘記",
+      "qualityFailed": "失敗",
+      "qualityUncertain": "勉強",
+      "qualityGood": "良好",
+      "qualityPerfect": "完美",
+      "statDue": "待複習",
+      "statReviewedToday": "今日已複習",
+      "statStreak": "連續天數",
+      "statAvgDifficulty": "平均難度",
+      "finishedTitle": "今日複習已完成",
+      "finishedHint": "已完成 {count} 道題,繼續保持節奏!",
+      "questionProgress": "第 {current} / {total} 題",
+      "questionLabel": "題目",
+      "selfAssess": "回想後自評",
+      "submitting": "提交中…",
+      "answerLabel": "答案",
+      "explanationLabel": "解析",
+      "nextReview": "下次複習",
+      "intervalDays": "間隔(天)",
+      "easeFactor": "難度因子",
+      "nextQuestion": "下一題",
+      "progressLine": "複習進度:{done} / {total}"
+    }
   },
   "learnBuyConfirmPage": {
     "actualPay": "實付",
@@ -15314,7 +15449,8 @@
     "apiDocs": {
       "auth": {
         "desc": "所有 API 請求需在 Header 中攜帶 Bearer Token,Token 可在 API 令牌頁面創建",
-        "title": "鑑權方式"
+        "title": "鑑權方式",
+        "headerFormat": "# Header 格式"
       },
       "copyCodeAriaLabel": "復制代碼",
       "curlPlaceholder": "輸入 cURL 命令進行測試…",
@@ -23097,7 +23233,154 @@
   },
   "rules": {
     "title": "規則",
-    "description": "平臺規則與規範"
+    "description": "平臺規則與規範",
+    "totalRulesSorted": "共 {n} 條規則,按優先級降序排列",
+    "autoGenerate": "自動生成",
+    "detectConflicts": "檢測衝突",
+    "knowledgeGraph": "知識圖譜",
+    "abTest": "A/B 測試",
+    "globalStats": "全局統計",
+    "templateLibrary": "模板庫",
+    "newRule": "新建規則",
+    "emptyHint": "暫無規則,點擊「新建規則」創建",
+    "disabled": "禁用",
+    "enabled": "啟用",
+    "hitCount": "命中 {n} 次",
+    "detail": "詳情",
+    "test": "測試",
+    "edit": "編輯",
+    "confirmDelete": "確認刪除",
+    "cancelDelete": "取消刪除",
+    "hit": "命中",
+    "noMatch": "未命中",
+    "noMatchNoOutput": "(未命中,無輸出)",
+    "ruleA": "規則 A",
+    "selectRuleA": "選擇規則 A",
+    "ruleB": "規則 B",
+    "selectRuleB": "選擇規則 B",
+    "testMessage": "測試消息",
+    "inputTestMessage": "輸入測試消息...",
+    "testing": "測試中...",
+    "runTest": "運行測試",
+    "autoGenerateTitle": "自動生成規則",
+    "autoGenerateHint": "從最近 7 天用戶行為模式 LLM 提煉候選規則,勾選後批量創建",
+    "startAnalyzeBehavior": "開始分析行為模式",
+    "analyzingBehavior": "LLM 分析行為模式中...",
+    "degradedNoCandidates": "降級模式:LLM 不可用,返回空候選列表",
+    "analyzedGenerated": "分析了 {behaviors} 條行為記錄,生成 {candidates} 條候選規則",
+    "noCandidates": "無候選規則(行為數據不足或 LLM 不可用)",
+    "confidencePercent": "置信度 {pct}%",
+    "selectedOfTotal": "已選 {selected} / {total} 條",
+    "creating": "創建中...",
+    "batchCreateCount": "批量創建({n})",
+    "negotiationFailed": "協商失敗:{msg}",
+    "conflictNameConflict": "同名衝突",
+    "conflictSemanticDuplicate": "語義重複",
+    "conflictPriorityCollision": "優先級碰撞",
+    "conflictDetectTitle": "規則衝突檢測",
+    "detecting": "檢測中...",
+    "noConflict": "未檢測到衝突,規則集狀態良好",
+    "detectedConflictsHint": "檢測到 {n} 處衝突,輸入上下文後可 LLM 協商",
+    "arbitrationContextLabel": "協商上下文(當前對話/代碼片段)",
+    "arbitrationContextPlaceholder": "輸入上下文供 LLM 仲裁...",
+    "negotiating": "協商中...",
+    "llmNegotiate": "LLM 協商",
+    "arbitrationResult": "仲裁結果:",
+    "noneLabel": "無",
+    "degraded": "降級",
+    "mergeSuggestion": "合併建議:{text}",
+    "axisDays30": "30天",
+    "axisDays7": "7天",
+    "positiveCount": "正面 {n}",
+    "negativeCount": "負面 {n}",
+    "totalRows": "共 {n} 條",
+    "diffNone": "(無差異)",
+    "loadFailed": "加載失敗",
+    "rollbackSuccess": "回滾成功",
+    "rollbackFailed": "回滾失敗:{msg}",
+    "feedbackRecorded": "反饋已記錄",
+    "feedbackFailed": "反饋失敗:{msg}",
+    "predictFailed": "預測失敗:{msg}",
+    "learnFeedbackRecorded": "學習反饋已記錄",
+    "ruleDetailTitle": "規則詳情:{name}",
+    "tabStats": "效果統計",
+    "tabHistoryCount": "版本歷史({n})",
+    "tabPredict": "效果預測",
+    "statMatchCount": "命中次數",
+    "statHits7d": "7天命中",
+    "statHits30d": "30天命中",
+    "statAvgToken": "平均 token",
+    "hitRateCompare": "命中率對比",
+    "satisfactionPercent": "滿意度({pct}%)",
+    "feedbackLabel": "反饋:",
+    "useful": "有用",
+    "useless": "無用",
+    "noVersionHistory": "暫無版本歷史",
+    "compareToPrev": "對比上一版",
+    "rollingBack": "回滾中...",
+    "rollback": "回滾",
+    "predictHint": "輸入測試 prompt,dry-run 對比應用規則 vs 不應用規則的 LLM 輸出",
+    "predictPromptPlaceholder": "輸入測試 prompt...",
+    "predicting": "預測中...",
+    "runPredict": "運行預測",
+    "statTokenDelta": "Token 差異",
+    "statOutputDiff": "輸出差異度",
+    "statQualityScore": "質量評分",
+    "suggestionLabel": "建議:",
+    "recDisable": "不啟用",
+    "recNeutral": "中性",
+    "degradedMode": "降級模式",
+    "withoutRule": "不應用規則",
+    "withRule": "應用規則",
+    "learnFeedbackLabel": "學習反饋:",
+    "helpful": "有幫助",
+    "unhelpful": "無幫助",
+    "harmful": "有害",
+    "editRuleTitle": "編輯規則",
+    "fieldLabelName": "名稱",
+    "ruleNamePlaceholder": "規則名稱",
+    "fieldLabelDescription": "描述(可選)",
+    "briefDescriptionPlaceholder": "簡短描述",
+    "fieldLabelScope": "作用域",
+    "scopeGlobal": "全局",
+    "scopeWorkspace": "工作區",
+    "fieldLabelPriority": "優先級",
+    "fieldLabelMatchType": "匹配類型",
+    "matchAlways": "始終注入",
+    "matchKeyword": "關鍵詞",
+    "matchRegex": "正則",
+    "matchSemantic": "語義",
+    "fieldLabelMatchPattern": "匹配模式",
+    "matchPatternKeywordPlaceholder": "關鍵詞1,關鍵詞2",
+    "matchPatternRegexPlaceholder": "正則表達式",
+    "matchPatternSemanticPlaceholder": "自然語言描述",
+    "fieldLabelContent": "規則正文",
+    "contentPlaceholder": "規則正文(markdown,作為 prompt 注入到 agent)...",
+    "saving": "保存中...",
+    "statTotalRules": "總規則數",
+    "statActiveRules7d": "7天活躍規則",
+    "topRulesTitle": "最常用規則 Top {n}",
+    "ruleList": "規則列表",
+    "noHitRecords": "暫無命中記錄",
+    "timesCount": "{n} 次",
+    "knowledgeGraphTitle": "規則知識圖譜",
+    "buildingGraph": "構建圖譜中...",
+    "kgConflict": "衝突",
+    "kgDuplicate": "重複",
+    "kgComplementary": "互補",
+    "graphNodeEdgeCounts": "{nodes} 節點 / {edges} 邊",
+    "noRulesToBuildGraph": "暫無規則,無法構建圖譜",
+    "relationList": "關係列表",
+    "templateLibraryTitle": "規則模板庫",
+    "loadingTemplates": "加載模板...",
+    "templateCountHint": "共 {n} 個預置模板,點擊「使用」快速創建規則",
+    "use": "使用",
+    "testRuleTitle": "測試規則:{name}",
+    "inputMessage": "輸入消息",
+    "matchHit": "匹配命中",
+    "pageTitle": "規則管理",
+    "metaDescription": "管理用戶自定義規則,約束 AI agent 運行時行為",
+    "pageSubtitle": "用戶可編輯的規則集,在 agent 運行時按匹配條件動態注入到 system prompt"
   },
   "automations": {
     "delete": "刪除",
@@ -23636,5 +23919,319 @@
     "goSettings": "模型設定",
     "securityNote": "金鑰僅保存在你自己的帳戶配置中,用於直連對應服務商;平臺不會把你的金鑰用於其他用途。請勿在公開場合分享金鑰。",
     "startChat": "設定完成,開始對話"
+  },
+  "apiDocs": {
+    "curlPlaceholder": "輸入 cURL 命令進行測試…",
+    "searchPlaceholder": "搜索接口…",
+    "copyCodeAriaLabel": "復制代碼",
+    "sampleUserText": "你好",
+    "sampleStoryText": "講個故事",
+    "sampleProdNote": "// 生產環境應替換為 UI 展示",
+    "parseFailed": "無法解析 curl 命令,請檢查格式(需含 -d JSON body)",
+    "curlLinkTitle": "curl 聯動 Playground",
+    "curlLinkDesc": "粘貼 curl 命令,自動解析 model / messages / temperature / max_tokens 並在 Playground 中打開。",
+    "resetSample": "重置示例",
+    "openInPlayground": "在 Playground 中打開",
+    "errorCodesTitle": "錯誤碼",
+    "errorCodesDesc": "所有 API 錯誤碼、HTTP 狀態碼含義與修復建議,支持搜索。",
+    "meaningCol": "含義",
+    "fixCol": "修復建議",
+    "noMatchedErrorCodes": "無匹配錯誤碼",
+    "sdkExamplesTitle": "SDK 示例",
+    "codeCopied": "代碼已複製",
+    "copyFailed": "複製失敗",
+    "hideKey": "隱藏 Key",
+    "showKey": "顯示 Key",
+    "keyFilledHint": "示例已填入你的 API Key{state}。",
+    "keyStatePlain": "(明文)",
+    "keyStateMasked": "(已脫敏,複製後請替換為完整 Key)",
+    "exampleBasicOpenai": "基礎調用 (OpenAI 格式)",
+    "exampleStreaming": "流式響應",
+    "exampleAnthropic": "Anthropic 格式",
+    "errorCodes": {
+      "c1000": {
+        "meaning": "API Key 無效",
+        "fix": "檢查 Authorization: Bearer ihui_xxx 頭"
+      },
+      "c1001": {
+        "meaning": "API Key 已過期",
+        "fix": "重新生成 Key 或聯繫管理員續期"
+      },
+      "c1002": {
+        "meaning": "IP 不在白名單",
+        "fix": "在 Key 配置中添加 IP"
+      },
+      "c1003": {
+        "meaning": "模型不在白名單",
+        "fix": "在 Key 配置中添加模型"
+      },
+      "c1004": {
+        "meaning": "超過 QPM 限制",
+        "fix": "升級訂閱包或降低調用頻率"
+      },
+      "c1005": {
+        "meaning": "餘額不足",
+        "fix": "充值或兌換碼充值"
+      },
+      "c1006": {
+        "meaning": "單次 token 超限",
+        "fix": "降低 max_tokens 或拆分請求"
+      },
+      "c1007": {
+        "meaning": "超過單模型 RPM 限制",
+        "fix": "降低該模型的調用頻率或升級分組"
+      },
+      "c1008": {
+        "meaning": "超過單模型 TPM 限制",
+        "fix": "降低該模型的 token 用量或升級分組"
+      },
+      "c1009": {
+        "meaning": "API Key 不屬於該租戶",
+        "fix": "檢查 Key 與租戶的綁定關係"
+      },
+      "c1010": {
+        "meaning": "Key 級窗口(5h/1d/7d)調用數超限",
+        "fix": "按響應 Retry-After 與 X-RateLimit-* 退避重試,或調低窗口內頻率"
+      },
+      "secretRequired": {
+        "meaning": "缺少 X-Api-Secret 頭(默認必須攜帶)",
+        "fix": "攜帶創建/輪換密鑰時一次性返回的 secret;過渡期可由服務端 API_KEY_REQUIRE_SECRET=false 放寬"
+      },
+      "rateBackendUnavailable": {
+        "meaning": "限流後端不可用,請求被 fail-close 拒絕",
+        "fix": "按 Retry-After(默認 5s)重試;僅計費/高危能力會觸發,低危只讀降級放行"
+      },
+      "dataAccessDenied": {
+        "meaning": "該能力的 dataClass 不允許觸達此數據表(或表名不可判定)",
+        "fix": "對照能力目錄的 dataClass:compute 只產運行記錄,讀業務數據須走 scoped-read"
+      },
+      "dataScopeDenied": {
+        "meaning": "語句越過歸屬邊界(缺 owner 謂詞或綁定他人資源 ID)",
+        "fix": "只查詢/寫入調用者自有資源,禁止跨 owner/tenant 訪問"
+      },
+      "dataIsolationUnavailable": {
+        "meaning": "數據隔離前提不成立(連接為超級用戶或無法證實非超級用戶)",
+        "fix": "服務端需以非超級用戶連接數據庫;聯繫管理員,勿改客戶端重試"
+      },
+      "c2001": {
+        "meaning": "上游服務不可用",
+        "fix": "稍後重試,系統會自動故障切換"
+      },
+      "c2002": {
+        "meaning": "上游超時",
+        "fix": "降低 max_tokens 或檢查網絡"
+      },
+      "c2003": {
+        "meaning": "上游過載",
+        "fix": "稍後重試"
+      },
+      "c2004": {
+        "meaning": "Realtime WebSocket 上游錯誤",
+        "fix": "檢查模型是否支持 realtime + 網絡連接"
+      },
+      "c2005": {
+        "meaning": "Midjourney 上游錯誤",
+        "fix": "檢查 midjourney-proxy 是否在線 + 任務參數"
+      },
+      "c2006": {
+        "meaning": "MCP 工具調用失敗",
+        "fix": "檢查 MCP server 狀態 + 工具名是否存在"
+      },
+      "c3001": {
+        "meaning": "請求參數錯誤",
+        "fix": "檢查 messages 格式"
+      },
+      "c3002": {
+        "meaning": "模型不存在",
+        "fix": "查 GET /v1/models 可用模型"
+      },
+      "c5013": {
+        "meaning": "上游渠道未配置",
+        "fix": "聯繫管理員配置 rerank/moderations 上游"
+      }
+    }
+  },
+  "playground": {
+    "needApiKey": "請先填寫 API Key",
+    "needModel": "請選擇或輸入模型",
+    "needValidMessage": "請至少輸入一條有效消息",
+    "callFailed": "調用失敗",
+    "send": "發送",
+    "modeSse": "· SSE",
+    "modeNonStream": "· 非流式",
+    "messageList": "消息列表",
+    "messageCount": "{n} 條",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "deleteMessage": "刪除消息",
+    "inputRoleContent": "輸入 {role} 消息內容…",
+    "addMessage": "添加消息",
+    "modelsFetchFailed": "獲取模型列表失敗",
+    "apiKeyHint": "本地存儲,僅用於本次調用",
+    "modelLabel": "模型",
+    "refreshModelsAria": "刷新模型列表",
+    "selectModelPlaceholder": "選擇模型",
+    "inputModelOrRefresh": "輸入模型名或刷新列表",
+    "streamLabel": "stream(流式)",
+    "tabResponse": "響應",
+    "tabCode": "代碼",
+    "tabHistory": "歷史({n})",
+    "waitingResponse": "等待響應…",
+    "clickSendHint": "點擊「發送」查看響應",
+    "latencyLabel": "耗時",
+    "costLabel": "成本",
+    "apiKeyShownAs": "API Key 顯示為",
+    "noHistory": "暫無歷史記錄",
+    "unknownModel": "未知模型",
+    "restoreAria": "恢復",
+    "emptyResponse": "(空響應)",
+    "metaTitle": "API Playground — 智匯 AI",
+    "metaDescription": "在線測試 OpenAI 兼容 API:模型選擇、多輪消息構造、參數調節、流式 SSE 渲染、代碼生成(cURL/Python/Node.js)與歷史記錄。",
+    "pageDesc": "用你的 API Key 直接調用 /v1/chat/completions,支持流式渲染、參數調節與代碼生成,無需跳轉到 /chat。"
+  },
+  "upload": {
+    "placeholder": "點選或拖拽檔案到此處上傳",
+    "done": "已完成",
+    "cancelUpload": "取消上傳",
+    "removeUploadedAriaLabel": "刪除已上傳檔案",
+    "removeItemAriaLabel": "移除上傳項",
+    "sizeLimitHint": "單檔案不超過 {size}",
+    "maxCountReached": "已達上限 {max} 個檔案",
+    "oversizeFiles": "以下檔案超過 {size}: {files}",
+    "uploadFailed": "上傳失敗",
+    "uploadFailedWithStatus": "上傳失敗:HTTP {status}",
+    "invalidJsonResponse": "響應不是合法 JSON",
+    "noUrlField": "響應中未找到可用的 URL 欄位",
+    "networkError": "網路錯誤",
+    "uploadCancelled": "上傳已取消",
+    "imagePlaceholder": "點選或拖拽上傳圖片"
+  },
+  "webviewFrame": {
+    "loadingText": "載入中...",
+    "screenshotNotice": "該網站禁止嵌入,已切換到截圖模式",
+    "blockedTitle": "URL 不安全,已攔截",
+    "failedTitle": "載入失敗",
+    "externalTitle": "無法在面板內嵌入",
+    "retry": "重試",
+    "openExternal": "在外部瀏覽器開啟",
+    "idlePlaceholder": "輸入網址或點選 AI 訊息中的連結以開啟"
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在準備回覆…",
+        "1": "正在組織回答思路…",
+        "2": "收到，正在思考如何回覆…",
+        "3": "正在為你生成回覆…",
+        "4": "已收到問題，正在處理…"
+      },
+      "middle": {
+        "0": "正在繼續處理…",
+        "1": "正在接著上文思考…",
+        "2": "正在整理後續回覆…",
+        "3": "正在跟進你的問題…",
+        "4": "正在生成接下來的回覆…"
+      },
+      "followup": {
+        "0": "正在理解你的追問…",
+        "1": "結合上文，正在思考…",
+        "2": "正在針對追問組織回覆…",
+        "3": "收到追問，正在處理…",
+        "4": "正在補充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在調度計算資源…",
+        "1": "正在初始化執行環境…",
+        "2": "正在啟動處理流程…",
+        "3": "正在分配算力處理…",
+        "4": "正在執行初始計算…"
+      },
+      "middle": {
+        "0": "正在執行中…",
+        "1": "計算進行中，請稍候…",
+        "2": "正在處理中間結果…",
+        "3": "執行未中斷，正在推進…",
+        "4": "正在運算，請稍候…"
+      },
+      "followup": {
+        "0": "正在重新計算…",
+        "1": "正在基於新輸入繼續執行…",
+        "2": "正在追加處理…",
+        "3": "正在更新計算結果…",
+        "4": "正在處理追加請求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顧對話上下文…",
+        "1": "正在加載相關上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在檢索相關記憶…",
+        "4": "正在準備上下文…"
+      },
+      "middle": {
+        "0": "正在關聯上文繼續…",
+        "1": "正在結合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就緒，正在處理…",
+        "4": "正在對照歷史消息…"
+      },
+      "followup": {
+        "0": "正在結合前文理解追問…",
+        "1": "正在回看相關上下文…",
+        "2": "正在關聯歷史追問…",
+        "3": "正在對照上文補充…",
+        "4": "結合上下文，正在處理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定處理計劃…",
+        "1": "正在拆解你的需求…",
+        "2": "正在規劃執行步驟…",
+        "3": "正在分析任務要點…",
+        "4": "正在擬定回覆提綱…"
+      },
+      "middle": {
+        "0": "正在推進計劃步驟…",
+        "1": "正在執行下一步…",
+        "2": "計劃進行中，請稍候…",
+        "3": "正在按步驟處理…",
+        "4": "正在落實後續步驟…"
+      },
+      "followup": {
+        "0": "正在調整計劃…",
+        "1": "正在根據追問更新步驟…",
+        "2": "正在重新規劃…",
+        "3": "正在補充計劃細節…",
+        "4": "正在跟進新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在準備詳細說明…",
+        "1": "正在組織細節內容…",
+        "2": "正在梳理要點…",
+        "3": "正在生成詳細回覆…",
+        "4": "正在完善回答細節…"
+      },
+      "middle": {
+        "0": "正在補充細節…",
+        "1": "正在展開說明…",
+        "2": "正在完善後續內容…",
+        "3": "詳情整理中，請稍候…",
+        "4": "正在細化回覆…"
+      },
+      "followup": {
+        "0": "正在補充你問的細節…",
+        "1": "正在展開追問的要點…",
+        "2": "正在細化相關說明…",
+        "3": "正在準備補充內容…",
+        "4": "正在完善追問的答覆…"
+      }
+    },
+    "vividTail": "，馬上就好"
   }
 }
