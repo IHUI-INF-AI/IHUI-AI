@@ -43,8 +43,6 @@ import {
   type WorkspacePermissionRule,
 } from '@ihui/api-client/endpoints/workspace'
 import { cn } from '@/lib/utils'
-import { permissionTierText } from '@/lib/permission-tier-text'
-// 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
 
 interface WorkspacePermissionDialogProps {
   open: boolean
@@ -68,10 +66,22 @@ const MODE_OPTIONS: Array<{
   { value: 'bypass-permissions', icon: Shield, risk: 'high' },
 ]
 
-
-/** i18n 静态映射表 — 用于消除 `t(\`ruleType.${var}\`)` 动态拼接 */
-// G-164:档位名/说明此前也是两张端内键表(MODE_TITLE_KEY / MODE_DESC_KEY),G-166 起
-// 统一走上面的 permissionTierText() 共享词表;本弹窗可选哪几档只由 MODE_OPTIONS 决定。
+/** i18n 静态映射表 — 用于消除 `t(\`mode.${var}.title\`)` / `t(\`mode.${var}.desc\`)` / `t(\`ruleType.${var}\`)` 动态拼接 */
+// G-164:两张表的键类型是 WorkspacePermissionMode(现含 plan)→ 必须列全 4 档,否则编译不过。
+// 但上方 MODE_OPTIONS **仍只给 3 档**:首次配置向导不主动推 plan(plan 由 popover /
+// Shift+Tab 显式选择),免得把"只读"当成新工作区的默认推荐。
+const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
+  plan: 'mode.plan.title',
+  default: 'mode.default.title',
+  'accept-edits': 'mode.accept-edits.title',
+  'bypass-permissions': 'mode.bypass-permissions.title',
+}
+const MODE_DESC_KEY: Record<WorkspacePermissionMode, string> = {
+  plan: 'mode.plan.desc',
+  default: 'mode.default.desc',
+  'accept-edits': 'mode.accept-edits.desc',
+  'bypass-permissions': 'mode.bypass-permissions.desc',
+}
 const RULE_TYPE_KEY: Record<PermissionRuleType, string> = {
   path: 'ruleType.path',
   command: 'ruleType.command',
@@ -96,8 +106,6 @@ export function WorkspacePermissionDialog({
   onSaved,
 }: WorkspacePermissionDialogProps) {
   const t = useTranslations('workspace.permission')
-  // G-166:档位名与说明走跨端共享词表(permissionTier),不再用 workspace.permission.mode.*
-  const tTier = useTranslations()
   const queryClient = useQueryClient()
 
   const [selectedMode, setSelectedMode] = React.useState<WorkspacePermissionMode>(
@@ -173,7 +181,6 @@ export function WorkspacePermissionDialog({
             {MODE_OPTIONS.map((opt) => {
               const Icon = opt.icon
               const isSel = selectedMode === opt.value
-              const tierText = permissionTierText(opt.value, tTier)
               return (
                 <button
                   key={opt.value}
@@ -200,7 +207,9 @@ export function WorkspacePermissionDialog({
                   />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{tierText.title}</span>
+                      <span className="text-sm font-medium">
+                        {t(MODE_TITLE_KEY[opt.value] ?? 'mode.unknown.title')}
+                      </span>
                       {opt.risk === 'high' && (
                         <span className="rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
                           {t('highRisk')}
@@ -208,7 +217,9 @@ export function WorkspacePermissionDialog({
                       )}
                       {isSel && <Check className="h-3.5 w-3.5 text-primary" />}
                     </div>
-                    <p className="text-xs text-muted-foreground">{tierText.desc}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(MODE_DESC_KEY[opt.value] ?? 'mode.unknown.desc')}
+                    </p>
                   </div>
                 </button>
               )
