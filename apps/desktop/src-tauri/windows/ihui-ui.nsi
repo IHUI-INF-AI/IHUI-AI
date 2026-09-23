@@ -90,6 +90,16 @@ Var IHUIPB2       ; 安装页自绘品牌进度条填充句柄(SS_BITMAP + regio
 Var IHUIPLAST     ; 安装页已显示的百分比(补间游标)
 Var UNPLAST       ; 卸载页已显示的百分比(补间游标)
 Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程退出随窗口消亡)
+Var IHUIRC1       ; 重装页卡片1 overlay(整卡点击接收,透明底露出位图卡片框)
+Var IHUIRC2       ; 重装页卡片2 overlay
+Var IHUIRI1       ; 重装页卡片1 选中指示器(SS_BITMAP,两态换图)
+Var IHUIRI2       ; 重装页卡片2 选中指示器
+Var IHUITX1       ; 重装页卡片1 文字 STATIC(品牌字体)
+Var IHUITX2       ; 重装页卡片2 文字 STATIC(禁用时 muted 色)
+Var IHUIRTXT1     ; 进入页面时从隐藏 radio $R2 读出的文案(卡片1 文字)
+Var IHUIRTXT2     ; 进入页面时从隐藏 radio $R3 读出的文案(卡片2 文字)
+Var IHUIRF15      ; 重装页卡片文字品牌字体(15 逻辑 px)
+Var IHUIRF13      ; 重装页说明行品牌字体(13 逻辑 px)
 
 ; =====================================================================
 ; 运行期跟踪日志(仅验证期启用: 定义 IHUI_TRACE 才写文件)
@@ -174,6 +184,28 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 !define IHUI_STG_H      22
 !define IHUI_STG_PX     13    ; 阶段文案字号(逻辑像素)
 
+; 重装/升级确认页(维护页)卡片几何 —— 与 scripts/desktop-installer-assets.mjs 的
+; RCARD_* 常量严格一一对应(位图把卡片框烧进 reinstall.bmp,运行期只叠加动态件),
+; 由 scripts/check-installer-assets.mjs 的 checkReinstallCards 做跨文件对账。
+!define IHUI_RDESC_Y    302   ; 说明行(动态 R1)上沿
+!define IHUI_RDESC_H    24
+!define IHUI_RDESC_PX   13    ; 说明行字号(逻辑像素)
+!define IHUI_RCARD_X    288   ; 选项卡片(两张,位图烧入同几何)
+!define IHUI_RCARD_Y1   340
+!define IHUI_RCARD_Y2   392
+!define IHUI_RCARD_W    544
+!define IHUI_RCARD_H    40
+!define IHUI_RCARD_PX   15    ; 卡片文字字号(逻辑像素)
+!define IHUI_RIND_X     290   ; 选中指示器(卡片左侧 24px 指示槽内)
+!define IHUI_RIND_Y1    350
+!define IHUI_RIND_Y2    402
+!define IHUI_RIND_SIZE  20
+!define IHUI_RTXT_X     332   ; 卡片文字左缘(指示槽 288..312 + 20 间距)
+!define IHUI_RTXT_Y1    350
+!define IHUI_RTXT_Y2    402
+!define IHUI_RTXT_W     484
+!define IHUI_RTXT_H     20
+
 
 ; ---- 逻辑像素 → 物理像素(以 96 DPI 为基准) ----
 !macro IHUI_PX VAR LOGICAL
@@ -238,8 +270,25 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
 ; ---- 满幅背景: CreateControl 登记(挂内层) + STM_SETIMAGE + 物理像素满幅 ----
 ; 前置: .onInit 已把对应档位位图解压到 $PLUGINSDIR; $IHUIBG 接收句柄
 ; 注: CreateControl 坐标按 dialog units 换算, 创建后立刻 MoveWindow 矫正
+;
+; ⚠️ LoadImage 失败重试(2026-09-23 黑屏事故): 实机出现一次"整窗纯 #242424、
+;    无任何位图、进程健康空闲"的故障态(资产逐字节完整、UI 线程空闲) —— 全部
+;    位图 LoadImage 同时失败的唯一合理解释是解压后数秒内被外部瞬时锁定/拒绝
+;    (杀软扫描刚解压的大 BMP)。LoadImage 失败后 STM_SETIMAGE 传 0 → 整页空
+;    底,窗口表现为纯黑且永远等不到恢复。故此处失败后 Sleep 150ms 重试一次。
+;    重试仍失败按原样继续(与旧行为一致),不打断页面流。
+!macro IHUI_LOADIMG NAME OUTVAR
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .s"
+  Pop ${OUTVAR}
+  ${If} ${OUTVAR} = 0
+    Sleep 150
+    System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .s"
+    Pop ${OUTVAR}
+  ${EndIf}
+!macroend
+
 !macro IHUI_PAGEBG NAME
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG ${NAME} $0
   nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
   Pop $IHUIBG
   System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
@@ -254,7 +303,7 @@ Var IHUIBIGF      ; 百分比大字 GDI 字体句柄(IHUIInstShow 创建,进程�
   !insertmacro IHUI_PX $3 ${Y}
   !insertmacro IHUI_PX $4 ${W}
   !insertmacro IHUI_PX $5 ${H}
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG ${NAME} $0
   nsDialogs::CreateControl STATIC 0x5400010E 0 ${X} ${Y} ${W} ${H} ""
   Pop ${HANDLE}
   System::Call "user32::MoveWindow(p ${HANDLE}, i r2, i r3, i r4, i r5, i 1)"
@@ -944,6 +993,8 @@ FunctionEnd
   File "/oname=$PLUGINSDIR\btn-close.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-close.bmp"
   File "/oname=$PLUGINSDIR\btn-min.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\btn-min.bmp"
   File "/oname=$PLUGINSDIR\bar-fill.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\bar-fill.bmp"
+  File "/oname=$PLUGINSDIR\maint-radio-on.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\maint-radio-on.bmp"
+  File "/oname=$PLUGINSDIR\maint-radio-off.bmp" "${IHUI_ASSETROOT}\assets-${LIT}\maint-radio-off.bmp"
 !macroend
 
 ; 包装宏:TIERVAR 为运行时变量名($IHUITIER / $IHUIWTIER),按其值选档解压
@@ -1453,50 +1504,163 @@ Function IHUIOnMin
 FunctionEnd
 
 ; =====================================================================
-; 重装/升级确认页主题(插入点 = PageReinstall 的 nsDialogs::Show 之前)
+; 重装/升级确认页(维护页)主题(插入点 = PageReinstall 的 nsDialogs::Show 之前)
 ; 只读 $R1(标题 label)/$R2/$R3(radio)/$R4(内层 dialog), 不改写。
+;
+; 2026-09-24 卡片化改版(R70):
+;   卡片框已烧进 reinstall.bmp(y 340..380 / 392..432),原生 radio 移出窗口保留
+;   活性(NSD_GetState 对移屏窗口仍有效,PageLeaveReinstall 不受影响);每张卡片 =
+;   整卡 overlay(NSD_OnClick)+ 指示器 STATIC(maint-radio-on/off.bmp 两态换图)
+;   + 文字 STATIC(品牌字体,文案进入页面时从 radio 原文字读出)。
+;   DPI 加固:重取 GetDpiForWindow,与 GUIINIT 时不一致(显示缩放被外部改变,
+;   DefWindowProc 已按建议矩形改了窗口尺寸)则重跑一轮定档定位刷新 $IHUIDPIW/
+;   $IHUIWW/$IHUIWH/$IHUIWTIER —— 无变化时整段跳过,其他页行为零改变。
+;   ⚠️ 寄存器纪律: 本宏展开在 PageReinstall 内,$R0(版本比较结果,PageLeave
+;   还要用)/$R1/$R2/$R3/$R4 一律只读;DPI 分支临时覆写 $R2/$R3 前必须保存。
 ; =====================================================================
+!macro IHUI_RIND_SET HANDLE NAME
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\${NAME}`, i 0, i 0, i 0, i 0x2010) p .r0"
+  System::Call "user32::SendMessageW(p ${HANDLE}, i 0x0172, p 0, p r0)"
+  System::Call "user32::InvalidateRect(p ${HANDLE}, p 0, i 1)"
+!macroend
+
 !macro IHUI_REINSTALLTHEME
   !insertmacro IHUI_LOG "reinstallTheme_entry"
-  ; R67(升级路径实证): 先隐藏+移屏原生 1/2/3 与页头控件 —— 此前只建品牌 CTA
-  ; 覆盖,原生「上一步」(id=3)探针 vis=True 实锤仍可见/可点(用户报「下一步
-  ; 点不了」即点到它),页头 1017/1038 白底也在两侧漏出。
+  ; ---- 0) DPI 加固(R70)----
+  StrCpy $0 96
+  System::Call "user32::GetDpiForWindow(p $HWNDPARENT) i .s"
+  Pop $0
+  IntOp $0 $0 + 0
+  ${If} $0 < 96
+    StrCpy $0 96
+  ${EndIf}
+  ${If} $0 > ${IHUI_DPI_CAP}
+    StrCpy $0 ${IHUI_DPI_CAP}
+  ${EndIf}
+  ${If} $0 != $IHUIDPIW
+    !insertmacro IHUI_LOG "reinstallTheme_dpiChanged"
+    ; $R2/$R3 是存活 radio 句柄,IHUI_GUIINIT_SIZE 内部用 $R2/$R3 做换算临时量
+    StrCpy $1 $R2
+    StrCpy $2 $R3
+    System::Call "*(i 0, i 0, i 0, i 0) p .s"
+    Pop $3
+    System::Call "user32::SystemParametersInfoW(i 0x0030, i 0, p r3, i 0)"
+    System::Call "*$3(i .R5, i .R6, i .R7, i .R8)"
+    System::Free $3
+    !insertmacro IHUI_GUIINIT_SIZE
+    StrCpy $R2 $1
+    StrCpy $R3 $2
+  ${EndIf}
+  ; ---- 1) 隐藏原生 1/2/3 与页头经典控件(R67 同款) ----
   !insertmacro IHUI_HIDE_ALL
   ; 档位兜底(重装页不走 PAGE_PRE,R68: 125% 档低档位图裸贴白底)
   ${If} $IHUIWTIER != $IHUITIER
     !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
   ${EndIf}
-  ; 内层 dialog 满幅 + 黑底白字
+  ; ---- 2) 内层 dialog 满幅 + 黑底白字 ----
   System::Call "user32::MoveWindow(p $R4, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
   SetCtlColors $R4 FAFAFA 242424
-  ; 标题: 重定位 + 白字黑底
-  ; R67 布局(位图文字带实测): instfiles.bmp 烧入文字带=逻辑 46..66(品牌标题)
-  ; 与 208..244(「INSTALL PROGRESS/正在写入」区),旧位 y=150/200/236 与烧入带
-  ; 交叠成乱行。动态控件整体上移到空白带 66..208: R1=88 radio1=128 radio2=164。
+  ; ---- 3) 满幅品牌背景(先建,天然位于后续控件之下) ----
+  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\reinstall.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
+  Pop $IHUIBG
+  System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
+  SendMessage $IHUIBG 0x0172 0 $0
+  System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
+  ; ---- 4) 品牌字体(微软雅黑,与位图文字同源;lfHeight 取负 = 字符高度) ----
+  ; 页面可能反复进入,重建前先释放旧句柄防 GDI 泄漏
+  !insertmacro IHUI_PX $5 ${IHUI_RCARD_PX}
+  IntOp $5 0 - $5
+  ${If} $IHUIRF15 <> 0
+    System::Call "gdi32::DeleteObject(p $IHUIRF15)"
+  ${EndIf}
+  System::Call "gdi32::CreateFontW(i r5, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
+  Pop $IHUIRF15
+  !insertmacro IHUI_PX $5 ${IHUI_RDESC_PX}
+  IntOp $5 0 - $5
+  ${If} $IHUIRF13 <> 0
+    System::Call "gdi32::DeleteObject(p $IHUIRF13)"
+  ${EndIf}
+  System::Call "gdi32::CreateFontW(i r5, i 0, i 0, i 0, i 400, i 0, i 0, i 0, i 1, i 0, i 0, i 5, i 0, w 'Microsoft YaHei UI') p .s"
+  Pop $IHUIRF13
+  ; ---- 5) 说明行 R1:重定位到卡片上方 + 品牌字体(文案动态保留) ----
   !insertmacro IHUI_PX $2 ${IHUI_C_L}
-  !insertmacro IHUI_PX $3 300
-  !insertmacro IHUI_PX $4 544
-  !insertmacro IHUI_PX $5 44
+  !insertmacro IHUI_PX $3 ${IHUI_RDESC_Y}
+  !insertmacro IHUI_PX $4 ${IHUI_RCARD_W}
+  !insertmacro IHUI_PX $5 ${IHUI_RDESC_H}
   System::Call "user32::MoveWindow(p $R1, i r2, i r3, i r4, i r5, i 1)"
-  SetCtlColors $R1 FAFAFA 242424
-  !insertmacro IHUI_SETFONT $R1
-  ; 两个 radio: 重定位 + 白字黑底 + 去主题(经典渲染,字形黑白,避免系统蓝)
-  !insertmacro IHUI_PX $2 ${IHUI_C_L}
-  !insertmacro IHUI_PX $3 350
-  !insertmacro IHUI_PX $4 544
-  !insertmacro IHUI_PX $5 26
-  System::Call "user32::MoveWindow(p $R2, i r2, i r3, i r4, i r5, i 1)"
-  SetCtlColors $R2 FAFAFA 242424
-  System::Call "uxtheme::SetWindowTheme(p $R2, w ``, w ``)"
-  !insertmacro IHUI_SETFONT $R2
-  !insertmacro IHUI_PX $2 ${IHUI_C_L}
-  !insertmacro IHUI_PX $3 386
-  System::Call "user32::MoveWindow(p $R3, i r2, i r3, i r4, i r5, i 1)"
-  SetCtlColors $R3 FAFAFA 242424
-  System::Call "uxtheme::SetWindowTheme(p $R3, w ``, w ``)"
-  !insertmacro IHUI_SETFONT $R3
-  ; 品牌 CTA「继续 ›」: CreateControl 注册(点击路由生效) + 物理像素重定位
-  ; (lg h-10=40px 档,行基线 y=500; R67:位图满容器宽度,静态贴图不吃焦点框)
+  SetCtlColors $R1 D4D4D4 242424
+  System::Call "user32::SendMessageW(p $R1, i 0x0030, p $IHUIRF13, p 1)"
+  ; ---- 6) 原生 radio 文案读出 + 移出窗口保留活性 ----
+  ; (radio 创建时文字已随 NSD_CreateRadioButton 写入,这里取回给卡片文字 STATIC;
+  ;  移屏 -3000 后不再可见,BM_SETCHECK/NSD_GetState 对移屏窗口仍有效)
+  ${NSD_GetText} $R2 $IHUIRTXT1
+  ${NSD_GetText} $R3 $IHUIRTXT2
+  System::Call "user32::MoveWindow(p $R2, i -3000, i -3000, i 100, i 24, i 1)"
+  System::Call "user32::MoveWindow(p $R3, i -3000, i -3000, i 100, i 24, i 1)"
+  ; ---- 7) 卡片文字 STATIC(实色卡底 #1A1A1A 与位图卡片填充同色) ----
+  !insertmacro IHUI_PX $2 ${IHUI_RTXT_X}
+  !insertmacro IHUI_PX $3 ${IHUI_RTXT_Y1}
+  !insertmacro IHUI_PX $4 ${IHUI_RTXT_W}
+  !insertmacro IHUI_PX $5 ${IHUI_RTXT_H}
+  nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RTXT_X} ${IHUI_RTXT_Y1} ${IHUI_RTXT_W} ${IHUI_RTXT_H} $IHUIRTXT1
+  Pop $IHUITX1
+  System::Call "user32::MoveWindow(p $IHUITX1, i r2, i r3, i r4, i r5, i 1)"
+  SetCtlColors $IHUITX1 D4D4D4 1A1A1A
+  System::Call "user32::SendMessageW(p $IHUITX1, i 0x0030, p $IHUIRF15, p 1)"
+  !insertmacro IHUI_PX $3 ${IHUI_RTXT_Y2}
+  nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RTXT_X} ${IHUI_RTXT_Y2} ${IHUI_RTXT_W} ${IHUI_RTXT_H} $IHUIRTXT2
+  Pop $IHUITX2
+  System::Call "user32::MoveWindow(p $IHUITX2, i r2, i r3, i r4, i r5, i 1)"
+  ; 降级禁用(ALLOWDOWNGRADES=false 且降级,模板已 EnableWindow $R3 0)→ 卡2 呈禁用
+  System::Call "user32::IsWindowEnabled(p $R3) i .s"
+  Pop $0
+  IntOp $0 $0 + 0
+  ${If} $0 = 0
+    SetCtlColors $IHUITX2 737373 1A1A1A
+  ${Else}
+    SetCtlColors $IHUITX2 D4D4D4 1A1A1A
+  ${EndIf}
+  System::Call "user32::SendMessageW(p $IHUITX2, i 0x0030, p $IHUIRF15, p 1)"
+  ; ---- 8) 选中指示器(两态位图,20x20 逻辑,按进入时选中态上初始图) ----
+  !insertmacro IHUI_PX $2 ${IHUI_RIND_X}
+  !insertmacro IHUI_PX $3 ${IHUI_RIND_Y1}
+  !insertmacro IHUI_PX $4 ${IHUI_RIND_SIZE}
+  !insertmacro IHUI_PX $5 ${IHUI_RIND_SIZE}
+  nsDialogs::CreateControl STATIC 0x5400010E 0 ${IHUI_RIND_X} ${IHUI_RIND_Y1} ${IHUI_RIND_SIZE} ${IHUI_RIND_SIZE} ""
+  Pop $IHUIRI1
+  System::Call "user32::MoveWindow(p $IHUIRI1, i r2, i r3, i r4, i r5, i 1)"
+  !insertmacro IHUI_PX $3 ${IHUI_RIND_Y2}
+  nsDialogs::CreateControl STATIC 0x5400010E 0 ${IHUI_RIND_X} ${IHUI_RIND_Y2} ${IHUI_RIND_SIZE} ${IHUI_RIND_SIZE} ""
+  Pop $IHUIRI2
+  System::Call "user32::MoveWindow(p $IHUIRI2, i r2, i r3, i r4, i r5, i 1)"
+  ; ---- 9) 整卡点击 overlay(透明底,盖住整卡接收点击;末建 = 卡内最顶层) ----
+  !insertmacro IHUI_PX $2 ${IHUI_RCARD_X}
+  !insertmacro IHUI_PX $3 ${IHUI_RCARD_Y1}
+  !insertmacro IHUI_PX $4 ${IHUI_RCARD_W}
+  !insertmacro IHUI_PX $5 ${IHUI_RCARD_H}
+  nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RCARD_X} ${IHUI_RCARD_Y1} ${IHUI_RCARD_W} ${IHUI_RCARD_H} ""
+  Pop $IHUIRC1
+  System::Call "user32::MoveWindow(p $IHUIRC1, i r2, i r3, i r4, i r5, i 1)"
+  SetCtlColors $IHUIRC1 0xFFFFFF transparent
+  ${NSD_OnClick} $IHUIRC1 PageReinstallCard1Click
+  !insertmacro IHUI_PX $3 ${IHUI_RCARD_Y2}
+  nsDialogs::CreateControl STATIC 0x54000100 0 ${IHUI_RCARD_X} ${IHUI_RCARD_Y2} ${IHUI_RCARD_W} ${IHUI_RCARD_H} ""
+  Pop $IHUIRC2
+  System::Call "user32::MoveWindow(p $IHUIRC2, i r2, i r3, i r4, i r5, i 1)"
+  SetCtlColors $IHUIRC2 0xFFFFFF transparent
+  ${NSD_OnClick} $IHUIRC2 PageReinstallCard2Click
+  ; ---- 10) 初始选中态($ReinstallPageCheck 照模板 BM_SETCHECK 的 1/2 约定) ----
+  ${If} $ReinstallPageCheck <> 2
+    !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-on.bmp
+    !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-off.bmp
+  ${Else}
+    !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-off.bmp
+    !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-on.bmp
+  ${EndIf}
+  ; 焦点从已移屏的 radio 挪到卡片1 overlay(Space 不再误触隐形 radio)
+  System::Call "user32::SetFocus(p $IHUIRC1)"
+  ; ---- 11) 品牌 CTA「继续 ›」(点击路由原生 1;R67 已验证通路) ----
   nsDialogs::CreateControl STATIC 0x5400010E 0 ${IHUI_CTA_X} ${IHUI_BTN_Y} ${IHUI_CTA_W} 40 ""
   Pop $IHUIRCTA
   System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-continue.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
@@ -1507,20 +1671,7 @@ FunctionEnd
   !insertmacro IHUI_PX $5 40
   System::Call "user32::MoveWindow(p $IHUIRCTA, i r2, i r3, i r4, i r5, i 1)"
   ${NSD_OnClick} $IHUIRCTA IHUIReinstallNext
-  ; R67: 满幅 instfiles 位图压底(消灭两侧原生底漏出;位图含完整品牌排版,
-  ; 重装页文字烧在同一版式上,与 welcome/dir 页视觉一致)
-  ; 贴图链用 nsDialogs::CreateControl(IHUI_PAGEBG 同款;CreateWindowExW 裸
-  ; STATIC 贴图在部分页不可靠,v4 实测)
-  nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 $IHUIWW $IHUIWH ""
-  Pop $IHUIBG
-  System::Call "user32::MoveWindow(p $IHUIBG, i 0, i 0, i $IHUIWW, i $IHUIWH, i 1)"
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\reinstall.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
-  SendMessage $IHUIBG 0x0172 0 $0
-  ; Z 序:背景压底 + CTA 提顶(必须背景创建后重排,否则 CTA 被盖)
-  System::Call "user32::SetWindowPos(p $IHUIBG, p 1, i 0, i 0, i 0, i 0, i 0x0003)"
-  System::Call "user32::SetWindowPos(p $IHUIRCTA, p 0, i 0, i 0, i 0, i 0, i 0x0033)"
-  ; 品牌窗口钮(最小化/关闭)+ 拖拽定时器 —— 与欢迎/目录/完成页完全一致
-  ; (重装页同为 nsDialogs 自定义页,CreateTimer 生效)
+  ; ---- 12) 品牌窗口钮 + 拖拽定时器(与欢迎/目录/完成页一致) ----
   !insertmacro IHUI_BTN $IHUICLS btn-close.bmp 820 20 36 36 IHUIOnClose
   !insertmacro IHUI_BTN $IHUIMIN btn-min.bmp 776 20 36 36 IHUIOnMin
   !insertmacro IHUI_DRAG_START
@@ -1528,6 +1679,34 @@ FunctionEnd
   System::Call "user32::UpdateWindow(p $HWNDPARENT)"
   !insertmacro IHUI_LOG "reinstallTheme_exit"
 !macroend
+
+; ---- 卡片点击:写回隐藏 radio 的选中态 + 同步 $ReinstallPageCheck + 换指示器位图 ----
+; ⚠️ 本回调在 nsDialogs 模态循环内执行,$R0(版本比较结果)与 $R2/$R3(radio 句柄)
+;    是 PageReinstall → PageLeaveReinstall 的存活数据,只读不写;临时量只用 $0。
+Function PageReinstallCard1Click
+  !insertmacro IHUI_LOG "reinstallCard1"
+  SendMessage $R2 0x00F1 1 0    ; BM_SETCHECK / BST_CHECKED
+  SendMessage $R3 0x00F1 0 0    ; BM_SETCHECK / BST_UNCHECKED
+  StrCpy $ReinstallPageCheck 1
+  !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-on.bmp
+  !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-off.bmp
+FunctionEnd
+
+Function PageReinstallCard2Click
+  !insertmacro IHUI_LOG "reinstallCard2"
+  ; 降级禁用:模板已对 $R3 EnableWindow 0(ALLOWDOWNGRADES=false 且降级)→ 拒绝点击
+  System::Call "user32::IsWindowEnabled(p $R3) i .s"
+  Pop $0
+  IntOp $0 $0 + 0
+  ${If} $0 = 0
+    Return
+  ${EndIf}
+  SendMessage $R2 0x00F1 0 0
+  SendMessage $R3 0x00F1 1 0
+  StrCpy $ReinstallPageCheck 2
+  !insertmacro IHUI_RIND_SET $IHUIRI1 maint-radio-off.bmp
+  !insertmacro IHUI_RIND_SET $IHUIRI2 maint-radio-on.bmp
+FunctionEnd
 
 ; 重装页 CTA → 触发原生"下一步"(BM_CLICK)
 Function IHUIReinstallNext
