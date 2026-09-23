@@ -227,7 +227,7 @@ export default function VideoPage() {
           {VENDORS.map((v) => (
             <View
               key={v.key}
-              className={`flex-1 py-[12rpx] text-center rounded-[12rpx] ${
+              className={`flex-1 py-[12rpx] text-center rounded-md ${
                 vendor === v.key ? 'bg-[var(--color-brand-accent)]' : 'bg-secondary'
               }`}
               onClick={() => setVendor(v.key)}
@@ -247,12 +247,12 @@ export default function VideoPage() {
           ))}
         </View>
 
-        <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+        <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
           <Text className="block text-[24rpx] text-muted-foreground mb-[16rpx]">
             {t(currentVendor.descKey)}
           </Text>
           <Textarea
-            className="w-full min-h-[192rpx] p-[24rpx] text-[24rpx] bg-transparent border border-border rounded-[12rpx] box-border"
+            className="w-full min-h-[192rpx] p-[24rpx] text-[24rpx] bg-transparent border border-border rounded-md box-border"
             placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
@@ -268,7 +268,7 @@ export default function VideoPage() {
                   {p.options.map((opt) => (
                     <Text
                       key={opt}
-                      className={`flex-1 py-[12rpx] text-center text-[20rpx] rounded-[12rpx] ${
+                      className={`flex-1 py-[12rpx] text-center text-[20rpx] rounded-md ${
                         params[p.key] === opt
                           ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                           : 'bg-secondary text-muted-foreground'
@@ -283,7 +283,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-[12rpx] text-[24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
+            className="mt-[24rpx] w-full h-[88rpx] leading-[88rpx] rounded-md text-[24rpx] font-medium bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] disabled:opacity-60"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -292,27 +292,27 @@ export default function VideoPage() {
         </View>
 
         {status !== 'idle' && status !== 'failed' ? (
-          <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+          <View className="mx-[24rpx] mt-[16rpx] bg-card rounded-lg border border-border p-[24rpx]">
             <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
               {statusText}
             </Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
-              <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-[12rpx]">
+              <View className="h-[420rpx] flex items-center justify-center bg-[var(--color-black-90)] rounded-md">
                 <Text className="text-[24rpx] text-[var(--color-text-tertiary)]">{statusText}</Text>
               </View>
             )}
             {resultUrl ? (
               <View className="flex gap-[16rpx] mt-[24rpx]">
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-[12rpx] border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onDownload}
                 >
                   {t('ai.video.download')}
                 </Button>
                 <Button
-                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-[12rpx] border border-border bg-transparent text-muted-foreground"
+                  className="flex-1 h-[80rpx] leading-[80rpx] text-[24rpx] rounded-md border border-border bg-transparent text-muted-foreground"
                   onClick={onShare}
                   openType="share"
                 >
@@ -329,7 +329,7 @@ export default function VideoPage() {
           </View>
         ) : null}
 
-        <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+        <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
           <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
             {t('ai.video.history')}
           </Text>
@@ -338,7 +338,7 @@ export default function VideoPage() {
               {history.map((h) => (
                 <View
                   key={h.id}
-                  className="flex items-center py-[16rpx] bg-background rounded-[12rpx] px-[16rpx]"
+                  className="flex items-center py-[16rpx] bg-background rounded-md px-[16rpx]"
                   onClick={() => replayHistory(h)}
                   hoverClass="opacity-60"
                 >

@@ -42,7 +42,7 @@
 .py-amount-card {
   padding: 40rpx 32rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   text-align: center;
 }
@@ -70,7 +70,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
 }
 .py-order-row {
@@ -96,7 +96,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
 }
 .py-section-title {
@@ -188,7 +188,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
 }
 .py-coupon-label {
@@ -225,7 +225,7 @@
   line-height: 100rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   font-weight: 600;
 }

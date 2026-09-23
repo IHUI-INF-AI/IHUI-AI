@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
@@ -224,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
     header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, marginBottom: 12 },
     back: { fontSize: 16, color: tk.text.secondary, marginRight: 12 },
     title: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: 12 },
+    card: { padding: 14, backgroundColor: tk.surface.light, borderRadius: rnRadius.xl },
     label: {
       fontSize: 14,
       fontWeight: '600',
@@ -235,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       height: 50,
       backgroundColor: tk.surface.muted,
@@ -248,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       paddingHorizontal: 14,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.brand.DEFAULT,
       backgroundColor: tk.surface.light,
@@ -262,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
     checkbox: {
       width: 16,
       height: 16,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       marginTop: 8,
       alignItems: 'center',
@@ -285,7 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 16,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
     },

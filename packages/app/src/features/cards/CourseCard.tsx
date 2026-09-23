@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -157,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -171,7 +172,7 @@ function createStyles(tk: AppThemeTokens) {
     lecturer: { fontSize: 14, color: tk.text.secondary },
     levelBadge: {
       backgroundColor: LEVEL_TINT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
@@ -180,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 3,
     },
@@ -189,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     price: { fontSize: 18, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },

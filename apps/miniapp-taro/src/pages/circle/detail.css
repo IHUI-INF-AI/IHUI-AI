@@ -61,7 +61,7 @@
   background: var(--color-brand);
   color: var(--color-primary-foreground);
   font-size: 24rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin: 0;
   padding: 0 24rpx;
   height: 56rpx;
@@ -109,7 +109,7 @@
   height: 218rpx;
 }
 .cd-img {
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-muted);
 }
 
@@ -121,7 +121,7 @@
   padding: 20rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   gap: 20rpx;
 }
 .cd-aigc-cover {
@@ -161,7 +161,7 @@
   margin-top: 16rpx;
   padding: 4rpx 12rpx;
   background: var(--color-card);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .cd-topic-text {
   font-size: 22rpx;
@@ -183,7 +183,7 @@
   gap: 8rpx;
   padding: 12rpx 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .cd-action.active .cd-action-num {
   color: var(--color-brand);
@@ -293,7 +293,7 @@
   padding: 0 24rpx;
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 28rpx;
   color: var(--color-foreground);
 }
@@ -301,7 +301,7 @@
   background: var(--color-brand);
   color: var(--color-primary-foreground);
   font-size: 24rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin: 0;
   padding: 0 28rpx;
   height: 72rpx;

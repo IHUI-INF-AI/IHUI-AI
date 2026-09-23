@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * FunctionBlockColumn 功能块列 (mobile-rn 端)
@@ -43,11 +44,9 @@ export interface FunctionBlockColumnProps {
   columns?: number
 }
 
-const CARD_RADIUS = 12
 const CARD_PADDING = 14
 const BLOCK_GAP = 10
 const ICON_SIZE = 44
-const ICON_RADIUS = 8
 const ICON_FONT_SIZE = 22
 const ICON_MARGIN_RIGHT = 12
 const TITLE_FONT_SIZE = 15
@@ -115,7 +114,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tk.surface.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   } as ViewStyle,
   gridCard: {
@@ -124,7 +123,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: ICON_SIZE,
     height: ICON_SIZE,
-    borderRadius: ICON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tk.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',

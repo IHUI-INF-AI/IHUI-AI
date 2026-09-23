@@ -84,7 +84,7 @@ export default function CouponListPage() {
             {list.map((c) => (
               <View
                 key={c.id}
-                className="flex bg-card border border-[var(--color-border)] rounded-[24rpx] overflow-hidden"
+                className="flex bg-card border border-[var(--color-border)] rounded-xl overflow-hidden"
               >
                 <View className="w-[192rpx] bg-[var(--color-success-light)] flex flex-col items-center justify-center py-[32rpx]">
                   <View className="flex items-baseline">
@@ -112,7 +112,7 @@ export default function CouponListPage() {
                     {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                   </Text>
                   <Button
-                    className="self-end mt-[16rpx] text-[24rpx] text-primary-foreground bg-primary rounded-[24rpx] px-[28rpx] leading-[56rpx]"
+                    className="self-end mt-[16rpx] text-[24rpx] text-primary-foreground bg-primary rounded-xl px-[28rpx] leading-[56rpx]"
                     onClick={() => onReceive(c.id)}
                   >
                     {tt('member.couponList.receive', '立即领取')}

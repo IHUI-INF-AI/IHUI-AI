@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * ShareScreen 分享页(mobile-rn 端)
@@ -448,7 +449,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     section: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: rpx(24),
       gap: rpx(16),
     } as ViewStyle,
@@ -465,7 +466,7 @@ function createStyles(tk: RnThemeTokens) {
     } as TextStyle,
     pickerBox: {
       height: 100,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderStyle: 'dashed',
@@ -487,13 +488,13 @@ function createStyles(tk: RnThemeTokens) {
     } as TextStyle,
     previewWrap: {
       position: 'relative',
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
     } as ViewStyle,
     preview: {
       width: '100%',
       height: 160,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
     } as ImageStyle,
     clearBtn: {
       position: 'absolute',
@@ -501,7 +502,7 @@ function createStyles(tk: RnThemeTokens) {
       right: 4,
       width: 24,
       height: 24,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
@@ -521,7 +522,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     shareBtn: {
       height: 46,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.ctaFill,
       alignItems: 'center',
       justifyContent: 'center',
