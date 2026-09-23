@@ -1163,6 +1163,17 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **验证(全部自己复跑,不是转抄代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → 16/16;`node scripts/check-installer-assets.mjs` → `PASS —— …七条跨文件不变量成立`;`makensis` 真编 → `COMPILE OK`、**warning 6000 = 0**(其余 6 条:6155×1、6010×3 先前已在,6001×2 是 `Var IHUIR6/IHUIR7` 两枚先前就存在的死声明,本票未新增引用);`watermark verify` 10168/10168 完好;eslint 0 error。
 - **残余(不称收口)**:① **未做真机复验** —— 该缺陷只在"无 DWM 系统圆角的 Win10 回退支"显形,而取证需要改显示缩放,已按用户"别动了"永久禁止,故本票只给编译级 + 守门级证据,不给像素级证据;② 重锚分支只跑**一轮** `IHUI_GUIINIT_SIZE`(GUIINIT 因多屏异 DPI 是两轮),跨屏搬迁时理论上差一轮收敛 —— 需要双屏异 DPI 机器才能验,本机不具备,保持登记不修;③ `IHUIR6/IHUIR7` 两枚死 `Var` 属先前遗留,删除会牵动 Var 声明顺序纪律,本票不动。
 
+### 第二十二批(2026-09-23):清掉 1692 枚悬空 tag ref 并把"坏指针"变成推送前的显式红灯 —— 附两条注入才逼得出的判据坑
+
+- **症状与真因(和"分叉解不开"不是同一件事,而是它的上游)**:表面是 `git-sync-converge` 报 DIVERGED、本地攒着几十个提交上不去;真因是 15:49 宿主删 `.git`(§5b 第 16 次)后 `lost-commit/*`、`backup/*` 这批 tag 的**名字**被复原回来而**对象**没了 ⇒ **每一次** `git fetch origin main` 都以 `fatal: bad object refs/tags/<X>` + `did not send all necessary objects` 死掉 ⇒ push-guard / converge / 任何联网命令集体失效。
+- **清理**:`for-each-ref --format='%(refname)%(objectname)'` + 一次 `cat-file --batch-check` 取 `missing` → 1692 枚,名字+sha 先落 `.workbuddy/dangling-tags.txt` 留证再删(对象已随 `.git` 没了,删的是坏指针不是数据)。实际有效手段是**直删松散文件** `.git/refs/tags/<ns>/<name>`(`update-ref -d` 对 depth≥2 的嵌套 tag 会返回 0 却不落盘,§5b 旧账)。清完 `git fetch` 连测两次全绿,再从远端取回 tag(现存 6139 枚全部可解析)。
+- **顺带补回守护的本地恢复源**:`G:/IHUI-AI.git-backup-20260912` 也被一起删了(`git-guardian --status` 的 `backupOk:false`),按 §5b 禁删清单要求重新镜像一份。**顺序是硬要求:先清坏指针再刷备份** —— 反了就把 1692 枚坏指针复制进"恢复源",下次从备份恢复会原样带回故障。
+- **装闸(本票的机制级收口,不是只修一次)**:`scripts/git-push-guard.mjs` 新增 **2.9b 悬空 ref 预检**,零网络成本,命中即 `exit 1` 并打印四步修复配方。**放的位置是要点**:必须在 `3. 对比 + 决定是否 push` 之前 —— 第一版我照 2.9 的落点放在其后,注入验证直接 `exit=0` 判据空转,因为"本地与远端已同步"那条路在预检之前就 `process.exit(0)` 了。
+- **两条只有注入才逼得出的判据坑**:① **松散**坏 ref 根本不进 `for-each-ref` 的 stdout —— git 只在 **stderr** 打 `warning: ignoring broken ref <REF>` 就丢掉它,而这种 ref 照样让 fetch fatal(实测第一版判据全绿而 fetch 已坏);故判据必须把 stdout 的 `missing` 与 stderr 的 `ignoring broken ref` **两路一起收**。② 校验删除结果**不能用 `git show-ref -q --verify`** —— 它对"ref 在、对象没了"本身返回非 0,于是"没删掉"被读成"已删除",我第一版据此报出"残留 0"而 fetch 照旧失败。另记一条:`--format` 里加 `%(*objectname)` 会在遇到坏 annotated tag 时**静默返回空表**。
+- **验证(注入 = 权威入口,不是复刻判据)**:植入探针 `refs/tags/ihui-dangling-probe-20260923 -> deadbeef…` → `node scripts/git-push-guard.mjs` **exit=1**,点名该 ref,输出 `❌ 检出 1 枚 ref 指向已不存在的对象(共判 4457 条 ref)` 并给出配方;移除探针后复跑 **exit=0**、`git fetch` 恢复。对照跑(不带探针)确认无误伤。
+- **合流与推送的最终核验**:0 个未合并路径;守门 77 对提交树与工作树(16565 跟踪文件)双向 `✅ 未检出成对 Git 冲突标记`(唯一豁免是 CLI 自身 SEARCH/REPLACE 补丁格式);`git-push-converge` = **ALREADY**,`ls-remote` 复验两侧逐枚一致(第十九/二十/廿一批登记 1/1,门 71 `titleMarker`/`headIdSet`/`stillRegistered` 1/1、自测 17/17,`IHUI_WINDOW_RGN` 6/6,守门 61 第 7 条不变量 1/1,geo 测试 16/16);两侧内容存活也逐项核过 —— mobile-rn 三文件里本地谱系的功能行(`plusActive`/`onPlusToggle`/`scaleY`/`showAddBtn`/`CitationList`/`InjectionDisclosure`)与远端谱系的 `rnRadius`/`brand.ctaText` 迁移**同时在场**。
+- **残余(不称收口)**:① 守护的 refs 复原(`scripts/git-refs-heal.mjs` 的 `writeLooseRef`)仍**不校验对象存在性**,一次"从清单重建"就能把坏指针复活;该文件与 `git-guardian.mjs` 当前都被并发会话改写(一个 ` M`、一个 `M `),按 §16 我不跨属主改 —— 解阻判据:两文件 `git status` 干净后,写盘前加 `cat-file -e` 判定并把跳过的 ref 计入输出,同时从清单剔除该条(否则每 tick 重犯)。② 本预检是"零网络 + 每次 push 跑一遍全量 ref",当前 4457 条 ref 实测耗时可忽略;若 tag 规模再涨一个量级,需要改成增量判定。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
