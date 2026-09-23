@@ -326,7 +326,7 @@ export function scanText(rel, text, table) {
   if (isJsx(rel)) {
     const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
     for (const name of ['rnRadius', 'RADIUS_CSS_PX']) {
-      const used = lines.some((l, k) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
+      const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
       if (!used) continue
       if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
       bad.push({ line: 1, rule: 'B6', raw: `${name} 被使用但未 import`, hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过` })
