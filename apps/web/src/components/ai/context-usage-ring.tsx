@@ -10,7 +10,6 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
@@ -22,9 +21,6 @@ import {
   estimateMessageTokens,
   estimateTokens,
 } from '@/lib/token-estimate'
-
-/** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
-const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
 
 // ============================================================================
 // 圆环尺寸常量
@@ -514,19 +510,13 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   React.useEffect(() => {
     if (!isOpen) return
-    // 层栈:本弹层打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
-    pushOverlay(CONTEXT_USAGE_OVERLAY_ID)
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (!isTopOverlay(CONTEXT_USAGE_OVERLAY_ID)) return
         setIsOpen(false)
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => {
-      popOverlay(CONTEXT_USAGE_OVERLAY_ID)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [isOpen])
 
   return (
