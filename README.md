@@ -2791,7 +2791,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 (造真回退 → exit 1 且点名 / 对齐 HEAD → exit 0 / runner blocking 清单含 76)。紧急跳过
 `HUSKY_SKIP_STALE_REVERT_GUARD=1`;**确属有意回退请改用 `git revert` 生成前向提交**。
 
-**第 90 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
+**第 91 项 `check-c-drive-pollution.mjs`(warn-only)**(2026-09-23 立) —— 补的是**全链没有一道门看过文件系统**这个缺口。
 第 45 项 `check-c-drive-paths.mjs` 只扫 staged 源码里的字面量 `C:\temp\`,而 C 盘残骸恰恰是从
 `os.tmpdir()` / `$env:TEMP` 这类"源码里根本没写 C"的路径流出去的;`check-parent-pollution` 只扫项目父目录
 (`D:\`),`check-root-dir-clean` 只扫项目根。三道门全绿的同一台机器上,C 盘实攒了 **13.2GB** 的 `.next`
@@ -2804,8 +2804,11 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 (与第 77/52 项同取向);本门**只读,永不删文件**,清理一律走 `scripts/c-drive-auto-maintain.ps1`
 (同日修其三段:原扫 `C:\temp` 属**扫错目录**、`ForceDelete` 对单文件必然静默失败、`-DryRun` 必须拦在
 `ForceDelete` 这个唯一删除出口上而不是某一段里)。取证:`--self-test` 8 例 + §22c 镜像测试 6 例
-(含"他人工具态不得误判"与**"本门编号在 runner 中必须出现恰好一次"** —— 最初登记 85 与并行会话的
-`check-test-paths` 撞号,改 90 后由该断言钉死)。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
+(含"他人工具态不得误判"与**"本门编号在 runner 中必须出现恰好一次,且邻门注册块不得缺失"**)。
+**编号两次撞车的实录**:先与 `check-test-paths` 同为 85 → 改 90;而 90 已被并行会话的
+`check-sse-dispatch-parity`(`ce261e1a8`)占用,又撞一次 —— 且那次改号是**整文件提交** runner,
+把别人那道门的注册块一并覆盖掉了(已按原文回插,本门落号 **91**)。高并发同日仓里,"查编号占用"
+必须在提交前最后一刻重做,共享注册文件要逐块核对增删。紧急跳过 `HUSKY_SKIP_C_DRIVE_POLLUTION=1`。
 配套落点库 `scripts/lib/scratch-dir.mjs`:临时夹具锚在**工作树同盘的 `DevEnv/Temp/ihui-scratch`** ——
 既不用 `os.tmpdir()`(会掉回 C),也不能落仓库内(`git rev-parse --show-toplevel` 会从 `.ihui-agent/tmp/`
 向上逃逸到真仓库,使"非 git 目录"用例恒红,已 A/B 实证)。
