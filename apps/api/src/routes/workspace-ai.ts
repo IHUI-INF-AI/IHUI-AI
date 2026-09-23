@@ -11,8 +11,6 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-// 权限档唯一真源(G-161):授权入参必须先归一再判定,认不出即 400
-import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types/permission-mode'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -89,8 +87,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       args: ctx.args,
     })
     if (decision.allowed) return null
-    // configured=false(未配置权限)→ 401 引导用户先调 /fs/open 完成 setup;其他 → 403
-    const statusCode = decision.configured ? 403 : 401
+    // mode=unset → 401 引导用户先调 /fs/open 完成 setup;其他 → 403
+    const statusCode = decision.mode === 'unset' ? 401 : 403
     reply.status(statusCode).send(error(statusCode, decision.reason))
     return new Error(decision.reason)
   }
@@ -756,10 +754,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       })
       const json = (await res.json()) as Record<string, unknown>
       if (!json.device_code || !json.user_code) {
-        // device_code 按 RFC 8628 §1.5 属 bearer 凭据,而非 2xx 响应不经 response-sanitizer 打码,
-        // 故只回传错误码,不透传整个响应体(与下方 device-token 分支同口径)。
-        const errCode = typeof json.error === 'string' ? json.error : `http_${res.status}`
-        return reply.status(400).send(error(400, `GitHub 设备码获取失败: ${errCode}`))
+        return reply
+          .status(400)
+          .send(error(400, `GitHub 设备码获取失败: ${JSON.stringify(json).slice(0, 200)}`))
       }
       return reply.send(
         success({
@@ -1273,10 +1270,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
 
   const permissionCheckSchema = z.object({
     workspacePath: z.string().min(1),
-    // G-161/G-163:此前是第 7 套词表的 z.enum(4 档 camel,不含 manual),且服务端
-    // check() 对 plan 是 fail-open。现取值交唯一真源归一(camel/kebab/历史别名都认),
-    // 认不出直接 400 —— 授权入参不允许"看不懂的拼写照样收下"。
-    mode: z.string().min(1),
+    mode: z.enum(['default', 'acceptEdits', 'plan', 'bypassPermissions']),
     tool: z.string().min(1),
     args: z.record(z.string(), z.unknown()).default({}),
   })
@@ -1287,21 +1281,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = permissionCheckSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const mode = normalizePermissionMode(parsed.data.mode)
-    if (!mode) {
-      return reply
-        .status(400)
-        .send(
-          error(
-            400,
-            `非法权限档: ${parsed.data.mode}(取值必须为 ${PERMISSION_MODES.join(' / ')} 或其别名)`,
-          ),
-        )
-    }
     const result = await permissionManager.check({
       userId: request.userId,
       ...parsed.data,
-      mode,
     })
     return reply.send(success(result))
   })
