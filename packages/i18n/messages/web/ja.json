@@ -7509,6 +7509,64 @@
           "dismiss": "了解"
         },
         "ariaLabel": "Worktree のライフサイクル"
+      },
+      "writingBlock": {
+        "title": "ライティングブロック",
+        "ariaLabel": "ライティングブロック",
+        "empty": "このメッセージにライティングブロックはありません",
+        "status": {
+          "idle": "未処理",
+          "editing": "編集中",
+          "accepted": "承認済み",
+          "reverted": "取り消し済み",
+          "failed": "このライティングブロックを更新できません"
+        },
+        "action": {
+          "accept": "承認",
+          "acceptAll": "すべて承認",
+          "revert": "取り消し"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "承認中",
+            "completed": "承認しました",
+            "failed": "このライティングブロックを承認できません"
+          },
+          "acceptAll": {
+            "inProgress": "すべて承認中",
+            "completed": "すべて承認しました",
+            "failed": "すべてのライティングブロックを承認できません"
+          },
+          "revert": {
+            "inProgress": "取り消し中",
+            "completed": "取り消しました",
+            "failed": "このライティングブロックを取り消せません"
+          }
+        },
+        "openIn": {
+          "label": "開く方法",
+          "email": "既定のメールアプリでメールを開く",
+          "browser": "既定のブラウザーでウェブページを開く"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "推敲",
+        "ariaLabel": "プロンプトを推敲",
+        "phase": {
+          "idle": "未推敲",
+          "polishing": "推敲中…",
+          "succeeded": "推敲済み",
+          "failed": "推敲に失敗"
+        },
+        "action": {
+          "polish": "推敲する",
+          "retry": "再試行"
+        },
+        "failureDraftKept": "現在プロンプトを推敲できません。下書きは保持されています。",
+        "rejection": {
+          "emptyDraft": "下書きが空です。入力してから推敲してください。"
+        },
+        "restartHint": "再起動後に反映されます。下書きは保持されています。"
       }
     },
     "permissionConfirm": {

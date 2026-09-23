@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, Info, Zap, MessageCircle, X } from 'lucide-react'
+import { Send, Square, Info, Zap, MessageCircle, X, Wand2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -64,6 +64,119 @@ import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skil
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
 import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
+// D82 就地润色与失败保稿(G-95):单次生成复用既有 /api/best-of-n/run 通道
+// (与 /btw、/side、/commit 同一条 REST),提示词复用既有 /polish 命令文案(`chat.cmdPolish`),
+// **不新建提示词栈**;状态迁移一律走共享判定层。
+import { runBestOfN } from '@/api/best-of-api'
+import {
+  applyPolishResult,
+  beginPolish,
+  canRetry,
+  canStartPolish,
+  createPolishState,
+  polishPhaseKey,
+  type PolishPhase,
+  type PolishRejection,
+  type PromptPolishState,
+} from '@ihui/shared/chat/prompt-polish'
+
+/** D82:从失败对象里取「需重启生效」原因码。后端未给则 null —— **不臆造**重启提示。 */
+function polishRestartReasonOf(error: unknown): string | null {
+  const code = (error as { code?: unknown } | null)?.code
+  return typeof code === 'string' ? code : null
+}
+
+export interface PromptPolishEntryProps {
+  /** 判定层状态(草稿 = 当前输入框内容);空 / 纯空白草稿时入口禁用(canStartPolish 同源) */
+  state: PromptPolishState
+  /** 外部禁用(如流式生成中) */
+  disabled?: boolean
+  onPolish: () => void
+}
+
+/**
+ * D82 润色入口按钮(工具栏)。
+ * 判定与取词都走共享层 / 词包:`disabled` 由 `canStartPolish(state.draft)` 决定,
+ * 文案走 `ai.pane.promptPolish.*`,**不硬编码中文**。
+ */
+export function PromptPolishEntry({ state, disabled, onPolish }: PromptPolishEntryProps) {
+  const t = useTranslations('ai.pane.promptPolish')
+  // next-intl 要求静态键字面量:四相位集中映射一次,与判定层 polishPhaseKey 同源
+  const phaseLabel: Record<PolishPhase, string> = {
+    idle: t('phase.idle'),
+    polishing: t('phase.polishing'),
+    succeeded: t('phase.succeeded'),
+    failed: t('phase.failed'),
+  }
+  const busy = state.phase === 'polishing'
+  const emptyDraft = !canStartPolish(state.draft)
+  return (
+    <button
+      type="button"
+      data-testid="prompt-polish-entry"
+      data-polish-phase={state.phase}
+      data-polish-key={polishPhaseKey(state.phase)}
+      data-polish-disabled-reason={emptyDraft ? 'emptyDraft' : 'none'}
+      disabled={disabled === true || busy || emptyDraft}
+      onClick={onPolish}
+      aria-label={t('ariaLabel')}
+      title={`${t('entryLabel')} · ${phaseLabel[state.phase]}`}
+      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
+      <span>{t('entryLabel')}</span>
+    </button>
+  )
+}
+
+export interface PromptPolishNoticeProps {
+  state: PromptPolishState
+  onRetry: () => void
+}
+
+/**
+ * D82 保稿提示条(输入卡上方,无内容时返回 null 零占位)。
+ * - 失败:`failureDraftKept`(「暂时无法润色提示词，草稿已保留。」同族)+ 「重试」(`canRetry` 为真才渲染);
+ * - 空草稿被拒:`rejection.emptyDraft`;
+ * - 需重启生效:`restartHint`(同样强调草稿已保留)。
+ */
+export function PromptPolishNotice({ state, onRetry }: PromptPolishNoticeProps) {
+  const t = useTranslations('ai.pane.promptPolish')
+  const rejection: PolishRejection | null = state.rejection
+  const failed = state.phase === 'failed'
+  if (!rejection && !failed && !state.restartHint) return null
+  return (
+    <div
+      data-testid="prompt-polish-notice"
+      data-polish-phase={state.phase}
+      className="mb-2 flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+    >
+      {rejection ? (
+        <span data-testid="prompt-polish-empty" data-polish-reject={rejection}>
+          {t('rejection.emptyDraft')}
+        </span>
+      ) : null}
+      {failed ? (
+        <span data-testid="prompt-polish-failure" data-polish-error={state.error ?? 'none'}>
+          {t('failureDraftKept')}
+        </span>
+      ) : null}
+      {state.restartHint ? (
+        <span data-testid="prompt-polish-restart">{t('restartHint')}</span>
+      ) : null}
+      {canRetry(state) ? (
+        <button
+          type="button"
+          data-testid="prompt-polish-retry"
+          onClick={onRetry}
+          className="shrink-0 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
+        >
+          {t('action.retry')}
+        </button>
+      ) : null}
+    </div>
+  )
+}
 
 // 模板源统一为 5 个核心模板,与 message-list 空状态共用同一组 i18n key,
 // 避免 email/report/review/refactor 4 个无 i18n key 的项显示原始 key 的问题。
@@ -561,6 +674,41 @@ export function MessageInput({
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
+  // D82 就地润色与失败保稿(G-95 重定义):草稿仍由 value 单一持有,
+  // 这里只镜像草稿 + 持有相位 / 拒绝 / 重启提示(判定层状态机在 @ihui/shared/chat/prompt-polish)。
+  const [polish, setPolish] = React.useState<PromptPolishState>(() => createPolishState(''))
+  // 草稿是唯一真相源:value 变化即单向同步进判定层(绝不反向覆盖 value)
+  React.useEffect(() => {
+    setPolish((prev) => (prev.draft === value ? prev : { ...prev, draft: value }))
+  }, [value])
+  // 一键润色:空 / 纯空白草稿由判定层直接拒绝(不进入 polishing、不发请求);
+  // 失败只回写相位与诊断,草稿字节级不变(保稿);二次失败仍可点「重试」(canRetry 在同处复用)。
+  const handlePolish = React.useCallback(async () => {
+    const started = beginPolish({ ...polish, draft: value })
+    if (started.phase !== 'polishing') {
+      // 空草稿被拒:写 rejection 后返回,绝不触碰草稿
+      setPolish(started)
+      return
+    }
+    setPolish(started)
+    try {
+      // 复用既有 /polish 命令文案(chat.cmdPolish)+ 既有 best-of-n 单副本通道(不新建提示词栈)
+      const result = await runBestOfN(`${t('cmdPolish')}\n\n${value}`, 1)
+      const text = result.candidates[0]?.content ?? ''
+      setPolish((prev) => applyPolishResult(prev, { kind: 'succeeded', text, restartReason: null }))
+      // 就地改写:成功替换草稿(判定层对空结果另有「不覆盖原稿」守护)
+      if (text.trim()) setValue(text)
+    } catch (error: unknown) {
+      setPolish((prev) =>
+        applyPolishResult(prev, {
+          kind: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+          restartReason: polishRestartReasonOf(error),
+        }),
+      )
+    }
+  }, [polish, value, t, setValue])
+
   // 截图入口:Web 无系统级截图 API(Tauri 未暴露截图命令),退化为文件选择,
   // 并提示可直接 Ctrl+V 粘贴剪贴板截图(粘贴链路见 useMessageSend.handlePaste)
   const handleScreenshot = React.useCallback(() => {
@@ -743,6 +891,8 @@ export function MessageInput({
         <TaskStatusBar />
         {/* P3 #30:diff 待发送意见提示条(有意见时才渲染,无意见时返回 null 零占位) */}
         <DiffCommentsBar />
+        {/* D82 润色保稿提示(失败 / 空草稿被拒 / 需重启生效;均带「草稿已保留」语义,无内容零占位) */}
+        <PromptPolishNotice state={polish} onRetry={handlePolish} />
         {allReferences.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
@@ -1121,6 +1271,8 @@ export function MessageInput({
               {/* 高级参数入口(P1-7,2026-09-13):temperature/top_p/top_k/max_tokens +
                   自定义 system prompt,会话级持久化,随请求下发 LLM 网关 */}
               <SamplingParamsButton disabled={isStreaming} />
+              {/* D82 一键润色入口:对当前草稿**就地改写**(空草稿禁用),失败保稿见输入卡上方提示条 */}
+              <PromptPolishEntry state={polish} disabled={isStreaming} onPolish={handlePolish} />
               <input
                 ref={fileInputRef}
                 type="file"
