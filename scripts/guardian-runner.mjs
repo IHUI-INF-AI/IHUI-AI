@@ -653,10 +653,14 @@ const checks = [
   },
   {
     id: '2d',
-    label: '🔍 ja.json 中文残留(warn-only)',
+    // 2026-09-23 升阻塞:判据已从"任何汉字都 warn"(web/ja 实测 15132 处噪音,等于没判)
+    // 换成**字形与繁体不同 ∧ 不在 2010 常用汉字表 2136 字内**的精确判定,
+    // 并补两条必须存在的豁免(法定备案号 / 平台品牌名),276 处真账已由 `aa0286afeb8` 清零,
+    // 六端 ja 全绿 ⇒ 此刻升阻塞不会误伤任何在途提交。判据见 scripts/scan-i18n-zh-residue.mjs + scripts/joyo-kanji.json。
+    label: '🔍 ja.json 中文简体残留(blocking,常用汉字表精确判据)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja'],
-    mode: 'warn',
+    mode: 'blocking',
   },
   {
     id: '2f-ext',
