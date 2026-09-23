@@ -58,18 +58,22 @@ const SECTIONS = [
     label: 'defaultConfig 版本号接入',
     // detect 只认 findProperty('versionCode') 本身, 兼容 2026-09-15 前后的两种写法
     detect: (s) => s.includes("findProperty('versionCode')"),
-    apply: (s) =>
-      s.replace(
-        '        versionCode 1\n        versionName "0.0.0"\n',
-        // ⚠️ 参数必须再包一层括号。写成 `versionCode (expr).toString().toInteger()` 时,
-        // Groovy 会把 `(expr).toString().toInteger()` 当成**独立的调用链**, 于是
-        // `versionCode` 退化为属性读取 → 读到 null → Gradle 报
-        // `IllegalArgumentException: Value is null`
-        // (堆栈: ConfigureDelegate.invokeMethod → MixInClosurePropertiesAsMethodsDynamicObject
-        //        → BeanDynamicObject.<init> → "Value is null", 指向本行)。
-        // 2026-09-15 实测踩坑并修复, 请勿简化回无外层括号的写法。
-        "        versionCode((findProperty('versionCode') ?: '1').toString().toInteger())\n        versionName appVersionName\n"
-      ),
+    apply: (s) => {
+      // 锚点必须对「当前版本号」不敏感。原先写死 `versionCode 1 / versionName "0.0.0"`,
+      // 任何人手抬一次版本号(实测 build.gradle 已到 versionCode 5 / 0.0.4)这段注入就静默
+      // 不再匹配 → build-mobile-rn-release.ps1 第 1 步直接 FAIL,整条出包流水线断。
+      const m = /( {8})versionCode\s+(\d+)\r?\n( {8})versionName\s+"[^"]*"\r?\n/.exec(s)
+      if (!m) {
+        console.error('[patch] [FAIL] defaultConfig 版本号接入 —— 未匹配 versionCode/versionName 行,请人工核对模板结构')
+        return s
+      }
+      // 兜底值沿用模板里现有的 versionCode,避免注入后默认值回退导致
+      // adb install 报 INSTALL_FAILED_VERSION_DOWNGRADE(装过 5 再装 1 会被拒)。
+      // ⚠️ 表达式必须保留**外层括号**:写成 `versionCode (expr).toString().toInteger()` 时
+      //    Groovy 会把 `(expr).toString().toInteger()` 当独立调用链,versionCode 退化成属性
+      //    读取 → null → Gradle 配置期抛 `IllegalArgumentException: Value is null`(2026-09-15 实测)。
+      return s.replace(m[0], `${m[1]}versionCode((findProperty('versionCode') ?: '${m[2]}').toString().toInteger())\n${m[3]}versionName appVersionName\n`)
+    },
   },
   {
     label: 'signingConfigs.release (凭据读 ~/.gradle)',
