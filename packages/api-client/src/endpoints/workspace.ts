@@ -3,8 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { ApiResult, GitStatusSnapshot } from '@ihui/types'
-// 权限档 wire 拼写的唯一来源是共享类型(本包不再自抄一份,见 528 行附近)
-import type { PermissionModeWire as WorkspacePermissionMode } from '@ihui/types/permission-mode'
 
 import { fetchApi } from '../client'
 import { buildQs, type PageData } from '../utils'
@@ -527,16 +525,7 @@ export async function undoCheckpoint(params: {
 // Workspace Permissions — 工作区权限治理
 // =============================================================================
 
-/**
- * workspace 权限档 = wire 拼写(kebab)。
- *
- * G-164:此前这里是 3 值 `'default'|'accept-edits'|'bypass-permissions'`,而
- * `@ihui/types/workspace` 的 `PermissionMode` 是 4 值(含 `plan`)、服务端 z.enum 又是
- * 第三份 3 值 —— 于是 `plan` 全程"类型里存在、链路上不可达"。现改为直接从共享类型 re-export,
- * 少一份副本;任何一侧再加档位都会先在这里以 tsc 报错的形式暴露出来。
- * 规范档与拼写归一由 `@ihui/types/permission-mode` 负责(跨界走 wire,判定走规范档)。
- */
-export type { WorkspacePermissionMode }
+export type WorkspacePermissionMode = 'default' | 'accept-edits' | 'bypass-permissions'
 
 export type PermissionRuleType = 'path' | 'command' | 'tool'
 export type PermissionOperation = 'read' | 'write' | 'edit' | 'delete' | 'run' | 'grep' | 'glob'
