@@ -173,7 +173,8 @@ export function VideoPlayer({
 
   return (
     <View
-      className="aspect-video w-full bg-black"
+      className="aspect-video w-full"
+      style={{ backgroundColor: tokens.gray[900] }}
       onLayout={onContainerLayout}
       testID="video-player"
     >
