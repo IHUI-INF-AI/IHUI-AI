@@ -7510,6 +7510,490 @@
       },
       "toolSummaryShowMore": "もっと見る",
       "toolSummaryShowLess": "閉じる",
+      "handoff": {
+        "title": "失敗診断引き継ぎ票",
+        "ariaLabel": "失敗診断引き継ぎ票",
+        "section": {
+          "diagnosis": "診断方法",
+          "fixSteps": "実施した修復手順",
+          "evidence": "マスキング済み証拠：",
+          "productSurface": "プロダクト画面"
+        },
+        "source": {
+          "local": "ローカル判定",
+          "external": "補助シグナル"
+        },
+        "externalCaveat": "外部サービスが down を返しても補助シグナルに留め、単独では結論としません(ネットワーク到達不能 ≠ 失敗)。",
+        "localUnknown": "ローカルに確定的な判定材料がなく、結論を出していません",
+        "empty": {
+          "fixSteps": "修復手順は未実施",
+          "evidence": "利用できる証拠なし",
+          "productSurface": "プロダクト画面の情報なし",
+          "incidents": "関連インシデントなし"
+        },
+        "incidentLine": "ステータス：関連している可能性のあるインシデント：{incidentNames}",
+        "truncated": "{count} 文字を省略しました",
+        "degraded": "データソースに到達できません。以下はローカルで取得できた情報のみです(ネットワーク到達不能 ≠ 失敗)",
+        "redacted": "この引き継ぎ票はマスキング済みです(キー / トークン / メールアドレス / IP を置換)",
+        "copy": "引き継ぎ票をコピー",
+        "copied": "引き継ぎ票をコピーしました"
+      },
+      "turnStatus": {
+        "title": "ターン状態",
+        "state": {
+          "queued": "待機中",
+          "preparing": "準備中",
+          "thinking": "思考中",
+          "usingTool": "ツール使用中",
+          "waitingConfirm": "確認待ち",
+          "backgroundRunning": "バックグラウンド実行中",
+          "stopping": "停止中",
+          "completed": "完了",
+          "failed": "失敗",
+          "stopped": "停止済み"
+        },
+        "aria": {
+          "queued": "このターンは待機中です。前のリクエストが終わり次第開始します",
+          "preparing": "このターンのコンテキストを準備しています",
+          "thinking": "モデルが思考しています",
+          "usingTool": "ツールを使用しています",
+          "waitingConfirm": "このターンは一時停止中です。確認するまで再開しません",
+          "backgroundRunning": "このターンはバックグラウンド実行に移りました。新しい入力を続けられます",
+          "stopping": "このターンを停止しています",
+          "completed": "このターンは完了しました",
+          "failed": "このターンは失敗しました。再試行できます",
+          "stopped": "このターンは停止しました。続行できます"
+        },
+        "hint": {
+          "queued": "前のリクエストが終わり次第、自動的に開始します",
+          "waitingConfirm": "確認するまで一時停止します。自動的には再開しません",
+          "backgroundRunning": "バックグラウンドで実行を継続しています。新しい入力は妨げられません",
+          "stopping": "終了処理中です。まもなく停止します"
+        },
+        "action": {
+          "stop": "停止",
+          "retry": "再試行",
+          "resume": "続行"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "アカウントが制限されています",
+          "action": "管理者に連絡"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "API ブリッジ呼び出しに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "BAD_PARAMS": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "利用枠を使い切りました",
+          "action": "しばらく待つか無料モデルに切り替え"
+        },
+        "CAPTURE_FAILED": {
+          "title": "ツールの実行に失敗しました",
+          "action": "再試行"
+        },
+        "CDP_DISABLED": {
+          "title": "ブラウザのデバッグチャネルを利用できません",
+          "action": "有効にして再試行"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "ブラウザのデバッグチャネルを利用できません",
+          "action": "有効にして再試行"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "リクエストが多すぎます",
+          "action": "しばらくしてから再試行"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "コンテキストが長すぎます",
+          "action": "コンテキストを短くする"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "スケジュール設定が無効です",
+          "action": "スケジュールを修正して再試行"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "この操作はセキュリティポリシーによりブロックされました",
+          "action": "内容を変更して再試行"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "この操作はセキュリティポリシーによりブロックされました",
+          "action": "内容を変更して再試行"
+        },
+        "DELEGATE_ERROR": {
+          "title": "サブタスクの実行に失敗しました",
+          "action": "再試行"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "サブタスクの実行に失敗しました",
+          "action": "再試行"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "リクエストがタイムアウトしました",
+          "action": "再試行"
+        },
+        "DEP_MISSING": {
+          "title": "依存関係がありません",
+          "action": "依存関係をインストールして再試行"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "ネットワーク要求が失敗しました",
+          "action": "ネットワークを確認して再試行"
+        },
+        "DUAL_MODE": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "EMPTY_AUDIO": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "EMPTY_DIFF": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "EMPTY_RESULT": {
+          "title": "表示できる結果がありません",
+          "action": "条件を変更して再試行"
+        },
+        "EMPTY_TASKS": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "ENCODING_ERROR": {
+          "title": "ファイルの読み書きに失敗しました",
+          "action": "ファイルを確認して再試行"
+        },
+        "ENGINE_ERROR": {
+          "title": "サービス内部処理エラー",
+          "action": "再試行"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "サービス内部処理エラー",
+          "action": "再試行"
+        },
+        "EXECUTION_FAILED": {
+          "title": "サービス内部処理エラー",
+          "action": "再試行"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "この機能は無効化されています",
+          "action": "管理者に連絡"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "この操作はセキュリティポリシーによりブロックされました",
+          "action": "内容を変更して再試行"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "実行するには確認が必要です",
+          "action": "確認する"
+        },
+        "FALLBACK_FAILED": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "FETCH_FAILED": {
+          "title": "ネットワーク要求が失敗しました",
+          "action": "ネットワークを確認して再試行"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "ファイルが大きすぎます",
+          "action": "ファイルを小さくして再試行"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成に失敗しました",
+          "action": "再試行"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部サービスの呼び出しに失敗しました",
+          "action": "しばらくしてから再試行"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "ネットワーク要求が失敗しました",
+          "action": "ネットワークを確認して再試行"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "画像が大きすぎます",
+          "action": "画像を圧縮して再試行"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "ログインの有効期限が切れました",
+          "action": "再ログイン"
+        },
+        "INTERNAL_ERROR": {
+          "title": "サービス内部処理エラー",
+          "action": "再試行"
+        },
+        "INVALID_ARGS": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_CONFIG": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_DATA": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_PARAMS": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_PR": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_PROVIDER": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "INVALID_REPO": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "INVALID_TRIGGER": {
+          "title": "スケジュール設定が無効です",
+          "action": "スケジュールを修正して再試行"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "LLM_ERROR": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "LLM_FAILED": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "メディアファイルの数が上限を超えています",
+          "action": "添付を減らして再試行"
+        },
+        "MISSING_DATA": {
+          "title": "必須パラメータがありません",
+          "action": "パラメータを補って再試行"
+        },
+        "MISSING_PARAMS": {
+          "title": "必須パラメータがありません",
+          "action": "パラメータを補って再試行"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "必須パラメータがありません",
+          "action": "パラメータを補って再試行"
+        },
+        "MISSING_SECRET": {
+          "title": "利用可能なモデルサービスが未設定です",
+          "action": "先にモデルサービスを設定"
+        },
+        "MISSING_TITLE": {
+          "title": "必須パラメータがありません",
+          "action": "パラメータを補って再試行"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "利用可能なモデルサービスが未設定です",
+          "action": "先にモデルサービスを設定"
+        },
+        "MODEL_REFUSED": {
+          "title": "現在のモデルがこのリクエストを拒否しました",
+          "action": "モデルを変更"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "構造の階層が処理可能な範囲を超えています",
+          "action": "簡略化して再試行"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "実行するには確認が必要です",
+          "action": "確認する"
+        },
+        "NETWORK_ERROR": {
+          "title": "ネットワーク要求が失敗しました",
+          "action": "ネットワークを確認して再試行"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "パラメータが不完全または無効です",
+          "action": "修正して再試行"
+        },
+        "NOT_FOUND": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "ファイルバージョンを利用できません",
+          "action": "バージョンを選択して再試行"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "パスが許可範囲外です",
+          "action": "別のパスを指定して再試行"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "パスが許可範囲外です",
+          "action": "別のパスを指定して再試行"
+        },
+        "PERMISSION_DENIED": {
+          "title": "この操作を実行する権限がありません",
+          "action": "管理者に連絡"
+        },
+        "PROVIDER_ERROR": {
+          "title": "モデルサービスは一時的に利用できません",
+          "action": "モデルを変更するかしばらくしてから再試行"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "利用可能なモデルサービスが未設定です",
+          "action": "先にモデルサービスを設定"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "利用枠を使い切りました",
+          "action": "しばらく待つか無料モデルに切り替え"
+        },
+        "PR_NOT_FOUND": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "RATE_LIMITED": {
+          "title": "リクエストが多すぎます",
+          "action": "しばらくしてから再試行"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "リクエストがタイムアウトしました",
+          "action": "再試行"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "実行するには確認が必要です",
+          "action": "確認する"
+        },
+        "SCHEME_REJECTED": {
+          "title": "このアドレスへのアクセスは許可されていません",
+          "action": "別のアドレスを指定して再試行"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "ツールの実行に失敗しました",
+          "action": "再試行"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "この操作はセキュリティポリシーによりブロックされました",
+          "action": "内容を変更して再試行"
+        },
+        "SSRF_BLOCKED": {
+          "title": "このアドレスへのアクセスは許可されていません",
+          "action": "別のアドレスを指定して再試行"
+        },
+        "STEP_FAILED": {
+          "title": "ツールの実行に失敗しました",
+          "action": "再試行"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "サブタスクの実行に失敗しました",
+          "action": "再試行"
+        },
+        "TASK_FAILED": {
+          "title": "サブタスクの実行に失敗しました",
+          "action": "再試行"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "コンテキストが長すぎます",
+          "action": "コンテキストを短くする"
+        },
+        "TIMEOUT": {
+          "title": "リクエストがタイムアウトしました",
+          "action": "再試行"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "ログインの有効期限が切れました",
+          "action": "再ログイン"
+        },
+        "TOOL_FAILED": {
+          "title": "ツールの実行に失敗しました",
+          "action": "再試行"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "TOO_LARGE": {
+          "title": "ファイルが大きすぎます",
+          "action": "ファイルを小さくして再試行"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "利用枠を使い切りました",
+          "action": "しばらく待つか無料モデルに切り替え"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "対象のリソースが見つかりません",
+          "action": "確認して再試行"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "このファイル形式はサポートされていません",
+          "action": "対応形式に変更して再試行"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "このファイル形式はサポートされていません",
+          "action": "対応形式に変更して再試行"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "ファイルバージョンを利用できません",
+          "action": "バージョンを選択して再試行"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "ファイルバージョンを利用できません",
+          "action": "バージョンを選択して再試行"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "バージョンが古すぎます",
+          "action": "最新バージョンへアップグレード"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "ネットワーク要求が失敗しました",
+          "action": "ネットワークを確認して再試行"
+        },
+        "WRITE_FAILED": {
+          "title": "ファイルの読み書きに失敗しました",
+          "action": "ファイルを確認して再試行"
+        }
+      },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -7534,6 +8018,49 @@
           "dismiss": "了解"
         },
         "ariaLabel": "Worktree のライフサイクル"
+      },
+      "sideTask": {
+        "title": "サイドタスク",
+        "ariaLabel": "サイドタスクのライフサイクル",
+        "ephemeralNotice": "これは一時タスクです。閉じると消え、次に開いたときには残りません。",
+        "empty": "サイドタスクはありません",
+        "state": {
+          "running": "実行中",
+          "completed": "完了",
+          "expired": "期限切れ",
+          "cleaned": "削除済み"
+        },
+        "aria": {
+          "running": "サイドタスクが実行中",
+          "completed": "サイドタスクが完了",
+          "expired": "サイドタスクの期限が切れました",
+          "cleaned": "サイドタスクは削除済み"
+        },
+        "hint": {
+          "expired": "一時タスクの保持期間を過ぎたため、削除できます。",
+          "cleaned": "内容はもう参照できず、タイトルだけが残っています。"
+        },
+        "location": {
+          "label": "実行場所",
+          "sameFolder": "メインタスクと同じフォルダー",
+          "sameEnvironment": "メインタスクと同じ実行環境"
+        },
+        "cleanedFrom": "削除済みの {title} 由来",
+        "files": {
+          "label": "ファイル変更",
+          "changedCount": "{count} 件のファイルを変更しました",
+          "empty": "このサイドタスクはファイルを変更していません"
+        },
+        "action": {
+          "close": "タスクを閉じる",
+          "cleanup": "期限切れタスクを削除"
+        },
+        "closeConfirm": {
+          "title": "このサイドタスクを閉じますか?",
+          "desc": "この一時タスクには、保存されていない成果物が {artifacts} 件、まだ実行中のサブプロセスが {children} 件あります。閉じると即座に消え、復元できません。",
+          "confirm": "それでも閉じる",
+          "cancel": "やめておく"
+        }
       },
       "writingBlock": {
         "title": "ライティングブロック",
@@ -8460,6 +8987,12 @@
     },
     "metaDescription": "国内外 41 の権威ある情報源(微博/知乎/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等)を集約、6 時間ごとに自動収集、モデル/製品/業界/論文カテゴリとトレンド信号をリアルタイム更新。",
     "metaTitle": "AI ニュース · 全網リアルタイム集約ストリーム",
+    "priceChart": {
+      "inputPrice": "{name} · 入力価格: {price}",
+      "outputPrice": "{name} · 出力価格: {price}",
+      "legendInput": "入力",
+      "legendOutput": "出力"
+    },
     "trendChart": {
       "days": "日",
       "hotValue": "ホット度",

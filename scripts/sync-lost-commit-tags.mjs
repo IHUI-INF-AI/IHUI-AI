@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * sync-lost-commit-tags.mjs — Lost commit tag 自动同步脚本(AGENTS.md §22 配套)
@@ -94,7 +93,12 @@ const THROTTLE_MS = Number(process.env.IHUI_TAG_SYNC_THROTTLE_MS || 60_000)
 
 function run(cmd, opts = {}) {
   try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, ...opts }).trim()
+    return execSync(cmd, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+      ...opts,
+    }).trim()
   } catch (e) {
     if (opts.allowFail) return ''
     throw e
@@ -106,7 +110,9 @@ function header(label) {
 }
 
 function printHelp() {
-  console.log(`${C.cyan}${C.bold}sync-lost-commit-tags.mjs${C.reset} — Lost commit tag 同步(AGENTS.md §22)`)
+  console.log(
+    `${C.cyan}${C.bold}sync-lost-commit-tags.mjs${C.reset} — Lost commit tag 同步(AGENTS.md §22)`,
+  )
   console.log('')
   console.log('用法:')
   console.log('  node scripts/sync-lost-commit-tags.mjs [mode] [flags]')
@@ -246,7 +252,9 @@ function checkMode() {
     for (const tag of localLost) {
       const r = isTagReachable(tag)
       const icon = r.ok ? C.green + '✅' : C.red + '❌'
-      console.log(`  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`)
+      console.log(
+        `  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`,
+      )
     }
   }
 
@@ -258,7 +266,9 @@ function checkMode() {
     for (const tag of localBackup) {
       const r = isTagReachable(tag)
       const icon = r.ok ? C.green + '✅' : C.red + '❌'
-      console.log(`  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`)
+      console.log(
+        `  ${icon} ${C.cyan}${tag}${C.reset} → ${C.dim}${r.hash.slice(0, 12) || '?'}${C.reset}${r.ok ? '' : `  (${r.reason})`}${C.reset}`,
+      )
     }
   }
 
@@ -290,30 +300,42 @@ function checkMode() {
   let ok = true
 
   if (lostDiff.onlyLocal.length > 0) {
-    issues.push(`${lostDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push):${lostDiff.onlyLocal.join(', ')}`)
+    issues.push(
+      `${lostDiff.onlyLocal.length} 个 lost-commit tag 仅本地(未 push):${lostDiff.onlyLocal.join(', ')}`,
+    )
     ok = false
   }
   if (lostDiff.onlyRemote.length > 0) {
-    issues.push(`${lostDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失):${lostDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
+    issues.push(
+      `${lostDiff.onlyRemote.length} 个 lost-commit tag 仅远端(本地缺失):${lostDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
+    )
     ok = false
   }
   if (backupDiff.onlyLocal.length > 0) {
-    issues.push(`${backupDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${backupDiff.onlyLocal.join(', ')}`)
+    issues.push(
+      `${backupDiff.onlyLocal.length} 个 backup tag 仅本地(未 push):${backupDiff.onlyLocal.join(', ')}`,
+    )
     ok = false
   }
   if (backupDiff.onlyRemote.length > 0) {
-    issues.push(`${backupDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失):${backupDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
+    issues.push(
+      `${backupDiff.onlyRemote.length} 个 backup tag 仅远端(本地缺失):${backupDiff.onlyRemote.join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
+    )
     ok = false
   }
   const unreachable = reachability.filter((r) => !r.ok)
   if (unreachable.length > 0) {
-    issues.push(`${unreachable.length} 个 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`)
+    issues.push(
+      `${unreachable.length} 个 tag 对象不可达:${unreachable.map((r) => r.tag).join(', ')} — 修复:node scripts/sync-lost-commit-tags.mjs --fetch`,
+    )
     ok = false
   }
 
   if (ok) {
     console.log(`  ${C.green}✅ 所有 lost-commit/backup tag 本地+远端一致,对象全部可达${C.reset}`)
-    console.log(`  ${C.dim}  本地: ${localLost.length + localBackup.length} 个 | 远端: ${remoteLost.length + remoteBackup.length} 个 | 可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`)
+    console.log(
+      `  ${C.dim}  本地: ${localLost.length + localBackup.length} 个 | 远端: ${remoteLost.length + remoteBackup.length} 个 | 可达: ${reachability.filter((r) => r.ok).length}/${reachability.length}${C.reset}`,
+    )
     process.exit(0)
   }
 
@@ -327,11 +349,14 @@ function checkMode() {
 
 function fetchMode() {
   if (skip) {
-    console.log(`${C.yellow}⚠ ${SKIP_ENV}=1 — 但 --fetch 模式不受 SKIP 影响(手动恢复必须执行)${C.reset}`)
+    console.log(
+      `${C.yellow}⚠ ${SKIP_ENV}=1 — 但 --fetch 模式不受 SKIP 影响(手动恢复必须执行)${C.reset}`,
+    )
   }
   console.log(`${C.cyan}${C.bold}📥 从 origin 拉回所有 lost-commit/backup tag${C.reset}`)
 
-  const cmd = 'git fetch origin "refs/tags/lost-commit/*:refs/tags/lost-commit/*" "refs/tags/backup/*:refs/tags/backup/*"'
+  const cmd =
+    'git fetch origin "refs/tags/lost-commit/*:refs/tags/lost-commit/*" "refs/tags/backup/*:refs/tags/backup/*"'
   console.log(`  ${C.dim}$ ${cmd}${C.reset}`)
   try {
     const stdout = run(cmd)
@@ -403,9 +428,7 @@ function autoPushMode() {
     console.log(
       `${C.yellow}⚠️  待推积压 ${missing.length} 个 > 阈值 ${AUTO_PUSH_MAX_BACKLOG}(单 tag 推送需上传历史对象, 速度约 30s/个)${C.reset}`,
     )
-    console.log(
-      `${C.dim}   已跳过(不阻塞 commit)。需要远端备份时后台慢速补推:${C.reset}`,
-    )
+    console.log(`${C.dim}   已跳过(不阻塞 commit)。需要远端备份时后台慢速补推:${C.reset}`)
     console.log(
       `${C.dim}   IHUI_TAG_PUSH_CHUNK=20 node scripts/sync-lost-commit-tags.mjs --auto-push --force${C.reset}`,
     )
@@ -431,6 +454,8 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
 
   // 分块 push + 硬超时:任何单块绝不长时间挂起
   let pushed = 0
+  let skippedFailures = 0
+  const CONTINUE_ON_FAIL = process.env.IHUI_TAG_PUSH_CONTINUE_ON_FAIL === '1'
   const chunks = []
   for (let i = 0; i < missing.length; i += PUSH_CHUNK_SIZE) {
     chunks.push(missing.slice(i, i + PUSH_CHUNK_SIZE))
@@ -456,12 +481,27 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
         .filter(Boolean)
         .slice(-12)
         .join(' | ')
-      const firstLine = (tail || String(e?.message ?? e)).split(String.fromCharCode(10))[0].slice(0, 1200)
+      const firstLine = (tail || String(e?.message ?? e))
+        .split(String.fromCharCode(10))[0]
+        .slice(0, 1200)
       console.error(
         `${C.yellow}⚠️  第 ${idx + 1} 块 push 失败(${chunk.length} 个),下轮重试:${C.reset} ${firstLine}`,
       )
-      break
+      // 2026-09-24:块是**原子**推送,而"空壳 tag"(历史链里有对象已不存在)是永久失败、重试无意义。
+      // 首败即 break 会让排在它后面的可推 tag 永远推不上去 ⇒ 人工/后台可用
+      // IHUI_TAG_PUSH_CONTINUE_ON_FAIL=1 逐项越过;钩内(post-commit)仍保持首败即停,不拖慢 commit。
+      if (!CONTINUE_ON_FAIL) break
+      skippedFailures += chunk.length
     }
+  }
+
+  if (skippedFailures) {
+    console.log(
+      `\n${C.yellow}⚠️  本轮因失败跳过 ${skippedFailures} 个 tag${
+        CONTINUE_ON_FAIL ? '(已逐项越过)' : '(首败即停,未再试后续块)'
+      }:${C.reset}\n   若原因里是 "fatal: unable to read <sha>" + "remote unpack failed",那是**空壳 tag**` +
+        `(历史链里的对象本机已没有)⇒ 重试与换网络都没用,只能按 §29 人工 GC 或从有该对象的仓回补。`,
+    )
   }
 
   if (pushed > 0) {

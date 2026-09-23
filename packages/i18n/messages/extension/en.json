@@ -196,6 +196,7 @@
     "usage": "Usage",
     "retryMessage": "Retry",
     "citationTitle": "Sources",
+    "steerNoticeTitle": "Steered {count} times",
     "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
     "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
     "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
