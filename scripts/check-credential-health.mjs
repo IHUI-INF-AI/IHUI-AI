@@ -218,9 +218,16 @@ function ghApi(method, path, body) {
 
 /** 形状校验后再用凭据:同目录有 `_冲突文件_` 副本把 Gitee token 与 GitHub token 拼成 74 字符串
  *  (实测前缀 `a97fghp_`),不加形状闸就会拿错 key ⇒ 表现为"镜像凭据失效"的假故障。 */
-function readMirrKey(file, re) {
-  const v = readFileSyncOr(join(GIT_KEY_DIR, file)).trim()
+export function pickKey(raw, re) {
+  // `readFileSyncOr` 的缺失/读失败契约是 **null**,原来直接 `.trim()` ⇒ TypeError 把整轮巡检打崩。
+  // 崩在 runChecks 里意味着心跳文件永不写出,而守护的"看门人的看守"检测到的正是这个缺失,
+  // 它派生的自愈拉起同样跑在这一行 ⇒ 凭据/停摆告警链在一台缺 key 的机器上**双向静默**。
+  const v = (raw ?? '').trim()
   return re.test(v) ? v : ''
+}
+
+function readMirrKey(file, re) {
+  return pickKey(readFileSyncOr(join(GIT_KEY_DIR, file)), re)
 }
 
 async function mirrorTipDate({ host, path, label }) {
@@ -482,6 +489,11 @@ function selfTest() {
   eq('dry-run:两条都不可用必须判不可用("不可用"三字不得被当成可用)', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 不可用(缺 RESEND_API_KEY)'), false)
   eq('dry-run:无输出不算可用', judgeDryRunChannel(''), false)
   eq('派发器与 tsx 入口路径在本仓可解析(任一处缺失 = 通道直接判不可用,不静默成功)', [existsSync(TSX_ENTRY), existsSync(BRAND_MAIL_SCRIPT)], [true, true])
+  // key 读取的三态(2026-09-24 本机实测:GIT_KEY_DIR 在本机不存在 ⇒ 原实现 TypeError 打崩整轮巡检,
+  // 心跳写不出、守护的拉起也崩在同一行 ⇒ 告警链双向静默)
+  eq('key 缺失(null)判空串而非抛错', pickKey(null, /^[0-9a-f]{32}$/), '')
+  eq('形状不合判空(同目录冲突副本不可用)', pickKey('a97fghp_0123456789abcdef0123456789abcdef', /^[0-9a-f]{32}$/), '')
+  eq('形状合 ⇒ 去空白取原值', pickKey(' 0123456789abcdef0123456789abcdef\n', /^[0-9a-f]{32}$/), '0123456789abcdef0123456789abcdef')
   let bad = 0
   for (const [label, pass, why] of cases) {
     if (!pass) bad++
@@ -527,6 +539,16 @@ function installTask() {
     `"${wscript}" //B "${vbs}"`,
   ])
   console.log(r.status === 0 ? `✅ 已注册计划任务「${TASK_NAME}」(每 6 小时,vbs 隐藏窗口)` : `❌ 注册失败: ${r.stderr || r.stdout}`)
+  // schtasks 只能造 InteractiveToken(/NP 会交互索要密码),而那种形态**无人登录时不跑**
+  // ⇒ 告警通道会在"重启后没人登录"期间静默。注册成功后立刻升 S4U(幂等脚本)。
+  if (r.status === 0) {
+    const up = join(REPO, 'scripts', 'task-set-s4u.vbs')
+    if (existsSync(up)) {
+      const u = spawnSync('cscript.exe', ['//nologo', up, TASK_NAME], { encoding: 'utf8', windowsHide: true, timeout: 90000 })
+      const o = String(u.stdout || '') + String(u.stderr || '')
+      console.log(/switched to S4U|already S4U/.test(o) ? `✅ 已确保 S4U:${o.split(/\r?\n/).pop()}` : `⚠️ S4U 升级未确认(不影响任务存在):${o.replace(/\r?\n/g, ' | ').slice(0, 160)}`)
+    }
+  }
   process.exit(r.status === 0 ? 0 : 1)
 }
 function uninstallTask() {

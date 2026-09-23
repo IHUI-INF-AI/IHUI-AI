@@ -56,40 +56,14 @@
   border-radius: var(--radius-2xl);
 }
 
-/* 状态 chips 对齐 RN chipsBar:bg surface.light + hairline 底边 /
-   chipsContent px 10dp→20rpx py 12dp→24rpx gap 12dp→24rpx */
+/* 状态 chips 条容器:仅负责页面级留白(chips 本身由统一分类条 CategoryBar 组件负责,
+   与 web packages/ui-react category-bar / RN CategoryInlineBar 同形同档)。
+   底色不再单独铺 card —— 静止态 chip 已是 card,同色会看不见(改由页底 background 对比分隔,
+   原 hairline 底边属纯分割线,按 AGENTS §4 禁止分割线一并移除)。 */
 .pza-tabs {
   white-space: nowrap;
   padding: 24rpx 20rpx;
-  background: var(--color-card);
-  border-bottom: 1px solid var(--color-border);
   box-sizing: border-box;
-}
-
-.pza-tab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12rpx 20rpx;
-  margin-right: 24rpx;
-  background: var(--color-muted);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
-}
-
-.pza-tab text {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
-}
-
-.pza-tab.active {
-  background: var(--color-brand);
-  border-color: var(--color-brand);
-}
-
-.pza-tab.active text {
-  color: var(--color-primary-foreground);
-  font-weight: 600;
 }
 
 /* 列表对齐 RN listContent:padding 10dp→20rpx / paddingBottom 80dp→160rpx(bottom-space) */

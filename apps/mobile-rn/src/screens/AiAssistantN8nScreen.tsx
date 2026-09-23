@@ -110,7 +110,7 @@ import {
   permissionTierWordKeys,
   resendTargetText,
 } from '@ihui/shared/chat'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
 import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
@@ -1823,7 +1823,7 @@ const styles = StyleSheet.create({
     gap: rpx(4),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(6),
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   modelConfigBtnText: {
@@ -1853,7 +1853,7 @@ const styles = StyleSheet.create({
   quickChip: {
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(12),
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -1881,7 +1881,7 @@ const bubbleStyles = StyleSheet.create({
     maxWidth: '78%',
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
@@ -1892,7 +1892,7 @@ const bubbleStyles = StyleSheet.create({
   // 失败轮错误卡片(与 web D22 / ChatScreen 同一形态:警示头 + 正文 + 重试出口)
   errorCard: {
     width: '100%',
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.light,
     backgroundColor: tokens.error.bg,
@@ -1934,7 +1934,7 @@ const bubbleStyles = StyleSheet.create({
   chatImage: {
     width: 120,
     height: 120,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   // assistant 消息纵向容器:气泡 + 思考过程区 + 操作按钮行
@@ -1947,7 +1947,7 @@ const bubbleStyles = StyleSheet.create({
     marginTop: rpx(8),
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
   },
   thinkingText: {
@@ -2000,7 +2000,7 @@ const bubbleStyles = StyleSheet.create({
   },
   // 卡片(工具调用 / 终端任务共用外壳)
   card: {
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,
@@ -2057,7 +2057,7 @@ const bubbleStyles = StyleSheet.create({
   badge: {
     paddingHorizontal: rpx(8),
     paddingVertical: rpx(2),
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
   },
   badgeText: { fontSize: 10, fontWeight: '600' },
   badgePending: { backgroundColor: tokens.gray[200] },
@@ -2078,8 +2078,8 @@ const pickerStyles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: tokens.surface.light,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: rnRadius['2xl'],
+    borderTopRightRadius: rnRadius['2xl'],
     maxHeight: '70%',
     minHeight: '40%',
   },

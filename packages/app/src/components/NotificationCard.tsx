@@ -4,6 +4,7 @@
 
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import type { AppThemeTokens } from '../theme/tokens'
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 消息/通知卡片统一形状(MessageCenterItem 与 NotificationListItem 的公共字段)。 */
 export interface CardItemLike {
@@ -63,7 +64,7 @@ export function createCardStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       padding: 16,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -84,7 +85,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       overflow: 'hidden',
     },
     typeSystem: {
@@ -94,7 +95,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     dot: {
       width: 6,
       height: 6,
-      borderRadius: 3,
+      borderRadius: rnRadius.xs,
       backgroundColor: tk.danger.DEFAULT,
     },
     meta: {
