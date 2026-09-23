@@ -199,7 +199,40 @@ describe('核心应用规则 — 翻译值写入 + 计数 + 写回格式', () =>
     }
   })
 
-  test('翻译值非字符串(number) → errors++,该 key 跳过,其他 key 正常应用', () => {
+  test('翻译值为非字符串(number/array)→ 2026-07-28 起按新契约**应用**,不再计 errors', () => {
+    // 被测 i18n-apply.mjs:163-176 明确升级:"支持非字符串值(数组/对象)"。
+    // 旧契约(typeof value !== 'string' → errors++ 并跳过)已作废,
+    // 现只有 undefined/null 才算错误(见下方反向用例)。
+    const root = createTempProject()
+    try {
+      writeFullFixture(root, {
+        base: { save: '保存', count: '计数', items: '条目' },
+        langs: {
+          en: { save: 'Save', count: 'Count', items: ['a'] },
+          ja: { save: '保存', count: '計数', items: ['あ'] },
+          ko: { save: '저장', count: '카운트', items: ['ㅇ'] },
+          'zh-TW': { save: '儲存', count: '計數', items: ['ㄚ'] },
+        },
+        translations: { en: { save: 'Save', count: 42, items: ['x', 'y'] } },
+      })
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 0)
+      const out = stripAnsi(r.stdout)
+      assert.match(out, /应用: 3 处,跳过: 3 语言,错误: 0/, `新契约: 非字符串值计入 applied\nstdout: ${out}`)
+      // number 与 array 均落到文件里(不是"跳过")
+      const en = readMessages(root, 'web', 'en')
+      assert.equal(en.count, 42, 'number 值应被应用')
+      assert.deepEqual(en.items, ['x', 'y'], 'array 值应被应用')
+      assert.equal(en.save, 'Save')
+      assert.ok(readMessagesRaw(root, 'web', 'en').includes('"count": 42'), '文件应含写入后的数值')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  test('反向钉:真正的错误路径(null 值 / 目标语言文件缺失)仍计 errors 并点名', () => {
+    // 上一用例把"非字符串不再报错"的口子开后,若不钉反向用例,等于把错误检测整个关掉。
+    // 被测 i18n-apply.mjs:155-157(语言文件缺失)/ 170-172(值为 null)两条错误通道必须仍生效。
     const root = createTempProject()
     try {
       writeFullFixture(root, {
@@ -210,16 +243,19 @@ describe('核心应用规则 — 翻译值写入 + 计数 + 写回格式', () =>
           ko: { save: '저장', count: '카운트' },
           'zh-TW': { save: '儲存', count: '計數' },
         },
-        translations: { en: { save: 'Save', count: 42 } }, // count 是 number
+        translations: { en: { save: null }, ja: { save: 'セーブ' } },
       })
+      // 删除 ja.json → messages 读不到 ja(该语言是错误,不是 skip)
+      fs.rmSync(path.join(root, 'packages', 'i18n', 'messages', 'web', 'ja.json'))
       const r = runScript([], { cwd: root })
-      assert.equal(r.status, 0)
-      assert.match(stripAnsi(r.stdout), /错误: 1/)
-      assert.match(stripAnsi(r.stderr), /\[en\] count: 翻译值非字符串/)
-      // count 未被覆盖,保持原值
-      assert.equal(readMessages(root, 'web', 'en').count, 'Count')
-      // save 正常应用
-      assert.equal(readMessages(root, 'web', 'en').save, 'Save')
+      // 现契约:errors 计数并打印告警,但退出码仍由 parity 决定(此处 parity 无缺键 → exit 0)
+      assert.equal(r.status, 0, `错误不阻断退出码(仅 parity 阻断)\nstdout: ${r.stdout}`)
+      assert.match(stripAnsi(r.stdout), /应用: 0 处,跳过: 2 语言,错误: 2/, `stdout:\n${stripAnsi(r.stdout)}`)
+      const err = stripAnsi(r.stderr)
+      assert.match(err, /\[en\] save: 翻译值为/, `null 值应点名\nstderr: ${err}`)
+      assert.match(err, /ja\.json 不存在/, `缺语言文件应点名\nstderr: ${err}`)
+      // 报错的 key 未被覆盖
+      assert.equal(readMessages(root, 'web', 'en').save, 'Save', 'null 值不得写入')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }

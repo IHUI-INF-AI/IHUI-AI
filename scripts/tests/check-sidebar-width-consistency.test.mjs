@@ -168,7 +168,17 @@ test('边界: design-tokens.css 缺失 → exit 0(仅警告不阻塞)', () => {
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0, `css 缺失应 exit 0(仅警告),实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /design-tokens\.css.*未找到|--sidebar-width.*未找到/, `stdout 应含未找到 --sidebar-width 警告\nstdout: ${r.stdout}`)
+    // 2026-09-09 三源扩展后被测脚本改口径:候选清单在源脚本 TOKENS_CANDIDATES
+    // (check-sidebar-width-consistency.mjs:43-47/120),缺文件时打印
+    // "未找到 design-tokens 源文件(已尝试: <三份候选>)",不再打印旧串
+    // "design-tokens.css ... 未找到 --sidebar-width"。断言按新契约取,并要求点名
+    // 第三候选 apps/web/src/styles/design-tokens.css(证明查的是同一份清单)。
+    assert.match(r.stdout, /未找到 design-tokens 源文件/, `stdout 应报 design-tokens 源文件缺失\nstdout: ${r.stdout}`)
+    assert.match(
+      r.stdout,
+      /已尝试:[^\n]*apps\/web\/src\/styles\/design-tokens\.css/,
+      `stdout 应列出已尝试的候选路径\nstdout: ${r.stdout}`,
+    )
     // 不应有 ✅ 通过标记(因为没有完成一致性对比)
     assert.doesNotMatch(r.stdout, /✅.*一致/, `不应有 ✅ 一致标记\nstdout: ${r.stdout}`)
   } finally {
@@ -198,8 +208,8 @@ test('边界: 两文件都缺失 → exit 0(优先报 CSS 缺失)', () => {
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0, `两文件都缺失应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    // 源脚本先判 cssWidth===null,故优先报 CSS 缺失
-    assert.match(r.stdout, /design-tokens\.css.*未找到|--sidebar-width.*未找到/, `stdout 应含 CSS 缺失警告\nstdout: ${r.stdout}`)
+    // 源脚本先判 cssWidth===null,故优先报 CSS 侧缺失(新串见 :120)
+    assert.match(r.stdout, /未找到 design-tokens 源文件/, `stdout 应含 CSS 缺失警告\nstdout: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -217,7 +227,10 @@ test('边界: CSS 存在但无 --sidebar-width → exit 0(警告)', () => {
   try {
     const r = runScript(dir)
     assert.equal(r.status, 0, `CSS 无 --sidebar-width 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /design-tokens\.css.*未找到|--sidebar-width.*未找到/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
+    // 命中候选文件但缺 token 时走另一分支(check-sidebar-width-consistency.mjs:122),
+    // 语序是"<文件> 中未找到 --sidebar-width 定义"(未找到在前),旧正则的
+    // `--sidebar-width.*未找到` 永远不中。
+    assert.match(r.stdout, /中未找到 --sidebar-width 定义/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

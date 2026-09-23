@@ -594,13 +594,15 @@ const checks = [
   //   守门,后续新增 screen 漏迁移会导致独立实现回升、维护成本系数恶化。
   // 检测逻辑:扫描 apps/mobile-rn/src/screens/*.tsx,检查是否 import from '@ihui/rn-app',
   //   未导入且不在白名单(Debug/DevEnter/SharedDemo/profileMenuData)→ blocking 阻塞 commit。
-  // --staged 模式:仅检查 staged 的 screen 文件(性能优化,pre-commit 用)。
+  // --staged 由本 runner 在 staged 模式下统一追加(见 passStaged 分支),**不得**写进 args:
+  //   写死会让"不带 --staged 的全量审计"永远命中"无 staged screen 文件,跳过"→ 恒绿(2026-09-24 实测
+  //   全量 204 个 screen 全绿,故摘掉硬编码不新增红点,只是把全量面从假绿变成真判)。
   // 失败含义:有人新增 mobile-rn screen 但未迁移到共享层,需迁移或登记白名单后重新 commit。
   {
     id: '39',
     label: '📱 mobile-rn screen 迁移完整性(blocking,防独立实现回升)',
     script: 'check-rn-app-migration.mjs',
-    args: ['--staged'],
+    args: [],
     mode: 'blocking',
     onFailHint: [
       '',
@@ -739,13 +741,9 @@ const checks = [
     mode: 'blocking',
   },
   {
-    id: '2l-shared',
-    label: '🔍 [shared] ja.json 中文残留(warn-only)',
-    script: 'scan-i18n-zh-residue.mjs',
-    args: ['ja', '--target=shared'],
-    mode: 'warn',
-  },
-  {
+    // 原 `2l-shared`(warn,ja --target=shared)已于 2026-09-24 删除:2026-09-24 新增的 `2o-shared`
+    // (blocking)用的是**逐字相同**的 script+args,同一条判定每轮 commit 跑两遍,汇总里同时产出
+    // 1 条警告 + 1 条失败,污染归因。禁止再登记同参 warn 版(要双档必须 args 真不同)。
     id: '2m-shared',
     label: '🔍 [shared] en.json 破碎英文(blocking)',
     script: 'check-i18n-broken-en.mjs',
@@ -1867,9 +1865,10 @@ const checks = [
     id: '10',
     label: '📋 OpenAPI 契约一致性(blocking,O8b 清零后由 info 升级)',
     script: 'openapi-check.mjs',
-    // --staged:仅当本轮暂存触及 apps/api/src/routes/**、契约产物或能力清单时才判定,
-    // 否则无关提交也要背 3.5MB 产物的比对成本。判据本身见 scripts/openapi-check.mjs。
-    args: ['--staged'],
+    // --staged 由 runner 统一追加,不得写死:写死后全量审计恒命中"暂存改动与契约无关,跳过"⇒ 假绿。
+    // 2026-09-24 实测全量口径 A~E 全绿且仅 0.37s(原注释担心的 3.5MB 比对成本并不成立),
+    // 故摘掉硬编码:pre-commit 行为不变,全量/CI 口径从"跳过"变成真判。
+    args: [],
     mode: 'blocking',
   },
   // 整树删除事故的结构化拦截(2026-09-22 立)。同类事故已真实发生两次:
@@ -2061,6 +2060,110 @@ const checks = [
       '     单独复验:node scripts/check-brand-email-channel.mjs --staged',
       '     自检:node scripts/check-brand-email-channel.mjs --self-test(30 例)',
       '     紧急跳过(不推荐):HUSKY_SKIP_BRAND_MAIL_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 2026-09-24 补装三枚"造好没装车"的守门(第 3 次同型事故) ---
+  // 成因:守门脚本写好了、AGENTS.md 也写了"接入 pre-commit",但五处权威接线点
+  // (guardian-runner / scripts/lib/pre-commit-hook.js / .husky/* / package.json / CI)
+  // 全部零命中 ⇒ 门禁形同虚设。此前已实证守门 64、70 同型,本轮实测又抓到这三枚。
+  // 装门前逐枚实测真仓全量 exit 0,故 blocking 不会误伤任何在途提交。
+  {
+    id: '85',
+    label: '🧪 测试目录被 .gitignore 静默吞掉对账(blocking,AGENTS §23 配套,补装)',
+    script: 'check-test-paths.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TEST_PATHS_GUARD',
+    // 只在其扫描域(apps/packages/scripts)被本次提交触及时才跑:纯文档/部署提交不背这 0.3s,
+    // 也不会被他人工作区里的半截测试目录误伤。
+    stagedTriggers: ['apps/', 'packages/', 'scripts/'],
+    onFailHint: [
+      '',
+      '  💡 `__tests__/` 被 .gitignore 吞掉了 —— `git status` 完全不显示,写了测试也不会入库。',
+      '     修复(二选一):',
+      '       ① 推荐:目录改名 tests/(避开 .gitignore 的 `__*` 规则);',
+      '       ② 或目录内放 .gitkeep,并确认反忽略两条都到位(`!__tests__/` 放开目录 +',
+      '          `!**/__tests__/**` 放开内容 —— 只写后者是无效反忽略,git add 实测仍报 ignored)。',
+      '     单独复验:node scripts/check-test-paths.mjs',
+      '     自检:node --test scripts/tests/check-test-paths.test.mjs(16 例,含反忽略双向对照)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_TEST_PATHS_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '86',
+    label: '🗂  verify-*.mjs 临时验证文件落点(warn,AGENTS §25 配套,补装)',
+    script: 'check-verify-tmp-files.mjs',
+    args: [],
+    mode: 'warn',
+    // 该脚本自身默认 warn-only(有警告也 exit 0),--strict 才阻断 ⇒ 放 CI 用 --strict。
+    // 这里保持 warn:§25 的原意是"提示层",升 blocking 会拦掉合法的 scripts/e2e-* 长期脚本。
+  },
+  {
+    id: '87',
+    label: '🈳 语言包文件存在性与合法性对账(blocking,40 项清单,补装)',
+    script: 'check-i18n-messages-exist.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_I18N_MESSAGES_EXIST',
+    onFailHint: [
+      '',
+      '  💡 某个语言包 JSON 缺失 / 解析失败 / 是空对象 / 端内 loader 产物不合法。',
+      '     这一类不会让 typecheck 变红(它不看 JSON),但线上表现是**整页取词回显键名**。',
+      '     修复:node scripts/i18n-diff.mjs --target=<端> → 翻译 → node scripts/i18n-apply.mjs --target=<端>;',
+      '     判不了就 exit 2(根目录注入失效/清单为空),绝不静默报绿。',
+      '     单独复验:node scripts/check-i18n-messages-exist.mjs',
+      '     自检:node --test scripts/tests/check-i18n-messages-exist.test.mjs(16 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_I18N_MESSAGES_EXIST=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  {
+    id: '88',
+    label: '🧩 ui-react 组件复用对账(blocking,端内自实现 Dialog/Card/Form 提示,补装)',
+    script: 'check-ui-react-usage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_UI_REACT_USAGE',
+    // 只在触及有界面组件的端时跑;FAIL=用 @ihui/ui-react 已有能力的场景另起炉灶(阻塞),
+    // WARN(独立实现可能有合理场景)不计失败 —— 装门前实测真仓 exit 0(FAIL 0 / WARN 2)。
+    stagedTriggers: ['apps/web/src/', 'apps/extension/', 'apps/desktop/src/'],
+    onFailHint: [
+      '',
+      '  💡 端内重新实现了 @ihui/ui-react 已提供的 Dialog/Card/Form 等组件(AGENTS §3 共享层优先)。',
+      '     修复:改用 `@ihui/ui-react` 的对应组件;确属平台特有则在报告里说明并走 ',
+      '     HUSKY_SKIP_UI_REACT_USAGE=1(需在 commit message 写清理由)。',
+      '     单独复验:node scripts/check-ui-react-usage.mjs',
+      '     紧急跳过(不推荐):HUSKY_SKIP_UI_REACT_USAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+  {
+    // 本门专治"造好没装车"(守门 64/70/85/86/87 同型事故已四次),故它自己**更**不能漏接线。
+    // 它一律按 HEAD 判 ⇒ 新建的守门脚本在**提交之前**对它不可见(设计如此),所以本票的
+    // 端到端证明只能在提交后跑一次(见 O36 ③)。
+    id: '89',
+    label: '🔌 守门"声称已接线 vs 实际调用点"对账(blocking,根治造好没装车)',
+    script: 'check-gate-wiring.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_WIRING',
+    onFailHint: [
+      '',
+      '  💡 某枚守门的头部(或 AGENTS.md)写着"集成位置/pre-commit/pre-push/必跑",',
+      '     但五处权威接线点(guardian-runner 的 script: ∪ scripts/lib/pre-commit-hook.js ∪',
+      '     .husky/* ∪ package.json ∪ .github/workflows)全部零命中 ⇒ 这道门形同虚设。',
+      '     正解二选一:① 真接线(实测真仓绿才可上 blocking);② 把那句表述改成如实的',
+      '     "未接线 + 原因 + 解阻判据"。**禁止为消红往台账塞条目** —— 台账只能救',
+      '     "结构上不该由这五处承载"的(生成器/被分发器派生/纯 CLI 工具)。',
+      '     ⚠️ 核查接线点时不要只看 .husky/pre-commit:它自 2026-09-22 起只是薄壳,',
+      '        真实 pre-commit 逻辑在 scripts/lib/pre-commit-hook.js(只查薄壳会得出相反结论)。',
+      '     单独复验:node scripts/check-gate-wiring.mjs',
+      '     自检:node scripts/check-gate-wiring.mjs --self-test(34 例) + node --test scripts/tests/check-gate-wiring.test.mjs(12 例)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_GATE_WIRING=1 git commit ...',
       '',
     ].join('\n'),
   },
