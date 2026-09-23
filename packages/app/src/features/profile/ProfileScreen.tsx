@@ -2,10 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+
+/** 加载超时阈值(毫秒),超过后显示"加载超时,点击重试"提示 */
+const LOADING_TIMEOUT_MS = 12000
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -30,7 +33,50 @@ export function ProfileScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
+  // 加载超时检测:loading 持续超过 LOADING_TIMEOUT_MS 后显示超时提示 + 重试按钮
+  const [loadingTimeout, setLoadingTimeout] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (loading) {
+      setLoadingTimeout(false)
+      timeoutRef.current = setTimeout(() => {
+        setLoadingTimeout(true)
+      }, LOADING_TIMEOUT_MS)
+    } else {
+      setLoadingTimeout(false)
+    }
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+        timeoutRef.current = null
+      }
+    }
+  }, [loading])
+
+  const handleRetry = () => {
+    setLoadingTimeout(false)
+    timeoutRef.current = setTimeout(() => {
+      setLoadingTimeout(true)
+    }, LOADING_TIMEOUT_MS)
+  }
+
   if (loading) {
+    if (loadingTimeout) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingTimeoutText}>加载超时,请重试</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry} activeOpacity={0.7}>
+            <Text style={styles.retryBtnText}>点击重试</Text>
+          </TouchableOpacity>
+          {onBack ? (
+            <TouchableOpacity style={styles.backLinkBtn} onPress={onBack} activeOpacity={0.7}>
+              <Text style={styles.backLinkBtnText}>{t('common.back')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )
+    }
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={tk.brand.DEFAULT} />
