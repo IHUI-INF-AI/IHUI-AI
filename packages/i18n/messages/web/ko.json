@@ -15452,8 +15452,6 @@
         "title": "인증 방식",
         "headerFormat": "# Header 형식"
       },
-      "copyCodeAriaLabel": "코드 복사",
-      "curlPlaceholder": "cURL 명령을 입력하여 테스트…",
       "endpoints": {
         "audio": "오디오 합성",
         "chat": "채팅 완성",
@@ -15471,7 +15469,6 @@
         "python": "파이썬",
         "title": "호출 예시"
       },
-      "searchPlaceholder": "API 검색…",
       "subtitle": "완전한 API 통합 문서와 예시",
       "title": "API 문서"
     },
@@ -23244,8 +23241,6 @@
     "description": "n8n 자동화된 워크플로 에이전트"
   },
   "rules": {
-    "title": "규칙",
-    "description": "플랫폼 규칙 및 사양",
     "totalRulesSorted": "총 {n}개 규칙, 우선순위 내림차순 정렬",
     "autoGenerate": "자동 생성",
     "detectConflicts": "충돌 감지",
@@ -24101,33 +24096,8 @@
     "metaDescription": "OpenAI 호환 API를 온라인으로 테스트: 모델 선택, 멀티턴 메시지 구성, 파라미터 조정, 스트리밍 SSE 렌더링, 코드 생성(cURL/Python/Node.js) 및 기록.",
     "pageDesc": "API Key로 /v1/chat/completions를 직접 호출합니다. 스트리밍 렌더링, 파라미터 조정, 코드 생성을 지원하며 /chat로 이동할 필요가 없습니다."
   },
-  "upload": {
-    "placeholder": "클릭하거나 파일을 여기에 끌어다 놓아 업로드하세요",
-    "done": "완료됨",
-    "cancelUpload": "업로드 취소",
-    "removeUploadedAriaLabel": "업로드된 파일 삭제",
-    "removeItemAriaLabel": "업로드 항목 제거",
-    "sizeLimitHint": "파일당 최대 {size}",
-    "maxCountReached": "최대 {max}개 파일 한도에 도달했습니다",
-    "oversizeFiles": "다음 파일이 {size}를 초과합니다: {files}",
-    "uploadFailed": "업로드 실패",
-    "uploadFailedWithStatus": "업로드 실패: HTTP {status}",
-    "invalidJsonResponse": "응답이 유효한 JSON이 아닙니다",
-    "noUrlField": "응답에서 사용할 수 있는 URL 필드를 찾을 수 없습니다",
-    "networkError": "네트워크 오류",
-    "uploadCancelled": "업로드가 취소되었습니다",
-    "imagePlaceholder": "클릭하거나 이미지를 여기에 끌어다 놓아 업로드하세요"
-  },
-  "webviewFrame": {
-    "loadingText": "로딩 중...",
-    "screenshotNotice": "이 사이트는 삽입이 금지되어 스크린샷 모드로 전환했습니다",
-    "blockedTitle": "안전하지 않은 URL이 차단되었습니다",
-    "failedTitle": "불러오기 실패",
-    "externalTitle": "패널에 삽입할 수 없습니다",
-    "retry": "재시도",
-    "openExternal": "외부 브라우저에서 열기",
-    "idlePlaceholder": "URL을 입력하거나 AI 메시지의 링크를 클릭하여 여세요"
-  },
+  "upload": {},
+  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {

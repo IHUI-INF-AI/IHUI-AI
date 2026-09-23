@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, CheckCircle2, Brain, Calendar, Flame, Gauge } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -17,16 +18,35 @@ import {
   type ReviewResult,
 } from '@/api/edu-api'
 
-const QUALITY_OPTIONS: { value: number; label: string; tone: string }[] = [
+type QualityLabelKey =
+  'qualityForgotten' | 'qualityFailed' | 'qualityUncertain' | 'qualityGood' | 'qualityPerfect'
+
+const QUALITY_OPTIONS: { value: number; labelKey: QualityLabelKey; tone: string }[] = [
   {
     value: 0,
-    label: '完全忘记',
+    labelKey: 'qualityForgotten',
     tone: 'bg-destructive/10 text-destructive hover:bg-destructive/20',
   },
-  { value: 2, label: '失败', tone: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/20' },
-  { value: 3, label: '勉强', tone: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20' },
-  { value: 4, label: '良好', tone: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20' },
-  { value: 5, label: '完美', tone: 'bg-primary/10 text-primary hover:bg-primary/20' },
+  {
+    value: 2,
+    labelKey: 'qualityFailed',
+    tone: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/20',
+  },
+  {
+    value: 3,
+    labelKey: 'qualityUncertain',
+    tone: 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20',
+  },
+  {
+    value: 4,
+    labelKey: 'qualityGood',
+    tone: 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20',
+  },
+  {
+    value: 5,
+    labelKey: 'qualityPerfect',
+    tone: 'bg-primary/10 text-primary hover:bg-primary/20',
+  },
 ]
 
 function StatCard({
@@ -57,6 +77,7 @@ function StatCard({
 }
 
 export default function ReviewPage() {
+  const t = useTranslations('learn.dailyReview')
   const [reviews, setReviews] = React.useState<ReviewQuestion[]>([])
   const [stats, setStats] = React.useState<ReviewStats | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -109,7 +130,7 @@ export default function ReviewPage() {
     return (
       <div className="px-4 flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中…
+        {t('loading')}
       </div>
     )
   }
@@ -130,18 +151,18 @@ export default function ReviewPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Brain className="h-7 w-7 text-primary" />
-          今日复习
+          {t('title')}
         </h1>
-        <p className="text-xs text-muted-foreground">基于 SM-2 间隔重复算法,巩固长期记忆。</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-4">
-        <StatCard icon={Brain} label="待复习" value={stats?.totalDue ?? 0} />
-        <StatCard icon={CheckCircle2} label="今日已复习" value={reviewedCount} />
-        <StatCard icon={Flame} label="连续天数" value={stats?.streak ?? 0} />
+        <StatCard icon={Brain} label={t('statDue')} value={stats?.totalDue ?? 0} />
+        <StatCard icon={CheckCircle2} label={t('statReviewedToday')} value={reviewedCount} />
+        <StatCard icon={Flame} label={t('statStreak')} value={stats?.streak ?? 0} />
         <StatCard
           icon={Gauge}
-          label="平均难度"
+          label={t('statAvgDifficulty')}
           value={stats?.avgEaseFactor?.toFixed(2) ?? '—'}
           hint="ease factor"
         />
@@ -153,9 +174,9 @@ export default function ReviewPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-emerald-500/10">
               <CheckCircle2 className="h-8 w-8 text-emerald-600" />
             </div>
-            <h2 className="text-lg font-semibold">今日复习已完成</h2>
+            <h2 className="text-lg font-semibold">{t('finishedTitle')}</h2>
             <p className="text-sm text-muted-foreground">
-              已完成 {reviewedCount} 道题,继续保持节奏!
+              {t('finishedHint', { count: reviewedCount })}
             </p>
           </CardContent>
         </Card>
@@ -163,16 +184,14 @@ export default function ReviewPage() {
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-4 p-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                第 {index + 1} / {reviews.length} 题
-              </span>
+              <span>{t('questionProgress', { current: index + 1, total: reviews.length })}</span>
               {current.subject && (
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs">{current.subject}</span>
               )}
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs text-muted-foreground">题目</div>
+              <div className="text-xs text-muted-foreground">{t('questionLabel')}</div>
               <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
                 {current.question}
               </div>
@@ -181,7 +200,7 @@ export default function ReviewPage() {
             {!revealed ? (
               <>
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">回想后自评</div>
+                  <div className="text-xs text-muted-foreground">{t('selfAssess')}</div>
                   <div className="flex flex-wrap gap-2">
                     {QUALITY_OPTIONS.map((opt) => (
                       <Button
@@ -192,7 +211,7 @@ export default function ReviewPage() {
                         onClick={() => handleQuality(opt.value)}
                         className={`rounded-md border border-transparent px-3 text-xs font-medium ${opt.tone}`}
                       >
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </Button>
                     ))}
                   </div>
@@ -200,21 +219,21 @@ export default function ReviewPage() {
                 {submitting && (
                   <div className="flex items-center text-xs text-muted-foreground">
                     <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                    提交中…
+                    {t('submitting')}
                   </div>
                 )}
               </>
             ) : (
               <div className="space-y-3">
                 <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground">答案</div>
+                  <div className="text-xs text-muted-foreground">{t('answerLabel')}</div>
                   <div className="rounded-lg bg-emerald-500/5 p-3 text-sm leading-relaxed">
                     {current.answer}
                   </div>
                 </div>
                 {current.explanation && (
                   <div className="space-y-2">
-                    <div className="text-xs text-muted-foreground">解析</div>
+                    <div className="text-xs text-muted-foreground">{t('explanationLabel')}</div>
                     <div className="rounded-lg bg-muted/50 p-3 text-sm leading-relaxed">
                       {current.explanation}
                     </div>
@@ -223,7 +242,7 @@ export default function ReviewPage() {
                 {result && (
                   <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 text-center text-xs">
                     <div className="rounded-md bg-muted/50 p-2">
-                      <div className="text-muted-foreground">下次复习</div>
+                      <div className="text-muted-foreground">{t('nextReview')}</div>
                       <div className="mt-1 font-medium">
                         {new Intl.DateTimeFormat('zh-CN', {
                           month: '2-digit',
@@ -232,18 +251,18 @@ export default function ReviewPage() {
                       </div>
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
-                      <div className="text-muted-foreground">间隔(天)</div>
+                      <div className="text-muted-foreground">{t('intervalDays')}</div>
                       <div className="mt-1 font-medium">{result.interval}</div>
                     </div>
                     <div className="rounded-md bg-muted/50 p-2">
-                      <div className="text-muted-foreground">难度因子</div>
+                      <div className="text-muted-foreground">{t('easeFactor')}</div>
                       <div className="mt-1 font-medium">{result.easeFactor.toFixed(2)}</div>
                     </div>
                   </div>
                 )}
                 <div className="flex justify-end">
                   <Button size="sm" onClick={handleNext}>
-                    下一题
+                    {t('nextQuestion')}
                   </Button>
                 </div>
               </div>
@@ -254,7 +273,10 @@ export default function ReviewPage() {
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Calendar className="h-3.5 w-3.5" />
-        复习进度:{Math.min(index + (revealed ? 1 : 0), reviews.length)} / {reviews.length}
+        {t('progressLine', {
+          done: Math.min(index + (revealed ? 1 : 0), reviews.length),
+          total: reviews.length,
+        })}
       </div>
     </div>
   )
