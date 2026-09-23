@@ -3,13 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import * as React from 'react'
-import { GitBranch, Search } from 'lucide-react'
+import { GitBranch, Search, ThumbsDown, ThumbsUp } from 'lucide-react'
 import type { ChatMessage } from '@/stores/chat'
 import {
   plainTextForClipboard,
   normalizeMarkdown,
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useContextMenu, type ContextMenuAction } from '@/hooks/use-context-menu'
+import { rateChatMessage } from '@ihui/api-client'
 import { useChatStore } from '@/stores/chat'
 import { toast } from '@/components/common'
 
@@ -66,10 +67,18 @@ export function useMessageListContextMenu({
           icon: <GitBranch className="h-3 w-3" aria-hidden />,
         },
         {
-          id: 'feedback',
-          label: t('contextMenu.feedback'),
-          action: 'feedback',
+          id: 'like',
+          label: t('contextMenu.likeMessage'),
+          action: 'likeMessage',
           disabled: !isAssistant,
+          icon: <ThumbsUp className="h-3 w-3" aria-hidden />,
+        },
+        {
+          id: 'dislike',
+          label: t('contextMenu.dislikeMessage'),
+          action: 'dislikeMessage',
+          disabled: !isAssistant,
+          icon: <ThumbsDown className="h-3 w-3" aria-hidden />,
         },
         { id: 'sep-2', label: '', separator: true },
         {
@@ -114,9 +123,19 @@ export function useMessageListContextMenu({
             new CustomEvent('ihui:branch-message', { detail: { messageId: msg.id } }),
           )
           toast.info(t('toast.branching'))
-        } else if (action === 'feedback') {
-          // 反馈:简单 toast 兜底(深度反馈系统不在本任务范围)
-          toast.success(t('toast.feedbackRecorded'))
+        } else if (action === 'likeMessage' || action === 'dislikeMessage') {
+          // D49①(2026-09-23):点赞/点踩落库 —— 一人一消息一票,改票覆盖
+          const conversationId = useChatStore.getState().conversationId
+          if (!conversationId) {
+            toast.error(t('toast.feedbackFailed'))
+            return
+          }
+          try {
+            await rateChatMessage({ messageId: msg.id, rating: action === 'likeMessage' ? 'like' : 'dislike' })
+            toast.success(t('toast.feedbackSaved'))
+          } catch {
+            toast.error(t('toast.feedbackFailed'))
+          }
         } else if (action === 'search') {
           // Phase 23:打开搜索栏(等同于 Ctrl+F)
           onRequestSearch()
