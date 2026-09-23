@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { FlaskConical } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -26,7 +25,6 @@ function AbTestSide({
   label: string
   data: { id: string; name: string; matched: boolean; output: string }
 }) {
-  const t = useTranslations('rules')
   return (
     <div className="space-y-1.5 rounded-md border border-border bg-background p-2.5">
       <div className="flex items-center gap-1.5">
@@ -38,7 +36,7 @@ function AbTestSide({
             data.matched ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground',
           )}
         >
-          {data.matched ? t('hit') : t('noMatch')}
+          {data.matched ? '命中' : '未命中'}
         </span>
       </div>
       {data.output ? (
@@ -46,15 +44,13 @@ function AbTestSide({
           {data.output}
         </pre>
       ) : (
-        <p className="text-[10px] text-muted-foreground">{t('noMatchNoOutput')}</p>
+        <p className="text-[10px] text-muted-foreground">(未命中,无输出)</p>
       )}
     </div>
   )
 }
 
 function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
-  const t = useTranslations('rules')
-  const tCommon = useTranslations('common')
   const [ruleIdA, setRuleIdA] = React.useState('')
   const [ruleIdB, setRuleIdB] = React.useState('')
   const [message, setMessage] = React.useState('')
@@ -90,15 +86,15 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
             <FlaskConical className="mr-1 inline h-3.5 w-3.5" />
-            {t('abTest')}
+            A/B 测试
           </span>
-          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
+          <CloseButton aria-label="关闭" onClick={onClose} />
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <label htmlFor="rule-cmp-a" className="text-[10px] text-muted-foreground">
-              {t('ruleA')}
+              规则 A
             </label>
             <select
               id="rule-cmp-a"
@@ -106,7 +102,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               onChange={(e) => setRuleIdA(e.target.value)}
               className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
             >
-              <option value="">{t('selectRuleA')}</option>
+              <option value="">选择规则 A</option>
               {rules.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -116,7 +112,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
           </div>
           <div className="space-y-1">
             <label htmlFor="rule-cmp-b" className="text-[10px] text-muted-foreground">
-              {t('ruleB')}
+              规则 B
             </label>
             <select
               id="rule-cmp-b"
@@ -124,7 +120,7 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
               onChange={(e) => setRuleIdB(e.target.value)}
               className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
             >
-              <option value="">{t('selectRuleB')}</option>
+              <option value="">选择规则 B</option>
               {rules.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -136,13 +132,13 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         <div className="space-y-1">
           <label htmlFor="rule-cmp-msg" className="text-[10px] text-muted-foreground">
-            {t('testMessage')}
+            测试消息
           </label>
           <textarea
             id="rule-cmp-msg"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder={t('inputTestMessage')}
+            placeholder="输入测试消息..."
             rows={3}
             className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
           />
@@ -150,14 +146,14 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         <div className="flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onClose}>
-            {tCommon('close')}
+            关闭
           </Button>
           <Button
             size="sm"
             onClick={handleRun}
             disabled={loading || !ruleIdA || !ruleIdB || !message.trim()}
           >
-            {loading ? t('testing') : t('runTest')}
+            {loading ? '测试中...' : '运行测试'}
           </Button>
         </div>
 
@@ -169,8 +165,8 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         {result && (
           <div className="grid grid-cols-2 gap-2">
-            <AbTestSide label={t('ruleA')} data={result.ruleA} />
-            <AbTestSide label={t('ruleB')} data={result.ruleB} />
+            <AbTestSide label="规则 A" data={result.ruleA} />
+            <AbTestSide label="规则 B" data={result.ruleB} />
           </div>
         )}
       </div>
