@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   headTabTextActive: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   searchRow: {
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   searchBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   subTabBar: {
     flexDirection: 'row',
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   setBtnText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   } as TextStyle,
   statusText: {
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   promptConfirmText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.text.primary,
   } as TextStyle,
 })
 
