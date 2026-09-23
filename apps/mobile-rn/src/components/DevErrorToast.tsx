@@ -19,7 +19,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { X } from 'lucide-react-native'
 
 interface DevErrorEntry {
