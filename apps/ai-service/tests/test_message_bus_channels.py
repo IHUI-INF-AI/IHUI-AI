@@ -2,14 +2,13 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""4 个通知通道(IM/Webhook/Email/SMS)真实实现的单元测试。
+"""3 个通知通道(IM/Webhook/SMS)真实实现的单元测试。
 
 覆盖:
 1. WebhookChannel:httpx.MockTransport 验证 POST 发出与 2xx/5xx/网络异常分支,
    URL 来源(metadata webhook_urls / 订阅 / env WEBHOOK_URLS)
-2. EmailChannel:env 未配置 SMTP → 失败;配置后(monkeypatch smtplib)→ 成功路径
-3. SMSChannel:网关 200/非 200 分支 + 请求 payload/Authorization 断言
-4. IMChannel:钉钉格式 payload 断言 + metadata/env 优先级 + 未配置失败
+2. SMSChannel:网关 200/非 200 分支 + 请求 payload/Authorization 断言
+3. IMChannel:钉钉格式 payload 断言 + metadata/env 优先级 + 未配置失败
 
 设计:
 - mock_http fixture 注入 httpx.AsyncClient → MockTransport,handler 由测试控制,
@@ -26,7 +25,6 @@ import pytest
 
 from app.services.message_bus import (
     ChannelType,
-    EmailChannel,
     IMChannel,
     Message,
     SMSChannel,
@@ -58,37 +56,6 @@ def mock_http(monkeypatch):
         state["transport"] = httpx.MockTransport(handler)
 
     return _set
-
-
-class _FakeSMTP:
-    """smtplib.SMTP 替身:记录调用,不真正连网。"""
-
-    instances: list[_FakeSMTP] = []
-
-    def __init__(self, host, port=0, timeout=10, **kwargs):
-        self.host = host
-        self.port = port
-        self.calls: list = []
-        self.sent_mail: list[tuple] = []
-        type(self).instances.append(self)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def ehlo(self):
-        self.calls.append("ehlo")
-
-    def starttls(self):
-        self.calls.append("starttls")
-
-    def login(self, user, password):
-        self.calls.append(("login", user))
-
-    def sendmail(self, from_addr, to_addrs, msg):
-        self.sent_mail.append((from_addr, to_addrs, msg))
 
 
 # =============================================================================
@@ -235,148 +202,7 @@ async def test_webhook_channel_no_urls_returns_success() -> None:
 
 
 # =============================================================================
-# 2. EmailChannel
-# =============================================================================
-
-
-@pytest.mark.asyncio
-async def test_email_channel_no_recipient_fails() -> None:
-    """metadata 无 'to' → 失败。"""
-    channel = EmailChannel()
-    msg = Message(id="em-1", content="hello")
-    ok, status = await channel.send(msg, {})
-    assert ok is False
-    assert status == "failed"
-
-
-@pytest.mark.asyncio
-async def test_email_channel_smtp_not_configured_fails(monkeypatch) -> None:
-    """env 未配置 SMTP_HOST → 失败,不假装成功。"""
-    monkeypatch.delenv("SMTP_HOST", raising=False)
-    channel = EmailChannel()
-    msg = Message(id="em-2", content="hello", metadata={"to": "user@example.com"})
-    ok, status = await channel.send(msg, {})
-    assert ok is False
-    assert status == "failed"
-
-
-@pytest.mark.asyncio
-async def test_email_channel_sends_smtp_success(monkeypatch) -> None:
-    """配置 SMTP + metadata 'to' → 成功;smtplib 真实调用被断言。"""
-    import smtplib
-
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_PORT", "587")
-    monkeypatch.setenv("SMTP_USER", "bot@example.com")
-    monkeypatch.setenv("SMTP_PASSWORD", "secret")
-    monkeypatch.setenv("SMTP_FROM", "IHUI <notify@example.com>")
-    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
-
-    channel = EmailChannel()
-    msg = Message(
-        id="em-3",
-        content="hello email",
-        metadata={
-            "to": ["a@example.com", "b@example.com"],
-            "subject": "测试主题",
-        },
-    )
-    ok, status = await channel.send(msg, {})
-    assert ok is True
-    assert status == "delivered"
-
-    fake = _FakeSMTP.instances[-1]
-    assert fake.port == 587
-    # 587 → starttls + login
-    assert "starttls" in fake.calls
-    assert ("login", "bot@example.com") in fake.calls
-    assert fake.sent_mail, "sendmail 未被调用"
-    from_addr, to_addrs, raw = fake.sent_mail[0]
-    assert from_addr == "IHUI <notify@example.com>"
-    assert to_addrs == ["a@example.com", "b@example.com"]
-    assert "To: a@example.com, b@example.com" in raw
-    assert "From: IHUI <notify@example.com>" in raw
-
-
-@pytest.mark.asyncio
-async def test_email_channel_branded_dispatch_html(monkeypatch) -> None:
-    """HTML 部分走「智汇通报」版式(与 TS email-templates 同源),正文转义,纯文本兜底。"""
-    import email as _email_mod
-    import smtplib
-    from email import policy
-
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_PORT", "465")
-    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
-
-    channel = EmailChannel()
-    msg = Message(
-        id="em-6",
-        content="余额 <script>alert(1)</script> 不足",
-        metadata={"to": "user@example.com", "subject": "测试告警", "tag": "BILLING // LOW_BALANCE"},
-    )
-    ok, status = await channel.send(msg, {})
-    assert ok is True
-    raw = _FakeSMTP.instances[-1].sent_mail[0][2]
-    parsed = _email_mod.message_from_string(raw, policy=policy.default)
-    # multipart/alternative:纯文本兜底 + 品牌版式 HTML
-    assert parsed.get_content_type() == "multipart/alternative"
-    parts = list(parsed.walk())
-    html_body = next(p for p in parts if p.get_content_type() == "text/html").get_content()
-    plain_body = next(p for p in parts if p.get_content_type() == "text/plain").get_content()
-    assert "余额" in plain_body
-    # 品牌版式关键元素(Logo + 二维码)
-    assert "IHUI." in html_body
-    assert "THE&nbsp;MECHANICAL&nbsp;DISPATCH" in html_body
-    assert 'alt="IHUI AI"' in html_body
-    assert "/images/logo.png" in html_body
-    assert "/footer/erweima/wechat-vx.png" in html_body
-    assert "BILLING // LOW_BALANCE" in html_body
-    assert "background:#050506" in html_body
-    assert "#B4FF00" in html_body
-    # 正文被转义(XSS 防护)
-    assert "<script>alert" not in html_body
-    assert "&lt;script&gt;" in html_body
-
-
-@pytest.mark.asyncio
-async def test_email_channel_no_starttls_on_plain_port(monkeypatch) -> None:
-    """非 587 端口(如 25)不调用 starttls。"""
-    import smtplib
-
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setenv("SMTP_PORT", "25")
-    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
-
-    channel = EmailChannel()
-    msg = Message(id="em-4", content="hello", metadata={"to": "user@example.com"})
-    ok, status = await channel.send(msg, {})
-    assert ok is True
-    fake = _FakeSMTP.instances[-1]
-    assert "starttls" not in fake.calls
-
-
-@pytest.mark.asyncio
-async def test_email_channel_smtp_exception_fails(monkeypatch) -> None:
-    """SMTP 服务器异常 → 失败,不抛到上层。"""
-    import smtplib
-
-    class _BrokenSMTP(_FakeSMTP):
-        def sendmail(self, from_addr, to_addrs, msg):
-            raise OSError("smtp server down")
-
-    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
-    monkeypatch.setattr(smtplib, "SMTP", _BrokenSMTP)
-
-    channel = EmailChannel()
-    msg = Message(id="em-5", content="hello", metadata={"to": "user@example.com"})
-    ok, status = await channel.send(msg, {})
-    assert ok is False
-    assert status == "failed"
-
-
-# =============================================================================
-# 3. SMSChannel
+# 2. SMSChannel
 # =============================================================================
 
 
@@ -452,7 +278,7 @@ async def test_sms_channel_gateway_500_fails(mock_http, monkeypatch) -> None:
 
 
 # =============================================================================
-# 4. IMChannel(钉钉/企微/飞书机器人 webhook)
+# 3. IMChannel(钉钉/企微/飞书机器人 webhook)
 # =============================================================================
 
 
