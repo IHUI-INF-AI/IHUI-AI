@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -46,12 +46,17 @@ function createSyncedRepoWithOrigin() {
 }
 
 // 辅助:运行 git-push-guard.mjs
+// GUARD_ASYNC=0 默认注入(2026-09-23):guard 自 2026-09-18 起默认 spawn detached
+// 后台推送 worker,它会在用例结束后仍把临时仓目录当 cwd 持有(还要跑完 pre-push
+// 门才退)→ finally 里的 rmSync 必撞 EPERM,7 条既有用例因此恒红(断言其实全过)。
+// 同步模式让"返回即推送终态",local == remote 这类断言也才真正成立。
+// 放在 ...opts.env 之前,单条用例仍可显式覆盖以专测异步路径。
 function runScript(args = [], opts = {}) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: opts.cwd || process.cwd(),
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, ...opts.env },
+    env: { ...process.env, GUARD_ASYNC: '0', ...opts.env },
   })
 }
 
@@ -299,6 +304,98 @@ test('push 成功: ahead + 自动 push → exit 0 + local == remote', () => {
   } finally {
     rmSync(work, { recursive: true, force: true })
     rmSync(origin, { recursive: true, force: true })
+  }
+})
+
+// ─── partial-clone 预检(2026-09-23 立)─────────────────────
+// 三条夹具:① 注入 partial 配置必拦;② 逃生舱必放行;③ 正常库必不误伤。
+// 判据只看 stdout 是否含 partial-clone 文案 —— 单看 exit code 无法区分
+// "预检拦下" 与 "ahead 仅检测失败",会产出自测夹具恒真的假绿。
+
+// 三条夹具的同步推送由 runScript 默认注入 GUARD_ASYNC=0 保证(见文件上方注释),
+// 故此处可直接断言"拦下 ⇒ 远端未含本地 commit"。
+function forceRemove(dir) {
+  rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 })
+}
+
+function createAheadRepoWithPartialClone() {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  makeCommit(work, 'partial.txt', 'x\n', 'feat: ahead commit')
+  return { work, origin }
+}
+
+test('partial-clone: promisor=true + ahead → exit 1 且点名修复配方(不放行推送)', () => {
+  const { work, origin } = createAheadRepoWithPartialClone()
+  try {
+    execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
+    execSync('git config --local remote.origin.partialclonefilter blob:none', { cwd: work, stdio: 'pipe' })
+    const r = runScript([], { cwd: work })
+    assert.equal(r.status, 1, `partial-clone 应被预检拦下 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /partial-clone/)
+    assert.match(r.stdout, /fetch --refetch/)
+    assert.match(r.stdout, /GUARD_SKIP_PARTIAL_CLONE_CHECK/)
+    // 关键反证:预检拦下后本地 commit 绝不能被推上远端
+    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    assert.notEqual(localHead, remoteHead, '预检生效后远端不应已包含本地 ahead commit')
+  } finally {
+    forceRemove(work)
+    forceRemove(origin)
+  }
+})
+
+test('partial-clone 逃生舱: GUARD_SKIP_PARTIAL_CLONE_CHECK=1 → 预检让位,推送照旧成功', () => {
+  const { work, origin } = createAheadRepoWithPartialClone()
+  try {
+    execSync('git config --local remote.origin.promisor true', { cwd: work, stdio: 'pipe' })
+    const r = runScript([], { cwd: work, env: { GUARD_SKIP_PARTIAL_CLONE_CHECK: '1' } })
+    assert.doesNotMatch(r.stdout, /partial-clone/, '逃生舱生效后不应再出现预检文案')
+    assert.equal(r.status, 0, `逃生舱应让主流程继续并推送成功,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    forceRemove(work)
+    forceRemove(origin)
+  }
+})
+
+test('partial-clone 不误伤: 正常库(无 promisor/filter)+ ahead → 无预检文案且推送成功', () => {
+  const { work, origin } = createAheadRepoWithPartialClone()
+  try {
+    const r = runScript([], { cwd: work })
+    assert.doesNotMatch(r.stdout, /partial-clone/, '正常库不得命中 partial-clone 预检')
+    assert.equal(r.status, 0, `正常 ahead 推送应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    assert.equal(localHead, remoteHead, '同步推送后 local HEAD 应 == origin/main')
+  } finally {
+    forceRemove(work)
+    forceRemove(origin)
+  }
+})
+
+// ─── HUSKY_SKIP_PUSH 不得被异步分叉绕过(2026-09-23 立)──────
+// AGENTS.md §20 把 HUSKY_SKIP_PUSH=1 定义为"仅检测不推送"逃生舱,但 guard 的
+// 异步分叉原先排在 skipPush 判断之前 → 逃生舱照样 spawn worker 真推送。
+// 本条必须显式 GUARD_ASYNC='1' 覆盖 runScript 的同步默认值,否则同步模式本身
+// 就不会写 running 状态,断言会恒真(测不到修复)。
+test('skipPush 语义: HUSKY_SKIP_PUSH=1 优先于异步分叉 → 不写 running 状态(未派推送)', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'skip.txt', 'x\n', 'feat: ahead commit for skipPush')
+    const r = runScript([], { cwd: work, env: { GUARD_ASYNC: '1', HUSKY_SKIP_PUSH: '1' } })
+    assert.equal(r.status, 1, `skipPush + ahead 应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /跳过 push|仅检测/)
+    const stateFile = join(work, '.workbuddy', 'push-state.json')
+    if (existsSync(stateFile)) {
+      const st = JSON.parse(readFileSync(stateFile, 'utf8'))
+      assert.notEqual(st.status, 'running', `skipPush 下绝不能留下 running(那意味着后台真在推):${JSON.stringify(st)}`)
+    }
+    // 且远端确实没被推动
+    const localHead = execSync('git rev-parse HEAD', { cwd: work, encoding: 'utf8' }).trim()
+    const remoteHead = execSync('git rev-parse origin/main', { cwd: work, encoding: 'utf8' }).trim()
+    assert.notEqual(localHead, remoteHead, 'skipPush 生效时远端不应含本地 commit')
+  } finally {
+    forceRemove(work)
+    forceRemove(origin)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
