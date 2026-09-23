@@ -286,7 +286,7 @@ export default function CourseDetail() {
             <Text className="text-[40rpx] text-primary font-bold">{course.price ?? 0}</Text>
           </View>
           <View
-            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
+            className="px-[20rpx] h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-semibold"
             hoverClass="opacity-60"
             onClick={handleBuy}
           >

@@ -148,7 +148,7 @@ export default function AiGroup() {
         {categories.map((cat) => (
           <View
             key={cat.key}
-            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[16rpx] ${activeCategory === cat.key ? 'bg-primary' : 'bg-[var(--color-muted)]'}`}
+            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-lg ${activeCategory === cat.key ? 'bg-primary' : 'bg-[var(--color-muted)]'}`}
             onClick={() => setActiveCategory(cat.key)}
             hoverClass="opacity-60"
           >
@@ -177,7 +177,7 @@ export default function AiGroup() {
               {tt('aiGroup.loadFailed', '加载失败')}
             </Text>
             <View
-              className="mt-[24rpx] py-[16rpx] px-[32rpx] bg-primary rounded-[24rpx]"
+              className="mt-[24rpx] py-[16rpx] px-[32rpx] bg-primary rounded-xl"
               onClick={loadData}
               hoverClass="opacity-60"
             >
@@ -198,7 +198,7 @@ export default function AiGroup() {
               return (
                 <ThemeRoot
                   key={id}
-                  className="flex flex-row items-center p-[28rpx] rounded-[24rpx] border border-[var(--color-border)] bg-[var(--color-surface-light)]"
+                  className="flex flex-row items-center p-[28rpx] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-light)]"
                 >
                   <View
                     key={id}
@@ -207,7 +207,7 @@ export default function AiGroup() {
                     hoverClass="opacity-60"
                   >
                     <Image
-                      className="w-[96rpx] h-[96rpx] rounded-[24rpx] bg-[var(--color-muted)] shrink-0"
+                      className="w-[96rpx] h-[96rpx] rounded-xl bg-[var(--color-muted)] shrink-0"
                       src={avatar}
                       mode="aspectFill"
                     />
@@ -218,7 +218,7 @@ export default function AiGroup() {
                         </Text>
                         {isVip ? (
                           // VIP 徽章(对齐 SharedAgentScreen vipBadge: bg-warning 反白, radius 4dp→8rpx)
-                          <View className="py-[8rpx] px-[12rpx] rounded-[8rpx] bg-[var(--color-warning)] shrink-0">
+                          <View className="py-[8rpx] px-[12rpx] rounded-sm bg-[var(--color-warning)] shrink-0">
                             <Text className="text-[20rpx] font-semibold text-[var(--color-surface-light)]">
                               VIP
                             </Text>

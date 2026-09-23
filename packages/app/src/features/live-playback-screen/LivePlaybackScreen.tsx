@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -160,7 +161,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryText: { color: tk.surface.light, fontSize: 16 },
@@ -174,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 10,
@@ -194,7 +195,7 @@ function createStyles(tk: AppThemeTokens) {
     badgeEnded: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     badgeText: { fontSize: 11, color: tk.text.secondary },
@@ -205,7 +206,7 @@ function createStyles(tk: AppThemeTokens) {
     playBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     playBtnDisabled: { backgroundColor: tk.border.medium },
@@ -221,14 +222,14 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       maxWidth: 400,
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 16,
     },
     modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 12 },
     playerArea: {
       aspectRatio: 16 / 9,
       backgroundColor: tk.gray.black,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -238,7 +239,7 @@ function createStyles(tk: AppThemeTokens) {
     closeBtn: {
       marginTop: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

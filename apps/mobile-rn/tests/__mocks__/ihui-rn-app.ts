@@ -84,4 +84,19 @@ export {
 } from '../../../../packages/app/src/theme/tokens'
 
 export { ModelPlazaScreen } from './model-plaza-mock'
+
+/**
+ * 统一分类栏:必须 re-export **真实组件**,不得在此另写一份假实现。
+ * 本文件已有一次"真组件配假色板 ⇒ 测试对不存在的色板全绿"的事故记录(见上方注释),
+ * 同类错误只要换个组件就会重犯。此前 CategoryDropdown 完全没从这里导出,
+ * 结果是"点击开下拉窗"这一形态在全仓零覆盖 —— 一旦有屏用它,测试直接
+ * "Element type is invalid"。
+ */
+export { CategoryInlineBar } from '../../../../packages/app/src/components/category/CategoryInlineBar'
+export { CategoryDropdown } from '../../../../packages/app/src/components/category/CategoryDropdown'
+export type {
+  CategoryItem,
+  CategoryInlineBarProps,
+  CategoryDropdownProps,
+} from '../../../../packages/app/src/components/category'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -4,8 +4,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { execSync, execFileSync, spawnSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -293,8 +293,7 @@ test('filter-stash: stash-like 悬空 commit 被过滤(不报告为丢失)', () 
 
 // ─── 无 origin remote 场景(不 crash) ────────────────────
 
-test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {
-  const dir = createTempRepo()
+test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () => {  const dir = createTempRepo()
   try {
     // 临时仓库无 origin,git ls-remote origin 会失败
     // 脚本应 allowFail 处理,不 crash
@@ -303,6 +302,58 @@ test('鲁棒性: 无 origin remote → 不 crash(远程 tag 校验跳过)', () =
     assert.ok(!r.stderr.includes('Error:'), `不应有未捕获 Error`)
   } finally {
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// ─── 自愈:仅远端 tag 不得把提交钉成恒红(2026-09-24 装车证明) ───────────
+//
+// 场景复刻:另一台机器(或另一个会话)往 origin 推了 `lost-commit/*` tag,本机没有。
+// 旧判定把这视同"必须人工 fetch"并 blocking ⇒ 结果只是逼人人 --no-verify,把真正防丢的
+// reset / 悬空 commit / 不可达对象三条一起关掉。新判定:本门自己 fetch + 固化,拿不到才降级为警告。
+test('自愈: 另一台机推来的 lost-commit tag → 本门自己 fetch 回来并固化,不阻塞提交', () => {
+  const base = mkdtempSync(join(tmpdir(), 'ihui-loss-heal-'))
+  const origin = join(base, 'origin.git')
+  const local = join(base, 'local')
+  const other = join(base, 'other')
+  const G = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
+  try {
+    execFileSync('git', ['init', '--bare', origin], { encoding: 'utf8', windowsHide: true })
+    for (const [dir, name] of [
+      [local, 'local'],
+      [other, 'other'],
+    ]) {
+      mkdirSync(dir, { recursive: true })
+      G(dir, ['init', '-b', 'main'])
+      G(dir, ['config', 'user.email', `${name}@test.local`])
+      G(dir, ['config', 'user.name', name])
+      G(dir, ['config', 'commit.gpgsign', 'false'])
+      writeFileSync(join(dir, 'README.md'), `# ${name}\n`)
+      G(dir, ['add', 'README.md'])
+      G(dir, ['commit', '-m', `init ${name}`])
+      G(dir, ['remote', 'add', 'origin', origin])
+      G(dir, ['push', '-u', 'origin', 'main', '--force'])
+    }
+    // "另一台机"造一个只存在于远端的备份 tag
+    writeFileSync(join(other, 'extra.txt'), 'x\n')
+    G(other, ['add', 'extra.txt'])
+    G(other, ['commit', '-m', 'other work'])
+    G(other, ['tag', 'lost-commit/only-on-remote'])
+    G(other, ['push', 'origin', 'refs/tags/lost-commit/only-on-remote'])
+
+    assert.equal(G(local, ['tag', '-l', 'lost-commit/only-on-remote']).trim(), '', '前置:本机确实没有这个 tag')
+
+    const r = runScript(['--blocking'], { cwd: local })
+    assert.doesNotMatch(r.stdout, /❌ 仅远端/, `不应再报「仅远端」红线,实际:\n${r.stdout.slice(-800)}`)
+    assert.equal(r.status, 0, `仅远端 tag 已被自愈,不应阻塞提交,实际 exit ${r.status}:\n${(r.stdout || '').slice(-900)}\n${(r.stderr || '').slice(-300)}`)
+    // tag 必须真回到本机(证明走的是自愈,不是"干脆不看远端"糊过去)
+    assert.equal(G(local, ['rev-parse', '--verify', '--quiet', 'refs/tags/lost-commit/only-on-remote']).length > 0, true, '自愈后本机应能解析该 tag')
+    // 且已固化进 packed-refs(松散嵌套 ref 会被宿主清理层删掉,不 pack 等于下次再红)
+    //    必须 --absolute-git-dir:`--git-dir` 返回相对路径,join 会解析到测试进程的 cwd 而非临时仓
+    const gitDir = G(local, ['rev-parse', '--absolute-git-dir']).trim()
+    const packed = readFileSync(join(gitDir, 'packed-refs'), 'utf8')
+    assert.match(packed, /refs\/tags\/lost-commit\/only-on-remote/, '自愈后必须固化进 packed-refs')
+  } finally {
+    rmSync(base, { recursive: true, force: true })
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

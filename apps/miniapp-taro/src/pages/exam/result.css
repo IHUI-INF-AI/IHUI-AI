@@ -39,7 +39,7 @@
   flex-direction: column;
   align-items: center;
   padding: 48rpx 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
   margin-bottom: 24rpx;
@@ -63,7 +63,7 @@
   justify-content: center;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 
 .exam-result-status {
@@ -105,7 +105,7 @@
   flex-wrap: wrap;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx 16rpx;
   margin-bottom: 20rpx;
 }
@@ -149,7 +149,7 @@
 .exam-result-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -292,7 +292,7 @@
   line-height: 100rpx;
   font-size: 28rpx;
   font-weight: 600;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: none;
   padding: 0;
 }
