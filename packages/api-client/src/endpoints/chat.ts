@@ -92,6 +92,30 @@ export interface ChatMessageMetadata {
    *  消费:web 历史水合映射回 `ChatMessage.retryNotice`(RetryNotice 条),
    *  缺失 = 老消息或本轮没重试过 —— 不渲染"重试过"的假交代。 */
   retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
+  /** usageDetail(D33 剩余类,2026-09-23 立):与 SSE `usage` 帧同源的用量明细
+   *  (token 分项 + 首 token 计时 + 总耗时 + 成本 + 实际计费模型)。
+   *  来源:ai-service 流收尾 → /api/ai callback persistedUsageDetailSchema(子字段宽松,
+   *  部分 provider 不给 reasoningTokens / costUsd)。
+   *  消费:web 历史水合按行 seed 进 store.usageByMessageId(刷新后消息底部用量徽章行仍在),
+   *  缺失 = 老消息或本轮未记账。 */
+  usageDetail?: {
+    promptTokens?: unknown
+    completionTokens?: unknown
+    totalTokens?: unknown
+    reasoningTokens?: unknown
+    firstTokenMs?: unknown
+    durationMs?: unknown
+    model?: string | null
+    costUsd?: unknown
+  }
+  /** fallback(D33 剩余类立):主模型失败切换备用模型的交代,与 SSE `fallback` 帧同源。
+   *  落库保留线上 snake_case(primary_model / backup_model / reason,三字段契约必带、缺一不落);
+   *  消费:web 历史水合换算为 FallbackEvent(camel)挂消息级提示行。 */
+  fallback?: { primary_model: string; backup_model: string; reason: string }
+  /** memoryUpdates(D33 剩余类立):本轮同步提炼出的长期记忆条目摘要数组
+   *  (与 done 事件 memoryUpdates 同源,字符串数组)。
+   *  消费:web 历史水合 seed 进 store.memoryUpdateNotices(MemoryNoticeBar 既有渲染位)。 */
+  memoryUpdates?: string[]
   [key: string]: unknown
 }
 
@@ -506,3 +530,26 @@ export interface ChatResult {
   reasoning?: string
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ============================================================================
+// 消息点赞/点踩(D49①,2026-09-23):右键菜单评价落库,一人一消息一票,改票覆盖
+// ============================================================================
+
+export type MessageRating = 'like' | 'dislike'
+
+export interface RateChatMessageResult {
+  rated: boolean
+  rating: MessageRating
+}
+
+export async function rateChatMessage(input: {
+  messageId: string
+  rating: MessageRating
+}): Promise<RateChatMessageResult> {
+  const res = await fetchApi<RateChatMessageResult>('/api/chat/messages/feedback', {
+    method: 'POST',
+    body: JSON.stringify({ messageId: input.messageId, rating: input.rating }),
+  })
+  if (!res.success) throw new Error(res.error ?? '反馈提交失败')
+  return res.data
+}

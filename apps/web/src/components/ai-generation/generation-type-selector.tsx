@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { Sparkles, Image as ImageIcon, Video, Box, Eye, Music, Music4 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import type { GenerationType } from '../ai/types'
@@ -17,21 +18,23 @@ interface GenerationTypeSelectorProps {
 
 const OPTIONS: Array<{
   value: GenerationType
-  label: string
+  /** aiGeneration 命名空间下的文案键(渲染处取词,常量表不存中文字面量) */
+  labelKey: string
   icon: React.FC<{ className?: string }>
   color: string
 }> = [
-  { value: 'auto', label: '自动', icon: Sparkles, color: 'text-primary' },
-  { value: 'image', label: '图像', icon: ImageIcon, color: 'text-violet-500' },
-  { value: 'video', label: '视频', icon: Video, color: 'text-pink-500' },
-  { value: '3d', label: '3D', icon: Box, color: 'text-orange-500' },
-  { value: 'vision', label: '视觉', icon: Eye, color: 'text-cyan-500' },
-  { value: 'audio', label: '语音', icon: Music, color: 'text-amber-500' },
-  { value: 'music', label: '音乐', icon: Music4, color: 'text-fuchsia-500' },
+  { value: 'auto', labelKey: 'typeAuto', icon: Sparkles, color: 'text-primary' },
+  { value: 'image', labelKey: 'typeImage', icon: ImageIcon, color: 'text-violet-500' },
+  { value: 'video', labelKey: 'typeVideo', icon: Video, color: 'text-pink-500' },
+  { value: '3d', labelKey: 'type3d', icon: Box, color: 'text-orange-500' },
+  { value: 'vision', labelKey: 'typeVision', icon: Eye, color: 'text-cyan-500' },
+  { value: 'audio', labelKey: 'typeVoice', icon: Music, color: 'text-amber-500' },
+  { value: 'music', labelKey: 'typeMusic', icon: Music4, color: 'text-fuchsia-500' },
 ]
 
 /** GenerationTypeSelector - 生成类型选择器 */
 export function GenerationTypeSelector({ value, onChange }: GenerationTypeSelectorProps) {
+  const t = useTranslations('aiGeneration')
   return (
     <div className="flex flex-wrap gap-1.5">
       {OPTIONS.map((opt) => {
@@ -50,7 +53,7 @@ export function GenerationTypeSelector({ value, onChange }: GenerationTypeSelect
             )}
           >
             <Icon className={cn('h-3.5 w-3.5', !active && opt.color)} />
-            {opt.label}
+            <span>{t(opt.labelKey)}</span>
           </button>
         )
       })}

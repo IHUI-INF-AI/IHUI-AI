@@ -127,4 +127,35 @@ export type ChatFavorite = typeof chatFavorites.$inferSelect
 export type NewChatFavorite = typeof chatFavorites.$inferInsert
 export type ConversationMessageArchive = typeof conversationMessageArchives.$inferSelect
 export type NewConversationMessageArchive = typeof conversationMessageArchives.$inferInsert
+
+/**
+ * D49①(2026-09-23 立):消息点赞/点踩落库 —— 此前右键「反馈」仅 toast,评价不持久。
+ * (user_id, message_id) 唯一:一人一消息一票;改票走 upsert(ON CONFLICT DO UPDATE)。
+ * conversationId 冗余存储:反馈按会话聚合查询时免 join chat_messages。
+ */
+export const chatMessageFeedbacks = pgTable(
+  'chat_message_feedbacks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    messageId: uuid('message_id')
+      .references(() => chatMessages.id, { onDelete: 'cascade' })
+      .notNull(),
+    conversationId: uuid('conversation_id')
+      .references(() => chatConversations.id, { onDelete: 'cascade' })
+      .notNull(),
+    rating: varchar('rating', { length: 8 }).notNull(), // 'like' | 'dislike'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    uniq: unique().on(t.userId, t.messageId),
+    convIdx: index('ix_chat_message_feedbacks_conversation').on(t.conversationId),
+  }),
+)
+
+export type ChatMessageFeedback = typeof chatMessageFeedbacks.$inferSelect
+export type NewChatMessageFeedback = typeof chatMessageFeedbacks.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
