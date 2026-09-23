@@ -6903,6 +6903,21 @@
       "statusSuccess": "Success",
       "title": "Tool call chain",
       "waiting": "Waiting for tool calls..."
+    },
+    "card": {
+      "roleResearcher": "Researcher",
+      "roleCoder": "Coder",
+      "roleReviewer": "Reviewer",
+      "roleTester": "Tester",
+      "roleCustom": "Custom",
+      "unnamed": "Unnamed",
+      "lastActive": "Last active {time}",
+      "actionStart": "Start",
+      "actionPause": "Pause",
+      "actionStop": "Stop",
+      "actionCopyConfig": "Copy configuration",
+      "permissionMode": "Permission mode",
+      "maxIterations": "Max iterations"
     }
   },
   "agents": {
@@ -7040,6 +7055,83 @@
       "rollbackConfirmConfirm": "Restore"
     },
     "pane": {
+      "agentActions": {
+        "title": "Multi-agent actions",
+        "header": { "count": "{count, plural, one {1 agent} other {# agents}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "Input: {prompt}" },
+        "action": {
+          "spawn": {
+            "label": "Create",
+            "inProgress": "Creating",
+            "completed": "Created",
+            "failed": "Create failed"
+          },
+          "resume": {
+            "label": "Resume",
+            "inProgress": "Resuming",
+            "completed": "Resumed",
+            "failed": "Resume failed"
+          },
+          "sendInput": {
+            "label": "Send input",
+            "inProgress": "Sending",
+            "completed": "Sent",
+            "failed": "Send failed"
+          },
+          "interrupt": {
+            "label": "Interrupt",
+            "inProgress": "Interrupting",
+            "completed": "Interrupted",
+            "failed": "Interrupt failed"
+          },
+          "close": {
+            "label": "Close",
+            "inProgress": "Closing",
+            "completed": "Closed",
+            "failed": "Unable to close"
+          },
+          "list": {
+            "label": "List",
+            "inProgress": "Loading",
+            "completed": "Loaded",
+            "failed": "Load failed"
+          }
+        },
+        "state": {
+          "running": "Running",
+          "completed": "Completed",
+          "errored": "Errored",
+          "interrupted": "Interrupted",
+          "pendingInit": "Preparing",
+          "shutdown": "Shut down",
+          "notFound": "Not found"
+        }
+      },
+      "prChecks": {
+        "title": "CI checks",
+        "summary": {
+          "failing": "Checks failing",
+          "pending": "Checks pending",
+          "successful": "Checks passing",
+          "none": "No CI checks"
+        },
+        "state": {
+          "failed": "Test failed",
+          "passed": "Tests passed",
+          "pending": "Pending",
+          "skipped": "Skipped tests",
+          "neutral": "Neutral tests",
+          "unknown": "Test status unknown"
+        },
+        "action": {
+          "checksFix": "Fix",
+          "checksRemove": "Remove",
+          "commentsAddress": "Add to chat",
+          "commentsRemove": "Remove"
+        },
+        "countLabel": "{passed}/{total} checks passed"
+      },
       "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
       "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
       "ariaLabel": "Agent Task Progress Panel",
@@ -7390,6 +7482,91 @@
         "noReasonText": "Auto-review gave no reason",
         "noDecision": "No auto-review records",
         "expandAria": "Command history (expand/collapse)"
+      },
+      "toolSummaryShowMore": "More",
+      "toolSummaryShowLess": "Collapse",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "Creating",
+          "ready": "Created",
+          "initFailed": "Initialization failed",
+          "timeout": "Timed out",
+          "cleaned": "This task's worktree has been cleaned up to free disk space.",
+          "restoring": "Restoring",
+          "restored": "Restored",
+          "restoreFailed": "Unable to restore"
+        },
+        "hint": {
+          "timeout": "Please check the repository status",
+          "cleaned": "Restore this worktree to continue the task, or reclaim disk space.",
+          "singleWriter": "Only one active worktree is allowed per task at a time."
+        },
+        "action": {
+          "reclaimDisk": "Reclaim disk space",
+          "restore": "Restore worktree",
+          "retryRestore": "Retry restore",
+          "dismiss": "Got it"
+        },
+        "ariaLabel": "Worktree lifecycle"
+      },
+      "writingBlock": {
+        "title": "Writing block",
+        "ariaLabel": "Writing block",
+        "empty": "No writing blocks in this message",
+        "status": {
+          "idle": "Idle",
+          "editing": "Editing",
+          "accepted": "Accepted",
+          "reverted": "Reverted",
+          "failed": "Unable to update this writing block"
+        },
+        "action": {
+          "accept": "Accept",
+          "acceptAll": "Accept all",
+          "revert": "Revert"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "Accepting",
+            "completed": "Accepted",
+            "failed": "Unable to accept this writing block"
+          },
+          "acceptAll": {
+            "inProgress": "Accepting all",
+            "completed": "All accepted",
+            "failed": "Unable to accept all writing blocks"
+          },
+          "revert": {
+            "inProgress": "Reverting",
+            "completed": "Reverted",
+            "failed": "Unable to revert this writing block"
+          }
+        },
+        "openIn": {
+          "label": "Open with",
+          "email": "Open email in your default email app",
+          "browser": "Open the page in your default browser"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "Polish",
+        "ariaLabel": "Polish prompt",
+        "phase": {
+          "idle": "Not polished",
+          "polishing": "Polishing…",
+          "succeeded": "Polished",
+          "failed": "Polish failed"
+        },
+        "action": {
+          "polish": "Polish",
+          "retry": "Retry"
+        },
+        "failureDraftKept": "Can't polish the prompt right now. Your draft has been kept.",
+        "rejection": {
+          "emptyDraft": "The draft is empty. Enter some text before polishing."
+        },
+        "restartHint": "Polishing takes effect after a restart. Your draft has been kept."
       }
     },
     "permissionConfirm": {
@@ -11223,7 +11400,7 @@
       "gatewayHintA": "When calling the gateway, use the header",
       "gatewayHintB": "(that is the ihui_-prefixed Key ID; keep the Secret safe and never put it in a header).",
       "savedClose": "Saved, close"
-},
+    },
     "relayUsage": {
       "title": "Usage details",
       "subtitle": "Review relay and BYOK call statistics by model or by day",
@@ -11265,7 +11442,7 @@
       "allApiKeys": "All API Keys",
       "cacheRead": "Read {count}",
       "cacheWrite": "Write {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "Description",
@@ -11582,13 +11759,13 @@
       "reviewer": "Review assistant",
       "architect": "Architect",
       "debugger": "Debugging assistant"
-},
+    },
     "subRoles": {
       "researcher": "Researcher",
       "coder": "Coder",
       "reviewer": "Reviewer",
       "debugger": "Debugger"
-},
+    },
     "orch": {
       "parallel": "Parallel",
       "pipeline": "Sequential",
@@ -11597,13 +11774,13 @@
       "vote": "Voting",
       "critique": "Critique",
       "withCommunication": "Cooperative communication"
-},
+    },
     "subOrch": {
       "pipeline": "Pipeline",
       "critique": "Criticism",
       "decomposed": "Decomposition",
       "withCommunication": "With communication"
-},
+    },
     "orchDesc": {
       "parallel": "Multiple agents process the same task in parallel",
       "pipeline": "Multiple agents pass results sequentially",
@@ -11612,13 +11789,13 @@
       "vote": "5 agents work independently → vote for the best (1-5 points)",
       "critique": "Agents critique each other to improve (3 rounds: generate → critique → revise)",
       "withCommunication": "Agents communicate over a Redis message bus (3 collaborative rounds)"
-},
+    },
     "priority": {
       "low": "Low",
       "normal": "Normal",
       "high": "High",
       "urgent": "Urgent"
-},
+    },
     "fields": {
       "goal": "Task goal",
       "agentRole": "Agent role",
@@ -11643,7 +11820,7 @@
       "tokenQuota": "Token limit",
       "tokenQuotaForm": "Token quota",
       "maxRetries": "Max retries"
-},
+    },
     "defaultForbidden": "Any file not listed above",
     "defaultDagNodeTask": "Research requirements",
     "dagTitle": "DAG dependency graph",
@@ -14191,7 +14368,7 @@
       "openWithUnified": "Open in Unified",
       "openInEditor": "Open in Editor",
       "viewPullRequest": "View Pull Request"
-}
+    }
   },
   "imageGenPage": {
     "download": "Download",
@@ -14291,7 +14468,9 @@
     "summaryPlaceholder": "Describe the article in one sentence",
     "tagsLabel": "Tags",
     "titleLabel": "Title",
-    "titlePlaceholder": "Enter article title"
+    "titlePlaceholder": "Enter article title",
+    "tagInputPlaceholder": "Type a tag, then press Enter",
+    "add": "Add"
   },
   "kbEditPage": {
     "backToArticle": "Back to article",
@@ -14396,7 +14575,11 @@
     },
     "title": "Knowledge Base",
     "edit": "Edit Knowledge",
-    "search": "Search Knowledge"
+    "search": "Search Knowledge",
+    "metaTitle": "RAG Knowledge Retrieval — Vector + BM25 + Knowledge Graph | IHUI AI",
+    "metaDescription": "IHUI AI RAG knowledge retrieval: document chunking, vectorization and hybrid retrieval (vector + BM25 + knowledge graph), with real-time search and citation tracing. An enterprise-grade RAG management platform.",
+    "metaOgTitle": "RAG Knowledge Retrieval — Vector + BM25 + Knowledge Graph",
+    "metaOgDescription": "Document chunking + vectorization + hybrid retrieval + citation tracing"
   },
   "learn": {
     "allCategories": "All Categories",
@@ -14884,7 +15067,15 @@
         "temperatureHelp": "Sampling temperature, 0-2. Lower = more deterministic, higher = more diverse.",
         "title": "Default Params",
         "topP": "Top P",
-        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered."
+        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered.",
+        "presetPrecise": "Precise",
+        "presetPreciseDesc": "Low temperature, for code / factual Q&A",
+        "presetBalanced": "Balanced",
+        "presetBalancedDesc": "Default configuration, for everyday chat",
+        "presetCreative": "Creative",
+        "presetCreativeDesc": "High temperature, for writing / brainstorming",
+        "presetJson": "JSON Mode",
+        "presetJsonDesc": "Structured output, for API integration"
       },
       "modelsCount": "{count} models",
       "more": "{total} more, truncated",
@@ -14962,7 +15153,30 @@
       "testSuccessWithTime": "OK {ms}ms · {date}",
       "testTimeOnly": "{ms}ms",
       "untested": "Untested",
-      "usage30d": "30d Tokens"
+      "usage30d": "30d Tokens",
+      "byok": {
+        "modeLabel": "BYOK mode:",
+        "modeDesc": "Your API keys are stored encrypted (AES-256-GCM) and used directly to access vendors when calling. The platform charges only a 5-20% service fee; free providers such as Cloudflare / GitHub Models / HuggingFace cost nothing.",
+        "viewGuide": "View guide",
+        "welcomeTitle": "Welcome to BYOK platform mode",
+        "welcomeDesc": "Call vendor models with your own API key; the platform charges only a 5-20% service fee",
+        "whyTitle": "Why choose BYOK?",
+        "whyDesc": "BYOK (Bring Your Own Key) lets you call models with your own vendor API key, billed directly against your vendor account. The platform takes only a 5-20% service fee — unlike traditional relay services, there is no reseller markup.",
+        "freeProvidersTitle": "Recommended free providers",
+        "cfDesc": "@cf/ · free, no API key required",
+        "githubDesc": "github/ · free, with a GitHub token",
+        "hfDesc": "huggingface/ · free, with an HF token",
+        "pollinationsDesc": "pollinations/ · free, no API key required",
+        "llm7Desc": "llm7/ · free, no API key required",
+        "freeNote": "The free providers above cost nothing on the platform (0% service fee)",
+        "stepsTitle": "Steps",
+        "step1": "Click the 'Add Provider' button on the left",
+        "step2": "Choose a vendor (e.g. OpenAI / DeepSeek / Zhipu AI) or a free provider (e.g. cloudflare)",
+        "step3": "Enter your API key (stored encrypted with AES-256-GCM; the platform never sees the plaintext)",
+        "step4": "Add the models you want to use",
+        "step5": "When calling, the system automatically prefers your key",
+        "gotIt": "Got it"
+      }
     }
   },
   "market": {
@@ -24522,7 +24736,22 @@
     "uploadFailedWithReason": "Upload failed: {error}",
     "unknownError": "Unknown error",
     "missingFileId": "Upload response is missing file.id",
-    "maxAttachmentsReached": "At most {count} attachments allowed"
+    "maxAttachmentsReached": "At most {count} attachments allowed",
+    "placeholder": "Click or drag files here to upload",
+    "done": "Completed",
+    "cancelUpload": "Cancel upload",
+    "removeUploadedAriaLabel": "Remove uploaded file",
+    "removeItemAriaLabel": "Remove upload item",
+    "sizeLimitHint": "Max {size} per file",
+    "maxCountReached": "Limit of {max} files reached",
+    "oversizeFiles": "The following files exceed {size}: {files}",
+    "uploadFailed": "Upload failed",
+    "uploadFailedWithStatus": "Upload failed: HTTP {status}",
+    "invalidJsonResponse": "Response is not valid JSON",
+    "noUrlField": "No usable URL field found in response",
+    "networkError": "Network error",
+    "uploadCancelled": "Upload cancelled",
+    "imagePlaceholder": "Click or drag images here to upload"
   },
   "eduScheduling": {
     "title": "Smart Scheduling",
@@ -25458,7 +25687,7 @@
     "oauthManage": "Manage OAuth apps",
     "mcpConnect": "Connect MCP servers",
     "opsExecute": "Run operations tasks"
-},
+  },
   "apiKeysPage": {
     "title": "My API Keys",
     "createKey": "Create Key",
@@ -25475,5 +25704,57 @@
     "rotateSecretDesc": "Rotating the secret for \"{name}\" invalidates the old secret immediately, and apps using it must be updated. Continue?",
     "deleteKeyTitle": "Delete API Key",
     "deleteKeyDesc": "Delete \"{name}\"? The key becomes invalid immediately and cannot be recovered."
-}
+  },
+  "knowledgeList": {
+    "title": "Knowledge Base",
+    "subtitle": "Search knowledge stored in your memory library with semantic search",
+    "searchPlaceholder": "Search knowledge base...",
+    "searchAriaLabel": "Search knowledge base",
+    "empty": "No search results yet",
+    "searchHint": "Enter keywords to search the knowledge base",
+    "resultCount": "{count} results"
+  },
+  "knowledgeBase": {
+    "backToList": "Back to list",
+    "searchPlaceholder": "Search knowledge base articles...",
+    "metaTitle": "Knowledge Base — Enterprise RAG Knowledge Management | IHUI AI",
+    "metaDescription": "IHUI AI knowledge base: connect 30+ data sources, hybrid retrieval (vector + BM25 + knowledge graph), citation tracing and fine-grained permission control. Turn scattered documents into a conversable AI knowledge brain for your enterprise.",
+    "metaOgTitle": "Enterprise Knowledge Base RAG — IHUI AI",
+    "metaOgDescription": "30+ data sources + hybrid retrieval + citation tracing + permission control",
+    "list": {
+      "title": "Knowledge Base",
+      "subtitle": "Browse, search and manage knowledge base articles",
+      "allCategories": "All categories",
+      "empty": "No articles yet"
+    },
+    "detail": {
+      "notFound": "Article not found",
+      "viewCount": "{count} views",
+      "toc": "Contents",
+      "prev": "Previous",
+      "next": "Next"
+    },
+    "search": {
+      "backToKb": "Back to knowledge base",
+      "title": "Search results",
+      "resultSummary": "Found {count} results for \"{q}\"",
+      "inputKeyword": "Enter a search keyword",
+      "searching": "Searching...",
+      "noResult": "No matching articles found"
+    },
+    "create": {
+      "title": "New knowledge base article",
+      "subtitle": "Write and publish a new knowledge base article"
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "Loading...",
+    "screenshotNotice": "This site blocks embedding; switched to screenshot mode",
+    "blockedTitle": "Unsafe URL blocked",
+    "failedTitle": "Failed to load",
+    "externalTitle": "Cannot embed in panel",
+    "retry": "Retry",
+    "openExternal": "Open in external browser",
+    "idlePlaceholder": "Enter a URL or click a link in an AI message to open it"
+  }
 }

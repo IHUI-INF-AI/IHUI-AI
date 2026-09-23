@@ -9,6 +9,10 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):登录弹窗的 Esc 只在栈顶时被消费 */
+const LOGIN_POPUP_OVERLAY_ID = 'login-popup'
 
 export interface LoginPopupProps {
   open: boolean
@@ -28,10 +32,21 @@ export default function LoginPopup({
   children,
 }: LoginPopupProps): React.JSX.Element {
   const t = useTranslations('a11y')
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(LOGIN_POPUP_OVERLAY_ID)
+    return () => popOverlay(LOGIN_POPUP_OVERLAY_ID)
+  }, [open])
+
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose?.()
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(LOGIN_POPUP_OVERLAY_ID)) return
+        onClose?.()
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -47,7 +62,9 @@ export default function LoginPopup({
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose?.()
       }}
-      onKeyDown={(e) => e.key === 'Escape' && onClose?.()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && isTopOverlay(LOGIN_POPUP_OVERLAY_ID)) onClose?.()
+      }}
       tabIndex={-1}
     >
       <div

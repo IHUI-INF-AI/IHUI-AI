@@ -8,8 +8,12 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, X, Loader2, Sparkles, AlertCircle } from 'lucide-react'
 import { CloseButton } from '@ihui/ui-react'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useInlineEditStore } from '@/stores/inline-edit'
 import { useInlineEdit } from '@/hooks/use-inline-edit'
+
+/** 层栈 id(见 @/lib/overlay-stack):Inline Edit 对话框的 Esc 只在栈顶时被消费 */
+const INLINE_EDIT_DIALOG_OVERLAY_ID = 'inline-edit-dialog'
 
 /**
  * Inline Edit 对话框(Cmd+K 触发)。
@@ -38,6 +42,13 @@ export function InlineEditDialog() {
   const { startEdit, acceptPatch, rejectPatch, closeInlineEdit } = useInlineEdit()
   const inputRef = React.useRef<HTMLInputElement>(null)
 
+  // 层栈注册:isOpen → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!isOpen) return
+    pushOverlay(INLINE_EDIT_DIALOG_OVERLAY_ID)
+    return () => popOverlay(INLINE_EDIT_DIALOG_OVERLAY_ID)
+  }, [isOpen])
+
   // 打开时自动聚焦输入框
   React.useEffect(() => {
     if (isOpen) {
@@ -49,6 +60,8 @@ export function InlineEditDialog() {
   // ESC 关闭(Enter 提交,Cmd+Enter 兜底)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
+      // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+      if (!isTopOverlay(INLINE_EDIT_DIALOG_OVERLAY_ID)) return
       e.preventDefault()
       closeInlineEdit()
       return

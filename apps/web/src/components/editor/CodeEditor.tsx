@@ -259,10 +259,10 @@ function flushFimReport(): void {
         body: JSON.stringify({ model: fimReportModel || 'auto', ...delta, latencyMs }),
       }),
     ).catch((error) => {
-      console.warn('[ihui-fim] 补全指标上报失败(已忽略)', error)
+      console.warn('[ihui-fim] completion metrics report failed (ignored)', error)
     })
   } catch (error) {
-    console.warn('[ihui-fim] 补全指标上报异常(已忽略)', error)
+    console.warn('[ihui-fim] completion metrics report threw (ignored)', error)
   }
 }
 
@@ -547,9 +547,9 @@ export function CodeEditor({
       lspUnavailableHintedRef.current = true
       const hint =
         res?.errorCode === 'lsp-unavailable' || res?.error?.includes('LSP')
-          ? '建议改用 codegraph/goto_definition 或 codegraph/find_references 作为离线兜底。'
+          ? 'Prefer codegraph/goto_definition or codegraph/find_references as an offline fallback.'
           : ''
-      console.info(`[ihui-lsp] ${scope} 不可用,已静默降级(编辑器功能不受影响)。${hint}`)
+      console.info(`[ihui-lsp] ${scope} unavailable, silently degraded (editor unaffected).${hint}`)
     },
     [],
   )

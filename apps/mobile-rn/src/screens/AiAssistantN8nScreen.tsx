@@ -42,9 +42,7 @@ import {
   Alert,
   FlatList,
   Image,
-  Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -61,28 +59,23 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
-import * as ImagePicker from 'expo-image-picker'
-import * as DocumentPicker from 'expo-document-picker'
 import {
+  AlertTriangle,
   Bot,
   Brain,
-  Camera,
   ChevronDown,
   ChevronRight,
   Copy,
   Download,
   Eye,
   EyeOff,
-  Folder,
-  Image as ImageIcon,
-  MessageCircle,
+  RefreshCw,
   Settings,
   Share2,
 } from 'lucide-react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { navigateDrawerTab } from '../navigation/tab-utils'
-import { AddPanel } from '../components/AddPanel'
 import {
   deleteConversation,
   fetchModels,
@@ -91,9 +84,7 @@ import {
   getTokenBalance,
   getWorkspacePermissionDefault,
   listConversations,
-  resolveFileUrl,
   streamChat,
-  uploadFileMultipart,
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
@@ -103,7 +94,14 @@ import {
   describeToolCall,
   type ToolCallView,
 } from '@ihui/shared'
+import {
+  applyStreamError,
+  isErrorTurn,
+  permissionTierWordKeys,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { TaskStatusBar } from '../components/ai/TaskStatusBar'
@@ -166,6 +164,9 @@ interface N8nMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** 失败轮标记(词汇与共享层 ChatMessage.error 同一份,不另立字段):
+   *  有此标记的回复渲染错误卡片 + 重试,且不算内容(不给分享)。 */
+  error?: boolean
   /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
   images?: string[]
   /** 对齐 Uniapp agent_content_list.total_tokens:回复消耗智汇值。
@@ -434,110 +435,6 @@ function PlanStepList({
   )
 }
 
-/**
- * #11 引用来源列表:来源标签 + 条目文字。
- * 只有 **http(s)** 外链才给跳转(仓库相对路径在手机端没有可打开的目标,给了就是死链)。
- */
-function CitationList({ items }: { items: readonly MessageCitation[] }): React.JSX.Element | null {
-  const { t } = useI18n()
-  if (!items.length) return null
-  return (
-    <View style={bubbleStyles.block}>
-      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.citationTitle')}</Text>
-      {items.map((item, index) => {
-        const url = item.url
-        const external = typeof url === 'string' && /^https?:\/\//i.test(url)
-        const body = (
-          <>
-            <Text style={bubbleStyles.cardMeta}>{item.source}</Text>
-            <Text style={bubbleStyles.planText} numberOfLines={2}>
-              {item.label}
-            </Text>
-          </>
-        )
-        return (
-          <View key={`${item.source}_${index}`} style={bubbleStyles.card}>
-            {external && url ? (
-              <Pressable
-                style={bubbleStyles.cardHead}
-                accessibilityRole="link"
-                accessibilityLabel={url}
-                onPress={() => {
-                  void Linking.openURL(url)
-                }}
-              >
-                {body}
-              </Pressable>
-            ) : (
-              <View style={bubbleStyles.cardHead}>{body}</View>
-            )}
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
-/** D34 注入来源 kind → 本端取词键(与 apps/ai-service llm.py 的 injection_frames 同源) */
-const INJECTION_KIND_KEYS = {
-  developer_instructions: 'aiAssistantN8n.injectionKindDeveloper',
-  workspace_memory: 'aiAssistantN8n.injectionKindWorkspace',
-  repo_wiki: 'aiAssistantN8n.injectionKindRepoWiki',
-  auto_context: 'aiAssistantN8n.injectionKindAutoContext',
-} as const
-
-/** 注入交代条:一行一个来源;只有帧里确实带了 fullText 才给展开入口(不给假按钮) */
-function InjectionDisclosure({
-  items,
-}: {
-  items: readonly MessageInjection[]
-}): React.JSX.Element | null {
-  const { t } = useI18n()
-  const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({})
-  if (!items.length) return null
-  return (
-    <View style={bubbleStyles.block}>
-      <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.injectionTitle')}</Text>
-      {items.map((item, index) => {
-        const key = `${item.kind}_${index}`
-        const open = openKeys[key] === true
-        const kindKey =
-          item.kind in INJECTION_KIND_KEYS
-            ? INJECTION_KIND_KEYS[item.kind as keyof typeof INJECTION_KIND_KEYS]
-            : undefined
-        return (
-          <View key={key} style={bubbleStyles.card}>
-            <Pressable
-              style={bubbleStyles.cardHead}
-              onPress={() => setOpenKeys((prev) => ({ ...prev, [key]: !open }))}
-              accessibilityRole="button"
-              accessibilityLabel={item.collapsed}
-            >
-              {item.fullText ? (
-                open ? (
-                  <ChevronDown size={10} color={tokens.text.tertiary} />
-                ) : (
-                  <ChevronRight size={10} color={tokens.text.tertiary} />
-                )
-              ) : null}
-              {/* 界面文本出自本端词表;后端中文 collapsed 仅在未知 kind 时兜底 */}
-              <Text style={bubbleStyles.planText}>{kindKey ? t(kindKey) : item.collapsed}</Text>
-              {typeof item.count === 'number' ? (
-                <Text style={bubbleStyles.cardMeta}>{item.count}</Text>
-              ) : null}
-            </Pressable>
-            {open && item.fullText ? (
-              <View style={bubbleStyles.cardBody}>
-                <Text style={bubbleStyles.planText}>{item.fullText}</Text>
-              </View>
-            ) : null}
-          </View>
-        )
-      })}
-    </View>
-  )
-}
-
 /** 终端任务列表(W7):命令 + 状态徽标 + 耗时;点击折叠查看等宽输出 + 退出码 */
 function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): React.JSX.Element {
   const { t } = useI18n()
@@ -616,15 +513,21 @@ interface MessageBubbleProps {
   onPreviewImage: (url: string) => void
   /** 浮层提示(复用屏幕 showToast,对齐 Uniapp uni.showToast) */
   onToast: (type: FloatBoxType, message: string) => void
+  /** 失败轮重试:仅当该轮确实可重发时由父级传入;缺失即不渲染重试按钮 */
+  onRetry?: () => void
 }
 
 function MessageBubble({
   message,
   onPreviewImage,
   onToast,
+  onRetry,
 }: MessageBubbleProps): React.JSX.Element {
+  const { t } = useI18n()
   const isUser = message.role === 'user'
   const hasImages = !isUser && (message.images?.length ?? 0) > 0
+  // 失败轮:渲染错误卡片而非正文(与 web D22 / ChatScreen 同一形态)
+  const isFailed = !isUser && isErrorTurn(message)
   // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
   const [answerVisible, setAnswerVisible] = useState(true)
   // 思考过程展开/收起(对齐 Uniapp agent_con1)
@@ -691,7 +594,29 @@ function MessageBubble({
       ) : (
         <View style={bubbleStyles.msgCol}>
           <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAi]}>
-            {answerVisible && message.content ? (
+            {isFailed ? (
+              <View style={bubbleStyles.errorCard}>
+                <View style={bubbleStyles.errorHeader}>
+                  <AlertTriangle size={14} color={tokens.error.text} />
+                  <Text style={bubbleStyles.errorTitle}>{t('chatAlert.errorTitle')}</Text>
+                </View>
+                <Text style={bubbleStyles.errorBody} selectable>
+                  {message.content}
+                </Text>
+                {onRetry ? (
+                  <TouchableOpacity
+                    style={bubbleStyles.errorRetry}
+                    hitSlop={8}
+                    onPress={onRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chatAlert.errorRetry')}
+                  >
+                    <RefreshCw size={14} color={tokens.error.text} />
+                    <Text style={bubbleStyles.errorRetryText}>{t('chatAlert.errorRetry')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : answerVisible && message.content ? (
               <Text style={[bubbleStyles.text, bubbleStyles.textAi]}>{message.content}</Text>
             ) : null}
             {answerVisible && hasImages ? (
@@ -798,16 +723,19 @@ function MessageBubble({
                   <Download size={16} color={tokens.text.secondary} />
                 </TouchableOpacity>
               ) : null}
-              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content) */}
-              <TouchableOpacity
-                style={bubbleStyles.actionBtn}
-                hitSlop={6}
-                onPress={handleShare}
-                accessibilityRole="button"
-                accessibilityLabel="分享"
-              >
-                <Share2 size={16} color={tokens.text.secondary} />
-              </TouchableOpacity>
+              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content)
+                  失败轮不给分享(它不是内容);复制保留 —— 报错排查要用那段文字 */}
+              {isFailed ? null : (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={handleShare}
+                  accessibilityRole="button"
+                  accessibilityLabel="分享"
+                >
+                  <Share2 size={16} color={tokens.text.secondary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -835,88 +763,6 @@ export default function AiAssistantN8nScreen() {
   const [messages, setMessages] = useState<N8nMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-
-  // ── 输入区「+」添加面板(统一 AddPanel:相机/相册/本地文件/微信文件;
-  //    上传链路与 HomeScreen/ChatScreen 同源:选择 → uploadFileMultipart → 拼入 prompt) ──
-  const [addPanelVisible, setAddPanelVisible] = useState(false)
-  const [addUploading, setAddUploading] = useState(false)
-  const handleAddPanelToggle = (): void => {
-    if (!addPanelVisible) Keyboard.dismiss()
-    setAddPanelVisible(!addPanelVisible)
-  }
-  /** 相机(对齐 ChatScreen handleIconClick('camera'):相机拍摄待接入,占位提示) */
-  const handleAddCamera = (): void => {
-    setAddPanelVisible(false)
-    showToast('warning', '相机拍摄待接入,请先用相册上传图片')
-  }
-  /** 相册选图 → 上传 → 拼入输入框 */
-  const handleAddAlbum = async (): Promise<void> => {
-    setAddPanelVisible(false)
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsMultipleSelection: false,
-        quality: 0.8,
-      })
-      if (result.canceled) return
-      const asset = result.assets?.[0]
-      if (!asset?.uri) return
-      setAddUploading(true)
-      const up = await uploadFileMultipart({
-        uri: asset.uri,
-        type: asset.mimeType ?? 'image/jpeg',
-        name: asset.fileName ?? `image-${Date.now()}.jpg`,
-      })
-      if (up.success && up.data?.path) {
-        setInput((p) => `${p ? `${p}\n` : ''}[图片] ${resolveFileUrl(up.data!.path)}`)
-        showToast('success', '图片已上传,发送后可在对话中使用')
-      } else {
-        showToast('warning', '图片上传失败')
-      }
-    } catch {
-      showToast('warning', '图片选择失败,请重试')
-    } finally {
-      setAddUploading(false)
-    }
-  }
-  /** 本地文件 / 微信文件选择 → 上传 → 拼入输入框(对齐 ChatScreen handleFileUpload:
-   *  wxfile 与 file 走同一 DocumentPicker 链路) */
-  const handleAddFile = async (): Promise<void> => {
-    setAddPanelVisible(false)
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'text/plain',
-        ],
-        copyToCacheDirectory: true,
-        multiple: false,
-      })
-      if (result.canceled || result.assets.length === 0) return
-      const asset = result.assets[0]!
-      setAddUploading(true)
-      const up = await uploadFileMultipart({
-        uri: asset.uri,
-        type: asset.mimeType ?? 'application/octet-stream',
-        name: asset.name ?? `file-${Date.now()}`,
-      })
-      if (up.success && up.data?.path) {
-        const fileName = asset.name ?? '文件'
-        setInput((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
-        showToast('success', `已上传:${fileName}`)
-      } else {
-        showToast('warning', '文件上传失败')
-      }
-    } catch {
-      showToast('warning', '文件选择失败,请重试')
-    } finally {
-      setAddUploading(false)
-    }
-  }
   // 当前对话 ID(从路由传入或后续选择历史对话时更新,用于 streamChat metadata)
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(
     routeConversationId,
@@ -1103,11 +949,12 @@ export default function AiAssistantN8nScreen() {
         .find(
           (m) =>
             m.role === 'assistant' &&
-            typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode ===
-              'string',
+            typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode === 'string',
         )
       if (stampedMeta) {
-        setStampedTier((stampedMeta.metadata as { permissionMode: string }).permissionMode)
+        setStampedTier(
+          (stampedMeta.metadata as { permissionMode: string }).permissionMode,
+        )
       }
       // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
       // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
@@ -1115,7 +962,12 @@ export default function AiAssistantN8nScreen() {
       const loaded: N8nMessage[] = res.data.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m, idx) => {
-          const meta = m.metadata as { toolCalls?: unknown; planSteps?: unknown } | null
+          const meta = m.metadata as {
+            toolCalls?: unknown
+            planSteps?: unknown
+            citations?: unknown
+            injections?: unknown
+          } | null
           const planSteps = Array.isArray(meta?.planSteps)
             ? (meta?.planSteps as Array<Record<string, unknown>>).flatMap((s, i) =>
                 typeof s?.step === 'string'
@@ -1155,12 +1007,44 @@ export default function AiAssistantN8nScreen() {
               )
             : undefined
           return {
+          // G-166:交代帧同样从 metadata 读回 —— 服务端已把"引用了哪些来源 / 本轮带了哪些
+          // 上下文"随回调落库(与 SSE 帧同一真相源),此前重进历史会话这两段交代整段看不见。
+          // 逐条类型守卫:脏条目单条丢弃,缺 url 不造"点不动的假链接"。
+          const citations = Array.isArray(meta?.citations)
+            ? (meta?.citations as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.source === 'string' && typeof c.label === 'string'
+                  ? [
+                      {
+                        source: c.source,
+                        label: c.label,
+                        ...(typeof c.url === 'string' && c.url ? { url: c.url } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const injections = Array.isArray(meta?.injections)
+            ? (meta?.injections as Array<Record<string, unknown>>).flatMap((x) =>
+                typeof x?.kind === 'string' && typeof x.collapsed === 'string'
+                  ? [
+                      {
+                        kind: x.kind,
+                        collapsed: x.collapsed,
+                        ...(typeof x.fullText === 'string' ? { fullText: x.fullText } : {}),
+                        ...(typeof x.count === 'number' ? { count: x.count } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
             id: `${m.id}-${idx}`,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
             ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
           }
+            ...(citations && citations.length > 0 ? { citations } : {}),
+            ...(injections && injections.length > 0 ? { injections } : {}),
         })
       setMessages(loaded)
       requestAnimationFrame(() => {
@@ -1392,15 +1276,11 @@ export default function AiAssistantN8nScreen() {
           const formatted = formatSSEError(new Error(err), info)
           setSending(false)
           abortRef.current = null
-          // 空回复时填充错误提示
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant' && !last.content) {
-              next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-            }
-            return next
-          })
+          // 失败轮:标 error + 仅在正文为空时写错误文案(共享层同一标记规则,与 ChatScreen / web 一致)。
+          // 此前只填文案不打标 → 数据上与一次真回答同形,界面也只有一句普通文本、没有任何出口。
+          setMessages((prev) =>
+            applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+          )
           // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
           const errMsg = formatted.message
             ? `${formatted.title}: ${formatted.message}`
@@ -1429,14 +1309,9 @@ export default function AiAssistantN8nScreen() {
       const formatted = formatSSEError(err)
       setSending(false)
       abortRef.current = null
-      setMessages((prev) => {
-        const next = [...prev]
-        const last = next[next.length - 1]
-        if (last && last.role === 'assistant' && !last.content) {
-          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-        }
-        return next
-      })
+      setMessages((prev) =>
+        applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+      )
       const errMsg = formatted.message
         ? `${formatted.title}: ${formatted.message}`
         : formatted.title
@@ -1451,6 +1326,15 @@ export default function AiAssistantN8nScreen() {
   }
 
   // 模型切换(对齐 Uniapp pitchHandle:index → modelName)
+  /** 失败轮重试:重发最后一条用户提问,并把失败气泡从视图撤掉。
+   *  本屏 send 只带"本轮 + systemPrompt"(不回放历史),所以无需像 ChatScreen 那样截断历史。 */
+  const retryLastTurn = (): void => {
+    const text = resendTargetText(messages)
+    if (!text) return
+    setMessages((prev) => prev.filter((m) => !isErrorTurn(m)))
+    void onSend(text)
+  }
+
   const handleModelSelect = (ids: string[]): void => {
     const id = ids[0]
     if (id) {
@@ -1561,7 +1445,12 @@ export default function AiAssistantN8nScreen() {
   }
 
   const renderItem: ListRenderItem<N8nMessage> = ({ item }) => (
-    <MessageBubble message={item} onPreviewImage={handlePreviewImage} onToast={showToast} />
+    <MessageBubble
+      message={item}
+      onPreviewImage={handlePreviewImage}
+      onToast={showToast}
+      onRetry={isErrorTurn(item) && resendTargetText(messages) !== null ? retryLastTurn : undefined}
+    />
   )
 
   return (
@@ -1690,42 +1579,6 @@ export default function AiAssistantN8nScreen() {
           onStop={onStop}
           stopLabel={t('chat.stop')}
           sendLabel={t('aiAssistantN8n.send')}
-          onImageAdd={handleAddPanelToggle}
-        />
-        {/* 「+」底部滑出添加面板(统一 AddPanel,与 HomeScreen/ChatScreen 同源) */}
-        <AddPanel
-          visible={addPanelVisible}
-          onClose={() => setAddPanelVisible(false)}
-          items={[
-            {
-              key: 'camera',
-              label: '相机',
-              icon: <Camera size={24} color={tokens.text.secondary} />,
-              onPress: handleAddCamera,
-            },
-            {
-              key: 'album',
-              label: '相册',
-              icon: addUploading ? (
-                <ActivityIndicator size="small" color={tokens.text.secondary} />
-              ) : (
-                <ImageIcon size={24} color={tokens.text.secondary} />
-              ),
-              onPress: () => void handleAddAlbum(),
-            },
-            {
-              key: 'file',
-              label: '本地文件',
-              icon: <Folder size={24} color={tokens.text.secondary} />,
-              onPress: () => void handleAddFile(),
-            },
-            {
-              key: 'wxfile',
-              label: '微信文件',
-              icon: <MessageCircle size={24} color={tokens.text.secondary} />,
-              onPress: () => void handleAddFile(),
-            },
-          ]}
         />
         {sending ? (
           <View style={styles.streamingBar}>
@@ -1908,6 +1761,42 @@ const bubbleStyles = StyleSheet.create({
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
+  // 失败轮错误卡片(与 web D22 / ChatScreen 同一形态:警示头 + 正文 + 重试出口)
+  errorCard: {
+    width: '100%',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.danger.light,
+    backgroundColor: tokens.error.bg,
+    overflow: 'hidden',
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: tokens.danger.light,
+  },
+  errorTitle: { fontSize: 12, fontWeight: '500', color: tokens.error.text },
+  errorBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.error.text,
+  },
+  errorRetry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  errorRetryText: { fontSize: 12, color: tokens.error.text },
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -2060,7 +1949,7 @@ const pickerStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
-    backgroundColor: tokens.surface.card,
+    backgroundColor: tokens.surface.light,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     maxHeight: '70%',

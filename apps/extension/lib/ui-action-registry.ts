@@ -353,9 +353,8 @@ function setNativeValue(el: ExtDomElement, value: string): void {
   else if (tag === 'TEXTAREA') proto = g.HTMLTextAreaElement?.prototype
   else if (tag === 'INPUT') proto = g.HTMLInputElement?.prototype
   const setter = proto
-    ? (Object.getOwnPropertyDescriptor(proto, 'value') as
-        | { set?: (v: string) => void }
-        | undefined)?.set
+    ? (Object.getOwnPropertyDescriptor(proto, 'value') as { set?: (v: string) => void } | undefined)
+        ?.set
     : undefined
   if (setter) setter.call(el, value)
   else (el as { value?: unknown }).value = value
@@ -449,7 +448,8 @@ export async function executeExtUiAction(
     case 'fill': {
       const el = resolveUiTarget(String(p.target ?? ''))
       if (!el) return fail('SELECTOR_NOT_FOUND', `找不到目标: ${String(p.target ?? '')}`)
-      if (isSensitiveField(el)) return fail('PERMISSION_DENIED', '密码/验证码/密钥类字段禁止 AI 填写')
+      if (isSensitiveField(el))
+        return fail('PERMISSION_DENIED', '密码/验证码/密钥类字段禁止 AI 填写')
       if (isDisabledElement(el)) return fail('EXECUTION_FAILED', '目标元素已禁用')
       const tag = tagOf(el)
       const inputType = (el.type ?? el.getAttribute('type') ?? '').toLowerCase()
@@ -504,7 +504,9 @@ export async function executeExtUiAction(
       if (!form) return fail('SELECTOR_NOT_FOUND', '页面上没有可提交的表单')
       const formText = [
         elementLabel(form),
-        ...toArray(form.querySelectorAll?.('button, [type="submit"]')).map((b) => b.textContent ?? ''),
+        ...toArray(form.querySelectorAll?.('button, [type="submit"]')).map(
+          (b) => b.textContent ?? '',
+        ),
       ].join(' ')
       if (DESTRUCTIVE_RE.test(formText))
         return fail('DESTRUCTIVE_BLOCKED', '该操作被识别为破坏性操作,需用户手动执行')
