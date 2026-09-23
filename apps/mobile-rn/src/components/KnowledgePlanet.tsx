@@ -12,7 +12,7 @@
  * - 卡片社交计数:分类标签 + 浏览 / 评论 / 点赞 / 转发(图标 + 数字,line-box)
  * - 下拉刷新(RefreshControl,refreshing/onRefresh 由父级驱动)
  * - 空态提示
- * - 浅色优雅风,rnLightTokens;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(列表 gap 间距)
+ * - 浅色优雅风,主题 token 入口;圆角守门(AGENTS.md §4,无 rounded-full);无分割线(列表 gap 间距)
  * - 配色仅走 brand 黑 / success 绿 / warning 橙 / danger 红(禁用 purple/indigo)
  */
 import { useState } from 'react'
@@ -28,7 +28,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 

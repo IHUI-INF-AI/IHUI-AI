@@ -14,22 +14,22 @@
  * - admin 权限校验:roleId < 1 → 403
  *
  * 测试模式:vi.mock 掉 db / authenticate(对齐 publish-routes.test.ts)。
+ * O13b 试点批:earnings 已收敛为集中 requireAdmin preHandler,鉴权断言改为驱动
+ * 捕获到的 preHandler(真实集中封装逻辑,仅 authenticate 被 mock)。
  * 测试文件豁免 any(mock 类型断言必需,AGENTS.md §3)。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
-// mock authenticate(避免触发 JWT 解析)
-const { mockAuthenticate, mockCheckAuth } = vi.hoisted(() => ({
+// mock authenticate(避免触发 JWT 解析;no-op 保留 request.jwtPayload,供真实 requireAdmin 判定)
+const { mockAuthenticate } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(async () => {
     /* no-op */
   }),
-  mockCheckAuth: vi.fn(async () => true),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
-  checkAuth: mockCheckAuth,
 }))
 
 // mock dbRead.execute(返回数组,handler 里用 [row] 解构第一行)
@@ -54,8 +54,10 @@ import { earningsRoutes, isFreeProviderModel } from '../src/routes/earnings-rout
 function buildMockServer(): {
   server: FastifyInstance
   handlers: Map<string, (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>>
+  preHandlers: Array<(req: FastifyRequest, reply: FastifyReply) => Promise<unknown>>
 } {
   const handlers = new Map<string, (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>>()
+  const preHandlers: Array<(req: FastifyRequest, reply: FastifyReply) => Promise<unknown>> = []
   const server = {
     get: vi.fn((path: string, handler: unknown) => {
       handlers.set(
@@ -66,9 +68,23 @@ function buildMockServer(): {
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
-    addHook: vi.fn(),
+    addHook: vi.fn((hook: string, fn: unknown) => {
+      if (hook === 'preHandler') {
+        preHandlers.push(fn as (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>)
+      }
+    }),
   } as unknown as FastifyInstance
-  return { server, handlers }
+  return { server, handlers, preHandlers }
+}
+
+/** 取 earnings 唯一的 requireAdmin preHandler(收敛后鉴权唯一入口)。 */
+function getPreHandler(entry: {
+  preHandlers: Array<(req: FastifyRequest, reply: FastifyReply) => Promise<unknown>>
+}): (req: FastifyRequest, reply: FastifyReply) => Promise<unknown> {
+  expect(entry.preHandlers.length).toBe(1)
+  const hook = entry.preHandlers[0]
+  if (!hook) throw new Error('preHandler 未注册')
+  return hook
 }
 
 function makeRequest(
@@ -122,8 +138,8 @@ function makeReply(): FastifyReply & { sentPayload: unknown; sentStatus: number 
 describe('earnings-routes — 挣钱中心仪表盘后端', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // 默认 checkAuth 返回 true(已认证)
-    mockCheckAuth.mockResolvedValue(true)
+    // 默认 authenticate 为 no-op(保留 request.jwtPayload,真实 requireAdmin 按 roleId 判定)
+    mockAuthenticate.mockResolvedValue(undefined)
   })
 
   // ===========================================================================
@@ -262,33 +278,34 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       expect(payload.data.referralTrend).toBe(100)
     })
 
-    it('admin 权限校验:roleId=0 → 403 "需要管理员权限"', async () => {
-      const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+    it('admin 权限校验:roleId=0 → 403 "需要管理员权限"(集中 requireAdmin preHandler 拦截)', async () => {
+      const entry = buildMockServer()
+      await earningsRoutes(entry.server)
+      const preHandler = getPreHandler(entry)
 
-      const handler = handlers.get('GET /overview')!
       const reply = makeReply()
-      await handler(makeRequest({ roleId: 0 }), reply)
+      await preHandler(makeRequest({ roleId: 0 }), reply)
 
       expect(reply.sentStatus).toBe(403)
       const payload = reply.sentPayload as { code: number; message: string }
       expect(payload.code).toBe(403)
       expect(payload.message).toContain('管理员')
-      // dbRead 不应被调用(权限校验失败短路)
+      // dbRead 不应被调用(权限校验失败短路在 preHandler,handler 根本不会执行)
       expect(mockDbReadExecute).not.toHaveBeenCalled()
     })
 
-    it('未通过 authenticate → 401 短路(checkAuth 返回 false)', async () => {
-      const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
-      mockCheckAuth.mockResolvedValueOnce(false)
+    it('未通过 authenticate → 401 短路(集中 requireAdmin 发送 401)', async () => {
+      const entry = buildMockServer()
+      await earningsRoutes(entry.server)
+      const authErr = new Error('Invalid or expired token') as Error & { statusCode: number }
+      authErr.statusCode = 401
+      mockAuthenticate.mockRejectedValueOnce(authErr)
 
-      const handler = handlers.get('GET /overview')!
+      const preHandler = getPreHandler(entry)
       const reply = makeReply()
-      await handler(makeRequest({ roleId: 1 }), reply)
+      await preHandler(makeRequest({ roleId: 1 }), reply)
 
-      // checkAuth 失败时 reply 已被 send,但 sentStatus 可能是 401(由 checkAuth 内部 send)
-      // 这里只验证 dbRead 未被调用即可证明短路
+      expect(reply.sentStatus).toBe(401)
       expect(mockDbReadExecute).not.toHaveBeenCalled()
     })
   })
@@ -388,13 +405,13 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       expect(payload.data.length).toBe(365)
     })
 
-    it('admin 权限校验:roleId < 1 → 403', async () => {
-      const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+    it('admin 权限校验:roleId < 1 → 403(集中 preHandler 拦截)', async () => {
+      const entry = buildMockServer()
+      await earningsRoutes(entry.server)
+      const preHandler = getPreHandler(entry)
 
-      const handler = handlers.get('GET /byok-trend')!
       const reply = makeReply()
-      await handler(makeRequest({ roleId: 0, query: { days: '30' } }), reply)
+      await preHandler(makeRequest({ roleId: 0, query: { days: '30' } }), reply)
 
       expect(reply.sentStatus).toBe(403)
       expect(mockDbReadExecute).not.toHaveBeenCalled()
@@ -460,13 +477,13 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       expect(directStat!.count).toBe(50)
     })
 
-    it('admin 权限校验:roleId < 1 → 403,dbRead 不调用', async () => {
-      const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+    it('admin 权限校验:roleId < 1 → 403,dbRead 不调用(集中 preHandler 拦截)', async () => {
+      const entry = buildMockServer()
+      await earningsRoutes(entry.server)
+      const preHandler = getPreHandler(entry)
 
-      const handler = handlers.get('GET /referral')!
       const reply = makeReply()
-      await handler(makeRequest({ roleId: 0 }), reply)
+      await preHandler(makeRequest({ roleId: 0 }), reply)
 
       expect(reply.sentStatus).toBe(403)
       expect(mockDbReadExecute).not.toHaveBeenCalled()
@@ -531,13 +548,13 @@ describe('earnings-routes — 挣钱中心仪表盘后端', () => {
       expect(payload.data.every((d) => d.count === 0)).toBe(true)
     })
 
-    it('admin 权限校验:roleId < 1 → 403,dbRead 不调用', async () => {
-      const { server, handlers } = buildMockServer()
-      await earningsRoutes(server)
+    it('admin 权限校验:roleId < 1 → 403,dbRead 不调用(集中 preHandler 拦截)', async () => {
+      const entry = buildMockServer()
+      await earningsRoutes(entry.server)
+      const preHandler = getPreHandler(entry)
 
-      const handler = handlers.get('GET /funnel')!
       const reply = makeReply()
-      await handler(makeRequest({ roleId: 0 }), reply)
+      await preHandler(makeRequest({ roleId: 0 }), reply)
 
       expect(reply.sentStatus).toBe(403)
       expect(mockDbReadExecute).not.toHaveBeenCalled()

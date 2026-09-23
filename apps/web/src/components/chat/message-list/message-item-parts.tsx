@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { useEffect, useRef } from 'react'
+
 import { useLocale, useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { ChatMessage } from '@/stores/chat'
@@ -64,6 +66,32 @@ export function TypingIndicator({
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
   const liveMs = useLiveElapsed(runningTool !== undefined, null)
 
+  // preview 必须在 hooks 之前算:hooks 不得落在 `if (runningTool) return` 之后(条件调用)。
+  const preview =
+    reasoning && reasoning.length > 0
+      ? reasoning.length > 40
+        ? `${reasoning.slice(0, 40)}…`
+        : reasoning
+      : ''
+
+  // D79 avoidSeed 接线 —— 相邻两帧不撞同一条文案。
+  // 记账对象是"上一帧**实际渲染**的池 seed":runningTool 分支与 reasoning 预览都不渲染池文案,
+  // 那种帧不记账(否则会把没进过池的 seed 当 prev,造成无谓顺移)。
+  const poolSeed = waitSeed ?? 0
+  const poolRendered =
+    waitQuadrant !== undefined &&
+    waitPhase !== undefined &&
+    runningTool === undefined &&
+    preview === ''
+  // render 期只读 ref、写入一律在 effect(React 反模式:render 阶段不得写 ref)。
+  // 不新增 state ⇒ 不触发额外重渲染;也不用模块级变量(本池 5 端共用,模块态会跨实例串台)。
+  // SSR 首帧手里没有 prev ⇒ ref 为 null ⇒ 不传 avoidSeed,输出与接线前逐字节一致。
+  // 这是特性不是缺陷:服务端无从得知客户端上一帧,猜值只会制造水合不一致。
+  const prevPoolSeedRef = useRef<number | string | null>(null)
+  useEffect(() => {
+    if (poolRendered) prevPoolSeedRef.current = poolSeed
+  }, [poolRendered, poolSeed])
+
   if (runningTool) {
     const view = describeToolCall({
       toolName: runningTool.toolName,
@@ -83,13 +111,6 @@ export function TypingIndicator({
     )
   }
 
-  const preview =
-    reasoning && reasoning.length > 0
-      ? reasoning.length > 40
-        ? `${reasoning.slice(0, 40)}…`
-        : reasoning
-      : ''
-
   // D79 返工:分象限轮换池走 shared 词表,t 注入进纯函数;缺键回退英文,永不回显 key。
   // aria-hidden:轮换是纯视觉反馈,读屏唯一播报口是 sr-stream-announcer,此处隐藏防重复播报。
   const waitingText =
@@ -98,7 +119,7 @@ export function TypingIndicator({
           quadrant: waitQuadrant,
           phase: waitPhase,
           locale: toWaitingLocale(locale),
-          seed: waitSeed ?? 0,
+          seed: poolSeed,
           t: (key: string) => {
             const shortKey = key.startsWith('waiting.') ? key.slice('waiting.'.length) : key
             try {
@@ -108,6 +129,9 @@ export function TypingIndicator({
               return undefined
             }
           },
+          // null → undefined:未渲染过池文案的帧(含 SSR 首帧)不参与相邻去重,
+          // 共享池据此走"未传 avoidSeed"分支,与旧行为逐字节一致。
+          avoidSeed: prevPoolSeedRef.current ?? undefined,
         })
       : null
 

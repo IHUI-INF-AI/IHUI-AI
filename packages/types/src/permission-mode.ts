@@ -75,6 +75,14 @@ export function normalizePermissionMode(raw: unknown): PermissionModeId | null {
 }
 
 /**
+ * `normalizePermissionMode` 的具名别名(任意拼写 → 规范档 | null)。
+ *
+ * 单点实现不复制:调用方想显式表达"取规范档"意图时用这个名字(如 400 文案派生、
+ * 测试断言),真正的归一逻辑仍只有 normalizePermissionMode 一份真相。
+ */
+export const permissionModeId: (raw: unknown) => PermissionModeId | null = normalizePermissionMode
+
+/**
  * workspace 线协议/落库拼写的**唯一清单**(kebab)。
  *
  * 为什么单独把"值数组"也放注册表:`z.enum()` 需要一个字面量元组,如果各路由自己写,
@@ -107,6 +115,19 @@ export const PERMISSION_MODE_WIRE: Readonly<Partial<Record<PermissionModeId, Per
     bypassPermissions: 'bypass-permissions',
     plan: 'plan',
   }
+
+/**
+ * 有 wire 映射的规范档清单(现即 4 档,**从 `PERMISSION_MODE_WIRE` 派生,不抄字面量**)。
+ *
+ * 立因:路由 400 文案曾直接 `Object.values(PERMISSION_MODE_WIRE).join(' / ')` ——
+ * `PERMISSION_MODE_WIRE` 是 `Partial<Record<…>>`,`Object.values` 的值类型带着
+ * `undefined` 出去(新增无 wire 映射的档位时,undefined 会原文拼进给用户看的文案)。
+ * 经本清单取映射并过滤后,类型与值都是确定的 `PermissionModeWire`。
+ * `manual` 有规范档语义但无落库拼写,因此**不在**此清单(由派生天然保证,见包内测试断言)。
+ */
+export const PERMISSION_MODE_PERSISTABLE_IDS: readonly PermissionModeId[] = PERMISSION_MODES.filter(
+  (id) => PERMISSION_MODE_WIRE[id] !== undefined,
+)
 
 /** 任意拼写 → workspace wire 拼写(认不出返回 null,由调用方拒掉,不静默兜底)。 */
 export function permissionModeWire(raw: unknown): PermissionModeWire | null {
