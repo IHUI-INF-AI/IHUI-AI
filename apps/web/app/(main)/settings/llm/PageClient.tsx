@@ -260,9 +260,10 @@ export default function UserLlmConfigsPage() {
       <div className="flex items-start gap-2 rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
         <p className="min-w-0 flex-1">
-          <span className="whitespace-nowrap font-medium text-foreground">BYOK 模式</span>
-          :你配置的 API Key 加密存储(AES-256-GCM),调用时直接使用你的 Key 访问大厂。平台只收 5-20%
-          服务费,Cloudflare / GitHub Models / HuggingFace 等免费 provider 不收费。
+          <span className="whitespace-nowrap font-medium text-foreground">
+            {tV2('byok.modeLabel')}
+          </span>
+          {tV2('byok.modeDesc')}
         </p>
         {mounted && (
           <Button
@@ -272,7 +273,7 @@ export default function UserLlmConfigsPage() {
             className="shrink-0 whitespace-nowrap px-2 text-xs"
           >
             <BookOpen className="mr-1 h-3.5 w-3.5 shrink-0" />
-            <span className="whitespace-nowrap">查看引导</span>
+            <span className="whitespace-nowrap">{tV2('byok.viewGuide')}</span>
           </Button>
         )}
       </div>
@@ -430,78 +431,69 @@ export default function UserLlmConfigsPage() {
           <DialogHeader className="space-y-2 border-b p-3">
             <DialogTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" />
-              <span className="whitespace-nowrap">欢迎使用 BYOK 平台模式</span>
+              <span className="whitespace-nowrap">{tV2('byok.welcomeTitle')}</span>
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              自带 API Key 调用大厂模型,平台仅收 5-20% 服务费
-            </DialogDescription>
+            <DialogDescription className="text-xs">{tV2('byok.welcomeDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[70vh] space-y-4 overflow-y-auto p-3 text-sm">
             {/* 价值说明 */}
             <section className="space-y-1.5">
-              <p className="font-medium text-foreground">为什么选择 BYOK?</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                BYOK(Bring Your Own Key)让你自带大厂 API Key 调用模型,大厂直接扣你的账户,平台只收
-                5-20% 服务费。相比传统中转站,你无需付中间商加价。
-              </p>
+              <p className="font-medium text-foreground">{tV2('byok.whyTitle')}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{tV2('byok.whyDesc')}</p>
             </section>
 
             {/* 免费 provider 推荐 */}
             <section className="space-y-2">
-              <p className="font-medium text-foreground">免费 Provider 推荐</p>
+              <p className="font-medium text-foreground">{tV2('byok.freeProvidersTitle')}</p>
               <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2">
                 <Card className="rounded-md">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">Cloudflare Workers AI</p>
-                    <p className="text-[11px] text-muted-foreground">@cf/ · 免费,无需 API Key</p>
+                    <p className="text-[11px] text-muted-foreground">{tV2('byok.cfDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">GitHub Models</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      github/ · 免费,用 GitHub token
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">{tV2('byok.githubDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">HuggingFace</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      huggingface/ · 免费,用 HF token
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">{tV2('byok.hfDesc')}</p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">Pollinations</p>
                     <p className="text-[11px] text-muted-foreground">
-                      pollinations/ · 免费,无需 API Key
+                      {tV2('byok.pollinationsDesc')}
                     </p>
                   </CardContent>
                 </Card>
                 <Card className="rounded-md min-[640px]:col-span-2">
                   <CardContent className="min-[640px]:p-3 space-y-0.5 p-3">
                     <p className="text-xs font-medium">LLM7</p>
-                    <p className="text-[11px] text-muted-foreground">llm7/ · 免费,无需 API Key</p>
+                    <p className="text-[11px] text-muted-foreground">{tV2('byok.llm7Desc')}</p>
                   </CardContent>
                 </Card>
               </div>
               <p className="text-[11px] text-emerald-600 dark:text-emerald-500">
-                以上免费 provider 平台完全不收费(0 服务费)
+                {tV2('byok.freeNote')}
               </p>
             </section>
 
             {/* 操作步骤 */}
             <section className="space-y-2">
-              <p className="font-medium text-foreground">操作步骤</p>
+              <p className="font-medium text-foreground">{tV2('byok.stepsTitle')}</p>
               <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
-                <li>点击左侧「添加 Provider」按钮</li>
-                <li>选择厂商(如 OpenAI / DeepSeek / 智谱)或免费 provider(如 cloudflare)</li>
-                <li>填入你的 API Key(AES-256-GCM 加密存储,平台无法看到明文)</li>
-                <li>添加你要用的模型</li>
-                <li>调用时系统自动优先使用你的 Key</li>
+                <li>{tV2('byok.step1')}</li>
+                <li>{tV2('byok.step2')}</li>
+                <li>{tV2('byok.step3')}</li>
+                <li>{tV2('byok.step4')}</li>
+                <li>{tV2('byok.step5')}</li>
               </ol>
             </section>
           </div>
@@ -512,7 +504,7 @@ export default function UserLlmConfigsPage() {
               size="sm"
               className="w-full shrink-0 whitespace-nowrap min-[640px]:w-auto"
             >
-              <span className="whitespace-nowrap">知道了</span>
+              <span className="whitespace-nowrap">{tV2('byok.gotIt')}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

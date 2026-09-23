@@ -141,7 +141,8 @@
     "orUseAccount": "或使用账号登录",
     "ssoCancelled": "SSO 登录已取消",
     "ssoLoading": "SSO 授权中...",
-    "ssoLogin": "SSO 一键登录"
+    "ssoLogin": "SSO 一键登录",
+    "ssoFailed": "SSO 登录失败"
   },
   "popup": {
     "copyFailed": "复制失败",
@@ -165,10 +166,6 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
-    "retryMessage": "重试",
-    "citationTitle": "参考来源",
-    "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
-    "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
     "history": "历史对话",
     "title": "AI 对话",
     "exit": "退出",
@@ -189,10 +186,19 @@
     "toolStatusError": "失败",
     "toolDetail": "调用详情",
     "terminal": "终端",
-    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",
+    "planStatusPending": "待执行",
+    "planStatusInProgress": "进行中",
+    "planStatusCompleted": "已完成",
+    "subagentTools": "子代理工具 ×{count}",
+    "usage": "用量",
+    "retryMessage": "重试",
+    "citationTitle": "参考来源",
+    "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+    "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
     "terminalTruncated": "…(已截断,共 {total} 字符)",
     "injectionTitle": "本轮上下文:{count} 项",
     "injectionExpand": "展开其余 {count} 项",
@@ -201,11 +207,6 @@
     "injectionKindWorkspace": "已注入工作区记忆 / AGENTS.md",
     "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
     "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
-    "planStatusPending": "待执行",
-    "planStatusInProgress": "进行中",
-    "planStatusCompleted": "已完成",
-    "subagentTools": "子代理工具 ×{count}",
-    "usage": "用量",
     "subagentRoleValidator": "校验者",
     "subagentRoleReviewer": "评审者",
     "subagentRoleExplorer": "探查者",
@@ -215,7 +216,19 @@
     "subagentRoleResearcher": "研究员",
     "subagentRoleOptimizer": "优化者",
     "subagentRoleDebugger": "调试者",
-    "subagentRoleRefactorer": "重构者"
+    "subagentRoleRefactorer": "重构者",
+    "modelCategoryChat": "对话推理",
+    "modelCategoryVision": "视觉理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "语音合成",
+    "modelCategoryAsr": "语音识别",
+    "modelCategoryImage": "图像生成",
+    "modelCategoryVideo": "视频生成",
+    "modelCategoryGuard": "安全审核",
+    "modelCategoryOcr": "文字识别",
+    "modelCategoryOther": "其他",
+    "modelHistoryToggle": "历史模型"
   },
   "settings": {
     "language": "界面语言",
@@ -437,6 +450,10 @@
       "benefitsTitle": "包含权益",
       "note": "定价与权益以网页版实际展示为准。",
       "open": "前往网页版开通"
+    },
+    "topics": {
+      "discussions": "{count} 讨论",
+      "followers": "{count} 关注"
     }
   },
   "permissionTier": {

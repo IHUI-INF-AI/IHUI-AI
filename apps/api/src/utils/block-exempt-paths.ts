@@ -27,12 +27,15 @@ const MONITORING_PATHS: ReadonlySet<string> = new Set([
  * 自助解封面:被封的 IP 必须够得着,否则 CAPTCHA 闭环和管理员解封都是死路。
  * 精确匹配的是无认证的挑战端点;前缀匹配的是 requireAdmin 保护的端点
  * (放行到路由层由鉴权裁决,不构成绕过)。
+ * 含 /api/csrf-token:挑战端点走 CSRF 校验,被封客户端若连签发 token 都被 403,
+ * 闭环就断在第 0 步(只能等 TTL),故它属于解封面而非普通业务面。
  * 故意不含 /api/security/report —— 它无认证且能给任意 IP 记坏事件,
  * 放进豁免面等于给被封的攻击者一条免费的投毒通道。
  */
 const SELF_SERVICE_EXACT_PATHS: ReadonlySet<string> = new Set([
   '/api/security/challenge',
   '/api/security/verify-challenge',
+  '/api/csrf-token',
 ])
 const SELF_SERVICE_EXEMPT_PREFIXES: readonly string[] = [
   '/api/security/block-ip',

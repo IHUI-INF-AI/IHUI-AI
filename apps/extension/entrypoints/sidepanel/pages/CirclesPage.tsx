@@ -12,16 +12,17 @@ import { useEffect, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { getCircles, type Circle } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
+import { formatCompact } from '@ihui/shared/utils'
 import { useI18n } from '../../../src/i18n'
 import { openInWeb as openItemInWeb } from '../../../lib/open-in-web'
 
-function fmtCount(n: number | undefined): string {
+function fmtCount(n: number | undefined, locale: string): string {
   if (typeof n !== 'number') return '0'
-  return n >= 10000 ? `${(n / 10000).toFixed(1)}万` : String(n)
+  return formatCompact(n, locale) || '0'
 }
 
 export default function CirclesPage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [items, setItems] = useState<Circle[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -107,8 +108,10 @@ export default function CirclesPage() {
                   </p>
                 ) : null}
                 <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground">
-                  <span>{fmtCount(c.memberCount)} 成员</span>
-                  <span>{fmtCount(c.postCount)} 帖子</span>
+                  <span>
+                    {t('circleDetail.members', { count: fmtCount(c.memberCount, locale) })}
+                  </span>
+                  <span>{t('circleDetail.posts', { count: fmtCount(c.postCount, locale) })}</span>
                 </div>
               </div>
             </CardContent>

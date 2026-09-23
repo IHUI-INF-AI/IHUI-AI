@@ -111,14 +111,14 @@ export interface WorkPanelProps {
    * - position='before' (默认):从 fromId 移到 toId 位置(原行为)
    * - position='after':从 fromId 移到 toId 之后 */
   onTabReorder?: (fromId: string, toId: string, position?: 'before' | 'after') => void
-  /** i18n 文案(P4-3:不传则用中文默认值,跨端共享友好) */
+  /** i18n 文案(P4-3:不传则回退英文默认值,跨端共享友好;各端应注入本地化 labels) */
   labels?: Partial<WorkPanelLabels>
   /** 内容区(各端注入 WebViewFrame 或自定义实现) */
   children?: React.ReactNode
   className?: string
 }
 
-/** i18n 文案接口(P4-3:统一收口所有中文硬编码,跨端/跨语言注入) */
+/** i18n 文案接口(P4-3:统一收口界面文案,供跨端/跨语言注入) */
 export interface WorkPanelLabels {
   back: string
   forward: string
@@ -144,28 +144,28 @@ export interface WorkPanelLabels {
   closeTab: string
 }
 
-/** i18n 默认值(不传 labels 时回退到简体中文) */
+/** i18n 默认值(不传 labels 时回退到英文;界面语言文案一律由调用端 labels 注入) */
 const DEFAULT_LABELS: WorkPanelLabels = {
-  back: '后退',
-  forward: '前进',
-  reload: '刷新',
-  stop: '停止',
-  addressPlaceholder: '输入网址或搜索...',
-  favorite: '添加收藏',
-  unfavorite: '取消收藏',
-  favoritesAndHistory: '收藏和历史',
-  openExternal: '在外部浏览器打开',
-  closePanel: '关闭面板',
-  newTab: '新建标签页',
-  removeFavorite: '移除收藏',
-  tabFavorites: '收藏',
-  tabHistory: '历史',
-  emptyFavorites: '暂无收藏',
-  emptyHistory: '暂无历史',
-  clearHistory: '清空历史',
-  dragInsertBefore: '在此处之前插入',
-  dragInsertAfter: '在此处之后插入',
-  closeTab: '关闭标签页',
+  back: 'Back',
+  forward: 'Forward',
+  reload: 'Reload',
+  stop: 'Stop',
+  addressPlaceholder: 'Enter URL or search...',
+  favorite: 'Add bookmark',
+  unfavorite: 'Remove bookmark',
+  favoritesAndHistory: 'Bookmarks & history',
+  openExternal: 'Open in external browser',
+  closePanel: 'Close panel',
+  newTab: 'New tab',
+  removeFavorite: 'Remove bookmark',
+  tabFavorites: 'Bookmarks',
+  tabHistory: 'History',
+  emptyFavorites: 'No bookmarks yet',
+  emptyHistory: 'No history yet',
+  clearHistory: 'Clear history',
+  dragInsertBefore: 'Insert before this tab',
+  dragInsertAfter: 'Insert after this tab',
+  closeTab: 'Close tab',
 }
 
 export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
@@ -208,7 +208,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     },
     ref,
   ) => {
-    // P4-3:合并 labels(传参 > 默认中文),一次解析到处用
+    // P4-3:合并 labels(传参 > 英文默认),一次解析到处用
     const labels = React.useMemo<WorkPanelLabels>(
       () => ({ ...DEFAULT_LABELS, ...labelsProp }),
       [labelsProp],

@@ -10,11 +10,7 @@
  * typing(无 instanceof HTMLInputElement),保证 mock 与真实 sidepanel 行为一致。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import {
-  executeExtUiAction,
-  isAllowedExtUiRoute,
-  EXT_UI_COMMANDS,
-} from '../lib/ui-action-registry'
+import { executeExtUiAction, isAllowedExtUiRoute, EXT_UI_COMMANDS } from '../lib/ui-action-registry'
 import {
   dispatchAgentActionRequest,
   forwardExtUiToSidepanel,
@@ -76,7 +72,9 @@ interface FakeDoc {
   querySelector(selector: string): FakeElement | null
 }
 
-function makeDoc(parts: { elements?: FakeElement[]; forms?: FakeElement[]; title?: string } = {}): FakeDoc {
+function makeDoc(
+  parts: { elements?: FakeElement[]; forms?: FakeElement[]; title?: string } = {},
+): FakeDoc {
   return {
     title: parts.title ?? '智汇AI 侧边栏',
     body: { innerText: '面板正文内容' },
@@ -307,7 +305,11 @@ describe('ext_ui read / invoke', () => {
     setDocument(makeDoc({ elements: [input], title: '智汇AI' }))
     const res = await executeExtUiAction('read', {})
     expect(res.ok).toBe(true)
-    const data = res.data as { page: Record<string, string>; text: string; values: Record<string, string> }
+    const data = res.data as {
+      page: Record<string, string>
+      text: string
+      values: Record<string, string>
+    }
     expect(data.page).toMatchObject({ path: '/chat', title: '智汇AI' })
     expect(data.text).toBe('面板正文内容')
     expect(data.values['nickname']).toBe('小明')
@@ -362,9 +364,7 @@ describe('ext_ui forwarder (background 转发层)', () => {
   })
 
   it('sidepanel 正常回执时透传结果,dispatch 包装为 AgentActionResponse', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValue({ success: true, data: { clicked: '发送' } })
+    const sendMessage = vi.fn().mockResolvedValue({ success: true, data: { clicked: '发送' } })
     setChrome({ runtime: { sendMessage } })
     const res = await dispatchAgentActionRequest(
       makeExtUiRequest({ action: 'click', params: { target: '发送' } }),
