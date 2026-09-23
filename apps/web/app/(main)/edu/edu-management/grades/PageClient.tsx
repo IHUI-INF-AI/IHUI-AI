@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
 import {
   Plus,
   Loader2,
@@ -127,7 +126,6 @@ function ScoreEntryDialog({
   students: Array<{ id: string; name: string }>
   onSave: (data: ScoreFormData) => Promise<void>
 }) {
-  const t = useTranslations('eduGrades')
   const [form, setForm] = React.useState<ScoreFormData>({
     studentId: '',
     subject: '',
@@ -172,14 +170,14 @@ function ScoreEntryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('dialogEntryTitle')}</DialogTitle>
+          <DialogTitle>录入成绩</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>{t('student')}</Label>
+            <Label>学生</Label>
             <Select value={form.studentId} onValueChange={(v) => update('studentId', v)}>
               <SelectTrigger>
-                <SelectValue placeholder={t('selectStudent')} />
+                <SelectValue placeholder="选择学生" />
               </SelectTrigger>
               <SelectContent>
                 {students.map((s) => (
@@ -192,25 +190,25 @@ function ScoreEntryDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('subject')}</Label>
+              <Label>科目</Label>
               <Input
                 value={form.subject}
                 onChange={(e) => update('subject', e.target.value)}
-                placeholder={t('subjectExample')}
+                placeholder="例如：数学"
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('examName')}</Label>
+              <Label>考试名称</Label>
               <Input
                 value={form.examName}
                 onChange={(e) => update('examName', e.target.value)}
-                placeholder={t('examNameExample')}
+                placeholder="期中考试"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('score')}</Label>
+              <Label>分数</Label>
               <Input
                 type="number"
                 min={0}
@@ -219,7 +217,7 @@ function ScoreEntryDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('totalScore')}</Label>
+              <Label>总分</Label>
               <Input
                 type="number"
                 min={1}
@@ -229,7 +227,7 @@ function ScoreEntryDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('examDate')}</Label>
+            <Label>考试日期</Label>
             <Input
               type="date"
               value={form.examDate}
@@ -237,11 +235,11 @@ function ScoreEntryDialog({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>{t('remark')}</Label>
+            <Label>备注</Label>
             <Input
               value={form.remark}
               onChange={(e) => update('remark', e.target.value)}
-              placeholder={t('remarkOptional')}
+              placeholder="可选"
             />
           </div>
         </div>
@@ -251,7 +249,7 @@ function ScoreEntryDialog({
             disabled={saving || !form.studentId || !form.subject.trim() || !form.examName.trim()}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            <span>{t('save')}</span>
+            保存
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -270,7 +268,6 @@ function BatchScoreEntry({
   subjects: string[]
   onSave: (scores: Array<{ studentId: string; subject: string; score: number }>) => Promise<void>
 }) {
-  const t = useTranslations('eduGrades')
   const [scores, setScores] = React.useState<Record<string, Record<string, string>>>({})
   const [saving, setSaving] = React.useState(false)
 
@@ -307,7 +304,7 @@ function BatchScoreEntry({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
+              <th className="px-3 py-2 text-left font-medium">学生</th>
               {subjects.map((s) => (
                 <th key={s} className="px-3 py-2 text-left font-medium">
                   {s}
@@ -328,7 +325,7 @@ function BatchScoreEntry({
                       className="h-8 w-20"
                       value={scores[student.id]?.[subject] ?? ''}
                       onChange={(e) => updateScore(student.id, subject, e.target.value)}
-                      placeholder={t('score')}
+                      placeholder="分数"
                     />
                   </td>
                 ))}
@@ -339,7 +336,7 @@ function BatchScoreEntry({
       </div>
       <Button onClick={handleBatchSave} disabled={saving}>
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        <span>{t('batchSave')}</span>
+        批量保存
       </Button>
     </div>
   )
@@ -349,7 +346,6 @@ function BatchScoreEntry({
 
 export default function GradesPage() {
   const queryClient = useQueryClient()
-  const t = useTranslations('eduGrades')
 
   /* ── State ── */
   const [selectedTermId, setSelectedTermId] = React.useState('')
@@ -374,7 +370,7 @@ export default function GradesPage() {
 
   React.useEffect(() => {
     if (terms.length > 0 && !selectedTermId) {
-      const current = terms.find((term) => term.isCurrent)
+      const current = terms.find((t) => t.isCurrent)
       setSelectedTermId(current?.id ?? terms[0]!.id)
     }
   }, [terms, selectedTermId])
@@ -498,14 +494,7 @@ export default function GradesPage() {
 
   /* ── Handlers ── */
   const handleExportCSV = () => {
-    const headers = [
-      t('studentId'),
-      t('subject'),
-      t('examName'),
-      t('score'),
-      t('totalScore'),
-      t('date'),
-    ]
+    const headers = ['学生ID', '科目', '考试名称', '分数', '总分', '日期']
     const rows = scores.map((s) => [
       s.studentId,
       s.subject,
@@ -519,13 +508,13 @@ export default function GradesPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = t('csvFileName', { date: new Date().toISOString().split('T')[0] ?? '' })
+    a.download = `成绩导出_${new Date().toISOString().split('T')[0]}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const handleDeleteScore = async (id: string) => {
-    if (confirm(t('confirmDeleteScore'))) {
+    if (confirm('确定删除该成绩记录？')) {
       await deleteScore.mutateAsync(id)
     }
   }
@@ -550,10 +539,10 @@ export default function GradesPage() {
 
   /* ── Tabs ── */
   const tabs = [
-    { key: 'entry' as const, label: t('tabEntry'), icon: Plus },
-    { key: 'list' as const, label: t('tabList'), icon: BookOpen },
-    { key: 'ranking' as const, label: t('ranking'), icon: Trophy },
-    { key: 'stats' as const, label: t('tabStats'), icon: BarChart3 },
+    { key: 'entry' as const, label: '成绩录入', icon: Plus },
+    { key: 'list' as const, label: '成绩列表', icon: BookOpen },
+    { key: 'ranking' as const, label: '排名', icon: Trophy },
+    { key: 'stats' as const, label: '统计', icon: BarChart3 },
   ]
 
   return (
@@ -562,8 +551,8 @@ export default function GradesPage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('pageTitle')}</h1>
-        <p className="text-xs text-muted-foreground">{t('pageSubtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">成绩管理</h1>
+        <p className="text-xs text-muted-foreground">管理学生考试成绩、排名和统计分析</p>
       </header>
 
       {/* Class/Subject Selector */}
@@ -579,13 +568,13 @@ export default function GradesPage() {
               }}
             >
               <SelectTrigger className="w-40">
-                <SelectValue placeholder={t('selectTerm')} />
+                <SelectValue placeholder="选择学期" />
               </SelectTrigger>
               <SelectContent>
-                {terms.map((term) => (
-                  <SelectItem key={term.id} value={term.id}>
-                    {term.name}
-                    {term.isCurrent ? t('currentTermTag') : ''}
+                {terms.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                    {t.isCurrent ? ' (当前)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -603,7 +592,7 @@ export default function GradesPage() {
               disabled={!selectedTermId || classes.length === 0}
             >
               <SelectTrigger className="w-40">
-                <SelectValue placeholder={t('selectClass')} />
+                <SelectValue placeholder="选择班级" />
               </SelectTrigger>
               <SelectContent>
                 {classes.map((c) => (
@@ -640,23 +629,23 @@ export default function GradesPage() {
       {activeTab === 'entry' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('tabEntry')}</CardTitle>
+            <CardTitle className="text-sm font-medium">成绩录入</CardTitle>
             <div className="flex items-center gap-2">
               <Input
                 className="h-8 w-36"
-                placeholder={t('examName')}
+                placeholder="考试名称"
                 value={selectedExamName}
                 onChange={(e) => setSelectedExamName(e.target.value)}
               />
               <Input
                 className="h-8 w-36"
-                placeholder={t('subjectsInputPlaceholder')}
+                placeholder="科目（逗号分隔）"
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
               />
               <Button size="sm" onClick={() => setScoreEntryOpen(true)} disabled={!selectedClassId}>
                 <Plus className="h-3.5 w-3.5" />
-                <span>{t('singleEntry')}</span>
+                单个录入
               </Button>
             </div>
           </CardHeader>
@@ -664,7 +653,7 @@ export default function GradesPage() {
             {!selectedClassId ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('selectClassFirst')}</p>
+                <p className="text-sm">请先选择班级</p>
               </div>
             ) : selectedExamName && selectedSubject ? (
               <BatchScoreEntry
@@ -680,7 +669,7 @@ export default function GradesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('enterExamAndSubjects')}</p>
+                <p className="text-sm">请输入考试名称和科目以开始批量录入</p>
               </div>
             )}
           </CardContent>
@@ -691,14 +680,14 @@ export default function GradesPage() {
       {activeTab === 'list' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('tabList')}</CardTitle>
+            <CardTitle className="text-sm font-medium">成绩列表</CardTitle>
             <div className="flex items-center gap-2">
               <Select value={filterSubject} onValueChange={setFilterSubject}>
                 <SelectTrigger className="h-8 w-32">
-                  <SelectValue placeholder={t('allSubjects')} />
+                  <SelectValue placeholder="全部科目" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('allSubjects')}</SelectItem>
+                  <SelectItem value="all">全部科目</SelectItem>
                   {subjects.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
@@ -708,10 +697,10 @@ export default function GradesPage() {
               </Select>
               <Select value={filterExamName} onValueChange={setFilterExamName}>
                 <SelectTrigger className="h-8 w-32">
-                  <SelectValue placeholder={t('allExams')} />
+                  <SelectValue placeholder="全部考试" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('allExams')}</SelectItem>
+                  <SelectItem value="all">全部考试</SelectItem>
                   {examNames.map((n) => (
                     <SelectItem key={n} value={n}>
                       {n}
@@ -726,7 +715,7 @@ export default function GradesPage() {
                 disabled={scores.length === 0}
               >
                 <Download className="h-3.5 w-3.5" />
-                <span>{t('exportCsv')}</span>
+                导出CSV
               </Button>
             </div>
           </CardHeader>
@@ -734,32 +723,32 @@ export default function GradesPage() {
             {scoresLoading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <span>{t('loading')}</span>
+                加载中...
               </div>
             ) : sortedScores.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('emptyScores')}</p>
+                <p className="text-sm">暂无成绩数据</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('subject')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('examName')}</th>
+                      <th className="px-3 py-2 text-left font-medium">学生</th>
+                      <th className="px-3 py-2 text-left font-medium">科目</th>
+                      <th className="px-3 py-2 text-left font-medium">考试名称</th>
                       <th
                         className="cursor-pointer px-3 py-2 text-left font-medium hover:text-foreground"
                         onClick={() => toggleSort('score')}
                       >
-                        {t('score')} {sortField === 'score' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                        分数 {sortField === 'score' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
                       </th>
-                      <th className="px-3 py-2 text-left font-medium">{t('totalScore')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('percentage')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('ranking')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('date')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('actions')}</th>
+                      <th className="px-3 py-2 text-left font-medium">总分</th>
+                      <th className="px-3 py-2 text-left font-medium">百分比</th>
+                      <th className="px-3 py-2 text-left font-medium">排名</th>
+                      <th className="px-3 py-2 text-left font-medium">日期</th>
+                      <th className="px-3 py-2 text-left font-medium">操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -793,7 +782,7 @@ export default function GradesPage() {
                               className="text-red-500 hover:text-red-600"
                               onClick={() => handleDeleteScore(s.id)}
                             >
-                              <span>{t('delete')}</span>
+                              删除
                             </Button>
                           </td>
                         </tr>
@@ -811,11 +800,11 @@ export default function GradesPage() {
       {activeTab === 'ranking' && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium">{t('classRanking')}</CardTitle>
+            <CardTitle className="text-sm font-medium">班级排名</CardTitle>
             <div className="flex items-center gap-2">
               <Select value={selectedExamName} onValueChange={setSelectedExamName}>
                 <SelectTrigger className="h-8 w-36">
-                  <SelectValue placeholder={t('selectExam')} />
+                  <SelectValue placeholder="选择考试" />
                 </SelectTrigger>
                 <SelectContent>
                   {examNames.map((n) => (
@@ -832,7 +821,7 @@ export default function GradesPage() {
                 disabled={!selectedExamName || createSnapshot.isPending}
               >
                 <Camera className="h-3.5 w-3.5" />
-                <span>{t('takeSnapshot')}</span>
+                拍快照
               </Button>
             </div>
           </CardHeader>
@@ -840,23 +829,23 @@ export default function GradesPage() {
             {!selectedExamName ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <AlertCircle className="mb-2 h-8 w-8" />
-                <p className="text-sm">{t('selectExamForRanking')}</p>
+                <p className="text-sm">请选择考试查看排名</p>
               </div>
             ) : !rankingData ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                <span>{t('loadingRanking')}</span>
+                加载排名...
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="px-3 py-2 text-left font-medium">{t('ranking')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('totalScore')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('examCount')}</th>
-                      <th className="px-3 py-2 text-left font-medium">{t('change')}</th>
+                      <th className="px-3 py-2 text-left font-medium">排名</th>
+                      <th className="px-3 py-2 text-left font-medium">学生</th>
+                      <th className="px-3 py-2 text-left font-medium">总分</th>
+                      <th className="px-3 py-2 text-left font-medium">考试次数</th>
+                      <th className="px-3 py-2 text-left font-medium">变化</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -917,7 +906,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('avgScore')}</span>
+                  <span className="text-xs text-muted-foreground">平均分</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold">{statsData?.avgScore ?? '-'}</p>
               </CardContent>
@@ -926,7 +915,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('maxScore')}</span>
+                  <span className="text-xs text-muted-foreground">最高分</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold text-green-600">
                   {statsData?.maxScore ?? '-'}
@@ -937,7 +926,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('minScore')}</span>
+                  <span className="text-xs text-muted-foreground">最低分</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold text-red-600">{statsData?.minScore ?? '-'}</p>
               </CardContent>
@@ -946,7 +935,7 @@ export default function GradesPage() {
               <CardContent className="min-[640px]:p-3 p-3">
                 <div className="flex items-center gap-2">
                   <Trophy className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{t('passRate')}</span>
+                  <span className="text-xs text-muted-foreground">及格率</span>
                 </div>
                 <p className="mt-1 text-2xl font-bold">{statsData?.passRate ?? '-'}%</p>
               </CardContent>
@@ -956,7 +945,7 @@ export default function GradesPage() {
           {/* Score Distribution */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">{t('scoreDistribution')}</CardTitle>
+              <CardTitle className="text-sm font-medium">分数分布</CardTitle>
             </CardHeader>
             <CardContent>
               {statsData?.distribution && statsData.distribution.length > 0 ? (
@@ -973,7 +962,7 @@ export default function GradesPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center py-8 text-muted-foreground">
-                  <p className="text-sm">{t('emptyStats')}</p>
+                  <p className="text-sm">暂无统计数据</p>
                 </div>
               )}
             </CardContent>
@@ -983,7 +972,7 @@ export default function GradesPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">{t('top5')}</CardTitle>
+                <CardTitle className="text-sm font-medium">前5名</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {rankWithChange.slice(0, 5).map((r) => (
@@ -994,21 +983,17 @@ export default function GradesPage() {
                     <span className="font-medium">
                       #{r.rank} {r.studentId.slice(0, 8)}
                     </span>
-                    <span className="text-muted-foreground">
-                      {t('scoreWithUnit', { score: r.totalScore })}
-                    </span>
+                    <span className="text-muted-foreground">{r.totalScore}分</span>
                   </div>
                 ))}
                 {rankWithChange.length === 0 && (
-                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">
-                    {t('emptyData')}
-                  </p>
+                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">暂无数据</p>
                 )}
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">{t('bottom5')}</CardTitle>
+                <CardTitle className="text-sm font-medium">后5名</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {rankWithChange
@@ -1022,15 +1007,11 @@ export default function GradesPage() {
                       <span className="font-medium">
                         #{r.rank} {r.studentId.slice(0, 8)}
                       </span>
-                      <span className="text-muted-foreground">
-                        {t('scoreWithUnit', { score: r.totalScore })}
-                      </span>
+                      <span className="text-muted-foreground">{r.totalScore}分</span>
                     </div>
                   ))}
                 {rankWithChange.length === 0 && (
-                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">
-                    {t('emptyData')}
-                  </p>
+                  <p className="px-4 py-4 text-center text-sm text-muted-foreground">暂无数据</p>
                 )}
               </CardContent>
             </Card>
