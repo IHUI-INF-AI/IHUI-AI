@@ -11,8 +11,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
+
+/** 层栈 id(见 @/lib/overlay-stack):TagsView 搜索弹层的 Esc 只在栈顶时被消费 */
+const TAGS_VIEW_OVERLAY_ID = 'tags-view-search'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
 import { resolvePathLabelSpec, resolvePathIcon } from '@/lib/path-labels'
@@ -130,12 +134,20 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
     setOpen(false)
   }, [pathname, searchParamsStr])
 
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!open) return
+    pushOverlay(TAGS_VIEW_OVERLAY_ID)
+    return () => popOverlay(TAGS_VIEW_OVERLAY_ID)
+  }, [open])
+
   // Esc 关闭弹层
   React.useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        e.stopPropagation()
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(TAGS_VIEW_OVERLAY_ID)) return
         setOpen(false)
       }
     }
@@ -479,6 +491,11 @@ export function TagsView() {
       className="flex h-full min-w-0 flex-1 items-center gap-1"
     >
       <div
+        // data-tauri-drag-region 按"按下目标恰为该元素"生效:顶栏中间这块 flex-1 空白
+        // 属于本容器而非 GlobalTopBar 外层 div,不标属性就只会走 JS 位移阈值兜底路径,
+        // 窗口会恒定滞后约 40px(手感即"推着不动、停一下才跟上")。标签 a 自带 HTML5
+        // 拖拽排序,不在此元素上,故不受影响。
+        data-tauri-drag-region
         className="hover-scroll flex h-full flex-1 items-center gap-1 whitespace-nowrap"
         onWheel={(e) => {
           // 2026-08-13 水平滚动:去掉 overflow-x:auto 后 outline 不被裁剪,
