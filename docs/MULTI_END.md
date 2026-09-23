@@ -34,7 +34,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 │  @ihui/eslint-config @ihui/tsconfig                     │
 ├─────────────────────────────────────────────────────────┤
 │  基础设施层                                              │
-│  PostgreSQL 18 │ Redis 7 │ Docker Compose │ Nginx       │
+│  PostgreSQL 15 │ Redis 7 │ Docker Compose │ Nginx       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 ### 2.2 apps/api(Fastify 5)
 
 - **框架**:Fastify 5.1 + @fastify/jwt + @fastify/websocket + @fastify/rate-limit
-- **ORM**:Drizzle ORM 0.38 + postgres-js,单库 PostgreSQL 18
+- **ORM**:Drizzle ORM 0.38 + postgres-js,单库 PostgreSQL 15
 - **认证**:`@ihui/auth` 共享包(JWT HS256 + token-family + blacklist + OAuth2)
 - **验证**:Zod 3.24
 - **路由**:267 文件 4393 路由,公共路由(`/api/*`)+ 管理员路由(`/api/admin/*`)
@@ -168,7 +168,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
        ├─ /api/a2a/*      ─┤
        ├─ /api/ai/*       ─┘  → ai-service /api/v1/ai/*
        └─ /api/*          ──→ apps/api (Fastify 8802) /api/*
-            ├─ Drizzle ORM → PostgreSQL 18
+            ├─ Drizzle ORM → PostgreSQL 15
             ├─ Redis 7(缓存/限流/Pub/Sub)
             └─ @ihui/auth(JWT 校验)
 ```

@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { ChevronUp, ChevronDown, Trash2, GripVertical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@ihui/ui-react'
@@ -47,7 +46,6 @@ export function StepItem({
   isDragging = false,
   isDragOver = false,
 }: StepItemProps) {
-  const t = useTranslations('plan')
   const statusOption = PLAN_STEP_STATUS_OPTIONS.find((o) => o.value === step.status)
   const priorityOption = PLAN_PRIORITY_OPTIONS.find((o) => o.value === step.priority)
 
@@ -123,7 +121,7 @@ export function StepItem({
           >
             {PLAN_STEP_STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
+                {opt.label}
               </option>
             ))}
           </select>
@@ -138,7 +136,7 @@ export function StepItem({
           >
             {PLAN_PRIORITY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {t(opt.labelKey)}
+                {opt.label}
               </option>
             ))}
           </select>
