@@ -36,7 +36,16 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 // ROOT 由脚本自身位置推导:守门链偶发从子包 cwd 调用,写死 process.cwd() 会静默扫不到文件而"恒绿"
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+// 唯一例外是集成测试:--root 显式注入临时夹具根(测试只改 cwd 时,脚本仍会去扫真仓,
+// 于是 14 例断言全在比对真仓数据 → 13 例恒红且无人跑;2026-09-24 实测)。
+const rootArgValue = (() => {
+  const i = process.argv.indexOf('--root')
+  const v = i >= 0 ? process.argv[i + 1] : null
+  return v && !v.startsWith('-') ? v : null
+})()
+const ROOT = rootArgValue
+  ? path.resolve(rootArgValue)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const TARGETS = [
   path.join(ROOT, 'apps/web/app'),
   path.join(ROOT, 'apps/web/src/components'),
@@ -98,6 +107,20 @@ function bareOf(line) {
     out += c
   }
   return out
+}
+
+/**
+ * 行尾 `//` 行注释的起点(只能在 bareOf 结果上找:字符串里的 `//` 已被空白化,
+ * 否则 `'输入//输出'` 的后半截真界面文案会一起被抹掉)。
+ * 另外跳过 `://` —— 裸 URL 出现在跨行模板/markdown 行里时,逐行 bareOf 看不见自己
+ * 在字符串内(docs/api 的 `https://api-staging…  # 预发` 即此类),把它当注释起点会造假绿。
+ */
+function lineCommentAt(probe) {
+  for (let k = probe.indexOf('//'); k >= 0; k = probe.indexOf('//', k + 1)) {
+    if (probe[k - 1] === ':') continue
+    return k
+  }
+  return -1
 }
 
 const argv = process.argv.slice(2)
@@ -184,10 +207,22 @@ for (const f of scopeFiles) {
     // 剥掉**同行成对**的块注释:`{/* JSX 注释 */}` 与 `/* … */` 都是注释。
     // 原实现只跟踪"跨行块注释",整行成对的形态会漏剥 ⇒ 中文注释被算成命中
     // (实测 swarm-topology-view 18 处假阳),进而污染基线额度。
-    const code = line.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+    // 中文命中判定**剥掉行尾 `//` 之后的内容**:免检说明(radius-exempt、左滑宽度等)
+    // 挂在代码行尾是合法写法,原实现漏剥这一形态,使 PriceChart / TerminalTab /
+    // TerminalStatusIndicators 各多出 2/1/1 处假阳,把它们顶过基线额度
+    // (门 70 在 HEAD 上恒红,谁碰这三个文件谁被拦)。
+    // 切点索引属于**原始行**,故先按原始行切、再剥成对块注释(在剥完的长度上切会错位)。
+    const commentAt = lineCommentAt(probe)
+    const code = (commentAt >= 0 ? line.slice(0, commentAt) : line)
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
     if (!ZH_RE.test(code)) continue
-    if (SKIP_LINE_RE.test(code)) continue
-    if (SKIP_TOKEN_RE.test(code)) continue
+    // 豁免判定仍看**含行尾注释**的整行:有些行靠行尾 `next-intl` / `metadata` 标记声明自己
+    // 是"词表缺键时的兜底译文"(实测 preview-degradation-copy.ts 整表 7 行即此写法),
+    // 连标记一起剥掉等于咬断别人的豁免通道 ⇒ 该文件凭空多出 7 处红。
+    const codeFull = line.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '')
+    if (SKIP_LINE_RE.test(codeFull)) continue
+    if (SKIP_TOKEN_RE.test(codeFull)) continue
     hits.push({ line: i + 1, text: code.trim().slice(0, 200) })
   }
   if (hits.length > 0) {
