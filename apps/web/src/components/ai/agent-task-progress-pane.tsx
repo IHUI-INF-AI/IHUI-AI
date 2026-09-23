@@ -29,7 +29,6 @@ import {
   Package,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { stepDecisionLabel } from '@ihui/shared/chat'
 import { IconButton } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { TruncatedText } from '@/components/common'
@@ -175,8 +174,7 @@ const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
   {
     i18nKey: 'shortcutsGroupPane',
     items: [
-      // 2026-09-22:`?` 的键位唯一归属全局快捷键面板(use-permission-mode-cycle),
-      // 本面板帮助只由 header 钮开,故此处不再文档化 `?`(原文案"按 ? 打开/关闭"已失真)。
+      { keys: '?', i18nKey: 'shortcutShowHelp' },
       { keys: 'Esc', i18nKey: 'shortcutCloseHelp' },
     ],
   },
@@ -188,33 +186,6 @@ const SHORTCUT_GROUPS: ReadonlyArray<ShortcutGroup> = [
     ],
   },
 ]
-
-// ─── 拖拽底边 clamp(2026-09-22 立) ───────────────────────────────────────────
-/**
- * pane 可被拖到任意位置(纯 transform,原本只有"顶部不挡 header"一条 clamp),
- * 实测能把不透明的 pane(z-sticky=990)整块压在对话列右下角的浮动 affordance 列上
- * (32x72 的 `bottom-4 right-4` 跳顶/跳最新钮),使其点不到。
- * 这里给拖拽补第二条 clamp:pane 底边不得越过该 affordance 列的上沿
- * (列高 72 + bottom-4 的 16px = 消息区底部往上 88px 的底部净空带)。
- * 只在水平方向真的与该列重叠时才生效,且**不动 z-index**(层级有 guardian 27/28 双契约)。
- */
-const AFFORDANCE_RAIL_TESTID = 'scroll-jump-buttons'
-
-/** @returns 实际生效的 translateY(被带沿顶住时为回退后的值)
- *  导出仅供单测(agent-task-progress-pane.test.tsx)直接验证 clamp 算式。 */
-export function clampPaneAboveAffordanceRail(paneEl: HTMLElement, x: number, y: number): number {
-  const rail = document.querySelector(`[data-testid="${AFFORDANCE_RAIL_TESTID}"]`)
-  paneEl.style.transform = `translate(${x}px, ${y}px)`
-  if (!(rail instanceof HTMLElement)) return y
-  const railRect = rail.getBoundingClientRect()
-  const rect = paneEl.getBoundingClientRect()
-  const overlapsHorizontally = rect.right > railRect.left && rect.left < railRect.right
-  const overflow = rect.bottom - railRect.top
-  if (!overlapsHorizontally || overflow <= 0) return y
-  const clampedY = y - overflow
-  paneEl.style.transform = `translate(${x}px, ${clampedY}px)`
-  return clampedY
-}
 
 // ─── 状态图标映射(2026-09-19 v2 五态:skipped=Ban 灰 / failed=AlertCircle 红) ──
 const PLAN_ICON: Record<PlanStepStatus, React.ComponentType<{ className?: string }>> = {
@@ -562,12 +533,6 @@ function MinimizedSummaryBar({
 
 /** P0-5(2026-09-13):workbench plan-step 单行(状态图标 + 工具名 + 决策/原因) */
 function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
-  // D55(G-66):决策取词走共享词汇表,认不出原样显示(此前直显 security_blocked 等英文码)
-  const tDecision = useTranslations('stepDecision')
-  const decisionView =
-    typeof step.decision === 'string' && step.decision !== ''
-      ? stepDecisionLabel(step.decision, tDecision)
-      : null
   return (
     <div
       className="flex items-center gap-1.5 py-0.5 text-[11px]"
@@ -589,12 +554,9 @@ function RuntimeStepRow({ step }: { step: AgentPlanStepEvent }) {
         value={step.toolName}
         className="min-w-0 flex-1 font-mono text-foreground/80"
       />
-      {(decisionView || step.reason) && (
-        <span
-          className="max-w-[40%] shrink-0 truncate text-muted-foreground/60"
-          data-decision-state={decisionView?.state}
-        >
-          {decisionView?.text ?? step.reason}
+      {(step.decision || step.reason) && (
+        <span className="max-w-[40%] shrink-0 truncate text-muted-foreground/60">
+          {step.decision ?? step.reason}
         </span>
       )}
     </div>
@@ -1115,8 +1077,8 @@ export function AgentTaskProgressPane() {
     let lastDy = 0
     const onMove = (ev: MouseEvent) => {
       lastDx = ev.clientX - startX
-      // clampPaneAboveAffordanceRail 返回"实际生效"的 Y(底边被 affordance 带顶住时会回退)
-      lastDy = clampPaneAboveAffordanceRail(paneEl, baseX + lastDx, baseY + (ev.clientY - startY))
+      lastDy = ev.clientY - startY
+      paneEl.style.transform = `translate(${baseX + lastDx}px, ${baseY + lastDy}px)`
     }
     const onUp = () => {
       window.removeEventListener('mousemove', onMove)
@@ -1124,7 +1086,7 @@ export function AgentTaskProgressPane() {
       // 持久化到 localStorage(v19 key,与恢复逻辑保持一致)
       // 同时 clamp Y 不让 Pane 顶部 < 8px(viewport),防止下次刷新挡 header 按钮
       try {
-        const safeY = Math.max(lastDy, -64)
+        const safeY = Math.max(baseY + lastDy, -64)
         localStorage.setItem('pane-drag-v19', JSON.stringify({ x: baseX + lastDx, y: safeY }))
       } catch {
         // localStorage 写入失败(隐私模式 / 配额满)→ 静默忽略
@@ -1155,8 +1117,7 @@ export function AgentTaskProgressPane() {
         // 视口 0 - inner div 顶部 72px = -72px,所以 Y 不能小于 -72
         // 留 8px buffer,clamp 到 -64px 之内(让 Pane 顶部最高位于 viewport 8px,正好避开 header)
         const safeY = Math.max(y, -64)
-        // 底边同样要过一遍 affordance clamp(旧 localStorage 里可能存着压住钮的偏移)
-        clampPaneAboveAffordanceRail(el, x, safeY)
+        el.style.transform = `translate(${x}px, ${safeY}px)`
       }
     } catch {
       // localStorage 读取失败或 JSON 解析失败 → 静默忽略

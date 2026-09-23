@@ -41,10 +41,6 @@
     "./orchestration": {
       "types": "./src/orchestration.ts",
       "import": "./src/orchestration.ts"
-    },
-    "./permission-mode": {
-      "types": "./src/permission-mode.ts",
-      "import": "./src/permission-mode.ts"
     }
   },
   "scripts": {

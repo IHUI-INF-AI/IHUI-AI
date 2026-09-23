@@ -10,19 +10,6 @@ import type { DiffFile } from '@ihui/types'
 import { runCommand, readFile } from '@ihui/api-client'
 import { DiffStatsBar, type DiffFilterType } from './diff-stats-bar'
 import { DiffFileList } from './diff-file-list'
-import {
-  loadReviewedIds,
-  persistReviewedIds,
-  countReviewed,
-  filterReviewFiles,
-} from './diff-file-list'
-import {
-  buildUnifiedPatch,
-  buildGitApplyCommand,
-  type PatchFileInput,
-} from '@/components/ai/diff-hunk-controls'
-import { useClipboard } from '@/hooks/use-clipboard'
-import { useToast } from '@/hooks/use-toast'
 import { DiffPreview } from '@/components/ai/diff-preview'
 import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
 import { cn } from '@/lib/utils'
@@ -35,30 +22,11 @@ import {
   Plus,
   Minus,
   Loader2,
-  Search,
-  Eye,
-  ExternalLink,
-  Copy,
-  TriangleAlert,
-  RotateCcw,
 } from 'lucide-react'
 
 type DiffContent = { oldContent: string; newContent: string }
 
-/** 内容加载最大重试次数(超过后展示"重试后仍无法加载",D98③) */
-export const MAX_LOAD_RETRIES = 2
-
-export interface DiffViewerPaneProps {
-  /**
-   * D98④:PR 入口复用 D15 数据 —— 调用方传入环境面板同一 PR URL(见
-   * environment-info-popover PullRequestRow 的 snapshot.pullRequest.url),
-   * 本面板只做跳转展示,不另建 PR 数据面/查询。缺省不渲染入口。
-   */
-  pullRequestUrl?: string
-  pullRequestNumber?: number
-}
-
-export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewerPaneProps = {}) {
+export function DiffViewerPane() {
   const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile, workspacePath } =
     useIDEWorkspace()
   const t = useTranslations('ide')
@@ -68,21 +36,6 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set())
   const [contentCache, setContentCache] = React.useState<Map<string, DiffContent>>(new Map())
   const [loadingFileId, setLoadingFileId] = React.useState<string | null>(null)
-  // D98②:文件名跳转输入 + 生成文件隐藏(筛选逻辑复用 diff-file-list.filterReviewFiles)
-  const [searchQuery, setSearchQuery] = React.useState('')
-  const [hideGenerated, setHideGenerated] = React.useState(false)
-  // D98①:逐文件已审阅态(scope=workspacePath,localStorage 持久化,刷新后仍存)
-  const [reviewedIds, setReviewedIds] = React.useState<Set<string>>(() =>
-    loadReviewedIds(workspacePath),
-  )
-  // D98③:内容加载失败态(可读错误 + 重试;超过 MAX_LOAD_RETRIES 展示终态)
-  const [loadErrorFileId, setLoadErrorFileId] = React.useState<string | null>(null)
-  const [retryCount, setRetryCount] = React.useState(0)
-  const [fetchNonce, setFetchNonce] = React.useState(0)
-  // D98⑤(G-135):导出 git apply 命令进行态
-  const [exporting, setExporting] = React.useState(false)
-  const clipboard = useClipboard()
-  const { success: toastSuccess, error: toastError } = useToast()
 
   const activeIdx = diffFiles.findIndex((f) => f.id === activeDiffFileId)
   const activeDiff = activeIdx >= 0 ? diffFiles[activeIdx] : undefined
@@ -109,7 +62,6 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
   }, [activeFileId])
 
   // 选中文件变化时拉取真实 diff 内容(old/new),缓存避免重复请求
-  // D98③:任一必需侧拉取失败即记 loadError(给可读错误 + 重试出口,不再静默空内容)
   React.useEffect(() => {
     if (!activeFileId || !activeFilename || !activeStatus || !workspacePath) return
     if (contentCacheRef.current.has(activeFileId)) return
@@ -120,8 +72,6 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
     const fetchContent = async () => {
       let oldContent = ''
       let newContent = ''
-      let oldOk = activeStatus === 'added'
-      let newOk = activeStatus === 'deleted'
 
       // oldContent: 上一次提交版本(新增文件跳过)
       if (activeStatus !== 'added') {
@@ -131,12 +81,9 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             workspacePath,
             mode: 'read-only',
           })
-          if (oldResult.success) {
-            oldContent = oldResult.data.stdout
-            oldOk = true
-          }
+          if (oldResult.success) oldContent = oldResult.data.stdout
         } catch {
-          // 失败由下方 loadError 统一呈现
+          // 失败保持空字符串
         }
       }
 
@@ -147,12 +94,9 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             path: `${workspacePath}/${activeFilename}`,
             workspacePath,
           })
-          if (newResult.success) {
-            newContent = newResult.data.content
-            newOk = true
-          }
+          if (newResult.success) newContent = newResult.data.content
         } catch {
-          // 失败由下方 loadError 统一呈现
+          // 失败保持空字符串
         }
       }
 
@@ -163,129 +107,13 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
         return next
       })
       setLoadingFileId((curr) => (curr === activeFileId ? null : curr))
-      setLoadErrorFileId(!oldOk || !newOk ? activeFileId : null)
     }
 
     void fetchContent()
     return () => {
       cancelled = true
     }
-  }, [activeFileId, activeFilename, activeStatus, workspacePath, fetchNonce])
-
-  // D98①:workspace 切换时落盘旧 scope 审阅态并载入新 scope(防跨工作区串态)
-  const reviewedIdsRef = React.useRef(reviewedIds)
-  reviewedIdsRef.current = reviewedIds
-  const scopeRef = React.useRef(workspacePath)
-  React.useEffect(() => {
-    if (scopeRef.current === workspacePath) return
-    persistReviewedIds(scopeRef.current, reviewedIdsRef.current)
-    scopeRef.current = workspacePath
-    setReviewedIds(loadReviewedIds(workspacePath))
-  }, [workspacePath])
-
-  // D98①:审阅态变更即落盘(刷新后仍存);diff 集变化时剪掉已不在集中的 id(防计数虚高)
-  React.useEffect(() => {
-    persistReviewedIds(scopeRef.current, reviewedIds)
-  }, [reviewedIds])
-  React.useEffect(() => {
-    setReviewedIds((prev) => {
-      if (prev.size === 0) return prev
-      const alive = new Set<string>()
-      for (const f of diffFiles) if (prev.has(f.id)) alive.add(f.id)
-      return alive.size === prev.size ? prev : alive
-    })
-  }, [diffFiles])
-
-  // D98③:切换文件时重置失败/重试计数
-  React.useEffect(() => {
-    setLoadErrorFileId(null)
-    setRetryCount(0)
-  }, [activeFileId])
-
-  const toggleReviewed = React.useCallback((id: string) => {
-    setReviewedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-  const markAllReviewed = React.useCallback(() => {
-    setReviewedIds(new Set(diffFiles.map((f) => f.id)))
-  }, [diffFiles])
-  const clearReviewed = React.useCallback(() => {
-    setReviewedIds(new Set())
-  }, [])
-  const reviewedCount = countReviewed(reviewedIds, diffFiles)
-
-  // D98②:跳转目标(与列表同一筛选语义);回车跳首个匹配
-  const jumpTargets = React.useMemo(
-    () => filterReviewFiles(diffFiles, { status: filter, searchQuery, hideGenerated }),
-    [diffFiles, filter, searchQuery, hideGenerated],
-  )
-  const handleJumpKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== 'Enter') return
-    const first = jumpTargets[0]
-    if (first) setActiveDiffFile(first.id)
-  }
-
-  // D98③:重试当前文件(清缓存 + 计数 + 触发重拉)
-  const handleRetryLoad = React.useCallback(() => {
-    if (!activeFileId) return
-    setContentCache((prev) => {
-      const next = new Map(prev)
-      next.delete(activeFileId)
-      return next
-    })
-    setLoadErrorFileId(null)
-    setRetryCount((c) => c + 1)
-    setFetchNonce((n) => n + 1)
-  }, [activeFileId])
-
-  // D98⑤(G-135):一键导出可执行迁移命令(缺失侧按需拉取 → patch → heredoc 命令 → 剪贴板 + 成功 toast)
-  const handleCopyGitApply = React.useCallback(async () => {
-    if (exporting || diffFiles.length === 0 || !workspacePath) return
-    setExporting(true)
-    try {
-      const inputs: PatchFileInput[] = []
-      for (const f of diffFiles) {
-        const cached = contentCacheRef.current.get(f.id)
-        let oldContent = cached?.oldContent ?? f.oldContent ?? ''
-        let newContent = cached?.newContent ?? f.newContent ?? ''
-        if (f.status !== 'added' && oldContent === '') {
-          try {
-            const r = await runCommand({
-              command: `git show HEAD:"${f.filename}"`,
-              workspacePath,
-              mode: 'read-only',
-            })
-            if (r.success) oldContent = r.data.stdout
-          } catch {
-            /* 缺失则保留空串,buildUnifiedPatch 跳过无改动文件 */
-          }
-        }
-        if (f.status !== 'deleted' && newContent === '') {
-          try {
-            const r = await readFile({ path: `${workspacePath}/${f.filename}`, workspacePath })
-            if (r.success) newContent = r.data.content
-          } catch {
-            /* 同上 */
-          }
-        }
-        inputs.push({ filename: f.filename, oldContent, newContent })
-      }
-      const patch = buildUnifiedPatch(inputs)
-      if (!patch) {
-        toastError(t('diffReview.copyGitApplyEmpty'))
-        return
-      }
-      const ok = await clipboard.copy(buildGitApplyCommand(patch))
-      if (ok) toastSuccess(t('diffReview.copyGitApplyToast'))
-      else toastError(t('diffReview.copyGitApplyFailed'))
-    } finally {
-      setExporting(false)
-    }
-  }, [exporting, diffFiles, workspacePath, clipboard, toastSuccess, toastError, t])
+  }, [activeFileId, activeFilename, activeStatus, workspacePath])
 
   // 当前活动文件的有效内容(优先用缓存,回退到 DiffFile 原始字段)
   const cached = activeDiff ? contentCache.get(activeDiff.id) : undefined
@@ -312,71 +140,6 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
         onFilterChange={setFilter}
         onCommit={() => setSelectedIds(new Set())}
       />
-      {/* D98②④⑤:审阅工具条 —— 文件跳转 / 生成文件隐藏 / 已审计数 / PR 入口 / 导出迁移命令 */}
-      <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 text-xs">
-        <div className="flex min-w-0 items-center gap-1 rounded-sm border border-border/60 bg-background px-1.5 py-0.5">
-          <Search className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleJumpKeyDown}
-            placeholder={t('diffReview.jumpToFile')}
-            aria-label={t('diffReview.jumpToFile')}
-            className="w-28 bg-transparent outline-none placeholder:text-muted-foreground/60"
-            data-testid="diff-jump-input"
-          />
-        </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-1 text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={hideGenerated}
-            onChange={(e) => setHideGenerated(e.target.checked)}
-            className="h-3 w-3 shrink-0 accent-foreground"
-            data-testid="diff-hide-generated"
-          />
-          <span>{t('diffReview.hideGenerated')}</span>
-        </label>
-        {diffFiles.length > 0 && (
-          <span
-            className="inline-flex shrink-0 items-center gap-1 text-muted-foreground"
-            data-testid="diff-pane-review-count"
-          >
-            <Eye className="h-3 w-3" aria-hidden />
-            <span className="tabular-nums">
-              {t('diffReview.reviewedCount', { viewed: reviewedCount, total: diffFiles.length })}
-            </span>
-          </span>
-        )}
-        {pullRequestUrl && (
-          <a
-            href={pullRequestUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-            data-testid="diff-pr-link"
-          >
-            <ExternalLink className="h-3 w-3" aria-hidden />
-            <span>
-              {t('diffReview.viewPullRequest')}
-              {pullRequestNumber !== undefined ? ` #${pullRequestNumber}` : ''}
-            </span>
-          </a>
-        )}
-        <button
-          type="button"
-          onClick={() => void handleCopyGitApply()}
-          disabled={exporting || diffFiles.length === 0}
-          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-          data-testid="diff-copy-git-apply"
-        >
-          {exporting ? (
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-          ) : (
-            <Copy className="h-3 w-3" aria-hidden />
-          )}
-          <span>{t('diffReview.copyGitApply')}</span>
-        </button>
-      </div>
       <div className="flex min-h-0 flex-1">
         {showList && (
           <div className="w-56 shrink-0 overflow-auto bg-muted/20 p-1">
@@ -386,12 +149,6 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
               selectedIds={selectedIds}
               onSelectionChange={setSelectedIds}
               showActions
-              reviewedIds={reviewedIds}
-              onToggleReviewed={toggleReviewed}
-              onMarkAllReviewed={markAllReviewed}
-              onClearReviewed={clearReviewed}
-              searchQuery={searchQuery}
-              hideGenerated={hideGenerated}
             />
           </div>
         )}
@@ -439,37 +196,11 @@ export function DiffViewerPane({ pullRequestUrl, pullRequestNumber }: DiffViewer
             </button>
           </div>
           {effectiveDiff && <ChangeSummary file={effectiveDiff} />}
-          {/* D98③:内容加载失败可读横幅(首次失败给原因 + 重试;超限给终态) */}
-          {loadErrorFileId !== null && loadErrorFileId === activeDiffFileId && (
-            <div
-              className="flex items-center gap-1.5 bg-red-500/10 px-3 py-1.5 text-xs text-red-600 dark:text-red-400"
-              data-testid="diff-content-error"
-            >
-              <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
-                {retryCount >= MAX_LOAD_RETRIES
-                  ? t('diffReview.loadFailedAfterRetrying')
-                  : t('diffReview.fullContentLoadFailed')}
-              </span>
-              <button
-                type="button"
-                onClick={handleRetryLoad}
-                className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors hover:bg-red-500/15"
-                data-testid="diff-content-retry"
-              >
-                <RotateCcw className="h-3 w-3" aria-hidden />
-                <span>{t('diffReview.retry')}</span>
-              </button>
-            </div>
-          )}
           <div className="flex-1 overflow-auto">
             {isLoading && (
-              <div
-                className="flex h-full items-center justify-center text-xs text-muted-foreground"
-                data-testid="diff-content-loading"
-              >
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                {t('diffReview.loading')}
+                {t('mcpPane.loading')}
               </div>
             )}
             {!isLoading && effectiveDiff && diffViewMode === 'split' && (

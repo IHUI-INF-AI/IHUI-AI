@@ -5,14 +5,6 @@
 // @ihui/i18n ICU 子集解释器 — 让非 web 端(miniapp-taro / mobile-rn / cli / extension / api)
 // 与 web(next-intl → intl-messageformat)渲染出同一结果。只覆盖对话流措辞实际需要的四形:
 // plural / select / selectordinal / number,外加既有的 {name} 与 {{name}} 插值。
-//
-// 子集边界(与 intl-messageformat 有意不一致,均降级为原文 + console.warn,不抛错):
-// - plural `offset:N` 不支持 → 整段降级(宁可原文,不错选分支)
-// - `{v, number, ::skeleton}` 不解析 → 按默认分组格式渲染
-// - `'` 转义(apos quoting)不解析 → 按字面量处理(日常文案的 don't 等不受影响,
-//   仅 `'{` / `''` 这类转义序列与标准语义不同,词表内禁用此类写法)
-// - plural/selectordinal 的数值参数允许 string 数字("2"按 2 处理),intl-messageformat
-//   要求 number 类型 —— 跨引擎夹具只喂 number,此处宽松是为了兼容端内透传的字符串量
 
 import type { IcuFormatOptions } from './types'
 
@@ -28,13 +20,6 @@ type Params = Record<string, string | number>
 interface Ctx {
   params: Params
   locale: string
-  /** 解析降级原因(只记首次;formatIcu 收尾 console.warn 一次) */
-  degraded?: string
-}
-
-function degrade(ctx: Ctx, reason: string): null {
-  if (ctx.degraded === undefined) ctx.degraded = reason
-  return null
 }
 
 function matchBrace(text: string, start: number): number {
@@ -122,28 +107,12 @@ function renderCases(body: string, ctx: Ctx, hashValue: string | null): string {
       continue
     }
     if (ch === '{') {
-      // case 体内的 {{name}} 双花括号插值(与顶层 formatPattern 同语义;
-      // 注意 plural 的 `other {{count} 条}` 经 parseCases 剥掉一层后此处看到的是
-      // `{count} 条`,走下面的单花括号分支,不进此分支)
-      if (body[i + 1] === '{') {
-        const end = body.indexOf('}}', i + 2)
-        if (end === -1) {
-          out += ch
-          i++
-          continue
-        }
-        const raw = ctx.params[body.slice(i + 2, end).trim()]
-        out += raw === undefined ? '' : String(raw)
-        i = end + 2
-        continue
-      }
       const close = matchBrace(body, i)
       if (close === -1) {
         out += ch
         i++
         continue
       }
-      // 嵌套一层:select/plural 均可再嵌套一层(与 web 侧同构,见跨引擎夹具)
       const rendered = renderArg(body.slice(i + 1, close), ctx)
       if (rendered === null) {
         out += body.slice(i, close + 1)
@@ -185,35 +154,20 @@ function renderArg(inner: string, ctx: Ctx): string | null {
     return formatNumber(n, ctx.locale, style)
   }
 
-  if (type !== 'plural' && type !== 'selectordinal' && type !== 'select') {
-    return degrade(ctx, `unknown-type:${type}`)
-  }
-  if (payload === null) return degrade(ctx, `missing-payload:${type}`)
-  // offset:N 不在子集内:parseCases 会把它吞成 case key 的一部分导致静默错选分支,
-  // 必须显式降级(词表内禁用 offset 写法,见跨引擎夹具)
-  if (
-    (type === 'plural' || type === 'selectordinal') &&
-    /^\s*offset\s*:/u.test(payload)
-  ) {
-    return degrade(ctx, 'offset-unsupported:plural')
-  }
+  if (type !== 'plural' && type !== 'selectordinal' && type !== 'select') return null
+  if (payload === null) return null
   const cases = parseCases(payload)
-  if (!cases) return degrade(ctx, `parse-cases:${type}`)
+  if (!cases) return null
 
   if (type === 'select') {
     const picked = pickCase(cases, [String(value ?? ''), 'other'])
-    if (picked === null) return degrade(ctx, `select-no-match:${String(value ?? '')}`)
-    // 与 intl-messageformat 实测一致:# 的作用域止于各自 plural,select 内一律字面量
-    // (探针:intl-messageformat@11.2.13 `{c, plural, other {{s, select, a {#} other {o}}}}`
-    //  c=3/s=a 渲染为 "#" 而非 "3";词表内避免在 select 里写 #)
-    return renderCases(picked, ctx, null)
+    return picked === null ? null : renderCases(picked, ctx, null)
   }
 
   const n = toNumber(value)
   if (n === null) {
     const fallback = pickCase(cases, ['other'])
-    if (fallback === null) return degrade(ctx, `non-numeric-no-other:${type}`)
-    return renderCases(fallback, ctx, null)
+    return fallback === null ? null : renderCases(fallback, ctx, null)
   }
   let category: string
   try {
@@ -224,11 +178,9 @@ function renderArg(inner: string, ctx: Ctx): string | null {
     category = 'other'
   }
   const hashValue = formatNumber(n, ctx.locale)
-  // plural 与 selectordinal 均支持 =N 精确匹配(next-intl/intl-messageformat 同语义)
-  const candidates = [`=${n}`, category, 'other']
+  const candidates = type === 'selectordinal' ? [category, 'other'] : [`=${n}`, category, 'other']
   const picked = pickCase(cases, candidates)
-  if (picked === null) return degrade(ctx, `${type}-no-match:${n}`)
-  return renderCases(picked, ctx, hashValue)
+  return picked === null ? null : renderCases(picked, ctx, hashValue)
 }
 
 function formatPattern(pattern: string, ctx: Ctx): string {
@@ -252,18 +204,12 @@ function formatPattern(pattern: string, ctx: Ctx): string {
       const close = matchBrace(pattern, i)
       if (close === -1) {
         // 花括号未闭合 → 其余部分原样输出(降级不得截断文案)
-        degrade(ctx, 'unclosed-brace')
         out += pattern.slice(i)
         break
       }
       const rendered = renderArg(pattern.slice(i + 1, close), ctx)
-      if (rendered === null) {
-        // 解析失败 → 原样保留该段(降级不得打断渲染,也不得吞掉文案)
-        degrade(ctx, 'render-arg')
-        out += pattern.slice(i, close + 1)
-      } else {
-        out += rendered
-      }
+      // 解析失败 → 原样保留该段(降级不得打断渲染,也不得吞掉文案)
+      out += rendered === null ? pattern.slice(i, close + 1) : rendered
       i = close + 1
       continue
     }
@@ -273,21 +219,10 @@ function formatPattern(pattern: string, ctx: Ctx): string {
   return out
 }
 
-const MAX_WARN_PATTERN_LEN = 120
-
-function warnDegraded(pattern: string, reason: string): void {
-  const short = pattern.length > MAX_WARN_PATTERN_LEN ? `${pattern.slice(0, MAX_WARN_PATTERN_LEN)}…` : pattern
-  console.warn(`[ihui-i18n] ICU 解析失败已降级为原文(${reason}): ${short}`)
-}
-
 export function formatIcu(pattern: string, params: Params, options?: IcuFormatOptions): string {
-  const ctx: Ctx = { params, locale: options?.locale ?? 'zh-CN' }
   try {
-    const out = formatPattern(pattern, ctx)
-    if (ctx.degraded !== undefined) warnDegraded(pattern, ctx.degraded)
-    return out
-  } catch (err) {
-    warnDegraded(pattern, err instanceof Error ? err.message : String(err))
+    return formatPattern(pattern, { params, locale: options?.locale ?? 'zh-CN' })
+  } catch {
     return pattern
   }
 }
