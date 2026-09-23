@@ -13,18 +13,14 @@
  * - 半透明遮罩(对齐 .mask rgba(0,0,0,0.5)),点击遮罩关闭。
  * - 类型零 any;颜色走 theme/active-tokens 的主题 token。
  */
-import { useEffect, useState } from 'react'
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { useEffect, useMemo, useState } from 'react'
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AgentCategoryItem } from '@ihui/api-client'
+import { CategoryInlineBar, type CategoryItem } from '@ihui/rn-app'
+import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
+
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface FenLeiOverlayProps {
   visible: boolean
@@ -62,6 +58,16 @@ export function FenLeiOverlay({
     }
   }, [visible, selectedTrackId, selectedMainId])
 
+  const { resolvedTheme } = useTheme()
+  const trackItems = useMemo<CategoryItem[]>(
+    () => trackCategories.map((item) => ({ id: item.id, label: item.name })),
+    [trackCategories],
+  )
+  const mainItems = useMemo<CategoryItem[]>(
+    () => mainCategories.map((item) => ({ id: item.id, label: item.name })),
+    [mainCategories],
+  )
+
   const handleConfirm = (): void => {
     onConfirm(tempTrackId, tempMainId)
     onClose()
@@ -84,58 +90,26 @@ export function FenLeiOverlay({
         />
         {/* 弹层面板:顶部对齐(对齐 uniapp s_t_b 紧贴导航栏下方下拉) */}
         <View style={styles.panel}>
-          {/* 顶部标题(对齐 uniapp tag-head:紫色 #865EFF 居中加粗) */}
+          {/* 顶部标题(对齐 uniapp tag-head:紫色居中加粗) */}
           <Text style={styles.headTitle}>分类</Text>
-          {/* 赛道横向按钮行(对齐 ScrollTitle informationList=agentCategory,单选) */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.trackRow}
-          >
-            {trackCategories.map((item) => {
-              const active = tempTrackId === item.id
-              return (
-                <TouchableOpacity
-                  key={item.id || 'all-track'}
-                  style={[styles.tagItem, active ? styles.tagItemActive : null]}
-                  onPress={() => setTempTrackId(item.id)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`赛道 ${item.name}`}
-                >
-                  <Text
-                    style={[styles.tagText, active ? styles.tagTextActive : null]}
-                    numberOfLines={1}
-                  >
-                    {item.name}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </ScrollView>
-          {/* 分类网格(对齐 fenlei_btn_list_overlay:agentMainCategory 两行网格,单选) */}
-          <View style={styles.mainGrid}>
-            {mainCategories.map((item) => {
-              const active = tempMainId === item.id
-              return (
-                <TouchableOpacity
-                  key={item.id || 'all-main'}
-                  style={[styles.tagItem, active ? styles.tagItemActive : null]}
-                  onPress={() => setTempMainId(item.id)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`分类 ${item.name}`}
-                >
-                  <Text
-                    style={[styles.tagText, active ? styles.tagTextActive : null]}
-                    numberOfLines={1}
-                  >
-                    {item.name}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
+          {/* 赛道横向单选条(统一分类栏;原 ScrollTitle informationList=agentCategory) */}
+          <CategoryInlineBar
+            items={trackItems}
+            selectedId={tempTrackId}
+            onSelect={setTempTrackId}
+            colorScheme={resolvedTheme}
+            contentPaddingHorizontal={0}
+            testID="fenlei-track-bar"
+          />
+          {/* 分类横向单选条(统一分类栏;原 fenlei_btn_list_overlay 换行网格) */}
+          <CategoryInlineBar
+            items={mainItems}
+            selectedId={tempMainId}
+            onSelect={setTempMainId}
+            colorScheme={resolvedTheme}
+            contentPaddingHorizontal={0}
+            testID="fenlei-main-bar"
+          />
           {/* 确定按钮(任务要求:选中后确定提交并刷新列表) */}
           <TouchableOpacity
             style={styles.confirmBtn}
@@ -164,13 +138,14 @@ const styles = StyleSheet.create({
   panel: {
     width: '100%',
     backgroundColor: tokens.surface.card,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: rnRadius.xl,
+    borderBottomRightRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 14,
+    gap: 10,
   },
   // 标题(对齐 uniapp tag-head:36rpx≈18sp 紫色 #865EFF 加粗居中)
   headTitle: {
@@ -180,47 +155,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  // 赛道行(对齐 uniapp tag-list 横向滚动,gap 20rpx≈10dp)
-  trackRow: {
-    gap: 8,
-    paddingVertical: 2,
-    marginBottom: 8,
-  },
-  // 分类网格(对齐 uniapp fenlei_btn_list_overlay 换行按钮列表)
-  mainGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  // 单个标签(对齐 uniapp tag-item:26rpx≈13sp 灰底圆角)
-  tagItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: tokens.surface.muted,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-  },
-  // 选中态(对齐 uniapp fenlei_btn.active / tag-item_active:加边框 + 加粗)
-  tagItemActive: {
-    borderColor: tokens.brand.DEFAULT,
-    backgroundColor: tokens.brandAccent.light,
-  },
-  tagText: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-  },
-  tagTextActive: {
-    color: tokens.text.primary,
-    fontWeight: '600',
-  },
   // 确定按钮(品牌色胶囊)
   confirmBtn: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.brand.DEFAULT,
   },
   confirmText: {

@@ -34,8 +34,8 @@ import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
 import { tokens } from '../theme/active-tokens'
-import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
-import type { SharedMenuSection } from '@ihui/rn-app'
+import { CategoryInlineBar, ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
+import type { CategoryItem, SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
 import {
   cancelRecurringContract,
@@ -61,8 +61,6 @@ import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import { LoginPopUp } from '../components/LoginPopUp'
-import StudyBar from '../components/StudyBar'
-import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -605,7 +603,7 @@ export function ProfileScreen() {
                 />
               </View>
             ) : null}
-            {/* 4 Tab 内容区(StudyBar + 文本/图片/视频/音频)。
+            {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
                 位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 StudyBar) */}
             <ProfileContentSection />
             <SharedProfileScreen
@@ -1039,8 +1037,8 @@ function UnsubscribeModal({
 
 // ============ 4 Tab 内容区(对齐 Uniapp 行 59-191) ============
 
-const TAB_BAR_ITEMS: StudyBarItem[] = PROFILE_TAB_LIST.map((tab) => ({
-  key: String(tab.id),
+const TAB_BAR_ITEMS: CategoryItem[] = PROFILE_TAB_LIST.map((tab) => ({
+  id: String(tab.id),
   label: tab.name,
 }))
 
@@ -1061,6 +1059,7 @@ interface VideoModalState {
  * 所有对话 fallback 到 text tab,其他 tab 显示空)。
  */
 function ProfileContentSection(): React.JSX.Element {
+  const { resolvedTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<ProfileTabId>(1)
   const [textContentList, setTextContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
   const [imageContentList, setImageContentList] =
@@ -1210,7 +1209,13 @@ function ProfileContentSection(): React.JSX.Element {
   return (
     <View style={styles.contentSection}>
       <View style={styles.tabBarWrap}>
-        <StudyBar items={TAB_BAR_ITEMS} activeKey={String(activeTab)} onChange={onTabChange} />
+        <CategoryInlineBar
+          items={TAB_BAR_ITEMS}
+          selectedId={String(activeTab)}
+          onSelect={onTabChange}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
+        />
       </View>
       <View style={styles.contentDisplayArea}>
         {loading ? (
