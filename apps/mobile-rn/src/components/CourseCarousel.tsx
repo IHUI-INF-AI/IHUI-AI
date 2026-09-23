@@ -583,7 +583,7 @@ const listStyles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   tabTextActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   listContent: {
     paddingBottom: 8,

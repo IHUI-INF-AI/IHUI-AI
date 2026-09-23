@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
 import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
@@ -32,19 +31,18 @@ const MOCK: LearningProgressPoint[] = [
 ]
 
 export function LearningProgressChart({ data = MOCK, height = 300 }: LearningProgressChartProps) {
-  const t = useTranslations('statistics')
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
-    legend: { data: [t('lessonsCount'), t('studyDuration')], top: 0 },
+    legend: { data: ['课时数', '学习时长'], top: 0 },
     grid: { left: 40, right: 40, top: 40, bottom: 30 },
     xAxis: { type: 'category', data: data.map((d) => d.date), boundaryGap: false },
     yAxis: [
-      { type: 'value', name: t('axisLessons') },
-      { type: 'value', name: t('axisMinutes') },
+      { type: 'value', name: '课时' },
+      { type: 'value', name: '分钟' },
     ],
     series: [
       {
-        name: t('lessonsCount'),
+        name: '课时数',
         type: 'line',
         smooth: true,
         data: data.map((d) => d.lessons),
@@ -52,7 +50,7 @@ export function LearningProgressChart({ data = MOCK, height = 300 }: LearningPro
         areaStyle: { opacity: 0.1 },
       },
       {
-        name: t('studyDuration'),
+        name: '学习时长',
         type: 'line',
         yAxisIndex: 1,
         smooth: true,
