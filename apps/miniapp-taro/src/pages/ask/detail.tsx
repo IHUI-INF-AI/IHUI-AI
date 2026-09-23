@@ -76,7 +76,7 @@ export default function AskDetailPage() {
             <View className="flex items-center justify-between mt-[12rpx] mb-[24rpx]">
               <View className="flex items-center">
                 <Image
-                  className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-muted"
+                  className="w-[50rpx] h-[50rpx] rounded-sm bg-muted"
                   src={data.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
@@ -102,11 +102,11 @@ export default function AskDetailPage() {
             {answers.map((a, i) => (
               <View
                 key={i}
-                className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx] mb-[24rpx]"
+                className="bg-card border-[2rpx] border-border rounded-xl p-[28rpx] mb-[24rpx]"
               >
                 <View className="flex items-center">
                   <Image
-                    className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-muted"
+                    className="w-[50rpx] h-[50rpx] rounded-sm bg-muted"
                     src={a.avatar || '/static/default-avatar.png'}
                     mode="aspectFill"
                   />
@@ -130,13 +130,13 @@ export default function AskDetailPage() {
           style={{ paddingBottom: 'calc(16rpx + env(safe-area-inset-bottom))' }}
         >
           <Input
-            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[2rpx] border-border rounded-[24rpx] text-[28rpx] text-foreground"
+            className="flex-1 h-[72rpx] px-[24rpx] bg-muted border-[2rpx] border-border rounded-xl text-[28rpx] text-foreground"
             value={answer}
             placeholder={t('ask.detail.placeholder')}
             onInput={(e) => setAnswer(e.detail.value)}
           />
           <Button
-            className={`ml-[16rpx] rounded-[24rpx] text-[24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-card'}`}
+            className={`ml-[16rpx] rounded-xl text-[24rpx] ${answer ? 'bg-[var(--color-brand)] text-primary-foreground' : 'bg-[var(--color-text-tertiary)] text-card'}`}
             size="mini"
             onClick={onAnswer}
             disabled={!answer}

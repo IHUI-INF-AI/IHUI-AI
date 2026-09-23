@@ -49,10 +49,10 @@ export default function BusinessLicense() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-muted px-[24rpx] pt-[24rpx] pb-[48rpx]">
-        <View className="bg-card rounded-[24rpx] overflow-hidden p-[24rpx] box-border mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {!imgError ? (
             <Image
-              className="w-full block rounded-[8rpx]"
+              className="w-full block rounded-sm"
               src={LICENSE_IMAGE}
               mode="widthFix"
               onClick={previewLicense}
@@ -60,7 +60,7 @@ export default function BusinessLicense() {
             />
           ) : (
             <View
-              className="flex items-center justify-center h-[520rpx] bg-muted rounded-[8rpx]"
+              className="flex items-center justify-center h-[520rpx] bg-muted rounded-sm"
               onClick={previewLicense}
               hoverClass="opacity-60"
             >
@@ -71,7 +71,7 @@ export default function BusinessLicense() {
           )}
         </View>
 
-        <View className="bg-card rounded-[24rpx] overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
@@ -85,7 +85,7 @@ export default function BusinessLicense() {
           ))}
         </View>
 
-        <View className="bg-card rounded-[24rpx] overflow-hidden p-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.businessLicense.scopeTitle', '经营范围')}
           </Text>

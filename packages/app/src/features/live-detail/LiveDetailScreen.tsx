@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useEffect, useMemo, useRef } from 'react'
 import {
@@ -251,7 +252,7 @@ function createStyles(tk: AppThemeTokens) {
     btnPrimary: {
       paddingHorizontal: 10,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -261,14 +262,14 @@ function createStyles(tk: AppThemeTokens) {
     header: { paddingHorizontal: 10, paddingTop: 48, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+    badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
     badgeLive: { backgroundColor: tk.danger.DEFAULT },
     badgeUpcoming: { backgroundColor: tk.warning.amber },
     badgeText: { fontSize: 11, color: tk.surface.light },
     badgeMuted: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     badgeMutedText: { fontSize: 11, color: tk.text.secondary },
@@ -284,7 +285,7 @@ function createStyles(tk: AppThemeTokens) {
     subscribeSection: { paddingHorizontal: 10, paddingVertical: 12 },
     subscribedBox: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.lighter,
     },
     subscribedText: { fontSize: 14, color: tk.success.deepText },
@@ -294,12 +295,12 @@ function createStyles(tk: AppThemeTokens) {
     introText: { fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
     chatSection: { flex: 1, paddingHorizontal: 10, marginTop: 8 },
     chatStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-    statusDot: { width: 8, height: 8, borderRadius: 2 },
+    statusDot: { width: 8, height: 8, borderRadius: rnRadius.xs },
     chatStatusText: { fontSize: 11, color: tk.text.tertiary },
     chatListWrap: {
       flex: 1,
       padding: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -309,7 +310,7 @@ function createStyles(tk: AppThemeTokens) {
     chatItem: {
       marginBottom: 8,
       padding: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     chatItemHeader: {
@@ -338,7 +339,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
