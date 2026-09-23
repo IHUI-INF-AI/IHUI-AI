@@ -480,7 +480,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkoutText: {
       fontSize: 14,
       fontWeight: '600',
-      color: tk.surface.light,
+      color: tk.brand.foreground,
     },
     center: {
       alignItems: 'center',

@@ -74,6 +74,17 @@ function formatPrice(value?: number | string): string {
   return (n / 100).toFixed(2)
 }
 
+/**
+ * 取昵称首字母作为默认头像 initials(AGENTS.md 强制规范:头像用 initials)。
+ * 中文取首个汉字,英文取首字母大写,空值回退 'U'。
+ */
+function getInitials(name?: string): string {
+  if (!name) return 'U'
+  const trimmed = name.trim()
+  if (!trimmed) return 'U'
+  return trimmed.charAt(0).toUpperCase()
+}
+
 export function PersonalInformationCard({
   avatar,
   nickname,
@@ -84,6 +95,7 @@ export function PersonalInformationCard({
   currentAmount,
   onWithdraw,
 }: PersonalInformationCardProps) {
+  const hasAvatarUrl = Boolean(avatar)
   const avatarUrl = avatar || DEFAULT_AVATAR_URL
 
   // 兼容原「分销者卡」字段:仅当调用方仍传入时,以次级信息行展示,避免信息丢失
@@ -98,10 +110,16 @@ export function PersonalInformationCard({
     >
       {/* 顶部:昵称 + 头像 */}
       <View style={styles.header}>
-        <Text style={styles.nickname} numberOfLines={1}>
+        <Text style={styles.nickname} numberOfLines={1} ellipsizeMode="tail">
           {nickname || '用户'}
         </Text>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
+        {hasAvatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
+        ) : (
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>{getInitials(nickname)}</Text>
+          </View>
+        )}
       </View>
 
       {/* 累计收入 */}
@@ -171,6 +189,20 @@ const styles = StyleSheet.create({
     borderRadius: AVATAR_RADIUS,
     backgroundColor: tokens.surface.muted,
   } as ImageStyle,
+  // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
+  avatarFallback: {
+    width: AVATAR_WIDTH,
+    height: AVATAR_HEIGHT,
+    borderRadius: AVATAR_RADIUS,
+    backgroundColor: tokens.brandAccent.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  avatarFallbackText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
+  } as TextStyle,
   incomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
