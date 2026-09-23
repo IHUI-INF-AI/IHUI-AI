@@ -442,6 +442,29 @@
   safe-commit 的"staged 集合必须等于声明集合"这道校验正是为此;我这次绕过了它(用裸 `git commit`)
   才让这类污染成为可能。**后续任何提交一律走 safe-commit 或显式 `git commit -- <路径>`。**
 
+### 用户批准后完成的两件事(2026-09-23 晚)
+
+**① 两个看门计划任务切到 S4U(不再依赖有人登录)** — 提交 `b805d31da` + 封装脚本
+`scripts/task-set-s4u.vbs`(纯 ASCII 已机器校验)。原先它们都是 `InteractiveToken`:重启后
+无人登录 ⇒ `.git` 存续守护与凭据告警**同时静默**。两条常规路本机都走不通(实测记录:
+`schtasks /RU <user> /NP` 会交互式索要密码;pwsh 无 ScheduledTasks 模块 —— 后者正是 guardian
+自检永不成功、每 2 分钟重注册自己的根因)。唯一可行形态:`Schedule.Service` COM +
+`NewTask(0)` 的可写 `XmlText` + `RegisterTaskDefinition(name, def, 6, <SID>, Null, 2)`
+(账号用 XML 原 SID、密码必须 `Null`)。
+验证不取脚本自述:两任务经 `schtasks /XML` 外部读回均为 `<LogonType>S4U</LogonType>`;
+guardian 触发一次 `Last Result=0`;巡检触发一次且心跳文件 mtime 真更新 + `Last Result=0`;
+**切之前先在一次性探针任务上验能力**(S4U 下 `USERPROFILE` 正常、HKCU 的 `SERVERCHAN_SENDKEY`
+仍可见、同步盘凭据文件仍可读)才敢动生产;再跑一轮守护日志新增 0 行 ⇒ 幂等不重建。
+防回退:`ensureS4u()` 挂在健康轮次与 `--install` 成功之后,新机器/重装也不会掉回 InteractiveToken。
+
+**② Gitee 侧内部备份标签的删除已装车(带零损失清单),但"落地成功"仍未达成**
+提交把删除步骤装进 `mirror-to-cn.yml` 的推送**之前**(先 `ls-remote` 落盘
+`gitee-internal-tags-before-prune.txt` 再按每批 300 删),因为不先腾体积推 `main` 仍会被
+pre-receive 拒。**如实说明未完的部分**:配额是服务端按仓库体积算的,删 ref 后仍需 Gitee 侧
+GC 才真正降体积(其无公开 GC API),所以"镜像恢复落地"这件事**没有被我完成**,判据留在
+巡检的国内镜像活性项(Gitee `main` 落后超 18 小时即判红并写明原因)。要立刻验证可在
+GitHub Actions 手动 dispatch 一次并看第 5 步是否仍报 `exceeds quota`。
+
 ### 需要你拍板的两件事(我不擅自做)
 
 1. **Gitee 配额要真正解开,必须删镜像上的内部备份标签并触发 GC** —— 本仓已做到"不再推这 4061 个
