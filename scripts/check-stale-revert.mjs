@@ -221,7 +221,7 @@ function selfTestRun() {
   const results = []
   const check = (name, ok) => results.push({ name, ok })
   try {
-    g(['init', '-q', '--initial-branch=main'])
+    git(['-c', 'core.autocrlf=false', '-c', 'core.eol=lf', 'init', '-q', '--initial-branch=main'], { cwd: repo })
     g(['config', 'user.email', 't@t'])
     g(['config', 'user.name', 't'])
     writeFileSync(join(repo, 'a.ts'), 'v1\n')
