@@ -10,7 +10,6 @@ import { toast } from '@/components/common'
 
 import { logger } from '@/lib/logger'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { permissionModeWire } from '@ihui/types/permission-mode'
 import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 
 /**
@@ -340,7 +339,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     void (async () => {
       try {
         const { updateLatestRecordSource } = await import('@/lib/permission-mode-history')
-        updateLatestRecordSource('auto-revert', (e) => permissionModeWire(e.mode) === 'default')
+        updateLatestRecordSource('auto-revert', (e) => e.mode === 'default')
       } catch {
         // 静默
       }
