@@ -14,14 +14,15 @@ import {
   type TokenBalance,
 } from '@ihui/api-client'
 import {
+  CategoryInlineBar,
   TokenValueScreen as SharedTokenValueScreen,
   type TokenRecordType,
   type TokenValueBalance,
   type TokenValuePackage,
   type TokenValueRecord,
 } from '@ihui/rn-app'
-import StudyBar from '../components/StudyBar'
 import { formatShortDateTime } from '../utils/date-utils'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -49,10 +50,11 @@ function formatToken(n: number): string {
 
 export default function TokenValueScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<TokenRecordType>('all')
   const [balance, setBalance] = useState<TokenValueBalance | null>(null)
-  // 全量记录 + 平行时间戳数组(StudyBar 按时间范围过滤用;TokenValueRecord 类型不含原始时间)
+  // 全量记录 + 平行时间戳数组(分类条按时间范围过滤用;TokenValueRecord 类型不含原始时间)
   const [allRecords, setAllRecords] = useState<TokenValueRecord[]>([])
   const [allTimes, setAllTimes] = useState<number[]>([])
   // 时间范围(对齐 Uniapp token_value.vue type 默认 'w' 7天)
@@ -144,7 +146,7 @@ export default function TokenValueScreen() {
       ],
     )
 
-  // StudyBar 时间范围过滤(对齐 Uniapp token_value.vue onTabChange → type 参数重新拉取;此处前端过滤已加载记录)
+  // 时间范围过滤(对齐 Uniapp token_value.vue onTabChange → type 参数重新拉取;此处前端过滤已加载记录)
   const records = useMemo(() => {
     if (range === 'a') return allRecords
     const cutoff = Date.now() - RANGE_DAYS[range] * 24 * 60 * 60 * 1000
@@ -153,12 +155,14 @@ export default function TokenValueScreen() {
 
   return (
     <View style={styles.container}>
-      {/* StudyBar — 记录时间范围切换(对齐 Uniapp token_value.vue TabBar barList: 7天/一个月/近一年/全部) */}
+      {/* 记录时间范围切换(统一分类条;对齐 Uniapp token_value.vue TabBar barList: 7天/一个月/近一年/全部) */}
       <View style={styles.studyBarWrap}>
-        <StudyBar
-          items={RANGE_ITEMS.map((item) => ({ key: item.key, label: item.label }))}
-          activeKey={range}
-          onChange={(key) => setRange(key as RangeKey)}
+        <CategoryInlineBar
+          items={RANGE_ITEMS.map((item) => ({ id: item.key, label: item.label }))}
+          selectedId={range}
+          onSelect={(id) => setRange(id as RangeKey)}
+          colorScheme={resolvedTheme}
+          contentPaddingHorizontal={0}
         />
       </View>
       <View style={styles.sharedWrap}>

@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryDropdown } from '../../components/category/CategoryDropdown'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -245,29 +246,11 @@ function CategoryPicker({
       ) : options.length === 0 ? (
         <Text style={chipStyles.empty}>暂无赛道</Text>
       ) : (
-        <View style={chipStyles.chipRow}>
-          {options.map((o) => {
-            const active = o.id === selectedId
-            return (
-              <Pressable
-                key={o.id}
-                style={({ pressed }) => [
-                  chipStyles.chip,
-                  active ? chipStyles.chipActive : null,
-                  pressed ? chipStyles.chipPressed : null,
-                ]}
-                onPress={() => onSelect(o.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={o.name}
-              >
-                <Text style={[chipStyles.chipText, active ? chipStyles.chipTextActive : null]}>
-                  {o.name}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
+        <CategoryDropdown
+          items={options.map((o) => ({ id: o.id, label: o.name }))}
+          selectedId={selectedId}
+          onSelect={onSelect}
+        />
       )}
     </View>
   )

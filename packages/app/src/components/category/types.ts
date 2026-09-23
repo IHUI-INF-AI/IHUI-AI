@@ -2,39 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export { SectionHeader } from './SectionHeader'
-export type { SectionHeaderProps } from './SectionHeader'
+import type { ImageSourcePropType } from 'react-native'
+import type { LucideIcon } from 'lucide-react-native'
 
-export { ColorfulLoader } from './ColorfulLoader'
-export type { ColorfulLoaderProps } from './ColorfulLoader'
+/**
+ * 统一分类项(跨 RN 复用的唯一文案源在调用方,组件内零中文常量)。
+ * icon 仅接受 lucide 组件引用或静态图片源,禁止 emoji/手绘品牌图标。
+ */
+export interface CategoryItem {
+  /** 唯一标识(必填) */
+  id: string
+  /** 显示文案(必填,调用方传入 i18n 取词结果) */
+  label: string
+  /** 前置图标(选填,lucide 组件引用) */
+  icon?: LucideIcon
+  /** 前置图片(选填,与 icon 二选一,icon 优先) */
+  image?: ImageSourcePropType
+  /** 计数徽章(选填,按确定性居中模板渲染) */
+  count?: number
+  /** 无障碍标签(选填,默认复用 label,不拼后缀) */
+  a11yLabel?: string
+}
 
-export { PayButton } from './PayButton'
-export type { PayButtonProps, PayButtonType } from './PayButton'
-
-export { Selecter } from './Selecter'
-export type { SelecterProps, SelecterType, SelecterOption } from './Selecter'
-
-export { Carousel } from './Carousel'
-export type { CarouselProps } from './Carousel'
-
-export { NavBar } from './NavBar'
-export type { NavBarProps } from './NavBar'
-
-export { TabBar } from './TabBar'
-export type { TabBarProps, TabBarItemConfig, TabBarKey } from './TabBar'
-
-export { Toolbar } from './Toolbar'
-export type { ToolbarProps, ToolbarItem } from './Toolbar'
-
-export { UserInfoCard } from './UserInfoCard'
-export type { UserInfoCardProps } from './UserInfoCard'
-
-export { SearchInput } from './SearchInput'
-export type { SearchInputProps } from './SearchInput'
-
-export { CategoryInlineBar } from './category/CategoryInlineBar'
-export type { CategoryInlineBarProps } from './category/CategoryInlineBar'
-export { CategoryDropdown } from './category/CategoryDropdown'
-export type { CategoryDropdownProps } from './category/CategoryDropdown'
-export type { CategoryItem, ColorSchemeName } from './category/types'
+export type ColorSchemeName = 'light' | 'dark'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
