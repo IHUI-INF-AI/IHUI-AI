@@ -70,29 +70,28 @@ interface SlashCommandPaletteProps {
 
 /** 分组元信息(2026-07-29 立,深度重构:命令分组提升可发现性)
  * 2026-07-29 二次深化:新增 skill 分组(AI 技能,Sparkles 图标)
- * - labelKey:分组小标题的 i18n 键(slashPalette 命名空间,渲染处取词;
- *   模块级常量拿不到 t,按"存键名 + 渲染处取词"落地,避免搬进组件引起重渲染)
+ * - label:分组小标题(text-[10px] uppercase tracking-wider text-muted-foreground/60)
  * - icon:分组图标(小标题左侧)
  * - 顺序:goal(重点)→ mode → permission → skill → template */
-const CATEGORY_META: Record<SlashCommandCategory, { labelKey: string; icon: React.ReactNode }> = {
+const CATEGORY_META: Record<SlashCommandCategory, { label: string; icon: React.ReactNode }> = {
   goal: {
-    labelKey: 'categoryGoal',
+    label: '目标与循环',
     icon: <Target className="h-3 w-3" />,
   },
   mode: {
-    labelKey: 'categoryMode',
+    label: '模式切换',
     icon: <Zap className="h-3 w-3" />,
   },
   permission: {
-    labelKey: 'categoryPermission',
+    label: '权限管理',
     icon: <Lock className="h-3 w-3" />,
   },
   skill: {
-    labelKey: 'categorySkill',
+    label: 'AI 技能',
     icon: <Sparkles className="h-3 w-3" />,
   },
   template: {
-    labelKey: 'categoryTemplate',
+    label: '内容模板',
     icon: <FileText className="h-3 w-3" />,
   },
 }
@@ -305,8 +304,8 @@ export function SlashCommandPalette({
           // 参数补全模式:候选列表(无分组)
           argSuggestions.length === 0 ? (
             <div className="flex flex-col items-center gap-1 py-8 text-center">
-              <p className="text-sm text-muted-foreground">{t('noMatchArgs')}</p>
-              <p className="text-[10px] text-muted-foreground/60">{t('noMatchArgsHint')}</p>
+              <p className="text-sm text-muted-foreground">无匹配候选</p>
+              <p className="text-[10px] text-muted-foreground/60">尝试清空搜索或按 ESC 返回</p>
             </div>
           ) : (
             argSuggestions.map((suggestion, idx) => {
@@ -354,8 +353,8 @@ export function SlashCommandPalette({
         ) : // 普通模式:分组命令列表
         flatItems.length === 0 ? (
           <div className="flex flex-col items-center gap-1 py-8 text-center">
-            <p className="text-sm text-muted-foreground">{t('noMatchCommands')}</p>
-            <p className="text-[10px] text-muted-foreground/60">{t('noMatchCommandsHint')}</p>
+            <p className="text-sm text-muted-foreground">无匹配命令</p>
+            <p className="text-[10px] text-muted-foreground/60">尝试清空搜索或输入命令名</p>
           </div>
         ) : (
           grouped.map((group) => (
@@ -364,7 +363,7 @@ export function SlashCommandPalette({
               <div className="flex items-center gap-1.5 px-2.5 pt-2 pb-1">
                 {CATEGORY_META[group.category].icon}
                 <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                  {t(CATEGORY_META[group.category].labelKey)}
+                  {CATEGORY_META[group.category].label}
                 </span>
                 {/* skill 分组 loading 状态(2026-07-29 立) */}
                 {group.items.some((c) => c.loading) && (
