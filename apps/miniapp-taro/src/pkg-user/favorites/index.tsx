@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
@@ -12,6 +12,7 @@ import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import CategoryBar from '@/components/CategoryBar'
 
 const PAGE_SIZE = 20
 
@@ -193,23 +194,16 @@ export default function FavoritesPage() {
         />
       </View>
 
-      {/* 分类 Tab:横向滚动(对齐 RN FavoriteScreen tab:paddingHorizontal 14dp/paddingVertical 6dp/radius 12dp/激活 bg brand) */}
-      <ScrollView scrollX className="py-[16rpx] whitespace-nowrap w-full">
-        {CATEGORY_TABS.map((tab) => (
-          <View
-            key={tab.key}
-            className={`inline-flex items-center justify-center px-[28rpx] py-[12rpx] mr-[16rpx] rounded-xl ${activeTab === tab.key ? 'bg-primary' : 'bg-card'}`}
-            hoverClass="opacity-60"
-            onClick={() => setActiveTab(tab.key)}
-          >
-            <Text
-              className={`text-[28rpx] ${activeTab === tab.key ? 'text-primary-foreground font-semibold' : 'text-muted-foreground'}`}
-            >
-              {tt(tab.labelKey, tab.fallback)}
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
+      {/* 分类 Tab:统一分类条(与 web CategoryBar / RN CategoryInlineBar 同形同档) */}
+      <CategoryBar
+        className="py-[16rpx]"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as CategoryTab)}
+        items={CATEGORY_TABS.map((tab) => ({
+          id: tab.key,
+          label: tt(tab.labelKey, tab.fallback),
+        }))}
+      />
 
       {/* 批量操作栏 */}
       {manageMode && displayList.length > 0 ? (
