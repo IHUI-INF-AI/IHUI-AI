@@ -27,6 +27,21 @@ const mk = (tag: string) =>
   }
 
 export const Platform = { OS: 'web' as const }
+/**
+ * src/theme/active-tokens.ts 在**模块求值时**调 Appearance.getColorScheme(),
+ * 并在 release 下靠 DevSettings 之外的路径落盘。stub 缺这两个导出时,
+ * 任何 transitively import 主题层的测试文件都会以 "No 'Appearance' export is
+ * defined on the 'react-native' mock" 整文件加载失败(2026-09-23 实测 5 个文件)。
+ */
+export const Appearance = {
+  getColorScheme: () => 'light' as 'light' | 'dark' | null,
+  addChangeListener: (_cb: (s: { colorScheme: 'light' | 'dark' | null }) => void) => ({
+    remove() {},
+  }),
+}
+export const DevSettings = {
+  reload: (_reason?: string) => {},
+}
 export const View = mk('div')
 export const Text = mk('span')
 export const Pressable = mk('button')
@@ -72,6 +87,8 @@ export const Animated = {
 
 const ReactNative = {
   Platform,
+  Appearance,
+  DevSettings,
   View,
   Text,
   Pressable,
