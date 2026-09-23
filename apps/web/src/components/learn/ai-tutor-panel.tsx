@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Loader2, Sparkles, Lightbulb, HelpCircle, Send } from 'lucide-react'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import {
@@ -19,35 +18,24 @@ import {
 
 type Mode = 'explain' | 'hint' | 'quiz'
 
-// 学科 value 是发给 /api/ai-tutor 系列接口的协议字面值(非界面文案,不得翻译),
-// 以 \u 转义书写避免界面硬编码中文进入语言包之外的通道;展示文案改由 labelKey 在渲染处 t() 取词。
-const SUBJECTS = [
-  { value: '\u6570\u5b66', labelKey: 'subjectMath' },
-  { value: '\u7269\u7406', labelKey: 'subjectPhysics' },
-  { value: '\u5316\u5b66', labelKey: 'subjectChemistry' },
-  { value: '\u751f\u7269', labelKey: 'subjectBiology' },
-  { value: '\u82f1\u8bed', labelKey: 'subjectEnglish' },
-  { value: '\u5386\u53f2', labelKey: 'subjectHistory' },
-  { value: '\u5730\u7406', labelKey: 'subjectGeography' },
-] as const
+const SUBJECTS = ['数学', '物理', '化学', '生物', '英语', '历史', '地理'] as const
 
 const MODES: {
   value: Mode
-  labelKey: 'modeExplain' | 'modeHint' | 'modeQuiz'
+  label: string
   icon: React.ComponentType<{ className?: string }>
   tone: string
 }[] = [
-  { value: 'explain', labelKey: 'modeExplain', icon: Sparkles, tone: 'text-primary' },
-  { value: 'hint', labelKey: 'modeHint', icon: Lightbulb, tone: 'text-amber-600' },
-  { value: 'quiz', labelKey: 'modeQuiz', icon: HelpCircle, tone: 'text-emerald-600' },
+  { value: 'explain', label: '讲解', icon: Sparkles, tone: 'text-primary' },
+  { value: 'hint', label: '提示', icon: Lightbulb, tone: 'text-amber-600' },
+  { value: 'quiz', label: '出题', icon: HelpCircle, tone: 'text-emerald-600' },
 ]
 
 const SUBJECT_CHIP =
   'rounded-md border border-border px-2.5 py-1 text-xs leading-none transition-colors hover:bg-accent'
 
 export function AiTutorPanel() {
-  const t = useTranslations('learn.tutor')
-  const [subject, setSubject] = React.useState<string>(SUBJECTS[0].value)
+  const [subject, setSubject] = React.useState<string>(SUBJECTS[0] ?? '数学')
   const [mode, setMode] = React.useState<Mode>('explain')
   const [question, setQuestion] = React.useState('')
   const [loading, setLoading] = React.useState(false)
@@ -87,31 +75,31 @@ export function AiTutorPanel() {
       <CardContent className="min-[640px]:p-3 flex h-full flex-col gap-4 p-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-semibold">{t('title')}</span>
+          <span className="text-sm font-semibold">AI 助教</span>
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">{t('subject')}</div>
+          <div className="text-xs text-muted-foreground">学科</div>
           <div className="flex flex-wrap gap-1.5">
-            {SUBJECTS.map((item) => (
+            {SUBJECTS.map((s) => (
               <button
-                key={item.value}
+                key={s}
                 type="button"
-                onClick={() => setSubject(item.value)}
+                onClick={() => setSubject(s)}
                 className={
-                  item.value === subject
+                  s === subject
                     ? `${SUBJECT_CHIP} bg-primary/10 border-primary/30 text-primary`
                     : SUBJECT_CHIP
                 }
               >
-                {t(item.labelKey)}
+                {s}
               </button>
             ))}
           </div>
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground">{t('mode')}</div>
+          <div className="text-xs text-muted-foreground">模式</div>
           <div className="flex gap-1.5">
             {MODES.map((m) => {
               const active = m.value === mode
@@ -131,7 +119,7 @@ export function AiTutorPanel() {
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
-                  <span>{t(m.labelKey)}</span>
+                  <span>{m.label}</span>
                 </button>
               )
             })}
@@ -140,7 +128,7 @@ export function AiTutorPanel() {
 
         <div className="space-y-2">
           <div className="text-xs text-muted-foreground">
-            {mode === 'quiz' ? t('quizDirection') : t('yourQuestion')}
+            {mode === 'quiz' ? '出题方向(可选)' : '你的问题'}
           </div>
           <Input
             value={question}
@@ -151,7 +139,7 @@ export function AiTutorPanel() {
                 handleAsk()
               }
             }}
-            placeholder={mode === 'quiz' ? t('quizPlaceholder') : t('questionPlaceholder')}
+            placeholder={mode === 'quiz' ? '如:二次函数图像性质' : '如:勾股定理怎么证明?'}
             className="h-9 text-sm"
           />
           <Button
@@ -165,7 +153,7 @@ export function AiTutorPanel() {
             ) : (
               <Send className="h-3.5 w-3.5" />
             )}
-            <span>{mode === 'quiz' ? t('generateQuiz') : t('ask')}</span>
+            <span>{mode === 'quiz' ? '生成题目' : '提问'}</span>
           </Button>
         </div>
 
@@ -179,14 +167,14 @@ export function AiTutorPanel() {
           {explain && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-xs font-medium text-primary">{t('modeExplain')}</div>
+                <div className="text-xs font-medium text-primary">讲解</div>
                 <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm leading-relaxed">
                   {explain.answer}
                 </div>
               </div>
               {explain.knowledge_points && explain.knowledge_points.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('knowledgePoints')}</div>
+                  <div className="text-xs text-muted-foreground">知识点</div>
                   <div className="flex flex-wrap gap-1.5">
                     {explain.knowledge_points.map((k, i) => (
                       <span key={i} className="rounded-md bg-muted px-2 py-0.5 text-xs">
@@ -198,7 +186,7 @@ export function AiTutorPanel() {
               )}
               {explain.follow_up_questions && explain.follow_up_questions.length > 0 && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('followUp')}</div>
+                  <div className="text-xs text-muted-foreground">延伸思考</div>
                   <ul className="space-y-1 text-xs">
                     {explain.follow_up_questions.map((q, i) => (
                       <li key={i} className="rounded-md bg-muted/30 px-2 py-1">
@@ -214,14 +202,14 @@ export function AiTutorPanel() {
           {hint && (
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-xs font-medium text-amber-600">{t('modeHint')}</div>
+                <div className="text-xs font-medium text-amber-600">提示</div>
                 <div className="whitespace-pre-wrap rounded-md bg-amber-500/5 p-3 text-sm leading-relaxed">
                   {hint.hint}
                 </div>
               </div>
               {hint.next_step_hint && (
                 <div className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{t('nextStep')}</div>
+                  <div className="text-xs text-muted-foreground">下一步</div>
                   <div className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs leading-relaxed">
                     {hint.next_step_hint}
                   </div>
@@ -236,7 +224,7 @@ export function AiTutorPanel() {
           {quiz && quiz.quizzes && quiz.quizzes.length > 0 && (
             <div className="space-y-3">
               <div className="text-xs font-medium text-emerald-600">
-                {t('quizCount', { count: quiz.quizzes.length })}
+                生成 {quiz.quizzes.length} 道练习题
               </div>
               {quiz.quizzes.map((item, i) => (
                 <div key={i} className="space-y-1 rounded-md bg-muted/30 p-3">
@@ -250,11 +238,7 @@ export function AiTutorPanel() {
                       ))}
                     </div>
                   )}
-                  {item.answer && (
-                    <div className="text-xs text-emerald-700">
-                      {t('answerValue', { answer: item.answer })}
-                    </div>
-                  )}
+                  {item.answer && <div className="text-xs text-emerald-700">答:{item.answer}</div>}
                   {item.explanation && (
                     <div className="text-xs text-muted-foreground">{item.explanation}</div>
                   )}
@@ -265,7 +249,7 @@ export function AiTutorPanel() {
 
           {!error && !explain && !hint && !quiz && !loading && (
             <div className="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
-              {t('emptyHint')}
+              选择学科与模式,提出你的问题。
             </div>
           )}
         </div>
