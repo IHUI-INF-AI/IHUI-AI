@@ -19,8 +19,12 @@
  *   node scripts/check-credential-health.mjs              # 人工/CI 巡检,异常 exit 1
  *   node scripts/check-credential-health.mjs --json       # 机器可读(供告警/看板)
  *   node scripts/check-credential-health.mjs --self-test   # 逻辑自检(不触网、不读真凭据)
+ *   node scripts/check-credential-health.mjs --test-alert  # 真发一次告警(占配额,须节制)
+ *   node scripts/check-credential-health.mjs --mail-dry-run # 只问品牌派发器"通道是否齐备",零网络请求
+ *   node scripts/check-credential-health.mjs --alert-dry   # 跑完整巡检但只打印告警正文,不投递
  *   node scripts/check-credential-health.mjs --install     # 注册 6 小时计划任务(经 vbs 隐藏,§5b)
  *   node scripts/check-credential-health.mjs --uninstall | --status
+ *   node scripts/check-credential-health.mjs --help        # 打印本用法(不得落到缺省巡检分支)
  *
  * 安全:全程只输出「长度 + 掩码前缀 + sha256 短摘要」,**绝不**打印任何凭据值;
  *       探测每轮各 1 次请求(登录限流 max:10/min,不可自撞)。
@@ -466,6 +470,25 @@ function selfTest() {
   eq('反向对照:同样输入但非在飞 ⇒ 仍判停摆(护栏不得吞掉真故障)', judgeStall({ liveSha: 'A', tipSha: 'B', lastSuccessIso: new Date(1000).toISOString(), nowMs: 1000 + 120 * 60000, thresholdMin: 45, inFlight: false }).level, 'fail')
   eq('无标记判红', judgeStall({ liveSha: '', tipSha: 'B', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'fail')
   eq('取不到 tip 不误判', judgeStall({ liveSha: 'A', tipSha: '', lastSuccessIso: '', nowMs: 1, thresholdMin: 45 }).level, 'unknown')
+  // ── 邮件通道契约(2026-09-23 迁到品牌派发器;发信路径不得再自拼传输层,守门 81)──
+  const norm = (p) => String(p).replace(/\\/g, '/')
+  const mailArgv = buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'critical', messageFile: 'm.txt' })
+  eq('邮件唯一出口是品牌派发器 notify-deploy-failure', norm(mailArgv[1]).endsWith('apps/api/scripts/notify-deploy-failure.ts'), true)
+  eq('派发器经 apps/api 的 tsx 入口运行(不依赖 PATH 上的 pnpm/npx)', norm(mailArgv[0]).endsWith('apps/api/node_modules/tsx/dist/cli.mjs'), true)
+  eq('必带 --strict(失败要非零退出,降级重试才有依据)', mailArgv.includes('--strict'), true)
+  eq('必带 --message-file(多行中文正文不得走命令行参数)', mailArgv.includes('--message-file'), true)
+  eq('绝不传 --env-file:tsx v4 会劫持它转发给 node,路径不存在时 node 直接 exit 9', mailArgv.includes('--env-file'), false)
+  eq('默认不降级、不演练:--plain/--dry-run 都不出现', [mailArgv.includes('--plain'), mailArgv.includes('--dry-run')], [false, false])
+  eq('降级/演练标志按需才出现', buildBrandMailArgv({ to: 'a@b.c', title: 't', severity: 'warning', messageFile: 'm', plain: true, dryRun: true }).filter((a) => a === '--plain' || a === '--dry-run'), ['--plain', '--dry-run'])
+  const redacted = redactChildOutput('SMTP 发送失败\nRESEND_API_KEY=re-secret-value-123\n堆栈第一行')
+  eq('子进程输出脱敏:留键名抹掉值,普通行不动', [redacted.includes('RESEND_API_KEY=***'), redacted.includes('re-secret-value-123'), redacted.includes('SMTP 发送失败')], [true, false, true])
+  eq('无分隔符可切的命中行(裸嵌 token)整行打码', redactChildOutput('Bearer eyJhbGciOiJIUzI1Ni5x'), '[已脱敏]')
+  eq('空输出如实标注(不得伪装成有内容)', redactChildOutput('   \n'), '(无输出)')
+  eq('超长输出截断(日志不被撑爆)', redactChildOutput('x'.repeat(500)).endsWith('…(截断)'), true)
+  eq('dry-run:任一条通道齐备即算可用', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 可用(回落通道)'), true)
+  eq('dry-run:两条都不可用必须判不可用("不可用"三字不得被当成可用)', judgeDryRunChannel('[dry-run] 通道判定 SMTP: 不可用(缺 SMTP_HOST)\n[dry-run] 通道判定 Resend: 不可用(缺 RESEND_API_KEY)'), false)
+  eq('dry-run:无输出不算可用', judgeDryRunChannel(''), false)
+  eq('派发器与 tsx 入口路径在本仓可解析(任一处缺失 = 通道直接判不可用,不静默成功)', [existsSync(TSX_ENTRY), existsSync(BRAND_MAIL_SCRIPT)], [true, true])
   // key 读取的三态(2026-09-24 本机实测:GIT_KEY_DIR 在本机不存在 ⇒ 原实现 TypeError 打崩整轮巡检,
   // 心跳写不出、守护的拉起也崩在同一行 ⇒ 告警链双向静默)
   eq('key 缺失(null)判空串而非抛错', pickKey(null, /^[0-9a-f]{32}$/), '')
@@ -516,6 +539,16 @@ function installTask() {
     `"${wscript}" //B "${vbs}"`,
   ])
   console.log(r.status === 0 ? `✅ 已注册计划任务「${TASK_NAME}」(每 6 小时,vbs 隐藏窗口)` : `❌ 注册失败: ${r.stderr || r.stdout}`)
+  // schtasks 只能造 InteractiveToken(/NP 会交互索要密码),而那种形态**无人登录时不跑**
+  // ⇒ 告警通道会在"重启后没人登录"期间静默。注册成功后立刻升 S4U(幂等脚本)。
+  if (r.status === 0) {
+    const up = join(REPO, 'scripts', 'task-set-s4u.vbs')
+    if (existsSync(up)) {
+      const u = spawnSync('cscript.exe', ['//nologo', up, TASK_NAME], { encoding: 'utf8', windowsHide: true, timeout: 90000 })
+      const o = String(u.stdout || '') + String(u.stderr || '')
+      console.log(/switched to S4U|already S4U/.test(o) ? `✅ 已确保 S4U:${o.split(/\r?\n/).pop()}` : `⚠️ S4U 升级未确认(不影响任务存在):${o.replace(/\r?\n/g, ' | ').slice(0, 160)}`)
+    }
+  }
   process.exit(r.status === 0 ? 0 : 1)
 }
 function uninstallTask() {
@@ -596,43 +629,129 @@ async function sendServerChan(key, title, desp) {
   return { ok, b: `HTTP ${r.status} ${r.b}` }
 }
 
-/** §5e 的邮件兜底:Server 酱免费额度仅 5 条/天,耗尽时告警不得静默丢失 */
-async function sendEmail(title, desp) {
-  const key = readEnvValue(join(REPO, 'apps', 'api', '.env'), 'RESEND_API_KEY')
-  if (!key) return { ok: false, why: 'apps/api/.env 缺 RESEND_API_KEY' }
-  const body = JSON.stringify({
-    from: '智汇AI官方 <IHUI-AI@aizhs.top>',
-    to: ['502319984@qq.com'],
-    subject: title.slice(0, 100),
-    text: desp,
-  })
-  const r = await post({
-    host: 'api.resend.com',
-    path: '/emails',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body,
-  })
-  return { ok: r.status >= 200 && r.status < 300, why: `HTTP ${r.status} ${r.b}` }
+// ── 品牌邮件通道(2026-09-23 迁移,守门 81「品牌邮件通道对账」)─────────────────────
+// 为什么这里不再自拼传输层:旧实现是 `post({ host: 'api.resend.com', path: '/emails' })` 直发、
+// body 只有 text 没有 html —— 凭据告警邮件因此永远没有版式,仓库里那套「智汇通报」模板
+// (apps/api/src/services/email-templates.ts)在这条链上零调用。这类代码能发出去、typecheck/lint
+// 全绿,只有用户打开邮件时才发现,正是守门 81 立项时揪出的第三条绕过通道(前两条在
+// deploy/win/ihui-deploy.ps1,已收口为同样形态)。现在唯一出口 = 派生
+// apps/api/scripts/notify-deploy-failure.ts:版式由模板单点决定,SMTP 优先 + Resend 兜底 + .env
+// 回读 + 收件人脱敏都在那一条实现里 —— 本脚本只传参,仓库里不再有两份发信逻辑。
+//
+// "巡检脚本不该依赖凭据"这个顾虑为什么不成立:旧实现本来就依赖 apps/api/.env 的 RESEND_API_KEY
+// (没有它同样一条都发不出去),迁移只是把首选换成 SMTP、Resend 仍在同一个派发器里兜底,依赖面
+// 没有变宽。真正要保证的不是"发信零凭据",而是"发不出去这件事本身必须被看见" —— 那由 UNDEL 标记
+// + runChecks ⓪ 项负责:全通道失败会在下一轮被判红,而不是静默丢失。
+const TSX_ENTRY = join(REPO, 'apps', 'api', 'node_modules', 'tsx', 'dist', 'cli.mjs')
+const BRAND_MAIL_SCRIPT = join(REPO, 'apps', 'api', 'scripts', 'notify-deploy-failure.ts')
+/** 正文临时文件目录(§15:临时物一律项目内,已 gitignore) */
+const BRAND_MAIL_MSG_DIR = join(REPO, '.ihui-agent', 'tmp', 'credential-health-notify')
+/** 告警收件人(§5e 邮件兜底同一地址) */
+const ALERT_EMAIL_TO = '502319984@qq.com'
+/** 派发器单次调用的墙上时钟上限:tsx 冷启 + SMTP 握手(nodemailer 自带 10s 超时)的最坏叠加 */
+const BRAND_MAIL_TIMEOUT_MS = 90_000
+
+/**
+ * 拼派发器 argv(纯函数,--self-test 钉契约)。
+ * ⚠️ 绝不传 `--env-file`:派发器默认就回读 apps/api/.env(且只补缺失、不覆盖已有值),而 tsx v4
+ * 会把 `--env-file` 当成自己的参数劫持转发给 node 自身,路径不存在时 node 直接 exit 9(实测坑)。
+ * 确需显式指定时须用 `-- --env-file <path>` 双横杠透传形态。
+ */
+export function buildBrandMailArgv({ to, title, severity, messageFile, plain = false, dryRun = false }) {
+  return [
+    TSX_ENTRY,
+    BRAND_MAIL_SCRIPT,
+    '--to',
+    to,
+    '--title',
+    title,
+    '--severity',
+    severity,
+    '--source',
+    'credential-health',
+    '--message-file',
+    messageFile,
+    ...(plain ? ['--plain'] : []),
+    ...(dryRun ? ['--dry-run'] : []),
+    '--strict', // 成功 exit 0 / 失败 exit 1,由本脚本据此决定是否降级重试
+  ]
 }
 
-/** 读 .env 里的单个键(不回显值) */
-function readEnvValue(envPath, key) {
-  try {
-    for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-      const m = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)$/.exec(line)
-      if (m && m[1] === key) return m[2].trim().replace(/^["']|["']$/g, '')
-    }
-  } catch {
-    /* 文件不存在即视为未配置 */
+/**
+ * 子进程输出转诊断文本:逐行脱敏 + 截断。契约脚本自身不打印密钥,但 node 崩溃时会把 require 到的
+ * .env 片段、整条命令行甚至堆栈倒进 stderr —— 这些一律不落巡检输出(取向与 ihui-deploy.ps1 的
+ * Protect-NotifyOutput 一致)。比 ps1 多走半步:命中行保留到第一个 `=`/`:` 前的**键名**,
+ * 于是 "缺 RESEND_API_KEY" 这类诊断仍读得懂,而值永不落地;没有分隔符可切的行(堆栈里裸嵌的
+ * token)整行打码 —— 宁可不给诊断,不给泄露面。
+ */
+const SECRETISH_RE = /(api[_-]?key|token|secret|passw|authorization|bearer)/i
+export function redactChildOutput(raw, limit = 300) {
+  const kept = String(raw ?? '')
+    .split(/\r?\n/)
+    .map((l) => {
+      const line = l.trimEnd()
+      if (!SECRETISH_RE.test(line)) return line
+      const sep = /[=:]/.exec(line)
+      return sep && sep.index < 40 ? `${line.slice(0, sep.index + 1)}***` : '[已脱敏]'
+    })
+    .filter((l) => l !== '')
+    .join(' / ')
+  if (!kept) return '(无输出)'
+  return kept.length > limit ? `${kept.slice(0, limit)}…(截断)` : kept
+}
+
+/** dry-run 的通道判定:派发器自报"至少一条通道齐备"才算可用(齐备与否由它读 apps/api/.env 决定) */
+export function judgeDryRunChannel(stdout) {
+  return /通道判定 (?:SMTP|Resend): 可用/.test(String(stdout ?? ''))
+}
+
+/** 品牌派发器的一次调用:异常/超时一律归为失败,绝不抛出(告警通道自身不能让巡检崩掉) */
+function dispatchBrandMail({ title, desp, severity, plain, dryRun }) {
+  if (!existsSync(TSX_ENTRY) || !existsSync(BRAND_MAIL_SCRIPT)) {
+    return { ok: false, why: `品牌派发器缺失(tsx=${existsSync(TSX_ENTRY)} 脚本=${existsSync(BRAND_MAIL_SCRIPT)})` }
   }
-  return ''
+  let msgFile = null
+  try {
+    mkdirSync(BRAND_MAIL_MSG_DIR, { recursive: true })
+    // 多行中文正文必须走文件而不是命令行参数:参数还要过一层控制台代码页,换行/引号/反引号都可能
+    // 被吃掉(desp 实测含多段换行与 Markdown 符号)。Node 的 utf8 写入本身无 BOM。
+    msgFile = join(BRAND_MAIL_MSG_DIR, `${Date.now()}-${process.pid}${plain ? '-plain' : ''}.txt`)
+    writeFileSync(msgFile, desp, 'utf8')
+    const r = spawnSync(
+      process.execPath, // 本进程就是 node ⇒ 绝对路径天然可得,不必像 PowerShell 那样按候选找 node.exe
+      buildBrandMailArgv({ to: ALERT_EMAIL_TO, title, severity, messageFile: msgFile, plain, dryRun }),
+      { encoding: 'utf8', windowsHide: true, timeout: BRAND_MAIL_TIMEOUT_MS }, // windowsHide:§5b,漏了就是桌面反复弹窗
+    )
+    if (r.error) return { ok: false, why: `派发器进程异常(${r.error.code || r.error.name}): ${redactChildOutput(r.error.message)}` }
+    if (dryRun) return { ok: judgeDryRunChannel(r.stdout), why: `通道判定: ${redactChildOutput(r.stdout)}` }
+    if (r.status === 0) return { ok: true, why: '已送达' }
+    return { ok: false, why: `exit=${r.status} ${redactChildOutput(r.stderr || r.stdout)}` }
+  } catch (e) {
+    return { ok: false, why: `派发器调用异常: ${redactChildOutput((e && e.message) || e)}` }
+  } finally {
+    if (msgFile) rmSync(msgFile, { force: true })
+  }
+}
+
+/**
+ * §5e 的邮件兜底:Server 酱免费额度仅 5 条/天,耗尽时告警不得静默丢失。
+ * 品牌模板通道失败时,再用同一条传输层的 --plain 降级发纯文本 —— 两条都失败才算未送达
+ * (与 ihui-deploy.ps1 的 Send-EmailNotify 同一策略:宁可版式降级,不可静默丢失)。
+ */
+async function sendEmail(title, desp, severity = 'critical', { dryRun = false } = {}) {
+  const branded = dispatchBrandMail({ title, desp, severity, plain: false, dryRun })
+  if (dryRun) return branded
+  if (branded.ok) return { ok: true, why: '品牌模板通道已送达' }
+  const plain = dispatchBrandMail({ title, desp, severity, plain: true, dryRun: false })
+  if (plain.ok) return { ok: true, why: `品牌模板失败(${branded.why})→ 降级纯文本已送达` }
+  return { ok: false, why: `品牌模板失败(${branded.why});降级纯文本失败(${plain.why})` }
 }
 
 /**
  * 多通道投递:Server酱 → 邮件。返回每一通的尝试结论,调用方据此留痕。
  * 全通道失败 = 故障从未被人看见,必须写 UNDELIVERED 标记并在下一轮判红。
  */
-async function deliver(title, desp) {
+async function deliver(title, desp, severity = 'critical') {
   const attempts = []
   let key = process.env.SERVERCHAN_SENDKEY || ''
   if (!key) key = readServiceEnv('IHUI-DEPLOYLOOP', 'SERVERCHAN_SENDKEY') || ''
@@ -642,8 +761,8 @@ async function deliver(title, desp) {
     attempts.push(`serverchan: ${r.ok ? '已送达' : `未送达 — ${r.b}`}`)
     if (r.ok) return { sent: true, via: 'serverchan', attempts }
   }
-  const e = await sendEmail(title, desp)
-  attempts.push(`email: ${e.ok ? '已送达' : `未送达 — ${e.why}`}`)
+  const e = await sendEmail(title, desp, severity)
+  attempts.push(`email: ${e.ok ? `已送达 — ${e.why}` : `未送达 — ${e.why}`}`)
   if (e.ok) return { sent: true, via: 'email', attempts }
   return { sent: false, via: null, attempts }
 }
@@ -660,6 +779,8 @@ async function maybeAlert(results, dryRun) {
   if (fails.length > 0 && !changed && !overdue) return { sent: false, why: '同一故障已在窗口内通报过(仍会每 20h 重发)' }
 
   const title = recovered ? '【生产环境】凭据巡检已恢复' : '【生产环境】凭据失效/部署停摆告警'
+  // 严重度进品牌模板的色带/前缀:恢复通知不该长得和一次凭据失效一样
+  const severity = recovered ? 'info' : 'critical'
   const desp = recovered
     ? `上一轮失效项已恢复: ${prev.sig}\n\n全部检查: ${results.map((r) => `${r.level} ${r.name}`).join('\n')}`
     : `失效项(${fails.length}):\n${fails.map((f) => `- ${f.name}\n  ${f.detail}`).join('\n')}\n\n` +
@@ -673,7 +794,7 @@ async function maybeAlert(results, dryRun) {
     console.log(`[alert-dry] title=${title}\n${desp.slice(0, 300)}…`)
     return { sent: false, why: 'dry-run 未发送' }
   }
-  const d = await deliver(title, desp)
+  const d = await deliver(title, desp, severity)
   if (d.sent) {
     mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
     writeFileSync(STATE, JSON.stringify({ ts: new Date().toISOString(), sig, fails: fails.length }), 'utf8')
@@ -690,13 +811,44 @@ async function maybeAlert(results, dryRun) {
 }
 
 const argv = process.argv.slice(2)
-if (argv.includes('--self-test')) selfTest()
+if (argv.includes('--help') || argv.includes('-h')) {
+  // 必须是真分支:此前未知参数(含 --help)一律落到默认巡检 —— 想查用法的人会顺手打一轮
+  // 厂商 API,还可能因当轮判红而真发一封告警(邮件 10 封/天、Server酱 5 条/天的配额是自保项)。
+  console.log(
+    [
+      '用法: node scripts/check-credential-health.mjs [模式]',
+      '',
+      '  (缺省)        全量巡检并判定告警,异常 exit 1',
+      '  --json        机器可读输出(写 .workbuddy/credential-health-last.json 心跳)',
+      '  --alert-dry   跑完整巡检,但只打印告警正文,不投递',
+      '  --mail-dry-run 只问品牌邮件派发器「通道是否齐备」(零网络请求,不占配额)',
+      '  --test-alert  真发一次通道自测(会占配额,须节制)',
+      '  --self-test   逻辑自检(不触网、不读真凭据)',
+      '  --install | --uninstall | --status  计划任务注册/卸载/健康',
+      '',
+      '告警通道: Server酱 → 邮件;邮件一律经 apps/api/scripts/notify-deploy-failure.ts',
+      '          的品牌模板(守门 81),全通道失败会写 UNDELIVERED 标记并在下一轮判红。',
+    ].join('\n'),
+  )
+  process.exit(0)
+} else if (argv.includes('--self-test')) selfTest()
 else if (argv.includes('--test-alert')) {
   // 通道可用性必须可证:只看"代码写了 fallback"不算,必须真发一次并回读结果。
   const d = await deliver('【生产环境】凭据巡检通道自测', '这是一条通道自测消息(非故障)。用于验证 Server酱额度耗尽时邮件兜底是否真能落地。')
   console.log(`通道自测: sent=${d.sent} via=${d.via || '-'}`)
   for (const t of d.attempts) console.log(`  · ${t}`)
   process.exit(d.sent ? 0 : 1)
+} else if (argv.includes('--mail-dry-run')) {
+  // 邮件通道要能在"不打扰收件人、不占配额"的前提下自证:派发器的 --dry-run 只做渲染与通道
+  // 判定,零网络请求(输出里的 html 字节数 + 机械风横幅命中=yes 就是版式真生效的证据)。
+  const r = await sendEmail(
+    '【生产环境】凭据巡检邮件通道演练(dry-run)',
+    '这是一条 dry-run 演练正文,未实际发送。\n第二行用于验证多行中文经文件通道原样送达。',
+    'critical',
+    { dryRun: true },
+  )
+  console.log(`邮件通道(dry-run): ok=${r.ok} ${r.why}`)
+  process.exit(r.ok ? 0 : 1)
 } else if (argv.includes('--install')) installTask()
 else if (argv.includes('--uninstall')) uninstallTask()
 else if (argv.includes('--status')) taskStatus()
