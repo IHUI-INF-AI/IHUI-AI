@@ -31,6 +31,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { gitdirArchivePath } from './lib/gitdir.mjs'
 
 /**
  * 外部 gitdir 的真值由仓库根推导,不得硬编码盘符:
@@ -194,7 +195,10 @@ function main() {
   }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
-  const archiveDir = `${targetGitDir}.broken-${ts}`
+  // 归档落 §15b 唯一备份目录(与 git-guardian 同一出口,单一真相源);
+  // 旧写法 `${targetGitDir}.broken-<ts>` 每次重建都必然在盘根长出一个兄弟目录(实测累计 1.94GB)。
+  const archiveDir =
+    gitdirArchivePath(`${basename(targetGitDir)}.broken-${ts}`) || `${targetGitDir}.broken-${ts}`
   const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
