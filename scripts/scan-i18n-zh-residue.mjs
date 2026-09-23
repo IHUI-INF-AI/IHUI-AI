@@ -60,6 +60,8 @@ const LOCALE_CONFIG = {
 }
 
 const HAN_RE = /[\u4e00-\u9fff]/
+// 中国法定备案/登记号:跨语言必须保持原文(ICP 备案号 / 公安备案号),不算"未翻译残留"
+const LEGAL_REGISTRATION_RE = /(ICP|icp)[备備]\d+号|公網安備\d+号|公安网安备\d+号/
 // 逐字枚举用(含 Ext-A 与兼容表意文字;常用汉字表唯一的非 BMP 字种 𠮟 U+20B9F 落在扩展区,
 // 不在本字符类内 ⇒ 只会被"跳过"而非误报,方向安全)
 const HAN_ALL_RE = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g
@@ -261,6 +263,10 @@ function scanJoyo(text) {
     const value = decodeJson(m[3])
     if (!value || !HAN_RE.test(value)) continue
     if (LANGUAGE_AUTOGLOSSONYMS.has(value) || isWhitelistedBrand(value)) continue
+    // 中国法定备案/登记号在**任何语言里都必须保持原文**(ICP 备案号、公安备案号),
+    // 与 markdown 侧既有 MARKDOWN_LINE_WHITELIST 同口径;JSON 侧此前没有这道豁免,
+    // 导致 `吉ICP备2025027274号-7A`、`粤公網安備44010602000001号` 被判成"日文里残留中文"。
+    if (LEGAL_REGISTRATION_RE.test(value)) continue
     const s = joyoSuspects(value, tab)
     if (s.length) pure.push({ line: i + 1, key: m[2], value, suspects: s.join('') })
   }
