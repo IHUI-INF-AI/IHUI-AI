@@ -355,7 +355,7 @@ function WorkflowFormModal({
               activeOpacity={0.8}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={tokens.surface.light} />
+                <ActivityIndicator size="small" color={tokens.brand.foreground} />
               ) : (
                 <Text style={styles.modalBtnTextConfirm}>{t('common.confirm')}</Text>
               )}
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   viewport: {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   modalBtnTextConfirm: {
     fontSize: 15,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
 })
