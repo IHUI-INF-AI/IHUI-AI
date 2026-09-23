@@ -64,6 +64,7 @@ import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 import ThemeRoot from '@/components/ThemeRoot'
+import { buildTaroWaitingText, deriveTaroWaitingTurn } from '@/pkg-ai/ai/waiting-text'
 
 import './index.css'
 
@@ -612,7 +613,7 @@ function VoiceAnimationOverlay({
 }
 
 export default function Index() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const tt = useTt()
   const [state, setState] = useState<AiHomeState>(() => ({
     drawerVisible: false,
@@ -1437,7 +1438,11 @@ export default function Index() {
                     }}
                   >
                     <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
-                      {tt('index.thinking', '思考中...')}
+                      {buildTaroWaitingText({
+                        ...deriveTaroWaitingTurn(state.conversationMessages),
+                        locale,
+                        t: (key: string) => t(key),
+                      })}
                     </Text>
                   </View>
                 </View>
