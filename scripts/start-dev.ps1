@@ -573,9 +573,11 @@ if ($toStart -contains 'desktop' -and $toStart -contains 'web') {
   exit 1
 }
 
-# Tauri 桌面端需要 cargo 在 PATH(Rust 工具链位于 D:\caches\cargo\bin,不在默认 PATH)
+# Tauri 桌面端需要 cargo 在 PATH。取 %USERPROFILE%\.cargo\bin —— 该处已是指向
+# D:\DevEnv\cache\userhome\.cargo 的 junction(缓存实体不在 C 盘),且原写
+# D:\caches\cargo\bin 是本机不存在的死路径,导致 desktop 启动时 cargo 从未被注入 PATH。
 if ($toStart -contains 'desktop') {
-  $cargoBin = 'D:\caches\cargo\bin'
+  $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
   if (Test-Path (Join-Path $cargoBin 'cargo.exe')) {
     if ($env:PATH -notlike "*$cargoBin*") {
       $env:PATH = "$cargoBin;$env:PATH"
