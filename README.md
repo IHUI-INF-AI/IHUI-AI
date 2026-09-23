@@ -2829,7 +2829,7 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 
 ### 新增守门示例:第 81 项「品牌邮件通道对账」(2026-09-23)
 
-**第 81 项 `check-brand-email-channel.mjs`(blocking)** —— 拦的是"**本地全绿、用户收到的邮件却没样式**"这一类。邮件"版式模板"只存在于 `apps/api/src/services/email-templates.ts`(`renderSystemAlertEmail` 等机械风"智汇通报"),但 ops 侧曾存在**第二条绕过模板的自发通道**:`deploy/win/ihui-deploy.ps1` 自拼传输层 —— `Send-MailMessage -Body $text`(无 `-BodyAsHtml`)与 `Invoke-RestMethod https://api.resend.com/emails`(payload 只有 `text`、无 `html`)直发纯文本。这类代码"能发出去、typecheck 全绿、lint 全绿",而全链守门没有一道看得见,与守门 72/78 同族。本门立项实测有一个有价值的副产品:全量审计在 ps1 被并行会话清干净之后,又揪出了**第三条绕过模板的纯文本通道** `scripts/check-credential-health.mjs`(`host`+`path` 分行直连 Resend、body 只有 `text`)—— 它已冻结进基线、登记待迁移,这正是"判据不只要拦回归、还要暴露现状"的样例。
+**第 81 项 `check-brand-email-channel.mjs`(blocking)** —— 拦的是"**本地全绿、用户收到的邮件却没样式**"这一类。邮件"版式模板"只存在于 `apps/api/src/services/email-templates.ts`(`renderSystemAlertEmail` 等机械风"智汇通报"),但 ops 侧曾存在**第二条绕过模板的自发通道**:`deploy/win/ihui-deploy.ps1` 自拼传输层 —— `Send-MailMessage -Body $text`(无 `-BodyAsHtml`)与 `Invoke-RestMethod https://api.resend.com/emails`(payload 只有 `text`、无 `html`)直发纯文本。这类代码"能发出去、typecheck 全绿、lint 全绿",而全链守门没有一道看得见,与守门 72/78 同族。本门立项实测有一个有价值的副产品:全量审计在 ps1 被并行会话清干净之后,又揪出了**第三条绕过模板的纯文本通道** `scripts/check-credential-health.mjs`(`host`+`path` 分行直连 Resend、body 只有 `text`)—— 它**已于同日迁到同一条派发器**,基线 `scripts/brand-email-channel-baseline.json` 的 `counts` 实测清零(未用 `brand-mail-exempt:` 豁免糊过去),这正是"判据不只要拦回归、还要暴露现状"的样例。
 
 扫描范围刻意收窄:`deploy/**` 与 `scripts/**`(**不含** `scripts/tests`)下的 `.ps1`/`.mjs`/`.js`/`.ts`,加 `.github/workflows/*.yml`;`apps/**` 不扫 —— 运行时服务层本就 import 模板,天然放过。三条判据:
 
@@ -2844,6 +2844,16 @@ setext 标题下划线、表格分隔、ASCII 示意图里都是合法内容,只
 三种取材面:`--staged`(pre-commit:只判**索引里在范围内**的文件;暂存集为空/取不到 → **退化全量**,防"空暂存恒绿"——守门 70 的既有教训)/ 缺省(全量:跟踪文件工作区内容,实测 368 个在范围文件)/ `--self-test`(30 例,判据正反成对对照 + 临时仓对 staged/全量两种取材面取证)。退出码 0 通过 / 1 检出未基线化违规 / 2 脚本自身异常(git 解析失败、基线 JSON 损坏 —— 判据失效绝不静默放行)。
 
 **修法的唯一正确姿势**:PowerShell / CI / 脚本侧发信一律改调 `apps/api/scripts/notify-deploy-failure.ts`(版式由 `email-templates.ts` 单点决定),不得在端内自拼传输层;确需新版式就在 `email-templates.ts` 加 `render*` 函数。取证:§22c 镜像测试 8 例(`node --test scripts/tests/check-brand-email-channel.test.mjs`,含**装车证明**:runner 中 id `'81'` 必须出现恰好一次 + blocking + `skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD'`)。紧急跳过 `HUSKY_SKIP_BRAND_MAIL_GUARD=1`。
+
+### 同日后续:邮件/告警链的三面收口(2026-09-23,O29)
+
+守门 81 立项后顺带把同族的三面一起收口,它们的共同点是"**本地全绿、线上要么没样式要么根本没发**":
+
+1. **运维告警邮件统一出口 = `apps/api/scripts/notify-deploy-failure.ts`**。它已从"CI 专用一次性脚本"扩为通用品牌告警派发器(`--to`/`--title`/`--severity`/`--source`/`--message-file`/`--plain`/`--strict`/`--dry-run`,自动回读 `apps/api/.env` 且**只补缺失、绝不覆盖进程环境变量**;SMTP 优先、Resend 兜底且 payload 必带 `html`)。三个调用方全部改接它:本机 NSSM 部署环 `deploy/win/ihui-deploy.ps1`(删除自拼传输层,降级也只能走同一条通道的 `--plain`)、CI 蓝绿部署、以及凭据巡检 `scripts/check-credential-health.mjs`。**两个实测坑已钉进注释与测试**:① tsx v4 会劫持 `--env-file` 转发给 node,路径不存在时 node 直接 `exit 9` ⇒ 调用方一律不传;② 经 `smtp.qq.com` 中继时 From 的邮箱段必须等于登录账号,否则 550(旧代码硬编码 `IHUI-AI@aizhs.top` 配 QQ 账号 ⇒ SMTP 分支恒被拒、恒回落纯文本 Resend,这正是"邮件没样式"的直接成因)。
+2. **`/api/mail/send` 不再手搓 HTML**,改走 `renderNoticeEmail`;两端点各加 `10 次/分钟/IP` 限流(`/api/mail/*` 公开无鉴权是既定的 Java 兼容契约,故用限流而非鉴权收面)。
+3. **"邮件通道没开"从隐形变响铃**。`apps/api/.env` 缺 `SMTP_ENABLED` 一行 ⇒ 默认 false ⇒ 所有国内域名(qq/163/126/…)的验证码/账单/退款等事务邮件路由到 `'stub'` 且旧代码只 `console.info` 一行、调用方不查 `result.sent`。现改为 `logger.warn` **点名缺哪条配置** + `EmailNotSentReason` 精确联合类型 + `diagnoseMailTransport()`(国内与海外双路皆死时启动期打一行全局 warn);`broadcast-email-service` 的 `sent` 也从"按 `allSettled` fulfilled 计"改为按 `result.sent` 真计(原先群发会报"全部送达"而实际 0 封)。**是否打开 `SMTP_ENABLED` 属生产对外行为变更,由用户拍板,本仓默认仍关。**
+
+另两处同期根治:**Alertmanager 邮件通道**——实测 Alertmanager **不展开**配置里的 `${VAR}`(写 `${X}` 直接 `not a valid duration`),所以"占位符 + 注释说需 env 注入"的旧配置文件永远发不出信;现改为 `alertmanager.yml.tmpl` + `scripts/render-alertmanager-config.mjs` **先渲染再挂载**,TLS 形态由端口推导、发信账号单占位符同时喂 from/username、密码优先走 `smtp_auth_password_file` 以做到零落盘,渲染产物含凭据故被 `.gitignore` 钉住且渲染器写盘前先 `git check-ignore` 自证。**`POST /v1/messages` 全族**——出站体与 ai-service 的 pydantic 模型三处不齐、且上游每个端点都套 `{code,message,data}` 壳而转发层按裸 JSON 读 ⇒ `messageId` 恒空、`HTTP 200 + code=500` 被当成功、`subscribe` 更是**静默建了一条没有回调地址的死订阅**(不 422);现全部显式映射 + 拆壳,`channel` 收紧为枚举(值域从 `.py` 源码解析做跨语言对账),并把原来挂在**生产从不存在的 `prefix:'/v1'`** 上的假绿用例改到真实挂载点。
 
 ### 工作区存续自愈(`scripts/heal-worktree-tracked.mjs`,2026-09-23)
 
