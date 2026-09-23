@@ -604,7 +604,7 @@ export function ProfileScreen() {
               </View>
             ) : null}
             {/* 4 Tab 内容区(统一分类条 + 文本/图片/视频/音频)。
-                位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 StudyBar) */}
+                位置对齐 Uniapp:UserInfoCard/UserCard/会员权益下方(行 30 会员权益 → 行 59 分类 Tab 条) */}
             <ProfileContentSection />
             <SharedProfileScreen
               t={t}
@@ -1054,7 +1054,7 @@ interface VideoModalState {
 }
 
 /**
- * 4 Tab 内容区 — StudyBar 切换 + 4 个 Tab 内容(文本/图片/视频/音频)+ 媒体预览。
+ * 4 Tab 内容区 — 统一分类条(CategoryInlineBar)切换 + 4 个 Tab 内容(文本/图片/视频/音频)+ 媒体预览。
  * 调 listConversations API 按 metadata.contentType 过滤渲染(后端未返回 contentType 时,
  * 所有对话 fallback 到 text tab,其他 tab 显示空)。
  */
