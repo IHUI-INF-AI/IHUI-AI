@@ -9,7 +9,7 @@
  */
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Building2, Gem, Receipt, Wallet } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export type UserCardKey = 'order' | 'company' | 'token' | 'wallet'
 

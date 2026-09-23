@@ -15,7 +15,7 @@
  * 类型零 any;圆角守门;无分割线;复用 design-tokens。
  */
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface IntelligentAssistantProps {
   /** 剩余智汇值(对齐原 tokenQuantity) */
