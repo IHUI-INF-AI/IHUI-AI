@@ -337,4 +337,261 @@ describe('回退纪律:缺键/无 t 回退英文,绝不回显 raw key', () => {
     }
   })
 })
+
+// ── avoidSeed:相邻不重复(D79 真缺陷修复) ────────────────────────────
+// 下标探针:词表把"选中的池下标"原样吐成文案,使"有没有换条目"可被精确断言。
+// vividTail 键回空串 → 走英文尾缀兜底,不干扰下标可读性。
+const probeIndex: WaitingTextLookup = (key) =>
+  key === 'waiting.vividTail' ? '' : key.slice(key.lastIndexOf('.') + 1)
+
+function probePick(
+  quadrant: WaitingQuadrant,
+  phase: WaitingPhase,
+  seed: number | string | undefined,
+  avoidSeed?: number | string,
+): string {
+  return resolveWaitingText({ quadrant, phase, seed, avoidSeed, t: probeIndex })
+}
+
+// 含正常/负数/NaN/Infinity/极大连号/空串/turnId,覆盖 normalizeSeed 全分支
+const PROBE_SEEDS: readonly (number | string)[] = [
+  0,
+  1,
+  2,
+  4,
+  5,
+  9,
+  -3,
+  -7,
+  '',
+  'turn-1',
+  'turn-42',
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.MAX_SAFE_INTEGER,
+  1e21,
+]
+
+describe('avoidSeed 缺省时零影响(与旧取模行为等价)', () => {
+  it('不传 / 显式传 undefined:输出恒等于 seed % 池长(全象限×全阶段×seed 0..11)', () => {
+    for (const quadrant of WAITING_QUADRANTS) {
+      for (const phase of WAITING_PHASES) {
+        const size = waitingPoolSize('zh-CN', quadrant, phase)
+        for (let seed = 0; seed < 12; seed += 1) {
+          const plain = resolveWaitingText({ quadrant, phase, seed, t: probeIndex })
+          expect(plain).toBe(String(seed % size))
+          expect(probePick(quadrant, phase, seed, undefined)).toBe(plain)
+          expect(probePick(quadrant, phase, seed)).toBe(plain)
+        }
+      }
+    }
+  })
+
+  it('反例基线:不传时同 seed 连播与 seed+池长 撞车都仍撞同一条(旧行为未被偷偷改掉)', () => {
+    expect(probePick('agent', 'first', 2)).toBe('2')
+    expect(probePick('agent', 'first', 2, undefined)).toBe('2')
+    expect(probePick('agent', 'first', 6)).toBe(probePick('agent', 'first', 1))
+  })
+})
+
+describe('avoidSeed 传入后必避开"上一 seed 那条"', () => {
+  it('同 seed 连播:顺移一位,池尾环绕回 0', () => {
+    expect(probePick('agent', 'first', 0, 0)).toBe('1')
+    expect(probePick('agent', 'first', 2, 2)).toBe('3')
+    expect(probePick('detail', 'followup', 4, 4)).toBe('0')
+    expect(probePick('agent', 'first', 2, 2)).not.toBe(probePick('agent', 'first', 2))
+  })
+
+  it('seed 跳变撞车(1 → 6)必换条;未撞车(1 → 7)不得多跳', () => {
+    expect(probePick('agent', 'first', 1)).toBe('1')
+    expect(probePick('agent', 'first', 6, 1)).toBe('2')
+    expect(probePick('agent', 'first', 6, 1)).not.toBe(probePick('agent', 'first', 1))
+    expect(probePick('agent', 'first', 7, 1)).toBe(probePick('agent', 'first', 7))
+  })
+
+  it('不变式:任意 (seed, avoidSeed) 组合恒不等于上一 seed 那条,且同输入同输出', () => {
+    for (const quadrant of WAITING_QUADRANTS) {
+      for (const phase of WAITING_PHASES) {
+        const size = waitingPoolSize('zh-CN', quadrant, phase)
+        for (const avoidSeed of PROBE_SEEDS) {
+          const previousEntry = probePick(quadrant, phase, avoidSeed)
+          for (const seed of PROBE_SEEDS) {
+            const picked = probePick(quadrant, phase, seed, avoidSeed)
+            expect(picked).not.toBe(previousEntry)
+            const inRange = /^\d$/.test(picked) && Number(picked) < size
+            expect(inRange).toBe(true)
+            expect(probePick(quadrant, phase, seed, avoidSeed)).toBe(picked)
+          }
+        }
+      }
+    }
+  })
+
+  it('帧计数链路(seed 逐帧 +1,40 帧)相邻两帧文案必不同', () => {
+    let previousSeed: number | string | undefined
+    let previousText = ''
+    for (let seed = 0; seed < 40; seed += 1) {
+      const text = probePick('agent', 'first', seed, previousSeed)
+      expect(text).not.toBe(previousText)
+      previousSeed = seed
+      previousText = text
+    }
+  })
+
+  it('同余链路(seed 逐帧 +池长):旧行为 8 帧全冻结,传入后不再冻结', () => {
+    const frozen = Array.from({ length: 8 }, (_, i) => probePick('agent', 'first', i * 5))
+    expect(new Set(frozen).size).toBe(1)
+    const avoided: string[] = []
+    let previousSeed: number | string | undefined
+    for (let i = 0; i < 8; i += 1) {
+      const seed = i * 5
+      avoided.push(probePick('agent', 'first', seed, previousSeed))
+      previousSeed = seed
+    }
+    expect(new Set(avoided).size).toBeGreaterThan(1)
+    for (let i = 1; i < avoided.length; i += 1) {
+      expect(avoided[i]).not.toBe(probePick('agent', 'first', (i - 1) * 5))
+    }
+  })
+
+  it('vivid 档同样避开,尾缀不丢', () => {
+    const t = mockT(dictFromPool('agent', 'first', ZH_CN_AGENT_FIRST, ZH_CN_VIVID_TAIL))
+    const prev = resolveWaitingText({
+      quadrant: 'agent',
+      phase: 'first',
+      seed: 2,
+      locale: 'zh-CN',
+      persona: 'vivid',
+      t,
+    })
+    const next = resolveWaitingText({
+      quadrant: 'agent',
+      phase: 'first',
+      seed: 2,
+      locale: 'zh-CN',
+      persona: 'vivid',
+      avoidSeed: 2,
+      t,
+    })
+    expect(prev).toBe(`${ZH_CN_AGENT_FIRST[2]}${ZH_CN_VIVID_TAIL}`)
+    expect(next).not.toBe(prev)
+    expect(next).toBe(`${ZH_CN_AGENT_FIRST[3]}${ZH_CN_VIVID_TAIL}`)
+  })
+
+  it('中文仍走词表、无 t 仍回英文:avoidSeed 不引入任何中文直贴', () => {
+    const t = mockT(dictFromPool('agent', 'first', ZH_CN_AGENT_FIRST, ZH_CN_VIVID_TAIL))
+    expect(
+      resolveWaitingText({
+        quadrant: 'agent',
+        phase: 'first',
+        seed: 1,
+        locale: 'zh-CN',
+        avoidSeed: 1,
+        t,
+      }),
+    ).toBe(ZH_CN_AGENT_FIRST[2])
+    const noT = resolveWaitingText({
+      quadrant: 'agent',
+      phase: 'first',
+      seed: 1,
+      locale: 'zh-CN',
+      avoidSeed: 1,
+    })
+    expect(/[\u4e00-\u9fff]/.test(noT)).toBe(false)
+    expect(noT).toBe('Got it, thinking through a response…')
+  })
+})
+
+describe('avoidSeed 边界与降级', () => {
+  it('异常 seed / 异常 avoidSeed 组合不崩且仍出池内条目', () => {
+    for (const seed of PROBE_SEEDS) {
+      for (const avoidSeed of PROBE_SEEDS) {
+        expect(() =>
+          resolveWaitingText({ quadrant: 'plan', phase: 'middle', seed, avoidSeed }),
+        ).not.toThrow()
+        const text = probePick('plan', 'middle', seed, avoidSeed)
+        expect(text).toMatch(/^[0-4]$/)
+        expect(text.length).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('词表塌成单条(池长 1 等价态)不做无解重试:仍出该条且不崩', () => {
+    const singleT: WaitingTextLookup = () => 'ONLY_ONE'
+    expect(
+      resolveWaitingText({ quadrant: 'agent', phase: 'first', seed: 0, avoidSeed: 0, t: singleT }),
+    ).toBe('ONLY_ONE')
+    expect(
+      resolveWaitingText({
+        quadrant: 'agent',
+        phase: 'first',
+        seed: 3,
+        avoidSeed: 'turn-9',
+        t: singleT,
+      }),
+    ).toBe('ONLY_ONE')
+  })
+
+  it('非法象限/阶段(池取不到)带 avoidSeed 仍走固定串', () => {
+    const badQuadrant = 'nope' as unknown as WaitingQuadrant
+    const badPhase = 'nope' as unknown as WaitingPhase
+    expect(
+      resolveWaitingText({ quadrant: badQuadrant, phase: 'first', seed: 1, avoidSeed: 1 }),
+    ).toBe(WAITING_FALLBACK_EN)
+    expect(resolveWaitingText({ quadrant: 'agent', phase: badPhase, seed: 1, avoidSeed: 1 })).toBe(
+      WAITING_FALLBACK_EN,
+    )
+  })
+
+  it('off 分支不受 avoidSeed 影响(带 t / 不带 t / 自定义 fallback 三口径)', () => {
+    const t = mockT(dictFromPool('agent', 'first', ZH_CN_AGENT_FIRST, ZH_CN_VIVID_TAIL))
+    expect(
+      resolveWaitingText({
+        quadrant: 'agent',
+        phase: 'first',
+        seed: 2,
+        locale: 'zh-CN',
+        personaEnabled: false,
+        avoidSeed: 2,
+      }),
+    ).toBe(WAITING_FALLBACK_EN)
+    expect(
+      resolveWaitingText({
+        quadrant: 'agent',
+        phase: 'first',
+        seed: 2,
+        locale: 'zh-CN',
+        personaEnabled: false,
+        avoidSeed: 2,
+        t,
+      }),
+    ).toBe(WAITING_FALLBACK_EN)
+    expect(
+      resolveWaitingText({
+        quadrant: 'agent',
+        phase: 'first',
+        personaEnabled: false,
+        fallback: '请稍候',
+        avoidSeed: 0,
+      }),
+    ).toBe('请稍候')
+  })
+
+  it('回显型 t + avoidSeed:仍绝不外泄 raw key,且落到顺移后的英文条目', () => {
+    const echoT: WaitingTextLookup = (key) => key
+    for (const quadrant of WAITING_QUADRANTS) {
+      for (const phase of WAITING_PHASES) {
+        const size = waitingPoolSize('zh-CN', quadrant, phase)
+        for (let seed = 0; seed < 6; seed += 1) {
+          const text = resolveWaitingText({ quadrant, phase, seed, avoidSeed: seed, t: echoT })
+          expect(text.includes('waiting.')).toBe(false)
+          expect(text.length).toBeGreaterThan(0)
+          expect(text).toBe(
+            resolveWaitingText({ quadrant, phase, seed: (seed + 1) % size, t: echoT }),
+          )
+        }
+      }
+    }
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
