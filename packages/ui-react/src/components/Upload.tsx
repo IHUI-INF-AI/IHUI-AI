@@ -62,6 +62,51 @@ export interface UploadProps {
    * 无法匹配时返回 null,该文件上传视为失败
    */
   resolveUrl?: (response: unknown) => string | null
+  /** 界面文案注入(不传的键回退 DEFAULT_UPLOAD_LABELS 简体中文 — 不注入即不本地化) */
+  labels?: Partial<UploadLabels>
+}
+
+/** Upload 界面文案(占位/状态/错误提示/无障碍标签),由消费端注入 */
+export interface UploadLabels {
+  placeholder: string
+  done: string
+  cancelUpload: string
+  removeUploadedAriaLabel: string
+  removeItemAriaLabel: string
+  sizeLimitHint: string
+  maxCountReached: string
+  oversizeFiles: string
+  uploadFailed: string
+  uploadFailedWithStatus: string
+  invalidJsonResponse: string
+  noUrlField: string
+  networkError: string
+  uploadCancelled: string
+}
+
+/** i18n 默认值(不传 labels 时回退到简体中文) */
+const DEFAULT_UPLOAD_LABELS: UploadLabels = {
+  placeholder: '点击或拖拽文件到此处上传',
+  done: '已完成',
+  cancelUpload: '取消上传',
+  removeUploadedAriaLabel: '删除已上传文件',
+  removeItemAriaLabel: '移除上传项',
+  sizeLimitHint: '单文件不超过 {size}',
+  maxCountReached: '已达上限 {max} 个文件',
+  oversizeFiles: '以下文件超过 {size}: {files}',
+  uploadFailed: '上传失败',
+  uploadFailedWithStatus: '上传失败:HTTP {status}',
+  invalidJsonResponse: '响应不是合法 JSON',
+  noUrlField: '响应中未找到可用的 URL 字段',
+  networkError: '网络错误',
+  uploadCancelled: '上传已取消',
+}
+
+/** 轻量 {var} 占位插值(不引 i18n 框架):消费端 t() 返回的模板在此填值(与 data-table.tsx 同形态) */
+function fillTemplate(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_m, key: string) =>
+    values[key] === undefined ? `{${key}}` : String(values[key]),
+  )
 }
 
 const DEFAULT_MAX_COUNT = 5
@@ -136,15 +181,20 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
     accept,
     fieldName = 'file',
     headers,
-    placeholder = '点击或拖拽文件到此处上传',
+    placeholder,
     className,
     onError,
     onProgress,
     onRemove,
     resolveUrl = defaultResolveUrl,
+    labels: labelsProp,
   },
   ref,
 ) {
+  const labels = React.useMemo<UploadLabels>(
+    () => ({ ...DEFAULT_UPLOAD_LABELS, ...labelsProp }),
+    [labelsProp],
+  )
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
   const [items, setItems] = React.useState<FileItem[]>([])
@@ -176,33 +226,33 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
 
         xhr.onload = () => {
           if (xhr.status < 200 || xhr.status >= 300) {
-            reject(new Error(`上传失败:HTTP ${xhr.status}`))
+            reject(new Error(fillTemplate(labels.uploadFailedWithStatus, { status: xhr.status })))
             return
           }
           let parsed: unknown
           try {
             parsed = JSON.parse(xhr.responseText)
           } catch {
-            reject(new Error('响应不是合法 JSON'))
+            reject(new Error(labels.invalidJsonResponse))
             return
           }
           const url = resolveUrl(parsed)
           if (!url) {
-            reject(new Error('响应中未找到可用的 URL 字段'))
+            reject(new Error(labels.noUrlField))
             return
           }
           resolve(url)
         }
 
-        xhr.onerror = () => reject(new Error('网络错误'))
-        xhr.onabort = () => reject(new Error('上传已取消'))
+        xhr.onerror = () => reject(new Error(labels.networkError))
+        xhr.onabort = () => reject(new Error(labels.uploadCancelled))
 
         const formData = new FormData()
         formData.append(fieldName, file)
         xhr.send(formData)
       })
     },
-    [endpoint, fieldName, headers, onProgress, resolveUrl],
+    [endpoint, fieldName, headers, labels, onProgress, resolveUrl],
   )
 
   /** 处理待上传文件列表(校验 + 实际发起) */
@@ -215,7 +265,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       const slots = remaining > 0 ? remaining : 0
       const accepted = incoming.slice(0, slots)
       if (accepted.length === 0) {
-        onError?.(new Error(`已达上限 ${maxCount} 个文件`))
+        onError?.(new Error(fillTemplate(labels.maxCountReached, { max: maxCount })))
         return
       }
 
@@ -224,7 +274,10 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       if (oversize.length > 0) {
         onError?.(
           new Error(
-            `以下文件超过 ${formatSize(maxSize)}: ${oversize.map((f) => f.name).join(', ')}`,
+            fillTemplate(labels.oversizeFiles, {
+              size: formatSize(maxSize),
+              files: oversize.map((f) => f.name).join(', '),
+            }),
           ),
         )
       }
@@ -255,7 +308,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
             ),
           )
         } catch (err) {
-          const msg = err instanceof Error ? err.message : '上传失败'
+          const msg = err instanceof Error ? err.message : labels.uploadFailed
           setItems((prev) =>
             prev.map((it) => (it.key === item.key ? { ...it, status: 'error', error: msg } : it)),
           )
@@ -272,7 +325,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
         }
       }
     },
-    [maxCount, maxSize, multiple, onChange, onError, remaining, uploadOne, value],
+    [labels, maxCount, maxSize, multiple, onChange, onError, remaining, uploadOne, value],
   )
 
   // 已上传 URL 列表(去重保序)
@@ -326,7 +379,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 <button
                   type="button"
                   onClick={() => handleRemoveUrl(idx)}
-                  aria-label="删除已上传文件"
+                  aria-label={labels.removeUploadedAriaLabel}
                   className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-bl-md bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                 >
                   <X className="h-3 w-3" />
@@ -369,9 +422,11 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
           ) : (
             <UploadCloud className="h-8 w-8 text-muted-foreground" />
           )}
-          <p className="text-sm text-muted-foreground">{placeholder}</p>
+          <p className="text-sm text-muted-foreground">{placeholder ?? labels.placeholder}</p>
           {maxSize !== DEFAULT_MAX_SIZE && (
-            <p className="text-xs text-muted-foreground">单文件不超过 {formatSize(maxSize)}</p>
+            <p className="text-xs text-muted-foreground">
+              {fillTemplate(labels.sizeLimitHint, { size: formatSize(maxSize) })}
+            </p>
           )}
         </button>
       )}
@@ -396,7 +451,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                     {item.status === 'error' ? (
                       <span className="text-destructive">{item.error}</span>
                     ) : item.status === 'done' ? (
-                      '已完成'
+                      labels.done
                     ) : (
                       `${item.progress}%`
                     )}
@@ -421,7 +476,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
               <button
                 type="button"
                 onClick={() => handleRemoveItem(item.key)}
-                aria-label="移除上传项"
+                aria-label={labels.removeItemAriaLabel}
                 className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
               >
                 <X className="h-3 w-3" />
@@ -435,7 +490,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
                 onClick={handleCancelAll}
                 className="text-xs text-muted-foreground transition-colors hover:text-destructive"
               >
-                取消上传
+                {labels.cancelUpload}
               </button>
             </li>
           )}
