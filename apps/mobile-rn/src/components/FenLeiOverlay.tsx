@@ -11,7 +11,7 @@
  *   首项"全公司" id='') + 分类网格(fenlei_btn_list_overlay:agentMainCategory,首项"全部" id='') + 确定按钮。
  * - 两层均为单选(对齐 fenlei_active 单选数组 / agentCategory_active 单值),确定后回调刷新智能体列表。
  * - 半透明遮罩(对齐 .mask rgba(0,0,0,0.5)),点击遮罩关闭。
- * - 类型零 any;颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 类型零 any;颜色走 theme/active-tokens 的主题 token。
  */
 import { useEffect, useState } from 'react'
 import {
@@ -24,7 +24,7 @@ import {
   View,
 } from 'react-native'
 import type { AgentCategoryItem } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface FenLeiOverlayProps {
   visible: boolean

@@ -2298,6 +2298,22 @@ node scripts/install-console-window-hook.mjs --remove   # 卸载并恢复原 NOD
 
 为防止以后新写的脚本再次漏参,仓库设有机制守门:`scripts/check-no-visible-spawn.mjs`(pre-commit blocking 第 52 项)会用括号配平提取派生调用,首参可确认为控制台程序(git / node / pnpm / cmd / pwsh 等)而 options 缺 `windowsHide` 时直接拦截。手动审计:`node scripts/check-no-visible-spawn.mjs`,逻辑自检:`--self-test`。
 
+#### Windows 开发机:把开发栈整体迁入无桌面会话(根治弹窗,推荐)
+
+`windowsHide` 这一层只能管**我们自己写的**派生点。本地开发栈重启时弹出的窗口,实际来自 `tsx` / `uvicorn` / pnpm **内部**的 spawn(实测 `tsx` dist 里 `windowsHide` 出现 0 次),那些调用点不在仓库控制内 —— 逐点补参数永远追不上。
+
+根治办法是换**宿主会话**:守护与看门狗以 `LogonType=S4U` 的计划任务运行,落在 session 0(没有桌面),该会话内任何进程都无法在屏幕上产生窗口,与它怎么 spawn 无关。
+
+```bash
+pnpm dev:stack:autostart                        # 注册/修复 IHUI-DevStack(S4U)+ 清理旧启动夹自启
+node scripts/dev-stack-watchdog.mjs --install   # 看门狗任务同样注册为 S4U
+./start-all.bat                                 # 双击即用:schtasks /Run IHUI-DevStack,零本地派生
+```
+
+自愈节奏不变(每 30s 体检、挂了立刻重拉,无退避);`IHUI-DevStackWatchdog` 每 2 分钟巡检时顺带核验守护任务仍是 S4U,被改回 `InteractiveToken` 或被删除都会自动重装(故障演练实测 5s 内恢复)。停止:`pnpm dev:safe:stop` · 体检:`pnpm dev:stack:check` · 日志:`.tmp-sync/dev-stack-*.log`。
+
+A/B 实测(同一隐藏采样器 + 同一"故意 `windowsHide:false`"子进程):交互任务 = session 1 弹 1 扇;S4U 任务 = session 0 零扇,且其监听端口从 session 1 经 `127.0.0.1` 正常可达。迁移后实测:api / web / ai-service / redis / prod-proxy / web-preview 六个服务均由 session 0 守护重拉,期间零窗口;metro 只在无真机连接时才迁,避免打断他人调试会话。
+
 ### 一键启动(Docker)
 
 ```bash

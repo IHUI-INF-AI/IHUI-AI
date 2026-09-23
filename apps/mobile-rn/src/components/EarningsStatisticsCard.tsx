@@ -10,11 +10,11 @@
  * - props: dayStatistics/monthStatistics/sumStatistics 三组统计对象(对齐原项目)
  * - 向后兼容:label/title/todayAmount/monthAmount/totalAmount 旧 API 保留,
  *   未传三组对象时降级为「今日=主金额 + 今日/本月/累计」静态展示。
- * - 浅色优雅风,rnLightTokens;圆角守门;无渐变遮罩。
+ * - 浅色优雅风,主题 token 入口;圆角守门;无渐变遮罩。
  */
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export type EarningsTrendDirection = 'up' | 'down'
 

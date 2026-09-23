@@ -78,10 +78,14 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Hours 0) `
     -MultipleInstances IgnoreNew
 
-# Principal: current user, interactive logon, no admin (Limited)
+# Principal: current user, S4U (non-interactive), no admin (Limited)
+# 2026-09-23: Interactive -> S4U. An S4U task runs in session 0, which has no desktop,
+# so no process in that session can create a window on screen at all. The wscript.exe +
+# VBS wrapper above is therefore redundant from now on: it is no longer the popup
+# defense line (kept as-is on purpose; removing it is a separate decision).
 $principal = New-ScheduledTaskPrincipal `
     -UserId $env:USERNAME `
-    -LogonType Interactive `
+    -LogonType S4U `
     -RunLevel Limited
 
 $description = 'IHUI-AI G:\ root guardian - blocks junk files/dirs from being created in G:\ root. Auto-restarts on failure.'
