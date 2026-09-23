@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /** 证书详情共享屏 — props 注入式跨端组件 */
 import { useMemo } from 'react'
@@ -110,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       backgroundColor: `${tk.success.DEFAULT}1A`,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     certTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     certNo: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -128,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.success.DEFAULT,
       paddingVertical: 12,
       paddingHorizontal: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
     },
     verifyText: { fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },

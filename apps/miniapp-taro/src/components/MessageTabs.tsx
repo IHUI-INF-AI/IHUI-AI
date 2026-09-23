@@ -27,7 +27,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
           return (
             <View
               key={tab.key}
-              className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-[24rpx] ${
+              className={`flex flex-row items-center px-[28rpx] py-[12rpx] rounded-xl ${
                 isActive ? 'bg-primary' : 'bg-card'
               }`}
               onClick={() => onChange(tab.key)}

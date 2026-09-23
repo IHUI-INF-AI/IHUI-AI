@@ -114,9 +114,19 @@ export function CategoryInlineBar({
             选中态因此变成"深底深字看不见"。按压反馈留在 Pressable,视觉与文字同路径。 */}
         <View style={active ? [styles.item, styles.itemActive] : styles.item}>
           {Icon ? (
-            <Icon size={16} color={active ? tk.brand.ctaText : tk.text.secondary} />
+            <Icon
+              size={item.iconSize ?? 16}
+              color={active ? tk.brand.ctaText : tk.text.secondary}
+            />
           ) : item.image ? (
-            <Image source={item.image} style={styles.itemImage} resizeMode="contain" />
+            <Image
+              source={item.image}
+              style={[
+                styles.itemImage,
+                item.iconSize ? { width: item.iconSize, height: item.iconSize } : null,
+              ]}
+              resizeMode="contain"
+            />
           ) : null}
           <Text
             numberOfLines={1}

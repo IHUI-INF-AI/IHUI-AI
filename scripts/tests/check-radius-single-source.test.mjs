@@ -47,4 +47,23 @@ test('tailwind preset 不得重新内联档位字面量(必须引用 RADIUS_REM)
   assert.match(preset, /borderRadius:\s*RADIUS_REM\s*,/)
   assert.doesNotMatch(preset, /borderRadius:\s*\{[\s\S]{0,200}?0\.375rem/)
 })
+
+test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车证明)', () => {
+  const src = readFileSync(GUARD, 'utf8')
+  //  上限来源:该文件 HEAD 版本的违规数
+  assert.match(src, /gitRo\(\['show', `HEAD:\$\{rel\}`\]\)/, '锚点必须实读 HEAD blob')
+  assert.match(src, /const tolOf = \(rel\) => Math\.max\(/, 'tolOf 必须存在并被使用')
+  assert.match(src, /isStaged \|\| FILES_MODE \? headCountOf\(rel\) : 0/)
+  //  全量审计判 HEAD 内容:否则并行会话滞后的旧草稿会被记成本仓债务(误红 → --no-verify 常态化)
+  assert.match(src, /const auditHead = !isStaged && !FILES_MODE/)
+  assert.match(src, /export function splitFresh/)
+  //  静态清单只是兜底,HEAD 清零后必须为空 —— 留着非空清单等于给"整文件回写旧基线"放行
+  const b = JSON.parse(readFileSync(join(ROOT, 'scripts/radius-single-source-baseline.json'), 'utf8'))
+  assert.equal(b.sites.length, 0, `基线应为空,实际 ${b.sites.length} 处`)
+  //  自检必须钉住误红、误绿两个方向
+  const out = execFileSync(process.execPath, [GUARD, '--self-test'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, timeout: 120000 })
+  assert.match(out, /锚点:HEAD 已迁完\(0 处\)/)
+  assert.match(out, /锚点:HEAD 本来 3 处、待提交仍 3 处/)
+  assert.match(out, /全部 \d+ 例通过/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

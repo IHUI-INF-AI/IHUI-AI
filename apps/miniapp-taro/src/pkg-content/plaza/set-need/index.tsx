@@ -96,7 +96,7 @@ export default function SetNeed() {
             return (
               <View
                 key={key}
-                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                className={`px-[24rpx] py-[28rpx] rounded-xl ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => toggleCategory(key)}
                 hoverClass="opacity-60"
               >
@@ -121,7 +121,7 @@ export default function SetNeed() {
             return (
               <View
                 key={lv}
-                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                className={`px-[24rpx] py-[28rpx] rounded-xl ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => setLevel(lv)}
                 hoverClass="opacity-60"
               >
@@ -146,7 +146,7 @@ export default function SetNeed() {
             return (
               <View
                 key={b}
-                className={`px-[24rpx] py-[28rpx] rounded-[24rpx] ${active ? 'bg-primary' : 'bg-muted'}`}
+                className={`px-[24rpx] py-[28rpx] rounded-xl ${active ? 'bg-primary' : 'bg-muted'}`}
                 onClick={() => setBudget(b)}
                 hoverClass="opacity-60"
               >
@@ -162,7 +162,7 @@ export default function SetNeed() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[20rpx] right-[20rpx] h-[100rpx] leading-[100rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-semibold"
         loading={saving}
         onClick={save}
         disabled={saving}

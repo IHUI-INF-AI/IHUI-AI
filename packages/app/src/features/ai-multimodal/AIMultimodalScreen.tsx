@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -155,7 +156,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     userText: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     modeRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
-    modeBtn: { flex: 1, paddingVertical: 8, borderRadius: 12, backgroundColor: tk.surface.card },
+    modeBtn: { flex: 1, paddingVertical: 8, borderRadius: rnRadius.xl, backgroundColor: tk.surface.card },
     modeBtnActive: { backgroundColor: tk.brand.DEFAULT },
     modeBtnText: { textAlign: 'center', fontSize: 14, color: tk.text.medium },
     modeBtnTextActive: { color: tk.surface.light, fontWeight: '600' },
@@ -165,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     modelChip: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       marginRight: 8,
     },
@@ -175,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     list: { flex: 1, paddingHorizontal: 10 },
     empty: { paddingVertical: 40, alignItems: 'center' },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
-    msgBubble: { padding: 10, borderRadius: 12, marginBottom: 8, maxWidth: '85%' },
+    msgBubble: { padding: 10, borderRadius: rnRadius.xl, marginBottom: 8, maxWidth: '85%' },
     msgUser: { backgroundColor: tk.success.lighter, alignSelf: 'flex-end' },
     msgAssistant: { backgroundColor: tk.surface.card, alignSelf: 'flex-start' },
     msgRole: { fontSize: 11, color: tk.text.secondary, marginBottom: 8 },
@@ -201,7 +202,7 @@ function createStyles(tk: AppThemeTokens) {
       maxHeight: 100,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -212,7 +213,7 @@ function createStyles(tk: AppThemeTokens) {
     sendBtn: {
       paddingHorizontal: 16,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -222,7 +223,7 @@ function createStyles(tk: AppThemeTokens) {
     clearBtn: {
       paddingHorizontal: 12,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     clearText: { color: tk.text.medium, fontSize: 14 },
