@@ -67,7 +67,7 @@ export default function ExamList() {
     <ThemeRoot>
       <View
         key={e.id}
-        className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+        className="bg-card rounded-xl p-[28rpx] mb-[20rpx] border border-solid border-border"
         hoverClass="opacity-60"
         onClick={() => goDetail(e.id)}
       >
@@ -76,7 +76,7 @@ export default function ExamList() {
             {e.title}
           </Text>
           {e.categoryName && (
-            <View className="px-[16rpx] py-[8rpx] rounded-[16rpx] bg-[var(--color-muted)] shrink-0">
+            <View className="px-[16rpx] py-[8rpx] rounded-lg bg-[var(--color-muted)] shrink-0">
               <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                 {e.categoryName}
               </Text>
@@ -107,7 +107,7 @@ export default function ExamList() {
       <ThemeRoot>
         <View
           key={r.id}
-          className="bg-card rounded-[24rpx] p-[28rpx] mb-[20rpx] border border-solid border-border"
+          className="bg-card rounded-xl p-[28rpx] mb-[20rpx] border border-solid border-border"
           hoverClass="opacity-60"
           onClick={() => goResult(r.id)}
         >
@@ -116,7 +116,7 @@ export default function ExamList() {
               {paper?.title ?? t('exam.removedPaper')}
             </Text>
             <View
-              className={`px-[16rpx] py-[8rpx] rounded-[16rpx] shrink-0 ${
+              className={`px-[16rpx] py-[8rpx] rounded-lg shrink-0 ${
                 r.isPassed ? 'bg-[var(--color-success-light)]' : 'bg-[var(--color-danger-light)]'
               }`}
             >
@@ -177,7 +177,7 @@ export default function ExamList() {
           {TAB_KEYS.map((item) => (
             <View
               key={item.key}
-              className={`px-[24rpx] py-[12rpx] rounded-[24rpx] ${
+              className={`px-[24rpx] py-[12rpx] rounded-xl ${
                 tab === item.key ? 'bg-primary' : 'bg-card'
               }`}
               hoverClass="opacity-60"

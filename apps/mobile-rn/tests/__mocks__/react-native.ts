@@ -11,21 +11,57 @@
  */
 import { createElement, type ReactNode } from 'react'
 
+const isAnimValue = (v: unknown): v is { __getValue: () => number } =>
+  !!v && typeof v === 'object' && '__getValue' in (v as Record<string, unknown>)
+
+const sanitizeStyleObject = (style: object): Record<string, unknown> => {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(style)) {
+    // transform 的值是 Animated.Value 数组,DOM 侧无可断言意义,直接丢;
+    // opacity 等标量位置上的 Animated.Value 要先求值成数字,否则 React DOM 抛
+    // "The `style` prop expects a mapping from style properties to values"。
+    if (k === 'transform') continue
+    out[k] = isAnimValue(v) ? Number(v.__getValue()) : v
+  }
+  return out
+}
+
 const flattenStyle = (style: unknown): unknown => {
   // RN 的 Pressable 允许 `style={({pressed}) => [...]}`;DOM 拿到函数会直接抛
   // "expects a mapping … not a string"(typeof function !== object)。
   if (typeof style === 'function')
     return flattenStyle((style as (s: { pressed: boolean }) => unknown)({ pressed: false }))
-  if (!Array.isArray(style)) return style
-  return Object.assign({}, ...style.filter(Boolean).map(flattenStyle))
+  if (Array.isArray(style)) return Object.assign({}, ...style.filter(Boolean).map(flattenStyle))
+  if (style && typeof style === 'object') return sanitizeStyleObject(style)
+  return style
+}
+
+type Measurable = HTMLElement & {
+  measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void
 }
 
 const mk = (tag: string) =>
-  function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-    const { style, onPress, ...rest } = props
+  function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
+    const { style, onPress, ref, ...rest } = props
+    /**
+     * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
+     * spread 到 DOM 上 —— 结果 ref 被静默丢弃,`triggerRef.current` 恒为 null,
+     * 任何依赖 `measureInWindow` 锚定的组件(CategoryDropdown)在测试里"点了没反应",
+     * 且不报错。这里补上真实测量(取 jsdom 的 getBoundingClientRect)。
+     */
+    const setRef = (node: HTMLElement | null) => {
+      if (node && typeof (node as Measurable).measureInWindow !== 'function') {
+        ;(node as Measurable).measureInWindow = (cb) => {
+          const r = node.getBoundingClientRect()
+          cb(r.x, r.y, r.width, r.height)
+        }
+      }
+      if (typeof ref === 'function') ref(node)
+      else if (ref && typeof ref === 'object') (ref as { current: unknown }).current = node
+    }
     return createElement(
       tag,
-      { ...rest, onClick: onPress, style: flattenStyle(style) },
+      { ...rest, ref: setRef, onClick: onPress, style: flattenStyle(style) },
       props.children,
     )
   }
@@ -101,15 +137,42 @@ export const StyleSheet = {
   },
 } as const
 export const Dimensions = { get: () => ({ width: 375, height: 812 }) }
+/**
+ * CategoryDropdown 用 useWindowDimensions 做面板定位、用 BackHandler 接 Android 返回键。
+ * 这两个导出缺失时,组件一挂载就 TypeError —— 于是"下拉窗"这一形态在全仓零测试覆盖
+ * (不是没人想测,是桩不支持)。补上它才谈得上有证据。
+ */
+export const useWindowDimensions = () => ({ width: 375, height: 812, scale: 1, fontScale: 1 })
+export const BackHandler = {
+  addEventListener: (_event: string, _cb: () => boolean) => ({ remove() {} }),
+  removeEventListener: (_event: string, _cb: () => boolean) => {},
+  exitApp: () => {},
+}
 export const Animated = {
   View: mk('div'),
   Text: mk('span'),
   createAnimatedComponent: (comp: unknown) => comp,
   timing: () => ({ start: () => {} }),
   spring: () => ({ start: () => {} }),
+  // 开合动画走 Animated.parallel([...]) —— 缺它同样必崩
+  parallel: (anims: readonly { start: () => void }[]) => ({
+    start: (cb?: unknown) => {
+      anims.forEach((a) => a.start())
+      if (typeof cb === 'function') (cb as () => void)()
+    },
+  }),
   Value: class {
-    constructor(_v: number) {}
-    setValue(_v: number) {}
+    // 不能写 private:导出的匿名类带私有成员会触发 TS4094(声明无法 emit)
+    current: number
+    constructor(initial: number) {
+      this.current = initial
+    }
+    setValue(next: number) {
+      this.current = next
+    }
+    __getValue() {
+      return this.current
+    }
     interpolate() {
       return { __getValue: () => 0 }
     }
@@ -133,9 +196,11 @@ const ReactNative = {
   Modal,
   Switch,
   useColorScheme,
+  useWindowDimensions,
   StyleSheet,
   Dimensions,
   Animated,
+  BackHandler,
 }
 
 export default ReactNative

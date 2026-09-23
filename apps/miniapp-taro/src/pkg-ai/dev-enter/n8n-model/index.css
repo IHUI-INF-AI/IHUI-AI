@@ -47,7 +47,7 @@
   color: var(--color-primary-foreground);
   padding: 12rpx 28rpx;
   background: var(--color-primary);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .nm-create-btn:active {
   opacity: 0.8; /* RN activeOpacity 0.8 */
@@ -61,7 +61,7 @@
 .nm-list-item {
   padding: 24rpx;
   background: transparent;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin-bottom: 24rpx; /* RN separator 12dp */
   border: 1px solid var(--color-border);
 }
@@ -112,7 +112,7 @@
 .nm-avatar {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-muted); /* RN surface.muted */
   border: 1px solid var(--color-border);
 }
@@ -134,7 +134,7 @@
   min-height: 88rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -147,7 +147,7 @@
   min-height: 88rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -161,7 +161,7 @@
   justify-content: center;
   padding: 24rpx; /* RN card padding 12dp */
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
 }
 .nm-file-btn:active {
@@ -178,7 +178,7 @@
   margin-top: 16rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .nm-file-name {
   flex: 1;
@@ -200,7 +200,7 @@
 }
 .nm-param {
   background: var(--color-card); /* RN surface.card */
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   margin-bottom: 24rpx;
   border: 1px solid var(--color-border);
@@ -239,7 +239,7 @@
   min-height: 72rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -250,7 +250,7 @@
   min-height: 120rpx;
   padding: 12rpx 16rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -266,7 +266,7 @@
 .nm-type {
   padding: 10rpx 20rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -288,7 +288,7 @@
   flex: 1;
   padding: 12rpx;
   background: var(--color-muted);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   text-align: center;
@@ -305,7 +305,7 @@
   justify-content: center;
   padding: 24rpx;
   background: transparent;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 26rpx;
   color: var(--color-primary); /* RN retryText brand.DEFAULT */
   border: 1px solid var(--color-border);
@@ -324,7 +324,7 @@
   /* RN 文字色 surface.light(#FFF) 在暗色 brand(白底)上不可读,按语义修正为 primary-foreground */
   color: var(--color-primary-foreground);
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 30rpx; /* RN modalBtnTextConfirm 15dp */
   font-weight: 600;
 }

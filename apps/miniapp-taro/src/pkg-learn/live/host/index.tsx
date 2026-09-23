@@ -133,7 +133,7 @@ export default function LiveHost() {
       <View className="min-h-screen bg-[var(--color-background)]">
         {/* header:状态徽章(11dp → 22rpx,radius 12 → 24rpx) */}
         <View className="flex items-center px-[20rpx] pt-[16rpx] pb-[16rpx]">
-          <View className={`px-[16rpx] py-[4rpx] rounded-[24rpx] ${badgeCls}`}>
+          <View className={`px-[16rpx] py-[4rpx] rounded-xl ${badgeCls}`}>
             <Text className="text-[22rpx] text-[var(--color-primary-foreground)]">{badgeText}</Text>
           </View>
         </View>
@@ -145,7 +145,7 @@ export default function LiveHost() {
         ) : null}
 
         {/* previewArea:height 176 → 352rpx,marginHorizontal 10 → 20rpx,radius 12 → 24rpx,bg gray.900 */}
-        <View className="mx-[20rpx] mt-[16rpx] h-[352rpx] rounded-[24rpx] bg-[var(--color-screen-canvas)] flex items-center justify-center">
+        <View className="mx-[20rpx] mt-[16rpx] h-[352rpx] rounded-xl bg-[var(--color-screen-canvas)] flex items-center justify-center">
           <Text className="text-[28rpx] text-[var(--color-text-tertiary)]">
             {status === 'active'
               ? tt('liveHost.cameraPreviewActive', '直播推流中')
@@ -154,12 +154,12 @@ export default function LiveHost() {
         </View>
 
         {/* sectionBox:marginHorizontal 10 → 20rpx,marginTop 12 → 24rpx,padding 12 → 24rpx,radius 24rpx */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-[24rpx] border-[2rpx] border-[var(--color-border)]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]">
           <Text className="block text-[28rpx] text-[var(--color-text-tertiary)] mb-[16rpx]">
             {tt('liveHost.streamTitle', '直播标题')}
           </Text>
           <Input
-            className="rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[32rpx] text-foreground bg-[var(--color-muted)]"
+            className="rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[28rpx] text-[32rpx] text-foreground bg-[var(--color-muted)]"
             value={streamTitle}
             onInput={(e) => setStreamTitle(e.detail.value)}
             placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}
@@ -191,7 +191,7 @@ export default function LiveHost() {
         {/* actionRow:gap 12 → 24rpx;btnSuccess 用 brand(纯黑/纯白)、btnDanger 用 danger;禁用 opacity 0.5 */}
         <View className="flex gap-[24rpx] mx-[20rpx] mt-[24rpx]">
           <View
-            className={`flex-1 py-[30rpx] rounded-[24rpx] items-center justify-center bg-primary ${
+            className={`flex-1 py-[30rpx] rounded-xl items-center justify-center bg-primary ${
               loading || status !== 'idle' ? 'opacity-50' : ''
             }`}
             onClick={startLive}
@@ -204,7 +204,7 @@ export default function LiveHost() {
             </Text>
           </View>
           <View
-            className={`flex-1 py-[30rpx] rounded-[24rpx] items-center justify-center bg-[var(--color-danger)] ${
+            className={`flex-1 py-[30rpx] rounded-xl items-center justify-center bg-[var(--color-danger)] ${
               loading || status !== 'active' ? 'opacity-50' : ''
             }`}
             onClick={endLive}
@@ -219,7 +219,7 @@ export default function LiveHost() {
         </View>
 
         {/* 直播数据:sectionTitle 18dp → 36rpx semibold;statLabel 14 → 28rpx;statValue 16 → 32rpx */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-[24rpx] border-[2rpx] border-[var(--color-border)]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)]">
           <Text className="block text-[36rpx] font-semibold text-foreground mb-[16rpx]">
             {tt('liveHost.liveData', '直播数据')}
           </Text>
@@ -234,13 +234,13 @@ export default function LiveHost() {
         </View>
 
         {/* 商品管理:lastSection marginBottom 32 → 64rpx;添加按钮 bg card + success 文字 */}
-        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] mb-[64rpx]">
+        <View className="mx-[20rpx] mt-[24rpx] p-[24rpx] rounded-xl border-[2rpx] border-[var(--color-border)] mb-[64rpx]">
           <View className="flex items-center justify-between mb-[16rpx]">
             <Text className="text-[36rpx] font-semibold text-foreground">
               {tt('liveHost.productManagement', '商品管理')}
             </Text>
             <View
-              className="rounded-[24rpx] bg-[var(--color-card)] px-[16rpx] py-[8rpx]"
+              className="rounded-xl bg-[var(--color-card)] px-[16rpx] py-[8rpx]"
               onClick={() =>
                 Taro.showToast({
                   title: tt('liveHost.addProductToast', '商品添加功能待接入'),

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * PrivacyPolicyModal 隐私政策弹窗(mobile-rn 端)
@@ -45,7 +46,6 @@ export interface PrivacyPolicyModalProps {
 const AGREE_BUTTON_COLOR = tokens.brand.DEFAULT
 const OVERLAY_BG = tokens.overlay.modal
 const CARD_WIDTH_RATIO = '88%'
-const CARD_BORDER_RADIUS = 12
 const CARD_PADDING_HORIZONTAL = 20
 const CARD_PADDING_VERTICAL = 16
 const SHIELD_SIZE = 44
@@ -61,7 +61,6 @@ const PARAGRAPH_MARGIN_BOTTOM = 8
 const HEADING_FONT_SIZE = 14
 const HEADING_MARGIN_TOP = 4
 const BUTTON_HEIGHT = 44
-const BUTTON_BORDER_RADIUS = 8
 const BUTTON_FONT_SIZE = 15
 const BUTTON_GAP = 8
 
@@ -158,7 +157,7 @@ const styles = StyleSheet.create({
   card: {
     width: CARD_WIDTH_RATIO,
     backgroundColor: tokens.surface.card,
-    borderRadius: CARD_BORDER_RADIUS,
+    borderRadius: rnRadius.xl,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingTop: CARD_PADDING_VERTICAL,
     paddingBottom: CARD_PADDING_VERTICAL,
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
   shieldWrap: {
     width: SHIELD_SIZE,
     height: SHIELD_SIZE,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: SHIELD_BG,
@@ -205,7 +204,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: SAFE_BAR_BG,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 10,
     paddingVertical: 6,
     marginTop: 10,
@@ -245,14 +244,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   disagreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.card,
   } as ViewStyle,
   agreeButton: {
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

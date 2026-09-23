@@ -82,15 +82,15 @@ export default function SubscriptionsPage() {
             return (
               <ThemeRoot key={item.id}>
                 {/* 对齐 RN card:边框卡 + 40x40 thumb(radius 12→24rpx)+ 标题/副文字 + 描边取消按钮 */}
-                <View className="mb-[24rpx] flex items-center border-[2rpx] border-border rounded-[24rpx] bg-background p-[24rpx]">
+                <View className="mb-[24rpx] flex items-center border-[2rpx] border-border rounded-xl bg-background p-[24rpx]">
                   {item.cover ? (
                     <Image
-                      className="w-[80rpx] h-[80rpx] rounded-[24rpx] bg-muted mr-[24rpx] flex-shrink-0"
+                      className="w-[80rpx] h-[80rpx] rounded-xl bg-muted mr-[24rpx] flex-shrink-0"
                       src={item.cover}
                       mode="aspectFill"
                     />
                   ) : (
-                    <View className="w-[80rpx] h-[80rpx] rounded-[24rpx] bg-muted mr-[24rpx] flex items-center justify-center flex-shrink-0">
+                    <View className="w-[80rpx] h-[80rpx] rounded-xl bg-muted mr-[24rpx] flex items-center justify-center flex-shrink-0">
                       <Text className="text-[28rpx] font-semibold text-foreground">
                         {targetTypeLabel(item.targetType)}
                       </Text>
@@ -105,7 +105,7 @@ export default function SubscriptionsPage() {
                     </Text>
                   </View>
                   <Text
-                    className="ml-[24rpx] border-[2rpx] border-border rounded-[24rpx] bg-background px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
+                    className="ml-[24rpx] border-[2rpx] border-border rounded-xl bg-background px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] flex-shrink-0"
                     onClick={() => handleCancel(item)}
                   >
                     {t('subscriptions.delete')}
