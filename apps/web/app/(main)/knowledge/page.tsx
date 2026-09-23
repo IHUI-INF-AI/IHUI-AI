@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { Brain } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { KnowledgeList } from '@/components/knowledge/KnowledgeList'
 import { fetchAiServiceJson } from '@/lib/api'
@@ -18,6 +19,7 @@ interface MemorySearchResult {
 }
 
 export default function KnowledgePage() {
+  const t = useTranslations('knowledgeList')
   const [items, setItems] = React.useState<MemorySearchResult[]>([])
   const [loading, setLoading] = React.useState(false)
   const [searched, setSearched] = React.useState(false)
@@ -48,14 +50,14 @@ export default function KnowledgePage() {
     <div className="space-y-4 px-4 py-4">
       <div className="flex items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
-        <h1 className="text-lg font-semibold">知识库</h1>
+        <h1 className="text-lg font-semibold">{t('title')}</h1>
       </div>
-      <p className="text-sm text-muted-foreground">通过语义搜索检索记忆库中的知识内容</p>
+      <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
 
       {!searched ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
           <Brain className="h-12 w-12 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">输入关键词搜索知识库内容</p>
+          <p className="text-sm text-muted-foreground">{t('searchHint')}</p>
         </div>
       ) : (
         <KnowledgeList items={items} onSearch={handleSearch} loading={loading} />

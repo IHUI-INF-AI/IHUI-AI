@@ -16,6 +16,7 @@ import {
 } from '@/components/ai/progress-sections/message-context-menu'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 
 import { MessageItem } from './MessageItem'
 import { QueryThumbRail } from './query-thumb-rail'
@@ -103,6 +104,10 @@ export function MessageList({
   codeCollapseLines,
 }: MessageListProps) {
   const t = useTranslations('chat')
+
+  // D39 免费额度心智边界:非 VIP 即免费档可用 → 不向该用户渲染付费诱导
+  const user = useAuthStore((s) => s.user)
+  const freeTierAvailable = !user?.isVip
 
   const scroll = useMessageListScroll({
     messages,
@@ -342,6 +347,7 @@ export function MessageList({
             fallbackNotice={fallbackNotice}
             onClearFallbackNotice={onClearFallbackNotice}
             t={t}
+            freeTierAvailable={freeTierAvailable}
           />
         )}
         {/* #8 顶部加载更多历史指示器 */}

@@ -9,6 +9,10 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { CloseButton } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+
+/** 层栈 id(见 @/lib/overlay-stack):日志详情对话框的 Esc 只在栈顶时被消费 */
+const LOG_DETAIL_DIALOG_OVERLAY_ID = 'log-detail-dialog'
 
 export interface ApiLogDetail {
   id: string
@@ -47,9 +51,22 @@ export default function LogDetailDialog({
   className,
 }: LogDetailDialogProps): React.JSX.Element {
   const t = useTranslations('a11y')
+  // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
   React.useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose?.()
+    pushOverlay(LOG_DETAIL_DIALOG_OVERLAY_ID)
+    return () => popOverlay(LOG_DETAIL_DIALOG_OVERLAY_ID)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(LOG_DETAIL_DIALOG_OVERLAY_ID)) return
+        onClose?.()
+      }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
@@ -62,7 +79,9 @@ export default function LogDetailDialog({
       role="dialog"
       aria-modal="true"
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
-      onKeyDown={(e) => e.key === 'Escape' && onClose?.()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && isTopOverlay(LOG_DETAIL_DIALOG_OVERLAY_ID)) onClose?.()
+      }}
       tabIndex={-1}
     >
       <div

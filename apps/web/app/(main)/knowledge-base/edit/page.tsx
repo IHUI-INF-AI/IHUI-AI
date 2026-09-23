@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Edit } from 'lucide-react'
 
 import { KBArticleForm } from './KBArticleForm'
@@ -16,6 +17,9 @@ import { EMPTY_KB_FORM, api, type KBCategory, type KBForm } from './helpers'
 export default function KBEditPage() {
   const router = useRouter()
   const qc = useQueryClient()
+  const t = useTranslations('knowledgeBase.create')
+  const tKb = useTranslations('knowledgeBase')
+  const tEdit = useTranslations('kbEditPage')
 
   const [form, setForm] = React.useState<KBForm>(EMPTY_KB_FORM)
   const [tagInput, setTagInput] = React.useState('')
@@ -46,26 +50,26 @@ export default function KBEditPage() {
   })
 
   function addTag() {
-    const t = tagInput.trim()
-    if (t && !form.tags.includes(t)) {
-      setForm({ ...form, tags: [...form.tags, t] })
+    const tag = tagInput.trim()
+    if (tag && !form.tags.includes(tag)) {
+      setForm({ ...form, tags: [...form.tags, tag] })
     }
     setTagInput('')
   }
 
-  function removeTag(t: string) {
-    setForm({ ...form, tags: form.tags.filter((x) => x !== t) })
+  function removeTag(tagValue: string) {
+    setForm({ ...form, tags: form.tags.filter((x) => x !== tagValue) })
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
     if (!form.title.trim()) {
-      setErr('请输入标题')
+      setErr(tEdit('titleRequired'))
       return
     }
     if (!form.content.trim()) {
-      setErr('请输入内容')
+      setErr(tEdit('contentRequired'))
       return
     }
     saveMut.mutate()
@@ -76,9 +80,9 @@ export default function KBEditPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">新建知识库文章</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         </div>
-        <p className="text-xs text-muted-foreground">撰写新的知识库文章并发布</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Link
@@ -86,7 +90,7 @@ export default function KBEditPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回列表
+        <span>{tKb('backToList')}</span>
       </Link>
 
       <KBArticleForm

@@ -23,8 +23,9 @@ import { randomUUID } from 'node:crypto'
 import { eq, desc, max, and } from 'drizzle-orm'
 import { checkAuth } from '../plugins/auth.js'
 import { db } from '../db/index.js'
-import { fileVersions, files } from '@ihui/database'
+import { fileVersions, files, type FileVersion } from '@ihui/database'
 import { findFileById } from '../db/workspace-queries.js'
+import { canAccessFile } from '../db/file-queries.js'
 import { compareFiles, getSimilarity } from '../services/diff-service.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -41,17 +42,57 @@ function ensureVersionsDir(): void {
   if (!existsSync(VERSIONS_DIR)) mkdirSync(VERSIONS_DIR, { recursive: true })
 }
 
+/**
+ * 版本行的对外形态。
+ *
+ * O21(2026-09-23 安全 P0)「出口剥 path」:**不再**外泄 `v.path` —— 它存的是服务端磁盘绝对路径
+ * (`uploads/private/versions/<uuid>`),回显给客户端等于把落盘位置与文件名交给攻击者,
+ * 而该路径既不可用于下载(下载走 `GET /api/files/:id` 鉴权),也无任何调用方读取
+ * (全仓 grep `/file-versions` 零调用方;web 端 `FileVersion` 声明里也没有 `path`)。
+ */
 function serializeVersion(v: typeof fileVersions.$inferSelect) {
   return {
     id: v.id,
     fileId: v.fileId,
     version: v.version,
     size: v.size,
-    path: v.path,
     uploadedBy: v.uploadedBy,
     changeLog: v.changeLog,
     createdAt: v.createdAt,
   }
+}
+
+/**
+ * 属主校验结论:ok=false 时由调用方按 status/message 直接回复;ok=true 时**带回 files 行**,
+ * 使需要读该行字段的调用方(如 create 要取原文件名判扩展名)不必二次查询 —— 二次查询会开
+ * TOCTOU 窗口,且让"闸门"与"用的还是不是同一行"脱钩。
+ */
+type FileRow = NonNullable<Awaited<ReturnType<typeof findFileById>>>
+type FileAccess = { ok: true; file: FileRow } | { ok: false; status: 403 | 404; message: string }
+
+/**
+ * O21(2026-09-23 安全 P0):文件版本面的属主/成员谓词,判据一律走 `canAccessFile`
+ * (上传者 ∪ 项目 owner ∪ project_members,见 `db/file-queries.ts:28-40`)。
+ *
+ * **不得**改用 `idorGuard('file')`:它以 `files.uploadedBy` 单列判定,而该列
+ * `onDelete:'set null'` 可空 —— 上传者一注销就恒 403,且会把正常共享成员一并拒掉,
+ * 比现网模型**更弱**(O21 ② 实测结论)。
+ *
+ * 404/403 文案与 `routes/files.ts` 同族端点逐字一致(404 '文件不存在' / 403 '无权访问该文件'),
+ * 保持仓内既有约定,不新造档位。
+ */
+async function checkFileAccess(userId: string, fileId: string): Promise<FileAccess> {
+  const file = await findFileById(fileId)
+  if (!file) return { ok: false, status: 404, message: '文件不存在' }
+  if (!(await canAccessFile(userId, file)))
+    return { ok: false, status: 403, message: '无权访问该文件' }
+  return { ok: true, file }
+}
+
+/** 版本行只存 fileId,按 versionId 入口的端点须先取行再反查 files 判属主。 */
+async function findVersionById(versionId: string): Promise<FileVersion | undefined> {
+  const rows = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
+  return rows[0]
 }
 
 export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
@@ -79,11 +120,14 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, 'fileId 为必填'))
     }
 
-    // 校验文件存在
-    const file = await findFileById(fileId)
-    if (!file) {
-      return reply.status(404).send(error(404, '文件不存在'))
+    // O21b(2026-09-23):此处原本只判"文件存在",任意登录用户都能向**他人 fileId**
+    // 写版本行并落盘(本文件其余 6 个端点已在 O21 ② 补过谓词,create 被漏在外面)。
+    // 闸门必须排在读 multipart buffer 与任何写盘之前,否则越方已付磁盘代价。
+    const access = await checkFileAccess(request.userId!, fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
     }
+    const file = access.file
 
     // P0 安全加固(2026-08-02):读取 buffer 后校验,不再流式直接写盘
     // 防 CWE-434 恶意文件上传 + CWE-400 大文件 DoS
@@ -166,6 +210,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
 
+    // O21 ②:补齐属主谓词,跨属主不得读到他人文件的版本清单
+    const access = await checkFileAccess(request.userId!, fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
+
     const list = await db
       .select()
       .from(fileVersions)
@@ -179,6 +229,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   server.get('/file-versions/current/:fileId', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
+
+    // O21 ②:补齐属主谓词
+    const access = await checkFileAccess(request.userId!, fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
 
     const list = await db
       .select()
@@ -198,12 +254,16 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     const { versionId } = versionIdParam.parse(request.params)
 
-    const list = await db.select().from(fileVersions).where(eq(fileVersions.id, versionId)).limit(1)
+    const version = await findVersionById(versionId)
 
-    if (list.length === 0) {
+    if (!version) {
       return reply.status(404).send(error(404, '版本不存在'))
     }
-    const version = list[0]!
+    // O21 ②:由 version.fileId 反查 files 行判属主,跨属主读不到别人的版本
+    const access = await checkFileAccess(request.userId!, version.fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
     if (!existsSync(version.path)) {
       return reply.status(404).send(error(404, '版本文件在磁盘上不存在'))
     }
@@ -222,6 +282,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '版本不存在'))
     }
     const target = list[0]!
+    // O21 ②:回滚会 `update files set path` 改写**文件指向**并落盘新文件,是这一面最重的写副作用,
+    // 必须先由 target.fileId 反查 files 判属主,否则任意登录用户可把他人文件的当前内容换掉。
+    const access = await checkFileAccess(request.userId!, target.fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
     if (!existsSync(target.path)) {
       return reply.status(404).send(error(404, '版本文件在磁盘上不存在'))
     }
@@ -268,6 +334,12 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
     }
     const target = list[0]!
 
+    // O21 ②:删除会 unlink 磁盘文件,跨属主不得执行(先反查 files 判属主)
+    const access = await checkFileAccess(request.userId!, target.fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
+
     // 查询当前最新版本号
     const latestRow = await db
       .select({ maxVer: max(fileVersions.version) })
@@ -293,6 +365,13 @@ export const fileVersionRoutes: FastifyPluginAsync = async (server) => {
   server.get('/file-versions/compare/:fileId', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { fileId } = fileIdParam.parse(request.params)
+
+    // O21 ②:比对会把两个版本的正文逐行倒进响应,跨属主读不到
+    const access = await checkFileAccess(request.userId!, fileId)
+    if (!access.ok) {
+      return reply.status(access.status).send(error(access.status, access.message))
+    }
+
     const parsed = compareQuery.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, 'v1 和 v2 为必填且须为数字'))
