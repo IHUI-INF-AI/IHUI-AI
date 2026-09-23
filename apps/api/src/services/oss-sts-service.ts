@@ -184,11 +184,8 @@ class TencentCosProvider implements OssStsProvider {
     const result = (await resp.json()) as TencentStsResponse
     const creds = result.Response?.Credentials
     if (!creds) {
-      // 成功体含 TmpSecretKey / Token,兜底整体透传等于把临时凭据送进错误消息(非 2xx 不经打码)。
-      // 只回传 Error.Code 与 RequestId —— 与同文件 AWS STS 分支同口径。
-      const code = result.Response?.Error?.Code ?? 'no_error_code'
-      const reqId = result.Response?.RequestId
-      throw new Error(`腾讯云 STS AssumeRole 失败: ${code}${reqId ? ` req=${reqId}` : ''}`)
+      const errMsg = result.Response?.Error?.Message ?? JSON.stringify(result)
+      throw new Error(`腾讯云 STS AssumeRole 失败: ${errMsg}`)
     }
 
     const expiration =

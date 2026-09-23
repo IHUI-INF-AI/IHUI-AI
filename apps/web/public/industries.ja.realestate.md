@@ -147,13 +147,13 @@
 | データ層                                    |
 | - 房源ナレッジグラフ + 楼盘プロファイル     |
 | - 顧客プロファイル + 契約 DB                |
-| - PostgreSQL 18 + ベクトル DB               |
+| - PostgreSQL 16 + ベクトル DB               |
 +-----------------------------------------+
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
 - **Web** (Next.js 16 + React 19): 販売管理 / 仲介者ワークスペース
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): 房源/契約 API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 房源/契約 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): マルチエージェント協調
 - **デスクトップ** (Tauri 2): VR 内覧ワークステーション / デジタルヒューマンライブ
 - **拡張** (WXT): ブラウザ側房源データ収集
@@ -163,7 +163,7 @@
 
 ### 技術スタック
 - フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI
 - VR/3D: Three.js / WebGL / デジタルヒューマン
@@ -188,7 +188,7 @@
 | 平均投資回収周期 | 4 ヶ月 |
 | 12 ヶ月 ROI | 280% |
 
-(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 18、Redis 7)
+(テスト環境: エンタープライズ版中型デプロイ、3 ノード、PostgreSQL 16、Redis 7)
 
 ### よくある質問 FAQ
 - Q: VR 解説デジタルヒューマン形象はカスタマイズできますか?
