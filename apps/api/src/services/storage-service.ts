@@ -436,13 +436,7 @@ export async function issueStsCredentials(
     | undefined
 
   if (!creds) {
-    // AssumeRole 的成功体就是临时凭据(AccessKeyId / AccessKeySecret / SecurityToken),
-    // 走 SDK 时 URL 不可见,失败分支整体透传等于把凭据端点的响应体送进错误消息(且非 2xx 不打码)。
-    // 只回传阿里云 RPC 的 Code / RequestId:足够定位,且都不是凭据。
-    const err = response.body as { Code?: unknown; RequestId?: unknown } | undefined
-    const code = typeof err?.Code === 'string' ? err.Code : 'no_code'
-    const reqId = typeof err?.RequestId === 'string' ? ` req=${err.RequestId}` : ''
-    throw new Error(`STS AssumeRole 失败: ${code}${reqId}`)
+    throw new Error(`STS AssumeRole 失败: ${JSON.stringify(response.body)}`)
   }
 
   return {
