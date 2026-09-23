@@ -159,7 +159,14 @@
     "payFailed": "Payment failed",
     "createFailed": "Failed to create payment order",
     "wechatNotInstalled": "WeChat is not installed",
-    "nativeUnavailable": "WeChat Pay unavailable, rebuild required"
+    "nativeUnavailable": "WeChat Pay unavailable, rebuild required",
+    "payType": {
+      "freeuse": "Use for free",
+      "freetime": "Free for a limited time",
+      "hasbuy": "Purchased",
+      "monthly": "Monthly"
+},
+    "recharge": "Top up"
   },
   "order": {
     "title": "Orders",
