@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Loader2, AlertCircle, ChevronRight, FileText } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -13,8 +12,8 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '@ihui/u
 import {
   type StudyPlan,
   PLAN_STATUS_VARIANTS,
-  PLAN_STATUS_KEYS,
-  PLAN_TYPE_KEYS,
+  PLAN_STATUS_LABELS,
+  PLAN_TYPE_LABELS,
   formatDateDisplay,
 } from './types'
 
@@ -35,13 +34,11 @@ export function StudyPlanList({
   onAutoSplit: (planId: string) => void
   onEditPlan: (plan: StudyPlan) => void
 }) {
-  const t = useTranslations('eduStudyPlan')
-
   return (
     <Card className="lg:col-span-1">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium">
-          {t('planListTitle')}
+          {selectedPlan ? '计划列表' : '计划列表'}
           {parentPlans.length > 0 && (
             <span className="ml-2 text-xs text-muted-foreground">({parentPlans.length})</span>
           )}
@@ -51,12 +48,12 @@ export function StudyPlanList({
         {plansLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            {t('loading')}
+            加载中...
           </div>
         ) : parentPlans.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertCircle className="mb-2 h-8 w-8" />
-            <p className="text-sm">{t('noStudyPlans')}</p>
+            <p className="text-sm">暂无学习计划</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -87,12 +84,12 @@ export function StudyPlanList({
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                           <Badge className={cn('px-1.5', PLAN_STATUS_VARIANTS[plan.status])}>
-                            {t(PLAN_STATUS_KEYS[plan.status])}
+                            {PLAN_STATUS_LABELS[plan.status]}
                           </Badge>
-                          <Badge variant="outline">{t(PLAN_TYPE_KEYS[plan.planType])}</Badge>
+                          <Badge variant="outline">{PLAN_TYPE_LABELS[plan.planType]}</Badge>
                           {isUnsplitted && (
                             <Badge variant="outline" className="border-amber-300 text-amber-600">
-                              {t('unsplitted')}
+                              未拆解
                             </Badge>
                           )}
                         </div>
@@ -120,7 +117,7 @@ export function StudyPlanList({
                           }}
                         >
                           <FileText className="mr-1 h-3 w-3" />
-                          {t('split')}
+                          拆解
                         </Button>
                       )}
                       <Button
@@ -132,7 +129,7 @@ export function StudyPlanList({
                           onEditPlan(plan)
                         }}
                       >
-                        {t('edit')}
+                        编辑
                       </Button>
                     </div>
                   </button>
@@ -154,7 +151,7 @@ export function StudyPlanList({
                           <Badge
                             className={cn('px-1 text-[10px]', PLAN_STATUS_VARIANTS[child.status])}
                           >
-                            {t(PLAN_STATUS_KEYS[child.status])}
+                            {PLAN_STATUS_LABELS[child.status]}
                           </Badge>
                           <span className="shrink-0 text-muted-foreground">
                             {formatDateDisplay(child.startDate)}~{formatDateDisplay(child.endDate)}

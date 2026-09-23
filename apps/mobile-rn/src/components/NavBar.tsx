@@ -127,10 +127,8 @@ export function NavBar({
           {!hasLeftContent ? <View style={styles.sidePlaceholder} /> : null}
         </View>
 
-        {/* 中间:title + subtitle(flex 居中)。
-            2026-09-23 修复 P1:两侧功能图标过多压缩标题空间,"智汇AI" 4 字在 18px 下被截断为"智汇..."。
-            方案 B+C:center 加 minWidth:80 确保标题区至少容纳 4 个中文字 + title 字号 18→16 释放横向空间。 */}
-        <View style={[styles.center, { minWidth: 80 }]}>
+        {/* 中间:title + subtitle(flex 居中) */}
+        <View style={styles.center}>
           {title ? (
             <Text style={styles.title} numberOfLines={1}>
               {title}
@@ -228,8 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    // 2026-09-23 修复 P1:18→16,减小标题字宽释放横向空间,配合 center minWidth:80 确保"智汇AI"完整显示
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: tokens.text.primary,
   },
@@ -252,10 +249,9 @@ const styles = StyleSheet.create({
     width: 32,
   },
   actionBtn: {
-    // 2026-09-23 修复 P1:minWidth 32→28 / paddingHorizontal 8→6,压缩两侧图标占用给标题留空间
-    minWidth: 28,
+    minWidth: 32,
     height: 32,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',

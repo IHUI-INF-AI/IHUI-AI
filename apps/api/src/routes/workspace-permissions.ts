@@ -31,7 +31,6 @@ import { z } from 'zod'
 // 权限档唯一真源(G-161/G-164):本文件曾有 3 份档位清单,读侧还会把不认识的档位静默归 null
 import {
   PERMISSION_MODES,
-  PERMISSION_MODE_PERSISTABLE_IDS,
   PERMISSION_MODE_WIRE,
   PERMISSION_MODE_WIRE_VALUES,
   normalizePermissionMode,
@@ -104,17 +103,6 @@ const resolvePersistableMode = (raw: unknown): ResolvedPermissionMode | null => 
   const wire = PERMISSION_MODE_WIRE[id]
   return wire ? { id, wire } : null
 }
-
-/**
- * 400 文案用的"可落库档位"清单(wire 拼写)。
- *
- * 旧写法 `Object.values(PERMISSION_MODE_WIRE)` 因映射表是 Partial 而带 `undefined` 类型,
- * 注册表一旦新增无 wire 映射的档,undefined 会被原文拼进给用户看的文案。
- * 现从 `PERMISSION_MODE_PERSISTABLE_IDS`(有 wire 映射的档)派生,类型与值都确定。
- */
-const PERSISTABLE_WIRE_TEXT = PERMISSION_MODE_PERSISTABLE_IDS.map((id) => PERMISSION_MODE_WIRE[id])
-  .filter((wire): wire is PermissionModeWire => wire !== undefined)
-  .join(' / ')
 
 /**
  * 库行 → 对外 DTO:mode 归一成 wire(kebab)。
@@ -237,7 +225,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
         .send(
           error(
             400,
-            `非法权限档: ${parsed.data.mode}(可落库档位为 ${PERSISTABLE_WIRE_TEXT};manual 无落库语义)`,
+            `非法权限档: ${parsed.data.mode}(可落库档位为 ${Object.values(PERMISSION_MODE_WIRE).join(' / ')};manual 无落库语义)`,
           ),
         )
     }
@@ -299,7 +287,7 @@ export const workspacePermissionRoutes: FastifyPluginAsync = async (server) => {
           .send(
             error(
               400,
-              `非法权限档: ${parsed.data.mode}(可落库档位为 ${PERSISTABLE_WIRE_TEXT};manual 无落库语义)`,
+              `非法权限档: ${parsed.data.mode}(可落库档位为 ${Object.values(PERMISSION_MODE_WIRE).join(' / ')};manual 无落库语义)`,
             ),
           )
       }
