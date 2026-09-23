@@ -6,6 +6,8 @@ import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * CenterItem 盒子卡片组件
  *
@@ -67,7 +69,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
             className="center-item-card"
             style={{
               width: 'calc(50% - 8rpx)',
-              borderRadius: rpx(24),
+              borderRadius: rnRadius.xl,
               overflow: 'hidden',
               border: '2rpx solid var(--color-border)',
               background: 'var(--color-card)',
@@ -99,7 +101,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                       style={{
                         width: rpx(40),
                         height: rpx(40),
-                        borderRadius: '50%',
+                        borderRadius: '50%', // radius-exempt: 40rpx 见方分享图标的真圆(直径=边长),方档化会变方块
                         marginRight: rpx(8),
                       }}
                     />

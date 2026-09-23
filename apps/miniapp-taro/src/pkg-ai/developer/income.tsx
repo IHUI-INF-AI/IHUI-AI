@@ -5,6 +5,7 @@
 import { useTt } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useState, useCallback } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
@@ -420,7 +421,7 @@ export default function DeveloperIncome() {
                     textAlign: 'center',
                     background: 'var(--color-primary)',
                     color: 'var(--color-primary-foreground)',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     fontSize: '32rpx',
                     marginRight: '16rpx',
                   }}
@@ -443,7 +444,7 @@ export default function DeveloperIncome() {
                   padding: '20rpx',
                   background:
                     incomeType === 'wechat' ? 'var(--color-muted)' : 'var(--color-background)',
-                  borderRadius: '12rpx',
+                  borderRadius: rnRadius.md,
                   marginBottom: '28rpx',
                   boxSizing: 'border-box',
                 }}
@@ -458,7 +459,7 @@ export default function DeveloperIncome() {
                     textAlign: 'center',
                     background: 'var(--color-wechat-green)',
                     color: 'var(--color-surface-light)',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     fontSize: '32rpx',
                     marginRight: '16rpx',
                   }}
@@ -488,7 +489,7 @@ export default function DeveloperIncome() {
                     flex: 1,
                     textAlign: 'center',
                     padding: '20rpx 0',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     background: 'var(--color-secondary)',
                   }}
                   onClick={closeIncomePopup}
@@ -503,7 +504,7 @@ export default function DeveloperIncome() {
                     flex: 1,
                     textAlign: 'center',
                     padding: '20rpx 0',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     background: 'var(--color-primary)',
                   }}
                   onClick={onIncomeMethodConfirm}
@@ -558,7 +559,7 @@ export default function DeveloperIncome() {
                   alignItems: 'center',
                   width: '100%',
                   background: 'var(--color-muted)',
-                  borderRadius: '24rpx',
+                  borderRadius: rnRadius.xl,
                   padding: '16rpx 20rpx',
                   boxSizing: 'border-box',
                   marginBottom: '16rpx',
@@ -597,7 +598,7 @@ export default function DeveloperIncome() {
                     flex: 1,
                     textAlign: 'center',
                     padding: '20rpx 0',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     background: 'var(--color-secondary)',
                   }}
                   onClick={closePopup}
@@ -612,7 +613,7 @@ export default function DeveloperIncome() {
                     flex: 1,
                     textAlign: 'center',
                     padding: '20rpx 0',
-                    borderRadius: '24rpx',
+                    borderRadius: rnRadius.xl,
                     background: 'var(--color-primary)',
                   }}
                   onClick={confirmWithdraw}

@@ -11,6 +11,7 @@ import { Copy, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { useClipboard } from '@/hooks/use-clipboard'
+import { rnRadius } from '@ihui/design-tokens'
 
 interface CodeViewerProps {
   code: string
@@ -50,7 +51,7 @@ export function CodeViewer({
         language={language}
         style={syntaxStyle}
         showLineNumbers={showLineNumbers}
-        customStyle={{ borderRadius: '0.5rem', fontSize: '0.875rem', margin: 0 }}
+        customStyle={{ borderRadius: rnRadius.lg, fontSize: '0.875rem', margin: 0 }}
       >
         {code}
       </SyntaxHighlighter>

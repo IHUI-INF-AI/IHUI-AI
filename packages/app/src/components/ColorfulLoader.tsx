@@ -73,7 +73,7 @@ const dotStyles = (
   left: '50%',
   marginLeft: -dotSize / 2,
   marginTop: -dotSize / 2,
-  borderRadius: '50%',
+  borderRadius: '50%', // radius-exempt: 72 个纯装饰加载圆点,几何正圆不得方档化
   backgroundColor: color,
   transform: `rotate(${angle}deg) translateY(-${radius}px)`,
 })

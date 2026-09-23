@@ -8,6 +8,8 @@ import { View, Text, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
+
+import { rnRadius } from '@ihui/design-tokens'
 const copyIcon = aizhsUrl('remote-images/copy.png')
 
 /**
@@ -85,7 +87,7 @@ export default function InformationItem({
             style={{
               width: rpx(16),
               height: rpx(16),
-              borderRadius: '50%',
+              borderRadius: '50%', // radius-exempt: 16rpx 时间轴节点圆点(直径=边长),非容器圆角
               background: TIMELINE_COLOR,
             }}
           />
@@ -105,7 +107,7 @@ export default function InformationItem({
           flex: 1,
           padding: rpx(24),
           marginBottom: rpx(24),
-          borderRadius: rpx(24),
+          borderRadius: rnRadius.xl,
           border: '2rpx solid var(--color-border)',
           background: 'var(--color-card)',
         }}
@@ -174,7 +176,7 @@ export default function InformationItem({
               <View
                 style={{
                   padding: `${rpx(8)} ${rpx(16)}`,
-                  borderRadius: rpx(16),
+                  borderRadius: rnRadius.lg,
                   border: '2rpx solid var(--color-border-medium)',
                 }}
               >

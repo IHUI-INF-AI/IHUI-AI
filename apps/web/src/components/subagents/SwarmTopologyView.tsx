@@ -16,6 +16,7 @@ import {
   CHART_GREEN,
   CHART_ROSE,
   CHART_AMBER,
+  rnRadius,
 } from '@ihui/design-tokens'
 
 const NODE_WIDTH = 160
@@ -161,8 +162,8 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
                 y={pos.y}
                 width={NODE_WIDTH}
                 height={NODE_HEIGHT}
-                rx="8"
-                ry="8"
+                rx={rnRadius.lg}
+                ry={rnRadius.lg}
                 fill={fill}
                 stroke={stroke}
                 strokeWidth="1.5"
