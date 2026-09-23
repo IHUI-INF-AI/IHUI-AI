@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   View,
   Text,
@@ -12,12 +12,13 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  Modal,
   type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryDropdown } from '../../components/category/CategoryDropdown'
+import type { CategoryItem } from '../../components/category/types'
 import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -46,6 +47,38 @@ export interface SetNeedScreenProps {
 
 const TITLE_MAX = 50
 
+/** 选项值即选中后写入字段的值,故 id 与 label 同值(与迁移前字符串数组逐字一致) */
+function toItems(values: readonly string[]): readonly CategoryItem[] {
+  return values.map((value) => ({ id: value, label: value }))
+}
+
+/**
+ * 四个表单选择器的字段配置:key 即 onFieldChange 的 field,
+ * title / placeholder / 选项集合与顺序均沿用迁移前的 pickerTitle / pickerOptions / 占位取词。
+ */
+const PICKERS = {
+  cycle: {
+    title: '开发周期',
+    placeholder: '周期数',
+    items: toItems(['1', '2', '3', '5', '7', '10']),
+  },
+  cycleUnit: {
+    title: '周期单位',
+    placeholder: '周 / 月 / 日',
+    items: toItems(['日', '周', '月', '年']),
+  },
+  types: {
+    title: '需求类型',
+    placeholder: '选择需求类型',
+    items: toItems(['开发', '设计', '运营', '内容']),
+  },
+  categories: {
+    title: '需求分类',
+    placeholder: '选择需求分类',
+    items: toItems(['电商', '教育', '营销', '工具']),
+  },
+} as const
+
 export function SetNeedScreen({
   form,
   submitting,
@@ -56,29 +89,10 @@ export function SetNeedScreen({
 }: SetNeedScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const [picker, setPicker] = useState<'cycle' | 'cycleUnit' | 'types' | 'categories' | null>(null)
   const imageUrls = form.imgs
     .split(',')
     .map((url) => url.trim())
     .filter(Boolean)
-
-  const pickerOptions =
-    picker === 'cycle'
-      ? ['1', '2', '3', '5', '7', '10']
-      : picker === 'cycleUnit'
-        ? ['日', '周', '月', '年']
-        : picker === 'types'
-          ? ['开发', '设计', '运营', '内容']
-          : ['电商', '教育', '营销', '工具']
-
-  const pickerTitle =
-    picker === 'cycle'
-      ? '开发周期'
-      : picker === 'cycleUnit'
-        ? '周期单位'
-        : picker === 'types'
-          ? '需求类型'
-          : '需求分类'
 
   return (
     <View style={styles.container}>
@@ -202,26 +216,45 @@ export function SetNeedScreen({
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>开发周期</Text>
           <View style={styles.priceRow}>
-            <Pressable style={[styles.input, styles.priceInput]} onPress={() => setPicker('cycle')}>
-              <Text style={styles.pickerText}>{form.cycle || '周期数'}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.input, styles.priceInput]}
-              onPress={() => setPicker('cycleUnit')}
-            >
-              <Text style={styles.pickerText}>{form.cycleUnit || '周 / 月 / 日'}</Text>
-            </Pressable>
+            <CategoryDropdown
+              style={styles.priceInput}
+              items={PICKERS.cycle.items}
+              selectedId={form.cycle || null}
+              onSelect={(id) => onFieldChange('cycle', id)}
+              colorScheme={colorScheme}
+              placeholder={PICKERS.cycle.placeholder}
+              panelTitle={PICKERS.cycle.title}
+            />
+            <CategoryDropdown
+              style={styles.priceInput}
+              items={PICKERS.cycleUnit.items}
+              selectedId={form.cycleUnit || null}
+              onSelect={(id) => onFieldChange('cycleUnit', id)}
+              colorScheme={colorScheme}
+              placeholder={PICKERS.cycleUnit.placeholder}
+              panelTitle={PICKERS.cycleUnit.title}
+            />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>类型与分类</Text>
-          <Pressable style={styles.input} onPress={() => setPicker('types')}>
-            <Text style={styles.pickerText}>{form.types || '选择需求类型'}</Text>
-          </Pressable>
-          <Pressable style={styles.input} onPress={() => setPicker('categories')}>
-            <Text style={styles.pickerText}>{form.categories || '选择需求分类'}</Text>
-          </Pressable>
+          <CategoryDropdown
+            items={PICKERS.types.items}
+            selectedId={form.types || null}
+            onSelect={(id) => onFieldChange('types', id)}
+            colorScheme={colorScheme}
+            placeholder={PICKERS.types.placeholder}
+            panelTitle={PICKERS.types.title}
+          />
+          <CategoryDropdown
+            items={PICKERS.categories.items}
+            selectedId={form.categories || null}
+            onSelect={(id) => onFieldChange('categories', id)}
+            colorScheme={colorScheme}
+            placeholder={PICKERS.categories.placeholder}
+            panelTitle={PICKERS.categories.title}
+          />
         </View>
 
         <Pressable
@@ -231,30 +264,6 @@ export function SetNeedScreen({
           <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交需求'}</Text>
         </Pressable>
       </ScrollView>
-      <Modal
-        visible={picker !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPicker(null)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
-          <Pressable style={styles.pickerSheet} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.pickerTitle}>{pickerTitle}</Text>
-            {pickerOptions.map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.pickerOption}
-                onPress={() => {
-                  if (picker) onFieldChange(picker, option)
-                  setPicker(null)
-                }}
-              >
-                <Text style={styles.pickerOptionText}>{option}</Text>
-              </TouchableOpacity>
-            ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   )
 }
@@ -290,32 +299,6 @@ function createStyles(tk: AppThemeTokens) {
     priceDash: { fontSize: 16, color: tk.text.tertiary } as TextStyle,
     imageRow: { gap: 8, paddingVertical: 4 } as ViewStyle,
     imagePreview: { width: 72, height: 72, borderRadius: rnRadius.lg } as ImageStyle,
-    pickerText: { fontSize: 16, color: tk.text.primary } as TextStyle,
-    modalBackdrop: {
-      flex: 1,
-      justifyContent: 'flex-end',
-      backgroundColor: 'rgba(0,0,0,0.35)',
-    } as ViewStyle,
-    pickerSheet: {
-      backgroundColor: tk.surface.bg,
-      paddingHorizontal: 16,
-      paddingTop: 16,
-      paddingBottom: 28,
-      borderTopLeftRadius: rnRadius['2xl'],
-      borderTopRightRadius: rnRadius['2xl'],
-    } as ViewStyle,
-    pickerTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: tk.text.primary,
-      marginBottom: 8,
-    } as TextStyle,
-    pickerOption: {
-      paddingVertical: 14,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
-    } as ViewStyle,
-    pickerOptionText: { fontSize: 16, color: tk.text.primary } as TextStyle,
     submitBtn: {
       backgroundColor: tk.brand.DEFAULT,
       borderRadius: rnRadius.xl,

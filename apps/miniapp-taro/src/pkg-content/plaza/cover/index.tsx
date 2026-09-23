@@ -199,7 +199,7 @@ export default function PlazaCover() {
           )}
           {/* 对齐 RN primaryBtn(居中列内非通栏,补 px48rpx;RN 通栏无横向 padding) */}
           <View
-            className="flex items-center justify-center px-[48rpx] py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
+            className="flex items-center justify-center px-[48rpx] py-[30rpx] bg-[var(--color-brand)] rounded-xl"
             onClick={toPay}
             hoverClass="opacity-60"
           >
@@ -213,7 +213,7 @@ export default function PlazaCover() {
 
         {/* 未开发者入口引导(小程序独有区块,RN 无对应;按 featureCard+primaryBtn 视觉语言排布) */}
         {!isDev ? (
-          <View className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx] flex flex-col gap-[12rpx]">
+          <View className="bg-card border-[2rpx] border-border rounded-xl p-[28rpx] flex flex-col gap-[12rpx]">
             <Text className="block text-[32rpx] font-semibold text-foreground">
               {tt('plaza.cover.entryTitle', '成为开发者')}
             </Text>
@@ -221,7 +221,7 @@ export default function PlazaCover() {
               {tt('plaza.cover.entryDesc', '开通专属开发者空间,上架智能体获取收益')}
             </Text>
             <View
-              className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
+              className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-xl"
               onClick={toPay}
               hoverClass="opacity-60"
             >
@@ -235,7 +235,7 @@ export default function PlazaCover() {
         {/* 成为开发者按钮(未开通且无 developerLink 时,保留既有业务条件;对齐 RN primaryBtn 通栏) */}
         {!isDev && !devInfo.developerLink ? (
           <View
-            className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
+            className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-xl"
             onClick={toPay}
             hoverClass="opacity-60"
           >
@@ -251,7 +251,7 @@ export default function PlazaCover() {
           {DEV_ENTRIES(tt).map((e) => (
             <View
               key={e.key}
-              className="w-[47%] bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx] flex flex-col items-center gap-[12rpx]"
+              className="w-[47%] bg-card border-[2rpx] border-border rounded-xl p-[28rpx] flex flex-col items-center gap-[12rpx]"
               onClick={() => toEntry(e.target)}
               hoverClass="opacity-60"
             >
@@ -266,7 +266,7 @@ export default function PlazaCover() {
         {/* 开发者信息卡(小程序独有内容;容器对齐 RN featureCard,行文字 14dp→28rpx,
             复制操作色 = RN brand.DEFAULT / 到期行 danger.bright 同源 token) */}
         {isDev ? (
-          <View className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]">
+          <View className="bg-card border-[2rpx] border-border rounded-xl p-[28rpx]">
             <Text className="block text-[32rpx] font-semibold text-foreground mb-[24rpx]">
               {tt('plaza.cover.devInfoTitle', '开发者账号信息')}
             </Text>
@@ -336,7 +336,7 @@ export default function PlazaCover() {
             同为进入广场动作,故用 primaryBtn 视觉) */}
         {isDev ? (
           <View
-            className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-[24rpx]"
+            className="flex items-center justify-center py-[30rpx] bg-[var(--color-brand)] rounded-xl"
             onClick={toPlaza}
             hoverClass="opacity-60"
           >
@@ -355,7 +355,7 @@ export default function PlazaCover() {
             {QA_FALLBACK(tt).map((qa, i) => (
               <View
                 key={i}
-                className="bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]"
+                className="bg-card border-[2rpx] border-border rounded-xl p-[28rpx]"
                 onClick={() => toWeb(qa.url)}
                 hoverClass="opacity-60"
               >

@@ -67,7 +67,7 @@ export default function DistributionWithdraw() {
   return (
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN WithdrawScreen balanceCard:白卡 + 28rpx 标签 + 56rpx 加粗余额 */}
-      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-[24rpx] p-[28rpx]">
+      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-xl p-[28rpx]">
         <Text className="text-[28rpx] text-muted-foreground">
           {t('distribution.withdraw.available')}
         </Text>
@@ -76,8 +76,8 @@ export default function DistributionWithdraw() {
         </Text>
       </View>
       {/* 对齐 RN card:白卡 + 描边 + 输入框(muted 底 + 描边圆角) */}
-      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-[24rpx] p-[24rpx]">
-        <View className="flex items-center h-[100rpx] px-[28rpx] rounded-[24rpx] border border-border bg-[var(--color-muted)]">
+      <View className="mx-[20rpx] mt-[24rpx] bg-card border border-border rounded-xl p-[24rpx]">
+        <View className="flex items-center h-[100rpx] px-[28rpx] rounded-xl border border-border bg-[var(--color-muted)]">
           <Text className="text-[32rpx] font-semibold text-foreground">¥</Text>
           <Input
             className="flex-1 ml-[16rpx] text-[32rpx] text-foreground"
@@ -102,7 +102,7 @@ export default function DistributionWithdraw() {
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[12rpx] text-center rounded-[24rpx] text-[28rpx] ${payType === pt.value ? 'bg-primary text-primary-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
+                className={`flex-1 py-[12rpx] text-center rounded-xl text-[28rpx] ${payType === pt.value ? 'bg-primary text-primary-foreground font-semibold' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'}`}
                 onClick={() => setPayType(pt.value)}
                 hoverClass="opacity-60"
               >
@@ -114,7 +114,7 @@ export default function DistributionWithdraw() {
       </View>
       {/* 对齐 RN submitBtn:brand 底(语义 primary)+ 100rpx 高 + 24rpx 圆角;disabled 取 text-tertiary */}
       <Button
-        className={`mx-[20rpx] mt-[40rpx] rounded-[24rpx] text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-primary text-primary-foreground'}`}
+        className={`mx-[20rpx] mt-[40rpx] rounded-xl text-[32rpx] font-semibold h-[100rpx] leading-[100rpx] ${submitting ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]' : 'bg-primary text-primary-foreground'}`}
         disabled={submitting}
         onClick={onSubmit}
       >
