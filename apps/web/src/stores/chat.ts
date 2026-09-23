@@ -319,7 +319,7 @@ interface ChatState {
   ) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
-  setMessageError: (id: string, error: string) => void
+  setMessageError: (id: string, error: string, errorCode?: string) => void
   clearMessages: () => void
   setStreaming: (v: boolean) => void
   setError: (e: string | null) => void
@@ -619,14 +619,15 @@ export const useChatStore = create<ChatState>()(
           return { messages: next }
         }),
 
-      setMessageError: (id, error) =>
+      setMessageError: (id, error, errorCode) =>
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === id)
           if (idx === -1) return { error }
           const target = s.messages[idx]
           if (!target) return { error }
           const next = s.messages.slice()
-          next[idx] = markStreamError(target, error)
+          // D92:把后端 errorCode 一并落到消息上,渲染侧才能走统一分类表取词
+          next[idx] = markStreamError(target, error, errorCode)
           return { messages: next, error }
         }),
 

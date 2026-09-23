@@ -85,6 +85,12 @@ export interface ChatMessage {
   model?: string
   /** 该消息是否有错误(错误文本写入 content) */
   error?: boolean
+  /**
+   * D92/D71②:产生该错误消息的后端 `errorCode`(ai-service / api 的业务错误码)。
+   * 只作**分类输入**,渲染侧一律经 `view-failure-taxonomy` 归类后再取词;
+   * 缺失时归 unknown 回落态,不得据此猜因。
+   */
+  errorCode?: string
   /** 推理过程文本(reasoning model 输出) */
   reasoning?: string
   /** 工具调用列表(SSE tool-call 事件累加) */

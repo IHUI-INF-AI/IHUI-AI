@@ -36,6 +36,11 @@ import { ReplyAnnotationLayer } from '@/components/ai/reply-annotation'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
 import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
+import {
+  resolveViewFailure,
+  VIEW_FAILURE_NAMESPACE,
+  VIEW_FAILURE_ERROR_CODE_KEY,
+} from '@ihui/shared/utils/view-failure-taxonomy'
 import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
@@ -149,6 +154,19 @@ const MessageItem = React.memo(function MessageItem({
   const tStream = useTranslations('taskStatus')
   // diff 卡取不到路径时的占位(工具卡同一文案源)
   const tTool = useTranslations('ai.toolCall')
+  // D92(2026-09-24):错误卡与 MCP 面板共用同一张失败分类表(单一真相,禁止另起)
+  const tFailure = useTranslations(VIEW_FAILURE_NAMESPACE)
+  const failureResolution = m.error
+    ? resolveViewFailure({ errorCode: m.errorCode, message: m.content })
+    : null
+  // 回落态(unknown)刻意不套表的标题/动作:分类不到就不要把"未判定"说成结论。
+  const errorViewFailure =
+    failureResolution && !failureResolution.isFallback ? failureResolution : null
+  // 单独提出:errorCodeText 类型是 `string | null`,直接塞给 t() 会撞 TS2322(参数不收 null)
+  const errorCodeText = errorViewFailure?.errorCodeText ?? null
+  const errorCardTitle = errorViewFailure
+    ? tFailure(errorViewFailure.entry.titleKey)
+    : t('errorCardTitle')
   const isUser = m.role === 'user'
   // D22(2026-09-19 立):system 角色独立渲染分支 — /chat 请求侧已拒绝 system(防上下文注入),
   // 渲染侧仅服务历史会话回放/恢复场景后端下发的只读 system 条目:居中灰字提示条,无操作栏。
@@ -735,11 +753,33 @@ const MessageItem = React.memo(function MessageItem({
           >
             <div className="flex items-center gap-2 border-b border-destructive/20 bg-destructive/10 px-3 py-2 text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="text-xs font-medium">{t('errorCardTitle')}</span>
+              {/* D92(2026-09-24 接线):有后端业务错误码时按**统一分类表**取标题/建议动作
+                  (`@ihui/shared/utils/view-failure-taxonomy`,与 MCP 面板同一张表,不另起);
+                  分类不到(unknown)时保留原 `chat.errorCardTitle` 笼统标题 —— 回落态不得
+                  把"未判定"包装成确定性结论。 */}
+              <span className="text-xs font-medium">{errorCardTitle}</span>
             </div>
             <p className="whitespace-pre-wrap break-words px-3 py-2 text-sm text-destructive/90">
               {m.content.replace(/^⚠\s*/, '')}
             </p>
+            {errorViewFailure && (
+              <>
+                {errorCodeText && (
+                  <div
+                    className="break-all px-3 pb-1 font-mono text-[11px] text-muted-foreground tabular-nums"
+                    data-testid={`message-error-code-${m.id}`}
+                  >
+                    {tFailure(VIEW_FAILURE_ERROR_CODE_KEY, { errorCode: errorCodeText })}
+                  </div>
+                )}
+                <p
+                  className="px-3 pb-1 text-xs leading-relaxed text-muted-foreground"
+                  data-testid={`message-error-action-${m.id}`}
+                >
+                  {tFailure(errorViewFailure.entry.actionKey)}
+                </p>
+              </>
+            )}
             <div className="px-3 pb-2 pt-0.5">
               <button
                 type="button"

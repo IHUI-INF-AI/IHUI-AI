@@ -90,6 +90,23 @@ describe('useChatStore', () => {
     expect(useChatStore.getState().error).toBe('网络错误')
   })
 
+  // D92(2026-09-24):错误码必须活到渲染侧 —— 分类表要它才能取到"标题/建议动作",
+  // 只把中文文案塞进 content 会让错误卡退回笼统标题(即 D71② 此前的真实障碍)。
+  it('setMessageError 带 errorCode → 落到消息上供分类表取词', () => {
+    const id = useChatStore.getState().addMessage({ role: 'assistant', content: '', model: 'm' })
+    useChatStore.getState().setMessageError(id, '后端超时', 'backend_timeout')
+    const msg = useChatStore.getState().messages[0]
+    expect(msg?.errorCode).toBe('backend_timeout')
+    expect(msg?.error).toBe(true)
+  })
+
+  it('setMessageError 两参调用(旧形态)→ 不写 errorCode 键,行为不变', () => {
+    const id = useChatStore.getState().addMessage({ role: 'assistant', content: '', model: 'm' })
+    useChatStore.getState().setMessageError(id, 'boom')
+    const msg = useChatStore.getState().messages[0]
+    expect(msg && Object.prototype.hasOwnProperty.call(msg, 'errorCode')).toBe(false)
+  })
+
   it('clearMessages 清空消息和错误', () => {
     useChatStore.getState().addMessage({ role: 'user', content: 'a', model: 'm' })
     useChatStore.getState().setError('err')
