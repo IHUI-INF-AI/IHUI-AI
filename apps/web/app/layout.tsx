@@ -226,7 +226,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // 这里读它决定 <html lang>。lang 是真值依赖:number-format.ts 与 ai-news 4 个组件都读
   // documentElement.lang 判定取词口径,读屏/GEO 也按它标语种。
   // suppressHydrationWarning 保留:cookie 缺失/被清时服务端落回 zh-CN,挂载后 I18nProvider 纠正。
-  const cookieLocale = (await cookies()).get(LOCALE_COOKIE)?.value
+  // output:'export'(EXPORT_STATIC / GITHUB_PAGES,判据同 next.config.ts)不支持 cookies() 这类动态服务端
+  // API —— src/i18n/request.ts 已因同一原因构建期落回默认 locale。静态导出下不读 cookie,首帧 lang 用
+  // DEFAULT_LOCALE,挂载后由 I18nProvider 纠正;服务端模式(next build + next start)行为不变。
+  const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
+  const cookieLocale = isStaticExport ? undefined : (await cookies()).get(LOCALE_COOKIE)?.value
   const locale: LocaleCode = isSupportedLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE
 
   return (
