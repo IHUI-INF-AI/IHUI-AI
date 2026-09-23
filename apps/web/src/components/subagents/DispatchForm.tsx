@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Trash2, ChevronDown } from 'lucide-react'
 import { Button, Input, Card, CardContent } from '@ihui/ui-react'
 import type {
@@ -16,29 +17,29 @@ import type {
   DagEdge,
 } from '@ihui/shared/subagents/index'
 
-const ROLE_OPTIONS: { value: AgentRole; label: string }[] = [
-  { value: 'researcher', label: '研究员' },
-  { value: 'coder', label: '编码员' },
-  { value: 'reviewer', label: '评审员' },
-  { value: 'architect', label: '架构师' },
-  { value: 'debugger', label: '调试员' },
+const ROLE_OPTIONS: { value: AgentRole; labelKey: string }[] = [
+  { value: 'researcher', labelKey: 'subRoles.researcher' },
+  { value: 'coder', labelKey: 'subRoles.coder' },
+  { value: 'reviewer', labelKey: 'subRoles.reviewer' },
+  { value: 'architect', labelKey: 'roles.architect' },
+  { value: 'debugger', labelKey: 'subRoles.debugger' },
 ]
 
-const ORCH_OPTIONS: { value: OrchestrationMode; label: string }[] = [
-  { value: 'pipeline', label: '流水线' },
-  { value: 'parallel', label: '并行' },
-  { value: 'debate', label: '辩论' },
-  { value: 'vote', label: '投票' },
-  { value: 'critique', label: '批评' },
-  { value: 'decomposed', label: '分解' },
-  { value: 'with_communication', label: '带通信' },
+const ORCH_OPTIONS: { value: OrchestrationMode; labelKey: string }[] = [
+  { value: 'pipeline', labelKey: 'subOrch.pipeline' },
+  { value: 'parallel', labelKey: 'orch.parallel' },
+  { value: 'debate', labelKey: 'orch.debate' },
+  { value: 'vote', labelKey: 'orch.vote' },
+  { value: 'critique', labelKey: 'subOrch.critique' },
+  { value: 'decomposed', labelKey: 'subOrch.decomposed' },
+  { value: 'with_communication', labelKey: 'subOrch.withCommunication' },
 ]
 
-const PRIORITY_OPTIONS: { value: DispatchPriority; label: string }[] = [
-  { value: 'low', label: '低' },
-  { value: 'normal', label: '普通' },
-  { value: 'high', label: '高' },
-  { value: 'urgent', label: '紧急' },
+const PRIORITY_OPTIONS: { value: DispatchPriority; labelKey: string }[] = [
+  { value: 'low', labelKey: 'priority.low' },
+  { value: 'normal', labelKey: 'priority.normal' },
+  { value: 'high', labelKey: 'priority.high' },
+  { value: 'urgent', labelKey: 'priority.urgent' },
 ]
 
 const selectClass =
@@ -61,6 +62,7 @@ interface DispatchFormProps {
 }
 
 export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProps) {
+  const t = useTranslations('dispatchDialog')
   const fid = React.useId()
   const [goal, setGoal] = React.useState('')
   const [affectedFiles, setAffectedFiles] = React.useState('')
@@ -111,14 +113,14 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor={`${fid}-goal`} className={labelClass}>
-          任务目标 *
+          {t('fields.goal')} *
         </label>
         <textarea
           id={`${fid}-goal`}
           className={textareaClass}
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
-          placeholder="一句话描述任务目标"
+          placeholder={t('goalPlaceholder')}
           required
         />
       </div>
@@ -126,7 +128,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
         <div>
           <label htmlFor={`${fid}-affected`} className={labelClass}>
-            受影响文件(每行一个)*
+            {t('fields.affectedFilesPerLine')}*
           </label>
           <textarea
             id={`${fid}-affected`}
@@ -139,19 +141,19 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
         </div>
         <div>
           <label htmlFor={`${fid}-forbidden`} className={labelClass}>
-            禁止修改(每行一个)
+            {t('fields.forbiddenPerLine')}
           </label>
           <textarea
             id={`${fid}-forbidden`}
             className={textareaClass}
             value={forbidden}
             onChange={(e) => setForbidden(e.target.value)}
-            placeholder="任何不在上述清单的文件"
+            placeholder={t('defaultForbidden')}
           />
         </div>
         <div>
           <label htmlFor={`${fid}-verify`} className={labelClass}>
-            验证命令(每行一个)
+            {t('fields.verifyCommands')}
           </label>
           <textarea
             id={`${fid}-verify`}
@@ -163,14 +165,14 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
         </div>
         <div>
           <label htmlFor={`${fid}-constraints`} className={labelClass}>
-            约束边界 *
+            {t('fields.constraints')} *
           </label>
           <textarea
             id={`${fid}-constraints`}
             className={textareaClass}
             value={constraints}
             onChange={(e) => setConstraints(e.target.value)}
-            placeholder="API 契约/类型/样式/行为约束"
+            placeholder={t('constraintsPlaceholder')}
             required
           />
         </div>
@@ -178,14 +180,14 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
       <div>
         <label htmlFor={`${fid}-deliverables`} className={labelClass}>
-          交付物 *
+          {t('fields.deliverables')} *
         </label>
         <textarea
           id={`${fid}-deliverables`}
           className={textareaClass}
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
-          placeholder="完整代码 + 自验通过 + 一句话总结"
+          placeholder={t('deliverablesPlaceholder')}
           required
         />
       </div>
@@ -193,7 +195,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
         <div>
           <label htmlFor={`${fid}-role`} className={labelClass}>
-            Agent 角色
+            {t('fields.agentRole')}
           </label>
           <select
             id={`${fid}-role`}
@@ -201,17 +203,17 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
             value={agentRole}
             onChange={(e) => setAgentRole(e.target.value as AgentRole | '')}
           >
-            <option value="">默认</option>
+            <option value="">{t('formDefaultOption')}</option>
             {ROLE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </div>
         <div>
           <label htmlFor={`${fid}-orch`} className={labelClass}>
-            编排模式
+            {t('fields.orchestration')}
           </label>
           <select
             id={`${fid}-orch`}
@@ -219,17 +221,17 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
             value={orchestration}
             onChange={(e) => setOrchestration(e.target.value as OrchestrationMode | '')}
           >
-            <option value="">默认</option>
+            <option value="">{t('formDefaultOption')}</option>
             {ORCH_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </div>
         <div>
           <label htmlFor={`${fid}-priority`} className={labelClass}>
-            优先级
+            {t('fields.priority')}
           </label>
           <select
             id={`${fid}-priority`}
@@ -237,10 +239,10 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
             value={priority}
             onChange={(e) => setPriority(e.target.value as DispatchPriority | '')}
           >
-            <option value="">默认</option>
+            <option value="">{t('formDefaultOption')}</option>
             {PRIORITY_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
@@ -250,12 +252,12 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       <details className="rounded-md border">
         <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-sm font-medium hover:bg-accent">
           <ChevronDown className="h-4 w-4" />
-          重试 / 资源配额
+          {t('retryQuotaSummary')}
         </summary>
         <div className="grid grid-cols-1 gap-3 p-3 min-[768px]:grid-cols-5">
           <div>
             <label htmlFor={`${fid}-retryMax`} className={labelClass}>
-              重试次数
+              {t('fields.retryCount')}
             </label>
             <Input
               id={`${fid}-retryMax`}
@@ -268,7 +270,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </div>
           <div>
             <label htmlFor={`${fid}-retryDelay`} className={labelClass}>
-              重试延迟(ms)
+              {t('fields.retryDelayMs')}
             </label>
             <Input
               id={`${fid}-retryDelay`}
@@ -280,7 +282,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </div>
           <div>
             <label htmlFor={`${fid}-quotaTimeout`} className={labelClass}>
-              超时(ms)
+              {t('fields.timeoutMs')}
             </label>
             <Input
               id={`${fid}-quotaTimeout`}
@@ -292,7 +294,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </div>
           <div>
             <label htmlFor={`${fid}-quotaTokens`} className={labelClass}>
-              Token 配额
+              {t('fields.tokenQuotaForm')}
             </label>
             <Input
               id={`${fid}-quotaTokens`}
@@ -304,7 +306,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           </div>
           <div>
             <label htmlFor={`${fid}-quotaRetries`} className={labelClass}>
-              最大重试
+              {t('fields.maxRetries')}
             </label>
             <Input
               id={`${fid}-quotaRetries`}
@@ -321,12 +323,12 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
       <details className="rounded-md border">
         <summary className="flex cursor-pointer select-none items-center gap-1 px-3 py-2 text-sm font-medium hover:bg-accent">
           <ChevronDown className="h-4 w-4" />
-          DAG 节点 / 边编辑器
+          {t('dagEditorTitle')}
         </summary>
         <div className="space-y-3 p-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">节点</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('dagNodes')}</span>
               <Button
                 type="button"
                 variant="outline"
@@ -339,7 +341,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
                 }
               >
                 <Plus className="h-3 w-3" />
-                添加节点
+                {t('addNodeButton')}
               </Button>
             </div>
             {dagNodes.map((node, idx) => (
@@ -367,12 +369,12 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
                 >
                   {ROLE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {t(o.labelKey)}
                     </option>
                   ))}
                 </select>
                 <Input
-                  placeholder="任务描述"
+                  placeholder={t('fields.taskDesc')}
                   value={node.task}
                   onChange={(e) => {
                     const next = [...dagNodes]
@@ -394,7 +396,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">边</span>
+              <span className="text-xs font-medium text-muted-foreground">{t('dagEdges')}</span>
               <Button
                 type="button"
                 variant="outline"
@@ -402,7 +404,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
                 onClick={() => setDagEdges((prev) => [...prev, { from: '', to: '' }])}
               >
                 <Plus className="h-3 w-3" />
-                添加边
+                {t('addEdgeButton')}
               </Button>
             </div>
             {dagEdges.map((edge, idx) => (
@@ -429,7 +431,7 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
                   }}
                 />
                 <Input
-                  placeholder="condition(可选)"
+                  placeholder={t('formConditionPlaceholder')}
                   value={edge.condition ?? ''}
                   onChange={(e) => {
                     const next = [...dagEdges]
@@ -464,10 +466,10 @@ export function DispatchForm({ onSubmit, isSubmitting, error }: DispatchFormProp
           {isSubmitting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              派单中...
+              <span>{t('formSubmitting')}</span>
             </>
           ) : (
-            '提交派单'
+            t('formSubmit')
           )}
         </Button>
       </div>
