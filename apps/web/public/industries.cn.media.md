@@ -139,7 +139,7 @@
 │ 数据层                                   │
 │ - 新闻语料库 + 热点知识图谱              │
 │ - 用户画像 + 内容画像                    │
-│ - PostgreSQL 18 + pgvector              │
+│ - PostgreSQL 16 + pgvector              │
 └─────────────────────────────────────────┘
 ```
 
@@ -147,7 +147,7 @@
 
 ### 智汇 AI 端到端能力(8 端覆盖)
 - **Web**(Next.js 16 + React 19):编辑工作台 / 选题看板
-- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 18):内容服务接口
+- **API**(Fastify 5 + Drizzle 0.38 + PostgreSQL 16):内容服务接口
 - **AI Service**(FastAPI + LangGraph + LiteLLM + MCP):Agent 编排
 - **桌面端**(Tauri 2):离线写稿 + 本地素材库
 - **扩展**(WXT):浏览器侧热点抓取 / 翻译
@@ -157,7 +157,7 @@
 
 ### 技术栈
 - 前端:Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- 后端:Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service:FastAPI + LangGraph + LiteLLM + MCP
 - 多端:Tauri 2 (桌面) / WXT (扩展) / React Native (移动) / Taro 4 (小程序) / Node.js CLI
 - 缓存:Redis 7
@@ -182,7 +182,7 @@
 | 平均回本周期 | 4 月 |
 | 12 月 ROI | 320% |
 
-(测试环境:企业版中型部署,3 节点,PostgreSQL 18,Redis 7)
+(测试环境:企业版中型部署,3 节点,PostgreSQL 16,Redis 7)
 
 ### 常见问题 FAQ
 - Q:AI 写稿会不会有事实错误?
