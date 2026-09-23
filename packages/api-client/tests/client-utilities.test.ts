@@ -306,6 +306,26 @@ describe('formatSSEError', () => {
     expect(f.title).toBe('AI 服务异常')
   })
 
+  // 厂商账号额度耗尽(2026-09-22 批次 60 前端配套):ai-service 的 status_map 未登记该码,
+  // HTTP 仍回落默认 502。分类必须只认 errorCode,且给出"重试必然再撞"的 retryable=false。
+  it('PROVIDER_QUOTA_EXHAUSTED 优先于 502 状态码分类', () => {
+    const err = new Error('所有通道均因账号额度耗尽失败: qwen-plus[qwen]=in good standing')
+    ;(err as any).code = 502
+    ;(err as any).errorCode = 'PROVIDER_QUOTA_EXHAUSTED'
+    const f = formatSSEError(err)
+    expect(f.title).toBe('厂商账号额度已用尽')
+    expect(f.message).toContain('不是你的账户问题')
+    expect(f.retryable).toBe(false)
+    // 点名归因原文不得丢失(排障靠它 + [errorCode] 前缀)
+    expect(f.rawMessage).toContain('qwen-plus[qwen]')
+  })
+
+  it('onError 路径:SSEErrorInfo.errorCode 同样能命中额度耗尽分支', () => {
+    const f = formatSSEError('llm upstream failed', { errorCode: 'PROVIDER_QUOTA_EXHAUSTED' })
+    expect(f.retryable).toBe(false)
+    expect(f.errorCode).toBe('PROVIDER_QUOTA_EXHAUSTED')
+  })
+
   it('安全策略拦截识别为 safety 严重级', () => {
     const err = new Error(
       'Your request was rejected as a result of our safety system and has been blocked',

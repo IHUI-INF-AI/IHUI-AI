@@ -60,6 +60,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import {
+  AlertTriangle,
   Bot,
   Brain,
   ChevronDown,
@@ -68,6 +69,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  RefreshCw,
   Settings,
   Share2,
 } from 'lucide-react-native'
@@ -80,15 +82,29 @@ import {
   formatSSEError,
   getMessages,
   getTokenBalance,
+  getWorkspacePermissionDefault,
   listConversations,
   streamChat,
   type ConversationDetail,
   type LlmModel,
 } from '@ihui/api-client'
-import { FALLBACK_MODELS } from '@ihui/shared'
+import {
+  FALLBACK_MODELS,
+  humanizeToolText,
+  describeToolCall,
+  type ToolCallView,
+} from '@ihui/shared'
+import {
+  applyStreamError,
+  isErrorTurn,
+  permissionTierWordKeys,
+  resendTargetText,
+} from '@ihui/shared/chat'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { CitationList, InjectionDisclosure } from '../components/ChatDisclosure'
 import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
+import { TaskStatusBar } from '../components/ai/TaskStatusBar'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
 import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
@@ -103,19 +119,33 @@ import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import {
   applyPlanUpdate,
   applyTerminalEnd,
+  applyInjectionFrame,
+  appendCitationFrames,
   applyTerminalStart,
   applyToolCallEvent,
   formatDurationMs,
   formatStructured,
+  type MessageInjection,
+  type MessageCitation,
   type PlanStepItem,
   type TerminalTaskItem,
   type ToolCallItem,
 } from '../utils/chat-render-model'
+
+/**
+ * 操控本端界面的工具族闸门(2026-09-21 立,agent-control RN 侧)。
+ * 族名与本端映射在 `../lib/ui-control-tools`(关键词判定在 @ihui/shared 单一事实源)。
+ *
+ * 为什么必须在这里按需带:`apps/ai-service/app/routers/llm.py` 的 tool loop 只在请求带
+ * 非空 agentTools 时才进入,而本端为保打字机流式,普通问答刻意不带工具(web 端
+ * use-chat/send-message.ts 2026-08-29 同因)。不带 → 端侧桥接在对话里就是死代码。
+ */
 
 type LocalParamList = RootStackParamList & {
   AiAssistantN8n: {
@@ -134,6 +164,9 @@ interface N8nMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** 失败轮标记(词汇与共享层 ChatMessage.error 同一份,不另立字段):
+   *  有此标记的回复渲染错误卡片 + 重试,且不算内容(不给分享)。 */
+  error?: boolean
   /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
   images?: string[]
   /** 对齐 Uniapp agent_content_list.total_tokens:回复消耗智汇值。
@@ -154,6 +187,10 @@ interface N8nMessage {
   planExplanation?: string
   /** 终端任务可视化(W7):onTerminalStart/onTerminalEnd 折叠后的列表(对齐 web Message.terminalTasks)。 */
   terminalTasks?: TerminalTaskItem[]
+  /** D34 本轮上下文注入交代(第 45 轮):对齐 web message.injections。 */
+  injections?: MessageInjection[]
+  /** #11 引用溯源(第 51 轮):答案带了哪些知识来源,对齐 web message.citations。 */
+  citations?: MessageCitation[]
 }
 
 /**
@@ -249,7 +286,31 @@ function StatusBadge({ kind, label }: { kind: BadgeKind; label: string }): React
   )
 }
 
-/** 工具调用列表(W7):工具名 + 状态徽标 + 耗时;点击卡片行折叠查看参数/输出 */
+/** 工具结果度量行:写类文件 "+18 -4";读/检索 "128 行" / "5 个结果" / "3 个文件";无度量 '' */
+function formatToolMetricLine(
+  view: ToolCallView,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  if (view.writesFile) {
+    if (view.added < 0 && view.removed < 0) return ''
+    const plus = t('taskStatus.addedCount', { n: Math.max(0, view.added) })
+    const minus = t('taskStatus.removedCount', { n: Math.max(0, view.removed) })
+    return `${plus} ${minus}`
+  }
+  if (view.metricValue === null) return ''
+  const unitKey =
+    view.metricKind === 'lines'
+      ? 'taskStatus.unitLines'
+      : view.metricKind === 'files'
+        ? 'taskStatus.unitFiles'
+        : view.metricKind === 'results'
+          ? 'taskStatus.unitResults'
+          : ''
+  if (!unitKey) return ''
+  return t(unitKey, { n: view.metricValue })
+}
+
+/** 工具调用列表(W7):功能名 · 对象 · 度量 + 状态徽标 + 耗时;点击卡片行折叠查看参数/输出 */
 function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.Element {
   const { t } = useI18n()
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({})
@@ -257,6 +318,16 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.toolCalls')}</Text>
       {items.map((item) => {
+        // 活动行语言:状态 · 功能名 · 对象 · 结果度量(单一真相源 describeToolCall,禁端内自行挖 args/result)
+        const view = describeToolCall({
+          toolName: item.name,
+          args: item.args,
+          result: item.result,
+          status: item.status,
+        })
+        const displayName = view.nameKey ? t(`taskStatus.${view.nameKey}`) : item.name
+        const metricLine = formatToolMetricLine(view, t)
+        const showSubject = view.subject !== ''
         const statusLabel =
           item.status === 'running'
             ? t('aiAssistantN8n.toolStatusRunning')
@@ -276,7 +347,9 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
               style={bubbleStyles.cardHead}
               onPress={() => setOpenIds((prev) => ({ ...prev, [item.id]: !open }))}
               accessibilityRole="button"
-              accessibilityLabel={item.name}
+              accessibilityLabel={[displayName, view.subject, statusLabel]
+                .filter(Boolean)
+                .join(' · ')}
             >
               {expandable ? (
                 open ? (
@@ -286,8 +359,14 @@ function ToolCallList({ items }: { items: readonly ToolCallItem[] }): React.JSX.
                 )
               ) : null}
               <Text style={bubbleStyles.cardTitle} numberOfLines={1}>
-                {item.name}
+                {displayName}
               </Text>
+              {showSubject ? (
+                <Text style={bubbleStyles.cardSubject} numberOfLines={1}>
+                  {view.subject}
+                </Text>
+              ) : null}
+              {metricLine ? <Text style={bubbleStyles.cardMeta}>{metricLine}</Text> : null}
               <StatusBadge kind={toneKind} label={statusLabel} />
               {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
             </Pressable>
@@ -344,7 +423,9 @@ function PlanStepList({
         return (
           <View key={step.id} style={bubbleStyles.planRow}>
             <Text style={bubbleStyles.planIndex}>{index + 1}</Text>
-            <Text style={bubbleStyles.planText}>{step.step}</Text>
+            <Text style={bubbleStyles.planText}>
+              {humanizeToolText(step.step, (key) => t(`taskStatus.${key}`))}
+            </Text>
             <StatusBadge kind={toneKind} label={statusLabel} />
             {duration ? <Text style={bubbleStyles.cardMeta}>{duration}</Text> : null}
           </View>
@@ -361,6 +442,10 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
   return (
     <View style={bubbleStyles.block}>
       <Text style={bubbleStyles.blockTitle}>{t('aiAssistantN8n.terminalTasks')}</Text>
+      {/* 与 web/extension/小程序同一句执行环境交代(os_sandbox allow_network 默认 False) */}
+      <Text style={bubbleStyles.blockHint} testID="terminal-isolation">
+        {t('aiAssistantN8n.terminalIsolation')}
+      </Text>
       {tasks.map((task) => {
         const statusLabel =
           task.status === 'completed'
@@ -404,6 +489,14 @@ function TerminalTaskList({ tasks }: { tasks: readonly TerminalTaskItem[] }): Re
                       {t('aiAssistantN8n.terminalOutput')}
                     </Text>
                     <Text style={bubbleStyles.monoText}>{task.output}</Text>
+                    {/* 后端只下发截断文本:不交代总长就等于让用户把截断当完整 */}
+                    {task.truncated ? (
+                      <Text style={bubbleStyles.sectionLabel}>
+                        {t('aiAssistantN8n.terminalTruncated', {
+                          total: task.totalChars ?? task.output.length,
+                        })}
+                      </Text>
+                    ) : null}
                   </View>
                 ) : null}
               </View>
@@ -420,15 +513,21 @@ interface MessageBubbleProps {
   onPreviewImage: (url: string) => void
   /** 浮层提示(复用屏幕 showToast,对齐 Uniapp uni.showToast) */
   onToast: (type: FloatBoxType, message: string) => void
+  /** 失败轮重试:仅当该轮确实可重发时由父级传入;缺失即不渲染重试按钮 */
+  onRetry?: () => void
 }
 
 function MessageBubble({
   message,
   onPreviewImage,
   onToast,
+  onRetry,
 }: MessageBubbleProps): React.JSX.Element {
+  const { t } = useI18n()
   const isUser = message.role === 'user'
   const hasImages = !isUser && (message.images?.length ?? 0) > 0
+  // 失败轮:渲染错误卡片而非正文(与 web D22 / ChatScreen 同一形态)
+  const isFailed = !isUser && isErrorTurn(message)
   // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
   const [answerVisible, setAnswerVisible] = useState(true)
   // 思考过程展开/收起(对齐 Uniapp agent_con1)
@@ -495,7 +594,29 @@ function MessageBubble({
       ) : (
         <View style={bubbleStyles.msgCol}>
           <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAi]}>
-            {answerVisible && message.content ? (
+            {isFailed ? (
+              <View style={bubbleStyles.errorCard}>
+                <View style={bubbleStyles.errorHeader}>
+                  <AlertTriangle size={14} color={tokens.error.text} />
+                  <Text style={bubbleStyles.errorTitle}>{t('chatAlert.errorTitle')}</Text>
+                </View>
+                <Text style={bubbleStyles.errorBody} selectable>
+                  {message.content}
+                </Text>
+                {onRetry ? (
+                  <TouchableOpacity
+                    style={bubbleStyles.errorRetry}
+                    hitSlop={8}
+                    onPress={onRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('chatAlert.errorRetry')}
+                  >
+                    <RefreshCw size={14} color={tokens.error.text} />
+                    <Text style={bubbleStyles.errorRetryText}>{t('chatAlert.errorRetry')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : answerVisible && message.content ? (
               <Text style={[bubbleStyles.text, bubbleStyles.textAi]}>{message.content}</Text>
             ) : null}
             {answerVisible && hasImages ? (
@@ -527,6 +648,13 @@ function MessageBubble({
           {/* 终端任务可视化(W7:命令 + 等宽输出 + 退出码) */}
           {answerVisible && message.terminalTasks && message.terminalTasks.length > 0 ? (
             <TerminalTaskList tasks={message.terminalTasks} />
+          ) : null}
+          {/* D34 本轮上下文注入交代(第 45 轮补齐该端,此前该帧在本端 0 命中) */}
+          {answerVisible && message.injections && message.injections.length > 0 ? (
+            <InjectionDisclosure items={message.injections} />
+          ) : null}
+          {answerVisible && message.citations && message.citations.length > 0 ? (
+            <CitationList items={message.citations} />
           ) : null}
           {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
           {sikaoOpen && message.thinkingContent ? (
@@ -595,16 +723,19 @@ function MessageBubble({
                   <Download size={16} color={tokens.text.secondary} />
                 </TouchableOpacity>
               ) : null}
-              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content) */}
-              <TouchableOpacity
-                style={bubbleStyles.actionBtn}
-                hitSlop={6}
-                onPress={handleShare}
-                accessibilityRole="button"
-                accessibilityLabel="分享"
-              >
-                <Share2 size={16} color={tokens.text.secondary} />
-              </TouchableOpacity>
+              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content)
+                  失败轮不给分享(它不是内容);复制保留 —— 报错排查要用那段文字 */}
+              {isFailed ? null : (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={handleShare}
+                  accessibilityRole="button"
+                  accessibilityLabel="分享"
+                >
+                  <Share2 size={16} color={tokens.text.secondary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -640,6 +771,13 @@ export default function AiAssistantN8nScreen() {
   // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
   const [tokenBalance, setTokenBalance] = useState(0)
 
+  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
+  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
+  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
+  // G-165①:消息级盖章档位(服务端从 workspace_permissions 反查后写入消息 metadata,
+  // 不采信客户端自报)。undefined = 尚未见到已盖章消息;null = 明确无;string = 盖章值。
+  const [stampedTier, setStampedTier] = useState<string | null | undefined>(undefined)
+
   // 加载智汇值余额:失败静默保持 0(不阻塞页面,充值入口仍可用)
   useEffect(() => {
     let cancelled = false
@@ -653,6 +791,21 @@ export default function AiAssistantN8nScreen() {
         // 失败保持 0
       }
     })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
+  useEffect(() => {
+    let cancelled = false
+    getWorkspacePermissionDefault()
+      .then((res) => {
+        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
+      })
+      .catch(() => {
+        // 取数失败:保持 null,该行隐藏
+      })
     return () => {
       cancelled = true
     }
@@ -751,6 +904,16 @@ export default function AiAssistantN8nScreen() {
 
   const previewSource: ImageSourcePropType | null = previewImage ? { uri: previewImage } : null
 
+  // 任务进度状态条数据源(对齐 web task-status-bar):plan_updated 权威快照写在
+  // "那一条 assistant 消息"上,取最后一条带 planSteps 的 assistant 消息(倒序扫描)。
+  const planMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i]
+      if (message?.role === 'assistant' && (message.planSteps?.length ?? 0) > 0) return message
+    }
+    return null
+  }, [messages])
+
   const scrollToEnd = (): void => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: true })
@@ -778,13 +941,111 @@ export default function AiAssistantN8nScreen() {
   const loadConversationMessages = useCallback(async (id: string): Promise<void> => {
     const res = await getMessages(id, { direction: 'initial', pageSize: 100 })
     if (res.success) {
+      // G-165①:档位行数据源换挡 —— 取最近一条已盖章助手消息的 metadata.permissionMode
+      // (服务端从 workspace_permissions 反查盖章,不采信客户端自报)。盖章服务对
+      // "不知道"不写 key,所以这里只有 string 才算数,绝不编造 default。
+      const stampedMeta = [...res.data.messages]
+        .reverse()
+        .find(
+          (m) =>
+            m.role === 'assistant' &&
+            typeof (m.metadata as { permissionMode?: unknown } | null)?.permissionMode === 'string',
+        )
+      if (stampedMeta) {
+        setStampedTier(
+          (stampedMeta.metadata as { permissionMode: string }).permissionMode,
+        )
+      }
+      // 历史消息回放:后端把工具调用 / plan 步骤持久化在消息 metadata(D24,toolCalls 已落库;
+      // planSteps 随 #15 持久化上线后自动生效)。映射回端内 N8nMessage.toolCalls / planSteps,
+      // 使历史会话与实时流走同一活动行渲染口径(状态 · 功能名 · 对象 · 度量)。
       const loaded: N8nMessage[] = res.data.messages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
-        .map((m, idx) => ({
-          id: `${m.id}-${idx}`,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }))
+        .map((m, idx) => {
+          const meta = m.metadata as {
+            toolCalls?: unknown
+            planSteps?: unknown
+            citations?: unknown
+            injections?: unknown
+          } | null
+          const planSteps = Array.isArray(meta?.planSteps)
+            ? (meta?.planSteps as Array<Record<string, unknown>>).flatMap((s, i) =>
+                typeof s?.step === 'string'
+                  ? [
+                      {
+                        id: typeof s.id === 'string' ? s.id : `plan-${idx}-${i}`,
+                        step: s.step,
+                        status: (s.status as PlanStepItem['status']) ?? 'pending',
+                        ...(typeof s.durationMs === 'number' ? { durationMs: s.durationMs } : {}),
+                        ...(typeof s.tokenUsage === 'number' ? { tokenUsage: s.tokenUsage } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const toolCalls = Array.isArray(meta?.toolCalls)
+            ? (meta?.toolCalls as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.id === 'string' && typeof c.toolName === 'string'
+                  ? [
+                      {
+                        id: c.id,
+                        name: c.toolName,
+                        status:
+                          c.status === 'error' || c.error
+                            ? ('error' as const)
+                            : c.status === 'success'
+                              ? ('success' as const)
+                              : ('running' as const),
+                        ...(c.args && typeof c.args === 'object'
+                          ? { args: c.args as Record<string, unknown> }
+                          : {}),
+                        ...(c.result !== undefined ? { result: c.result } : {}),
+                        ...(typeof c.durationMs === 'number' ? { durationMs: c.durationMs } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          return {
+          // G-166:交代帧同样从 metadata 读回 —— 服务端已把"引用了哪些来源 / 本轮带了哪些
+          // 上下文"随回调落库(与 SSE 帧同一真相源),此前重进历史会话这两段交代整段看不见。
+          // 逐条类型守卫:脏条目单条丢弃,缺 url 不造"点不动的假链接"。
+          const citations = Array.isArray(meta?.citations)
+            ? (meta?.citations as Array<Record<string, unknown>>).flatMap((c) =>
+                typeof c?.source === 'string' && typeof c.label === 'string'
+                  ? [
+                      {
+                        source: c.source,
+                        label: c.label,
+                        ...(typeof c.url === 'string' && c.url ? { url: c.url } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+          const injections = Array.isArray(meta?.injections)
+            ? (meta?.injections as Array<Record<string, unknown>>).flatMap((x) =>
+                typeof x?.kind === 'string' && typeof x.collapsed === 'string'
+                  ? [
+                      {
+                        kind: x.kind,
+                        collapsed: x.collapsed,
+                        ...(typeof x.fullText === 'string' ? { fullText: x.fullText } : {}),
+                        ...(typeof x.count === 'number' ? { count: x.count } : {}),
+                      },
+                    ]
+                  : [],
+              )
+            : undefined
+            id: `${m.id}-${idx}`,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+            ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+          }
+            ...(citations && citations.length > 0 ? { citations } : {}),
+            ...(injections && injections.length > 0 ? { injections } : {}),
+        })
       setMessages(loaded)
       requestAnimationFrame(() => {
         listRef.current?.scrollToEnd({ animated: true })
@@ -829,6 +1090,10 @@ export default function AiAssistantN8nScreen() {
     }
     apiMessages.push({ role: 'user', content: text })
 
+    // agentTools 闸门:意图判定对象是"本次要发出去的最后一条 user 消息"(即上面的 text,
+    // system 提示词不参与判定,否则提示词里的"打开/进入"等字样会让每次请求都带工具)
+    const agentTools = uiControlToolsFor(text)
+
     // 2026-09-04 吞错修复(Fix B):streamChat 未传 onError 时对流内 error 事件耗尽重试后会 throw(reject,
     // 见 client.ts catch 块)。本屏虽传了 onError,但请求构造/网络层在进入重试循环前抛出的异常仍会 reject,
     // 此前无 try/catch 会导致 unhandled rejection 且 sending 永远不复位。补 try/catch 把错误路由到
@@ -838,6 +1103,8 @@ export default function AiAssistantN8nScreen() {
         model: selectedModelId,
         messages: apiMessages,
         agentId,
+        // 不命中意图时连字段都不出现,请求体与改造前逐字节一致(api-client 另有 length>0 守卫)
+        ...(agentTools.length > 0 ? { agentTools } : {}),
         signal: controller.signal,
         // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
         stream: true,
@@ -946,6 +1213,54 @@ export default function AiAssistantN8nScreen() {
           })
           scrollToEnd()
         },
+        // #11 引用溯源(第 51 轮):引用进消息,答案下方出来源列表
+        onCitations: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                citations: appendCitationFrames(
+                  last.citations,
+                  (event.citations ?? []).map((x) => ({
+                    source: x.source,
+                    label: x.label,
+                    ...(typeof x.url === 'string' ? { url: x.url } : {}),
+                  })),
+                ),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // D34 上下文注入交代(第 45 轮):本轮回答真正带上了哪些注入(对齐 web / 小程序口径)
+        onInjectionApplied: (event) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                injections: applyInjectionFrame(last.injections, event),
+              }
+            }
+            return next
+          })
+          scrollToEnd()
+        },
+        // D39 重试交代:网关换 key / 退避重试时提示,否则用户在流上只看到"卡住"
+        onRetryScheduled: (event) => {
+          showToast(
+            'info',
+            t('aiAssistantN8n.gatewayRetry', {
+              attempt: event.attempt,
+              max: event.maxRetries,
+              seconds: Math.max(1, Math.round(event.retryInMs / 1000)),
+            }),
+          )
+        },
         // 上下文自动压缩提示(W7):后端达阈值自动压缩时提示用户(对齐 onCompaction 契约)
         onCompaction: (info) => {
           showToast(
@@ -956,19 +1271,16 @@ export default function AiAssistantN8nScreen() {
             }),
           )
         },
-        onError: (err) => {
-          const formatted = formatSSEError(new Error(err))
+        onError: (err, info) => {
+          // info 透传:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据(HTTP 仍回落默认 502)
+          const formatted = formatSSEError(new Error(err), info)
           setSending(false)
           abortRef.current = null
-          // 空回复时填充错误提示
-          setMessages((prev) => {
-            const next = [...prev]
-            const last = next[next.length - 1]
-            if (last && last.role === 'assistant' && !last.content) {
-              next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-            }
-            return next
-          })
+          // 失败轮:标 error + 仅在正文为空时写错误文案(共享层同一标记规则,与 ChatScreen / web 一致)。
+          // 此前只填文案不打标 → 数据上与一次真回答同形,界面也只有一句普通文本、没有任何出口。
+          setMessages((prev) =>
+            applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+          )
           // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
           const errMsg = formatted.message
             ? `${formatted.title}: ${formatted.message}`
@@ -997,14 +1309,9 @@ export default function AiAssistantN8nScreen() {
       const formatted = formatSSEError(err)
       setSending(false)
       abortRef.current = null
-      setMessages((prev) => {
-        const next = [...prev]
-        const last = next[next.length - 1]
-        if (last && last.role === 'assistant' && !last.content) {
-          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-        }
-        return next
-      })
+      setMessages((prev) =>
+        applyStreamError(prev, formatted.message || t('aiAssistantN8n.callFailed')),
+      )
       const errMsg = formatted.message
         ? `${formatted.title}: ${formatted.message}`
         : formatted.title
@@ -1019,6 +1326,15 @@ export default function AiAssistantN8nScreen() {
   }
 
   // 模型切换(对齐 Uniapp pitchHandle:index → modelName)
+  /** 失败轮重试:重发最后一条用户提问,并把失败气泡从视图撤掉。
+   *  本屏 send 只带"本轮 + systemPrompt"(不回放历史),所以无需像 ChatScreen 那样截断历史。 */
+  const retryLastTurn = (): void => {
+    const text = resendTargetText(messages)
+    if (!text) return
+    setMessages((prev) => prev.filter((m) => !isErrorTurn(m)))
+    void onSend(text)
+  }
+
   const handleModelSelect = (ids: string[]): void => {
     const id = ids[0]
     if (id) {
@@ -1129,7 +1445,12 @@ export default function AiAssistantN8nScreen() {
   }
 
   const renderItem: ListRenderItem<N8nMessage> = ({ item }) => (
-    <MessageBubble message={item} onPreviewImage={handlePreviewImage} onToast={showToast} />
+    <MessageBubble
+      message={item}
+      onPreviewImage={handlePreviewImage}
+      onToast={showToast}
+      onRetry={isErrorTurn(item) && resendTargetText(messages) !== null ? retryLastTurn : undefined}
+    />
   )
 
   return (
@@ -1147,6 +1468,21 @@ export default function AiAssistantN8nScreen() {
           onRecharge={() => navigation.navigate('AppTopup')}
         />
       </View>
+      {/* D111/G-165①:权限档交代行 —— 数据源优先级:消息盖章值 > 工作区默认档;
+          两者皆缺(盖章不存在且取数失败)整行隐藏,不假装知道档位。 */}
+      {(() => {
+        const tierValue = stampedTier ?? workspaceTier
+        if (tierValue === null || tierValue === undefined) return null
+        return (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 11, color: tokens.text.tertiary }}>
+              {`${t('permissionTier.label')}: ${t(permissionTierWordKeys(tierValue).title)} · ${t(
+                permissionTierWordKeys(tierValue).desc,
+              )}`}
+            </Text>
+          </View>
+        )
+      })()}
       <KeyboardAvoidingView
         style={styles.body}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1225,6 +1561,13 @@ export default function AiAssistantN8nScreen() {
             }}
           />
         </View>
+        {/* 任务进度状态条(对齐 web task-status-bar):plan_updated 驱动自动刷新,
+            空闲(无步骤/无变更/非流式)时内部返回 null 不占高度 */}
+        <TaskStatusBar
+          planSteps={planMessage?.planSteps ?? []}
+          toolCalls={planMessage?.toolCalls}
+          isStreaming={sending}
+        />
         <InputArea
           value={input}
           onChangeText={setInput}
@@ -1418,6 +1761,42 @@ const bubbleStyles = StyleSheet.create({
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
+  // 失败轮错误卡片(与 web D22 / ChatScreen 同一形态:警示头 + 正文 + 重试出口)
+  errorCard: {
+    width: '100%',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: tokens.danger.light,
+    backgroundColor: tokens.error.bg,
+    overflow: 'hidden',
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: tokens.danger.light,
+  },
+  errorTitle: { fontSize: 12, fontWeight: '500', color: tokens.error.text },
+  errorBody: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.error.text,
+  },
+  errorRetry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    marginHorizontal: 8,
+    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  errorRetryText: { fontSize: 12, color: tokens.error.text },
   imageGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1506,7 +1885,13 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: rpx(12),
     paddingVertical: rpx(8),
   },
-  cardTitle: { flex: 1, fontSize: 12, color: tokens.text.primary },
+  cardTitle: { flexShrink: 0, fontSize: 12, color: tokens.text.primary },
+  cardSubject: {
+    flex: 1,
+    fontSize: 11,
+    color: tokens.text.tertiary,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
   cardMeta: { fontSize: 10, color: tokens.text.tertiary },
   cardBody: {
     paddingHorizontal: rpx(12),

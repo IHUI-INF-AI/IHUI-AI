@@ -1,7 +1,7 @@
 ; ⚠️ 本文件是 Tauri v2 NSIS 安装器模板的定制副本,上游版权归 tauri-apps/tauri(MIT / Apache-2.0)。
 ; 来源:tauri-bundler · crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi(tauri-cli 内置,include_str!)
 ;
-; IHUI 定制范围(补丁集 P0-P6,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
+; IHUI 定制范围(补丁集 P0-P7,由 scripts/desktop-nsis-template.mjs 维护,其余与上游逐字节一致):
 ;   P0 .onInit 默认安装目录:安装语言为简体中文($LANGUAGE = 2052)→ D:\智汇AI,其余 → D:\IHUI AI。
 ;      上游紧跟其后的 Call RestorePreviousInstallLocation 原样保留,
 ;      因此"已装过则沿用既有安装位置"(重装不产生第二份安装、/UPDATE 静默升级回原位置)的语义不变。
@@ -9,6 +9,7 @@
 ;   P1-P4,P6 安装向导全面品牌化(无边框深色窗口/每页满幅品牌位图/位图按钮/进度条重着色/
 ;      AdvSplash 多帧开屏),实现见 windows/ihui-ui.nsi(经 hooks.nsi include 接线)。
 ;   P5 重装/升级确认页深色主题宏。
+;   P7 Install Section 进度埋点:9 个真实步骤各报一次 IHUI_PROGRESS(百分比 + 品牌进度条 + 阶段文案)。
 ;
 ; ⚠️ 升级 Tauri CLI 后必须执行:node scripts/desktop-nsis-template.mjs --check
 ;   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。
@@ -90,6 +91,9 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状(见 .onInit / CreateOrUpdateDesktopShortcut)
+Var HadExistingInstall
+Var DesktopIconExisted
 
 Name "${PRODUCTNAME}"
 BrandingText "${COPYRIGHT}"
@@ -466,11 +470,24 @@ FunctionEnd
 Function un.ConfirmLeave
   SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
-!insertmacro MUI_UNPAGE_CONFIRM
+!undef MUI_PAGE_CUSTOMFUNCTION_SHOW
+!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE
+!undef MUI_PAGE_CUSTOMFUNCTION_PRE
+; U1 卸载确认页改自定义品牌页(原生向导外观 + 无法主题化的复选框一并弃用)
+UninstPage custom un.IHUIConfirmPage un.IHUIConfirmLeave
 
 ; 2. Uninstalling Page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIUninstShow
 !insertmacro MUI_UNPAGE_INSTFILES
+; U4 卸载完成页 —— 终屏 + 唯一可点出口(实现见 windows/ihui-uninstaller.nsi un.IHUIFinishShow)
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.IHUIFinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.IHUIFinishLeave
+!define /redef MUI_BGCOLOR "242424"
+!define /redef MUI_TEXTCOLOR "FAFAFA"
+!define MUI_FINISHPAGE_TITLE " "
+!define MUI_FINISHPAGE_TEXT " "
+!define MUI_FINISHPAGE_BUTTON "完成"
+!insertmacro MUI_UNPAGE_FINISH
 
 ;Languages
 {{#each languages}}
@@ -505,6 +522,25 @@ Function .onInit
   !endif
 
   !insertmacro SetContext
+
+  ; IHUI 2026-09-21:覆盖升级时尊重用户桌面快捷方式现状。
+  ; 背景:仅应用内自动更新器带 /UPDATE(UpdateMode=1,卸载器不删图标、新装不重建);
+  ; 手动跑安装包覆盖安装(交互/静默)不带该参数,走「卸载旧版(删桌面图标)→
+  ; 全新安装(无条件重建)」,用户删过的图标被强行恢复。此处于 .onInit
+  ; (卸载旧版之前、SetContext 之后,SHCTX/$DESKTOP 语义与快捷方式创建一致)
+  ; 记录「升级前是否已有安装」与「桌面图标是否存在」,供
+  ; CreateOrUpdateDesktopShortcut 判断:用户已删 → 不再创建;未删 → 重建(视觉等同保留)。
+  StrCpy $DesktopIconExisted 0
+  ${If} ${FileExists} "$DESKTOP\${PRODUCTNAME}.lnk"
+    StrCpy $DesktopIconExisted 1
+  ${EndIf}
+  ReadRegStr $HadExistingInstall SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+  ${OrIf} $HadExistingInstall == ""
+    StrCpy $HadExistingInstall 0
+  ${Else}
+    StrCpy $HadExistingInstall 1
+  ${EndIf}
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; ==== IHUI 定制:默认安装目录(向导首屏即生效)====
@@ -654,8 +690,10 @@ Section Install
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
+  !insertmacro IHUI_PROGRESS 12 "正在复制主程序"
   File "${MAINBINARYSRCPATH}"
 
+  !insertmacro IHUI_PROGRESS 34 "正在写入运行资源"
   ; Copy resources
   {{#each resources_dirs}}
     CreateDirectory "$INSTDIR\\{{this}}"
@@ -664,11 +702,13 @@ Section Install
     File /a "/oname={{this.[1]}}" "{{no-escape @key}}"
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 52 "正在写入外部组件"
   ; Copy external binaries
   {{#each binaries}}
     File /a "/oname={{this}}" "{{no-escape @key}}"
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 64 "正在登记文件关联"
   ; Create file associations
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
@@ -676,6 +716,7 @@ Section Install
     {{/each}}
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 72 "正在登记深度链接"
   ; Register deep links
   {{#each deep_link_protocols as |protocol| ~}}
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}" "URL Protocol" ""
@@ -684,9 +725,11 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
 
+  !insertmacro IHUI_PROGRESS 80 "正在生成卸载程序"
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
+  !insertmacro IHUI_PROGRESS 88 "正在登记安装位置"
   ; Save $INSTDIR in registry for future installations
   WriteRegStr SHCTX "${MANUPRODUCTKEY}" "" $INSTDIR
 
@@ -716,6 +759,7 @@ Section Install
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
 
+  !insertmacro IHUI_PROGRESS 93 "正在统计占用"
   ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2
   IntOp $0 $0 + ${ESTIMATEDSIZE}
   IntFmt $0 "0x%08X" $0
@@ -727,6 +771,7 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" "HelpLink" "${HOMEPAGE}"
   !endif
 
+  !insertmacro IHUI_PROGRESS 97 "正在创建快捷方式"
   ; Create start menu shortcut
   !insertmacro MUI_STARTMENU_WRITE_BEGIN Application
     Call CreateOrUpdateStartMenuShortcut
@@ -771,7 +816,15 @@ Function un.onInit
     !insertmacro MULTIUSER_UNINIT
   !endif
 
-  !insertmacro MUI_UNGETLANGUAGE
+  ; ==== IHUI 定制:卸载器语言只读注册表,绝不弹原生选择框 ====
+  !insertmacro MUI_LANGDLL_VARIABLES
+  !ifdef MUI_LANGDLL_REGISTRY_ROOT & MUI_LANGDLL_REGISTRY_KEY & MUI_LANGDLL_REGISTRY_VALUENAME
+    ReadRegStr $mui.LangDLL.RegistryLanguage "${MUI_LANGDLL_REGISTRY_ROOT}" "${MUI_LANGDLL_REGISTRY_KEY}" "${MUI_LANGDLL_REGISTRY_VALUENAME}"
+    ${If} $mui.LangDLL.RegistryLanguage != ""
+      StrCpy $LANGUAGE $mui.LangDLL.RegistryLanguage
+    ${EndIf}
+  !endif
+  ; ==== IHUI 定制结束 ====
 
   ; 同 .onInit:GetParameters 剥 exe 路径,防前缀误匹配
   ${GetParameters} $R9
@@ -794,20 +847,24 @@ Section Uninstall
 
   !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
+  !insertmacro IHUI_UNPROGRESS 20 "正在删除程序文件"
   ; Delete the app directory and its content from disk
   ; Copy main executable
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
 
+  !insertmacro IHUI_UNPROGRESS 34 "正在删除运行资源"
   ; Delete resources
   {{#each resources}}
     Delete "$INSTDIR\\{{this.[1]}}"
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 46 "正在删除外部组件"
   ; Delete external binaries
   {{#each binaries}}
     Delete "$INSTDIR\\{{this}}"
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 56 "正在解除文件关联"
   ; Delete app associations
   {{#each file_associations as |association| ~}}
     {{#each association.ext as |ext| ~}}
@@ -815,6 +872,7 @@ Section Uninstall
     {{/each}}
   {{/each}}
 
+  !insertmacro IHUI_UNPROGRESS 66 "正在解除深度链接"
   ; Delete deep links
   {{#each deep_link_protocols as |protocol| ~}}
     ReadRegStr $R7 SHCTX "Software\Classes\\{{protocol}}\shell\open\command" ""
@@ -824,6 +882,7 @@ Section Uninstall
   {{/each}}
 
 
+  !insertmacro IHUI_UNPROGRESS 76 "正在清理安装目录"
   ; Delete uninstaller
   Delete "$INSTDIR\uninstall.exe"
 
@@ -832,6 +891,7 @@ Section Uninstall
   {{/each}}
   RMDir "$INSTDIR"
 
+  !insertmacro IHUI_UNPROGRESS 86 "正在移除快捷方式"
   ; Remove shortcuts if not updating
   ${If} $UpdateMode <> 1
     !insertmacro DeleteAppUserModelId
@@ -861,6 +921,7 @@ Section Uninstall
     ${EndIf}
   ${EndIf}
 
+  !insertmacro IHUI_UNPROGRESS 92 "正在清理注册信息"
   ; Remove registry information for add/remove programs
   !if "${INSTALLMODE}" == "both"
     DeleteRegKey SHCTX "${UNINSTKEY}"
@@ -878,10 +939,11 @@ Section Uninstall
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
   ${EndIf}
 
-  ; Delete app data if the checkbox is selected
-  ; and if not updating
-  ${If} $DeleteAppDataCheckboxState = 1
-  ${AndIf} $UpdateMode <> 1
+  ; IHUI 2026-09-21 根治:凡真实卸载(非更新模式)一律清理「安装位置/语言」持久化键。
+  ; 上游仅在勾选「删除应用数据」时清理,/S 静默卸载不勾选 → 键残留,重装时
+  ; RestorePreviousInstallLocation 会把全新安装拉回旧目录
+  ; (0.1.42 本机实测:静默重装被拉回测试目录而非默认目录)。
+  ${If} $UpdateMode <> 1
     ; Clear the install location $INSTDIR from registry
     DeleteRegKey SHCTX "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty SHCTX "${MANUKEY}"
@@ -890,7 +952,14 @@ Section Uninstall
     DeleteRegValue HKCU "${MANUPRODUCTKEY}" "Installer Language"
     DeleteRegKey /ifempty HKCU "${MANUPRODUCTKEY}"
     DeleteRegKey /ifempty HKCU "${MANUKEY}"
+  ${EndIf}
 
+  ; Delete app data if the checkbox is selected
+  ; and if not updating
+  ; U7 卸载确认页已改品牌开关(见 ihui-uninstaller.nsi),上游那颗复选框不再被创建,
+  ; 故此处改读 $UNDATA —— 全仓唯一消费点,不留第二份状态。
+  ${If} $UNDATA = 1
+  ${AndIf} $UpdateMode <> 1
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
     RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
@@ -908,6 +977,15 @@ Section Uninstall
 SectionEnd
 
 Function RestorePreviousInstallLocation
+  ; IHUI 2026-09-21 根治:仅当「真实存在的旧安装」(卸载注册表项仍有
+  ; UninstallString,即升级路径)才沿用其目录。防残留劫持:位置键残留时
+  ; (旧版卸载器未清 / 上游仅在勾选删除数据时清理),全新安装不得被拉回
+  ; 旧目录,应落默认目录(D:\智汇AI / D:\IHUI AI)。
+  ClearErrors
+  ReadRegStr $4 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} ${Errors}
+    Return
+  ${EndIf}
   ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
@@ -981,6 +1059,14 @@ Function CreateOrUpdateDesktopShortcut
   ${If} $WixMode = 0
     ${If} $UpdateMode = 1
     ${OrIf} $NoShortcutMode = 1
+      Return
+    ${EndIf}
+    ; IHUI 2026-09-21:覆盖升级(手动跑安装包,无 /UPDATE)尊重用户桌面图标现状:
+    ; 升级前桌面无快捷方式(用户已删) → 不再强行创建。
+    ; 首次安装(HadExistingInstall=0)行为不变,始终创建;
+    ; 升级前图标存在 → 仍创建(旧卸载器已删除,重建后视觉等同保留,且指向新安装目录)。
+    ${If} $HadExistingInstall = 1
+    ${AndIf} $DesktopIconExisted = 0
       Return
     ${EndIf}
   ${EndIf}

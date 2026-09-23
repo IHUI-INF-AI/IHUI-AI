@@ -5,7 +5,7 @@
 import { strict as assert } from 'node:assert';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-const r = spawnSync(process.execPath, ['--test', 'lru.test.mjs'], { encoding: 'utf8', cwd: process.cwd() });
+const r = spawnSync(process.execPath, ['--test', 'lru.test.mjs'], { encoding: 'utf8', cwd: process.cwd(), windowsHide: true });
 if (r.status !== 0) {
   console.error(r.stdout || ''); console.error(r.stderr || '');
   process.exit(1);

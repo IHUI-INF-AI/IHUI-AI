@@ -32,7 +32,7 @@ PROBES: list[tuple[str, str, dict, dict | None]] = [
     ("legacy completions", "POST", f"{BASE}/v1/completions",
      {"model": "gm-3.8-flash", "prompt": "hi", "max_tokens": 1}),
     ("图片-同步", "POST", f"{BASE}/v1/images/generations",
-     {"model": "gpt-image-2", "prompt": "hi"}),
+     {"model": "gpt-image-2.5-flare", "prompt": "hi"}),
     ("统一媒体入口-信封", "POST", f"{BASE}/v1/media/generate",
      {"model": "veo-3.1", "prompt": "hi", "params": {"aspect_ratio": "16:9", "duration": 8}}),
     ("视频-扁平形状", "POST", f"{BASE}/v1/videos/generations",

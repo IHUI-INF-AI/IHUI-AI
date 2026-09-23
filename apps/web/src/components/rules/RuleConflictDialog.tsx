@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertTriangle, Loader2, Sparkles } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -18,19 +19,12 @@ interface RuleConflictDialogProps {
   onClose: () => void
 }
 
-/** 冲突类型中文标签 */
-function conflictTypeLabel(type: RuleConflict['type']): string {
-  switch (type) {
-    case 'name_conflict':
-      return '同名冲突'
-    case 'semantic_duplicate':
-      return '语义重复'
-    case 'priority_collision':
-      return '优先级碰撞'
-    default:
-      return type
-  }
-}
+/** 冲突类型 -> 语言包 key(界面文案一律走 t(),不得在此硬编码中文) */
+const CONFLICT_TYPE_KEYS = {
+  name_conflict: 'conflictNameConflict',
+  semantic_duplicate: 'conflictSemanticDuplicate',
+  priority_collision: 'conflictPriorityCollision',
+} as const satisfies Record<RuleConflict['type'], string>
 
 /** 冲突类型徽章样式 */
 function conflictBadgeClass(type: RuleConflict['type']): string {
@@ -47,6 +41,9 @@ function conflictBadgeClass(type: RuleConflict['type']): string {
 }
 
 function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
+  const t = useTranslations('rules')
+  const tCommon = useTranslations('common')
+  const conflictLabel = (type: RuleConflict['type']): string => t(CONFLICT_TYPE_KEYS[type])
   const [conflicts, setConflicts] = React.useState<RuleConflict[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -98,7 +95,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
         ...prev,
         [idx]: {
           winningRule: null,
-          reason: `协商失败:${(e as Error).message}`,
+          reason: t('negotiationFailed', { msg: (e as Error).message }),
           alternative: null,
           degraded: true,
         },
@@ -116,14 +113,14 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
     >
       <div className="flex max-h-[85vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">规则冲突检测</span>
-          <CloseButton aria-label="关闭" onClick={onClose} />
+          <span className="text-sm font-semibold">{t('conflictDetectTitle')}</span>
+          <CloseButton aria-label={tCommon('close')} onClick={onClose} />
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            检测中...
+            {t('detecting')}
           </div>
         ) : error ? (
           <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -134,22 +131,22 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-500/10 text-green-600">
               <AlertTriangle className="h-4 w-4" />
             </div>
-            <p className="text-sm text-muted-foreground">未检测到冲突,规则集状态良好</p>
+            <p className="text-sm text-muted-foreground">{t('noConflict')}</p>
           </div>
         ) : (
           <div className="thin-scroll space-y-2 overflow-y-auto">
             <p className="text-xs text-muted-foreground">
-              检测到 {conflicts.length} 处冲突,输入上下文后可 LLM 协商
+              {t('detectedConflictsHint', { n: conflicts.length })}
             </p>
             <div className="space-y-1">
               <label htmlFor="rule-arb-ctx" className="text-[10px] text-muted-foreground">
-                协商上下文(当前对话/代码片段)
+                {t('arbitrationContextLabel')}
               </label>
               <textarea
                 id="rule-arb-ctx"
                 value={arbitrationContext}
                 onChange={(e) => setArbitrationContext(e.target.value)}
-                placeholder="输入上下文供 LLM 仲裁..."
+                placeholder={t('arbitrationContextPlaceholder')}
                 rows={2}
                 className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
               />
@@ -166,7 +163,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                       conflictBadgeClass(conflict.type),
                     )}
                   >
-                    {conflictTypeLabel(conflict.type)}
+                    {conflictLabel(conflict.type)}
                   </span>
                   <span className="flex-1 min-w-0 text-xs text-muted-foreground">
                     {conflict.detail}
@@ -178,7 +175,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                       disabled={arbitrating !== null || !arbitrationContext.trim()}
                       className="shrink-0 rounded-sm border border-border px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                     >
-                      {arbitrating === idx ? '协商中...' : 'LLM 协商'}
+                      {arbitrating === idx ? t('negotiating') : t('llmNegotiate')}
                     </button>
                   )}
                 </div>
@@ -197,21 +194,21 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                     <div className="flex items-center gap-1">
                       <Sparkles className="h-3 w-3 text-green-600" />
                       <span className="font-medium">
-                        仲裁结果:
+                        {t('arbitrationResult')}
                         {arbitrationResults[idx].winningRule
                           ? arbitrationResults[idx].winningRule.name
-                          : '无'}
+                          : t('noneLabel')}
                       </span>
                       {arbitrationResults[idx].degraded && (
                         <span className="rounded-sm bg-yellow-500/10 px-1 text-yellow-600">
-                          降级
+                          {t('degraded')}
                         </span>
                       )}
                     </div>
                     <p className="text-muted-foreground">{arbitrationResults[idx].reason}</p>
                     {arbitrationResults[idx].alternative && (
                       <p className="text-muted-foreground">
-                        合并建议:{arbitrationResults[idx].alternative}
+                        {t('mergeSuggestion', { text: arbitrationResults[idx].alternative })}
                       </p>
                     )}
                   </div>
@@ -223,7 +220,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
 
         <div className="flex items-center justify-end">
           <Button variant="outline" size="sm" onClick={onClose}>
-            关闭
+            {tCommon('close')}
           </Button>
         </div>
       </div>

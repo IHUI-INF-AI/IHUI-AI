@@ -8,8 +8,16 @@
 防止多 Agent 并发写同一目录造成互相覆盖:
 
 - Redis 模式:SET NX EX + 唯一 token(Lua 比较后删/续期),跨进程互斥,
-  key 协议与 apps/api(ioredis)共享:`ihui:workspace_lock:{workspace}`,
-  value 为 JSON {holder, token, acquiredAt, heartbeatAt}
+  key 协议与 apps/api(ioredis)共享:`ihui:workspace_lock:{workspace}`
+- 跨端 value 协议契约(与 apps/api/src/services/workspace-lock.ts 双侧同步维护,
+  改动任何一项必须同时改另一侧):
+  * key 前缀:`ihui:workspace_lock:`;TTL:120s(两侧一致)
+  * value 为 JSON,canonical 字段为 snake_case:
+    {workspace, holder, token, acquired_at, heartbeat_at}
+  * 兼容读取:两侧解析器同时接受 snake_case 与 camelCase 历史格式
+    (acquiredAt/heartbeatAt),防止跨服务互读失败
+  * 解析失败(坏 JSON / 缺 holder / 缺 token):一律视为"未知格式的活锁"——
+    不删除、不抢锁(宁可不抢,不可误删;Redis TTL 保证坏 key 最终自愈)
 - 降级模式:redis 包缺失 / REDIS_URL 未配置 / 连接失败 → 进程内内存锁
   (单实例部署下语义一致;对齐 file_editor / agent_checkpoint 降级范式)
 - TTL 自动过期:持有者崩溃(无心跳)后锁自动释放,无需人工干预
@@ -169,19 +177,41 @@ def _lock_key(workspace: str) -> str:
 
 
 def _parse_lock(raw: Any, workspace: str) -> LockInfo | None:
-    """Redis value(JSON str)→ LockInfo;损坏/缺字段返回 None(视为无锁)。"""
+    """Redis value(JSON str)→ LockInfo。
+
+    跨端兼容:同时接受 snake_case(canonical)与 camelCase(TS 历史格式)字段。
+    返回 None = 解析失败(坏 JSON / 缺 holder / 缺 token),调用方必须按
+    "未知格式的活锁"处理:不删除、不抢锁(见模块 docstring 协议契约)。
+    """
+
+    def _num(d: dict[str, Any], *keys: str) -> float:
+        for k in keys:
+            v = d.get(k)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                return float(v)
+        return 0.0
+
     try:
         d = json.loads(raw)
-        return LockInfo(
-            workspace=d["workspace"],
-            holder=d["holder"],
-            token=d["token"],
-            acquired_at=float(d["acquired_at"]),
-            heartbeat_at=float(d["heartbeat_at"]),
-        )
-    except Exception:  # noqa: BLE001 - 损坏数据按无锁处理,可重新获取
-        logger.warning("workspace_lock key %s value 损坏,按无锁处理", workspace)
+    except Exception:  # noqa: BLE001 - 坏 JSON 按未知活锁处理
+        logger.warning("workspace_lock key %s value 非法 JSON,按被持有处理", workspace)
         return None
+    if not isinstance(d, dict):
+        logger.warning("workspace_lock key %s value 非对象,按被持有处理", workspace)
+        return None
+    holder = d.get("holder")
+    token = d.get("token")
+    if not isinstance(holder, str) or not isinstance(token, str):
+        logger.warning("workspace_lock key %s 缺 holder/token,按被持有处理", workspace)
+        return None
+    ws = d.get("workspace")
+    return LockInfo(
+        workspace=ws if isinstance(ws, str) else workspace,
+        holder=holder,
+        token=token,
+        acquired_at=_num(d, "acquired_at", "acquiredAt"),
+        heartbeat_at=_num(d, "heartbeat_at", "heartbeatAt"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -245,9 +275,14 @@ class WorkspaceLock:
                 if raw:
                     existing = _parse_lock(raw, workspace)
                     if existing is None:
-                        # 损坏 value:清除坏 key 后走 SET NX 重新竞争(自愈)
-                        r.delete(_lock_key(workspace))
-                    elif existing.holder != holder:
+                        # 未知格式锁值(其他端历史格式/损坏数据):视为未知活锁,
+                        # 宁可不抢,不可误删(TTL 到期后 key 自愈)
+                        logger.warning(
+                            "workspace_lock key %s 存在无法解析的锁值,按被持有处理(不删除)",
+                            workspace,
+                        )
+                        return None
+                    if existing.holder != holder:
                         return None
                     else:
                         renewed = r.eval(

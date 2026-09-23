@@ -42,7 +42,7 @@ function killPort(port) {
   try {
     const out = execSync(
       `pwsh -NoProfile -Command "Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | ForEach-Object { $p=$_.OwningProcess; if ($p -gt 0) { taskkill /F /T /PID $p 2>&1 | Out-Null } }"`,
-      { stdio: 'pipe' }
+      { stdio: 'pipe', windowsHide: true }
     ).toString()
     if (out.trim()) console.log(`[dev-web] killed port ${port} tree:\n${out.trim()}`)
     else console.log(`[dev-web] port ${port} already free`)
@@ -62,6 +62,7 @@ function scanStaleStashes() {
     const r = spawnSync(process.execPath, [join(ROOT, 'scripts', 'check-stale-stashes.mjs')], {
       stdio: 'inherit',
       timeout: 30_000,
+      windowsHide: true,
     })
     if (r.error) throw r.error
   } catch (e) {

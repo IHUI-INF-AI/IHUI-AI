@@ -142,14 +142,14 @@
                      |
 +--------------------v--------------------+
 | 데이터 계층 (고가용성 클러스터)              |
-| - PostgreSQL 16 + 시계열 DB + Redis 7      |
+| - PostgreSQL 18 + 시계열 DB + Redis 7      |
 | - 부유차 + 체크포인트 이력 + GIS            |
 +-----------------------------------------+
 ```
 
 ### IHUI AI 엔드 투 엔드 능력 (8 엔드 커버)
 - **Web** (Next.js 16 + React 19): 교통 지휘 대형 디스플레이
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 실시간 교통 상황 API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): 실시간 교통 상황 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): 다중 Agent 협조
 - **데스크톱** (Tauri 2): 긴급 지휘 워크스테이션
 - **확장** (WXT): 지도 측 실시간 정보
@@ -159,7 +159,7 @@
 
 ### 기술 스택
 - 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - 멀티엔드: Tauri 2 (데스크톱) / WXT (확장) / React Native (모바일) / Taro 4 (미니프로그램) / Node.js CLI
 - 실시간 스트림: Kafka / Apache Flink
@@ -184,7 +184,7 @@
 | 평균 투자회수 주기 | 6개월 |
 | 12개월 ROI | 220% |
 
-(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 16, Redis 7, Kafka)
+(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 18, Redis 7, Kafka)
 
 ### 자주 묻는 질문 FAQ
 - Q: 데이터 지연은?

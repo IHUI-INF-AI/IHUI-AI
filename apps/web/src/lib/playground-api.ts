@@ -14,28 +14,18 @@ import type {
   PlaygroundParams,
   PlaygroundResponse,
 } from '@/components/playground/PlaygroundTypes'
+import { resolveStreamApiBaseUrl } from '@/lib/api-base-url'
 
 /**
- * 推导 API base URL:
- * - Tauri 环境 / dev 环境(localhost:8801):直连 localhost:8802,绕过 Next.js dev proxy(SSE 会被 proxy 中断)
- * - 生产环境:NEXT_PUBLIC_API_BASE_URL 或同源(留空)
- * 与 apps/web/src/lib/api.ts detectStreamBaseUrl 逻辑保持一致。
+ * 推导 API base URL(2026-09-21 收口):与 lib/api.ts 的 detectStreamBaseUrl 同源,
+ * 统一走 lib/api-base-url.ts 的 resolveStreamApiBaseUrl()。
+ *
+ * 关键:桌面端是薄壳(窗口加载线上 https://aizhs.top/agents),必须同源 /api/*;
+ * 旧实现 Tauri 分支在线上空 env 下回退 localhost:8802,导致桌面端 Playground
+ * 打到用户本机 dev 后端。
  */
 function getPlaygroundBaseUrl(): string {
-  if (typeof window !== 'undefined') {
-    if ('__TAURI_INTERNALS__' in window) {
-      // 2026-09-02 SaaS 化:打包注入 env(线上)优先,未注入(本地 dev)回退 localhost:8802。
-      return (
-        process.env.NEXT_PUBLIC_STREAM_API_BASE_URL ||
-        process.env.NEXT_PUBLIC_API_BASE_URL ||
-        'http://localhost:8802'
-      )
-    }
-    if (window.location.hostname === 'localhost' && window.location.port === '8801') {
-      return 'http://localhost:8802'
-    }
-  }
-  return process.env.NEXT_PUBLIC_API_BASE_URL || ''
+  return resolveStreamApiBaseUrl()
 }
 
 /**

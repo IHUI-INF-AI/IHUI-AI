@@ -16,6 +16,8 @@ import { Container } from '@/components/layout'
 import { useDesktop } from '@/hooks/use-desktop'
 import { clearWebViewCache } from '@/lib/tauri-bridge'
 import { SamplingParamsCard } from '@/components/settings/sampling-params-card'
+import { FoldPolicyCard } from '@/components/settings/fold-policy-card'
+import { WebSearchCard } from '@/components/settings/web-search-card'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -164,6 +166,12 @@ export default function PreferencesPage() {
 
         {/* AI 回答偏好(2026-09-14 自聊天输入区高级参数面板迁入统一设置页) */}
         <SamplingParamsCard />
+
+        {/* 中间步骤折叠策略(2026-09-21 自聊天输入区工具栏迁入,D21 显示偏好归位设置页) */}
+        <FoldPolicyCard />
+
+        {/* 网页搜索开关(2026-09-21 自聊天输入区工具栏迁入,D22 能力偏好归位设置页) */}
+        <WebSearchCard />
 
         {isDesktop && (
           <Card>

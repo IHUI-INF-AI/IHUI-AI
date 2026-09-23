@@ -58,6 +58,7 @@
     "brand": "IHUI AI",
     "phoneLogin": "Phone login",
     "passwordLogin": "Password login",
+    "phone": "Phone",
     "phonePlaceholder": "Enter phone number",
     "phoneInvalid": "Invalid phone number",
     "codePlaceholder": "Enter verification code",
@@ -70,7 +71,23 @@
     "codeCountdownSuffix": "s to resend",
     "getPhoneFail": "Failed to get phone number",
     "loginFailed": "Login failed, please try again",
-    "wechatOneClick": "One-click WeChat Login"
+    "wechatOneClick": "One-click WeChat Login",
+    "emailLogin": "Email login",
+    "email": "Email",
+    "emailPlaceholder": "Enter email",
+    "clearHistory": "Clear all",
+    "code": "Verification code",
+    "sending": "Sending…",
+    "autoLogin": "Auto login",
+    "or": "or",
+    "ssoLoginTitle": "IHUI AI Web Authorization Login",
+    "noAccount": "Don't have an account?",
+    "registerNow": "Register now",
+    "agreePrefix": "I have read and agree to",
+    "termsOfService": "Terms of Service",
+    "and": "and",
+    "privacyPolicy": "Privacy Policy",
+    "agreeRequired": "Please read and agree to the Terms of Service and Privacy Policy first"
   },
   "forgot": {
     "step1": "Step 1: Verify phone",
@@ -132,7 +149,8 @@
       "searchPlaceholder": "Search courses",
       "search": "Search",
       "empty": "No courses",
-      "title": "Featured Courses"
+      "title": "Featured Courses",
+      "courseCount": "{n} courses"
     },
     "ratingTitle": "Rate Course",
     "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
@@ -155,6 +173,8 @@
   "live": {
     "viewers": "{n} viewers",
     "preview": "Preview",
+    "replay": "Replay",
+    "liveNow": "Live",
     "detail": {
       "loadFailed": "Live load failed",
       "loading": "Loading live…",
@@ -200,7 +220,8 @@
       "liveList": "Live schedule",
       "noLive": "No live sessions scheduled today",
       "anchor": "Host",
-      "today": "Today"
+      "today": "Today",
+      "upcoming": "Upcoming"
     },
     "calendarBtn": "📅 Calendar",
     "mySubscriptionBtn": "🔔 My Subscriptions",
@@ -303,7 +324,9 @@
     },
     "orderNo": "Order No.",
     "status": {
-      "refunded": "Refunded"
+      "failed": "Failed",
+      "refunded": "Refunded",
+      "refunding": "Refunding"
     }
   },
   "wallet": {
@@ -509,6 +532,7 @@
         "education": "Education",
         "life": "Lifestyle",
         "office": "Office",
+        "other": "Other",
         "recommend": "Recommended",
         "writing": "Writing"
       },
@@ -569,11 +593,13 @@
       "downloadSuccess": "Saved to album",
       "downloading": "Downloading",
       "edit": "Edit",
+      "errorCardTitle": "Request failed",
       "favorited": "Favorited",
       "me": "Me",
       "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
       "noContent": "Nothing to copy",
       "regenerate": "Regenerate",
+      "retry": "Retry",
       "reuse": "Reuse",
       "share": "Share",
       "speak": "Speak",
@@ -693,6 +719,7 @@
       "fallback": "Switched to backup model: {model}",
       "planUpdate": "Execution plan updated",
       "reconnect": "Connection lost, retrying #{attempt} in {seconds}s",
+      "gatewayRetry": "Retry {attempt} of {max}, continuing in {seconds}s",
       "subagent": "Subtask: {phase}",
       "title": "Execution",
       "toolCall": "Calling tool: {name}",
@@ -756,9 +783,25 @@
       },
       "terminal": {
         "title": "Terminal",
+        "isolation": "Commands run in an isolated sandbox; network access is off by default",
         "copy": "Copy",
         "copied": "Copied",
-        "exitCode": "Exit code: {code}"
+        "exitCode": "Exit code: {code}",
+        "truncated": "…(truncated, {total} characters in total)"
+      },
+      "citation": {
+        "title": "Sources"
+      },
+      "injection": {
+        "title": "Context used in this turn",
+        "kind": {
+          "developer": "Custom instructions",
+          "workspace": "Workspace memory",
+          "repoWiki": "Repository wiki",
+          "autoContext": "Auto-retrieved context"
+        },
+        "expand": "Expand",
+        "collapse": "Collapse"
       },
       "status": {
         "running": "Running",
@@ -803,7 +846,13 @@
       "voiceAnswer": "🔊 Voice answer",
       "modelDefault": "AI Model"
     },
-    "success": "Shared successfully"
+    "success": "Shared successfully",
+    "text1": "Page not configured",
+    "text2": "Distribution page not configured",
+    "copy3": "Link copied, please open in browser",
+    "failed4": "Copy failed, please retry",
+    "text5": "Chat page not configured",
+    "confirm6": "Delete this conversation?"
   },
   "aiGroup": {
     "title": "Agent plaza",
@@ -1011,7 +1060,8 @@
     "email": "Email",
     "scanHint": "Scan to view card",
     "shareCard": "Share card",
-    "saveQrcode": "Save QR code"
+    "saveQrcode": "Save QR code",
+    "title": "Digital business card"
   },
   "exam": {
     "tabs": {
@@ -1866,7 +1916,8 @@
       "devNotice": "Developer Notice",
       "faqTitle": "A series of Q&A for developers?",
       "copy": "Copy",
-      "copySuccess": "Copied"
+      "copySuccess": "Copied",
+      "infoTitle": "Developer info"
     },
     "n8nModel": {
       "title": "N8N model",
@@ -2344,7 +2395,10 @@
       "thresholdText": "Spend {threshold}+",
       "expireText": "Valid until {time}",
       "use": "Use now",
-      "loadMore": "Pull up to load more"
+      "loadMore": "Pull up to load more",
+      "unused": "Unused",
+      "used": "Used",
+      "expired": "Expired"
     },
     "couponList": {
       "received": "Claimed",
@@ -2990,7 +3044,19 @@
     "recommendDesc": "Get premium content recommendations",
     "personalize": "Personalized recommendations",
     "personalizeDesc": "Personalized content based on your interests",
-    "privacyPolicy": "Privacy policy"
+    "privacyPolicy": "Privacy policy",
+    "status": {
+      "granted": "Granted",
+      "denied": "Denied",
+      "unknown": "Not authorized"
+    },
+    "permissions": {
+      "album": "Album Permission",
+      "camera": "Camera Permission",
+      "record": "Microphone Permission",
+      "location": "Location Permission",
+      "notification": "Notification Permission"
+    }
   },
   "page": {
     "vip": {
@@ -3274,7 +3340,8 @@
     "d46": "Voice Cloning Effect",
     "p1": "Image content",
     "p2": "Video content",
-    "p3": "Audio content"
+    "p3": "Audio content",
+    "r1": "Save image to album"
   },
   "aiassistant": {
     "text1": "Deep thinking...",
@@ -3329,7 +3396,9 @@
     "d1": "Camera",
     "d2": "Album",
     "d3": "Local files",
-    "d4": "WeChat files"
+    "d4": "WeChat files",
+    "p1": "Voice input in progress",
+    "p2": "Voice input"
   },
   "DrawerComponent": {
     "empty1": "No chat history",
@@ -3350,7 +3419,8 @@
     "mine2": "My AI Employees"
   },
   "shareCenterItem": {
-    "text1": "Recommendation Card"
+    "text1": "Recommendation Card",
+    "z1": "views"
   },
   "CourseHeader": {
     "text1": "Paid items"
@@ -3736,7 +3806,11 @@
   "LessonListItem": {
     "text1": "VIP only",
     "text2": "VIP only",
-    "y1": "people learned"
+    "y1": "people learned",
+    "z1": "people learned",
+    "z2": "people learned",
+    "p1": "VIP only",
+    "p2": "Paid items"
   },
   "UserInfoCard": {
     "login1": "One-tap login",
@@ -3922,7 +3996,8 @@
     "p2": "Scan to view"
   },
   "TagInput": {
-    "p1": "Press Enter to add"
+    "p1": "Press Enter to add",
+    "p2": "Limit reached"
   },
   "VipUpgradeToast": {
     "p1": "Upgrade to unlock more features"
@@ -3983,5 +4058,167 @@
     "q2": "Please use WeChat login in the WeChat mini program",
     "q3": "WeChat login code is empty",
     "q4": "WeChat user"
+  },
+  "TeamManager": {
+    "p1": "Inactive"
+  },
+  "VerifyCodeModal": {
+    "p2": "Resend",
+    "p3": "Verifying…"
+  },
+  "VideoInfo": {
+    "p1": "Video details"
+  },
+  "VideoPlayer": {
+    "p1": "Playback error"
+  },
+  "VoiceInput": {
+    "p1": "Failed to start recording"
+  },
+  "shareInformationItem": {
+    "z1": "views"
+  },
+  "permissionTier": {
+    "label": "Permission tier",
+    "mode": {
+      "default": {
+        "title": "Default mode",
+        "desc": "Every action requires manual approval; safest"
+      },
+      "plan": {
+        "title": "Read-only plan",
+        "desc": "Only reading and search allowed; file writes and commands are denied"
+      },
+      "accept-edits": {
+        "title": "Accept edits",
+        "desc": "Allowlisted actions run automatically; anything else asks first"
+      },
+      "bypass-permissions": {
+        "title": "Bypass permissions",
+        "desc": "Full access with no confirmations (high risk)"
+      },
+      "unknown": {
+        "title": "Unknown mode",
+        "desc": "Unrecognized permission mode; treated as default"
+      }
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "Preparing a reply…",
+        "1": "Organizing my thoughts…",
+        "2": "Got it, thinking through a response…",
+        "3": "Generating a reply for you…",
+        "4": "Question received, working on it…"
+      },
+      "middle": {
+        "0": "Still working on it…",
+        "1": "Picking up where we left off…",
+        "2": "Putting together the rest of the reply…",
+        "3": "Following up on your question…",
+        "4": "Generating what comes next…"
+      },
+      "followup": {
+        "0": "Reading your follow-up…",
+        "1": "Thinking it through with context…",
+        "2": "Organizing a reply to your follow-up…",
+        "3": "Follow-up received, on it…",
+        "4": "Adding to my answer…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "Allocating compute…",
+        "1": "Initializing the runtime…",
+        "2": "Starting the pipeline…",
+        "3": "Spinning up processing…",
+        "4": "Running the first pass…"
+      },
+      "middle": {
+        "0": "Executing…",
+        "1": "Crunching the numbers…",
+        "2": "Working through intermediate results…",
+        "3": "Still running, making progress…",
+        "4": "Computing, one moment…"
+      },
+      "followup": {
+        "0": "Recomputing…",
+        "1": "Continuing with your new input…",
+        "2": "Processing the addition…",
+        "3": "Updating the results…",
+        "4": "Handling the follow-up request…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "Reviewing conversation context…",
+        "1": "Loading relevant context…",
+        "2": "Sorting through background…",
+        "3": "Recalling related details…",
+        "4": "Gathering context…"
+      },
+      "middle": {
+        "0": "Connecting with earlier context…",
+        "1": "Thinking with context in mind…",
+        "2": "Glancing back at the thread…",
+        "3": "Context ready, working on it…",
+        "4": "Cross-checking previous messages…"
+      },
+      "followup": {
+        "0": "Reading your follow-up in context…",
+        "1": "Looking back at relevant context…",
+        "2": "Linking to earlier discussion…",
+        "3": "Checking against the thread…",
+        "4": "Working on it with context…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "Drafting a plan…",
+        "1": "Breaking down your request…",
+        "2": "Mapping out the steps…",
+        "3": "Analyzing the key points…",
+        "4": "Outlining the reply…"
+      },
+      "middle": {
+        "0": "Working through the plan…",
+        "1": "Moving to the next step…",
+        "2": "Plan in progress…",
+        "3": "Processing step by step…",
+        "4": "Carrying out the remaining steps…"
+      },
+      "followup": {
+        "0": "Adjusting the plan…",
+        "1": "Updating steps for your follow-up…",
+        "2": "Replanning…",
+        "3": "Filling in plan details…",
+        "4": "Following up on the new ask…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "Preparing a detailed answer…",
+        "1": "Organizing the details…",
+        "2": "Sorting the key points…",
+        "3": "Generating an in-depth reply…",
+        "4": "Fleshing out the answer…"
+      },
+      "middle": {
+        "0": "Adding details…",
+        "1": "Expanding the explanation…",
+        "2": "Polishing what comes next…",
+        "3": "Details in progress…",
+        "4": "Refining the reply…"
+      },
+      "followup": {
+        "0": "Adding the details you asked for…",
+        "1": "Expanding on your follow-up…",
+        "2": "Fleshing out the explanation…",
+        "3": "Preparing a supplement…",
+        "4": "Rounding out the follow-up answer…"
+      }
+    },
+    "vividTail": ", almost there"
   }
 }

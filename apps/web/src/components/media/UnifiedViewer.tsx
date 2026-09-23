@@ -6,12 +6,20 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { OfficeViewer } from './OfficeViewer'
 import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
+import {
+  PreviewFileUpdatedBar,
+  PreviewNoContentState,
+  PreviewSnapshotNotice,
+  usePreviewCopy,
+} from './preview-degradation-banner'
+import { usePreviewTextFeed } from './use-preview-staleness'
 
 interface UnifiedViewerProps {
   url: string
@@ -33,9 +41,13 @@ function detectKind(fileName: string): ViewerKind {
 }
 
 export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) {
+  const t = useTranslations('a11y')
+  const copy = usePreviewCopy(t)
   const kind = React.useMemo(() => detectKind(fileName), [fileName])
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const [textContent, setTextContent] = React.useState('')
+  const [isFullscreen, setIsFullscreen] = React.useState(false)
+  // 文本类走同一套"内容身份"状态机:重读失败时留住已记录的内容并明说它是历史快照
+  const feed = usePreviewTextFeed(kind === 'text' ? url : '')
 
   const toggleFullscreen = () => {
     const el = containerRef.current
@@ -44,19 +56,12 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
     else el.requestFullscreen()
   }
 
+  // 跟随浏览器事件而不是点击:用户按 Esc 退出全屏时,标签也得回正成"全屏"
   React.useEffect(() => {
-    if (kind !== 'text') return
-    let aborted = false
-    // 2026-09-09 0-5-f 豁免确认:文本预览的 url 可能是外部 OSS 地址,
-    // 裸 fetch 仅取纯文本;fetchApi 会向第三方注入鉴权头并按统一包装解析,不适用。
-    fetch(url)
-      .then((r) => r.text())
-      .then((t) => !aborted && setTextContent(t))
-      .catch(() => !aborted && setTextContent('无法加载文件内容'))
-    return () => {
-      aborted = true
-    }
-  }, [url, kind])
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
 
   const fmt = fileName.split('.').pop()?.toLowerCase() as 'glb' | 'gltf' | 'obj' | 'stl' | undefined
 
@@ -71,18 +76,20 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           <span className="truncate">{fileName}</span>
         </span>
         <div className="flex items-center gap-1">
-          <Tooltip content="下载">
+          <Tooltip content={t('download')}>
             <a
               href={url}
               download={fileName}
+              aria-label={t('download')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Download className="h-4 w-4" />
             </a>
           </Tooltip>
-          <Tooltip content="全屏">
+          <Tooltip content={isFullscreen ? t('exitFullscreen') : t('fullscreen')}>
             <button
               onClick={toggleFullscreen}
+              aria-label={isFullscreen ? t('exitFullscreen') : t('fullscreen')}
               className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Maximize2 className="h-4 w-4" />
@@ -110,16 +117,44 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
           </video>
         )}
         {kind === 'text' && (
-          <pre className="h-full overflow-auto bg-muted p-3 text-sm">
-            <code>{textContent}</code>
-          </pre>
+          <div
+            data-preview-state={feed.isRecord ? 'record' : 'current'}
+            className="flex h-full min-h-0 flex-col bg-muted"
+          >
+            {feed.fileUpdated && (
+              <PreviewFileUpdatedBar
+                copy={copy}
+                closeLabel={t('closeAlert')}
+                onApply={feed.applyLatest}
+                onDismiss={feed.dismissFileUpdated}
+              />
+            )}
+            <PreviewSnapshotNotice
+              isRecord={feed.isRecord}
+              notice={feed.notice}
+              readAt={feed.readAt}
+              copy={copy}
+            />
+            {feed.notice === 'no-content' ? (
+              <PreviewNoContentState
+                copy={copy}
+                refreshLabel={t('refresh')}
+                onRefresh={feed.refresh}
+                className="min-h-0 flex-1 justify-center"
+              />
+            ) : (
+              <pre className="min-h-0 flex-1 overflow-auto p-3 text-sm">
+                <code>{feed.content}</code>
+              </pre>
+            )}
+          </div>
         )}
         {kind === 'other' && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">不支持预览此文件格式</p>
+            <p className="text-sm">{t('unsupportedPreviewFormat')}</p>
             <a href={url} download={fileName} className="text-sm text-primary hover:underline">
-              下载文件
+              {t('downloadFile')}
             </a>
           </div>
         )}
