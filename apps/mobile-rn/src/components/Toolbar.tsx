@@ -239,7 +239,7 @@ export function Toolbar({
         style={({ pressed }) => [styles.bannerWrap, pressed ? styles.pressed : null]}
       >
         <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
-          <Bot size={64} color={tokens.text.secondary} />
+          <Bot size={56} color={tokens.brandAccent.DEFAULT} />
         </Animated.View>
         <View style={styles.bannerCard}>
           <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
@@ -410,10 +410,10 @@ const styles = StyleSheet.create({
   },
   bannerFloat: {
     position: 'absolute',
-    left: 20,
+    left: 16,
     top: 0,
-    width: 110,
-    height: 110,
+    width: 90,
+    height: 90,
     zIndex: 777,
     alignItems: 'center',
     justifyContent: 'center',
@@ -429,20 +429,20 @@ const styles = StyleSheet.create({
     height: 80,
     width: '100%',
     borderRadius: 15,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 130,
+    paddingLeft: 115,
     paddingRight: 16,
   },
   bannerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.brand.foreground,
+    color: tokens.text.primary,
   },
   bannerSub: {
     fontSize: 12,
-    color: tokens.gray['400'],
+    color: tokens.text.secondary,
     marginTop: 4,
   },
 
