@@ -15,10 +15,10 @@
  *   POST   /report                 用户主动上报可疑活动(无认证,带 rate limit)
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import type { Redis } from 'ioredis'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -68,23 +68,8 @@ const reportSchema = z.object({
 })
 
 /* -------------------------------------------------------------------------- */
-/* admin 守卫                                                                   */
+/* admin 守卫:O13b 试点批收敛 —— 直接复用集中封装(公开端点不受影响)            */
 /* -------------------------------------------------------------------------- */
-
-async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch {
-    reply.status(401).send(error(401, '需要登录'))
-    return false
-  }
-  const roleId = request.jwtPayload?.roleId ?? 0
-  if (roleId < 1) {
-    reply.status(403).send(error(403, '需要管理员权限'))
-    return false
-  }
-  return true
-}
 
 /* -------------------------------------------------------------------------- */
 /* 路由                                                                        */
@@ -137,7 +122,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 3. 查询 IP 信誉(仅 admin) ---------------------- */
   server.get<{ Params: { ip: string } }>('/ip-reputation/:ip', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { ip } = request.params
     const rep = await ipRep.getIpReputation(ip)
     return success(rep)
@@ -145,7 +131,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 4. 封禁 IP(仅 admin) ---------------------- */
   server.post('/block-ip', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = blockIpSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -160,7 +147,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 5. 解封 IP(仅 admin) ---------------------- */
   server.delete<{ Params: { ip: string } }>('/block-ip/:ip', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { ip } = request.params
     await ipRep.unblockIp(ip)
     logger.info('security: admin unblocked ip', { ip, by: request.userId })
@@ -169,7 +157,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 6. 查询异常事件列表(仅 admin) ---------------------- */
   server.get('/anomalies', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = anomaliesQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -221,7 +210,8 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
 
   /* ---------------------- 7. 威胁监控仪表盘(仅 admin) ---------------------- */
   server.get('/threat-dashboard', async (request, reply) => {
-    if (!(await requireAdmin(request, reply))) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const stats = request.server.threatDetector?.getStats()
     return success(
       stats ?? {
