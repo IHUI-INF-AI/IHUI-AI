@@ -158,7 +158,7 @@ export default function ImagePage() {
       {result ? (
         <View className="flex-1 flex items-center justify-center p-[32rpx]">
           <Image
-            className="max-w-full max-h-[600rpx] rounded-[16rpx]"
+            className="max-w-full max-h-[600rpx] rounded-lg"
             src={result}
             mode="aspectFit"
           />
@@ -174,19 +174,19 @@ export default function ImagePage() {
       {result ? (
         <View className="flex gap-[16rpx] px-[32rpx] pb-[16rpx]">
           <Button
-            className="flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
+            className="flex-1 text-[24rpx] rounded-md h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
             onClick={onDownload}
           >
             {t('ai.image.download')}
           </Button>
           <Button
-            className="flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
+            className="flex-1 text-[24rpx] rounded-md h-[80rpx] leading-[80rpx] border border-border bg-transparent text-muted-foreground"
             openType="share"
           >
             {t('ai.image.share')}
           </Button>
           <Button
-            className={`flex-1 text-[24rpx] rounded-[12rpx] h-[80rpx] leading-[80rpx] ${
+            className={`flex-1 text-[24rpx] rounded-md h-[80rpx] leading-[80rpx] ${
               isFavorited
                 ? 'bg-primary text-[var(--color-surface-light)]'
                 : 'border border-border bg-transparent text-muted-foreground'
@@ -204,7 +204,7 @@ export default function ImagePage() {
             {examples.map((ex) => (
               <Text
                 key={ex}
-                className="py-[12rpx] px-[24rpx] bg-muted rounded-[12rpx] text-[24rpx] text-muted-foreground"
+                className="py-[12rpx] px-[24rpx] bg-muted rounded-md text-[24rpx] text-muted-foreground"
                 onClick={() => setPrompt(ex)}
               >
                 {ex}
@@ -215,7 +215,7 @@ export default function ImagePage() {
       ) : null}
       <View className="py-[24rpx] px-[32rpx]">
         <Textarea
-          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-[12rpx] text-[24rpx] box-border"
+          className="w-full min-h-[192rpx] p-[24rpx] bg-transparent border border-border rounded-md text-[24rpx] box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
           maxlength={500}
@@ -226,7 +226,7 @@ export default function ImagePage() {
             {sizes.map((s) => (
               <Text
                 key={s.value}
-                className={`py-[12rpx] px-[24rpx] rounded-[12rpx] text-[20rpx] ${
+                className={`py-[12rpx] px-[24rpx] rounded-md text-[20rpx] ${
                   size === s.value
                     ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
@@ -243,7 +243,7 @@ export default function ImagePage() {
             {styles.map((s) => (
               <Text
                 key={s}
-                className={`px-[24rpx] py-[12rpx] text-[20rpx] rounded-[12rpx] ${
+                className={`px-[24rpx] py-[12rpx] text-[20rpx] rounded-md ${
                   style === s
                     ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                     : 'bg-secondary text-muted-foreground'
@@ -256,7 +256,7 @@ export default function ImagePage() {
           </View>
         ) : null}
         <Button
-          className="bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] rounded-[12rpx] text-[20rpx] font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
+          className="bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)] rounded-md text-[20rpx] font-medium mt-[32rpx] w-full h-[88rpx] leading-[88rpx] disabled:opacity-60"
           onClick={onGenerate}
           disabled={!prompt || loading}
         >
@@ -264,7 +264,7 @@ export default function ImagePage() {
         </Button>
       </View>
 
-      <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-[16rpx] border border-border p-[24rpx]">
+      <View className="mx-[24rpx] mt-[24rpx] mb-[48rpx] bg-card rounded-lg border border-border p-[24rpx]">
         <Text className="block text-[28rpx] font-medium text-foreground mb-[16rpx]">
           {t('ai.image.history')}
         </Text>
@@ -273,12 +273,12 @@ export default function ImagePage() {
             {history.map((h) => (
               <View
                 key={h.id}
-                className="flex items-center py-[16rpx] bg-background rounded-[12rpx] px-[16rpx]"
+                className="flex items-center py-[16rpx] bg-background rounded-md px-[16rpx]"
                 onClick={() => replayHistory(h)}
                 hoverClass="opacity-60"
               >
                 <Image
-                  className="w-[80rpx] h-[80rpx] rounded-[12rpx] mr-[16rpx]"
+                  className="w-[80rpx] h-[80rpx] rounded-md mr-[16rpx]"
                   src={h.url}
                   mode="aspectFill"
                 />
