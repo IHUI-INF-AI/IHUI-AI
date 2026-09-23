@@ -523,57 +523,80 @@ function anomalyLine(h) {
   return `⚠️ 检测到 .git 异常: pointer=${h.pointerOk} gitdir=${h.gitdirOk} git=${h.gitUsable}${hint}${refsHint}`
 }
 
+// —— 计划任务必须跑在非交互会话(2026-09-22 立「任务漂移自检」,2026-09-23 换 S4U 根治) ——
+// 本守护自己就是「弹窗」的高频嫌疑:它以独立进程跑,而计划任务若注册成 InteractiveToken +
+// 直跑控制台程序(node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗
+// (2026-09-20 实测踩坑;2026-09-22 复发:安装器早已修对,但活任务仍是直跑 node.exe 的旧版,
+// 没人重注册)。因此除 --install 外,常规巡检也核对活任务的 LogonType,漂移即自动重注册,不靠人记。
+// 2026-09-23 起形态改为 S4U(见 registerTask):任务跑在 session 0,没有桌面,弹窗这件事
+// 从"每个派生点都要记得隐藏"变成"结构上不可能"。
+
+function registerTask() {
+  // 2026-09-23:改注 S4U 非交互任务(session 0,无桌面)取代 InteractiveToken + wscript/VBS。
+  // 旧链路靠 SW_HIDE,一旦 Windows Terminal 委托回来(AGENTS.md §5b 记的 09-18 事故)或那个
+  // ASCII-only 的 .vbs 被删/被写入非 ASCII 文本(会弹 WSH 错误框),这层保护就连同我们最关键的
+  // .git 存续守护一起失效。S4U 是结构性的:无论任务里跑什么程序都开不出窗口。
+  const ps = [
+    `$action = New-ScheduledTaskAction -Execute '${process.execPath.replace(/'/g, "''")}' -Argument '"${join(WORKTREE, 'scripts', 'git-guardian.mjs').replace(/'/g, "''")}"'`,
+    `$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 2) -RepetitionDuration (New-TimeSpan -Days 3650)`,
+    `$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)`,
+    `$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType S4U -RunLevel Limited`,
+    `Register-ScheduledTask -TaskName '${TASK_NAME}' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null`,
+    `$p = (Get-ScheduledTask -TaskName '${TASK_NAME}').Principal`,
+    `Write-Output ('LOGON=' + $p.LogonType)`,
+  ].join('\n')
+  let out = ''
+  try {
+    out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 90_000,
+    })
+  } catch (e) {
+    log(`注册任务计划失败(需管理员权限?): ${String(e.message || e).slice(0, 300)}`)
+    return false
+  }
+  if (!/LOGON=S4U/.test(out)) {
+    log(`注册后回读 LogonType 非 S4U,拒绝当成成功:${out.trim().split('\n').slice(-3).join(' | ')}`)
+    return false
+  }
+  log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,LogonType=S4U → session 0,结构上无弹窗)`)
+  return true
+}
+
+/** 活任务是否仍是 S4U 非交互形态(防「被人改回 InteractiveToken / 任务被删」的漂移)。 */
+function taskActionOk() {
+  const ps = `$t = Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction SilentlyContinue; if ($t) { 'LOGON=' + $t.Principal.LogonType } else { 'MISSING' }`
+  let out = ''
+  try {
+    out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 30_000,
+    })
+  } catch {
+    return true // pwsh 不可用时不下判断,避免在巡检里反复重注册(宁不改也不误改)
+  }
+  return /LOGON=S4U/.test(out)
+}
+
 function main() {
   if (INSTALL) {
-    // 必须注册 wscript 包装而非 node.exe 本身:计划任务以 InteractiveToken 直接执行控制台程序
-    // (node.exe)时 Windows 会显示控制台 → 用户桌面每 2 分钟闪一扇黑窗(2026-09-20 实测踩坑)。
-    // 与本仓库既有任务(DevProcessCleanup / KillGitSelector)保持同一隐藏启动约定。
-    const vbs = join(WORKTREE, 'scripts', 'git-guardian-hidden.vbs')
-    if (!existsSync(vbs)) {
-      log(`注册失败:找不到隐藏启动包装 ${vbs}(勿改成直接执行 node.exe)`)
-      return 1
-    }
-    // 注册前预检:让包装器真跑一次并看退出码。cscript/wscript 按 ANSI 代码页解码 .vbs,
-    // 中文注释会被错切成伪引号导致**编译期**语法错(2026-09-20 实测踩过),而 wscript 下
-    // 该错误会弹 "Windows Script Host" 对话框且 schtasks 仍报成功 —— 只能靠这一步拦下。
-    let pre
-    try {
-      pre = execFileSync('cscript.exe', ['//nologo', vbs], {
-        stdio: 'pipe',
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 60_000,
-      })
-    } catch (e) {
-      log(`注册失败:git-guardian-hidden.vbs 预检未通过,勿注册坏包装器\n${e.stdout || ''}${e.stderr || e.message}`)
-      return 1
-    }
-    if (pre && /error/i.test(pre)) {
-      log(`注册失败:git-guardian-hidden.vbs 预检报错\n${pre}`)
-      return 1
-    }
-    const tr = `wscript.exe "${vbs}"`
-    try {
-      execFileSync(
-        'schtasks',
-        ['/create', '/tn', TASK_NAME, '/tr', tr, '/sc', 'minute', '/mo', '2', '/f'],
-        {
-          stdio: 'inherit',
-          windowsHide: true,
-        },
-      )
-      log(`已注册任务计划 "${TASK_NAME}"(每 2 分钟自检,经 git-guardian-hidden.vbs 静默启动)`)
-    } catch (e) {
-      log('注册任务计划失败(需管理员权限): ' + String(e.message || e))
-      process.exit(1)
-    }
-    return 0
+    return registerTask() ? 0 : 1
   }
 
   const before = status()
   if (STATUS_ONLY) {
     console.log(JSON.stringify(before, null, 1))
     return 0
+  }
+
+  // 任务漂移自检(2026-09-22 立):活任务曾被改回直跑 node.exe → Interactive 会话每 2 分钟
+  // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
+  // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
+  if (!CHECK_ONLY && !taskActionOk()) {
+    log('⚠️ 计划任务形态漂移(非 S4U 非交互,可能在桌面弹出控制台),自动重注册')
+    registerTask()
   }
 
   const coreOk = before.pointerOk && before.gitdirOk && before.gitUsable
