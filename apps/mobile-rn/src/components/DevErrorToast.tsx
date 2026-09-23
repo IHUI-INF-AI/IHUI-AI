@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     paddingVertical: BAR_PADDING_V,
     // 投影(Android elevation / iOS shadow)
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
