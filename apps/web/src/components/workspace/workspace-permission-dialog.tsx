@@ -14,7 +14,6 @@ import {
   Plus,
   RotateCcw,
   Shield,
-  Compass,
   ShieldAlert,
   ShieldCheck,
   Trash2,
@@ -60,24 +59,18 @@ const MODE_OPTIONS: Array<{
   icon: LucideIcon
   risk: 'low' | 'medium' | 'high'
 }> = [
-  { value: 'plan', icon: Compass, risk: 'low' },
   { value: 'default', icon: ShieldAlert, risk: 'low' },
   { value: 'accept-edits', icon: ShieldCheck, risk: 'medium' },
   { value: 'bypass-permissions', icon: Shield, risk: 'high' },
 ]
 
 /** i18n 静态映射表 — 用于消除 `t(\`mode.${var}.title\`)` / `t(\`mode.${var}.desc\`)` / `t(\`ruleType.${var}\`)` 动态拼接 */
-// G-164:两张表的键类型是 WorkspacePermissionMode(现含 plan)→ 必须列全 4 档,否则编译不过。
-// 但上方 MODE_OPTIONS **仍只给 3 档**:首次配置向导不主动推 plan(plan 由 popover /
-// Shift+Tab 显式选择),免得把"只读"当成新工作区的默认推荐。
 const MODE_TITLE_KEY: Record<WorkspacePermissionMode, string> = {
-  plan: 'mode.plan.title',
   default: 'mode.default.title',
   'accept-edits': 'mode.accept-edits.title',
   'bypass-permissions': 'mode.bypass-permissions.title',
 }
 const MODE_DESC_KEY: Record<WorkspacePermissionMode, string> = {
-  plan: 'mode.plan.desc',
   default: 'mode.default.desc',
   'accept-edits': 'mode.accept-edits.desc',
   'bypass-permissions': 'mode.bypass-permissions.desc',
