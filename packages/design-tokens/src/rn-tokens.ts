@@ -91,6 +91,8 @@ export const rnTokens = {
   },
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
+    /** 全屏 loading 遮罩:浅色下白纱,深色下黑纱(白纱压在深底上会整屏刺眼且让 secondary 文字不可读) */
+    loading: 'rgba(255,255,255,0.8)',
   },
   /** 全项目统一强调色(高级灰蓝,2026-09-14 用户定稿),对齐 web --color-brand-accent。
    * DEFAULT=按钮/填充底色(浅灰蓝),foreground=其上的文字色(深蓝灰,浅底白字不可读),
@@ -155,7 +157,7 @@ export type RnThemeTokens = {
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
   error: { bg: string; text: string }
-  overlay: { modal: string }
+  overlay: { modal: string; loading: string }
   /* brandAccent:高级灰蓝(2026-09-14 定稿)。DEFAULT=底色,foreground=其上文字,
    * deep=表面文字/图标变体,gradFrom/gradTo=CTA 局部渐变点缀。 */
   brandAccent: {
@@ -207,7 +209,7 @@ export const rnLightTokens: RnThemeTokens = {
   text: { primary: '#0A0A0A', secondary: '#666666', tertiary: '#A3A3A3', medium: '#404040' },
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
   error: { bg: '#FFE5E5', text: '#FF3333' },
-  overlay: { modal: 'rgba(0,0,0,0.4)' },
+  overlay: { modal: 'rgba(0,0,0,0.4)', loading: 'rgba(255,255,255,0.8)' },
   brandAccent: {
     light: '#eaf2f7',
     DEFAULT: '#8fb8cc',
@@ -272,7 +274,7 @@ export const rnDarkTokens: RnThemeTokens = {
   text: { primary: '#FAFAFA', secondary: '#A3A3A3', tertiary: '#737373', medium: '#D4D4D4' },
   border: { light: '#383838', medium: '#525252' },
   error: { bg: '#7F1D1D', text: '#FF3333' },
-  overlay: { modal: 'rgba(0,0,0,0.6)' },
+  overlay: { modal: 'rgba(0,0,0,0.6)', loading: 'rgba(0,0,0,0.6)' },
   brandAccent: {
     light: '#1e2e36',
     DEFAULT: '#a3c4d6',
