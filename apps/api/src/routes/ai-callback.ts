@@ -121,6 +121,14 @@ const persistedFallbackSchema = z.looseObject({
 // 每项一条字符串摘要;其余按 loose 透传。
 const persistedMemoryUpdatesSchema = z.array(z.string())
 
+// steerApplied(D33 剩余类,2026-09-24 立):中途引导注入记录,与 SSE steer(phase=injected)
+// 帧同一 drain 循环产出。text 由契约钉死(注入 messages 的原文),timestamp loose 透传。
+const persistedSteerAppliedSchema = z.array(
+  z.looseObject({
+    text: z.string(),
+  }),
+)
+
 // D33(2026-09-23 立):单条 metadata 序列化体积护栏。
 // 任一结构化值(JSON)超过 64KB 即降级为标注文本 { truncated: true, originalBytes },
 // 不丢字段(键保留)、不整条丢弃 —— 超大 citations/toolCalls/usageDetail 等仍能落库,
@@ -163,6 +171,8 @@ const callbackSchema = z.object({
   usageDetail: persistedUsageDetailSchema.optional(),
   fallback: persistedFallbackSchema.optional(),
   memoryUpdates: persistedMemoryUpdatesSchema.optional(),
+  // D33 剩余类(2026-09-24 立):中途引导注入记录通道(本轮无引导时不携带)
+  steerApplied: persistedSteerAppliedSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -208,7 +218,6 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       // 过程性元数据必须随入队 payload 下发:D24(toolCalls/terminalTasks)、2026-09-21
       // (planSteps)、G-166(citations/injections/compaction/retryNotice)在 callbackSchema
       // 逐字段校验(400 行为不变)之后,并入下方 metadata 构造点落库。
-      // usageDetail / fallback / memoryUpdates 仍只校验不接线(当前无消费者),属另一条待决项。
       const {
         content,
         reasoning,
@@ -223,6 +232,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         injections,
         compaction,
         retryNotice,
+        usageDetail,
+        fallback,
+        memoryUpdates,
+        steerApplied,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -272,9 +285,6 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               '[permission-stamp] 档位盖章失败(不影响消息落库)',
             )
           }
-          // G-165 盖章结果暂未并入入队 payload(接线属业务语义,不在本次类型修复范围),
-          // 保留 getPermission/permissionStamp 计算链路不变,仅 void 以满足 noUnusedLocals。
-          void permissionMeta
           await aiCallbackQueue.add('complete', {
             conversationId,
             userId,
@@ -310,8 +320,18 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
               ...(injections && injections.length > 0 ? { injections } : {}),
               ...(compaction ? { compaction } : {}),
               ...(retryNotice ? { retryNotice } : {}),
-              // 注:usageDetail / fallback / memoryUpdates 三道 D33 通道当前无测试断言、
-              // 亦无消费方,未接线(不顺手接,避免引入未被判据约束的行为);属另一条待决项。
+              // D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 接线 ——
+              // llm.py 发送端与 web 读回端(readUsageDetailFromMetadata 等)均已存在,
+              // 此前仅校验不落库导致三通道断链(2026-09-24 实测修复)。空值不写 key。
+              ...(usageDetail ? { usageDetail } : {}),
+              ...(fallback ? { fallback } : {}),
+              ...(memoryUpdates && memoryUpdates.length > 0 ? { memoryUpdates } : {}),
+              // D33 剩余类(2026-09-24 立):中途引导注入记录(空数组不写 key)
+              ...(steerApplied && steerApplied.length > 0 ? { steerApplied } : {}),
+              // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"。
+              // 消费方 apps/web/src/hooks/use-chat/history-message.ts 读 meta.permissionMode
+              // 渲染档位徽章 —— 章不入 payload 则该链路恒空(G-165 名存实亡)。
+              ...permissionMeta,
             }),
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
