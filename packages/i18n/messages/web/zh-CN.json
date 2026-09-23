@@ -7055,6 +7055,29 @@
       "rollbackConfirmConfirm": "确认恢复"
     },
     "pane": {
+      "agentActions": {
+        "title": "多智能体操作",
+        "header": { "count": "{count, plural, one {1 个智能体} other {# 个智能体}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "输入：{prompt}" },
+        "action": {
+          "spawn": { "label": "创建", "inProgress": "创建中", "completed": "已创建", "failed": "创建失败" },
+          "resume": { "label": "恢复", "inProgress": "恢复中", "completed": "已恢复", "failed": "恢复失败" },
+          "sendInput": { "label": "发送输入", "inProgress": "发送中", "completed": "已发送", "failed": "发送失败" },
+          "interrupt": { "label": "中断", "inProgress": "正在中断", "completed": "已中断", "failed": "中断未成功" },
+          "close": { "label": "关闭", "inProgress": "正在关闭", "completed": "已关闭", "failed": "无法关闭" },
+          "list": { "label": "列出", "inProgress": "加载中", "completed": "已加载", "failed": "加载失败" }
+        },
+        "state": {
+          "running": "运行中",
+          "completed": "已完成",
+          "errored": "出错",
+          "interrupted": "已中断",
+          "pendingInit": "准备中",
+          "shutdown": "已关闭",
+          "notFound": "找不到"
+        }
+      },
       "prChecks": {
         "title": "CI 检查",
         "summary": {

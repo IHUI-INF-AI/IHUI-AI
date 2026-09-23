@@ -7055,6 +7055,29 @@
       "rollbackConfirmConfirm": "復元"
     },
     "pane": {
+      "agentActions": {
+        "title": "マルチエージェント操作",
+        "header": { "count": "{count, plural, other {# 個のエージェント}}" },
+        "row": { "agent": "{action} {agent}{stateSuffix}" },
+        "meta": { "prompt": "入力：{prompt}" },
+        "action": {
+          "spawn": { "label": "作成", "inProgress": "作成中", "completed": "作成済み", "failed": "作成失敗" },
+          "resume": { "label": "再開", "inProgress": "再開中", "completed": "再開済み", "failed": "再開失敗" },
+          "sendInput": { "label": "入力送信", "inProgress": "送信中", "completed": "送信済み", "failed": "送信失敗" },
+          "interrupt": { "label": "中断", "inProgress": "中断中", "completed": "中断済み", "failed": "中断に失敗" },
+          "close": { "label": "閉じる", "inProgress": "閉じています", "completed": "閉じました", "failed": "閉じられません" },
+          "list": { "label": "一覧", "inProgress": "読み込み中", "completed": "読み込み済み", "failed": "読み込み失敗" }
+        },
+        "state": {
+          "running": "実行中",
+          "completed": "完了",
+          "errored": "エラー",
+          "interrupted": "中断済み",
+          "pendingInit": "準備中",
+          "shutdown": "終了済み",
+          "notFound": "見つかりません"
+        }
+      },
       "prChecks": {
         "title": "CI チェック",
         "summary": {

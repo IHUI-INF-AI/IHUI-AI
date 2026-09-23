@@ -2,7 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'manual'
+import type { PermissionModeId } from './permission-mode'
+
+/** 唯一真源见 ./permission-mode(G-161);此处保留旧名以不破坏既有 import。 */
+export type PermissionMode = PermissionModeId
 
 export type PermissionDecision = 'allow' | 'deny' | 'ask'
 
@@ -119,6 +122,51 @@ export interface PersonaContract {
 export type PersonaContracts = Record<string, PersonaContract>
 
 export type SessionStatus = 'running' | 'completed' | 'failed' | 'cancelled'
+
+/**
+ * D103 子智能体实例七态(P 协议层;对标 Codex `localConversation.multiAgentAction.agentState`)。
+ *
+ * **与 `SessionStatus` 的分工(不另建第二套枚举)**:
+ *   · `SessionStatus` 是**会话级**四态(粗粒度,用于会话列表/生命周期);
+ *   · 本枚举是**实例级**七态(细粒度),含会话级**完全没有**的三个终态 ——
+ *     `pendingInit`(已受理、尚未就绪)、`shutdown`(已关闭)、`notFound`(找不到;竞品有而我方此前无处表达)。
+ *   · 两者经 `sessionStatusFromInstance()` **单向下映射**;禁止两套各自演化后再互相比较。
+ *
+ * 现状取证(2026-09-23):运行时只产出 `subagentStart` / `subagentStop` 两个事件,故本枚举是**新增能力**,
+ * 消费方在事件落到七态之前不得假装已有细粒度状态。
+ */
+export const AGENT_INSTANCE_STATES = [
+  'running',
+  'completed',
+  'errored',
+  'interrupted',
+  'pendingInit',
+  'shutdown',
+  'notFound',
+] as const
+
+/** 子智能体实例态 */
+export type AgentInstanceState = (typeof AGENT_INSTANCE_STATES)[number]
+
+/**
+ * 实例七态 → 会话级四态(**唯一映射**;新增实例态时本函数会因 switch 不穷尽而编译失败,防漏改)。
+ * `pendingInit` 归 `running`(已受理未就绪仍处活动期);`shutdown` / `notFound` 归 `cancelled`。
+ */
+export function sessionStatusFromInstance(state: AgentInstanceState): SessionStatus {
+  switch (state) {
+    case 'running':
+    case 'pendingInit':
+      return 'running'
+    case 'completed':
+      return 'completed'
+    case 'errored':
+      return 'failed'
+    case 'interrupted':
+    case 'shutdown':
+    case 'notFound':
+      return 'cancelled'
+  }
+}
 
 export interface SessionMessage {
   role: 'user' | 'assistant' | 'system' | 'tool'
@@ -1332,14 +1380,13 @@ export interface AgentSSEEvent {
   type:
     | 'task_created' // 新任务入队
     | 'task_status_changed' // 状态流转
-    | 'task_progress' // 进度更新(in_progress 时)
     | 'task_completed' // 完成
     | 'task_failed' // 失败
-    | 'worker_status' // worker 状态变化
-    | 'dag_level_advanced' // DAG 层级推进
     | 'workspace_lock_acquired' // 工作区锁被获取(2-2)
     | 'workspace_lock_released' // 工作区锁被释放(2-2)
-    | 'log' // 日志输出
+    // D44(2026-09-23 收口):task_progress / worker_status / dag_level_advanced / log
+    // 为从未有生产点的死声明(WorkerPool._emit 只发 task_created/status_changed/
+    // completed/failed;apps/api 无 broadcastSSEEvent 写出),已从本联合类型回收,parity 不再登记。
   /** 关联任务 ID */
   taskId?: string
   /** 关联 worker ID */
