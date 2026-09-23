@@ -2205,6 +2205,40 @@ const checks = [
     ].join('\n'),
   },
 
+  {
+    // D71 错误码覆盖率对账。此前该门自己写明"不注册进 guardian-runner(他人 in-flight)",
+    // 2026-09-24 由守门接线对账(门 89)判为 R3 孤儿;实测真仓 exit 0 / 0.4s / 无写盘副作用
+    // / 自带 25+ 例 --self-test 反演 ⇒ 属"今天就能接"的那一枚,已接线并同步改掉头部那句。
+    // 守的是一整类静默失败:后端新增 errorCode 而界面把它压成同一句"AI 服务异常"。
+    id: '91',
+    label: '🧭 errorCode 覆盖率对账(blocking,零"未知错误"兜底,补装)',
+    script: 'check-error-code-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_ERROR_CODE_COVERAGE',
+    // 判据要扫 641 个文件提取显式 errorCode 字面量;仅在触及码面/词表/账本时跑,纯文档提交不背。
+    stagedTriggers: [
+      'packages/api-client/src/',
+      'apps/ai-service/app/',
+      'packages/shared/src/chat/error-catalog.ts',
+      'packages/i18n/messages/web/zh-CN.json',
+      'scripts/check-error-code-coverage.mjs',
+      'scripts/data/',
+    ],
+    onFailHint: [
+      '',
+      '  💡 有 errorCode 没进 `packages/shared/src/chat/error-catalog.ts`,或八类分类缺项 ⇒',
+      '     用户会看到笼统的"AI 服务异常"而不是具体原因(对标 Qoder 的码级标题)。',
+      '     修复:在该 catalog 补 `{ code: { category, titleKey, actionKey } }` 一条,',
+      '     并补 `packages/i18n/messages/*/`(五语言)对应标题/动作键;分类**复用 D92 的',
+      '     ViewFailureKind 15 类主干,禁止另起第二张表**(AGENTS §4/D71 硬约束)。',
+      '     单独复验:node scripts/check-error-code-coverage.mjs',
+      '     自检:node scripts/check-error-code-coverage.mjs --self-test',
+      '     紧急跳过(不推荐):HUSKY_SKIP_ERROR_CODE_COVERAGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',

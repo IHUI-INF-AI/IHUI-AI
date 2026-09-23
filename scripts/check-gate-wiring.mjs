@@ -429,6 +429,28 @@ export function findStaleExemptions(entries, gateSet) {
   return out
 }
 
+/**
+ * 纯函数:反向差集(R4)—— 已在权威点登记的门,但 AGENTS.md / README.md 通篇**没点过它的名**。
+ *
+ * 为什么需要:文档看不到的门,下一个人只会重复造或干脆绕过(实测三例在 hook.js 生效却零见于速查:
+ * `check-staged-files-count` / `check-portal-fixed` / `check-agent-engine-parity`;本仓又新增 85–89 五档)。
+ * 这与 R1/R2 是同一枚硬币的两面:R1/R2 拦"声称了却没接线",R4 拦"接线了却没声称"。
+ *
+ * ⚠️ **只报数,绝不参与退出码**:今天真仓有数十枚缺口,判红=上线即恒红=各会话 --no-verify
+ * 连带废掉全部守门(本仓优先级最高的反面教训)。升级 blocking 的前置 = 缺口清零。
+ * 比对用**去后缀的脚本名**(文档里 `scripts/foo.mjs` 与裸 `foo` 两种写法都出现过)。
+ */
+export function findUndocumentedGates(wiredScripts, docText) {
+  const doc = String(docText || '')
+  const out = []
+  for (const s of wiredScripts || []) {
+    if (typeof s !== 'string' || !s) continue
+    const stem = s.replace(/\.mjs$/, '')
+    if (!doc.includes(stem)) out.push(s)
+  }
+  return out
+}
+
 /** 纯函数:台账格式校验(缺 reason 视为不合规,须报出而非静默放过) */
 export function validateAllowlist(raw) {
   const problems = []
@@ -611,6 +633,19 @@ async function main(argv = process.argv.slice(2)) {
   const reds = [...by('red-r1'), ...by('red-r2')]
   const revocable = findRevocableExemptions(allowEntries, new Set(by('wired').map((r) => r.script)))
   const staleExempt = findStaleExemptions(allowEntries, new Set(gateNames))
+  // R4 反向差集(只报数):已接线但文档通篇没点名 ⇒ 文档看不见的门会被重复造或被绕过。
+  const readDoc = (p) => {
+    try {
+      return git(['show', `HEAD:${p}`], root)
+    } catch {
+      return ''
+    }
+  }
+  const docText = readDoc('AGENTS.md') + '\n' + readDoc('README.md')
+  const undocumented = findUndocumentedGates(
+    [...by('wired'), ...by('wired-weak')].map((r) => r.script),
+    docText,
+  )
 
   if (opts.json) {
     console.log(
@@ -626,8 +661,10 @@ async function main(argv = process.argv.slice(2)) {
             redR2: by('red-r2').length,
             unwiredUnclaimed: by('unwired-unclaimed').length,
             selfExempt: by('self-exempt').length,
+            undocumentedR4: undocumented.length,
           },
           reds,
+          undocumented: undocumented,
           unwiredUnclaimed: by('unwired-unclaimed').map((r) => r.script),
           wired: by('wired').map((r) => ({ script: r.script, where: r.strongPoints })),
           wiredWeak: by('wired-weak').map((r) => ({ script: r.script, where: r.weakPoints })),
@@ -647,6 +684,14 @@ async function main(argv = process.argv.slice(2)) {
         ` | 台账豁免 ${by('exempt').length} | 本门自身豁免 ${by('self-exempt').length}`,
     )
     console.log(`   R3(五处零命中且无任何已接线声称,仅报数): ${by('unwired-unclaimed').length} 枚`)
+    // R4 只报数,不影响退出码(缺口数十枚,判红=上线即恒红=全队 --no-verify)
+    console.log(
+      `   R4(已接线但 AGENTS.md/README.md 通篇未点名,仅报数): ${undocumented.length} 枚` +
+        (undocumented.length ? ' —— 文档看不见的门会被重复造或被绕过;清零后可升 blocking' : ''),
+    )
+    if (undocumented.length) {
+      console.log('     ' + undocumented.slice(0, 14).join(' ') + (undocumented.length > 14 ? ` …等 ${undocumented.length} 枚` : ''))
+    }
     if (by('unwired-unclaimed').length) {
       console.log(
         '     ' +
@@ -868,6 +913,20 @@ function runSelfTest() {
       'check-a.mjs',
     ).length === 1 &&
       findAgentsClaims(['- 别的说明。另见 `scripts/check-d.mjs`,该门 blocking。'], 'check-d.mjs').length === 1,
+  )
+
+  assert(
+    'P21 R4 负向:文档点过名的已接线门不得进"未覆盖"名单(含裸名与 scripts/ 前缀两种写法)',
+    findUndocumentedGates(
+      ['check-named.mjs', 'check-also-named.mjs'],
+      '本仓守门:`scripts/check-named.mjs`(blocking)。另见 check-also-named.mjs 的说明。',
+    ).length === 0,
+  )
+  assert(
+    'P22 R4 正向:接线了但两份文档通篇没点名的门必须进名单(且只报数不改退出码)',
+    findUndocumentedGates(['check-silent.mjs', 'check-named.mjs'], '只有 `scripts/check-named.mjs` 被写到。').join(
+      ',',
+    ) === 'check-silent.mjs',
   )
 
   // 端到端层(独立临时假仓库 + 显式 --root 注入:自测只改 cwd 会静默扫真仓)
