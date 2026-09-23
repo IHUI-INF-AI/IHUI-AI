@@ -19,7 +19,7 @@
  *   依赖后端 + 微信支付 SDK,以 onPay 回调预留,待接后端/微信支付,不引入新原生依赖
  * - 浅色优雅风,无渐变无霓虹,系统字体
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
 import { useState } from 'react'
 import { Check, ShoppingCart } from 'lucide-react-native'

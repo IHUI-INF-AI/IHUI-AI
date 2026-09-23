@@ -9,10 +9,10 @@
  * - 居中图标(emoji 或图片 URL)+ 文字 + 可选操作按钮。
  * - 默认图标 📭 + 文案"暂无数据"。
  * - 传入 actionText + onAction 时渲染操作按钮(对齐历史 action-btn)。
- * - 浅色优雅风;颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { PackageOpen, type LucideIcon } from 'lucide-react-native'
 

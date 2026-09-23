@@ -12,7 +12,7 @@
  * - 字数统计:输入框内右下角浮层,超过 90% 警告色
  *
  * 2026-07-30:对齐历史项目 InputArea(微信小程序 miniapp-taro 版本),
- * 适配 mobile-rn StyleSheet 写法,样式 token 全部走 @ihui/design-tokens(rnLightTokens)。
+ * 适配 mobile-rn StyleSheet 写法,样式 token 全部走 theme/active-tokens。
  *
  * 2026-08-16:复刻原 uniapp InputArea.vue 完整功能(1:1):
  * 1. 图片/视频/文档缩略图列表(imgs_list)+ 右上角删除按钮(close_input.png)
@@ -25,7 +25,7 @@
  * 复刻约束:
  * - 保留原 props 契约(value/onChangeText/placeholder/maxLength/onSubmit/disabled/
  *   loading/onStop/stopLabel),新增功能走「可选 props」,调用方不传时降级为原行为。
- * - 配色走 rnLightTokens,主色 brand.DEFAULT(黑)/成功 success.DEFAULT(绿)/
+ * - 配色走 主题 token 入口,主色 brand.DEFAULT(黑)/成功 success.DEFAULT(绿)/
  *   警告 warning.DEFAULT(橙)/错误 danger.DEFAULT(红),禁用 purple/indigo。
  * - 图标用 emoji/文字替代原图片(原图在 D:\历史项目存档\...\src\static\images\,
  *   均已存在于 apps/mobile-rn/assets/images/common/,此处为免去颜色/背景不确定风险统一用 emoji)。
@@ -50,7 +50,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUiTextField } from '../lib/use-ui-text-field'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { PlusButton } from './AddPanel'
 import {
@@ -377,7 +377,7 @@ export function InputArea({
           accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
           accessibilityState={{ expanded: false }}
         >
-          <Plus size={26} color={tokens.surface.light} />
+          <Plus size={26} color={tokens.brand.foreground} />
         </Pressable>
       </View>
     )
@@ -587,9 +587,9 @@ export function InputArea({
                 accessibilityLabel={sendLabel ?? 'send'}
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color={tokens.surface.light} />
+                  <ActivityIndicator size="small" color={tokens.brand.foreground} />
                 ) : (
-                  <Send size={16} color={tokens.surface.light} />
+                  <Send size={16} color={tokens.brand.foreground} />
                 )}
               </TouchableOpacity>
             )}
@@ -741,9 +741,9 @@ export function InputArea({
             accessibilityLabel={sendLabel ?? 'send'}
           >
             {loading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.foreground} />
             ) : (
-              <Send size={18} color={tokens.surface.light} />
+              <Send size={18} color={tokens.brand.foreground} />
             )}
           </TouchableOpacity>
         )
@@ -1087,7 +1087,7 @@ const styles = StyleSheet.create({
   },
   sendIcon: {
     fontSize: 18,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
 
