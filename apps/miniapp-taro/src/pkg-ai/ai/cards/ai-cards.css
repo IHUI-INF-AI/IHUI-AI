@@ -56,13 +56,6 @@
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
-.ai-card-section-note {
-  display: block;
-  margin-bottom: 10rpx;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-  line-height: 32rpx;
-}
 
 /* ============ 计划步骤卡片 ============ */
 .ai-card-plan-list {
