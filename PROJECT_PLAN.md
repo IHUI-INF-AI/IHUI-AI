@@ -32,6 +32,11 @@
 
 - [x] ✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension` 会顺带剪掉根 `node_modules` 里未选中包的链接(实测把 `lint-staged` 剪没了 → 每次 commit 必失败 → 人人 `--no-verify` → 109 道门全废)。跑全量 `pnpm install` 恢复,并验证 `node_modules/lint-staged/bin/lint-staged.js` 回位。**结论:本仓加 workspace 依赖一律跑全量 install,不得用 `--filter` 安装。**
 
+- [x] ✅(2026-09-23)真机交付:arm64 `assembleRelease` 出包(66MB)→ `adb install -r` **覆盖安装成功**(未卸载、用户数据与登录态零损失),设备 `c12617dd` 现跑 versionName 0.0.4;截屏自验「AI 应用商店」与「我的」两屏圆角已按档位统一
+- [x] ✅(2026-09-23)第 2 轮:对抗排查暴露守门三个盲区 → 补 B1 **字符串形态**(`borderRadius:'8px'` 55 处)、**B5 SVG `rx`/`ry`**(61 处)、B2 扩到名字不含 RADIUS 的常量(`BAR_RX`);`.svg` 不再当资产整体跳过,静态 svg 与 JSX 内联分两套语义;新增 `--files` 自验模式;自检 20 → 34 例(含 NaN 防回归);SCAN_DIRS 补 `apps/api/src`(swagger-theme 生成 CSS)
+- [x] ✅(2026-09-23)修 `patch-rn-release-signing.mjs` 模板漂移:锚点写死 `versionCode 1 / versionName "0.0.0"`,被手抬到 5 / 0.0.4 后静默不匹配 → `build-mobile-rn-release.ps1` 第 1 步 FAIL、整条 RN 出包流水线断;改为对当前值不敏感的正则 + 缺省沿用现值(防降级拒装)+ 匹配不到时显式报错;实测 4 段全注入、二次运行幂等跳过
+- [ ]（进行中）第 2 轮 128 点迁移(5 批并行,自验尺子=守门 `--files`)
+
 ### 影响面与豁免口径
 
 - 视觉会变(按用户要求收口到档位):偏档值就近吸附,等距取小(`10→8`、`7.5→8`、`12.5→12`、`15→16` 等);v3 端 `rounded-sm` 2px→4px(14 处)、裸 `rounded` 4px→8px(30 处)与 web 同名同值。
@@ -272,6 +277,20 @@
   (并发面从"每 push 一次"降到"最多一个排队"),文件内已写死这段实测取证与"勿改回 push 触发"的理由。
   代价是有意的:镜像延迟 0 → ≤20 分钟。GitHub 侧仍是每次 push 即时上线,不受影响。
 
+- **⚠️ 同日 13:46Z 复验:上面这条"修复"只完成了一半,我下结论下早了**。改完 4.5 小时后回查:
+  `mirror-to-cn` 的运行列表里 **`event=schedule` 一条都没有**(最后一条仍是 09:07Z 的 push),
+  而 ①workflow `state=active`、②Actions 权限全开、③同仓其他 workflow 的 schedule **当天照常触发**
+  (`Sync Downloads` 07:59Z、`loop-daily-triage` 02:34Z ⇒ 不是全仓调度故障)、④无 queued/in_progress
+  挡道、⑤手动 `POST /actions/workflows/{id}/dispatches` **立即 in_progress**(13:46:54Z)。
+  即:**额度/runner/仓库配置都好,只有那条 cron 不派生** ⇒ 我把触发从 push 换成定时之后,
+  镜像在自动通道上比改之前**更饿**(push 至少还会产生 run)。
+  归因尚未做完(候选:GitHub 对新增 schedule 的派生延迟/账户侧调度抑制),但**不能把它当"等 GitHub 自愈"**。
+  已做的收口:`check-credential-health.mjs` 增加 **国内镜像活性** 检查项 —— 取该 workflow 最近一次运行,
+  `in_progress/queued` 视为正常,否则按 `updated_at` 距今超阈值(默认 150 分,`IHUI_MIRROR_STALL_MIN` 可调)
+  判异常,并**顺手补发一次 `workflow_dispatch` 自愈**(每轮最多一次,不叠加):补发成功记 `limited` 并写明
+  "下轮复验",补发失败才记 `fail`。于是"镜像静默饿死"从**没人知道**变成"要么被踢活、要么巡检判红"。
+  判据细节:活性取 `updated_at` 而非 `created_at`(schedule 派生的 run `created_at` 会带排队提前量)。
+
 ### 复发风险(结构性,已量化,待作者定方案)
 
 冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
@@ -295,7 +314,7 @@
 当前缓解手段(已由本次验证有效):任一会话跑一次 `node scripts/git-sync-converge.mjs` 使
 本地==远端,部署环下一轮即可 `behind=0` 走"构建新鲜度"通道上线。
 
-### 三条机制化收口(2026-09-23 补,针对"就是要不可能再出现")
+### 四条机制化收口(2026-09-23 补,针对"就是要不可能再出现")
 
 上面的放大器归部署脚本作者所有,本次**不改其主体逻辑**,而是**在其之外**建独立观测与提交前拦截:
 
@@ -309,6 +328,10 @@
    判据:每个包声明的 `workspace:*` 依赖必须在 `<pkg>/node_modules` 或根 `node_modules` 可解析
    (跟随符号链接,悬空即红);扫不到包时 `exit 1` 而非报绿(自测里就抓到过一次"扫 0 个却绿灯")。
    取证含**反向对照**:临时改名真链接 → 闸报 `rc=1` 并点名 `@ihui/extension 缺 @ihui/design-tokens`,复原后归零。
+   **同日 14:2x 把口径的最后一个洞闭合**:`--staged` 原按"本次暂存改了哪些 `package.json`"收窄范围,
+   而这类破损恰恰与"改了什么"无关(手动删链接 / 他机跑过 `--filter` / 清理工具动过依赖树)——
+   按 staged 收范围会**放过整类**。现改为恒全量(25 个包实测约 1s,成本可忽略),并按新形态重做
+   反向对照:**暂存区为空 + 藏一条真链接 ⇒ `rc=1` 且点名**,复原归零。
    `--self-test` 9 例 + `node --test scripts/tests/check-workspace-dep-links.test.mjs` 7 例(含"装车证明")。
 2. **`scripts/check-credential-health.mjs` 独立巡检(计划任务 `IHUI credential-health`,每 6 小时)** ——
    它不看部署脚本自己怎么说,只看**外部地面真相**:① nssm 服务环境块里的口令 vs 权威口令表
@@ -323,6 +346,31 @@
    故障未能通报"本身作为一项 `fail` 判红**(即通道故障会持续出现在退出码与输出里);
    无论投递成败,告警正文一律先追加进 `.workbuddy/credential-health-alerts.log` 本地台账。
    `--test-alert` 提供通道自证入口(真发一条标明"非故障"的自测并回读每通结果)。
+
+4. **守门 80 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
+   起因是当天 `check-port-registry.mjs` 里一处 `execSync('git ls-files')` 没有 `timeout`,在共享工作区
+   挂住 **80 分钟而 CPU 只用了 2.84s**(等锁/等 IO 型挂起),`git status` 与 typecheck 都看不出任何异常。
+   全仓首参锚定实测 **159 处** git 派生调用**无一带 timeout** ⇒ 这是"没有约束",不是"个别疏忽"。
+   口径刻意收窄三条(与守门 52 同取向:宁漏不误报):① 只判钩子/守护链可达的 HOT 文件;
+   ② 只判**动词为字面量**的调用 —— 通用包装器(`git(args)` / `runGit(args)`)动词未知,
+   给它整体加超时会连带 bound 写操作,而 **`commit`/`add`/`reset`/`mktree` 被 SIGTERM 中途打断
+   可能留下 `.git/index.lock`**,等于把一次挂起换成全局阻塞(本门因此明确不判写动词,并**如实报数**);
+   ③ 只判只读动词表内的调用。`timeout` 的简写属性 `{ timeout }` 也算已封顶(真仓首跑就是被这条假红的)。
+   **存量随本门一并清零**(runner 3 处 + converge 4 处 + commit-loss-guard 默认值 1 处),不留基线债;
+   被改的 `git-sync-converge` 跑自身 `--self-test` 6/6 仍全绿,证明加超时未改行为。
+   **口径更正(写给接手的人,别把断言当证据)**:我在登记提交里写过"同号不影响执行、两扇门各自都会跑",当时**只有静态接线证据**
+   (`node scripts/guardian-runner.mjs --help` 的清单尾部确有 `78, 80, 79`),没有该轮 pre-commit 的执行行 ——
+   那一轮日志里 [79]/[80] 都没出现,最合理解释是并发会话按旧基线回写过 runner(§12 已知风险)。
+   教训:门的"装上了"必须同时给出 ①清单探针 ②一轮真实执行行,缺②就只能写成待证,不得写成结论。
+   自检 9 例里有一例专门钉"测试夹具/注释里的 git 字符串不得判红" —— 这个缺陷是自检自己抓出来的,
+   修法是 `markHidden`(字符串/注释区间掩码),不是调正则;镜像测试 7 例含**装车证明**。
+
+   **同日 14:05 的一次假阳性与修正(必须记)**:该巡检把"正在构建的这一轮"判成了停摆并发出了邮件
+   (14:02 起构建、14:06:21 成功,判红发在 14:05)。告警器乱叫就会被静音,而配额是 Server酱 5 条/天、
+   邮件 10 封/天 —— 所以加了**在飞护栏**:`deploy-loop.log` 最后一行仍是轮次中间产物(未出现
+   `轮询结束`/`部署完成` 这类边界)且写于 20 分钟内 ⇒ 判 `unknown` 不判 `fail`;边界之后(冷却/失败)
+   照判。自检补两条**成对**用例(同一输入:在飞 ⇒ `unknown` / 非在飞 ⇒ `fail`),防止护栏被改宽后
+   静默吞掉真故障 —— 现 15/15。14:10 实测:最后一行 `构建尝试 1/4`(1 分钟前)判 `unknown`,正确。
 
 **仍然存在的客观限制(不粉饰)**:部署脚本内部那条 12h 同签名去重(放大器 1)未改,归其作者定夺;
 本次是**在其之外**加了每 6 小时一次的独立观测 + 提交前的结构性拦截,把"两天无人知"压到"最多 6 小时"。
@@ -4236,7 +4284,7 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **该产物的可信度已量化,不可直接执行**:逐条回读原文核验得 **行号+styleName 命中率 182/260 = 70.0%**(78 条不中;成因一半是并发圆角会话正在移位、一半是代理自身错)。同一代理的另一项交付(媒体前景清单)被实测点出**两个根本不存在的落点**(`AigcCoverScreen.tsx:174`、`ImageGenHistoryScreen.tsx:338` 处 `grep surface.light` 均 0 命中)。故本文件只能当**待核验的起点**,按 §11 的"子代理交付须回读原文核验"逐条过,不得批量执行。
 - **族一/族二仍被并发会话整体阻塞**(判据见上一节):149 个含 `surface.light` 前景的文件**当前无一干净**。守门 75 的 R3 棘轮已锁住增量,故这些存量迁移**没有时效风险**(不会边迁边长),可安全等待。
 - 验证:`node scripts/heal-worktree-tracked.mjs --self-test` 14/14;`--align-drift` 不再崩;`node scripts/check-brand-foreground.mjs` 全量绿。
-- [ ]（进行中）RN 分类栏统一收口(承 2026-09-23 04:19 会话被取消的迁移,用户原话"所有的菜单栏分类栏没有设计好 统一 好看的符合项目统一的样式 点击后下拉窗的形式呈现 左右滑动"):地基 `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown}` 补包根导出(`@ihui/rn-app` 可直接 import,此前只到 `components/index.ts` 端内取不到)+ Dropdown 面板改 `ScrollView`(修"选项多于 8 条被 maxHeight+overflow:hidden 静默裁切")+ 圆角一律 `rnRadius` 档(对齐同日新立 §4 圆角单一源头)。**迁移面逐条落文件**:共享层 6 处 `packages/app/src/features/{square/SquareScreen,plaza/PlazaScreen,order/OrderScreen,team/TeamScreen,ranking/RankingScreen,token-value/TokenValueScreen}.tsx` + 端内 4 处 `apps/mobile-rn/src/{screens/ProfileScreen,screens/TokenValueScreen,screens/TopicListScreen,components/MaterialList}.tsx` + `apps/mobile-rn/src/screens/AgentScreen.tsx`(赛道弹层两横滑行,顺带删掉违规 `trackDivider` hairline 分割线)+ `packages/app/src/features/study-publish/StudyPublishScreen.tsx`(API 动态赛道列表改下拉窗,即 CategoryDropdown 的装车点)。收尾=升版重打 release + 真机逐处回归 + 孤儿组件(`StudyBar`/`SingleTypeBar`)按 §7 三问裁定。
+- [ ]（进行中）RN 分类栏统一收口(承 2026-09-23 04:19 会话被取消的迁移,用户原话"所有的菜单栏分类栏没有设计好 统一 好看的符合项目统一的样式 点击后下拉窗的形式呈现 左右滑动"):地基 `packages/app/src/components/category/{CategoryInlineBar,CategoryDropdown}` 补包根导出(`@ihui/rn-app` 可直接 import,此前只到 `components/index.ts` 端内取不到)+ Dropdown 面板改 `ScrollView`(修"选项多于 8 条被 maxHeight+overflow:hidden 静默裁切")+ 圆角一律 `rnRadius` 档(对齐同日新立 §4 圆角单一源头)。**迁移面 16 处**:共享层 9 屏(square/plaza/order/team/ranking/recruitment/token-value/study-index/study-publish,其中 study-publish 的 API 动态赛道 = CategoryDropdown 装车点)+ 端内 7 屏(ProfileScreen / TokenValueScreen / TopicListScreen / StudyIndexScreen / MaterialList / AgentScreen 赛道弹层双行并删违规 `trackDivider` hairline 分割线 / FenLeiOverlay 赛道行+分类网格双条)。孤儿裁定:`StudyBar`、`SingleTypeBar` 已零调用点(删除需同步下调 `scripts/radius-single-source-baseline.json` 的 2 条基线,本轮未做)。**真机取证(v0.0.4 / code 5 release 包,Hermes 字节码 bundle grep 命中 `CategoryInlineBar` / `agent-track-bar` / `ctaFill`)**:① 点顶栏「分类」弹出的那块当时仍是迁移清单外的 `FenLeiOverlay`(已补迁);② 像素直方图实测选中 chip 前景 = 深色 `ctaText` #16262E 而底色仍是容器同色 #1A1A1A —— `ctaFill` 根本没落上,即"选中态看不见";③ idle chip 以 `surface.card` 作底,落在同为 `surface.card` 的弹层面板上完全隐形。已修:idle 底改 `surface.muted` + 描边 `border.medium`(两套主题下与页面 bg / 面板 card 均不同档)。**根因未定**:曾按"Pressable 函数式 style 整条路径未生效"归因并把容器视觉移到普通 View 数组路径(该改动本身无害,少一个变量),但随即被反证 —— 全仓 58 个文件用同款 `style={({pressed}) => [base, active ? activeStyle : null]}`,其中 `SingleTypeBar.tsx:142-143` 与迁移前的 SquareScreen 内联条都是这条路径且真机显示正常;`ctaText`(#16262E)在同一 chip 上生效而 `ctaFill`(#a3c4d6)不生效,也排除了"整套 token 缺失"(dist 陈旧版两者皆无,若走 dist 文字应回落到 #A3A3A3)。待手机回线后先加高对比标记色(如临时 `#FF00FF`)做二分,再定是样式合并路径还是取色问题。待复验(设备 19:5x 起 `adb devices` 为空,kill-server 重连无效,USB 侧仍见 3 个 Composite Device)。
 
 ## P0 `.git` 存续事故处置 + 守门 77「提交内容含冲突标记」+ Esc 无层栈协议落地(2026-09-23 立并完成 ✅,单端工程治理:scripts + web + 文档)
 

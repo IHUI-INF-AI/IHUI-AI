@@ -89,7 +89,7 @@ export function TerminalTab({
         <Tooltip content={t('terminalTabBar.recording')}>
           <span
             className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
-            style={{ borderRadius: '50%' }}
+            style={{ borderRadius: '50%' }} // radius-exempt: 录制状态红色装饰圆点(真圆,方档化会破坏形状)
             aria-label={t('terminalTabBar.recording')}
           />
         </Tooltip>

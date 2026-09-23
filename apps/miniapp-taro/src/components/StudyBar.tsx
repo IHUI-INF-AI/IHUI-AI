@@ -4,6 +4,7 @@
 
 import { View, Text } from '@tarojs/components'
 import { useState, type CSSProperties } from 'react'
+import { rnRadius } from '@ihui/design-tokens'
 
 export interface StudyBarItem {
   id: number
@@ -24,7 +25,7 @@ const styles: Record<string, CSSProperties> = {
   },
   colorBg: {
     padding: '2rpx',
-    borderRadius: '15rpx',
+    borderRadius: rnRadius.lg,
     overflow: 'hidden',
     width: '100%',
   },
@@ -33,7 +34,7 @@ const styles: Record<string, CSSProperties> = {
     backgroundColor: 'var(--color-muted)',
     backgroundSize: '100% 100%',
     backgroundRepeat: 'no-repeat',
-    borderRadius: '16rpx',
+    borderRadius: rnRadius.lg,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -44,7 +45,7 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     margin: '0 6rpx',
     height: '52rpx',
-    borderRadius: '15rpx',
+    borderRadius: rnRadius.lg,
     color: 'var(--color-muted-foreground)',
     fontSize: '28rpx',
     fontWeight: 'normal',
@@ -56,7 +57,7 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
     margin: '0 6rpx',
     height: '52rpx',
-    borderRadius: '15rpx',
+    borderRadius: rnRadius.lg,
     color: 'var(--color-foreground)',
     fontSize: '28rpx',
     fontWeight: 'bold',
