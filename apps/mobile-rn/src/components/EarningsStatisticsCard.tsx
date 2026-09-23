@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   tabTextActive: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   tabDivider: {
