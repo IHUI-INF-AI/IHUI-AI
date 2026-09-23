@@ -783,6 +783,23 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **第十四批那句"解阻判据"已被本批取代**:不再需要等并发会话迁完 `post-commit`。
 - 提交:`1d8481736a`(1 文件 183+/90−)。
 
+### 第十六批(2026-09-23):重装确认页(维护页)样式统一 —— 实锤三缺陷与修复契约
+
+用户实测截图报障:"这个选择框怎么不是跟其他的统一的左右滑动的样式,还有文字样式也不对"。经真包实况取证(覆盖安装路径才会出现,是自更新/重装的必经页),页面**有**品牌底图但三处真实缺陷:
+
+- **① 动态控件全是 NSIS 默认字体**:`IHUI_SETFONT`(ihui-ui.nsi:266)发送的是 `WM_GETFONT` 从父窗口取回的 **NSIS 默认字体**(MS Shell Dlg → 宋体感),而位图文字用资产侧品牌字体(`desktop-installer-assets.mjs:79` = Microsoft YaHei UI 族)。说明行 R1("智汇AI x.y.z 已经安装了…")+ 两个 radio(原生圆点)与底图排版同屏两套字形;radio 是原生圆点小行,不是其他页的卡片/按钮语言 —— 即用户指认的"选择框样式不统一 + 文字样式不对"。
+- **② DPI 蒂换脆弱**:布局用 GUIINIT 时捕获的 `$IHUIDPI` 经 `IHUI_PX` 换算;实测(缩放被外部反复改的场景)页面内容按 1.5× 渲染 —— radio 逻辑 y=350 画到 ~525px、**CTA y=500 画到 ~750px 被裁出窗口外**,窗钮同样丢失;用户截图档位更差(底图整幅缺失,只剩原生控件)。本机缩放被外部进程持续改写(当日实测 96→144→168→96→144 五档),该页在每次蒂换后都可能踩中。
+- **③ 轨道语义错位**:`reinstall.bmp` 左轨高亮「02 安装位置」,但该页语义是"检测到已安装"的分流页,不是目录页。
+
+**修复契约(下一票执行,机制全部复用已验证件)**:
+1. 资产(`scripts/desktop-installer-assets.mjs`):重画 reinstall 场景 —— 轨道步点语义修正;**两个选项卡整卡烧入位图**(文字、边框、选中/未选中两态;选中指示可复用 `btn-toggle-on/off`),文字随位图获 DPI 免疫,顺带根治①的"两套字形"。
+2. NSIS(`ihui-ui.nsi` `IHUI_REINSTALLTHEME`):原生 radio **移出窗口保留活性**(`NSD_GetState` 在 leave 函数里仍要读状态),改由两张选项卡 overlay(`nsDialogs::CreateControl` + `NSD_OnClick` → 对隐藏 radio `BM_SETCHECK` + 换卡图)承担点击 —— 与本页 CTA(`IHUIReinstallNext`)同一已验证通路;R1 若保留动态版本行须改用品牌字体 `CreateFontW`(不得再走 `WM_GETFONT` 默认字体),否则一并烧图。
+3. DPI 加固:页显示时 `GetDpiForWindow($HWNDPARENT)` 重取 DPI 刷新 `$IHUIDPI` 再排版(或该页布局改以当前窗口实测矩形锚定),CTA/窗钮不再被裁。
+4. 守门(`check-installer-assets`):选项卡两态位图与 NSIS 埋点引用一致性纳入跨文件不变量(照第十三批三条的模板)。
+5. 验证:sandbox 编译 0 error + 真包覆盖安装实测(缩放稳定一档 + 蒂换中各截一轮),断言 CTA/窗钮在窗内、无原生字形露出的动态控件。
+
+**取证存档**:`.ihui-agent/tmp/installer-redesign/{maint-probe2.cjs, shot-maint2.png, enum-maint.txt}`(enum 显示主题宏完整执行:radio 已重定位 288,350/386、全幅底 1204、CTA 1203、窗钮 1205/1206 都在 —— 缺陷不在"没跑",在渲染结果不符合统一标准)。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
