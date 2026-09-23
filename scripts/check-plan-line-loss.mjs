@@ -144,7 +144,11 @@ export function registrationOf(line) {
   // ⚠️ 只有"新两族"才走行首编号判活。既有 214 条加粗 bullet(`- **G-166 第⑤步…**`)保持
   // 原文前缀文本搜索的旧语义 —— 一并收紧会把"把编号挪到句中重写"这类正当编辑判成丢失,
   // 误伤面不可估(本轮刻意按住)。
-  const shape = /^\s*[-*]\s\[[ xX]\]/.test(line) ? 'checkbox' : /^#{2,4}\s/.test(line) ? 'heading' : 'bold'
+  const shape = /^\s*[-*]\s\[[ xX]\]/.test(line)
+    ? 'checkbox'
+    : /^#{2,4}\s/.test(line)
+      ? 'heading'
+      : 'bold'
   const id = shape === 'bold' ? null : headIdOf(line)
   return { marker, id, shape }
 }
@@ -245,7 +249,7 @@ export function runCheck(isStaged) {
   const lost = lostMarkers(baseline, candidate).filter(
     (x) => !archivedCopy(x.marker) && !(x.id && archivedCopy(x.id)),
   )
-  return { ok: lost.length === 0, lost }
+  return { ok: lost.length === 0, lost, prose: proseLossReport(baseline, candidate) }
 }
 
 /**
@@ -300,6 +304,36 @@ export function missingFrom(seen, targetSrc) {
     missing.push(v)
   }
   return missing
+}
+
+/**
+ * **非登记行**的整行丢失计量(2026-09-24 补,本闸自身的覆盖面缺口)。
+ *
+ * 本闸只锚"编号登记行"(G-x/Dx/Px/Wx/守门 NN),而并发"按内存里旧计划文档整文件提交"
+ * 抹掉的大头恰恰是**不带编号的正文 bullet**(条目内的进度叙述、收口说明)——
+ * 实测本机 2026-09-24 04:5x:待提交内容与 HEAD 相比非登记行少 **813 行**,而登记行一条不少,
+ * 于是本闸报绿、13c(只认任务标题行)报绿、门 65(只数文件数)报绿 ⇒ **静默**。
+ * 门 71 自己的"无登记行丢失"这句绿灯,此前恰恰是这类事故的遮羞布。
+ *
+ * 刻意**只报数不阻塞**:改写措辞、段落重排、缩进归一都会命中同一形态,判红必然卡死
+ * 他人的正常 PLAN 提交(AGENTS §12 明确禁止把他人改动变成全局阻塞)。报数进 stdout,
+ * 由人(或后续把阈值接进 CI)决定要不要追。
+ */
+export function proseLossReport(baseSrc, targetSrc) {
+  const kept = new Set(
+    targetSrc
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean),
+  )
+  const lost = []
+  for (const raw of baseSrc.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    if (registrationOf(raw)) continue // 登记行由 missingFrom/lostMarkers 精确判,不重复计
+    if (!kept.has(line)) lost.push(line)
+  }
+  return { lostCount: lost.length, sample: lost.slice(0, 3) }
 }
 
 /**
@@ -400,6 +434,19 @@ function selfTest() {
       lostMarkers(base, base.replace('  - **普通说明**:这行没有编号,丢了也不该报。', '')).length ===
       0,
   )
+  t('同一形态由 proseLossReport 如实计量(非登记行丢失此前无任何门可见)', () => {
+    const r = proseLossReport(
+      base,
+      base.replace('  - **普通说明**:这行没有编号,丢了也不该报。', ''),
+    )
+    return r.lostCount === 1 && r.sample[0].includes('普通说明')
+  })
+  t('反向对照:内容一致 → prose 计量 0(不得把正常提交报成丢失)', () => {
+    return proseLossReport(base, base).lostCount === 0
+  })
+  t('登记行不重复计入 prose(红灯判据已覆盖,两条通道不得双计)', () => {
+    return proseLossReport(base, base.replace(/ {2}- \*\*G-166[^\n]*\n/, '')).lostCount === 0
+  })
   t(
     'markerOf 认 G-/D(含字母后缀)/P-x.n 编号并要求 bullet + 长度',
     () =>
@@ -549,46 +596,50 @@ function selfTest() {
         '- [x] ✅(2026-09-23) D51 对话流元素覆盖守门:新建 `scripts/check-chat-element-coverage.mjs`(注册进 guardian-runner)。',
       ) === 'D51' &&
       // 批次标题行
-      headIdOf('### 第二十批(2026-09-23):一条用于验证批次标题行首编号的登记标题,足够长。') === '第二十批' &&
+      headIdOf('### 第二十批(2026-09-23):一条用于验证批次标题行首编号的登记标题,足够长。') ===
+        '第二十批' &&
       // 加粗头紧跟编号 ⇒ 也算行首编号(让"改写成加粗形态"不被误判成丢失)
-      headIdOf('  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键,细节见提交说明。**') ===
-        'G-166' &&
+      headIdOf(
+        '  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键,细节见提交说明。**',
+      ) === 'G-166' &&
       // 反例:编号出现在正文中段(散文引用)、或短编号(P0/D6 两处必撞)都不给身份
       headIdOf(
         '  - **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编,O13b 第二段 ①②③⑤ 已落,仅剩 ④。',
       ) === null &&
-      headIdOf('- [ ] P0 这一行的编号只有两个字,全文必撞,不给身份也不给保护。足够长的一行说明文字内容。') === null
+      headIdOf(
+        '- [ ] P0 这一行的编号只有两个字,全文必撞,不给身份也不给保护。足够长的一行说明文字内容。',
+      ) === null
     )
   })
-  t(
-    '残余面根治:任务行整行被抹、但标题被别处原样引用时,行首编号这一路必须报出来',
-    () => {
-      const b = [
-        '### 某任务',
-        '- [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义。',
-        '  - **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编进集中封装,O13b 第二段 ①②③⑤ 已落,仅剩 ④ 升 blocking。',
-      ].join('\n')
-      // ① 旧判据的空转面:整行删掉后 `O13b 第二段` 仍能在那条进度行里搜到
-      const erased = b.replace(/^- \[ \] O13b[^\n]*\n/m, '')
-      const byText = erased.includes('O13b 第二段')
-      // ② 新判据必须报 1 条
-      const lost = lostMarkers(b, erased)
-      // ③ 反例 A:改写正文保留行首编号 → 不报
-      const reworded = b.replace('① 34 个白名单文件逐个迁移到集中封装并**删条目**', '① 换成 31 个文件')
-      // ④ 反例 B:整行改成已勾 + ✅(日期) 形态 → 不报(编号仍是行首)
-      const done = b.replace(
-        '- [ ] O13b 第二段(收敛本身,5 条可核算):',
-        '- [x] ✅(2026-09-23) O13b 第二段(收敛本身,5 条可核算):',
-      )
-      return (
-        byText &&
-        lost.length === 1 &&
-        lost[0].marker === 'O13b 第二段' &&
-        lostMarkers(b, reworded).length === 0 &&
-        lostMarkers(b, done).length === 0
-      )
-    },
-  )
+  t('残余面根治:任务行整行被抹、但标题被别处原样引用时,行首编号这一路必须报出来', () => {
+    const b = [
+      '### 某任务',
+      '- [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义。',
+      '  - **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编进集中封装,O13b 第二段 ①②③⑤ 已落,仅剩 ④ 升 blocking。',
+    ].join('\n')
+    // ① 旧判据的空转面:整行删掉后 `O13b 第二段` 仍能在那条进度行里搜到
+    const erased = b.replace(/^- \[ \] O13b[^\n]*\n/m, '')
+    const byText = erased.includes('O13b 第二段')
+    // ② 新判据必须报 1 条
+    const lost = lostMarkers(b, erased)
+    // ③ 反例 A:改写正文保留行首编号 → 不报
+    const reworded = b.replace(
+      '① 34 个白名单文件逐个迁移到集中封装并**删条目**',
+      '① 换成 31 个文件',
+    )
+    // ④ 反例 B:整行改成已勾 + ✅(日期) 形态 → 不报(编号仍是行首)
+    const done = b.replace(
+      '- [ ] O13b 第二段(收敛本身,5 条可核算):',
+      '- [x] ✅(2026-09-23) O13b 第二段(收敛本身,5 条可核算):',
+    )
+    return (
+      byText &&
+      lost.length === 1 &&
+      lost[0].marker === 'O13b 第二段' &&
+      lostMarkers(b, reworded).length === 0 &&
+      lostMarkers(b, done).length === 0
+    )
+  })
   t('healContent 走同一判据:编号仍是行首就不重复插,编号消失才回捞', () => {
     const task =
       '- [ ] O13c 第三段(收敛本身,若干条可核算):① 一条用于验证自愈判据一致性的登记行,正文可随便改写。'
@@ -833,11 +884,26 @@ if (isDirectRun) {
   }
   const isStaged = args.includes('--staged')
   try {
-    const { ok, lost } = runCheck(isStaged)
+    const { ok, lost, prose } = runCheck(isStaged)
+    /** 非登记行丢失只报数(理由见 proseLossReport 注释);阈值只影响措辞强度,不改变退出码 */
+    const reportProse = () => {
+      if (!prose?.lostCount) return
+      const head =
+        prose.lostCount >= 100
+          ? `❗ [plan-line-loss] 非登记行丢失 ${prose.lostCount} 行(≥100 高度疑似"旧基线整文件提交")`
+          : `ℹ️ [plan-line-loss] 非登记行比 HEAD 少 ${prose.lostCount} 行`
+      console.warn(
+        `${head} —— 本闸只锚编号登记行,这类行**不在红灯判据内**。\n` +
+          prose.sample.map((l) => `     样例: ${l.slice(0, 88)}`).join('\n') +
+          `\n     自查:确认这些行是否已被有意改写/归档(归档须落 .ihui-agent/archive/PROJECT_PLAN_*.md);\n` +
+          `           若确属误覆盖,按上面 1) 的三步从 HEAD 逐行取回后再提交。`,
+      )
+    }
     if (ok) {
       console.log(
         `✅ [plan-line-loss] PROJECT_PLAN.md 无登记行丢失(${isStaged ? '暂存区' : '工作区'})`,
       )
+      reportProse()
       process.exit(0)
     }
     console.error(

@@ -583,6 +583,8 @@
     }
   },
   "chatDisclosure": {
+    "steerTitle": "{count}회 유도됨",
+    "steerMore": "외 {count}건",
     "citationTitle": "참조 출처",
     "injectionTitle": "이번 응답에서 참조한 컨텍스트",
     "kindDeveloper": "사용자 지정 지침",

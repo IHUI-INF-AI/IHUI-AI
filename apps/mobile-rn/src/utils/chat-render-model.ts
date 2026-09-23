@@ -252,6 +252,51 @@ export function applyInjectionFrame(
   return prev
 }
 
+/** D106 Steer(中途引导)交代项:phase 当前仅 'injected'(预留扩展),
+ *  字段与 @ihui/api-client streamChat onSteer 载荷(packages/types chat.ts)严格对齐 */
+export interface SteerNotice {
+  phase: 'injected'
+  /** 用户引导文本(注入 messages 的原文) */
+  text: string
+  /** 入队时间(ISO,来自 steer 端点) */
+  timestamp?: string
+  /** 所属 assistant 消息 ID */
+  messageId?: string
+}
+
+/** 单条 assistant 消息的 steer 交代上限(对齐 web appendSteerNotice / 后端 _STEER_QUEUE_LIMIT) */
+export const STEER_NOTICE_MAX_PER_MESSAGE = 8
+
+/**
+ * steer 帧累积:一条回答可被多次中途引导,必须**追加**(对齐 web appendSteerNotice 口径)。
+ * 空文本/纯空白帧整帧丢弃(没有内容的引导交代对用户只有噪音);四个字段逐字段显式承接
+ * (各端 store 枚举式合并,未知字段静默丢,枚举内的字段一个都不许丢)。
+ */
+export function appendSteerFrames(
+  list: readonly SteerNotice[] | undefined,
+  event: SteerNotice,
+): SteerNotice[] {
+  if (typeof event?.text !== 'string' || event.text.trim().length === 0) {
+    return list ? [...list] : []
+  }
+  if ((list?.length ?? 0) >= STEER_NOTICE_MAX_PER_MESSAGE) {
+    return [...(list ?? [])]
+  }
+  return [
+    ...(list ?? []),
+    {
+      phase: 'injected',
+      text: event.text,
+      ...(typeof event.timestamp === 'string' && event.timestamp
+        ? { timestamp: event.timestamp }
+        : {}),
+      ...(typeof event.messageId === 'string' && event.messageId
+        ? { messageId: event.messageId }
+        : {}),
+    },
+  ]
+}
+
 export function applyTerminalEnd(
   list: readonly TerminalTaskItem[] | undefined,
   event: TerminalEndEvent,
