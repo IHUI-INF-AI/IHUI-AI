@@ -23,24 +23,6 @@ export interface TreeSelectProps {
   placeholder?: string
   disabled?: boolean
   className?: string
-  /** 界面文案注入(不传的键回退 DEFAULT_TREE_SELECT_LABELS 简体中文 — 不注入即不本地化) */
-  labels?: Partial<TreeSelectLabels>
-}
-
-/** TreeSelect 界面文案(占位/搜索/树容器无障碍名/空状态),由消费端注入 */
-export interface TreeSelectLabels {
-  placeholder: string
-  searchPlaceholder: string
-  treeAriaLabel: string
-  emptyText: string
-}
-
-/** i18n 默认值(不传 labels 时回退到简体中文) */
-const DEFAULT_TREE_SELECT_LABELS: TreeSelectLabels = {
-  placeholder: '请选择',
-  searchPlaceholder: '搜索...',
-  treeAriaLabel: '树形选择',
-  emptyText: '暂无数据',
 }
 
 interface TreeNodeBuilt extends TreeNode {
@@ -98,11 +80,7 @@ function filterVisible(nodes: TreeNodeBuilt[], q: string): Set<string> {
 }
 
 const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
-  ({ value, onChange, data, placeholder, disabled, className, labels: labelsProp }, ref) => {
-    const labels = React.useMemo<TreeSelectLabels>(
-      () => ({ ...DEFAULT_TREE_SELECT_LABELS, ...labelsProp }),
-      [labelsProp],
-    )
+  ({ value, onChange, data, placeholder = '请选择', disabled, className }, ref) => {
     const [open, setOpen] = React.useState(false)
     const [search, setSearch] = React.useState('')
     const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
@@ -149,9 +127,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
       return q ? filterVisible(tree, q) : null
     }, [tree, search])
 
-    const triggerLabel = selectedPath
-      ? selectedPath.map((n) => n.label).join(' / ')
-      : (placeholder ?? labels.placeholder)
+    const triggerLabel = selectedPath ? selectedPath.map((n) => n.label).join(' / ') : placeholder
 
     const toggleExpand = (id: string) =>
       setExpanded((prev) => {
@@ -233,7 +209,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
           <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-popover rounded-md border bg-popover text-popover-foreground shadow-md">
             <div className="border-b px-2 py-1.5">
               <SearchInput
-                placeholder={labels.searchPlaceholder}
+                placeholder="搜索..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -241,15 +217,9 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
                 wrapperClassName="w-full"
               />
             </div>
-            <div
-              className="max-h-64 overflow-auto p-1"
-              role="tree"
-              aria-label={labels.treeAriaLabel}
-            >
+            <div className="max-h-64 overflow-auto p-1" role="tree" aria-label="树形选择">
               {tree.length === 0 ? (
-                <div className="py-6 text-center text-sm text-muted-foreground">
-                  {labels.emptyText}
-                </div>
+                <div className="py-6 text-center text-sm text-muted-foreground">暂无数据</div>
               ) : (
                 renderNodes(tree, 0)
               )}
