@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
@@ -107,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -121,7 +122,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     scoreCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       alignItems: 'center',
       marginBottom: 12,
@@ -135,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
     metaPill: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     metaPillText: { fontSize: 14, color: tk.text.primary },
@@ -148,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

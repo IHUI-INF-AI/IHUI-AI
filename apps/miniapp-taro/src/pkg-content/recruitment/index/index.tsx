@@ -200,7 +200,7 @@ export default function RecruitmentIndexPage() {
             bg danger.bright, 文字 17dp=34rpx bold color surface.light */}
         <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_var(--color-black-6)] flex justify-center">
           <View
-            className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[34rpx] font-bold rounded-[16rpx] flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
+            className={`w-[250rpx] h-[84rpx] bg-[var(--color-danger-bright)] text-[var(--color-surface-light)] text-[34rpx] font-bold rounded-lg flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
             onClick={onApply}
             hoverClass="opacity-60"
           >

@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -234,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
@@ -243,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -254,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.sm },
     statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
@@ -272,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
     actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
