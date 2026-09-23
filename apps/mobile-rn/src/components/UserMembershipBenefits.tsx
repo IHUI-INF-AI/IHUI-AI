@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   expireText: {
     fontSize: 12,
-    color: tokens.text.tertiary,
+    color: tokens.text.secondary,
   } as TextStyle,
   benefitList: {
     gap: 10,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   tierNormal: {
-    color: tokens.text.tertiary,
+    color: tokens.text.secondary,
   } as TextStyle,
   tierMember: {
     color: GOLD,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   openBtn: {
     height: 44,
     borderRadius: 12,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   openBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brandAccent.foreground,
   } as TextStyle,
   pressed: { opacity: 0.85 } as ViewStyle,
 })
