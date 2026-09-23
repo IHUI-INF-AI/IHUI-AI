@@ -62,21 +62,11 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day') {
-  const head = [
-    groupBy === 'day' ? '日期' : '模型',
-    '调用次数',
-    '总Token',
-    'PromptToken',
-    'CompletionToken',
-    '成功',
-    '失败',
-    '消耗(元)',
-    'BYOK调用',
-    '中转站调用',
-    '上游成本(元)',
-    '平台服务费(元)',
-  ]
+/**
+ * 表头由调用方(组件内)取好词再传入:模块层无法取词。
+ * 列顺序与下方 rows 的值顺序一一对应,改动需同步。
+ */
+function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day', head: readonly string[]) {
   const lines = rows.map((r) =>
     [
       r.groupKey,
@@ -100,15 +90,17 @@ function exportCsv(rows: UsageRow[], groupBy: 'model' | 'day') {
   a.download = `relay-usage-${groupBy}-${Date.now()}.csv`
   a.click()
   URL.revokeObjectURL(url)
-  toast.success('已导出 CSV')
 }
 
 /** 调用模式徽章:仅 BYOK=绿 / 仅中转站=灰 / 混合=蓝 */
 function ModeBadge({ byok, relay }: { byok: number; relay: number }) {
+  // 变量名不得与同文件其他 useTranslations 绑定重名:check-i18n-keys 与本仓契约测试都按
+  // "文件内 var → ns" 归集,重名会让后声明的绑定覆盖先声明的,把在用的键误判成缺失/孤儿。
+  const tMode = useTranslations('developer.relayUsage')
   if (byok > 0 && relay > 0) {
     return (
       <span className="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-        混合
+        {tMode('modeMixed')}
       </span>
     )
   }
@@ -121,7 +113,7 @@ function ModeBadge({ byok, relay }: { byok: number; relay: number }) {
   }
   return (
     <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-      中转站
+      {tMode('modeRelay')}
     </span>
   )
 }
@@ -163,7 +155,21 @@ interface ApiKeyOption {
 export default function RelayUsagePage() {
   const locale = useLocale()
   const t = useTranslations('developer')
+  const tu = useTranslations('developer.relayUsage')
   const num = new Intl.NumberFormat(locale)
+  // 金额走 Intl,币种符号由 locale 决定(不把符号焊进文案)
+  const money = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  const money4 = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })
 
   // 基础用量筛选
   const [groupBy, setGroupBy] = React.useState<'model' | 'day'>('model')
@@ -222,7 +228,7 @@ export default function RelayUsagePage() {
         credentials: 'include',
       })
       if (!res.ok) {
-        let msg = '导出失败'
+        let msg = tu('exportFailed')
         try {
           const j = await res.json()
           if (j?.message) msg = j.message
@@ -256,20 +262,34 @@ export default function RelayUsagePage() {
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <Activity className="h-6 w-6 text-primary" aria-hidden />
-            用量明细
+            {tu('title')}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            按模型或按日查看中转站 / BYOK 调用统计
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{tu('subtitle')}</p>
         </div>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => exportCsv(rows, groupBy)}
+          onClick={() => {
+            exportCsv(rows, groupBy, [
+              groupBy === 'day' ? tu('colDate') : tu('colModel'),
+              tu('csvCalls'),
+              tu('csvTotalTokens'),
+              tu('csvPromptTokens'),
+              tu('csvCompletionTokens'),
+              tu('colSuccess'),
+              tu('colFailure'),
+              tu('colCostYuan'),
+              tu('csvByokCalls'),
+              tu('csvRelayCalls'),
+              tu('colUpstreamCostYuan'),
+              tu('colPlatformFeeYuan'),
+            ])
+            toast.success(tu('exportedCsv'))
+          }}
           disabled={rows.length === 0}
         >
           <Download className="h-4 w-4" aria-hidden />
-          导出 CSV
+          {t('analytics.exportCsv')}
         </Button>
       </div>
 
@@ -278,22 +298,22 @@ export default function RelayUsagePage() {
       {/* 基础用量筛选 */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={mode} onValueChange={(v) => setMode(v as ModeFilter)}>
-          <SelectTrigger className="w-32" aria-label="调用模式">
+          <SelectTrigger className="w-32" aria-label={tu('callMode')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全部</SelectItem>
-            <SelectItem value="relay">中转站</SelectItem>
+            <SelectItem value="all">{tu('modeAll')}</SelectItem>
+            <SelectItem value="relay">{tu('modeRelay')}</SelectItem>
             <SelectItem value="byok">BYOK</SelectItem>
           </SelectContent>
         </Select>
         <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'model' | 'day')}>
-          <SelectTrigger className="w-32" aria-label="分组">
+          <SelectTrigger className="w-32" aria-label={tu('grouping')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="model">按模型</SelectItem>
-            <SelectItem value="day">按日</SelectItem>
+            <SelectItem value="model">{tu('groupByModel')}</SelectItem>
+            <SelectItem value="day">{tu('groupByDay')}</SelectItem>
           </SelectContent>
         </Select>
         <Input
@@ -301,31 +321,40 @@ export default function RelayUsagePage() {
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
           className="w-40"
-          aria-label="起始日期"
+          aria-label={tu('startDate')}
         />
         {startDate && (
           <Button size="sm" variant="ghost" onClick={() => setStartDate('')}>
-            清除
+            {tu('clear')}
           </Button>
         )}
       </div>
 
       {/* 基础用量汇总卡片 */}
       <div className="grid grid-cols-2 gap-3 min-[768px]:grid-cols-3 min-[1024px]:grid-cols-6">
-        <SummaryCard label="总调用" value={summary ? num.format(summary.totalCalls) : '—'} />
-        <SummaryCard label="总 Token" value={summary ? num.format(summary.totalTokens) : '—'} />
         <SummaryCard
-          label="总消耗"
-          value={summary ? (summary.totalCostCents / 100).toFixed(2) + ' 元' : '—'}
-        />
-        <SummaryCard label="BYOK 调用" value={summary ? num.format(summary.byokCallCount) : '—'} />
-        <SummaryCard
-          label="BYOK 上游成本"
-          value={summary ? (summary.upstreamCostCents / 100).toFixed(4) + ' 元' : '—'}
+          label={tu('totalCalls')}
+          value={summary ? num.format(summary.totalCalls) : '—'}
         />
         <SummaryCard
-          label="BYOK 平台服务费"
-          value={summary ? (summary.platformFeeCents / 100).toFixed(4) + ' 元' : '—'}
+          label={tu('totalTokens')}
+          value={summary ? num.format(summary.totalTokens) : '—'}
+        />
+        <SummaryCard
+          label={tu('totalCost')}
+          value={summary ? money.format(summary.totalCostCents / 100) : '—'}
+        />
+        <SummaryCard
+          label={tu('byokCalls')}
+          value={summary ? num.format(summary.byokCallCount) : '—'}
+        />
+        <SummaryCard
+          label={tu('byokUpstreamCost')}
+          value={summary ? money4.format(summary.upstreamCostCents / 100) : '—'}
+        />
+        <SummaryCard
+          label={tu('byokPlatformFee')}
+          value={summary ? money4.format(summary.platformFeeCents / 100) : '—'}
         />
       </div>
 
@@ -335,17 +364,19 @@ export default function RelayUsagePage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left">{groupBy === 'day' ? '日期' : '模型'}</th>
-                <th className="px-3 py-2 text-right">调用</th>
-                <th className="px-3 py-2 text-right">总 Token</th>
+                <th className="px-3 py-2 text-left">
+                  {groupBy === 'day' ? tu('colDate') : tu('colModel')}
+                </th>
+                <th className="px-3 py-2 text-right">{tu('calls')}</th>
+                <th className="px-3 py-2 text-right">{tu('totalTokens')}</th>
                 <th className="px-3 py-2 text-right">Prompt</th>
                 <th className="px-3 py-2 text-right">Completion</th>
-                <th className="px-3 py-2 text-right">成功</th>
-                <th className="px-3 py-2 text-right">失败</th>
-                <th className="px-3 py-2 text-left">调用模式</th>
-                <th className="px-3 py-2 text-right">消耗(元)</th>
-                <th className="px-3 py-2 text-right">上游成本(元)</th>
-                <th className="px-3 py-2 text-right">平台服务费(元)</th>
+                <th className="px-3 py-2 text-right">{tu('colSuccess')}</th>
+                <th className="px-3 py-2 text-right">{tu('colFailure')}</th>
+                <th className="px-3 py-2 text-left">{tu('callMode')}</th>
+                <th className="px-3 py-2 text-right">{tu('colCostYuan')}</th>
+                <th className="px-3 py-2 text-right">{tu('colUpstreamCostYuan')}</th>
+                <th className="px-3 py-2 text-right">{tu('colPlatformFeeYuan')}</th>
               </tr>
             </thead>
             <tbody>
@@ -353,13 +384,13 @@ export default function RelayUsagePage() {
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
                     <Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden />
-                    加载中...
+                    {t('loading')}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-3 py-8 text-center text-muted-foreground">
-                    暂无数据
+                    {t('noData')}
                   </td>
                 </tr>
               ) : (
@@ -434,22 +465,22 @@ export default function RelayUsagePage() {
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             className="w-40"
-            aria-label="结束日期"
+            aria-label={tu('endDate')}
           />
           <Input
             type="text"
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            placeholder="模型(可选)"
+            placeholder={tu('modelOptional')}
             className="w-44"
-            aria-label="模型筛选"
+            aria-label={tu('modelFilter')}
           />
           <Select value={apiKeyId} onValueChange={setApiKeyId}>
-            <SelectTrigger className="w-48" aria-label="API Key 筛选">
-              <SelectValue placeholder="全部 API Key" />
+            <SelectTrigger className="w-48" aria-label={tu('apiKeyFilter')}>
+              <SelectValue placeholder={tu('allApiKeys')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">全部 API Key</SelectItem>
+              <SelectItem value="">{tu('allApiKeys')}</SelectItem>
               {keyOptions.map((k) => (
                 <SelectItem key={k.id} value={k.id}>
                   {k.name}
@@ -462,7 +493,7 @@ export default function RelayUsagePage() {
         {anaLoading ? (
           <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" aria-hidden />
-            加载中...
+            {t('loading')}
           </div>
         ) : !analytics || analytics.latency.count === 0 ? (
           <div className="rounded-lg border border-border bg-card p-3 min-[640px]:p-3 text-center text-sm text-muted-foreground">
@@ -477,7 +508,7 @@ export default function RelayUsagePage() {
                 {t('analytics.costCard')}
               </h3>
               <p className="mt-2 text-3xl font-bold tabular-nums">
-                ¥{(analytics.cost.actualCents / 100).toFixed(2)}
+                {money.format(analytics.cost.actualCents / 100)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{t('analytics.actualPrice')}</p>
               {analytics.cost.standardCents !== null && (
@@ -485,18 +516,16 @@ export default function RelayUsagePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">{t('analytics.standardPrice')}</span>
                     <span className="tabular-nums">
-                      ¥{(analytics.cost.standardCents / 100).toFixed(2)}
+                      {money.format(analytics.cost.standardCents / 100)}
                     </span>
                   </div>
                   {analytics.cost.standardCents - analytics.cost.actualCents > 0.005 && (
                     <div className="mt-1 flex items-center justify-between text-emerald-600 dark:text-emerald-400">
                       <span>{t('analytics.saved')}</span>
                       <span className="tabular-nums">
-                        ¥
-                        {(
-                          (analytics.cost.standardCents - analytics.cost.actualCents) /
-                          100
-                        ).toFixed(2)}
+                        {money.format(
+                          (analytics.cost.standardCents - analytics.cost.actualCents) / 100,
+                        )}
                       </span>
                     </div>
                   )}
@@ -526,8 +555,12 @@ export default function RelayUsagePage() {
                     />
                   </div>
                   <div className="mt-2 flex justify-between text-xs text-muted-foreground tabular-nums">
-                    <span>读 {num.format(analytics.tokens.cacheRead)}</span>
-                    <span>写 {num.format(analytics.tokens.cacheCreation)}</span>
+                    <span>
+                      {tu('cacheRead', { count: num.format(analytics.tokens.cacheRead) })}
+                    </span>
+                    <span>
+                      {tu('cacheWrite', { count: num.format(analytics.tokens.cacheCreation) })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -575,7 +608,7 @@ export default function RelayUsagePage() {
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium">{e.endpoint}</span>
                       <span className="tabular-nums text-muted-foreground">
-                        {num.format(e.calls)} · ¥{(e.costCents / 100).toFixed(2)}
+                        {num.format(e.calls)} · {money.format(e.costCents / 100)}
                       </span>
                     </div>
                     <div className="mt-1 h-2 w-full overflow-hidden rounded-sm bg-muted">
@@ -623,7 +656,7 @@ export default function RelayUsagePage() {
                   >
                     <span className="truncate font-medium">{m.model}</span>
                     <span className="text-muted-foreground">
-                      {num.format(m.calls)} · ¥{(m.costCents / 100).toFixed(2)}
+                      {num.format(m.calls)} · {money.format(m.costCents / 100)}
                     </span>
                   </div>
                 ))}
