@@ -12,10 +12,9 @@
  * 平台特有:依赖 react-native Image require + SafeAreaView,不适合共享层。
  */
 import { useCallback } from 'react'
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { tokens } from '../theme/active-tokens'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 
 // ── tabbar 图片资源(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
@@ -99,16 +98,11 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
               onPress={handlePress(tab.key)}
               style={tabBarStyleSheet.item}
             >
-              {/* 2026-09-23 修复 P1:选中态顶部指示条(3px 高品牌强调色,左右留边圆角)。
-                  原选中态仅白色 vs 灰色文字,区分度极低;新增指示条 + 品牌色文字 + 粗体三重区分。 */}
-              {isActive ? <View style={localStyles.activeIndicator} /> : null}
               <TabBarIcon tab={tab} isActive={isActive} />
               <Text
                 style={[
                   tabBarStyleSheet.label,
-                  isActive
-                    ? [tabBarStyleSheet.labelActive, localStyles.labelActiveOverride]
-                    : tabBarStyleSheet.labelInactive,
+                  isActive ? tabBarStyleSheet.labelActive : tabBarStyleSheet.labelInactive,
                 ]}
                 numberOfLines={1}
               >
@@ -128,36 +122,9 @@ interface TabBarIconProps {
 }
 
 function TabBarIcon({ tab, isActive }: TabBarIconProps) {
-  // 双图模式:各自独立 inactive/active 资源(对齐原 tabbar_1~5 图标)。
-  // 2026-09-23 修复 P1:选中态加 tintColor 品牌强调色,让图标也呈现品牌色高亮。
+  // 双图模式:各自独立 inactive/active 资源(对齐原 tabbar_1~5 图标)
   return (
-    <Image
-      source={isActive ? tab.iconActive : tab.iconInactive}
-      style={tabBarStyleSheet.icon}
-      tintColor={isActive ? tokens.brandAccent.deep : undefined}
-    />
+    <Image source={isActive ? tab.iconActive : tab.iconInactive} style={tabBarStyleSheet.icon} />
   )
 }
-
-/**
- * 本地内联样式(覆盖 TabBar.styles.ts 中无法修改的 labelActive)。
- * TabBar.styles.ts 不在本任务可修改文件清单,故在此覆盖。
- */
-const localStyles = StyleSheet.create({
-  /** 选中态顶部指示条:3px 高,品牌强调色,左右各留 12dp 边距,小圆角 */
-  activeIndicator: {
-    position: 'absolute',
-    top: 0,
-    left: 12,
-    right: 12,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: tokens.brandAccent.deep,
-  },
-  /** 选中态文字覆盖:品牌强调色 + 粗体,替代原白色 brand.DEFAULT */
-  labelActiveOverride: {
-    color: tokens.brandAccent.deep,
-    fontWeight: '600',
-  },
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
