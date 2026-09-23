@@ -3888,3 +3888,21 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - 验证:`pnpm --filter @ihui/mobile-rn typecheck` 源码 0 错(仅剩已登记的他人测试 `TS6196`)。
 - **平台独占豁免依据(§9)**:改动仅 `apps/mobile-rn/App.tsx` 入口的 web 分支门条件,不触他端。
 - [x] ✅(2026-09-23) **守门 30a 恒红一并消除**:`check-commit-loss-guard` 报 445 个 `lost-commit/*` tag 仅本地未推 + 1 个 `backup/*` 仅远端未回捞 ⇒ 每次提交都被拦(又一道逼各会话 `--no-verify` 的系统性红门)。按 §22「自动化 tag 同步」跑 `sync-lost-commit-tags.mjs --fetch` + `--auto-push`(不使用 `--force`)。复测:未检测到 reset、无未备份悬空 commit、**4506 个 tag 对象全可达且本地+远端完全一致**,30a 真实退出码 0。**本会话累计消除的系统性红门:44(根目录白名单)/ 30a(tag 未同步)/ refsOk 假红(判据缺陷)**,当前仅剩 57 —— 属他人半编辑态,见下条。
+
+## P1 守门 75 扩 R3「纯白填充」棘轮 + 补 R1 共享包盲区(2026-09-23 立并完成 ✅,单端工程治理:scripts + README)
+
+> 承「主 CTA 深色档立档」一节。那节留下一个结构性风险:立了 `brand.ctaFill` 却**没有任何闸**
+> 阻止新代码继续用 `brand.DEFAULT` 作填充 —— 即"造好没装车"的第三种形态。本票补这道闸,
+> 并在补闸过程中发现并修掉 R1 的一个真实盲区。
+
+- [x] ✅(2026-09-23) **R1 补盲(真缺陷,非增强)**:原判据 `R1_BG=/backgroundColor:\s*tokens\.brand\.DEFAULT\b/` **只认 `tokens.` 前缀**,而 `packages/app` 共享组件一律写 `tk.`(`createStyles(tk)`)⇒ **整个共享包从未在 R1 视野内**。已泛化为 `(?:tokens|tk)` 并把扫描范围扩到 `packages/app/src`(552 文件,原 332)。**补盲后实测现存违规 0 处** —— 用守门自己导出的 `extractStyleChunks` 复算"同块共现"语义得 0;先前用 ±6 行窗口粗估出的"144 处"是**假数**(语义与 R1 不同),已按真实语义校正。**这是补漏不是放宽**。
+- [x] ✅(2026-09-23) **R3 纯白填充棘轮(新立)**:`(backgroundColor|borderColor): (tokens|tk).brand.DEFAULT` 每文件计数对 `brand-foreground-baseline.json` 新增键 `ctaCounts` 只减不增。存量 **154 文件 / 260 处**冻结。R2 的 `counts` 保持原口径(仅 `apps/mobile-rn/src`),**没有**顺手扩范围——扩了会把未登记的存量一律判红。
+- [x] ✅(2026-09-23) **基线一律按 HEAD 建,不取工作区**:直接跑 `--update-baseline` 会做两件错事 —— ① 按**工作区**重算 R2 基线,而工作区里有他人**未提交**的深色在飞改动(计划已点名 `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),等于替别人的在飞工作**调高基线**(§70 明禁);② 与 `--staged` 同用时拿暂存子集覆盖全量基线,未暂存文件下次恒红。故本次基线用一次性脚本按 `git show HEAD:<path>` 生成并**逐字校验 R2 `counts` 未变**;同时给 `--update-baseline` 加了拒绝 `--staged` 的硬闸。
+- [x] ✅(2026-09-23) **有效性取证(不采信"应该能用")**:
+  - **A/B 变异**:同一 `tk.brand.DEFAULT` + `tk.surface.light` 块喂给 **HEAD 版**守门 → 命中 **0**(盲区实锤);喂给新版 → 命中 **1**。
+  - **注入探针**:新建含 1 处 `brand.DEFAULT` 填充的临时文件 → R3 点名 `__r3-probe.tsx: 1 > 基线 0` 判红;删除探针 → 全量回绿。探针已清除且 `git status` 无残留。
+  - `--self-test` 由 10 例增至 **18 例**(补盲 3 + R3 5),全绿。
+- [x] ✅(2026-09-23) **README 同步(§21 触发:守门规则新增)**:第 75 项小节改写为 R1/R2/R3 三条判据 + 补盲说明 + 基线口径。**顺带校正一处文档漂移**:原文写"`--self-test` 11 例",HEAD 实际 assert 数是 **10**;现按 18 例如实登记。README 工作副本**落后于 HEAD**(连第 75 小节都没有),故同样走"HEAD blob + 精确替换 + 前向提交",未整份取工作副本。
+- **判据边界(为什么 R3 是棘轮而非零容忍)**:260 处存量里真正该改的是"主 CTA / 选中态"族,其余(徽章、描边、媒体浮层底)语义各异,须逐处判衬底 —— 另一个会话正在做这份 244 处决策表。R3 的作用是把**增量**堵住,使存量只能随复核推进而单调下降;若一上来就零容忍,等于逼所有人 `HUSKY_SKIP_BRAND_FOREGROUND=1`,反而废掉全部守门(见 §"一道红门会废掉全部守门")。
+- 验证:`node scripts/check-brand-foreground.mjs --self-test` exit 0;全量 `✅ 552 文件,R1=0,R2/R3 全部 ≤ 基线`;`node --check` 通过;水印 `verify` 完整。
+- **紧急跳过**:`HUSKY_SKIP_BRAND_FOREGROUND=1`(不变);**基线收紧**:`node scripts/check-brand-foreground.mjs --update-baseline`(仅全量口径,人工确认后)。
