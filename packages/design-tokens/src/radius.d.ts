@@ -13,6 +13,8 @@ export declare const RADIUS_REM: Record<RadiusStep, string>
 export declare const RADIUS_CSS_VAR: Record<RadiusStep, string>
 /** RN / JS 数值消费入口 */
 export declare const rnRadius: Record<RadiusStep, number>
+/** 生成独立 HTML / 注入式 CSS 字符串时的档位表达式(如 `4px`),值源自本表 */
+export declare const RADIUS_CSS_PX: Record<RadiusStep, string>
 /** 去重后的档位 px 升序清单 */
 export declare const RADIUS_SCALE_PX: number[]
 /** rpx(750 稿半单位)→ 档位名,无精确档位返回 null */

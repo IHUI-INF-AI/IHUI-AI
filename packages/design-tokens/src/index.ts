@@ -152,6 +152,7 @@ export {
 export {
   RADIUS_STEPS,
   RADIUS_REM,
+  RADIUS_CSS_PX,
   RADIUS_CSS_VAR,
   RADIUS_SCALE_PX,
   rnRadius,

@@ -53,6 +53,15 @@ export const RADIUS_CSS_VAR = {
 /** RN / JS 侧消费入口:StyleSheet.create 里写 borderRadius: rnRadius.lg */
 export const rnRadius = RADIUS_STEPS
 
+/**
+ * 生成「独立 HTML / 注入式 CSS 字符串」时用的档位表达式(cli 分享页、设计模板、扩展 content script
+ * 这类拿不到应用 :root 的场合)。用法是模板字面量插值,值仍来自本表,不得再抄一份数字:
+ *   `border-radius: ${RADIUS_CSS_PX.md};`
+ */
+export const RADIUS_CSS_PX = Object.fromEntries(
+  Object.entries(RADIUS_STEPS).map(([step, px]) => [step, `${px}px`]),
+)
+
 /** 档位取值集合(px),供守门判定 */
 export const RADIUS_SCALE_PX = [...new Set(Object.values(RADIUS_STEPS))].sort((a, b) => a - b)
 
