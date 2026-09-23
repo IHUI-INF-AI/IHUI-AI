@@ -1,0 +1,32 @@
+{
+  "$comment": "scripts/check-gate-wiring.mjs 的豁免台账。只登记「结构上不该由五处权威接线点接」的脚本(分发器 / 被 import 的库 / 纯 CLI 工具 / 端内 package.json 调用)。严禁为消除 R1/R2 红点而登记 —— 判据顺序已把这一点钉死:凡头部或 AGENTS.md 声称已接线者,台账一律不救(自检 M0/M2 用例钉住)。已接线却仍挂在本台账里的条目会被报「可撤销豁免」,防幂等守卫只判存在而冻结冗余。",
+  "updatedAt": "2026-09-24",
+  "entries": [
+    {
+      "script": "guardian-utils.mjs",
+      "type": "standalone-tool",
+      "reason": "守门脚本共享工具模块(库,被 import 而非被调用);名字被 ^(guard) 前缀误收进被测全集,不存在接线点"
+    },
+    {
+      "script": "scan-upstream-models.mjs",
+      "type": "standalone-tool",
+      "reason": "上游 provider 模型扫描注册机(生成器,人工/运维触发写库),不属提交门禁,不进 pre-commit 热路径"
+    },
+    {
+      "script": "check-lock.mjs",
+      "type": "dispatcher",
+      "dispatcher": "apps/web/package.json prebuild/predev",
+      "reason": "dev-vs-build 互斥锁检查器,调用点在端内包的 prebuild/predev 钩子(非根 package.json,不属五处权威点);部署侧另有 deploy-lock.mjs"
+    },
+    {
+      "script": "check-messages-dev-restart.mjs",
+      "type": "standalone-tool",
+      "reason": "i18n messages 变更后提示重启 dev server 的开发期提醒脚本,不判成败、不阻断提交"
+    },
+    {
+      "script": "check-p2-3-acceptance.mjs",
+      "type": "standalone-tool",
+      "reason": "P2-3 一次性验收脚本(历史里程碑),长期挂守门链无意义,人工按需复跑"
+    }
+  ]
+}
