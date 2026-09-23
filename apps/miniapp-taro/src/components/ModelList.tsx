@@ -6,7 +6,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { useState, useMemo } from 'react'
 import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { cn } from '@ihui/design-tokens'
+import { cn, rnRadius } from '@ihui/design-tokens'
 import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
@@ -102,14 +102,14 @@ export default function ModelList({
                 margin: '5rpx 0',
                 padding: '0 15rpx',
                 background: 'var(--color-muted)',
-                borderRadius: rpx(15),
+                borderRadius: rnRadius.lg,
               }}
             >
               <View
                 style={{
                   width: rpx(40),
                   height: rpx(40),
-                  borderRadius: rpx(8),
+                  borderRadius: rnRadius.sm,
                   background: 'var(--color-border)',
                 }}
               />
@@ -119,7 +119,7 @@ export default function ModelList({
                   width: rpx(160),
                   height: rpx(16),
                   background: 'var(--color-border)',
-                  borderRadius: rpx(4),
+                  borderRadius: rnRadius.xs,
                 }}
               />
             </View>
@@ -143,7 +143,7 @@ export default function ModelList({
         className="flex flex-col"
         style={{
           background: 'transparent',
-          borderRadius: rpx(15),
+          borderRadius: rnRadius.lg,
           padding: '10rpx 0 0',
         }}
       >
@@ -168,7 +168,7 @@ export default function ModelList({
               <Image
                 src={mianLabelIcon}
                 mode="widthFix"
-                style={{ width: rpx(40), height: rpx(40), borderRadius: rpx(8) }}
+                style={{ width: rpx(40), height: rpx(40), borderRadius: rnRadius.sm }}
               />
               <Text
                 className="ml-[10rpx]"
@@ -227,7 +227,7 @@ export default function ModelList({
                   style={{
                     width: rpx(40),
                     height: rpx(40),
-                    borderRadius: rpx(8),
+                    borderRadius: rnRadius.sm,
                     background: 'var(--color-muted)',
                   }}
                 >
@@ -278,7 +278,7 @@ export default function ModelList({
                     style={{
                       width: rpx(32),
                       height: rpx(32),
-                      borderRadius: rpx(16),
+                      borderRadius: rnRadius.lg,
                       background: 'var(--color-foreground)',
                     }}
                   >
@@ -335,7 +335,7 @@ export default function ModelList({
                           style={{
                             width: rpx(40),
                             height: rpx(40),
-                            borderRadius: rpx(8),
+                            borderRadius: rnRadius.sm,
                             background: 'var(--color-muted)',
                           }}
                         >
@@ -372,7 +372,7 @@ export default function ModelList({
                             style={{
                               width: rpx(32),
                               height: rpx(32),
-                              borderRadius: rpx(16),
+                              borderRadius: rnRadius.lg,
                               background: 'var(--color-foreground)',
                             }}
                           >

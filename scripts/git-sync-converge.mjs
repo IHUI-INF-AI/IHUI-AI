@@ -348,6 +348,34 @@ try {
   /* 清理失败不阻塞收敛 */
 }
 
+/**
+ * 收敛成功后顺手对齐工作区幻影漂移(2026-09-23 立)。
+ * 本器走 merge-tree/commit-tree/update-ref,只推进 HEAD 与 index、**从不 checkout**(§12d
+ * "零触碰他人未提交文件"),于是每收敛一次,工作区就多一批落后文件 —— 实测本仓曾累计
+ * 503 个文件落后 486 个提交,任何会话 `git add <file>` 都会把别人的改动静默回滚。
+ * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
+ * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
+ * 失败只记日志,绝不影响收敛结论(推送已成功)。
+ */
+function alignWorktreeAfterHeadMove() {
+  try {
+    const out = execFileSync(
+      process.execPath,
+      ['scripts/heal-worktree-tracked.mjs', '--align-drift', '--json'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, cwd: repoRoot },
+    )
+      .trim()
+      .split('\n')
+      .pop()
+    const r = JSON.parse(out || '{}')
+    if (r.aligned) {
+      log(C.dim, `  🧹 工作区幻影漂移已对齐 ${r.aligned} 个文件(HEAD 前进未 checkout 的后遗症)`)
+    }
+  } catch (e) {
+    log(C.yellow, '  工作区漂移对齐未完成(不影响收敛结论): ' + String((e && e.message) || e).slice(0, 140))
+  }
+}
+
 for (let round = 1; round <= maxRounds; round++) {
   log(C.dim, `── 第 ${round}/${maxRounds} 轮 ──`)
   git(['fetch', 'origin', branch])
@@ -466,6 +494,7 @@ for (let round = 1; round <= maxRounds; round++) {
   log(C.dim, `  后台推送结果: ${result}`)
   if (result === 'done') {
     log(C.green, `✅ 推送收敛成功:${myHead.slice(0, 11)}`)
+    alignWorktreeAfterHeadMove()
     process.exit(0)
   }
   if (result === 'superseded') {
@@ -475,6 +504,7 @@ for (let round = 1; round <= maxRounds; round++) {
   const nowRemote = git(['rev-parse', `origin/${branch}`])
   if (nowRemote === git(['rev-parse', 'HEAD'])) {
     log(C.green, `✅ 推送收敛成功:${nowRemote.slice(0, 11)}`)
+    alignWorktreeAfterHeadMove()
     process.exit(0)
   }
   log(C.yellow, `  第 ${round} 轮未落地(远端 ${nowRemote.slice(0, 11)}),继续下一轮`)

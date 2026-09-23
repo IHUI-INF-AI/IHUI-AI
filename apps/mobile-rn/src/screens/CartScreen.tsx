@@ -36,7 +36,7 @@ import {
   selectGoods,
   type CartGoods,
 } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import {
   ConfirmPurchasePopUp,
@@ -364,13 +364,13 @@ const createStyles = (tk: RnThemeTokens) =>
       marginHorizontal: rpx(24),
       marginTop: rpx(24),
       padding: rpx(24),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     checkbox: {
       width: rpx(40),
       height: rpx(40),
-      borderRadius: rpx(20),
+      borderRadius: rpx(40) / 2, // radius-exempt: 见方勾选圈(20dp),半径=边长一半为真圆
       borderWidth: 1.5,
       borderColor: tk.border.medium,
       alignItems: 'center',
@@ -383,7 +383,7 @@ const createStyles = (tk: RnThemeTokens) =>
     cover: {
       width: rpx(140),
       height: rpx(140),
-      borderRadius: rpx(12),
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     coverFallback: {
@@ -413,7 +413,7 @@ const createStyles = (tk: RnThemeTokens) =>
     qtyBtn: {
       width: rpx(48),
       height: rpx(48),
-      borderRadius: rpx(8),
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
       alignItems: 'center',
@@ -469,7 +469,7 @@ const createStyles = (tk: RnThemeTokens) =>
     checkoutBtn: {
       paddingHorizontal: rpx(36),
       height: rpx(72),
-      borderRadius: rpx(36),
+      borderRadius: rpx(72) / 2, // radius-exempt: 结算按钮为胶囊(半径=高度一半),改方档会破坏形状
       backgroundColor: tk.success.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -495,7 +495,7 @@ const createStyles = (tk: RnThemeTokens) =>
     retryBtn: {
       paddingHorizontal: rpx(40),
       paddingVertical: rpx(14),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.card,
     },
     retryText: {

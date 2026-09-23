@@ -31,7 +31,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Heart, Inbox, MessageCircle, Plus, X } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -436,7 +436,7 @@ const createStyles = (tk: RnThemeTokens) =>
       height: rpx(64),
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: rpx(20),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     tabActive: {
@@ -461,7 +461,7 @@ const createStyles = (tk: RnThemeTokens) =>
       gap: rpx(6),
       paddingHorizontal: rpx(24),
       height: rpx(64),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.card,
     },
     topicHash: {
@@ -487,14 +487,14 @@ const createStyles = (tk: RnThemeTokens) =>
       width: rpx(220),
       alignItems: 'center',
       padding: rpx(20),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       gap: rpx(8),
     },
     userAvatar: {
       width: rpx(96),
       height: rpx(96),
-      borderRadius: rpx(48),
+      borderRadius: rpx(48), // radius-exempt: 圆形头像,半径=宽高一半
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {},
@@ -513,7 +513,7 @@ const createStyles = (tk: RnThemeTokens) =>
       marginTop: rpx(8),
       paddingHorizontal: rpx(28),
       paddingVertical: rpx(8),
-      borderRadius: rpx(28),
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     userFollowActive: {
@@ -535,7 +535,7 @@ const createStyles = (tk: RnThemeTokens) =>
     card: {
       gap: rpx(12),
       padding: rpx(24),
-      borderRadius: rpx(16),
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     cardPressed: {
@@ -549,7 +549,7 @@ const createStyles = (tk: RnThemeTokens) =>
     avatar: {
       width: rpx(56),
       height: rpx(56),
-      borderRadius: rpx(28),
+      borderRadius: rpx(28), // radius-exempt: 圆形头像,半径=宽高一半
       backgroundColor: tk.surface.muted,
     },
     author: {
@@ -579,7 +579,7 @@ const createStyles = (tk: RnThemeTokens) =>
     img: {
       width: rpx(200),
       height: rpx(200),
-      borderRadius: rpx(12),
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     imgMore: {
@@ -625,7 +625,7 @@ const createStyles = (tk: RnThemeTokens) =>
     emptyBtn: {
       paddingHorizontal: rpx(40),
       paddingVertical: rpx(16),
-      borderRadius: rpx(32),
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.DEFAULT,
     },
     emptyBtnText: {
@@ -643,7 +643,7 @@ const createStyles = (tk: RnThemeTokens) =>
       bottom: rpx(64),
       width: rpx(104),
       height: rpx(104),
-      borderRadius: rpx(52),
+      borderRadius: rpx(52), // radius-exempt: 圆形发布悬浮按钮,半径=宽高一半
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

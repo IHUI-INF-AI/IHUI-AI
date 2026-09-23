@@ -46,7 +46,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   resolveGitBin,
@@ -55,6 +55,8 @@ import {
   resolveGitdir,
   needsGitdirPointer,
   resolveBackupDir,
+  gitdirArchivePath,
+  refExpectationSatisfied,
 } from './lib/gitdir.mjs'
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
@@ -291,11 +293,11 @@ function currentRefs() {
   return map
 }
 
-/** 清单中解析不到(或值与清单不符)的 ref */
+/** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
 function missingRefs() {
   const cur = currentRefs()
   return Object.entries(readRefsManifest())
-    .filter(([ref, sha]) => cur[ref] !== sha)
+    .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
     .map(([ref]) => ref)
 }
 
@@ -369,9 +371,10 @@ function healRefs() {
   }
 
   // 合并后清单里"当前不可见或值不符"的即为待修复项
+  // (移动型 refs/remotes/<remote>/HEAD 不比 sha,见 lib/gitdir.mjs refExpectationSatisfied)
   const broken = Object.entries(map).filter(([ref, sha]) => {
     const resolved = git(['rev-parse', '--verify', '--quiet', ref], true)
-    return !resolved || resolved !== sha
+    return !refExpectationSatisfied(ref, sha, resolved)
   })
   if (broken.length === 0) return true
 
@@ -437,7 +440,8 @@ let ARCHIVED_PATH = null
 
 function archiveGitdir(tag) {
   if (ARCHIVED_PATH) return ARCHIVED_PATH
-  const dst = `${GITDIR}.broken-${tag}`
+  // 归档统一落 §15b 唯一备份目录(见 scripts/lib/gitdir.mjs);取不到才退回旧的兄弟命名
+  const dst = gitdirArchivePath(`${basename(GITDIR)}.broken-${tag}`) || `${GITDIR}.broken-${tag}`
   try {
     cpSync(GITDIR, dst, { recursive: true, force: true })
     ARCHIVED_PATH = dst

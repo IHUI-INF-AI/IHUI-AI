@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     marginLeft: rpx(-34),
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: 17, // radius-exempt: 返回顶部按钮 34×34 正圆(直径一半)
     backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',

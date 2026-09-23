@@ -148,9 +148,9 @@ export default function VipDetailsPage() {
           {BENEFIT_DETAILS.map((b) => (
             <View
               key={b.title}
-              className="flex items-start bg-card border-[2rpx] border-border rounded-[24rpx] p-[28rpx]"
+              className="flex items-start bg-card border-[2rpx] border-border rounded-xl p-[28rpx]"
             >
-              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
+              <View className="w-[64rpx] h-[64rpx] rounded-lg bg-[var(--color-gold-muted)] flex items-center justify-center mr-[24rpx] shrink-0">
                 <LineIcon name={b.icon as IconName} size={36} color="var(--color-warning)" />
               </View>
               <View className="flex-1 flex flex-col">
@@ -176,12 +176,12 @@ export default function VipDetailsPage() {
               <ThemeRoot key={p.type}>
                 <View
                   key={p.type}
-                  className={`flex-1 relative bg-card border-[2rpx] rounded-[24rpx] py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
+                  className={`flex-1 relative bg-card border-[2rpx] rounded-xl py-[28rpx] px-[24rpx] ${active ? 'border-warning bg-[var(--color-warning-tint)]' : 'border-border'}`}
                   hoverClass="opacity-60"
                   onClick={() => selectPlan(p.type)}
                 >
                   {p.type === 'yearly' ? (
-                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-[20rpx] py-[4rpx] px-[12rpx] rounded-tr-[22rpx] rounded-bl-[12rpx]">
+                    <Text className="absolute top-[-2rpx] right-[-2rpx] bg-warning text-[var(--color-black-85)] text-[20rpx] py-[4rpx] px-[12rpx] rounded-tr-xl rounded-bl-md">
                       {t('developer.subscribe.recommended')}
                     </Text>
                   ) : null}
@@ -225,7 +225,7 @@ export default function VipDetailsPage() {
       </View>
 
       {/* 权益对比表(对齐 RN VipCompareScreen table:m32/border2/r24,表头与隔行 muted,cell 22) */}
-      <View className="m-[32rpx] border-[2rpx] border-border rounded-[24rpx] overflow-hidden">
+      <View className="m-[32rpx] border-[2rpx] border-border rounded-xl overflow-hidden">
         <View className="flex items-stretch bg-muted">
           <Text className="flex-[1.2] py-[20rpx] px-[20rpx] text-left text-foreground font-semibold text-[22rpx]">
             {t('vip.details.feature')}
@@ -253,7 +253,7 @@ export default function VipDetailsPage() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-primary-foreground rounded-[24rpx] text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-semibold"
         onClick={goUpgrade}
       >
         {t('vip.details.upgrade')}

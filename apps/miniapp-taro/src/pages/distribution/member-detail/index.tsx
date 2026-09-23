@@ -117,7 +117,7 @@ export default function MemberDetail() {
     <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
       <View className="p-[28rpx] flex flex-col gap-[24rpx]">
         {/* 对齐 RN TeamDetailScreen statsRow:card 底 + 24rpx 圆角 + 品牌色数值 */}
-        <View className="flex flex-row rounded-[24rpx] bg-card p-[28rpx] gap-[16rpx]">
+        <View className="flex flex-row rounded-xl bg-card p-[28rpx] gap-[16rpx]">
           <View className="flex-1 flex flex-col items-center gap-[8rpx]">
             <Text className="text-[36rpx] font-semibold text-[var(--color-primary)]">
               {stats.teamCount}
@@ -154,7 +154,7 @@ export default function MemberDetail() {
               {list.map((m) => (
                 <View
                   key={m.id}
-                  className="flex flex-row items-center rounded-[24rpx] bg-card p-[28rpx] gap-[24rpx]"
+                  className="flex flex-row items-center rounded-xl bg-card p-[28rpx] gap-[24rpx]"
                 >
                   {m.avatar ? (
                     <Image
@@ -174,7 +174,7 @@ export default function MemberDetail() {
                       <Text className="flex-1 text-[32rpx] font-semibold text-foreground truncate">
                         {m.nickname}
                       </Text>
-                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-[16rpx] bg-[var(--color-muted)] text-[20rpx] text-muted-foreground">
+                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-lg bg-[var(--color-muted)] text-[20rpx] text-muted-foreground">
                         V{m.level}
                       </Text>
                     </View>
@@ -206,7 +206,7 @@ export default function MemberDetail() {
                 {tt('distribution.memberDetail.error', '加载失败')}
               </Text>
               <View
-                className="px-[40rpx] h-[72rpx] rounded-[20rpx] bg-primary flex items-center justify-center"
+                className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
                 onClick={() => load(true)}
                 hoverClass="opacity-60"
               >

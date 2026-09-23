@@ -7,6 +7,8 @@ import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'reac
 import type { FeedbackScreenProps, FeedbackType } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 问题截图最多张数(对齐 Uniapp fankui「最多9张」) */
 const MAX_IMAGES = 9
 
@@ -207,7 +209,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -217,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     typeBtn: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     typeBtnActive: { backgroundColor: tk.brandAccent.DEFAULT },
@@ -227,7 +229,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       minHeight: 94, // 对齐 Uniapp fankui text_area min-height 188rpx
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 14,
@@ -236,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       height: 50,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 14,
@@ -247,7 +249,7 @@ function createStyles(tk: AppThemeTokens) {
     imageThumb: {
       width: 70, // 140rpx
       height: 70,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
     },
     imageRemove: {
@@ -256,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
       right: -6,
       width: 20,
       height: 20,
-      borderRadius: 10,
+      borderRadius: 10, // radius-exempt: 图片删除按钮 20×20 正圆(直径一半)
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
@@ -265,7 +267,7 @@ function createStyles(tk: AppThemeTokens) {
     imageAdd: {
       width: 70,
       height: 70,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderStyle: 'dashed',
       borderColor: tk.border.light,
@@ -278,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 12,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

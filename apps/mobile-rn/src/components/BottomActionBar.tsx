@@ -55,6 +55,8 @@ import {
   Settings,
 } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // ── 兼容旧 API:简单按钮列表 ──
 
 export interface BottomActionBarAction {
@@ -146,21 +148,19 @@ const ROW_GAP = 12
 const COLUMN_GAP = 8
 
 const ACTION_BUTTON_HEIGHT = 44
-const ACTION_BUTTON_BORDER_RADIUS = 8
 const ACTION_BUTTON_FONT_SIZE = 15
 const ICON_BUTTON_SIZE = 44
 const ICON_BUTTON_EMOJI_SIZE = 18
-const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2
+const ICON_BUTTON_BORDER_RADIUS = ICON_BUTTON_SIZE / 2 // radius-exempt: 图标按钮几何正圆(44dp 直径/2)
 const LABEL_LETTER_SPACING = 0.2
 
 const TOGGLE_CHIP_HEIGHT = 32
-const TOGGLE_CHIP_BORDER_RADIUS = 6
 const TOGGLE_CHIP_FONT_SIZE = 13
 const TOGGLE_CHIP_GAP = 8
 const TOGGLE_CHIP_LETTER_SPACING = 0.2
 
 const INPUT_MIN_HEIGHT = 44
-const INPUT_BORDER_RADIUS = 15
+const INPUT_BORDER_RADIUS = rnRadius['2xl'] // 原 15,R1 吸附至 2xl(16)
 const INPUT_FONT_SIZE = 15
 const INPUT_PADDING_HORIZONTAL = 12
 const INPUT_MAX_HEIGHT = 100
@@ -187,7 +187,6 @@ const ICON_GROUP_ITEMS: ReadonlyArray<{
 ]
 
 const IMAGE_PREVIEW_SIZE = 48
-const IMAGE_PREVIEW_RADIUS = 6
 const IMAGE_REMOVE_SIZE = 16
 
 const MODEL_BAR_HEIGHT = 28
@@ -750,8 +749,8 @@ const styles = StyleSheet.create({
   primaryButton: {
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
-    borderRadius: ACTION_BUTTON_BORDER_RADIUS,
-    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
@@ -763,13 +762,13 @@ const styles = StyleSheet.create({
     lineHeight: ACTION_BUTTON_FONT_SIZE + 4,
     fontWeight: '500',
     letterSpacing: LABEL_LETTER_SPACING,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     textAlign: 'center',
   } as TextStyle,
   secondaryButton: {
     flex: 1,
     height: ACTION_BUTTON_HEIGHT,
-    borderRadius: ACTION_BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -851,7 +850,7 @@ const styles = StyleSheet.create({
   toggleChip: {
     height: TOGGLE_CHIP_HEIGHT,
     paddingHorizontal: 10,
-    borderRadius: TOGGLE_CHIP_BORDER_RADIUS,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -884,7 +883,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: IMAGE_PREVIEW_SIZE,
     height: IMAGE_PREVIEW_SIZE,
-    borderRadius: IMAGE_PREVIEW_RADIUS,
+    borderRadius: rnRadius.md,
     overflow: 'hidden',
   } as ViewStyle,
   imagePreviewImg: {
@@ -897,7 +896,7 @@ const styles = StyleSheet.create({
     right: 2,
     width: IMAGE_REMOVE_SIZE,
     height: IMAGE_REMOVE_SIZE,
-    borderRadius: IMAGE_REMOVE_SIZE / 2,
+    borderRadius: IMAGE_REMOVE_SIZE / 2, // radius-exempt: 图片删除角标正圆(16dp 直径/2)
     backgroundColor: tokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
@@ -918,7 +917,7 @@ const styles = StyleSheet.create({
   voiceBtn: {
     width: VOICE_BTN_SIZE,
     height: VOICE_BTN_SIZE,
-    borderRadius: VOICE_BTN_SIZE / 2,
+    borderRadius: VOICE_BTN_SIZE / 2, // radius-exempt: 语音按钮几何正圆(36dp 直径/2)
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -973,7 +972,7 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     width: SECONDARY_BTN_SIZE,
     height: SECONDARY_BTN_SIZE,
-    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderRadius: SECONDARY_BTN_SIZE / 2, // radius-exempt: 辅助图标按钮正圆(36dp 直径/2)
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -985,7 +984,7 @@ const styles = StyleSheet.create({
     height: SECONDARY_BTN_SIZE,
     minWidth: SECONDARY_BTN_SIZE,
     paddingHorizontal: 8,
-    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderRadius: SECONDARY_BTN_SIZE / 2, // radius-exempt: 附件按钮胶囊(高 36dp/2)
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: tokens.border.light,

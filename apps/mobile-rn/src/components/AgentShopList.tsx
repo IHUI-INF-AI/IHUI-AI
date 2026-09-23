@@ -26,6 +26,8 @@ import {
   type ListRenderItem,
 } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 单个 Agent 条目(与 AgentList 弹出选择列表共用契约) */
 export interface AgentShopItem {
   id: string
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    borderRadius: 12.5,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -250,7 +252,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 60,
     height: 60,
-    borderRadius: 12.5,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
   },
   avatarFallback: {
@@ -291,7 +293,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     paddingHorizontal: 6,
     paddingVertical: 2,
     overflow: 'hidden',
@@ -310,7 +312,7 @@ const styles = StyleSheet.create({
   reactionBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   reactionText: {

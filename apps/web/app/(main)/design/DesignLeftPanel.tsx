@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import { useTranslations } from 'next-intl'
 import type { DesignPreview } from '@ihui/shared/design/element'
 import { Tooltip } from '@/components/feedback'
@@ -78,7 +80,7 @@ export function DesignLeftPanel({
                 textAlign: 'left',
                 padding: '6px 8px',
                 border: '1px solid var(--border)',
-                borderRadius: 6,
+                borderRadius: rnRadius.md,
                 background:
                   currentPreviewId === p.id
                     ? 'var(--accent-soft, rgba(0,0,0,0.04))'
