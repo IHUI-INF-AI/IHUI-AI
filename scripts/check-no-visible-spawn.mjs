@@ -12,11 +12,15 @@ import { extname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 // 保守白名单:只有能**肯定**是控制台程序的首参才判违规 —— 宁漏报不误报,避免阻塞他人提交。
+// 2026-09-24 补齐三类此前盲区(均为 Windows 控制台子系统程序,漏 windowsHide 同样弹窗):
+//   · Node 工具链 tsx / turbo / vite(注意 npx 本已在表内,无需新增)
+//   · Python / 设备侧 uvicorn / adb
+//   · Windows 脚本宿主与主机 cscript / wscript / conhost(cscript 即 .vbs 的无窗执行入口)
 export const CONSOLE_LITERALS = [
   'git','node','npm','npx','pnpm','pnpx','yarn','bun','deno','cmd','pwsh','powershell',
   'taskkill','schtasks','reg','where','netstat','tasklist','ffmpeg','ffprobe','taro',
-  'next','tsc','eslint','prettier','python','python3','pip','pip3','uv','mypy','gradle',
-  'cargo','go','make',
+  'next','tsc','tsx','eslint','prettier','python','python3','pip','pip3','uv','uvicorn','mypy',
+  'gradle','cargo','go','make','turbo','vite','adb','cscript','wscript','conhost',
 ]
 const CONSOLE_SET = new Set(CONSOLE_LITERALS)
 // 首参为这些标识符时,其值几乎必然是控制台可执行文件路径
@@ -119,9 +123,29 @@ export function firstArg(inner) {
   return inner.slice(0, i).trim()
 }
 
-/** 取可执行文件名:去路径、转小写、去 .exe。 */
-function exeName(s) {
-  return s.split(/[\\/]/).pop().toLowerCase().replace(/\.exe$/, '')
+/** 取可执行文件名:去路径、转小写、去可执行扩展名。
+ *  必须一并去 .cmd/.bat/.com —— Windows 上 npm 系 CLI(tsc / eslint / tsx / vite / turbo …)
+ *  落地的其实是 node_modules/.bin/*.cmd shim,绝对路径形态以 .cmd 结尾;只去 .exe 会查表 miss
+ *  (与 scripts/ensure-silent-tasks.mjs 的 exeNameOf 同类坑,那里已按 .exe|.cmd|.bat|.com 剥)。 */
+const EXE_EXT_RE = /\.(exe|cmd|bat|com)$/
+export function exeName(s) {
+  return s.split(/[\\/]/).pop().toLowerCase().replace(EXE_EXT_RE, '')
+}
+
+/** 一个 .bat/.cmd 本身就是控制台载体(只能经 cmd.exe 跑),与文件名是否在白名单无关。
+ *  只认"无空格的首个 token",避免 `'git commit -m "add build.bat"'` 被误判成派生批处理。 */
+export function isBatchToken(token) {
+  return /\.(bat|cmd)$/.test(token.toLowerCase())
+}
+
+/** 字面量首参的候选可执行名,三种取法并列(白名单/批处理判定后才算命中,故不会扩大误报面):
+ *  1) 整串 —— 形如 'git' 的裸程序名;2) 空格首段 —— 'git status' / 'C:\\a\\git.exe status';
+ *  3) 已知扩展名截断 —— 未加引号的含空格绝对路径 + 参数('C:\\Program Files\\nodejs\\node.exe -v')。 */
+export function exeCandidates(raw) {
+  const out = [raw, raw.split(/\s+/)[0] ?? '']
+  const extMatch = raw.match(/^.*?\.(exe|cmd|bat|com)\b/i)
+  if (extMatch) out.push(extMatch[0])
+  return out.filter(Boolean)
 }
 
 /** 首参是否明确指向会新分配控制台的程序。 */
@@ -131,9 +155,11 @@ export function isConsoleTarget(argText) {
   if (lit) {
     const raw = (lit[2] ?? lit[3] ?? '').replace(/\$\{[^}]*\}/g, 'x').trim()
     if (!raw) return false
-    // 两种取法都要试:绝对路径可能含空格(不能先按空格切),
-    // 而 '/usr/bin/git status' 这类"路径 + 参数"又必须先切参数。白名单判定保证不误报。
-    return CONSOLE_SET.has(exeName(raw)) || CONSOLE_SET.has(exeName(raw.split(/\s+/)[0] ?? ''))
+    const firstToken = raw.split(/\s+/)[0] ?? ''
+    return (
+      isBatchToken(firstToken) ||
+      exeCandidates(raw).some((c) => CONSOLE_SET.has(exeName(c)))
+    )
   }
   if (argText.includes('process.execPath')) return true
   return CONSOLE_IDENT.test(argText)
@@ -181,11 +207,22 @@ function gitLines(args) {
     .filter(Boolean)
 }
 
+/** 文件是否进入扫描范围(扩展名 / 跳过目录 / 声明文件 / 真实存在)。
+ *  导出给镜像测试复用,避免测试里再抄一份判据常量(§22c 镜像漂移)。 */
+export function passesFilter(f) {
+  return SOURCE_EXT.has(extname(f).toLowerCase()) && !SKIP_DIR.test(f) && !f.endsWith('.d.ts') && existsSync(resolve(f))
+}
+
+/** 待扫文件清单。
+ *  全量模式必须并上"未被 .gitignore 忽略的未跟踪文件" —— 只跑 git ls-files 时,
+ *  新建但还没 git add 的脚本(如 scripts/ensure-silent-tasks.mjs 曾长期如此)完全不在视野内。
+ *  --exclude-standard 不能省:不带它时本仓库 git ls-files --others 会返回 30 万+ 被忽略文件。
+ *  --staged 模式不并:未跟踪文件本就不属于本次提交,把别人的半成品拉进来会造成误阻塞。 */
 export function listCandidates(staged) {
-  const files = staged ? gitLines(['diff', '--cached', '--name-only', '--diff-filter=ACM']) : gitLines(['ls-files'])
-  return files.filter(
-    (f) => SOURCE_EXT.has(extname(f).toLowerCase()) && !SKIP_DIR.test(f) && !f.endsWith('.d.ts') && existsSync(resolve(f)),
-  )
+  const files = staged
+    ? gitLines(['diff', '--cached', '--name-only', '--diff-filter=ACM'])
+    : [...gitLines(['ls-files']), ...gitLines(['ls-files', '--others', '--exclude-standard'])]
+  return [...new Set(files)].filter(passesFilter)
 }
 
 function selfTest() {
@@ -219,6 +256,20 @@ function selfTest() {
       src: `execFileSync('git', ['show', execSync('git x', { encoding: 'utf8' })], { windowsHide: true })`,
       want: 1,
     },
+    // --- 2026-09-24 盲区 1:新入表控制台程序(tsx/turbo/vite/uvicorn/adb/cscript/wscript/conhost) ---
+    { name: 'tsx 漏参 → 违规', src: `spawnSync('tsx', ['watch src/index.ts'])`, want: 1 },
+    { name: 'turbo 漏参 → 违规', src: `execFileSync('turbo', ['build', '--filter=web'], { encoding: 'utf8' })`, want: 1 },
+    { name: 'vite + uvicorn 漏参 → 各违规', src: `spawn('vite', ['--port','3000'])\nspawn('uvicorn', ['app.main:app'])`, want: 2 },
+    { name: 'adb / cscript / wscript / conhost 漏参 → 各违规', src: `execSync('adb devices')\nexecSync('cscript //nologo x.vbs')\nexecSync('wscript x.vbs')\nspawnSync('conhost', ['--', 'git', 'status'])`, want: 4 },
+    { name: '新入表程序带 windowsHide → 通过', src: `spawn('tsx', args, { stdio: 'inherit', windowsHide: true })`, want: 0 },
+    // --- 盲区 3(同类坑):.cmd shim 绝对路径 / 含空格未加引号路径 / .bat 派生 ---
+    { name: 'node_modules/.bin/pnpm.cmd 绝对路径漏参 → 违规', src: `execFileSync('D:/IHUI-AI/node_modules/.bin/pnpm.cmd', ['build'], { encoding: 'utf8' })`, want: 1 },
+    { name: '含空格未加引号绝对路径 + 参数 → 违规', src: `execSync('C:\\\\Program Files\\\\nodejs\\\\node.exe -e "x"', { encoding: 'utf8' })`, want: 1 },
+    { name: '反斜杠 .cmd 绝对路径带参 → 违规', src: `spawnSync('C:\\\\repo\\\\tsx.cmd', ['x'])`, want: 1 },
+    { name: '派生 .bat 脚本(必开控制台)→ 违规', src: `spawnSync('scripts/build.bat', ['-Release'])`, want: 1 },
+    { name: '派生 .bat 已带 windowsHide → 通过', src: `spawnSync('scripts/build.bat', ['-Release'], { windowsHide: true })`, want: 0 },
+    { name: '.bat 只出现在参数里 → 不误判(宁漏不误报)', src: `spawnSync(helper, ['build.bat'])\nspawnSync('notepad', ['notes.txt'])`, want: 0 },
+    // --- 盲区 2:未跟踪文件纳入扫描(判据在 listCandidates,详见 tests 镜像用例) ---
   ]
   // ihui:selftest-samples:end
   let bad = 0
@@ -270,6 +321,10 @@ export const __test__ = {
   stripSelfTestRegions,
   SELFTEST_BEGIN,
   SELFTEST_END,
+  exeName,
+  isBatchToken,
+  exeCandidates,
+  passesFilter,
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href
