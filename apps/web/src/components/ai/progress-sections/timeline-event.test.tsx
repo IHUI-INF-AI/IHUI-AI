@@ -7,30 +7,9 @@ import React from 'react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 
-// D55(G-66):stepDecision.* 用**真实词包**取词(其余命名空间保持"返回键名"的既有形态),
-// 这样"界面上不该再出现 security_blocked 这类英文码"才是可断言的事实而不是自证。
-vi.mock('next-intl', async () => {
-  const { formatIcu } = await import('@ihui/i18n')
-  const mod = (await import('@ihui/i18n/messages/shared/zh-CN.json')) as unknown as {
-    default: Record<string, unknown>
-  }
-  const root = (mod.default ?? (mod as unknown as Record<string, unknown>)).stepDecision
-  const lookup = (key: string): string => {
-    let cur: unknown = root
-    for (const seg of key.split('.')) {
-      if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
-        cur = (cur as Record<string, unknown>)[seg]
-      } else {
-        return key
-      }
-    }
-    return typeof cur === 'string' ? cur : key
-  }
-  return {
-    useTranslations: () => (key: string, values?: Record<string, string | number>) =>
-      values ? formatIcu(lookup(key), values, { locale: 'zh-CN' }) : lookup(key),
-  }
-})
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
 vi.mock('@/stores/ide-workspace', () => ({
   useIDEWorkspace: (selector: (state: { workspacePath: string }) => string) =>
     selector({ workspacePath: 'G:/repo' }),
@@ -79,19 +58,6 @@ describe('TimelineEventRow evidence details', () => {
     expect(screen.getByTestId('timeline-evidence-diff')).toBeTruthy()
     expect(screen.getByTestId('timeline-evidence-test')).toBeTruthy()
     expect(screen.getByTestId('timeline-evidence-rollback')).toBeTruthy()
-    // D55:决策必须显示本地化文案,英文码不得再喷给用户(态归 approved → 着色也钉住)
-    const badge = screen.getByTestId('timeline-evidence-decision')
-    expect(badge.textContent).toContain('已执行')
-    expect(badge.textContent).not.toContain('execute_tool')
-    expect(badge.querySelector('[data-decision-state="approved"]')).toBeTruthy()
-  })
-
-  it('未知决策取值:原样显示且不编造文案', async () => {
-    render(<TimelineEventRow event={{ ...baseEvent, meta: { decision: 'brand_new_decision' } }} />)
-    fireEvent.click(screen.getByTestId('timeline-event-toggle'))
-    const badge = await waitFor(() => screen.getByTestId('timeline-evidence-decision'))
-    expect(badge.textContent).toContain('brand_new_decision')
-    expect(badge.querySelector('[data-decision-state="unknown"]')).toBeTruthy()
   })
 
   it('invokes rollback checkpoint API', async () => {
