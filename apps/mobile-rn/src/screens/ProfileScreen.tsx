@@ -2252,12 +2252,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
     borderRadius: 8,
-    backgroundColor: tokens.brandAccent.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.brandAccent.foreground,
+    color: tokens.brand.ctaText,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2318,13 +2318,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderBottomRightRadius: 12,
     borderTopLeftRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2377,7 +2377,7 @@ const styles = StyleSheet.create({
   },
   editProfileSaveBtn: {
     flex: 1,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderRadius: 8,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2386,7 +2386,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2450,7 +2450,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   levelIntroCloseBtn: {
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
     borderRadius: 8,
     paddingVertical: rpx(24),
     alignItems: 'center',
@@ -2459,7 +2459,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.brand.foreground,
+    color: tokens.brand.ctaText,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
