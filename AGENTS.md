@@ -592,6 +592,12 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 ---
 
+### 12e. workspace 加依赖禁用 `pnpm install --filter`(2026-09-23 立,自伤实测)
+
+- 实测:为 `apps/extension` 加 `@ihui/design-tokens` workspace 依赖时跑 `pnpm install --filter @ihui/extension`,pnpm 按"只装被选中项目所需"重链接,**顺带剪掉根 `node_modules` 里未被该包引用的链接** —— `lint-staged` 就此消失,`.husky/pre-commit` 第一步即崩,每次 commit 都失败并逼出 `--no-verify`,连带 109 道守门全废(而 `git status` 与 typecheck 都看不出依赖树被削)。
+- **规则**:本仓任何"新增/调整 workspace 依赖"一律跑**全量 `pnpm install`**(不带 `--filter`);改完必须验证 `node_modules/lint-staged/bin/lint-staged.js` 与 `node_modules/.bin` 关键入口在位,再提交。
+- 排查同类问题的顺序:`grep "Cannot find module" .workbuddy/hook-logs/pre-commit.log`,先怀疑依赖树被动过,再怀疑守门判据。
+
 ## 13. 文件修改持久化强制规则(强制)
 
 - 任何文件修改后**必须立即用 Read 验证**修改已落地(防止文件系统缓存不一致)。
