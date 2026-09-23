@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { ScrollView, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
@@ -154,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       height: 44,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     retryBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -165,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     statsCard: {
       marginHorizontal: 10,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -176,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 14,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       backgroundColor: tk.brand.DEFAULT,
     },
@@ -202,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       aspectRatio: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
     },
     calendarCellSigned: {

@@ -14,8 +14,11 @@
 // 设计取向:planned 元素**不**要求锚点(否则入库即恒红),增长只抬基线不拦人。
 //
 // 用法:node scripts/check-chat-element-coverage.mjs [--self-test] [--json]
+//   runner 下发的 --staged 不参与收窄:锚点/契约/清单条目都是"整仓属性",
+//   按暂存集收范围恰好会放过"删掉别处锚点"这一类(与守门 78 同取向)。
 
 import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -27,6 +30,70 @@ const SKIP_ENV = 'HUSKY_SKIP_CHAT_ELEMENT_COVERAGE'
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))
+}
+
+/**
+ * 判的是**仓库内容**,不是共享工作区里某个人未提交的缓冲区(与守门 77 同一取向,2026-09-24 补)。
+ *
+ * 原实现一律 `readFileSync`,于是并行会话的半截草稿会把无关提交钉红:2026-09-24 实测
+ * `AiAssistantN8nScreen.tsx` 的 5 个锚点在 HEAD 里全在、在别人的未提交重写里全没了 →
+ * [57] 恒红,而本会话只改了守门脚本。恒红的唯一结局是人人 --no-verify,连带把真正防回归的
+ * 判据一起关掉(见 AGENTS §12)。
+ *
+ * 取内容规则:
+ *   该路径已在暂存区(≠ HEAD)→ 取**索引 blob** = 这次提交会带走什么;
+ *   该路径只有工作树改动(未暂存)→ 取 **HEAD blob** = 别人没提交的东西不算本仓状态;
+ *   与 HEAD 一致 → 直读磁盘(三者等价,免为 66 个锚定文件逐个开进程)。
+ */
+const GIT_BIN = process.env.GIT_BIN || (process.platform === 'win32' ? 'C:/Program Files/Git/bin/git.exe' : 'git')
+let repoUsable = true
+function gitAt(args) {
+  if (!repoUsable) return null
+  try {
+    return execFileSync(GIT_BIN, ['-c', 'safe.directory=*', ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+      timeout: 30_000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  } catch {
+    return null
+  }
+}
+const nameSet = (args) => {
+  const out = gitAt(args)
+  if (out === null) {
+    repoUsable = false
+    return null
+  }
+  return new Set(out.split('\n').filter(Boolean).map((l) => l.replaceAll('\\', '/')))
+}
+const STAGED = nameSet(['diff', '--name-only', '--cached'])
+const WORKTREE_DIRTY = nameSet(['diff', '--name-only'])
+
+/**
+ * 纯决策(自检直接复用):给一个路径的三种"是否偏离"布尔,返回该读哪一份内容。
+ *   staged            → 'index'(= 这次提交会带走的内容)
+ *   仅工作树脏        → 'head'(别人没提交的缓冲区不算本仓状态)
+ *   干净              → 'disk'(与 index/HEAD 等价,免开进程)
+ */
+export function pickSource({ staged, worktreeDirty }) {
+  if (staged) return 'index'
+  if (worktreeDirty) return 'head'
+  return 'disk'
+}
+
+export function contentAt(rel, repoRoot = ROOT) {
+  const norm = rel.replaceAll('\\', '/')
+  const abs = join(repoRoot, norm)
+  const readDisk = () => (existsSync(abs) ? readFileSync(abs, 'utf8') : '')
+  if (resolve(repoRoot) !== resolve(ROOT) || !repoUsable) return readDisk()
+  const src = pickSource({ staged: !!STAGED?.has(norm), worktreeDirty: !!WORKTREE_DIRTY?.has(norm) })
+  if (src === 'disk') return readDisk()
+  const blob = gitAt(['show', src === 'index' ? `:${norm}` : `HEAD:${norm}`])
+  return blob !== null ? blob : readDisk()
 }
 
 /** 从 PROJECT_PLAN.md 解析第四轮任务行 → planned 元素与其 G-ID */
@@ -48,11 +115,12 @@ export function checkAnchors(implemented, repoRoot = ROOT) {
   for (const el of implemented) {
     for (const anchor of el.anchors ?? []) {
       const abs = join(repoRoot, anchor.file)
-      if (!existsSync(abs)) {
+      const text = contentAt(anchor.file, repoRoot)
+      if (!text) {
         violations.push({ kind: 'anchor-missing-file', id: el.id, detail: anchor.file })
         continue
       }
-      if (anchor.mustMatch && !readFileSync(abs, 'utf8').includes(anchor.mustMatch)) {
+      if (anchor.mustMatch && !text.includes(anchor.mustMatch)) {
         violations.push({
           kind: 'anchor-missing-marker',
           id: el.id,
@@ -179,6 +247,19 @@ function selfTest() {
   console.log(
     `${parseOk ? '✓' : '✗'} 解析判据:任务 ${parsed.plannedTasks}(期望 2)、G-ID ${parsed.gapIds}(期望 2)、违规 ${parsed.violations.length}(期望 0)`,
   )
+  // 内容来源决策(2026-09-24 补):判仓库内容而非共享工作区快照,四个方向都要钉住
+  const srcCases = [
+    [{ staged: true, worktreeDirty: true }, 'index', '已暂存 → 判索引(这次提交会带走的内容)'],
+    [{ staged: false, worktreeDirty: true }, 'head', '只有工作树脏 → 判 HEAD(别人未提交的缓冲区不算本仓状态)'],
+    [{ staged: false, worktreeDirty: false }, 'disk', '干净文件 → 直读磁盘(与 index/HEAD 等价,免开进程)'],
+    [{ staged: true, worktreeDirty: false }, 'index', '只暂存未再改 → 仍判索引'],
+  ]
+  for (const [inp, want, label] of srcCases) {
+    const got = pickSource(inp)
+    const ok = got === want
+    if (!ok) bad++
+    console.log(`${ok ? '✓' : '✗'} 内容来源 ${label} → ${got}(期望 ${want})`)
+  }
   console.log(bad === 0 ? '✅ self-test 全过' : `❌ self-test 失败 ${bad} 例`)
   return bad === 0 ? 0 : 1
 }
@@ -190,8 +271,14 @@ function main(argv) {
     return 0
   }
   const data = loadJson(DATA_FILE)
-  const planText = readFileSync(join(ROOT, 'PROJECT_PLAN.md'), 'utf8')
-  const readOpt = (p) => (existsSync(p) ? readFileSync(p, 'utf8') : '')
+  // 计划文本与两份契约同样按**仓库内容**判(见 contentAt 注释):PROJECT_PLAN.md 是共享工作区里
+  // 最容易被并发会话按旧基线整文件覆写的一份,按磁盘读会把"别人没提交的旧副本"当成本仓清单。
+  const planText = contentAt('PROJECT_PLAN.md')
+  const relOpt = (p) => (p.startsWith(ROOT) ? p.slice(ROOT.length + 1).replaceAll('\\', '/') : null)
+  const readOpt = (p) => {
+    const rel = relOpt(resolve(p))
+    return rel ? contentAt(rel) : existsSync(p) ? readFileSync(p, 'utf8') : ''
+  }
   const res = runChecks({
     data,
     planText,
@@ -215,7 +302,7 @@ function main(argv) {
   return 1
 }
 
-export const __test__ = { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks }
+export const __test__ = { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks, pickSource, contentAt }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main(process.argv.slice(2)))

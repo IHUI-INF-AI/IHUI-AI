@@ -153,7 +153,7 @@ export default function LiveList() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="rounded-[12rpx] border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
+                className="rounded-md border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
                 hoverClass="opacity-60"
               >
@@ -163,7 +163,7 @@ export default function LiveList() {
                     {item.title}
                   </Text>
                   <View
-                    className={`px-[20rpx] py-[8rpx] rounded-[24rpx] ${
+                    className={`px-[20rpx] py-[8rpx] rounded-xl ${
                       item.status === 'living'
                         ? 'bg-[var(--color-danger)]'
                         : item.status === 'upcoming'
