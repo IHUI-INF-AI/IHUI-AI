@@ -44,7 +44,7 @@ const GITHUB_REPO = 'IHUI-INF-AI/IHUI-AI'
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex').slice(0, 12)
 // 观测用的脱敏指纹:长度 + 内容摘要。二者足以判断"是不是同一把",又不泄露值。
-const fingerprint = (v) => (v == null ? '缺失' : `len=${String(v).trim().length} sha=${sha(String(v).trim())}`)
+const fingerprint = (v) => (v === null || v === undefined ? '缺失' : `len=${String(v).trim().length} sha=${sha(String(v).trim())}`)
 
 /** 读服务环境块里的键值(nssm get AppEnvironmentExtra;UTF-16LE 输出需清洗 NUL) */
 export function readServiceEnv(service, key) {
@@ -396,7 +396,7 @@ function appendLedger(title, desp, delivery) {
     const head = `——— ${new Date().toISOString()} ${title} ———\n${desp}\n投递: ${
       delivery ? (delivery.sent ? `✅ 经 ${delivery.via} 送达` : '❌ 全通道失败') : '(dry-run,未投递)'
     }\n${delivery ? delivery.attempts.map((a) => `  · ${a}`).join('\n') : ''}\n\n`
-    writeFileSync(LEDGER, (existsSync(LEDGER) ? readFileSync(LEDGER, 'utf8') : '') + head, 'utf8')
+    appendFileSync(LEDGER, head, 'utf8')
   } catch (e) {
     console.error(`⚠️ 告警账本写入失败(${e?.message})—— 台账本身也不能静默失败`)
   }
@@ -560,6 +560,7 @@ else {
   } else {
     for (const r of results) console.log(`${{ ok: '✅', fail: '❌', limited: '⚠️', unreachable: '⚠️', unknown: '· ' }[r.level]} [${r.level}] ${r.name} — ${r.detail}`)
     const warn = results.filter((r) => r.level === 'limited' || r.level === 'unreachable')
+    if (warn.length) console.log(`· 另有 ${warn.length} 项限流/网络不可达(不计为失效): ${warn.map((w) => w.name).join(' ; ')}`)
     if (bad.length) console.log('⚠️ 被限流/网络不可达 ≠ 凭据过期,不要据此换 key(本会话真实误判过一次)')
     console.log(bad.length ? `❌ ${bad.length} 项凭据失效: ${bad.map((b) => b.name).join(' ; ')}` : '✅ 全部凭据有效')
   }
