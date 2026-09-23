@@ -7485,6 +7485,490 @@
       },
       "toolSummaryShowMore": "更多",
       "toolSummaryShowLess": "收起",
+      "handoff": {
+        "title": "失敗診斷交接單",
+        "ariaLabel": "失敗診斷交接單",
+        "section": {
+          "diagnosis": "診斷方法",
+          "fixSteps": "已嘗試的修復步驟",
+          "evidence": "已脫敏證據：",
+          "productSurface": "產品介面"
+        },
+        "source": {
+          "local": "本機判據",
+          "external": "輔助訊號"
+        },
+        "externalCaveat": "外部服務回傳 down 僅作輔助訊號,未單獨作為結論依據(§5d:網路不可達 ≠ 失敗)。",
+        "localUnknown": "本機暫無確定性判據,未下結論",
+        "empty": {
+          "fixSteps": "未嘗試任何修復步驟",
+          "evidence": "無可用證據",
+          "productSurface": "未提供產品介面資訊",
+          "incidents": "暫無可能相關的事件"
+        },
+        "incidentLine": "狀態：可能相關的事件：{incidentNames}",
+        "truncated": "已截斷 {count} 個字元",
+        "degraded": "資料來源無法連線,以下交接單僅含本機已取得的資訊(§5d:網路不可達 ≠ 失敗)",
+        "redacted": "本交接單已完成脫敏(金鑰 / 權杖 / 郵件 / IP 已替換)",
+        "copy": "複製交接單",
+        "copied": "已複製交接單"
+      },
+      "turnStatus": {
+        "title": "輪次狀態",
+        "state": {
+          "queued": "排隊中",
+          "preparing": "準備中",
+          "thinking": "思考中",
+          "usingTool": "使用工具",
+          "waitingConfirm": "等待確認",
+          "backgroundRunning": "背景執行中",
+          "stopping": "正在停止",
+          "completed": "已完成",
+          "failed": "失敗",
+          "stopped": "已停止"
+        },
+        "aria": {
+          "queued": "本輪正在排隊,前面的請求完成後才會開始",
+          "preparing": "正在為本輪準備上下文",
+          "thinking": "模型正在思考",
+          "usingTool": "正在使用工具",
+          "waitingConfirm": "本輪已暫停,等你確認後才會繼續",
+          "backgroundRunning": "本輪已轉入背景執行,你可以繼續輸入新的內容",
+          "stopping": "正在停止本輪",
+          "completed": "本輪已完成",
+          "failed": "本輪失敗,可重試",
+          "stopped": "本輪已停止,可繼續"
+        },
+        "hint": {
+          "queued": "前面的請求完成後本輪會自動開始",
+          "waitingConfirm": "已暫停等你確認;不確認本輪不會繼續",
+          "backgroundRunning": "已在背景繼續執行,不會阻塞你的新輸入",
+          "stopping": "正在收尾,稍後即停"
+        },
+        "action": {
+          "stop": "停止",
+          "retry": "重試",
+          "resume": "繼續"
+        }
+      },
+      "errorCatalog": {
+        "ACCOUNT_RESTRICTED": {
+          "title": "帳戶受限",
+          "action": "聯絡管理員"
+        },
+        "API_BRIDGE_ERROR": {
+          "title": "介面橋接呼叫失敗",
+          "action": "稍後重試"
+        },
+        "BAD_PARAMS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "BUDGET_EXHAUSTED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "CAPTURE_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "CDP_DISABLED": {
+          "title": "瀏覽器除錯通道不可用",
+          "action": "開啟後重試"
+        },
+        "CDP_UNAVAILABLE": {
+          "title": "瀏覽器除錯通道不可用",
+          "action": "開啟後重試"
+        },
+        "CONCURRENCY_LIMIT_EXCEEDED": {
+          "title": "請求過於頻繁",
+          "action": "稍後重試"
+        },
+        "CONTEXT_TOO_LONG": {
+          "title": "上下文過長",
+          "action": "精簡上下文"
+        },
+        "CRON_NOT_SUPPORTED": {
+          "title": "定時設定無效",
+          "action": "修改定時設定後重試"
+        },
+        "DANGEROUS_COMMAND": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "DANGEROUS_COMMAND_BLOCKED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "DELEGATE_ERROR": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "DELEGATE_NO_RESULT": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "DELEGATE_TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "DEP_MISSING": {
+          "title": "相依套件缺失",
+          "action": "安裝相依套件後重試"
+        },
+        "DOWNLOAD_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "DUAL_MODE": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_AUDIO": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_DIFF": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_OLD_STRING": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "EMPTY_RESULT": {
+          "title": "沒有可顯示的結果",
+          "action": "修改後重試"
+        },
+        "EMPTY_TASKS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "ENCODING_ERROR": {
+          "title": "檔案讀寫失敗",
+          "action": "檢查檔案後重試"
+        },
+        "ENGINE_ERROR": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "ENGINE_UNAVAILABLE": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "EXECUTION_EXCEPTION": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "EXECUTION_FAILED": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "EXECUTOR_DISABLED": {
+          "title": "該功能已停用",
+          "action": "聯絡管理員"
+        },
+        "EXEC_POLICY_DENIED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "EXEC_POLICY_NEEDS_APPROVAL": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "FALLBACK_FAILED": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "FILE_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "FILE_TOO_LARGE": {
+          "title": "檔案過大",
+          "action": "精簡檔案後重試"
+        },
+        "GENERATION_FAILED": {
+          "title": "生成失敗",
+          "action": "重試"
+        },
+        "GITHUB_API_ERROR": {
+          "title": "外部服務呼叫失敗",
+          "action": "稍後重試"
+        },
+        "IMAGE_FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "IMAGE_TOO_LARGE": {
+          "title": "圖片過大",
+          "action": "壓縮圖片後重試"
+        },
+        "INTERNAL_AUTH_UNAVAILABLE": {
+          "title": "登入已過期",
+          "action": "重新登入"
+        },
+        "INTERNAL_ERROR": {
+          "title": "服務內部處理錯誤",
+          "action": "重試"
+        },
+        "INVALID_ARGS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_ARGUMENT": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_CHART_TYPE": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_CONFIG": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_DATA": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_OUTPUT_DIR": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PARAMS": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PR": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_PROVIDER": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "INVALID_REPO": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "INVALID_TRIGGER": {
+          "title": "定時設定無效",
+          "action": "修改定時設定後重試"
+        },
+        "IS_A_DIRECTORY": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "LLM_ERROR": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "LLM_FAILED": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "MEDIA_COUNT_EXCEEDED": {
+          "title": "媒體檔案數量超出限制",
+          "action": "精簡附件後重試"
+        },
+        "MISSING_DATA": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_PARAMS": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_PATH_PARAM": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MISSING_SECRET": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "MISSING_TITLE": {
+          "title": "缺少必填參數",
+          "action": "補充參數後重試"
+        },
+        "MODEL_NOT_CONFIGURED": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "MODEL_REFUSED": {
+          "title": "目前模型拒絕了本次請求",
+          "action": "更換模型"
+        },
+        "MULTIPLE_MATCHES": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "NESTING_DEPTH_EXCEEDED": {
+          "title": "結構層級超出可處理範圍",
+          "action": "簡化後重試"
+        },
+        "NETWORK_APPROVAL_DENIED": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "NETWORK_ERROR": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "NOT_A_DIRECTORY": {
+          "title": "參數不完整或無效",
+          "action": "修改後重試"
+        },
+        "NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "NO_FILE_VERSIONS": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "OLD_STRING_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "PATH_NOT_ALLOWED": {
+          "title": "路徑不在允許的範圍內",
+          "action": "更換路徑後重試"
+        },
+        "PATH_NOT_IN_WORKSPACE": {
+          "title": "路徑不在允許的範圍內",
+          "action": "更換路徑後重試"
+        },
+        "PERMISSION_DENIED": {
+          "title": "沒有執行該操作的權限",
+          "action": "聯絡管理員"
+        },
+        "PROVIDER_ERROR": {
+          "title": "模型服務暫時不可用",
+          "action": "更換模型或稍後重試"
+        },
+        "PROVIDER_NOT_CONFIGURED": {
+          "title": "未設定可用的模型服務",
+          "action": "先設定模型服務"
+        },
+        "PROVIDER_QUOTA_EXHAUSTED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "PR_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "RATE_LIMITED": {
+          "title": "請求過於頻繁",
+          "action": "稍後重試"
+        },
+        "REQUEST_TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "RESOURCE_NOT_REGISTERED": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "RISK_CONFIRM_REQUIRED": {
+          "title": "需要確認後才會執行",
+          "action": "前往確認"
+        },
+        "SCHEME_REJECTED": {
+          "title": "該位址不被允許存取",
+          "action": "更換位址後重試"
+        },
+        "SCREENSHOT_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "SENSITIVE_FILE_BLOCKED": {
+          "title": "該操作已被安全原則攔截",
+          "action": "修改後重試"
+        },
+        "SSRF_BLOCKED": {
+          "title": "該位址不被允許存取",
+          "action": "更換位址後重試"
+        },
+        "STEP_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "SUBAGENT_FAILED": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "TASK_FAILED": {
+          "title": "子任務執行失敗",
+          "action": "重試"
+        },
+        "TEXT_TOO_LONG": {
+          "title": "上下文過長",
+          "action": "精簡上下文"
+        },
+        "TIMEOUT": {
+          "title": "請求逾時",
+          "action": "重試"
+        },
+        "TOKEN_EXPIRED": {
+          "title": "登入已過期",
+          "action": "重新登入"
+        },
+        "TOOL_FAILED": {
+          "title": "工具執行失敗",
+          "action": "重試"
+        },
+        "TOOL_NOT_FOUND": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "TOO_LARGE": {
+          "title": "檔案過大",
+          "action": "精簡檔案後重試"
+        },
+        "TRIAL_QUOTA_EXCEEDED": {
+          "title": "額度已用盡",
+          "action": "稍後再試或改用免費模型"
+        },
+        "UNKNOWN_API_TOOL": {
+          "title": "找不到目標資源",
+          "action": "檢查後重試"
+        },
+        "UNSUPPORTED_FORMAT": {
+          "title": "不支援該檔案格式",
+          "action": "更換檔案格式後重試"
+        },
+        "UNSUPPORTED_IMAGE_FORMAT": {
+          "title": "不支援該檔案格式",
+          "action": "更換檔案格式後重試"
+        },
+        "VERSION_NOT_FOUND": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "VERSION_SELECTOR_REQUIRED": {
+          "title": "檔案版本不可用",
+          "action": "選擇版本後重試"
+        },
+        "VERSION_TOO_LOW": {
+          "title": "版本過低",
+          "action": "升級至最新版本"
+        },
+        "VIDEO_FETCH_FAILED": {
+          "title": "網路請求失敗",
+          "action": "檢查網路後重試"
+        },
+        "WRITE_FAILED": {
+          "title": "檔案讀寫失敗",
+          "action": "檢查檔案後重試"
+        }
+      },
       "worktree": {
         "title": "Worktree",
         "state": {
@@ -7509,6 +7993,49 @@
           "dismiss": "知道了"
         },
         "ariaLabel": "Worktree 生命週期"
+      },
+      "sideTask": {
+        "title": "側邊任務",
+        "ariaLabel": "側邊任務生命週期",
+        "ephemeralNotice": "這是暫時任務,關閉後即消失,不會保留到下次開啟。",
+        "empty": "暫無側邊任務",
+        "state": {
+          "running": "執行中",
+          "completed": "已完成",
+          "expired": "已過期",
+          "cleaned": "已清理"
+        },
+        "aria": {
+          "running": "側邊任務執行中",
+          "completed": "側邊任務已完成",
+          "expired": "側邊任務已過期",
+          "cleaned": "側邊任務已清理"
+        },
+        "hint": {
+          "expired": "已超過暫時任務的保留期限,可被清理。",
+          "cleaned": "內容已無法取得,僅保留標題。"
+        },
+        "location": {
+          "label": "執行位置",
+          "sameFolder": "與主任務在同一個資料夾",
+          "sameEnvironment": "與主任務在同一個執行環境"
+        },
+        "cleanedFrom": "來自已清理的 {title}",
+        "files": {
+          "label": "檔案變更",
+          "changedCount": "已變更 {count} 個檔案",
+          "empty": "這次側邊任務沒有變更任何檔案"
+        },
+        "action": {
+          "close": "關閉任務",
+          "cleanup": "清理過期任務"
+        },
+        "closeConfirm": {
+          "title": "關閉這個側邊任務?",
+          "desc": "這個暫時任務有 {artifacts} 個未落盤產物、{children} 個仍在執行的子行程,關閉後即消失且無法復原。",
+          "confirm": "仍要關閉",
+          "cancel": "暫不"
+        }
       },
       "writingBlock": {
         "title": "寫作區塊",
