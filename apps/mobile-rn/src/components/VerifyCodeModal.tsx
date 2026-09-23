@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 /**
  * 验证码模态框(mobile-rn 端)
@@ -39,15 +40,12 @@ export interface VerifyCodeModalProps {
 const DEFAULT_LENGTH = 6
 const DEFAULT_COUNTDOWN_SECONDS = 60
 const CARD_MAX_WIDTH = 360
-const CARD_BORDER_RADIUS = 12
 const CARD_PADDING = 24
 const CLOSE_BUTTON_SIZE = 24
 const CLOSE_ICON_SIZE = 16
 const BOX_SIZE = 48
 const BOX_GAP = 8
-const BOX_BORDER_RADIUS = 8
 const CONFIRM_BUTTON_HEIGHT = 40
-const CONFIRM_BUTTON_RADIUS = 8
 const HIDDEN_INPUT_SIZE = 1
 
 export function VerifyCodeModal({
@@ -233,7 +231,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     backgroundColor: tokens.surface.card,
-    borderRadius: CARD_BORDER_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   },
   closeBtn: {
@@ -284,7 +282,7 @@ const styles = StyleSheet.create({
   box: {
     width: BOX_SIZE,
     height: BOX_SIZE,
-    borderRadius: BOX_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
@@ -325,7 +323,7 @@ const styles = StyleSheet.create({
   },
   confirm: {
     height: CONFIRM_BUTTON_HEIGHT,
-    borderRadius: CONFIRM_BUTTON_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',

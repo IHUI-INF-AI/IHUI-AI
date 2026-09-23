@@ -182,7 +182,7 @@ export default function Phone() {
               {tt('user.phone.currentLabel', '当前手机号')}: {maskedPhone}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
                 <Input
                   className="h-full flex-1 text-[32rpx] text-foreground"
                   type="number"
@@ -204,7 +204,7 @@ export default function Phone() {
               </View>
             </View>
             <View
-              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
+              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
                 oldCode.trim().length === 6 ? '' : 'opacity-60'
               }`}
               hoverClass="opacity-60"
@@ -228,7 +228,7 @@ export default function Phone() {
                 : tt('user.phone.bindDesc', '绑定后可用于登录、找回密码、接收通知')}
             </Text>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
                 <Input
                   className="h-full flex-1 text-[32rpx] text-foreground"
                   type="number"
@@ -240,7 +240,7 @@ export default function Phone() {
               </View>
             </View>
             <View className="mb-[32rpx]">
-              <View className="box-border flex h-[100rpx] items-center rounded-[24rpx] border border-[var(--color-border)] bg-muted px-[24rpx]">
+              <View className="box-border flex h-[100rpx] items-center rounded-xl border border-[var(--color-border)] bg-muted px-[24rpx]">
                 <Input
                   className="h-full flex-1 text-[32rpx] text-foreground"
                   type="number"
@@ -262,7 +262,7 @@ export default function Phone() {
               </View>
             </View>
             <View
-              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
+              className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
                 /^1\d{10}$/.test((newPhone || '').trim()) &&
                 newCode.trim().length === 6 &&
                 !submitting
@@ -276,7 +276,7 @@ export default function Phone() {
                 {submitting ? tt('user.phone.binding', '绑定中…') : tt('user.phone.bind', '绑定')}
               </Text>
             </View>
-            <View className="mt-[24rpx] rounded-[24rpx] bg-muted p-[24rpx]">
+            <View className="mt-[24rpx] rounded-xl bg-muted p-[24rpx]">
               <Text className="mb-[12rpx] block text-[28rpx] font-semibold text-[var(--color-brand-accent-deep)]">
                 {tt('user.phone.noticeTitle', '【更换后影响】')}
               </Text>

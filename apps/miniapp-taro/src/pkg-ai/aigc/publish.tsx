@@ -173,7 +173,7 @@ export default function AigcPublish() {
           {fileList.map((f, i) => (
             <View
               key={i}
-              className="relative w-[152rpx] h-[152rpx] rounded-[24rpx] overflow-hidden bg-[var(--color-border)]"
+              className="relative w-[152rpx] h-[152rpx] rounded-xl overflow-hidden bg-[var(--color-border)]"
             >
               <Image className="w-full h-full" src={f.url} mode="aspectFill" />
               {/* 对齐 RN fileRemove(44rpx 圆形,error 红底白 ×) */}
@@ -191,7 +191,7 @@ export default function AigcPublish() {
           {fileList.length < MAX_FILES ? (
             /* 对齐 RN fileAdd(76dp → 152rpx,dashed border.light,bg muted) */
             <View
-              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[2rpx] border-dashed border-[var(--color-border)] rounded-[24rpx] flex flex-col items-center justify-center"
+              className="w-[152rpx] h-[152rpx] bg-[var(--color-muted)] border-[2rpx] border-dashed border-[var(--color-border)] rounded-xl flex flex-col items-center justify-center"
               onClick={chooseImage}
               hoverClass="opacity-60"
             >
@@ -210,7 +210,7 @@ export default function AigcPublish() {
           {t('aigc.publish.titleLabel')}
         </Text>
         <Input
-          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] text-[32rpx] text-foreground box-border"
+          className="w-full h-[84rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] text-[32rpx] text-foreground box-border"
           maxlength={50}
           placeholder={t('aigc.publish.titlePlaceholder')}
           value={title}
@@ -222,7 +222,7 @@ export default function AigcPublish() {
           {t('aigc.publish.descLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.descPlaceholder')}
           value={desc}
           onInput={(e) => setDesc(e.detail.value)}
@@ -233,7 +233,7 @@ export default function AigcPublish() {
           {t('aigc.publish.promptLabel')}
         </Text>
         <Textarea
-          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-[24rpx] border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
+          className="w-full min-h-[176rpx] bg-[var(--color-muted)] rounded-xl border-[2rpx] border-[var(--color-border)] px-[24rpx] py-[20rpx] text-[32rpx] text-foreground box-border"
           placeholder={t('aigc.publish.promptPlaceholder')}
           value={prompt}
           onInput={(e) => setPrompt(e.detail.value)}
@@ -241,7 +241,7 @@ export default function AigcPublish() {
 
         {/* 对齐 RN submitBtn(marginTop 24 → 48rpx,py 14 → 28rpx,radius 24rpx;禁用态 bg text.tertiary) */}
         <Button
-          className={`w-full text-[32rpx] font-semibold rounded-[24rpx] mt-[48rpx] ${
+          className={`w-full text-[32rpx] font-semibold rounded-xl mt-[48rpx] ${
             submitting || uploading
               ? 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]'
               : 'bg-primary text-[var(--color-primary-foreground)]'

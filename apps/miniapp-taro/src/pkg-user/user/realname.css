@@ -25,7 +25,7 @@
   padding: 28rpx;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   box-sizing: border-box;
 }
 .rn-intro-title {
@@ -88,7 +88,7 @@
   padding: 0 24rpx;
   background: var(--color-muted);
   border: 1rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -115,7 +115,7 @@
   overflow: hidden;
   background: var(--color-muted);
   border: 2rpx dashed var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   box-sizing: border-box;
 }
 .rn-photo-img {
@@ -165,7 +165,7 @@
   color: var(--color-surface-light);
   font-size: 32rpx;
   font-weight: 600;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 0;
 }
 .rn-submit::after {
@@ -183,7 +183,7 @@
   align-items: center;
   background: var(--color-card);
   border: 1rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .rn-result-icon {
   width: 96rpx;
@@ -192,7 +192,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-wechat-green);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 .rn-result-icon-text {
   font-size: 56rpx;

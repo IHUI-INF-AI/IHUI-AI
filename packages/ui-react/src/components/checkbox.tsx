@@ -25,7 +25,7 @@ const Checkbox = React.forwardRef<
       // 根因:Radix Checkbox 渲染为 <button>,即使 border-primary 与 bg-primary 同色,
       // <button> 原生 border 仍会产生 1px 描边感。改为 transparent 后,
       // 完全靠 bg-primary 填充提供视觉边界,勾选态无残留描边。
-      'peer h-4 w-4 shrink-0 rounded-[4px] border border-input bg-background text-current transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-transparent data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:border-foreground/60',
+      'peer h-4 w-4 shrink-0 rounded-sm border border-input bg-background text-current transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-transparent data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground hover:border-foreground/60',
       className,
     )}
     {...props}

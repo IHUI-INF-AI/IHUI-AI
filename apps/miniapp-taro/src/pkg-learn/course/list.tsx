@@ -126,7 +126,7 @@ export default function CourseList() {
             {list.map((item) => (
               <View
                 key={item.id}
-                className="flex bg-card rounded-[32rpx] overflow-hidden mb-[24rpx]"
+                className="flex bg-card rounded-2xl overflow-hidden mb-[24rpx]"
                 hoverClass="opacity-85"
                 onClick={() => goDetail(item.id)}
               >
