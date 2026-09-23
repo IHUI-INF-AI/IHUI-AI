@@ -148,42 +148,22 @@ async fn check_app_update(app: &tauri::AppHandle) {
             return;
         }
     };
-    // ⚠️ 原先写作 `let Ok(Some(update)) = updater.check().await else { return }`,
-    // 把「无新版」与「feed 404 / manifest 解析失败 / 版本号不合法 / 网络不可达」
-    // 一并静默吞掉。自更新是后台无人触发的链路,静默 = 用户永远收不到更新而日志里
-    // 一行痕迹都没有,故障与"本来就是最新版"不可区分。改为三分支,只有 None 静默。
-    match updater.check().await {
-        Ok(Some(update)) => {
-            let ver = update.version.clone();
-            log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
-            notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
-            // ⚠️ 第二个闭包**不是**"退出前钩子"。插件签名是
-            //   `download_and_install(on_chunk, on_download_finish)`,而
-            //   updater.rs:710 在 `verify_signature()`(:712)**之前**就调用它。
-            //   原先这里传的是 `|| app.restart()` —— 于是字节一落地应用就自杀:
-            //     · 验签结果永远拿不到(进程已没了),下面那个 Err 分支形同虚设;
-            //     · `install()` 里的 ShellExecuteW 拉起安装器与它赛跑,能不能装上全看
-            //   谁先动手 → 实测同一份 feed 一次装上、七次没装上且不留任何错误日志;
-            //     · 新实例起来后又检测到同一个新版 → **每小时一次的无限重启循环**
-            //   (测试里 33s 一轮,日志 12:00:21→12:03:38 连续七轮即为实证)。
-            //   正解:这里传空闭包。插件在 install_inner 尾部自己
-            //   `ShellExecuteW(安装器)` + `std::process::exit(0)`(updater.rs:837-863),
-            //   根本不需要我们重启;要挂"退出前保存状态"请用
-            //   `app.updater_builder().on_before_exit(..)`(那个才是正确的时机)。
-            let result = update.download_and_install(|_, _| {}, || {}).await;
-            // 签名校验失败 / 下载中断 / 写临时文件失败都落在这里。只打插件给出的
-            // 错误串(不含凭据、不含响应体),绝不打完整 manifest 或响应内容。
-            if let Err(e) = result {
-                log::warn!("[auto-refresh] 应用更新失败(含签名校验不通过): {e}");
-            }
-        }
-        Ok(None) => {
-            // 已是最新版:唯一允许静默的分支
-        }
-        Err(e) => {
-            log::warn!("[auto-refresh] 更新检查失败(feed 不可达或 manifest 非法): {e}");
-        }
-    }
+    let Ok(Some(update)) = updater.check().await else {
+        return; // None=无新版 / Err=检查失败,均静默
+    };
+    let ver = update.version.clone();
+    log::info!("[auto-refresh] 发现应用新版 {ver} → 下载安装");
+    notify(app, "智汇AI", &format!("发现新版本 {ver},正在后台安装…"));
+    let app2 = app.clone();
+    let Ok(()) = update
+        .download_and_install(|_, _| {}, move || {
+            let _ = app2.restart();
+        })
+        .await
+    else {
+        log::warn!("[auto-refresh] 应用更新安装失败");
+        return;
+    };
 }
 
 /// 抓取线上 HTML 并维护指纹基线;检测到更新时返回 true(调用方决定是否 reload)。
