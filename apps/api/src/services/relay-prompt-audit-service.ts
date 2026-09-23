@@ -42,7 +42,7 @@ export interface PromptAuditResult {
 }
 
 const MAX_SCAN_CHARS = 8000
-const SNIPPET_RADIUS = 60
+const SNIPPET_CONTEXT_CHARS = 60
 
 export async function listPromptAuditRules(): Promise<RelayPromptAuditRule[]> {
   const rows = await dbRead
@@ -178,7 +178,7 @@ export async function auditPrompt(
     else if (r.action === 'warn') warn = true
 
     // 落命中记录(fire-and-forget,失败不影响调用)
-    const from = Math.max(0, idx - SNIPPET_RADIUS)
+    const from = Math.max(0, idx - SNIPPET_CONTEXT_CHARS)
     void db
       .insert(relayPromptAuditHits)
       .values({
@@ -189,7 +189,7 @@ export async function auditPrompt(
         model: ctx.model ?? null,
         keyword: kw,
         actionTaken: r.action,
-        snippet: scanTarget.slice(from, idx + kw.length + SNIPPET_RADIUS),
+        snippet: scanTarget.slice(from, idx + kw.length + SNIPPET_CONTEXT_CHARS),
       })
       .catch((e: unknown) => {
         logger.warn('[prompt-audit] 命中记录写入失败', {

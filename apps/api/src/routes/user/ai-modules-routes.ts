@@ -20,6 +20,7 @@ import {
   DOC_TEXT_DARK,
   DOC_TEXT_MUTED,
   DOC_TEXT_STRONG,
+  RADIUS_CSS_PX,
 } from '@ihui/design-tokens'
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
@@ -495,7 +496,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     const htmlSections = sections
       .map(
         (s) =>
-          `<div style="margin:0 0 24px;padding:20px 24px;background:${BRAND_BG};border-left:4px solid ${DOC_BRAND};border-radius:0 6px 6px 0;">` +
+          `<div style="margin:0 0 24px;padding:20px 24px;background:${BRAND_BG};border-left:4px solid ${DOC_BRAND};border-radius:0 ${RADIUS_CSS_PX.md} ${RADIUS_CSS_PX.md} 0;">` +
           `<h2 style="font-size:17px;margin:0 0 12px;color:${DOC_BRAND};font-weight:600;">${escapeHtml(s.heading)}</h2>` +
           `<p style="font-size:13px;line-height:1.8;margin:0;color:${DOC_TEXT_STRONG};white-space:pre-wrap;">${escapeHtml(s.content)}</p>` +
           `</div>`,
