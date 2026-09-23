@@ -29,30 +29,26 @@ type OptionItem = {
   icon: typeof FileText
   labelKey?: string
   label?: string
-  // 可选:并非每个视图都有 chord;声明了就必须真有处理器(见 scripts/check-declared-shortcuts.mjs)
-  shortcut?: string
+  shortcut: string
 }
 type OptionGroup = { titleKey: string; items: OptionItem[] }
 
 const TAB_GROUPS: OptionGroup[] = [
   {
     titleKey: 'viewSwitcher.groupView',
-    // 2026-09-22 摘掉 Ctrl+1/2/3 标签:该族键位由 use-global-shortcuts 绑定为"切对话模式"
-    // (注册表 Ctrl+1-5 → global-shortcut:mode-*),本面板的点选动作没有任何 chord 处理器,
-    // 标签等于说谎(按下数字键既不会切到本文档/浏览器/Figma 视图,又会顺手改 AI 模式)。
     items: [
-      { id: 'document', icon: FileText, labelKey: 'topBar.document' },
-      { id: 'browser', icon: Globe, labelKey: 'topBar.browser' },
-      { id: 'figma', icon: Palette, label: 'Figma' },
+      { id: 'document', icon: FileText, labelKey: 'topBar.document', shortcut: 'Ctrl+1' },
+      { id: 'browser', icon: Globe, labelKey: 'topBar.browser', shortcut: 'Ctrl+2' },
+      { id: 'figma', icon: Palette, label: 'Figma', shortcut: 'Ctrl+3' },
     ],
   },
   {
     titleKey: 'viewSwitcher.groupTools',
     items: [
       { id: 'terminal', icon: Terminal, labelKey: 'topBar.terminal', shortcut: 'Ctrl+`' },
-      { id: 'code-changes', icon: GitCompare, labelKey: 'topBar.codeChanges' },
-      { id: 'agent', icon: Bot, labelKey: 'topBar.agent' },
-      { id: 'mcp', icon: Plug, label: 'MCP' },
+      { id: 'code-changes', icon: GitCompare, labelKey: 'topBar.codeChanges', shortcut: 'Ctrl+4' },
+      { id: 'agent', icon: Bot, labelKey: 'topBar.agent', shortcut: 'Ctrl+5' },
+      { id: 'mcp', icon: Plug, label: 'MCP', shortcut: 'Ctrl+6' },
     ],
   },
   {
@@ -144,9 +140,7 @@ export function ViewSwitcher() {
                 >
                   <opt.icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="flex-1 min-w-0 text-left">{itemLabel(opt)}</span>
-                  {opt.shortcut ? (
-                    <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
-                  ) : null}
+                  <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
                 </button>
               ))}
             </div>
