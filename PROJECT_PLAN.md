@@ -74,7 +74,40 @@
 
 - `[2] i18n 键完整性` / `[2b] zh-TW 简体字残留`:`diffReview.*` 一批键未过翻译流水线(1515 文件
   17012 键口径),zh-TW 另有 `台賬→臺賬`、`後台→後臺` 字形残留 ⇒ 属 i18n 流水线在飞内容。
-- `[15] 迁移完整性` / `[61] 桌面安装器资产三方对账`:API 迁移账本与桌面安装器资产,均为他人票面。
+- `[15] 迁移完整性` —— **复核后改判:不是他人票面,也不是代码缺陷,而是"gitignore 目录随迁丢失"**。
+  该门要求的 4 份 D 盘历史审计报告只认 `根目录` 或
+  `.ihui-agent/archive/audit-reports-2026-07-21/`,而 `.ihui-agent/` 被 `.gitignore:145` 整目录忽略
+  ⇒ 不随 clone / 机器迁移走(脚本自身 2026-09-13 注释即已承认这点)。已修:从
+  `39f8feb19^:.trae-cn/archive/audit-reports-2026-07-21/` 取回 6 份原文(57631 / 12617 / 49634 /
+  2257 / 16539 / 12824 字节,非空且为历史真件,不是新造证据)放入该归档目录 ⇒ 复跑
+  **29/29 通过、exit 0**。**未新增任何项目外落点**(全在 §15b 批准的目录内,且被 ignore)。
+- `[61] 桌面安装器资产三方对账` 与 `[2] i18n 键完整性` —— **复核后改判:两条都是"工作区滞后"假红**。
+  `check-installer-assets` 报缺的 10 个 `maint-radio-{on,off}.bmp` 实际由 `3583e9ce6` 添加并**已在
+  `origin/main` 树内**(`git ls-tree -r origin/main | grep -c maint-radio` = 10);`diffReview.*` 键同理
+  (本地 `zh-CN.json` 0 命中 / `origin/main` 1 命中)。对齐工作区后两条各自消失。
+  **方法论(本会话踩实,写下来防再犯)**:给任何"红门"定归属之前,必须先排除滞后 ——
+  `git merge-base --is-ancestor <引入commit> origin/main` + 对同一 blob 做 `git ls-tree origin/main` 计数,
+  与本地树对比;我此前差点"从历史回捞"这 10 个 bmp,那会是一次凭空造物。
+- **`check-port-registry.mjs --all --staged` 挂死 80 分钟(基础设施缺陷,证据在手)**:一次
+  `docs(plan)` 纯文档提交的 pre-commit 卡在该门,`git commit` 子进程 80 分钟不返回;取证的
+  `Get-Process` 读数 **CPU 时间仅 2.84s / 墙钟 80min / Responding=True** ⇒ 不是死循环而是
+  **阻塞在 I/O**(它 `--all` 会枚举全仓文件读内容)。我终止该子进程后,guardian-runner 正常记该门
+  失败并跑完其余门,safe-commit 依 §12 走 `--no-verify` 兜底落地(`20f34767c`)。
+  **待办判据**:该门需加"单文件字节上限 + 总时间预算 + 跳过 `.pack`/`*.map`/socket 类路径",
+  否则任何人一次普通文档提交都可能被拖 80 分钟并被迫 `--no-verify`(连带关掉全部守门)。
+- **`AGENTS.md` 被并发旧基线整文件回写第 N 次(本会话第 4 处)**:远端提交
+  `98b347079`/`23506f502`(任务认领机制)按旧基线写 `AGENTS.md`,**抹掉了同日入库的 §15b
+  「项目外落点唯一制」整节、§26 实测缓存表(15 行 junction 改道 + 已办/剩余阻碍)、
+  §28 第 5 条「忽略产物也纳入视野」以及 §15 的凭据目录整目录不扫条款**;
+  更重的是承载它们的提交 `601d19486`/`a079c5b81`/`150f41361`/`23d66151c` 已不可达并被 gc 掉
+  (`git cat-file -e` = NO,`git rev-list HEAD` 7182 条历史完整无断裂),即**git 侧无恢复路径**。
+  本轮按同日上下文中的原文重建这四段(纯插入,他人新增内容一律保留),并留下判据:
+  **文档型整文件写之前必须 `git diff HEAD -- <file>` 看"消失行"是不是别人的段落**。
+- **门 76 与本会话判据的互证**:并发会话同日上线 `check-stale-revert.mjs`(id 76),其 R1 判据
+  "暂存 blob != HEAD blob 且字节级等于该路径某祖先版本 ⇒ 拦"正是上述事故的机制化堵法,
+  其自述实测"503 文件落后 486 提交"与本会话 `staged=275` 的诊断同源 ⇒ 记录于此说明:
+  **该门只在"走钩子的提交"上有效**,旁路提交(`commit-tree` / converge)与 `--no-verify` 仍会漏,
+  所以收尾时的人工多重集自证不可省。
 - `[57] 对话流元素覆盖`:红因已在上方钉死到 `ddb78b1ca`(旧基线整文件写回滚 RN G-152)。
 - `[75] mobile-rn 深色前景/容器守门`:3 个组件越线(`AgentRuntimePanel 2 > 基线 0`、
   `ModelConfigDialog 7 > 0`、`NotificationPanel 1 > 0`),属其深色改造会话在飞(该会话最近提交
@@ -85,6 +118,13 @@
   `check-single-branch` 绿。**不代改他人票面**(§12/§12b:恢复他人主体逻辑即越权)。
 
 ### 已知遗留(归属他人,不代改)
+
+- **守门 26 当前红,成因是他人正在运行的在飞工作,不代改也不代清**:`node scripts/check-parent-pollution.mjs`
+  命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
+  **mtime 全部落在 06:34-06:46(即本次审计的当刻)** ⇒ 是并发会话生产诊断活动的活文件,不是历史垃圾。
+  `--auto-clean` 会把它们当强信号实删,故本轮**只登记不动**:违反点在"落点",应迁 §15b 批准的项目内
+  临时位 `.ihui-agent/tmp/<任务名>/`(28K 搬迁零风险,由作者自己在其活动结束时做);该门在此之前
+  会持续拦 commit,他人可依 §12 以 `--no-verify` 落地自己的改动。
 
 - 守门 57 `check-chat-element-coverage`:全量口径红在 `error-retry-action` / `citation-sources` /
   `context-injection-disclosure` 三条 mobile-rn 条目。**红因已钉死到 commit**(不是"在飞内容"的模糊说法):
@@ -495,13 +535,6 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 - **本批**未做**项(如实登记)**:① 同目录 `study-plan/StudyPlanPage.tsx` 仍有 4 处硬编码中文,且其 L70 `terms.find((t) =>` 是**待引爆的 t 遮蔽** —— 谁给它加 `const t = useTranslations` 就直接编译崩,接线前必须先改形参名;② `edu/parent/children/[childId]/{courses,meals,study-plans,attendance}/PageClient.tsx` 与 `bind` 同级的 4 个子页各 4 处,可复用本批 `eduStudyPlan`/`eduMeal`/`eduAttendance` 键;③ 共享包 `packages/i18n/messages/shared` 的 `nav.home` 现值 ja=「首页」/ko=「Home」(面包屑复用即继承该残留),修它要动共享词包,本票授权面外;④ A 类 5375 行内容本地化是产品决策,不由本票擅自动门或擅改口径。
 
-
-
-- [x] ✅(2026-09-23,本票补记)**第一次落地被并发会话的无 CAS `update-ref` 从 main 线上抹掉,前向恢复时又挖出一个方法级缺陷**:
-  ① `932098e114`(13:18:37)写进 `refs/heads/main` 后 **71 秒**被 `4f9c55c7af` 覆盖 —— reflog 该条**动作描述为空** ⇒ 程序化 move-ref 不带 CAS,我的提交从分支线消失只剩对象。恢复一律前向(重建提交面 → `commit-tree` → CAS → 回读 → 前向提交),**不 reset、不碰他人文件**;`git merge-base --is-ancestor` 成了"提交是否真在线上"的唯一可信判据,`git log -1` 看不见这种事。
-  ② 更值钱的是重跑**干净检出**门时暴露的真缺陷:packdir 隔离法只把"清单**新增**"装进 blob,**对既有值的编辑会被静默回退** —— 第九批 `b49bb900c2` 正是这样把本会话当场修好的 **11 枚 zh-TW「台→臺」**在提交树里退回简体,而**工作树跑门全绿**(工作树还留着正确值)⇒ 本机自验完全发现不了。
-  ③ 处置:先把唯一现存于工作树的 14 枚值级正解(11 枚 zh-TW + `nav.home` ja/ko + `common.create` ja)快照成 `value-fixes-b11.json`,再按"HEAD + 8 份清单 + 值回正"重建提交面;给构建器加**值面自证**:blob 与 HEAD 逐叶子比值,`越界改值必须 0` 且 `授权回正必须全部生效`,否则拒绝落库。另配一份逐值差异普查脚本(`pack-value-diff.mjs`)作为常备取证手段。
-  ④ 恢复票 `02e3474c93` 的干净检出复验:`scan-i18n-zh-residue zh-TW` **11 红 → 0**、ko 0、`check-i18n-broken-en` 0、`check-i18n-keys --target=web` 缺失 **0**、死键父提交 7 → 本票后 7(**+0**)、守门 70 exit 0(9157 行 / 台账 9160)。**教训**:凡"从 HEAD 重建产物"的隔离提交法,必须配"与 HEAD 逐值 diff,只允许白名单改动"的自证;本机绿 ≠ 干净检出绿 —— 与本仓既有"造好没装车""自愈须在独立仓库做 A/B"是同一类病。
 
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
@@ -3661,6 +3694,9 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **工作区整体落后 HEAD 486 个提交**(§12d converge 用 merge-tree/commit-tree 只推进 HEAD+index、**不 checkout**):逐文件比对工作区 blob 与基线提交 blob,**503 个文件字节级等于某个历史提交版本 = 零独有内容**,一律按 HEAD 对齐;42 个真未提交文件(AgentRuntimePanel / Carousel / ModelConfigDialog / NotificationPanel / AiAssistantN8nScreen / HomeScreen / KnowledgeRagScreen / README.md 等)一律不碰,对齐前后逐文件哈希自证未变。脏项 546 → 42,守门 76 全量复扫判绿。
 - [x] ✅(2026-09-23) **gitdir 备份 `D:/IHUI-AI.git-backup-20260912` 消失**(§5b 明禁删除项,也是 `git-guardian --status` 连报 `❌ 自愈失败,需人工介入` 的成因):以 `git clone --mirror D:/IHUI-AI-git-repo` 重建(1.2G;用 mirror 而非目录拷贝,一致性由 git 保证且不与并发写竞态),守护复检 `pointerOk / gitdirOk / backupOk / refsOk` 全 true。§15b 已把该目录列为禁删显式例外。
 - [x] ✅(2026-09-23) **新增守门 76 `check-stale-revert.mjs`**(注册 guardian-runner blocking):第二类故障此前**无任何提交前闸**(71 只护 PLAN 登记行,README/AGENTS 无人守)。判据、三条豁免护栏与取证见 AGENTS.md 守门速查 76 条 + README「第 75 / 76 项」小节。
+- [x] ✅(2026-09-23) **解除守门 44 恒红 = 恢复全链 96 道守门**:`.arts` / `.codeartsdoer`(CodeArts Doer 运行态,内含 `.codebase` 索引,实测今日 14:27 仍在写入)不在 `check-root-dir-clean.mjs` 白名单,而该门**全量模式 exit 0、pre-commit 实际使用的 `--staged` 模式 exit 1** ⇒ 每次提交必被拦 ⇒ 各会话只能 `--no-verify` ⇒ **连带跳过全部 96 道守门**。已实测到的后果:对端一次合流把守门 76(脚本本体 + guardian-runner + PLAN + AGENTS + README 四处登记)整体静默回退,由本会话 union merge 合回并逐行断言双方内容均保留。处置按 §28 规则 3 走白名单显式登记(与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删 —— 删了打断他人正在用的工具且索引需重建);另把 9-18 遗留的 11 字节野日志 `win-job.log`(内容只有 "Not Found")移入 `logs/` 保留而非删除。复测:全量与 `--staged` 均 exit 0。
+- [x] ✅(2026-09-23) **工作区再被删的现场复核与自愈**:同型缺失再次发生(27 个:`apps/api/tests/*.test.ts` 与 `apps/desktop/src-tauri/windows/installer-assets/assets-*/maint-radio-*.bmp`),逐个验明"在 HEAD 存在"后按 HEAD 恢复,HEAD 也不存在的不碰;复跑工具 `.ihui-agent/tmp/heal-worktree.mjs`(缺失恢复 + 按守门 76 判据对齐漂移,带 index.lock 等待)。终态:缺失 0、真实未提交 43、守门 76 全量判绿、`git-guardian --status` 的 pointerOk/gitdirOk/backupOk/refsOk 全 true(嵌套 ref 抖动型缺失已固化进 packed-refs)。
+- **仍红但非本会话所致(如实登记,不代修)**:守门 57 `check-chat-element-coverage.mjs` 当前 exit 1,但命中的 4 处锚点全在他人**未提交**编辑的文件内 —— `AiAssistantN8nScreen.tsx`(HEAD 有 `permissionTier` ×3、工作区 0)、`AgentRuntimePanel.tsx`(HEAD 有 `permissionDecisionWord` ×2、工作区 0),两文件 `git status` 均为 `M` ⇒ 属半编辑态误伤而非 HEAD 回退,待该会话提交后自解。本会话既不回退他人改动,也不改他人守门判据。
 - **遗留(非本票引入,按 §12 不代修,已上报待裁)**:HEAD 上两处类型错 —— ① `packages/shared/src/chat/index.ts:21` `export * from './prompt-history'` 指向**任何提交都不存在**的模块(由 `23613a68c` 引入,全仓零消费者,单行悬空 export 即打红 mobile-rn typecheck);② `apps/mobile-rn/tests/agent-runtime-permission-decision.test.tsx:24` `PermissionEvent` 声明未用(TS6196)。二者在本票对齐工作区**之前**就存在于 HEAD,只是此前相关测试文件处于缺失状态、把报错遮住了。
 - 验证:`node scripts/check-stale-revert.mjs --self-test`(8 例全绿)+ 临时 index 端到端演练 3/3 + `git status --porcelain | grep '^ D'` 为空 + `node scripts/git-guardian.mjs --status` 全 true + `node scripts/git-push-converge.mjs` 收敛。
 
