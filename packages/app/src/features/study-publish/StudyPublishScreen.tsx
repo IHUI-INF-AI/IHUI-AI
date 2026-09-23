@@ -17,6 +17,8 @@ import {
 import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
 export interface StudyCategory {
   id: string
@@ -588,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     tabItem: {
       flex: 1,
       height: 48,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
@@ -610,7 +612,7 @@ const fieldStyles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: getTokens('light').border.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     height: 50,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -626,7 +628,7 @@ const fieldStyles = StyleSheet.create({
 const coverStyles = StyleSheet.create({
   box: {
     height: 120,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: getTokens('light').border.light,
     borderStyle: 'dashed',
@@ -637,13 +639,13 @@ const coverStyles = StyleSheet.create({
   },
   previewWrap: {
     position: 'relative',
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     overflow: 'hidden',
   },
   preview: {
     width: '100%',
     height: 120,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   },
   clearBtn: {
     position: 'absolute',
@@ -651,7 +653,7 @@ const coverStyles = StyleSheet.create({
     right: 4,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: baseTokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
@@ -669,7 +671,7 @@ const chipStyles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 16,
+    borderRadius: rnRadius['2xl'],
     borderWidth: 1,
     borderColor: getTokens('light').border.light,
     backgroundColor: getTokens('light').surface.card,
@@ -686,7 +688,7 @@ const chipStyles = StyleSheet.create({
 const submitStyles = StyleSheet.create({
   btn: {
     height: 50,
-    borderRadius: 15,
+    borderRadius: rnRadius['2xl'],
     backgroundColor: getTokens('light').brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
