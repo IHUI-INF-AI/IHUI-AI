@@ -15,7 +15,7 @@ export type OverviewShape = AgentOverview
  * # 任务总览
  *
  * - 状态: 已完成
- * - 耗时: 12.3s
+ * - 会话耗时: 12.3s
  * - 步骤: 5/6
  * - 子代理: 2 活跃 · 3 总
  * - 工具: 8 成功 · 1 失败
@@ -38,47 +38,22 @@ export interface OverviewSummaryInput {
   sessionStart?: string | null
   /** 当前累计耗时(毫秒,可直接覆盖 sessionStart 计算) */
   nowMs?: number
-  /** 取词函数(由渲染侧注入,见 Translator) */
-  t: Translator
+}
+
+const STATUS_LABEL: Record<AgentOverview['status'], string> = {
+  idle: '空闲',
+  running: '运行中',
+  completed: '已完成',
+  failed: '失败',
+  interrupted: '已中断',
 }
 
 /**
- * 取词函数:本模块是纯函数集合,**禁止**模块级调用 `useTranslations`(Hook 只能在组件内调用),
- * 故展示文案一律由调用方(组件里的 `useTranslations('ai.pane')`)注入。
+ * 状态文字(导出便于单测 + 复用,2026-07-28 立)
+ * - streaming=true 时追加 " (流式中)" 后缀
  */
-export type Translator = (key: string) => string
-
-/** 状态 → 语言包键名(命名空间 ai.pane,渲染侧与序列化侧共用同一份键表) */
-export const STATUS_LABEL_KEY: Record<AgentOverview['status'], string> = {
-  idle: 'overview.statusIdle',
-  running: 'overview.statusRunning',
-  completed: 'overview.statusCompleted',
-  failed: 'overview.statusFailed',
-  interrupted: 'overview.statusInterrupted',
-}
-
-/**
- * 流式中变体的**整键**(2026-09-22 立):原先「状态标签 + 流式中后缀」的字符串拼接属于
- * 跨语言拼词(英文等语序/标点与中文不同),现按状态各给一个完整键,不做任何字符串拼接。
- */
-export const STATUS_LABEL_STREAMING_KEY: Record<AgentOverview['status'], string> = {
-  idle: 'overview.statusIdleStreaming',
-  running: 'overview.statusRunningStreaming',
-  completed: 'overview.statusCompletedStreaming',
-  failed: 'overview.statusFailedStreaming',
-  interrupted: 'overview.statusInterruptedStreaming',
-}
-
-/**
- * 状态文字(导出便于单测 + 复用,2026-07-28 立;2026-09-22 取词下放到渲染侧)
- * - streaming=true 时走独立的流式中整键,不再追加后缀
- */
-export function formatStatusText(
-  status: AgentOverview['status'],
-  isStreaming: boolean,
-  t: Translator,
-): string {
-  return t(isStreaming ? STATUS_LABEL_STREAMING_KEY[status] : STATUS_LABEL_KEY[status])
+export function formatStatusText(status: AgentOverview['status'], isStreaming: boolean): string {
+  return `${STATUS_LABEL[status]}${isStreaming ? ' (流式中)' : ''}`
 }
 
 function formatDurationMs(ms: number): string {
@@ -107,7 +82,7 @@ export function calcSessionDurationMs(
   return Math.max(0, nowMs - startMs)
 }
 
-/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生;标签一律经注入的 translator 取词 */
+/** 拼接统计行(空值自动跳过)— durationMs 可选,缺省时从 sessionStart 派生 */
 export function buildStatLines(input: OverviewSummaryInput, durationMs?: number): string[] {
   const {
     overview,
@@ -117,55 +92,51 @@ export function buildStatLines(input: OverviewSummaryInput, durationMs?: number)
     tokenRate,
     etaMs,
     contextUsage,
-    t,
   } = input
   const effectiveDuration = durationMs ?? calcSessionDurationMs(sessionStart, nowMs)
   const lines: string[] = []
   if (overview.totalSteps > 0) {
-    lines.push(`- ${t('overview.steps')}: ${overview.completedSteps}/${overview.totalSteps}`)
+    lines.push(`- 步骤: ${overview.completedSteps}/${overview.totalSteps}`)
   }
   if (overview.totalSubagents > 0) {
-    const parts = [`${overview.activeSubagents} ${t('overview.active')}`]
-    parts.push(`${overview.totalSubagents} ${t('overview.total')}`)
-    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents} ${t('overview.dead')}`)
-    lines.push(`- ${t('overview.subagents')}: ${parts.join(' · ')}`)
+    const parts = [`${overview.activeSubagents} 活跃`]
+    parts.push(`${overview.totalSubagents} 总`)
+    if (overview.deadSubagents > 0) parts.push(`${overview.deadSubagents} 死亡`)
+    lines.push(`- 子代理: ${parts.join(' · ')}`)
   }
   if (overview.totalTerminals > 0) {
-    lines.push(
-      `- ${t('overview.terminals')}: ${overview.runningTerminals} ${t('overview.running')} · ${overview.totalTerminals} ${t('overview.total')}`,
-    )
+    lines.push(`- 终端: ${overview.runningTerminals} 运行中 · ${overview.totalTerminals} 总`)
   }
   if (overview.totalChanges > 0) {
-    lines.push(`- ${t('overview.changes')}: ${overview.totalChanges} ${t('overview.files')}`)
+    lines.push(`- 变更: ${overview.totalChanges} 文件`)
   }
   if (effectiveDuration > 0) {
-    lines.push(`- ${t('overview.duration')}: ${formatDurationMs(effectiveDuration)}`)
+    lines.push(`- 会话耗时: ${formatDurationMs(effectiveDuration)}`)
   }
   if (totalTokens !== undefined && totalTokens > 0) {
-    lines.push(`- ${t('overview.token')}: ${formatTokenK(totalTokens)}`)
+    lines.push(`- Token: ${formatTokenK(totalTokens)}`)
   }
   if (tokenRate !== undefined && tokenRate > 0) {
-    lines.push(`- ${t('overview.rate')}: ${tokenRate}/s`)
+    lines.push(`- 速率: ${tokenRate}/s`)
   }
   if (etaMs !== undefined && etaMs !== null && etaMs > 0) {
-    lines.push(`- ${t('overview.eta')}: ${formatDurationMs(etaMs)}`)
+    lines.push(`- 预计: ${formatDurationMs(etaMs)}`)
   }
   if (contextUsage !== undefined && contextUsage > 0) {
-    lines.push(`- ${t('overview.context')}: ${Math.round(contextUsage)}%`)
+    lines.push(`- 上下文: ${Math.round(contextUsage)}%`)
   }
   return lines
 }
 
 /** 主导出函数:把 overview + 统计序列化为 Markdown 字符串 */
 export function buildOverviewSummaryMarkdown(input: OverviewSummaryInput): string {
-  const { overview, isStreaming, sessionStart, nowMs = Date.now(), t } = input
+  const { overview, isStreaming, sessionStart, nowMs = Date.now() } = input
   const durationMs = calcSessionDurationMs(sessionStart, nowMs)
-  const lines: string[] = [`# ${t('overview.title')}`, '']
-  const statusText = formatStatusText(overview.status, isStreaming, t)
-  lines.push(`- ${t('overview.status')}: ${statusText}`)
+  const lines: string[] = ['# 任务总览', '']
+  const statusText = `${STATUS_LABEL[overview.status]}${isStreaming ? ' (流式中)' : ''}`
+  lines.push(`- 状态: ${statusText}`)
   if (overview.error) {
-    // overview.error 是后端原始错误文本:只取词标签,值本身不翻译、不包装
-    lines.push(`- ${t('overview.error')}: ${overview.error}`)
+    lines.push(`- 错误: ${overview.error}`)
   }
   lines.push(...buildStatLines(input, durationMs))
   return lines.join('\n')
