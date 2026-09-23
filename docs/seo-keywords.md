@@ -168,7 +168,7 @@
 
 ## 6. 技术栈关键词(辅助 · 用于技术内容 SEO)
 
-LiteLLM | Drizzle ORM 0.38 | PostgreSQL 18 | pgvector | Zod 3.24 | Tailwind CSS 4 | shadcn/ui | Zustand | @tanstack/react-query 5 | Turborepo 2.3 | pnpm 9.15 | Vitest | Playwright | Locust | Prometheus | Grafana | Loki | Jaeger | OpenTelemetry | Alertmanager | Knip | Lighthouse CI
+LiteLLM | Drizzle ORM 0.38 | PostgreSQL 15 | pgvector | Zod 3.24 | Tailwind CSS 4 | shadcn/ui | Zustand | @tanstack/react-query 5 | Turborepo 2.3 | pnpm 9.15 | Vitest | Playwright | Locust | Prometheus | Grafana | Loki | Jaeger | OpenTelemetry | Alertmanager | Knip | Lighthouse CI
 
 ---
 
