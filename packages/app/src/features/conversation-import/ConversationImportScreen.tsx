@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 // 跨端共享 UI:不含平台 API。文件选择 / multipart 上传由调用端(RN)以 props 注入。
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -415,7 +416,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 12,
       gap: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -427,7 +428,7 @@ function createStyles(tk: AppThemeTokens) {
       flexBasis: '46%',
       padding: 10,
       gap: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -442,7 +443,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: 6,
       height: 40,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
     },
     pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.surface.light },
@@ -450,7 +451,7 @@ function createStyles(tk: AppThemeTokens) {
     rowCard: {
       padding: 10,
       gap: 2,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -464,7 +465,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       gap: 6,
       height: 36,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.DEFAULT,
     },
     commitButtonDisabled: { backgroundColor: tk.border.medium },
@@ -474,7 +475,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'flex-start',
       gap: 6,
       padding: 8,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.warning.light,
     },
     warningText: { flex: 1, fontSize: 11, lineHeight: 16, color: tk.warning.amberText },
@@ -484,7 +485,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       fontSize: 10,
       fontWeight: '600',
       overflow: 'hidden',

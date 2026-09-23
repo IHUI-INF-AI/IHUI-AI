@@ -73,7 +73,7 @@ export default function DistributionCommission() {
   return (
     <ThemeRoot className="min-h-screen bg-background">
       {/* 对齐 RN IncomeScreen summaryCard:白卡 + 次级标签 + 大号数值 */}
-      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-[24rpx] p-[28rpx]">
+      <View className="mx-[20rpx] mt-[20rpx] bg-card rounded-xl p-[28rpx]">
         <Text className="text-[28rpx] text-muted-foreground">
           {t('distribution.commission.total')}
         </Text>
@@ -86,7 +86,7 @@ export default function DistributionCommission() {
           {list.map((r) => (
             <View
               key={r.id}
-              className="bg-card border border-border rounded-[24rpx] p-[24rpx] mb-[16rpx]"
+              className="bg-card border border-border rounded-xl p-[24rpx] mb-[16rpx]"
             >
               <Text className="block text-[32rpx] font-semibold text-foreground">{r.type}</Text>
               <Text className="block text-[22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">

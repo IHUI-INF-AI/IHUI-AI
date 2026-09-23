@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as src } from '../check-chat-element-coverage.mjs'
 
-const { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks } = src
+const { parsePlanned, checkAnchors, checkEvents, checkBaseline, runChecks, pickSource } = src
 
 const PLAN_SOURCE = {
   taskLinePattern: '^- \\[([ x])\\]\\s*(?:✅[^*]*)?\\*\\*(D[0-9]+)',
@@ -161,5 +161,30 @@ test('G-70 反向清单:两项都在且标我方在前(禁止当差距补齐)', 
   assert.ok(notes.includes('[n]'), '须含行内 [n] 编号引用项')
   assert.ok(notes.includes('分享'), '须含会话分享项')
   assert.ok(notes.includes('我方在前'), '须明确标“我方在前”')
+})
+
+// ─── 内容来源:判仓库内容,不判共享工作区快照(2026-09-24 补) ───────────
+//
+// 起因:本会话只改守门脚本,[57] 却报 5 处 anchor-missing-marker —— 全部来自别人**未提交**的
+// 重写(HEAD 里锚点全在,工作树里全被删)。按磁盘读等于"谁的工作区脏,全仓提交一起红",
+// 恒红的唯一结局是 --no-verify,把真正防回归的判据一起关掉。
+
+test('pickSource:已暂存判索引 / 仅工作树脏判 HEAD / 干净判磁盘', () => {
+  assert.equal(pickSource({ staged: true, worktreeDirty: true }), 'index')
+  assert.equal(pickSource({ staged: true, worktreeDirty: false }), 'index')
+  assert.equal(pickSource({ staged: false, worktreeDirty: true }), 'head')
+  assert.equal(pickSource({ staged: false, worktreeDirty: false }), 'disk')
+})
+
+test('装车证明:锚点判据必须经 contentAt 取内容,不得回到按磁盘读的老路', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const srcText = readFileSync(join(root, 'scripts', 'check-chat-element-coverage.mjs'), 'utf8')
+  assert.match(srcText, /const text = contentAt\(anchor\.file, repoRoot\)/, 'checkAnchors 必须经 contentAt 取锚定文件内容')
+  assert.doesNotMatch(srcText, /readFileSync\(abs, 'utf8'\)\.includes\(anchor\.mustMatch\)/, '不得再用裸 readFileSync 判锚点(共享工作区快照不可作为仓库事实)')
+  // runner 里本门必须仍是 blocking —— 换成"看不见"绝不是修好
+  const runner = readFileSync(join(root, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const block = runner.slice(runner.indexOf("id: '57'"), runner.indexOf("id: '57'") + 400)
+  assert.match(block, /script: 'check-chat-element-coverage\.mjs'/)
+  assert.match(block, /mode: 'blocking'/)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

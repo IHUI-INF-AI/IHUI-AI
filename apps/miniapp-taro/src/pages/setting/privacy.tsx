@@ -143,7 +143,7 @@ export default function PrivacySettingPage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {t('settingPrivacy.systemPermissions')}
           </Text>
-          <View className="rounded-[24rpx] border-[1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-xl border-[1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
             {PERMISSIONS.map((item, idx) => (
               <View
                 key={item.key}
@@ -171,7 +171,7 @@ export default function PrivacySettingPage() {
                 {/* 「去设置」为小程序端补充动作(RN 无对应元素):次级 chip,
                     secondary 底 + border.light 描边,圆角对齐 card 12dp→24rpx 的一半(16rpx) */}
                 <Button
-                  className="m-0 ml-[16rpx] h-[56rpx] shrink-0 rounded-[16rpx] border-[1rpx] border-solid border-[color:var(--color-border)] bg-secondary px-[24rpx] text-[24rpx] leading-[56rpx] text-secondary-foreground"
+                  className="m-0 ml-[16rpx] h-[56rpx] shrink-0 rounded-lg border-[1rpx] border-solid border-[color:var(--color-border)] bg-secondary px-[24rpx] text-[24rpx] leading-[56rpx] text-secondary-foreground"
                   size="mini"
                   onClick={onOpenSetting}
                 >
@@ -188,7 +188,7 @@ export default function PrivacySettingPage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {t('settingPrivacy.privacySettings')}
           </Text>
-          <View className="rounded-[24rpx] border-[1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-xl border-[1rpx] border-solid border-[color:var(--color-border)] bg-card p-[28rpx]">
             {switchItems.map((item, idx) => (
               <View
                 key={item.key}

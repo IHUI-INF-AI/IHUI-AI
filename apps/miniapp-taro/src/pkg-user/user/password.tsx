@@ -82,7 +82,7 @@ export default function Password() {
             <Text className="text-[32rpx] text-muted-foreground">
               {tt('user.password.oldPassword', '原密码')}
             </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-[24rpx] bg-muted px-[24rpx]">
+            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
                 password={!showOld}
@@ -103,7 +103,7 @@ export default function Password() {
             <Text className="text-[32rpx] text-muted-foreground">
               {tt('user.password.newPassword', '新密码')}
             </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-[24rpx] bg-muted px-[24rpx]">
+            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
                 password={!showNew}
@@ -129,7 +129,7 @@ export default function Password() {
             <Text className="text-[32rpx] text-muted-foreground">
               {tt('user.password.confirmPassword', '确认密码')}
             </Text>
-            <View className="relative flex h-[100rpx] items-center rounded-[24rpx] bg-muted px-[24rpx]">
+            <View className="relative flex h-[100rpx] items-center rounded-xl bg-muted px-[24rpx]">
               <Input
                 className="box-border h-full w-full bg-transparent pr-[120rpx] text-[32rpx] text-foreground"
                 password={!showConfirm}
@@ -157,7 +157,7 @@ export default function Password() {
           </Text>
 
           <View
-            className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-primary ${
+            className={`mt-[16rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-primary ${
               oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-60'
             }`}
             hoverClass="opacity-70"
