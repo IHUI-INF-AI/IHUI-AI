@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: tokens.brand.DEFAULT,
   },
-  modelStartBtnText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  modelStartBtnText: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
   backToTopBtn: {
     position: 'absolute',
     bottom: 20,
