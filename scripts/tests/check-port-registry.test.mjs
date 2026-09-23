@@ -22,7 +22,7 @@ const SCRIPT_PATH = join(__dirname, '..', 'check-port-registry.mjs')
 //   ⚠️ 8840 不在注册表中(88xx 但未注册 → 违规)
 // - EXEMPT_PORTS:5432/6379/443/80/22 等(基础设施/CI/第三方)
 // - EXEMPT_PATH_PATTERNS:docs/ / .github/workflows/ / apps/api/tests/ 等
-// - warn-only:始终 exit 0,不阻塞 commit(通过 stdout 区分 ✅ / ⚠️)
+// - warn-only:违规时 exit 1(仅供 runner 计 warning,不阻塞 commit),通过 stdout 区分 ✅ / ⚠️
 // - 两种模式:默认(staged) / --all(git ls-files 全量 tracked)
 // ============================================================
 
@@ -69,9 +69,10 @@ function assertPass(r) {
   assert.match(r.stdout, /✅.*无违规端口/, `stdout 应含 ✅ 无违规端口\nstdout: ${r.stdout}`)
 }
 
-// ─── 辅助:断言违规提醒(exit 0 warn-only + stdout 含 ⚠️ 提醒) ───
+// ─── 辅助:断言违规提醒(warn-only 违规 exit 1 + stdout 含 ⚠️ 提醒) ───
+// 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-port-registry.mjs:266-270 注释 + runner id 24b mode=warn)
 function assertWarn(r) {
-  assert.equal(r.status, 0, `warn-only 应 exit 0,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+  assert.equal(r.status, 1, `warn-only 违规应 exit 1,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
   assert.match(r.stdout, /⚠️.*端口注册表守门提醒/, `stdout 应含 ⚠️ 提醒\nstdout: ${r.stdout}`)
 }
 

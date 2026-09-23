@@ -144,7 +144,8 @@ test('场景2: 仅 packages/types + 无 PROJECT_PLAN.md → exit 0 warn(未标�
   try {
     stageFiles(dir, ['packages/types/index.ts', 'packages/types/user.d.ts'])
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-multi-end-sync.mjs:330-331 注释 + runner id 21 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.out, /warn-only/, '应输出 warn-only')
     assert.match(r.out, /共享包改动未标注跨端验证/)
     assert.ok(!r.out.includes('豁免'), '不应走场景1 豁免路径')
@@ -196,7 +197,8 @@ test('场景2: 仅 packages/auth + PROJECT_PLAN.md 未标注 → exit 0 warn', (
     stageFiles(dir, ['packages/auth/src/jwt.ts'])
     writePlan(dir, '# plan\n\n### 任务A\n修复 auth 模块 JWT 验证逻辑\n')
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-multi-end-sync.mjs:330-331 注释 + runner id 21 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.out, /warn-only/)
     assert.match(r.out, /共享包改动未标注跨端验证/)
   } finally {
@@ -285,7 +287,8 @@ test('场景4: 仅 apps/api + 标注"web 独占"(端不匹配)→ exit 0 warn', 
     // 活跃任务标注 "web 独占",但 staged 触及 api 端 → 端名不匹配 → warn
     writePlan(dir, '# plan\n\n### 任务A\nweb 独占页面开发\n')
     const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-multi-end-sync.mjs:330-331 注释 + runner id 21 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.out, /warn-only/)
     assert.match(r.out, /单端改动未标注平台独占/)
     assert.match(r.out, /api/, '应报告触及 api 端')
@@ -303,7 +306,8 @@ test('场景4 边界: apps/web + packages/ui(1 端 + 共享)+ 无标注 → exit
     const r = runScript({ cwd: dir })
     // endCount=1(web), sharedFiles=[packages/ui/...] → 命中场景4(endCount===1)
     // 共享包不影响场景4 判定,无标注 → warn
-    assert.equal(r.status, 0, 'warn-only 始终 exit 0')
+    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-multi-end-sync.mjs:330-331 注释 + runner id 21 mode=warn)
+    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
     assert.match(r.out, /warn-only/)
     assert.match(r.out, /单端改动未标注平台独占/)
   } finally {
