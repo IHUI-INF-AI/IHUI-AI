@@ -821,6 +821,32 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 
 
+
+### 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24)
+
+上一票把"taro 33 枚镜像键删还是留"挂成待拍板。本轮按证据查完,**结论是两件事都不该做**,真问题在第三个地方:
+
+- 溯源:39 枚全部由 `02b2d353ad5`(2026-09-14,"fix(ai-service): 保留 W-batch ChatMode 注入…")
+  一次性灌进 taro 包 —— 提交主题与这些键无关,是混合提交里的词表顺带产物。
+- taro 侧无消费者:`apps/miniapp-taro/src/components/adapters/` 实际只有
+  `Selecter / SectionHeader / ColorfulLoader / index.ts` 四个适配器,
+  **不存在** `adaptersCarousel|FeedbackScreen|OrderScreen|PayButton|UserInfoCard` 对应适配器;
+  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只钉 waiting 族,对这批无约束。
+- **决定性一条**:`pay.payNow / pay.defaultName / pay.subscribeTip / pay.priceLabel / pay.perMonth / pay.countLabel`
+  在**六端包里只有 taro 有**,web / shared / extension / cli / mobile-rn 全部没有;
+  而唯一调用点 `packages/app/src/components/PayButton.tsx:313-319` 是 RN 共享屏
+  (`tr = (key, fallback) => (t ? t(key) : fallback)`,t 由 props 注入)。
+  ⇒ RN 运行时**取不到这六个键**,永远走 `fallback` 里写死的中文 ——
+  即"partial props + 中文默认值静默不本地化"同一形态的真缺陷,而不是"该不该摘孤儿键"。
+  上一票若非我先复核代理结论(动词组补 `tr` 那枚门 `44a81a6162e`),这六枚连 taro 里的那份也会被删掉,
+  届时**全仓再无这六个日语词条**,修 RN 时只能重译。
+- 所以本票动作:**零删除**。已做的两件事是 ① 把判据盲区补上(`tr()` 注入式包装器,已落 `44a81a6162e`),
+  ② 把"删 39"改判为"RN 付费按钮本地化缺失 + taro 承载从未开建屏幕的孤儿词表"并登记。
+- **正确修向(需动他人功能面,不属本会话代改)**:把 `pay.*` 六键按端补齐到 RN 真正加载的消息集
+  (mobile-rn 或 shared,取 RN `i18n` 合并链为准),并让 `packages/app` 的 PayButton 在 RN 侧真拿到 `t`;
+  验收判据 = 五语下 `pay.payNow` 可解析且 `fallback` 中文不再出现(可用 `check-word-table-resolvable.mjs` 同型断言钉)。
+  而 taro 侧那 33 枚属于"为未开建屏幕预留的词表",要删须由适配器接线程序(gate 64 那条线)确认不再需要后一并处理。
+
 ### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
 
 我没有照抄代理结论,而是先逐条复核 —— 结果当场证伪:`dead-taro` 代理给出"delete 39",
@@ -1316,6 +1342,15 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **三个复活入口逐个查零**:① `refs-manifest.json` —— 在 `.git`、仓根、备份 gitdir 三处全量扫 `manifest` 文件名,**一份都不存在**,所以离线重建没有"期望值"可复原(下一次只会由 `--refresh-remote` 从 origin 的真实 sha 重建);② 本地恢复源 `G:/IHUI-AI.git-backup-20260912` —— 逐枚读出 4212 个松散 tag 文件的目标 sha 送 `cat-file --batch-check`,**指向死对象 = 0 枚**(顺序使然:第二十二批是"先清坏指针、再 `robocopy /MIR` 重做备份",若反过来就是把 1692 枚坏指针复制进恢复源);③ 主 gitdir `packed-refs` 795 条 + 全部 tag ref —— 死行 **0**、悬空 ref **0**,`git fetch origin main` 复测通过。
 - **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
 - **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
+
+### 第二十四批(2026-09-23):重装页 DPI 重锚补齐"两轮定档"并与 GUIINIT 同口径 —— 顺带钉出一条会把窗口甩出屏外的顺序陷阱
+
+- **收掉第二十一批自列的残余**:"重锚分支只跑一轮 `IHUI_GUIINIT_SIZE`(GUIINIT 是两轮),跨屏搬迁差一轮收敛"。现 `ihui-ui.nsi:1665-1666` 两轮**紧邻**执行、`IHUI_WINDOW_RGN` 收尾,注释同步从"一轮"改口径。`$R2/$R3`(PageLeave 还要用的 radio 句柄)仍由分支首尾的 `$1/$2` 保存-写回兜住;`$R5..$R8`(工作区矩形)在定档过程只读不写,故第二轮无需重跑 `SystemParametersInfoW`。
+- **过程中新发现的顺序陷阱(比原残余更严重)**:若在两轮 `IHUI_GUIINIT_SIZE` **中间**调 `IHUI_WINDOW_RGN`,该宏会把 `$R6/$R7` 当临时量用(区域句柄 / 圆角直径),第二轮读到的就是**被覆写的脏工作区矩形** ⇒ 窗口被摆到屏幕外。故顺序是硬约束:`SIZE → SIZE → RGN`,已同时落在注释(`:1654-1663`)与守门判据里。
+- **删两枚死变量**:`Var IHUIR6` / `Var IHUIR7`(`:83-84`,编译一直报 warning 6001 "not referenced or never set")。删前对 `windows/*.nsi` 与渲染出的 `target/release/nsis/x64/` 逐处 grep 确认零引用 —— 本仓有实测过的 NSIS 陷阱"**后置 `Var` 在 Function 体里被引用只报 warning 6000 并静默丢引用**"(第十七批那条),所以删声明必须先证明无人引用,不能靠编译"过了"当证据。
+- **把两条都装进闸(守门 61 第 7 条不变量扩判据)**:`scripts/check-installer-assets.mjs:528-553` 新增 ① 重锚分支的 `IHUI_GUIINIT_SIZE` 轮数 < 2 即红;② `IHUI_WINDOW_RGN` 出现在两轮之间即红。测试 16 → **19 例**:改回单轮必红、region 夹中间必红、只加注释保持多轮必绿;夹具用 `mutateReanchorBranch` 动态定位分支并在基线不满足前提时**自报"夹具失效"** —— 上一批刚因夹具写死存量把自己测红包过红一次。
+- **验证(主 agent 逐条自己复跑,不采信代理报告)**:`node --test scripts/tests/check-installer-assets-geo.test.mjs` → `tests 19 / pass 19 / fail 0`;`node scripts/check-installer-assets.mjs` → `PASS —— …重装页 DPI 重锚走完窗口框+裁剪区域且两轮紧邻定档…七条跨文件不变量成立`;沙箱 `makensis` → `COMPILE OK`、**warning 6000 = 0**、总警告 6 → **4**(消失的两条正是 6001 死变量)。另校一处事实错误:代理注释把日期写成 `2026-09-25`,已改回 2026-09-23(只改笔误,不改结论)。
+- **残余(不称收口)**:① **仍未做真机像素/跨屏复验** —— 该分支只在"窗口 DPI ≠ 布局 DPI"(跨屏异 DPI 或缩放被改)时触发,而取证需要动显示缩放设置,已被明令永久放弃;故本批只有编译级 + 守门级证据,没有像素级证据。② `scripts/check-installer-assets.mjs` 与它的测试文件在 HEAD 存量本就不满足 prettier 全量格式(试跑 `--write` 产生 114 行无关重排,已回退,只保留本票改动行)—— 意味着任何会话对这些文件跑 lint-staged 都会带一大片排版噪声,属存量债,不在本票范围。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
