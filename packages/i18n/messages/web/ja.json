@@ -10919,7 +10919,10 @@
       "buyCreditDesc": "残高をチャージまたはプランに登録",
       "viewUsage": "利用状況を見る",
       "viewUsageDesc": "モデル / 日付ごとの詳細",
-      "noSubscription": "有効なプランなし、残高ウィンドウなし"
+      "noSubscription": "有効なプランなし、残高ウィンドウなし",
+      "countdownHoursMinutes": "{h}時間{m}分",
+      "countdownMinutesSeconds": "{m}分{sec}秒",
+      "countdownSecondsOnly": "{sec}秒"
     },
     "errorCodes": {
       "title": "API エラーコード",
@@ -24224,5 +24227,12 @@
       }
     },
     "vividTail": "、まもなくです"
-  }
+  },
+  "upload": {
+    "oversizeSingle": "ファイルがサイズ上限を超えています: {name}",
+    "uploadFailedWithReason": "アップロードに失敗しました: {error}",
+    "unknownError": "不明なエラー",
+    "missingFileId": "アップロードレスポンスに file.id がありません",
+    "maxAttachmentsReached": "添付は最大 {count} 件までです"
+}
 }
