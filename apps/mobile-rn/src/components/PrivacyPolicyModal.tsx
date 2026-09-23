@@ -31,7 +31,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
 export interface PrivacyPolicyModalProps {
