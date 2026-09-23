@@ -12,7 +12,7 @@
     "apps/extension/lib",
     "apps/cli/src"
   ],
-  "total": 13061,
+  "total": 13057,
   "files": {
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/agent-frameworks-part1.ts": 559,
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/ai-coding-assistants.ts": 384,
@@ -338,7 +338,6 @@
     "packages/shared/src/context/index.ts": 5,
     "apps/web/app/(main)/agent-plan/layout.tsx": 4,
     "apps/web/app/(main)/agreement/[type]/PageClient.tsx": 4,
-    "apps/web/app/(main)/ai-news/components/PriceChart.tsx": 4,
     "apps/web/app/(main)/asks/edit/page.tsx": 4,
     "apps/web/app/(main)/business-license/page.tsx": 4,
     "apps/web/app/(main)/developer/team/page.tsx": 4,

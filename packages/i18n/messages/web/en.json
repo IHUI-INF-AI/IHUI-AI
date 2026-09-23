@@ -8972,6 +8972,12 @@
     },
     "metaDescription": "Aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv etc.), auto-collecting every 6 hours, with model/product/industry/paper categories and real-time trend signals.",
     "metaTitle": "AI News · Real-time Aggregation",
+    "priceChart": {
+      "inputPrice": "{name} · Input price: {price}",
+      "outputPrice": "{name} · Output price: {price}",
+      "legendInput": "Input",
+      "legendOutput": "Output"
+    },
     "trendChart": {
       "days": "d",
       "hotValue": "Hotness",
