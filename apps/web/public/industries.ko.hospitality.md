@@ -154,13 +154,13 @@
 | 데이터 계층                                  |
 | - 고객 프로파일 + 리뷰 KG                    |
 | - 객실/요리 KB + 다국어 말뭉치              |
-| - PostgreSQL 18 + 벡터 DB                   |
+| - PostgreSQL 16 + 벡터 DB                   |
 +-----------------------------------------+
 ```
 
 ### IHUI AI 엔드 투 엔드 능력 (8 엔드 커버)
 - **Web** (Next.js 16 + React 19): 본부 운영 / 매장 대시보드
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): 주문/멤버 API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 주문/멤버 API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): 다중 Agent 협조
 - **데스크톱** (Tauri 2): 매장 관리 워크스테이션
 - **확장** (WXT): 브라우저 측 리뷰 수집
@@ -170,7 +170,7 @@
 
 ### 기술 스택
 - 프론트엔드: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
+- 백엔드: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - 멀티엔드: Tauri 2 (데스크톱) / WXT (확장) / React Native (모바일) / Taro 4 (미니프로그램) / Node.js CLI
 - PMS 연동: Opera / Shiji / Wanneng
@@ -195,7 +195,7 @@
 | 평균 투자회수 주기 | 4개월 |
 | 12개월 ROI | 290% |
 
-(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 18, Redis 7)
+(테스트 환경: 엔터프라이즈판 중형 배포, 3노드, PostgreSQL 16, Redis 7)
 
 ### 자주 묻는 질문 FAQ
 - Q: 지원되는 PMS 시스템은?
