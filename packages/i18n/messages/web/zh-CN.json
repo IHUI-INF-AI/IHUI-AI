@@ -8962,6 +8962,12 @@
     },
     "metaDescription": "聚合国内外 41 个权威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。",
     "metaTitle": "AI 资讯 · 全网实时聚合流",
+    "priceChart": {
+      "inputPrice": "{name} · 输入价: {price}",
+      "outputPrice": "{name} · 输出价: {price}",
+      "legendInput": "输入",
+      "legendOutput": "输出"
+    },
     "trendChart": {
       "days": "天",
       "hotValue": "热度值",

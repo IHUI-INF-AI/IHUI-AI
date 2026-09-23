@@ -8962,6 +8962,12 @@
     },
     "metaDescription": "聚合國內外 41 個權威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號實時更新。",
     "metaTitle": "AI 資訊 · 全網實時聚合流",
+    "priceChart": {
+      "inputPrice": "{name} · 輸入價: {price}",
+      "outputPrice": "{name} · 輸出價: {price}",
+      "legendInput": "輸入",
+      "legendOutput": "輸出"
+    },
     "trendChart": {
       "days": "天",
       "hotValue": "熱度值",
