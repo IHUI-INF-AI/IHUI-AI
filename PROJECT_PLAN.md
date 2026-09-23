@@ -1120,6 +1120,7 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 
 ### P2 广度产品化（生态）
+- [ ] O13 多租户隔离重建（tenant RLS 被 0214 删除后，按 catalog data-class 重新落地）+ `roleId >= 1` 判定收敛  ⏳(迁移与角色在途)
 
 - [ ]（进行中） O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义 `requireAdmin`(`earnings-routes.ts:137`、`security.ts:74`);③ `internalUserRoleId` 通道并入同一封装并补提权断言;④ 第 53 项升 blocking;⑤ `admin.ts:124` 统一 preHandler 收编进 `require-permission`。另:部署机需运维 `ALTER ROLE ihui_app PASSWORD` + 配 `DATABASE_APP_URL`,之后才评估 `ENABLE ROW LEVEL SECURITY`
 - **进度(2026-09-23 试点批)**:earnings/security/health 3 文件已收敛集中 `requireAdmin`（白名单 34→31，LOCAL 清零），11 条契约测试全绿；沉淀两套范式（全 admin 用 preHandler、混合路由用 handler 内 `reply.sent`）；后续 31 文件按 T0(16 个纯删条目)/T1(8 个)/T2(4 个)/T3(1 个 groups)排序推进。
@@ -3745,3 +3746,4 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-09) **P1 声纹删除越权收敛**:声纹库是平台共享资源(单一 token6688 账号,无归属概念),此前任何登录用户可 DELETE 全库声纹。delete_voice 加 `_require_admin` 依赖(role_id≥1,与 AGENTS.md §5/admin layout 一致);voices 页非 admin 隐藏删除按钮(useAuthStore roleId>=1);列表/上传/试听对登录用户开放不变;/voice/voices* 不在 JWT 公开白名单(匿名不可达)复核通过。
 - [x] ✅(2026-09-23) **D93 计划产物多版本(G-126)**:Qoder 产物区有 `计划版本`(`planTabsLabel`)多版本切换与 `还没有计划产物` 空态 → 我方 plan 已有步骤卡与 spec tab,缺**计划的历史版本对照**。与 D27 交付审查、D47 轮内两段式合并设计(版本单位很可能就是"轮")。**验收**:版本切换 + 跨版本 diff 入口 + 空态
 - **补的两族(受保护形态从一种扩到三种)**:① 既有"加粗 bullet"(`- **G-166 …**`)语义原样不动;② **复选任务行裸编号** `- [ ] O13b …` / `- [x] ✅(2026-09-23) …`,须逐层剥掉复选框之后的状态装饰(`（进行中）` / `✅(日期)`)再取编号 —— 计划里真有 `- [ ]（进行中） O13b 第二段(…)`,只剥一层会正好漏掉本票要救的那一行(注入实锤);③ **批次标题行** `### 第十四批(…):…`,刻意只认"批",不认轮/次/阶段(`第二轮` 这种串全文必撞,纳进只会往基线塞永不报丢的空条目)。
+- [ ] O10 对外 run 语义：幂等 run 创建（`Idempotency-Key`）、外部 run 句柄（不依赖 IHUI session_id）、通用幂等层、游标分页规范  ⏳(幂等重放保护已入库(af96921c95);run 句柄与游标分页另列 O10b)
