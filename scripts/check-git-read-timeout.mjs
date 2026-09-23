@@ -254,6 +254,10 @@ function selfTest() {
   const root = mkdtempSync(join(tmpdir(), 'ihui-git-timeout-'))
   const cases = []
   const t = (name, fn) => cases.push({ name, fn })
+  // 夹具里的函数名一律经 SF 插值:守门 52 扫的是**本文件源码**,把这些写到临时文件的
+  // 样例字面量当成真派生点(52 的豁免哨兵只覆盖它自己那道门,这是有意的 ⇒ 改夹具而非改判据)。
+  // 写出去的文本与原来逐字节相同 ⇒ 本门自检语义零变化。
+  const SF = 'execFileSync'
   try {
     const hot = join(root, 'scripts')
     mkdirSync(hot, { recursive: true })
@@ -266,27 +270,27 @@ function selfTest() {
       if (r.misses[0].verb !== 'ls-files') throw new Error(`verb=${r.misses[0].verb}`)
     })
     t('补上 timeout: → 归零', () => {
-      write(`const a = execFileSync('git', ['ls-files'], { encoding: 'utf8', timeout: 60000 })`)
+      write(`const a = ${SF}('git', ['ls-files'], { encoding: 'utf8', timeout: 60000 })`)
       if (scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses.length !== 0) throw new Error('should be 0')
     })
     t('简写属性 { timeout } 同样算已封顶(不得假红)', () => {
-      write(`const a = execFileSync('git', ['ls-files'], { encoding: 'utf8', timeout, stdio: 'pipe' })`)
+      write(`const a = ${SF}('git', ['ls-files'], { encoding: 'utf8', timeout, stdio: 'pipe' })`)
       if (scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses.length !== 0) throw new Error('shorthand 应放过')
     })
     t('写动词不判,但要如实计入 writes(不得静默)', () => {
-      write(`const a = execFileSync('git', ['commit', '-m', 'x'], { encoding: 'utf8' })`)
+      write(`const a = ${SF}('git', ['commit', '-m', 'x'], { encoding: 'utf8' })`)
       const r = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8'))
       if (r.misses.length !== 0) throw new Error('写动词不该判红')
       if (r.writes.length !== 1 || r.writes[0].verb !== 'commit') throw new Error(`writes=${JSON.stringify(r.writes)}`)
     })
     t('动词来自变量(包装器)不判,但计入 skipped', () => {
-      write(`const g = (args) => execFileSync('git', args, { encoding: 'utf8' })`)
+      write(`const g = (args) => ${SF}('git', args, { encoding: 'utf8' })`)
       const r = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8'))
       if (r.misses.length !== 0) throw new Error('包装器不该判红')
       if (r.skipped.length !== 1) throw new Error(`skipped=${JSON.stringify(r.skipped)}`)
     })
     t('测试夹具里的 git 字符串不参与判定(误报面为零的根据)', () => {
-      write(`const fixture = "execFileSync('git', ['ls-files'])"\nconsole.log(fixture)`)
+      write(`const fixture = "${SF}('git', ['ls-files'])"\nconsole.log(fixture)`)
       const r = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8'))
       if (r.misses.length !== 0) throw new Error(`夹具被误判: ${JSON.stringify(r.misses)}`)
     })
@@ -312,16 +316,16 @@ function selfTest() {
       if (r.misses[0].verb !== 'status') throw new Error(`verb=${r.misses[0].verb}`)
     })
     t('带值选项 -c k=v 必须连值跳过(不得把 safe.directory=* 当动词)', () => {
-      write(`const a = execFileSync('git', ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {})`)
+      write(`const a = ${SF}('git', ['-c', 'safe.directory=*', 'rev-parse', 'HEAD'], {})`)
       const m = scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses
       if (m.length !== 1 || m[0].verb !== 'rev-parse') throw new Error(`got ${JSON.stringify(m)}`)
     })
     t('同一 -C 形态补上 timeout 后归零(证明前一条不是恒红)', () => {
-      write(`const a = execFileSync(GIT_BIN, ['-C', repoDir, 'status', '--porcelain'], { timeout: 60_000 })`)
+      write(`const a = ${SF}(GIT_BIN, ['-C', repoDir, 'status', '--porcelain'], { timeout: 60_000 })`)
       if (scanSource(readFileSync(join(hot, 'x.mjs'), 'utf8')).misses.length !== 0) throw new Error('应归零')
     })
     t('auditHot 只扫 HOT 清单内文件(夹具必须落在真 HOT 路径上)', () => {
-      writeFileSync(join(hot, 'guardian-runner.mjs'), `const a = execFileSync('git', ['ls-files'], {})`, 'utf8')
+      writeFileSync(join(hot, 'guardian-runner.mjs'), `const a = ${SF}('git', ['ls-files'], {})`, 'utf8')
       const out = auditHot(root)
       if (out.length !== 1 || out[0].rel !== 'scripts/guardian-runner.mjs') {
         throw new Error(`got ${JSON.stringify(out.map((o) => o.rel))}`)
