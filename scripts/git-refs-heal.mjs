@@ -35,7 +35,13 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { resolveGitBin, resolveWorktree, resolveGitdir, refExpectationSatisfied } from './lib/gitdir.mjs'
+import { pathToFileURL } from 'node:url'
+import {
+  resolveGitBin,
+  resolveWorktree,
+  resolveGitdir,
+  refExpectationSatisfied,
+} from './lib/gitdir.mjs'
 
 // 工作树 / 真实 gitdir 动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
 const WORKTREE = resolveWorktree()
@@ -52,6 +58,7 @@ function git(args, allowFail = false) {
     return execFileSync(bin, ['-c', 'safe.directory=*', '-C', WORKTREE, ...args], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true, // GUI 宿主下派生 git 不显控制台窗口(AGENTS.md §5b)
       timeout: 180000,
     }).trim()
   } catch (e) {
@@ -92,7 +99,16 @@ function saveManifest(map) {
 
 /** 当前全部 ref(name → sha),含 packed 与松散 */
 function currentRefs() {
-  const out = git(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/tags', 'refs/remotes'], true)
+  const out = git(
+    [
+      'for-each-ref',
+      '--format=%(refname) %(objectname)',
+      'refs/heads',
+      'refs/tags',
+      'refs/remotes',
+    ],
+    true,
+  )
   const map = {}
   if (!out) return map
   for (const line of out.split('\n')) {
@@ -106,6 +122,29 @@ function currentRefs() {
 function refResolvable(ref) {
   const sha = git(['rev-parse', '--verify', '--quiet', ref], true)
   return !!sha
+}
+
+/**
+ * sha 指向的对象是否真的还读得出来。
+ * ⚠️ 谓词写法:`cat-file -e` 成功时**输出是空串**,而 git(..., allowFail=true) 只在失败时返回 null。
+ *    用 `!!git(...)` 判断会把"对象存在"读成"不存在"⇒ 每条好 ref 都被当成死的删掉。
+ */
+function objectExists(sha) {
+  return /^[0-9a-f]{7,40}$/.test(String(sha || '')) && git(['cat-file', '-e', sha], true) !== null
+}
+
+/**
+ * 按"对象是否可读"把待重建项分流。纯函数,exists 由调用方注入(自检用假谓词)。
+ * 为什么必须有这一步(2026-09-24 实测):清单 `refs-manifest.json` 里记的 sha 会随宿主清理层抹掉
+ * `objects/xx/` 而变成**死引用**(本机当日 fsck 报坏链 83,108 条 / 缺失目标 35,319 个)。
+ * 按死值重建 = 亲手写出一枚指向不存在对象的 ref,而**坏指针会让每一次 `git fetch` 直接 fatal**
+ * (⇒ 推送链全死;git-push-guard 2.9b 已在推送侧拦这个)。死的只能剔除 + 如实计数,等联网校准。
+ */
+export function splitDeadRefs(broken, exists) {
+  const dead = []
+  const rebuildable = []
+  for (const [ref, sha] of broken) (exists(sha) ? rebuildable : dead).push([ref, sha])
+  return { dead, rebuildable }
 }
 
 /** 直写松散 ref(node fs —— `git update-ref` 对嵌套命名空间返回 0 却不落盘) */
@@ -169,7 +208,9 @@ function refreshFromRemote() {
   }
   const ok = saveManifest(map)
   if (ok) remoteCalibrated = true
-  console.log(`[refresh-remote] 已从 origin 校准 ${Object.keys(map).length} 个嵌套 ref(变更 ${added} 个)`)
+  console.log(
+    `[refresh-remote] 已从 origin 校准 ${Object.keys(map).length} 个嵌套 ref(变更 ${added} 个)`,
+  )
   return ok
 }
 
@@ -177,12 +218,82 @@ function status() {
   const cur = currentRefs()
   const map = readManifest()
   const entries = Object.entries(map)
-  const missing = entries.filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref])).map(([ref]) => ref)
-  return { gitdir: GITDIR, manifestCount: entries.length, currentCount: Object.keys(cur).length, missing }
+  const missing = entries
+    .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
+    .map(([ref]) => ref)
+  return {
+    gitdir: GITDIR,
+    manifestCount: entries.length,
+    currentCount: Object.keys(cur).length,
+    missing,
+  }
+}
+
+/**
+ * 逻辑自检(零副作用:不写 ref、不动清单)——
+ * 重点钉两类会把修复本身搞坏的错误:① 把活 ref 判成死的(等于删光清单);
+ * ② `cat-file -e` 成功时输出空串,用真值判断会把"存在"读成"不存在"。
+ */
+function selfTest() {
+  const cases = []
+  const t = (name, fn) => cases.push([name, fn])
+  const A = 'refs/remotes/origin/main'
+  const B = 'refs/tags/backup/x'
+  const shaAlive = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+  const shaDead = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  const existsOnly = (s) => s === shaAlive
+
+  t('死引用进 dead、不进 rebuildable(否则会被反复"重建"成坏指针)', () => {
+    const { dead, rebuildable } = splitDeadRefs(
+      [
+        [A, shaAlive],
+        [B, shaDead],
+      ],
+      existsOnly,
+    )
+    if (dead.length !== 1 || dead[0][0] !== B) throw new Error(`dead=${JSON.stringify(dead)}`)
+    if (rebuildable.length !== 1 || rebuildable[0][0] !== A) throw new Error('活引用被误判为死')
+  })
+  t('全部存活 → dead 必须为空(反向对照,防"恒判死"把清单删光)', () => {
+    const all = [
+      [A, shaAlive],
+      [B, shaAlive],
+    ]
+    const { dead, rebuildable } = splitDeadRefs(all, () => true)
+    if (dead.length !== 0 || rebuildable.length !== 2) throw new Error(`dead=${dead.length}`)
+  })
+  t('空清单分流结果两侧皆空(不凭空造 ref)', () => {
+    const { dead, rebuildable } = splitDeadRefs([], () => true)
+    if (dead.length || rebuildable.length) throw new Error('空输入产出了非空结果')
+  })
+  t('objectExists:cat-file -e 成功输出空串也必须判"存在"(真值陷阱)', () => {
+    const head = git(['rev-parse', 'HEAD'], true)
+    if (!head) throw new Error('取不到 HEAD,本例无环境')
+    if (!objectExists(head))
+      throw new Error(`活对象 ${head.slice(0, 8)} 被判成不存在 ⇒ 每轮都会删清单`)
+    if (objectExists('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'))
+      throw new Error('不存在的 sha 被判成存在')
+    if (objectExists('') || objectExists(null) || objectExists('not-a-sha'))
+      throw new Error('空值/非法值应判不存在,不得去问 git')
+  })
+
+  let fail = 0
+  for (const [name, fn] of cases) {
+    try {
+      fn()
+      console.log(`✅ ${name}`)
+    } catch (e) {
+      fail++
+      console.log(`❌ ${name} — ${String(e.message).slice(0, 120)}`)
+    }
+  }
+  console.log(`\n[refs-heal] self-test: ${cases.length - fail}/${cases.length} 通过`)
+  return fail === 0 ? 0 : 1
 }
 
 function main() {
   const args = process.argv.slice(2)
+  if (args.includes('--self-test')) process.exit(selfTest())
   if (args.includes('--status')) {
     const s = status()
     console.log(JSON.stringify(s, null, 1))
@@ -249,7 +360,23 @@ function main() {
   }
 
   console.log(`[refs-heal] 🔧 ${broken.length} 个嵌套 ref 缺失,按清单重建:`)
-  for (const [ref, sha] of broken) {
+  // 2b) 写之前先验对象存在性:清单值可能已随 objects/ 被抹 ⇒ 重建出来就是坏指针(见 splitDeadRefs)
+  const { dead, rebuildable } = splitDeadRefs(broken, objectExists)
+  if (dead.length) {
+    for (const [ref] of dead) delete map[ref]
+    saveManifest(map)
+    console.log(
+      `  ⛔ 跳过 ${dead.length} 个"清单值指向已不存在对象"的 ref(已从清单剔除,留着每轮都会白重建):`,
+    )
+    for (const [ref, sha] of dead.slice(0, 5)) console.log(`    - ${ref} = ${sha.slice(0, 12)}`)
+    if (dead.length > 5) console.log(`    …另有 ${dead.length - 5} 个`)
+    console.log('    恢复途径:联网跑一次 --refresh-remote 从 origin 重新校准这些 ref 的值。')
+  }
+  if (rebuildable.length === 0) {
+    console.log('[refs-heal] ✅ 清单内可重建的 ref 全部一致(死引用已剔除,不再反复重建)')
+    process.exit(0)
+  }
+  for (const [ref, sha] of rebuildable) {
     writeLooseRef(ref, sha)
     console.log(`  - ${ref} = ${sha.slice(0, 12)}`)
   }
@@ -266,9 +393,15 @@ function main() {
     console.error(`❌ 重建后仍有 ${still.length} 个 ref 不可解析或值不符: ${still.join(', ')}`)
     process.exit(1)
   }
-  console.log(`[refs-heal] ✅ 已重建 ${broken.length} 个 ref 并固化进 packed-refs(无需联网)`)
+  console.log(
+    `[refs-heal] ✅ 已重建 ${rebuildable.length} 个 ref 并固化进 packed-refs(无需联网;死引用 ${dead.length} 个已剔除并计数)`,
+  )
   process.exit(0)
 }
 
-main()
+// §22d:CLI 直跑才执行修复;被 import(测试/其他脚本)时绝不触发任何写动作
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) main()
+
+export const __test__ = { splitDeadRefs, isNestedRef, objectExists }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
