@@ -44,42 +44,27 @@ const CENTRAL_FILES = new Set(['apps/api/src/plugins/require-permission.ts'])
 
 /**
  * RULE-1 存量白名单(2026-09-21 盘点登记 34 文件 / 74 处;O13b 试点批迁出
- * earnings-routes/security/health 3 文件后,现 31 文件 / 68 处)。
+ * earnings-routes/security/health 3 文件后 31 文件 / 68 处;O13b T0 批再迁出
+ * 16 个"实际已 0 裸比较"的纯删条目文件后,现 15 文件 / 42 处)。
  * count = 登记时裸比较条数,只减不增;reason 说明该处 roleId 数值判定的存在理由。
  * 收敛路径:迁移到 requirePermission(...)/requireAdmin 后,把条目整体删除。
  */
 export const LEGACY_RAW_ROLEGATE = {
   'apps/api/src/routes/finance.ts': { count: 7, reason: 'O13b 存量:资金/提现面 roleId>=1 复核,待迁 requirePermission' },
   'apps/api/src/routes/agents.ts': { count: 6, reason: 'O13b 存量:agent 所有权+管理员豁免混判,待收敛' },
-  'apps/api/src/routes/agent-extended.ts': { count: 6, reason: 'O13b 存量:同上(agent 扩展面)' },
   'apps/api/src/routes/admin-sys/role-routes.ts': { count: 6, reason: 'O13b 存量:RBAC 管理路由内 roleId===1 超管保护,待收敛' },
   'apps/api/src/routes/finance-extended.ts': { count: 5, reason: 'O13b 存量:资金扩展面' },
   'apps/api/src/routes/groups.ts': { count: 4, reason: 'O13b 存量:群组管理员(业务 roleId,非 admin 面),保留语义复核' },
   'apps/api/src/routes/user/withdrawal-routes.ts': { count: 3, reason: 'O13b 存量:提现审核' },
-  'apps/api/src/routes/feature-center.ts': { count: 2, reason: 'O13b 存量' },
-  'apps/api/src/routes/edu-ai-management.ts': { count: 2, reason: 'O13b 存量(edu 域属 platform,机器凭据侧由能力闸兜死)' },
-  'apps/api/src/routes/agents-kanban.ts': { count: 2, reason: 'O13b 存量' },
-  'apps/api/src/routes/admin/relay-logs.ts': { count: 2, reason: 'O13b 存量:relay 运维面(admin/* 已被 admin.ts 统一 preHandler 兜底,内层判定为冗余第二道)' },
-  'apps/api/src/routes/admin-saas-proxy.ts': { count: 2, reason: 'O13b 存量' },
   'apps/api/src/plugins/business-metrics.ts': { count: 2, reason: 'O13b 存量:指标采集侧内部判定(非请求鉴权路径)' },
   'apps/api/src/db/rbac-queries.ts': { count: 2, reason: 'RBAC 数据层:roleId===1 超管通配权限解析点(resolveUserPermissions),是"集中判定"的数据侧同族,保留' },
   'apps/api/src/utils/idor-guard.ts': { count: 1, reason: 'O13b 存量:IDOR 豁免判定' },
   'apps/api/src/routes/user/developer-routes.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/user/ai-users-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/trader.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/service-inquiry.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/other/student-profile-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/oss.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/downloads.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/category-sync.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/auth.ts': { count: 1, reason: 'O13b 存量:登录返回权限解析(roleId>=1 → 通配),属响应装配非闸门' },
-  'apps/api/src/routes/audit-log.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/ai-generation.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/agent-categories-cache.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/admin/relay-param-ops.ts': { count: 1, reason: 'O13b 存量:relay 运维面第二道冗余判定' },
-  'apps/api/src/routes/admin/export-csv.ts': { count: 1, reason: 'O13b 存量:admin/* 面,统一 preHandler 已兜底' },
   'apps/api/src/routes/admin-sys/menu-routers-routes.ts': { count: 1, reason: 'O13b 存量' },
-  'apps/api/src/routes/admin-saas-quota.ts': { count: 1, reason: 'O13b 存量' },
 }
 
 /** RULE-2 存量白名单:集中封装之外定义本地 requireAdmin 的历史文件。
