@@ -324,7 +324,7 @@
    无论投递成败,告警正文一律先追加进 `.workbuddy/credential-health-alerts.log` 本地台账。
    `--test-alert` 提供通道自证入口(真发一条标明"非故障"的自测并回读每通结果)。
 
-4. **守门 79 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
+4. **守门 80 `check-git-read-timeout.mjs`(blocking,已注册)** —— 堵"提交像死掉了"这类**无界挂起**。
    起因是当天 `check-port-registry.mjs` 里一处 `execSync('git ls-files')` 没有 `timeout`,在共享工作区
    挂住 **80 分钟而 CPU 只用了 2.84s**(等锁/等 IO 型挂起),`git status` 与 typecheck 都看不出任何异常。
    全仓首参锚定实测 **159 处** git 派生调用**无一带 timeout** ⇒ 这是"没有约束",不是"个别疏忽"。

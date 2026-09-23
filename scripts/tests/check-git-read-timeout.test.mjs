@@ -58,13 +58,19 @@ test('真仓不变量:HOT 集合内只读 git 调用全部已封顶', () => {
   assert.deepEqual(misses, [], `热路径仍有无界 git 只读调用:\n${misses.join('\n')}`)
 })
 
-test('装车证明:guardian-runner 已注册守门 79 且为 blocking', () => {
+test('装车证明:guardian-runner 已注册本门且为 blocking', () => {
   const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
-  const block = runner.match(/id:\s*'79',[\s\S]{0,2500}?\n {2}\},/)
-  assert.ok(block, '未找到守门 79 注册块 —— 脚本存在但没接上守门链等于没有闸')
+  const block = runner.match(/id:\s*'80',[\s\S]{0,2500}?\n {2}\},/)
+  assert.ok(block, "未找到 id '80' 注册块 —— 脚本存在但没接上守门链等于没有闸")
   assert.match(block[0], /script:\s*'check-git-read-timeout\.mjs'/)
   assert.match(block[0], /mode:\s*'blocking'/)
   assert.match(block[0], /skipEnv:\s*'HUSKY_SKIP_GIT_READ_TIMEOUT'/)
+})
+
+test('本门编号在 runner 里必须唯一(多会话同日加门会撞号,撞了要有人知道)', () => {
+  const runner = readFileSync(join(REPO, 'scripts', 'guardian-runner.mjs'), 'utf8')
+  const hits = [...runner.matchAll(/^\s{4}id:\s*'80',$/gm)]
+  assert.equal(hits.length, 1, `id '80' 出现 ${hits.length} 次 —— 同号会让 skipEnv 与日志指向两扇门`)
 })
 
 test('--self-test 入口可用且全绿', () => {
