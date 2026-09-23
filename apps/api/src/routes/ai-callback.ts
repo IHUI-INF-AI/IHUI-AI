@@ -205,10 +205,26 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
 
-      // 仅解构本函数实际消费的字段。parsed.data 上的 stub/toolCalls/terminalTasks/planSteps/
-      // citations/injections/compaction/retryNotice/usageDetail/fallback/memoryUpdates 仍由
-      // callbackSchema 逐字段校验(400 行为不变),但当前不随入队 payload 下发,故不再解构(TS6133)。
-      const { content, reasoning, model, provider, usage, metadata } = parsed.data
+      // 过程性元数据必须随入队 payload 下发:D24(toolCalls/terminalTasks)、2026-09-21
+      // (planSteps)、G-166(citations/injections/compaction/retryNotice)在 callbackSchema
+      // 逐字段校验(400 行为不变)之后,并入下方 metadata 构造点落库。
+      // usageDetail / fallback / memoryUpdates 仍只校验不接线(当前无消费者),属另一条待决项。
+      const {
+        content,
+        reasoning,
+        model,
+        provider,
+        usage,
+        stub,
+        toolCalls,
+        terminalTasks,
+        planSteps,
+        citations,
+        injections,
+        compaction,
+        retryNotice,
+        metadata,
+      } = parsed.data
       const conversationId = metadata?.conversationId
       const messageId = metadata?.messageId
       const userId = metadata?.userId
@@ -278,7 +294,25 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
             // D33(2026-09-23 立):体积护栏 —— 入队前对 metadata 各值做 64KB 上限降级,
             // 超限项变 { truncated: true, originalBytes } 占位(键保留,不丢字段不整条丢)。
-            metadata: capMetadataObject(metadata),
+            // 构造形状即 D24/G-166 既定形态:标量(model/usage/stub)恒写,
+            // 结构化通道"无内容不写 key",空数组一律不写 —— worker 侧是浅合并
+            // ({ ...prevMeta, ...metadata }),不写 key 才不会把已落库字段抹掉。
+            metadata: capMetadataObject({
+              model,
+              usage,
+              stub,
+              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
+              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
+              // planSteps(2026-09-21 立):空数组不写 key —— 与"本轮无计划"语义区分。
+              ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
+              // G-166:交代帧同规则 —— 空数组不写 key("本轮无引用/无注入")。
+              ...(citations && citations.length > 0 ? { citations } : {}),
+              ...(injections && injections.length > 0 ? { injections } : {}),
+              ...(compaction ? { compaction } : {}),
+              ...(retryNotice ? { retryNotice } : {}),
+              // 注:usageDetail / fallback / memoryUpdates 三道 D33 通道当前无测试断言、
+              // 亦无消费方,未接线(不顺手接,避免引入未被判据约束的行为);属另一条待决项。
+            }),
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
         }
