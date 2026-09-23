@@ -26,6 +26,12 @@
  *      这些行的括注与计数常被正当改写(追加 ⑤、改条数),吞进标记会稳定产假阳;
  *      而只取编号又会撞车(`O14` 在 `O14b2` 那行里也在、`D13` 在别人的引用里也在),
  *      删掉整行仍报不出。编号本身不足 3 字的(`P0`/`D6` 这类两处必撞的短串)直接放过。
+ *      ⚠️ b/c 两族**只认"行首编号"这一路判活**(候选里必须仍有某一行登记行以该编号开头),
+ *      不再退回全文文本搜索:实测 `O13b 第二段` 这一族的标题被另一条进度行**原样引用**
+ *      (`- **进度(2026-09-23 ⑤)**:… O13b 第二段 ①②③⑤ 已落 …`),任务行整行被抹掉后全文
+ *      照样搜得到 → 旧判据报"无缺失"、自愈也回捞不到(2026-09-23 注入实锤的残余面)。
+ *      刻意**不把这个收紧套到既有 a) 加粗 bullet**(现 214 条):一并改判会把
+ *      "把编号挪到句中重写"这类正当编辑判成丢失,误伤面不可估。
  *   3. 允许两种正当情形:
  *      a) 该登记行原文可在 `.ihui-agent/archive/PROJECT_PLAN_*.md` 里找到(§1 归档流程);
  *      b) 本次提交同时改动了基线里没有该行的位置(即该行本就不是 HEAD 内容) —— 由
@@ -71,23 +77,98 @@ function titleMarker(rest) {
   return rest.slice(0, Math.min(end, 18)).trim()
 }
 
+/**
+ * 登记行编号族。字母编号形态:G-166 / D107b / O13b2 / P2-F.10 / W18 / B15
+ * (字母后缀与点号都要容得下);外加 `守门 NN` 一族 —— 各道闸门在计划里的登记行用的就是这个
+ * 前缀(如 `**守门 72 \`scripts/check-dockerfile-copy-paths.mjs\`(sha …)**`),2026-09-23 实测
+ * 有一枚并发暂存版本正整块删掉别人的守门登记,只认 G/D/P/W 会完全看不见。
+ * `O\d+` / `B\d+` 两族同日补:计划里 O13b/O14b2/O19b/O20c、B15 这类任务行写成
+ * `- [ ] O13b …` 裸编号,加粗正则看不见 —— 本会话 `e8d668ad77` 抹掉的第一条正是它。
+ */
+const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?`
+const ID_RE = new RegExp(`(${ID})`)
+/** 复选框与其后多层状态装饰(`（进行中）` / `✅(日期)`)一起剥掉,露出真正的内容开头 */
+function checkboxBody(line) {
+  let body = line.replace(/^\s*[-*]\s\[[ xX]\]\s*/, '')
+  if (body === line) return null
+  for (;;) {
+    const deco = body.match(/^(?:[✅⏳☑✔✓🕐⚠]?\s*[（(][^）)]*[）)]\s*)+/)
+    if (!deco || !deco[0]) break
+    body = body.slice(deco[0].length)
+  }
+  return body
+}
+
+/**
+ * 行首编号(登记行的"身份"):复选任务行裸编号、批次标题行序号,以及加粗头紧跟编号的行。
+ * 用途见 `registrationOf` 的注释 —— 单靠"标记字符串还在不在全文里"判丢失会被引用句骗过。
+ */
+export function headIdOf(line) {
+  const cb = checkboxBody(line)
+  if (cb !== null) {
+    const m = cb.match(ID_RE)
+    if (m && m.index === 0 && m[1].length >= 3) return m[1]
+    return null
+  }
+  const h = line.match(/^#{2,4}\s*(第[0-9一二三四五六七八九十百①-⑳]+批)/)
+  if (h) return h[1]
+  const b = line.match(/^\s*[-*]\s(?:✅\s*(?:\([^)]*\)\s*)?|⏳\s*(?:\([^)]*\)\s*)?)?\*\*([^\s*]+)/)
+  if (b) {
+    const m = b[1].match(ID_RE)
+    if (m && m.index === 0 && m[1].length >= 3) return m[1]
+  }
+  return null
+}
+
+/** 一份文档里"仍作为登记行行首存在"的编号集合 */
+export function headIdSet(src) {
+  const out = new Set()
+  for (const line of src.split(/\r?\n/)) {
+    const id = headIdOf(line)
+    if (id) out.add(id)
+  }
+  return out
+}
+
+/**
+ * 一条登记行的完整身份:marker = 用于"整行是否还在"的文本标记;id = 用于"这个编号还有没有
+ * 任何一行登记行以它开头"的行首编号(只有新两族与加粗紧跟编号的行才有)。
+ * 为什么要 id 这一路:`O13b 第二段` 这一族的标题被另一条进度行**原样引用**
+ * (`- **进度(2026-09-23 ⑤)**:… O13b 第二段 ①②③⑤ 已落 …`),于是任务行整行被抹掉后,
+ * 纯文本搜索仍命中 → 门报"无缺失"、自愈也回捞不到(2026-09-23 注入实锤的残余面)。
+ * 只对"行首编号"这一路收紧,不动既有 214 条加粗 bullet 的判据语义,避免连带误伤。
+ */
+export function registrationOf(line) {
+  const marker = markerOf(line)
+  if (!marker) return null
+  // ⚠️ 只有"新两族"才走行首编号判活。既有 214 条加粗 bullet(`- **G-166 第⑤步…**`)保持
+  // 原文前缀文本搜索的旧语义 —— 一并收紧会把"把编号挪到句中重写"这类正当编辑判成丢失,
+  // 误伤面不可估(本轮刻意按住)。
+  const shape = /^\s*[-*]\s\[[ xX]\]/.test(line) ? 'checkbox' : /^#{2,4}\s/.test(line) ? 'heading' : 'bold'
+  const id = shape === 'bold' ? null : headIdOf(line)
+  return { marker, id, shape }
+}
+
+/**
+ * 该登记行在候选内容里还算不算"存活"。
+ * ⚠️ 有行首编号的条目**只认行首编号**,不再退回全文文本搜索 —— 否则"标题被别处原样引用"
+ * 那一条正好把文本搜索喂饱,新判据等于没加(本条判据就是为它写的,实测过一遍才发现)。
+ */
+export function stillRegistered(entry, candidateSrc, candidateIds) {
+  if (entry.id) return (candidateIds ?? headIdSet(candidateSrc)).has(entry.id)
+  return candidateSrc.includes(entry.marker)
+}
+
 /** 登记行 → 编号标记(找不到返回 null) */
 export function markerOf(line) {
   const isBullet = /^\s*[-*]\s/.test(line)
   // 标题行只有"以批次序号开头"这一种受保护形态(见文件头判据 1c),正文标题不进基线
   const isHeading = /^#{2,4}\s/.test(line)
   if (!isBullet && !isHeading) return null
-  // 编号形态:G-166 / D107b / O13b2 / P2-F.10 / W18(字母后缀与点号都要容得下);
-  // 外加 `守门 NN` 一族 —— 各道闸门在计划里的登记行用的就是这个前缀(如
-  // `**守门 72 \`scripts/check-dockerfile-copy-paths.mjs\`(sha …)**`),2026-09-23 实测
-  // 有一枚并发暂存版本正整块删掉别人的守门登记,只认 G/D/P/W 会完全看不见。
   // 再外加 `第N步` 中文序号一族(数字/汉字/带圈数字) —— `**第⑥步 …**` 这类按步骤自造
   // 序号写的进度登记行此前完全不受保护:被并发旧基线覆写后 273 条扫描仍报"无缺失"
   // (2026-09-23 本会话实锤一枚"第⑥步"登记行被抹)。刻意只认 `步`:
   // "第N次/第N轮/第N阶段"是叙述而非登记序号,纳进必假红。
-  // `O\d+` / `B\d+` 两族(2026-09-23 补):计划里 O13b/O14b2/O19b/O20c、B15 这类任务行写成
-  // `- [ ] O13b …` 裸编号,加粗正则看不见 —— 本会话 `e8d668ad77` 抹掉的第一条正是它。
-  const ID = String.raw`G-\d+[a-z]?|D\d+[a-z]?|O\d+[a-z]*\d*|B\d+[a-z]?|P\d+(?:-[A-Za-z]+)?(?:\.\d+)?|W\d+|守门\s*\d+[a-z]?`
   if (line.trim().length < MIN_LEN) return null
   const m = isBullet
     ? line.match(new RegExp(`\\*\\*(${ID}|第[0-9一二三四五六七八九十①-⑳]+步)`))
@@ -102,18 +183,11 @@ export function markerOf(line) {
     return (star >= 0 ? tail.slice(0, star) : tail).slice(0, 18)
   }
   if (isBullet) {
-    // 复选任务行:剥掉 `- [ ] ` 与紧随其后的状态装饰(可叠多层),编号必须在**内容开头**。
-    // 实测计划里就有 `- [ ]（进行中） O13b 第二段…` 这种"复选框后先写状态"的写法,
-    // 只剥 `- [ ] ` 一层会漏掉本闸要救的那条行(2026-09-23 注入验证实锤)。
-    let body = line.replace(/^\s*[-*]\s\[[ xX]\]\s*/, '')
-    if (body === line) return null // 不是复选任务行
-    for (;;) {
-      const deco = body.match(/^(?:[✅⏳☑✔✓🕐⚠]?\s*[（(][^）)]*[）)]\s*)+/)
-      if (!deco || !deco[0]) break
-      body = body.slice(deco[0].length)
-    }
-    const id = body.match(new RegExp(`^(${ID})`))
-    return id && id[1].length >= 3 ? titleMarker(body) : null
+    // 复选任务行:编号必须在**内容开头**(剥掉复选框与多层状态装饰之后,见 checkboxBody)。
+    const body = checkboxBody(line)
+    if (body === null) return null // 不是复选任务行
+    const id = body.match(ID_RE)
+    return id && id.index === 0 && id[1].length >= 3 ? titleMarker(body) : null
   }
   // 标题行:只认开头的中文/阿拉伯批次序号(`### 第十四批(…):…`)。刻意不认"轮/次/阶段"——
   // `第二轮` 这类串在正文里到处出现,拿它当标记等于永久报不出丢失,只会往基线里塞空条目。
@@ -121,20 +195,22 @@ export function markerOf(line) {
   return h && h[2].length >= 3 ? titleMarker(line.slice(h[1].length)) : null
 }
 
-/** 从一份计划文档里抽出所有登记行(含其标记) */
+/** 从一份计划文档里抽出所有登记行(标记 + 行首编号) */
 export function registeredLines(src) {
   return src
     .split(/\r?\n/)
-    .map((line) => ({ line, marker: markerOf(line) }))
+    .map((line) => ({ line, ...(registrationOf(line) || {}) }))
     .filter((x) => x.marker)
 }
 
-/** 基线里存在、待提交内容里彻底消失的标记 */
+/** 基线里存在、待提交内容里彻底消失的登记行 */
 export function lostMarkers(baselineSrc, candidateSrc) {
+  const ids = headIdSet(candidateSrc)
   const out = []
-  for (const { line, marker } of registeredLines(baselineSrc)) {
-    // 按标记文本全文搜:登记行被改写(仍留编号)不算丢失,整行没了才算
-    if (!candidateSrc.includes(marker)) out.push({ marker, line })
+  for (const { line, marker, id } of registeredLines(baselineSrc)) {
+    // 双路判活:① 标记文本还在全文任意位置(登记行被改写但留了编号 → 不算丢);
+    //          ② 该编号仍作为**某一行登记行的行首**存在(专治"标题被别处原样引用"把①骗过去)
+    if (!stillRegistered({ marker, id }, candidateSrc, ids)) out.push({ marker, line, id })
   }
   return out
 }
@@ -166,7 +242,9 @@ export function runCheck(isStaged) {
   const baseline = git(['show', `HEAD:${PLAN}`])
   const candidate = candidateContent(isStaged)
   if (candidate === null) return { ok: true, lost: [] }
-  const lost = lostMarkers(baseline, candidate).filter((x) => !archivedCopy(x.marker))
+  const lost = lostMarkers(baseline, candidate).filter(
+    (x) => !archivedCopy(x.marker) && !(x.id && archivedCopy(x.id)),
+  )
   return { ok: lost.length === 0, lost }
 }
 
@@ -195,8 +273,9 @@ export function historyMarkers(depth = 60) {
     }
     const rows = src.split(/\r?\n/)
     rows.forEach((line, i) => {
-      const marker = markerOf(line)
-      if (!marker) return
+      const reg = registrationOf(line)
+      if (!reg) return
+      const { marker } = reg
       if (seen.has(marker)) return
       let prev = null
       for (let j = i - 1; j >= 0; j--) {
@@ -205,7 +284,7 @@ export function historyMarkers(depth = 60) {
           break
         }
       }
-      seen.set(marker, { line, marker, sha, prev })
+      seen.set(marker, { line, marker, id: reg.id, sha, prev })
     })
   }
   return seen
@@ -214,9 +293,10 @@ export function historyMarkers(depth = 60) {
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
 export function missingFrom(seen, targetSrc) {
   const missing = []
+  const ids = headIdSet(targetSrc)
   for (const [marker, v] of seen) {
-    if (targetSrc.includes(marker)) continue
-    if (archivedCopy(marker)) continue
+    if (stillRegistered({ marker, id: v.id }, targetSrc, ids)) continue
+    if (archivedCopy(marker) || (v.id && archivedCopy(v.id))) continue
     missing.push(v)
   }
   return missing
@@ -241,11 +321,14 @@ export function collectMissing(targetSrc, depth = 60) {
 export function healContent(targetSrc, missing) {
   const eol = targetSrc.includes('\r\n') ? '\r\n' : '\n'
   const lines = targetSrc.split(eol)
+  const ids = headIdSet(targetSrc)
   let appended = 0
   let inserted = 0
-  for (const { line, marker, prev } of missing) {
-    if (lines.some((l) => l.includes(marker))) continue
+  for (const entry of missing) {
+    const { line, marker, id, prev } = entry
+    if (stillRegistered(entry, lines.join(eol), ids)) continue
     const clean = line.replace(/\r$/, '')
+    if (id) ids.add(id) // 本轮回插过的行,后续同编号条目不再重复插
     const at = prev ? lines.findIndex((l) => l.replace(/\r$/, '') === prev.replace(/\r$/, '')) : -1
     if (at >= 0) {
       lines.splice(at + 1, 0, clean)
@@ -420,6 +503,75 @@ function selfTest() {
     // 整行删除 → 恰好 2 报(第三行无编号不报)
     const removed = b.replace(/^### 第十九批[^\n]*\n/m, '').replace(/^- \[ \] O13c[^\n]*\n/m, '')
     return lostMarkers(b, edited).length === 0 && lostMarkers(b, removed).length === 2
+  })
+  t('headIdOf 认三种"行首编号"形态,且散文里的引用不算', () => {
+    return (
+      // 复选任务行裸编号 / 带状态装饰 / 已勾带 ✅(日期)
+      headIdOf(
+        '- [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义',
+      ) === 'O13b' &&
+      headIdOf(
+        '- [ ]（进行中） O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**。',
+      ) === 'O13b' &&
+      headIdOf(
+        '- [x] ✅(2026-09-23) D51 对话流元素覆盖守门:新建 `scripts/check-chat-element-coverage.mjs`(注册进 guardian-runner)。',
+      ) === 'D51' &&
+      // 批次标题行
+      headIdOf('### 第二十批(2026-09-23):一条用于验证批次标题行首编号的登记标题,足够长。') === '第二十批' &&
+      // 加粗头紧跟编号 ⇒ 也算行首编号(让"改写成加粗形态"不被误判成丢失)
+      headIdOf('  - **G-166 第⑤步(第 57 轮续):N8n 屏改用共享交代组件并回收 6 个旧取词键,细节见提交说明。**') ===
+        'G-166' &&
+      // 反例:编号出现在正文中段(散文引用)、或短编号(P0/D6 两处必撞)都不给身份
+      headIdOf(
+        '  - **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编,O13b 第二段 ①②③⑤ 已落,仅剩 ④。',
+      ) === null &&
+      headIdOf('- [ ] P0 这一行的编号只有两个字,全文必撞,不给身份也不给保护。足够长的一行说明文字内容。') === null
+    )
+  })
+  t(
+    '残余面根治:任务行整行被抹、但标题被别处原样引用时,行首编号这一路必须报出来',
+    () => {
+      const b = [
+        '### 某任务',
+        '- [ ] O13b 第二段(收敛本身,5 条可核算):① 34 个白名单文件逐个迁移到集中封装并**删条目**;② 删掉 2 处本地重定义。',
+        '  - **进度(2026-09-23 ⑤)**:`admin.ts:124` 的统一 admin preHandler 已收编进集中封装,O13b 第二段 ①②③⑤ 已落,仅剩 ④ 升 blocking。',
+      ].join('\n')
+      // ① 旧判据的空转面:整行删掉后 `O13b 第二段` 仍能在那条进度行里搜到
+      const erased = b.replace(/^- \[ \] O13b[^\n]*\n/m, '')
+      const byText = erased.includes('O13b 第二段')
+      // ② 新判据必须报 1 条
+      const lost = lostMarkers(b, erased)
+      // ③ 反例 A:改写正文保留行首编号 → 不报
+      const reworded = b.replace('① 34 个白名单文件逐个迁移到集中封装并**删条目**', '① 换成 31 个文件')
+      // ④ 反例 B:整行改成已勾 + ✅(日期) 形态 → 不报(编号仍是行首)
+      const done = b.replace(
+        '- [ ] O13b 第二段(收敛本身,5 条可核算):',
+        '- [x] ✅(2026-09-23) O13b 第二段(收敛本身,5 条可核算):',
+      )
+      return (
+        byText &&
+        lost.length === 1 &&
+        lost[0].marker === 'O13b 第二段' &&
+        lostMarkers(b, reworded).length === 0 &&
+        lostMarkers(b, done).length === 0
+      )
+    },
+  )
+  t('healContent 走同一判据:编号仍是行首就不重复插,编号消失才回捞', () => {
+    const task =
+      '- [ ] O13c 第三段(收敛本身,若干条可核算):① 一条用于验证自愈判据一致性的登记行,正文可随便改写。'
+    const ref =
+      '  - **进度(第 61 轮)**:这一行原样引用了 O13c 第三段 这件事的前因后果,但它不是登记行的行首形态。'
+    const entry = { line: task, marker: 'O13c 第三段', id: 'O13c', prev: ref }
+    const target = ['### 段', ref, ''].join('\n')
+    const healed = healContent(target, [entry])
+    const again = healContent(healed.out, [entry])
+    return (
+      healed.inserted === 1 &&
+      healContent(target + '\n' + task, [entry]).inserted === 0 &&
+      again.inserted === 0 &&
+      again.appended === 0
+    )
   })
   t('归档目录豁免路径可达(不抛异常即算通)', () => {
     const v = archivedCopy('一个绝对不存在的标记 XYZ')
