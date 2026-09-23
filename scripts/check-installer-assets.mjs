@@ -153,8 +153,8 @@ if (badGetOptions.length > 0) {
 console.log('[check-installer-assets] PASS —— GetOptions 未直接吃 $CMDLINE(前缀误匹配免疫)')
 
 // =====================================================================
-// 附加守门二:三条**跨文件几何/集合不变量**(2026-09-23)
-// 这三条过去只写在注释里,没有任何闸门 —— 正是本项目反复批判的"造好没装车"。
+// 附加守门二:六条**跨文件几何/集合不变量**(2026-09-23 起逐条追加)
+// 这些约束过去只写在注释里,没有任何闸门 —— 正是本项目反复批判的"造好没装车"。
 // 全部做成纯函数 + env 可覆盖路径,便于注入违规自证其有效性(--self-test)。
 // =====================================================================
 
@@ -413,6 +413,61 @@ export function checkReinstallCards({ uiSrc, genSrc, assetRoot }) {
   return v
 }
 
+/** 解析目录页位图容器矩形(x 常写成 ${C_L},必须走 resolveGenConst 而非只认字面量) */
+function parseDirPageContainer(genSrc) {
+  const at = genSrc.indexOf('function sceneDir(')
+  if (at < 0) return { error: '解析不到目录页容器矩形:生成器里没有 function sceneDir(' }
+  const next = genSrc.indexOf('\nfunction ', at + 1)
+  const body = genSrc.slice(at, next < 0 ? genSrc.length : next)
+  const m = body.match(/<rect\s+x="([^"]*)"\s+y="([^"]*)"\s+width="([^"]*)"\s+height="([^"]*)"/)
+  if (!m) return { error: '解析不到目录页容器矩形:sceneDir 内没有 <rect x y width height> 输入框容器' }
+  const num = (tok) => {
+    const inner = tok.trim().replace(/^\$\{(.+)\}$/, '$1').trim()
+    if (/^-?\d+$/.test(inner)) return Number(inner)
+    const v = resolveGenConst(genSrc, inner)
+    return typeof v === 'number' && Number.isFinite(v) ? v : null
+  }
+  const rect = { left: num(m[1]), top: num(m[2]), w: num(m[3]), h: num(m[4]) }
+  if ([rect.left, rect.top, rect.w, rect.h].some((n) => n === null)) {
+    return { error: `解析不到目录页容器矩形:${JSON.stringify(m.slice(1))} 含不可解析常量` }
+  }
+  return { rect }
+}
+
+/**
+ * 不变量 F(目录页输入框垂直居中):EDIT 矩形必须落在位图容器正中。
+ * Win32 单行 Edit **顶对齐文字**,控件比字行高多出的部分全落在下方 —— 用户报的
+ * "安装路径容器内的文字没有居中,下面空了很多"即此(2026-09-23 修复 57e4443bd6:
+ * IHUI_EDIT_H 28→22、IHUI_EDIT_Y 306→309)。该修复此前**没有任何闸**,任何人把
+ * 高度改回去都不会报警,故把"容器矩形来自生成器 / 运行期矩形来自 define"的对账固化。
+ */
+export function checkEditInContainerCentered({ uiSrc, genSrc }) {
+  const d = parseDefines(uiSrc, ['IHUI_EDIT_X', 'IHUI_EDIT_Y', 'IHUI_EDIT_W', 'IHUI_EDIT_H'])
+  if (d.error) return [`${d.error}(目录页输入框矩形)`]
+  const g = parseDirPageContainer(genSrc)
+  if (g.error) return [g.error]
+  const { left, top, w, h } = g.rect
+  const { IHUI_EDIT_X: X, IHUI_EDIT_Y: Y, IHUI_EDIT_W: W, IHUI_EDIT_H: H } = d.defines
+  const v = []
+  const wantY = top + Math.round((h - H) / 2)
+  if (Y !== wantY) {
+    v.push(
+      `目录页输入框未在其位图容器内垂直居中:容器 (top=${top}, h=${h})、Edit H=${H} → Y 应为 ${wantY},实际 ${Y}(差 ${Y - wantY})。` +
+        `单行 Edit 顶对齐文字,高度富余全落在下方 → 用户看到框底空一行。`,
+    )
+  }
+  if (X < left || X + W > left + w) {
+    v.push(
+      `目录页输入框水平越出容器:Edit ${X}..${X + W},容器 ${left}..${left + w}` +
+        `(左内缩 ${X - left}、右内缩 ${left + w - (X + W)}) —— 输入框会压住/穿出位图描边。`,
+    )
+  }
+  if (H > h) {
+    v.push(`目录页输入框高度 ${H} 超出容器高 ${h}(位图框只有 ${h} 高,Edit 会顶穿描边)`)
+  }
+  return v
+}
+
 const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
 const INSTALLER_SRC_FOR_GEO = readFileSync(process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'), 'utf8')
 const GEN_SRC_FOR_GEO = readFileSync(process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'), 'utf8')
@@ -426,12 +481,16 @@ const geoFail = [
     installerSrc: INSTALLER_SRC_FOR_GEO,
     sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],
   }),
+  ...checkEditInContainerCentered({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
 ]
 if (geoFail.length > 0) {
   console.error(`\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`)
   for (const m of geoFail) console.error(`  - ${m}`)
   process.exit(1)
 }
-console.log('[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何 四条跨文件不变量成立')
+console.log(
+  '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
+    'Function 体内不引用后置 Var、目录页输入框垂直居中 六条跨文件不变量成立',
+)
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
