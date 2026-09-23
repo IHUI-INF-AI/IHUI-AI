@@ -97,7 +97,7 @@ export function PayButton({
       accessibilityLabel={buttonText}
     >
       {loading ? (
-        <ActivityIndicator color={tokens.surface.light} />
+        <ActivityIndicator color={tokens.brand.foreground} />
       ) : (
         <Text style={styles.text}>{buttonText}</Text>
       )}
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   typeText: {
     fontSize: 14,
