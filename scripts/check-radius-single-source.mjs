@@ -118,6 +118,55 @@ function targetOf(table, px) {
 }
 const skipped = (rel) => rel.split('/').some((seg) => SKIP_DIRS.has(seg)) || /\.(test|spec)\.[jt]sx?$/.test(rel)
 
+/**
+ * 判据 C:覆盖面对账 —— 「我没扫到」与「我声明过不扫」必须可区分。
+ *
+ * 全仓任何含圆角取用的跟踪文件,只有两种合法归宿:
+ *   ① 落在 SCAN_DIRS(受 B 判据约束);
+ *   ② 落在下面的 OUT_OF_SCOPE,并写明**为什么不适用**。
+ * 落进第三类(新端、新目录、改名)即红。没有这一条,加一个新前端就等于悄悄绕开整道门 ——
+ * 本次改造最初就是靠人工全仓扫描才发现 ai-service / 美术 svg 这些守门视野外的角落。
+ */
+export const OUT_OF_SCOPE = [
+  {
+    re: /(^|\/)(assets|public|static)\//,
+    why: '静态美术资产:svg/图片里的 rx/ry 是图形轮廓本身,不是 UI 容器圆角,方档化等于改美术',
+  },
+  { re: /^packages\/design-tokens\//, why: '档位表自身(radius.js / tailwind-preset / tokens.css),由 A 判据负责其一致性' },
+  {
+    re: /^apps\/ai-service\//,
+    why: '内容渲染分支:发布到第三方平台的文章 HTML 属内容产物(同 §4「文档/营销正文」豁免口径),不是应用界面',
+  },
+  { re: /^docs\//, why: '文档产物 HTML,非应用界面' },
+  { re: /(^|\/)scripts\/gen_[^/]*\.(py|mjs)$/, why: '开发期报告生成器产物模板,非应用界面' },
+]
+
+const RADIUS_TOKEN_RE = /(border(?:-top|-bottom)?(?:-left|-right)?-radius|borderRadius|\brounded-\[|\b(?:rx|ry)\s*[=:])/
+
+/** 纯函数(便于自检注入文件清单):返回 { red:[{file,why}], exempt:[{file,category}] } */
+export function coverageAudit(trackedFiles, readFile) {
+  const red = []
+  const exempt = []
+  for (const f of trackedFiles.map((x) => x.replaceAll('\\', '/'))) {
+    if (skipped(f) || isDoc(f) || /\.(d\.ts|snap|svg\.d\.ts)$/.test(f)) continue
+    // .py 必须一并枚举:ai-service 的发布 HTML 渲染器就写在 Python 里,
+    // 不枚举就等于让「内容渲染分支」这条豁免形同虚设(靠漏掉而不是靠声明)
+    if (!/\.(tsx|jsx|ts|js|css|scss|less|html|svg|py)$/.test(f)) continue
+    if (SCAN_DIRS.some((d) => f.startsWith(d + '/'))) continue // ① 已受 B 判据覆盖
+    let text = ''
+    try {
+      text = readFile(f)
+    } catch {
+      continue
+    }
+    if (!text.split('\n').some((l) => RADIUS_TOKEN_RE.test(l) && !/^\s*(\/\/|\*|#|<!--)/.test(l.trim()))) continue
+    const hit = OUT_OF_SCOPE.find((o) => o.re.test(f))
+    if (hit) exempt.push({ file: f, category: hit.why })
+    else red.push({ file: f, why: '既不在 SCAN_DIRS 覆盖内,也未声明为范围外 —— 新增端/目录静默绕开门' })
+  }
+  return { red, exempt }
+}
+
 /** 从 CSS 文本里抽 --radius-* 定义(用于 A 表对账) */
 export function readCssRadius(fileText) {
   const map = {}
@@ -336,7 +385,22 @@ async function selfTest() {
   }
   console.log(tableErr.length === 0 ? '✅' : '❌', 'A 判据端到端:真实档位表四处一致', tableErr.length ? '→ ' + tableErr.join(' | ') : '')
   if (tableErr.length) fail++
-  console.log(fail ? `\n${fail}/${cases.length + 2} 例失败` : `\n全部 ${cases.length + 2} 例通过`)
+  // 判据 C 覆盖面对账:未归类目录必红,已声明范围外只计数不红
+  const fake = {
+    'apps/newui/src/card.tsx': 'const s = { a: { borderRadius: 8 } }',
+    'apps/ai-service/app/services/publish/formatter.py': 'css = "border-radius: 6px;"',
+    'apps/web/src/components/ok.tsx': 'const s = { a: { borderRadius: rnRadius.lg } }',
+    'apps/foo/assets/images/icon.svg': '<rect rx="8" />',
+  }
+  const covRes = coverageAudit(Object.keys(fake), (f) => fake[f])
+  const covOk =
+    covRes.red.length === 1 &&
+    covRes.red[0].file === 'apps/newui/src/card.tsx' &&
+    covRes.exempt.length === 2 &&
+    covRes.exempt.every((e) => !e.file.includes('newui'))
+  console.log(covOk ? '✅' : '❌', 'C 判据:新端未归类必红 / 已声明范围外只计数 / 已覆盖目录交 B', covOk ? '' : JSON.stringify(covRes))
+  if (!covOk) fail++
+  console.log(fail ? `\n${fail}/${cases.length + 3} 例失败` : `\n全部 ${cases.length + 3} 例通过`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -376,6 +440,17 @@ async function main() {
     for (const v of scanText(rel, text, table)) violations.push({ file: rel, ...v })
   }
   const baseline = loadBaseline()
+  // 判据 C:覆盖面对账。与暂存范围无关,恒按全仓跟踪清单判 —— 静默逃逸不会因"本次没碰"而消失
+  let cov = { red: [], exempt: [] }
+  try {
+    const tracked = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 28, timeout: 120000 })
+      .split('\n')
+      .filter(Boolean)
+    cov = coverageAudit(tracked, (f) => readFileSync(join(ROOT, f), 'utf8'))
+  } catch (e) {
+    console.error(`❌ 判据 C 无法执行(git ls-files 失败):${e?.message || e} —— 按失败处理,不静默放行`)
+    tableErrors.push('覆盖面对账(判据 C)未能执行')
+  }
   const fresh = violations.filter((v) => !baseline.has(`${v.file}::${v.rule}::${v.raw}`))
   const healed = [...baseline].filter((k) => !violations.some((v) => `${v.file}::${v.rule}::${v.raw}` === k))
 
@@ -386,10 +461,23 @@ async function main() {
     return 0
   }
 
-  console.log(`[radius-guard] 扫描 ${files.length} 文件 | 违规 ${violations.length} 处(基线内 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处`)
+  console.log(
+    `[radius-guard] 扫描 ${files.length} 文件 | 违规 ${violations.length} 处(基线内 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
+  )
   if (tableErrors.length) {
     console.error('\n❌ 档位表漂移(单一源头被破,必须修):')
     for (const e of tableErrors) console.error('   -', e)
+  }
+  if (cov.red.length) {
+    console.error('\n❌ 判据 C:这些文件含圆角取用,却既不在 SCAN_DIRS 覆盖内、也未声明为范围外 ——')
+    console.error('   等于新增端/目录静默绕开本门。要么把目录加进 SCAN_DIRS,要么在 OUT_OF_SCOPE 写明为什么不适用:')
+    for (const c of cov.red.slice(0, 20)) console.error(`   - ${c.file}`)
+    if (cov.red.length > 20) console.error(`   ...另有 ${cov.red.length - 20} 个`)
+  }
+  if (cov.exempt.length && !isStaged) {
+    const byCat = {}
+    for (const e of cov.exempt) byCat[e.category.split(':')[0]] = (byCat[e.category.split(':')[0]] || 0) + 1
+    console.log(`   已声明范围外(如实报数,便于质疑):${Object.entries(byCat).map(([k, n]) => `${k}×${n}`).join(', ')}`)
   }
   if (fresh.length) {
     const byRule = {}
@@ -399,8 +487,8 @@ async function main() {
     if (fresh.length > 40) console.error(`   ...另有 ${fresh.length - 40} 处`)
   }
   if (healed.length && !isStaged) console.log(`💡 ${healed.length} 处存量已修,可跑 node scripts/check-radius-single-source.mjs --update-baseline 下调基线`)
-  const red = tableErrors.length > 0 || fresh.length > 0
-  if (!red) console.log('✅ 圆角单一源头对账通过(档位表一致,无新增绕档取用)')
+  const red = tableErrors.length > 0 || fresh.length > 0 || cov.red.length > 0
+  if (!red) console.log('✅ 圆角单一源头对账通过(档位表一致,无新增绕档取用,覆盖面全部归类)')
   return red ? 1 : 0
 }
 
