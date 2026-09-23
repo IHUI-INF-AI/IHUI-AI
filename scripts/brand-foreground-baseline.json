@@ -12,7 +12,8 @@
     "apps/mobile-rn/src/screens/PdfToolsScreen.tsx": 1,
     "apps/mobile-rn/src/screens/SubagentsScreen.tsx": 2,
     "apps/mobile-rn/src/screens/WebPortalScreen.tsx": 2,
-    "apps/mobile-rn/src/screens/WebViewScreen.tsx": 1
+    "apps/mobile-rn/src/screens/WebViewScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/ChatScreen.tsx": 7
   },
   "ctaCounts": {
     "apps/mobile-rn/src/components/AddPanel.tsx": 1,
@@ -29,7 +30,6 @@
     "apps/mobile-rn/src/components/LoginPopUp.tsx": 4,
     "apps/mobile-rn/src/components/MaterialList.tsx": 1,
     "apps/mobile-rn/src/components/PayButton.tsx": 1,
-    "apps/mobile-rn/src/components/SingleTypeBar.tsx": 2,
     "apps/mobile-rn/src/components/VerifyCodeModal.tsx": 1,
     "apps/mobile-rn/src/components/ai/TaskStatusBar.tsx": 1,
     "apps/mobile-rn/src/components/common/Empty.tsx": 1,
