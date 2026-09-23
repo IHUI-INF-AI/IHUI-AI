@@ -51,8 +51,8 @@ const JOURNAL_PATH = join(DRIZZLE_DIR, 'meta/_journal.json')
 const SCHEMA_SRC_DIR = join(ROOT, 'packages/database/src/schema')
 const API_ENV_PATH = join(ROOT, 'apps/api/.env')
 const DB_PKG_JSON = join(ROOT, 'packages/database/package.json')
-/** psql 客户端目录(Windows 本机 PG18);非 win32 走 PATH(CI service container)。 */
-const DEFAULT_PG_CLIENT_DIR = 'C:/Program Files/PostgreSQL/18/bin'
+/** psql 客户端目录(Windows 本机 PG17);非 win32 走 PATH(CI service container)。 */
+const DEFAULT_PG_CLIENT_DIR = 'C:/Program Files/PostgreSQL/17/bin'
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
@@ -109,10 +109,7 @@ function parseJournalEntries(jsonText) {
   const parsed = JSON.parse(jsonText)
   const raw = Array.isArray(parsed?.entries) ? parsed.entries : []
   return raw
-    .filter(
-      (entry) =>
-        Number.isFinite(entry?.idx) && typeof entry?.tag === 'string' && entry.tag.length > 0,
-    )
+    .filter((entry) => Number.isFinite(entry?.idx) && typeof entry?.tag === 'string' && entry.tag.length > 0)
     .map((entry) => ({ idx: Number(entry.idx), tag: entry.tag, file: `${entry.tag}.sql` }))
     .sort((a, b) => a.idx - b.idx)
 }
@@ -136,8 +133,7 @@ function diffIdentifierSets(expected, actual) {
   const normalize = (set) => {
     /** @type {Map<string, string>} */
     const byKey = new Map()
-    for (const raw of set ?? [])
-      byKey.set(unquoteIdentifier(raw).toLowerCase(), unquoteIdentifier(raw))
+    for (const raw of set ?? []) byKey.set(unquoteIdentifier(raw).toLowerCase(), unquoteIdentifier(raw))
     return byKey
   }
   const exp = normalize(expected)
@@ -150,11 +146,7 @@ function diffIdentifierSets(expected, actual) {
   }
   const extra = []
   for (const [key, have] of act) {
-    if (
-      !exp.has(key) &&
-      !IGNORED_MIGRATED_TABLES.has(have.toLowerCase()) &&
-      !RUNTIME_MANAGED_TABLES.has(have.toLowerCase())
-    )
+    if (!exp.has(key) && !IGNORED_MIGRATED_TABLES.has(have.toLowerCase()) && !RUNTIME_MANAGED_TABLES.has(have.toLowerCase()))
       extra.push(have)
   }
   return { missing: missing.sort(), extra: extra.sort(), caseDrift }
@@ -219,10 +211,7 @@ function firstErrorLine(text) {
   const preferred = lines.find((line) => ERROR_HEAD.test(line))
   const withSqlstate = lines.find((line) => /SQLSTATE|state: [0-9A-Z]{5}/i.test(line))
   const picked = preferred ?? withSqlstate ?? lines[0]
-  const stripped = picked
-    .replace(ERROR_HEAD, '')
-    .replace(/^psql:\s*/, '')
-    .trim()
+  const stripped = picked.replace(ERROR_HEAD, '').replace(/^psql:\s*/, '').trim()
   return stripped.length > 0 ? stripped : picked
 }
 
@@ -249,8 +238,7 @@ function pruneKnownHoles(diff, baseline = KNOWN_SCHEMA_HOLES) {
       }
       extra.push(column)
     }
-    if (entry.missing.length || extra.length || entry.caseDrift.length)
-      columns.push({ ...entry, extra })
+    if (entry.missing.length || extra.length || entry.caseDrift.length) columns.push({ ...entry, extra })
   }
   const stale = Object.entries(baseline)
     .flatMap(([table, cols]) => cols.map((column) => `${table}.${column}`))
@@ -350,8 +338,7 @@ function resolveBaseUrl() {
   const fromEnv = process.env.DATABASE_URL ?? ''
   const source = fromEnv ? 'process.env.DATABASE_URL' : 'apps/api/.env'
   let raw = fromEnv
-  if (!raw && existsSync(API_ENV_PATH))
-    raw = readEnvValue(readFileSync(API_ENV_PATH, 'utf8'), 'DATABASE_URL')
+  if (!raw && existsSync(API_ENV_PATH)) raw = readEnvValue(readFileSync(API_ENV_PATH, 'utf8'), 'DATABASE_URL')
   if (!raw) fail(`未找到 DATABASE_URL(env 与 ${API_ENV_PATH} 均为空),无法派生临时库连接串`)
   let url
   try {
@@ -418,12 +405,7 @@ function dropTempDatabase(url, password, maintenanceDb, dbName) {
   )
   if (res.status !== 0) {
     // FORCE 需 PG13+;老版本回退不带 FORCE
-    const fallback = runMaintenance(
-      url,
-      password,
-      maintenanceDb,
-      `DROP DATABASE IF EXISTS ${quoteIdent(dbName)}`,
-    )
+    const fallback = runMaintenance(url, password, maintenanceDb, `DROP DATABASE IF EXISTS ${quoteIdent(dbName)}`)
     if (fallback.status !== 0) {
       console.error(
         `${C.red}✗ 临时库 ${dbName} 未能清理(需人工 DROP):${C.reset} ${errorFrom(fallback, password)}`,
@@ -453,10 +435,7 @@ function replayMigrations(url, password, dbName, entries) {
       failures.push({
         idx: entry.idx,
         tag: entry.tag,
-        error:
-          res.error?.code === 'ETIMEDOUT'
-            ? `psql 超时(${PSQL_TIMEOUT_MS}ms)`
-            : errorFrom(res, password),
+        error: res.error?.code === 'ETIMEDOUT' ? `psql 超时(${PSQL_TIMEOUT_MS}ms)` : errorFrom(res, password),
       })
     } else {
       applied += 1
@@ -478,11 +457,7 @@ function runDrizzleKitMigrate(url, password, tempUrl) {
     env: { ...process.env, DATABASE_URL: tempUrl, PGPASSWORD: password },
   })
   if (res.status !== 0) {
-    return {
-      ok: false,
-      detail:
-        res.error?.code === 'ETIMEDOUT' ? 'drizzle-kit migrate 超时' : errorFrom(res, password),
-    }
+    return { ok: false, detail: res.error?.code === 'ETIMEDOUT' ? 'drizzle-kit migrate 超时' : errorFrom(res, password) }
   }
   return { ok: true, detail: '' }
 }
@@ -525,9 +500,7 @@ function loadExpectedSchema() {
     }
   }
   if (statSync(distEntry).mtimeMs < newestSource) {
-    fail(
-      `dist/schema 落后于 src/schema(${newestFile} 更新);先跑 pnpm --filter @ihui/database build 再复跑`,
-    )
+    fail(`dist/schema 落后于 src/schema(${newestFile} 更新);先跑 pnpm --filter @ihui/database build 再复跑`)
   }
   let schemaModule
   try {
@@ -577,17 +550,13 @@ function printDiff(diff, expectedSize, actualSize) {
   }
   if (diff.tables.caseDrift.length) {
     console.log(`${C.red}表名大小写漂移:${C.reset}`)
-    for (const item of diff.tables.caseDrift)
-      console.log(`  ~ schema "${item.expected}" vs DB "${item.actual}"`)
+    for (const item of diff.tables.caseDrift) console.log(`  ~ schema "${item.expected}" vs DB "${item.actual}"`)
   }
   for (const entry of diff.columns) {
     const bits = []
     if (entry.missing.length) bits.push(`缺列 [${entry.missing.join(', ')}]`)
     if (entry.extra.length) bits.push(`多列 [${entry.extra.join(', ')}]`)
-    if (entry.caseDrift.length)
-      bits.push(
-        `大小写漂移 [${entry.caseDrift.map((c) => `${c.expected}→${c.actual}`).join(', ')}]`,
-      )
+    if (entry.caseDrift.length) bits.push(`大小写漂移 [${entry.caseDrift.map((c) => `${c.expected}→${c.actual}`).join(', ')}]`)
     console.log(`${C.red}表 ${entry.table}:${C.reset} ${bits.join(';')}`)
   }
   console.log(`  ${C.dim}(对照:schema ${expectedSize} 表 / 迁移后库 ${actualSize} 表)${C.reset}`)
@@ -621,9 +590,7 @@ async function main() {
   console.log(
     `${C.cyan}空库重放校验(O18)${C.reset} ${entries.length} 个迁移 · 基库 ${url.username}@${url.hostname}:${url.port || '5432'}/${maintenanceDb} (来源 ${source})`,
   )
-  console.log(
-    `  ${C.dim}临时库:${replayDb}${skipFull ? '' : ` + ${migrateDb}`}${keep ? '(--keep 保留)' : ',结束后自动 DROP'}${C.reset}`,
-  )
+  console.log(`  ${C.dim}临时库:${replayDb}${skipFull ? '' : ` + ${migrateDb}`}${keep ? '(--keep 保留)' : ',结束后自动 DROP'}${C.reset}`)
 
   let exitCode = 0
   const created = []
@@ -633,9 +600,7 @@ async function main() {
     const { failures, applied } = replayMigrations(url, password, replayDb, entries)
     if (failures.length) {
       exitCode = 1
-      console.log(
-        `\n${C.red}① 逐迁移重放:停在第 ${failures[0].idx} 个,共 ${failures.length} 个失败(成功 ${applied}/${entries.length})${C.reset}`,
-      )
+      console.log(`\n${C.red}① 逐迁移重放:停在第 ${failures[0].idx} 个,共 ${failures.length} 个失败(成功 ${applied}/${entries.length})${C.reset}`)
       for (const line of formatReplayFailures(failures, entries.length)) console.log(line)
     } else {
       console.log(`  ${C.green}✓${C.reset} ① 逐迁移重放:${applied}/${entries.length} 全部应用成功`)
@@ -670,12 +635,9 @@ async function main() {
       const exemptedTables = rawTablesExtra - diff.tables.extra.length
       const bits = []
       if (exemptedCols > 0) bits.push(`${exemptedCols} 处命中 KNOWN_SCHEMA_HOLES 既有基线`)
-      if (exemptedTables > 0)
-        bits.push(`${exemptedTables} 张命中 RUNTIME_MANAGED_TABLES 运行期自管豁免`)
+      if (exemptedTables > 0) bits.push(`${exemptedTables} 张命中 RUNTIME_MANAGED_TABLES 运行期自管豁免`)
       const note = bits.length > 0 ? `(${bits.join(';')})` : ''
-      console.log(
-        `  ${C.green}✓${C.reset} ③ schema diff(对照 ${diffDb}):表集合 + 列集合双向为空${note}`,
-      )
+      console.log(`  ${C.green}✓${C.reset} ③ schema diff(对照 ${diffDb}):表集合 + 列集合双向为空${note}`)
     } else {
       exitCode = 1
       console.log(`\n${C.red}③ schema diff 非空(对照库 ${diffDb})${C.reset}`)
@@ -694,18 +656,12 @@ async function main() {
     exitCode = 1
   } finally {
     if (keep) {
-      console.log(
-        `\n${C.yellow}--keep:保留临时库${C.reset} ${created.join(', ')}(排障完请手工 DROP)`,
-      )
+      console.log(`\n${C.yellow}--keep:保留临时库${C.reset} ${created.join(', ')}(排障完请手工 DROP)`)
     } else {
       for (const dbName of created) dropTempDatabase(url, password, maintenanceDb, dbName)
     }
   }
-  console.log(
-    exitCode === 0
-      ? `\n${C.green}结论:PASS${C.reset}\n`
-      : `\n${C.red}结论:FAIL(exit 1)${C.reset}\n`,
-  )
+  console.log(exitCode === 0 ? `\n${C.green}结论:PASS${C.reset}\n` : `\n${C.red}结论:FAIL(exit 1)${C.reset}\n`)
   return exitCode
 }
 
