@@ -45,6 +45,7 @@ export function LiveScreen({
 }: LiveScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const showError: boolean = error !== '' && items.length === 0
 
   return (
     <View style={styles.container}>
@@ -55,7 +56,7 @@ export function LiveScreen({
         <Text style={styles.title}>{t('live.title')}</Text>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {showError ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
         <View style={styles.center}>
@@ -69,9 +70,11 @@ export function LiveScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('live.empty')}</Text>
-            </View>
+            showError ? null : (
+              <View style={styles.center}>
+                <Text style={styles.muted}>{t('live.empty')}</Text>
+              </View>
+            )
           }
           renderItem={({ item }) => {
             const key = statusKey(item)
