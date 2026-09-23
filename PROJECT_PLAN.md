@@ -4849,6 +4849,19 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **未做的事(刻意的)**:没有改任何凭据、`.env`、部署配置或远端 secret;没有把值打印到任何输出(全程只报类型/落点/长度形态)。要复原:`gh api repos/IHUI-INF-AI/IHUI-AI/secret-scanning/alerts/{2,7,9,11} --method PATCH --field state=open` 即重新打开。
 - 顺带钉住一次参数纠错:该 API 合法值只有 `state∈{open,resolved}` + `resolution∈{false_positive,wont_fix,revoked,used_in_tests}`，**不存在 `closed` / `not_a_secret`**(我第一次按直觉写了 `state=closed&resolution=not_a_secret`，被 422 挡回)。
 
+### 第三十一批(2026-09-24):把"DPI 降档"从模型证明升级成真实运行时 A/B 证明 —— 并更正我本轮开头说错的一句
+
+- **我先前那句"这条缺陷在本机本来就在发生"是错的,已作废**:那是用非 DPI 感知进程(PowerShell/WinForms)读到的 `1966x775` 虚拟化坐标算出来的;安装器是 PerMonitorV2,打点显示它看到的**真实工作区是 3440x1356**,朴素窗口 1540x1050 本来就装得下。教训:**跨 DPI 感知层级取几何值必须同一口径**,否则会把"不存在的问题"说成事实(与 [[css-computed-values-need-real-browser]]、[[dont-touch-user-system-settings-for-evidence]] 同源)。
+- **但降档分支仍然真实存在且必须能证明**。本机屏太大,该分支自然跑不到,于是给它一个**构建期注入点**:`IHUI_LOG_W/H` 改为 `!ifndef` 包裹(与既有 `IHUI_DPI_CAP` 同形态、生产不传参即默认值),`makensis -DIHUI_LOG_W=3800 -DIHUI_LOG_H=2000` 就能在大屏机器上**模拟出小屏** —— 全程不碰用户任何显示/缩放设置。
+- **真实运行时 A/B(3/3 成立,且与静态矩阵逐位吻合)**:同一份源码只差 `-DIHUI_WA_FIT=0/1`,用 `IHUI_TRACE` 打点量窗口(不等 UAC、不抓句柄,避免上一版"取不到主窗口"的坑):
+  - `fit=0`(= 修复前行为):有效 DPI 168,窗口 **6650x3500**,工作区 3440x1356 ⇒ 严重超屏;
+  - `fit=1`(修复后):有效 DPI **168 → 65**,窗口 **2572x1354** ⇒ 装进工作区;
+  - 矩阵预测 byH = 1356×96/2000 = **65**,运行时实测 DPI 正是 65 —— **模型与运行时一致**。
+- **开关本身也要有闸**:守门 61 第 8 条不变量加两条判据 —— `!ifndef IHUI_WA_FIT / !define IHUI_WA_FIT 1 / !endif` 默认必须为 1(改成 0 就等于生产悄悄关掉降档),降档块必须包在 `!if ${IHUI_WA_FIT} != 0` 里(A/B 开关失效即红)。变异测试补两例:改默认值为 0 → 红、拆掉 `!if` 包 → 红,原样 → 0 项;连原有 6 例共 **8/8 全按预期**。
+- **打点自身也踩过一个 NSIS 语法坑**:第一版写 `${IHUIWW}`(那是 `!define` 取法,`IHUIWW` 其实是 Var)⇒ 文件名里留下字面量 `${IHUIWW}x${IHUIWH}`,数值全丢。Var 只能用 `$NAME`,消息里要用 `-w$IHUIWW-h$IHUIWH` 这种带分隔的写法,否则会粘连成不存在的变量名。注释已写明,免得下次再用错。
+- **台账终数**:备份 tag 4,282 枚 / 仅本地 10 / 其中按判据确认空壳 **8** 枚(本轮回收链:sibling gitdir 通配 fetch + 11 枚 blobs API 回补 + 逐枚实推/精确投递,217 → 10)。这 8 枚仍不删:它们是被 reset/重写掉的中间提交**仅有的**引用,§29 的人工 GC 必须先按"是否唯一引用"分层。
+- **残余**:① 上述 8 枚空壳 tag 的删除属人工决策(判据与清单已在台账里备齐);② `>200%` 真机像素复验仍被取证禁令排除 —— 但本票之后,降档逻辑同时有**穷举矩阵**与**真实运行时 A/B** 两级证据,不再是"只有编译期断言"。
+
 ## O36 守门"接线层"根治 —— 补装三枚造好没装车的门、修一道假阳性、摘掉两处恒绿登记(2026-09-24 立并完成 ✅)
 
 - [x] ✅(2026-09-24) **第 3、4 次同型事故(继守门 64、70 之后)**:用五处权威接线点求差集实测抓到三枚脚本存在却**无人调用**的守门 —— `check-test-paths`(AGENTS §23 写"CI / pre-commit 必跑")、`check-verify-tmp-files`(§25 写"CI")、`check-i18n-messages-exist`(自称 pre-commit 模式)。已按实测档位登记为 **85 blocking / 86 warn / 87 blocking**,装门前逐枚实测真仓全量与 `--staged` 双口径均 exit 0(不误伤任何在途提交)。commit `66d2ae1a26d`。
@@ -4858,4 +4871,3 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-24) **端到端证明走权威入口,不用自拼内部件**:临时索引只装本票 5 文件 → `node scripts/guardian-runner.mjs --staged --timing` ⇒ **exit 0**,输出里 `[85][86][87]` 三行确被执行。之所以不用 `safe-commit`:此刻主索引里有**并发会话批量未提交的暂存删除**(含 `apps/api/src/routes/admin-maintenance-notice.ts`、`monitoring/alertmanager/alertmanager.yml.tmpl` 等 8 项 `D `),`safe-commit` 第 0 步的 `git reset HEAD` 会改掉他们的暂存状态 —— 共享工作区里这不属于我可动的范围。
 - [x] ✅(2026-09-24) **`check-i18n-messages-exist` 重写(子代理交付,结论已逐条复测)**:`ROOT` 从 `process.cwd()` 改为仓库根 + 显式 `--root`/env 注入(旧自测只切 cwd ⇒ **静默扫真仓**,13 例里 10 例恒红且无人能跑,这才是最大的漏判面);新增"清单为空 / 根不存在 / `--staged` 与 `--root` 冲突"一律 **exit 2**(判不了就红,绝不静默报绿)。子代理把旧版一条显式覆盖("miniapp-taro 的 loader 在 `src/i18n/` 而非 `src/i18n/messages/`")并进了"按脚本自带表生成夹具"⇒ **表漂移时夹具与判据自洽、测试恒绿**,该覆盖实际丢失。我已补回:布局表(`ENDPOINTS`/`LOADER_TARGETS`/`LOCALES`)与**手写字面量**逐字比对 + 用 `git ls-tree HEAD` 做独立真值,18/18 绿。
 - **O36 残余(不写作收口)**:① **AGENTS.md 三处文档漂移未修**,原因是它此刻被并发会话 `MM` 暂存中(改必互抹),应改文字已备好待其索引清空:§27"集成位置:`.husky/pre-commit` 直接调用"应改为 `scripts/lib/pre-commit-hook.js:560`;§23/§25 两处"必跑/CI"表述**已因本次补装变为真**,无需再改;`check-staged-files-count`、`check-portal-fixed`、`check-agent-engine-parity` 等**在 hook.js 生效却零见于守门速查**(反向差集,同样危险:文档看不到门,人就会重复造门)。解阻判据 = `git status --porcelain -- AGENTS.md` 为空。② 并发会话新建的对账门 `check-gate-wiring.mjs` 现存 5 枚红点(3 枚 R1 脚本自述撒谎 + 2 枚 R2 文档撒谎)正在逐条判真伪,**消红前只以 warn 接入**(恒红门=全队 --no-verify=118 道门全废,优先级高于加门)。③ R3 档另有 8 枚"无任何接线声称、五处零命中"的脚本(含 `check-sse-dispatch-parity.mjs` 自述"守门 2026-09-23 立"却无调用点 —— 最隐蔽的一类),属后续逐枚处置。④ **门 71 对"章节标题行"仍有盲区**(实测:它只认 `### 第N批` 与带编号的 bullet,`## O36 …` 这类 O 票标题行删掉不报),本票不复刻修法的原因是**简单补族并不能修好**:该门判活是"标记文本仍在 ∨ 该编号仍是某登记行的行首"两路 OR,而每个 O 票段落里的"残余"bullet 本身就带 `O3x` 编号 ⇒ 只加标题族会被第二路放行;真要收紧得让**标题类标记只走文本路**,而这会误伤"他人正常改写标题措辞"(门 71 的注释里已因此踩过一次假阳)。本票自身的兜底是:残余 bullet 以 `O3x 残余(不写作收口)` 开头 ⇒ 整段被滞后副本回滚时这一行必判红。落点与决策交门 71 持有人(今日该文件由 O35 一并在改,不重复动)。⑤ **给"共享工作区幻影滞后根治"票送一个现场量化样本**:此刻 `PROJECT_PLAN.md` 工作区 vs HEAD = `+150 −973`,而门 71 的 `--heal` 扫 439 条登记行报"**无缺失**" ⇒ 那 973 行全在保护面之外,任何人一次 `git add -A -- PROJECT_PLAN.md` 就能把它们从版本树静默抹掉,而 pre-commit 只打印一行"❗ 非登记行丢失 973 行(≥100 高度疑似旧基线整文件提交)"**警告不拦**。我没有把它升成 blocking:O35 一系今天刚把这块"报数面"补上并**明写了只报数的理由**(批量重排/归档会被误伤,恒红门反而逼各会话 --no-verify),推翻他人有据决策不在我票范围;要升 blocking,可行判据是"净缩水比 `vanish ≫ added` 且本次未同批 stage `.ihui-agent/archive/PROJECT_PLAN_*.md`"——这样 rewrap(vanish≈added)与归档(有 archive 同批)都不会误伤。
-
