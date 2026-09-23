@@ -48,6 +48,7 @@ import {
   citationNoteText,
   permissionModeNote,
   retryNoteText,
+  steerNoteText,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
@@ -2221,6 +2222,13 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
             event.citations.map((x) => ({ source: x.source, label: x.label })),
           ),
         )
+      },
+      // D106 引导交代:用户中途 steer 注入生效(ai-service 已写入 messages)时终端一行。
+      // 逐字段显式承接,不透传整个事件对象;steerNoteText 返回空串(空白文本/未知 phase)则不打印。
+      onSteer: (event) => {
+        const { phase, text } = event;
+        const note = steerNoteText({ phase, text });
+        if (note) state.statusLine.noteLine(note);
       },
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,

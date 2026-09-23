@@ -31,6 +31,7 @@ import type {
   StreamChatOptions,
   InjectionAppliedEvent,
   RetryScheduledEvent,
+  SteerEvent,
 } from '@ihui/api-client';
 import type { PlanStep, PlanUpdateEvent } from '@ihui/types/ai';
 import type { ToolCall } from '@ihui/types/chat';
@@ -465,6 +466,23 @@ export function citationNoteText(items: readonly { source: string; label: string
   return t('cli.citationSources', {
     sources: items.map((x) => `${x.label}(${x.source})`).join(' · '),
   });
+}
+
+/**
+ * D106 引导交代(steer):用户中途注入的引导文本被 ai-service 写入 messages 后,
+ * 后端下发 steer SSE 帧,终端一行交代"引导已生效"(对齐 web 端消息 badge 语义)。
+ * 纪律:
+ *  - 空文本 / 纯空白 → 返回空串,调用方据此不打印(与 citationNoteText 空列表不打印同型);
+ *  - phase 仅 'injected' 一种,未知 phase 不渲染(防御后端扩展新 phase 时终端误报);
+ *  - timestamp/messageId 按类型承接但单行交代不渲染(web 用 messageId 挂 badge,cli 无此位);
+ *  - 措辞走 cli.steerApplied 词表(五语言),引导文本 {text} 是内容不是界面 chrome,原样内插。
+ */
+export function steerNoteText(event: SteerEvent): string {
+  const { phase, text } = event;
+  if (phase !== 'injected') return '';
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  return t('cli.steerApplied', { text: trimmed });
 }
 
 export function retryNoteText(event: RetryScheduledEvent): string {

@@ -9,6 +9,7 @@
     "permNoteBypass": "No per-step confirmation — the AI may edit files and run commands directly (high risk)",
     "permNoteManual": "Everything needs manual approval, including read-only lookups",
     "citationSources": "Sources: {sources}",
+    "steerApplied": "Steered: {text}",
     "injectionApplied": "Context for this turn: {sources}",
     "injectionSrcDeveloper": "custom instructions",
     "injectionSrcWorkspace": "workspace memory",
