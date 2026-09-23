@@ -14,7 +14,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 
 export interface ColorfulLoaderProps {
   /** 加载器尺寸(px),默认 40 */

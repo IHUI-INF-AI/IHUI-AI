@@ -14,7 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { useEffect, useRef } from 'react'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
 import { Bell, X } from 'lucide-react-native'
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   } as ViewStyle,
   card: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: 12,
     shadowColor: tokens.gray.black,
