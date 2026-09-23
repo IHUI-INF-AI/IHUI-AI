@@ -373,14 +373,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: rnRadius['2xl'],
-    backgroundColor: tokens.brand.ctaFill,
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: tokens.brand.ctaText,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {
