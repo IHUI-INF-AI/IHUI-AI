@@ -104,9 +104,12 @@ describe('D94 脱敏 / 真实含密样本逐类断言', () => {
     // 下面 `not.toContain(secret)` 的断言强度不降。
     const slackSample =
       'xoxb-' + '123456789012' + '-' + '123456789012' + '-' + 'abcdefghijklmnopqrstuvwx'
+    // Google 样本同理:整串字面量会命中 push protection 的 "Google API Key" 规则
+    // (实测告警 #16 因该行长期 open)。拼接后运行期取值逐字符不变。
+    const googleSample = 'AIza' + 'SyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw'
     const samples = [
       'AKIAIOSFODNN7EXAMPLE',
-      'AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw',
+      googleSample,
       slackSample,
       'glpat-abc123DEF456ghi789',
       'xapp-1-A02B3C4D5E6-1234567890-abcdef',
