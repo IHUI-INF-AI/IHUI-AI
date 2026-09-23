@@ -24,9 +24,9 @@
 
 - [x] ✅(2026-09-23)单一真相源 `packages/design-tokens/src/radius.js`(`xs2/sm4/md6/lg8/xl12/2xl16`,`DEFAULT`=8 对齐 web `--radius: 0.5rem`)+ `radius.d.ts`;`tailwind-preset.js` 改为 `borderRadius: RADIUS_REM`;`tokens.css` 补 `--radius-xs`;`@ihui/design-tokens` 导出 `rnRadius`
 - [x] ✅(2026-09-23)确定性 codemod 两段:RN 侧 1078 处字面量 → `rnRadius.*` 引用、50 个本地常量内联删除、68 处常量引用改写(282 文件);CSS/类名侧 264 处 CSS 字面量 → `var(--radius-*)`、476 处 `rounded-[任意值]` → 档位类(153 文件);web/extension/ui-react/cli 内联 style 追加 9 文件
-- [ ]（进行中）需人工定性 285 点 / 130 文件(偏档吸附、几何圆、`rpx()` 绕档)分 6 批并行处置,每批以 `validate.mjs` 0 不达标为收工门
-- [ ]（进行中）守门 77 `scripts/check-radius-single-source.mjs`(blocking,A 档位表四处对账 + B 端取用必须引用档位,基线棘轮)+ 镜像测试 + `guardian-runner` 注册
-- [ ]（进行中）全端验证(各端 typecheck / RN 出包 grep / 守门全绿)+ 收尾提交
+- [x] ✅(2026-09-23)需人工定性 285 点 / 130 文件分 6 批并行处置完毕(6 批各自 validator 0 不达标;批 6 纠正工单对 SWIPER_RADIUS=30 的胶囊误判,实为 144 高轮播卡 → 吸附 16)
+- [x] ✅(2026-09-23)守门 77 `scripts/check-radius-single-source.mjs`(blocking,A 档位表四处对账 + B 端取用必须引用档位)+ 基线 30 处/7 文件(全为并行会话占用文件)+ 镜像测试 3 例 + guardian-runner 注册
+- [x] ✅(2026-09-23)全端验证:rn-app / mobile-rn / miniapp-taro / web 四端 tsc 0 错误、6 包 eslint 0 错误;RN 出包 grep 实证 1182 处 `rnRadius` 引用且 radius.js 进包;web DOM 计算值圆角直方图仅 6/8/12/4px(偏档 0);提交 36b1468b1 → 收敛 3e175a2b00c
 
 ### 影响面与豁免口径
 
