@@ -13,6 +13,7 @@ import { SCOPE_OPTIONS, TAB_OPTIONS } from './constants'
 import type { SpecPanelApi } from './useSpecPanel'
 
 export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
+  const { t } = p
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground">范围</span>
@@ -25,7 +26,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
           const isActive = opt.type === p.scopeType
           const Icon = opt.icon
           return (
-            <Tooltip key={opt.type} content={opt.label}>
+            <Tooltip key={opt.type} content={t(opt.label)}>
               <button
                 type="button"
                 onClick={() => p.setScopeType(opt.type)}
@@ -39,7 +40,7 @@ export function SpecScopeSelector({ p }: { p: SpecPanelApi }) {
                 )}
               >
                 <Icon className="h-3 w-3" />
-                <span>{opt.label}</span>
+                <span>{t(opt.label)}</span>
               </button>
             </Tooltip>
           )
@@ -141,6 +142,7 @@ export function SpecResultHeader({ p }: { p: SpecPanelApi }) {
 }
 
 export function SpecTabNav({ p }: { p: SpecPanelApi }) {
+  const { t } = p
   return (
     <div className="mt-2 flex items-center gap-1 pb-1">
       {TAB_OPTIONS.map((tab) => {
@@ -159,7 +161,7 @@ export function SpecTabNav({ p }: { p: SpecPanelApi }) {
             )}
           >
             <Icon className="h-3 w-3" />
-            <span>{tab.label}</span>
+            <span>{t(tab.label)}</span>
           </button>
         )
       })}

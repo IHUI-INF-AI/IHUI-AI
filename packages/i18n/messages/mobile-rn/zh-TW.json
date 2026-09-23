@@ -366,10 +366,13 @@
     "planSteps": "執行計劃",
     "terminalExitCode": "結束代碼",
     "terminalOutput": "輸出",
+    "terminalTruncated": "…(已截斷,共 {total} 字符)",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失敗",
     "terminalStatusRunning": "執行中",
     "terminalTasks": "終端任務",
+    "terminalIsolation": "命令在隔離沙箱中執行，預設不開放網路",
+    "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
     "toolArgs": "參數",
     "toolCalls": "工具調用",
     "toolResult": "輸出",
@@ -483,6 +486,8 @@
       "title": "上下文已自動壓縮",
       "message": "{before} → {after}(移除 {removed} 條歷史)"
     },
+    "errorTitle": "請求出錯",
+    "errorRetry": "重試",
     "loginBtn": "去登入",
     "longPress": {
       "myTitle": "我的訊息",
@@ -490,6 +495,14 @@
       "message": "截圖已生成",
       "shareBtn": "分享"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "參考來源",
+    "injectionTitle": "本輪參考的上下文",
+    "kindDeveloper": "自訂指令",
+    "kindWorkspace": "工作區記憶",
+    "kindRepoWiki": "倉庫 Wiki",
+    "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
     "title": "開發者入口",
@@ -913,7 +926,19 @@
     "instructor": "講師",
     "level_label": "難度",
     "free": "免費",
-    "loadFailed": "載入篩選失敗"
+    "loadFailed": "載入篩選失敗",
+    "cat_all": "全部",
+    "cat_tech": "技術",
+    "cat_design": "設計",
+    "cat_business": "商務",
+    "cat_language": "語言",
+    "level_all": "全部",
+    "level_beginner": "入門",
+    "level_intermediate": "進階",
+    "level_advanced": "高級",
+    "price_all": "全部",
+    "price_free": "免費",
+    "price_paid": "付費"
   },
   "courseQAAsk": {
     "title": "課程提問",
@@ -1050,7 +1075,11 @@
     "submit": "提交認證",
     "submitting": "提交中...",
     "failed": "認證失敗",
-    "loadFailed": "載入認證失敗"
+    "loadFailed": "載入認證失敗",
+    "status_unverified": "未認證",
+    "status_pending": "審核中",
+    "status_verified": "已認證",
+    "status_rejected": "未通過"
   },
   "income": {
     "title": "收益",
@@ -1259,7 +1288,9 @@
     "rules": "推廣規則",
     "inviteRecords": "邀請記錄",
     "empty": "暫無資料",
-    "loadFailed": "載入推廣失敗"
+    "loadFailed": "載入推廣失敗",
+    "status_active": "已活躍",
+    "status_inactive": "未活躍"
   },
   "promotion": {
     "title": "優惠券",
@@ -1304,7 +1335,11 @@
     "submitting": "提交中...",
     "failed": "認證失敗",
     "fieldsRequired": "請填寫完整資訊",
-    "loadFailed": "載入實名認證失敗"
+    "loadFailed": "載入實名認證失敗",
+    "status_unverified": "未認證",
+    "status_pending": "審核中",
+    "status_verified": "已認證",
+    "status_rejected": "未通過"
   },
   "recruitment": {
     "title": "人才招聘",
@@ -1368,7 +1403,14 @@
     "title": "搜尋",
     "placeholder": "搜尋課程、講師、內容",
     "empty": "未找到相關內容",
-    "failed": "搜尋失敗"
+    "failed": "搜尋失敗",
+    "type": {
+      "course": "課程",
+      "article": "文章",
+      "post": "貼文",
+      "note": "筆記",
+      "agent": "智慧體"
+    }
   },
   "securitySettings": {
     "title": "安全設定",
@@ -1436,7 +1478,10 @@
     "goToDo": "去完成",
     "progress": "{current}/{target}",
     "claimFailed": "領取失敗",
-    "loadFailed": "載入任務失敗"
+    "loadFailed": "載入任務失敗",
+    "tab_daily": "每日",
+    "tab_weekly": "每週",
+    "tab_newbie": "新手"
   },
   "team": {
     "title": "我的團隊",
@@ -1746,7 +1791,10 @@
   "circleMember": {
     "empty": "暫無成員",
     "loadFailed": "載入成員失敗",
-    "title": "圈子成員"
+    "title": "圈子成員",
+    "owner": "圈主",
+    "admin": "管理員",
+    "member": "成員"
   },
   "courseCatalog": {
     "duration": "時長",
@@ -2365,7 +2413,7 @@
     "index": {
       "pageTitle": "圈子",
       "goPublish": "去發布",
-      "anonymous": "匿名用户",
+      "anonymous": "匿名用戶",
       "follow": "關注",
       "followed": "已關注",
       "loading": "載入中...",
@@ -2458,5 +2506,148 @@
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失敗"
+  },
+  "permissionTier": {
+    "label": "權限檔",
+    "mode": {
+      "default": {
+        "title": "預設模式",
+        "desc": "全部操作需人工確認,最安全"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅允許讀取與檢索,寫檔案與執行命令一律拒絕"
+      },
+      "accept-edits": {
+        "title": "接受編輯",
+        "desc": "白名單內的操作自動放行,其他需確認"
+      },
+      "bypass-permissions": {
+        "title": "繞過權限",
+        "desc": "完全存取,無任何確認(高風險)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未識別的權限模式,已按預設檔處理"
+      }
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在準備回覆…",
+        "1": "正在組織回答思路…",
+        "2": "收到，正在思考如何回覆…",
+        "3": "正在為你生成回覆…",
+        "4": "已收到問題，正在處理…"
+      },
+      "middle": {
+        "0": "正在繼續處理…",
+        "1": "正在接著上文思考…",
+        "2": "正在整理後續回覆…",
+        "3": "正在跟進你的問題…",
+        "4": "正在生成接下來的回覆…"
+      },
+      "followup": {
+        "0": "正在理解你的追問…",
+        "1": "結合上文，正在思考…",
+        "2": "正在針對追問組織回覆…",
+        "3": "收到追問，正在處理…",
+        "4": "正在補充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在調度計算資源…",
+        "1": "正在初始化執行環境…",
+        "2": "正在啟動處理流程…",
+        "3": "正在分配算力處理…",
+        "4": "正在執行初始計算…"
+      },
+      "middle": {
+        "0": "正在執行中…",
+        "1": "計算進行中，請稍候…",
+        "2": "正在處理中間結果…",
+        "3": "執行未中斷，正在推進…",
+        "4": "正在運算，請稍候…"
+      },
+      "followup": {
+        "0": "正在重新計算…",
+        "1": "正在基於新輸入繼續執行…",
+        "2": "正在追加處理…",
+        "3": "正在更新計算結果…",
+        "4": "正在處理追加請求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顧對話上下文…",
+        "1": "正在加載相關上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在檢索相關記憶…",
+        "4": "正在準備上下文…"
+      },
+      "middle": {
+        "0": "正在關聯上文繼續…",
+        "1": "正在結合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就緒，正在處理…",
+        "4": "正在對照歷史消息…"
+      },
+      "followup": {
+        "0": "正在結合前文理解追問…",
+        "1": "正在回看相關上下文…",
+        "2": "正在關聯歷史追問…",
+        "3": "正在對照上文補充…",
+        "4": "結合上下文，正在處理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定處理計劃…",
+        "1": "正在拆解你的需求…",
+        "2": "正在規劃執行步驟…",
+        "3": "正在分析任務要點…",
+        "4": "正在擬定回覆提綱…"
+      },
+      "middle": {
+        "0": "正在推進計劃步驟…",
+        "1": "正在執行下一步…",
+        "2": "計劃進行中，請稍候…",
+        "3": "正在按步驟處理…",
+        "4": "正在落實後續步驟…"
+      },
+      "followup": {
+        "0": "正在調整計劃…",
+        "1": "正在根據追問更新步驟…",
+        "2": "正在重新規劃…",
+        "3": "正在補充計劃細節…",
+        "4": "正在跟進新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在準備詳細說明…",
+        "1": "正在組織細節內容…",
+        "2": "正在梳理要點…",
+        "3": "正在生成詳細回覆…",
+        "4": "正在完善回答細節…"
+      },
+      "middle": {
+        "0": "正在補充細節…",
+        "1": "正在展開說明…",
+        "2": "正在完善後續內容…",
+        "3": "詳情整理中，請稍候…",
+        "4": "正在細化回覆…"
+      },
+      "followup": {
+        "0": "正在補充你問的細節…",
+        "1": "正在展開追問的要點…",
+        "2": "正在細化相關說明…",
+        "3": "正在準備補充內容…",
+        "4": "正在完善追問的答覆…"
+      }
+    },
+    "vividTail": "，馬上就好"
   }
 }

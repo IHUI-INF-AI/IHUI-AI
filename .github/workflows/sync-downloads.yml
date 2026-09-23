@@ -43,8 +43,11 @@ jobs:
       - name: Install pnpm deps
         run: pnpm install --no-frozen-lockfile
 
+      # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建(api-client 产物化后入口 → dist,
+      # 全新 checkout 不先构建依赖,wxt/vite 解析报 "Failed to resolve entry",
+      # desktop-v0.1.43 run 35561898979 实测同病,两处一起根治)
       - name: Build extension
-        run: pnpm --filter @ihui/extension build
+        run: pnpm --filter @ihui/extension... build
 
       - name: Sync downloads
         run: node scripts/sync-downloads.mjs

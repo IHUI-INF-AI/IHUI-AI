@@ -14,7 +14,11 @@ const {
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
 // 清理失败不阻塞 commit(try/catch 兜底)。
 try {
-  execSync('node scripts/git-lock.mjs clean', { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
+  execSync('node scripts/git-lock.mjs clean', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    windowsHide: true,
+  })
 } catch {
   /* 清理失败不阻塞 commit */
 }
@@ -118,7 +122,9 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
         })
       } catch (e) {
         console.error('❌ pnpm --filter @ihui/miniapp-taro sync-tokens 失败,提交已阻止')
-        console.error('   请手动排查同步脚本错误,或紧急跳过:HUSKY_SKIP_TOKENS_SYNC=1 git commit ...')
+        console.error(
+          '   请手动排查同步脚本错误,或紧急跳过:HUSKY_SKIP_TOKENS_SYNC=1 git commit ...',
+        )
         process.exit(1)
       }
       // git diff --quiet -- <file>: exit 0=工作区与 index 一致(无变化); exit 1=有差异或 index 无此文件
@@ -154,7 +160,9 @@ if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
         console.log('  ✅ app.css 同步后无变化,跳过 git add')
       }
     } else {
-      console.log('⏭  design-tokens → miniapp-taro app.css 自动同步(无 tokens.css staged 改动, 跳过)')
+      console.log(
+        '⏭  design-tokens → miniapp-taro app.css 自动同步(无 tokens.css staged 改动, 跳过)',
+      )
     }
   } catch (e) {
     console.log('⏭  design-tokens → miniapp-taro app.css 自动同步(非 git 环境, 跳过)')
@@ -183,7 +191,9 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
       'node scripts/scan-dead-i18n-keys.mjs --exit 1',
     )
   ) {
-    console.error('❌ i18n 死 key 扫描发现死 key,提交已阻止(请清理 packages/i18n/messages/* 中未引用的 key 后再 commit)')
+    console.error(
+      '❌ i18n 死 key 扫描发现死 key,提交已阻止(请清理 packages/i18n/messages/* 中未引用的 key 后再 commit)',
+    )
     process.exit(1)
   }
 } else {
@@ -228,7 +238,9 @@ if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
     )
   ) {
     console.error('❌ miniapp-taro 跨端样式一致性守门失败,提交已阻止')
-    console.error('   修复方法:见脚本输出定位 BLOCK 级问题(禁用色板/路由页 ThemeRoot/删除类复用/app.css 回归)')
+    console.error(
+      '   修复方法:见脚本输出定位 BLOCK 级问题(禁用色板/路由页 ThemeRoot/删除类复用/app.css 回归)',
+    )
     console.error('   紧急跳过: HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...')
     process.exit(1)
   }
@@ -250,7 +262,9 @@ if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
     )
   ) {
     console.error('❌ auth refresh 单例守门失败,提交已阻止')
-    console.error('   修复方法:客户端续期必须走 refreshAccessTokenOnce 全局单例(见脚本输出定位违规行)')
+    console.error(
+      '   修复方法:客户端续期必须走 refreshAccessTokenOnce 全局单例(见脚本输出定位违规行)',
+    )
     console.error('   紧急跳过:HUSKY_SKIP_AUTH_REFRESH=1 git commit ...')
     process.exit(1)
   }
@@ -298,7 +312,12 @@ try {
     (f) => f.startsWith('packages/database/src/') || f.startsWith('packages\\database\\src\\'),
   )
   if (involvesDatabase) {
-    if (!run('📦 条件 database 重建闸门(packages/database/src staged)...', 'pnpm --filter @ihui/database build')) {
+    if (
+      !run(
+        '📦 条件 database 重建闸门(packages/database/src staged)...',
+        'pnpm --filter @ihui/database build',
+      )
+    ) {
       console.error('❌ @ihui/database build 失败,提交已阻止(请修复 schema 编译错误后再 commit)')
       process.exit(1)
     }
@@ -315,7 +334,9 @@ try {
   )
   if (involvesRnTokens) {
     if (!run('🔍 条件 RN global.css 同步守门...', 'node scripts/check-rn-global-css-sync.mjs')) {
-      console.error('❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)')
+      console.error(
+        '❌ RN global.css 与 tokens.css 变量值不一致,提交已阻止(请同步变量值后再 commit)',
+      )
       process.exit(1)
     }
   } else {
@@ -357,16 +378,23 @@ try {
       cwd: process.cwd(),
       windowsHide: true,
     })
-    const involvesMiniappIcu = stagedForIcu.split('\n').filter(Boolean).some(
-      (f) => f.startsWith('apps/miniapp-taro/src/') || f.startsWith('apps\\miniapp-taro\\src\\'),
-    )
+    const involvesMiniappIcu = stagedForIcu
+      .split('\n')
+      .filter(Boolean)
+      .some(
+        (f) => f.startsWith('apps/miniapp-taro/src/') || f.startsWith('apps\\miniapp-taro\\src\\'),
+      )
     if (involvesMiniappIcu) {
-      if (!run(
-        '🔍 条件 miniapp-taro ICU 反模式扫描(2026-07-28 立,blocking 防回退)...',
-        'node scripts/check-miniapp-replace-antipattern.mjs --staged',
-      )) {
-        console.error('❌ miniapp-taro 检测到 .replace(\'{{xxx}}\') 反模式,提交已阻止')
-        console.error('   修复方法:把 .replace(\'{{n}}\', val) 改为 t(\'key\', { n: val }) 走 next-intl ICU')
+      if (
+        !run(
+          '🔍 条件 miniapp-taro ICU 反模式扫描(2026-07-28 立,blocking 防回退)...',
+          'node scripts/check-miniapp-replace-antipattern.mjs --staged',
+        )
+      ) {
+        console.error("❌ miniapp-taro 检测到 .replace('{{xxx}}') 反模式,提交已阻止")
+        console.error(
+          "   修复方法:把 .replace('{{n}}', val) 改为 t('key', { n: val }) 走 next-intl ICU",
+        )
         console.error('   紧急跳过:HUSKY_SKIP_MINIAPP_ICU_CHECK=1 git commit ...')
         process.exit(1)
       }
@@ -407,9 +435,7 @@ if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
     })
     console.log('  ✅ button 文字换行守门通过(0 命中)')
   } catch (e) {
-    console.warn(
-      '  ⚠️  button 文字换行守门发现命中(warn-only,不阻塞 commit;1 周后升级 strict)',
-    )
+    console.warn('  ⚠️  button 文字换行守门发现命中(warn-only,不阻塞 commit;1 周后升级 strict)')
     console.warn('     修复方法:给 button className 补 shrink-0 + whitespace-nowrap')
     console.warn('     详细清单已打印在上方,紧急跳过:HUSKY_SKIP_BUTTON_WRAP_CHECK=1')
   }
@@ -433,7 +459,9 @@ if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
       'node scripts/check-site-footer.mjs',
     )
   ) {
-    console.error('❌ SiteFooter 守门失败,提交已阻止(防 v10/v11 关键 class / 5 分组 / i18n key 被回退)')
+    console.error(
+      '❌ SiteFooter 守门失败,提交已阻止(防 v10/v11 关键 class / 5 分组 / i18n key 被回退)',
+    )
     console.error('   修复方法:检查 SiteFooter.tsx / footer-data.ts / 5 语言 footer 命名空间')
     console.error('   紧急跳过:HUSKY_SKIP_FOOTER_GUARD=1 git commit ...')
     process.exit(1)
@@ -549,6 +577,32 @@ if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
   }
 } else {
   console.log('⏭  Agent Engine 协议 parity 守门(HUSKY_SKIP_AGENT_ENGINE_PARITY=1, 跳过)')
+}
+
+// 🖥️ 桌面端事件链路接线守门(2026-09-22 立,blocking)
+// 背景:用户反馈"托盘右键菜单『切换主题』/『打开设置』点击没任何反应"。根因是三层事件链
+//      的第 3 层断裂 —— Rust emit → use-desktop.ts 转 CustomEvent → **无任何 addEventListener
+//      消费方**,dispatch 成功但零副作用;Rust 侧 `let _ = window.emit(...)` 又吞掉返回值,
+//      日志查不到,只能肉眼 diff 三层源码。同类问题还命中了系统级快捷键 Ctrl+Shift+S。
+//      本守门把「Rust emit ⊆ 桥接 listen ⊆ 桥接 case ⊆ 前端消费方」升级为强制门禁,
+//      任一层断裂即阻断,防止"点了没反应"再次静默上线。
+// 跳过方法(紧急):HUSKY_SKIP_DESKTOP_EVENT_WIRING=1 git commit ...
+if (process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
+  if (
+    !run(
+      '🖥️ 桌面端事件链路接线守门(Rust emit → 桥接 → 前端消费方, 2026-09-22 立)...',
+      'node scripts/check-desktop-event-wiring.mjs',
+    )
+  ) {
+    console.error('❌ 桌面端事件链路接线守门失败,提交已阻止')
+    console.error(
+      '   修复:补齐缺失的一层接线 —— 最常见是 CustomEvent 派发了但没有 addEventListener 消费方',
+    )
+    console.error('   紧急跳过:HUSKY_SKIP_DESKTOP_EVENT_WIRING=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  桌面端事件链路接线守门(HUSKY_SKIP_DESKTOP_EVENT_WIRING=1, 跳过)')
 }
 
 console.log('✅ Pre-commit 检查通过')

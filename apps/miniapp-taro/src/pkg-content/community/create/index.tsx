@@ -5,6 +5,7 @@
 // 平台页面:镜像 packages/app/src/features/post-create/PostCreateScreen UI 与
 // apps/mobile-rn PostCreateScreen 状态机(端内重写渲染层,Taro 无法直接渲染 RN 原语)
 import { useCallback, useState } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import type { CSSProperties } from 'react'
 import { View, Text, Input, Textarea, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -126,6 +127,29 @@ export default function CommunityCreate() {
   const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // AI 操控通道(2026-09-21):发帖表单的三个字段交出组件已绑定的 setter。
+  // 提交(发布到社区)是对外发声且不可撤销的动作,按钮/表单不注册 submit,由用户自己点。
+  useUiField({
+    kind: 'input',
+    label: tt('postCreate.titleLabel', '标题'),
+    placeholder: tt('postCreate.titlePlaceholder', '给帖子起个标题'),
+    readValue: () => title,
+    setValue: setTitle,
+  })
+  useUiField({
+    kind: 'textarea',
+    label: tt('postCreate.contentLabel', '内容'),
+    placeholder: tt('postCreate.contentPlaceholder', '分享你的想法...'),
+    readValue: () => content,
+    setValue: setContent,
+  })
+  useUiField({
+    kind: 'input',
+    label: tt('postCreate.tagsLabel', '标签'),
+    placeholder: tt('postCreate.tagsPlaceholder', '多个标签用逗号分隔'),
+    readValue: () => tags,
+    setValue: setTags,
+  })
 
   // 提交:对齐 mobile-rn onSubmit(POST /api/community/posts;标题/内容必填,标签逗号分隔)
   const onSubmit = useCallback(async () => {

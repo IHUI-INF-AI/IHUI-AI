@@ -696,7 +696,7 @@ class ConversationService:
                 # 教育管理自动路由(2026-09-19):催费/欠费/缴费/退费/账单强信号
                 edu_tools = self._edu_intent_tools(user_input)
                 # 本站操控自动路由(2026-09-20):"帮我操作这个程序"类强信号
-                app_tools = self._app_control_intent_tools(user_input)
+                app_tools = self._app_control_intent_tools(user_input, _resolve_user_id(sid))
                 if media_tools or web_tools or edu_tools or app_tools:
                     tools = self._filter_tools(
                         media_tools + web_tools + edu_tools + app_tools
@@ -706,7 +706,7 @@ class ConversationService:
                 media_tools = self._media_intent_tools(user_input)
                 web_tools = self._web_intent_tools(user_input)
                 edu_tools = self._edu_intent_tools(user_input)
-                app_tools = self._app_control_intent_tools(user_input)
+                app_tools = self._app_control_intent_tools(user_input, _resolve_user_id(sid))
                 existing = {t.get("function", {}).get("name") for t in tools}
                 extra = [
                     m for m in media_tools + web_tools + edu_tools + app_tools
@@ -1250,7 +1250,7 @@ class ConversationService:
         return out
 
     @staticmethod
-    def _app_control_intent_tools(text: str) -> list[str]:
+    def _app_control_intent_tools(text: str, user_id: str = "") -> list[str]:
         """本站操控意图预路由(2026-09-20):要求操作我们自己的程序 → UI 动作工具
         或后端 API 入口工具。
 
@@ -1258,7 +1258,13 @@ class ConversationService:
         - 命中任一 UI 动作类工具时补 web_ui_describe —— 动作要靠 describe 返回的
           id/target 定位,LLM 无从猜出元素标识;
         - 命中 api_ 入口任一工具时补齐全对 —— 只有 search 会让模型搜到却调不了。
+
+        身份门(2026-09-21):这些工具最终都要按 user_id 定位"这个用户的哪一端",
+        无身份时发出去必然 PERMISSION_DENIED(_ui_call 的 fail-closed 分支)。
+        预先不发比发了让模型误以为"已经操作了"更诚实。
         """
+        if not user_id.strip():
+            return []
         out: list[str] = []
         for tool, patterns in _UI_INTENT_PATTERNS.items():
             if any(p.search(text) for p in patterns):

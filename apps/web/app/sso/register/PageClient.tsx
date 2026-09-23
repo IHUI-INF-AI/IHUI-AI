@@ -9,6 +9,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
+import { buildSsoRedirectUrl } from '@ihui/shared'
+import { ensureSsoRedirectAllowed } from '@/lib/sso-redirect-guard'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Loader2, ArrowRight, Check } from 'lucide-react'
 import { toast } from 'sonner'
@@ -54,7 +56,12 @@ export default function SsoRegisterPage() {
   }, [countdown])
 
   const handleClose = React.useCallback(() => {
-    router.push(redirectUrl)
+    // 2026-09-22:redirect 为受保护的同源路径时直接跳回必被登录守卫 307 弹回本页
+    // (表现为"关闭按钮点了没反应")。先确保能放行,仍不行则回首页,避免陷入 307 重定向闭环。
+    void (async () => {
+      const allowed = await ensureSsoRedirectAllowed(redirectUrl)
+      router.push(allowed ? redirectUrl : '/')
+    })()
   }, [router, redirectUrl])
 
   async function handleSendCode() {
@@ -134,13 +141,19 @@ export default function SsoRegisterPage() {
     if (!currentToken) return
     setExchanging(true)
     try {
+      // 2026-09-22:先确认回跳目标能被登录守卫放行(必要时静默续种 cookie),
+      // 否则生成的 sso_code 还没被消费就被 307 打回本页,用户感知即"按钮没反应"。
+      if (!(await ensureSsoRedirectAllowed(redirectUrl))) {
+        toast.error(t('sessionExpired'))
+        return
+      }
       const r = await fetchApi<{ code: string; redirectUri: string }>('/api/auth/sso/code', {
         method: 'POST',
         body: JSON.stringify({ clientId, redirectUri: redirectUrl }),
       })
       if (r.success && r.data?.code) {
-        const separator = redirectUrl.includes('?') ? '&' : '?'
-        router.push(`${redirectUrl}${separator}sso_code=${r.data.code}`)
+        // 幂等构造:先剥离 redirect 里可能残留的 sso_code 再附加(2026-09-22 去重)
+        router.push(buildSsoRedirectUrl(redirectUrl, r.data.code))
       } else {
         toast.error(!r.success ? r.error : t('generateCodeFailed'))
       }

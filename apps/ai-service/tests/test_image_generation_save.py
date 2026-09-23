@@ -4,16 +4,24 @@
 
 """image_generation save_path 落地 + provider 集成单元测试。
 
-测试覆盖(2026-07-24 升级):
+被测语义(mcp_server.py:4277 `_tool_image_generation` / 4110 `_image_generate_once`
+/ 4067 `_image_provider_chain`,2026-09-21 对齐 stepfun 剔除后的现状):
 - save_path 参数:校验 + 文件写入 + saved_path/file_size_bytes 返回
 - _validate_image_save_path:工作区白名单 + 后缀(.png/.jpg/.jpeg/.webp)
 - _persist_image_to_disk:写入磁盘 + 5MB 限制 + OSError 处理
 - _fetch_image_bytes:b64_json 解码 + URL 下载 + 失败处理
-- provider 选择:stepfun / agnes / fallback(stepfun 无 key → agnes,反之)
-- 错误码:MISSING_PARAMS / INVALID_PROVIDER / PROVIDER_NOT_CONFIGURED / DEP_MISSING /
-  PROVIDER_ERROR / EMPTY_RESULT / IMAGE_FETCH_FAILED / INVALID_EXTENSION /
+- provider 选择:链序 token6688 → agnes → kling → jimeng,只保留已配凭据的;
+  显式 provider 已配 → 提到链首,未配 → 回落自动链(stepfun 已不在 _ALLOWED)
+- payload 差异:token6688 发 {prompt, model, n}(官方 gpt-image-2.5 参数表无 size);
+  agnes 发 {prompt, model, size, n};quality/style 自 2026-09-21 起彻底不读
+- 错误码:MISSING_PARAMS / INVALID_PROVIDER / PROVIDER_NOT_CONFIGURED / INVALID_PARAMS /
+  DEP_MISSING / PROVIDER_ERROR / EMPTY_RESULT / IMAGE_FETCH_FAILED / INVALID_EXTENSION /
   PATH_NOT_ALLOWED / IMAGE_TOO_LARGE / WRITE_FAILED / GENERATION_FAILED
 - httpx mock(mock post + get 响应)
+
+链序矩阵与运行时 failover_attempts 的纯函数级断言在 tests/test_media_auto_routing.py
+::TestImageProviderChain / ::TestImageRuntimeFailover,本文件只测穿过真实
+`_image_generate_once` 的 HTTP 层行为。
 """
 
 from __future__ import annotations
@@ -123,35 +131,73 @@ def _inject_fake_httpx(
     return fake_mod
 
 
+@pytest.fixture(autouse=True)
+def _isolate_image_chain_inputs(monkeypatch):
+    """钉住链序与上游元数据来源(宿主环境/生产库都会让断言漂移)。
+
+    为什么:conftest 的 _isolate_llm_env 只清 VENDOR_ENV_KEYS(kling/ark 在内),
+    而 token6688 的凭据走 `TOKEN6688_API_KEY`(free_provider_registry.py:811 登记的
+    真实键位)、链序走 `IMAGE_PROVIDER`、模型名走 `TOKEN6688_IMAGE_MODEL` /
+    `AGNES_IMAGE_MODEL`(mcp_server.py:4097 与 4127/4141)—— 宿主 .env 或 shell 一旦
+    配了这些键,本文件的链序与 payload 断言就随机器漂移。
+
+    get_model_metadata 必须 mock:token6688 分支提交前查 ai_model_config_models
+    (mcp_server.py:4161 → app.core.db_pool.get_shared_pool),而 conftest 只隔离了
+    model_sync 那份绑定式导入。返回 None 是生产已有的降级路径(元数据未同步 →
+    跳过校验),不改变被测行为。
+    """
+    for key in (
+        "IMAGE_PROVIDER", "TOKEN6688_API_KEY", "TOKEN6688_BASE_URL",
+        "TOKEN6688_IMAGE_MODEL", "AGNES_IMAGE_MODEL",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    async def _metadata_unavailable(model_id: str):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.token6688_catalog.get_model_metadata", _metadata_unavailable,
+    )
+
+
 @pytest.fixture
-def stepfun_configured(monkeypatch):
-    """配置 stepfun provider(settings 已被 conftest 清空,需重新设置)。"""
+def token6688_configured(monkeypatch):
+    """只配 token6688(`_ALLOWED` 首位 / 默认 provider,mcp_server.py:4298)。
+
+    密钥形状取真实读取路径 `settings.get_provider_config("token6688")`
+    (config.py:285 读 LLM_PROVIDERS JSON);api_base 不带 /v1 —— 代码在
+    mcp_server.py:4124 补齐,所以真实配置就是这个形态。
+    """
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
+        "token6688": {"api_key": "test_token6688_key", "api_base": "https://k.token6688.com"},
         "agnes": {"api_key": "", "api_base": ""},
     }))
 
 
 @pytest.fixture
 def agnes_configured(monkeypatch):
-    """配置 agnes provider。"""
+    """只配 agnes(token6688 无 key):测显式指定 token6688 时的自动链兜底。
+
+    agnes 的 api_base 自带 /v1:该分支不补前缀(mcp_server.py:4134 直接用
+    cfg.api_base),与 .env LLM_PROVIDERS 的实际值一致。
+    """
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "", "api_base": ""},
+        "token6688": {"api_key": "", "api_base": ""},
         "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
     }))
 
 
 @pytest.fixture
 def both_configured(monkeypatch):
-    """同时配置两个 provider。"""
+    """两家都配:缺省链序即 _image_provider_chain 的 token6688 → agnes。"""
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": "test_stepfun_key", "api_base": "https://api.stepfun.com/step_plan/v1"},
+        "token6688": {"api_key": "test_token6688_key", "api_base": "https://k.token6688.com"},
         "agnes": {"api_key": "test_agnes_key", "api_base": "https://apihub.agnes-ai.com/v1"},
     }))
 
@@ -422,59 +468,153 @@ async def test_image_gen_missing_prompt_key():
     assert out["errorCode"] == "MISSING_PARAMS"
 
 
-async def test_image_gen_invalid_provider(stepfun_configured):
-    """未知 provider → INVALID_PROVIDER。"""
+async def test_image_gen_invalid_provider(token6688_configured, monkeypatch):
+    """未知 provider → INVALID_PROVIDER,且不发起任何 HTTP(校验在链构造之前)。"""
+    fake_mod = _inject_fake_httpx(monkeypatch)
     out = await _tool_image_generation({
         "prompt": "test image", "provider": "unknown_provider",
     })
     assert out["ok"] is False
     assert out["errorCode"] == "INVALID_PROVIDER"
+    assert fake_mod.clients == []
+
+
+async def test_image_gen_stepfun_removed_from_allowed(token6688_configured, monkeypatch):
+    """stepfun 传入必须 INVALID_PROVIDER —— 钉住 2026-09-21 的剔除不回潮。
+
+    为什么:stepfun 官方 /v1/models 实测无文生图模型(唯一图像类 step-image-edit-2
+    是图像编辑),原硬编码的 step-1v-8k 不在售,走 stepfun 生图必失败,故它已从
+    _ALLOWED(mcp_server.py:4298)与缺省链序(4098)一并移除。
+    """
+    fake_mod = _inject_fake_httpx(monkeypatch)
+    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    assert out["ok"] is False
+    # 拒绝理由是"不在允许清单"而非"未配凭据":stepfun 即使配了 key 也不给走
+    assert out["errorCode"] == "INVALID_PROVIDER"
+    assert "stepfun" not in out["error"].split("允许")[-1]
+    assert fake_mod.clients == []
 
 
 async def test_image_gen_provider_not_configured(monkeypatch):
-    """两个 provider 都无 key → PROVIDER_NOT_CONFIGURED。"""
+    """全链无凭据 → PROVIDER_NOT_CONFIGURED。
+
+    为什么不报 INVALID_PROVIDER:token6688 在允许清单内,4299 的校验放过,
+    是 _image_provider_chain 过滤掉无凭据的厂商后得到空链(4317-4325);
+    provider 字段回显"入参优先、缺省 auto"。
+    """
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "llm_providers", json.dumps({
-        "stepfun": {"api_key": ""},
+        "token6688": {"api_key": ""},
         "agnes": {"api_key": ""},
     }))
+    fake_mod = _inject_fake_httpx(monkeypatch)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
+    assert out["provider"] == "token6688"
     assert out["saved_path"] is None
 
+    auto = await _tool_image_generation({"prompt": "test"})
+    assert auto["ok"] is False
+    assert auto["errorCode"] == "PROVIDER_NOT_CONFIGURED"
+    assert auto["provider"] == "auto"
+    assert fake_mod.clients == []
+
 
 # =============================================================================
-# _tool_image_generation:provider fallback
+# _tool_image_generation:provider 链序(显式厂商无凭据时的兜底 / 有凭据时提前)
 # =============================================================================
 
 
-async def test_image_gen_stepfun_fallback_to_agnes(agnes_configured, monkeypatch):
-    """stepfun 无 key → 自动降级到 agnes。"""
+async def test_image_gen_token6688_without_key_falls_back_to_agnes(
+    agnes_configured, monkeypatch,
+):
+    """显式要 token6688 但它没凭据 → 兜底到链里唯一有凭据的 agnes。
+
+    为什么没有 failover_attempts:兜底发生在 _image_provider_chain 的凭据过滤阶段
+    (mcp_server.py:4101-4106,显式厂商没凭据就不插到链首),token6688 从未被尝试;
+    failover_attempts 只记"真打过上游又失败"(4331-4338)。
+    """
     b64 = base64.b64encode(b"image_data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
-    _inject_fake_httpx(monkeypatch, post_resp)
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
     })
     assert out["ok"] is True
-    assert out["provider"] == "agnes"  # 降级后 provider 变为 agnes
+    assert out["provider"] == "agnes"
+    assert "failover_attempts" not in out
+    assert len(fake_mod.clients) == 1
+    assert "agnes-ai.com" in fake_mod.clients[0].post_calls[0][0]
 
 
-async def test_image_gen_agnes_fallback_to_stepfun(stepfun_configured, monkeypatch):
-    """agnes 无 key → 自动降级到 stepfun。"""
+async def test_image_gen_agnes_without_key_falls_back_to_token6688(
+    token6688_configured, monkeypatch,
+):
+    """显式要 agnes 但它没凭据 → 兜底到代码实际会选的那一家:token6688。
+
+    链序缺省 token6688 → agnes → kling → jimeng(mcp_server.py:4098-4100),
+    此刻只有 token6688 有凭据 → 它是唯一入选者(不是 agnes 的"下一级"兜底,
+    而是整条链只剩它)。
+    """
     b64 = base64.b64encode(b"image_data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
-    _inject_fake_httpx(monkeypatch, post_resp)
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
         "prompt": "test", "provider": "agnes",
     })
     assert out["ok"] is True
-    assert out["provider"] == "stepfun"
+    assert out["provider"] == "token6688"
+    # token6688 不发 size → 回显 None(payload.get("size"),mcp_server.py:4261),
+    # 不再是"入参原样回显"的旧语义
+    assert out["size"] is None
+    assert fake_mod.clients[0].post_calls[0][0].endswith("/v1/images/generations")
+
+
+async def test_image_gen_explicit_configured_provider_goes_first(
+    both_configured, monkeypatch,
+):
+    """两家都有凭据 + 显式 agnes → agnes 提到链首,失败后才轮到 token6688。
+
+    与上两条的区别:显式厂商有凭据时是"提前"而非"被过滤",所以它一定先挨一次
+    (mcp_server.py:4103-4104),failover_attempts 也才有它的记录。
+    """
+    post_resp = _FakeResponse(400, {"error": "bad request"}, "Bad Request")
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
+
+    out = await _tool_image_generation({"prompt": "test", "provider": "agnes"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PROVIDER_ERROR"
+    assert [a["provider"] for a in out["failover_attempts"]] == ["agnes", "token6688"]
+    assert len(fake_mod.clients) == 2
+
+
+async def test_image_gen_token6688_key_read_from_env_var(monkeypatch):
+    """token6688 的第二条真实凭据通道:env TOKEN6688_API_KEY + 缺省 base。
+
+    为什么要单独测:本机 .env 的 LLM_PROVIDERS 里**没有** token6688 条目,
+    生产真实形态就是 free_provider_registry.py:811 登记的 key_env_vars
+    (mcp_server.py:4121-4127 cfg 取不到时才落到 env / TOKEN6688_BASE_URL)。
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "llm_providers", "")
+    monkeypatch.setenv("TOKEN6688_API_KEY", "sk-t6688-env")
+    b64 = base64.b64encode(b"image_data").decode()
+    fake_mod = _inject_fake_httpx(monkeypatch, _FakeResponse(200, {
+        "data": [{"b64_json": b64}]
+    }))
+
+    out = await _tool_image_generation({"prompt": "test"})
+    assert out["ok"] is True
+    assert out["provider"] == "token6688"
+    url, _, headers = fake_mod.clients[0].post_calls[0]
+    assert url == "https://k.token6688.com/v1/images/generations"
+    assert headers["Authorization"] == "Bearer sk-t6688-env"
 
 
 # =============================================================================
@@ -482,43 +622,88 @@ async def test_image_gen_agnes_fallback_to_stepfun(stepfun_configured, monkeypat
 # =============================================================================
 
 
-async def test_image_gen_provider_error_400(stepfun_configured, monkeypatch):
+async def test_image_gen_provider_error_400(token6688_configured, monkeypatch):
     """provider 返回 4xx → PROVIDER_ERROR。"""
     post_resp = _FakeResponse(400, {"error": "bad request"}, "Bad Request")
     _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "PROVIDER_ERROR"
     assert out["saved_path"] is None
 
 
-async def test_image_gen_provider_error_500(stepfun_configured, monkeypatch):
+async def test_image_gen_provider_error_500(token6688_configured, monkeypatch):
     """provider 返回 500 → PROVIDER_ERROR。"""
     post_resp = _FakeResponse(500, {}, "Internal Server Error")
     _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "PROVIDER_ERROR"
 
 
-async def test_image_gen_empty_data(stepfun_configured, monkeypatch):
+async def test_image_gen_empty_data(token6688_configured, monkeypatch):
     """provider 返回空 data → EMPTY_RESULT。"""
     post_resp = _FakeResponse(200, {"data": []})
     _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "EMPTY_RESULT"
 
 
-async def test_image_gen_no_url_no_b64(stepfun_configured, monkeypatch):
+async def test_image_gen_body_error_with_http_200(token6688_configured, monkeypatch):
+    """HTTP 200 但 body.error 非空 → PROVIDER_ERROR(只看状态码会把失败当成功)。
+
+    为什么单独一条:token6688 同步端点 40s 后开始发保活字节,状态码已固定 200,
+    上游生成失败也改不回 4xx → 必须查 body.error(mcp_server.py:4207-4216,
+    源码引的是官方指南)。
+    """
+    post_resp = _FakeResponse(200, {"error": {"message": "余额不足"}})
+    _inject_fake_httpx(monkeypatch, post_resp)
+
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PROVIDER_ERROR"
+    assert "余额不足" in out["error"]
+
+
+async def test_image_gen_token6688_precheck_blocks_before_upstream(
+    token6688_configured, monkeypatch,
+):
+    """目录元数据判参数非法 → INVALID_PARAMS,且一次上游都不发。
+
+    为什么测它:token6688 分支提交前拿 ai_model_config_models.param_schema 做
+    fail-fast(mcp_server.py:4158-4179),这是整条图片链上唯一"钱还没花就被拦"的
+    错误码,也是 get_model_metadata 在测试里必须被 mock 的那个调用点。
+    """
+    async def _strict_meta(model_id: str):
+        return {"param_schema": {"_max_prompt_chars": 3}, "max_prompt_chars": 3}
+
+    monkeypatch.setattr(
+        "app.services.token6688_catalog.get_model_metadata", _strict_meta,
+    )
+    fake_mod = _inject_fake_httpx(monkeypatch, _FakeResponse(200, {"data": []}))
+
+    out = await _tool_image_generation({
+        "prompt": "这段提示词明显超过了三个字符的上限", "provider": "token6688",
+    })
+    assert out["ok"] is False
+    assert out["errorCode"] == "INVALID_PARAMS"
+    assert "不产生费用" in out["error"]
+    # 链上只此一家 → 出参是编排层的汇总响应(4341-4348),只保留 errorCode/error,
+    # 单家分支独有的 model/hint 不进汇总,尝试明细在 failover_attempts 里
+    assert [a["errorCode"] for a in out["failover_attempts"]] == ["INVALID_PARAMS"]
+    assert fake_mod.clients == []
+
+
+async def test_image_gen_no_url_no_b64(token6688_configured, monkeypatch):
     """data 项无 url 无 b64_json → EMPTY_RESULT。"""
     post_resp = _FakeResponse(200, {"data": [{"other_field": "value"}]})
     _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "EMPTY_RESULT"
 
@@ -528,7 +713,7 @@ async def test_image_gen_no_url_no_b64(stepfun_configured, monkeypatch):
 # =============================================================================
 
 
-async def test_image_gen_success_b64_no_save(stepfun_configured, monkeypatch):
+async def test_image_gen_success_b64_no_save(token6688_configured, monkeypatch):
     """成功生成(b64_json,无 save_path)→ 返回 image_url + saved_path=None。"""
     original_bytes = b"\x89PNG test image data"
     b64 = base64.b64encode(original_bytes).decode()
@@ -536,25 +721,41 @@ async def test_image_gen_success_b64_no_save(stepfun_configured, monkeypatch):
     _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
-        "prompt": "a cat", "provider": "stepfun", "size": "512x512",
+        "prompt": "a cat", "provider": "token6688", "size": "512x512",
     })
     assert out["ok"] is True
-    assert out["provider"] == "stepfun"
+    assert out["provider"] == "token6688"
     assert out["saved_path"] is None
     assert out["file_size_bytes"] == 0  # 无 save_path 时为 0
     assert "image_url" in out
     assert "data:image/png;base64," in out["image_url"]
+    # size 回显来自 payload(mcp_server.py:4261 payload.get("size")),token6688
+    # 官方参数表没有 size(用 aspect_ratio/resolution)→ 传了也不发,回显 None
+    assert out["size"] is None
+
+
+async def test_image_gen_success_agnes_echoes_size(agnes_configured, monkeypatch):
+    """agnes 分支保留 size 参数并原样回显 —— 与 token6688 的唯一 payload 差异。"""
+    b64 = base64.b64encode(b"\x89PNG agnes image").decode()
+    post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
+    _inject_fake_httpx(monkeypatch, post_resp)
+
+    out = await _tool_image_generation({
+        "prompt": "a cat", "provider": "agnes", "size": "512x512",
+    })
+    assert out["ok"] is True
+    assert out["provider"] == "agnes"
     assert out["size"] == "512x512"
 
 
-async def test_image_gen_success_url_no_save(stepfun_configured, monkeypatch):
+async def test_image_gen_success_url_no_save(token6688_configured, monkeypatch):
     """成功生成(URL,无 save_path)→ 返回 image_url。"""
     post_resp = _FakeResponse(200, {
         "data": [{"url": "https://cdn.example.com/generated.png"}]
     })
     _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "a dog", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "a dog", "provider": "token6688"})
     assert out["ok"] is True
     assert out["saved_path"] is None
     assert out["image_url"] == "https://cdn.example.com/generated.png"
@@ -566,7 +767,7 @@ async def test_image_gen_success_url_no_save(stepfun_configured, monkeypatch):
 
 
 async def test_image_gen_save_b64_to_file(
-    stepfun_configured, monkeypatch, allow_workspace_path, tmp_path,
+    token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
     """save_path + b64_json → 写入文件 + 返回 saved_path + file_size_bytes。"""
     original_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 200
@@ -576,7 +777,7 @@ async def test_image_gen_save_b64_to_file(
 
     save_path = str(tmp_path / "saved_image.png")
     out = await _tool_image_generation({
-        "prompt": "test image", "provider": "stepfun",
+        "prompt": "test image", "provider": "token6688",
         "save_path": save_path,
     })
     assert out["ok"] is True
@@ -588,7 +789,7 @@ async def test_image_gen_save_b64_to_file(
 
 
 async def test_image_gen_save_url_to_file(
-    stepfun_configured, monkeypatch, allow_workspace_path, tmp_path,
+    token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
     """save_path + URL → 下载并写入文件。"""
     image_bytes = b"downloaded image content here"
@@ -600,7 +801,7 @@ async def test_image_gen_save_url_to_file(
 
     save_path = str(tmp_path / "url_saved.png")
     out = await _tool_image_generation({
-        "prompt": "url test", "provider": "stepfun",
+        "prompt": "url test", "provider": "token6688",
         "save_path": save_path,
     })
     assert out["ok"] is True
@@ -611,7 +812,7 @@ async def test_image_gen_save_url_to_file(
 
 
 async def test_image_gen_save_creates_parent_dirs(
-    stepfun_configured, monkeypatch, allow_workspace_path, tmp_path,
+    token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
     """save_path 父目录不存在时自动创建。"""
     original_bytes = b"image data"
@@ -621,7 +822,7 @@ async def test_image_gen_save_creates_parent_dirs(
 
     save_path = str(tmp_path / "subdir" / "deep" / "output.png")
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
         "save_path": save_path,
     })
     assert out["ok"] is True
@@ -629,41 +830,47 @@ async def test_image_gen_save_creates_parent_dirs(
 
 
 async def test_image_gen_save_invalid_extension(
-    stepfun_configured, monkeypatch,
+    token6688_configured, monkeypatch,
 ):
-    """save_path 后缀非图片格式 → INVALID_EXTENSION。"""
+    """save_path 后缀非图片格式 → INVALID_EXTENSION,且不发上游请求。
+
+    为什么不花这次调用:save_path 的格式/白名单错误与厂商无关,校验前置在链构造
+    之前 fail-fast(mcp_server.py:4305-4315),省掉一次付费出图。
+    """
     b64 = base64.b64encode(b"data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
-    _inject_fake_httpx(monkeypatch, post_resp)
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
         "save_path": "/tmp/test.txt",
     })
     assert out["ok"] is False
     assert out["errorCode"] == "INVALID_EXTENSION"
     assert out["saved_path"] is None
+    assert fake_mod.clients == []
 
 
 async def test_image_gen_save_path_not_allowed(
-    stepfun_configured, monkeypatch,
+    token6688_configured, monkeypatch,
 ):
-    """save_path 不在工作区 → PATH_NOT_ALLOWED。"""
+    """save_path 不在工作区 → PATH_NOT_ALLOWED(同样是发请求前的前置校验)。"""
     b64 = base64.b64encode(b"data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
-    _inject_fake_httpx(monkeypatch, post_resp)
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
-    # _validate_path_in_workspace 未被 mock → 默认返回 False(因为 /outside 不在白名单)
+    # _validate_path_in_workspace 走真实实现:/outside/... 不在 MCP_WORKSPACE_ROOTS 内
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
         "save_path": "/outside/workspace/test.png",
     })
     assert out["ok"] is False
     assert out["errorCode"] == "PATH_NOT_ALLOWED"
+    assert fake_mod.clients == []
 
 
 async def test_image_gen_save_image_too_large(
-    stepfun_configured, monkeypatch, allow_workspace_path, tmp_path,
+    token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
     """图片 > 5MB → IMAGE_TOO_LARGE。"""
     large_bytes = b"\x00" * (_MAX_IMAGE_BYTES + 1)
@@ -673,7 +880,7 @@ async def test_image_gen_save_image_too_large(
 
     save_path = str(tmp_path / "too_large.png")
     out = await _tool_image_generation({
-        "prompt": "big", "provider": "stepfun",
+        "prompt": "big", "provider": "token6688",
         "save_path": save_path,
     })
     assert out["ok"] is False
@@ -682,7 +889,7 @@ async def test_image_gen_save_image_too_large(
 
 
 async def test_image_gen_save_fetch_failed(
-    stepfun_configured, monkeypatch, allow_workspace_path, tmp_path,
+    token6688_configured, monkeypatch, allow_workspace_path, tmp_path,
 ):
     """save_path 指定但图片字节获取失败(b64 无效 + URL 下载失败)→ IMAGE_FETCH_FAILED。"""
     # b64_json 无效 + URL 下载 404
@@ -694,7 +901,7 @@ async def test_image_gen_save_fetch_failed(
 
     save_path = str(tmp_path / "fetch_fail.png")
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
         "save_path": save_path,
     })
     assert out["ok"] is False
@@ -707,10 +914,10 @@ async def test_image_gen_save_fetch_failed(
 # =============================================================================
 
 
-async def test_image_gen_httpx_missing(stepfun_configured, monkeypatch):
+async def test_image_gen_httpx_missing(token6688_configured, monkeypatch):
     """httpx 未安装 → DEP_MISSING。"""
     monkeypatch.setitem(sys.modules, "httpx", None)
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "DEP_MISSING"
 
@@ -720,7 +927,7 @@ async def test_image_gen_httpx_missing(stepfun_configured, monkeypatch):
 # =============================================================================
 
 
-async def test_image_gen_exception_handled(stepfun_configured, monkeypatch):
+async def test_image_gen_exception_handled(token6688_configured, monkeypatch):
     """httpx 异常 → GENERATION_FAILED。"""
     class _ExplodingClient:
         async def __aenter__(self):
@@ -736,7 +943,7 @@ async def test_image_gen_exception_handled(stepfun_configured, monkeypatch):
     fake_mod.AsyncClient = lambda **kw: _ExplodingClient()
     monkeypatch.setitem(sys.modules, "httpx", fake_mod)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "stepfun"})
+    out = await _tool_image_generation({"prompt": "test", "provider": "token6688"})
     assert out["ok"] is False
     assert out["errorCode"] == "GENERATION_FAILED"
 
@@ -746,42 +953,71 @@ async def test_image_gen_exception_handled(stepfun_configured, monkeypatch):
 # =============================================================================
 
 
-async def test_image_gen_api_post_params(stepfun_configured, monkeypatch):
-    """验证 post 请求参数(endpoint + json + headers)。"""
+async def test_image_gen_token6688_payload_omits_size(token6688_configured, monkeypatch):
+    """token6688 的 post 请求:补 /v1 的端点 + payload 严格三键 + Bearer 鉴权。
+
+    为什么断 payload 的键集合:官方 gpt-image-2.5 系列参数表里没有 size(用
+    aspect_ratio/resolution),旧版固定注入 size 会被提交前校验拦截,2026-09-21 起
+    不再发送(mcp_server.py:4128-4130);再塞回去就是线上生图失败。
+    """
     b64 = base64.b64encode(b"data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
     fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
-        "prompt": "a landscape", "provider": "stepfun", "size": "1024x1024",
+        "prompt": "a landscape", "provider": "token6688", "size": "1024x1024",
     })
     assert out["ok"] is True
-    assert len(fake_mod.clients) >= 1
     client = fake_mod.clients[0]
     assert len(client.post_calls) == 1
     url, json_body, headers = client.post_calls[0]
-    # endpoint 应包含 /images/generations
-    assert "/images/generations" in url
-    # json body 含 prompt + model + size
-    assert json_body["prompt"] == "a landscape"
-    assert json_body["size"] == "1024x1024"
-    assert "model" in json_body
-    # headers 含 Bearer auth
-    assert headers["Authorization"] == "Bearer test_stepfun_key"
+    # fixture 的 api_base 不带 /v1,代码补齐后才是真实端点(mcp_server.py:4121-4125)
+    assert url == "https://k.token6688.com/v1/images/generations"
+    assert json_body == {
+        "prompt": "a landscape", "model": "gpt-image-2", "n": 1,
+    }
+    assert headers["Authorization"] == "Bearer test_token6688_key"
+    assert out["model"] == "gpt-image-2"
 
 
-async def test_image_gen_agnes_provider_endpoint(agnes_configured, monkeypatch):
-    """agnes provider 使用 agnes api_base。"""
+async def test_image_gen_agnes_payload_carries_size(agnes_configured, monkeypatch):
+    """agnes 的 post 请求:端点原样用 cfg.api_base,payload 带 size。
+
+    与 token6688 相反:agnes-image-2.5-flash 认 size,所以它保留(mcp_server.py:4143);
+    默认模型名 2026-09-20 修过一次(原硬编码 agnes-image-v1 是无效 ID,生图必失败)。
+    """
     b64 = base64.b64encode(b"data").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
     fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
-    out = await _tool_image_generation({"prompt": "test", "provider": "agnes"})
+    out = await _tool_image_generation({
+        "prompt": "a landscape", "provider": "agnes", "size": "768x1024",
+    })
     assert out["ok"] is True
-    assert out["provider"] == "agnes"
-    client = fake_mod.clients[0]
-    url, _, _ = client.post_calls[0]
-    assert "agnes-ai.com" in url
+    url, json_body, headers = fake_mod.clients[0].post_calls[0]
+    assert url == "https://apihub.agnes-ai.com/v1/images/generations"
+    assert json_body == {
+        "prompt": "a landscape", "model": "agnes-image-2.5-flash",
+        "size": "768x1024", "n": 1,
+    }
+    assert headers["Authorization"] == "Bearer test_agnes_key"
+
+
+async def test_image_gen_agnes_model_argument_overrides_default(
+    agnes_configured, monkeypatch,
+):
+    """arguments.model 覆盖 agnes 默认模型(mcp_server.py:4139-4142)。"""
+    b64 = base64.b64encode(b"data").decode()
+    post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
+
+    out = await _tool_image_generation({
+        "prompt": "test", "provider": "agnes", "model": "agnes-image-2.1-flash",
+    })
+    assert out["ok"] is True
+    assert out["model"] == "agnes-image-2.1-flash"
+    _, json_body, _ = fake_mod.clients[0].post_calls[0]
+    assert json_body["model"] == "agnes-image-2.1-flash"
 
 
 # =============================================================================
@@ -789,29 +1025,36 @@ async def test_image_gen_agnes_provider_endpoint(agnes_configured, monkeypatch):
 # =============================================================================
 
 
-async def test_image_gen_success_return_fields(stepfun_configured, monkeypatch):
-    """成功返回包含所有必需字段。"""
+async def test_image_gen_success_return_fields(token6688_configured, monkeypatch):
+    """成功返回结构钉死为 11 个字段,不多不少。
+
+    为什么要 set(out) 相等而不是逐个 in:quality/style 自 2026-09-21 起既不进 payload
+    也不再伪回显(mcp_server.py:4130 成型 payload + 4259-4267 返回体;旧实现用
+    result.setdefault 把入参原样吐回去,看着像生效、上游其实没收到),
+    image_generation 的 input_schema 也已移除这两个键 —— 仍带 quality 的是
+    image_edit(它真实转发)。传进来只会被丢掉。
+    """
     b64 = base64.b64encode(b"img").decode()
     post_resp = _FakeResponse(200, {"data": [{"b64_json": b64}]})
-    _inject_fake_httpx(monkeypatch, post_resp)
+    fake_mod = _inject_fake_httpx(monkeypatch, post_resp)
 
     out = await _tool_image_generation({
-        "prompt": "test", "provider": "stepfun",
+        "prompt": "test", "provider": "token6688",
         "size": "512x512", "quality": "hd", "style": "artistic",
     })
     assert out["ok"] is True
-    assert out["tool"] == "image_generation"
+    assert set(out) == {
+        "tool", "ok", "prompt", "image_url", "size", "provider", "model",
+        "saved_path", "file_size_bytes", "created_at", "message",
+    }
     assert out["prompt"] == "test"
-    assert out["image_url"] is not None
-    assert out["size"] == "512x512"
-    assert out["quality"] == "hd"
-    assert out["style"] == "artistic"
-    assert out["provider"] == "stepfun"
-    assert "model" in out
+    assert out["image_url"].startswith("data:image/png;base64,")
+    assert out["provider"] == "token6688"
     assert out["saved_path"] is None
-    assert "file_size_bytes" in out
-    assert "created_at" in out
-    assert "message" in out
+    assert out["file_size_bytes"] == 0
+    _, json_body, _ = fake_mod.clients[0].post_calls[0]
+    assert "quality" not in json_body
+    assert "style" not in json_body
 
 
 # =============================================================================

@@ -507,11 +507,11 @@ class ModelSyncService:
             )
 
         sem = asyncio.Semaphore(1)
-        # F4.7 provider 级别并发锁
-        async with self._get_provider_lock(provider_code):
-            result = await self._sync_single_provider(
-                sem, provider_code, api_base, api_key, dry_run=dry_run
-            )
+        # provider 级并发锁由 _sync_single_provider 内部统一持有:asyncio.Lock 非重入,
+        # 外层再取同一把锁会让单厂同步永久挂起,并把 is_syncing 卡在 True(此后全量同步也被静默跳过)
+        result = await self._sync_single_provider(
+            sem, provider_code, api_base, api_key, dry_run=dry_run
+        )
 
         self._status.results = [result]
         self._status.total_providers = 1
@@ -1479,12 +1479,34 @@ class ModelSyncService:
 
                 # F3.6 别名映射后的 upstream_ids(用于下架比对)
                 upstream_ids: set[str] = set()
+                # Fix A(2026-09-02)同批去重:唯一索引建在 (config_id, LOWER(model_id))
+                # 上(见 20260913120000_unify_model_names.sql),而上游清单里常有两条记录
+                # 别名归一后只差大小写(如 siliconflow 的 pro/moonshotai/Kimi-K2.6 与
+                # pro/moonshotai/kimi-k2.6)。首条 INSERT 后第二条仍走 INSERT 会撞唯一约束,
+                # 导致整个 provider 事务回滚。故按 lower(aliased_id) 只保留首条。
+                seen_lower_ids: set[str] = set()
+                # Fix A 第二层:DB 里已存在大小写不同的旧行时,用 lower 反查到的"库里真实
+                # 写法"走 UPDATE,而不是 INSERT(否则同样撞 lower 唯一索引)。
+                existing_by_lower: dict[str, str] = {
+                    mid.lower(): mid for mid in existing_map
+                }
 
                 # 3. 注册新增模型 + 更新已存在模型的 context_length/pricing
                 for m in upstream_models:
                     raw_id = m["id"]
                     aliased_id, is_aliased = self._apply_alias(raw_id, provider_code)
                     upstream_ids.add(aliased_id)
+                    lower_id = aliased_id.lower()
+                    # 下架比对也按 lower 做,DB 旧行大小写不同不算"上游已下架"
+                    upstream_ids.add(existing_by_lower.get(lower_id, aliased_id))
+                    if lower_id in seen_lower_ids:
+                        logger.info(
+                            "[ModelSyncService] %s/%s 与同批前序模型归一后同名"
+                            "(lower=%s),跳过后者",
+                            provider_code, raw_id, lower_id,
+                        )
+                        continue
+                    seen_lower_ids.add(lower_id)
 
                     # F3.3 context_length 多层级 fallback
                     ctx_len = self._extract_context_length(m)
@@ -1544,7 +1566,10 @@ class ModelSyncService:
                         )
                         continue
 
-                    if aliased_id not in existing_map:
+                    # Fix A 第二层:命中同一下标(lower)的 DB 旧行 → 用库里的真实写法
+                    # 走 UPDATE,避免 INSERT 撞 (config_id, LOWER(model_id)) 唯一索引
+                    db_model_id = existing_by_lower.get(lower_id)
+                    if db_model_id is None:
                         if dry_run:
                             preview_new.append(aliased_id)
                         else:
@@ -1570,7 +1595,7 @@ class ModelSyncService:
                         # (不改变 is_relay_public,尊重 admin 手动下架)
                         if not dry_run:
                             await self._update_model(
-                                conn, config_id, aliased_id, ctx_len,
+                                conn, config_id, db_model_id, ctx_len,
                                 input_price, output_price, model_tags,
                                 tags_column_exists, columns,
                                 vendor=vendor,

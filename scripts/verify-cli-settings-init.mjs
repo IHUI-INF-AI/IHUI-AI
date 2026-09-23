@@ -30,7 +30,7 @@ const env = { ...process.env, HOME: tmpHome, USERPROFILE: tmpHome };
 
 // 1. 验证 init --force 生成模板
 try {
-  execSync(`node "${ihuiBin}" settings init --force`, { stdio: 'inherit', env });
+  execSync(`node "${ihuiBin}" settings init --force`, { stdio: 'inherit', env, windowsHide: true });
 } catch (err) {
   console.error('✗ settings init 失败:', err.message);
   cleanup();
@@ -74,7 +74,7 @@ if (!settings.sandbox || !Array.isArray(settings.sandbox.allowedPaths)) {
 // 2. 验证 settings path 命令
 const expectedPath = path.join(tmpHome, '.ihui', 'settings.json');
 try {
-  const out = execSync(`node "${ihuiBin}" settings path`, { encoding: 'utf-8', env }).trim();
+  const out = execSync(`node "${ihuiBin}" settings path`, { encoding: 'utf-8', env, windowsHide: true }).trim();
   if (out !== expectedPath) {
     console.error(`✗ settings path 输出不匹配: 期望 ${expectedPath}, 实际 ${out}`);
     cleanup();

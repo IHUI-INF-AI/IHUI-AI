@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
@@ -93,7 +94,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 /* ─── Constants ─── */
 
-const WEEKDAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+const WEEKDAY_KEYS = [
+  'weekdays.weekdayMon',
+  'weekdays.weekdayTue',
+  'weekdays.weekdayWed',
+  'weekdays.weekdayThu',
+  'weekdays.weekdayFri',
+  'weekdays.weekdaySat',
+  'weekdays.weekdaySun',
+] as const
 
 const TIME_SLOTS = Array.from({ length: 13 }, (_, i) => {
   const h = i + 8
@@ -101,15 +110,15 @@ const TIME_SLOTS = Array.from({ length: 13 }, (_, i) => {
 })
 
 const COLOR_OPTIONS = [
-  { value: 'bg-blue-500', label: '蓝色' },
-  { value: 'bg-green-500', label: '绿色' },
-  { value: 'bg-purple-500', label: '紫色' },
-  { value: 'bg-orange-500', label: '橙色' },
-  { value: 'bg-pink-500', label: '粉色' },
-  { value: 'bg-teal-500', label: '青色' },
-  { value: 'bg-indigo-500', label: '靛蓝' },
-  { value: 'bg-rose-500', label: '玫瑰红' },
-]
+  { value: 'bg-blue-500', labelKey: 'colors.blue' },
+  { value: 'bg-green-500', labelKey: 'colors.green' },
+  { value: 'bg-purple-500', labelKey: 'colors.purple' },
+  { value: 'bg-orange-500', labelKey: 'colors.orange' },
+  { value: 'bg-pink-500', labelKey: 'colors.pink' },
+  { value: 'bg-teal-500', labelKey: 'colors.teal' },
+  { value: 'bg-indigo-500', labelKey: 'colors.indigo' },
+  { value: 'bg-rose-500', labelKey: 'colors.rose' },
+] as const
 
 /* ─── Helpers ─── */
 
@@ -171,6 +180,7 @@ function ScheduleEditDialog({
   onSave: (data: ScheduleFormData) => Promise<void>
   onDelete?: () => Promise<void>
 }) {
+  const t = useTranslations('eduSchedule')
   const [form, setForm] = React.useState<ScheduleFormData>(emptyScheduleForm)
   const [saving, setSaving] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
@@ -221,28 +231,28 @@ function ScheduleEditDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{initial ? '编辑课程' : '添加课程'}</DialogTitle>
+          <DialogTitle>{initial ? t('editCourseTitle') : t('addCourseTitle')}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3 py-2">
           <div className="grid gap-1.5">
-            <Label>课程名称</Label>
+            <Label>{t('form.courseName')}</Label>
             <Input
               value={form.courseName}
               onChange={(e) => update('courseName', e.target.value)}
-              placeholder="例如：高等数学"
+              placeholder={t('form.courseNamePlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>教师</Label>
+            <Label>{t('form.teacher')}</Label>
             <Input
               value={form.teacher}
               onChange={(e) => update('teacher', e.target.value)}
-              placeholder="教师姓名"
+              placeholder={t('form.teacherPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>开始时间</Label>
+              <Label>{t('form.startTime')}</Label>
               <Input
                 type="time"
                 value={form.startTime}
@@ -250,7 +260,7 @@ function ScheduleEditDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label>结束时间</Label>
+              <Label>{t('form.endTime')}</Label>
               <Input
                 type="time"
                 value={form.endTime}
@@ -259,18 +269,18 @@ function ScheduleEditDialog({
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label>教室</Label>
+            <Label>{t('form.classroom')}</Label>
             <Input
               value={form.classroom}
               onChange={(e) => update('classroom', e.target.value)}
-              placeholder="例如：A101"
+              placeholder={t('form.classroomPlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>颜色标记</Label>
+            <Label>{t('form.colorMark')}</Label>
             <div className="flex flex-wrap gap-2">
               {COLOR_OPTIONS.map((c) => (
-                <Tooltip key={c.value} content={c.label}>
+                <Tooltip key={c.value} content={t(c.labelKey)}>
                   <button
                     type="button"
                     className={cn(
@@ -293,12 +303,12 @@ function ScheduleEditDialog({
               ) : (
                 <Trash2 className="h-4 w-4" />
               )}
-              删除
+              {t('delete')}
             </Button>
           )}
           <Button onClick={handleSave} disabled={saving || !form.courseName.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {initial ? '保存' : '添加'}
+            {initial ? t('save') : t('add')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -319,6 +329,7 @@ function TermDialog({
   terms: Term[]
   onSave: (data: Partial<Term>) => Promise<void>
 }) {
+  const t = useTranslations('eduSchedule')
   const [editTerm, setEditTerm] = React.useState<Term | null>(null)
   const [name, setName] = React.useState('')
   const [startDate, setStartDate] = React.useState('')
@@ -361,34 +372,34 @@ function TermDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>学期管理</DialogTitle>
+          <DialogTitle>{t('termManagement')}</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {terms.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">暂无学期</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTerms')}</p>
           ) : (
-            terms.map((t) => (
+            terms.map((term) => (
               <div
-                key={t.id}
+                key={term.id}
                 role="button"
                 tabIndex={0}
                 className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-                onClick={() => resetForm(t)}
+                onClick={() => resetForm(term)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') resetForm(t)
+                  if (e.key === 'Enter' || e.key === ' ') resetForm(term)
                 }}
               >
-                <span className={cn(editTerm?.id === t.id && 'font-medium')}>
-                  {t.name}
-                  {t.isCurrent && (
+                <span className={cn(editTerm?.id === term.id && 'font-medium')}>
+                  {term.name}
+                  {term.isCurrent && (
                     <Badge variant="default" className="ml-2 text-[10px]">
-                      当前
+                      {t('current')}
                     </Badge>
                   )}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {t.startDate} ~ {t.endDate}
+                  {term.startDate} ~ {term.endDate}
                 </span>
               </div>
             ))
@@ -396,22 +407,22 @@ function TermDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">{editTerm ? '编辑学期' : '新建学期'}</p>
+          <p className="text-sm font-medium">{editTerm ? t('editTerm') : t('createTerm')}</p>
           <div className="grid gap-1.5">
-            <Label>学期名称</Label>
+            <Label>{t('termName')}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如：2026年春季学期"
+              placeholder={t('termNamePlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>开始日期</Label>
+              <Label>{t('startDate')}</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>结束日期</Label>
+              <Label>{t('endDate')}</Label>
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
@@ -422,14 +433,14 @@ function TermDialog({
               checked={isCurrent}
               onChange={(e) => setIsCurrent(e.target.checked)}
             />
-            设为当前学期
+            {t('setAsCurrentTerm')}
           </label>
         </div>
 
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving || !name.trim() || !startDate || !endDate}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {editTerm ? '保存修改' : '创建学期'}
+            {editTerm ? t('saveChanges') : t('createTermButton')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -450,6 +461,7 @@ function ClassDialog({
   classes: EduClass[]
   onSave: (data: { name: string; grade: string }) => Promise<void>
 }) {
+  const t = useTranslations('eduSchedule')
   const [name, setName] = React.useState('')
   const [grade, setGrade] = React.useState('')
   const [saving, setSaving] = React.useState(false)
@@ -476,12 +488,12 @@ function ClassDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>班级管理</DialogTitle>
+          <DialogTitle>{t('classManagement')}</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {classes.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">暂无班级</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">{t('noClasses')}</p>
           ) : (
             classes.map((c) => (
               <div
@@ -500,21 +512,21 @@ function ClassDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">新建班级</p>
+          <p className="text-sm font-medium">{t('createClass')}</p>
           <div className="grid gap-1.5">
-            <Label>班级名称</Label>
+            <Label>{t('className')}</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例如：计算机科学1班"
+              placeholder={t('classNamePlaceholder')}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>年级</Label>
+            <Label>{t('grade')}</Label>
             <Input
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
-              placeholder="例如：2024级"
+              placeholder={t('gradePlaceholder')}
             />
           </div>
         </div>
@@ -522,7 +534,7 @@ function ClassDialog({
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving || !name.trim()}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            创建班级
+            {t('createClassButton')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -533,6 +545,7 @@ function ClassDialog({
 /* ─── Main Page ─── */
 
 export default function SchedulePage() {
+  const t = useTranslations('eduSchedule')
   const queryClient = useQueryClient()
 
   /* ── State ── */
@@ -562,7 +575,7 @@ export default function SchedulePage() {
   // Auto-select the first term (current term preferred)
   React.useEffect(() => {
     if (terms.length > 0 && !selectedTermId) {
-      const current = terms.find((t) => t.isCurrent)
+      const current = terms.find((term) => term.isCurrent)
       setSelectedTermId(current?.id ?? terms[0]!.id)
     }
   }, [terms, selectedTermId])
@@ -682,9 +695,9 @@ export default function SchedulePage() {
         },
       )
       invalidate()
-      toast.success(`已复制 ${result.count} 条课程`)
+      toast.success(t('copiedCourses', { count: result.count }))
     } catch (e: unknown) {
-      toast.error((e as { message?: string }).message ?? '复制失败')
+      toast.error((e as { message?: string }).message ?? t('copyFailed'))
     } finally {
       setCopyingLastWeek(false)
     }
@@ -706,11 +719,11 @@ export default function SchedulePage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `课程表_${data.class?.name ?? 'unknown'}_${data.dateRange.startDate}_${data.dateRange.endDate}.json`
+      a.download = `${t('exportFilePrefix')}_${data.class?.name ?? 'unknown'}_${data.dateRange.startDate}_${data.dateRange.endDate}.json`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: unknown) {
-      toast.error((e as { message?: string }).message ?? '导出失败')
+      toast.error((e as { message?: string }).message ?? t('exportFailed'))
     } finally {
       setExporting(false)
     }
@@ -849,7 +862,7 @@ export default function SchedulePage() {
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       </div>
     )
@@ -859,7 +872,7 @@ export default function SchedulePage() {
     return (
       <div className="space-y-4 px-4 py-4">
         <BackButton />
-        <Alert variant="danger" description="加载学期数据失败，请稍后重试" />
+        <Alert variant="danger" description={t('loadTermsFailed')} />
       </div>
     )
   }
@@ -870,8 +883,8 @@ export default function SchedulePage() {
 
       {/* Header */}
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">课程表管理</h1>
-        <p className="text-xs text-muted-foreground">管理学期的课程安排，支持周视图和月视图</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="text-xs text-muted-foreground">{t('description')}</p>
       </header>
 
       {/* Toolbar */}
@@ -888,13 +901,13 @@ export default function SchedulePage() {
               }}
             >
               <SelectTrigger className="w-44">
-                <SelectValue placeholder="选择学期" />
+                <SelectValue placeholder={t('selectTerm')} />
               </SelectTrigger>
               <SelectContent>
-                {terms.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                    {t.isCurrent ? ' (当前)' : ''}
+                {terms.map((term) => (
+                  <SelectItem key={term.id} value={term.id}>
+                    {term.name}
+                    {term.isCurrent ? t('currentTermSuffix') : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -915,7 +928,11 @@ export default function SchedulePage() {
               <SelectTrigger className="w-44">
                 <SelectValue
                   placeholder={
-                    classesLoading ? '加载中...' : selectedTermId ? '选择班级' : '请先选择学期'
+                    classesLoading
+                      ? t('loading')
+                      : selectedTermId
+                        ? t('selectClass')
+                        : t('selectTermFirst')
                   }
                 />
               </SelectTrigger>
@@ -946,7 +963,7 @@ export default function SchedulePage() {
               ) : (
                 <Copy className="mr-1 h-3.5 w-3.5" />
               )}
-              复制上周
+              {t('copyLastWeek')}
             </Button>
             <Button
               variant="outline"
@@ -959,7 +976,7 @@ export default function SchedulePage() {
               ) : (
                 <Download className="mr-1 h-3.5 w-3.5" />
               )}
-              导出
+              {t('export')}
             </Button>
           </div>
 
@@ -970,14 +987,16 @@ export default function SchedulePage() {
               size="sm"
               onClick={() => setViewMode('week')}
             >
-              <Calendar className="mr-1 h-3.5 w-3.5" />周
+              <Calendar className="mr-1 h-3.5 w-3.5" />
+              {t('weekView')}
             </Button>
             <Button
               variant={viewMode === 'month' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setViewMode('month')}
             >
-              <CalendarDays className="mr-1 h-3.5 w-3.5" />月
+              <CalendarDays className="mr-1 h-3.5 w-3.5" />
+              {t('monthView')}
             </Button>
           </div>
         </CardContent>
@@ -988,12 +1007,12 @@ export default function SchedulePage() {
         {schedulesLoading ? (
           <div className="flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载课程表...
+            {t('loadingSchedule')}
           </div>
         ) : !selectedClassId ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
             <AlertCircle className="mb-2 h-8 w-8" />
-            <p className="text-sm">请先选择学期和班级</p>
+            <p className="text-sm">{t('selectTermAndClass')}</p>
           </div>
         ) : viewMode === 'week' ? (
           <>
@@ -1014,7 +1033,7 @@ export default function SchedulePage() {
                   onClick={() => setWeekOffset(0)}
                   disabled={weekOffset === 0}
                 >
-                  本周
+                  {t('thisWeek')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setWeekOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -1030,18 +1049,18 @@ export default function SchedulePage() {
               >
                 {/* Header row */}
                 <div className="sticky left-0 bg-background p-2 text-xs text-muted-foreground" />
-                {WEEKDAY_LABELS.map((label, i) => {
+                {WEEKDAY_KEYS.map((key, i) => {
                   const d = weekDays[i]
                   const isToday = d && formatDate(d) === formatDate(today)
                   return (
                     <div
-                      key={label}
+                      key={key}
                       className={cn(
                         'border-b border-r p-2 text-center text-xs font-medium',
                         isToday && 'bg-primary/5',
                       )}
                     >
-                      <div>{label}</div>
+                      <div>{t(key)}</div>
                       <div className={cn('text-muted-foreground', isToday && 'text-primary')}>
                         {d ? d.getDate() : ''}
                       </div>
@@ -1055,7 +1074,7 @@ export default function SchedulePage() {
                     <div className="sticky left-0 flex items-start justify-end border-b bg-background pr-2 pt-2 text-xs text-muted-foreground">
                       {time}
                     </div>
-                    {WEEKDAY_LABELS.map((_, wi) => {
+                    {WEEKDAY_KEYS.map((_, wi) => {
                       const weekday = wi + 1
                       const entries = scheduleMap.get(weekday) ?? []
                       const slotEntries = entries.filter((e) => {
@@ -1101,7 +1120,10 @@ export default function SchedulePage() {
             {/* Month navigation */}
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">
-                {currentMonth.getFullYear()}年{currentMonth.getMonth() + 1}月
+                {t('monthTitle', {
+                  year: currentMonth.getFullYear(),
+                  month: currentMonth.getMonth() + 1,
+                })}
               </CardTitle>
               <div className="flex items-center gap-1">
                 <Button variant="ghost" size="sm" onClick={() => setMonthOffset((o) => o - 1)}>
@@ -1113,7 +1135,7 @@ export default function SchedulePage() {
                   onClick={() => setMonthOffset(0)}
                   disabled={monthOffset === 0}
                 >
-                  本月
+                  {t('thisMonth')}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setMonthOffset((o) => o + 1)}>
                   <ChevronRight className="h-4 w-4" />
@@ -1124,12 +1146,12 @@ export default function SchedulePage() {
             {/* Month grid */}
             <CardContent className="overflow-x-auto p-0">
               <div className="grid min-w-[600px] grid-cols-7">
-                {WEEKDAY_LABELS.map((label) => (
+                {WEEKDAY_KEYS.map((key) => (
                   <div
-                    key={label}
+                    key={key}
                     className="border-b border-r p-2 text-center text-xs font-medium text-muted-foreground"
                   >
-                    {label}
+                    {t(key)}
                   </div>
                 ))}
                 {monthGrid.map((cell, i) => {

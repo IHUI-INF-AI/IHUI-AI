@@ -13,7 +13,7 @@
  * 禁连生产:verifyAccessToken / getUserStatus / API Key 鉴权全部 mock,不触 DB、Redis。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { FastifyRequest } from 'fastify'
+import type { FastifyReply, FastifyRequest } from 'fastify'
 
 const { getUserStatus, verifyAccessToken, decodeJwt } = vi.hoisted(() => ({
   getUserStatus: vi.fn<(id: string) => Promise<number | undefined>>(),
@@ -29,6 +29,13 @@ vi.mock('../src/plugins/api-key-auth.js', () => ({
   requireApiKeyPermission: vi.fn(),
   requireApiKeyQuota: vi.fn(),
 }))
+// O13b(2026-09-21)提权面自证需要:require-permission 的 checkAnyPermission 走 spy,
+// 机器分支下"不得有管理员通配豁免、只准落 RBAC 归属人校验"才可断言。
+const mockCheckAnyPermission = vi.hoisted(() =>
+  vi.fn<(userId: string, perms: string[]) => Promise<boolean>>(),
+)
+vi.mock('../src/db/rbac-queries.js', () => ({ checkAnyPermission: mockCheckAnyPermission }))
+
 vi.mock('@ihui/auth', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()
   return { ...actual, verifyAccessToken }
@@ -39,6 +46,8 @@ vi.mock('jose', async (importOriginal) => {
 })
 
 const { authenticate, hasHumanJwtCredential } = await import('../src/plugins/auth.js')
+const { requireAdmin, requireAnyPermission } = await import('../src/plugins/require-permission.js')
+const { requireCapability } = await import('../src/utils/capability-guard.js')
 
 function makeRequest(overrides: {
   authorization?: string
@@ -194,6 +203,101 @@ describe('hasHumanJwtCredential', () => {
     expect(hasHumanJwtCredential(makeRequest({ cookieToken: 'ok.user' }))).toBe(true)
     expect(hasHumanJwtCredential(makeRequest({ authorization: 'Bearer ihui_key' }))).toBe(false)
     expect(hasHumanJwtCredential(makeRequest({}))).toBe(false)
+  })
+})
+
+/**
+ * O13b 提权面自证(2026-09-21):机器凭据(API Key)在任何 roleId>=1 判定形态下拿不到特权。
+ *
+ * B.1 authenticate() open-capability 分支返回值 roleId 恒 0 —— 结构性证明:该分支
+ *     **从不读取**归属人的角色(authenticate 在此路径不查 DB、不验 JWT),故"归属人
+ *     是管理员(roleId>=1)"在代码路径上无法传播到判定;断言 roleId===0 且
+ *     jwtPayload 未被注入(所有 `request.jwtPayload?.roleId` 读点对机器请求恒得
+ *     undefined ⇒ ?? 0)。
+ * B.2 受 requireAdmin 保护的端点用 API Key(归属人为管理员)打 ⇒ 拒绝,不得 200。
+ *     两种形态都测:① 带开放能力标记(模拟 admin 路由被误登记进能力表)⇒ 403;
+ *     ② 纯 API Key 无标记(admin 面真实形态)⇒ authenticate 抛 401。
+ *     附:requireAnyPermission 机器分支不得走"管理员直接放行",必须落 RBAC 归属人校验。
+ * B.3 requireCapability 闸对 platform 域 scope 恒 403(M2M_FORBIDDEN)。
+ *     既有引用:open-capability-registry.test.ts:82(登记表不变量)与 :88(编译期字面量
+ *     联合护栏);此处补**运行期 HTTP 层**一条,证明即便接线也拿不到放行。
+ * 全部 mock(§5 隔离铁律):不触 DB / Redis / 任何服务。
+ */
+describe('O13b 机器凭据提权闸 — roleId>=1 判定对 API Key 恒关闭', () => {
+  const OPEN_MARK = {
+    key: 'v1-tools-directory',
+    scope: 'tools:read',
+    dataClass: 'compute',
+  } as const
+
+  /** 最小 FastifyReply 替身:捕获 status + send 负载(requireAdmin/requireCapability 只用这两个方法)。 */
+  function captureReply(): {
+    reply: FastifyReply
+    sent: { status?: number; body?: Record<string, unknown> }
+  } {
+    const sent: { status?: number; body?: Record<string, unknown> } = {}
+    const reply = {
+      status(code: number) {
+        sent.status = code
+        return reply
+      },
+      send(body: Record<string, unknown>) {
+        sent.body = body
+        return reply
+      },
+    } as unknown as FastifyReply
+    return { reply, sent }
+  }
+
+  it('B.1 归属人是管理员:open-capability 分支返回 roleId 恒 0,且不查 DB/JWT', async () => {
+    // 归属人 user id 命名为 admin-owner:即便其 users.roleId >= 1,本分支也无任何代码
+    // 路径把它读进 payload —— getUserStatus/verifyAccessToken 均未被调用即为证明。
+    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const payload = await authenticate(request)
+    expect(payload.roleId).toBe(0)
+    expect(payload.userId).toBe('admin-owner')
+    expect(request.jwtPayload).toBeUndefined()
+    expect(verifyAccessToken).not.toHaveBeenCalled()
+    expect(getUserStatus).not.toHaveBeenCalled()
+  })
+
+  it('B.2a requireAdmin + 能力标记的 API Key(归属人管理员)⇒ 403,不得 200', async () => {
+    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const { reply, sent } = captureReply()
+    await requireAdmin(request, reply)
+    expect(sent.status).toBe(403)
+    expect(sent.body?.code).toBe(403)
+  })
+
+  it('B.2b requireAdmin + 纯 API Key(admin 路由真实形态,无标记无 JWT)⇒ 401', async () => {
+    const request = makeRequest({})
+    request.apiKey = { id: 'k9', userId: 'admin-owner' } as unknown as FastifyRequest['apiKey']
+    const { reply, sent } = captureReply()
+    await requireAdmin(request, reply)
+    expect(sent.status).toBe(401)
+  })
+
+  it('B.2c requireAnyPermission 机器分支:无管理员通配豁免,必须落 RBAC 归属人校验', async () => {
+    mockCheckAnyPermission.mockResolvedValue(false)
+    const request = makeRequest({ openCapability: OPEN_MARK, apiKeyUserId: 'admin-owner' })
+    const { reply, sent } = captureReply()
+    await requireAnyPermission(['edu:manage'])(request, reply)
+    expect(mockCheckAnyPermission).toHaveBeenCalledWith('admin-owner', ['edu:manage'])
+    expect(sent.status).toBe(403)
+  })
+
+  it('B.3 requireCapability 对 platform 域 scope(publish:operate)恒 403 M2M_FORBIDDEN', async () => {
+    const gate = requireCapability('publish:operate' as never)
+    const request = makeRequest({})
+    request.apiKey = {
+      id: 'k1',
+      userId: 'owner-1',
+      permissions: ['*'],
+    } as unknown as FastifyRequest['apiKey']
+    const { reply, sent } = captureReply()
+    await gate(request, reply)
+    expect(sent.status).toBe(403)
+    expect(sent.body?.errorCode).toBe('M2M_FORBIDDEN')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

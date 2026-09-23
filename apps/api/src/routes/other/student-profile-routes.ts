@@ -13,6 +13,7 @@ import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { userProfiles } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 
 const studentProfileBodySchema = z.object({
   departmentId: z.uuid().optional(),
@@ -28,8 +29,9 @@ export const studentProfileRoutes: FastifyPluginAsync = async (server) => {
     if (id === null) return
     // 仅允许查询自己的档案,或管理员查询任意
     if (id !== request.userId) {
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < 1) return reply.status(403).send(error(403, '无权查看他人档案'))
+      // 任意管理员档(与原裸比较同档,走集中封装判定)
+      if (!isSystemAdmin(request, { includeInternalChannel: false }))
+        return reply.status(403).send(error(403, '无权查看他人档案'))
     }
     const [profile] = await dbRead
       .select()

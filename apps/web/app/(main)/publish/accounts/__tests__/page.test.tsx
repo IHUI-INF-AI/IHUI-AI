@@ -12,9 +12,16 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import AccountsPage from '../page'
 import type { PublishAccount } from '@/hooks/use-publish-accounts'
+
+// 批量端点与两个逐账号端点的调用监视(vi.hoisted:mock 工厂会被提前求值)
+const { healthSummaryMock, cookieHealthSpy, accountRiskSpy } = vi.hoisted(() => ({
+  healthSummaryMock: vi.fn(),
+  cookieHealthSpy: vi.fn(),
+  accountRiskSpy: vi.fn(),
+}))
 
 // next-intl mock(键名直出,便于断言)
 vi.mock('next-intl', () => ({
@@ -133,6 +140,20 @@ vi.mock('@/components/common', () => ({ BackButton: () => null }))
 vi.mock('@/lib/api', () => ({
   fetchApi: vi.fn(() => Promise.resolve({ success: true, data: null })),
 }))
+// 只替换这三个端点,其余导出保持真实(整模块替换会打断间接依赖方的 import)
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ihui/api-client')>()
+  const stub = (spy: (id: number) => void) => (accountId: number) => {
+    spy(accountId)
+    return Promise.resolve({ success: true, data: null })
+  }
+  return {
+    ...actual,
+    getAccountsHealthSummary: () => healthSummaryMock(),
+    getCookieHealth: stub(cookieHealthSpy),
+    getAccountRisk: stub(accountRiskSpy),
+  }
+})
 vi.mock('@/components/publish/CredentialGuide', () => ({
   CredentialGuide: () => <div data-testid="credential-guide" />,
 }))
@@ -191,6 +212,12 @@ const ACCOUNT: PublishAccount = {
 beforeEach(() => {
   currentAccounts = []
   batchVerifyMock.mockClear()
+  healthSummaryMock.mockReset().mockResolvedValue({
+    success: true,
+    data: { items: [], count: 0 },
+  })
+  cookieHealthSpy.mockClear()
+  accountRiskSpy.mockClear()
   if (!Element.prototype.scrollIntoView) {
     Object.defineProperty(Element.prototype, 'scrollIntoView', {
       configurable: true,
@@ -259,6 +286,34 @@ describe('账户管理页"开发者"下拉(2026-09-07 收纳重构)', () => {
     fireEvent.click(screen.getByTestId('menu-manageGroups'))
     const spy = Element.prototype.scrollIntoView as unknown as { mock: { calls: unknown[][] } }
     expect(spy.mock.calls.length).toBeGreaterThan(0)
+  })
+})
+
+// ============================================================================
+// 请求预算回归(2026-09-23 IP 封禁事故)
+// ============================================================================
+
+describe('账户管理页请求预算', () => {
+  it('19 个账号只发 1 次批量请求,不再逐账号扇出 risk', async () => {
+    currentAccounts = Array.from({ length: 19 }, (_, i) => ({
+      ...ACCOUNT,
+      id: i + 1,
+      displayName: `账号${i + 1}`,
+    }))
+    render(<AccountsPage />)
+    await waitFor(() => expect(healthSummaryMock).toHaveBeenCalledTimes(1))
+    // 逐账号 risk 扇出(19 次/屏,叠加 cookie-health 与轮询即 ~163 次/分钟)正是当初
+    // 越过服务端 200 次/分钟封禁阈值的主因,回升即回归。
+    expect(accountRiskSpy).not.toHaveBeenCalled()
+    // CookieHealthIndicator 在本文件被 mock 成裸 span;它自身"有供数就不请求"的行为
+    // 由 components/publish/__tests__/CookieHealthIndicator.test.tsx 单独钉。
+    expect(cookieHealthSpy).not.toHaveBeenCalled()
+  })
+
+  it('账号列表为空时不发批量请求', () => {
+    currentAccounts = []
+    render(<AccountsPage />)
+    expect(healthSummaryMock).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
