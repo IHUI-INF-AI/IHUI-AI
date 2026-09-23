@@ -385,11 +385,16 @@ def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
 # principal 同为 None 时仍可结算(见 agent_engine._handle_approval_respond 的信任边界注释)。
 @dataclass
 class _ApprovalEntry:
-    """审批条目:唤醒事件 + 已写入的决策 + 属主。"""
+    """审批条目:唤醒事件 + 已写入的决策 + 属主(D84 补作用域与原因)。"""
 
     event: asyncio.Event
     decision: str | None = None
     owner_user_id: str | None = None
+    # D84(2026-09-23):用户选择的作用域("once"|"session"|"always")。
+    # None = 旧客户端未携带(兼容路径),结算侧按历史行为处理(批准即授 session)。
+    scope: str | None = None
+    # D84:用户随决策附带的原因(拒绝理由为主,可选;仅进审计/决策提示,不参与判定)。
+    reason: str | None = None
 
 
 # 兼容形态:历史/测试直接写入的二元组 (event, decision)。读取时一次性升级为
@@ -417,6 +422,29 @@ def _as_entry(approval_id: str) -> _ApprovalEntry | None:
 # 按 id 取回 key 落盘 always/session 级授权(批 52 仅写 session);finally 清理防内存泄漏。
 # 与 _approval_registry 同期登记/清理:两者都仅在人工弹窗等待窗口内存在。
 _approval_persist_keys: dict[str, str] = {}
+
+
+def grant_scope_for_approval(scope: str | None) -> str | None:
+    """D84:把用户选择的审批作用域映射为持久层落盘档位(纯函数,供测试缝合)。
+
+    Args:
+        scope: "once" | "session" | "always";None = 旧客户端未携带。
+
+    Returns:
+        "session" | "always" = 应落盘的档位;None = 不落任何授权(once 或非法值)。
+
+    映射规则:
+    - once → None(最小特权:仅本次执行,绝不落盘;旧版无条件授 session 已收窄);
+    - session → "session"(同键本会话免弹窗,服务重启/过期即失效);
+    - always → "always"(同键跨会话免弹窗,approval_grants.db 持久行);
+    - None(旧客户端兼容路径)→ "session"(保持批 52 历史行为,批准即授会话级);
+    - 非法值(路由层已校验,防御性兜底)→ None,绝不放大授权。
+    """
+    if scope == "always":
+        return "always"
+    if scope == "session" or scope is None:
+        return "session"
+    return None
 
 
 def grant_tool_approval_persist(approval_id: str, scope: str) -> bool:
@@ -456,7 +484,11 @@ class ApprovalOutcome(str, Enum):
 
 
 def resolve_approval_for_requester(
-    approval_id: str, decision: str, requester_user_id: str | None
+    approval_id: str,
+    decision: str,
+    requester_user_id: str | None,
+    scope: str | None = None,
+    reason: str | None = None,
 ) -> ApprovalOutcome:
     """带属主校验的审批决策回填(三态版,供 HTTP 路由与引擎通道共用)。
 
@@ -465,6 +497,9 @@ def resolve_approval_for_requester(
         decision: "approve" 或 "reject"(其他值由调用方归一后再传入)
         requester_user_id: 调用方能证明的 principal。None 表示"无可证明身份",
             只能结算同样无属主的条目(非 HTTP 上下文创建的历史行为)。
+        scope: D84 作用域("once"|"session"|"always");None=旧客户端未携带。
+            合法性由调用方(路由层 zod/pydantic)校验,此处仅透传。
+        reason: 用户附带原因(可选,拒绝理由为主)。
 
     Returns:
         APPLIED   = 属主匹配,决策已写入且协程被唤醒;
@@ -486,6 +521,8 @@ def resolve_approval_for_requester(
         )
         return ApprovalOutcome.FORBIDDEN
     entry.decision = decision
+    entry.scope = scope
+    entry.reason = reason
     with contextlib.suppress(Exception):
         entry.event.set()
     return ApprovalOutcome.APPLIED
@@ -4014,14 +4051,22 @@ class AgentLoopV2:
             settled = _as_entry(approval_id)
             decision = settled.decision if settled is not None else None
             if decision == "approve":
-                # 批 52:批准后落盘 session 级授权(下次同键免弹窗)。
-                # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None。
-                try:
-                    from . import approval_persistence as _ap
-                    _ap.grant("session", key, "mcp_tool")
-                except Exception:
-                    pass
+                # D84(2026-09-23):按用户选择的作用域落盘授权(映射见 grant_scope_for_approval):
+                # once 不落盘(最小特权)/ session 本会话 / always 跨会话 / None 保持批 52 兼容。
+                # 授权键是 (工具+参数归一) 精确匹配,任何作用域都不放大到全局。
+                _scope = grant_scope_for_approval(settled.scope if settled is not None else None)
+                if _scope is not None:
+                    try:
+                        from . import approval_persistence as _ap
+                        _ap.grant(_scope, key, "mcp_tool")
+                    except Exception:
+                        pass  # grant 失败静默(不阻断已批准的执行);持久层异常不影响返回 None
                 return None
+            if decision == "reject":
+                # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
+                _reason = settled.reason if settled is not None else None
+                if _reason:
+                    self._decision_hints[tc.id] = ("user_rejected_reason", _reason)
             return "user_rejected"
         finally:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
