@@ -372,6 +372,37 @@
    照判。自检补两条**成对**用例(同一输入:在飞 ⇒ `unknown` / 非在飞 ⇒ `fail`),防止护栏被改宽后
    静默吞掉真故障 —— 现 15/15。14:10 实测:最后一行 `构建尝试 1/4`(1 分钟前)判 `unknown`,正确。
 
+- **⚠️⚠️ 同日 19:2x 二次更正:上一条里"cron 零派生""触发是根因"两个判断都不成立**。派子代理带证据复查后,地面真值是:
+  1. **schedule 确实在派生**(14:16:29Z、18:26:28Z 两条 `event=schedule`),我说的"4.5 小时零派生"是**在 13:40 采样太早**造成的时间假象;
+     但**严重欠派生**仍成立:9h23m 内只来 2 次(应约 28 次),且有 7 个 tick、9 个 tick 的两段空窗内既无运行也无排队 ⇒ 原因**未定**(GitHub 未公开数字上限;已排除 Actions 关闭、额度枯、cron 语法非法、refspec/group 重名挤占)。
+  2. **真根因是 Gitee 服务端硬配额**:`remote: Repo size: 1156.016MB, exceeds quota 1024MB` + `Push rejected for repository [size exceeds limit]`(gitee.com/help/articles/4232),
+     18:26 那轮 3437 条 `remote rejected` 里 **3424 条是 `lost-commit/*` + `nightly-*`** —— 本地 4222 个标签中这类内部备份标签占 4061 个,`refs/tags/*` 全量推送把它们连同一个仓库体积一起顶过了配额线,
+     于是 `main` 也被 pre-receive 连带拒 ⇒ **换任何触发方式都推不上去**。Gitee `main` 至今停在 `d4331fb3` @ 2026-09-20 23:16(+08),落后 3.2 天;对照 GitCode `main` 已是今天的 `084d04b6`(新鲜)⇒ 两仓必须分开判。
+  3. 手动补发那轮(dispatch 13:46:54Z)**跑了 69m17s 后 failure**,失败在第 5 步"镜像到 Gitee"(61m37s),第 6 步 GitCode success。
+     ⇒ 对"配额型失败"再补发就是白烧 Actions 时长,已改为**上一轮 conclusion=failure 时不补发,只判红并写明去查 Gitee 拒绝原因**。
+- **已做的两处收口**:
+  ① `mirror-to-cn.yml` 的 Gitee 步骤不再推内部备份标签(`EXCLUDE_RE='^refs/tags/(lost-commit|nightly|backup)/'`,实测**排除 4061 / 仍推 161**,即 96% 的标签体积不再进国内镜像);
+     GitHub 侧标签**一份未删**(§22/§29 的防 gc 用途保留),只是不再复制到国内。**删掉 Gitee 上已有的那 4061 个副本属破坏性动作,需用户确认后再做**(且删除后仍需 Gitee 侧 git-gc 才真正降体积 —— 未实测能否降到 1024MB 以下)。
+  ② 巡检的镜像判据从"看 GitHub 运行元数据"改成**直接查 Gitee `main` 的提交时间**(阈值默认 18 小时)。原写法的缺陷被实测抓到:`updated_at` 一直在刷新,于是"每 20 分钟失败一次"被读成"很健康" —— 属"配置/元数据正确"冒充"真落地"的同族错误。
+- **本票自我纠正共三次**(镜像"已修复"、"零派生"、停摆假阳性告警),同一条教训:**验证必须在故障真正会被暴露的那个面上做**,在配置面/元数据面看到的绿都不算。
+
+5. **看门人自己坏了两天没人知(同日 19:1x 发现并修)** —— 做这条收口时顺手自查出的两件事:
+   - **`IHUI-AI git-guardian` 计划任务已经不在**(`schtasks /Query /FO CSV` 全量列表里只剩 `IHUI credential-health`/`IHUI-AutoDeploy(已禁用)`/`IHUI-ImageCDN`),
+     即从 09-12 起守 `.git` + 嵌套 ref + 工作区存续的那一层**当前没在跑**。它自己的"形态漂移自检"其实一直在尝试重注册,但**每轮都失败**,于是既不成功也不报警。
+   - 失败原因是一个**自我打死的判据**:自检用 `pwsh` 的 `Get-ScheduledTask` 读 `LogonType`,而本机 pwsh **没有 ScheduledTasks cmdlet**
+     (实测 `The term 'Get-ScheduledTask' is not recognized`);该命令不非零退出 ⇒ 拿不到值却返回 `MISSING` ⇒ 判"漂移" ⇒ 重注册;
+     而它要求的 S4U 形态在同一台机上**永远注册不成功**(回读恒 `LOGON=` 空),只有 `.vbs` 回退真能注册 ⇒ "注册成功"与"判它漂移"每 2 分钟互扇一次。
+     更糟的是:**只认 S4U 会把合法的回退形态(InteractiveToken + `wscript.exe` + ASCII `.vbs`,同样不弹窗)判成漂移** —— 即 §5b 自己定的隐藏启动约定被自己的新自检否掉了。
+   - 修:判形抽成纯函数 `scripts/lib/schtasks-form.mjs`(不依赖 cmdlet,存在性用 `schtasks /Query /FO CSV`、形态用 `/XML` 去 NUL 后按关键字判),
+     明确接受 `S4U` 与 `InteractiveToken+wscript+我们的 vbs` 两种形态,**只有**"InteractiveToken 直跑 node.exe"或任务消失才算漂移;**取不到信息一律 `unknown` 且不动任务**(宁可不动也不误动)。
+     `--self-test` 之外补 `node --test scripts/tests/schtasks-form.test.mjs` 6 例(含"有 wscript 但包装文件不是我们那个 ⇒ drift",防蒙混)。
+     行为验证:连跑两轮守护,`.workbuddy/git-guardian.log` **新增 0 行**(修前每轮两行"漂移/拒绝当成成功")。
+   - **再加一层互看**:`git-guardian`(每 2 分钟、自身分层自愈)新增 `watchWatchdog()` —— 读巡检心跳 `.workbuddy/credential-health-last.json` 里的 `ts`,
+     超过 18 小时没更新(= 标称 6 小时周期的 3 倍,避开休眠误报)就**重跑 `--install` 找回任务 + 就地拉起一轮**,并用 `credential-health-kick.ts` 落盘做 6 小时冷却(不能靠进程内变量,守护是每 2 分钟一次的一次性进程)。
+     挂在健康轮次早退之前(§5b 已记:挂错位置等于永不执行),`--check` 保持零副作用。
+   - 计划任务本身已由本轮 `--install` 恢复(`每 2 分钟`、经 `git-guardian-hidden.vbs` 静默启动,已回读 XML 确认)。**残留**:两个任务都是 `InteractiveToken`,
+     即**无人交互登录时(开机后未登录/被注销)两者都不跑** —— 要彻底免疫需改成 S4U/服务托管,而本机 pwsh 缺 cmdlet 正是当前做不到的原因,记为待决。
+
 **仍然存在的客观限制(不粉饰)**:部署脚本内部那条 12h 同签名去重(放大器 1)未改,归其作者定夺;
 本次是**在其之外**加了每 6 小时一次的独立观测 + 提交前的结构性拦截,把"两天无人知"压到"最多 6 小时"。
 若要把上限进一步压到分钟级,需要把巡检频率提进 `IHUI-DEPLOYLOOP` 的同一轮询里,那属脚本改动。
@@ -4374,3 +4405,11 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **我漏掉的红灯**:数字暴涨 25 倍就打印在我自己脚本的 stdout 里(`独有块 59 个 / 1505 行`),而我勘察得到的预期是"约 59 行"。脚本只断言"零损失(双方行仍在)",**没有断言"改动规模与勘察预期一致"** ⇒ 一个明显该中止的信号被当成统计信息用掉了。
 - **判据修正(可复用,本仓守门 5c 水印门禁 200 缺口即同族设计)**:凡对**活共享文档**做批量回补/合并类写操作,写盘前必须有**规模安全闸**:`实际独有行数 > 勘察预期 × 2` 或 `> 绝对阈值(如 200)` 即 `exit 1` 拒绝写盘,而不是继续。"零损失断言"只保证不删,**不保证不重复** —— 两条必须都有。
 - **结论:放弃"第三方对 PLAN 做全量 union"这条路**。实测证明它在活跃并发窗口下比"什么都不做"更糟(它会把同一登记的两个版本都留下)。PLAN 双份缩水(工作区 3892 行 vs HEAD 4263 行,差 438 行)的正确处置仍是守门 71 的既有设计:**每个提交者提交前现取 HEAD 版本、只插自己那几行**,而非由某个会话替所有人合并。本票不认领该整改。
+
+## O25 部署失败邮件走纯文本通道 —— 品牌模板层合并根治 + 守门 81(2026-09-23 立)（进行中）
+
+- [ ]（进行中） **根因定位(已确证)**:`deploy/win/ihui-deploy.ps1` 的 `Send-EmailNotify` 自建传输层 —— SMTP 分支 `Send-MailMessage -Body $text` 无 `-BodyAsHtml`,Resend 分支 payload 只有 `text` 无 `html`,故本机部署环告警永远是纯文本;带版式的 `apps/api/scripts/notify-deploy-failure.ts`(import `renderSystemAlertEmail`)只挂在 `.github/workflows/blue-green-deploy.yml`,**本地零调用方**。`.sct-notify-state.json` 今日 `emailCount:3` 即 3 封纯文本实证。
+- [ ] **传输层单点化**:`notify-deploy-failure.ts` 扩为通用品牌告警派发器(`--to`/`--title`/`--message-file`/`--severity`/`--source`/`--plain`/`--env-file`/`--strict`/`--dry-run`,SMTP→Resend 双通道且 Resend 必带 `html`);PS 侧删除全部自拼传输代码,改为按绝对路径解析 node+tsx 调用该脚本,降级路径也只能走 `--plain`(仍不留第二份 SMTP 代码)。
+- [ ] **顺带修**:`SMTP_FROM` 与 `SMTP_USER` 不匹配会被 smtp.qq.com 拒(现硬编码 `IHUI-AI@aizhs.top` 而账号是 QQ 邮箱);脚本 `ALERT_EMAIL_TO` 缺失时静默跳过且恒 exit 0 ⇒ 无告警也无声响。
+- [ ] **守门 81** `check-brand-email-channel.mjs`(blocking):`.ps1`/`scripts`/`deploy` 中出现 `Send-MailMessage` 缺 `-BodyAsHtml`、或直连 `api.resend.com/emails` 而 payload 缺 `html` ⇒ 拦,并把"ops 邮件必须经 notify-deploy-failure.ts"钉成硬约束;含 `--self-test` + §22c 镜像测试。
+- [ ] **测试**:`apps/api/tests/notify-deploy-failure.test.ts`(参数解析/env 优先级/收件人消解/From 构造/Resend payload 含 html/--strict 退出码)+ PS 侧镜像测试(证明 PS 已无自拼传输)。

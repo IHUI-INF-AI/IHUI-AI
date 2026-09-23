@@ -48,6 +48,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { judgeTaskForm, taskFormAcceptable } from './lib/schtasks-form.mjs'
 import {
   resolveGitBin,
   gitVersion,
@@ -435,6 +436,63 @@ function healWorktreeTracked() {
   }
 }
 
+/**
+ * 看门人的看守(2026-09-23 立)。凭据/部署停摆巡检靠 schtasks 每 6 小时自跑,而它的故障
+ * 形态是**安静**:任务被删/被停、node 路径失效、计划任务账户看不到代理 —— 任何一种都会让
+ * "本该报警的那条链"静默消失,与今天"生产冻结两天无人知"同构。本守护每 2 分钟一趟且自身
+ * 分层自愈,由它盯心跳是成本最低的闭环。
+ * 心跳 = 巡检 --json 模式写的 .workbuddy/credential-health-last.json(内含 ts)。
+ * 超时(18h = 标称周期 3 倍,避开机器休眠/夜间空档误报)时:① 重跑 --install 找回任务
+ * (脚本自带"注册前用 cscript 实跑一次 vbs 预检"的护栏),② 就地拉起一轮(它会自己走
+ * Server酱→邮件双通道告警)。kick 标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
+ */
+const WATCHDOG_HEARTBEAT = join(WORKTREE, '.workbuddy', 'credential-health-last.json')
+const WATCHDOG_KICK = join(WORKTREE, '.workbuddy', 'credential-health-kick.ts')
+const WATCHDOG_STALL_MS = 18 * 3600 * 1000
+const WATCHDOG_KICK_COOLDOWN_MS = 6 * 3600 * 1000
+
+function watchWatchdog() {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-credential-health.mjs')
+  if (!existsSync(script)) return
+  try {
+    let ageMs = Infinity
+    if (existsSync(WATCHDOG_HEARTBEAT)) {
+      try {
+        const ts = JSON.parse(readFileSync(WATCHDOG_HEARTBEAT, 'utf8')).ts
+        const t = Date.parse(ts)
+        if (Number.isFinite(t)) ageMs = Date.now() - t
+      } catch {
+        /* 心跳内容不可解析 ⇒ 等同丢失,走自愈 */
+      }
+    }
+    if (ageMs < WATCHDOG_STALL_MS) return
+    if (existsSync(WATCHDOG_KICK)) {
+      const k = Date.parse(String(readFileSync(WATCHDOG_KICK, 'utf8')).trim())
+      if (Number.isFinite(k) && Date.now() - k < WATCHDOG_KICK_COOLDOWN_MS) return
+    }
+    mkdirSync(join(WORKTREE, '.workbuddy'), { recursive: true })
+    writeFileSync(WATCHDOG_KICK, new Date().toISOString(), 'utf8')
+    log(
+      `⚠️ 凭据/停摆巡检心跳已 ${(ageMs / 3600000).toFixed(1)} 小时未更新(任务被删/停用或 node 路径失效都会是这个形态)⇒ 重注册任务 + 就地拉起一轮`,
+    )
+    execFileSync(process.execPath, [script, '--install'], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+    })
+    execFileSync(process.execPath, [script, '--json'], {
+      cwd: WORKTREE,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 300000,
+      maxBuffer: 1 << 22,
+    })
+  } catch (e) {
+    log('巡检自愈失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+  }
+}
+
 /** 破坏性覆盖前先归档现场(保留可回溯副本;同一轮只归档一次) */
 let ARCHIVED_PATH = null
 
@@ -603,20 +661,46 @@ function registerTask() {
   return true
 }
 
-/** 活任务是否仍是 S4U 非交互形态(防「被人改回 InteractiveToken / 任务被删」的漂移)。 */
-function taskActionOk() {
-  const ps = `$t = Get-ScheduledTask -TaskName '${TASK_NAME}' -ErrorAction SilentlyContinue; if ($t) { 'LOGON=' + $t.Principal.LogonType } else { 'MISSING' }`
-  let out = ''
+/**
+ * 活任务形态判定 —— 2026-09-23 重写,因为旧实现在本机**每 2 分钟空转重注册一次**。
+ *
+ * 旧写法用 pwsh 的 Get-ScheduledTask 读 Principal.LogonType。本机 pwsh **没有 ScheduledTasks
+ * cmdlet**(实测 `The term 'Get-ScheduledTask' is not recognized`),而那条命令的
+ * CommandNotFoundException 并不会让进程非零退出 ⇒ execFileSync 不抛、stdout 只有 `MISSING`
+ * ⇒ 判"漂移" → 重注册;而 registerTask() 的 S4U 路径同样依赖那批 cmdlet,**在这台机上永远
+ * 不成功**(回读永远 `LOGON=` 空),只有 .vbs 回退真能注册成功 → 于是"注册成功"和"判它漂移"
+ * 每 2 分钟互相打脸一次,并把最关键的那层 .git 存续守护反复删除重建。
+ *
+ * 新实现不碰 cmdlet:存在性用 `schtasks /Query /FO CSV`(任务名是 ASCII,不受 GBK 控制台影响),
+ * 形态用 `/XML`(去 NUL 后按 ASCII 关键字判)。并明确承认**两种合法形态**:
+ *   · S4U(session 0,结构上开不出窗口)—— 首选;
+ *   · InteractiveToken + wscript + 我们的 ASCII .vbs —— 回退形态,同样无弹窗,不是漂移。
+ * 只有"InteractiveToken 且直跑 node.exe"(必闪黑窗)或任务消失才叫漂移。拿不到数据一律 unknown,
+ * 绝不在信息不足时改动任务(§5b 的"宁可不动也不误动")。
+ * @returns {'ok'|'ok-vbs'|'missing'|'drift'|'unknown'}
+ */
+function taskForm() {
+  const flat = (buf) => String(buf || '').replace(/\0/g, '')
+  let list = ''
   try {
-    out = execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30_000,
-    })
+    list = flat(execFileSync('schtasks.exe', ['/Query', '/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 30_000, maxBuffer: 1 << 24 }))
   } catch {
-    return true // pwsh 不可用时不下判断,避免在巡检里反复重注册(宁不改也不误改)
+    return 'unknown' // schtasks 本身不可用 ⇒ 不下判断
   }
-  return /LOGON=S4U/.test(out)
+  if (!list.includes(TASK_NAME)) return 'missing'
+  let xml = ''
+  try {
+    xml = flat(execFileSync('schtasks.exe', ['/Query', '/TN', TASK_NAME, '/XML'], { windowsHide: true, timeout: 30_000, encoding: 'buffer' }))
+  } catch {
+    return 'unknown'
+  }
+  if (!xml.includes('<Task')) return 'unknown'
+  return judgeTaskForm(xml)
+}
+
+/** 活任务形态是否可接受(供巡检调用;unknown 一律视为可接受,不在信息不足时改动任务) */
+function taskActionOk() {
+  return taskFormAcceptable(taskForm())
 }
 
 function main() {
@@ -677,7 +761,7 @@ function main() {
   // 闪一扇可见黑窗。安装器是对的,但任务层没人兜底;常规巡检顺手核对,漂移即静默重注册。
   // --check(CI 口径)不产生副作用;预检派生的子巡检跳过,防递归。
   if (!CHECK_ONLY && !taskActionOk()) {
-    log('⚠️ 计划任务形态漂移(非 S4U 非交互,可能在桌面弹出控制台),自动重注册')
+    log(`⚠️ 计划任务形态漂移(实测形态=${taskForm()}:InteractiveToken 直跑 node.exe 会闪黑窗),自动重注册`)
     registerTask()
   }
 
@@ -688,6 +772,10 @@ function main() {
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
     // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
     if (!CHECK_ONLY) healWorktreeTracked()
+    // 看门人也要有人看:凭据/停摆巡检靠 schtasks 每 6 小时自跑,任务被删/被停/node 路径
+    // 失效时它**自己不会喊**(故障形态是"安静",正是今天两天冻结的同类)。本守护每 2 分钟
+    // 一趟且自身分层自愈,由它盯心跳最省。--check 仍零副作用。
+    if (!CHECK_ONLY) watchWatchdog()
     if (CHECK_ONLY) console.log('✅ .git 健康(pointer + gitdir + git 可用 + 嵌套 ref 完整)')
     return 0
   }
