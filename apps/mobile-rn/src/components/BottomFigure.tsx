@@ -12,7 +12,7 @@
  * - 点击回调 onItemPress(item, index):原项目仅 index===1 跳招聘页,RN 由调用方注入(预留)
  * - 浅色优雅风,圆角矩形(非圆形),无霓虹无渐变
  */
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import { StyleSheet, View, type ViewStyle } from 'react-native'
 import Carousel from './Carousel'
 import type { CarouselItem } from '@ihui/ui-native'
