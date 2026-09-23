@@ -138,6 +138,7 @@ import {
   applyInjectionFrame,
   appendCitationFrames,
   appendSteerFrames,
+  readSteerAppliedFromMetadata,
   applyTerminalStart,
   applyToolCallEvent,
   formatDurationMs,
@@ -1068,6 +1069,7 @@ export default function AiAssistantN8nScreen() {
             planSteps?: unknown
             citations?: unknown
             injections?: unknown
+            steerApplied?: unknown
           } | null
           const planSteps = Array.isArray(meta?.planSteps)
             ? (meta?.planSteps as Array<Record<string, unknown>>).flatMap((s, i) =>
@@ -1137,6 +1139,11 @@ export default function AiAssistantN8nScreen() {
                   : [],
               )
             : undefined
+          // D106 收尾:steer 交代历史读回 —— api 侧已把 onSteer 载荷落库
+          // metadata.steerApplied([{text, timestamp?}]),与 live 通道同源。守卫
+          // (text 非空字符串、timestamp 仅 string、8 条封顶)收敛在纯函数里,
+          // 无 steer / 全坏 → undefined,不给 SteerNoticeList 造空态。
+          const steerNotices = readSteerAppliedFromMetadata(meta?.steerApplied)
           return {
             id: `${m.id}-${idx}`,
             role: m.role as 'user' | 'assistant',
@@ -1145,6 +1152,7 @@ export default function AiAssistantN8nScreen() {
             ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
             ...(citations && citations.length > 0 ? { citations } : {}),
             ...(injections && injections.length > 0 ? { injections } : {}),
+            ...(steerNotices && steerNotices.length > 0 ? { steerNotices } : {}),
           }
         })
       setMessages(loaded)

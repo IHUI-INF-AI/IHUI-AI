@@ -169,6 +169,70 @@ export function appendCitations(
 }
 
 /**
+ * 从消息 metadata.steerApplied 还原"这轮中途引导注入了哪些条"(D106 收尾,2026-09-24 立)。
+ *
+ * 落库为 {text, timestamp?} 数组(api 侧 persistedSteerAppliedSchema 只钉死 text 非空),
+ * 守卫与 web 端 use-chat/history-message.ts 的 readSteerAppliedFromMetadata 同一口径:
+ * 坏项(text 缺失/空串/纯空白)逐条剔除;timestamp 仅 string 才带;
+ * 全坏/空 → undefined,不给 SteerNoticeCard 造空态。
+ * phase 恒 'injected'(历史行只有"已注入"一种终态);上限 8 条对齐 _STEER_QUEUE_LIMIT
+ * (后端已拒绝第 9 条入队,这里封顶是防脏数据,非业务可达路径)。
+ */
+export function readSteerAppliedFromMetadata(raw: unknown): SteerNoticeView[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  const out: SteerNoticeView[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const rec = item as Record<string, unknown>
+    if (typeof rec.text !== 'string' || !rec.text.trim()) continue
+    out.push({
+      phase: 'injected',
+      text: rec.text.trim(),
+      ...(typeof rec.timestamp === 'string' ? { timestamp: rec.timestamp } : {}),
+    })
+    if (out.length >= STEER_NOTICE_MAX) break
+  }
+  return out.length > 0 ? out : undefined
+}
+
+/**
+ * 历史恢复行的最小结构面(不 import ChatMessage,避免 types ↔ api 循环依赖;
+ * permission-stamp.ts 同款做法)。
+ */
+export interface SteerHistoryMessageLike {
+  role: string
+  metadata?: Record<string, unknown> | null
+  aiCards?: AICardsData
+}
+
+/**
+ * 历史加载链路的 steerApplied 读回(D106 收尾):
+ * 逐条检查 assistant 消息,aiCards.steerNotices 缺失且 metadata.steerApplied 可读时
+ * 重建补挂 —— live 侧(SSE onSteer)已写入的不覆盖,防双份;metadata 无/全坏时
+ * 原样返回(不写 aiCards.steerNotices,不渲染空态)。其余字段一律不动。
+ */
+export function backfillSteerNoticesFromMetadata<T extends SteerHistoryMessageLike>(
+  messages: readonly T[],
+): T[] {
+  return messages.map((m) => {
+    if (m.role !== 'assistant' || m.aiCards?.steerNotices?.length) return m
+    const notices = readSteerAppliedFromMetadata(m.metadata?.steerApplied)
+    if (!notices) return m
+    return {
+      ...m,
+      aiCards: {
+        planSteps: m.aiCards?.planSteps ?? [],
+        toolCalls: m.aiCards?.toolCalls ?? [],
+        terminalTasks: m.aiCards?.terminalTasks ?? [],
+        injections: m.aiCards?.injections ?? [],
+        citations: m.aiCards?.citations ?? [],
+        steerNotices: notices,
+      },
+    }
+  })
+}
+
+/**
  * 单条 assistant 消息携带的工具卡片聚合(计划 / 工具 / 终端 / 注入交代 / 引用溯源),
  * 由 SSE 事件累积写入,随消息历史持久化;对齐 web 端 planSteps/toolCalls/terminalTasks 消费方式。
  */
