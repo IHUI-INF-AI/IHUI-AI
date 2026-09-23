@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T00:31:41.981Z",
+  "generatedAt": "2026-09-23T02:38:40.056Z",
   "targets": [
     "apps/web/app",
     "apps/web/src/components",
@@ -7,7 +7,7 @@
     "packages/ui-react/src",
     "packages/shared/src"
   ],
-  "total": 10375,
+  "total": 10135,
   "files": {
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/agent-frameworks-part1.ts": 559,
     "apps/web/app/(main)/compare/ihui-vs-dify/compare-content/ai-coding-assistants.ts": 384,
@@ -42,12 +42,9 @@
     "apps/web/app/(main)/zh-TW/use-cases/ai-marketing/page.tsx": 78,
     "apps/web/app/(main)/zh-TW/use-cases/ai-translation/page.tsx": 78,
     "apps/web/app/(main)/ja/use-cases/ai-translation/page.tsx": 77,
-    "apps/web/app/(main)/edu/edu-management/scheduling/PageClient.tsx": 76,
     "apps/web/app/(main)/docs/self-host/page.tsx": 75,
     "apps/web/app/(main)/ai-news/components/api-relays.ts": 74,
-    "apps/web/app/(main)/edu/edu-management/grades/PageClient.tsx": 74,
     "apps/web/app/(main)/docs/agent/page.tsx": 73,
-    "apps/web/app/(main)/edu/parent/page.tsx": 73,
     "apps/web/app/(main)/ja/use-cases/ai-design/page.tsx": 72,
     "apps/web/app/(main)/ja/use-cases/ai-marketing/page.tsx": 66,
     "apps/web/app/(main)/docs/manual/knowledge-base/page.tsx": 62,
@@ -136,7 +133,6 @@
     "apps/web/src/components/ai/spec-panel/components.tsx": 17,
     "apps/web/app/(main)/compare/ihui-vs-dify/CompareContent.tsx": 16,
     "apps/web/app/(main)/context/mentions/page.tsx": 16,
-    "apps/web/app/(main)/edu/edu-management/grades/trend/[studentId]/PageClient.tsx": 16,
     "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-11.ts": 16,
     "apps/web/app/(main)/workflows/editor/helpers.ts": 15,
     "apps/web/app/news-sitemap.xml/route.ts": 15,
@@ -588,7 +584,6 @@
     "apps/web/app/(main)/developer/capabilities/page.tsx": 1,
     "apps/web/app/(main)/developer/error-codes/page.tsx": 1,
     "apps/web/app/(main)/earnings/page.tsx": 1,
-    "apps/web/app/(main)/edu/edu-management/grades/page.tsx": 1,
     "apps/web/app/(main)/edu/parent/children/[childId]/courses/PageClient.tsx": 1,
     "apps/web/app/(main)/edu-ai/aigc-tools/page.tsx": 1,
     "apps/web/app/(main)/faq/FaqContent.tsx": 1,
