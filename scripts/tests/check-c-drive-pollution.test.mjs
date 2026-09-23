@@ -13,16 +13,21 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as G } from '../check-c-drive-pollution.mjs'
 
-// 编号唯一性:同日多会话在同一位置各加一道门必然撞号(本门最初登记 85,
-// 与并行会话的 check-test-paths 同号,已改 90)。这条断言把"撞号"钉成红。
+// 编号唯一性:同日多会话在同一位置各加一道门必然撞号。本门实测撞了两次 ——
+// 先与并行会话的 check-test-paths 同为 85(改 90),而 90 又被 ce261e1a8 的
+// check-sse-dispatch-parity 占用;更糟的是"整文件提交 guardian-runner.mjs"把那道门的
+// 注册块直接覆盖掉了(提交 5db08f26e),已按原文回插并把本门改到 91。
+// 这条断言把两种失败都钉成红:编号出现次数 ≠ 1、或本门根本没接入 runner。
 test('本门编号在 guardian-runner 中必须出现恰好一次', () => {
   const runner = readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), '..', 'guardian-runner.mjs'),
     'utf8',
   )
-  const hits = runner.match(/id: '90'/g) || []
-  assert.equal(hits.length, 1, `id 90 出现 ${hits.length} 次(应为 1 次;撞号即说明两道门抢同一编号)`)
+  const hits = runner.match(/id: '91'/g) || []
+  assert.equal(hits.length, 1, `id 91 出现 ${hits.length} 次(应为 1 次;撞号即说明两道门抢同一编号)`)
   assert.match(runner, /script: 'check-c-drive-pollution\.mjs'/, '本门未接入 runner')
+  // 反向:不得有任何一道门被本文件"顶掉"后只剩编号没有脚本
+  assert.match(runner, /script: 'check-sse-dispatch-parity\.mjs'/, '守门 90(SSE)注册块缺失')
 })
 
 test('盘根 IHUI- 前缀与 .empty-tmp / .pnpm-store 判为自有', () => {
