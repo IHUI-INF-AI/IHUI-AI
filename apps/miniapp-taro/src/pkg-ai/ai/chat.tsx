@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { useI18n, useTt } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
@@ -21,13 +21,8 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
-import {
-  formatSSEError,
-  getModelContextCapacity,
-  getWorkspacePermissionDefault,
-} from '@ihui/api-client'
+import { formatSSEError, getModelContextCapacity } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
-import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -42,7 +37,6 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
-import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
 import { appendCitations, type AICardsData } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
@@ -73,7 +67,6 @@ const MATERIAL_PAGE_SIZE = 20
 export default function ChatPage() {
   const router = useRouter()
   const { t, tList } = useI18n()
-  const tt = useTt()
   const suggestions = tList('ai.suggestions')
   const user = useUserStore((s) => s.user)
   const routeAgentId = router.params.agentId || ''
@@ -125,24 +118,6 @@ export default function ChatPage() {
   // 思考过程独立浮层(对标原项目 .agent-content1-overlay,点击 AI 气泡"思考过程"按钮打开)
   const [reasoningPopupVisible, setReasoningPopupVisible] = useState<boolean>(false)
   const [reasoningPopupContent, setReasoningPopupContent] = useState<string>('')
-  // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
-  // 此前移动端对"当前处于哪一档、该档会导致什么"零可见,而本端对话能让 AI 改文件/跑命令。
-  const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
-
-  // D111:首屏交代当前权限档(档名 + 后果)。取词走共享 permissionTierWordKeys(unknown 兜底)。
-  useEffect(() => {
-    let cancelled = false
-    getWorkspacePermissionDefault()
-      .then((res) => {
-        if (!cancelled && res.success && res.data) setWorkspaceTier(res.data.mode)
-      })
-      .catch(() => {
-        /* 取数失败:保持 null,该行隐藏 */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
   // W5:流式执行事件(工具调用 / subagent / 计划 / 终端 / 用量等)的最小可视化列表
   const [streamActivities, setStreamActivities] = useState<{ id: string; text: string }[]>([])
   const [streamActivityExpanded, setStreamActivityExpanded] = useState(true)
@@ -424,22 +399,13 @@ export default function ChatPage() {
   )
 
   const sendMessage = useCallback(
-    async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
+    async (overrideText?: string) => {
       const text = (overrideText ?? '').trim()
       if (!text || thinking) return
       if (checkSpecialModel(text)) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
-      // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):否则"请求出错"那句会被
-      // 模型当成自己上一轮的回答读进去。baseHistory 供"重发"显式截到上一次提问之前 ——
-      // 闭包里的 messages 是点击那一轮的旧值,不截断会把同一个问题带两遍。
-      const history: ChatMessage[] = [
-        ...(baseHistory ?? messages).filter((m) => !isErrorTurn(m)),
-        userMsg,
-      ]
-      setMessages(
-        baseHistory ? [...history, assistantMsg] : (prev) => [...prev, userMsg, assistantMsg],
-      )
+      setMessages((prev) => [...prev, userMsg, assistantMsg])
       setThinking(true)
       // W5:新一轮对话开始,清空上一轮的执行过程列表
       setStreamActivities([])
@@ -449,7 +415,7 @@ export default function ChatPage() {
       abortRef.current = controller
       try {
         await chatStream(
-          history,
+          [...messages, userMsg],
           sessionId,
           {
             model: currentModel || undefined,
@@ -681,8 +647,12 @@ export default function ChatPage() {
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')
-          // 失败轮要"可辨认":标 error + 保留已产出的部分内容(共享层同一标记规则,与 web 端一致)
-          setMessages((prev) => applyStreamError(prev, formatted.message))
+          setMessages((prev) =>
+            prev.map((m, i) => {
+              if (i !== prev.length - 1) return m
+              return m.content ? m : { ...m, content: formatted.message }
+            }),
+          )
           Taro.showToast({ title: formatted.title, icon: 'none', duration: 2500 })
         }
       } finally {
@@ -728,11 +698,9 @@ export default function ChatPage() {
       success: (res) => {
         if (res.confirm) {
           // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
-          // 失败轮不是内容:排除后再存,否则错误文案会被当回答持久化并出现在历史预览里
-          const contentMsgs = messages.filter((m) => !isErrorTurn(m))
-          if (contentMsgs.length > 0) {
-            const firstUserMsg = contentMsgs.find((m) => m.role === 'user')
-            const lastMsg = contentMsgs[contentMsgs.length - 1]
+          if (messages.length > 0) {
+            const firstUserMsg = messages.find((m) => m.role === 'user')
+            const lastMsg = messages[messages.length - 1]
             const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
             const preview = (lastMsg?.content || '').slice(0, 30)
             const entry: ChatHistoryEntry = {
@@ -740,7 +708,7 @@ export default function ChatPage() {
               title,
               preview,
               timestamp: Date.now(),
-              messages: [...contentMsgs],
+              messages: [...messages],
             }
             setChatHistories((prev) => {
               const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
@@ -877,51 +845,39 @@ export default function ChatPage() {
 
   const handleRegenerate = useCallback(() => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
-    const text = resendTargetText(messages)
-    if (lastUserIdx < 0 || !text) return
-    // 把截断后的历史显式交给 sendMessage:它闭包里的 messages 是"点击那一轮"的旧值,
-    // 只 setMessages 截断再延时重发,旧值里那条 user 会和重发的 userMsg 一起带进上下文(问题发两遍)
-    const base = messages.slice(0, lastUserIdx)
-    setMessages(base)
-    void sendMessage(text, base)
+    if (lastUserIdx < 0) return
+    const lastUserMsg = messages[lastUserIdx]
+    if (!lastUserMsg?.content) return
+    setMessages((prev) => prev.slice(0, lastUserIdx))
+    setTimeout(() => sendMessage(lastUserMsg.content), 100)
   }, [messages, sendMessage])
 
   const handleLongPress = useCallback(
     (msg: ChatMessage, idx: number) => {
-      // 失败轮不给"分享"(它不是内容),复制保留 —— 报错排查要用那段文字
-      const failed = isErrorTurn(msg)
-      const actions: { label: string; run: () => void }[] = []
-      actions.push({
-        label: t('ai.messageAction.copy'),
-        run: () => Taro.setClipboardData({ data: msg.content }),
-      })
-      if (msg.role === 'user') {
-        actions.push({ label: t('ai.messageAction.reuse'), run: () => handleReuse(msg.content) })
-      }
-      actions.push({
-        label: t('ai.messageAction.delete'),
-        run: () => setMessages((prev) => prev.filter((_, i) => i !== idx)),
-      })
-      if (!failed) {
-        actions.push({
-          label: t('ai.chatMessageItem.share'),
-          run: () => {
+      Taro.showActionSheet({
+        itemList: [
+          t('ai.messageAction.copy'),
+          t('ai.messageAction.reuse'),
+          t('ai.messageAction.delete'),
+          t('ai.chatMessageItem.share'),
+        ],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            Taro.setClipboardData({ data: msg.content })
+          } else if (res.tapIndex === 1) {
+            if (msg.role === 'user') handleReuse(msg.content)
+          } else if (res.tapIndex === 2) {
+            setMessages((prev) => prev.filter((_, i) => i !== idx))
+          } else if (res.tapIndex === 3) {
             // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
             shareMsgRef.current = msg
             Taro.showShareMenu({ withShareTicket: true })
             Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
-          },
-        })
-      }
-      if (failed) {
-        actions.unshift({ label: t('ai.chatMessageItem.retry'), run: handleRegenerate })
-      }
-      Taro.showActionSheet({
-        itemList: actions.map((a) => a.label),
-        success: (res) => actions[res.tapIndex]?.run(),
+          }
+        },
       })
     },
-    [t, handleReuse, handleRegenerate],
+    [t, handleReuse],
   )
 
   const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
@@ -1000,9 +956,6 @@ export default function ChatPage() {
     }
   }, [])
 
-  // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
-  const tierText = resolvePermissionTierText(workspaceTier, tt)
-
   return (
     <ThemeRoot className="page">
       <View
@@ -1044,15 +997,6 @@ export default function ChatPage() {
           ) : null}
         </View>
       </View>
-
-      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位;缺键用端内中文兜底) */}
-      {workspaceTier !== null ? (
-        <View className="permission-tier" style={{ padding: '8rpx 24rpx' }}>
-          <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
-            {tierText.label}: {tierText.title} · {tierText.desc}
-          </Text>
-        </View>
-      ) : null}
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
         {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
@@ -1143,16 +1087,14 @@ export default function ChatPage() {
             onLongPress={() => handleLongPress(msg, idx)}
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
             isFavorited={
-              msg.role === 'assistant' && !msg.error && msg.timestamp
+              msg.role === 'assistant' && msg.timestamp
                 ? favoritedMsgs.has(String(msg.timestamp))
                 : undefined
             }
             onToggleFavorite={
-              msg.role === 'assistant' && !msg.error && msg.timestamp
-                ? () => toggleFavorite(msg)
-                : undefined
+              msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined
             }
-            onSpeak={msg.role === 'assistant' && !msg.error ? handleSpeak : undefined}
+            onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
             onOpenReasoning={
               msg.role === 'assistant' && msg.reasoning
                 ? () => {

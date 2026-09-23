@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -33,7 +32,6 @@ export function TermDialog({
   terms: Term[]
   onSave: (data: Partial<Term>) => Promise<void>
 }) {
-  const t = useTranslations('eduStudyPlan')
   const [editTerm, setEditTerm] = React.useState<Term | null>(null)
   const [name, setName] = React.useState('')
   const [startDate, setStartDate] = React.useState('')
@@ -76,34 +74,34 @@ export function TermDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t('termManagement')}</DialogTitle>
+          <DialogTitle>学期管理</DialogTitle>
         </DialogHeader>
 
         <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border p-2">
           {terms.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTerms')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">暂无学期</p>
           ) : (
-            terms.map((item) => (
+            terms.map((t) => (
               <div
-                key={item.id}
+                key={t.id}
                 role="button"
                 tabIndex={0}
                 className="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-                onClick={() => resetForm(item)}
+                onClick={() => resetForm(t)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') resetForm(item)
+                  if (e.key === 'Enter' || e.key === ' ') resetForm(t)
                 }}
               >
-                <span className={cn(editTerm?.id === item.id && 'font-medium')}>
-                  {item.name}
-                  {item.isCurrent && (
+                <span className={cn(editTerm?.id === t.id && 'font-medium')}>
+                  {t.name}
+                  {t.isCurrent && (
                     <Badge variant="default" className="ml-2 text-[10px]">
-                      {t('current')}
+                      当前
                     </Badge>
                   )}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {item.startDate} ~ {item.endDate}
+                  {t.startDate} ~ {t.endDate}
                 </span>
               </div>
             ))
@@ -111,22 +109,22 @@ export function TermDialog({
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">{editTerm ? t('editTermTitle') : t('newTermTitle')}</p>
+          <p className="text-sm font-medium">{editTerm ? '编辑学期' : '新建学期'}</p>
           <div className="grid gap-1.5">
-            <Label>{t('termName')}</Label>
+            <Label>学期名称</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t('termNamePlaceholder')}
+              placeholder="例如：2026年春季学期"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label>{t('startDate')}</Label>
+              <Label>开始日期</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="grid gap-1.5">
-              <Label>{t('endDate')}</Label>
+              <Label>结束日期</Label>
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
@@ -137,14 +135,14 @@ export function TermDialog({
               checked={isCurrent}
               onChange={(e) => setIsCurrent(e.target.checked)}
             />
-            <span>{t('setAsCurrentTerm')}</span>
+            设为当前学期
           </label>
         </div>
 
         <DialogFooter>
           <Button onClick={handleSave} disabled={saving || !name.trim() || !startDate || !endDate}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {editTerm ? t('saveChanges') : t('createTerm')}
+            {editTerm ? '保存修改' : '创建学期'}
           </Button>
         </DialogFooter>
       </DialogContent>
