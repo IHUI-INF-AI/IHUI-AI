@@ -25,7 +25,7 @@ const SAMPLE_CURL = `curl https://api.ihui.ai/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "gpt-4o-mini",
-    "messages": [{"role": "user", "content": "你好"}],
+    "messages": [{"role": "user", "content": "{{SAMPLE_TEXT}}"}],
     "temperature": 0.7,
     "max_tokens": 1024
   }'`
@@ -101,14 +101,15 @@ function utf8ToBase64(str: string): string {
 }
 
 export function CurlPlayground(): React.JSX.Element {
-  const t = useTranslations('models.apiDocs')
+  const t = useTranslations('apiDocs')
   const router = useRouter()
-  const [curl, setCurl] = React.useState(SAMPLE_CURL)
+  const sampleCurl = SAMPLE_CURL.replace(/\{\{SAMPLE_TEXT\}\}/g, t('sampleUserText'))
+  const [curl, setCurl] = React.useState(sampleCurl)
 
   function openInPlayground() {
     const parsed = parseCurl(curl)
     if (!parsed) {
-      toast.error('无法解析 curl 命令,请检查格式(需含 -d JSON body)')
+      toast.error(t('parseFailed'))
       return
     }
     const json = JSON.stringify(parsed)
@@ -120,12 +121,9 @@ export function CurlPlayground(): React.JSX.Element {
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Wand2 className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold">curl 联动 Playground</p>
+          <p className="text-sm font-semibold">{t('curlLinkTitle')}</p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          粘贴 curl 命令,自动解析 model / messages / temperature / max_tokens 并在 Playground
-          中打开。
-        </p>
+        <p className="text-xs text-muted-foreground">{t('curlLinkDesc')}</p>
 
         <textarea
           value={curl}
@@ -136,11 +134,12 @@ export function CurlPlayground(): React.JSX.Element {
         />
 
         <div className="flex items-center justify-end gap-2">
-          <Button size="sm" variant="outline" onClick={() => setCurl(SAMPLE_CURL)}>
-            重置示例
+          <Button size="sm" variant="outline" onClick={() => setCurl(sampleCurl)}>
+            {t('resetSample')}
           </Button>
           <Button size="sm" onClick={openInPlayground}>
-            <Play className="h-3.5 w-3.5" />在 Playground 中打开
+            <Play className="h-3.5 w-3.5" />
+            {t('openInPlayground')}
           </Button>
         </div>
       </CardContent>

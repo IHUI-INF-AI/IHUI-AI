@@ -1211,6 +1211,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     approval_id: z.string().min(1).optional(),
     approvalId: z.string().min(1).optional(),
     decision: z.enum(['approve', 'reject']),
+    // D84(2026-09-23):审批作用域(once/session/always)与用户原因,透传到 ai-service;
+    // 未携带时 ai-service 侧默认 session(兼容旧客户端行为)。
+    scope: z.enum(['once', 'session', 'always']).optional(),
+    reason: z.string().max(500).optional(),
   })
 
   server.post('/agent/approval-response', async (request, reply) => {
@@ -1229,7 +1233,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           'Content-Type': 'application/json',
           Authorization: request.headers.authorization ?? '',
         },
-        body: JSON.stringify({ approval_id: approvalId, decision: parsed.data.decision }),
+        body: JSON.stringify({
+          approval_id: approvalId,
+          decision: parsed.data.decision,
+          scope: parsed.data.scope ?? 'session',
+          ...(parsed.data.reason !== undefined ? { reason: parsed.data.reason } : {}),
+        }),
       })
       const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
       if (!resp.ok) {

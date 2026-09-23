@@ -19,6 +19,7 @@ import {
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
+import { permissionDecisionWord } from '@ihui/shared/chat'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
 // 2026-09-14 接线 CollapsibleOutput 孤儿组件(规划 5.8 长输出折叠):运行时输出不再裸 pre-wrap 撑爆面板
 import { CollapsibleOutput } from '@/components/ai/collapsible-output'
@@ -40,6 +41,7 @@ interface PermissionEvent {
 
 export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
   const t = useTranslations('agentRuntimePanel')
+  const tStep = useTranslations('stepDecision')
   const [status, setStatus] = React.useState<AgentStatus>('idle')
   const [input, setInput] = React.useState('')
   const [sessionId, setSessionId] = React.useState<string | null>(null)
@@ -170,7 +172,10 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
             <section className="mb-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950/30">
               <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
                 <Shield className="h-3 w-3" />
-                {t('permissionDecision', { decision: permission.decision })}
+                {t('permissionDecision', {
+                  // D55②:决策值走共享词表,认不出原样显示(此前把 auto_skip_approval 直喷给用户)
+                  decision: permissionDecisionWord(permission.decision, tStep),
+                })}
               </div>
               <div className="text-xs text-muted-foreground">
                 {t('permissionMeta', {

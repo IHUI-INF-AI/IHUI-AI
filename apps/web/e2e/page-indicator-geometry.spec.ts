@@ -25,12 +25,24 @@ import { test, expect } from '@playwright/test'
  *     - 容器宽度: 10 + px-0.5×2(4) + border×2(2) = 16px;py-0.5 (2px)
  *     - 总高(7 button): py 2×2 + 24(激活) + 6×10(非激活) + 6×8(gap) + border 2 = 138px
  *
+ * 2026-09-23 对齐 float-indicator 单一来源改版(05f049ba09 → ui/float-indicator.tsx):
+ *   - 容器不再有 group/indicator 类(样式迁入 floatIndicatorRailCls) → 选择器改
+ *     div.fixed[class*="bg-float-indicator-bg"](PageIndicator 是 fixed,QueryThumbRail 是 absolute,
+ *     首页上唯一);aria-label 走 i18n 不作定位依据。
+ *   - 结构变为 button 即圆点(FloatIndicatorDot 无内层 span) → 几何直接量 button。
+ *   - 尺寸按 float-indicator 定稿:激活 16x8(h-4 w-2)/ 非激活 8x8(h-2 w-2)/
+ *     hover scale-125 → 视觉 10x10;容器 px-1 py-1(4) + gap-2(8) + border×2。
+ *     容器宽 = 8+8+2 = 18px;topPadding = border 1 + py 4 = 5px;
+ *     总高(7 button) = 4+4+16+6×8+6×8+2 = 122px。
+ *
  * 守门:任何未来改动(包括 className 模板拼接 bug)导致渲染尺寸偏移 → 测试失败 → 阻止部署。
  *
  * 容差:±0.5px(Tailwind px 精度 + DPR 缩放误差)。
  */
 
-const INDICATOR_SELECTOR = '.group\\/indicator'
+// 2026-09-23:group/indicator 类已随样式迁入 floatIndicatorRailCls 移除,
+// 改用设计 token 类 + fixed 定位(PageIndicator 独有组合)定位容器
+const INDICATOR_SELECTOR = 'div.fixed[class*="bg-float-indicator-bg"]'
 
 async function getDotMetrics(page: import('@playwright/test').Page) {
   return await page.evaluate((selector) => {
@@ -41,10 +53,10 @@ async function getDotMetrics(page: import('@playwright/test').Page) {
     for (let i = 0; i < buttons.length; i++) {
       const btn = buttons[i]
       if (!btn) continue
-      const span = btn.querySelector('span') as HTMLElement | null
-      if (!span) continue
-      const sb = span.getBoundingClientRect()
-      const cs = getComputedStyle(span)
+      // 2026-09-23:FloatIndicatorDot 的 button 本身即圆点,无内层 span;
+      // 量 button 几何(getBoundingClientRect + 计算样式)
+      const sb = btn.getBoundingClientRect()
+      const cs = getComputedStyle(btn)
       dots.push({
         index: i,
         active: btn.getAttribute('aria-current') === 'true',
@@ -53,7 +65,7 @@ async function getDotMetrics(page: import('@playwright/test').Page) {
         borderRadius: cs.borderRadius,
         bgColor: cs.backgroundColor,
         opacity: cs.opacity,
-        className: span.className,
+        className: btn.className,
       })
     }
     return { dots }
@@ -63,45 +75,45 @@ async function getDotMetrics(page: import('@playwright/test').Page) {
 test.describe('PageIndicator 几何守门', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    // 等指示器渲染(group/indicator 只在 md+ 可见)
+    // 等指示器渲染(仅 min-[768px] 可见,1280 视口下必显)
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(page.locator(INDICATOR_SELECTOR)).toBeVisible({ timeout: 10000 })
     await page.waitForLoadState('domcontentloaded')
   })
 
-  test('激活态:24x10 竖向胶囊(宽度=非激活态直径,高度=2.4x 放大)', async ({ page }) => {
+  test('激活态:16x8 竖向胶囊(宽度=非激活态直径,高度=2x 放大)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     const active = dots.find((d) => d.active)
     if (!active) throw new Error('No active dot found')
-    // h-6 = 24px, w-2.5 = 10px(宽度=非激活态直径 10,高度=2.4x 放大)
-    expect(active.h).toBeGreaterThanOrEqual(23.5)
-    expect(active.h).toBeLessThanOrEqual(24.5)
-    expect(active.w).toBeGreaterThanOrEqual(9.5)
-    expect(active.w).toBeLessThanOrEqual(10.5)
-    // 验证是竖向胶囊:高度 > 宽度 × 2
-    expect(active.h).toBeGreaterThan(active.w * 2)
+    // h-4 = 16px, w-2 = 8px(宽度=非激活态直径 8,高度=2x 放大)
+    expect(active.h).toBeGreaterThanOrEqual(15.5)
+    expect(active.h).toBeLessThanOrEqual(16.5)
+    expect(active.w).toBeGreaterThanOrEqual(7.5)
+    expect(active.w).toBeLessThanOrEqual(8.5)
+    // 验证是竖向胶囊:高度 ≥ 宽度 × 2
+    expect(active.h).toBeGreaterThanOrEqual(active.w * 2 - 0.5)
     expect(active.opacity).toBe('1')
   })
 
-  test('非激活态:10x10 圆点', async ({ page }) => {
+  test('非激活态:8x8 圆点', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     const inactive = dots.filter((d) => !d.active)
     expect(inactive.length).toBeGreaterThan(0)
     for (const d of inactive) {
-      // h-2.5 = 10px, w-2.5 = 10px
-      expect(d.h).toBeGreaterThanOrEqual(9.5)
-      expect(d.h).toBeLessThanOrEqual(10.5)
-      expect(d.w).toBeGreaterThanOrEqual(9.5)
-      expect(d.w).toBeLessThanOrEqual(10.5)
+      // h-2 = 8px, w-2 = 8px
+      expect(d.h).toBeGreaterThanOrEqual(7.5)
+      expect(d.h).toBeLessThanOrEqual(8.5)
+      expect(d.w).toBeGreaterThanOrEqual(7.5)
+      expect(d.w).toBeLessThanOrEqual(8.5)
       // 非激活不应是胶囊(回归检测)
       expect(d.h).toBeLessThan(16)
       expect(d.w).toBeLessThan(16)
     }
   })
 
-  test('hover 态:scale-125 → 视觉 12.5x12.5(实际 10x10 + CSS scale 1.25)', async ({ page }) => {
+  test('hover 态:scale-125 → 视觉 10x10(实际 8x8 + CSS scale 1.25)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     // 找第一个非激活 dot,模拟 hover
@@ -113,16 +125,17 @@ test.describe('PageIndicator 几何守门', () => {
     await btns.nth(idx).hover()
     // 等 transition 稳定(duration-300 + DPR)
     await page.waitForTimeout(500)
-    const hoveredSpan = btns.nth(idx).locator('span')
-    const sb = await hoveredSpan.boundingBox()
-    // CSS scale:1.25 → 10x10 视觉膨胀到 12.5x12.5
+    // 2026-09-23:button 即圆点,直接量 button
+    const hoveredBtn = btns.nth(idx)
+    const sb = await hoveredBtn.boundingBox()
+    // CSS scale:1.25 → 8x8 视觉膨胀到 10x10
     // 容差:±1px(DPR 误差)
-    expect(sb?.width).toBeGreaterThanOrEqual(11.5)
-    expect(sb?.width).toBeLessThanOrEqual(13.5)
-    expect(sb?.height).toBeGreaterThanOrEqual(11.5)
-    expect(sb?.height).toBeLessThanOrEqual(13.5)
+    expect(sb?.width).toBeGreaterThanOrEqual(9)
+    expect(sb?.width).toBeLessThanOrEqual(11)
+    expect(sb?.height).toBeGreaterThanOrEqual(9)
+    expect(sb?.height).toBeLessThanOrEqual(11)
     // 同时断言 hover 后 scale 属性 ≈ 1.25(transition 过程中可能 1.20-1.25)
-    const cs = await hoveredSpan.evaluate((el) => {
+    const cs = await hoveredBtn.evaluate((el) => {
       const c = getComputedStyle(el)
       return { bg: c.backgroundColor, scale: c.scale }
     })
@@ -144,7 +157,7 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
-  test('容器宽度(2026-09-14 校准):容器宽度 ≈ 16px (button 10 + px-0.5×2 + border×2)', async ({
+  test('容器宽度(2026-09-23 校准):容器宽度 ≈ 18px (button 8 + px-1×2 + border×2)', async ({
     page,
   }) => {
     const dims = await page.evaluate((selector) => {
@@ -154,7 +167,7 @@ test.describe('PageIndicator 几何守门', () => {
       const buttons = container.querySelectorAll('button')
       const firstBtn = buttons[0] as HTMLElement | null
       const firstBr = firstBtn?.getBoundingClientRect()
-      // v15: 找激活态 button(active=24) + 一个非激活态 button(inactive=10)
+      // 找激活态 button(active=16) + 一个非激活态 button(inactive=8)
       let activeBtn: HTMLElement | null = null
       let inactiveBtn: HTMLElement | null = null
       for (const b of Array.from(buttons)) {
@@ -176,40 +189,38 @@ test.describe('PageIndicator 几何守门', () => {
         inactiveBtnH: inactiveBr?.height ?? 0,
         activeBtnW: activeBr?.width ?? 0,
         inactiveBtnW: inactiveBr?.width ?? 0,
-        // 容器 top 距首 button top = py-1 (4px)
+        // 容器 top 距首 button top = border 1 + py-1 4 = 5px
         topPadding: firstBtn ? firstBtn.getBoundingClientRect().top - r.top : 0,
       }
     }, INDICATOR_SELECTOR)
     if ('error' in dims) throw new Error(dims.error)
 
-    // 容器宽度:10 (button) + 4 (px-0.5×2) + 2 (1px border × 2) = 16px,容差 ±1px
-    expect(dims.containerW).toBeGreaterThanOrEqual(15)
-    expect(dims.containerW).toBeLessThanOrEqual(17)
-    // 激活态 button:24x10,容差 ±0.5px
-    expect(dims.activeBtnH).toBeGreaterThanOrEqual(23.5)
-    expect(dims.activeBtnH).toBeLessThanOrEqual(24.5)
-    expect(dims.activeBtnW).toBeGreaterThanOrEqual(9.5)
-    expect(dims.activeBtnW).toBeLessThanOrEqual(10.5)
-    // 非激活态 button:10x10,容差 ±0.5px
-    expect(dims.inactiveBtnH).toBeGreaterThanOrEqual(9.5)
-    expect(dims.inactiveBtnH).toBeLessThanOrEqual(10.5)
-    expect(dims.inactiveBtnW).toBeGreaterThanOrEqual(9.5)
-    expect(dims.inactiveBtnW).toBeLessThanOrEqual(10.5)
-    // 顶部 padding:py-0.5 (2px),容差 ±1px
-    expect(dims.topPadding).toBeGreaterThanOrEqual(1)
-    expect(dims.topPadding).toBeLessThanOrEqual(3)
+    // 容器宽度:8 (button) + 8 (px-1×2) + 2 (1px border × 2) = 18px,容差 ±1px
+    expect(dims.containerW).toBeGreaterThanOrEqual(17)
+    expect(dims.containerW).toBeLessThanOrEqual(19)
+    // 激活态 button:16x8,容差 ±0.5px
+    expect(dims.activeBtnH).toBeGreaterThanOrEqual(15.5)
+    expect(dims.activeBtnH).toBeLessThanOrEqual(16.5)
+    expect(dims.activeBtnW).toBeGreaterThanOrEqual(7.5)
+    expect(dims.activeBtnW).toBeLessThanOrEqual(8.5)
+    // 非激活态 button:8x8,容差 ±0.5px
+    expect(dims.inactiveBtnH).toBeGreaterThanOrEqual(7.5)
+    expect(dims.inactiveBtnH).toBeLessThanOrEqual(8.5)
+    expect(dims.inactiveBtnW).toBeGreaterThanOrEqual(7.5)
+    expect(dims.inactiveBtnW).toBeLessThanOrEqual(8.5)
+    // 顶部 padding: border 1 + py-1 4 = 5px,容差 ±1px
+    expect(dims.topPadding).toBeGreaterThanOrEqual(4)
+    expect(dims.topPadding).toBeLessThanOrEqual(6)
   })
 
-  test('间距一致(2026-08-27 v15):任意相邻两点间距 ≈ 8px (gap-2)', async ({ page }) => {
+  test('间距一致(2026-09-23 float-indicator):任意相邻两点间距 ≈ 8px (gap-2)', async ({ page }) => {
     const metrics = await page.evaluate((selector) => {
       const container = document.querySelector(selector) as HTMLElement | null
       if (!container) return { error: 'indicator not found' as const }
       const buttons = container.querySelectorAll('button')
       const out: Array<{ active: boolean; top: number; bottom: number; h: number }> = []
       for (const btn of Array.from(buttons)) {
-        const span = btn.querySelector('span') as HTMLElement | null
-        if (!span) continue
-        const r = span.getBoundingClientRect()
+        const r = btn.getBoundingClientRect()
         out.push({
           active: btn.getAttribute('aria-current') === 'true',
           top: r.top,
@@ -223,9 +234,8 @@ test.describe('PageIndicator 几何守门', () => {
     const dots = metrics.dots
     expect(dots.length).toBeGreaterThanOrEqual(2)
 
-    // v15 设计: 激活态 button h-9 + 36x12 填满; 非激活态 button h-3 + 12x12 填满; gap-2 (8px)
-    // 间距计算(非激活态之间): 非激活底 12 → 下一非激活顶 (12 + 8) = 20, 间距 8px
-    // 间距计算(激活态 → 非激活态): 激活底 36 → 下一非激活顶 (36 + 8) = 44, 间距 8px
+    // float-indicator 设计: 激活态 h-4 (16); 非激活态 h-2 (8); gap-2 (8px)
+    // 相邻 button 边界间距即 flex gap = 8px(与各点自身高度无关)
     // 容差:±1px(Tailwind/DPR 误差)
     for (let i = 0; i < dots.length - 1; i++) {
       const a = dots[i]
@@ -254,25 +264,28 @@ test.describe('PageIndicator 几何守门', () => {
             break
           }
         }
-        // 差值 ≤ 1px(理论应当相等,都是 4px)
+        // 差值 ≤ 1px(理论应当相等,都是 8px gap)
         expect(Math.abs(gapAfterActive - gapInactive)).toBeLessThanOrEqual(1)
       }
     }
   })
 
-  test('总高(2026-09-14 校准):7 button 总高 ≈ 138px (含 2px border)', async ({ page }) => {
+  test('总高(2026-09-23 校准):7 button 总高 ≈ 122px (含 2px border)', async ({ page }) => {
     const dims = await page.evaluate((selector) => {
       const container = document.querySelector(selector) as HTMLElement | null
       if (!container) return { error: 'indicator not found' as const }
       const r = container.getBoundingClientRect()
-      return { containerH: r.height }
+      return { containerH: r.height, buttonCount: container.querySelectorAll('button').length }
     }, INDICATOR_SELECTOR)
     if ('error' in dims) throw new Error(dims.error)
 
-    // 总高 = py 2×2 + (1*24 激活 + 6*10 非激活) + 6*8 gap + 2 border = 138px
+    // 总高 = py 4×2 + (1*16 激活 + 6*8 非激活) + 6*8 gap + 2 border = 122px
+    // 按实际 button 数动态校验(总页数可能变):H = 8 + 16 + (n-1)*8 + (n-1)*8 + 2
+    expect(dims.buttonCount).toBeGreaterThanOrEqual(2)
+    const expectedH = 8 + 16 + (dims.buttonCount - 1) * 8 + (dims.buttonCount - 1) * 8 + 2
     // 容差:±5px(Tailwind/DPR 误差)
-    expect(dims.containerH).toBeGreaterThanOrEqual(133)
-    expect(dims.containerH).toBeLessThanOrEqual(143)
+    expect(dims.containerH).toBeGreaterThanOrEqual(expectedH - 5)
+    expect(dims.containerH).toBeLessThanOrEqual(expectedH + 5)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

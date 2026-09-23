@@ -7071,7 +7071,13 @@
         "rejectBlock": "拒绝此改动块",
         "rejected": "已拒绝",
         "resetSelection": "重置选择",
-        "selectedSummary": "已选 {accepted}/{total}"
+        "selectedSummary": "已选 {accepted}/{total}",
+        "stageFile": "全部暂存",
+        "unstageFile": "全部还原",
+        "stageHunk": "暂存",
+        "unstageHunk": "取消暂存",
+        "staged": "已暂存",
+        "unstaged": "未暂存"
       },
       "dragHandle": "拖动以调整面板位置",
       "elapsedTitle": "已耗时 {time}",
@@ -7326,6 +7332,18 @@
         "targetFile": "评论本次改动",
         "close": "取消",
         "pendingBanner": "有 {count} 条代码改动意见待发送"
+      },
+      "annotation": {
+        "placeholder": "对这段回复提批注…",
+        "save": "保存",
+        "edit": "编辑注释",
+        "delete": "删除注释",
+        "deleteFailed": "无法删除注释",
+        "invalid": "目前无法编辑此批注",
+        "countSummary": "关于此回复的批注：{n} 条",
+        "badge": "注释",
+        "lineUnit": "行",
+        "cancel": "取消"
       },
       "runtimeStatusResuming": "正在恢复执行…",
       "runtimeStatusPausing": "正在暂停…",
@@ -11139,7 +11157,70 @@
     "title": "API 文档",
     "toastCopied": "已复制路径",
     "toastCopyFailed": "复制失败",
-    "yes": "是"
+    "yes": "是",
+    "endpoints": {
+      "chatCompletions": "OpenAI 兼容对话",
+      "anthropicMessages": "Anthropic 兼容对话",
+      "listModels": "查询可用模型",
+      "rerank": "Cohere/Jina 兼容重排序",
+      "moderations": "OpenAI 兼容内容审核",
+      "realtime": "Realtime WebSocket 实时对话",
+      "midjourneyImagine": "Midjourney-Proxy 标准接口",
+      "mcpToolsCall": "MCP 网关工具调用",
+      "responses": "OpenAI Responses API(Cursor/Codex 兼容)",
+      "batch": "OpenAI 批量异步 API(50% 折扣)",
+      "assistants": "Assistants API v2(第三方 SDK 直连)",
+      "audioTranslations": "Whisper 语音翻译",
+      "fineTuningJobs": "微调任务管理",
+      "files": "文件管理 CRUD",
+      "statusOverview": "公开状态页-系统总览",
+      "statusModels": "公开状态页-模型可用性",
+      "statusIncidents": "公开状态页-事件列表",
+      "apiKeyShares": "API Key 临时分享(限时 token)",
+      "exportOrdersCsv": "充值订单 CSV 导出",
+      "exportRelayLogsCsv": "调用日志 CSV 导出",
+      "developerConversations": "中转站会话历史列表"
+    },
+    "sections": {
+      "quickStart": "快速开始(5 分钟接入)",
+      "auth": "认证方式",
+      "endpointList": "端点列表",
+      "rateLimit": "速率限制",
+      "billing": "计费说明"
+    },
+    "steps": {
+      "step1Title": "1. 注册登录",
+      "step1Desc": "— 完成账号注册并登录",
+      "step2Title": "2. 生成 Key",
+      "step2Desc": "— 开发者中心 → 密钥管理 → 新建密钥",
+      "step3Title": "3. 调用接口",
+      "step3Desc": "— 替换下方 sk-xxx 即可发起首次请求"
+    },
+    "auth": {
+      "descPrefix": "请求需在 Header 携带",
+      "descMid": "(Anthropic 端点亦支持",
+      "descSuffix": ")。"
+    },
+    "rateLimit": {
+      "tiers": "免费 20 QPM · 基础 60 QPM · 专业 200 QPM · 企业 1000 QPM",
+      "overLimitPrefix": "超限返回错误码",
+      "overLimitSuffix": "(HTTP 429)。"
+    },
+    "billing": {
+      "promptCacheTerm": "Prompt Cache 折扣",
+      "promptCacheDesc": ":命中缓存的输入 token 按 0.1 倍计价。",
+      "responseCacheTerm": "响应缓存(Redis)",
+      "responseCacheDesc1": ":非流式 chat completions 命中缓存时成本为 0(响应头",
+      "responseCacheDesc2": "),用",
+      "responseCacheDesc3": "跳过缓存。",
+      "tieredTerm": "阶梯计价",
+      "tieredDesc": ":单次请求 token 越多,单价越低(详见价格页)。",
+      "groupRateTerm": "分组倍率",
+      "groupRateDesc": ":不同模型分组按倍率计费(如 Claude 1.2x、GPT-4o 1.0x)。",
+      "rerankDesc": ":按 input tokens 计费,output tokens 为 0。",
+      "unit": "计费单位为 Token,1 Token ≈ 0.75 字符(中文);余额不足返回",
+      "unitSuffix": "。"
+    }
   },
   "developerBillingPage": {
     "add": "添加",
@@ -14074,7 +14155,61 @@
     "total": "共 {total} 节",
     "buyConfirm": "购买确认",
     "paymentConfirm": "支付确认",
-    "review": "评价"
+    "review": "评价",
+    "tutor": {
+      "title": "AI 助教",
+      "subject": "学科",
+      "mode": "模式",
+      "subjectMath": "数学",
+      "subjectPhysics": "物理",
+      "subjectChemistry": "化学",
+      "subjectBiology": "生物",
+      "subjectEnglish": "英语",
+      "subjectHistory": "历史",
+      "subjectGeography": "地理",
+      "modeExplain": "讲解",
+      "modeHint": "提示",
+      "modeQuiz": "出题",
+      "quizDirection": "出题方向(可选)",
+      "yourQuestion": "你的问题",
+      "quizPlaceholder": "如:二次函数图像性质",
+      "questionPlaceholder": "如:勾股定理怎么证明?",
+      "generateQuiz": "生成题目",
+      "ask": "提问",
+      "knowledgePoints": "知识点",
+      "followUp": "延伸思考",
+      "nextStep": "下一步",
+      "quizCount": "生成 {count} 道练习题",
+      "answerValue": "答:{answer}",
+      "emptyHint": "选择学科与模式,提出你的问题。"
+    },
+    "dailyReview": {
+      "loading": "加载中…",
+      "title": "今日复习",
+      "subtitle": "基于 SM-2 间隔重复算法,巩固长期记忆。",
+      "qualityForgotten": "完全忘记",
+      "qualityFailed": "失败",
+      "qualityUncertain": "勉强",
+      "qualityGood": "良好",
+      "qualityPerfect": "完美",
+      "statDue": "待复习",
+      "statReviewedToday": "今日已复习",
+      "statStreak": "连续天数",
+      "statAvgDifficulty": "平均难度",
+      "finishedTitle": "今日复习已完成",
+      "finishedHint": "已完成 {count} 道题,继续保持节奏!",
+      "questionProgress": "第 {current} / {total} 题",
+      "questionLabel": "题目",
+      "selfAssess": "回想后自评",
+      "submitting": "提交中…",
+      "answerLabel": "答案",
+      "explanationLabel": "解析",
+      "nextReview": "下次复习",
+      "intervalDays": "间隔(天)",
+      "easeFactor": "难度因子",
+      "nextQuestion": "下一题",
+      "progressLine": "复习进度:{done} / {total}"
+    }
   },
   "learnBuyConfirmPage": {
     "actualPay": "实付",
@@ -15314,10 +15449,9 @@
     "apiDocs": {
       "auth": {
         "desc": "所有 API 请求需在 Header 中携带 Bearer Token,Token 可在 API 令牌页面创建",
-        "title": "鉴权方式"
+        "title": "鉴权方式",
+        "headerFormat": "# Header 格式"
       },
-      "copyCodeAriaLabel": "复制代码",
-      "curlPlaceholder": "输入 cURL 命令进行测试…",
       "endpoints": {
         "audio": "语音合成",
         "chat": "对话补全",
@@ -15335,7 +15469,6 @@
         "python": "Python",
         "title": "调用示例"
       },
-      "searchPlaceholder": "搜索接口…",
       "subtitle": "完整的 API 接入文档和示例",
       "title": "API 文档"
     },
@@ -23096,8 +23229,153 @@
     "description": "n8n 自动化工作流 Agent"
   },
   "rules": {
-    "title": "规则",
-    "description": "平台规则与规范"
+    "totalRulesSorted": "共 {n} 条规则,按优先级降序排列",
+    "autoGenerate": "自动生成",
+    "detectConflicts": "检测冲突",
+    "knowledgeGraph": "知识图谱",
+    "abTest": "A/B 测试",
+    "globalStats": "全局统计",
+    "templateLibrary": "模板库",
+    "newRule": "新建规则",
+    "emptyHint": "暂无规则,点击「新建规则」创建",
+    "disabled": "禁用",
+    "enabled": "启用",
+    "hitCount": "命中 {n} 次",
+    "detail": "详情",
+    "test": "测试",
+    "edit": "编辑",
+    "confirmDelete": "确认删除",
+    "cancelDelete": "取消删除",
+    "hit": "命中",
+    "noMatch": "未命中",
+    "noMatchNoOutput": "(未命中,无输出)",
+    "ruleA": "规则 A",
+    "selectRuleA": "选择规则 A",
+    "ruleB": "规则 B",
+    "selectRuleB": "选择规则 B",
+    "testMessage": "测试消息",
+    "inputTestMessage": "输入测试消息...",
+    "testing": "测试中...",
+    "runTest": "运行测试",
+    "autoGenerateTitle": "自动生成规则",
+    "autoGenerateHint": "从最近 7 天用户行为模式 LLM 提炼候选规则,勾选后批量创建",
+    "startAnalyzeBehavior": "开始分析行为模式",
+    "analyzingBehavior": "LLM 分析行为模式中...",
+    "degradedNoCandidates": "降级模式:LLM 不可用,返回空候选列表",
+    "analyzedGenerated": "分析了 {behaviors} 条行为记录,生成 {candidates} 条候选规则",
+    "noCandidates": "无候选规则(行为数据不足或 LLM 不可用)",
+    "confidencePercent": "置信度 {pct}%",
+    "selectedOfTotal": "已选 {selected} / {total} 条",
+    "creating": "创建中...",
+    "batchCreateCount": "批量创建({n})",
+    "negotiationFailed": "协商失败:{msg}",
+    "conflictNameConflict": "同名冲突",
+    "conflictSemanticDuplicate": "语义重复",
+    "conflictPriorityCollision": "优先级碰撞",
+    "conflictDetectTitle": "规则冲突检测",
+    "detecting": "检测中...",
+    "noConflict": "未检测到冲突,规则集状态良好",
+    "detectedConflictsHint": "检测到 {n} 处冲突,输入上下文后可 LLM 协商",
+    "arbitrationContextLabel": "协商上下文(当前对话/代码片段)",
+    "arbitrationContextPlaceholder": "输入上下文供 LLM 仲裁...",
+    "negotiating": "协商中...",
+    "llmNegotiate": "LLM 协商",
+    "arbitrationResult": "仲裁结果:",
+    "noneLabel": "无",
+    "degraded": "降级",
+    "mergeSuggestion": "合并建议:{text}",
+    "axisDays30": "30天",
+    "axisDays7": "7天",
+    "positiveCount": "正面 {n}",
+    "negativeCount": "负面 {n}",
+    "totalRows": "共 {n} 条",
+    "diffNone": "(无差异)",
+    "loadFailed": "加载失败",
+    "rollbackSuccess": "回滚成功",
+    "rollbackFailed": "回滚失败:{msg}",
+    "feedbackRecorded": "反馈已记录",
+    "feedbackFailed": "反馈失败:{msg}",
+    "predictFailed": "预测失败:{msg}",
+    "learnFeedbackRecorded": "学习反馈已记录",
+    "ruleDetailTitle": "规则详情:{name}",
+    "tabStats": "效果统计",
+    "tabHistoryCount": "版本历史({n})",
+    "tabPredict": "效果预测",
+    "statMatchCount": "命中次数",
+    "statHits7d": "7天命中",
+    "statHits30d": "30天命中",
+    "statAvgToken": "平均 token",
+    "hitRateCompare": "命中率对比",
+    "satisfactionPercent": "满意度({pct}%)",
+    "feedbackLabel": "反馈:",
+    "useful": "有用",
+    "useless": "无用",
+    "noVersionHistory": "暂无版本历史",
+    "compareToPrev": "对比上一版",
+    "rollingBack": "回滚中...",
+    "rollback": "回滚",
+    "predictHint": "输入测试 prompt,dry-run 对比应用规则 vs 不应用规则的 LLM 输出",
+    "predictPromptPlaceholder": "输入测试 prompt...",
+    "predicting": "预测中...",
+    "runPredict": "运行预测",
+    "statTokenDelta": "Token 差异",
+    "statOutputDiff": "输出差异度",
+    "statQualityScore": "质量评分",
+    "suggestionLabel": "建议:",
+    "recDisable": "不启用",
+    "recNeutral": "中性",
+    "degradedMode": "降级模式",
+    "withoutRule": "不应用规则",
+    "withRule": "应用规则",
+    "learnFeedbackLabel": "学习反馈:",
+    "helpful": "有帮助",
+    "unhelpful": "无帮助",
+    "harmful": "有害",
+    "editRuleTitle": "编辑规则",
+    "fieldLabelName": "名称",
+    "ruleNamePlaceholder": "规则名称",
+    "fieldLabelDescription": "描述(可选)",
+    "briefDescriptionPlaceholder": "简短描述",
+    "fieldLabelScope": "作用域",
+    "scopeGlobal": "全局",
+    "scopeWorkspace": "工作区",
+    "fieldLabelPriority": "优先级",
+    "fieldLabelMatchType": "匹配类型",
+    "matchAlways": "始终注入",
+    "matchKeyword": "关键词",
+    "matchRegex": "正则",
+    "matchSemantic": "语义",
+    "fieldLabelMatchPattern": "匹配模式",
+    "matchPatternKeywordPlaceholder": "关键词1,关键词2",
+    "matchPatternRegexPlaceholder": "正则表达式",
+    "matchPatternSemanticPlaceholder": "自然语言描述",
+    "fieldLabelContent": "规则正文",
+    "contentPlaceholder": "规则正文(markdown,作为 prompt 注入到 agent)...",
+    "saving": "保存中...",
+    "statTotalRules": "总规则数",
+    "statActiveRules7d": "7天活跃规则",
+    "topRulesTitle": "最常用规则 Top {n}",
+    "ruleList": "规则列表",
+    "noHitRecords": "暂无命中记录",
+    "timesCount": "{n} 次",
+    "knowledgeGraphTitle": "规则知识图谱",
+    "buildingGraph": "构建图谱中...",
+    "kgConflict": "冲突",
+    "kgDuplicate": "重复",
+    "kgComplementary": "互补",
+    "graphNodeEdgeCounts": "{nodes} 节点 / {edges} 边",
+    "noRulesToBuildGraph": "暂无规则,无法构建图谱",
+    "relationList": "关系列表",
+    "templateLibraryTitle": "规则模板库",
+    "loadingTemplates": "加载模板...",
+    "templateCountHint": "共 {n} 个预置模板,点击「使用」快速创建规则",
+    "use": "使用",
+    "testRuleTitle": "测试规则:{name}",
+    "inputMessage": "输入消息",
+    "matchHit": "匹配命中",
+    "pageTitle": "规则管理",
+    "metaDescription": "管理用户自定义规则,约束 AI agent 运行时行为",
+    "pageSubtitle": "用户可编辑的规则集,在 agent 运行时按匹配条件动态注入到 system prompt"
   },
   "automations": {
     "delete": "删除",
@@ -23636,5 +23914,292 @@
     "goSettings": "模型设置",
     "securityNote": "密钥仅保存在你自己的账户配置中,用于直连对应服务商;平台不会把你的密钥用于其他用途。请勿在公开场合分享密钥。",
     "startChat": "配置完成,开始对话"
+  },
+  "apiDocs": {
+    "curlPlaceholder": "输入 cURL 命令进行测试…",
+    "searchPlaceholder": "搜索接口…",
+    "copyCodeAriaLabel": "复制代码",
+    "sampleUserText": "你好",
+    "sampleStoryText": "讲个故事",
+    "sampleProdNote": "// 生产环境应替换为 UI 展示",
+    "parseFailed": "无法解析 curl 命令,请检查格式(需含 -d JSON body)",
+    "curlLinkTitle": "curl 联动 Playground",
+    "curlLinkDesc": "粘贴 curl 命令,自动解析 model / messages / temperature / max_tokens 并在 Playground 中打开。",
+    "resetSample": "重置示例",
+    "openInPlayground": "在 Playground 中打开",
+    "errorCodesTitle": "错误码",
+    "errorCodesDesc": "所有 API 错误码、HTTP 状态码含义与修复建议,支持搜索。",
+    "meaningCol": "含义",
+    "fixCol": "修复建议",
+    "noMatchedErrorCodes": "无匹配错误码",
+    "sdkExamplesTitle": "SDK 示例",
+    "codeCopied": "代码已复制",
+    "copyFailed": "复制失败",
+    "hideKey": "隐藏 Key",
+    "showKey": "显示 Key",
+    "keyFilledHint": "示例已填入你的 API Key{state}。",
+    "keyStatePlain": "(明文)",
+    "keyStateMasked": "(已脱敏,复制后请替换为完整 Key)",
+    "exampleBasicOpenai": "基础调用 (OpenAI 格式)",
+    "exampleStreaming": "流式响应",
+    "exampleAnthropic": "Anthropic 格式",
+    "errorCodes": {
+      "c1000": {
+        "meaning": "API Key 无效",
+        "fix": "检查 Authorization: Bearer ihui_xxx 头"
+      },
+      "c1001": {
+        "meaning": "API Key 已过期",
+        "fix": "重新生成 Key 或联系管理员续期"
+      },
+      "c1002": {
+        "meaning": "IP 不在白名单",
+        "fix": "在 Key 配置中添加 IP"
+      },
+      "c1003": {
+        "meaning": "模型不在白名单",
+        "fix": "在 Key 配置中添加模型"
+      },
+      "c1004": {
+        "meaning": "超过 QPM 限制",
+        "fix": "升级订阅包或降低调用频率"
+      },
+      "c1005": {
+        "meaning": "余额不足",
+        "fix": "充值或兑换码充值"
+      },
+      "c1006": {
+        "meaning": "单次 token 超限",
+        "fix": "降低 max_tokens 或拆分请求"
+      },
+      "c1007": {
+        "meaning": "超过单模型 RPM 限制",
+        "fix": "降低该模型的调用频率或升级分组"
+      },
+      "c1008": {
+        "meaning": "超过单模型 TPM 限制",
+        "fix": "降低该模型的 token 用量或升级分组"
+      },
+      "c1009": {
+        "meaning": "API Key 不属于该租户",
+        "fix": "检查 Key 与租户的绑定关系"
+      },
+      "c1010": {
+        "meaning": "Key 级窗口(5h/1d/7d)调用数超限",
+        "fix": "按响应 Retry-After 与 X-RateLimit-* 退避重试,或调低窗口内频率"
+      },
+      "secretRequired": {
+        "meaning": "缺少 X-Api-Secret 头(默认必须携带)",
+        "fix": "携带创建/轮换密钥时一次性返回的 secret;过渡期可由服务端 API_KEY_REQUIRE_SECRET=false 放宽"
+      },
+      "rateBackendUnavailable": {
+        "meaning": "限流后端不可用,请求被 fail-close 拒绝",
+        "fix": "按 Retry-After(默认 5s)重试;仅计费/高危能力会触发,低危只读降级放行"
+      },
+      "dataAccessDenied": {
+        "meaning": "该能力的 dataClass 不允许触达此数据表(或表名不可判定)",
+        "fix": "对照能力目录的 dataClass:compute 只产运行记录,读业务数据须走 scoped-read"
+      },
+      "dataScopeDenied": {
+        "meaning": "语句越过归属边界(缺 owner 谓词或绑定他人资源 ID)",
+        "fix": "只查询/写入调用者自有资源,禁止跨 owner/tenant 访问"
+      },
+      "dataIsolationUnavailable": {
+        "meaning": "数据隔离前提不成立(连接为超级用户或无法证实非超级用户)",
+        "fix": "服务端需以非超级用户连接数据库;联系管理员,勿改客户端重试"
+      },
+      "c2001": {
+        "meaning": "上游服务不可用",
+        "fix": "稍后重试,系统会自动故障切换"
+      },
+      "c2002": {
+        "meaning": "上游超时",
+        "fix": "降低 max_tokens 或检查网络"
+      },
+      "c2003": {
+        "meaning": "上游过载",
+        "fix": "稍后重试"
+      },
+      "c2004": {
+        "meaning": "Realtime WebSocket 上游错误",
+        "fix": "检查模型是否支持 realtime + 网络连接"
+      },
+      "c2005": {
+        "meaning": "Midjourney 上游错误",
+        "fix": "检查 midjourney-proxy 是否在线 + 任务参数"
+      },
+      "c2006": {
+        "meaning": "MCP 工具调用失败",
+        "fix": "检查 MCP server 状态 + 工具名是否存在"
+      },
+      "c3001": {
+        "meaning": "请求参数错误",
+        "fix": "检查 messages 格式"
+      },
+      "c3002": {
+        "meaning": "模型不存在",
+        "fix": "查 GET /v1/models 可用模型"
+      },
+      "c5013": {
+        "meaning": "上游渠道未配置",
+        "fix": "联系管理员配置 rerank/moderations 上游"
+      }
+    }
+  },
+  "playground": {
+    "needApiKey": "请先填写 API Key",
+    "needModel": "请选择或输入模型",
+    "needValidMessage": "请至少输入一条有效消息",
+    "callFailed": "调用失败",
+    "send": "发送",
+    "modeSse": "· SSE",
+    "modeNonStream": "· 非流式",
+    "messageList": "消息列表",
+    "messageCount": "{n} 条",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "deleteMessage": "删除消息",
+    "inputRoleContent": "输入 {role} 消息内容…",
+    "addMessage": "添加消息",
+    "modelsFetchFailed": "获取模型列表失败",
+    "apiKeyHint": "本地存储,仅用于本次调用",
+    "modelLabel": "模型",
+    "refreshModelsAria": "刷新模型列表",
+    "selectModelPlaceholder": "选择模型",
+    "inputModelOrRefresh": "输入模型名或刷新列表",
+    "streamLabel": "stream(流式)",
+    "tabResponse": "响应",
+    "tabCode": "代码",
+    "tabHistory": "历史({n})",
+    "waitingResponse": "等待响应…",
+    "clickSendHint": "点击「发送」查看响应",
+    "latencyLabel": "耗时",
+    "costLabel": "成本",
+    "apiKeyShownAs": "API Key 显示为",
+    "noHistory": "暂无历史记录",
+    "unknownModel": "未知模型",
+    "restoreAria": "恢复",
+    "emptyResponse": "(空响应)",
+    "metaTitle": "API Playground — 智汇 AI",
+    "metaDescription": "在线测试 OpenAI 兼容 API:模型选择、多轮消息构造、参数调节、流式 SSE 渲染、代码生成(cURL/Python/Node.js)与历史记录。",
+    "pageDesc": "用你的 API Key 直接调用 /v1/chat/completions,支持流式渲染、参数调节与代码生成,无需跳转到 /chat。"
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在准备回复…",
+        "1": "正在组织回答思路…",
+        "2": "收到，正在思考如何回复…",
+        "3": "正在为你生成回复…",
+        "4": "已收到问题，正在处理…"
+      },
+      "middle": {
+        "0": "正在继续处理…",
+        "1": "正在接着上文思考…",
+        "2": "正在整理后续回复…",
+        "3": "正在跟进你的问题…",
+        "4": "正在生成接下来的回复…"
+      },
+      "followup": {
+        "0": "正在理解你的追问…",
+        "1": "结合上文，正在思考…",
+        "2": "正在针对追问组织回复…",
+        "3": "收到追问，正在处理…",
+        "4": "正在补充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在调度计算资源…",
+        "1": "正在初始化执行环境…",
+        "2": "正在启动处理流程…",
+        "3": "正在分配算力处理…",
+        "4": "正在执行初始计算…"
+      },
+      "middle": {
+        "0": "正在执行中…",
+        "1": "计算进行中，请稍候…",
+        "2": "正在处理中间结果…",
+        "3": "执行未中断，正在推进…",
+        "4": "正在运算，请稍候…"
+      },
+      "followup": {
+        "0": "正在重新计算…",
+        "1": "正在基于新输入继续执行…",
+        "2": "正在追加处理…",
+        "3": "正在更新计算结果…",
+        "4": "正在处理追加请求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顾对话上下文…",
+        "1": "正在加载相关上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在检索相关记忆…",
+        "4": "正在准备上下文…"
+      },
+      "middle": {
+        "0": "正在关联上文继续…",
+        "1": "正在结合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就绪，正在处理…",
+        "4": "正在对照历史消息…"
+      },
+      "followup": {
+        "0": "正在结合前文理解追问…",
+        "1": "正在回看相关上下文…",
+        "2": "正在关联历史追问…",
+        "3": "正在对照上文补充…",
+        "4": "结合上下文，正在处理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定处理计划…",
+        "1": "正在拆解你的需求…",
+        "2": "正在规划执行步骤…",
+        "3": "正在分析任务要点…",
+        "4": "正在拟定回复提纲…"
+      },
+      "middle": {
+        "0": "正在推进计划步骤…",
+        "1": "正在执行下一步…",
+        "2": "计划进行中，请稍候…",
+        "3": "正在按步骤处理…",
+        "4": "正在落实后续步骤…"
+      },
+      "followup": {
+        "0": "正在调整计划…",
+        "1": "正在根据追问更新步骤…",
+        "2": "正在重新规划…",
+        "3": "正在补充计划细节…",
+        "4": "正在跟进新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在准备详细说明…",
+        "1": "正在组织细节内容…",
+        "2": "正在梳理要点…",
+        "3": "正在生成详细回复…",
+        "4": "正在完善回答细节…"
+      },
+      "middle": {
+        "0": "正在补充细节…",
+        "1": "正在展开说明…",
+        "2": "正在完善后续内容…",
+        "3": "详情整理中，请稍候…",
+        "4": "正在细化回复…"
+      },
+      "followup": {
+        "0": "正在补充你问的细节…",
+        "1": "正在展开追问的要点…",
+        "2": "正在细化相关说明…",
+        "3": "正在准备补充内容…",
+        "4": "正在完善追问的答复…"
+      }
+    },
+    "vividTail": "，马上就好"
   }
 }

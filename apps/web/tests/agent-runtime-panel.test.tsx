@@ -25,34 +25,58 @@ vi.mock('@/components/feedback', () => ({
 // 测试不依赖真实 messages 文件,直接提供与测试断言一致的字面值
 // (title='Agent Runtime' 来自 en.json,其他用例期望中文 — 是测试自定义字面值,
 // 既不来自 zh-CN.json 也不来自 en.json;messages 文件逗号风格不同,故用 mock 兜底)
-vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string, params?: Record<string, string>) => {
-    const map: Record<string, string> = {
-      title: 'Agent Runtime',
-      clear: '清空',
-      plan: '执行计划',
-      permissionDecision: '权限决策:{decision}',
-      permissionMeta: '工具:{tool} · 等级:{level} · 模式:{mode}',
-      unknownTool: '未知',
-      defaultLevel: '读取',
-      output: '输出',
-      error: '错误',
-      cancelledTitle: '任务已取消',
-      cancelledBody: '已停止当前执行。如需继续,请修改输入后再次执行。',
-      emptyState: '输入任务,开始 Agent 执行',
-      placeholder: '输入任务...',
-      stop: '停止',
-      execute: '执行',
-    }
-    let v = map[key] ?? key
-    if (params) {
-      for (const [k, val] of Object.entries(params)) {
-        v = v.replace(`{${k}}`, val)
+vi.mock('next-intl', async () => {
+  const mod = (await import('@ihui/i18n/messages/shared/zh-CN.json')) as unknown as {
+    default: Record<string, unknown>
+  }
+  const stepPack =
+    (mod.default ?? (mod as unknown as Record<string, unknown>)).stepDecision ??
+    (mod as unknown as Record<string, unknown>).stepDecision
+  const lookupStep = (key: string): string | null => {
+    let cur: unknown = stepPack
+    for (const seg of key.split('.')) {
+      if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
+        cur = (cur as Record<string, unknown>)[seg]
+      } else {
+        return null
       }
     }
-    return v
-  },
-}))
+    return typeof cur === 'string' ? cur : null
+  }
+  return {
+    useTranslations: () => (key: string, params?: Record<string, string>) => {
+      const map: Record<string, string> = {
+        title: 'Agent Runtime',
+        clear: '清空',
+        plan: '执行计划',
+        permissionDecision: '权限决策:{decision}',
+        permissionMeta: '工具:{tool} · 等级:{level} · 模式:{mode}',
+        unknownTool: '未知',
+        defaultLevel: '读取',
+        output: '输出',
+        error: '错误',
+        cancelledTitle: '任务已取消',
+        cancelledBody: '已停止当前执行。如需继续,请修改输入后再次执行。',
+        emptyState: '输入任务,开始 Agent 执行',
+        placeholder: '输入任务...',
+        stop: '停止',
+        execute: '执行',
+      }
+      // D55②:stepDecision.* 用**真实词包**,这样"界面不再出现 auto_skip_approval"
+      // 才是可证的事实,而不是测试自己造的字面值。
+      let v =
+        key.startsWith('decision.') || key.startsWith('state.') || key.startsWith('perm.')
+          ? (lookupStep(key) ?? key)
+          : (map[key] ?? key)
+      if (params) {
+        for (const [k, val] of Object.entries(params)) {
+          v = v.replace(`{${k}}`, val)
+        }
+      }
+      return v
+    },
+  }
+})
 
 import { AgentRuntimePanel } from '../src/components/ai/agent-runtime-panel'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
@@ -130,6 +154,39 @@ describe('AgentRuntimePanel', () => {
     expect(screen.getByTestId('status-running')).not.toBeNull()
     expect(screen.getByRole('button', { name: /停止/ })).not.toBeNull()
     expect(screen.queryByRole('button', { name: /^执行$/ })).toBeNull()
+  })
+
+  it('onPermission(15 值步骤决策)→ 显示本地化词而不是英文码', async () => {
+    await renderAndSend('permission test')
+    await act(async () => {
+      capturedCallbacks.onPermission?.({
+        mode: 'auto',
+        toolName: 'execute_shell_command',
+        dangerLevel: 'dangerous',
+        decision: 'auto_skip_approval',
+      })
+    })
+    const box = screen.getByText(/权限决策:/)
+    expect(box.textContent).toContain('自动批准(免审批)')
+    expect(box.textContent).not.toContain('auto_skip_approval')
+  })
+
+  it('onPermission(allow/ask/deny 矩阵)→ deny 取词为"已拒绝"', async () => {
+    await renderAndSend('permission matrix deny')
+    await act(async () => {
+      capturedCallbacks.onPermission?.({ mode: 'default', decision: 'deny' })
+    })
+    expect(screen.getByText(/权限决策:/).textContent).toContain('已拒绝')
+  })
+
+  it('onPermission 认不出的取值 → 原样显示,绝不猜成"已放行"', async () => {
+    await renderAndSend('permission matrix unknown')
+    await act(async () => {
+      capturedCallbacks.onPermission?.({ mode: 'default', decision: 'maybe_allow' })
+    })
+    const raw = screen.getByText(/权限决策:/)
+    expect(raw.textContent).toContain('maybe_allow')
+    expect(raw.textContent).not.toContain('已放行')
   })
 
   it('onSession 回调 → 设置 sessionId 并在 header 显示截断 ID', async () => {

@@ -151,4 +151,136 @@ if (badGetOptions.length > 0) {
   process.exit(1)
 }
 console.log('[check-installer-assets] PASS —— GetOptions 未直接吃 $CMDLINE(前缀误匹配免疫)')
+
+// =====================================================================
+// 附加守门二:三条**跨文件几何/集合不变量**(2026-09-23)
+// 这三条过去只写在注释里,没有任何闸门 —— 正是本项目反复批判的"造好没装车"。
+// 全部做成纯函数 + env 可覆盖路径,便于注入违规自证其有效性(--self-test)。
+// =====================================================================
+
+/** 解析 `!define NAME  值` 形式的数值常量 */
+function parseDefines(text, names) {
+  const out = {}
+  for (const n of names) {
+    const m = text.match(new RegExp(`^!define\\s+${n}\\s+(-?\\d+)`, 'm'))
+    if (!m) return { error: `找不到 !define ${n}` }
+    out[n] = Number(m[1])
+  }
+  return { defines: out }
+}
+
+/** 解析 IHUI_INST_HOLES 宏体里的两个洞矩形(left/top/right/bottom 逻辑像素) */
+function parseHoleRects(uiSrc) {
+  const body = uiSrc.slice(
+    uiSrc.indexOf('!macro IHUI_INST_HOLES'),
+    uiSrc.indexOf('!macroend', uiSrc.indexOf('!macro IHUI_INST_HOLES')),
+  )
+  if (!body.startsWith('!macro IHUI_INST_HOLES')) return { error: '找不到 IHUI_INST_HOLES 宏体' }
+  const grab = (label) => {
+    const i = body.indexOf(label)
+    if (i < 0) return null
+    const nums = [...body.slice(i, i + 700).matchAll(/!insertmacro IHUI_PX \$R\d+ (-?\d+)/g)].map((m) => Number(m[1]))
+    return nums.length >= 4 ? { left: nums[0], top: nums[1], right: nums[2], bottom: nums[3] } : null
+  }
+  return { cancel: grab('取消槽'), cta: grab('CTA 槽') }
+}
+
+/**
+ * 不变量 A:内层 dialog 上挖的洞必须与按钮矩形**逐像素等大**。
+ * 洞大 → 透出父对话框为 BUTTON 返回的经典面色刷 #f0f0F0,即用户看到的"方形白边"
+ * (2026-09-23 PrintWindow 像素取证:槽位内 5760/5760 与位图一致,外 1px 全是 #f0f0f0)。
+ * 洞小 → 切掉位图边缘。两种都只能靠这条静态断言拦住。
+ */
+export function checkHoleEqualsButton({ uiSrc }) {
+  const d = parseDefines(uiSrc, ['IHUI_BTN_Y', 'IHUI_CTA_X', 'IHUI_CTA_W', 'IHUI_CANCEL_X', 'IHUI_CANCEL_W'])
+  if (d.error) return [d.error]
+  const rects = parseHoleRects(uiSrc)
+  if (rects.error) return [rects.error]
+  // 按钮高度:从 CTA 槽的 IHUI_INST_SLOT 调用里取实参,不写死 40
+  const slotH = uiSrc.match(/!insertmacro IHUI_INST_SLOT\s+1\s+btn-continue\.bmp\s+\$\{IHUI_CTA_X\}\s+\$\{IHUI_BTN_Y\}\s+\$\{IHUI_CTA_W\}\s+(\d+)/)
+  if (!slotH) return ['找不到 CTA 槽 IHUI_INST_SLOT(btn-continue) 调用,无法确定按钮高度']
+  const H = Number(slotH[1])
+  const v = []
+  const LABEL = { cta: 'CTA 槽', cancel: '取消槽' }
+  const want = {
+    cta: { left: d.defines.IHUI_CTA_X, top: d.defines.IHUI_BTN_Y, right: d.defines.IHUI_CTA_X + d.defines.IHUI_CTA_W, bottom: d.defines.IHUI_BTN_Y + H },
+    cancel: { left: d.defines.IHUI_CANCEL_X, top: d.defines.IHUI_BTN_Y, right: d.defines.IHUI_CANCEL_X + d.defines.IHUI_CANCEL_W, bottom: d.defines.IHUI_BTN_Y + H },
+  }
+  for (const key of ['cta', 'cancel']) {
+    const got = rects[key]
+    if (!got) {
+      v.push(`IHUI_INST_HOLES 里解析不到 ${LABEL[key]} 洞矩形`)
+      continue
+    }
+    const w = want[key]
+    const diff = ['left', 'top', 'right', 'bottom'].filter((k) => got[k] !== w[k])
+    if (diff.length > 0) {
+      v.push(
+        `${LABEL[key]}洞与按钮矩形不等大:洞=(${got.left},${got.top},${got.right},${got.bottom}) ` +
+          `按钮=(${w.left},${w.top},${w.right},${w.bottom}),差异字段 ${diff.join('/')}。` +
+          `洞偏大会透出父对话框的按钮面色刷(#f0f0f0) → 用户看到"方形白边";洞偏小会切掉位图边缘。`,
+      )
+    }
+  }
+  return v
+}
+
+/**
+ * 不变量 B:百分比控件矩形中心 == 位图里双环环心。
+ * 环是位图烧的、数字是运行期 STATIC 画的,只有两者同心,数字才在环心。
+ */
+export function checkBadgeConcentric({ uiSrc, genSrc }) {
+  const d = parseDefines(uiSrc, ['IHUI_PCT_X', 'IHUI_PCT_Y', 'IHUI_PCT_W', 'IHUI_PCT_H'])
+  if (d.error) return [`${d.error}(百分比控件矩形)`]
+  const g = {}
+  for (const n of ['PCT_CX', 'PCT_CY']) {
+    const m = genSrc.match(new RegExp(`^const ${n} = (-?\\d+)`, 'm'))
+    if (!m) return [`生成器里找不到 const ${n}(双环环心)`]
+    g[n] = Number(m[1])
+  }
+  const cx = d.defines.IHUI_PCT_X + d.defines.IHUI_PCT_W / 2
+  const cy = d.defines.IHUI_PCT_Y + d.defines.IHUI_PCT_H / 2
+  const v = []
+  if (cx !== g.PCT_CX) v.push(`百分比控件水平中心 ${cx} != 环心 PCT_CX ${g.PCT_CX}`)
+  if (cy !== g.PCT_CY) v.push(`百分比控件垂直中心 ${cy} != 环心 PCT_CY ${g.PCT_CY}`)
+  if (!/\$\{IHUI_PCT_STYLE\}/.test(uiSrc)) v.push('百分比控件未使用 IHUI_PCT_STYLE(必须 SS_CENTER,SS_RIGHT 下位数变化会让数字在环里左右漂)')
+  return v
+}
+
+/**
+ * 不变量 C:Section 埋点集合 == 轨道刻度集合。
+ * 刻度是位图烧的、锚点是运行期报的,两者一一对应才表达"过了几关"。
+ */
+export function checkAnchorsMatchTicks({ installerSrc, genSrc }) {
+  const pct = (re) => [...installerSrc.matchAll(re)].map((m) => Number(m[1])).filter((n) => n < 100)
+  const inst = pct(/!insertmacro IHUI_PROGRESS (\d+)/g)
+  const un = pct(/!insertmacro IHUI_UNPROGRESS (\d+)/g)
+  const ticksM = genSrc.match(/const PB_TICKS = \[([\d,\s]+)\]/)
+  const unM = genSrc.match(/meterTrack\(\[([\d,\s]+)\]\)/)
+  if (!ticksM || !unM) return ['生成器里解析不到 PB_TICKS / meterTrack([...]) 刻度集合']
+  const instTicks = ticksM[1].split(',').map((s) => Number(s.trim()))
+  const unTicks = unM[1].split(',').map((s) => Number(s.trim()))
+  const eq = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+  const v = []
+  if (!eq(inst, instTicks)) v.push(`安装埋点集合 [${inst.join(',')}] != 轨道刻度 [${instTicks.join(',')}]`)
+  if (!eq(un, unTicks)) v.push(`卸载埋点集合 [${un.join(',')}] != 卸载刻度 [${unTicks.join(',')}]`)
+  return v
+}
+
+const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
+const INSTALLER_SRC_FOR_GEO = readFileSync(process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'), 'utf8')
+const GEN_SRC_FOR_GEO = readFileSync(process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'), 'utf8')
+
+const geoFail = [
+  ...checkHoleEqualsButton({ uiSrc: UI_SRC_FOR_GEO }),
+  ...checkBadgeConcentric({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+  ...checkAnchorsMatchTicks({ installerSrc: INSTALLER_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+]
+if (geoFail.length > 0) {
+  console.error(`\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`)
+  for (const m of geoFail) console.error(`  - ${m}`)
+  process.exit(1)
+}
+console.log('[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度 三条跨文件不变量成立')
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
