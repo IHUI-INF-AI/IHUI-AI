@@ -90,7 +90,7 @@ export default function LanguagePage() {
           <Text className="mb-[16rpx] block text-[28rpx] text-muted-foreground">
             {tt('setting.language.chooseHint', '选择应用语言')}
           </Text>
-          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-[16rpx] bg-[color:var(--color-border)]">
+          <View className="flex flex-col gap-[2rpx] overflow-hidden rounded-lg bg-[color:var(--color-border)]">
             {LANGS(tt).map((l) => (
               <View
                 key={l.value}

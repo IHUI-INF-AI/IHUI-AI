@@ -36,7 +36,7 @@
 .exam-detail-header {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -63,7 +63,7 @@
   flex-wrap: wrap;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx 16rpx;
   margin-bottom: 20rpx;
 }
@@ -92,7 +92,7 @@
 .exam-detail-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -181,7 +181,7 @@
   font-size: 22rpx;
   font-weight: 600;
   padding: 8rpx 12rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .exam-detail-history-status.passed {
@@ -251,7 +251,7 @@
   line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 28rpx;
   font-weight: 600;
   border: none;

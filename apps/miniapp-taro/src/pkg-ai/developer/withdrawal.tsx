@@ -124,7 +124,7 @@ export default function DeveloperWithdrawal() {
           </Text>
         </View>
         {/* 汇总卡 — 对齐 RN balanceCard(padding 14/radius 12/白卡,value 28 700) */}
-        <View className="flex bg-card rounded-[24rpx] p-[28rpx] mb-[24rpx]">
+        <View className="flex bg-card rounded-xl p-[28rpx] mb-[24rpx]">
           <View className="flex-1 flex flex-col items-center">
             <Text className="text-[28rpx] text-muted-foreground">
               {t('developer.income.withdrawnYuan')}
@@ -151,7 +151,7 @@ export default function DeveloperWithdrawal() {
             list.map((item) => (
               <View
                 key={item.id}
-                className="flex items-center justify-between bg-card border-[2rpx] border-border rounded-[24rpx] p-[24rpx] mb-[20rpx]"
+                className="flex items-center justify-between bg-card border-[2rpx] border-border rounded-xl p-[24rpx] mb-[20rpx]"
               >
                 <View className="flex-1">
                   <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">

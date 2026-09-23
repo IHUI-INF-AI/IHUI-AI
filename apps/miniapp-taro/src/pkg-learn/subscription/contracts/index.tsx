@@ -105,7 +105,7 @@ export default function SubscriptionContractsPage() {
             {list.map((c) => (
               <View
                 key={c.id}
-                className="bg-background border-[2rpx] border-border rounded-[24rpx] p-[24rpx] mb-[24rpx]"
+                className="bg-background border-[2rpx] border-border rounded-xl p-[24rpx] mb-[24rpx]"
               >
                 <View className="flex justify-between items-center">
                   <Text className="text-[32rpx] text-foreground font-semibold">
@@ -114,7 +114,7 @@ export default function SubscriptionContractsPage() {
                       : tt('subscription.autoRenew', '自动续费')}
                   </Text>
                   <Text
-                    className={`text-[24rpx] px-[16rpx] py-[4rpx] rounded-[16rpx] ${STATUS_STYLE[c.status]}`}
+                    className={`text-[24rpx] px-[16rpx] py-[4rpx] rounded-lg ${STATUS_STYLE[c.status]}`}
                   >
                     {getStatusText(c.status)}
                   </Text>
@@ -152,7 +152,7 @@ export default function SubscriptionContractsPage() {
                 {c.status === 'active' && (
                   <View className="mt-[24rpx] text-right">
                     <Text
-                      className="inline-block text-[28rpx] font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[2rpx] border-border rounded-[24rpx]"
+                      className="inline-block text-[28rpx] font-semibold text-[var(--color-text-medium)] bg-background px-[24rpx] py-[12rpx] border-[2rpx] border-border rounded-xl"
                       onClick={() => onCancel(c)}
                     >
                       {tt('subscription.cancelBtn', '解约')}

@@ -106,13 +106,13 @@ export default function AiCareer() {
               return (
                 <ThemeRoot
                   key={id}
-                  className="p-[28rpx] rounded-[24rpx] border border-[var(--color-border)] bg-card"
+                  className="p-[28rpx] rounded-xl border border-[var(--color-border)] bg-card"
                 >
                   <View key={id} onClick={() => onItemClick(id)} hoverClass="opacity-60">
                     {/* 对齐 RN cardHead:头像 44dp=88rpx / 12dp=24rpx 圆角 / muted 底 / 右距 10dp=20rpx */}
                     <View className="flex flex-row items-start">
                       <Image
-                        className="w-[88rpx] h-[88rpx] rounded-[24rpx] bg-muted flex-shrink-0"
+                        className="w-[88rpx] h-[88rpx] rounded-xl bg-muted flex-shrink-0"
                         src={avatar}
                         mode="aspectFill"
                       />
@@ -133,7 +133,7 @@ export default function AiCareer() {
                         {tags.map((tag, idx) => (
                           <Text
                             key={idx}
-                            className="py-[8rpx] px-[16rpx] rounded-[24rpx] text-[22rpx] text-muted-foreground bg-[var(--color-muted)]"
+                            className="py-[8rpx] px-[16rpx] rounded-xl text-[22rpx] text-muted-foreground bg-[var(--color-muted)]"
                           >
                             {tag}
                           </Text>
@@ -146,7 +146,7 @@ export default function AiCareer() {
                         <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">
                           {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
                         </Text>
-                        <View className="ml-auto flex flex-row items-center justify-center px-[28rpx] h-[60rpx] rounded-[24rpx] bg-[var(--color-brand)]">
+                        <View className="ml-auto flex flex-row items-center justify-center px-[28rpx] h-[60rpx] rounded-xl bg-[var(--color-brand)]">
                           <Text className="text-[28rpx] font-semibold text-[var(--color-surface-light)]">
                             {tt('aiAssistant.startChat', '开始对话')}
                           </Text>

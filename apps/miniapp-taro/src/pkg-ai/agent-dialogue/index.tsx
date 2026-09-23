@@ -513,7 +513,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <Image
-          className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] rounded-[8rpx] block bg-muted"
+          className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] rounded-sm block bg-muted"
           src={url}
           mode="aspectFit"
           onClick={() => previewImage(url)}
@@ -524,7 +524,7 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <Video
-          className="max-w-[480rpx] max-h-[600rpx] rounded-[8rpx] block"
+          className="max-w-[480rpx] max-h-[600rpx] rounded-sm block"
           src={url}
           controls
           poster={msg.poster || ''}
@@ -608,7 +608,7 @@ export default function AgentDialogue() {
               {msg.type === 'user' ? (
                 <>
                   <View
-                    className={`max-w-[85%] p-[20rpx] rounded-[24rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                    className={`max-w-[85%] p-[20rpx] rounded-xl relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
                   >
                     {renderBubble(msg)}
                     {msg.read ? (
@@ -617,7 +617,7 @@ export default function AgentDialogue() {
                       </Text>
                     ) : null}
                   </View>
-                  <View className="w-[72rpx] h-[72rpx] rounded-[12rpx] overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                  <View className="w-[72rpx] h-[72rpx] rounded-md overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
@@ -627,7 +627,7 @@ export default function AgentDialogue() {
                 </>
               ) : msg.type === 'seller' ? (
                 <>
-                  <View className="w-[72rpx] h-[72rpx] rounded-[12rpx] overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
+                  <View className="w-[72rpx] h-[72rpx] rounded-md overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
@@ -635,7 +635,7 @@ export default function AgentDialogue() {
                     )}
                   </View>
                   <View
-                    className={`max-w-[85%] p-[20rpx] rounded-[24rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
+                    className={`max-w-[85%] p-[20rpx] rounded-xl relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}
                   >
                     {renderBubble(msg)}
                   </View>
@@ -651,7 +651,7 @@ export default function AgentDialogue() {
       </ScrollView>
       <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[20rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
         <Input
-          className="flex-1 h-[100rpx] px-[24rpx] text-[32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-[24rpx]"
+          className="flex-1 h-[100rpx] px-[24rpx] text-[32rpx] text-foreground bg-[var(--color-muted)] border border-[var(--color-border)] rounded-xl"
           placeholderStyle="color: var(--color-text-tertiary)"
           value={inputContent}
           placeholder={tt('agentDialogue.inputPlaceholder', '输入消息…')}
@@ -661,7 +661,7 @@ export default function AgentDialogue() {
           disabled={sending}
         />
         <View
-          className={`h-[100rpx] px-[28rpx] bg-primary rounded-[24rpx] flex items-center justify-center flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
+          className={`h-[100rpx] px-[28rpx] bg-primary rounded-xl flex items-center justify-center flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
           onClick={sendMessage}
           hoverClass="opacity-60"
         >
