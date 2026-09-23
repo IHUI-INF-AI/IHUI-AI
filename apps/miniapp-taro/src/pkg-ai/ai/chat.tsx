@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { aizhsUrl } from '@/constants/icon-urls'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 const tishiIcon = aizhsUrl('remote-images/tishi_icon.png')
@@ -27,12 +27,7 @@ import {
   getWorkspacePermissionDefault,
 } from '@ihui/api-client'
 import { formatTokenCount } from '@ihui/shared/utils'
-import {
-  applyStreamError,
-  isErrorTurn,
-  permissionTierWordKeys,
-  resendTargetText,
-} from '@ihui/shared/chat'
+import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
 import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
@@ -47,6 +42,7 @@ import {
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
+import { resolvePermissionTierText } from './permission-tier-text'
 import TaskStatusBar from './task-status-bar'
 import { appendCitations, type AICardsData } from './cards/types'
 import { toolActivityText } from './cards/tool-line'
@@ -77,6 +73,7 @@ const MATERIAL_PAGE_SIZE = 20
 export default function ChatPage() {
   const router = useRouter()
   const { t, tList } = useI18n()
+  const tt = useTt()
   const suggestions = tList('ai.suggestions')
   const user = useUserStore((s) => s.user)
   const routeAgentId = router.params.agentId || ''
@@ -1003,6 +1000,9 @@ export default function ChatPage() {
     }
   }, [])
 
+  // D111:权限档行文案(档名 + 后果,缺键用端内中文兜底,不渲染 raw key)。
+  const tierText = resolvePermissionTierText(workspaceTier, tt)
+
   return (
     <ThemeRoot className="page">
       <View
@@ -1045,12 +1045,11 @@ export default function ChatPage() {
         </View>
       </View>
 
-      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位) */}
+      {/* D111:权限档交代行(取数失败整行隐藏,不假装知道档位;缺键用端内中文兜底) */}
       {workspaceTier !== null ? (
         <View className="permission-tier" style={{ padding: '8rpx 24rpx' }}>
           <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
-            {t('permissionTier.label')}: {t(permissionTierWordKeys(workspaceTier).title)} ·{' '}
-            {t(permissionTierWordKeys(workspaceTier).desc)}
+            {tierText.label}: {tierText.title} · {tierText.desc}
           </Text>
         </View>
       ) : null}
