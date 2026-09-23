@@ -515,7 +515,11 @@ function ensureVbs() {
     'node = sh.Environment("Process")("IHUI_NODE_BIN")',
     'If Len(node) = 0 Then node = "node.exe"',
     'script = dir & "\\check-credential-health.mjs"',
-    '  sh.Run """" & node & """ """ & script & """ --json", 0, False',
+    // 不得在这里写 `--json >> xxx.log`:WshShell.Run 走 CreateProcess,**不解析 shell 重定向**,
+    // `>>` 只会被当成两个普通参数传给 node —— 曾据此以为有日志,实测 .workbuddy 下从未生成该文件。
+    // 运行态取证面是 credential-health-last.json(最近一次结论)+ LEDGER(追加式流水),
+    // 需要文本日志就必须显式经 cmd.exe /c 包一层,不要把重定向写进 Run 的命令行。
+    'sh.Run """" & node & """ """ & script & """ --json", 0, False',
   ].join('\r\n')
   writeFileSync(VBS, body, 'ascii')
   return VBS
