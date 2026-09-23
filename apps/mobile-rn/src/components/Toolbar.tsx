@@ -243,7 +243,7 @@ export function Toolbar({
         </Animated.View>
         <View style={styles.bannerCard}>
           <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
-          <Text style={styles.bannerSub}>批量一件生成百条爆款，降本增效90%</Text>
+          <Text style={styles.bannerSub}>批量一键生成百条爆款，降本增效90%</Text>
         </View>
       </Pressable>
 
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   bannerSub: {
     fontSize: 12,
