@@ -92,8 +92,7 @@ type PlusMenuAction = {
   /** 全局直接快捷键(可选,显示在菜单项右侧)
    * 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
    * 设计原则(做减法):只为最高频入口(设置)标独立快捷键,其他 7 项通过 Ctrl+Shift+P 命令面板搜索触发
-   * 避免快捷键爆炸(用户记不住 + 浏览器冲突);打开设置为 VS Code 标准 Ctrl+Shift+,,
-   * 2026-09-22 起让位 IDE 设置视图(原 Ctrl+, 归 use-ide-shortcuts 单主) */
+   * 避免快捷键爆炸(用户记不住 + 浏览器冲突);Ctrl+, 是 VS Code 标准,用户最熟悉 */
   shortcut?: string
 }
 
@@ -135,7 +134,7 @@ const PLUS_MENU_GROUPS: Array<{
       { key: 'connectors', icon: Library, href: '/connectors' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
       // 设置项已提取到左侧侧边栏底部用户行下拉菜单(2026-09-21 前为独立工具栏 SidebarActions),
-      // 不再放在本菜单内。Ctrl+Shift+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
+      // 不再放在本菜单内。Ctrl+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
     ],
   },
 ]
