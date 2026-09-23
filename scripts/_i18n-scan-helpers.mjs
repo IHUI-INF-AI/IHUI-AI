@@ -80,7 +80,7 @@ const EXCLUDE_FILE_PATTERNS = [
 // 简化为只匹配 key 部分 `t('a.b'`,允许嵌套调用内层也被识别。配合 stripComments 剥离注释避免假引用。
 // 注:简化后 false positive 风险低 — 字符串字面量里 `t('a.b.c')` 形式极罕见,且 i18n key 不含特殊字符。
 // 历史追溯:此前所有现有测试(单参/多参/嵌套对象/同行多调用)在简化后仍 pass,行为一致。
-export const STATIC_T_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
+export const STATIC_T_RE = /\b(?:t|tt|tr)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-07-26 新增:tList('key') 字符串数组辅助函数识别
 // 背景:miniapp-taro useI18n() 返回 tList 函数,用于读取字符串数组(appPermission.names/descs, course.ratingLabels 等),
 // 普遍存在于 about/app-permission、ai/chat、ai/image、course/detail、plaza/set-need、vip/upgrade、study/publish 等页面。
@@ -107,7 +107,7 @@ export const USE_T_NO_ARG_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*\)/
 // 2026-08-02 新增:单段 key 扫描 t('key') / tt('key') — 不含点,根级别引用
 // 仅在文件含无参数 useTranslations() 时启用,避免误报(误报风险低:useTranslations 是 next-intl API)
 // 正则说明:[a-zA-Z][a-zA-Z0-9_]* 不含点,引号后紧跟 ) 或 ,(与 STATIC_T_RE 的多段 key 互补)
-export const STATIC_T_ROOT_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_-]*)['"`]\s*(?:\)|,)/g
+export const STATIC_T_ROOT_RE = /\b(?:t|tt|tr)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_-]*)['"`]\s*(?:\)|,)/g
 // 备用:i18n.t / getFixedT 链式调用
 export const I18N_T_RE =
   /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
@@ -143,7 +143,7 @@ export const JSX_PROP_KEY_RE =
 // 此正则只要求 `t('key',`(逗号后任意,不要求 `)` 闭合),补跨行调用缺口。
 // 注:与 STATIC_T_RE 部分重叠(单行带参数调用两者都匹配),但 Set 去重,无副作用。
 export const STATIC_T_MULTILINE_RE =
-  /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]\s*,/g
+  /\b(?:t|tt|tr)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]\s*,/g
 // 联合类型字面量:'a.b' | 'c.d'(2026-07-26 三次增强新增)
 // 背景:mobile-rn LiveScreen.tsx 通过 `function statusKey(live): 'live.ongoing' | 'live.upcoming' | 'live.ended'` 联合类型字面量引用,
 // 原 UNION_TYPE_NS_RE 只识别 `namespace:` 关键字,无法识别函数返回类型的联合类型字面量,导致 live.ended 误判为死 key。
