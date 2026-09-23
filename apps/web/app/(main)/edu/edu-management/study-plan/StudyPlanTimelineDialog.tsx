@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { type UseQueryResult } from '@tanstack/react-query'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 
@@ -21,19 +20,17 @@ export function StudyPlanTimelineDialog({
   onOpenChange: (v: boolean) => void
   query: UseQueryResult<ProgressTimelineResponse>
 }) {
-  const t = useTranslations('eduStudyPlan')
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t('progressTimeline')}</DialogTitle>
+          <DialogTitle>进度时间线</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           {query.isFetching ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {t('loading')}
+              加载中...
             </div>
           ) : query.data ? (
             <>
@@ -55,9 +52,7 @@ export function StudyPlanTimelineDialog({
 
               {/* Timeline */}
               {query.data.timeline.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  {t('noCompletionRecords')}
-                </p>
+                <p className="py-4 text-center text-sm text-muted-foreground">暂无完成记录</p>
               ) : (
                 <div className="space-y-4">
                   {query.data.timeline.map((day) => (
@@ -66,7 +61,7 @@ export function StudyPlanTimelineDialog({
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         <span>{day.date}</span>
                         <span className="text-xs text-muted-foreground">
-                          {t('itemCount', { count: day.items.length })}
+                          ({day.items.length} 项)
                         </span>
                       </div>
                       <div className="ml-6 space-y-1.5 border-l-2 pl-4">
@@ -78,7 +73,7 @@ export function StudyPlanTimelineDialog({
                             <p>{item.content}</p>
                             {item.completedAt && (
                               <p className="mt-0.5 text-xs text-muted-foreground">
-                                {t('completedAtPrefix', { value: item.completedAt })}
+                                完成于 {item.completedAt}
                               </p>
                             )}
                           </div>
@@ -90,7 +85,7 @@ export function StudyPlanTimelineDialog({
               )}
             </>
           ) : (
-            <p className="py-4 text-center text-sm text-muted-foreground">{t('noTimelineData')}</p>
+            <p className="py-4 text-center text-sm text-muted-foreground">暂无时间线数据</p>
           )}
         </div>
       </DialogContent>
