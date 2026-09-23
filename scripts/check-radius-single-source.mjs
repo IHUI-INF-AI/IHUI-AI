@@ -22,6 +22,11 @@
  *  B4 `rounded-[...]` 任意值 → 必须换档位类(或 var(--radius-*))
  *     唯一放行:`0` / `none` / `inherit` / 同行或紧邻上行含 `radius-exempt:` 标记(真圆、头像、
  *     装饰点、胶囊等几何圆按 AGENTS §4 豁免清单本就不该方档化,但必须写明原因,不得静默)。
+ *  B5 SVG `rx`/`ry`:静态 .svg 须等于档位值(没有 JS 通道),JSX 内联须引用 rnRadius.<step>。
+ *  B6 引用了 `rnRadius` / `RADIUS_CSS_PX` 却没在本文件 import 它们 → 红。
+ *     本门判的是 HEAD 内容,而 `pnpm typecheck` 只跑 worktree —— 悬空标识符属于"两边都不红"
+ *     的那一类(前向移植 / 批量改写的典型遗留),只能在读 HEAD blob 的这里补上。
+ *     import 常写成多行,必须在整条 `{…}` 括号里找名字。
  *  B 走 **HEAD 锚点棘轮**:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(全量审计时上限只来自
  *    人工基线,因为内容就是 HEAD)。只拦"这次改动把绕档加回来了",不拦仓库既有债。
  *    锚点原先是一份手工维护的 JSON 清单,它有两个致命伤:并行会话把已迁好的路径整文件回写成
@@ -313,6 +318,20 @@ export function scanText(rel, text, table) {
       bad.push({ line: i + 1, rule: 'B4', raw: a[0], hint: '任意值须换档位类 rounded-<step>' })
     }
   })
+  // B6:引用了档位出口(rnRadius / RADIUS_CSS_PX)却没在本文件 import 它们。
+  //    这道门现在判的是 **HEAD 内容**,而 tsc 只在 worktree 上跑 —— "别人没提交的草稿"与
+  //    "HEAD 里悬空的标识符"本地全绿却都是真的,前向移植/批量改写最容易留下的就是这一类。
+  //    import 常写成多行,必须在整条 `{…}` 里找名字:首版按单行匹配,把 6 个正常文件
+  //    (swagger-theme / design-templates / chart-template-card 等)全判成缺 import。
+  if (isJsx(rel)) {
+    const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
+    for (const name of ['rnRadius', 'RADIUS_CSS_PX']) {
+      const used = lines.some((l, k) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && new RegExp(`\\b${name}\\s*\\.`).test(l))
+      if (!used) continue
+      if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
+      bad.push({ line: 1, rule: 'B6', raw: `${name} 被使用但未 import`, hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过` })
+    }
+  }
   return bad
 }
 
@@ -361,12 +380,12 @@ async function selfTest() {
   }
   const cases = [
     { name: 'B1 RN 数字字面量必拦', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 8 } }', red: true },
-    { name: 'B1 rnRadius 引用放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: rnRadius.lg } }', red: false },
+    { name: 'B1 rnRadius 引用放行', f: 'packages/app/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst st = { a: { borderRadius: rnRadius.lg } }", red: false },
     { name: 'B1 0 放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 0 } }', red: false },
     { name: 'B1 几何圆带标记放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆', red: false },
     { name: 'B1 rpx 绕档必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const st = { a: { borderRadius: rpx(16) } }', red: true },
     { name: 'B2 本地常量必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const CARD_RADIUS = 12', red: true },
-    { name: 'B2 引用档位放行', f: 'apps/mobile-rn/src/x.tsx', s: 'const CARD_RADIUS = rnRadius.xl', red: false },
+    { name: 'B2 引用档位放行', f: 'apps/mobile-rn/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst CARD_RADIUS = rnRadius.xl", red: false },
     { name: 'B3 CSS 字面量必拦', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: 24rpx;', red: true },
     { name: 'B3 CSS var 放行', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: var(--radius-xl);', red: false },
     { name: 'B3 圆形无标记必拦', f: 'apps/web/app/x.css', s: '  border-radius: 50%;', red: true },
@@ -398,6 +417,10 @@ async function selfTest() {
     { name: 'B1 字符串纯圆无标记必拦', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "50%" }}', red: true },
     { name: 'B5 SVG rx 数值必拦', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: '<rect rx={2} ry={2} width={10} />', red: true },
     { name: '档位类放行', f: 'apps/web/src/a.tsx', s: '<div className="rounded-lg p-2" />', red: false },
+    { name: 'B6 引用 rnRadius 却没 import 必拦(HEAD 上就是编译不过)', f: 'apps/web/src/a.tsx', s: 'const s = { a: { borderRadius: rnRadius.lg } }', red: true },
+    { name: 'B6 多行 import 带 rnRadius 必须放行(首版单行匹配误伤 6 个正常文件)', f: 'apps/api/src/plugins/swagger-theme.ts', s: "import {\n  COLOR_BLACK,\n  rnRadius,\n  RADIUS_CSS_PX,\n} from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius.lg } }\nconst css = `border-radius: ${RADIUS_CSS_PX.md}`", red: false },
+    { name: 'B6 别名 import(rnRadius as r)同样放行', f: 'apps/web/src/a.tsx', s: "import { rnRadius as r } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: r.lg } }", red: false },
+    { name: 'B6 只在注释里提到 rnRadius 不算使用', f: 'apps/web/src/a.tsx', s: '// 这里将来会换成 rnRadius.lg\nconst s = { a: { borderRadius: 0 } }', red: false },
   ]
   let fail = 0
   for (const c of cases) {
