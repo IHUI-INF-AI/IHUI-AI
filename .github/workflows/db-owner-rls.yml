@@ -39,7 +39,7 @@ jobs:
     services:
       postgres:
         # 与 test-real-db.yml 同款:pgvector 镜像(drizzle-kit migrate 全量迁移含 vector 列)
-        image: pgvector/pgvector:pg18
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
