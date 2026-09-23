@@ -30,16 +30,14 @@
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { gitdirArchivePath } from './lib/gitdir.mjs'
 import { basename, join } from 'node:path'
-
 
 /**
  * 外部 gitdir 的真值由仓库根推导,不得硬编码盘符:
  * 同一份仓在 `G:/IHUI-AI` 与 `D:/IHUI-AI` 都存活过(§5b 记录过一次整仓迁盘),
  * 写死 `D:/IHUI-AI-git-repo` 会让 G: 上的检出重建到错误位置。
  */
-function externalGitDir(root: string): string {
+function externalGitDir(root) {
   return join(root, '..', `${basename(root)}-git-repo`)
 }
 
@@ -196,8 +194,7 @@ function main() {
   }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
-  // 归档统一落 §15b 唯一备份目录;取不到才退回旧的兄弟命名(旧写法每次重建在盘根长新目录)
-  const archiveDir = gitdirArchivePath(`${basename(targetGitDir)}.broken-${ts}`) || `${targetGitDir}.broken-${ts}`
+  const archiveDir = `${targetGitDir}.broken-${ts}`
   const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
