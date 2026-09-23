@@ -158,6 +158,25 @@
 `/api/health` uptime 从 31 小时归零为 5 分钟(进程确已重启)、8801 与 `https://aizhs.top` 均 200。
 **即:包括"用户被误封 IP"那四票(`b27e7ebf4a`/`5acd14bc20`/`d21397a48b`/`f03903b1d1`)在内的两天提交,此刻才真正对用户生效。**
 
+### git 凭据权威地图(`D:\BaiduSyncdisk\密钥\git仓库\`,2026-09-23 逐项实测)
+
+| 文件 | 内容(不含值) | 实测可用性 | 用途判定 |
+| --- | --- | --- | --- |
+| `github key.txt` | fine-grained PAT,前缀 `github_pat_`,长 93 | **401 Bad credentials**(`api.github.com` 已失效/被撤销) | **不可用**;谁拿它去推都会被拒 |
+| `Github应用apikey.txt` | OAuth App `Client ID`(20) + `Client secret`(40) | 未测(结构上不是 git 口令) | 走 OAuth 设备流换 token 才用得上 |
+| `gitee apikey.txt` | 32 位 hex token | 未测 | 镜像仓;**本机禁止直推**(§5b),由 `mirror-to-cn.yml` 收敛 |
+| `gitcode apikey.txt` | 24 字符 token | 未测 | 同上 |
+
+**当前真正在用的 GitHub 写入凭据 = Windows 凭据管理器里那份**(证据:同日多次 `git-push-guard` 推成功 +
+生产 `08:24:40 部署完成 HEAD=ce70f8660` 需真实写入;`~/.git-credentials` 在本机不存在,§5b 已记)。
+网络侧则是**仓库级代理** `127.0.0.1:7897`(见上方 §5b 纠正)。
+
+**换发新 PAT 时的硬要求(写给下一次接手的人)**:仓库 `IHUI-INF-AI/IHUI-AI`、
+Contents = **Read and write**;写回本目录同名文件即可,**不要**贴进任何 tracked 文件、日志或会话回显。
+本次两天冻结事故的根因正是"某处凭据过期而无人知道"(服务环境块里的 admin 口令),
+所以**任何凭据过期都只会表现为下游门禁失败**(这里表现为部署永远回滚)——
+排查顺序固定为:先验证凭据本身对不对(单次最小请求),再看下游门禁,最后才怀疑网络。
+
 ### 复发风险(结构性,已量化,待作者定方案)
 
 冻结**能持续两天无人知**的两条放大器,都在这次事故里实锤:
