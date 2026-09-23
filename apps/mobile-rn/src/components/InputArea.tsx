@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: tokens.surface.muted,
     justifyContent: 'center',
   },
   docMarqueeInner: {
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

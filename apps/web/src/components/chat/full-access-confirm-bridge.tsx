@@ -9,7 +9,6 @@ import { useTranslations } from 'next-intl'
 
 import { FullAccessConfirmDialog } from '@/components/ai/full-access-confirm-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { permissionModeWire } from '@ihui/types/permission-mode'
 import { updateLatestRecordSource } from '@/lib/permission-mode-history'
 import { recordModeChange } from '@/lib/permission-mode-history'
 
@@ -53,7 +52,7 @@ export function FullAccessConfirmBridge() {
           timestamp: Date.now(),
           source: 'confirm-dialog',
         })
-        updateLatestRecordSource('confirm-dialog', (e) => permissionModeWire(e.mode) === 'bypass-permissions')
+        updateLatestRecordSource('confirm-dialog', (e) => e.mode === 'bypass-permissions')
       } catch {
         // 历史模块不可用时静默
       }
