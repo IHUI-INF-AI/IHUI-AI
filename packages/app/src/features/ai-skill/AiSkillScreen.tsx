@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import {
@@ -217,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 12, // mb-3
     },
     retryBtn: {
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.surface.muted,
@@ -237,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 技能卡片 */
     card: {
       marginBottom: 12, // mb-3
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1, // border
       borderColor: tk.border.light,
       padding: 16, // p-4
@@ -256,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     categoryBadge: {
       marginLeft: 8, // ml-2
-      borderRadius: 2, // rounded-sm
+      borderRadius: rnRadius.xs, // rounded-sm
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.surface.muted,
@@ -278,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     tagChip: {
-      borderRadius: 2, // rounded-sm
+      borderRadius: rnRadius.xs, // rounded-sm
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.warning.orangeLight,

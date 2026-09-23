@@ -72,7 +72,7 @@ export default function ModelRecord() {
           {tt('about.modelRecord.tableTitle', '大模型备案信息')}
         </Text>
 
-        <View className="bg-card rounded-[24rpx] overflow-hidden mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden mb-[24rpx]">
           {info.map((item, idx) => (
             <View
               key={item.label}
@@ -86,12 +86,12 @@ export default function ModelRecord() {
           ))}
         </View>
 
-        <View className="bg-card rounded-[24rpx] overflow-hidden p-[24rpx] box-border mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden p-[24rpx] box-border mb-[24rpx]">
           {IMAGE_LIST.map((img, index) =>
             errorSet.has(index) ? null : (
               <Image
                 key={index}
-                className="w-full block rounded-[8rpx] mb-[24rpx]"
+                className="w-full block rounded-sm mb-[24rpx]"
                 src={img}
                 mode="widthFix"
                 onClick={() => previewImages(index)}
@@ -108,7 +108,7 @@ export default function ModelRecord() {
           ) : null}
         </View>
 
-        <View className="bg-card rounded-[24rpx] overflow-hidden p-[28rpx] mb-[24rpx]">
+        <View className="bg-card rounded-xl overflow-hidden p-[28rpx] mb-[24rpx]">
           <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
             {tt('about.modelRecord.noticeTitle', '模型信息公示')}
           </Text>
