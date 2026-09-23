@@ -4,7 +4,7 @@
 
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
@@ -13,6 +13,7 @@ import Carousel from '@/components/Carousel'
 // P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致;Carousel 契约不兼容保持本地实现)
 import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
+import CategoryBar from '@/components/CategoryBar'
 
 interface PlanetCourse {
   id: string
@@ -230,20 +231,13 @@ export default function CoursePlanet() {
             {t('coursePlanet.title')}
           </Text>
         </View>
-        {/* 分类筛选(RN 对应 list 变体 tabBar 视觉:文字 12dp→24rpx/600,选中 bg primary + primary-foreground,未选中 text.tertiary,圆角 12dp→24rpx) */}
-        <ScrollView scrollX className="whitespace-nowrap bg-transparent">
-          <View className="whitespace-nowrap py-[16rpx] px-[20rpx]">
-            {CATEGORY_KEYS.map((cat) => (
-              <Text
-                key={cat.key}
-                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[24rpx] font-semibold text-[var(--color-text-tertiary)] bg-card rounded-xl ${activeCategory === cat.key ? 'text-primary-foreground bg-primary' : ''}`}
-                onClick={() => onCategoryChange(cat.key)}
-              >
-                {tt(cat.label, cat.key)}
-              </Text>
-            ))}
-          </View>
-        </ScrollView>
+        {/* 分类筛选:统一分类条(与 web / RN 同形同档) */}
+        <CategoryBar
+          className="bg-transparent py-[16rpx] px-[20rpx]"
+          value={activeCategory}
+          onChange={onCategoryChange}
+          items={CATEGORY_KEYS.map((cat) => ({ id: cat.key, label: tt(cat.label, cat.key) }))}
+        />
         {displayList.length > 0 && (
           <View className="px-[20rpx] mb-[16rpx]">
             <SectionHeader title={tt('coursePlanet.featured', '精选推荐')} showMore={false} />
