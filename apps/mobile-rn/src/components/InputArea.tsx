@@ -825,7 +825,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 16,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: tokens.surface.muted,
     justifyContent: 'center',
   },
   docMarqueeInner: {
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -947,7 +947,9 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.brand.DEFAULT,
+    // 深色下 brand.DEFAULT=#FFFFFF(纯白),与深色主题不协调;
+    // 改用 gray[900]=#171717(深灰),两态均为深灰底白字,与深色主题协调
+    backgroundColor: tokens.gray[900],
   },
 
   voiceBtn: {
@@ -1074,7 +1076,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: tokens.brand.DEFAULT,
+    // 深色下 brand.DEFAULT=#FFFFFF(纯白),与深色主题不协调;
+    // 改用 gray[900]=#171717(深灰),两态均为深灰底白字,与深色主题协调
+    backgroundColor: tokens.gray[900],
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1087,7 +1091,8 @@ const styles = StyleSheet.create({
   },
   sendIcon: {
     fontSize: 18,
-    color: tokens.brand.foreground,
+    // stopButton 红底配白色文字;原 brand.foreground 深色=#000000(黑)红底黑字不可读
+    color: tokens.surface.light,
     fontWeight: '600',
   },
 
