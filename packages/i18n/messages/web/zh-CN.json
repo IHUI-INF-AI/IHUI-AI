@@ -7484,7 +7484,90 @@
         "expandAria": "命令历史(展开/收起)"
       },
       "toolSummaryShowMore": "更多",
-      "toolSummaryShowLess": "收起"
+      "toolSummaryShowLess": "收起",
+      "worktree": {
+        "title": "Worktree",
+        "state": {
+          "creating": "创建中",
+          "ready": "已创建",
+          "initFailed": "初始化失败",
+          "timeout": "超时",
+          "cleaned": "此任务的 Worktree 已被清理以释放磁盘空间。",
+          "restoring": "恢复中",
+          "restored": "已恢复",
+          "restoreFailed": "无法恢复"
+        },
+        "hint": {
+          "timeout": "请检查仓库状态",
+          "cleaned": "可恢复该 Worktree 以继续此任务,或回收磁盘空间。",
+          "singleWriter": "同一任务同时仅允许一个活跃 Worktree。"
+        },
+        "action": {
+          "reclaimDisk": "回收磁盘空间",
+          "restore": "恢复 Worktree",
+          "retryRestore": "重试恢复",
+          "dismiss": "知道了"
+        },
+        "ariaLabel": "Worktree 生命周期"
+      },
+      "writingBlock": {
+        "title": "写作块",
+        "ariaLabel": "写作块",
+        "empty": "此消息暂无写作块",
+        "status": {
+          "idle": "待处理",
+          "editing": "编辑中",
+          "accepted": "已接受",
+          "reverted": "已撤销",
+          "failed": "无法更新此写作块"
+        },
+        "action": {
+          "accept": "接受",
+          "acceptAll": "全部接受",
+          "revert": "撤销"
+        },
+        "phase": {
+          "accept": {
+            "inProgress": "正在接受",
+            "completed": "已接受",
+            "failed": "无法接受此写作块"
+          },
+          "acceptAll": {
+            "inProgress": "正在全部接受",
+            "completed": "已全部接受",
+            "failed": "无法全部接受此写作块"
+          },
+          "revert": {
+            "inProgress": "正在撤销",
+            "completed": "已撤销",
+            "failed": "无法撤销此写作块"
+          }
+        },
+        "openIn": {
+          "label": "打开方式",
+          "email": "使用默认电子邮箱应用打开电子邮件",
+          "browser": "使用默认浏览器打开网页"
+        }
+      },
+      "promptPolish": {
+        "entryLabel": "润色",
+        "ariaLabel": "润色提示词",
+        "phase": {
+          "idle": "未润色",
+          "polishing": "正在润色…",
+          "succeeded": "润色完成",
+          "failed": "润色失败"
+        },
+        "action": {
+          "polish": "润色",
+          "retry": "重试"
+        },
+        "failureDraftKept": "暂时无法润色提示词，草稿已保留。",
+        "rejection": {
+          "emptyDraft": "草稿为空，请先输入内容再润色。"
+        },
+        "restartHint": "润色服务需重启后生效，草稿已保留。"
+      }
     },
     "permissionConfirm": {
       "allow": "允许",
