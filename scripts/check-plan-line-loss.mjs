@@ -325,7 +325,7 @@ export function healContent(targetSrc, missing) {
   let appended = 0
   let inserted = 0
   for (const entry of missing) {
-    const { line, marker, id, prev } = entry
+    const { line, id, prev } = entry
     if (stillRegistered(entry, lines.join(eol), ids)) continue
     const clean = line.replace(/\r$/, '')
     if (id) ids.add(id) // 本轮回插过的行,后续同编号条目不再重复插
