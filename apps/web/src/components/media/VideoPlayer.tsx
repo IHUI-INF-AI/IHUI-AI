@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { Play, Pause, Volume2, VolumeX, Maximize, SkipBack, SkipForward } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -28,7 +27,6 @@ export function VideoPlayer({
   muted = false,
   className,
 }: VideoPlayerProps) {
-  const t = useTranslations('a11y')
   const ref = React.useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = React.useState(autoPlay)
   const [mutedState, setMutedState] = React.useState(muted)
@@ -102,7 +100,6 @@ export function VideoPlayer({
         <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <input
             type="range"
-            aria-label={t('seekBar')}
             min={0}
             max={100}
             value={progress}
@@ -110,42 +107,22 @@ export function VideoPlayer({
             className="mb-2 h-1 w-full cursor-pointer appearance-none rounded bg-white/30 accent-primary"
           />
           <div className="flex items-center gap-2 text-white">
-            <button
-              onClick={togglePlay}
-              aria-label={playing ? t('pause') : t('play')}
-              className="rounded p-1 hover:bg-white/20"
-            >
+            <button onClick={togglePlay} className="rounded p-1 hover:bg-white/20">
               {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </button>
-            <button
-              onClick={() => skip(-10)}
-              aria-label={t('seekBackward')}
-              className="rounded p-1 hover:bg-white/20"
-            >
+            <button onClick={() => skip(-10)} className="rounded p-1 hover:bg-white/20">
               <SkipBack className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => skip(10)}
-              aria-label={t('seekForward')}
-              className="rounded p-1 hover:bg-white/20"
-            >
+            <button onClick={() => skip(10)} className="rounded p-1 hover:bg-white/20">
               <SkipForward className="h-4 w-4" />
             </button>
-            <button
-              onClick={toggleMute}
-              aria-label={mutedState ? t('unmute') : t('mute')}
-              className="rounded p-1 hover:bg-white/20"
-            >
+            <button onClick={toggleMute} className="rounded p-1 hover:bg-white/20">
               {mutedState ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
             </button>
             <span className="text-xs">
               {fmt((progress / 100) * duration)} / {fmt(duration)}
             </span>
-            <button
-              onClick={fullscreen}
-              aria-label={t('fullscreen')}
-              className="ml-auto rounded p-1 hover:bg-white/20"
-            >
+            <button onClick={fullscreen} className="ml-auto rounded p-1 hover:bg-white/20">
               <Maximize className="h-4 w-4" />
             </button>
           </div>
