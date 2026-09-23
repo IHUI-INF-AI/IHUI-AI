@@ -117,7 +117,60 @@
   `check-root-dir-clean` 绿 · `check-commit-loss-guard` 绿(4060 tag 本地+远端一致全可达) ·
   `check-single-branch` 绿。**不代改他人票面**(§12/§12b:恢复他人主体逻辑即越权)。
 
-### 已知遗留(归属他人,不代改)
+## P0 2026-09-23 生产上线链冻结两日 —— 根因与修复(本机即生产机;已完成 ✅)
+
+**事实修正(此前所有会话都把生产当成"另一台机")**:nssm `IHUI-API` 的 `AppDirectory=D:\IHUI-AI\apps\api`、
+`IHUI-DEPLOYLOOP` 的 `AppDirectory=D:\IHUI-AI` ⇒ **生产服务直接跑在本工作树**,不存在独立生产机;
+`ihui-deploy.ps1 -diagnose` 亦实测 `https://aizhs.top/api/health` 200(边缘正常)。
+
+### 冻结链(自下而上,四层,每层都单独足以挡住上线)
+
+1. **`IHUI_ADMIN_PASSWORD` 过期(根因,冻结约两天)**:健康门禁 `Test-LlmGateway` 要先用 admin 登录拿
+   Bearer。口令在 **2026-09-21 23:54** 轮换过(`D:\DevEnv\secrets\admin-password.txt` mtime 为证),
+   而服务环境块里仍是旧值 ⇒ 登录 **401** ⇒ `llm=False` ⇒ **每轮部署构建成功后被回滚**。
+   最要命的是 `BackendLogin-Token` 的 `catch {}` **把 401 吞成"网关不可达"**,两天里没有任何一行日志
+   指向凭据。修:注册表原生死法更新 `AppEnvironmentExtra`(先备份原块到 `D:\DevEnv\secrets\
+   deployloop-env-original-20260923.txt`,保留 `SERVERCHAN_SENDKEY` 不动,nssm 留下的空条目一并清除)
+   ⇒ 单次登录验证 200 拿到 token(**刻意只试一次:后端提示"剩余 3 次"即锁账号,不可拿生产账号猜**)。
+2. **被遗弃的破坏性暂存态卡死 ff**:索引里 `scripts/git-sync-converge.mjs` 被 staged 成 **-302 行**、
+   其守卫测试 `scripts/tests/git-sync-converge-revert-guard.test.mjs` staged 删除、`PROJECT_PLAN.md`
+   staged -3 行,而当时**无任何会话在提交**。判据:`git show :<path>` 的 blob 与祖先提交
+   `15c6050db`(09-23 01:15)**逐字节相同** ⇒ 旧基线回写(gate 76 R1 的形态)。
+   它同时是 `git merge --ff-only` 报"未提交改动"的直接原因。处置:**先零损失保全再恢复** ——
+   `git write-tree` + `git commit-tree -p HEAD` 造现场快照,打**一级深度**标签
+   `stale-index-snapshot-20260923`(`dbf060fe1`)并 `--atomic` 推远端(若那确是他们有意为之,可随时取回),
+   随后 `git checkout HEAD -- <三条路径>` 解除阻塞(converge 回到 504 行、测试文件在位、`node --check` 通过)。
+3. **api-client dist 陈旧导致 `next build` 失败**:`packages/api-client/src/endpoints/chat.ts:545`
+   有 `rateChatMessage`(随 `9b16668cc` D49① 入库),但当时 `dist/endpoints/chat.js` 里没有
+   ⇒ web 侧 `use-message-list-context-menu.tsx:13` 解析失败,构建连撞 4 次。脚本本身已有
+   "构建前重建 workspace dist"的对策(其注释正是此因),我这侧另手工 `pnpm --filter @ihui/api-client build`
+   复验:重建后 `dist/endpoints/chat.js` 含该符号(`export *` 编译产物不在 `index.js` 里显名字,不计为缺失)。
+4. **悬挂部署锁 + 构建失败冷却**:`.deploy.lock` 被已死 pid 持有 40 分钟(`check` 如实报告
+   `alive=false` 但按设计不自愈,`acquire` 才抢占 —— 读完源码确认非缺陷,未改);
+   门禁失败写 `.build-fail-state.json` 冷却 30 分钟,凭据修好后按脚本自带 `Clear-BuildCooldown`
+   语义清除标记即时重试。
+
+### 结果(全部实测,非推断)
+
+`07:53:46 OK next build 完成` → `交换 staging → 线上,重启 web` →
+**`07:54:16 健康门禁 第 1/8 轮: web=True api=True llm=True`(llm 首次转真)** →
+`07:55:04 === 部署完成,HEAD=c38080e77 ===`。复核:`apps/web/.next/IHUI_BUILD_SHA == HEAD`、
+`/api/health` uptime 从 31 小时归零为 5 分钟(进程确已重启)、8801 与 `https://aizhs.top` 均 200。
+**即:包括"用户被误封 IP"那四票(`b27e7ebf4a`/`5acd14bc20`/`d21397a48b`/`f03903b1d1`)在内的两天提交,此刻才真正对用户生效。**
+
+### 顺带纠正的文档与判据
+
+- `AGENTS.md §5b`:原文"origin 已固化为 `ssh://git@ssh.github.com:443/…` + 仓库级 `core.sshCommand`,
+  直连可用、无需代理"在本机**从未成立**(实测 `core.sshCommand` 未设、两把私钥均
+  `Permission denied (publickey)`);真实通道是**本机代理 `http://127.0.0.1:7897`**(部署脚本每轮就用它)。
+  已改为实测口径 + 规定 agent 用 `http_proxy`/`https_proxy` 环境变量或 `git -c http.proxy=`
+  的**不落持久配置**写法(写进 `git config` 会被并发会话按旧基线回写,且换网全线失效)。
+  **这也解释了本会话反复"commit 成功、push 失败"的现象** —— 不是账号问题,是没走代理。
+- **给守门链的判据**:生产健康门禁不该用 admin 账号轮询登录(既可能锁死管理员账号,又会因一次口令
+  轮换静默冻结全部部署)。要动它需作者定方案(专用监控凭据 / 免鉴权探针端点 / 明确区分"限流或
+  鉴权失败"与"网关真挂"),此处先登记不代改。
+- **同一失败形态第 5 次**:旧基线整文件写今天命中过 计划文档、README、AGENTS.md、RN `ChatScreen.tsx`、
+  以及这次的索引区。**旁路提交与 `--no-verify` 都不跑钩子**,所以收尾必须人工做多重集自证。
 
 - **守门 26 当前红,成因是他人正在运行的在飞工作,不代改也不代清**:`node scripts/check-parent-pollution.mjs`
   命中 `D:\caches\ihui-tmp\prod-{clash,diag2,fetch,poll,preserve,watch}.ps1` 共 6 个文件 / 28K,
