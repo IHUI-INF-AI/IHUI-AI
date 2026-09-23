@@ -19,7 +19,6 @@ import {
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { stepDecisionLabel, type StepDecisionState } from '@ihui/shared/chat'
 import { rollbackCheckpoint } from '@ihui/api-client'
 import {
   useTimelineStore,
@@ -62,14 +61,6 @@ const STATUS_ICON: Record<TimelineEventStatus, React.ComponentType<{ className?:
 }
 
 // ─── i18n 渲染(Phase 22,2026-07-29 立) ──────────────────────────
-
-/** 决策归并态着色(与 §4 状态色一致:通过绿 / 拒绝红 / 待确认黄) */
-const DECISION_STATE_CLS: Record<StepDecisionState, string> = {
-  approved: 'text-emerald-600 dark:text-emerald-400',
-  rejected: 'text-destructive',
-  needsUser: 'text-amber-600 dark:text-amber-400',
-  unknown: 'text-muted-foreground',
-}
 
 /** i18n key 命名空间前缀(strip 后传给 useTranslations('ai.pane')) */
 const I18N_NS_PREFIX = 'ai.pane.'
@@ -322,14 +313,6 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
   // H4 证据链(2026-09-09):meta 携带 decision/reason/diff/test/rollback/conflict 时,
   // 行可点击展开证据详情(与 children 展开共用 expandedEventIds 状态)
   const evidence = React.useMemo(() => extractEvidenceMeta(event.meta), [event.meta])
-  // D55(G-66):决策码曾以英文枚举原样喷给用户(security_blocked / auto_skip_approval …)。
-  // 取词走共享词汇表;认不出的取值原样显示并归 unknown,绝不编造文案。
-  const tDecision = useTranslations('stepDecision')
-  const decisionView = React.useMemo(
-    () =>
-      evidence?.decision === undefined ? null : stepDecisionLabel(evidence.decision, tDecision),
-    [evidence?.decision, tDecision],
-  )
   const evidenceAvailable = hasAnyEvidence(evidence)
   const workspacePath = useIDEWorkspace((s) => s.workspacePath)
   const [rollbackState, setRollbackState] = React.useState<'idle' | 'rolling' | 'done' | 'failed'>(
@@ -467,16 +450,8 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
                   className="text-[10px] text-muted-foreground/70"
                   data-testid="timeline-evidence-decision"
                 >
-                  {decisionView && (
-                    <span
-                      className={cn(
-                        'font-medium text-foreground/80',
-                        DECISION_STATE_CLS[decisionView.state],
-                      )}
-                      data-decision-state={decisionView.state}
-                    >
-                      {decisionView.text}
-                    </span>
+                  {evidence!.decision && (
+                    <span className="font-medium text-foreground/80">{evidence!.decision}</span>
                   )}
                   {evidence!.decision && evidence!.reason && <span className="mx-1">·</span>}
                   {evidence!.reason && <span>{evidence!.reason}</span>}
