@@ -177,6 +177,39 @@ test('restoreStaging: hook 期间新增多个文件 → 全部 unstage', () => {
   }
 })
 
+test('restoreStaging: 大批量非预期 staged(250 个长路径)→ 仍须全部 unstage,不得整段跳过', () => {
+  // 回归钉:旧实现把路径拼进一条 execSync ⇒ cmd.exe 命令行超限 ENAMETOOLONG ⇒ 外层 catch
+  // 记 skipped=true 只 warn 一句。也就是"最需要这道闸的时候(污染文件很多)它恰好失效"。
+  // 2026-09-24 实测由 safe-commit 一次提交触发;现改 execFileSync + 每 50 个一批。
+  const dir = createTempGitRepo()
+  try {
+    const N = 250
+    const SEG = 'a-fairly-long-directory-segment-for-stress'
+    stageFile(dir, 'task-file.ts', 'a')
+    const snapshot = takeStagingSnapshot({ cwd: dir })
+    const paths = []
+    for (let i = 0; i < N; i++) {
+      const p = `${SEG}/${SEG}/polluted-file-with-a-quite-long-name-${String(i).padStart(4, '0')}.ts`
+      mkdirSync(join(dir, SEG, SEG), { recursive: true })
+      writeFileSync(join(dir, p), `export const x${i} = ${i}\n`)
+      paths.push(p)
+    }
+    // 用 pathspec-from-file 暂存:不让夹具自己撞同样的命令行超限,污染取证结论
+    const list = join(dir, '.polluted-list')
+    writeFileSync(list, paths.join('\n'))
+    execSync('git add --pathspec-from-file=.polluted-list', { cwd: dir, stdio: 'pipe' })
+
+    const result = restoreStaging(snapshot, { cwd: dir, silent: true })
+    assert.equal(result.skipped, false, '批量污染下不得整段跳过还原')
+    assert.equal(result.restored.length, N)
+    const staged = getStagedFiles(dir)
+    assert.equal(staged.length, 1)
+    assert.ok(staged.includes('task-file.ts'))
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('restoreStaging: null 快照 → 跳过(skipped=true)', () => {
   const dir = createTempGitRepo()
   try {
