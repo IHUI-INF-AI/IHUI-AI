@@ -578,6 +578,8 @@ async function readModifiedFiles(repoDir: string): Promise<string[]> {
     const r = spawnSync('git', ['-C', repoDir, 'status', '--porcelain'], {
       encoding: 'utf-8',
       windowsHide: true,
+      // 只读查询封顶 60s(守门 80):等锁/等 IO 型挂死会把整条 CoW 快路径拖成长尾
+      timeout: 60_000,
     })
     if (r.status !== 0) return []
     const out = typeof r.stdout === 'string' ? r.stdout : ''
