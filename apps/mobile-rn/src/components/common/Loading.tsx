@@ -9,10 +9,10 @@
  * - 居中 ActivityIndicator + 文字提示。
  * - fullscreen=true:固定半透明白色遮罩居中,覆盖整屏(对齐历史 loading-full / loading-mask)。
  * - fullscreen=false:内联居中(适应父容器)。
- * - 浅色优雅风;颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 浅色优雅风;颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../../theme/active-tokens'
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
 
 export interface LoadingProps {
@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: tokens.overlay.loading,
     zIndex: 999,
   },
   text: {

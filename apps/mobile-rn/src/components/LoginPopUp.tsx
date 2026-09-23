@@ -27,7 +27,8 @@
  * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
-import { rnLightTokens as tokens, withAlpha } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
+import { withAlpha } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
@@ -254,7 +255,7 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Check size={11} color={tokens.surface.light} /> : null}
+                    {agreeChecked ? <Check size={11} color={tokens.brand.foreground} /> : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>
@@ -444,7 +445,7 @@ function ProfileForm({
             accessibilityLabel="绑定手机号"
           >
             {bindPhoneLoading ? (
-              <ActivityIndicator size="small" color={tokens.surface.light} />
+              <ActivityIndicator size="small" color={tokens.brand.foreground} />
             ) : (
               <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
             )}
@@ -493,7 +494,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     width: '100%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingTop: CARD_PADDING_TOP,
@@ -552,7 +553,7 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: BUTTON_FONT_SIZE,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     textAlign: 'center',
   },
   secondaryButton: {
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
   checkboxMark: {
     fontSize: 11,
     lineHeight: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
   },
   agreementText: {
@@ -659,7 +660,7 @@ const styles = StyleSheet.create({
     width: ICON_SIZE,
     height: ICON_SIZE,
     borderRadius: ICON_SIZE / 2,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -712,7 +713,7 @@ const styles = StyleSheet.create({
   bindLabel: {
     fontSize: HINT_FONT_SIZE,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   hintText: {
     fontSize: HINT_FONT_SIZE,
@@ -737,7 +738,7 @@ const styles = StyleSheet.create({
     borderRadius: BUTTON_BORDER_RADIUS,
     borderWidth: 1,
     borderColor: tokens.brand.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
   },

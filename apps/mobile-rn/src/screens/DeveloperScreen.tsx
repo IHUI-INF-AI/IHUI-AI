@@ -37,7 +37,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getDeveloperDevInfo, type DeveloperDevInfo } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   entryBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   // ── 开发者信息区 ──
   infoCard: {
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   problemBtnText: {
     fontSize: 13,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   } as TextStyle,
   bigBtn: {
     backgroundColor: tokens.surface.card,

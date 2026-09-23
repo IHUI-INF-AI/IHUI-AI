@@ -29,7 +29,7 @@ import {
   ThumbsDown,
   type LucideIcon,
 } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
 
@@ -266,7 +266,7 @@ export default function AiModelCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 12,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   },
   buyBtnText: {
     fontSize: 12,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   },
   modelFooter: {

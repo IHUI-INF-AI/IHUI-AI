@@ -35,7 +35,7 @@ import {
   type ConversationDetail,
 } from '@ihui/api-client'
 import { AgentScreen as SharedAgentScreen, type AgentScreenItem } from '@ihui/rn-app'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import Carousel from '../components/Carousel'
 import Drawer, {
   type DrawerConversationItem,
@@ -195,8 +195,8 @@ export function AgentScreen() {
   const loadRecentAgents = useCallback(async (fallback: Agent[] = []): Promise<void> => {
     try {
       const res = await getAgentUseHistory({ page: 1, pageSize: 5 })
-      if (res.success && res.data.list.length > 0) {
-        const bots = res.data.list.slice(0, 5)
+      if (res.success && (res.data.list?.length ?? 0) > 0) {
+        const bots = (res.data.list ?? []).slice(0, 5)
         const details = await Promise.all(
           bots.map((b) =>
             getAgentDetail(b.botId).then(
@@ -445,12 +445,19 @@ export function AgentScreen() {
   // ── Drawer 历史对话懒加载(对齐 ProfileScreen loadDrawerConversations:
   // 首次打开 Drawer 时拉取,后续复用缓存) ──
   const loadDrawerConversations = useCallback(async (): Promise<void> => {
-    const res = await listConversations({ page: 1, pageSize: 50 })
-    if (res.success) {
-      const items: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
-      setDrawerConversations(items)
-    } else {
-      // 静默失败:不弹错误(对齐 ProfileScreen 写法)
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const items: DrawerConversationItem[] = (res.data.conversations ?? []).map(
+          mapConversationToDrawer,
+        )
+        setDrawerConversations(items)
+      } else {
+        // 静默失败:不弹错误(对齐 ProfileScreen 写法)
+        setDrawerConversations([])
+      }
+    } catch {
+      // 网络/数据异常静默降级,避免 useEffect void 调用产生未捕获 promise 拒绝
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
@@ -708,6 +715,7 @@ export function AgentScreen() {
               }}
               onPressItem={(id) => handleItemClick(id)}
               onBack={() => navigation.goBack()}
+              nestedInScrollView
             />
           ) : (
             <>
@@ -862,7 +870,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, color: tokens.text.secondary },
-  tabTextActive: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  tabTextActive: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
   viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
@@ -887,7 +895,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: tokens.brand.DEFAULT,
   },
-  modelStartBtnText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  modelStartBtnText: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
   backToTopBtn: {
     position: 'absolute',
     bottom: 20,

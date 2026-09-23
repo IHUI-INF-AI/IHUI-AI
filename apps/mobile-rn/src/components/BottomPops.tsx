@@ -19,7 +19,7 @@
  *
  * 平台特有:依赖 RN Modal/Animated/useSafeAreaInsets,不适合共享。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useEffect, useRef, useState } from 'react'
 import {
   Animated,
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderTopLeftRadius: SHEET_BORDER_RADIUS,
     borderTopRightRadius: SHEET_BORDER_RADIUS,
     overflow: 'hidden',

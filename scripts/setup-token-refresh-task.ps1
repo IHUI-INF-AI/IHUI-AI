@@ -76,11 +76,15 @@ $settings = New-ScheduledTaskSettingsSet `
   -ExecutionTimeLimit (New-TimeSpan -Minutes 30) `
   -MultipleInstances IgnoreNew
 
-# Principal: current user, interactive logon, highest privileges
+# Principal: current user, S4U (non-interactive), highest privileges
+# 2026-09-23: LogonType Interactive -> S4U. An S4U task runs in session 0, which has
+# no desktop, so no process in that session can create a window on screen: the action
+# may call node.exe directly without any wrapper. Environment caveat: S4U does not load
+# the interactive user profile, so HKCU-backed settings are not visible to the task.
 $principal = New-ScheduledTaskPrincipal `
   -UserId $env:USERNAME `
-  -LogonType Interactive `
-  -RunLevel Highest
+  -LogonType S4U `
+  -RunLevel Limited
 
 # 5. Register the task
 $desc = 'Refresh IHUI CLI apiKey weekly (JWT 7-day validity) to keep skills sync working.'

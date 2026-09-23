@@ -21,7 +21,7 @@
  * - 'react-native-video' 在测试环境被 mock 为纯 React 组件(无原生绑定)
  * - 控件点击/拖拽事件通过 fireEvent 触发
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Pressable,
@@ -173,7 +173,8 @@ export function VideoPlayer({
 
   return (
     <View
-      className="aspect-video w-full bg-black"
+      className="aspect-video w-full"
+      style={{ backgroundColor: tokens.gray[900] }}
       onLayout={onContainerLayout}
       testID="video-player"
     >

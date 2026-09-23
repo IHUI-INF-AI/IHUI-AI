@@ -8,12 +8,12 @@
  * 对齐历史项目 pages/table/tools/components/Ai-list_b.vue(AI 应用商店主体):
  * - 卡片流:头像(上)+ 名称 + 描述 + 分类标签 + 统计 + 点赞/收藏操作行
  * - 卡片 borderRadius 12.5(原 25rpx),浅色优雅风,无霓虹/无渐变。
- * - 颜色走 @ihui/design-tokens 的 rnLightTokens。
+ * - 颜色走 theme/active-tokens 的主题 token。
  * - 类型零 any,精确标注。
  *
  * 平台特有:依赖 react-native FlatList/RefreshControl,不适合共享层。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { Star, ThumbsUp } from 'lucide-react-native'
 import {
   FlatList,
@@ -63,8 +63,9 @@ export interface AgentShopListProps {
   scrollEnabled?: boolean
 }
 
-function keyExtractor(item: AgentShopItem): string {
-  return item.id
+function keyExtractor(item: AgentShopItem, index: number): string {
+  // index 兜底:后端个别条目 id 缺失时避免 FlatList cell 无 key(LogBox key 警告)
+  return item.id || `shop-idx-${index}`
 }
 
 function ShopAvatar({ name, avatar }: { name: string; avatar?: string }): React.JSX.Element {
@@ -233,7 +234,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     borderRadius: 12.5,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
     padding: 12,
