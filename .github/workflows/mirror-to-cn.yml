@@ -75,6 +75,37 @@ jobs:
           echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应非 0）"
           set -o pipefail
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
+          # ── 推送前先释放配额:删掉远端上的**内部备份标签** ─────────────────────────
+          # 2026-09-23 实测:Gitee 服务端硬配额 `Repo size 1156MB > 1024MB` 会以 pre-receive
+          # 拒绝**整个 push(含 main)**,当天一轮镜像跑 69 分钟后失败就在这一步。
+          # 体积主源是 `refs/tags/*` 全量推送带上去的 `lost-commit/*` / `nightly-*` / `backup/*`
+          # —— 本地 4222 个标签里这类占 4061 个,它们的存在意义是**防本地/origin 的 git gc
+          # 回收悬空 commit**(AGENTS.md §22/§29),国内镜像不需要,且 GitHub 侧一份未删(权威源)。
+          # 零损失前置:先把"远端当前真实存在的这批 ref + sha"落盘成清单,可按 sha 精确复原。
+          # 注意:删除后 Gitee 需服务端 GC 才真正降体积(其无公开 GC API,由平台定期回收);
+          # 故本轮仍可能失败 —— 那时**结论文本必须是"等 GC"而不是"再调触发器"**。
+          git ls-remote "$REMOTE" 'refs/tags/*' > /tmp/gitee-tags.tsv 2>/dev/null || true
+          grep -E '^[0-9a-f]+\trefs/tags/(lost-commit/|nightly-|backup/)' /tmp/gitee-tags.tsv \
+            > gitee-internal-tags-before-prune.txt || true
+          DEL_N=$(wc -l < gitee-internal-tags-before-prune.txt | tr -d ' ')
+          echo "远端内部备份标签 = ${DEL_N} 个(清单已存 gitee-internal-tags-before-prune.txt)"
+          if [ "${DEL_N}" -gt 0 ]; then
+            echo "首批 5 个待删:$(cut -f2 gitee-internal-tags-before-prune.txt | head -5 | tr '\n' ' ')"
+            mapfile -t DEL < <(cut -f2 gitee-internal-tags-before-prune.txt)
+            i=0
+            FAILB=0
+            while [ "$i" -lt "${#DEL[@]}" ]; do
+              CHUNK=("${DEL[@]:$i:300}")
+              if ! git push --delete "$REMOTE" "${CHUNK[@]}" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"; then
+                FAILB=$((FAILB + 1))
+              fi
+              i=$((i + 300))
+            done
+            echo "✅ 内部备份标签删除完成:共 ${#DEL[@]} 个 / 失败批次 ${FAILB}"
+          else
+            echo "远端已无内部备份标签(此前已清理),跳过删除"
+          fi
+          # ─────────────────────────────────────────────────────────────────────────
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
           #

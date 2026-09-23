@@ -10,7 +10,10 @@ vi.mock('../src/services/email-service.js', () => ({
   sendEmail: sendEmailMock,
 }))
 
-import { broadcastDispatchEmail, BROADCAST_CONCURRENCY } from '../src/services/broadcast-email-service.js'
+import {
+  broadcastDispatchEmail,
+  BROADCAST_CONCURRENCY,
+} from '../src/services/broadcast-email-service.js'
 import { renderChangelogEmail } from '../src/services/email-templates.js'
 import type { EmailRecipient } from '../src/services/broadcast-email-service.js'
 
@@ -33,7 +36,8 @@ function makeMail() {
 describe('broadcast-email-service', () => {
   beforeEach(() => {
     sendEmailMock.mockReset()
-    sendEmailMock.mockResolvedValue({ messageId: 'ok' })
+    // sendEmail 的真实返回形状(SendEmailResult):stub 不 throw,必须按 sent 计数
+    sendEmailMock.mockResolvedValue({ sent: true, stub: false, provider: 'smtp' })
   })
 
   it('并发批次常量合理(SMTP 友好)', () => {
@@ -43,10 +47,14 @@ describe('broadcast-email-service', () => {
 
   it('全部成功:25 个收件人分批发送,统计 sent=25 failed=0', async () => {
     const stats = await broadcastDispatchEmail(makeMail(), makeRecipients(25))
-    expect(stats).toEqual({ total: 25, sent: 25, failed: 0 })
+    expect(stats).toEqual({ total: 25, sent: 25, failed: 0, stubbed: 0 })
     expect(sendEmailMock).toHaveBeenCalledTimes(25)
     // 每次调用都带场景与 userId
-    const firstCall = sendEmailMock.mock.calls[0][0] as { to: string; userId: string; scene: string }
+    const firstCall = sendEmailMock.mock.calls[0][0] as {
+      to: string
+      userId: string
+      scene: string
+    }
     expect(firstCall.scene).toBe('notification')
     expect(firstCall.userId).toBe('u-1')
     expect(firstCall.to).toBe('user1@aizhs.top')
@@ -55,11 +63,34 @@ describe('broadcast-email-service', () => {
   it('单封失败不影响其他:sent/failed 分别统计', async () => {
     sendEmailMock.mockImplementation(async (input: { to: string }) => {
       if (input.to === 'user3@aizhs.top') throw new Error('SMTP timeout')
-      return { messageId: 'ok' }
+      return { sent: true, stub: false, provider: 'smtp' }
     })
     const stats = await broadcastDispatchEmail(makeMail(), makeRecipients(5))
-    expect(stats).toEqual({ total: 5, sent: 4, failed: 1 })
+    expect(stats).toEqual({ total: 5, sent: 4, failed: 1, stubbed: 0 })
     expect(sendEmailMock).toHaveBeenCalledTimes(5)
+  })
+
+  it('关键回归:全部 stub(通道未开)⇒ sent=0,不得按 fulfilled 报"全部送达"', async () => {
+    // 复刻 2026-09-23 生产实况:sendEmail 对 stub 不 throw,旧口径 fulfilled 计数会虚报 sent=8
+    sendEmailMock.mockResolvedValue({
+      sent: false,
+      stub: true,
+      provider: 'stub',
+      reasons: ['smtp_disabled'],
+    })
+    const stats = await broadcastDispatchEmail(makeMail(), makeRecipients(8))
+    expect(stats).toEqual({ total: 8, sent: 0, failed: 8, stubbed: 8 })
+  })
+
+  it('sent=false 且非 stub(provider 发送失败)计 failed 不计 stubbed', async () => {
+    sendEmailMock.mockResolvedValue({
+      sent: false,
+      stub: false,
+      provider: 'resend',
+      error: 'resend 401',
+    })
+    const stats = await broadcastDispatchEmail(makeMail(), makeRecipients(3))
+    expect(stats).toEqual({ total: 3, sent: 0, failed: 3, stubbed: 0 })
   })
 
   it('email 为空的收件人被过滤,不计入 total', async () => {
@@ -69,13 +100,13 @@ describe('broadcast-email-service', () => {
       { id: 'u-3', email: '', nickname: null },
     ]
     const stats = await broadcastDispatchEmail(makeMail(), recipients)
-    expect(stats).toEqual({ total: 1, sent: 1, failed: 0 })
+    expect(stats).toEqual({ total: 1, sent: 1, failed: 0, stubbed: 0 })
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
   })
 
   it('空收件人列表:零发送零失败,不抛错', async () => {
     const stats = await broadcastDispatchEmail(makeMail(), [])
-    expect(stats).toEqual({ total: 0, sent: 0, failed: 0 })
+    expect(stats).toEqual({ total: 0, sent: 0, failed: 0, stubbed: 0 })
     expect(sendEmailMock).not.toHaveBeenCalled()
   })
 })
