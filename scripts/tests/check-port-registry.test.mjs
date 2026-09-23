@@ -276,14 +276,26 @@ test('staged 模式: staged 文件含违规端口 7777 → ⚠️ 报告', () =>
   }
 })
 
-// ─── 14. 非 git 环境 --all 模式: git ls-files 失败 → "无法获取" exit 0 ───
-test('非 git 环境 --all 模式: git ls-files 失败 → "无法获取" exit 0', () => {
+// ─── 14. 非 git 环境 --all 模式: git ls-files 失败 → 显式回退 staged 口径,不静默通过 ───
+// 2026-09-23 契约更新:旧行为是打印"无法获取 git tracked 文件列表"后静默 exit 0 ——
+// 一次挂死 80 分钟的守门(见 scripts/check-port-registry.mjs 注释)若再遇到 git 调用失败,
+// 全量审计会"绿着漏过"。现在失败必须**出声**并退到 staged 口径,同时不得声称"扫描通过"。
+test('非 git 环境 --all 模式: git ls-files 失败 → 显式告警并回退 staged,不静默判绿', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-port-nogit-'))
   try {
     // 不 init git,直接跑 --all
     const r = runScript(dir, ['--all'])
-    assert.equal(r.status, 0, `非 git 环境应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-    assert.match(r.stdout, /⚠️.*无法获取 git tracked 文件列表/, `stdout 应含"无法获取"提示\nstdout: ${r.stdout}`)
+    assert.equal(r.status, 0, `非 git 环境应 exit 0(仅告警),实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    assert.match(
+      r.stdout,
+      /git ls-files 超时\/失败[\s\S]{0,40}回退 staged/,
+      `stdout 应含"超时/失败 → 回退 staged"的显式提示\nstdout: ${r.stdout}`,
+    )
+    assert.doesNotMatch(
+      r.stdout,
+      /端口注册表守门[:：].*无违规/,
+      `git 取文件失败时不得声称"扫描通过"(静默判绿)\nstdout: ${r.stdout}`,
+    )
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
