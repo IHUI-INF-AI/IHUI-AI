@@ -64,8 +64,6 @@ import type {
   V1AgentParallelRequest,
   V1AgentParallelResponse,
 } from '@ihui/types'
-// G-161:权限模式唯一真源(跨端 + 跨语言对账由 guardian 第 68 项守)
-import { PERMISSION_MODES, normalizePermissionMode } from '@ihui/types'
 import { requireApiKeyAuth, requireApiKeyQuota } from '../plugins/api-key-auth.js'
 import { requireCapability } from '../utils/capability-guard.js'
 import { error } from '../utils/response.js'
@@ -132,36 +130,6 @@ const agentExecuteSchema = z.object({
   permissionMode: z.string().optional(),
   maxIterations: z.number().int().positive().optional(),
 })
-
-/**
- * /v1/agents/execute(+ /stream)转发体装配 —— 两处原本各写一遍且都写错了:
- * ① ai-service 的请求模型字段名是 `goal`,这里过去只发 `input`,而 `goal` 是必填
- *    → 端点**每次**被 Pydantic 判 422(docs/developer/api/agents.md 承诺的对外能力从未通);
- * ② `permissionMode` 过去原样透传,而 ai-service 认不出即构造期 ValueError(→500)、
- *    或字段干脆不存在而被静默丢弃 → 在此边界归一到唯一真源,认不出直接 400。
- */
-function buildAgentExecuteBody(
-  req: V1AgentExecuteRequest,
-): { ok: true; body: Record<string, unknown> } | { ok: false; message: string } {
-  const body: Record<string, unknown> = {
-    agent_id: req.agentId,
-    input: req.input,
-    goal: req.input,
-  }
-  if (req.sessionId) body.session_id = req.sessionId
-  if (req.maxIterations) body.max_iterations = req.maxIterations
-  if (req.permissionMode !== undefined) {
-    const mode = normalizePermissionMode(req.permissionMode)
-    if (!mode) {
-      return {
-        ok: false,
-        message: `非法 permissionMode:${req.permissionMode}(取值必须为 ${PERMISSION_MODES.join(' / ')} 或其别名)`,
-      }
-    }
-    body.permission_mode = mode
-  }
-  return { ok: true, body }
-}
 
 const agentPipelineSchema = z.object({
   steps: z
@@ -992,9 +960,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const [existing] = await dbReadScoped
         .select()
         .from(zhsAiUserModelChatConfig)
-        .where(
-          and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)),
-        )
+        .where(and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, 'Model config not found'))
 
@@ -1011,7 +977,10 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           .update(zhsAiUserModelChatConfig)
           .set(updates)
           .where(
-            and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)),
+            and(
+              eq(zhsAiUserModelChatConfig.id, id),
+              eq(zhsAiUserModelChatConfig.userId, userId),
+            ),
           )
           .returning()
         row = updated ?? existing
@@ -1061,16 +1030,17 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       const [existing] = await dbReadScoped
         .select({ id: zhsAiUserModelChatConfig.id })
         .from(zhsAiUserModelChatConfig)
-        .where(
-          and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)),
-        )
+        .where(and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)))
         .limit(1)
       if (!existing) return reply.status(404).send(error(404, 'Model config not found'))
 
       await dbScoped
         .delete(zhsAiUserModelChatConfig)
         .where(
-          and(eq(zhsAiUserModelChatConfig.id, id), eq(zhsAiUserModelChatConfig.userId, userId)),
+          and(
+            eq(zhsAiUserModelChatConfig.id, id),
+            eq(zhsAiUserModelChatConfig.userId, userId),
+          ),
         )
       return reply.status(204).send()
     },
@@ -1089,11 +1059,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
             agentId: { type: 'string' },
             input: { type: 'string' },
             sessionId: { type: 'string' },
-            permissionMode: {
-              type: 'string',
-              description:
-                '权限模式:default / acceptEdits / bypassPermissions / plan / manual(别名 auto、accept-edits、accept-all、read-only、plan-only 由网关归一)',
-            },
+            permissionMode: { type: 'string' },
             maxIterations: { type: 'number' },
           },
           required: ['agentId', 'input'],
@@ -1123,14 +1089,17 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { sessionId } = parsed.data as V1AgentExecuteRequest
+      const { agentId, input, sessionId, permissionMode, maxIterations } =
+        parsed.data as V1AgentExecuteRequest
 
-      // 转发到 ai-service /api/agents/execute(snake_case + 权限模式归一)
-      const built = buildAgentExecuteBody(parsed.data as V1AgentExecuteRequest)
-      if (!built.ok) {
-        return reply.status(400).send(error(400, built.message))
+      // 转发到 ai-service /api/agents/execute(snake_case)
+      const body: Record<string, unknown> = {
+        agent_id: agentId,
+        input,
       }
-      const body = built.body
+      if (sessionId) body.session_id = sessionId
+      if (permissionMode) body.permission_mode = permissionMode
+      if (maxIterations) body.max_iterations = maxIterations
 
       try {
         const resp = await aiServiceSystemFetch('/api/agents/execute', jsonInit(body))
@@ -1182,11 +1151,7 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
             agentId: { type: 'string' },
             input: { type: 'string' },
             sessionId: { type: 'string' },
-            permissionMode: {
-              type: 'string',
-              description:
-                '权限模式:default / acceptEdits / bypassPermissions / plan / manual(别名 auto、accept-edits、accept-all、read-only、plan-only 由网关归一)',
-            },
+            permissionMode: { type: 'string' },
             maxIterations: { type: 'number' },
           },
           required: ['agentId', 'input'],
@@ -1204,11 +1169,16 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const built = buildAgentExecuteBody(parsed.data as V1AgentExecuteRequest)
-      if (!built.ok) {
-        return reply.status(400).send(error(400, built.message))
+      const { agentId, input, sessionId, permissionMode, maxIterations } =
+        parsed.data as V1AgentExecuteRequest
+
+      const body: Record<string, unknown> = {
+        agent_id: agentId,
+        input,
       }
-      const body = built.body
+      if (sessionId) body.session_id = sessionId
+      if (permissionMode) body.permission_mode = permissionMode
+      if (maxIterations) body.max_iterations = maxIterations
 
       reply.hijack()
       const raw = reply.raw
