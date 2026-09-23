@@ -2036,6 +2036,27 @@ const pushGate = cliArgs.includes('--push-gate')
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 const effectiveChecks = pushGate ? pushGateChecks : checks
 
+// ── 守门 id 唯一性自检(2026-09-23 立,不阻塞) ──────────────────────────────
+// 成因:同日实测两道 blocking 门撞同号 —— 77 曾被 check-radius-single-source 与
+// check-no-conflict-markers 并用(后者已让号到 79),而 75/76 现各存在两处。同号本身
+// 不报错,但会把 skipEnv 语义与"哪道门失败"的归因搅在一起,且逃过一次就没人再看见。
+// 这里只打印、不改退出码:让每次运行都显形,由归属会话各自让号(后落地者让号)。
+{
+  const seen = new Map()
+  for (const c of effectiveChecks) {
+    if (!c || !c.id) continue
+    seen.set(c.id, [...(seen.get(c.id) || []), c.script || '?'])
+  }
+  const dup = [...seen.entries()].filter(([, v]) => v.length > 1)
+  if (dup.length) {
+    console.log(
+      `⚠️  守门 id 唯一性: ${dup.length} 个号被多道门共用(不阻塞,但 skipEnv 与失败归因会串) —— ` +
+        dup.map(([k, v]) => `${k}=${v.join('/')}`).join(' ; ') +
+        ' → 按"后落地者让号"各自改号(runner + AGENTS 速查 + README 三处同步)。',
+    )
+  }
+}
+
 // === Help ===
 
 if (showHelp) {
