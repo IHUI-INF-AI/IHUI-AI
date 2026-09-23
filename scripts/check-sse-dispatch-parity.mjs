@@ -52,7 +52,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_CLIENT_PATH = ['packages', 'api-client', 'src', 'client.ts'].join('/')
-const API_CLIENT_FILE = join(ROOT, ...API_CLIENT_PATH)
+const API_CLIENT_FILE = join(ROOT, API_CLIENT_PATH)
 const DATA_FILE = join(ROOT, 'scripts', 'data', 'sse-dispatch-coverage.json')
 const SKIP_ENV = 'HUSKY_SKIP_SSE_DISPATCH_PARITY'
 
