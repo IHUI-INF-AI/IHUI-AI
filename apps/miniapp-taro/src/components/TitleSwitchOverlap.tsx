@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
 import type { TitleSwitchOverlapItem, TitleSwitchOverlapProps } from '@ihui/types'
 import { aizhsUrl } from '@/constants/icon-urls'
+import { rnRadius } from '@ihui/design-tokens'
 
 // 共享类型 TitleSwitchOverlapItem / TitleSwitchOverlapProps 已下沉到 packages/types,两端复用。
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
@@ -27,7 +28,7 @@ function getLayerStyle(delta: number): CSSProperties {
   const base: CSSProperties = {
     width: '180px',
     height: '48px',
-    borderRadius: '15px',
+    borderRadius: rnRadius['2xl'],
     boxShadow: '0 0 6px 0 var(--color-black-30)',
     position: 'relative',
     color: 'var(--color-foreground)',

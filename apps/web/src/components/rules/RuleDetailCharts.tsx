@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTranslations } from 'next-intl'
+import { rnRadius } from '@ihui/design-tokens'
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -25,7 +26,7 @@ function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) 
         y={60 - barH(hits30d)}
         width="30"
         height={barH(hits30d)}
-        rx="2"
+        rx={rnRadius.xs}
         className="fill-foreground/20"
       />
       <rect
@@ -33,7 +34,7 @@ function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) 
         y={60 - barH(hits7d)}
         width="30"
         height={barH(hits7d)}
-        rx="2"
+        rx={rnRadius.xs}
         className="fill-green-500/40"
       />
       <text x="25" y="62" textAnchor="middle" className="fill-muted-foreground text-[8px]">

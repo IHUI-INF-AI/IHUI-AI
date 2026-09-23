@@ -9,12 +9,12 @@ import {
   TextInput,
   Image,
   TouchableOpacity,
-  ScrollView,
   FlatList,
   RefreshControl,
   StyleSheet,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
@@ -72,6 +72,11 @@ export function OrderScreen({
     )
   }, [items, keyword])
 
+  const tabItems = useMemo(
+    () => TABS.map((tab) => ({ id: tab, label: t(`order.tab.${tab}`) })),
+    [t],
+  )
+
   const statusColors = (status: AppOrderStatus) => {
     switch (status) {
       case 'pending':
@@ -100,27 +105,14 @@ export function OrderScreen({
         <Text style={styles.title}>{t('order.title')}</Text>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabs}
-      >
-        {TABS.map((tab) => {
-          const active = tab === activeTab
-          return (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => onSelectTab(tab)}
-              style={[styles.tab, active && styles.tabActive]}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {t(`order.tab.${tab}`)}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
+      <CategoryInlineBar
+        items={tabItems}
+        selectedId={activeTab}
+        onSelect={onSelectTab}
+        colorScheme={colorScheme}
+        contentPaddingHorizontal={10}
+        itemGap={8}
+      />
 
       <TextInput
         style={styles.searchInput}
@@ -232,16 +224,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     backText: { fontSize: 16, color: tk.text.medium },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    tabs: { paddingHorizontal: 10, paddingVertical: 8, gap: 8 },
-    tab: {
-      paddingHorizontal: 14,
-      paddingVertical: 6,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.surface.card,
-    },
-    tabActive: { backgroundColor: tk.brand.DEFAULT },
-    tabText: { fontSize: 14, color: tk.text.secondary },
-    tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     searchInput: {
       marginHorizontal: 10,
       marginTop: 4,
