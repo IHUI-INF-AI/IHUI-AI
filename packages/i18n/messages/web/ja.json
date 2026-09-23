@@ -15452,8 +15452,6 @@
         "title": "認証方式",
         "headerFormat": "# Header 形式"
       },
-      "copyCodeAriaLabel": "コードをコピー",
-      "curlPlaceholder": "cURLコマンドを入力してテスト…",
       "endpoints": {
         "audio": "音声合成",
         "chat": "チャット補完",
@@ -15471,7 +15469,6 @@
         "python": "パイソン",
         "title": "呼び出し例"
       },
-      "searchPlaceholder": "APIを検索…",
       "subtitle": "完全な API 統合ドキュメントと例",
       "title": "API ドキュメント"
     },
@@ -23255,8 +23252,6 @@
     "description": "n8n 自动化工作流 Agent"
   },
   "rules": {
-    "title": "规则",
-    "description": "平台规则与规范",
     "totalRulesSorted": "合計 {n} 件のルール、優先度の降順で並べ替え",
     "autoGenerate": "自動生成",
     "detectConflicts": "競合を検出",
@@ -24112,33 +24107,8 @@
     "metaDescription": "OpenAI 互換 API をオンラインでテスト:モデル選択、マルチターンメッセージ構築、パラメータ調整、ストリーミング SSE 描画、コード生成(cURL/Python/Node.js)、履歴。",
     "pageDesc": "API Key で /v1/chat/completions を直接呼び出せます。ストリーミング描画・パラメータ調整・コード生成に対応し、/chat へ移動する必要はありません。"
   },
-  "upload": {
-    "placeholder": "クリックまたはここにファイルをドラッグしてアップロード",
-    "done": "完了",
-    "cancelUpload": "アップロードをキャンセル",
-    "removeUploadedAriaLabel": "アップロード済みファイルを削除",
-    "removeItemAriaLabel": "アップロード項目を削除",
-    "sizeLimitHint": "1 ファイル {size} まで",
-    "maxCountReached": "上限の {max} ファイルに達しました",
-    "oversizeFiles": "次のファイルが {size} を超えています: {files}",
-    "uploadFailed": "アップロードに失敗しました",
-    "uploadFailedWithStatus": "アップロード失敗: HTTP {status}",
-    "invalidJsonResponse": "応答が有効な JSON ではありません",
-    "noUrlField": "応答に利用可能な URL フィールドが見つかりません",
-    "networkError": "ネットワークエラー",
-    "uploadCancelled": "アップロードがキャンセルされました",
-    "imagePlaceholder": "クリックまたはここに画像をドラッグしてアップロード"
-  },
-  "webviewFrame": {
-    "loadingText": "読み込み中...",
-    "screenshotNotice": "このサイトの埋め込みは禁止されているため、スクリーンショットモードに切り替えました",
-    "blockedTitle": "安全でない URL をブロックしました",
-    "failedTitle": "読み込みに失敗しました",
-    "externalTitle": "パネル内に埋め込めません",
-    "retry": "再試行",
-    "openExternal": "外部ブラウザで開く",
-    "idlePlaceholder": "URL を入力するか、AI メッセージ内のリンクをクリックして開いてください"
-  },
+  "upload": {},
+  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {

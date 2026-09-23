@@ -15452,8 +15452,6 @@
         "title": "鑑權方式",
         "headerFormat": "# Header 格式"
       },
-      "copyCodeAriaLabel": "復制代碼",
-      "curlPlaceholder": "輸入 cURL 命令進行測試…",
       "endpoints": {
         "audio": "語音合成",
         "chat": "對話補全",
@@ -15471,7 +15469,6 @@
         "python": "Python",
         "title": "調用示例"
       },
-      "searchPlaceholder": "搜索接口…",
       "subtitle": "完整的 API 接入文檔和示例",
       "title": "API 文檔"
     },
@@ -23232,8 +23229,6 @@
     "description": "n8n 自動化工作流 Agent"
   },
   "rules": {
-    "title": "規則",
-    "description": "平臺規則與規範",
     "totalRulesSorted": "共 {n} 條規則,按優先級降序排列",
     "autoGenerate": "自動生成",
     "detectConflicts": "檢測衝突",
@@ -24089,33 +24084,8 @@
     "metaDescription": "在線測試 OpenAI 兼容 API:模型選擇、多輪消息構造、參數調節、流式 SSE 渲染、代碼生成(cURL/Python/Node.js)與歷史記錄。",
     "pageDesc": "用你的 API Key 直接調用 /v1/chat/completions,支持流式渲染、參數調節與代碼生成,無需跳轉到 /chat。"
   },
-  "upload": {
-    "placeholder": "點選或拖拽檔案到此處上傳",
-    "done": "已完成",
-    "cancelUpload": "取消上傳",
-    "removeUploadedAriaLabel": "刪除已上傳檔案",
-    "removeItemAriaLabel": "移除上傳項",
-    "sizeLimitHint": "單檔案不超過 {size}",
-    "maxCountReached": "已達上限 {max} 個檔案",
-    "oversizeFiles": "以下檔案超過 {size}: {files}",
-    "uploadFailed": "上傳失敗",
-    "uploadFailedWithStatus": "上傳失敗:HTTP {status}",
-    "invalidJsonResponse": "響應不是合法 JSON",
-    "noUrlField": "響應中未找到可用的 URL 欄位",
-    "networkError": "網路錯誤",
-    "uploadCancelled": "上傳已取消",
-    "imagePlaceholder": "點選或拖拽上傳圖片"
-  },
-  "webviewFrame": {
-    "loadingText": "載入中...",
-    "screenshotNotice": "該網站禁止嵌入,已切換到截圖模式",
-    "blockedTitle": "URL 不安全,已攔截",
-    "failedTitle": "載入失敗",
-    "externalTitle": "無法在面板內嵌入",
-    "retry": "重試",
-    "openExternal": "在外部瀏覽器開啟",
-    "idlePlaceholder": "輸入網址或點選 AI 訊息中的連結以開啟"
-  },
+  "upload": {},
+  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {
