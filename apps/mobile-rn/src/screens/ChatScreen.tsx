@@ -2705,7 +2705,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   msgTextUser: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   msgTextAi: {
     color: tokens.text.primary,
@@ -3064,7 +3064,7 @@ const styles = StyleSheet.create({
   },
   shareBtnText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '500',
   },
   shareBtnSecondary: {
@@ -3141,7 +3141,7 @@ const styles = StyleSheet.create({
   },
   detailDialogRetryText: {
     fontSize: 13,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '600',
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
@@ -3218,7 +3218,7 @@ const styles = StyleSheet.create({
   fangdaSendBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── P1.1 转语音 Modal ──
   ttsLoadingWrap: {
@@ -3272,7 +3272,7 @@ const styles = StyleSheet.create({
   urlInputConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── P1.5 文件上传 Modal ──
   fileUploadBody: {
@@ -3313,7 +3313,7 @@ const styles = StyleSheet.create({
   fileUploadConfirmText: {
     fontSize: 15,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
 })
 
