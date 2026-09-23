@@ -10,30 +10,6 @@
     "creditLowTitle": "크레딧이 부족합니다",
     "creditLowDesc": "크레딧 잔액이 {min} 미만이면 모델을 사용할 수 없습니다. 충전해 주세요"
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "승인 요청",
-        "desc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인"
-      },
-      "plan": {
-        "title": "읽기 전용 플랜",
-        "desc": "조회와 검색만 가능하며 파일 편집과 명령 실행은 거부됩니다"
-      },
-      "accept-edits": {
-        "title": "자동 승인",
-        "desc": "감지된 위험 작업에 대해서만 승인 요청"
-      },
-      "bypass-permissions": {
-        "title": "전체 액세스",
-        "desc": "인터넷과 컴퓨터의 모든 파일을 제한 없이 사용 가능"
-      },
-      "unknown": {
-        "title": "알 수 없는 모드",
-        "desc": "인식할 수 없는 권한 모드입니다. 기본 모드로 처리됩니다"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "선택하세요",
     "searchPlaceholder": "검색...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "변경 사항을 파일 시스템에 기록했습니다",
       "diffRejectedHint": "이번 변경을 무시했습니다",
-      "timelineTabInline": "대화 흐름"
+      "timelineTabInline": "대화 흐름",
+      "reviewStats": {
+        "title": "자동 검토 통계",
+        "accepted": "승인 {n}",
+        "rejected": "거절 {n}",
+        "noReason": "사유 없음 {n}",
+        "commandHistory": "명령 기록",
+        "noReasonText": "자동 검토에서 사유 미제공",
+        "noDecision": "자동 검토 기록 없음",
+        "expandAria": "명령 기록(펼침/접기)"
+      }
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -9277,6 +9263,8 @@
       "copyText": "텍스트 복사",
       "deleteMessage": "메시지 삭제",
       "feedback": "피드백",
+      "likeMessage": "좋아요",
+      "dislikeMessage": "싫어요",
       "regenerate": "재생성",
       "branch": "여기에서 분기"
     },
@@ -9856,6 +9844,8 @@
       "copiedMarkdown": "Markdown 복사됨",
       "copiedText": "텍스트 복사됨",
       "feedbackRecorded": "피드백이 기록되었습니다. 감사합니다",
+      "feedbackSaved": "피드백이 기록되었습니다",
+      "feedbackFailed": "피드백 제출 실패",
       "messageDeleted": "메시지 삭제됨",
       "operationFailed": "작업 실패",
       "regenerating": "재생성 중…",
@@ -24482,13 +24472,37 @@
     },
     "vividTail": ", 금방 끝납니다"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "승인 요청",
+        "desc": "프로젝트 외부 파일 편집 및 인터넷 사용 시 항상 확인"
+      },
+      "plan": {
+        "title": "읽기 전용 플랜",
+        "desc": "조회와 검색만 가능하며 파일 편집과 명령 실행은 거부됩니다"
+      },
+      "accept-edits": {
+        "title": "자동 승인",
+        "desc": "감지된 위험 작업에 대해서만 승인 요청"
+      },
+      "bypass-permissions": {
+        "title": "전체 액세스",
+        "desc": "인터넷과 컴퓨터의 모든 파일을 제한 없이 사용 가능"
+      },
+      "unknown": {
+        "title": "알 수 없는 모드",
+        "desc": "인식할 수 없는 권한 모드입니다. 기본 모드로 처리됩니다"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "파일이 크기 한도를 초과했습니다: {name}",
     "uploadFailedWithReason": "업로드 실패: {error}",
     "unknownError": "알 수 없는 오류",
     "missingFileId": "업로드 응답에 file.id가 없습니다",
     "maxAttachmentsReached": "첨부 파일은 최대 {count}개까지입니다"
-},
+  },
   "eduScheduling": {
     "title": "스마트 시간표",
     "description": "시간표 규칙, 교사 시간, 시간표 변경 신청을 관리합니다",
@@ -24501,17 +24515,17 @@
       "weekdayFri": "금요일",
       "weekdaySat": "토요일",
       "weekdaySun": "일요일"
-},
+    },
     "status": {
       "pending": "승인 대기",
       "approved": "승인됨",
       "rejected": "반려됨"
-},
+    },
     "tabs": {
       "rules": "시간표 규칙",
       "teachers": "교사 시간",
       "changes": "시간표 변경"
-},
+    },
     "form": {
       "class": "반",
       "subject": "과목",
@@ -24525,7 +24539,7 @@
       "selectTeacher": "교사 선택",
       "selectTerm": "학기 선택",
       "subjectPlaceholder": "수학"
-},
+    },
     "actions": {
       "edit": "편집",
       "add": "추가",
@@ -24538,18 +24552,18 @@
       "autoSchedule": "자동 시간표 생성",
       "checkConflicts": "충돌 검사",
       "addTimeEntry": "시간 항목 추가"
-},
+    },
     "loading": {
       "text": "불러오는 중...",
       "rules": "시간표 규칙 불러오는 중...",
       "teachers": "교사 시간 불러오는 중...",
       "changes": "변경 신청 불러오는 중..."
-},
+    },
     "empty": {
       "rules": "시간표 규칙이 없습니다",
       "teachers": "교사 시간이 없습니다",
       "changes": "변경 신청이 없습니다"
-},
+    },
     "columns": {
       "time": "시간",
       "timeSlot": "시간대",
@@ -24561,22 +24575,22 @@
       "status": "상태",
       "applicant": "신청자",
       "actions": "작업"
-},
+    },
     "ruleDialog": {
       "editTitle": "시간표 규칙 편집",
       "addTitle": "시간표 규칙 추가"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "시간 항목 편집",
       "addTitle": "시간 항목 추가",
       "available": "가능",
       "unavailable": "불가"
-},
+    },
     "conflictDialog": {
       "title": "충돌 검사 결과",
       "noConflicts": "충돌이 감지되지 않았습니다"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "성적 관리",
     "pageSubtitle": "학생 시험 성적, 순위 및 통계 관리",
@@ -24645,7 +24659,7 @@
     "avgScoreStat": "평균점수: {score}",
     "scoreRateStat": "득점률: {percentage}%",
     "examCountStat": "시험 횟수: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "아버지",
     "relationshipMother": "어머니",
@@ -24721,7 +24735,7 @@
     "confirmDelete": "삭제 확인",
     "confirmDeleteContent": "이 연결을 해제하시겠습니까? 되돌릴 수 없습니다.",
     "cancel": "취소"
-},
+  },
   "eduSchedule": {
     "title": "시간표 관리",
     "description": "학기별 수업 편성을 관리하며 주 보기와 월 보기를 지원합니다",
@@ -24733,7 +24747,7 @@
       "weekdayFri": "금요일",
       "weekdaySat": "토요일",
       "weekdaySun": "일요일"
-},
+    },
     "colors": {
       "blue": "파랑",
       "green": "초록",
@@ -24743,7 +24757,7 @@
       "teal": "청록",
       "indigo": "인디고",
       "rose": "로즈"
-},
+    },
     "form": {
       "courseName": "수업명",
       "courseNamePlaceholder": "예: 고급수학",
@@ -24754,7 +24768,7 @@
       "classroom": "교실",
       "classroomPlaceholder": "예: A101",
       "colorMark": "색상 표시"
-},
+    },
     "editCourseTitle": "수업 편집",
     "addCourseTitle": "수업 추가",
     "delete": "삭제",
@@ -24799,7 +24813,7 @@
     "copyFailed": "복사 실패",
     "exportFailed": "내보내기 실패",
     "exportFilePrefix": "시간표"
-},
+  },
   "eduHomework": {
     "pageTitle": "과제 관리",
     "pageSubtitle": "학생 과제 제출, 채점 및 점수를 관리합니다",
@@ -24834,14 +24848,14 @@
     "submittedAtLabel": "제출 시간: ",
     "commentPlaceholder": "선택 사항, 채점 코멘트",
     "submitGrade": "채점 제출"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "아침",
       "lunch": "점심",
       "dinner": "저녁",
       "snack": "간식"
-},
+    },
     "weekdays": {
       "weekdayMon": "월",
       "weekdayTue": "화",
@@ -24850,12 +24864,12 @@
       "weekdayFri": "금",
       "weekdaySat": "토",
       "weekdaySun": "일"
-},
+    },
     "views": {
       "day": "일",
       "week": "주",
       "month": "월"
-},
+    },
     "mealDialog": {
       "editTitle": "레시피 편집",
       "addTitle": "레시피 추가",
@@ -24874,7 +24888,7 @@
       "delete": "삭제",
       "save": "저장",
       "add": "추가"
-},
+    },
     "template": {
       "title": "템플릿 관리",
       "newTitle": "새 템플릿",
@@ -24893,7 +24907,7 @@
       "selectTemplate": "템플릿 선택",
       "startDate": "시작일 (월요일)",
       "apply": "적용"
-},
+    },
     "page": {
       "title": "레시피 관리",
       "subtitle": "일/주/월 보기로 매일의 레시피를 관리합니다",
@@ -24908,7 +24922,7 @@
       "generateFailed": "장보기 목록 생성에 실패했습니다",
       "nutritionAnalysis": "영양 분석",
       "shoppingList": "장보기 목록"
-},
+    },
     "nutrition": {
       "title": "영양 분석 요약",
       "totalCalories": "총 칼로리 (kcal)",
@@ -24921,7 +24935,7 @@
       "protein": "단백질",
       "carbs": "탄수화물",
       "empty": "영양 데이터가 없습니다"
-},
+    },
     "shopping": {
       "title": "식재료 장보기 목록",
       "summary": "날짜 범위: {start} ~ {end} · 총 {count}가지 식재료",
@@ -24929,8 +24943,8 @@
       "appearsIn": "{count}개 요리에 포함",
       "involvedDishes": "관련 요리",
       "generating": "생성 중..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "구내식당 구매 기장",
     "pageDescription": "AI 영수증 인식 · 3라운드 교차 검증(추출→비교→중재) · 장부 / 공급업체 / 통계 통합 관리, 모바일 동기화",
@@ -24939,7 +24953,7 @@
       "ledger": "구매 장부",
       "supplier": "공급업체",
       "stats": "통계 분석"
-},
+    },
     "status": {
       "draft": "초안",
       "aiExtracted": "AI 인식 완료",
@@ -24947,10 +24961,10 @@
       "aiConflict": "AI 확인 필요",
       "confirmed": "기장 완료",
       "voided": "폐기됨"
-},
+    },
     "statusFilter": {
       "all": "모든 상태"
-},
+    },
     "supplierCategory": {
       "vegetable": "채소",
       "meatPoultry": "육류 · 가금류",
@@ -24959,12 +24973,12 @@
       "seasoning": "조미료",
       "frozen": "냉동식품",
       "other": "기타"
-},
+    },
     "verifyType": {
       "extract": "1라운드 · 구조화 추출",
       "verify": "2라운드 · 독립 교차 검증",
       "arbitrate": "3라운드 · 차이 중재"
-},
+    },
     "common": {
       "noData": "데이터 없음",
       "startDate": "시작일",
@@ -24978,7 +24992,7 @@
       "notes": "비고",
       "pleaseSelect": "선택하세요",
       "confidence": "신뢰도"
-},
+    },
     "stats": {
       "exportXlsx": "Excel 내보내기 완료",
       "exportCsv": "CSV 내보내기 완료(UTF-8 BOM, Excel에서 바로 열림)",
@@ -24998,7 +25012,7 @@
       "monthlyTrend": "월별 추이",
       "countItem": "항목",
       "countDoc": "전표"
-},
+    },
     "ai": {
       "doneToast": "영수증 인식 완료: {status}",
       "errNotImage": "이미지 파일을 선택하세요",
@@ -25030,7 +25044,7 @@
       "conflictNote": "3라운드 검증에도 불일치가 남아 있습니다. 왼쪽 원본 이미지와 명세를 대조해 수정한 뒤 장부에서 \"기장\"하세요.",
       "verifiedNote": "두 번의 독립 인식이 일치하고 수학 자가 점검도 통과했습니다. 장부에서 원클릭으로 기장할 수 있습니다.",
       "noItems": "명세가 인식되지 않았습니다. 장부 편집에서 수동으로 입력하세요"
-},
+    },
     "detail": {
       "supplierLabel": "공급업체:",
       "dateLabel": "구매 날짜:",
@@ -25055,7 +25069,7 @@
       "arbitrationNote": "(중재:{resolution})",
       "reverify": "재검증",
       "arbitrateBtn": "차이 중재"
-},
+    },
     "table": {
       "itemName": "품명",
       "category": "분류",
@@ -25064,7 +25078,7 @@
       "unitPrice": "단가",
       "subtotal": "소계",
       "check": "검증"
-},
+    },
     "col": {
       "date": "날짜",
       "supplier": "공급업체",
@@ -25074,21 +25088,21 @@
       "status": "상태",
       "aiRounds": "AI 라운드",
       "actions": "작업"
-},
+    },
     "unit": {
       "rounds": "{rounds}라운드",
       "items": "{count}건"
-},
+    },
     "ledger": {
       "totalCount": "총 {total}전표"
-},
+    },
     "action": {
       "detail": "상세",
       "edit": "편집",
       "confirm": "기장",
       "void": "폐기",
       "delete": "삭제"
-},
+    },
     "toast": {
       "deleted": "삭제됨",
       "confirmSuccess": "기장 성공",
@@ -25098,7 +25112,7 @@
       "supplierDeleted": "공급업체 삭제됨",
       "supplierUpdated": "공급업체 업데이트됨",
       "supplierCreated": "공급업체 생성됨"
-},
+    },
     "confirm": {
       "titleConfirm": "기장 확인",
       "titleVoid": "폐기 확인",
@@ -25106,18 +25120,18 @@
       "descConfirm": "기장하면 통계 기준에 반영됩니다(합계 {amount}). 그래도 폐기할 수 있습니다.",
       "descVoid": "폐기하면 통계에서 제외되며 전표는 조회용으로 보관됩니다.",
       "descDelete": "삭제는 소프트 삭제이며 백엔드에서 복원할 수 있고 전면에는 표시되지 않습니다."
-},
+    },
     "filter": {
       "allSuppliers": "모든 공급업체",
       "keyword": "키워드",
       "keywordPlaceholder": "공급업체 / 전표 번호"
-},
+    },
     "badge": {
       "manual": "수동",
       "passed": "통과",
       "failed": "실패",
       "differed": "차이"
-},
+    },
     "edit": {
       "title": "구매 전표 편집",
       "dateLabel": "구매 날짜",
@@ -25131,7 +25145,7 @@
       "addRow": "행 추가",
       "deleteRow": "이 행 삭제",
       "itemsHint": "품명이 비어 있는 행은 저장 시 자동으로 무시됩니다. 수량 × 단가로 소계가 자동 계산되며 합계를 비우면 명세를 합산합니다."
-},
+    },
     "supplier": {
       "colName": "명칭",
       "colCategory": "분류",
@@ -25153,8 +25167,8 @@
       "license": "자격 증빙",
       "licensePlaceholder": "사업자등록증 / 식품영업 허가",
       "address": "주소"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "정상",
     "statusLate": "지각",
@@ -25239,7 +25253,23 @@
     "reason": "사유",
     "daysWithUnit": "{count}일",
     "approveAction": "승인 처리"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "번호: {no}",
+    "empty": "자격증 없음",
+    "statusRevoked": "취소됨",
+    "statusValid": "유효",
+    "subtitle": "획득한 모든 자격증 보기",
+    "title": "내 자격증",
+    "view": "보기"
+  },
+  "eduCourses": {
+    "backToCourses": "강좌 목록으로 돌아가기",
+    "chaptersTitle": "섹션 목차",
+    "detail": "상세",
+    "notFound": "강좌가 존재하지 않습니다",
+    "studentsCount": "학습자 {count}명"
+  },
   "eduStudyPlan": {
     "add": "추가",
     "addFirstItem": "첫 항목 추가",
@@ -25343,23 +25373,7 @@
     "pageTitle": "학습 계획 관리",
     "pageSubtitle": "반의 학습 계획을 관리하며 월간 계획의 주간 계획 자동 분해를 지원합니다",
     "loadTermsFailed": "학기 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요"
-},
-  "eduCertificates": {
-    "certificateNo": "번호: {no}",
-    "empty": "자격증 없음",
-    "statusRevoked": "취소됨",
-    "statusValid": "유효",
-    "subtitle": "획득한 모든 자격증 보기",
-    "title": "내 자격증",
-    "view": "보기"
-},
-  "eduCourses": {
-    "backToCourses": "강좌 목록으로 돌아가기",
-    "chaptersTitle": "섹션 목차",
-    "detail": "상세",
-    "notFound": "강좌가 존재하지 않습니다",
-    "studentsCount": "학습자 {count}명"
-},
+  },
   "apiKeyPerms": {
     "agentsRead": "에이전트 읽기",
     "agentsCall": "에이전트 호출",

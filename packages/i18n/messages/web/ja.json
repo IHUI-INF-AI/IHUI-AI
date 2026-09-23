@@ -10,30 +10,6 @@
     "creditLowTitle": "クレジットが不足しています",
     "creditLowDesc": "クレジット残高が {min} を下回っているため、モデルを利用できません。チャージしてください"
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "毎回確認",
-        "desc": "プロジェクト外のファイル編集やインターネット使用時に必ず確認します"
-      },
-      "plan": {
-        "title": "読み取り専用プラン",
-        "desc": "閲覧と検索のみ可能。ファイル編集とコマンド実行は拒否されます"
-      },
-      "accept-edits": {
-        "title": "自動承認",
-        "desc": "検出された危険な操作のみ確認します"
-      },
-      "bypass-permissions": {
-        "title": "完全アクセス",
-        "desc": "パソコン上のすべてのファイルとインターネットを制限なく使用できます"
-      },
-      "unknown": {
-        "title": "不明なモード",
-        "desc": "認識できない権限モードのため、既定のモードとして扱われます"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "選択してください",
     "searchPlaceholder": "検索...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "変更をファイルシステムに書き込みました",
       "diffRejectedHint": "この変更は無視しました",
-      "timelineTabInline": "会話フロー"
+      "timelineTabInline": "会話フロー",
+      "reviewStats": {
+        "title": "自動レビュー統計",
+        "accepted": "承認 {n}",
+        "rejected": "拒否 {n}",
+        "noReason": "理由なし {n}",
+        "commandHistory": "コマンド履歴",
+        "noReasonText": "自動レビューで理由が未提供",
+        "noDecision": "自動レビュー記録なし",
+        "expandAria": "コマンド履歴(展開/折りたたみ)"
+      }
     },
     "permissionConfirm": {
       "allow": "許可",
@@ -9277,6 +9263,8 @@
       "copyText": "テキストをコピー",
       "deleteMessage": "メッセージを削除",
       "feedback": "フィードバック",
+      "likeMessage": "高く評価",
+      "dislikeMessage": "低く評価",
       "regenerate": "再生成",
       "branch": "ここから分岐"
     },
@@ -9856,6 +9844,8 @@
       "copiedMarkdown": "Markdown をコピーしました",
       "copiedText": "テキストをコピーしました",
       "feedbackRecorded": "フィードバックを記録しました。ご協力ありがとうございます",
+      "feedbackSaved": "フィードバックを記録しました",
+      "feedbackFailed": "フィードバックの送信に失敗しました",
       "messageDeleted": "メッセージを削除しました",
       "operationFailed": "操作に失敗しました",
       "regenerating": "再生成中…",
@@ -24493,13 +24483,37 @@
     },
     "vividTail": "、まもなくです"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "毎回確認",
+        "desc": "プロジェクト外のファイル編集やインターネット使用時に必ず確認します"
+      },
+      "plan": {
+        "title": "読み取り専用プラン",
+        "desc": "閲覧と検索のみ可能。ファイル編集とコマンド実行は拒否されます"
+      },
+      "accept-edits": {
+        "title": "自動承認",
+        "desc": "検出された危険な操作のみ確認します"
+      },
+      "bypass-permissions": {
+        "title": "完全アクセス",
+        "desc": "パソコン上のすべてのファイルとインターネットを制限なく使用できます"
+      },
+      "unknown": {
+        "title": "不明なモード",
+        "desc": "認識できない権限モードのため、既定のモードとして扱われます"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "ファイルがサイズ上限を超えています: {name}",
     "uploadFailedWithReason": "アップロードに失敗しました: {error}",
     "unknownError": "不明なエラー",
     "missingFileId": "アップロードレスポンスに file.id がありません",
     "maxAttachmentsReached": "添付は最大 {count} 件までです"
-},
+  },
   "eduScheduling": {
     "title": "スマート時間割",
     "description": "時間割ルール、教師の時間帯、時間割変更申請を管理します",
@@ -24512,17 +24526,17 @@
       "weekdayFri": "金曜",
       "weekdaySat": "土曜",
       "weekdaySun": "日曜"
-},
+    },
     "status": {
       "pending": "承認待ち",
       "approved": "承認済み",
       "rejected": "却下済み"
-},
+    },
     "tabs": {
       "rules": "時間割ルール",
       "teachers": "教師の時間帯",
       "changes": "時間割変更"
-},
+    },
     "form": {
       "class": "クラス",
       "subject": "科目",
@@ -24536,7 +24550,7 @@
       "selectTeacher": "教師を選択",
       "selectTerm": "学期を選択",
       "subjectPlaceholder": "数学"
-},
+    },
     "actions": {
       "edit": "編集",
       "add": "追加",
@@ -24549,18 +24563,18 @@
       "autoSchedule": "自動時間割生成",
       "checkConflicts": "競合チェック",
       "addTimeEntry": "時間帯を追加"
-},
+    },
     "loading": {
       "text": "読み込み中...",
       "rules": "時間割ルールを読み込み中...",
       "teachers": "教師の時間帯を読み込み中...",
       "changes": "変更申請を読み込み中..."
-},
+    },
     "empty": {
       "rules": "時間割ルールはまだありません",
       "teachers": "教師の時間帯はまだありません",
       "changes": "変更申請はまだありません"
-},
+    },
     "columns": {
       "time": "時間",
       "timeSlot": "時間帯",
@@ -24572,22 +24586,22 @@
       "status": "ステータス",
       "applicant": "申請者",
       "actions": "操作"
-},
+    },
     "ruleDialog": {
       "editTitle": "時間割ルールを編集",
       "addTitle": "時間割ルールを追加"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "時間帯を編集",
       "addTitle": "時間帯を追加",
       "available": "対応可",
       "unavailable": "対応不可"
-},
+    },
     "conflictDialog": {
       "title": "競合チェック結果",
       "noConflicts": "競合は検出されませんでした"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "成績管理",
     "pageSubtitle": "学生の試験成績・順位・統計分析を管理",
@@ -24656,7 +24670,7 @@
     "avgScoreStat": "平均点: {score}",
     "scoreRateStat": "得点率: {percentage}%",
     "examCountStat": "試験回数: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "父",
     "relationshipMother": "母",
@@ -24732,7 +24746,7 @@
     "confirmDelete": "削除を確認",
     "confirmDeleteContent": "この紐付けを解除しますか？この操作は元に戻せません。",
     "cancel": "キャンセル"
-},
+  },
   "eduSchedule": {
     "title": "時間割管理",
     "description": "学期の授業スケジュールを管理。週表示と月表示に対応",
@@ -24744,7 +24758,7 @@
       "weekdayFri": "金曜",
       "weekdaySat": "土曜",
       "weekdaySun": "日曜"
-},
+    },
     "colors": {
       "blue": "青",
       "green": "緑",
@@ -24754,7 +24768,7 @@
       "teal": "青緑",
       "indigo": "インディゴ",
       "rose": "ローズ"
-},
+    },
     "form": {
       "courseName": "授業名",
       "courseNamePlaceholder": "例：高等数学",
@@ -24765,7 +24779,7 @@
       "classroom": "教室",
       "classroomPlaceholder": "例：A101",
       "colorMark": "色マーカー"
-},
+    },
     "editCourseTitle": "授業を編集",
     "addCourseTitle": "授業を追加",
     "delete": "削除",
@@ -24810,7 +24824,7 @@
     "copyFailed": "コピーに失敗しました",
     "exportFailed": "エクスポートに失敗しました",
     "exportFilePrefix": "時間割"
-},
+  },
   "eduHomework": {
     "pageTitle": "宿題管理",
     "pageSubtitle": "生徒の宿題の提出・添削・採点を管理します",
@@ -24845,14 +24859,14 @@
     "submittedAtLabel": "提出日時：",
     "commentPlaceholder": "任意（添削コメント）",
     "submitGrade": "添削を送信"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "朝食",
       "lunch": "昼食",
       "dinner": "夕食",
       "snack": "間食"
-},
+    },
     "weekdays": {
       "weekdayMon": "月曜",
       "weekdayTue": "火曜",
@@ -24861,12 +24875,12 @@
       "weekdayFri": "金曜",
       "weekdaySat": "土曜",
       "weekdaySun": "日曜"
-},
+    },
     "views": {
       "day": "日",
       "week": "週",
       "month": "月"
-},
+    },
     "mealDialog": {
       "editTitle": "レシピを編集",
       "addTitle": "レシピを追加",
@@ -24885,7 +24899,7 @@
       "delete": "削除",
       "save": "保存",
       "add": "追加"
-},
+    },
     "template": {
       "title": "テンプレート管理",
       "newTitle": "新規テンプレート",
@@ -24904,7 +24918,7 @@
       "selectTemplate": "テンプレートを選択",
       "startDate": "開始日（月曜）",
       "apply": "適用"
-},
+    },
     "page": {
       "title": "レシピ管理",
       "subtitle": "日次・週次・月次ビューで毎日のレシピを管理",
@@ -24919,7 +24933,7 @@
       "generateFailed": "買い物リストの生成に失敗しました",
       "nutritionAnalysis": "栄養分析",
       "shoppingList": "買い物リスト"
-},
+    },
     "nutrition": {
       "title": "栄養分析サマリー",
       "totalCalories": "総カロリー (kcal)",
@@ -24932,7 +24946,7 @@
       "protein": "タンパク質",
       "carbs": "炭水化物",
       "empty": "栄養データがありません"
-},
+    },
     "shopping": {
       "title": "食材買い物リスト",
       "summary": "期間: {start} ~ {end} · 計 {count} 種類の食材",
@@ -24940,8 +24954,8 @@
       "appearsIn": "{count} 件の料理に含まれています",
       "involvedDishes": "関連料理",
       "generating": "生成中..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "食堂購買記帳",
     "pageDescription": "AI で領収書を認識 · 三輪クロスチェック(抽出→照合→裁定)· 台帳 / 仕入先 / 統計を一括管理、モバイルと同期",
@@ -24950,7 +24964,7 @@
       "ledger": "購買台帳",
       "supplier": "仕入先",
       "stats": "統計分析"
-},
+    },
     "status": {
       "draft": "下書き",
       "aiExtracted": "AI抽出済み",
@@ -24958,10 +24972,10 @@
       "aiConflict": "AI要確認",
       "confirmed": "記帳済み",
       "voided": "無効化済み"
-},
+    },
     "statusFilter": {
       "all": "すべての状態"
-},
+    },
     "supplierCategory": {
       "vegetable": "野菜",
       "meatPoultry": "肉・家禽",
@@ -24970,12 +24984,12 @@
       "seasoning": "調味料",
       "frozen": "冷凍食品",
       "other": "その他"
-},
+    },
     "verifyType": {
       "extract": "第1ラウンド · 構造化抽出",
       "verify": "第2ラウンド · 獨立クロスチェック",
       "arbitrate": "第3ラウンド · 差異裁定"
-},
+    },
     "common": {
       "noData": "データなし",
       "startDate": "開始日",
@@ -24989,7 +25003,7 @@
       "notes": "備考",
       "pleaseSelect": "選択してください",
       "confidence": "信頼度"
-},
+    },
     "stats": {
       "exportXlsx": "Excel をエクスポートしました",
       "exportCsv": "CSV をエクスポートしました(UTF-8 BOM、Excel で直接開けます)",
@@ -25009,7 +25023,7 @@
       "monthlyTrend": "月次推移",
       "countItem": "件",
       "countDoc": "件"
-},
+    },
     "ai": {
       "doneToast": "領収書認識完了:{status}",
       "errNotImage": "画像ファイルを選択してください",
@@ -25041,7 +25055,7 @@
       "conflictNote": "三輪照合後も不一致が残っています。左の原画像と明細を人手で照合し、修正後に台帳で「記帳」してください。",
       "verifiedNote": "二回の独立認識が一致し数学セルフチェックも通過しました。台帳でワンクリックで記帳できます。",
       "noItems": "明細が認識されませんでした。台帳編集で手入力してください"
-},
+    },
     "detail": {
       "supplierLabel": "仕入先:",
       "dateLabel": "購入日:",
@@ -25066,7 +25080,7 @@
       "arbitrationNote": "(裁定:{resolution})",
       "reverify": "再照合",
       "arbitrateBtn": "差異裁定"
-},
+    },
     "table": {
       "itemName": "品名",
       "category": "類別",
@@ -25075,7 +25089,7 @@
       "unitPrice": "単価",
       "subtotal": "小計",
       "check": "照合"
-},
+    },
     "col": {
       "date": "日付",
       "supplier": "仕入先",
@@ -25085,21 +25099,21 @@
       "status": "状態",
       "aiRounds": "AIラウンド",
       "actions": "操作"
-},
+    },
     "unit": {
       "rounds": "{rounds} ラウンド",
       "items": "{count} 件"
-},
+    },
     "ledger": {
       "totalCount": "全 {total} 伝票"
-},
+    },
     "action": {
       "detail": "詳細",
       "edit": "編集",
       "confirm": "記帳",
       "void": "無効化",
       "delete": "削除"
-},
+    },
     "toast": {
       "deleted": "削除しました",
       "confirmSuccess": "記帳に成功しました",
@@ -25109,7 +25123,7 @@
       "supplierDeleted": "仕入先を削除しました",
       "supplierUpdated": "仕入先を更新しました",
       "supplierCreated": "仕入先を作成しました"
-},
+    },
     "confirm": {
       "titleConfirm": "記帳を確認",
       "titleVoid": "無効化を確認",
@@ -25117,18 +25131,18 @@
       "descConfirm": "記帳後は統計基準に計上されます(合計 {amount})。無効化は可能です。",
       "descVoid": "無効化後は統計に計上されず、伝票は参照用に保留されます。",
       "descDelete": "削除は論理削除です。バックエンドで復元でき、フロントには表示されません。"
-},
+    },
     "filter": {
       "allSuppliers": "すべての仕入先",
       "keyword": "キーワード",
       "keywordPlaceholder": "仕入先・伝票番号"
-},
+    },
     "badge": {
       "manual": "手動",
       "passed": "合格",
       "failed": "失敗",
       "differed": "差異"
-},
+    },
     "edit": {
       "title": "購買伝票を編集",
       "dateLabel": "購入日",
@@ -25142,7 +25156,7 @@
       "addRow": "行を追加",
       "deleteRow": "この行を削除",
       "itemsHint": "品名が空の行は保存時に自動で無視されます。数量 × 単価で小計が自動計算され、合計が空欄なら明細を合計します。"
-},
+    },
     "supplier": {
       "colName": "名称",
       "colCategory": "分類",
@@ -25164,8 +25178,8 @@
       "license": "許認可証",
       "licensePlaceholder": "営業許可・食品衛生許可",
       "address": "住所"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "出席",
     "statusLate": "遅刻",
@@ -25250,7 +25264,23 @@
     "reason": "理由",
     "daysWithUnit": "{count}日",
     "approveAction": "承認"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "番号：{no}",
+    "empty": "証明書はありません",
+    "statusRevoked": "失効済み",
+    "statusValid": "有効",
+    "subtitle": "取得したすべての証明書を見る",
+    "title": "マイ証明書",
+    "view": "表示"
+  },
+  "eduCourses": {
+    "backToCourses": "コース一覧に戻る",
+    "chaptersTitle": "セクション目次",
+    "detail": "詳細",
+    "notFound": "コースが見つかりません",
+    "studentsCount": "{count} 人が受講中"
+  },
   "eduStudyPlan": {
     "add": "追加",
     "addFirstItem": "最初の項目を追加",
@@ -25354,23 +25384,7 @@
     "pageTitle": "学習計画管理",
     "pageSubtitle": "クラスの学習計画を管理し、月次計画の週次計画への自動分解に対応します",
     "loadTermsFailed": "学期データの読み込みに失敗しました。しばらくしてからもう一度お試しください"
-},
-  "eduCertificates": {
-    "certificateNo": "番号：{no}",
-    "empty": "証明書はありません",
-    "statusRevoked": "失効済み",
-    "statusValid": "有効",
-    "subtitle": "取得したすべての証明書を見る",
-    "title": "マイ証明書",
-    "view": "表示"
-},
-  "eduCourses": {
-    "backToCourses": "コース一覧に戻る",
-    "chaptersTitle": "セクション目次",
-    "detail": "詳細",
-    "notFound": "コースが見つかりません",
-    "studentsCount": "{count} 人が受講中"
-},
+  },
   "apiKeyPerms": {
     "agentsRead": "エージェントの読み取り",
     "agentsCall": "エージェントの呼び出し",
