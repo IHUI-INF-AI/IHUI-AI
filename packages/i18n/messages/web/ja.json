@@ -21748,11 +21748,6 @@
   },
   "permission": {
     "inputWarning": "高リスク操作を検出しました。確認してから続行してください",
-    "mode": {
-      "full": "フル",
-      "auto": "自動",
-      "ask": "確認"
-    },
     "dangerousCommandTitle": "危険なコマンドを検出しました",
     "dangerousCommandDesc": "危険なコマンド「{pattern}」を検出：{reason}。それでも続行しますか？",
     "dangerousCommandProceed": "それでも実行",
@@ -21764,7 +21759,6 @@
     "copyText": "テキストをコピー",
     "copyMarkdown": "Markdown でコピー",
     "regenerate": "再生成",
-    "feedback": "フィードバック",
     "deleteMessage": "メッセージを削除"
   },
   "activityBar": {
@@ -22677,7 +22671,6 @@
     "copiedText": "テキストをコピーしました",
     "copiedMarkdown": "Markdown をコピーしました",
     "regenerating": "再生成中",
-    "feedbackRecorded": "フィードバックを記録しました",
     "messageDeleted": "メッセージを削除しました",
     "operationFailed": "操作に失敗しました"
   },

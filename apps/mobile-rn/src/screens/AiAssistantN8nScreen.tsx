@@ -1006,7 +1006,6 @@ export default function AiAssistantN8nScreen() {
                   : [],
               )
             : undefined
-          return {
           // G-166:交代帧同样从 metadata 读回 —— 服务端已把"引用了哪些来源 / 本轮带了哪些
           // 上下文"随回调落库(与 SSE 帧同一真相源),此前重进历史会话这两段交代整段看不见。
           // 逐条类型守卫:脏条目单条丢弃,缺 url 不造"点不动的假链接"。
@@ -1037,14 +1036,15 @@ export default function AiAssistantN8nScreen() {
                   : [],
               )
             : undefined
+          return {
             id: `${m.id}-${idx}`,
             role: m.role as 'user' | 'assistant',
             content: m.content,
             ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
             ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
-          }
             ...(citations && citations.length > 0 ? { citations } : {}),
             ...(injections && injections.length > 0 ? { injections } : {}),
+          }
         })
       setMessages(loaded)
       requestAnimationFrame(() => {

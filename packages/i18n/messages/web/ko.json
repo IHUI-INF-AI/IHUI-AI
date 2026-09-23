@@ -21737,11 +21737,6 @@
   },
   "permission": {
     "inputWarning": "고위험 작업이 감지되었습니다. 확인 후 계속하세요",
-    "mode": {
-      "full": "전체",
-      "auto": "자동",
-      "ask": "확인"
-    },
     "dangerousCommandTitle": "위험한 명령이 감지되었습니다",
     "dangerousCommandDesc": "위험한 명령 \"{pattern}\" 감지: {reason}. 계속 실행할까요?",
     "dangerousCommandProceed": "계속 실행",
@@ -21753,7 +21748,6 @@
     "copyText": "텍스트 복사",
     "copyMarkdown": "Markdown으로 복사",
     "regenerate": "다시 생성",
-    "feedback": "피드백",
     "deleteMessage": "메시지 삭제"
   },
   "activityBar": {
@@ -22666,7 +22660,6 @@
     "copiedText": "텍스트를 복사했습니다",
     "copiedMarkdown": "Markdown을 복사했습니다",
     "regenerating": "다시 생성 중",
-    "feedbackRecorded": "피드백을 기록했습니다",
     "messageDeleted": "메시지를 삭제했습니다",
     "operationFailed": "작업에 실패했습니다"
   },
