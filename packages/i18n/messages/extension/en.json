@@ -166,10 +166,6 @@
     "emptyHint": "Wordbook is empty, look up a word and save it"
   },
   "chat": {
-    "retryMessage": "Retry",
-    "citationTitle": "Sources",
-    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
-    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
     "history": "History",
     "title": "AI Chat",
     "exit": "Exit",
@@ -190,10 +186,19 @@
     "toolStatusError": "Failed",
     "toolDetail": "Call details",
     "terminal": "Terminal",
-    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "terminalStatusRunning": "Running",
     "terminalStatusCompleted": "Completed",
     "terminalStatusFailed": "Failed",
+    "planStatusPending": "Pending",
+    "planStatusInProgress": "In progress",
+    "planStatusCompleted": "Completed",
+    "subagentTools": "Sub-agent tools ×{count}",
+    "usage": "Usage",
+    "retryMessage": "Retry",
+    "citationTitle": "Sources",
+    "retryScheduled": "Upstream unavailable — retry {attempt} of {max}, continuing in {seconds}s",
+    "retryScheduledNow": "Switching upstream channel — retry {attempt} of {max}, continuing now",
+    "terminalIsolation": "Commands run in an isolated sandbox; network access is off by default",
     "terminalTruncated": "…(truncated, {total} characters in total)",
     "injectionTitle": "{count, plural, one {# context source in this turn} other {# context sources in this turn}}",
     "injectionExpand": "Show {count, plural, one {# more} other {# more}}",
@@ -202,11 +207,6 @@
     "injectionKindWorkspace": "Workspace memory / AGENTS.md injected",
     "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
     "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
-    "planStatusPending": "Pending",
-    "planStatusInProgress": "In progress",
-    "planStatusCompleted": "Completed",
-    "subagentTools": "Sub-agent tools ×{count}",
-    "usage": "Usage",
     "subagentRoleValidator": "Validator",
     "subagentRoleReviewer": "Reviewer",
     "subagentRoleExplorer": "Explorer",
@@ -454,7 +454,7 @@
     "topics": {
       "discussions": "{count} discussions",
       "followers": "{count} followers"
-}
+    }
   },
   "permissionTier": {
     "label": "Permission tier",

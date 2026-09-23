@@ -166,10 +166,6 @@
     "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
   },
   "chat": {
-    "retryMessage": "재시도",
-    "citationTitle": "참조 출처",
-    "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
-    "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
     "history": "기록",
     "title": "AI 채팅",
     "exit": "종료",
@@ -190,10 +186,19 @@
     "toolStatusError": "실패",
     "toolDetail": "호출 상세",
     "terminal": "터미널",
-    "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
     "terminalStatusRunning": "실행 중",
     "terminalStatusCompleted": "완료",
     "terminalStatusFailed": "실패",
+    "planStatusPending": "대기 중",
+    "planStatusInProgress": "진행 중",
+    "planStatusCompleted": "완료",
+    "subagentTools": "하위 에이전트 도구 ×{count}",
+    "usage": "사용량",
+    "retryMessage": "재시도",
+    "citationTitle": "참조 출처",
+    "retryScheduled": "업스트림을 일시적으로 사용할 수 없습니다 — {attempt}/{max}회 재시도, {seconds}초 후 계속",
+    "retryScheduledNow": "업스트림 채널 전환 중 — {attempt}/{max}회 즉시 재시도",
+    "terminalIsolation": "명령은 격리된 샌드박스에서 실행되며 기본적으로 네트워크에 접근하지 않습니다",
     "terminalTruncated": "…(잘림, 전체 {total}자)",
     "injectionTitle": "이번 컨텍스트: {count}개",
     "injectionExpand": "나머지 {count}개 펼치기",
@@ -202,11 +207,6 @@
     "injectionKindWorkspace": "워크스페이스 메모리 / AGENTS.md를 주입했습니다",
     "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
     "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
-    "planStatusPending": "대기 중",
-    "planStatusInProgress": "진행 중",
-    "planStatusCompleted": "완료",
-    "subagentTools": "하위 에이전트 도구 ×{count}",
-    "usage": "사용량",
     "subagentRoleValidator": "검증자",
     "subagentRoleReviewer": "검토자",
     "subagentRoleExplorer": "탐색자",
@@ -454,7 +454,7 @@
     "topics": {
       "discussions": "{count}개 토론",
       "followers": "{count}명 팔로워"
-}
+    }
   },
   "permissionTier": {
     "label": "권한 등급",
