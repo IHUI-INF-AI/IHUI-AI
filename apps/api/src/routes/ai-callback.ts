@@ -93,6 +93,55 @@ const persistedRetryNoticeSchema = z.looseObject({
   httpStatus: z.number().int().optional(),
 })
 
+// D33(2026-09-23 立):usageDetail / fallback / memoryUpdates 过程性信息持久化。
+// 与 citations / compaction 同一套 loose 透传语义:只锁关键字段,其余按 loose 落库,
+// 回放时前端直接消费;空值不写 key(worker 浅合并不覆盖既有 key)。
+// usageDetail:与 event: usage 同源的用量明细(token 分项 + 计时 + 成本 + 模型),
+// 子字段类型宽松(部分 provider 不给 reasoningTokens / 成本),全部透传落库。
+const persistedUsageDetailSchema = z.looseObject({
+  promptTokens: z.unknown().optional(),
+  completionTokens: z.unknown().optional(),
+  totalTokens: z.unknown().optional(),
+  reasoningTokens: z.unknown().optional(),
+  firstTokenMs: z.unknown().optional(),
+  durationMs: z.unknown().optional(),
+  model: z.string().nullable().optional(),
+  costUsd: z.unknown().optional(),
+})
+
+// fallback:主模型失败切换备用模型的交代,与 SSE fallback 帧同源(primary_model/backup_model/reason)。
+// 三个字段全部由契约钉死(SSE 事件必带),缺一不落库(降级提示渲染不出可辨认的一行就别出现)。
+const persistedFallbackSchema = z.looseObject({
+  primary_model: z.string(),
+  backup_model: z.string(),
+  reason: z.string(),
+})
+
+// memoryUpdates:本轮对话同步提炼出的长期记忆条目摘要数组(done.memoryUpdates 同源),
+// 每项一条字符串摘要;其余按 loose 透传。
+const persistedMemoryUpdatesSchema = z.array(z.string())
+
+// D33(2026-09-23 立):单条 metadata 序列化体积护栏。
+// 任一结构化值(JSON)超过 64KB 即降级为标注文本 { truncated: true, originalBytes },
+// 不丢字段(键保留)、不整条丢弃 —— 超大 citations/toolCalls/usageDetail 等仍能落库,
+// 只是超大那一项变成可识别占位,避免一条巨消息撑爆 jsonb 行。
+const METADATA_VALUE_MAX_BYTES = 64 * 1024
+function capMetadataObject(meta: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(meta)) {
+    if (value === null || typeof value !== 'object') {
+      out[key] = value
+      continue
+    }
+    const serialized = JSON.stringify(value)
+    out[key] =
+      serialized.length <= METADATA_VALUE_MAX_BYTES
+        ? value
+        : { truncated: true, originalBytes: serialized.length }
+  }
+  return out
+}
+
 const callbackSchema = z.object({
   content: z.string(),
   reasoning: z.string().optional(),
@@ -110,6 +159,10 @@ const callbackSchema = z.object({
   injections: z.array(persistedInjectionSchema).optional(),
   compaction: persistedCompactionSchema.optional(),
   retryNotice: persistedRetryNoticeSchema.optional(),
+  // D33(2026-09-23 立):用量明细 / 模型降级 / 记忆提炼过程性信息持久化通道
+  usageDetail: persistedUsageDetailSchema.optional(),
+  fallback: persistedFallbackSchema.optional(),
+  memoryUpdates: persistedMemoryUpdatesSchema.optional(),
   metadata: z
     .looseObject({
       conversationId: z.string().optional(),
@@ -166,6 +219,9 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         injections,
         compaction,
         retryNotice,
+        usageDetail,
+        fallback,
+        memoryUpdates,
         metadata,
       } = parsed.data
       const conversationId = metadata?.conversationId
@@ -232,25 +288,9 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
             // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
-            metadata: {
-              model,
-              usage,
-              stub,
-              ...(toolCalls && toolCalls.length > 0 ? { toolCalls } : {}),
-              ...(terminalTasks && terminalTasks.length > 0 ? { terminalTasks } : {}),
-              // planSteps(2026-09-21 立):空数组不写 key —— 与"本轮无计划"语义区分,
-              // 且 worker 侧是浅合并({ ...prevMeta, ...metadata }),不写 key 就不会
-              // 覆盖既有 metadata(toolCalls / pendingQuestion 等)。
-              ...(planSteps && planSteps.length > 0 ? { planSteps } : {}),
-              // G-166:交代帧同规则 —— 空数组不写 key("本轮无引用/无注入"),
-              // worker 侧浅合并因此不会把既有 key 抹掉。
-              ...(citations && citations.length > 0 ? { citations } : {}),
-              ...(injections && injections.length > 0 ? { injections } : {}),
-              ...(compaction ? { compaction } : {}),
-              ...(retryNotice ? { retryNotice } : {}),
-              // G-165:权限档同理"无记录即不写 key",前端据此区分"未盖章"与"default 档"
-              ...permissionMeta,
-            },
+            // D33(2026-09-23 立):体积护栏 —— 入队前对 metadata 各值做 64KB 上限降级,
+            // 超限项变 { truncated: true, originalBytes } 占位(键保留,不丢字段不整条丢)。
+            metadata: capMetadataObject(metadata),
           })
           return reply.status(202).send(success({ accepted: true, queued: true }))
         }

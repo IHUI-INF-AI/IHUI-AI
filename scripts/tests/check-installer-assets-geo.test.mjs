@@ -147,4 +147,70 @@ test('注入违规:目录页输入框宽度顶穿容器右缘必须被拦', () =
   assert.notEqual(r.code, 0, r.text.slice(-600))
   assert.match(r.text, /水平越出容器/)
 })
+// ─── 不变量 G(重装页 DPI 重锚链完整 + 寄存器洁净)的注入回归 ──────────
+// 这条闸钉的是"重锚只重摆控件、不重摆窗口几何"这一族失效。取样一律**动态定位**
+// (先找分支再改写),不写死存量行 —— 2026-09-23 本文件曾因夹具写死存量条目,
+// 存量一变自测就自伤变红。
+
+/** 定位 uiSrc 里"重装页 DPI 重锚分支"并交给 fn 改写(找不到即抛,不让注入静默失效) */
+function mutateReanchorBranch(uiSrc, fn) {
+  const from = uiSrc.indexOf('${If} $0 != $IHUIDPIW')
+  assert.ok(from >= 0, '注入失败:找不到重装页 DPI 重锚分支判定行')
+  const stop = uiSrc.indexOf('${EndIf}', from)
+  assert.ok(stop > from, '注入失败:重锚分支没有配平的 ${EndIf}')
+  return uiSrc.slice(0, from) + fn(uiSrc.slice(from, stop)) + uiSrc.slice(stop)
+}
+
+test('注入违规:重锚分支丢掉裁剪区域重算(窗口框跟了、region 仍按旧档硬裁)必须被拦', () => {
+  const mutated = mutateReanchorBranch(ui, (branch) => {
+    const next = branch.replace(/!insertmacro IHUI_WINDOW_RGN[^\n]*\n/, '')
+    assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_WINDOW_RGN')
+    return next
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /重锚分支缺 !insertmacro IHUI_WINDOW_RGN/)
+})
+
+test('注入违规:重锚分支退回只定档不定窗(旧敞口原样)必须被拦', () => {
+  const mutated = mutateReanchorBranch(ui, (branch) => {
+    const next = branch.replace(/!insertmacro IHUI_GUIINIT_SIZE[^\n]*\n/, '')
+    assert.notEqual(next, branch, '注入失败:重锚分支里没有 !insertmacro IHUI_GUIINIT_SIZE')
+    return next
+  })
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /重锚分支缺 !insertmacro IHUI_GUIINIT_SIZE/)
+})
+
+test('注入违规:圆角宏的临时量挪回 $R0(会把 PageReinstall 的版本比较结果清掉)必须被拦', () => {
+  const mutated = ui.replace(/!macro IHUI_WINDOW_RGN([\s\S]*?)!macroend/, (m, body) =>
+    m.replace(body, body.replace(/\.R6/g, '.R0').replace(/p R6/g, 'p R0').replace(/\$R6/g, '$R0')),
+  )
+  assert.match(mutated, /!macro IHUI_WINDOW_RGN[\s\S]*?\.R0/, '注入失败:圆角宏里找不到 .R6 输出')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /当临时量/)
+})
+
+test('注入违规:installer.nsi 里主题宏不再被 PageReinstall 插入(整条链静默消失)必须被拦', () => {
+  const mutated = inst.replace(/^\s*!insertmacro IHUI_REINSTALLTHEME\s*$/m, '; (被删)')
+  assert.notEqual(mutated, inst, '注入失败:找不到 IHUI_REINSTALLTHEME 的插入行')
+  const r = withFixtures({ 'installer.nsi': mutated }, (env) => runGuard(env))
+  assert.notEqual(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /未插入 IHUI_REINSTALLTHEME/)
+})
+
+test('不误伤:与重锚链无关的真实改动(改顶档 DPI 阈值 + 分支内加注释)必须仍全绿', () => {
+  // 反证上一族假红:动 !define 值、在重锚分支里加注释,都不该让 G 变红。
+  const cap = ui.match(/^\s*!define\s+IHUI_DPI_CAP\s+(\d+)/m)
+  assert.ok(cap, '夹具失效:找不到 !define IHUI_DPI_CAP')
+  const other = cap[1] === '96' ? '120' : '96'
+  let mutated = ui.replace(/^(\s*)!define\s+IHUI_DPI_CAP\s+\d+/m, `$1!define IHUI_DPI_CAP ${other}`)
+  assert.notEqual(mutated, ui, '夹具失效:顶档阈值改写未生效')
+  mutated = mutateReanchorBranch(mutated, (branch) => branch + '  ; 只加一条注释,几何链一字未动\n')
+  const r = withFixtures({ 'ui.nsi': mutated }, (env) => runGuard(env))
+  assert.equal(r.code, 0, r.text.slice(-600))
+  assert.match(r.text, /七条跨文件不变量成立/)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

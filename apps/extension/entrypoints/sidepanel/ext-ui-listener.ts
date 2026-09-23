@@ -21,7 +21,10 @@ export function initExtUiListener(): void {
       const m = msg as { type?: string; payload?: AgentActionRequest } | null
       if (!m || m.type !== EXT_UI_FORWARD_MESSAGE_TYPE || !m.payload) return false
       const req = m.payload
-      void executeExtUiAction(req.action as Parameters<typeof executeExtUiAction>[0], req.params ?? {})
+      void executeExtUiAction(
+        req.action as Parameters<typeof executeExtUiAction>[0],
+        req.params ?? {},
+      )
         .then(sendResponse)
         .catch((err: unknown) => {
           sendResponse({

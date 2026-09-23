@@ -56,17 +56,17 @@ interface Props {
   onSaved: () => void
 }
 
-/** 预设参数模板(行业典型值) */
+/** 预设参数模板(行业典型值)。labelKey/descKey 为 llmSettings.v2.modelParams 下的 i18n 键 */
 const PRESETS: Array<{
   key: string
-  label: string
-  desc: string
+  labelKey: string
+  descKey: string
   params: ModelDefaultParamsStructured
 }> = [
   {
     key: 'precise',
-    label: 'Precise(精确)',
-    desc: '低温度,适合代码 / 事实问答',
+    labelKey: 'presetPrecise',
+    descKey: 'presetPreciseDesc',
     params: {
       temperature: 0.2,
       topP: 0.9,
@@ -77,14 +77,14 @@ const PRESETS: Array<{
   },
   {
     key: 'balanced',
-    label: 'Balanced(均衡)',
-    desc: '默认配置,适合日常对话',
+    labelKey: 'presetBalanced',
+    descKey: 'presetBalancedDesc',
     params: { temperature: 0.7, topP: 1, maxTokens: 4096, frequencyPenalty: 0, presencePenalty: 0 },
   },
   {
     key: 'creative',
-    label: 'Creative(创意)',
-    desc: '高温度,适合写作 / 头脑风暴',
+    labelKey: 'presetCreative',
+    descKey: 'presetCreativeDesc',
     params: {
       temperature: 1.2,
       topP: 0.95,
@@ -95,8 +95,8 @@ const PRESETS: Array<{
   },
   {
     key: 'json',
-    label: 'JSON Mode',
-    desc: '结构化输出,适合 API 集成',
+    labelKey: 'presetJson',
+    descKey: 'presetJsonDesc',
     params: { temperature: 0.3, topP: 1, maxTokens: 4096, responseFormat: 'json_object' },
   },
 ]
@@ -287,15 +287,15 @@ export function ModelFormDialog({ open, provider, model, onClose, onSaved }: Pro
                 {tParams('presets')}
               </span>
               {PRESETS.map((p) => (
-                <Badge
-                  key={p.key}
-                  variant="outline"
-                  className="cursor-pointer text-xs hover:bg-accent"
-                  onClick={() => applyPreset(p.params)}
-                  title={p.desc}
-                >
-                  {p.label}
-                </Badge>
+                <Tooltip key={p.key} content={tParams(p.descKey)}>
+                  <Badge
+                    variant="outline"
+                    className="cursor-pointer text-xs hover:bg-accent"
+                    onClick={() => applyPreset(p.params)}
+                  >
+                    {tParams(p.labelKey)}
+                  </Badge>
+                </Tooltip>
               ))}
             </div>
 

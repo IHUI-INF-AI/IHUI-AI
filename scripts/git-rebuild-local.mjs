@@ -28,10 +28,18 @@
  * 前提:远端 origin 健康(本脚本依赖远端恢复;工作区文件始终保留,不会丢失)。
  */
 import { execSync } from 'node:child_process'
-import { existsSync, rmSync, mkdirSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { gitdirArchivePath } from './lib/gitdir.mjs'
 import { basename, join } from 'node:path'
+
+/**
+ * 外部 gitdir 的真值由仓库根推导,不得硬编码盘符:
+ * 同一份仓在 `G:/IHUI-AI` 与 `D:/IHUI-AI` 都存活过(§5b 记录过一次整仓迁盘),
+ * 写死 `D:/IHUI-AI-git-repo` 会让 G: 上的检出重建到错误位置。
+ */
+function externalGitDir(root) {
+  return join(root, '..', `${basename(root)}-git-repo`)
+}
 
 function run(cmd, allowFail = false) {
   try {
@@ -159,21 +167,34 @@ function main() {
       const firstLine = readFileSync(dotGit, 'utf8').split('\n')[0].trim()
       const m = firstLine.match(/^gitdir:\s*(.+)$/)
       if (m) {
-        targetGitDir = m[1].trim()
-        isSeparate = true
+        const cand = m[1].trim()
+        // 指针本身可能被上一轮重建写成自指(`gitdir: <repo>/.git`),或指向一个已被
+        // 宿主清空的空壳目录。照它走会让 clone 落回工作区内的 .git(正是 §5b 要防的
+        // "把实体拉回工作区→被 safe-delete 整体删掉"),并再次产出同一个坏指针。
+        const selfRef = join(repoRoot, '.git').toLowerCase() === join(cand).toLowerCase()
+        const looksLikeGitDir =
+          existsSync(join(cand, 'HEAD')) || existsSync(join(cand, 'objects'))
+        if (!selfRef && looksLikeGitDir) {
+          targetGitDir = cand
+          isSeparate = true
+        } else {
+          console.error(`⚠️  .git 指针不可信(自指=${selfRef} 像 gitdir=${looksLikeGitDir}): ${cand}`)
+          console.error(`   回退外部 gitdir 布局,不再照指针走`)
+          targetGitDir = externalGitDir(repoRoot)
+          isSeparate = true
+        }
       }
     } else if (st.isDirectory()) {
       targetGitDir = dotGit // 旧布局:真 gitdir 就是工作区内的 .git 目录
     }
   } else {
     // 无 .git:默认采用外部 gitdir 布局,兼容将来路径变化
-    targetGitDir = 'D:/IHUI-AI-git-repo'
+    targetGitDir = externalGitDir(repoRoot)
     isSeparate = true
   }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
-  // 归档统一落 §15b 唯一备份目录;取不到才退回旧的兄弟命名(旧写法每次重建在盘根长新目录)
-  const archiveDir = gitdirArchivePath(`${basename(targetGitDir)}.broken-${ts}`) || `${targetGitDir}.broken-${ts}`
+  const archiveDir = `${targetGitDir}.broken-${ts}`
   const cloneDir = join(tmpdir(), `ihui-git-rebuild-${ts}`)
 
   console.log('🔧 检测到仓库异常,开始从远端重建...')
