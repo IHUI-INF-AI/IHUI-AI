@@ -22,7 +22,6 @@
  */
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import { createPortal } from 'react-dom'
 import { Loader2, ArrowLeft, ArrowRight, RotateCw, Copy, ExternalLink } from 'lucide-react'
 
@@ -115,8 +114,6 @@ export function CdpBrowserView({
   const [copied, setCopied] = React.useState(false)
   // 2026-08-17:交互受限提示条(扫码登录只需展示二维码,用户用手机扫;避免误以为可随意点击)
   const [hintDismissed, setHintDismissed] = React.useState(false)
-  const t = useTranslations('workPanel')
-  const ta = useTranslations('a11y')
 
   // 开发者工具(2026-08-17):控制台日志 + JS 执行(类似 F12)
   const [devToolsOpen, setDevToolsOpen] = React.useState(false)
@@ -134,7 +131,7 @@ export function CdpBrowserView({
           setJsResult(typeof m.data === 'string' ? m.data : JSON.stringify(m.data, null, 2))
           ws.removeEventListener('message', onResult)
         } else if (m.type === 'error' && m.event === 'execute') {
-          setJsResult(t('jsExecFailed', { message: m.message ?? ta('unknownError') }))
+          setJsResult(`执行出错: ${m.message ?? '未知错误'}`)
           ws.removeEventListener('message', onResult)
         }
       } catch {
@@ -187,7 +184,7 @@ export function CdpBrowserView({
     try {
       ws = new WebSocket(wsUrl)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : t('wsCreateFailed')
+      const msg = e instanceof Error ? e.message : 'WebSocket 创建失败'
       setError(msg)
       cbRefs.current.onFailed?.(msg)
       return
@@ -248,7 +245,7 @@ export function CdpBrowserView({
     ws.onerror = () => {
       if (disposed) return
       // 检查 ai-service 是否在线(给用户更有用的错误提示)
-      const msg = t('connectFailed')
+      const msg = '浏览器连接失败,请确认 AI 服务(8803)正在运行'
       setError(msg)
       cbRefs.current.onFailed?.(msg)
     }
@@ -256,7 +253,7 @@ export function CdpBrowserView({
     ws.onclose = (e) => {
       if (disposed) return
       if (e.code !== 1000 && !hasFirstFrame.current) {
-        const msg = e.reason || t('connectionClosed')
+        const msg = e.reason || '浏览器连接已关闭'
         setError(msg)
         cbRefs.current.onFailed?.(msg)
       }
@@ -451,7 +448,7 @@ export function CdpBrowserView({
     if (onBack) {
       items.push({
         key: 'back',
-        label: t('back'),
+        label: '后退',
         icon: ArrowLeft,
         onClick: () => {
           onBack()
@@ -462,7 +459,7 @@ export function CdpBrowserView({
     if (onForward) {
       items.push({
         key: 'forward',
-        label: t('forward'),
+        label: '前进',
         icon: ArrowRight,
         onClick: () => {
           onForward()
@@ -473,7 +470,7 @@ export function CdpBrowserView({
     if (onReload) {
       items.push({
         key: 'reload',
-        label: t('reload'),
+        label: '刷新',
         icon: RotateCw,
         onClick: () => {
           onReload()
@@ -484,7 +481,7 @@ export function CdpBrowserView({
     if (currentUrl) {
       items.push({
         key: 'copy',
-        label: copied ? t('linkCopied') : t('copyLink'),
+        label: copied ? '已复制' : '复制链接地址',
         icon: Copy,
         onClick: handleCopyUrl,
       })
@@ -492,7 +489,7 @@ export function CdpBrowserView({
     if (onOpenExternal) {
       items.push({
         key: 'external',
-        label: t('openExternal'),
+        label: '在外部浏览器打开',
         icon: ExternalLink,
         onClick: () => {
           onOpenExternal()
@@ -531,15 +528,15 @@ export function CdpBrowserView({
       {!hintDismissed && !error && (
         <div className="absolute inset-x-2 bottom-2 z-10 flex items-center gap-2 rounded-md border border-border bg-background/95 px-2.5 py-1.5 shadow-sm">
           <span className="flex-1 text-[10px] leading-relaxed text-muted-foreground">
-            {t('interactionHint')}
+            此视图为自动化截图,交互受限 — 扫码请用手机扫;完整操作请在外部浏览器打开
           </span>
           <button
             type="button"
             onClick={() => setHintDismissed(true)}
             className="shrink-0 text-[10px] text-muted-foreground hover:text-foreground"
-            aria-label={ta('closeAlert')}
+            aria-label="关闭提示"
           >
-            {t('gotIt')}
+            知道了
           </button>
         </div>
       )}
@@ -548,37 +545,39 @@ export function CdpBrowserView({
         type="button"
         onClick={() => setDevToolsOpen((o) => !o)}
         className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-md border border-border bg-background/90 px-2 py-1 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
-        aria-label={t('devTools')}
+        aria-label="开发者工具"
       >
         <span className="font-mono font-semibold">{'</>'}</span>
-        {t('devTools')}
+        开发者工具
       </button>
       {devToolsOpen && (
         <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
           <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
-            <span className="text-[10px] font-semibold">{t('devTools')}</span>
+            <span className="text-[10px] font-semibold">开发者工具</span>
             <button
               type="button"
               onClick={() => setDevToolsOpen(false)}
               className="text-[10px] text-muted-foreground hover:text-foreground"
             >
-              {ta('close')}
+              关闭
             </button>
           </div>
           <div className="flex-1 overflow-auto p-1.5">
-            <div className="mb-1.5 text-[10px] font-medium text-muted-foreground">
-              {t('consoleLogs')}
-            </div>
+            <div className="mb-1.5 text-[10px] font-medium text-muted-foreground">控制台日志</div>
             <pre className="thin-scroll max-h-32 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground">
-              {consoleLogs.length === 0 ? t('noLogsHint') : consoleLogs.join('\n')}
+              {consoleLogs.length === 0
+                ? '(暂无日志 — 在页面上点击操作后会显示坐标信息)'
+                : consoleLogs.join('\n')}
             </pre>
             <div className="mb-1 mt-2 text-[10px] font-medium text-muted-foreground">
-              {t('runJs')}
+              执行 JavaScript
             </div>
             <textarea
               value={jsCode}
               onChange={(e) => setJsCode(e.target.value)}
-              placeholder={t('runJsPlaceholder')}
+              placeholder={
+                'document.title  —  输入 JS 后点执行(如: document.querySelector("button").click())'
+              }
               className="h-14 w-full resize-none rounded border border-input bg-background p-1.5 font-mono text-[10px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               spellCheck={false}
             />
@@ -588,7 +587,7 @@ export function CdpBrowserView({
               disabled={!jsCode.trim()}
               className="mt-1 rounded-md bg-primary px-2 py-1 text-[10px] font-medium text-primary-foreground disabled:opacity-50"
             >
-              {t('run')}
+              执行
             </button>
             {jsResult && (
               <pre className="thin-scroll mt-1.5 max-h-24 overflow-auto rounded bg-muted/40 p-1.5 font-mono text-[9px] leading-relaxed text-foreground">
