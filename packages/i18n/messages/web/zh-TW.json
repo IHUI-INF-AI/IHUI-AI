@@ -6918,7 +6918,7 @@
       "actionCopyConfig": "複製配置",
       "permissionMode": "權限模式",
       "maxIterations": "最大迭代"
-}
+    }
   },
   "agents": {
     "kanban": {
@@ -7061,12 +7061,42 @@
         "row": { "agent": "{action} {agent}{stateSuffix}" },
         "meta": { "prompt": "輸入：{prompt}" },
         "action": {
-          "spawn": { "label": "建立", "inProgress": "建立中", "completed": "已建立", "failed": "建立失敗" },
-          "resume": { "label": "恢復", "inProgress": "恢復中", "completed": "已恢復", "failed": "恢復失敗" },
-          "sendInput": { "label": "傳送輸入", "inProgress": "傳送中", "completed": "已傳送", "failed": "傳送失敗" },
-          "interrupt": { "label": "中斷", "inProgress": "正在中斷", "completed": "已中斷", "failed": "中斷未成功" },
-          "close": { "label": "關閉", "inProgress": "正在關閉", "completed": "已關閉", "failed": "無法關閉" },
-          "list": { "label": "列出", "inProgress": "載入中", "completed": "已載入", "failed": "載入失敗" }
+          "spawn": {
+            "label": "建立",
+            "inProgress": "建立中",
+            "completed": "已建立",
+            "failed": "建立失敗"
+          },
+          "resume": {
+            "label": "恢復",
+            "inProgress": "恢復中",
+            "completed": "已恢復",
+            "failed": "恢復失敗"
+          },
+          "sendInput": {
+            "label": "傳送輸入",
+            "inProgress": "傳送中",
+            "completed": "已傳送",
+            "failed": "傳送失敗"
+          },
+          "interrupt": {
+            "label": "中斷",
+            "inProgress": "正在中斷",
+            "completed": "已中斷",
+            "failed": "中斷未成功"
+          },
+          "close": {
+            "label": "關閉",
+            "inProgress": "正在關閉",
+            "completed": "已關閉",
+            "failed": "無法關閉"
+          },
+          "list": {
+            "label": "列出",
+            "inProgress": "載入中",
+            "completed": "已載入",
+            "failed": "載入失敗"
+          }
         },
         "state": {
           "running": "執行中",
@@ -7452,7 +7482,9 @@
         "noReasonText": "自動審查未提供理由",
         "noDecision": "暫無自動審查記錄",
         "expandAria": "命令歷史(展開/收起)"
-      }
+      },
+      "toolSummaryShowMore": "更多",
+      "toolSummaryShowLess": "收起"
     },
     "permissionConfirm": {
       "allow": "允許",
@@ -11275,7 +11307,7 @@
       "gatewayHintA": "呼叫網關時,請求頭使用",
       "gatewayHintB": "(即 ihui_ 開頭的 Key 標識;Secret 請妥善保管,勿放進請求頭)。",
       "savedClose": "我已保存,關閉"
-},
+    },
     "relayUsage": {
       "title": "用量明細",
       "subtitle": "按模型或按日查看中轉站 / BYOK 呼叫統計",
@@ -11317,7 +11349,7 @@
       "allApiKeys": "全部 API Key",
       "cacheRead": "讀 {count}",
       "cacheWrite": "寫 {count}"
-}
+    }
   },
   "developerApiDocsPage": {
     "colDesc": "說明",
@@ -11634,13 +11666,13 @@
       "reviewer": "審查助手",
       "architect": "架構師",
       "debugger": "調試助手"
-},
+    },
     "subRoles": {
       "researcher": "研究員",
       "coder": "編碼員",
       "reviewer": "評審員",
       "debugger": "調試員"
-},
+    },
     "orch": {
       "parallel": "並行",
       "pipeline": "串行",
@@ -11649,13 +11681,13 @@
       "vote": "投票",
       "critique": "批判",
       "withCommunication": "協作通信"
-},
+    },
     "subOrch": {
       "pipeline": "流水線",
       "critique": "批評",
       "decomposed": "分解",
       "withCommunication": "帶通信"
-},
+    },
     "orchDesc": {
       "parallel": "多個 agent 並行處理同一任務",
       "pipeline": "多個 agent 串行傳遞結果",
@@ -11664,13 +11696,13 @@
       "vote": "5 個 agent 獨立處理 → 互相投票(1-5 分)選最佳",
       "critique": "多 agent 互相批判優化(3 輪:生成→批判→修訂)",
       "withCommunication": "agent 間 Redis 消息總線通信(3 輪協作)"
-},
+    },
     "priority": {
       "low": "低",
       "normal": "普通",
       "high": "高",
       "urgent": "緊急"
-},
+    },
     "fields": {
       "goal": "任務目標",
       "agentRole": "Agent 角色",
@@ -11695,7 +11727,7 @@
       "tokenQuota": "Token 上限",
       "tokenQuotaForm": "Token 配額",
       "maxRetries": "最大重試"
-},
+    },
     "defaultForbidden": "任何不在上述清單的文件",
     "defaultDagNodeTask": "調研需求",
     "dagTitle": "DAG 依賴圖",
@@ -14243,7 +14275,7 @@
       "openWithUnified": "合併視圖打開",
       "openInEditor": "在編輯器中打開",
       "viewPullRequest": "查看拉取請求"
-}
+    }
   },
   "imageGenPage": {
     "download": "下載",
@@ -15051,7 +15083,7 @@
         "step4": "添加你要用的模型",
         "step5": "調用時系統自動優先使用你的 Key",
         "gotIt": "知道了"
-}
+      }
     }
   },
   "market": {
@@ -24588,7 +24620,22 @@
     "uploadFailedWithReason": "上傳失敗:{error}",
     "unknownError": "未知錯誤",
     "missingFileId": "上傳響應缺少 file.id",
-    "maxAttachmentsReached": "最多 {count} 個附件"
+    "maxAttachmentsReached": "最多 {count} 個附件",
+    "placeholder": "點選或拖拽檔案到此處上傳",
+    "done": "已完成",
+    "cancelUpload": "取消上傳",
+    "removeUploadedAriaLabel": "刪除已上傳檔案",
+    "removeItemAriaLabel": "移除上傳項",
+    "sizeLimitHint": "單檔案不超過 {size}",
+    "maxCountReached": "已達上限 {max} 個檔案",
+    "oversizeFiles": "以下檔案超過 {size}: {files}",
+    "uploadFailed": "上傳失敗",
+    "uploadFailedWithStatus": "上傳失敗:HTTP {status}",
+    "invalidJsonResponse": "回應不是合法 JSON",
+    "noUrlField": "回應中未找到可用的 URL 欄位",
+    "networkError": "網路錯誤",
+    "uploadCancelled": "上傳已取消",
+    "imagePlaceholder": "點選或拖拽上傳圖片"
   },
   "eduScheduling": {
     "title": "智能排課",
@@ -25524,7 +25571,7 @@
     "oauthManage": "OAuth 應用管理",
     "mcpConnect": "MCP Server 接入",
     "opsExecute": "運維操作執行"
-},
+  },
   "apiKeysPage": {
     "title": "我的 API 密鑰",
     "createKey": "創建密鑰",
@@ -25541,7 +25588,7 @@
     "rotateSecretDesc": "輪換「{name}」的 secret 後,舊 secret 立即失效,使用舊 secret 的應用需更新。確認繼續?",
     "deleteKeyTitle": "刪除 API 密鑰",
     "deleteKeyDesc": "確定刪除「{name}」?刪除後該密鑰立即失效,且無法恢復。"
-},
+  },
   "knowledgeList": {
     "title": "知識庫",
     "subtitle": "通過語義搜索檢索記憶庫中的知識內容",
@@ -25550,7 +25597,7 @@
     "empty": "暫無搜索結果",
     "searchHint": "輸入關鍵詞搜索知識庫內容",
     "resultCount": "共 {count} 條結果"
-},
+  },
   "knowledgeBase": {
     "backToList": "返回列表",
     "searchPlaceholder": "搜索知識庫文章...",
@@ -25563,14 +25610,14 @@
       "subtitle": "瀏覽、搜索與管理知識庫文章",
       "allCategories": "全部分類",
       "empty": "暫無文章"
-},
+    },
     "detail": {
       "notFound": "文章不存在",
       "viewCount": "{count} 次瀏覽",
       "toc": "目錄",
       "prev": "上一篇",
       "next": "下一篇"
-},
+    },
     "search": {
       "backToKb": "返回知識庫",
       "title": "搜索結果",
@@ -25578,10 +25625,20 @@
       "inputKeyword": "請輸入搜索關鍵詞",
       "searching": "搜索中...",
       "noResult": "未找到相關文章"
-},
+    },
     "create": {
       "title": "新建知識庫文章",
       "subtitle": "撰寫新的知識庫文章併發布"
-}
-}
+    }
+  },
+  "webviewFrame": {
+    "loadingText": "加載中...",
+    "screenshotNotice": "該網站禁止嵌入,已切換到截圖模式",
+    "blockedTitle": "URL 不安全,已攔截",
+    "failedTitle": "加載失敗",
+    "externalTitle": "無法在面板內嵌入",
+    "retry": "重試",
+    "openExternal": "在外部瀏覽器開啟",
+    "idlePlaceholder": "輸入網址或點擊 AI 訊息中的連結以開啟"
+  }
 }
