@@ -38,7 +38,6 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { createRequire } from 'node:module'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
@@ -71,8 +70,6 @@ const SCAN_DIRS = [
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', 'android', 'ios', '.expo', 'coverage', '.output', 'web-build', '__tests__', 'tests', 'e2e', 'test'])
 /** 档位表自身的定义处(tokens.css / app.css 的 --radius-* 行)不参与 B3 判定 */
 const TABLE_FILES = /styles[\\/]tokens\.css$/
-
-const require_ = createRequire(import.meta.url)
 
 function loadTable() {
   // radius.js 是 ESM;用 import() 取真实档位表(守门不复制常量,否则守门自己就成了第二份真相)
