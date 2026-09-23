@@ -1,0 +1,17 @@
+{
+  "counts": {
+    "apps/mobile-rn/src/components/Carousel.tsx": 2,
+    "apps/mobile-rn/src/components/CourseCarousel.tsx": 2,
+    "apps/mobile-rn/src/components/VideoPlayer.tsx": 4,
+    "apps/mobile-rn/src/navigation/RootNavigator.tsx": 1,
+    "apps/mobile-rn/src/screens/ChatToolsScreen.tsx": 2,
+    "apps/mobile-rn/src/screens/CoursePlanetScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx": 4,
+    "apps/mobile-rn/src/screens/MoreCourseScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/PdfToolsScreen.tsx": 1,
+    "apps/mobile-rn/src/screens/SubagentsScreen.tsx": 2,
+    "apps/mobile-rn/src/screens/WebPortalScreen.tsx": 2,
+    "apps/mobile-rn/src/screens/WebViewScreen.tsx": 1
+  }
+}

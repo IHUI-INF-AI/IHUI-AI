@@ -25,7 +25,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 import { Star } from 'lucide-react-native'
 import type { AppIcon } from '@ihui/types'
 
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: tk.surface.light,
+    backgroundColor: tk.surface.card,
     borderRadius: CARD_RADIUS,
     padding: CARD_PADDING,
   } as ViewStyle,

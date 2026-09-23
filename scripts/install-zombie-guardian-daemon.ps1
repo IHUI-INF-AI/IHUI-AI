@@ -78,9 +78,13 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Hours 0) `
     -MultipleInstances IgnoreNew
 
+# 2026-09-23: Interactive -> S4U. An S4U task runs in session 0, which has no desktop,
+# so no process in that session can create a window on screen at all. The wscript.exe +
+# VBS wrapper above is therefore redundant from now on, it is no longer the popup
+# defense line (kept as-is on purpose; removing it is a separate decision).
 $principal = New-ScheduledTaskPrincipal `
     -UserId $env:USERNAME `
-    -LogonType Interactive `
+    -LogonType S4U `
     -RunLevel Limited
 
 $description = 'IHUI-AI Zombie Guardian v2.0 daemon - real-time memory monitor (60s interval). Threshold ladder: >80% trim, >88% aggressive trim+kill install, >92% emergency kill+trim. Auto-restarts on failure (999 retries). Replaces v1.0 30-minute periodic task.'

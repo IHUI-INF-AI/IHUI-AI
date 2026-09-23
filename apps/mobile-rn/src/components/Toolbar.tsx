@@ -18,7 +18,7 @@
  * 兼容:保留旧版「32×32 工具按钮阵列」props 契约(items/separators/activeKey/style),
  * 当 items 非空时在其上渲染横向工具条,确保既有调用方(HomeScreen)不破坏。
  *
- * 配色走 web token(rnLightTokens):brand 黑 / success 绿 / warning 橙 / danger 红,禁用 purple/indigo。
+ * 配色走 web token(主题 token 入口):brand 黑 / success 绿 / warning 橙 / danger 红,禁用 purple/indigo。
  * 尺寸 rpx→dp 2:1,标题 16 / 正文 14 / 辅助 12。字体已全局生效,不设 fontFamily。
  */
 import { useEffect, useMemo, useRef } from 'react'
@@ -33,7 +33,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   Bot,
   Film,
@@ -239,11 +239,11 @@ export function Toolbar({
         style={({ pressed }) => [styles.bannerWrap, pressed ? styles.pressed : null]}
       >
         <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
-          <Bot size={64} color={tokens.text.secondary} />
+          <Bot size={56} color={tokens.brandAccent.DEFAULT} />
         </Animated.View>
         <View style={styles.bannerCard}>
           <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
-          <Text style={styles.bannerSub}>批量一件生成百条爆款，降本增效90%</Text>
+          <Text style={styles.bannerSub}>批量一键生成百条爆款，降本增效90%</Text>
         </View>
       </Pressable>
 
@@ -410,10 +410,10 @@ const styles = StyleSheet.create({
   },
   bannerFloat: {
     position: 'absolute',
-    left: 20,
+    left: 16,
     top: 0,
-    width: 110,
-    height: 110,
+    width: 90,
+    height: 90,
     zIndex: 777,
     alignItems: 'center',
     justifyContent: 'center',
@@ -429,20 +429,20 @@ const styles = StyleSheet.create({
     height: 80,
     width: '100%',
     borderRadius: 15,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.surface.card,
     flexDirection: 'column',
     justifyContent: 'center',
-    paddingLeft: 130,
+    paddingLeft: 115,
     paddingRight: 16,
   },
   bannerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: tokens.text.primary,
   },
   bannerSub: {
     fontSize: 12,
-    color: tokens.gray['400'],
+    color: tokens.text.secondary,
     marginTop: 4,
   },
 
