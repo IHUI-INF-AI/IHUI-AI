@@ -25,7 +25,7 @@
  *
  * 平台特有:依赖 RN Modal/Animated/PanResponder/useSafeAreaInsets,不适合共享。
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { useEffect, useRef, useState } from 'react'
 import { Check } from 'lucide-react-native'
 import {

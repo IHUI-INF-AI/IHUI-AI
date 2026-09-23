@@ -28,7 +28,7 @@ import {
   type N8nModelTab,
 } from '@ihui/rn-app'
 import { Zap, PauseCircle } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'

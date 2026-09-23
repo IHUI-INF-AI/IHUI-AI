@@ -21,7 +21,7 @@ import { Check, ChevronDown, ChevronUp, CircleDashed, Loader2, X } from 'lucide-
 import { humanizeToolText, deriveTaskStatusBar } from '@ihui/shared'
 import type { TaskStatusKind, TaskStatusStepView } from '@ihui/shared'
 import type { PlanStepStatus, ToolCall } from '@ihui/types'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import type { PlanStepItem, ToolCallItem } from '../../utils/chat-render-model'
 

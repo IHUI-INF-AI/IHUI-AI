@@ -10,7 +10,7 @@
  */
 import { StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
-import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { tokens as tk } from '../theme/active-tokens'
 
 export const TAB_BAR_HEIGHT = 56
 export const TAB_BAR_ICON_SIZE = 24
