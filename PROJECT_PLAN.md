@@ -788,6 +788,63 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
+
+
+### 第十六批:死键判据第三处盲区(注入式取词包装器)+ 撤销一版"可删 39 枚"的代理结论(2026-09-24)
+
+我没有照抄代理结论,而是先逐条复核 —— 结果当场证伪:`dead-taro` 代理给出"delete 39",
+但 `packages/app/src/components/PayButton.tsx:313` 定义 `const tr = (key, fallback) => (t ? t(key) : fallback)`
+(t 由 props 注入,:23 注释自述),:314-319 用 `tr('pay.defaultName'|'pay.subscribeTip'|'pay.priceLabel'|
+'pay.perMonth'|'pay.countLabel'|'pay.payNow', …)` 真实取词。**若照做,6 处在线文案会被静默删词。**
+
+- **根治**:`_i18n-scan-helpers.mjs` 三处动词组 `(?:t|tt)\(` → `(?:t|tt|tr)\(`。方向安全(扩消费者识别只会减少
+  假死键,不会造出假死键);`\b` 锚定使 `extra(` / `transform(` 不命中,已写成反例用例。
+  实测 web / extension / mobile-rn 死键保持 0(零连带回归),镜像用例 141/141、分端扫描器 14/14。
+- **taro 仍 39 的原因不是判据旧洞**,而是 `packages/app/src` 不在 taro 端 scanTargets 内 ——
+  代理当初反对把 `packages/app` 加白是对的(会把 RN 专属键倒灌成 taro 假 wire)。
+- **结论改判**:taro 那 39 枚至少 6 枚确证在线;其余 33 枚属"RN 共享包词表被镜像进 taro 包而 taro 侧无消费者"。
+  镜像契约测试 `packages/i18n/tests/waiting-keys-in-end-packages.test.ts:30` 的 `END_PACKAGES` 只覆盖 waiting 族,
+  对 pay.* 无约束 ⇒ "删掉 vs 保留镜像"是 taro/RN 包设计的归属判断,**不是机械摘叶动作**。本票一枚 taro 键都没删。
+- **可复用的判据(写死在此)**:任何"死键可删"结论落地前,必须额外查两种形态 ——
+  ① 包装器取词(`const tr/t2 = (k, …) => t(k)` 这类先字面量传给本地函数、再由它转调注入的 `t`);
+  ② 跨包镜像(taro/rn 共享包 `packages/app`、`packages/ui-react` 内的字面量取词,常在端 scanTargets 之外)。
+- 上一票两件遗留状态:**per-end ja 阻塞门仍未做** —— 原因依旧是文件竞争:`scripts/guardian-runner.mjs`
+  被并发会话持有(` M`,内容是其删除自己守门 80 注册块共 35 行);三端 ja 实测全 ✅、片段与零碰撞 id
+  已备在 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs`(2o-shared / 2o-miniapp-taro / 2o-mobile-rn)。
+  **web 端 5 枚孤儿键已摘完**(死键 5→0,commit `5cd864697`),本会话全部提交已验证在 `origin/main`。
+
+### 第十五批:web 端 5 枚孤儿键摘除(死键 5→0)+ 一桩"看着像污染其实只是 0.2MB"的核账(2026-09-24,commit `5cd864697`)
+
+上一票(第十四批)留下的三件待办,本轮状态逐条交代:
+
+1. **web 端 5 枚真孤儿键已摘**,`scan-dead-i18n-keys` 死 key **5 → 0**(commit `5cd864697`)。
+   摘除前逐条人工复核(**没有只信扫描器**):`permission.mode.{full,auto,ask}` 是全仓唯一命中处**只剩注释**的
+   上一代词表(`workspace/permissions/page.tsx:48`、`chat/message-input.tsx:109`、
+   `workspace-permission-dialog.tsx:99` 三处都明写"不再用 …permission.mode.* 私有键",档位现由
+   `permissionTier.mode.*` 经 `apps/web/src/lib/permission-tier-text.ts:39-46` 渲染);
+   `contextMenu.feedback` 消费者被 `9b16668ccb`(D49)换成 like/dislike;
+   `toast.feedbackRecorded` 的**同名易混陷阱**已排除 —— `RuleDetailDialog.tsx:111` 的
+   `t('feedbackRecorded')` 实际命名空间是 `rules`(:39 `useTranslations('rules')`),用的是
+   `rules.feedbackRecorded`(存在),toast 侧确为孤儿。
+   机制:`.ihui-agent/tmp/i18n/reap-b15.mjs` 借 merge2 的字符串感知 span 做**行级删除**(不整文件重序列化),
+   每摘一键即 `JSON.parse`,父块摘空则连父成员一起摘(防"空块被计成一枚死键")。
+   五语各:删 7 行 / 丢键恰 5(意外 0)/ 键增 0 / **新留空块 0**(包内 7 个空块是存量,非本票造成)/
+   **其余逐值不变**;`git diff --numstat` 五份一律 `0 7`(纯删除零插入)。
+   复测:`--target=web` 通过(17458 键)、`--parity-only` 通过(22591 键路径)、死键 0、水印完整。
+2. **per-end ja 阻塞门未做,原因是文件竞争而非工作量**:守门 2d 上一票已升 blocking,但它只跑 web 口径;
+   shared / miniapp-taro / mobile-rn 三端 ja 现值实测**全 ✅**(具备立刻升门条件),
+   但 `scripts/guardian-runner.mjs` 此刻被并发会话持有(`git status` = ` M`,内容是其**删除 35 行**
+   = 摘掉自己的守门 80 `check-git-read-timeout` 注册块)。我若改这道文件再提交,就会把别人未提交的
+   删门改动一并带上 main —— 属"替他人做未授权的提交",故按住。
+   解阻判据:该会话提交后,把 `.ihui-agent/tmp/i18n/JA-GATES-SNIPPET.mjs` 的三个条目贴进
+   `guardian-runner.mjs` 的 i18n 门族即可(`2o-<end>` 三个 id 在 HEAD 面实测零碰撞),三端已绿不会误伤。
+3. **上一票的"归档路径污染"预警已核账,结论是不必动刀**:第十四批我警告快照提交把
+   `.git.broken-*/.git.hollow-*` 归档路径提交进主线、且一旦合流即上 GitHub。实测:两侧现均含
+   **4553 个**这类路径,**合计体积仅 0.2 MB**(HEAD 树总文件 16588)。
+   ⇒ 代价是可忽略的量级,而这些路径承载的是"husk 里独有的 1070 个 depth≥2 嵌套 ref"现场
+   (§5b 一律禁删那两目录及其归档),**保留比清理更安全**,故不做 `git rm --cached` 分片清理
+   (那还会额外撞守门 65 的"缺失 1000 或 20%"阈值)。此项由"待处理风险"降级为"已量化并决定保留"。
+
 ### 第十四批:ja 端盲区升精确判据 + 死键判据两处盲区(2026-09-23,commit `a5f8aa523` 等)
 
 承第十三批"门报 9 死键 / ja 只能 warn"两条待办,本批把**判据本身**修到可判定,再按清单清账。
@@ -1221,6 +1278,13 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **验证(注入 = 权威入口,不是复刻判据)**:植入探针 `refs/tags/ihui-dangling-probe-20260923 -> deadbeef…` → `node scripts/git-push-guard.mjs` **exit=1**,点名该 ref,输出 `❌ 检出 1 枚 ref 指向已不存在的对象(共判 4457 条 ref)` 并给出配方;移除探针后复跑 **exit=0**、`git fetch` 恢复。对照跑(不带探针)确认无误伤。
 - **合流与推送的最终核验**:0 个未合并路径;守门 77 对提交树与工作树(16565 跟踪文件)双向 `✅ 未检出成对 Git 冲突标记`(唯一豁免是 CLI 自身 SEARCH/REPLACE 补丁格式);`git-push-converge` = **ALREADY**,`ls-remote` 复验两侧逐枚一致(第十九/二十/廿一批登记 1/1,门 71 `titleMarker`/`headIdSet`/`stillRegistered` 1/1、自测 17/17,`IHUI_WINDOW_RGN` 6/6,守门 61 第 7 条不变量 1/1,geo 测试 16/16);两侧内容存活也逐项核过 —— mobile-rn 三文件里本地谱系的功能行(`plusActive`/`onPlusToggle`/`scaleY`/`showAddBtn`/`CitationList`/`InjectionDisclosure`)与远端谱系的 `rnRadius`/`brand.ctaText` 迁移**同时在场**。
 - **残余(不称收口)**:① 守护的 refs 复原(`scripts/git-refs-heal.mjs` 的 `writeLooseRef`)仍**不校验对象存在性**,一次"从清单重建"就能把坏指针复活;该文件与 `git-guardian.mjs` 当前都被并发会话改写(一个 ` M`、一个 `M `),按 §16 我不跨属主改 —— 解阻判据:两文件 `git status` 干净后,写盘前加 `cat-file -e` 判定并把跳过的 ref 计入输出,同时从清单剔除该条(否则每 tick 重犯)。② 本预检是"零网络 + 每次 push 跑一遍全量 ref",当前 4457 条 ref 实测耗时可忽略;若 tag 规模再涨一个量级,需要改成增量判定。
+
+### 第二十三批(2026-09-23):把上一批的"机制缺口"按数据源逐个封死 —— 三个复活入口现在都是零死引用
+
+- **为什么不能靠改守护脚本来收口**:上一批登记的残余是"`git-refs-heal.mjs` 的 `writeLooseRef` 复原 ref 时不校验对象存在性"。实测该文件与 `git-guardian.mjs` 的工作副本都是**混合脏**:`git-refs-heal.mjs` 工作区独有 4 行 / HEAD 独有 6 行,`git-guardian.mjs` 5 / 9 —— 既带着自己的在飞改动、又缺 HEAD 已有的行。此刻提交它们 = 把别人该路径的后续改动静默回滚(正是守门 76 R1 要拦的那一类),所以**按 §16 不动**,改从"能让坏指针复活的数据源"这一侧收口。
+- **三个复活入口逐个查零**:① `refs-manifest.json` —— 在 `.git`、仓根、备份 gitdir 三处全量扫 `manifest` 文件名,**一份都不存在**,所以离线重建没有"期望值"可复原(下一次只会由 `--refresh-remote` 从 origin 的真实 sha 重建);② 本地恢复源 `G:/IHUI-AI.git-backup-20260912` —— 逐枚读出 4212 个松散 tag 文件的目标 sha 送 `cat-file --batch-check`,**指向死对象 = 0 枚**(顺序使然:第二十二批是"先清坏指针、再 `robocopy /MIR` 重做备份",若反过来就是把 1692 枚坏指针复制进恢复源);③ 主 gitdir `packed-refs` 795 条 + 全部 tag ref —— 死行 **0**、悬空 ref **0**,`git fetch origin main` 复测通过。
+- **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
+- **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
 
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
@@ -4302,3 +4366,11 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - [x] ✅(2026-09-23) **D92 主条目刻意不勾 `[x]`**:其验收含"与 D71 错误分类族**共用一张表,不另起**",而 O23 实测 D71 尚未落地该表(`attachErrorMeta` 只挂字段)⇒ 约束处于"我这张表已成唯一真相、D71 还没接上"的半闭状态。已把防重表硬约束写进 D71 条目(见本票末段),**D92 待 D71② 复用它之后才可勾**。这是"有残余就不写收口"的一次执行,不是遗漏。
 - [x] ✅(2026-09-23) **本会话原始待办清单的重测改判(不按旧数字派单)**:① 93 枚 web 包缺键 —— `check-i18n-keys --target=web` 现报 *1539 文件 / 17458 键 / 5 语言 parity OK*,**已被并发会话清零,本会话不再介入**;② `D49① 点赞点踩落库` —— 代码里已写 `// D49①(2026-09-23):点赞/点踩落库`,被并发会话接走,**不起第二套**;③ D96/D82 —— 已随 `63141f3ff80` 落地;④ O21② —— 已由 `17d07367e19` + `2653ca09a70`(O21b 补 `file-versions/create`)落地,本票只做独立复核;⑤ **O13b④ 仍阻塞**:`scripts/guardian-runner.mjs` 状态 `MM`(他人持用 + 已暂存),该票需改 runner 注册新判据,等其释放后执行,不在本票越权重写。
 - **O23 残余(不写作收口)**:① D71② 未落地前,D92 不得勾完成 —— 归属 D71 持有人,解阻判据 = `attachErrorMeta` 或对话流错误卡开始从 `view-failure-taxonomy` 取标题/动作(grep 命中即闭);② O13b④ 归属见上;③ PLAN 工作区双份缩水(≈314 行未归档差异)交「P0 共享工作区幻影滞后根治」复发处置,判据见 O22 残余敞口 ①。
+
+## O24 本会话自伤事故登记:对活文档做"全量 union 回补"造成 1543 行重复入库(2026-09-23 已撤销,未推送)
+
+- [x] ✅(2026-09-23) **做了什么**:.ihui-agent/tmp/copay-plan-registrations.mjs 试图把并发会话未提交的 PLAN 登记"保序回补"并入库。产出提交 `eadd54391fa`(parent `79f23831ff1`),PLAN 从 4263 行被写成 **5843 行**。**该提交从未推送**,已 `update-ref refs/heads/main 79f23831ff1 eadd54391fa`(CAS,只撤自己刚推的那一步,不 reset --hard、不碰他人 ref),悬空提交按 §29 实践 tag 为 `lost-commit/wip-eadd5439` 留取证。
+- [x] ✅(2026-09-23) **根因(判据错,不是执行错)**:独有行判据用的是"整行文本差集"(`!headSet.has(line)`)。活文档在两分钟窗口内被并发会话**重排 + 改写措辞**(HEAD 4189 → 4263,脏项 215 → 290),于是同一内容的"新旧两个措辞版本"全部落在"工作区有 ∧ HEAD 没有"一侧 ⇒ 勘察阶段实测独有块 **12 个 / 59 行**,脚本运行时暴涨成 **59 个 / 1505 行**,插回去就是 1543 行重复(60 种文本)。回补锚点逻辑本身(前锚命中恰好 1)是严格执行的,拦不住这个错。
+- [x] ✅(2026-09-23) **我漏掉的红灯**:数字暴涨 25 倍就打印在我自己脚本的 stdout 里(`独有块 59 个 / 1505 行`),而我勘察得到的预期是"约 59 行"。脚本只断言"零损失(双方行仍在)",**没有断言"改动规模与勘察预期一致"** ⇒ 一个明显该中止的信号被当成统计信息用掉了。
+- **判据修正(可复用,本仓守门 5c 水印门禁 200 缺口即同族设计)**:凡对**活共享文档**做批量回补/合并类写操作,写盘前必须有**规模安全闸**:`实际独有行数 > 勘察预期 × 2` 或 `> 绝对阈值(如 200)` 即 `exit 1` 拒绝写盘,而不是继续。"零损失断言"只保证不删,**不保证不重复** —— 两条必须都有。
+- **结论:放弃"第三方对 PLAN 做全量 union"这条路**。实测证明它在活跃并发窗口下比"什么都不做"更糟(它会把同一登记的两个版本都留下)。PLAN 双份缩水(工作区 3892 行 vs HEAD 4263 行,差 438 行)的正确处置仍是守门 71 的既有设计:**每个提交者提交前现取 HEAD 版本、只插自己那几行**,而非由某个会话替所有人合并。本票不认领该整改。
