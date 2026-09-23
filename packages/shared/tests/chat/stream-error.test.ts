@@ -104,4 +104,30 @@ describe('resendTargetText', () => {
     expect(resendTargetText([{ role: 'user', content: '   \n' }])).toBeNull()
   })
 })
+
+// D92(2026-09-24)接线:errorCode 必须能随失败轮落到消息上,且**不传即不写该字段**
+// —— 各端(miniapp / mobile-rn)一律两参调用,新增第三参不得改变它们的行为。
+describe('markStreamError 的 errorCode 透传(D92/D71②)', () => {
+  it('传 errorCode → 落到消息上,供渲染侧查统一分类表', () => {
+    const marked = markStreamError(asst(''), '后端超时', 'backend_timeout')
+    expect(marked.error).toBe(true)
+    expect(marked.errorCode).toBe('backend_timeout')
+  })
+
+  it('不传第三参 → 完全不写 errorCode 键(向后兼容,不得留 undefined 占位)', () => {
+    const marked = markStreamError(asst(''), 'boom')
+    expect(Object.prototype.hasOwnProperty.call(marked, 'errorCode')).toBe(false)
+  })
+
+  it('传空串 → 同样不写(空码进分类表只会污染回落判断)', () => {
+    const marked = markStreamError(asst(''), 'boom', '')
+    expect(Object.prototype.hasOwnProperty.call(marked, 'errorCode')).toBe(false)
+  })
+
+  it('已有内容不被错误文案销毁(原契约不得因新参数回归)', () => {
+    const marked = markStreamError(asst('已产出一半'), 'x', 'RESOURCE_NOT_FOUND')
+    expect(marked.content).toBe('已产出一半')
+    expect(marked.errorCode).toBe('RESOURCE_NOT_FOUND')
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
