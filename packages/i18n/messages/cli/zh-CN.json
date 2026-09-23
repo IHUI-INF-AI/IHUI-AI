@@ -9,6 +9,7 @@
     "permNoteBypass": "不再逐步确认,AI 可直接改动文件与执行命令(高风险)",
     "permNoteManual": "全部操作转人工确认,含只读查询",
     "citationSources": "参考来源：{sources}",
+    "steerApplied": "引导已生效：{text}",
     "injectionApplied": "本轮参考上下文：{sources}",
     "injectionSrcDeveloper": "自定义指令",
     "injectionSrcWorkspace": "工作区记忆",

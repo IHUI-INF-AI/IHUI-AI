@@ -770,6 +770,10 @@
     "welcomeDesc": "一站式 AI 能力聚合,对话、绘图、视频、语音、智能体,一切尽在掌握",
     "welcomeTitle": "欢迎使用智汇 AI",
     "cards": {
+      "steer": {
+        "title": "已引导 {count} 次",
+        "more": "等 {count} 条"
+      },
       "plan": {
         "title": "执行计划"
       },

@@ -36,6 +36,7 @@ import type {
   InjectionAppliedEvent,
   RetryScheduledEvent,
   CitationsEvent,
+  SteerEvent,
   ToolCallEvent,
   ToolSummaryEvent,
   FallbackEvent,
@@ -324,6 +325,8 @@ export interface StreamEventCallbacks {
   onRetryScheduled?: (evt: RetryScheduledEvent) => void
   /** #11 引用溯源 */
   onCitations?: (evt: CitationsEvent) => void
+  /** D106 中途引导注入确认(Steer 全链路):载荷与 @ihui/api-client 的 SteerEvent 严格对齐 */
+  onSteer?: (evt: SteerEvent) => void
 }
 
 /** SSE 错误对象携带的元信息(字段名与 @ihui/api-client client.ts attachErrorMeta 一致) */
@@ -467,6 +470,17 @@ export const chatStream = async (
         break
       case 'citations':
         if (evt.citations) callbacks?.onCitations?.(evt.citations)
+        break
+      // ===== D106:parser 已产出 evt.steer(@ihui/shared/utils/sse-parse),这里注册到端内回调表。
+      // 逐字段显式承接,不透传整个对象,与既有事件分发同口径。
+      case 'steer':
+        if (evt.steer)
+          callbacks?.onSteer?.({
+            phase: evt.steer.phase,
+            text: evt.steer.text,
+            timestamp: evt.steer.timestamp,
+            messageId: evt.steer.messageId,
+          })
         break
       default:
         break

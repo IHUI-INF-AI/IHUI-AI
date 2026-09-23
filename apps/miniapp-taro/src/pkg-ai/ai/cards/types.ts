@@ -109,6 +109,50 @@ export interface CitationView {
 }
 
 /**
+ * D106 引导已生效交代(Steer 中途引导,web 端 steerNoticeBar 同语义):
+ * shape 与 @ihui/api-client 的 SteerEvent 严格对齐。
+ */
+export interface SteerNoticeView {
+  /** 当前仅 "injected"(已注入 messages);预留扩展 */
+  phase: 'injected'
+  /** 用户引导文本(注入 messages 的原文) */
+  text: string
+  /** 入队时间(ISO,来自 steer 端点) */
+  timestamp?: string
+  /** 所属 assistant 消息 ID */
+  messageId?: string
+}
+
+/** 单条 assistant 消息的引导条数上限(对齐后端 _STEER_QUEUE_LIMIT / web 端 STEER_NOTICE_MAX_PER_MESSAGE) */
+export const STEER_NOTICE_MAX = 8
+
+/**
+ * steer 帧 → 端内视图。text 为空/纯空白时返回 null(调用方跳过,不渲染空提示)。
+ */
+export function toSteerNotice(evt: SteerNoticeView): SteerNoticeView | null {
+  if (!evt || typeof evt.text !== 'string' || !evt.text.trim()) return null
+  return {
+    phase: evt.phase,
+    text: evt.text.trim(),
+    timestamp: evt.timestamp,
+    messageId: evt.messageId,
+  }
+}
+
+/**
+ * steer 帧累积:追加 + 上限截断(web appendSteerNotice 同语义:满 8 条丢弃后续,不整替)。
+ */
+export function appendSteerNotice(
+  list: readonly SteerNoticeView[] | undefined,
+  notice: SteerNoticeView,
+): SteerNoticeView[] {
+  const next = list ? [...list] : []
+  if (next.length >= STEER_NOTICE_MAX) return next
+  next.push(notice)
+  return next
+}
+
+/**
  * citations 帧累积:**追加** + 按 (source,label) 去重。
  * 整替会让流中后到的引用把流首那批抹掉(web 端 #26 已踩过一次)。
  */
@@ -134,5 +178,7 @@ export interface AICardsData {
   terminalTasks: TerminalTaskView[]
   injections: InjectionView[]
   citations: CitationView[]
+  /** D106 引导已生效记录(旧历史消息无此字段,运行时可能为 undefined) */
+  steerNotices?: SteerNoticeView[]
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
