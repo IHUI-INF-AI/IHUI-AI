@@ -558,6 +558,42 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **ja 盲区量化已完成,但**判据仍不可用**:高精度规则(cn→tw 与 cn→jp **同时**变形才算简体独有字形)把 6205 枚"零假名汉字值"压到 web/ja 44 枚,但抽样复核仍是假阳性(`携帯/注文/占/干/雇/无/里` 都是正确日语字形,opencc 却判它要变形)。⇒ 结论:**不引入日本常用汉字/新字体表就没有可靠判据**,升阻塞会大面积误伤;本轮只做量化与工具沉淀,不动门。
 - **多端与文档**:改动 `apps/web` + `apps/extension` + `packages/ui-react`(仅兜底语言与注释)+ web/extension 两份词包 + 台账 + 契约测试。`ui-react` 那处是跨端共享件但**已核实唯一消费方为 web** ⇒ 本票仍标平台独占(web + extension);§21 README 豁免。
 
+### 第十四批:ja 端盲区升精确判据 + 死键判据两处盲区(2026-09-23,commit `a5f8aa523` 等)
+
+承第十三批"门报 9 死键 / ja 只能 warn"两条待办,本批把**判据本身**修到可判定,再按清单清账。
+
+1. **ja 精确判据落地**(`scripts/scan-i18n-zh-residue.mjs` + 新数据文件 `scripts/joyo-kanji.json`):
+   旧 `ja: warnOnly` 把**任何汉字**都 warn —— web/ja 实测 15132 处噪音,等于没有判据,这也是 §19 里 ja 长期不敢升阻塞的原因。
+   新判据 = **字形与繁体不同(中国简化字特征)∧ 不在 2010 版常用汉字表 2136 字内**。
+   表源为文化庁官方 PDF(平成22年内閣告示第2号,3.55MB 完整下载,前言自证"字種 2136 字"),两独立源交叉对称差仅 1 对
+   (`𠮟`↔`叱`,以官方原件取 𠮟)。**两条被我自己的任务书写错、被代理证伪的前提**:① `写/台` 不是"中文专用简化字",
+   它们就是 2010 表字种(写真/台風),按简化字排除会把日文常用词判红;② 表内含唯一非 BMP 字种 `𠮟` U+20B9F,
+   任何"汉字必在 U+4E00–U+9FFF"的预设都会漏它 ⇒ 逐字枚举的字符类按"跳过方向安全"设计(扩展区只会被放过,不会误报)。
+   缺表/表过短整轮回退旧 warnOnly 并如实说明,**不猜**。
+2. **两条必须存在的豁免面**(第一轮跑出来后立刻补,防把不可翻译项判成未翻译):
+   法定备案号 `吉ICP备…号` / `粤公網安備…号`(markdown 侧早有同口径,JSON 侧缺失)、
+   平台品牌名 钉钉/语雀/飞书/微信公众号/视频号 进 `scripts/brand-glossary.json`(brands 58→63,走既有 `isWhitelistedBrand`)。
+   净效果:281 → **276**(web 266 / shared 4 / taro 3 / rn 3),且剩余每条都是**真未翻译界面文案**(如 `"登录"`、`"状态"`、`"知识库"`)。
+3. **死键判据两处盲区**(`_i18n-scan-helpers.mjs` / `scan-dead-i18n-keys.mjs`):
+   ① `DYNAMIC_T_RE` 尾部 `\s*\)` 使 `t(\`chat.${key}\`, values)`(带 values 实参)整条不命中 ⇒ extension 7 枚假死键;
+   与 `STATIC_T_RE`/`TLIST_RE` 的"四次增强"既有语义对齐。② 新增**声明式命名空间登记**:认池自己声明的
+   `X_I18N_NAMESPACE = 'ns'` 常量为持有者证据(锚点 `packages/shared/src/chat/waiting-pool.ts:326`,全池 76 键由 :328-335
+   运行时拼装)—— 三票代理独立收敛到同一根因。③ extension 端 scanTargets 窄口径补 `packages/shared/src/chat`
+   (与 2026-09-12 给 taro/rn 加 `packages/shared/src` 同先例;刻意不加 `packages/app`,实测会把别端专属键倒灌成本端假 wire)。
+   四端合计假死键 **293 → 44**,且 44 枚逐条有 verdict+evidence(`dead-{ext,taro,rn}-b13.json`)。
+4. **合流阻碍取证**(代理逐文件定策,`merge-strategy-b13.md`):union-safe 3(AGENTS/PLAN/README,含无 `<()` 的具体命令)、
+   机器可判 take-theirs 1(`desktop-feed.generated.ts` 两侧仅差 `resolvedAt`,等价重跑 `scripts/resolve-desktop-download.mjs`)、
+   needs-owner 6(mobile-rn 四件归 智汇AGI社区 `36b1468b19c`/`6c9a7ac7a98` vs 快照 `e09d866222f`,其中 `InputArea.tsx` 是
+   77 行 showVoiceMic"删块 vs 保留"语义互斥 = 最危险;git 两件归 刘文博 `95b6622e595`,其中 `git-rebuild-local.mjs`
+   的 HEAD 版**自身 `node --check` 失败**(.mjs 混入 TS 注解),机器默认 take-theirs)。
+   **"本地丢 511 文件"命题被证伪**:现两侧仅差 9 路径且全为远端新增,本地真删除 0;唯一真删是远端侧
+   `apps/mobile-rn/tests/__mocks__/design-tokens.ts`(有意)。**反向污染才是最大风险**:快照提交 `e09d866222f` 把
+   **4485 个 `.git.broken-*/.git.hollow-*` 归档路径 + `--staged`/`_node_path.txt`/`.arts/` 杂物**提交进本地主线,
+   而 `origin/main` 现为 0 ⇒ 一旦合流推上去即污染 GitHub。**建议快照持有者会话**出一枚 `git rm --cached` 清索引提交
+   (磁盘保留,§5b 合规;注意守门 65 阈值"缺失 1000 或 20%"会拦一次性 4485,须分片)。本会话不代他人裁。
+5. **待办**:276 条 ja 未翻值按 5 分片并行改写(`fix-ja-{A..E}.json` → `apply-ja-fixes.mjs` 行级换值 + 五道自证);
+   清零后再把守门 2d 的 severity 从 warn 改 blocking(现在改会把所有会话刷红)。web 侧 5 枚真孤儿键摘叶另票。
+
 ### 守门侧票:`scan-i18n-zh-residue` 行正则"值含转义引号"漏检根治(2026-09-23,承第九批登记的待办票)
 
 - **A/B 取证(权威入口直跑,不复制判据)**:在 `.ihui-agent/tmp/i18n/probe/` 造两行探针(一行值含 `\"`、一行不含),`git show HEAD:` 取出旧版脚本作为 A,新版作为 B,同一 cwd 下对跑:zh-TW **旧报 1 处 / 新报 2 处**,ko **旧 1 / 新 2**,且新报的值是解码后的真实文本(`台帐"记录"详情` → `臺帳"記錄"詳情`)。旧版对含 `\"` 的那行**完全看不见** = 永久漏检的现场复现。
