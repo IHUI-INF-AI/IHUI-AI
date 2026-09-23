@@ -39,6 +39,9 @@ import { createRequire } from 'node:module'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
 const isStaged = process.argv.includes('--staged')
+/** 显式文件清单模式:供迁移执行者按文件自验,判据与全量/暂存模式完全同源 */
+const FILES_MODE = process.argv.includes('--files')
+const fileList = FILES_MODE ? process.argv.slice(process.argv.indexOf('--files') + 1).filter((a) => !a.startsWith('--')) : []
 const SELF_TEST = process.argv.includes('--self-test')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
 
@@ -58,6 +61,8 @@ const SCAN_DIRS = [
   'apps/extension/entrypoints',
   'apps/desktop/src-tauri/offline',
   'apps/cli/src',
+  // api 端不渲染 UI,但 swagger-theme 会**生成 HTML/CSS**(B3 覆盖),一并纳入对账
+  'apps/api/src',
 ]
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', 'android', 'ios', '.expo', 'coverage', '.output', 'web-build', '__tests__', 'tests', 'e2e', 'test'])
 /** 档位表自身的定义处(tokens.css / app.css 的 --radius-* 行)不参与 B3 判定 */
@@ -102,7 +107,15 @@ const STAGED_SET = (() => {
 
 const isCss = (f) => /\.(css|scss|less)$/.test(f)
 const isJsx = (f) => /\.(tsx|jsx|ts)$/.test(f) && !/\.d\.ts$/.test(f)
-const isDoc = (f) => /\.(md|json|snap|svg)$/.test(f)
+/** .svg 不再整体跳过:SVG 的 rx/ry 会产生圆角(B5 管它) */
+const isDoc = (f) => /\.(md|json|snap)$/.test(f)
+
+/** 生成"应写成什么"的提示(档位名唯一来源仍是 table,守门不复制表) */
+function targetOf(table, px) {
+  const step = table.stepOf(px)
+  if (step === null) return `档位表无 ${px}px(就近 ${table.nearest(px)};几何圆请加 radius-exempt)`
+  return step === '2xl' ? "rnRadius['2xl']" : `rnRadius.${step}`
+}
 const skipped = (rel) => rel.split('/').some((seg) => SKIP_DIRS.has(seg)) || /\.(test|spec)\.[jt]sx?$/.test(rel)
 
 /** 从 CSS 文本里抽 --radius-* 定义(用于 A 表对账) */
@@ -152,22 +165,59 @@ export function scanText(rel, text, table) {
         }
       }
     }
-    if (!isJsx(rel)) return
-    // RN / 内联 style
-    const re = new RegExp(`\\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\\s*:\\s*(${['rpx\\(\\s*[0-9.]+\\s*\\)', '-?[0-9.]+'].join('|')})`)
-    const m = re.exec(line)
-    if (m) {
-      const raw = m[1]
-      const px = raw.startsWith('rpx(') ? Number(raw.slice(4, -1)) / 2 : Number(raw)
-      if (px === 0) return
-      if (marked(i)) return
-      const step = table.stepOf(px)
-      const target = step === null ? `档位表无 ${px}px,就近 ${table.nearest(px)}` : step === '2xl' ? "rnRadius['2xl']" : `rnRadius.${step}`
-      if (raw.startsWith('rpx(')) bad.push({ line: i + 1, rule: 'B1-rpx', raw, hint: `换算后 ${px}px → ${target}` })
-      else bad.push({ line: i + 1, rule: 'B1', raw, hint: `应写 ${target}(几何圆请加 radius-exempt)` })
+    if (!isJsx(rel) && !/\.svg$/i.test(rel)) return
+    if (isJsx(rel)) {
+      // B1 RN/内联 style:裸数字、rpx()、以及**带引号的字符串值**('8px' / "6px 6px 0 0" / `…`)
+      //    带引号那支是 2026-09-23 对抗排查补的:原判据只认裸数字,54 处 `borderRadius: '8px'`
+      //    与 B3 的值字符类(排除引号)同时漏过,等于最大盲区。
+      const re = /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(rpx\(\s*[0-9.]+\s*\)|-?[0-9.]+|(['"`])([^'"`]*)\2)/
+      const m = re.exec(line)
+      if (m) {
+        if (m[1].startsWith('rpx(') || /^-?[0-9.]+$/.test(m[1])) {
+          const raw = m[1]
+          const px = raw.startsWith('rpx(') ? Number(raw.slice(4, -1)) / 2 : Number(raw)
+          if (px === 0) return
+          if (marked(i)) return
+          bad.push({ line: i + 1, rule: raw.startsWith('rpx(') ? 'B1-rpx' : 'B1', raw, hint: `应写 ${targetOf(table, px)}(几何圆请加 radius-exempt)` })
+        } else {
+          const val = (m[3] || '').trim()
+          if (/var\(--radius|inherit|none/.test(val)) return
+          if (/50%|9999px/.test(val)) {
+            if (!marked(i)) bad.push({ line: i + 1, rule: 'B1-circle', raw: m[1], hint: '字符串形态的纯圆/胶囊同样要 radius-exempt 标记' })
+            return
+          }
+          for (const part of val.split(/\s+/)) {
+            const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
+            if (!mm) continue
+            const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
+            if (px === 0 || marked(i)) continue
+            bad.push({ line: i + 1, rule: 'B1-string', raw: part, hint: `应写数值档位 ${targetOf(table, px)}(不要字符串字面量)` })
+          }
+        }
+      }
+      // 名字须**确实指向圆角**。子串匹配会误伤三类真实常量(2026-09-23 由 4 个并行批次各自
+      // 独立撞到,证明是判据缺陷而非个案):
+      //   · MAX_ROUNDS / DEFAULT_COMM_ROUNDS / aiRounds —— 轮次计数(ROUND 子串)
+      //   · ARXIV_MAX_RESULTS —— arXiv 查询参数(RX 子串)
+      //   · SNIPPET_RADIUS —— 确实叫 RADIUS 但是字符窗口,属命名债,靠改名解决(见下)
+      // 误报的代价是把业务常量吸附成档位值(5 轮→4 轮、60 字符→16 字符),比漏判严重得多。
+      const mc = /^\s*(?:const|let)\s+([A-Za-z0-9_]*(?:RADIUS|Radius|CORNER|Corner)(?:[A-Za-z0-9_]*|\b)|(?:(?:[A-Za-z0-9_]+_)?(?:RX|RY|Rx|Ry)(?:_[A-Za-z0-9_]+)?))(?![A-Za-z0-9_])\s*=\s*([0-9.]+)(?![0-9.]*\s*\/)/.exec(line)
+      if (mc && !marked(i)) bad.push({ line: i + 1, rule: 'B2', raw: `${mc[1]}=${mc[2]}`, hint: '本地圆角/圆点半径常量应直接引用 rnRadius.<step>' })
     }
-    const mc = /^\s*(?:const|let)\s+([A-Za-z0-9_]*(?:RADIUS|Radius)[A-Za-z0-9_]*)\s*=\s*([0-9.]+)(?![0-9.]*\s*\/)/.exec(line)
-    if (mc && !marked(i)) bad.push({ line: i + 1, rule: 'B2', raw: `${mc[1]}=${mc[2]}`, hint: '本地圆角常量应直接引用 rnRadius.<step>' })
+    // B5:SVG 圆角矩形 —— rx/ry 同样产生圆角,原先完全无判据(.svg 还被当资产整体跳过)
+    //   静态 .svg 资产里没有 JS/CSS 变量通道,故只要求「取值等于档位」或带 radius-exempt 标记;
+    //   JSX 内联 SVG 可以引用档位,按 rnRadius.<step> 要求。
+    const staticSvg = /\.svg$/i.test(rel)
+    const reRx = /\b(rx|ry)\s*=\s*"([0-9.]+)(px)?"|\b(rx|ry)\s*=\s*\{\s*([0-9.]+)\s*\}/g
+    let r5
+    while ((r5 = reRx.exec(line))) {
+      // 分支 1(rx="8")命中组 2;分支 2(rx={8})命中组 5 —— 下标取错会算出 NaN
+      const raw = r5[2] ?? r5[5]
+      const px = Number(raw)
+      if (!Number.isFinite(px) || px === 0 || marked(i)) continue
+      if (staticSvg && steps.includes(px)) continue
+      bad.push({ line: i + 1, rule: 'B5', raw: `${r5[1] || r5[4]}=${raw}`, hint: staticSvg ? `静态 SVG 圆角须等于档位值(${table.nearest(px)})或加 radius-exempt 注释` : `SVG 圆角应引用档位 ${targetOf(table, px)}` })
+    }
     const arb = /\brounded(?:-[a-z0-9]+)*-\[([^\]]+)\]/g
     let a
     while ((a = arb.exec(line))) {
@@ -239,6 +289,26 @@ async function selfTest() {
     { name: 'B4 var 形式放行', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[var(--radius-lg)]" />', red: false },
     { name: 'B3 一行多声明也要看见(width…; border-radius: 50%)', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 16px; border-radius: 50%;', red: true },
     { name: 'B3 TS 模板里生成的 CSS 字面量必拦', f: 'apps/cli/src/commands/share.ts', s: '  .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; }', red: true },
+    { name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")', f: 'apps/web/src/components/common/Toaster.tsx', s: 'const t = { borderRadius: "8px" }', red: true },
+    { name: 'B1 字符串多值必拦', f: 'apps/web/app/(main)/design/InspectorPanel.tsx', s: 'style={{ borderRadius: "6px 6px 0 0" }}', red: true },
+    { name: 'B1 字符串写 var 放行', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "var(--radius-lg)" }}', red: false },
+    { name: 'B1 字符串纯圆无标记必拦', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "50%" }}', red: true },
+    { name: 'B5 SVG rx 表达式数值必拦(且不得算出 NaN/undefined)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: '<rect rx={2} ry={2} width={10} />', red: true, saneRaw: true },
+    { name: 'B5 静态 svg 偏档必拦', f: 'apps/web/public/x.svg', s: '<rect rx="5" ry="5" />', red: true },
+    { name: 'B5 静态 svg 取值为档位则放行(无 JS 变量通道)', f: 'apps/web/public/x.svg', s: '<rect rx="8" ry="8" />', red: false },
+    { name: 'B5 JSX 内联 svg 仍须引用档位', f: 'apps/web/src/a.tsx', s: '<rect rx="8" ry="8" />', red: true },
+    { name: 'B2 常量名不含 RADIUS 也要拦(BAR_RX 形态)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const BAR_RX = 2', red: true },
+    { name: 'B2 正向对照:名字含 ROUND 的非圆角常量不得误报(MAX_ROUNDS=5 是编排轮次)', f: 'apps/api/src/services/crew-orchestrator.ts', s: 'const MAX_ROUNDS = 5', red: false },
+    { name: 'B2 正向对照:DEFAULT_COMM_ROUNDS 同形不误报', f: 'apps/api/src/services/subagent-dispatch-service.ts', s: 'const DEFAULT_COMM_ROUNDS = 3', red: false },
+    { name: 'B2 正向对照:ARXIV_MAX_RESULTS 含 RX 子串不得误报(arXiv 查询参数)', f: 'apps/api/src/jobs/ai-world-sync.ts', s: 'const ARXIV_MAX_RESULTS = 60', red: false },
+    { name: 'B2 正向对照:aiRounds 轮次计数不误报', f: 'apps/api/src/routes/edu-canteen.ts', s: 'let aiRounds = 1', red: false },
+    { name: 'B2 反向对照:独立成词的 RX 常量仍要拦(SVG 半径)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const RX = 2', red: true },
+    { name: 'B2 反向对照:BAR_RX 前缀形仍要拦', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const BAR_RX = 4', red: true },
+    { name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")', f: 'apps/web/src/components/common/Toaster.tsx', s: 'const t = { borderRadius: "8px" }', red: true },
+    { name: 'B1 字符串多值必拦', f: 'apps/web/app/(main)/design/InspectorPanel.tsx', s: 'style={{ borderRadius: "6px 6px 0 0" }}', red: true },
+    { name: 'B1 字符串写 var 放行', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "var(--radius-lg)" }}', red: false },
+    { name: 'B1 字符串纯圆无标记必拦', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "50%" }}', red: true },
+    { name: 'B5 SVG rx 数值必拦', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: '<rect rx={2} ry={2} width={10} />', red: true },
     { name: '档位类放行', f: 'apps/web/src/a.tsx', s: '<div className="rounded-lg p-2" />', red: false },
   ]
   let fail = 0
@@ -246,8 +316,10 @@ async function selfTest() {
     const bad = scanText(c.f, c.s, table)
     const hit = bad.length > 0
     const ok = hit === c.red
+    if (c.saneRaw) for (const b of bad) if (/undefined|NaN/.test(b.raw)) console.log('❌', c.name, 'raw 解析异常:', b.raw)
     console.log(ok ? '✅' : '❌', c.name, ok ? `(${bad.length} 违规)` : `→ 期望${c.red ? '红' : '绿'},实际${hit ? '红' : '绿'} ${JSON.stringify(bad.map((b) => b.rule))}`)
     if (!ok) fail++
+    if (c.saneRaw && bad.some((b) => /undefined|NaN/.test(b.raw))) fail++
   }
   // A 表对账:CSS 值漂移必须识别
   const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.3rem;\n'
@@ -282,7 +354,9 @@ async function main() {
     mod,
   }
   const files = []
-  if (isStaged && STAGED_SET) {
+  if (FILES_MODE) {
+    for (const f of fileList) if (!skipped(f.replaceAll('\\', '/'))) files.push(f.replaceAll('\\', '/'))
+  } else if (isStaged && STAGED_SET) {
     for (const f of STAGED_SET) if (!skipped(f) && !isDoc(f)) files.push(f)
   } else {
     for (const d of SCAN_DIRS) for (const abs of walk(join(ROOT, d))) {
