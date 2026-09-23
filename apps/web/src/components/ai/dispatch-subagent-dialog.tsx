@@ -57,58 +57,48 @@ interface DispatchSubagentDialogProps {
   agentId?: string
 }
 
-const ROLE_OPTIONS: Array<{ value: SubagentRole; labelKey: string }> = [
-  { value: 'researcher', labelKey: 'roles.researcher' },
-  { value: 'coder', labelKey: 'roles.coder' },
-  { value: 'reviewer', labelKey: 'roles.reviewer' },
-  { value: 'architect', labelKey: 'roles.architect' },
-  { value: 'debugger', labelKey: 'roles.debugger' },
+const ROLE_OPTIONS: Array<{ value: SubagentRole; label: string }> = [
+  { value: 'researcher', label: '研究助手(researcher)' },
+  { value: 'coder', label: '代码助手(coder)' },
+  { value: 'reviewer', label: '审查助手(reviewer)' },
+  { value: 'architect', label: '架构师(architect)' },
+  { value: 'debugger', label: '调试助手(debugger)' },
 ]
 
 const ORCHESTRATION_OPTIONS: Array<{
   value: OrchestrationMode
-  labelKey: string
-  descKey: string
+  label: string
+  desc: string
 }> = [
-  { value: 'parallel', labelKey: 'orch.parallel', descKey: 'orchDesc.parallel' },
-  { value: 'pipeline', labelKey: 'orch.pipeline', descKey: 'orchDesc.pipeline' },
-  { value: 'decomposed', labelKey: 'orch.decomposed', descKey: 'orchDesc.decomposed' },
-  { value: 'debate', labelKey: 'orch.debate', descKey: 'orchDesc.debate' },
-  { value: 'vote', labelKey: 'orch.vote', descKey: 'orchDesc.vote' },
+  { value: 'parallel', label: '并行(parallel)', desc: '多个 agent 并行处理同一任务' },
+  { value: 'pipeline', label: '串行(pipeline)', desc: '多个 agent 串行传递结果' },
+  { value: 'decomposed', label: '分解式(decomposed)', desc: '任务分解为 DAG 子步骤执行' },
+  { value: 'debate', label: '辩论(debate)', desc: '5 个 agent 独立处理 → LLM 仲裁选最佳 + 合并' },
+  { value: 'vote', label: '投票(vote)', desc: '5 个 agent 独立处理 → 互相投票(1-5 分)选最佳' },
   {
     value: 'critique',
-    labelKey: 'orch.critique',
-    descKey: 'orchDesc.critique',
+    label: '批判(critique)',
+    desc: '多 agent 互相批判优化(3 轮:生成→批判→修订)',
   },
   {
     value: 'with_communication',
-    labelKey: 'orch.withCommunication',
-    descKey: 'orchDesc.withCommunication',
+    label: '协作通信(with_communication)',
+    desc: 'agent 间 Redis 消息总线通信(3 轮协作)',
   },
 ]
 
 const PRIORITY_OPTIONS: Array<{
   value: 'low' | 'normal' | 'high' | 'urgent'
-  labelKey: string
+  label: string
   color: string
 }> = [
-  { value: 'low', labelKey: 'priority.low', color: 'bg-muted text-muted-foreground' },
-  {
-    value: 'normal',
-    labelKey: 'priority.normal',
-    color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  },
-  {
-    value: 'high',
-    labelKey: 'priority.high',
-    color: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
-  },
-  {
-    value: 'urgent',
-    labelKey: 'priority.urgent',
-    color: 'bg-red-500/10 text-red-700 dark:text-red-400',
-  },
+  { value: 'low', label: '低', color: 'bg-muted text-muted-foreground' },
+  { value: 'normal', label: '普通', color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400' },
+  { value: 'high', label: '高', color: 'bg-orange-500/10 text-orange-700 dark:text-orange-400' },
+  { value: 'urgent', label: '紧急', color: 'bg-red-500/10 text-red-700 dark:text-red-400' },
 ]
+
+const DEFAULT_FORBIDDEN = '任何不在上述清单的文件'
 
 // ---------- 前端镜像类型(对齐后端 service 导出) ----------
 
@@ -202,7 +192,6 @@ export function DispatchSubagentDialog({
   agentId,
 }: DispatchSubagentDialogProps) {
   const tchat = useTranslations('aiChat')
-  const t = useTranslations('dispatchDialog')
   const [activeTab, setActiveTab] = React.useState('dispatch')
 
   React.useEffect(() => {
@@ -218,16 +207,16 @@ export function DispatchSubagentDialog({
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="h-8 w-full">
             <TabsTrigger value="dispatch" className="flex-1 text-xs">
-              {t('dispatchAction')}
+              派发
             </TabsTrigger>
             <TabsTrigger value="auto-plan" className="flex-1 text-xs">
-              {t('autoPlan')}
+              智能规划
             </TabsTrigger>
             <TabsTrigger value="roles" className="flex-1 text-xs">
-              {t('customRolesTab')}
+              自定义角色
             </TabsTrigger>
             <TabsTrigger value="evolution" className="flex-1 text-xs">
-              {t('evolutionTab')}
+              Agent 演化
             </TabsTrigger>
           </TabsList>
           <TabsContent value="dispatch">
@@ -260,14 +249,13 @@ function DispatchForm({
   agentId?: string
 }) {
   const t = useTranslations('dispatchDialog')
-  const tcommon = useTranslations('common')
   const queryClient = useQueryClient()
 
   const [goal, setGoal] = React.useState('')
   const [agentRole, setAgentRole] = React.useState<SubagentRole>('coder')
   const [orchestration, setOrchestration] = React.useState<OrchestrationMode>('parallel')
   const [affectedFilesText, setAffectedFilesText] = React.useState('')
-  const [forbiddenText, setForbiddenText] = React.useState(() => t('defaultForbidden'))
+  const [forbiddenText, setForbiddenText] = React.useState(DEFAULT_FORBIDDEN)
   const [verifyCommandsText, setVerifyCommandsText] = React.useState('')
   const [constraints, setConstraints] = React.useState('')
   const [deliverables, setDeliverables] = React.useState('')
@@ -280,13 +268,13 @@ function DispatchForm({
   const [quotaRetries, setQuotaRetries] = React.useState(2)
   const [enableDag, setEnableDag] = React.useState(false)
   const [dagNodes, setDagNodes] = React.useState<DagNodeInput[]>([
-    { id: 'node1', agentRole: 'researcher', task: t('defaultDagNodeTask') },
+    { id: 'node1', agentRole: 'researcher', task: '调研需求' },
   ])
   const [dagEdges, setDagEdges] = React.useState<DagEdgeInput[]>([])
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [successDispatchId, setSuccessDispatchId] = React.useState<string | null>(null)
 
-  const orchestrationDescKey = ORCHESTRATION_OPTIONS.find((o) => o.value === orchestration)?.descKey
+  const orchestrationDesc = ORCHESTRATION_OPTIONS.find((o) => o.value === orchestration)?.desc
 
   const canSubmit =
     goal.trim().length > 0 &&
@@ -361,23 +349,21 @@ function DispatchForm({
       })
       if (!r.success) {
         if (r.status === 429)
-          toast.error(t('toastConcurrencyLimit'), { description: t('toastConcurrencyLimitDesc') })
-        else if (r.status === 400) toast.error(t('toastBadRequest'), { description: r.error })
-        else toast.error(t('toastDispatchFailed'), { description: r.error })
+          toast.error('并发派单数已达上限', { description: '请等待或用 urgent 优先级抢占' })
+        else if (r.status === 400) toast.error('参数错误', { description: r.error })
+        else toast.error('派发失败', { description: r.error })
         return
       }
       if (!r.data?.dispatch) {
-        toast.error(t('toastDispatchFailed'), { description: t('toastResponseMissing') })
+        toast.error('派发失败', { description: '响应数据缺失' })
         return
       }
       setSuccessDispatchId(r.data.dispatch.id)
-      toast.success(t('toastDispatched'), { description: t('toastPriorityDesc', { priority }) })
+      toast.success('已派发 Subagent', { description: `优先级:${priority}` })
       void queryClient.invalidateQueries({ queryKey: activeDispatchesKey })
       void queryClient.invalidateQueries({ queryKey: swarmTopologyKey })
     } catch (e) {
-      toast.error(t('toastDispatchFailed'), {
-        description: e instanceof Error ? e.message : String(e),
-      })
+      toast.error('派发失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setIsSubmitting(false)
     }
@@ -387,9 +373,7 @@ function DispatchForm({
     return (
       <div className="space-y-3 py-4 text-xs">
         <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-3 py-2.5">
-          <div className="font-medium text-emerald-700 dark:text-emerald-400">
-            {t('dispatchSuccess')}
-          </div>
+          <div className="font-medium text-emerald-700 dark:text-emerald-400">派发成功</div>
           <div className="mt-1 text-muted-foreground">
             Dispatch ID:
             <code className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
@@ -399,14 +383,14 @@ function DispatchForm({
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            {tcommon('close')}
+            关闭
           </Button>
           <Button
             size="sm"
             onClick={() => setSuccessDispatchId(null)}
             className="bg-emerald-600 text-white hover:bg-emerald-700"
           >
-            {t('dispatchAnother')}
+            再派一个
           </Button>
         </div>
       </div>
@@ -415,7 +399,7 @@ function DispatchForm({
 
   return (
     <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
-      <Field label={t('fields.goal')} required>
+      <Field label="任务目标" required>
         <textarea
           value={goal}
           onChange={(e) => setGoal(e.target.value)}
@@ -425,7 +409,7 @@ function DispatchForm({
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t('fields.agentRole')}>
+        <Field label="Agent 角色">
           <Select value={agentRole} onValueChange={(v) => setAgentRole(v as SubagentRole)}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
@@ -433,13 +417,13 @@ function DispatchForm({
             <SelectContent>
               {ROLE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value} className="text-xs">
-                  {t(o.labelKey)}({o.value})
+                  {o.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
-        <Field label={t('fields.orchestration')}>
+        <Field label="编排模式">
           <Select
             value={orchestration}
             onValueChange={(v) => setOrchestration(v as OrchestrationMode)}
@@ -450,19 +434,19 @@ function DispatchForm({
             <SelectContent>
               {ORCHESTRATION_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value} className="text-xs">
-                  {t(o.labelKey)}({o.value})
+                  {o.label}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </Field>
       </div>
-      {orchestrationDescKey && (
+      {orchestrationDesc && (
         <div className="rounded-md border border-border bg-muted/50 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-          {t(orchestrationDescKey)}
+          {orchestrationDesc}
         </div>
       )}
-      <Field label={t('fields.priority')}>
+      <Field label="优先级">
         <div className="flex gap-1">
           {PRIORITY_OPTIONS.map((o) => (
             <button
@@ -476,12 +460,12 @@ function DispatchForm({
                   : 'border-border bg-background text-muted-foreground hover:bg-muted')
               }
             >
-              {t(o.labelKey)}
+              {o.label}
             </button>
           ))}
         </div>
       </Field>
-      <Field label={t('fields.affectedFiles')} required>
+      <Field label="受影响文件(每行一个绝对路径)" required>
         <textarea
           value={affectedFilesText}
           onChange={(e) => setAffectedFilesText(e.target.value)}
@@ -490,7 +474,7 @@ function DispatchForm({
           className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.forbidden')}>
+      <Field label="禁止修改">
         <textarea
           value={forbiddenText}
           onChange={(e) => setForbiddenText(e.target.value)}
@@ -498,7 +482,7 @@ function DispatchForm({
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.verifyCommands')}>
+      <Field label="验证命令(每行一个)">
         <textarea
           value={verifyCommandsText}
           onChange={(e) => setVerifyCommandsText(e.target.value)}
@@ -507,7 +491,7 @@ function DispatchForm({
           className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.constraints')} required>
+      <Field label="约束边界" required>
         <textarea
           value={constraints}
           onChange={(e) => setConstraints(e.target.value)}
@@ -515,7 +499,7 @@ function DispatchForm({
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.deliverables')} required>
+      <Field label="交付物" required>
         <textarea
           value={deliverables}
           onChange={(e) => setDeliverables(e.target.value)}
@@ -532,19 +516,19 @@ function DispatchForm({
             onChange={(e) => setEnableDag(e.target.checked)}
             className="h-3 w-3 rounded-sm"
           />
-          <span>{t('dagTitle')}</span>
+          <span>DAG 依赖图</span>
         </label>
         {enableDag && (
           <div className="space-y-2">
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">{t('dagNodes')}</span>
+                <span className="text-[11px] text-muted-foreground">节点</span>
                 <button
                   type="button"
                   onClick={addDagNode}
                   className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                 >
-                  {t('dagAddNode')}
+                  + 节点
                 </button>
               </div>
               {dagNodes.map((node) => (
@@ -561,7 +545,7 @@ function DispatchForm({
                   >
                     {ROLE_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        {t(o.labelKey)}
+                        {o.label.split('(')[0]}
                       </option>
                     ))}
                   </select>
@@ -584,14 +568,14 @@ function DispatchForm({
             </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground">{t('dagEdgesOptional')}</span>
+                <span className="text-[11px] text-muted-foreground">边(条件可选)</span>
                 <button
                   type="button"
                   onClick={addDagEdge}
                   disabled={dagNodes.length < 2}
                   className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted disabled:opacity-40"
                 >
-                  {t('dagAddEdge')}
+                  + 边
                 </button>
               </div>
               {dagEdges.map((edge, idx) => (
@@ -641,10 +625,10 @@ function DispatchForm({
       </div>
       {/* 重试 */}
       <div className="space-y-1.5 rounded-md border border-border bg-card px-2.5 py-2">
-        <span className="text-xs font-medium text-foreground">{t('retrySection')}</span>
+        <span className="text-xs font-medium text-foreground">失败重试</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
-            <span className="text-[11px] text-muted-foreground">{t('fields.retryCount')}</span>
+            <span className="text-[11px] text-muted-foreground">重试次数</span>
             <div className="flex gap-0.5">
               {[1, 2, 3].map((n) => (
                 <button
@@ -665,7 +649,7 @@ function DispatchForm({
           </div>
           {maxAttempts > 1 && (
             <div className="flex items-center gap-1">
-              <span className="text-[11px] text-muted-foreground">{t('interval')}</span>
+              <span className="text-[11px] text-muted-foreground">间隔</span>
               <input
                 type="number"
                 min={0}
@@ -688,12 +672,12 @@ function DispatchForm({
             onChange={(e) => setEnableQuotas(e.target.checked)}
             className="h-3 w-3 rounded-sm"
           />
-          <span>{t('quotasSection')}</span>
+          <span>资源配额</span>
         </label>
         {enableQuotas && (
           <div className="grid grid-cols-2 gap-2 min-[640px]:grid-cols-3">
             <div>
-              <div className="text-[10px] text-muted-foreground">{t('fields.timeoutMs')}</div>
+              <div className="text-[10px] text-muted-foreground">超时(ms)</div>
               <input
                 type="number"
                 min={1000}
@@ -704,7 +688,7 @@ function DispatchForm({
               />
             </div>
             <div>
-              <div className="text-[10px] text-muted-foreground">{t('fields.tokenQuota')}</div>
+              <div className="text-[10px] text-muted-foreground">Token 上限</div>
               <input
                 type="number"
                 min={1000}
@@ -715,7 +699,7 @@ function DispatchForm({
               />
             </div>
             <div>
-              <div className="text-[10px] text-muted-foreground">{t('fields.maxRetries')}</div>
+              <div className="text-[10px] text-muted-foreground">最大重试</div>
               <input
                 type="number"
                 min={0}
@@ -738,7 +722,7 @@ function DispatchForm({
           disabled={isSubmitting}
           className="shrink-0"
         >
-          <span className="whitespace-nowrap">{tcommon('cancel')}</span>
+          <span className="whitespace-nowrap">取消</span>
         </Button>
         <Button
           size="sm"
@@ -746,9 +730,7 @@ function DispatchForm({
           disabled={!canSubmit}
           className="bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
         >
-          <span className="whitespace-nowrap">
-            {isSubmitting ? t('dispatching') : t('dispatchAction')}
-          </span>
+          <span className="whitespace-nowrap">{isSubmitting ? '派发中…' : '派发'}</span>
         </Button>
       </DialogFooter>
     </div>
@@ -778,13 +760,13 @@ function AutoPlanPanel() {
         body: JSON.stringify(body),
       })
       if (!r.success) {
-        toast.error(t('autoPlanFailed'), { description: r.error })
+        toast.error('智能规划失败', { description: r.error })
         return
       }
       if (r.data) setResult(r.data)
-      toast.success(t('autoPlanDone'))
+      toast.success('智能规划完成')
     } catch (e) {
-      toast.error(t('autoPlanFailed'), { description: e instanceof Error ? e.message : String(e) })
+      toast.error('智能规划失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setIsPlanning(false)
     }
@@ -792,7 +774,7 @@ function AutoPlanPanel() {
 
   return (
     <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
-      <Field label={t('fields.taskDesc')} required>
+      <Field label="任务描述" required>
         <textarea
           value={task}
           onChange={(e) => setTask(e.target.value)}
@@ -801,9 +783,9 @@ function AutoPlanPanel() {
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.constraintsOptional')}>
+      <Field label="约束(可选)">
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground">{t('maxAgentsLabel')}</span>
+          <span className="text-[11px] text-muted-foreground">最大 agent 数:</span>
           <input
             type="number"
             min={1}
@@ -820,7 +802,7 @@ function AutoPlanPanel() {
         disabled={task.trim().length === 0 || isPlanning}
         className="w-full bg-violet-600 text-white hover:bg-violet-700"
       >
-        {isPlanning ? t('llmPlanning') : t('autoPlan')}
+        {isPlanning ? 'LLM 规划中…' : '智能规划'}
       </Button>
       {result && (
         <div className="space-y-2 rounded-md border border-border bg-card px-2.5 py-2">
@@ -829,14 +811,11 @@ function AutoPlanPanel() {
               {result.orchestration}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {t('estimateSummary', {
-                duration: result.estimatedDuration,
-                cost: result.estimatedCost,
-              })}
+              预估 {result.estimatedDuration} · {result.estimatedCost}
             </span>
           </div>
           <div className="space-y-1">
-            <div className="text-[11px] font-medium text-foreground">{t('recommendedAgents')}</div>
+            <div className="text-[11px] font-medium text-foreground">推荐 Agent 组合</div>
             {result.agents.map((agent, i) => (
               <div key={i} className="flex items-start gap-1.5 text-[11px]">
                 <code className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
@@ -852,21 +831,15 @@ function AutoPlanPanel() {
             ))}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            <span className="font-medium text-foreground">{t('reasoningLabel')}</span>
+            <span className="font-medium text-foreground">推理:</span>
             {result.reasoning}
           </div>
           {result.topologyStats.length > 0 && (
             <div className="space-y-0.5">
-              <div className="text-[10px] font-medium text-muted-foreground">
-                {t('topologyStatsTitle')}
-              </div>
+              <div className="text-[10px] font-medium text-muted-foreground">历史编排统计</div>
               {result.topologyStats.map((s, i) => (
                 <div key={i} className="text-[10px] text-muted-foreground">
-                  {t('topologyStatLine', {
-                    orchestration: s.orchestration,
-                    rate: Math.round(s.successRate * 100),
-                    samples: s.sampleSize,
-                  })}
+                  {s.orchestration}:成功率 {Math.round(s.successRate * 100)}%({s.sampleSize} 次)
                 </div>
               ))}
             </div>
@@ -883,7 +856,6 @@ function AutoPlanPanel() {
 
 function CustomRolesPanel() {
   const t = useTranslations('dispatchDialog')
-  const tcommon = useTranslations('common')
   const [roles, setRoles] = React.useState<CustomRole[]>([])
   const [loading, setLoading] = React.useState(false)
   const [editingRole, setEditingRole] = React.useState<CustomRole | null>(null)
@@ -919,13 +891,11 @@ function CustomRolesPanel() {
         method: 'DELETE',
       })
       if (r.success) {
-        toast.success(t('roleDeleted'))
+        toast.success('已删除')
         void loadRoles()
-      } else toast.error(t('roleDeleteFailed'), { description: r.error })
+      } else toast.error('删除失败', { description: r.error })
     } catch (e) {
-      toast.error(t('roleDeleteFailed'), {
-        description: e instanceof Error ? e.message : String(e),
-      })
+      toast.error('删除失败', { description: e instanceof Error ? e.message : String(e) })
     }
   }
 
@@ -946,7 +916,7 @@ function CustomRolesPanel() {
         body: JSON.stringify({ task: autoGenTask.trim() }),
       })
       if (!r.success) {
-        toast.error(t('roleAutoGenFailed'), { description: r.error })
+        toast.error('自动生成失败', { description: r.error })
         return
       }
       if (r.data) {
@@ -954,7 +924,7 @@ function CustomRolesPanel() {
         setShowForm(true)
         // 预填表单
         setRoles((prev) => prev) // no-op, form will handle
-        toast.success(t('roleGenerated'), { description: r.data.displayName })
+        toast.success('已生成角色定义', { description: r.data.displayName })
         // 传递到表单 - 用 editingRole 伪 null + 独立 state
         setAutoGenTask('')
         // 直接创建
@@ -970,14 +940,12 @@ function CustomRolesPanel() {
           }),
         })
         if (createR.success) {
-          toast.success(t('roleSaved'))
+          toast.success('已保存自定义角色')
           void loadRoles()
         }
       }
     } catch (e) {
-      toast.error(t('roleAutoGenFailed'), {
-        description: e instanceof Error ? e.message : String(e),
-      })
+      toast.error('自动生成失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setIsGenerating(false)
     }
@@ -1005,7 +973,7 @@ function CustomRolesPanel() {
       {/* 自动生成 */}
       <div className="space-y-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-2">
         <div className="text-[11px] font-medium text-violet-700 dark:text-violet-400">
-          {t('autoGenTitle')}
+          LLM 自动生成角色
         </div>
         <textarea
           value={autoGenTask}
@@ -1020,14 +988,12 @@ function CustomRolesPanel() {
           disabled={autoGenTask.trim().length === 0 || isGenerating}
           className="w-full bg-violet-600 text-white hover:bg-violet-700"
         >
-          {isGenerating ? t('llmGenerating') : t('autoGenAndSave')}
+          {isGenerating ? 'LLM 生成中…' : '自动生成并保存'}
         </Button>
       </div>
       {/* 角色列表 */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-foreground">
-          {t('customRolesCount', { n: roles.length })}
-        </span>
+        <span className="text-[11px] font-medium text-foreground">自定义角色({roles.length})</span>
         <button
           type="button"
           onClick={() => {
@@ -1036,15 +1002,13 @@ function CustomRolesPanel() {
           }}
           className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
         >
-          {t('manualCreate')}
+          + 手动创建
         </button>
       </div>
       {loading ? (
-        <div className="py-4 text-center text-[11px] text-muted-foreground">
-          {t('evolutionLoading')}
-        </div>
+        <div className="py-4 text-center text-[11px] text-muted-foreground">加载中…</div>
       ) : roles.length === 0 ? (
-        <div className="py-4 text-center text-[11px] text-muted-foreground">{t('rolesEmpty')}</div>
+        <div className="py-4 text-center text-[11px] text-muted-foreground">暂无自定义角色</div>
       ) : (
         <div className="space-y-1.5">
           {roles.map((role) => (
@@ -1065,14 +1029,14 @@ function CustomRolesPanel() {
                     }}
                     className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted"
                   >
-                    {t('edit')}
+                    编辑
                   </button>
                   <button
                     type="button"
                     onClick={() => handleDelete(role.id)}
                     className="rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
                   >
-                    {tcommon('delete')}
+                    删除
                   </button>
                 </div>
               </div>
@@ -1108,8 +1072,6 @@ function CustomRoleForm({
   onDone: () => void
   onCancel: () => void
 }) {
-  const t = useTranslations('dispatchDialog')
-  const tcommon = useTranslations('common')
   const [role, setRole] = React.useState(existing?.role ?? '')
   const [displayName, setDisplayName] = React.useState(existing?.displayName ?? '')
   const [systemPrompt, setSystemPrompt] = React.useState(existing?.systemPrompt ?? '')
@@ -1140,11 +1102,11 @@ function CustomRoleForm({
         body: JSON.stringify(body),
       })
       if (r.success) {
-        toast.success(existing ? t('roleUpdated') : t('roleCreated'))
+        toast.success(existing ? '已更新' : '已创建')
         onDone()
-      } else toast.error(t('roleSaveFailed'), { description: r.error })
+      } else toast.error('保存失败', { description: r.error })
     } catch (e) {
-      toast.error(t('roleSaveFailed'), { description: e instanceof Error ? e.message : String(e) })
+      toast.error('保存失败', { description: e instanceof Error ? e.message : String(e) })
     } finally {
       setIsSaving(false)
     }
@@ -1153,9 +1115,9 @@ function CustomRoleForm({
   return (
     <div className="max-h-[55vh] space-y-3 overflow-y-auto py-2 pr-1 text-xs">
       <div className="text-[11px] font-medium text-foreground">
-        {existing ? t('editRole') : t('createRole')}
+        {existing ? '编辑角色' : '创建角色'}
       </div>
-      <Field label={t('fields.roleKey')} required>
+      <Field label="角色技术名(kebab-case)" required>
         <Input
           value={role}
           onChange={(e) => setRole(e.target.value)}
@@ -1164,11 +1126,11 @@ function CustomRoleForm({
           disabled={!!existing}
         />
       </Field>
-      <Field label={t('fields.displayName')} required>
+      <Field label="显示名" required>
         <Input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          placeholder={t('displayNameExample')}
+          placeholder="Drizzle 迁移专家"
           className="h-8 text-xs"
         />
       </Field>
@@ -1180,7 +1142,7 @@ function CustomRoleForm({
           className="w-full resize-none rounded-md border border-input bg-transparent px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </Field>
-      <Field label={t('fields.skills')}>
+      <Field label="技能标签(逗号分隔)">
         <Input
           value={skillsText}
           onChange={(e) => setSkillsText(e.target.value)}
@@ -1188,17 +1150,17 @@ function CustomRoleForm({
           className="h-8 text-xs"
         />
       </Field>
-      <Field label={t('fields.recommendedTasks')}>
+      <Field label="推荐任务类型(逗号分隔)">
         <Input
           value={tasksText}
           onChange={(e) => setTasksText(e.target.value)}
-          placeholder={t('recommendedTasksExample')}
+          placeholder="schema 变更, 数据迁移"
           className="h-8 text-xs"
         />
       </Field>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={isSaving}>
-          {tcommon('cancel')}
+          取消
         </Button>
         <Button
           size="sm"
@@ -1206,7 +1168,7 @@ function CustomRoleForm({
           disabled={!canSave}
           className="bg-emerald-600 text-white hover:bg-emerald-700"
         >
-          {isSaving ? t('saving') : tcommon('save')}
+          {isSaving ? '保存中…' : '保存'}
         </Button>
       </div>
     </div>
@@ -1310,7 +1272,7 @@ function EvolutionPanel() {
           <SelectContent>
             {ROLE_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value} className="text-xs">
-                {t(o.labelKey)}({o.value})
+                {o.label}
               </SelectItem>
             ))}
           </SelectContent>
