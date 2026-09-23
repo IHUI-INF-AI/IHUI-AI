@@ -822,6 +822,38 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 
 
 
+
+### 第十八批:修正第十七批的因果判断,并把 RN 付费按钮真缺陷修掉(2026-09-24)
+
+第十七批我写的结论"**RN 共享屏取不到 `pay.*` ⇒ 静默走中文 fallback**"是**错的**,本轮查清并改判:
+
+- `packages/app/src/components/PayButton.tsx`(即 `tr('pay.*')` 所在那个)**没有任何端挂载** ——
+  RN 的 PaymentScreen 在 `:22` 引的是**端内**组件 `../components/PayButton`,taro 侧只在
+  `adapters/README.md` 被提及。所以 taro 包里那 6 枚 `pay.*` 是"为一个从未挂载的组件镜像进来的孤儿词",
+  不存在"运行时候取不到词"这回事。**我上一票据"存在 `tr()` 调用点"就推断"RN 在用",漏了验证调用点所属组件是否被挂载** —— 这是
+  "有引用 ≠ 有消费"的又一种形态(前两种:注释里提到、测试 mock 里写)。
+- 真正的用户可见缺陷在**端内组件**:`apps/mobile-rn/src/components/PayButton.tsx` 的 `TYPE_META`
+  四档文案(免费使用/限时免费/已购买/每月)与默认金额文案 `立即支付 ${x}` 全是字面量中文,
+  `PaymentScreen:177` 还有 `label="去充值"`;而守门 70 的 TARGETS 不含 `apps/mobile-rn` ⇒ 这笔债此前**无门可见**。
+
+修复(同端既有先例 `import { useI18n } from '../i18n'`,BottomActionBar 等 5 组件同形):
+`TYPE_META.text` → `textKey` 并在渲染处 `t(meta.textKey)`(含 `accessibilityLabel`,读屏一并本地化);
+默认金额文案改用**已存在**的 `payment.payNow`(值"去支付",不另立同义词,故按钮由"立即支付 ¥12.00"变"去支付 ¥12.00");
+`label="去充值"` → `t('payment.recharge')`;mobile-rn 包五语各 +5 键
+(`payment.payType.{freeuse,freetime,hasbuy,monthly}` + `payment.recharge`),
+ja 全部落在 2010 常用汉字表内(新门 `2o-mobile-rn` 实测 ✅)、ko 纯 Hangul、zh-TW 全繁体。
+验证:本票两文件 `tsc --noEmit` 零错误(该包另有 10 处 `ctaFill` 报错属他人未提交 token 改动);
+`check-i18n-keys --target=mobile-rn` 通过、`--parity-only` 通过、`scan-mobile-rn-dead-i18n-keys` 死键 0(=新键确有消费者)。
+
+**顺带逮住并拆掉一个静默回滚陷阱**:我第一版把清单 merge 进工作区包时 `git diff` 报 `9 +/81 -`,
+原因是**工作区那份 mobile-rn 包落后于 HEAD 与索引**(缺 `conversationImport`/`sectionOrder`/`nativeUnavailable` 等 76 键,
+正是守门 76 描述的"幻影漂移"形态)。照那版提交就会替并发会话把这 76 键从版本树抹掉,而 diff 只显"改了几行"。
+处置:改为"从 `git show HEAD:` 重新播种 → 临时目录 merge → 回装",复验成 `8 +/1 -` 且唯一"删除"是给末位成员补逗号。
+
+**由此得出两条可复用判据(写死在此)**:① 判断"某词表键是否在线"必须查到**组件是否被挂载**,不能停在"有 `t()` 调用点";
+② 任何往共享包做批量写入的脚本,落盘后必须立刻以 `git diff --numstat` 对 HEAD 复核"插入数/删除数"形状,
+出现意外删除数即说明基线不是 HEAD,须重播种而不是继续提交。
+
 ### 第十七批:taro 39 枚死键**一枚不删**,因为它们背后是"RN 付费按钮从未本地化"的真缺陷(2026-09-24)
 
 上一票把"taro 33 枚镜像键删还是留"挂成待拍板。本轮按证据查完,**结论是两件事都不该做**,真问题在第三个地方:
