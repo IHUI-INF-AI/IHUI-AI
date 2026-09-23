@@ -10,30 +10,6 @@
     "creditLowTitle": "智匯值不足",
     "creditLowDesc": "您的智匯值餘額小於 {min},無法使用大模型,請前往充值"
   },
-  "permissionTier": {
-    "mode": {
-      "default": {
-        "title": "請求批准",
-        "desc": "編輯外部文件和使用互聯網時始終詢問"
-      },
-      "plan": {
-        "title": "唯讀計畫",
-        "desc": "僅讀取與檢索，寫檔案和執行命令都會被拒絕"
-      },
-      "accept-edits": {
-        "title": "替我審批",
-        "desc": "僅對檢測到的風險操作請求批准"
-      },
-      "bypass-permissions": {
-        "title": "完全訪問權限",
-        "desc": "可不受限制地訪問互聯網和您電腦上的任何文件"
-      },
-      "unknown": {
-        "title": "未知模式",
-        "desc": "無法識別的權限模式，已按預設檔處理"
-      }
-    }
-  },
   "treeSelect": {
     "placeholder": "請選擇",
     "searchPlaceholder": "搜尋...",
@@ -7404,7 +7380,17 @@
       },
       "diffAppliedHint": "改動已寫入檔案系統",
       "diffRejectedHint": "已忽略本次改動",
-      "timelineTabInline": "對話流"
+      "timelineTabInline": "對話流",
+      "reviewStats": {
+        "title": "自動審查統計",
+        "accepted": "已接受 {n}",
+        "rejected": "已拒絕 {n}",
+        "noReason": "未提供理由 {n}",
+        "commandHistory": "命令歷史",
+        "noReasonText": "自動審查未提供理由",
+        "noDecision": "暫無自動審查記錄",
+        "expandAria": "命令歷史(展開/收起)"
+      }
     },
     "permissionConfirm": {
       "allow": "允許",
@@ -9277,6 +9263,8 @@
       "copyText": "復制文本",
       "deleteMessage": "刪除消息",
       "feedback": "反饋",
+      "likeMessage": "讚好",
+      "dislikeMessage": "倒讚",
       "regenerate": "重新生成",
       "branch": "從此處分支"
     },
@@ -9856,6 +9844,8 @@
       "copiedMarkdown": "已復制 Markdown",
       "copiedText": "已復制文本",
       "feedbackRecorded": "已記錄反饋,感謝支持",
+      "feedbackSaved": "已記錄回饋",
+      "feedbackFailed": "回饋提交失敗",
       "messageDeleted": "已刪除消息",
       "operationFailed": "操作失敗",
       "regenerating": "正在重新生成…",
@@ -24470,13 +24460,37 @@
     },
     "vividTail": "，馬上就好"
   },
+  "permissionTier": {
+    "mode": {
+      "default": {
+        "title": "請求批准",
+        "desc": "編輯外部文件和使用互聯網時始終詢問"
+      },
+      "plan": {
+        "title": "唯讀計畫",
+        "desc": "僅讀取與檢索，寫檔案和執行命令都會被拒絕"
+      },
+      "accept-edits": {
+        "title": "替我審批",
+        "desc": "僅對檢測到的風險操作請求批准"
+      },
+      "bypass-permissions": {
+        "title": "完全訪問權限",
+        "desc": "可不受限制地訪問互聯網和您電腦上的任何文件"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "無法識別的權限模式，已按預設檔處理"
+      }
+    }
+  },
   "upload": {
     "oversizeSingle": "檔案超過大小上限:{name}",
     "uploadFailedWithReason": "上傳失敗:{error}",
     "unknownError": "未知錯誤",
     "missingFileId": "上傳響應缺少 file.id",
     "maxAttachmentsReached": "最多 {count} 個附件"
-},
+  },
   "eduScheduling": {
     "title": "智能排課",
     "description": "管理排課規則、教師時間表及調課申請",
@@ -24489,17 +24503,17 @@
       "weekdayFri": "週五",
       "weekdaySat": "週六",
       "weekdaySun": "週日"
-},
+    },
     "status": {
       "pending": "待審批",
       "approved": "已批准",
       "rejected": "已駁回"
-},
+    },
     "tabs": {
       "rules": "排課規則",
       "teachers": "教師時間表",
       "changes": "調課管理"
-},
+    },
     "form": {
       "class": "班級",
       "subject": "科目",
@@ -24513,7 +24527,7 @@
       "selectTeacher": "選擇教師",
       "selectTerm": "選擇學期",
       "subjectPlaceholder": "數學"
-},
+    },
     "actions": {
       "edit": "編輯",
       "add": "添加",
@@ -24526,18 +24540,18 @@
       "autoSchedule": "自動排課",
       "checkConflicts": "衝突檢測",
       "addTimeEntry": "添加時間條目"
-},
+    },
     "loading": {
       "text": "加載中...",
       "rules": "加載排課規則...",
       "teachers": "加載教師時間表...",
       "changes": "加載調課申請..."
-},
+    },
     "empty": {
       "rules": "暫無排課規則",
       "teachers": "暫無教師時間表",
       "changes": "暫無調課申請"
-},
+    },
     "columns": {
       "time": "時間",
       "timeSlot": "時間段",
@@ -24549,22 +24563,22 @@
       "status": "狀態",
       "applicant": "申請人",
       "actions": "操作"
-},
+    },
     "ruleDialog": {
       "editTitle": "編輯排課規則",
       "addTitle": "添加排課規則"
-},
+    },
     "timeEntryDialog": {
       "editTitle": "編輯時間條目",
       "addTitle": "添加時間條目",
       "available": "可用",
       "unavailable": "不可用"
-},
+    },
     "conflictDialog": {
       "title": "衝突檢測結果",
       "noConflicts": "未檢測到衝突"
-}
-},
+    }
+  },
   "eduGrades": {
     "pageTitle": "成績管理",
     "pageSubtitle": "管理學生考試成績、排名和統計分析",
@@ -24633,7 +24647,7 @@
     "avgScoreStat": "平均分: {score}",
     "scoreRateStat": "得分率: {percentage}%",
     "examCountStat": "考試次數: {count}"
-},
+  },
   "eduParent": {
     "relationshipFather": "父親",
     "relationshipMother": "母親",
@@ -24709,7 +24723,7 @@
     "confirmDelete": "確認刪除",
     "confirmDeleteContent": "確定要解除該綁定關係嗎？此操作不可撤銷。",
     "cancel": "取消"
-},
+  },
   "eduSchedule": {
     "title": "課程表管理",
     "description": "管理學期的課程安排，支援週視圖和月視圖",
@@ -24721,7 +24735,7 @@
       "weekdayFri": "週五",
       "weekdaySat": "週六",
       "weekdaySun": "週日"
-},
+    },
     "colors": {
       "blue": "藍色",
       "green": "綠色",
@@ -24731,7 +24745,7 @@
       "teal": "青色",
       "indigo": "靛藍",
       "rose": "玫瑰紅"
-},
+    },
     "form": {
       "courseName": "課程名稱",
       "courseNamePlaceholder": "例如：高等數學",
@@ -24742,7 +24756,7 @@
       "classroom": "教室",
       "classroomPlaceholder": "例如：A101",
       "colorMark": "顏色標記"
-},
+    },
     "editCourseTitle": "編輯課程",
     "addCourseTitle": "添加課程",
     "delete": "刪除",
@@ -24787,7 +24801,7 @@
     "copyFailed": "複製失敗",
     "exportFailed": "匯出失敗",
     "exportFilePrefix": "課程表"
-},
+  },
   "eduHomework": {
     "pageTitle": "作業管理",
     "pageSubtitle": "管理學生作業提交、批改和評分",
@@ -24822,14 +24836,14 @@
     "submittedAtLabel": "提交時間：",
     "commentPlaceholder": "可選，批改評語",
     "submitGrade": "提交批改"
-},
+  },
   "eduMeal": {
     "mealTypes": {
       "breakfast": "早餐",
       "lunch": "午餐",
       "dinner": "晚餐",
       "snack": "加餐"
-},
+    },
     "weekdays": {
       "weekdayMon": "週一",
       "weekdayTue": "週二",
@@ -24838,12 +24852,12 @@
       "weekdayFri": "週五",
       "weekdaySat": "週六",
       "weekdaySun": "週日"
-},
+    },
     "views": {
       "day": "日",
       "week": "週",
       "month": "月"
-},
+    },
     "mealDialog": {
       "editTitle": "編輯菜譜",
       "addTitle": "添加菜譜",
@@ -24862,7 +24876,7 @@
       "delete": "刪除",
       "save": "保存",
       "add": "添加"
-},
+    },
     "template": {
       "title": "模板管理",
       "newTitle": "新建模板",
@@ -24881,7 +24895,7 @@
       "selectTemplate": "選擇模板",
       "startDate": "起始日期（週一）",
       "apply": "應用"
-},
+    },
     "page": {
       "title": "菜譜管理",
       "subtitle": "管理每日菜譜，支持日/週/月視圖",
@@ -24896,7 +24910,7 @@
       "generateFailed": "生成採購清單失敗",
       "nutritionAnalysis": "營養分析",
       "shoppingList": "採購清單"
-},
+    },
     "nutrition": {
       "title": "營養分析匯總",
       "totalCalories": "總熱量 (kcal)",
@@ -24909,7 +24923,7 @@
       "protein": "蛋白質",
       "carbs": "碳水",
       "empty": "暫無營養數據"
-},
+    },
     "shopping": {
       "title": "食材採購清單",
       "summary": "日期範圍: {start} ~ {end} · 共 {count} 種食材",
@@ -24917,8 +24931,8 @@
       "appearsIn": "出現在 {count} 道菜",
       "involvedDishes": "涉及菜品",
       "generating": "生成中..."
-}
-},
+    }
+  },
   "eduProcurement": {
     "pageTitle": "食堂採購記賬",
     "pageDescription": "AI 拍照識別小票 · 三輪交叉核對(抽取→比對→仲裁)· 臺賬 / 供應商 / 統計一站式管理,移動端同步",
@@ -24927,7 +24941,7 @@
       "ledger": "採購臺賬",
       "supplier": "供應商",
       "stats": "統計分析"
-},
+    },
     "status": {
       "draft": "草稿",
       "aiExtracted": "AI已識別",
@@ -24935,10 +24949,10 @@
       "aiConflict": "AI存疑",
       "confirmed": "已記賬",
       "voided": "已作廢"
-},
+    },
     "statusFilter": {
       "all": "全部狀態"
-},
+    },
     "supplierCategory": {
       "vegetable": "蔬菜",
       "meatPoultry": "肉禽",
@@ -24947,12 +24961,12 @@
       "seasoning": "調味",
       "frozen": "凍品",
       "other": "其他"
-},
+    },
     "verifyType": {
       "extract": "第1輪 · 結構化抽取",
       "verify": "第2輪 · 獨立交叉核對",
       "arbitrate": "第3輪 · 差異仲裁"
-},
+    },
     "common": {
       "noData": "暫無數據",
       "startDate": "開始日期",
@@ -24966,7 +24980,7 @@
       "notes": "備註",
       "pleaseSelect": "請選擇",
       "confidence": "置信度"
-},
+    },
     "stats": {
       "exportXlsx": "Excel 已導出",
       "exportCsv": "CSV 已導出(UTF-8 BOM,Excel 可直接打開)",
@@ -24986,7 +25000,7 @@
       "monthlyTrend": "月度趨勢",
       "countItem": "條目",
       "countDoc": "單"
-},
+    },
     "ai": {
       "doneToast": "小票識別完成:{status}",
       "errNotImage": "請選擇圖片文件",
@@ -25018,7 +25032,7 @@
       "conflictNote": "三輪核對後仍有分歧:請對照左側原圖人工核對明細,修正後在臺賬中\"記賬\"。",
       "verifiedNote": "兩輪獨立識別一致且數學自檢通過,可在臺賬中一鍵記賬。",
       "noItems": "未識別到明細,請在臺賬編輯中手工補錄"
-},
+    },
     "detail": {
       "supplierLabel": "供應商:",
       "dateLabel": "採購日期:",
@@ -25043,7 +25057,7 @@
       "arbitrationNote": "(仲裁:{resolution})",
       "reverify": "重新核對",
       "arbitrateBtn": "差異仲裁"
-},
+    },
     "table": {
       "itemName": "品名",
       "category": "類別",
@@ -25052,7 +25066,7 @@
       "unitPrice": "單價",
       "subtotal": "小計",
       "check": "核對"
-},
+    },
     "col": {
       "date": "日期",
       "supplier": "供應商",
@@ -25062,21 +25076,21 @@
       "status": "狀態",
       "aiRounds": "AI輪次",
       "actions": "操作"
-},
+    },
     "unit": {
       "rounds": "{rounds} 輪",
       "items": "{count} 條"
-},
+    },
     "ledger": {
       "totalCount": "共 {total} 單"
-},
+    },
     "action": {
       "detail": "詳情",
       "edit": "編輯",
       "confirm": "記賬",
       "void": "作廢",
       "delete": "刪除"
-},
+    },
     "toast": {
       "deleted": "已刪除",
       "confirmSuccess": "記賬成功",
@@ -25086,7 +25100,7 @@
       "supplierDeleted": "供應商已刪除",
       "supplierUpdated": "供應商已更新",
       "supplierCreated": "供應商已創建"
-},
+    },
     "confirm": {
       "titleConfirm": "確認記賬",
       "titleVoid": "確認作廢",
@@ -25094,18 +25108,18 @@
       "descConfirm": "記賬後將計入統計口徑(總額 {amount}),仍可作廢。",
       "descVoid": "作廢後不再計入統計,單據保留可查。",
       "descDelete": "刪除為軟刪除,後臺可恢復,前端不再顯示。"
-},
+    },
     "filter": {
       "allSuppliers": "全部供應商",
       "keyword": "關鍵字",
       "keywordPlaceholder": "供應商/單號"
-},
+    },
     "badge": {
       "manual": "人工",
       "passed": "通過",
       "failed": "失敗",
       "differed": "差異"
-},
+    },
     "edit": {
       "title": "編輯採購單",
       "dateLabel": "採購日期",
@@ -25119,7 +25133,7 @@
       "addRow": "加一行",
       "deleteRow": "刪除該行",
       "itemsHint": "品名留空的行保存時自動忽略;數量×單價會自動算小計;總額留空按明細合計。"
-},
+    },
     "supplier": {
       "colName": "名稱",
       "colCategory": "分類",
@@ -25141,8 +25155,8 @@
       "license": "資質證照",
       "licensePlaceholder": "營業執照/食品經營許可",
       "address": "地址"
-}
-},
+    }
+  },
   "eduAttendance": {
     "statusPresent": "正常",
     "statusLate": "遲到",
@@ -25227,7 +25241,23 @@
     "reason": "原因",
     "daysWithUnit": "{count}天",
     "approveAction": "審批"
-},
+  },
+  "eduCertificates": {
+    "certificateNo": "編號：{no}",
+    "empty": "暫無證書",
+    "statusRevoked": "已撤銷",
+    "statusValid": "有效",
+    "subtitle": "查看已獲得的全部證書",
+    "title": "我的證書",
+    "view": "查看"
+  },
+  "eduCourses": {
+    "backToCourses": "返回課程列表",
+    "chaptersTitle": "章節目錄",
+    "detail": "詳情",
+    "notFound": "課程不存在",
+    "studentsCount": "{count} 人學習"
+  },
   "eduStudyPlan": {
     "add": "添加",
     "addFirstItem": "添加第一個條目",
@@ -25331,23 +25361,7 @@
     "pageTitle": "學習計畫管理",
     "pageSubtitle": "管理班級的學習計畫，支持月計畫自動拆解為週計畫",
     "loadTermsFailed": "加載學期數據失敗，請稍後重試"
-},
-  "eduCertificates": {
-    "certificateNo": "編號：{no}",
-    "empty": "暫無證書",
-    "statusRevoked": "已撤銷",
-    "statusValid": "有效",
-    "subtitle": "查看已獲得的全部證書",
-    "title": "我的證書",
-    "view": "查看"
-},
-  "eduCourses": {
-    "backToCourses": "返回課程列表",
-    "chaptersTitle": "章節目錄",
-    "detail": "詳情",
-    "notFound": "課程不存在",
-    "studentsCount": "{count} 人學習"
-},
+  },
   "apiKeyPerms": {
     "agentsRead": "讀取智能體",
     "agentsCall": "調用智能體",
