@@ -1,5 +1,0 @@
-{
-  "taskStatus": {
-    "syncState": "{state, select, running {同期中:{name}} completed {同期完了:{name}} other {同期待ち:{name}}}"
-  }
-}
