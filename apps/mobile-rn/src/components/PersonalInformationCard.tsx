@@ -13,12 +13,12 @@
  * 兼容保留原「分销者卡」props(inviteCode / commissionRate / level 均改为可选),
  * 避免 DistributionScreen 等调用方报错;调用方未传收入字段时,收入卡按默认 0.00 展示。
  *
- * 设计原则(对齐 rnLightTokens,禁用 purple/indigo):
- * - 背景用原图 bjcspNew.jpg(已拷贝至 assets/images/common),文字走 surface.light 对比白
+ * 设计原则(对齐 主题 token 入口,禁用 purple/indigo):
+ * - 背景用原图 bjcspNew.jpg(已拷贝至 assets/images/common),文字恒白(见 MEDIA_TEXT)
  * - 金额字号 22,正文 14,rpx→dp 2:1
  * - 系统字体(不显式指定 fontFamily,走平台默认)
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import {
   Image,
   ImageBackground,
@@ -67,11 +67,28 @@ const AVATAR_RADIUS = 4
 const CARD_RADIUS = 12
 const CARD_PADDING = 16
 
+/**
+ * 衬底是固定图片 bjcspNew.jpg(不随主题换),故文字须恒白。
+ * 不得改用 tokens.surface.light —— 该 token 深色态已是 #262626,压在上面片图上不可读。
+ */
+const MEDIA_TEXT = '#FFFFFF'
+
 /** 对齐原版 utils/time.js formatPrice:分 → 元,保留两位小数 */
 function formatPrice(value?: number | string): string {
   const n = Number(value)
   if (!value || Number.isNaN(n)) return '0.00'
   return (n / 100).toFixed(2)
+}
+
+/**
+ * 取昵称首字母作为默认头像 initials(AGENTS.md 强制规范:头像用 initials)。
+ * 中文取首个汉字,英文取首字母大写,空值回退 'U'。
+ */
+function getInitials(name?: string): string {
+  if (!name) return 'U'
+  const trimmed = name.trim()
+  if (!trimmed) return 'U'
+  return trimmed.charAt(0).toUpperCase()
 }
 
 export function PersonalInformationCard({
@@ -84,6 +101,7 @@ export function PersonalInformationCard({
   currentAmount,
   onWithdraw,
 }: PersonalInformationCardProps) {
+  const hasAvatarUrl = Boolean(avatar)
   const avatarUrl = avatar || DEFAULT_AVATAR_URL
 
   // 兼容原「分销者卡」字段:仅当调用方仍传入时,以次级信息行展示,避免信息丢失
@@ -98,10 +116,16 @@ export function PersonalInformationCard({
     >
       {/* 顶部:昵称 + 头像 */}
       <View style={styles.header}>
-        <Text style={styles.nickname} numberOfLines={1}>
+        <Text style={styles.nickname} numberOfLines={1} ellipsizeMode="tail">
           {nickname || '用户'}
         </Text>
-        <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
+        {hasAvatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />
+        ) : (
+          <View style={styles.avatarFallback}>
+            <Text style={styles.avatarFallbackText}>{getInitials(nickname)}</Text>
+          </View>
+        )}
       </View>
 
       {/* 累计收入 */}
@@ -163,7 +187,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   avatar: {
     width: AVATAR_WIDTH,
@@ -171,6 +195,20 @@ const styles = StyleSheet.create({
     borderRadius: AVATAR_RADIUS,
     backgroundColor: tokens.surface.muted,
   } as ImageStyle,
+  // 无头像 URL 时的 initials 兜底:品牌色底 + 深色文字,深/浅色模式均可见
+  avatarFallback: {
+    width: AVATAR_WIDTH,
+    height: AVATAR_HEIGHT,
+    borderRadius: AVATAR_RADIUS,
+    backgroundColor: tokens.brandAccent.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  avatarFallbackText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: tokens.brandAccent.foreground,
+  } as TextStyle,
   incomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,13 +216,13 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   incomeLabel: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   incomeValue: {
     marginLeft: 8,
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawRow: {
     flexDirection: 'row',
@@ -198,13 +236,13 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   withdrawLabel: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawValue: {
     marginLeft: 8,
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.surface.light,
+    color: MEDIA_TEXT,
   } as TextStyle,
   withdrawBtn: {
     width: 60,

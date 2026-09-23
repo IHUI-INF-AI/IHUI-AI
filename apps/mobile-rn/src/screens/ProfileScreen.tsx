@@ -31,7 +31,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
@@ -51,6 +51,7 @@ import {
   type UserStatistics,
 } from '@ihui/api-client'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
+import { formatDate } from '@ihui/shared/utils/date-utils'
 import { useAuth } from '../context/AuthContext'
 import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
@@ -120,6 +121,9 @@ import { rpx } from '../utils/rpx'
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
+/** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
+const PROFILE_LOAD_TIMEOUT_MS = 12000
+
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310) */
 const MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
   { id: 'ai-free', icon: Bot, title: 'AI助手免费次数增加', desc: '每日赠送免费对话次数' },
@@ -187,6 +191,8 @@ export function ProfileScreen() {
   const [orderCount, setOrderCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [loadTimedOut, setLoadTimedOut] = useState(false)
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [loginPromptVisible, setLoginPromptVisible] = useState(false)
   const [agreeChecked, setAgreeChecked] = useState(false)
   // FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />)
@@ -220,28 +226,42 @@ export function ProfileScreen() {
     rootNav?.navigate('Login')
   }
 
+  /**
+   * 加载统计 + 订单数。调接口层没有超时,慢响应就是无限转圈,
+   * 故超过 PROFILE_LOAD_TIMEOUT_MS 先转「超时 + 点击重试」;慢响应回来仍会覆盖提示。
+   */
+  const loadProfileStats = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    setError('')
+    setLoadTimedOut(false)
+    if (loadTimerRef.current) clearTimeout(loadTimerRef.current)
+    loadTimerRef.current = setTimeout(() => setLoadTimedOut(true), PROFILE_LOAD_TIMEOUT_MS)
+    const [statsRes, orderRes] = await Promise.all([
+      getUserStatistics(),
+      getOrders({ page: 1, pageSize: 1 }),
+    ])
+    if (loadTimerRef.current) {
+      clearTimeout(loadTimerRef.current)
+      loadTimerRef.current = null
+    }
+    if (statsRes.success) setStats(statsRes.data)
+    if (orderRes.success) setOrderCount(orderRes.data.total)
+    if (!statsRes.success && !orderRes.success) {
+      setError(statsRes.error || orderRes.error || t('error.network'))
+    }
+    setLoading(false)
+  }, [t])
+
   useEffect(() => {
     if (!ready) return
-    let cancelled = false
-    void (async () => {
-      setLoading(true)
-      setError('')
-      const [statsRes, orderRes] = await Promise.all([
-        getUserStatistics(),
-        getOrders({ page: 1, pageSize: 1 }),
-      ])
-      if (cancelled) return
-      if (statsRes.success) setStats(statsRes.data)
-      if (orderRes.success) setOrderCount(orderRes.data.total)
-      if (!statsRes.success && !orderRes.success) {
-        setError(statsRes.error || orderRes.error || t('error.network'))
-      }
-      setLoading(false)
-    })()
+    void loadProfileStats()
     return () => {
-      cancelled = true
+      if (loadTimerRef.current) {
+        clearTimeout(loadTimerRef.current)
+        loadTimerRef.current = null
+      }
     }
-  }, [ready, t])
+  }, [ready, loadProfileStats])
 
   /**
    * 加载 Drawer 历史对话(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)。
@@ -514,9 +534,22 @@ export function ProfileScreen() {
         scrollEventThrottle={16}
       >
         {loading ? (
-          <View style={styles.loaderWrap}>
-            <ColorfulLoader size={48} />
-          </View>
+          loadTimedOut ? (
+            <View style={styles.tabErrorWrap}>
+              <Text style={styles.tabErrorText}>加载超时,请检查网络后重试</Text>
+              <TouchableOpacity
+                onPress={() => void loadProfileStats()}
+                style={styles.tabRetryBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.tabRetryText}>点击重试</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.loaderWrap}>
+              <ColorfulLoader size={48} />
+            </View>
+          )
         ) : (
           <>
             {userInfoForCard ? (
@@ -1066,7 +1099,8 @@ function ProfileContentSection(): React.JSX.Element {
       for (const conv of all) {
         const meta = extractConversationMetadata(conv)
         const tabType = meta.contentType ?? 'text'
-        const time = conv.updatedAt ?? conv.createdAt
+        // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
+        const time = formatDate(conv.updatedAt ?? conv.createdAt)
         const title = conv.title?.trim() || '未命名对话'
         if (tabType === 'image') {
           const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
@@ -1258,9 +1292,12 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
               </Text>
               <Text style={styles.contentTime}>{item.time}</Text>
             </View>
-            <View style={styles.contentBody}>
-              <Text style={styles.textContent}>{item.content}</Text>
-            </View>
+            {/* 空正文不占位:无预览时只留标题+时间行,避免 25px 空行(真机 bug) */}
+            {item.content.trim() ? (
+              <View style={styles.contentBody}>
+                <Text style={styles.textContent}>{item.content}</Text>
+              </View>
+            ) : null}
           </View>
         )}
       />
@@ -1294,19 +1331,21 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
             </Text>
             <Text style={styles.contentTime}>{item.time}</Text>
           </View>
-          {/* 图片单列满宽(对齐 Uniapp 行 87-111 单列布局) */}
-          <View style={[styles.contentBody, styles.imageColumn]}>
-            {item.imageList.map((url, idx) => (
-              <TouchableOpacity
-                key={`${url}-${idx}`}
-                activeOpacity={0.85}
-                onPress={() => onPreview(item.imageList, idx)}
-                style={styles.imageColumnItem}
-              >
-                <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* 空图列表不占位:无图时只留标题+时间行 */}
+          {item.imageList.length > 0 ? (
+            <View style={[styles.contentBody, styles.imageColumn]}>
+              {item.imageList.map((url, idx) => (
+                <TouchableOpacity
+                  key={`${url}-${idx}`}
+                  activeOpacity={0.85}
+                  onPress={() => onPreview(item.imageList, idx)}
+                  style={styles.imageColumnItem}
+                >
+                  <Image source={{ uri: url }} style={styles.imageColumnImg} resizeMode="cover" />
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
         </View>
       )}
     />
@@ -1469,47 +1508,51 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
         <Text style={styles.contentTime}>{item.time}</Text>
       </View>
       <View style={styles.contentBody}>
-        <View style={styles.audioPlayer}>
-          <TouchableOpacity
-            onPress={togglePlay}
-            style={styles.audioPlayBtn}
-            activeOpacity={0.7}
-            accessibilityLabel={status.playing ? '暂停' : '播放'}
-          >
-            {status.playing ? (
-              <Pause size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
-            ) : (
-              <Play size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
-            )}
-          </TouchableOpacity>
-          {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
+        {!item.audioUrl ? (
+          <Text style={styles.tabErrorText}>音频地址无效，暂无可播放的音频</Text>
+        ) : (
+          <View style={styles.audioPlayer}>
+            <TouchableOpacity
+              onPress={togglePlay}
+              style={styles.audioPlayBtn}
+              activeOpacity={0.7}
+              accessibilityLabel={status.playing ? '暂停' : '播放'}
+            >
+              {status.playing ? (
+                <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              ) : (
+                <Play size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
+              )}
+            </TouchableOpacity>
+            {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
               当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
               后改为可拖动 Slider 组件 + onSlidingComplete 回调(不引入新依赖,保持现状) */}
-          <Pressable
-            onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-            onPress={onProgressBarTap}
-            style={styles.audioProgressTrack}
-            accessibilityLabel="音频进度条"
-          >
-            <View
-              style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
-            />
-          </Pressable>
-          <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
-          <TouchableOpacity
-            onPress={onDownload}
-            style={styles.audioDownloadBtn}
-            activeOpacity={0.7}
-            accessibilityLabel="下载音频"
-            disabled={downloading}
-          >
-            {downloading ? (
-              <MoreHorizontal size={16} color={tokens.text.secondary} />
-            ) : (
-              <Download size={16} color={tokens.text.secondary} />
-            )}
-          </TouchableOpacity>
-        </View>
+            <Pressable
+              onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+              onPress={onProgressBarTap}
+              style={styles.audioProgressTrack}
+              accessibilityLabel="音频进度条"
+            >
+              <View
+                style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
+              />
+            </Pressable>
+            <Text style={styles.audioTime}>{formatAudioTime(status.currentTime)}</Text>
+            <TouchableOpacity
+              onPress={onDownload}
+              style={styles.audioDownloadBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="下载音频"
+              disabled={downloading}
+            >
+              {downloading ? (
+                <MoreHorizontal size={16} color={tokens.text.secondary} />
+              ) : (
+                <Download size={16} color={tokens.text.secondary} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
       <FloatBox
         visible={toastVisible}
@@ -1887,7 +1930,7 @@ const styles = StyleSheet.create({
   contentItem: {
     // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
     borderRadius: 10,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     padding: rpx(28),
     borderWidth: 1,
     borderColor: tokens.border.light,
@@ -1986,7 +2029,7 @@ const styles = StyleSheet.create({
   },
   audioPlayIcon: {
     fontSize: 16,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     marginLeft: rpx(4),
   },
   audioProgressTrack: {
@@ -2209,12 +2252,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(40),
     paddingVertical: rpx(16),
     borderRadius: 8,
-    backgroundColor: tokens.brand.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
   },
   tabRetryText: {
     fontSize: 14,
     fontWeight: '500',
-    color: tokens.surface.light,
+    color: tokens.brandAccent.foreground,
   },
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
@@ -2227,7 +2270,7 @@ const styles = StyleSheet.create({
   },
   levelIntroBtnText: {
     fontSize: 12,
-    color: tokens.text.secondary,
+    color: tokens.text.medium,
   },
   // ── 编辑资料 Modal(对齐 Uniapp 编辑资料弹层) ──
   editProfileOverlay: {
@@ -2281,7 +2324,7 @@ const styles = StyleSheet.create({
   },
   editProfileAvatarBadgeText: {
     fontSize: 14,
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontWeight: '700',
     lineHeight: 14,
   },
@@ -2306,7 +2349,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
     fontSize: 14,
     color: tokens.text.primary,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   editProfileInputReadOnly: {
     backgroundColor: tokens.surface.muted,
@@ -2343,7 +2386,7 @@ const styles = StyleSheet.create({
   editProfileSaveBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   editProfileSaveBtnDisabled: {
     opacity: 0.6,
@@ -2378,7 +2421,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(32),
   },
   levelIntroItem: {
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 8,
     // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
     padding: rpx(8),
@@ -2416,7 +2459,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
   },
   // ── 退订确认 Modal(对齐 Uniapp 退订确认弹层,替代 Alert.alert) ──
   unsubscribeOverlay: {
@@ -2428,7 +2471,7 @@ const styles = StyleSheet.create({
   },
   unsubscribeCard: {
     width: '100%',
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderRadius: 12,
     padding: rpx(40),
     alignItems: 'center',
