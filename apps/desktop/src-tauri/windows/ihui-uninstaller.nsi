@@ -85,6 +85,12 @@ Var UNDONE    ; 卸载资产已解压标记(0=未解压 1=已解压,只解一次
     InitPluginsDir
     !insertmacro IHUI_EXTRACTPAGESETS $IHUIWTIER
     !insertmacro IHUI_UNEXTRACT $IHUIWTIER
+    ; 与安装侧同一个不变量:降级判定必须**早于首页渲染**。确认页开头就 IHUI_HIDE_ALL
+    ; 移屏原生钮,位图再失败就没有可点出口了 —— 故解完立刻探一张并拉闸(见 IHUIFALL)。
+    !insertmacro IHUI_LOADIMG welcome.bmp $0
+    ${If} $0 <> 0
+      System::Call "gdi32::DeleteObject(p r0)"
+    ${EndIf}
     StrCpy $UNDONE 1
   ${EndIf}
 !macroend
@@ -217,14 +223,16 @@ Function un.IHUIConfirmPage
     Abort
   ${EndIf}
   !insertmacro IHUI_UNENSURE_ASSETS
+  ; 资产不可用 → 跳过品牌确认页,卸载走原生皮肤(探针见 IHUI_UNENSURE_ASSETS)
+  ${If} $IHUIFALL = 1
+    Abort
+  ${EndIf}
   !insertmacro IHUI_UNFIX_SIZE
   !insertmacro IHUI_PAGE_PRE
   !insertmacro IHUI_PAGEBG unconfirm.bmp
   ; 开关两张位图先各 LoadImage 一次存句柄,点击时只换 STM_SETIMAGE(不再反复读盘)
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-toggle-off.bmp`, i 0, i 0, i 0, i 0x2010) p .s"
-  Pop $UNTGLOFF
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\btn-toggle-on.bmp`, i 0, i 0, i 0, i 0x2010) p .s"
-  Pop $UNTGLON
+  !insertmacro IHUI_LOADIMG btn-toggle-off.bmp $UNTGLOFF
+  !insertmacro IHUI_LOADIMG btn-toggle-on.bmp $UNTGLON
   StrCpy $UNDATA 0
   ; 开关行与完成页首行同几何(IHUI_TGL_X / IHUI_TGL_Y1),标签文字已烧进位图
   !insertmacro IHUI_BTN $UNTGL btn-toggle-off.bmp ${IHUI_TGL_X} ${IHUI_TGL_Y1} 40 24 un.IHUIOnTgl
@@ -271,6 +279,10 @@ Function un.IHUIUninstShow
     Return
   ${EndIf}
   !insertmacro IHUI_UNENSURE_ASSETS
+  ; 降级态整页保持原生(本函数会 IHUI_HIDE_ALL 移屏原生钮 + 自建贴皮)
+  ${If} $IHUIFALL = 1
+    Return
+  ${EndIf}
   !insertmacro IHUI_UNFIX_SIZE
   !insertmacro IHUI_HIDE_ALL
   FindWindow $1 "#32770" "" $HWNDPARENT
@@ -304,13 +316,13 @@ Function un.IHUIUninstShow
   SetCtlColors $1 FAFAFA 242424
   System::Call "gdi32::CreateSolidBrush(i 0x00242424) p .R6"
   System::Call "user32::SetClassLongPtrW(p $HWNDPARENT, i -10, p R6)"
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\uninstfiles.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG uninstfiles.bmp $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
   Pop $UNBG
   SetCtlColors $UNBG FAFAFA 242424
   SendMessage $UNBG 0x0172 0 $0
   ; 自绘品牌条(与安装页同一张 bar-fill.bmp):整条铺上,再用 SetWindowRgn 裁到百分比
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\bar-fill.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG bar-fill.bmp $0
   !insertmacro IHUI_PX $R1 ${IHUI_PB_X}
   !insertmacro IHUI_PX $R2 ${IHUI_PB_Y}
   !insertmacro IHUI_PX $R3 ${IHUI_PB_W}
@@ -399,6 +411,10 @@ Function un.IHUIFinishTheme
   ${EndIf}
   StrCpy $UNFTDONE 1
   ${NSD_KillTimer} un.IHUIFinishTheme
+  ; 降级态:先杀定时器再退出(留着的画皮会把原生出口移屏)
+  ${If} $IHUIFALL = 1
+    Return
+  ${EndIf}
   !insertmacro IHUI_UNFIX_SIZE
   ; ① 内层对话框只能 FindWindow(见下方 ⚠️②)
   FindWindow $1 "#32770" "" $HWNDPARENT
@@ -429,7 +445,7 @@ Function un.IHUIFinishTheme
   ; ⚠️ 必须重新 FindWindow:IHUI_HIDE_ALL 内部用 $1 当 ${For} 计数器,已把上面那个
   ;    内层对话框句柄覆盖掉,沿用会把位图挂到垃圾句柄上。
   FindWindow $1 "#32770" "" $HWNDPARENT
-  System::Call "user32::LoadImage(p 0, w `$PLUGINSDIR\unfinish.bmp`, i 0, i 0, i 0, i 0x2010) p .r0"
+  !insertmacro IHUI_LOADIMG unfinish.bmp $0
   System::Call "user32::CreateWindowExW(p 0, w 'STATIC', w '', i 0x5400010E, i 0, i 0, i $IHUIWW, i $IHUIWH, p r1, p 0, p 0, p 0) p .s"
   Pop $UNBG
   SetCtlColors $UNBG FAFAFA 242424
