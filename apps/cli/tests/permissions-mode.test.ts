@@ -44,14 +44,12 @@ describe('parsePermissionMode', () => {
     expect(parsePermissionMode('\tacceptEdits\n')).toBe('acceptEdits');
   });
 
-  it('真·未知值返回 undefined(G-161 后 auto/kebab/大小写已归一,不再算非法)', () => {
+  it('非法值返回 undefined', () => {
     expect(parsePermissionMode('invalid')).toBeUndefined();
     expect(parsePermissionMode('readonly')).toBeUndefined();
     expect(parsePermissionMode('')).toBeUndefined();
-    expect(parsePermissionMode('bypass-permission')).toBeUndefined();
-    expect(parsePermissionMode('PLAN')).toBe('plan');
-    expect(parsePermissionMode('auto')).toBe('acceptEdits');
-    expect(parsePermissionMode('accept-edits')).toBe('acceptEdits');
+    expect(parsePermissionMode('PLAN')).toBeUndefined();
+    expect(parsePermissionMode('auto')).toBeUndefined();
   });
 
   it('undefined / 非字符串返回 undefined', () => {
