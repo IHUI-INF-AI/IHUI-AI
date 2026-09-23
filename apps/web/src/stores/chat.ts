@@ -8,7 +8,12 @@ import { persist } from 'zustand/middleware'
 import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
-import type { SubagentSpawnEvent, SubagentEndEvent, SubagentProgressEvent } from '@ihui/api-client'
+import type {
+  SubagentSpawnEvent,
+  SubagentEndEvent,
+  SubagentProgressEvent,
+  FallbackEvent,
+} from '@ihui/api-client'
 import type { ChatMessage as BaseChatMessage, ToolCall as BaseToolCall } from '@ihui/shared'
 import { markStreamError } from '@ihui/shared/chat'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
@@ -184,6 +189,11 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
    *  compaction 命名帧 → onCompaction 回调写入;MessageItem 在消息内容区顶部
    *  渲染 CompressionDivider,提示"本消息之前的上下文已压缩为摘要"。 */
   compaction?: MessageCompaction
+  /** D33(2026-09-23 立):该回答实际**换过模型**的交代(主模型失败→备用模型)。
+   *  live:顶部 FallbackBanner(瞬态);历史:metadata.fallback(snake)经水合换算挂到消息,
+   *  MessageItem 按既有 chat.fallbackNotice / fallbackNoticeQuota 词渲染消息级交代行。
+   *  缺失 = 本轮未降级或老消息 —— 不渲染。 */
+  fallback?: FallbackEvent
 }
 
 /** 自动压缩上下文状态(2026-08-16 立)

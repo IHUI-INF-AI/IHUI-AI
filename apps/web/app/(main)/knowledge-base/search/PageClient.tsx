@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Search, Loader2, FileText, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -56,6 +56,8 @@ function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const locale = useLocale()
+  const t = useTranslations('knowledgeBase.search')
+  const tKb = useTranslations('knowledgeBase')
   const q = searchParams.get('q') ?? ''
   const category = searchParams.get('category') ?? 'all'
   const [input, setInput] = React.useState(q)
@@ -95,18 +97,16 @@ function SearchContent() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回知识库
+        <span>{t('backToKb')}</span>
       </Link>
 
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Search className="h-6 w-6 text-primary" />
-          搜索结果
+          {t('title')}
         </h1>
         {q && (
-          <p className="text-xs text-muted-foreground">
-            关键词「{q}」共找到 {total} 条结果
-          </p>
+          <p className="text-xs text-muted-foreground">{t('resultSummary', { q, count: total })}</p>
         )}
       </header>
 
@@ -115,7 +115,7 @@ function SearchContent() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="搜索知识库文章..."
+          placeholder={tKb('searchPlaceholder')}
           className="h-9 pl-8"
         />
       </form>
@@ -123,12 +123,12 @@ function SearchContent() {
       {!q ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <Search className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">请输入搜索关键词</p>
+          <p className="text-sm text-muted-foreground">{t('inputKeyword')}</p>
         </div>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          搜索中...
+          {t('searching')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -137,7 +137,7 @@ function SearchContent() {
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
           <FileText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">未找到相关文章</p>
+          <p className="text-sm text-muted-foreground">{t('noResult')}</p>
         </div>
       ) : (
         <div className="space-y-3">

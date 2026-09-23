@@ -172,6 +172,16 @@ export function resolveWorktree() {
 }
 
 // ── 真实 gitdir 解析 ──
+
+/**
+ * 仓根同级的实体 gitdir(§5b 设计:gitdir 必须在工作区之外,躲开宿主批量删除层)。
+ * 如 `G:/IHUI-AI` → `G:/IHUI-AI-git-repo`。
+ */
+export function siblingGitdir(worktree) {
+  const wt = worktree || resolveWorktree()
+  return normalizePath(join(dirname(wt), `${basename(wt)}-git-repo`))
+}
+
 export function resolveGitdir(worktree) {
   const wt = worktree || resolveWorktree()
   const bin = resolveGitBin()
@@ -200,6 +210,10 @@ export function resolveGitdir(worktree) {
     if (m) {
       const p = m[1].trim().replace(/\\/g, '/')
       const abs = isAbsolute(p) ? p : join(wt, p)
+      // 自指指针(`gitdir: <worktree>/.git`)是损坏态:照它解析会让 needsGitdirPointer() 返回
+      // false,于是 pointerOk() 把"文件存在"当健康 → 僵尸化;且 GITDIR 落在工作树内,
+      // 远端重建分支的 rm -rf 会打在真 `.git` 上(2026-09-23 实测删库路径)。
+      if (normalizePath(abs) === normalizePath(join(wt, '.git'))) return siblingGitdir(wt)
       const real = normalizeToMainGitdir(abs)
       return real || normalizePath(abs)
     }

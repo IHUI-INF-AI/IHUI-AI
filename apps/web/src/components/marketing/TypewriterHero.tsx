@@ -11,8 +11,12 @@ import { useTranslations } from 'next-intl'
 import { Smartphone, MessageSquare, GraduationCap } from 'lucide-react'
 import { Button, CloseButton } from '@ihui/ui-react'
 import { useMounted } from '@/hooks/use-mounted'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+
+/** 层栈 id(见 @/lib/overlay-stack):小程序二维码弹窗的 Esc 只在栈顶时被消费 */
+const MINIAPP_QR_OVERLAY_ID = 'miniapp-qr-modal'
 
 /**
  * 第 1 页:打字机欢迎语 + 3 CTA + 小程序二维码弹窗
@@ -130,8 +134,14 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
 
   React.useEffect(() => {
     if (!open) return
+    // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
+    pushOverlay(MINIAPP_QR_OVERLAY_ID)
     const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(MINIAPP_QR_OVERLAY_ID)) return
+        onClose()
+      }
     }
     document.addEventListener('keydown', onKeydown)
     const prevOverflow = document.body.style.overflow
@@ -139,6 +149,7 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
     return () => {
       document.removeEventListener('keydown', onKeydown)
       document.body.style.overflow = prevOverflow
+      popOverlay(MINIAPP_QR_OVERLAY_ID)
     }
   }, [open, onClose])
 

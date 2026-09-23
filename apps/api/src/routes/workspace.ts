@@ -37,6 +37,8 @@ import {
   findFileVersions,
 } from '../db/workspace-queries.js'
 import { success, error } from '../utils/response.js'
+import { canAccessFile } from '../db/file-queries.js'
+import type { FileVersion } from '@ihui/database'
 import { getBulkhead } from '../plugins/resilience-extended.js'
 // Workspace wire 类型(adjacent tagging,与 ACP 协议对齐)
 import type {
@@ -139,6 +141,23 @@ function serializeFile(f: {
     createdAt: f.createdAt,
     ...(f.deletedAt !== undefined ? { deletedAt: f.deletedAt } : {}),
     ...(f.deletedBy !== undefined ? { deletedBy: f.deletedBy } : {}),
+  }
+}
+
+/**
+ * O21 ②(2026-09-23 安全 P0)「出口剥 path」:版本行对外形态,与 `serializeFile` 同口径
+ * —— **不**输出 `path`(服务端磁盘绝对路径)。此前 `/files/:id/versions*` 直接把
+ * `findFileVersions` 的整行(含 path)倒给客户端,泄漏落盘位置与文件名。
+ */
+function serializeFileVersion(v: FileVersion) {
+  return {
+    id: v.id,
+    fileId: v.fileId,
+    version: v.version,
+    size: v.size,
+    uploadedBy: v.uploadedBy,
+    changeLog: v.changeLog,
+    createdAt: v.createdAt,
   }
 }
 
@@ -512,8 +531,13 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!file) {
       return reply.status(404).send(error(404, '文件不存在'))
     }
+    // O21 ②:补齐属主/成员谓词(上传者 ∪ 项目 owner ∪ project_members),
+    // 此前此处只判"文件存在",任意登录用户可枚举他人文件的全部版本历史。
+    if (!(await canAccessFile(request.userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
     const versions = await findFileVersions(parsed.data.id)
-    return reply.send(success({ list: versions }))
+    return reply.send(success({ list: versions.map(serializeFileVersion) }))
   })
 
   // GET /files/:id/versions/:version - 获取特定版本
@@ -527,12 +551,21 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     if (!params.success) {
       return reply.status(400).send(error(400, params.error.issues[0]?.message ?? '参数错误'))
     }
+    // O21 ②:此端点原先连 files 行都不读,直接按 id 取版本 —— 先定位文件再判属主,
+    // 顺序与上方 /files/:id/versions 一致(不存在 404 → 非属主 403 → 版本缺失 404)。
+    const file = await findFileById(params.data.id)
+    if (!file) {
+      return reply.status(404).send(error(404, '文件不存在'))
+    }
+    if (!(await canAccessFile(request.userId, file))) {
+      return reply.status(403).send(error(403, '无权访问该文件'))
+    }
     const versions = await findFileVersions(params.data.id)
     const version = versions.find((v) => v.version === params.data.version)
     if (!version) {
       return reply.status(404).send(error(404, '版本不存在'))
     }
-    return reply.send(success({ version }))
+    return reply.send(success({ version: serializeFileVersion(version) }))
   })
 
   // GET /files/:id - 下载文件

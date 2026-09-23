@@ -36,6 +36,8 @@ $WebDir     = "$Root\apps\web"
 $ApiDir     = "$Root\apps\api"
 $AiDir      = "$Root\apps\ai-service"
 $BackupDir  = 'D:\DevEnv\backups\deploy'
+# 健康门禁凭据的生产机本地兜底文件(仓库外;IHUI_ADMIN_PASSWORD 优先)
+$AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FILE } else { 'D:\DevEnv\secrets\admin-password.txt' }
 $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
 $PublicWeb  = 'https://aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
@@ -250,8 +252,13 @@ function Test-Http {
 
 function BackendLogin-Token {
     # 探测 LLM 网关需带 Bearer;用 admin 获取 token(仅作健康探测,不改数据)
-    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入
+    # 凭据不入仓库:密码经环境变量 IHUI_ADMIN_PASSWORD 注入;
+    # 服务上下文(NSSM/计划任务)拿不到该变量时,回落到生产机本机密钥文件 ——
+    # 否则 p3 恒 False → 门禁 8 轮必失败 → 每次构建成功后又被回滚,api/ai-service 永不重启。
     $adminPwd = $env:IHUI_ADMIN_PASSWORD
+    if (-not $adminPwd -and (Test-Path $AdminPwdFile)) {
+        try { $adminPwd = (Get-Content $AdminPwdFile -Raw).Trim() } catch { $adminPwd = $null }
+    }
     if (-not $adminPwd) { return $null }
     try {
         $b = @{ username='admin'; password=$adminPwd } | ConvertTo-Json

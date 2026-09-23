@@ -21,6 +21,7 @@ import {
 import { useTranslations } from 'next-intl'
 import { CloseButton, IconButton, SearchInput } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import type { ContextMenuAction, ContextMenuItem } from '@/hooks/use-context-menu'
 
@@ -149,6 +150,9 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
 }: MessageContextMenuProps) {
   const menuRef = React.useRef<HTMLDivElement>(null)
   const [adjustedPosition, setAdjustedPosition] = React.useState(position)
+  // 层栈身份:同组件多实例互不相同
+  const autoId = React.useId()
+  const stackId = `message-context-menu:${autoId}`
 
   // 边界检测:避免菜单超出视口
   React.useEffect(() => {
@@ -170,6 +174,13 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
     setAdjustedPosition({ x, y })
   }, [visible, position])
 
+  // 层栈注册:visible → 入栈(成为栈顶);close/unmount → 出栈。
+  React.useEffect(() => {
+    if (!visible) return
+    pushOverlay(stackId)
+    return () => popOverlay(stackId)
+  }, [visible, stackId])
+
   // 点击外部关闭 + Esc 关闭
   React.useEffect(() => {
     if (!visible) return
@@ -181,6 +192,8 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
+        if (!isTopOverlay(stackId)) return
         e.preventDefault()
         onClose()
       }
@@ -197,7 +210,7 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
       document.removeEventListener('contextmenu', onClickOutside)
       document.removeEventListener('keydown', onKey)
     }
-  }, [visible, onClose])
+  }, [visible, onClose, stackId])
 
   if (!visible) return null
 

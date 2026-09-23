@@ -153,7 +153,7 @@ if (badGetOptions.length > 0) {
 console.log('[check-installer-assets] PASS —— GetOptions 未直接吃 $CMDLINE(前缀误匹配免疫)')
 
 // =====================================================================
-// 附加守门二:六条**跨文件几何/集合不变量**(2026-09-23 起逐条追加)
+// 附加守门二:七条**跨文件几何/集合不变量**(2026-09-23 起逐条追加)
 // 这些约束过去只写在注释里,没有任何闸门 —— 正是本项目反复批判的"造好没装车"。
 // 全部做成纯函数 + env 可覆盖路径,便于注入违规自证其有效性(--self-test)。
 // =====================================================================
@@ -468,6 +468,94 @@ export function checkEditInContainerCentered({ uiSrc, genSrc }) {
   return v
 }
 
+/**
+ * 不变量 G(DPI 重锚定链完整 + 寄存器洁净):重装/升级确认页"进入时重锚"必须走完
+ * **整条窗口几何链**,而不是只重摆控件。
+ *
+ * 敞口定性(2026-09-24 逐行复核):计划里"重锚只更新控件位置、不更新窗口框"的说法
+ * **对不上现在的代码** —— ihui-ui.nsi 的 DPI 分支确实 `!insertmacro IHUI_GUIINIT_SIZE`
+ * (该宏 812-813 重算 $IHUIWW/$IHUIWH、823 行 SetWindowPos 外框),背景控件 $IHUIBG
+ * 与内层 dialog 也按新尺寸重建。真正缺的是**第三步**:IHUI_GUIINIT_COMMON 里 DWM
+ * 圆角不可用时的回退分支把窗口裁剪区域(SetWindowRgn)硬钉在调用当时的 $IHUIWW/
+ * $IHUIWH 上 —— 窗口框随后被放大时 region 不会跟随,右/下多出来的部分根本不参与绘制,
+ * 现象与用户截图同一族。修法 = 把那段抽成 IHUI_WINDOW_RGN,定窗与重锚两处共用一份。
+ *
+ * 为什么这条必须**跨文件**:(a) 重锚链的入口是 installer.nsi 的 Function PageReinstall
+ * 里那行 `!insertmacro IHUI_REINSTALLTHEME`,它被删/挪到 nsDialogs::Show 之后,整条
+ * DPI 加固静默消失且编译零报错;(b) 该宏展开在 PageReinstall 内,$R0(版本比较结果,
+ * PageLeaveReinstall 还要用)/$R1..$R4 是存活数据 —— 被重锚调用的任何宏都不得把它们
+ * 当临时量(旧圆角代码正是用 $R0 收区域句柄,抽成共用宏后若不改就会静默丢选择)。
+ */
+export function checkDpiReanchorCompleteness({ uiSrc, installerSrc }) {
+  const v = []
+  const bodyOf = (name) => {
+    const at = uiSrc.indexOf(`!macro ${name}`)
+    if (at < 0) return null
+    const end = uiSrc.indexOf('!macroend', at)
+    return end < 0 ? null : uiSrc.slice(at, end)
+  }
+
+  // ① 跨文件接线:PageReinstall 体内必须插入主题宏,且早于 nsDialogs::Show
+  const fn = installerSrc.match(/Function\s+PageReinstall\b[\s\S]*?\nFunctionEnd/)
+  if (!fn) return ['installer.nsi 里找不到 Function PageReinstall,无法建立重锚接线基线']
+  const at = fn[0].indexOf('!insertmacro IHUI_REINSTALLTHEME')
+  if (at < 0) v.push('installer.nsi 的 PageReinstall 未插入 IHUI_REINSTALLTHEME —— 整条 DPI 重锚链(含窗口框/裁剪区域重算)静默失效')
+  const show = fn[0].indexOf('nsDialogs::Show')
+  if (at >= 0 && show >= 0 && at > show) v.push('IHUI_REINSTALLTHEME 插在 nsDialogs::Show 之后 —— 页面已进入才重锚,首帧按旧档绘制')
+
+  // ② 重锚分支:从 DPI 不一致判定到其 ${EndIf},必须同时定窗框与定裁剪区域
+  const theme = bodyOf('IHUI_REINSTALLTHEME')
+  if (!theme) return v.concat(['ihui-ui.nsi 里找不到 IHUI_REINSTALLTHEME 宏体'])
+  const from = theme.indexOf('${If} $0 != $IHUIDPIW')
+  if (from < 0) {
+    v.push('IHUI_REINSTALLTHEME 里没有"窗口 DPI ≠ 布局 DPI"的重锚分支 —— 外部改显示缩放后本页不会再定档')
+  } else {
+    const stop = theme.indexOf('${EndIf}', from)
+    const branch = theme.slice(from, stop < 0 ? theme.length : stop)
+    for (const [macro, what] of [
+      ['IHUI_GUIINIT_SIZE', '窗口框尺寸/档位($IHUIWW/$IHUIWH + SetWindowPos)'],
+      ['IHUI_WINDOW_RGN', '窗口裁剪区域(SetWindowRgn 回退分支)'],
+    ]) {
+      if (!new RegExp(`!insertmacro\\s+${macro}\\b`).test(branch)) {
+        v.push(
+          `重装页 DPI 重锚分支缺 !insertmacro ${macro}(=${what}) —— ` +
+            `${macro === 'IHUI_WINDOW_RGN' ? '窗口框放大后旧 region 仍按上一档硬裁,右/下内容被切' : '控件按新档摆、窗口框按旧档留,页面溢出'}` +
+            `。必须与 IHUI_GUIINIT_COMMON 同源,不得内联复制换算。`,
+        )
+      }
+    }
+  }
+
+  // ③ 同源实现:IHUI_WINDOW_RGN 必须存在、被 GUIINIT_COMMON 一起用、几何取自 $IHUIWW/$IHUIWH
+  const rgn = bodyOf('IHUI_WINDOW_RGN')
+  if (!rgn) {
+    v.push('ihui-ui.nsi 里找不到 IHUI_WINDOW_RGN 宏 —— 圆角/裁剪区域没有可共用的单一实现,定窗与重锚必然各自漂移')
+  } else {
+    const common = bodyOf('IHUI_GUIINIT_COMMON')
+    if (!common || !/!insertmacro\s+IHUI_WINDOW_RGN\b/.test(common)) {
+      v.push('IHUI_GUIINIT_COMMON 未调用 IHUI_WINDOW_RGN —— 该宏成了只给重锚用的副本,定窗侧仍会各自演化')
+    }
+    if (!/\$IHUIWW/.test(rgn) || !/\$IHUIWH/.test(rgn)) {
+      v.push('IHUI_WINDOW_RGN 没按 $IHUIWW/$IHUIWH 取尺寸(写死字面量 → 重锚后 region 与实际窗口框脱钩)')
+    }
+    if (!/SetWindowRgn\(p \$HWNDPARENT/.test(rgn)) {
+      v.push('IHUI_WINDOW_RGN 里没有 SetWindowRgn(p $HWNDPARENT …) —— 裁剪区域根本没落到窗口上')
+    }
+    // 寄存器洁净:输出型临时量不得落在 $R0..$R4(PageReinstall 存活数据)
+    const outs = [...rgn.matchAll(/\.([Rr])([0-9])\b/g)].map((m) => Number(m[2]))
+    const bad = [...new Set(outs.filter((n) => n <= 4))]
+    if (bad.length > 0) {
+      v.push(
+        `IHUI_WINDOW_RGN 用 $R${bad.join('/$R')} 当临时量 —— 该宏被 PageReinstall 内的重锚分支调用时` +
+          `会覆写 $R0(版本比较结果)/$R1..$R4(标题与 radio 句柄、内层 dialog),` +
+          `后果是选择丢失或后续绘制指向已死句柄。改用 $R6/$R7(它们只在 IHUI_GUIINIT_SIZE` +
+          `消费完工作区矩形之后才算死,故本宏必须排在定档定位之后调用)。`,
+      )
+    }
+  }
+  return v
+}
+
 const UI_SRC_FOR_GEO = readFileSync(process.env.IHUI_NSI_PATH || NSI, 'utf8')
 const INSTALLER_SRC_FOR_GEO = readFileSync(process.env.IHUI_INSTALLER_NSI_PATH || join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi'), 'utf8')
 const GEN_SRC_FOR_GEO = readFileSync(process.env.IHUI_ASSET_GEN_PATH || join(ROOT, 'scripts/desktop-installer-assets.mjs'), 'utf8')
@@ -482,6 +570,7 @@ const geoFail = [
     sources: [[join(NSI).replace(/^.*[\\/]/, ''), UI_SRC_FOR_GEO]],
   }),
   ...checkEditInContainerCentered({ uiSrc: UI_SRC_FOR_GEO, genSrc: GEN_SRC_FOR_GEO }),
+  ...checkDpiReanchorCompleteness({ uiSrc: UI_SRC_FOR_GEO, installerSrc: INSTALLER_SRC_FOR_GEO }),
 ]
 if (geoFail.length > 0) {
   console.error(`\n[check-installer-assets] FAIL —— 跨文件几何/集合不变量被破坏 ${geoFail.length} 项:`)
@@ -490,7 +579,8 @@ if (geoFail.length > 0) {
 }
 console.log(
   '[check-installer-assets] PASS —— 洞=按钮矩形、百分比同心、埋点=刻度、重装页卡片/指示器几何、' +
-    'Function 体内不引用后置 Var、目录页输入框垂直居中 六条跨文件不变量成立',
+    'Function 体内不引用后置 Var、目录页输入框垂直居中、重装页 DPI 重锚走完窗口框+裁剪区域' +
+    ' 七条跨文件不变量成立',
 )
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
