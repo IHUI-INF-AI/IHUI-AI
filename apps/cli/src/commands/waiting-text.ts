@@ -17,6 +17,12 @@ export interface WaitingSpinnerTextInput {
   prompt: string;
   /** 会话历史条数,0=首轮,>0=追问 */
   historyLength: number;
+  /**
+   * 上一轮的用户输入(repl 既有 history 派生,非新增状态源)。
+   * 传了就走共享池 avoidSeed 分支:本轮若与上一轮撞同一条则顺移一位;
+   * 不传(undefined)时共享池走"未引入 avoidSeed"路径,输出与接线前逐字节一致。
+   */
+  previousPrompt?: string;
 }
 
 /**
@@ -30,6 +36,7 @@ export function buildWaitingSpinnerText(input: WaitingSpinnerTextInput): string 
     phase,
     locale: getLocale(),
     seed: input.prompt,
+    avoidSeed: input.previousPrompt,
   });
   return `${input.modelId} · ${text}`;
 }
