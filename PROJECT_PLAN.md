@@ -3906,3 +3906,19 @@ cli 2452 / taro 368 / rn 365 / ext 139 / web 1973 全绿 + web Playwright 计算
 - **判据边界(为什么 R3 是棘轮而非零容忍)**:260 处存量里真正该改的是"主 CTA / 选中态"族,其余(徽章、描边、媒体浮层底)语义各异,须逐处判衬底 —— 另一个会话正在做这份 244 处决策表。R3 的作用是把**增量**堵住,使存量只能随复核推进而单调下降;若一上来就零容忍,等于逼所有人 `HUSKY_SKIP_BRAND_FOREGROUND=1`,反而废掉全部守门(见 §"一道红门会废掉全部守门")。
 - 验证:`node scripts/check-brand-foreground.mjs --self-test` exit 0;全量 `✅ 552 文件,R1=0,R2/R3 全部 ≤ 基线`;`node --check` 通过;水印 `verify` 完整。
 - **紧急跳过**:`HUSKY_SKIP_BRAND_FOREGROUND=1`(不变);**基线收紧**:`node scripts/check-brand-foreground.mjs --update-baseline`(仅全量口径,人工确认后)。
+
+## P1 自愈层判据缺口补齐:旁路提交后"工作区==HEAD 而索引停在祖先版本"此前永不刷新(2026-09-23 立并完成 ✅,单端工程治理:scripts)
+
+> 承 §5b「工作区存续自愈」第二、三层。缺口是我自己的操作暴露的:本会话用 CAS + `commit-tree`
+> 做前向提交(旁路钩子),HEAD 前进了而**主索引不动**;工作区随后被对齐到 HEAD,于是形成
+> 「index=祖先版本、worktree=HEAD」这一态。`refreshStaleIndex()` 的判据③只认
+> "工作区==索引",该态被 `held++` 挡掉 ⇒ 4 个路径(`PROJECT_PLAN.md`/`README.md`/
+> `apps/mobile-rn/App.tsx`/`scripts/brand-foreground-baseline.json`)的陈旧 index blob 一直
+> 躺在暂存区,**任何人一次不带 pathspec 的普通 commit 就会把它们整体写回旧版**。
+> 守门 30c(陈旧副本)确实报了红,但它是"提交时拦",拦完仍要人手工刷 —— 自愈层本该自动做掉。
+
+- [x] ✅(2026-09-23) **判据③扩为"无现场"两形态**:工作区==索引(原形态,无未暂存改动)**或** 工作区==HEAD(旁路提交后工作区已跟上,刷 index 不覆盖任何现场)。仍严格保留 ②(索引 blob 必须是该路径**历史版本**)与"逐路径 `update-index`、绝不全局 `git reset`"两条护栏,故"他人真暂存的新内容"(⑪)与"暂存后又有改动"(⑧)两个反向对照**行为不变**。
+- [x] ✅(2026-09-23) **新增 self-test ⑫ 正例**:用 `update-index --cacheinfo` 人为把 index 退回祖先版本,断言 `refreshed===1` 且 **index 补齐到 HEAD 而工作区文件字节未动**。`--self-test` 12 例 → **13 例全绿**。
+- **过程自曝(同类陷阱第 N 次)**:首版用例里 `g(['rev-parse', ...])` 未 `.trim()`,尾换行使 `update-index --cacheinfo` 报 `expects <mode>,<sha1>,<path>` —— 与 §71 记的"自愈提交自上线起从未成功过"**同一形态的坑我自己又踩了一次**。判据:`makeGit` 不 trim,任何把 git 输出当参数用的地方必须显式 `.trim()`。
+- 现场修复:本次已按新判据对手头 4 个路径逐条 `update-index --cacheinfo` 刷新,复跑 `git diff --name-only HEAD --cached` 为空、守门 30c 转绿;`PROJECT_PLAN.md`/`README.md` 的工作区内容(含他人未提交改动)一字未动,只是从"错误暂存态"变回"未暂存"。
+- 验证:`node --check` 通过;`--self-test` 13/13;`node scripts/check-stale-copy.mjs` exit 0。
