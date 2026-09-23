@@ -188,7 +188,14 @@
     "send": "Send",
     "showPassword": "Show password",
     "slashCommand": "Slash command",
-    "uploadAvatar": "Upload avatar"
+    "uploadAvatar": "Upload avatar",
+    "previewSnapshotBadge": "Tool-recorded content",
+    "previewSnapshotReadAt": "Read at {time}",
+    "previewSnapshotNotice": "Can't read the current file. Showing content from the tool record.",
+    "previewIncompleteChange": "This file change didn’t record the complete content.",
+    "previewNoContent": "Nothing to preview.",
+    "previewFileUpdated": "File updated",
+    "previewFileUpdatedAction": "Refresh to view the latest content"
   },
   "about": {
     "loading": "Loading...",
@@ -2161,5 +2168,73 @@
       "reasonLabel": "Reason (optional)",
       "reasonPlaceholder": "Add a reason for audit trail"
     }
+  },
+  "viewFailure": {
+    "resourceNotFound": {
+      "title": "Resource not found",
+      "action": "This MCP resource may have been deleted or is not declared in the resource list. Refresh the list and pick it again."
+    },
+    "runtimeException": {
+      "title": "Runtime error",
+      "action": "The server threw an exception while handling this request. Reload the plugin view, then check the service log if it keeps failing."
+    },
+    "entrypointNotRegistered": {
+      "title": "Start entry not registered",
+      "action": "This plugin view has no registered entry point. Add or enable the matching service in settings."
+    },
+    "entrypointInvalid": {
+      "title": "Invalid start entry",
+      "action": "The service command or URL cannot be executed. Check command, url and transport in the configuration."
+    },
+    "dependencyModuleMissing": {
+      "title": "Required module not provided",
+      "action": "A module this service depends on is not installed. Install the dependency, then reload the plugin view."
+    },
+    "resourceLimitExceeded": {
+      "title": "Resource limit exceeded",
+      "action": "The request or response is too large, or calls are too frequent. Narrow the scope or try again later."
+    },
+    "environmentInitFailed": {
+      "title": "Environment setup failed",
+      "action": "The service has not finished initializing or its runtime is not ready. Confirm the service is running, then reload."
+    },
+    "disabled": {
+      "title": "Disabled",
+      "action": "This service or plugin is currently disabled. Enable it first, then view its content."
+    },
+    "backendTimeout": {
+      "title": "Backend timed out",
+      "action": "The server did not respond within the time limit. Retry shortly, and reduce the request size if timeouts persist."
+    },
+    "backendExited": {
+      "title": "Backend exited",
+      "action": "The service process ended or the connection was closed. Reload the plugin view to start the service again."
+    },
+    "capabilityNotOffered": {
+      "title": "Capability not offered",
+      "action": "This service does not declare the requested capability. Choose a capability the service supports."
+    },
+    "backendCrashed": {
+      "title": "Backend crashed",
+      "action": "The service process terminated unexpectedly. Reload the plugin view and check the service log."
+    },
+    "protocolMismatch": {
+      "title": "Protocol version mismatch",
+      "action": "The protocol version negotiated with this service is not supported. Upgrade the service or use a compatible client version."
+    },
+    "authForbidden": {
+      "title": "Authorization failed",
+      "action": "The access credential is invalid or expired. Sign in again, then open this service."
+    },
+    "invalidResponse": {
+      "title": "Invalid response",
+      "action": "The service returned content that cannot be parsed or does not match the expected format. Reload, and contact the provider if it keeps failing."
+    },
+    "unknown": {
+      "title": "Cause not determined",
+      "action": "The reason for this failure could not be determined. Reload the plugin view, and check the service log if it still fails."
+    },
+    "reloadView": "Reload plugin view",
+    "errorCodeLabel": "Error code: {errorCode}"
   }
 }

@@ -2815,6 +2815,7 @@ R2 用基线棘轮拦"浅色当容器底":`surface.light` 背景 / α≥0.5 的�
 (造真回退 → exit 1 且点名 / 对齐 HEAD → exit 0 / runner blocking 清单含 76)。紧急跳过
 `HUSKY_SKIP_STALE_REVERT_GUARD=1`;**确属有意回退请改用 `git revert` 生成前向提交**。
 
+
 ## 🛡️ Commit 丢失防护(AGENTS.md §22 强化,2026-07-26)
 
 多 agent 并行环境下,`git reset HEAD~` 可能把整个 commit 链一并丢弃(2026-07-25 真实事故:丢失 3 个 commit)。本项目建立 4 道防护:
