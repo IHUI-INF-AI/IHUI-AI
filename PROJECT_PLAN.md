@@ -30,6 +30,8 @@
 - [x] ✅(2026-09-23)守门 77 判据扩展:原 CSS 判据锚定行首,漏掉 `width:16px; border-radius:50%` 同行多声明与 **TS 模板字面量里生成的 CSS**(cli 分享页 / `packages/shared/src/design/design-templates.ts` / 扩展 content script),扩展后照出 33 处并全部收口为 `${RADIUS_CSS_PX.<step>}` 插值(新增该出口,值仍来自 radius.js);extension 因缺依赖改为补 `@ihui/design-tokens` workspace 依赖 + 定向 install;自检扩至 20 例
 - [x] ✅(2026-09-23)顺带清掉两处会让守门链整条失效的红:web `?raw` 导入无声明(全量 typecheck 恒红)→ 补 `apps/web/raw-imports.d.ts`;帮助面板遮罩 4 条 jsx-a11y 错误(在我提交集内致 lint-staged 必红 → 人人 --no-verify → 96 道门全关)→ 补 `role=presentation` + Escape,弹层改由遮罩判 `target === currentTarget`
 
+- [x] ✅(2026-09-23)基础设施自伤已修:`pnpm install --filter @ihui/extension` 会顺带剪掉根 `node_modules` 里未选中包的链接(实测把 `lint-staged` 剪没了 → 每次 commit 必失败 → 人人 `--no-verify` → 109 道门全废)。跑全量 `pnpm install` 恢复,并验证 `node_modules/lint-staged/bin/lint-staged.js` 回位。**结论:本仓加 workspace 依赖一律跑全量 install,不得用 `--filter` 安装。**
+
 ### 影响面与豁免口径
 
 - 视觉会变(按用户要求收口到档位):偏档值就近吸附,等距取小(`10→8`、`7.5→8`、`12.5→12`、`15→16` 等);v3 端 `rounded-sm` 2px→4px(14 处)、裸 `rounded` 4px→8px(30 处)与 web 同名同值。
