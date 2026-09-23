@@ -25,9 +25,17 @@
  *   1 - 检测到混入其他 agent 改动
  *   2 - 用法错误
  *
- * 集成位置:
- *   - .husky/pre-commit: 集成 whitelist 模式,在 commit 前检测
- *   - .husky/pre-push: 集成 baseline 模式,在 push 前检测
+ * 接线状态: **已废弃、未接线**(2026-09-24 守门接线对账判定)。
+ *   本文件原小节谎称已挂进 .husky 的两个钩子,实测五处权威接线点
+ *   (guardian-runner / 提交前真实逻辑层 / .husky 各钩子 / 根 package.json / 工作流)
+ *   全部零命中 —— 该谎称表述已由本段替换。职责已被以下三层覆盖,不得再复活本脚本:
+ *     1. scripts/safe-commit.mjs —— 五步法:清空暂存区 → 只暂存声明文件 → 校验
+ *        `git diff --cached --name-only` 与声明集完全一致 → 原生 pathspec 提交 → 提交后回读复核
+ *     2. scripts/lib/staging-snapshot.js —— takeStagingSnapshot / restoreStaging 配对
+ *     3. scripts/check-staged-pollution.mjs —— 已注册在 guardian-runner,提交前拦截暂存污染
+ *   保留本文件仅供查阅历史检测模式(禁止删除:共享工作区他人可见文件)。
+ *   解阻判据(若将来确需重新接线):先补 --json 输出与 --staged 语义,
+ *   再在 guardian-runner 登记档位并同步 AGENTS.md 措辞,不得反向改回「已集成」表述。
  *
  * 设计权衡:
  *   - 不强制 working tree 干净(否则会要求用户先 commit 其他 agent 改动,违反第 18 节)
