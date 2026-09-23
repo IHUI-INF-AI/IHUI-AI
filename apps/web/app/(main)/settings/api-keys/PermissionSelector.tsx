@@ -6,72 +6,81 @@
 
 import { Checkbox } from '@ihui/ui-react'
 import { API_KEY_PERMISSIONS, type ApiKeyPermission } from '@ihui/types'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
-/** 权限点中文标签映射(本地定义,不依赖 i18n 文件改动)。 */
+/**
+ * API Key 权限点标签表(只存键名,渲染处取词)。
+ *
+ * - 对象**键**是 `@ihui/types` 的权限点枚举值,与 /v1/* 路由、后端鉴权中间件、
+ *   api_keys.permissions 持久化字段做字面比对 —— 协议字面值,不得改写、不得翻译。
+ * - 对象**值**是 web 语言包 `apiKeyPerms.*` 的**全路径字面量**(存全路径,死键扫描器
+ *   才看得见引用),渲染处 `t(PERM_LABELS[perm])` 取词。
+ * - 消费方若直接渲染本表(如 ApiKeyListCard),必须先过 t(),否则展示的是键名。
+ */
 export const PERM_LABELS: Record<ApiKeyPermission, string> = {
-  'agents:read': '读取智能体',
-  'agents:call': '调用智能体',
-  'chat:read': '读取对话',
-  'chat:write': '发起对话',
-  'models:read': '读取模型',
-  'models:write': '管理自定义模型',
-  'embeddings:write': '生成 Embedding',
-  'files:read': '读取文件',
-  'files:write': '上传文件',
-  'audio:read': '读取音色',
-  'audio:write': '语音合成/识别',
-  'images:write': '生成/编辑图片',
-  'videos:write': '生成/编排视频',
-  'videos:read': '查询视频任务',
-  'threed:write': '生成 3D 模型',
-  'generation:write': '生成队列入队/查询',
-  'knowledge:read': '读取知识库',
-  'knowledge:write': '管理知识库',
-  'tools:read': '读取工具/资源',
-  'tools:call': '调用工具',
-  'memory:read': '读取记忆',
-  'memory:write': '写入记忆',
-  'messages:read': '查询消息状态',
-  'messages:write': '发布/订阅消息',
-  'user:read': '读取当前用户',
-  'workspace:read': '读取工作区',
-  'workflows:read': '读取工作流',
-  'workflows:write': '执行工作流',
-  'stats:read': '读取使用量统计',
-  'assistants:read': '读取助手',
-  'assistants:write': '管理助手',
-  'threads:read': '读取会话线程',
-  'threads:write': '创建/删除线程',
-  'runs:read': '读取 Run 状态',
-  'runs:write': '创建/取消 Run',
-  'batches:read': '读取批任务',
-  'batches:write': '创建/取消批任务',
-  'responses:write': 'Responses 协议',
-  'realtime:connect': '实时语音连接',
-  'rerank:write': '重排序',
-  'moderation:write': '内容审核',
-  'codebase:read': '代码库语义检索',
-  'codebase:write': '代码库索引管理',
-  'diff:apply': '补丁落盘',
-  'sandbox:run': '沙箱命令执行',
-  'browser:operate': '浏览器自动化',
-  'computer:operate': '本机 GUI 控制',
-  'web:fetch': 'URL 抓取',
-  'search:web': '网页搜索/爬取',
-  'webhooks:manage': 'Webhook 管理',
-  'connectors:read': '读取连接器',
-  'connectors:write': '管理连接器',
-  'skills:read': '读取技能',
-  'skills:write': '管理技能',
-  'edu:read': '读取教育内容',
-  'edu:write': '写入教育内容',
-  'im:send': '对外发送消息',
-  'publish:operate': '社媒内容发布',
-  'billing:read': '读取账单额度',
-  'oauth:manage': 'OAuth 应用管理',
-  'mcp:connect': 'MCP Server 接入',
-  'ops:execute': '运维操作执行',
+  'agents:read': 'apiKeyPerms.agentsRead',
+  'agents:call': 'apiKeyPerms.agentsCall',
+  'chat:read': 'apiKeyPerms.chatRead',
+  'chat:write': 'apiKeyPerms.chatWrite',
+  'models:read': 'apiKeyPerms.modelsRead',
+  'models:write': 'apiKeyPerms.modelsWrite',
+  'embeddings:write': 'apiKeyPerms.embeddingsWrite',
+  'files:read': 'apiKeyPerms.filesRead',
+  'files:write': 'apiKeyPerms.filesWrite',
+  'audio:read': 'apiKeyPerms.audioRead',
+  'audio:write': 'apiKeyPerms.audioWrite',
+  'images:write': 'apiKeyPerms.imagesWrite',
+  'videos:write': 'apiKeyPerms.videosWrite',
+  'videos:read': 'apiKeyPerms.videosRead',
+  'threed:write': 'apiKeyPerms.threedWrite',
+  'generation:write': 'apiKeyPerms.generationWrite',
+  'knowledge:read': 'apiKeyPerms.knowledgeRead',
+  'knowledge:write': 'apiKeyPerms.knowledgeWrite',
+  'tools:read': 'apiKeyPerms.toolsRead',
+  'tools:call': 'apiKeyPerms.toolsCall',
+  'memory:read': 'apiKeyPerms.memoryRead',
+  'memory:write': 'apiKeyPerms.memoryWrite',
+  'messages:read': 'apiKeyPerms.messagesRead',
+  'messages:write': 'apiKeyPerms.messagesWrite',
+  'user:read': 'apiKeyPerms.userRead',
+  'workspace:read': 'apiKeyPerms.workspaceRead',
+  'workflows:read': 'apiKeyPerms.workflowsRead',
+  'workflows:write': 'apiKeyPerms.workflowsWrite',
+  'stats:read': 'apiKeyPerms.statsRead',
+  'assistants:read': 'apiKeyPerms.assistantsRead',
+  'assistants:write': 'apiKeyPerms.assistantsWrite',
+  'threads:read': 'apiKeyPerms.threadsRead',
+  'threads:write': 'apiKeyPerms.threadsWrite',
+  'runs:read': 'apiKeyPerms.runsRead',
+  'runs:write': 'apiKeyPerms.runsWrite',
+  'batches:read': 'apiKeyPerms.batchesRead',
+  'batches:write': 'apiKeyPerms.batchesWrite',
+  'responses:write': 'apiKeyPerms.responsesWrite',
+  'realtime:connect': 'apiKeyPerms.realtimeConnect',
+  'rerank:write': 'apiKeyPerms.rerankWrite',
+  'moderation:write': 'apiKeyPerms.moderationWrite',
+  'codebase:read': 'apiKeyPerms.codebaseRead',
+  'codebase:write': 'apiKeyPerms.codebaseWrite',
+  'diff:apply': 'apiKeyPerms.diffApply',
+  'sandbox:run': 'apiKeyPerms.sandboxRun',
+  'browser:operate': 'apiKeyPerms.browserOperate',
+  'computer:operate': 'apiKeyPerms.computerOperate',
+  'web:fetch': 'apiKeyPerms.webFetch',
+  'search:web': 'apiKeyPerms.searchWeb',
+  'webhooks:manage': 'apiKeyPerms.webhooksManage',
+  'connectors:read': 'apiKeyPerms.connectorsRead',
+  'connectors:write': 'apiKeyPerms.connectorsWrite',
+  'skills:read': 'apiKeyPerms.skillsRead',
+  'skills:write': 'apiKeyPerms.skillsWrite',
+  'edu:read': 'apiKeyPerms.eduRead',
+  'edu:write': 'apiKeyPerms.eduWrite',
+  'im:send': 'apiKeyPerms.imSend',
+  'publish:operate': 'apiKeyPerms.publishOperate',
+  'billing:read': 'apiKeyPerms.billingRead',
+  'oauth:manage': 'apiKeyPerms.oauthManage',
+  'mcp:connect': 'apiKeyPerms.mcpConnect',
+  'ops:execute': 'apiKeyPerms.opsExecute',
 }
 
 interface Props {
@@ -81,6 +90,8 @@ interface Props {
 }
 
 export function PermissionSelector({ value, onChange, disabled }: Props) {
+  const t = useTranslations()
+
   const toggle = (perm: ApiKeyPermission) => {
     if (disabled) return
     onChange(value.includes(perm) ? value.filter((p) => p !== perm) : [...value, perm])
@@ -88,11 +99,11 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
 
   return (
     <div className="grid grid-cols-1 gap-2 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
-      {API_KEY_PERMISSIONS.map((perm) => {
-        const checked = value.includes(perm)
+      {API_KEY_PERMISSIONS.map((item) => {
+        const checked = value.includes(item)
         return (
           <label
-            key={perm}
+            key={item}
             className={cn(
               'flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
               checked
@@ -101,8 +112,8 @@ export function PermissionSelector({ value, onChange, disabled }: Props) {
               disabled && 'cursor-not-allowed opacity-60',
             )}
           >
-            <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(perm)} />
-            <span>{PERM_LABELS[perm]}</span>
+            <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggle(item)} />
+            <span>{t(PERM_LABELS[item] ?? item)}</span>
           </label>
         )
       })}
