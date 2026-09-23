@@ -38,7 +38,7 @@
   background: none;
 }
 .income-card {
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   background-color: var(--color-muted);
   box-sizing: border-box;
@@ -75,7 +75,7 @@
   color: var(--color-primary-foreground);
   background: var(--color-primary);
   padding: 12rpx 20rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 
 /* 可提现/已提现行 — 对齐 RN sumRow(marginTop 16)+ sumSubLabel/sumSubAmount */
@@ -106,7 +106,7 @@
   align-items: flex-start;
   width: 100%;
   margin-top: 28rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-muted);
   padding: 20rpx;
   box-sizing: border-box;
@@ -133,7 +133,7 @@
   padding: 8rpx;
   box-sizing: border-box;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
 }
@@ -141,7 +141,7 @@
   box-sizing: border-box;
   flex: 1;
   height: 64rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   color: var(--color-muted-foreground);
   font-size: 28rpx;
   display: flex;
@@ -167,7 +167,7 @@
   justify-content: space-between;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   margin-bottom: 20rpx;
 }
@@ -222,7 +222,7 @@
   justify-content: space-between;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 24rpx;
   margin-bottom: 20rpx;
 }
@@ -246,7 +246,7 @@
 .income-popup {
   width: 100%;
   background: var(--color-card);
-  border-radius: 32rpx 32rpx 0 0;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   padding: 40rpx;
   display: flex;
   flex-direction: column;

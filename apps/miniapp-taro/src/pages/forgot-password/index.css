@@ -83,7 +83,7 @@
   align-items: center;
   height: 100rpx;
   padding: 0 24rpx;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background-color: var(--color-muted);
 }
 
@@ -115,7 +115,7 @@
   align-items: center;
   justify-content: center;
   border: 1rpx solid var(--color-primary);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background-color: var(--color-card);
   flex-shrink: 0;
 }
@@ -148,7 +148,7 @@
 }
 
 .btn-login {
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background-color: var(--color-primary);
   font-size: 32rpx;
   font-weight: 600;
@@ -231,7 +231,7 @@
   right: 0;
   margin-top: 8rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background-color: var(--color-card);
   box-shadow: 0 8rpx 24rpx var(--color-black-12);
   overflow: hidden;

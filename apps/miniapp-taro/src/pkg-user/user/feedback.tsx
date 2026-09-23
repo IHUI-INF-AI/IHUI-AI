@@ -108,7 +108,7 @@ export default function Feedback() {
           缩略图 70dp→140rpx/圆角 16rpx;提交钮品牌灰蓝 100rpx 高圆角 24rpx */}
       <View className="min-h-screen bg-background">
         <View className="p-[28rpx]">
-          <View className="rounded-[24rpx] border border-[var(--color-border)] bg-card p-[28rpx]">
+          <View className="rounded-xl border border-[var(--color-border)] bg-card p-[28rpx]">
             <Text className="block text-[28rpx] text-muted-foreground">
               {tt('feedback.type', '类型')}
             </Text>
@@ -116,7 +116,7 @@ export default function Feedback() {
               {types.map((item) => (
                 <View
                   key={item.key}
-                  className={`px-[24rpx] py-[12rpx] rounded-[24rpx] text-[28rpx] ${
+                  className={`px-[24rpx] py-[12rpx] rounded-xl text-[28rpx] ${
                     activeType === item.key
                       ? 'bg-[var(--color-brand-accent)] text-[var(--color-brand-accent-foreground)]'
                       : 'bg-muted text-muted-foreground'
@@ -133,7 +133,7 @@ export default function Feedback() {
               {tt('feedback.content', '内容')}
             </Text>
             <Textarea
-              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-[24rpx] bg-muted p-[24rpx] text-[28rpx] text-foreground"
+              className="mt-[16rpx] box-border w-full min-h-[188rpx] rounded-xl bg-muted p-[24rpx] text-[28rpx] text-foreground"
               placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
               value={content}
               onInput={(e) => setContent(e.detail.value)}
@@ -144,7 +144,7 @@ export default function Feedback() {
               {tt('feedback.contact', '联系方式')}
             </Text>
             <Input
-              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-[24rpx] bg-muted px-[24rpx] text-[28rpx] text-foreground"
+              className="mt-[16rpx] box-border h-[100rpx] w-full rounded-xl bg-muted px-[24rpx] text-[28rpx] text-foreground"
               type="text"
               placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
               value={contact}
@@ -158,7 +158,7 @@ export default function Feedback() {
               {images.map((url, idx) => (
                 <View
                   key={url + idx}
-                  className="relative h-[140rpx] w-[140rpx] overflow-hidden rounded-[16rpx] bg-muted"
+                  className="relative h-[140rpx] w-[140rpx] overflow-hidden rounded-lg bg-muted"
                   hoverClass="opacity-60"
                   onClick={() => onPreviewImage(idx)}
                 >
@@ -179,7 +179,7 @@ export default function Feedback() {
               ))}
               {images.length < MAX_IMAGES && (
                 <View
-                  className="flex h-[140rpx] w-[140rpx] items-center justify-center rounded-[16rpx] border border-dashed border-[var(--color-border)]"
+                  className="flex h-[140rpx] w-[140rpx] items-center justify-center rounded-lg border border-dashed border-[var(--color-border)]"
                   hoverClass="opacity-60"
                   onClick={onPickImages}
                 >
@@ -196,7 +196,7 @@ export default function Feedback() {
             )}
 
             <Button
-              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-[24rpx] bg-[var(--color-brand-accent)] text-[28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
+              className={`mt-[24rpx] flex h-[100rpx] items-center justify-center rounded-xl bg-[var(--color-brand-accent)] text-[28rpx] font-semibold text-[var(--color-brand-accent-foreground)] ${
                 content.trim() ? '' : 'opacity-60'
               }`}
               disabled={!content.trim()}

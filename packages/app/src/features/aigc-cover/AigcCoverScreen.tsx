@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
@@ -157,7 +158,7 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: { paddingHorizontal: 10, paddingBottom: 16 },
     previewWrap: {
       position: 'relative',
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       marginBottom: 16,
     },
@@ -168,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
       left: 8,
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: 'rgba(0,0,0,0.55)',
     },
     previewBadgeText: { fontSize: 12, color: tk.surface.light },
@@ -176,7 +177,7 @@ function createStyles(tk: AppThemeTokens) {
     filterChip: {
       paddingHorizontal: 14,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     filterChipActive: { backgroundColor: primary },
@@ -186,7 +187,7 @@ function createStyles(tk: AppThemeTokens) {
     coverItem: {
       width: '48%',
       flexGrow: 1,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.light,
       paddingBottom: 8,
@@ -202,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 6,
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -210,7 +211,7 @@ function createStyles(tk: AppThemeTokens) {
     aiGenBtn: {
       marginTop: 16,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
     },
@@ -218,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     footer: { paddingHorizontal: 10, paddingVertical: 12, backgroundColor: tk.surface.light },
     confirmBtn: {
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: primary,
       alignItems: 'center',
       justifyContent: 'center',

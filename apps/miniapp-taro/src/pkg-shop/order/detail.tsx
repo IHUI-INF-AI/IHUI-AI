@@ -87,7 +87,7 @@ export default function OrderDetail() {
           卡片 padding 24rpx / 圆角 24rpx / 2rpx 描边 / 白卡;字段 label 22rpx tertiary + value 32rpx,金额 44rpx/700 success */}
       <View className="min-h-screen bg-background pb-[140rpx]">
         <View className="p-[20rpx]">
-          <View className="rounded-[24rpx] border-[2rpx] border-border bg-card p-[24rpx]">
+          <View className="rounded-xl border-[2rpx] border-border bg-card p-[24rpx]">
             <Text className="block text-[32rpx] text-foreground">{order.title}</Text>
             <Text className="mt-[16rpx] block text-[22rpx] text-[var(--color-text-tertiary)]">
               {t('order.orderNo')}
@@ -125,7 +125,7 @@ export default function OrderDetail() {
       >
         {order.status === 'pending' && (
           <View
-            className={`h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] border-[2rpx] border-border bg-card ${
+            className={`h-[88rpx] flex-1 items-center justify-center rounded-lg border-[2rpx] border-border bg-card ${
               canceling ? 'opacity-50' : ''
             }`}
             /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
@@ -137,7 +137,7 @@ export default function OrderDetail() {
         )}
         {order.status === 'pending' && (
           <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] bg-primary"
+            className="h-[88rpx] flex-1 items-center justify-center rounded-lg bg-primary"
             hoverClass="opacity-80"
             onClick={goPay}
           >
@@ -148,7 +148,7 @@ export default function OrderDetail() {
         )}
         {order.status === 'paid' && (
           <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] border-[2rpx] border-border bg-card"
+            className="h-[88rpx] flex-1 items-center justify-center rounded-lg border-[2rpx] border-border bg-card"
             /* RN BottomActionBar secondaryButtonPressed 为换背景 surface.muted,hoverClass 追加类无法覆盖 bg-card,统一以 opacity 反馈 */
             hoverClass="opacity-60"
             onClick={goRefund}
@@ -160,7 +160,7 @@ export default function OrderDetail() {
         )}
         {order.status !== 'pending' && order.status !== 'paid' && (
           <View
-            className="h-[88rpx] flex-1 items-center justify-center rounded-[16rpx] bg-primary"
+            className="h-[88rpx] flex-1 items-center justify-center rounded-lg bg-primary"
             hoverClass="opacity-80"
             onClick={goList}
           >

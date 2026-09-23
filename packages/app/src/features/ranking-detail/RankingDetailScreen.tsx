@@ -1,6 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native'
@@ -85,9 +86,9 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     scroll: { flex: 1 },
     scrollContent: { padding: 14 },
-    card: { backgroundColor: tk.surface.light, borderRadius: 12, padding: 14, gap: 12 },
+    card: { backgroundColor: tk.surface.light, borderRadius: rnRadius.xl, padding: 14, gap: 12 },
     row1: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    logo: { width: 64, height: 64, borderRadius: 12, backgroundColor: tk.surface.muted },
+    logo: { width: 64, height: 64, borderRadius: rnRadius.xl, backgroundColor: tk.surface.muted },
     logoFallback: { alignItems: 'center', justifyContent: 'center' },
     logoText: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     titleDesc: { flex: 1, gap: 6 },
@@ -97,14 +98,14 @@ function createStyles(tk: AppThemeTokens) {
     metric: {
       flex: 1,
       backgroundColor: tk.surface.muted,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingVertical: 10,
       alignItems: 'center',
       gap: 4,
     },
     metricLabel: { fontSize: 11 },
     metricValue: { fontSize: 14, fontWeight: '600' },
-    contextBox: { backgroundColor: tk.surface.muted, borderRadius: 8, padding: 12 },
+    contextBox: { backgroundColor: tk.surface.muted, borderRadius: rnRadius.lg, padding: 12 },
     contextText: { fontSize: 14, color: tk.text.medium, lineHeight: 20 },
   })
 }
