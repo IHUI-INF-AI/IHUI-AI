@@ -24084,8 +24084,6 @@
     "metaDescription": "在線測試 OpenAI 兼容 API:模型選擇、多輪消息構造、參數調節、流式 SSE 渲染、代碼生成(cURL/Python/Node.js)與歷史記錄。",
     "pageDesc": "用你的 API Key 直接調用 /v1/chat/completions,支持流式渲染、參數調節與代碼生成,無需跳轉到 /chat。"
   },
-  "upload": {},
-  "webviewFrame": {},
   "waiting": {
     "agent": {
       "first": {
