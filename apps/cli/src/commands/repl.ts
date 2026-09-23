@@ -39,21 +39,18 @@ import {
 } from './ui-tool-cards.js';
 import { StructuredPlanStore } from '../plan/structured.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
-import { buildWaitingSpinnerText } from './waiting-text.js';
 import {
   asPlanUpdateSink,
   createTaskStatusLine,
   describeToolActivityLine,
   injectionNoteText,
   citationNoteText,
-  permissionModeNote,
   retryNoteText,
   planStepsFromTodos,
   toolActivityLabel,
   type TaskStatusLine,
 } from './task-status-line.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
-import { t } from '../i18n/index.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -681,18 +678,6 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   capParts.push(`权限 ${permColor(opts.permissionMode ?? 'default')}`);
   capParts.push(`循环 ${opts.maxIterations}`);
   console.info(`  ${chalk.dim('能力:')} ${capParts.join(chalk.dim('  ·  '))}`);
-
-  // G-153:权限档的后果说明(只报档名 = 让用户盲选);未知档不打印
-  const permNote = permissionModeNote(opts.permissionMode ?? 'default');
-  if (permNote) {
-    const paint =
-      opts.permissionMode === 'bypassPermissions'
-        ? chalk.red
-        : opts.permissionMode === 'acceptEdits'
-          ? chalk.yellow
-          : chalk.dim;
-    console.info(`  ${chalk.dim('权限说明:')} ${paint(permNote)}`);
-  }
 
   // 模型切换 + 配置入口提示(用户反馈"不知道在哪里切换模型配置模型 不明显")
   console.info(`  ${chalk.dim('切换:')} ${chalk.cyan('/model')} 切模型  ${chalk.cyan('/config')} 改配置  ${chalk.cyan('/models')} 看列表`);
@@ -2134,9 +2119,6 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   if (state.rewindStack.length > 20) {
     state.rewindStack.shift();
   }
-  // avoidSeed 接线:上一轮用户输入 = push 之前 history 里最后一条 user 消息
-  // (读既有状态,不新增状态源;首轮为 undefined ⇒ 共享池走"未传"分支)
-  const previousPrompt = state.history.findLast((m) => m.role === 'user')?.content;
   state.history.push({ id: randomUUID(), role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -2166,16 +2148,7 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   console.info(chalk.cyan(`\n▶ ${state.opts.modelId}  ·  ${chalk.dim(promptPreview)}`));
 
   // 首 token 等待 spinner — onDelta 首次回调时停止
-  // D79:固定串"正在思考..."升级为等待态文案池(agent 象限,按首轮/追问分阶段,
-  // seed = 本轮 prompt 取模 → 确定性可复现)。文案派生在 waiting-text.ts,用例钉在该模块。
-  const waitingSpinner = createWaitingSpinner(
-    buildWaitingSpinnerText({
-      modelId: state.opts.modelId,
-      prompt,
-      historyLength: state.history.length,
-      previousPrompt,
-    }),
-  );
+  const waitingSpinner = createWaitingSpinner(`${state.opts.modelId} · 正在思考...`);
   waitingSpinner.start();
   let firstTokenReceived = false;
 
@@ -2383,9 +2356,6 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           title: 'Agent 错误',
         });
         for (const line of cardLines) console.error(line);
-        // G-152:错误必须带出口。终端形态没有"重试按钮",出口就是把上一条提问递到用户手上
-        // (readline 的 ↑ 历史是本端现成能力,此前只是没说)。
-        console.error(chalk.dim(`  ${t('cli.retryHint')}`));
       },
     });
 
@@ -2441,7 +2411,6 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       stack,
     });
     for (const line of cardLines) console.error(line);
-    console.error(chalk.dim(`  ${t('cli.retryHint')}`));
     throw err;
   } finally {
     // 状态行落终态:中止 → interrupted,其余由状态行按步骤/结果自行判定
