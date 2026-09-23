@@ -46,7 +46,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   resolveGitBin,
@@ -55,6 +55,7 @@ import {
   resolveGitdir,
   needsGitdirPointer,
   resolveBackupDir,
+  gitdirArchivePath,
   refExpectationSatisfied,
 } from './lib/gitdir.mjs'
 
@@ -439,7 +440,8 @@ let ARCHIVED_PATH = null
 
 function archiveGitdir(tag) {
   if (ARCHIVED_PATH) return ARCHIVED_PATH
-  const dst = `${GITDIR}.broken-${tag}`
+  // 归档统一落 §15b 唯一备份目录(见 scripts/lib/gitdir.mjs);取不到才退回旧的兄弟命名
+  const dst = gitdirArchivePath(`${basename(GITDIR)}.broken-${tag}`) || `${GITDIR}.broken-${tag}`
   try {
     cpSync(GITDIR, dst, { recursive: true, force: true })
     ARCHIVED_PATH = dst
