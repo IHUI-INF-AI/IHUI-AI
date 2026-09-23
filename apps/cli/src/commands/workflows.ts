@@ -20,6 +20,7 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import { t } from '../i18n/index.js';
 
 const API_PREFIX = '/api/workflows';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -251,7 +252,7 @@ function parseContext(raw: string | undefined): unknown {
   try {
     return JSON.parse(raw);
   } catch (err) {
-    throw new Error(`--context 不是有效的 JSON: ${(err as Error).message}`);
+    throw new Error(t('cliWorkflows.contextBadJson', { message: (err as Error).message }));
   }
 }
 
@@ -285,17 +286,17 @@ async function listWorkflows(
   const total = asNumber(data?.total, list.length);
 
   if (list.length === 0) {
-    console.info(chalk.dim('(暂无工作流)'));
+    console.info(chalk.dim(t('cliWorkflows.noWorkflows')));
     return;
   }
 
-  console.info(chalk.cyan('\n=== 工作流列表 ==='));
+  console.info(chalk.cyan(t('cliWorkflows.listHeader')));
   for (const w of list) {
     console.info(
-      `  [${chalk.cyan(w.id)}] ${chalk.bold(w.name)} [${w.triggerType}] [${colorActive(w.isActive)}] [${w.steps.length} 步]`,
+      t('cliWorkflows.listRow', { id: chalk.cyan(w.id), name: chalk.bold(w.name), triggerType: w.triggerType, isActive: colorActive(w.isActive), length: w.steps.length }),
     );
   }
-  console.info(chalk.dim(`\n共 ${total} 条 (第 ${page} 页,每页 ${pageSize} 条)`));
+  console.info(chalk.dim(t('cliWorkflows.paginationFooter', { total: total, page: page, pageSize: pageSize })));
 }
 
 /** ihui workflows show <id> — 查看工作流详情 */
@@ -315,23 +316,23 @@ async function showWorkflow(
   const data = extractData(resp) as { workflow?: unknown };
   const w = asWorkflow(data?.workflow);
 
-  console.info(chalk.cyan('\n=== 工作流详情 ==='));
+  console.info(chalk.cyan(t('cliWorkflows.detailHeader')));
   console.info(`  ID:         ${chalk.cyan(w.id)}`);
-  console.info(`  名称:       ${chalk.bold(w.name)}`);
-  console.info(`  描述:       ${w.description || chalk.dim('(无)')}`);
-  console.info(`  触发类型:   ${w.triggerType}`);
-  console.info(`  激活状态:   ${colorActive(w.isActive)}`);
-  console.info(`  步骤数:     ${w.steps.length}`);
-  console.info(`  创建者:     ${w.createdBy || chalk.dim('(未知)')}`);
-  console.info(`  创建时间:   ${formatTime(w.createdAt)}`);
-  console.info(`  更新时间:   ${formatTime(w.updatedAt)}`);
+  console.info(t('cliWorkflows.detailName', { name: chalk.bold(w.name) }));
+  console.info(t('cliWorkflows.detailDescription', { description: w.description || chalk.dim('(无)') }));
+  console.info(t('cliWorkflows.detailTrigger', { triggerType: w.triggerType }));
+  console.info(t('cliWorkflows.detailActive', { isActive: colorActive(w.isActive) }));
+  console.info(t('cliWorkflows.detailSteps', { length: w.steps.length }));
+  console.info(t('cliWorkflows.detailCreator', { creator: w.createdBy || chalk.dim(t('cliWorkflows.unknownValue')) }));
+  console.info(t('cliWorkflows.detailCreatedAt', { createdAt: formatTime(w.createdAt) }));
+  console.info(t('cliWorkflows.detailUpdatedAt', { updatedAt: formatTime(w.updatedAt) }));
 
   if (w.steps.length > 0) {
-    console.info(chalk.cyan('\n步骤概览:'));
+    console.info(chalk.cyan(t('cliWorkflows.stepsOverview')));
     w.steps.forEach((step, idx) => {
       const s = (step ?? {}) as Record<string, unknown>;
       const type = asTaskType(s.type);
-      const name = asString(s.name) || `(步骤 ${idx + 1})`;
+      const name = asString(s.name) || t('cliWorkflows.stepLabel', { step: idx + 1 });
       console.info(`  [${idx}] ${name} (${type})`);
     });
   }
@@ -366,8 +367,8 @@ async function runWorkflow(
   const tasks = asArray(data?.tasks).map(asTask);
 
   console.info(
-    chalk.green('✓ 已触发工作流') +
-      ` [instance=${chalk.cyan(instance.id)} status=${colorInstanceStatus(instance.status)}] 共 ${tasks.length} 个任务`,
+    chalk.green(t('cliWorkflows.triggered')) +
+      t('cliWorkflows.instanceTasks', { id: chalk.cyan(instance.id), status: colorInstanceStatus(instance.status), length: tasks.length }),
   );
 }
 
@@ -401,17 +402,17 @@ async function listInstances(
   const total = asNumber(data?.total, list.length);
 
   if (list.length === 0) {
-    console.info(chalk.dim('(暂无实例)'));
+    console.info(chalk.dim(t('cliWorkflows.noInstances')));
     return;
   }
 
-  console.info(chalk.cyan('\n=== 实例列表 ==='));
+  console.info(chalk.cyan(t('cliWorkflows.instanceListHeader')));
   for (const inst of list) {
     console.info(
-      `  [${chalk.cyan(inst.id)}] wf=${inst.workflowId} [${colorInstanceStatus(inst.status)}] 开始=${formatTime(inst.startedAt)} 完成=${formatTime(inst.completedAt)}`,
+      t('cliWorkflows.instanceListRow', { id: chalk.cyan(inst.id), workflowId: inst.workflowId, status: colorInstanceStatus(inst.status), startedAt: formatTime(inst.startedAt), completedAt: formatTime(inst.completedAt) }),
     );
   }
-  console.info(chalk.dim(`\n共 ${total} 条 (第 ${filter.page} 页,每页 ${filter.pageSize} 条)`));
+  console.info(chalk.dim(t('cliWorkflows.paginationFooter', { total: total, page: filter.page, pageSize: filter.pageSize })));
 }
 
 /** ihui workflows instance <id> — 查看实例详情(含 tasks) */
@@ -432,25 +433,25 @@ async function showInstance(
   const inst = asInstance(data?.instance);
   const tasks = asArray(data?.tasks).map(asTask);
 
-  console.info(chalk.cyan('\n=== 实例详情 ==='));
-  console.info(`  实例 ID:    ${chalk.cyan(inst.id)}`);
-  console.info(`  工作流 ID:  ${inst.workflowId}`);
-  if (inst.projectId) console.info(`  项目 ID:    ${inst.projectId}`);
-  console.info(`  状态:       ${colorInstanceStatus(inst.status)}`);
-  console.info(`  开始时间:   ${formatTime(inst.startedAt)}`);
-  console.info(`  完成时间:   ${formatTime(inst.completedAt)}`);
-  console.info(`  创建时间:   ${formatTime(inst.createdAt)}`);
-  if (inst.error) console.info(`  错误:       ${chalk.red(inst.error)}`);
+  console.info(chalk.cyan(t('cliWorkflows.instanceDetailHeader')));
+  console.info(t('cliWorkflows.instanceDetailId', { id: chalk.cyan(inst.id) }));
+  console.info(t('cliWorkflows.instanceDetailWorkflow', { workflowId: inst.workflowId }));
+  if (inst.projectId) console.info(t('cliWorkflows.instanceDetailProject', { projectId: inst.projectId }));
+  console.info(t('cliWorkflows.instanceDetailStatus', { status: colorInstanceStatus(inst.status) }));
+  console.info(t('cliWorkflows.instanceDetailStarted', { startedAt: formatTime(inst.startedAt) }));
+  console.info(t('cliWorkflows.instanceDetailCompleted', { completedAt: formatTime(inst.completedAt) }));
+  console.info(t('cliWorkflows.instanceDetailCreatedAt', { createdAt: formatTime(inst.createdAt) }));
+  if (inst.error) console.info(t('cliWorkflows.instanceDetailError', { error: chalk.red(inst.error) }));
 
   if (tasks.length > 0) {
-    console.info(chalk.cyan(`\n任务 (${tasks.length} 个):`));
+    console.info(chalk.cyan(t('cliWorkflows.tasksHeader', { length: tasks.length })));
     for (const t of tasks) {
       console.info(
         `  [${t.stepIndex}] ${t.name} (${t.type}) [${colorTaskStatus(t.status)}]`,
       );
     }
   } else {
-    console.info(chalk.dim('\n(无任务)'));
+    console.info(chalk.dim(t('cliWorkflows.noTasks')));
   }
 }
 
@@ -473,7 +474,7 @@ async function cancelInstance(
 
   const data = extractData(resp) as { instance?: unknown };
   const inst = asInstance(data?.instance);
-  console.info(chalk.green(`✓ 已取消实例 id=${chalk.cyan(inst.id)} (status=${colorInstanceStatus(inst.status)})`));
+  console.info(chalk.green(t('cliWorkflows.instanceCancelled', { id: chalk.cyan(inst.id), status: colorInstanceStatus(inst.status) })));
 }
 
 // ==================== 命令注册 ====================
@@ -523,15 +524,15 @@ function parsePagination(pageStr?: string, pageSizeStr?: string): { page: number
 export function registerWorkflowsCommand(program: Command): void {
   const wfCmd = program
     .command('workflows')
-    .description('工作流管理与执行 (对标 Web 端 /workflows)');
+    .description(t('cliWorkflows.cmdDesc'));
 
   // ---------- list ----------
   wfCmd
     .command('list')
-    .description('列出工作流(分页)')
-    .option('--page <n>', '页码(默认 1)')
-    .option('--page-size <n>', '每页数量(默认 20)')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.listDesc'))
+    .option('--page <n>', t('cliWorkflows.pageDesc'))
+    .option('--page-size <n>', t('cliWorkflows.pageSizeDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (opts: ListOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -541,7 +542,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }
@@ -555,8 +556,8 @@ export function registerWorkflowsCommand(program: Command): void {
   // ---------- show ----------
   wfCmd
     .command('show <id>')
-    .description('查看工作流详情')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.showDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (id: string, opts: ShowOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -566,7 +567,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }
@@ -579,10 +580,10 @@ export function registerWorkflowsCommand(program: Command): void {
   // ---------- run ----------
   wfCmd
     .command('run <id>')
-    .description('触发工作流,创建 instance + 派发任务')
-    .option('--project <id>', '关联项目 ID')
-    .option('--context <json>', '触发上下文(JSON 字符串)')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.triggerDesc'))
+    .option('--project <id>', t('cliWorkflows.projectIdDesc'))
+    .option('--context <json>', t('cliWorkflows.contextDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (id: string, opts: RunOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -592,7 +593,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }
@@ -606,12 +607,12 @@ export function registerWorkflowsCommand(program: Command): void {
   // ---------- instances ----------
   wfCmd
     .command('instances')
-    .description('列出实例(可按工作流/状态筛选)')
-    .option('--workflow-id <id>', '按工作流 ID 筛选')
-    .option('--status <s>', '按状态筛选(pending/running/completed/failed/cancelled/timeout)')
-    .option('--page <n>', '页码(默认 1)')
-    .option('--page-size <n>', '每页数量(默认 20)')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.instancesDesc'))
+    .option('--workflow-id <id>', t('cliWorkflows.filterWorkflowDesc'))
+    .option('--status <s>', t('cliWorkflows.filterStatusDesc'))
+    .option('--page <n>', t('cliWorkflows.pageDesc'))
+    .option('--page-size <n>', t('cliWorkflows.pageSizeDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (opts: InstancesOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -621,7 +622,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }
@@ -645,8 +646,8 @@ export function registerWorkflowsCommand(program: Command): void {
   // ---------- instance ----------
   wfCmd
     .command('instance <id>')
-    .description('查看实例详情(含 tasks)')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.instanceShowDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (id: string, opts: ShowOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -656,7 +657,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }
@@ -669,8 +670,8 @@ export function registerWorkflowsCommand(program: Command): void {
   // ---------- cancel ----------
   wfCmd
     .command('cancel <id>')
-    .description('取消运行中实例')
-    .option('--json', '以 JSON 格式输出')
+    .description(t('cliWorkflows.cancelDesc'))
+    .option('--json', t('cliWorkflows.jsonDesc'))
     .action(async (id: string, opts: CancelOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = program.opts() as {
@@ -680,7 +681,7 @@ export function registerWorkflowsCommand(program: Command): void {
         const baseUrl = resolveBaseUrl(cliApiUrl);
         const apiKey = await resolveApiKeyAsync(cliApiKey, baseUrl);
         if (!apiKey) {
-          console.error(chalk.red('✗ 未登录或 token 已失效,请运行: ihui login'));
+          console.error(chalk.red(t('cliWorkflows.notLoggedIn')));
           process.exitCode = 1;
           return;
         }

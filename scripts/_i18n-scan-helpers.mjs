@@ -80,16 +80,19 @@ const EXCLUDE_FILE_PATTERNS = [
 // 简化为只匹配 key 部分 `t('a.b'`,允许嵌套调用内层也被识别。配合 stripComments 剥离注释避免假引用。
 // 注:简化后 false positive 风险低 — 字符串字面量里 `t('a.b.c')` 形式极罕见,且 i18n key 不含特殊字符。
 // 历史追溯:此前所有现有测试(单参/多参/嵌套对象/同行多调用)在简化后仍 pass,行为一致。
-export const STATIC_T_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const STATIC_T_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-07-26 新增:tList('key') 字符串数组辅助函数识别
 // 背景:miniapp-taro useI18n() 返回 tList 函数,用于读取字符串数组(appPermission.names/descs, course.ratingLabels 等),
 // 普遍存在于 about/app-permission、ai/chat、ai/image、course/detail、plaza/set-need、vip/upgrade、study/publish 等页面。
 // 原扫描器仅识别 t/tt,漏识别 tList,导致 16 个 key 被误判为死 key。
 // 2026-07-26 四次增强(与 STATIC_T_RE 同步):简化正则,只匹配到引号结束,不要求 `)` 闭合,
 // 支持嵌套调用 `tList('a.b', { x: tList('inner') })` 中内层 key 也被识别。
-export const TLIST_RE = /\btList\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const TLIST_RE = /\btList\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 动态 t(`prefix.${var}`) - 仅提示用
-export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]\s*\)/g
+// 2026-09-23 与 STATIC_T_RE / TLIST_RE 的"四次增强"对齐:不再要求 `)` 闭合。
+// 原尾部 `\s*\)` 让 `t(\`chat.${key}\`, values)`(带 values 实参)整条不命中 ⇒ 该前缀既不记为动态提示、
+// 又不算静态引用,旗下键被误判死 key(extension 侧 `chat.injection*` 7 枚即此因,实测 dynamicHits=0 是最小复现)。
+export const DYNAMIC_T_RE = /\bt\(\s*['"`]([^'"`]*\$\{[^'"`]+}[^'"`]*)['"`]/g
 // useTranslations('namespace') / getTranslations('namespace') - 命名空间下所有 key 视为潜在引用(启发式)
 // 2026-07-26 增强:getTranslations 是 next-intl/server 在 server component 使用的 API(等价于 useTranslations),
 // subagent-D commit 5ebb17915 仅识别 useTranslations 模式,导致 server component 引用 namespace 被误判为死 key。
@@ -104,10 +107,10 @@ export const USE_T_NO_ARG_RE = /\b(?:useTranslations|getTranslations)\s*\(\s*\)/
 // 2026-08-02 新增:单段 key 扫描 t('key') / tt('key') — 不含点,根级别引用
 // 仅在文件含无参数 useTranslations() 时启用,避免误报(误报风险低:useTranslations 是 next-intl API)
 // 正则说明:[a-zA-Z][a-zA-Z0-9_]* 不含点,引号后紧跟 ) 或 ,(与 STATIC_T_RE 的多段 key 互补)
-export const STATIC_T_ROOT_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*)['"`]\s*(?:\)|,)/g
+export const STATIC_T_ROOT_RE = /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_-]*)['"`]\s*(?:\)|,)/g
 // 备用:i18n.t / getFixedT 链式调用
 export const I18N_T_RE =
-  /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+  /\b(?:i18n\.t|getFixedT|useTranslations)\s*\(\s*['"`]?[a-zA-Z-]*['"`]?\s*\)\s*\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // JSX prop 字面量: <Xxx namespace="literal" />
 export const JSX_PROP_NS_RE = /\bnamespace\s*=\s*['"`]([a-zA-Z][a-zA-Z0-9_.\-]*)['"`]/g
 // TypeScript 联合类型字面量: namespace?: 'a' | 'b'
@@ -126,64 +129,64 @@ export const UNION_TYPE_NS_RE =
 // 原白名单(name/title/label/description/text/i18n)漏识别 desc,导致 extension 42 个 apps.*Desc 死 key 误判。
 // 属性名白名单:name/title/label/description/text/i18n/desc + Key 后缀(常见 i18n 相关属性命名约定)
 export const PROP_KEY_RE =
-  /\b(?:name|title|label|description|text|i18n|desc)Key\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+  /\b(?:name|title|label|description|text|i18n|desc)Key\s*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // JSX prop 字面量:titleKey="a.b.c" / descKey="a.b.c"(2026-07-26 三次增强新增)
 // 背景:extension 端 SidepanelApp.tsx / AIAppsPage.tsx 等通过 <XxxPage titleKey="apps.aiTitle" /> JSX prop 形式引用,
 // 原 PROP_KEY_RE 只识别 `titleKey:`(对象字面量赋值,冒号),不识别 `titleKey=`(JSX prop,等号),
 // 导致 extension 8 个 apps.*Title/about/contact/help/agreement/pricing 死 key 误判。
 // 与 PROP_KEY_RE 区别:用 `=` 不用 `:`,且 JSX 字符串字面量只用单/双引号(模板字面量在 JSX 表达式容器 {} 内,不在此处理)。
 export const JSX_PROP_KEY_RE =
-  /\b(?:name|title|label|description|text|i18n|desc)Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
+  /\b(?:name|title|label|description|text|i18n|desc)Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"]/g
 // 跨行 t('key', 形式(2026-07-26 三次增强新增)
 // 背景:STATIC_T_RE 要求 `)` 闭合,逐行扫描无法识别跨行 `t('key', {\n  args,\n})` 调用,
 // 导致 extension chat.compactionNotice + mobile-rn taskDispatch.file.attached 等跨行 t() 调用引用的 key 误判为死 key。
 // 此正则只要求 `t('key',`(逗号后任意,不要求 `)` 闭合),补跨行调用缺口。
 // 注:与 STATIC_T_RE 部分重叠(单行带参数调用两者都匹配),但 Set 去重,无副作用。
 export const STATIC_T_MULTILINE_RE =
-  /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*,/g
+  /\b(?:t|tt)\(\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]\s*,/g
 // 联合类型字面量:'a.b' | 'c.d'(2026-07-26 三次增强新增)
 // 背景:mobile-rn LiveScreen.tsx 通过 `function statusKey(live): 'live.ongoing' | 'live.upcoming' | 'live.ended'` 联合类型字面量引用,
 // 原 UNION_TYPE_NS_RE 只识别 `namespace:` 关键字,无法识别函数返回类型的联合类型字面量,导致 live.ended 误判为死 key。
 // 用两个正则覆盖多个联合(3+ 段):FIRST 识别"字面量后跟 |",SECOND 识别"| 后跟字面量"。
 // 误报风险:SECOND 会匹配任何 `| 'a.b'` 形式(包括 `if (x || 'a.b')` 逻辑或),但只要 'a.b' 不在 zh-CN.json 中不影响死 key 刡定。
 export const UNION_TYPE_KEY_RE_FIRST =
-  /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]\s*\|\s*(?=['"`])/g
+  /['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]\s*\|\s*(?=['"`])/g
 export const UNION_TYPE_KEY_RE_SECOND =
-  /\|\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+  /\|\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 对象字面量值全路径 i18n key:key: 'namespace.leaf'(2026-07-26 三次增强新增)
 // 背景:mobile-rn PaymentScreen.tsx / TaskDispatchPage.tsx 通过 `const STATUS_KEY = { pending: 'payment.status.pending', ... }` 对象字面量映射引用,
 // 原 PROP_KEY_RE 只识别 `xxxKey:` 白名单属性,不识别 `pending:` 等任意键名,导致 10 个 payment/taskDispatch.status.* 死 key 误判。
 // 限定:值必须含至少 1 个点(多段全路径),避免误命中 `host: 'example'` 等单段非 i18n 字面量。
 // 误报风险:任何 `key: 'foo.bar.baz'` 字面量都被识别为引用,但只要 'foo.bar.baz' 不在 zh-CN.json 中不影响死 key 刡定。
 export const OBJECT_LITERAL_KEY_RE =
-  /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+  /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 动态前缀拼接赋值:`= \`prefix.${var}\` as const`(2026-07-26 三次增强新增)
 // 背景:mobile-rn OrderScreen.tsx 通过 `const statusKey = \`order.status.${item.status}\` as const` 模板字符串拼接引用,
 // 扫描器无法静态识别 `${item.status}` 的值,但前缀 `order.status` 是静态的。
 // 此正则识别 `= \`prefix.${var}\`` 形式,捕获前缀 `prefix`(不含末尾点),把前缀加入 usedNamespaces,
 // 使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true(因 'order.status.pending'.startsWith('order.status.'))
 export const DYNAMIC_PREFIX_RE =
-  /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
+  /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
 // 字符串常量 return:`return 'namespace.leaf'`(2026-08-20 增强)
 // 背景:mobile-rn LiveDetailScreen.chatStatusLabelKey() 通过 switch 返回 'liveDetail.chatConnecting'
 // 等字符串常量,再由 t(statusKey) 间接引用,静态扫描器无法做值流分析,导致 5 个 liveDetail.chat* 误判为死 key。
 // 此正则捕获 `return '<多段点分 key>'` 形式(含 `=> 'x.y.z'` 精简写法),把该 key 加入 staticRefs。
 // 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
-export const RETURN_KEY_RE = /return\s+['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const RETURN_KEY_RE = /return\s+['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 三元条件字符串字面量:`cond ? 'a.b.c' : 'd.e.f'`(2026-08-20 增强)
 // 背景:extension ComingSoonPage 用 `t(isOpenInWeb ? 'apps.openInWebDesc' : 'apps.comingSoon')`
 // 三元条件形式引用 key,直接 `t('key')` 正则(要求引号紧跟左括号)无法命中 `t(cond ? 'key'`,
 // 导致 apps.openInWebDesc / apps.comingSoon 被误判为死 key。
 // IF 分支匹配 `? 'a.b.c'`(紧跟问号),ELSE 分支匹配 `: 'a.b.c'`(紧跟冒号)。
 // 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
-export const TERNARY_KEY_RE_IF = /\?\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
-export const TERNARY_KEY_RE_ELSE = /:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const TERNARY_KEY_RE_IF = /\?\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
+export const TERNARY_KEY_RE_ELSE = /:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 自定义翻译包装器带 locale 参数:`translateBg(locale, 'a.b.c')`(2026-08-20 增强)
 // 背景:extension entrypoints/background.ts 用 `translateBg(locale, 'contextMenu.translate')`
 // 等自定义包装器在非 React 环境读取翻译,静态扫描只识别 t/tt/tList 名,导致 3 个 contextMenu.* 误判为死 key。
 // 匹配任意以 t 开头 XX 单词 + 元组第 2 参为多段点分 key: `wordToScan(locale, 'a.b.c')`。
 // 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
-export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-08-21 新增:字符串数组 i18n key 列表识别(含行首空格)
 // 背景:extension VipPage/PricingPage/MemberPage 用:
 //   const benefits = [
@@ -198,13 +201,13 @@ export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-
 // 背景:miniapp-taro pkg-shop/pay/result/index.tsx 用 `pending: ['pay.result.pending', '支付处理中']`
 // [key, fallback] 数组元组形式引用 key,首元素引号前是 `[` 而非空白,
 // 原 `(?:^|\s)` 不命中,导致 pay.result.pending / pay.result.failed 2 个 key 被误判为死 key。
-export const STRING_ARRAY_KEY_RE = /(?:^|[\s[(])['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const STRING_ARRAY_KEY_RE = /(?:^|[\s[(])['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"`]/g
 // 2026-08-21 新增:JSX prop 传递 i18n key (emptyKey/descKey/titleKey 等)
 // 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
 // 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
 // 与 JSX_PROP_KEY_RE 互补:JSX_PROP_KEY_RE 只识别白名单属性(name/title/label/...),此正则识别任意属性名的等号赋值。
 export const JSX_PROP_KEY_EQ_RE =
-  /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
+  /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_-]+)+)['"]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -293,6 +296,14 @@ export function scanCode(files) {
     // 其他正则(I18N_T_RE / PROP_KEY_RE / USE_T_RE / JSX_PROP_NS_RE / UNION_TYPE_NS_RE / DYNAMIC_T_RE)
     // 仍按行匹配,保留行号信息用于 dynamicHits 报告。
     const codeOnly = stripComments(content)
+    // 2026-09-23 声明式命名空间登记:键池自己声明的 `X_I18N_NAMESPACE = 'ns'` 常量即"命名空间持有者"证据。
+    // 成因:`packages/shared/src/chat/waiting-pool.ts:326` 声明 `WAITING_I18N_NAMESPACE = 'waiting'`,
+    // :328-335 用 `${NS}.${quadrant}.${phase}.${index}` 运行时拼出全池 76 键,静态正则一条都看不见 ⇒
+    // 四端各报 76 枚假死键(rn / cli / extension / taro,三票独立取证同一根因)。
+    // 只扩 usedNamespaces、不改正则、不动端 scanTargets ⇒ 不引入假阴,也不把别端专属键倒灌成本端存活。
+    for (const dm of codeOnly.matchAll(/\b([A-Z][A-Z0-9_]*I18N_NAMESPACE)\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*)['"]/g)) {
+      usedNamespaces.add(dm[2])
+    }
     const lines = content.split('\n')
     let m
     STATIC_T_RE.lastIndex = 0

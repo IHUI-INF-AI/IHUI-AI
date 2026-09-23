@@ -7,7 +7,9 @@
 import type { PlanStep } from '@ihui/types'
 // 权限档读侧归一(G-161/G-165):历史行拼写可能是 kebab/camel/别名
 import { permissionModeWire } from '@ihui/types/permission-mode'
-import type { ChatMessage } from '@/stores/chat'
+// D33 过程性信息读回(2026-09-23):fallback 交代与 SSE 帧同一类型;memory/usage seed 走真 store
+import type { FallbackEvent } from '@ihui/api-client'
+import { useChatStore, type ChatMessage, type MessageUsage } from '@/stores/chat'
 
 /**
  * 后端 chat_messages 行的水合输入(结构最小集)。
@@ -139,6 +141,95 @@ function readRetryNoticeFromMetadata(raw: unknown): ChatMessage['retryNotice'] {
 }
 
 /**
+ * 从 metadata.fallback 还原"这轮回答其实换过模型"的交代(D33 剩余类,2026-09-23 立)。
+ *
+ * 落库保留线上 snake_case(primary_model / backup_model / reason,api-callback 侧缺一不落),
+ * 这里换算为与 SSE fallback 帧同一的 FallbackEvent(camel)交给消息级交代行渲染。
+ * 三字段任一缺失/非字符串 → 字段缺席,不渲染半截话术。
+ */
+function readFallbackFromMetadata(raw: unknown): ChatMessage['fallback'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const rec = raw as Record<string, unknown>
+  if (
+    typeof rec.primary_model !== 'string' ||
+    typeof rec.backup_model !== 'string' ||
+    typeof rec.reason !== 'string'
+  ) {
+    return undefined
+  }
+  return { primaryModel: rec.primary_model, backupModel: rec.backup_model, reason: rec.reason }
+}
+
+/**
+ * 从 metadata.usageDetail 还原消息级用量(D33 剩余类立)。
+ *
+ * 落库 schema 与 SSE usage 帧同源但**扁平**(firstTokenMs/durationMs 直接顶层,无 timing 嵌套),
+ * 数值一律按"可有限才采"守卫(部分 provider 给字符串/NaN);缺分项与 live 口径一致:
+ * reasoningTokens/costUsd → null(徽章对应分段不渲染),计时/分项 → 0。
+ * totalTokens 非正数 = "这轮没有可交代的用量",整条不采(与渲染位 totalTokens<=0 不显示同判据)。
+ */
+function readUsageDetailFromMetadata(raw: unknown): MessageUsage | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const rec = raw as Record<string, unknown>
+  const num = (v: unknown): number => {
+    const n = typeof v === 'string' ? Number(v) : v
+    return typeof n === 'number' && Number.isFinite(n) ? n : 0
+  }
+  const nullable = (v: unknown): number | null => {
+    if (v === undefined || v === null) return null
+    const n = typeof v === 'string' ? Number(v) : v
+    return typeof n === 'number' && Number.isFinite(n) ? n : null
+  }
+  const totalTokens = num(rec.totalTokens)
+  if (totalTokens <= 0) return undefined
+  return {
+    totalTokens,
+    promptTokens: num(rec.promptTokens),
+    completionTokens: num(rec.completionTokens),
+    reasoningTokens: nullable(rec.reasoningTokens),
+    firstTokenMs: num(rec.firstTokenMs),
+    durationMs: num(rec.durationMs),
+    model: typeof rec.model === 'string' ? rec.model : '',
+    costUsd: nullable(rec.costUsd),
+  }
+}
+
+/**
+ * 从 metadata.memoryUpdates 还原"本轮记住了哪些条目"(D33 剩余类立)。
+ * 落库为字符串数组(persistedMemoryUpdatesSchema);混入非字符串即整条不采 ——
+ * 半截列表比不显示更容易被当成"记忆系统坏了"。
+ */
+function readMemoryUpdatesFromMetadata(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  return raw.every((item): item is string => typeof item === 'string') ? raw : undefined
+}
+
+/**
+ * 历史水合后把"旁路型"过程信息灌回既有渲染位(D33,2026-09-23 立)。
+ *
+ * usageDetail → store.usageByMessageId(MessageUsageMetrics 既有渲染位)、
+ * memoryUpdates → store.memoryUpdateNotices(MemoryNoticeBar 既有渲染位)—— 两处均不
+ * 新增状态,复用 live 通道的写入 action;刷新后"发送→回放,元素仍在"由本函数闭合。
+ * fallback 走消息字段(hydrateHistoryMessage 直接挂),不在此列。
+ */
+export interface HistoryProcessInfoRow {
+  id: string
+  /** ChatMessageMetadata(api-client)带索引签名,可直接传 getMessages 返回行 */
+  metadata?: Record<string, unknown> | null
+}
+
+export function seedHistoryProcessInfoFrames(rows: readonly HistoryProcessInfoRow[]): void {
+  const store = useChatStore.getState()
+  for (const row of rows) {
+    const meta = row.metadata ?? undefined
+    const usage = readUsageDetailFromMetadata(meta?.usageDetail)
+    if (usage) store.setMessageUsage(row.id, usage)
+    const memories = readMemoryUpdatesFromMetadata(meta?.memoryUpdates)
+    if (memories) store.appendMemoryNotice(row.id, memories)
+  }
+}
+
+/**
  * 单条历史消息 → web store ChatMessage(D24 工具卡/终端区 + planSteps 计划快照)。
  *
  * 2026-09-21 立:plan_updated SSE 事件此前只写前端内存,刷新页面即丢。
@@ -170,6 +261,9 @@ export function hydrateHistoryMessage(row: HistoryMessageRecord): ChatMessage {
     injections: readInjectionsFromMetadata(meta?.injections),
     compaction: readCompactionFromMetadata(meta?.compaction),
     retryNotice: readRetryNoticeFromMetadata(meta?.retryNotice),
+    // D33:这轮**换过模型**的交代此前只在 live 顶部横幅一闪而过,刷新即丢 ——
+    // 落到消息字段,由 MessageItem 交代行按既有 chat.fallbackNotice* 词回放。
+    fallback: readFallbackFromMetadata(meta?.fallback),
   }
 }
 

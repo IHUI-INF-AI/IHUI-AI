@@ -179,6 +179,9 @@ function install() {
   // 改用 S4U(会话 0、无桌面)后, 任务及其派生的 cmd/node 结构性无法产生可见窗口, 端口/网络从交互会话照常可达(AGENTS.md §5b 实测)。
   const node = process.execPath
   const script = fileURLToPath(import.meta.url)
+  const cmd = `cmd /c ""${node}" "${script}" --run" >> "${LOG}" 2>&1`
+  execFileSync('schtasks', ['/Create', '/F', '/TN', 'IHUI-CFPreferredIP', '/SC', 'MINUTE', '/MO', '30', '/TR', cmd], { windowsHide: true })
+  log('已注册计划任务 IHUI-CFPreferredIP (每30分钟)')
   const argLine = `/c ""${node}" "${script}" --run" >> "${LOG}" 2>&1`
   const q = (s) => s.replace(/'/g, "''") // PowerShell 单引号转义
   const ps = [
