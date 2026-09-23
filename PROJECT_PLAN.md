@@ -3258,7 +3258,38 @@ Git 同步证据(§20 硬定义 5 条全绿,3 个 commit):
     **变异测试按真文件取数**:把 HEAD 的旧行写回工作树跑全量 ⇒ `exit 1` 且点名 7 个包,与我按
     package.json 独立算出的闭包**逐个一致**;还原后 `exit 0`,现场 sha256 字节一致。
     镜像测试在此过程中先咬出实现一处真缺陷(单包形态误把依赖并入闭包 ⇒ 假阳性),按实现修而非放宽断言。
-    **本机无 docker**,故终证仍需看 CI 的 build-web 在新提交上转绿。
+    **本机无 docker**,终证取 CI `Build Docker` run 35762633688(提交 `dd96286014`):
+    **`build-api` 与 `build-ai-service` 均 success**,`build-web` **首次走完 `✓ Compiled successfully in 8.7min`,
+    上一轮那三条 `Module not found: Can't resolve '@ihui/api-client'` 全部消失** —— C 判据修的这一层
+    已被证明生效。
+  - **build-web 第三层(根布局 cookies() 与 `output:'export'` 冲突)本会话已代修**(commit `856f5f1b4c`):
+    `eabc82e8f3`(2026-09-22,语言偏好补 cookie 真值源)把 `(await cookies())` 放进**根布局**,而
+    `output:'export'` 等价于全路由 `dynamic="error"` ⇒ 静态预渲染必挂:CI 在
+    `Generating static pages (0/927)` 报 `Route /models ... couldn't be rendered statically because it used
+    cookies()`(`/models`、`/admin/product-identity`、`/context-compaction` 同因,Next 遇错即退出),
+    三条共用 `build:static` 的链(docker web 镜像 / Tauri 桌面 / GitHub Pages)全被打穿。
+    **修法取自本仓既有先例**:`apps/web/src/i18n/request.ts` 顶部注释即"A 套壳方案:output:export 不支持
+    cookies() 动态服务端 API,构建时用默认 locale"(原读取见 `ce1f12795`)—— 故给根布局加同一道闸:
+    `isStaticExport = EXPORT_STATIC==='true' || GITHUB_PAGES==='true'`(判据与 `next.config.ts:23` 一致)时
+    **不进入 `cookies()` 分支**,首帧 `<html lang>` 落回 `DEFAULT_LOCALE`,挂载后仍由 I18nProvider 纠正;
+    **服务端模式(`next build` + `next start`)一行行为未变**,cookie 真值源的原意完整保留。
+  - **为何本地不跑 `build:static`**:它会 `excludeRuntimeRoutes()` 把 `app/cdn` 与 `app/uploads` 临时搬出
+    工作树约 10 分钟,共享工作区内他人一旦在此期间提交就会丢目录(违反 §12d 单写者原则),故只以 CI 为终证。
+    本地替代取证:`apps/web` 全量 `tsc --noEmit` 对 `app/layout.tsx` 0 错误(唯一 1 条红在未跟踪的他人测试文件)、
+    `eslint` 该文件 exit 0、`prettier --check` 干净。
+  - **本轮再测 CI(run 35800471346,提交 `856f5f1b4c`)出现新的第三因,且不是本任务的**:`build-api` 与
+    `build-web` **同时**停在 `Cannot find module './prompt-history'` + `error TS2307` ——
+    已提交的 `packages/shared/src/chat/index.ts` 引用了 `prompt-history.ts`,而该文件与其测试至今是
+    `?? ` **未跟踪**(并发会话漏 `git add`,即"提交了引用新文件的代码却没 add 那个文件"这一族)。
+    该缺失挡住了预渲染阶段,故 cookies() 这一层的终证要等它补齐后的下一枚 tip。
+  - **本条登记的自愈记录**:这段 19 行曾被并发提交 `838c8dae13`(旧基线整文件回写)抹掉一次,
+    本次按 `git show 77a1fcb4ee:PROJECT_PLAN.md` 原文**前向恢复**并重写(装配脚本断言"相对现取 HEAD
+    只替换我这 1 行、他人行零丢失 + CAS"),未做任何 revert。
+  - **build-web 的三层叠压全貌**:①第一层 A 判据类(钩子脚本未 COPY,`Cannot find module
+    '/app/scripts/fix-expo-metro-junction.mjs'`,旧 run `d36a7122d4`/`f6be1777ad`/`f4f1bbbdfa` 均停在此)
+    → 已在 `f9a264f25b` 收口;②第二层 C 判据类(依赖被 `run build:static` 静默跳过)→ 本票收口并经
+    CI 证明编译通过;③第三层根布局 cookies() → `856f5f1b4c` 收口;其后又叠了并发会话的漏加(第四因),
+    已按归属如实登记。
   - 平台独占:apps/api + deploy/docker + scripts 守门 + 文档(§9 豁免,无跨端契约变更)。
 
 
