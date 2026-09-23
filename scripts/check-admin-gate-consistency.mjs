@@ -44,22 +44,20 @@ const CENTRAL_FILES = new Set(['apps/api/src/plugins/require-permission.ts'])
 
 /**
  * RULE-1 存量白名单(2026-09-21 盘点登记 34 文件 / 74 处;O13b 试点批迁出
- * earnings-routes/security/health 3 文件后 31 文件 / 68 处;O13b T0 批再迁出
- * 16 个"实际已 0 裸比较"的纯删条目文件后,现 15 文件 / 42 处)。
+ * earnings-routes/security/health 3 文件后 31 文件 / 68 处;T0 批删 16 个"实测 0 处
+ * 裸比较"的纯条目文件后 15 文件 / 42 处;T1 批把 finance/finance-extended/
+ * withdrawal-routes/developer-routes 共 14 处真闸门收进集中封装后,现 11 文件 / 26 处,
+ * 全仓裸 roleId 比较 34 → 20)。
  * count = 登记时裸比较条数,只减不增;reason 说明该处 roleId 数值判定的存在理由。
  * 收敛路径:迁移到 requirePermission(...)/requireAdmin 后,把条目整体删除。
  */
 export const LEGACY_RAW_ROLEGATE = {
-  'apps/api/src/routes/finance.ts': { count: 7, reason: 'O13b 存量:资金/提现面 roleId>=1 复核,待迁 requirePermission' },
   'apps/api/src/routes/agents.ts': { count: 6, reason: 'O13b 存量:agent 所有权+管理员豁免混判,待收敛' },
   'apps/api/src/routes/admin-sys/role-routes.ts': { count: 6, reason: 'O13b 存量:RBAC 管理路由内 roleId===1 超管保护,待收敛' },
-  'apps/api/src/routes/finance-extended.ts': { count: 5, reason: 'O13b 存量:资金扩展面' },
   'apps/api/src/routes/groups.ts': { count: 4, reason: 'O13b 存量:群组管理员(业务 roleId,非 admin 面),保留语义复核' },
-  'apps/api/src/routes/user/withdrawal-routes.ts': { count: 3, reason: 'O13b 存量:提现审核' },
   'apps/api/src/plugins/business-metrics.ts': { count: 2, reason: 'O13b 存量:指标采集侧内部判定(非请求鉴权路径)' },
   'apps/api/src/db/rbac-queries.ts': { count: 2, reason: 'RBAC 数据层:roleId===1 超管通配权限解析点(resolveUserPermissions),是"集中判定"的数据侧同族,保留' },
   'apps/api/src/utils/idor-guard.ts': { count: 1, reason: 'O13b 存量:IDOR 豁免判定' },
-  'apps/api/src/routes/user/developer-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/trader.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/other/student-profile-routes.ts': { count: 1, reason: 'O13b 存量' },
   'apps/api/src/routes/oss.ts': { count: 1, reason: 'O13b 存量' },
