@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
-import { requireAuth } from '../../plugins/require-permission.js'
+import { requireAuth, isSystemAdmin } from '../../plugins/require-permission.js'
 import { success } from '../../utils/response.js'
 import { findMenuList, findMenuIdsByRole } from '../../db/admin-sys-queries.js'
 
@@ -12,7 +12,8 @@ export const menuRoutersRoutes: FastifyPluginAsync = async (server) => {
   server.get('/getRouters', { preHandler: requireAuth }, async (request, reply) => {
     const roleId = request.jwtPayload?.roleId ?? 0
     const list = await findMenuList()
-    if (roleId >= 1) {
+    // O13b:特权分支走集中谓词;roleId 仍要留给 findMenuIdsByRole(非闸门用途)
+    if (isSystemAdmin(request, { includeInternalChannel: false })) {
       return reply.send(success({ list }))
     }
     const menuIds = await findMenuIdsByRole(roleId)

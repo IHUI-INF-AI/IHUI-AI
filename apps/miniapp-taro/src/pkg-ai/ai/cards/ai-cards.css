@@ -64,6 +64,22 @@
   line-height: 32rpx;
 }
 
+/* ============ D106:引导已生效(Steer 中途引导交代) ============ */
+.ai-card-steer-item {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  line-height: 34rpx;
+  padding: 4rpx 0;
+}
+.ai-card-steer-more {
+  display: block;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+  opacity: 0.7;
+  padding: 4rpx 0;
+}
+
 /* ============ 计划步骤卡片 ============ */
 .ai-card-plan-list {
   padding-left: 4rpx;
