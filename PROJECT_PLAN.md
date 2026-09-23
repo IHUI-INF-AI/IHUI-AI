@@ -1174,6 +1174,13 @@ A/B 实测(同一隐藏探针、同一"故意 `windowsHide:false`"子进程):
 - **合流与推送的最终核验**:0 个未合并路径;守门 77 对提交树与工作树(16565 跟踪文件)双向 `✅ 未检出成对 Git 冲突标记`(唯一豁免是 CLI 自身 SEARCH/REPLACE 补丁格式);`git-push-converge` = **ALREADY**,`ls-remote` 复验两侧逐枚一致(第十九/二十/廿一批登记 1/1,门 71 `titleMarker`/`headIdSet`/`stillRegistered` 1/1、自测 17/17,`IHUI_WINDOW_RGN` 6/6,守门 61 第 7 条不变量 1/1,geo 测试 16/16);两侧内容存活也逐项核过 —— mobile-rn 三文件里本地谱系的功能行(`plusActive`/`onPlusToggle`/`scaleY`/`showAddBtn`/`CitationList`/`InjectionDisclosure`)与远端谱系的 `rnRadius`/`brand.ctaText` 迁移**同时在场**。
 - **残余(不称收口)**:① 守护的 refs 复原(`scripts/git-refs-heal.mjs` 的 `writeLooseRef`)仍**不校验对象存在性**,一次"从清单重建"就能把坏指针复活;该文件与 `git-guardian.mjs` 当前都被并发会话改写(一个 ` M`、一个 `M `),按 §16 我不跨属主改 —— 解阻判据:两文件 `git status` 干净后,写盘前加 `cat-file -e` 判定并把跳过的 ref 计入输出,同时从清单剔除该条(否则每 tick 重犯)。② 本预检是"零网络 + 每次 push 跑一遍全量 ref",当前 4457 条 ref 实测耗时可忽略;若 tag 规模再涨一个量级,需要改成增量判定。
 
+### 第二十三批(2026-09-23):把上一批的"机制缺口"按数据源逐个封死 —— 三个复活入口现在都是零死引用
+
+- **为什么不能靠改守护脚本来收口**:上一批登记的残余是"`git-refs-heal.mjs` 的 `writeLooseRef` 复原 ref 时不校验对象存在性"。实测该文件与 `git-guardian.mjs` 的工作副本都是**混合脏**:`git-refs-heal.mjs` 工作区独有 4 行 / HEAD 独有 6 行,`git-guardian.mjs` 5 / 9 —— 既带着自己的在飞改动、又缺 HEAD 已有的行。此刻提交它们 = 把别人该路径的后续改动静默回滚(正是守门 76 R1 要拦的那一类),所以**按 §16 不动**,改从"能让坏指针复活的数据源"这一侧收口。
+- **三个复活入口逐个查零**:① `refs-manifest.json` —— 在 `.git`、仓根、备份 gitdir 三处全量扫 `manifest` 文件名,**一份都不存在**,所以离线重建没有"期望值"可复原(下一次只会由 `--refresh-remote` 从 origin 的真实 sha 重建);② 本地恢复源 `G:/IHUI-AI.git-backup-20260912` —— 逐枚读出 4212 个松散 tag 文件的目标 sha 送 `cat-file --batch-check`,**指向死对象 = 0 枚**(顺序使然:第二十二批是"先清坏指针、再 `robocopy /MIR` 重做备份",若反过来就是把 1692 枚坏指针复制进恢复源);③ 主 gitdir `packed-refs` 795 条 + 全部 tag ref —— 死行 **0**、悬空 ref **0**,`git fetch origin main` 复测通过。
+- **推送侧的兜底闸已生效**:第二十二批装在 `git-push-guard.mjs` 的 2.9b 预检在注入下 `exit=1` 并点名探针、给出四步配方 —— 即使未来某次恢复又带回一枚坏指针,它会在**推送之前**亮红灯,而不是让 guard 与 converge 静默空转(上一批的教训:那种故障的表现只是"分叉解不开")。
+- **仍未闭合(不称收口)**:代码级校验(`writeLooseRef` 前加 `cat-file -e`,跳过项计入输出并从清单剔除)按判据等 `git-refs-heal.mjs` / `git-guardian.mjs` 的 `git status` 干净后由属主落地;届时**这一条就是它的验收标准**:植入一枚 `refs/tags/<probe> -> deadbeef…` 后跑 `node scripts/git-refs-heal.mjs`,要求它跳过该条并在输出里如实计数,而不是把它写回 `refs/tags`。
+
 ## P0 2026-09-22 桌面端 SSO 授权跳转闭环 + 探活滞回(根治「按钮点了没反应」与「页面反复抖动」)
 
 
