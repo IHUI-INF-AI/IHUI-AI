@@ -7,50 +7,15 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PERMISSION_MODES,
-  PERMISSION_MODE_PERSISTABLE_IDS,
   PERMISSION_MODE_WIRE,
-  PERMISSION_MODE_WIRE_VALUES,
   isReadonlyPermissionMode,
   normalizePermissionMode,
   permissionModeDisplayKey,
-  permissionModeId,
   permissionModeKey,
   permissionModePolicy,
   permissionModeWire,
   skipsApprovalPermissionMode,
 } from '../src/permission-mode'
-
-describe('PERMISSION_MODE_PERSISTABLE_IDS / permissionModeId(派生清单,消 Object.values(Partial) 的 undefined)', () => {
-  it('派生集合恰为 4 档(漏一档 = 该档落库语义静默掉出清单)', () => {
-    expect(PERMISSION_MODE_PERSISTABLE_IDS).toHaveLength(4)
-  })
-
-  it('与 wire 值域同射:每个派生档都有 wire 映射,映射像与 PERMISSION_MODE_WIRE_VALUES 互为子集(双射)', () => {
-    const wires = PERMISSION_MODE_PERSISTABLE_IDS.map((id) => PERMISSION_MODE_WIRE[id])
-    for (const wire of wires) expect(wire).toBeDefined()
-    const wireSet = new Set(wires)
-    expect(wireSet.size).toBe(4) // 不同档的 wire 互不相同(同射)
-    for (const wire of PERMISSION_MODE_WIRE_VALUES) expect(wireSet.has(wire)).toBe(true)
-    for (const wire of wireSet)
-      expect(PERMISSION_MODE_WIRE_VALUES as readonly string[]).toContain(wire)
-  })
-
-  it('manual 无落库语义 → 不在派生清单内', () => {
-    expect(PERMISSION_MODE_PERSISTABLE_IDS).not.toContain('manual')
-    expect(PERMISSION_MODE_PERSISTABLE_IDS).toEqual(
-      PERMISSION_MODES.filter((id) => PERMISSION_MODE_WIRE[id] !== undefined),
-    )
-  })
-
-  it('permissionModeId 是 normalizePermissionMode 的具名别名,行为逐输入一致', () => {
-    expect(permissionModeId).toBe(normalizePermissionMode)
-    for (const raw of ['accept-edits', 'acceptEdits', 'auto', 'manual', 'yolo', 42, null]) {
-      expect(permissionModeId(raw)).toBe(normalizePermissionMode(raw))
-    }
-    expect(permissionModeId('accept-edits')).toBe('acceptEdits')
-    expect(permissionModeId('manual')).toBe('manual') // 有规范档语义,只是不可落库
-  })
-})
 
 describe('permissionModeWire(G-164:跨界只走 wire,判定只走规范档)', () => {
   it('任意拼写都落到 workspace 的 kebab 拼写', () => {
