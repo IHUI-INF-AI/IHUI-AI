@@ -260,29 +260,11 @@ function StagePicker({ selected, onSelect }: { selected: number; onSelect: (id: 
   return (
     <View style={fieldStyles.wrap}>
       <Text style={fieldStyles.label}>课程阶段</Text>
-      <View style={chipStyles.chipRow}>
-        {STAGES.map((s) => {
-          const active = s.id === selected
-          return (
-            <Pressable
-              key={s.id}
-              style={({ pressed }) => [
-                chipStyles.chip,
-                active ? chipStyles.chipActive : null,
-                pressed ? chipStyles.chipPressed : null,
-              ]}
-              onPress={() => onSelect(s.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              accessibilityLabel={s.name}
-            >
-              <Text style={[chipStyles.chipText, active ? chipStyles.chipTextActive : null]}>
-                {s.name}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
+      <CategoryDropdown
+        items={STAGES.map((s) => ({ id: String(s.id), label: s.name }))}
+        selectedId={String(selected)}
+        onSelect={(id) => onSelect(Number(id))}
+      />
     </View>
   )
 }
@@ -650,22 +632,6 @@ const coverStyles = StyleSheet.create({
 const chipStyles = StyleSheet.create({
   loading: { paddingVertical: 8 },
   empty: { fontSize: 14, color: getTokens('light').text.tertiary, paddingVertical: 4 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: rnRadius['2xl'],
-    borderWidth: 1,
-    borderColor: getTokens('light').border.light,
-    backgroundColor: getTokens('light').surface.card,
-  },
-  chipActive: {
-    backgroundColor: getTokens('light').brand.DEFAULT,
-    borderColor: getTokens('light').brand.DEFAULT,
-  },
-  chipPressed: { opacity: 0.85 },
-  chipText: { fontSize: 14, color: getTokens('light').text.secondary },
-  chipTextActive: { fontSize: 14, color: getTokens('light').surface.light, fontWeight: '500' },
 })
 
 const submitStyles = StyleSheet.create({
