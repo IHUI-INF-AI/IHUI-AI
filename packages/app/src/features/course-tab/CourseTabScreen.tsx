@@ -380,7 +380,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-around',
       paddingVertical: 20,
       marginBottom: 8,
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     progressItem: {
       alignItems: 'center',
@@ -400,7 +400,7 @@ function createStyles(tk: AppThemeTokens) {
     section: {
       padding: 14,
       marginBottom: 8,
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     sectionHeader: {
       flexDirection: 'row',
@@ -507,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
     vipBadgeText: {
       fontSize: 10,
       fontWeight: '600',
-      color: tk.surface.light,
+      color: tk.brand.foreground,
     } as TextStyle,
     popularBody: {
       padding: 10,
@@ -583,7 +583,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       borderRadius: 16,
       overflow: 'hidden',
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.surface.card,
     } as ViewStyle,
     courseCardPressed: {
       backgroundColor: tk.surface.muted,
