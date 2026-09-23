@@ -22,7 +22,11 @@
  *  B4 `rounded-[...]` 任意值 → 必须换档位类(或 var(--radius-*))
  *     唯一放行:`0` / `none` / `inherit` / 同行或紧邻上行含 `radius-exempt:` 标记(真圆、头像、
  *     装饰点、胶囊等几何圆按 AGENTS §4 豁免清单本就不该方档化,但必须写明原因,不得静默)。
- *  B 走基线棘轮:scripts/radius-single-source-baseline.json 之外的新增违规即红,存量只减不增。
+ *  B 走 **HEAD 锚点棘轮**:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(全量审计时上限只来自
+ *    人工基线,因为内容就是 HEAD)。只拦"这次改动把绕档加回来了",不拦仓库既有债。
+ *    锚点原先是一份手工维护的 JSON 清单,它有两个致命伤:并行会话把已迁好的路径整文件回写成
+ *    旧基线时它照样绿(实测 HEAD 曾因此积累 1179 处),而工作区滞后的旧草稿又会被它误记成本仓债务。
+ *    scripts/radius-single-source-baseline.json 保留为人工兜底(现应为空)。
  *
  * 用法:
  *   node scripts/check-radius-single-source.mjs              # 全量审计(基线外新增即红)
@@ -74,6 +78,29 @@ function loadTable() {
   // radius.js 是 ESM;用 import() 取真实档位表(守门不复制常量,否则守门自己就成了第二份真相)
   // Windows 下绝对路径必须经 pathToFileURL,否则 ERR_UNSUPPORTED_ESM_URL_SCHEME(协议 'd:')
   return import(pathToFileURL(join(ROOT, 'packages/design-tokens/src/radius.js')).href)
+}
+
+/**
+ * 只读 git 调用:一律带 timeout(守门 80)+ windowsHide(守门 52)。
+ * 共享工作区里 git 挂起过 80 分钟(CPU 仅 2.84s),钩子链上没有超时等于没有交付。
+ */
+function gitRo(args) {
+  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 1 << 28,
+    timeout: 60000,
+  })
+}
+
+/** 一份 git 文件清单(路径统一正斜杠);取不到返回 null,调用方按"无法收窄"处理而非静默放行 */
+function gitNameSet(args) {
+  try {
+    return new Set(gitRo(args).split('\n').filter(Boolean).map((l) => l.replaceAll('\\', '/')))
+  } catch {
+    return null
+  }
 }
 
 function* walk(dir) {
@@ -180,6 +207,21 @@ export function readCssRadius(fileText) {
 }
 
 /** B 判据:单文件 → 违规点列表。纯函数,自检直接复用 */
+/**
+ * 棘轮切分:每文件**超出容忍上限**的那部分才算新增违规。
+ * 纯函数,自检直接复用 —— 上限从哪来(HEAD 锚点 / 静态基线)由调用方决定,切分口径只此一份。
+ */
+export function splitFresh(byFile, tolOf) {
+  const fresh = []
+  for (const [rel, vs] of byFile) {
+    const tol = tolOf(rel)
+    vs.forEach((v, i) => {
+      if (i >= tol) fresh.push({ file: rel, ...v })
+    })
+  }
+  return fresh
+}
+
 export function scanText(rel, text, table) {
   const bad = []
   const lines = text.split('\n')
@@ -305,12 +347,12 @@ export async function checkTableConsistency() {
   return { errors, table }
 }
 
-function loadBaseline() {
+function loadBaselineSites() {
   try {
     const j = JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))
-    return new Set((j.sites || []).map((s) => `${s.file}::${s.rule}::${s.raw}`))
+    return (j.sites || []).map((s) => ({ file: s.file, rule: s.rule, raw: s.raw }))
   } catch {
-    return new Set()
+    return []
   }
 }
 
@@ -370,6 +412,23 @@ async function selfTest() {
     if (!ok) fail++
     if (c.saneRaw && bad.some((b) => /undefined|NaN/.test(b.raw))) fail++
   }
+  // HEAD 锚点棘轮:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(或人工基线,取大)。
+  // 这四例钉住的是本门最容易跑偏的两个方向 —— 把别人的老债算成本次新增(误红 → --no-verify 常态化),
+  // 以及容忍整文件回写旧基线(误绿 → 迁移被静默撤销)。
+  const mk = (n) => Array.from({ length: n }, (_, i) => ({ line: i + 1, rule: 'B1', raw: '8', hint: '' }))
+  const ratchet = [
+    { name: '锚点:HEAD 已迁完(0 处)、待提交内容 3 处 → 新增 3(整文件回写旧基线必红)', by: { 'a.tsx': 3 }, tol: { 'a.tsx': 0 }, want: 3 },
+    { name: '锚点:HEAD 本来 3 处、待提交仍 3 处 → 新增 0(改老文件不替老债背红)', by: { 'a.tsx': 3 }, tol: { 'a.tsx': 3 }, want: 0 },
+    { name: '锚点:HEAD 3 处、待提交 5 处 → 新增恰为超出的 2 处', by: { 'a.tsx': 5 }, tol: { 'a.tsx': 3 }, want: 2 },
+    { name: '锚点:HEAD 3 处、待提交 1 处(减债)→ 新增 0', by: { 'a.tsx': 1 }, tol: { 'a.tsx': 3 }, want: 0 },
+  ]
+  for (const r of ratchet) {
+    const byFile = new Map(Object.entries(r.by).map(([f, n]) => [f, mk(n)]))
+    const got = splitFresh(byFile, (f) => r.tol[f] ?? 0).length
+    const ok = got === r.want
+    console.log(ok ? '✅' : '❌', r.name, ok ? '' : `→ 期望 ${r.want},实际 ${got}`)
+    if (!ok) fail++
+  }
   // A 表对账:CSS 值漂移必须识别
   const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.3rem;\n'
   const map = readCssRadius(css)
@@ -400,7 +459,8 @@ async function selfTest() {
     covRes.exempt.every((e) => !e.file.includes('newui'))
   console.log(covOk ? '✅' : '❌', 'C 判据:新端未归类必红 / 已声明范围外只计数 / 已覆盖目录交 B', covOk ? '' : JSON.stringify(covRes))
   if (!covOk) fail++
-  console.log(fail ? `\n${fail}/${cases.length + 3} 例失败` : `\n全部 ${cases.length + 3} 例通过`)
+  const total = cases.length + 3 + ratchet.length
+  console.log(fail ? `\n${fail}/${total} 例失败` : `\n全部 ${total} 例通过`)
   process.exit(fail ? 1 : 0)
 }
 
@@ -430,16 +490,50 @@ async function main() {
     }
   }
   const violations = []
+  // **全量审计判的是仓库现状(HEAD blob),不是工作区快照。**
+  // 共享工作区里并行会话的未提交草稿常年滞后 HEAD:按磁盘读会把"别人没提交的旧基线"
+  // 记成本仓的圆角债 —— 一道与工作区里真实改动无关的红门,只会逼人 --no-verify 并连带废掉全部守门。
+  // 与 HEAD 一致的文件磁盘内容 == HEAD 内容,仍直读磁盘(6153 文件里的绝大多数,不必逐个起 git)。
+  // --staged / --files 则按仓库既有约定读工作树(与 lint-staged 同形态),用下面的 HEAD 锚点约束"本次改动"。
+  const auditHead = !isStaged && !FILES_MODE
+  const diverged = auditHead ? gitNameSet(['diff', '--name-only', 'HEAD']) : null
+  const trackedSet = auditHead ? gitNameSet(['ls-files']) : null
+  if (auditHead && trackedSet) {
+    for (let i = files.length - 1; i >= 0; i--) if (!trackedSet.has(files[i])) files.splice(i, 1)
+  }
+  const headCounts = new Map()
+  const headCountOf = (rel) => {
+    if (headCounts.has(rel)) return headCounts.get(rel)
+    let n = 0
+    try {
+      n = scanText(rel, gitRo(['show', `HEAD:${rel}`]), table).length
+    } catch {
+      n = 0 // HEAD 无此文件(本次新增)→ 上限 0,任何绕档都算新增
+    }
+    headCounts.set(rel, n)
+    return n
+  }
+  const byFile = new Map()
   for (const rel of files) {
     let text
     try {
-      text = readFileSync(join(ROOT, rel), 'utf8')
+      text = auditHead && diverged && diverged.has(rel) ? gitRo(['show', `HEAD:${rel}`]) : readFileSync(join(ROOT, rel), 'utf8')
     } catch {
-      continue
+      continue // HEAD 里已无此文件(工作区滞后或删除)→ 不属于本仓现状
     }
-    for (const v of scanText(rel, text, table)) violations.push({ file: rel, ...v })
+    const vs = scanText(rel, text, table)
+    if (!vs.length) continue
+    byFile.set(rel, vs)
+    for (const v of vs) violations.push({ file: rel, ...v })
   }
-  const baseline = loadBaseline()
+  const baselineSites = loadBaselineSites()
+  const baselineCounts = new Map()
+  for (const s of baselineSites) baselineCounts.set(s.file, (baselineCounts.get(s.file) || 0) + 1)
+  // 容忍上限按模式取,理由不同:
+  //   全量:内容就是 HEAD,上限只能来自人工登记的基线 —— 否则"仓里有多少就容忍多少",
+  //        存量债永远照不出来(基线现为空 = 仓内绕档必须为 0)。
+  //   暂存:改老文件不该替老债背红,故上限 += 该文件 HEAD 自身已有的量(相对 HEAD 只减不增)。
+  const tolOf = (rel) => Math.max(baselineCounts.get(rel) || 0, isStaged || FILES_MODE ? headCountOf(rel) : 0)
   // 判据 C:覆盖面对账。与暂存范围无关,恒按全仓跟踪清单判 —— 静默逃逸不会因"本次没碰"而消失
   let cov = { red: [], exempt: [] }
   try {
@@ -451,18 +545,20 @@ async function main() {
     console.error(`❌ 判据 C 无法执行(git ls-files 失败):${e?.message || e} —— 按失败处理,不静默放行`)
     tableErrors.push('覆盖面对账(判据 C)未能执行')
   }
-  const fresh = violations.filter((v) => !baseline.has(`${v.file}::${v.rule}::${v.raw}`))
-  const healed = [...baseline].filter((k) => !violations.some((v) => `${v.file}::${v.rule}::${v.raw}` === k))
+  // 棘轮锚点从"会腐烂的手工清单"换成**该文件 HEAD 版本自身的违规数**:
+  // 只拦"这次改动把绕档取用加回来了",不拦仓库既有债;工作区滞后既不能藏债也不能造债。
+  const fresh = splitFresh(byFile, tolOf)
+  const healed = baselineSites.filter((s) => !violations.some((v) => `${v.file}::${v.rule}::${v.raw}` === `${s.file}::${s.rule}::${s.raw}`))
 
   if (UPDATE_BASELINE) {
     const sites = violations.map((v) => ({ file: v.file, rule: v.rule, raw: v.raw })).sort((a, b) => `${a.file}${a.rule}${a.raw}`.localeCompare(`${b.file}${b.rule}${b.raw}`))
-    writeFileSync(BASELINE_FILE, `${JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), note: '存量圆角取用未迁移清单,只减不增;修一处删一行(禁止为过门而新增)', sites }, null, 2)}\n`)
+    writeFileSync(BASELINE_FILE, `${JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), note: '人工登记的存量兜底(只减不增)。常态应为空:自 2026-9-24 起本门棘轮锚点已是"该文件 HEAD 自身的违规数",不再依赖此清单;仅当某目录整体纳入扫描需一次性放行时才写。', sites }, null, 2)}\n`)
     console.log(`[radius-guard] 基线已下调:${sites.length} 处存量`)
     return 0
   }
 
   console.log(
-    `[radius-guard] 扫描 ${files.length} 文件 | 违规 ${violations.length} 处(基线内 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
+    `[radius-guard] 扫描 ${files.length} 文件 | 违规 ${violations.length} 处(HEAD 自身/基线容忍 ${violations.length - fresh.length} / 新增 ${fresh.length})| 基线已修 ${healed.length} 处 | 覆盖面对账:范围外已声明 ${cov.exempt.length} 个、未归类 ${cov.red.length} 个`,
   )
   if (tableErrors.length) {
     console.error('\n❌ 档位表漂移(单一源头被破,必须修):')
@@ -485,6 +581,14 @@ async function main() {
     console.error(`\n❌ 新增 ${fresh.length} 处绕开圆角档位表(${Object.entries(byRule).map(([k, n]) => `${k}×${n}`).join(', ')}):`)
     for (const v of fresh.slice(0, 40)) console.error(`   ${v.file}:${v.line}  [${v.rule}] ${v.raw}  → ${v.hint}`)
     if (fresh.length > 40) console.error(`   ...另有 ${fresh.length - 40} 处`)
+    //  HEAD 已迁移而待提交内容仍有违规 = 草稿落在迁移前的旧基线上(共享工作区滞后),
+    //  不是"你写错了档位",正解是把改动重做到 HEAD 版本之上。
+    const staleBase = [...byFile.keys()].filter((f) => headCountOf(f) === 0 && (isStaged || FILES_MODE))
+    if (staleBase.length) {
+      console.error(`\n   ⚠️ 其中这些文件的 **HEAD 版本 0 违规**、待提交内容却有违规 → 你的草稿基于旧基线(圆角迁移已落在 HEAD):`)
+      for (const f of staleBase.slice(0, 10)) console.error(`      - ${f}  (对照: git show HEAD:${f})`)
+      console.error('      修法:按上面的档位提示改写这几行,或把改动重做到 HEAD 版本之上;不得整文件回写旧基线(守门 76 会按静默回滚拦)。')
+    }
   }
   if (healed.length && !isStaged) console.log(`💡 ${healed.length} 处存量已修,可跑 node scripts/check-radius-single-source.mjs --update-baseline 下调基线`)
   const red = tableErrors.length > 0 || fresh.length > 0 || cov.red.length > 0
