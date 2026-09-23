@@ -139,6 +139,15 @@ export interface GitStatusSnapshot {
     title: string
     url: string
     state: 'open' | 'merged' | 'closed' | 'draft'
+    /** D105:CI 检查明细(可选)。老后端缺省 ⇒ 前端渲染空态「无 CI 检查」,不报错、不阻塞。
+     *  取值与 @ihui/shared/chat 的 CiCheckState 一一对应(此处用字面量联合以避免 types → shared 依赖)。 */
+    checks?: Array<{
+      name: string
+      state: 'failed' | 'passed' | 'pending' | 'skipped' | 'neutral' | 'unknown'
+      url?: string
+    }>
+    /** D105:聚合态(可选)。缺省时前端用 deriveChecksSummary(checks) 自行归并,两端口径一致。 */
+    checksSummary?: 'failing' | 'pending' | 'successful' | 'none'
   } | null
   /** PR 查询是否失败(true=GitHub API 查询出错;false/缺省=查询成功但分支无 PR) */
   pullRequestFetchFailed?: boolean
