@@ -602,10 +602,47 @@ pnpm dev                                       # 启动所有服务(web + api + 
 **守门脚本**:
 
 - `check-workspace-hygiene.mjs`(第 25 项 BLOCKING:项目外路径写入;WARNING:硬编码中文路径)
-- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)
+- `check-parent-pollution.mjs`(第 26 项 BLOCKING:项目父目录递归 2 层+桌面根级+用户主目录巡查,命中=文件名强信号 `search_*.ps1`/`*_result.txt` 或内容双信号)。**2026-09-23 结构性加固**:新增 `CREDENTIAL_DIR_NAMES` 共 8 项,对 `secrets`/`secret`/`credentials`/`credential`/`密钥`/`certs`/`certificates`/`.pybcrypt` **整目录不扫不删**(目录名按 `toLowerCase()` 比对,大小写不敏感;既往逐 `USER_LEGIT_PATTERNS` 按 filename 豁免已被证明会漏第三把密钥);另新增 `BACKUP_DIR_NAMES` + `BACKUP_DIR_PREFIXES` 整目录豁免,防"卫生守门删掉数据备份"。
 - `cleanup-external-junk.ps1`(G:\ 垃圾清理,16 目录+31 文件,`-Force` 跳过确认)
 - `g-root-guardian.ps1` v2.0(G:\ 实时守门,FileSystemWatcher+白名单优先 5 层判定,~110-222ms 删除,Windows 计划任务自启)+ 配套 `g-root-blacklist.json`/install/uninstall/status 脚本
-- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
+- post-commit 自动 `--auto-clean --quiet`(仅清文件名强信号);定时 08:00 巡查;跳过 `HUSKY_SKIP_HYGIENE=1`。**⚠️ `--auto-clean` 对强信号命中直接 `unlinkSync` 实删文件、无任何二次确认** —— 清理类任务的铁律:先跑不带 `--auto-clean` 的 `node scripts/check-parent-pollution.mjs` 看命中清单并逐项验明身份,**命中项落在凭据/密钥目录内或名字含 key/secret/token 的,一律先补豁免再清理,顺序不可颠倒**(2026-09-22 实测用户口令表 `D:/DevEnv/secrets/ihui-app-password.txt` 因 `ihui-` 前缀被判为 agent 垃圾 —— 若不先补目录级豁免而直接跑 `pnpm hygiene:parent:clean`,它**会被无声删除**;该文件现仍完好)。历史案例见 `.ihui-agent/archive/AGENTS_history.md`。
+
+### 15b. 项目外落点唯一制(强制,2026-09-23 立)
+
+用户规定:**任何文件都不得写在项目文件夹之外**,只允许下述四个经批准的落点;不再新增第五个。
+禁止在家目录、盘根、`AppData` 下随手建目录 —— 本机曾因此散落 `D:\tmp-*`、`D:\c`、`D:\d`、
+`D:\IHUI-AI-backup-*.tar`(8.3GB)等十几个游离项,已收口。
+
+| 落点                                 | 用途                                                                                                                                  | 依据 |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| `D:\IHUI-AI\`(含 `.ihui-agent\tmp\`) | 源码、构建产物、一切临时物                                                                                                            | §15  |
+| `D:\DevEnv\backups\`                 | **唯一备份目录**:`git\ sql\ deploy\ archives\ desktop\ pg\ env\ releases\`。项目内不得留备份(`backups/` 曾压 64MB DB 快照,已外迁)     | §15b |
+| `D:\DevEnv\{cache,tools,runtimes}\`  | 工具链缓存唯一根;家目录里的工具状态一律 `robocopy /MOVE` + **junction** 改道(禁改 `HKCU\Environment\Path`),旧路径经 junction 仍可解析 | §26  |
+| `D:\DevEnv\Temp\`                    | `TEMP`/`TMP`/`TMPDIR`(HKCU,需新开终端才继承)                                                                                          | §26  |
+
+**显式例外与已改道项(改道用 junction,故旧路径仍可用)**:
+
+1. `D:\IHUI-AI-git-repo` —— 真 gitdir。§5b 实测宿主层会整体删除工作区内 `.git`,故必须在外;
+   `scripts/git-rebuild-local.mjs:169` 硬编码该路径,`git-refs-heal.mjs` / `git-guardian.mjs` 依赖其
+   `refs-manifest.json`。同族的 `IHUI-AI.git-backup-20260912` 与 `IHUI-AI-git-repo.broken-*` 由
+   `scripts/lib/gitdir.mjs:250` 按路径主动选读,一律禁删。
+2. `D:\BaiduSyncdisk\密钥\` —— 模型密钥唯一权威源(§5d),不入仓、不入聊天记录。
+3. 第三方 IDE/agent 自管家目录的**运行态**(`~/.workbuddy\binaries\PortableGit` 是
+   `scripts/lib/gitdir.mjs:36-37` 解析 git 二进制的首选;`.qoder-cn` 承载本项目记忆与工作区状态)。
+   这类不属"我们的产物",只登记、不搬动。
+4. `~/.ihui`(1.2MB / 693 文件)—— 我们 CLI 的全局状态,**2026-09-23 已按 §26 的 junction 机制改道**
+   到 `D:\DevEnv\cache\userhome\.ihui`(复制后逐文件校验 0 差异 → 删源 → `mklink /J`,**未改一行业务代码、未设任何环境变量**)。
+   之所以不用"设 `IHUI_HOME`"这条路:`IHUI_HOME` 当前在本仓有**两套互斥语义** ——
+   `apps/cli/src/plugins/paths.ts:31` 当它是**家目录**(再拼 `.ihui`),而
+   `apps/cli/src/tools/mcp-oauth.ts:43`、`mcp-credentials.ts:26`、
+   `apps/ai-service/app/core/message_history.py:33` 当它是**状态目录本身**;另有
+   `workspace-ai-service.ts:38/252/2578`、`workspace-ai.ts:714/730/807`、
+   `announcements/index.ts:117`、`refresh-cli-token.mjs:34` 与 `apps/cli` 内约 30 处裸 `homedir()`
+   完全不认它。**设 env 必造双根分裂**;junction 则对硬编码路径同样生效。
+   语义统一属独立技术债(动它需同步改 `plugin-marketplace.test.ts:114-129` 等被钉死的断言),不在本策略范围。
+
+**新写文件前的三问**:① 是源码/产物吗 → 项目内;② 是备份吗 → `D:\DevEnv\backups\<类>\`;
+③ 是临时物吗 → `TEMP`。三者都不是 → 停下来问用户,不得自建新目录。
 
 ---
 
@@ -1159,19 +1196,37 @@ C 盘 120 GB 频繁告急,根因排查发现:
 
 ### 开发工具缓存路径强制规则(强制)
 
-**所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(已通过用户环境变量永久配置):
+**所有开发工具的全局缓存/存储/临时目录必须指向 D 盘**(2026-09-23 全量实测校正 —— 下表旧版写的
+`D:\caches\*` 是**死路径**,本机不存在 `D:\caches`,且 `CARGO_HOME`/`RUSTUP_HOME`/`OLLAMA_MODELS`
+当时**根本没设**,即"文档说已迁、实际还在 C 盘";真实外置根是 `D:\DevEnv\`)。
 
-| 工具       | 环境变量 / 配置                     | 路径                                        |
-| ---------- | ----------------------------------- | ------------------------------------------- |
-| Temp/TMP   | `TEMP` / `TMP` / `TMPDIR`           | `D:\caches\Temp`                            |
-| pnpm       | `PNPM_HOME` + `pnpm config`         | `D:\caches\pnpm\{store,global,cache,state}` |
-| npm        | `npm config`                        | `D:\caches\npm\{cache,prefix}`              |
-| pip        | `pip config`                        | `D:\caches\pip`                             |
-| uv         | `UV_CACHE_DIR`                      | `D:\caches\uv`                              |
-| Cargo      | `CARGO_HOME`                        | `D:\caches\cargo`                           |
-| Rustup     | `RUSTUP_HOME`                       | `D:\caches\rustup`                          |
-| Go         | `GOPATH` / `GOMODCACHE` / `GOCACHE` | `D:\caches\go{,\pkg\mod,-build}`            |
-| Playwright | `PLAYWRIGHT_BROWSERS_PATH`          | `D:\caches\playwright`                      |
+| 工具                | 环境变量 / 配置                           | 实测路径                                                            |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| Temp/TMP            | `TEMP` / `TMP` / `TMPDIR`                 | `D:\DevEnv\Temp`(2026-09-23 才真正写入 HKCU)                        |
+| pnpm                | `PNPM_HOME` + `pnpm store path`           | `D:\DevEnv\tools\pnpm`,store=`...\pnpm\store\v11`                   |
+| npm                 | `npm config`                              | `D:\DevEnv\cache\npm`                                               |
+| pip                 | `PIP_CACHE_DIR`                           | `D:\DevEnv\cache\pip`                                               |
+| uv                  | `UV_CACHE_DIR`                            | `D:\DevEnv\cache\uv`                                                |
+| Cargo               | junction(`%USERPROFILE%\.cargo`)          | `D:\DevEnv\cache\userhome\.cargo`                                   |
+| Rustup              | junction(`%USERPROFILE%\.rustup`)         | `D:\DevEnv\cache\userhome\.rustup`                                  |
+| Maven/.m2           | junction(`%USERPROFILE%\.m2`)             | `D:\DevEnv\cache\userhome\.m2`                                      |
+| Codex/.cache/.codex | junction                                  | `D:\DevEnv\cache\userhome\{.cache,.codex,.codex-session-delete}`    |
+| Trae 全家           | junction(`.trae`/`.trae-cn`/`.trae-aicc`) | `D:\DevEnv\cache\userhome\`                                         |
+| DeepSeek CLI        | junction(`%USERPROFILE%\.deepseek`)       | `D:\DevEnv\cache\userhome\.deepseek`                                |
+| Ollama(含服务)      | junction(`%USERPROFILE%\.ollama`)         | `D:\DevEnv\cache\ollama`(服务 `OLLAMA_MODELS` 路径经 junction 解析) |
+| IHUI CLI 状态       | junction(`%USERPROFILE%\.ihui`)           | `D:\DevEnv\cache\userhome\.ihui`                                    |
+| Go                  | `GOPATH` / `GOMODCACHE` / `GOCACHE`       | `D:\DevEnv\cache\go{,\pkg\mod}` / `...\go-build`                    |
+| Playwright          | `PLAYWRIGHT_BROWSERS_PATH`                | `D:\DevEnv\cache\playwright`                                        |
+
+**改道机制定为 junction,不 env 优先**:家目录工具态一律 `robocopy <src> <dst> /E /MOVE` →
+`mklink /J <旧路径> <新路径>`。理由:工具态常有**硬编码**读取方(如 `~/.cargo\bin` 在
+`HKCU\Environment\Path` 首位、守门脚本按 `%USERPROFILE%` 拼路径),junction 让旧路径继续可解析,
+因此**不需要也不允许**去改 `Path` 或逐个改码;改环境变量反而会造出"双根分裂"。
+校验方法:`rustup show home`、`reg query HKCU\Environment`、`(Get-Item ~\.cargo).Attributes -match ReparsePoint`。
+新增工具的缓存落点一律走 `D:\DevEnv\cache\userhome\<名称>` + junction,不得再在家目录留实体目录。
+**该方法唯一的真实危险**:`robocopy` 非零返回码(如 `.codex` 持锁 rc=9)会让内容已搬走但**不建 junction**,
+路径直接消失 —— 必须回读"旧路径是否存在 + 新路径文件数/字节"再补 junction(本次即手工补建后凭据零丢失)。
+**校验必须逐文件比对相对路径 + 字节数**(`robocopy /E` 不带 `/MOVE` 先做镜像副本),通过后才删源。
 
 **禁止 agent 在代码或脚本中硬编码 C 盘路径**作为写入目标:
 
@@ -1188,8 +1243,28 @@ C 盘 120 GB 频繁告急,根因排查发现:
 | `IHUI-C-Drive-AutoMaintain` | 每天 3am | `scripts/c-drive-auto-maintain.ps1` | 清理 Chrome/Temp 缓存 + 报告 C 盘状态 |
 
 **手动触发**:`pwsh -File scripts/c-drive-auto-maintain.ps1`
-**查看日志**:`D:\caches\c-drive-maintain.log`
+**查看日志**:`D:\DevEnv\logs\c-drive-maintain.log`(旧文档写 `D:\caches\...`,该目录本机不存在,日志从未写出)
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
+
+### 2026-09-23 已办与剩余阻碍
+
+**已办**:① **10.3GB 游离备份收口进 `D:\DevEnv\backups\`**(根目录散落的 `IHUI-AI-backup-*.tar` 8.3G、
+`IHUI-AI-backup-20260911.git` 727M、`IHUI-AI_workbak_20260910` 537M、两个根 `.sql`、`IHUI AI Desktop` 94M
+等,同卷 `mv` + 每步回读"源已无 + 目标体积一致");② **C 盘 20G → 31G 可用**;③ **12 项家目录改道**
+(`.rustup .cargo .m2 .cache .codex .trae .trae-cn .trae-aicc .deepseek .codex-session-delete .ihui` →
+`D:\DevEnv\cache\userhome\`,`.ollama` → `D:\DevEnv\cache\ollama`);④ **Ollama 2.9GB** 先镜像复制 +
+逐文件(路径+字节)校验 + sha256 寻址核对,13/13 一致后才 `nssm stop` → 删 C 原件 → `mklink /J` →
+`nssm start`;验收=服务 RUNNING **且真跑一次 `qwen2.5-coder:1.5b` 生成成功**(1.53s,日志无 error);
+顺带修掉该服务把 `TEMP`/`TMP` 钉死在 `C:\Users\...\AppData\Local\Temp` 的配置(nssm LocalSystem
+自带环境块,HKCU 的 TEMP 迁移对它无效,它一直在往 C 写)。原环境块备份在
+`D:\DevEnv\backups\env\ollama-service-env-original.txt`。
+
+**剩余客观阻碍(不是遗漏)**:`~/.workbuddy` 3.1GB 内含 `binaries\PortableGit`
+(被 `scripts/lib/gitdir.mjs:36-37` 当 git 二进制首选解析)不得搬,其 `logs`/`traces` 约 2GB 属该 IDE
+自管;`.qoder-cn`/`.qoder` 是本会话宿主状态,改道即丢记忆。`scripts/kill-git-selector-hidden.vbs`
+已改为随自身目录定位目标脚本,但其包装的 `kill-git-selector.ps1` **在仓库里并不存在**(死代码);
+`scripts/release-desktop-local.mjs:67,74` 需要 `%USERPROFILE%\.tauri\ihui-updater.key`,本机无 `.tauri`
+→ 桌面端发布在此机必 `exit 1`(需发布机或补生成密钥)。
 
 ### 守门(已实现,guardian-runner 第 45 项)
 
@@ -1271,6 +1346,7 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 2. **禁止在一级目录生成 `.log` / `.html` / `cookies*` / 截图 / ad-hoc 脚本**:临时产物一律进 `tmp/` 或 `logs/`,测试产物进 `test-results/` 或对应子目录。
 3. **新增合法根目录文件/目录必须显式审批**:把条目加进 `scripts/check-root-dir-clean.mjs` 白名单并随 commit 提交,禁止绕过白名单。
 4. **任务收尾必查**:交付前跑 `node scripts/check-root-dir-clean.mjs --staged`,0 违规才算完成。
+5. **忽略产物也纳入视野(2026-09-23 补)**:守门原对"被 git 忽略的一级目录条目"整体跳过(该豁免必要 —— 忽略条目本由 `.gitignore` 承接,若一并拦截则各类构建产物与本地目录会让每次提交皆红;注意 `tmp/`、`logs/` 等已在 `ALLOWED_DIRS`,驱动这条豁免的是"未进白名单却被忽略"的产物),致本规则第 2 条的禁令对被忽略文件零覆盖 —— 实测一次性翻出 14 个静默残留(`_knip.log`/`.tmp-tsc.log`/`build-oidc.log` 等),`git status` 与守门都看不见。现新增**只告警层**(不计失败、不改退出语义:全量恒 0,`--staged` 仍只对非忽略违规 exit 1)。看到该告警即删除或移入 `tmp/`、`logs/`。
 
 ### 守门(blocking)
 
