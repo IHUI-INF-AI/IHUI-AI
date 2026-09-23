@@ -870,7 +870,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: tokens.brand.DEFAULT },
   tabText: { fontSize: 13, color: tokens.text.secondary },
-  tabTextActive: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  tabTextActive: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
   viewport: { minHeight: 400, paddingHorizontal: rpx(20) },
   // 已选模型操作条(模型选择视图下方,消费 selectedModelIds)
   modelSelectionBar: {
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: tokens.brand.DEFAULT,
   },
-  modelStartBtnText: { fontSize: 13, color: tokens.surface.light, fontWeight: '600' },
+  modelStartBtnText: { fontSize: 13, color: tokens.brand.foreground, fontWeight: '600' },
   backToTopBtn: {
     position: 'absolute',
     bottom: 20,

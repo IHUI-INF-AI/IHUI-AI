@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 40,
     borderRadius: 7.5,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     borderWidth: 2,
     borderColor: tokens.border.medium,
     marginVertical: 2.5,
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedIconText: {
-    color: tokens.surface.light,
+    color: tokens.brand.foreground,
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 13,

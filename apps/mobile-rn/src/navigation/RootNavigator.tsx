@@ -545,7 +545,7 @@ function RootNavigatorInner() {
       <View
         className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
       >
-        <Text className="text-gray-500">加载中...</Text>
+        <Text style={{ color: tokens.text.tertiary }}>加载中...</Text>
       </View>
     )
   }
