@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TeamDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** TeamDetailScreen props re-export(单一来源 @ihui/types) */
 export type { TeamDetailScreenProps }
 
@@ -173,14 +175,14 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       gap: 12,
     },
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 24,
+      borderRadius: 24, // radius-exempt: 48dp 圆形成员头像,取边长一半
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -192,7 +194,7 @@ function createStyles(tk: AppThemeTokens) {
     statsRow: {
       flexDirection: 'row',
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       gap: 8,
     },
@@ -203,7 +205,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.card,
@@ -217,7 +219,7 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 20,
       height: 36,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.DEFAULT,

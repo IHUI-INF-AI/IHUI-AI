@@ -4,6 +4,8 @@
 
 'use client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -179,7 +181,7 @@ export default function AdminAiSkillStatsPage() {
                   contentStyle={{
                     background: 'var(--popover)',
                     border: '1px solid var(--border)',
-                    borderRadius: 6,
+                    borderRadius: rnRadius.md,
                     fontSize: 12,
                   }}
                 />

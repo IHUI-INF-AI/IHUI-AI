@@ -47,7 +47,7 @@
 .login-logo-box {
   width: 106rpx;
   height: 106rpx;
-  border-radius: 22rpx;
+  border-radius: var(--radius-xl);
   /* RN 端 logo 直接呈现,无品牌色底板(对齐 SharedLoginScreen logoImage) */
   background-color: transparent;
   display: flex;
@@ -75,7 +75,7 @@
   align-items: flex-start;
   gap: 12rpx;
   padding: 14rpx 20rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 1rpx solid var(--color-danger);
   background-color: var(--color-muted);
   margin-bottom: 24rpx;
@@ -101,7 +101,7 @@
   flex-direction: row;
   margin-bottom: 28rpx;
   padding: 6rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background-color: var(--color-muted);
   border: 1rpx solid var(--color-border);
 }
@@ -112,7 +112,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   font-weight: 500;
@@ -168,7 +168,7 @@
 .login-input {
   height: 80rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 0 24rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
@@ -183,7 +183,7 @@
   align-items: center;
   height: 80rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background-color: transparent;
 }
@@ -220,7 +220,7 @@
   height: 80rpx;
   padding: 0 24rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background-color: transparent;
   display: flex;
   align-items: center;
@@ -275,7 +275,7 @@
   width: 32rpx;
   height: 32rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-top: 4rpx;
   display: flex;
   align-items: center;
@@ -346,7 +346,7 @@
 /* ===== 主登录按钮(对齐 RN loginBtn:主题黑白底圆角,亮色纯黑/暗色纯白) ===== */
 .login-primary-btn {
   height: 80rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background-color: var(--color-brand);
   display: flex;
   align-items: center;
@@ -380,7 +380,7 @@
   justify-content: center;
   gap: 16rpx;
   height: 80rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-miniapp-green);
   color: var(--color-miniapp-green-foreground);
   font-size: 28rpx;
@@ -432,7 +432,7 @@
 .login-oauth-icon {
   width: 72rpx;
   height: 72rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 
 .login-oauth-label {
@@ -445,7 +445,7 @@
 .login-sso-btn {
   height: 68rpx;
   margin-top: 36rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 1rpx solid var(--color-border);
   background-color: transparent;
   display: flex;
@@ -485,7 +485,7 @@
   right: 0;
   z-index: 20;
   margin-top: 8rpx;
-  border-radius: 14rpx;
+  border-radius: var(--radius-md);
   border: 1rpx solid var(--color-border);
   background-color: var(--color-card);
   box-shadow: 0 8rpx 24rpx var(--color-black-12);

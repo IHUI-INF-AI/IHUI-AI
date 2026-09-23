@@ -21,6 +21,8 @@ import { SearchInput } from '../../components/SearchInput'
 import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
 export interface PlazaItem {
   id: string
@@ -373,7 +375,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       paddingVertical: 14,
@@ -394,7 +396,7 @@ function createStyles(tk: AppThemeTokens) {
     chip: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -446,7 +448,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     retryText: {
@@ -477,7 +479,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 24,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.ctaFill,
     } as ViewStyle,
     emptyBtnText: {
@@ -488,7 +490,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       marginBottom: 9,
       padding: 12,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -505,7 +507,7 @@ function createStyles(tk: AppThemeTokens) {
     cardImage: {
       width: '100%',
       height: 160,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       marginBottom: 8,
     } as ImageStyle,
     cardDesc: {
@@ -532,7 +534,7 @@ function createStyles(tk: AppThemeTokens) {
     avatarWrap: {
       width: 24,
       height: 24,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
     } as ViewStyle,
     avatarFallback: {
@@ -570,7 +572,7 @@ function createStyles(tk: AppThemeTokens) {
     chatBtn: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
     chatBtnPressed: {
@@ -606,7 +608,7 @@ function createStyles(tk: AppThemeTokens) {
     fabCircle: {
       width: 50,
       height: 50,
-      borderRadius: 25,
+      borderRadius: 50 / 2, // radius-exempt: 50dp 见方悬浮按钮,半径=边长一半为真圆,改方档会变成方块
       backgroundColor: tk.brand.ctaFill,
       alignItems: 'center',
       justifyContent: 'center',

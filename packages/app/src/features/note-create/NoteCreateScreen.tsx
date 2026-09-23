@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteCreateScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 笔记创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理,isPublic 用模拟 Switch) */
 export type { NoteCreateScreenProps }
 
@@ -131,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -145,21 +147,27 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginTop: 16,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     visibilityLabel: { fontSize: 16, color: tk.text.primary },
-    switchTrack: { width: 44, height: 24, borderRadius: 8, padding: 2, justifyContent: 'center' },
+    switchTrack: {
+      width: 44,
+      height: 24,
+      borderRadius: rnRadius.lg,
+      padding: 2,
+      justifyContent: 'center',
+    },
     switchTrackOn: { backgroundColor: tk.success.DEFAULT },
     switchTrackOff: { backgroundColor: tk.text.tertiary },
-    switchThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: tk.surface.light },
+    switchThumb: { width: 20, height: 20, borderRadius: 20 / 2, backgroundColor: tk.surface.light }, // radius-exempt: Switch 拇指 20dp 见方,半径=边长一半为真圆(项目规则豁免)
     switchThumbOn: { alignSelf: 'flex-end' },
     switchThumbOff: { alignSelf: 'flex-start' },
     submitBtn: {
       marginTop: 20,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

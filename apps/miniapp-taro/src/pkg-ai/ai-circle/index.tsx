@@ -115,7 +115,7 @@ export default function AiCircle() {
               const comments = Number(item.comments || 0)
               const images = (item.images as string[]) || []
               return (
-                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[16rpx]">
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-lg">
                   <View
                     key={id}
                     onClick={() => onItemClick(id)}
@@ -124,7 +124,7 @@ export default function AiCircle() {
                   >
                     <View className="flex items-center gap-[16rpx]">
                       <Image
-                        className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0"
+                        className="w-[56rpx] h-[56rpx] rounded-[28rpx] bg-[var(--color-muted)] flex-shrink-0" // radius-exempt: 圆形头像(直径 56rpx,半径=直径一半)
                         src={avatar}
                         mode="aspectFill"
                       />
@@ -152,7 +152,7 @@ export default function AiCircle() {
                         {images.slice(0, 3).map((img, i) => (
                           <Image
                             key={i}
-                            className="w-[200rpx] h-[200rpx] rounded-[12rpx] bg-[var(--color-muted)]"
+                            className="w-[200rpx] h-[200rpx] rounded-md bg-[var(--color-muted)]"
                             src={img}
                             mode="aspectFill"
                           />
@@ -201,7 +201,7 @@ export default function AiCircle() {
               {t('aiCircle.empty')}
             </Text>
             <View
-              className="px-[40rpx] py-[16rpx] rounded-[32rpx] bg-primary"
+              className="px-[40rpx] py-[16rpx] rounded-2xl bg-primary"
               onClick={onPublish}
               hoverClass="opacity-60"
             >
@@ -213,7 +213,7 @@ export default function AiCircle() {
         )}
       </View>
       <View
-        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
+        className="fixed right-[48rpx] bottom-[64rpx] w-[104rpx] h-[104rpx] bg-primary rounded-[52rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]" // radius-exempt: 圆形发布悬浮按钮(直径 104rpx,半径=直径一半)
         onClick={onPublish}
         hoverClass="opacity-60"
       >

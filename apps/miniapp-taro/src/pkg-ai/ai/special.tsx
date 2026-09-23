@@ -217,7 +217,7 @@ export default function SpecialModelsPage() {
   return (
     <View className="min-h-screen bg-background pb-[60rpx] box-border">
       {/* Banner */}
-      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] rounded-[30rpx] overflow-hidden bg-card">
+      <View className="relative mx-[20rpx] mt-[36rpx] mb-[24rpx] p-[32rpx] rounded-2xl overflow-hidden bg-card">
         <View
           className="absolute top-0 left-0 right-0 bottom-0 z-0"
           style={{ background: 'var(--color-secondary)' }}
@@ -234,7 +234,7 @@ export default function SpecialModelsPage() {
           </Text>
         </View>
         <View
-          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[28rpx] bg-muted rounded-[16rpx]"
+          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[28rpx] bg-muted rounded-lg"
           onClick={goHistory}
           hoverClass="opacity-60"
         >
@@ -260,11 +260,11 @@ export default function SpecialModelsPage() {
             {featured.map((m) => (
               <View
                 key={`f-${m.key}`}
-                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-[24rpx] align-top"
+                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border border-border rounded-xl align-top"
                 onClick={() => onEnter(m)}
                 hoverClass="opacity-60"
               >
-                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-muted rounded-[24rpx]">
+                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-muted rounded-xl">
                   <Image src={m.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
                 </View>
                 <Text className="block mt-[12rpx] text-[26rpx] text-foreground font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
@@ -287,7 +287,7 @@ export default function SpecialModelsPage() {
             return (
               <ThemeRoot
                 key={c.key}
-                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[28rpx] mr-[12rpx] rounded-[16rpx] align-middle ${active ? 'bg-primary' : 'bg-muted'}`}
+                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[28rpx] mr-[12rpx] rounded-lg align-middle ${active ? 'bg-primary' : 'bg-muted'}`}
               >
                 <View key={c.key} onClick={() => setActiveCategory(c.key)} hoverClass="opacity-60">
                   <Image src={c.icon} className="w-[32rpx] h-[32rpx]" mode="aspectFit" />
@@ -307,11 +307,8 @@ export default function SpecialModelsPage() {
       {filtered.length > 0 ? (
         <View className="px-[24rpx] flex flex-col gap-[16rpx]">
           {filtered.map((m) => (
-            <View
-              key={m.key}
-              className="flex p-[28rpx] bg-card border border-border rounded-[24rpx]"
-            >
-              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-muted rounded-[24rpx] flex-shrink-0">
+            <View key={m.key} className="flex p-[28rpx] bg-card border border-border rounded-xl">
+              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-muted rounded-xl flex-shrink-0">
                 <Image src={m.icon} className="w-[56rpx] h-[56rpx]" mode="aspectFit" />
               </View>
               <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
@@ -327,7 +324,7 @@ export default function SpecialModelsPage() {
                   {m.desc}
                 </Text>
                 <View
-                  className="self-start mt-[16rpx] py-[8rpx] px-[20rpx] bg-primary rounded-[12rpx]"
+                  className="self-start mt-[16rpx] py-[8rpx] px-[20rpx] bg-primary rounded-md"
                   onClick={() => onEnter(m)}
                   hoverClass="opacity-60"
                 >

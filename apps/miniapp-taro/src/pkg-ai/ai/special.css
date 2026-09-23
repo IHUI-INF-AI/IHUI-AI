@@ -16,7 +16,7 @@
   position: relative;
   margin: 24rpx;
   padding: 32rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
 }
@@ -56,7 +56,7 @@
   padding: 12rpx 20rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
 }
 .special-banner-history-icon {
   font-size: 26rpx;
@@ -90,7 +90,7 @@
   padding: 24rpx 16rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   vertical-align: top;
 }
 .special-featured-icon {
@@ -100,7 +100,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 40rpx;
 }
 .special-featured-name {
@@ -136,7 +136,7 @@
   margin-right: 12rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   vertical-align: middle;
 }
 .special-tab-active {
@@ -167,7 +167,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .special-card-icon {
   width: 96rpx;
@@ -176,7 +176,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 44rpx;
   flex-shrink: 0;
 }
@@ -221,7 +221,7 @@
   padding: 10rpx 28rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .special-card-btn Text {
   font-size: 24rpx;

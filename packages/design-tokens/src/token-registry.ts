@@ -338,6 +338,9 @@ const BUSINESS_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
 /** 圆角 token(5 档,跨端共享,AGENTS.md §4 禁止 rounded-full)。 */
 const RADIUS_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--radius', type: 'radius', defaultValue: '0.5rem' },
+  // xs=2px:Tailwind v4 的 rounded-xs 档。v3 端(miniapp-taro/mobile-rn preset)曾把 sm 定成 2px,
+  // 与 web 的 sm=4px 同名不同值;2026-09-23 起 2px 统一由 xs 承载,单一真相源见 src/radius.js。
+  { name: '--radius-xs', type: 'radius', defaultValue: '0.125rem' },
   { name: '--radius-sm', type: 'radius', defaultValue: '0.25rem' },
   { name: '--radius-md', type: 'radius', defaultValue: '0.375rem' },
   { name: '--radius-lg', type: 'radius', defaultValue: '0.5rem' },

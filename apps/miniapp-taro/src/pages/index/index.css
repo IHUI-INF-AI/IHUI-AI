@@ -192,7 +192,7 @@
   margin-right: 12rpx;
   flex-shrink: 0;
   padding: 12rpx 20rpx;
-  border-radius: 32rpx;
+  border-radius: var(--radius-2xl);
   background: var(--color-muted);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -302,7 +302,7 @@
   right: 20%;
   height: 4rpx;
   background: var(--color-link);
-  border-radius: 2rpx;
+  border-radius: 2rpx; /* radius-exempt: 2px 高下划线指示条,半径取高度一半为圆头端点,改方档会破坏胶囊形 */
 }
 
 /* 素材列表滚动区 */
@@ -457,7 +457,7 @@
   width: 8rpx;
   height: 60rpx;
   background: var(--color-link);
-  border-radius: 4rpx;
+  border-radius: var(--radius-xs);
 }
 
 /* ===== 公告栏样式(滚动文字,亮色 token 渐变背景,对齐 web 端视觉) ===== */

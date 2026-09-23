@@ -34,6 +34,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface ConfirmPurchaseProduct {
   name: string
   price: number
@@ -83,7 +85,6 @@ export interface ConfirmPurchasePopUpProps {
 }
 
 const CARD_MAX_WIDTH = 320
-const CARD_BORDER_RADIUS = 12
 const CARD_PADDING_HORIZONTAL = 24
 const CARD_PADDING_VERTICAL = 20
 
@@ -95,13 +96,10 @@ const PRODUCT_PRICE_FONT_SIZE = 13
 const MESSAGE_FONT_SIZE = 13
 
 const PRODUCT_ROW_PADDING = 12
-const PRODUCT_ROW_BORDER_RADIUS = 8
 const PRODUCT_THUMB_SIZE = 48
-const PRODUCT_THUMB_BORDER_RADIUS = 8
 const PRODUCT_THUMB_EMOJI_SIZE = 24
 
 const BUTTON_HEIGHT = 40
-const BUTTON_BORDER_RADIUS = 8
 const BUTTON_FONT_SIZE = 14
 
 const RADIO_SIZE = 18
@@ -361,7 +359,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: CARD_MAX_WIDTH,
     backgroundColor: tokens.surface.card,
-    borderRadius: CARD_BORDER_RADIUS,
+    borderRadius: rnRadius.xl,
     paddingHorizontal: CARD_PADDING_HORIZONTAL,
     paddingVertical: CARD_PADDING_VERTICAL,
     alignItems: 'center',
@@ -374,7 +372,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: ICON_BG_SIZE,
     height: ICON_BG_SIZE,
-    borderRadius: ICON_BG_SIZE / 2,
+    borderRadius: ICON_BG_SIZE / 2, // radius-exempt: 48dp 见方图标底板,半径=边长一半为真圆
     backgroundColor: tokens.success.lighter,
     alignItems: 'center',
     justifyContent: 'center',
@@ -392,14 +390,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     backgroundColor: tokens.surface.muted,
-    borderRadius: PRODUCT_ROW_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     padding: PRODUCT_ROW_PADDING,
     marginTop: 16,
   } as ViewStyle,
   productThumb: {
     width: PRODUCT_THUMB_SIZE,
     height: PRODUCT_THUMB_SIZE,
-    borderRadius: PRODUCT_THUMB_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.border.light,
     alignItems: 'center',
     justifyContent: 'center',
@@ -479,7 +477,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tokens.surface.muted,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
@@ -492,7 +490,7 @@ const styles = StyleSheet.create({
   paymentIcon: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
@@ -511,7 +509,7 @@ const styles = StyleSheet.create({
   radio: {
     width: RADIO_SIZE,
     height: RADIO_SIZE,
-    borderRadius: RADIO_SIZE / 2,
+    borderRadius: RADIO_SIZE / 2, // radius-exempt: 18dp 见方单选外圈,半径=边长一半为真圆
     borderWidth: 1.5,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -523,7 +521,7 @@ const styles = StyleSheet.create({
   radioDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: 10 / 2, // radius-exempt: 选中态圆点正圆(10dp 直径/2)
     backgroundColor: tokens.success.DEFAULT,
   } as ViewStyle,
   agreementRow: {
@@ -537,7 +535,7 @@ const styles = StyleSheet.create({
   agreementCheckbox: {
     width: CHECKBOX_SIZE,
     height: CHECKBOX_SIZE,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     borderWidth: 1,
     borderColor: tokens.border.medium,
     alignItems: 'center',
@@ -564,7 +562,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -583,7 +581,7 @@ const styles = StyleSheet.create({
   confirmButton: {
     flex: 1,
     height: BUTTON_HEIGHT,
-    borderRadius: BUTTON_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.success.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

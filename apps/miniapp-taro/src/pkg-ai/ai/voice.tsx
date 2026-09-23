@@ -228,7 +228,7 @@ export default function VoicePage() {
             className={`flex mb-[20rpx] items-start ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
             <View
-              className={`max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-[32rpx] ${m.role === 'user' ? 'bg-[var(--color-brand)]' : 'bg-card'}`}
+              className={`max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-2xl ${m.role === 'user' ? 'bg-[var(--color-brand)]' : 'bg-card'}`}
             >
               {m.isVoice ? (
                 <View
@@ -248,7 +248,7 @@ export default function VoicePage() {
                     {WAVE_DELAYS.map((delay, n) => (
                       <View
                         key={n}
-                        className="w-[6rpx] h-[12rpx] bg-foreground rounded-[3rpx] animate-pulse"
+                        className="w-[6rpx] h-[12rpx] bg-foreground rounded-xs animate-pulse"
                         style={{ animationDelay: `${delay}s` }}
                       />
                     ))}
@@ -266,7 +266,7 @@ export default function VoicePage() {
         ))}
         {loading ? (
           <View className="flex mb-[20rpx] items-start">
-            <View className="max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-[32rpx] bg-card">
+            <View className="max-w-[78%] mx-[20rpx] py-[20rpx] px-[28rpx] rounded-2xl bg-card">
               <View className="flex gap-[8rpx] items-center">
                 <Text className="text-[40rpx] text-muted-foreground animate-pulse">·</Text>
                 <Text
@@ -295,7 +295,7 @@ export default function VoicePage() {
           {SPEEDS.map((s) => (
             <Text
               key={s}
-              className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[24rpx] ${speed === s ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setSpeed(s)}
             >
               {tt(SPEED_KEY[s] ?? 'aiVoice.q1', speedLabel[s])}
@@ -309,7 +309,7 @@ export default function VoicePage() {
           {TIMBRES.map((tb) => (
             <Text
               key={tb}
-              className={`py-[12rpx] px-[20rpx] rounded-[16rpx] text-[24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
+              className={`py-[12rpx] px-[20rpx] rounded-lg text-[24rpx] ${timbre === tb ? 'bg-[var(--color-surface-light)] border-[2rpx] border-primary text-primary font-medium' : 'bg-card text-muted-foreground'}`}
               onClick={() => setTimbre(tb)}
             >
               {tt(TIMBRE_KEY[tb] ?? 'aiVoice.q4', timbreLabel[tb])}
@@ -320,7 +320,7 @@ export default function VoicePage() {
 
       <View className="py-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card">
         <View
-          className={`h-[120rpx] flex items-center justify-center gap-[16rpx] rounded-[12rpx] ${recording ? 'bg-destructive' : 'bg-card'}`}
+          className={`h-[120rpx] flex items-center justify-center gap-[16rpx] rounded-md ${recording ? 'bg-destructive' : 'bg-card'}`}
           onTouchStart={onStartRecord}
           onTouchEnd={onStopRecord}
           onTouchCancel={onStopRecord}
@@ -330,7 +330,7 @@ export default function VoicePage() {
               {[0, 0.1, 0.2, 0.3, 0.4, 0.15, 0.25].map((delay, n) => (
                 <View
                   key={n}
-                  className="w-[6rpx] h-[12rpx] bg-foreground rounded-[3rpx] animate-pulse"
+                  className="w-[6rpx] h-[12rpx] bg-foreground rounded-xs animate-pulse"
                   style={{ animationDelay: `${delay}s` }}
                 />
               ))}

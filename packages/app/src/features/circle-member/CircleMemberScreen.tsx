@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleMemberItem, CircleMemberScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 圈子成员列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CircleMemberItem, CircleMemberScreenProps }
 
@@ -123,7 +125,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
@@ -131,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: 44 / 2, // radius-exempt: 圆形头像 fallback,半径=宽高一半
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     roleBadge: {
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     },
     roleBadgeOwner: { backgroundColor: tk.brand.DEFAULT },
     roleBadgeAdmin: { backgroundColor: tk.success.DEFAULT },

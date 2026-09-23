@@ -58,6 +58,8 @@ import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -663,7 +665,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(40),
   } as ViewStyle,
   // ── 身份切换弹窗(对齐原项目 plaza identity-card) ──
@@ -671,7 +673,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 340,
     backgroundColor: tokens.surface.card,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: rpx(48),
     alignItems: 'center',
   } as ViewStyle,
@@ -692,7 +694,7 @@ const styles = StyleSheet.create({
   identityAvatar: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: 56 / 2, // radius-exempt: 身份弹窗头像几何正圆(56dp 直径/2)
     backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   } as ImageStyle,
@@ -717,7 +719,7 @@ const styles = StyleSheet.create({
   identityBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
+    borderRadius: rnRadius.lg, // 原 10,R1 吸附至 lg(8)
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -753,7 +755,7 @@ const styles = StyleSheet.create({
   categoryItem: {
     paddingVertical: rpx(20),
     paddingHorizontal: rpx(24),
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
   } as ViewStyle,

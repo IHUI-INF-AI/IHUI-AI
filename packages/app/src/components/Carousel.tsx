@@ -7,6 +7,8 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { getTokens, tokens as baseTokens, type AppThemeMode } from '../theme/tokens'
 import type { CarouselItem } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * Carousel 轮播组件(跨端共享层)。
  *
@@ -92,7 +94,7 @@ const viewStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: baseTokens.surface.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
   }),
   indicatorWrap: (): CSSProperties => ({
     position: 'absolute',
@@ -109,7 +111,7 @@ const viewStyles = {
     width: active ? 16 : 6,
     height: 6,
     backgroundColor: active ? baseTokens.surface.light : 'rgba(255,255,255,0.5)',
-    borderRadius: 3,
+    borderRadius: 6 / 2, // radius-exempt: 轮播指示点(激活态为胶囊),半径=高度一半
     transition: 'all 0.3s ease',
   }),
 }

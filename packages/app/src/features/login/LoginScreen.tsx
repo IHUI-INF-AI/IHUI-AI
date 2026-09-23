@@ -16,7 +16,7 @@ import {
 } from 'react-native'
 import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, withAlpha, rnRadius } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
 // 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
@@ -90,7 +90,7 @@ const imageStyles = StyleSheet.create({
   thirdPartyIcon: {
     width: 28,
     height: 28,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     // 各平台墨迹在自身 viewBox 内垂直居中,槽位居中后墨迹中心才在同一水平线
     // (否则大尺寸图标如企微 35 / 飞书 32 相对 28 的图标整体下沉 2026-09-04)
     alignItems: 'center',
@@ -100,7 +100,7 @@ const imageStyles = StyleSheet.create({
   thirdPartyIconLg: {
     width: 36,
     height: 36,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     // 同 thirdPartyIcon:槽位垂直居中,保证不同渲染尺寸的图标顶部/中心线一致
     alignItems: 'center',
     justifyContent: 'center',
@@ -112,7 +112,7 @@ const imageStyles = StyleSheet.create({
   qrPlatformIcon: {
     width: 20,
     height: 20,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
   },
   logoImage: {
     width: 53,
@@ -393,7 +393,7 @@ function ThirdPartyLoginArea({
           {
             width: 36,
             height: 36,
-            borderRadius: 8,
+            borderRadius: rnRadius.lg,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: tk.text.tertiary,
@@ -1099,7 +1099,7 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
                       {
                         width: 20,
                         height: 20,
-                        borderRadius: 4,
+                        borderRadius: rnRadius.sm,
                         alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: tk.text.tertiary,
@@ -1567,7 +1567,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     logoBox: {
       width: 53,
       height: 53,
-      borderRadius: 11,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1575,7 +1575,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     logoImage: {
       width: 53,
       height: 53,
-      borderRadius: 11,
+      borderRadius: rnRadius.xl,
     },
     logoText: {
       color: onBrandText,
@@ -1595,7 +1595,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 8,
       paddingVertical: 8,
       paddingHorizontal: 12,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: withAlpha(tk.danger.DEFAULT, 0.3),
       backgroundColor: withAlpha(tk.danger.DEFAULT, 0.05),
@@ -1620,7 +1620,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 0,
       marginBottom: 16,
       padding: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
       // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
       borderWidth: 1,
@@ -1630,7 +1630,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     tabItem: {
       flex: 1,
       paddingVertical: 4,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -1674,7 +1674,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
@@ -1701,7 +1701,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: surface,
       overflow: 'hidden',
     },
@@ -1742,7 +1742,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       marginTop: 8,
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       overflow: 'hidden',
     },
@@ -1776,7 +1776,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     sendCodeBtn: {
       height: 40,
       paddingHorizontal: 12,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
@@ -1823,7 +1823,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     checkbox: {
       width: 16,
       height: 16,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       marginTop: 2,
       alignItems: 'center',
@@ -1880,7 +1880,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       zIndex: 20,
       elevation: 8,
       marginTop: 4,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
@@ -1926,7 +1926,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // 与其他通用主按钮同语义;文字取主题反色 onBrandText(黑底白字/白底黑字)
     loginBtn: {
       height: 40,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1944,7 +1944,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     wechatLoginBtn: {
       flexDirection: 'row',
       height: 40,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
@@ -1966,7 +1966,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     ssoBtn: {
       height: 38,
       marginTop: 22,
-      borderRadius: 10,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: inputBorder,
       alignItems: 'center',
@@ -2041,7 +2041,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     thirdPartyIconText: {
       width: 36,
       height: 36,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 13,
@@ -2062,7 +2062,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       height: 280,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       // renderQrPanel 注入时由 iframe/WebView 自己渲染二维码面板(含边框/背景);
       // 未注入时由 qrBoxPlaceholder 提供 dashed border + 浅灰背景(条件应用)。
     },
@@ -2085,7 +2085,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrRefreshBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: surface,
@@ -2103,7 +2103,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrPlatformTabBar: {
       flexDirection: 'row',
       padding: 4,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -2122,7 +2122,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 4,
       paddingVertical: 6,
       paddingHorizontal: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: 'transparent',
       overflow: 'hidden',
     },
@@ -2168,7 +2168,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     qrOpenWebBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.brand.DEFAULT,
       backgroundColor: tk.brand.DEFAULT,

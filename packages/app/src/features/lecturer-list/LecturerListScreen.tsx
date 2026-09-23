@@ -21,6 +21,8 @@ import { ChevronLeft, ChevronRight, Search } from 'lucide-react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 讲师列表条目(平台无关,由 wrapper 从各端数据源映射) */
 export interface LecturerListItem {
   id: string
@@ -252,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       margin: 12, // rpx(24)
       paddingHorizontal: 12, // rpx(24)
       height: 36, // rpx(72)
-      borderRadius: 18, // rpx(36)
+      borderRadius: 36 / 2, // rpx(36) radius-exempt: 胶囊搜索框,半径=高度一半
       backgroundColor: tk.surface.card,
     },
     searchInput: {
@@ -269,13 +271,13 @@ function createStyles(tk: AppThemeTokens) {
       marginHorizontal: 12, // rpx(24)
       marginBottom: 12, // rpx(24)
       padding: 12, // rpx(24)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
     },
     avatar: {
       width: 60, // rpx(120)
       height: 60, // rpx(120)
-      borderRadius: 30, // rpx(60)
+      borderRadius: 60 / 2, // rpx(60) radius-exempt: 圆形讲师头像,半径=宽高一半
       backgroundColor: tk.surface.muted,
     },
     avatarFallback: {
@@ -305,7 +307,7 @@ function createStyles(tk: AppThemeTokens) {
     titleBadge: {
       paddingHorizontal: 6, // rpx(12)
       paddingVertical: 2, // rpx(4)
-      borderRadius: 4, // rpx(8)
+      borderRadius: rnRadius.sm, // rpx(8)
       backgroundColor: tk.surface.muted,
       flexShrink: 1,
     },

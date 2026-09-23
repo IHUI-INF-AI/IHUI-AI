@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageGroupItem, MessageGroupScreenProps } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 群聊列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageGroupItem, MessageGroupScreenProps }
 
@@ -111,7 +113,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     titleRow: {
@@ -130,7 +132,7 @@ function createStyles(tk: AppThemeTokens) {
       minWidth: 18,
       paddingHorizontal: 5,
       paddingVertical: 2,
-      borderRadius: 9,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
