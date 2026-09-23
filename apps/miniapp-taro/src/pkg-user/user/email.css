@@ -41,7 +41,7 @@
   align-items: center;
   height: 100rpx;
   border: 1rpx solid var(--color-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   background: var(--color-muted);
   padding: 0 24rpx;
   box-sizing: border-box;
@@ -80,7 +80,7 @@
   color: var(--color-surface-light);
   font-size: 32rpx;
   font-weight: 700;
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   margin-top: 16rpx;
 }
 .email-submit.disabled {

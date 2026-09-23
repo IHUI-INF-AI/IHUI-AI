@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointHistoryItem, PointHistoryScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 积分历史/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointHistoryItem, PointHistoryScreenProps }
 
@@ -107,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },

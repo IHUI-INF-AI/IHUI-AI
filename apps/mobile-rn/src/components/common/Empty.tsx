@@ -16,6 +16,8 @@ import { tokens } from '../../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { PackageOpen, type LucideIcon } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface EmptyProps {
   text?: string
   /** emoji 字符、图片 URL(http/https 开头)或 lucide 图标组件 */
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
   },
   actionText: {

@@ -17,6 +17,8 @@
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface RecentAgentItem {
   id: string
   name: string
@@ -98,13 +100,13 @@ const styles = StyleSheet.create({
     minWidth: 60,
     paddingVertical: 10,
     paddingHorizontal: 5,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.muted,
   },
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
   },
   avatarFallback: {

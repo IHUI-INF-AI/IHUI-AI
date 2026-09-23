@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveScreenItem, LiveScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 直播屏/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveScreenItem, LiveScreenProps }
 
@@ -133,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 8,
     },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+    badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: rnRadius.xl },
     badgeText: { fontSize: 12, color: tk.surface.light },
     lecturer: { marginTop: 6, fontSize: 14, color: tk.text.medium },
     metaRow: {

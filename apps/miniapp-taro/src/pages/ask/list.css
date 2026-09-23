@@ -38,7 +38,7 @@
 }
 .item {
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   border: 1rpx solid var(--color-border);
   padding: 28rpx;
   margin-bottom: 24rpx;
@@ -100,7 +100,7 @@
   text-align: center;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   font-size: 48rpx;
   font-weight: 600;
   box-shadow: 0 4rpx 20rpx var(--color-black-20);

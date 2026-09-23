@@ -8,6 +8,8 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
 import { Eye, EyeOff, Check, X } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
 
@@ -189,7 +191,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 14,
       marginBottom: 12,
       borderWidth: 1,
@@ -210,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       paddingHorizontal: 12,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -222,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
     eyeBtn: {
       paddingHorizontal: 12,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -232,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
     eyeText: { fontSize: 16 },
     hint: { fontSize: 11, color: tk.text.tertiary, marginTop: 12 },
     btnRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-    btn: { flex: 1, height: 50, justifyContent: 'center', borderRadius: 12, alignItems: 'center' },
+    btn: { flex: 1, height: 50, justifyContent: 'center', borderRadius: rnRadius.xl, alignItems: 'center' },
     btnPrimary: { backgroundColor: tk.brand.DEFAULT },
     btnGhost: {
       backgroundColor: tk.surface.bg,
@@ -251,7 +253,7 @@ function createStyles(tk: AppThemeTokens) {
     testBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.text.primary,
     },
     testBtnRunning: { opacity: 0.6 },

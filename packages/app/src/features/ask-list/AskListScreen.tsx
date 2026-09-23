@@ -7,6 +7,8 @@ import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 问答列表共享屏 — props 注入式跨端组件 */
 export type { AskListScreenProps }
 
@@ -98,7 +100,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -109,7 +111,7 @@ function createStyles(tk: AppThemeTokens) {
     empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

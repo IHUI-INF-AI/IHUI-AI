@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskCreateScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 问答创建共享屏 — props 注入式跨端组件(状态由 wrapper 管理) */
 export type { AskCreateScreenProps }
 
@@ -121,7 +123,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -132,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       marginTop: 20,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

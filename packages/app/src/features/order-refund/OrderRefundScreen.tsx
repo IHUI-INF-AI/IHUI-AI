@@ -16,6 +16,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 退款订单项(平台注入,字段对齐 mobile-rn OrderRefundScreen Order 子集) */
 export interface OrderRefundItem {
   id: string
@@ -210,7 +212,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignSelf: 'flex-start',
@@ -219,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -240,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
     refundForm: {
       marginTop: 12,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     formLabel: { fontSize: 14, fontWeight: '500', color: tk.text.primary },
@@ -248,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 8,
       paddingHorizontal: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       minHeight: 80,
@@ -260,7 +262,7 @@ function createStyles(tk: AppThemeTokens) {
     formBtn: {
       flex: 1,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       justifyContent: 'center',
     },

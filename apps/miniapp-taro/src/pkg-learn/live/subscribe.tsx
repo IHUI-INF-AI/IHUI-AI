@@ -98,7 +98,7 @@ export default function LiveSubscribe() {
         </View>
 
         {/* 开播前提醒卡片:对齐 RN card(p 12 → 24rpx,radius 12 → 24rpx,1px border.light → 2rpx var(--color-border)) */}
-        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]">
+        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-xl">
           <View>
             <Text className="text-[28rpx] text-foreground">
               {tt('live.subscribe.reminder', '开播前提醒')}
@@ -117,11 +117,11 @@ export default function LiveSubscribe() {
               /* 对齐 RN card:row + items-center,无卡片底色 */
               <View
                 key={l.id}
-                className="flex items-center p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]"
+                className="flex items-center p-[24rpx] border-[2rpx] border-[var(--color-border)] rounded-xl"
               >
                 {/* 对齐 RN thumb(40dp → 80rpx,radius 24rpx,bg muted) */}
                 <Image
-                  className="w-[80rpx] h-[80rpx] shrink-0 bg-muted rounded-[24rpx]"
+                  className="w-[80rpx] h-[80rpx] shrink-0 bg-muted rounded-xl"
                   src={l.coverUrl}
                   mode="aspectFill"
                   onClick={() => goDetail(l.id)}
@@ -148,13 +148,13 @@ export default function LiveSubscribe() {
                   )}
                   <View className="flex items-center justify-between mt-[16rpx]">
                     <Text
-                      className={`px-[16rpx] py-[4rpx] rounded-[12rpx] text-[22rpx] ${STATUS_BADGE[l.status]}`}
+                      className={`px-[16rpx] py-[4rpx] rounded-md text-[22rpx] ${STATUS_BADGE[l.status]}`}
                     >
                       {statusText(l.status)}
                     </Text>
                     {/* 对齐 RN cancelBtn(px 12 → 24rpx,py 6 → 12rpx,radius 24rpx,border + 中性文字) */}
                     <Text
-                      className="px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] border-[2rpx] border-[var(--color-border)] rounded-[24rpx]"
+                      className="px-[24rpx] py-[12rpx] text-[28rpx] font-semibold text-[var(--color-text-medium)] border-[2rpx] border-[var(--color-border)] rounded-xl"
                       onClick={(e) => {
                         e.stopPropagation()
                         onUnsubscribe(l.id)

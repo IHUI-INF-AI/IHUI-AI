@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { CourseScreenProps }
 
@@ -145,7 +147,7 @@ function createStyles(tk: AppThemeTokens) {
     input: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       height: 50,
       paddingHorizontal: 12,
@@ -158,7 +160,7 @@ function createStyles(tk: AppThemeTokens) {
     muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

@@ -32,6 +32,8 @@ import { tokens } from '../theme/active-tokens'
 import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface KnowledgePlanetItem {
   id: string
   title: string
@@ -68,22 +70,18 @@ const DEFAULT_AUTHOR = 'AI 智汇社'
 
 const LIST_PADDING = 16
 const ITEM_GAP = 12
-const CARD_RADIUS = 12
 const CARD_PADDING = 12
 
 const COVER_WIDTH = 100
 const COVER_HEIGHT = 80
-const COVER_RADIUS = 8
 
 const TITLE_FONT_SIZE = 15
 const SUMMARY_FONT_SIZE = 12
 const META_FONT_SIZE = 11
 
-const AUTHOR_BADGE_RADIUS = 6
 const AUTHOR_BADGE_PADDING_H = 8
 const AUTHOR_BADGE_PADDING_V = 3
 
-const CATEGORY_BADGE_RADIUS = 6
 const CATEGORY_BADGE_PADDING_H = 8
 const CATEGORY_BADGE_PADDING_V = 3
 
@@ -296,7 +294,7 @@ const styles = StyleSheet.create({
   headerIcon: {
     width: 24,
     height: 24,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.brand.DEFAULT,
     marginRight: 8,
   } as ViewStyle,
@@ -350,7 +348,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     backgroundColor: tokens.surface.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: rnRadius.xl,
     padding: CARD_PADDING,
   } as ViewStyle,
   cardPressed: {
@@ -362,7 +360,7 @@ const styles = StyleSheet.create({
   cover: {
     width: COVER_WIDTH,
     height: COVER_HEIGHT,
-    borderRadius: COVER_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.border.light,
   } as ImageStyle,
   content: {
@@ -386,7 +384,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   authorBadge: {
     backgroundColor: tokens.surface.muted,
-    borderRadius: AUTHOR_BADGE_RADIUS,
+    borderRadius: rnRadius.md,
     paddingHorizontal: AUTHOR_BADGE_PADDING_H,
     paddingVertical: AUTHOR_BADGE_PADDING_V,
   } as ViewStyle,
@@ -439,7 +437,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   categoryBadge: {
     backgroundColor: tokens.warning.DEFAULT,
-    borderRadius: CATEGORY_BADGE_RADIUS,
+    borderRadius: rnRadius.md,
     paddingHorizontal: CATEGORY_BADGE_PADDING_H,
     paddingVertical: CATEGORY_BADGE_PADDING_V,
   } as ViewStyle,

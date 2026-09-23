@@ -26,12 +26,13 @@ import {
 import { tokens as tk } from '../theme/active-tokens'
 import { Banknote } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface CommissionFloatingIconProps {
   amount?: string | number
   onPress: () => void
 }
 
-const CONTAINER_RADIUS = 12
 const CONTAINER_PADDING_H = 12
 const CONTAINER_PADDING_V = 8
 const TEXT_WRAP_MARGIN_LEFT = 6
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tk.brand.DEFAULT,
-    borderRadius: CONTAINER_RADIUS,
+    borderRadius: rnRadius.xl,
     paddingHorizontal: CONTAINER_PADDING_H,
     paddingVertical: CONTAINER_PADDING_V,
     zIndex: Z_INDEX,

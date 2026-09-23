@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RefundHistoryItem, RefundHistoryScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 退款历史/Props 类型 re-export(单一来源 @ihui/types) */
 export type { RefundHistoryItem, RefundHistoryScreenProps }
 
@@ -102,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

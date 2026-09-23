@@ -98,7 +98,7 @@ export default function LiveDetail() {
           </Text>
           <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             <View
-              className={`px-[16rpx] py-[4rpx] rounded-[24rpx] ${
+              className={`px-[16rpx] py-[4rpx] rounded-xl ${
                 live.status === 'living'
                   ? 'bg-[var(--color-danger)]'
                   : live.status === 'upcoming'
@@ -111,14 +111,14 @@ export default function LiveDetail() {
               </Text>
             </View>
             {live.anchor && (
-              <View className="px-[16rpx] py-[4rpx] rounded-[24rpx] bg-[var(--color-card)]">
+              <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
                 <Text className="text-[22rpx] text-muted-foreground">
                   {t('live.detail.anchor', { name: live.anchor })}
                 </Text>
               </View>
             )}
             {live.watchCount !== undefined ? (
-              <View className="px-[16rpx] py-[4rpx] rounded-[24rpx] bg-[var(--color-card)]">
+              <View className="px-[16rpx] py-[4rpx] rounded-xl bg-[var(--color-card)]">
                 <Text className="text-[22rpx] text-muted-foreground">
                   {t('live.viewers', { n: live.watchCount })}
                 </Text>
@@ -145,7 +145,7 @@ export default function LiveDetail() {
             >
               <LineIcon name="play" size={56} color="var(--color-surface-light)" />
               {live.status === 'living' && (
-                <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-[24rpx] bg-primary flex items-center justify-center">
+                <View className="mt-[24rpx] px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center">
                   <Text className="text-[32rpx] font-semibold text-[var(--color-primary-foreground)]">
                     {t('live.detail.enter')}
                   </Text>
@@ -177,7 +177,7 @@ export default function LiveDetail() {
         {/* 对齐 RN subscribeSection:paddingHorizontal 10 → 20rpx,paddingVertical 12 → 24rpx */}
         <View className="px-[20rpx] py-[24rpx]">
           {subscribed ? (
-            <View className="p-[24rpx] rounded-[24rpx] bg-[var(--color-success-lighter)]">
+            <View className="p-[24rpx] rounded-xl bg-[var(--color-success-lighter)]">
               <View className="flex items-center">
                 <Text className="text-[28rpx] leading-none text-[var(--color-success-deep-text)]">
                   ✓
@@ -189,7 +189,7 @@ export default function LiveDetail() {
             </View>
           ) : live.status === 'upcoming' ? (
             <View
-              className="px-[20rpx] py-[20rpx] rounded-[24rpx] bg-primary flex items-center justify-center"
+              className="px-[20rpx] py-[20rpx] rounded-xl bg-primary flex items-center justify-center"
               onClick={handleSubscribe}
               hoverClass="opacity-60"
             >

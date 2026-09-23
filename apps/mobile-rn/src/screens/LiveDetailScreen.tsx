@@ -21,6 +21,8 @@ import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import { LiveChatClient, type ChatMessage, type ChatStatus } from '../lib/ws/chat-client'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Route = RouteProp<RootStackParamList, 'LiveDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'LiveDetail'>
 
@@ -191,7 +193,7 @@ const styles = StyleSheet.create({
   entryBtn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

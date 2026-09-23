@@ -12,6 +12,8 @@ import type {
   StudyRecordStatus,
 } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 学习记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { StudyRecordItem, StudyRecordScreenProps, StudyRecordStats, StudyRecordStatus }
 
@@ -181,7 +183,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 8 },
     statsCard: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -196,7 +198,7 @@ function createStyles(tk: AppThemeTokens) {
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary, textAlign: 'center' },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -216,7 +218,7 @@ function createStyles(tk: AppThemeTokens) {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
     },
     statusCompleted: { backgroundColor: tk.success.light },
     statusPaused: { backgroundColor: tk.surface.card },

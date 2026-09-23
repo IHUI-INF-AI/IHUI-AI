@@ -38,7 +38,7 @@ import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { deleteConversation, listConversations, type ConversationDetail } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
 import { ShareScreen as SharedShareScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
@@ -448,7 +448,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     section: {
       backgroundColor: tk.surface.card,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: rpx(24),
       gap: rpx(16),
     } as ViewStyle,
@@ -465,7 +465,7 @@ function createStyles(tk: RnThemeTokens) {
     } as TextStyle,
     pickerBox: {
       height: 100,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       borderStyle: 'dashed',
@@ -487,13 +487,13 @@ function createStyles(tk: RnThemeTokens) {
     } as TextStyle,
     previewWrap: {
       position: 'relative',
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       overflow: 'hidden',
     } as ViewStyle,
     preview: {
       width: '100%',
       height: 160,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
     } as ImageStyle,
     clearBtn: {
       position: 'absolute',
@@ -501,7 +501,7 @@ function createStyles(tk: RnThemeTokens) {
       right: 4,
       width: 24,
       height: 24,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
@@ -521,7 +521,7 @@ function createStyles(tk: RnThemeTokens) {
     } as ViewStyle,
     shareBtn: {
       height: 46,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.ctaFill,
       alignItems: 'center',
       justifyContent: 'center',

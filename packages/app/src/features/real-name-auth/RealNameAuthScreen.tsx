@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-nativ
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 实名认证共享屏 — props 注入式跨端组件 */
 export type { RealNameAuthStatus, RealNameAuthItem, RealNameAuthScreenProps }
 
@@ -126,7 +128,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -140,7 +142,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.muted,
@@ -152,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       backgroundColor: tk.brand.DEFAULT,
     },

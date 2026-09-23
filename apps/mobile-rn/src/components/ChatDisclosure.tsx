@@ -11,7 +11,7 @@
 import { useState } from 'react'
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 import { ChevronDown, ChevronRight } from 'lucide-react-native'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { rnLightTokens as tokens, rnRadius } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 import type { MessageCitation, MessageInjection } from '../utils/chat-render-model'
@@ -136,7 +136,7 @@ const disclosureStyles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   card: {
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.muted,

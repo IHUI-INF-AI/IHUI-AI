@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HistoryItem, HistoryScreenProps, HistoryTargetType } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 浏览历史共享屏 — props 注入式跨端组件
  *
@@ -117,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
     listBody: { padding: 10 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 8,
@@ -134,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.success.DEFAULT,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.success.light,
       overflow: 'hidden',
     },

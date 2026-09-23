@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CustomerServiceInfo, CustomerServiceScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 客服共享屏 — props 注入式跨端组件 */
 export type { CustomerServiceInfo, CustomerServiceScreenProps }
 
@@ -108,14 +110,14 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
     row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     label: { fontSize: 14, color: tk.text.secondary },
-    dot: { width: 8, height: 8, borderRadius: 4 },
+    dot: { width: 8, height: 8, borderRadius: rnRadius.sm },
     dotOnline: { backgroundColor: tk.success.DEFAULT },
     dotOffline: { backgroundColor: tk.text.tertiary },
     statusText: { fontSize: 14, fontWeight: '600' },

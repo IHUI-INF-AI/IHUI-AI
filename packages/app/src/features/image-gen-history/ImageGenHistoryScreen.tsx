@@ -18,6 +18,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 生图任务状态(对齐 @ihui/api-client AigcTask['status']) */
 export type ImageGenTaskStatus = 'pending' | 'running' | 'succeeded' | 'failed'
 
@@ -252,7 +254,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 8,
     },
     tabChip: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 12,
       paddingVertical: 6,
     },
@@ -282,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     retryBtn: {
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 16,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,
@@ -302,7 +304,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       marginBottom: 12,
       overflow: 'hidden',
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -328,7 +330,7 @@ function createStyles(tk: AppThemeTokens) {
       position: 'absolute',
       left: 8,
       top: 8,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       paddingHorizontal: 6,
       paddingVertical: 2,
       backgroundColor: tk.overlay.modal,

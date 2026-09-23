@@ -21,6 +21,8 @@ import type { TFunction } from '../../types'
 import type { AppIcon } from '@ihui/types'
 import { BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 课程分类(对齐 Uniapp learn.vue) */
 export interface CourseCategory {
   id: string
@@ -430,7 +432,7 @@ function createStyles(tk: AppThemeTokens) {
     pathCover: {
       width: 140,
       height: 90,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -461,7 +463,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       paddingVertical: 12,
       gap: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     } as ViewStyle,
     categoryIcon: {
@@ -480,7 +482,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     popularCard: {
       width: '48%',
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.card,
       overflow: 'hidden',
     } as ViewStyle,
@@ -502,7 +504,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.ctaFill,
       paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
     } as ViewStyle,
     vipBadgeText: {
       fontSize: 10,
@@ -542,7 +544,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       height: 50,
@@ -581,7 +583,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     courseCard: {
       flexDirection: 'row',
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
     } as ViewStyle,
@@ -591,7 +593,7 @@ function createStyles(tk: AppThemeTokens) {
     courseImage: {
       width: 110,
       height: 110,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.border.light,
     } as ImageStyle,
     courseImageFallback: {
@@ -623,7 +625,7 @@ function createStyles(tk: AppThemeTokens) {
     levelBadge: {
       paddingHorizontal: 8,
       paddingVertical: 3,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       backgroundColor: 'transparent',
       borderWidth: 1,
       borderColor: tk.border.medium,

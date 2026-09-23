@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface DevEnterCoverScreenProps {
   t: TFunction
   planType: 'month' | 'year'
@@ -116,7 +118,7 @@ function createStyles(tk: AppThemeTokens) {
     planCard: {
       flex: 1,
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -144,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     submitBtn: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

@@ -15,6 +15,8 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * 文档详情(结构对齐 @ihui/api-client KnowledgeDocDetail,wrapper 直接传其值)。
  */
@@ -205,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     chunkCard: {
       marginBottom: 12,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
@@ -233,7 +235,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     retryBtn: {
       marginTop: 12,
-      borderRadius: 6,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 16,
       paddingVertical: 8,
       backgroundColor: tk.surface.muted,

@@ -26,6 +26,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { type LucideIcon, FileText, Film, Image, Music, Sparkles } from 'lucide-react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 /** 分页大小(首次与上拉一致,避免后端按 page/pageSize 计算偏移时出现重叠/空洞) */
@@ -328,7 +330,7 @@ const styles = StyleSheet.create({
   tab: {
     paddingHorizontal: rpx(8),
     paddingVertical: rpx(12),
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.surface.muted,
   },
   tabActive: {

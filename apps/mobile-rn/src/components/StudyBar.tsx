@@ -7,7 +7,7 @@
  *
  * 对齐历史项目 study/bar.vue(等宽分段式 Tab 切换):
  * - 灰色容器(color_cont:#eee)内等宽排布若干 Tab(bar_item flex:1,justify-content:space-between)。
- * - 未选:次级灰文字;选中:brandAccent 底 + 其上 foreground 文字(深色下纯白底刺眼,不用 brand.DEFAULT)。
+ * - 未选:次级灰文字;选中:brand.ctaFill + brand.ctaText(主 CTA 档,深色不翻纯白)。
  * - 点击切换 → onChange(key);受控组件(activeKey 驱动)。
  * - 浅色优雅风,无霓虹/无渐变;颜色全部走 theme/active-tokens 的主题 token;禁用 purple/indigo。
  * - 类型零 any,精确标注。
@@ -72,12 +72,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: tokens.brandAccent.DEFAULT,
+    backgroundColor: tokens.brand.ctaFill,
   },
   tabTextActive: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.brandAccent.foreground,
+    color: tokens.brand.ctaText,
   },
   tabTextInactive: {
     fontSize: 16,

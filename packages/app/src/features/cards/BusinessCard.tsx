@@ -7,6 +7,8 @@ import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface BusinessCardProps {
   /** 头像 URL */
   avatar: string
@@ -147,7 +149,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       padding: 14,
       gap: 12,
       borderWidth: 1,
@@ -158,13 +160,13 @@ function createStyles(tk: AppThemeTokens) {
     avatar: {
       width: 48,
       height: 48,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
     },
-    avatarImg: { width: 48, height: 48, borderRadius: 16 },
+    avatarImg: { width: 48, height: 48, borderRadius: rnRadius['2xl'] },
     avatarText: { fontSize: 20, fontWeight: '700', color: tk.surface.light },
     userMeta: { flex: 1, gap: 4 },
     name: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
@@ -174,7 +176,7 @@ function createStyles(tk: AppThemeTokens) {
     qrWrap: {
       width: 48,
       height: 48,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       overflow: 'hidden',
       backgroundColor: tk.surface.card,
     },
@@ -188,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
     contactBtn: {
       alignSelf: 'flex-start',
       backgroundColor: tk.brand.DEFAULT,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       paddingHorizontal: 10,
       paddingVertical: 8,
     },

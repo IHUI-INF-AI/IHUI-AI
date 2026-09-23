@@ -17,6 +17,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentScreenProps, AgentScreenItem } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps }
 
@@ -160,7 +162,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -180,16 +182,16 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
     },
-    avatar: { width: 48, height: 48, borderRadius: 12, backgroundColor: tk.surface.muted },
+    avatar: { width: 48, height: 48, borderRadius: rnRadius.xl, backgroundColor: tk.surface.muted },
     avatarFallback: {
       width: 48,
       height: 48,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -201,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
     vipBadge: {
       paddingHorizontal: 6,
       paddingVertical: 4,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.warning.DEFAULT,
     },
     vipText: { fontSize: 10, fontWeight: '600', color: tk.surface.light },

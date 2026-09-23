@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleDetailItem, CircleDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 圈子详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CircleDetailItem, CircleDetailScreenProps }
 
@@ -125,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
     backBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     backBtnText: { color: tk.surface.light, fontSize: 16 },
@@ -145,7 +147,7 @@ function createStyles(tk: AppThemeTokens) {
     statBadge: {
       paddingHorizontal: 10,
       paddingVertical: 4,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -164,7 +166,7 @@ function createStyles(tk: AppThemeTokens) {
     actionBtn: {
       flex: 1,
       paddingVertical: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
     },
     actionBtnPrimary: { backgroundColor: tk.brand.DEFAULT },

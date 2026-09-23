@@ -8,6 +8,8 @@ import { XCircle } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupFailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { TopupFailScreenProps }
 
@@ -77,13 +79,13 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       width: '100%',
       backgroundColor: tk.danger.light,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       padding: 12,
     },
     reason: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
     actions: { width: '100%', gap: 12, marginTop: 8 },
     primaryBtn: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',
@@ -91,7 +93,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     primaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     secondaryBtn: {
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       height: 44,
       alignItems: 'center',
       justifyContent: 'center',

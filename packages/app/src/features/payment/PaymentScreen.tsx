@@ -15,6 +15,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 支付订单状态(字段对齐 mobile-rn PaymentScreen PaymentStatus) */
 export type PaymentOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded'
 
@@ -234,7 +236,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingVertical: 6,
       paddingHorizontal: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.success.DEFAULT,
       alignItems: 'center',
@@ -243,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -254,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
+    statusTag: { marginLeft: 8, paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.sm },
     statusTagText: { fontSize: 14, color: tk.text.primary },
     cardMetaRow: {
       flexDirection: 'row',
@@ -272,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
     actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

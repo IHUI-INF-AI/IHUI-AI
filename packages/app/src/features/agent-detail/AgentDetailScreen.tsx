@@ -8,6 +8,8 @@ import { Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentDetailScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** Agent 详情共享屏 — props 注入式跨端组件 */
 export type { AgentDetailScreenProps }
 
@@ -97,7 +99,7 @@ function createStyles(tk: AppThemeTokens) {
     btn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     btnText: { color: tk.surface.light, fontSize: 16 },
@@ -107,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     category: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -118,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     cta: {
       marginTop: 16,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

@@ -7,6 +7,8 @@ import { ScrollView, Text, TouchableOpacity, View, StyleSheet, TextInput } from 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertVerifyScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 证书验证共享屏 — props 注入式跨端组件 */
 export type { CertVerifyScreenProps }
 
@@ -100,7 +102,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
       paddingHorizontal: 12,
       paddingVertical: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,
@@ -110,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
     verifyBtn: {
       marginTop: 16,
       paddingVertical: 15,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },
@@ -118,7 +120,7 @@ function createStyles(tk: AppThemeTokens) {
     verifyText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
     muted: { marginTop: 12, fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
     error: { marginTop: 12, fontSize: 14, color: tk.danger.DEFAULT },
-    resultCard: { marginTop: 16, padding: 12, borderRadius: 12, borderWidth: 1 },
+    resultCard: { marginTop: 16, padding: 12, borderRadius: rnRadius.xl, borderWidth: 1 },
     validCard: { borderColor: tk.success.DEFAULT, backgroundColor: tk.success.light },
     invalidCard: { borderColor: tk.danger.DEFAULT, backgroundColor: tk.danger.light },
     resultTitle: { fontSize: 18, fontWeight: '600' },

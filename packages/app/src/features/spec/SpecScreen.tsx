@@ -17,6 +17,8 @@ import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /**
  * SpecScreen 规范模板库(共享层)
  *
@@ -211,7 +213,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: 8,
       marginHorizontal: 16, // mx-4
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 12, // px-3
       paddingVertical: 8, // py-2
       backgroundColor: tk.warning.orangeLight, // bg-amber-50 dark:bg-amber-900/20
@@ -241,7 +243,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 模板卡 */
     card: {
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: 12, // p-3
@@ -258,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary, // dark:text-neutral-100
     },
     idBadge: {
-      borderRadius: 4, // rounded
+      borderRadius: rnRadius.sm, // rounded
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.surface.muted, // bg-gray-100 dark:bg-neutral-800
@@ -279,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     tag: {
-      borderRadius: 4, // rounded
+      borderRadius: rnRadius.sm, // rounded
       paddingHorizontal: 6, // px-1.5
       paddingVertical: 2, // py-0.5
       backgroundColor: tk.brandAccent.light, // bg-orange-50 dark:bg-orange-900/30 → 共享层强调色浅底

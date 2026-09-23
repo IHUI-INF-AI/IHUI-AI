@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { QrCodeItem, QrCodeScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 二维码共享屏 — props 注入式跨端组件 */
 export type { QrCodeItem, QrCodeScreenProps }
 
@@ -94,7 +96,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: 14 },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       alignItems: 'center',
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -103,7 +105,7 @@ function createStyles(tk: AppThemeTokens) {
     qrBox: {
       width: 200,
       height: 200,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -128,7 +130,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 16,
       paddingHorizontal: 20,
       paddingVertical: 10,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
     },
     shareText: { fontSize: 14, color: tk.surface.light, fontWeight: '600' },

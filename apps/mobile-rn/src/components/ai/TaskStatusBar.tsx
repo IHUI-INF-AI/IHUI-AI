@@ -25,6 +25,8 @@ import { tokens } from '../../theme/active-tokens'
 import { useI18n } from '../../i18n'
 import type { PlanStepItem, ToolCallItem } from '../../utils/chat-render-model'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface TaskStatusBarProps {
   /** 最后一条带 planSteps 的 assistant 消息的步骤快照(plan_updated 权威整体替换) */
   planSteps: readonly PlanStepItem[]
@@ -179,7 +181,7 @@ export default TaskStatusBar
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 16, marginBottom: 8 },
   card: {
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,

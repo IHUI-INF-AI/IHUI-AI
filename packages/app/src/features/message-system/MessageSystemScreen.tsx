@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageSystemItem, MessageSystemScreenProps } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 系统消息列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageSystemItem, MessageSystemScreenProps }
 
@@ -106,7 +108,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
     },
     unread: {
@@ -127,7 +129,7 @@ function createStyles(tk: AppThemeTokens) {
     dot: {
       width: 8,
       height: 8,
-      borderRadius: 4,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.danger.DEFAULT,
     },
     cardContent: {

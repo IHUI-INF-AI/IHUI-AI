@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IdentityVerifyStatus, IdentityVerifyScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { IdentityVerifyStatus, IdentityVerifyScreenProps }
 
 const STATUS_KEY: Record<IdentityVerifyStatus, string> = {
@@ -124,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       padding: 14,
       marginBottom: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
@@ -142,7 +144,7 @@ function createStyles(tk: AppThemeTokens) {
     uploadBtn: {
       width: 48,
       height: 50,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -153,7 +155,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       height: 50,
       justifyContent: 'center',
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
     },

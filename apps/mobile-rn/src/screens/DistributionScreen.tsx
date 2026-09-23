@@ -28,6 +28,8 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 邀请链接域名(对齐 ProfileScreen WEBSITE_URL 'https://www.aizhs.top') */
@@ -438,7 +440,7 @@ const shellStyles = {
   shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -456,7 +458,7 @@ const shellStyles = {
   qrCodeBox: {
     width: 200,
     height: 200,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
@@ -480,7 +482,7 @@ const shellStyles = {
   } as const,
   saveBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brand.ctaFill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -496,7 +498,7 @@ const shellStyles = {
   } as const,
   copyBtn: {
     height: 44,
-    borderRadius: 8,
+    borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.brand.DEFAULT,
     alignItems: 'center',

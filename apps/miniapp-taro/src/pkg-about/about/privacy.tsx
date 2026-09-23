@@ -523,7 +523,7 @@ export default function PrivacyPage() {
     <ThemeRoot>
       <ScrollView className="h-screen bg-background" scrollY>
         <View className="px-[28rpx] pt-[28rpx] pb-[64rpx]">
-          <View className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx]">
+          <View className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]">
             <Text className="block text-[32rpx] font-semibold text-foreground mb-[16rpx]">
               {tt('about.privacy.mainTitle', '隐私政策')}
             </Text>
@@ -550,7 +550,7 @@ export default function PrivacyPage() {
           {sections.map((section, sIdx) => (
             <View
               key={sIdx}
-              className="bg-card rounded-[24rpx] border border-border p-[28rpx] mb-[24rpx]"
+              className="bg-card rounded-xl border border-border p-[28rpx] mb-[24rpx]"
             >
               <Text className="block text-[32rpx] font-semibold text-foreground mb-[8rpx]">
                 {section.subtitle}

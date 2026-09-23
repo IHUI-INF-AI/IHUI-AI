@@ -15,6 +15,8 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** AI 技能详情数据(平台无关,由 wrapper 从 AiSkillMeta 映射) */
 export interface AiSkillDetailData {
   id: string
@@ -208,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     retryBtn: {
       marginTop: 12, // mt-3
-      borderRadius: 6, // rounded-md
+      borderRadius: rnRadius.md, // rounded-md
       paddingHorizontal: 16, // px-4
       paddingVertical: 8, // py-2
       backgroundColor: tk.surface.muted,
@@ -230,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6, // gap-1.5
     },
     metaChip: {
-      borderRadius: 2, // rounded-sm
+      borderRadius: rnRadius.xs, // rounded-sm
       paddingHorizontal: 8, // px-2
       paddingVertical: 4, // py-1
       backgroundColor: tk.surface.muted,
@@ -240,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     tagChip: {
-      borderRadius: 2, // rounded-sm
+      borderRadius: rnRadius.xs, // rounded-sm
       paddingHorizontal: 8, // px-2
       paddingVertical: 4, // py-1
       backgroundColor: tk.warning.orangeLight,
@@ -257,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
     },
     promptBox: {
-      borderRadius: 8, // rounded-lg
+      borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1, // border
       borderColor: tk.border.light,
       padding: 12, // p-3

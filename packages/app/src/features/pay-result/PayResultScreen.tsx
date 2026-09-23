@@ -16,6 +16,8 @@ import { Check, Clock, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 支付结果三态(对齐 miniapp PayStatus) */
 export type PayResultStatus = 'pending' | 'paid' | 'failed'
 
@@ -197,7 +199,7 @@ function createStyles(tk: AppThemeTokens) {
     statusIcon: {
       width: 80, // rpx(160)
       height: 80, // rpx(160)
-      borderRadius: 12, // rpx(24)
+      borderRadius: rnRadius.xl, // rpx(24)
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -222,14 +224,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     primaryBtn: {
       height: 44, // rpx(88)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     secondaryBtn: {
       height: 44, // rpx(88)
-      borderRadius: 8, // rpx(16)
+      borderRadius: rnRadius.lg, // rpx(16)
       backgroundColor: tk.surface.card,
       alignItems: 'center',
       justifyContent: 'center',

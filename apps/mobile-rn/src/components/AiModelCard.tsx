@@ -33,6 +33,8 @@ import { tokens } from '../theme/active-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 // 共享类型已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 // (ModelUserType 重命名为 AiModelUserType 以避免与 legacy-migration ModelType 冲突,
 //  本地保留 ModelUserType 别名维持向后兼容)
@@ -269,7 +271,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     padding: 12,
     marginBottom: 8,
   },
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 48,
     height: 48,
-    borderRadius: 12,
+    borderRadius: rnRadius.xl,
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -325,7 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.surface.card,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   tagText: {
     fontSize: 11,
@@ -340,7 +342,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     backgroundColor: tokens.warning.light,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
   },
   badgeText: {
     fontSize: 11,
@@ -367,7 +369,7 @@ const styles = StyleSheet.create({
   groupLogo: {
     width: 18,
     height: 18,
-    borderRadius: 4,
+    borderRadius: rnRadius.sm,
     backgroundColor: tokens.brand.DEFAULT,
     marginRight: 6,
   },
@@ -404,7 +406,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 4,
     backgroundColor: tokens.brand.ctaFill,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   buyBtnText: {
     fontSize: 12,
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: 6,
+    borderRadius: rnRadius.md,
   },
   settingBtnText: {
     fontSize: 14,

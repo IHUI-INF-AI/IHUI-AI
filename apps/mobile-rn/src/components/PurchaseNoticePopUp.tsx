@@ -16,6 +16,8 @@
 import { tokens } from '../theme/active-tokens'
 import { Modal, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export interface PurchaseNoticePopUpProps {
   visible: boolean
   title?: string
@@ -32,9 +34,7 @@ const BULLET_MARK_FONT_SIZE = 16
 const BULLET_TEXT_FONT_SIZE = 13
 const PRIMARY_FONT_SIZE = 15
 const PRIMARY_HEIGHT = 44
-const PRIMARY_BORDER_RADIUS = 8
 const CONTENT_PADDING = 20
-const CARD_BORDER_RADIUS = 12
 const BULLET_GAP = 8
 const CHECK_MARK = '\u2713'
 const BULLET_LIST_MARGIN_TOP = 16
@@ -109,14 +109,14 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   sheet: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: CARD_BORDER_RADIUS,
-    borderTopRightRadius: CARD_BORDER_RADIUS,
+    borderTopLeftRadius: rnRadius.xl,
+    borderTopRightRadius: rnRadius.xl,
     paddingBottom: 24,
   } as ViewStyle,
   handle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.border.medium,
     alignSelf: 'center',
     marginTop: 8,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   primaryButton: {
     height: PRIMARY_HEIGHT,
-    borderRadius: PRIMARY_BORDER_RADIUS,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',

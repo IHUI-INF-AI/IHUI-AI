@@ -14,6 +14,8 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipBenefitItem, VipBenefitScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 export type { VipBenefitItem, VipBenefitScreenProps }
 
 /**
@@ -104,7 +106,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     card: {
       padding: 14,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,
@@ -115,7 +117,7 @@ function createStyles(tk: AppThemeTokens) {
     levelBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
     levelText: { fontSize: 10, color: tk.text.primary },

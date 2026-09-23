@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackItem, LivePlaybackListScreenProps } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 直播回放/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LivePlaybackItem, LivePlaybackListScreenProps }
 
@@ -107,7 +109,7 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
     },

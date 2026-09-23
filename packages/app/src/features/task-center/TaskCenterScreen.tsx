@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 任务中心共享屏 — props 注入式跨端组件 */
 export type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab }
 
@@ -167,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -184,7 +186,7 @@ function createStyles(tk: AppThemeTokens) {
     list: { padding: 14, paddingBottom: 32 },
     card: {
       padding: 14,
-      borderRadius: 16,
+      borderRadius: rnRadius['2xl'],
       borderWidth: 1,
       borderColor: tk.border.light,
       marginBottom: 12,
@@ -205,7 +207,7 @@ function createStyles(tk: AppThemeTokens) {
     rewardBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.success.light,
     },
     rewardText: {
@@ -223,19 +225,19 @@ function createStyles(tk: AppThemeTokens) {
     progressBarBg: {
       flex: 1,
       height: 6,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
     },
     progressBarFill: {
       height: 6,
-      borderRadius: 8,
+      borderRadius: rnRadius.lg,
       backgroundColor: tk.success.DEFAULT,
     },
     progressText: { fontSize: 11, color: tk.text.tertiary },
     actionBtn: {
       marginTop: 10,
       height: 44,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',

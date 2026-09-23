@@ -7,6 +7,8 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from '../../types'
 
+import { rnRadius } from '@ihui/design-tokens'
+
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
 
@@ -151,7 +153,7 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     tabActive: { backgroundColor: tk.brand.DEFAULT },
@@ -172,14 +174,14 @@ function createStyles(tk: AppThemeTokens) {
     separator: { height: 12 },
     card: {
       padding: 12,
-      borderRadius: 12,
+      borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.bg,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
     cardTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary, marginRight: 8 },
-    statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+    statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadius.xl },
     statusText: { fontSize: 11, color: tk.surface.light },
     cardMeta: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
