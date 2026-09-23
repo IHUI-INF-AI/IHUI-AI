@@ -370,11 +370,14 @@
     "planStatusInProgress": "进行中",
     "planStatusCompleted": "已完成",
     "terminalTasks": "终端任务",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
+    "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",
     "terminalExitCode": "退出码",
     "terminalOutput": "输出",
+    "terminalTruncated": "…(已截断,共 {total} 字符)",
     "compactionToast": "上下文已自动压缩({before} → {after} tokens)"
   },
   "aigcCover": {
@@ -483,6 +486,8 @@
       "title": "上下文已自动压缩",
       "message": "{before} → {after}(移除 {removed} 条历史)"
     },
+    "errorTitle": "请求出错",
+    "errorRetry": "重试",
     "loginBtn": "去登录",
     "longPress": {
       "myTitle": "我的消息",
@@ -490,6 +495,14 @@
       "message": "截图已生成",
       "shareBtn": "分享"
     }
+  },
+  "chatDisclosure": {
+    "citationTitle": "参考来源",
+    "injectionTitle": "本轮参考的上下文",
+    "kindDeveloper": "自定义指令",
+    "kindWorkspace": "工作区记忆",
+    "kindRepoWiki": "仓库 Wiki",
+    "kindAutoContext": "自动检索上下文"
   },
   "developer": {
     "title": "开发者入口",
@@ -913,7 +926,19 @@
     "instructor": "讲师",
     "level_label": "难度",
     "free": "免费",
-    "loadFailed": "加载筛选失败"
+    "loadFailed": "加载筛选失败",
+    "cat_all": "全部",
+    "cat_tech": "技术",
+    "cat_design": "设计",
+    "cat_business": "商务",
+    "cat_language": "语言",
+    "level_all": "全部",
+    "level_beginner": "入门",
+    "level_intermediate": "进阶",
+    "level_advanced": "高级",
+    "price_all": "全部",
+    "price_free": "免费",
+    "price_paid": "付费"
   },
   "courseQAAsk": {
     "title": "课程提问",
@@ -1050,7 +1075,11 @@
     "submit": "提交认证",
     "submitting": "提交中...",
     "failed": "认证失败",
-    "loadFailed": "加载认证失败"
+    "loadFailed": "加载认证失败",
+    "status_unverified": "未认证",
+    "status_pending": "审核中",
+    "status_verified": "已认证",
+    "status_rejected": "未通过"
   },
   "income": {
     "title": "收益",
@@ -1259,7 +1288,9 @@
     "rules": "推广规则",
     "inviteRecords": "邀请记录",
     "empty": "暂无数据",
-    "loadFailed": "加载推广失败"
+    "loadFailed": "加载推广失败",
+    "status_active": "已活跃",
+    "status_inactive": "未活跃"
   },
   "promotion": {
     "title": "优惠券",
@@ -1304,7 +1335,11 @@
     "submitting": "提交中...",
     "failed": "认证失败",
     "fieldsRequired": "请填写完整信息",
-    "loadFailed": "加载实名认证失败"
+    "loadFailed": "加载实名认证失败",
+    "status_unverified": "未认证",
+    "status_pending": "审核中",
+    "status_verified": "已认证",
+    "status_rejected": "未通过"
   },
   "recruitment": {
     "title": "人才招聘",
@@ -1368,7 +1403,14 @@
     "title": "搜索",
     "placeholder": "搜索课程、讲师、内容",
     "empty": "未找到相关内容",
-    "failed": "搜索失败"
+    "failed": "搜索失败",
+    "type": {
+      "course": "课程",
+      "article": "文章",
+      "post": "帖子",
+      "note": "笔记",
+      "agent": "智能体"
+    }
   },
   "securitySettings": {
     "title": "安全设置",
@@ -1436,7 +1478,10 @@
     "goToDo": "去完成",
     "progress": "{current}/{target}",
     "claimFailed": "领取失败",
-    "loadFailed": "加载任务失败"
+    "loadFailed": "加载任务失败",
+    "tab_daily": "每日",
+    "tab_weekly": "每周",
+    "tab_newbie": "新手"
   },
   "team": {
     "title": "我的团队",
@@ -1746,7 +1791,10 @@
   "circleMember": {
     "empty": "暂无成员",
     "loadFailed": "加载成员失败",
-    "title": "圈子成员"
+    "title": "圈子成员",
+    "owner": "圈主",
+    "admin": "管理员",
+    "member": "成员"
   },
   "courseCatalog": {
     "duration": "时长",
@@ -2458,5 +2506,148 @@
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失败"
+  },
+  "permissionTier": {
+    "label": "权限档",
+    "mode": {
+      "default": {
+        "title": "默认模式",
+        "desc": "全部操作需人工确认,最安全"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+      },
+      "accept-edits": {
+        "title": "接受编辑",
+        "desc": "白名单内的操作自动放行,其他需确认"
+      },
+      "bypass-permissions": {
+        "title": "绕过权限",
+        "desc": "完全访问,无任何确认(高风险)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未识别的权限模式,已按默认档处理"
+      }
+    }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在准备回复…",
+        "1": "正在组织回答思路…",
+        "2": "收到，正在思考如何回复…",
+        "3": "正在为你生成回复…",
+        "4": "已收到问题，正在处理…"
+      },
+      "middle": {
+        "0": "正在继续处理…",
+        "1": "正在接着上文思考…",
+        "2": "正在整理后续回复…",
+        "3": "正在跟进你的问题…",
+        "4": "正在生成接下来的回复…"
+      },
+      "followup": {
+        "0": "正在理解你的追问…",
+        "1": "结合上文，正在思考…",
+        "2": "正在针对追问组织回复…",
+        "3": "收到追问，正在处理…",
+        "4": "正在补充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在调度计算资源…",
+        "1": "正在初始化执行环境…",
+        "2": "正在启动处理流程…",
+        "3": "正在分配算力处理…",
+        "4": "正在执行初始计算…"
+      },
+      "middle": {
+        "0": "正在执行中…",
+        "1": "计算进行中，请稍候…",
+        "2": "正在处理中间结果…",
+        "3": "执行未中断，正在推进…",
+        "4": "正在运算，请稍候…"
+      },
+      "followup": {
+        "0": "正在重新计算…",
+        "1": "正在基于新输入继续执行…",
+        "2": "正在追加处理…",
+        "3": "正在更新计算结果…",
+        "4": "正在处理追加请求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顾对话上下文…",
+        "1": "正在加载相关上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在检索相关记忆…",
+        "4": "正在准备上下文…"
+      },
+      "middle": {
+        "0": "正在关联上文继续…",
+        "1": "正在结合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就绪，正在处理…",
+        "4": "正在对照历史消息…"
+      },
+      "followup": {
+        "0": "正在结合前文理解追问…",
+        "1": "正在回看相关上下文…",
+        "2": "正在关联历史追问…",
+        "3": "正在对照上文补充…",
+        "4": "结合上下文，正在处理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定处理计划…",
+        "1": "正在拆解你的需求…",
+        "2": "正在规划执行步骤…",
+        "3": "正在分析任务要点…",
+        "4": "正在拟定回复提纲…"
+      },
+      "middle": {
+        "0": "正在推进计划步骤…",
+        "1": "正在执行下一步…",
+        "2": "计划进行中，请稍候…",
+        "3": "正在按步骤处理…",
+        "4": "正在落实后续步骤…"
+      },
+      "followup": {
+        "0": "正在调整计划…",
+        "1": "正在根据追问更新步骤…",
+        "2": "正在重新规划…",
+        "3": "正在补充计划细节…",
+        "4": "正在跟进新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在准备详细说明…",
+        "1": "正在组织细节内容…",
+        "2": "正在梳理要点…",
+        "3": "正在生成详细回复…",
+        "4": "正在完善回答细节…"
+      },
+      "middle": {
+        "0": "正在补充细节…",
+        "1": "正在展开说明…",
+        "2": "正在完善后续内容…",
+        "3": "详情整理中，请稍候…",
+        "4": "正在细化回复…"
+      },
+      "followup": {
+        "0": "正在补充你问的细节…",
+        "1": "正在展开追问的要点…",
+        "2": "正在细化相关说明…",
+        "3": "正在准备补充内容…",
+        "4": "正在完善追问的答复…"
+      }
+    },
+    "vividTail": "，马上就好"
   }
 }

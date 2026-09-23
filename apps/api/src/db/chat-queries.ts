@@ -25,6 +25,7 @@ import {
   chatConversations,
   chatMessages,
   chatFavorites,
+  chatMessageFeedbacks,
   type ChatConversation,
   type ChatMessage,
 } from '@ihui/database'
@@ -239,6 +240,39 @@ export async function updateConversationTitle(
  * userId 用于 ownership 校验,防止越权修改他人对话的 metadata。
  * 返回更新后的对话;若对话不存在或不属于该用户则返回 undefined。
  */
+/**
+ * 把"这次对话绑在哪个工作区"记到会话 metadata(幂等)。
+ *
+ * 为什么需要:AI 回答是**异步回调**落库的(ai-callback → aiCallback worker),
+ * 那条链路手里只有 conversationId/userId,不知道工作区,于是"这条回答是在哪一档
+ * 权限下生成的"服务端永远无法自证 —— web 的档位徽章只能活在内存里(刷新即丢,
+ * 小程序/RN 完全看不到)。这里在流式入口处顺手记一笔,回调侧就能自己查权限表盖章。
+ *
+ * 幂等:值相同就不写(流式入口每条消息都会调一次,避免每消息多一次 DB 写)。
+ * 返回 true 表示本次真的写了。
+ */
+export async function bindConversationWorkspace(
+  id: string,
+  userId: string,
+  workspacePath: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ metadata: chatConversations.metadata, owner: chatConversations.userId })
+    .from(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .limit(1)
+  const row = rows[0]
+  // 不属主 / 找不到 → 不写(调用方是流式主链路,绝不能因此报错打断对话)
+  if (!row || row.owner !== userId) return false
+  const meta = (row.metadata as Record<string, unknown> | null) ?? {}
+  if (meta.workspacePath === workspacePath) return false
+  await db
+    .update(chatConversations)
+    .set({ metadata: { ...meta, workspacePath }, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+  return true
+}
+
 export async function patchConversationMetadata(
   id: string,
   userId: string,
@@ -942,6 +976,35 @@ export async function unfavoriteConversation(
     .where(and(eq(chatFavorites.userId, userId), eq(chatFavorites.conversationId, conversationId)))
     .returning()
   return rows.length > 0
+}
+
+/**
+ * D49①(2026-09-23):消息点赞/点踩落库 —— upsert 语义(一人一消息一票,改票覆盖)。
+ * 归属校验前置:消息必须存在且其会话属于该用户,否则 not-found(不区分不存在/无权)。
+ */
+export type MessageRating = 'like' | 'dislike'
+
+export async function rateChatMessage(
+  userId: string,
+  messageId: string,
+  rating: MessageRating,
+): Promise<{ ok: boolean; reason?: 'not-found' }> {
+  const owned = await db
+    .select({ conversationId: chatMessages.conversationId })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatMessages.conversationId, chatConversations.id))
+    .where(and(eq(chatMessages.id, messageId), eq(chatConversations.userId, userId)))
+    .limit(1)
+  const conv = owned[0]
+  if (!conv) return { ok: false, reason: 'not-found' }
+  await db
+    .insert(chatMessageFeedbacks)
+    .values({ userId, messageId, conversationId: conv.conversationId, rating })
+    .onConflictDoUpdate({
+      target: [chatMessageFeedbacks.userId, chatMessageFeedbacks.messageId],
+      set: { rating, updatedAt: new Date() },
+    })
+  return { ok: true }
 }
 
 export async function findFavoriteConversations(

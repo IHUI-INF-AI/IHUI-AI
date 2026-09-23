@@ -417,7 +417,7 @@ export async function openBrowser(url: string): Promise<void> {
   }
   return new Promise<void>((resolve) => {
     try {
-      const proc = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+      const proc = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true });
       proc.on('error', () => {
         // 启动失败不抛错,调用方应回退到打印 URL
         resolve();

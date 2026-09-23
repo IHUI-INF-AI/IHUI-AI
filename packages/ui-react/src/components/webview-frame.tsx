@@ -51,6 +51,32 @@ export interface WebViewFrameProps extends Omit<
   onOpenExternal?: (url: string) => void
   /** 重试回调 */
   onRetry?: () => void
+  /** 界面文案注入(不传的键回退 DEFAULT_WEB_VIEW_FRAME_LABELS 简体中文 — 不注入即不本地化) */
+  labels?: Partial<WebViewFrameLabels>
+}
+
+/** WebViewFrame 界面文案(加载/截图提示/兜底标题/按钮/空态),由消费端注入 */
+export interface WebViewFrameLabels {
+  loadingText: string
+  screenshotNotice: string
+  blockedTitle: string
+  failedTitle: string
+  externalTitle: string
+  retry: string
+  openExternal: string
+  idlePlaceholder: string
+}
+
+/** i18n 默认值(不传 labels 时回退到简体中文) */
+const DEFAULT_WEB_VIEW_FRAME_LABELS: WebViewFrameLabels = {
+  loadingText: '加载中...',
+  screenshotNotice: '该网站禁止嵌入,已切换到截图模式',
+  blockedTitle: 'URL 不安全,已拦截',
+  failedTitle: '加载失败',
+  externalTitle: '无法在面板内嵌入',
+  retry: '重试',
+  openExternal: '在外部浏览器打开',
+  idlePlaceholder: '输入网址或点击 AI 消息中的链接以打开',
 }
 
 export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
@@ -67,11 +93,16 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
       onError,
       onOpenExternal,
       onRetry,
+      labels: labelsProp,
       className,
       ...rest
     },
     ref,
   ) => {
+    const labels = React.useMemo<WebViewFrameLabels>(
+      () => ({ ...DEFAULT_WEB_VIEW_FRAME_LABELS, ...labelsProp }),
+      [labelsProp],
+    )
     // 2026-07-25 用户反馈:彻底隐藏滚动条
     // 通过 same-origin 访问 contentDocument 注入 CSS 强制隐藏 iframe 内部 html/body 滚动条
     const injectHideScrollbar = React.useCallback((iframe: HTMLIFrameElement) => {
@@ -156,7 +187,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-2 text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-xs">加载中...</span>
+              <span className="text-xs">{labels.loadingText}</span>
             </div>
           </div>
         )}
@@ -194,7 +225,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
               <>
                 <div className="flex items-center gap-1.5 border-b border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
                   <ImageIcon className="h-3.5 w-3.5" />
-                  <span>该网站禁止嵌入,已切换到截图模式</span>
+                  <span>{labels.screenshotNotice}</span>
                 </div>
                 <div className="screenshot-scroll flex-1 overflow-hidden bg-muted/20 p-2">
                   <img
@@ -223,10 +254,10 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
             <div className="space-y-1">
               <p className="text-sm font-medium">
                 {status === 'blocked'
-                  ? 'URL 不安全,已拦截'
+                  ? labels.blockedTitle
                   : status === 'failed'
-                    ? '加载失败'
-                    : '无法在面板内嵌入'}
+                    ? labels.failedTitle
+                    : labels.externalTitle}
               </p>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -243,7 +274,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                   onClick={onRetry}
                   className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-muted"
                 >
-                  重试
+                  {labels.retry}
                 </button>
               )}
               {onOpenExternal && (
@@ -253,7 +284,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
                   className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
-                  <span>在外部浏览器打开</span>
+                  <span>{labels.openExternal}</span>
                 </button>
               )}
             </div>
@@ -263,7 +294,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
         {/* idle 空状态 */}
         {status === 'idle' && !url && (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <span className="text-xs">输入网址或点击 AI 消息中的链接以打开</span>
+            <span className="text-xs">{labels.idlePlaceholder}</span>
           </div>
         )}
       </div>

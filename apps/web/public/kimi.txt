@@ -43,7 +43,7 @@ IHUI AI(智汇 AI)是一个一站式全栈 AI 操作系统,其核心目标是将
 - CLI:Node.js 20 + Commander.js
 
 ### 2. 后端层
-- API:Node.js 20 + Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- API:Node.js 20 + Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service:Python 3.11 + FastAPI + LangGraph + LiteLLM
 - 缓存:Redis 7
 - 任务队列:BullMQ
@@ -59,7 +59,7 @@ IHUI AI(智汇 AI)是一个一站式全栈 AI 操作系统,其核心目标是将
 - 检索:BM25 + 向量混合检索 + Reranker
 
 ### 4. 数据层
-- 主库:PostgreSQL 16(全文索引、JSONB、分区表)
+- 主库:PostgreSQL 18(全文索引、JSONB、分区表)
 - 缓存:Redis 7(Sorted Set 用于排行榜,Stream 用于事件流)
 - 对象存储:MinIO / S3 兼容
 - 搜索:PostgreSQL tsvector + pgvector 混合

@@ -3,7 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash, createHmac, randomBytes } from 'node:crypto'
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type {
+  DoneFuncWithErrOrRes,
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyReply,
+  FastifyRequest,
+} from 'fastify'
 import fp from 'fastify-plugin'
 import { encryptJSON, decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 
@@ -45,6 +51,26 @@ export const SAFE_KEYS: ReadonlySet<string> = new Set([
 ])
 
 const MASK = '***'
+
+/**
+ * 协议面路径前缀:整体跳过脱敏。
+ *
+ * 为什么按路径豁免而不是逐字段白名单:isSensitiveKey 是**子串**匹配,而 OAuth/OIDC 的
+ * RFC 字段名天生带 token/secret(规范定的名,我们改不了)。2026-09-21 生产实跑抓到:
+ *  - `POST /oauth/token` → HTTP 200 但 `access_token:"***"`,客户端拿到一把假令牌,
+ *    整条 OAuth 2.1 通道对外不可用(单测没挂本管线,所以一直全绿);
+ *  - `/oauth/introspect` → `token_use:"***"`;
+ *  - discovery 文档 → `token_endpoint_auth_methods_supported:"***"`(数组值一律打码),
+ *    客户端据此选客户端鉴权方式,损坏即解析失败。
+ * 这些响应体本身就是**要交付给客户端的凭据或公开元数据**,不含任何第三方用户数据。
+ */
+export const PROTOCOL_NO_MASK_PREFIXES: readonly string[] = ['/oauth/', '/.well-known/']
+
+/** 命中协议豁免前缀则不脱敏;query 串不参与前缀判定。 */
+export function isProtocolNoMaskPath(url: string): boolean {
+  const path = url.split('?', 1)[0] ?? url
+  return PROTOCOL_NO_MASK_PREFIXES.some((p) => path === p.slice(0, -1) || path.startsWith(p))
+}
 
 export interface SanitizerOptions {
   /** 额外的敏感字段名（与默认列表合并，全部小写）。 */
@@ -451,33 +477,53 @@ const responseSanitizerPlugin: FastifyPluginAsync<SanitizerOptions> = async (
   const secretKey = opts.secretKey ?? DEFAULT_SECRET_KEY
   const maskOpts = rules ? { rules, secretKey } : undefined
 
+  /**
+   * 计算脱敏后的响应体（纯同步：只有 JSON.parse / stringify 与对象遍历，没有任何 await）。
+   * 命中豁免/解析失败时原样返回 payload，因此调用方一律 done(null, ...)。
+   */
+  function rewritePayload(request: FastifyRequest, reply: FastifyReply, payload: unknown): unknown {
+    // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
+    if (request.skipResponseSanitization) return payload
+    // OAuth/OIDC 协议面整体豁免(理由见 PROTOCOL_NO_MASK_PREFIXES)
+    if (isProtocolNoMaskPath(request.url)) return payload
+    const contentType = reply.getHeader('content-type')
+    if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
+      return payload
+    }
+    // SSE 不处理
+    if (contentType.includes('text/event-stream')) return payload
+    // 仅处理 2xx
+    if (reply.statusCode < 200 || reply.statusCode >= 300) return payload
+    if (typeof payload !== 'string' || payload.length === 0) return payload
+
+    try {
+      const data = JSON.parse(payload) as unknown
+      const masked = sanitizeData(data, keys, maskOpts)
+      // 未改动则返回原 payload（避免无谓的序列化）
+      if (masked === data) return payload
+      const body = JSON.stringify(masked)
+      reply.header('content-length', Buffer.byteLength(body))
+      return body
+    } catch {
+      // 脱敏失败不影响正常响应（fail-open）
+      return payload
+    }
+  }
+
+  // 刻意用**回调风格**而不是 async(2026-09-22):async onSend 会让 Fastify 5 的
+  // `onSendHookRunner` 走 `result.then(handleResolve)`,把 writeHead 推到下一个微任务,
+  // 留出"headers 已写出但 writableEnded 未置位"的交错窗口 → 生产日志里成对的
+  // ERR_HTTP_HEADERS_SENT + FST_ERR_REP_ALREADY_SENT WARN。本钩子全程同步,
+  // `done()` 同步调用即让整条钩子链在同一调用栈内走完。
   server.addHook(
     'onSend',
-    async (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
-      // 数据主体访问自身数据时跳过脱敏（GDPR 导出等场景）
-      if (request.skipResponseSanitization) return payload
-      const contentType = reply.getHeader('content-type')
-      if (typeof contentType !== 'string' || !contentType.includes('application/json')) {
-        return payload
-      }
-      // SSE 不处理
-      if (contentType.includes('text/event-stream')) return payload
-      // 仅处理 2xx
-      if (reply.statusCode < 200 || reply.statusCode >= 300) return payload
-      if (typeof payload !== 'string' || payload.length === 0) return payload
-
-      try {
-        const data = JSON.parse(payload) as unknown
-        const masked = sanitizeData(data, keys, maskOpts)
-        // 未改动则返回原 payload（避免无谓的序列化）
-        if (masked === data) return payload
-        const body = JSON.stringify(masked)
-        reply.header('content-length', Buffer.byteLength(body))
-        return body
-      } catch {
-        // 脱敏失败不影响正常响应（fail-open）
-        return payload
-      }
+    (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      payload: unknown,
+      done: DoneFuncWithErrOrRes,
+    ) => {
+      done(null, rewritePayload(request, reply, payload))
     },
   )
 }

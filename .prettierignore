@@ -44,3 +44,10 @@ apps/api/firebase-service-account.json
 apps/web/e2e/.auth/
 # Next.js 自动生成声明文件
 **/next-env.d.ts
+
+# O8(2026-09-21):两份**生成产物**必须保持与生成器逐字节一致 —— 契约漂移门禁
+# (openapi-check --fresh / capabilities --check)按内容比对,prettier 一旦重排
+# (lint-staged 会在每次 commit 对它跑 --write)产物就"永远漂移",CI 恒红且每次
+# 提交都被迫重跑导出。格式化对机器产物没有价值,对可比性有破坏。
+apps/api/openapi.json
+packages/types/generated/capabilities.json

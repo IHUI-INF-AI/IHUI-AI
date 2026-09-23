@@ -175,6 +175,7 @@ const SOURCE_BADGE_KEY: Record<UnifiedSource, string> = {
  */
 export function UnifiedTaskDashboard() {
   const t = useTranslations('unifiedDashboard')
+  const tA11y = useTranslations('a11y')
   const toast = useToast()
   const queryClient = useQueryClient()
 
@@ -496,8 +497,8 @@ export function UnifiedTaskDashboard() {
                   />
                   <Button
                     variant="outline"
-                    size="icon"
-                    className="h-7 w-7"
+                    size="icon-2xs"
+
                     disabled={renameTask.isPending || !editDraft.trim()}
                     onClick={() => submitRename(row)}
                     data-testid="unified-rename-confirm"
@@ -508,12 +509,7 @@ export function UnifiedTaskDashboard() {
                       <Check className="h-3.5 w-3.5" />
                     )}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setEditingKey(null)}
-                  >
+                  <Button variant="ghost" size="icon-2xs" onClick={() => setEditingKey(null)}>
                     <X className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -675,6 +671,7 @@ export function UnifiedTaskDashboard() {
                   <button
                     type="button"
                     onClick={() => setMentions((cur) => cur.filter((x) => x.taskId !== m.taskId))}
+                    aria-label={tA11y('close')}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -699,8 +696,8 @@ export function UnifiedTaskDashboard() {
             <Tooltip content={t('mention')} side="bottom">
               <Button
                 variant="outline"
-                size="icon"
-                className="h-7 w-7"
+                size="icon-2xs"
+
                 onClick={() => setMentionPickerOpen((o) => !o)}
                 data-testid="unified-mention-btn"
               >

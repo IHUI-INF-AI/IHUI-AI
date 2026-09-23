@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import { useUiField } from '@/lib/ui-field-registry'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -67,6 +68,43 @@ export default function N8nModel() {
   const [inputParams, setInputParams] = useState<Param[]>([newParam()])
   const [outputParams, setOutputParams] = useState<Param[]>([newParam()])
   const [submitting, setSubmitting] = useState(false)
+  // AI 操控通道(2026-09-21):创建视图的三个固定输入框把**自己已绑定的 setter**交给端内注册表,
+  // 用户键盘输入走同一个 setter,故 AI 写入必然反映到界面。仅在 create 视图登记(list 视图不注册,
+  // 免得快照里出现看不见的控件)。参数行(参数名称/描述/默认值)在 params.map 内渲染、行数可变,
+  // hook 不能进循环 —— 需先抽 ParamRow 组件(改 JSX)才能接入,本轮不注册。
+  useUiField(
+    view === 'create'
+      ? {
+          kind: 'input',
+          label: tt('devEnter.n8nModel.nameLabel', '智能体名称'),
+          placeholder: tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称'),
+          readValue: () => name,
+          setValue: setName,
+        }
+      : null,
+  )
+  useUiField(
+    view === 'create'
+      ? {
+          kind: 'textarea',
+          label: tt('devEnter.n8nModel.descLabel', '智能体描述'),
+          placeholder: tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述'),
+          readValue: () => description,
+          setValue: setDescription,
+        }
+      : null,
+  )
+  useUiField(
+    view === 'create'
+      ? {
+          kind: 'input',
+          label: tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址'),
+          placeholder: tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址'),
+          readValue: () => n8nUrl,
+          setValue: setN8nUrl,
+        }
+      : null,
+  )
 
   const loadList = useCallback(async () => {
     setLoading(true)

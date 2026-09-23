@@ -15,9 +15,16 @@ import {
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
 
-/** 更新状态机:idle → checking → available → downloading → installing → done / error */
+/** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
 export type UpdateStatus =
-  'idle' | 'checking' | 'available' | 'downloading' | 'installing' | 'done' | 'error'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'installing'
+  | 'done'
+  | 'up-to-date'
+  | 'error'
 
 export interface UpdaterState {
   status: UpdateStatus
@@ -55,7 +62,9 @@ export const UPDATER_PENDING_EVENT = 'desktop-updater-pending'
 /**
  * 开发环境测试模式:
  * - 仅当 URL 带 ?dev-update=1 时启用 mock 会话(浏览器 dev 环境)
- * - Tauri 环境必须显式加 ?dev-update=1 才启用测试
+ * - 2026-09-21 扩充:?dev-update=0 → 模拟「已是最新」场景(验证 up-to-date 弹窗,
+ *   浏览器 dev 环境同样启用;配套托盘事件监听器在 mock 模式下也会注册)
+ * - Tauri 环境必须显式加 ?dev-update=1 或 0 才启用测试
  * 2026-08-16 修复:此前 Tauri 分支自动 return true,但 macOS/Linux 生产 origin
  * 是 tauri://localhost(hostname === 'localhost'),被误判为开发 → mock 替代真实
  * updater → 生产版本更新失效。改为不依赖 hostname,生产永不误判。
@@ -63,7 +72,7 @@ export const UPDATER_PENDING_EVENT = 'desktop-updater-pending'
 function isDevUpdateTest(): boolean {
   if (typeof window === 'undefined') return false
   const devParam = new URLSearchParams(window.location.search).get('dev-update')
-  if (devParam !== '1') return false
+  if (devParam !== '1' && devParam !== '0') return false
   // Tauri 环境:显式参数 + 本地 origin 才视为开发测试
   if (isTauri()) return true
   // 浏览器环境:仅 localhost 允许 mock 测试
@@ -176,6 +185,15 @@ export function useUpdater() {
   const checkForUpdate = React.useCallback(async (silent = false, autoInstall = false) => {
     // 开发测试模式:不依赖 Tauri,直接返回模拟更新
     if (isDevUpdateTest()) {
+      // ?dev-update=0:模拟「已是最新」→ 非 silent 时进入 up-to-date 提示(与真实 check() 返回 null 同路径)
+      if (new URLSearchParams(window.location.search).get('dev-update') === '0') {
+        setState({ ...INITIAL_STATE, status: 'checking' })
+        await new Promise((r) => setTimeout(r, 800))
+        if (!mountedRef.current) return
+        setAvailableUpdateSession(null)
+        setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
+        return
+      }
       setState({ ...INITIAL_STATE, status: 'checking' })
       await new Promise((r) => setTimeout(r, 800))
       if (!mountedRef.current) return
@@ -193,12 +211,25 @@ export function useUpdater() {
 
     if (!isTauri()) return
     setState({ ...INITIAL_STATE, status: 'checking' })
-    const session = await checkForUpdates()
+    // 2026-09-21 根治"托盘检查更新点了没反应":bridge 改为失败上抛(区分失败与无更新),
+    // 此处分别给出反馈——失败→error(非静默)/静默回 idle;无更新→up-to-date(非静默,弹窗提示)/静默回 idle。
+    let session: UpdateSession | null
+    try {
+      session = await checkForUpdates()
+    } catch (e) {
+      if (!mountedRef.current) return
+      setState({
+        ...INITIAL_STATE,
+        status: silent ? 'idle' : 'error',
+        error: silent ? null : e instanceof Error ? e.message : 'check_failed',
+      })
+      return
+    }
     if (!mountedRef.current) return
     if (!session) {
-      // 已是最新或检查失败
+      // 已是最新
       setAvailableUpdateSession(null)
-      setState({ ...INITIAL_STATE, status: 'idle', error: silent ? null : 'check_failed' })
+      setState({ ...INITIAL_STATE, status: silent ? 'idle' : 'up-to-date' })
       return
     }
     if (autoInstall) {
@@ -297,12 +328,24 @@ export function useUpdater() {
   }, [state.status])
 
   // 监听托盘菜单 "检查更新" 事件(由 useDesktopEvents 转发的 CustomEvent)
+  // 2026-09-21 修复"点了没反应":此前 silent=true,检查失败/已是最新均无任何 UI 反馈。
+  // 改为非静默(silent=false):已是最新 → up-to-date 提示弹窗;检查失败 → error 弹窗;
+  // 有更新 → autoInstall 自动下载安装(与启动静默检查同一强制更新链路)。
   React.useEffect(() => {
     if (!isTauri() && !isDevUpdateTest()) return
-    const handler = () => void checkForUpdate(true, true)
+    const handler = () => void checkForUpdate(false, true)
     window.addEventListener('desktop-check-update', handler)
     return () => window.removeEventListener('desktop-check-update', handler)
   }, [checkForUpdate])
+
+  // up-to-date(已是最新)提示自动消失:4 秒后回到 idle,无需用户关闭
+  React.useEffect(() => {
+    if (state.status !== 'up-to-date') return
+    const timer = setTimeout(() => {
+      setState((prev) => (prev.status === 'up-to-date' ? INITIAL_STATE : prev))
+    }, 4000)
+    return () => clearTimeout(timer)
+  }, [state.status])
 
   // 安装完成自动重启:默认 60 秒倒计时(不再 3 秒强杀),期间用户可选择"稍后重启"或"立即重启"
   React.useEffect(() => {

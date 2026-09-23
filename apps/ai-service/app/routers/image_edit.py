@@ -24,7 +24,7 @@ async def image_edits(
     image: UploadFile = File(..., description="待编辑图(png/jpeg/webp,≤25MiB)"),
     prompt: str = Form(..., description="编辑指令(改什么)"),
     mask: UploadFile | None = File(default=None, description="可选遮罩(透明区域=重绘区)"),
-    model: str | None = Form(default=None, description="图片模型(默认 gpt-image-2)"),
+    model: str | None = Form(default=None, description="图片模型(默认 gpt-image-2.5-flare)"),
     n: int = Form(default=1, ge=1, le=50, description="生成数量(官方 count 1~50)"),
     size: str | None = Form(default=None, description="像素串(与 aspect_ratio 二选一,兼容老 API)"),
     aspect_ratio: str | None = Form(default=None, description="比例(官方 12 枚举,如 16:9)"),

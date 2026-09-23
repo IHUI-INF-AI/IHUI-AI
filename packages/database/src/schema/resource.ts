@@ -175,6 +175,7 @@ export const resourceGithubProjects = pgTable(
     description: text('description'),
     language: varchar('language', { length: 50 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
     categoryIdx: index('resource_github_projects_category_idx').on(t.category),

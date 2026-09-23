@@ -7,7 +7,7 @@
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Eye, ChevronLeft, ChevronRight, Calendar } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -43,6 +43,9 @@ async function api<T>(url: string): Promise<T> {
 export default function KBDetailPage() {
   const { id } = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('knowledgeBase.detail')
+  const tKb = useTranslations('knowledgeBase')
+  const tCommon = useTranslations('common')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'detail', id],
@@ -64,7 +67,7 @@ export default function KBDetailPage() {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {tCommon('loading')}
       </div>
     )
 
@@ -76,10 +79,10 @@ export default function KBDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          <span>{tKb('backToList')}</span>
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {(error as Error)?.message ?? '文章不存在'}
+          {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
     )
@@ -94,7 +97,7 @@ export default function KBDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回列表
+        <span>{tKb('backToList')}</span>
       </Link>
 
       <header className="space-y-2">
@@ -111,7 +114,7 @@ export default function KBDetailPage() {
           </span>
           <span className="inline-flex items-center gap-1">
             <Eye className="h-4 w-4" />
-            {article.viewCount} 次浏览
+            {t('viewCount', { count: article.viewCount })}
           </span>
         </div>
         {article.tags && article.tags.length > 0 && (
@@ -140,7 +143,7 @@ export default function KBDetailPage() {
               <Card>
                 <CardContent className="min-[640px]:p-3 p-3">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    目录
+                    {t('toc')}
                   </p>
                   <nav className="space-y-1">
                     {toc.map((item) => (
@@ -171,7 +174,7 @@ export default function KBDetailPage() {
           >
             <ChevronLeft className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
             <span>
-              <span className="block text-xs text-muted-foreground">上一篇</span>
+              <span className="block text-xs text-muted-foreground">{t('prev')}</span>
               <span className="font-medium">{data.prev.title}</span>
             </span>
           </Link>
@@ -184,7 +187,7 @@ export default function KBDetailPage() {
             className="group flex items-center gap-2 rounded-md px-3 py-2 text-right text-sm transition-colors hover:bg-accent"
           >
             <span>
-              <span className="block text-xs text-muted-foreground">下一篇</span>
+              <span className="block text-xs text-muted-foreground">{t('next')}</span>
               <span className="font-medium">{data.next.title}</span>
             </span>
             <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />

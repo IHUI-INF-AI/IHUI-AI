@@ -16,9 +16,12 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { pickRetryTarget } from './chat-send-utils'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
+import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { VoiceInput } from '../components/VoiceInput'
 import { MessageContent } from '../components/MessageContent'
+import { TaskStatusBar } from '../components/TaskStatusBar'
 import type { PlanStep, TerminalTask } from '@ihui/types'
 import type { ChatMessage } from './types'
 
@@ -101,8 +104,9 @@ export default function ChatPage() {
     })
   }
 
-  const onSend = async () => {
-    const text = input.trim()
+  /** overrideText 用于 G-152「重试上一条」:错误后不要求用户重新输入同一句话。 */
+  const onSend = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim()
     if (!text || streaming) return
     setInput('')
     setError('')
@@ -125,6 +129,9 @@ export default function ChatPage() {
       messages: next
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
+      // 2026-09-21 第五族 ext_ui:命中"操控本站"意图才带工具名(llm.py 的 tool loop
+      // 入口是 `if req.agent_tools and chat_mode != "ask"`,不带就不进工具链)
+      agentTools: toolsForChatRequest(text),
       signal: controller.signal,
       // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
       stream: true,
@@ -148,9 +155,11 @@ export default function ChatPage() {
         window.clearTimeout(timeoutId)
         updateAssistantMessage((m) => ({ ...m, reasoning: (m.reasoning ?? '') + delta }))
       },
-      onError: (msg) => {
+      onError: (msg, info) => {
         window.clearTimeout(timeoutId)
-        const formatted = formatSSEError(new Error(msg))
+        // info 必须透传给 formatSSEError:errorCode 是"厂商账号额度耗尽"等稳定码的唯一判据
+        // (ai-service 未登记该码的 HTTP 状态,实际仍回落默认 502,按状态码分类会误判)
+        const formatted = formatSSEError(new Error(msg), info)
         setMessages((cur) => {
           const copy = [...cur]
           const last = copy[copy.length - 1]
@@ -265,6 +274,9 @@ export default function ChatPage() {
                     ...task,
                     status: evt.status,
                     output: evt.output,
+                    // 缺省不覆盖:后端只在真截断时带 truncated,历史值要留住
+                    truncated: evt.truncated ?? task.truncated,
+                    totalChars: evt.totalChars ?? task.totalChars,
                     exitCode: evt.exitCode,
                     endedAt: evt.endedAt,
                     durationMs: evt.durationMs,
@@ -274,6 +286,62 @@ export default function ChatPage() {
           }),
           evt.messageId,
         )
+      },
+      // D39/D108 上游重试交代(第 48 轮):api-client 有通道,端内不注册就是静默丢帧。
+      // 整体替换为最近一次(attempt 递增),与 web 同一口径。
+      onRetryScheduled: (evt) => {
+        updateAssistantMessage(
+          (m) => ({
+            ...m,
+            retryNotice: {
+              attempt: evt.attempt,
+              maxRetries: evt.maxRetries,
+              retryInMs: evt.retryInMs,
+              ...(typeof evt.httpStatus === 'number' ? { httpStatus: evt.httpStatus } : {}),
+            },
+          }),
+          evt.messageId,
+        )
+      },
+      // #11 引用溯源(第 52 轮):端内枚举式合并,不显式写 citations 就等于静默丢帧
+      onCitations: (evt) => {
+        updateAssistantMessage((m) => {
+          const existing = m.citations ?? []
+          const incoming = (evt.citations ?? []).map((x) => ({
+            source: x.source,
+            label: x.label,
+            ...(typeof x.url === 'string' ? { url: x.url } : {}),
+          }))
+          const next = [...existing]
+          for (const item of incoming) {
+            if (next.some((x) => x.source === item.source && x.label === item.label)) continue
+            next.push(item)
+          }
+          return { ...m, citations: next }
+        }, evt.messageId)
+      },
+      onInjectionApplied: (evt) => {
+        // D34 跨端(第 43 轮):api-client 已有通道,端内必须显式承接 ——
+        // extension 的消息更新是枚举式合并,不写字段就等于静默丢弃。
+        // 按 kind+collapsed 去重(重连补发不得出现重复行),与 web #26 citations 同口径。
+        updateAssistantMessage((m) => {
+          const existing = m.injections ?? []
+          if (existing.some((x) => x.kind === evt.kind && x.collapsed === evt.collapsed)) {
+            return m
+          }
+          return {
+            ...m,
+            injections: [
+              ...existing,
+              {
+                kind: evt.kind,
+                collapsed: evt.collapsed,
+                ...(evt.fullText ? { fullText: evt.fullText } : {}),
+                ...(typeof evt.count === 'number' ? { count: evt.count } : {}),
+              },
+            ],
+          }
+        }, evt.messageId)
       },
     }
     try {
@@ -287,6 +355,17 @@ export default function ChatPage() {
   }
 
   const lastMessageId = messages[messages.length - 1]?.id
+  // G-152:仅在有错误时找可重发的用户原文;没有就返回空串 → 界面不给按钮
+  const retryText = pickRetryTarget(messages, error !== '')
+  // 任务状态条数据源:最后一条带 planSteps 的 assistant 消息(消息级权威快照)
+  const taskMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant' && (m.planSteps?.length ?? 0) > 0) return m
+    }
+    return undefined
+  }, [messages])
+  const taskStreaming = streaming && taskMessage?.id === lastMessageId
 
   return (
     <div className="flex flex-col h-full">
@@ -365,8 +444,30 @@ export default function ChatPage() {
       {error ? (
         <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
           {error}
+          {/* G-152(WorkBuddy 一手对标):错误必须带**动作**,只说"请稍后重试"等于让用户自己重打 */}
+          {retryText ? (
+            <button
+              type="button"
+              data-testid="retry-last-turn"
+              className="ml-2 rounded-sm border border-destructive/60 px-1.5 py-px text-[11px] text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                setError('')
+                void onSend(retryText)
+              }}
+            >
+              {t('chat.retryMessage')}
+            </button>
+          ) : null}
         </div>
       ) : null}
+      {/* 任务进度常驻状态条:plan_updated 驱动,流式时随事件自动刷新,空闲时零占位。
+          taskStreaming 门控:新一轮流式开始时上一轮残留 planSteps 不得再当活动态转圈 */}
+      <TaskStatusBar
+        planSteps={taskMessage?.planSteps ?? []}
+        toolCalls={taskMessage?.toolCalls}
+        terminalTasks={taskMessage?.terminalTasks}
+        isStreaming={taskStreaming}
+      />
       <form
         className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
         onSubmit={(e) => {

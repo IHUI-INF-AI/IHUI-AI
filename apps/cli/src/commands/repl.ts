@@ -39,7 +39,21 @@ import {
 } from './ui-tool-cards.js';
 import { StructuredPlanStore } from '../plan/structured.js';
 import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
+import { buildWaitingSpinnerText } from './waiting-text.js';
+import {
+  asPlanUpdateSink,
+  createTaskStatusLine,
+  describeToolActivityLine,
+  injectionNoteText,
+  citationNoteText,
+  permissionModeNote,
+  retryNoteText,
+  planStepsFromTodos,
+  toolActivityLabel,
+  type TaskStatusLine,
+} from './task-status-line.js';
 import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
+import { t } from '../i18n/index.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -219,6 +233,8 @@ export interface ReplOptions {
 
 interface ReplState {
   opts: ReplOptions;
+  /** 实时任务状态行(plan_updated / 工具事件驱动,TTY 下渲染在输出流) */
+  statusLine: TaskStatusLine;
   history: ChatMessage[];
   session: Session | null;
   checkpoints: CheckpointManager | null;
@@ -570,6 +586,7 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
 
   const state: ReplState = {
     opts,
+    statusLine: createTaskStatusLine(),
     history: opts.history ?? [],
     session: opts.sessionId ? null : createSession(opts.workspacePath, opts.modelId),
     checkpoints: null,
@@ -664,6 +681,18 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   capParts.push(`权限 ${permColor(opts.permissionMode ?? 'default')}`);
   capParts.push(`循环 ${opts.maxIterations}`);
   console.info(`  ${chalk.dim('能力:')} ${capParts.join(chalk.dim('  ·  '))}`);
+
+  // G-153:权限档的后果说明(只报档名 = 让用户盲选);未知档不打印
+  const permNote = permissionModeNote(opts.permissionMode ?? 'default');
+  if (permNote) {
+    const paint =
+      opts.permissionMode === 'bypassPermissions'
+        ? chalk.red
+        : opts.permissionMode === 'acceptEdits'
+          ? chalk.yellow
+          : chalk.dim;
+    console.info(`  ${chalk.dim('权限说明:')} ${paint(permNote)}`);
+  }
 
   // 模型切换 + 配置入口提示(用户反馈"不知道在哪里切换模型配置模型 不明显")
   console.info(`  ${chalk.dim('切换:')} ${chalk.cyan('/model')} 切模型  ${chalk.cyan('/config')} 改配置  ${chalk.cyan('/models')} 看列表`);
@@ -2105,6 +2134,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   if (state.rewindStack.length > 20) {
     state.rewindStack.shift();
   }
+  // avoidSeed 接线:上一轮用户输入 = push 之前 history 里最后一条 user 消息
+  // (读既有状态,不新增状态源;首轮为 undefined ⇒ 共享池走"未传"分支)
+  const previousPrompt = state.history.findLast((m) => m.role === 'user')?.content;
   state.history.push({ id: randomUUID(), role: 'user', content: prompt });
 
   const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -2134,7 +2166,16 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   console.info(chalk.cyan(`\n▶ ${state.opts.modelId}  ·  ${chalk.dim(promptPreview)}`));
 
   // 首 token 等待 spinner — onDelta 首次回调时停止
-  const waitingSpinner = createWaitingSpinner(`${state.opts.modelId} · 正在思考...`);
+  // D79:固定串"正在思考..."升级为等待态文案池(agent 象限,按首轮/追问分阶段,
+  // seed = 本轮 prompt 取模 → 确定性可复现)。文案派生在 waiting-text.ts,用例钉在该模块。
+  const waitingSpinner = createWaitingSpinner(
+    buildWaitingSpinnerText({
+      modelId: state.opts.modelId,
+      prompt,
+      historyLength: state.history.length,
+      previousPrompt,
+    }),
+  );
   waitingSpinner.start();
   let firstTokenReceived = false;
 
@@ -2152,9 +2193,13 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     let toolCallCount = 0;
     // W10 当前工具调用参数(onToolCall 记录,onToolResult 写入 toolLog)
     let currentToolArgsJson = '';
+    // 当前工具入参对象(结果度量算 +x/-y 需要真实 args,不能用 '(无参数)' 反解)
+    let currentToolArgs: Record<string, unknown> = {};
     // 当前工具运行中的 spinner(每个工具独立)
     let currentToolSpinner: Spinner | null = null;
 
+    // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
+    state.statusLine.beginTurn();
     const result = await runToolLoop({
       modelId: state.opts.modelId,
       messages,
@@ -2162,6 +2207,21 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       maxIterations: state.opts.maxIterations,
       sessionId: state.session?.id ?? state.opts.sessionId,
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
+      // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
+      onPlanUpdate: asPlanUpdateSink(state.statusLine),
+      // D34/D39 交代帧 → 终端一行。此前该端对这两帧 0 命中:流里确实发生了"带了哪些上下文"
+      // 与"上游换 key 退避重试",用户在终端里完全看不到(只会觉得卡住了)。
+      onInjectionApplied: (event) => state.statusLine.noteLine(injectionNoteText(event)),
+      onRetryScheduled: (event) => state.statusLine.noteLine(retryNoteText(event)),
+      // #11 引用溯源:后端在 done 前一次性给全量去重后的来源,故整行替换式打印一次
+      onCitations: (event) => {
+        if (!event.citations.length) return
+        state.statusLine.noteLine(
+          citationNoteText(
+            event.citations.map((x) => ({ source: x.source, label: x.label })),
+          ),
+        )
+      },
       planFirst: state.opts.planFirst,
       planApproved: state.planApproved,
       planMachine: state.planMachine,
@@ -2253,11 +2313,20 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
         // W10 记录完整参数(/tool 回看用)
         currentToolArgsJson = Object.keys(args).length > 0 ? JSON.stringify(args) : '(无参数)';
-        console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(name)} ${chalk.dim(`#${toolCallCount}`)}`));
+        currentToolArgs = args;
+        // 活动行语言:功能名 · 对象(单一真相源 describeToolCall,禁直显英文码名)
+        const activity = describeToolActivityLine({ toolName: name, args });
+        const activityHead = activity.subject
+          ? `${activity.title} · ${activity.subject}`
+          : activity.title;
+        console.info(chalk.cyan(`\n  ┌─ ${chalk.bold(activityHead)} ${chalk.dim(`#${toolCallCount}`)}`));
         console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}${argStr.length > 100 ? chalk.dim(' (+字符 — /tool 查看)') : ''}`));
         // 启动工具运行 spinner(显示在卡片下方)
-        currentToolSpinner = createToolSpinner(name, argDisplay);
+        currentToolSpinner = createToolSpinner(activity.title, argDisplay);
         currentToolSpinner.start();
+        // 状态行:记录工具调用(供共享层折叠文件变更)+ "此刻在做什么"(功能名 · 对象)
+        state.statusLine.recordToolCall({ toolName: name, args });
+        state.statusLine.setCurrentActivity(toolActivityLabel(name, args));
       },
       onToolResult: (name, success, output) => {
         // 停止工具运行 spinner
@@ -2271,6 +2340,14 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const durationStr = durationMs > 0 ? chalk.dim(` ${durationMs}ms`) : '';
         const icon = success ? chalk.green('✓') : chalk.red('✗');
         const statusLabel = success ? chalk.green('成功') : chalk.red('失败');
+        // 结果度量:写类文件 +x -y / 读取 N 行 / 检索 N 个结果(与共享层同一口径,无度量则空)
+        const resultMetric = describeToolActivityLine({
+          toolName: name,
+          args: currentToolArgs,
+          result: output,
+          status: success ? 'success' : 'error',
+        }).metric;
+        const metricStr = resultMetric ? chalk.dim(` · ${resultMetric}`) : '';
         // W10 卡片显示:多行截断 + diff 红绿着色 + /tool 提示;完整输出进 toolLog
         const card = formatToolResultForCard(output);
         state.toolLog.push({
@@ -2283,12 +2360,17 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         });
         if (state.toolLog.length > 20) state.toolLog.shift();
         console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${card.text.replace(/\n/g, '\n  │  ')}`));
-        console.info(chalk.cyan(`  └─ ${statusLabel}${durationStr} ${chalk.dim('────')}`));
+        console.info(chalk.cyan(`  └─ ${statusLabel}${metricStr}${durationStr} ${chalk.dim('────')}`));
         // W10 todo 常驻渲染:todo_write 成功后即时刷新勾选列表
         if (name === 'todo_write' && success) {
           const todoCtx = state.ctx ?? { workspacePath: state.opts.workspacePath };
-          for (const line of renderTodoChecklist(readTodoList(todoCtx))) console.info(line);
+          const todos = readTodoList(todoCtx);
+          for (const line of renderTodoChecklist(todos)) console.info(line);
+          // 状态行同步:todo 清单是该端现成的步骤来源
+          state.statusLine.setSteps(planStepsFromTodos(todos));
         }
+        // 状态行:回填工具结果(决定 +x/-y 是否可信)并刷新输出
+        state.statusLine.recordToolResult(name, success, output);
       },
       onError: (err) => {
         // 错误卡片化:╭─ ERROR ╮ 边框 + 红色高亮
@@ -2301,6 +2383,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
           title: 'Agent 错误',
         });
         for (const line of cardLines) console.error(line);
+        // G-152:错误必须带出口。终端形态没有"重试按钮",出口就是把上一条提问递到用户手上
+        // (readline 的 ↑ 历史是本端现成能力,此前只是没说)。
+        console.error(chalk.dim(`  ${t('cli.retryHint')}`));
       },
     });
 
@@ -2356,8 +2441,12 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       stack,
     });
     for (const line of cardLines) console.error(line);
+    console.error(chalk.dim(`  ${t('cli.retryHint')}`));
     throw err;
   } finally {
+    // 状态行落终态:中止 → interrupted,其余由状态行按步骤/结果自行判定
+    const aborted = state.abortController?.signal.aborted ?? false;
+    state.statusLine.endTurn(aborted ? 'interrupted' : undefined);
     // P2-2 确保无论成功/失败/中止都清理 abort 状态,避免泄漏到下次 sendToAgent
     state.agentRunning = false;
     state.abortController = null;

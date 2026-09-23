@@ -5,7 +5,7 @@
 import { View, Text, Pressable, ScrollView } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Check, X } from 'lucide-react-native'
-import { useAgentRuntime } from '@ihui/shared'
+import { permissionDecisionWord, useAgentRuntime, toolDisplayKey } from '@ihui/shared'
 import { useI18n } from '../i18n'
 
 import { Input, Loading } from '@ihui/ui-native'
@@ -26,6 +26,14 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
     handleStop,
     handleClear,
   } = useAgentRuntime(initialSessionId)
+
+  // 界面禁止直显英文工具码名:内置工具映射为本地化功能名,插件/MCP 动态名回落原样
+  const permToolKey = permission?.toolName ? toolDisplayKey(permission.toolName) : null
+  const permToolLabel = permission?.toolName
+    ? permToolKey
+      ? t(`taskStatus.${permToolKey}`)
+      : permission.toolName
+    : 'unknown'
 
   return (
     <View className="flex-1 bg-white">
@@ -62,10 +70,11 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         {permission ? (
           <View className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3">
             <Text className="mb-1.5 text-xs font-medium text-amber-700">
-              {t('agent.runtimePermission')}: {permission.decision}
+              {t('agent.runtimePermission')}:{' '}
+              {permissionDecisionWord(permission.decision, (k) => t(`stepDecision.${k}`))}
             </Text>
             <Text className="text-xs text-gray-600">
-              {t('agent.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
+              {t('agent.runtimePermissionTool')}: {permToolLabel} ·{' '}
               {t('agent.runtimePermissionLevel')}: {permission.dangerLevel ?? 'read'} ·{' '}
               {t('agent.runtimePermissionMode')}: {permission.mode}
             </Text>

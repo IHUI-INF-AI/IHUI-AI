@@ -254,8 +254,12 @@ jobs:
       - name: Install pnpm deps
         run: pnpm install --no-frozen-lockfile
 
+      # 2026-09-21 修复:filter 尾缀 ... 连依赖一起构建。api-client 产物化后
+      # (0fca0f3034,入口 main/exports → dist),CI 全新 checkout 下不先构建
+      # 依赖包,wxt/vite 解析 @ihui/api-client 报 "Failed to resolve entry"
+      # (desktop-v0.1.43 run 35561898979 实测),sync-downloads 整链失败。
       - name: Build extension
-        run: pnpm --filter @ihui/extension build
+        run: pnpm --filter @ihui/extension... build
 
       - name: Download all bundle artifacts
         uses: actions/download-artifact@v4

@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
 import { tryParseJson, isRecord } from './util/json.js';
+import { padCell } from './util/text-width.js';
 import {
   installOutboundCredentialHeaders,
   resolveOutboundCredential,
@@ -102,35 +103,48 @@ const pkgRaw = tryParseJson(readFileSync(join(__dirname, '..', 'package.json'), 
 const pkg: { version: string } =
   isRecord(pkgRaw) && typeof pkgRaw.version === 'string' ? (pkgRaw as { version: string }) : { version: '0.0.0' };
 
+// 帮助文本在模块顶层就被 commander 固化,故必须在构建 program 之前定好语言:
+// 裸扫 argv 的 --locale > IHUI_LOCALE > settings.json(preAction 仍按解析后的 opts 复算一次)。
+{
+  const argvLocale = (() => {
+    const argv = process.argv.slice(2);
+    const inlined = argv.find((a) => a.startsWith("--locale="));
+    if (inlined) return inlined.slice("--locale=".length);
+    const at = argv.indexOf("--locale");
+    return at >= 0 ? argv[at + 1] : undefined;
+  })();
+  const earlyLocale = argvLocale || process.env.IHUI_LOCALE || loadSettings().locale || '';
+  if (earlyLocale) setLocale(earlyLocale as Locale);
+}
 const program = new Command();
 
 program
   .name('ihui')
-  .description('IHUI AI Coding Agent — 对标 Claude Code / Codex')
+  .description(t('cliEntry.tagline'))
   .version(pkg.version)
-  .option('-m, --model <model_id>', '模型 ID', 'default')
-  .option('-w, --workspace <path>', '工作区路径', process.cwd())
-  .option('--max-iterations <n>', '最大工具循环次数', '25')
-  .option('--max-turns <n>', '最大工具循环次数(--max-iterations 别名,P1-3 对齐 OpenAI o1/o3 术语)')
-  .option('--api-url <url>', '后端 API 地址(默认读 settings.json,兜底 http://localhost:8802)', process.env.IHUI_API_URL || '')
-  .option('--api-key <key>', 'API 密钥', process.env.IHUI_API_KEY || '')
-  .option('--resume <session-id>', '恢复之前的会话')
-  .option('--continue', '继续最近的会话')
-  .option('--json', 'Headless 模式:输出 NDJSON 事件流 (非 TTY 自动启用,CI/CD 友好)')
-  .option('--output-format <format>', 'P1-5 Headless 输出格式: text|json|markdown|yaml (覆盖 --json,默认 text)')
-  .option('--mcp', '启用 MCP 工具(从 ~/.ihui/mcp.json 加载 MCP 服务器工具)')
-  .option('--allow-dangerous', '允许危险工具(run_command/delete_file/git_commit)自动执行,无需确认(默认拒绝,REPL 模式下交互确认)')
-  .option('--plan', '强制 Agent 先输出任务规划(plan 块)再执行工具(长任务推荐)')
-  .option('--auto-approve-plan', 'P0-C 自动批准 LLM 提出的 plan 块(危险:跳过用户审批门。默认关闭,需显式开启)')
-  .option('--temperature <num>', 'LLM 温度(0-2,代码任务推荐 0.2,创意任务推荐 0.7)')
-  .option('--max-tokens <num>', '最大生成 token 数')
-  .option('--locale <locale>', '界面语言(zh-CN/en/ja/ko/zh-TW)', process.env.IHUI_LOCALE || '')
-  .option('-f, --prompt-file <path>', '从文件读取 prompt(支持超长 PRD,UTF-8 编码)')
-  .option('--tools <list>', 'P0-7 工具白名单(逗号分隔,如 read_file,grep,glob)。非空时仅允许这些工具')
-  .option('--disallowed-tools <list>', 'P0-7 工具黑名单(逗号分隔,如 delete_file,git_commit)。始终拒绝这些工具')
-  .option('--permission-mode <mode>', '权限模式: default|acceptEdits|bypassPermissions|plan|manual')
-  .option('--no-update-check', 'P1-15 禁用启动时版本检查(默认每 24h 检查一次 npm registry)')
-  .option('--no-setup', '跳过首次运行引导(无 ~/.ihui/settings.json 时不弹交互式问答)');
+  .option('-m, --model <model_id>', t('cliEntry.modelIdDesc'), 'default')
+  .option('-w, --workspace <path>', t('cliEntry.workspacePathDesc'), process.cwd())
+  .option('--max-iterations <n>', t('cliEntry.maxIterationsDesc'), '25')
+  .option('--max-turns <n>', t('cliEntry.maxTurnsDesc'))
+  .option('--api-url <url>', t('cliEntry.apiUrlDesc'), process.env.IHUI_API_URL || '')
+  .option('--api-key <key>', t('cliEntry.apiKeyDesc'), process.env.IHUI_API_KEY || '')
+  .option('--resume <session-id>', t('cliEntry.resumeDesc'))
+  .option('--continue', t('cliEntry.continueDesc'))
+  .option('--json', t('cliEntry.jsonDesc'))
+  .option('--output-format <format>', t('cliEntry.outputFormatDesc'))
+  .option('--mcp', t('cliEntry.mcpFlagDesc'))
+  .option('--allow-dangerous', t('cliEntry.allowDangerousDesc'))
+  .option('--plan', t('cliEntry.planDesc'))
+  .option('--auto-approve-plan', t('cliEntry.autoApprovePlanDesc'))
+  .option('--temperature <num>', t('cliEntry.temperatureDesc'))
+  .option('--max-tokens <num>', t('cliEntry.maxTokensDesc'))
+  .option('--locale <locale>', t('cliEntry.localeDesc'), process.env.IHUI_LOCALE || '')
+  .option('-f, --prompt-file <path>', t('cliEntry.promptFileDesc'))
+  .option('--tools <list>', t('cliEntry.toolsAllowDesc'))
+  .option('--disallowed-tools <list>', t('cliEntry.toolsDenyDesc'))
+  .option('--permission-mode <mode>', t('cliEntry.permissionModeDesc'))
+  .option('--no-update-check', t('cliEntry.noUpdateCheckDesc'))
+  .option('--no-setup', t('cliEntry.noSetupDesc'));
 
 interface ResolvedSession {
   sessionId?: string;
@@ -207,7 +221,7 @@ function resolvePrompt(
   }
   if (positional) {
     console.warn(
-      chalk.yellow('⚠ 同时传了 positional prompt 和 --prompt-file,优先使用 --prompt-file'),
+      chalk.yellow(t('cliEntry.promptFileConflict')),
     );
   }
   return result.content;
@@ -237,7 +251,7 @@ async function runAgentAndExit(
     if (!abort.signal.aborted) {
       abort.abort();
       if (session && !jsonMode) {
-        console.info(chalk.yellow('\n⚠ 中断中,正在保存会话...'));
+        console.info(chalk.yellow(t('cliEntry.interruptSaving')));
       }
     }
   };
@@ -349,7 +363,7 @@ program.hook('preAction', async () => {
   );
   if (cfg.apiKey) {
     if (opts.apiKey && process.env.IHUI_API_KEY !== opts.apiKey) {
-      console.warn(chalk.yellow('⚠ --api-key 会暴露在进程列表中,推荐使用 IHUI_API_KEY 环境变量或 settings.json'));
+      console.warn(chalk.yellow(t('cliEntry.apiKeyExposedWarn')));
     }
     setTokenProvider({ getToken: () => cfg.apiKey });
   }
@@ -365,7 +379,7 @@ program.hook('preAction', async () => {
 
 // 默认命令: 交互式 REPL 或直接执行任务
 program
-  .argument('[prompt]', '直接执行的任务 (省略则进入 REPL)')
+  .argument('[prompt]', t('cliEntry.chatArgumentDesc'))
   .action(async (prompt: string | undefined) => {
     const opts = program.opts();
     const effectivePrompt = resolvePrompt(prompt, opts);
@@ -406,7 +420,7 @@ program
 // chat 子命令
 const chatCmd = program
   .command('chat')
-  .description('进入对话模式 (多轮)')
+  .description(t('cliEntry.chatModeDesc'))
   .action(async () => {
     const opts = program.opts();
     const cfg = resolveEffectiveConfig({
@@ -444,7 +458,7 @@ attachChatSubcommands(chatCmd);
 // agent 子命令
 program
   .command('agent [task]')
-  .description('Agent 模式: 自主多步执行任务 (支持 --json headless 模式,可用 --prompt-file 传入超长 prompt)')
+  .description(t('cliEntry.agentModeDesc'))
   .action(async (task: string | undefined) => {
     const opts = program.opts();
     const effectiveTask = resolvePrompt(task, opts);
@@ -459,8 +473,8 @@ program
 // init 子命令
 program
   .command('init')
-  .description('在当前目录创建 AGENTS.md 模板')
-  .option('-f, --force', '覆盖已存在的文件')
+  .description(t('cliEntry.initDesc'))
+  .option('-f, --force', t('cliEntry.forceDesc'))
   .action(async (options: { force?: boolean }) => {
     const workspace = process.cwd();
     if (agentsMdExists(workspace) && !options.force) {
@@ -474,33 +488,33 @@ program
 // sessions 子命令
 program
   .command('sessions')
-  .description('列出历史会话')
+  .description(t('cliEntry.sessionsDesc'))
   .action(() => {
     const sessions = listSessions();
     if (sessions.length === 0) {
       console.info(chalk.dim(t('cli.noSessions')));
       return;
     }
-    console.info(chalk.cyan('\n历史会话:'));
+    console.info(chalk.cyan(t('cliEntry.sessionsHeader')));
     for (const s of sessions) {
       const time = new Date(s.updatedAt).toLocaleString();
       console.info(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}`);
-      console.info(`    工作区: ${s.workspacePath}  模型: ${s.modelId}  历史: ${s.history.length} 条`);
+      console.info(t('cliEntry.sessionsRow', { workspacePath: s.workspacePath, modelId: s.modelId, length: s.history.length }));
     }
     console.info('');
   });
 
 // mcp 子命令组
-const mcpCmd = program.command('mcp').description('MCP 服务器管理');
+const mcpCmd = program.command('mcp').description(t('cliEntry.mcpCmdDesc'));
 
 mcpCmd
   .command('list')
-  .description('列出已配置的 MCP 服务器')
+  .description(t('cliEntry.mcpListDesc'))
   .action(() => {
     const config = loadMcpConfig();
     if (config.servers.length > 0) {
-      console.info(chalk.cyan('\n本地 MCP 服务器配置:'));
-      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.cyan(t('cliEntry.mcpLocalHeader')));
+      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
       for (const s of config.servers) {
         const transport = s.transport ?? 'stdio';
         if (transport === 'stdio') {
@@ -511,18 +525,18 @@ mcpCmd
         }
       }
     } else {
-      console.info(chalk.dim('\n本地无 MCP 服务器配置'));
-      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.dim(t('cliEntry.mcpLocalEmpty')));
+      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
     }
   });
 
 mcpCmd
   .command('add [name] [command]')
-  .description('添加 MCP 服务器配置')
-  .option('-a, --args <args...>', '命令参数 (stdio)')
-  .option('-t, --transport <transport>', '传输类型: stdio|http|sse', 'stdio')
-  .option('-u, --url <url>', 'http/sse 端点 URL')
-  .option('--token <token>', 'bearer 认证 token')
+  .description(t('cliEntry.mcpAddDesc'))
+  .option('-a, --args <args...>', t('cliEntry.mcpAddArgsDesc'))
+  .option('-t, --transport <transport>', t('cliEntry.mcpAddTransportDesc'), 'stdio')
+  .option('-u, --url <url>', t('cliEntry.mcpAddUrlDesc'))
+  .option('--token <token>', t('cliEntry.mcpAddTokenDesc'))
   .action(
     (
       name: string | undefined,
@@ -530,7 +544,7 @@ mcpCmd
       options: { args?: string[]; transport?: 'stdio' | 'http' | 'sse'; url?: string; token?: string },
     ) => {
       if (!name) {
-        console.info(chalk.red('用法: ihui mcp add <name> [command] [-t stdio|http|sse] [-u url]'));
+        console.info(chalk.red(t('cliEntry.mcpAddUsage')));
         process.exit(1);
       }
       const auth =
@@ -540,25 +554,25 @@ mcpCmd
         url: options.url,
         auth,
       });
-      console.info(chalk.green(`已添加 MCP 服务器: ${server.name}`));
-      console.info(`  传输: ${server.transport}`);
+      console.info(chalk.green(t('cliEntry.mcpAdded', { name: server.name })));
+      console.info(t('cliEntry.mcpTransportLine', { transport: server.transport }));
       if (server.transport === 'stdio') {
-        console.info(`  命令: ${server.command ?? ''}`);
+        console.info(t('cliEntry.mcpCommandLine', { command: server.command ?? '' }));
       } else {
         console.info(`  URL: ${server.url ?? ''}`);
       }
-      console.info(chalk.dim(`  配置文件: ${getMcpConfigPath()}`));
+      console.info(chalk.dim(t('cliEntry.mcpConfigPathLine', { configPath: getMcpConfigPath() })));
     },
   );
 
 mcpCmd
   .command('remove <name>')
-  .description('移除 MCP 服务器配置')
+  .description(t('cliEntry.mcpRemoveDesc'))
   .action((name: string) => {
     if (removeMcpServer(name)) {
-      console.info(chalk.green(`已移除 MCP 服务器: ${name}`));
+      console.info(chalk.green(t('cliEntry.mcpRemoved', { name: name })));
     } else {
-      console.info(chalk.red(`未找到 MCP 服务器: ${name}`));
+      console.info(chalk.red(t('cliEntry.mcpNotFound', { name: name })));
       process.exit(1);
     }
   });
@@ -631,64 +645,64 @@ import { registryCommand } from './commands/registry-index.js';
 program.addCommand(registryCommand());
 
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
-const skillsCmd = program.command('skills').description('管理/查看 skills(.ihui/skills/*.md 等四级目录平面加载)');
+const skillsCmd = program.command('skills').description(t('cliEntry.skillsCmdDesc'));
 
 skillsCmd
   .command('list')
-  .description('列出当前工作区已加载的 skills')
+  .description(t('cliEntry.skillsListDesc'))
   .action(() => {
     const skills = loadSkills({ cwd: process.cwd() });
     if (skills.length === 0) {
-      console.info(chalk.dim('暂无 skills(可在以下目录创建 *.md 文件):'));
+      console.info(chalk.dim(t('cliEntry.skillsEmpty')));
       console.info(chalk.dim('  <cwd>/.ihui/skills/   <cwd>/.agents/skills/   <cwd>/.claude/skills/   <cwd>/.cursor/skills/'));
       console.info(chalk.dim('  <repo-root>/.ihui/skills/ ...   ~/.ihui/skills/'));
       return;
     }
-    console.info(chalk.cyan(`\n已加载 ${skills.length} 个 skill:`));
+    console.info(chalk.cyan(t('cliEntry.skillsLoaded', { count: skills.length })));
     for (const s of skills) {
       console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
-      console.info(chalk.dim(`    来源: ${s.source}`));
+      console.info(chalk.dim(t('cliEntry.skillsSourceLine', { source: s.source })));
     }
     console.info('');
   });
 
 skillsCmd
   .command('show <name>')
-  .description('查看指定 skill 的内容')
+  .description(t('cliEntry.skillShowDesc'))
   .action((name: string) => {
     const skills = loadSkills({ cwd: process.cwd() });
     const skill = findSkill(skills, name);
     if (!skill) {
-      console.info(chalk.red(`未找到 skill: ${name}`));
+      console.info(chalk.red(t('cliEntry.skillNotFound', { name: name })));
       process.exit(1);
     }
     console.info(chalk.cyan(`# ${skill.name}`));
-    console.info(chalk.dim(`来源: ${skill.source}`));
-    console.info(chalk.dim(`描述: ${skill.description}\n`));
+    console.info(chalk.dim(t('cliEntry.skillSourceDetail', { source: skill.source })));
+    console.info(chalk.dim(t('cliEntry.skillDescriptionLine', { description: skill.description })));
     console.info(skill.body);
   });
 
 // settings 子命令组
-const settingsCmd = program.command('settings').description('管理 ~/.ihui/settings.json 统一配置');
+const settingsCmd = program.command('settings').description(t('cliEntry.settingsCmdDesc'));
 
 settingsCmd
   .command('init')
-  .description('创建 settings.json 模板(已存在时需 --force 覆盖)')
-  .option('-f, --force', '覆盖已存在的文件')
+  .description(t('cliEntry.settingsInitDesc'))
+  .option('-f, --force', t('cliEntry.forceDesc'))
   .action((options: { force?: boolean }) => {
     const created = saveSettingsTemplate(options.force === true);
     if (created) {
-      console.info(chalk.green(`已创建配置模板: ${getSettingsPath()}`));
-      console.info(chalk.dim('编辑该文件设置默认值,CLI flag 优先级最高'));
+      console.info(chalk.green(t('cliEntry.settingsTemplateCreated', { settingsPath: getSettingsPath() })));
+      console.info(chalk.dim(t('cliEntry.settingsEditHint')));
     } else {
-      console.info(chalk.yellow(`配置文件已存在: ${getSettingsPath()}`));
-      console.info(chalk.dim('使用 --force 覆盖'));
+      console.info(chalk.yellow(t('cliEntry.settingsAlreadyExists', { settingsPath: getSettingsPath() })));
+      console.info(chalk.dim(t('cliEntry.settingsForceHint')));
     }
   });
 
 settingsCmd
   .command('path')
-  .description('显示 settings.json 路径')
+  .description(t('cliEntry.settingsPathDesc'))
   .action(() => {
     console.info(getSettingsPath());
   });
@@ -696,7 +710,7 @@ settingsCmd
 // acp 子命令 — 启动 ACP (Agent Client Protocol) server,供编辑器嵌入
 program
   .command('acp')
-  .description('启动 ACP (Agent Client Protocol) server,供 Zed/VSCode/Cursor 等编辑器嵌入')
+  .description(t('cliEntry.acpDesc'))
   .action(async () => {
     const opts = program.opts();
     const cfg = resolveEffectiveConfig({
@@ -741,8 +755,8 @@ registerConnectCommand(program);
 // undo 子命令 — 多步回滚文件改动(对标 OpenCode undo,支持多步)
 program
   .command('undo [steps]')
-  .description('回滚最近 N 步文件改动(默认 1 步,需在 agent 会话工作区内执行)')
-  .option('-s, --session <id>', '指定会话 ID(默认最近会话)')
+  .description(t('cliEntry.undoDesc'))
+  .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
   .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
     const steps = Number(stepsArg) || 1;
@@ -751,11 +765,11 @@ program
     const mgr = new UndoRedoManager(process.cwd());
     const result = await mgr.undo(sessionId, steps);
     if (result.undoneSteps === 0) {
-      console.info(chalk.yellow('无可回滚的改动'));
+      console.info(chalk.yellow(t('cliEntry.undoNothing')));
       return;
     }
     console.info(
-      chalk.green(`✓ 已回滚 ${result.undoneSteps} 步改动(剩余可回滚 ${result.remaining} 步):`),
+      chalk.green(t('cliEntry.undoDone', { undoneSteps: result.undoneSteps, remaining: result.remaining })),
     );
     for (const c of result.changes) {
       console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
@@ -765,8 +779,8 @@ program
 // redo 子命令 — 重做被 undo 的改动
 program
   .command('redo [steps]')
-  .description('重做最近 N 步被 undo 的改动(默认 1 步)')
-  .option('-s, --session <id>', '指定会话 ID(默认最近会话)')
+  .description(t('cliEntry.redoDesc'))
+  .option('-s, --session <id>', t('cliEntry.sessionOptDesc'))
   .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
     const { UndoRedoManager } = await import('./commands/undo-redo.js');
     const steps = Number(stepsArg) || 1;
@@ -775,11 +789,11 @@ program
     const mgr = new UndoRedoManager(process.cwd());
     const result = await mgr.redo(sessionId, steps);
     if (result.redoneSteps === 0) {
-      console.info(chalk.yellow('无可重做的改动'));
+      console.info(chalk.yellow(t('cliEntry.redoNothing')));
       return;
     }
     console.info(
-      chalk.green(`✓ 已重做 ${result.redoneSteps} 步改动(剩余可重做 ${result.remaining} 步):`),
+      chalk.green(t('cliEntry.redoDone', { redoneSteps: result.redoneSteps, remaining: result.remaining })),
     );
     for (const c of result.changes) {
       console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
@@ -789,11 +803,11 @@ program
 // share 子命令 — 生成可分享的会话快照(对标 OpenClaw share,增强 SHA-256 防篡改)
 program
   .command('share [session-id]')
-  .description('生成可分享的会话快照(markdown+HTML+短链+二维码)')
-  .option('-f, --format <fmt>', '输出格式: markdown|html|json', 'markdown')
-  .option('--no-tools', '排除工具调用详情(默认包含)')
-  .option('--include-files', '包含文件内容(可能泄露敏感信息,默认关闭)')
-  .option('-t, --title <title>', '快照标题')
+  .description(t('cliEntry.shareDesc'))
+  .option('-f, --format <fmt>', t('cliEntry.shareFormatDesc'), 'markdown')
+  .option('--no-tools', t('cliEntry.shareNoToolsDesc'))
+  .option('--include-files', t('cliEntry.shareIncludeFilesDesc'))
+  .option('-t, --title <title>', t('cliEntry.shareTitleDesc'))
   .action(async (sessionIdArg: string | undefined, opts: {
     format: string;
     tools: boolean;
@@ -803,7 +817,7 @@ program
     const { ShareManager } = await import('./commands/share.js');
     const sessionId = sessionIdArg ?? getMostRecentSession()?.id;
     if (!sessionId) {
-      console.info(chalk.red('未找到会话,请先用 ihui agent 跑一个会话'));
+      console.info(chalk.red(t('cliEntry.shareNoSession')));
       process.exit(1);
     }
     const mgr = new ShareManager(process.cwd());
@@ -813,33 +827,33 @@ program
       includeFiles: opts.includeFiles === true,
       title: opts.title,
     });
-    console.info(chalk.green('✓ 会话快照已生成'));
-    console.info(chalk.dim(`  短链: ${result.url}`));
-    console.info(chalk.dim(`  防篡改 hash: ${result.hash}`));
-    console.info(chalk.dim(`  大小: ${result.sizeBytes} bytes`));
+    console.info(chalk.green(t('cliEntry.shareDone')));
+    console.info(chalk.dim(t('cliEntry.shareShortUrl', { url: result.url })));
+    console.info(chalk.dim(t('cliEntry.shareHash', { hash: result.hash })));
+    console.info(chalk.dim(t('cliEntry.shareSize', { sizeBytes: result.sizeBytes })));
     if (result.qrCode) {
-      console.info(chalk.dim('  二维码:已生成(data URL)'));
+      console.info(chalk.dim(t('cliEntry.qrGenerated')));
     } else {
-      console.info(chalk.dim('  二维码:降级模式(需引入 qr 库启用)'));
+      console.info(chalk.dim(t('cliEntry.qrFallback')));
     }
   });
 
 // mode 子命令 — 切换 Plan/Build/Review 交互模式(对标 OpenCode Plan/Build,增强 Review 模式)
 program
   .command('mode [mode]')
-  .description('查看或切换交互模式: plan(只读调研) | build(执行修改) | review(审查 diff)')
+  .description(t('cliEntry.modeDesc'))
   .action(async (modeArg: string | undefined) => {
     const { ModeManager } = await import('./tui/index.js');
     const mgr = new ModeManager();
     if (!modeArg) {
-      console.info(chalk.cyan(`当前模式: ${mgr.renderIndicator()}`));
-      console.info(chalk.dim('可用模式: plan(只读) / build(执行) / review(审查)'));
-      console.info(chalk.dim('用法: ihui mode build  # 切换到 build 模式'));
+      console.info(chalk.cyan(t('cliEntry.modeCurrent', { mode: mgr.renderIndicator() })));
+      console.info(chalk.dim(t('cliEntry.modeAvailable')));
+      console.info(chalk.dim(t('cliEntry.modeUsage')));
       return;
     }
     const validModes = ['plan', 'build', 'review'] as const;
     if (!validModes.includes(modeArg as (typeof validModes)[number])) {
-      console.info(chalk.red(`未知模式: ${modeArg}(可选: plan/build/review)`));
+      console.info(chalk.red(t('cliEntry.modeUnknown', { modeArg: modeArg })));
       process.exit(1);
     }
     mgr.setMode(modeArg as (typeof validModes)[number]);
@@ -847,17 +861,17 @@ program
   });
 
 // audit 子命令组 — 查询/过滤审计日志(~/.ihui/audit.jsonl)
-const auditCmd = program.command('audit').description('查询/过滤审计日志');
+const auditCmd = program.command('audit').description(t('cliEntry.auditCmdDesc'));
 
 auditCmd
   .command('query')
-  .description('查询审计日志(支持按工具名/时间/成功状态过滤)')
-  .option('-t, --tool <name>', '按工具名过滤(子串匹配,大小写不敏感)')
-  .option('-s, --since <time>', '起始时间(ISO 字符串或相对时间如 1h/30m/1d)')
-  .option('--success', '只显示成功的调用')
-  .option('--failure', '只显示失败的调用')
-  .option('-l, --limit <n>', '返回条数上限(默认 50)', '50')
-  .option('--json', '以 JSON 格式输出(便于管道处理)')
+  .description(t('cliEntry.auditQueryDesc'))
+  .option('-t, --tool <name>', t('cliEntry.auditToolFilterDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
+  .option('--success', t('cliEntry.auditSuccessOnlyDesc'))
+  .option('--failure', t('cliEntry.auditFailureOnlyDesc'))
+  .option('-l, --limit <n>', t('cliEntry.auditLimitDesc'), '50')
+  .option('--json', t('cliEntry.auditJsonDesc'))
   .action((options: {
     tool?: string;
     since?: string;
@@ -885,11 +899,11 @@ auditCmd
     }
 
     if (result.entries.length === 0) {
-      console.info(chalk.dim('无匹配的审计日志(总共 ' + result.total + ' 条)'));
+      console.info(chalk.dim(t('cliEntry.auditNoMatch', { total: result.total })));
       return;
     }
 
-    console.info(chalk.cyan(`\n📋 审计日志(显示 ${result.entries.length} / 匹配 ${result.filtered} / 总共 ${result.total} 条):`));
+    console.info(chalk.cyan(t('cliEntry.auditListHeader', { count: result.entries.length, filtered: result.filtered, total: result.total })));
     for (const e of result.entries) {
       const icon = e.success === false ? '✗' : e.success === true ? '✓' : '?';
       const iconColor = e.success === false ? chalk.red(icon) : e.success === true ? chalk.green(icon) : chalk.dim(icon);
@@ -905,13 +919,13 @@ auditCmd
 
 auditCmd
   .command('stats')
-  .description('统计审计日志(按工具名/成功失败聚合)')
-  .option('-s, --since <time>', '起始时间(ISO 字符串或相对时间如 1h/30m/1d)')
+  .description(t('cliEntry.auditStatsDesc'))
+  .option('-s, --since <time>', t('cliEntry.auditSinceDesc'))
   .action((options: { since?: string }) => {
     const result = queryAuditLog({ since: options.since, limit: 100_000 });
 
     if (result.total === 0) {
-      console.info(chalk.dim('审计日志为空'));
+      console.info(chalk.dim(t('cliEntry.auditEmpty')));
       return;
     }
 
@@ -924,11 +938,15 @@ auditCmd
       stats.set(e.tool, s);
     }
 
-    console.info(chalk.cyan(`\n📊 审计统计(总共 ${result.total} 条,匹配 ${result.filtered} 条):`));
-    console.info(`  ${'工具'.padEnd(25)} ${'总数'.padStart(8)} ${'成功'.padStart(8)} ${'失败'.padStart(8)} ${'成功率'.padStart(8)}`);
+    console.info(chalk.cyan(t('cliEntry.auditStatsHeader', { total: result.total, filtered: result.filtered })));
+    console.info(
+      `  ${padCell(t('cliEntry.auditColTool'), 25)} ${padCell(t('cliEntry.auditColTotal'), 8, 'right')} ${padCell(t('cliEntry.auditColSuccess'), 8, 'right')} ${padCell(t('cliEntry.auditColFailure'), 8, 'right')} ${padCell(t('cliEntry.auditColRate'), 8, 'right')}`,
+    );
     for (const [tool, s] of [...stats.entries()].sort((a, b) => b[1].total - a[1].total)) {
       const rate = s.total > 0 ? ((s.success / s.total) * 100).toFixed(1) + '%' : 'N/A';
-      console.info(`  ${tool.padEnd(25)} ${String(s.total).padStart(8)} ${String(s.success).padStart(8)} ${String(s.failure).padStart(8)} ${rate.padStart(8)}`);
+      console.info(
+        `  ${padCell(tool, 25)} ${padCell(String(s.total), 8, 'right')} ${padCell(String(s.success), 8, 'right')} ${padCell(String(s.failure), 8, 'right')} ${padCell(rate, 8, 'right')}`,
+      );
     }
     console.info('');
   });

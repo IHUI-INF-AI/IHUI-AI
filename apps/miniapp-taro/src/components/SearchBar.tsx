@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { t } from '@/i18n'
 import { View, Text, Input, type InputProps } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
+import { useUiField } from '@/lib/ui-field-registry'
 
 type ConfirmType = NonNullable<InputProps['confirmType']>
 
@@ -38,6 +39,20 @@ export default function SearchBar({
   className,
 }: SearchBarProps) {
   const [focused, setFocused] = useState(false)
+  // AI 操控通道:只有父组件真的给了 onInput 才登记写通道 —— 没有 onInput 时"填进去"
+  // 改变不了任何状态,登记了就是假成功。onConfirm(键盘搜索键)作为 onPress 一并交出。
+  useUiField(
+    onInput
+      ? {
+          kind: 'input',
+          label: placeholder,
+          placeholder,
+          readValue: () => value,
+          setValue: (next) => onInput(next),
+          ...(onSearch ? { onPress: () => onSearch() } : {}),
+        }
+      : null,
+  )
   return (
     <View
       className={`${searchBarWellClassName} ${focused ? 'border-ring' : 'border-border'} ${className ?? 'mx-3 my-2'}`}

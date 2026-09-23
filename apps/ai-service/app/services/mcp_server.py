@@ -34,6 +34,10 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+
+# 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
+# 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
+from .path_guard import find_sensitive_segment, sensitive_error_message
 from .security_config import get_security_config
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
@@ -63,6 +67,134 @@ def _get_tool_output_max_tokens() -> int:
 def _estimate_tokens_len(text: str) -> int:
     """轻量 token 估算:len//4(无外部依赖,与 context_compaction 降级策略一致)。"""
     return len(text) // 4
+
+
+def _network_denial_message(denial_reason: str | None, url: str) -> str:
+    """批58(十六):网络审批拒绝的用户可读消息(对标 codex network_policy_decision.rs)。
+
+    把审批门的机器原因码(denied / not_allowed / not_allowed_local)翻译为
+    "为什么不能在此处放行"的可读文案,避免模型反复重试同一目标。原因码缺失/
+    翻译失败时回退到原有通用文案(与接线前逐零差异)。
+    """
+    host = ""
+    try:
+        from urllib.parse import urlparse
+
+        raw = (url or "").strip()
+        host = (
+            urlparse(raw if "://" in raw else f"https://{raw}").hostname or ""
+        ).lower()
+    except (ValueError, TypeError):  # pragma: no cover - 解析失败仅影响文案
+        host = ""
+    try:
+        from app.core.network_policy_decision import denied_network_policy_message
+
+        return denied_network_policy_message(str(denial_reason or "denied"), host)
+    except Exception:  # noqa: BLE001 - 文案失败绝不改变拒绝语义
+        return "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)"
+
+
+# ---------------------------------------------------------------------------
+# 批58(w3):5 个"已写但零生产引用"模块的真接线(env 开关,默认 off,异常隔离,
+# off 时逐字节等价)。风格对齐 agent_loop_v2._auto_compact_window_enabled_from_env。
+# 模块路径(均在 app/core/):
+#   elicitation_pause.py / mcp_openai_file.py / world_state_tools.py /
+#   permission_profiles.py / permissions_instructions.py
+# ---------------------------------------------------------------------------
+
+
+def _mcp_elicitation_pause_enabled_from_env() -> bool:
+    """elicitation 计数暂停开关(env MCP_ELICITATION_PAUSE_ENABLED,默认 off)。
+
+    对标 codex elicitation.rs ElicitationService。on/1/true/yes 时启用;默认 off
+    时不持有服务实例、不参与任何计数(与现状逐零差异)。
+    """
+    return os.environ.get(
+        "MCP_ELICITATION_PAUSE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_openai_file_rewrite_enabled_from_env() -> bool:
+    """OpenAI 文件参数重写开关(env MCP_OPENAI_FILE_REWRITE_ENABLED,默认 off)。
+
+    对标 codex mcp_openai_file.rs。on 时按声明字段把本地路径重写为远端文件载荷;
+    默认 off 时工具参数完全不变(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_OPENAI_FILE_REWRITE_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_world_state_tools_enabled_from_env() -> bool:
+    """延迟工具命名空间开关(env MCP_WORLD_STATE_TOOLS_ENABLED,默认 off)。
+
+    对标 codex context/world_state/tools.rs。on 时把延迟工具声明并入工具清单;
+    默认 off 时清单逐字节不变。
+    """
+    return os.environ.get(
+        "MCP_WORLD_STATE_TOOLS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permission_profiles_enabled_from_env() -> bool:
+    """权限档案开关(env MCP_PERMISSION_PROFILES_ENABLED,默认 off)。
+
+    对标 codex permissions_toml.rs。on 时解析生效档案参与审批决策;解析失败走现状
+    默认(降级跳过)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSION_PROFILES_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _mcp_permissions_instructions_enabled_from_env() -> bool:
+    """权限指令片段开关(env MCP_PERMISSIONS_INSTRUCTIONS_ENABLED,默认 off)。
+
+    对标 codex permissions_instructions.rs。on 时把权限指令片段并入回执;默认 off
+    时不注入任何片段(逐字节等价)。
+    """
+    return os.environ.get(
+        "MCP_PERMISSIONS_INSTRUCTIONS_ENABLED", "false"
+    ).strip().lower() in ("on", "1", "true", "yes")
+
+
+# 模块级可注入配置(测试/生产可注入,默认 None = 不触发改写,off 逐字节等价)
+_MCP_OPENAI_FILE_INPUT_FIELDS: dict[str, list[str]] | None = None
+_MCP_WORLD_STATE_DEFERRED_NAMESPACES: dict[str, str] | None = None
+_MCP_PERMISSION_PROFILES: dict[str, Any] | None = None
+_MCP_PERMISSION_PROFILES_ACTIVE: str | None = None
+
+
+# elicitation 服务懒构造单例(构造失败标记 False,避免反复尝试)
+_ELICITATION_SERVICE: Any = None
+
+
+def _get_elicitation_service() -> Any | None:
+    """懒构造 ElicitationService;失败/禁用返回 None(降级不启用)。"""
+    global _ELICITATION_SERVICE
+    if _ELICITATION_SERVICE is None:
+        try:
+            from app.core.elicitation_pause import ElicitationService
+
+            _ELICITATION_SERVICE = ElicitationService()
+        except Exception as e:  # noqa: BLE001 - 模块缺失降级为不启用
+            logger.warning("ElicitationService 构造失败(降级不启用): %s", e)
+            _ELICITATION_SERVICE = False
+    return _ELICITATION_SERVICE or None
+
+
+async def _openai_file_default_uploader(
+    field_name: str, index: int | None, file_path: str
+) -> Any:
+    """OpenAI 文件上传器默认实现(无真实文件存储时的确定性占位)。
+
+    生产侧应注入真实上传器(经同层机制覆盖本函数);此处保证默认行为可降级、
+    不破坏 offline 工具调用(下载地址直接回退为本地路径)。
+    """
+    from app.core.mcp_openai_file import UploadedFile
+
+    _name = file_path.replace("\\", "/").split("/")[-1] or "file"
+    return UploadedFile(download_url=file_path, file_id=file_path, file_name=_name)
 
 
 def _tool_result_token_estimate(obj: object) -> int:
@@ -389,6 +521,39 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
         )
     except Exception as e:
         return False, f"路径解析失败: {e}"
+
+
+def _validate_write_path_in_workspace(path: str) -> tuple[bool, str]:
+    """**写工具专用**路径校验:白名单根 + symlink 解析 + 敏感目录黑名单。
+
+    与 ``_validate_path_in_workspace`` 的差别只有最后一层:本函数额外拒绝落在
+    敏感目录(.git / node_modules / .venv / venv / dist / build / __pycache__ /
+    .next)内的路径(判定源见 ``path_guard``)。
+
+    为什么只给写路径加这一层,而不直接加进 ``_validate_path_in_workspace``:
+    后者另有 10 个调用点(read_file / list_files / run_command 的 cwd /
+    vision_analyze / 媒体 save_path 三兄弟等),读路径与 cwd 在业务上允许触及
+    .git、node_modules(agent 需要查看依赖源码、读取仓库状态),在黑名单加在
+    那里会**顺带改变读行为**,属于超出修复范围的语义变更。真实危害集中在「写」:
+    写入 .git/hooks/ 即等价于任意代码执行。因此本层只覆盖三个写工具
+    (write_file / file_edit / resolve_conflict)——它们与
+    ``file_editor.validate_path`` 属同一语义面(源代码编辑),后者的黑名单行为
+    正是本层对齐的目标,两条编辑路径从此不会再有策略分歧。
+
+    媒体落盘(save_path 三兄弟)**刻意不加**本层:其后缀已被限定为图片/音频/视频
+    扩展名,无法落成 .git/hooks/pre-commit 这类可执行文本;而"把生成产物写进
+    build/ 目录"是合理构建用法,加了会误伤。
+
+    Returns:
+        (True, resolved_path) 或 (False, error_message)
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info
+    # 对**解析后**路径判定:这样 symlink 指向 .git 的情况同样被拦住。
+    if find_sensitive_segment(info):
+        return False, sensitive_error_message(info)
+    return True, info
 
 
 # 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
@@ -982,7 +1147,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
     content = arguments.get("content", "")
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "write_file", "path": path, "ok": False, "error": info}
     resolved_path = info
@@ -1015,7 +1180,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "file_edit", "file_path": path, "ok": False,
                 "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
 
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "file_edit", "file_path": path, "ok": False,
                 "error": info, "errorCode": "PATH_NOT_ALLOWED"}
@@ -1128,7 +1293,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "resolve_conflict", "file_path": path, "ok": False,
                 "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
 
-    ok, info = _validate_path_in_workspace(path)
+    ok, info = _validate_write_path_in_workspace(path)
     if not ok:
         return {"tool": "resolve_conflict", "file_path": path, "ok": False,
                 "error": info, "errorCode": "PATH_NOT_ALLOWED"}
@@ -1529,6 +1694,45 @@ def approve_exec_prefix(command: str, tokens: int = 2) -> tuple[str, ...] | None
         _ap.grant(_ap.SCOPE_ALWAYS, _ap.normalize_exec_key(list(prefix)), _ap.KIND_EXEC_PREFIX)
     except Exception:  # noqa: BLE001
         pass
+    # 批58(接线):exec_policy_amendments 真接线(对标 codex amend.rs
+    # blocking_append_allow_prefix_rule)——on 时把前缀规则同步进 ExecPolicy
+    # 引擎热更新(get_or_create_manager().append_rule:内存替换+落盘 *.rules,
+    # 落盘失败回滚内存并抛错,此处降级为仅内存表生效)与规则文件追加
+    # (append_allow_prefix_rule 直写 rules 文件)。off 时零差异;任何失败
+    # 静默降级,绝不阻断既有放行链路。
+    if os.environ.get("AGENT_EXEC_POLICY_AMENDMENTS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes"
+    ):
+        try:
+            from .exec_policy import PrefixRule as _PR, get_or_create_manager as _gocm
+            from ..core.exec_policy_amendments import (
+                append_allow_prefix_rule as _ea_append,
+            )
+            from .exec_policy import rules_dir_from_env as _rules_dir_env
+
+            _mgr = _gocm()
+            _rule = _PR(pattern=tuple(prefix), decision=RuleDecision.ALLOW, source="amend")
+            # append_rule 是 async(内存替换+异步落盘);approve_exec_prefix 在
+            # 请求上下文中通常已有运行中 loop,直接建后台任务消费;无 loop(同步
+            # 测试/脚本)时退化为 create_new_event_loop 同步跑完。两种路径均
+            # 异常隔离,失败降级仅内存表生效。
+            try:
+                asyncio.get_running_loop()
+                _amend_task = asyncio.get_event_loop().create_task(_mgr.append_rule(_rule))
+                _amend_task.add_done_callback(
+                    lambda t: (
+                        logger.warning("exec_policy 修正案后台追加失败: %s", t.exception())
+                        if not t.cancelled() and t.exception() is not None
+                        else None
+                    )
+                )
+            except RuntimeError:
+                asyncio.run(_mgr.append_rule(_rule))
+            _rd = _rules_dir_env()
+            if _rd:
+                _ea_append(Path(_rd) / "default.rules", list(prefix))
+        except Exception as _amend_exc:  # noqa: BLE001 - 修正案失败降级,不阻断放行
+            logger.warning("exec_policy 前缀修正案追加失败(降级仅内存表): %s", _amend_exc)
     return prefix
 
 
@@ -1687,7 +1891,7 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                     [r.pattern for r in _exec_decision.matched_rules],
                 )
             else:
-                return {
+                _approval_result: dict[str, Any] = {
                     "ok": False, "tool": "run_command",
                     "error": "exec_policy_needs_approval",
                     "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
@@ -1703,6 +1907,34 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                     },
                     "message": "命令需要用户审批后方可执行",
                 }
+                # 批58(w3):权限档案参与审批决策(对标 codex permissions_toml.rs)
+                # on 时解析生效档案,把档位/网络模式/启用根并入回执;解析失败走现状
+                # 默认(降级跳过,绝不改变拒绝语义)。off 时回执逐字节等价。
+                if _mcp_permission_profiles_enabled_from_env():
+                    try:
+                        from app.core.permission_profiles import resolve_permission_profile
+
+                        if (
+                            _MCP_PERMISSION_PROFILES is not None
+                            and _MCP_PERMISSION_PROFILES_ACTIVE
+                        ):
+                            _prof = resolve_permission_profile(
+                                _MCP_PERMISSION_PROFILES_ACTIVE,
+                                _MCP_PERMISSION_PROFILES,
+                            )
+                            _net_mode = (
+                                _prof.network.mode.value
+                                if _prof.network and _prof.network.mode
+                                else None
+                            )
+                            _approval_result["resolved_permission_profile"] = {
+                                "name": _MCP_PERMISSION_PROFILES_ACTIVE,
+                                "network_mode": _net_mode,
+                                "enabled_roots": _prof.enabled_roots(),
+                            }
+                    except Exception as e:  # noqa: BLE001
+                        logger.debug("permission_profiles 解析失败(降级跳过): %s", e)
+                return _approval_result
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
@@ -2971,22 +3203,24 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
                 else:
                     # 批 52b:webhook 出站走网络审批门(fail-closed;SSRF 硬防线
                     # 由内网地址不可达兜底,此处补审批语义层)
+                    # 批58(十六):拒绝分支带 codex 原因码 + 可读文案。
                     _net_ok = True
+                    _net_denial: str | None = None
                     try:
-                        from .network_approval import evaluate_network_access
+                        from .network_approval import evaluate_network_access_detailed
 
-                        _net_ok = (
-                            evaluate_network_access(
-                                webhook_url, reason="tool:webhook"
-                            )
-                            != "deny"
+                        _net_verdict, _net_denial = evaluate_network_access_detailed(
+                            webhook_url, reason="tool:webhook"
                         )
+                        _net_ok = _net_verdict != "deny"
                     except Exception:  # noqa: BLE001 - 门故障不改变现有行为
                         _net_ok = True
                     if not _net_ok:
                         execution_result = {
                             "ok": False, "errorCode": "NETWORK_APPROVAL_DENIED",
                             "error": "webhook 目标未获网络审批授权",
+                            "detail": _network_denial_message(_net_denial, webhook_url),
+                            "denialReason": _net_denial,
                         }
                     else:
                         webhook_payload = arguments.get("webhook_payload", arguments)
@@ -3610,16 +3844,20 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
     # 批 52b:网络审批门(对标 codex ApprovalAction::NetworkAccess)。
     # SSRF 硬防线在前(不可被审批放行);审批门在后,持久授权命中免弹窗,
     # 未授权默认拒绝(fail-closed),requester 未注入时不改变现有行为。
+    # 批58(十六):拒绝分支附加 codex 原因码 + 可读消息(network_policy_decision)。
     try:
-        from .network_approval import evaluate_network_access
+        from .network_approval import evaluate_network_access_detailed
 
-        verdict = evaluate_network_access(url, reason="tool:fetch_url")
+        verdict, _denial_reason = evaluate_network_access_detailed(
+            url, reason="tool:fetch_url"
+        )
         if verdict == "deny":
             return {
                 "tool": "fetch_url", "ok": False, "url": url,
                 "error": "网络访问未授权(审批拒绝/无审批通道)",
                 "errorCode": "NETWORK_APPROVAL_DENIED",
-                "message": "网络审批门拒绝: 该目标未获授权(对标 codex NetworkAccess 审批面)",
+                "message": _network_denial_message(_denial_reason, url),
+                "denialReason": _denial_reason,
             }
     except Exception:  # noqa: BLE001 - 审批门自身故障不改变现有放行行为(向后兼容)
         pass
@@ -3830,7 +4068,8 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
     """图片 provider 自动切换链(2026-09-08 全模态自动切换,对标 video 编排)。
 
     顺序:env `IMAGE_PROVIDER`(逗号分隔,顺序即优先级)缺省
-    token6688 → stepfun → agnes → kling → jimeng,仅保留凭据已配置的。
+    token6688 → agnes → kling → jimeng,仅保留凭据已配置的。
+    (2026-09-21 移除 stepfun:官方 /v1/models 无文生图模型,原硬编码 step-1v-8k 不在售,生图必失败)
     显式指定 provider 时:已配置 → 提到链首(用户意图优先);未配置 → 保持自动链
     (与 video_generation 显式 provider 未配置时降级全链的行为一致)。
     """
@@ -3841,7 +4080,7 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
             if name == "token6688":
                 cfg = settings.get_provider_config("token6688")
                 return bool(cfg.api_key or os.environ.get("TOKEN6688_API_KEY", ""))
-            if name in ("stepfun", "agnes"):
+            if name == "agnes":
                 return bool(settings.get_provider_config(name).api_key)
             if name == "kling":
                 from ..providers import KlingProvider
@@ -3857,9 +4096,9 @@ def _image_provider_chain(explicit: str | None) -> list[str]:
 
     raw = os.environ.get("IMAGE_PROVIDER", "").strip()
     order = [p.strip() for p in raw.split(",") if p.strip()] or [
-        "token6688", "stepfun", "agnes", "kling", "jimeng",
+        "token6688", "agnes", "kling", "jimeng",
     ]
-    chain = [n for n in order if n in ("token6688", "stepfun", "agnes", "kling", "jimeng") and _has_creds(n)]
+    chain = [n for n in order if n in ("token6688", "agnes", "kling", "jimeng") and _has_creds(n)]
     if explicit:
         if explicit in chain:
             chain = [explicit] + [n for n in chain if n != explicit]
@@ -3886,11 +4125,9 @@ async def _image_generate_once(
             api_base += "/v1"
         api_key = cfg.api_key or os.environ.get("TOKEN6688_API_KEY", "")
         model = os.environ.get("TOKEN6688_IMAGE_MODEL", "gpt-image-2")
-    elif provider == "stepfun":
-        cfg = settings.get_provider_config("stepfun")
-        api_key = cfg.api_key
-        api_base = cfg.api_base or "https://api.stepfun.com/step_plan/v1"
-        model = "step-1v-8k"
+        # 2026-09-21:官方 gpt-image-2.5 系列参数表无 size(官方用 aspect_ratio/resolution),
+        # 旧版固定注入 size 会被提交前校验拦截,不再发送
+        payload: dict[str, Any] = {"prompt": prompt, "model": model, "n": 1}
     elif provider == "agnes":
         cfg = settings.get_provider_config("agnes")
         api_key = cfg.api_key
@@ -3903,6 +4140,7 @@ async def _image_generate_once(
             str(arguments.get("model") or "").strip()
             or os.environ.get("AGNES_IMAGE_MODEL", "agnes-image-2.5-flash")
         )
+        payload = {"prompt": prompt, "model": model, "size": size, "n": 1}
     else:
         # kling/jimeng 走 providers 包原生真实适配器(可灵 JWT / 即梦 Ark Bearer)
         return await _tool_image_generation_native(prompt, provider, size, save_path, arguments)
@@ -3926,8 +4164,6 @@ async def _image_generate_once(
             if _meta.get("max_prompt_chars"):
                 _ps["_max_prompt_chars"] = _meta["max_prompt_chars"]
             _chk: dict[str, Any] = {}
-            if size:
-                _chk["size"] = size
             _issues = _t6688_catalog.validate_generation_params(
                 _ps, _chk, prompt=str(prompt), linkages=_meta.get("linkages"),
             )
@@ -3957,7 +4193,7 @@ async def _image_generate_once(
         async with httpx.AsyncClient(timeout=90.0) as client:
             resp = await client.post(
                 endpoint,
-                json={"prompt": prompt, "model": model, "size": size, "n": 1},
+                json=payload,
                 headers={"Authorization": f"Bearer {api_key}"},
             )
         if resp.status_code >= 400:
@@ -4022,7 +4258,7 @@ async def _image_generate_once(
 
         return {
             "tool": "image_generation", "ok": True, "prompt": prompt,
-            "image_url": image_url, "size": size,
+            "image_url": image_url, "size": payload.get("size"),
             "provider": provider, "model": model,
             "saved_path": saved_path, "file_size_bytes": file_size_bytes,
             "created_at": datetime.now(UTC).isoformat(),
@@ -4042,7 +4278,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """image_generation: 生成图片(多 provider 统一编排 + 运行时自动故障转移)。
 
     2026-09-08 全模态自动切换升级:
-    - provider 链:IMAGE_PROVIDER env(缺省 token6688 → stepfun → agnes → kling → jimeng),
+    - provider 链:IMAGE_PROVIDER env(缺省 token6688 → agnes → kling → jimeng),
       仅保留凭据已配置的;首选失败自动换下一家(含 401/402/429/5xx/超时),全失败才报错
     - 显式 provider 已配置 → 提到链首;未配置 → 自动链兜底(兼容旧降级语义)
     - 返回带 failover_attempts(每次尝试的 provider/errorCode 摘要),对话侧可如实转述
@@ -4050,8 +4286,6 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     """
     prompt = arguments.get("prompt", "")
     size = arguments.get("size", "1024x1024")
-    quality = arguments.get("quality", "standard")
-    style = arguments.get("style", "natural")
     provider = arguments.get("provider")  # None=自动:按链逐家尝试
     save_path = arguments.get("save_path")
 
@@ -4061,7 +4295,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "saved_path": None,
         }
-    _ALLOWED = ("token6688", "stepfun", "agnes", "kling", "jimeng")
+    _ALLOWED = ("token6688", "agnes", "kling", "jimeng")
     if provider is not None and provider not in _ALLOWED:
         return {
             "tool": "image_generation", "ok": False,
@@ -4087,7 +4321,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "provider": provider or "auto", "saved_path": None,
             "errorCode": "PROVIDER_NOT_CONFIGURED",
             "message": "未配置任何图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 "
-                       "token6688 / stepfun / agnes 的 api_key,或 KLING_*/ARK_* 凭据",
+                       "token6688 / agnes 的 api_key,或 KLING_*/ARK_* 凭据",
         }
 
     attempts: list[dict[str, str]] = []
@@ -4096,8 +4330,6 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if result.get("ok"):
             if attempts:
                 result["failover_attempts"] = attempts
-            result.setdefault("quality", quality)
-            result.setdefault("style", style)
             return result
         attempts.append({
             "provider": name,
@@ -6353,6 +6585,18 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _mcp_model_tools_enabled_from_env() -> bool:
+    """批58 接线(对标 codex model_tools.rs):特殊工具结果/校验归一。
+
+    默认 off:后台 sleep 时长不校验、完成通知不带 async 投影(逐字节等价);
+    设为 on/1/true/yes 时经 validate_sleep_duration 校验时长、经
+    build_async_user_notification 产出 host 侧投递载荷。
+    """
+    return os.environ.get("MCP_MODEL_TOOLS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 # ---------------------------------------------------------------------------
 # 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)
 # ---------------------------------------------------------------------------
@@ -6363,8 +6607,21 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
 # 扩展点:后续批次在此注册真实长任务(如 codebase_indexer / spec_generator / 长搜索),
 # 仅需实现 async(args: dict) -> Any 并加入本字典,task 名即进入白名单。
 async def _bg_impl_sleep(args: dict[str, Any]) -> Any:
-    """演示实现:休眠指定秒数(测试 / 占位用)。"""
+    """演示实现:休眠指定秒数(测试 / 占位用)。
+
+    批58:MCP_MODEL_TOOLS_ENABLED on 时先经 model_tools_57.validate_sleep_duration
+    校验时长(秒→毫秒),越界直接返回 error 不休眠;off 时行为与接线前一致。
+    """
     seconds = float(args.get("seconds", 0))
+    if _mcp_model_tools_enabled_from_env():
+        try:
+            from app.core.model_tools_57 import validate_sleep_duration
+
+            err = validate_sleep_duration(seconds * 1000.0)
+            if err is not None:
+                return {"error": err, "slept_seconds": 0}
+        except Exception as e:  # noqa: BLE001 - 校验失败降级照常休眠
+            logger.warning("model_tools 时长校验失败(降级照常休眠): %s", e)
     await asyncio.sleep(seconds)
     return {"slept_seconds": seconds}
 
@@ -7163,7 +7420,7 @@ _TOOLS: list[MCPTool] = [
         name="image_generation",
         description=(
             "生成图片,返回图片 URL 或 base64 data URI。多 provider 统一编排 + 运行时自动故障转移:"
-            "token6688(聚合网关单 key 全模态,默认首选)→ stepfun → agnes → kling(可灵 Kolors)→ "
+            "token6688(聚合网关单 key 全模态,默认首选)→ agnes → kling(可灵 Kolors)→ "
             "jimeng(即梦),按 IMAGE_PROVIDER env 或已配置凭据自动排序,首选失败(401/402/429/5xx/超时)"
             "自动换下一家,返回带 failover_attempts 明细。"
             "2026-07-24 升级:支持 save_path 落地文件系统(b64_json 解码或 URL 下载),"
@@ -7176,23 +7433,14 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "图片描述(必填)"},
                 "size": {
                     "type": "string",
-                    "description": "图片尺寸(默认 1024x1024)",
+                    "description": "图片尺寸(默认 1024x1024;token6688 gpt-image-2.5 系列"
+                                   "不支持该参数,官方用 aspect_ratio)",
                     "default": "1024x1024",
-                },
-                "quality": {
-                    "type": "string",
-                    "enum": ["standard", "hd"],
-                    "default": "standard",
-                },
-                "style": {
-                    "type": "string",
-                    "enum": ["natural", "vivid"],
-                    "default": "natural",
                 },
                 "provider": {
                     "type": "string",
-                    "enum": ["stepfun", "agnes", "token6688", "kling", "jimeng"],
-                    "default": "stepfun",
+                    "enum": ["token6688", "agnes", "kling", "jimeng"],
+                    "default": "token6688",
                 },
                 "model": {
                     "type": "string",
@@ -8852,8 +9100,31 @@ class MCPServer:
     """MCP 服务端,统一管理工具/资源/提示词的查询与调用。"""
 
     def list_tools(self) -> list[MCPTool]:
-        """列出全部工具。"""
-        return list(_TOOLS)
+        """列出全部工具;批58(w3):on 时把延迟工具命名空间声明并入清单。
+
+        off 时直接返回 list(_TOOLS)(逐字节等价);on 时仅追加由 world_state_tools
+        归一化出的延迟工具条目,不改动既有 _TOOLS。
+        """
+        tools: list[MCPTool] = list(_TOOLS)
+        if (
+            _mcp_world_state_tools_enabled_from_env()
+            and _MCP_WORLD_STATE_DEFERRED_NAMESPACES
+        ):
+            try:
+                from app.core.world_state_tools import ToolsState
+
+                _state = ToolsState(_MCP_WORLD_STATE_DEFERRED_NAMESPACES)
+                for _ns, _desc in _state.deferred_namespaces.items():
+                    tools.append(
+                        MCPTool(
+                            name=f"deferred:{_ns}",
+                            description=_desc,
+                            input_schema={"type": "object", "properties": {}},
+                        )
+                    )
+            except Exception as e:  # noqa: BLE001 - 合并失败绝不改变工具清单
+                logger.warning("world_state_tools 合并失败(降级跳过): %s", e)
+        return tools
 
     async def call_tool(
         self,

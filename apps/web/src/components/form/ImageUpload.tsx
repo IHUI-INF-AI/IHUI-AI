@@ -6,6 +6,8 @@
 
 import * as React from 'react'
 import { Upload, type UploadProps } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
+import { useUploadLabels } from '@/hooks/use-upload-labels'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -40,8 +42,11 @@ export function ImageUpload({
   accept = 'image/*',
   uploadUrl = '/api/files/upload/form',
   className,
-  placeholder = '点击或拖拽上传图片',
+  placeholder,
 }: ImageUploadProps) {
+  const t = useTranslations('upload')
+  // 不注入 labels 时 @ihui/ui-react 回退 DEFAULT_UPLOAD_LABELS(简体)⇒ 非中文界面整块回显中文
+  const uploadLabels = useUploadLabels()
   const values = React.useMemo<string[]>(() => {
     if (!value) return []
     return Array.isArray(value) ? value : value ? [value] : []
@@ -103,9 +108,10 @@ export function ImageUpload({
       multiple={multiple}
       maxCount={maxCount}
       accept={accept}
-      placeholder={placeholder}
+      placeholder={placeholder ?? t('imagePlaceholder')}
       resolveUrl={resolveUrl}
       className={cn(className)}
+      labels={uploadLabels}
       // 单文件模式:删除时通知旧 API 走孤儿文件清理路径
       onRemove={handleRemove}
     />

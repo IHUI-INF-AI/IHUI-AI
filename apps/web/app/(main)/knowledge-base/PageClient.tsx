@@ -7,7 +7,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { BookOpen, Search, FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -45,6 +45,9 @@ async function api<T>(url: string): Promise<T> {
 
 export default function KnowledgeBasePageClient() {
   const locale = useLocale()
+  const t = useTranslations('knowledgeBase.list')
+  const tKb = useTranslations('knowledgeBase')
+  const tCommon = useTranslations('common')
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState<string>('all')
@@ -90,9 +93,9 @@ export default function KnowledgeBasePageClient() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">知识库</h1>
+          <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>
         </div>
-        <p className="text-xs text-muted-foreground">浏览、搜索与管理知识库文章</p>
+        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">
@@ -111,7 +114,7 @@ export default function KnowledgeBasePageClient() {
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >
-              <span>全部分类</span>
+              <span>{t('allCategories')}</span>
               <span className="text-xs opacity-70">{total}</span>
             </button>
             {categories.map((c) => (
@@ -144,7 +147,7 @@ export default function KnowledgeBasePageClient() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索知识库文章..."
+              placeholder={tKb('searchPlaceholder')}
               className="h-9 pl-8"
             />
           </div>
@@ -152,7 +155,7 @@ export default function KnowledgeBasePageClient() {
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载中...
+              {tCommon('loading')}
             </div>
           ) : error ? (
             <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -161,7 +164,7 @@ export default function KnowledgeBasePageClient() {
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">暂无文章</p>
+              <p className="text-sm text-muted-foreground">{t('empty')}</p>
             </div>
           ) : (
             <div className="space-y-3">

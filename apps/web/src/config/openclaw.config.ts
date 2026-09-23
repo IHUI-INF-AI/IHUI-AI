@@ -50,8 +50,8 @@ export interface OpenClawConfig {
 /** 默认 OpenClaw 配置 */
 export const OPENCLAW_CONFIG: OpenClawConfig = {
   mode: 'cloud',
-  defaultModel: 'gpt-4o',
-  fallbackModels: ['claude-sonnet', 'gemini-pro'],
+  defaultModel: 'gpt-5.1',
+  fallbackModels: ['claude-sonnet-4.5', 'gemini-2.5-pro'],
   maxConcurrentTools: 5,
   maxTokensPerTurn: 4096,
   contextWindowTurns: 20,

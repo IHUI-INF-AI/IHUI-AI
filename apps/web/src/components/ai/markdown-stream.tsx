@@ -326,35 +326,41 @@ const CodeBlockImpl = function CodeBlock({
       {/* 一键运行:仅非流式且语言在可运行集合内显示(对标 Codex/Trae 对话内运行) */}
       {showRunButton && (
         <Tooltip content={isRunning ? t('codeRun.running') : t('codeRun.run')}>
-          <IconButton
-            onClick={handleRun}
-            disabled={isRunning}
-            data-testid="run-code-button"
-            className={iconBtnClass}
-            aria-label={isRunning ? t('codeRun.running') : t('codeRun.run')}
-          >
-            {isRunning ? <Loader2 className="animate-spin" /> : <Play />}
-          </IconButton>
+          {/* disabled 按钮收不到 Radix Trigger 的 pointer 事件 → hover 提示会静默消失;
+              由外层 span 承接 trigger(守门 18 Tooltip+disabled 规则) */}
+          <span className="inline-flex">
+            <IconButton
+              onClick={handleRun}
+              disabled={isRunning}
+              data-testid="run-code-button"
+              className={iconBtnClass}
+              aria-label={isRunning ? t('codeRun.running') : t('codeRun.run')}
+            >
+              {isRunning ? <Loader2 className="animate-spin" /> : <Play />}
+            </IconButton>
+          </span>
         </Tooltip>
       )}
       {/* 应用到工作区文件:仅非流式且有语言标记的代码块显示 */}
       {!isStreaming && (
         <Tooltip content={t('codeBlock.applyToFile')}>
-          <IconButton
-            onClick={handleApplyToFile}
-            disabled={applyState === 'applying'}
-            data-testid="apply-to-file-button"
-            className={iconBtnClass}
-            aria-label={t('codeBlock.applyToFile')}
-          >
-            {applyState === 'done' ? (
-              <Check className="text-green-600" />
-            ) : applyState === 'applying' ? (
-              <span className="animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <FilePlus2 />
-            )}
-          </IconButton>
+          <span className="inline-flex">
+            <IconButton
+              onClick={handleApplyToFile}
+              disabled={applyState === 'applying'}
+              data-testid="apply-to-file-button"
+              className={iconBtnClass}
+              aria-label={t('codeBlock.applyToFile')}
+            >
+              {applyState === 'done' ? (
+                <Check className="text-green-600" />
+              ) : applyState === 'applying' ? (
+                <span className="animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <FilePlus2 />
+              )}
+            </IconButton>
+          </span>
         </Tooltip>
       )}
       {/* 插入到编辑器光标处:仅非流式显示 */}

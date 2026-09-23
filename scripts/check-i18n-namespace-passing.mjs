@@ -92,7 +92,7 @@ function getStagedFiles() {
   try {
     const out = execSync(
       'git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR',
-      { cwd: ROOT, encoding: 'utf8' },
+      { cwd: ROOT, encoding: 'utf8', windowsHide: true },
     )
     return out.split('\n').filter(Boolean)
   } catch {

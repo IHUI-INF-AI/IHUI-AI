@@ -18,7 +18,14 @@
  * 守门策略:
  *   - pre-commit(--staged):仅当 next-env.d.ts 被 git add 进暂存区才判定,
  *     避免本地正常构建产生的脏文件误伤 commit(铁律本就不提交该文件)。
- *   - 手动运行(无 --staged):直接判定工作树文件内容,用于验证污染检测是否生效。
+ *     **此模式无条件严格**:只要变体引用进了暂存区就必拦,不因目录存在而放行。
+ *   - 手动运行(无 --staged):判定工作树内容。但需区分两种形态(2026-09-22 加):
+ *       a) 被引用的 `.next-<suffix>` 目录**真实存在** → 是并发会话正在用的活 distDir
+ *          (多会话各自跑 `distDir=.next-e2e-<场景>` 的私有 dev/e2e 是常态),工作树脏但不违规,
+ *          按铁律该文件本就不提交 → **只提示不报红**;
+ *       b) 目录**已不存在**(构建早结束、引用留下) → 才是真·源码树污染,exit 1 要求还原。
+ *     不加这层区分,全量审计会在任何并发 e2e 变体构建期间恒红,且提示的 `git checkout` 还原
+ *     会打断别人正在跑的 dev(实测同一文件在十余分钟内先后指向 modal 与 lang 两个变体)。
  *
  * 用法: node scripts/check-next-env-dist.mjs [--staged]
  *   exit 0 = 无 .next-* 变体污染
@@ -40,11 +47,11 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// 污染:引用 `.next-<suffix>`(suffix 非空)的 distDir 类型路径。
-// 例: import './.next-staging/types/routes.d.ts'  → 命中
+// 污染:引用 `.next-<suffix>`(suffix 非空)的 distDir 类型路径。捕获组 1 = 变体目录名。
+// 例: import './.next-staging/types/routes.d.ts'  → 命中,变体 = .next-staging
 //     import './.next/dev/types/routes.d.ts'      → 不命中(.next 无后缀)
 //     import './.next/types/routes.d.ts'          → 不命中
-const POLLUTION = /import\s+['"]\.\/\.next-[^'"]+['"]/
+const POLLUTION = /import\s+['"]\.\/(\.next-[^/'"]+)/
 
 function isStaged() {
   try {
@@ -78,8 +85,24 @@ function main() {
   const content = readFileSync(NEXT_ENV, 'utf8')
   const m = content.match(POLLUTION)
   if (m) {
+    const variant = m[1]
+    const variantAlive = existsSync(join(ROOT, 'apps', 'web', variant))
+    // 全量模式 + 变体目录真实存在 → 并发会话正在用的活 distDir,不报红(该文件按铁律本就不提交)。
+    // --staged 模式绝不走这条:变体引用进了暂存区就必须拦,防止铁律被"目录还在"绕开。
+    if (variantAlive && !staged) {
+      console.log(
+        `${C.yellow}⚠${C.reset} next-env.d.ts 指向 ${variant},但该目录存在 → 判为并发构建的活 distDir,全量模式不报红`,
+      )
+      console.log(
+        `  ${C.dim}合规依据:「.next-* 变体永不提交」由 --staged 把关;此文件未被 git add 即不违反铁律${C.reset}`,
+      )
+      console.log(
+        `  ${C.dim}注意:不要用 git checkout 还原它 —— 会打断持有该 distDir 的 dev/e2e 进程${C.reset}`,
+      )
+      process.exit(0)
+    }
     console.log(
-      `${C.red}✗${C.reset} apps/web/next-env.d.ts 引用了 .next-* 变体(distDir 被构建覆盖残留):`,
+      `${C.red}✗${C.reset} apps/web/next-env.d.ts 引用了 .next-* 变体(distDir 被构建覆盖残留)${variantAlive ? '' : ` —— 且 ${variant} 目录已不存在,属死引用污染`}:`,
     )
     console.log(`    ${C.dim}${m[0]}${C.reset}`)
     console.log(`  ${C.yellow}修复:${C.reset} git checkout -- apps/web/next-env.d.ts`)

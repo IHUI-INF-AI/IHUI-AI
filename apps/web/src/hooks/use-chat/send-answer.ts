@@ -20,6 +20,7 @@ import {
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
+import { isContextAtCompactionThreshold } from '@/lib/token-estimate'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
 import {
@@ -28,13 +29,15 @@ import {
   mapEndToTimelineUpdate,
 } from '@/lib/subagent-timeline-mapper'
 import { loadBrowserWorkspaceContext } from './workspace'
-import { eduToolsFor, mergeAgentTools } from './tool-config'
+import { eduToolsFor, fileToolsFor, mergeAgentTools } from './tool-config'
 import {
+  clearCompactionPreview,
   createToolCallHandler,
   createToolSummaryHandler,
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
+  localizeQuotaExhausted,
 } from './stream-handlers'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
@@ -152,10 +155,12 @@ export function createSendAnswer(
     // 「未完成」;中途刷新页面时 finally 不执行,标记保持 false,页面重挂载后据此续接。
     useChatStore.getState().setMessageStreamCompleted(assistantId, false)
     try {
-      // 显示压缩中状态(发送消息后、流式响应前,给用户即时反馈)
-      useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
-
       const answerContextLimit = getModelContextCapacity(effectiveModel)
+      // 2026-09-21 修复(与 sendMessage 对称):仅当上下文占用已达后端 88% 压缩阈值,
+      // 才显示"正在压缩上下文"预告;原实现无条件点亮且无兜底回收,会全站常驻。
+      if (isContextAtCompactionThreshold(store.messages, answerContextLimit)) {
+        useChatStore.getState().setCompactionStatus({ phase: 'compacting' })
+      }
       logger.debug(
         '[Compaction] sendAnswer contextLimit=',
         answerContextLimit,
@@ -295,10 +300,7 @@ export function createSendAnswer(
         // 2026-08-16 立:与 sendMessage 对称,收到响应后立即清除压缩中状态(无论是否触发压缩)
         onResponse: () => {
           clearTimeout(timeout15sId)
-          const status = useChatStore.getState().compactionStatus
-          if (status?.phase === 'compacting') {
-            useChatStore.getState().setCompactionStatus(null)
-          }
+          clearCompactionPreview()
         },
         onUsage: (usage) => {
           // P1 token 用量写入消息 meta(2026-08-15 立,与 sendMessage 对称):sendAnswer 续流同样收到 usage chunk,
@@ -421,8 +423,11 @@ export function createSendAnswer(
         // 2026-08-29 修复:与 sendMessage 对称,仅当用户显式启用插件工具时才携带 agentTools。
         // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
         // 2026-09-19:消息含教育管理意图(催费/欠费/学费/缴费/退费/账单)时条件携带对应 edu_* 工具
+        // 2026-09-21:文件/代码意图条件携带文件工具族(与 sendMessage 对称),否则模型无法读改文件
         ...(() => {
-          const agentTools = [...new Set([...mergeAgentTools(), ...eduToolsFor(answer)])]
+          const agentTools = [
+            ...new Set([...mergeAgentTools(), ...eduToolsFor(answer), ...fileToolsFor(answer)]),
+          ]
           return agentTools.length > 0 ? { agentTools } : {}
         })(),
         onError: (errMsg, info) => {
@@ -431,20 +436,26 @@ export function createSendAnswer(
           reasoningBatcher.flush()
           agentBatcher.flushAll()
           const formatted = formatSSEError(errMsg, info)
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
+          // 厂商账号额度耗尽(2026-09-22 批次 60):与 sendMessage 对称 —— 只认 errorCode
+          // (ai-service 未登记该码,HTTP 仍回落默认 502),且不给出 retry 按钮。
+          const ec = info?.errorCode
+          const quotaNotice = localizeQuotaExhausted(ec, t)
+          const displayMessage = quotaNotice?.message ?? formatted.message
+          useChatStore.getState().setMessageError(assistantId, displayMessage)
+          useChatStore.getState().setError(displayMessage)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
           // 前端错误码透出(P1):sendAnswer 路径同 sendMessage,toast description 加 [errorCode] 前缀
-          const ec = info?.errorCode
           const toastDesc =
             formatted.severity === 'auth'
               ? formatted.message
               : ec
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
-          if (formatted.severity === 'ratelimit') {
+          if (quotaNotice) {
+            toast.error(quotaNotice.title, { description: toastDesc })
+          } else if (formatted.severity === 'ratelimit') {
             // ratelimit/safety 错误保持 warning 无 retry(与 sendMessage 一致)
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {
@@ -534,6 +545,8 @@ export function createSendAnswer(
       // 2026-08-21 修复(C3):代际守卫(与 sendMessage 对称),旧流不清理新流全局状态
       if (streamGenerationRef.current === streamGeneration) {
         abortRef.current = null
+        // 2026-09-21 修复(与 sendMessage 对称):兜底回收"压缩中"预告态,防灰条全站常驻
+        clearCompactionPreview()
         useChatStore.getState().setStreaming(false)
         // Steer(中途引导,2026-09-19 立,与 sendMessage 对称):流收尾清除流式消息 ID
         useChatStore.getState().setStreamingAssistantId(null)

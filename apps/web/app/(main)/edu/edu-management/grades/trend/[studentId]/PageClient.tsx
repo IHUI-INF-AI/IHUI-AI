@@ -7,6 +7,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Loader2, AlertCircle, TrendingUp, BookOpen, AlertTriangle } from 'lucide-react'
 import {
   LineChart,
@@ -93,6 +94,7 @@ const SUBJECT_COLORS = [
 export default function TrendPage() {
   const params = useParams()
   const studentId = params?.studentId as string
+  const t = useTranslations('eduGrades')
 
   const [selectedSubject, setSelectedSubject] = React.useState('')
 
@@ -121,7 +123,7 @@ export default function TrendPage() {
 
   /* ── Derived ── */
   const subjects = React.useMemo(() => {
-    const set = new Set(trendList.map((t) => t.subject))
+    const set = new Set(trendList.map((entry) => entry.subject))
     return Array.from(set).sort()
   }, [trendList])
 
@@ -138,7 +140,7 @@ export default function TrendPage() {
 
   // Unique exam names for x-axis
   const examNames = React.useMemo(() => {
-    const set = new Set(trendList.map((t) => t.examName))
+    const set = new Set(trendList.map((entry) => entry.examName))
     return Array.from(set)
   }, [trendList])
 
@@ -158,7 +160,7 @@ export default function TrendPage() {
         <BackButton />
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          <span>{t('loading')}</span>
         </div>
       </div>
     )
@@ -169,9 +171,9 @@ export default function TrendPage() {
       <BackButton />
 
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">成绩趋势分析</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('trendTitle')}</h1>
         <p className="text-xs text-muted-foreground">
-          学生 {studentId?.slice(0, 8)} 的成绩趋势与薄弱环节
+          {t('trendSubtitle', { studentId: studentId?.slice(0, 8) ?? '' })}
         </p>
       </header>
 
@@ -181,10 +183,10 @@ export default function TrendPage() {
           <BookOpen className="h-4 w-4 text-muted-foreground" />
           <Select value={selectedSubject} onValueChange={setSelectedSubject}>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="全部科目" />
+              <SelectValue placeholder={t('allSubjects')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部科目</SelectItem>
+              <SelectItem value="all">{t('allSubjects')}</SelectItem>
               {subjects.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
@@ -200,14 +202,14 @@ export default function TrendPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <TrendingUp className="h-4 w-4" />
-            成绩趋势
+            {t('scoreTrend')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {trendList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="mb-2 h-8 w-8" />
-              <p className="text-sm">暂无成绩数据</p>
+              <p className="text-sm">{t('emptyScores')}</p>
             </div>
           ) : (
             <div className="h-80">
@@ -249,13 +251,13 @@ export default function TrendPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <BookOpen className="h-4 w-4" />
-            科目成绩分布
+            {t('subjectScoreDistribution')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {radarData.length === 0 ? (
             <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <p className="text-sm">暂无科目数据</p>
+              <p className="text-sm">{t('emptySubjects')}</p>
             </div>
           ) : (
             <div className="h-72">
@@ -265,7 +267,7 @@ export default function TrendPage() {
                   <PolarAngleAxis dataKey="subject" className="text-xs" />
                   <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-xs" />
                   <Radar
-                    name="成绩"
+                    name={t('radarSeriesName')}
                     dataKey="percentage"
                     stroke="var(--primary)"
                     fill="var(--primary)"
@@ -283,13 +285,13 @@ export default function TrendPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <AlertTriangle className="h-4 w-4" />
-            薄弱环节
+            {t('weaknesses')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {weakness.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <p className="text-sm">暂无数据</p>
+              <p className="text-sm">{t('emptyData')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -302,14 +304,14 @@ export default function TrendPage() {
                     <span className="font-medium">{w.subject}</span>
                     {w.isWeak && (
                       <Badge variant="destructive" className="text-[10px]">
-                        薄弱
+                        {t('weakBadge')}
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>平均分: {w.avgScore}</span>
-                    <span>得分率: {w.percentage}%</span>
-                    <span>考试次数: {w.examCount}</span>
+                    <span>{t('avgScoreStat', { score: w.avgScore })}</span>
+                    <span>{t('scoreRateStat', { percentage: w.percentage })}</span>
+                    <span>{t('examCountStat', { count: w.examCount })}</span>
                   </div>
                 </div>
               ))}

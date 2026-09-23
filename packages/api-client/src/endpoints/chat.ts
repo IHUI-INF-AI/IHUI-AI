@@ -57,6 +57,65 @@ export interface ChatMessageMetadata {
   toolCalls?: Array<Record<string, unknown>>
   /** D24:终端任务持久化数组(结构与 @ihui/types TerminalTask 对齐) */
   terminalTasks?: Array<Record<string, unknown>>
+  /** planSteps(2026-09-21 立):计划快照持久化数组(结构与 @ihui/types PlanStep 对齐)。
+   *  来源:ai-service plan_updated 同源快照 → /api/ai/callback → worker 浅合并落库;
+   *  消费:web 历史水合映射回 message.planSteps(缺失 = 老消息,安静降级) */
+  planSteps?: Array<Record<string, unknown>>
+  /** permissionMode(G-165 立):这条回答生成时**服务端自己的**权限档记录。
+   *  来源:ai-callback 侧按 会话 metadata.workspacePath → workspace_permissions 反查后盖章
+   *  (不采信客户端自报);拼写是 wire(kebab)值,与 @ihui/types/permission-mode 同源。
+   *  消费:web 历史水合映射回 message.permissionMode(徽章跨刷新/跨端可见),
+   *  小程序/RN 亦按同一 key 渲染档位行 —— 缺失 = 老消息或未绑定工作区,安静降级。 */
+  permissionMode?: string
+  /** citations(G-166 立):这条回答**实际引用**的来源清单,服务端在流收尾时按
+   *  与 SSE `citations` 事件同一个 `_collect_citations` 产出落库(同源同去重同 10 条上限)。
+   *  消费:web 历史水合映射回 `ChatMessage.citations`(CitationBar),缺失 = 老消息/本轮无引用。 */
+  citations?: Array<Record<string, unknown>>
+  /** injections(G-166 立):这条回答**带了哪些上下文**的交代帧列表,服务端按与 SSE
+   *  `injection_applied` 同一份列表落库(剥掉帧判别字 `type`)。
+   *  消费:web 历史水合映射回 `ChatMessage.injections`(注入交代区),缺失安静降级。 */
+  injections?: Array<Record<string, unknown>>
+  /** compaction(G-166 第②步立):这条回答生成前**发生过多少上下文压缩**的统计,
+   *  与 SSE `compaction` 帧同一载荷(ai-service `_compaction_payload` 单一真相源)。
+   *  消费:web 历史水合映射回 `ChatMessage.compaction`(CompressionDivider),
+   *  缺失 = 老消息 / 本轮未压缩也未撞上限 —— 不渲染分隔线。 */
+  compaction?: {
+    triggered?: boolean
+    tokensBefore?: number
+    tokensAfter?: number
+    removedCount?: number
+    usageRatio?: number
+    trigger?: string
+  }
+  /** retryNotice(G-166 第⑥步立):这轮回答期间上游网关**换 key / 退避重试**的最终一次记账,
+   *  字段与 SSE `retry_scheduled` 契约同一套(attempt / maxRetries / retryInMs / httpStatus?)。
+   *  消费:web 历史水合映射回 `ChatMessage.retryNotice`(RetryNotice 条),
+   *  缺失 = 老消息或本轮没重试过 —— 不渲染"重试过"的假交代。 */
+  retryNotice?: { attempt: number; maxRetries: number; retryInMs: number; httpStatus?: number }
+  /** usageDetail(D33 剩余类,2026-09-23 立):与 SSE `usage` 帧同源的用量明细
+   *  (token 分项 + 首 token 计时 + 总耗时 + 成本 + 实际计费模型)。
+   *  来源:ai-service 流收尾 → /api/ai callback persistedUsageDetailSchema(子字段宽松,
+   *  部分 provider 不给 reasoningTokens / costUsd)。
+   *  消费:web 历史水合按行 seed 进 store.usageByMessageId(刷新后消息底部用量徽章行仍在),
+   *  缺失 = 老消息或本轮未记账。 */
+  usageDetail?: {
+    promptTokens?: unknown
+    completionTokens?: unknown
+    totalTokens?: unknown
+    reasoningTokens?: unknown
+    firstTokenMs?: unknown
+    durationMs?: unknown
+    model?: string | null
+    costUsd?: unknown
+  }
+  /** fallback(D33 剩余类立):主模型失败切换备用模型的交代,与 SSE `fallback` 帧同源。
+   *  落库保留线上 snake_case(primary_model / backup_model / reason,三字段契约必带、缺一不落);
+   *  消费:web 历史水合换算为 FallbackEvent(camel)挂消息级提示行。 */
+  fallback?: { primary_model: string; backup_model: string; reason: string }
+  /** memoryUpdates(D33 剩余类立):本轮同步提炼出的长期记忆条目摘要数组
+   *  (与 done 事件 memoryUpdates 同源,字符串数组)。
+   *  消费:web 历史水合 seed 进 store.memoryUpdateNotices(MemoryNoticeBar 既有渲染位)。 */
+  memoryUpdates?: string[]
   [key: string]: unknown
 }
 
@@ -471,3 +530,26 @@ export interface ChatResult {
   reasoning?: string
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ============================================================================
+// 消息点赞/点踩(D49①,2026-09-23):右键菜单评价落库,一人一消息一票,改票覆盖
+// ============================================================================
+
+export type MessageRating = 'like' | 'dislike'
+
+export interface RateChatMessageResult {
+  rated: boolean
+  rating: MessageRating
+}
+
+export async function rateChatMessage(input: {
+  messageId: string
+  rating: MessageRating
+}): Promise<RateChatMessageResult> {
+  const res = await fetchApi<RateChatMessageResult>('/api/chat/messages/feedback', {
+    method: 'POST',
+    body: JSON.stringify({ messageId: input.messageId, rating: input.rating }),
+  })
+  if (!res.success) throw new Error(res.error ?? '反馈提交失败')
+  return res.data
+}

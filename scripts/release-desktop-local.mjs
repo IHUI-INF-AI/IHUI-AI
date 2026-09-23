@@ -12,8 +12,9 @@
  * 前置:~/.tauri/ 更新签名密钥;git credential 含 gitee.com token。
  */
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { planArtifactInvariant } from './lib/desktop-artifact-invariant.mjs';
 
 const cwd0 = process.cwd();
 const ROOT = /apps[\\/]desktop$/.test(cwd0) ? path.resolve(cwd0, '../..') : cwd0;
@@ -26,21 +27,41 @@ const GITEE_REPO = 'IHUI-AI';
 
 const NO_INSTALL = process.argv.includes('--no-install');
 const NO_PUSH = process.argv.includes('--no-push');
+const KEEP_VERSION = process.argv.includes('--keep-version');
 const BUMP = process.argv.includes('--minor') ? 'minor' : process.argv.includes('--major') ? 'major' : 'patch';
 
-const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inherit', encoding: 'utf8', ...opts });
+// python 解析:Windows 上裸 `python` 会命中 Microsoft Store 的占位 stub
+// (执行即打印 "Python was not found" 并非零退出 → Gitee 发行阶段必挂),
+// 故优先仓库 venv 绝对路径,不依赖 PATH(AGENTS.md §5b 同一纪律)。
+const PYTHON_CANDIDATES = [
+  path.join(ROOT, 'apps/ai-service/.venv/Scripts/python.exe'),
+  path.join(ROOT, 'apps/ai-service/.venv/bin/python'),
+];
+const pythonBin = PYTHON_CANDIDATES.find((p) => existsSync(p)) ?? 'python3';
+
+const sh = (cmd, opts = {}) => execSync(cmd, { stdio: opts.quiet ? 'pipe' : 'inherit', encoding: 'utf8', windowsHide: true, ...opts });
 
 // ── 1. 版本 bump ──
 const conf = JSON.parse(readFileSync(CONF, 'utf8'));
 const old = conf.version;
 const [maj, mid, pat] = old.split('.').map(Number);
-const version = BUMP === 'major' ? `${maj + 1}.0.0` : BUMP === 'minor' ? `${maj}.${mid + 1}.0` : `${maj}.${mid}.${pat + 1}`;
-conf.version = version;
-writeFileSync(CONF, JSON.stringify(conf, null, 2) + '\n');
-const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
-pkg.version = version;
-writeFileSync(PKG, JSON.stringify(pkg, null, 2) + '\n');
-console.log(`\n=== 版本 ${old} → ${version} ===`);
+const version = KEEP_VERSION
+  ? old
+  : BUMP === 'major'
+    ? `${maj + 1}.0.0`
+    : BUMP === 'minor'
+      ? `${maj}.${mid + 1}.0`
+      : `${maj}.${mid}.${pat + 1}`;
+if (!KEEP_VERSION) {
+  conf.version = version;
+  writeFileSync(CONF, JSON.stringify(conf, null, 2) + '\n');
+  const pkg = JSON.parse(readFileSync(PKG, 'utf8'));
+  pkg.version = version;
+  writeFileSync(PKG, JSON.stringify(pkg, null, 2) + '\n');
+  console.log(`\n=== 版本 ${old} → ${version} ===`);
+} else {
+  console.log(`\n=== 复用当前版本 ${version}(--keep-version,产物已构建)===`);
+}
 
 // ── 2. tauri build(薄壳:前端跳过;env 经 spawnSync 传递,Windows cmd 不支持前缀变量)──
 const keyPath = path.join(process.env.USERPROFILE || '', '.tauri/ihui-updater.key');
@@ -72,6 +93,28 @@ if (!existsSync(exePath) || !existsSync(sigPath)) {
 const exeSize = (statSync(exePath).size / 1e6).toFixed(1);
 console.log(`\n=== 产物: ${exeName} (${exeSize}MB) + sig ===`);
 
+// ── 2b. 单一产物不变量(强制):bundle 目录里**永远只允许存在当前版本这一个包** ──
+// 判据本身抽到 scripts/lib/desktop-artifact-invariant.mjs(纯函数,有单测钉住),
+// 这里只负责执行删除与失败退出 —— 别在脚本里再抄一份过滤逻辑。
+{
+  // 这里不取首轮 violations:缺包/缺 sig 已由上方 existsSync 拦住,多包就是下面要删的 stale,
+  // 真正有判定意义的是**清理后**那一轮。
+  const { keep, stale } = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  for (const f of stale) {
+    rmSync(path.join(NSIS_DIR, f), { force: true })
+    console.log(`🧹 清理旧产物: ${f}`)
+  }
+  const after = planArtifactInvariant(readdirSync(NSIS_DIR), exeName)
+  if (after.violations.length > 0) {
+    console.error(
+      `ERROR: 单一产物不变量被破坏 —— ${after.violations.join(';')}\n` +
+        `  目录 ${NSIS_DIR} 现存产物: ${after.keep.join(', ') || '(空)'}`,
+    )
+    process.exit(1)
+  }
+  console.log(`✅ 单一产物不变量成立: ${keep.length} 件(${exeName} + .sig),目录内无其他版本残留`)
+}
+
 // ── 3. Gitee 直传(python 实现:undici multipart 对 Gitee 报 401,urllib 实证可行)──
 const giteeScript = path.join(ROOT, '.github/scripts/gitee-release-attach.py');
 // 2026-09-17:git credential 里的 gitee 凭证对 API 无效(31 位,实证 401)——
@@ -81,15 +124,22 @@ const giteeTok = existsSync(GITEE_KEY_FILE)
   ? readFileSync(GITEE_KEY_FILE, 'utf8').trim()
   : process.env.GITEE_TOKEN;
 if (!giteeTok) { console.error('ERROR: 无法获取 gitee.com token(密钥文件与环境变量均无)'); process.exit(1); }
-const gr = spawnSync('python', [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
+const gr = spawnSync(pythonBin, [giteeScript, '--tag', `desktop-v${version}`, '--exe', exePath, '--sig', sigPath, '--version', version], {
   stdio: 'inherit',
-  env: { ...process.env, GITEE_TOKEN: giteeTok, DESKTOP_FEED_OUT: path.join(ROOT, '.ihui-agent/desktop-feed/latest.json') }, timeout: 120000,
+  env: { ...process.env, GITEE_TOKEN: giteeTok }, timeout: 120000, windowsHide: true,
 });
 if (gr.status !== 0) { console.error('ERROR: Gitee 发行阶段失败'); process.exit(1); }
-// feed 已改为 release 附件 + 站点快照方案(2026-09-17):
-//   - GitHub/Gitee release desktop-updater-feed 附件由 gitee-release-attach.py 维护
-//   - 站点端点 https://aizhs.top/desktop-feed.json 由 resolve-desktop-download.mjs 刷新快照后部署生效
-//   - 不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)
+// feed 三条链路的**真实归属**(2026-09-22 逐行核对后更正,原注释把 CI 的活记到了本机头上):
+//   ① 客户端主端点 https://aizhs.top/desktop-feed.json
+//      —— 由 resolve-desktop-download.mjs 刷新站点快照 `apps/web/src/config/desktop-feed.generated.ts`
+//         后随 Web 部署生效(CI: sync-downloads.yml / release-desktop.yml)。本机发版脚本**不刷它**。
+//   ② 客户端兜底端点 GitHub release `desktop-updater-feed/latest.json`
+//      —— 由 CI 的 scripts/generate-latest-json.mjs 维护。本机通道走 gitee-release-attach.py 的
+//         replace_gitee_feed + replace_github_feed,而后者开头就 `if not GH_TOKEN: return`,
+//         本机只传 GITEE_TOKEN ⇒ **本机这一条是空转**,别把它当成"已同步双平台"。
+//   ③ Gitee release 附件(安装包直链,供人下载,不在 updater endpoints 里)—— 本机这条真实生效。
+//   曾额外传过一个 DESKTOP_FEED_OUT 环境变量,但 gitee-release-attach.py 全文不读它(死变量,已删)。
+//   不再需要任何 desktop-feed 分支 git 操作(该分支会被仓库单分支守门删除)。
 
 // ── 4. 提交推送版本 bump ──
 if (!NO_PUSH) {
@@ -103,7 +153,7 @@ console.log(`    全平台(macos/linux)如需发布: git tag desktop-v${version}
 
 // ── 5. 本机静默自装 ──
 if (!NO_INSTALL) {
-  const running = spawnSync('tasklist', []).stdout?.toString().toLowerCase().includes('ihui-desktop');
+  const running = spawnSync('tasklist', [], { windowsHide: true }).stdout?.toString().toLowerCase().includes('ihui-desktop');
   if (running) {
     console.log('⚠️ 桌面端正在运行,跳过自装(请关闭后重跑或手动安装)');
   } else {

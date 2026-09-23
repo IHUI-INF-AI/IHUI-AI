@@ -32,12 +32,13 @@ async function api<T>(url: string): Promise<T> {
   return r.data
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  present: '正常',
-  late: '迟到',
-  early: '早退',
-  absent: '缺勤',
-  leave: '请假',
+/** 考勤状态码 → eduParent 取词键;未知码回退原码(与后端比对的全是英文码) */
+const ATTENDANCE_STATUS_KEYS: Record<string, string> = {
+  present: 'attendancePresent',
+  late: 'attendanceLate',
+  early: 'attendanceEarly',
+  absent: 'attendanceAbsent',
+  leave: 'attendanceLeave',
 }
 
 const STATUS_VARIANTS: Record<string, string> = {
@@ -48,9 +49,18 @@ const STATUS_VARIANTS: Record<string, string> = {
   leave: 'bg-blue-100 text-blue-700',
 }
 
+type Translator = (key: string) => string
+
+/** 码 → 取词键 → 本地化文案;未知码回退原码 */
+function codeLabel(t: Translator, keys: Record<string, string>, code: string): string {
+  const key = keys[code]
+  return key ? t(key) : code
+}
+
 export default function ChildAttendancePage() {
   const t = useTranslations('parentPortal')
   const tc = useTranslations('common')
+  const tParent = useTranslations('eduParent')
   const params = useParams()
   const childId = params.childId as string
 
@@ -106,25 +116,25 @@ export default function ChildAttendancePage() {
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-emerald-600">{stats.present}</p>
-                <p className="text-xs text-muted-foreground">{STATUS_LABELS.present}</p>
+                <p className="text-xs text-muted-foreground">{tParent('attendancePresent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-amber-600">{stats.late}</p>
-                <p className="text-xs text-muted-foreground">{STATUS_LABELS.late}</p>
+                <p className="text-xs text-muted-foreground">{tParent('attendanceLate')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-                <p className="text-xs text-muted-foreground">{STATUS_LABELS.absent}</p>
+                <p className="text-xs text-muted-foreground">{tParent('attendanceAbsent')}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="min-[640px]:p-3 p-3 text-center">
                 <p className="text-2xl font-bold text-blue-600">{stats.leave}</p>
-                <p className="text-xs text-muted-foreground">{STATUS_LABELS.leave}</p>
+                <p className="text-xs text-muted-foreground">{tParent('attendanceLeave')}</p>
               </CardContent>
             </Card>
           </div>
@@ -144,7 +154,7 @@ export default function ChildAttendancePage() {
                     <div className="flex items-center gap-3">
                       <div className="text-sm font-medium">{r.date}</div>
                       <Badge className={STATUS_VARIANTS[r.status] ?? ''}>
-                        {STATUS_LABELS[r.status] ?? r.status}
+                        {codeLabel(tParent, ATTENDANCE_STATUS_KEYS, r.status)}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">

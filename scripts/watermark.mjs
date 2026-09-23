@@ -14,15 +14,18 @@
  *   L3 独立隐形标记 —— 文件末尾一行仅含零宽字符的"空行", 删除可见横幅仍可检出
  *
  * 用法:
- *   node scripts/watermark.mjs inject          # 注入水印(幂等: 已注入且载荷完整则跳过; 残迹/载荷损坏先清洗再重注)
- *   node scripts/watermark.mjs verify          # 校验覆盖率 + **载荷可解码性**(未覆盖/残迹/载荷损坏 均 exit 1)
- *   node scripts/watermark.mjs list-uncovered  # 列出 载荷损坏 + 残迹 + 未覆盖(供批量修复管道消费)
- *   node scripts/watermark.mjs decode <file>   # 解码指定文件中的隐写内容
- *   node scripts/watermark.mjs clean <file>    # 移除指定文件的水印(仅限版权所有者自查用)
+ *   node scripts/watermark.mjs inject [file...]   # 注入水印(幂等: 已注入且载荷完整则跳过; 残迹/载荷损坏先清洗再重注); 省略 file 则全树注入
+ *   node scripts/watermark.mjs verify [file...]   # 校验覆盖率 + **载荷可解码性**(未覆盖/残迹/载荷损坏 均 exit 1)
+ *   node scripts/watermark.mjs list-uncovered     # 列出 载荷损坏 + 残迹 + 未覆盖(供批量修复管道消费)
+ *   node scripts/watermark.mjs decode <file>      # 解码指定文件中的隐写内容
+ *   node scripts/watermark.mjs clean <file>       # 移除指定文件的水印(仅限版权所有者自查用)
+ *
+ * verify / list-uncovered 的判定口径 = `git ls-files` ∩ 可注入类型(见 scanCoverage)。
  */
 
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
-import { join, relative, basename, extname, resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { basename, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
@@ -300,8 +303,15 @@ function injectFile(absPath) {
   if (INVISIBLE_RE.test(text) && payloadIntact(text)) return 'skip-done'
   // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
   if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
-  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注
-  if (text.includes(BANNER_ID) || INVISIBLE_RE.test(text)) {
+  // 残迹态(只有横幅文本、载荷被剥离)与**载荷损坏**(存在但解码不符)统一走清洗重注。
+  // 2026-09-22 补第三类触发:横幅文本存在但**从未有过载荷**(裸两行版权头)。旧实现只在
+  // "见到 BANNER_ID 或零宽字符"时才清洗 ⇒ 这类文件被直接前置一条新横幅,留下**双横幅**,
+  // 而此后载荷已完整 ⇒ 恒走 skip-done ⇒ 重复头永久冻结(实测 141 个已跟踪文件,119 个已入 main)。
+  if (
+    text.includes(BANNER_ID) ||
+    INVISIBLE_RE.test(text) ||
+    text.split('\n').some(isBannerLine)
+  ) {
     try {
       cleanFile(absPath)
       text = readFileSync(absPath, 'utf8').replace(/^\uFEFF/, '')
@@ -345,8 +355,10 @@ function injectFile(absPath) {
 
 // 横幅行形态:剥掉行首注释前缀(// # --)后按**行首锚定**判定,
 // 避免误伤源码里出现的 BANNER_ID 常量 / 正则定义(如 check-watermark-syntax.mjs)。
+// 版权行必须带 ` (智汇AI)` 品牌段:2026-09-22 实测 `apps/api/scripts/verify-carrier.ts`
+// 的说明行 `// © 2026 IHUI AI · 运营商一键登录后端集成自检…` 会被旧锚整行删除。
 const BANNER_TEXT_RE =
-  /^(?:©\s*\d{4}\s+IHUI\s+AI|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
+  /^(?:©\s*\d{4}\s+IHUI\s+AI\s*\(智汇AI\)|Provenance-watermarked(?:\.|\s)|\[IHUI-AI-PROVENANCE\]\s*:)/
 function isBannerLine(line) {
   return BANNER_TEXT_RE.test(line.trim().replace(/^\s*(\/\/|#|--)\s*/, ''))
 }
@@ -425,38 +437,93 @@ function findMarks(text) {
   return [...text.matchAll(new RegExp(INVISIBLE_RE, 'g'))].map((m) => decodePayload(m[0]))
 }
 
-function scanCoverage() {
+/**
+ * 水印判定口径的文件集合 = `git ls-files`(与 check-watermark-coverage.mjs 同一份集合)。
+ *
+ * verify 此前走 walk(ROOT) 全树遍历, 只按 SKIP_DIRS 猜、不认 .gitignore, 于是把
+ * `.ihui-agent/**` 等本机未跟踪产物一并计入 → 本机恒报 2000+ 缺口而 CI 恒绿,
+ * 把每个本地核验的 agent 引向"仓库有几千个水印问题"的错觉(AGENTS §5c 口径是"只统计 git 跟踪文件")。
+ * 用 `-z`: 默认输出会按 core.quotePath 把非 ASCII 文件名转义成八进制串, 那种路径永远对不上真实文件。
+ */
+function gitTrackedFiles() {
+  let out
+  try {
+    out = execFileSync('git', ['-c', 'safe.directory=*', 'ls-files', '-z'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
+    })
+  } catch (e) {
+    console.error(`[watermark] 取不到 git 跟踪清单: ${String(e?.message ?? e).split('\n')[0]}`)
+    console.error('  水印口径以 `git ls-files` 为准; 清单缺失时绝不按"已覆盖"放行。')
+    process.exit(1)
+  }
+  return out
+    .split('\0')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+// walk() 是按目录名剪枝的, 跟踪清单必须同样排除: 已跟踪的第三方目录
+// (apps/desktop/src-tauri/vendor/**) 一旦不再排除就凭空多出假缺口。
+function underSkipDir(rel) {
+  const dirs = rel.split('/').slice(0, -1)
+  return dirs.some((seg) => SKIP_DIRS.has(seg))
+}
+
+/** 显式传参时按参数收窄范围, 不留"传了参数却静默跑全局"的误导 */
+function scopeFromArgs(args) {
+  return args.map((a) => {
+    const abs = [resolve(process.cwd(), a), resolve(ROOT, a)].find(
+      (p) => existsSync(p) && statSync(p).isFile(),
+    )
+    if (!abs) {
+      console.error(`[watermark] 找不到可校验的文件(需为已存在的普通文件): ${a}`)
+      process.exit(1)
+    }
+    return relative(ROOT, abs).replaceAll('\\', '/')
+  })
+}
+
+function scanCoverage(scope) {
   let total = 0,
     marked = 0,
-    residue = 0
+    residue = 0,
+    skipped = 0
   const missing = []
   const residues = []
   const corrupted = []
-  for (const abs of walk(ROOT)) {
-    const name = basename(abs)
-    if (SKIP_FILES.has(name)) continue
+  const candidates = scope ?? gitTrackedFiles().filter((rel) => !underSkipDir(rel))
+  for (const rel of candidates) {
+    const abs = join(ROOT, rel)
+    if (SKIP_FILES.has(basename(abs))) continue
     if (BINARY_EXT.has(extname(abs).toLowerCase())) continue
     if (!styleFor(abs)) continue
+    // 已跟踪但工作区无此文件(并行会话删文件未提交 / 部分 checkout): 无从校验, 不计入分母
+    if (!existsSync(abs)) {
+      skipped++
+      continue
+    }
     total++
     const text = readFileSync(abs, 'utf8')
     const hasPayload = INVISIBLE_RE.test(text)
     const hasBannerText = text.includes(BANNER_ID)
     if (hasPayload && payloadIntact(text)) marked++
-    else if (hasPayload)
-      corrupted.push(relative(ROOT, abs).replaceAll('\\', '/')) // 载荷存在但已损坏
-    else if (hasBannerText) {
+    else if (hasPayload) {
+      corrupted.push(rel) // 载荷存在但已损坏
+    } else if (hasBannerText) {
       residue++ // 残迹: 只有横幅文本、载荷已丢失,水印形同虚设
-      residues.push(relative(ROOT, abs).replaceAll('\\', '/'))
-    } else missing.push(relative(ROOT, abs).replaceAll('\\', '/'))
+      residues.push(rel)
+    } else missing.push(rel)
   }
-  return { total, marked, residue, missing, residues, corrupted }
+  return { total, marked, residue, skipped, missing, residues, corrupted }
 }
 
-function verifyAll() {
-  const { total, marked, residue, missing, residues, corrupted } = scanCoverage()
-  const skipped = 0
+function verifyAll(scope) {
+  const { total, marked, residue, skipped, missing, residues, corrupted } = scanCoverage(scope)
   console.log(
-    `[watermark:verify] 覆盖 ${marked}/${total} 个文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个`,
+    `[watermark:verify] 覆盖 ${marked}/${total} 个${scope ? '指定' : '已跟踪'}文件, 残迹(载荷丢失) ${residue} 个, 载荷损坏 ${corrupted.length} 个, 跳过 ${skipped} 个`,
   )
   if (residue) {
     console.log(`残迹文件 ${residue} 个(需 clean 后重新注入), 示例(前 15):`)
@@ -472,24 +539,28 @@ function verifyAll() {
     missing.slice(0, 30).forEach((f) => console.log('  - ' + f))
     process.exitCode = 1
   } else if (!residue && !corrupted.length) {
-    console.log('全部源文件均已携带完整溯源水印。')
+    console.log('纳入口径的文件均已携带完整溯源水印。')
   }
 }
 
 // ---------- 主流程 ----------
-const [cmd, target] = process.argv.slice(2)
+const [cmd, ...rest] = process.argv.slice(2)
+const target = rest[0]
 
 if (cmd === 'inject') {
-  // 单文件模式: inject <file>(与 usage 声明一致;残迹文件会先内部 clean 再注入)
-  if (target) {
-    const abs = resolve(target)
-    if (!existsSync(abs)) {
-      console.error(`文件不存在: ${target}`)
-      process.exit(1)
+  // 文件模式: inject <file>...(与 usage 声明一致;残迹文件会先内部 clean 再注入)
+  if (rest.length) {
+    for (const t of rest) {
+      const abs = resolve(t)
+      if (!existsSync(abs)) {
+        console.error(`文件不存在: ${t}`)
+        process.exitCode = 1
+        continue
+      }
+      const r = injectFile(abs)
+      console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
+      if (r === 'skip-type' || r === 'skip-binary') process.exitCode = 1
     }
-    const r = injectFile(abs)
-    console.log(`[watermark:inject] ${relative(ROOT, abs).replaceAll('\\', '/')} → ${r}`)
-    if (r === 'skip-type' || r === 'skip-binary') process.exitCode = 1
   } else {
     let n = 0,
       done = 0,
@@ -505,10 +576,10 @@ if (cmd === 'inject') {
     console.log(`[watermark:inject] 新注入 ${n} 个, 已有 ${done} 个, 跳过(类型/二进制) ${skip} 个`)
   }
 } else if (cmd === 'verify') {
-  verifyAll()
+  verifyAll(rest.length ? scopeFromArgs(rest) : null)
 } else if (cmd === 'list-uncovered') {
   // 供批量修复管道消费: 先损坏后残迹再未覆盖, 每行一个相对路径
-  const { missing, residues, corrupted } = scanCoverage()
+  const { missing, residues, corrupted } = scanCoverage(rest.length ? scopeFromArgs(rest) : null)
   ;[...corrupted, ...residues, ...missing].forEach((f) => console.log(f))
 } else if (cmd === 'decode') {
   if (!target || !existsSync(target)) {
@@ -537,6 +608,8 @@ if (cmd === 'inject') {
   }
   console.log(`[watermark:clean-all] 已清理 ${n} 个文件的水印`)
 } else {
-  console.log('用法: node scripts/watermark.mjs <inject|verify|decode|clean|clean-all> [file]')
+  console.log(
+    '用法: node scripts/watermark.mjs <inject|verify|list-uncovered|decode|clean|clean-all> [file...]',
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

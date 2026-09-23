@@ -207,6 +207,37 @@ jobs:
           echo "如需回滚, 重新运行此 workflow 并勾选 rollback=true"
           echo "旧环境 $ACTIVE 仍以独立端口运行, 可随时切换回去"
 
+      # 部署失败品牌邮件通知(2026-09-21 立):GitHub 平台默认失败通知是纯文本,
+      # 无法替换;此处在失败分支补发「智汇通报」品牌告警邮件(复用 email-templates,零漂移)。
+      # 配置后可在 GitHub 个人通知设置中关闭 Actions 失败邮件,只收品牌版。
+      - name: Install pnpm (failure notify)
+        if: failure()
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js (failure notify)
+        if: failure()
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 部署失败品牌邮件通知
+        if: failure()
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+        run: |
+          pnpm install --frozen-lockfile --filter @ihui/api... >/dev/null 2>&1 || \
+            pnpm install --filter @ihui/api...
+          pnpm --filter @ihui/api exec tsx scripts/notify-deploy-failure.ts \
+            --environment "${{ inputs.environment }}" \
+            --stage "job=${{ github.job }} / run#${{ github.run_attempt }}" \
+            --trigger "${{ github.actor }}" \
+            --source "blue-green-deploy" \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: 部署摘要
         if: always()
         run: |

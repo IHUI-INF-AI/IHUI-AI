@@ -36,6 +36,17 @@ from .message_bus import ChannelType, Message, message_bus
 
 logger = logging.getLogger(__name__)
 
+
+def _bg_model_tools_enabled_from_env() -> bool:
+    """批58 接线(对标 codex model_tools.rs):完成通知附 host 侧 async 投递载荷。
+
+    默认 off:Message.metadata 仅含既有两键(逐字节等价);设为 on/1/true/yes 时
+    额外附加 build_async_user_notification 产出的 async_notification 投影。
+    """
+    return os.environ.get("MCP_MODEL_TOOLS_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
 # 模块级并发上限(env 可配,默认 10)。超限直接拒绝,不排队,保持简单。
 MAX_CONCURRENT = max(1, int(os.environ.get("BACKGROUND_TASK_MAX_CONCURRENT", "10")))
 
@@ -248,10 +259,22 @@ class BackgroundTaskManager:
             return
         try:
             content = self._format_notification(record)
+            metadata: dict[str, Any] = {
+                "to_user_id": record.user_id,
+                "task_id": record.task_id,
+            }
+            # 批58:MCP_MODEL_TOOLS_ENABLED on 时附加 async 投递投影(失败降级不带)
+            if _bg_model_tools_enabled_from_env():
+                try:
+                    from app.core.model_tools_57 import build_async_user_notification
+
+                    metadata["async_notification"] = build_async_user_notification(content)
+                except Exception as e:  # noqa: BLE001 - 投影失败降级不附加
+                    logger.warning("[BackgroundTask] async 通知投影失败(降级不附加): %s", e)
             msg = Message(
                 id=uuid.uuid4().hex,
                 content=content,
-                metadata={"to_user_id": record.user_id, "task_id": record.task_id},
+                metadata=metadata,
             )
             publish_result = await message_bus.publish(
                 msg, channels=[ChannelType.IM], priority="normal"

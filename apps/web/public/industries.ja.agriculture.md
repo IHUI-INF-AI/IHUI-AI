@@ -140,13 +140,13 @@
 | データ層                                    |
 | - 農業ナレッジグラフ + 病虫害 DB              |
 | - 歴年気象データ + 土壌データベース            |
-| - PostgreSQL 16 + 時系列 DB                  |
+| - PostgreSQL 18 + 時系列 DB                  |
 +-----------------------------------------+
 ```
 
 ### IHUI AI エンドツーエンド能力 (8 エンド対応)
 - **Web** (Next.js 16 + React 19): 圃場ダッシュボード / 意思決定コックピット
-- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 16): 農業データ API
+- **API** (Fastify 5 + Drizzle 0.38 + PostgreSQL 18): 農業データ API
 - **AI Service** (FastAPI + LangGraph + LiteLLM + MCP): マルチエージェント協調
 - **デスクトップ** (Tauri 2): 農業専門家ワークステーション (オフライン対応)
 - **拡張** (WXT): ブラウザ側相場データ収集
@@ -162,7 +162,7 @@
 
 ### 技術スタック
 - フロントエンド: Next.js 16 + React 19 + Tailwind 4 + shadcn/ui
-- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 16
+- バックエンド: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 18
 - AI Service: FastAPI + LangGraph + LiteLLM + MCP
 - マルチエンド: Tauri 2 (デスクトップ) / WXT (拡張) / React Native (モバイル) / Taro 4 (ミニプログラム) / Node.js CLI
 - エッジ推論: Ollama + Qwen2.5-72B (圃場キャビネット)
@@ -188,7 +188,7 @@
 | 平均投資回収周期 | 6 ヶ月 |
 | 12 ヶ月 ROI | 240% |
 
-(テスト環境: エンタープライズ版中型デプロイ、エッジノード含む、PostgreSQL 16、時系列 DB)
+(テスト環境: エンタープライズ版中型デプロイ、エッジノード含む、PostgreSQL 18、時系列 DB)
 
 ### よくある質問 FAQ
 - Q: 圃場にネットワークがない場合は?

@@ -29,7 +29,7 @@
  *  即"吊销"对 JWT 直连的业务接口要到 exp 才生效。补齐需要在 plugins/auth.ts 里
  *  接一次 `TokenBlacklist.has()`,该文件在本任务禁改清单内,故只交付接线代码(见交付说明)。
  */
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { decodeJwt } from 'jose'
 import {
@@ -204,7 +204,13 @@ export const oauthTokensRoutes: FastifyPluginAsync = async (server) => {
         client_secret: body.client_secret,
       })
       if (!client.ok) {
-        return fail(reply, issuer, client.status, client.error as OAuthErrorCode, client.description)
+        return fail(
+          reply,
+          issuer,
+          client.status,
+          client.error as OAuthErrorCode,
+          client.description,
+        )
       }
       const publicGate = publicClientGate(client.publicClient)
       if (publicGate) {
@@ -261,7 +267,13 @@ export const oauthTokensRoutes: FastifyPluginAsync = async (server) => {
         client_secret: parsed.data.client_secret,
       })
       if (!client.ok) {
-        return fail(reply, issuer, client.status, client.error as OAuthErrorCode, client.description)
+        return fail(
+          reply,
+          issuer,
+          client.status,
+          client.error as OAuthErrorCode,
+          client.description,
+        )
       }
       const info = await buildIntrospection(server, parsed.data.token, parsed.data.token_type_hint)
       return reply.type('application/json').send(info)
@@ -296,9 +308,19 @@ export const oauthTokensRoutes: FastifyPluginAsync = async (server) => {
         client_secret: parsed.data.client_secret,
       })
       if (!client.ok) {
-        return fail(reply, issuer, client.status, client.error as OAuthErrorCode, client.description)
+        return fail(
+          reply,
+          issuer,
+          client.status,
+          client.error as OAuthErrorCode,
+          client.description,
+        )
       }
-      const outcome = await revokePresentedToken(server, parsed.data.token, parsed.data.token_type_hint)
+      const outcome = await revokePresentedToken(
+        server,
+        parsed.data.token,
+        parsed.data.token_type_hint,
+      )
       if (outcome === 'redis_unavailable') {
         return fail(
           reply,
@@ -322,7 +344,7 @@ export const oauthTokensRoutes: FastifyPluginAsync = async (server) => {
 
 type TokenBody = z.infer<typeof tokenRequestSchema>
 /** 本文件所有子函数只需要实例上的 log + redis,显式收窄成这个别名。 */
-type OAuthServer = import('fastify').FastifyInstance
+type OAuthServer = FastifyInstance
 
 /** authorization_code:原子消费 code → PKCE 闸门 → 签用户令牌对。 */
 async function handleAuthorizationCodeGrant(
@@ -410,7 +432,13 @@ async function handleRefreshTokenGrant(
     if (stored?.revokedAt) {
       // 重用检测:重放即全族失效(同一 family 内攻击者与受害者不能并存)
       if (payload.familyId) await revokeFamilyByFamilyId(payload.familyId)
-      return fail(reply, issuer, 400, 'invalid_grant', 'refresh_token 已被重用,该 token family 已全部撤销')
+      return fail(
+        reply,
+        issuer,
+        400,
+        'invalid_grant',
+        'refresh_token 已被重用,该 token family 已全部撤销',
+      )
     }
     return fail(reply, issuer, 400, 'invalid_grant', 'refresh_token 无效或已过期')
   }
@@ -419,7 +447,10 @@ async function handleRefreshTokenGrant(
   }
   const user = await findUserById(payload.userId)
   if (!user) return fail(reply, issuer, 400, 'invalid_grant', '授权用户不存在')
-  const tokens = await buildTokenPair({ ...user, familyId: payload.familyId || user.familyId || null })
+  const tokens = await buildTokenPair({
+    ...user,
+    familyId: payload.familyId || user.familyId || null,
+  })
   const payloadBody: TokenSuccessBody = {
     access_token: tokens.accessToken,
     token_type: 'Bearer',
@@ -446,7 +477,9 @@ async function buildIntrospection(
 ): Promise<IntrospectionResponse> {
   const prefersRefresh = hint === 'refresh_token'
   const refreshFirst = prefersRefresh ? tryRefreshTokenIntrospection : tryAccessTokenIntrospection
-  const refreshFallback = prefersRefresh ? tryAccessTokenIntrospection : tryRefreshTokenIntrospection
+  const refreshFallback = prefersRefresh
+    ? tryAccessTokenIntrospection
+    : tryRefreshTokenIntrospection
   const first = await refreshFirst(server, token)
   if (first?.active) return first
   const second = await refreshFallback(server, token)
@@ -529,7 +562,9 @@ async function revokePresentedToken(
   hint: string | undefined,
 ): Promise<'revoked' | 'not_found' | 'redis_unavailable'> {
   const wantsRefresh = hint === 'refresh_token'
-  const order: Array<'refresh' | 'access'> = wantsRefresh ? ['refresh', 'access'] : ['access', 'refresh']
+  const order: Array<'refresh' | 'access'> = wantsRefresh
+    ? ['refresh', 'access']
+    : ['access', 'refresh']
   let sawToken = false
   for (const kind of order) {
     if (kind === 'access') {
@@ -560,7 +595,10 @@ async function revokePresentedToken(
 }
 
 /** 供发现文档/审计读取的当前 PKCE+公开客户端策略快照(单一真相源在 config)。 */
-export function currentOAuthPolicySnapshot(): { requirePkce: boolean; allowPublicWithoutSecret: boolean } {
+export function currentOAuthPolicySnapshot(): {
+  requirePkce: boolean
+  allowPublicWithoutSecret: boolean
+} {
   return {
     requirePkce: config.OAUTH_REQUIRE_PKCE,
     allowPublicWithoutSecret: config.OAUTH_ALLOW_PUBLIC_WITHOUT_SECRET,

@@ -209,6 +209,12 @@ async def lifespan(app: FastAPI) -> Any:
     from app.services.news_scheduler import news_scheduler
     news_scheduler.start()
 
+    # 生产 ⇄ 开发 数据库全表自动同步调度器(2026-09-22 立)
+    # 用户要求:所有表都要同步,且自动化跑在自己程序里(不再依赖外部调度器)。
+    # 由 DB_SYNC_ENABLED 控制开关(默认 false);生产机缺 db-sync.local.json 时静默待机。
+    from app.services.db_sync_scheduler import db_sync_scheduler
+    db_sync_scheduler.start()
+
     # 模型可用性服务(2026-07-31 立,用户规则:只显示可完美接通调用的模型)
     # 启动时后台跑首次 ping(不阻塞 FastAPI 启动)+ 每 5 分钟定时刷新 provider 健康状态。
     # /llm/models 端点调用 model_availability.get_available_models() 过滤不可用模型。
@@ -527,6 +533,9 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭资讯板块每日自动刷新调度器
     from app.services.news_scheduler import news_scheduler
     await news_scheduler.stop()
+    # 关闭数据库同步调度器(不打断已在运行的子进程,等它跑完)
+    from app.services.db_sync_scheduler import db_sync_scheduler
+    await db_sync_scheduler.stop()
     # 关闭视频生成 worker(取消轮询任务)
     try:
         from app.services.video_generation import stop_video_worker
@@ -731,6 +740,10 @@ def create_app() -> FastAPI:
     # 2026-08-01 新增:Cookie 自动保活守护进程(Playwright headless 每 6 小时刷新)
     from app.services.publish.cookie_refresh_daemon import router as cookie_refresh_router
     app.include_router(cookie_refresh_router, prefix="/api", tags=["publish-cookie-refresh"])
+
+    # 数据库同步调度器端点 /api/db-sync/{status,trigger,drift}
+    from app.services.db_sync_scheduler import router as db_sync_router
+    app.include_router(db_sync_router, prefix="/api", tags=["db-sync"])
     # 2026-07-31 新增:Browser Hub(CDP 完整 Chrome 内置浏览器)
     # WebSocket 画面流 + REST API + 鼠标键盘事件回传
     from app.routers import browser_hub as browser_hub_router

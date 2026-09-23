@@ -182,9 +182,9 @@ export default function LessonListItem({
               )}
               <Text className="lli-pill-text">
                 {data.vipOnly
-                  ? tt('LessonListItem.p1', 'VIP鍙湅')
+                  ? tt('LessonListItem.p1', 'VIP可看')
                   : data.price !== undefined
-                    ? tt('LessonListItem.p2', '浠樿垂椤圭洰')
+                    ? tt('LessonListItem.p2', '付费项目')
                     : ''}
               </Text>
             </View>

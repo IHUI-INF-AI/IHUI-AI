@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type {
+  DoneFuncWithErrOrRes,
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyRequest,
+  FastifyReply,
+} from 'fastify'
 import fp from 'fastify-plugin'
 
 /**
@@ -98,12 +104,28 @@ const xssProtectionPlugin: FastifyPluginAsync = async (server: FastifyInstance) 
   })
 
   // 补充浏览器侧 XSS 防护头
-  server.addHook('onSend', async (_request: FastifyRequest, reply: FastifyReply) => {
-    reply.header('X-XSS-Protection', '1; mode=block')
-    reply.header('X-Content-Type-Options', 'nosniff')
-    reply.header('X-Frame-Options', 'SAMEORIGIN')
-    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin')
-  })
+  //
+  // 刻意用**回调风格**而不是 async(2026-09-22):async onSend 返回 Promise,会让
+  // Fastify 5 的 `onSendHookRunner` 走 `result.then(handleResolve)`,把后续 writeHead
+  // 推到下一个微任务,于是同一次响应里出现"headers 已写出但 raw.writableEnded 尚未置位"
+  // 的交错窗口 —— 第二次 send() 能穿过 `reply.sent` 守卫,最终表现为生产日志里成对的
+  // ERR_HTTP_HEADERS_SENT + FST_ERR_REP_ALREADY_SENT WARN 级联。本钩子体内没有任何
+  // await,同步 `done()` 让整条钩子链在同一个调用栈内走完,窗口从源头消失。
+  server.addHook(
+    'onSend',
+    (
+      _request: FastifyRequest,
+      reply: FastifyReply,
+      _payload: unknown,
+      done: DoneFuncWithErrOrRes,
+    ) => {
+      reply.header('X-XSS-Protection', '1; mode=block')
+      reply.header('X-Content-Type-Options', 'nosniff')
+      reply.header('X-Frame-Options', 'SAMEORIGIN')
+      reply.header('Referrer-Policy', 'strict-origin-when-cross-origin')
+      done()
+    },
+  )
 
   // 暴露净化工具供路由按需调用（如富文本字段二次校验）
   server.decorate('sanitizeInput', sanitizeValue)

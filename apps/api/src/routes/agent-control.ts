@@ -14,6 +14,8 @@
  * category 与执行端一一对应(见 CATEGORY_ENDPOINT):
  *  - browser  → extension(外部网页 DOM 操作 + 截图)
  *  - computer → desktop(操作系统级鼠标键盘/剪贴板)
+ *  - ext_ui   → extension(2026-09-21 立,扩展自有界面 sidepanel/popup:与 web 同七动词,
+ *               靠同源 DOM 定位;与 browser 同 endpoint 但不同 category,互不抢指令)
  *  - ui       → web(2026-09-20 立,只操控自家应用页面:站内导航 / 按钮点击 / 表单填写 /
  *               命令面板调用。目标靠前端的 web_ui_describe 返回的 actionId 定位,而非任意
  *               CSS 选择器或系统级输入,因此无需 OS 权限也不触及第三方站点)
@@ -29,7 +31,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { timingSafeEqual } from 'node:crypto'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
-import { authenticate, checkAuth } from '../plugins/auth.js'
+import { authenticate, checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
@@ -73,6 +75,12 @@ const _pending = new Map<string, PendingRequest>()
 const ENDPOINT_TTL_MS = 5 * 60 * 1000
 
 /**
+ * 钉定实例的"活性容差":前端每 60s 保活上报一次,落后超过一个周期即视为该页面
+ * 已被重载/关闭留下(注册表要到 5min TTL 才清,中间这段时间它仍然"存在")。
+ */
+const PIN_STALE_GAP_MS = 60 * 1000
+
+/**
  * category → 执行端映射(穷举 Record,新增 category 必须同步登记,
  * 否则 tsc 直接报错)。此前是 `category === 'browser' ? 'extension' : 'desktop'`
  * 三元硬编码,加入第三种 category='ui' 后会把 web 指令误配到 desktop。
@@ -85,6 +93,9 @@ const CATEGORY_ENDPOINT: Record<
   computer: 'desktop',
   ui: 'web',
   app_ui: 'rn',
+  // 扩展自有界面:与 browser 共用 endpoint='extension',但 category 必须分开
+  // (同一 endpoint 上两类执行面 —— 外部网页 DOM 与扩展面板 DOM —— 若同类就会互抢指令)
+  ext_ui: 'extension',
   miniapp_ui: 'miniapp',
 }
 
@@ -95,6 +106,7 @@ const CATEGORY_LABEL: Record<AgentActionRequest['category'], string> = {
   ui: 'Web 前端',
   app_ui: '移动端',
   miniapp_ui: '小程序端',
+  ext_ui: '扩展面板',
 }
 
 function cleanupStaleEndpoints(): void {
@@ -123,7 +135,19 @@ function findEndpointByCategory(
       pinned.capability.endpoint === targetEndpoint &&
       (!userId || pinned.userId === userId)
     ) {
-      return pinned
+      // **必须再验活性**:页面重载/关闭后该 instance 不会再来心跳,但注册表按
+      // ENDPOINT_TTL_MS(5min) 仍留着它 —— 直接返回 pinned 会把每一条后续动作推到
+      // 一条已死的 socket 上,表现为完全看不出根因的 20s TIMEOUT(2026-09-21 真实
+      // 聊天 round-trip 复现:describe 53ms 就回,而钉住旧实例的那次 invoke 走了满超时)。
+      // 判据用"相对落后量"而非绝对时限:活页面每 60s 保活一次,所以落后不足一个保活周期
+      // 就是真活着(多标签页并存时不得降级,否则又回到命令散射的老问题)。
+      let newestSeen = pinned.lastSeen
+      for (const ep of _endpoints.values()) {
+        if (ep.capability.endpoint !== targetEndpoint) continue
+        if (userId && ep.userId !== userId) continue
+        if (ep.lastSeen > newestSeen) newestSeen = ep.lastSeen
+      }
+      if (newestSeen - pinned.lastSeen < PIN_STALE_GAP_MS) return pinned
     }
   }
   let best: RegisteredEndpoint | null = null
@@ -151,13 +175,15 @@ const capabilitySchema = z.object({
   uiActions: z.array(z.string()).max(20).optional(),
   appUiActions: z.array(z.string()).max(10).optional(),
   taroUiActions: z.array(z.string()).max(10).optional(),
+  // 上限按 web 同档(20):七动词已用掉 7,留 10 的上限会让下一次扩动词整条上报 400
+  extUiActions: z.array(z.string()).max(20).optional(),
   version: z.string().optional(),
   reportedAt: z.string(),
 })
 
 const executeSchema = z.object({
   requestId: z.string().min(1).max(100),
-  category: z.enum(['browser', 'computer', 'ui', 'app_ui', 'miniapp_ui']),
+  category: z.enum(['browser', 'computer', 'ui', 'app_ui', 'miniapp_ui', 'ext_ui']),
   action: z.string().min(1).max(100),
   params: z.record(z.string(), z.unknown()).default({}),
   toolCallId: z.string().optional(),
@@ -327,20 +353,28 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // GET /status - 查询已注册的端(管理/调试用)
   // -------------------------------------------------------------------------
   server.get('/status', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
+    // 两条凭据都收:①用户 JWT(前端/端侧自查);②内部服务凭据(ai-service 在 tool loop 前
+    // 要问"这个用户此刻哪些端在线",据此决定该自主注入哪一族工具 —— 不依赖客户端关键词命中)。
+    if (!(await checkAuthOrInternalService(request, reply))) return
 
     cleanupStaleEndpoints()
-    const endpoints = Array.from(_endpoints.values()).map((ep) => ({
-      endpoint: ep.capability.endpoint,
-      instanceId: ep.capability.instanceId,
-      version: ep.capability.version,
-      lastSeen: new Date(ep.lastSeen).toISOString(),
-      browserActions: ep.capability.browserActions?.length ?? 0,
-      computerActions: ep.capability.computerActions?.length ?? 0,
-      uiActions: ep.capability.uiActions?.length ?? 0,
-      appUiActions: ep.capability.appUiActions?.length ?? 0,
-      taroUiActions: ep.capability.taroUiActions?.length ?? 0,
-    }))
+    // **按用户过滤**(2026-09-21 修):原先返回全表,等于任何登录用户都能读到别人端点的
+    // instanceId / 版本 / 动作数。多用户部署下这是跨租户信息泄漏,与 /execute 早先的
+    // userId 越权修复同源,一并收口。
+    const endpoints = Array.from(_endpoints.values())
+      .filter((ep) => ep.userId === request.userId)
+      .map((ep) => ({
+        endpoint: ep.capability.endpoint,
+        instanceId: ep.capability.instanceId,
+        version: ep.capability.version,
+        lastSeen: new Date(ep.lastSeen).toISOString(),
+        browserActions: ep.capability.browserActions?.length ?? 0,
+        computerActions: ep.capability.computerActions?.length ?? 0,
+        uiActions: ep.capability.uiActions?.length ?? 0,
+        appUiActions: ep.capability.appUiActions?.length ?? 0,
+        taroUiActions: ep.capability.taroUiActions?.length ?? 0,
+        extUiActions: ep.capability.extUiActions?.length ?? 0,
+      }))
 
     return reply.send(
       success({

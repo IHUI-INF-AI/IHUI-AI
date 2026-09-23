@@ -16,12 +16,13 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import require_request_user_id
 from ..core.sse_buffer import sse_buffer
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -46,6 +47,7 @@ from ..services.agent_events import (
 from ..services.agent_loop import agent_executor
 from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
 from ..services.memory import memory_store
+from ..services.run_ownership import owner_of, record_ownership, release_ownership
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
 
@@ -407,13 +409,34 @@ _map_hook_event_to_sse = map_hook_event_to_sse
 
 
 @router.get("/agents/tasks/stream")
-async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingResponse:
+async def stream_agent_tasks(
+    request: Request,
+    agentId: str = "",
+    current_user: str = Depends(require_request_user_id),
+) -> StreamingResponse:
     """L5-10(2026-08-12):AgentLoopV2 实时事件订阅(workbench runtime 视图)。
 
     通过 hook_engine 订阅器实时推送 tool_call/tool_result/error/session 事件
     (按 agentId=session_id 过滤)。AgentLoopV2 执行器启用(AGENT_EXECUTOR=loop_v2)
     后,execute/stream 的事件会在此实时可见;未启用时无事件源(静默心跳)。
+
+    O19(2026-09-21)属主过滤:hook_engine 是**进程级广播**,旧实现只在 agentId 非空时
+    过滤,agentId="" 即把全站正在跑的会话事件(含工具入参/结果预览)推给任意订阅者。
+    现在:
+      ① 必须登录(拿不到 principal 直接 401,不再依赖中间件白名单是否放行);
+      ② 只转发属主==当前请求者的事件,**无属主记录的事件一律不转发**(fail-closed;
+         登记表 run_ownership 只在同进程 run 启动时写入,重启/跨进程查不到 ⇒ 不转发,
+         宁可用不上实时视图也不泄漏他人事件);
+      ③ 显式传 agentId 且该会话属主是**别人**(可判定)→ 403,让误用可见而非静默空流。
+         属主未知(非本进程启动的会话)不进 403 分支,由 ② 兜住。
+    心跳保留,连接不因过滤而关闭。
     """
+    if agentId:
+        known_owner = owner_of(agentId)
+        if known_owner is not None and known_owner != current_user:
+            raise HTTPException(
+                status_code=403, detail="该会话不属于当前用户,无法订阅其事件流"
+            )
 
     async def event_generator() -> AsyncIterator[str]:
         from ..services.hook_engine import hook_engine
@@ -438,9 +461,11 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
                     got = True
                     # P0-5:thinking.delta/plan.step payload 以 run_id(=workbench
                     # session_id)承载,无 session_id 键 → 回退 run_id 参与会话过滤
-                    if agentId and (
-                        payload.get("session_id") or payload.get("run_id")
-                    ) not in (agentId, ""):
+                    key = str(payload.get("session_id") or payload.get("run_id") or "")
+                    if agentId and key != agentId:
+                        continue
+                    # O19:属主不等于请求者(含"查无属主")一律不转发
+                    if owner_of(key) != current_user:
                         continue
                     sse_evt = {
                         "type": map_hook_event_to_sse(evt),
@@ -464,14 +489,28 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
 
 
 @router.get("/agents/{agent_id}/stream")
-async def stream_agent_logs(request: Request, agent_id: str) -> StreamingResponse:
+async def stream_agent_logs(
+    request: Request,
+    agent_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> StreamingResponse:
     """L5-12(2026-08-12):Agent 运行日志 SSE(AgentRuntimeLog 断线修复)。
 
     按 agent_id(=session_id)过滤 hook_engine 事件,映射为前端 AgentRuntimeLog
     期望的 LogEntry 格式 {type, content, ts, success}。此前双端无此路由,
     workbench AgentRuntimeLog 组件 404 断线——与 tasks/stream 同一事件源,
     不同展示格式(日志型 vs 事件型)。
+
+    O19:与 tasks/stream 同一套属主过滤(共用 run_ownership 登记表)——
+    ① 必须登录;② 属主可判定且非请求者 → 403;③ 逐事件 fail-closed,
+    无属主记录的事件不转发(旧实现只比 session_id 字面量,猜到他人 session_id
+    即可旁听其实时工具事件,这一层现在补上)。
     """
+    known_owner = owner_of(agent_id)
+    if known_owner is not None and known_owner != current_user:
+        raise HTTPException(
+            status_code=403, detail="该会话不属于当前用户,无法订阅其运行日志"
+        )
 
     async def event_generator() -> AsyncIterator[str]:
         from ..services.hook_engine import hook_engine
@@ -494,7 +533,8 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
                         continue
                     got = True
                     # thinking.delta/plan.step 以 run_id(=session_id)承载,无 session_id 键
-                    if (payload.get("session_id") or payload.get("run_id")) not in (agent_id, ""):
+                    key = str(payload.get("session_id") or payload.get("run_id") or "")
+                    if key != agent_id or owner_of(key) != current_user:
                         continue
                     entry = _map_hook_event_to_log_entry(evt, payload)
                     if entry is None:
@@ -636,6 +676,29 @@ class AgentExecuteRequest(BaseModel):
     model: str | None = Field(None, description="指定模型,为空使用默认")
     max_iterations: int | None = Field(None, description="最大迭代次数")
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+    # G-161(2026-09-22):此字段此前**根本不存在**,apps/api 转发的 permission_mode
+    # 被 Pydantic 静默丢弃 —— 客户端以为设了权限档,服务端一直按 default 跑。
+    # 现声明并归一到唯一真源(app/core/permission_mode.py)。
+    permission_mode: str | None = Field(
+        None,
+        description="权限模式:default / acceptEdits / bypassPermissions / plan / manual"
+        "(历史别名 auto / accept-edits / accept-all / read-only / plan-only 自动归一)",
+    )
+
+
+def _resolved_permission_mode(raw: str | None) -> str | None:
+    """permission_mode → 规范标识;省略返回 None(交给 env/默认),认不出拒 400。
+
+    绝不静默回退 default —— "发了"与"生效"必须同义,这是 G-161 的立规依据。
+    """
+    if raw is None or not raw.strip():
+        return None
+    from ..core.permission_mode import normalize_permission_mode, permission_mode_error
+
+    mode = normalize_permission_mode(raw)
+    if mode is None:
+        raise HTTPException(status_code=400, detail=permission_mode_error(raw))
+    return mode
 
 
 class AgentResumeRequest(BaseModel):
@@ -656,10 +719,22 @@ class MemorySearchRequest(BaseModel):
 
 
 class ApprovalResponseRequest(BaseModel):
-    """工具审批响应请求(2026-08-30 立)。"""
+    """工具审批响应请求(2026-08-30 立;D84 2026-09-23 补作用域与原因)。"""
 
     approval_id: str = Field(..., description="审批请求 id(tool-approval SSE 事件返回)")
     decision: str = Field(..., description="决策: approve=批准 / reject=拒绝(其他值视为拒绝)")
+    scope: Literal["once", "session", "always"] = Field(
+        "session",
+        description=(
+            "D84 审批作用域:once=仅本次(不落授权) / session=本会话同键免弹窗(默认,兼容旧客户端) / "
+            "always=跨会话同键免弹窗(approval_grants.db 持久行)。授权按 cache_key 精确匹配,不放大到全局。"
+        ),
+    )
+    reason: str | None = Field(
+        None,
+        max_length=500,
+        description="用户附带原因(可选,拒绝理由为主);仅进决策提示/审计,不参与判定。",
+    )
 
 
 class SecurityConfigUpdateRequest(BaseModel):
@@ -673,10 +748,18 @@ class SecurityConfigUpdateRequest(BaseModel):
 
 
 @router.get("/agent/security-config")
-async def get_agent_security_config() -> dict[str, Any]:
+async def get_agent_security_config(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """读取 Agent 安全配置(P0-3 安全三件套单一事实源)。
 
     返回当前生效配置(env 默认 + 进程内更新;重启回 env 默认)。
+
+    O19(2026-09-21):补端点级"必须登录"。此前该 router 全靠 JWT 中间件的
+    路径白名单把关 —— `.env` 里一条 `/api/agents/` 前缀就把整个执行面(含本端点)
+    匿名放行。中间件侧已把 /api/agents 定为"永不可公开",这里再钉一层端点级门槛,
+    白名单配错也不会漏。注:本端点只到"登录即可读",更细的管理员档位
+    (roleId>=1)属 apps/api 侧的授权模型,ai-service 不重复实现。
     """
     from ..services.security_config import get_security_config
 
@@ -685,11 +768,17 @@ async def get_agent_security_config() -> dict[str, Any]:
 
 
 @router.put("/agent/security-config")
-async def update_agent_security_config(req: SecurityConfigUpdateRequest) -> dict[str, Any]:
+async def update_agent_security_config(
+    req: SecurityConfigUpdateRequest,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """更新 Agent 安全配置(P0-3 安全三件套单一事实源)。
 
     部分更新:仅传入字段被修改;非法值(未知枚举)返回 400;
     进程内生效(不落盘,重启回 env 默认;持久化属后续 P1)。
+
+    O19:必须登录 —— 这是**策略写操作**(可关掉注入防护/命令执行策略),
+    匿名可调 = 任何人在全站安全门上拔插销。改动会记日志并带上操作者身份。
     """
     from ..services.security_config import set_security_config
 
@@ -700,7 +789,7 @@ async def update_agent_security_config(req: SecurityConfigUpdateRequest) -> dict
         cfg = set_security_config(**updates)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    logger.info("Agent 安全配置已更新: %s", cfg.to_dict())
+    logger.info("Agent 安全配置已更新(user=%s): %s", current_user, cfg.to_dict())
     return {"code": 0, "message": "ok", "data": cfg.to_dict()}
 
 
@@ -710,28 +799,48 @@ async def update_agent_security_config(req: SecurityConfigUpdateRequest) -> dict
 
 
 @router.post("/agents/approval-response")
-async def agent_approval_response(req: ApprovalResponseRequest) -> dict[str, Any]:
-    """工具审批响应端点(2026-08-30 立)。
+async def agent_approval_response(
+    req: ApprovalResponseRequest,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """工具审批响应端点(2026-08-30 立;O19 2026-09-21 补端点级属主鉴权)。
 
     前端审批弹窗点"批准/拒绝"后调用本端点,把用户决策写入审批注册表,
     唤醒 agent_loop_v2 中阻塞等待的高危工具执行协程。
     body: {approval_id, decision: "approve" | "reject"}
 
+    O19 前的缺口:本端点零鉴权 —— 任何拿到 approval_id 的人(或盲猜)都能替他人
+    批准高危工具,人工审批门形同虚设。现在决策只在**属主==当前请求者**时写入。
+
     返回:
-      code=0  accepted=true  → 决策已写入,工具按决策继续/跳过
-      code=404 accepted=false → approval_id 不存在(已超时清理或从未发起)
+      200 code=0  accepted=true  → 决策已写入,工具按决策继续/跳过
+      404                        → approval_id 不存在(已超时清理或从未发起)
+      403                        → 审批存在但属主不符;**以及属主为 None 的审批**
+        (由非 HTTP 上下文创建,如引擎线程/直接库调用)。后者刻意不给 HTTP 侧结算:
+        无法证明它属于谁,就不能让任何登录用户点头 —— 这类审批只应由其创建通道
+        (agent_engine 的 approval.respond)按自己的 principal 回填。
     """
-    from ..services.agent_loop_v2 import resolve_approval_response
+    from ..services.agent_loop_v2 import (
+        ApprovalOutcome,
+        resolve_approval_for_requester,
+    )
 
     decision = "approve" if req.decision.lower() in ("approve", "allow", "approved") else "reject"
-    ok = resolve_approval_response(req.approval_id, decision)
-    if not ok:
-        return {
-            "code": 404,
-            "message": "approval not found or expired",
-            "data": {"accepted": False, "approval_id": req.approval_id},
-        }
-    logger.info("工具审批响应: approval_id=%s decision=%s", req.approval_id, decision)
+    outcome = resolve_approval_for_requester(
+        req.approval_id, decision, current_user, scope=req.scope, reason=req.reason
+    )
+    if outcome is ApprovalOutcome.NOT_FOUND:
+        raise HTTPException(status_code=404, detail="approval not found or expired")
+    if outcome is ApprovalOutcome.FORBIDDEN:
+        raise HTTPException(
+            status_code=403, detail="该审批请求不属于当前用户(或无可证明的属主)"
+        )
+    logger.info(
+        "工具审批响应: approval_id=%s decision=%s user=%s",
+        req.approval_id,
+        decision,
+        current_user,
+    )
     return {
         "code": 0,
         "message": "ok",
@@ -740,16 +849,51 @@ async def agent_approval_response(req: ApprovalResponseRequest) -> dict[str, Any
 
 
 @router.post("/agents/execute")
-async def execute_agent(req: AgentExecuteRequest) -> dict[str, Any]:
-    """执行 agent(同步返回结果)。"""
-    result = await agent_executor.run(
-        goal=req.goal,
-        session_id=req.session_id,
-        model=req.model,
-        max_iterations=req.max_iterations,
-        tools=req.tools,
-    )
-    return result
+async def execute_agent(
+    req: AgentExecuteRequest,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """执行 agent(同步返回结果)。
+
+    O19(2026-09-21):必须登录,且把 principal 贯通到执行路径 ——
+    ① `user_id` 传给 v1 执行器,会话记忆按 P1-6 复合 key(memory:{user}:{sid})读写,
+       与 GET /agents/sessions* 的隔离口径一致;
+    ② run 期间把 session→user 登记进 run_ownership,供事件流按属主过滤,run 结束即释放。
+    """
+    owned: list[str] = []
+    # G-161:本端点走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
+    # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
+    # 客户端以为自己设了 bypassPermissions。宁可拒 400,也不允许"发了≠生效"。
+    resolved_mode = _resolved_permission_mode(req.permission_mode)
+    if resolved_mode is not None and resolved_mode != "default":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"permissionMode={resolved_mode} 仅在 POST /agents/execute/stream 生效"
+                "(非流式端点使用弃用的单轮执行器,不含审批门)"
+            ),
+        )
+    if req.session_id:
+        record_ownership(req.session_id, current_user)
+        owned.append(req.session_id)
+    try:
+        result = await agent_executor.run(
+            goal=req.goal,
+            session_id=req.session_id,
+            model=req.model,
+            max_iterations=req.max_iterations,
+            tools=req.tools,
+            user_id=current_user,
+        )
+        # 未显式传 session_id 时由执行器生成,补登记(此后同进程订阅者可判定属主)
+        sid = result.get("session_id")
+        if isinstance(sid, str) and sid and sid not in owned:
+            record_ownership(sid, current_user)
+            owned.append(sid)
+        return result
+    finally:
+        for sid in owned:
+            release_ownership(sid)
 
 
 def _format_sse(event_id: str, event: dict[str, Any]) -> str:
@@ -762,7 +906,11 @@ def _format_sse(event_id: str, event: dict[str, Any]) -> str:
 
 
 @router.post("/agents/execute/stream")
-async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> StreamingResponse:
+async def execute_agent_stream(
+    req: AgentExecuteRequest,
+    request: Request,
+    current_user: str = Depends(require_request_user_id),
+) -> StreamingResponse:
     """流式执行 agent,通过 SSE 返回增量结果,支持断线重连重放。
 
     执行器(D6 第 1 步 2026-09-19 归一):AgentLoopV2 为唯一执行事实源——
@@ -781,6 +929,8 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
 
     async def event_generator() -> AsyncIterator[str]:
         task_id = f"task-{asyncio.get_running_loop().time()}"
+        # O19:本次 run 登记进 run_ownership 的会话标识,finally 统一释放(防泄漏)
+        owned_sessions: list[str] = []
 
         # 断线重连: 先重放缺失事件
         if last_event_id:
@@ -806,12 +956,22 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 from ..services.hook_engine import hook_engine
 
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
+                # O19:登记属主,供 tasks/stream 与 /agents/{id}/stream 做事件级属主过滤
+                record_ownership(session_id, current_user)
+                owned_sessions.append(session_id)
                 loop = AgentLoopV2(
                     _make_loop_v2_llm(req.model),
                     tools=await _build_loop_v2_tools(req.tools),
                     session_id=session_id,
                     max_iterations=req.max_iterations or 8,
                     enable_checkpoint=True,
+                    # G-161:此前根本没把请求里的 permission_mode 传进来 →
+                    # 端上选的权限档在这条主执行链上永远是 default。
+                    permission_mode=_resolved_permission_mode(req.permission_mode),
+                    # O19:principal 贯通到执行路径 —— 高危工具审批条目据此登记属主
+                    # (agent_loop_v2._request_approval → self._user_id),并启用 P1-6
+                    # 记忆闭环的用户隔离。
+                    user_id=current_user,
                 )
                 # 订阅事件 → SSE(统一订阅集合 agent_events.AGENT_SUBSCRIBE_EVENTS,
                 # 补齐 thinking.delta/plan.step/session.end/permission.mode,
@@ -900,6 +1060,9 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
         finally:
             # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
             sse_buffer.clear(task_id)
+            # O19:run 结束即释放属主登记(与 record_ownership 成对;TTL 只作兜底)
+            for sid in owned_sessions:
+                release_ownership(sid)
 
     return StreamingResponse(
         event_generator(),
@@ -913,7 +1076,10 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
 
 
 @router.post("/agents/execute/resume")
-async def resume_agent_execute(req: AgentResumeRequest) -> dict[str, Any]:
+async def resume_agent_execute(
+    req: AgentResumeRequest,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """从 checkpoint 断点续跑 agent(MCP 工具包装 + AgentLoopV2.resume_from_checkpoint)。
 
     与 execute/stream 的 v2 分支使用同一套 AgentLoopV2 构造方式
@@ -925,23 +1091,58 @@ async def resume_agent_execute(req: AgentResumeRequest) -> dict[str, Any]:
           checkpoint_id, error, total_iterations, total_duration_ms}}
 
     checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
+
+    O19(2026-09-21):必须登录;principal 贯通到重建的循环(续跑期新产生的高危
+    审批据此登记属主)。属主判定按可信度两级:
+      ① **持久属主**:checkpoint 落盘时写入 `metadata.owner_user_id`(save_checkpoint
+         的 owner_user_id 参数,由 AgentLoopV2 用 self._user_id 传入)—— 跨进程/重启
+         后依然可判定,查得且非请求者 → 403;
+      ② **在飞登记**:老 checkpoint(改造前写入)无 owner 字段,退到 run_ownership
+         进程内登记比对;两者都判不出时只剩"必须登录"这一层地板(如实标注,不假装)。
     """
+    from ..services.agent_checkpoint import get_agent_checkpoint_manager
     from ..services.agent_loop_v2 import AgentLoopV2
 
-    loop = AgentLoopV2(
-        _make_loop_v2_llm(req.model),
-        tools=await _build_loop_v2_tools(req.tools),
-        max_iterations=req.max_iterations or 8,
-        enable_checkpoint=True,
-    )
+    resumed_session: str | None = None
     try:
-        result = await loop.resume_from_checkpoint(req.checkpoint_id)
-    except ValueError as e:
-        return {
-            "code": 404,
-            "message": str(e),
-            "data": None,
-        }
+        existing = await get_agent_checkpoint_manager().load_checkpoint(
+            req.checkpoint_id
+        )
+    except Exception as e:  # noqa: BLE001 - 探测失败按"属主不可判定"处理,不放大权限
+        logger.warning("resume 属主探测失败(按不可判定继续,仅登录门槛): %s", e)
+        existing = None
+    if existing is not None:
+        resumed_session = getattr(existing, "session_id", None) or None
+        # ① 持久属主优先(跨进程可判定);② 无 owner 的旧数据退回在飞登记
+        persistent_owner = existing.owner_user_id
+        known_owner = persistent_owner or owner_of(resumed_session)
+        if known_owner is not None and known_owner != current_user:
+            raise HTTPException(
+                status_code=403, detail="该 checkpoint 所属会话不属于当前用户"
+            )
+        if resumed_session:
+            record_ownership(resumed_session, current_user)
+
+    try:
+        loop = AgentLoopV2(
+            _make_loop_v2_llm(req.model),
+            tools=await _build_loop_v2_tools(req.tools),
+            max_iterations=req.max_iterations or 8,
+            enable_checkpoint=True,
+            # O19:principal 贯通(审批属主登记 + 记忆隔离口径与 execute 一致)
+            user_id=current_user,
+        )
+        try:
+            result = await loop.resume_from_checkpoint(req.checkpoint_id)
+        except ValueError as e:
+            return {
+                "code": 404,
+                "message": str(e),
+                "data": None,
+            }
+    finally:
+        if resumed_session:
+            release_ownership(resumed_session)
     return {
         "code": 0,
         "message": "ok",
@@ -959,87 +1160,199 @@ async def resume_agent_execute(req: AgentResumeRequest) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# O19(2026-09-21)端点级属主辅助
+# ---------------------------------------------------------------------------
+
+
+def _assert_session_access(session_id: str | None, current_user: str) -> None:
+    """尽力校验会话属主:可判定且不是请求者 → 403。
+
+    **刻意不 fail-closed 到 403**:run_ownership 只登记本进程在飞的 run,进程重启 /
+    跨实例 / 数据源本身无属主概念(如 checkpoint 表、_trace_store、deliverables LRU)
+    时查不到记录,此时只能保留"必须登录"这一层地板。调用点必须在注释里如实写明
+    "属主不可判定 ⇒ 不校验",不得把这条辅助当完整属主鉴权用。
+    """
+    if not session_id:
+        return
+    known_owner = owner_of(session_id)
+    if known_owner is not None and known_owner != current_user:
+        raise HTTPException(status_code=403, detail="该会话不属于当前用户")
+
+
+def _owned_by_current_user(session_id: object, current_user: str) -> bool:
+    """聚合视图的可见性判定:属主可判定且非请求者 → 不可见;属主未知 → 保留。
+
+    用于 /agents/running、/agent/traces 这类"整表返回"的端点:它们的数据源
+    (v1 AgentExecutor._running / 进程内 _trace_store)**没有 user_id 字段**,
+    无法在写入侧归属;只能拿 run_ownership 的在飞登记做正向排除。
+    属主未登记的条目仍会出现在结果里 —— 这是聚合视图的既有限制,已在各端点
+    docstring 明示,不作为"已按属主隔离"的结论。
+    """
+    if not isinstance(session_id, str) or not session_id:
+        return True
+    known_owner = owner_of(session_id)
+    return known_owner is None or known_owner == current_user
+
+
 @router.get("/agents/running")
-async def list_running() -> dict[str, Any]:
-    """列出所有运行中/已完成任务。"""
-    return {"tasks": agent_executor.list_running()}
+async def list_running(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """列出所有运行中/已完成任务。
+
+    O19:必须登录 + 正向排除他人任务。task 记录本身无 user_id 字段(v1 执行器
+    不落属主),故只能按 run_ownership 在飞登记排除"确定属于别人"的条目;
+    未登记的条目无法判定 ⇒ 仍可见 —— 返回的是聚合运行态视图,不是按用户隔离的清单。
+    """
+    tasks = agent_executor.list_running()
+    visible = {
+        task_id: info
+        for task_id, info in tasks.items()
+        if _owned_by_current_user(info.get("session_id"), current_user)
+    }
+    return {"tasks": visible}
 
 
 @router.get("/agents/sessions")
-async def list_sessions() -> dict[str, Any]:
-    """列出所有会话 ID。"""
-    sessions = await memory_store.list_sessions()
+async def list_sessions(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """列出**当前用户**的会话 ID。
+
+    O19:此前一处 user_id 都不传 ⇒ memory_store.list_sessions() 走"不传=列全站"
+    分支,等于把所有人的 session id 泄露给匿名调用方。现在传 current_user,
+    复用 memory.py 既有的 P1-6 复合 key 隔离(`memory:{user_id}:{session_id}`),
+    不新造隔离机制。legacy 无前缀键(改造前写入的历史数据)因此不再可见 ——
+    这是收口的预期代价,不得靠"回退列全站"绕过。
+    """
+    sessions = await memory_store.list_sessions(user_id=current_user)
     return {"sessions": sessions, "count": len(sessions)}
 
 
 @router.get("/agents/sessions/{session_id}/messages")
 async def get_session_messages(
-    session_id: str, limit: int = 100
+    session_id: str,
+    limit: int = 100,
+    current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """获取指定会话的消息列表。"""
-    messages = await memory_store.get(session_id, limit=limit)
+    """获取指定会话的消息列表(按 current_user 的复合 key 读取,P1-6 隔离)。
+
+    他人会话在隔离 key 下读不到内容;属主可判定为正错时直接 403(见
+    _assert_session_access 的能力边界说明)。
+    """
+    _assert_session_access(session_id, current_user)
+    messages = await memory_store.get(session_id, limit=limit, user_id=current_user)
     return {"session_id": session_id, "messages": messages, "count": len(messages)}
 
 
 @router.get("/agents/sessions/{session_id}/deliverables")
-async def get_session_deliverables(session_id: str) -> dict[str, Any]:
+async def get_session_deliverables(
+    session_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """D27(2026-09)获取指定会话的任务完成交付清单。
 
     未命中(任务未成功结束 / 被 LRU 淘汰 / 进程重启)也返回 200,
     deliverables 为 null,前端按「暂无交付清单」渲染。
+
+    O19:必须登录 + 属主可判定时正向排除(agent_deliverables 是进程内 LRU,
+    存储本身没有 user_id 列 ⇒ 属主未知时只能退到"登录地板")。
     """
+    _assert_session_access(session_id, current_user)
     return {"session_id": session_id, "deliverables": get_deliverables(session_id)}
 
 
 @router.delete("/agents/sessions/{session_id}")
-async def clear_session(session_id: str) -> dict[str, Any]:
-    """清除指定会话的全部消息。"""
-    await memory_store.clear(session_id)
-    await vector_memory.clear(session_id)
+async def clear_session(
+    session_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """清除指定会话的全部消息(按 current_user 的复合 key 删除,P1-6 隔离)。
+
+    O19:向量层同样按属主裁剪 —— `vector_memory.clear(session_id, user_id)` 只删
+    "该会话且属主为 current_user"的条目。改造前写入的无属主旧条目不会被本调用清除
+    (也无从判定属于谁),但它们在按属主检索时已 fail-closed 不可见,不构成泄漏面。
+    """
+    _assert_session_access(session_id, current_user)
+    await memory_store.clear(session_id, user_id=current_user)
+    await vector_memory.clear(session_id, user_id=current_user)
     return {"session_id": session_id, "cleared": True}
 
 
 @router.post("/agents/memory/search")
-async def search_memory(req: MemorySearchRequest) -> dict[str, Any]:
-    """语义搜索记忆(向量检索)。
+async def search_memory(
+    req: MemorySearchRequest,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """语义搜索记忆(向量检索,按属主裁剪)。
 
-    通过 LLM 嵌入向量 + 余弦相似度检索最相关的历史记忆。
-    支持跨会话搜索或限定在指定会话内搜索。
+    通过 LLM 嵌入向量 + 余弦相似度检索当前用户自己的历史记忆。
+    O19(2026-09-21)收口:vector_memory 条目带 user_id 属主标记,search() 按
+    认证身份精确过滤,不再返回全站聚合结果。兼容性:改造前写入的旧条目无
+    user_id(属主未知),fail-closed 对任何用户不可见(漏返回只是功能降级,
+    漏过滤就是跨用户泄漏)。req.session_id 仅为检索范围提示,不做属主校验
+    (越权面已由属主过滤收敛)。
     """
     query_embedding = await vector_memory.embed(req.query)
     results = await vector_memory.search(
         query_embedding=query_embedding,
         top_k=req.top_k,
+        user_id=current_user,
     )
     return {"query": req.query, "results": results, "count": len(results)}
 
 
 @router.get("/agents/{task_id}/status")
-async def get_task_status(task_id: str) -> dict[str, Any]:
-    """查询任务状态。"""
+async def get_task_status(
+    task_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """查询任务状态。
+
+    O19:必须登录;task 记录里带 session_id ⇒ 属主可判定时比对(见
+    _assert_session_access 的能力边界)。v1 执行器不把 user_id 落到 task 记录,
+    且 run 结束后 run_ownership 即释放 ⇒ 历史任务状态无法回溯属主。
+    """
     info = agent_executor.status(task_id)
     if not info:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+    _assert_session_access(info.get("session_id"), current_user)
     return info
 
 
 @router.post("/agents/{task_id}/cancel")
-async def cancel_task(task_id: str) -> dict[str, Any]:
-    """取消任务。"""
+async def cancel_task(
+    task_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """取消任务。
+
+    O19:必须登录 + 属主可判定时比对。取消是**写操作**,但 v1 的 task 记录无
+    user_id ⇒ 属主未知的在飞任务只能靠"必须登录"兜住(敞口已上报)。
+    """
     info = agent_executor.status(task_id)
     if not info:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
+    _assert_session_access(info.get("session_id"), current_user)
     ok = agent_executor.cancel(task_id)
     latest_info = agent_executor.status(task_id)
     return {"task_id": task_id, "canceled": ok, "status": latest_info["status"] if latest_info else "cancelled"}
 
 
 @router.post("/agents/skill-evolution")
-async def trigger_skill_evolution(request: Request) -> dict[str, Any]:
+async def trigger_skill_evolution(
+    request: Request,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """手动触发 Skill 自进化评估。
 
     body: SkillEvolutionRequest 字典
     (taskId/sessionId/goal/steps/finalResult/existingSkills)。
+
+    O19:必须登录(该端点会**消耗 LLM 并产出可复用 Skill**,匿名触发即白嫖 + 污染
+    共享技能库)。body 里的 taskId/sessionId 由客户端自述,服务端无属主索引 ⇒
+    不做属主比对(不假装能校验);Skill 归属维度属后续改造。
     """
     body = await request.json()
     result = await skill_evolution_service.evaluate(body)
@@ -1047,13 +1360,19 @@ async def trigger_skill_evolution(request: Request) -> dict[str, Any]:
 
 
 @router.post("/agents/debate")
-async def agent_debate(request: Request) -> dict[str, Any]:
+async def agent_debate(
+    request: Request,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """多 Agent 协商辩论(debate/vote/critique 三模式,P1-2)。
 
     body: AgentDebateRequest 字典(mode/agents/topic/maxRounds/sessionId/modelOverride)。
     - mode="debate":多 Agent 多轮交替发言,LLM 综合结论
     - mode="vote":每个 Agent 出方案,所有 Agent 投票选最佳
     - mode="critique":第一个 Agent 出方案,其余批判,迭代改进
+
+    O19:必须登录(一次调用 = N 个 Agent × maxRounds 轮 LLM 消耗,匿名可被刷)。
+    body.sessionId 只是编排器的会话标签,无属主索引 ⇒ 不做属主比对。
     """
     body = await request.json()
     mode = body.get("mode", "debate")
@@ -1089,12 +1408,21 @@ async def agent_debate(request: Request) -> dict[str, Any]:
 
 
 @router.get("/agent/trace/{session_id}")
-async def get_agent_trace(session_id: str) -> dict[str, Any]:
+async def get_agent_trace(
+    session_id: str,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """获取 Agent 执行轨迹。
 
     返回该 session 的完整 trace(每轮迭代的推理/工具调用/结果/耗时)。
     数据由 AgentLoopV2 执行完成后通过 store_trace 写入。
+
+    O19:必须登录 + 属主可判定时比对。_trace_store 是进程内 LRU 且条目**不含
+    user_id**,故进程重启后(或该 run 不是本进程起的)属主无从判定 —— 此时只剩
+    "必须登录"这一层地板,不假装已完成属主隔离。trace 含用户原文,是最需要
+    属主绑定的数据面;根治要在 store_trace 时落 owner。
     """
+    _assert_session_access(session_id, current_user)
     trace = _trace_store.get(session_id)
     if not trace:
         raise HTTPException(status_code=404, detail="Trace not found")
@@ -1102,14 +1430,21 @@ async def get_agent_trace(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/agent/traces")
-async def list_agent_traces() -> dict[str, Any]:
+async def list_agent_traces(
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """列出所有可用的 Agent 执行轨迹。
 
     返回每个 trace 的元数据（session_id、timestamp、goal/task 摘要等），
     按 timestamp 降序排列，最多返回 50 条。
+
+    O19:必须登录 + 正向排除"确定属于别人"的条目(见 _owned_by_current_user:
+    trace 表无 owner 字段 ⇒ 未登记的条目仍可见,这是聚合清单的既有限制)。
     """
     traces: list[dict[str, Any]] = []
     for session_id, trace_data in _trace_store.items():
+        if not _owned_by_current_user(session_id, current_user):
+            continue
         goal_raw = trace_data.get("goal", "")
         goal = (goal_raw[:100] + "...") if len(goal_raw) > 100 else goal_raw
         traces.append({
@@ -1125,13 +1460,21 @@ async def list_agent_traces() -> dict[str, Any]:
 
 
 @router.get("/agents/{agent_id}/tool-calls")
-async def get_agent_tool_calls(agent_id: str, range: str = "24h") -> dict[str, Any]:
+async def get_agent_tool_calls(
+    agent_id: str,
+    range: str = "24h",
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """Agent 工具调用链(agent-runtime ToolCallTree 数据源,2026-08-12 补缺)。
 
     此前 web 端调用 /api/agents/{id}/tool-calls 在 8802/8803 均 404。
     数据源:checkpoint trace(messages 中 assistant.tool_calls + tool 结果),
     缺失时降级进程内 _trace_store。
+
+    O19:必须登录;agent_id 即 session_id ⇒ 在飞会话可按 run_ownership 比对属主。
+    checkpoint / trace 存储本身无 user_id 列 ⇒ 属主未知的历史条目退化为"仅需登录"。
     """
+    _assert_session_access(agent_id, current_user)
     calls: list[dict[str, Any]] = []
     try:
         from ..services.agent_checkpoint import get_agent_checkpoint_manager
@@ -1177,11 +1520,19 @@ async def get_agent_tool_calls(agent_id: str, range: str = "24h") -> dict[str, A
 
 
 @router.get("/agents/{agent_id}/errors")
-async def get_agent_errors(agent_id: str, range: str = "24h") -> dict[str, Any]:
+async def get_agent_errors(
+    agent_id: str,
+    range: str = "24h",
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """Agent 错误事件(agent-runtime ErrorHeatmap 数据源,2026-08-12 补缺)。
 
     数据源:checkpoint(failed 状态 + metadata.error + tool 消息 error)。
+
+    O19:必须登录 + 在飞会话按属主比对(同 tool-calls;checkpoint 无 user_id 列,
+    属主未知的历史条目只剩登录地板)。
     """
+    _assert_session_access(agent_id, current_user)
     errors: list[dict[str, Any]] = []
     try:
         from ..services.agent_checkpoint import get_agent_checkpoint_manager
@@ -1220,14 +1571,22 @@ async def get_agent_errors(agent_id: str, range: str = "24h") -> dict[str, Any]:
 
 
 @router.get("/agents/{agent_id}/sessions")
-async def get_agent_sessions(agent_id: str, range: str = "24h") -> dict[str, Any]:
+async def get_agent_sessions(
+    agent_id: str,
+    range: str = "24h",
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """Agent 会话树(agent-runtime SessionTree 数据源,2026-08-12 补缺)。
 
     此前 web 端调用 /api/agents/{id}/sessions 在 8802/8803 均 404
     (8802 的 sessions 注册在 /api/agent-runtime/ 前缀,路径不匹配)。
     数据源:checkpoint manager 按 session 过滤(created_at 升序),
     缺失时降级进程内 _trace_store。
+
+    O19:必须登录 + 在飞会话按属主比对(checkpoint 无 user_id 列 ⇒ 历史条目
+    属主不可判定)。
     """
+    _assert_session_access(agent_id, current_user)
     nodes: list[dict[str, Any]] = []
     try:
         from ..services.agent_checkpoint import get_agent_checkpoint_manager
@@ -1262,13 +1621,21 @@ async def get_agent_sessions(agent_id: str, range: str = "24h") -> dict[str, Any
 
 
 @router.get("/agents/{agent_id}/token-usage")
-async def get_agent_token_usage(agent_id: str, range: str = "24h") -> dict[str, Any]:
+async def get_agent_token_usage(
+    agent_id: str,
+    range: str = "24h",
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """Agent Token 用量(agent-runtime TokenUsageChart 数据源,2026-08-12 补缺)。
 
     此前 web 端调用 /api/agents/{id}/token-usage 在 8802/8803 均 404。
     数据源:checkpoint messages 按轮估算(prompt=输入/工具结果,completion=
     输出),缺失时降级 _trace_store。估算公式:字符数/4(中文约 1 token/字)。
+
+    O19:必须登录 + 在飞会话按属主比对。用量本身是配额/计费口径数据,但
+    checkpoint 无 user_id 列 ⇒ 历史条目属主不可判定(敞口已上报)。
     """
+    _assert_session_access(agent_id, current_user)
     items: list[dict[str, Any]] = []
     try:
         from ..services.agent_checkpoint import get_agent_checkpoint_manager

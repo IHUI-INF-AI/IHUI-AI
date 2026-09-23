@@ -214,7 +214,7 @@ function TemplateRow({ tpl, labelKey, label, onApply, onRemove, t }: TemplateRow
       >
         {labelKey ? t(labelKey as never) : (label ?? tpl.title)}
       </button>
-      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
         <Button type="button" variant="ghost" size="icon" onClick={onApply}>
           <Plus className="h-3 w-3" />
         </Button>

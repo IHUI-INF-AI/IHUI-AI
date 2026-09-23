@@ -194,6 +194,7 @@ function readMessageJson(absPath) {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
+      windowsHide: true,
     })
     return JSON.parse(blob)
   }
@@ -430,6 +431,38 @@ function hasKey(msg, ns, key) {
   return key in nsObj
 }
 
+// ─── 动态(模板/拼接)键的静态前缀可达性 ─────────────────────
+// t(`lane.${x}`) 这类"点分隔"动态键,前面 extractKeysByVar 只看字面量 t('a.b'),
+// 完全覆盖不到 —— 2026-09-20 en/ko 那 44 处"UI 直接显示 lane.architect / event.tool.before"
+// 就是这么漏掉的(键被写成扁平含点键,前缀根本不是对象)。规则:点分隔的静态前缀
+// 必须在**每种语言**里都是对象节点(只查前缀,不猜动态段的取值,避免误报)。
+// 2026-09-21 实测全仓 apps/web + packages/ui-react + packages/app 共 76 处点分隔动态键,
+// 扣除注释里的历史说明后违规 0,故可直接 blocking。
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+}
+
+function extractDynamicPrefixes(src, varName) {
+  const esc = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const prefixes = new Set()
+  // t(`a.b.${x}`) / t.rich(`a.${x}`) —— 只取以 "." 收尾的静态头部(点分隔型)
+  const reTpl = new RegExp(`\\b${esc}(?:\\.(?:rich|raw|format|has))?\\(\\s*\`([^\`$]*)\\\$\{`, 'g')
+  let m
+  while ((m = reTpl.exec(src)) !== null) {
+    const before = m[1]
+    if (before.endsWith('.')) prefixes.add(before.replace(/\.$/, ''))
+  }
+  // t('a.b.' + x)
+  const reCat = new RegExp(
+    `\\b${esc}(?:\\.(?:rich|raw|format|has))?\\(\\s*(['"])([^'"]*\\.)\\1\\s*\\+`,
+    'g',
+  )
+  while ((m = reCat.exec(src)) !== null) prefixes.add(m[2].replace(/\.$/, ''))
+  return [...prefixes]
+}
+
+const dynamicPrefixIssues = []
+
 const messages = loadMessages()
 const langNames = Object.keys(messages).sort()
 
@@ -448,6 +481,7 @@ if (isStaged) {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
       cwd: REPO_ROOT,
+      windowsHide: true,
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
@@ -621,21 +655,41 @@ function loadFallbackDict(target) {
 const FALLBACK_DICT = isMobileRn || isMiniappTaro ? loadFallbackDict(TARGET) : null
 
 function extractHookKeys(src) {
-  // 匹配 const { t } = useI18n(...) / const { tt } = useAppTheme(...) 解构,取变量名
-  const destructureRe =
-    /const\s*\{\s*(t|tt)(?:\s*:\s*(\w+))?\s*\}\s*=\s*(?:useI18n|useAppTheme)\s*\(/g
+  // 端内翻译函数变量有两大类绑定形态,缺一即整文件漏检(2026-09-21 补盲):
+  //  ① 解构式:const { t } = useI18n() / const { tt } = useAppTheme()
+  //     旧正则把 `{ t }` 写死成"左花括号后紧跟 t|tt 且立刻右花括号",
+  //     于是 const { t, tList } = useI18n()(实测 14 处)整行不匹配 → 这些文件的
+  //     t() 引用一个都没被查过。现改为解析解构内部条目,仅取源键 t / tt,
+  //     支持重命名(const { t: tr } = useI18n());tList 是列表解析器不是翻译函数,不纳入。
+  //  ② 非解构直接赋值:const tt = useTt()(miniapp-taro 带回退翻译 hook,实测 155 文件)
+  //     useTt 签名 (key, zhFallback),词典缺键时回退内联简体中文 → en/ko/ja/zh-TW 下
+  //     恒显示简体,是真实可见缺陷。命名覆盖 useT / useXxxTt;刻意不匹配 useTts
+  //     (text-to-speech),因为 "Tts" 不等于 "Tt",且 useT 分支要求紧跟 "("。
+  // 误报防线:全程只在"去注释后的代码"上跑。扩视野后 miniapp-taro 从 91 个文件涨到
+  //   212 个,注释里的示例(如 `// 禁止 tt('p1','发') 这种劈词拼接`)会被真 tt 绑定扫到,
+  //   把文档注释当成引用键。真实引用一定在代码里,剥注释只会去噪,不会漏检。
+  const code = stripComments(src)
   const varNames = new Set()
   let m
-  while ((m = destructureRe.exec(src)) !== null) {
-    varNames.add(m[2] || m[1])
+  const destructureRe = /const\s*\{([^{}]*)\}\s*=\s*(?:useI18n|useAppTheme)\s*\(/g
+  while ((m = destructureRe.exec(code)) !== null) {
+    for (const raw of m[1].split(',')) {
+      const entry = raw.trim()
+      if (!entry) continue
+      const [sourceKey, localName] = entry.split(':').map((s) => s.trim())
+      if (sourceKey === 't' || sourceKey === 'tt') varNames.add(localName || sourceKey)
+    }
   }
+  const directAssignRe =
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:useT|use[A-Za-z0-9_]*Tt)\s*\(/g
+  while ((m = directAssignRe.exec(code)) !== null) varNames.add(m[1])
   const keys = []
   for (const v of varNames) {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     // key 必须是引号字面量;模板字符串/动态拼接跳过(无法静态判定)
     const re = new RegExp(`\\b${escaped}\\(\\s*['"]([^'"]+)['"]`, 'g')
     let k
-    while ((k = re.exec(src)) !== null) keys.push(k[1])
+    while ((k = re.exec(code)) !== null) keys.push(k[1])
   }
   return [...new Set(keys)]
 }
@@ -675,7 +729,9 @@ for (const file of sourceFiles) {
 
   // 端内模式(mobile-rn/miniapp-taro):用 hook 解构提取 + 合并词典/兜底词典双查
   if (isMobileRn || isMiniappTaro) {
-    const keys = extractHookKeys(src)
+    // 先去注释:注释里举的反例(如 `禁止 "…后重" + tt('p1','发') 这种拼接`)会被
+    // 当成真实调用点提取出 p1,而它本就不是键 —— 注释不参与渲染,不该计入缺失。
+    const keys = extractHookKeys(stripComments(src))
     if (keys.length === 0) continue
     checkedFiles++
     checkedKeys += keys.length
@@ -714,7 +770,31 @@ for (const file of sourceFiles) {
     }
   }
 
-  if (usedKeys.length === 0) continue
+  // 动态(模板/拼接)键的静态前缀可达性:与字面量键彼此独立,故放在 usedKeys 早退之前
+  const srcNoComment = stripComments(src)
+  let fileHasDynamicFindings = false
+  for (const { varName } of nsPairs) {
+    for (const prefix of extractDynamicPrefixes(srcNoComment, varName)) {
+      const nsSet = varNsMap.get(varName)
+      const langsMissing = []
+      for (const [lang, msg] of Object.entries(messages)) {
+        const ok = [...nsSet].some((ns) => {
+          const node = ns ? getNested(msg, `${ns}.${prefix}`) : getNested(msg, prefix)
+          return node && typeof node === 'object' && !Array.isArray(node)
+        })
+        if (!ok) langsMissing.push(lang)
+      }
+      if (langsMissing.length > 0) {
+        fileHasDynamicFindings = true
+        const shown = [...nsSet].map((ns) => (ns ? `${ns}.${prefix}` : prefix)).join(' / ')
+        dynamicPrefixIssues.push(
+          `${relative(REPO_ROOT, file)} | ${varName}(\`${prefix}.\${…}\`) 静态前缀 "${shown}" 在 ${langsMissing.join(', ')} 不是对象节点`,
+        )
+      }
+    }
+  }
+
+  if (usedKeys.length === 0 && !fileHasDynamicFindings) continue
   checkedFiles++
   checkedKeys += usedKeys.length
 
@@ -836,7 +916,170 @@ if (wipMissingKeyIssues.length > 0) {
   }
   console.log('')
 }
-const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0
+// next-intl/use-intl 按 "." 路径解析消息,字面含点 key(如 "foldPolicy.title")永远不可达:
+// 渲染时走 MISSING_MESSAGE 兜底,UI 上直接回显键名本身。2026-09-20 实测 web 语言包曾有 84 个
+// 这类 key,其中 en/ko 各 22 个(subAgentFeed.lane.*、agentHooks.event.*、integrations.event.*)
+// 在开发者面板里真的显示成了 "event.tool.before" 这样的原始键名。含点 key 必须改成嵌套结构。
+const dottedKeyIssues = []
+// 同层重复 key:JSON.parse 静默保留最后一个值(AGENTS.md §18 禁止但此前无闸门)。
+// 同日实测:把含点键改成嵌套时,若同层已有真身嵌套块,就会造出重复 key —— 5 个 web
+// 语言包各中一处,而 flatten 式 parity 检查按"路径集合"比对,完全看不出值被谁覆盖。
+const dupKeyIssues = []
+function findDuplicateKeys(text) {
+  const dups = []
+  let i = 0
+  let line = 1
+  const ws = () => {
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\n') {
+        line += 1
+        i += 1
+      } else if (c === ' ' || c === '\t' || c === '\r') i += 1
+      else break
+    }
+  }
+  const str = () => {
+    i += 1 // 跳过开引号
+    let s = ''
+    while (i < text.length) {
+      const c = text[i]
+      if (c === '\\') {
+        s += text[i + 1]
+        i += 2
+        continue
+      }
+      if (c === '"') {
+        i += 1
+        return s
+      }
+      if (c === '\n') line += 1
+      s += c
+      i += 1
+    }
+    throw new Error('未闭合字符串')
+  }
+  const arr = () => {
+    i += 1
+    let depth = 1
+    while (i < text.length && depth > 0) {
+      const c = text[i]
+      if (c === '[') depth += 1
+      else if (c === ']') depth -= 1
+      else if (c === '"') {
+        str()
+        continue
+      } else if (c === '\n') line += 1
+      i += 1
+    }
+    i += 1
+  }
+  const val = (path) => {
+    ws()
+    if (text[i] === '{') obj(path)
+    else if (text[i] === '[') arr()
+    else if (text[i] === '"') str()
+    else while (i < text.length && ',}]'.indexOf(text[i]) === -1) i += 1
+  }
+  function obj(path) {
+    i += 1 // 跳过 {
+    const seen = new Map()
+    for (;;) {
+      ws()
+      if (text[i] === '}') {
+        i += 1
+        return
+      }
+      if (text[i] === ',') {
+        i += 1
+        continue
+      }
+      if (i >= text.length) return
+      const atLine = line
+      const k = str()
+      ws()
+      if (text[i] === ':') i += 1
+      if (seen.has(k)) dups.push(`${path || '<root>'}.${k} @L${atLine}(首次 @L${seen.get(k)})`)
+      seen.set(k, atLine)
+      val(path ? `${path}.${k}` : k)
+    }
+  }
+  ws()
+  obj('')
+  return dups
+}
+
+if (existsSync(MESSAGES_DIR)) {
+  for (const entry of readdirSync(MESSAGES_DIR).filter((f) => f.endsWith('.json'))) {
+    const file = join(MESSAGES_DIR, entry)
+    let raw
+    let text
+    try {
+      raw = readMessageJson(file)
+      text = readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    const walkDotted = (node, prefix) => {
+      for (const [k, v] of Object.entries(node)) {
+        if (k.includes('.')) dottedKeyIssues.push(`${entry}: "${k}" (at ${prefix || '<root>'})`)
+        if (v && typeof v === 'object' && !Array.isArray(v))
+          walkDotted(v, prefix ? `${prefix}.${k}` : k)
+      }
+    }
+    walkDotted(raw, '')
+    try {
+      for (const d of findDuplicateKeys(text)) dupKeyIssues.push(`${entry}: ${d}`)
+    } catch {
+      // 词法解析失败(异常格式)不臆断,交由既有 JSON.parse 通路兜底
+    }
+  }
+}
+
+if (dottedKeyIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dottedKeyIssues.length} 个含点键 —— next-intl 按 "." 解析路径,这类 key 永不渲染,UI 会回显原始键名${C.reset}`,
+  )
+  for (const line of dottedKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dottedKeyIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dottedKeyIssues.length - 20} 个${C.reset}`)
+  }
+  console.log(`${C.yellow}修复方法: 把 "a.b": "x" 改写为嵌套结构 "a": { "b": "x" }${C.reset}`)
+  console.log('')
+}
+
+if (dupKeyIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dupKeyIssues.length} 处同层重复 key —— JSON.parse 静默保留最后一个,前面的值被遮蔽(AGENTS.md §18)${C.reset}`,
+  )
+  for (const line of dupKeyIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dupKeyIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dupKeyIssues.length - 20} 处${C.reset}`)
+  }
+  console.log(`${C.yellow}修复方法: 合并同名 key,或改成分支里的不同键名${C.reset}`)
+  console.log('')
+}
+
+if (dynamicPrefixIssues.length > 0) {
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${dynamicPrefixIssues.length} 处动态键的静态前缀不可达 —— t(\`prefix.\${x}\`) 会走 MISSING_MESSAGE,UI 上直接回显键名${C.reset}`,
+  )
+  for (const line of dynamicPrefixIssues.slice(0, 20)) console.log(`  ${C.yellow}${line}${C.reset}`)
+  if (dynamicPrefixIssues.length > 20) {
+    console.log(`  ${C.yellow}… 还有 ${dynamicPrefixIssues.length - 20} 处${C.reset}`)
+  }
+  console.log(
+    `${C.yellow}修复方法: 在各语言消息表把 prefix 建成对象("prefix": { "a": … }),或像既有页面那样改成静态映射表消除拼接${C.reset}`,
+  )
+  console.log('')
+}
+
+const shouldBlock =
+  parityIssues.length > 0 ||
+  missingKeyIssues.length > 0 ||
+  dottedKeyIssues.length > 0 ||
+  dupKeyIssues.length > 0 ||
+  dynamicPrefixIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -859,7 +1102,15 @@ if (shouldBlock) {
   )
   console.log(
     `${C.red}[i18n 键检查] 发现 ${
-      parityIssues.length > 0 ? 'parity 问题' : '缺失键问题'
+      parityIssues.length > 0
+        ? 'parity 问题'
+        : missingKeyIssues.length > 0
+          ? '缺失键问题'
+          : dottedKeyIssues.length > 0
+            ? '含点键问题'
+            : dupKeyIssues.length > 0
+              ? '同层重复 key 问题'
+              : '动态键前缀不可达问题'
     },拒绝提交/CI失败!${C.reset}`,
   )
   console.log(`${C.yellow}修复方法:${C.reset}`)
@@ -884,8 +1135,16 @@ const targetLabel = isExtension
           : isParityOnlyFlag
             ? '[parity-only] '
             : ''
+// parity-only 路径(shared / extension / cli / --parity-only)不做源码扫描,
+// 此时 checkedFiles/checkedKeys 恒为 0 —— 只报 0 会让审阅者误判"这道闸在空转"
+// (实测曾据此怀疑 --target=shared 是盲区,注入违规才证伪:它确实会 exit 1)。
+// 因此扫描计数为 0 时,改报真正参与 parity 的语言数与键路径数。
+const parityScope =
+  checkedFiles > 0
+    ? `已检查 ${checkedFiles} 文件, ${checkedKeys} 键`
+    : `parity 比对 ${langNames.length} 语言 × ${baseLeaves.size} 键路径(该模式按设计跳过源码扫描)`
 console.log(
-  `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
+  `${C.green}[i18n 键检查] ${targetLabel}通过,${parityScope}, ${langNames.length} 语言 parity OK${C.reset}`,
 )
 process.exit(0)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -217,19 +217,23 @@ export default function AutomationsPage() {
 
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Tooltip content={t('action.runNow')}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleRunNow(a)}
-                      disabled={runningId === a.id}
-                    >
-                      {runningId === a.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Zap className="h-4 w-4" />
-                      )}
-                      {t('action.runNow')}
-                    </Button>
+                    {/* disabled 时 Radix Trigger 收不到 pointer 事件 → 提示会静默消失,
+                        故必须由外层 span 承接 trigger(守门 18 的 Tooltip+disabled 规则) */}
+                    <span className="inline-flex">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleRunNow(a)}
+                        disabled={runningId === a.id}
+                      >
+                        {runningId === a.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
+                        )}
+                        {t('action.runNow')}
+                      </Button>
+                    </span>
                   </Tooltip>
                   <Tooltip content={a.status === 'active' ? t('action.pause') : t('action.resume')}>
                     <Button variant="outline" size="sm" onClick={() => void handleToggleStatus(a)}>

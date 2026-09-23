@@ -130,6 +130,10 @@ export interface ChatMessage {
   terminalTasks?: TerminalTask[]
   /** 附加元数据(各端自定义,如 agentId / tokens 等) */
   meta?: Record<string, unknown>
+  /** 服务端落库的消息元数据(G-165:ai-callback 侧按 workspace_permissions 反查盖章的
+   *  permissionMode 等随历史接口原样下发;客户端自报不采信 —— 缺失 = 老消息/未绑定
+   *  工作区,安静降级,不得据此编造 default)。 */
+  metadata?: Record<string, unknown>
 }
 
 /**

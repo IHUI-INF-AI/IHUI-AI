@@ -176,7 +176,7 @@
         "https://aizhs.top/images/screenshots/workflow.png",
         "https://aizhs.top/images/screenshots/knowledge-base.png"
       ],
-      "softwareRequirements": "Node.js 20+, PostgreSQL 16+, Redis 7+",
+      "softwareRequirements": "Node.js 20+, PostgreSQL 18+, Redis 7+",
       "memoryRequirements": "4GB RAM minimum, 8GB recommended",
       "storageRequirements": "20GB available disk space",
       "license": "https://www.apache.org/licenses/LICENSE-2.0",
@@ -293,7 +293,7 @@
         {
           "@type": "Thing",
           "name": "Backend",
-          "description": "Fastify 5, Drizzle ORM 0.38, PostgreSQL 16"
+          "description": "Fastify 5, Drizzle ORM 0.38, PostgreSQL 18"
         },
         {
           "@type": "Thing",

@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/lib/date-utils'
 import { Tooltip } from '@/components/feedback'
 import { CitationBar } from '@/components/ai/progress-sections/citation-bar'
+import { TruncatedText } from '@/components/common/TruncatedText'
 import type { DeliverableFileChange, TaskDeliverables } from '@/types/agent-delivery'
 
 /**
@@ -73,9 +74,9 @@ export function DeliveryFileChangeList({ files }: { files: DeliverableFileChange
                 ? t('kindDelete')
                 : t('kindUpdate')}
           </span>
-          <span className="min-w-0 flex-1 truncate font-mono text-[11px]" title={f.path}>
-            {f.path}
-          </span>
+          {/* §4 禁原生 title:截断全文改走 TruncatedText(只在真截断时挂项目 Tooltip,
+              比原生 title 少一层"没截断也弹"的噪音) */}
+          <TruncatedText value={f.path} className="min-w-0 flex-1 text-[11px]" mono />
           {f.stepIds.length > 0 && (
             <Tooltip
               content={

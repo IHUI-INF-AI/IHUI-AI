@@ -56,6 +56,7 @@ import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { FREE_RESOURCE_URL } from '../constants/links'
+import { useUiTextField } from '../lib/use-ui-text-field'
 import { LoginPopUp } from '../components/LoginPopUp'
 import StudyBar from '../components/StudyBar'
 import type { StudyBarItem } from '../components/StudyBar'
@@ -701,6 +702,13 @@ function EditProfileModal({
   const [avatarUpdating, setAvatarUpdating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  useUiTextField({
+    label: '请输入昵称',
+    value: nickname,
+    setValue: setNickname,
+    maxLength: 8,
+  })
 
   // 每次打开弹窗时重置昵称为当前用户值,防止上次编辑残留
   useEffect(() => {

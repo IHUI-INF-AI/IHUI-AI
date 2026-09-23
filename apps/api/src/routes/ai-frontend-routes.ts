@@ -404,10 +404,10 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /ai/google/veo3 → /api/ai/gemini/video (Veo3 视频)
-  // 前端 body:buildIhuiLlmBody → 注入 model:'veo-3.0-generate-preview'
+  // 前端 body:buildIhuiLlmBody → 注入 model:'veo-3.1-generate-preview'
   server.post('/ai/google/veo3', async (request, reply) => {
     const b = (request.body ?? {}) as Record<string, unknown>
-    const mapped = { ...b, model: 'veo-3.0-generate-preview' }
+    const mapped = { ...b, model: 'veo-3.1-generate-preview' }
     return proxyToSelfApi(server, 'POST', '/api/ai/gemini/video', request, reply, mapped)
   })
 

@@ -20,6 +20,8 @@ export interface WebInputCoreHandle {
   focus: () => void
   setSelectionRange: (start: number, end: number) => void
   resize: () => void
+  /** D36 翻历史多行首行判定:返回 textarea 当前光标位置(selectionStart) */
+  getCaretPosition: () => number
 }
 
 /** WebInputCore props(契约对齐 packages/types MessageInputProps 核心字段)
@@ -86,6 +88,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         focus: () => innerRef.current?.focus(),
         setSelectionRange: (s, e) => innerRef.current?.setSelectionRange(s, e),
         resize,
+        getCaretPosition: () => innerRef.current?.selectionStart ?? 0,
       }),
       [resize],
     )

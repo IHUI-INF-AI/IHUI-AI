@@ -89,6 +89,9 @@ export interface TerminalTaskItem {
   status: TerminalTaskStatus
   /** 命令输出 */
   output?: string
+  /** 后端截断标志与原始长度(RN 没有 live 输出缓冲,只能靠这两个字段交代"内容不完整") */
+  truncated?: boolean
+  totalChars?: number
   /** 退出码 */
   exitCode?: number
   /** 开始时间(ms epoch) */
@@ -196,6 +199,59 @@ export function applyTerminalStart(
 }
 
 /** 折叠终端任务结束事件(纯函数):按 terminalId 更新终态/输出/退出码/耗时 */
+/** D34 上下文注入交代:kind 是取词键,后端中文 collapsed 仅在未知 kind 时兜底显示 */
+export interface MessageInjection {
+  kind: string
+  collapsed: string
+  /** 缺省即后端判定超限 —— 不给"可展开"入口 */
+  fullText?: string
+  count?: number
+}
+
+/** #11 引用溯源条目(url 仅在后端确实取到跳转目标时才有,见 ai-service `_citation_url`) */
+export interface MessageCitation {
+  source: string
+  label: string
+  url?: string
+}
+
+/**
+ * citations 帧累积:**追加** + 按 (source,label) 去重。
+ * 整替会让流中后到的引用抹掉流首那批(web #26 同因),各端同一口径。
+ */
+export function appendCitationFrames(
+  list: readonly MessageCitation[] | undefined,
+  incoming: readonly MessageCitation[],
+): MessageCitation[] {
+  const next = list ? [...list] : []
+  for (const item of incoming) {
+    if (next.some((x) => x.source === item.source && x.label === item.label)) continue
+    next.push({ source: item.source, label: item.label, ...(item.url ? { url: item.url } : {}) })
+  }
+  return next
+}
+
+/**
+ * injection_applied 帧累积:一条回答可能对应多条注入(自定义指令 / 工作区记忆 / Repo Wiki /
+ * 检索上下文),必须**追加**并按 kind+collapsed 去重 —— 整体替换会让流首与流中两批互相覆盖。
+ */
+export function applyInjectionFrame(
+  list: readonly MessageInjection[] | undefined,
+  event: MessageInjection,
+): MessageInjection[] {
+  const prev = list ? [...list] : []
+  if (prev.some((item) => item.kind === event.kind && item.collapsed === event.collapsed)) {
+    return prev
+  }
+  prev.push({
+    kind: event.kind,
+    collapsed: event.collapsed,
+    fullText: event.fullText,
+    count: event.count,
+  })
+  return prev
+}
+
 export function applyTerminalEnd(
   list: readonly TerminalTaskItem[] | undefined,
   event: TerminalEndEvent,
@@ -210,6 +266,8 @@ export function applyTerminalEnd(
     command: current?.command ?? '',
     status: event.status,
     output: event.output ?? current?.output,
+    truncated: event.truncated ?? current?.truncated,
+    totalChars: event.totalChars ?? current?.totalChars,
     exitCode: event.exitCode ?? current?.exitCode,
     startedAtMs: current?.startedAtMs ?? toEpochMs(event.endedAt),
     durationMs:

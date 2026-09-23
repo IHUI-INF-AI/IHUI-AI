@@ -141,7 +141,8 @@
     "orUseAccount": "或使用账号登录",
     "ssoCancelled": "SSO 登录已取消",
     "ssoLoading": "SSO 授权中...",
-    "ssoLogin": "SSO 一键登录"
+    "ssoLogin": "SSO 一键登录",
+    "ssoFailed": "SSO 登录失败"
   },
   "popup": {
     "copyFailed": "复制失败",
@@ -165,6 +166,10 @@
     "emptyHint": "生词本为空,查词后点击保存"
   },
   "chat": {
+    "retryMessage": "重试",
+    "citationTitle": "参考来源",
+    "retryScheduled": "上游暂不可用，第 {attempt}/{max} 次重试，{seconds} 秒后继续",
+    "retryScheduledNow": "上游正在切换通道，第 {attempt}/{max} 次重试（立即继续）",
     "history": "历史对话",
     "title": "AI 对话",
     "exit": "退出",
@@ -185,14 +190,45 @@
     "toolStatusError": "失败",
     "toolDetail": "调用详情",
     "terminal": "终端",
+    "terminalIsolation": "命令在隔离沙箱中执行，默认不开放网络",
     "terminalStatusRunning": "运行中",
     "terminalStatusCompleted": "已完成",
     "terminalStatusFailed": "失败",
+    "terminalTruncated": "…(已截断,共 {total} 字符)",
+    "injectionTitle": "本轮上下文:{count} 项",
+    "injectionExpand": "展开其余 {count} 项",
+    "injectionCollapse": "收起",
+    "injectionKindDeveloper": "已应用会话级自定义指令",
+    "injectionKindWorkspace": "已注入工作区记忆 / AGENTS.md",
+    "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
+    "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
     "planStatusPending": "待执行",
     "planStatusInProgress": "进行中",
     "planStatusCompleted": "已完成",
     "subagentTools": "子代理工具 ×{count}",
-    "usage": "用量"
+    "usage": "用量",
+    "subagentRoleValidator": "校验者",
+    "subagentRoleReviewer": "评审者",
+    "subagentRoleExplorer": "探查者",
+    "subagentRoleImplementer": "实现者",
+    "subagentRolePlanner": "规划者",
+    "subagentRoleTester": "测试者",
+    "subagentRoleResearcher": "研究员",
+    "subagentRoleOptimizer": "优化者",
+    "subagentRoleDebugger": "调试者",
+    "subagentRoleRefactorer": "重构者",
+    "modelCategoryChat": "对话推理",
+    "modelCategoryVision": "视觉理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "语音合成",
+    "modelCategoryAsr": "语音识别",
+    "modelCategoryImage": "图像生成",
+    "modelCategoryVideo": "视频生成",
+    "modelCategoryGuard": "安全审核",
+    "modelCategoryOcr": "文字识别",
+    "modelCategoryOther": "其他",
+    "modelHistoryToggle": "历史模型"
   },
   "settings": {
     "language": "界面语言",
@@ -245,7 +281,21 @@
     "approvalSubmitting": "提交中...",
     "approvalSent": "已提交",
     "approvalFailed": "提交失败",
-    "approvalUnavailable": "当前通道暂不支持在线审批"
+    "approvalUnavailable": "当前通道暂不支持在线审批",
+    "decisionAllow": "已放行",
+    "decisionAsk": "待确认",
+    "decisionDeny": "已拦截",
+    "levelRead": "只读",
+    "levelWrite": "写入",
+    "levelDangerous": "高危",
+    "levelHigh": "高风险",
+    "levelMedium": "中风险",
+    "levelLow": "低风险",
+    "modeDefault": "默认",
+    "modePlan": "规划模式",
+    "modeAcceptEdits": "自动接受编辑",
+    "modeBypassPermissions": "全部放行",
+    "modeManual": "手动确认"
   },
   "course": {
     "title": "课程",
@@ -284,6 +334,13 @@
   },
   "content": {
     "translate": "翻译",
+    "typeLesson": "课程",
+    "typeLive": "直播",
+    "typeArticle": "文章",
+    "typeNews": "资讯",
+    "typeAsk": "问答",
+    "typeResource": "资源",
+    "typeExam": "试题",
     "highlight": "高亮",
     "vocab": "查词",
     "sendAi": "问 AI",
@@ -393,6 +450,153 @@
       "benefitsTitle": "包含权益",
       "note": "定价与权益以网页版实际展示为准。",
       "open": "前往网页版开通"
+    },
+    "topics": {
+      "discussions": "{count} 讨论",
+      "followers": "{count} 关注"
+}
+  },
+  "permissionTier": {
+    "label": "权限档",
+    "mode": {
+      "default": {
+        "title": "默认模式",
+        "desc": "全部操作需人工确认,最安全"
+      },
+      "plan": {
+        "title": "只读计划",
+        "desc": "仅允许读取与检索,写文件与执行命令一律拒绝"
+      },
+      "accept-edits": {
+        "title": "接受编辑",
+        "desc": "白名单内的操作自动放行,其他需确认"
+      },
+      "bypass-permissions": {
+        "title": "绕过权限",
+        "desc": "完全访问,无任何确认(高风险)"
+      },
+      "unknown": {
+        "title": "未知模式",
+        "desc": "未识别的权限模式,已按默认档处理"
+      }
     }
+  },
+  "waiting": {
+    "agent": {
+      "first": {
+        "0": "正在准备回复…",
+        "1": "正在组织回答思路…",
+        "2": "收到，正在思考如何回复…",
+        "3": "正在为你生成回复…",
+        "4": "已收到问题，正在处理…"
+      },
+      "middle": {
+        "0": "正在继续处理…",
+        "1": "正在接着上文思考…",
+        "2": "正在整理后续回复…",
+        "3": "正在跟进你的问题…",
+        "4": "正在生成接下来的回复…"
+      },
+      "followup": {
+        "0": "正在理解你的追问…",
+        "1": "结合上文，正在思考…",
+        "2": "正在针对追问组织回复…",
+        "3": "收到追问，正在处理…",
+        "4": "正在补充回答…"
+      }
+    },
+    "computer": {
+      "first": {
+        "0": "正在调度计算资源…",
+        "1": "正在初始化执行环境…",
+        "2": "正在启动处理流程…",
+        "3": "正在分配算力处理…",
+        "4": "正在执行初始计算…"
+      },
+      "middle": {
+        "0": "正在执行中…",
+        "1": "计算进行中，请稍候…",
+        "2": "正在处理中间结果…",
+        "3": "执行未中断，正在推进…",
+        "4": "正在运算，请稍候…"
+      },
+      "followup": {
+        "0": "正在重新计算…",
+        "1": "正在基于新输入继续执行…",
+        "2": "正在追加处理…",
+        "3": "正在更新计算结果…",
+        "4": "正在处理追加请求…"
+      }
+    },
+    "context": {
+      "first": {
+        "0": "正在回顾对话上下文…",
+        "1": "正在加载相关上下文…",
+        "2": "正在梳理背景信息…",
+        "3": "正在检索相关记忆…",
+        "4": "正在准备上下文…"
+      },
+      "middle": {
+        "0": "正在关联上文继续…",
+        "1": "正在结合上下文思考…",
+        "2": "正在回看前文…",
+        "3": "上下文已就绪，正在处理…",
+        "4": "正在对照历史消息…"
+      },
+      "followup": {
+        "0": "正在结合前文理解追问…",
+        "1": "正在回看相关上下文…",
+        "2": "正在关联历史追问…",
+        "3": "正在对照上文补充…",
+        "4": "结合上下文，正在处理…"
+      }
+    },
+    "plan": {
+      "first": {
+        "0": "正在制定处理计划…",
+        "1": "正在拆解你的需求…",
+        "2": "正在规划执行步骤…",
+        "3": "正在分析任务要点…",
+        "4": "正在拟定回复提纲…"
+      },
+      "middle": {
+        "0": "正在推进计划步骤…",
+        "1": "正在执行下一步…",
+        "2": "计划进行中，请稍候…",
+        "3": "正在按步骤处理…",
+        "4": "正在落实后续步骤…"
+      },
+      "followup": {
+        "0": "正在调整计划…",
+        "1": "正在根据追问更新步骤…",
+        "2": "正在重新规划…",
+        "3": "正在补充计划细节…",
+        "4": "正在跟进新的要求…"
+      }
+    },
+    "detail": {
+      "first": {
+        "0": "正在准备详细说明…",
+        "1": "正在组织细节内容…",
+        "2": "正在梳理要点…",
+        "3": "正在生成详细回复…",
+        "4": "正在完善回答细节…"
+      },
+      "middle": {
+        "0": "正在补充细节…",
+        "1": "正在展开说明…",
+        "2": "正在完善后续内容…",
+        "3": "详情整理中，请稍候…",
+        "4": "正在细化回复…"
+      },
+      "followup": {
+        "0": "正在补充你问的细节…",
+        "1": "正在展开追问的要点…",
+        "2": "正在细化相关说明…",
+        "3": "正在准备补充内容…",
+        "4": "正在完善追问的答复…"
+      }
+    },
+    "vividTail": "，马上就好"
   }
 }

@@ -76,6 +76,9 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        // 桌面端 logo 兼作拖窗口把手:不禁原生图片拖拽的话,浏览器会在按下移动时
+        // 抢走手势起图片拖拽,页面的 mousemove 再也收不到 → 拖不动窗口(2026-09-21 实测)
+        draggable={false}
         onClick={onClick}
         className={cn(baseClass, 'dark:hidden')}
       />
@@ -84,6 +87,7 @@ export function ThemeLogo({
         alt={alt}
         width={width}
         height={height}
+        draggable={false}
         onClick={onClick}
         // 2026-07-20 修复:不再用 filter: brightness(0) invert(1) 反色整图
         // 改用独立 logo-dark.svg,深色模式自然显示品牌色图标 + 白色文字
